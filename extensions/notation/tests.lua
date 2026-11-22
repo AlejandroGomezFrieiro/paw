@@ -21,20 +21,40 @@ end
 
 -- From notes to notation --------------------------------------------------------------------
 
-test("notation: a dotted quarter and an eighth are written so", function()
-  eq(written({ N(60, 0, 1.5), N(62, 1.5, 0.5), N(64, 2, 2) }), "q. C4 e D4 h E4", "dotted quarter, eighth, half")
-end)
+test(
+  "notation: a dotted quarter and an eighth are written so",
+  function()
+    eq(written({ N(60, 0, 1.5), N(62, 1.5, 0.5), N(64, 2, 2) }), "q. C4 e D4 h E4", "dotted quarter, eighth, half")
+  end
+)
 
-test("notation: a note across a barline is tied over it", function()
-  eq(written({ N(67, 3, 2), N(65, 5, 3) }, { length = 8 }), "hr qr q~ G4 | q G4 q~ F4 h F4",
-    "G tied into the next bar; F from beat two tied to a half on beat three")
-end)
+test(
+  "notation: a note across a barline is tied over it",
+  function()
+    eq(
+      written({ N(67, 3, 2), N(65, 5, 3) }, { length = 8 }),
+      "hr qr q~ G4 | q G4 q~ F4 h F4",
+      "G tied into the next bar; F from beat two tied to a half on beat three"
+    )
+  end
+)
 
 test("notation: a syncopation is split at the beat it hides", function()
-  eq(written({ N(60, 0, 0.5), N(62, 0.5, 1), N(64, 1.5, 0.5), N(65, 2, 2) }), "e C4 e~ D4 e D4 e E4 h F4",
-    "the quarter off the beat is two tied eighths")
-  eq(written({ N(60, 0, 1), N(62, 1, 2), N(64, 3, 1) }), "q C4 q~ D4 q D4 q E4", "a half on beat two does not hide the middle of a 4/4 bar")
-  eq(written({ N(60, 0, 1), N(62, 1, 2) }, { length = 3, num = 3, den = 4 }), "q C4 h D4", "but stands on beat two of 3/4")
+  eq(
+    written({ N(60, 0, 0.5), N(62, 0.5, 1), N(64, 1.5, 0.5), N(65, 2, 2) }),
+    "e C4 e~ D4 e D4 e E4 h F4",
+    "the quarter off the beat is two tied eighths"
+  )
+  eq(
+    written({ N(60, 0, 1), N(62, 1, 2), N(64, 3, 1) }),
+    "q C4 q~ D4 q D4 q E4",
+    "a half on beat two does not hide the middle of a 4/4 bar"
+  )
+  eq(
+    written({ N(60, 0, 1), N(62, 1, 2) }, { length = 3, num = 3, den = 4 }),
+    "q C4 h D4",
+    "but stands on beat two of 3/4"
+  )
 end)
 
 test("notation: rests fill the bar, a bar of silence is one whole rest", function()
@@ -42,28 +62,49 @@ test("notation: rests fill the bar, a bar of silence is one whole rest", functio
   eq(written({ N(60, 0, 0.5), N(62, 2, 2) }), "e C4 er qr h D4", "an eighth rest, then a quarter rest to beat three")
 end)
 
-test("notation: notes hidden before a trimmed clip's start are not written", function()
-  eq(written({ N(55, -1, 1), N(60, 0, 1), N(62, 1, 1), N(64, 2, 2) }), "q C4 q D4 h E4", "the note before 0 is left out")
-end)
+test(
+  "notation: notes hidden before a trimmed clip's start are not written",
+  function()
+    eq(
+      written({ N(55, -1, 1), N(60, 0, 1), N(62, 1, 1), N(64, 2, 2) }),
+      "q C4 q D4 h E4",
+      "the note before 0 is left out"
+    )
+  end
+)
 
-test("notation: notes that start together are a chord", function()
-  eq(written({ N(60, 0, 2), N(64, 0, 2), N(67, 0, 2), N(72, 2, 2) }), "h <C4 E4 G4> h C5", "a C major triad, then C5")
-end)
+test(
+  "notation: notes that start together are a chord",
+  function()
+    eq(written({ N(60, 0, 2), N(64, 0, 2), N(67, 0, 2), N(72, 2, 2) }), "h <C4 E4 G4> h C5", "a C major triad, then C5")
+  end
+)
 
 test("notation: accidentals follow the key and the bar's memory", function()
   -- D major: F# is in the key; F natural needs a sign, once a bar.
-  eq(written({ N(66, 0, 1), N(65, 1, 1), N(65, 2, 1), N(66, 3, 1), N(65, 4, 1), N(66, 5, 1) }, { length = 8, fifths = 2 }),
-    "q F4 q Fn4 q F4 q F#4 | q Fn4 q F#4 hr", "naturals and sharps as the bar remembers them, and the barline forgets")
+  eq(
+    written(
+      { N(66, 0, 1), N(65, 1, 1), N(65, 2, 1), N(66, 3, 1), N(65, 4, 1), N(66, 5, 1) },
+      { length = 8, fifths = 2 }
+    ),
+    "q F4 q Fn4 q F4 q F#4 | q Fn4 q F#4 hr",
+    "naturals and sharps as the bar remembers them, and the barline forgets"
+  )
   -- In C, a C# in one bar is reminded back in the next.
-  eq(written({ N(60, 0, 1), N(61, 1, 3), N(60, 4, 1), N(60, 5, 1) }, { length = 8 }), "q C4 q~ C#4 h C4 | q C(n)4 q C4 hr",
-    "a tied note keeps its sharp without a sign; the next bar says the C is natural again, once")
+  eq(
+    written({ N(60, 0, 1), N(61, 1, 3), N(60, 4, 1), N(60, 5, 1) }, { length = 8 }),
+    "q C4 q~ C#4 h C4 | q C(n)4 q C4 hr",
+    "a tied note keeps its sharp without a sign; the next bar says the C is natural again, once"
+  )
 end)
 
 test("notation: chromatic notes lean the way the key does", function()
   local _, model = load()
   local function names(fifths)
     local out = {}
-    for _, p in ipairs({ 61, 63, 66, 68, 70 }) do out[#out + 1] = model.name(model.spell(p, fifths)) end
+    for _, p in ipairs({ 61, 63, 66, 68, 70 }) do
+      out[#out + 1] = model.name(model.spell(p, fifths))
+    end
     return table.concat(out, " ")
   end
   eq(names(0), "C#4 Eb4 F#4 G#4 Bb4", "in C major")
@@ -80,19 +121,38 @@ test("notation: beams follow the beat, by half bars in 4/4 and by three eighths 
   local function beams(notes, opts)
     local layout = model.layout(notes, opts)
     local out = {}
-    for _, ev in ipairs(layout.measures[1].staves[1]) do out[#out + 1] = ev.kind == "rest" and "r" or tostring(ev.beam or "-") end
+    for _, ev in ipairs(layout.measures[1].staves[1]) do
+      out[#out + 1] = ev.kind == "rest" and "r" or tostring(ev.beam or "-")
+    end
     return table.concat(out, " ")
   end
   local eighths = {}
-  for i = 0, 7 do eighths[#eighths + 1] = N(72, i * 0.5, 0.5) end
+  for i = 0, 7 do
+    eighths[#eighths + 1] = N(72, i * 0.5, 0.5)
+  end
   eq(beams(eighths, { length = 4 }), "1 1 1 1 2 2 2 2", "eight eighths in 4/4: two beams of four")
-  eq(beams({ N(72, 0, 0.5), N(72, 0.5, 0.5), N(72, 1, 1), N(72, 2, 0.5), N(72, 2.5, 0.25), N(72, 2.75, 0.25), N(72, 3, 1) }, { length = 4 }),
-    "1 1 - 2 2 2 -", "pairs within a beat; quarters stand alone")
+  eq(
+    beams(
+      { N(72, 0, 0.5), N(72, 0.5, 0.5), N(72, 1, 1), N(72, 2, 0.5), N(72, 2.5, 0.25), N(72, 2.75, 0.25), N(72, 3, 1) },
+      { length = 4 }
+    ),
+    "1 1 - 2 2 2 -",
+    "pairs within a beat; quarters stand alone"
+  )
   local six = {}
-  for i = 0, 5 do six[#six + 1] = N(72, i * 0.5, 0.5) end
+  for i = 0, 5 do
+    six[#six + 1] = N(72, i * 0.5, 0.5)
+  end
   eq(beams(six, { length = 3, num = 6, den = 8 }), "1 1 1 2 2 2", "6/8: two groups of three")
-  eq(written({ N(60, 0, 2), N(62, 2, 1) }, { length = 3, num = 6, den = 8 }), "q.~ C4 e C4 q D4", "6/8: a half note is split at the dotted quarter")
-  local layout = model.layout({ N(72, 0, 0.5), N(74, 0.5, 0.5), N(60, 1, 0.5), N(62, 1.5, 0.5) }, { length = 2, num = 2, den = 4 })
+  eq(
+    written({ N(60, 0, 2), N(62, 2, 1) }, { length = 3, num = 6, den = 8 }),
+    "q.~ C4 e C4 q D4",
+    "6/8: a half note is split at the dotted quarter"
+  )
+  local layout = model.layout(
+    { N(72, 0, 0.5), N(74, 0.5, 0.5), N(60, 1, 0.5), N(62, 1.5, 0.5) },
+    { length = 2, num = 2, den = 4 }
+  )
   local evs = layout.measures[1].staves[1]
   eq(evs[1].stem, -1, "high notes: stems down")
   eq(evs[3].stem, 1, "low notes: stems up")
@@ -101,10 +161,22 @@ end)
 
 test("notation: the clef is chosen by the notes, or fixed by the track", function()
   local _, model = load()
-  eq(table.concat(model.layout({ N(72, 0, 1), N(64, 1, 1) }, { length = 4 }).staves, " "), "treble", "a melody above middle C")
+  eq(
+    table.concat(model.layout({ N(72, 0, 1), N(64, 1, 1) }, { length = 4 }).staves, " "),
+    "treble",
+    "a melody above middle C"
+  )
   eq(table.concat(model.layout({ N(40, 0, 1), N(48, 1, 1) }, { length = 4 }).staves, " "), "bass", "a bass line")
-  eq(table.concat(model.layout({ N(36, 0, 1), N(79, 0, 1) }, { length = 4 }).staves, " "), "treble bass", "both: a grand staff")
-  eq(table.concat(model.layout({ N(72, 0, 1) }, { length = 4, clef = "bass" }).staves, " "), "bass", "a fixed clef wins")
+  eq(
+    table.concat(model.layout({ N(36, 0, 1), N(79, 0, 1) }, { length = 4 }).staves, " "),
+    "treble bass",
+    "both: a grand staff"
+  )
+  eq(
+    table.concat(model.layout({ N(72, 0, 1) }, { length = 4, clef = "bass" }).staves, " "),
+    "bass",
+    "a fixed clef wins"
+  )
   eq(written({ N(48, 0, 4), N(72, 0, 1), N(74, 1, 3) }, { staff = 2 }), "w C3", "the low C goes to the bass staff")
 end)
 
@@ -131,7 +203,9 @@ local function clean(text)
   local out = {}
   for item in text:gmatch("[^,]+") do
     local p, st, l = item:match("(%S+)%s+(%S+)%s+(%S+)")
-    for name in p:gmatch("[^+]+") do out[#out + 1] = { pitch = paw.music.pitch(name), start = tonumber(st), length = tonumber(l), velocity = 90 } end
+    for name in p:gmatch("[^+]+") do
+      out[#out + 1] = { pitch = paw.music.pitch(name), start = tonumber(st), length = tonumber(l), velocity = 90 }
+    end
   end
   table.sort(out, function(a, b) return a.start < b.start or (a.start == b.start and a.pitch < b.pitch) end)
   return out
@@ -171,7 +245,12 @@ local function play(notes, o)
       local start = math.max(0, base + (#chord > 1 and ms((o.strum or 0) * order) or 0))
       local finish = warp(n.start + n.length) - (1 - (o.legato or 0.9)) * n.length + ms(spread(o.release or 0))
       if o.overlap then finish = warp(n.start + n.length) + o.overlap end
-      out[#out + 1] = { pitch = n.pitch, start = start, length = math.max(0.02, finish - start), velocity = 70 + math.floor(rand() * 40) }
+      out[#out + 1] = {
+        pitch = n.pitch,
+        start = start,
+        length = math.max(0.02, finish - start),
+        velocity = 70 + math.floor(rand() * 40),
+      }
     end
   end
   for _, g in ipairs(o.graces or {}) do
@@ -187,7 +266,8 @@ local function both(text, how, opts, staff, voice)
   opts = opts or {}
   opts.length = opts.length or 4
   local function copy() return paw.util.merge(opts, {}) end
-  return model.text(model.layout(clean(text), copy()), staff, voice), model.text(model.layout(play(clean(text), how), copy()), staff, voice)
+  return model.text(model.layout(clean(text), copy()), staff, voice),
+    model.text(model.layout(play(clean(text), how), copy()), staff, voice)
 end
 
 local MELODY = "C4 0 0.5, D4 0.5 0.5, E4 1 1, G4 2 0.5, F4 2.5 0.5, E4 3 0.75, D4 3.75 0.25, C4 4 2, G4 6 1, C5 7 1"
@@ -198,7 +278,11 @@ test("score: a melody played loosely is written as the clean score", function()
     local want, got = both(MELODY, { jitter = 20, release = 25 }, { length = 8 })
     eq(got, want, "seed " .. s .. ": onsets within 20 ms and releases within 25 ms of the score")
   end
-  eq(select(1, both(MELODY, {}, { length = 8 })), "e C4 e D4 q E4 e G4 e F4 e. E4 s D4 | h C4 q G4 q C5", "the clean score itself")
+  eq(
+    select(1, both(MELODY, {}, { length = 8 })),
+    "e C4 e D4 q E4 e G4 e F4 e. E4 s D4 | h C4 q G4 q C5",
+    "the clean score itself"
+  )
 end)
 
 test("score: a part played ahead of the beat, legato, or slowing down is written straight", function()
@@ -227,20 +311,28 @@ test("score: strums are chords on the beat, in either direction, at any speed", 
     eq(got, want, case[1] .. " ms a string, direction " .. tostring(case[2]))
   end
   local _, got = both(CHORDS, { jitter = 10, strum = 60, dir = 1 }, { clef = "treble" })
-  eq(got, "q <E3 G#3 B3 E4>^ q <E3 G3 B3 E4>^ e <A3 C#4 E4 A4>^ e <A3 C4 E4 A4>^ q <B3 Eb4 F#4 B4>^",
-    "a slow roll (180 ms across four strings) is marked with an arpeggio sign")
+  eq(
+    got,
+    "q <E3 G#3 B3 E4>^ q <E3 G3 B3 E4>^ e <A3 C#4 E4 A4>^ e <A3 C4 E4 A4>^ q <B3 Eb4 F#4 B4>^",
+    "a slow roll (180 ms across four strings) is marked with an arpeggio sign"
+  )
   _, got = both(CHORDS, { jitter = 10, strum = 60, dir = -1 }, { clef = "treble" })
   eq(got:find("q <E3 G#3 B3 E4>v", 1, true), 1, "high to low, the arrow points down")
   local _, model = load()
   local slow = play(clean(CHORDS), { strum = 60, tempo = 60 })
   local layout = model.layout(slow, { length = 4, clef = "treble", tempo = 60, settings = { strum = 20 } })
-  eq(model.text(layout):find("q <E3 G#3 B3 E4>", 1, true), nil, "with a window of 20 ms, strings 60 ms apart are not one chord")
+  eq(
+    model.text(layout):find("q <E3 G#3 B3 E4>", 1, true),
+    nil,
+    "with a window of 20 ms, strings 60 ms apart are not one chord"
+  )
   layout = model.layout(slow, { length = 4, clef = "treble", tempo = 60 })
   eq(model.text(layout):find("q <E3 G#3 B3 E4>^", 1, true), 1, "by default they are, with an arpeggio sign")
 end)
 
 test("score: swing is written as straight eighths", function()
-  local text = "C4 0 0.5, D4 0.5 0.5, E4 1 0.5, F4 1.5 0.5, G4 2 0.5, A4 2.5 0.5, G4 3 1, E4 4 0.5, D4 4.5 0.5, C4 5 0.5, D4 5.5 0.5, E4 6 2"
+  local text =
+    "C4 0 0.5, D4 0.5 0.5, E4 1 0.5, F4 1.5 0.5, G4 2 0.5, A4 2.5 0.5, G4 3 1, E4 4 0.5, D4 4.5 0.5, C4 5 0.5, D4 5.5 0.5, E4 6 2"
   seed = 9
   for _, ratio in ipairs({ 0.6, 0.66, 0.7 }) do
     local want, got = both(text, { jitter = 8, swing = ratio }, { length = 8 })
@@ -255,14 +347,22 @@ end)
 
 test("score: triplets, quarter-note triplets and 6/8", function()
   seed = 11
-  local want, got = both("C4 0 0.5, D4 0.5 0.5, E4 1 0.3333333333, F4 1.3333333333 0.3333333333, G4 1.6666666667 0.3333333333, A4 2 1, G4 3 1", { jitter = 12 })
+  local want, got = both(
+    "C4 0 0.5, D4 0.5 0.5, E4 1 0.3333333333, F4 1.3333333333 0.3333333333, G4 1.6666666667 0.3333333333, A4 2 1, G4 3 1",
+    { jitter = 12 }
+  )
   eq(want, "e C4 e D4 3{e E4 e F4 e G4} q A4 q G4", "a beat of triplet eighths among straight eighths")
   eq(got, want, "played")
-  want, got = both("C5 0 0.6666666667, B4 0.6666666667 0.6666666667, A4 1.3333333333 0.6666666667, G4 2 2", { jitter = 12 })
+  want, got =
+    both("C5 0 0.6666666667, B4 0.6666666667 0.6666666667, A4 1.3333333333 0.6666666667, G4 2 2", { jitter = 12 })
   eq(want, "3{q C5 q B4 q A4} h G4", "quarter-note triplets over two beats")
   eq(got, want, "played")
   seed = 13
-  want, got = both("C4 0 1.5, D4 1.5 0.5, E4 2 0.5, F4 2.5 0.5, G4 3 1, A4 4 0.5, G4 4.5 1.5", { jitter = 18, tempo = 160 }, { num = 6, den = 8, length = 6, tempo = 160 })
+  want, got = both(
+    "C4 0 1.5, D4 1.5 0.5, E4 2 0.5, F4 2.5 0.5, G4 3 1, A4 4 0.5, G4 4.5 1.5",
+    { jitter = 18, tempo = 160 },
+    { num = 6, den = 8, length = 6, tempo = 160 }
+  )
   eq(want, "q. C4 e D4 e E4 e F4 | q G4 e A4 q. G4", "6/8 in dotted quarters")
   eq(got, want, "played")
   want = both("C4 0 0.75, D4 0.75 0.75, E4 1.5 1.5", {}, { num = 6, den = 8, length = 3 })
@@ -272,28 +372,38 @@ end)
 test("score: quintuplets, sextuplets, septuplets, and quadruplets in 6/8, from where the notes fall", function()
   local function beat_of(n, names)
     local out = { "C4 0 0.5, D4 0.5 0.5" }
-    for k = 0, n - 1 do out[#out + 1] = string.format("%s %.10f %.10f", names[k + 1], 1 + k / n, 1 / n) end
+    for k = 0, n - 1 do
+      out[#out + 1] = string.format("%s %.10f %.10f", names[k + 1], 1 + k / n, 1 / n)
+    end
     out[#out + 1] = "C5 2 1, G4 3 1"
     return table.concat(out, ", ")
   end
   local names = { "E4", "F4", "G4", "A4", "B4", "A4", "G4" }
-  for _, case in ipairs({ { 5, "5{s E4 s F4 s G4 s A4 s B4}" }, { 6, "6{s E4 s F4 s G4 s A4 s B4 s A4}" },
-    { 7, "7{s E4 s F4 s G4 s A4 s B4 s A4 s G4}" } }) do
+  for _, case in ipairs({
+    { 5, "5{s E4 s F4 s G4 s A4 s B4}" },
+    { 6, "6{s E4 s F4 s G4 s A4 s B4 s A4}" },
+    { 7, "7{s E4 s F4 s G4 s A4 s B4 s A4 s G4}" },
+  }) do
     seed = 40 + case[1]
     local want, got = both(beat_of(case[1], names), { jitter = 8 })
     eq(want, "e C4 e D4 " .. case[2] .. " q C5 q G4", case[1] .. " in a beat")
     eq(got, want, case[1] .. " in a beat, played")
   end
   seed = 47
-  local want, got = both("C4 0 0.375, D4 0.375 0.375, E4 0.75 0.375, F4 1.125 0.375, G4 1.5 1.5", { jitter = 8 },
-    { num = 6, den = 8, length = 3 })
+  local want, got = both(
+    "C4 0 0.375, D4 0.375 0.375, E4 0.75 0.375, F4 1.125 0.375, G4 1.5 1.5",
+    { jitter = 8 },
+    { num = 6, den = 8, length = 3 }
+  )
   eq(want, "4{e C4 e D4 e E4 e F4} q. G4", "four eighths in the time of three in 6/8")
   eq(got, want, "played")
 end)
 
 test("score: a straight part played loosely is never written in tuplets", function()
   local sixteenths = {}
-  for k = 0, 15 do sixteenths[#sixteenths + 1] = string.format("%s %g 0.25", ({ "C4", "D4", "E4", "F4", "G4" })[k % 5 + 1], k * 0.25) end
+  for k = 0, 15 do
+    sixteenths[#sixteenths + 1] = string.format("%s %g 0.25", ({ "C4", "D4", "E4", "F4", "G4" })[k % 5 + 1], k * 0.25)
+  end
   sixteenths = table.concat(sixteenths, ", ")
   for s = 1, 6 do
     seed = 60 + s
@@ -302,8 +412,11 @@ test("score: a straight part played loosely is never written in tuplets", functi
     want, got = both(sixteenths, { jitter = 18 })
     eq(got, want, "sixteenths within 18 ms, seed " .. s)
     eq(got:find("{", 1, true), nil, "no tuplet")
-    want, got = both("C4 0 0.5, D4 0.5 0.5, E4 1 0.5, F4 1.5 0.5, G4 2 0.5, A4 2.5 0.5", { jitter = 25, tempo = 150 },
-      { num = 6, den = 8, length = 3, tempo = 150 })
+    want, got = both(
+      "C4 0 0.5, D4 0.5 0.5, E4 1 0.5, F4 1.5 0.5, G4 2 0.5, A4 2.5 0.5",
+      { jitter = 25, tempo = 150 },
+      { num = 6, den = 8, length = 3, tempo = 150 }
+    )
     eq(got, want, "eighths in 6/8 within 25 ms, seed " .. s)
   end
 end)
@@ -345,7 +458,8 @@ test("score: grace notes, staccato, and a held note as a second voice", function
 end)
 
 test("score: a grand staff's hands follow the music, not middle C", function()
-  local piano = "C3+E3+G3+C5 0 1, B4 1 1, A4 2 0.5, G4 2.5 0.5, F4 3 0.5, E4 3.5 0.5, D4 4 0.5, C4 4.5 0.5, B3 5 1, C4 6 2, C3 4 4"
+  local piano =
+    "C3+E3+G3+C5 0 1, B4 1 1, A4 2 0.5, G4 2.5 0.5, F4 3 0.5, E4 3.5 0.5, D4 4 0.5, C4 4.5 0.5, B3 5 1, C4 6 2, C3 4 4"
   seed = 21
   local _, rh = both(piano, { jitter = 10 }, { length = 8, clef = "grand" }, 1)
   eq(rh, "q C5 q B4 e A4 e G4 e F4 e E4 | e D4 e C4 q B3 h C4", "the melody goes on below middle C in the right hand")
@@ -358,18 +472,28 @@ test("score: the performance is untouched and every written note knows its notes
   seed = 5
   local played = play(clean(CHORDS), { jitter = 15, strum = 25 })
   local before = {}
-  for i, n in ipairs(played) do before[i] = n.start .. "/" .. n.length .. "/" .. n.velocity end
+  for i, n in ipairs(played) do
+    before[i] = n.start .. "/" .. n.length .. "/" .. n.velocity
+  end
   local layout = model.layout(played, { length = 4, clef = "treble" })
-  for i, n in ipairs(played) do eq(n.start .. "/" .. n.length .. "/" .. n.velocity, before[i], "note " .. i .. " as played") end
+  for i, n in ipairs(played) do
+    eq(n.start .. "/" .. n.length .. "/" .. n.velocity, before[i], "note " .. i .. " as played")
+  end
   local seen = {}
   for _, ev in ipairs(layout.score.events) do
     for _, n in ipairs(ev.notes) do
       seen[n.index] = true
-      eq(math.abs(played[n.index].start - (ev.start + n.offset)) < 1e-9, true, "the offset from the written place is the played one")
+      eq(
+        math.abs(played[n.index].start - (ev.start + n.offset)) < 1e-9,
+        true,
+        "the offset from the written place is the played one"
+      )
     end
   end
   local count = 0
-  for _ in pairs(seen) do count = count + 1 end
+  for _ in pairs(seen) do
+    count = count + 1
+  end
   eq(count, #played, "each played note is in one written chord")
   local raw = model.text(model.layout(played, { length = 4, clef = "treble", settings = { mode = "raw" } }))
   eq(raw ~= model.text(layout), true, "the raw view writes the strums note for note")
@@ -395,7 +519,9 @@ local keys = T.keys
 --- The clip's notes as "C4@0+1 D4@1+0.5".
 local function notes_of(clip)
   local out = {}
-  for _, n in ipairs(clip:notes()) do out[#out + 1] = string.format("%s@%g+%g", paw.music.name(n.pitch), n.start, n.length) end
+  for _, n in ipairs(clip:notes()) do
+    out[#out + 1] = string.format("%s@%g+%g", paw.music.name(n.pitch), n.start, n.length)
+  end
   return table.concat(out, " ")
 end
 
@@ -447,11 +573,19 @@ end)
 test("notation: insert mode enters notes by letter, nearest the note before", function()
   local view, clip = song()
   keys("icdeb")
-  eq(notes_of(clip), "C4@0+1 D4@1+1 E4@2+1 B3@3+1", "quarters by letter, B below C rather than above (each as long as its value)")
+  eq(
+    notes_of(clip),
+    "C4@0+1 D4@1+1 E4@2+1 B3@3+1",
+    "quarters by letter, B below C rather than above (each as long as its value)"
+  )
   keys("<Esc>")
   view:set(39, 0)
   keys("i4ga'")
-  eq(notes_of(clip), "G4@0+0.5 A5@0.5+0.5 D4@1+1 E4@2+1 B3@3+1", "eighths replace what was there; ' lifts the last an octave")
+  eq(
+    notes_of(clip),
+    "G4@0+0.5 A5@0.5+0.5 D4@1+1 E4@2+1 B3@3+1",
+    "eighths replace what was there; ' lifts the last an octave"
+  )
 end)
 
 test("notation: notes entered a little under a sketch's staff replace what that voice had there", function()
@@ -521,14 +655,18 @@ end)
 
 local function played(clip)
   local out = {}
-  for _, n in ipairs(clip:notes()) do out[#out + 1] = string.format("%s@%.3f+%.3f/%d", paw.music.name(n.pitch), n.start, n.length, n.velocity) end
+  for _, n in ipairs(clip:notes()) do
+    out[#out + 1] = string.format("%s@%.3f+%.3f/%d", paw.music.name(n.pitch), n.start, n.length, n.velocity)
+  end
   return table.concat(out, " ")
 end
 
 test("score editing: a chord moved, lengthened or deleted moves its played notes", function()
   local strum = {
-    { pitch = 52, start = 1.01, length = 0.9, velocity = 90 }, { pitch = 56, start = 1.04, length = 0.85, velocity = 80 },
-    { pitch = 59, start = 1.07, length = 0.8, velocity = 70 }, { pitch = 72, start = 5.0, length = 1, velocity = 64 },
+    { pitch = 52, start = 1.01, length = 0.9, velocity = 90 },
+    { pitch = 56, start = 1.04, length = 0.85, velocity = 80 },
+    { pitch = 59, start = 1.07, length = 0.8, velocity = 70 },
+    { pitch = 72, start = 5.0, length = 1, velocity = 64 },
   }
   local view, clip = song(strum, 8)
   paw.cmd("notation.clef", { "treble" })
@@ -536,12 +674,18 @@ test("score editing: a chord moved, lengthened or deleted moves its played notes
   eq(view:layout().score.events[1].start, 1, "the strum is written on beat two")
   view:set(37, 1)
   keys("L")
-  eq(played(clip), "E3@2.010+0.900/90 G#3@2.040+0.850/80 B3@2.070+0.800/70 C5@5.000+1.000/64",
-    "a beat later, strummed and as loud as before")
+  eq(
+    played(clip),
+    "E3@2.010+0.900/90 G#3@2.040+0.850/80 B3@2.070+0.800/70 C5@5.000+1.000/64",
+    "a beat later, strummed and as loud as before"
+  )
   eq(view.beat, 2, "the cursor goes with it")
   keys("<A-l>")
-  eq(played(clip):find("E3@2.010+1.900/90 G#3@2.040+1.850/80 B3@2.070+1.800/70", 1, true) ~= nil, true,
-    "a half note: each played a quarter longer, as much shorter than written as it was")
+  eq(
+    played(clip):find("E3@2.010+1.900/90 G#3@2.040+1.850/80 B3@2.070+1.800/70", 1, true) ~= nil,
+    true,
+    "a half note: each played a quarter longer, as much shorter than written as it was"
+  )
   keys("X")
   eq(played(clip), "C5@5.000+1.000/64", "the chord deleted, all of it")
   keys("u")
@@ -549,7 +693,10 @@ test("score editing: a chord moved, lengthened or deleted moves its played notes
 end)
 
 test("score editing: a note put in goes exactly on the grid, as loud as the dynamic there", function()
-  local view, clip = song({ { pitch = 60, start = 0.03, length = 0.9, velocity = 50 }, { pitch = 62, start = 1.02, length = 0.9, velocity = 54 } })
+  local view, clip = song({
+    { pitch = 60, start = 0.03, length = 0.9, velocity = 50 },
+    { pitch = 62, start = 1.02, length = 0.9, velocity = 54 },
+  })
   view:set(37, 2)
   keys("<CR>")
   local n = clip:notes()[3]
@@ -559,12 +706,19 @@ test("score editing: a note put in goes exactly on the grid, as loud as the dyna
   keys("i")
   keys("e")
   keys("<Esc>")
-  eq(played(clip):sub(1, 18), string.format("E4@0.000+1.000/%d", paw.opt.velocity):sub(1, 18), "entering over a loosely played C replaces it")
+  eq(
+    played(clip):sub(1, 18),
+    string.format("E4@0.000+1.000/%d", paw.opt.velocity):sub(1, 18),
+    "entering over a loosely played C replaces it"
+  )
 end)
 
 test("score editing: quantize to the notation, and write again from the playing", function()
-  local view, clip = song({ { pitch = 60, start = 0.03, length = 0.4, velocity = 80 }, { pitch = 62, start = 0.52, length = 0.45, velocity = 80 },
-    { pitch = 64, start = 0.98, length = 1.9, velocity = 80 } })
+  local view, clip = song({
+    { pitch = 60, start = 0.03, length = 0.4, velocity = 80 },
+    { pitch = 62, start = 0.52, length = 0.45, velocity = 80 },
+    { pitch = 64, start = 0.98, length = 1.9, velocity = 80 },
+  })
   api.undo_checkpoint()
   paw.cmd("notation.quantize")
   api.undo_checkpoint()
@@ -603,7 +757,8 @@ test("score editing: voices, triplets, and writing again from the playing", func
 end)
 
 test("score editing: grace notes, strums, beams and spelling by key", function()
-  local view = song({ N(72, 0, 0.5), N(74, 0.5, 0.5), N(76, 1, 0.5), N(77, 1.5, 0.5), N(60, 2, 1), N(64, 2, 1), N(67, 2, 1) })
+  local view =
+    song({ N(72, 0, 0.5), N(74, 0.5, 0.5), N(76, 1, 0.5), N(77, 1.5, 0.5), N(60, 2, 1), N(64, 2, 1), N(67, 2, 1) })
   local _, model = load()
   view:set(43, 0.5)
   keys("gb")
@@ -635,7 +790,11 @@ test("notation: operators and visual mode work on notes as in the piano roll", f
   eq(notes_of(clip), "D4@1+1 E4@2+1 F4@3+1", "dw deletes up to the next note")
   view:set(36, 1)
   keys("vll<A-k>")
-  eq(notes_of(clip), "E4@1+1 F4@2+1 G4@3+1", "a selection from beat two to the note under the cursor on beat four, both in, up a step of the key")
+  eq(
+    notes_of(clip),
+    "E4@1+1 F4@2+1 G4@3+1",
+    "a selection from beat two to the note under the cursor on beat four, both in, up a step of the key"
+  )
   view:set(38, 2)
   keys("v<C-a>")
   eq(notes_of(clip), "E4@1+1 F#4@2+1 G4@3+1", "Ctrl-a on a selection of the note under the cursor alone")
@@ -677,11 +836,19 @@ test("notation: the terminal draws the staff, clef, key, heads, stems and beams"
   local text = table.concat(api.ui_snapshot(120, 40), "\n")
   eq(text:find("│●┼╮", 1, true) ~= nil, true, "a treble clef, curled round its G line")
   eq(select(2, text:gsub("♯", "")) >= 2, true, "two sharps in the key signature")
-  eq(select(2, text:gsub("██", "")) + select(2, text:gsub("▄▄", "")) >= 3, true, "filled heads for the eighths and the quarter")
+  eq(
+    select(2, text:gsub("██", "")) + select(2, text:gsub("▄▄", "")) >= 3,
+    true,
+    "filled heads for the eighths and the quarter"
+  )
   eq(text:find("╭┤", 1, true) ~= nil, true, "an open head for the half note, in its space, with its stem")
   eq(text:find("♮", 1, true) ~= nil, true, "F natural against the key")
   eq(text:find("━", 1, true) ~= nil, true, "a beam over the eighths")
-  eq(text:find("tune", 1, true) ~= nil and text:find("D major", 1, true) ~= nil, true, "the title says the clip and the key")
+  eq(
+    text:find("tune", 1, true) ~= nil and text:find("D major", 1, true) ~= nil,
+    true,
+    "the title says the clip and the key"
+  )
 end)
 
 test("score: the clip keeps its settings, and the view reads the song's bars", function()
@@ -697,7 +864,10 @@ test("score: the clip keeps its settings, and the view reads the song's bars", f
   keys("u")
   eq(clip.meta.notation.settings.mode, nil, "undone like any edit")
   local was = paw.time.signature_at
-  paw.time.signature_at = function(beat) if beat < 4 then return 4, 4 end return 3, 4 end
+  paw.time.signature_at = function(beat)
+    if beat < 4 then return 4, 4 end
+    return 3, 4
+  end
   view.cache = nil
   local layout = view:layout()
   paw.time.signature_at = was
@@ -729,13 +899,17 @@ end)
 
 test("marks: dynamics set the loudness, hairpins ramp it, slurs join the notes", function()
   local notes = {}
-  for i = 0, 7 do notes[#notes + 1] = { pitch = 72, start = i, length = 0.5, velocity = 60 + (i % 2) * 10 } end
+  for i = 0, 7 do
+    notes[#notes + 1] = { pitch = 72, start = i, length = 0.5, velocity = 60 + (i % 2) * 10 }
+  end
   local view, clip = song(notes, 8)
   view:set(42, 0)
   paw.cmd("notation.dyn", { "f" })
   api.undo_checkpoint()
   local v = {}
-  for i, n in ipairs(clip:notes()) do v[i] = n.velocity end
+  for i, n in ipairs(clip:notes()) do
+    v[i] = n.velocity
+  end
   eq(v[1] .. " " .. v[2], "96 96", "f: the notes from there as loud as f")
   eq(view.score_of(clip:get()).marks[1].value, "f", "the dynamic is written in the score")
   view:set(42, 0)
@@ -746,7 +920,9 @@ test("marks: dynamics set the loudness, hairpins ramp it, slurs join the notes",
   keys("vlll")
   paw.cmd("notation.cresc")
   keys("<Esc>")
-  for i, n in ipairs(clip:notes()) do v[i] = n.velocity end
+  for i, n in ipairs(clip:notes()) do
+    v[i] = n.velocity
+  end
   eq(v[1] < v[3] and v[3] < v[5] and v[2] < v[4], true, "a crescendo from p to f: louder beat by beat")
   eq(v[5], 96, "reaching the f")
   local m = view:layout().measures[1]
@@ -769,7 +945,9 @@ test("tablature: a guitar track gets strings and frets, and the guitar's clef", 
   for _, ev in ipairs(layout.measures[1].staves[1]) do
     if ev.kind == "note" then
       local out = {}
-      for _, n in ipairs(ev.notes) do out[#out + 1] = (n.string or "?") .. ":" .. (n.fret or "?") end
+      for _, n in ipairs(ev.notes) do
+        out[#out + 1] = (n.string or "?") .. ":" .. (n.fret or "?")
+      end
       frets[#frets + 1] = table.concat(out, " ")
     end
   end
@@ -778,14 +956,19 @@ test("tablature: a guitar track gets strings and frets, and the guitar's clef", 
   eq(frets[3], "2:1", "C on the B string, first fret, near where the hand is")
   eq(frets[4], "6:3 5:2 4:0 3:0 2:0 1:3", "an open G chord")
   local text = table.concat(api.ui_snapshot(120, 40), "\n")
-  eq(text:find("E ─", 1, true) ~= nil or text:find("E─", 1, true) ~= nil, true, "the terminal draws the strings, named")
+  eq(
+    text:find("E ─", 1, true) ~= nil or text:find("E─", 1, true) ~= nil,
+    true,
+    "the terminal draws the strings, named"
+  )
   paw.cmd("notation.tab", { "off" })
   view.cache = nil
   eq(view:layout().tab, nil, "and takes them away")
 end)
 
 test("several tracks: a staff each, the open clip's the one edited; lyrics under the notes", function()
-  local view, clip = song({ { pitch = 72, start = 0, length = 1, velocity = 90, meta = { lyric = "la" } }, N(74, 1, 1) }, 4)
+  local view, clip =
+    song({ { pitch = 72, start = 0, length = 1, velocity = 90, meta = { lyric = "la" } }, N(74, 1, 1) }, 4)
   local bass = paw.add_track({ name = "Bass" })
   local low = bass:add_clip({ start = 0, length = 4, notes = { N(40, 0, 2), N(43, 2, 2) } })
   paw.flush()
@@ -823,7 +1006,9 @@ end
 local function cell(view, beat, step)
   local model = require("notation.model")
   local rect
-  for _, r in ipairs(paw.ui.rects) do if r.name == "notation" then rect = r end end
+  for _, r in ipairs(paw.ui.rects) do
+    if r.name == "notation" then rect = r end
+  end
   local g = view.geometry
   for _, sys in ipairs(g.systems) do
     for _, placed in ipairs(sys.measures) do
@@ -848,7 +1033,8 @@ end
 test("notation terminal: a click chooses, a drag moves a note, a right click opens a menu", function()
   local view, clip = terminal_song({ N(67, 1, 0.5) })
   local x, y = cell(view, 2, 39)
-  m("down", x, y) m("up", x, y)
+  m("down", x, y)
+  m("up", x, y)
   eq(notes_of(clip), "G4@1+0.5", "a click on the paper adds nothing")
   eq(view.beat .. " " .. view.step, "2 39", "it puts the cursor on that line and time")
   paw.mouse.forget()
@@ -873,10 +1059,12 @@ end)
 test("notation terminal: Shift-click extends a selection, a drag on the paper selects a block", function()
   local view = terminal_song({ N(60, 0, 1), N(62, 1, 1), N(64, 2, 1), N(65, 3, 1) })
   local x, y = cell(view, 0, 35)
-  m("down", x, y) m("up", x, y)
+  m("down", x, y)
+  m("up", x, y)
   paw.mouse.forget()
   local x2, y2 = cell(view, 2, 37)
-  m("down", x2, y2, "left", "S") m("up", x2, y2, "left", "S")
+  m("down", x2, y2, "left", "S")
+  m("up", x2, y2, "left", "S")
   local sel = paw.keymap.selection()
   eq(sel and sel.c0, 0, "a selection from the cursor")
   eq(sel and sel.c1 >= 2, true, "to the note clicked with Shift")
@@ -894,24 +1082,30 @@ test("notation terminal: Shift-click extends a selection, a drag on the paper se
   keys("<Esc>")
 end)
 
-test("notation terminal: a double click enters notes; in insert mode a click enters one and the shadow note follows the pointer", function()
-  local view, clip = terminal_song(nil)
-  view.value = 0.5
-  local x, y = cell(view, 1, 39)
-  m("down", x, y) m("up", x, y)
-  m("down", x, y) m("up", x, y)
-  eq(paw.keymap.mode, "i", "a double click enters notes")
-  eq(notes_of(clip), "", "and enters nothing itself")
-  local hx, hy = cell(view, 2, 41)
-  m("move", hx, hy, "")
-  local screen = shot()
-  eq(screen[hy + 1]:find("██", 1, true) ~= nil, true, "the note to enter is drawn where the pointer is")
-  eq(view.cell_hover and view.cell_hover.step, 41, "the shadow note follows the pointer")
-  paw.mouse.forget()
-  m("down", x, y) m("up", x, y)
-  eq(notes_of(clip), "G4@1+0.5", "a click enters an eighth G on beat two")
-  keys("<Esc>")
-end)
+test(
+  "notation terminal: a double click enters notes; in insert mode a click enters one and the shadow note follows the pointer",
+  function()
+    local view, clip = terminal_song(nil)
+    view.value = 0.5
+    local x, y = cell(view, 1, 39)
+    m("down", x, y)
+    m("up", x, y)
+    m("down", x, y)
+    m("up", x, y)
+    eq(paw.keymap.mode, "i", "a double click enters notes")
+    eq(notes_of(clip), "", "and enters nothing itself")
+    local hx, hy = cell(view, 2, 41)
+    m("move", hx, hy, "")
+    local screen = shot()
+    eq(screen[hy + 1]:find("██", 1, true) ~= nil, true, "the note to enter is drawn where the pointer is")
+    eq(view.cell_hover and view.cell_hover.step, 41, "the shadow note follows the pointer")
+    paw.mouse.forget()
+    m("down", x, y)
+    m("up", x, y)
+    eq(notes_of(clip), "G4@1+0.5", "a click enters an eighth G on beat two")
+    keys("<Esc>")
+  end
+)
 
 test("notation terminal: off a note the cursor is the note Enter would put there", function()
   local view = terminal_song(nil)
@@ -921,7 +1115,10 @@ test("notation terminal: off a note the cursor is the note Enter would put there
   local row = screen[y + 1]
   local col = 0
   for ch in row:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
-    if col == x then eq(ch, "█", "a quarter's head at the cursor") break end
+    if col == x then
+      eq(ch, "█", "a quarter's head at the cursor")
+      break
+    end
     col = col + 1
   end
   view.value = 2
@@ -935,7 +1132,9 @@ end)
 local function panel(w, h)
   local screen = api.ui_snapshot(w, h)
   local rect
-  for _, r in ipairs(paw.ui.rects) do if r.name == "notation" then rect = r end end
+  for _, r in ipairs(paw.ui.rects) do
+    if r.name == "notation" then rect = r end
+  end
   local rows = {}
   for y = rect.y, rect.y + rect.h - 1 do
     local chars, col = {}, 0
@@ -971,45 +1170,63 @@ test("notation terminal: staff lines run unbroken from the clef to the end, the 
     eq(rows[sys.row_of(1, pos) + 1][x_end + 1] ~= "─", true, "and each line has a row of its own")
   end
   local bx = first.x + first.m.width
-  eq(rows[sys.row_of(1, 8)][bx + 1] .. rows[sys.row_of(1, 4)][bx + 1] .. rows[sys.row_of(1, 0)][bx + 1], "┬┼┴",
-    "a barline joins the lines it crosses")
-  eq(rows[sys.row_of(1, 8)][x_end + 1] .. rows[sys.row_of(1, 0)][x_end + 1], "┐┘", "the system's last barline closes them")
+  eq(
+    rows[sys.row_of(1, 8)][bx + 1] .. rows[sys.row_of(1, 4)][bx + 1] .. rows[sys.row_of(1, 0)][bx + 1],
+    "┬┼┴",
+    "a barline joins the lines it crosses"
+  )
+  eq(
+    rows[sys.row_of(1, 8)][x_end + 1] .. rows[sys.row_of(1, 0)][x_end + 1],
+    "┐┘",
+    "the system's last barline closes them"
+  )
   eq(rows[sys.row_of(1, 8)][1] .. rows[sys.row_of(1, 0)][1], "┌└", "and its first opens them")
   eq(sys.row_of(1, 0) - sys.row_of(1, 8), 4, "five lines in five rows")
 end)
 
-test("notation terminal: heads show their value, a quarter has a stem, an eighth a flag, rests look like rests", function()
-  -- q G4, quarter rest, e G4, eighth rest, q G4 | whole rest | h D5 (stem down), half rest
-  local view = song({ N(67, 0, 1), N(67, 2, 0.5), N(67, 3, 1), N(74, 8, 2) }, 12)
-  paw.ui.focus("notation")
-  view:set(30, 11)
-  local rows = panel(160, 45)
-  local sys = view.geometry.systems[1]
-  local function at(mi, beat) for _, p in ipairs(sys.measures) do if p.m.index == mi then return p.x + math.floor(require("notation.model").x_of(p.m, beat) + 0.5) end end end
-  local function ch(x, pos) return rows[sys.row_of(1, pos)][x + 1] end
-  -- The quarter G4: a filled head on the second line, its stem up from its right side.
-  local x = at(1, 0)
-  eq(ch(x, 2) .. ch(x + 1, 2), "██", "a quarter's head is filled, two cells wide")
-  for y = sys.row_of(1, 8), sys.row_of(1, 2) - 1 do
-    eq(rows[y][x + 2] == "│" or rows[y][x + 2] == "┼", true, "its stem runs up from the head (row " .. y .. ")")
+test(
+  "notation terminal: heads show their value, a quarter has a stem, an eighth a flag, rests look like rests",
+  function()
+    -- q G4, quarter rest, e G4, eighth rest, q G4 | whole rest | h D5 (stem down), half rest
+    local view = song({ N(67, 0, 1), N(67, 2, 0.5), N(67, 3, 1), N(74, 8, 2) }, 12)
+    paw.ui.focus("notation")
+    view:set(30, 11)
+    local rows = panel(160, 45)
+    local sys = view.geometry.systems[1]
+    local function at(mi, beat)
+      for _, p in ipairs(sys.measures) do
+        if p.m.index == mi then return p.x + math.floor(require("notation.model").x_of(p.m, beat) + 0.5) end
+      end
+    end
+    local function ch(x, pos) return rows[sys.row_of(1, pos)][x + 1] end
+    -- The quarter G4: a filled head on the second line, its stem up from its right side.
+    local x = at(1, 0)
+    eq(ch(x, 2) .. ch(x + 1, 2), "██", "a quarter's head is filled, two cells wide")
+    for y = sys.row_of(1, 8), sys.row_of(1, 2) - 1 do
+      eq(rows[y][x + 2] == "│" or rows[y][x + 2] == "┼", true, "its stem runs up from the head (row " .. y .. ")")
+    end
+    -- The eighth: a flag at the stem's tip.
+    local e = at(1, 2)
+    eq(ch(e + 2, 8), "╲", "an eighth alone has a flag")
+    -- Rests.
+    local q = find_event(view, 1, function(ev) return ev.kind == "rest" and ev.base == 1 end)
+    local qx = at(1, q.start)
+    eq(
+      ch(qx, 6) .. rows[sys.row_of(1, 6) + 1][qx + 1] .. rows[sys.row_of(1, 6) + 2][qx + 1],
+      "╲╱╲",
+      "a quarter rest zigzags down the staff"
+    )
+    local r8 = find_event(view, 1, function(ev) return ev.kind == "rest" and ev.base == 0.5 end)
+    eq(ch(at(1, r8.start), 4), "7", "an eighth rest is a flag on a stroke")
+    local whole = table.concat(rows[sys.row_of(1, 6)], "", at(2, 4) + 1, at(2, 4) + sys.measures[2].m.width)
+    eq(whole:find("▄▄", 1, true) ~= nil, true, "an empty bar's whole rest hangs from the fourth line")
+    local h2 = at(3, 8)
+    eq(ch(h2, 6) .. ch(h2 + 1, 6), "()", "a half note's head is open")
+    eq(ch(h2, 4) == "│" or ch(h2, 4) == "┼", true, "its stem goes down from its left side, above the middle line")
+    local hr = find_event(view, 3, function(ev) return ev.kind == "rest" and ev.base == 2 end)
+    eq(ch(at(3, hr.start), 4), "▀", "a half rest sits on the middle line")
   end
-  -- The eighth: a flag at the stem's tip.
-  local e = at(1, 2)
-  eq(ch(e + 2, 8), "╲", "an eighth alone has a flag")
-  -- Rests.
-  local q = find_event(view, 1, function(ev) return ev.kind == "rest" and ev.base == 1 end)
-  local qx = at(1, q.start)
-  eq(ch(qx, 6) .. rows[sys.row_of(1, 6) + 1][qx + 1] .. rows[sys.row_of(1, 6) + 2][qx + 1], "╲╱╲", "a quarter rest zigzags down the staff")
-  local r8 = find_event(view, 1, function(ev) return ev.kind == "rest" and ev.base == 0.5 end)
-  eq(ch(at(1, r8.start), 4), "7", "an eighth rest is a flag on a stroke")
-  local whole = table.concat(rows[sys.row_of(1, 6)], "", at(2, 4) + 1, at(2, 4) + sys.measures[2].m.width)
-  eq(whole:find("▄▄", 1, true) ~= nil, true, "an empty bar's whole rest hangs from the fourth line")
-  local h2 = at(3, 8)
-  eq(ch(h2, 6) .. ch(h2 + 1, 6), "()", "a half note's head is open")
-  eq(ch(h2, 4) == "│" or ch(h2, 4) == "┼", true, "its stem goes down from its left side, above the middle line")
-  local hr = find_event(view, 3, function(ev) return ev.kind == "rest" and ev.base == 2 end)
-  eq(ch(at(3, hr.start), 4), "▀", "a half rest sits on the middle line")
-end)
+)
 
 test("notation terminal: a head in a space lies across two rows; accidentals before heads, ties as arcs", function()
   -- F#4 in the first space; G4 from beat four tied over the barline.
@@ -1022,7 +1239,11 @@ test("notation terminal: a head in a space lies across two rows; accidentals bef
   local model = require("notation.model")
   local p1, p2 = sys.measures[1], sys.measures[2]
   local fx = p1.x + math.floor(model.x_of(p1.m, 0) + 0.5)
-  eq(rows[R.above(1)][fx + 1] .. rows[R.above(1)][fx + 2], "▄▄", "F4 in the first space: the lower half of the row above")
+  eq(
+    rows[R.above(1)][fx + 1] .. rows[R.above(1)][fx + 2],
+    "▄▄",
+    "F4 in the first space: the lower half of the row above"
+  )
   eq(rows[R.below(1)][fx + 1] .. rows[R.below(1)][fx + 2], "▀▀", "and the upper half of the row below")
   eq(rows[R.above(1)][fx], "♯", "its sharp before it")
   local gx = p1.x + math.floor(model.x_of(p1.m, 3) + 0.5)
@@ -1041,11 +1262,17 @@ test("notation terminal: a grand staff fits in eighteen rows; zoomed in, every l
   local g = view.geometry
   eq(#g.staves, 2, "both staves are drawn")
   local sys = g.systems[1]
-  eq(sys.row_of(2, 0) - sys.row_of(1, 8) + 1 <= 14, true, "from the treble's top line to the bass's bottom one in fourteen rows or fewer")
+  eq(
+    sys.row_of(2, 0) - sys.row_of(1, 8) + 1 <= 14,
+    true,
+    "from the treble's top line to the bass's bottom one in fourteen rows or fewer"
+  )
   eq(g.staff_rows * 2 <= 18, true, "the whole system, with room for ledger lines and stems, in eighteen")
   eq(rows[sys.row_of(1, 8)][1], "⎧", "a brace before the system")
   -- The keys zoom the window's page too.
-  T.after(function() view.zoom, view.space = 1, nil end)
+  T.after(function()
+    view.zoom, view.space = 1, nil
+  end)
   keys("zi")
   rows = panel(120, 50)
   g = view.geometry
@@ -1061,10 +1288,16 @@ test("notation terminal: the staff is drawn only in characters the common monosp
   load()
   -- Checked against DejaVu Sans Mono, JetBrains Mono, Fira Code and Noto
   -- Sans Mono; the accidentals are the one exception (cells.lua says why).
-  local common = "─━│┆┌┐└┘├┤┬┳┴┻┼║╭╮╯╰╱╲╵╷╸╺▀▄█●·–•⎧⎨⎩⎪" .. "♯♭♮"
+  local common = "─━│┆┌┐└┘├┤┬┳┴┻┼║╭╮╯╰╱╲╵╷╸╺▀▄█●·–•⎧⎨⎩⎪"
+    .. "♯♭♮"
   local seen = {}
   local function walk(v)
-    if type(v) == "table" then for _, x in pairs(v) do walk(x) end return end
+    if type(v) == "table" then
+      for _, x in pairs(v) do
+        walk(x)
+      end
+      return
+    end
     if type(v) ~= "string" then return end
     for ch in v:gmatch("[\194-\244][\128-\191]*") do
       if not common:find(ch, 1, true) then seen[#seen + 1] = ch end
@@ -1072,11 +1305,18 @@ test("notation terminal: the staff is drawn only in characters the common monosp
   end
   local cells = require("notation.cells")
   walk(cells.unicode)
-  for _, clef in ipairs({ "treble", "bass" }) do walk(cells.clef(clef, true)) end
+  for _, clef in ipairs({ "treble", "bass" }) do
+    walk(cells.clef(clef, true))
+  end
   eq(table.concat(seen, " "), "", "characters outside the common set")
   seen = {}
   local function ascii(v)
-    if type(v) == "table" then for _, x in pairs(v) do ascii(x) end return end
+    if type(v) == "table" then
+      for _, x in pairs(v) do
+        ascii(x)
+      end
+      return
+    end
     if type(v) == "string" and v:find("[\128-\255]") then seen[#seen + 1] = v end
   end
   ascii(cells.ascii)
@@ -1091,7 +1331,9 @@ test("notation terminal: with paw.opt.ascii the staff is drawn in plain ASCII", 
   local rows = panel(120, 40)
   paw.opt.ascii = false
   local text = {}
-  for y = 1, #rows do text[#text + 1] = table.concat(rows[y]) end
+  for y = 1, #rows do
+    text[#text + 1] = table.concat(rows[y])
+  end
   text = table.concat(text, "\n")
   eq(text:find("[\128-\255]"), nil, "no character outside ASCII:\n" .. text)
   eq(view.geometry.dense, false, "open: ASCII has no half blocks")
@@ -1101,9 +1343,7 @@ end)
 
 -- The window -----------------------------------------------------------------------------------
 
-local function paint(view)
-  return paw.canvas.paint("notation", 1100, 560)
-end
+local function paint(view) return paw.canvas.paint("notation", 1100, 560) end
 
 local function pointer(kind, x, y, extra)
   paw.canvas.pointer("notation", paw.util.merge({ kind = kind, x = x, y = y, button = "left" }, extra or {}))
@@ -1141,7 +1381,11 @@ test("notation window: it engraves notes, stems, beams and the clef with the mus
   eq(glyphs[0xE0A4], 3, "three black note heads (Leland's noteheadBlack)")
   eq(glyphs[0xE0A3], 1, "a half note's head")
   eq(glyphs[0xE050], 1, "a treble clef")
-  eq(table.concat(layers, " "), "ink selection ghost diagnostic caret playhead", "the page's ink, then what moves over it, as layers")
+  eq(
+    table.concat(layers, " "),
+    "ink selection ghost diagnostic caret playhead",
+    "the page's ink, then what moves over it, as layers"
+  )
   eq(cuts >= 1, true, "and where a frontend may cut it at a barline")
   eq(#view.gui.heads, 4, "four note heads, each remembered for the pointer")
   local paths = 0
@@ -1154,11 +1398,18 @@ end)
 
 test("notation window: staff lines, stems and barlines are on whole pixels, systems whole cell rows", function()
   local view = song({ N(72, 0, 0.5), N(74, 0.5, 0.5), N(76, 1, 1), N(67, 2, 2), N(60, 4, 4), N(64, 8, 1) }, 16)
-  local drawing = paw.canvas.paint("notation", 1053, 600, { glyphs = true, surface = true, cell = { w = 13, h = 27 }, colors = { fg = "#cdd6f4", bg = "#1e1e2e" } })
+  local drawing = paw.canvas.paint(
+    "notation",
+    1053,
+    600,
+    { glyphs = true, surface = true, cell = { w = 13, h = 27 }, colors = { fg = "#cdd6f4", bg = "#1e1e2e" } }
+  )
   local whole = true
   for _, op in ipairs(drawing.ops) do
     if op[1] == "r" then
-      for i = 2, 5 do whole = whole and op[i] == math.floor(op[i]) end
+      for i = 2, 5 do
+        whole = whole and op[i] == math.floor(op[i])
+      end
     end
     eq(op[1] ~= "t" or op[4] ~= "midi", true, "no toolbar on a terminal's surface")
   end
@@ -1168,7 +1419,9 @@ test("notation window: staff lines, stems and barlines are on whole pixels, syst
   eq(eng.style.sp, 9, "a staff space of a third of a 27 px cell")
   for _, sys in ipairs(eng.systems) do
     eq(sys.height % 27, 0, "each system whole rows of cells high")
-    for _, placed in ipairs(sys.measures) do eq(placed.x % 13, 0, "each measure starting on a whole column") end
+    for _, placed in ipairs(sys.measures) do
+      eq(placed.x % 13, 0, "each measure starting on a whole column")
+    end
   end
   eq(eng.systems[1].height <= 6 * 27, true, "a single staff in no more than six rows")
 end)
@@ -1223,32 +1476,35 @@ test("notation window: Shift extends a selection, a drag on the paper selects a 
   keys("<Esc>")
 end)
 
-test("notation window: a double click enters notes there; in insert mode a click enters a note and the note to enter follows the pointer", function()
-  local view, clip = song(nil, 4)
-  paw.ui.focus("notation")
-  paint(view)
-  view.value = 0.5
-  local x, y = spot(view, 1, 39)
-  pointer("double", x, y)
-  eq(paw.keymap.mode, "i", "a double click enters notes")
-  pointer("down", x, y)
-  pointer("up", x, y)
-  eq(notes_of(clip), "", "the double click's own second press enters nothing")
-  local hx, hy = spot(view, 2, 41)
-  paw.canvas.pointer("notation", { kind = "hover", x = hx, y = hy })
-  eq(view.gui.hover and view.gui.hover.step, 41, "the note to enter follows the pointer")
-  local drawing = paw.canvas.paint("notation", 1100, 560, { glyphs = true })
-  local in_caret, heads = false, 0
-  for _, op in ipairs(drawing.ops) do
-    if op[1] == "layer" then in_caret = op[2] == "caret" end
-    if in_caret and op[1] == "g" and op[5] == 0xE0A4 then heads = heads + 1 end
+test(
+  "notation window: a double click enters notes there; in insert mode a click enters a note and the note to enter follows the pointer",
+  function()
+    local view, clip = song(nil, 4)
+    paw.ui.focus("notation")
+    paint(view)
+    view.value = 0.5
+    local x, y = spot(view, 1, 39)
+    pointer("double", x, y)
+    eq(paw.keymap.mode, "i", "a double click enters notes")
+    pointer("down", x, y)
+    pointer("up", x, y)
+    eq(notes_of(clip), "", "the double click's own second press enters nothing")
+    local hx, hy = spot(view, 2, 41)
+    paw.canvas.pointer("notation", { kind = "hover", x = hx, y = hy })
+    eq(view.gui.hover and view.gui.hover.step, 41, "the note to enter follows the pointer")
+    local drawing = paw.canvas.paint("notation", 1100, 560, { glyphs = true })
+    local in_caret, heads = false, 0
+    for _, op in ipairs(drawing.ops) do
+      if op[1] == "layer" then in_caret = op[2] == "caret" end
+      if in_caret and op[1] == "g" and op[5] == 0xE0A4 then heads = heads + 1 end
+    end
+    eq(heads, 1, "drawn half transparent in the caret's layer")
+    pointer("down", x, y)
+    pointer("up", x, y)
+    eq(notes_of(clip), "G4@1+0.5", "a click enters an eighth G on beat two")
+    keys("<Esc>")
   end
-  eq(heads, 1, "drawn half transparent in the caret's layer")
-  pointer("down", x, y)
-  pointer("up", x, y)
-  eq(notes_of(clip), "G4@1+0.5", "a click enters an eighth G on beat two")
-  keys("<Esc>")
-end)
+)
 
 test("notation window: the toolbar chooses the value, the accidental and rests", function()
   local view, clip = song({ N(64, 0, 4) }, 4)
@@ -1267,7 +1523,11 @@ test("notation window: the toolbar chooses the value, the accidental and rests",
   local x, y = spot(view, 2, 38)
   pointer("down", x, y)
   pointer("up", x, y)
-  eq(notes_of(clip), "E4@0+2 F#4@2+2", "an F sharp half note; the E is written a half note, and played two beats shorter")
+  eq(
+    notes_of(clip),
+    "E4@0+2 F#4@2+2",
+    "an F sharp half note; the E is written a half note, and played two beats shorter"
+  )
   press("rest")
   paint(view)
   x, y = spot(view, 2, 38)
@@ -1276,42 +1536,54 @@ test("notation window: the toolbar chooses the value, the accidental and rests",
   view.gui.rest, view.gui.accidental = false, nil
 end)
 
-test("notation window: the toolbar's buttons are one height, labels centred, and wrap instead of overlapping", function()
-  local view = song({ N(64, 0, 4) }, 4)
-  for _, width in ipairs({ 1100, 520, 380 }) do
-    local drawing = paw.canvas.paint("notation", width, 560)
-    local rows, labelled = {}, 0
-    for i, a in ipairs(view.gui.buttons) do
-      eq(a.h, 28, "every button is as high as the others")
-      eq(a.x >= 0 and a.x + a.w <= width, true, "inside the window at " .. width)
-      rows[a.y] = true
-      for j = i + 1, #view.gui.buttons do
-        local b = view.gui.buttons[j]
-        eq(a.x + a.w <= b.x or b.x + b.w <= a.x or a.y + a.h <= b.y or b.y + b.h <= a.y, true,
-          a.label .. " and " .. b.label .. " do not overlap at " .. width)
-      end
-      if a.label == "rest" or a.label == "mf" then
-        for _, op in ipairs(drawing.ops) do
-          if op[1] == "t" and op[4] == a.label and op[8] == "center" then
-            labelled = labelled + 1
-            eq(op[2], a.x + a.w / 2, a.label .. " is centred on its button")
+test(
+  "notation window: the toolbar's buttons are one height, labels centred, and wrap instead of overlapping",
+  function()
+    local view = song({ N(64, 0, 4) }, 4)
+    for _, width in ipairs({ 1100, 520, 380 }) do
+      local drawing = paw.canvas.paint("notation", width, 560)
+      local rows, labelled = {}, 0
+      for i, a in ipairs(view.gui.buttons) do
+        eq(a.h, 28, "every button is as high as the others")
+        eq(a.x >= 0 and a.x + a.w <= width, true, "inside the window at " .. width)
+        rows[a.y] = true
+        for j = i + 1, #view.gui.buttons do
+          local b = view.gui.buttons[j]
+          eq(
+            a.x + a.w <= b.x or b.x + b.w <= a.x or a.y + a.h <= b.y or b.y + b.h <= a.y,
+            true,
+            a.label .. " and " .. b.label .. " do not overlap at " .. width
+          )
+        end
+        if a.label == "rest" or a.label == "mf" then
+          for _, op in ipairs(drawing.ops) do
+            if op[1] == "t" and op[4] == a.label and op[8] == "center" then
+              labelled = labelled + 1
+              eq(op[2], a.x + a.w / 2, a.label .. " is centred on its button")
+            end
           end
         end
       end
+      eq(labelled, 2, "rest and mf are drawn centred at " .. width)
+      local count = 0
+      for _ in pairs(rows) do
+        count = count + 1
+      end
+      eq(view.gui.bar_h, count * 36 + 8, "the toolbar is as high as its rows at " .. width)
+      eq(count > 1, width < 800, "the buttons wrap onto more rows only when the window is narrow")
     end
-    eq(labelled, 2, "rest and mf are drawn centred at " .. width)
-    local count = 0
-    for _ in pairs(rows) do count = count + 1 end
-    eq(view.gui.bar_h, count * 36 + 8, "the toolbar is as high as its rows at " .. width)
-    eq(count > 1, width < 800, "the buttons wrap onto more rows only when the window is narrow")
   end
-end)
+)
 
 --- The ops of a layer of a drawing.
 local function layer_ops(drawing, name)
   local out, current = {}, nil
   for _, op in ipairs(drawing.ops) do
-    if op[1] == "layer" then current = op[2] elseif current == name then out[#out + 1] = op end
+    if op[1] == "layer" then
+      current = op[2]
+    elseif current == name then
+      out[#out + 1] = op
+    end
   end
   return out
 end
@@ -1330,7 +1602,10 @@ test("notation page: the selection, suggestions, diagnostics and the playhead ar
   eq(sel[1] and sel[1][1], "r", "a faint band over the selection")
   eq(#sel >= 2, true, "and its notes again in the accent")
   keys("<Esc>")
-  paw.complete.show({ { label = "next", notes = { { pitch = 67, start = 4, length = 1 } } } }, { clip = clip.id, keys = false })
+  paw.complete.show(
+    { { label = "next", notes = { { pitch = 67, start = 4, length = 1 } } } },
+    { clip = clip.id, keys = false }
+  )
   local ghosts = 0
   for _, op in ipairs(layer_ops(surface_paint(), "ghost")) do
     if op[1] == "g" then ghosts = ghosts + 1 end
@@ -1358,53 +1633,61 @@ test("notation page: the selection, suggestions, diagnostics and the playhead ar
   eq(play[1] and play[1][4], 2, "a 2 px playhead")
 end)
 
-test("notation in a window: the playhead is a mark the live values move, and the scene stays while it stays in its system", function()
-  local view = song({ N(60, 0, 1), N(62, 1, 1), N(64, 2, 1), N(65, 3, 1) }, 8)
-  paw.ui.focus("notation")
-  api.transport_seek(1.5)
-  local marks = {}
-  local d = paw.canvas.paint("notation", 1053, 800, { glyphs = true, cell = { w = 13, h = 27 }, marks = marks })
-  local without = paw.canvas.paint("notation", 1053, 800, { glyphs = true, cell = { w = 13, h = 27 } })
-  eq(#layer_ops(without, "playhead") - #layer_ops(d, "playhead"), 1, "not in the page")
-  local mark = marks[1]
-  eq(mark and mark.role .. " " .. mark.props.bind, "playhead position", "a mark, bound to the position")
-  -- Where the window puts it at beat 1.5 is where the page draws it.
-  local x
-  for _, s in ipairs(mark.props.segments) do
-    if 1.5 >= s[1] and 1.5 < s[2] then x = s[3] + (s[4] - s[3]) * (1.5 - s[1]) / (s[2] - s[1]) end
+test(
+  "notation in a window: the playhead is a mark the live values move, and the scene stays while it stays in its system",
+  function()
+    local view = song({ N(60, 0, 1), N(62, 1, 1), N(64, 2, 1), N(65, 3, 1) }, 8)
+    paw.ui.focus("notation")
+    api.transport_seek(1.5)
+    local marks = {}
+    local d = paw.canvas.paint("notation", 1053, 800, { glyphs = true, cell = { w = 13, h = 27 }, marks = marks })
+    local without = paw.canvas.paint("notation", 1053, 800, { glyphs = true, cell = { w = 13, h = 27 } })
+    eq(#layer_ops(without, "playhead") - #layer_ops(d, "playhead"), 1, "not in the page")
+    local mark = marks[1]
+    eq(mark and mark.role .. " " .. mark.props.bind, "playhead position", "a mark, bound to the position")
+    -- Where the window puts it at beat 1.5 is where the page draws it.
+    local x
+    for _, s in ipairs(mark.props.segments) do
+      if 1.5 >= s[1] and 1.5 < s[2] then x = s[3] + (s[4] - s[3]) * (1.5 - s[1]) / (s[2] - s[1]) end
+    end
+    local drawn = layer_ops(without, "playhead")[1]
+    T.near(x - 1, drawn[2], 1, "at the x of the page's playhead")
+    -- Its key stays while the playhead stays in its system.
+    api.transport_play()
+    local key = view:scene_key()
+    api.transport_seek(2.5)
+    eq(view:scene_key(), key, "the same system: the same scene")
+    api.transport_stop()
   end
-  local drawn = layer_ops(without, "playhead")[1]
-  T.near(x - 1, drawn[2], 1, "at the x of the page's playhead")
-  -- Its key stays while the playhead stays in its system.
-  api.transport_play()
-  local key = view:scene_key()
-  api.transport_seek(2.5)
-  eq(view:scene_key(), key, "the same system: the same scene")
-  api.transport_stop()
-end)
+)
 
-test("notation page: a cursor move draws the page from what was engraved; an edit engraves only the measures it changed", function()
-  local view, clip = song({ N(60, 0, 1), N(62, 4, 1), N(64, 8, 1), N(65, 12, 1) }, 16)
-  paw.ui.focus("notation")
-  surface_paint()
-  local cache = view.gui.measures
-  local made = cache.count
-  view:move(1, 0)
-  surface_paint()
-  eq(cache.count, made, "moving the cursor engraves nothing")
-  clip:set_note(2, { pitch = 65 })
-  surface_paint()
-  eq(cache.count, made + 1, "an edit in one bar engraves that bar again")
-  local bench = require("notation.bench")
-  local r = bench.run(16, { glyphs = true, surface = true, cell = { w = 13, h = 27 } }, 5, nil, T.cpu_ms)
-  -- Processor time, the targets of 8 and 30 ms as the scale.
-  T.quick(r.cursor, 8, "a cursor move paints quickly")
-  T.quick(r.edit, 30, "an edit paints quickly")
-end)
+test(
+  "notation page: a cursor move draws the page from what was engraved; an edit engraves only the measures it changed",
+  function()
+    local view, clip = song({ N(60, 0, 1), N(62, 4, 1), N(64, 8, 1), N(65, 12, 1) }, 16)
+    paw.ui.focus("notation")
+    surface_paint()
+    local cache = view.gui.measures
+    local made = cache.count
+    view:move(1, 0)
+    surface_paint()
+    eq(cache.count, made, "moving the cursor engraves nothing")
+    clip:set_note(2, { pitch = 65 })
+    surface_paint()
+    eq(cache.count, made + 1, "an edit in one bar engraves that bar again")
+    local bench = require("notation.bench")
+    local r = bench.run(16, { glyphs = true, surface = true, cell = { w = 13, h = 27 } }, 5, nil, T.cpu_ms)
+    -- Processor time, the targets of 8 and 30 ms as the scale.
+    T.quick(r.cursor, 8, "a cursor move paints quickly")
+    T.quick(r.edit, 30, "an edit paints quickly")
+  end
+)
 
 test("notation page: the galley is one long system that keeps the cursor in view", function()
   local notes = {}
-  for i = 0, 63 do notes[#notes + 1] = N(60 + i % 12, i, 1) end
+  for i = 0, 63 do
+    notes[#notes + 1] = N(60 + i % 12, i, 1)
+  end
   local view = song(notes, 64)
   paw.ui.focus("notation")
   keys("zg")
@@ -1454,25 +1737,32 @@ test("notation pointer: a click lands on the chosen value within the beat", func
   eq(model.snap(six, 1.3, 1), 1.5, "a quarter in 6/8 counts from each dotted quarter")
 end)
 
-test("notation pointer: in the terminal a click and an insert-mode click snap to the value, so typing after stays on the beat", function()
-  local notes = {}
-  for i = 0, 7 do notes[#notes + 1] = N(60, i * 0.25, 0.25) end
-  local view, clip = terminal_song(notes)
-  local x, y = cell(view, 2.75, 39)
-  m("down", x, y) m("up", x, y)
-  eq(view.beat, 3, "a quarter chosen: a click off the beat puts the cursor on the beat")
-  keys("ig")
-  eq(notes_of(clip):match("G4@3%+1") ~= nil, true, "a G typed there is a quarter on beat four, not tied eighths")
-  keys("<Esc>")
-  shot()
-  paw.mouse.forget()
-  view.value = 0.5
-  keys("i")
-  local x2, y2 = cell(view, 2.4, 37)
-  m("down", x2, y2) m("up", x2, y2)
-  eq(notes_of(clip):match("E4@2%.5%+0%.5") ~= nil, true, "in insert mode a click enters an eighth on an eighth")
-  keys("<Esc>")
-end)
+test(
+  "notation pointer: in the terminal a click and an insert-mode click snap to the value, so typing after stays on the beat",
+  function()
+    local notes = {}
+    for i = 0, 7 do
+      notes[#notes + 1] = N(60, i * 0.25, 0.25)
+    end
+    local view, clip = terminal_song(notes)
+    local x, y = cell(view, 2.75, 39)
+    m("down", x, y)
+    m("up", x, y)
+    eq(view.beat, 3, "a quarter chosen: a click off the beat puts the cursor on the beat")
+    keys("ig")
+    eq(notes_of(clip):match("G4@3%+1") ~= nil, true, "a G typed there is a quarter on beat four, not tied eighths")
+    keys("<Esc>")
+    shot()
+    paw.mouse.forget()
+    view.value = 0.5
+    keys("i")
+    local x2, y2 = cell(view, 2.4, 37)
+    m("down", x2, y2)
+    m("up", x2, y2)
+    eq(notes_of(clip):match("E4@2%.5%+0%.5") ~= nil, true, "in insert mode a click enters an eighth on an eighth")
+    keys("<Esc>")
+  end
+)
 
 test("notation pointer: in the window a click snaps to the value, Alt-click to the grid", function()
   local view, clip = song(nil, 4)
@@ -1518,7 +1808,8 @@ local function engraved(notes, length, width)
   local measures = {}
   for _, sys in ipairs(eng.systems) do
     for _, placed in ipairs(sys.measures) do
-      measures[#measures + 1] = { ink = engrave.measure(view.gui.measures, eng.style, view:layout(), sys, placed), sys = sys, placed = placed }
+      measures[#measures + 1] =
+        { ink = engrave.measure(view.gui.measures, eng.style, view:layout(), sys, placed), sys = sys, placed = placed }
     end
   end
   return view, eng, measures
@@ -1531,7 +1822,9 @@ local function glyph_box(st, op)
   local font = require("notation.smufl").font()
   if not glyph_names then
     glyph_names = {}
-    for name, cp in pairs(api.smufl(font.name).glyphs) do glyph_names[cp] = name end
+    for name, cp in pairs(api.smufl(font.name).glyphs) do
+      glyph_names[cp] = name
+    end
   end
   local name = glyph_names[op[5]]
   local bb = name and font.glyphs[name].bbox
@@ -1550,8 +1843,12 @@ test("notation page: accidentals, courtesy ones too, never touch a stem or a hea
   -- of the naturals in parentheses, and a chord with a second.
   local p = { 60, 61, 62, 63, 64, 65, 66, 67, 72, 73, 74, 75, 76, 77, 78, 79, 72, 60, 74, 61, 62, 73, 72, 75 }
   local notes = {}
-  for i, pitch in ipairs(p) do notes[i] = N(pitch, (i - 1) * 0.25, 0.25) end
-  for _, pitch in ipairs({ 65, 67, 68, 72 }) do notes[#notes + 1] = N(pitch, 7, 1) end
+  for i, pitch in ipairs(p) do
+    notes[i] = N(pitch, (i - 1) * 0.25, 0.25)
+  end
+  for _, pitch in ipairs({ 65, 67, 68, 72 }) do
+    notes[#notes + 1] = N(pitch, 7, 1)
+  end
   local _, eng, measures = engraved(notes, 8)
   local st = eng.style
   local signs, courtesy = 0, 0
@@ -1573,7 +1870,18 @@ test("notation page: accidentals, courtesy ones too, never touch a stem or a hea
       signs = signs + 1
       for _, o in ipairs(obstacles) do
         if overlap(a, o) then
-          error(string.format("%s at %.0f,%.0f touches what is at %.0f,%.0f to %.0f,%.0f", a.name, a[1], a[2], o[1], o[2], o[3], o[4]))
+          error(
+            string.format(
+              "%s at %.0f,%.0f touches what is at %.0f,%.0f to %.0f,%.0f",
+              a.name,
+              a[1],
+              a[2],
+              o[1],
+              o[2],
+              o[3],
+              o[4]
+            )
+          )
         end
       end
     end
@@ -1582,44 +1890,60 @@ test("notation page: accidentals, courtesy ones too, never touch a stem or a hea
   eq(courtesy >= 2, true, "courtesy ones among them, in parentheses")
 end)
 
-test("notation page: a beamed tuplet has its number on the beam's side; an unbeamed one a bracket from its first note to its last", function()
-  local t = 1 / 3
-  local _, eng, measures = engraved({
-    N(77, 0, t), N(79, t, t), N(81, 2 * t, t),   -- eighths high up: stems and beam below
-    N(60, 1, t), N(62, 1 + t, t), N(64, 1 + 2 * t, t),   -- low: stems and beam above
-    N(67, 2, 2 * t), N(69, 2 + 2 * t, 2 * t), N(71, 2 + 4 * t, 2 * t),   -- quarters: no beam
-  }, 4)
-  local st = eng.style
-  local mi = measures[1].ink
-  local numbers, brackets = {}, {}
-  for _, op in ipairs(mi.ops) do
-    if op[1] == "g" then
-      local _, y0, _, y1, name = glyph_box(st, op)
-      if name == "tuplet3" then numbers[#numbers + 1] = { x = op[2], y0 = y0, y1 = y1 } end
-    elseif op[1] == "r" and op[6] == st.faint then
-      brackets[#brackets + 1] = op
+test(
+  "notation page: a beamed tuplet has its number on the beam's side; an unbeamed one a bracket from its first note to its last",
+  function()
+    local t = 1 / 3
+    local _, eng, measures = engraved({
+      N(77, 0, t),
+      N(79, t, t),
+      N(81, 2 * t, t), -- eighths high up: stems and beam below
+      N(60, 1, t),
+      N(62, 1 + t, t),
+      N(64, 1 + 2 * t, t), -- low: stems and beam above
+      N(67, 2, 2 * t),
+      N(69, 2 + 2 * t, 2 * t),
+      N(71, 2 + 4 * t, 2 * t), -- quarters: no beam
+    }, 4)
+    local st = eng.style
+    local mi = measures[1].ink
+    local numbers, brackets = {}, {}
+    for _, op in ipairs(mi.ops) do
+      if op[1] == "g" then
+        local _, y0, _, y1, name = glyph_box(st, op)
+        if name == "tuplet3" then numbers[#numbers + 1] = { x = op[2], y0 = y0, y1 = y1 } end
+      elseif op[1] == "r" and op[6] == st.faint then
+        brackets[#brackets + 1] = op
+      end
     end
+    eq(#numbers, 3, "three numbers")
+    table.sort(numbers, function(a, b) return a.x < b.x end)
+    local heads = mi.heads
+    table.sort(heads, function(a, b) return a.start < b.start end)
+    local function ys(from, to)
+      local lo, hi = math.huge, -math.huge
+      for i = from, to do
+        lo, hi = math.min(lo, heads[i].y), math.max(hi, heads[i].y)
+      end
+      return lo, hi
+    end
+    local _, low1 = ys(1, 3)
+    eq(numbers[1].y0 > low1 + 3 * st.sp, true, "stems down: the number under the beam, past it")
+    local high2 = ys(4, 6)
+    eq(numbers[2].y1 < high2 - 3 * st.sp, true, "stems up: the number over the beam")
+    local x0, x1 = math.huge, -math.huge
+    for _, r in ipairs(brackets) do
+      x0, x1 = math.min(x0, r[2]), math.max(x1, r[2] + r[4])
+    end
+    eq(#brackets, 4, "one bracket: two hooks and a line in two halves around its number")
+    eq(
+      x0 <= heads[7].gx + 0.5 and x1 >= heads[9].gx + 2 * (heads[9].x - heads[9].gx) - 1,
+      true,
+      "the bracket from the first head's left edge to the last head's right edge"
+    )
+    eq(numbers[3].x > x0 and numbers[3].x < x1, true, "with its number inside it")
   end
-  eq(#numbers, 3, "three numbers")
-  table.sort(numbers, function(a, b) return a.x < b.x end)
-  local heads = mi.heads
-  table.sort(heads, function(a, b) return a.start < b.start end)
-  local function ys(from, to)
-    local lo, hi = math.huge, -math.huge
-    for i = from, to do lo, hi = math.min(lo, heads[i].y), math.max(hi, heads[i].y) end
-    return lo, hi
-  end
-  local _, low1 = ys(1, 3)
-  eq(numbers[1].y0 > low1 + 3 * st.sp, true, "stems down: the number under the beam, past it")
-  local high2 = ys(4, 6)
-  eq(numbers[2].y1 < high2 - 3 * st.sp, true, "stems up: the number over the beam")
-  local x0, x1 = math.huge, -math.huge
-  for _, r in ipairs(brackets) do x0, x1 = math.min(x0, r[2]), math.max(x1, r[2] + r[4]) end
-  eq(#brackets, 4, "one bracket: two hooks and a line in two halves around its number")
-  eq(x0 <= heads[7].gx + 0.5 and x1 >= heads[9].gx + 2 * (heads[9].x - heads[9].gx) - 1, true,
-    "the bracket from the first head's left edge to the last head's right edge")
-  eq(numbers[3].x > x0 and numbers[3].x < x1, true, "with its number inside it")
-end)
+)
 
 --- The tie paths of some ink: each its ends and how high its outer curve's
 --- control points stand over them, as parts of a staff space, and how far in
@@ -1639,7 +1963,9 @@ end
 test("notation page: ties are flat and close to the heads, in a bar, over a barline and over a system break", function()
   local notes = {}
   -- Halves tied over every barline, for eight bars: they break onto systems.
-  for k = 0, 6 do notes[#notes + 1] = N(72, 2 + 4 * k, 4) end
+  for k = 0, 6 do
+    notes[#notes + 1] = N(72, 2 + 4 * k, 4)
+  end
   -- A half on beat two: two quarters tied inside the bar.
   notes[#notes + 1] = N(76, 33, 2)
   local _, eng, measures = engraved(notes, 36, 700)
@@ -1648,16 +1974,24 @@ test("notation page: ties are flat and close to the heads, in a bar, over a barl
   eq(#eng.systems >= 2, true, "more than one system")
   local all = {}
   for _, mi in ipairs(measures) do
-    for _, t in ipairs(ties(mi.ink.ops, st.sp)) do all[#all + 1] = t end
+    for _, t in ipairs(ties(mi.ink.ops, st.sp)) do
+      all[#all + 1] = t
+    end
   end
   local inside = #all
   for _, sys in ipairs(eng.systems) do
-    for _, t in ipairs(ties(sys.spans, st.sp)) do all[#all + 1] = t end
+    for _, t in ipairs(ties(sys.spans, st.sp)) do
+      all[#all + 1] = t
+    end
   end
   eq(inside >= 1, true, "ties inside bars")
   eq(#all - inside >= 7, true, "ties over barlines and system breaks")
   for _, t in ipairs(all) do
-    eq(t.rise <= engrave.TIE_HEIGHT + st.tie_mid / st.sp / 2 + 0.01, true, string.format("a tie rises no more than %.1f of a space (%.2f)", engrave.TIE_HEIGHT, t.rise))
+    eq(
+      t.rise <= engrave.TIE_HEIGHT + st.tie_mid / st.sp / 2 + 0.01,
+      true,
+      string.format("a tie rises no more than %.1f of a space (%.2f)", engrave.TIE_HEIGHT, t.rise)
+    )
     eq(t.inset <= 0.15, true, "flat: its curve turns near its ends")
   end
   -- Each tie in a bar starts at a head of its own, no more than a space from its middle.
@@ -1673,10 +2007,17 @@ test("notation page: ties are flat and close to the heads, in a bar, over a barl
 end)
 
 test("notation page: secondary beams stand the font's beam spacing from the primary", function()
-  local _, eng, measures = engraved({ N(72, 0, 0.25), N(72, 0.25, 0.25), N(72, 0.5, 0.5), N(60, 1, 0.25), N(60, 1.25, 0.25), N(60, 1.5, 0.5) }, 4)
+  local _, eng, measures = engraved(
+    { N(72, 0, 0.25), N(72, 0.25, 0.25), N(72, 0.5, 0.5), N(60, 1, 0.25), N(60, 1.25, 0.25), N(60, 1.5, 0.5) },
+    4
+  )
   local st = eng.style
   local d = require("notation.smufl").font().defaults
-  eq(st.beam_gap, math.max(1, math.floor(d.beamSpacing * st.sp + 0.5)), "the gap is the font's beamSpacing, in whole pixels")
+  eq(
+    st.beam_gap,
+    math.max(1, math.floor(d.beamSpacing * st.sp + 0.5)),
+    "the gap is the font's beamSpacing, in whole pixels"
+  )
   -- Each beam is drawn note to note; flat ones share their top.
   local tops, seen = {}, {}
   for _, op in ipairs(measures[1].ink.ops) do
@@ -1696,7 +2037,9 @@ end)
 
 test("notation page: the last system never holds a bar alone when the one before can spare one", function()
   local notes = {}
-  for i = 0, 55 do notes[#notes + 1] = N(60 + (i * 5) % 14, i * 0.5, 0.5) end
+  for i = 0, 55 do
+    notes[#notes + 1] = N(60 + (i * 5) % 14, i * 0.5, 0.5)
+  end
   local view = song(notes, 28)
   local engrave = require("notation.engrave")
   paw.ui.focus("notation")
@@ -1717,8 +2060,10 @@ end)
 test("notation page: with two voices a rest keeps clear of the other voice's notes", function()
   local v2 = { notation = { voice = 2 } }
   local view = song({
-    { pitch = 64, start = 0, length = 1 }, { pitch = 69, start = 1, length = 1, meta = v2 },   -- a low E4 over the lower voice's rest
-    { pitch = 71, start = 2, length = 1, meta = v2 }, { pitch = 77, start = 3, length = 1 },    -- a B4 under the upper voice's rest
+    { pitch = 64, start = 0, length = 1 },
+    { pitch = 69, start = 1, length = 1, meta = v2 }, -- a low E4 over the lower voice's rest
+    { pitch = 71, start = 2, length = 1, meta = v2 },
+    { pitch = 77, start = 3, length = 1 }, -- a B4 under the upper voice's rest
   }, 4)
   local rests = {}
   for _, ev in ipairs(view:layout().measures[1].staves[1]) do
@@ -1748,12 +2093,24 @@ end)
 test("notation export: MusicXML has the key, ties, beams and accidentals", function()
   local _, model = load()
   local export = require("notation.export")
-  local layout = model.layout({ N(72, 0, 0.5), N(74, 0.5, 0.25), N(76, 0.75, 0.25), N(65, 1, 2), N(67, 3, 2) }, { length = 8, fifths = 2 })
+  local layout = model.layout(
+    { N(72, 0, 0.5), N(74, 0.5, 0.25), N(76, 0.75, 0.25), N(65, 1, 2), N(67, 3, 2) },
+    { length = 8, fifths = 2 }
+  )
   local xml = export.musicxml(layout, { title = "tune", part = "Lead" })
   eq(xml:find("<fifths>2</fifths>", 1, true) ~= nil, true, "two sharps")
   eq(xml:find("<accidental>natural</accidental>", 1, true) ~= nil, true, "F natural in D major")
-  eq(xml:find('<beam number="1">begin</beam>', 1, true) ~= nil and xml:find('<beam number="2">end</beam>', 1, true) ~= nil, true, "beams with a second level")
-  eq(xml:find('<tie type="start"/>', 1, true) ~= nil and xml:find('<tied type="stop"/>', 1, true) ~= nil, true, "a tie across the barline")
+  eq(
+    xml:find('<beam number="1">begin</beam>', 1, true) ~= nil
+      and xml:find('<beam number="2">end</beam>', 1, true) ~= nil,
+    true,
+    "beams with a second level"
+  )
+  eq(
+    xml:find('<tie type="start"/>', 1, true) ~= nil and xml:find('<tied type="stop"/>', 1, true) ~= nil,
+    true,
+    "a tie across the barline"
+  )
   eq(select(2, xml:gsub("<measure ", "")), 2, "two measures")
 end)
 
@@ -1774,7 +2131,9 @@ end)
 --- The clip's notes as a sorted list, for comparing whatever order they are kept in.
 local function sorted_notes(clip)
   local out = {}
-  for _, n in ipairs(clip:notes()) do out[#out + 1] = string.format("%s@%g+%g", paw.music.name(n.pitch), n.start, n.length) end
+  for _, n in ipairs(clip:notes()) do
+    out[#out + 1] = string.format("%s@%g+%g", paw.music.name(n.pitch), n.start, n.length)
+  end
   table.sort(out)
   return table.concat(out, " ")
 end
@@ -1784,7 +2143,11 @@ test("notation entry: a bass note entered under a melody leaves the melody alone
   eq(#view:layout().staves, 1, "one staff before the bass")
   view:set(25, 0)
   keys("i7g<Esc>")
-  eq(sorted_notes(clip), "A4@1+1 B4@2+1 D5@3+1 G2@0+4 G4@0+1", "the whole-note G2 is added and the melody of bar 1 kept")
+  eq(
+    sorted_notes(clip),
+    "A4@1+1 B4@2+1 D5@3+1 G2@0+4 G4@0+1",
+    "the whole-note G2 is added and the melody of bar 1 kept"
+  )
   eq(#view:layout().staves, 2, "now a grand staff")
   view:set(25, 0)
   keys("i5d<Esc>")
@@ -1796,16 +2159,28 @@ end)
 
 test("notation entry: a second voice under a first is left alone, and entered in on its own", function()
   local held = { voice = 2 }
-  local view, clip = song({ N(76, 0, 1), N(77, 1, 1), N(79, 2, 1), N(77, 3, 1),
-    { pitch = 72, start = 0, length = 2, meta = { notation = held } }, { pitch = 72, start = 2, length = 2, meta = { notation = held } } })
-  view:set(44, 0)   -- E5, voice 1
+  local view, clip = song({
+    N(76, 0, 1),
+    N(77, 1, 1),
+    N(79, 2, 1),
+    N(77, 3, 1),
+    { pitch = 72, start = 0, length = 2, meta = { notation = held } },
+    { pitch = 72, start = 2, length = 2, meta = { notation = held } },
+  })
+  view:set(44, 0) -- E5, voice 1
   keys("i4ga<Esc>")
-  eq(sorted_notes(clip), "A5@0.5+0.5 C5@0+2 C5@2+2 F5@1+1 F5@3+1 G5@0+0.5 G5@2+1",
-    "eighths in voice 1 replace its E; the held C of voice 2 stays")
-  view:set(42, 2)   -- C5 on beat three, voice 2
+  eq(
+    sorted_notes(clip),
+    "A5@0.5+0.5 C5@0+2 C5@2+2 F5@1+1 F5@3+1 G5@0+0.5 G5@2+1",
+    "eighths in voice 1 replace its E; the held C of voice 2 stays"
+  )
+  view:set(42, 2) -- C5 on beat three, voice 2
   keys("i6b<Esc>")
-  eq(sorted_notes(clip), "A5@0.5+0.5 B4@2+2 C5@0+2 F5@1+1 F5@3+1 G5@0+0.5 G5@2+1",
-    "entering on the voice-2 note replaces it alone, and the melody over it stays")
+  eq(
+    sorted_notes(clip),
+    "A5@0.5+0.5 B4@2+2 C5@0+2 F5@1+1 F5@3+1 G5@0+0.5 G5@2+1",
+    "entering on the voice-2 note replaces it alone, and the melody over it stays"
+  )
   eq(require("notation.model").text(view:layout(), 1, 2), "h C5 h B4", "the new note is written in voice 2")
 end)
 
@@ -1856,4 +2231,3 @@ test("notation: : from a selection runs a command over it, and commands take bar
   paw.commands.exec("'<,'>notation.transpose 12")
   eq(notes_of(clip), "B4@0+1 C5@1+1 D4@2+1 E4@3+1 A4@4+4 B4@8+4", "'<,'> typed later names the last selection again")
 end)
-

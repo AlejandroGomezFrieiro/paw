@@ -45,19 +45,28 @@ closes the mixer.]],
     bass:add_device("synth", { wave = 2, cutoff = 600, release = 0.05 })
     local line = {}
     for i, root in ipairs({ "A1", "F1", "C2", "G1" }) do
-      for _, n in ipairs(look.pulse(root, 4, (i - 1) * 4)) do line[#line + 1] = n end
+      for _, n in ipairs(look.pulse(root, 4, (i - 1) * 4)) do
+        line[#line + 1] = n
+      end
     end
     bass:add_clip({ name = "bass", start = 0, length = 16, notes = line })
     local keys = paw.add_track({ name = "Keys", volume = -10 })
     keys:add_device("synth", { wave = 3, attack = 0.05, release = 0.4, cutoff = 1800 })
     local chords = {}
     for i, chord in ipairs({ { "A3", "C4", "E4" }, { "F3", "A3", "C4" }, { "G3", "C4", "E4" }, { "G3", "B3", "D4" } }) do
-      for _, n in ipairs(look.chord(chord, 4, (i - 1) * 4)) do chords[#chords + 1] = n end
+      for _, n in ipairs(look.chord(chord, 4, (i - 1) * 4)) do
+        chords[#chords + 1] = n
+      end
     end
     keys:add_clip({ name = "chords", start = 0, length = 16, notes = chords })
     local lead = paw.add_track({ name = "Lead", volume = -8 })
     lead:add_device("synth", { wave = 1, cutoff = 2400, release = 0.2 })
-    lead:add_clip({ name = "melody", start = 0, length = 16, notes = look.notes("E5:0:1 C5:1:1 A4:2:2 F4:4:1 A4:5:1 C5:6:2 E5:8:1 G5:9:1 E5:10:2 D5:12:2 B4:14:2") })
+    lead:add_clip({
+      name = "melody",
+      start = 0,
+      length = 16,
+      notes = look.notes("E5:0:1 C5:1:1 A4:2:2 F4:4:1 A4:5:1 C5:6:2 E5:8:1 G5:9:1 E5:10:2 D5:12:2 B4:14:2"),
+    })
     local echo = paw.add_track({ name = "Echo", volume = -6 })
     echo:add_device("delay", { mix = 1, feedback = 0.45 })
     paw.transport.loop_start, paw.transport.loop_end, paw.transport.loop_enabled = 0, 16, true
@@ -100,7 +109,9 @@ closes the mixer.]],
     {
       say = "Press `M` again to unmute Keys. Press `<C-w>c` to close the mixer.",
       keys = { "M", "<C-w>c" },
-      check = function(ctx, look) return look.became(ctx, "back", not look.track("Keys").mute and not look.visible("mixer")) end,
+      check = function(ctx, look)
+        return look.became(ctx, "back", not look.track("Keys").mute and not look.visible("mixer"))
+      end,
       done = "The arrange view gets the keys again, and the cursor is still on Keys. Here also, `+` `-` change the fader and `]` `[` change the pan.",
     },
     {

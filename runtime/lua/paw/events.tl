@@ -59,27 +59,29 @@ local record Paw
   try: Try
   limit: Limit
 end
-local paw = (_G as {string:Paw}).paw
+local paw = (_G as {string: Paw}).paw
 
-local handlers: {string:{Handler}} = {} -- pattern -> list of { id, fn, once }
+local handlers: {string: {Handler}} = {} -- pattern -> list of { id, fn, once }
 local next_id = 0
 
 --- The descriptor of an event whose payload is a `P`: Teal checks the
 --- handlers that `paw.on` is given for it, and what `paw.emit` sends.
 ---   local changed: paw.events.Event<OptionChanged> = paw.events.event("option.changed")
 function M.event<P>(name: string): M.Event<P>
-  return { name = name }
+  return {name = name}
 end
 
 --- The descriptor of a pattern of events (`track.*`, `*`): its handlers
 --- read nothing of the payload without a cast.
 function M.pattern(pattern: string): M.Event<Payload>
-  return { name = pattern }
+  return {name = pattern}
 end
 
 -- The name of an event as Lua gives it (text) or Teal does (a descriptor).
 local function name_of<P>(event: string | M.Event<P>): string
-  if event is string then return event end
+  if event is string then
+    return event
+  end
   return event.name
 end
 
@@ -90,29 +92,36 @@ function M.on<P>(event: M.Event<P>, fn: function(P, string), opts?: OnOptions): 
   assert(pattern is string and fn is function, "usage: paw.on(event, function)")
   next_id = next_id + 1
   handlers[pattern] = handlers[pattern] or {}
-  table.insert(handlers[pattern], { id = next_id, fn = fn as function(Payload, string), once = opts and opts.once, pattern = pattern })
+  table.insert(
+    handlers[pattern],
+    {id = next_id, fn = fn as function(Payload, string), once = opts and opts.once, pattern = pattern}
+  )
   return next_id
 end
 
 --- Listen for an event once: the handler is removed after its first call.
 function M.once<P>(event: M.Event<P>, fn: function(P, string)): integer
-  return M.on(event, fn, { once = true })
+  return M.on(event, fn, {once = true})
 end
 
 --- Stop a listener: `id` is the value that `paw.on` or `paw.once` returned.
 function M.off(id: integer)
   for _, list in pairs(handlers) do
     for i = #list, 1, -1 do
-      if list[i].id == id then table.remove(list, i) end
+      if list[i].id == id then
+        table.remove(list, i)
+      end
     end
   end
 end
 
 --- Every handler, by its handle: `{ pattern, fn }`.
-function M.handlers(): {integer:Handler}
-  local out: {integer:Handler} = {}
+function M.handlers(): {integer: Handler}
+  local out: {integer: Handler} = {}
   for _, list in pairs(handlers) do
-    for _, h in ipairs(list) do out[h.id] = h end
+    for _, h in ipairs(list) do
+      out[h.id] = h
+    end
   end
   return out
 end
@@ -121,7 +130,9 @@ end
 --- `*`). Use it for events that are expensive to make.
 function M.listened(name: string): boolean
   local family = name:match("^(.-)%.[^.]*$")
-  return (handlers[name] and #handlers[name] > 0) or (family and handlers[family .. ".*"] and #handlers[family .. ".*"] > 0) or false
+  return (handlers[name] and #handlers[name] > 0)
+    or (family and handlers[family .. ".*"] and #handlers[family .. ".*"] > 0)
+    or false
 end
 
 -- The first refusal: a handler that returned false, and why.
@@ -129,14 +140,22 @@ local refused: boolean
 local reason: string
 
 local function run(list: {Handler}, name: string, payload: Payload)
-  if not list then return end
+  if not list then
+    return
+  end
   -- Copy, so handlers may add or remove handlers while running.
   local copy: {Handler} = {}
-  for i = 1, #list do copy[i] = list[i] end
+  for i = 1, #list do
+    copy[i] = list[i]
+  end
   for _, h in ipairs(copy) do
-    if h.once then M.off(h.id) end
+    if h.once then
+      M.off(h.id)
+    end
     local ok, answer, why = paw.try(paw.limit.named, "a handler of `" .. name .. "`", h.fn as Listener, payload, name)
-    if ok and answer == false and not refused then refused, reason = true, why end
+    if ok and answer == false and not refused then
+      refused, reason = true, why
+    end
   end
 end
 
@@ -151,11 +170,15 @@ function M.emit<P>(event: string | M.Event<P>, payload?: P): boolean, string
   refused, reason = nil, nil
   run(handlers[name], name, data)
   local family = name:match("^(.-)%.[^.]*$")
-  if family then run(handlers[family .. ".*"], name, data) end
+  if family then
+    run(handlers[family .. ".*"], name, data)
+  end
   run(handlers["*"], name, data)
   local no, why = refused, reason
   refused, reason = outer, outer_reason
-  if no then return false, why end
+  if no then
+    return false, why
+  end
   return true
 end
 

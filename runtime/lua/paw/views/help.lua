@@ -27,16 +27,27 @@ local function collect(target)
   end
   local function plain(map) return not map.operator and not map.motion end
   local function join(a, b)
-    for _, map in ipairs(b) do a[#a + 1] = map end
+    for _, map in ipairs(b) do
+      a[#a + 1] = map
+    end
     return a
   end
   local own, global = of("n", plain)
   section(target .. " view", own)
   section("everywhere", global)
-  section("motions: alone, after an operator, or to stretch a selection", join(of("n", function(map) return map.motion end)))
-  section("operators: then a motion or text object, twice for whole rows, or on a selection", join(of("n", function(map) return map.operator end)))
+  section(
+    "motions: alone, after an operator, or to stretch a selection",
+    join(of("n", function(map) return map.motion end))
+  )
+  section(
+    "operators: then a motion or text object, twice for whole rows, or on a selection",
+    join(of("n", function(map) return map.operator end))
+  )
   section("text objects: after an operator, or in a selection", join(of("o", function(map) return map.object end)))
-  section("on a selection (v, V, <C-v>)", join(of("x", function(map) return not map.motion and not map.object and not paw.keymap.has("n", map) end)))
+  section(
+    "on a selection (v, V, <C-v>)",
+    join(of("x", function(map) return not map.motion and not map.object and not paw.keymap.has("n", map) end))
+  )
   section("insert mode", join(of("i")))
   return lines
 end
@@ -103,7 +114,9 @@ local function split(text, n)
   local i, count = 1, 0
   while i <= #text and count < n do
     i = i + 1
-    while i <= #text and text:byte(i) >= 128 and text:byte(i) < 192 do i = i + 1 end
+    while i <= #text and text:byte(i) >= 128 and text:byte(i) < 192 do
+      i = i + 1
+    end
     count = count + 1
   end
   return text:sub(1, i - 1), text:sub(i)
@@ -121,7 +134,9 @@ local function wrap(text, width)
     local at = head:match("^.*() ")
     if tail:sub(1, 1) == " " then
       tail = tail:sub(2)
-    elseif at and at > #text:match("^ *") then head, tail = text:sub(1, at - 1), text:sub(at + 1) end
+    elseif at and at > #text:match("^ *") then
+      head, tail = text:sub(1, at - 1), text:sub(at + 1)
+    end
     rows[#rows + 1] = head
     text = "  " .. tail
   end
@@ -134,7 +149,9 @@ pager.wrap = wrap
 function pager:render(buf)
   local rows = {}
   for _, line in ipairs(self.lines) do
-    for _, part in ipairs(wrap(line.text, math.max(8, buf.width - 2))) do rows[#rows + 1] = { text = part, style = line.style } end
+    for _, part in ipairs(wrap(line.text, math.max(8, buf.width - 2))) do
+      rows[#rows + 1] = { text = part, style = line.style }
+    end
   end
   self.scroll = paw.util.clamp(self.scroll, 0, math.max(0, #rows - buf.height))
   for row = 0, buf.height - 1 do

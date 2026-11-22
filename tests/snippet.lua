@@ -13,7 +13,9 @@ local function test(name, fn)
   T.test(name, function()
     local ok, err = xpcall(fn, debug.traceback)
     S.finish()
-    for _, n in ipairs({ "stack", "walk", "nothing", "where" }) do S.remove(n) end
+    for _, n in ipairs({ "stack", "walk", "nothing", "where" }) do
+      S.remove(n)
+    end
     if not ok then error(err, 0) end
   end)
 end
@@ -27,7 +29,9 @@ local function melody(clip)
     if a.start ~= b.start then return a.start < b.start end
     return a.pitch < b.pitch
   end)
-  for i, n in ipairs(notes) do notes[i] = string.format("%d@%g+%g", n.pitch, n.start, n.length) end
+  for i, n in ipairs(notes) do
+    notes[i] = string.format("%d@%g+%g", n.pitch, n.start, n.length)
+  end
   return table.concat(notes, " ")
 end
 
@@ -36,7 +40,8 @@ end
 --- says; `walk` a note on each beat of its count, going up.
 local function define()
   S.add({
-    name = "stack", desc = "a stacked chord at the cursor",
+    name = "stack",
+    desc = "a stacked chord at the cursor",
     choices = {
       { name = "interval", values = { "3", "4", "5" } },
       { name = "length", values = { "1", "2" } },
@@ -45,18 +50,22 @@ local function define()
       local i = tonumber(ctx.values.interval)
       local len = tonumber(ctx.values.length)
       local notes = {}
-      for k = 0, 2 do notes[#notes + 1] = { pitch = ctx.pitch + k * i, start = ctx.at, length = len } end
+      for k = 0, 2 do
+        notes[#notes + 1] = { pitch = ctx.pitch + k * i, start = ctx.at, length = len }
+      end
       return { notes = notes }
     end,
   })
   S.add({
-    name = "walk", desc = "one note a beat, going up",
+    name = "walk",
+    desc = "one note a beat, going up",
     expand = function(ctx)
       return { notes = { { pitch = ctx.pitch + math.floor(ctx.at - ctx.start), start = ctx.at, length = 1 } } }
     end,
   })
   S.add({
-    name = "nothing", desc = "never fits",
+    name = "nothing",
+    desc = "never fits",
     expand = function() return nil, "nothing fits here" end,
   })
 end
@@ -67,7 +76,9 @@ local function open(start)
   fresh()
   api.engine_restart({ backend = "null" })
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   define()
   local track = paw.add_track({ name = "Keys" })
   local clip = track:add_clip({ start = start or 0, length = 16, notes = {} })
@@ -195,7 +206,9 @@ test("snippet: the picker lists the snippets of the view, previews them and expa
   local state = paw.pick.state()
   eq(state ~= nil, true, "open")
   local names = {}
-  for _, line in ipairs(state.matches) do names[#names + 1] = line:match("^(%S+)") end
+  for _, line in ipairs(state.matches) do
+    names[#names + 1] = line:match("^(%S+)")
+  end
   eq(table.concat(names, " "), "nothing stack walk", "the snippets, by name")
   keys("sta")
   eq(paw.pick.state().matches[1]:match("^(%S+)"), "stack", "filtered")
@@ -221,10 +234,13 @@ test("snippet: works on a clip that starts later in the song, in project beats",
   local clip, roll = open(8)
   roll:set(62, 2)
   local seen
-  S.add({ name = "where", expand = function(ctx)
-    seen = ctx.at
-    return { notes = { { pitch = ctx.pitch, start = ctx.at, length = 0.5 } } }
-  end })
+  S.add({
+    name = "where",
+    expand = function(ctx)
+      seen = ctx.at
+      return { notes = { { pitch = ctx.pitch, start = ctx.at, length = 0.5 } } }
+    end,
+  })
   keys(":snippet where<CR>")
   eq(seen, 10, "ctx.at is in project beats")
   eq(melody(clip), "62@2+0.5", "written in the clip's beats")
@@ -256,7 +272,9 @@ test("snippet: the active snippet is drawn in the terminal and told to the windo
   api.scene_end(0, "snippet")
   local text = ""
   for _, row in ipairs(api.scene_cells(0, "snippet").rows) do
-    for _, run in ipairs(row) do text = text .. run.text end
+    for _, run in ipairs(row) do
+      text = text .. run.text
+    end
   end
   api.scene_forget(0)
   eq(text:find("stack · interval: 3 (1/3)", 1, true) ~= nil, true, "in the scene a window is sent")
@@ -278,26 +296,35 @@ end)
 test("snippet: files in a snippets directory are loaded, one set each", function()
   local dir = T.scratch .. "/snippets"
   os.execute("mkdir -p '" .. dir .. "'")
-  T.write_file(dir .. "/one.lua", [[
+  T.write_file(
+    dir .. "/one.lua",
+    [[
 return {
   { name = "file-a", desc = "from a list", expand = function(ctx) return { notes = {} } end },
   { name = "file-b", desc = "another", views = { "pianoroll", "arrange" }, expand = function(ctx) return { notes = {} } end },
 }
-]])
+]]
+  )
   T.write_file(dir .. "/two.lua", [[paw.snippet.add({ name = "file-c", expand = function() end })]])
   S.load_dir(dir, "config")
   eq(S.get("file-a").desc, "from a list", "a file returning a list")
   eq(S.get("file-c") ~= nil, true, "a file calling add")
   eq(S.get("file-a").source, "config", "from the configuration")
   local arrange = {}
-  for _, s in ipairs(S.offered("arrange")) do arrange[#arrange + 1] = s.name end
+  for _, s in ipairs(S.offered("arrange")) do
+    arrange[#arrange + 1] = s.name
+  end
   eq(table.concat(arrange, " "), "file-b", "offered where its views say")
-  for _, n in ipairs({ "file-a", "file-b", "file-c" }) do S.remove(n) end
+  for _, n in ipairs({ "file-a", "file-b", "file-c" }) do
+    S.remove(n)
+  end
 end)
 
 test("snippet: the command completes the names", function()
   open()
   local found = {}
-  for _, c in ipairs(paw.commands.complete("snippet st")) do found[#found + 1] = c.text or c end
+  for _, c in ipairs(paw.commands.complete("snippet st")) do
+    found[#found + 1] = c.text or c
+  end
   eq(table.concat(found, " "):find("stack") ~= nil, true, "stack: " .. table.concat(found, " "))
 end)

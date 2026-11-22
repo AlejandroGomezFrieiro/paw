@@ -73,7 +73,9 @@ function M.written(list, tempo, pitd)
     if after and note and beat < note.start + note.length then
       local s = shape_of(next_k)
       local ms = shapes.ms(beat - after.start, tempo)
-      if s.pts[1] and ms >= s.pts[1][1] then note, k = after, next_k end
+      if s.pts[1] and ms >= s.pts[1][1] then
+        note, k = after, next_k
+      end
     end
     if not note or beat > note.start + note.length + 1e-9 then return nil end
     local s = shape_of(k)
@@ -112,7 +114,9 @@ function M.warp(list, scroll, zoom, cw)
     if v <= knots[1][from] then return between(knots[1], nil, from, to, v) end
     local i = hint[from]
     if i > #knots or v < knots[i - 1][from] then i = 2 end
-    while i <= #knots and v > knots[i][from] do i = i + 1 end
+    while i <= #knots and v > knots[i][from] do
+      i = i + 1
+    end
     hint[from] = math.max(2, math.min(i, #knots))
     if i > #knots then return between(knots[#knots], nil, from, to, v) end
     return between(knots[i - 1], knots[i], from, to, v)
@@ -180,7 +184,9 @@ end
 function M.curve(g, px, o)
   local P = palette()
   local points = {}
-  for i, p in ipairs(o.points or {}) do points[i] = { beat = p[1], value = p[2], shape = "linear", tension = 0 } end
+  for i, p in ipairs(o.points or {}) do
+    points[i] = { beat = p[1], value = p[2], shape = "linear", tension = 0 }
+  end
   -- Up to the clip's end, as the notes go.
   local ppb = o.zoom * px.cell.w
   local w = math.min(px.w, floor((o.clip.length - o.scroll) * ppb + 0.5))
@@ -188,9 +194,15 @@ function M.curve(g, px, o)
   local part = { w = w, h = px.h, cell = px.cell, fg = px.fg, bg = px.bg }
   g = g:sub(0, 0, w, px.h)
   local _, Y = paw.plot.curve(g, part, {
-    points = points, from = o.clip.start + o.scroll, pixels_per_beat = ppb,
-    lo = o.info.min, hi = o.info.max, flat = #points == 0 and o.constant or nil,
-    color = P.green, guides = false, markers = false,
+    points = points,
+    from = o.clip.start + o.scroll,
+    pixels_per_beat = ppb,
+    lo = o.info.min,
+    hi = o.info.max,
+    flat = #points == 0 and o.constant or nil,
+    color = P.green,
+    guides = false,
+    markers = false,
   })
   -- The default, as a line across.
   g:rect(0, floor(Y(o.info.default)), w, 1, { fill = paw.plot.alpha(P.dim, 0.6) })

@@ -9,7 +9,9 @@ local act = paw.frontend.act
 local function sound(name)
   os.execute("mkdir -p '" .. T.scratch .. "/some where'")
   local s = {}
-  for i = 1, 4800 do s[i] = 0.25 end
+  for i = 1, 4800 do
+    s[i] = 0.25
+  end
   return T.write_wav(T.scratch .. "/some where/" .. name, s)
 end
 

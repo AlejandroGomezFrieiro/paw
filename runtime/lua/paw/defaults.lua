@@ -3,8 +3,20 @@
 -- there can be redefined from `init.lua` with the same calls. The order
 -- counts: a later part maps keys over an earlier one's.
 for _, part in ipairs({
-  "transport", "cursor", "tracks", "clips", "devices", "automation", "views", "project", "modal", "keys",
-  "sizes", "values", "lanes", "pickers",
+  "transport",
+  "cursor",
+  "tracks",
+  "clips",
+  "devices",
+  "automation",
+  "views",
+  "project",
+  "modal",
+  "keys",
+  "sizes",
+  "values",
+  "lanes",
+  "pickers",
 }) do
   require("paw.defaults." .. part)
 end

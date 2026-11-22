@@ -5,13 +5,17 @@ local test, eq = T.test, T.eq
 
 local function pager_text()
   local out = {}
-  for _, line in ipairs(paw.ui.views.pager.lines) do out[#out + 1] = line.text end
+  for _, line in ipairs(paw.ui.views.pager.lines) do
+    out[#out + 1] = line.text
+  end
   return table.concat(out, "\n")
 end
 
 local function levels(result)
   local out = {}
-  for _, item in ipairs(result.items) do out[#out + 1] = item.level end
+  for _, item in ipairs(result.items) do
+    out[#out + 1] = item.level
+  end
   return table.concat(out, " ")
 end
 
@@ -27,7 +31,11 @@ test("checkhealth: the core's checks each report, with a level and advice", func
     local r = paw.health.run(name)
     eq(#r.items > 0, true, name .. " says something")
     for _, item in ipairs(r.items) do
-      eq(({ ok = true, info = true, warn = true, error = true })[item.level], true, name .. "'s level " .. tostring(item.level))
+      eq(
+        ({ ok = true, info = true, warn = true, error = true })[item.level],
+        true,
+        name .. "'s level " .. tostring(item.level)
+      )
     end
   end
   local paw_check = paw.health.run("paw")
@@ -42,7 +50,11 @@ test("checkhealth: the command shows every check, or the ones named", function()
   local text = pager_text()
   paw.ui.close()
   for _, name in ipairs({ "paw", "audio", "plugins", "extensions" }) do
-    eq(text:find("\n" .. name .. ": ", 1, true) ~= nil or text:sub(1, #name + 2) == name .. ": ", true, name .. " is in it")
+    eq(
+      text:find("\n" .. name .. ": ", 1, true) ~= nil or text:sub(1, #name + 2) == name .. ": ",
+      true,
+      name .. " is in it"
+    )
   end
   eq(text:find("- WARN the null audio backend", 1, true) ~= nil, true, "levels shown as Neovim shows them")
   eq(text:find("    - start without --audio null", 1, true) ~= nil, true, "advice under its item")
@@ -53,7 +65,9 @@ test("checkhealth: the command shows every check, or the ones named", function()
   paw.ui.close()
   local completions = paw.commands.complete("checkhealth au")
   local found = false
-  for _, c in ipairs(completions) do found = found or (c.text or ""):match("audio$") ~= nil end
+  for _, c in ipairs(completions) do
+    found = found or (c.text or ""):match("audio$") ~= nil
+  end
   eq(found, true, "names complete")
 end)
 
@@ -69,7 +83,12 @@ test("checkhealth: the window says whether it draws on a graphics card, and why 
   eq(r.items[1].text:find("AMD Radeon 890M", 1, true) ~= nil, true, "it names the renderer")
   -- On the processor: said once when the window starts, with what to do.
   local before = paw.ui.messages[#paw.ui.messages]
-  paw.frontend.window_renderer_set({ renderer = "llvmpipe (LLVM 19.1.7, 256 bits)", version = "4.5", software = true, cause = "asked" })
+  paw.frontend.window_renderer_set({
+    renderer = "llvmpipe (LLVM 19.1.7, 256 bits)",
+    version = "4.5",
+    software = true,
+    cause = "asked",
+  })
   local said = paw.ui.messages[#paw.ui.messages]
   eq(paw.ui.messages[#paw.ui.messages - 1], before, "one message (the list keeps the last 500)")
   eq(said.level, "warn", "a warning")
@@ -80,7 +99,12 @@ test("checkhealth: the window says whether it draws on a graphics card, and why 
   eq(r.items[2].text:find("draws 15 frames a second", 1, true) ~= nil, true, "fewer on the processor")
   eq(r.items[1].advice[1]:find("PAW_GUI_RENDERER", 1, true) ~= nil, true, "the likely cause first")
   eq(#r.items[1].advice, 4, "and the other usual causes")
-  paw.frontend.window_renderer_set({ renderer = "llvmpipe (LLVM 19.1.7, 256 bits)", version = "4.5", software = true, cause = "driver" })
+  paw.frontend.window_renderer_set({
+    renderer = "llvmpipe (LLVM 19.1.7, 256 bits)",
+    version = "4.5",
+    software = true,
+    cause = "driver",
+  })
   eq(paw.health.run("window").items[1].advice[1]:find("driver", 1, true) ~= nil, true, "no driver or DRI3 first")
   paw.frontend.window_renderer = was
   read_errors()
@@ -89,13 +113,16 @@ end)
 test("checkhealth: an extension's check is its own, and a check that fails is an error of its own", function()
   local dir = T.scratch .. "/health-ext"
   os.execute("mkdir -p '" .. dir .. "'")
-  T.write_file(dir .. "/healthy.lua", [[
+  T.write_file(
+    dir .. "/healthy.lua",
+    [[
     paw.health.register("healthy", function(h)
       h.ok("all well")
       h.warn("but this", { "do that", "or the other" })
     end, { desc = "a test" })
     paw.health.register("broken", function(h) error("oops") end)
-  ]])
+  ]]
+  )
   paw.ext.load(dir .. "/healthy.lua")
   local r = paw.health.run("healthy")
   eq(levels(r), "ok warn", "what it reported")
@@ -128,8 +155,6 @@ test("checkhealth: the extensions check lists versions and requirements, and a f
   eq(found.text:find("cannot start", 1, true) ~= nil, true, "with its error")
   paw.ext.unload("health-bad")
   for _, name in ipairs({ "utau", "sampler" }) do
-    if paw.health.checks[name] then
-      eq(#paw.health.run(name).items > 0, true, name .. "'s own check reports")
-    end
+    if paw.health.checks[name] then eq(#paw.health.run(name).items > 0, true, name .. "'s own check reports") end
   end
 end)

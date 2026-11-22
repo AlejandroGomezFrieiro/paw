@@ -48,7 +48,11 @@ local type UiModule = require("paw.ui")
 --- What a scope is made from. A group or a region scope follows its source:
 --- a track added to the group, or the region moved, changes the scope.
 local enum Kind
-  "group" "track" "tracks" "region" "range"
+  "group"
+  "track"
+  "tracks"
+  "region"
+  "range"
 end
 
 --- A scope: what a view shows of the song. `id` is the group, track or
@@ -85,7 +89,7 @@ local type TrackRef = integer | contracts.TrackHandle
 
 -- paw/routes.lua and paw/freeze.lua, still in Lua: the parts read here.
 local record Routes
-  reached: function(id: integer): {integer:boolean}
+  reached: function(id: integer): {integer: boolean}
 end
 local type RenderOptions = {string: boolean | number | string}
 local record Freeze
@@ -111,7 +115,7 @@ local record Paw is partial.Paw
   emit: function(name: string, payload: events.Payload)
   render: function(path: string, opts: RenderOptions)
 end
-local paw = (_G as {string:Paw}).paw
+local paw = (_G as {string: Paw}).paw
 
 local record M
   type Scope = Scope
@@ -119,8 +123,12 @@ local record M
 end
 
 local opt = options.opt
-options.define("scope_rest", "play", { values = { "play", "mute", "frozen" } }) -- what the tracks outside a scope do: "play", "mute" or "frozen"
-options.define("scopebars", "both", { values = { "local", "song", "both" } }) -- bar numbers in a scope with time: "local" (from 1 at its start), "song", or "both" (local, and the song's on a second ruler row)
+options.define(
+  "scope_rest", "play", {values = {"play", "mute", "frozen"}}
+) -- what the tracks outside a scope do: "play", "mute" or "frozen"
+options.define(
+  "scopebars", "both", {values = {"local", "song", "both"}}
+) -- bar numbers in a scope with time: "local" (from 1 at its start), "song", or "both" (local, and the song's on a second ruler row)
 options.define("scopeloop", true) -- entering a scope with time loops its time
 
 --- The payload of `scope.changed`: the group of the scope, if any.
@@ -141,28 +149,46 @@ local option_changed: events.Event<Option> = events.event("option.changed")
 local tab_enter: events.Event<events.Payload> = events.event("tab.enter")
 local render_done: events.Event<kernel.RenderEnd> = events.event("render.done")
 
-local function L(): LayoutModule return paw.layout end
-local function groups(): GroupsModule return paw.groups end
+local function L(): LayoutModule
+  return paw.layout
+end
+local function groups(): GroupsModule
+  return paw.groups
+end
 
 local function id_of(track: TrackRef): integer
-  if track is contracts.TrackHandle then return track.id end
+  if track is contracts.TrackHandle then
+    return track.id
+  end
   return track
 end
 
-local function exists(id: integer): boolean return id ~= nil and (pcall(api.track_get, id)) end
+local function exists(id: integer): boolean
+  return id ~= nil and (pcall(api.track_get, id))
+end
 
-local function name_of(id: integer): string return (api.track_get as function(integer, string): string)(id, "name") end
+local function name_of(id: integer): string
+  return (api.track_get as function(integer, string): string)(id, "name")
+end
 
 local function region(id: integer): MarkersModule.Marker
-  local m = paw.markers and paw.markers.find({ id = id })
-  if m and m.length then return m end
+  local m = paw.markers and paw.markers.find({id = id})
+  if m and m.length then
+    return m
+  end
 end
 
 --- Whether the source of one level is still there.
 local function valid(s: Scope): boolean
-  if s.kind == "group" then return exists(s.id) and groups().is_group(s.id) end
-  if s.kind == "track" then return exists(s.id) end
-  if s.kind == "region" then return region(s.id) ~= nil end
+  if s.kind == "group" then
+    return exists(s.id) and groups().is_group(s.id)
+  end
+  if s.kind == "track" then
+    return exists(s.id)
+  end
+  if s.kind == "region" then
+    return region(s.id) ~= nil
+  end
   return true
 end
 
@@ -170,7 +196,9 @@ end
 local function tab_of(win?: LayoutModule.Node): ScopedTab
   if win then
     for _, tw in ipairs(L().all_windows()) do
-      if tw.win == win then return paw.ui.tabs[tw.tab] as ScopedTab end
+      if tw.win == win then
+        return paw.ui.tabs[tw.tab] as ScopedTab
+      end
     end
   end
   return L().tab() as ScopedTab
@@ -181,14 +209,18 @@ end
 function M.current(win?: LayoutModule.Node): Scope
   local t = tab_of(win)
   local s = t and t.scope
-  while s and not valid(s) do s = s.parent end
+  while s and not valid(s) do
+    s = s.parent
+  end
   return s
 end
 
 --- The scope of a tab, for the frontends that draw each tab.
 function M.of_tab(tab: LayoutModule.Tab): Scope
   local s = (tab as ScopedTab).scope
-  while s and not valid(s) do s = s.parent end
+  while s and not valid(s) do
+    s = s.parent
+  end
   return s
 end
 
@@ -197,7 +229,9 @@ end
 function M.group(s?: Scope): integer
   s = s or M.current()
   while s do
-    if s.kind == "group" and valid(s) then return s.id end
+    if s.kind == "group" and valid(s) then
+      return s.id
+    end
     s = s.parent
   end
 end
@@ -207,7 +241,9 @@ local function own_contains(s: Scope, id: integer): boolean
   if s.kind == "group" then
     local at, steps = id, 0
     while at and steps < 32 do
-      if at == s.id then return true end
+      if at == s.id then
+        return true
+      end
       at, steps = groups().of(at), steps + 1
     end
     return false
@@ -215,7 +251,9 @@ local function own_contains(s: Scope, id: integer): boolean
     return id == s.id
   elseif s.tracks then
     for _, other in ipairs(s.tracks) do
-      if other == id then return true end
+      if other == id then
+        return true
+      end
     end
     return false
   end
@@ -224,7 +262,9 @@ end
 
 --- A scope as given: a scope, a group's id, or nil for the current one.
 local function resolve(s: Scope | integer): Scope
-  if s is integer then return { kind = "group", id = s } end
+  if s is integer then
+    return {kind = "group", id = s}
+  end
   return s or M.current()
 end
 
@@ -235,7 +275,9 @@ function M.contains(track: TrackRef, s?: Scope | integer): boolean
   local scope = resolve(s)
   local id = id_of(track)
   while scope do
-    if valid(scope) and not own_contains(scope, id) then return false end
+    if valid(scope) and not own_contains(scope, id) then
+      return false
+    end
     scope = scope.parent
   end
   return true
@@ -245,7 +287,9 @@ end
 function M.limits_tracks(s?: Scope | integer): boolean
   local scope = resolve(s)
   while scope do
-    if scope.kind ~= "region" and not (scope.kind == "range" and not scope.tracks) then return true end
+    if scope.kind ~= "region" and not (scope.kind == "range" and not scope.tracks) then
+      return true
+    end
     scope = scope.parent
   end
   return false
@@ -256,10 +300,14 @@ end
 function M.tracks(s?: Scope | integer): {integer}
   local scope = resolve(s)
   local list = api.track_list()
-  if not (scope and M.limits_tracks(scope)) then return list end
+  if not (scope and M.limits_tracks(scope)) then
+    return list
+  end
   local out: {integer} = {}
   for _, id in ipairs(list) do
-    if M.contains(id, scope) then out[#out + 1] = id end
+    if M.contains(id, scope) then
+      out[#out + 1] = id
+    end
   end
   return out
 end
@@ -268,7 +316,9 @@ end
 local function own_span(s: Scope): number, number
   if s.kind == "region" then
     local m = region(s.id)
-    if m then return m.beat, m.beat + m.length end
+    if m then
+      return m.beat, m.beat + m.length
+    end
   elseif s.from and s.to then
     return s.from, s.to
   end
@@ -288,7 +338,9 @@ function M.span(s?: Scope | integer): number, number
     end
     scope = scope.parent
   end
-  if from then return from, math.max(from, to) end
+  if from then
+    return from, math.max(from, to)
+  end
 end
 
 --- The levels of a scope's path, from the outermost to it.
@@ -296,7 +348,9 @@ function M.path(s?: Scope): {Scope}
   local out: {Scope} = {}
   local at = s or M.current()
   while at do
-    if valid(at) then table.insert(out, 1, at) end
+    if valid(at) then
+      table.insert(out, 1, at)
+    end
     at = at.parent
   end
   return out
@@ -304,8 +358,10 @@ end
 
 --- The path in words: `Song › Bridge › Strings`.
 function M.breadcrumb(s?: Scope): string
-  local names = { "Song" }
-  for _, level in ipairs(M.path(s)) do names[#names + 1] = level.name end
+  local names = {"Song"}
+  for _, level in ipairs(M.path(s)) do
+    names[#names + 1] = level.name
+  end
   return table.concat(names, " › ")
 end
 
@@ -316,23 +372,33 @@ end
 --- time, or with `scopebars=song`. A scope's bars are the song's (its meter
 --- map), counted from the bar its time starts in.
 function M.bar_offset(s?: Scope): integer
-  if opt.scopebars == "song" then return 0 end
+  if opt.scopebars == "song" then
+    return 0
+  end
   local from = M.span(s)
-  if not from then return 0 end
+  if not from then
+    return 0
+  end
   return paw.time.bar_of(from) - 1
 end
 
 --- The bar the current scope shows for a bar of the song.
-function M.local_bar(song_bar: integer): integer return song_bar - M.bar_offset() end
+function M.local_bar(song_bar: integer): integer
+  return song_bar - M.bar_offset()
+end
 
 --- The bar of the song for a bar as the current scope shows it.
-function M.song_bar(local_bar: integer): integer return local_bar + M.bar_offset() end
+function M.song_bar(local_bar: integer): integer
+  return local_bar + M.bar_offset()
+end
 
 --- A place as the scope numbers it: `bar.beat.hundredths`, as `paw.time.format`.
 function M.format(beat: number): string
   local bar, b, frac = api.tempo_bbt(beat)
   local part = math.floor(frac * 100 + 0.5)
-  if part >= 100 then part = 99 end
+  if part >= 100 then
+    part = 99
+  end
   return string.format("%d.%d.%02d", bar + 1 - M.bar_offset(), b + 1, part)
 end
 
@@ -340,21 +406,29 @@ end
 
 --- A group by its id, its track, or its name (or part of it).
 function M.find(which: TrackRef | string): integer
-  if which == nil then return nil end
+  if which == nil then
+    return nil
+  end
   local id: integer
   if which is string then
     id = math.tointeger(tonumber(which))
   else
     id = id_of(which)
   end
-  if id then return groups().is_group(id) and id or nil end
+  if id then
+    return groups().is_group(id) and id or nil
+  end
   local wanted = (which as string):lower()
   local partial_match: integer
   for _, other in ipairs(api.track_list()) do
     if groups().is_group(other) then
       local name = name_of(other):lower()
-      if name == wanted then return other end
-      if not partial_match and name:find(wanted, 1, true) then partial_match = other end
+      if name == wanted then
+        return other
+      end
+      if not partial_match and name:find(wanted, 1, true) then
+        partial_match = other
+      end
     end
   end
   return partial_match
@@ -363,9 +437,13 @@ end
 --- The group of a track when you narrow: the track itself if it is a group.
 --- If not, the group that contains it.
 function M.group_at(track: TrackRef): integer
-  if not track then return nil end
+  if not track then
+    return nil
+  end
   local id = id_of(track)
-  if groups().is_group(id) then return id end
+  if groups().is_group(id) then
+    return id
+  end
   return groups().of(id)
 end
 
@@ -373,27 +451,39 @@ end
 --- a group or a region whose name starts with it. A number is a group's id.
 function M.named(which: string | integer): Scope
   if which is integer then
-    return groups().is_group(which) and { kind = "group", id = which, name = name_of(which) } or nil
+    return groups().is_group(which) and {kind = "group", id = which, name = name_of(which)} or nil
   end
   local wanted = (which as string):lower()
   local regions = paw.markers and paw.markers.regions() or {}
   for _, id in ipairs(api.track_list()) do
-    if groups().is_group(id) and name_of(id):lower() == wanted then return { kind = "group", id = id, name = name_of(id) } end
+    if groups().is_group(id) and name_of(id):lower() == wanted then
+      return {kind = "group", id = id, name = name_of(id)}
+    end
   end
   for _, m in ipairs(regions) do
-    if m.name:lower() == wanted then return { kind = "region", id = m.id, name = m.name } end
+    if m.name:lower() == wanted then
+      return {kind = "region", id = m.id, name = m.name}
+    end
   end
   local g = M.find(which)
-  if g then return { kind = "group", id = g, name = name_of(g) } end
+  if g then
+    return {kind = "group", id = g, name = name_of(g)}
+  end
   for _, m in ipairs(regions) do
-    if m.name:lower():find(wanted, 1, true) == 1 then return { kind = "region", id = m.id, name = m.name } end
+    if m.name:lower():find(wanted, 1, true) == 1 then
+      return {kind = "region", id = m.id, name = m.name}
+    end
   end
 end
 
 --- The name a scope shows when it has none.
 local function name_for(s: Scope): string
-  if s.name then return s.name end
-  if (s.kind == "group" or s.kind == "track") and exists(s.id) then return name_of(s.id) end
+  if s.name then
+    return s.name
+  end
+  if (s.kind == "group" or s.kind == "track") and exists(s.id) then
+    return name_of(s.id)
+  end
   if s.kind == "region" then
     local m = region(s.id)
     return m and m.name
@@ -402,10 +492,18 @@ local function name_for(s: Scope): string
 end
 
 local function same(a: Scope, b: Scope): boolean
-  if a == b then return true end
-  if not (a and b) then return false end
-  if a.kind ~= b.kind or a.id ~= b.id or a.from ~= b.from or a.to ~= b.to then return false end
-  if table.concat(a.tracks or {}, ",") ~= table.concat(b.tracks or {}, ",") then return false end
+  if a == b then
+    return true
+  end
+  if not (a and b) then
+    return false
+  end
+  if a.kind ~= b.kind or a.id ~= b.id or a.from ~= b.from or a.to ~= b.to then
+    return false
+  end
+  if table.concat(a.tracks or {}, ",") ~= table.concat(b.tracks or {}, ",") then
+    return false
+  end
   return same(a.parent, b.parent)
 end
 
@@ -413,30 +511,40 @@ end
 --- on one outside, and in its time.
 local function cursor_inside()
   local s = M.current()
-  if not s then return end
+  if not s then
+    return
+  end
   local cursor = paw.cursor
   local at = cursor.track_id()
   if not (at and M.contains(at)) then
     local first = M.tracks()[1]
-    if first then cursor.set_track(first) end
+    if first then
+      cursor.set_track(first)
+    end
   end
   local from, to = M.span()
-  if from and (cursor.beat < from or cursor.beat > to) then cursor.set_beat(from) end
+  if from and (cursor.beat < from or cursor.beat > to) then
+    cursor.set_beat(from)
+  end
 end
 
 --- The loop of a scope with time, while its tab is in front (`scopeloop`):
 --- what was set before is kept, to come back when the scope is left.
 local function loop_in(t: ScopedTab)
   local from, to = M.span(t.scope)
-  if not (from and to > from and opt.scopeloop) then return end
+  if not (from and to > from and opt.scopeloop) then
+    return
+  end
   local tr = paw.transport
-  t.loop_was = t.loop_was or { start = tr.loop_start, stop = tr.loop_end, enabled = tr.loop_enabled }
+  t.loop_was = t.loop_was or {start = tr.loop_start, stop = tr.loop_end, enabled = tr.loop_enabled}
   tr.loop_start, tr.loop_end, tr.loop_enabled = from, to, true
 end
 
 local function loop_out(t: ScopedTab)
   local was = t.loop_was
-  if not was then return end
+  if not was then
+    return
+  end
   t.loop_was = nil
   local tr = paw.transport
   tr.loop_start, tr.loop_end, tr.loop_enabled = was.start, was.stop, was.enabled
@@ -447,9 +555,11 @@ local function show(t: ScopedTab, s: Scope)
   loop_out(t)
   t.scope = s
   t.name = s and s.name or nil
-  if not s then t.from = nil end
+  if not s then
+    t.from = nil
+  end
   loop_in(t)
-  events.emit(changed, { scope = M.group(s) })
+  events.emit(changed, {scope = M.group(s)})
   cursor_inside()
   api.ui_redraw()
 end
@@ -457,9 +567,13 @@ end
 --- Why a scope inside another would show nothing, or nil.
 local function empty_inside(s: Scope): string
   local tracks = M.tracks(s)
-  if #tracks == 0 then return string.format("no track of %s is in %s", s.name, s.parent.name) end
+  if #tracks == 0 then
+    return string.format("no track of %s is in %s", s.name, s.parent.name)
+  end
   local from, to = M.span(s)
-  if from and to <= from then return string.format("%s and %s have no time in common", s.name, s.parent.name) end
+  if from and to <= from then
+    return string.format("%s and %s have no time in common", s.name, s.parent.name)
+  end
 end
 
 --- Enter a scope (`{ kind, id, tracks, from, to, name }`). In a tab that
@@ -470,10 +584,19 @@ end
 function M.enter(spec: Scope): Scope
   assert(spec and spec.kind, "a scope has a kind")
   local s: Scope = {
-    kind = spec.kind, id = spec.id, tracks = spec.tracks, from = spec.from, to = spec.to, name = spec.name,
+    kind = spec.kind,
+    id = spec.id,
+    tracks = spec.tracks,
+    from = spec.from,
+    to = spec.to,
+    name = spec.name,
   }
-  if not valid(s) then error("no " .. s.kind .. " " .. tostring(s.id), 0) end
-  if s.kind == "range" and s.from and not (s.to and s.to > s.from) then error("a range ends after it starts", 0) end
+  if not valid(s) then
+    error("no " .. s.kind .. " " .. tostring(s.id), 0)
+  end
+  if s.kind == "range" and s.from and not (s.to and s.to > s.from) then
+    error("a range ends after it starts", 0)
+  end
   s.name = name_for(s)
   local t = L().tab() as ScopedTab
   local here = M.current()
@@ -488,18 +611,24 @@ function M.enter(spec: Scope): Scope
     return false
   end
   if here then
-    if here.kind == s.kind and here.id ~= nil and here.id == s.id then return here end
+    if here.kind == s.kind and here.id ~= nil and here.id == s.id then
+      return here
+    end
     s.parent = here
     local why = empty_inside(s)
     if why then
       s.parent = nil
-      if shown_in_tab() then return s end
+      if shown_in_tab() then
+        return s
+      end
       error(why, 0)
     end
     show(t, s)
     return s
   end
-  if shown_in_tab() then return s end
+  if shown_in_tab() then
+    return s
+  end
   local from = t as LayoutModule.Tab
   local nt = L().tab_copy(s.name) as ScopedTab
   nt.from = from
@@ -515,9 +644,11 @@ function M.narrow(which: TrackRef | string): LayoutModule.Tab
     s = M.named(which)
   elseif which ~= nil then
     local g = M.find(which)
-    s = g and { kind = "group", id = g, name = name_of(g) } or nil
+    s = g and {kind = "group", id = g, name = name_of(g)} or nil
   end
-  if not s then error(which == nil and "not in a group" or ("no group or region `" .. tostring(which) .. "`"), 0) end
+  if not s then
+    error(which == nil and "not in a group" or ("no group or region `" .. tostring(which) .. "`"), 0)
+  end
   M.enter(s)
   return L().tab()
 end
@@ -530,7 +661,9 @@ function M.widen(top?: boolean): boolean
   local u = paw.ui
   local t = L().tab() as ScopedTab
   local s = M.current()
-  if not s then return false end
+  if not s then
+    return false
+  end
   if s.parent and not top then
     show(t, s.parent)
     return true
@@ -541,7 +674,9 @@ function M.widen(top?: boolean): boolean
     show(t, nil)
   elseif back then
     for i, other in ipairs(u.tabs) do
-      if other == back then L().tab_go(i) end
+      if other == back then
+        L().tab_go(i)
+      end
     end
   end
   api.ui_redraw()
@@ -549,32 +684,47 @@ function M.widen(top?: boolean): boolean
 end
 
 -- A tab follows its scope's name. A tab whose scope is taken away is wide again.
-events.on(kernel.track_changed, function(event: kernel.TrackId)
-  for _, tab in ipairs(paw.ui.tabs) do
-    local s = (tab as ScopedTab).scope
-    if s and s.kind ~= "region" and s.kind ~= "range" and s.id == event.id and exists(event.id) then
-      s.name = name_of(event.id)
-      tab.name = s.name
+events.on(
+  kernel.track_changed,
+  function(event: kernel.TrackId)
+    for _, tab in ipairs(paw.ui.tabs) do
+      local s = (tab as ScopedTab).scope
+      if s and s.kind ~= "region" and s.kind ~= "range" and s.id == event.id and exists(event.id) then
+        s.name = name_of(event.id)
+        tab.name = s.name
+      end
     end
   end
-end)
-events.on(kernel.track_removed, function(event: kernel.TrackId)
-  for _, tab in ipairs(paw.ui.tabs) do
-    local t = tab as ScopedTab
-    if t.scope and not M.of_tab(tab) then t.scope, t.from, t.name = nil, nil, nil end
-    if t.scope and t.scope.kind == "group" and t.scope.id == event.id then t.name = nil end
+)
+events.on(
+  kernel.track_removed,
+  function(event: kernel.TrackId)
+    for _, tab in ipairs(paw.ui.tabs) do
+      local t = tab as ScopedTab
+      if t.scope and not M.of_tab(tab) then
+        t.scope, t.from, t.name = nil, nil, nil
+      end
+      if t.scope and t.scope.kind == "group" and t.scope.id == event.id then
+        t.name = nil
+      end
+    end
   end
-end)
+)
 
 -- A track added in a scope of a group goes into the group, so that it stays
 -- in sight (undo and opening a project put tracks back where they were).
-events.on(added, function(event: Added)
-  if event.restored or not exists(event.id) then return end
-  local g = M.group()
-  if g and not M.contains(event.id) and not paw.vca.is_vca(event.id) then
-    pcall(groups().add, event.id, g)
+events.on(
+  added,
+  function(event: Added)
+    if event.restored or not exists(event.id) then
+      return
+    end
+    local g = M.group()
+    if g and not M.contains(event.id) and not paw.vca.is_vca(event.id) then
+      pcall(groups().add, event.id, g)
+    end
   end
-end)
+)
 
 -- The rest of the song ---------------------------------------------------------------
 
@@ -591,15 +741,15 @@ end
 local record Applied
   scope: Scope
   audible: string
-  hold: {integer:string}
+  hold: {integer: string}
 end
-local held: {integer:Held} = {}
-local pending: {string:Pending} = {}
+local held: {integer: Held} = {}
+local pending: {string: Pending} = {}
 -- Edits since the start, by track: a part of the rest whose tracks are
 -- edited is rendered again.
-local gens: {integer:integer} = {}
-local applied: Applied = { hold = {} }  -- what the engine was last told
-local made = 0      -- files rendered, for their names
+local gens: {integer: integer} = {}
+local applied: Applied = {hold = {}} -- what the engine was last told
+local made = 0 -- files rendered, for their names
 
 local function held_dir(): string
   local dir = api.env().data_dir .. "/paw/held"
@@ -613,14 +763,20 @@ end
 --- through (its groups, and a bus that its sends reach). They are not empty.
 function M.rest_parts(s?: Scope | integer): {integer}
   local scope = resolve(s)
-  if not (scope and M.limits_tracks(scope)) then return {} end
-  local inside: {integer:boolean} = {}
-  for _, id in ipairs(M.tracks(scope)) do inside[id] = true end
+  if not (scope and M.limits_tracks(scope)) then
+    return {}
+  end
+  local inside: {integer: boolean} = {}
+  for _, id in ipairs(M.tracks(scope)) do
+    inside[id] = true
+  end
   -- The scope's groups and wherever its sound goes carry it: they play live.
-  local carries: {integer:boolean} = {}
-  local lineage: {integer:boolean} = {}
+  local carries: {integer: boolean} = {}
+  local lineage: {integer: boolean} = {}
   for id in pairs(inside) do
-    for to in pairs(paw.routes.reached(id)) do carries[to] = true end
+    for to in pairs(paw.routes.reached(id)) do
+      carries[to] = true
+    end
     local at = groups().of(id)
     while at and not inside[at] do
       lineage[at] = true
@@ -628,9 +784,13 @@ function M.rest_parts(s?: Scope | integer): {integer}
     end
   end
   local function sounds(id: integer): boolean
-    if #api.clip_list(id) > 0 then return true end
+    if #api.clip_list(id) > 0 then
+      return true
+    end
     for _, member in ipairs(groups().members(id)) do
-      if sounds(member) then return true end
+      if sounds(member) then
+        return true
+      end
     end
     return false
   end
@@ -638,8 +798,15 @@ function M.rest_parts(s?: Scope | integer): {integer}
   for _, id in ipairs(api.track_list()) do
     local parent = groups().of(id)
     local top = parent == nil or lineage[parent]
-    if top and not inside[id] and not lineage[id] and not carries[id] and not paw.vca.is_vca(id)
-      and not paw.freeze.state(id) and sounds(id) then
+    if
+      top
+      and not inside[id]
+      and not lineage[id]
+      and not carries[id]
+      and not paw.vca.is_vca(id)
+      and not paw.freeze.state(id)
+      and sounds(id)
+    then
       out[#out + 1] = id
     end
   end
@@ -649,19 +816,23 @@ end
 local function gen_of(track: integer): integer
   -- A part's generation counts the edits of every track inside it.
   local n = gens[track] or 0
-  for _, member in ipairs(groups().members(track)) do n = n + gen_of(member) end
+  for _, member in ipairs(groups().members(track)) do
+    n = n + gen_of(member)
+  end
   return n
 end
 
 --- Render a part of the rest in the background, unless it is being rendered.
 local function render_part(id: integer)
   for _, p in pairs(pending) do
-    if p.id == id then return end
+    if p.id == id then
+      return
+    end
   end
   made = made + 1
   local path = string.format("%s/%d-%d-%d.wav", held_dir(), api.env().pid, id, made)
-  pending[path] = { id = id, gen = gen_of(id) }
-  local ok, err = pcall(paw.render, path, paw.freeze.render_opts(id, { background = true })) as (boolean, string)
+  pending[path] = {id = id, gen = gen_of(id)}
+  local ok, err = pcall(paw.render, path, paw.freeze.render_opts(id, {background = true})) as (boolean, string)
   if not ok then
     pending[path] = nil
     paw.notify("could not freeze " .. name_of(id) .. " for the scope: " .. tostring(err), "warn")
@@ -673,7 +844,9 @@ end
 --- terminal or a window) selected.
 function M.apply(s?: Scope | integer)
   local scope: Scope = s is integer and resolve(s) or s as Scope
-  if scope and not valid(scope) then scope = nil end
+  if scope and not valid(scope) then
+    scope = nil
+  end
   applied.scope = scope
   local rest = opt.scope_rest
   local narrowed = scope and M.limits_tracks(scope)
@@ -683,7 +856,7 @@ function M.apply(s?: Scope | integer)
     api.engine_audible(audible and tracks or nil)
     applied.audible = audible
   end
-  local want: {integer:string} = {}
+  local want: {integer: string} = {}
   if narrowed and rest == "frozen" then
     for _, id in ipairs(M.rest_parts(scope)) do
       local h = held[id]
@@ -696,7 +869,9 @@ function M.apply(s?: Scope | integer)
   end
   for id, file in pairs(applied.hold) do
     if want[id] ~= file then
-      if exists(id) then pcall(api.engine_hold, id, nil) end
+      if exists(id) then
+        pcall(api.engine_hold, id, nil)
+      end
       applied.hold[id] = nil
     end
   end
@@ -711,34 +886,63 @@ end
 --- The parts of the rest the engine plays from files now.
 function M.held(): {integer}
   local out: {integer} = {}
-  for id in pairs(applied.hold) do out[#out + 1] = id end
+  for id in pairs(applied.hold) do
+    out[#out + 1] = id
+  end
   table.sort(out)
   return out
 end
 
-events.on(render_done, function(info: kernel.RenderEnd)
-  local p = pending[info.path]
-  if not p then return end
-  pending[info.path] = nil
-  local old = held[p.id]
-  if old and old.file ~= info.path then os.remove(old.file) end
-  held[p.id] = { file = info.path, gen = p.gen }
-  M.apply(applied.scope)
-end)
-for _, ev in ipairs({ kernel.render_failed, kernel.render_cancelled }) do
-  events.on(ev, function(info: kernel.RenderEnd)
-    if info.path then pending[info.path] = nil else pending = {} end
-  end)
+events.on(
+  render_done,
+  function(info: kernel.RenderEnd)
+    local p = pending[info.path]
+    if not p then
+      return
+    end
+    pending[info.path] = nil
+    local old = held[p.id]
+    if old and old.file ~= info.path then
+      os.remove(old.file)
+    end
+    held[p.id] = {file = info.path, gen = p.gen}
+    M.apply(applied.scope)
+  end
+)
+for _, ev in ipairs({kernel.render_failed, kernel.render_cancelled}) do
+  events.on(
+    ev,
+    function(info: kernel.RenderEnd)
+      if info.path then
+        pending[info.path] = nil
+      else
+        pending = {}
+      end
+    end
+  )
 end
 
 -- An edit to a track makes what was rendered of it out of date.
 local function touched(event: kernel.Item)
   local id = event.track or event.id
-  if not id then return end
+  if not id then
+    return
+  end
   gens[id] = (gens[id] or 0) + 1
 end
-for _, ev in ipairs({ kernel.clip_added, kernel.clip_changed, kernel.clip_removed, kernel.device_added, kernel.device_changed,
-    kernel.device_removed, kernel.lane_added, kernel.lane_changed, kernel.lane_removed }) do
+for _, ev in ipairs(
+  {
+    kernel.clip_added,
+    kernel.clip_changed,
+    kernel.clip_removed,
+    kernel.device_added,
+    kernel.device_changed,
+    kernel.device_removed,
+    kernel.lane_added,
+    kernel.lane_changed,
+    kernel.lane_removed,
+  }
+) do
   events.on(ev, touched)
 end
 
@@ -762,21 +966,33 @@ local function follow()
   paw.frontend.refresh()
   M.apply(M.current())
 end
-events.on(tab_enter, function()
-  -- The loop is the scope's while its tab is in front.
-  for _, tab in ipairs(paw.ui.tabs) do
-    if tab ~= L().tab() then loop_out(tab as ScopedTab) end
+events.on(
+  tab_enter,
+  function()
+    -- The loop is the scope's while its tab is in front.
+    for _, tab in ipairs(paw.ui.tabs) do
+      if tab ~= L().tab() then
+        loop_out(tab as ScopedTab)
+      end
+    end
+    loop_in(L().tab() as ScopedTab)
+    follow()
   end
-  loop_in(L().tab() as ScopedTab)
-  follow()
-end)
+)
 events.on(changed, follow)
-events.on(option_changed, function(e: Option)
-  if e.name == "scope_rest" then M.apply(M.current()) end
-end)
+events.on(
+  option_changed,
+  function(e: Option)
+    if e.name == "scope_rest" then
+      M.apply(M.current())
+    end
+  end
+)
 -- Tracks that come, go or change places change what the rest is.
 local function again()
-  if applied.scope and opt.scope_rest ~= "play" then M.apply(applied.scope) end
+  if applied.scope and opt.scope_rest ~= "play" then
+    M.apply(applied.scope)
+  end
 end
 events.on(kernel.track_added, again)
 events.on(kernel.track_removed, again)
@@ -784,16 +1000,21 @@ events.on(kernel.track_moved, again)
 events.on(kernel.clip_added, again)
 events.on(kernel.clip_removed, again)
 -- Another project: nothing of the last one is held.
-events.on(kernel.project_loaded, function()
-  held, pending, gens = {}, {}, {}
-  for _, tab in ipairs(paw.ui.tabs) do
-    local t = tab as ScopedTab
-    t.scope, t.loop_was = nil, nil
+events.on(
+  kernel.project_loaded,
+  function()
+    held, pending, gens = {}, {}, {}
+    for _, tab in ipairs(paw.ui.tabs) do
+      local t = tab as ScopedTab
+      t.scope, t.loop_was = nil, nil
+    end
+    applied = {hold = {}}
+    api.engine_audible(nil)
+    for _, id in ipairs(api.engine_held()) do
+      pcall(api.engine_hold, id, nil)
+    end
   end
-  applied = { hold = {} }
-  api.engine_audible(nil)
-  for _, id in ipairs(api.engine_held()) do pcall(api.engine_hold, id, nil) end
-end)
+)
 
 --- The time the cursor stays in: the current scope's.
 paw.cursor.bounds = function(): number, number return M.span() end
@@ -825,16 +1046,20 @@ if arrange and arrange.layers then
   -- the order of their names: this one after the markers' bands, and
   -- clear of the names of markers and regions.
   arrange.layers.zz_scope_bars = function(_: Arrange, layer: Layer)
-    if not (song_row() and layer.ruler2) then return end
+    if not (song_row() and layer.ruler2) then
+      return
+    end
     local row = layer.ruler2
     local taken: {{integer}} = {}
     for _, m in ipairs(paw.markers and paw.markers.list() or {}) do
       local x = layer.x(m.beat)
-      taken[#taken + 1] = { x, x + api.str_width(paw.markers.label(m)) + 1 }
+      taken[#taken + 1] = {x, x + api.str_width(paw.markers.label(m)) + 1}
     end
     local function clear(a: integer, b: integer): boolean
       for _, t in ipairs(taken) do
-        if a < t[2] and b > t[1] then return false end
+        if a < t[2] and b > t[1] then
+          return false
+        end
       end
       return true
     end
@@ -854,40 +1079,52 @@ end
 local function scope_names(): {string}
   local out: {string} = {}
   for _, id in ipairs(api.track_list()) do
-    if groups().is_group(id) then out[#out + 1] = name_of(id) end
+    if groups().is_group(id) then
+      out[#out + 1] = name_of(id)
+    end
   end
   for _, m in ipairs(paw.markers and paw.markers.regions() or {}) do
-    if m.name ~= "" then out[#out + 1] = m.name end
+    if m.name ~= "" then
+      out[#out + 1] = m.name
+    end
   end
   return out
 end
 
-commands.define("narrow", function(ctx: contracts.CommandContext): contracts.CommandResult
-  local which = ctx.args[1]
-  local s: Scope
-  if which == nil or which == true then
-    local g = M.group_at(paw.cursor.track_id())
-    if not g then
-      paw.notify("not in a group: `:narrow` takes a group or a region by name", "warn")
+commands.define(
+  "narrow",
+  function(ctx: contracts.CommandContext): contracts.CommandResult
+    local which = ctx.args[1]
+    local s: Scope
+    if which == nil or which == true then
+      local g = M.group_at(paw.cursor.track_id())
+      if not g then
+        paw.notify("not in a group: `:narrow` takes a group or a region by name", "warn")
+        return
+      end
+      s = {kind = "group", id = g, name = name_of(g)}
+    else
+      s = M.named(table.concat(ctx.args as {string}, " "))
+      if not s then
+        paw.notify("no group or region `" .. tostring(which) .. "`", "warn")
+        return
+      end
+    end
+    local ok, err = pcall(function() M.enter(s) end) as (boolean, string)
+    if not ok then
+      paw.notify(tostring(err), "warn")
       return
     end
-    s = { kind = "group", id = g, name = name_of(g) }
-  else
-    s = M.named(table.concat(ctx.args as {string}, " "))
-    if not s then
-      paw.notify("no group or region `" .. tostring(which) .. "`", "warn")
-      return
-    end
-  end
-  local ok, err = pcall(function() M.enter(s) end) as (boolean, string)
-  if not ok then
-    paw.notify(tostring(err), "warn")
-    return
-  end
-  local from, to = M.span()
-  local bars = from and string.format(", bars %d-%d", paw.time.bar_of(from), paw.time.bar_of(math.max(from, to - 1e-6))) or ""
-  paw.notify(string.format("%s: %d tracks%s · `:widen` or `zw` goes back", M.breadcrumb(), #M.tracks(), bars))
-end, { desc = "Show only a group's tracks or a region's time: `narrow Strings`, `narrow Bridge`; alone, the group at the cursor. Inside a scope, the new one is inside it", complete = scope_names })
+    local from, to = M.span()
+    local bars = from
+      and string.format(", bars %d-%d", paw.time.bar_of(from), paw.time.bar_of(math.max(from, to - 1e-6))) or ""
+    paw.notify(string.format("%s: %d tracks%s · `:widen` or `zw` goes back", M.breadcrumb(), #M.tracks(), bars))
+  end,
+  {
+    desc = "Show only a group's tracks or a region's time: `narrow Strings`, `narrow Bridge`; alone, the group at the cursor. Inside a scope, the new one is inside it",
+    complete = scope_names,
+  }
+)
 
 local function widen(top: boolean)
   if not M.widen(top) then
@@ -897,9 +1134,15 @@ local function widen(top: boolean)
   local s = M.current()
   paw.notify(s and M.breadcrumb(s) or "the whole song")
 end
-commands.define("widen", function(): contracts.CommandResult widen(false) end,
-  { desc = "Up one level of scope; at the first, close the narrowed tab and go back to the one it was narrowed from" })
-commands.define("widen!", function(): contracts.CommandResult widen(true) end,
-  { desc = "Leave every level of scope: show the whole song" })
+commands.define(
+  "widen",
+  function(): contracts.CommandResult widen(false) end,
+  {desc = "Up one level of scope; at the first, close the narrowed tab and go back to the one it was narrowed from"}
+)
+commands.define(
+  "widen!",
+  function(): contracts.CommandResult widen(true) end,
+  {desc = "Leave every level of scope: show the whole song"}
+)
 
 return M

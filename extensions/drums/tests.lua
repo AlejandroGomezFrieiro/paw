@@ -21,7 +21,8 @@ local function hits(clip, vel)
   end)
   local out = {}
   for i, n in ipairs(notes) do
-    out[i] = string.format("%d@%g", n.pitch, math.floor(n.start * 1000 + 0.5) / 1000) .. (vel and (":" .. n.velocity) or "")
+    out[i] = string.format("%d@%g", n.pitch, math.floor(n.start * 1000 + 0.5) / 1000)
+      .. (vel and (":" .. n.velocity) or "")
   end
   return table.concat(out, " ")
 end
@@ -52,9 +53,15 @@ local function screen(w, h) return table.concat(api.ui_snapshot(w or 120, h or 4
 test("drums: the General MIDI map names the pieces a beat needs, in order", function()
   local d = load()
   local names = {}
-  for _, row in ipairs(d.maps.gm.rows) do names[#names + 1] = row.note .. " " .. row.name end
-  eq(table.concat(names, ", "), "36 Kick, 38 Snare, 37 Rim, 39 Clap, 42 Closed hat, 44 Pedal hat, 46 Open hat, "
-    .. "50 High tom, 47 Mid tom, 45 Low tom, 49 Crash, 51 Ride, 53 Ride bell, 56 Cowbell, 54 Tambourine", "the rows")
+  for _, row in ipairs(d.maps.gm.rows) do
+    names[#names + 1] = row.note .. " " .. row.name
+  end
+  eq(
+    table.concat(names, ", "),
+    "36 Kick, 38 Snare, 37 Rim, 39 Clap, 42 Closed hat, 44 Pedal hat, 46 Open hat, "
+      .. "50 High tom, 47 Mid tom, 45 Low tom, 49 Crash, 51 Ride, 53 Ride bell, 56 Cowbell, 54 Tambourine",
+    "the rows"
+  )
   eq(#d.maps["gm-full"].rows, 47, "every General MIDI percussion note is in gm-full")
 end)
 
@@ -72,7 +79,11 @@ test("drums: drums.track makes a track ready for drums in one step", function()
   eq(paw.ui.message.text:find("Ctrl-w p goes back", 1, true) ~= nil, true, "the message names the key that goes back")
   paw.ui.focus("arrange")
   local screen = table.concat(api.ui_snapshot(120, 30), "\n")
-  eq(screen:find(" D Drums", 1, true) ~= nil, true, "the header's D stands clear of the name: " .. (screen:match("[^\n]*Drums[^\n]*") or ""))
+  eq(
+    screen:find(" D Drums", 1, true) ~= nil,
+    true,
+    "the header's D stands clear of the name: " .. (screen:match("[^\n]*Drums[^\n]*") or "")
+  )
 end)
 
 test("drums: the map is kept with the track in the project", function()
@@ -150,7 +161,10 @@ test("drums: the ruler marks the beats with ticks and no numbers, as the roll's 
   local lines = api.ui_snapshot(140, 30)
   local ruler
   for i, line in ipairs(lines) do
-    if line:find("Kick", 1, true) and line:find("·", 1, true) then ruler = lines[i - 1] break end
+    if line:find("Kick", 1, true) and line:find("·", 1, true) then
+      ruler = lines[i - 1]
+      break
+    end
   end
   eq(type(ruler), "string", "the ruler is above the first row")
   eq(ruler:find("▏", 1, true) ~= nil, true, "beats are ticks: " .. ruler)
@@ -218,7 +232,8 @@ end)
 test("drums: dd clears a row, and u brings it back", function()
   local _, clip = drum_track()
   clip:add_notes({
-    { pitch = 36, start = 0, length = 0.25 }, { pitch = 36, start = 2, length = 0.25 },
+    { pitch = 36, start = 0, length = 0.25 },
+    { pitch = 36, start = 2, length = 0.25 },
     { pitch = 38, start = 1, length = 0.25 },
   })
   api.undo_checkpoint()
@@ -269,8 +284,10 @@ end)
 test("drums: visual mode selects hits to change together", function()
   local _, clip = drum_track()
   clip:add_notes({
-    { pitch = 36, start = 0, length = 0.25 }, { pitch = 36, start = 1, length = 0.25 },
-    { pitch = 38, start = 1, length = 0.25 }, { pitch = 36, start = 2, length = 0.25 },
+    { pitch = 36, start = 0, length = 0.25 },
+    { pitch = 36, start = 1, length = 0.25 },
+    { pitch = 38, start = 1, length = 0.25 },
+    { pitch = 36, start = 2, length = 0.25 },
   })
   api.undo_checkpoint()
   keys("<C-v>j5l-")
@@ -295,7 +312,10 @@ test("drums: Enter opens a drum track's clip in the grid, other clips in the pia
   paw.keymap.feed("<Esc><Esc>")
   paw.ui.focus("arrange")
   -- Enter opens the roll and the grid in panes that Esc leaves on screen.
-  T.after(function() paw.ui.hide("pianoroll") paw.ui.hide("drums") end)
+  T.after(function()
+    paw.ui.hide("pianoroll")
+    paw.ui.hide("drums")
+  end)
   local keys_track = paw.add_track({ name = "Keys" })
   keys_track:add_device("synth")
   keys_track:add_clip({ start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
@@ -373,7 +393,10 @@ end)
 
 test("drums: a window is sent the grid's rows by name and its hits as roles by velocity", function()
   local _, clip = drum_track()
-  clip:add_notes({ { pitch = 36, start = 0, length = 0.25, velocity = 127 }, { pitch = 38, start = 1, length = 0.25, velocity = 40 } })
+  clip:add_notes({
+    { pitch = 36, start = 0, length = 0.25, velocity = 127 },
+    { pitch = 38, start = 1, length = 0.25, velocity = 40 },
+  })
   local patch = scene()
   local texts, hit_roles, steps, buttons = {}, {}, 0, {}
   for _, node in ipairs(patch.set) do
@@ -386,7 +409,11 @@ test("drums: a window is sent the grid's rows by name and its hits as roles by v
   table.sort(hit_roles)
   eq(table.concat(hit_roles, " "), "40 127", "a hit is a role with its velocity")
   eq(steps > 100, true, "and every other step a step")
-  eq(table.concat(buttons, "|"):find(" 1/16 ", 1, true) ~= nil, true, "the toolbar's buttons: " .. table.concat(buttons, "|"))
+  eq(
+    table.concat(buttons, "|"):find(" 1/16 ", 1, true) ~= nil,
+    true,
+    "the toolbar's buttons: " .. table.concat(buttons, "|")
+  )
   api.scene_forget(0)
 end)
 
@@ -404,7 +431,9 @@ test("drums: clicking a cell adds a hit, clicking it again removes it, in a wind
   paw.ui.focus("drums")
   api.ui_snapshot(120, 40)
   local rect
-  for _, r in ipairs(paw.ui.rects) do if r.name == "drums" then rect = r end end
+  for _, r in ipairs(paw.ui.rects) do
+    if r.name == "drums" then rect = r end
+  end
   local x, y = at(1, 2)
   paw.ui.mouse({ kind = "down", x = rect.x + math.floor(x), y = rect.y + math.floor(y), button = "left", mods = "" })
   paw.ui.mouse({ kind = "up", x = rect.x + math.floor(x), y = rect.y + math.floor(y), button = "left", mods = "" })
@@ -424,7 +453,11 @@ test("drums: dragging along a row paints hits, or erases them, as one undo step"
   pointer("up", (at(5, 7)), y)
   paw.mouse.forget()
   api.undo_checkpoint()
-  eq(hits(clip), "42@0 42@0.25 42@0.5 42@0.75 42@1 42@1.25 42@1.5 42@1.75", "eight hats along the row, though the pointer wandered off it")
+  eq(
+    hits(clip),
+    "42@0 42@0.25 42@0.5 42@0.75 42@1 42@1.25 42@1.5 42@1.75",
+    "eight hats along the row, though the pointer wandered off it"
+  )
   scene()
   pointer("down", (at(5, 2)), y)
   pointer("move", (at(5, 5)), y)
@@ -441,7 +474,11 @@ end)
 
 test("drums: the velocity lane sets how hard the row's hits are", function()
   local _, clip, grid = drum_track()
-  clip:add_notes({ { pitch = 36, start = 0, length = 0.25 }, { pitch = 36, start = 0.5, length = 0.25 }, { pitch = 38, start = 0.5, length = 0.25 } })
+  clip:add_notes({
+    { pitch = 36, start = 0, length = 0.25 },
+    { pitch = 36, start = 0.5, length = 0.25 },
+    { pitch = 38, start = 0.5, length = 0.25 },
+  })
   grid.row = 1
   scene()
   local lane = 30 - grid.geometry.lane
@@ -450,7 +487,11 @@ test("drums: the velocity lane sets how hard the row's hits are", function()
   pointer("move", (at(1, 2)), lane)
   pointer("up", (at(1, 2)), lane)
   paw.mouse.forget()
-  eq(hits(clip, true), "36@0:127 36@0.5:127 38@0.5:100", "a stroke at the top makes the kicks it crosses as hard as can be")
+  eq(
+    hits(clip, true),
+    "36@0:127 36@0.5:127 38@0.5:100",
+    "a stroke at the top makes the kicks it crosses as hard as can be"
+  )
   scene()
   pointer("down", x0, lane + 1)
   pointer("up", x0, lane + 1)
@@ -520,7 +561,9 @@ test("drums: the built-in kit plays every row of the General MIDI map", function
   local rows = drums.rows(track)
   clip.length = #rows
   local notes = {}
-  for i, row in ipairs(rows) do notes[i] = { pitch = row.note, start = i - 1, length = 0.25 } end
+  for i, row in ipairs(rows) do
+    notes[i] = { pitch = row.note, start = i - 1, length = 0.25 }
+  end
   clip:add_notes(notes)
   -- A beat is half a second: each piece gets its own.
   local info = T.render({ bits = 16, ["end"] = #rows, tail = 0 })
@@ -546,13 +589,29 @@ end)
 --- A mono 16-bit WAV of `seconds` at `level`, at 48 kHz.
 local function wav(path, level, seconds)
   local rate, n = 48000, math.floor(48000 * seconds)
-  local function u32(v) return string.char(v % 256, math.floor(v / 256) % 256, math.floor(v / 65536) % 256, math.floor(v / 16777216) % 256) end
+  local function u32(v)
+    return string.char(v % 256, math.floor(v / 256) % 256, math.floor(v / 65536) % 256, math.floor(v / 16777216) % 256)
+  end
   local function u16(v) return string.char(v % 256, math.floor(v / 256) % 256) end
   local sample = math.floor(level * 32767 + 0.5)
   local s = u16(sample % 65536)
   local body = s:rep(n)
-  T.write_file(path, "RIFF" .. u32(36 + #body) .. "WAVEfmt " .. u32(16) .. u16(1) .. u16(1) .. u32(rate) .. u32(rate * 2)
-    .. u16(2) .. u16(16) .. "data" .. u32(#body) .. body)
+  T.write_file(
+    path,
+    "RIFF"
+      .. u32(36 + #body)
+      .. "WAVEfmt "
+      .. u32(16)
+      .. u16(1)
+      .. u16(1)
+      .. u32(rate)
+      .. u32(rate * 2)
+      .. u16(2)
+      .. u16(16)
+      .. "data"
+      .. u32(#body)
+      .. body
+  )
 end
 
 local kit_dir
@@ -574,7 +633,9 @@ test("drums: a folder of samples becomes a kit, the files named by what they are
   local kit = require("drums.kit")
   local pads, rows = kit.from_folder(samples())
   local by_note = {}
-  for _, p in ipairs(pads) do by_note[p.note] = p.file:match("[^/]+$") .. (p.group > 0 and " g" .. p.group or "") end
+  for _, p in ipairs(pads) do
+    by_note[p.note] = p.file:match("[^/]+$") .. (p.group > 0 and " g" .. p.group or "")
+  end
   eq(by_note[36], "Kick 808.wav", "a kick on 36")
   eq(by_note[38], "snare_tight.wav", "a snare on 38")
   eq(by_note[42], "hh closed.wav g1", "a closed hat on 42, in the hats' group")
@@ -582,8 +643,14 @@ test("drums: a folder of samples becomes a kit, the files named by what they are
   eq(by_note[60], "zap.wav", "what it does not know goes from 60 up")
   eq(#pads, 5, "and nothing that is not a sound")
   local names = {}
-  for i, row in ipairs(rows) do names[i] = row.note .. " " .. row.name end
-  eq(table.concat(names, ", "), "36 Kick 808, 38 snare_tight, 42 hh closed, 46 OpenHat, 60 zap", "rows named after the files, a beat's order")
+  for i, row in ipairs(rows) do
+    names[i] = row.note .. " " .. row.name
+  end
+  eq(
+    table.concat(names, ", "),
+    "36 Kick 808, 38 snare_tight, 42 hh closed, 46 OpenHat, 60 zap",
+    "rows named after the files, a beat's order"
+  )
   eq(kit.classify("BD_01").name, "Kick", "short names too")
   eq(kit.classify("ride-bell").name, "Ride bell", "and two words")
   eq(kit.classify("hat_pedal").name, "Pedal hat", "pedal hats")
@@ -598,10 +665,15 @@ test("drums: drums.kit makes a drum track that plays the files", function()
   eq(drums.is_drum(track), true, "a drum track")
   eq(track:devices()[1].kind, "sampler", "playing samples")
   eq(drums.rows(track)[1].name, "Kick 808", "its rows named after the files")
-  local clip = track:add_clip({ start = 0, length = 4, notes = {
-    { pitch = 36, start = 0, length = 0.25, velocity = 127 }, { pitch = 38, start = 1, length = 0.25, velocity = 127 },
-    { pitch = 60, start = 2, length = 0.25, velocity = 127 },
-  } })
+  local clip = track:add_clip({
+    start = 0,
+    length = 4,
+    notes = {
+      { pitch = 36, start = 0, length = 0.25, velocity = 127 },
+      { pitch = 38, start = 1, length = 0.25, velocity = 127 },
+      { pitch = 60, start = 2, length = 0.25, velocity = 127 },
+    },
+  })
   local info = T.render({ bits = 16, ["end"] = 4, tail = 0 })
   near(T.channel_peaks(info, 0.01, 0.09), 0.5, 0.01, "the kick file, as loud as it is")
   near(T.channel_peaks(info, 0.51, 0.59), 0.25, 0.01, "the snare file")
@@ -640,7 +712,10 @@ test("drums: a pad's level, pan, tuning and group are set, and undone", function
   kit.set_pad(device, 36, { tune = 12 })
   eq(kit.pads(device)[1].tune, 12, "tuned an octave up")
   local open, closed = 46, 42
-  track:clips()[1]:set_notes({ { pitch = open, start = 0, length = 0.25, velocity = 127 }, { pitch = closed, start = 0.5, length = 0.25, velocity = 127 } })
+  track:clips()[1]:set_notes({
+    { pitch = open, start = 0, length = 0.25, velocity = 127 },
+    { pitch = closed, start = 0.5, length = 0.25, velocity = 127 },
+  })
   info = T.render({ bits = 16, ["end"] = 2, tail = 0 })
   eq(T.channel_peaks(info, 0.35, 0.6) < 0.001, true, "the closed hat cuts the open one off, by their group")
   kit.set_pad(device, closed, { group = 0 })
@@ -666,14 +741,20 @@ end)
 test("drums: gs swings every other step of what it covers, and does not add up", function()
   local _, clip = drum_track()
   clip:add_notes({
-    { pitch = 42, start = 0, length = 0.25 }, { pitch = 42, start = 0.25, length = 0.25 },
-    { pitch = 42, start = 0.5, length = 0.25 }, { pitch = 42, start = 0.75, length = 0.25 },
+    { pitch = 42, start = 0, length = 0.25 },
+    { pitch = 42, start = 0.25, length = 0.25 },
+    { pitch = 42, start = 0.5, length = 0.25 },
+    { pitch = 42, start = 0.75, length = 0.25 },
     { pitch = 36, start = 0.25, length = 0.25 },
   })
   paw.opt.drums_swing = 0.33
   api.undo_checkpoint()
   keys("4jgsir")
-  eq(hits(clip), "42@0 36@0.25 42@0.333 42@0.5 42@0.833", "the hats' offbeats are a third of a step late; the kick is not touched")
+  eq(
+    hits(clip),
+    "42@0 36@0.25 42@0.333 42@0.5 42@0.833",
+    "the hats' offbeats are a third of a step late; the kick is not touched"
+  )
   keys("gsir")
   eq(hits(clip), "42@0 36@0.25 42@0.333 42@0.5 42@0.833", "swinging again changes nothing")
   paw.undo()
@@ -692,8 +773,11 @@ test("drums: a beat to start from fills the clip", function()
   paw.commands.exec("drums.beat rock")
   local text = hits(clip)
   eq(text:find("81@", 1, true), nil, "in place of what was there")
-  eq(paw.ui.message.text:find("1 note outside the drum map went", 1, true) ~= nil, true,
-    "a note on no row of the map is counted: " .. paw.ui.message.text)
+  eq(
+    paw.ui.message.text:find("1 note outside the drum map went", 1, true) ~= nil,
+    true,
+    "a note on no row of the map is counted: " .. paw.ui.message.text
+  )
   eq(text:find("36@0 42@0 ", 1, true) == 1, true, "kick and hat on one: " .. text)
   eq(text:find("38@1 ", 1, true) ~= nil and text:find("38@5 ", 1, true) ~= nil, true, "snare on two, in both bars")
   eq(#clip:notes(), 2 * (8 + 2 + 3), "every bar of the clip")

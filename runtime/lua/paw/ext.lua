@@ -37,9 +37,7 @@ M.current = nil
 
 --- Whether `path` is a one-file extension: a file of Lua, or of a language
 --- that compiles to Lua.
-local function one_file(path)
-  return path:match("%.lua$") ~= nil or paw.lang.of(path) ~= nil
-end
+local function one_file(path) return path:match("%.lua$") ~= nil or paw.lang.of(path) ~= nil end
 
 --- The name of an extension at `path`: its directory's or file's, without
 --- the extension of the file.
@@ -81,13 +79,21 @@ function M.satisfies(version, want)
       if not w then return false end
       local c = compare(v, w)
       local ok
-      if op == ">=" then ok = c >= 0
-      elseif op == ">" then ok = c > 0
-      elseif op == "<=" then ok = c <= 0
-      elseif op == "<" then ok = c < 0
-      elseif op == "=" then ok = c == 0
-      elseif op == "~" then ok = c >= 0 and v[1] == w[1] and v[2] == w[2]
-      else ok = c >= 0 and v[1] == w[1] end
+      if op == ">=" then
+        ok = c >= 0
+      elseif op == ">" then
+        ok = c > 0
+      elseif op == "<=" then
+        ok = c <= 0
+      elseif op == "<" then
+        ok = c < 0
+      elseif op == "=" then
+        ok = c == 0
+      elseif op == "~" then
+        ok = c >= 0 and v[1] == w[1] and v[2] == w[2]
+      else
+        ok = c >= 0 and v[1] == w[1]
+      end
       if not ok then return false end
     end
   end
@@ -104,9 +110,7 @@ local function in_files(entry, source)
   return source == "@" .. path or source:sub(1, #path + 2) == "@" .. path .. "/"
 end
 
-local function defined_by(entry, fn)
-  return type(fn) == "function" and in_files(entry, debug.getinfo(fn, "S").source)
-end
+local function defined_by(entry, fn) return type(fn) == "function" and in_files(entry, debug.getinfo(fn, "S").source) end
 
 --- Whether `value`, an entry of a registry, is the extension's own: a
 --- function of its files, a table with one among its fields, or a table
@@ -142,18 +146,28 @@ end
 -- it; `label` says what the entry is in a few words.
 
 local function keyed(kind, title, get, put, label)
-  return { kind = kind, title = title, snapshot = function()
-    local out = {}
-    for k, v in pairs(get() or {}) do out[k] = v end
-    return out
-  end, put = put or function(key, value) get()[key] = value end, label = label }
+  return {
+    kind = kind,
+    title = title,
+    snapshot = function()
+      local out = {}
+      for k, v in pairs(get() or {}) do
+        out[k] = v
+      end
+      return out
+    end,
+    put = put or function(key, value) get()[key] = value end,
+    label = label,
+  }
 end
 
 local function two_level(get)
   return function()
     local out = {}
     for a, inner in pairs(get() or {}) do
-      for b, v in pairs(inner) do out[a .. " " .. b] = v end
+      for b, v in pairs(inner) do
+        out[a .. " " .. b] = v
+      end
     end
     return out
   end
@@ -162,43 +176,67 @@ end
 local function split(key) return key:match("^(%S+) (.*)$") end
 
 M.registries = {
-  { kind = "commands", title = "commands", snapshot = function()
+  {
+    kind = "commands",
+    title = "commands",
+    snapshot = function()
       local out = {}
-      for _, spec in ipairs(paw.commands.list()) do out[spec.name] = spec end
+      for _, spec in ipairs(paw.commands.list()) do
+        out[spec.name] = spec
+      end
       return out
-    end, put = function(key, value) paw.commands.put(key, value) end,
-    label = function(key) return ":" .. key end },
-  { kind = "keys", title = "keys", snapshot = function()
+    end,
+    put = function(key, value) paw.commands.put(key, value) end,
+    label = function(key) return ":" .. key end,
+  },
+  {
+    kind = "keys",
+    title = "keys",
+    snapshot = function()
       local out = {}
       paw.keymap.each(function(map, mode, scope, keys) out[mode .. " " .. scope .. " " .. keys] = map end)
       return out
-    end, put = function(key, value)
+    end,
+    put = function(key, value)
       local mode, scope, keys = key:match("^(%S+) (%S+) (.*)$")
       paw.keymap.put(mode, scope, keys, value)
     end,
     label = function(_, map)
       return map.lhs .. " (" .. map.mode .. (map.scope ~= "global" and ", " .. map.scope or "") .. ")"
-    end },
-  { kind = "key_groups", title = "key groups", snapshot = two_level(function() return paw.keymap.groups() end),
+    end,
+  },
+  {
+    kind = "key_groups",
+    title = "key groups",
+    snapshot = two_level(function() return paw.keymap.groups() end),
     put = function(key, value)
       local scope, keys = split(key)
       local groups = paw.keymap.groups()
       groups[scope] = groups[scope] or {}
       groups[scope][keys] = value
-    end },
-  { kind = "views", title = "views", snapshot = function()
+    end,
+  },
+  {
+    kind = "views",
+    title = "views",
+    snapshot = function()
       local out = {}
       -- A buffer type's view is the buffer type's, listed as that.
       for name, view in pairs(paw.ui.views) do
         if not view.buftype then out[name] = view end
       end
       return out
-    end, put = function(key, value)
+    end,
+    put = function(key, value)
       paw.ui.views[key] = value
       api.ui_redraw()
-    end },
+    end,
+  },
   -- The line of keys at the bottom that a view of its shows, by view and mode.
-  { kind = "keybar", title = "key bar lines", snapshot = two_level(function() return paw.ui.keybar and paw.ui.keybar.lines end),
+  {
+    kind = "keybar",
+    title = "key bar lines",
+    snapshot = two_level(function() return paw.ui.keybar and paw.ui.keybar.lines end),
     put = function(key, value)
       local view, mode = split(key)
       local lines = paw.ui.keybar.lines
@@ -206,7 +244,8 @@ M.registries = {
       lines[view][mode] = value
       if next(lines[view]) == nil then lines[view] = nil end
       api.ui_redraw()
-    end },
+    end,
+  },
   keyed("buftypes", "buffer types", function() return paw.layout.types end, function(key, value)
     paw.layout.types[key] = value
     if value then
@@ -217,10 +256,18 @@ M.registries = {
   end),
   keyed("textbuf_kinds", "text buffer kinds", function() return paw.textbuf and paw.textbuf.kinds end),
   keyed("track_kinds", "kinds of track", function() return paw.track_kinds.kinds end, function(key, value)
-    if value then paw.track_kinds.define(key, value) else paw.track_kinds.remove(key) end
+    if value then
+      paw.track_kinds.define(key, value)
+    else
+      paw.track_kinds.remove(key)
+    end
   end),
   keyed("clip_kinds", "kinds of clip", function() return paw.clip_kinds.kinds end, function(key, value)
-    if value then paw.clip_kinds.define(key, value) else paw.clip_kinds.remove(key) end
+    if value then
+      paw.clip_kinds.define(key, value)
+    else
+      paw.clip_kinds.remove(key)
+    end
   end),
   keyed("roles", "roles", function() return paw.roles and paw.roles.registry end, function(key, value)
     paw.roles.registry[key] = value
@@ -229,40 +276,71 @@ M.registries = {
     api.ui_redraw()
   end),
   keyed("pickers", "picker sources", function() return paw.pick.sources end),
-  { kind = "query_fields", title = "query fields", snapshot = two_level(function() return paw.query and paw.query.fields end),
+  {
+    kind = "query_fields",
+    title = "query fields",
+    snapshot = two_level(function() return paw.query and paw.query.fields end),
     put = function(key, value)
       local kind, name = split(key)
       paw.query.fields[kind] = paw.query.fields[kind] or {}
       paw.query.fields[kind][name] = value
-    end },
+    end,
+  },
   keyed("ex_fields", "fields of :s and :g", function() return paw.ex and paw.ex.fields end),
   keyed("ex_views", "views of ranges", function() return paw.ex and paw.ex.views end),
   keyed("completers", "completers", function() return paw.commands.completers end),
-  keyed("statusline", "status line components", function() return paw.statusline and paw.statusline.components end,
+  keyed(
+    "statusline",
+    "status line components",
+    function() return paw.statusline and paw.statusline.components end,
     function(key, value)
       paw.statusline.components[key] = value
       api.ui_redraw()
-    end),
+    end
+  ),
   -- The parts of the track column, its signs and the parts of the bar
   -- labels: `set` puts a changed copy in, so unloading puts back the part
   -- that was there (a built-in one too), and takes away a new one with its
   -- name in `paw.opt.trackcolumn` or `paw.opt.barlabel`.
-  keyed("trackcolumn", "parts of the track column", function() return paw.trackcolumn and paw.trackcolumn.components end,
+  keyed(
+    "trackcolumn",
+    "parts of the track column",
+    function() return paw.trackcolumn and paw.trackcolumn.components end,
     function(key, value)
-      if value then paw.trackcolumn.add(key, value) else paw.trackcolumn.remove(key) end
-    end),
-  keyed("trackcolumn_signs", "signs of the track column", function() return paw.trackcolumn and paw.trackcolumn.signs end,
-    function(key, value) paw.trackcolumn.sign(key, value) end),
-  keyed("barlabel", "parts of the bar labels", function() return paw.ruler and paw.ruler.labels end,
+      if value then
+        paw.trackcolumn.add(key, value)
+      else
+        paw.trackcolumn.remove(key)
+      end
+    end
+  ),
+  keyed(
+    "trackcolumn_signs",
+    "signs of the track column",
+    function() return paw.trackcolumn and paw.trackcolumn.signs end,
+    function(key, value) paw.trackcolumn.sign(key, value) end
+  ),
+  keyed(
+    "barlabel",
+    "parts of the bar labels",
+    function() return paw.ruler and paw.ruler.labels end,
     function(key, value)
-      if value then paw.ruler.add(key, value) else paw.ruler.remove(key) end
-    end),
+      if value then
+        paw.ruler.add(key, value)
+      else
+        paw.ruler.remove(key)
+      end
+    end
+  ),
   -- The keys of the arrange view's insert mode: `set` puts a changed copy
   -- in, so unloading puts back the kind that was on the key.
-  keyed("insert", "keys of insert mode", function() return paw.insert and paw.insert.kinds end,
-    function(key, value)
-      if value then paw.insert.add(key, value) else paw.insert.remove(key) end
-    end, function(key) return key .. " (insert mode)" end),
+  keyed("insert", "keys of insert mode", function() return paw.insert and paw.insert.kinds end, function(key, value)
+    if value then
+      paw.insert.add(key, value)
+    else
+      paw.insert.remove(key)
+    end
+  end, function(key) return key .. " (insert mode)" end),
   keyed("grep", "grep sources", function() return paw.grep and paw.grep.sources end, function(key, value)
     local g = paw.grep
     if value and not g.sources[key] then g.order[#g.order + 1] = key end
@@ -277,49 +355,81 @@ M.registries = {
   keyed("addresses", "address schemes", function() return paw.address and paw.address.schemes end),
   keyed("complete", "completion sources", function() return paw.complete and paw.complete.sources end),
   keyed("triggers", "controller buttons", function() return paw.learn and paw.learn.triggers end),
-  { kind = "layers", title = "layers", snapshot = function()
+  {
+    kind = "layers",
+    title = "layers",
+    snapshot = function()
       local out = {}
       for view, parts in pairs(paw.ui.layers) do
         for part, list in pairs(parts) do
-          for _, layer in ipairs(list) do out[view .. " " .. part .. " " .. layer.name] = layer end
+          for _, layer in ipairs(list) do
+            out[view .. " " .. part .. " " .. layer.name] = layer
+          end
         end
       end
       return out
-    end, put = function(key, value)
+    end,
+    put = function(key, value)
       local view, part, name = key:match("^(%S+) (%S+) (.*)$")
       paw.ui.layer(view, part, name, value and value.order, value and value.paint)
-    end },
+    end,
+  },
   keyed("languages", "languages", function() return paw.lang and paw.lang.compilers end),
   keyed("health", "health checks", function() return paw.health and paw.health.checks end),
   keyed("formats", "file formats", function() return paw.formats and paw.formats.registry end, function(key, value)
-    if value then paw.formats.register(value) else paw.formats.unregister(key) end
+    if value then
+      paw.formats.register(value)
+    else
+      paw.formats.unregister(key)
+    end
   end, function(key) return key end),
-  { kind = "hooks", title = "hooks", snapshot = function()
+  {
+    kind = "hooks",
+    title = "hooks",
+    snapshot = function()
       local out = {}
-      for id, h in pairs(require("paw.events").handlers()) do out[id] = h end
+      for id, h in pairs(require("paw.events").handlers()) do
+        out[id] = h
+      end
       return out
-    end, put = function(key, value)
+    end,
+    put = function(key, value)
       if not value then paw.off(key) end
     end,
-    label = function(_, h) return h.pattern end },
+    label = function(_, h) return h.pattern end,
+  },
   -- An option goes with its definition, and the value set for it.
-  { kind = "options", title = "options", snapshot = function() return paw.option.definitions() end,
-    put = function(key, value) paw.option.undefine(key, value) end },
+  {
+    kind = "options",
+    title = "options",
+    snapshot = function() return paw.option.definitions() end,
+    put = function(key, value) paw.option.undefine(key, value) end,
+  },
   -- Only its own timers: the core's started while it loaded (a watch the
   -- core starts again) are not.
   keyed("timers", "timers", function() return paw.timers end, function(key, value)
     if not value then paw.cancel(key) end
   end, function() return "timer" end),
-  keyed("device_dirs", "devices written in Lua", function() return paw.luadev and paw.luadev.dirs end,
+  keyed(
+    "device_dirs",
+    "devices written in Lua",
+    function() return paw.luadev and paw.luadev.dirs end,
     function(key, value)
       if not value then paw.luadev.remove_dir(key) end
-    end),
-  keyed("plugin_dirs", "plugin directories", function() return paw.plugins and paw.plugins.dirs end,
+    end
+  ),
+  keyed(
+    "plugin_dirs",
+    "plugin directories",
+    function() return paw.plugins and paw.plugins.dirs end,
     function(key, value)
       if not value then paw.plugins.remove_dir(key) end
-    end),
+    end
+  ),
 }
-for _, reg in ipairs(M.registries) do reg.strict = reg.kind == "timers" or nil end
+for _, reg in ipairs(M.registries) do
+  reg.strict = reg.kind == "timers" or nil
+end
 
 local function snapshot()
   local out = {}
@@ -377,12 +487,17 @@ local function adopt(entry)
   for _, reg in ipairs(M.registries) do
     local settled, list = entry.settled[reg.kind] or {}, entry.owned[reg.kind] or {}
     local mine = {}
-    for _, item in ipairs(list) do mine[item.key] = item end
+    for _, item in ipairs(list) do
+      mine[item.key] = item
+    end
     for key, value in pairs(now[reg.kind] or {}) do
       local id = reg.kind .. "\0" .. tostring(key)
       local holder = claimed[id]
-      if value ~= settled[key] and not (holder and holder.name ~= entry.name and holder.value == value)
-        and made_by(entry, value) then
+      if
+        value ~= settled[key]
+        and not (holder and holder.name ~= entry.name and holder.value == value)
+        and made_by(entry, value)
+      then
         if mine[key] then
           mine[key].value = value
         else
@@ -455,7 +570,9 @@ end
 local function require_all(entry)
   local requires = entry.manifest.requires or {}
   local names = {}
-  for name in pairs(requires) do names[#names + 1] = name end
+  for name in pairs(requires) do
+    names[#names + 1] = name
+  end
   table.sort(names)
   for _, name in ipairs(names) do
     local want = requires[name]
@@ -479,7 +596,12 @@ local function require_all(entry)
       if not other.ok then return "needs the extension " .. name .. ", which failed to load" end
       local version = other.manifest and other.manifest.version
       if want ~= "*" and want ~= true and not (version and M.satisfies(version, want)) then
-        return "needs " .. name .. " " .. tostring(want) .. ", and " .. (version and "this is " .. version or "it says no version")
+        return "needs "
+          .. name
+          .. " "
+          .. tostring(want)
+          .. ", and "
+          .. (version and "this is " .. version or "it says no version")
       end
     end
   end
@@ -555,10 +677,14 @@ end
 local function devices_in_use(entry)
   local kinds, any = {}, false
   for _, item in ipairs(entry.owned and entry.owned.device_dirs or {}) do
-    for _, kind in ipairs(paw.luadev.kinds_in(item.key)) do kinds[kind], any = true, true end
+    for _, kind in ipairs(paw.luadev.kinds_in(item.key)) do
+      kinds[kind], any = true, true
+    end
   end
   for _, item in ipairs(entry.owned and entry.owned.plugin_dirs or {}) do
-    for _, kind in ipairs(item.value and item.value.kinds or {}) do kinds[kind], any = true, true end
+    for _, kind in ipairs(item.value and item.value.kinds or {}) do
+      kinds[kind], any = true, true
+    end
   end
   local tracks, used, seen = {}, {}, {}
   if not any then return { tracks = tracks, used = used } end
@@ -569,7 +695,9 @@ local function devices_in_use(entry)
     for _, device in ipairs(t.devices) do
       local kind = api.device_get(device).kind
       if kinds[kind] then
-        if not seen[kind] then seen[kind], used[#used + 1] = true, kind end
+        if not seen[kind] then
+          seen[kind], used[#used + 1] = true, kind
+        end
         if tracks[#tracks] ~= t.name then tracks[#tracks + 1] = t.name end
       end
     end
@@ -595,9 +723,7 @@ function M.unload(name, opts)
   if not entry then return nil, "no extension `" .. tostring(name) .. "` is loaded" end
   for _, other in pairs(M.loaded) do
     local requires = other ~= entry and other.ok and other.manifest and other.manifest.requires
-    if requires and requires[name] ~= nil then
-      return nil, other.name .. " requires " .. name .. ": unload it first"
-    end
+    if requires and requires[name] ~= nil then return nil, other.name .. " requires " .. name .. ": unload it first" end
   end
   adopt(entry)
   local devices = devices_in_use(entry)
@@ -605,8 +731,15 @@ function M.unload(name, opts)
   if #devices.tracks > 0 then
     local what = table.concat(devices.used, ", ") .. " on " .. table.concat(devices.tracks, ", ")
     if not (opts and opts.force) then
-      return nil, what .. ": remove " .. (#devices.used == 1 and "it" or "them") .. " first, or `:ext.unload! " .. name .. "` leaves "
-        .. (#devices.used == 1 and "it" or "them") .. " there"
+      return nil,
+        what
+          .. ": remove "
+          .. (#devices.used == 1 and "it" or "them")
+          .. " first, or `:ext.unload! "
+          .. name
+          .. "` leaves "
+          .. (#devices.used == 1 and "it" or "them")
+          .. " there"
     end
     left = what .. " left there until removed"
   end
@@ -617,7 +750,11 @@ function M.unload(name, opts)
   local order = {}
   for i = #M.registries, 1, -1 do
     local kind = M.registries[i].kind
-    if kind == "hooks" or kind == "timers" then table.insert(order, 1, M.registries[i]) else order[#order + 1] = M.registries[i] end
+    if kind == "hooks" or kind == "timers" then
+      table.insert(order, 1, M.registries[i])
+    else
+      order[#order + 1] = M.registries[i]
+    end
   end
   for _, reg in ipairs(order) do
     local list = entry.owned and entry.owned[reg.kind] or {}
@@ -692,13 +829,16 @@ function M.load_bundled(name)
   for _, known in ipairs(M.bundled()) do
     if known == name then return M.load(M.bundled_dir() .. "/" .. name) end
   end
-  return nil, "no bundled extension `" .. tostring(name) .. "`" .. (M.bundled_dir() and "" or ": set PAW_HOME to the source tree")
+  return nil,
+    "no bundled extension `" .. tostring(name) .. "`" .. (M.bundled_dir() and "" or ": set PAW_HOME to the source tree")
 end
 
 --- Loaded extensions, sorted by name.
 function M.list()
   local out = {}
-  for _, entry in pairs(M.loaded) do out[#out + 1] = entry end
+  for _, entry in pairs(M.loaded) do
+    out[#out + 1] = entry
+  end
   table.sort(out, function(a, b) return a.name < b.name end)
   return out
 end

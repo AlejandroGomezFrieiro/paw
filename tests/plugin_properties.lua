@@ -36,22 +36,41 @@ test("LV2 properties are listed, set as one undo step, and refused with a reason
   })
   api.undo_checkpoint()
   -- The plugin tells the value back from its own thread, after it has loaded the file.
-  T.until_(function() return paw.json.decode(api.device_call(fx.id, "properties", ""))[1].value == file end,
-    "the plugin to tell the value back")
+  T.until_(
+    function() return paw.json.decode(api.device_call(fx.id, "properties", ""))[1].value == file end,
+    "the plugin to tell the value back"
+  )
   eq(paw.json.decode(api.device_call(fx.id, "properties", ""))[1].value, file, "the value is told back")
   eq(fx:get().meta.preset, "ir", "the load is named")
   paw.undo()
   eq(fx:get().meta.preset, nil, "undo takes it back")
 
-  local function set(data) return function() api.device_call(fx.id, "property.set", data) end end
-  fails(set('{"property":"nothing","value":"x"}'), "no property `nothing` %(it has: ifn0, ifn1%)", "an unknown property")
-  fails(set('{"property":"ifn0","value":"/no/such/file.wav"}'), "there is no file /no/such/file.wav", "a file that is not there")
+  local function set(data)
+    return function() api.device_call(fx.id, "property.set", data) end
+  end
+  fails(
+    set('{"property":"nothing","value":"x"}'),
+    "no property `nothing` %(it has: ifn0, ifn1%)",
+    "an unknown property"
+  )
+  fails(
+    set('{"property":"ifn0","value":"/no/such/file.wav"}'),
+    "there is no file /no/such/file.wav",
+    "a file that is not there"
+  )
   fails(set('{"property":"ifn0","value":"ir.wav"}'), "absolute path", "a relative path")
   fails(set('{"property":"ifn0","value":3}'), "must be a text", "a number for a path")
   fails(set("ifn0"), "property", "not JSON")
-  fails(function() api.device_load(fx.id, { factory = "x", call = { method = "properties", data = "" } }) end,
-    "not both", "a preset and a call at once")
+  fails(
+    function() api.device_load(fx.id, { factory = "x", call = { method = "properties", data = "" } }) end,
+    "not both",
+    "a preset and a call at once"
+  )
 
   local synth = track:add_device("synth")
-  fails(function() api.device_call(synth.id, "properties", "") end, "takes no calls", "a built-in device has no properties")
+  fails(
+    function() api.device_call(synth.id, "properties", "") end,
+    "takes no calls",
+    "a built-in device has no properties"
+  )
 end)

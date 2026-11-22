@@ -15,7 +15,9 @@ local initial = L.capture()
 
 local function reset()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   L.restore(initial)
   paw.ui.focus("arrange")
 end
@@ -30,7 +32,9 @@ local function screen() return table.concat(api.ui_snapshot(W, H), "\n") end
 --- Where each window is on a screen of W by H, by view name.
 local function rects()
   local out = {}
-  for _, r in ipairs(paw.ui.arrange(W, H)) do out[r.name] = r end
+  for _, r in ipairs(paw.ui.arrange(W, H)) do
+    out[r.name] = r
+  end
   return out
 end
 
@@ -47,7 +51,12 @@ local keys = T.keys
 
 local function riff(start_beat)
   local t = paw.add_track({ name = "Keys" })
-  local clip = t:add_clip({ start = start_beat or 0, length = 8, name = "riff", notes = { { pitch = 60, start = 0, length = 1 } } })
+  local clip = t:add_clip({
+    start = start_beat or 0,
+    length = 8,
+    name = "riff",
+    notes = { { pitch = 60, start = 0, length = 1 } },
+  })
   paw.cursor.set_track(t)
   return t, clip
 end
@@ -126,24 +135,33 @@ test("Enter on a clip opens the piano roll below the arrange view, as before", f
   reset()
 end)
 
-test("a view without a state for each window is in one window at a time: showing it in another moves it there", function()
-  start()
-  riff()
-  -- A view of one state, as an extension may make.
-  if not paw.ui.views.single then paw.ui.view("single", { render = function(_, buf) buf:text(0, 0, "single") end }) end
-  sized(function()
-    keys(":vs single<CR>")
-    keys("<C-w>h")
-    keys(":sp single<CR>")
-  end)
-  eq(windows(), "arrange single", "one window of it, now below the arrange view")
-  local r = rects()
-  eq(r.single.x == r.arrange.x and r.single.y > r.arrange.y, true, "below it")
-  eq(paw.ui.message and paw.ui.message.text:find("moved", 1, true) ~= nil, true, "with a message: " .. tostring(paw.ui.message and paw.ui.message.text))
-  keys(":e roll<CR>")
-  eq(windows(), "arrange pianoroll", ":e shows another buffer in the window")
-  reset()
-end)
+test(
+  "a view without a state for each window is in one window at a time: showing it in another moves it there",
+  function()
+    start()
+    riff()
+    -- A view of one state, as an extension may make.
+    if not paw.ui.views.single then
+      paw.ui.view("single", { render = function(_, buf) buf:text(0, 0, "single") end })
+    end
+    sized(function()
+      keys(":vs single<CR>")
+      keys("<C-w>h")
+      keys(":sp single<CR>")
+    end)
+    eq(windows(), "arrange single", "one window of it, now below the arrange view")
+    local r = rects()
+    eq(r.single.x == r.arrange.x and r.single.y > r.arrange.y, true, "below it")
+    eq(
+      paw.ui.message and paw.ui.message.text:find("moved", 1, true) ~= nil,
+      true,
+      "with a message: " .. tostring(paw.ui.message and paw.ui.message.text)
+    )
+    keys(":e roll<CR>")
+    eq(windows(), "arrange pianoroll", ":e shows another buffer in the window")
+    reset()
+  end
+)
 
 test("splits, empty windows, closing, only, and :q closing a window before it quits", function()
   start()
@@ -302,7 +320,11 @@ test("tabs: :tabnew, gt and gT, a tab line, Ctrl-w T, :tabclose", function()
   eq(windows(), "mixer", "showing the mixer")
   eq(paw.ui.focused, "mixer", "with the keyboard")
   local lines = api.ui_snapshot(W, H)
-  eq(lines[1]:find("1 arrange", 1, true) ~= nil and lines[1]:find("2 mixer", 1, true) ~= nil, true, "a tab line: " .. lines[1])
+  eq(
+    lines[1]:find("1 arrange", 1, true) ~= nil and lines[1]:find("2 mixer", 1, true) ~= nil,
+    true,
+    "a tab line: " .. lines[1]
+  )
   keys("gt")
   eq(paw.ui.tab, 1, "gt to the next tab, round the end")
   eq(paw.ui.focused, "arrange", "where the keyboard was")
@@ -338,11 +360,21 @@ test("buffers are listed, named and gone through", function()
   start()
   riff()
   local names = {}
-  for _, buf in ipairs(paw.buf.list()) do names[#names + 1] = buf.name end
+  for _, buf in ipairs(paw.buf.list()) do
+    names[#names + 1] = buf.name
+  end
   local list = " " .. table.concat(names, " ") .. " "
-  eq(list:find(" arrange ", 1, true) ~= nil and list:find(" roll ", 1, true) ~= nil and list:find(" mixer ", 1, true) ~= nil, true, "the views' buffers: " .. list)
+  eq(
+    list:find(" arrange ", 1, true) ~= nil
+      and list:find(" roll ", 1, true) ~= nil
+      and list:find(" mixer ", 1, true) ~= nil,
+    true,
+    "the views' buffers: " .. list
+  )
   local done = {}
-  for _, c in ipairs(paw.commands.complete("vs ro")) do done[#done + 1] = c.text end
+  for _, c in ipairs(paw.commands.complete("vs ro")) do
+    done[#done + 1] = c.text
+  end
   eq(done[1], "vs roll", "names complete")
   keys(":b mixer<CR>")
   eq(windows(), "mixer", ":b shows a buffer in the window")
@@ -441,7 +473,9 @@ test("layouts are saved and put back, and a configuration names its own", functi
   eq(windows(), "arrange pianoroll", "the first as it says")
   eq(paw.layout.tab_title(paw.ui.tabs[2]), "Mix", "the second named")
   local found = {}
-  for _, name in ipairs(L.layout_names()) do found[name] = true end
+  for _, name in ipairs(L.layout_names()) do
+    found[name] = true
+  end
   eq(found.probe_split and found.probe_tabs, true, "both listed")
   os.remove(api.env().state_dir .. "/layouts/probe_split.json")
   paw.layouts.probe_tabs = nil

@@ -1,9 +1,9 @@
 -- Mix diagnostics for paw: loudness, true peak, clipping, stereo and more,
 -- reported as findings you can list and jump between. See README.md.
 paw.option.define("mixdiag_target", "streaming") -- a name in require("mixdiag").targets
-paw.option.define("mixdiag_tail", 1)              -- seconds measured after the end, for releases
-paw.option.define("mixdiag_ignore", "")           -- rule names to skip: "silence,forgotten"
-paw.option.define("mixdiag_strip", true)          -- a row of marks above the arrange view
+paw.option.define("mixdiag_tail", 1) -- seconds measured after the end, for releases
+paw.option.define("mixdiag_ignore", "") -- rule names to skip: "silence,forgotten"
+paw.option.define("mixdiag_strip", true) -- a row of marks above the arrange view
 
 local mixdiag = require("mixdiag")
 require("mixdiag.rules")
@@ -40,22 +40,37 @@ paw.command("mix.file", function(ctx)
 end, { desc = "Measure an audio file: `mix.file master.wav`", complete = { "audio_files" } })
 
 paw.command("mix.list", function() mixdiag.list() end, { desc = "List the mix findings" })
-paw.command("mix.report", function() mixdiag.report() end, { desc = "The mix report: the loudness, peaks and range measured, and the findings to go to" })
+paw.command(
+  "mix.report",
+  function() mixdiag.report() end,
+  { desc = "The mix report: the loudness, peaks and range measured, and the findings to go to" }
+)
 paw.command("mix.next", function(ctx) mixdiag.step(1, ctx.count) end, { desc = "Go to the next mix finding" })
 paw.command("mix.prev", function(ctx) mixdiag.step(-1, ctx.count) end, { desc = "Go to the previous mix finding" })
-paw.command("mix.cancel", function()
-  paw.notify(mixdiag.cancel() and "mix: measuring cancelled" or "mix: nothing is being measured")
-end, { desc = "Stop a measurement that is running" })
+paw.command(
+  "mix.cancel",
+  function() paw.notify(mixdiag.cancel() and "mix: measuring cancelled" or "mix: nothing is being measured") end,
+  { desc = "Stop a measurement that is running" }
+)
 paw.command("mix.clear", function() mixdiag.clear() end, { desc = "Forget the mix findings" })
-paw.command("mix.summary", function()
-  paw.notify(mixdiag.line and (mixdiag.line .. (mixdiag.stale() and "  (project changed since)" or "")) or "mix: nothing measured yet")
-end, { desc = "Show the loudness, true peak and range of the last measurement" })
+paw.command(
+  "mix.summary",
+  function()
+    paw.notify(
+      mixdiag.line and (mixdiag.line .. (mixdiag.stale() and "  (project changed since)" or ""))
+        or "mix: nothing measured yet"
+    )
+  end,
+  { desc = "Show the loudness, true peak and range of the last measurement" }
+)
 
 paw.command("mix.target", function(ctx)
   local name = ctx.args[1]
   if not name then
     local names = {}
-    for key in pairs(mixdiag.targets) do names[#names + 1] = key end
+    for key in pairs(mixdiag.targets) do
+      names[#names + 1] = key
+    end
     table.sort(names)
     local now = paw.opt.mixdiag_target
     local next_name = names[1]
@@ -68,13 +83,20 @@ paw.command("mix.target", function(ctx)
   paw.opt.mixdiag_target = name
   if mixdiag.result then mixdiag.finish(mixdiag.result, mixdiag.range_measured, true) end
   local t = mixdiag.targets[name]
-  paw.notify(string.format("mix: target %s%s", t.name,
-    t.integrated and string.format(" (%g LUFS, %g dBTP)", t.integrated, t.true_peak or 0) or ""))
+  paw.notify(
+    string.format(
+      "mix: target %s%s",
+      t.name,
+      t.integrated and string.format(" (%g LUFS, %g dBTP)", t.integrated, t.true_peak or 0) or ""
+    )
+  )
 end, {
   desc = "Choose the delivery target: `mix.target streaming|ebu|none`, or the next one",
   complete = function()
     local names = {}
-    for key in pairs(mixdiag.targets) do names[#names + 1] = key end
+    for key in pairs(mixdiag.targets) do
+      names[#names + 1] = key
+    end
     table.sort(names)
     return names
   end,

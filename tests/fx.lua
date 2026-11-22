@@ -65,7 +65,9 @@ end)
 
 --- Remove what a test saved, so the next starts with none.
 local function forget_presets(kind)
-  for _, p in ipairs(paw.fx.user_presets(kind)) do paw.fx.delete(kind, p.name) end
+  for _, p in ipairs(paw.fx.user_presets(kind)) do
+    paw.fx.delete(kind, p.name)
+  end
   paw.fx.set_default(kind, nil)
 end
 
@@ -108,7 +110,9 @@ test("presets: the user's come first, then the factory's, and next and previous 
   eq(synth.params.sustain, 0, "a factory preset sets its parameters")
   eq(synth.params.gain, -12, "and leaves the ones it does not name where they were")
   local at
-  for i, p in ipairs(list) do if p.name == "Pluck" then at = i end end
+  for i, p in ipairs(list) do
+    if p.name == "Pluck" then at = i end
+  end
   paw.fx.step(synth, 1)
   eq(paw.fx.current(synth), list[at + 1].name, "next is the one after")
   paw.fx.step(synth, -1)
@@ -258,7 +262,9 @@ end
 
 local function kinds_of(list)
   local out = {}
-  for i, info in ipairs(list) do out[i] = info.kind end
+  for i, info in ipairs(list) do
+    out[i] = info.kind
+  end
   return out
 end
 
@@ -315,7 +321,9 @@ test("devices: the picker lists favourites first, filters, and marks with Ctrl-f
   paw.pick("devices", { query = "@instrument" })
   local state = paw.pick.state()
   eq(#state.matches > 0, true, "some instruments")
-  for _, line in ipairs(state.matches) do eq(line:match("instrument$") ~= nil, true, "only instruments: " .. line) end
+  for _, line in ipairs(state.matches) do
+    eq(line:match("instrument$") ~= nil, true, "only instruments: " .. line)
+  end
   T.keys("<Esc>")
   paw.pick("devices", { query = "limiter" })
   T.keys("<C-f>")
@@ -348,7 +356,12 @@ test("wet/dry: at 0 % a device is not heard at all, at 100 % it is all that is h
   local wet = T.render({ bits = 16, tail = 0.1 })
   T.near(wet.peak, math.min(1, dry.peak * 10 ^ (12 / 20)), 0.02, "100 % is the device's own output")
   api.device_set_param(boost.id, "fx_gain", -6)
-  T.near(T.render({ bits = 16, tail = 0.1 }).peak, math.min(1, dry.peak * 10 ^ (12 / 20)) / 2, 0.02, "the output gain is applied")
+  T.near(
+    T.render({ bits = 16, tail = 0.1 }).peak,
+    math.min(1, dry.peak * 10 ^ (12 / 20)) / 2,
+    0.02,
+    "the output gain is applied"
+  )
 end)
 
 test("wet/dry: the dry signal is held back by the device's latency", function()
@@ -376,7 +389,9 @@ test("wet/dry: the mix is a parameter like any other: automated, shown, kept", f
   local card = paw.frontend.state(-1).devices[1]
   T.near(card.wet, 0.4, 1e-6, "the window's card shows the wet share")
   eq(card.gain, -3, "and the output gain")
-  for _, p in ipairs(card.params) do eq(paw.fx.host_params[p.key], nil, "not among the parameters: " .. p.key) end
+  for _, p in ipairs(card.params) do
+    eq(paw.fx.host_params[p.key], nil, "not among the parameters: " .. p.key)
+  end
   local rows = paw.ui.views.devices:rows()
   eq(rows[#rows - 1].param.key, "fx_wet", "the terminal lists it after the device's own parameters")
   paw.ui.views.devices.row = 1
@@ -454,7 +469,9 @@ end)
 
 local function kinds_on(track)
   local out = {}
-  for i, d in ipairs(track:devices()) do out[i] = d.kind end
+  for i, d in ipairs(track:devices()) do
+    out[i] = d.kind
+  end
   return table.concat(out, ",")
 end
 
@@ -498,42 +515,48 @@ test("copy: :device.copy_to and :device.move_to take the device to another track
   eq(kinds_on(b), "delay,delay", "to the track at that place")
 end)
 
-test("copy: a card dropped on a track's header moves the device there, Ctrl copies, and in the list it reorders", function()
-  fresh()
-  local a = paw.add_track({ name = "a" })
-  local b = paw.add_track({ name = "b" })
-  local gain = a:add_device("gain")
-  local delay = a:add_device("delay")
-  local limiter = a:add_device("limiter")
-  local A = paw.frontend.act
-  A.place_device(limiter.id, 1, false)
-  eq(kinds_on(a), "limiter,gain,delay", "dropped above the first card, it goes first")
-  A.place_device(limiter.id, 4, false)
-  eq(kinds_on(a), "gain,delay,limiter", "dropped below the last, it goes last")
-  A.drop_device(gain.id, b.id, true)
-  eq(kinds_on(b), "gain", "Ctrl and a header: a copy there")
-  eq(kinds_on(a), "gain,delay,limiter", "the device stays")
-  A.drop_device(delay.id, b.id, false)
-  eq(kinds_on(b), "gain,delay", "a header: the device moves there")
-  eq(kinds_on(a), "gain,limiter", "and leaves its track")
-end)
+test(
+  "copy: a card dropped on a track's header moves the device there, Ctrl copies, and in the list it reorders",
+  function()
+    fresh()
+    local a = paw.add_track({ name = "a" })
+    local b = paw.add_track({ name = "b" })
+    local gain = a:add_device("gain")
+    local delay = a:add_device("delay")
+    local limiter = a:add_device("limiter")
+    local A = paw.frontend.act
+    A.place_device(limiter.id, 1, false)
+    eq(kinds_on(a), "limiter,gain,delay", "dropped above the first card, it goes first")
+    A.place_device(limiter.id, 4, false)
+    eq(kinds_on(a), "gain,delay,limiter", "dropped below the last, it goes last")
+    A.drop_device(gain.id, b.id, true)
+    eq(kinds_on(b), "gain", "Ctrl and a header: a copy there")
+    eq(kinds_on(a), "gain,delay,limiter", "the device stays")
+    A.drop_device(delay.id, b.id, false)
+    eq(kinds_on(b), "gain,delay", "a header: the device moves there")
+    eq(kinds_on(a), "gain,limiter", "and leaves its track")
+  end
+)
 
-test("wet/dry: a device whose look-ahead is a parameter: 0 % nulls, 100 % is the device, the dry signal follows its latency", function()
-  fresh()
-  local t = T.tone("tone", 2)
-  local dry = T.render({ bits = 16, tail = 0.1 })
-  local comp = t:add_device("compressor", { lookahead = 5, threshold = 0 })
-  local full = T.render({ bits = 16, tail = 0.1 })
-  paw.fx.set_wet(comp, 0)
-  -- The render takes the look-ahead off again, so the held-back input nulls.
-  eq(samples(T.render({ bits = 16, tail = 0.1 })) == samples(dry), true, "0 % nulls against the track without it")
-  paw.fx.set_wet(comp, 50)
-  T.near(T.render({ bits = 16, tail = 0.1 }).peak, full.peak, 0.01, "half and half line up: no comb filtering")
-  comp:set("lookahead", 2)
-  paw.flush()
-  paw.wait(50)
-  T.near(T.render({ bits = 16, tail = 0.1 }).peak, full.peak, 0.01, "and still when the look-ahead changes")
-  paw.fx.set_wet(comp, 100)
-  local again = T.render({ bits = 16, tail = 0.1 })
-  T.near(again.peak, full.peak, 0.01, "100 % is the device's own output")
-end)
+test(
+  "wet/dry: a device whose look-ahead is a parameter: 0 % nulls, 100 % is the device, the dry signal follows its latency",
+  function()
+    fresh()
+    local t = T.tone("tone", 2)
+    local dry = T.render({ bits = 16, tail = 0.1 })
+    local comp = t:add_device("compressor", { lookahead = 5, threshold = 0 })
+    local full = T.render({ bits = 16, tail = 0.1 })
+    paw.fx.set_wet(comp, 0)
+    -- The render takes the look-ahead off again, so the held-back input nulls.
+    eq(samples(T.render({ bits = 16, tail = 0.1 })) == samples(dry), true, "0 % nulls against the track without it")
+    paw.fx.set_wet(comp, 50)
+    T.near(T.render({ bits = 16, tail = 0.1 }).peak, full.peak, 0.01, "half and half line up: no comb filtering")
+    comp:set("lookahead", 2)
+    paw.flush()
+    paw.wait(50)
+    T.near(T.render({ bits = 16, tail = 0.1 }).peak, full.peak, 0.01, "and still when the look-ahead changes")
+    paw.fx.set_wet(comp, 100)
+    local again = T.render({ bits = 16, tail = 0.1 })
+    T.near(again.peak, full.peak, 0.01, "100 % is the device's own output")
+  end
+)

@@ -16,11 +16,22 @@ local proto = require("utau.proto")
 local c = require("paw.canvas").palette
 
 local VIB_COLOURS = {
-  length = "#ffd040", ["in"] = "#ff9f40", out = "#ff9f40", depth = "#ff6fae",
-  period = "#40d0ff", shift = "#8f8fff", drift = "#b0e060",
+  length = "#ffd040",
+  ["in"] = "#ff9f40",
+  out = "#ff9f40",
+  depth = "#ff6fae",
+  period = "#40d0ff",
+  shift = "#8f8fff",
+  drift = "#b0e060",
 }
 local VIB_NAMES = {
-  length = "start", ["in"] = "fade in", out = "fade out", depth = "depth", period = "period", shift = "shift", drift = "drift",
+  length = "start",
+  ["in"] = "fade in",
+  out = "fade out",
+  depth = "depth",
+  period = "period",
+  shift = "shift",
+  drift = "drift",
 }
 
 return function(gui)
@@ -94,14 +105,26 @@ return function(gui)
         local cy = y_cents(note, 0)
         local lift = math.max(14, vb[3] / 100 * gui.row)
         local depth_y = cy - lift
-        roll:line(x_of(note.start + h["in"][1]), depth_y, x_of(note.start + h.out[1]), depth_y, { color = "#ff6fae66", width = 1 })
+        roll:line(
+          x_of(note.start + h["in"][1]),
+          depth_y,
+          x_of(note.start + h.out[1]),
+          depth_y,
+          { color = "#ff6fae66", width = 1 }
+        )
         for _, which in ipairs({ "length", "in", "out", "depth", "period", "shift", "drift" }) do
           local hb = h[which]
           local hx, hy = x_of(note.start + hb[1]), y_cents(note, hb[2])
           if which == "in" or which == "out" or which == "depth" then hy = cy - lift end
           if which == "shift" then hy = cy + lift end
           local held = drag and drag.mode == "vb" and drag.index == i and drag.which == which
-          roll:rect(hx - 4.5, hy - 4.5, 9, 9, { fill = held and c.warn or VIB_COLOURS[which], stroke = c.surface, radius = which == "depth" and 2 or 4.5 })
+          roll:rect(
+            hx - 4.5,
+            hy - 4.5,
+            9,
+            9,
+            { fill = held and c.warn or VIB_COLOURS[which], stroke = c.surface, radius = which == "depth" and 2 or 4.5 }
+          )
           if which == "length" then roll:text(hx + 6, hy - 16, "vibrato", { color = VIB_COLOURS.length, size = 10 }) end
           S.vb_handles[#S.vb_handles + 1] = { index = i, which = which, x = hx, y = hy }
         end
@@ -113,7 +136,9 @@ return function(gui)
     local best, best_d
     for _, h in ipairs(handles or {}) do
       local d = (h.x - x) ^ 2 + (h.y - y) ^ 2
-      if d <= reach * reach and (not best_d or d < best_d) then best, best_d = h, d end
+      if d <= reach * reach and (not best_d or d < best_d) then
+        best, best_d = h, d
+      end
     end
     return best
   end
@@ -168,8 +193,17 @@ return function(gui)
       d.vb = shapes.drag_vibrato(d.vb0, d.which, d.note, (x - d.x0) / gui.zoom, (d.y0 - y) / gui.row * 100, d.tempo)
       d.moved = true
       local vb = d.vb
-      d.label = string.format("vibrato %s · length %g%%  period %g ms  depth %g c  in %g%%  out %g%%  shift %g%%  drift %g%%",
-        VIB_NAMES[d.which], vb[1], vb[2], vb[3], vb[4], vb[5], vb[6], vb[7])
+      d.label = string.format(
+        "vibrato %s · length %g%%  period %g ms  depth %g c  in %g%%  out %g%%  shift %g%%  drift %g%%",
+        VIB_NAMES[d.which],
+        vb[1],
+        vb[2],
+        vb[3],
+        vb[4],
+        vb[5],
+        vb[6],
+        vb[7]
+      )
     elseif e.kind == "up" then
       gui.drag = nil
       if d.moved then
@@ -205,8 +239,15 @@ return function(gui)
     if h and e.button ~= "right" then
       local note = list[h.index]
       gui.drag = {
-        mode = "vb", panel = vb_drag, index = h.index, which = h.which, note = note, vb0 = shapes.vb(note),
-        x0 = x, y0 = y, tempo = tempo,
+        mode = "vb",
+        panel = vb_drag,
+        index = h.index,
+        which = h.which,
+        note = note,
+        vb0 = shapes.vb(note),
+        x0 = x,
+        y0 = y,
+        tempo = tempo,
       }
       gui.drag.vb = gui.drag.vb0
       if not gui.drag.vb0 then gui.drag = nil end
@@ -231,7 +272,15 @@ return function(gui)
       else
         local shown = shapes.points(note, list[h.index - 1], pp)
         gui.drag = {
-          mode = "pp", panel = pp_drag, index = h.index, k = h.k, pp0 = pp, pp = pp, x0 = x, y0 = y, tempo = tempo,
+          mode = "pp",
+          panel = pp_drag,
+          index = h.index,
+          k = h.k,
+          pp0 = pp,
+          pp = pp,
+          x0 = x,
+          y0 = y,
+          tempo = tempo,
           shown_y = shown[h.k][2],
         }
       end
@@ -261,8 +310,12 @@ return function(gui)
       local ticks = (x - d.x0) / gui.zoom * proto.TICKS
       local step = e.shift and 1 or 5
       d.dticks = math.floor(ticks / step + 0.5) * step
-      d.label = string.format("phoneme %s starts %+d ticks (%+d ms) from where it was; Shift for single ticks",
-        d.name, d.dticks, math.floor(shapes.ms(d.dticks / proto.TICKS, api.project_get("tempo")) + 0.5))
+      d.label = string.format(
+        "phoneme %s starts %+d ticks (%+d ms) from where it was; Shift for single ticks",
+        d.name,
+        d.dticks,
+        math.floor(shapes.ms(d.dticks / proto.TICKS, api.project_get("tempo")) + 0.5)
+      )
     elseif e.kind == "up" then
       gui.drag = nil
       if d.dticks ~= 0 then
@@ -291,7 +344,15 @@ return function(gui)
     end
     if edge then
       local p = b.p
-      gui.drag = { mode = "phoneme", panel = ph_drag, note = b.note, k = b.k, x0 = x, dticks = 0, name = p.phoneme ~= "" and p.phoneme or p.alias }
+      gui.drag = {
+        mode = "phoneme",
+        panel = ph_drag,
+        note = b.note,
+        k = b.k,
+        x0 = x,
+        dticks = 0,
+        name = p.phoneme ~= "" and p.phoneme or p.alias,
+      }
     end
   end
 

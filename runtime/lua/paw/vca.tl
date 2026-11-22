@@ -38,14 +38,16 @@ end
 local record Paw is partial.Paw
   add_track: function(opts?: objects.TrackInput): objects.Track
 end
-local paw = (_G as {string:Paw}).paw
+local paw = (_G as {string: Paw}).paw
 
 local record M
   type TrackRef = TrackRef
 end
 
 local function id_of(track: TrackRef): integer
-  if track is contracts.TrackHandle then return track.id end
+  if track is contracts.TrackHandle then
+    return track.id
+  end
   return track
 end
 
@@ -58,7 +60,7 @@ local function meta(id: integer): Marks
 end
 
 local function set_meta(id: integer, m: Marks)
-  api.track_set(id, { meta = m as types.Meta })
+  api.track_set(id, {meta = m as types.Meta})
 end
 
 --- True if a track is a VCA.
@@ -70,7 +72,9 @@ end
 function M.of(track: TrackRef): {integer}
   local out: {integer} = {}
   for _, id in ipairs(meta(id_of(track)).vcas or {}) do
-    if M.is_vca(id) then out[#out + 1] = id end
+    if M.is_vca(id) then
+      out[#out + 1] = id
+    end
   end
   return out
 end
@@ -81,7 +85,9 @@ function M.members(vca: TrackRef): {integer}
   local out: {integer} = {}
   for _, id in ipairs(api.track_list()) do
     for _, v in ipairs(meta(id).vcas or {}) do
-      if v == vid then out[#out + 1] = id end
+      if v == vid then
+        out[#out + 1] = id
+      end
     end
   end
   return out
@@ -91,7 +97,9 @@ end
 function M.list(): {integer}
   local out: {integer} = {}
   for _, id in ipairs(api.track_list()) do
-    if M.is_vca(id) then out[#out + 1] = id end
+    if M.is_vca(id) then
+      out[#out + 1] = id
+    end
   end
   return out
 end
@@ -99,12 +107,18 @@ end
 --- Put a track under a VCA.
 function M.assign(track: TrackRef, vca: TrackRef)
   local tid, vid = id_of(track), id_of(vca)
-  if not M.is_vca(vid) then error("not a VCA", 2) end
-  if tid == vid or M.is_vca(tid) then error("a VCA cannot be put under a VCA", 2) end
+  if not M.is_vca(vid) then
+    error("not a VCA", 2)
+  end
+  if tid == vid or M.is_vca(tid) then
+    error("a VCA cannot be put under a VCA", 2)
+  end
   local m = meta(tid)
   local list = m.vcas or {}
   for _, v in ipairs(list) do
-    if v == vid then return end
+    if v == vid then
+      return
+    end
   end
   list[#list + 1] = vid
   m.vcas = list
@@ -117,9 +131,13 @@ function M.unassign(track: TrackRef, vca?: TrackRef): boolean
   local m = meta(tid)
   local list, keep: {integer}, {integer} = m.vcas or {}, {}
   for _, v in ipairs(list) do
-    if vca ~= nil and v ~= id_of(vca) then keep[#keep + 1] = v end
+    if vca ~= nil and v ~= id_of(vca) then
+      keep[#keep + 1] = v
+    end
   end
-  if #keep == #list then return false end
+  if #keep == #list then
+    return false
+  end
   m.vcas = #keep > 0 and keep or nil
   set_meta(tid, m)
   return true
@@ -128,35 +146,48 @@ end
 --- A new VCA over `tracks` (ids or tracks), after the last track. Returns
 --- its track.
 function M.make(tracks?: {TrackRef}, name?: string): contracts.TrackHandle
-  local vca = paw.add_track({ name = name or "VCA" })
+  local vca = paw.add_track({name = name or "VCA"})
   local m = meta(vca.id)
   m.vca = true
   set_meta(vca.id, m)
-  for _, track in ipairs(tracks or {}) do M.assign(track, vca.id) end
+  for _, track in ipairs(tracks or {}) do
+    M.assign(track, vca.id)
+  end
   return vca
 end
 
 --- Take a VCA away: its tracks stay, at their own faders.
 function M.dissolve(vca: TrackRef): boolean
   local vid = id_of(vca)
-  if not M.is_vca(vid) then return false end
-  for _, id in ipairs(M.members(vid)) do M.unassign(id, vid) end
+  if not M.is_vca(vid) then
+    return false
+  end
+  for _, id in ipairs(M.members(vid)) do
+    M.unassign(id, vid)
+  end
   api.track_remove(vid)
   return true
 end
 
 -- A VCA that is removed (or restored) leaves its members' lists holding an id
 -- that names nothing, which is ignored; they are tidied when it is removed.
-events.on(kernel.track_removed, function(event: kernel.TrackId)
-  if event.restored then return end
-  for _, id in ipairs(api.track_list()) do
-    local list = meta(id).vcas
-    if list then
-      for _, v in ipairs(list) do
-        if v == event.id then M.unassign(id, v) end
+events.on(
+  kernel.track_removed,
+  function(event: kernel.TrackId)
+    if event.restored then
+      return
+    end
+    for _, id in ipairs(api.track_list()) do
+      local list = meta(id).vcas
+      if list then
+        for _, v in ipairs(list) do
+          if v == event.id then
+            M.unassign(id, v)
+          end
+        end
       end
     end
   end
-end)
+)
 
 return M

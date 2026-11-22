@@ -87,8 +87,7 @@ end
 
 --- What the piano roll's operators edit: one clip (a `paw.Clip`, with its
 --- `id`), or the clips it edits, as a list of parts.
-local record Target
-  {Part}
+local record Target is {Part}
   id: integer
 end
 
@@ -120,7 +119,7 @@ local record Paw
   restore_clip: function(snap: ClipSnapshot, track: integer | objects.Track): objects.Clip
   notify: function(text: string, level?: string)
 end
-local paw = (_G as {string:Paw}).paw
+local paw = (_G as {string: Paw}).paw
 
 local record A
 end
@@ -143,21 +142,25 @@ M.arrange, M.roll = A, R
 function A.tracks(region: Region): {integer}
   local list, out: {integer}, {integer} = paw.groups.rows(), {}
   for row = math.max(1, region.r0) as integer, region.r1 as integer do
-    if list[row] then out[#out + 1] = list[row] end
+    if list[row] then
+      out[#out + 1] = list[row]
+    end
   end
   return out
 end
 
 -- A copy of a record with some of its fields changed.
-local function with<T>(t: T, changes: {string:Value}): T
-  return util.merge(t as {string:Value}, changes) as T
+local function with<T>(t: T, changes: {string: Value}): T
+  return util.merge(t as {string: Value}, changes) as T
 end
 
 --- The part of a clip between two beats as a snapshot, or nil if there is none.
 local function piece(c: types.Clip, notes: {types.Note}, from: number, to: number): ClipSnapshot
   local a, b = math.max(c.start, from), math.min(c.start + c.length, to)
-  if b - a <= EPS then return nil end
-  local snap: ClipSnapshot = { name = c.name, start = a, length = b - a, kind = c.kind, muted = c.muted }
+  if b - a <= EPS then
+    return nil
+  end
+  local snap: ClipSnapshot = {name = c.name, start = a, length = b - a, kind = c.kind, muted = c.muted}
   -- It plays as the clip does: stretched, shifted, looped from where it begins.
   local moved = paw.stretch.carry(c, snap, a - c.start)
   -- What extensions keep with a clip describes the whole of it, so it goes
@@ -167,22 +170,28 @@ local function piece(c: types.Clip, notes: {types.Note}, from: number, to: numbe
   else
     -- Its takes are another matter: every piece keeps them, lined up.
     local takes = paw.takes.piece(c, a, b, c.loop and moved.shift)
-    if takes then snap.meta = { takes = takes } end
+    if takes then
+      snap.meta = {takes = takes}
+    end
   end
   if c.kind == "midi" and c.loop then
     -- A looped piece keeps everything it repeats, wherever it begins.
     snap.notes = {}
-    for i, n in ipairs(notes) do snap.notes[i] = with(n, { start = (n.start + moved.shift) as Value }) end
+    for i, n in ipairs(notes) do
+      snap.notes[i] = with(n, {start = (n.start + moved.shift) as Value})
+    end
     for _, move in ipairs(c.control_count > 0 and api.clip_controls(c.id) or {}) do
       snap.controls = snap.controls or {}
-      snap.controls[#snap.controls + 1] = with(move, { start = (move.start + moved.shift) as Value })
+      snap.controls[#snap.controls + 1] = with(move, {start = (move.start + moved.shift) as Value})
     end
   elseif c.kind == "midi" then
     snap.notes = {}
     for _, n in ipairs(notes) do
       local start = c.start + n.start
       if start >= a - EPS and start < b - EPS then
-        snap.notes[#snap.notes + 1] = with(n, { start = (start - a) as Value, length = math.min(n.length, b - start) as Value })
+        snap.notes[#snap.notes + 1] = with(
+          n, {start = (start - a) as Value, length = math.min(n.length, b - start) as Value}
+        )
       end
     end
     -- Controller moves go with the stretch they happen in.
@@ -190,7 +199,7 @@ local function piece(c: types.Clip, notes: {types.Note}, from: number, to: numbe
       local start = c.start + move.start
       if start >= a - EPS and start < b - EPS then
         snap.controls = snap.controls or {}
-        snap.controls[#snap.controls + 1] = with(move, { start = (start - a) as Value })
+        snap.controls[#snap.controls + 1] = with(move, {start = (start - a) as Value})
       end
     end
   else
@@ -235,23 +244,29 @@ function A.clear(track: integer, from: number, to: number, only?: {integer: bool
       if not keep then
         api.clip_remove(c.id)
       else
-        api.clip_set(c.id, { start = keep.start })
-        api.clip_set(c.id, { length = keep.length })
-        if keep.loop_start then api.clip_set(c.id, { loop_start = keep.loop_start }) end
+        api.clip_set(c.id, {start = keep.start})
+        api.clip_set(c.id, {length = keep.length})
+        if keep.loop_start then
+          api.clip_set(c.id, {loop_start = keep.loop_start})
+        end
         if notes then
           api.clip_set_notes(c.id, keep.notes)
-          if c.control_count > 0 then api.clip_set_controls(c.id, keep.controls or {}) end
+          if c.control_count > 0 then
+            api.clip_set_controls(c.id, keep.controls or {})
+          end
         else
-          api.clip_set(c.id, { offset = keep.offset })
-          api.clip_set(c.id, { fade_in = keep.fade_in })
-          api.clip_set(c.id, { fade_out = keep.fade_out })
+          api.clip_set(c.id, {offset = keep.offset})
+          api.clip_set(c.id, {fade_in = keep.fade_in})
+          api.clip_set(c.id, {fade_out = keep.fade_out})
         end
         -- What is left of the clip keeps its takes as its piece has them.
         if keep.meta and keep.meta.takes and keep.meta ~= c.meta then
-          local meta = util.merge(c.meta, { takes = keep.meta.takes })
-          api.clip_set(c.id, { meta = meta })
+          local meta = util.merge(c.meta, {takes = keep.meta.takes})
+          api.clip_set(c.id, {meta = meta})
         end
-        if left and right then paw.restore_clip(right, track) end
+        if left and right then
+          paw.restore_clip(right, track)
+        end
       end
     end
   end
@@ -260,7 +275,9 @@ end
 --- Move every clip of a track that starts at or after `from`.
 function A.ripple(track: integer, from: number, by: number)
   for _, c in ipairs(api.clip_list(track)) do
-    if c.start >= from - EPS then api.clip_set(c.id, { start = math.max(0, c.start + by) }) end
+    if c.start >= from - EPS then
+      api.clip_set(c.id, {start = math.max(0, c.start + by)})
+    end
   end
 end
 
@@ -269,7 +286,9 @@ local function starting_in(track: integer, region: Region): {types.Clip}
   local out: {types.Clip} = {}
   for _, c in ipairs(api.clip_list(track)) do
     if region.clips then
-      if region.clips[c.id] then out[#out + 1] = c end
+      if region.clips[c.id] then
+        out[#out + 1] = c
+      end
     elseif region.kind == "line" or (c.start >= region.c0 - EPS and c.start < region.c1 - EPS) then
       out[#out + 1] = c
     end
@@ -282,7 +301,9 @@ local function touching(track: integer, region: Region): {types.Clip}
   local out: {types.Clip} = {}
   for _, c in ipairs(api.clip_list(track)) do
     if region.clips then
-      if region.clips[c.id] then out[#out + 1] = c end
+      if region.clips[c.id] then
+        out[#out + 1] = c
+      end
     elseif region.kind == "line" or (c.start < region.c1 - EPS and c.start + c.length > region.c0 + EPS) then
       out[#out + 1] = c
     end
@@ -304,16 +325,20 @@ function A.yank(region: Region): Yanked
         rows[i][#rows[i] + 1] = p
       end
     end
-    return { kind = "range", length = region.c1 - region.c0, rows = rows }
+    return {kind = "range", length = region.c1 - region.c0, rows = rows}
   end
   if region.kind == "line" then
     local tracks: {objects.TrackSnapshot} = {}
-    for i, id in ipairs(A.tracks(region)) do tracks[i] = paw.track(id):snapshot() end
-    return { kind = "tracks", tracks = tracks }
+    for i, id in ipairs(A.tracks(region)) do
+      tracks[i] = paw.track(id):snapshot()
+    end
+    return {kind = "tracks", tracks = tracks}
   end
   local rows: {{ClipSnapshot}} = {}
-  for i, id in ipairs(A.tracks(region)) do rows[i] = A.copy(id, region.c0, region.c1) end
-  return { kind = "range", length = region.c1 - region.c0, rows = rows }
+  for i, id in ipairs(A.tracks(region)) do
+    rows[i] = A.copy(id, region.c0, region.c1)
+  end
+  return {kind = "range", length = region.c1 - region.c0, rows = rows}
 end
 
 --- Remove a region and return what it held. Whole tracks go; a stretch of
@@ -322,12 +347,16 @@ function A.delete(region: Region): Yanked
   local value = A.yank(region)
   for _, id in ipairs(A.tracks(region)) do
     if region.clips then
-      for _, c in ipairs(starting_in(id, region)) do api.clip_remove(c.id) end
+      for _, c in ipairs(starting_in(id, region)) do
+        api.clip_remove(c.id)
+      end
     elseif region.kind == "line" then
       api.track_remove(id)
     else
       A.clear(id, region.c0, region.c1)
-      if options.opt.ripple then A.ripple(id, region.c1, region.c0 - region.c1) end
+      if options.opt.ripple then
+        A.ripple(id, region.c1, region.c0 - region.c1)
+      end
     end
   end
   return value
@@ -344,7 +373,9 @@ local last_paste: LastPaste
 
 -- The project's count of edits, read alone (`project_get(key)`, which Teal
 -- does not see).
-local function edits(): integer return (api.project_get as function(string): integer)("edits") end
+local function edits(): integer
+  return (api.project_get as function(string): integer)("edits")
+end
 
 --- Put a register's value at the cursor, `count` times one after another.
 --- Tracks go below the cursor's track, or above it with `before`. A stretch
@@ -353,7 +384,9 @@ local function edits(): integer return (api.project_get as function(string): int
 --- along.
 function A.paste(value: Yanked, before?: boolean, count?: integer)
   local cursor = paw.cursor
-  if not value then return paw.notify("nothing to paste yet", "warn") end
+  if not value then
+    return paw.notify("nothing to paste yet", "warn")
+  end
   if value.kind == "tracks" then
     -- On the master, the tracks go after the last one.
     local at = cursor.on_master() and #api.track_list() + 1 or (cursor.index() or 0) + (before and 0 or 1)
@@ -364,7 +397,9 @@ function A.paste(value: Yanked, before?: boolean, count?: integer)
         first, at = first or track, at + 1
       end
     end
-    if first then cursor.set_track(first) end
+    if first then
+      cursor.set_track(first)
+    end
     local n = #value.tracks * (count or 1)
     return paw.notify(n == 1 and "pasted 1 track" or "pasted " .. n .. " tracks")
   elseif value.kind ~= "range" then
@@ -373,7 +408,9 @@ function A.paste(value: Yanked, before?: boolean, count?: integer)
 
   local row, at = cursor.index(), cursor.beat
   if not row then
-    return paw.notify(cursor.on_master() and "the master track has no clips: paste on a track" or "no track to paste on", "warn")
+    return paw.notify(
+      cursor.on_master() and "the master track has no clips: paste on a track" or "no track to paste on", "warn"
+    )
   end
   if not before then
     local made = edits()
@@ -382,7 +419,9 @@ function A.paste(value: Yanked, before?: boolean, count?: integer)
       at = last_paste.finish
     else
       local clip = cursor.clip()
-      if clip then at = clip.start + clip.length end
+      if clip then
+        at = clip.start + clip.length
+      end
     end
   end
   local list, start = paw.groups.rows(), at
@@ -397,13 +436,15 @@ function A.paste(value: Yanked, before?: boolean, count?: integer)
         else
           A.clear(track, at, at + value.length)
         end
-        for _, snap in ipairs(clips) do paw.restore_clip(with(snap, { start = (at + snap.start) as Value }), track) end
+        for _, snap in ipairs(clips) do
+          paw.restore_clip(with(snap, {start = (at + snap.start) as Value}), track)
+        end
       end
     end
     at = at + value.length
   end
   cursor.set_beat(start)
-  last_paste = { row = row, beat = start, finish = at, edits = edits() }
+  last_paste = {row = row, beat = start, finish = at, edits = edits()}
   -- Said, so that what the screen said of the yank before is not taken
   -- for what the paste did.
   paw.notify(string.format("pasted %g beats", value.length * (count or 1)))
@@ -412,7 +453,9 @@ end
 --- Move the clips that start in a region by `by` beats.
 function A.shift(region: Region, by: number)
   for _, id in ipairs(A.tracks(region)) do
-    for _, c in ipairs(starting_in(id, region)) do api.clip_set(c.id, { start = math.max(0, c.start + by) }) end
+    for _, c in ipairs(starting_in(id, region)) do
+      api.clip_set(c.id, {start = math.max(0, c.start + by)})
+    end
   end
 end
 
@@ -422,11 +465,13 @@ function A.quantize(region: Region)
   local grid, note_grid = options.opt.grid, options.opt.note_grid
   for _, id in ipairs(A.tracks(region)) do
     for _, c in ipairs(starting_in(id, region)) do
-      api.clip_set(c.id, { start = util.round(c.start, grid) })
-      api.clip_set(c.id, { length = math.max(grid, util.round(c.length, grid)) })
+      api.clip_set(c.id, {start = util.round(c.start, grid)})
+      api.clip_set(c.id, {length = math.max(grid, util.round(c.length, grid))})
       if c.kind == "midi" then
         local notes = api.clip_notes(c.id)
-        for _, n in ipairs(notes) do n.start = util.round(n.start, note_grid) end
+        for _, n in ipairs(notes) do
+          n.start = util.round(n.start, note_grid)
+        end
         api.clip_set_notes(c.id, notes)
       end
     end
@@ -443,12 +488,18 @@ function A.mute(region: Region)
     if region.kind == "line" then
       things[#things + 1], field = paw.track(id) as {string: boolean}, "mute"
     else
-      for _, c in ipairs(touching(id, region)) do things[#things + 1] = paw.clip(c.id) as {string: boolean} end
+      for _, c in ipairs(touching(id, region)) do
+        things[#things + 1] = paw.clip(c.id) as {string: boolean}
+      end
     end
   end
   local all = #things > 0
-  for _, thing in ipairs(things) do all = all and thing[field] end
-  for _, thing in ipairs(things) do thing[field] = not all end
+  for _, thing in ipairs(things) do
+    all = all and thing[field]
+  end
+  for _, thing in ipairs(things) do
+    thing[field] = not all
+  end
 end
 
 --- Move the notes of the MIDI clips reaching into a region up or down.
@@ -457,7 +508,9 @@ function A.transpose(region: Region, semitones: integer)
     for _, c in ipairs(touching(id, region)) do
       if c.kind == "midi" then
         local notes = api.clip_notes(c.id)
-        for _, n in ipairs(notes) do n.pitch = util.clamp(n.pitch + semitones, 0, 127) as integer end
+        for _, n in ipairs(notes) do
+          n.pitch = util.clamp(n.pitch + semitones, 0, 127) as integer
+        end
         api.clip_set_notes(c.id, notes)
       end
     end
@@ -468,16 +521,22 @@ end
 --- in the set `only`, if given). Returns whether there was more than one
 --- to join.
 function A.join(track: integer, from: number, to: number, only?: {integer: boolean}): boolean
-  local clips = touching(track, { c0 = from, c1 = to, clips = only })
-  if #clips < 2 then return false end
+  local clips = touching(track, {c0 = from, c1 = to, clips = only})
+  if #clips < 2 then
+    return false
+  end
   for _, c in ipairs(clips) do
-    if c.kind ~= "midi" then error("only MIDI clips can be joined", 0) end
+    if c.kind ~= "midi" then
+      error("only MIDI clips can be joined", 0)
+    end
   end
   -- Clips over each other (a take over a clip) join as well as clips side
   -- by side: from the first start to the last end.
   table.sort(clips, function(a: types.Clip, b: types.Clip): boolean return a.start < b.start end)
   local first, finish: types.Clip, number = clips[1], 0
-  for _, c in ipairs(clips) do finish = math.max(finish, c.start + c.length) end
+  for _, c in ipairs(clips) do
+    finish = math.max(finish, c.start + c.length)
+  end
   local notes, controls = api.clip_notes(first.id), api.clip_controls(first.id)
   for i = 2, #clips do
     local by = clips[i].start - first.start
@@ -491,19 +550,25 @@ function A.join(track: integer, from: number, to: number, only?: {integer: boole
     end
     api.clip_remove(clips[i].id)
   end
-  api.clip_set(first.id, { length = finish - first.start })
+  api.clip_set(first.id, {length = finish - first.start})
   api.clip_set_notes(first.id, notes)
-  if #controls > 0 then api.clip_set_controls(first.id, controls) end
+  if #controls > 0 then
+    api.clip_set_controls(first.id, controls)
+  end
   return true
 end
 
 --- How far a region reaches in time: its own stretch, or for whole tracks
 --- from the start to the end of their last clip.
 function A.span(region: Region): number, number
-  if region.kind ~= "line" then return region.c0, region.c1 end
+  if region.kind ~= "line" then
+    return region.c0, region.c1
+  end
   local finish = 0.0
   for _, id in ipairs(A.tracks(region)) do
-    for _, c in ipairs(api.clip_list(id)) do finish = math.max(finish, c.start + c.length) end
+    for _, c in ipairs(api.clip_list(id)) do
+      finish = math.max(finish, c.start + c.length)
+    end
   end
   return 0, finish
 end
@@ -514,21 +579,33 @@ end
 --- Without the clip, a note of any clip with the note's id is named.
 local function named(note: types.Note, region: Region, clip?: integer): boolean
   local by_clip = region.notes
-  if not by_clip then return true end
-  if clip then return by_clip[clip] ~= nil and by_clip[clip][note.id] == true end
+  if not by_clip then
+    return true
+  end
+  if clip then
+    return by_clip[clip] ~= nil and by_clip[clip][note.id] == true
+  end
   for _, ids in pairs(by_clip) do
-    if ids[note.id] then return true end
+    if ids[note.id] then
+      return true
+    end
   end
   return false
 end
 
 --- Whether a note (of the clip `clip`, an id) belongs to a region.
 function R.inside(note: types.Note, region: Region, clip?: integer): boolean
-  if not named(note, region, clip) then return false end
+  if not named(note, region, clip) then
+    return false
+  end
   local rows = note.pitch >= region.r0 and note.pitch <= region.r1
   local time = note.start >= region.c0 - EPS and note.start < region.c1 - EPS
-  if region.kind == "line" then return rows end
-  if region.kind == "block" then return rows and time end
+  if region.kind == "line" then
+    return rows
+  end
+  if region.kind == "block" then
+    return rows and time
+  end
   return time
 end
 
@@ -536,8 +613,12 @@ end
 --- Only the part of the clip the region covers is asked for.
 function R.notes(clip: objects.Clip, region: Region): {types.Note}, {integer}
   local range: objects.NoteRangeInput = {}
-  if region.kind ~= "line" then range.from, range.to = region.c0 - 2 * EPS, region.c1 end
-  if region.kind ~= "char" then range.low, range.high = util.clamp(region.r0, 0, 127) as integer, util.clamp(region.r1, 0, 127) as integer end
+  if region.kind ~= "line" then
+    range.from, range.to = region.c0 - 2 * EPS, region.c1
+  end
+  if region.kind ~= "char" then
+    range.low, range.high = util.clamp(region.r0, 0, 127) as integer, util.clamp(region.r1, 0, 127) as integer
+  end
   local notes, places: {types.Note}, {integer} = {}, {}
   local found, at = clip:notes(range)
   for i, n in ipairs(found) do
@@ -551,14 +632,18 @@ end
 --- One clip, or the clips the roll edits, as a list of `{ clip, offset }`;
 --- and whether it is one clip alone.
 local function parts_of(target: Target): {Part}, boolean
-  if target.id then return { { clip = target as objects.Clip, offset = 0 } }, true end
+  if target.id then
+    return {{clip = target as objects.Clip, offset = 0}}, true
+  end
   return target as {Part}, #target <= 1
 end
 
 --- A region in the beats of a clip `offset` beats after the first.
 local function shifted(region: Region, offset: number): Region
-  if offset == 0 or region.kind == "line" then return region end
-  return with(region, { c0 = (region.c0 - offset) as Value, c1 = (region.c1 - offset) as Value })
+  if offset == 0 or region.kind == "line" then
+    return region
+  end
+  return with(region, {c0 = (region.c0 - offset) as Value, c1 = (region.c1 - offset) as Value})
 end
 
 --- A region of a clip's notes as a value for a register. Taken from
@@ -571,16 +656,27 @@ function R.yank(target: Target, region: Region): Yanked
       local start = n.start + part.offset
       -- Whole pitches keep their place in time; anything else counts from
       -- where the region starts.
-      notes[#notes + 1] = with(n as YankedNote, { start = (region.kind == "line" and start or start - region.c0) as Value, clip = (not single and part.clip.id or nil) as Value })
+      notes[#notes + 1] = with(
+        n as YankedNote,
+        {
+          start = (region.kind == "line" and start or start - region.c0) as Value,
+          clip = (not single and part.clip.id or nil) as Value,
+        }
+      )
     end
   end
   if not single then
-    table.sort(notes, function(a: YankedNote, b: YankedNote): boolean
-      if math.abs(a.start - b.start) > EPS then return a.start < b.start end
-      return a.pitch < b.pitch
-    end)
+    table.sort(
+      notes,
+      function(a: YankedNote, b: YankedNote): boolean
+        if math.abs(a.start - b.start) > EPS then
+          return a.start < b.start
+        end
+        return a.pitch < b.pitch
+      end
+    )
   end
-  return { kind = "notes", shape = region.kind, top = region.r1, length = region.c1 - region.c0, notes = notes }
+  return {kind = "notes", shape = region.kind, top = region.r1, length = region.c1 - region.c0, notes = notes}
 end
 
 --- Remove a region's notes and return them.
@@ -588,7 +684,9 @@ function R.delete(target: Target, region: Region): Yanked
   local value = R.yank(target, region)
   for _, part in ipairs((parts_of(target))) do
     local _, places = R.notes(part.clip, shifted(region, part.offset))
-    if #places > 0 then part.clip:edit_notes({ remove = places }) end
+    if #places > 0 then
+      part.clip:edit_notes({remove = places})
+    end
   end
   return value
 end
@@ -601,9 +699,18 @@ function R.each(target: Target, region: Region, fn: function(note: types.Note))
     local set: {objects.NoteChangeInput} = {}
     for i, n in ipairs(notes) do
       fn(n)
-      set[i] = { index = places[i], start = n.start, length = n.length, pitch = n.pitch, velocity = n.velocity, meta = n.meta or {} }
+      set[i] = {
+        index = places[i],
+        start = n.start,
+        length = n.length,
+        pitch = n.pitch,
+        velocity = n.velocity,
+        meta = n.meta or {},
+      }
     end
-    if #set > 0 then part.clip:edit_notes({ set = set }) end
+    if #set > 0 then
+      part.clip:edit_notes({set = set})
+    end
   end
 end
 
@@ -613,15 +720,21 @@ local function put(clip: objects.Clip, add: {YankedNote}, finish: number)
   local remove: {integer} = {}
   for index, old in ipairs((clip:notes())) do
     for _, new in ipairs(add) do
-      if old.pitch == new.pitch and old.start < new.start + new.length - EPS and old.start + old.length > new.start + EPS then
+      if
+        old.pitch == new.pitch and old.start < new.start + new.length - EPS and old.start + old.length > new.start + EPS
+      then
         remove[#remove + 1] = index
         break
       end
     end
   end
   local note_grid = options.opt.note_grid
-  if finish > clip.length + EPS then clip.length = math.ceil(finish / note_grid - EPS) * note_grid end
-  if #add > 0 or #remove > 0 then clip:edit_notes({ remove = remove, add = add as {objects.NoteInput} }) end
+  if finish > clip.length + EPS then
+    clip.length = math.ceil(finish / note_grid - EPS) * note_grid
+  end
+  if #add > 0 or #remove > 0 then
+    clip:edit_notes({remove = remove, add = add as {objects.NoteInput}})
+  end
 end
 
 --- Put yanked notes into a clip at a beat. A stretch of time keeps its
@@ -642,7 +755,9 @@ function R.paste(target: Target, value: Yanked, pitch: integer, beat: number, in
   local parts, single = parts_of(target)
   into = not single and into or parts[1]
   local by_clip: {integer: Part} = {}
-  for _, part in ipairs(parts) do by_clip[part.clip.id] = part end
+  for _, part in ipairs(parts) do
+    by_clip[part.clip.id] = part
+  end
   local adds: {Part: {YankedNote}} = {}
   local finish: {Part: number} = {}
   for _, n in ipairs(value.notes) do
@@ -650,9 +765,13 @@ function R.paste(target: Target, value: Yanked, pitch: integer, beat: number, in
     local note = with(n, {})
     -- What is pasted is a note of its own, whatever it was copied from.
     note.clip, note.id = nil, nil
-    if value.shape ~= "line" then note.start = beat + n.start end
+    if value.shape ~= "line" then
+      note.start = beat + n.start
+    end
     note.start = note.start - part.offset
-    if value.shape ~= "char" then note.pitch = (n.pitch + pitch - value.top) as integer end
+    if value.shape ~= "char" then
+      note.pitch = (n.pitch + pitch - value.top) as integer
+    end
     if note.pitch >= 0 and note.pitch <= 127 then
       adds[part] = adds[part] or {}
       table.insert(adds[part], note)
@@ -660,7 +779,9 @@ function R.paste(target: Target, value: Yanked, pitch: integer, beat: number, in
     end
   end
   -- Room for the whole stretch that was yanked, not only the notes in it.
-  if value.shape ~= "line" and adds[into] then finish[into] = math.max(finish[into], beat - into.offset + value.length) end
+  if value.shape ~= "line" and adds[into] then
+    finish[into] = math.max(finish[into], beat - into.offset + value.length)
+  end
   local pasted = 0
   for _, part in ipairs(parts) do
     if adds[part] then

@@ -19,26 +19,42 @@ paw.on("audio.lost", function(e)
   local took = e.recording and " The take so far is kept." or ""
   local back = e.auto and "it is opened again when it comes back (`:audio.reconnect` tries now)"
     or "`:audio.reconnect` opens it again when it is back"
-  paw.notify(string.format("The audio device %s was lost (%s): stopped, and running without sound.%s %s.",
-    e.device, e.reason, took, back), "error")
+  paw.notify(
+    string.format(
+      "The audio device %s was lost (%s): stopped, and running without sound.%s %s.",
+      e.device,
+      e.reason,
+      took,
+      back
+    ),
+    "error"
+  )
 end)
 
-paw.on("audio.restored", function(e)
-  paw.notify(string.format("The audio device %s is back, and open again", e.device))
-end)
+paw.on(
+  "audio.restored",
+  function(e) paw.notify(string.format("The audio device %s is back, and open again", e.device)) end
+)
 
 local function tracks(list)
   if #list == 0 then return "" end
   return " (" .. table.concat(list, ", ") .. ")"
 end
 
-paw.on("midi.lost", function(e)
-  paw.notify(string.format("The MIDI input %s went away%s; it is taken again when it comes back", e.port, tracks(e.tracks)), "warn")
-end)
+paw.on(
+  "midi.lost",
+  function(e)
+    paw.notify(
+      string.format("The MIDI input %s went away%s; it is taken again when it comes back", e.port, tracks(e.tracks)),
+      "warn"
+    )
+  end
+)
 
-paw.on("midi.returned", function(e)
-  paw.notify(string.format("The MIDI input %s is back%s", e.port, tracks(e.tracks)))
-end)
+paw.on(
+  "midi.returned",
+  function(e) paw.notify(string.format("The MIDI input %s is back%s", e.port, tracks(e.tracks))) end
+)
 
 --- Try to open again the device that went away. Returns true if it is open.
 function M.reconnect()
@@ -56,7 +72,10 @@ function M.reconnect()
   return open
 end
 
-paw.command("audio.reconnect", function() M.reconnect() end,
-  { desc = "Open the audio device that went away again, if it is back" })
+paw.command(
+  "audio.reconnect",
+  function() M.reconnect() end,
+  { desc = "Open the audio device that went away again, if it is back" }
+)
 
 return M

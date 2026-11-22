@@ -34,7 +34,7 @@ local type Untyped = require("paw.untyped")
 
 -- The `paw` global, for its parts still written in Lua. This module is a
 -- part of the global's types, so it takes the global as `Untyped`.
-local paw = (_G as {string:Untyped}).paw
+local paw = (_G as {string: Untyped}).paw
 
 local record M
   -- The shape of a file, in ticks, as `parse` gives it and `encode` takes it.
@@ -112,7 +112,7 @@ local record M
     tempos: {Tempo}
     signatures: {Signature}
     markers: {Text}
-    skipped: {string:integer}
+    skipped: {string: integer}
   end
 
   --- The data for one track of the project: its name, its channel, whether
@@ -215,7 +215,7 @@ local record MarkerPoint
   name: string
 end
 
-M.extensions = { "mid", "midi", "smf", "kar" }
+M.extensions = {"mid", "midi", "smf", "kar"}
 
 --- True if a path names a MIDI 2.0 clip file (`.midi2`), from its ending.
 function M.is_clip_file(path: string): boolean
@@ -232,13 +232,20 @@ function M.open_clip(path: string): Untyped, types.Midi2Clip
   local read = api.midi2_read(path)
   local name: string = (path:match("([^/]+)$") or path):gsub("%.[^.]+$", "")
   api.project_new()
-  api.project_set({ name = name })
-  local track = paw.add_track({ name = name })
+  api.project_set({name = name})
+  local track = paw.add_track({name = name})
   track:add_device("synth")
-  local clip = track:add_clip({ name = name, start = 0, length = read.length > 0 and read.length or nil,
-    notes = read.notes, controls = read.controls })
+  local clip = track:add_clip(
+    {
+      name = name,
+      start = 0,
+      length = read.length > 0 and read.length or nil,
+      notes = read.notes,
+      controls = read.controls,
+    }
+  )
   api.undo_reset()
-  M.document = { path = path, clip = clip.id as integer }
+  M.document = {path = path, clip = clip.id as integer}
   paw.cursor.set_track(track)
   (paw.cursor as Cursor).beat = 0
   -- `project_new` above says `project.loaded` later: this clip stays open.
@@ -251,30 +258,37 @@ end
 function M.write_clip(): string
   local doc = M.document
   local clip = api.clip_get(doc.clip)
-  api.midi2_write(doc.path, { notes = api.clip_notes(doc.clip), controls = api.clip_controls(doc.clip), length = clip.length })
+  api.midi2_write(
+    doc.path, {notes = api.clip_notes(doc.clip), controls = api.clip_controls(doc.clip), length = clip.length}
+  )
   api.project_mark_saved()
   return doc.path
 end
 
-paw.on("project.loaded", function()
-  if M.document and M.document.opening then
-    M.document.opening = nil
-  else
-    M.document = nil
+paw.on(
+  "project.loaded",
+  function()
+    if M.document and M.document.opening then
+      M.document.opening = nil
+    else
+      M.document = nil
+    end
   end
-end)
+)
 
 --- Bring a MIDI 2.0 clip file in as a clip that refers to it, on a track at
 --- a beat. The first edit makes it the project's own. Returns the clip.
 function M.import_clip(path: string, track: Untyped, start: number): Untyped
-  return track:add_clip({ file = path, start = start })
+  return track:add_clip({file = path, start = start})
 end
 
 --- True if a path names a MIDI file, from its file ending.
 function M.is_midi_file(path: string): boolean
   local ext = (tostring(path):match("%.([^./]+)$") or ""):lower()
   for _, known in ipairs(M.extensions) do
-    if ext == known then return true end
+    if ext == known then
+      return true
+    end
   end
   return false
 end
@@ -283,7 +297,9 @@ end
 
 local function be(data: string, pos: integer, n: integer): integer
   local v = 0
-  for i = 0, n - 1 do v = v * 256 + (data:byte(pos + i) or 0) end
+  for i = 0, n - 1 do
+    v = v * 256 + (data:byte(pos + i) or 0)
+  end
   return v
 end
 
@@ -292,11 +308,15 @@ end
 local function vlq(data: string, p: integer, stop: integer): integer, integer
   local v = 0
   for _ = 1, 4 do
-    if p >= stop then return nil end
+    if p >= stop then
+      return nil
+    end
     local b = data:byte(p)
     p = p + 1
     v = v * 128 + b % 128
-    if b < 128 then return v, p end
+    if b < 128 then
+      return v, p
+    end
   end
   return nil
 end
@@ -307,21 +327,35 @@ local function utf8_text(s: string): string
   local i, n = 1, #s
   while i <= n do
     local c = s:byte(i)
-    local extra: integer = c < 0x80 and 0 or (c >= 0xC2 and c < 0xE0) and 1 or (c >= 0xE0 and c < 0xF0) and 2
-      or (c >= 0xF0 and c < 0xF5) and 3 or nil
-    if not extra then break end
+    local extra: integer = c < 0x80 and 0
+      or (c >= 0xC2 and c < 0xE0) and 1
+      or (c >= 0xE0 and c < 0xF0) and 2
+      or (c >= 0xF0 and c < 0xF5) and 3
+      or nil
+    if not extra then
+      break
+    end
     for k = 1, extra do
       local d = s:byte(i + k)
-      if not d or d < 0x80 or d >= 0xC0 then extra = nil break end
+      if not d or d < 0x80 or d >= 0xC0 then
+        extra = nil
+        break
+      end
     end
-    if not extra then break end
+    if not extra then
+      break
+    end
     i = i + 1 + extra
   end
-  if i > n then return (s:gsub("%z", "")) end
-  return (s:gsub("%z", ""):gsub("[\128-\255]", function(ch: string): string
-    local b = ch:byte()
-    return string.char(0xC0 + math.floor(b / 64), 0x80 + b % 64)
-  end))
+  if i > n then
+    return (s:gsub("%z", ""))
+  end
+  return (
+    s:gsub("%z", ""):gsub(
+      "[\128-\255]",
+      function(ch: string): string local b = ch:byte(); return string.char(0xC0 + math.floor(b / 64), 0x80 + b % 64) end
+    )
+  )
 end
 
 --- Pair note-ons with note-offs, first on with first off on each key and
@@ -338,20 +372,22 @@ local record Event
 end
 
 local function pair(events: {Event}, end_tick: integer, ppq: number, count: function(string)): {Note}
-  local held: {integer:{Note}} = {}
+  local held: {integer: {Note}} = {}
   local notes: {Note} = {}
   for _, e in ipairs(events) do
     local key = e.channel * 128 + e.pitch
     if e.on then
       local list = held[key] or {}
       held[key] = list
-      local note: Note = { tick = e.tick, pitch = e.pitch, velocity = e.velocity, channel = e.channel, attr = e.attr }
+      local note: Note = {tick = e.tick, pitch = e.pitch, velocity = e.velocity, channel = e.channel, attr = e.attr}
       list[#list + 1] = note
       notes[#notes + 1] = note
     else
       local list = held[key]
       local note = list and table.remove(list, 1)
-      if note then note.length = e.tick - note.tick end
+      if note then
+        note.length = e.tick - note.tick
+      end
     end
   end
   for _, note in ipairs(notes) do
@@ -359,12 +395,19 @@ local function pair(events: {Event}, end_tick: integer, ppq: number, count: func
       note.length = math.max(0, end_tick - note.tick)
       count("notes without an end (held to the end)")
     end
-    if note.length <= 0 then note.length = math.max(1, ppq / 16) end
+    if note.length <= 0 then
+      note.length = math.max(1, ppq / 16)
+    end
   end
-  table.sort(notes, function(a: Note, b: Note): boolean
-    if a.tick ~= b.tick then return a.tick < b.tick end
-    return a.pitch < b.pitch
-  end)
+  table.sort(
+    notes,
+    function(a: Note, b: Note): boolean
+      if a.tick ~= b.tick then
+        return a.tick < b.tick
+      end
+      return a.pitch < b.pitch
+    end
+  )
   return notes
 end
 
@@ -375,7 +418,9 @@ local function attach_lyrics(track: Track, ppq: number, count: function(string))
   local i = 1
   for _, lyric in ipairs(track.lyrics) do
     local text = lyric.text:gsub("^%s+", ""):gsub("%s+$", "")
-    while track.notes[i] and track.notes[i].tick < lyric.tick do i = i + 1 end
+    while track.notes[i] and track.notes[i].tick < lyric.tick do
+      i = i + 1
+    end
     local k, placed = i, false
     while text ~= "" and track.notes[k] and track.notes[k].tick - lyric.tick <= reach do
       if not track.notes[k].lyric and track.notes[k].channel ~= 9 then
@@ -385,7 +430,9 @@ local function attach_lyrics(track: Track, ppq: number, count: function(string))
       end
       k = k + 1
     end
-    if text ~= "" and not placed then count("lyrics with no note to go on") end
+    if text ~= "" and not placed then
+      count("lyrics with no note to go on")
+    end
   end
 end
 
@@ -400,21 +447,31 @@ local function attr_meta(attr: Attr): string
 end
 
 local function meta_attr(body: string): Attr
-  if #body ~= #ATTR_MARK + 3 or body:sub(1, #ATTR_MARK) ~= ATTR_MARK then return nil end
+  if #body ~= #ATTR_MARK + 3 or body:sub(1, #ATTR_MARK) ~= ATTR_MARK then
+    return nil
+  end
   local kind, hi, lo = body:byte(#ATTR_MARK + 1, #ATTR_MARK + 3)
-  return kind > 0 and { type = kind, data = hi * 256 + lo } or nil
+  return kind > 0 and {type = kind, data = hi * 256 + lo} or nil
 end
 
-local META_SKIPPED: {integer:string} = {
-  [0x01] = "text events", [0x02] = "copyright notices", [0x08] = "program names", [0x09] = "device names",
-  [0x20] = "channel prefixes", [0x21] = "port numbers", [0x54] = "SMPTE offsets", [0x59] = "key signatures",
+local META_SKIPPED: {integer: string} = {
+  [0x01] = "text events",
+  [0x02] = "copyright notices",
+  [0x08] = "program names",
+  [0x09] = "device names",
+  [0x20] = "channel prefixes",
+  [0x21] = "port numbers",
+  [0x54] = "SMPTE offsets",
+  [0x59] = "key signatures",
   [0x7F] = "sequencer-specific events",
 }
 
 --- The events of one `MTrk` chunk, from `p` up to `stop`, with ticks
 --- counted from `offset`.
-local function parse_track(data: string, p: integer, stop: integer, offset: integer, file: File, count: function(string)): Track
-  local track: Track = { notes = {}, controls = {}, lyrics = {} }
+local function parse_track(
+  data: string, p: integer, stop: integer, offset: integer, file: File, count: function(string)
+): Track
+  local track: Track = {notes = {}, controls = {}, lyrics = {}}
   local tick = offset
   local running: integer
   local events: {Event} = {}
@@ -437,7 +494,11 @@ local function parse_track(data: string, p: integer, stop: integer, offset: inte
       count("a track cut short")
       break
     end
-    if status >= 0x80 then p = p + 1 else status = running end
+    if status >= 0x80 then
+      p = p + 1
+    else
+      status = running
+    end
     if not status then
       count("a track cut short")
       break
@@ -458,20 +519,22 @@ local function parse_track(data: string, p: integer, stop: integer, offset: inte
         if file.smpte then
           count("tempo changes (the file is timed in frames)")
         else
-          file.tempos[#file.tempos + 1] = { tick = tick, bpm = 60000000 / math.max(1, be(body, 1, 3)) }
+          file.tempos[#file.tempos + 1] = {tick = tick, bpm = 60000000 / math.max(1, be(body, 1, 3))}
         end
       elseif kind == 0x58 and len >= 2 then
-        file.signatures[#file.signatures + 1] = { tick = tick, num = math.max(1, body:byte(1)), den = math.floor(2 ^ math.min(6, body:byte(2))) }
+        file.signatures[#file.signatures + 1] = {
+          tick = tick, num = math.max(1, body:byte(1)), den = math.floor(2 ^ math.min(6, body:byte(2)))
+        }
       elseif kind == 0x03 then
         track.name = track.name or utf8_text(body)
       elseif kind == 0x04 then
         track.instrument = track.instrument or utf8_text(body)
       elseif kind == 0x05 then
-        track.lyrics[#track.lyrics + 1] = { tick = tick, text = utf8_text(body) }
+        track.lyrics[#track.lyrics + 1] = {tick = tick, text = utf8_text(body)}
       elseif kind == 0x06 or kind == 0x07 then
-        file.markers[#file.markers + 1] = { tick = tick, text = utf8_text(body) }
+        file.markers[#file.markers + 1] = {tick = tick, text = utf8_text(body)}
       elseif kind == 0x7F and meta_attr(body) then
-        attr = { tick = tick, value = meta_attr(body) }
+        attr = {tick = tick, value = meta_attr(body)}
       else
         count(META_SKIPPED[kind] or "other meta events")
       end
@@ -500,21 +563,27 @@ local function parse_track(data: string, p: integer, stop: integer, offset: inte
       end
       d1, d2 = d1 % 128, d2 % 128
       if kind == 9 and d2 > 0 then
-        events[#events + 1] = { tick = tick, on = true, channel = channel, pitch = d1, velocity = d2,
-          attr = attr and attr.tick == tick and attr.value or nil }
+        events[#events + 1] = {
+          tick = tick,
+          on = true,
+          channel = channel,
+          pitch = d1,
+          velocity = d2,
+          attr = attr and attr.tick == tick and attr.value or nil,
+        }
         attr = nil
       elseif kind == 8 or kind == 9 then
-        events[#events + 1] = { tick = tick, channel = channel, pitch = d1 }
+        events[#events + 1] = {tick = tick, channel = channel, pitch = d1}
       elseif kind == 11 then
-        track.controls[#track.controls + 1] = { tick = tick, type = "cc", number = d1, value = d2, channel = channel }
+        track.controls[#track.controls + 1] = {tick = tick, type = "cc", number = d1, value = d2, channel = channel}
       elseif kind == 14 then
-        track.controls[#track.controls + 1] = { tick = tick, type = "bend", value = d1 + d2 * 128, channel = channel }
+        track.controls[#track.controls + 1] = {tick = tick, type = "bend", value = d1 + d2 * 128, channel = channel}
       elseif kind == 13 then
-        track.controls[#track.controls + 1] = { tick = tick, type = "pressure", value = d1, channel = channel }
+        track.controls[#track.controls + 1] = {tick = tick, type = "pressure", value = d1, channel = channel}
       elseif kind == 10 then
-        track.controls[#track.controls + 1] = { tick = tick, type = "pressure", key = d1, value = d2, channel = channel }
+        track.controls[#track.controls + 1] = {tick = tick, type = "pressure", key = d1, value = d2, channel = channel}
       elseif kind == 12 then
-        track.controls[#track.controls + 1] = { tick = tick, type = "program", program = d1, channel = channel }
+        track.controls[#track.controls + 1] = {tick = tick, type = "program", program = d1, channel = channel}
       end
     end
   end
@@ -527,15 +596,26 @@ end
 
 --- Sort by tick, keeping the last of several at one tick.
 local function settle<T is M.Ticked>(list: {T}): {T}
-  local order: {T:integer} = {}
-  for i, item in ipairs(list) do order[item] = i end
-  table.sort(list, function(a: T, b: T): boolean
-    if a.tick ~= b.tick then return a.tick < b.tick end
-    return order[a] < order[b]
-  end)
+  local order: {T: integer} = {}
+  for i, item in ipairs(list) do
+    order[item] = i
+  end
+  table.sort(
+    list,
+    function(a: T, b: T): boolean
+      if a.tick ~= b.tick then
+        return a.tick < b.tick
+      end
+      return order[a] < order[b]
+    end
+  )
   local out: {T} = {}
   for _, item in ipairs(list) do
-    if out[#out] and out[#out].tick == item.tick then out[#out] = item else out[#out + 1] = item end
+    if out[#out] and out[#out].tick == item.tick then
+      out[#out] = item
+    else
+      out[#out + 1] = item
+    end
   end
   return out
 end
@@ -563,22 +643,36 @@ function M.parse(data: string): File, string
   -- A RIFF MIDI file (.rmi) holds a plain one.
   if data:sub(1, 4) == "RIFF" and data:sub(9, 12) == "RMID" then
     local at = data:find("MThd", 13, true)
-    if at then data = data:sub(at) end
+    if at then
+      data = data:sub(at)
+    end
   end
-  if #data < 14 or data:sub(1, 4) ~= "MThd" then return nil, "not a MIDI file" end
+  if #data < 14 or data:sub(1, 4) ~= "MThd" then
+    return nil, "not a MIDI file"
+  end
   local header = be(data, 5, 4)
   local format, ntracks, division = be(data, 9, 2), be(data, 11, 2), be(data, 13, 2)
-  if format > 2 then return nil, "not a MIDI file of a format known (it says " .. format .. ")" end
-  local file: File = { format = format, tracks = {}, tempos = {}, signatures = {}, markers = {}, skipped = {}, length = 0 }
-  local function count(what: string) file.skipped[what] = (file.skipped[what] or 0) + 1 end
+  if format > 2 then
+    return nil, "not a MIDI file of a format known (it says " .. format .. ")"
+  end
+  local file: File = {
+    format = format, tracks = {}, tempos = {}, signatures = {}, markers = {}, skipped = {}, length = 0
+  }
+  local function count(what: string)
+    file.skipped[what] = (file.skipped[what] or 0) + 1
+  end
   if division >= 32768 then
     local fps: number = 256 - math.floor(division / 256)
-    if fps == 29 then fps = 29.97 end
+    if fps == 29 then
+      fps = 29.97
+    end
     file.smpte, file.ppq = true, fps * (division % 256) / 2
   else
     file.ppq = division
   end
-  if file.ppq <= 0 then return nil, "the file says a beat has no ticks" end
+  if file.ppq <= 0 then
+    return nil, "the file says a beat has no ticks"
+  end
   local pos, offset = 9 + header, 0
   while pos + 8 <= #data + 1 do
     local id, size = data:sub(pos, pos + 3), be(data, pos + 4, 4)
@@ -587,13 +681,21 @@ function M.parse(data: string): File, string
       local track = parse_track(data, pos + 8, stop, offset, file, count)
       file.tracks[#file.tracks + 1] = track
       file.length = math.max(file.length, track.length)
-      if format == 2 then offset = track.length end
+      if format == 2 then
+        offset = track.length
+      end
     end
     pos = pos + 8 + size
   end
-  if #file.tracks == 0 and ntracks > 0 then return nil, "the MIDI file has no tracks in it" end
-  if #file.tracks < ntracks then count("tracks missing from the end of the file") end
-  if file.smpte then file.tempos = { { tick = 0, bpm = 120 } } end
+  if #file.tracks == 0 and ntracks > 0 then
+    return nil, "the MIDI file has no tracks in it"
+  end
+  if #file.tracks < ntracks then
+    count("tracks missing from the end of the file")
+  end
+  if file.smpte then
+    file.tempos = {{tick = 0, bpm = 120}}
+  end
   file.tempos, file.signatures = settle(file.tempos), settle(file.signatures)
   table.sort(file.markers, function(a: M.Text, b: M.Text): boolean return a.tick < b.tick end)
   return file
@@ -602,7 +704,9 @@ end
 --- Read a MIDI file from disk: as `parse`, or nil and a reason.
 function M.read(path: string): File, string
   local f, err = io.open(path, "rb")
-  if not f then return nil, (tostring(err):gsub("^[^:]*: ", "")) end
+  if not f then
+    return nil, (tostring(err):gsub("^[^:]*: ", ""))
+  end
   local data = f:read("*a")
   f:close()
   return M.parse(data)
@@ -612,7 +716,7 @@ end
 
 local function write_vlq(x: number): string
   local n = math.max(0, math.floor(x + 0.5))
-  local bytes = { string.char(n % 128) }
+  local bytes = {string.char(n % 128)}
   n = math.floor(n / 128)
   while n > 0 do
     table.insert(bytes, 1, string.char(128 + n % 128))
@@ -625,9 +729,13 @@ local function u32(n: integer): string
   return string.char(math.floor(n / 16777216) % 256, math.floor(n / 65536) % 256, math.floor(n / 256) % 256, n % 256)
 end
 
-local function clamp7(v: number): integer return math.max(0, math.min(127, math.floor(v + 0.5))) end
+local function clamp7(v: number): integer
+  return math.max(0, math.min(127, math.floor(v + 0.5)))
+end
 
-local function meta(kind: integer, body: string): string return "\255" .. string.char(kind) .. write_vlq(#body) .. body end
+local function meta(kind: integer, body: string): string
+  return "\255" .. string.char(kind) .. write_vlq(#body) .. body
+end
 
 --- One track's chunk. At a tick: tempo and other meta events first, then
 --- notes let go, then controls, then lyrics and the notes they start.
@@ -642,9 +750,11 @@ end
 local function encode_track(track: Track, conductor: File): string
   local events: {Out} = {}
   local function add(tick: number, rank: integer, bytes: string, status?: integer)
-    events[#events + 1] = { tick = math.floor(tick + 0.5), rank = rank, bytes = bytes, status = status, order = #events }
+    events[#events + 1] = {tick = math.floor(tick + 0.5), rank = rank, bytes = bytes, status = status, order = #events}
   end
-  if track.name and track.name ~= "" then add(0, 0, meta(0x03, track.name)) end
+  if track.name and track.name ~= "" then
+    add(0, 0, meta(0x03, track.name))
+  end
   if conductor then
     for _, t in ipairs(conductor.tempos or {}) do
       local us = math.floor(60000000 / t.bpm + 0.5)
@@ -654,13 +764,19 @@ local function encode_track(track: Track, conductor: File): string
       local power = math.floor(math.log(s.den) / math.log(2) + 0.5)
       add(s.tick, 0, meta(0x58, string.char(s.num, power, 24, 8)))
     end
-    for _, m in ipairs(conductor.markers or {}) do add(m.tick, 0, meta(0x06, m.text)) end
+    for _, m in ipairs(conductor.markers or {}) do
+      add(m.tick, 0, meta(0x06, m.text))
+    end
   end
   for _, n in ipairs(track.notes or {}) do
     local ch = n.channel or 0
     add(n.tick + n.length, 1, string.char(n.pitch, 0), 0x80 + ch)
-    if n.lyric then add(n.tick, 3, meta(0x05, n.lyric)) end
-    if n.attr and (n.attr.type or 0) > 0 then add(n.tick, 3, meta(0x7F, attr_meta(n.attr))) end
+    if n.lyric then
+      add(n.tick, 3, meta(0x05, n.lyric))
+    end
+    if n.attr and (n.attr.type or 0) > 0 then
+      add(n.tick, 3, meta(0x7F, attr_meta(n.attr)))
+    end
     add(n.tick, 3, string.char(n.pitch, clamp7(n.velocity)), 0x90 + ch)
   end
   for _, c in ipairs(track.controls or {}) do
@@ -678,18 +794,27 @@ local function encode_track(track: Track, conductor: File): string
       add(c.tick, 2, string.char(c.program), 0xC0 + ch)
     end
   end
-  table.sort(events, function(a: Out, b: Out): boolean
-    if a.tick ~= b.tick then return a.tick < b.tick end
-    if a.rank ~= b.rank then return a.rank < b.rank end
-    return a.order < b.order
-  end)
+  table.sort(
+    events,
+    function(a: Out, b: Out): boolean
+      if a.tick ~= b.tick then
+        return a.tick < b.tick
+      end
+      if a.rank ~= b.rank then
+        return a.rank < b.rank
+      end
+      return a.order < b.order
+    end
+  )
   local body: {string} = {}
   local tick = 0
   local running: integer
   for _, e in ipairs(events) do
     local status = ""
     -- Running status: a channel message like the one before leaves out its status byte.
-    if e.status and e.status ~= running then status = string.char(e.status) end
+    if e.status and e.status ~= running then
+      status = string.char(e.status)
+    end
     running = e.status
     body[#body + 1] = write_vlq(e.tick - tick) .. status .. e.bytes
     tick = e.tick
@@ -705,12 +830,20 @@ end
 --- rounds them.
 function M.encode(file: File): string
   local tracks: {Track} = file.tracks or {}
-  if #tracks == 0 then tracks = { {} } end
+  if #tracks == 0 then
+    tracks = {{}}
+  end
   local format = file.format or (#tracks > 1 and 1 or 0)
-  if format == 0 and #tracks > 1 then error("a format 0 file has one track", 2) end
+  if format == 0 and #tracks > 1 then
+    error("a format 0 file has one track", 2)
+  end
   local ppq = math.floor((file.ppq or 960) + 0.5)
-  local out = { "MThd", u32(6), string.char(0, format, math.floor(#tracks / 256), #tracks % 256, math.floor(ppq / 256), ppq % 256) }
-  for i, track in ipairs(tracks) do out[#out + 1] = encode_track(track, i == 1 and file or nil) end
+  local out = {
+    "MThd", u32(6), string.char(0, format, math.floor(#tracks / 256), #tracks % 256, math.floor(ppq / 256), ppq % 256)
+  }
+  for i, track in ipairs(tracks) do
+    out[#out + 1] = encode_track(track, i == 1 and file or nil)
+  end
   return table.concat(out)
 end
 
@@ -722,16 +855,27 @@ end
 function M.parts(file: File, merge?: boolean): {Part}
   local parts: {Part} = {}
   local function part(name: string, notes: {Note}, controls: {Control})
-    local channels: {integer:integer} = {}
-    for _, n in ipairs(notes) do channels[n.channel] = (channels[n.channel] or 0) + 1 end
+    local channels: {integer: integer} = {}
+    for _, n in ipairs(notes) do
+      channels[n.channel] = (channels[n.channel] or 0) + 1
+    end
     local main, most, only = 0, -1, true
     for ch, n in pairs(channels) do
-      if n > most or (n == most and ch < main) then main, most = ch, n end
+      if n > most or (n == most and ch < main) then
+        main, most = ch, n
+      end
     end
-    for ch in pairs(channels) do if ch ~= main then only = false end end
+    for ch in pairs(channels) do
+      if ch ~= main then
+        only = false
+      end
+    end
     parts[#parts + 1] = {
       name = (name and name ~= "") and name or ("Channel " .. (main + 1)),
-      channel = main, drums = only and main == 9, notes = notes, controls = controls,
+      channel = main,
+      drums = only and main == 9,
+      notes = notes,
+      controls = controls,
     }
   end
   if merge then
@@ -739,16 +883,29 @@ function M.parts(file: File, merge?: boolean): {Part}
     local controls: {Control} = {}
     local name: string
     for _, track in ipairs(file.tracks) do
-      for _, n in ipairs(track.notes) do notes[#notes + 1] = n end
-      for _, c in ipairs(track.controls) do controls[#controls + 1] = c end
-      if #track.notes > 0 then name = name or track.name end
+      for _, n in ipairs(track.notes) do
+        notes[#notes + 1] = n
+      end
+      for _, c in ipairs(track.controls) do
+        controls[#controls + 1] = c
+      end
+      if #track.notes > 0 then
+        name = name or track.name
+      end
     end
-    table.sort(notes, function(a: Note, b: Note): boolean
-      if a.tick ~= b.tick then return a.tick < b.tick end
-      return a.pitch < b.pitch
-    end)
+    table.sort(
+      notes,
+      function(a: Note, b: Note): boolean
+        if a.tick ~= b.tick then
+          return a.tick < b.tick
+        end
+        return a.pitch < b.pitch
+      end
+    )
     table.sort(controls, function(a: Control, b: Control): boolean return a.tick < b.tick end)
-    if #notes > 0 or #controls > 0 then part(name, notes, controls) end
+    if #notes > 0 or #controls > 0 then
+      part(name, notes, controls)
+    end
     return parts
   end
   for _, track in ipairs(file.tracks) do
@@ -757,24 +914,34 @@ function M.parts(file: File, merge?: boolean): {Part}
         notes: {Note}
         controls: {Control}
       end
-      local by: {integer:Channel} = {}
+      local by: {integer: Channel} = {}
       local order: {integer} = {}
       for _, n in ipairs(track.notes) do
         if not by[n.channel] then
-          by[n.channel] = { notes = {}, controls = {} }
+          by[n.channel] = {notes = {}, controls = {}}
           order[#order + 1] = n.channel
         end
         table.insert(by[n.channel].notes, n)
       end
       table.sort(order)
       for _, c in ipairs(track.controls) do
-        if by[c.channel] then table.insert(by[c.channel].controls, c) else file.skipped["controls on channels with no notes"] = (file.skipped["controls on channels with no notes"] or 0) + 1 end
+        if by[c.channel] then
+          table.insert(by[c.channel].controls, c)
+        else
+          file.skipped["controls on channels with no notes"] = (
+            file.skipped["controls on channels with no notes"] or 0
+          ) + 1
+        end
       end
-      for _, ch in ipairs(order) do part(#order == 1 and track.name or nil, by[ch].notes, by[ch].controls) end
+      for _, ch in ipairs(order) do
+        part(#order == 1 and track.name or nil, by[ch].notes, by[ch].controls)
+      end
     elseif #track.notes > 0 then
       part(track.name, track.notes, track.controls)
     elseif #track.controls > 0 then
-      file.skipped["controls on tracks with no notes"] = (file.skipped["controls on tracks with no notes"] or 0) + #track.controls
+      file.skipped["controls on tracks with no notes"] = (
+        file.skipped["controls on tracks with no notes"] or 0
+      ) + #track.controls
     end
   end
   return parts
@@ -789,14 +956,22 @@ end
 
 local function bar_of(file: File, beat: number): number, number
   local segs: {Segment} = {}
-  for _, s in ipairs(file.signatures) do segs[#segs + 1] = { beat = s.tick / file.ppq, len = s.num * 4 / s.den } end
-  if not segs[1] or segs[1].beat > 0 then table.insert(segs, 1, { beat = 0, len = 4 }) end
+  for _, s in ipairs(file.signatures) do
+    segs[#segs + 1] = {beat = s.tick / file.ppq, len = s.num * 4 / s.den}
+  end
+  if not segs[1] or segs[1].beat > 0 then
+    table.insert(segs, 1, {beat = 0, len = 4})
+  end
   local i = 1
-  while segs[i + 1] and segs[i + 1].beat <= beat + 1e-9 do i = i + 1 end
+  while segs[i + 1] and segs[i + 1].beat <= beat + 1e-9 do
+    i = i + 1
+  end
   local seg = segs[i]
   local start = seg.beat + math.floor((beat - seg.beat) / seg.len + 1e-9) * seg.len
   local stop = start + seg.len
-  if segs[i + 1] and segs[i + 1].beat < stop then stop = segs[i + 1].beat end
+  if segs[i + 1] and segs[i + 1].beat < stop then
+    stop = segs[i + 1].beat
+  end
   return start, stop
 end
 
@@ -808,21 +983,29 @@ local function clip_of(file: File, part: Part, at: number): types.ClipOptions
   for _, n in ipairs(part.notes) do
     first, last = math.min(first, n.tick), math.max(last, n.tick + n.length)
   end
-  for _, c in ipairs(part.controls) do first, last = math.min(first, c.tick), math.max(last, c.tick) end
+  for _, c in ipairs(part.controls) do
+    first, last = math.min(first, c.tick), math.max(last, c.tick)
+  end
   local from = bar_of(file, first / ppq)
   local _, to = bar_of(file, math.max(first / ppq, last / ppq - 1e-6))
   local notes: {types.Note} = {}
   local controls: {types.Control} = {}
   for i, n in ipairs(part.notes) do
     local note_meta: types.Meta
-    if n.channel ~= 0 or n.lyric then note_meta = { channel = n.channel ~= 0 and n.channel + 1 or nil, lyric = n.lyric } end
+    if n.channel ~= 0 or n.lyric then
+      note_meta = {channel = n.channel ~= 0 and n.channel + 1 or nil, lyric = n.lyric}
+    end
     notes[i] = {
-      start = n.tick / ppq - from, length = n.length / ppq, pitch = n.pitch,
-      velocity = math.max(1, math.min(127, math.floor(n.velocity))), meta = note_meta, attr = n.attr,
+      start = n.tick / ppq - from,
+      length = n.length / ppq,
+      pitch = n.pitch,
+      velocity = math.max(1, math.min(127, math.floor(n.velocity))),
+      meta = note_meta,
+      attr = n.attr,
     }
   end
   for i, c in ipairs(part.controls) do
-    local control: types.Control = { start = c.tick / ppq - from, type = c.type }
+    local control: types.Control = {start = c.tick / ppq - from, type = c.type}
     if c.type == "cc" then
       control.number, control.value = c.number, c.value / 127
     elseif c.type == "bend" then
@@ -834,17 +1017,23 @@ local function clip_of(file: File, part: Part, at: number): types.ClipOptions
     end
     controls[i] = control
   end
-  return { start = at + from, length = to - from, name = part.name, notes = notes, controls = controls }
+  return {start = at + from, length = to - from, name = part.name, notes = notes, controls = controls}
 end
 
-local function stem(path: string): string return ((path:match("([^/]+)$") or path):gsub("%.[^.]+$", "")) end
+local function stem(path: string): string
+  return ((path:match("([^/]+)$") or path):gsub("%.[^.]+$", ""))
+end
 
 --- The file's tempo map in beats from `at`, as `paw.tempo.set_points` takes it.
 local function tempo_map(file: File, at: number): {TempoPoint}, {SignaturePoint}
   local tempos: {TempoPoint} = {}
   local signatures: {SignaturePoint} = {}
-  for _, t in ipairs(file.tempos) do tempos[#tempos + 1] = { beat = at + t.tick / file.ppq, bpm = math.max(1, math.min(960, t.bpm)) } end
-  for _, s in ipairs(file.signatures) do signatures[#signatures + 1] = { beat = at + s.tick / file.ppq, num = s.num, den = s.den } end
+  for _, t in ipairs(file.tempos) do
+    tempos[#tempos + 1] = {beat = at + t.tick / file.ppq, bpm = math.max(1, math.min(960, t.bpm))}
+  end
+  for _, s in ipairs(file.signatures) do
+    signatures[#signatures + 1] = {beat = at + s.tick / file.ppq, num = s.num, den = s.den}
+  end
   return tempos, signatures
 end
 
@@ -854,20 +1043,32 @@ local function put_tempo_map(file: File, at: number)
   local keep_t: {TempoPoint} = {}
   local keep_s: {SignaturePoint} = {}
   for _, t in ipairs(paw.tempo.points() as {TempoPoint}) do
-    if t.beat < at - 1e-9 then keep_t[#keep_t + 1] = { beat = t.beat, bpm = t.bpm, ramp = t.ramp } end
+    if t.beat < at - 1e-9 then
+      keep_t[#keep_t + 1] = {beat = t.beat, bpm = t.bpm, ramp = t.ramp}
+    end
   end
   for _, s in ipairs(paw.tempo.signatures() as {SignaturePoint}) do
-    if s.beat < at - 1e-9 then keep_s[#keep_s + 1] = { beat = s.beat, num = s.num, den = s.den } end
+    if s.beat < at - 1e-9 then
+      keep_s[#keep_s + 1] = {beat = s.beat, num = s.num, den = s.den}
+    end
   end
   -- The tempo and signature in force where the file starts carry on when it names none there.
-  if not tempos[1] or tempos[1].beat > at + 1e-9 then table.insert(tempos, 1, { beat = at, bpm = paw.tempo.at(at) as number }) end
+  if not tempos[1] or tempos[1].beat > at + 1e-9 then
+    table.insert(tempos, 1, {beat = at, bpm = paw.tempo.at(at) as number})
+  end
   if not signatures[1] or signatures[1].beat > at + 1e-9 then
     local num, den = paw.tempo.signature_at(at) as (integer, integer)
-    if at == 0 or #keep_s == 0 then num, den = 4, 4 end
-    table.insert(signatures, 1, { beat = at, num = num, den = den })
+    if at == 0 or #keep_s == 0 then
+      num, den = 4, 4
+    end
+    table.insert(signatures, 1, {beat = at, num = num, den = den})
   end
-  for _, t in ipairs(tempos) do keep_t[#keep_t + 1] = t end
-  for _, s in ipairs(signatures) do keep_s[#keep_s + 1] = s end
+  for _, t in ipairs(tempos) do
+    keep_t[#keep_t + 1] = t
+  end
+  for _, s in ipairs(signatures) do
+    keep_s[#keep_s + 1] = s
+  end
   paw.tempo.set_points(keep_t, keep_s)
 end
 
@@ -876,8 +1077,10 @@ end
 local function add_parts(file: File, parts: {Part}, at: number, index: integer): {Untyped}
   local tracks: {Untyped} = {}
   for i, part in ipairs(parts) do
-    local track = paw.add_track({ name = part.name, index = index and index + i or nil })
-    if part.drums then track:add_device("drums") end
+    local track = paw.add_track({name = part.name, index = index and index + i or nil})
+    if part.drums then
+      track:add_device("drums")
+    end
     track:add_clip(clip_of(file, part, at))
     tracks[#tracks + 1] = track
   end
@@ -887,21 +1090,27 @@ end
 local function add_markers(file: File, at: number)
   local markers = paw.markers
   for _, m in ipairs(file.markers) do
-    if m.text ~= "" then markers.add(at + m.tick / file.ppq, m.text) end
+    if m.text ~= "" then
+      markers.add(at + m.tick / file.ppq, m.text)
+    end
   end
 end
 
 --- What was left out of a file, as one line, or nil.
 function M.skipped_text(file: File): string
   local list: {string} = {}
-  for what, n in pairs(file.skipped) do list[#list + 1] = n .. " " .. what end
+  for what, n in pairs(file.skipped) do
+    list[#list + 1] = n .. " " .. what
+  end
   table.sort(list)
   return #list > 0 and table.concat(list, ", ") or nil
 end
 
 local function notes_in(parts: {Part}): integer
   local n = 0
-  for _, part in ipairs(parts) do n = n + #part.notes end
+  for _, part in ipairs(parts) do
+    n = n + #part.notes
+  end
   return n
 end
 
@@ -910,20 +1119,26 @@ end
 --- it raises an error, and the open project does not change.
 function M.open(path: string): M.Opened
   local file, why = M.read(path)
-  if not file then error(why, 0) end
+  if not file then
+    error(why, 0)
+  end
   local parts = M.parts(file)
   -- A file cut short or damaged reads as one with nothing in it: the
   -- project open stays open.
-  if #parts == 0 then error("there are no notes in it", 0) end
+  if #parts == 0 then
+    error("there are no notes in it", 0)
+  end
   api.project_new()
-  api.project_set({ name = stem(path) })
+  api.project_set({name = stem(path)})
   put_tempo_map(file, 0)
   local tracks = add_parts(file, parts, 0, nil)
   add_markers(file, 0)
   -- It opens as a project file does: nothing to undo, nothing changed yet.
   api.undo_reset()
-  if tracks[1] then paw.cursor.set_track(tracks[1]) end
-  return { tracks = tracks, notes = notes_in(parts), skipped = M.skipped_text(file) }
+  if tracks[1] then
+    paw.cursor.set_track(tracks[1])
+  end
+  return {tracks = tracks, notes = notes_in(parts), skipped = M.skipped_text(file)}
 end
 
 --- Import a MIDI file into the project. Its parts go on new tracks below
@@ -935,13 +1150,19 @@ end
 function M.import(path: string, opts?: M.ImportOptions): M.Imported
   opts = opts or {}
   local file, why = M.read(path)
-  if not file then error(why, 0) end
+  if not file then
+    error(why, 0)
+  end
   local at = opts.start or (paw.cursor as Cursor).beat
   local given = opts.track
   local track: Untyped = given is Untyped and given or given and paw.track(given) or nil
   local parts = M.parts(file, track ~= nil)
-  if #parts == 0 then error("there are no notes in it", 0) end
-  if opts.tempo then put_tempo_map(file, at) end
+  if #parts == 0 then
+    error("there are no notes in it", 0)
+  end
+  if opts.tempo then
+    put_tempo_map(file, at)
+  end
   local tracks: {Untyped} = {}
   local clips: {Untyped} = {}
   if track then
@@ -951,11 +1172,15 @@ function M.import(path: string, opts?: M.ImportOptions): M.Imported
     tracks[1] = track
   else
     tracks = add_parts(file, parts, at, paw.cursor.index() as integer)
-    for _, t in ipairs(tracks) do clips[#clips + 1] = t:clips()[1] end
+    for _, t in ipairs(tracks) do
+      clips[#clips + 1] = t:clips()[1]
+    end
   end
   add_markers(file, at)
-  if tracks[1] then paw.cursor.set_track(tracks[1]) end
-  return { tracks = tracks, clips = clips, notes = notes_in(parts), skipped = M.skipped_text(file) }
+  if tracks[1] then
+    paw.cursor.set_track(tracks[1])
+  end
+  return {tracks = tracks, clips = clips, notes = notes_in(parts), skipped = M.skipped_text(file)}
 end
 
 -- From the project to a file ---------------------------------------------------
@@ -966,7 +1191,9 @@ local EXPORT_PPQ = 960
 --- track whose instrument is the drum kit, else 1 (counting from 0 here).
 local function default_channel(track: Untyped): integer
   for _, device in ipairs(track:devices() as {Device}) do
-    if device.kind == "drums" or device.kind == "sampler" then return 9 end
+    if device.kind == "drums" or device.kind == "sampler" then
+      return 9
+    end
   end
   return 0
 end
@@ -976,15 +1203,15 @@ local function export_tempos(to: number): {M.Tempo}
   local points = paw.tempo.points() as {TempoPoint}
   local out: {M.Tempo} = {}
   for i, t in ipairs(points) do
-    out[#out + 1] = { tick = t.beat * EXPORT_PPQ, bpm = t.bpm }
+    out[#out + 1] = {tick = t.beat * EXPORT_PPQ, bpm = t.bpm}
     local nxt = points[i + 1]
     if t.ramp and nxt then
       for beat = t.beat + 0.25, nxt.beat - 1e-9, 0.25 do
-        out[#out + 1] = { tick = beat * EXPORT_PPQ, bpm = paw.tempo.at(beat) as number }
+        out[#out + 1] = {tick = beat * EXPORT_PPQ, bpm = paw.tempo.at(beat) as number}
       end
     elseif t.ramp then
       for beat = t.beat + 0.25, math.max(t.beat, to) - 1e-9, 0.25 do
-        out[#out + 1] = { tick = beat * EXPORT_PPQ, bpm = paw.tempo.at(beat) as number }
+        out[#out + 1] = {tick = beat * EXPORT_PPQ, bpm = paw.tempo.at(beat) as number}
       end
     end
   end
@@ -994,10 +1221,12 @@ end
 --- One track of the file from clips of a track (all its MIDI clips when
 --- `clips` is nil): what sounds of them, where it sounds.
 --- Whether a time in ticks or a value falls between the steps of MIDI 1.0.
-local function between(x: number): boolean return math.abs(x - math.floor(x + 0.5)) > 1e-6 end
+local function between(x: number): boolean
+  return math.abs(x - math.floor(x + 0.5)) > 1e-6
+end
 
-local function export_track(track: Untyped, only: {integer:boolean}, lost: M.Lost): Track, number
-  local out: Track = { name = track.name as string, notes = {}, controls = {} }
+local function export_track(track: Untyped, only: {integer: boolean}, lost: M.Lost): Track, number
+  local out: Track = {name = track.name as string, notes = {}, controls = {}}
   local channel = default_channel(track)
   local last: number = 0
   for _, clip in ipairs(track:clips() as {Untyped}) do
@@ -1008,17 +1237,30 @@ local function export_track(track: Untyped, only: {integer:boolean}, lost: M.Los
           local length = math.min(n.length, c.length - n.start)
           local note_meta = (n.meta or {}) as M.NoteMeta
           out.notes[#out.notes + 1] = {
-            tick = (c.start + n.start) * EXPORT_PPQ, length = length * EXPORT_PPQ, pitch = n.pitch,
-            velocity = n.velocity, channel = tonumber(note_meta.channel) and note_meta.channel - 1 or channel,
-            lyric = type(note_meta.lyric) == "string" and note_meta.lyric or nil, attr = n.attr,
+            tick = (c.start + n.start) * EXPORT_PPQ,
+            length = length * EXPORT_PPQ,
+            pitch = n.pitch,
+            velocity = n.velocity,
+            channel = tonumber(note_meta.channel) and note_meta.channel - 1 or channel,
+            lyric = type(note_meta.lyric) == "string" and note_meta.lyric or nil,
+            attr = n.attr,
           }
           last = math.max(last, c.start + n.start + length)
-          if between((c.start + n.start) * EXPORT_PPQ) or between(length * EXPORT_PPQ) then lost.times = lost.times + 1 end
+          if between((c.start + n.start) * EXPORT_PPQ) or between(length * EXPORT_PPQ) then
+            lost.times = lost.times + 1
+          end
         end
       end
       for _, k in ipairs(c.control_count > 0 and clip:controls() as {types.Control} or {}) do
         if k.start >= -1e-9 and k.start < c.length - 1e-9 then
-          local raw: Control = { tick = (c.start + k.start) * EXPORT_PPQ, type = k.type, channel = channel, key = k.key, number = k.number, program = k.program }
+          local raw: Control = {
+            tick = (c.start + k.start) * EXPORT_PPQ,
+            type = k.type,
+            channel = channel,
+            key = k.key,
+            number = k.number,
+            program = k.program,
+          }
           if k.type == "cc" or k.type == "pressure" then
             raw.value = k.value * 127
           elseif k.type == "bend" then
@@ -1028,7 +1270,9 @@ local function export_track(track: Untyped, only: {integer:boolean}, lost: M.Los
           local plain = not k.key or k.type == "pressure"
           if plain and (k.type == "cc" or k.type == "bend" or k.type == "pressure" or k.type == "program") then
             out.controls[#out.controls + 1] = raw
-            if raw.value and between(raw.value) then lost.values = lost.values + 1 end
+            if raw.value and between(raw.value) then
+              lost.values = lost.values + 1
+            end
           else
             lost.dropped = lost.dropped + 1
           end
@@ -1045,10 +1289,22 @@ end
 function M.lost_text(): string
   local lost = M.last_export
   local out: {string} = {}
-  if not lost then return nil end
-  if lost.times > 0 then out[#out + 1] = string.format("rounded %d note time%s to a tick", lost.times, lost.times == 1 and "" or "s") end
-  if lost.values > 0 then out[#out + 1] = string.format("rounded %d controller value%s to 7 bits", lost.values, lost.values == 1 and "" or "s") end
-  if lost.dropped > 0 then out[#out + 1] = string.format("left out %d move%s of a controller of one note or of an RPN/NRPN", lost.dropped, lost.dropped == 1 and "" or "s") end
+  if not lost then
+    return nil
+  end
+  if lost.times > 0 then
+    out[#out + 1] = string.format("rounded %d note time%s to a tick", lost.times, lost.times == 1 and "" or "s")
+  end
+  if lost.values > 0 then
+    out[#out + 1] = string.format(
+      "rounded %d controller value%s to 7 bits", lost.values, lost.values == 1 and "" or "s"
+    )
+  end
+  if lost.dropped > 0 then
+    out[#out + 1] = string.format(
+      "left out %d move%s of a controller of one note or of an RPN/NRPN", lost.dropped, lost.dropped == 1 and "" or "s"
+    )
+  end
   return #out > 0 and table.concat(out, ", ") or nil
 end
 
@@ -1058,10 +1314,10 @@ end
 function M.export(path: string, opts?: M.ExportOptions): integer
   opts = opts or {}
   local tracks: {Untyped} = {}
-  local only: {integer:boolean}
+  local only: {integer: boolean}
   if opts.clips then
     only = {}
-    local seen: {integer:boolean} = {}
+    local seen: {integer: boolean} = {}
     for _, id in ipairs(opts.clips) do
       only[id] = true
       local track = paw.clip(id):track()
@@ -1072,14 +1328,18 @@ function M.export(path: string, opts?: M.ExportOptions): integer
       end
     end
   elseif opts.tracks then
-    for _, t in ipairs(opts.tracks) do tracks[#tracks + 1] = t is Untyped and t or paw.track(t) end
+    for _, t in ipairs(opts.tracks) do
+      tracks[#tracks + 1] = t is Untyped and t or paw.track(t)
+    end
   else
     tracks = paw.tracks() as {Untyped}
   end
-  local file: File = { format = 1, ppq = EXPORT_PPQ, tracks = { { name = api.project_get().name } }, signatures = {}, markers = {} }
+  local file: File = {
+    format = 1, ppq = EXPORT_PPQ, tracks = {{name = api.project_get().name}}, signatures = {}, markers = {}
+  }
   local notes = 0
   local last: number = 0
-  local lost: M.Lost = { times = 0, values = 0, dropped = 0 }
+  local lost: M.Lost = {times = 0, values = 0, dropped = 0}
   M.last_export = lost
   for _, track in ipairs(tracks) do
     local t, ends = export_track(track, only, lost)
@@ -1089,10 +1349,16 @@ function M.export(path: string, opts?: M.ExportOptions): integer
     end
   end
   file.tempos = export_tempos(last)
-  for _, s in ipairs(paw.tempo.signatures() as {SignaturePoint}) do file.signatures[#file.signatures + 1] = { tick = s.beat * EXPORT_PPQ, num = s.num, den = s.den } end
-  for _, m in ipairs(paw.markers.list() as {MarkerPoint}) do file.markers[#file.markers + 1] = { tick = m.beat * EXPORT_PPQ, text = m.name } end
+  for _, s in ipairs(paw.tempo.signatures() as {SignaturePoint}) do
+    file.signatures[#file.signatures + 1] = {tick = s.beat * EXPORT_PPQ, num = s.num, den = s.den}
+  end
+  for _, m in ipairs(paw.markers.list() as {MarkerPoint}) do
+    file.markers[#file.markers + 1] = {tick = m.beat * EXPORT_PPQ, text = m.name}
+  end
   local f, err = io.open(path, "wb")
-  if not f then error((tostring(err):gsub("^[^:]*: ", "")), 0) end
+  if not f then
+    error((tostring(err):gsub("^[^:]*: ", "")), 0)
+  end
   f:write(M.encode(file))
   f:close()
   return notes

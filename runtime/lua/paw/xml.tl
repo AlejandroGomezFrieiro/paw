@@ -27,7 +27,7 @@ local record M
   --- (nil when there is none).
   record Element
     name: string
-    attr: {string:Value}
+    attr: {string: Value}
     order: {string}
     children: {Element}
     text: string
@@ -39,7 +39,7 @@ local record M
     all: function(self: Element, name?: string): {Element}
     --- The text of a child, trimmed; nil when there is no such child.
     text_of: function(self: Element, name: string): string
-    add: function(self: Element, name: string | Element, attr?: {string:Value}, order?: {string}): Element
+    add: function(self: Element, name: string | Element, attr?: {string: Value}, order?: {string}): Element
   end
 
   --- What `decode` takes.
@@ -52,13 +52,13 @@ end
 
 local type Element = M.Element
 
-local metatable_of_element: metatable<Element> = { __index = M.Element }
+local metatable_of_element: metatable<Element> = {__index = M.Element}
 
 --- A new element: `paw.xml.element("Track", { id = "t1", name = "Bass" })`.
 --- Its attributes are written in the order of `order`, then the others by
 --- name.
-function M.element(name: string, attr?: {string:M.Value}, order?: {string}): Element
-  return setmetatable({ name = name, attr = attr or {}, order = order, children = {} } as Element, metatable_of_element)
+function M.element(name: string, attr?: {string: M.Value}, order?: {string}): Element
+  return setmetatable({name = name, attr = attr or {}, order = order, children = {}} as Element, metatable_of_element)
 end
 
 --- The root element of an XML text, or nil and what is wrong. `opts.spans`
@@ -67,7 +67,7 @@ end
 function M.decode(text: string, opts?: M.DecodeOptions): Element, string
   -- The kernel sets the metatable of the elements' methods on each.
   local meta = metatable_of_element as metatable<types.XmlElement>
-  return api.xml_decode(text, { spans = opts and opts.spans, meta = meta }) as (Element, string)
+  return api.xml_decode(text, {spans = opts and opts.spans, meta = meta}) as (Element, string)
 end
 
 --- The XML text of an element: see `paw.api.xml_encode` for `opts`.
@@ -82,18 +82,26 @@ end
 
 --- The first child of an element with a name, or nil.
 function M.child(el: Element, name: string): Element
-  if not el then return nil end
+  if not el then
+    return nil
+  end
   for _, c in ipairs(el.children) do
-    if c.name == name then return c end
+    if c.name == name then
+      return c
+    end
   end
 end
 
 --- Every child of an element with a name (every child without one).
 function M.children(el: Element, name?: string): {Element}
   local out: {Element} = {}
-  if not el then return out end
+  if not el then
+    return out
+  end
   for _, c in ipairs(el.children) do
-    if not name or c.name == name then out[#out + 1] = c end
+    if not name or c.name == name then
+      out[#out + 1] = c
+    end
   end
   return out
 end
@@ -101,12 +109,16 @@ end
 --- The text of a child, trimmed; nil when there is no such child.
 function M.text(el: Element, name: string): string
   local c = M.child(el, name)
-  if not c then return nil end
+  if not c then
+    return nil
+  end
   return ((c.text or ""):match("^%s*(.-)%s*$"))
 end
 
 --- The text of a child as a number, or nil.
-function M.number(el: Element, name: string): number return tonumber(M.text(el, name) or "") end
+function M.number(el: Element, name: string): number
+  return tonumber(M.text(el, name) or "")
+end
 
 -- The methods of an element.
 M.Element.child = M.child
@@ -115,7 +127,7 @@ M.Element.text_of = M.text
 
 --- Add a child element and return it: `el:add("Note", { time = 0 })`, or
 --- an element made before. `order` as in `element`.
-function M.Element:add(name: string | Element, attr?: {string:M.Value}, order?: {string}): Element
+function M.Element:add(name: string | Element, attr?: {string: M.Value}, order?: {string}): Element
   local c = name is Element and name or M.element(name as string, attr)
   c.order = order or c.order
   self.children[#self.children + 1] = c

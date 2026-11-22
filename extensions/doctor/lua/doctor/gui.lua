@@ -39,8 +39,18 @@ function view:paint(g, ctx)
     local chosen = row.index == view.row
     if chosen then g:rect(PAD - 8, y, w - 2 * PAD + 16, ROW - 2, { fill = c.panel, radius = 5 }) end
     g:rect(PAD, y + 9, 10, 10, { fill = row.running and c.select or colours[row.mark] or c.text_off, radius = 5 })
-    g:text(PAD + 22, y + 7, string.format("%d. %s", row.index, row.check.name), { color = c.text, bold = chosen, width = 220 })
-    g:text(PAD + 250, y + 7, row.summary, { color = row.mark == "fail" and c.error or c.text_2, width = w - PAD * 2 - 250 })
+    g:text(
+      PAD + 22,
+      y + 7,
+      string.format("%d. %s", row.index, row.check.name),
+      { color = c.text, bold = chosen, width = 220 }
+    )
+    g:text(
+      PAD + 250,
+      y + 7,
+      row.summary,
+      { color = row.mark == "fail" and c.error or c.text_2, width = w - PAD * 2 - 250 }
+    )
     local index = row.index
     view.hits:add(g, PAD - 8, y, w - 2 * PAD + 16, ROW - 2, function()
       view.row = index
@@ -53,7 +63,9 @@ function view:paint(g, ctx)
   local row = model.rows[view.row]
   if row and row.check.help then
     local lines = view.wrap(row.check.help, math.floor((w - 2 * PAD) / 7))
-    for i, line in ipairs(lines) do g:text(PAD, y + 8 + (i - 1) * 16, line, { color = c.text_2, size = 11 }) end
+    for i, line in ipairs(lines) do
+      g:text(PAD, y + 8 + (i - 1) * 16, line, { color = c.text_2, size = 11 })
+    end
   end
 
   -- The bottom: the question, what is being done, or where the report is.
@@ -76,7 +88,14 @@ function view:paint(g, ctx)
     local bx = PAD
     for _, choice in ipairs(model.prompt.choices) do
       local key = choice[1]
-      bx = button(g, bx, by + 82, choice[2] .. "  (" .. key .. ")", function() doctor.answer(key) end, { fill = c.control_hover })
+      bx = button(
+        g,
+        bx,
+        by + 82,
+        choice[2] .. "  (" .. key .. ")",
+        function() doctor.answer(key) end,
+        { fill = c.control_hover }
+      )
     end
   elseif model.running then
     g:text(PAD, by + 40, model.say or "working", { color = c.text, size = 13, width = w - 2 * PAD })

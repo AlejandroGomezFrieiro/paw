@@ -80,9 +80,18 @@ local info = api.engine_get()
 paw.transport.stop()
 local half = math.max(1, math.floor(#samples / 2))
 B.emit({
-  workload = "soak", minutes = minutes, tracks = tracks, edits = edits, blocks = info.blocks.count,
-  budget_ms = info.blocks.budget, p99_ms = info.blocks.p99, max_ms = info.blocks.max, xruns = info.xruns,
-  leaked = info.leaked, rss_start_kb = rss_start, rss_end_kb = B.rss(),
+  workload = "soak",
+  minutes = minutes,
+  tracks = tracks,
+  edits = edits,
+  blocks = info.blocks.count,
+  budget_ms = info.blocks.budget,
+  p99_ms = info.blocks.p99,
+  max_ms = info.blocks.max,
+  xruns = info.xruns,
+  leaked = info.leaked,
+  rss_start_kb = rss_start,
+  rss_end_kb = B.rss(),
   rss_samples_kb = samples,
   rss_growth_kb_per_min = #samples > 1 and (samples[#samples] - samples[half]) / ((#samples - half) * 10 / 60) or 0,
 })

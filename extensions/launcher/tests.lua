@@ -13,7 +13,9 @@ local function start()
   fresh()
   api.engine_restart({ backend = "null" })
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.focus("arrange")
 end
 
@@ -24,7 +26,8 @@ local function synth(name, row, pitch, bars)
   local t = paw.add_track({ name = name })
   t:add_device("synth", { attack = 0.001, release = 0.01 })
   local length = 4 * (bars or 1)
-  local id = launcher.add(t.id, row, { length = length, notes = { { pitch = pitch or 57, start = 0, length = length } } })
+  local id =
+    launcher.add(t.id, row, { length = length, notes = { { pitch = pitch or 57, start = 0, length = length } } })
   return t, id
 end
 
@@ -284,38 +287,45 @@ end)
 
 -- Controllers ------------------------------------------------------------------
 
-test("launcher: a pad learned in the session view launches the slot under the cursor, and others the scene and stop", function()
-  start()
-  local t = synth("Drums", 1)
-  local note = function(pitch, on)
-    paw.midi.inject({ type = on == false and "note_off" or "note_on", pitch = pitch, velocity = 100, channel = 10 })
+test(
+  "launcher: a pad learned in the session view launches the slot under the cursor, and others the scene and stop",
+  function()
+    start()
+    local t = synth("Drums", 1)
+    local note = function(pitch, on)
+      paw.midi.inject({ type = on == false and "note_off" or "note_on", pitch = pitch, velocity = 100, channel = 10 })
+      paw.flush()
+    end
+    paw.ui.show("session")
+    paw.ui.focus("session")
+    paw.cursor.set_track(t.id)
+    launcher.row = 1
+    paw.cmd("learn")
+    eq(paw.learn.learning and paw.learn.learning.target, "launch", "waiting for a pad")
+    note(36)
+    note(36, false)
+    local b = paw.learn.bindings()[1]
+    eq(b.source .. " " .. b.number .. " " .. b.target .. " " .. b.slot, "note 36 launch 1", "the binding")
+    eq(launcher.playing(t.id), "arrangement", "the press that taught it launched nothing")
+    note(36)
+    until_(function() return state(t.id).slot == 1 end, "the pad to launch the clip", 5000)
+    paw.learn.bind({ cc = 20, channel = 10 }, { target = "stop" })
+    paw.midi.inject({ type = "cc", number = 20, value = 1, channel = 10 })
     paw.flush()
+    until_(function() return state(t.id).stopped end, "the button to stop every clip", 10000)
+    fails(
+      function() paw.learn.bind({ note = 40 }, { track = t.id, target = "volume" }) end,
+      "moves nothing",
+      "a key moves nothing"
+    )
+    paw.commands.exec("learn volume")
+    note(50)
+    eq(paw.learn.learning ~= nil, true, "a key is not learned for a fader")
+    paw.learn.cancel()
+    paw.transport.stop()
+    paw.ui.hide("session")
   end
-  paw.ui.show("session")
-  paw.ui.focus("session")
-  paw.cursor.set_track(t.id)
-  launcher.row = 1
-  paw.cmd("learn")
-  eq(paw.learn.learning and paw.learn.learning.target, "launch", "waiting for a pad")
-  note(36)
-  note(36, false)
-  local b = paw.learn.bindings()[1]
-  eq(b.source .. " " .. b.number .. " " .. b.target .. " " .. b.slot, "note 36 launch 1", "the binding")
-  eq(launcher.playing(t.id), "arrangement", "the press that taught it launched nothing")
-  note(36)
-  until_(function() return state(t.id).slot == 1 end, "the pad to launch the clip", 5000)
-  paw.learn.bind({ cc = 20, channel = 10 }, { target = "stop" })
-  paw.midi.inject({ type = "cc", number = 20, value = 1, channel = 10 })
-  paw.flush()
-  until_(function() return state(t.id).stopped end, "the button to stop every clip", 10000)
-  fails(function() paw.learn.bind({ note = 40 }, { track = t.id, target = "volume" }) end, "moves nothing", "a key moves nothing")
-  paw.commands.exec("learn volume")
-  note(50)
-  eq(paw.learn.learning ~= nil, true, "a key is not learned for a fader")
-  paw.learn.cancel()
-  paw.transport.stop()
-  paw.ui.hide("session")
-end)
+)
 
 -- The session view and the window's gestures ----------------------------------
 
@@ -356,46 +366,60 @@ test("launcher: the session view shows the slots and scenes, and its keys launch
   paw.ui.hide("session")
 end)
 
-
-test("launcher: the session view's pointer chooses, opens, moves and launches slots, and takes a clip dropped on it", function()
-  start()
-  local act = require("launcher.view").act
-  local t = paw.add_track({ name = "Keys" })
-  local u = paw.add_track({ name = "Bass" })
-  local clip = t:add_clip({ start = 4, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
-  paw.ui.show("session")
-  local id = act.open(t.id, 3)
-  eq(launcher.clip(t.id, 3).id, id, "a double click on an empty slot makes a clip there")
-  eq(paw.ui.views.pianoroll:clip().id, id, "and opens it in the piano roll")
-  paw.ui.hide("pianoroll")
-  act.move(id, u.id, 5, false)
-  eq(launcher.clip(u.id, 5).id, id, "dragged to another track's slot")
-  act.move(id, t.id, 1, true)
-  eq(launcher.clip(t.id, 1) ~= nil and launcher.clip(u.id, 5) ~= nil, true, "with Ctrl, a copy")
-  act.choose(u.id, 0)
-  eq(launcher.row .. " " .. paw.cursor.track_id() .. " " .. paw.ui.focused, "0 " .. u.id .. " session", "a click chooses")
-  -- A clip of the timeline let go over the view, as the window passes it on.
-  api.ui_snapshot(120, 36)
-  local win
-  for _, w in ipairs(require("paw.layout").windows(paw.ui.layout)) do
-    if w.view == "session" then win = w end
+test(
+  "launcher: the session view's pointer chooses, opens, moves and launches slots, and takes a clip dropped on it",
+  function()
+    start()
+    local act = require("launcher.view").act
+    local t = paw.add_track({ name = "Keys" })
+    local u = paw.add_track({ name = "Bass" })
+    local clip = t:add_clip({ start = 4, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
+    paw.ui.show("session")
+    local id = act.open(t.id, 3)
+    eq(launcher.clip(t.id, 3).id, id, "a double click on an empty slot makes a clip there")
+    eq(paw.ui.views.pianoroll:clip().id, id, "and opens it in the piano roll")
+    paw.ui.hide("pianoroll")
+    act.move(id, u.id, 5, false)
+    eq(launcher.clip(u.id, 5).id, id, "dragged to another track's slot")
+    act.move(id, t.id, 1, true)
+    eq(launcher.clip(t.id, 1) ~= nil and launcher.clip(u.id, 5) ~= nil, true, "with Ctrl, a copy")
+    act.choose(u.id, 0)
+    eq(
+      launcher.row .. " " .. paw.cursor.track_id() .. " " .. paw.ui.focused,
+      "0 " .. u.id .. " session",
+      "a click chooses"
+    )
+    -- A clip of the timeline let go over the view, as the window passes it on.
+    api.ui_snapshot(120, 36)
+    local win
+    for _, w in ipairs(require("paw.layout").windows(paw.ui.layout)) do
+      if w.view == "session" then win = w end
+    end
+    local cell = paw.canvas.cell
+    paw.cursor.set_track(t.id)
+    api.ui_snapshot(120, 36)
+    -- The first column, the second row of slots: under the title and the names.
+    paw.panes.pointer(
+      win.id,
+      { kind = "drop", x = 6 * cell.w, y = 3 * cell.h, clip = clip.id },
+      { cell = cell, cols = 120, rows = 12 }
+    )
+    local dropped = launcher.clip(t.id, 1)
+    eq(dropped ~= nil and api.clip_notes(dropped.id)[1].pitch, 60, "a copy of the dropped clip is in the slot")
+    eq(#api.clip_list(t.id), 1, "and the clip stays on the timeline")
+    act.press(u.id, 0)
+    until_(
+      function() return (launcher.state()[u.id] or {}).queued == "stop" or (launcher.state()[u.id] or {}).stopped end,
+      "a press on an empty slot to stop",
+      5000
+    )
+    launcher.stop(nil)
+    launcher.back(nil)
+    until_(function() return next(launcher.state()) == nil end, "all back", 10000)
+    paw.transport.stop()
+    paw.ui.hide("session")
   end
-  local cell = paw.canvas.cell
-  paw.cursor.set_track(t.id)
-  api.ui_snapshot(120, 36)
-  -- The first column, the second row of slots: under the title and the names.
-  paw.panes.pointer(win.id, { kind = "drop", x = 6 * cell.w, y = 3 * cell.h, clip = clip.id }, { cell = cell, cols = 120, rows = 12 })
-  local dropped = launcher.clip(t.id, 1)
-  eq(dropped ~= nil and api.clip_notes(dropped.id)[1].pitch, 60, "a copy of the dropped clip is in the slot")
-  eq(#api.clip_list(t.id), 1, "and the clip stays on the timeline")
-  act.press(u.id, 0)
-  until_(function() return (launcher.state()[u.id] or {}).queued == "stop" or (launcher.state()[u.id] or {}).stopped end, "a press on an empty slot to stop", 5000)
-  launcher.stop(nil)
-  launcher.back(nil)
-  until_(function() return next(launcher.state()) == nil end, "all back", 10000)
-  paw.transport.stop()
-  paw.ui.hide("session")
-end)
+)
 
 -- The extension and the core ---------------------------------------------------
 
@@ -416,7 +440,11 @@ test("launcher: the launcher unloads and loads again, and the project keeps its 
   eq(#api.cue_list(api.track_list()[1]), 1, "and is saved and opened without the extension")
   paw.ext.load("extensions/launcher")
   launcher = require("launcher")
-  eq(launcher.clip(api.track_list()[1], 1) ~= nil and launcher.scene_name(1), "Chorus", "loaded again, the slot and the scene are there")
+  eq(
+    launcher.clip(api.track_list()[1], 1) ~= nil and launcher.scene_name(1),
+    "Chorus",
+    "loaded again, the slot and the scene are there"
+  )
 end)
 
 -- Moved here with the session view: the pointer in the terminal, Escape,
@@ -446,55 +474,65 @@ test("launcher: Escape in the session view cancels and stays there", function()
   paw.ui.focus("session")
   paw.keymap.feed("3d")
   paw.keymap.feed("<Esc><Esc>")
-  eq(paw.ui.focused .. " " .. paw.keymap.pending() .. " " .. paw.keymap.mode, "session  n", "the count and operator are cancelled, the view stays")
+  eq(
+    paw.ui.focused .. " " .. paw.keymap.pending() .. " " .. paw.keymap.mode,
+    "session  n",
+    "the count and operator are cancelled, the view stays"
+  )
   paw.ui.hide("session")
 end)
 
-test("launcher: the session view: a click chooses a slot, its play mark launches it, a double click makes a clip, a drag moves one", function()
-  start()
-  local opt_mouse = paw.opt.mouse
-  paw.opt.mouse = true
-  T.after(function() paw.opt.mouse = opt_mouse end)
-  local t = paw.add_track({ name = "Keys" })
-  t:add_device("synth")
-  launcher.new_clip(t.id, 0)
-  paw.ui.show("session")
-  shot()
-  local rect
-  for _, r in ipairs(paw.ui.rects) do if r.name == "session" then rect = r end end
-  local view = paw.ui.views.session
-  local col = view.geometry.columns[1]
-  local function slot(row) return rect.x + col.x, rect.y + 1 + (row - view.top) + 1 end
-  local x, y = slot(1)
-  click(x + 4, y)
-  eq(launcher.row .. " " .. paw.ui.focused, "1 session", "a click chooses the slot")
-  apart()
-  x, y = slot(2)
-  click(x + 4, y)
-  click(x + 4, y)
-  eq(launcher.clip(t.id, 2) ~= nil, true, "a double click on an empty slot makes a clip there")
-  eq(paw.ui.focused, "pianoroll", "and opens it")
-  paw.ui.hide("pianoroll")
-  shot()
-  apart()
-  x, y = slot(0)
-  click(x, y)
-  local deadline = api.now() + 5000
-  local function launched()
-    local s = launcher.state()[t.id] or {}
-    return s.slot == 0 or s.queued == 0
+test(
+  "launcher: the session view: a click chooses a slot, its play mark launches it, a double click makes a clip, a drag moves one",
+  function()
+    start()
+    local opt_mouse = paw.opt.mouse
+    paw.opt.mouse = true
+    T.after(function() paw.opt.mouse = opt_mouse end)
+    local t = paw.add_track({ name = "Keys" })
+    t:add_device("synth")
+    launcher.new_clip(t.id, 0)
+    paw.ui.show("session")
+    shot()
+    local rect
+    for _, r in ipairs(paw.ui.rects) do
+      if r.name == "session" then rect = r end
+    end
+    local view = paw.ui.views.session
+    local col = view.geometry.columns[1]
+    local function slot(row) return rect.x + col.x, rect.y + 1 + (row - view.top) + 1 end
+    local x, y = slot(1)
+    click(x + 4, y)
+    eq(launcher.row .. " " .. paw.ui.focused, "1 session", "a click chooses the slot")
+    apart()
+    x, y = slot(2)
+    click(x + 4, y)
+    click(x + 4, y)
+    eq(launcher.clip(t.id, 2) ~= nil, true, "a double click on an empty slot makes a clip there")
+    eq(paw.ui.focused, "pianoroll", "and opens it")
+    paw.ui.hide("pianoroll")
+    shot()
+    apart()
+    x, y = slot(0)
+    click(x, y)
+    local deadline = api.now() + 5000
+    local function launched()
+      local s = launcher.state()[t.id] or {}
+      return s.slot == 0 or s.queued == 0
+    end
+    while not launched() and api.now() < deadline do
+      paw.wait(5)
+    end
+    eq(launched(), true, "the play mark launches the clip")
+    launcher.stop(nil)
+    paw.transport.stop()
+    apart()
+    local _, y3 = slot(3)
+    drag(x + 4, y, x + 4, y3)
+    eq(launcher.clip(t.id, 3) ~= nil and launcher.clip(t.id, 0) == nil, true, "a drag moves the clip to another slot")
+    paw.ui.hide("session")
   end
-  while not launched() and api.now() < deadline do paw.wait(5) end
-  eq(launched(), true, "the play mark launches the clip")
-  launcher.stop(nil)
-  paw.transport.stop()
-  apart()
-  local _, y3 = slot(3)
-  drag(x + 4, y, x + 4, y3)
-  eq(launcher.clip(t.id, 3) ~= nil and launcher.clip(t.id, 0) == nil, true, "a drag moves the clip to another slot")
-  paw.ui.hide("session")
-end)
-
+)
 
 test("launcher: the session view leaves VCAs out", function()
   start()
@@ -510,35 +548,48 @@ test("launcher: the session view leaves VCAs out", function()
   eq(count("Beta") .. " " .. count("Faders"), "2 1", "tracks are columns, besides their rows; the VCA is a row only")
 end)
 
-test("launcher: the command picker ranks by use and by the focused view, with exact and prefix matches first", function()
-  start()
-  paw.keymap.feed("<Esc><Esc>")
-  if paw.ui.float then paw.ui.close() end
-  paw.state.command_uses = nil
-  local pick = paw.pick
-  local function order(view, query)
-    paw.ui.focus(view)
-    paw.pick("commands")
-    paw.keymap.feed(query)
-    local out = {}
-    for i, line in ipairs(pick.state().matches) do out[line:match("^(%S+)")] = i end
-    paw.keymap.feed("<Esc>")
-    return out
+test(
+  "launcher: the command picker ranks by use and by the focused view, with exact and prefix matches first",
+  function()
+    start()
+    paw.keymap.feed("<Esc><Esc>")
+    if paw.ui.float then paw.ui.close() end
+    paw.state.command_uses = nil
+    local pick = paw.pick
+    local function order(view, query)
+      paw.ui.focus(view)
+      paw.pick("commands")
+      paw.keymap.feed(query)
+      local out = {}
+      for i, line in ipairs(pick.state().matches) do
+        out[line:match("^(%S+)")] = i
+      end
+      paw.keymap.feed("<Esc>")
+      return out
+    end
+    local rank = order("arrange", "name")
+    eq(
+      rank["track.rename"] < rank["scene.name"],
+      true,
+      "in the arrange view its own rename comes before the session's scene.name"
+    )
+    rank = order("session", "name")
+    eq(rank["scene.name"] < rank["track.rename"], true, "in the session view the scene's name does")
+    for _ = 1, 10 do
+      paw.commands.used("track.rename")
+    end
+    rank = order("session", "name")
+    eq(rank["track.rename"] < rank["scene.name"], true, "what is used often goes first, in any view")
+    eq(paw.commands.uses("track.rename"), 10, "the count is kept")
+    for _ = 1, 50 do
+      paw.commands.used("scene.name")
+    end
+    rank = order("arrange", "scene.name")
+    eq(rank["scene.name"], 1, "an exact match is first however much another is used")
+    paw.state.command_uses = nil
+    paw.ui.focus("arrange")
   end
-  local rank = order("arrange", "name")
-  eq(rank["track.rename"] < rank["scene.name"], true, "in the arrange view its own rename comes before the session's scene.name")
-  rank = order("session", "name")
-  eq(rank["scene.name"] < rank["track.rename"], true, "in the session view the scene's name does")
-  for _ = 1, 10 do paw.commands.used("track.rename") end
-  rank = order("session", "name")
-  eq(rank["track.rename"] < rank["scene.name"], true, "what is used often goes first, in any view")
-  eq(paw.commands.uses("track.rename"), 10, "the count is kept")
-  for _ = 1, 50 do paw.commands.used("scene.name") end
-  rank = order("arrange", "scene.name")
-  eq(rank["scene.name"], 1, "an exact match is first however much another is used")
-  paw.state.command_uses = nil
-  paw.ui.focus("arrange")
-end)
+)
 
 test("launcher: the README names every command and key of the extension", function()
   start()
@@ -555,7 +606,11 @@ test("launcher: the README names every command and key of the extension", functi
         lhs = lhs:gsub("<leader>", "<Space>")
         if not (scope or ""):find("classic", 1, true) then
           keys = keys + 1
-          eq(readme:find("`" .. lhs .. "`", 1, true) ~= nil, true, "README names the key " .. lhs .. " (" .. tostring(scope) .. ")")
+          eq(
+            readme:find("`" .. lhs .. "`", 1, true) ~= nil,
+            true,
+            "README names the key " .. lhs .. " (" .. tostring(scope) .. ")"
+          )
         end
       end
     end
@@ -569,7 +624,8 @@ test("launcher: an export to REAPER or DAWproject reports the clips of the slots
   launcher.add(t.id, 3, { length = 4 })
   for _, ext in ipairs({ "rpp", "dawproject" }) do
     if not paw.ext.loaded.interop then paw.ext.load("extensions/interop") end
-    local result = require("interop." .. ext).export(T.scratch .. "/launcher-export." .. (ext == "rpp" and "rpp" or "dawproject"))
+    local result =
+      require("interop." .. ext).export(T.scratch .. "/launcher-export." .. (ext == "rpp" and "rpp" or "dawproject"))
     local found
     for _, g in ipairs(result.report:data()) do
       if g.name:find("clip launcher", 1, true) then found = g end
@@ -578,58 +634,70 @@ test("launcher: an export to REAPER or DAWproject reports the clips of the slots
   end
 end)
 
-test("launcher: while the song plays, the session view is drawn again as a live part, the same as drawn whole", function()
-  start()
-  local t = synth("Lead", 0, 60, 2)
-  paw.ui.show("session")
-  paw.cursor.set_track(t.id)
-  launcher.launch(t.id, 0, { quantize = "off" })
-  until_(function() return (launcher.state()[t.id] or {}).slot == 0 end, "the clip to start", 5000)
-  paw.transport.stop()
-  local W, H = 120, 40
-  -- The drawings come one after the other, and a meter falls and a held
-  -- peak lets go in between (a loaded machine): the meters stand still.
-  local meter = api.track_meter
-  api.track_meter = function() return 0.5, 0.25 end
-  local draw = require("paw.draw")
-  local function still()
-    draw.clear_peak(0)
-    for _, id in ipairs(api.track_list()) do draw.clear_peak(id) end
+test(
+  "launcher: while the song plays, the session view is drawn again as a live part, the same as drawn whole",
+  function()
+    start()
+    local t = synth("Lead", 0, 60, 2)
+    paw.ui.show("session")
+    paw.cursor.set_track(t.id)
+    launcher.launch(t.id, 0, { quantize = "off" })
+    until_(function() return (launcher.state()[t.id] or {}).slot == 0 end, "the clip to start", 5000)
+    paw.transport.stop()
+    local W, H = 120, 40
+    -- The drawings come one after the other, and a meter falls and a held
+    -- peak lets go in between (a loaded machine): the meters stand still.
+    local meter = api.track_meter
+    api.track_meter = function() return 0.5, 0.25 end
+    local draw = require("paw.draw")
+    local function still()
+      draw.clear_peak(0)
+      for _, id in ipairs(api.track_list()) do
+        draw.clear_peak(id)
+      end
+    end
+    still()
+    local first = api.ui_frame_snapshot(W, H)
+    eq(first.live > 0, true, "live parts")
+    paw.transport.position = 3
+    still()
+    local moved = api.ui_frame_snapshot(W, H, true)
+    still()
+    local whole = api.ui_frame_snapshot(W, H)
+    api.track_meter = meter
+    eq(moved ~= nil, true, "drawn by its live parts only, with the session view shown")
+    for row = 1, H do
+      eq(moved.cells[row], whole.cells[row], "row " .. row .. ":\n" .. moved.text[row] .. "\n" .. whole.text[row])
+    end
+    paw.ui.hide("session")
   end
-  still()
-  local first = api.ui_frame_snapshot(W, H)
-  eq(first.live > 0, true, "live parts")
-  paw.transport.position = 3
-  still()
-  local moved = api.ui_frame_snapshot(W, H, true)
-  still()
-  local whole = api.ui_frame_snapshot(W, H)
-  api.track_meter = meter
-  eq(moved ~= nil, true, "drawn by its live parts only, with the session view shown")
-  for row = 1, H do eq(moved.cells[row], whole.cells[row], "row " .. row .. ":\n" .. moved.text[row] .. "\n" .. whole.text[row]) end
-  paw.ui.hide("session")
-end)
+)
 
-test("launcher: in a window, the session view's scene is drawn again only when what plays fills another cell", function()
-  start()
-  local t = synth("Lead", 0, 60, 2)
-  paw.ui.show("session")
-  paw.cursor.set_track(t.id)
-  api.ui_snapshot(120, 36)
-  local view = paw.ui.views.session
-  launcher.launch(t.id, 0, { quantize = "off" })
-  until_(function() return state(t.id).slot == 0 end, "the clip to start", 5000)
-  -- Its key (`paw.scene`) says what the window shows of what plays: it
-  -- stays while the slot fills no new cell, as the song plays.
-  local samples, changes, last = 0, 0, nil
-  until_(function()
-    local key = view:scene_key()
-    samples = samples + 1
-    if key ~= last then changes, last = changes + 1, key end
-    return changes >= 3
-  end, "the slot to fill three cells", 8000)
-  eq(type(last), "string", "a key")
-  eq(changes < samples / 2, true, "the same key for many ticks: " .. changes .. " changes in " .. samples)
-  paw.transport.stop()
-  paw.ui.hide("session")
-end)
+test(
+  "launcher: in a window, the session view's scene is drawn again only when what plays fills another cell",
+  function()
+    start()
+    local t = synth("Lead", 0, 60, 2)
+    paw.ui.show("session")
+    paw.cursor.set_track(t.id)
+    api.ui_snapshot(120, 36)
+    local view = paw.ui.views.session
+    launcher.launch(t.id, 0, { quantize = "off" })
+    until_(function() return state(t.id).slot == 0 end, "the clip to start", 5000)
+    -- Its key (`paw.scene`) says what the window shows of what plays: it
+    -- stays while the slot fills no new cell, as the song plays.
+    local samples, changes, last = 0, 0, nil
+    until_(function()
+      local key = view:scene_key()
+      samples = samples + 1
+      if key ~= last then
+        changes, last = changes + 1, key
+      end
+      return changes >= 3
+    end, "the slot to fill three cells", 8000)
+    eq(type(last), "string", "a key")
+    eq(changes < samples / 2, true, "the same key for many ticks: " .. changes .. " changes in " .. samples)
+    paw.transport.stop()
+    paw.ui.hide("session")
+  end
+)

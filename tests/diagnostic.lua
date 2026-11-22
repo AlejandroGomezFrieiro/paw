@@ -11,7 +11,9 @@ local function test(name, fn)
     local result = { xpcall(fn, debug.traceback) }
     paw.lsp.stop()
     paw.diagnostic.reset()
-    while paw.ui.float do paw.ui.close() end
+    while paw.ui.float do
+      paw.ui.close()
+    end
     paw.ui.views.pianoroll.clip_id = nil
     paw.ui.hide("pianoroll")
     paw.ui.focus("arrange")
@@ -26,7 +28,9 @@ local function start()
   fresh()
   diagnostic.reset()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.focus("arrange")
 end
 
@@ -38,7 +42,9 @@ local function lint(clip, lo, hi)
     if n.pitch < lo or n.pitch > hi then
       local to = n.pitch < lo and n.pitch + 12 or n.pitch - 12
       list[#list + 1] = {
-        notes = { place }, severity = n.pitch > hi + 12 and "error" or "warning", rule = "range",
+        notes = { place },
+        severity = n.pitch > hi + 12 and "error" or "warning",
+        rule = "range",
         message = paw.music.name(n.pitch) .. " is out of range",
         fixes = { { title = "Move to " .. paw.music.name(to), edits = { { note = place, pitch = to } } } },
       }
@@ -54,7 +60,11 @@ end
 
 test("diagnostic: a Lua lint's diagnostics are kept by clip, counted and filtered", function()
   start()
-  local clip = clip_with({ { pitch = 60, start = 0, length = 1 }, { pitch = 90, start = 1, length = 1 }, { pitch = 100, start = 2, length = 1 } })
+  local clip = clip_with({
+    { pitch = 60, start = 0, length = 1 },
+    { pitch = 90, start = 1, length = 1 },
+    { pitch = 100, start = 2, length = 1 },
+  })
   lint(clip, 48, 84)
   local all = diagnostic.get(clip)
   eq(#all, 2, "two notes out of range")
@@ -110,16 +120,33 @@ test("diagnostic: the piano roll marks them, the status line counts them, the ar
   local cells = function(name)
     return {
       width = 80,
-      fill = function(_, x, y, w, h, ch, style) painted[#painted + 1] = name .. " fill " .. x .. "," .. y .. "," .. w .. " " .. tostring(style) end,
-      text = function(_, x, y, text, style) painted[#painted + 1] = name .. " text " .. x .. "," .. y .. " " .. text .. " " .. tostring(style) end,
+      fill = function(_, x, y, w, h, ch, style)
+        painted[#painted + 1] = name .. " fill " .. x .. "," .. y .. "," .. w .. " " .. tostring(style)
+      end,
+      text = function(_, x, y, text, style)
+        painted[#painted + 1] = name .. " text " .. x .. "," .. y .. " " .. text .. " " .. tostring(style)
+      end,
     }
   end
-  diagnostic.paint_roll({ roll = cells("roll"), ruler = cells("ruler"), clip = clip,
-    x = function(beat) return beat * 4 end, row = function(pitch) return 110 - pitch end })
+  diagnostic.paint_roll({
+    roll = cells("roll"),
+    ruler = cells("ruler"),
+    clip = clip,
+    x = function(beat) return beat * 4 end,
+    row = function(pitch) return 110 - pitch end,
+  })
   local text = table.concat(painted, "\n")
   eq(text:find("roll fill 4,10,4 DiagnosticUnderlineError", 1, true) ~= nil, true, "the note underlined\n" .. text)
-  eq(text:find("ruler text 4,0 " .. paw.draw.g.mark .. " DiagnosticError", 1, true) ~= nil, true, "a mark on the ruler\n" .. text)
-  eq(text:find("roll text 9,10 E7 is out of range DiagnosticVirtualTextError", 1, true) ~= nil, true, "the message after it\n" .. text)
+  eq(
+    text:find("ruler text 4,0 " .. paw.draw.g.mark .. " DiagnosticError", 1, true) ~= nil,
+    true,
+    "a mark on the ruler\n" .. text
+  )
+  eq(
+    text:find("roll text 9,10 E7 is out of range DiagnosticVirtualTextError", 1, true) ~= nil,
+    true,
+    "the message after it\n" .. text
+  )
 
   paw.ui.views.pianoroll:edit(clip)
   paw.ui.views.pianoroll:set(100, 0)
@@ -128,8 +155,18 @@ test("diagnostic: the piano roll marks them, the status line counts them, the ar
   eq(screen:find("E1", 1, true) ~= nil, true, "the status line counts it")
   local marks = diagnostic.roll_marks(clip.id)
   eq(#marks, 1, "the window is told of one note")
-  eq(string.format("%d %d %g %d %s", marks[1].index, marks[1].pitch, marks[1].start, marks[1].severity, marks[1].actions[1]),
-    "1 100 1 1 Move to E6", "by its place from 0, with its fix")
+  eq(
+    string.format(
+      "%d %d %g %d %s",
+      marks[1].index,
+      marks[1].pitch,
+      marks[1].start,
+      marks[1].severity,
+      marks[1].actions[1]
+    ),
+    "1 100 1 1 Move to E6",
+    "by its place from 0, with its fix"
+  )
   paw.frontend.act.note_action(clip.id, 2, 1)
   paw.flush()
   eq(clip:notes()[2].pitch, 88, "the window's menu entry applies the fix")
@@ -141,7 +178,11 @@ end)
 
 test("diagnostic: ]d and [d go from one to the next, in the piano roll and between clips", function()
   start()
-  local a = clip_with({ { pitch = 100, start = 0, length = 1 }, { pitch = 60, start = 1, length = 1 }, { pitch = 20, start = 3, length = 1 } })
+  local a = clip_with({
+    { pitch = 100, start = 0, length = 1 },
+    { pitch = 60, start = 1, length = 1 },
+    { pitch = 20, start = 3, length = 1 },
+  })
   local t2 = paw.add_track({ name = "Horn" })
   local b = t2:add_clip({ start = 8, length = 4, notes = { { pitch = 110, start = 0, length = 1 } } })
   lint(a, 48, 84)
@@ -157,7 +198,11 @@ test("diagnostic: ]d and [d go from one to the next, in the piano roll and betwe
   paw.ui.focus("arrange")
   paw.cursor.set_beat(1)
   paw.keymap.feed("]d")
-  eq(paw.cursor.beat .. " " .. paw.cursor.track_id(), "3 " .. a:get().track, "in the arrange view, where the next one is")
+  eq(
+    paw.cursor.beat .. " " .. paw.cursor.track_id(),
+    "3 " .. a:get().track,
+    "in the arrange view, where the next one is"
+  )
   paw.keymap.feed("]d")
   eq(paw.cursor.beat .. " " .. paw.cursor.track_id(), "8 " .. t2.id, "on another track")
   paw.keymap.feed("]d")

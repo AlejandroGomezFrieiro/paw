@@ -23,24 +23,28 @@ paw.option.define("roll_context", "all", { type = { "string", "table" }, values 
 -- At most this many context notes, so that a dense song stays quick to draw.
 paw.option.define("roll_context_max", 4000)
 
-local others = {}    -- ids of the clips edited with the active one, in order
-local shown = {}     -- track id -> true or false: a toggle over `roll_context`
+local others = {} -- ids of the clips edited with the active one, in order
+local shown = {} -- track id -> true or false: a toggle over `roll_context`
 local generation = 0 -- goes up when the set or the toggles change
 local cache = { key = nil, notes = {} }
 -- Each window and terminal edits clips of its own.
-paw.seats.keep("roll_clips", function() return others, shown, cache end,
-  function(o, s, c) others, shown, cache = o, s, c end,
-  function() return {}, {}, { key = nil, notes = {} } end)
+paw.seats.keep("roll_clips", function() return others, shown, cache end, function(o, s, c)
+  others, shown, cache = o, s, c
+end, function() return {}, {}, { key = nil, notes = {} } end)
 -- And each window of the roll: a new one edits the same clips, and finds
 -- the notes around them for itself.
-paw.layout.window_keep("pianoroll", function() return { others, shown, cache } end,
-  function(v) others, shown, cache = v[1], v[2], v[3] end,
-  function(v)
-    local o, s = {}, {}
-    for i, id in ipairs(v[1]) do o[i] = id end
-    for k, x in pairs(v[2]) do s[k] = x end
-    return { o, s, { key = nil, notes = {} } }
-  end, "roll_clips")
+paw.layout.window_keep("pianoroll", function() return { others, shown, cache } end, function(v)
+  others, shown, cache = v[1], v[2], v[3]
+end, function(v)
+  local o, s = {}, {}
+  for i, id in ipairs(v[1]) do
+    o[i] = id
+  end
+  for k, x in pairs(v[2]) do
+    s[k] = x
+  end
+  return { o, s, { key = nil, notes = {} } }
+end, "roll_clips")
 
 local function roll() return paw.ui.views.pianoroll end
 
@@ -53,7 +57,11 @@ end
 local function changed()
   generation = generation + 1
   paw.emit("roll_clips.changed", { active = M.active(), count = #M.ids() })
-  if paw.frontend then paw.frontend.refresh() else api.ui_redraw() end
+  if paw.frontend then
+    paw.frontend.refresh()
+  else
+    api.ui_redraw()
+  end
 end
 
 --- The id of the active clip, or nil with no clip open.
@@ -94,8 +102,13 @@ function M.parts()
   for _, id in ipairs(M.ids()) do
     local c = midi(id)
     out[#out + 1] = {
-      id = id, clip = paw.clip(id), offset = c.start - a.start, start = c.start, length = c.length,
-      track = c.track, name = c.name,
+      id = id,
+      clip = paw.clip(id),
+      offset = c.start - a.start,
+      start = c.start,
+      length = c.length,
+      track = c.track,
+      name = c.name,
     }
   end
   return out
@@ -105,7 +118,9 @@ end
 function M.span()
   local lo, hi = 0, 0
   for i, part in ipairs(M.parts()) do
-    if i == 1 then lo, hi = part.offset, part.offset + part.length end
+    if i == 1 then
+      lo, hi = part.offset, part.offset + part.length
+    end
     lo, hi = math.min(lo, part.offset), math.max(hi, part.offset + part.length)
   end
   return lo, hi
@@ -176,7 +191,9 @@ function M.cycle(n)
   local ids = M.ids()
   if #ids < 2 then return paw.notify("the piano roll edits one clip", "warn") end
   local starts = {}
-  for _, id in ipairs(ids) do starts[id] = api.clip_get(id).start end
+  for _, id in ipairs(ids) do
+    starts[id] = api.clip_get(id).start
+  end
   table.sort(ids, function(a, b)
     if starts[a] ~= starts[b] then return starts[a] < starts[b] end
     return a < b
@@ -218,10 +235,13 @@ function M.notes(range, parts)
   parts = parts or M.parts()
   local out = {}
   for _, part in ipairs(parts) do
-    local mine = range and {
-      from = range.from and range.from - part.offset, to = range.to and range.to - part.offset,
-      low = range.low, high = range.high,
-    }
+    local mine = range
+      and {
+        from = range.from and range.from - part.offset,
+        to = range.to and range.to - part.offset,
+        low = range.low,
+        high = range.high,
+      }
     local found, places = part.clip:notes(mine)
     for i, n in ipairs(found) do
       n.start, n.clip, n.place, n.offset = n.start + part.offset, part.id, places and places[i] or i, part.offset
@@ -253,7 +273,6 @@ end
 
 -- Context ---------------------------------------------------------------------
 
-
 --- The tracks whose notes can show behind the notes of the roll. These are
 --- the tracks with MIDI clips (of the scope, in a narrowed tab), but not the
 --- track of the active clip. `{ id, name, color, drums, on }` each. `on`
@@ -265,7 +284,9 @@ function M.tracks()
   local group = paw.groups.of(a.track) or (paw.groups.is_group(a.track) and a.track)
   local listed = {}
   if type(option) == "table" then
-    for _, id in ipairs(option) do listed[id] = true end
+    for _, id in ipairs(option) do
+      listed[id] = true
+    end
   end
   local out = {}
   -- In a tab narrowed to a group (`paw.scope`), the group's tracks alone.
@@ -274,7 +295,9 @@ function M.tracks()
     local t = api.track_get(id)
     if id ~= a.track and not t.master then
       local has_midi = false
-      for _, c in ipairs(api.clip_list(id)) do has_midi = has_midi or c.kind == "midi" end
+      for _, c in ipairs(api.clip_list(id)) do
+        has_midi = has_midi or c.kind == "midi"
+      end
       if has_midi then
         local drums = paw.harmony.is_drums(t)
         local on
@@ -313,29 +336,49 @@ function M.context()
   if not a then return {} end
   local lo, hi = M.span()
   local ids = M.ids()
-  local key = table.concat({ api.project_get("edits"), generation, table.concat(ids, ","), tostring(paw.opt.roll_context),
-    paw.opt.roll_context_max, lo, hi }, "|")
+  local key = table.concat(
+    {
+      api.project_get("edits"),
+      generation,
+      table.concat(ids, ","),
+      tostring(paw.opt.roll_context),
+      paw.opt.roll_context_max,
+      lo,
+      hi,
+    },
+    "|"
+  )
   if cache.key == key then return cache.notes end
   local editable, out = {}, {}
-  for _, id in ipairs(ids) do editable[id] = true end
+  for _, id in ipairs(ids) do
+    editable[id] = true
+  end
   local max = paw.opt.roll_context_max
   local from, to = a.start + lo, a.start + hi
   local own = api.track_get(a.track)
   local looked = { { id = a.track, on = true, color = paw.draw.track_colour(own) } }
-  for _, track in ipairs(M.tracks()) do looked[#looked + 1] = track end
+  for _, track in ipairs(M.tracks()) do
+    looked[#looked + 1] = track
+  end
   for _, track in ipairs(looked) do
     if track.on then
       for _, c in ipairs(api.clip_list(track.id)) do
         if c.kind == "midi" and not editable[c.id] and c.start < to - EPS and c.start + c.length > from + EPS then
           local shift = c.start - a.start
           -- Only what the clip lets sound, and only within the stretch.
-          local notes = api.clip_notes(c.id, { from = math.max(0, from - c.start), to = math.min(c.length, to - c.start) })
+          local notes =
+            api.clip_notes(c.id, { from = math.max(0, from - c.start), to = math.min(c.length, to - c.start) })
           for _, n in ipairs(notes) do
             if #out >= max then break end
             if n.start >= -EPS and n.start < c.length - EPS then
               out[#out + 1] = {
-                pitch = n.pitch, start = n.start + shift, length = math.min(n.length, c.length - n.start),
-                velocity = n.velocity, clip = c.id, track = track.id, color = track.color,
+                pitch = n.pitch,
+                start = n.start + shift,
+                length = math.min(n.length, c.length - n.start),
+                velocity = n.velocity,
+                clip = c.id,
+                track = track.id,
+                color = track.color,
               }
             end
           end
@@ -359,11 +402,15 @@ end
 --- that they make, when `paw.harmony` can tell it.
 function M.sounding(beat)
   local set, out = {}, {}
-  for _, n in ipairs(M.notes({ from = beat, to = beat + EPS })) do set[n.pitch] = true end
+  for _, n in ipairs(M.notes({ from = beat, to = beat + EPS })) do
+    set[n.pitch] = true
+  end
   for _, n in ipairs(M.context()) do
     if beat >= n.start - EPS and beat < n.start + n.length - EPS then set[n.pitch] = true end
   end
-  for pitch in pairs(set) do out[#out + 1] = pitch end
+  for pitch in pairs(set) do
+    out[#out + 1] = pitch
+  end
   table.sort(out)
   local name
   local harmony, a = rawget(paw, "harmony"), midi(M.active())
@@ -399,7 +446,9 @@ local function clip_of(track, at)
   for _, c in ipairs(api.clip_list(track)) do
     if c.kind == "midi" then
       local d = at < c.start and c.start - at or at >= c.start + c.length and at - (c.start + c.length) + EPS or 0
-      if not gap or d < gap then best, gap = c, d end
+      if not gap or d < gap then
+        best, gap = c, d
+      end
     end
   end
   return best
@@ -444,12 +493,14 @@ function M.rows()
   local function clips_of(track)
     for _, c in ipairs(api.clip_list(track)) do
       if c.kind == "midi" and c.start < to - EPS and c.start + c.length > from + EPS then
-        out[#out + 1] = { kind = "clip", id = c.id, name = c.name, on = M.editable(c.id), active = c.id == a.id, track = track }
+        out[#out + 1] =
+          { kind = "clip", id = c.id, name = c.name, on = M.editable(c.id), active = c.id == a.id, track = track }
       end
     end
   end
   local own = api.track_get(a.track)
-  out[#out + 1] = { kind = "track", id = a.track, name = own.name, color = paw.draw.track_colour(own), on = true, active = true }
+  out[#out + 1] =
+    { kind = "track", id = a.track, name = own.name, color = paw.draw.track_colour(own), on = true, active = true }
   clips_of(a.track)
   for _, t in ipairs(M.tracks()) do
     out[#out + 1] = { kind = "track", id = t.id, name = t.name, color = t.color, on = t.on, active = false }
@@ -476,20 +527,27 @@ function M.pick()
     format = line,
     empty = "no other tracks with MIDI clips",
     actions = {
-      ["<CR>"] = { keep = true, desc = "show or hide / edit or not", fn = function(row, _, p)
-        if not row then return end
-        if row.kind == "track" and not row.active then
-          M.show_track(row.id, not row.on)
-          row.on = not row.on
-        elseif row.kind == "clip" and not row.active then
-          row.on = M.toggle(row.id) and true or false
-        end
-        local entry = p and p.matches and p.matches[p.selected]
-        if entry then entry.text = line(row) end
-      end },
-      ["<C-a>"] = { desc = "make the clip active", fn = function(row)
-        if row and row.kind == "clip" then M.activate(row.id) end
-      end },
+      ["<CR>"] = {
+        keep = true,
+        desc = "show or hide / edit or not",
+        fn = function(row, _, p)
+          if not row then return end
+          if row.kind == "track" and not row.active then
+            M.show_track(row.id, not row.on)
+            row.on = not row.on
+          elseif row.kind == "clip" and not row.active then
+            row.on = M.toggle(row.id) and true or false
+          end
+          local entry = p and p.matches and p.matches[p.selected]
+          if entry then entry.text = line(row) end
+        end,
+      },
+      ["<C-a>"] = {
+        desc = "make the clip active",
+        fn = function(row)
+          if row and row.kind == "clip" then M.activate(row.id) end
+        end,
+      },
     },
   })
 end

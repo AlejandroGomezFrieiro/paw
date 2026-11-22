@@ -23,9 +23,7 @@ M.devices = api.audio_devices
 --- `"jack"`). The values that you do not give do not change. The choice is
 --- for this computer, and paw keeps it for the next run. A name that
 --- matches nothing is an error.
-function M.use(opts)
-  api.audio_use(opts or {})
-end
+function M.use(opts) api.audio_use(opts or {}) end
 
 --- The level of each of the input device's channels, as linear gain.
 M.levels = api.input_levels
@@ -40,9 +38,13 @@ M.blocks = { 32, 64, 128, 256, 512, 1024, 2048 }
 function M.short(name)
   if not name or name == "" or name == "none" then return nil end
   local words = {}
-  for word in name:gmatch("%S+") do words[#words + 1] = word end
+  for word in name:gmatch("%S+") do
+    words[#words + 1] = word
+  end
   if #words > 1 and words[#words]:match("^%d+$") then table.remove(words) end
-  if #words > 1 and words[2]:match("%a") and words[2]:match("%d") and not words[1]:match("%d") then table.remove(words, 1) end
+  if #words > 1 and words[2]:match("%a") and words[2]:match("%d") and not words[1]:match("%d") then
+    table.remove(words, 1)
+  end
   local short = table.concat(words, " ")
   if #short > 18 then short = short:sub(1, 17) .. "…" end
   return short
@@ -64,9 +66,7 @@ end
 --- `MIDI · Keystation · ch 1` for MIDI from one port. Nil for a track that
 --- takes nothing in particular: no audio, and MIDI from everywhere.
 function M.label(t)
-  if t.input then
-    return (M.device() or "no input") .. " · " .. t.input
-  end
+  if t.input then return (M.device() or "no input") .. " · " .. t.input end
   if t.midi_input then return "MIDI · " .. midi_text(t.midi_input) end
   return nil
 end
@@ -134,7 +134,12 @@ function M.choices(track)
     add("audio", device .. " · " .. spec, { input = spec }, t.input == spec)
   end
   if t.input and not listed[t.input] then
-    add("audio", (device or "input") .. " · " .. t.input .. " (the device has no such channel)", { input = t.input }, true)
+    add(
+      "audio",
+      (device or "input") .. " · " .. t.input .. " (the device has no such channel)",
+      { input = t.input },
+      true
+    )
   end
 
   local midi = t.midi_input or {}
@@ -144,9 +149,7 @@ function M.choices(track)
     seen = seen or port.name == midi.port
     add("midi", port.name, { midi_port = port.name }, port.name == midi.port)
   end
-  if midi.port and not seen then
-    add("midi", midi.port .. " (not connected)", { midi_port = midi.port }, true)
-  end
+  if midi.port and not seen then add("midi", midi.port .. " (not connected)", { midi_port = midi.port }, true) end
   add("channel", "Every channel", { midi_channel = false }, not midi.channel)
   for ch = 1, 16 do
     add("channel", "Channel " .. ch, { midi_channel = ch }, midi.channel == ch)
@@ -160,9 +163,7 @@ function M.choices(track)
     found = found or port.name == sent.port
     add("midi_out", port.name, { midi_out = port.name }, port.name == sent.port)
   end
-  if sent.port and not found then
-    add("midi_out", sent.port .. " (not connected)", { midi_out = sent.port }, true)
-  end
+  if sent.port and not found then add("midi_out", sent.port .. " (not connected)", { midi_out = sent.port }, true) end
   add("midi_out_channel", "Each message's own", { midi_out_channel = false }, not sent.channel)
   for ch = 1, 16 do
     add("midi_out_channel", "Channel " .. ch, { midi_out_channel = ch }, sent.channel == ch)
@@ -170,7 +171,12 @@ function M.choices(track)
   -- What it becomes at a port that takes no MIDI 2.0.
   for _, form in ipairs(paw.routes.midi_out_form_order) do
     local label = paw.routes.midi_out_forms[form]
-    add("midi_out_form", label:sub(1, 1):upper() .. label:sub(2), { midi_out_form = form }, (sent.form or "auto") == form)
+    add(
+      "midi_out_form",
+      label:sub(1, 1):upper() .. label:sub(2),
+      { midi_out_form = form },
+      (sent.form or "auto") == form
+    )
   end
   return out
 end
@@ -180,9 +186,7 @@ end
 function M.choose(track, choice)
   local id = type(track) == "table" and track.id or track
   local value = choice.value or choice
-  if value.input then
-    api.track_set(id, "input", value.input)
-  end
+  if value.input then api.track_set(id, "input", value.input) end
   if value.midi_port ~= nil or value.midi_channel ~= nil then
     local midi = api.track_get(id, "midi_input") or {}
     local port, channel = midi.port, midi.channel
@@ -198,7 +202,11 @@ function M.choose(track, choice)
     if value.midi_out ~= nil then port = value.midi_out or nil end
     if value.midi_out_channel ~= nil then channel = value.midi_out_channel or nil end
     if value.midi_out_form ~= nil then form = value.midi_out_form end
-    api.track_set(id, "midi_output", port and { port = port, channel = channel, form = form, members = sent.members } or nil)
+    api.track_set(
+      id,
+      "midi_output",
+      port and { port = port, channel = channel, form = form, members = sent.members } or nil
+    )
   end
 end
 
@@ -240,7 +248,12 @@ function M.engine_choices()
   add("info", list.backend .. " · " .. M.timing())
   add("output", "System default", { output = "default" }, list.output_id == "" and list.backend ~= "null")
   for _, d in ipairs(list.outputs) do
-    add("output", string.format("%s  (%d ch)", d.name, d.channels), { output = d.name }, d.name == list.output and list.output_id ~= "")
+    add(
+      "output",
+      string.format("%s  (%d ch)", d.name, d.channels),
+      { output = d.name },
+      d.name == list.output and list.output_id ~= ""
+    )
   end
   add("input", "System default", { input = "default" }, list.input_id == "" and list.backend ~= "null")
   for _, d in ipairs(list.inputs) do
@@ -249,7 +262,12 @@ function M.engine_choices()
   local e = api.engine_get()
   add("block", "Device's own", { buffer = 0 }, list.buffer_size == 0)
   for _, frames in ipairs(M.blocks) do
-    add("block", string.format("%d frames (%.1f ms)", frames, frames * 1000 / e.sample_rate), { buffer = frames }, list.buffer_size == frames)
+    add(
+      "block",
+      string.format("%d frames (%.1f ms)", frames, frames * 1000 / e.sample_rate),
+      { buffer = frames },
+      list.buffer_size == frames
+    )
   end
   for _, rate in ipairs(list.rates or {}) do
     add("rate", string.format("%g kHz", rate / 1000), { rate = rate }, list.sample_rate == rate)

@@ -18,8 +18,12 @@ function M.rows(id)
   local vca = t.meta and t.meta.vca == true
   local out = {}
   if not vca then
-    for i, device in ipairs(t.devices or {}) do out[#out + 1] = { key = "insert" .. i, kind = "insert", index = i, device = device } end
-    for i, send in ipairs(t.sends or {}) do out[#out + 1] = { key = "send" .. i, kind = "send", index = i, send = send } end
+    for i, device in ipairs(t.devices or {}) do
+      out[#out + 1] = { key = "insert" .. i, kind = "insert", index = i, device = device }
+    end
+    for i, send in ipairs(t.sends or {}) do
+      out[#out + 1] = { key = "send" .. i, kind = "send", index = i, send = send }
+    end
   end
   out[#out + 1] = { key = "volume", kind = "volume" }
   if not vca then out[#out + 1] = { key = "pan", kind = "pan" } end
@@ -115,18 +119,25 @@ local function clear(id, rows)
   local track = paw.track(id)
   local sends, devices = {}, {}
   for _, row in ipairs(rows) do
-    if row.kind == "volume" then track.volume = 0
-    elseif row.kind == "pan" then track.pan = 0
-    elseif row.kind == "toggle" then track[row.field] = false
-    elseif row.kind == "send" then sends[row.index] = true
-    elseif row.kind == "insert" then devices[#devices + 1] = row.device
+    if row.kind == "volume" then
+      track.volume = 0
+    elseif row.kind == "pan" then
+      track.pan = 0
+    elseif row.kind == "toggle" then
+      track[row.field] = false
+    elseif row.kind == "send" then
+      sends[row.index] = true
+    elseif row.kind == "insert" then
+      devices[#devices + 1] = row.device
     end
   end
   -- From the last, so that the places of those before stay where they were.
   for i = #api.track_get(id).sends, 1, -1 do
     if sends[i] then paw.frontend.act.remove_send(id, i) end
   end
-  for _, device in ipairs(devices) do paw.device(device):remove() end
+  for _, device in ipairs(devices) do
+    paw.device(device):remove()
+  end
 end
 
 --- What a row holds, to paste on another strip.
@@ -246,10 +257,22 @@ mmap("l", "cursor.down", "Next strip", motion)
 mmap("h", "cursor.up", "Previous strip", motion)
 mmap("<Right>", "cursor.down", "Next strip", motion)
 mmap("<Left>", "cursor.up", "Previous strip", motion)
-mmap("j", function(ctx) local _, _, i = M.current() if i then M.to(i + (ctx.count or 1)) end end, "Down the strip: the next row", motion)
-mmap("k", function(ctx) local _, _, i = M.current() if i then M.to(i - (ctx.count or 1)) end end, "Up the strip: the row above", motion)
-mmap("<Down>", function(ctx) local _, _, i = M.current() if i then M.to(i + (ctx.count or 1)) end end, "Down the strip: the next row", motion)
-mmap("<Up>", function(ctx) local _, _, i = M.current() if i then M.to(i - (ctx.count or 1)) end end, "Up the strip: the row above", motion)
+mmap("j", function(ctx)
+  local _, _, i = M.current()
+  if i then M.to(i + (ctx.count or 1)) end
+end, "Down the strip: the next row", motion)
+mmap("k", function(ctx)
+  local _, _, i = M.current()
+  if i then M.to(i - (ctx.count or 1)) end
+end, "Up the strip: the row above", motion)
+mmap("<Down>", function(ctx)
+  local _, _, i = M.current()
+  if i then M.to(i + (ctx.count or 1)) end
+end, "Down the strip: the next row", motion)
+mmap("<Up>", function(ctx)
+  local _, _, i = M.current()
+  if i then M.to(i - (ctx.count or 1)) end
+end, "Up the strip: the row above", motion)
 mmap("gg", function(ctx) M.to(ctx.count or 1) end, "The strip's top row, or row N", far)
 mmap("G", function(ctx)
   local id = paw.cursor.track_id()
@@ -279,11 +302,15 @@ function M.to_kind(dir, n)
   for _ = 1, n or 1 do
     local kind = rows[i].kind == "toggle" and "toggle" or rows[i].kind
     local j = i + dir
-    while rows[j] and rows[j].kind == kind do j = j + dir end
+    while rows[j] and rows[j].kind == kind do
+      j = j + dir
+    end
     if not rows[j] then break end
     if dir < 0 then
       local k = rows[j].kind
-      while rows[j - 1] and rows[j - 1].kind == k do j = j - 1 end
+      while rows[j - 1] and rows[j - 1].kind == k do
+        j = j - 1
+      end
     end
     i = j
   end
@@ -298,23 +325,29 @@ function M.to_kind_end(n)
   for _ = 1, n or 1 do
     local j = i
     if rows[j + 1] and rows[j + 1].kind ~= rows[j].kind then j = j + 1 end
-    while rows[j + 1] and rows[j + 1].kind == rows[j].kind do j = j + 1 end
+    while rows[j + 1] and rows[j + 1].kind == rows[j].kind do
+      j = j + 1
+    end
     i = j
   end
   M.to(i)
 end
 
 -- The value under the cursor: `+` `-` and `Ctrl-a` `Ctrl-x`, with a count.
-local function main(sign) return function(ctx)
-  local row, id = M.current()
-  if row then nudge(id, row, sign * (ctx.count or 1)) end
-end end
-local function second(sign) return function(ctx)
-  local track = paw.cursor.track()
-  if track and not (track:get().meta or {}).vca then
-    track.pan = util.clamp(util.round(track.pan + count(0.1, ctx) * sign, 0.01), -1, 1)
+local function main(sign)
+  return function(ctx)
+    local row, id = M.current()
+    if row then nudge(id, row, sign * (ctx.count or 1)) end
   end
-end end
+end
+local function second(sign)
+  return function(ctx)
+    local track = paw.cursor.track()
+    if track and not (track:get().meta or {}).vca then
+      track.pan = util.clamp(util.round(track.pan + count(0.1, ctx) * sign, 0.01), -1, 1)
+    end
+  end
+end
 mmap("+", main(1), "The row up: 1 dB, a tenth of pan, on", { role = "main+" })
 mmap("-", main(-1), "The row down: 1 dB, a tenth of pan, off", { role = "main-" })
 mmap("<C-a>", main(1), "The row up by the count", { role = "main+" })
@@ -375,11 +408,11 @@ function M.device()
 end
 
 -- Operators over strips and rows.
-local function op(lhs, fn, desc, opts)
-  keymap.operator(lhs, fn, util.merge({ view = "mixer", desc = desc }, opts))
-end
+local function op(lhs, fn, desc, opts) keymap.operator(lhs, fn, util.merge({ view = "mixer", desc = desc }, opts)) end
 local function each(region, fn)
-  for _, id in ipairs(strips(region)) do fn(id, rows_in(id, region)) end
+  for _, id in ipairs(strips(region)) do
+    fn(id, rows_in(id, region))
+  end
 end
 op("d", function(region, ctx)
   if region.kind == "line" and region.r0 > #paw.groups.rows() then
@@ -408,19 +441,29 @@ end, "Yank: whole strips their tracks, rows their settings")
 op("gc", function(region)
   local ids = strips(region)
   local all = #ids > 0
-  for _, id in ipairs(ids) do all = all and api.track_get(id, "mute") end
-  for _, id in ipairs(ids) do paw.track(id).mute = not all end
+  for _, id in ipairs(ids) do
+    all = all and api.track_get(id, "mute")
+  end
+  for _, id in ipairs(ids) do
+    paw.track(id).mute = not all
+  end
 end, "Mute or unmute the strips", { role = "mute" })
 
-local function paste(before) return function(ctx)
-  local value = keymap.getreg(ctx.register)
-  if value and value.kind == "mixrows" then
-    local id = paw.cursor.track_id()
-    if id then for _, entry in ipairs(value.rows) do paste_row(id, entry) end end
-    return
+local function paste(before)
+  return function(ctx)
+    local value = keymap.getreg(ctx.register)
+    if value and value.kind == "mixrows" then
+      local id = paw.cursor.track_id()
+      if id then
+        for _, entry in ipairs(value.rows) do
+          paste_row(id, entry)
+        end
+      end
+      return
+    end
+    paw.edit.arrange.paste(value, before, ctx.count)
   end
-  paw.edit.arrange.paste(value, before, ctx.count)
-end end
+end
 mmap("p", paste(false), "Paste rows' settings on this strip, or tracks after it")
 mmap("P", paste(true), "Paste rows' settings on this strip, or tracks before it")
 
@@ -428,34 +471,43 @@ mmap("P", paste(true), "Paste rows' settings on this strip, or tracks before it"
 local function vop(lhs, fn, desc, role)
   map(lhs, nil, { view = "mixer", mode = "x", desc = desc, role = role, operator = fn })
 end
-local function each_value(sign) return function(region, ctx)
-  each(region, function(id, rows)
-    for _, row in ipairs(rows) do nudge(id, row, sign * (ctx.count or 1)) end
-  end)
-end end
+local function each_value(sign)
+  return function(region, ctx)
+    each(region, function(id, rows)
+      for _, row in ipairs(rows) do
+        nudge(id, row, sign * (ctx.count or 1))
+      end
+    end)
+  end
+end
 vop("+", each_value(1), "The rows selected up", "main+")
 vop("-", each_value(-1), "The rows selected down", "main-")
 vop("<C-a>", each_value(1), "The rows selected up by the count", "main+")
 vop("<C-x>", each_value(-1), "The rows selected down by the count", "main-")
-local function each_pan(sign) return function(region, ctx)
-  for _, id in ipairs(strips(region)) do
-    local track = paw.track(id)
-    if not (api.track_get(id, "meta") or {}).vca then
-      track.pan = util.clamp(util.round(track.pan + count(0.1, ctx) * sign, 0.01), -1, 1)
+local function each_pan(sign)
+  return function(region, ctx)
+    for _, id in ipairs(strips(region)) do
+      local track = paw.track(id)
+      if not (api.track_get(id, "meta") or {}).vca then
+        track.pan = util.clamp(util.round(track.pan + count(0.1, ctx) * sign, 0.01), -1, 1)
+      end
     end
   end
-end end
+end
 vop("]", each_pan(1), "Pan the strips selected right", "second+")
 vop("[", each_pan(-1), "Pan the strips selected left", "second-")
 vop("x", function(region) each(region, clear) end, "Clear the rows selected")
 vop("p", function(region, ctx)
   local value = keymap.getreg(ctx.register)
-  if not (value and value.kind == "mixrows") then return paw.notify("no rows in the register: `y` on some first", "warn") end
+  if not (value and value.kind == "mixrows") then
+    return paw.notify("no rows in the register: `y` on some first", "warn")
+  end
   for _, id in ipairs(strips(region)) do
-    for _, entry in ipairs(value.rows) do paste_row(id, entry) end
+    for _, entry in ipairs(value.rows) do
+      paste_row(id, entry)
+    end
   end
 end, "Paste the rows' settings on every strip selected")
-
 
 -- The keys the mixer had before the rule (`paw.opt.keys = "classic"`).
 local classic = keymap.classic

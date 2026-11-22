@@ -89,18 +89,36 @@ local function play_lesson(tutor, n)
   local ok, err = xpcall(function()
     tutor.start(n, { fresh = true, force = true })
     eq(tutor.state().active, true, lesson.id .. ": started")
-    eq(paw.ui.float and paw.ui.float.title, "Lesson " .. n .. ": " .. lesson.title, lesson.id .. ": the introduction is shown")
+    eq(
+      paw.ui.float and paw.ui.float.title,
+      "Lesson " .. n .. ": " .. lesson.title,
+      lesson.id .. ": the introduction is shown"
+    )
     type_keys("<Esc>")
     eq(paw.ui.float, nil, lesson.id .. ": any key closes the introduction")
-    eq(paw.project.path, T.scratch .. "/tutor/practice/" .. lesson.id .. "/project.toml", lesson.id .. ": the practice project is the tutor's")
+    eq(
+      paw.project.path,
+      T.scratch .. "/tutor/practice/" .. lesson.id .. "/project.toml",
+      lesson.id .. ": the practice project is the tutor's"
+    )
     for i, step in ipairs(lesson.steps) do
       local where = lesson.id .. " step " .. i
       eq(tutor.state().step, i, where .. ": the tutor is on it")
-      eq(panel_text():find(require("tutor.panel").keys(step.say), 1, true) ~= nil, true, where .. ": the panel says what to do")
-      eq(screen():find(string.format("step %d of %d", i, #lesson.steps), 1, true) ~= nil, true, where .. ": the panel is on screen")
+      eq(
+        panel_text():find(require("tutor.panel").keys(step.say), 1, true) ~= nil,
+        true,
+        where .. ": the panel says what to do"
+      )
+      eq(
+        screen():find(string.format("step %d of %d", i, #lesson.steps), 1, true) ~= nil,
+        true,
+        where .. ": the panel is on screen"
+      )
       for _, item in ipairs(step.keys) do
         local list = type(item) == "string" and { item } or item.instead or {}
-        for _, key in ipairs(list) do eq(said(step, key), true, where .. ": the text asks for `" .. key .. "`") end
+        for _, key in ipairs(list) do
+          eq(said(step, key), true, where .. ": the text asks for `" .. key .. "`")
+        end
       end
       -- Not done yet, so not noticed.
       tutor.poll()
@@ -119,12 +137,24 @@ local function play_lesson(tutor, n)
         type_keys("<leader>hn")
       end
       if tutor.state().step ~= i + 1 then
-        error(string.format("%s: not noticed after typing its keys (%s)\nthe panel says:\n%s", where, step.say, panel_text()), 0)
+        error(
+          string.format(
+            "%s: not noticed after typing its keys (%s)\nthe panel says:\n%s",
+            where,
+            step.say,
+            panel_text()
+          ),
+          0
+        )
       end
       local rec = tutor.record(lesson.id).steps[i]
       eq(rec, step.unchecked and "skipped" or "done", where .. ": recorded")
       if not step.unchecked then
-        eq(panel_text():find("✓ " .. require("tutor.panel").keys(step.done or "Done."), 1, true) ~= nil, true, where .. ": the panel says it is done")
+        eq(
+          panel_text():find("✓ " .. require("tutor.panel").keys(step.done or "Done."), 1, true) ~= nil,
+          true,
+          where .. ": the panel says it is done"
+        )
       end
     end
     eq(tutor.state().finished, true, lesson.id .. ": finished")
@@ -187,9 +217,15 @@ end)
 test("tutor: a finished lesson says so, and the next one follows", function()
   local tutor = start()
   type_keys(":tutor 13<CR><Esc>")
-  for _ = 1, #tutor.by_id.saving.steps do type_keys("<leader>hn") end
+  for _ = 1, #tutor.by_id.saving.steps do
+    type_keys("<leader>hn")
+  end
   eq(tutor.state().finished, true, "finished")
-  eq(panel_text():find("Lesson done. `<Space>hn` goes on to lesson 14", 1, true) ~= nil, true, "the panel offers the next lesson")
+  eq(
+    panel_text():find("Lesson done. `<Space>hn` goes on to lesson 14", 1, true) ~= nil,
+    true,
+    "the panel offers the next lesson"
+  )
   type_keys("<leader>hn<Esc>")
   eq(tutor.state().lesson, "finding", "on to lesson 14")
   eq(tutor.state().step, 1, "at its first step")
@@ -234,7 +270,11 @@ test("tutor: the learner's project is never touched, and comes back when they le
   local tutor = start()
   local path, before = own_project()
   type_keys(":tutor 3<CR>")
-  eq(paw.ui.messages[#paw.ui.messages].text:find(path .. " is closed while you practise", 1, true) ~= nil, true, "the tutor says what happens to it")
+  eq(
+    paw.ui.messages[#paw.ui.messages].text:find(path .. " is closed while you practise", 1, true) ~= nil,
+    true,
+    "the tutor says what happens to it"
+  )
   type_keys("<Esc>")
   eq(paw.project.path ~= path, true, "a practice project of its own")
   eq(paw.track("Mine"), nil, "the learner's tracks are not in it")
@@ -258,7 +298,11 @@ test("tutor: a project with unsaved changes is not closed without asking", funct
   paw.flush()
   type_keys(":tutor 1<CR>")
   eq(tutor.state().active, false, "the lesson did not start")
-  eq(paw.ui.messages[#paw.ui.messages].text:find("changes that are not saved", 1, true) ~= nil, true, "the tutor says why")
+  eq(
+    paw.ui.messages[#paw.ui.messages].text:find("changes that are not saved", 1, true) ~= nil,
+    true,
+    "the tutor says why"
+  )
   eq(paw.track("Unsaved") ~= nil and paw.project.path == path, true, "the project is still open, changes and all")
   type_keys(":tutor! 1<CR><Esc>")
   eq(tutor.state().active, true, "`:tutor!` starts anyway")
@@ -287,8 +331,8 @@ end)
 test("tutor: progress survives leaving and coming back, and a restart of the program", function()
   local tutor = start()
   type_keys(":tutor 3<CR><Esc>")
-  type_keys("o")                         -- step 1: a track
-  type_keys("grn<C-u>Bass<CR>")           -- step 2: its name
+  type_keys("o") -- step 1: a track
+  type_keys("grn<C-u>Bass<CR>") -- step 2: its name
   eq(tutor.state().step, 3, "two steps done")
   type_keys("<leader>hq")
   eq(require("tutor.store").exists(T.scratch .. "/tutor/progress.lua"), true, "progress is in the tutor's directory")
@@ -310,7 +354,7 @@ test("tutor: quitting the program in a lesson keeps the place", function()
   local tutor = start()
   type_keys(":tutor 3<CR><Esc>o")
   eq(tutor.state().step, 2, "a step done")
-  paw.emit("command.pre", { name = "quit", args = {} })   -- what `:q` in the last window says before the program ends
+  paw.emit("command.pre", { name = "quit", args = {} }) -- what `:q` in the last window says before the program ends
   tutor._forget()
   T.fresh()
   type_keys(":tutor<CR><Esc>")
@@ -338,7 +382,9 @@ end)
 test("tutor: the lessons are listed with progress, and one is chosen from the list", function()
   local tutor = start()
   type_keys(":tutor 1<CR><Esc>")
-  for _ = 1, #tutor.by_id["first-steps"].steps do type_keys("<leader>hn") end
+  for _ = 1, #tutor.by_id["first-steps"].steps do
+    type_keys("<leader>hn")
+  end
   type_keys("<leader>hl")
   local state = paw.pick.state()
   eq(state and state.title, "Lessons", "a picker of lessons")
@@ -352,7 +398,8 @@ end)
 test("tutor: another extension can add a lesson", function()
   local tutor = start()
   local lesson = tutor.register({
-    id = "extra", title = "An extra lesson",
+    id = "extra",
+    title = "An extra lesson",
     setup = function() paw.add_track({ name = "X" }) end,
     steps = { { say = "Press `o`.", keys = { "o" }, check = function() return #paw.tracks() == 2 end } },
   }, { after = "first-steps" })
@@ -364,7 +411,11 @@ test("tutor: another extension can add a lesson", function()
     if other == lesson then table.remove(tutor.lessons, i) end
   end
   tutor.by_id.extra = nil
-  T.fails(function() tutor.register({ id = "bad", title = "Bad", steps = { { say = "x" } } }) end, "keys", "a step needs its keys")
+  T.fails(
+    function() tutor.register({ id = "bad", title = "Bad", steps = { { say = "x" } } }) end,
+    "keys",
+    "a step needs its keys"
+  )
 end)
 
 -- The course as text -------------------------------------------------------------------
@@ -375,7 +426,12 @@ test("tutor: docs/tutorials/course is made from the lessons and agrees with them
   for name, text in pairs(files) do
     local on_disk = T.read_file("docs/tutorials/course/" .. name)
     if on_disk ~= text then
-      error("docs/tutorials/course/" .. name .. " differs from the lessons: run `paw --clean --no-plugins -l extensions/tutor/make-docs.lua`", 0)
+      error(
+        "docs/tutorials/course/"
+          .. name
+          .. " differs from the lessons: run `paw --clean --no-plugins -l extensions/tutor/make-docs.lua`",
+        0
+      )
     end
   end
   for _, entry in ipairs(api.read_dir("docs/tutorials/course")) do
@@ -396,7 +452,16 @@ test("tutor: every key in docs/reference/keys.md is a key paw has", function()
   local keymap = paw.keymap
   local known, operators, chars = {}, {}, {}
   for _, mode in ipairs({ "n", "x", "o", "i" }) do
-    for _, view in ipairs({ "arrange", "pianoroll", "pianoroll.complete", "pianoroll.keys", "mixer", "devices", "session", "textbuf" }) do
+    for _, view in ipairs({
+      "arrange",
+      "pianoroll",
+      "pianoroll.complete",
+      "pianoroll.keys",
+      "mixer",
+      "devices",
+      "session",
+      "textbuf",
+    }) do
       for _, map in ipairs(keymap.list(mode, view)) do
         local keys = table.concat(keymap.parse(map.lhs))
         known[keys] = true
@@ -409,7 +474,7 @@ test("tutor: every key in docs/reference/keys.md is a key paw has", function()
     local keys = keymap.parse(token)
     local text = table.concat(keys)
     if known[text] then return true end
-    if #keys == 2 and chars[keys[1]] then return true end   -- `ma`, `'a`, `@a`, `qa`
+    if #keys == 2 and chars[keys[1]] then return true end -- `ma`, `'a`, `@a`, `qa`
     return false
   end
   local function counted(token)
@@ -423,7 +488,9 @@ test("tutor: every key in docs/reference/keys.md is a key paw has", function()
       return name:match("^%d+$") ~= nil or paw.commands.get(name) ~= nil
     end
     if token:find(" ") then
-      for piece in token:gmatch("%S+") do if not ok(piece) then return false end end
+      for piece in token:gmatch("%S+") do
+        if not ok(piece) then return false end
+      end
       return true
     end
     token = token:gsub('^"[%w_"]', "")
@@ -458,7 +525,9 @@ end)
 test("tutor: the keys in a lesson follow the learner's leader and local leader", function()
   local panel = require("tutor.panel")
   local leader, localleader = paw.opt.leader, paw.opt.localleader
-  T.after(function() paw.opt.leader, paw.opt.localleader = leader, localleader end)
+  T.after(function()
+    paw.opt.leader, paw.opt.localleader = leader, localleader
+  end)
   paw.opt.leader, paw.opt.localleader = "-", ";"
   eq(panel.keys("Press `<leader>hh`, then `\\Sa` and `\\`."), "Press `-hh`, then `;Sa` and `\\`.")
   paw.opt.leader, paw.opt.localleader = " ", "\\"

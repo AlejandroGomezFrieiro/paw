@@ -48,7 +48,9 @@ local function put_tempo_map(file, at)
   local sc = file.parts[1].score
   local f = D.frame(sc)
   local tempos, signatures = {}, {}
-  for _, t in ipairs(tempos_of(file)) do tempos[#tempos + 1] = { beat = at + t.t / D.Q, bpm = math.max(1, math.min(960, t.bpm)) } end
+  for _, t in ipairs(tempos_of(file)) do
+    tempos[#tempos + 1] = { beat = at + t.t / D.Q, bpm = math.max(1, math.min(960, t.bpm)) }
+  end
   for i, m in ipairs(sc.measures) do
     if i == 1 or m.meter then
       local mt = f.meters[i]
@@ -63,8 +65,12 @@ local function put_tempo_map(file, at)
     if s.beat < at - EPS then keep_s[#keep_s + 1] = { beat = s.beat, num = s.num, den = s.den } end
   end
   if not tempos[1] or tempos[1].beat > at + EPS then table.insert(tempos, 1, { beat = at, bpm = paw.tempo.at(at) }) end
-  for _, t in ipairs(tempos) do keep_t[#keep_t + 1] = t end
-  for _, s in ipairs(signatures) do keep_s[#keep_s + 1] = s end
+  for _, t in ipairs(tempos) do
+    keep_t[#keep_t + 1] = t
+  end
+  for _, s in ipairs(signatures) do
+    keep_s[#keep_s + 1] = s
+  end
   paw.tempo.set_points(keep_t, keep_s)
 end
 
@@ -82,12 +88,18 @@ local function add_parts(file, at, index, name)
     local track = paw.add_track({ name = part.name, index = index and index + i or nil })
     if part.drums then track:add_device("drums") end
     local meta = track.meta or {}
-    meta.notation = util.merge(type(meta.notation) == "table" and meta.notation or {},
-      { clef = #sc.staves == 2 and "grand" or sc.staves[1].clef })
+    meta.notation = util.merge(
+      type(meta.notation) == "table" and meta.notation or {},
+      { clef = #sc.staves == 2 and "grand" or sc.staves[1].clef }
+    )
     track.meta = meta
     local controls = part.program and { { start = 0, type = "program", program = part.program, value = 0 } } or nil
-    local clip = track:add_clip({ start = at - origin / D.Q, length = math.max(1, (origin + f.finish) / D.Q),
-      name = #file.parts == 1 and name or part.name, controls = controls })
+    local clip = track:add_clip({
+      start = at - origin / D.Q,
+      length = math.max(1, (origin + f.finish) / D.Q),
+      name = #file.parts == 1 and name or part.name,
+      controls = controls,
+    })
     view.store(clip, view.score_of(clip:get()), sc)
     notes = notes + #clip:notes()
     tracks[#tracks + 1] = track
@@ -149,7 +161,9 @@ function F.import(path, opts)
   local tracks, notes = add_parts(file, at, paw.cursor.index(), stem(path))
   add_markers(file, at)
   local clips = {}
-  for _, t in ipairs(tracks) do clips[#clips + 1] = t:clips()[1] end
+  for _, t in ipairs(tracks) do
+    clips[#clips + 1] = t:clips()[1]
+  end
   if tracks[1] then paw.cursor.set_track(tracks[1]) end
   return { tracks = tracks, clips = clips, notes = notes, skipped = mx.skipped_text(file) }
 end
@@ -157,7 +171,8 @@ end
 --- What a file brought in or opened came to, said.
 function F.said(path, done)
   local name = path:match("([^/]+)$") or path
-  local text = string.format("%s: %d notes on %d track%s", name, done.notes, #done.tracks, #done.tracks == 1 and "" or "s")
+  local text =
+    string.format("%s: %d notes on %d track%s", name, done.notes, #done.tracks, #done.tracks == 1 and "" or "s")
   if done.skipped then text = text .. "; left out: " .. done.skipped end
   return text
 end
@@ -196,8 +211,15 @@ function F.parts(clips)
     local c = clip:get()
     local sc = D.copy(score_of_clip(clip))
     local beat = c.start + D.origin(sc) / D.Q
-    parts[#parts + 1] = { name = clip:track().name, score = sc, beat = beat, fifths = fifths, key_name = key_name,
-      program = program(clip), drums = drums(clip:track()) }
+    parts[#parts + 1] = {
+      name = clip:track().name,
+      score = sc,
+      beat = beat,
+      fifths = fifths,
+      key_name = key_name,
+      program = program(clip),
+      drums = drums(clip:track()),
+    }
     first = math.min(first, beat)
   end
   local most, off = 0, 0
@@ -211,9 +233,12 @@ function F.parts(clips)
       -- The empty bars take the first bar's time signature and key.
       local m1 = sc.measures[1]
       local meter = f.meters[1]
-      for _ = 1, pad do table.insert(sc.measures, 1, { id = D.id(sc, "m"), voices = {}, v = D.token() }) end
+      for _ = 1, pad do
+        table.insert(sc.measures, 1, { id = D.id(sc, "m"), voices = {}, v = D.token() })
+      end
       local head = sc.measures[1]
-      head.meter, head.groups, head.meter_symbol, head.key = { meter[1], meter[2] }, meter.groups, m1.meter_symbol, m1.key
+      head.meter, head.groups, head.meter_symbol, head.key =
+        { meter[1], meter[2] }, meter.groups, m1.meter_symbol, m1.key
       m1.meter, m1.groups, m1.meter_symbol, m1.key = nil, nil, nil, nil
       sc._frame = nil
     end
@@ -266,7 +291,9 @@ end
 
 local function import_command(path, tempo)
   local ok, done = pcall(F.import, path, { tempo = tempo == true or tempo == "yes" or tempo == "on" })
-  if not ok then return paw.notify("could not import " .. path .. ": " .. tostring(done):gsub("^[^:]*:%d+: ", ""), "error") end
+  if not ok then
+    return paw.notify("could not import " .. path .. ": " .. tostring(done):gsub("^[^:]*:%d+: ", ""), "error")
+  end
   paw.notify("imported " .. F.said(path, done))
   return done
 end
@@ -275,15 +302,25 @@ end
 local function path_and_tempo(line)
   local path, tempo = tostring(line or ""), nil
   local rest, word = path:match("^(.-)%s+tempo=(%S+)%s*$")
-  if rest then path, tempo = rest, word end
+  if rest then
+    path, tempo = rest, word
+  end
   return (path:gsub("^~", os.getenv("HOME") or "~")), tempo
 end
 
-paw.command("notation.import", function(ctx)
-  local path, tempo = path_and_tempo(ctx.args[1])
-  if path == "" then return paw.notify("usage: notation.import <score.musicxml|.mxl> [tempo=yes]", "warn") end
-  return import_command(path, tempo or ctx.args.tempo)
-end, { raw = true, desc = "Bring a MusicXML score in: a track for each part at the cursor, each a MIDI clip with its notation: `notation.import song.musicxml`, `song.mxl tempo=yes` (its tempo marks and time signatures too)", complete = "files" })
+paw.command(
+  "notation.import",
+  function(ctx)
+    local path, tempo = path_and_tempo(ctx.args[1])
+    if path == "" then return paw.notify("usage: notation.import <score.musicxml|.mxl> [tempo=yes]", "warn") end
+    return import_command(path, tempo or ctx.args.tempo)
+  end,
+  {
+    raw = true,
+    desc = "Bring a MusicXML score in: a track for each part at the cursor, each a MIDI clip with its notation: `notation.import song.musicxml`, `song.mxl tempo=yes` (its tempo marks and time signatures too)",
+    complete = "files",
+  }
+)
 
 -- MusicXML is a format of `paw.formats`: `:import song.musicxml` brings
 -- its parts in at the cursor (`tempo=yes`: its tempo marks too), `:open`
@@ -292,10 +329,14 @@ end, { raw = true, desc = "Bring a MusicXML score in: a track for each part at t
 local function heading() return require("notation.page").heading(paw.project.get().name or "score") end
 
 paw.formats.register({
-  name = "musicxml", desc = "MusicXML scores (MuseScore, Dorico, Sibelius, Finale)", extensions = mx.extensions,
+  name = "musicxml",
+  desc = "MusicXML scores (MuseScore, Dorico, Sibelius, Finale)",
+  extensions = mx.extensions,
   import = function(path, opts)
     local tempo = opts.args.tempo
-    if opts.merge then return "imported " .. F.said(path, F.import(path, { tempo = tempo == true or tempo == "yes" or tempo == "on" })) end
+    if opts.merge then
+      return "imported " .. F.said(path, F.import(path, { tempo = tempo == true or tempo == "yes" or tempo == "on" }))
+    end
     return "opened " .. F.said(path, F.open(path)) .. " (`:w` asks where to save it)"
   end,
   export = function(path)
@@ -306,7 +347,9 @@ paw.formats.register({
 })
 
 paw.formats.register({
-  name = "lilypond", desc = "LilyPond scores", extensions = { "ly" },
+  name = "lilypond",
+  desc = "LilyPond scores",
+  extensions = { "ly" },
   export = function(path)
     local title, composer = heading()
     local n = F.export(path, F.all_clips(), { title = title, composer = composer })

@@ -18,15 +18,15 @@ local M = {
   voices = voices,
   -- The kind of the device that sings (devices/utau.lua).
   DEVICE = voices.DEVICE,
-  singers = {},       -- SingerList from the engine
-  renderers = {},     -- RendererList: { renderers, resamplers, wavtools }
+  singers = {}, -- SingerList from the engine
+  renderers = {}, -- RendererList: { renderers, resamplers, wavtools }
   phonemizers = {},
-  layouts = {},       -- track id -> { seq, phrases = { { hash, start, stop, state } } }
-  received = {},      -- track id -> hash -> quality of the audio the device has
-  phonemes = {},      -- clip id -> { seq, notes = { [note index] = { phonemes } } }
-  pitch = {},         -- clip id -> { step, ticks = { [tick] = cents } }
-  progress = nil,     -- the engine's last Progress
-  log = {},           -- the engine's log lines, newest last
+  layouts = {}, -- track id -> { seq, phrases = { { hash, start, stop, state } } }
+  received = {}, -- track id -> hash -> quality of the audio the device has
+  phonemes = {}, -- clip id -> { seq, notes = { [note index] = { phonemes } } }
+  pitch = {}, -- clip id -> { step, ticks = { [tick] = cents } }
+  progress = nil, -- the engine's last Progress
+  log = {}, -- the engine's log lines, newest last
 }
 
 M.CURVES = { "pitd", "dyn", "tenc", "brec", "genc", "voic", "shfc", "grwc", "xsy" }
@@ -36,15 +36,15 @@ M.EXTRA = { "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8" }
 local TICKS = proto.TICKS
 
 local seq = 0
-local sent = nil      -- the snapshot the engine last received
-local expected = {}   -- track id -> seq of the last change sent for it
+local sent = nil -- the snapshot the engine last received
+local expected = {} -- track id -> seq of the last change sent for it
 -- The engine answers a change with a layout at once, before it has worked
 -- out the new phonemes: that layout still lists the old phrases, all sung.
 -- So notes sent are remembered until their phonemes come back, and the
 -- track's layout is only believed when it arrived after them.
-local resent = {}       -- clip id -> { seq, at, track }: notes the engine has yet to phonemize
-local fresh_after = {}  -- track id -> the arrival a layout must come after
-local arrivals = 0      -- layouts and phonemes from the engine, counted in order
+local resent = {} -- clip id -> { seq, at, track }: notes the engine has yet to phonemize
+local fresh_after = {} -- track id -> the arrival a layout must come after
+local arrivals = 0 -- layouts and phonemes from the engine, counted in order
 -- How long to wait for phonemes that never come (ms), should the engine
 -- find nothing to do for notes that were sent again.
 local PHONEMIZE_GRACE = 5000
@@ -82,9 +82,7 @@ end
 
 --- Whether a vocal track is frozen: sung to audio on a track of its own
 --- (see utau.freeze), and no longer sung by the engine.
-function M.frozen(track_id)
-  return M.config(track_id).frozen ~= nil
-end
+function M.frozen(track_id) return M.config(track_id).frozen ~= nil end
 
 --- Change a vocal track's voice settings; `nil` values are left alone, and
 --- `false` clears one. A new singer resets the others to its defaults.
@@ -98,7 +96,11 @@ function M.configure(track_id, changes)
     config.phonemizer, config.renderer, config.resampler, config.wavtool, config.voice_color = nil, nil, nil, nil, nil
   end
   for key, value in pairs(changes) do
-    if value == false then config[key] = nil else config[key] = value end
+    if value == false then
+      config[key] = nil
+    else
+      config[key] = value
+    end
   end
   meta.utau = config
   api.device_set(device, "meta", meta)
@@ -123,13 +125,22 @@ local function curves_for(clip, sources, extra)
   local out = {}
   local length = clip.length
   local list = {}
-  for i, abbr in ipairs(M.CURVES) do list[i] = { abbr = abbr, key = abbr } end
-  for _, x in ipairs(extra or {}) do list[#list + 1] = x end
+  for i, abbr in ipairs(M.CURVES) do
+    list[i] = { abbr = abbr, key = abbr }
+  end
+  for _, x in ipairs(extra or {}) do
+    list[#list + 1] = x
+  end
   for _, item in ipairs(list) do
     local abbr = item.abbr
     local source = sources[item.key]
-    if item.default and source and source.value and not source.points
-      and math.abs(source.value - item.default) < 1e-9 then
+    if
+      item.default
+      and source
+      and source.value
+      and not source.points
+      and math.abs(source.value - item.default) < 1e-9
+    then
       source = nil
     end
     local knots = {}
@@ -155,10 +166,14 @@ local function curve_sources(track_id, device_id, extra)
   local sources = {}
   local device = api.device_get(device_id)
   local mapped = {}
-  for _, x in ipairs(extra or {}) do mapped[x.key] = true end
+  for _, x in ipairs(extra or {}) do
+    mapped[x.key] = true
+  end
   for _, info in ipairs(device.param_info) do
     local value = device.params[info.key]
-    if value and (mapped[info.key] or math.abs(value - info.default) > 1e-9) then sources[info.key] = { value = value } end
+    if value and (mapped[info.key] or math.abs(value - info.default) > 1e-9) then
+      sources[info.key] = { value = value }
+    end
   end
   for _, lane in ipairs(api.lane_list(track_id)) do
     if lane.target == "param" and lane.device == device_id and lane.enabled and lane.point_count > 0 then
@@ -221,7 +236,9 @@ function M.snapshot()
   local snap = {
     tempos = tempos,
     sigs = sigs,
-    tracks = {}, parts = {}, tempo = key,
+    tracks = {},
+    parts = {},
+    tempo = key,
   }
   local default_lyric = paw.opt.utau_default_lyric
   for _, vocal in ipairs(M.vocal_tracks()) do
@@ -230,13 +247,21 @@ function M.snapshot()
     local id = tostring(vocal.track)
     local config = M.config(vocal.track)
     local options = {}
-    for key, value in pairs(type(config.options) == "table" and config.options or {}) do options[key] = value end
+    for key, value in pairs(type(config.options) == "table" and config.options or {}) do
+      options[key] = value
+    end
     if config.voice_color then options.subbank = config.voice_color end
     snap.tracks[#snap.tracks + 1] = {
-      id = id, name = t.name, muted = t.mute,
+      id = id,
+      name = t.name,
+      muted = t.mute,
       config = {
-        singer = config.singer, phonemizer = config.phonemizer, renderer = config.renderer,
-        resampler = config.resampler, wavtool = config.wavtool, options = options,
+        singer = config.singer,
+        phonemizer = config.phonemizer,
+        renderer = config.renderer,
+        resampler = config.resampler,
+        wavtool = config.wavtool,
+        options = options,
       },
     }
     local extra = M.extra_curves(vocal.track)
@@ -244,9 +269,15 @@ function M.snapshot()
     for _, clip in ipairs(api.clip_list(vocal.track)) do
       if clip.kind == "midi" then
         local part = {
-          id = tostring(clip.id), clip = clip.id, track = id, name = clip.name, muted = clip.muted,
-          pos = round(clip.start * TICKS), dur = math.max(1, round(clip.length * TICKS)),
-          notes = {}, curves = {},
+          id = tostring(clip.id),
+          clip = clip.id,
+          track = id,
+          name = clip.name,
+          muted = clip.muted,
+          pos = round(clip.start * TICKS),
+          dur = math.max(1, round(clip.length * TICKS)),
+          notes = {},
+          curves = {},
         }
         for index, note in ipairs(api.clip_notes(clip.id)) do
           local lyric = payload.lyric(note, default_lyric)
@@ -254,7 +285,10 @@ function M.snapshot()
             local pos = round(note.start * TICKS)
             local stop = math.min(round((note.start + note.length) * TICKS), part.dur)
             part.notes[#part.notes + 1] = {
-              id = index, pos = pos, dur = math.max(1, stop - pos), tone = note.pitch,
+              id = index,
+              pos = pos,
+              dur = math.max(1, stop - pos),
+              tone = note.pitch,
               payload = payload.encode(index, lyric, payload.props(note)),
             }
           end
@@ -275,7 +309,9 @@ end
 
 local function key_of(list, fn)
   local parts = {}
-  for i, item in ipairs(list) do parts[i] = fn(item) end
+  for i, item in ipairs(list) do
+    parts[i] = fn(item)
+  end
   return table.concat(parts, "\0")
 end
 
@@ -287,23 +323,32 @@ end
 
 local function config_key(c)
   local options = {}
-  for k, v in pairs(c.options) do options[#options + 1] = k .. "=" .. tostring(v) end
+  for k, v in pairs(c.options) do
+    options[#options + 1] = k .. "=" .. tostring(v)
+  end
   table.sort(options)
-  return table.concat({ c.singer or "", c.phonemizer or "", c.renderer or "", c.resampler or "", c.wavtool or "",
-    table.concat(options, ",") }, "\0")
+  return table.concat(
+    {
+      c.singer or "",
+      c.phonemizer or "",
+      c.renderer or "",
+      c.resampler or "",
+      c.wavtool or "",
+      table.concat(options, ","),
+    },
+    "\0"
+  )
 end
 
-local function track_key(t)
-  return table.concat({ t.name, tostring(t.muted), config_key(t.config) }, "\0")
-end
+local function track_key(t) return table.concat({ t.name, tostring(t.muted), config_key(t.config) }, "\0") end
 
-local function part_key(p)
-  return table.concat({ p.track, p.pos, p.dur, p.name, tostring(p.muted) }, "\0")
-end
+local function part_key(p) return table.concat({ p.track, p.pos, p.dur, p.name, tostring(p.muted) }, "\0") end
 
 local function index(list)
   local out = {}
-  for _, item in ipairs(list) do out[item.id] = item end
+  for _, item in ipairs(list) do
+    out[item.id] = item
+  end
   return out
 end
 
@@ -316,29 +361,49 @@ end
 --- Send the whole project.
 local function send_full(snap)
   seq = seq + 1
-  for _, t in ipairs(snap.tracks) do touch(t.id) end
+  for _, t in ipairs(snap.tracks) do
+    touch(t.id)
+  end
   resent, fresh_after = {}, {}
-  for _, p in ipairs(snap.parts) do await_phonemes(p) end
+  for _, p in ipairs(snap.parts) do
+    await_phonemes(p)
+  end
   engine.send(proto.encode.sync_project({
-    seq = seq, tempos = snap.tempos, sigs = snap.sigs, tracks = snap.tracks, parts = snap.parts,
+    seq = seq,
+    tempos = snap.tempos,
+    sigs = snap.sigs,
+    tracks = snap.tracks,
+    parts = snap.parts,
   }))
   sent = snap
 end
 
 --- Send what changed since the engine last heard. Nothing when nothing did.
 local function send_delta(snap)
-  local d = { remove_tracks = {}, upsert_tracks = {}, remove_parts = {}, upsert_parts = {},
-    remove_notes = {}, upsert_notes = {}, curves = {} }
+  local d = {
+    remove_tracks = {},
+    upsert_tracks = {},
+    remove_parts = {},
+    upsert_parts = {},
+    remove_notes = {},
+    upsert_notes = {},
+    curves = {},
+  }
   local any = false
   local old_tracks, new_tracks = index(sent.tracks), index(snap.tracks)
   local old_parts, new_parts = index(sent.parts), index(snap.parts)
   seq = seq + 1
   if snap.tempo ~= sent.tempo then
     d.tempos, d.sigs, any = snap.tempos, snap.sigs, true
-    for _, t in ipairs(snap.tracks) do touch(t.id) end
+    for _, t in ipairs(snap.tracks) do
+      touch(t.id)
+    end
   end
   for id in pairs(old_tracks) do
-    if not new_tracks[id] then d.remove_tracks[#d.remove_tracks + 1] = id; any = true end
+    if not new_tracks[id] then
+      d.remove_tracks[#d.remove_tracks + 1] = id
+      any = true
+    end
   end
   local voices = {}
   for _, t in ipairs(snap.tracks) do
@@ -371,7 +436,9 @@ local function send_delta(snap)
       -- Note ids are positions in the clip, so a changed part is sent whole.
       if old and #old.notes > 0 then
         local ids = {}
-        for i, n in ipairs(old.notes) do ids[i] = n.id end
+        for i, n in ipairs(old.notes) do
+          ids[i] = n.id
+        end
         d.remove_notes[#d.remove_notes + 1] = { part = p.id, ids = ids }
       end
       d.upsert_notes[#d.upsert_notes + 1] = { part = p.id, notes = p.notes }
@@ -414,7 +481,9 @@ function M.assign_voices()
     local voice = math.floor(api.device_get(vocal.device).params.voice or 0)
     if voice < 1 or used[voice] then
       voice = 1
-      while used[voice] do voice = voice + 1 end
+      while used[voice] do
+        voice = voice + 1
+      end
       api.device_set_param(vocal.device, "voice", voice)
       voices.clear(vocal.device)
       M.received[tostring(vocal.track)] = nil
@@ -427,7 +496,9 @@ end
 function M.clear_voices()
   M.layouts, M.received, M.phonemes, M.pitch = {}, {}, {}, {}
   M.assign_voices()
-  for _, vocal in ipairs(M.vocal_tracks()) do voices.clear(vocal.device) end
+  for _, vocal in ipairs(M.vocal_tracks()) do
+    voices.clear(vocal.device)
+  end
 end
 
 --- Bring the engine up to date with the project now. Starts the engine when
@@ -439,14 +510,20 @@ function M.sync()
   if engine.state == "off" then engine.start() end
   if not engine.connected() or engine.state == "failed" then return end
   local snap = M.snapshot()
-  if not sent then send_full(snap) else send_delta(snap) end
+  if not sent then
+    send_full(snap)
+  else
+    send_delta(snap)
+  end
 end
 
 --- Sync at the end of this turn, once, however many edits it made.
 function M.schedule()
   if dirty then return end
   dirty = true
-  paw.defer(function() if dirty then M.sync() end end, 0)
+  paw.defer(function()
+    if dirty then M.sync() end
+  end, 0)
 end
 
 function M.send_transport()
@@ -458,7 +535,8 @@ end
 engine.on_connect = function()
   sent = nil
   engine.send(proto.encode.render_policy({
-    draft = paw.opt.utau_drafts, final_delay_ms = paw.opt.utau_final_delay,
+    draft = paw.opt.utau_drafts,
+    final_delay_ms = paw.opt.utau_final_delay,
   }))
   engine.send(proto.encode.request_singers(false))
   M.sync()
@@ -506,7 +584,9 @@ engine.handlers.PhraseLayout = function(m)
   local have = M.received[m.track] or {}
   local keep = retained(m, have)
   local kept = {}
-  for _, hash in ipairs(keep) do kept[hash] = have[hash] end
+  for _, hash in ipairs(keep) do
+    kept[hash] = have[hash]
+  end
   M.received[m.track] = kept
   if device then voices.keep(device, keep) end
   api.ui_redraw()
@@ -530,7 +610,9 @@ engine.handlers.Phonemes = function(m)
   local clip = tonumber(m.part)
   if not clip then return end
   local notes = {}
-  for _, n in ipairs(m.notes) do notes[n.id] = n.phonemes end
+  for _, n in ipairs(m.notes) do
+    notes[n.id] = n.phonemes
+  end
   M.phonemes[clip] = { seq = m.seq, notes = notes }
   local waiting = resent[clip]
   if waiting and m.seq >= waiting.seq then

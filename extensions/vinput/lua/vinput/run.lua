@@ -10,14 +10,14 @@ local api = paw.api
 local vinput = require("vinput")
 
 local R = {
-  jobs = {},        -- by input name: what runs for it, or why nothing does
-  lists = {},       -- by kind: the sources there are, and the listing that is running
+  jobs = {}, -- by input name: what runs for it, or why nothing does
+  lists = {}, -- by kind: the sources there are, and the listing that is running
   ticker = nil,
-  PERIOD = 250,     -- ms between looks at the programs
-  SETTLE = 700,     -- ms a new MIDI port is left to appear to other programs
-  GRACE = 1000,     -- ms a program is given to finish when asked
-  RETRY = 1000,     -- ms before a program that ended is started again
-  TRIES = 4,        -- starts in a row that may fail before giving up
+  PERIOD = 250, -- ms between looks at the programs
+  SETTLE = 700, -- ms a new MIDI port is left to appear to other programs
+  GRACE = 1000, -- ms a program is given to finish when asked
+  RETRY = 1000, -- ms before a program that ended is started again
+  TRIES = 4, -- starts in a row that may fail before giving up
 }
 
 --- Whether programs are run at all: not on the null backend, where the
@@ -37,9 +37,7 @@ function R.dir()
   return (dir or api.env().state_dir) .. "/vinput"
 end
 
-function R.log_path(name)
-  return R.dir() .. "/" .. name:gsub("[^%w%-_ ]", "_") .. ".log"
-end
+function R.log_path(name) return R.dir() .. "/" .. name:gsub("[^%w%-_ ]", "_") .. ".log" end
 
 local function read(path, tail)
   local file = io.open(path, "r")
@@ -151,7 +149,9 @@ local function step(input)
       job.proc = nil
       if seen.advice then job.advice = seen.advice end
       job.tries = job.tries + 1
-      local why = seen.error or read(job.log, 600):match("([^\n]+)%s*$") or ("ended with code " .. tostring(status.code))
+      local why = seen.error
+        or read(job.log, 600):match("([^\n]+)%s*$")
+        or ("ended with code " .. tostring(status.code))
       if job.tries >= R.TRIES then
         job.state, job.text = "failed", why
       else
@@ -176,7 +176,9 @@ local function step(input)
     -- Stays failed until something is changed (see `sync`) or `restart`.
     return
   elseif now < job.born + R.SETTLE or (job.retry and now < job.retry) then
-    if job.state ~= "waiting" then job.state, job.text = "waiting", nil end
+    if job.state ~= "waiting" then
+      job.state, job.text = "waiting", nil
+    end
   else
     job.retry = nil
     start(input, job)
@@ -196,7 +198,9 @@ local function listing()
 end
 
 function R.tick()
-  for _, input in ipairs(vinput.inputs) do step(input) end
+  for _, input in ipairs(vinput.inputs) do
+    step(input)
+  end
   -- Programs of inputs that are gone.
   for name, job in pairs(R.jobs) do
     if not vinput.get(name) then
@@ -212,7 +216,9 @@ function R.tick()
   end
   listing()
   local busy = next(R.jobs) ~= nil
-  for _, list in pairs(R.lists) do busy = busy or list.proc ~= nil end
+  for _, list in pairs(R.lists) do
+    busy = busy or list.proc ~= nil
+  end
   if not busy and R.ticker then
     paw.cancel(R.ticker)
     R.ticker = nil
@@ -229,7 +235,9 @@ function R.sync()
   for _, input in ipairs(vinput.inputs) do
     local job = job_of(input.name)
     -- A change is a reason to try again.
-    if job.state == "failed" then job.state, job.tries = "off", 0 end
+    if job.state == "failed" then
+      job.state, job.tries = "off", 0
+    end
   end
   watch()
   R.tick()
@@ -244,7 +252,9 @@ function R.stop(name)
   end
   pcall(api.proc_stop, job.proc)
   local deadline = api.now() + R.GRACE
-  while api.now() < deadline and api.proc_status(job.proc).running do api.sleep(10) end
+  while api.now() < deadline and api.proc_status(job.proc).running do
+    api.sleep(10)
+  end
   api.proc_kill(job.proc)
   R.jobs[name] = nil
 end
@@ -254,13 +264,23 @@ function R.restart(name)
   local job = R.jobs[name]
   if not job then return R.sync() end
   job.tries, job.retry = 0, nil
-  if job.proc then finish(job, "restart") else job.state = "off" end
+  if job.proc then
+    finish(job, "restart")
+  else
+    job.state = "off"
+  end
   watch()
 end
 
 local words = {
-  off = "off", blocked = "not ready", waiting = "starting", starting = "starting", restart = "starting",
-  running = "running", stopping = "stopping", failed = "stopped",
+  off = "off",
+  blocked = "not ready",
+  waiting = "starting",
+  starting = "starting",
+  restart = "starting",
+  running = "running",
+  stopping = "stopping",
+  failed = "stopped",
 }
 
 --- What an input is doing:
@@ -328,7 +348,9 @@ paw.on("exit", function()
   end
   local deadline = api.now() + 500
   for _, job in pairs(R.jobs) do
-    while job.proc and api.now() < deadline and api.proc_status(job.proc).running do api.sleep(10) end
+    while job.proc and api.now() < deadline and api.proc_status(job.proc).running do
+      api.sleep(10)
+    end
     if job.proc then api.proc_kill(job.proc) end
   end
   R.jobs = {}

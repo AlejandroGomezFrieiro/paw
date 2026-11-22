@@ -17,10 +17,16 @@ local log = {}
 local function test(name, fn)
   T.test(name, function()
     local others = {}
-    for source_name, spec in pairs(complete.sources) do others[source_name] = spec end
-    for source_name in pairs(others) do complete.unregister(source_name) end
+    for source_name, spec in pairs(complete.sources) do
+      others[source_name] = spec
+    end
+    for source_name in pairs(others) do
+      complete.unregister(source_name)
+    end
     local ok, err = xpcall(fn, debug.traceback)
-    for _, spec in pairs(others) do complete.register(spec) end
+    for _, spec in pairs(others) do
+      complete.register(spec)
+    end
     complete.dismiss()
     paw.keymap.feed("<Esc><Esc>")
     paw.ui.hide("pianoroll")
@@ -32,7 +38,9 @@ end
 --- Wait, letting timers fire, until `cond()` holds or `ms` have passed.
 local function wait_for(cond, ms)
   local limit = api.now() + (ms or 5000)
-  while not cond() and api.now() < limit do paw.wait(10) end
+  while not cond() and api.now() < limit do
+    paw.wait(10)
+  end
   return cond()
 end
 
@@ -41,7 +49,8 @@ local function n(pitch, start, length) return { pitch = pitch, start = start, le
 --- A source that answers at once with `items` (a list, or a function of the context).
 local function fixed(name, items, priority)
   return {
-    name = name, priority = priority or 0,
+    name = name,
+    priority = priority or 0,
     complete = function(ctx, done)
       log[#log + 1] = name .. " asked " .. ctx.trigger
       done(type(items) == "function" and items(ctx) or items)
@@ -52,7 +61,8 @@ end
 --- A source that answers after `ms`, and notes when it is cancelled.
 local function slow(name, ms, items, priority)
   return {
-    name = name, priority = priority or 0,
+    name = name,
+    priority = priority or 0,
     complete = function(ctx, done)
       log[#log + 1] = name .. " asked " .. ctx.id
       paw.defer(function() done(type(items) == "function" and items(ctx) or items) end, ms)
@@ -67,7 +77,9 @@ local function start()
   T.fresh()
   complete.dismiss()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   log = {}
   local t = paw.add_track({ name = "Lead" })
   local clip = t:add_clip({ start = 0, length = 4, notes = { n(60, 0), n(62, 1), n(64, 2), n(65, 3) } })
@@ -82,31 +94,42 @@ end
 --- away afterwards whatever happens.
 local function with(sources, opts, fn)
   local saved = {}
-  for name, value in pairs(opts) do saved[name] = paw.opt[name] end
+  for name, value in pairs(opts) do
+    saved[name] = paw.opt[name]
+  end
   paw.opt.complete_auto = false
-  for name, value in pairs(opts) do paw.opt[name] = value end
-  for _, s in ipairs(sources) do complete.register(s) end
+  for name, value in pairs(opts) do
+    paw.opt[name] = value
+  end
+  for _, s in ipairs(sources) do
+    complete.register(s)
+  end
   local ok, err = xpcall(fn, debug.traceback)
-  for _, s in ipairs(sources) do complete.unregister(s.name) end
+  for _, s in ipairs(sources) do
+    complete.unregister(s.name)
+  end
   complete.dismiss()
   paw.opt.complete_auto = true
-  for name, value in pairs(saved) do paw.opt[name] = value end
+  for name, value in pairs(saved) do
+    paw.opt[name] = value
+  end
   if not ok then error(err, 0) end
 end
 
-local function screen()
-  return table.concat(api.ui_snapshot(120, 40), "\n")
-end
+local function screen() return table.concat(api.ui_snapshot(120, 40), "\n") end
 
 local function shown_notes()
   local cur = complete.current()
   if not cur then return "" end
   local out = {}
-  for i, x in ipairs(cur.item.notes) do out[i] = string.format("%d@%g", x.pitch, x.start) end
+  for i, x in ipairs(cur.item.notes) do
+    out[i] = string.format("%d@%g", x.pitch, x.start)
+  end
   return table.concat(out, " ")
 end
 
-local next_bar = { { label = "rise", notes = { n(67, 4), n(69, 5) } }, { label = "fall", notes = { n(64, 4), n(62, 5) } } }
+local next_bar =
+  { { label = "rise", notes = { n(67, 4), n(69, 5) } }, { label = "fall", notes = { n(64, 4), n(62, 5) } } }
 
 test("without a source nothing is suggested and the piano roll's keys are as they were", function()
   start()
@@ -241,16 +264,24 @@ test("a request shows what came by the deadline and adds late answers at the end
     local cur = complete.current()
     sizes[#sizes + 1] = cur and #cur.items or 0
   end)
-  with({ fixed("quick", { next_bar[1] }), slow("late", 900, { next_bar[2] }, 100) }, { complete_deadline_ms = 200 }, function()
-    complete.request()
-    eq(complete.current(), nil, "nothing before the deadline while one source is still out")
-    eq(complete.pending(), true, "the request waits")
-    eq(wait_for(function() return complete.current() and #complete.current().items == 2 end), true, "the late answer arrives")
-    eq(sizes[1], 1, "what came in time showed first")
-    eq(sizes[#sizes], 2, "then the late one was added")
-    eq(complete.current().items[2].source, "late", "at the end, though its source ranks higher")
-    eq(complete.pending(), false, "nothing is owed any more")
-  end)
+  with(
+    { fixed("quick", { next_bar[1] }), slow("late", 900, { next_bar[2] }, 100) },
+    { complete_deadline_ms = 200 },
+    function()
+      complete.request()
+      eq(complete.current(), nil, "nothing before the deadline while one source is still out")
+      eq(complete.pending(), true, "the request waits")
+      eq(
+        wait_for(function() return complete.current() and #complete.current().items == 2 end),
+        true,
+        "the late answer arrives"
+      )
+      eq(sizes[1], 1, "what came in time showed first")
+      eq(sizes[#sizes], 2, "then the late one was added")
+      eq(complete.current().items[2].source, "late", "at the end, though its source ranks higher")
+      eq(complete.pending(), false, "nothing is owed any more")
+    end
+  )
   paw.off(id)
 end)
 
@@ -267,7 +298,8 @@ end)
 test("a source that never answers does not hold up the others", function()
   start()
   local never = {
-    name = "never", complete = function() end,
+    name = "never",
+    complete = function() end,
     cancel = function(ctx) log[#log + 1] = "never cancelled " .. ctx.id end,
   }
   with({ never, fixed("quick", next_bar) }, { complete_deadline_ms = 50 }, function()
@@ -321,19 +353,27 @@ test("a source that fails or answers nonsense never breaks the piano roll", func
     end,
   }
   local nonsense = fixed("nonsense", {
-    "not an item", { label = "empty" }, { label = "broken", notes = { { pitch = 0 / 0, start = 4, length = 1 }, { pitch = 60, start = 4, length = -1 } } },
+    "not an item",
+    { label = "empty" },
+    { label = "broken", notes = { { pitch = 0 / 0, start = 4, length = 1 }, { pitch = 60, start = 4, length = -1 } } },
     { label = "half", notes = { { pitch = 61.6, at = 4, length = 1, velocity = 400 }, "x" } },
   })
   local garbage = fixed("garbage", "garbage")
   with({ crash, twice, nonsense, garbage, fixed("fine", next_bar) }, {}, function()
     complete.request()
     local labels = {}
-    for i, item in ipairs(complete.current().items) do labels[i] = item.label end
+    for i, item in ipairs(complete.current().items) do
+      labels[i] = item.label
+    end
     table.sort(labels)
     eq(table.concat(labels, " "), "fall half once rise", "what is usable shows, each source's first answer only")
     for _, item in ipairs(complete.current().items) do
       if item.label == "half" then
-        eq(item.notes[1].pitch .. "@" .. item.notes[1].start .. " v" .. item.notes[1].velocity, "62@4 v127", "made whole")
+        eq(
+          item.notes[1].pitch .. "@" .. item.notes[1].start .. " v" .. item.notes[1].velocity,
+          "62@4 v127",
+          "made whole"
+        )
       end
     end
     roll.layer("broken", 45, function() error("layer boom") end, function() error("marks boom") end)
@@ -405,33 +445,36 @@ test("complete.show draws ghost notes for any module, with or without the keys",
   eq(clip:notes()[1].velocity, 40, "with its velocities")
 end)
 
-test("the roll's row of tools has the switch, and a click on the suggestion's badge accepts it, in both frontends", function()
-  local _, clip = start()
-  with({ fixed("fixed", next_bar) }, {}, function()
-    local tools = paw.ui.views.pianoroll:toolbar()
-    eq(tools[1] and tools[1].label, "Suggest", "the switch for automatic suggestions")
-    eq(tools[1].on, false, "off here")
-    paw.frontend.act[tools[1].act](clip.id)
-    eq(paw.opt.complete_auto, true, "a click turns it on")
-    paw.opt.complete_auto = false
-    complete.request()
-    paw.frontend.act.complete_badge(clip.id, 2)
-    eq(complete.current().index, 2, "the second shown")
-    -- The badge is a hit region of the scene a window is sent.
-    api.scene_forget(0)
-    paw.ui.render_scene("pianoroll", 120, 40, { w = 8, h = 16 })
-    local patch = api.json_decode(api.scene_end(0, "complete"))
-    api.scene_forget(0)
-    local badge
-    for _, n in ipairs(patch.set) do
-      if n.hit and n.hit.kind == "act" and n.hit.act == "complete_badge" then badge = n end
-    end
-    eq(badge and badge.hit.arg, 2, "the badge, for the one showing")
-    local before = T.melody(clip)
-    paw.frontend.act[badge.hit.act](clip.id, badge.hit.arg)
-    eq(T.melody(clip) ~= before, true, "a click on it accepts it")
-  end)
-end)
+test(
+  "the roll's row of tools has the switch, and a click on the suggestion's badge accepts it, in both frontends",
+  function()
+    local _, clip = start()
+    with({ fixed("fixed", next_bar) }, {}, function()
+      local tools = paw.ui.views.pianoroll:toolbar()
+      eq(tools[1] and tools[1].label, "Suggest", "the switch for automatic suggestions")
+      eq(tools[1].on, false, "off here")
+      paw.frontend.act[tools[1].act](clip.id)
+      eq(paw.opt.complete_auto, true, "a click turns it on")
+      paw.opt.complete_auto = false
+      complete.request()
+      paw.frontend.act.complete_badge(clip.id, 2)
+      eq(complete.current().index, 2, "the second shown")
+      -- The badge is a hit region of the scene a window is sent.
+      api.scene_forget(0)
+      paw.ui.render_scene("pianoroll", 120, 40, { w = 8, h = 16 })
+      local patch = api.json_decode(api.scene_end(0, "complete"))
+      api.scene_forget(0)
+      local badge
+      for _, n in ipairs(patch.set) do
+        if n.hit and n.hit.kind == "act" and n.hit.act == "complete_badge" then badge = n end
+      end
+      eq(badge and badge.hit.arg, 2, "the badge, for the one showing")
+      local before = T.melody(clip)
+      paw.frontend.act[badge.hit.act](clip.id, badge.hit.arg)
+      eq(T.melody(clip) ~= before, true, "a click on it accepts it")
+    end)
+  end
+)
 
 test("hearing a suggestion changes nothing in the project", function()
   local t, clip = start()
@@ -483,48 +526,56 @@ end)
 
 -- With MIDI LSP's engine (skipped without one: $MIDI_LSP_ENGINE) ---------------
 
-T.test("the language server's suggestions show as ghost notes in the terminal's piano roll and are taken with Tab", function()
-  paw.opt.midilsp_autostart = false
-  if not paw.ext.loaded.midilsp then paw.ext.load("extensions/midilsp") end
-  local midilsp = require("midilsp")
-  if not midilsp.engine() then return "no MIDI LSP engine: set $MIDI_LSP_ENGINE to run this" end
-  local ok, err = xpcall(function()
-    T.fresh()
+T.test(
+  "the language server's suggestions show as ghost notes in the terminal's piano roll and are taken with Tab",
+  function()
+    paw.opt.midilsp_autostart = false
+    if not paw.ext.loaded.midilsp then paw.ext.load("extensions/midilsp") end
+    local midilsp = require("midilsp")
+    if not midilsp.engine() then return "no MIDI LSP engine: set $MIDI_LSP_ENGINE to run this" end
+    local ok, err = xpcall(function()
+      T.fresh()
+      paw.keymap.feed("<Esc><Esc>")
+      local upper = paw
+        .add_track({ name = "Upper" })
+        :add_clip({ start = 0, length = 4, notes = { n(72, 0), n(74, 1), n(76, 2), n(77, 3) } })
+      paw.add_track({ name = "Lower" }):add_clip({ start = 0, length = 4, notes = { n(60, 0, 2), n(67, 2, 2) } })
+      roll:edit(upper)
+      roll:set(77, 4)
+      midilsp.start(true)
+      eq(
+        wait_for(function()
+          for _, c in ipairs(paw.lsp.clients()) do
+            if c.name == "midi-lsp-suggest" and c.status == "running" then return paw.lsp.settle() end
+          end
+        end, 30000),
+        true,
+        "the engine's suggestion role is running"
+      )
+      eq(complete.sources.lsp ~= nil, true, "paw.lsp is a completion source")
+      paw.opt.complete_deadline_ms = 3000
+      paw.keymap.feed("<C-Space>")
+      eq(wait_for(function() return complete.current() ~= nil end, 30000), true, "the engine answered")
+      local cur = complete.current()
+      eq(cur.item.source, "midi-lsp-suggest", "from the engine")
+      eq(cur.item.notes[1].start >= 4 - 1e-6, true, "starting where it was asked, in the clip's beats")
+      local text = table.concat(api.ui_snapshot(120, 40), "\n")
+      eq(text:find("┄", 1, true) ~= nil, true, "drawn as ghost notes")
+      eq(text:find("midi-lsp-suggest", 1, true) ~= nil, true, "under its badge")
+      api.undo_checkpoint()
+      local before = #upper:notes()
+      T.keys("<Tab>")
+      eq(#upper:notes(), before + #cur.item.notes, "Tab writes them")
+      paw.undo()
+      eq(#upper:notes(), before, "one undo takes them away")
+    end, debug.traceback)
+    paw.opt.complete_deadline_ms = 300
+    complete.dismiss()
+    paw.lsp.stop()
+    paw.diagnostic.reset()
     paw.keymap.feed("<Esc><Esc>")
-    local upper = paw.add_track({ name = "Upper" }):add_clip({ start = 0, length = 4,
-      notes = { n(72, 0), n(74, 1), n(76, 2), n(77, 3) } })
-    paw.add_track({ name = "Lower" }):add_clip({ start = 0, length = 4, notes = { n(60, 0, 2), n(67, 2, 2) } })
-    roll:edit(upper)
-    roll:set(77, 4)
-    midilsp.start(true)
-    eq(wait_for(function()
-      for _, c in ipairs(paw.lsp.clients()) do
-        if c.name == "midi-lsp-suggest" and c.status == "running" then return paw.lsp.settle() end
-      end
-    end, 30000), true, "the engine's suggestion role is running")
-    eq(complete.sources.lsp ~= nil, true, "paw.lsp is a completion source")
-    paw.opt.complete_deadline_ms = 3000
-    paw.keymap.feed("<C-Space>")
-    eq(wait_for(function() return complete.current() ~= nil end, 30000), true, "the engine answered")
-    local cur = complete.current()
-    eq(cur.item.source, "midi-lsp-suggest", "from the engine")
-    eq(cur.item.notes[1].start >= 4 - 1e-6, true, "starting where it was asked, in the clip's beats")
-    local text = table.concat(api.ui_snapshot(120, 40), "\n")
-    eq(text:find("┄", 1, true) ~= nil, true, "drawn as ghost notes")
-    eq(text:find("midi-lsp-suggest", 1, true) ~= nil, true, "under its badge")
-    api.undo_checkpoint()
-    local before = #upper:notes()
-    T.keys("<Tab>")
-    eq(#upper:notes(), before + #cur.item.notes, "Tab writes them")
-    paw.undo()
-    eq(#upper:notes(), before, "one undo takes them away")
-  end, debug.traceback)
-  paw.opt.complete_deadline_ms = 300
-  complete.dismiss()
-  paw.lsp.stop()
-  paw.diagnostic.reset()
-  paw.keymap.feed("<Esc><Esc>")
-  paw.ui.hide("pianoroll")
-  paw.ui.focus("arrange")
-  if not ok then error(err, 0) end
-end)
+    paw.ui.hide("pianoroll")
+    paw.ui.focus("arrange")
+    if not ok then error(err, 0) end
+  end
+)

@@ -24,11 +24,25 @@ local rss = B.rss()
 info.elapsed = info.elapsed or wall
 info.blocks = info.blocks or {}
 B.emit({
-  workload = "render", tracks = tracks, kind = kind, fx = fx and 1 or 0, automation = automation and 1 or 0,
-  threads = info.threads or 1, bars = bars, audio_seconds = info.seconds, build_ms = build_ms, render_ms = info.elapsed,
-  processing_ms = info.processing, wall_ms = wall, realtime_x = info.seconds * 1000 / info.elapsed,
-  block_p50_ms = info.blocks.p50, block_p99_ms = info.blocks.p99, block_max_ms = info.blocks.max,
-  block_budget_ms = info.blocks.budget, peak = info.peak, rss_kb = rss,
+  workload = "render",
+  tracks = tracks,
+  kind = kind,
+  fx = fx and 1 or 0,
+  automation = automation and 1 or 0,
+  threads = info.threads or 1,
+  bars = bars,
+  audio_seconds = info.seconds,
+  build_ms = build_ms,
+  render_ms = info.elapsed,
+  processing_ms = info.processing,
+  wall_ms = wall,
+  realtime_x = info.seconds * 1000 / info.elapsed,
+  block_p50_ms = info.blocks.p50,
+  block_p99_ms = info.blocks.p99,
+  block_max_ms = info.blocks.max,
+  block_budget_ms = info.blocks.budget,
+  peak = info.peak,
+  rss_kb = rss,
 })
 os.remove(out)
 paw.api.quit(0)

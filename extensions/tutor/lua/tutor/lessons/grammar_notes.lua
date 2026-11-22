@@ -34,7 +34,12 @@ finds a pitch by its name, and `n` goes to the next match.]],
     drums:add_clip({ name = "beat", start = 0, length = 16, notes = look.drums(look.beat, 4) })
     local lead = paw.add_track({ name = "Lead" })
     lead:add_device("synth", { wave = 1, cutoff = 2400, release = 0.2 })
-    lead:add_clip({ name = "riff", start = 0, length = 8, notes = look.notes("C4:0:1 D4:1:1 E4:2:1 G4:3:1 E4:4:1 D4:5:1 C4:6:1") })
+    lead:add_clip({
+      name = "riff",
+      start = 0,
+      length = 8,
+      notes = look.notes("C4:0:1 D4:1:1 E4:2:1 G4:3:1 E4:4:1 D4:5:1 C4:6:1"),
+    })
   end,
   at = function(look)
     local lead = paw.track("Lead")
@@ -45,7 +50,10 @@ finds a pitch by its name, and `n` goes to the next match.]],
     {
       say = "The cursor is on the first note. `w` goes to the next note, at any pitch. Press `w` two times.",
       keys = { "w", "w" },
-      check = function() local roll = paw.ui.views.pianoroll return roll.beat == 2 and roll.pitch == 64 end,
+      check = function()
+        local roll = paw.ui.views.pianoroll
+        return roll.beat == 2 and roll.pitch == 64
+      end,
       done = "The cursor is on E4, the third note.",
     },
     {
@@ -64,7 +72,10 @@ finds a pitch by its name, and `n` goes to the next match.]],
     {
       say = "Press `u` two times to bring back the two notes.",
       keys = { "u", "u" },
-      check = function(ctx, look) return look.ran(ctx, "undo") and look.melody(look.clip("Lead")) == "60@0+1 62@1+1 64@2+1 67@3+1 64@4+1 62@5+1 60@6+1" end,
+      check = function(ctx, look)
+        return look.ran(ctx, "undo")
+          and look.melody(look.clip("Lead")) == "60@0+1 62@1+1 64@2+1 67@3+1 64@4+1 62@5+1 60@6+1"
+      end,
       done = "The riff is complete again.",
     },
     {

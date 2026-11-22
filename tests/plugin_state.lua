@@ -31,7 +31,9 @@ local function instrument(kind, beats)
   local track = paw.add_track({ name = kind })
   -- A note for each four beats: a state load can end the notes that sound.
   local notes = {}
-  for at = 0, beats - 1, 4 do notes[#notes + 1] = { pitch = "A3", start = at, length = 4 } end
+  for at = 0, beats - 1, 4 do
+    notes[#notes + 1] = { pitch = "A3", start = at, length = 4 }
+  end
   track:add_clip({ start = 0, length = beats, notes = notes })
   local d = track:add_device(kind)
   paw.flush()
@@ -43,9 +45,7 @@ local function instrument(kind, beats)
 end
 
 --- The pitch of a render, from `from` to `to` seconds.
-local function pitch(from, to)
-  return T.frequency(T.render({ tail = 0, bits = 16 }), from or 0.5, to or 1.5)
-end
+local function pitch(from, to) return T.frequency(T.render({ tail = 0, bits = 16 }), from or 0.5, to or 1.5) end
 
 local function has_param(d, key)
   for _, p in ipairs(api.device_get(d.id).param_info) do
@@ -57,9 +57,7 @@ end
 --- parameter tells (CLAP, VST3), else as its saved state does (Surge XT's
 --- LV2 has no parameters).
 local function octave(d)
-  if has_param(d, "a_octave") then
-    return math.floor(api.device_param(d.id, "a_octave").value * 6 - 3 + 0.5)
-  end
+  if has_param(d, "a_octave") then return math.floor(api.device_param(d.id, "a_octave").value * 6 - 3 + 0.5) end
   return tonumber(require("plugstate").slot(d.id, "octave").value)
 end
 
@@ -79,7 +77,9 @@ end
 --- awake, which it must take as well.
 local function rested()
   local before, deadline = api.engine_get().device_sleeps, api.now() + 3000
-  while api.engine_get().device_sleeps <= before + 10 and api.now() < deadline do paw.wait(20) end
+  while api.engine_get().device_sleeps <= before + 10 and api.now() < deadline do
+    paw.wait(20)
+  end
 end
 
 --- The parameters that the project itself sets for a device (not the
@@ -199,10 +199,14 @@ test("an LV2 plugin sleeps once its tail went by in silence, and a note or a par
   -- A note, sixteen beats of silence (eight seconds: longer than the five
   -- seconds an LV2 plugin is given to ring), and a note again.
   local track = paw.add_track({ name = "lv2" })
-  track:add_clip({ start = 0, length = 24, notes = {
-    { pitch = "A3", start = 0, length = 1 },
-    { pitch = "A3", start = 20, length = 1 },
-  } })
+  track:add_clip({
+    start = 0,
+    length = 24,
+    notes = {
+      { pitch = "A3", start = 0, length = 1 },
+      { pitch = "A3", start = 20, length = 1 },
+    },
+  })
   track:add_device(surge)
   paw.flush()
   local awake = T.render({ tail = 0, sleep = false, bits = 16 })

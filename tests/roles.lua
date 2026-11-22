@@ -8,9 +8,7 @@ local api = paw.api
 
 paw.ui.role("roles_test_bar", {
   props = { amount = "number 0..1" },
-  cells = function(buf, p)
-    buf:fill(0, 0, math.floor(buf.width * p.amount + 0.5), 1, "#", "Title")
-  end,
+  cells = function(buf, p) buf:fill(0, 0, math.floor(buf.width * p.amount + 0.5), 1, "#", "Title") end,
 })
 
 -- What the gestures of the test view were given.
@@ -54,7 +52,9 @@ test("a role mark draws its cells in a terminal and is a role with its props in 
   fresh()
   local function row(snap, y)
     local text = ""
-    for _, run in ipairs(snap.rows[y + 1]) do text = text .. run.text end
+    for _, run in ipairs(snap.rows[y + 1]) do
+      text = text .. run.text
+    end
     return text
   end
   eq(row(api.ui_view_snapshot("zz_roles", W, H), 1):sub(1, 8), "  ##### ", "the role's cells where it was marked")
@@ -77,12 +77,18 @@ test("a frontend that paints a role is sent it without its cells", function()
   local bar = node(patch, "bar1")
   api.scene_forget(0)
   eq(bar.kids, nil, "no cells")
-  for _, n in ipairs(patch.set) do eq(n.k:match("^bar1/") , nil, "nothing of its cells: " .. n.k) end
+  for _, n in ipairs(patch.set) do
+    eq(n.k:match("^bar1/"), nil, "nothing of its cells: " .. n.k)
+  end
 end)
 
 test("a role is defined with its cells, and marking one there is not is an error", function()
   eq(pcall(paw.ui.role, "roles_test_none", {}), false, "a role without cells")
-  eq(paw.ui.roles.fader ~= nil and paw.ui.roles.meter ~= nil and paw.ui.roles.switch ~= nil, true, "the widgets are roles")
+  eq(
+    paw.ui.roles.fader ~= nil and paw.ui.roles.meter ~= nil and paw.ui.roles.switch ~= nil,
+    true,
+    "the widgets are roles"
+  )
   local ok, err = pcall(paw.ui.Buf.mark, paw.ui.Buf.root(4, 1), "roles_test_nothing", 0, 0, 1, 1)
   eq(ok, false)
   eq(tostring(err):find("no role roles_test_nothing", 1, true) ~= nil, true, tostring(err))
@@ -93,7 +99,9 @@ test("a hit region takes a press in the terminal in cells and in a window in uni
   paw.ui.show("zz_roles")
   api.ui_snapshot(80, 30)
   local rect
-  for _, r in ipairs(paw.ui.rects) do if r.name == "zz_roles" then rect = r end end
+  for _, r in ipairs(paw.ui.rects) do
+    if r.name == "zz_roles" then rect = r end
+  end
   seen = {}
   -- The terminal: a press on the bar's third cell, a drag two rows down.
   paw.ui.mouse({ kind = "down", x = rect.x + 4, y = rect.y + 1, button = "left", mods = "" })
@@ -109,8 +117,15 @@ test("a hit region takes a press in the terminal in cells and in a window in uni
   scene("roles")
   seen = {}
   local held = {}
-  eq(paw.roles.input(0, "roles", paw.ui.views.zz_roles, nil, { kind = "down", x = 4.5, y = 1.25, button = "left" }, held), true)
-  eq(paw.roles.input(0, "roles", paw.ui.views.zz_roles, nil, { kind = "move", x = 4.5, y = 2.75 }, held), true, "the drag")
+  eq(
+    paw.roles.input(0, "roles", paw.ui.views.zz_roles, nil, { kind = "down", x = 4.5, y = 1.25, button = "left" }, held),
+    true
+  )
+  eq(
+    paw.roles.input(0, "roles", paw.ui.views.zz_roles, nil, { kind = "move", x = 4.5, y = 2.75 }, held),
+    true,
+    "the drag"
+  )
   eq(paw.roles.input(0, "roles", paw.ui.views.zz_roles, nil, { kind = "up", x = 4.5, y = 2.75 }, held), true)
   eq(#seen, 1, "the bar's gesture")
   eq(seen[1].fine and seen[1].x == 4.5 and seen[1].hit.n == 1, true, "in units, with the same action")
@@ -118,7 +133,10 @@ test("a hit region takes a press in the terminal in cells and in a window in uni
   near(seen.dy, 1.5, 1e-9, "the drag in fractions of a row")
   eq(seen.up ~= nil, true, "and let go")
   -- Off every region, the event is the view's own.
-  eq(paw.roles.input(0, "roles", paw.ui.views.zz_roles, nil, { kind = "down", x = 20.5, y = 4.5, button = "left" }, held), false)
+  eq(
+    paw.roles.input(0, "roles", paw.ui.views.zz_roles, nil, { kind = "down", x = 20.5, y = 4.5, button = "left" }, held),
+    false
+  )
   api.scene_forget(0)
 end)
 

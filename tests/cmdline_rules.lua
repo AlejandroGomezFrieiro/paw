@@ -8,7 +8,9 @@ local api = paw.api
 local function start()
   fresh()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.focus("arrange")
   -- The errors these tests make on purpose count as read when they end,
   -- so that the key line of the tests after them is as it always is.
@@ -27,7 +29,10 @@ test("an unknown or failing Ex command says so in one line, never with a stack t
   keys(":nosuchcommand<CR>")
   no_trace("an unknown command")
   eq(message():find("no command `nosuchcommand`", 1, true) ~= nil, true, "names it: " .. message())
-  paw.command("test.broken", function() local t = nil return t.field end, { desc = "test" })
+  paw.command("test.broken", function()
+    local t = nil
+    return t.field
+  end, { desc = "test" })
   keys(":test.broken<CR>")
   no_trace("a command that breaks")
   eq(message():find("attempt to index", 1, true) ~= nil, true, "says what went wrong: " .. message())
@@ -122,13 +127,19 @@ test(":set sets a list option: a,b, += and -=, and shows it as a list", function
   keys(":set roll_context=group<CR>")
   eq(paw.opt.roll_context, "group", "and a word is still a word")
   keys(":set zoom+=2<CR>")
-  eq(message():find("not a list option", 1, true) ~= nil, true, "+= on an option that is no list says so: " .. message())
+  eq(
+    message():find("not a list option", 1, true) ~= nil,
+    true,
+    "+= on an option that is no list says so: " .. message()
+  )
 end)
 
 test(":example opens an example or a practice project that comes with paw, with completion", function()
   start()
   local names = {}
-  for _, c in ipairs(paw.commands.complete("example ")) do names[#names + 1] = c.text or c end
+  for _, c in ipairs(paw.commands.complete("example ")) do
+    names[#names + 1] = c.text or c
+  end
   local all = table.concat(names, " ")
   eq(all:find("demo-song", 1, true) ~= nil, true, "the names complete: " .. all)
   eq(all:find("make-music/2-midi-keyboard", 1, true) ~= nil, true, "the practice projects too: " .. all)
@@ -142,7 +153,11 @@ test(":example opens an example or a practice project that comes with paw, with 
   keys(":example 2-midi<CR>")
   eq(#paw.tracks(), before, "the example is unsaved work: another does not replace it")
   keys(":example! 2-midi<CR>")
-  eq(paw.track("Lead") ~= nil or #paw.tracks() ~= before, true, ":example! opens the other one, a part of its name enough")
+  eq(
+    paw.track("Lead") ~= nil or #paw.tracks() ~= before,
+    true,
+    ":example! opens the other one, a part of its name enough"
+  )
   keys(":example<CR>")
   eq(message():find("which example?", 1, true) ~= nil, true, "alone, it lists them: " .. message())
 end)

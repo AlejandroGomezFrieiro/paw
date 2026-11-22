@@ -54,20 +54,20 @@ function M.cache_dir()
 end
 
 --- The settings file of the TONE3000 plugin that keeps its session.
-function M.plugin_settings()
-  return (os.getenv("HOME") or "") .. "/.config/TONE3000/ui-preferences.settings"
-end
+function M.plugin_settings() return (os.getenv("HOME") or "") .. "/.config/TONE3000/ui-preferences.settings" end
 
 -- --- the plugin's session -------------------------------------------------------
 
 local ENTITIES = { quot = '"', amp = "&", lt = "<", gt = ">", apos = "'" }
 
 local function unescape(text)
-  return (text:gsub("&(#?x?)(%w+);", function(kind, body)
-    if kind == "#x" then return string.char(tonumber(body, 16) % 256) end
-    if kind == "#" then return string.char(tonumber(body) % 256) end
-    return ENTITIES[body] or ("&" .. body .. ";")
-  end))
+  return (
+    text:gsub("&(#?x?)(%w+);", function(kind, body)
+      if kind == "#x" then return string.char(tonumber(body, 16) % 256) end
+      if kind == "#" then return string.char(tonumber(body) % 256) end
+      return ENTITIES[body] or ("&" .. body .. ";")
+    end)
+  )
 end
 
 --- The access token of the plugin's session, or nil and why. Only when the
@@ -107,7 +107,9 @@ function M.query(params)
   for _, k in ipairs(keys) do
     local v = params[k]
     if v == true then v = "true" end
-    out[#out + 1] = k .. "=" .. tostring(v):gsub("[^%w%-%._~]", function(c) return string.format("%%%02X", c:byte()) end)
+    out[#out + 1] = k
+      .. "="
+      .. tostring(v):gsub("[^%w%-%._~]", function(c) return string.format("%%%02X", c:byte()) end)
   end
   return table.concat(out, "&")
 end
@@ -175,7 +177,9 @@ end
 
 local function parse_status(text)
   local out = {}
-  for k, v in (text or ""):gmatch("([%w_]+)=([^\n]*)") do out[k] = v end
+  for k, v in (text or ""):gmatch("([%w_]+)=([^\n]*)") do
+    out[k] = v
+  end
   return out
 end
 
@@ -190,20 +194,30 @@ local function why(result, what)
   if s.error == "token_file_missing" then
     return "there is no token file " .. tostring(paw.opt.plugstate_tone3000_token_file)
   elseif s.error == "token_file_mode" then
-    return "the token file " .. tostring(paw.opt.plugstate_tone3000_token_file) .. " can be read by others (mode "
-      .. tostring(s.mode) .. "): paw uses it only with mode 600 (`chmod 600 <file>`)"
+    return "the token file "
+      .. tostring(paw.opt.plugstate_tone3000_token_file)
+      .. " can be read by others (mode "
+      .. tostring(s.mode)
+      .. "): paw uses it only with mode 600 (`chmod 600 <file>`)"
   elseif s.error == "token_file_empty" then
     return "the token file " .. tostring(paw.opt.plugstate_tone3000_token_file) .. " is empty"
   end
   local rc = tonumber(s.curl)
-  if result.timed_out or rc == 28 then return what .. " took more than " .. result.limit .. " s: TONE3000 does not answer" end
+  if result.timed_out or rc == 28 then
+    return what .. " took more than " .. result.limit .. " s: TONE3000 does not answer"
+  end
   if rc == 127 then return "curl is not installed: paw asks TONE3000 through curl" end
   if rc == 6 or rc == 7 or rc == 35 or rc == 52 or rc == 56 then
-    return "offline: paw cannot reach TONE3000 (" .. ((result.stderr or ""):match("curl: %(%d+%) ([^\n]+)") or "no connection") .. ")"
+    return "offline: paw cannot reach TONE3000 ("
+      .. ((result.stderr or ""):match("curl: %(%d+%) ([^\n]+)") or "no connection")
+      .. ")"
   end
-  if rc and rc ~= 0 then return "curl failed (" .. ((result.stderr or ""):match("([^\n]+)") or ("code " .. rc)) .. ")" end
+  if rc and rc ~= 0 then
+    return "curl failed (" .. ((result.stderr or ""):match("([^\n]+)") or ("code " .. rc)) .. ")"
+  end
   local code = result.http
-  local said = type(result.data) == "table" and (result.data.error_description or result.data.message or result.data.error)
+  local said = type(result.data) == "table"
+    and (result.data.error_description or result.data.message or result.data.error)
   said = type(said) == "string" and said or nil
   if code == 401 then
     if s.source == "none" then
@@ -213,8 +227,14 @@ local function why(result, what)
       return "TONE3000 does not take the token of your sign-in (it has expired or was revoked): "
         .. "sign in again with :plugstate.tone3000_login"
     end
-    return "TONE3000 does not take the token from the " .. (({ env = "variable TONE3000_TOKEN", file = "token file",
-      keyring = "keyring", plugin = "plugin's session" })[s.source] or s.source) .. " (expired, or not a token): sign in again"
+    return "TONE3000 does not take the token from the "
+      .. (({
+        env = "variable TONE3000_TOKEN",
+        file = "token file",
+        keyring = "keyring",
+        plugin = "plugin's session",
+      })[s.source] or s.source)
+      .. " (expired, or not a token): sign in again"
   elseif code == 403 then
     return "TONE3000 does not let this account have it" .. (said and (" (" .. said .. ")") or "")
   elseif code == 404 then
@@ -232,8 +252,11 @@ M.why = why
 local function finish(job, timed_out)
   local status_text = read_all(job.status) or ""
   local result = {
-    status = parse_status(status_text), limit = job.limit, timed_out = timed_out,
-    head = read_all(job.out .. ".head"), stderr = read_all(job.out .. ".err"),
+    status = parse_status(status_text),
+    limit = job.limit,
+    timed_out = timed_out,
+    head = read_all(job.out .. ".head"),
+    stderr = read_all(job.out .. ".err"),
   }
   result.http = tonumber(result.status.http)
   result.source = result.status.source
@@ -242,13 +265,19 @@ local function finish(job, timed_out)
     if body and body ~= "" then result.data = api.json_decode(body) end
     os.remove(job.out)
   end
-  result.ok = not timed_out and result.status.error == nil and tonumber(result.status.curl) == 0
-    and result.http and result.http >= 200 and result.http < 300
+  result.ok = not timed_out
+    and result.status.error == nil
+    and tonumber(result.status.curl) == 0
+    and result.http
+    and result.http >= 200
+    and result.http < 300
   if job.kind == "file" then
     if result.ok then
       result.path = job.dest
       local fine = os.rename(job.out, job.dest)
-      if not fine then result.ok, result.message = false, "cannot keep the file in " .. job.dest end
+      if not fine then
+        result.ok, result.message = false, "cannot keep the file in " .. job.dest
+      end
     else
       os.remove(job.out)
     end
@@ -256,7 +285,9 @@ local function finish(job, timed_out)
     result.ok, result.message = false, "TONE3000 answered with something that is not JSON"
   end
   if not result.ok and not result.message then result.message = why(result, job.what) end
-  for _, f in ipairs({ job.status, job.out .. ".head", job.out .. ".err", job.out .. ".part", job.status .. ".part" }) do os.remove(f) end
+  for _, f in ipairs({ job.status, job.out .. ".head", job.out .. ".err", job.out .. ".part", job.status .. ".part" }) do
+    os.remove(f)
+  end
   return result
 end
 
@@ -284,7 +315,9 @@ end
 --- The requests that have not ended.
 function M.busy()
   local n = 0
-  for _ in pairs(jobs) do n = n + 1 end
+  for _ in pairs(jobs) do
+    n = n + 1
+  end
   return n
 end
 
@@ -294,19 +327,30 @@ local function spawn(url, opts, kind, session_token, cb)
   local stem = string.format("%s/%d-%d", tmp, math.floor(api.now()), serial)
   local limit = opts.timeout or M.TIMEOUT[kind]
   local env = { PAW_T3K_SECRET_TOOL = M.secret_tool or "" }
-  if paw.opt.plugstate_tone3000_plugin_session then
-    env.PAW_T3K_PLUGIN_TOKEN = M.plugin_token() or ""
-  end
+  if paw.opt.plugstate_tone3000_plugin_session then env.PAW_T3K_PLUGIN_TOKEN = M.plugin_token() or "" end
   env.PAW_T3K_SESSION_TOKEN = session_token or ""
   env.PAW_T3K_GIVEN_TOKEN = opts.token or ""
-  for k, v in pairs(M.env or {}) do env[k] = v end
+  for k, v in pairs(M.env or {}) do
+    env[k] = v
+  end
   local token_file = (paw.opt.plugstate_tone3000_token_file or ""):gsub("^~", os.getenv("HOME") or "~")
   -- A download goes beside the file it becomes, so that it only has to be
   -- renamed.
   local out = kind == "file" and (opts.dest .. ".download") or (stem .. ".body")
   local post = opts.form and "post" or ""
-  local argv = { "sh", "-c", SCRIPT, "paw-tone3000", url, out, stem .. ".status", tostring(limit),
-    token_file, M.unix_socket or "", post }
+  local argv = {
+    "sh",
+    "-c",
+    SCRIPT,
+    "paw-tone3000",
+    url,
+    out,
+    stem .. ".status",
+    tostring(limit),
+    token_file,
+    M.unix_socket or "",
+    post,
+  }
   local ok, proc = pcall(api.proc_spawn, argv, { env = env, pipe = opts.form ~= nil })
   if not ok then
     cb({ ok = false, status = {}, message = "cannot start curl: " .. tostring(proc) })
@@ -318,8 +362,15 @@ local function spawn(url, opts, kind, session_token, cb)
     pcall(api.proc_close_input, proc)
   end
   jobs[proc] = {
-    proc = proc, kind = kind, out = out, status = stem .. ".status", dest = opts.dest, cb = cb,
-    what = opts.what or "answer", limit = limit, deadline = api.now() + (limit + 15) * 1000,
+    proc = proc,
+    kind = kind,
+    out = out,
+    status = stem .. ".status",
+    dest = opts.dest,
+    cb = cb,
+    what = opts.what or "answer",
+    limit = limit,
+    deadline = api.now() + (limit + 15) * 1000,
   }
   if not ticker then ticker = paw.every(50, M.pump) end
   return proc
@@ -340,7 +391,9 @@ function M.request(url, opts, cb)
         return M.auth.renew(function(fresh)
           if not fresh then return cb(result) end
           local again = {}
-          for k, v in pairs(opts) do again[k] = v end
+          for k, v in pairs(opts) do
+            again[k] = v
+          end
           again.again = true
           M.request(url, again, cb)
         end)
@@ -356,7 +409,10 @@ function M.cancel_all()
     pcall(api.proc_kill, job.proc)
     jobs[key] = nil
   end
-  if ticker then paw.cancel(ticker) ticker = nil end
+  if ticker then
+    paw.cancel(ticker)
+    ticker = nil
+  end
 end
 
 local function origin()
@@ -370,14 +426,14 @@ M.origin = origin
 --- Search the tones: `params` as `/tones/search` takes them (`query`,
 --- `page`, `page_size`, `sort`, `gears`, `format`, `creators`,
 --- `architecture`...).
-function M.search(params, cb)
-  return M.request(origin() .. "/tones/search?" .. M.query(params), { what = "search" }, cb)
-end
+function M.search(params, cb) return M.request(origin() .. "/tones/search?" .. M.query(params), { what = "search" }, cb) end
 
 --- The models of a tone, a page of them.
 function M.models(tone_id, params, cb)
   local p = { tone_id = tone_id, page = 1, page_size = 100 }
-  for k, v in pairs(params or {}) do p[k] = v end
+  for k, v in pairs(params or {}) do
+    p[k] = v
+  end
   return M.request(origin() .. "/models?" .. M.query(p), { what = "tone" }, cb)
 end
 
@@ -418,7 +474,11 @@ function M.download(model, tone, cb)
   end
   if not model.model_url or model.model_url == "" then return cb(nil, "TONE3000 gives no file for this model") end
   return M.request(model.model_url, { kind = "file", dest = dest, what = "model" }, function(result)
-    if result.ok then cb(result.path) else cb(nil, result.message) end
+    if result.ok then
+      cb(result.path)
+    else
+      cb(nil, result.message)
+    end
   end)
 end
 

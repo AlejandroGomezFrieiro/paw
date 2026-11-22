@@ -9,7 +9,9 @@ test("a project saved before the safety work still opens", function()
   fresh()
   paw.project.load("tests/fixtures/demo-song.json")
   local names = {}
-  for _, t in ipairs(paw.tracks()) do names[#names + 1] = t.name end
+  for _, t in ipairs(paw.tracks()) do
+    names[#names + 1] = t.name
+  end
   eq(table.concat(names, ","), "Drums,Bass,Keys,Lead,Reverb", "its tracks")
   eq(paw.project.tempo, 112, "its tempo")
   eq(#paw.tracks()[1]:clips(), 8, "its clips")
@@ -25,7 +27,11 @@ test("saving keeps the previous file as .bak and leaves no temporary file", func
   paw.add_track({ name = "Second" })
   paw.project.save(path)
   local bak = T.read_file(path .. ".bak")
-  eq(bak:find('"First"', 1, true) ~= nil and bak:find('"Second"', 1, true) == nil, true, "the .bak is the file as it was")
+  eq(
+    bak:find('"First"', 1, true) ~= nil and bak:find('"Second"', 1, true) == nil,
+    true,
+    "the .bak is the file as it was"
+  )
   eq(T.read_file(path):find('"Second"', 1, true) ~= nil, true, "the file is the project as it is")
   eq(io.open(path .. ".tmp"), nil, "no temporary file is left")
 end)
@@ -51,14 +57,24 @@ test("a project that will not parse offers its .bak and its newest safety copy",
   paw.project.new()
   local ok, err = pcall(paw.project.load, path)
   eq(ok, false, "the damaged file does not open")
-  eq(tostring(err):find(":recover", 1, true) ~= nil, true, "the error says what can be opened instead: " .. tostring(err))
+  eq(
+    tostring(err):find(":recover", 1, true) ~= nil,
+    true,
+    "the error says what can be opened instead: " .. tostring(err)
+  )
   local choices = autosave.choices()
   eq(#choices >= 2, true, "two stand-ins are offered")
-  eq(choices[1].name .. "|" .. choices[2].name, "safety copy|backup (before the last save)", "the safety copy first, then the backup")
+  eq(
+    choices[1].name .. "|" .. choices[2].name,
+    "safety copy|backup (before the last save)",
+    "the safety copy first, then the backup"
+  )
 
   paw.commands.exec("recover 2")
   local names = {}
-  for _, t in ipairs(paw.tracks()) do names[#names + 1] = t.name end
+  for _, t in ipairs(paw.tracks()) do
+    names[#names + 1] = t.name
+  end
   eq(table.concat(names, ","), "Saved once", "the backup is the file before the last save")
   eq(paw.project.path, path, "and opens as the damaged project's file")
   eq(paw.project.modified, true, "unsaved until saved over it")
@@ -71,43 +87,57 @@ test("a project that will not parse offers its .bak and its newest safety copy",
   autosave.dir = old_dir
 end)
 
-test("a project folder keeps its project.toml as .bak, and :recover opens it with the folder when project.toml is damaged", function()
-  fresh()
-  local autosave = paw.autosave
-  local old_dir = autosave.dir
-  autosave.dir = T.scratch .. "/recovery-damaged-folder"
-  T.after(function() autosave.dir = old_dir end)
-  local dir = T.scratch .. "/damaged-folder"
-  local first = paw.add_track({ name = "First" })
-  first:add_clip({ start = 0, length = 4, notes = { { start = 0, length = 1, pitch = 60 } } })
-  paw.project.save(dir)
-  eq(io.open(dir .. "/project.toml.bak"), nil, "a first save has nothing to keep")
-  paw.add_track({ name = "Second" })
-  api.undo_checkpoint()
-  T.keys(":w<CR>")
-  local bak = T.read_file(dir .. "/project.toml.bak")
-  eq(bak:find('"First"', 1, true) ~= nil and bak:find('"Second"', 1, true) == nil, true, "the .bak is project.toml as it was")
-  -- project.toml is cut short.
-  local text = T.read_file(dir .. "/project.toml")
-  T.write_file(dir .. "/project.toml", text:sub(1, 12))
-  T.keys(":e! " .. dir .. "<CR>")
-  local said = {}
-  for i = math.max(1, #paw.ui.messages - 4), #paw.ui.messages do said[#said + 1] = paw.ui.messages[i].text end
-  said = table.concat(said, "\n")
-  eq(said:find("damaged-folder will not open; `:recover` opens its backup instead", 1, true) ~= nil, true,
-    "says what opens instead: " .. said)
-  eq(paw.autosave.choices()[1].name, "backup (before the last save)", ":recover lists project.toml.bak first")
-  T.keys(":recover 1<CR>")
-  local names = {}
-  for _, t in ipairs(paw.tracks()) do names[#names + 1] = t.name end
-  eq(table.concat(names, ","), "First", "the tracks of the project file before the last save")
-  eq(#paw.tracks()[1]:clips()[1]:notes(), 1, "with the clip read from its file")
-  eq(paw.project.path, dir .. "/project.toml", "it opens as the damaged project")
-  eq(paw.project.modified, true, "unsaved until saved over it")
-  T.keys(":w<CR>")
-  eq(pcall(paw.project.load, dir), true, "and once saved, the project opens again")
-  eq(#paw.tracks(), 1, "as it was recovered")
-end)
+test(
+  "a project folder keeps its project.toml as .bak, and :recover opens it with the folder when project.toml is damaged",
+  function()
+    fresh()
+    local autosave = paw.autosave
+    local old_dir = autosave.dir
+    autosave.dir = T.scratch .. "/recovery-damaged-folder"
+    T.after(function() autosave.dir = old_dir end)
+    local dir = T.scratch .. "/damaged-folder"
+    local first = paw.add_track({ name = "First" })
+    first:add_clip({ start = 0, length = 4, notes = { { start = 0, length = 1, pitch = 60 } } })
+    paw.project.save(dir)
+    eq(io.open(dir .. "/project.toml.bak"), nil, "a first save has nothing to keep")
+    paw.add_track({ name = "Second" })
+    api.undo_checkpoint()
+    T.keys(":w<CR>")
+    local bak = T.read_file(dir .. "/project.toml.bak")
+    eq(
+      bak:find('"First"', 1, true) ~= nil and bak:find('"Second"', 1, true) == nil,
+      true,
+      "the .bak is project.toml as it was"
+    )
+    -- project.toml is cut short.
+    local text = T.read_file(dir .. "/project.toml")
+    T.write_file(dir .. "/project.toml", text:sub(1, 12))
+    T.keys(":e! " .. dir .. "<CR>")
+    local said = {}
+    for i = math.max(1, #paw.ui.messages - 4), #paw.ui.messages do
+      said[#said + 1] = paw.ui.messages[i].text
+    end
+    said = table.concat(said, "\n")
+    eq(
+      said:find("damaged-folder will not open; `:recover` opens its backup instead", 1, true) ~= nil,
+      true,
+      "says what opens instead: " .. said
+    )
+    eq(paw.autosave.choices()[1].name, "backup (before the last save)", ":recover lists project.toml.bak first")
+    T.keys(":recover 1<CR>")
+    local names = {}
+    for _, t in ipairs(paw.tracks()) do
+      names[#names + 1] = t.name
+    end
+    eq(table.concat(names, ","), "First", "the tracks of the project file before the last save")
+    eq(#paw.tracks()[1]:clips()[1]:notes(), 1, "with the clip read from its file")
+    eq(paw.project.path, dir .. "/project.toml", "it opens as the damaged project")
+    eq(paw.project.modified, true, "unsaved until saved over it")
+    T.keys(":w<CR>")
+    eq(pcall(paw.project.load, dir), true, "and once saved, the project opens again")
+    eq(#paw.tracks(), 1, "as it was recovered")
+  end
+)
 
 -- Recording ------------------------------------------------------------------
 
@@ -203,7 +233,9 @@ test("takes in media/ that no clip refers to are offered on open", function()
   eq(#takes .. takes[1].name, "1Guitar-take3.wav", "only the take, not other media")
   local choices = paw.autosave.choices()
   local n
-  for i, c in ipairs(choices) do if c.take then n = i end end
+  for i, c in ipairs(choices) do
+    if c.take then n = i end
+  end
   paw.commands.exec("recover " .. n)
   eq(#paw.tracks(), 1, "it is brought in on the track it was recorded for")
   eq(#paw.tracks()[1]:clips(), 1, "as a clip")
@@ -215,7 +247,9 @@ end)
 --- Largest difference between two lists of samples, from frame `from` on.
 local function largest_difference(a, b, from)
   local worst = 0
-  for i = from or 1, math.min(#a, #b) do worst = math.max(worst, math.abs(a[i] - b[i])) end
+  for i = from or 1, math.min(#a, #b) do
+    worst = math.max(worst, math.abs(a[i] - b[i]))
+  end
   return worst
 end
 
@@ -241,7 +275,11 @@ test("a device that panics is bypassed and reported, and the rest plays on", fun
   paw.wait(400)
   paw.off(handle)
   eq(stopped and stopped.device, bad.id, "device.stopped names it")
-  eq(stopped and stopped.reason:find("crashed", 1, true) ~= nil, true, "and says why: " .. tostring(stopped and stopped.reason))
+  eq(
+    stopped and stopped.reason:find("crashed", 1, true) ~= nil,
+    true,
+    "and says why: " .. tostring(stopped and stopped.reason)
+  )
   eq(api.device_get(bad.id).stopped ~= nil, true, "the device shows it has stopped")
   eq(select(1, paw.tracks()[1]:meter()) > 0.01, true, "the other track still sounds")
   local left, right = paw.master:meter()
@@ -277,61 +315,67 @@ test("a device that puts out NaN is silenced at its output and reported once", f
   eq(l2, 0, "the track's meter reads silence")
 end)
 
-test("a plugin that hangs in processing is ended and reported, the rest plays on, and a render does not wait for it", function()
-  local kind
-  for _, info in ipairs(paw.device_types()) do
-    if info.format == "clap" and info.name:find("Limiter Stereo$") then kind = info.kind end
-  end
-  if not kind then return "skipped: test plugins not found" end
-  fresh()
-  local steady = T.tone("steady", 16)
-  local other = T.tone("other", 16, "E4")
-  local fx = other:add_device(kind)
-  if not pcall(api.device_call, fx.id, "sandbox.pid") then return "skipped: plugins are hosted in-process here" end
-  -- One that is not told to hang, to tell the helpers made later to answer again.
-  local helper = T.tone("helper", 1):add_device(kind)
-  local stopped
-  local handler = paw.on("device.stopped", function(e) if e.device == fx.id then stopped = e end end)
-  api.device_call(fx.id, "sandbox.hang")
-  local ok, err = xpcall(function()
-  paw.transport.play()
-  local began = api.now()
-  while not stopped and api.now() - began < 8000 do paw.wait(100) end
-  local waited = api.now() - began
-  eq(stopped and stopped.device, fx.id, "the plugin is reported")
-  eq(waited < 4500, true, "within a few seconds: " .. waited .. " ms")
-  eq(stopped.reason:find("stopped answering", 1, true) ~= nil, true, "as not answering: " .. stopped.reason)
-  eq(paw.transport.playing and paw.transport.position > 1, true, "the transport kept running")
-  eq(select(1, steady:meter()) > 0.01, true, "the other track sounds")
-  eq(select(1, other:meter()) > 0.01, true, "its own track plays on, the effect passed through")
-  paw.transport.stop()
+test(
+  "a plugin that hangs in processing is ended and reported, the rest plays on, and a render does not wait for it",
+  function()
+    local kind
+    for _, info in ipairs(paw.device_types()) do
+      if info.format == "clap" and info.name:find("Limiter Stereo$") then kind = info.kind end
+    end
+    if not kind then return "skipped: test plugins not found" end
+    fresh()
+    local steady = T.tone("steady", 16)
+    local other = T.tone("other", 16, "E4")
+    local fx = other:add_device(kind)
+    if not pcall(api.device_call, fx.id, "sandbox.pid") then return "skipped: plugins are hosted in-process here" end
+    -- One that is not told to hang, to tell the helpers made later to answer again.
+    local helper = T.tone("helper", 1):add_device(kind)
+    local stopped
+    local handler = paw.on("device.stopped", function(e)
+      if e.device == fx.id then stopped = e end
+    end)
+    api.device_call(fx.id, "sandbox.hang")
+    local ok, err = xpcall(function()
+      paw.transport.play()
+      local began = api.now()
+      while not stopped and api.now() - began < 8000 do
+        paw.wait(100)
+      end
+      local waited = api.now() - began
+      eq(stopped and stopped.device, fx.id, "the plugin is reported")
+      eq(waited < 4500, true, "within a few seconds: " .. waited .. " ms")
+      eq(stopped.reason:find("stopped answering", 1, true) ~= nil, true, "as not answering: " .. stopped.reason)
+      eq(paw.transport.playing and paw.transport.position > 1, true, "the transport kept running")
+      eq(select(1, steady:meter()) > 0.01, true, "the other track sounds")
+      eq(select(1, other:meter()) > 0.01, true, "its own track plays on, the effect passed through")
+      paw.transport.stop()
 
-  -- A render makes instances of its own, which hang too: it goes on without them.
-  began = api.now()
-  local info = render({ ["end"] = 8, tail = 0 })
-  local took = api.now() - began
-  eq(took < 5000, true, "the render waits for it once, briefly: " .. took .. " ms")
-  eq(info.peak > 0.05, true, "and has the rest of the song")
-  paw.flush()
-  -- By time, not by count: the list holds 500 messages at most.
-  local said = false
-  for _, m in ipairs(paw.ui.messages) do
-    if m.time >= began and m.text:find("stopped during the render", 1, true) then said = true end
+      -- A render makes instances of its own, which hang too: it goes on without them.
+      began = api.now()
+      local info = render({ ["end"] = 8, tail = 0 })
+      local took = api.now() - began
+      eq(took < 5000, true, "the render waits for it once, briefly: " .. took .. " ms")
+      eq(info.peak > 0.05, true, "and has the rest of the song")
+      paw.flush()
+      -- By time, not by count: the list holds 500 messages at most.
+      local said = false
+      for _, m in ipairs(paw.ui.messages) do
+        if m.time >= began and m.text:find("stopped during the render", 1, true) then said = true end
+      end
+      eq(said, true, "the render says what it left out")
+    end, debug.traceback)
+    paw.off(handler)
+    paw.transport.stop()
+    pcall(api.device_call, helper.id, "sandbox.hang", "0")
+    if not ok then error(err, 0) end
+    fx:restart()
+    eq(api.device_get(fx.id).stopped, nil, "restarted, it works again")
+    paw.transport.play()
+    paw.wait(600)
+    paw.transport.stop()
+    eq(api.device_get(fx.id).stopped, nil, "and keeps answering")
   end
-  eq(said, true, "the render says what it left out")
-
-  end, debug.traceback)
-  paw.off(handler)
-  paw.transport.stop()
-  pcall(api.device_call, helper.id, "sandbox.hang", "0")
-  if not ok then error(err, 0) end
-  fx:restart()
-  eq(api.device_get(fx.id).stopped, nil, "restarted, it works again")
-  paw.transport.play()
-  paw.wait(600)
-  paw.transport.stop()
-  eq(api.device_get(fx.id).stopped, nil, "and keeps answering")
-end)
+)
 
 -- Long sessions and counters -------------------------------------------------
 
@@ -362,7 +406,11 @@ test("the engine's counters of what went wrong are read in one call and shown by
   local s = paw.frontend.state(-1)
   eq(type(s.xruns) .. type(s.late_blocks) .. type(s.midi_dropped), "numbernumbernumber", "and in the frontend's state")
   paw.commands.exec("engine.status")
-  eq(paw.ui.messages[#paw.ui.messages].text:find("late plugin blocks", 1, true) ~= nil, true, ":engine.status prints them")
+  eq(
+    paw.ui.messages[#paw.ui.messages].text:find("late plugin blocks", 1, true) ~= nil,
+    true,
+    ":engine.status prints them"
+  )
 end)
 
 -- Relative media paths ------------------------------------------------------
@@ -382,7 +430,9 @@ test("a .bak names its media relative to the project and opens with them", funct
   paw.project.new()
   pcall(paw.project.load, path)
   local n
-  for i, c in ipairs(paw.autosave.choices()) do if c.as_path then n = i end end
+  for i, c in ipairs(paw.autosave.choices()) do
+    if c.as_path then n = i end
+  end
   paw.commands.exec("recover " .. n)
   local clip = paw.tracks()[1]:clips()[1]
   eq(clip.file, file, "its clip is the file beside the project")

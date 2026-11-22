@@ -26,12 +26,11 @@ local type Candidate = contracts.CompleteCandidate
 
 --- What a function of `complete` gives: candidates, and `ranked = true`
 --- when they are in their order already.
-local record Candidates
-  {string | Candidate}
+local record Candidates is {string | Candidate}
   ranked: boolean
 end
 
-local type Completer = function(string, ? Info): {Item}
+local type Completer = function(string, ?Info): {Item}
 local type CompleteFn = contracts.CompleteFn
 local type Complete = contracts.Complete
 
@@ -79,7 +78,7 @@ local record M
 
   owner: function(): string
   line_handlers: {function(string, Context): boolean}
-  completers: {string:Completer}
+  completers: {string: Completer}
 end
 
 -- What this module reads of `paw`, which paw/init.lua makes. A module of the
@@ -91,7 +90,7 @@ local type LimitModule = require("paw.limit")
 local type FormatsModule = require("paw.formats")
 local type CursorModule = require("paw.cursor")
 local record State
-  command_uses: {string:integer}
+  command_uses: {string: integer}
 end
 --- The payload of `command.pre` and `command.post`.
 local record Ran
@@ -110,7 +109,7 @@ end
 -- paw/ui.tl names this module's types (through paw/layout.tl), so this
 -- one declares only the part of it that it reads.
 local record Ui
-  views: {string:contracts.View}
+  views: {string: contracts.View}
 end
 
 --- `paw.pick` (paw/pick.tl, which requires this module): the pickers
@@ -129,9 +128,9 @@ local record Paw is partial.Paw
   formats: FormatsModule
   cursor: CursorModule
 end
-local paw = (_G as {string:Paw}).paw
+local paw = (_G as {string: Paw}).paw
 
-local registry: {string:Spec} = {}
+local registry: {string: Spec} = {}
 
 --- Define or replace a command.
 ---   paw.command("track.mute", function(ctx) ... end, { desc = "Mute the track" })
@@ -143,15 +142,25 @@ local registry: {string:Spec} = {}
 function M.define<C is Context>(name: string, run: function(C): (Result), opts?: Options)
   assert(name is string and run is function, "usage: paw.command(name, function, opts)")
   opts = opts or {}
-  registry[name] = { name = name, run = run as function(Context): (Result), desc = opts.desc or "", raw = opts.raw, complete = opts.complete, label = opts.label, range = opts.range,
-    ext = opts.ext or M.owner() }
+  registry[name] = {
+    name = name,
+    run = run as function(Context): (Result),
+    desc = opts.desc or "",
+    raw = opts.raw,
+    complete = opts.complete,
+    label = opts.label,
+    range = opts.range,
+    ext = opts.ext or M.owner(),
+  }
 end
 
 --- The extension that paw loads now, or whose code registers these commands
 --- and keys later. `:help` goes to its page for them, and an unload removes them.
 function M.owner(): string
-  local ext = rawget(paw as {string:partial.Ext}, "ext")
-  if not ext then return nil end
+  local ext = rawget(paw as {string: partial.Ext}, "ext")
+  if not ext then
+    return nil
+  end
   -- While it loads, or later from code of its own files.
   return ext.current and ext.current.name or ext.caller()
 end
@@ -159,7 +168,9 @@ end
 --- What an undo step made by a command is called: its `label`, or the
 --- start of its description, before any example or alternative.
 function M.label(spec: Spec): string
-  if spec.label then return spec.label end
+  if spec.label then
+    return spec.label
+  end
   local text = spec.desc or ""
   text = text:match("^[^\n]*"):gsub(":? `.*$", ""):gsub(":.*$", ""):gsub(";.*$", ""):gsub(", or .*$", "")
   text = text:gsub("%s+$", "")
@@ -169,7 +180,17 @@ end
 --- Make `alias` another name for `target`.
 function M.alias(alias: string, target: string)
   local spec = assert(registry[target], "no command " .. target)
-  registry[alias] = { name = alias, run = spec.run, desc = spec.desc, raw = spec.raw, complete = spec.complete, label = spec.label, range = spec.range, alias_of = target, ext = spec.ext }
+  registry[alias] = {
+    name = alias,
+    run = spec.run,
+    desc = spec.desc,
+    raw = spec.raw,
+    complete = spec.complete,
+    label = spec.label,
+    range = spec.range,
+    alias_of = target,
+    ext = spec.ext,
+  }
 end
 
 --- The command of a name: `{ name, run, desc, ... }` as `paw.command` made it, or nil.
@@ -190,7 +211,9 @@ end
 function M.used(name: string)
   local spec = registry[name]
   name = spec and spec.alias_of or name
-  if not registry[name] then return end
+  if not registry[name] then
+    return
+  end
   local uses = paw.state.command_uses or {}
   uses[name] = math.min((uses[name] or 0) + 1, 1000)
   paw.state.command_uses = uses
@@ -199,13 +222,15 @@ end
 --- The number of times that `used` counted a command.
 function M.uses(name: string): integer
   local uses = paw.state.command_uses
-  return uses is {string:integer} and uses[name] or 0
+  return uses is {string: integer} and uses[name] or 0
 end
 
 --- Every command, sorted by name.
 function M.list(): {Spec}
   local out: {Spec} = {}
-  for _, spec in pairs(registry) do out[#out + 1] = spec end
+  for _, spec in pairs(registry) do
+    out[#out + 1] = spec
+  end
   table.sort(out, function(a: Spec, b: Spec): boolean return a.name < b.name end)
   return out
 end
@@ -213,8 +238,10 @@ end
 --- What a bare extension name (`:notation`) stands for: its `.open` or
 --- `.show` command, where it has one.
 function M.main(name: string): Spec
-  for _, main in ipairs({ ".open", ".show" }) do
-    if registry[name .. main] then return registry[name .. main] end
+  for _, main in ipairs({".open", ".show"}) do
+    if registry[name .. main] then
+      return registry[name .. main]
+    end
   end
 end
 
@@ -227,15 +254,26 @@ function M.unknown(name: string): string
   if ext and stem and not ext.loaded[stem] then
     for _, bundled in ipairs(ext.bundled()) do
       if bundled == stem then
-        return stem .. " is a bundled extension that isn't loaded: `:ext.load " .. stem .. "` loads it now, `paw.ext.load` in init.lua keeps it"
+        return stem
+          .. " is a bundled extension that isn't loaded: `:ext.load "
+          .. stem
+          .. "` loads it now, `paw.ext.load` in init.lua keeps it"
       end
     end
   end
   local near: {string} = {}
   for _, other in ipairs(M.list()) do
-    if #near < 5 and #name >= 2 and other.name:sub(1, #name) == name then near[#near + 1] = ":" .. other.name end
+    if #near < 5 and #name >= 2 and other.name:sub(1, #name) == name then
+      near[#near + 1] = ":" .. other.name
+    end
   end
-  return "no command `" .. name .. "`" .. (#near > 0 and ": did you mean " .. table.concat(near, ", ") .. "?" or ": `" .. (paw.keymap.human("<leader>f:") as string) .. "` or `:` and Tab find one")
+  return "no command `"
+    .. name
+    .. "`"
+    .. (
+      #near > 0 and ": did you mean " .. table.concat(near, ", ") .. "?"
+      or ": `" .. (paw.keymap.human("<leader>f:") as string) .. "` or `:` and Tab find one"
+    )
 end
 
 --- Run a command. `args` is a table of arguments. `ctx` adds fields such as `count`.
@@ -243,9 +281,13 @@ function M.run<C is Context>(name: string, args?: Args, ctx?: C): Result
   local spec = registry[name]
   if not spec and name is string then
     spec = M.main(name)
-    if spec then name = spec.name end
+    if spec then
+      name = spec.name
+    end
   end
-  if not spec then error(M.unknown(name), 0) end
+  if not spec then
+    error(M.unknown(name), 0)
+  end
   local c: Context = ctx or {}
   c.args, c.name = args or {}, name
   -- Names the undo step this command makes, as its description says it;
@@ -254,15 +296,19 @@ function M.run<C is Context>(name: string, args?: Args, ctx?: C): Result
   -- `name` is what was typed, which may be an alias; `command` is the
   -- command it stands for, which is what a listener usually cares about.
   local command = spec.alias_of or name
-  paw.emit("command.pre", { name = name, command = command, args = c.args })
+  paw.emit("command.pre", {name = name, command = command, args = c.args})
   local result = paw.limit.named("the command `" .. name .. "`", spec.run, c)
-  paw.emit("command.post", { name = name, command = command, args = c.args })
+  paw.emit("command.post", {name = name, command = command, args = c.args})
   return result
 end
 
 local function convert(text: string): Arg
-  if text == "true" then return true end
-  if text == "false" then return false end
+  if text == "true" then
+    return true
+  end
+  if text == "false" then
+    return false
+  end
   return tonumber(text) or text
 end
 
@@ -280,7 +326,9 @@ local function tokens(text: string): {Token}
   local pos = 1
   while true do
     pos = text:find("%S", pos)
-    if not pos then break end
+    if not pos then
+      break
+    end
     local parts, quoted, head: {string}, boolean, string = {}, false, nil
     while pos <= #text and not text:sub(pos, pos):match("%s") do
       local ch = text:sub(pos, pos)
@@ -294,7 +342,7 @@ local function tokens(text: string): {Token}
         head = head or parts[#parts]
       end
     end
-    out[#out + 1] = { text = table.concat(parts), quoted = quoted, head = head or "" }
+    out[#out + 1] = {text = table.concat(parts), quoted = quoted, head = head or ""}
   end
   return out
 end
@@ -304,15 +352,25 @@ end
 --- Quotes keep spaces together: `track.add "Lead Guitar"`, `name="Lead Guitar"`.
 function M.parse(line: string): string, Args
   local name, rest = line:match("^%s*(%S+)%s*(.-)%s*$")
-  if not name then return nil end
+  if not name then
+    return nil
+  end
   local spec = registry[name]
-  if spec and spec.raw then return name, { rest } end
+  if spec and spec.raw then
+    return name, {rest}
+  end
   local args: Args = {}
   for _, token in ipairs(tokens(rest)) do
     local key = token.head:match("^([%a_][%w_]*)=")
     local value: Arg = key and token.text:sub(#key + 2) or token.text
-    if not token.quoted then value = convert(value as string) end
-    if key then args[key] = value else args[#args + 1] = value end
+    if not token.quoted then
+      value = convert(value as string)
+    end
+    if key then
+      args[key] = value
+    else
+      args[#args + 1] = value
+    end
   end
   return name, args
 end
@@ -344,7 +402,9 @@ M.line_handlers = {}
 --- Run a command line, as typed after `:`, with a range in front if it has one.
 function M.exec(line: string, ctx?: Context): Result...
   for _, handler in ipairs(M.line_handlers) do
-    if handler(line, ctx) then return end
+    if handler(line, ctx) then
+      return
+    end
   end
   return paw.ex.exec(line, ctx)
 end
@@ -364,22 +424,30 @@ end
 -- A function's candidates complete the whole text after the name when they
 -- start with it, else the word being typed; a completer's, the word.
 
-local function item(text: string, desc?: string): Item return { text = text, desc = desc } end
+local function item(text: string, desc?: string): Item
+  return {text = text, desc = desc}
+end
 
 --- Files and directories that start with what is typed, directories ending
 --- in `/`. `extensions` (a set) keeps only files with those endings.
-local function files(word: string, extensions?: {string:boolean}): {Item}
+local function files(word: string, extensions?: {string: boolean}): {Item}
   local home = os.getenv("HOME") or ""
   local typed_dir, stem = word:match("^(.*/)([^/]*)$")
   typed_dir, stem = typed_dir or "", stem or word
   -- `..` and `~` are folders to go to: they take a slash.
-  if typed_dir == "" and (stem == ".." or stem == "~") then return { item(stem .. "/", "directory") } end
+  if typed_dir == "" and (stem == ".." or stem == "~") then
+    return {item(stem .. "/", "directory")}
+  end
   -- Relative names are in the folder that `:cd` set, or beside the project.
   local here = paw.files and paw.files.here() or "."
   local dir = typed_dir == "" and here or typed_dir:gsub("^~/", home .. "/")
-  if dir:sub(1, 1) ~= "/" then dir = here .. "/" .. dir end
+  if dir:sub(1, 1) ~= "/" then
+    dir = here .. "/" .. dir
+  end
   local ok, entries = pcall(api.read_dir, dir)
-  if not ok then return {} end
+  if not ok then
+    return {}
+  end
   local out: {Item} = {}
   for _, entry in ipairs(entries) do
     local name = entry.name
@@ -391,17 +459,24 @@ local function files(word: string, extensions?: {string:boolean}): {Item}
       end
     end
   end
-  table.sort(out, function(a: Item, b: Item): boolean
-    local da, db = a.desc ~= nil, b.desc ~= nil
-    if da ~= db then return da end
-    return a.text < b.text
-  end)
+  table.sort(
+    out,
+    function(a: Item, b: Item): boolean
+      local da, db = a.desc ~= nil, b.desc ~= nil
+      if da ~= db then
+        return da
+      end
+      return a.text < b.text
+    end
+  )
   return out
 end
 
-local function set_of(list: {string}): {string:boolean}
-  local out: {string:boolean} = {}
-  for _, v in ipairs(list) do out[v] = true end
+local function set_of(list: {string}): {string: boolean}
+  local out: {string: boolean} = {}
+  for _, v in ipairs(list) do
+    out[v] = true
+  end
   return out
 end
 
@@ -413,12 +488,16 @@ end
 M.completers = {
   commands = function(): {Item}
     local out: {Item} = {}
-    for _, spec in ipairs(M.list()) do out[#out + 1] = item(spec.name, spec.desc) end
+    for _, spec in ipairs(M.list()) do
+      out[#out + 1] = item(spec.name, spec.desc)
+    end
     return out
   end,
   tracks = function(): {Item}
     local out: {Item} = {}
-    for _, id in ipairs(api.track_list()) do out[#out + 1] = item(api.track_get(id).name, "track") end
+    for _, id in ipairs(api.track_list()) do
+      out[#out + 1] = item(api.track_get(id).name, "track")
+    end
     out[#out + 1] = item("master", "the master track")
     return out
   end,
@@ -440,13 +519,17 @@ M.completers = {
   end,
   options = function(): {Item}
     local out: {Item} = {}
-    for _, o in ipairs(options.list()) do out[#out + 1] = item(o.name, "now " .. options.show(options.opt[o.name])) end
+    for _, o in ipairs(options.list()) do
+      out[#out + 1] = item(o.name, "now " .. options.show(options.opt[o.name]))
+    end
     return out
   end,
   views = function(): {Item}
     local out: {Item} = {}
     for name, view in pairs(paw.ui.views) do
-      if view.focusable ~= false then out[#out + 1] = item(name) end
+      if view.focusable ~= false then
+        out[#out + 1] = item(name)
+      end
     end
     return sorted(out)
   end,
@@ -460,8 +543,10 @@ M.completers = {
   files = function(word: string): {Item} return files(word) end,
   -- Sound files, and the files of the formats that read (paw/formats.tl).
   audio_files = function(word: string): {Item}
-    local ext = set_of({ "wav", "wave", "aif", "aiff", "flac", "mp3", "ogg", "oga" })
-    for _, e in ipairs(paw.formats.extensions("import")) do ext[e] = true end
+    local ext = set_of({"wav", "wave", "aif", "aiff", "flac", "mp3", "ogg", "oga"})
+    for _, e in ipairs(paw.formats.extensions("import")) do
+      ext[e] = true
+    end
     return files(word, ext)
   end,
   -- What `import` takes: sound files and the files of the formats that read.
@@ -470,10 +555,12 @@ M.completers = {
   exportable = function(word: string): {Item} return files(word, set_of(paw.formats.extensions("export"))) end,
   -- Projects, and the files of formats that hold whole projects.
   projects = function(word: string): {Item}
-    local ext = set_of({ "json" })
+    local ext = set_of({"json"})
     for _, f in ipairs(paw.formats.list()) do
       if f.project then
-        for _, e in ipairs(f.extensions) do ext[e] = true end
+        for _, e in ipairs(f.extensions) do
+          ext[e] = true
+        end
       end
     end
     return files(word, ext)
@@ -482,8 +569,10 @@ M.completers = {
   -- What `edit` opens: projects, the files of the formats that read (as
   -- projects) and sound files.
   openable = function(word: string): {Item}
-    local ext = set_of({ "json", "wav", "wave", "aif", "aiff", "flac", "mp3", "ogg", "oga" })
-    for _, e in ipairs(paw.formats.extensions("import")) do ext[e] = true end
+    local ext = set_of({"json", "wav", "wave", "aif", "aiff", "flac", "mp3", "ogg", "oga"})
+    for _, e in ipairs(paw.formats.extensions("import")) do
+      ext[e] = true
+    end
     return files(word, ext)
   end,
 }
@@ -492,22 +581,32 @@ M.completers = {
 --- a function), as items.
 local function candidates(spec: Spec, rest: string, info: Info): {Item}, boolean, boolean
   local how = spec.complete
-  if how is {string} then how = how[info.index] end
+  if how is {string} then
+    how = how[info.index]
+  end
   if how is string then
     local fn = M.completers[how]
     return fn and fn(info.word, info) or {}, true
   end
-  if not how is CompleteFn then return {} end
+  if not (how is CompleteFn) then
+    return {}
+  end
   local ok, got = pcall(how, rest, info)
-  if not ok or not got is {string | Candidate} then return {} end
+  if not ok or not (got is {string | Candidate}) then
+    return {}
+  end
   local list = got as Candidates
   local out: {Item} = {}
-  for i, c in ipairs(list) do out[i] = c is Candidate and item(tostring(c.text or c[1]), c.desc) or item(tostring(c)) end
+  for i, c in ipairs(list) do
+    out[i] = c is Candidate and item(tostring(c.text or c[1]), c.desc) or item(tostring(c))
+  end
   -- A completer that ranks what it gives (`ranked = true`) is taken in its order, all of it.
   return out, false, list.ranked
 end
 
-local function starts(text: string, stem: string): boolean return text:sub(1, #stem):lower() == stem:lower() end
+local function starts(text: string, stem: string): boolean
+  return text:sub(1, #stem):lower() == stem:lower()
+end
 
 --- What could finish a command line: a list of `{ text, label, desc }` with
 --- `text` the whole line it would become and `label` the part shown.
@@ -515,13 +614,17 @@ local function starts(text: string, stem: string): boolean return text:sub(1, #s
 function M.complete(line: string): {Entry}
   -- Marks after `'`, tracks after `t/`, fields in a pattern.
   local special = paw.ex.complete_range(line) or paw.ex.complete_pattern(line)
-  if special then return special end
+  if special then
+    return special
+  end
   -- A range in front stays as it is; what follows it is completed.
   local range, after = M.range(line)
   if range and after ~= line then
     local head = line:sub(1, #line - #after)
     local out = M.complete(after)
-    for _, entry in ipairs(out) do entry.text = head .. entry.text end
+    for _, entry in ipairs(out) do
+      entry.text = head .. entry.text
+    end
     return out
   end
   local out: {Entry} = {}
@@ -530,35 +633,43 @@ function M.complete(line: string): {Entry}
     -- The command's name: those that start with it, then those that hold it.
     local later: {Entry} = {}
     for _, spec in ipairs(M.list()) do
-      local entry: Entry = { text = spec.name, label = spec.name, desc = spec.alias_of and "→ " .. spec.alias_of or spec.desc }
+      local entry: Entry = {
+        text = spec.name, label = spec.name, desc = spec.alias_of and "→ " .. spec.alias_of or spec.desc
+      }
       if starts(spec.name, line) then
         out[#out + 1] = entry
       elseif line ~= "" and spec.name:lower():find(line:lower(), 1, true) then
         later[#later + 1] = entry
       end
     end
-    for _, entry in ipairs(later) do out[#out + 1] = entry end
+    for _, entry in ipairs(later) do
+      out[#out + 1] = entry
+    end
     return out
   end
   local spec = registry[name]
-  if not spec or not spec.complete then return out end
+  if not spec or not spec.complete then
+    return out
+  end
   -- The words before the one being typed, and that word.
   local before, word = rest:match("^(.-)(%S*)$")
   local words_before: {string} = {}
-  for w in before:gmatch("%S+") do words_before[#words_before + 1] = w end
-  local info: Info = { word = word, index = #words_before + 1, words = words_before, line = line }
+  for w in before:gmatch("%S+") do
+    words_before[#words_before + 1] = w
+  end
+  local info: Info = {word = word, index = #words_before + 1, words = words_before, line = line}
   local head = name .. sep
   local whole, part, inside: {Entry}, {Entry}, {Entry} = {}, {}, {}
   local list, by_word, ranked = candidates(spec, rest, info)
   for _, c in ipairs(list) do
     local text = c.text
     if ranked or (not by_word and starts(text, rest)) then
-      whole[#whole + 1] = { text = head .. text, label = text, desc = c.desc }
+      whole[#whole + 1] = {text = head .. text, label = text, desc = c.desc}
     else
       -- A name with a space in it is quoted, unless the command takes its
       -- text whole.
       local shown = (not spec.raw and text:find(" ")) and '"' .. text .. '"' or text
-      local entry: Entry = { text = head .. before .. shown, label = shown, desc = c.desc }
+      local entry: Entry = {text = head .. before .. shown, label = shown, desc = c.desc}
       if starts(text, word) then
         part[#part + 1] = entry
       elseif word ~= "" and text:lower():find(word:lower(), 1, true) then
@@ -567,8 +678,10 @@ function M.complete(line: string): {Entry}
     end
   end
   -- What starts with the typed text, then what only holds it.
-  for _, entries in ipairs({ whole, part, inside }) do
-    for _, entry in ipairs(entries) do out[#out + 1] = entry end
+  for _, entries in ipairs({whole, part, inside}) do
+    for _, entry in ipairs(entries) do
+      out[#out + 1] = entry
+    end
   end
   return out
 end

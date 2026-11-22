@@ -21,13 +21,17 @@ end
 local function start()
   fresh()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   L.restore(initial)
   clear_empty()
   paw.ui.focus("arrange")
   T.after(function()
     paw.keymap.feed("<Esc><Esc>")
-    while paw.ui.float do paw.ui.close() end
+    while paw.ui.float do
+      paw.ui.close()
+    end
     L.restore(initial)
     clear_empty()
     paw.ui.focus("arrange")
@@ -38,7 +42,9 @@ local function screen() return table.concat(api.ui_snapshot(W, H), "\n") end
 local function last_message() return paw.ui.messages[#paw.ui.messages].text end
 local function windows()
   local out = {}
-  for _, win in ipairs(L.windows(paw.ui.layout)) do out[#out + 1] = L.buf_of(win).name end
+  for _, win in ipairs(L.windows(paw.ui.layout)) do
+    out[#out + 1] = L.buf_of(win).name
+  end
   return table.concat(out, " ")
 end
 
@@ -46,7 +52,9 @@ test("the pager breaks a word longer than its width instead of hanging", functio
   local wrap = paw.ui.views.pager.wrap
   local long = "saved " .. string.rep("a/", 40) .. "song.json"
   local rows = wrap(long, 20)
-  for _, row in ipairs(rows) do eq(#row <= 20, true, "every row fits: " .. row) end
+  for _, row in ipairs(rows) do
+    eq(#row <= 20, true, "every row fits: " .. row)
+  end
   eq((table.concat(rows):gsub("%s", "")), (long:gsub("%s", "")), "nothing is lost")
   eq(#wrap(string.rep("x", 100), 10) > 1, true, "one long word is cut")
   eq(wrap("one two three four five six seven", 12)[2], "  three four", "words still break at spaces")
@@ -128,7 +136,9 @@ local function ranked(source, query)
   local src = paw.pick.sources[source]
   src = type(src) == "function" and src() or src
   local out = {}
-  for _, r in ipairs(paw.pick.filter(query, src.items(), src.format, src.primary)) do out[#out + 1] = r end
+  for _, r in ipairs(paw.pick.filter(query, src.items(), src.format, src.primary)) do
+    out[#out + 1] = r
+  end
   return out
 end
 
@@ -199,7 +209,9 @@ end)
 test(":set nofollow, :set follow, :set follow! and :set invfollow, as in Vim", function()
   start()
   local follow, zoom = paw.opt.follow, paw.opt.zoom
-  T.after(function() paw.opt.follow, paw.opt.zoom = follow, zoom end)
+  T.after(function()
+    paw.opt.follow, paw.opt.zoom = follow, zoom
+  end)
   paw.keymap.feed(":set nofollow<CR>")
   eq(paw.opt.follow, false, "no sets it false")
   eq(last_message(), "follow = false", "and says so")

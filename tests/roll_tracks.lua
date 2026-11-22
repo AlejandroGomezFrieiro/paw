@@ -15,7 +15,12 @@ local function three()
   local clips = {}
   for i, name in ipairs({ "Violin", "Viola", "Cello" }) do
     local t = paw.add_track({ name = name })
-    clips[i] = t:add_clip({ start = 0, length = 8, name = name, notes = { { pitch = 76 - 7 * i, start = 0, length = 1, velocity = 90 } } })
+    clips[i] = t:add_clip({
+      start = 0,
+      length = 8,
+      name = name,
+      notes = { { pitch = 76 - 7 * i, start = 0, length = 1, velocity = 90 } },
+    })
   end
   paw.flush()
   api.undo_checkpoint()
@@ -43,7 +48,11 @@ test("the piano roll: ]t [t and Tab make the next shown track the one edited, it
   -- An edit goes to the active track's clip alone.
   roll:set(62, 2)
   keys("<CR>")
-  eq(#clips[1]:notes() .. " " .. #clips[2]:notes() .. " " .. #clips[3]:notes(), "2 1 1", "a note entered into the violin's clip")
+  eq(
+    #clips[1]:notes() .. " " .. #clips[2]:notes() .. " " .. #clips[3]:notes(),
+    "2 1 1",
+    "a note entered into the violin's clip"
+  )
   -- A click on a note behind makes its clip the one edited.
   paw.frontend.act.add_note(clips[1].id, 55, 0)
   eq(track_of(roll), "Cello", "a click on the cello's note behind")

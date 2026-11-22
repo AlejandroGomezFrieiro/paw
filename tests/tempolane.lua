@@ -120,7 +120,11 @@ lane_test("tempo lane: the pencil draws a curve of ramps over the stretch it cro
   act.tempo_point_add(24, 0.5)
   act.tempo_draw({ { 4, 0.5 }, { 5, 0.6 }, { 6, 0.8 }, { 7, 1 }, { 8, 1 } })
   local pts = paw.tempo.points()
-  eq(pts[1].beat .. " " .. pts[2].beat .. " " .. pts[#pts - 1].beat .. " " .. pts[#pts].beat, "0 4 8 24", "a change to each step, the rest kept")
+  eq(
+    pts[1].beat .. " " .. pts[2].beat .. " " .. pts[#pts - 1].beat .. " " .. pts[#pts].beat,
+    "0 4 8 24",
+    "a change to each step, the rest kept"
+  )
   eq(pts[2].ramp and pts[3].ramp, true, "each slopes to the next")
   eq(pts[#pts - 1].bpm >= pts[2].bpm, true, "rising as it was drawn")
   eq(pts[#pts - 1].ramp, false, "the stroke's last change holds, what follows was not drawn")
@@ -161,7 +165,11 @@ test("pre-roll: it is set in bars or seconds and the kernel is told", function()
   paw.cmd("preroll", { "2" })
   eq(paw.opt.pre_roll .. " " .. paw.transport.pre_roll, "2 2", "bars, as an option and in the kernel")
   paw.cmd("preroll", { "1.5s" })
-  eq(paw.opt.pre_roll .. " " .. paw.opt.pre_roll_seconds .. " " .. paw.transport.pre_roll_seconds, "0 1.5 1.5", "seconds")
+  eq(
+    paw.opt.pre_roll .. " " .. paw.opt.pre_roll_seconds .. " " .. paw.transport.pre_roll_seconds,
+    "0 1.5 1.5",
+    "seconds"
+  )
   paw.cmd("preroll")
   eq(paw.opt.pre_roll_seconds, 0, "alone it turns it off")
   paw.cmd("preroll")
@@ -172,52 +180,55 @@ test("pre-roll: it is set in bars or seconds and the kernel is told", function()
   paw.opt.pre_roll_seconds = 0
 end)
 
-test("pre-roll: recording with punch on starts playing bars before the punch in, and the take starts at the punch in", function()
-  with_input(function()
-    local mic = punched()
-    paw.cmd("preroll", { "1" })
-    paw.transport.seek(8)
-    paw.transport.record()
-    local at = api.transport_get().position
-    eq(at >= 4 and at < 5, true, "playing from a bar before the punch in: " .. at)
-    T.until_beat(8.5)
-    eq(paw.transport.position > 8, true, "past the punch in")
-    paw.transport.stop()
-    paw.flush()
-    local clips = mic:clips()
-    eq(#clips, 1, "one take")
-    local c = clips[1]:get()
-    eq(c.start, 8, "starting exactly at the punch in")
-    eq(c.offset, 0, "from the start of its file")
-    eq(c.length > 0.5 and c.length < 4, true, "holding what was played after it")
-    -- From between the pre-roll's start and the punch in: back to its start.
-    clips[1]:remove()
-    paw.transport.seek(6)
-    paw.transport.record()
-    at = api.transport_get().position
-    eq(at >= 4 and at < 5, true, "from a playhead inside the pre-roll, back to its start: " .. at)
-    paw.transport.stop()
-    -- From further back than the pre-roll, the playhead stays.
-    paw.transport.seek(1)
-    paw.transport.record()
-    at = api.transport_get().position
-    eq(at >= 1 and at < 2, true, "from earlier than that, where it was: " .. at)
-    paw.transport.stop()
-    -- Inside the range, or with punch off, there is none.
-    paw.transport.seek(10)
-    paw.transport.record()
-    at = api.transport_get().position
-    eq(at >= 10 and at < 11, true, "from inside the range, none: " .. at)
-    paw.transport.stop()
-    paw.transport.punch_enabled = false
-    paw.transport.seek(8)
-    paw.transport.record()
-    at = api.transport_get().position
-    eq(at >= 8 and at < 9, true, "without punch, none: " .. at)
-    paw.transport.stop()
-    paw.cmd("preroll", { "off" })
-  end)
-end)
+test(
+  "pre-roll: recording with punch on starts playing bars before the punch in, and the take starts at the punch in",
+  function()
+    with_input(function()
+      local mic = punched()
+      paw.cmd("preroll", { "1" })
+      paw.transport.seek(8)
+      paw.transport.record()
+      local at = api.transport_get().position
+      eq(at >= 4 and at < 5, true, "playing from a bar before the punch in: " .. at)
+      T.until_beat(8.5)
+      eq(paw.transport.position > 8, true, "past the punch in")
+      paw.transport.stop()
+      paw.flush()
+      local clips = mic:clips()
+      eq(#clips, 1, "one take")
+      local c = clips[1]:get()
+      eq(c.start, 8, "starting exactly at the punch in")
+      eq(c.offset, 0, "from the start of its file")
+      eq(c.length > 0.5 and c.length < 4, true, "holding what was played after it")
+      -- From between the pre-roll's start and the punch in: back to its start.
+      clips[1]:remove()
+      paw.transport.seek(6)
+      paw.transport.record()
+      at = api.transport_get().position
+      eq(at >= 4 and at < 5, true, "from a playhead inside the pre-roll, back to its start: " .. at)
+      paw.transport.stop()
+      -- From further back than the pre-roll, the playhead stays.
+      paw.transport.seek(1)
+      paw.transport.record()
+      at = api.transport_get().position
+      eq(at >= 1 and at < 2, true, "from earlier than that, where it was: " .. at)
+      paw.transport.stop()
+      -- Inside the range, or with punch off, there is none.
+      paw.transport.seek(10)
+      paw.transport.record()
+      at = api.transport_get().position
+      eq(at >= 10 and at < 11, true, "from inside the range, none: " .. at)
+      paw.transport.stop()
+      paw.transport.punch_enabled = false
+      paw.transport.seek(8)
+      paw.transport.record()
+      at = api.transport_get().position
+      eq(at >= 8 and at < 9, true, "without punch, none: " .. at)
+      paw.transport.stop()
+      paw.cmd("preroll", { "off" })
+    end)
+  end
+)
 
 test("pre-roll: seconds count back from the bars, and a count-in comes first", function()
   with_input(function()

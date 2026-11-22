@@ -103,14 +103,34 @@ local function compare(what, mocks, lives)
     local want = kind(v)
     -- An empty list of the mock is a table; a list of TONE3000 may be empty.
     local fine = kinds[want] or (want == "table" and kinds.list) or (want == "list" and kinds.table)
-    eq(fine ~= nil, true, what .. "." .. k .. " is a " .. want .. " in the mock; TONE3000 gives "
-      .. table.concat((function() local o = {} for x in pairs(kinds) do o[#o + 1] = x end return o end)(), ", "))
+    eq(
+      fine ~= nil,
+      true,
+      what
+        .. "."
+        .. k
+        .. " is a "
+        .. want
+        .. " in the mock; TONE3000 gives "
+        .. table.concat(
+          (function()
+            local o = {}
+            for x in pairs(kinds) do
+              o[#o + 1] = x
+            end
+            return o
+          end)(),
+          ", "
+        )
+    )
   end
   for k in pairs(seen) do
     if sample[k] == nil then extra[#extra + 1] = k end
   end
   table.sort(extra)
-  if #extra > 0 then print("      live: " .. what .. " fields that the mock does not have: " .. table.concat(extra, ", ")) end
+  if #extra > 0 then
+    print("      live: " .. what .. " fields that the mock does not have: " .. table.concat(extra, ", "))
+  end
 end
 
 -- The fixed search of the tests: a well-known amp, models only, the most
@@ -139,7 +159,9 @@ end
 local function difference(a, b)
   local x, y = samples(a), samples(b)
   local n, sum = math.min(#x, #y), 0
-  for i = 1, n do sum = sum + math.abs(x[i] - y[i]) end
+  for i = 1, n do
+    sum = sum + math.abs(x[i] - y[i])
+  end
   return n > 0 and sum / n / 32768 or 0
 end
 
@@ -153,150 +175,202 @@ end
 
 local steps = {}
 
-steps[1] = { "plugstate live: TONE3000 searches by words and filters, gives pages, and its answers have the mock's shapes", function()
-  if not mode() then return SKIP end
-  local client, auth = start()
-  if mode() == "sign-in" then
-    local s = ask(client, auth, function(cb) auth.load(cb) end)
-    if not s then return "skipped: no sign-in found (:plugstate.tone3000_login first, or set TONE3000_TOKEN_FILE)" end
-  end
-  local first = ask(client, auth, function(cb) client.search(QUERY, cb) end)
-  eq(first.ok, true, "the search works: " .. tostring(first.message))
-  eq(first.source, mode() == "file" and "file" or "session", "with the token that was given")
-  local page = first.data
-  eq(type(page.data), "table", "a page of tones")
-  eq(#page.data <= 5, true, "at most page_size tones")
-  for _, t in ipairs(page.data) do
-    eq(t.format, "nam", "format=nam gives models only: " .. tostring(t.title))
-    eq(t.gear, "amp", "gears=amp gives amps only: " .. tostring(t.title))
-  end
-  local mock_page = { data = {}, page = 1, page_size = 5, total = 0, total_pages = 1 }
-  compare("PaginatedResponse", { mock_page }, { page })
-
-  eq((tonumber(page.total_pages) or 0) >= 2, true, "the search has more than one page (" .. tostring(page.total) .. " tones)")
-  local p2 = { page = 2 }
-  for k, v in pairs(QUERY) do p2[k] = p2[k] or v end
-  local second = ask(client, auth, function(cb) client.search(p2, cb) end)
-  eq(second.ok, true, "page 2: " .. tostring(second.message))
-  eq(tonumber(second.data.page), 2, "TONE3000 gives page 2")
-  local ids = {}
-  for _, t in ipairs(page.data) do ids[t.id] = true end
-  for _, t in ipairs(second.data.data) do eq(ids[t.id], nil, "page 2 has other tones than page 1: " .. tostring(t.title)) end
-
-  local tones = {}
-  for _, t in ipairs(page.data) do tones[#tones + 1] = t end
-  for _, t in ipairs(second.data.data) do tones[#tones + 1] = t end
-  compare("Tone", { H.tone(1, "a tone") }, tones)
-  local users = {}
-  for _, t in ipairs(tones) do users[#users + 1] = t.user end
-  compare("Tone.user", { H.tone(1, "a tone").user }, users)
-  for _, t in ipairs(tones) do
-    if (tonumber(t.models_count) or 0) > 0 then live.tone = t break end
-  end
-  eq(live.tone ~= nil, true, "a tone with models")
-end }
-
-steps[2] = { "plugstate live: the models of a TONE3000 tone, and a 401 for a bad token", function()
-  if not mode() then return SKIP end
-  if not live.tone then return "skipped: the search found no tone" end
-  local client, auth = start()
-  local result = ask(client, auth, function(cb) client.models(live.tone.id, { page_size = 100 }, cb) end)
-  eq(result.ok, true, "the models: " .. tostring(result.message))
-  local models = result.data.data
-  eq(type(models) == "table" and #models > 0, true, "the tone has models")
-  compare("Model", { H.model(1, 1, "a model") }, models)
-  -- The smallest model of the first architecture, which every NAM plays.
-  local best
-  for _, m in ipairs(models) do
-    local a1 = m.architecture_version == nil or tonumber(m.architecture_version) == 1
-    if a1 and client.extension(m, live.tone) == "nam" then
-      if not best or (SIZES[m.size] or 9) < (SIZES[best.size] or 9) then best = m end
+steps[1] = {
+  "plugstate live: TONE3000 searches by words and filters, gives pages, and its answers have the mock's shapes",
+  function()
+    if not mode() then return SKIP end
+    local client, auth = start()
+    if mode() == "sign-in" then
+      local s = ask(client, auth, function(cb) auth.load(cb) end)
+      if not s then return "skipped: no sign-in found (:plugstate.tone3000_login first, or set TONE3000_TOKEN_FILE)" end
     end
-  end
-  eq(best ~= nil, true, "a .nam model of the first architecture")
-  live.model = best
+    local first = ask(client, auth, function(cb) client.search(QUERY, cb) end)
+    eq(first.ok, true, "the search works: " .. tostring(first.message))
+    eq(first.source, mode() == "file" and "file" or "session", "with the token that was given")
+    local page = first.data
+    eq(type(page.data), "table", "a page of tones")
+    eq(#page.data <= 5, true, "at most page_size tones")
+    for _, t in ipairs(page.data) do
+      eq(t.format, "nam", "format=nam gives models only: " .. tostring(t.title))
+      eq(t.gear, "amp", "gears=amp gives amps only: " .. tostring(t.title))
+    end
+    local mock_page = { data = {}, page = 1, page_size = 5, total = 0, total_pages = 1 }
+    compare("PaginatedResponse", { mock_page }, { page })
 
-  local bad = ask(client, auth, function(cb)
-    client.request(client.origin() .. "/user", { token = "not-a-token-of-paw-tests", what = "account" }, cb)
-  end)
-  eq(bad.http, 401, "a bad token gets a 401")
-  eq(bad.message:find("does not take", 1, true) ~= nil, true, "and paw says the token is not taken: " .. bad.message)
+    eq(
+      (tonumber(page.total_pages) or 0) >= 2,
+      true,
+      "the search has more than one page (" .. tostring(page.total) .. " tones)"
+    )
+    local p2 = { page = 2 }
+    for k, v in pairs(QUERY) do
+      p2[k] = p2[k] or v
+    end
+    local second = ask(client, auth, function(cb) client.search(p2, cb) end)
+    eq(second.ok, true, "page 2: " .. tostring(second.message))
+    eq(tonumber(second.data.page), 2, "TONE3000 gives page 2")
+    local ids = {}
+    for _, t in ipairs(page.data) do
+      ids[t.id] = true
+    end
+    for _, t in ipairs(second.data.data) do
+      eq(ids[t.id], nil, "page 2 has other tones than page 1: " .. tostring(t.title))
+    end
 
-  if mode() == "sign-in" then
-    local me = ask(client, auth, function(cb) client.request(client.origin() .. "/user", { what = "account" }, cb) end)
-    eq(me.ok, true, "the account of the sign-in: " .. tostring(me.message))
-    eq(type(me.data.username), "string", "has a user name")
-  end
-end }
+    local tones = {}
+    for _, t in ipairs(page.data) do
+      tones[#tones + 1] = t
+    end
+    for _, t in ipairs(second.data.data) do
+      tones[#tones + 1] = t
+    end
+    compare("Tone", { H.tone(1, "a tone") }, tones)
+    local users = {}
+    for _, t in ipairs(tones) do
+      users[#users + 1] = t.user
+    end
+    compare("Tone.user", { H.tone(1, "a tone").user }, users)
+    for _, t in ipairs(tones) do
+      if (tonumber(t.models_count) or 0) > 0 then
+        live.tone = t
+        break
+      end
+    end
+    eq(live.tone ~= nil, true, "a tone with models")
+  end,
+}
 
-steps[3] = { "plugstate live: one model from TONE3000 downloads once, plays in NAM (and TONE3000), and comes from the cache", function()
-  if not mode() then return SKIP end
-  if not live.model then return "skipped: no model found" end
-  local client, auth, cache = start()
-  local search = H.search()
-  local nam = kind_of("lv2", "^Neural Amp Modeler$")
-  local before = live.requests
-  local path, err, cached
-  local loaded_into
+steps[2] = {
+  "plugstate live: the models of a TONE3000 tone, and a 401 for a bad token",
+  function()
+    if not mode() then return SKIP end
+    if not live.tone then return "skipped: the search found no tone" end
+    local client, auth = start()
+    local result = ask(client, auth, function(cb) client.models(live.tone.id, { page_size = 100 }, cb) end)
+    eq(result.ok, true, "the models: " .. tostring(result.message))
+    local models = result.data.data
+    eq(type(models) == "table" and #models > 0, true, "the tone has models")
+    compare("Model", { H.model(1, 1, "a model") }, models)
+    -- The smallest model of the first architecture, which every NAM plays.
+    local best
+    for _, m in ipairs(models) do
+      local a1 = m.architecture_version == nil or tonumber(m.architecture_version) == 1
+      if a1 and client.extension(m, live.tone) == "nam" then
+        if not best or (SIZES[m.size] or 9) < (SIZES[best.size] or 9) then best = m end
+      end
+    end
+    eq(best ~= nil, true, "a .nam model of the first architecture")
+    live.model = best
 
-  T.fresh()
-  if nam then
-    local track = T.tone("guitar", 2, "A2")
-    paw.cursor.set_track(track.id)
-    local amp = track:add_device(nam)
-    paw.flush()
-    api.undo_checkpoint()
-    local dry = T.render({ tail = 0 })
-    search.load_model({ device = amp.id, params = {} }, live.tone, live.model)
-    H.wait(live.mock, function() return H.idle() and require("plugstate").slot(amp.id).value ~= nil end, "the model loads")
-    path = require("plugstate").slot(amp.id).value
-    local wet = T.render({ tail = 0 })
-    local d = difference(dry, wet)
-    eq(d > 0.001, true, "the model changes the sound in NAM (difference " .. d .. ")")
-    loaded_into = "nam"
-  else
-    local r = ask(client, auth, function(cb)
-      client.download(live.model, live.tone, function(p, e) cb({ path = p, err = e }) end)
-    end)
-    path, err = r.path, r.err
-  end
-  eq(live.requests - before, 1, "one download")
-  eq(path ~= nil and path:sub(1, #cache) == cache, true, "into the scratch cache: " .. tostring(path or err))
-  local head = T.read_file(path):sub(1, 4096)
-  eq(head:find('"architecture"', 1, true) ~= nil, true, "a .nam file (JSON with an architecture)")
+    local bad = ask(
+      client,
+      auth,
+      function(cb)
+        client.request(client.origin() .. "/user", { token = "not-a-token-of-paw-tests", what = "account" }, cb)
+      end
+    )
+    eq(bad.http, 401, "a bad token gets a 401")
+    eq(bad.message:find("does not take", 1, true) ~= nil, true, "and paw says the token is not taken: " .. bad.message)
 
-  -- The second load: from the cache, no request.
-  before = live.requests
-  client.download(live.model, live.tone, function(p, e, c) path, err, cached = p, e, c end)
-  eq(cached, true, "the second load comes from the cache")
-  eq(live.requests, before, "with no request")
+    if mode() == "sign-in" then
+      local me = ask(
+        client,
+        auth,
+        function(cb) client.request(client.origin() .. "/user", { what = "account" }, cb) end
+      )
+      eq(me.ok, true, "the account of the sign-in: " .. tostring(me.message))
+      eq(type(me.data.username), "string", "has a user name")
+    end
+  end,
+}
 
-  local t3k = (os.getenv("PAW_TEST_TONE3000") or "") ~= "" and kind_of("clap", "^TONE3000$")
-  if t3k then
+steps[3] = {
+  "plugstate live: one model from TONE3000 downloads once, plays in NAM (and TONE3000), and comes from the cache",
+  function()
+    if not mode() then return SKIP end
+    if not live.model then return "skipped: no model found" end
+    local client, auth, cache = start()
+    local search = H.search()
+    local nam = kind_of("lv2", "^Neural Amp Modeler$")
+    local before = live.requests
+    local path, err, cached
+    local loaded_into
+
     T.fresh()
-    local track = T.tone("guitar", 2, "A2")
-    paw.cursor.set_track(track.id)
-    local amp = track:add_device(t3k)
-    paw.flush()
-    api.undo_checkpoint()
-    local dry = T.render({ tail = 0 })
-    search.load_model({ device = amp.id, params = {} }, live.tone, live.model)
-    H.wait(live.mock, function()
-      local kept = ((api.device_get(amp.id).meta or {}).plugstate or {}).tone3000
-      return H.idle() and kept ~= nil
-    end, "the model loads into TONE3000")
-    eq(live.requests, before, "TONE3000 takes it from the cache too")
-    local d = difference(dry, T.render({ tail = 0 }))
-    eq(d > 0.001, true, "the model changes the sound in TONE3000 (difference " .. d .. ")")
-    loaded_into = (loaded_into and (loaded_into .. ", ") or "") .. "tone3000"
-  end
-  print(string.format("      live: %s by %s, model %s (%s), %d requests, played in %s", tostring(live.tone.title),
-    tostring((live.tone.user or {}).username), tostring(live.model.name), tostring(live.model.size), live.requests,
-    loaded_into or "no plugin (NAM not found)"))
-  eq(live.requests <= 10, true, "few requests: " .. live.requests)
-end }
+    if nam then
+      local track = T.tone("guitar", 2, "A2")
+      paw.cursor.set_track(track.id)
+      local amp = track:add_device(nam)
+      paw.flush()
+      api.undo_checkpoint()
+      local dry = T.render({ tail = 0 })
+      search.load_model({ device = amp.id, params = {} }, live.tone, live.model)
+      H.wait(
+        live.mock,
+        function() return H.idle() and require("plugstate").slot(amp.id).value ~= nil end,
+        "the model loads"
+      )
+      path = require("plugstate").slot(amp.id).value
+      local wet = T.render({ tail = 0 })
+      local d = difference(dry, wet)
+      eq(d > 0.001, true, "the model changes the sound in NAM (difference " .. d .. ")")
+      loaded_into = "nam"
+    else
+      local r = ask(client, auth, function(cb)
+        client.download(live.model, live.tone, function(p, e) cb({ path = p, err = e }) end)
+      end)
+      path, err = r.path, r.err
+    end
+    eq(live.requests - before, 1, "one download")
+    eq(path ~= nil and path:sub(1, #cache) == cache, true, "into the scratch cache: " .. tostring(path or err))
+    local head = T.read_file(path):sub(1, 4096)
+    eq(head:find('"architecture"', 1, true) ~= nil, true, "a .nam file (JSON with an architecture)")
 
-for _, step in ipairs(steps) do test(step[1], step[2]) end
+    -- The second load: from the cache, no request.
+    before = live.requests
+    client.download(live.model, live.tone, function(p, e, c)
+      path, err, cached = p, e, c
+    end)
+    eq(cached, true, "the second load comes from the cache")
+    eq(live.requests, before, "with no request")
+
+    local t3k = (os.getenv("PAW_TEST_TONE3000") or "") ~= "" and kind_of("clap", "^TONE3000$")
+    if t3k then
+      T.fresh()
+      local track = T.tone("guitar", 2, "A2")
+      paw.cursor.set_track(track.id)
+      local amp = track:add_device(t3k)
+      paw.flush()
+      api.undo_checkpoint()
+      local dry = T.render({ tail = 0 })
+      search.load_model({ device = amp.id, params = {} }, live.tone, live.model)
+      H.wait(live.mock, function()
+        local kept = ((api.device_get(amp.id).meta or {}).plugstate or {}).tone3000
+        return H.idle() and kept ~= nil
+      end, "the model loads into TONE3000")
+      eq(live.requests, before, "TONE3000 takes it from the cache too")
+      local d = difference(dry, T.render({ tail = 0 }))
+      eq(d > 0.001, true, "the model changes the sound in TONE3000 (difference " .. d .. ")")
+      loaded_into = (loaded_into and (loaded_into .. ", ") or "") .. "tone3000"
+    end
+    print(
+      string.format(
+        "      live: %s by %s, model %s (%s), %d requests, played in %s",
+        tostring(live.tone.title),
+        tostring((live.tone.user or {}).username),
+        tostring(live.model.name),
+        tostring(live.model.size),
+        live.requests,
+        loaded_into or "no plugin (NAM not found)"
+      )
+    )
+    eq(live.requests <= 10, true, "few requests: " .. live.requests)
+  end,
+}
+
+for _, step in ipairs(steps) do
+  test(step[1], step[2])
+end
 
 --- A .nam file as small as the test needs.
 local NAM = '{"version": "0.5.4", "architecture": "WaveNet", "config": {}, "weights": []}'
@@ -338,7 +412,11 @@ test("plugstate: the live tests of TONE3000 run against the mock, with one downl
   local files = 0
   for _, req in ipairs(m.requests) do
     if req.path:match("^/files/") then files = files + 1 end
-    eq(req.auth == "token-of-the-live-test" or req.path == "/api/v1/user", true, "each request has the token: " .. req.path)
+    eq(
+      req.auth == "token-of-the-live-test" or req.path == "/api/v1/user",
+      true,
+      "each request has the token: " .. req.path
+    )
   end
   eq(files, 1, "one download")
   eq(#m.requests, live.requests, "the count of requests is true")

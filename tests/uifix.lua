@@ -6,7 +6,10 @@ local api = paw.api
 local L = paw.layout
 
 local function screen(w, h) return table.concat(api.ui_snapshot(w or 160, h or 48), "\n") end
-local function last_message() local m = paw.ui.messages[#paw.ui.messages] return m and m.text or "" end
+local function last_message()
+  local m = paw.ui.messages[#paw.ui.messages]
+  return m and m.text or ""
+end
 
 -- The focused view is drawn, and it is the one the keyboard is in.
 local function focus_is_drawn(after)
@@ -20,14 +23,52 @@ test("focus only ever goes to a view that is drawn", function()
   fresh()
   paw.add_track({ name = "Lead" })
   for _, line in ipairs({
-    "e paw://tracks", "view.focus arrange", "bprevious", "view.focus mixer", "view.focus arrange",
-    "e paw://tracks", "view.focus mixer", "bnext", "view.only", "view.focus mixer", "view.focus arrange",
-    "copen", "view.focus qflist", "cclose", "bprevious", "bnext", "view.focus arrange",
-    "split", "vsplit", "wincmd j", "wincmd w", "close", "only", "e paw://tracks", "split",
-    "view.focus mixer", "view.focus devices", "view.focus pianoroll", "view.close",
-    "view.toggle mixer", "view.toggle mixer", "view.toggle arrange", "view.toggle arrange", "view.next", "view.prev",
-    "tabnew", "view.focus arrange", "tabnext", "tabclose", "view.only", "view.toggle arrange",
-    "view.focus arrange", "view.focus mixer", "view.window arrange", "view.maximize", "view.equal",
+    "e paw://tracks",
+    "view.focus arrange",
+    "bprevious",
+    "view.focus mixer",
+    "view.focus arrange",
+    "e paw://tracks",
+    "view.focus mixer",
+    "bnext",
+    "view.only",
+    "view.focus mixer",
+    "view.focus arrange",
+    "copen",
+    "view.focus qflist",
+    "cclose",
+    "bprevious",
+    "bnext",
+    "view.focus arrange",
+    "split",
+    "vsplit",
+    "wincmd j",
+    "wincmd w",
+    "close",
+    "only",
+    "e paw://tracks",
+    "split",
+    "view.focus mixer",
+    "view.focus devices",
+    "view.focus pianoroll",
+    "view.close",
+    "view.toggle mixer",
+    "view.toggle mixer",
+    "view.toggle arrange",
+    "view.toggle arrange",
+    "view.next",
+    "view.prev",
+    "tabnew",
+    "view.focus arrange",
+    "tabnext",
+    "tabclose",
+    "view.only",
+    "view.toggle arrange",
+    "view.focus arrange",
+    "view.focus mixer",
+    "view.window arrange",
+    "view.maximize",
+    "view.equal",
   }) do
     paw.commands.exec(line)
     focus_is_drawn(line)
@@ -49,7 +90,9 @@ test("a command of a bundled extension that is not loaded says how to load it, a
   eq(err:find("bundled extension that isn't loaded", 1, true) ~= nil, true, err)
   eq(err:find(":ext.load pattern", 1, true) ~= nil, true, "it names the command: " .. err)
   local names = {}
-  for _, c in ipairs(paw.commands.complete("ext.load patt")) do names[#names + 1] = c.text end
+  for _, c in ipairs(paw.commands.complete("ext.load patt")) do
+    names[#names + 1] = c.text
+  end
   eq(names[1], "ext.load pattern", "bundled names complete: " .. table.concat(names, ","))
   paw.commands.exec("ext.load pattern")
   eq(paw.ext.loaded.pattern ~= nil and paw.ext.loaded.pattern.ok, true, "loaded")
@@ -58,42 +101,57 @@ test("a command of a bundled extension that is not loaded says how to load it, a
   eq(last_message():find("no bundled extension", 1, true) ~= nil, true, last_message())
 end)
 
-test("panels stacked under the arrange view leave it a third of the rows, and the notation view at most half", function()
-  fresh()
-  if not package.loaded["notation.keys"] then paw.ext.load("extensions/notation") end
-  local function heights()
-    local out = {}
-    for _, r in ipairs(paw.ui.arrange(160, 45)) do
-      if r.win then out[r.name] = r.h end
+test(
+  "panels stacked under the arrange view leave it a third of the rows, and the notation view at most half",
+  function()
+    fresh()
+    if not package.loaded["notation.keys"] then paw.ext.load("extensions/notation") end
+    local function heights()
+      local out = {}
+      for _, r in ipairs(paw.ui.arrange(160, 45)) do
+        if r.win then out[r.name] = r.h end
+      end
+      return out
     end
-    return out
+    -- The panels' places stacked under the arrange view, the whole width.
+    paw.layout.restore({
+      {
+        layout = {
+          dir = "v",
+          "arrange",
+          { view = "roll", hidden = true, weight = 2 },
+          { view = "notation", hidden = true, weight = 2 },
+          { view = "mixer", hidden = true, weight = 0.5, min = 14 },
+        },
+      },
+    })
+    paw.ui.show("pianoroll")
+    paw.ui.show("notation")
+    paw.ui.show("mixer")
+    local h = heights()
+    local total = h.arrange + h.pianoroll + h.notation + h.mixer
+    eq(h.arrange >= math.floor(total / 3), true, "the arrange view keeps a third: " .. h.arrange .. " of " .. total)
+    eq(h.notation <= math.floor(total / 2), true, "the notation view is at most half: " .. h.notation)
+    paw.ui.hide("pianoroll")
+    h = heights()
+    total = h.arrange + h.notation + h.mixer
+    eq(
+      h.arrange >= math.floor(total / 3) and h.notation <= math.floor(total / 2),
+      true,
+      "three views: arrange " .. h.arrange .. ", notation " .. h.notation .. ", mixer " .. h.mixer
+    )
+    paw.ui.hide("mixer")
+    h = heights()
+    eq(h.arrange < h.notation, true, "with only two, the notation view keeps the larger share it had")
+    paw.cmd("view.equal")
+    paw.ui.show("mixer")
+    h = heights()
+    total = h.arrange + h.notation + h.mixer
+    eq(h.arrange >= math.floor(total / 3) - 1, true, "after `Ctrl-w =` the arrange view still has its third")
+    paw.ui.hide("notation")
+    paw.ui.hide("mixer")
   end
-  -- The panels' places stacked under the arrange view, the whole width.
-  paw.layout.restore({ { layout = { dir = "v", "arrange", { view = "roll", hidden = true, weight = 2 },
-    { view = "notation", hidden = true, weight = 2 }, { view = "mixer", hidden = true, weight = 0.5, min = 14 } } } })
-  paw.ui.show("pianoroll")
-  paw.ui.show("notation")
-  paw.ui.show("mixer")
-  local h = heights()
-  local total = h.arrange + h.pianoroll + h.notation + h.mixer
-  eq(h.arrange >= math.floor(total / 3), true, "the arrange view keeps a third: " .. h.arrange .. " of " .. total)
-  eq(h.notation <= math.floor(total / 2), true, "the notation view is at most half: " .. h.notation)
-  paw.ui.hide("pianoroll")
-  h = heights()
-  total = h.arrange + h.notation + h.mixer
-  eq(h.arrange >= math.floor(total / 3) and h.notation <= math.floor(total / 2), true,
-    "three views: arrange " .. h.arrange .. ", notation " .. h.notation .. ", mixer " .. h.mixer)
-  paw.ui.hide("mixer")
-  h = heights()
-  eq(h.arrange < h.notation, true, "with only two, the notation view keeps the larger share it had")
-  paw.cmd("view.equal")
-  paw.ui.show("mixer")
-  h = heights()
-  total = h.arrange + h.notation + h.mixer
-  eq(h.arrange >= math.floor(total / 3) - 1, true, "after `Ctrl-w =` the arrange view still has its third")
-  paw.ui.hide("notation")
-  paw.ui.hide("mixer")
-end)
+)
 
 test("in insert mode a message goes beside the key line instead of hiding it", function()
   fresh()
@@ -126,26 +184,38 @@ test("the arrange view draws a volume curve only on the track the cursor is on",
   eq(screen():find(braille) ~= nil, true, "the curve of the track the cursor is on")
 end)
 
-test("a picker's pane stops saying it is off the moment hearing is turned on, and marks what plays with a note", function()
-  fresh()
-  paw.keymap.feed("<Esc><Esc>")
-  if paw.ui.float then paw.ui.close() end
-  paw.state["pick.audition.zz uifix"] = false
-  paw.pick({ title = "Sounds", audition_key = "zz uifix", items = { "one", "two" }, on_choose = function() end,
-    audition = function(item) return "hearing " .. item end })
-  local function pane() return table.concat(api.ui_snapshot(120, 30), "\n") end
-  eq(pane():find("off · Ctrl-Space hears", 1, true) ~= nil, true, "off to begin with")
-  paw.keymap.feed("<C-Space>")
-  local text = pane()
-  eq(text:find("off · Ctrl-Space hears", 1, true), nil, "on at once")
-  eq(text:find("…", 1, true) ~= nil, true, "waiting to hear")
-  paw.wait(paw.opt.audition_delay + 200)
-  text = pane()
-  eq(text:find("♪ hearing one", 1, true) ~= nil, true, "a note marks what plays, the cursor stays an arrow: " .. text)
-  eq(text:find("▶ hearing", 1, true), nil, "the play mark is not the list cursor")
-  paw.keymap.feed("<Esc>")
-  paw.state["pick.audition.zz uifix"] = nil
-end)
+test(
+  "a picker's pane stops saying it is off the moment hearing is turned on, and marks what plays with a note",
+  function()
+    fresh()
+    paw.keymap.feed("<Esc><Esc>")
+    if paw.ui.float then paw.ui.close() end
+    paw.state["pick.audition.zz uifix"] = false
+    paw.pick({
+      title = "Sounds",
+      audition_key = "zz uifix",
+      items = { "one", "two" },
+      on_choose = function() end,
+      audition = function(item) return "hearing " .. item end,
+    })
+    local function pane() return table.concat(api.ui_snapshot(120, 30), "\n") end
+    eq(pane():find("off · Ctrl-Space hears", 1, true) ~= nil, true, "off to begin with")
+    paw.keymap.feed("<C-Space>")
+    local text = pane()
+    eq(text:find("off · Ctrl-Space hears", 1, true), nil, "on at once")
+    eq(text:find("…", 1, true) ~= nil, true, "waiting to hear")
+    paw.wait(paw.opt.audition_delay + 200)
+    text = pane()
+    eq(
+      text:find("♪ hearing one", 1, true) ~= nil,
+      true,
+      "a note marks what plays, the cursor stays an arrow: " .. text
+    )
+    eq(text:find("▶ hearing", 1, true), nil, "the play mark is not the list cursor")
+    paw.keymap.feed("<Esc>")
+    paw.state["pick.audition.zz uifix"] = nil
+  end
+)
 
 test("the mixer's scale and every strip's fader cap agree, whatever the strip holds", function()
   fresh()
@@ -168,8 +238,11 @@ test("the mixer's scale and every strip's fader cap agree, whatever the strip ho
   eq(minus6 ~= nil and caps(minus6), 1, "the -6 dB cap is on the row the scale calls -6")
   -- The cursor's row is lit across the strip, in a colour of its own.
   local theme = require("paw.theme").groups
-  eq(theme.CursorLine.bg ~= theme.Selected.bg and theme.CursorLine.bg ~= theme.TrackHeaderSel.bg, true,
-    "brighter than the selected strip it is on")
+  eq(
+    theme.CursorLine.bg ~= theme.Selected.bg and theme.CursorLine.bg ~= theme.TrackHeaderSel.bg,
+    true,
+    "brighter than the selected strip it is on"
+  )
   paw.ui.hide("mixer")
 end)
 
@@ -179,7 +252,12 @@ test(":notation.export takes the focused notation view's clip, else the arrange 
   local view = require("notation")
   local lead = paw.add_track({ name = "Lead" })
   local drums = paw.add_track({ name = "Drums" })
-  local melody = lead:add_clip({ start = 0, length = 4, name = "melody", notes = { { pitch = 72, start = 0, length = 1 }, { pitch = 74, start = 1, length = 1 } } })
+  local melody = lead:add_clip({
+    start = 0,
+    length = 4,
+    name = "melody",
+    notes = { { pitch = 72, start = 0, length = 1 }, { pitch = 74, start = 1, length = 1 } },
+  })
   drums:add_clip({ start = 0, length = 4, name = "beat", notes = { { pitch = 36, start = 0, length = 1 } } })
   paw.flush()
   local path = T.scratch .. "/uifix-export.pdf"
@@ -191,7 +269,11 @@ test(":notation.export takes the focused notation view's clip, else the arrange 
   local pdf = f and f:read("*a") or ""
   if f then f:close() end
   local box = { pdf:match("/MediaBox%s*%[%s*([%d%.]+)%s+([%d%.]+)%s+([%d%.]+)%s+([%d%.]+)") }
-  eq(#box == 4 and tonumber(box[4]) < tonumber(box[3]) * 1.2, true, "a short score does not leave the page's empty foot: " .. table.concat(box, " "))
+  eq(
+    #box == 4 and tonumber(box[4]) < tonumber(box[3]) * 1.2,
+    true,
+    "a short score does not leave the page's empty foot: " .. table.concat(box, " ")
+  )
   os.remove(path)
   paw.cursor.set_track(drums)
   paw.commands.exec("notation.export " .. T.scratch .. "/uifix-export.musicxml")
@@ -199,7 +281,11 @@ test(":notation.export takes the focused notation view's clip, else the arrange 
   view:edit(melody)
   paw.ui.focus("notation")
   paw.commands.exec("notation.export " .. T.scratch .. "/uifix-export.musicxml")
-  eq(last_message():find("'melody' (Lead)", 1, true) ~= nil, true, "the focused notation view's clip wins over the cursor: " .. last_message())
+  eq(
+    last_message():find("'melody' (Lead)", 1, true) ~= nil,
+    true,
+    "the focused notation view's clip wins over the cursor: " .. last_message()
+  )
   os.remove(T.scratch .. "/uifix-export.musicxml")
   paw.ui.focus("arrange")
 end)

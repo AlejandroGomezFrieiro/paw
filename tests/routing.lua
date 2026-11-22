@@ -22,7 +22,9 @@ local function pad_and_kick()
   local kick = paw.add_track({ name = "Kick" })
   kick:add_device("synth", { attack = 0.0005, release = 0.005, wave = 1, gain = 6 })
   local hits = {}
-  for beat = 0, 6, 2 do hits[#hits + 1] = { pitch = "A2", start = beat, length = 0.25, velocity = 127 } end
+  for beat = 0, 6, 2 do
+    hits[#hits + 1] = { pitch = "A2", start = beat, length = 0.25, velocity = 127 }
+  end
   kick:add_clip({ start = 0, length = 8, notes = hits })
   return pad, kick
 end
@@ -54,7 +56,11 @@ test("a compressor ducks a pad under a kick through its side-chain", function()
 
   comp:set("listen", 1)
   during, between = levels()
-  eq(during > 0.05 and between < 0.002, true, string.format("listening plays the key alone: %.3f, then %.4f", during, between))
+  eq(
+    during > 0.05 and between < 0.002,
+    true,
+    string.format("listening plays the key alone: %.3f, then %.4f", during, between)
+  )
 
   comp:set("listen", 0)
   comp.sidechain_pre = false
@@ -73,7 +79,11 @@ test("soloing the track a compressor ducks does not cut its key", function()
   pad.solo = true
   local during, between = levels()
   eq(between > 0.05, true, "the soloed pad sounds")
-  eq(during < between * 0.1, true, string.format("and still ducks under the kick it does not hear: %.3f against %.3f", during, between))
+  eq(
+    during < between * 0.1,
+    true,
+    string.format("and still ducks under the kick it does not hear: %.3f against %.3f", during, between)
+  )
   pad.solo = false
   kick.mute = true
   during, between = levels()
@@ -86,7 +96,11 @@ test("a gate opens for the key, not for what it gates", function()
   kick.mute = true
   gate:set_sidechain(kick, { pre = true })
   local during, between = levels()
-  eq(during > 0.05 and between < 0.002, true, string.format("open on the kick, shut between: %.3f, %.4f", during, between))
+  eq(
+    during > 0.05 and between < 0.002,
+    true,
+    string.format("open on the kick, shut between: %.3f, %.4f", during, between)
+  )
 end)
 
 test("a side-chain lines up with what the device hears, through latency on either side", function()
@@ -122,7 +136,9 @@ test("side-chains, output pairs and the threads that process tracks: the same fi
     t:add_device("synth", { wave = i % 4, attack = 0.002, release = 0.05 })
     if i % 3 == 0 then t:add_device("limiter") end
     local notes = {}
-    for step = 0, 15 do notes[#notes + 1] = { pitch = 36 + (i * 7 + step * 5) % 36, start = step * 0.5, length = 0.3 } end
+    for step = 0, 15 do
+      notes[#notes + 1] = { pitch = 36 + (i * 7 + step * 5) % 36, start = step * 0.5, length = 0.3 }
+    end
     t:add_clip({ start = 0, length = 8, notes = notes })
     if i % 2 == 0 then t.output = bus end
     if i % 4 == 1 then t:send(bus, -6, { pre = true }) end
@@ -139,7 +155,9 @@ test("side-chains, output pairs and the threads that process tracks: the same fi
   local kit = drums:add_device("drums")
   drums:add_device("limiter")
   local beats = {}
-  for step = 0, 15 do beats[#beats + 1] = { pitch = ({ 36, 42, 38, 42 })[step % 4 + 1], start = step * 0.5, length = 0.25 } end
+  for step = 0, 15 do
+    beats[#beats + 1] = { pitch = ({ 36, 42, 38, 42 })[step % 4 + 1], start = step * 0.5, length = 0.25 }
+  end
   drums:add_clip({ start = 0, length = 8, notes = beats })
   kit:set_output(2, bus)
   kit:set_output(4, keys[5])
@@ -182,13 +200,19 @@ test("a side-chain that would make a loop is refused, in every combination with 
 
   -- What the frontends offer leaves out what would be refused.
   local names = {}
-  for _, source in ipairs(paw.routes.sidechain_sources(on_a.id)) do names[#names + 1] = source.name end
+  for _, source in ipairs(paw.routes.sidechain_sources(on_a.id)) do
+    names[#names + 1] = source.name
+  end
   eq(table.concat(names, " "), "", "A can listen to nothing: B and C both hear it")
   names = {}
-  for _, target in ipairs(paw.frontend.routing(a.id).targets) do names[#names + 1] = target.name end
+  for _, target in ipairs(paw.frontend.routing(a.id).targets) do
+    names[#names + 1] = target.name
+  end
   eq(table.concat(names, " "), "Master B C", "but it can play into them")
   names = {}
-  for _, source in ipairs(paw.routes.sidechain_sources(on_c.id)) do names[#names + 1] = source.name end
+  for _, source in ipairs(paw.routes.sidechain_sources(on_c.id)) do
+    names[#names + 1] = source.name
+  end
   eq(table.concat(names, " "), "A B", "C can listen to the others")
 end)
 
@@ -237,7 +261,7 @@ test("side-chains are saved, loaded, copied with a track, and left out of templa
   local plain = paw.add_track({ name = "Plain" })
   plain:add_device("compressor")
   paw.project.save(path)
-  eq(T.read_file(path):find("\"sidechain\":", 1, true), nil, "a project without side-chains is written as before")
+  eq(T.read_file(path):find('"sidechain":', 1, true), nil, "a project without side-chains is written as before")
 end)
 
 test("the device panel and the window choose a device's side-chain", function()
@@ -258,7 +282,9 @@ test("the device panel and the window choose a device's side-chain", function()
   eq(comp.sidechain, nil, ":device.sidechain none takes it away")
   paw.keymap.feed("K")
   eq(paw.ui.float ~= nil, true, "K chooses from a list")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.focus("arrange")
 
   local state = paw.frontend.state(-1)
@@ -268,8 +294,14 @@ test("the device panel and the window choose a device's side-chain", function()
   eq(card.sidechain, "", "it listens to nothing yet")
   local menu = paw.frontend.sidechain_menu(comp.id)
   local labels = {}
-  for i, entry in ipairs(menu) do labels[i] = entry.label end
-  eq(table.concat(labels, "|"), "None: its own input|Kick|Hats|Before the fader", "its menu lists the tracks it can hear")
+  for i, entry in ipairs(menu) do
+    labels[i] = entry.label
+  end
+  eq(
+    table.concat(labels, "|"),
+    "None: its own input|Kick|Hats|Before the fader",
+    "its menu lists the tracks it can hear"
+  )
   paw.frontend.act.choose_sidechain(comp.id, 3)
   eq(comp.sidechain, paw.track("Hats").id, "choosing one sets it")
   paw.frontend.act.choose_sidechain(comp.id, 4)
@@ -292,7 +324,11 @@ for _, format in ipairs({ "clap", "lv2", "vst3" }) do
     kick.mute = true
     comp:set_sidechain(kick, { pre = true })
     local during, between = levels()
-    eq(during > 0.02 and between < 0.01, true, string.format("listening, it plays the kick: %.3f, then %.4f", during, between))
+    eq(
+      during > 0.02 and between < 0.01,
+      true,
+      string.format("listening, it plays the kick: %.3f, then %.4f", during, between)
+    )
     comp.sidechain = nil
     during = levels()
     eq(during < 0.01, true, string.format("without a key it hears nothing: %.4f", during))
@@ -308,7 +344,11 @@ local function kit_and_kick()
   paw.project.tempo = 120
   local drums = paw.add_track({ name = "Drums" })
   local kit = drums:add_device("drums")
-  drums:add_clip({ start = 0, length = 4, notes = { { pitch = 36, start = 0, length = 0.5 }, { pitch = 38, start = 2, length = 0.5 } } })
+  drums:add_clip({
+    start = 0,
+    length = 4,
+    notes = { { pitch = 36, start = 0, length = 0.5 }, { pitch = 38, start = 2, length = 0.5 } },
+  })
   local kick = paw.add_track({ name = "Kick" })
   return drums, kit, kick
 end
@@ -326,7 +366,11 @@ test("a kit's routed pair plays on the track it is routed to, and leaves the kit
   eq(kit.outputs["2"], kick.id, "the device says where its second pair plays")
   drums.volume = -120
   local k, s = kick_and_snare()
-  eq(k > 0.05 and s < 0.001, true, string.format("the kick plays through its own track, not the kit's fader: %.3f, %.4f", k, s))
+  eq(
+    k > 0.05 and s < 0.001,
+    true,
+    string.format("the kick plays through its own track, not the kit's fader: %.3f, %.4f", k, s)
+  )
   drums.volume = 0
   kick.volume = -120
   k, s = kick_and_snare()
@@ -379,7 +423,9 @@ test("output pairs that would make a loop are refused, with outputs, sends and s
   local second = other:add_device("drums")
   fails(function() second:set_output(2, drums) end, "loop", "round three tracks, through a side-chain")
   local names = {}
-  for _, entry in ipairs(paw.frontend.outputs_menu(kit.id)[1].choices) do names[#names + 1] = entry.label end
+  for _, entry in ipairs(paw.frontend.outputs_menu(kit.id)[1].choices) do
+    names[#names + 1] = entry.label
+  end
   eq(table.concat(names, "|"), "Nowhere: not heard|Kick|Other", "the window offers the tracks it can play into")
 end)
 
@@ -414,7 +460,9 @@ test("spreading a kit's outputs makes a track for each pair, grouped with the ki
   paw.track("Kick"):remove()
   local made = paw.routes.spread(kit.id)
   local names = {}
-  for i, t in ipairs(made) do names[i] = t.name end
+  for i, t in ipairs(made) do
+    names[i] = t.name
+  end
   eq(table.concat(names, " "), "Kick Snare Hats Toms Cymbals Percussion", "named after the pairs")
   eq(kit.outputs["2"], made[1].id, "each pair plays on its track")
   eq(kit.outputs["7"], made[6].id, "the last too")
@@ -456,8 +504,10 @@ end)
 
 -- Plugins with several output pairs, in each format.
 for _, case in ipairs({
-  { "clap", "^Surge XT$" }, { "clap", "Multi%-Sampler x12 DirectOut" },
-  { "lv2", "Multi%-Sampler x12 DirectOut" }, { "vst3", "Multi%-Sampler x12 DirectOut" },
+  { "clap", "^Surge XT$" },
+  { "clap", "Multi%-Sampler x12 DirectOut" },
+  { "lv2", "Multi%-Sampler x12 DirectOut" },
+  { "vst3", "Multi%-Sampler x12 DirectOut" },
 }) do
   local format, pattern = case[1], case[2]
   test(format .. " " .. pattern:gsub("[%^%$%%]", "") .. " names its output pairs, and one is routed", function()

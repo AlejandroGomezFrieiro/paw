@@ -10,32 +10,44 @@ local M = {}
 -- would be C flat; the cowbell is `cow`). The built-in `drums` device plays
 -- 36, 38, 39, 40, 42, 44 and 46; the rest are for General MIDI instruments.
 M.drums = {
-  bd = 36, kick = 36,
-  rim = 37, rs = 37,
-  sn = 38, sd = 38, snare = 38,
-  cp = 39, clap = 39,
-  sn2 = 40,              -- electric snare
-  lt = 41,               -- low floor tom
-  hh = 42, ch = 42,      -- closed hi-hat
-  ft = 43,               -- high floor tom
-  ph = 44, hp = 44,      -- pedal hi-hat
-  mt = 45,               -- low tom
-  oh = 46,               -- open hi-hat
-  lmt = 47,              -- low-mid tom
-  ht = 48,               -- hi-mid tom
-  cr = 49, crash = 49,
-  hit = 50,              -- high tom
-  rd = 51, ride = 51,
-  cy = 52,               -- Chinese cymbal
-  rb = 53,               -- ride bell
-  tb = 54, tamb = 54,
-  sp = 55,               -- splash
+  bd = 36,
+  kick = 36,
+  rim = 37,
+  rs = 37,
+  sn = 38,
+  sd = 38,
+  snare = 38,
+  cp = 39,
+  clap = 39,
+  sn2 = 40, -- electric snare
+  lt = 41, -- low floor tom
+  hh = 42,
+  ch = 42, -- closed hi-hat
+  ft = 43, -- high floor tom
+  ph = 44,
+  hp = 44, -- pedal hi-hat
+  mt = 45, -- low tom
+  oh = 46, -- open hi-hat
+  lmt = 47, -- low-mid tom
+  ht = 48, -- hi-mid tom
+  cr = 49,
+  crash = 49,
+  hit = 50, -- high tom
+  rd = 51,
+  ride = 51,
+  cy = 52, -- Chinese cymbal
+  rb = 53, -- ride bell
+  tb = 54,
+  tamb = 54,
+  sp = 55, -- splash
   cow = 56,
   cr2 = 57,
-  vs = 58,               -- vibraslap
+  vs = 58, -- vibraslap
   rd2 = 59,
-  cl = 75, claves = 75,
-  sh = 70, maracas = 70,
+  cl = 75,
+  claves = 75,
+  sh = 70,
+  maracas = 70,
 }
 
 -- Chord shapes, by the names TidalCycles uses and a few short ones.
@@ -86,7 +98,9 @@ local shapes = {
 
 M.chords = {}
 for _, shape in ipairs(shapes) do
-  for _, name in ipairs(shape[1]) do M.chords[name] = shape[2] end
+  for _, name in ipairs(shape[1]) do
+    M.chords[name] = shape[2]
+  end
 end
 
 -- Scales for degrees: paw's own, and a few more.

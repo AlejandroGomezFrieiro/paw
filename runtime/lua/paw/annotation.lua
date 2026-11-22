@@ -11,14 +11,17 @@ local A = paw.address
 
 local M = {}
 
-local store = {}  -- store[namespace][document] = list
+local store = {} -- store[namespace][document] = list
 
 --- Publish the labels of `namespace` in a document. They replace its old labels there.
 function M.set(namespace, doc, list)
   local out = {}
   for _, a in ipairs(list or {}) do
     local loc = type(a.location) == "string" and { uri = a.location } or a.location
-    if loc and a.label then out[#out + 1] = { namespace = namespace, location = loc, label = tostring(a.label), kind = a.kind, tooltip = a.tooltip } end
+    if loc and a.label then
+      out[#out + 1] =
+        { namespace = namespace, location = loc, label = tostring(a.label), kind = a.kind, tooltip = a.tooltip }
+    end
   end
   store[namespace] = store[namespace] or {}
   store[namespace][doc] = #out > 0 and out or nil
@@ -31,7 +34,11 @@ end
 function M.reset(namespace, doc)
   for ns, docs in pairs(store) do
     if not namespace or ns == namespace then
-      if doc == nil then store[ns] = nil else docs[doc] = nil end
+      if doc == nil then
+        store[ns] = nil
+      else
+        docs[doc] = nil
+      end
     end
   end
   api.ui_redraw()
@@ -77,11 +84,15 @@ paw.ui.views.arrange.layers.annotations = function(_, c)
     local t = a.location.selector and a.location.selector.time
     if t then
       local x = c.x(t[1])
-      if x >= 0 and x < c.ruler.width then c.ruler:text(x, 0, paw.util.fit(a.label, math.max(1, c.ruler.width - x)):gsub("%s+$", ""), "Annotation") end
+      if x >= 0 and x < c.ruler.width then
+        c.ruler:text(x, 0, paw.util.fit(a.label, math.max(1, c.ruler.width - x)):gsub("%s+$", ""), "Annotation")
+      end
     end
   end
 end
 
-paw.on("project.loaded", function() if next(store) then M.reset() end end)
+paw.on("project.loaded", function()
+  if next(store) then M.reset() end
+end)
 
 return M

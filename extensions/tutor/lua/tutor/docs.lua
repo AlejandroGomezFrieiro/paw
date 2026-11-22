@@ -6,18 +6,17 @@
 -- The tests compare these with the files on disk.
 local M = {}
 
-local GENERATED = "<!-- Made by extensions/tutor/make-docs.lua from the tutor's lessons. Do not edit: change the lesson and run it again. -->"
+local GENERATED =
+  "<!-- Made by extensions/tutor/make-docs.lua from the tutor's lessons. Do not edit: change the lesson and run it again. -->"
 
 --- A file name for a lesson: "05-grammar.md".
-function M.file(n, lesson)
-  return string.format("%02d-%s.md", n, lesson.id)
-end
+function M.file(n, lesson) return string.format("%02d-%s.md", n, lesson.id) end
 
 --- The keys as the default leader reads: `<leader>hn` is `<Space>hn`.
 local function keys(text)
-  return (text:gsub("`(<[Ll]eader>[^`]*)`", function(code)
-    return "`" .. code:gsub("<[Ll]eader>", "<Space>") .. "`"
-  end))
+  return (
+    text:gsub("`(<[Ll]eader>[^`]*)`", function(code) return "`" .. code:gsub("<[Ll]eader>", "<Space>") .. "`" end)
+  )
 end
 
 local function paragraphs(text)
@@ -33,11 +32,29 @@ end
 function M.lesson(n, lesson, lessons)
   local out = { GENERATED, "", string.format("# Lesson %d: %s", n, lesson.title), "" }
   local function add(line) out[#out + 1] = line end
-  add(string.format("*This lesson takes about ten minutes. To do it in paw, type `:ext.load tutor`, then `:tutor %d`.*", n))
+  add(
+    string.format(
+      "*This lesson takes about ten minutes. To do it in paw, type `:ext.load tutor`, then `:tutor %d`.*",
+      n
+    )
+  )
   add("")
-  if lesson.intro then add(paragraphs(lesson.intro)) add("") end
-  if lesson.idea then add("## The idea") add("") add(paragraphs(lesson.idea)) add("") end
-  if lesson.vim then add("## If you know Vim") add("") add(paragraphs(lesson.vim)) add("") end
+  if lesson.intro then
+    add(paragraphs(lesson.intro))
+    add("")
+  end
+  if lesson.idea then
+    add("## The idea")
+    add("")
+    add(paragraphs(lesson.idea))
+    add("")
+  end
+  if lesson.vim then
+    add("## If you know Vim")
+    add("")
+    add(paragraphs(lesson.vim))
+    add("")
+  end
   add("## Steps")
   add("")
   add("The tutor opens a practice project for this lesson. It checks each step when you do it.")
@@ -46,17 +63,30 @@ function M.lesson(n, lesson, lessons)
     add(string.format("%d. %s", i, step.say))
     if step.hint then add("   - *Hint:* " .. step.hint) end
     if step.unchecked then
-      add("   - *The tutor cannot check this step* (" .. step.unchecked:gsub("%.$", "") .. "). `<leader>hn` moves to the next step.")
+      add(
+        "   - *The tutor cannot check this step* ("
+          .. step.unchecked:gsub("%.$", "")
+          .. "). `<leader>hn` moves to the next step."
+      )
     elseif step.done then
       add("   - ✓ " .. step.done)
     end
   end
   add("")
-  if lesson.outro then add("## What we did") add("") add(lesson.outro) add("") end
+  if lesson.outro then
+    add("## What we did")
+    add("")
+    add(lesson.outro)
+    add("")
+  end
   local nav = {}
-  if lessons[n - 1] then nav[#nav + 1] = string.format("Previous: [%s](%s)", lessons[n - 1].title, M.file(n - 1, lessons[n - 1])) end
+  if lessons[n - 1] then
+    nav[#nav + 1] = string.format("Previous: [%s](%s)", lessons[n - 1].title, M.file(n - 1, lessons[n - 1]))
+  end
   nav[#nav + 1] = "[All lessons](README.md)"
-  if lessons[n + 1] then nav[#nav + 1] = string.format("Next: [%s](%s)", lessons[n + 1].title, M.file(n + 1, lessons[n + 1])) end
+  if lessons[n + 1] then
+    nav[#nav + 1] = string.format("Next: [%s](%s)", lessons[n + 1].title, M.file(n + 1, lessons[n + 1]))
+  end
   add(table.concat(nav, " · "))
   return keys(table.concat(out, "\n")) .. "\n"
 end
@@ -72,7 +102,9 @@ paw. There, the tutor tells you what to do next and sees when you do it. To
 load the tutor, add this line to your configuration:]]))
   add("")
   add("```lua")
-  add('paw.ext.load("extensions/tutor")   -- in ~/.config/paw/init.lua, or link the directory into ~/.config/paw/extensions')
+  add(
+    'paw.ext.load("extensions/tutor")   -- in ~/.config/paw/init.lua, or link the directory into ~/.config/paw/extensions'
+  )
   add("```")
   add("")
   add(paragraphs([[
@@ -104,7 +136,9 @@ end
 --- Every file of the course: { [name] = text }.
 function M.files(lessons)
   local files = { ["README.md"] = M.index(lessons) }
-  for n, lesson in ipairs(lessons) do files[M.file(n, lesson)] = M.lesson(n, lesson, lessons) end
+  for n, lesson in ipairs(lessons) do
+    files[M.file(n, lesson)] = M.lesson(n, lesson, lessons)
+  end
   return files
 end
 

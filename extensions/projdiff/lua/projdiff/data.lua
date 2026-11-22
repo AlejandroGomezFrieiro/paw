@@ -29,22 +29,24 @@ end
 --- Whether a table holds only the keys 1 to n (an empty one does).
 function M.is_array(t)
   local n = 0
-  for _ in pairs(t) do n = n + 1 end
+  for _ in pairs(t) do
+    n = n + 1
+  end
   return n == #t
 end
 
 local function sorted_keys(t)
   local keys = {}
-  for k in pairs(t) do keys[#keys + 1] = k end
+  for k in pairs(t) do
+    keys[#keys + 1] = k
+  end
   table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
   return keys
 end
 M.sorted_keys = sorted_keys
 
 local function quote(s)
-  return '"' .. s:gsub('[%c"\\]', function(c)
-    return string.format("\\u%04x", c:byte())
-  end) .. '"'
+  return '"' .. s:gsub('[%c"\\]', function(c) return string.format("\\u%04x", c:byte()) end) .. '"'
 end
 
 --- A value as JSON text with its keys in order: the same value is always the
@@ -56,10 +58,14 @@ function M.canon(v)
   if kind ~= "table" then return tostring(v) end
   local out = {}
   if M.is_array(v) then
-    for i = 1, #v do out[i] = M.canon(v[i]) end
+    for i = 1, #v do
+      out[i] = M.canon(v[i])
+    end
     return "[" .. table.concat(out, ",") .. "]"
   end
-  for _, k in ipairs(sorted_keys(v)) do out[#out + 1] = quote(tostring(k)) .. ":" .. M.canon(v[k]) end
+  for _, k in ipairs(sorted_keys(v)) do
+    out[#out + 1] = quote(tostring(k)) .. ":" .. M.canon(v[k])
+  end
   return "{" .. table.concat(out, ",") .. "}"
 end
 
@@ -140,7 +146,10 @@ function M.key_field(...)
       local list = select(i, ...)
       if type(list) == "table" then
         for _, item in ipairs(list) do
-          if type(item) ~= "table" or type(item[field]) ~= "number" then all = false break end
+          if type(item) ~= "table" or type(item[field]) ~= "number" then
+            all = false
+            break
+          end
         end
       end
       if not all then break end

@@ -34,32 +34,51 @@ local floor, abs, max, min = math.floor, math.abs, math.max, math.min
 
 --- The settings and their defaults: what makes a played part readable.
 M.DEFAULTS = {
-  mode = "score",   -- "score": interpreted; "raw": every note as it is, to the grid
-  chord = 35,       -- ms: onsets this close are one chord, in any order
-  strum = 70,       -- ms between the strings of a strum or a roll (0: off)
+  mode = "score", -- "score": interpreted; "raw": every note as it is, to the grid
+  chord = 35, -- ms: onsets this close are one chord, in any order
+  strum = 70, -- ms between the strings of a strum or a roll (0: off)
   strum_span = 450, -- ms: the longest strum
-  arpeggio = 160,   -- ms: a strum at least this long is marked with an arpeggio sign (0: never)
-  triplets = true,  -- whether a beat may be written in triplets (duplets and quadruplets in 6/8)
-  tuplets = true,   -- whether a beat may be written as a quintuplet or a septuplet
-  finest = 0.25,    -- the shortest duple subdivision written, in beats: 0.25 a sixteenth
-  simplicity = 1,   -- how strongly simple grids are preferred (0 none, 2 strongly)
-  gap = 0.3,        -- a silence shorter than this share of the time to the next onset is articulation
-  staccato = true,  -- a note much shorter than its written value is written with a staccato mark
-  grace = 100,      -- ms: a note this short just before another is a grace note (0: off)
-  swing = "auto",   -- "auto", "off", or the long eighth's share of the beat (0.5 straight, 0.67 triplet swing)
-  voices = true,    -- a held note under or over moving ones is a second voice
-  split = "auto",   -- "auto", or the pitch at which a grand staff's hands are split
-  follow = true,    -- follow the player's drift from the grid (rubato, ritardando)
-  grid = 0.25,      -- raw view only: the grid notes are rounded to
+  arpeggio = 160, -- ms: a strum at least this long is marked with an arpeggio sign (0: never)
+  triplets = true, -- whether a beat may be written in triplets (duplets and quadruplets in 6/8)
+  tuplets = true, -- whether a beat may be written as a quintuplet or a septuplet
+  finest = 0.25, -- the shortest duple subdivision written, in beats: 0.25 a sixteenth
+  simplicity = 1, -- how strongly simple grids are preferred (0 none, 2 strongly)
+  gap = 0.3, -- a silence shorter than this share of the time to the next onset is articulation
+  staccato = true, -- a note much shorter than its written value is written with a staccato mark
+  grace = 100, -- ms: a note this short just before another is a grace note (0: off)
+  swing = "auto", -- "auto", "off", or the long eighth's share of the beat (0.5 straight, 0.67 triplet swing)
+  voices = true, -- a held note under or over moving ones is a second voice
+  split = "auto", -- "auto", or the pitch at which a grand staff's hands are split
+  follow = true, -- follow the player's drift from the grid (rubato, ritardando)
+  grid = 0.25, -- raw view only: the grid notes are rounded to
 }
 
-M.ORDER = { "mode", "chord", "strum", "strum_span", "arpeggio", "triplets", "tuplets", "finest", "simplicity", "gap", "staccato",
-  "grace", "swing", "voices", "split", "follow", "grid" }
+M.ORDER = {
+  "mode",
+  "chord",
+  "strum",
+  "strum_span",
+  "arpeggio",
+  "triplets",
+  "tuplets",
+  "finest",
+  "simplicity",
+  "gap",
+  "staccato",
+  "grace",
+  "swing",
+  "voices",
+  "split",
+  "follow",
+  "grid",
+}
 
 --- The settings in force: the defaults under what a clip keeps.
 function M.settings(own)
   local out = {}
-  for k, v in pairs(M.DEFAULTS) do out[k] = v end
+  for k, v in pairs(M.DEFAULTS) do
+    out[k] = v
+  end
   for k, v in pairs(own or {}) do
     if M.DEFAULTS[k] ~= nil then out[k] = v end
   end
@@ -76,7 +95,8 @@ function M.beats_of(bar)
   local out = {}
   local count = compound and bar.num / 3 or bar.num
   for i = 0, count - 1 do
-    out[#out + 1] = { s = bar.start + i * len, e = bar.start + (i + 1) * len, len = len, compound = compound, bar = bar }
+    out[#out + 1] =
+      { s = bar.start + i * len, e = bar.start + (i + 1) * len, len = len, compound = compound, bar = bar }
   end
   return out
 end
@@ -93,16 +113,37 @@ M.exact = exact
 -- duplet's and quadruplet's) or another tuplet's, written in the time of
 -- that many parts (a quintuplet or septuplet of sixteenths, in the time of
 -- four).
-local SIMPLE = { { 1, 0 }, { 2, 0.02 }, { 4, 0.07 }, { 8, 0.3 }, { 3, 0.1, "triplet" }, { 6, 0.3, "triplet" },
-  { 5, 0.3, "tuplet", 4 }, { 7, 0.4, "tuplet", 4 } }
+local SIMPLE = {
+  { 1, 0 },
+  { 2, 0.02 },
+  { 4, 0.07 },
+  { 8, 0.3 },
+  { 3, 0.1, "triplet" },
+  { 6, 0.3, "triplet" },
+  { 5, 0.3, "tuplet", 4 },
+  { 7, 0.4, "tuplet", 4 },
+}
 local COMPOUND = { { 1, 0 }, { 3, 0.02 }, { 6, 0.08 }, { 12, 0.35 }, { 2, 0.15, "triplet" }, { 4, 0.3, "triplet" } }
-local FIT = 40   -- weight of the squared error (in beats) against the complexity
+local FIT = 40 -- weight of the squared error (in beats) against the complexity
 -- And of each onset by where it falls: the beat, its half, its quarter...
 -- by the denominator of its place in the beat.
-local PLACE = { [1] = 0, [2] = 0.05, [4] = 0.15, [8] = 0.45, [3] = 0.15, [6] = 0.45, [12] = 0.6, [24] = 0.8, [5] = 0.35, [7] = 0.45 }
+local PLACE = {
+  [1] = 0,
+  [2] = 0.05,
+  [4] = 0.15,
+  [8] = 0.45,
+  [3] = 0.15,
+  [6] = 0.45,
+  [12] = 0.6,
+  [24] = 0.8,
+  [5] = 0.35,
+  [7] = 0.45,
+}
 local PLACE_COMPOUND = { [1] = 0, [3] = 0.05, [6] = 0.15, [12] = 0.45, [2] = 0.2, [4] = 0.35, [24] = 0.8 }
 local function gcd(a, b)
-  while b ~= 0 do a, b = b, a % b end
+  while b ~= 0 do
+    a, b = b, a % b
+  end
   return a
 end
 
@@ -123,7 +164,9 @@ local function detect_swing(onsets, beats)
   local bi = 1
   local per = {}
   for _, t in ipairs(onsets) do
-    while beats[bi] and t >= beats[bi].e - beats[bi].len * 0.1 do bi = bi + 1 end
+    while beats[bi] and t >= beats[bi].e - beats[bi].len * 0.1 do
+      bi = bi + 1
+    end
     local b = beats[bi]
     if not b then break end
     if not b.compound then
@@ -181,7 +224,9 @@ local function split_hands(pitches, state)
   for k = 0, #pitches do
     local cost = hand_cost(pitches, 1, k, state.lh, state.lh_last, 0, 64)
       + hand_cost(pitches, k + 1, #pitches, state.rh, state.rh_last, 53, 127)
-    if not best or cost < best - 1e-9 then best, best_k = cost, k end
+    if not best or cost < best - 1e-9 then
+      best, best_k = cost, k
+    end
   end
   return best_k
 end
@@ -277,14 +322,20 @@ function M.transcribe(notes, ctx)
 
   local beats = {}
   for _, bar in ipairs(bars) do
-    for _, b in ipairs(M.beats_of(bar)) do beats[#beats + 1] = b end
+    for _, b in ipairs(M.beats_of(bar)) do
+      beats[#beats + 1] = b
+    end
   end
   local function beat_at(t)
     if t < beats[1].s then return beats[1], 1 end
     local lo, hi = 1, #beats
     while lo < hi do
       local mid = floor((lo + hi + 1) / 2)
-      if beats[mid].s <= t + EPS then lo = mid else hi = mid - 1 end
+      if beats[mid].s <= t + EPS then
+        lo = mid
+      else
+        hi = mid - 1
+      end
     end
     return beats[lo], lo
   end
@@ -300,10 +351,20 @@ function M.transcribe(notes, ctx)
       -- Notation made the note shorter (or longer) than it is written, as
       -- a staccato plays: written as long as it says, while the note is as
       -- long as notation made it.
-      local written = tonumber(own.len) and tonumber(own.sounding) and abs(n.length - own.sounding) < 1e-6 and own.len or nil
-      items[#items + 1] = { index = index, pitch = n.pitch, s = n.start, e = n.start + n.length, len = n.length,
-        velocity = n.velocity, meta = n.meta, own = own, written = written,
-        exact = exact(n.start) and (written ~= nil or exact(n.start + n.length)) }
+      local written = tonumber(own.len) and tonumber(own.sounding) and abs(n.length - own.sounding) < 1e-6 and own.len
+        or nil
+      items[#items + 1] = {
+        index = index,
+        pitch = n.pitch,
+        s = n.start,
+        e = n.start + n.length,
+        len = n.length,
+        velocity = n.velocity,
+        meta = n.meta,
+        own = own,
+        written = written,
+        exact = exact(n.start) and (written ~= nil or exact(n.start + n.length)),
+      }
     end
   end
   sort(items, by_onset)
@@ -316,7 +377,9 @@ function M.transcribe(notes, ctx)
   end
   if drawn < 0.5 * #items then
     local was = {}
-    for i, a in ipairs(items) do was[i] = a.exact end
+    for i, a in ipairs(items) do
+      was[i] = a.exact
+    end
     for i, a in ipairs(items) do
       a.exact = was[i] and (a.own.letter ~= nil or was[i - 1] or was[i + 1]) or false
     end
@@ -337,8 +400,11 @@ function M.transcribe(notes, ctx)
       for j = i + 1, #items do
         local b = items[j]
         if b.s - a.s > (forced and 1 or gmax) then break end
-        if b.s > a.s + EPS and b.pitch ~= a.pitch
-          and (forced or (a.e <= b.s + 0.6 * gmax and b.len > 2 * a.len and not in_run(items, i, b, ms(set.chord)))) then
+        if
+          b.s > a.s + EPS
+          and b.pitch ~= a.pitch
+          and (forced or (a.e <= b.s + 0.6 * gmax and b.len > 2 * a.len and not in_run(items, i, b, ms(set.chord))))
+        then
           a.grace_of = b
           break
         end
@@ -348,7 +414,9 @@ function M.transcribe(notes, ctx)
   for _, a in ipairs(items) do
     -- A run of grace notes leads to the first note that is not one.
     local main = a.grace_of
-    while main and main.grace_of do main = main.grace_of end
+    while main and main.grace_of do
+      main = main.grace_of
+    end
     a.grace_of = main
   end
 
@@ -441,7 +509,9 @@ function M.transcribe(notes, ctx)
     ratio = set.swing
   elseif set.swing == "auto" then
     local onsets = {}
-    for _, gr in ipairs(groups) do onsets[#onsets + 1] = gr.first end
+    for _, gr in ipairs(groups) do
+      onsets[#onsets + 1] = gr.first
+    end
     ratio = detect_swing(onsets, beats)
   end
 
@@ -466,7 +536,7 @@ function M.transcribe(notes, ctx)
   --- with `drift_of(bi, t)` how far behind the grid the player is at `t`.
   --- `after(bi, res, count)` hears how far off the beat's onsets were.
   --- Returns the offsets seen: `{ t, off }` per onset that fit well.
-  local tuplet_cost = 0   -- more when the rest of the part is plainly duple
+  local tuplet_cost = 0 -- more when the rest of the part is plainly duple
   local function pass(drift_of, after)
     local seen = {}
     local gi = 1
@@ -482,7 +552,9 @@ function M.transcribe(notes, ctx)
         local sw = (not b.compound) and ratio or nil
         local cands = {}
         if forced[bi] then
-          for _, d in ipairs(forced[bi]) do cands[#cands + 1] = { d, 0 } end
+          for _, d in ipairs(forced[bi]) do
+            cands[#cands + 1] = { d, 0 }
+          end
         else
           for _, c in ipairs(b.compound and COMPOUND or SIMPLE) do
             local d = c[1]
@@ -512,7 +584,9 @@ function M.transcribe(notes, ctx)
             if used[k] then cost = cost + 5 end
             used[k] = true
           end
-          if not best or cost < best - 1e-9 then best, best_d = cost, c[1] end
+          if not best or cost < best - 1e-9 then
+            best, best_d = cost, c[1]
+          end
         end
         b.d = best_d
         local res, count = 0, 0
@@ -538,7 +612,7 @@ function M.transcribe(notes, ctx)
     return seen
   end
 
-  local fits = {}   -- per beat: the drift at its start and how it grows
+  local fits = {} -- per beat: the drift at its start and how it grows
   local function fitted(bi, t)
     local f = fits[bi]
     if not f then return 0 end
@@ -570,16 +644,26 @@ function M.transcribe(notes, ctx)
     for _, b in ipairs(beats) do
       local d = b.d or 1
       if b.compound then
-        if d % 2 == 0 and d % 3 ~= 0 then triple = triple + 1 elseif d > 1 then duple = duple + 1 end
+        if d % 2 == 0 and d % 3 ~= 0 then
+          triple = triple + 1
+        elseif d > 1 then
+          duple = duple + 1
+        end
       else
-        if d % 3 == 0 or d == 5 or d == 7 then triple = triple + 1 elseif d > 1 then duple = duple + 1 end
+        if d % 3 == 0 or d == 5 or d == 7 then
+          triple = triple + 1
+        elseif d > 1 then
+          duple = duple + 1
+        end
       end
     end
     if duple + triple > 0 then tuplet_cost = 0.3 * math.max(0, duple - triple) / (duple + triple) end
     local si = 1
     for bi, b in ipairs(beats) do
       local lo, hi = b.s - 2 * b.len, b.e + 2 * b.len
-      while seen[si] and seen[si].t < lo do si = si + 1 end
+      while seen[si] and seen[si].t < lo do
+        si = si + 1
+      end
       local sw, sx, sy, sxx, sxy = 0, 0, 0, 0, 0
       local j = si
       while seen[j] and seen[j].t < hi do
@@ -602,7 +686,9 @@ function M.transcribe(notes, ctx)
   end
   pass(fitted)
   if ctx.debug then
-    for bi, f in pairs(fits) do print("fit", bi, f[1], f[2]) end
+    for bi, f in pairs(fits) do
+      print("fit", bi, f[1], f[2])
+    end
   end
   for _, gr in ipairs(groups) do
     if not gr.q then gr.q = math.max(origin, math.min(finish, gr.first)) end
@@ -617,7 +703,11 @@ function M.transcribe(notes, ctx)
   local function release_grid(t)
     local b = beat_at(t)
     local d = b.d or 1
-    if b.compound then d = math.max(d, 3) else d = math.max(d, 2) end
+    if b.compound then
+      d = math.max(d, 3)
+    else
+      d = math.max(d, 2)
+    end
     return b.len / d, b
   end
 
@@ -675,7 +765,9 @@ function M.transcribe(notes, ctx)
   for _, c in ipairs(chords) do
     local prev = last_on[c.staff]
     if prev and abs(prev.q - c.q) < EPS then
-      for _, x in ipairs(c.items) do prev.items[#prev.items + 1] = x end
+      for _, x in ipairs(c.items) do
+        prev.items[#prev.items + 1] = x
+      end
       sort(prev.items, by_pitch)
     else
       merged[#merged + 1] = c
@@ -686,17 +778,21 @@ function M.transcribe(notes, ctx)
 
   -- Each note's written release.
   for _, c in ipairs(chords) do
-    for _, x in ipairs(c.items) do x.rel = (x.written and c.q + x.written) or (x.exact and x.e) or warp(x.e) end
+    for _, x in ipairs(c.items) do
+      x.rel = (x.written and c.q + x.written) or (x.exact and x.e) or warp(x.e)
+    end
   end
 
   -- Voices: a note held well past the next onset on its staff, under or
   -- over notes that move, is a voice of its own.
   local per_staff = { {}, {} }
-  for _, c in ipairs(chords) do table.insert(per_staff[c.staff], c) end
+  for _, c in ipairs(chords) do
+    table.insert(per_staff[c.staff], c)
+  end
   local out_chords = {}
   for s = 1, 2 do
     local list = per_staff[s]
-    local active = {}   -- held notes still sounding: { rel, voice, pitch }
+    local active = {} -- held notes still sounding: { rel, voice, pitch }
     for i, c in ipairs(list) do
       local nxt = list[i + 1]
       local beat_len = beat_at(c.q).len
@@ -712,14 +808,22 @@ function M.transcribe(notes, ctx)
           local over = x.rel - nxt.q
           is_held = over >= math.max(0.5 * beat_len, 0.5 * (nxt.q - c.q)) - EPS
         end
-        if is_held then held[#held + 1] = x else moving[#moving + 1] = x end
+        if is_held then
+          held[#held + 1] = x
+        else
+          moving[#moving + 1] = x
+        end
       end
       local voice_of = {}
       if #held > 0 and #moving > 0 then
         if held[#held].pitch < moving[1].pitch then
-          for _, x in ipairs(held) do voice_of[x] = 2 end
+          for _, x in ipairs(held) do
+            voice_of[x] = 2
+          end
         elseif held[1].pitch > moving[#moving].pitch then
-          for _, x in ipairs(moving) do voice_of[x] = 2 end
+          for _, x in ipairs(moving) do
+            voice_of[x] = 2
+          end
         end
       elseif #held > 0 and nxt then
         local nlow, nhigh = math.huge, -math.huge
@@ -727,7 +831,9 @@ function M.transcribe(notes, ctx)
           nlow, nhigh = min(nlow, y.pitch), max(nhigh, y.pitch)
         end
         if nlow > held[#held].pitch then
-          for _, x in ipairs(held) do voice_of[x] = 2 end
+          for _, x in ipairs(held) do
+            voice_of[x] = 2
+          end
         end
       elseif #active > 0 then
         local alow, ahigh = math.huge, -math.huge
@@ -736,14 +842,18 @@ function M.transcribe(notes, ctx)
           alow, ahigh, avoice = min(alow, a.pitch), max(ahigh, a.pitch), a.voice
         end
         if avoice == 1 and c.items[#c.items].pitch < alow then
-          for _, x in ipairs(c.items) do voice_of[x] = 2 end
+          for _, x in ipairs(c.items) do
+            voice_of[x] = 2
+          end
         end
       end
       for _, x in ipairs(c.items) do
         local v = tonumber(x.own.voice) or voice_of[x] or 1
         x.voice = v
       end
-      for _, x in ipairs(held) do active[#active + 1] = { rel = x.rel, voice = x.voice, pitch = x.pitch } end
+      for _, x in ipairs(held) do
+        active[#active + 1] = { rel = x.rel, voice = x.voice, pitch = x.pitch }
+      end
       -- A chord whose notes are in two voices is two chords.
       local by_voice = {}
       for _, x in ipairs(c.items) do
@@ -751,7 +861,8 @@ function M.transcribe(notes, ctx)
         table.insert(by_voice[x.voice], x)
       end
       for v, xs in pairs(by_voice) do
-        out_chords[#out_chords + 1] = { q = c.q, staff = s, voice = v, items = xs, arpeggio = c.arpeggio, group = c.group }
+        out_chords[#out_chords + 1] =
+          { q = c.q, staff = s, voice = v, items = xs, arpeggio = c.arpeggio, group = c.group }
       end
     end
   end
@@ -810,7 +921,9 @@ function M.transcribe(notes, ctx)
             best, best_cost = nearer(k * beat_len / 2, k % 2 == 0 and 0 or 0.05, c.q, q_next, played_w, best, best_cost)
           end
           e = c.q + (best or g0)
-          if set.staccato and q_next < math.huge and played_w <= 0.55 * (e - c.q) and (e - c.q) <= beat_len + EPS then c.staccato = true end
+          if set.staccato and q_next < math.huge and played_w <= 0.55 * (e - c.q) and (e - c.q) <= beat_len + EPS then
+            c.staccato = true
+          end
           e = min(e, q_next)
         end
       end
@@ -824,7 +937,9 @@ function M.transcribe(notes, ctx)
   -- Grace notes go with the chord of their main note.
   local chord_of = {}
   for _, c in ipairs(out_chords) do
-    for _, x in ipairs(c.items) do chord_of[x] = c end
+    for _, x in ipairs(c.items) do
+      chord_of[x] = c
+    end
   end
   for _, x in ipairs(items) do
     if x.grace_of then
@@ -838,15 +953,25 @@ function M.transcribe(notes, ctx)
 
   local events = {}
   for _, c in ipairs(out_chords) do
-    local ev = { start = c.q, length = c.e - c.q, staff = c.staff, voice = c.voice, arpeggio = c.arpeggio, staccato = c.staccato, notes = {} }
+    local ev = {
+      start = c.q,
+      length = c.e - c.q,
+      staff = c.staff,
+      voice = c.voice,
+      arpeggio = c.arpeggio,
+      staccato = c.staccato,
+      notes = {},
+    }
     for j, x in ipairs(c.items) do
-      ev.notes[j] = { index = x.index, pitch = x.pitch, meta = x.meta, velocity = x.velocity, offset = x.s - c.q, played = x.len }
+      ev.notes[j] =
+        { index = x.index, pitch = x.pitch, meta = x.meta, velocity = x.velocity, offset = x.s - c.q, played = x.len }
     end
     if c.grace then
       sort(c.grace, by_s_pitch)
       ev.grace = {}
       for j, x in ipairs(c.grace) do
-        ev.grace[j] = { index = x.index, pitch = x.pitch, meta = x.meta, velocity = x.velocity, offset = x.s - c.q, played = x.len }
+        ev.grace[j] =
+          { index = x.index, pitch = x.pitch, meta = x.meta, velocity = x.velocity, offset = x.s - c.q, played = x.len }
       end
     end
     events[#events + 1] = ev
@@ -868,7 +993,19 @@ function M.raw(notes, ctx)
     if qe - qs < grid - EPS then qe = qs + grid end
     if n.start >= 0 and qs < finish - EPS and qs >= origin - EPS then
       local s = (two and n.pitch < 60) and 2 or 1
-      table.insert(by_staff[s], { index = index, pitch = n.pitch, meta = n.meta, velocity = n.velocity, s = qs, e = math.min(qe, finish), start = n.start, len = n.length })
+      table.insert(
+        by_staff[s],
+        {
+          index = index,
+          pitch = n.pitch,
+          meta = n.meta,
+          velocity = n.velocity,
+          s = qs,
+          e = math.min(qe, finish),
+          start = n.start,
+          len = n.length,
+        }
+      )
     end
   end
   local events = {}
@@ -892,7 +1029,14 @@ function M.raw(notes, ctx)
       if chords[i + 1] then c.e = min(c.e, chords[i + 1].s) end
       local ev = { start = c.s, length = c.e - c.s, staff = s, voice = 1, notes = {} }
       for j, n in ipairs(c.notes) do
-        ev.notes[j] = { index = n.index, pitch = n.pitch, meta = n.meta, velocity = n.velocity, offset = n.start - c.s, played = n.len }
+        ev.notes[j] = {
+          index = n.index,
+          pitch = n.pitch,
+          meta = n.meta,
+          velocity = n.velocity,
+          offset = n.start - c.s,
+          played = n.len,
+        }
       end
       events[#events + 1] = ev
     end

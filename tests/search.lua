@@ -28,7 +28,9 @@ local function song()
     local s = paw.qf.stack()
     s.lists, s.at = {}, 0
     paw.layout.only()
-    while #paw.ui.tabs > 1 do paw.layout.tab_close() end
+    while #paw.ui.tabs > 1 do
+      paw.layout.tab_close()
+    end
     paw.ui.views.pianoroll.clip_id = nil
     paw.ui.hide("pianoroll")
     paw.ui.focus("arrange")
@@ -37,20 +39,40 @@ local function song()
   local violas = paw.add_track({ name = "Violas" })
   local piano = paw.add_track({ name = "Piano" })
   local strings = paw.groups.make({ violins, violas }, "Strings")
-  local p1 = violins:add_clip({ name = "pizz", start = 0, length = 4, notes = { { "C5", 0, 1 }, { "G4", 1, 1 }, { "E5", 2, 1, 120 } } })
+  local p1 = violins:add_clip({
+    name = "pizz",
+    start = 0,
+    length = 4,
+    notes = { { "C5", 0, 1 }, { "G4", 1, 1 }, { "E5", 2, 1, 120 } },
+  })
   local p2 = violins:add_clip({ name = "arco", start = 4, length = 4, notes = { { "C6", 0, 2 } } })
   local p3 = violins:add_clip({ name = "pizz 2", start = 8, length = 4, notes = { { "D5", 0, 1 }, { "A3", 1, 1 } } })
   local va = violas:add_clip({ name = "pizz", start = 0, length = 4, notes = { { "C4", 0, 1 } } })
-  local pc = piano:add_clip({ name = "Verse", start = 0, length = 8, notes = {
-    { pitch = "C4", start = 0, length = 1, meta = { lyric = "la", notation = { art = { staccato = true } } } },
-    { pitch = "E4", start = 1, length = 1, meta = { lyric = "lo" } },
-    { pitch = "G4", start = 2, length = 1 },
-  } })
+  local pc = piano:add_clip({
+    name = "Verse",
+    start = 0,
+    length = 8,
+    notes = {
+      { pitch = "C4", start = 0, length = 1, meta = { lyric = "la", notation = { art = { staccato = true } } } },
+      { pitch = "E4", start = 1, length = 1, meta = { lyric = "lo" } },
+      { pitch = "G4", start = 2, length = 1 },
+    },
+  })
   paw.markers.add(0, "Intro")
   paw.markers.add(8, "Pizzicato", { length = 4 })
   paw.flush()
   api.undo_checkpoint()
-  return { violins = violins, violas = violas, piano = piano, strings = strings, p1 = p1, p2 = p2, p3 = p3, va = va, pc = pc }
+  return {
+    violins = violins,
+    violas = violas,
+    piano = piano,
+    strings = strings,
+    p1 = p1,
+    p2 = p2,
+    p3 = p3,
+    va = va,
+    pc = pc,
+  }
 end
 
 -- Regular expressions -----------------------------------------------------------------
@@ -82,7 +104,9 @@ end)
 test("search: fuzzy terms as fzf's, exact mode and regex mode", function()
   local function ranked(query, list, mode)
     local out = {}
-    for i, r in ipairs(pick.filter(query, list, nil, nil, mode)) do out[i] = r.text end
+    for i, r in ipairs(pick.filter(query, list, nil, nil, mode)) do
+      out[i] = r.text
+    end
     table.sort(out)
     return table.concat(out, ",")
   end
@@ -261,7 +285,9 @@ test("search: :vimgrep fills the quickfix list from every kind of text, and :cdo
   local list = paw.qf.current()
   eq(list.title, "vimgrep /pizz/", "titled by the pattern")
   local fields = {}
-  for _, e in ipairs(list.entries) do fields[#fields + 1] = e.text:match("^(%a+):") end
+  for _, e in ipairs(list.entries) do
+    fields[#fields + 1] = e.text:match("^(%a+):")
+  end
   eq(table.concat(fields, " "), "clip clip clip region", "clips and the region")
   paw.commands.exec("vimgrep /^l[ao]$/j lyric")
   eq(#paw.qf.current().entries, 2, "only lyrics")
@@ -289,10 +315,21 @@ end)
 test("search: the notation extension's text and dynamics are text to search", function()
   local s = song()
   if not package.loaded["notation.keys"] then paw.ext.load("extensions/notation") end
-  api.clip_set(s.pc.id, "meta", { notation = { version = 1, marks = { { kind = "text", at = 4, value = "Allegro" }, { kind = "dynamic", at = 0, value = "mf" } } } })
+  api.clip_set(
+    s.pc.id,
+    "meta",
+    {
+      notation = {
+        version = 1,
+        marks = { { kind = "text", at = 4, value = "Allegro" }, { kind = "dynamic", at = 0, value = "mf" } },
+      },
+    }
+  )
   paw.commands.exec("vimgrep /allegro|^mf$/j")
   local texts = {}
-  for _, e in ipairs(paw.qf.current().entries) do texts[#texts + 1] = e.text end
+  for _, e in ipairs(paw.qf.current().entries) do
+    texts[#texts + 1] = e.text
+  end
   eq(table.concat(texts, ", "), "text: Allegro, dynamic: mf", "both, with what they are")
 end)
 
@@ -300,7 +337,9 @@ end)
 
 local function names(nodes)
   local out = {}
-  for i, n in ipairs(nodes) do out[i] = n.kind == "note" and paw.music.name(n.data.pitch) or n.data.name or tostring(n.id) end
+  for i, n in ipairs(nodes) do
+    out[i] = n.kind == "note" and paw.music.name(n.data.pitch) or n.data.name or tostring(n.id)
+  end
   return table.concat(out, " ")
 end
 
@@ -315,7 +354,11 @@ test("search: queries find nodes by kind, fields and where they sit", function()
   eq(names(paw.query("note[pitch=c]")), "C5 C6 C4 C4", "a pitch in any octave")
   eq(names(paw.query("clip[name*=pizz][!muted], region")), "pizz pizz 2 pizz Pizzicato", "a list of queries")
   eq(names(paw.query("note[len>1/4]")), "C6", "a note value as a length")
-  eq(names(paw.query({ { "clip", name = "~= ^pizz$" }, ">", { "note", function(n) return n.data.pitch > 72 end } })), "E5", "the table form")
+  eq(
+    names(paw.query({ { "clip", name = "~= ^pizz$" }, ">", { "note", function(n) return n.data.pitch > 72 end } })),
+    "E5",
+    "the table form"
+  )
   local ok, err = pcall(paw.query, "clip[name~~x]")
   eq(ok, false, "a bad test is an error")
   has(err, "needs an operator", "that says what is wrong")
@@ -371,7 +414,8 @@ end)
 test("search: ]n and [n in the piano roll go to the notes of the same pitch", function()
   fresh()
   local t = paw.add_track({ name = "T" })
-  local c = t:add_clip({ start = 0, length = 8, notes = { { "C4", 0, 1 }, { "D4", 1, 1 }, { "C4", 3, 1 }, { "C4", 6, 1 } } })
+  local c =
+    t:add_clip({ start = 0, length = 8, notes = { { "C4", 0, 1 }, { "D4", 1, 1 }, { "C4", 3, 1 }, { "C4", 6, 1 } } })
   local roll = paw.ui.views.pianoroll
   roll:edit(c)
   T.after(function()
@@ -396,7 +440,9 @@ test("search: a hundred tracks of a hundred notes each stay quick to search", fu
   fresh()
   for i = 1, 100 do
     local notes = {}
-    for k = 1, 100 do notes[k] = { 48 + (k % 24), (k - 1) * 0.25, 0.25, 90, meta = k % 10 == 0 and { lyric = "la" .. k } or nil } end
+    for k = 1, 100 do
+      notes[k] = { 48 + (k % 24), (k - 1) * 0.25, 0.25, 90, meta = k % 10 == 0 and { lyric = "la" .. k } or nil }
+    end
     paw.add_track({ name = "Track " .. i }):add_clip({ name = "clip " .. i, start = 0, length = 32, notes = notes })
   end
   local t0 = api.now()
@@ -414,6 +460,9 @@ test("search: a hundred tracks of a hundred notes each stay quick to search", fu
   eq(#pick.state().matches > 0, true, "the notes picker narrows")
   paw.keymap.feed("<Esc>")
   -- Generous, for a loaded machine: the 1000-track measure is in the report.
-  eq(query_ms < 2000 and grep_ms < 2000 and pick_ms < 4000, true,
-    string.format("query %d ms, grep %d ms, notes picker %d ms", query_ms, grep_ms, pick_ms))
+  eq(
+    query_ms < 2000 and grep_ms < 2000 and pick_ms < 4000,
+    true,
+    string.format("query %d ms, grep %d ms, notes picker %d ms", query_ms, grep_ms, pick_ms)
+  )
 end)

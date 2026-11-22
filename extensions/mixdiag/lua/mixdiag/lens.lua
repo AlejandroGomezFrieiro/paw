@@ -31,8 +31,11 @@ function M.diagnostic(f)
   end
   return {
     range = { start = { line = 0, character = 0 }, ["end"] = { line = 0, character = 0 } },
-    severity = SEVERITY[f.severity] or 3, code = f.rule, source = "mixdiag",
-    message = mixdiag.format(f), data = { location = location, fixes = fixes, finding = f },
+    severity = SEVERITY[f.severity] or 3,
+    code = f.rule,
+    source = "mixdiag",
+    message = mixdiag.format(f),
+    data = { location = location, fixes = fixes, finding = f },
   }
 end
 
@@ -40,7 +43,9 @@ end
 function M.publish()
   if not (ctx and doc) then return end
   local list = {}
-  for _, f in ipairs(mixdiag.findings or {}) do list[#list + 1] = M.diagnostic(f) end
+  for _, f in ipairs(mixdiag.findings or {}) do
+    list[#list + 1] = M.diagnostic(f)
+  end
   ctx.notify("textDocument/publishDiagnostics", { uri = doc, diagnostics = list })
 end
 
@@ -57,7 +62,9 @@ M.server = {
   -- What was measured holds until it is measured again, whatever the faders do since.
   ["textDocument/didChange"] = function() end,
   ["textDocument/didClose"] = function() doc = nil end,
-  shutdown = function() ctx, doc = nil, nil end,
+  shutdown = function()
+    ctx, doc = nil, nil
+  end,
 }
 
 return M

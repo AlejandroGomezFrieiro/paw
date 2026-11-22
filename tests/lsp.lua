@@ -11,7 +11,9 @@ local function test(name, fn)
     local result = { xpcall(fn, debug.traceback) }
     paw.lsp.stop()
     paw.diagnostic.reset()
-    while paw.ui.float do paw.ui.close() end
+    while paw.ui.float do
+      paw.ui.close()
+    end
     paw.ui.views.pianoroll.clip_id = nil
     paw.ui.hide("pianoroll")
     paw.ui.focus("arrange")
@@ -35,9 +37,13 @@ local until_ = T.until_
 local function start()
   fresh()
   paw.lsp.stop()
-  for name in pairs(paw.lsp.configs) do paw.lsp.configs[name] = nil end
+  for name in pairs(paw.lsp.configs) do
+    paw.lsp.configs[name] = nil
+  end
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.focus("arrange")
 end
 
@@ -45,13 +51,20 @@ end
 --- server's range; opened in the piano roll.
 local function flute()
   local t = paw.add_track({ name = "Flute" })
-  local clip = t:add_clip({ start = 4, length = 4, notes = { { pitch = 60, start = 0, length = 1 }, { pitch = 96, start = 1, length = 1 } } })
+  local clip = t:add_clip({
+    start = 4,
+    length = 4,
+    notes = { { pitch = 60, start = 0, length = 1 }, { pitch = 96, start = 1, length = 1 } },
+  })
   paw.ui.views.pianoroll:edit(clip)
   return clip
 end
 
 local function range(extra)
-  paw.lsp.config("range", paw.util.merge({ cmd = { python(), SERVER }, init_options = { lo = 48, hi = 84 } }, extra or {}))
+  paw.lsp.config(
+    "range",
+    paw.util.merge({ cmd = { python(), SERVER }, init_options = { lo = 48, hi = 84 } }, extra or {})
+  )
   paw.lsp.enable("range")
 end
 
@@ -64,15 +77,19 @@ end
 -- The protocol ---------------------------------------------------------------
 
 test("lsp: messages are framed as lines or with Content-Length, and read back whole however they arrive", function()
-  local message = { jsonrpc = "2.0", id = 3, method = "midi/hover", params = { tick = 960, pitch = 60.0, name = "é \"q\"\n" } }
+  local message =
+    { jsonrpc = "2.0", id = 3, method = "midi/hover", params = { tick = 960, pitch = 60.0, name = 'é "q"\n' } }
   for _, framing in ipairs({ "lines", "headers" }) do
-    local bytes = rpc.frame(message, framing) .. rpc.frame({ jsonrpc = "2.0", method = "initialized", params = rpc.object() }, framing)
+    local bytes = rpc.frame(message, framing)
+      .. rpc.frame({ jsonrpc = "2.0", method = "initialized", params = rpc.object() }, framing)
     local reader, got = rpc.reader(framing), {}
     for i = 1, #bytes, 7 do
-      for _, m in ipairs(reader:push(bytes:sub(i, i + 6))) do got[#got + 1] = m end
+      for _, m in ipairs(reader:push(bytes:sub(i, i + 6))) do
+        got[#got + 1] = m
+      end
     end
     eq(#got, 2, framing .. ": two messages")
-    eq(got[1].params.name, "é \"q\"\n", framing .. ": text survives")
+    eq(got[1].params.name, 'é "q"\n', framing .. ": text survives")
     eq(got[1].params.pitch, 60, framing .. ": numbers survive")
     eq(paw.json.encode(got[2].params), "{}", framing .. ": an empty object stays an object")
   end
@@ -85,8 +102,14 @@ test("lsp: a clip becomes MIDI LSP's document, with what sounds with it", functi
   paw.tempo.set(0, 100)
   local clip = flute()
   local bass = paw.add_track({ name = "Bass" })
-  bass:add_clip({ start = 2, length = 8, notes = { { pitch = 36, start = 3, length = 2 }, { pitch = 40, start = 7, length = 1 } } })
-  paw.add_track({ name = "Drums" }):add_clip({ start = 4, length = 4, notes = { { pitch = 36, start = 0, length = 0.25 } } })
+  bass:add_clip({
+    start = 2,
+    length = 8,
+    notes = { { pitch = 36, start = 3, length = 2 }, { pitch = 40, start = 7, length = 1 } },
+  })
+  paw
+    .add_track({ name = "Drums" })
+    :add_clip({ start = 4, length = 4, notes = { { pitch = 36, start = 0, length = 0.25 } } })
   paw.harmony.set_key("D harmonic minor")
   paw.flush()
   local doc = document.build(clip.id)
@@ -94,15 +117,27 @@ test("lsp: a clip becomes MIDI LSP's document, with what sounds with it", functi
   eq(doc.hash, document.key_of(clip.id), "under its key")
   eq(doc.ppq, 960, "ticks to the beat")
   eq(#doc.notes, 2, "its notes")
-  eq(string.format("%d %d %d %d %d", doc.notes[2].id, doc.notes[2].pitch, doc.notes[2].start, doc.notes[2]["end"], doc.notes[2].vel),
-    clip:notes()[2].id .. " 96 960 1920 100", "the second note: its own id, ticks from the clip's start")
+  eq(
+    string.format(
+      "%d %d %d %d %d",
+      doc.notes[2].id,
+      doc.notes[2].pitch,
+      doc.notes[2].start,
+      doc.notes[2]["end"],
+      doc.notes[2].vel
+    ),
+    clip:notes()[2].id .. " 96 960 1920 100",
+    "the second note: its own id, ticks from the clip's start"
+  )
   eq(doc.track.name, "Flute", "the track")
   eq(doc.key.root .. " " .. doc.key.scale, "2 harmonic minor", "the project's key")
   eq(doc.tempi[1].bpm, 100, "the tempo")
   eq(doc.barStart, 0, "it starts on a bar line")
   eq(#doc.context, 2, "two other tracks sound with it")
   local by = {}
-  for _, c in ipairs(doc.context) do by[c.track.name] = c end
+  for _, c in ipairs(doc.context) do
+    by[c.track.name] = c
+  end
   eq(#by.Bass.notes, 1, "the bass note that overlaps it")
   eq(by.Bass.notes[1].start, 960, "in this clip's ticks")
   eq(by.Drums.track.tag, "drums", "drums say so")
@@ -259,11 +294,16 @@ test("lsp: a server that dies is restarted as its config allows, and its diagnos
   eq(deaths(), 2, "not restarted a second time")
   eq(status("range"), "dead", "left dead")
   eq(#paw.diagnostic.get(), 0, "nothing said")
-  local info = table.concat((function()
-    local out = {}
-    for _, l in ipairs(paw.lsp.info_lines()) do out[#out + 1] = type(l) == "table" and l.text or l end
-    return out
-  end)(), "\n")
+  local info = table.concat(
+    (function()
+      local out = {}
+      for _, l in ipairs(paw.lsp.info_lines()) do
+        out[#out + 1] = type(l) == "table" and l.text or l
+      end
+      return out
+    end)(),
+    "\n"
+  )
   eq(info:find("range  dead", 1, true) ~= nil, true, ":lsp info says so")
   paw.lsp.stop()
 end)

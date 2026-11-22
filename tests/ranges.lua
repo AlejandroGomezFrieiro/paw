@@ -5,12 +5,16 @@ local T = ...
 local test, eq, fails, keys = T.test, T.eq, T.fails, T.keys
 
 local got
-paw.command("test.range", function(ctx)
-  got = { range = ctx.range, selection = paw.keymap.selection(), args = ctx.args }
-end, { range = true, desc = "Remember the range it was given" })
-paw.command("test.norange", function(ctx)
-  got = { range = ctx.range, selection = paw.keymap.selection() }
-end, { desc = "Remember the selection it saw" })
+paw.command(
+  "test.range",
+  function(ctx) got = { range = ctx.range, selection = paw.keymap.selection(), args = ctx.args } end,
+  { range = true, desc = "Remember the range it was given" }
+)
+paw.command(
+  "test.norange",
+  function(ctx) got = { range = ctx.range, selection = paw.keymap.selection() } end,
+  { desc = "Remember the selection it saw" }
+)
 
 test("ranges: : in visual mode starts the prompt with '<,'>, and the command gets the selection", function()
   T.three_clips()

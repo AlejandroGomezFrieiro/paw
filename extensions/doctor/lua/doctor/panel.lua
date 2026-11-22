@@ -33,8 +33,12 @@ function view.model()
     local id = doctor.id_of(check)
     local result = doctor.results[id]
     rows[#rows + 1] = {
-      check = check, index = index, id = id, result = result,
-      mark = result and result.status or nil, summary = result and result.summary or "",
+      check = check,
+      index = index,
+      id = id,
+      result = result,
+      mark = result and result.status or nil,
+      summary = result and result.summary or "",
       running = run and run.running and run.current == check,
     }
   end
@@ -44,7 +48,9 @@ function view.model()
   end
   view.row = util.clamp(view.row, 1, math.max(1, #rows))
   return {
-    rows = rows, run = run, running = run and run.running,
+    rows = rows,
+    run = run,
+    running = run and run.running,
     prompt = run and run.running and run.prompt or nil,
     say = run and run.running and run.say or nil,
     meters = run and run.running and run.meters or nil,

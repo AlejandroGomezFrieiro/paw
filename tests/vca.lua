@@ -10,11 +10,20 @@ local function db(x) return 10 ^ (x / 20) end
 --- A track holding a steady level of `level` for 8 beats (4 s at 120 BPM).
 local function steady_track(name, level)
   local t = paw.add_track({ name = name })
-  t:add_clip({ file = T.write_wav(T.scratch .. "/vca-" .. name .. ".wav", (function()
-    local s = {}
-    for i = 1, 4 * 48000 do s[i] = level end
-    return s
-  end)()), start = 0, length = 8 })
+  t:add_clip({
+    file = T.write_wav(
+      T.scratch .. "/vca-" .. name .. ".wav",
+      (function()
+        local s = {}
+        for i = 1, 4 * 48000 do
+          s[i] = level
+        end
+        return s
+      end)()
+    ),
+    start = 0,
+    length = 8,
+  })
   return t
 end
 
@@ -129,7 +138,11 @@ test("renders with VCA automation are the same on any number of threads", functi
     local info = render({ tail = 0, bits = 32, threads = threads })
     local data = T.read_file(info.path)
     first = first or data
-    eq(data == first, true, "the render on " .. threads .. " thread" .. (threads == 1 and "" or "s") .. " is the same bytes")
+    eq(
+      data == first,
+      true,
+      "the render on " .. threads .. " thread" .. (threads == 1 and "" or "s") .. " is the same bytes"
+    )
   end
 end)
 
@@ -153,7 +166,12 @@ test("VCAs are saved with the project and undone", function()
   eq(paw.vca.is_vca(loaded), true, "the VCA comes back")
   eq(#paw.vca.members(loaded), 2, "with its members")
   eq(paw.vca.of(paw.track("Kick"))[1], loaded.id, "which know it")
-  near(peak(0.2, 3, { tail = 0, bits = 16, tracks = { paw.track("Kick").id } }), 0.5 * db(-9), 0.002, "and sounds the same")
+  near(
+    peak(0.2, 3, { tail = 0, bits = 16, tracks = { paw.track("Kick").id } }),
+    0.5 * db(-9),
+    0.002,
+    "and sounds the same"
+  )
 
   api.undo_checkpoint()
   paw.vca.unassign(paw.track("Snare"), loaded)
@@ -164,7 +182,12 @@ test("VCAs are saved with the project and undone", function()
   paw.vca.dissolve(loaded)
   eq(paw.track("Drums"), nil, "a dissolved VCA is gone")
   eq(#(paw.track("Kick"):get().meta.vcas or {}), 0, "and the tracks forget it")
-  near(peak(0.2, 3, { tail = 0, bits = 16, tracks = { paw.track("Kick").id } }), 0.5, 0.002, "and are at their own faders")
+  near(
+    peak(0.2, 3, { tail = 0, bits = 16, tracks = { paw.track("Kick").id } }),
+    0.5,
+    0.002,
+    "and are at their own faders"
+  )
   api.undo_checkpoint()
   paw.undo()
   eq(#paw.vca.members(paw.track("Drums")), 2, "undone, it holds them again")
@@ -204,11 +227,15 @@ test("VCAs are drawn after the tracks, in the arrange view's rows and the mixer'
   paw.vca.make({ kick }, "Drums")
   paw.add_track({ name = "Late" })
   local names = {}
-  for i, id in ipairs(paw.groups.rows()) do names[i] = api.track_get(id).name end
+  for i, id in ipairs(paw.groups.rows()) do
+    names[i] = api.track_get(id).name
+  end
   eq(table.concat(names, " "), "Kick Snare Pad Late Drums", "the VCA comes last however it was made")
   local state = paw.frontend.state(0)
   local by_name = {}
-  for _, t in ipairs(state.tracks) do by_name[t.name] = t end
+  for _, t in ipairs(state.tracks) do
+    by_name[t.name] = t
+  end
   eq(by_name.Drums.vca, true, "the window is told which track is a VCA")
   eq(by_name.Drums.vcas, "Kick", "and whom it moves")
   eq(by_name.Kick.vcas, "Drums", "a member, which VCAs move it")
@@ -219,7 +246,11 @@ test("VCAs are drawn after the tracks, in the arrange view's rows and the mixer'
   paw.opt.mixer_height = 16
   paw.ui.focus("mixer")
   local screen = table.concat(api.ui_snapshot(120, 60), "\n")
-  eq(screen:find("Drums", 1, true) ~= nil and screen:find("no tracks", 1, true) == nil, true, "the mixer draws the VCA's strip")
+  eq(
+    screen:find("Drums", 1, true) ~= nil and screen:find("no tracks", 1, true) == nil,
+    true,
+    "the mixer draws the VCA's strip"
+  )
   eq(screen:find("vca Dru", 1, true) ~= nil, true, "and names a member's VCA\n" .. screen)
   paw.opt.mixer_height = was
   paw.ui.focus("arrange")
@@ -294,4 +325,3 @@ test("track.group with no name asks for one", function()
   paw.keymap.feed("<C-u>Pair<CR>")
   eq(paw.groups.is_group(paw.track("Pair")), true, "and the answer names the group")
 end)
-

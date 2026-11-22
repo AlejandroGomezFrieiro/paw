@@ -79,7 +79,12 @@ local record types
   end
 
   enum ControlType
-    "cc" "bend" "pressure" "registered" "assignable" "program"
+    "cc"
+    "bend"
+    "pressure"
+    "registered"
+    "assignable"
+    "program"
   end
 
   --- A controller move of a MIDI clip (`model::Control`): `start` in beats,
@@ -98,7 +103,14 @@ local record types
   end
 
   enum MidiEventType
-    "note_on" "note_off" "cc" "bend" "pressure" "registered" "assignable" "program"
+    "note_on"
+    "note_off"
+    "cc"
+    "bend"
+    "pressure"
+    "registered"
+    "assignable"
+    "program"
   end
 
   --- A MIDI message from a script (`api.rs` `midi_kind`): a note
@@ -170,7 +182,10 @@ local record types
   end
 
   enum MidiOutForm
-    "auto" "plain" "mpe" "cc14"
+    "auto"
+    "plain"
+    "mpe"
+    "cc14"
   end
 
   --- Where a track sends MIDI (`model::MidiOutput`).
@@ -182,7 +197,11 @@ local record types
   end
 
   enum AutoMode
-    "read" "touch" "latch" "write" "off"
+    "read"
+    "touch"
+    "latch"
+    "write"
+    "off"
   end
 
   --- One articulation of an attribute map (`attr_map::Art`), as a table;
@@ -193,7 +212,8 @@ local record types
   end
 
   enum AttrSend
-    "change" "every"
+    "change"
+    "every"
   end
 
   --- A track's attribute map (`attr_map::AttrMap`, see attr_map.rs). As
@@ -272,7 +292,10 @@ local record types
   -- Devices (session/devices.rs) ---------------------------------------------
 
   enum ParamKind
-    "boolean" "enum" "stepped" "continuous"
+    "boolean"
+    "enum"
+    "stepped"
+    "continuous"
   end
 
   --- A parameter of a device (`session.rs` `param_json`). In a device's
@@ -338,11 +361,16 @@ local record types
   end
 
   enum DeviceStatus
-    "running" "loading" "stopped" "offline" "missing"
+    "running"
+    "loading"
+    "stopped"
+    "offline"
+    "missing"
   end
 
   enum EditorState
-    "open" "closed"
+    "open"
+    "closed"
   end
 
   --- `paw.api.device_get(id)` (`Session::device_view`). `params` is each
@@ -413,11 +441,15 @@ local record types
   type ClipKind = string
 
   enum Timebase
-    "time" "beats" "stretch"
+    "time"
+    "beats"
+    "stretch"
   end
 
   enum StretchMode
-    "auto" "tonal" "percussive"
+    "auto"
+    "tonal"
+    "percussive"
   end
 
   --- A warp marker of an audio clip: moments of its file in seconds; in a
@@ -506,7 +538,8 @@ local record types
   end
 
   enum Timeline
-    "beats" "seconds"
+    "beats"
+    "seconds"
   end
 
   --- A plain value that a kind serialized its data or a signal's body to
@@ -577,7 +610,9 @@ local record types
   end
 
   enum AudioEditKind
-    "reverse" "gain" "pencil"
+    "reverse"
+    "gain"
+    "pencil"
   end
 
   --- An edit of an audio clip's sound (`edits::AudioEdit`), in seconds of
@@ -617,7 +652,14 @@ local record types
   -- Cues (session/cues.rs) ---------------------------------------------------
 
   enum Quantize
-    "off" "1/16" "1/8" "1/4" "beat" "bar" "2bars" "4bars"
+    "off"
+    "1/16"
+    "1/8"
+    "1/4"
+    "beat"
+    "bar"
+    "2bars"
+    "4bars"
   end
 
   --- One track's cue for `paw.api.cue` (`CueOpts`): a `clip` of its cues,
@@ -648,7 +690,10 @@ local record types
   -- Automation (session/automation.rs) ---------------------------------------
 
   enum LaneTarget
-    "volume" "pan" "param" "state"
+    "volume"
+    "pan"
+    "param"
+    "state"
   end
 
   --- `paw.api.lane_get(id)` and each entry of `lane_list`
@@ -691,7 +736,9 @@ local record types
   type LanePoint = {number, number}
 
   enum LaneShape
-    "linear" "hold" "smooth"
+    "linear"
+    "hold"
+    "smooth"
   end
 
   --- The shape of the stretch that leaves the point at `beat`
@@ -910,7 +957,10 @@ local record types
   end
 
   enum PreviewState
-    "loading" "playing" "ended" "failed"
+    "loading"
+    "playing"
+    "ended"
+    "failed"
   end
 
   --- `paw.api.preview_get()` (`Session::preview_view`): times in seconds,
@@ -1208,7 +1258,8 @@ local record types
   end
 
   enum RenderStage
-    "rendering" "encoding"
+    "rendering"
+    "encoding"
   end
 
   --- The render that runs (`Session::render_status`).
@@ -1358,7 +1409,9 @@ local record types
   -- Files, processes, the kernel (fs_api.rs, io.rs, api.rs) ---------------------
 
   enum FileKind
-    "file" "dir" "link"
+    "file"
+    "dir"
+    "link"
   end
 
   --- `paw.api.fs_stat(path)`: `dir` whether a link leads to a directory,
@@ -1396,7 +1449,7 @@ local record types
     min: integer
     float_below: integer
     hidden: boolean
-    opts: {string:string | number | boolean}
+    opts: {string: string | number | boolean}
     dir: string
     children: {SavedNode}
   end
@@ -1421,7 +1474,7 @@ local record types
   --- project saved with one layout has the fields of that layout instead.
   record ProjectScreen
     default: SavedLayout
-    seats: {string:SavedLayout}
+    seats: {string: SavedLayout}
     tab: integer
     tabs: {SavedTab}
   end

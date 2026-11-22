@@ -23,7 +23,9 @@ end
 --- The names in a directory, hidden ones too, sorted.
 local function names(dir)
   local out = {}
-  for _, e in ipairs(api.read_dir(dir)) do out[#out + 1] = e.name end
+  for _, e in ipairs(api.read_dir(dir)) do
+    out[#out + 1] = e.name
+  end
   table.sort(out)
   return table.concat(out, " ")
 end
@@ -42,7 +44,9 @@ local function wait_idle()
   error("the render did not end")
 end
 
-local function missing() if not have("ffmpeg") then return "skipped: ffmpeg not found" end end
+local function missing()
+  if not have("ffmpeg") then return "skipped: ffmpeg not found" end
+end
 
 test("a render to MP3, Ogg Vorbis and Opus has the length asked for and leaves nothing else", function()
   if missing() then return missing() end
@@ -65,7 +69,8 @@ test("a render to MP3, Ogg Vorbis and Opus has the length asked for and leaves n
   paw.project.name = "Sunrise"
   paw.render(dir .. "/titled.mp3", { tail = 0 })
   if have("ffprobe") then
-    local p = io.popen("ffprobe -v error -show_entries format_tags=title -of csv=p=0 " .. sh_quote(dir .. "/titled.mp3"))
+    local p =
+      io.popen("ffprobe -v error -show_entries format_tags=title -of csv=p=0 " .. sh_quote(dir .. "/titled.mp3"))
     local title = p:read("*l")
     p:close()
     eq(title, "Sunrise", "the project's name is the title")
@@ -87,7 +92,11 @@ test("quality and bitrate change the size of a lossy file", function()
   paw.render(dir .. "/num.mp3", { tail = 0, bitrate = 64 })
   paw.render(dir .. "/num320.mp3", { tail = 0, bitrate = 320 })
   eq(#T.read_file(dir .. "/num.mp3") < #T.read_file(dir .. "/num320.mp3"), true, "a bitrate in kbit/s is taken")
-  fails(function() paw.render(dir .. "/x.mp3", { tail = 0, quality = "loud" }) end, "quality", "a quality that is not one is refused")
+  fails(
+    function() paw.render(dir .. "/x.mp3", { tail = 0, quality = "loud" }) end,
+    "quality",
+    "a quality that is not one is refused"
+  )
   eq(names(dir):find("%.part") == nil, true, "nothing partial is left, even after a refusal")
 end)
 
@@ -105,7 +114,9 @@ test("a background render to MP3 reports the final file once", function()
   local path = dir .. "/bg.mp3"
   eq(paw.render(path, { tail = 0, background = true }), nil, "it returns at once")
   wait_idle()
-  for _, h in ipairs(handles) do paw.off(h) end
+  for _, h in ipairs(handles) do
+    paw.off(h)
+  end
   local ends = {}
   for _, ev in ipairs(events) do
     if ev.name ~= "render.progress" then ends[#ends + 1] = ev.name .. " " .. ev.e.path end
@@ -141,18 +152,28 @@ test("cancelling during the encode stops it and leaves nothing", function()
   while api.now() < deadline do
     local s = paw.render_status()
     if not s then break end
-    if s.stage == "encoding" then seen = s break end
+    if s.stage == "encoding" then
+      seen = s
+      break
+    end
     paw.wait(2)
   end
   if not seen then
-    if paw.render_status() then paw.cmd("render.cancel") wait_idle() end
-    for _, h in ipairs(handles) do paw.off(h) end
+    if paw.render_status() then
+      paw.cmd("render.cancel")
+      wait_idle()
+    end
+    for _, h in ipairs(handles) do
+      paw.off(h)
+    end
   end
   eq(seen ~= nil, true, "the status says it is encoding")
   eq(seen.fraction < 1, true, "and is not at 100%")
   paw.cmd("render.cancel")
   wait_idle()
-  for _, h in ipairs(handles) do paw.off(h) end
+  for _, h in ipairs(handles) do
+    paw.off(h)
+  end
   eq(table.concat(events, ","), "render.cancelled", "it says once that it was cancelled")
   eq(names(out), "", "no file, no part, no temporary WAV")
 end)
@@ -170,13 +191,19 @@ test("without ffmpeg a lossy format is refused before anything is rendered, and 
   local heard = false
   local off = paw.on("render.before", function() heard = true end)
   fails(function() paw.render(dir .. "/a.mp3", { tail = 0 }) end, "ffmpeg", "the message says ffmpeg is needed")
-  fails(function() paw.render(dir .. "/a.opus", { tail = 0, background = true }) end, "WAV %(%.wav%) or FLAC", "and how formats that need nothing are named")
+  fails(
+    function() paw.render(dir .. "/a.opus", { tail = 0, background = true }) end,
+    "WAV %(%.wav%) or FLAC",
+    "and how formats that need nothing are named"
+  )
   fails(function() paw.cmd("render", { dir .. "/a.ogg" }) end, "ffmpeg", "the command too")
   fails(function() paw.render_stems(dir .. "/stems", { format = "mp3" }) end, "ffmpeg", "stems too")
   paw.off(off)
   eq(heard, false, "nothing was rendered")
   local by = {}
-  for _, f in ipairs(api.render_formats(paw.opt.ffmpeg)) do by[f.name] = f end
+  for _, f in ipairs(api.render_formats(paw.opt.ffmpeg)) do
+    by[f.name] = f
+  end
   eq(by.MP3.available, false, "MP3 is not available")
   eq(type(by.MP3.why), "string", "and says why")
   eq(by.WAV.available, true, "WAV needs nothing")

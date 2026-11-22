@@ -39,7 +39,10 @@ end
 
 -- The description for the JUCE layer: a tree after "T3KB" in each format.
 M.desc = jucestate.plugin({
-  name = "tone3000", title = "TONE3000", prefix = "T3KB", root = "TONE3000State",
+  name = "tone3000",
+  title = "TONE3000",
+  prefix = "T3KB",
+  root = "TONE3000State",
   ids = { clap = M.IDS.clap, lv2 = M.IDS.lv2, vst3 = "TONE3000" },
   params = "/TONE3000State/PARAMETERS",
   paths = { preset = "/TONE3000State@activePresetName", preset_id = "/TONE3000State@activePresetId" },
@@ -95,12 +98,18 @@ function M.apply_preset(root, preset, header)
   local chain = juce.child(preset, "ChainSnapshot")
   if not chain then error("the preset has no chain", 0) end
   local _, at = juce.child(root, "ChainSnapshot")
-  if at then root.children[at] = chain else root.children[#root.children + 1] = chain end
+  if at then
+    root.children[at] = chain
+  else
+    root.children[#root.children + 1] = chain
+  end
   local params = juce.child(root, "PARAMETERS")
   local values = juce.child(preset, "Params")
   if params and values then
     local by_id = {}
-    for _, p in ipairs(params.children) do by_id[juce.get(p, "id")] = p end
+    for _, p in ipairs(params.children) do
+      by_id[juce.get(p, "id")] = p
+    end
     for _, v in ipairs(values.children) do
       local p = by_id[juce.get(v, "id")]
       if p then juce.set(p, "value", juce.get(v, "value")) end
@@ -143,7 +152,9 @@ function M.block_info(block)
   end
   info.model = juce.get(block, "activeModelId")
   local cache = juce.child(block, "ModelCache")
-  for _, c in ipairs(cache and cache.children or {}) do info.cached[juce.get(c, "modelId")] = true end
+  for _, c in ipairs(cache and cache.children or {}) do
+    info.cached[juce.get(c, "modelId")] = true
+  end
   for _, m in ipairs(info.models) do
     if m.id == info.model then
       info.model_name = m.name
@@ -166,13 +177,15 @@ end
 
 --- Where TONE3000 keeps its files: `~/.config/TONE3000` (JUCE's folder of
 --- application data; it does not read XDG_CONFIG_HOME).
-function M.root()
-  return (os.getenv("HOME") or "") .. "/.config/TONE3000"
-end
+function M.root() return (os.getenv("HOME") or "") .. "/.config/TONE3000" end
 
 local EQ_BANDS = {
-  { "lowshelf", 100, 0.71 }, { "bell", 250, 1 }, { "bell", 650, 1 },
-  { "bell", 1600, 1 }, { "bell", 3500, 1.4 }, { "highshelf", 8000, 0.71 },
+  { "lowshelf", 100, 0.71 },
+  { "bell", 250, 1 },
+  { "bell", 650, 1 },
+  { "bell", 1600, 1 },
+  { "bell", 3500, 1.4 },
+  { "highshelf", 8000, 0.71 },
 }
 
 local function flat_eq()
@@ -195,7 +208,10 @@ function M.set_file(block, path)
   local stash = string.format("%s/LocalModels/%s-%d.%s", M.root(), bit.tohex(hash):gsub("^0+", ""), #data, ext)
   local stem = plugstate.stem(path)
   local tone = {
-    id = 0, ["local"] = true, title = stem, format = ext == "nam" and "nam" or "ir",
+    id = 0,
+    ["local"] = true,
+    title = stem,
+    format = ext == "nam" and "nam" or "ir",
     -- `paw_path`: the file the user chose, for paw; the plugin keeps the
     -- tone's JSON as it is.
     models = { { id = id, name = stem, model_url = "file://" .. stash, paw_path = path } },
@@ -223,7 +239,9 @@ function M.set_model(block, words)
   local lower = words:lower()
   for _, m in ipairs(info.models) do
     if (m.name or ""):lower():find(lower, 1, true) then
-      if not info.cached[m.id] then error("the model " .. m.name .. " is not in the block (open the window to get it)", 0) end
+      if not info.cached[m.id] then
+        error("the model " .. m.name .. " is not in the block (open the window to get it)", 0)
+      end
       juce.set(block, "activeModelId", m.id, "int")
       return m
     end
@@ -237,7 +255,9 @@ end
 --- under its folder), and the factory presets that come with it.
 function M.preset_folders()
   local dirs = { M.root() .. "/Presets" }
-  for _, dir in ipairs(plugstate.share_dirs("tone3000/factory-presets")) do dirs[#dirs + 1] = dir end
+  for _, dir in ipairs(plugstate.share_dirs("tone3000/factory-presets")) do
+    dirs[#dirs + 1] = dir
+  end
   return dirs
 end
 
@@ -259,18 +279,27 @@ function M.slots(id, d)
   local name = juce.get(root, "activePresetName")
   local slots = {
     {
-      key = "preset", label = "Preset", what = "preset", kind = "file", types = { "t3kpreset" },
+      key = "preset",
+      label = "Preset",
+      what = "preset",
+      kind = "file",
+      types = { "t3kpreset" },
       folders = M.preset_folders(),
       value = preset_path(juce.get(root, "activePresetId"), name) or (name ~= "" and name or nil),
     },
   }
   for _, b in ipairs(M.blocks(root)) do
     local info = M.block_info(b.block)
-    local what = info.type == "nam" and "model" or (info.type == "ir" and "impulse response" or "model or impulse response")
+    local what = info.type == "nam" and "model"
+      or (info.type == "ir" and "impulse response" or "model or impulse response")
     local label = (b.row == "ChainBlocks" and "Block " or "Right block ") .. b.n
     if info.title then label = label .. " (" .. info.title .. ")" end
     slots[#slots + 1] = {
-      key = b.key, label = label, what = what, kind = "file", types = { "nam", "wav" },
+      key = b.key,
+      label = label,
+      what = what,
+      kind = "file",
+      types = { "nam", "wav" },
       value = info.path or info.model_name or info.title,
       models = info.models,
     }

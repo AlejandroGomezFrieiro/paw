@@ -45,7 +45,9 @@ test("yank and paste work on clips, stretches of time and whole tracks", functio
   keys("2p")
   eq(layout(t), "a@0+4 a@4+4 a@8+4 a@12+4 a@16+4", "a count pastes that many times")
   eq(paw.cursor.beat, 16, "the cursor is on the last copy")
-  paw.undo() paw.undo() paw.undo()
+  paw.undo()
+  paw.undo()
+  paw.undo()
   eq(layout(t), "a@0+4 b@4+4 c@8+4", "each paste is one undo step")
 
   -- A named register is not disturbed by what is deleted later.
@@ -80,7 +82,11 @@ test("yank and paste work on clips, stretches of time and whole tracks", functio
   eq(value.kind .. value.length .. #value.rows, "range42", "v with j selects the same stretch on two tracks")
   keys("3Wk")
   keys("p")
-  eq(layout(paw.tracks()[1]) .. " | " .. layout(paw.tracks()[2]), "a@0+4 b@4+4 c@8+4 b@16+4 | a@0+4 b@4+4 c@8+4 b@16+4", "and it is pasted on both")
+  eq(
+    layout(paw.tracks()[1]) .. " | " .. layout(paw.tracks()[2]),
+    "a@0+4 b@4+4 c@8+4 b@16+4 | a@0+4 b@4+4 c@8+4 b@16+4",
+    "and it is pasted on both"
+  )
 
   paw.opt.ripple = true
   paw.cursor.set_beat(0)
@@ -128,7 +134,11 @@ test("visual mode selects time, tracks, and what a text object names", function(
   keys("jgcck")
 
   keys("vee<C-a>")
-  eq(melody(t:clips()[1]):sub(1, 6) .. melody(t:clips()[3]):sub(1, 6), "61@0+160@0+1", "<C-a> transposes the selected clips")
+  eq(
+    melody(t:clips()[1]):sub(1, 6) .. melody(t:clips()[3]):sub(1, 6),
+    "61@0+160@0+1",
+    "<C-a> transposes the selected clips"
+  )
   keys("0veJ")
   eq(layout(t), "a@0+4 b@4+4 c@8+4", "J needs two clips")
   keys("veeeJ")
@@ -144,7 +154,11 @@ end)
 test("the other operators shift, quantize, loop and change", function()
   local t = three_clips()
   keys(">ic")
-  eq(layout(t) .. " cursor " .. paw.cursor.beat, "a@1+4 b@4+4 c@8+4 cursor 1", "> moves the clip a grid step, and the cursor with it")
+  eq(
+    layout(t) .. " cursor " .. paw.cursor.beat,
+    "a@1+4 b@4+4 c@8+4 cursor 1",
+    "> moves the clip a grid step, and the cursor with it"
+  )
   keys("u")
   keys("3>>")
   eq(layout(t), "a@1+4 b@5+4 c@9+4", ">> moves every clip of the track")
@@ -154,9 +168,17 @@ test("the other operators shift, quantize, loop and change", function()
   t:clips()[2]:set_notes({ { pitch = 60, start = 0.1, length = 0.5 } })
   api.undo_checkpoint()
   keys("==")
-  eq(layout(t) .. " " .. melody(t:clips()[2]), "a@0+4 b@4+4 c@8+4 60@0+0.5", "== snaps clips and their notes to the grid")
+  eq(
+    layout(t) .. " " .. melody(t:clips()[2]),
+    "a@0+4 b@4+4 c@8+4 60@0+0.5",
+    "== snaps clips and their notes to the grid"
+  )
   keys("wglic")
-  eq(paw.transport.loop_start .. "-" .. paw.transport.loop_end .. tostring(paw.transport.loop_enabled), "4-8true", "gl loops what the motion covers")
+  eq(
+    paw.transport.loop_start .. "-" .. paw.transport.loop_end .. tostring(paw.transport.loop_enabled),
+    "4-8true",
+    "gl loops what the motion covers"
+  )
   paw.transport.loop_enabled = false
   keys("cic")
   eq(paw.ui.focused .. paw.keymap.mode, "pianorolli", "c opens a fresh clip for entering notes")
@@ -178,11 +200,13 @@ test("the dot, macros, marks, jumps and search repeat and find things", function
   keys("x")
   keys("w.")
   eq(layout(t), "c@8+4", ". repeats the last change")
-  paw.undo() paw.undo()
+  paw.undo()
+  paw.undo()
   keys("0L")
   keys("3.")
   eq(layout(t), "a@4+4 b@4+4 c@8+4", "a count on . replaces the one it had")
-  paw.undo() paw.undo()
+  paw.undo()
+  paw.undo()
   paw.cursor.set_beat(0)
   keys("jk.")
   eq(layout(t), "a@1+4 b@4+4 c@8+4", "moving the cursor is not a change: . still repeats the one before")
@@ -194,7 +218,8 @@ test("the dot, macros, marks, jumps and search repeat and find things", function
   eq(layout(t), "", "@ plays them, with a count")
   keys("@@")
   eq(layout(t) .. paw.keymap.mode, "n", "@@ plays the last one again, here with nothing left to delete")
-  paw.undo() paw.undo()
+  paw.undo()
+  paw.undo()
   eq(layout(t), "a@0+4 b@4+4 c@8+4", "a macro is undone in one step")
   keys(":track.volume by=-2<CR>")
   keys("@:")
@@ -234,7 +259,9 @@ test("half-typed commands show what can follow, and are counted right", function
   eq(paw.keymap.mode, "o", "an operator is waiting")
   local hints, title = paw.keymap.hints()
   local found = {}
-  for _, hint in ipairs(hints) do found[hint.key] = hint.desc end
+  for _, hint in ipairs(hints) do
+    found[hint.key] = hint.desc
+  end
   eq(found.w, "Start of the next clip", "motions are offered")
   eq(found.i, "+7 more", "and the start of text objects")
   eq(title, "Delete …", "under the operator's name")
@@ -298,9 +325,12 @@ test("the piano roll has the same grammar for notes", function()
   local t = three_clips()
   local clip = t:clips()[1]
   clip:set_notes({
-    { pitch = 60, start = 0, length = 0.5 }, { pitch = 64, start = 0.5, length = 0.5 },
-    { pitch = 67, start = 1, length = 1 }, { pitch = 72, start = 1, length = 1 },
-    { pitch = 60, start = 2, length = 0.5 }, { pitch = 62, start = 3.1, length = 0.3 },
+    { pitch = 60, start = 0, length = 0.5 },
+    { pitch = 64, start = 0.5, length = 0.5 },
+    { pitch = 67, start = 1, length = 1 },
+    { pitch = 72, start = 1, length = 1 },
+    { pitch = 60, start = 2, length = 0.5 },
+    { pitch = 62, start = 3.1, length = 0.3 },
   })
   api.undo_checkpoint()
   keys("<CR>")
@@ -359,7 +389,9 @@ test("devices are cut, yanked and pasted in the device panel", function()
   eq(paw.keymap.getreg().device.kind, "synth", "yy takes the device under the cursor")
   keys("p")
   local kinds = {}
-  for i, d in ipairs(t:devices()) do kinds[i] = d.kind end
+  for i, d in ipairs(t:devices()) do
+    kinds[i] = d.kind
+  end
   eq(table.concat(kinds, " "), "synth synth delay", "p puts a copy after it")
   eq(t:devices()[2].params.cutoff, 900, "with its settings")
   keys("dd")
@@ -375,7 +407,9 @@ test("views draw without errors at several sizes", function()
   fresh()
   local t = tone("tone", 4)
   t:add_device("delay")
-  for _, name in ipairs({ "mixer", "devices", "pianoroll" }) do paw.ui.show(name) end
+  for _, name in ipairs({ "mixer", "devices", "pianoroll" }) do
+    paw.ui.show(name)
+  end
   paw.ui.views.pianoroll:edit(t:clips()[1])
   for _, size in ipairs({ { 120, 40 }, { 80, 24 }, { 30, 8 }, { 4, 2 } }) do
     local rects = paw.ui.arrange(size[1], size[2])
@@ -387,7 +421,9 @@ test("views draw without errors at several sizes", function()
     end
     eq(total <= size[1] * size[2], true, "views do not overlap")
   end
-  for _, name in ipairs({ "mixer", "devices", "pianoroll" }) do paw.ui.hide(name) end
+  for _, name in ipairs({ "mixer", "devices", "pianoroll" }) do
+    paw.ui.hide(name)
+  end
   paw.ui.focus("arrange")
 end)
 
@@ -410,7 +446,9 @@ test("the screen draws what the project holds", function()
   eq(text:find("A3", 1, true) ~= nil, true, "piano roll shows note names")
   eq(text:find("traceback", 1, true), nil, "no view raised an error")
   -- Tiny screens must not raise either, and drawing garbage is collected safely.
-  for _ = 1, 50 do screen(12, 4) end
+  for _ = 1, 50 do
+    screen(12, 4)
+  end
   collectgarbage()
   collectgarbage()
   -- A broken view shows its error in place and leaves the others alone.
@@ -420,7 +458,9 @@ test("the screen draws what the project holds", function()
   eq(text:find("Lead Synth", 1, true) ~= nil, true, "other views still draw")
   package.loaded["paw.views.status"] = nil
   require("paw.views.status")
-  for _, name in ipairs({ "mixer", "devices", "pianoroll" }) do paw.ui.hide(name) end
+  for _, name in ipairs({ "mixer", "devices", "pianoroll" }) do
+    paw.ui.hide(name)
+  end
   paw.ui.focus("arrange")
 end)
 

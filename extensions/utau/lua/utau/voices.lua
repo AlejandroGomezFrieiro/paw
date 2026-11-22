@@ -79,7 +79,9 @@ local function post(n, old)
   end
   table.sort(lines)
   local refused = api.device_post(M.DEVICE, "voice." .. n, table.concat(lines, "\n"))
-  for _, path in ipairs(old or {}) do os.remove(path) end
+  for _, path in ipairs(old or {}) do
+    os.remove(path)
+  end
   if refused[1] then error("a vocal device did not take voice " .. n .. ": " .. refused[1].error, 0) end
 end
 
@@ -99,8 +101,13 @@ function M.put(device, hash, start, rate, channels, quality, raw)
   M.voices[n] = voice
   local before = voice[hash]
   if before and before.quality > quality then return end
-  voice[hash] = { start = start, rate = rate, channels = channels, quality = quality,
-    path = write("v" .. n .. "-" .. hash, raw) }
+  voice[hash] = {
+    start = start,
+    rate = rate,
+    channels = channels,
+    quality = quality,
+    path = write("v" .. n .. "-" .. hash, raw),
+  }
   post(n, before and { before.path })
 end
 
@@ -109,7 +116,9 @@ function M.keep(device, hashes)
   local n = M.voice_of(device)
   if not n or not M.voices[n] then return end
   local wanted = {}
-  for _, h in ipairs(hashes) do wanted[tostring(h)] = true end
+  for _, h in ipairs(hashes) do
+    wanted[tostring(h)] = true
+  end
   local old = {}
   for hash, p in pairs(M.voices[n]) do
     if not wanted[hash] then
@@ -125,7 +134,9 @@ function M.clear(device)
   local n = M.voice_of(device)
   if not n then return end
   local old = {}
-  for _, p in pairs(M.voices[n] or {}) do old[#old + 1] = p.path end
+  for _, p in pairs(M.voices[n] or {}) do
+    old[#old + 1] = p.path
+  end
   M.voices[n] = {}
   post(n, old)
 end

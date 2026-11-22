@@ -7,15 +7,21 @@ local cursor, transport = paw.cursor, paw.transport
 
 command("cursor.down", function(ctx) cursor.move_track(ctx.count or 1) end, { desc = "Next track" })
 command("cursor.up", function(ctx) cursor.move_track(-(ctx.count or 1)) end, { desc = "Previous track" })
-command("cursor.right", function(ctx)
-  cursor.set_beat(cursor.beat + (ctx.count or 1) * paw.opt.grid)
-end, { desc = "Move right one grid step" })
-command("cursor.left", function(ctx)
-  cursor.set_beat(cursor.beat - (ctx.count or 1) * paw.opt.grid)
-end, { desc = "Move left one grid step" })
-command("cursor.next_bar", function(ctx)
-  cursor.set_beat(paw.time.bar_start(paw.time.bar_of(cursor.beat) + (ctx.count or 1)))
-end, { desc = "Start of the next bar" })
+command(
+  "cursor.right",
+  function(ctx) cursor.set_beat(cursor.beat + (ctx.count or 1) * paw.opt.grid) end,
+  { desc = "Move right one grid step" }
+)
+command(
+  "cursor.left",
+  function(ctx) cursor.set_beat(cursor.beat - (ctx.count or 1) * paw.opt.grid) end,
+  { desc = "Move left one grid step" }
+)
+command(
+  "cursor.next_bar",
+  function(ctx) cursor.set_beat(paw.time.bar_start(paw.time.bar_of(cursor.beat) + (ctx.count or 1))) end,
+  { desc = "Start of the next bar" }
+)
 command("cursor.prev_bar", function(ctx)
   -- From inside a bar, its own start is the first one back.
   local bar = paw.time.bar_of(cursor.beat) - (ctx.count or 1) + (paw.tempo.is_bar_line(cursor.beat) and 0 or 1)
@@ -37,9 +43,11 @@ command("cursor.end", function()
   local ends = clip_edges("end")
   cursor.set_beat(ends[#ends] or 0)
 end, { desc = "End of the track's last clip" })
-command("cursor.first_clip", function()
-  cursor.set_beat(clip_edges("start")[1] or 0)
-end, { desc = "Start of the track's first clip" })
+command(
+  "cursor.first_clip",
+  function() cursor.set_beat(clip_edges("start")[1] or 0) end,
+  { desc = "Start of the track's first clip" }
+)
 command("cursor.next_clip", function(ctx)
   for _ = 1, ctx.count or 1 do
     local to
@@ -89,6 +97,8 @@ command("cursor.last_track", function(ctx)
   local list = paw.scope.tracks()
   if #list > 0 then cursor.set_track(list[util.clamp(ctx.count or #list, 1, #list)]) end
 end, { desc = "Last track, or track number N" })
-command("cursor.to_playhead", function()
-  cursor.set_beat(cursor.snap(transport.position))
-end, { desc = "Move the cursor to the playhead" })
+command(
+  "cursor.to_playhead",
+  function() cursor.set_beat(cursor.snap(transport.position)) end,
+  { desc = "Move the cursor to the playhead" }
+)

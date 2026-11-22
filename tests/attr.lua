@@ -101,7 +101,9 @@ test("a note's attribute survives edits, undo, copies, pastes and a save and loa
   -- Through the workspace edits of addresses.
   local _, place = paw.address.find_note(clip.id, clip:notes()[at].id)
   eq(place, at, "the note has an address")
-  assert(paw.address.edit({ { uri = paw.address.note(clip.id, clip:notes()[at].id), set = { attr = paw.attr.m2("11.5") } } }))
+  assert(
+    paw.address.edit({ { uri = paw.address.note(clip.id, clip:notes()[at].id), set = { attr = paw.attr.m2("11.5") } } })
+  )
   eq(paw.attr.m2(clip:notes()[at].attr), "11.5", "set by its address")
   clip:set_note(at, { attr = PIZZ })
 
@@ -126,8 +128,11 @@ test("paw.attr names the articulations of M2-123 and reads their fields", functi
   same(paw.attr.m2("10.2.3"), { type = 0x10, data = 0x2300 }, "written with a dot too")
   eq(paw.attr.m2({ type = 0x10, data = 0x2300 }), "10.23", "and back")
   local p = paw.attr.parts(paw.attr.m2("11.A", { direction = "up", string = 4, reset = true }))
-  eq(string.format("%X %d %d %s %d", p.subclass, p.variation, p.direction, tostring(p.reset), p.string), "A 0 2 true 4",
-    "the fields of Figure 1")
+  eq(
+    string.format("%X %d %d %s %d", p.subclass, p.variation, p.direction, tostring(p.reset), p.string),
+    "A 0 2 true 4",
+    "the fields of Figure 1"
+  )
   local said = paw.attr.describe(PIZZ)
   eq(said.tag .. " | " .. said.text .. " | " .. said.class, "pz | Pizzicato (11.A) | Staccatos and shorts", "described")
   eq(paw.attr.describe({ type = 0x1B, data = 0x3000 }).code, "1B.3", "a library's own")
@@ -141,9 +146,14 @@ end)
 test("a MIDI file keeps a note's attribute in an event other programs pass over", function()
   fresh()
   local t = paw.add_track({ name = "Violin" })
-  t:add_clip({ start = 0, length = 4, notes = {
-    { pitch = "G4", start = 0, length = 1, attr = PIZZ }, { pitch = "A4", start = 1, length = 1 },
-  } })
+  t:add_clip({
+    start = 0,
+    length = 4,
+    notes = {
+      { pitch = "G4", start = 0, length = 1, attr = PIZZ },
+      { pitch = "A4", start = 1, length = 1 },
+    },
+  })
   local path = T.scratch .. "/attr.mid"
   paw.midifile.export(path)
   local file = assert(paw.midifile.read(path))
@@ -181,9 +191,14 @@ test("a Lua device is given each note's attribute", function()
   paw.project.tempo = 120
   local t = paw.add_track({ name = "shows" })
   t:add_device(kind)
-  t:add_clip({ start = 0, length = 4, notes = {
-    { pitch = "C4", start = 0, length = 1, attr = PIZZ }, { pitch = "D4", start = 2, length = 1 },
-  } })
+  t:add_clip({
+    start = 0,
+    length = 4,
+    notes = {
+      { pitch = "C4", start = 0, length = 1, attr = PIZZ },
+      { pitch = "D4", start = 2, length = 1 },
+    },
+  })
   local info = render({ tail = 0, bits = 16, ["end"] = 4 })
   local l, r = channel_peaks(info, 0.1, 0.4)
   near(l, 0x11 / 256, 2e-3, "its type")
@@ -200,14 +215,18 @@ local function keyswitched(map)
   paw.project.tempo = 120
   local t = paw.add_track({ name = "Violins" })
   t:add_device(kind)
-  t:add_clip({ start = 0, length = 8, notes = {
-    { pitch = "C4", start = 0, length = 1 },
-    { pitch = "D4", start = 1, length = 1, attr = paw.attr.m2("11.0") },
-    { pitch = "E4", start = 2, length = 1, attr = paw.attr.m2("11.0") },
-    -- Staccatissimo is not in the map: staccato (11.0) plays.
-    { pitch = "F4", start = 3, length = 1, attr = paw.attr.m2("11.4") },
-    { pitch = "G4", start = 4, length = 1, attr = PIZZ },
-  } })
+  t:add_clip({
+    start = 0,
+    length = 8,
+    notes = {
+      { pitch = "C4", start = 0, length = 1 },
+      { pitch = "D4", start = 1, length = 1, attr = paw.attr.m2("11.0") },
+      { pitch = "E4", start = 2, length = 1, attr = paw.attr.m2("11.0") },
+      -- Staccatissimo is not in the map: staccato (11.0) plays.
+      { pitch = "F4", start = 3, length = 1, attr = paw.attr.m2("11.4") },
+      { pitch = "G4", start = 4, length = 1, attr = PIZZ },
+    },
+  })
   t.attr_map = map
   return t
 end
@@ -245,18 +264,35 @@ test("an attribute map's keyswitch is sent again where playback starts after it"
   near(r, 1 / 100, 2e-3, "told once, where it starts")
 end)
 
-test("the map the articulations extension writes plays: a default named by its code, variations, milliseconds", function()
-  local t = keyswitched({ send = "change", chase = { 1, 11, 64 }, default = "10.0", delay = 0,
-    arts = { ["10.0"] = { out = "ks=24" }, ["11.0"] = { out = "ks=D1:100", delay = 0 }, ["11.A2"] = { out = "ks=E1" } } })
-  t:clips()[1]:set_note(5, { attr = paw.attr.m2("11.A2") })
-  eq(paw.attr.m2(t:clips()[1]:notes()[5].attr), "11.A2", "a variation's code")
-  local info = render({ tail = 0, bits = 16, ["end"] = 6 })
-  for i, key in ipairs({ 24, 26, 26, 26, 28 }) do
-    near(channel_peaks(info, (i - 1) * 0.5 + 0.05, (i - 1) * 0.5 + 0.4), key / 100, 2e-3, "note " .. i .. " plays " .. key)
+test(
+  "the map the articulations extension writes plays: a default named by its code, variations, milliseconds",
+  function()
+    local t = keyswitched({
+      send = "change",
+      chase = { 1, 11, 64 },
+      default = "10.0",
+      delay = 0,
+      arts = {
+        ["10.0"] = { out = "ks=24" },
+        ["11.0"] = { out = "ks=D1:100", delay = 0 },
+        ["11.A2"] = { out = "ks=E1" },
+      },
+    })
+    t:clips()[1]:set_note(5, { attr = paw.attr.m2("11.A2") })
+    eq(paw.attr.m2(t:clips()[1]:notes()[5].attr), "11.A2", "a variation's code")
+    local info = render({ tail = 0, bits = 16, ["end"] = 6 })
+    for i, key in ipairs({ 24, 26, 26, 26, 28 }) do
+      near(
+        channel_peaks(info, (i - 1) * 0.5 + 0.05, (i - 1) * 0.5 + 0.4),
+        key / 100,
+        2e-3,
+        "note " .. i .. " plays " .. key
+      )
+    end
+    t:clips()[1]:set_note(5, { attr = { type = 0, data = 0 } })
+    eq(t:clips()[1]:notes()[5].attr, nil, "type 0 is none")
   end
-  t:clips()[1]:set_note(5, { attr = { type = 0, data = 0 } })
-  eq(t:clips()[1]:notes()[5].attr, nil, "type 0 is none")
-end)
+)
 
 test("an attribute map is checked, undone, saved and copied with its track", function()
   local t = keyswitched(MAP)
@@ -303,10 +339,14 @@ local function delayed()
   paw.project.tempo = 120
   local t = paw.add_track({ name = "Violins" })
   t:add_device(kind)
-  t:add_clip({ start = 0, length = 4, notes = {
-    { pitch = "C4", start = 0, length = 0.5 },
-    { pitch = "D4", start = 2, length = 0.5, attr = paw.attr.m2("11.0") },
-  } })
+  t:add_clip({
+    start = 0,
+    length = 4,
+    notes = {
+      { pitch = "C4", start = 0, length = 0.5 },
+      { pitch = "D4", start = 2, length = 0.5, attr = paw.attr.m2("11.0") },
+    },
+  })
   t.attr_map = LATE
   return t
 end
@@ -419,9 +459,14 @@ test("a plugin an extension ships is found once its directory is added, plays at
   paw.project.tempo = 120
   local t = paw.add_track({ name = "Stub" })
   t:add_device(kind)
-  local clip = t:add_clip({ start = 0, length = 4, notes = {
-    { pitch = "C4", start = 0, length = 1, attr = PIZZ }, { pitch = "D1", start = 2, length = 1 },
-  } })
+  local clip = t:add_clip({
+    start = 0,
+    length = 4,
+    notes = {
+      { pitch = "C4", start = 0, length = 1, attr = PIZZ },
+      { pitch = "D1", start = 2, length = 1 },
+    },
+  })
   local info = render({ tail = 0, bits = 16, ["end"] = 2 })
   local l, r = channel_peaks(info, 0.1, 0.4)
   near(l, 0x11 / 256, 2e-3, "the plugin took the note as MIDI 2.0, with its type")
@@ -438,7 +483,11 @@ test("a plugin an extension ships is found once its directory is added, plays at
   roll.pitch, roll.beat, roll.top = 30, 2, 30
   local screen = table.concat(api.ui_snapshot(160, 50), "\n")
   -- The keyboard is 8 columns wide in a roll this wide: 7 for a name.
-  eq(screen:find("Sustain", 1, true) ~= nil and screen:find("Stacca…", 1, true) ~= nil, true, "the names on their keys")
+  eq(
+    screen:find("Sustain", 1, true) ~= nil and screen:find("Stacca…", 1, true) ~= nil,
+    true,
+    "the names on their keys"
+  )
   roll.pitch = 26
   local said = roll:describe()
   eq(said[3], "  the instrument calls this key Staccato", "K says so too")
@@ -462,16 +511,23 @@ test("the piano roll writes a note's articulation on it, and K names it", functi
   local patch = api.json_decode(api.scene_end(0, "attr"))
   api.scene_forget(0)
   local named
-  for _, n in ipairs(patch.set) do if n.role == "note" and n.props.label == "pz" then named = n end end
+  for _, n in ipairs(patch.set) do
+    if n.role == "note" and n.props.label == "pz" then named = n end
+  end
   eq(named ~= nil, true, "the window's note says it too")
 end)
 
 test("Ex matches and sets a note's articulation by its code", function()
   fresh()
   local t = paw.add_track({ name = "Strings" })
-  local clip = t:add_clip({ start = 0, length = 4, notes = {
-    { pitch = 60, start = 0, length = 1 }, { pitch = 62, start = 1, length = 1, attr = PIZZ },
-  } })
+  local clip = t:add_clip({
+    start = 0,
+    length = 4,
+    notes = {
+      { pitch = 60, start = 0, length = 1 },
+      { pitch = 62, start = 1, length = 1, attr = PIZZ },
+    },
+  })
   paw.cursor.set_track(t)
   paw.commands.exec("%s/attr=11.A/attr=11.0/g")
   eq(paw.attr.m2(clip:notes()[2].attr), "11.0", "the pizzicato made staccato")
@@ -505,11 +561,15 @@ test("sampler: a note's attribute chooses the articulation, with no keyswitch an
     paw.wait(50)
   end
   eq(track.attr_map, nil, "no keyswitches are sent for it")
-  track:add_clip({ start = 0, length = 8, notes = {
-    { pitch = 69, start = 0, length = 1, velocity = 100 },
-    { pitch = 69, start = 2, length = 1, velocity = 100, attr = paw.attr.m2("11.0") },
-    { pitch = 69, start = 4, length = 1, velocity = 100 },
-  } })
+  track:add_clip({
+    start = 0,
+    length = 8,
+    notes = {
+      { pitch = 69, start = 0, length = 1, velocity = 100 },
+      { pitch = 69, start = 2, length = 1, velocity = 100, attr = paw.attr.m2("11.0") },
+      { pitch = 69, start = 4, length = 1, velocity = 100 },
+    },
+  })
   local info = render({ bits = 16, tail = 0, ["end"] = 6 })
   near(T.frequency(info, 0.05, 0.45), 440, 8, "sustain with no attribute")
   near(T.frequency(info, 1.05, 1.45), 660, 10, "staccato from the note's attribute")

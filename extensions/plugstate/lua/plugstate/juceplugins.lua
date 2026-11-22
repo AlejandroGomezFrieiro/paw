@@ -18,9 +18,15 @@ local M = {}
 -- Surge XT: its own patch ("sub3", the size of the XML, the sizes of its
 -- wavetables, the XML, the wavetables) in a JUCE wrapper.
 jucestate.plugin({
-  name = "surge-xt", title = "Surge XT",
-  ids = { clap = "org.surge-synth-team.surge-xt", vst3 = "Surge XT", lv2 = "https://surge-synthesizer.github.io/lv2/surge-xt" },
-  header = { magic = "sub3", size = 5, skip = 32 }, root = "patch",
+  name = "surge-xt",
+  title = "Surge XT",
+  ids = {
+    clap = "org.surge-synth-team.surge-xt",
+    vst3 = "Surge XT",
+    lv2 = "https://surge-synthesizer.github.io/lv2/surge-xt",
+  },
+  header = { magic = "sub3", size = 5, skip = 32 },
+  root = "patch",
   ignore = { "/patch/dawExtraState" }, -- the window's state, not the sound
   paths = { name = "/patch/meta@name", category = "/patch/meta@category", octave = "/patch/parameters/a_octave@value" },
   slots = {
@@ -33,11 +39,15 @@ jucestate.plugin({
 -- instrument, its articulations and its mic mix are in `MusioFile`, which
 -- is empty until an instrument is loaded (with a login).
 jucestate.plugin({
-  name = "musio", title = "Musio",
-  ids = { vst3 = "Musio" }, root = "PluginState",
+  name = "musio",
+  title = "Musio",
+  ids = { vst3 = "Musio" },
+  root = "PluginState",
   paths = {
-    reverb = "/PluginState@studioReverb", room = "/PluginState@studioReverbRoom",
-    reverb_amount = "/PluginState@studioReverbAmount", file = "/PluginState/MusioFile",
+    reverb = "/PluginState@studioReverb",
+    room = "/PluginState@studioReverbRoom",
+    reverb_amount = "/PluginState@studioReverbAmount",
+    file = "/PluginState/MusioFile",
     file_version = "/PluginState/MusioFile@FileVersion",
   },
   slots = {
@@ -51,11 +61,15 @@ jucestate.plugin({
 -- attributes name the sample library that it plays. No slots: a library
 -- needs its files, so the names are for `:plugstate.path` and the tree.
 jucestate.plugin({
-  name = "decent-sampler", title = "DecentSampler",
-  ids = { vst3 = "DecentSampler" }, root = "DecentSampler",
+  name = "decent-sampler",
+  title = "DecentSampler",
+  ids = { vst3 = "DecentSampler" },
+  root = "DecentSampler",
   paths = {
-    preset_name = "/DecentSampler@_presetName", sample_path = "/DecentSampler@_samplePath",
-    library_url = "/DecentSampler@_libraryUrl", tuning = "/DecentSampler@_tuningA69Frequency",
+    preset_name = "/DecentSampler@_presetName",
+    sample_path = "/DecentSampler@_samplePath",
+    library_url = "/DecentSampler@_libraryUrl",
+    tuning = "/DecentSampler@_tuningA69Frequency",
   },
 })
 
@@ -79,8 +93,14 @@ plugstate.adapter({
     local slots = { { key = "preset", label = "Preset", what = "preset", kind = "file", types = { "jucepreset" } } }
     for _, s in ipairs(desc.slots) do
       local v = doc:get(s.path)
-      slots[#slots + 1] = { key = s.key, label = s.label, what = s.what or s.key, kind = "text", path = s.path,
-        value = v ~= nil and tostring(v) or nil }
+      slots[#slots + 1] = {
+        key = s.key,
+        label = s.label,
+        what = s.what or s.key,
+        kind = "text",
+        path = s.path,
+        value = v ~= nil and tostring(v) or nil,
+      }
     end
     return slots
   end,
@@ -108,7 +128,8 @@ plugstate.adapter({
 -- opens takes a preset of path edits (`.jucepreset`), on its state lane too.
 
 plugstate.adapter({
-  name = "state", fallback = true,
+  name = "state",
+  fallback = true,
   desc = "every other plugin whose saved state plugstate reads (JUCE, DPF, iPlug2, LSP, LV2, nih-plug and other JSON, or its bytes): presets of path edits (.jucepreset)",
   matches = function(d) return d.plugin ~= nil and not d.missing end,
   slots = function()
@@ -118,13 +139,23 @@ plugstate.adapter({
     local preset, err = jucestate.read_preset(value)
     if not preset then error(err, 0) end
     local hint = frameworks.markers(frameworks.binary_of(d.plugin))
-    local state = frameworks.generate(preset, d.plugin.format, api.device_state(id),
-      { uri = d.plugin.id, param_info = d.param_info, hint = hint or nil })
+    local state = frameworks.generate(
+      preset,
+      d.plugin.format,
+      api.device_state(id),
+      { uri = d.plugin.id, param_info = d.param_info, hint = hint or nil }
+    )
     return { state = state, name = preset.name or plugstate.stem(value):gsub("%.jucepreset$", ""), params = {} }
   end,
   describe = function(path)
     local preset = path:match("%.jucepreset$") and jucestate.read_preset(path)
-    if preset then return string.format("%s preset, %d changes", preset.framework or preset.plugin or "plugstate", #(preset.edits or {})) end
+    if preset then
+      return string.format(
+        "%s preset, %d changes",
+        preset.framework or preset.plugin or "plugstate",
+        #(preset.edits or {})
+      )
+    end
   end,
 })
 
@@ -208,19 +239,34 @@ function M.edits_of(changes)
   return edits
 end
 
-command("plugstate.tree", function(ctx)
-  local id = target()
-  if not id then return end
-  local doc = opened(id)
-  if not doc then return end
-  local path = table.concat(ctx.args, " ")
-  local node = path ~= "" and doc:get(path) or doc.root
-  if type(node) ~= "table" or not node.type then return paw.notify(path .. " = " .. tostring(node)) end
-  local lines = { api.device_get(id).name .. " · " .. (doc.title or doc.framework or "JUCE") .. " · " .. table.concat(doc:layer_names(), " › ") }
-  for _, note in ipairs(doc.notes or {}) do lines[#lines + 1] = "(" .. note .. ")" end
-  for _, l in ipairs(juce.dump(node, { depth = ctx.count or 3, max = 40 })) do lines[#lines + 1] = l end
-  paw.notify(table.concat(lines, "\n"))
-end, { desc = "Show the saved state of a plugin as a tree, in the form of its framework (JUCE, DPF, iPlug2, LSP, LV2, JSON): `plugstate.tree /PluginState/MusioFile` shows a part (a count: how deep)" })
+command(
+  "plugstate.tree",
+  function(ctx)
+    local id = target()
+    if not id then return end
+    local doc = opened(id)
+    if not doc then return end
+    local path = table.concat(ctx.args, " ")
+    local node = path ~= "" and doc:get(path) or doc.root
+    if type(node) ~= "table" or not node.type then return paw.notify(path .. " = " .. tostring(node)) end
+    local lines = {
+      api.device_get(id).name .. " · " .. (doc.title or doc.framework or "JUCE") .. " · " .. table.concat(
+        doc:layer_names(),
+        " › "
+      ),
+    }
+    for _, note in ipairs(doc.notes or {}) do
+      lines[#lines + 1] = "(" .. note .. ")"
+    end
+    for _, l in ipairs(juce.dump(node, { depth = ctx.count or 3, max = 40 })) do
+      lines[#lines + 1] = l
+    end
+    paw.notify(table.concat(lines, "\n"))
+  end,
+  {
+    desc = "Show the saved state of a plugin as a tree, in the form of its framework (JUCE, DPF, iPlug2, LSP, LV2, JSON): `plugstate.tree /PluginState/MusioFile` shows a part (a count: how deep)",
+  }
+)
 
 command("plugstate.mark", function()
   local id = target()
@@ -237,47 +283,79 @@ command("plugstate.changes", function()
   if not changes then return paw.notify(why, "warn") end
   if #changes == 0 then return paw.notify(api.device_get(id).name .. ": no change since the mark") end
   local lines = { api.device_get(id).name .. ": " .. #changes .. " changes since the mark" }
-  for _, l in ipairs(juce.diff_text(changes, 40)) do lines[#lines + 1] = l end
+  for _, l in ipairs(juce.diff_text(changes, 40)) do
+    lines[#lines + 1] = l
+  end
   paw.notify(table.concat(lines, "\n"))
 end, { desc = "List the paths of the saved state of a plugin that changed since `:plugstate.mark`" })
 
-command("plugstate.path", function(ctx)
-  local id = target()
-  if not id then return end
-  local doc = opened(id)
-  if not doc then return end
-  local path, value = (ctx.args[1] or ""):match("^%s*(%S+)%s*(.-)%s*$")
-  if not path then return paw.notify("plugstate.path needs a path: `plugstate.path /PluginState@studioReverb off`", "warn") end
-  if value == "" then return paw.notify(path .. " = " .. tostring((doc:get(path)))) end
-  local quoted = value:match('^"(.*)"$')
-  value = quoted or value
-  -- A number stays a number, except in a JUCE state (its XML is text).
-  local now = doc:get(path)
-  local v, kind = value, "string"
-  if not quoted and doc.framework ~= "juce" and doc.framework ~= "hise" and type(now) == "number" and tonumber(value) then
-    v, kind = tonumber(value), nil
-  end
-  local ok, err = pcall(doc.set, doc, path, v, kind, { make = true })
-  if not ok then return paw.notify(api.device_get(id).name .. ": " .. tostring(err), "error") end
-  local fine, why = pcall(api.device_load, id, { name = api.device_get(id).meta.preset, state = doc:write(), params = {} })
-  if not fine then return paw.notify(api.device_get(id).name .. ": " .. tostring(why), "error") end
-  paw.notify(api.device_get(id).name .. ": " .. path .. " = " .. value)
-end, { raw = true, desc = "Show or set a value in the saved state of a plugin by its path: `plugstate.path /PluginState@studioReverb off`, `plugstate.path /DPF/Parameters@size 30` (one undo step)" })
+command(
+  "plugstate.path",
+  function(ctx)
+    local id = target()
+    if not id then return end
+    local doc = opened(id)
+    if not doc then return end
+    local path, value = (ctx.args[1] or ""):match("^%s*(%S+)%s*(.-)%s*$")
+    if not path then
+      return paw.notify("plugstate.path needs a path: `plugstate.path /PluginState@studioReverb off`", "warn")
+    end
+    if value == "" then return paw.notify(path .. " = " .. tostring((doc:get(path)))) end
+    local quoted = value:match('^"(.*)"$')
+    value = quoted or value
+    -- A number stays a number, except in a JUCE state (its XML is text).
+    local now = doc:get(path)
+    local v, kind = value, "string"
+    if
+      not quoted
+      and doc.framework ~= "juce"
+      and doc.framework ~= "hise"
+      and type(now) == "number"
+      and tonumber(value)
+    then
+      v, kind = tonumber(value), nil
+    end
+    local ok, err = pcall(doc.set, doc, path, v, kind, { make = true })
+    if not ok then return paw.notify(api.device_get(id).name .. ": " .. tostring(err), "error") end
+    local fine, why =
+      pcall(api.device_load, id, { name = api.device_get(id).meta.preset, state = doc:write(), params = {} })
+    if not fine then return paw.notify(api.device_get(id).name .. ": " .. tostring(why), "error") end
+    paw.notify(api.device_get(id).name .. ": " .. path .. " = " .. value)
+  end,
+  {
+    raw = true,
+    desc = "Show or set a value in the saved state of a plugin by its path: `plugstate.path /PluginState@studioReverb off`, `plugstate.path /DPF/Parameters@size 30` (one undo step)",
+  }
+)
 
-command("plugstate.preset_write", function(ctx)
-  local id = target()
-  if not id then return end
-  local file = ctx.args[1] and tostring(ctx.args[1]):gsub("^~", os.getenv("HOME") or "~")
-  if not file then return paw.notify("plugstate.preset_write needs a file name", "warn") end
-  if not file:match("%.jucepreset$") then file = file .. ".jucepreset" end
-  local changes, why = M.changes(id)
-  if not changes then return paw.notify(why, "warn") end
-  local d = api.device_get(id)
-  local desc = jucestate.plugin_of(d)
-  local doc = M.open(id)
-  jucestate.write_preset(file, { plugin = desc and desc.name, name = plugstate.stem(file):gsub("%.jucepreset$", ""),
-    framework = doc and doc.framework, edits = M.edits_of(changes) })
-  paw.notify(d.name .. ": " .. #changes .. " changes written to " .. file)
-end, { desc = "Write the changes since `:plugstate.mark` as a preset (.jucepreset) that `:plugstate.load` loads into the plugin (a JUCE preset into each format of it)", complete = "files" })
+command(
+  "plugstate.preset_write",
+  function(ctx)
+    local id = target()
+    if not id then return end
+    local file = ctx.args[1] and tostring(ctx.args[1]):gsub("^~", os.getenv("HOME") or "~")
+    if not file then return paw.notify("plugstate.preset_write needs a file name", "warn") end
+    if not file:match("%.jucepreset$") then file = file .. ".jucepreset" end
+    local changes, why = M.changes(id)
+    if not changes then return paw.notify(why, "warn") end
+    local d = api.device_get(id)
+    local desc = jucestate.plugin_of(d)
+    local doc = M.open(id)
+    jucestate.write_preset(
+      file,
+      {
+        plugin = desc and desc.name,
+        name = plugstate.stem(file):gsub("%.jucepreset$", ""),
+        framework = doc and doc.framework,
+        edits = M.edits_of(changes),
+      }
+    )
+    paw.notify(d.name .. ": " .. #changes .. " changes written to " .. file)
+  end,
+  {
+    desc = "Write the changes since `:plugstate.mark` as a preset (.jucepreset) that `:plugstate.load` loads into the plugin (a JUCE preset into each format of it)",
+    complete = "files",
+  }
+)
 
 return M

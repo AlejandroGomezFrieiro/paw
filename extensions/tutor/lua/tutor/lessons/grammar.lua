@@ -37,8 +37,18 @@ In Vim, `gc` changes lines to comments. Here it mutes. `gl` (loop) is new.
     local beat = paw.add_track({ name = "Beat" })
     beat:add_device("drums")
     beat:add_clip({ name = "kick", start = 0, length = 4, notes = look.drums({ [36] = "x...x...x...x..." }) })
-    beat:add_clip({ name = "snare", start = 4, length = 4, notes = look.drums({ [36] = "x.......x.......", [38] = "....x.......x..." }) })
-    beat:add_clip({ name = "fill", start = 8, length = 4, notes = look.drums({ [36] = "x.......", [38] = "........x.x.xxxx" }) })
+    beat:add_clip({
+      name = "snare",
+      start = 4,
+      length = 4,
+      notes = look.drums({ [36] = "x.......x.......", [38] = "....x.......x..." }),
+    })
+    beat:add_clip({
+      name = "fill",
+      start = 8,
+      length = 4,
+      notes = look.drums({ [36] = "x.......", [38] = "........x.x.xxxx" }),
+    })
     beat:add_clip({ name = "crash", start = 12, length = 4, notes = look.drums({ [36] = "x...", [46] = "x......." }) })
     local bass = paw.add_track({ name = "Bass", volume = -6 })
     bass:add_device("synth", { wave = 2, cutoff = 600, release = 0.05 })
@@ -63,7 +73,7 @@ In Vim, `gc` changes lines to comments. Here it mutes. `gl` (loop) is new.
       say = "A text object names an item, not a movement. `ic` is the clip under the cursor. Press `w` to go to `snare`, then press `dic`.",
       keys = { "w", "dic" },
       check = function(_, look) return look.names("Beat") == "kick fill crash" end,
-      done = "`dic` means \"delete in clip\". A gap is now where `snare` was.",
+      done = '`dic` means "delete in clip". A gap is now where `snare` was.',
     },
     {
       say = "`.` repeats the last change. Press `w` to go to `fill`. Then press `.` to delete it too.",
@@ -92,13 +102,19 @@ In Vim, `gc` changes lines to comments. Here it mutes. `gl` (loop) is new.
     {
       say = "Other operators accept the same motions and objects. `gc` mutes. Press `gcic` to mute `kick`.",
       keys = { "gcic" },
-      check = function(_, look) local c = look.clip("Beat", "kick") return c and c.muted end,
+      check = function(_, look)
+        local c = look.clip("Beat", "kick")
+        return c and c.muted
+      end,
       done = "`kick` is muted and gray. `gcic` again unmutes it.",
     },
     {
       say = "Press `w` to go to `snare`. Press `.` to mute it in the same way.",
       keys = { "w", "." },
-      check = function(_, look) local c = look.clip("Beat", "snare") return c and c.muted end,
+      check = function(_, look)
+        local c = look.clip("Beat", "snare")
+        return c and c.muted
+      end,
       done = "`.` repeats each type of change: delete, mute and move.",
     },
     {

@@ -13,7 +13,9 @@ local function n(pitch, start, length) return { pitch = pitch, start = start, le
 
 local function list(notes)
   local out = {}
-  for i, x in ipairs(notes) do out[i] = string.format("%d@%g", x.pitch, x.start) end
+  for i, x in ipairs(notes) do
+    out[i] = string.format("%d@%g", x.pitch, x.start)
+  end
   return table.concat(out, " ")
 end
 
@@ -23,7 +25,9 @@ local function with_bar(fn)
   local continue = ext()
   T.fresh()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   local t = paw.add_track({ name = "Lead" })
   local clip = t:add_clip({ start = 0, length = 4, notes = { n(60, 0), n(62, 1), n(64, 2), n(67, 3) } })
   roll:edit(clip)
@@ -47,8 +51,24 @@ test("continue guesses the key from how long each pitch sounds", function()
   paw.complete.unregister("continue")
   eq(continue.guess_key({ n(60, 0), n(64, 1), n(67, 2), n(62, 3), n(65, 4) }).name, "C major", "C major")
   eq(continue.guess_key({ n(57, 0, 3), n(60, 3), n(64, 4), n(62, 5), n(59, 6) }).name, "A minor", "A minor")
-  local tune = { n(60, 0), n(62, 1), n(64, 2), n(67, 3), n(65, 4), n(64, 5), n(62, 6), n(60, 7),
-    n(62, 8), n(64, 9), n(65, 10), n(69, 11), n(67, 12), n(65, 13), n(64, 14), n(62, 15) }
+  local tune = {
+    n(60, 0),
+    n(62, 1),
+    n(64, 2),
+    n(67, 3),
+    n(65, 4),
+    n(64, 5),
+    n(62, 6),
+    n(60, 7),
+    n(62, 8),
+    n(64, 9),
+    n(65, 10),
+    n(69, 11),
+    n(67, 12),
+    n(65, 13),
+    n(64, 14),
+    n(62, 15),
+  }
   eq(continue.guess_key(tune).name, "C major", "a tune that starts on C and leans on F is still in C")
   eq(continue.shift(64, 1, { tonic = 0, mode = "major" }), 65, "E a step up in C is F")
   eq(continue.shift(71, 1, { tonic = 0, mode = "major" }), 72, "B a step up is C, an octave on")
@@ -60,7 +80,9 @@ test("continue offers the bar again, a step higher and lower in the key, and the
   with_bar(function(continue)
     local items = continue.suggest({ notes = paw.clip(roll.clip_id):notes(), at = 4, bar = 4 })
     local got = {}
-    for i, item in ipairs(items) do got[i] = item.label .. ": " .. list(item.notes) end
+    for i, item in ipairs(items) do
+      got[i] = item.label .. ": " .. list(item.notes)
+    end
     eq(got[1], "the bar again: 60@4 62@5 64@6 67@7", "the bar again")
     eq(got[2], "a step higher: 62@4 64@5 65@6 69@7", "in the key, not by a semitone")
     eq(got[3], "a step lower: 59@4 60@5 62@6 65@7", "and lower")
@@ -77,7 +99,11 @@ test("continue's suggestion is accepted with tab in insert mode as one undo step
     eq(cur.item.source, "continue", "from this source")
     paw.keymap.feed("<C-n>")
     T.keys("<Tab>")
-    eq(T.melody(clip), "60@0+1 62@1+1 64@2+1 67@3+1 62@4+1 64@5+1 65@6+1 69@7+1", "the sequence a step higher is written")
+    eq(
+      T.melody(clip),
+      "60@0+1 62@1+1 64@2+1 67@3+1 62@4+1 64@5+1 65@6+1 69@7+1",
+      "the sequence a step higher is written"
+    )
     eq(roll.beat, 8, "the cursor goes on after it, to enter more")
     eq(paw.keymap.mode, "i", "still entering notes")
     paw.keymap.feed("<Esc>")
@@ -93,12 +119,16 @@ test("continue suggests by itself after a pause, and again after what was accept
     clip:add_note(n(48, 0, 4))
     paw.flush()
     local limit = api.now() + 5000
-    while not paw.complete.current() and api.now() < limit do paw.wait(10) end
+    while not paw.complete.current() and api.now() < limit do
+      paw.wait(10)
+    end
     eq(paw.complete.current() ~= nil, true, "a suggestion came")
     paw.keymap.feed("<Tab>")
     paw.flush()
     limit = api.now() + 5000
-    while not paw.complete.current() and api.now() < limit do paw.wait(10) end
+    while not paw.complete.current() and api.now() < limit do
+      paw.wait(10)
+    end
     eq(paw.complete.current() and paw.complete.current().item.notes[1].start, 8, "the next one goes on from there")
   end)
 end)

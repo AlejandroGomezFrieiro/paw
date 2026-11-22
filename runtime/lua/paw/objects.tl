@@ -23,8 +23,7 @@ local type Pitch = integer | string
 
 --- A note as a script gives it (`Clip:add_note`): `pitch` may be a name,
 --- and the note may be the list `{ pitch, start, length, velocity }`.
-local record NoteInput
-  {number | string}
+local record NoteInput is {number | string}
   pitch: Pitch
   start: number
   length: number
@@ -93,8 +92,7 @@ end
 
 --- An automation point as a script gives it: `{ beat, value }` or
 --- `{ beat = 0, value = -60 }`.
-local record PointInput
-  {number}
+local record PointInput is {number}
   beat: number
   value: number
 end
@@ -235,7 +233,7 @@ local record Paw
   defer: function(fn: function(), ms?: number): integer
   notify: function(text: string, level?: string)
 end
-local paw = (_G as {string:Paw}).paw
+local paw = (_G as {string: Paw}).paw
 
 local record M
   type Pitch = Pitch
@@ -288,7 +286,7 @@ local record M
     exists: function(self: Track): boolean
     remove: function(self: Track)
     move: function(self: Track, index: integer)
-    add_device: function(self: Track, kind: string, params?: {string:number}, opts?: AddDeviceOptions): Device
+    add_device: function(self: Track, kind: string, params?: {string: number}, opts?: AddDeviceOptions): Device
     devices: function(self: Track): {Device}
     device: function(self: Track, which: integer | string): Device
     add_clip: function(self: Track, opts?: ClipInput): Clip
@@ -601,7 +599,7 @@ local clip_mt = Clip as metatable<Clip>
 local lane_mt = Lane as metatable<Lane>
 
 --- A kernel function that reads an object's whole table, by its id.
-local type Get = function(id: integer): {string:Value}
+local type Get = function(id: integer): {string: Value}
 --- A kernel function that reads one field of an object.
 local type Field = function(id: integer, key: string): Value
 --- How a field of an object is set.
@@ -609,32 +607,36 @@ local type Set = function(id: integer, key: string, value: Value)
 
 -- `field(id, key)`, when given, reads one entry without the whole table.
 local function class<T>(cls: metatable<T>, name: string, get: Get, set: Set, field?: Field)
-  local methods = cls as {string:Value}
+  local methods = cls as {string: Value}
   rawset(methods, "__name", name as Value)
   cls.__index = function(self: T, key: string): Value
     local method = methods[key]
-    if method ~= nil then return method end
-    local id = rawget(self as {string:integer}, "id")
-    if field and type(key) == "string" then return field(id, key) end
+    if method ~= nil then
+      return method
+    end
+    local id = rawget(self as {string: integer}, "id")
+    if field and type(key) == "string" then
+      return field(id, key)
+    end
     return get(id)[key]
   end
   cls.__newindex = function(self: T, key: string, value: Value)
-    set(rawget(self as {string:integer}, "id"), key, value)
+    set(rawget(self as {string: integer}, "id"), key, value)
   end
   cls.__eq = function(a: T, b: T): boolean
-    return rawget(a as {string:integer}, "id") == rawget(b as {string:integer}, "id")
+    return rawget(a as {string: integer}, "id") == rawget(b as {string: integer}, "id")
   end
-  cls.__tostring = function(self: T): string
-    return name .. "(" .. rawget(self as {string:integer}, "id") .. ")"
-  end
+  cls.__tostring = function(self: T): string return name .. "(" .. rawget(self as {string: integer}, "id") .. ")" end
 end
 
 local function wrap<T>(cls: metatable<T>, id: integer): T
-  return id and setmetatable({ id = id } as T, cls) or nil
+  return id and setmetatable({id = id} as T, cls) or nil
 end
 
 local function id_of(value: integer | Track): integer
-  if value is Track then return value.id end
+  if value is Track then
+    return value.id
+  end
   return value
 end
 
@@ -642,14 +644,20 @@ end
 -- key alone (a patch cannot hold nil).
 local function setter<P>(set_patch: function(integer, P), set_key: function(integer, string, nil)): Set
   return function(id: integer, key: string, value: Value)
-    if value == nil then return set_key(id, key, nil) end
-    local patch: {string:Value} = { [key] = value }
+    if value == nil then
+      return set_key(id, key, nil)
+    end
+    local patch: {string: Value} = {[key] = value}
     set_patch(id, patch as P)
   end
 end
 
-local track_set = setter(api.track_set as function(integer, types.Track), api.track_set as function(integer, string, nil))
-local device_set = setter(api.device_set as function(integer, types.Device), api.device_set as function(integer, string, nil))
+local track_set = setter(
+  api.track_set as function(integer, types.Track), api.track_set as function(integer, string, nil)
+)
+local device_set = setter(
+  api.device_set as function(integer, types.Device), api.device_set as function(integer, string, nil)
+)
 local clip_set = setter(api.clip_set as function(integer, types.Clip), api.clip_set as function(integer, string, nil))
 local lane_set = setter(api.lane_set as function(integer, types.Lane), api.lane_set as function(integer, string, nil))
 -- `track_get(id, key)`: one field of a track, which Teal does not see.
@@ -657,40 +665,60 @@ local track_field = api.track_get as Field
 
 -- Tracks ---------------------------------------------------------------------
 
-class(track_mt, "Track", api.track_get as Get, function(id: integer, key: string, value: Value)
-  if key == "output" then value = id_of(value as integer | Track) as Value end
-  track_set(id, key, value)
-end, track_field)
+class(
+  track_mt,
+  "Track",
+  api.track_get as Get,
+  function(id: integer, key: string, value: Value)
+    if key == "output" then
+      value = id_of(value as integer | Track) as Value
+    end
+    track_set(id, key, value)
+  end,
+  track_field
+)
 
 --- A plain table with every field of the track, read once.
-function Track:get(): types.Track return api.track_get(self.id) end
+function Track:get(): types.Track
+  return api.track_get(self.id)
+end
 
 --- True if the track is still in the project.
-function Track:exists(): boolean return (pcall(track_field, self.id, "id")) end
+function Track:exists(): boolean
+  return (pcall(track_field, self.id, "id"))
+end
 
 --- Take the track out of the project, with its clips and devices.
-function Track:remove() api.track_remove(self.id) end
+function Track:remove()
+  api.track_remove(self.id)
+end
 
 --- Move to a 1-based position in the track list.
-function Track:move(index: integer) api.track_move(self.id, index) end
+function Track:move(index: integer)
+  api.track_move(self.id, index)
+end
 
 --- Add a device to the end of the chain, or at the 1-based `opts.index`.
 ---   track:add_device("synth", { cutoff = 800 })
-function Track:add_device(kind: string, params?: {string:number}, opts?: AddDeviceOptions): Device
-  return wrap(device_mt, api.device_add(self.id, kind, { params = params, index = opts and opts.index }))
+function Track:add_device(kind: string, params?: {string: number}, opts?: AddDeviceOptions): Device
+  return wrap(device_mt, api.device_add(self.id, kind, {params = params, index = opts and opts.index}))
 end
 
 --- The track's devices in the order they process, as `paw.Device` objects.
 function Track:devices(): {Device}
   local out: {Device} = {}
-  for i, id in ipairs(api.track_get(self.id).devices) do out[i] = wrap(device_mt, id) end
+  for i, id in ipairs(api.track_get(self.id).devices) do
+    out[i] = wrap(device_mt, id)
+  end
   return out
 end
 
 --- The first device of a kind, or the device at a 1-based position.
 function Track:device(which: integer | string): Device
   for i, device in ipairs(self:devices()) do
-    if i == which or device.kind == which then return device end
+    if i == which or device.kind == which then
+      return device
+    end
   end
 end
 
@@ -701,7 +729,7 @@ function Track:add_clip(opts?: ClipInput): Clip
   local given = opts or {}
   local clip = given as types.ClipOptions
   if given.notes then
-    local copy = util.merge(given as {string:Value}, {}) as types.ClipOptions
+    local copy = util.merge(given as {string: Value}, {}) as types.ClipOptions
     copy.notes = M.notes(given.notes)
     clip = copy
   end
@@ -711,7 +739,9 @@ end
 --- The track's clips, as `paw.Clip` objects.
 function Track:clips(): {Clip}
   local out: {Clip} = {}
-  for i, clip in ipairs(api.clip_list(self.id)) do out[i] = wrap(clip_mt, clip.id) end
+  for i, clip in ipairs(api.clip_list(self.id)) do
+    out[i] = wrap(clip_mt, clip.id)
+  end
   return out
 end
 
@@ -719,13 +749,17 @@ end
 function Track:clip_at(beat: number): Clip
   local found: integer
   for _, clip in ipairs(api.clip_list(self.id)) do
-    if beat >= clip.start and beat < clip.start + clip.length then found = clip.id end
+    if beat >= clip.start and beat < clip.start + clip.length then
+      found = clip.id
+    end
   end
   return wrap(clip_mt, found)
 end
 
 --- Peak level as linear `left, right`.
-function Track:meter(): number, number return api.track_meter(self.id) end
+function Track:meter(): number, number
+  return api.track_meter(self.id)
+end
 
 --- Start a note now, outside the timeline. `pitch` may be a name like "C4".
 --- With `attr`, a MIDI 2.0 attribute (`paw.attr`), the note carries it, and
@@ -742,8 +776,12 @@ end
 
 -- An event with its `key` and `pitch` as MIDI numbers.
 local function midi_event(event: MidiEventInput): types.MidiEvent
-  if event.key then event = util.merge(event as {string:Value}, { key = music.pitch(event.key) as Value }) as MidiEventInput end
-  if event.pitch then event = util.merge(event as {string:Value}, { pitch = music.pitch(event.pitch) as Value }) as MidiEventInput end
+  if event.key then
+    event = util.merge(event as {string: Value}, {key = music.pitch(event.key) as Value}) as MidiEventInput
+  end
+  if event.pitch then
+    event = util.merge(event as {string: Value}, {pitch = music.pitch(event.pitch) as Value}) as MidiEventInput
+  end
   return event as types.MidiEvent
 end
 
@@ -759,7 +797,14 @@ end
 --- Play a note for `ms` milliseconds (default 200), with `attr` if given.
 function Track:play_note(pitch: Pitch, velocity?: number, ms?: number, attr?: types.NoteAttr)
   self:note_on(pitch, velocity, attr)
-  paw.defer(function() if self:exists() then self:note_off(pitch) end end, ms or 200)
+  paw.defer(
+    function()
+      if self:exists() then
+        self:note_off(pitch)
+      end
+    end,
+    ms or 200
+  )
 end
 
 --- Send some of this track's output to another track. `level` is in dB.
@@ -767,8 +812,8 @@ end
 --- keeps its level when the fader moves: `vocal:send(reverb, -6, { pre = true })`.
 function Track:send(target: integer | Track, level?: number, opts?: PreOptions)
   local sends = api.track_get(self.id).sends
-  sends[#sends + 1] = { target = id_of(target), level = level or 0, pre = opts and opts.pre or nil }
-  api.track_set(self.id, { sends = sends })
+  sends[#sends + 1] = {target = id_of(target), level = level or 0, pre = opts and opts.pre or nil}
+  api.track_set(self.id, {sends = sends})
 end
 
 --- Everything about the track as plain data: its settings, devices (plugins
@@ -777,27 +822,45 @@ end
 function Track:snapshot(): TrackSnapshot
   local t = self:get()
   local snap: TrackSnapshot = {
-    name = t.name, volume = t.volume, pan = t.pan, output = t.output, color = t.color, mute = t.mute,
-    sends = t.sends, input = t.input, monitor = t.monitor, midi_input = t.midi_input, height = t.height,
+    name = t.name,
+    volume = t.volume,
+    pan = t.pan,
+    output = t.output,
+    color = t.color,
+    mute = t.mute,
+    sends = t.sends,
+    input = t.input,
+    monitor = t.monitor,
+    midi_input = t.midi_input,
+    height = t.height,
     midi_output = t.midi_output,
     -- How its notes' articulations reach its instrument.
     attr_map = t.attr_map,
     -- What extensions keep with the track: a drum map, the group it is in.
     meta = next(t.meta or {}) and t.meta or nil,
-    devices = {}, clips = {}, lanes = {},
+    devices = {},
+    clips = {},
+    lanes = {},
   }
-  local position: {integer:integer} = {}
+  local position: {integer: integer} = {}
   for i, device in ipairs(self:devices()) do
     position[device.id] = i
     snap.devices[i] = device:snapshot()
   end
-  for i, clip in ipairs(self:clips()) do snap.clips[i] = clip:snapshot() end
+  for i, clip in ipairs(self:clips()) do
+    snap.clips[i] = clip:snapshot()
+  end
   -- Its clips off the timeline, for cues (`paw.api.cue`), with their meta.
-  for _, clip in ipairs(api.cue_list(self.id)) do snap.clips[#snap.clips + 1] = wrap(clip_mt, clip.id):snapshot() end
+  for _, clip in ipairs(api.cue_list(self.id)) do
+    snap.clips[#snap.clips + 1] = wrap(clip_mt, clip.id):snapshot()
+  end
   for i, lane in ipairs(api.lane_list(self.id)) do
     snap.lanes[i] = {
-      target = lane.target, device = lane.device and position[lane.device], param = lane.param,
-      enabled = lane.enabled, points = api.lane_points(lane.id),
+      target = lane.target,
+      device = lane.device and position[lane.device],
+      param = lane.param,
+      enabled = lane.enabled,
+      points = api.lane_points(lane.id),
     }
   end
   return snap
@@ -806,32 +869,68 @@ end
 --- Make a track from a snapshot, at a 1-based position in the track list.
 function M.restore_track(snap: TrackSnapshot, index?: integer): Track
   local exists = function(id: integer): boolean return id ~= nil and (pcall(track_field, id, "id")) end
-  local track = M.add_track({
-    name = snap.name, volume = snap.volume, pan = snap.pan, color = snap.color, index = index,
-    -- What it fed may be gone by now; then it goes to the master.
-    output = exists(snap.output) and snap.output or nil,
-  })
+  local track = M.add_track(
+    {
+      name = snap.name,
+      volume = snap.volume,
+      pan = snap.pan,
+      color = snap.color,
+      index = index,
+      -- What it fed may be gone by now; then it goes to the master.
+      output = exists(snap.output) and snap.output or nil,
+    }
+  )
   local sends: {types.Send} = {}
   for _, send in ipairs(snap.sends or {}) do
-    if exists(send.target) then sends[#sends + 1] = send end
+    if exists(send.target) then
+      sends[#sends + 1] = send
+    end
   end
-  if snap.mute then track.mute = true end
-  if #sends > 0 then track.sends = sends end
-  if snap.input then track.input = snap.input end
-  if snap.monitor then track.monitor = true end
-  if snap.midi_input then track.midi_input = snap.midi_input end
-  if snap.midi_output then track.midi_output = snap.midi_output end
-  if snap.attr_map then track.attr_map = snap.attr_map end
-  if snap.height then api.track_set(track.id, { height = snap.height }) end
-  if snap.meta then api.track_set(track.id, { meta = snap.meta }) end
+  if snap.mute then
+    track.mute = true
+  end
+  if #sends > 0 then
+    track.sends = sends
+  end
+  if snap.input then
+    track.input = snap.input
+  end
+  if snap.monitor then
+    track.monitor = true
+  end
+  if snap.midi_input then
+    track.midi_input = snap.midi_input
+  end
+  if snap.midi_output then
+    track.midi_output = snap.midi_output
+  end
+  if snap.attr_map then
+    track.attr_map = snap.attr_map
+  end
+  if snap.height then
+    api.track_set(track.id, {height = snap.height})
+  end
+  if snap.meta then
+    api.track_set(track.id, {meta = snap.meta})
+  end
   local devices: {Device} = {}
-  for i, d in ipairs(snap.devices or {}) do devices[i] = M.restore_device(d, track) end
-  for _, clip in ipairs(snap.clips or {}) do M.restore_clip(clip, track) end
+  for i, d in ipairs(snap.devices or {}) do
+    devices[i] = M.restore_device(d, track)
+  end
+  for _, clip in ipairs(snap.clips or {}) do
+    M.restore_clip(clip, track)
+  end
   for _, lane in ipairs(snap.lanes or {}) do
-    api.lane_add(track.id, {
-      target = lane.target, device = lane.device and devices[lane.device].id, param = lane.param,
-      enabled = lane.enabled, points = lane.points,
-    })
+    api.lane_add(
+      track.id,
+      {
+        target = lane.target,
+        device = lane.device and devices[lane.device].id,
+        param = lane.param,
+        enabled = lane.enabled,
+        points = lane.points,
+      }
+    )
   end
   return track
 end
@@ -841,28 +940,34 @@ function Track:duplicate(): Track
   local snap = self:snapshot()
   snap.name = snap.name .. " copy"
   -- The tracks the original's output pairs play into stay the original's.
-  for _, device in ipairs(snap.devices) do device.outputs = nil end
+  for _, device in ipairs(snap.devices) do
+    device.outputs = nil
+  end
   return M.restore_track(snap, self.index + 1)
 end
 
 --- The automation lanes of the track, its devices' included.
 function Track:lanes(): {Lane}
   local out: {Lane} = {}
-  for i, lane in ipairs(api.lane_list(self.id)) do out[i] = wrap(lane_mt, lane.id) end
+  for i, lane in ipairs(api.lane_list(self.id)) do
+    out[i] = wrap(lane_mt, lane.id)
+  end
   return out
 end
 
 --- The lane for "volume" or "pan", if there is one.
 function Track:lane(target: types.LaneTarget): Lane
   for _, lane in ipairs(api.lane_list(self.id)) do
-    if lane.target == target then return wrap(lane_mt, lane.id) end
+    if lane.target == target then
+      return wrap(lane_mt, lane.id)
+    end
   end
 end
 
 --- The lane for "volume" or "pan", made if there is none yet.
 ---   track:automate("volume"):set_points({ { 0, -60 }, { 8, 0 } })
 function Track:automate(target: types.LaneTarget): Lane
-  return self:lane(target) or wrap(lane_mt, api.lane_add(self.id, { target = target }))
+  return self:lane(target) or wrap(lane_mt, api.lane_add(self.id, {target = target}))
 end
 
 --- The value of "volume" or "pan" at a beat while the song plays. This is
@@ -871,40 +976,61 @@ end
 function Track:value_at(target: types.LaneTarget, beat: number): number
   local lane = self:lane(target)
   local value = lane and lane.enabled and api.lane_value_at(lane.id, beat)
-  if value then return value end
+  if value then
+    return value
+  end
   return track_field(self.id, target) as number
 end
 
 -- Devices --------------------------------------------------------------------
 
-class(device_mt, "Device", api.device_get as Get, function(id: integer, key: string, value: Value)
-  if key == "sidechain" then value = id_of(value as integer | Track) as Value end
-  if key == "outputs" and value is {string:Value} then
-    local ids: {string:integer} = {}
-    for pair, track in pairs(value as {integer | string: integer | Track}) do ids[tostring(pair)] = id_of(track) end
-    value = next(ids) and ids as Value or nil
+class(
+  device_mt,
+  "Device",
+  api.device_get as Get,
+  function(id: integer, key: string, value: Value)
+    if key == "sidechain" then
+      value = id_of(value as integer | Track) as Value
+    end
+    if key == "outputs" and value is {string: Value} then
+      local ids: {string: integer} = {}
+      for pair, track in pairs(value as {integer | string: integer | Track}) do
+        ids[tostring(pair)] = id_of(track)
+      end
+      value = next(ids) and ids as Value or nil
+    end
+    device_set(id, key, value)
   end
-  device_set(id, key, value)
-end)
+)
 
 --- Everything about the device as plain data (`paw.api.device_get`).
-function Device:get(): types.Device return api.device_get(self.id) end
+function Device:get(): types.Device
+  return api.device_get(self.id)
+end
 
 --- True if the device is still in the project.
-function Device:exists(): boolean return (pcall(api.device_get, self.id)) end
+function Device:exists(): boolean
+  return (pcall(api.device_get, self.id))
+end
 
 --- Take the device off its track.
-function Device:remove() api.device_remove(self.id) end
+function Device:remove()
+  api.device_remove(self.id)
+end
 
 --- The track this device is on.
-function Device:track(): Track return wrap(track_mt, api.device_get(self.id).track) end
+function Device:track(): Track
+  return wrap(track_mt, api.device_get(self.id).track)
+end
 
 --- Set one parameter, or several from a table.
 ---   device:set("cutoff", 800)
 ---   device:set({ cutoff = 800, resonance = 0.4 })
 function Device:set(name: string | {string: number | string}, value?: number | string): Device
   if name is {string: number | string} then
-    for k, v in pairs(name) do api.device_set_param(self.id, k, v) end
+    for k, v in pairs(name) do
+      api.device_set_param(self.id, k, v)
+    end
   else
     api.device_set_param(self.id, name, value)
   end
@@ -916,7 +1042,7 @@ end
 --- instance, which is the only place they are known.
 function Device:info(): types.DeviceType
   local d = api.device_get(self.id)
-  local info = api.device_find({ kind = d.kind })
+  local info = api.device_find({kind = d.kind})
   if info then
     info.params = d.param_info
     return info
@@ -931,8 +1057,13 @@ function Device:snapshot(): DeviceSnapshot
   -- What extensions keep with the device goes where the device goes.
   local meta = type(d.meta) == "table" and next(d.meta) and d.meta or nil
   return {
-    kind = d.kind, bypass = d.bypass, state = state, params = not state and d.params or nil, meta = meta,
-    sidechain = d.sidechain, sidechain_pre = d.sidechain_pre or nil,
+    kind = d.kind,
+    bypass = d.bypass,
+    state = state,
+    params = not state and d.params or nil,
+    meta = meta,
+    sidechain = d.sidechain,
+    sidechain_pre = d.sidechain_pre or nil,
     outputs = next(d.outputs or {}) and d.outputs or nil,
   }
 end
@@ -953,7 +1084,7 @@ end
 --- `device.sidechain` is the id of the track.
 function Device:set_sidechain(track?: integer | Track, opts?: PreOptions): Device
   device_set(self.id, "sidechain", id_of(track) as Value)
-  api.device_set(self.id, { sidechain_pre = track ~= nil and opts ~= nil and opts.pre == true })
+  api.device_set(self.id, {sidechain_pre = track ~= nil and opts ~= nil and opts.pre == true})
   return self
 end
 
@@ -961,26 +1092,38 @@ end
 --- nil for devices that have no window.
 --- Start the device again: for a plugin that stopped (`stopped` tells why)
 --- or did not load. It returns with the last state of it in the project.
-function Device:restart() return api.device_restart(self.id) end
+function Device:restart()
+  return api.device_restart(self.id)
+end
 
 --- Set the device offline, or online again. An offline device is not made
 --- (a plugin has no process), and the chain passes over it. Its state and
 --- parameters do not change.
-function Device:set_offline(on?: boolean) api.device_set(self.id, { offline = on ~= false }) end
+function Device:set_offline(on?: boolean)
+  api.device_set(self.id, {offline = on ~= false})
+end
 
 --- Show the plugin's own window.
-function Device:open_editor(): boolean return api.device_editor(self.id, true) end
+function Device:open_editor(): boolean
+  return api.device_editor(self.id, true)
+end
 
 --- Close the plugin's own window.
-function Device:close_editor(): boolean return api.device_editor(self.id, false) end
+function Device:close_editor(): boolean
+  return api.device_editor(self.id, false)
+end
 
 --- The key of a parameter given by key or by name.
 local function param_key(d: types.Device, name: string): string
   for _, p in ipairs(d.param_info) do
-    if p.key == name then return p.key end
+    if p.key == name then
+      return p.key
+    end
   end
   for _, p in ipairs(d.param_info) do
-    if p.name:lower() == tostring(name):lower() then return p.key end
+    if p.name:lower() == tostring(name):lower() then
+      return p.key
+    end
   end
   return name
 end
@@ -989,7 +1132,9 @@ end
 function Device:lanes(): {Lane}
   local out: {Lane} = {}
   for _, lane in ipairs(api.lane_list(api.device_get(self.id).track)) do
-    if lane.device == self.id then out[#out + 1] = wrap(lane_mt, lane.id) end
+    if lane.device == self.id then
+      out[#out + 1] = wrap(lane_mt, lane.id)
+    end
   end
   return out
 end
@@ -999,7 +1144,9 @@ function Device:lane(param: string): Lane
   local d = api.device_get(self.id)
   local key = param_key(d, param)
   for _, lane in ipairs(api.lane_list(d.track)) do
-    if lane.device == self.id and lane.param == key then return wrap(lane_mt, lane.id) end
+    if lane.device == self.id and lane.param == key then
+      return wrap(lane_mt, lane.id)
+    end
   end
 end
 
@@ -1007,14 +1154,16 @@ end
 ---   synth:automate("cutoff"):add(0, 200)
 function Device:automate(param: string): Lane
   return self:lane(param)
-    or wrap(lane_mt, api.lane_add(api.device_get(self.id).track, { target = "param", device = self.id, param = param }))
+    or wrap(lane_mt, api.lane_add(api.device_get(self.id).track, {target = "param", device = self.id, param = param}))
 end
 
 --- The device's state lane, if it has one.
 function Device:state_lane(): Lane
   local d = api.device_get(self.id)
   for _, lane in ipairs(api.lane_list(d.track)) do
-    if lane.target == "state" and lane.device == self.id then return wrap(lane_mt, lane.id) end
+    if lane.target == "state" and lane.device == self.id then
+      return wrap(lane_mt, lane.id)
+    end
   end
 end
 
@@ -1024,18 +1173,22 @@ end
 ---   lane:set_state(16, lane:add_state(amp:capture("crunch")))
 function Device:automate_state(): Lane
   return self:state_lane()
-    or wrap(lane_mt, api.lane_add(api.device_get(self.id).track, { target = "state", device = self.id }))
+    or wrap(lane_mt, api.lane_add(api.device_get(self.id).track, {target = "state", device = self.id}))
 end
 
 --- The device's whole state now, as a state lane takes it: `{ name, state,
 --- params }`. The plugin's saved state, and the parameters set in the project.
 function Device:capture(name?: string): types.LaneState
   local d = api.device_get(self.id)
-  local params: {string:number} = {}
-  for key, value in pairs(d.params or {}) do params[key] = value end
+  local params: {string: number} = {}
+  for key, value in pairs(d.params or {}) do
+    params[key] = value
+  end
   local state = api.device_state(self.id)
-  if not state and next(params) == nil then error("the device keeps no state: give the lane `params` or a `program`", 2) end
-  return { name = name or (d.meta or {}).preset as string or d.name, state = state, params = params }
+  if not state and next(params) == nil then
+    error("the device keeps no state: give the lane `params` or a `program`", 2)
+  end
+  return {name = name or (d.meta or {}).preset as string or d.name, state = state, params = params}
 end
 
 --- The value of a parameter at a beat while the song plays. This is the
@@ -1043,7 +1196,9 @@ end
 function Device:value_at(param: string, beat: number): number
   local lane = self:lane(param)
   local value = lane and lane.enabled and api.lane_value_at(lane.id, beat)
-  if value then return value end
+  if value then
+    return value
+  end
   local d = api.device_get(self.id)
   return d.params[param_key(d, param)]
 end
@@ -1055,22 +1210,37 @@ end
 
 -- Clips ----------------------------------------------------------------------
 
-class(clip_mt, "Clip", api.clip_get as Get, function(id: integer, key: string, value: Value)
-  if key == "track" then value = id_of(value as integer | Track) as Value end
-  clip_set(id, key, value)
-end)
+class(
+  clip_mt,
+  "Clip",
+  api.clip_get as Get,
+  function(id: integer, key: string, value: Value)
+    if key == "track" then
+      value = id_of(value as integer | Track) as Value
+    end
+    clip_set(id, key, value)
+  end
+)
 
 --- Everything about the clip as plain data (`paw.api.clip_get`).
-function Clip:get(): types.Clip return api.clip_get(self.id) end
+function Clip:get(): types.Clip
+  return api.clip_get(self.id)
+end
 
 --- True if the clip is still in the project.
-function Clip:exists(): boolean return (pcall(api.clip_get, self.id)) end
+function Clip:exists(): boolean
+  return (pcall(api.clip_get, self.id))
+end
 
 --- Take the clip out of its track.
-function Clip:remove() api.clip_remove(self.id) end
+function Clip:remove()
+  api.clip_remove(self.id)
+end
 
 --- The track the clip is on.
-function Clip:track(): Track return wrap(track_mt, api.clip_get(self.id).track) end
+function Clip:track(): Track
+  return wrap(track_mt, api.clip_get(self.id).track)
+end
 
 --- The notes of a MIDI clip: a list of { pitch, start, length, velocity }.
 --- `start` is in beats from the start of the clip. A note can have `meta`,
@@ -1082,18 +1252,25 @@ function Clip:track(): Track return wrap(track_mt, api.clip_get(self.id).track) 
 ---   local notes, at = clip:notes({ from = 4, to = 8, low = "C3", high = "C5" })
 function Clip:notes(range?: NoteRangeInput): {types.Note}, {integer}
   if range and (range.low or range.high) then
-    range = util.merge(range as {string:Value}, { low = range.low and music.pitch(range.low) as Value, high = range.high and music.pitch(range.high) as Value }) as NoteRangeInput
+    range = util.merge(
+      range as {string: Value},
+      {low = range.low and music.pitch(range.low) as Value, high = range.high and music.pitch(range.high) as Value}
+    ) as NoteRangeInput
   end
   return api.clip_notes(self.id, range as types.NoteRange)
 end
 
 --- The note on a pitch that sounds at a beat of the clip, and its place in
 --- the notes of the clip. Nothing when there is no such note.
-function Clip:note_at(pitch: Pitch, beat: number): types.Note, integer return api.clip_note_at(self.id, music.pitch(pitch), beat) end
+function Clip:note_at(pitch: Pitch, beat: number): types.Note, integer
+  return api.clip_note_at(self.id, music.pitch(pitch), beat)
+end
 
 -- A change of a note with its `pitch` as a MIDI number.
 local function note_change(change: NoteChangeInput): types.NoteChange
-  if change.pitch then return util.merge(change as {string:Value}, { pitch = music.pitch(change.pitch) as Value }) as types.NoteChange end
+  if change.pitch then
+    return util.merge(change as {string: Value}, {pitch = music.pitch(change.pitch) as Value}) as types.NoteChange
+  end
   return change as types.NoteChange
 end
 
@@ -1106,25 +1283,33 @@ function Clip:set_note(index: integer, fields: NoteChangeInput): integer
 end
 
 --- Remove the note at a place among the clip's notes (from 1).
-function Clip:remove_note(index: integer) api.clip_note_remove(self.id, index) end
+function Clip:remove_note(index: integer)
+  api.clip_note_remove(self.id, index)
+end
 
 --- Change, remove and add several notes as one edit. Every index is a
 --- note's place before the call:
 ---   clip:edit_notes({ set = { { index = 3, start = 1 } }, remove = { 5, 6 }, add = { note } })
 function Clip:edit_notes(edit: NotesEditInput)
   local set: {types.NoteChange} = {}
-  for i, change in ipairs(edit.set or {}) do set[i] = note_change(change) end
-  api.clip_notes_edit(self.id, { set = set, remove = edit.remove or {}, add = M.notes(edit.add or {}) })
+  for i, change in ipairs(edit.set or {}) do
+    set[i] = note_change(change)
+  end
+  api.clip_notes_edit(self.id, {set = set, remove = edit.remove or {}, add = M.notes(edit.add or {})})
 end
 
 --- The waveform of an audio clip: `n` { min, max, rms } entries. Each entry
 --- covers an equal part of the sound of the clip, scaled by its gain. It
 --- gives how far the wave goes each way (-1 to 1) and how loud it is there.
 --- paw keeps the result, so the code that draws can ask for it each frame.
-function Clip:peaks(n: integer): {types.Peak} return api.clip_peaks(self.id, n) end
+function Clip:peaks(n: integer): {types.Peak}
+  return api.clip_peaks(self.id, n)
+end
 
 --- Replace every note of the clip with `notes` (as `add_note` takes each).
-function Clip:set_notes(notes: {NoteInput}) api.clip_set_notes(self.id, M.notes(notes)) end
+function Clip:set_notes(notes: {NoteInput})
+  api.clip_set_notes(self.id, M.notes(notes))
+end
 
 --- The events of the clip that are not notes: controller moves, the pitch
 --- wheel, pressure and program changes. Each is `{ start, type, value }`,
@@ -1134,36 +1319,58 @@ function Clip:set_notes(notes: {NoteInput}) api.clip_set_notes(self.id, M.notes(
 --- `bank`). Values go from 0 to 1 at any resolution. With `key`, a move is
 --- for the note on that key only, as in MIDI 2.0: its own bend, pressure
 --- or controller.
-function Clip:controls(): {types.Control} return api.clip_controls(self.id) end
+function Clip:controls(): {types.Control}
+  return api.clip_controls(self.id)
+end
 
 ---   clip:set_controls({ { start = 0, type = "cc", number = 64, value = 1 },
 ---                       { start = 1, type = "bend", key = "E4", value = 0.02 } })
 function Clip:set_controls(controls: {ControlInput})
   local out: {types.Control} = {}
   for i, c in ipairs(controls) do
-    out[i] = c.key and util.merge(c as {string:Value}, { key = music.pitch(c.key) as Value }) as types.Control or c as types.Control
+    out[i] = c.key and util.merge(c as {string: Value}, {key = music.pitch(c.key) as Value}) as types.Control
+      or c as types.Control
   end
   api.clip_set_controls(self.id, out)
 end
 
 --- Add several notes as one edit (as `add_note` takes each).
-function Clip:add_notes(notes: {NoteInput}) api.clip_add_notes(self.id, M.notes(notes)) end
+function Clip:add_notes(notes: {NoteInput})
+  api.clip_add_notes(self.id, M.notes(notes))
+end
 
 ---   clip:add_note({ pitch = "E4", start = 1, length = 0.5, velocity = 90 })
 ---   clip:add_note({ pitch = "G4", start = 2, attr = paw.attr.m2("11.A") })   -- pizzicato
 --- Returns the note's place among the clip's notes.
-function Clip:add_note(note: NoteInput): integer return api.clip_note_add(self.id, M.notes({ note })[1]) end
+function Clip:add_note(note: NoteInput): integer
+  return api.clip_note_add(self.id, M.notes({note})[1])
+end
 
 --- The clip as plain data, for `paw.restore_clip`.
 function Clip:snapshot(): ClipSnapshot
   local c = self:get()
   local snap: ClipSnapshot = {
-    name = c.name, start = c.start, length = c.length, kind = c.kind, muted = c.muted,
-    file = c.file, offset = c.offset, gain = c.gain, fade_in = c.fade_in, fade_out = c.fade_out,
+    name = c.name,
+    start = c.start,
+    length = c.length,
+    kind = c.kind,
+    muted = c.muted,
+    file = c.file,
+    offset = c.offset,
+    gain = c.gain,
+    fade_in = c.fade_in,
+    fade_out = c.fade_out,
     -- How it plays: an audio clip's timebase, stretch and shift; looping.
-    timebase = c.timebase, stretch = c.stretch, pitch = c.pitch, stretch_mode = c.stretch_mode,
-    source_tempo = c.source_tempo, loop = c.loop or nil, loop_length = c.loop_length, loop_start = c.loop_start,
-    warp = paw.stretch.markers(c), formants = c.formants or nil,
+    timebase = c.timebase,
+    stretch = c.stretch,
+    pitch = c.pitch,
+    stretch_mode = c.stretch_mode,
+    source_tempo = c.source_tempo,
+    loop = c.loop or nil,
+    loop_length = c.loop_length,
+    loop_start = c.loop_start,
+    warp = paw.stretch.markers(c),
+    formants = c.formants or nil,
     -- What extensions keep with the clip goes where the clip goes.
     meta = next(c.meta) and c.meta or nil,
     -- A clip off the timeline, played only when cued.
@@ -1171,7 +1378,9 @@ function Clip:snapshot(): ClipSnapshot
   }
   if c.kind == "midi" then
     snap.notes = self:notes()
-    if c.control_count > 0 then snap.controls = self:controls() end
+    if c.control_count > 0 then
+      snap.controls = self:controls()
+    end
   end
   return snap
 end
@@ -1182,7 +1391,9 @@ function Clip:duplicate(opts?: M.DuplicateOptions): Clip
   local snap = self:snapshot()
   snap.start = opts.start or (snap.start + snap.length)
   local track: integer | Track = opts.track
-  if not track then track = self:track() end
+  if not track then
+    track = self:track()
+  end
   return M.restore_clip(snap, track)
 end
 
@@ -1194,53 +1405,81 @@ end
 class(lane_mt, "Lane", api.lane_get as Get, lane_set)
 
 --- Everything about the lane as plain data (`paw.api.lane_get`).
-function Lane:get(): types.Lane return api.lane_get(self.id) end
+function Lane:get(): types.Lane
+  return api.lane_get(self.id)
+end
 
 --- True if the lane is still in the project.
-function Lane:exists(): boolean return (pcall(api.lane_get, self.id)) end
+function Lane:exists(): boolean
+  return (pcall(api.lane_get, self.id))
+end
 
 --- Take the lane away, and the automation in it.
-function Lane:remove() api.lane_remove(self.id) end
+function Lane:remove()
+  api.lane_remove(self.id)
+end
 
 --- The track the lane belongs to.
-function Lane:track(): Track return wrap(track_mt, api.lane_get(self.id).track) end
+function Lane:track(): Track
+  return wrap(track_mt, api.lane_get(self.id).track)
+end
 
 --- The points as a list of { beat, value }, sorted by beat.
-function Lane:points(): {types.LanePoint} return api.lane_points(self.id) end
+function Lane:points(): {types.LanePoint}
+  return api.lane_points(self.id)
+end
 
 --- Replace the points: `lane:set_points({ { 0, -60 }, { 8, 0 } })`. Points may
 --- also be written { beat = 0, value = -60 }.
-function Lane:set_points(points: {PointInput}) api.lane_set_points(self.id, M.points(points)) end
+function Lane:set_points(points: {PointInput})
+  api.lane_set_points(self.id, M.points(points))
+end
 
 --- Add a point. It replaces a point at the same beat. The value is in the
 --- units of the target: dB for volume and -1 to 1 for pan. For a parameter,
 --- it is in the range of the parameter.
-function Lane:add(beat: number, value: number) api.lane_add_point(self.id, beat, value) end
+function Lane:add(beat: number, value: number)
+  api.lane_add_point(self.id, beat, value)
+end
 
 --- Remove every point of the lane.
-function Lane:clear() api.lane_set_points(self.id, {}) end
+function Lane:clear()
+  api.lane_set_points(self.id, {})
+end
 
 --- The value at a beat, when the lane is on and when it is off. Nil without points.
-function Lane:value_at(beat: number): number return api.lane_value_at(self.id, beat) end
+function Lane:value_at(beat: number): number
+  return api.lane_value_at(self.id, beat)
+end
 
 --- The states of a state lane: `{ name, state, params, call, program, bank }` each.
-function Lane:states(): {types.LaneState} return api.lane_states(self.id) end
+function Lane:states(): {types.LaneState}
+  return api.lane_states(self.id)
+end
 
 --- Add a state to a state lane, or replace the one of its name. Returns
 --- its index, from 0: the value of a point that gives it.
-function Lane:add_state(state: types.LaneState): integer return api.lane_add_state(self.id, state) end
+function Lane:add_state(state: types.LaneState): integer
+  return api.lane_add_state(self.id, state)
+end
 
 --- The index of a state of a state lane, by its name or its index. Nil
 --- when the lane has no such state.
 function Lane:state_index(which: number | string): integer
   local states = api.lane_states(self.id)
-  if which is number then return states[which as integer + 1] and which as integer or nil end
+  if which is number then
+    return states[which as integer + 1] and which as integer or nil
+  end
   for i, s in ipairs(states) do
-    if s.name == which then return i - 1 end
+    if s.name == which then
+      return i - 1
+    end
   end
   local lower = tostring(which):lower()
   for i, s in ipairs(states) do
-    if s.name:lower():find(lower, 1, true) then return i - 1 end
+    if s.name:lower():find(lower, 1, true) then
+      return i - 1
+    end
   end
 end
 
@@ -1249,7 +1488,9 @@ end
 ---   lane:set_state(16, "crunch")
 function Lane:set_state(beat: number, which: number | string)
   local index = self:state_index(which)
-  if not index then error("the lane has no state `" .. tostring(which) .. "`", 2) end
+  if not index then
+    error("the lane has no state `" .. tostring(which) .. "`", 2)
+  end
   api.lane_add_point(self.id, beat, index)
 end
 
@@ -1258,7 +1499,9 @@ end
 --- Normalize automation points to { beat, value } pairs.
 function M.points(points: {PointInput}): {types.LanePoint}
   local out: {types.LanePoint} = {}
-  for i, p in ipairs(points) do out[i] = { p.beat or p[1], p.value or p[2] } end
+  for i, p in ipairs(points) do
+    out[i] = {p.beat or p[1], p.value or p[2]}
+  end
   return out
 end
 
@@ -1282,35 +1525,63 @@ end
 
 --- Add a clip from a snapshot to a track.
 function M.restore_clip(snap: ClipSnapshot, track: integer | Track): Clip
-  local opts = util.merge(snap as {string:Value}, {}) as ClipSnapshot
+  local opts = util.merge(snap as {string: Value}, {}) as ClipSnapshot
   opts.muted = nil
   local clip = wrap(clip_mt, api.clip_add(id_of(track), opts as types.ClipOptions))
-  if snap.muted then clip.muted = true end
+  if snap.muted then
+    clip.muted = true
+  end
   return clip
 end
 
 --- Add a device from a snapshot to a track, at the end of the chain or at
 --- the 1-based `index`.
 function M.restore_device(snap: DeviceSnapshot, track: integer | Track, index?: integer): Device
-  local device = wrap(device_mt, api.device_add(id_of(track), snap.kind, {
-    params = snap.params, state = snap.state, index = index,
-  }))
-  if snap.bypass then device.bypass = true end
-  if snap.meta then api.device_set(device.id, { meta = snap.meta }) end
+  local device = wrap(
+    device_mt,
+    api.device_add(
+      id_of(track),
+      snap.kind,
+      {
+        params = snap.params,
+        state = snap.state,
+        index = index,
+      }
+    )
+  )
+  if snap.bypass then
+    device.bypass = true
+  end
+  if snap.meta then
+    api.device_set(device.id, {meta = snap.meta})
+  end
   -- The track it listened to is kept while it exists and can still be
   -- listened to from here; otherwise the side-chain is dropped, and said so.
   if snap.sidechain then
-    local ok = pcall(device.set_sidechain, device, snap.sidechain, { pre = snap.sidechain_pre })
+    local ok = pcall(device.set_sidechain, device, snap.sidechain, {pre = snap.sidechain_pre})
     if not ok then
-      paw.notify(string.format("%s no longer has its side-chain: track %s is gone or would make a loop",
-        device.name, tostring(snap.sidechain)), "warn")
+      paw.notify(
+        string.format(
+          "%s no longer has its side-chain: track %s is gone or would make a loop",
+          device.name,
+          tostring(snap.sidechain)
+        ),
+        "warn"
+      )
     end
   end
   -- So are the tracks its further output pairs played into.
   for pair, track_id in pairs(snap.outputs or {}) do
     if not pcall(device.set_output, device, tonumber(pair) as integer, track_id) then
-      paw.notify(string.format("%s output pair %s no longer plays anywhere: track %s is gone or would make a loop",
-        device.name, tostring(pair), tostring(track_id)), "warn")
+      paw.notify(
+        string.format(
+          "%s output pair %s no longer plays anywhere: track %s is gone or would make a loop",
+          device.name,
+          tostring(pair),
+          tostring(track_id)
+        ),
+        "warn"
+      )
     end
   end
   return device
@@ -1319,31 +1590,45 @@ end
 --- A new track, last unless `opts.index` says where: `opts` as `paw.api.track_add`
 --- takes them (`name`, `volume`, `output` as a track or an id, ...).
 function M.add_track(opts?: M.TrackInput): Track
-  if opts and opts.output then opts = util.merge(opts as {string:Value}, { output = id_of(opts.output) as Value }) as M.TrackInput end
+  if opts and opts.output then
+    opts = util.merge(opts as {string: Value}, {output = id_of(opts.output) as Value}) as M.TrackInput
+  end
   return wrap(track_mt, api.track_add(opts as types.TrackOptions))
 end
 
 --- Every track, in order, as `paw.Track` objects (the master is `paw.master`).
 function M.tracks(): {Track}
   local out: {Track} = {}
-  for i, id in ipairs(api.track_list()) do out[i] = wrap(track_mt, id) end
+  for i, id in ipairs(api.track_list()) do
+    out[i] = wrap(track_mt, id)
+  end
   return out
 end
 
 --- A track by id, or by name.
 function M.track(which: number | string): Track
-  if which is number then return wrap(track_mt, which as integer) end
+  if which is number then
+    return wrap(track_mt, which as integer)
+  end
   for _, id in ipairs(api.track_list()) do
-    if track_field(id, "name") as string == which then return wrap(track_mt, id) end
+    if track_field(id, "name") as string == which then
+      return wrap(track_mt, id)
+    end
   end
 end
 
 --- The device, clip or automation lane of an id, as an object.
-function M.device(id: integer): Device return wrap(device_mt, id) end
+function M.device(id: integer): Device
+  return wrap(device_mt, id)
+end
 --- The clip of an id, as a `paw.Clip`.
-function M.clip(id: integer): Clip return wrap(clip_mt, id) end
+function M.clip(id: integer): Clip
+  return wrap(clip_mt, id)
+end
 --- The automation lane of an id, as a `paw.Lane`.
-function M.lane(id: integer): Lane return wrap(lane_mt, id) end
+function M.lane(id: integer): Lane
+  return wrap(lane_mt, id)
+end
 
 M.master = wrap(track_mt, 0)
 
@@ -1361,108 +1646,145 @@ local project: M.Project = {
 M.project = project
 local project_field = api.project_get as function(key: string): Value
 local project_set = api.project_set as function(key: string, value: Value)
-setmetatable(project, {
-  __index = function(_: M.Project, key: string): Value return project_field(key) end,
-  __newindex = function(_: M.Project, key: string, value: Value) project_set(key, value) end,
-} as metatable<M.Project>)
+setmetatable(
+  project,
+  {
+    __index = function(_: M.Project, key: string): Value return project_field(key) end,
+    __newindex = function(_: M.Project, key: string, value: Value) project_set(key, value) end,
+  } as metatable<M.Project>
+)
 
 -- `paw.transport.play()`, `paw.transport.position`, `paw.transport.loop_enabled = true`
 local transport: M.Transport = {
   play = api.transport_play,
-  stop = function()
-    paw.ui.poke()
-    api.transport_stop()
-  end,
+  stop = function() paw.ui.poke(); api.transport_stop() end,
   --- Turn recording on and play. Each armed track records a take until the
   --- transport stops or `recording` is turned off.
-  record = function()
-    paw.ui.poke()
-    api.transport_record()
-  end,
+  record = function() paw.ui.poke(); api.transport_record() end,
   --- Put the playhead at a beat. While the song is stopped, play starts
   --- from there until the cursor moves (`paw.opt.play_from`).
-  seek = function(beats: number)
-    api.transport_seek(beats)
-    events.emit("playhead.placed")
-  end,
+  seek = function(beats: number) api.transport_seek(beats); events.emit("playhead.placed") end,
   get = api.transport_get,
   toggle = function()
-    if api.transport_get().playing then M.transport.stop() else api.transport_play() end
+    if api.transport_get().playing then
+      M.transport.stop()
+    else
+      api.transport_play()
+    end
   end,
 }
 M.transport = transport
 local transport_set = api.transport_set as function(key: string, value: Value)
-setmetatable(transport, {
-  __index = function(_: M.Transport, key: string): Value return (api.transport_get() as {string:Value})[key] end,
-  __newindex = function(_: M.Transport, key: string, value: Value)
-    if key == "position" then
-      M.transport.seek(value as number)
-    elseif key == "tempo" then
-      api.project_set({ tempo = value as number })
-    else
-      transport_set(key, value)
-    end
-  end,
-} as metatable<M.Transport>)
+setmetatable(
+  transport,
+  {
+    __index = function(_: M.Transport, key: string): Value return (api.transport_get() as {string: Value})[key] end,
+    __newindex = function(_: M.Transport, key: string, value: Value)
+      if key == "position" then
+        M.transport.seek(value as number)
+      elseif key == "tempo" then
+        api.project_set({tempo = value as number})
+      else
+        transport_set(key, value)
+      end
+    end,
+  } as metatable<M.Transport>
+)
 
 --- Whether replacing the project now would lose work: it has changes that
 --- are not saved, or it has no file and something in it. A project opened
 --- from a MIDI file or a REAPER project has no changes to count, but it is
 --- not on disk either, and this is every guard's one question.
-rawset(project as {string:Value}, "unsaved", function(): boolean
-  local p = api.project_get()
-  return p.modified or (p.path == nil and #api.track_list() > 0)
-end as Value)
+rawset(
+  project as {string: Value},
+  "unsaved",
+  function(): boolean local p = api.project_get(); return p.modified or (p.path == nil and #api.track_list() > 0) end
+    as Value
+)
 
 --- Whether `path` is a project kept as a folder: a folder with a
 --- `project.toml`, or that file.
-rawset(project as {string:Value}, "is_folder", function(path: string): boolean
-  path = tostring(path):gsub("/+$", "")
-  if path:match("project%.toml$") then return true end
-  local f = io.open(path .. "/project.toml", "rb")
-  if f then f:close() end
-  return f ~= nil
-end as Value)
+rawset(
+  project as {string: Value},
+  "is_folder",
+  function(path: string): boolean
+    path = tostring(path):gsub("/+$", "")
+    if path:match("project%.toml$") then
+      return true
+    end
+    local f = io.open(path .. "/project.toml", "rb")
+    if f then
+      f:close()
+    end
+    return f ~= nil
+  end as Value
+)
 
 --- Save the project as `:w` does, always as a folder: `path`, or its
 --- file when nil. A path that ends in `.json` names the folder of the
 --- same name without `.json`, because one JSON file is only the form of
 --- paw's safety copies and undo states. Returns the path saved, and a
 --- note that tells where the project went when that is not `path`.
-rawset(project as {string:Value}, "write", function(path?: string): string, string
-  local target = path or api.project_get().path
-  local stem = target is string and target:match("^(.+)%.[jJ][sS][oO][nN]$")
-  if not stem then return M.project.save(path) end
-  local saved = M.project.save(stem)
-  local name = target:match("([^/]+)$") or target
-  local folder = stem:match("([^/]+)$") or stem
-  local note = path and string.format("a project is a folder: saved it in %s/, not in %s", folder, name)
-    or string.format("a project is a folder: saved it in %s/ (%s stays as it was)", folder, name)
-  return saved, note
-end as Value)
+rawset(
+  project as {string: Value},
+  "write",
+  function(path?: string): string, string
+    local target = path or api.project_get().path
+    local stem = target is string and target:match("^(.+)%.[jJ][sS][oO][nN]$")
+    if not stem then
+      return M.project.save(path)
+    end
+    local saved = M.project.save(stem)
+    local name = target:match("([^/]+)$") or target
+    local folder = stem:match("([^/]+)$") or stem
+    local note = path and string.format("a project is a folder: saved it in %s/, not in %s", folder, name)
+      or string.format("a project is a folder: saved it in %s/ (%s stays as it was)", folder, name)
+    return saved, note
+  end as Value
+)
 
 --- Whether the project may be replaced: says why not, naming `what` (the
 --- command, whose `!` form goes on anyway), when there is unsaved work.
 --- `force` is for a choice made later from a list, which asked before.
-rawset(project as {string:Value}, "guard", function(what: string, force?: boolean): boolean
-  if force or discarding or not M.project.unsaved() then return true end
-  paw.notify(string.format("the project has unsaved work: `:w` saves it, `:%s!` goes on without it", what), "error")
-  return false
-end as Value)
+rawset(
+  project as {string: Value},
+  "guard",
+  function(what: string, force?: boolean): boolean
+    if force or discarding or not M.project.unsaved() then
+      return true
+    end
+    paw.notify(string.format("the project has unsaved work: `:w` saves it, `:%s!` goes on without it", what), "error")
+    return false
+  end as Value
+)
 
 --- Whether a `!` command is running, for a choice made later from a list.
-rawset(project as {string:Value}, "discarding", function(): boolean return discarding end as Value)
+rawset(project as {string: Value}, "discarding", function(): boolean return discarding end as Value)
 
 --- Define `<name>!`, which is `name` with the unsaved work thrown away.
-rawset(project as {string:Value}, "allow_discard", function(name: string)
-  local spec = paw.commands.get(name)
-  paw.command(name .. "!", function(ctx: Value)
-    discarding = true
-    local ok, err = pcall(paw.commands.get(name).run, ctx)
-    discarding = false
-    if not ok then error(err, 0) end
-  end, { desc = (spec.desc:gsub("%.$", "")) .. "; the unsaved work is thrown away", raw = spec.raw, complete = spec.complete })
-end as Value)
+rawset(
+  project as {string: Value},
+  "allow_discard",
+  function(name: string)
+    local spec = paw.commands.get(name)
+    paw.command(
+      name .. "!",
+      function(ctx: Value)
+        discarding = true
+        local ok, err = pcall(paw.commands.get(name).run, ctx)
+        discarding = false
+        if not ok then
+          error(err, 0)
+        end
+      end,
+      {
+        desc = (spec.desc:gsub("%.$", "")) .. "; the unsaved work is thrown away",
+        raw = spec.raw,
+        complete = spec.complete,
+      }
+    )
+  end as Value
+)
 
 -- MIDI input -----------------------------------------------------------------
 
@@ -1479,21 +1801,19 @@ M.midi = {
   --- Open only the ports matching these ids or parts of names, or all of
   --- them with no argument.
   select = function(which?: string | {string})
-    if which is string then which = { which } end
+    if which is string then
+      which = {which}
+    end
     api.midi_select(which as {string})
   end,
   --- Deliver an event as if it came from a MIDI port:
   --- `{ type = "note_on", pitch = "C4", velocity = 100, channel = 1 }`, or
   --- a controller move as `Clip:controls` describes them. What arrives,
   --- from here or from a port, is also the event `midi.in` for scripts.
-  inject = function(event: MidiEventInput)
-    api.midi_inject(midi_event(event))
-  end,
+  inject = function(event: MidiEventInput) api.midi_inject(midi_event(event)) end,
   --- An event as a MIDI 2.0 packet: two 32-bit words. And the other way:
   --- deliver a Universal MIDI Packet (MIDI 1.0 or 2.0) as if from a port.
-  ump = function(event: MidiEventInput): {integer}
-    return api.midi_ump(midi_event(event))
-  end,
+  ump = function(event: MidiEventInput): {integer} return api.midi_ump(midi_event(event)) end,
   inject_ump = api.midi_inject_ump,
   --- The ports MIDI can be sent to, `{ id, name, own }` each: a track
   --- sends what it plays to one with `track.midi_output = { port = name,
@@ -1506,11 +1826,11 @@ M.midi = {
 }
 
 function M.midi.note_on(pitch: Pitch, velocity?: number, channel?: integer)
-  M.midi.inject({ type = "note_on", pitch = pitch, velocity = velocity, channel = channel })
+  M.midi.inject({type = "note_on", pitch = pitch, velocity = velocity, channel = channel})
 end
 
 function M.midi.note_off(pitch: Pitch, channel?: integer)
-  M.midi.inject({ type = "note_off", pitch = pitch, channel = channel })
+  M.midi.inject({type = "note_off", pitch = pitch, channel = channel})
 end
 
 -- Musical time ---------------------------------------------------------------
@@ -1522,20 +1842,32 @@ M.time = time
 -- along the song and seconds follow the tempo changes.
 
 --- Length in beats of the bar at beat `at` (the first bar if left out).
-function time.bar(at?: number): number return api.tempo_bar_length(at or 0) end
+function time.bar(at?: number): number
+  return api.tempo_bar_length(at or 0)
+end
 
 --- Beat where bar `n` (1-based) starts.
-function time.bar_start(n: integer): number return api.tempo_bar_start(n - 1) end
+function time.bar_start(n: integer): number
+  return api.tempo_bar_start(n - 1)
+end
 
 --- The signature (two numbers) and the tempo at a beat, as `paw.tempo` has them.
-function time.signature_at(beat?: number): integer, integer return api.tempo_signature(beat or 0) end
-function time.tempo_at(beat?: number): number return api.tempo_at(beat or 0) end
+function time.signature_at(beat?: number): integer, integer
+  return api.tempo_signature(beat or 0)
+end
+function time.tempo_at(beat?: number): number
+  return api.tempo_at(beat or 0)
+end
 
 --- The bar (1-based) a beat is in.
-function time.bar_of(beat: number): integer return api.tempo_bar_of(beat) + 1 end
+function time.bar_of(beat: number): integer
+  return api.tempo_bar_of(beat) + 1
+end
 
 --- Where the bar a beat is in starts.
-function time.bar_floor(beat: number): number return api.tempo_bar_start(api.tempo_bar_of(beat)) end
+function time.bar_floor(beat: number): number
+  return api.tempo_bar_start(api.tempo_bar_of(beat))
+end
 
 --- The first bar line at or after a beat.
 function time.bar_ceil(beat: number): number
@@ -1544,7 +1876,9 @@ function time.bar_ceil(beat: number): number
   -- The bar of a beat a hair before a bar line can be the bar after the
   -- line (the kernel rounds): its start is then the line asked for, not
   -- a bar before the next one.
-  if start >= beat - 1e-12 then return start end
+  if start >= beat - 1e-12 then
+    return start
+  end
   return api.tempo_bar_start(bar + 1)
 end
 
@@ -1553,11 +1887,15 @@ end
 function time.bars(from: number, to: number): {BarLine}
   local out: {BarLine} = {}
   local bar = api.tempo_bar_of(math.max(0, from))
-  if api.tempo_bar_start(bar) < from - 1e-9 then bar = bar + 1 end
+  if api.tempo_bar_start(bar) < from - 1e-9 then
+    bar = bar + 1
+  end
   while #out < 10000 do
     local beat = api.tempo_bar_start(bar)
-    if beat >= to then break end
-    out[#out + 1] = { beat = beat, bar = bar + 1 }
+    if beat >= to then
+      break
+    end
+    out[#out + 1] = {beat = beat, bar = bar + 1}
     bar = bar + 1
   end
   return out
@@ -1568,7 +1906,9 @@ end
 function time.format(beats: number): string
   local bar, beat, frac = api.tempo_bbt(beats)
   local part = math.floor(frac * 100 + 0.5)
-  if part >= 100 then part = 99 end
+  if part >= 100 then
+    part = 99
+  end
   return string.format("%d.%d.%02d", bar + 1, beat + 1, part)
 end
 
@@ -1579,8 +1919,12 @@ function time.seconds(beats: number, at?: number): number
 end
 
 --- Seconds from the start of the song to beat `beat`, and back.
-function time.to_seconds(beat: number): number return api.tempo_seconds(beat) end
-function time.to_beat(seconds: number): number return api.tempo_beat(seconds) end
+function time.to_seconds(beat: number): number
+  return api.tempo_seconds(beat)
+end
+function time.to_beat(seconds: number): number
+  return api.tempo_beat(seconds)
+end
 
 --- "m:ss.s" for a beat's time from the start of the song.
 function time.clock(beat: number): string

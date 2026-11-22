@@ -57,31 +57,33 @@ local record M
 end
 
 -- What is kept between readings.
-local heard: {integer:{Clip}} = {}   -- each track's clips that sound, in its order
-local order: {integer} = {}          -- the tracks, in order
-local sorted: {Note} = {}            -- every note, by start (then by clip)
-local longest: number = 0            -- the longest note
-local last: number = 0               -- where the last note ends
+local heard: {integer: {Clip}} = {} -- each track's clips that sound, in its order
+local order: {integer} = {} -- the tracks, in order
+local sorted: {Note} = {} -- every note, by start (then by clip)
+local longest: number = 0 -- the longest note
+local last: number = 0 -- where the last note ends
 local windows: {read.Window} = {}
-local step_of: number                -- the step the windows were made with
+local step_of: number -- the step the windows were made with
 local bars: {number} = {}
-local hist: {read.Weights} = {}      -- the pitch classes of each bar, of the notes
+local hist: {read.Weights} = {} -- the pitch classes of each bar, of the notes
 local chords: {read.Chord} = {}
 local keys: {read.Key} = {}
-local bar_of: number                 -- the bar the chords were decoded with
-local stamp = 0                      -- goes up when the reading may have changed
-local notes_list: {Note}             -- `notes()`, made when asked
+local bar_of: number -- the bar the chords were decoded with
+local stamp = 0 -- goes up when the reading may have changed
+local notes_list: {Note} -- `notes()`, made when asked
 
 -- What is left to do.
-local all = true                     -- look at every track
-local marked: {integer:boolean} = {} -- the tracks to look at
-local timed = true                   -- the bars may have moved
-local job: thread                    -- the pass under way
-local until_ms: number               -- when the slice under way ends (nil: never)
+local all = true -- look at every track
+local marked: {integer: boolean} = {} -- the tracks to look at
+local timed = true -- the bars may have moved
+local job: thread -- the pass under way
+local until_ms: number -- when the slice under way ends (nil: never)
 
 --- Stop here if the slice's time is up; the pass goes on at the next call.
 local function pause()
-  if until_ms and api.now() >= until_ms then coroutine.yield() end
+  if until_ms and api.now() >= until_ms then
+    coroutine.yield()
+  end
 end
 
 --- Whether note `a` comes before `b`: by start, then by clip. A clip's own
@@ -92,8 +94,12 @@ end
 
 --- Two lists of notes in that order made one.
 local function merge(x: {Note}, y: {Note}): {Note}
-  if #y == 0 then return x end
-  if #x == 0 then return y end
+  if #y == 0 then
+    return x
+  end
+  if #x == 0 then
+    return y
+  end
   local out: {Note} = {}
   local i, j, nx, ny = 1, 1, #x, #y
   while i <= nx and j <= ny do
@@ -105,8 +111,12 @@ local function merge(x: {Note}, y: {Note}): {Note}
       i = i + 1
     end
   end
-  for k = i, nx do out[#out + 1] = x[k] end
-  for k = j, ny do out[#out + 1] = y[k] end
+  for k = i, nx do
+    out[#out + 1] = x[k]
+  end
+  for k = j, ny do
+    out[#out + 1] = y[k]
+  end
   return out
 end
 
@@ -114,11 +124,17 @@ end
 local function merge_clips(list: {Clip}): {Note}
   table.sort(list, function(a: Clip, b: Clip): boolean return a.id < b.id end)
   local runs: {{Note}} = {}
-  for _, c in ipairs(list) do runs[#runs + 1] = c.notes end
-  if #runs == 0 then return {} end
+  for _, c in ipairs(list) do
+    runs[#runs + 1] = c.notes
+  end
+  if #runs == 0 then
+    return {}
+  end
   while #runs > 1 do
     local next_runs: {{Note}} = {}
-    for k = 1, #runs, 2 do next_runs[#next_runs + 1] = runs[k + 1] and merge(runs[k], runs[k + 1]) or runs[k] end
+    for k = 1, #runs, 2 do
+      next_runs[#next_runs + 1] = runs[k + 1] and merge(runs[k], runs[k + 1]) or runs[k]
+    end
     runs = next_runs
     pause()
   end
@@ -128,13 +144,17 @@ end
 --- A clip's notes that sound, in project beats: those that a trim of its
 --- edges hides are left out.
 local function read_clip(track: integer, c: types.Clip, key: string): Clip
-  local clip: Clip = { id = c.id, key = key, notes = {}, longest = 0 }
+  local clip: Clip = {id = c.id, key = key, notes = {}, longest = 0}
   local list = api.clip_notes(c.id)
   for _, n in ipairs(list) do
     if n.start >= 0 and n.start < c.length then
       local note: Note = {
-        pitch = n.pitch, start = c.start + n.start, length = math.min(n.length, c.length - n.start),
-        velocity = n.velocity, track = track, clip = c.id,
+        pitch = n.pitch,
+        start = c.start + n.start,
+        length = math.min(n.length, c.length - n.start),
+        velocity = n.velocity,
+        track = track,
+        clip = c.id,
       }
       clip.notes[#clip.notes + 1] = note
       clip.from = math.min(clip.from or math.huge, note.start)
@@ -149,18 +169,22 @@ end
 --- the clips whose old notes go, and the clips whose new notes come.
 local record Changes
   spans: {{number}}
-  gone: {integer:boolean}
+  gone: {integer: boolean}
   came: {Clip}
 end
 
 local function went(ch: Changes, c: Clip)
   ch.gone[c.id] = true
-  if c.from then ch.spans[#ch.spans + 1] = { c.from, c.to } end
+  if c.from then
+    ch.spans[#ch.spans + 1] = {c.from, c.to}
+  end
 end
 
 local function arrived(ch: Changes, c: Clip)
   ch.came[#ch.came + 1] = c
-  if c.from then ch.spans[#ch.spans + 1] = { c.from, c.to } end
+  if c.from then
+    ch.spans[#ch.spans + 1] = {c.from, c.to}
+  end
 end
 
 --- Look at track `id` again: its clips that sound now against the ones
@@ -170,8 +194,10 @@ local function look(id: integer, opts: Options, ch: Changes)
   local ok, t = pcall(api.track_get, id)
   local now: {Clip} = {}
   if ok and not t.mute and not opts.is_drums(t) then
-    local by_id: {integer:Clip} = {}
-    for _, c in ipairs(was) do by_id[c.id] = c end
+    local by_id: {integer: Clip} = {}
+    for _, c in ipairs(was) do
+      by_id[c.id] = c
+    end
     for _, c in ipairs(api.clip_list(id)) do
       if c.kind == "midi" and not c.muted then
         local key = string.format("%s:%.17g:%.17g", tostring(c.stamp), c.start, c.length)
@@ -180,7 +206,9 @@ local function look(id: integer, opts: Options, ch: Changes)
         if kept and kept.key == key then
           now[#now + 1] = kept
         else
-          if kept then went(ch, kept) end
+          if kept then
+            went(ch, kept)
+          end
           local clip = read_clip(id, c, key)
           now[#now + 1] = clip
           arrived(ch, clip)
@@ -188,10 +216,14 @@ local function look(id: integer, opts: Options, ch: Changes)
       end
     end
     for _, c in ipairs(was) do
-      if by_id[c.id] then went(ch, c) end
+      if by_id[c.id] then
+        went(ch, c)
+      end
     end
   else
-    for _, c in ipairs(was) do went(ch, c) end
+    for _, c in ipairs(was) do
+      went(ch, c)
+    end
   end
   heard[id] = ok and now or nil
 end
@@ -199,7 +231,9 @@ end
 --- Whether a change in `spans` can touch what is read from `from` to `to`.
 local function touched(spans: {{number}}, from: number, to: number): boolean
   for _, s in ipairs(spans) do
-    if s[1] < to + 1e-9 and s[2] > from - 1e-9 then return true end
+    if s[1] < to + 1e-9 and s[2] > from - 1e-9 then
+      return true
+    end
   end
   return false
 end
@@ -215,9 +249,13 @@ local function bar_starts(upto: number, opts: Options): {number}
 end
 
 local function same<T>(a: {T}, b: {T}): boolean
-  if #a ~= #b then return false end
+  if #a ~= #b then
+    return false
+  end
   for i = 1, #a do
-    if a[i] ~= b[i] then return false end
+    if a[i] ~= b[i] then
+      return false
+    end
   end
   return true
 end
@@ -227,13 +265,17 @@ end
 local function pass(opts: Options)
   local everything, looking, retime = all, marked, timed
   all, marked, timed = false, {}, false
-  local ch: Changes = { spans = {}, gone = {}, came = {} }
+  local ch: Changes = {spans = {}, gone = {}, came = {}}
   local listed = api.track_list()
-  local present: {integer:boolean} = {}
-  for _, id in ipairs(listed) do present[id] = true end
+  local present: {integer: boolean} = {}
+  for _, id in ipairs(listed) do
+    present[id] = true
+  end
   for id, clips in pairs(heard) do
     if not present[id] then
-      for _, c in ipairs(clips) do went(ch, c) end
+      for _, c in ipairs(clips) do
+        went(ch, c)
+      end
       heard[id] = nil
     end
   end
@@ -243,7 +285,9 @@ local function pass(opts: Options)
       pause()
     end
   end
-  if not same(order, listed) or #ch.spans > 0 or next(ch.gone) then notes_list = nil end
+  if not same(order, listed) or #ch.spans > 0 or next(ch.gone) then
+    notes_list = nil
+  end
   order = listed
 
   -- The notes, sorted: the ones that went out, the ones that came merged
@@ -252,24 +296,32 @@ local function pass(opts: Options)
   local was_longest = longest
   if changed then
     local moved = 0
-    for _, c in ipairs(ch.came) do moved = moved + #c.notes end
+    for _, c in ipairs(ch.came) do
+      moved = moved + #c.notes
+    end
     if everything or moved > #sorted // 4 then
       local list: {Clip} = {}
       for _, clips in pairs(heard) do
-        for _, c in ipairs(clips) do list[#list + 1] = c end
+        for _, c in ipairs(clips) do
+          list[#list + 1] = c
+        end
       end
       sorted = merge_clips(list)
     else
       local kept: {Note} = {}
       for _, n in ipairs(sorted) do
-        if not ch.gone[n.clip] then kept[#kept + 1] = n end
+        if not ch.gone[n.clip] then
+          kept[#kept + 1] = n
+        end
       end
       sorted = merge(kept, merge_clips(ch.came))
     end
     longest, last = 0, 0
     for _, clips in pairs(heard) do
       for _, c in ipairs(clips) do
-        if c.from then longest, last = math.max(longest, c.longest), math.max(last, c.to) end
+        if c.from then
+          longest, last = math.max(longest, c.longest), math.max(last, c.to)
+        end
       end
     end
     pause()
@@ -279,7 +331,9 @@ local function pass(opts: Options)
   -- that was weighed with its beat depends on the longest note too.
   local spans = #ch.spans <= 64 and ch.spans or nil
   local restep = step_of ~= opts.step
-  if restep then windows, step_of = {}, opts.step end
+  if restep then
+    windows, step_of = {}, opts.step
+  end
   local made: {read.Window} = {}
   local rewindowed = restep
   if changed or restep then
@@ -290,8 +344,14 @@ local function pass(opts: Options)
       i = i + 1
       local len = math.min(step, last - at)
       local win = windows[i]
-      if not win or win.at ~= at or win.length ~= len or (win.beat and longest ~= was_longest)
-        or not spans or touched(spans, at - 1, at + len + 1) then
+      if
+        not win
+        or win.at ~= at
+        or win.length ~= len
+        or (win.beat and longest ~= was_longest)
+        or not spans
+        or touched(spans, at - 1, at + len + 1)
+      then
         win = read.window(sorted, longest, at, len, step)
         rewindowed = true
         pause()
@@ -299,7 +359,9 @@ local function pass(opts: Options)
       made[i] = win
       at = at + step
     end
-    if #made ~= #windows then rewindowed = true end
+    if #made ~= #windows then
+      rewindowed = true
+    end
     windows = made
   end
 
@@ -333,7 +395,10 @@ end
 
 --- Whether there is work left: tracks to look at, or a pass under way.
 function M.busy(opts?: Options): boolean
-  return job ~= nil or all or timed or next(marked) ~= nil
+  return job ~= nil
+    or all
+    or timed
+    or next(marked) ~= nil
     or (opts ~= nil and (opts.step ~= step_of or opts.bar ~= bar_of))
 end
 
@@ -343,7 +408,9 @@ function M.update(opts: Options, budget?: number): boolean
   until_ms = budget and api.now() + budget or nil
   while true do
     if not job then
-      if not M.busy(opts) then return true end
+      if not M.busy(opts) then
+        return true
+      end
       job = coroutine.create(function() pass(opts) end)
     end
     local ok, err = coroutine.resume(job)
@@ -352,15 +419,23 @@ function M.update(opts: Options, budget?: number): boolean
       M.reset()
       error(tostring(err), 0)
     end
-    if coroutine.status(job) ~= "dead" then return false end
+    if coroutine.status(job) ~= "dead" then
+      return false
+    end
     job = nil
-    if until_ms and api.now() >= until_ms then return not M.busy(opts) end
+    if until_ms and api.now() >= until_ms then
+      return not M.busy(opts)
+    end
   end
 end
 
 --- Look at track `id` again at the next update (every track when nil).
 function M.mark(id?: integer)
-  if id then marked[id] = true else all = true end
+  if id then
+    marked[id] = true
+  else
+    all = true
+  end
 end
 
 --- Make the bars again at the next update: the meter may have changed.
@@ -393,7 +468,9 @@ function M.notes(): {Note}
     local out: {Note} = {}
     for _, id in ipairs(order) do
       for _, c in ipairs(heard[id] or {}) do
-        for _, n in ipairs(c.notes) do out[#out + 1] = n end
+        for _, n in ipairs(c.notes) do
+          out[#out + 1] = n
+        end
       end
     end
     notes_list = out

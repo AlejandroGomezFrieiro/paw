@@ -8,7 +8,9 @@ local api = paw.api
 local function start()
   fresh()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.focus("arrange")
   -- The errors these tests make on purpose count as read when they end,
   -- so that the key line of the tests after them is as it always is.
@@ -20,7 +22,9 @@ local function message() return paw.ui.message and paw.ui.message.text or "" end
 test("\\fi and \\fo fade the audio clip up to the cursor and from it; a count gives the beats", function()
   start()
   local s = {}
-  for i = 1, 48000 * 4 do s[i] = 0.25 end
+  for i = 1, 48000 * 4 do
+    s[i] = 0.25
+  end
   local file = T.write_wav(T.scratch .. "/fade-keys.wav", s)
   local t = paw.add_track({ name = "Guitar" })
   local clip = t:add_clip({ file = file, start = 0, length = 8 })
@@ -45,7 +49,10 @@ test("[ and ] act at once in the mixer and on velocity, also pressed fast, and ]
   local t = paw.add_track({ name = "A" })
   paw.cursor.set_track(t)
   paw.ui.focus("mixer")
-  T.after(function() paw.ui.hide("mixer") paw.ui.focus("arrange") end)
+  T.after(function()
+    paw.ui.hide("mixer")
+    paw.ui.focus("arrange")
+  end)
   paw.keymap.feed("[")
   near(t.pan, -0.1, 1e-9, "one [ pans at once, with no wait")
   paw.keymap.feed("[[")
@@ -56,7 +63,10 @@ test("[ and ] act at once in the mixer and on velocity, also pressed fast, and ]
   local c = t:add_clip({ start = 0, length = 8, notes = { { "C4", 0, 1 }, { "C4", 3, 1 } } })
   local roll = paw.ui.views.pianoroll
   roll:edit(c)
-  T.after(function() roll.clip_id = nil paw.ui.hide("pianoroll") end)
+  T.after(function()
+    roll.clip_id = nil
+    paw.ui.hide("pianoroll")
+  end)
   paw.ui.focus("pianoroll")
   roll:set(60, 0)
   api.undo_checkpoint()
@@ -81,7 +91,10 @@ test("[ and ] on a selection of notes act at once, as in normal mode", function(
   local c = t:add_clip({ start = 0, length = 4, notes = { { "C4", 0, 1 }, { "E4", 1, 1 } } })
   local roll = paw.ui.views.pianoroll
   roll:edit(c)
-  T.after(function() roll.clip_id = nil paw.ui.hide("pianoroll") end)
+  T.after(function()
+    roll.clip_id = nil
+    paw.ui.hide("pianoroll")
+  end)
   paw.ui.focus("pianoroll")
   roll:set(60, 0)
   api.undo_checkpoint()
@@ -98,7 +111,9 @@ test("? and Space fk search the whole description of a key, not the part that 80
   api.ui_size = function() return 80, 24 end
   T.after(function()
     api.ui_size = size
-    while paw.ui.float do paw.ui.close() end
+    while paw.ui.float do
+      paw.ui.close()
+    end
   end)
   for _, lhs in ipairs({ "?", "<Space>fk" }) do
     paw.keymap.feed(lhs)
@@ -107,7 +122,11 @@ test("? and Space fk search the whole description of a key, not the part that 80
     for _, line in ipairs(shown) do
       if line:match("^gm ") then cut = line end
     end
-    eq(cut ~= nil and cut:find("metronome", 1, true) == nil, true, lhs .. ": the line of gm is cut before the word: " .. tostring(cut))
+    eq(
+      cut ~= nil and cut:find("metronome", 1, true) == nil,
+      true,
+      lhs .. ": the line of gm is cut before the word: " .. tostring(cut)
+    )
     paw.keymap.feed("metronome")
     local found = false
     for _, line in ipairs(paw.pick.state().matches) do
@@ -128,7 +147,10 @@ test("the device panel's cursor starts on the first device of another track, so 
   b:add_device("delay")
   paw.cursor.set_track(a)
   paw.ui.focus("devices")
-  T.after(function() paw.ui.hide("devices") paw.ui.focus("arrange") end)
+  T.after(function()
+    paw.ui.hide("devices")
+    paw.ui.focus("arrange")
+  end)
   local panel = paw.ui.views.devices
   paw.keymap.feed("G")
   eq(panel.row > 1, true, "G goes down the chain of A")
@@ -141,26 +163,31 @@ test("the device panel's cursor starts on the first device of another track, so 
   eq(row.param == nil and row.device.kind, "delay", "w goes to the next device")
 end)
 
-test("g' asks for the marker's name and never makes one without, and the list of markers finds names, not its line numbers", function()
-  start()
-  for i, name in ipairs({ "Intro", "Verse", "Chorus", "Bridge" }) do paw.markers.add((i - 1) * 16, name) end
-  paw.markers.add(64, "Chorus 2")
-  paw.cursor.set_beat(80)
-  keys("g'")
-  eq(#paw.markers.list(), 5, "a prompt asks first")
-  keys("<CR>")
-  local last = paw.markers.list()[#paw.markers.list()]
-  eq(last.name, "Marker 6", "Enter alone keeps the name it offers")
-  keys('g"')
-  keys("Chorus 2")
-  local lines = paw.pick.state().matches
-  eq(lines[1]:find("Chorus 2", 1, true) ~= nil, true, "Chorus 2 first: " .. tostring(lines[1]))
-  for _, line in ipairs(lines) do
-    eq(line:find("Verse", 1, true), nil, "line 2 (Verse) does not match by its number: " .. line)
+test(
+  "g' asks for the marker's name and never makes one without, and the list of markers finds names, not its line numbers",
+  function()
+    start()
+    for i, name in ipairs({ "Intro", "Verse", "Chorus", "Bridge" }) do
+      paw.markers.add((i - 1) * 16, name)
+    end
+    paw.markers.add(64, "Chorus 2")
+    paw.cursor.set_beat(80)
+    keys("g'")
+    eq(#paw.markers.list(), 5, "a prompt asks first")
+    keys("<CR>")
+    local last = paw.markers.list()[#paw.markers.list()]
+    eq(last.name, "Marker 6", "Enter alone keeps the name it offers")
+    keys('g"')
+    keys("Chorus 2")
+    local lines = paw.pick.state().matches
+    eq(lines[1]:find("Chorus 2", 1, true) ~= nil, true, "Chorus 2 first: " .. tostring(lines[1]))
+    for _, line in ipairs(lines) do
+      eq(line:find("Verse", 1, true), nil, "line 2 (Verse) does not match by its number: " .. line)
+    end
+    keys("<CR>")
+    eq(paw.cursor.beat, 64, "and Enter goes there")
   end
-  keys("<CR>")
-  eq(paw.cursor.beat, 64, "and Enter goes there")
-end)
+)
 
 test("the piano roll names the rows of a track with the drums device: kick, snare, closed hat", function()
   start()
@@ -169,23 +196,34 @@ test("the piano roll names the rows of a track with the drums device: kick, snar
   local c = t:add_clip({ start = 0, length = 4 })
   local roll = paw.ui.views.pianoroll
   roll:edit(c)
-  T.after(function() roll.clip_id = nil paw.ui.hide("pianoroll") paw.ui.focus("arrange") end)
+  T.after(function()
+    roll.clip_id = nil
+    paw.ui.hide("pianoroll")
+    paw.ui.focus("arrange")
+  end)
   paw.ui.focus("pianoroll")
   roll:set(38, 0)
   local names = paw.plugins.key_names(t.id)
   eq(names[36] .. "/" .. names[38] .. "/" .. names[42], "Kick/Snare/Closed hat", "the kit's pieces by pitch")
   local screen = table.concat(api.ui_snapshot(120, 40), "\n")
-  eq(screen:find("Snare", 1, true) ~= nil and screen:find("Kick", 1, true) ~= nil, true, "the rows show them:\n" .. screen)
+  eq(
+    screen:find("Snare", 1, true) ~= nil and screen:find("Kick", 1, true) ~= nil,
+    true,
+    "the rows show them:\n" .. screen
+  )
 end)
 
 test("ext.unload takes away the key bar lines that the extension set", function()
   start()
   local dir = T.scratch .. "/barext"
   os.execute("mkdir -p '" .. dir .. "'")
-  T.write_file(dir .. "/init.lua", [[
+  T.write_file(
+    dir .. "/init.lua",
+    [[
 paw.keymap.set("Z1", function() end, { view = "barview", desc = "test" })
 paw.ui.keybar.set("barview", "n", { { "Z1", "one" } })
-]])
+]]
+  )
   local entry = paw.ext.load(dir)
   eq(entry.ok, true, "loads")
   eq(paw.ui.keybar.lines.barview ~= nil, true, "its line is there")
@@ -196,10 +234,14 @@ end)
 
 test("a count before Alt-j and Alt-k moves the track that many places, and before & makes that many copies", function()
   start()
-  for _, name in ipairs({ "A", "B", "C", "D", "E" }) do paw.add_track({ name = name }) end
+  for _, name in ipairs({ "A", "B", "C", "D", "E" }) do
+    paw.add_track({ name = name })
+  end
   local function order()
     local out = {}
-    for _, t in ipairs(paw.tracks()) do out[#out + 1] = t.name end
+    for _, t in ipairs(paw.tracks()) do
+      out[#out + 1] = t.name
+    end
     return table.concat(out)
   end
   paw.cursor.set_track(paw.tracks()[1])

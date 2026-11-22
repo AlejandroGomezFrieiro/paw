@@ -12,10 +12,15 @@ local function codepoints(s)
   for ch in s:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
     local b1, b2, b3, b4 = ch:byte(1, -1)
     local cp
-    if #ch == 1 then cp = b1
-    elseif #ch == 2 then cp = (b1 - 192) * 64 + (b2 - 128)
-    elseif #ch == 3 then cp = ((b1 - 224) * 64 + (b2 - 128)) * 64 + (b3 - 128)
-    else cp = (((b1 - 240) * 64 + (b2 - 128)) * 64 + (b3 - 128)) * 64 + (b4 - 128) end
+    if #ch == 1 then
+      cp = b1
+    elseif #ch == 2 then
+      cp = (b1 - 192) * 64 + (b2 - 128)
+    elseif #ch == 3 then
+      cp = ((b1 - 224) * 64 + (b2 - 128)) * 64 + (b3 - 128)
+    else
+      cp = (((b1 - 240) * 64 + (b2 - 128)) * 64 + (b3 - 128)) * 64 + (b4 - 128)
+    end
     out[#out + 1] = { ch = ch, cp = cp }
   end
   return out
@@ -27,8 +32,29 @@ end
 
 -- Small kana, the long vowel mark and voicing marks belong to the kana before them.
 local SMALL = {}
-for _, cp in ipairs({ 0x30FC, 0x3099, 0x309A, 0x3041, 0x3043, 0x3045, 0x3047, 0x3049, 0x3083, 0x3085, 0x3087,
-  0x308E, 0x30A1, 0x30A3, 0x30A5, 0x30A7, 0x30A9, 0x30E3, 0x30E5, 0x30E7, 0x30EE }) do
+for _, cp in ipairs({
+  0x30FC,
+  0x3099,
+  0x309A,
+  0x3041,
+  0x3043,
+  0x3045,
+  0x3047,
+  0x3049,
+  0x3083,
+  0x3085,
+  0x3087,
+  0x308E,
+  0x30A1,
+  0x30A3,
+  0x30A5,
+  0x30A7,
+  0x30A9,
+  0x30E3,
+  0x30E5,
+  0x30E7,
+  0x30EE,
+}) do
   SMALL[cp] = true
 end
 
@@ -39,7 +65,9 @@ function M.tokens(text, per_kana)
   for word in tostring(text or ""):gmatch("%S+") do
     local chars = per_kana and codepoints(word) or nil
     local jp = false
-    for _, c in ipairs(chars or {}) do jp = jp or japanese(c.cp) end
+    for _, c in ipairs(chars or {}) do
+      jp = jp or japanese(c.cp)
+    end
     if jp then
       local current
       for _, c in ipairs(chars) do

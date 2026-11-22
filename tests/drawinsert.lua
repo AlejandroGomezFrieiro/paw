@@ -35,7 +35,9 @@ end
 local function empty()
   fresh()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.focus("arrange")
   paw.opt.note_grid, paw.opt.velocity, paw.opt.note_zoom = 0.25, 100, 8
   local track = paw.add_track({ name = "Lead" })
@@ -182,15 +184,26 @@ test("pencil: j and k bend the note at its end: its own pitch bend, shown and de
   eq(draw.describe(), "C4 · end · 4 steps · 1 beat · bend +2", "two semitones up at its end")
   typed("<Esc>")
   eq(melody(clip), "60@0+1", "the note")
-  eq(bends(clip, 60), "0.5:0.125 0.53125:0.25 0.5625:0.375 0.59375:0.5 0.625:0.625 0.65625:0.75 0.6875:0.875 "
-    .. "0.71875:1 0.75:1.125 0.78125:1.25 0.8125:1.375 0.84375:1.5 0.875:1.625 0.90625:1.75 0.9375:1.875 0.96875:2",
-    "a ramp of its own pitch bend from its middle")
+  eq(
+    bends(clip, 60),
+    "0.5:0.125 0.53125:0.25 0.5625:0.375 0.59375:0.5 0.625:0.625 0.65625:0.75 0.6875:0.875 "
+      .. "0.71875:1 0.75:1.125 0.78125:1.25 0.8125:1.375 0.84375:1.5 0.875:1.625 0.90625:1.75 0.9375:1.875 0.96875:2",
+    "a ramp of its own pitch bend from its middle"
+  )
   roll:set(60, 0)
   local said = {}
-  for _, line in ipairs(roll:describe()) do said[#said + 1] = type(line) == "table" and line.text or line end
-  eq(table.concat(said, "\n"):find("bends up 2 semitones by its end, from 50% of it", 1, true) ~= nil, true, "K says it")
+  for _, line in ipairs(roll:describe()) do
+    said[#said + 1] = type(line) == "table" and line.text or line
+  end
+  eq(
+    table.concat(said, "\n"):find("bends up 2 semitones by its end, from 50% of it", 1, true) ~= nil,
+    true,
+    "K says it"
+  )
   local mark
-  for _, n in ipairs(T.roll_notes()) do if n.props.bend then mark = n end end
+  for _, n in ipairs(T.roll_notes()) do
+    if n.props.bend then mark = n end
+  end
   eq(mark and mark.props.bend .. " " .. mark.props.bend_at, "2 0.5", "the roll shows it")
   typed("ij<Esc>")
   eq(select(2, bends(clip, 60):gsub("%S+", "")), 16, "taken up, the note bends again from its bend")
@@ -285,7 +298,8 @@ test("a suggestion's keys come before the drawing ones: Escape dismisses it, and
   local clip = empty()
   local complete = paw.complete
   local source = {
-    name = "drawinsert", priority = 0,
+    name = "drawinsert",
+    priority = 0,
     complete = function(_, done) done({ { label = "fifth", notes = { { pitch = 67, start = 1, length = 1 } } } }) end,
   }
   local auto = paw.opt.complete_auto
@@ -318,36 +332,51 @@ local function cell(beat, pitch)
   for _, run in ipairs(shot.rows[y + 1] or {}) do
     if x >= run.x and x < run.x + run.w then
       local chars = {}
-      for ch in run.text:gmatch("[%z\1-\127\194-\244][\128-\191]*") do chars[#chars + 1] = ch end
+      for ch in run.text:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+        chars[#chars + 1] = ch
+      end
       return { ch = chars[x - run.x + 1] or " ", fg = run.fg, bg = run.bg }
     end
   end
 end
 
-test("the note being drawn is drawn in insert mode's colour, its pitch and length in the title and on the key line", function()
-  local clip = empty()
-  local palette = require("paw.theme").palette
-  typed("i2+4l")
-  local note = cell(0.5, 62)
-  eq(note.fg, palette.insert, "the note being drawn has the insert colour")
-  eq(note.bg, paw.draw.mix(palette.bg, palette.insert, 0.3), "on a faint shade of it")
-  eq(cell(1, 62).bg, palette.insert, "the cursor is at its end")
-  local screen = table.concat(api.ui_snapshot(120, 40), "\n")
-  eq(screen:find("DRAW D4 end  4 steps · 1 beat  vel 100", 1, true) ~= nil, true, "the title says what is being drawn")
-  local line = paw.ui.keybar.entries()
-  eq(line[1][1] .. " " .. line[1][2], "D4 end · 4 steps · 1 beat", "the key line starts with it")
-  eq(line[2][1] .. " " .. line[2][2], "l longer", "then the keys that draw")
-  eq(#paw.ui.keybar.check(), 0, "every key it shows is mapped")
-  local drawn
-  for _, n in ipairs(T.roll_notes()) do if n.props.pending then drawn = n end end
-  eq(drawn and api.json_encode(drawn.r), "[0,62,1,1]", "a window is sent it as a note being drawn, to paint where it is")
-  typed("<CR>")
-  local kept = cell(0.5, 62)
-  eq(kept.fg ~= palette.insert and kept.bg ~= note.bg, true, "a note kept no longer looks like the one being drawn")
-  typed("<Esc>")
-  eq(melody(clip), "62@0+1", "it is written")
-  eq(cell(0.5, 62).bg, kept.bg, "and looks as it did when kept: what was seen is what is written")
-end)
+test(
+  "the note being drawn is drawn in insert mode's colour, its pitch and length in the title and on the key line",
+  function()
+    local clip = empty()
+    local palette = require("paw.theme").palette
+    typed("i2+4l")
+    local note = cell(0.5, 62)
+    eq(note.fg, palette.insert, "the note being drawn has the insert colour")
+    eq(note.bg, paw.draw.mix(palette.bg, palette.insert, 0.3), "on a faint shade of it")
+    eq(cell(1, 62).bg, palette.insert, "the cursor is at its end")
+    local screen = table.concat(api.ui_snapshot(120, 40), "\n")
+    eq(
+      screen:find("DRAW D4 end  4 steps · 1 beat  vel 100", 1, true) ~= nil,
+      true,
+      "the title says what is being drawn"
+    )
+    local line = paw.ui.keybar.entries()
+    eq(line[1][1] .. " " .. line[1][2], "D4 end · 4 steps · 1 beat", "the key line starts with it")
+    eq(line[2][1] .. " " .. line[2][2], "l longer", "then the keys that draw")
+    eq(#paw.ui.keybar.check(), 0, "every key it shows is mapped")
+    local drawn
+    for _, n in ipairs(T.roll_notes()) do
+      if n.props.pending then drawn = n end
+    end
+    eq(
+      drawn and api.json_encode(drawn.r),
+      "[0,62,1,1]",
+      "a window is sent it as a note being drawn, to paint where it is"
+    )
+    typed("<CR>")
+    local kept = cell(0.5, 62)
+    eq(kept.fg ~= palette.insert and kept.bg ~= note.bg, true, "a note kept no longer looks like the one being drawn")
+    typed("<Esc>")
+    eq(melody(clip), "62@0+1", "it is written")
+    eq(cell(0.5, 62).bg, kept.bg, "and looks as it did when kept: what was seen is what is written")
+  end
+)
 
 test("I, or the roll_insert option, makes the keyboard a piano instead", function()
   local clip = empty()
@@ -377,13 +406,29 @@ test("pencil: chord symbols, absolute and in the key, read into pitches", functi
     return table.concat(v.pitches, " ")
   end
   local cases = {
-    { "C", "60 64 67" }, { "Cmaj7", "60 64 67 71" }, { "C3maj7", "48 52 55 59" }, { "Csus4", "60 65 67" },
-    { "Am7b5", "57 60 63 67" }, { "F#m9/C#", "61 66 69 76 80" }, { "C(add9)", "60 64 67 74" },
-    { "V7", "55 59 62 65" }, { "ii7", "62 65 69 72" }, { "bVII", "58 62 65" }, { "V64", "62 67 71" },
-    { "V6/4", "62 67 71" }, { "I6", "64 67 72" }, { "viio7", "59 62 65 68" }, { "iiø7", "62 65 68 72" },
-    { "V/ii", "57 61 64" }, { "V7/V", "62 66 69 72" }, { "viio7/V", "66 69 72 75" }, { "N6", "65 68 73" },
+    { "C", "60 64 67" },
+    { "Cmaj7", "60 64 67 71" },
+    { "C3maj7", "48 52 55 59" },
+    { "Csus4", "60 65 67" },
+    { "Am7b5", "57 60 63 67" },
+    { "F#m9/C#", "61 66 69 76 80" },
+    { "C(add9)", "60 64 67 74" },
+    { "V7", "55 59 62 65" },
+    { "ii7", "62 65 69 72" },
+    { "bVII", "58 62 65" },
+    { "V64", "62 67 71" },
+    { "V6/4", "62 67 71" },
+    { "I6", "64 67 72" },
+    { "viio7", "59 62 65 68" },
+    { "iiø7", "62 65 68 72" },
+    { "V/ii", "57 61 64" },
+    { "V7/V", "62 66 69 72" },
+    { "viio7/V", "66 69 72 75" },
+    { "N6", "65 68 73" },
     { "Ger6", "56 60 63 66" },
-    { "V7", "64 68 71 74", "A minor" }, { "iv", "62 65 69", "A minor" }, { "VI", "65 69 72", "A minor" },
+    { "V7", "64 68 71 74", "A minor" },
+    { "iv", "62 65 69", "A minor" },
+    { "VI", "65 69 72", "A minor" },
     { "bVII", "55 59 62", "A minor" },
   }
   for _, c in ipairs(cases) do
@@ -400,32 +445,47 @@ test("pencil: c chooses a chord, which h l = < > shape as one note until Enter o
   typed("Cmaj7<CR>")
   eq(select(2, draw.text()), "60@0+0 64@0+0 67@0+0 71@0+0", "the chord at the pencil")
   typed("ll")
-  eq(draw.label():match("^DRAW Cmaj7 end  2 steps"), "DRAW Cmaj7 end  2 steps", "shaped as one note, its name in the title")
+  eq(
+    draw.label():match("^DRAW Cmaj7 end  2 steps"),
+    "DRAW Cmaj7 end  2 steps",
+    "shaped as one note, its name in the title"
+  )
   typed("<Esc>")
   eq(melody(clip), "60@0+0.5 64@0+0.5 67@0+0.5 71@0+0.5", "four notes two steps long")
   typed("u")
   eq(melody(clip), "", "one undo step")
   roll:set(60, 0)
   typed("i4c<CR>4l<CR>2l<Esc>")
-  eq(melody(clip), "60@0+1 64@0+1 67@0+1 71@0+1 60@1+0.5", "4c: the diatonic seventh; Enter keeps it and draws on after it")
+  eq(
+    melody(clip),
+    "60@0+1 64@0+1 67@0+1 71@0+1 60@1+0.5",
+    "4c: the diatonic seventh; Enter keeps it and draws on after it"
+  )
 end)
 
-test("pencil: m puts marks of the song at the pencil: a tempo, a key change for the chords, a signature, a marker", function()
-  local clip = empty()
-  typed("i4lmt96<CR>")
-  eq(paw.tempo.at(0), 96, "mt: the tempo from the pencil")
-  typed("<CR>mkD minor<CR>")
-  eq(paw.markers.list()[1].name, "key D minor", "mk: a key change from the pencil")
-  typed("rgc<CR>")
-  eq(select(2, draw.text()), "55@1+0 58@1+0 62@1+0", "the chords after it are of that key: G minor on G")
-  typed("4lms6/8<CR>m'Verse<CR>")
-  eq(select(1, paw.tempo.signature_at(4)) .. "/" .. select(2, paw.tempo.signature_at(4)), "6/8", "ms: from the next bar")
-  eq(paw.markers.list()[2] and paw.markers.list()[2].name, "Verse", "m': a marker")
-  typed("<Esc>")
-  eq(melody(clip), "60@0+1 55@1+1 58@1+1 62@1+1", "the notes")
-  typed("u")
-  eq(melody(clip) .. "|" .. paw.tempo.at(0) .. "|" .. #paw.markers.list(), "|120|0", "one undo step takes all back")
-end)
+test(
+  "pencil: m puts marks of the song at the pencil: a tempo, a key change for the chords, a signature, a marker",
+  function()
+    local clip = empty()
+    typed("i4lmt96<CR>")
+    eq(paw.tempo.at(0), 96, "mt: the tempo from the pencil")
+    typed("<CR>mkD minor<CR>")
+    eq(paw.markers.list()[1].name, "key D minor", "mk: a key change from the pencil")
+    typed("rgc<CR>")
+    eq(select(2, draw.text()), "55@1+0 58@1+0 62@1+0", "the chords after it are of that key: G minor on G")
+    typed("4lms6/8<CR>m'Verse<CR>")
+    eq(
+      select(1, paw.tempo.signature_at(4)) .. "/" .. select(2, paw.tempo.signature_at(4)),
+      "6/8",
+      "ms: from the next bar"
+    )
+    eq(paw.markers.list()[2] and paw.markers.list()[2].name, "Verse", "m': a marker")
+    typed("<Esc>")
+    eq(melody(clip), "60@0+1 55@1+1 58@1+1 62@1+1", "the notes")
+    typed("u")
+    eq(melody(clip) .. "|" .. paw.tempo.at(0) .. "|" .. #paw.markers.list(), "|120|0", "one undo step takes all back")
+  end
+)
 
 test("pencil: C strums a chord, its notes a 64th apart and ending together; a count is the 64ths", function()
   local clip = empty()
@@ -470,7 +530,11 @@ test("pencil: a region, controller points, and a word when no extension gives ar
   draw.articulations = nil
   typed("a")
   draw.articulations = provider
-  eq((paw.ui.message and paw.ui.message.text or ""):find("articulations", 1, true) ~= nil, true, "a without the extension says how to get it")
+  eq(
+    (paw.ui.message and paw.ui.message.text or ""):find("articulations", 1, true) ~= nil,
+    true,
+    "a without the extension says how to get it"
+  )
   typed("<Esc>")
   typed("u")
   eq(#clip:controls() .. " " .. #paw.markers.list(), "0 0", "one undo step")

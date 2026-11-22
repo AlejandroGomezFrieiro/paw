@@ -25,7 +25,11 @@ end
 command("tutor", function(ctx) run(ctx, false) end, {
   desc = "The course: `tutor` (where you left off), `tutor 3`, `tutor list`, `tutor quit`, `tutor hint`, `tutor next`, `tutor restart`",
 })
-command("tutor!", function(ctx) run(ctx, true) end, { desc = "Start a lesson even if the open project has unsaved changes, which are lost" })
+command(
+  "tutor!",
+  function(ctx) run(ctx, true) end,
+  { desc = "Start a lesson even if the open project has unsaved changes, which are lost" }
+)
 command("tutor.hint", tutor.hint, { desc = "A hint for the tutor's step" })
 command("tutor.next", tutor.skip, { desc = "Skip the tutor's step (or go on to the next lesson)" })
 command("tutor.restart", tutor.restart, { desc = "Start the lesson again from a fresh practice project" })
@@ -33,12 +37,18 @@ command("tutor.list", tutor.list, { desc = "The lessons and how far you got" })
 command("tutor.quit", tutor.quit, { desc = "Leave the tutor and reopen your own project" })
 command("tutor.try", function(ctx)
   local name = ctx.args[1] and tostring(ctx.args[1])
-  if not name then return paw.notify("usage: tutor.try <extension>, for one of the extensions bundled with paw", "warn") end
+  if not name then
+    return paw.notify("usage: tutor.try <extension>, for one of the extensions bundled with paw", "warn")
+  end
   if paw.ext.loaded[name] and paw.ext.loaded[name].ok then return paw.notify(name .. " is loaded already") end
   local path = here:gsub("/tutor$", "") .. "/" .. name
-  if not require("tutor.store").exists(path .. "/init.lua") then return paw.notify("no bundled extension `" .. name .. "` in " .. path, "warn") end
+  if not require("tutor.store").exists(path .. "/init.lua") then
+    return paw.notify("no bundled extension `" .. name .. "` in " .. path, "warn")
+  end
   local entry = paw.ext.load(path)
-  if entry.ok then paw.notify(name .. " loaded for this session. To have it always, link " .. path .. " into ~/.config/paw/extensions") end
+  if entry.ok then
+    paw.notify(name .. " loaded for this session. To have it always, link " .. path .. " into ~/.config/paw/extensions")
+  end
 end, { desc = "Load one of the extensions bundled with paw, for this session: `tutor.try sections`" })
 
 paw.keymap.group("<leader>h", "tutor")

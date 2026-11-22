@@ -9,9 +9,7 @@ local command, map = paw.command, keymap.set
 
 --- Open a clip in the drum grid, which a graphical frontend shows in a
 --- pane as the terminal shows it.
-local function open(clip)
-  grid:edit(clip)
-end
+local function open(clip) grid:edit(clip) end
 drums.open = open
 
 -- Commands --------------------------------------------------------------------
@@ -20,7 +18,8 @@ command("drums.track", function(ctx)
   local index = paw.cursor.index()
   local track = drums.make_track({
     name = ctx.args.name or ctx.args[1] and tostring(ctx.args[1]) or nil,
-    map = ctx.args.map, kit = ctx.args.kit,
+    map = ctx.args.map,
+    kit = ctx.args.kit,
     index = index and index + 1 or nil,
   })
   local bar = paw.time.bar()
@@ -67,7 +66,9 @@ command("drums.map", function(ctx)
       local def = drums.maps[item.name]
       if not def then return { "The track's clips open in the piano roll again." } end
       local lines = { { text = def.label or item.name, style = "Title" } }
-      for _, row in ipairs(def.rows) do lines[#lines + 1] = string.format("%3d  %s", row.note, row.name) end
+      for _, row in ipairs(def.rows) do
+        lines[#lines + 1] = string.format("%3d  %s", row.note, row.name)
+      end
       return lines
     end,
   })
@@ -96,7 +97,9 @@ command("drums.rename", function(ctx)
   if not info then return paw.notify("not on a drum track", "warn") end
   local piece = view:piece()
   local name = table.concat(ctx.args, " ")
-  if not piece or piece.extra or name == "" then return paw.notify("put the cursor on a row of the map, then `drums.rename Name`", "warn") end
+  if not piece or piece.extra or name == "" then
+    return paw.notify("put the cursor on a row of the map, then `drums.rename Name`", "warn")
+  end
   local rows = info.rows
   for _, row in ipairs(rows) do
     if row.note == piece.note then row.name = name end
@@ -121,20 +124,39 @@ command("drums.kit", function(ctx)
   if grid:clip() and grid:track_id() == track.id then api.ui_redraw() end
 end, { desc = "Play the drum track from a folder of samples, named by what they are: `drums.kit ~/samples/808`" })
 
-command("drums.pad", function(ctx)
-  local kit = require("drums.kit")
-  local track_id = grid:track_id() or (paw.cursor.track() and paw.cursor.track().id)
-  local device = track_id and kit.device(track_id)
-  if not device then return paw.notify("the track has no kit of samples: `drums.kit <folder>` gives it one", "warn") end
-  local piece = grid:clip() and grid:piece()
-  local note = tonumber(ctx.args.note) or (piece and piece.note)
-  if not note then return paw.notify("open the grid on the row to change, or give `note=`", "warn") end
-  local fields = {}
-  for _, key in ipairs({ "level", "pan", "tune", "group" }) do fields[key] = tonumber(ctx.args[key]) end
-  if ctx.args.file then fields.file = tostring(ctx.args.file) end
-  local pad = kit.set_pad(device, note, fields)
-  paw.notify(string.format("%s: level %g dB, pan %g, tune %g, group %d", drums.piece(track_id, note), pad.level, pad.pan, pad.tune, pad.group))
-end, { desc = "Change the sample of the grid's row: `drums.pad level=-3 pan=0.3 tune=-2 group=1`, `drums.pad file=snare2.wav`" })
+command(
+  "drums.pad",
+  function(ctx)
+    local kit = require("drums.kit")
+    local track_id = grid:track_id() or (paw.cursor.track() and paw.cursor.track().id)
+    local device = track_id and kit.device(track_id)
+    if not device then
+      return paw.notify("the track has no kit of samples: `drums.kit <folder>` gives it one", "warn")
+    end
+    local piece = grid:clip() and grid:piece()
+    local note = tonumber(ctx.args.note) or (piece and piece.note)
+    if not note then return paw.notify("open the grid on the row to change, or give `note=`", "warn") end
+    local fields = {}
+    for _, key in ipairs({ "level", "pan", "tune", "group" }) do
+      fields[key] = tonumber(ctx.args[key])
+    end
+    if ctx.args.file then fields.file = tostring(ctx.args.file) end
+    local pad = kit.set_pad(device, note, fields)
+    paw.notify(
+      string.format(
+        "%s: level %g dB, pan %g, tune %g, group %d",
+        drums.piece(track_id, note),
+        pad.level,
+        pad.pan,
+        pad.tune,
+        pad.group
+      )
+    )
+  end,
+  {
+    desc = "Change the sample of the grid's row: `drums.pad level=-3 pan=0.3 tune=-2 group=1`, `drums.pad file=snare2.wav`",
+  }
+)
 
 command("drums.beat", function(ctx)
   local beats = require("drums.beats")
@@ -142,15 +164,25 @@ command("drums.beat", function(ctx)
   if not clip then return paw.notify("put the cursor on a clip, or open one in the drum grid", "warn") end
   local function said(name, n, hidden)
     if hidden > 0 then
-      return paw.notify(string.format("%s: %d hits; %d note%s outside the drum map went with the old beat (u brings them back)",
-        name, n, hidden, hidden == 1 and "" or "s"), "warn")
+      return paw.notify(
+        string.format(
+          "%s: %d hits; %d note%s outside the drum map went with the old beat (u brings them back)",
+          name,
+          n,
+          hidden,
+          hidden == 1 and "" or "s"
+        ),
+        "warn"
+      )
     end
     paw.notify(string.format("%s: %d hits", name, n))
   end
   local function apply(name) said(name, beats.apply(clip, name)) end
   if ctx.args[1] then return apply(tostring(ctx.args[1])) end
   local items = {}
-  for _, name in ipairs(beats.names()) do items[#items + 1] = { name = name, text = string.format("%-9s %s", name, beats.list[name].label) } end
+  for _, name in ipairs(beats.names()) do
+    items[#items + 1] = { name = name, text = string.format("%-9s %s", name, beats.list[name].label) }
+  end
   paw.pick({
     title = "A beat to start from",
     items = items,
@@ -165,7 +197,9 @@ command("drums.beat", function(ctx)
       local bar = math.min(paw.time.bar(c.start), c.length)
       local notes = {}
       for _, note in ipairs(clip:notes()) do
-        if note.start < bar then notes[#notes + 1] = { pitch = note.pitch, start = note.start, length = note.length, velocity = note.velocity } end
+        if note.start < bar then
+          notes[#notes + 1] = { pitch = note.pitch, start = note.start, length = note.length, velocity = note.velocity }
+        end
       end
       paw.audition.phrase(c.track, notes, { length = bar, at = c.start })
       return {
@@ -176,10 +210,13 @@ command("drums.beat", function(ctx)
     preview = function(item)
       local lines = { { text = beats.list[item.name].label, style = "Title" } }
       local notes = {}
-      for note in pairs(beats.list[item.name].rows) do notes[#notes + 1] = note end
+      for note in pairs(beats.list[item.name].rows) do
+        notes[#notes + 1] = note
+      end
       table.sort(notes, function(a, b) return a > b end)
       for _, note in ipairs(notes) do
-        lines[#lines + 1] = string.format("%-11s %s", drums.maps.gm_names[note] or note, beats.list[item.name].rows[note])
+        lines[#lines + 1] =
+          string.format("%-11s %s", drums.maps.gm_names[note] or note, beats.list[item.name].rows[note])
       end
       return lines
     end,
@@ -225,10 +262,12 @@ table.insert(paw.frontend.menus.track, { label = "Drum map…", command = "drums
 local motion, linewise = { motion = true }, { motion = true, linewise = true }
 local far_lines = { motion = true, linewise = true, jump = true }
 local function gmap(lhs, rhs, desc, opts) map(lhs, rhs, util.merge({ view = "drums", desc = desc }, opts)) end
-local function move(dsteps, drows) return function(ctx)
-  local n = ctx.count or 1
-  grid:move(dsteps * n, drows * n)
-end end
+local function move(dsteps, drows)
+  return function(ctx)
+    local n = ctx.count or 1
+    grid:move(dsteps * n, drows * n)
+  end
+end
 gmap("h", move(-1, 0), "Left one step", motion)
 gmap("l", move(1, 0), "Right one step", motion)
 gmap("j", move(0, 1), "Down a row", linewise)
@@ -309,8 +348,16 @@ local function shift(clip, rows, region, steps)
   E.shift(clip, rows, region, by)
   if region.kind ~= "line" then grid:set(nil, grid.beat + by) end
 end
-op(">", function(clip, rows, region, ctx) shift(clip, rows, region, region.visual and ctx.count or 1) end, "Move hits a step later")
-op("<lt>", function(clip, rows, region, ctx) shift(clip, rows, region, -(region.visual and ctx.count or 1)) end, "Move hits a step earlier")
+op(
+  ">",
+  function(clip, rows, region, ctx) shift(clip, rows, region, region.visual and ctx.count or 1) end,
+  "Move hits a step later"
+)
+op(
+  "<lt>",
+  function(clip, rows, region, ctx) shift(clip, rows, region, -(region.visual and ctx.count or 1)) end,
+  "Move hits a step earlier"
+)
 op("gs", function(clip, rows, region, ctx)
   local amount = ctx.count and ctx.count / 100 or paw.opt.drums_swing
   local moved = E.swing(clip, rows, region, amount, grid:step_size())
@@ -322,34 +369,46 @@ gmap("<CR>", function() grid:toggle() end, "Add or remove a hit")
 gmap("x", function() keymap.normal("dih") end, "Remove the hit")
 gmap("D", function() keymap.normal("d$") end, "Delete to the end of the clip")
 gmap("Y", function() keymap.normal("y$") end, "Yank to the end of the clip")
-local function paste(before) return function(ctx)
-  local clip = grid:clip()
-  if not clip then return end
-  local step = grid:step_size()
-  local at = E.cell(grid.beat, step) * step
-  if not before then at = at + step end
-  local value = keymap.getreg(ctx.register)
-  for _ = 1, ctx.count or 1 do
-    local finish = E.paste(clip, grid:rows(), value, grid.row, at, step)
-    if not finish then return end
-    at = finish
+local function paste(before)
+  return function(ctx)
+    local clip = grid:clip()
+    if not clip then return end
+    local step = grid:step_size()
+    local at = E.cell(grid.beat, step) * step
+    if not before then at = at + step end
+    local value = keymap.getreg(ctx.register)
+    for _ = 1, ctx.count or 1 do
+      local finish = E.paste(clip, grid:rows(), value, grid.row, at, step)
+      if not finish then return end
+      at = finish
+    end
   end
-end end
+end
 gmap("p", paste(false), "Paste after the cursor")
 gmap("P", paste(true), "Paste at the cursor")
 -- How hard. A hit has no pitch to change, so its velocity is its main value
 -- (`+` `-`, `Ctrl-a` `Ctrl-x`) and, as in the piano roll, its second (`]`
 -- `[`, which wait a moment for `]g` and `[g`).
-local roles = { ["+"] = "main+", ["<C-a>"] = "main+", ["]"] = "second+", ["-"] = "main-", ["<C-x>"] = "main-", ["["] = "second-" }
+local roles =
+  { ["+"] = "main+", ["<C-a>"] = "main+", ["]"] = "second+", ["-"] = "main-", ["<C-x>"] = "main-", ["["] = "second-" }
 for lhs, role in pairs(roles) do
   local sign = role:sub(-1) == "+" and 1 or -1
-  gmap(lhs, function(ctx) grid:velocity(sign * 16 * (ctx.count or 1)) end, sign > 0 and "Harder" or "Softer", { role = role })
+  gmap(
+    lhs,
+    function(ctx) grid:velocity(sign * 16 * (ctx.count or 1)) end,
+    sign > 0 and "Harder" or "Softer",
+    { role = role }
+  )
 end
 -- The step: finer and coarser, as `[g` and `]g` make the arrange view's grid.
 gmap("[g", function() grid:set_step(E.next_step(grid:step_size(), 1)) end, "Finer steps", { mode = { "n", "x" } })
 gmap("]g", function() grid:set_step(E.next_step(grid:step_size(), -1)) end, "Coarser steps", { mode = { "n", "x" } })
 -- Triplets are `<localleader>3` here and in the score (its tuplet popover).
-gmap("<localleader>3", function() grid:set_step(E.toggle_triplet(grid:step_size())) end, "Triplet steps, or straight again")
+gmap(
+  "<localleader>3",
+  function() grid:set_step(E.toggle_triplet(grid:step_size())) end,
+  "Triplet steps, or straight again"
+)
 gmap("&", function(ctx)
   local clip = grid:clip()
   if not clip then return end
@@ -364,10 +423,15 @@ keymap.classic("<Esc>", function() paw.layout.back() end, { view = "drums", desc
 
 -- On a selection.
 local function vx(lhs, fn, desc)
-  map(lhs, nil, { view = "drums", mode = "x", desc = desc, operator = function(region, ctx)
-    local clip = grid:clip()
-    if clip then fn(clip, grid:rows(), region, ctx) end
-  end })
+  map(lhs, nil, {
+    view = "drums",
+    mode = "x",
+    desc = desc,
+    operator = function(region, ctx)
+      local clip = grid:clip()
+      if clip then fn(clip, grid:rows(), region, ctx) end
+    end,
+  })
 end
 vx("x", function(clip, rows, region, ctx) keymap.setreg(E.delete(clip, rows, region), ctx.register) end, "Delete hits")
 for lhs, sign in pairs({ ["+"] = 1, ["]"] = 1, ["<C-a>"] = 1, ["-"] = -1, ["["] = -1, ["<C-x>"] = -1 }) do
@@ -386,10 +450,23 @@ end, "Replace with the register")
 
 if paw.ui.keybar then
   paw.ui.keybar.set("drums", "n", {
-    { "<CR>", "hit" }, { "+", "harder" }, { "-", "softer" }, { "[g", "finer" }, { "]g", "coarser" },
-    { "<localleader>3", "triplets" }, { "&", "repeat bar" }, { "d", "clear row", "dd" }, { "gh", "hear" }, { "<C-w>p", "back" },
+    { "<CR>", "hit" },
+    { "+", "harder" },
+    { "-", "softer" },
+    { "[g", "finer" },
+    { "]g", "coarser" },
+    { "<localleader>3", "triplets" },
+    { "&", "repeat bar" },
+    { "d", "clear row", "dd" },
+    { "gh", "hear" },
+    { "<C-w>p", "back" },
   })
   paw.ui.keybar.set("drums", "x", {
-    { "x", "delete" }, { "+", "harder" }, { "-", "softer" }, { "gs", "swing" }, { "y", "yank" }, { "<Esc>", "done" },
+    { "x", "delete" },
+    { "+", "harder" },
+    { "-", "softer" },
+    { "gs", "swing" },
+    { "y", "yank" },
+    { "<Esc>", "done" },
   })
 end

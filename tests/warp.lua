@@ -9,7 +9,9 @@ local function start()
   fresh()
   api.engine_restart({ backend = "null" })
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.focus("arrange")
   paw.project.tempo = 120
 end
@@ -61,7 +63,9 @@ local function settled()
   for _ = 1, 3000 do
     local busy = false
     for _, t in ipairs(paw.tracks()) do
-      for _, c in ipairs(api.clip_list(t.id)) do busy = busy or c.stretching or false end
+      for _, c in ipairs(api.clip_list(t.id)) do
+        busy = busy or c.stretching or false
+      end
     end
     if not busy then return end
     paw.wait(10)
@@ -113,7 +117,9 @@ end)
 
 test("a render made while a stretch is being made waits for it, and is the same on any number of threads", function()
   local file = sound_file(16, {
-    { pitch = "A3", start = 0, length = 3 }, { pitch = "E4", start = 4, length = 6 }, { pitch = "C4", start = 11, length = 4 },
+    { pitch = "A3", start = 0, length = 3 },
+    { pitch = "E4", start = 4, length = 6 },
+    { pitch = "C4", start = 11, length = 4 },
   })
   local t = paw.add_track({ name = "audio" })
   local clip = t:add_clip({ file = file, start = 0 })
@@ -128,7 +134,10 @@ test("a render made while a stretch is being made waits for it, and is the same 
     eq(#again, #first, threads .. " threads: as long")
     local differ
     for i = 1, #first do
-      if first[i] ~= again[i] then differ = i break end
+      if first[i] ~= again[i] then
+        differ = i
+        break
+      end
     end
     eq(differ, nil, threads .. " threads: the same samples")
   end
@@ -238,7 +247,9 @@ test("the warp commands and keys put, move, snap and take off markers", function
   local function edges()
     paw.flush()
     local n = 0
-    for _ in table.concat(api.ui_snapshot(150, 36), "\n"):gmatch("▏") do n = n + 1 end
+    for _ in table.concat(api.ui_snapshot(150, 36), "\n"):gmatch("▏") do
+      n = n + 1
+    end
     return n
   end
   local before = edges()
@@ -246,37 +257,43 @@ test("the warp commands and keys put, move, snap and take off markers", function
   eq(edges() > before, true, "a line where the marker is")
 end)
 
-test("in the window a double click on an audio clip's top band puts a warp marker, its handle drags, its menu takes it off", function()
-  local file = two_tone_file()
-  local t = paw.add_track({ name = "audio" })
-  local clip = t:add_clip({ file = file, start = 0 })
-  local function shown()
-    for _, c in ipairs(paw.frontend.state(-1).clips) do if c.id == clip.id then return c end end
+test(
+  "in the window a double click on an audio clip's top band puts a warp marker, its handle drags, its menu takes it off",
+  function()
+    local file = two_tone_file()
+    local t = paw.add_track({ name = "audio" })
+    local clip = t:add_clip({ file = file, start = 0 })
+    local function shown()
+      for _, c in ipairs(paw.frontend.state(-1).clips) do
+        if c.id == clip.id then return c end
+      end
+    end
+    eq(#shown().warps, 0, "no markers shown")
+    local key = shown().waveform
+    paw.frontend.act.warp_add(clip.id, 2.03)
+    eq(#clip.warp, 1, "a marker")
+    near(shown().warps[1], 2.03, 1e-9, "shown where it was put, from the clip's start")
+    paw.frontend.act.warp_move(clip.id, 1, 3.1, false)
+    near(clip.warp[2].beat, 3, 1e-9, "dragged, onto the grid, the clip's ends pinned")
+    eq(#shown().warps, 3, "all three shown")
+    eq(shown().waveform ~= key, true, "the waveform drawn again")
+    paw.frontend.act.warp_move(clip.id, 2, 3.1, true)
+    near(clip.warp[2].beat, 3.1, 1e-9, "with Shift, off it")
+    paw.frontend.act.warp_remove(clip.id, 2)
+    eq(#clip.warp, 2, "taken off: the ends' are left")
+    paw.frontend.act.warp_add(clip.id, 40)
+    eq(#clip.warp, 2, "outside the clip: refused, not raised")
   end
-  eq(#shown().warps, 0, "no markers shown")
-  local key = shown().waveform
-  paw.frontend.act.warp_add(clip.id, 2.03)
-  eq(#clip.warp, 1, "a marker")
-  near(shown().warps[1], 2.03, 1e-9, "shown where it was put, from the clip's start")
-  paw.frontend.act.warp_move(clip.id, 1, 3.1, false)
-  near(clip.warp[2].beat, 3, 1e-9, "dragged, onto the grid, the clip's ends pinned")
-  eq(#shown().warps, 3, "all three shown")
-  eq(shown().waveform ~= key, true, "the waveform drawn again")
-  paw.frontend.act.warp_move(clip.id, 2, 3.1, true)
-  near(clip.warp[2].beat, 3.1, 1e-9, "with Shift, off it")
-  paw.frontend.act.warp_remove(clip.id, 2)
-  eq(#clip.warp, 2, "taken off: the ends' are left")
-  paw.frontend.act.warp_add(clip.id, 40)
-  eq(#clip.warp, 2, "outside the clip: refused, not raised")
-
-end)
+)
 
 -- Bent along the tempo ----------------------------------------------------------------
 
 test("a clip following the tempo is bent along a ramp inside it, each beat on its beat", function()
   -- A short note on each beat of eight.
   local notes = {}
-  for k = 0, 7 do notes[#notes + 1] = { pitch = "A4", start = k, length = 0.1 } end
+  for k = 0, 7 do
+    notes[#notes + 1] = { pitch = "A4", start = k, length = 0.1 }
+  end
   local file = sound_file(8, notes)
   local t = paw.add_track({ name = "audio" })
   local clip = t:add_clip({ file = file, start = 0 })

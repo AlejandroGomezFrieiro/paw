@@ -9,14 +9,20 @@ local api = paw.api
 local function start()
   fresh()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.focus("arrange")
-  for _, id in ipairs(api.track_list()) do paw.lanes.open(id, false) end
+  for _, id in ipairs(api.track_list()) do
+    paw.lanes.open(id, false)
+  end
 end
 
 local function points(lane)
   local out = {}
-  for i, p in ipairs(api.lane_points(lane)) do out[i] = string.format("%g:%g", p[1], p[2]) end
+  for i, p in ipairs(api.lane_points(lane)) do
+    out[i] = string.format("%g:%g", p[1], p[2])
+  end
   return table.concat(out, " ")
 end
 
@@ -37,7 +43,9 @@ end
 
 local function peak(list, from, to)
   local p = 0
-  for i = from + 1, to do p = math.max(p, math.abs(list[i] or 0)) end
+  for i = from + 1, to do
+    p = math.max(p, math.abs(list[i] or 0))
+  end
   return p
 end
 
@@ -74,7 +82,9 @@ test("a state lane gives its device each state from the frame of its point, in a
   eq(peak(a, back + 2400, back + 2600) < loud * 0.01, true, "and quiet again after it")
   local b = samples(T.render({ tail = 0, bits = 16 }))
   local same = #a == #b
-  for i = 1, #a, 7 do same = same and a[i] == b[i] end
+  for i = 1, #a, 7 do
+    same = same and a[i] == b[i]
+  end
   eq(same, true, "a second render is the same, sample for sample")
 end)
 

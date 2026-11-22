@@ -1,8 +1,8 @@
 -- Patterns: a line of text in the manner of TidalCycles' mini-notation that
 -- becomes the notes of a clip, and can be changed while the song plays.
 -- See README.md beside this file.
-paw.option.define("pattern_names", true)   -- name pattern clips after their text
-paw.option.define("pattern_cycles", 4)     -- cycles in a clip made by `pattern.set`
+paw.option.define("pattern_names", true) -- name pattern clips after their text
+paw.option.define("pattern_cycles", 4) -- cycles in a clip made by `pattern.set`
 
 local pattern = require("pattern")
 

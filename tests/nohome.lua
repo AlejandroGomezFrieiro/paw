@@ -13,7 +13,9 @@ local initial = L.capture()
 
 local function reset()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.start_layout = nil
   L.restore(initial)
   paw.ui.focus("arrange")
@@ -38,7 +40,9 @@ end
 
 local function rects()
   local out = {}
-  for _, r in ipairs(paw.ui.arrange(W, H)) do out[r.name] = r end
+  for _, r in ipairs(paw.ui.arrange(W, H)) do
+    out[r.name] = r
+  end
   return out
 end
 
@@ -59,7 +63,12 @@ end
 
 local function riff()
   local t = paw.add_track({ name = "Keys" })
-  local clip = t:add_clip({ start = 0, length = 8, name = "riff", notes = { { pitch = 60, start = 0, length = 1 }, { pitch = 64, start = 1, length = 1 } } })
+  local clip = t:add_clip({
+    start = 0,
+    length = 8,
+    name = "riff",
+    notes = { { pitch = 60, start = 0, length = 1 }, { pitch = 64, start = 1, length = 1 } },
+  })
   local other = t:add_clip({ start = 8, length = 8, name = "hook", notes = { { pitch = 72, start = 0, length = 2 } } })
   paw.cursor.set_track(t)
   return t, clip, other
@@ -138,8 +147,16 @@ test("nohome: an empty tab shows the start page: the transport, recent projects 
   local text = screen()
   eq(text:find("Start", 1, true) ~= nil, true, "the start page")
   eq(text:find("stopped at", 1, true) ~= nil, true, "with the transport")
-  eq(text:find("Recent projects", 1, true) ~= nil and text:find("nohome-start", 1, true) ~= nil, true, "the project saved last")
-  eq(text:find(":tabnew <view>", 1, true) ~= nil and text:find(":e roll://riff", 1, true) ~= nil, true, "and what to type")
+  eq(
+    text:find("Recent projects", 1, true) ~= nil and text:find("nohome-start", 1, true) ~= nil,
+    true,
+    "the project saved last"
+  )
+  eq(
+    text:find(":tabnew <view>", 1, true) ~= nil and text:find(":e roll://riff", 1, true) ~= nil,
+    true,
+    "and what to type"
+  )
   eq(table.concat(paw.ui.keybar.check(), ", "), "", "its keys on the bottom line are mapped")
   keys("<CR>")
   eq(api.project_get().path, path, "Enter opens the project under the cursor")

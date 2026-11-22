@@ -12,7 +12,9 @@ local LOOP = "Loop" .. math.floor(api.now()) % 1000000
 --- Wait, with the session looked after, until `ready()` or `ms` pass.
 local function wait_for(ready, ms)
   local deadline = api.now() + (ms or 10000)
-  while not ready() and api.now() < deadline do paw.wait(10) end
+  while not ready() and api.now() < deadline do
+    paw.wait(10)
+  end
   return ready()
 end
 
@@ -45,10 +47,16 @@ test("a track sends its clip's notes to a MIDI port, on its channel, in order an
   return with_loop(function()
     paw.project.tempo = 120
     local t = paw.add_track({ name = "Hardware" })
-    t:add_clip({ start = 0, length = 8, notes = {
-      { pitch = "C4", start = 0, length = 0.5 }, { pitch = "E4", start = 1, length = 0.5 },
-      { pitch = "G4", start = 2, length = 0.5 }, { pitch = "C5", start = 3, length = 4 },
-    } })
+    t:add_clip({
+      start = 0,
+      length = 8,
+      notes = {
+        { pitch = "C4", start = 0, length = 0.5 },
+        { pitch = "E4", start = 1, length = 0.5 },
+        { pitch = "G4", start = 2, length = 0.5 },
+        { pitch = "C5", start = 3, length = 4 },
+      },
+    })
     t.midi_output = { port = "paw: " .. LOOP, channel = 3 }
     eq(t.midi_output.port .. " " .. t.midi_output.channel, "paw: " .. LOOP .. " 3", "the track names its output")
     -- What comes back is recorded on a track that takes channel 3 of "Loop"
@@ -65,7 +73,9 @@ test("a track sends its clip's notes to a MIDI port, on its channel, in order an
     local notes = clip:notes()
     table.sort(notes, function(a, b) return a.start < b.start end)
     local pitches = {}
-    for i, n in ipairs(notes) do pitches[i] = n.pitch end
+    for i, n in ipairs(notes) do
+      pitches[i] = n.pitch
+    end
     eq(table.concat(pitches, " "), "60 64 67 72", "the notes, in their order")
     for i, n in ipairs(notes) do
       -- A block or two late, where a busy machine wakes the reader late.
@@ -103,7 +113,11 @@ test("MIDI output: a track's port and channel are checked, saved and taken away 
   fails(function() t.midi_output = { port = "x", channel = 17 } end, "1 to 16", "a channel past 16")
   fails(function() t.midi_output = { channel = 2 } end, nil, "no port")
   t.midi_output = "Some synth"
-  eq(t.midi_output.port .. " " .. tostring(t.midi_output.channel), "Some synth nil", "a port by name, each message on its own channel")
+  eq(
+    t.midi_output.port .. " " .. tostring(t.midi_output.channel),
+    "Some synth nil",
+    "a port by name, each message on its own channel"
+  )
   api.undo_checkpoint()
   t.midi_output = { port = "Some synth", channel = 10 }
   api.undo_checkpoint()
@@ -129,7 +143,11 @@ test("the terminal and the window choose a track's MIDI output", function()
   fresh()
   return with_loop(function()
     paw.midi.open_output("To synth")
-    eq(wait_for(function() return output_named("To synth") end, 4000) ~= nil, true, "a port of ours for others to read is listed")
+    eq(
+      wait_for(function() return output_named("To synth") end, 4000) ~= nil,
+      true,
+      "a port of ours for others to read is listed"
+    )
     local t = paw.add_track({ name = "Hardware" })
     paw.cursor.set_track(t)
     paw.commands.exec("track.midi_out To synth 5")
@@ -138,10 +156,14 @@ test("the terminal and the window choose a track's MIDI output", function()
     eq(t.midi_output, nil, ":track.midi_out none takes it away")
     local menu = paw.frontend.input_menu(t.id)
     local labels = {}
-    for i, entry in ipairs(menu.midi_out) do labels[i] = entry.label end
+    for i, entry in ipairs(menu.midi_out) do
+      labels[i] = entry.label
+    end
     eq(labels[1], "None", "the input menu has the outputs, none first")
     local at
-    for i, label in ipairs(labels) do if label == "To synth" then at = i end end
+    for i, label in ipairs(labels) do
+      if label == "To synth" then at = i end
+    end
     eq(at ~= nil, true, "and our own port")
     paw.frontend.act.choose_input(t.id, "midi_out", at)
     eq(t.midi_output.port, "To synth", "choosing one sends there")
@@ -162,9 +184,14 @@ test("a script that waits hears what is played into a port", function()
       if event.type == "note_on" then heard[#heard + 1] = event.pitch .. "@" .. tostring(event.port) end
     end)
     local t = paw.add_track({ name = "Hardware" })
-    t:add_clip({ start = 0, length = 2, notes = {
-      { pitch = "C4", start = 0, length = 0.5 }, { pitch = "E4", start = 1, length = 0.5 },
-    } })
+    t:add_clip({
+      start = 0,
+      length = 2,
+      notes = {
+        { pitch = "C4", start = 0, length = 0.5 },
+        { pitch = "E4", start = 1, length = 0.5 },
+      },
+    })
     t.midi_output = { port = "paw: " .. LOOP }
     paw.transport.play()
     local got = wait_for(function() return #heard >= 2 end, 8000)

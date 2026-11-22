@@ -58,9 +58,7 @@ local function real(name, ctx, value, unit, min, max, label)
   return node(name, "id", ctx.id(), "name", label, "unit", unit, "min", min, "max", max, "value", value)
 end
 
-local function bool(name, ctx, value, label)
-  return node(name, "id", ctx.id(), "name", label, "value", value)
-end
+local function bool(name, ctx, value, label) return node(name, "id", ctx.id(), "name", label, "value", value) end
 
 --- A plugin's own id of a parameter as DAWproject's `parameterID`, a
 --- signed 32-bit number: CLAP and VST3 ids are unsigned, so those of
@@ -84,27 +82,88 @@ local function device(dev_id, ctx, label)
   local name, vendor = info.name or d.kind, info.vendor ~= "" and info.vendor or nil
   local e
   if format == "clap" then
-    e = node("ClapPlugin", "id", ctx.id(), "name", name, "deviceID", (d.kind:gsub("^clap:", "")), "deviceName", name,
-      "deviceRole", role, "deviceVendor", vendor, "loaded", true)
+    e = node(
+      "ClapPlugin",
+      "id",
+      ctx.id(),
+      "name",
+      name,
+      "deviceID",
+      (d.kind:gsub("^clap:", "")),
+      "deviceName",
+      name,
+      "deviceRole",
+      role,
+      "deviceVendor",
+      vendor,
+      "loaded",
+      true
+    )
   elseif format == "vst3" then
-    e = node("Vst3Plugin", "id", ctx.id(), "name", name, "deviceName", name, "deviceRole", role, "deviceVendor", vendor,
-      "loaded", true)
+    e = node(
+      "Vst3Plugin",
+      "id",
+      ctx.id(),
+      "name",
+      name,
+      "deviceName",
+      name,
+      "deviceRole",
+      role,
+      "deviceVendor",
+      vendor,
+      "loaded",
+      true
+    )
     local cid = d.plugin and d.plugin.id ~= "" and d.plugin.id
       or d.meta and d.meta.dawproject and d.meta.dawproject.class
     if cid then
       e.attr.deviceID = cid
       table.insert(e.order, 3, "deviceID")
     else
-      ctx.report:add("VST3 plugins written without their class id (not installed here; a DAW finds them by name)",
-        label .. ": " .. name)
+      ctx.report:add(
+        "VST3 plugins written without their class id (not installed here; a DAW finds them by name)",
+        label .. ": " .. name
+      )
     end
   elseif format == "lv2" then
-    e = node("Device", "id", ctx.id(), "name", name, "deviceID", d.kind, "deviceName", name, "deviceRole", role,
-      "deviceVendor", vendor, "loaded", true)
-    ctx.report:add("LV2 plugins (DAWproject has no element for them: written as a device only paw reads)", label .. ": " .. name)
+    e = node(
+      "Device",
+      "id",
+      ctx.id(),
+      "name",
+      name,
+      "deviceID",
+      d.kind,
+      "deviceName",
+      name,
+      "deviceRole",
+      role,
+      "deviceVendor",
+      vendor,
+      "loaded",
+      true
+    )
+    ctx.report:add(
+      "LV2 plugins (DAWproject has no element for them: written as a device only paw reads)",
+      label .. ": " .. name
+    )
   else
-    e = node("BuiltinDevice", "id", ctx.id(), "name", d.kind, "deviceID", "paw:" .. d.kind, "deviceName", d.kind,
-      "deviceRole", role, "loaded", true)
+    e = node(
+      "BuiltinDevice",
+      "id",
+      ctx.id(),
+      "name",
+      d.kind,
+      "deviceID",
+      "paw:" .. d.kind,
+      "deviceName",
+      d.kind,
+      "deviceRole",
+      role,
+      "loaded",
+      true
+    )
     ctx.report:add("Devices of paw (written as built-in devices that only paw reads)", label .. ": " .. d.kind)
   end
   local params = add(e, node("Parameters"))
@@ -113,8 +172,26 @@ local function device(dev_id, ctx, label)
   for i, p in ipairs(d.param_info or {}) do
     -- The host's own parameters of a plugin (wet, output) have no id of the plugin's.
     local pid = plugin and own_param_id(p) or (not plugin and i - 1) or nil
-    local pe = add(params, node("RealParameter", "id", ctx.id(), "name", p.name, "parameterID", pid, "unit", "linear",
-      "min", p.min, "max", p.max, "value", (d.params or {})[p.key] or p.default))
+    local pe = add(
+      params,
+      node(
+        "RealParameter",
+        "id",
+        ctx.id(),
+        "name",
+        p.name,
+        "parameterID",
+        pid,
+        "unit",
+        "linear",
+        "min",
+        p.min,
+        "max",
+        p.max,
+        "value",
+        (d.params or {})[p.key] or p.default
+      )
+    )
     ctx.params[dev_id][p.key] = { id = pe.attr.id, min = p.min, max = p.max }
   end
   add(e, bool("Enabled", ctx, not d.bypass, "On/Off"))
@@ -142,7 +219,9 @@ local function placeholder(holder, ctx)
   if not ok then return nil end
   local function reid(x)
     if x.attr.id then x.attr.id = ctx.id() end
-    for _, c in ipairs(x.children) do reid(c) end
+    for _, c in ipairs(x.children) do
+      reid(c)
+    end
   end
   reid(e)
   local st = e:child("State")
@@ -158,15 +237,29 @@ end
 -- Tracks -------------------------------------------------------------------------------
 
 local function channel(t, ctx, role)
-  local c = node("Channel", "id", ctx.channel[t.id], "role", role, "audioChannels", 2,
-    "destination", t.id ~= 0 and (t.output and ctx.channel[t.output] or ctx.channel[0]) or nil,
-    "solo", t.id ~= 0 and t.solo or nil)
+  local c = node(
+    "Channel",
+    "id",
+    ctx.channel[t.id],
+    "role",
+    role,
+    "audioChannels",
+    2,
+    "destination",
+    t.id ~= 0 and (t.output and ctx.channel[t.output] or ctx.channel[0]) or nil,
+    "solo",
+    t.id ~= 0 and t.solo or nil
+  )
   local label = t.id == 0 and "Master" or t.name
   -- Devices, and the plugins kept from an imported file at their places.
   local entries = {}
-  for _, dev in ipairs(t.devices) do entries[#entries + 1] = { device = dev } end
+  for _, dev in ipairs(t.devices) do
+    entries[#entries + 1] = { device = dev }
+  end
   local holders = {}
-  for _, h in ipairs((t.meta or {}).dawproject_placeholders or {}) do holders[#holders + 1] = h end
+  for _, h in ipairs((t.meta or {}).dawproject_placeholders or {}) do
+    holders[#holders + 1] = h
+  end
   table.sort(holders, function(x, y) return (x.position or 0) < (y.position or 0) end)
   for _, h in ipairs(holders) do
     table.insert(entries, math.max(1, math.min(h.position or #entries + 1, #entries + 1)), { holder = h })
@@ -183,7 +276,10 @@ local function channel(t, ctx, role)
   if t.sends and #t.sends > 0 then
     local sends = add(c, node("Sends"))
     for _, s in ipairs(t.sends) do
-      local send = add(sends, node("Send", "id", ctx.id(), "destination", ctx.channel[s.target], "type", s.pre and "pre" or "post"))
+      local send = add(
+        sends,
+        node("Send", "id", ctx.id(), "destination", ctx.channel[s.target], "type", s.pre and "pre" or "post")
+      )
       add(send, real("Volume", ctx, amp(s.level), "linear", 0, 2, "Send"))
     end
   end
@@ -194,7 +290,9 @@ end
 
 local function content_type(t)
   local kinds = {}
-  for _, c in ipairs(api.clip_list(t.id)) do kinds[c.kind == "audio" and "audio" or "notes"] = true end
+  for _, c in ipairs(api.clip_list(t.id)) do
+    kinds[c.kind == "audio" and "audio" or "notes"] = true
+  end
   local list = {}
   if kinds.audio then list[#list + 1] = "audio" end
   if kinds.notes then list[#list + 1] = "notes" end
@@ -204,7 +302,8 @@ end
 
 -- Clips --------------------------------------------------------------------------------
 
-local EXPRESSION = { cc = "channelController", bend = "pitchBend", pressure = "channelPressure", program = "programChange" }
+local EXPRESSION =
+  { cc = "channelController", bend = "pitchBend", pressure = "channelPressure", program = "programChange" }
 
 --- The controller moves of a MIDI clip as Points timelines, one for each
 --- controller (and key).
@@ -220,8 +319,20 @@ local function control_points(controls, shift, ctx, label)
       local key = expr .. ":" .. tostring(c.number or c.key or "")
       if not lanes[key] then
         local p = node("Points", "id", ctx.id(), "unit", expr ~= "programChange" and "normalized" or nil)
-        add(p, node("Target", "expression", expr, "channel", 0, "key", c.type == "pressure" and c.key or nil,
-          "controller", c.type == "cc" and c.number or nil))
+        add(
+          p,
+          node(
+            "Target",
+            "expression",
+            expr,
+            "channel",
+            0,
+            "key",
+            c.type == "pressure" and c.key or nil,
+            "controller",
+            c.type == "cc" and c.number or nil
+          )
+        )
         lanes[key] = p
         order[#order + 1] = p
       end
@@ -244,20 +355,53 @@ local function midi_clip(clip, ctx, label)
   local controls = api.clip_controls(clip.id)
   -- The content starts at the earliest of the clip, its notes and its loop.
   local first = 0
-  for _, n in ipairs(notes) do first = math.min(first, n.start) end
-  for _, c in ipairs(controls) do first = math.min(first, c.start) end
+  for _, n in ipairs(notes) do
+    first = math.min(first, n.start)
+  end
+  for _, c in ipairs(controls) do
+    first = math.min(first, c.start)
+  end
   if clip["loop"] then first = math.min(first, clip.loop_start or 0) end
   local shift = -first
-  local e = node("Clip", "time", clip.start, "duration", clip.length, "playStart", shift,
-    "loopStart", clip["loop"] and (clip.loop_start + shift) or nil,
-    "loopEnd", clip["loop"] and (clip.loop_start + clip.loop_length + shift) or nil,
-    "enable", clip.muted and "false" or nil, "name", clip.name ~= "" and clip.name or nil)
+  local e = node(
+    "Clip",
+    "time",
+    clip.start,
+    "duration",
+    clip.length,
+    "playStart",
+    shift,
+    "loopStart",
+    clip["loop"] and (clip.loop_start + shift) or nil,
+    "loopEnd",
+    clip["loop"] and (clip.loop_start + clip.loop_length + shift) or nil,
+    "enable",
+    clip.muted and "false" or nil,
+    "name",
+    clip.name ~= "" and clip.name or nil
+  )
   local list = node("Notes", "id", ctx.id())
   local attrs = 0
   for _, n in ipairs(notes) do
     local channel = n.meta and tonumber(n.meta.channel)
-    add(list, node("Note", "time", n.start + shift, "duration", n.length, "channel", channel and channel - 1 or 0,
-      "key", n.pitch, "vel", n.velocity / 127, "rel", n.velocity / 127))
+    add(
+      list,
+      node(
+        "Note",
+        "time",
+        n.start + shift,
+        "duration",
+        n.length,
+        "channel",
+        channel and channel - 1 or 0,
+        "key",
+        n.pitch,
+        "vel",
+        n.velocity / 127,
+        "rel",
+        n.velocity / 127
+      )
+    )
     if n.attr then attrs = attrs + 1 end
   end
   if attrs > 0 then ctx.report:count("Note attributes (MIDI 2.0 articulations)", label, attrs) end
@@ -267,7 +411,9 @@ local function midi_clip(clip, ctx, label)
   else
     local lanes = add(e, node("Lanes", "id", ctx.id()))
     add(lanes, list)
-    for _, p in ipairs(points) do add(lanes, p) end
+    for _, p in ipairs(points) do
+      add(lanes, p)
+    end
   end
   return e
 end
@@ -288,7 +434,10 @@ local function audio_file(path, ctx, label)
       ctx.report:add("Missing audio files (written as a reference to where they were)", label .. ": " .. path)
     end
     if not info then
-      ctx.report:add("Audio files whose header paw cannot read (channels, rate and length guessed)", label .. ": " .. path)
+      ctx.report:add(
+        "Audio files whose header paw cannot read (channels, rate and length guessed)",
+        label .. ": " .. path
+      )
       info = { channels = 2, rate = 48000, seconds = 0 }
     end
     local name = path:match("([^/]+)$") or "audio"
@@ -306,8 +455,17 @@ local function audio_file(path, ctx, label)
     end
     ctx.media[path] = entry
   end
-  local a = node("Audio", "id", ctx.id(), "duration", entry.info.seconds, "channels", entry.info.channels,
-    "sampleRate", entry.info.rate)
+  local a = node(
+    "Audio",
+    "id",
+    ctx.id(),
+    "duration",
+    entry.info.seconds,
+    "channels",
+    entry.info.channels,
+    "sampleRate",
+    entry.info.rate
+  )
   add(a, entry.inside and node("File", "path", entry.inside) or node("File", "path", entry.path, "external", true))
   return a, entry.info
 end
@@ -315,9 +473,27 @@ end
 local function audio_clip(clip, ctx, label)
   local stretch = clip.stretch or 1
   local offset = clip.offset or 0
-  local e = node("Clip", "time", clip.start, "duration", clip.length, "contentTimeUnit", "seconds",
-    "playStart", offset * stretch, "fadeTimeUnit", "beats", "fadeInTime", clip.fade_in or 0,
-    "fadeOutTime", clip.fade_out or 0, "enable", clip.muted and "false" or nil, "name", clip.name ~= "" and clip.name or nil)
+  local e = node(
+    "Clip",
+    "time",
+    clip.start,
+    "duration",
+    clip.length,
+    "contentTimeUnit",
+    "seconds",
+    "playStart",
+    offset * stretch,
+    "fadeTimeUnit",
+    "beats",
+    "fadeInTime",
+    clip.fade_in or 0,
+    "fadeOutTime",
+    clip.fade_out or 0,
+    "enable",
+    clip.muted and "false" or nil,
+    "name",
+    clip.name ~= "" and clip.name or nil
+  )
   if clip["loop"] and (clip.loop_length or 0) > 0 then
     -- The repeat begins `lead` seconds before the clip (see paw's audio_regions).
     local period = api.tempo_seconds(clip.start + clip.loop_length) - api.tempo_seconds(clip.start)
@@ -352,7 +528,18 @@ local function lane_points(lane, target, unit, convert, ctx, label)
     if s.shape == "smooth" then ctx.report:count("Smooth automation curves (written as straight lines)", label) end
   end
   for _, pt in ipairs(api.lane_points(lane.id)) do
-    add(p, node("RealPoint", "time", pt[1], "value", convert(pt[2]), "interpolation", shapes[pt[1]] == "hold" and "hold" or "linear"))
+    add(
+      p,
+      node(
+        "RealPoint",
+        "time",
+        pt[1],
+        "value",
+        convert(pt[2]),
+        "interpolation",
+        shapes[pt[1]] == "hold" and "hold" or "linear"
+      )
+    )
   end
   if not lane.enabled then ctx.report:add("Automation lanes that are off (written as on)", label) end
   return p
@@ -365,7 +552,9 @@ end
 local function nest(list)
   local roots, stack = {}, {}
   for _, t in ipairs(list) do
-    while #stack > 0 and stack[#stack].t.id ~= t.output do stack[#stack] = nil end
+    while #stack > 0 and stack[#stack].t.id ~= t.output do
+      stack[#stack] = nil
+    end
     local item = { t = t, children = {} }
     if #stack > 0 then
       table.insert(stack[#stack].children, item)
@@ -388,14 +577,26 @@ function M.build(opts)
       return "id" .. n
     end,
     report = reports.new("Not written to " .. (opts.name or "the DAWproject file") .. ":"),
-    types = interop.device_types(), params = {}, track_params = {}, channel = {}, track_el = {}, files = {}, media = {}, taken = {},
-    plugins = 0, embed = opts.embed ~= false,
+    types = interop.device_types(),
+    params = {},
+    track_params = {},
+    channel = {},
+    track_el = {},
+    files = {},
+    media = {},
+    taken = {},
+    plugins = 0,
+    embed = opts.embed ~= false,
   }
   local p = api.project_get()
   local list = {}
-  for i, id in ipairs(api.track_list()) do list[i] = api.track_get(id) end
+  for i, id in ipairs(api.track_list()) do
+    list[i] = api.track_get(id)
+  end
   local master = api.track_get(0)
-  for _, t in ipairs(list) do ctx.channel[t.id] = ctx.id() end
+  for _, t in ipairs(list) do
+    ctx.channel[t.id] = ctx.id()
+  end
   ctx.channel[0] = ctx.id()
 
   local root = node("Project", "version", "1.0")
@@ -414,18 +615,24 @@ function M.build(opts)
     local t = item.t
     local ct = content_type(t)
     if #item.children > 0 then ct = ct .. " tracks" end
-    local e = add(parent, node("Track", "id", ctx.id(), "name", t.name, "color", t.color, "contentType", ct, "loaded", true))
+    local e =
+      add(parent, node("Track", "id", ctx.id(), "name", t.name, "color", t.color, "contentType", ct, "loaded", true))
     ctx.track_el[t.id] = e.attr.id
     add(e, channel(t, ctx, feeds[t.id] and "submix" or "regular"))
-    for _, c in ipairs(item.children) do track_el(c, e) end
+    for _, c in ipairs(item.children) do
+      track_el(c, e)
+    end
     if t.armed or t.input or t.monitor then
       ctx.report:add("Record arm, inputs and monitoring (DAWproject has none)", t.name)
     end
     local cues = t.id ~= 0 and #api.cue_list(t.id) or 0
     if cues > 0 then ctx.report:count("Clips off the timeline (the clip launcher's slots)", t.name, cues) end
   end
-  for _, item in ipairs(nest(list)) do track_el(item, structure) end
-  local mt = add(structure, node("Track", "id", ctx.id(), "name", "Master", "contentType", "audio notes", "loaded", true))
+  for _, item in ipairs(nest(list)) do
+    track_el(item, structure)
+  end
+  local mt =
+    add(structure, node("Track", "id", ctx.id(), "name", "Master", "contentType", "audio notes", "loaded", true))
   ctx.track_el[0] = mt.attr.id
   add(mt, channel(master, ctx, "master"))
 
@@ -438,7 +645,10 @@ function M.build(opts)
       if lane.target == "volume" then
         add(tl, lane_points(lane, ctx.track_params[t.id].volume, "linear", amp, ctx, where))
       elseif lane.target == "pan" then
-        add(tl, lane_points(lane, ctx.track_params[t.id].pan, "normalized", function(v) return (v + 1) / 2 end, ctx, where))
+        add(
+          tl,
+          lane_points(lane, ctx.track_params[t.id].pan, "normalized", function(v) return (v + 1) / 2 end, ctx, where)
+        )
       else
         local param = ctx.params[lane.device] and ctx.params[lane.device][lane.param]
         if param then
@@ -469,15 +679,41 @@ function M.build(opts)
   if #marks + #parts > 0 then
     local me = add(arr, node("Markers", "id", ctx.id()))
     for _, m in ipairs(marks) do
-      add(me, node("Marker", "time", m.beat or 0, "name", m.name or "", "color", m.color,
-        "comment", m.length and string.format("paw region: %s beats", xml.number(m.length)) or nil))
-      if m.length then ctx.report:count("Regions written as markers at their start (paw reads them back as regions)", "regions") end
+      add(
+        me,
+        node(
+          "Marker",
+          "time",
+          m.beat or 0,
+          "name",
+          m.name or "",
+          "color",
+          m.color,
+          "comment",
+          m.length and string.format("paw region: %s beats", xml.number(m.length)) or nil
+        )
+      )
+      if m.length then
+        ctx.report:count("Regions written as markers at their start (paw reads them back as regions)", "regions")
+      end
     end
     for _, s in ipairs(parts) do
-      add(me, node("Marker", "time", s.start, "name", s.name,
-        "comment", string.format("paw region: %s beats", xml.number(s.finish - s.start))))
+      add(
+        me,
+        node(
+          "Marker",
+          "time",
+          s.start,
+          "name",
+          s.name,
+          "comment",
+          string.format("paw region: %s beats", xml.number(s.finish - s.start))
+        )
+      )
     end
-    if #parts > 0 then ctx.report:count("Sections written as markers (they come back as regions)", "sections", #parts) end
+    if #parts > 0 then
+      ctx.report:count("Sections written as markers (they come back as regions)", "sections", #parts)
+    end
   end
 
   -- The tempo map, as automation of the tempo and the time signature.
@@ -508,7 +744,9 @@ function M.build(opts)
     { name = "project.xml", data = xml.write(root) },
     { name = "metadata.xml", data = xml.write(meta) },
   }
-  for _, f in ipairs(ctx.files) do files[#files + 1] = f end
+  for _, f in ipairs(ctx.files) do
+    files[#files + 1] = f
+  end
   return files, ctx.report, root
 end
 

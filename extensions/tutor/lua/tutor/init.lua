@@ -15,26 +15,22 @@ local look = require("tutor.look")
 
 local M = { lessons = {}, by_id = {} }
 
-paw.option.define("tutor_dir", "")   -- where progress and practice projects go; "" for $XDG_STATE_HOME/paw/tutor
+paw.option.define("tutor_dir", "") -- where progress and practice projects go; "" for $XDG_STATE_HOME/paw/tutor
 
 -- What the tutor is doing now. Kept in `paw.state` too, so that `:reload`
 -- (which runs the extension again) does not lose the learner's place.
 local S = paw.state.tutor or { active = false }
-local ctx                        -- the current step's record of what happened since it began
-local progress                   -- the progress file, read when first needed
+local ctx -- the current step's record of what happened since it began
+local progress -- the progress file, read when first needed
 
-local function remember()
-  paw.state.tutor = S
-end
+local function remember() paw.state.tutor = S end
 
 local function data()
   progress = progress or store.load()
   return progress
 end
 
-local function write()
-  store.save(data())
-end
+local function write() store.save(data()) end
 
 --- Forget what is in memory, as if the program had been started again.
 --- For tests.
@@ -47,7 +43,10 @@ end
 
 local function check_lesson(lesson)
   assert(type(lesson) == "table", "a lesson is a table")
-  assert(type(lesson.id) == "string" and lesson.id:match("^[%w%-_]+$"), "a lesson needs an `id` of letters, digits and dashes")
+  assert(
+    type(lesson.id) == "string" and lesson.id:match("^[%w%-_]+$"),
+    "a lesson needs an `id` of letters, digits and dashes"
+  )
   assert(type(lesson.title) == "string", "lesson " .. lesson.id .. " needs a `title`")
   assert(type(lesson.steps) == "table" and #lesson.steps > 0, "lesson " .. lesson.id .. " needs `steps`")
   for i, step in ipairs(lesson.steps) do
@@ -121,7 +120,9 @@ function M.progress_of(lesson)
   if not rec then return "" end
   if rec.done then return "done" end
   local n = 0
-  for _ in pairs(rec.steps or {}) do n = n + 1 end
+  for _ in pairs(rec.steps or {}) do
+    n = n + 1
+  end
   return n > 0 and string.format("%d/%d", n, #lesson.steps) or ""
 end
 
@@ -130,9 +131,7 @@ end
 --- The options lessons set, so they can be put back afterwards.
 local OPTIONS = { "grid", "note_grid", "octave", "velocity", "ripple", "clip_length" }
 
-local function in_practice()
-  return S.active and S.practice ~= nil and paw.project.path == S.practice
-end
+local function in_practice() return S.active and S.practice ~= nil and paw.project.path == S.practice end
 M.in_practice = in_practice
 
 --- Whether opening a practice project now would lose unsaved work.
@@ -143,7 +142,9 @@ end
 
 local function tidy_screen()
   if paw.ui.float then paw.ui.close() end
-  for _, name in ipairs({ "pianoroll", "mixer", "devices" }) do paw.ui.hide(name) end
+  for _, name in ipairs({ "pianoroll", "mixer", "devices" }) do
+    paw.ui.hide(name)
+  end
   -- The note length chosen in insert mode lasts the session, and the device
   -- panel keeps its row from track to track: lessons start from the top.
   paw.ui.views.pianoroll:set_step(nil)
@@ -253,9 +254,7 @@ paw.on("*", function(payload, name)
   if not S.active then return end
   local command = (name == "command.pre" or name == "command.post") and command_name(payload.name)
   if ctx then
-    if name == "command.post" and command then
-      ctx.commands[command] = (ctx.commands[command] or 0) + 1
-    end
+    if name == "command.post" and command then ctx.commands[command] = (ctx.commands[command] or 0) + 1 end
     ctx.events[name] = (ctx.events[name] or 0) + 1
   end
   if name == "project.saved" and in_practice() and S.lesson then
@@ -263,21 +262,15 @@ paw.on("*", function(payload, name)
     rec.saved_step = S.step
     rec.cursor = { track = paw.cursor.index(), beat = paw.cursor.beat }
   end
-  if name == "command.pre" and (command == "quit" or command == "wq") then
-    M.leaving()
-  end
+  if name == "command.pre" and (command == "quit" or command == "wq") then M.leaving() end
   M.poll()
 end)
 
 -- Starting and leaving ------------------------------------------------------------
 
-local function show_panel()
-  require("tutor.panel").show()
-end
+local function show_panel() require("tutor.panel").show() end
 
-local function hide_panel()
-  require("tutor.panel").hide()
-end
+local function hide_panel() require("tutor.panel").hide() end
 
 --- Build a lesson's practice project and save it in the tutor's directory.
 local function build(lesson)
@@ -314,7 +307,11 @@ function M.start(which, opts)
   if which == nil then
     local cur = data().current
     lesson = cur and M.by_id[cur.lesson]
-    if lesson then resume = cur.step else lesson = M.lessons[1] end
+    if lesson then
+      resume = cur.step
+    else
+      lesson = M.lessons[1]
+    end
   else
     lesson = M.find(which)
     if not lesson then return paw.notify("no lesson `" .. tostring(which) .. "`: `:tutor list` shows them", "warn") end
@@ -324,8 +321,13 @@ function M.start(which, opts)
   n = M.number(lesson)
 
   if unsaved_work() and not opts.force then
-    return paw.notify("Your project has changes that are not saved. Save them with `:w` (or `:w name`) "
-      .. "and start again, or `:tutor! " .. n .. "` to start anyway and lose them.", "warn")
+    return paw.notify(
+      "Your project has changes that are not saved. Save them with `:w` (or `:w name`) "
+        .. "and start again, or `:tutor! "
+        .. n
+        .. "` to start anyway and lose them.",
+      "warn"
+    )
   end
 
   local first = not S.active
@@ -334,14 +336,17 @@ function M.start(which, opts)
     local p = paw.project.get()
     S.back = { path = p.path }
     S.options = {}
-    for _, name in ipairs(OPTIONS) do S.options[name] = paw.opt[name] end
+    for _, name in ipairs(OPTIONS) do
+      S.options[name] = paw.opt[name]
+    end
   else
-    save_practice()   -- the lesson being left keeps its place
+    save_practice() -- the lesson being left keeps its place
   end
 
   paw.transport.stop()
   tidy_screen()
-  paw.opt.grid, paw.opt.note_grid, paw.opt.octave, paw.opt.velocity, paw.opt.ripple, paw.opt.clip_length = 1, 0.25, 4, 100, false, 4
+  paw.opt.grid, paw.opt.note_grid, paw.opt.octave, paw.opt.velocity, paw.opt.ripple, paw.opt.clip_length =
+    1, 0.25, 4, 100, false, 4
 
   local path = store.practice(lesson.id)
   local step = 1
@@ -375,7 +380,8 @@ function M.start(which, opts)
   begin_step()
   show_panel()
   M.show_intro(lesson)
-  local note = string.format("Lesson %d: %s%s.", n, lesson.title, step > 1 and string.format(" (from step %d)", step) or "")
+  local note =
+    string.format("Lesson %d: %s%s.", n, lesson.title, step > 1 and string.format(" (from step %d)", step) or "")
   if first and S.back.path then
     note = note .. " " .. S.back.path .. " is closed while you practise, unchanged; `<leader>hq` reopens it."
   end
@@ -390,7 +396,9 @@ function M.show_intro(lesson)
   local function section(title, text)
     if not text then return end
     if title then lines[#lines + 1] = { text = title, style = "Title" } end
-    for line in (text .. "\n"):gmatch("([^\n]*)\n") do lines[#lines + 1] = panel.keys(line) end
+    for line in (text .. "\n"):gmatch("([^\n]*)\n") do
+      lines[#lines + 1] = panel.keys(line)
+    end
     lines[#lines + 1] = ""
   end
   section(nil, lesson.intro)
@@ -419,7 +427,9 @@ function M.quit()
   save_practice()
   paw.transport.stop()
   tidy_screen()
-  for name, value in pairs(S.options or {}) do paw.opt[name] = value end
+  for name, value in pairs(S.options or {}) do
+    paw.opt[name] = value
+  end
   local back = S.back or {}
   S.active, S.finished, S.paused = false, false, false
   remember()
@@ -434,7 +444,9 @@ function M.quit()
   local first = api.track_list()[1]
   if first then paw.cursor.set_track(first) end
   write()
-  paw.notify(back.path and ("Left the tutor; reopened " .. back.path) or "Left the tutor. `:tutor` comes back to where you were.")
+  paw.notify(
+    back.path and ("Left the tutor; reopened " .. back.path) or "Left the tutor. `:tutor` comes back to where you were."
+  )
 end
 
 function M.hint()
@@ -473,7 +485,8 @@ function M.list()
   for i, lesson in ipairs(M.lessons) do
     local mark = M.progress_of(lesson)
     items[#items + 1] = {
-      n = i, lesson = lesson,
+      n = i,
+      lesson = lesson,
       text = string.format("%2d  %-6s %s", i, mark == "done" and "✓" or mark, lesson.title),
     }
   end
@@ -483,7 +496,9 @@ function M.list()
     format = function(item) return item.text end,
     preview = function(item)
       local lines = { { text = item.lesson.title, style = "Title" }, "" }
-      for line in (item.lesson.intro or ""):gmatch("[^\n]+") do lines[#lines + 1] = line end
+      for line in (item.lesson.intro or ""):gmatch("[^\n]+") do
+        lines[#lines + 1] = line
+      end
       return lines
     end,
     on_choose = function(item) M.start(item.n) end,

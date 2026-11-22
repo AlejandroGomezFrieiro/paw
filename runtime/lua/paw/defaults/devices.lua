@@ -10,15 +10,15 @@ local need_track = common.need_track
 local function device_kinds(text)
   local wanted, out = text:lower(), {}
   for _, info in ipairs(paw.device_types()) do
-    if info.kind:lower():find(wanted, 1, true) or info.name:lower():find(wanted, 1, true) then
-      out[#out + 1] = info
-    end
+    if info.kind:lower():find(wanted, 1, true) or info.name:lower():find(wanted, 1, true) then out[#out + 1] = info end
   end
   table.sort(out, function(a, b)
     if (a.format == "builtin") ~= (b.format == "builtin") then return a.format == "builtin" end
     return a.kind < b.kind
   end)
-  for i, info in ipairs(out) do out[i] = info.kind end
+  for i, info in ipairs(out) do
+    out[i] = info.kind
+  end
   return out
 end
 
@@ -43,21 +43,28 @@ end, { desc = "Add a device to the track: `device.add delay`, `device.add dragon
 command("midi.inputs", function()
   local lines = {}
   for _, port in ipairs(paw.midi.inputs()) do
-    lines[#lines + 1] = { text = string.format("%-8s %s %s", port.id, port.open and "open  " or "closed", port.name), style = port.open and "Normal" or "Dim" }
+    lines[#lines + 1] = {
+      text = string.format("%-8s %s %s", port.id, port.open and "open  " or "closed", port.name),
+      style = port.open and "Normal" or "Dim",
+    }
   end
   if #lines == 0 then lines[1] = "No MIDI input ports (they are only opened with an audio device)." end
   paw.ui.page("MIDI inputs", lines)
 end, { desc = "List MIDI input ports" })
 command("midi.select", function(ctx)
   local which = {}
-  for _, arg in ipairs(ctx.args) do which[#which + 1] = tostring(arg) end
+  for _, arg in ipairs(ctx.args) do
+    which[#which + 1] = tostring(arg)
+  end
   if #which == 0 or which[1] == "all" then which = nil end
   paw.midi.select(which)
   paw.notify(which and "MIDI input from " .. table.concat(which, ", ") or "MIDI input from every port")
 end, { desc = "Open only some MIDI ports by id or name, or all: `midi.select Keystation`, `midi.select all`" })
 command("devices", function()
   local lines = {}
-  for _, kind in ipairs(device_kinds("")) do lines[#lines + 1] = kind end
+  for _, kind in ipairs(device_kinds("")) do
+    lines[#lines + 1] = kind
+  end
   paw.ui.page("Devices", lines)
 end, { desc = "List every device that can be added" })
 command("device.remove", function()
@@ -74,12 +81,19 @@ command("device.restart", function()
     local d = device:get()
     if d.stopped or d.missing or chosen then
       local ok, err = pcall(device.restart, device)
-      if ok then started = started + 1 else failed = tostring(err):match("^[^\n]*") end
+      if ok then
+        started = started + 1
+      else
+        failed = tostring(err):match("^[^\n]*")
+      end
     end
   end
   if failed then return paw.notify(failed, "error") end
-  paw.notify(started == 0 and "no device here has stopped" or started == 1 and "the device is running again"
-    or started .. " devices are running again")
+  paw.notify(
+    started == 0 and "no device here has stopped"
+      or started == 1 and "the device is running again"
+      or started .. " devices are running again"
+  )
 end, { desc = "Start a plugin again that stopped working, with the state the project last had of it" })
 command("device.bypass", function()
   local device = paw.ui.views.devices:selected()
@@ -88,7 +102,8 @@ end, { desc = "Bypass the device selected in the device panel" })
 command("device.editor", function()
   -- The device selected in the panel, else the track's first one with a window.
   local device = paw.ui.focused == "devices" and paw.ui.views.devices:selected()
-    or paw.ui.focused == "mixer" and paw.mixer_rows.device() or nil
+    or paw.ui.focused == "mixer" and paw.mixer_rows.device()
+    or nil
   if not (device and device.editor) then
     device = nil
     local track = need_track()

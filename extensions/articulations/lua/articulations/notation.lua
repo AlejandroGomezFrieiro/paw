@@ -87,7 +87,11 @@ marks.listen(function(what)
     end
     local on, off = {}, {}
     for _, p in ipairs(places) do
-      if p.gain then on[#on + 1] = p else off[#off + 1] = p end
+      if p.gain then
+        on[#on + 1] = p
+      else
+        off[#off + 1] = p
+      end
     end
     if #on > 0 then art.set(on, { attr = a.attr }) end
     if #off > 0 then art.set(off, false) end

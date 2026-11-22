@@ -16,19 +16,23 @@ M.DEFAULT = "Leland"
 --- A glyph by name, made from the metadata the first time it is asked for.
 local function glyphs_of(meta)
   local boxes, anchored = meta.glyphBBoxes or {}, meta.glyphsWithAnchors or {}
-  return setmetatable({}, { __index = function(t, gname)
-    local cp = meta.glyphs[gname]
-    if not cp then return nil end
-    local own = { cp = cp }
-    local bb = boxes[gname]
-    if bb then own.bbox = { bb.bBoxSW[1], bb.bBoxSW[2], bb.bBoxNE[1], bb.bBoxNE[2] } end
-    if anchored[gname] then
-      own.anchors = {}
-      for k, v in pairs(anchored[gname]) do own.anchors[k] = { v[1], v[2] } end
-    end
-    t[gname] = own
-    return own
-  end })
+  return setmetatable({}, {
+    __index = function(t, gname)
+      local cp = meta.glyphs[gname]
+      if not cp then return nil end
+      local own = { cp = cp }
+      local bb = boxes[gname]
+      if bb then own.bbox = { bb.bBoxSW[1], bb.bBoxSW[2], bb.bBoxNE[1], bb.bBoxNE[2] } end
+      if anchored[gname] then
+        own.anchors = {}
+        for k, v in pairs(anchored[gname]) do
+          own.anchors[k] = { v[1], v[2] }
+        end
+      end
+      t[gname] = own
+      return own
+    end,
+  })
 end
 
 --- The font `name` (Leland when nil, or when the kernel has no such font),

@@ -60,9 +60,7 @@ function M.slots(track)
 end
 
 --- The clip in a slot, or nil.
-function M.clip(track, row)
-  return M.slots(track)[row]
-end
+function M.clip(track, row) return M.slots(track)[row] end
 
 --- A clip's view as a slot's, by its id, or nil if it is in no slot.
 function M.slot_of(id)
@@ -78,7 +76,11 @@ local function set_meta(id, fields)
   meta = type(meta) == "table" and meta or {}
   local m = type(meta.launcher) == "table" and meta.launcher or {}
   for k, v in pairs(fields) do
-    if v == false then m[k] = nil else m[k] = v end
+    if v == false then
+      m[k] = nil
+    else
+      m[k] = v
+    end
   end
   meta.launcher = m
   api.clip_set(id, "meta", meta)
@@ -106,9 +108,7 @@ end
 
 --- Set where launches land.
 function M.set_quantize(q)
-  if not contains(M.quantizes, q) then
-    error("a quantize is one of " .. table.concat(M.quantizes, ", "), 2)
-  end
+  if not contains(M.quantizes, q) then error("a quantize is one of " .. table.concat(M.quantizes, ", "), 2) end
   set_project_meta("quantize", q ~= "bar" and q or nil)
 end
 
@@ -159,9 +159,13 @@ end
 --- Name a scene (rows from 0), kept with the project.
 function M.set_scene_name(row, name)
   local scenes = M.scenes()
-  for i = 1, row do scenes[i] = scenes[i] or "" end
+  for i = 1, row do
+    scenes[i] = scenes[i] or ""
+  end
   scenes[row + 1] = name
-  while #scenes > 0 and scenes[#scenes] == "" do scenes[#scenes] = nil end
+  while #scenes > 0 and scenes[#scenes] == "" do
+    scenes[#scenes] = nil
+  end
   set_project_meta("scenes", #scenes > 0 and scenes or nil)
 end
 
@@ -170,7 +174,9 @@ end
 function M.rows()
   local last = #M.scenes()
   for _, id in ipairs(api.track_list()) do
-    for row in pairs(M.slots(id)) do last = math.max(last, row + 1) end
+    for row in pairs(M.slots(id)) do
+      last = math.max(last, row + 1)
+    end
   end
   return math.max(paw.opt.launch_rows, last + 1)
 end
@@ -191,9 +197,14 @@ function M.state()
       end
       local q = s.queued
       out[s.track] = {
-        track = s.track, since = s.since, phase = s.phase, length = s.length, at = s.at,
+        track = s.track,
+        since = s.since,
+        phase = s.phase,
+        length = s.length,
+        at = s.at,
         stopped = s.stopped or (s.clip and not row_of(s.clip)) or nil,
-        slot = s.clip and row_of(s.clip) or nil, clip = s.clip,
+        slot = s.clip and row_of(s.clip) or nil,
+        clip = s.clip,
         queued = q == "timeline" and "arrangement" or q == "stop" and "stop" or (q and (row_of(q) or "stop")) or nil,
       }
     end
@@ -232,9 +243,7 @@ end
 
 --- Launch the clip in a slot on its next boundary. An empty slot stops the
 --- track. `opts.quantize` and `opts.legato` replace the values of the slot.
-function M.launch(track, row, opts)
-  send({ cue_of(track, row, opts) }, true)
-end
+function M.launch(track, row, opts) send({ cue_of(track, row, opts) }, true) end
 
 --- A slot's button pressed, from a key, the mouse or a controller: what that
 --- does is the clip's mode. A toggle stops a clip that plays or is queued.
@@ -261,7 +270,9 @@ function M.stop(track)
     list[1] = { track = track, stop = true, quantize = q }
   else
     for id, s in pairs(M.state()) do
-      if s.slot or (s.queued and s.queued ~= "stop") then list[#list + 1] = { track = id, stop = true, quantize = q } end
+      if s.slot or (s.queued and s.queued ~= "stop") then
+        list[#list + 1] = { track = id, stop = true, quantize = q }
+      end
     end
   end
   send(list)
@@ -274,7 +285,9 @@ function M.back(track)
   if track then
     list[1] = { track = track, timeline = true, quantize = q }
   else
-    for id in pairs(M.state()) do list[#list + 1] = { track = id, timeline = true, quantize = q } end
+    for id in pairs(M.state()) do
+      list[#list + 1] = { track = id, timeline = true, quantize = q }
+    end
   end
   send(list)
 end
@@ -375,12 +388,15 @@ local function piece(c, from, to)
     for _, n in ipairs(api.clip_notes(c.id)) do
       local at = c.start + n.start
       if at >= from - 1e-9 and at < to - 1e-9 then
-        opts.notes[#opts.notes + 1] = { pitch = n.pitch, velocity = n.velocity, start = at - from, length = math.min(n.length, to - at) }
+        opts.notes[#opts.notes + 1] =
+          { pitch = n.pitch, velocity = n.velocity, start = at - from, length = math.min(n.length, to - at) }
       end
     end
     for _, m in ipairs(c.control_count > 0 and api.clip_controls(c.id) or {}) do
       local at = c.start + m.start
-      if at >= from - 1e-9 and at < to - 1e-9 then opts.controls[#opts.controls + 1] = paw.util.merge(m, { start = at - from }) end
+      if at >= from - 1e-9 and at < to - 1e-9 then
+        opts.controls[#opts.controls + 1] = paw.util.merge(m, { start = at - from })
+      end
     end
   else
     opts.file, opts.gain = c.file, c.gain
@@ -430,7 +446,9 @@ function M.record(track, row, bars)
   if M.recording then error("a slot is being recorded already", 2) end
   if not api.track_get(track, "armed") then api.track_set(track, "armed", true) end
   local before = {}
-  for _, c in ipairs(api.clip_list(track)) do before[c.id] = true end
+  for _, c in ipairs(api.clip_list(track)) do
+    before[c.id] = true
+  end
   -- The slot's bars are the take: punching (and with it the pre-roll) is
   -- set aside until they are done. A count-in still leads in when stopped.
   local punch = api.transport_get().punch_enabled
@@ -441,7 +459,14 @@ function M.record(track, row, bars)
     paw.transport.record()
   end
   local from = M.boundary(paw.transport.position)
-  M.recording = { track = track, row = row, from = from, to = from + (bars or 1) * paw.time.bar(from), before = before, punch = punch }
+  M.recording = {
+    track = track,
+    row = row,
+    from = from,
+    to = from + (bars or 1) * paw.time.bar(from),
+    before = before,
+    punch = punch,
+  }
   api.cue({ { track = track, stop = true, quantize = M.quantize() } })
   rec_timer = paw.every(10, function()
     local r = M.recording
@@ -484,7 +509,9 @@ end
 local function poll()
   if not paw.transport.playing then return end
   local position = paw.transport.position
-  for _, s in ipairs(api.cue_state()) do note(s, position) end
+  for _, s in ipairs(api.cue_state()) do
+    note(s, position)
+  end
 end
 
 --- Write what was captured into the timeline.
@@ -511,8 +538,12 @@ local function write(position)
         if clip.kind == "midi" and e.phase > 1e-9 then
           -- Begun partway through its loop: the loop starts that much before the clip.
           snap.loop_start = -e.phase
-          for _, n in ipairs(snap.notes or {}) do n.start = n.start - e.phase end
-          for _, c in ipairs(snap.controls or {}) do c.start = c.start - e.phase end
+          for _, n in ipairs(snap.notes or {}) do
+            n.start = n.start - e.phase
+          end
+          for _, c in ipairs(snap.controls or {}) do
+            c.start = c.start - e.phase
+          end
         end
         paw.restore_clip(snap, track)
       end

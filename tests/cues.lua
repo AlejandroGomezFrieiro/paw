@@ -24,7 +24,10 @@ end
 local function synth(name, pitch)
   local t = paw.add_track({ name = name })
   t:add_device("synth", { attack = 0.001, release = 0.01 })
-  local id = api.clip_add(t.id, { cue = true, start = 8, length = 4, notes = { { pitch = pitch or 57, start = 0, length = 4 } } })
+  local id = api.clip_add(
+    t.id,
+    { cue = true, start = 8, length = 4, notes = { { pitch = pitch or 57, start = 0, length = 4 } } }
+  )
   return t, id
 end
 
@@ -69,7 +72,11 @@ test("cues: a cue lands on its boundary in place of the timeline, then stops and
   eq(state(t.id).since % 1, 0, "on a beat")
   api.cue({ { track = t.id, timeline = true, quantize = "off" } })
   until_(function() return state(t.id).clip == nil and not state(t.id).stopped end, "the timeline again", 10000)
-  fails(function() api.cue({ { track = t.id, clip = 999999 } }) end, "not off the timeline", "a clip that is not a cue clip")
+  fails(
+    function() api.cue({ { track = t.id, clip = 999999 } }) end,
+    "not off the timeline",
+    "a clip that is not a cue clip"
+  )
   fails(function() api.cue({ { track = t.id, clip = id, stop = true } }) end, "one of", "a cue names one thing")
   paw.transport.stop()
 end)
@@ -109,7 +116,9 @@ test("cues: a track folder from outside brings its clips off the timeline, with 
   local path = T.scratch .. "/cues-outside"
   api.project_save(path)
   local folder
-  for _, e in ipairs(api.read_dir(path .. "/tracks")) do folder = path .. "/tracks/" .. e.name end
+  for _, e in ipairs(api.read_dir(path .. "/tracks")) do
+    folder = path .. "/tracks/" .. e.name
+  end
   -- Another project, whose ids are the same as the first one's.
   paw.project.new()
   local other = paw.add_track({ name = "Here" })

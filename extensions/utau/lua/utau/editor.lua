@@ -44,20 +44,23 @@ paw.ui.theme({
 })
 
 local STATE_STYLE = {
-  [proto.state.pending] = "UtauPending", [proto.state.rendering] = "UtauRendering",
-  [proto.state.draft] = "UtauDraft", [proto.state.final] = "UtauFinal", [proto.state.error] = "UtauError",
+  [proto.state.pending] = "UtauPending",
+  [proto.state.rendering] = "UtauRendering",
+  [proto.state.draft] = "UtauDraft",
+  [proto.state.final] = "UtauFinal",
+  [proto.state.error] = "UtauError",
 }
 
 local view = {
   clip_id = nil,
-  pitch = 60,   -- cursor row
-  beat = 0,     -- cursor column, in beats from the start of the clip
-  top = nil,    -- pitch of the first row
-  scroll = 0,   -- beat at the left edge
-  entry = nil,  -- text being typed: { kind, index, chars, commit }
-  sel = {},     -- notes chosen with the pointer, by `key_of`
+  pitch = 60, -- cursor row
+  beat = 0, -- cursor column, in beats from the start of the clip
+  top = nil, -- pitch of the first row
+  scroll = 0, -- beat at the left edge
+  entry = nil, -- text being typed: { kind, index, chars, commit }
+  sel = {}, -- notes chosen with the pointer, by `key_of`
   curve = "pitd", -- the curve shown under the notes
-  ph = nil,     -- the phoneme the keys work on: { note = index, k = place in the note }
+  ph = nil, -- the phoneme the keys work on: { note = index, k = place in the note }
 }
 
 -- Selection ---------------------------------------------------------------------------
@@ -112,7 +115,11 @@ function view:select(indices, add, toggle)
     local n = list[i]
     if n then
       local k = key_of(n)
-      if toggle and self.sel[k] then self.sel[k] = nil else self.sel[k] = true end
+      if toggle and self.sel[k] then
+        self.sel[k] = nil
+      else
+        self.sel[k] = true
+      end
     end
   end
   api.ui_redraw()
@@ -171,10 +178,14 @@ function view:change_targets(fn)
     local was = key_of(n)
     fn(n)
     changed[#changed + 1] = { was = was, now = key_of(n) }
-    if i == under then self.pitch, self.beat = n.pitch, n.start end
+    if i == under then
+      self.pitch, self.beat = n.pitch, n.start
+    end
   end
   local sel = {}
-  for k in pairs(self.sel) do sel[k] = true end
+  for k in pairs(self.sel) do
+    sel[k] = true
+  end
   for _, c in ipairs(changed) do
     if self.sel[c.was] then sel[c.was] = nil end
   end
@@ -201,10 +212,10 @@ end
 function view:edit(clip_id)
   local clip = api.clip_get(clip_id)
   if clip.kind ~= "midi" then return paw.notify("only MIDI clips can be sung", "warn") end
-  if not utau.device_of(clip.track) then
-    return paw.notify("not a vocal track: `:utau.track` makes it one", "warn")
+  if not utau.device_of(clip.track) then return paw.notify("not a vocal track: `:utau.track` makes it one", "warn") end
+  if self.clip_id ~= clip_id then
+    self.sel, self.ph = {}, nil
   end
-  if self.clip_id ~= clip_id then self.sel, self.ph = {}, nil end
   self.clip_id, self.beat, self.scroll, self.top = clip_id, 0, 0, nil
   local first = notes.list(clip_id)[1]
   self.pitch = first and first.pitch or 60
@@ -250,7 +261,9 @@ view.grid = {
   search = function(text)
     local wanted, hits = text:lower(), {}
     for _, n in ipairs(view.clip_id and notes.list(view.clip_id) or {}) do
-      if tostring(notes.lyric(n) or ""):lower():find(wanted, 1, true) then hits[#hits + 1] = { row = n.pitch, col = n.start } end
+      if tostring(notes.lyric(n) or ""):lower():find(wanted, 1, true) then
+        hits[#hits + 1] = { row = n.pitch, col = n.start }
+      end
     end
     return hits
   end,
@@ -280,9 +293,17 @@ function view:toggle_note()
     table.remove(list, index)
     api.clip_set_notes(clip.id, list)
   else
-    api.clip_add_notes(clip.id, { {
-      pitch = self.pitch, start = self.beat, length = paw.opt.note_grid * 2, velocity = paw.opt.velocity,
-    } })
+    api.clip_add_notes(
+      clip.id,
+      {
+        {
+          pitch = self.pitch,
+          start = self.beat,
+          length = paw.opt.note_grid * 2,
+          velocity = paw.opt.velocity,
+        },
+      }
+    )
   end
 end
 
@@ -300,13 +321,13 @@ end
 
 local function chars_of(text)
   local out = {}
-  for ch in (text or ""):gmatch("[%z\1-\127\194-\244][\128-\191]*") do out[#out + 1] = ch end
+  for ch in (text or ""):gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+    out[#out + 1] = ch
+  end
   return out
 end
 
-function view:entry_text()
-  return self.entry and table.concat(self.entry.chars) or nil
-end
+function view:entry_text() return self.entry and table.concat(self.entry.chars) or nil end
 
 --- Type the lyric of the note under the cursor. The first key replaces the
 --- lyric (Right keeps it to type after it), Tab keeps what was typed and
@@ -350,7 +371,9 @@ function view:entry_key(key, pasted)
   if not e then return end
   if e.commit and (key == "<Tab>" or key == "<S-Tab>") and not pasted then key = "<CR>" end
   if pasted and e.commit then
-    for _, ch in ipairs(chars_of(key:gsub("[\r\n]", ""))) do e.chars[#e.chars + 1] = ch end
+    for _, ch in ipairs(chars_of(key:gsub("[\r\n]", ""))) do
+      e.chars[#e.chars + 1] = ch
+    end
   elseif pasted then
     -- Several words fill the notes from this one on, as the lyric sheet does.
     local words = lyrics.tokens(key)
@@ -359,12 +382,19 @@ function view:entry_key(key, pasted)
       self:go_to(math.min(#notes.list(self.clip_id), e.index + #words))
       return self:close_entry()
     end
-    for _, ch in ipairs(chars_of(key:gsub("[\r\n]", ""))) do e.chars[#e.chars + 1] = ch end
+    for _, ch in ipairs(chars_of(key:gsub("[\r\n]", ""))) do
+      e.chars[#e.chars + 1] = ch
+    end
   elseif key == "<Tab>" or key == "<S-Tab>" then
     self:commit_entry()
     local index = e.index + (key == "<Tab>" and 1 or -1)
     if self:go_to(index) then
-      self.entry = { kind = "lyric", index = index, chars = chars_of(notes.lyric(notes.list(self.clip_id)[index]) or ""), replace = true }
+      self.entry = {
+        kind = "lyric",
+        index = index,
+        chars = chars_of(notes.lyric(notes.list(self.clip_id)[index]) or ""),
+        replace = true,
+      }
     else
       return self:close_entry()
     end
@@ -374,7 +404,11 @@ function view:entry_key(key, pasted)
   elseif key == "<Esc>" or key == "<C-c>" then
     return self:close_entry()
   elseif key == "<BS>" then
-    if e.replace then e.chars = {} else table.remove(e.chars) end
+    if e.replace then
+      e.chars = {}
+    else
+      table.remove(e.chars)
+    end
   elseif key == "<C-u>" then
     e.chars = {}
   elseif key == "<Right>" or key == "<End>" then
@@ -393,9 +427,7 @@ end
 -- Pitch -----------------------------------------------------------------------------
 
 --- Bend the sung pitch at the cursor by `cents`, as a peak one grid step wide.
-function view:bend(cents)
-  return self:raise_curve(cents, "pitd")
-end
+function view:bend(cents) return self:raise_curve(cents, "pitd") end
 
 --- The curves the editor can show: the parameters of the vocal device, as
 --- `{ key, name, min, max, default, step }`.
@@ -406,7 +438,8 @@ function view:curves()
     if info.key ~= "voice" then
       local range = info.max - info.min
       local step = (info.key == "pitd" or info.key == "shfc") and 10 or range > 200 and 6 or 5
-      out[#out + 1] = { key = info.key, name = info.name, min = info.min, max = info.max, default = info.default, step = step }
+      out[#out + 1] =
+        { key = info.key, name = info.name, min = info.min, max = info.max, default = info.default, step = step }
     end
   end
   return out
@@ -442,7 +475,14 @@ function view:raise_curve(amount, abbr)
   local at = clip.start + self.beat
   local value = notes.bend(clip.track, device, abbr, at, amount, paw.opt.note_grid)
   local info = self:curve_info(abbr)
-  paw.notify(string.format("%s %+g at %s", info and info.name:lower() or abbr, math.floor(value * 10 + 0.5) / 10, paw.time.format(at)))
+  paw.notify(
+    string.format(
+      "%s %+g at %s",
+      info and info.name:lower() or abbr,
+      math.floor(value * 10 + 0.5) / 10,
+      paw.time.format(at)
+    )
+  )
 end
 
 --- Put the chosen curve (or `abbr`) back to its default under the note at
@@ -496,7 +536,9 @@ function view:step_phoneme(dir)
   else
     local all = notes.list(self.clip_id)
     local i = index + dir
-    while all[i] and #self:phonemes_of(i) == 0 do i = i + dir end
+    while all[i] and #self:phonemes_of(i) == 0 do
+      i = i + dir
+    end
     if not all[i] then return end
     self:go_to(i)
     self.ph = { note = i, k = dir > 0 and 1 or #self:phonemes_of(i) }
@@ -516,7 +558,10 @@ function view:set_phoneme(index, k, field, value)
     if field == nil then
       if not entry then return false end
       for i, o in ipairs(list) do
-        if o == entry then table.remove(list, i) break end
+        if o == entry then
+          table.remove(list, i)
+          break
+        end
       end
     else
       if not entry then
@@ -532,7 +577,10 @@ function view:set_phoneme(index, k, field, value)
       end
       if empty then
         for i, o in ipairs(list) do
-          if o == entry then table.remove(list, i) break end
+          if o == entry then
+            table.remove(list, i)
+            break
+          end
         end
       end
     end
@@ -568,9 +616,11 @@ function view:replace_phoneme()
   if not index then return paw.notify("no phoneme here: the engine has not sung this note yet", "warn") end
   self.ph = { note = index, k = k }
   local current = self:phoneme_override(index, k).phoneme or (p.phoneme ~= "" and p.phoneme or p.alias)
-  self:type_text(current, function(text)
-    self:set_phoneme(index, k, "phoneme", text)
-  end, { kind = "phoneme", note = index, k = k })
+  self:type_text(
+    current,
+    function(text) self:set_phoneme(index, k, "phoneme", text) end,
+    { kind = "phoneme", note = index, k = k }
+  )
 end
 
 --- Forget what was changed of the chosen phoneme.
@@ -600,9 +650,7 @@ function view.follow(scroll, span, clip)
   if not t.playing then return scroll end
   local at = t.position - clip.start
   if at < 0 or at > clip.length then return scroll end
-  if at >= scroll + span * 0.95 or at < scroll then
-    return math.max(0, at - span * 0.05)
-  end
+  if at >= scroll + span * 0.95 or at < scroll then return math.max(0, at - span * 0.05) end
   return scroll
 end
 
@@ -642,7 +690,9 @@ function view:render(buf, ctx)
   self.scroll = math.max(0, self.scroll)
   self.geometry = { rows = rows, zoom = zoom }
   local chosen = {}
-  for _, i in ipairs(self:selected(list)) do chosen[i] = true end
+  for _, i in ipairs(self:selected(list)) do
+    chosen[i] = true
+  end
 
   -- Header: track, singer, render state, the cursor.
   local track = api.track_get(clip.track)
@@ -661,7 +711,9 @@ function view:render(buf, ctx)
   -- it and how far the engine has got.
   local hue = paw.draw.track_hue(track)
   paw.ui.titlebar(buf, {
-    pill = { (paw.opt.ascii and "" or "♪ ") .. clip.name, hue.pill }, name = track.name, focused = ctx.focused,
+    pill = { (paw.opt.ascii and "" or "♪ ") .. clip.name, hue.pill },
+    name = track.name,
+    focused = ctx.focused,
     context = singer .. "  " .. state .. detail,
     right = string.format("%s %s", music.name(self.pitch), paw.time.format(clip.start + self.beat)),
   })
@@ -684,7 +736,9 @@ function view:render(buf, ctx)
     local pitch = self.top - row
     paw.draw.piano_key(buf, row + 2, pitch, pitch == self.pitch, KEYS)
     roll:fill(0, row, tw, 1, " ", music.is_black(pitch) and "RollRowBlack" or "RollRow")
-    for _, line in ipairs(lines) do roll:text(line.x, row, "│", line.bar and "RollBar" or nil) end
+    for _, line in ipairs(lines) do
+      roll:text(line.x, row, "│", line.bar and "RollBar" or nil)
+    end
     if end_x < tw then roll:fill(math.max(0, end_x), row, tw, 1, " ", "RollOutside") end
   end
 
@@ -700,8 +754,11 @@ function view:render(buf, ctx)
     for _, p in ipairs(phonemes and phonemes.notes[index] or {}) do
       bad = bad or p.flags % 2 == 1
     end
-    local style = index == under and "UtauNoteCursor" or chosen[index] and "UtauNoteSelected"
-      or notes.is_rest(lyric) and "UtauNoteRest" or bad and "UtauNoteError" or hue.note
+    local style = index == under and "UtauNoteCursor"
+      or chosen[index] and "UtauNoteSelected"
+      or notes.is_rest(lyric) and "UtauNoteRest"
+      or bad and "UtauNoteError"
+      or hue.note
     if self.entry and self.entry.kind == "lyric" and self.entry.index == index then
       style, lyric = "UtauEntry", self:entry_text() .. "▏"
     end
@@ -717,10 +774,22 @@ function view:render(buf, ctx)
   local pitd_lane = device and notes.lane(clip.track, device, "pitd")
   local scroll, top = self.scroll, self.top
   local pictured = roll:strip(0, 0, tw, rows, {
-    key = "utau:roll#" .. win_id, under = true,
+    key = "utau:roll#" .. win_id,
+    under = true,
     draw = function(g, px)
-      strips.roll(g, px, { list = list, clip = clip, scroll = scroll, zoom = zoom, top = top,
-        pitd = pitd_lane and api.lane_points(pitd_lane), sung = utau.pitch[clip.id] })
+      strips.roll(
+        g,
+        px,
+        {
+          list = list,
+          clip = clip,
+          scroll = scroll,
+          zoom = zoom,
+          top = top,
+          pitd = pitd_lane and api.lane_points(pitd_lane),
+          sung = utau.pitch[clip.id],
+        }
+      )
     end,
   })
 
@@ -774,7 +843,14 @@ function view:render(buf, ctx)
   end
 
   if not under and not self.entry then
-    roll:fill(x_of(self, self.beat, zoom), self.top - self.pitch, math.max(1, math.floor(grid * zoom)), 1, nil, "RollCursor")
+    roll:fill(
+      x_of(self, self.beat, zoom),
+      self.top - self.pitch,
+      math.max(1, math.floor(grid * zoom)),
+      1,
+      nil,
+      "RollCursor"
+    )
   end
   -- The selection of visual mode: a stretch of time, a block, or whole pitches.
   local selection = ctx.focused and paw.keymap.selection()
@@ -809,9 +885,14 @@ function view:render(buf, ctx)
       local range = math.max(1e-9, info.max - info.min)
       local area = buf:sub(KEYS, cy, tw, curve_rows)
       local drawn = area:strip(0, 0, tw, curve_rows, {
-        key = "utau:curve#" .. win_id, under = true,
+        key = "utau:curve#" .. win_id,
+        under = true,
         draw = function(g, px)
-          strips.curve(g, px, { info = info, points = points, constant = constant, clip = clip, scroll = scroll, zoom = zoom })
+          strips.curve(
+            g,
+            px,
+            { info = info, points = points, constant = constant, clip = clip, scroll = scroll, zoom = zoom }
+          )
         end,
       })
       if not drawn then
@@ -847,7 +928,9 @@ function view:render(buf, ctx)
   for note_index, list_of in pairs(phonemes and phonemes.notes or {}) do
     for k, p in ipairs(list_of) do
       local name = p.phoneme ~= "" and p.phoneme or p.alias
-      local style = p.flags % 2 == 1 and "UtauPhonemeError" or math.floor(p.flags / 2) % 2 == 1 and "UtauPhonemeChanged" or "UtauPhoneme"
+      local style = p.flags % 2 == 1 and "UtauPhonemeError"
+        or math.floor(p.flags / 2) % 2 == 1 and "UtauPhonemeChanged"
+        or "UtauPhoneme"
       local e = self.entry
       if e and e.kind == "phoneme" and e.note == note_index and e.k == k then
         name, style = self:entry_text() .. "▏", "UtauEntry"
@@ -862,7 +945,9 @@ function view:render(buf, ctx)
   local info
   if self.entry then
     info = self.entry.kind == "lyric" and " lyric: Tab next note, Shift-Tab previous, Enter done, Esc cancel"
-      or " " .. (self.entry.label or self.entry.kind or "text") .. ": Enter keeps it, Esc drops it, empty puts it back"
+      or " "
+        .. (self.entry.label or self.entry.kind or "text")
+        .. ": Enter keeps it, Esc drops it, empty puts it back"
   else
     local note, index = self:note()
     if note then
@@ -874,11 +959,16 @@ function view:render(buf, ctx)
         names[#names + 1] = name
       end
       local vb = shapes.vb(note)
-      info = string.format(" %s %s  len %g  lyric %q  [%s]%s%s", music.name(note.pitch),
-        paw.time.format(clip.start + note.start), note.length, notes.lyric(note) or paw.opt.utau_default_lyric,
+      info = string.format(
+        " %s %s  len %g  lyric %q  [%s]%s%s",
+        music.name(note.pitch),
+        paw.time.format(clip.start + note.start),
+        note.length,
+        notes.lyric(note) or paw.opt.utau_default_lyric,
         table.concat(names, " "),
         vb and string.format("  vibrato %g%% %gms %gc", vb[1], vb[2], vb[3]) or "",
-        props.tu and ("  tuning " .. props.tu) or "")
+        props.tu and ("  tuning " .. props.tu) or ""
+      )
       local n = #self:selected(list)
       if n > 1 then info = info .. string.format("  (%d selected)", n) end
     else
@@ -913,9 +1003,18 @@ paw.ui.dock("utau", { side = "bottom", hidden = true })
 -- The keys worth knowing first, for the line at the bottom of the screen.
 if paw.ui.keybar then
   paw.ui.keybar.set("utau", "n", {
-    { "i", "note" }, { "c", "lyric" }, { "<Tab>", "next note" }, { "<A-l>", "longer" }, { "<A-h>", "shorter" },
-    { "}", "raise curve" }, { "]e", "curve" }, { "]p", "phoneme" }, { "~", "vibrato" }, { "<leader><Space>", "play" },
-    { "S", "singer" }, { "<C-w>p", "back" },
+    { "i", "note" },
+    { "c", "lyric" },
+    { "<Tab>", "next note" },
+    { "<A-l>", "longer" },
+    { "<A-h>", "shorter" },
+    { "}", "raise curve" },
+    { "]e", "curve" },
+    { "]p", "phoneme" },
+    { "~", "vibrato" },
+    { "<leader><Space>", "play" },
+    { "S", "singer" },
+    { "<C-w>p", "back" },
   })
 end
 -- In its window Ctrl-A chooses every note, as in other programs; in the
@@ -979,8 +1078,12 @@ function sheet:render(buf, ctx)
     end
     row = row + 1
   end
-  buf:text(1, h - 1, string.format("%d notes, %d lines%s   c edit line", #list, #lines,
-    self.per_kana and ", kana per note" or ""), "Dim")
+  buf:text(
+    1,
+    h - 1,
+    string.format("%d notes, %d lines%s   c edit line", #list, #lines, self.per_kana and ", kana per note" or ""),
+    "Dim"
+  )
 end
 
 --- Retype the selected line; its words go to its notes in order.
@@ -990,12 +1093,16 @@ function sheet:edit_line()
   if not line then return end
   local list = notes.list(clip.id)
   local words = {}
-  for i = line.first, line.last do words[#words + 1] = notes.lyric(list[i]) or paw.opt.utau_default_lyric end
-  paw.ui.input({ prompt = "Line " .. self.line .. ": ", text = table.concat(words, " "), history = "utau.sheet" },
+  for i = line.first, line.last do
+    words[#words + 1] = notes.lyric(list[i]) or paw.opt.utau_default_lyric
+  end
+  paw.ui.input(
+    { prompt = "Line " .. self.line .. ": ", text = table.concat(words, " "), history = "utau.sheet" },
     function(text)
       local count = lyrics.apply(clip.id, text, { first = line.first, last = line.last, per_kana = self.per_kana })
       paw.notify(string.format("%d lyrics changed", count))
-    end)
+    end
+  )
 end
 
 paw.ui.view("utau_lyrics", sheet)

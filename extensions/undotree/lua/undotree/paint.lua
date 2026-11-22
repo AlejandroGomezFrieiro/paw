@@ -15,10 +15,10 @@ local HEAD, ROW, GAP, LEFT, FOOT = 34, 24, 18, 22, 24
 local paint = {
   title = "Undo tree",
   modal = true,
-  window = false,      -- the terminal's view is the one offered; it names this as `painted`
-  scroll = 0,          -- rows scrolled off the top
-  hover = nil,         -- the row under the pointer, and where the pointer is
-  seen = nil,          -- the selected state the scroll last kept in view
+  window = false, -- the terminal's view is the one offered; it names this as `painted`
+  scroll = 0, -- rows scrolled off the top
+  hover = nil, -- the row under the pointer, and where the pointer is
+  seen = nil, -- the selected state the scroll last kept in view
 }
 -- Each window looking at it points and scrolls on its own.
 paw.seats.fields("undotree.paint", paint, { "scroll", "hover", "seen" }, { scroll = 0 })
@@ -38,9 +38,7 @@ local function trunk(tree)
 end
 
 --- Where a row's node is, in the tree's own coordinates (the first row at 0).
-local function node_at(row, index)
-  return LEFT + (row.col - 1) * GAP, (index - 1) * ROW + ROW / 2
-end
+local function node_at(row, index) return LEFT + (row.col - 1) * GAP, (index - 1) * ROW + ROW / 2 end
 
 local function colour_of(s, on_trunk)
   if s.current then return c.select end
@@ -52,7 +50,9 @@ end
 local function draw_tree(self, g, rows, tree, width, height)
   local on = trunk(tree)
   local index_of = {}
-  for i, row in ipairs(rows) do index_of[row.id] = i end
+  for i, row in ipairs(rows) do
+    index_of[row.id] = i
+  end
   local shown = math.floor(height / ROW)
   if term.sel ~= self.seen then
     self.seen = term.sel
@@ -63,7 +63,9 @@ local function draw_tree(self, g, rows, tree, width, height)
   local view = g:sub(0, 0, width, height)
   local tree_g = view:sub(0, -self.scroll * ROW, width, #rows * ROW)
   local graph_w = LEFT
-  for _, row in ipairs(rows) do graph_w = math.max(graph_w, LEFT + (row.lanes - 1) * GAP) end
+  for _, row in ipairs(rows) do
+    graph_w = math.max(graph_w, LEFT + (row.lanes - 1) * GAP)
+  end
   local text_x = graph_w + 20
   self.rows, self.shown, self.height = rows, shown, height
 
@@ -83,8 +85,10 @@ local function draw_tree(self, g, rows, tree, width, height)
       local x, y = node_at(row, i)
       local px, py = node_at(rows[j], j)
       local lit = on[row.id] and on[s.parent]
-      tree_g:poly(px == x and { x, y, px, py } or { x, y, x, py, px, py },
-        { color = lit and c.select or c.line_bar, width = lit and 2 or 1.5 })
+      tree_g:poly(
+        px == x and { x, y, px, py } or { x, y, x, py, px, py },
+        { color = lit and c.select or c.line_bar, width = lit and 2 or 1.5 }
+      )
     end
   end
   for i, row in ipairs(rows) do
@@ -92,7 +96,8 @@ local function draw_tree(self, g, rows, tree, width, height)
     local x, y = node_at(row, i)
     local r = s.current and 7 or 5
     tree_g:rect(x - r, y - r, 2 * r, 2 * r, {
-      fill = colour_of(s, on[row.id]), radius = r,
+      fill = colour_of(s, on[row.id]),
+      radius = r,
       stroke = s.current and c.text or (s.id == undotree.a or s.id == undotree.b) and c.select or "",
       width = 2,
     })
@@ -100,9 +105,15 @@ local function draw_tree(self, g, rows, tree, width, height)
     tree_g:text(text_x, y - 7, string.format("#%d", s.id), { color = c.text_3, size = 11 })
     tree_g:text(text_x + 34, y - 7, undotree.when(s.time), { color = c.text_3, size = 11 })
     local tags = (s.name and ('"' .. s.name .. '"  ') or "")
-      .. (s.id == undotree.a and "[A] " or "") .. (s.id == undotree.b and "[B] " or "")
+      .. (s.id == undotree.a and "[A] " or "")
+      .. (s.id == undotree.b and "[B] " or "")
       .. (s.saved and "(saved) " or "")
-    tree_g:text(text_x + 120, y - 7, tags .. undotree.what(s), { color = style, size = 12, bold = s.current, width = width - text_x - 126 })
+    tree_g:text(
+      text_x + 120,
+      y - 7,
+      tags .. undotree.what(s),
+      { color = style, size = 12, bold = s.current, width = width - text_x - 126 }
+    )
   end
 end
 
@@ -121,7 +132,9 @@ local function draw_diff(self, g, tree)
   g:text(0, 0, title, { color = c.text, size = 13, bold = true, width = g.width })
   if from and from ~= to then
     local key = from .. ">" .. to .. ":" .. #tree.states
-    if self.diff_key ~= key then self.diff_key, self.diff = key, api.undo_diff(from, to) end
+    if self.diff_key ~= key then
+      self.diff_key, self.diff = key, api.undo_diff(from, to)
+    end
     g:text(0, 22, undotree.summary(self.diff), { color = c.text_2, width = g.width })
     local y = 46
     for _, item in ipairs(self.diff.items) do
@@ -143,13 +156,19 @@ local function draw_tip(self, g, width, height)
   local s = row.state
   local lines = {
     { string.format("#%d  %s", s.id, undotree.what(s)), c.text, true },
-    { (s.name and ('"' .. s.name .. '"  ') or "") .. undotree.when(s.time) .. "  (" .. undotree.ago(s.time) .. " ago)", c.text_2 },
+    {
+      (s.name and ('"' .. s.name .. '"  ') or "") .. undotree.when(s.time) .. "  (" .. undotree.ago(s.time) .. " ago)",
+      c.text_2,
+    },
   }
   if s.parent then
-    lines[3] = { "after #" .. s.parent .. (s.current and "  ·  this is where you are" or "  ·  click to go there"), c.text_3 }
+    lines[3] =
+      { "after #" .. s.parent .. (s.current and "  ·  this is where you are" or "  ·  click to go there"), c.text_3 }
   end
   local w = 0
-  for _, line in ipairs(lines) do w = math.max(w, api.str_width(line[1]) * 7 + 20) end
+  for _, line in ipairs(lines) do
+    w = math.max(w, api.str_width(line[1]) * 7 + 20)
+  end
   local h = #lines * 18 + 12
   local x = math.min(hover.x + 16, width - w - 6)
   local y = math.min(hover.y + 18, height - h - FOOT - 4)
@@ -171,8 +190,12 @@ local function draw_foot(g, width, height)
     end
     g:rect(line.cursor.x * cell.w, y + (FOOT - cell.h) / 2, 2, cell.h, { fill = c.text })
   else
-    g:text(12, y + 6, "click a state to go there   j k move   Enter go   u Ctrl-r undo redo   a mark A   b A/B   n name   c checkpoint   d diff   q close",
-      { color = c.text_3, size = 11, width = width - 24 })
+    g:text(
+      12,
+      y + 6,
+      "click a state to go there   j k move   Enter go   u Ctrl-r undo redo   a mark A   b A/B   n name   c checkpoint   d diff   q close",
+      { color = c.text_3, size = 11, width = width - 24 }
+    )
   end
 end
 

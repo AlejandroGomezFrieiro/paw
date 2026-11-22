@@ -94,7 +94,9 @@ function M.put(_, mark)
     if mark.kind == "repeat" then
       local mi, at = view.where(sc, mark.at)
       D.ensure(sc, mi)
-      if mark.value == "start" or (mark.value == false and at == 0) then sc.measures[mi].repeat_start = mark.value and true or nil end
+      if mark.value == "start" or (mark.value == false and at == 0) then
+        sc.measures[mi].repeat_start = mark.value and true or nil
+      end
       local before = at == 0 and sc.measures[mi - 1] or nil
       if before and (mark.value == "end" or mark.value == false) then before.barline = mark.value and ":|" or nil end
       D.touch(sc, mi)
@@ -113,7 +115,9 @@ function M.put(_, mark)
     if mark.value ~= false then
       local new = { id = D.id(sc, "k"), kind = kind, from = ref }
       if kind == "dynamic" or kind == "text" then new.value = mark.value end
-      if kind == "hairpin" then new.value, new.to = mark.kind, M.ref(sc, mark.to) end
+      if kind == "hairpin" then
+        new.value, new.to = mark.kind, M.ref(sc, mark.to)
+      end
       list[#list + 1] = new
     end
     sc.marks = list
@@ -134,7 +138,11 @@ function M.slur(_, from, to, staff)
     local t = midi.at_of(sc, f, ref)
     local list, removed = {}, false
     for _, mk in ipairs(sc.marks or {}) do
-      if mk.kind == "slur" and mk.staff == st and midi.at_of(sc, f, mk.from) == t then removed = true else list[#list + 1] = mk end
+      if mk.kind == "slur" and mk.staff == st and midi.at_of(sc, f, mk.from) == t then
+        removed = true
+      else
+        list[#list + 1] = mk
+      end
     end
     if not removed then
       list[#list + 1] = { id = D.id(sc, "k"), kind = "slur", staff = st, from = ref, to = M.ref(sc, to) }
@@ -188,11 +196,19 @@ local function marks_of(layout, c)
   if not sc then
     local own = view.own(c)
     local list = {}
-    for _, mk in ipairs(own.marks or {}) do list[#list + 1] = mk end
-    for _, sl in ipairs(own.slurs or {}) do list[#list + 1] = { kind = "slur", at = sl.from, to = sl.to, staff = sl.staff } end
+    for _, mk in ipairs(own.marks or {}) do
+      list[#list + 1] = mk
+    end
+    for _, sl in ipairs(own.slurs or {}) do
+      list[#list + 1] = { kind = "slur", at = sl.from, to = sl.to, staff = sl.staff }
+    end
     return drawn(list, function(x) return x end, function(s) return s or 1 end)
   end
-  return drawn(sc.marks or {}, function(ref) return midi.beat_of(sc, ref) end, function(s) return D.staff_index(sc, s) or 1 end)
+  return drawn(
+    sc.marks or {},
+    function(ref) return midi.beat_of(sc, ref) end,
+    function(s) return D.staff_index(sc, s) or 1 end
+  )
 end
 
 --- Put the marks on a layout's measures and events, for drawing and export:
@@ -207,7 +223,9 @@ function M.decorate(layout, clip)
     local ok, x = pcall(fn, clip)
     if ok and type(x) == "table" then
       extras[#extras + 1] = x
-      for _, mk in ipairs(x.marks or {}) do marks[#marks + 1] = mk end
+      for _, mk in ipairs(x.marks or {}) do
+        marks[#marks + 1] = mk
+      end
     elseif not ok then
       paw.api.log("notation marks of " .. name .. ": " .. tostring(x))
     end
@@ -224,7 +242,8 @@ function M.decorate(layout, clip)
         elseif XML_WEDGE[mk.kind] then
           m.directions[#m.directions + 1] = { start = mk.at, xml = '<wedge type="' .. XML_WEDGE[mk.kind] .. '"/>' }
         elseif mk.kind == "text" or mk.kind == "technique" or (mk.kind == "tempo" and not mk.bpm) then
-          m.directions[#m.directions + 1] = { start = mk.at, xml = "<words>" .. tostring(mk.value):gsub("&", "&amp;"):gsub("<", "&lt;") .. "</words>" }
+          m.directions[#m.directions + 1] =
+            { start = mk.at, xml = "<words>" .. tostring(mk.value):gsub("&", "&amp;"):gsub("<", "&lt;") .. "</words>" }
         end
         if mk.kind == "repeat" and mk.value == "start" then m.repeat_start = true end
       end
@@ -232,7 +251,13 @@ function M.decorate(layout, clip)
         m.directions[#m.directions + 1] = { start = math.min(mk.to, e), xml = '<wedge type="stop"/>' }
       end
       if mk.kind == "repeat" and mk.value == "end" and math.abs(mk.at - e) < 1e-3 then m.repeat_end = true end
-      if mk.kind == "repeat" and mk.value == "end" and mk.at >= m.start - EPS and mk.at < e - EPS and math.abs(mk.at - m.start) < 1e-3 then
+      if
+        mk.kind == "repeat"
+        and mk.value == "end"
+        and mk.at >= m.start - EPS
+        and mk.at < e - EPS
+        and math.abs(mk.at - m.start) < 1e-3
+      then
         local before = layout.measures[m.index - 1]
         if before then before.repeat_end = true end
       end
@@ -244,7 +269,9 @@ function M.decorate(layout, clip)
           if ev.kind == "note" and not ev.notes[1].tied then
             local art = {}
             for _, n in ipairs(ev.notes) do
-              for k, v in pairs(M.art_of(n)) do art[k] = v end
+              for k, v in pairs(M.art_of(n)) do
+                art[k] = v
+              end
               if not ev.lyric and n.meta and n.meta.lyric and n.meta.lyric ~= "" then ev.lyric = n.meta.lyric end
             end
             ev.art = next(art) and art or nil
@@ -261,7 +288,9 @@ function M.decorate(layout, clip)
             local art = util.merge(ev.own_art or {}, {})
             for _, x in ipairs(extras) do
               for _, n in ipairs(x.art and ev.notes or {}) do
-                for k, v in pairs(x.art(n.pitch, ev.start) or {}) do art[k] = v end
+                for k, v in pairs(x.art(n.pitch, ev.start) or {}) do
+                  art[k] = v
+                end
               end
             end
             ev.art = next(art) and art or nil
@@ -276,7 +305,9 @@ function M.decorate(layout, clip)
   if layout.doc then
     for _, m in ipairs(layout.measures) do
       for _, evs in ipairs(m.staves) do
-        for _, ev in ipairs(evs) do ev.slurs, ev.slur_to = nil, nil end
+        for _, ev in ipairs(evs) do
+          ev.slurs, ev.slur_to = nil, nil
+        end
       end
     end
   end

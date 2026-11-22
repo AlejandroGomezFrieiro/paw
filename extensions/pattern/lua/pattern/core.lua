@@ -112,7 +112,8 @@ function Pattern:compress(b0, e0)
         local function to_inner(t) return c + (t - c - b0) / width end
         local function to_outer(t) return c + b0 + (t - c) * width end
         for _, ev in ipairs(inner.query(to_inner(qb), to_inner(qe))) do
-          out[#out + 1] = { wb = to_outer(ev.wb), we = to_outer(ev.we), pb = to_outer(ev.pb), pe = to_outer(ev.pe), v = ev.v }
+          out[#out + 1] =
+            { wb = to_outer(ev.wb), we = to_outer(ev.we), pb = to_outer(ev.pb), pe = to_outer(ev.pe), v = ev.v }
         end
       end
     end
@@ -126,7 +127,9 @@ function M.stack(list)
   return new(function(b, e)
     local out = {}
     for _, pat in ipairs(list) do
-      for _, ev in ipairs(pat.query(b, e)) do out[#out + 1] = ev end
+      for _, ev in ipairs(pat.query(b, e)) do
+        out[#out + 1] = ev
+      end
     end
     return out
   end)
@@ -136,7 +139,9 @@ end
 --- cycle in proportion to its weight: `steps` is a list of { weight, pattern }.
 function M.timecat(steps)
   local total = 0
-  for _, s in ipairs(steps) do total = total + s[1] end
+  for _, s in ipairs(steps) do
+    total = total + s[1]
+  end
   if total <= 0 then return M.silence, 0 end
   local parts, at = {}, 0
   for _, s in ipairs(steps) do
@@ -156,8 +161,12 @@ function M.with_args(args, build)
     local function go(i, qb, qe)
       if i > #args then
         local copy = {}
-        for k = 1, #args do copy[k] = values[k] end
-        for _, ev in ipairs(build(copy).query(qb, qe)) do out[#out + 1] = ev end
+        for k = 1, #args do
+          copy[k] = values[k]
+        end
+        for _, ev in ipairs(build(copy).query(qb, qe)) do
+          out[#out + 1] = ev
+        end
         return
       end
       for _, a in ipairs(args[i].query(qb, qe)) do
@@ -209,7 +218,9 @@ function M.choose(list, seed)
     for _, s in ipairs(cycles(b, e)) do
       local c = sam(s[1])
       local pick = list[math.floor(M.rand(c, seed) * #list) + 1] or list[#list]
-      for _, ev in ipairs(pick.query(s[1], s[2])) do out[#out + 1] = ev end
+      for _, ev in ipairs(pick.query(s[1], s[2])) do
+        out[#out + 1] = ev
+      end
     end
     return out
   end)
@@ -223,34 +234,62 @@ function M.bjorklund(hits, steps)
   local invert = hits < 0
   hits = math.min(math.abs(hits), steps)
   local xs, ys = {}, {}
-  for i = 1, hits do xs[i] = { true } end
-  for i = 1, steps - hits do ys[i] = { false } end
+  for i = 1, hits do
+    xs[i] = { true }
+  end
+  for i = 1, steps - hits do
+    ys[i] = { false }
+  end
   local i, j = hits, steps - hits
   local function join(a, b)
     local out = {}
-    for _, v in ipairs(a) do out[#out + 1] = v end
-    for _, v in ipairs(b) do out[#out + 1] = v end
+    for _, v in ipairs(a) do
+      out[#out + 1] = v
+    end
+    for _, v in ipairs(b) do
+      out[#out + 1] = v
+    end
     return out
   end
   while math.min(i, j) > 1 do
     if i > j then
       -- left: the first j of xs take a ys each; the rest of xs become ys.
       local nx, ny = {}, {}
-      for k = 1, j do nx[k] = join(xs[k], ys[k]) end
-      for k = j + 1, #xs do ny[#ny + 1] = xs[k] end
+      for k = 1, j do
+        nx[k] = join(xs[k], ys[k])
+      end
+      for k = j + 1, #xs do
+        ny[#ny + 1] = xs[k]
+      end
       xs, ys, i, j = nx, ny, j, i - j
     else
       -- right: every xs takes one of the first i ys; the rest stay ys.
       local nx, ny = {}, {}
-      for k = 1, #xs do nx[k] = join(xs[k], ys[k]) end
-      for k = i + 1, #ys do ny[#ny + 1] = ys[k] end
+      for k = 1, #xs do
+        nx[k] = join(xs[k], ys[k])
+      end
+      for k = i + 1, #ys do
+        ny[#ny + 1] = ys[k]
+      end
       xs, ys, i, j = nx, ny, i, j - i
     end
   end
   local out = {}
-  for _, group in ipairs(xs) do for _, v in ipairs(group) do out[#out + 1] = v end end
-  for _, group in ipairs(ys) do for _, v in ipairs(group) do out[#out + 1] = v end end
-  if invert then for k, v in ipairs(out) do out[k] = not v end end
+  for _, group in ipairs(xs) do
+    for _, v in ipairs(group) do
+      out[#out + 1] = v
+    end
+  end
+  for _, group in ipairs(ys) do
+    for _, v in ipairs(group) do
+      out[#out + 1] = v
+    end
+  end
+  if invert then
+    for k, v in ipairs(out) do
+      out[k] = not v
+    end
+  end
   return out
 end
 
@@ -259,7 +298,9 @@ function Pattern:euclid(hits, steps, rotate)
   hits, steps, rotate = math.floor(hits + 0.5), math.floor(steps + 0.5), math.floor((rotate or 0) + 0.5)
   if steps <= 0 then return M.silence end
   local list = {}
-  for k, hit in ipairs(M.bjorklund(hits, steps)) do list[k] = { 1, hit and self or M.silence } end
+  for k, hit in ipairs(M.bjorklund(hits, steps)) do
+    list[k] = { 1, hit and self or M.silence }
+  end
   local pat = M.timecat(list)
   return pat:early((rotate % steps) / steps)
 end

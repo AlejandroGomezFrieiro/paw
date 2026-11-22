@@ -10,7 +10,7 @@ local view = {
   modal = true,
   tree = { children = {} },
   title_text = "",
-  folded = {},   -- node -> true when closed, false when open, nil for the default
+  folded = {}, -- node -> true when closed, false when open, nil for the default
   sel = 1,
   scroll = 0,
   pending = "",
@@ -31,14 +31,22 @@ local function default_folds(root)
   local total = 0
   local function size(n)
     total = total + 1
-    for _, c in ipairs(n.children) do size(c) end
+    for _, c in ipairs(n.children) do
+      size(c)
+    end
   end
-  for _, n in ipairs(root.children) do size(n) end
+  for _, n in ipairs(root.children) do
+    size(n)
+  end
   local function mark(n, depth)
     n.open = total <= 40 or depth < 2
-    for _, c in ipairs(n.children) do mark(c, depth + 1) end
+    for _, c in ipairs(n.children) do
+      mark(c, depth + 1)
+    end
   end
-  for _, n in ipairs(root.children) do mark(n, 0) end
+  for _, n in ipairs(root.children) do
+    mark(n, 0)
+  end
 end
 
 function view:refresh(keep)
@@ -86,9 +94,13 @@ end
 local function set_all(closed)
   local function walk(n)
     if #n.children > 0 then view.folded[n] = closed end
-    for _, c in ipairs(n.children) do walk(c) end
+    for _, c in ipairs(n.children) do
+      walk(c)
+    end
   end
-  for _, n in ipairs(view.tree.children) do walk(n) end
+  for _, n in ipairs(view.tree.children) do
+    walk(n)
+  end
 end
 
 --- Move to the next (or previous) line that is a change itself.
@@ -126,7 +138,13 @@ local keys = {
   ["<C-u>"] = function() view.sel = view.sel - 10 end,
   ["G"] = function() view.sel = #view.rows end,
   ["<CR>"] = go,
-  ["<Tab>"] = function() local r = selected() if r then toggle(r.node) view:refresh(r.node) end end,
+  ["<Tab>"] = function()
+    local r = selected()
+    if r then
+      toggle(r.node)
+      view:refresh(r.node)
+    end
+  end,
   ["Q"] = to_quickfix,
   ["q"] = function() paw.ui.close() end,
   ["<Esc>"] = function() paw.ui.close() end,
@@ -134,11 +152,37 @@ local keys = {
 
 -- Two keys: `za` `zo` `zc` `zR` `zM`, `]c` `[c`, `gq`.
 local pairs_of_keys = {
-  za = function() local r = selected() if r then toggle(r.node) view:refresh(r.node) end end,
-  zo = function() local r = selected() if r then toggle(r.node, false) view:refresh(r.node) end end,
-  zc = function() local r = selected() if r then toggle(r.node, true) view:refresh(r.node) end end,
-  zR = function() local r = selected() set_all(false) view:refresh(r and r.node) end,
-  zM = function() local r = selected() set_all(true) view:refresh(r and r.node) end,
+  za = function()
+    local r = selected()
+    if r then
+      toggle(r.node)
+      view:refresh(r.node)
+    end
+  end,
+  zo = function()
+    local r = selected()
+    if r then
+      toggle(r.node, false)
+      view:refresh(r.node)
+    end
+  end,
+  zc = function()
+    local r = selected()
+    if r then
+      toggle(r.node, true)
+      view:refresh(r.node)
+    end
+  end,
+  zR = function()
+    local r = selected()
+    set_all(false)
+    view:refresh(r and r.node)
+  end,
+  zM = function()
+    local r = selected()
+    set_all(true)
+    view:refresh(r and r.node)
+  end,
   ["]c"] = function() step(1) end,
   ["[c"] = function() step(-1) end,
   gg = function() view.sel = 1 end,

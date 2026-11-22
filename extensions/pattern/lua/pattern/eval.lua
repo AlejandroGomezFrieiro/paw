@@ -5,13 +5,9 @@ local names = require("pattern.names")
 local M = {}
 local EPS = core.EPS
 
-local function constant(node)
-  return node.t == "atom" and type(node.v) == "number"
-end
+local function constant(node) return node.t == "atom" and type(node.v) == "number" end
 
-local function seed_of(node, seed)
-  return node.seed + 7919 * (seed or 0)
-end
+local function seed_of(node, seed) return node.seed + 7919 * (seed or 0) end
 
 local build
 
@@ -20,7 +16,9 @@ local build
 local function steps_of(node, seed, raw)
   if node.t == "seq" then
     local list = {}
-    for i, s in ipairs(node.steps) do list[i] = { s.weight, build(s.node, seed, raw) } end
+    for i, s in ipairs(node.steps) do
+      list[i] = { s.weight, build(s.node, seed, raw) }
+    end
     return core.timecat(list)
   end
   return build(node, seed, raw), 1
@@ -44,11 +42,15 @@ function build(node, seed, raw)
     return (steps_of(node, seed, raw))
   elseif t == "stack" then
     local list = {}
-    for i, item in ipairs(node.items) do list[i] = build(item, seed, raw) end
+    for i, item in ipairs(node.items) do
+      list[i] = build(item, seed, raw)
+    end
     return core.stack(list)
   elseif t == "choose" then
     local list = {}
-    for i, item in ipairs(node.items) do list[i] = build(item, seed, raw) end
+    for i, item in ipairs(node.items) do
+      list[i] = build(item, seed, raw)
+    end
     return core.choose(list, seed_of(node, seed))
   elseif t == "poly" then
     -- Each layer goes at `steps` of its steps per cycle; `< >` is one per cycle.
@@ -78,12 +80,14 @@ function build(node, seed, raw)
   elseif t == "euclid" then
     local pat = build(node.node, seed, raw)
     local all = true
-    for _, arg in ipairs(node.args) do all = all and constant(arg) end
-    if all then
-      return pat:euclid(node.args[1].v, node.args[2].v, node.args[3] and node.args[3].v or 0)
+    for _, arg in ipairs(node.args) do
+      all = all and constant(arg)
     end
+    if all then return pat:euclid(node.args[1].v, node.args[2].v, node.args[3] and node.args[3].v or 0) end
     local args = {}
-    for i, arg in ipairs(node.args) do args[i] = build(arg, seed, true) end
+    for i, arg in ipairs(node.args) do
+      args[i] = build(arg, seed, true)
+    end
     return core.with_args(args, function(v) return pat:euclid(v[1], v[2], v[3] or 0) end)
   elseif t == "degrade" then
     return build(node.node, seed, raw):degrade(node.prob, seed_of(node, seed))
@@ -94,15 +98,15 @@ end
 --- Turn a parsed pattern into patterns of events: { main, params }.
 function M.compile(tree, seed)
   local out = { main = build(tree.main, seed, false), params = {}, text = tree.text, seed = seed or 0 }
-  for name, node in pairs(tree.params) do out.params[name] = build(node, seed, true) end
+  for name, node in pairs(tree.params) do
+    out.params[name] = build(node, seed, true)
+  end
   return out
 end
 
 -- Pitches ------------------------------------------------------------------------
 
-local function scale_steps(params)
-  return names.scales[params.scale or "major"] or names.scales.major
-end
+local function scale_steps(params) return names.scales[params.scale or "major"] or names.scales.major end
 
 --- Pitch of a scale degree: 1 is the root, 8 the octave above in a
 --- seven-note scale, 0 the step below the root.
@@ -128,7 +132,9 @@ local function apply_mods(pitches, mods)
     elseif kind == "open" then
       if #pitches > 2 then
         local out = { pitches[1] - 12, pitches[3] - 12 }
-        for i, p in ipairs(pitches) do if i ~= 1 and i ~= 3 then out[#out + 1] = p end end
+        for i, p in ipairs(pitches) do
+          if i ~= 1 and i ~= 3 then out[#out + 1] = p end
+        end
         pitches = out
       end
     elseif kind == "drop" then
@@ -160,7 +166,9 @@ function M.pitches(value, params)
   if value.kind == "chord" then
     local root_pitch = single(value.root)
     local out = {}
-    for i, interval in ipairs(value.shape) do out[i] = root_pitch + interval end
+    for i, interval in ipairs(value.shape) do
+      out[i] = root_pitch + interval
+    end
     return apply_mods(out, value.mods)
   end
   return { single(value) }
@@ -198,12 +206,19 @@ function M.events(compiled, from, to)
       if math.abs(ev.pb - ev.wb) < EPS and ev.wb >= c0 - EPS and ev.wb < c1 - EPS then
         local params = sample(compiled.params, ev.wb)
         out[#out + 1] = {
-          start = round(ev.wb), stop = round(ev.we), text = ev.v.text, value = ev.v.v, pos = ev.v.pos,
-          params = params, pitches = M.pitches(ev.v.v, params),
+          start = round(ev.wb),
+          stop = round(ev.we),
+          text = ev.v.text,
+          value = ev.v.v,
+          pos = ev.v.pos,
+          params = params,
+          pitches = M.pitches(ev.v.v, params),
         }
       end
     end
-    if #out > M.MAX_EVENTS then error("more than " .. M.MAX_EVENTS .. " notes: make the clip shorter or the pattern sparser", 0) end
+    if #out > M.MAX_EVENTS then
+      error("more than " .. M.MAX_EVENTS .. " notes: make the clip shorter or the pattern sparser", 0)
+    end
     c0 = c1
   end
   table.sort(out, function(a, b)
@@ -232,7 +247,10 @@ function M.notes(compiled, opts)
         if pitch >= 0 and pitch <= 127 and dur > 0 and not seen[key] then
           seen[key] = true
           notes[#notes + 1] = {
-            pitch = pitch, start = start, length = dur, velocity = vel,
+            pitch = pitch,
+            start = start,
+            length = dur,
+            velocity = vel,
             meta = p.ch and { channel = p.ch } or nil,
           }
         end

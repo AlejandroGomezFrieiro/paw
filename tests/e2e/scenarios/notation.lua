@@ -48,7 +48,9 @@ end
 --- The model's notes of a track, in the order of time, as pitches.
 local function pitches(t)
   local out = {}
-  for _, n in ipairs(t.notes) do out[#out + 1] = n.pitch end
+  for _, n in ipairs(t.notes) do
+    out[#out + 1] = n.pitch
+  end
   return out
 end
 
@@ -63,39 +65,63 @@ days[1] = function(E)
   M = E.Model
   local r = E.rng
   local parts = M.read_midi(E.workdir .. "/library/" .. FILE)
-  E:act({ name = "import the chorale", keys = { "<Esc>", ":import " .. E.workdir .. "/library/" .. FILE .. "<CR>" },
-    slow = true, says = "imported", apply = function(m)
+  E:act({
+    name = "import the chorale",
+    keys = { "<Esc>", ":import " .. E.workdir .. "/library/" .. FILE .. "<CR>" },
+    slow = true,
+    says = "imported",
+    apply = function(m)
       for _, part in ipairs(parts) do
         local t = M.new_track(part.name)
         t.clips = M.ANY
-        for _, n in ipairs(part.notes) do t.notes[#t.notes + 1] = M.copy(n) end
+        for _, n in ipairs(part.notes) do
+          t.notes[#t.notes + 1] = M.copy(n)
+        end
         m.tracks[#m.tracks + 1] = t
       end
-    end })
+    end,
+  })
   for i = 1, #parts do
-    E:act({ name = "a synth for voice " .. i, keys = { "<Esc>", i .. "G", "a", "synth<CR>" },
-      apply = function(m) m.tracks[i].devices = { "synth" } end })
+    E:act({
+      name = "a synth for voice " .. i,
+      keys = { "<Esc>", i .. "G", "a", "synth<CR>" },
+      apply = function(m) m.tracks[i].devices = { "synth" } end,
+    })
   end
   local last = #E.model.tracks
-  E:act({ name = "add the track Flute", keys = { "<Esc>", last .. "G", "o", "grn", "<C-u>Flute<CR>", "a", "synth<CR>" },
+  E:act({
+    name = "add the track Flute",
+    keys = { "<Esc>", last .. "G", "o", "grn", "<C-u>Flute<CR>", "a", "synth<CR>" },
     apply = function(m)
       local t = M.new_track("Flute")
       t.devices = { "synth" }
       m.tracks[#m.tracks + 1] = t
-    end })
+    end,
+  })
   local flute = last + 1
   -- A sketch: four quarters from C4 in the piano roll.
   local keys, sketch = E.draw({ { 60, 4 }, { 62, 4 }, { 64, 4 }, { 65, 4 } })
   local all = { "<Esc>", flute .. "G", "1|" }
-  for _, k in ipairs(keys) do all[#all + 1] = k end
+  for _, k in ipairs(keys) do
+    all[#all + 1] = k
+  end
   all[#all + 1] = "<C-w>p"
-  E:act({ name = "sketch a bar for the flute", keys = all, focus = "arrange", apply = function(m)
-    local t = m.tracks[flute]
-    t.clips = { { kind = "midi", start = 0, length = 4, notes = sketch } }
-    M.renote(t)
-  end })
+  E:act({
+    name = "sketch a bar for the flute",
+    keys = all,
+    focus = "arrange",
+    apply = function(m)
+      local t = m.tracks[flute]
+      t.clips = { { kind = "midi", start = 0, length = 4, notes = sketch } }
+      M.renote(t)
+    end,
+  })
   load_notation(E)
-  E:act({ name = "open the bar as a score", keys = { "<Esc>", flute .. "G", "1|", ":notation<CR>" }, focus = "notation" })
+  E:act({
+    name = "open the bar as a score",
+    keys = { "<Esc>", flute .. "G", "1|", ":notation<CR>" },
+    focus = "notation",
+  })
   -- The melody, by letter over the sketch: quarters replace the quarters.
   -- The melody stays from C4 up: a note under the treble staff makes the
   -- clip a grand staff, and the later letters then go beside the sketch's
@@ -108,8 +134,11 @@ days[1] = function(E)
       last = nearest(letter, last)
     end
   end
-  E:act({ name = "write the melody " .. table.concat(letters), keys = { "0", "g5", "i" .. table.concat(letters), "<Esc>" },
-    focus = "notation", apply = function(m)
+  E:act({
+    name = "write the melody " .. table.concat(letters),
+    keys = { "0", "g5", "i" .. table.concat(letters), "<Esc>" },
+    focus = "notation",
+    apply = function(m)
       local c = m.tracks[flute].clips[1]
       local before = 60
       for k, letter in ipairs(letters) do
@@ -117,19 +146,29 @@ days[1] = function(E)
         c.notes[k] = { pitch = before, start = k - 1, length = 1, velocity = M.ANY }
       end
       M.renote(m.tracks[flute])
-    end })
-  E:act({ name = "sharpen the second note and lift the third an octave", keys = { "0", "w", "+", "w", "}" },
-    focus = "notation", apply = function(m)
+    end,
+  })
+  E:act({
+    name = "sharpen the second note and lift the third an octave",
+    keys = { "0", "w", "+", "w", "}" },
+    focus = "notation",
+    apply = function(m)
       local c = m.tracks[flute].clips[1]
       c.notes[2].pitch = c.notes[2].pitch + 1
       c.notes[3].pitch = c.notes[3].pitch + 12
       M.renote(m.tracks[flute])
-    end })
-  E:act({ name = "delete the last note", keys = { "w", "x" }, focus = "notation", apply = function(m)
-    local c = m.tracks[flute].clips[1]
-    c.notes[4] = nil
-    M.renote(m.tracks[flute])
-  end })
+    end,
+  })
+  E:act({
+    name = "delete the last note",
+    keys = { "w", "x" },
+    focus = "notation",
+    apply = function(m)
+      local c = m.tracks[flute].clips[1]
+      c.notes[4] = nil
+      M.renote(m.tracks[flute])
+    end,
+  })
   E:act({ name = "back to the arrange view", keys = { "<Esc>", "\\n" }, focus = "arrange" })
 end
 
@@ -141,50 +180,79 @@ days[2] = function(E)
   load_notation(E)
   local flute = #E.model.tracks
   local xml = E.workdir .. "/flute.musicxml"
-  E:act({ name = "write the flute as MusicXML", keys = { "<Esc>", flute .. "G", "1|", ":notation.export " .. xml .. "<CR>" },
-    slow = true, check = function(self)
+  E:act({
+    name = "write the flute as MusicXML",
+    keys = { "<Esc>", flute .. "G", "1|", ":notation.export " .. xml .. "<CR>" },
+    slow = true,
+    check = function(self)
       local got = read_musicxml(xml)
       local want = pitches(self.model.tracks[flute])
       local seen = {}
-      for k, n in ipairs(got) do seen[k] = n.pitch end
-      if table.concat(seen, " ") ~= table.concat(want, " ") then
-        self:fail("MusicXML", "the file has the pitches " .. table.concat(seen, " ") .. ", the model " .. table.concat(want, " "))
+      for k, n in ipairs(got) do
+        seen[k] = n.pitch
       end
-    end })
+      if table.concat(seen, " ") ~= table.concat(want, " ") then
+        self:fail(
+          "MusicXML",
+          "the file has the pitches " .. table.concat(seen, " ") .. ", the model " .. table.concat(want, " ")
+        )
+      end
+    end,
+  })
   local ly = E.workdir .. "/flute.ly"
-  E:act({ name = "write the flute as LilyPond", keys = { ":notation.export " .. ly .. "<CR>" }, slow = true,
+  E:act({
+    name = "write the flute as LilyPond",
+    keys = { ":notation.export " .. ly .. "<CR>" },
+    slow = true,
     check = function(self)
       local f = io.open(ly, "rb")
       local text = f and f:read("*a") or ""
       if f then f:close() end
       if not text:find("\\version", 1, true) then self:fail("LilyPond", "no LilyPond source in " .. ly) end
-    end })
+    end,
+  })
   local score = E.workdir .. "/score.musicxml"
-  E:act({ name = "write the whole score as MusicXML", keys = { ":notation.export " .. score .. " all<CR>" }, slow = true,
+  E:act({
+    name = "write the whole score as MusicXML",
+    keys = { ":notation.export " .. score .. " all<CR>" },
+    slow = true,
     check = function(self)
       local got, parts = read_musicxml(score)
       local want = 0
-      for _, t in ipairs(self.model.tracks) do want = want + #t.notes end
-      if parts ~= #self.model.tracks or #got ~= want then
-        self:fail("MusicXML of the score", string.format("%d parts and %d notes, the model %d and %d", parts, #got,
-          #self.model.tracks, want))
+      for _, t in ipairs(self.model.tracks) do
+        want = want + #t.notes
       end
-    end })
+      if parts ~= #self.model.tracks or #got ~= want then
+        self:fail(
+          "MusicXML of the score",
+          string.format("%d parts and %d notes, the model %d and %d", parts, #got, #self.model.tracks, want)
+        )
+      end
+    end,
+  })
   -- The import and its undo are one action: the model does not change.
-  E:act({ name = "import the flute's MusicXML again at bar 3, compare, and undo", slow = true, run = function(self)
-    self:type({ "<Esc>", flute .. "G", "3|", ":import " .. xml .. "<CR>" })
-    local t = paw.tracks()[flute + 1]
-    local got = {}
-    for _, c in ipairs(t and t:clips() or {}) do
-      for _, n in ipairs(c:notes()) do got[#got + 1] = { pitch = n.pitch, start = c.start + n.start - 8, length = n.length } end
-    end
-    M.sort_notes(got)
-    local want = {}
-    for _, n in ipairs(self.model.tracks[flute].notes) do want[#want + 1] = { pitch = n.pitch, start = n.start, length = n.length } end
-    local diffs = M.diff(want, got, "the flute again")
-    if #diffs > 0 then self:fail("MusicXML again", table.concat(diffs, "\n", 1, math.min(6, #diffs))) end
-    self:type({ "<Esc>", "u" })
-  end })
+  E:act({
+    name = "import the flute's MusicXML again at bar 3, compare, and undo",
+    slow = true,
+    run = function(self)
+      self:type({ "<Esc>", flute .. "G", "3|", ":import " .. xml .. "<CR>" })
+      local t = paw.tracks()[flute + 1]
+      local got = {}
+      for _, c in ipairs(t and t:clips() or {}) do
+        for _, n in ipairs(c:notes()) do
+          got[#got + 1] = { pitch = n.pitch, start = c.start + n.start - 8, length = n.length }
+        end
+      end
+      M.sort_notes(got)
+      local want = {}
+      for _, n in ipairs(self.model.tracks[flute].notes) do
+        want[#want + 1] = { pitch = n.pitch, start = n.start, length = n.length }
+      end
+      local diffs = M.diff(want, got, "the flute again")
+      if #diffs > 0 then self:fail("MusicXML again", table.concat(diffs, "\n", 1, math.min(6, #diffs))) end
+      self:type({ "<Esc>", "u" })
+    end,
+  })
 end
 
 -- Day 3: the chorale's soprano, corrected in the score: its first note an
@@ -193,12 +261,15 @@ days[3] = function(E)
   M = E.Model
   load_notation(E)
   local first = E.model.tracks[1].notes[1]
-  E:act({ name = "the soprano's first note an octave down, in the score",
-    keys = { "<Esc>", "1G", "1|", ":notation<CR>", "0", "{", "<Esc>" }, focus = "notation",
+  E:act({
+    name = "the soprano's first note an octave down, in the score",
+    keys = { "<Esc>", "1G", "1|", ":notation<CR>", "0", "{", "<Esc>" },
+    focus = "notation",
     apply = function(m)
       m.tracks[1].notes[1].pitch = first.pitch - 12
       M.sort_notes(m.tracks[1].notes)
-    end })
+    end,
+  })
   E:act({ name = "back to the arrange view", keys = { "\\n" }, focus = "arrange" })
 end
 

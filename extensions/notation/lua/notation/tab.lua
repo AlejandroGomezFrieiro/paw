@@ -36,13 +36,15 @@ function M.is_bass(tuning) return tuning[#tuning] < 48 end
 function M.assign(layout, tab)
   local tuning, capo = tab.tuning, tab.capo or 0
   local count = #tuning
-  local hand = nil   -- where the hand was: the mean fret of the last chord
+  local hand = nil -- where the hand was: the mean fret of the last chord
   local function options(pitch, forced)
     local out = {}
     for i, open in ipairs(tuning) do
       local fret = pitch - open - capo
       local string_no = count - i + 1
-      if fret >= 0 and fret <= M.FRETS and (not forced or forced == string_no) then out[#out + 1] = { string = string_no, fret = fret } end
+      if fret >= 0 and fret <= M.FRETS and (not forced or forced == string_no) then
+        out[#out + 1] = { string = string_no, fret = fret }
+      end
     end
     return out
   end
@@ -58,7 +60,9 @@ function M.assign(layout, tab)
   for _, ev in ipairs(chords) do
     -- A tied note keeps the string it started on.
     local notes = {}
-    for _, n in ipairs(ev.notes) do notes[#notes + 1] = n end
+    for _, n in ipairs(ev.notes) do
+      notes[#notes + 1] = n
+    end
     table.sort(notes, function(a, b) return a.pitch > b.pitch end)
     local best, best_cost
     local used, pick = {}, {}
@@ -81,7 +85,9 @@ function M.assign(layout, tab)
         if not best_cost or cost < best_cost then
           best_cost = cost
           best = {}
-          for i, p in pairs(pick) do best[i] = p end
+          for i, p in pairs(pick) do
+            best[i] = p
+          end
         end
         return
       end
@@ -103,7 +109,9 @@ function M.assign(layout, tab)
     for k, n in ipairs(notes) do
       local p = best and best[k]
       n.string, n.fret = p and p.string or nil, p and p.fret or nil
-      if p and p.fret > 0 then sum, fretted = sum + p.fret, fretted + 1 end
+      if p and p.fret > 0 then
+        sum, fretted = sum + p.fret, fretted + 1
+      end
     end
     if fretted > 0 then hand = sum / fretted end
   end
@@ -112,7 +120,9 @@ function M.assign(layout, tab)
     local nxt = ev.next
     if nxt and nxt.notes then
       for i, n in ipairs(ev.notes) do
-        if n.tie and nxt.notes[i] then nxt.notes[i].string, nxt.notes[i].fret = n.string, n.fret end
+        if n.tie and nxt.notes[i] then
+          nxt.notes[i].string, nxt.notes[i].fret = n.string, n.fret
+        end
       end
     end
   end

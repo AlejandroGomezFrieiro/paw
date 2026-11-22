@@ -50,7 +50,9 @@ local function dense()
     local t = 0
     while t < 4 - 1e-9 do
       if bar % 4 == 1 and t == 0 then
-        for k = 0, 2 do notes[#notes + 1] = N(high[rnd(#high) + 1], bar * 4 + k / 3, 1 / 3) end
+        for k = 0, 2 do
+          notes[#notes + 1] = N(high[rnd(#high) + 1], bar * 4 + k / 3, 1 / 3)
+        end
         t = 1
       else
         local len = ({ 0.5, 0.5, 0.25, 1, 1, 2 })[rnd(6) + 1]
@@ -70,11 +72,15 @@ local function dense()
   local view, clip = score(notes, 64)
   local marks = view.marks
   local dyn = { "p", "mf", "f", "pp", "ff", "mp" }
-  for bar = 0, 15, 2 do marks.put(nil, { at = bar * 4, kind = "dyn", value = dyn[bar / 2 % #dyn + 1] }) end
+  for bar = 0, 15, 2 do
+    marks.put(nil, { at = bar * 4, kind = "dyn", value = dyn[bar / 2 % #dyn + 1] })
+  end
   marks.put(nil, { at = 1, kind = "cresc", to = 3 })
   marks.put(nil, { at = 10, kind = "dim", to = 18 })
   marks.put(nil, { at = 26, kind = "cresc", to = 40 })
-  for bar = 1, 15, 3 do marks.slur(nil, bar * 4, bar * 4 + 3.5, 1) end
+  for bar = 1, 15, 3 do
+    marks.slur(nil, bar * 4, bar * 4 + 3.5, 1)
+  end
   marks.slur(nil, 37, 46, 1)
   marks.put(nil, { at = 20, kind = "text", value = "dolce" })
   marks.put(nil, { at = 44, kind = "text", value = "a tempo" })
@@ -88,7 +94,9 @@ local function dense()
         ev.lyric = ({ "Sing", "a", "song", "of", "light" })[(k - 1) % 5 + 1]
       end
     end)
-    for mi = 9, 10 do D.touch(sc, mi) end
+    for mi = 9, 10 do
+      D.touch(sc, mi)
+    end
   end)
   return view, clip
 end
@@ -103,7 +111,11 @@ local function system_skies(view, eng, sys)
   for k = 1, #layout.staves do
     local sky = skyline.new(width)
     for _, placed in ipairs(sys.measures) do
-      sky:merge(engrave.staff(view.gui.measures, eng.style, placed.m, placed.p, k).sky, placed.x, sys.staff_top[k] - sys.y)
+      sky:merge(
+        engrave.staff(view.gui.measures, eng.style, placed.m, placed.p, k).sky,
+        placed.x,
+        sys.staff_top[k] - sys.y
+      )
     end
     notes[k] = sky
   end
@@ -135,48 +147,59 @@ test("notation layout: on a dense score no mark overlaps another, nor the notes 
       if item.kind ~= "slur" then
         for k, staff in ipairs(notes) do
           local x = clash(sky, staff)
-          if x then error(string.format("a %s over the notes of staff %d at x %d (bar %d)", item.kind, k, x, sys.first)) end
+          if x then
+            error(string.format("a %s over the notes of staff %d at x %d (bar %d)", item.kind, k, x, sys.first))
+          end
         end
       end
       for j = i + 1, #marks do
         local x = clash(sky, marks[j])
-        if x then error(string.format("a %s and a %s overlap at x %d (bar %d)", item.kind, sys.marks[j].kind, x, sys.first)) end
+        if x then
+          error(string.format("a %s and a %s overlap at x %d (bar %d)", item.kind, sys.marks[j].kind, x, sys.first))
+        end
       end
       local _, top, _, bottom = require("notation.skyline").bounds(item.ink.shape)
       local dy = sys.staff_top[item.staff] - sys.y + item.dy
       eq(top + dy >= 0 and bottom + dy <= sys.height, true, "every mark inside its system's band")
     end
     placed = placed + #sys.marks
-    for k = 2, #sys.staff_top do eq(sys.staff_top[k] > sys.staff_top[k - 1], true) end
+    for k = 2, #sys.staff_top do
+      eq(sys.staff_top[k] > sys.staff_top[k - 1], true)
+    end
   end
   eq(placed > 20, true, "many marks were placed")
-  for _, kind in ipairs({ "dyn", "cresc", "dim", "text", "slur", "lyric", "number" }) do eq(kinds[kind], true, kind .. " placed") end
+  for _, kind in ipairs({ "dyn", "cresc", "dim", "text", "slur", "lyric", "number" }) do
+    eq(kinds[kind], true, kind .. " placed")
+  end
 end)
 
-test("notation layout: dynamics and hairpins of a system share one line, and a hairpin stops at the next dynamic", function()
-  local view = dense()
-  local eng = paint(view)
-  local rows = 0
-  for _, sys in ipairs(eng.systems) do
-    local line
-    for _, item in ipairs(sys.marks) do
-      if (item.kind == "dyn" or item.kind == "cresc" or item.kind == "dim") and item.staff == 1 then
-        line = line or item.dy
-        eq(item.dy, line, "one line along the system")
-        rows = rows + 1
+test(
+  "notation layout: dynamics and hairpins of a system share one line, and a hairpin stops at the next dynamic",
+  function()
+    local view = dense()
+    local eng = paint(view)
+    local rows = 0
+    for _, sys in ipairs(eng.systems) do
+      local line
+      for _, item in ipairs(sys.marks) do
+        if (item.kind == "dyn" or item.kind == "cresc" or item.kind == "dim") and item.staff == 1 then
+          line = line or item.dy
+          eq(item.dy, line, "one line along the system")
+          rows = rows + 1
+        end
       end
     end
-  end
-  eq(rows > 8, true)
-  -- The diminuendo from beat 10 to 18 meets the f at beat 16: it ends there.
-  local found
-  for _, sys in ipairs(eng.systems) do
-    for _, item in ipairs(sys.marks) do
-      if item.kind == "dim" then found = item end
+    eq(rows > 8, true)
+    -- The diminuendo from beat 10 to 18 meets the f at beat 16: it ends there.
+    local found
+    for _, sys in ipairs(eng.systems) do
+      for _, item in ipairs(sys.marks) do
+        if item.kind == "dim" then found = item end
+      end
     end
+    eq(found and found.to, 16, "ends at the dynamic")
   end
-  eq(found and found.to, 16, "ends at the dynamic")
-end)
+)
 
 test("notation layout: a slur bends over the notes under it, clear of them", function()
   local view = dense()
@@ -201,8 +224,21 @@ test("notation layout: a slur bends over the notes under it, clear of them", fun
         local s = eng.style.sp
         for x = math.ceil(sl.x0 + s), math.floor(sl.x1 - s) do
           if sl.d < 0 then
-            eq(curve.bottom[x] <= sky.top[x] - 0.15 * s, true, string.format("the slur passes over the notes at %d: %g against %g (%g,%g to %g,%g bow %g)",
-              x, curve.bottom[x], sky.top[x], sl.x0, sl.y0, sl.x1, sl.y1, sl.bow))
+            eq(
+              curve.bottom[x] <= sky.top[x] - 0.15 * s,
+              true,
+              string.format(
+                "the slur passes over the notes at %d: %g against %g (%g,%g to %g,%g bow %g)",
+                x,
+                curve.bottom[x],
+                sky.top[x],
+                sl.x0,
+                sl.y0,
+                sl.x1,
+                sl.y1,
+                sl.bow
+              )
+            )
           else
             eq(curve.top[x] >= sky.bottom[x] + 0.15 * s, true, "the slur passes under the notes at " .. x)
           end
@@ -225,7 +261,9 @@ test("notation layout: systems break balanced: none stretched past the bound, no
   local starts = breaks.lines(widths, pre, 100)
   eq(breaks.measure(widths, pre, 100, starts) <= breaks.STRETCH, true, "no line stretched past the bound")
   local last = 0
-  for i = starts[#starts], #widths do last = last + widths[i] end
+  for i = starts[#starts], #widths do
+    last = last + widths[i]
+  end
   eq((10 + last) / 100 >= breaks.LONELY, true, "the last line is not lonely")
   -- What the score asks: a break, a join, a number to a line.
   eq(lines({ 30, 30, 30, 30 }, pre, 100, { breaks = { [2] = true } }), "1 2")
@@ -237,60 +275,78 @@ test("notation layout: systems break balanced: none stretched past the bound, no
   eq(#eng.systems >= 3, true)
   for k, sys in ipairs(eng.systems) do
     local natural = 0
-    for _, placed in ipairs(sys.measures) do natural = natural + placed.p.natural end
+    for _, placed in ipairs(sys.measures) do
+      natural = natural + placed.p.natural
+    end
     if k < #eng.systems then
       eq((sys.width - sys.x0) / natural - 1 <= breaks.STRETCH + 0.05, true, "system " .. k .. " not over-stretched")
     end
   end
 end)
 
-test("notation layout: zs starts a system at the bar, zj keeps one on the system before, kept in the score and undone", function()
-  local notes = {}
-  for bar = 0, 7 do
-    for b = 0, 3 do notes[#notes + 1] = N(60 + (bar + b) % 8, bar * 4 + b, 1) end
+test(
+  "notation layout: zs starts a system at the bar, zj keeps one on the system before, kept in the score and undone",
+  function()
+    local notes = {}
+    for bar = 0, 7 do
+      for b = 0, 3 do
+        notes[#notes + 1] = N(60 + (bar + b) % 8, bar * 4 + b, 1)
+      end
+    end
+    local view, clip = score(notes, 32)
+    local function firsts()
+      local out = {}
+      for _, sys in ipairs(paint(view).systems) do
+        out[#out + 1] = sys.first
+      end
+      return table.concat(out, " ")
+    end
+    local before = firsts()
+    eq(before:find("^1 ") ~= nil, true, before)
+    view:set(nil, 9)
+    keys("zs")
+    local sc = view.score_of(clip:get())
+    eq(#sc.layout.breaks, 1)
+    local b = sc.layout.breaks[1]
+    eq(
+      b.kind == "break" and b.measure == sc.measures[3].id and type(b.id) == "string",
+      true,
+      "a break before bar 3, by its measure's id"
+    )
+    eq((" " .. firsts() .. " "):find(" 3 ") ~= nil, true, "a system starts at bar 3")
+    keys("zs")
+    eq(#view.score_of(clip:get()).layout.breaks, 0, "zs again takes it away")
+    eq(firsts(), before)
+    -- zj on the first bar of a system keeps it on the one before.
+    local eng = paint(view)
+    local second = eng.systems[2].first
+    view:set(nil, (second - 1) * 4)
+    keys("zj")
+    eq(view.score_of(clip:get()).layout.breaks[1].kind, "join")
+    eq((" " .. firsts() .. " "):find(" " .. second .. " ") == nil, true, "no system starts there now")
+    api.undo()
+    eq(firsts(), before, "undone")
+    paw.commands.exec("notation.bars-per-system 2")
+    eq(firsts(), "1 3 5 7", "two bars to a system")
+    paw.commands.exec("notation.bars-per-system")
+    eq(firsts(), before)
+    -- The terminal's cell view breaks the same way.
+    paw.commands.exec("notation.bars-per-system 3")
+    view.first = 1
+    view:set(nil, 0)
+    api.ui_snapshot(140, 60)
+    local systems = view.geometry.systems
+    local seen = {}
+    for _, sys in ipairs(systems) do
+      seen[#seen + 1] = #sys.measures
+    end
+    eq(
+      #systems >= 1 and #systems[1].measures == 3 and (not systems[2] or systems[2].measures[1].m.number == 4),
+      true,
+      "three bars to a row: " .. table.concat(seen, " ")
+    )
   end
-  local view, clip = score(notes, 32)
-  local function firsts()
-    local out = {}
-    for _, sys in ipairs(paint(view).systems) do out[#out + 1] = sys.first end
-    return table.concat(out, " ")
-  end
-  local before = firsts()
-  eq(before:find("^1 ") ~= nil, true, before)
-  view:set(nil, 9)
-  keys("zs")
-  local sc = view.score_of(clip:get())
-  eq(#sc.layout.breaks, 1)
-  local b = sc.layout.breaks[1]
-  eq(b.kind == "break" and b.measure == sc.measures[3].id and type(b.id) == "string", true, "a break before bar 3, by its measure's id")
-  eq((" " .. firsts() .. " "):find(" 3 ") ~= nil, true, "a system starts at bar 3")
-  keys("zs")
-  eq(#view.score_of(clip:get()).layout.breaks, 0, "zs again takes it away")
-  eq(firsts(), before)
-  -- zj on the first bar of a system keeps it on the one before.
-  local eng = paint(view)
-  local second = eng.systems[2].first
-  view:set(nil, (second - 1) * 4)
-  keys("zj")
-  eq(view.score_of(clip:get()).layout.breaks[1].kind, "join")
-  eq((" " .. firsts() .. " "):find(" " .. second .. " ") == nil, true, "no system starts there now")
-  api.undo()
-  eq(firsts(), before, "undone")
-  paw.commands.exec("notation.bars-per-system 2")
-  eq(firsts(), "1 3 5 7", "two bars to a system")
-  paw.commands.exec("notation.bars-per-system")
-  eq(firsts(), before)
-  -- The terminal's cell view breaks the same way.
-  paw.commands.exec("notation.bars-per-system 3")
-  view.first = 1
-  view:set(nil, 0)
-  api.ui_snapshot(140, 60)
-  local systems = view.geometry.systems
-  local seen = {}
-  for _, sys in ipairs(systems) do seen[#seen + 1] = #sys.measures end
-  eq(#systems >= 1 and #systems[1].measures == 3 and (not systems[2] or systems[2].measures[1].m.number == 4), true,
-    "three bars to a row: " .. table.concat(seen, " "))
-end)
+)
 
 test("notation layout: a tie into a new system starts after the clef and key, as long as a tie", function()
   local view = score({ N(67, 0, 4), N(69, 4, 8), N(71, 12, 4) }, 16)
@@ -330,8 +386,12 @@ test("notation layout: zp lays the systems on pages under the title, and export 
   eq(title and paper, true, "white paper with the title")
   for _, sys in ipairs(eng.systems) do
     local page = eng.pages[sys.page]
-    eq(sys.y >= page.y + eng.geometry.margin and sys.y + sys.height <= page.y + eng.geometry.height - eng.geometry.margin + 1, true,
-      "each system within its page's margins")
+    eq(
+      sys.y >= page.y + eng.geometry.margin
+        and sys.y + sys.height <= page.y + eng.geometry.height - eng.geometry.margin + 1,
+      true,
+      "each system within its page's margins"
+    )
   end
   -- In the run's own scratch: two suites side by side would share one in target/.
   local base = T.scratch .. "/layout-test"
@@ -340,8 +400,12 @@ test("notation layout: zp lays the systems on pages under the title, and export 
   local pdf = f and f:read("*a") or ""
   if f then f:close() end
   eq(pdf:sub(1, 8), "%PDF-1.4")
-  eq(pdf:find("/Count " .. #require("notation.page").export(view:layout(), base .. ".svg", "svg", { title = "x" })) ~= nil, true,
-    "as many pages in the PDF as SVG files")
+  eq(
+    pdf:find("/Count " .. #require("notation.page").export(view:layout(), base .. ".svg", "svg", { title = "x" }))
+      ~= nil,
+    true,
+    "as many pages in the PDF as SVG files"
+  )
   f = io.open(base .. ".svg")
   local svg = f and f:read("*a") or ""
   if f then f:close() end
@@ -352,7 +416,9 @@ test("notation layout: zp lays the systems on pages under the title, and export 
   if f then f:close() end
   os.remove(base .. ".pdf")
   os.remove(base .. ".png")
-  for i = 1, 9 do os.remove(i == 1 and base .. ".svg" or base .. "-" .. i .. ".svg") end
+  for i = 1, 9 do
+    os.remove(i == 1 and base .. ".svg" or base .. "-" .. i .. ".svg")
+  end
   keys("zp")
   eq(view.page, false)
   local _ = clip
@@ -360,15 +426,32 @@ end)
 
 test("notation layout: other features place marks of their own kind against the skylines", function()
   local skyline = require("notation.skyline")
-  skyline.kind("test-chord", { order = skyline.ORDER.chord, side = "above", pad = 0.5, row = "test-chords",
-    ink = function(out, st, item) out:text(item.x, 0, item.value, st.ink, 14, true) end })
+  skyline.kind(
+    "test-chord",
+    {
+      order = skyline.ORDER.chord,
+      side = "above",
+      pad = 0.5,
+      row = "test-chords",
+      ink = function(out, st, item) out:text(item.x, 0, item.value, st.ink, 14, true) end,
+    }
+  )
   local view = score({ N(84, 0, 1), N(60, 1, 1), N(88, 2, 2) }, 4)
   local layout = view:layout()
   layout.measures[1].marks = layout.measures[1].marks or {}
   table.insert(layout.measures[1].marks, { at = 0, kind = "test-chord", value = "Cmaj7" })
   table.insert(layout.measures[1].marks, { at = 2, kind = "test-chord", value = "G7" })
-  local eng = require("notation.engrave").systems(layout, require("notation.engrave").style({ space = 10, cell = { w = 1, h = 1 },
-    ink = "#000000", paper = "#ffffff", accent = "#ff0000" }), { width = 800 })
+  local eng = require("notation.engrave").systems(
+    layout,
+    require("notation.engrave").style({
+      space = 10,
+      cell = { w = 1, h = 1 },
+      ink = "#000000",
+      paper = "#ffffff",
+      accent = "#ff0000",
+    }),
+    { width = 800 }
+  )
   local got = {}
   for _, item in ipairs(eng.systems[1].marks) do
     if item.kind == "test-chord" then got[#got + 1] = item end

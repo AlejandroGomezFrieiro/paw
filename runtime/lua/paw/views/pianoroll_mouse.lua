@@ -42,9 +42,7 @@ local function end_at(self, tx, free, fine)
 end
 
 --- The pitch of a row of the view, which may be a fraction of one.
-local function pitch_of(self, y)
-  return util.clamp(self.top - math.floor(y - self.geometry.head), 0, 127)
-end
+local function pitch_of(self, y) return util.clamp(self.top - math.floor(y - self.geometry.head), 0, 127) end
 
 --- Rows a drag went, as whole pitches.
 local function rows_moved(d) return math.floor(d.dy + 0.5) end
@@ -74,7 +72,11 @@ local function hit_of(self, e)
     x1 = math.max(x0 + 1, math.floor(x1 + 0.5))
   end
   local into, nw = out.tx - x0, x1 - x0
-  if nw >= 3 and into < 1 then out.part = "start" elseif nw >= 2 and nw - into <= 1 then out.part = "end" end
+  if nw >= 3 and into < 1 then
+    out.part = "start"
+  elseif nw >= 2 and nw - into <= 1 then
+    out.part = "end"
+  end
   return out
 end
 
@@ -87,7 +89,10 @@ end
 local function ghost(p, start, length, pitch)
   if not p.row(pitch) then return end
   p.plane:mark("note", start, pitch, length, 1, {
-    ghost = true, style = "MouseGhost", label = music.name(pitch), color = paw.draw.track_colour(api.track_get(p.data.track)),
+    ghost = true,
+    style = "MouseGhost",
+    label = music.name(pitch),
+    color = paw.draw.track_colour(api.track_get(p.data.track)),
   })
 end
 
@@ -147,7 +152,11 @@ local function press_note(self, e, h, clip)
       local dbeat = d.dx / zoom
       local shown = part == "start" and { pitch = n.pitch, start = n.start + dbeat, length = n.length - dbeat }
         or part == "end" and { pitch = n.pitch, start = n.start, length = n.length + dbeat }
-        or { pitch = util.clamp(n.pitch - rows_moved(d), 0, 127), start = math.max(0, n.start + dbeat), length = n.length }
+        or {
+          pitch = util.clamp(n.pitch - rows_moved(d), 0, 127),
+          start = math.max(0, n.start + dbeat),
+          length = n.length,
+        }
       mouse.hint(say(shown, clip))
     end,
     up = function(u)
@@ -224,7 +233,14 @@ local function press_box(self, e, h, clip)
       if u.moved then
         local a, b = math.min(x0, u.x) - g.keys, math.max(x0, u.x) - g.keys
         local mode = mouse.has(u, "S") and "add" or (right and mouse.has(u, "C")) and "toggle" or "only"
-        A.select_notes_box(clip.id, beat_at(self, a), pitch_of(self, y0), beat_at(self, b + reach), pitch_of(self, u.y), mode)
+        A.select_notes_box(
+          clip.id,
+          beat_at(self, a),
+          pitch_of(self, y0),
+          beat_at(self, b + reach),
+          pitch_of(self, u.y),
+          mode
+        )
       elseif right and h.note and mouse.has(u, "C") then
         paw.ui.menu(menus.note(h.owner, h.place), where)
       elseif right and h.note then
@@ -262,7 +278,14 @@ local function press_keys(self, e, h, clip)
   if e.button == "right" then
     return mouse.grab(e, {
       up = function(u)
-        if u.moved then A.select_pitches(clip.id, h.pitch, pitch_of(self, u.y), mouse.has(u, "S") and "add" or mouse.has(u, "C") and "toggle" or "only") end
+        if u.moved then
+          A.select_pitches(
+            clip.id,
+            h.pitch,
+            pitch_of(self, u.y),
+            mouse.has(u, "S") and "add" or mouse.has(u, "C") and "toggle" or "only"
+          )
+        end
       end,
     })
   end
@@ -302,9 +325,7 @@ end
 
 --- The furthest left the roll scrolls: its start, or before it the start
 --- of an earlier clip edited with it.
-local function leftmost()
-  return math.min(0, math.floor((paw.roll_clips.span())))
-end
+local function leftmost() return math.min(0, math.floor((paw.roll_clips.span()))) end
 
 local function wheel(self, e, h)
   local step, sideways = mouse.wheel(e)
@@ -351,7 +372,8 @@ local function hover(self, h, clip)
     text = music.name(h.pitch) .. " · " .. hints.keys
   elseif h.area == "velocity" then
     text = h.tx < 0 and "click to choose what the strip shows: velocity or a controller"
-      or strip.shown().kind and hints.controller or hints.velocity
+      or strip.shown().kind and hints.controller
+      or hints.velocity
   elseif h.area == "ruler" then
     text = hints.ruler
   end
@@ -420,7 +442,9 @@ local function tool(self, e)
     paw.ui.menu(choices(view.grids, paw.opt.note_grid, function(v) paw.opt.note_grid = v end), where)
   elseif name == "length" then
     local list = { { "Grid", 0 } }
-    for i = 1, 6 do list[#list + 1] = view.grids[i] end
+    for i = 1, 6 do
+      list[#list + 1] = view.grids[i]
+    end
     paw.ui.menu(choices(list, self.length or 0, function(v) A.set_note_length(v) end), where)
   elseif name == "snap" then
     A.toggle_note_snap()
@@ -433,7 +457,8 @@ local function tool(self, e)
   elseif name == "tracks" then
     paw.roll_clips.pick()
   elseif name == "zoom_in" or name == "zoom_out" then
-    paw.opt.note_zoom = util.clamp(paw.opt.note_zoom * (name == "zoom_in" and math.sqrt(2) or 1 / math.sqrt(2)), 0.125, 64)
+    paw.opt.note_zoom =
+      util.clamp(paw.opt.note_zoom * (name == "zoom_in" and math.sqrt(2) or 1 / math.sqrt(2)), 0.125, 64)
   elseif name == "window" then
     paw.commands.exec("view.window pianoroll")
   elseif name == "close" then
@@ -470,7 +495,13 @@ local function chip(self, e)
 end
 
 view.gestures = {
-  ruler = pointer, keys = pointer, grid = pointer, note = pointer, velocity = pointer, tool = tool, act = chip,
+  ruler = pointer,
+  keys = pointer,
+  grid = pointer,
+  note = pointer,
+  velocity = pointer,
+  tool = tool,
+  act = chip,
   scrollbar = scrollbar,
 }
 

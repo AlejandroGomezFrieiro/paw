@@ -32,7 +32,7 @@ local record Paw is partial.Paw
   curves: CurvesModule
   draw: DrawModule
 end
-local paw = (_G as {string:Paw}).paw
+local paw = (_G as {string: Paw}).paw
 
 local type Painter = contracts.Painter
 local type Pixels = contracts.StripPixels
@@ -123,7 +123,9 @@ end
 
 local floor, max, min = math.floor, math.max, math.min
 
-local function palette(): theme.Palette return theme.palette end
+local function palette(): theme.Palette
+  return theme.palette
+end
 
 --- A color `#rrggbb` at `alpha` (0 to 1), as `#rrggbbaa`.
 function M.alpha(colour: string, alpha: number): string
@@ -137,12 +139,16 @@ end
 --- a cell of `cell_w` pixels.
 function M.lines(w: number, from: number, ppb: number, cell_w?: number): {Line}
   local out: {Line} = {}
-  if ppb <= 0 then return out end
+  if ppb <= 0 then
+    return out
+  end
   for _, line in ipairs(paw.draw.bar_lines(from, w / ppb + 1)) do
     local x = (line.beat - from) * ppb
     if x >= 0 and x < w then
       out[#out + 1] = {
-        beat = line.beat, x = x, bar = line.bar,
+        beat = line.beat,
+        x = x,
+        bar = line.bar,
         cut = line.bar and cell_w and floor(x / cell_w + 0.5) * cell_w or nil,
       }
     end
@@ -177,13 +183,19 @@ function M.curve(g: Painter, px: Pixels, opts: CurveOptions): ToX, ToY
   local lo, hi = opts.lo or 0, opts.hi or 1
   local frac = opts.frac or function(v: number): number return (v - lo) / ((hi - lo) ~= 0 and (hi - lo) or 1) end
   local top, bottom = opts.top or 2, opts.bottom or 2
-  local function X(beat: number): number return (beat - from) * ppb end
-  local function Y(v: number): number return top + (1 - max(0, min(1, frac(v)))) * (H - top - bottom) end
-  if opts.background then g:rect(0, 0, W, H, { fill = opts.background }) end
+  local function X(beat: number): number
+    return (beat - from) * ppb
+  end
+  local function Y(v: number): number
+    return top + (1 - max(0, min(1, frac(v)))) * (H - top - bottom)
+  end
+  if opts.background then
+    g:rect(0, 0, W, H, {fill = opts.background})
+  end
 
   -- The grid, and where the drawing is cut: at each bar, on a cell's edge.
   local lines = M.lines(W, from, ppb, cw)
-  local edges: {number} = { 0 }
+  local edges: {number} = {0}
   for _, line in ipairs(lines) do
     if line.cut and line.cut > edges[#edges] and line.cut < W then
       edges[#edges + 1] = line.cut
@@ -193,24 +205,30 @@ function M.curve(g: Painter, px: Pixels, opts: CurveOptions): ToX, ToY
   edges[#edges + 1] = W
   if opts.grid ~= false then
     local beats = opts.beats
-    if beats == nil then beats = ppb >= 2 * cw end
+    if beats == nil then
+      beats = ppb >= 2 * cw
+    end
     for _, line in ipairs(lines) do
       if line.bar or beats then
-        g:rect(floor(line.x), 0, 1, H, { fill = line.bar and P.line_hi or P.line_beat })
+        g:rect(floor(line.x), 0, 1, H, {fill = line.bar and P.line_hi or P.line_beat})
       end
     end
   end
   if opts.guides ~= false then
     for i = 1, 3 do
-      g:rect(0, floor(top + i * (H - top - bottom) / 4), W, 1, { fill = P.line })
+      g:rect(0, floor(top + i * (H - top - bottom) / 4), W, 1, {fill = P.line})
     end
   end
 
   local points = opts.points or {}
-  if #points == 0 and opts.flat == nil then return X, Y end
+  if #points == 0 and opts.flat == nil then
+    return X, Y
+  end
   local color = opts.color or P.dim
   local value_at = paw.curves.value_at
-  local function value(beat: number): number return value_at(points, beat) or opts.flat end
+  local function value(beat: number): number
+    return value_at(points, beat) or opts.flat
+  end
 
   -- The line and the area under it, one stretch between two cuts at a
   -- time, sampled once a pixel: a stretch changes only with its bar.
@@ -223,13 +241,15 @@ function M.curve(g: Painter, px: Pixels, opts: CurveOptions): ToX, ToY
       line[#line + 1] = Y(value(from + x / ppb))
     end
     if fill is number and fill > 0 then
-      local area: {number} = { a, H }
-      for k = 1, #line do area[#area + 1] = line[k] end
+      local area: {number} = {a, H}
+      for k = 1, #line do
+        area[#area + 1] = line[k]
+      end
       area[#area + 1] = b
       area[#area + 1] = H
-      g:poly(area, { fill = M.alpha(color, fill) })
+      g:poly(area, {fill = M.alpha(color, fill)})
     end
-    g:poly(line, { color = color, width = opts.width or 1.5 })
+    g:poly(line, {color = color, width = opts.width or 1.5})
   end
 
   if opts.markers ~= false then
@@ -237,9 +257,18 @@ function M.curve(g: Painter, px: Pixels, opts: CurveOptions): ToX, ToY
       local x, y = X(q.beat), Y(q.value)
       if x >= -4 and x <= W + 4 then
         local shape = q.shape or "linear"
-        g:rect(x - 2.5, y - 2.5, 5, 5, {
-          fill = P.bright, stroke = color, width = 1, radius = shape == "smooth" and 2.5 or shape == "hold" and 0 or 1,
-        })
+        g:rect(
+          x - 2.5,
+          y - 2.5,
+          5,
+          5,
+          {
+            fill = P.bright,
+            stroke = color,
+            width = 1,
+            radius = shape == "smooth" and 2.5 or shape == "hold" and 0 or 1,
+          }
+        )
       end
     end
   end
@@ -252,7 +281,7 @@ end
 --- left edge of the strip. So a piece is the same at each scroll
 --- position. Returns the first and the last pixel.
 function M.span(px: Pixels, step: number): number, number
-  local v: types.Rect = px.view or { x = 0, w = px.w }
+  local v: types.Rect = px.view or {x = 0, w = px.w}
   local margin = 24 * (px.cell and px.cell.w or 8)
   local a = max(0, floor((v.x - margin) / step) * step)
   local b = min(px.w, (floor((v.x + v.w + margin) / step) + 1) * step)
@@ -277,8 +306,8 @@ function M.bars(g: Painter, px: Pixels, opts: BarsOptions)
       local v = max(0, min(1, item.value))
       local y = floor(top + (1 - v) * (H - top - bottom))
       local colour = item.bright and P.bright or item.color or opts.color or P.dim
-      g:rect(x, y, width, H - bottom - y, { fill = M.alpha(colour, 0.55) })
-      g:rect(x, y, width, 2, { fill = colour })
+      g:rect(x, y, width, H - bottom - y, {fill = M.alpha(colour, 0.55)})
+      g:rect(x, y, width, 2, {fill = colour})
     end
   end
 end
@@ -297,17 +326,27 @@ function M.wave(g: Painter, px: Pixels, opts: WaveOptions)
   local P = palette()
   local W, H = px.w, px.h
   local n = min(floor(W), 65536)
-  if n < 1 then return end
+  if n < 1 then
+    return
+  end
   local peaks = opts.peaks(n) or {}
-  if #peaks == 0 then return end
+  if #peaks == 0 then
+    return
+  end
   local reach = paw.draw.wave_reach
   local mid, half = H / 2, H / 2 - 1
   local color = opts.color or P.dim
   local rms = opts.rms
-  if rms == nil then rms = paw.draw.mix(color, "#ffffff", 0.35) end
+  if rms == nil then
+    rms = paw.draw.mix(color, "#ffffff", 0.35)
+  end
   local clipped = opts.clipped or P.red
-  local function at(x: number): {number} return peaks[min(#peaks, floor(x * #peaks / W) + 1)] end
-  local function y_of(v: number): number return mid - (v < 0 and -1 or 1) * reach(v) * half end
+  local function at(x: number): {number}
+    return peaks[min(#peaks, floor(x * #peaks / W) + 1)]
+  end
+  local function y_of(v: number): number
+    return mid - (v < 0 and -1 or 1) * reach(v) * half
+  end
   -- A stretch of eight cells at a time, so that one scrolled in is drawn
   -- the same as before.
   local step = 8 * (px.cell and px.cell.w or 8)
@@ -331,21 +370,29 @@ function M.wave(g: Painter, px: Pixels, opts: WaveOptions)
         if full and x < e then
           run = run or x
         elseif run then
-          g:rect(run, 0, x - run, H, { fill = M.alpha(clipped, 0.8) })
+          g:rect(run, 0, x - run, H, {fill = M.alpha(clipped, 0.8)})
           run = nil
         end
       end
     end
-    if run then g:rect(run, 0, e - run, H, { fill = M.alpha(clipped, 0.8) }) end
+    if run then
+      g:rect(run, 0, e - run, H, {fill = M.alpha(clipped, 0.8)})
+    end
     local function shape(top: {number}, bottom: {number}): {number}
       local out: {number} = {}
-      for i = 1, #top do out[i] = top[i] end
-      for i = #bottom - 1, 1, -2 do out[#out + 1], out[#out + 2] = bottom[i], bottom[i + 1] end
+      for i = 1, #top do
+        out[i] = top[i]
+      end
+      for i = #bottom - 1, 1, -2 do
+        out[#out + 1], out[#out + 2] = bottom[i], bottom[i + 1]
+      end
       return out
     end
     if #upper >= 4 then
-      g:poly(shape(upper, lower), { fill = color })
-      if rms is string then g:poly(shape(band_up, band_down), { fill = rms }) end
+      g:poly(shape(upper, lower), {fill = color})
+      if rms is string then
+        g:poly(shape(band_up, band_down), {fill = rms})
+      end
     end
   end
 end
@@ -360,15 +407,23 @@ end
 --- `M.curve` in cells: a connected line of sextants (`paw.opt.curve_glyphs`).
 function M.curve_cells(buf: Buf, opts: CurveOptions)
   local points = opts.points or {}
-  if #points == 0 and opts.flat == nil then return end
+  if #points == 0 and opts.flat == nil then
+    return
+  end
   local lo, hi = opts.lo or 0, opts.hi or 1
   local frac = opts.frac or function(v: number): number return (v - lo) / ((hi - lo) ~= 0 and (hi - lo) or 1) end
   local from, zoom = opts.from or 0, opts.zoom or 1
   local value_at = paw.curves.value_at
-  paw.draw.curve(buf, 0, buf.height, function(i: integer): number
-    local v = value_at(points, from + (i + 0.5) / (2 * zoom)) or opts.flat
-    return v and frac(v)
-  end, opts.style)
+  paw.draw.curve(
+    buf,
+    0,
+    buf.height,
+    function(i: integer): number
+      local v = value_at(points, from + (i + 0.5) / (2 * zoom)) or opts.flat
+      return v and frac(v)
+    end,
+    opts.style
+  )
 end
 
 --- `M.bars` in cells: a column of eighth blocks for each item.
@@ -383,14 +438,16 @@ function M.bars_cells(buf: Buf, opts: BarsOptions)
       local style = item.bright and "Bright" or item.style or opts.style
       for row = 0, rows - 1 do
         local amount = level - (rows - 1 - row) * 8
-        if amount >= 1 then buf:text(x, row, eighths[min(8, floor(amount))], style) end
+        if amount >= 1 then
+          buf:text(x, row, eighths[min(8, floor(amount))], style)
+        end
       end
     end
   end
 end
 
 -- Styles for the cells of a waveform that `paw.draw.waveform` marks.
-local wave_styles: {string:string} = { flip = "ClipWaveFlip", clip = "ClipWaveClip", clipflip = "ClipWaveClipFlip" }
+local wave_styles: {string: string} = {flip = "ClipWaveFlip", clip = "ClipWaveClip", clipflip = "ClipWaveClipFlip"}
 
 --- `M.wave` in cells: each column from its lowest to its highest sample in
 --- eighth blocks (`paw.draw.waveform`), a column at full scale in red.
@@ -398,7 +455,9 @@ local wave_styles: {string:string} = { flip = "ClipWaveFlip", clip = "ClipWaveCl
 function M.wave_cells(buf: Buf, opts: WaveOptions)
   local _, runs = paw.draw.waveform(opts.peaks(buf.width) or {}, buf.height)
   for row, list in ipairs(runs) do
-    for _, run in ipairs(list) do buf:text(run.column, row - 1, run.text, wave_styles[run.mark] or opts.style) end
+    for _, run in ipairs(list) do
+      buf:text(run.column, row - 1, run.text, wave_styles[run.mark] or opts.style)
+    end
   end
 end
 

@@ -14,12 +14,19 @@ function M.read(path)
   local code, log = engine.tool({ "--convert", path, "--out", out }, 120)
   local chunk = code == 0 and loadfile(out)
   os.remove(out)
-  if not chunk then error("could not read " .. path .. ": " .. (log:match("paw%-utau%-engine: ([^\n]+)") or "see the engine's output"), 0) end
+  if not chunk then
+    error(
+      "could not read " .. path .. ": " .. (log:match("paw%-utau%-engine: ([^\n]+)") or "see the engine's output"),
+      0
+    )
+  end
   return setfenv(chunk, {})()
 end
 
 local CURVES = {}
-for _, abbr in ipairs(utau.CURVES) do CURVES[abbr] = true end
+for _, abbr in ipairs(utau.CURVES) do
+  CURVES[abbr] = true
+end
 
 --- Add the tracks of a converted project after the existing ones. Returns the
 --- new tracks' ids.
@@ -32,14 +39,23 @@ function M.add(project, opts)
     -- when it goes into a song that has its own.
     if offset == 0 then
       local points = {}
-      for i, t in ipairs(project.tempos) do points[i] = { beat = (t.pos or 0) / resolution, bpm = t.bpm } end
+      for i, t in ipairs(project.tempos) do
+        points[i] = { beat = (t.pos or 0) / resolution, bpm = t.bpm }
+      end
       local sigs = {}
       for i, s in ipairs(project.timesigs or {}) do
-        sigs[i] = { beat = 0, num = s.beatPerBar or s.num or 4, den = s.beatUnit or s.den or 4, bar = s.barPosition or s.bar or 0 }
+        sigs[i] = {
+          beat = 0,
+          num = s.beatPerBar or s.num or 4,
+          den = s.beatUnit or s.den or 4,
+          bar = s.barPosition or s.bar or 0,
+        }
       end
       paw.tempo.set_points(points, nil)
       -- Signatures are by bar in the file: place each where its bar starts.
-      for _, s in ipairs(sigs) do paw.api.signature_set(paw.tempo.bar_start(s.bar + 1), s.num, s.den) end
+      for _, s in ipairs(sigs) do
+        paw.api.signature_set(paw.tempo.bar_start(s.bar + 1), s.num, s.den)
+      end
     else
       paw.project.tempo = project.tempos[1].bpm
       if #project.tempos > 1 then
@@ -64,19 +80,33 @@ function M.add(project, opts)
       local notes = {}
       for _, n in ipairs(part.notes or {}) do
         local props = {}
-        for _, key in ipairs({ "tu", "po", "vb", "pp", "ex", "ph" }) do props[key] = n[key] end
+        for _, key in ipairs({ "tu", "po", "vb", "pp", "ex", "ph" }) do
+          props[key] = n[key]
+        end
         notes[#notes + 1] = {
-          pitch = n.tone, start = n.pos / resolution, length = n.dur / resolution, velocity = 100,
+          pitch = n.tone,
+          start = n.pos / resolution,
+          length = n.dur / resolution,
+          velocity = 100,
           meta = { lyric = n.lyric, utau = next(props) and props or nil },
         }
       end
-      api.clip_add(track, { name = part.name ~= "" and part.name or t.name, start = start,
-        length = math.max(part.dur / resolution, 1 / resolution), notes = notes })
+      api.clip_add(
+        track,
+        {
+          name = part.name ~= "" and part.name or t.name,
+          start = start,
+          length = math.max(part.dur / resolution, 1 / resolution),
+          notes = notes,
+        }
+      )
       for _, curve in ipairs(part.curves or {}) do
         if CURVES[curve.abbr] then
           local points = lanes[curve.abbr] or {}
           lanes[curve.abbr] = points
-          for i, x in ipairs(curve.xs) do points[#points + 1] = { start + x / resolution, curve.ys[i] } end
+          for i, x in ipairs(curve.xs) do
+            points[#points + 1] = { start + x / resolution, curve.ys[i] }
+          end
         end
       end
     end
@@ -89,8 +119,6 @@ function M.add(project, opts)
 end
 
 --- Read a file and add its tracks.
-function M.file(path, opts)
-  return M.add(M.read(path), opts)
-end
+function M.file(path, opts) return M.add(M.read(path), opts) end
 
 return M

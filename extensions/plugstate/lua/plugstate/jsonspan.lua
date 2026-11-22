@@ -10,9 +10,7 @@
 -- in place of nodes.
 local M = {}
 
-local function skip(s, i)
-  return s:find("[^ \t\r\n]", i) or #s + 1
-end
+local function skip(s, i) return s:find("[^ \t\r\n]", i) or #s + 1 end
 
 local parse_value
 
@@ -21,7 +19,11 @@ local function parse_string(s, i)
   while true do
     local c = s:find('["\\]', j)
     if not c then error("unfinished string in JSON", 0) end
-    if s:byte(c) == 92 then j = c + 2 else return c end
+    if s:byte(c) == 92 then
+      j = c + 2
+    else
+      return c
+    end
   end
 end
 
@@ -31,7 +33,10 @@ function parse_value(s, i)
   if c == "{" then
     local node = { kind = "object", s = i, keys = {}, fields = {} }
     i = skip(s, i + 1)
-    if s:sub(i, i) == "}" then node.e = i return node end
+    if s:sub(i, i) == "}" then
+      node.e = i
+      return node
+    end
     while true do
       if s:sub(i, i) ~= '"' then error("a key expected in JSON at " .. i, 0) end
       local ke = parse_string(s, i)
@@ -43,20 +48,29 @@ function parse_value(s, i)
       node.fields[key] = v
       i = skip(s, v.e + 1)
       local d = s:sub(i, i)
-      if d == "}" then node.e = i return node end
+      if d == "}" then
+        node.e = i
+        return node
+      end
       if d ~= "," then error("',' expected in JSON at " .. i, 0) end
       i = skip(s, i + 1)
     end
   elseif c == "[" then
     local node = { kind = "array", s = i, items = {} }
     i = skip(s, i + 1)
-    if s:sub(i, i) == "]" then node.e = i return node end
+    if s:sub(i, i) == "]" then
+      node.e = i
+      return node
+    end
     while true do
       local v = parse_value(s, i)
       node.items[#node.items + 1] = v
       i = skip(s, v.e + 1)
       local d = s:sub(i, i)
-      if d == "]" then node.e = i return node end
+      if d == "]" then
+        node.e = i
+        return node
+      end
       if d ~= "," then error("',' expected in JSON at " .. i, 0) end
       i = i + 1
     end
@@ -73,17 +87,19 @@ end
 function M.parse(text, i) return parse_value(text, i or 1) end
 
 --- The Lua value of a node.
-function M.value(text, node)
-  return (paw.json.decode(text:sub(node.s, node.e)))
-end
+function M.value(text, node) return (paw.json.decode(text:sub(node.s, node.e))) end
 
 --- A node by a path of keys and indexes: `M.at(root, "preset", "scenes", 1)`.
 function M.at(node, ...)
   for _, k in ipairs({ ... }) do
     if not node then return nil end
-    if node.kind == "object" then node = node.fields[k]
-    elseif node.kind == "array" then node = node.items[k]
-    else return nil end
+    if node.kind == "object" then
+      node = node.fields[k]
+    elseif node.kind == "array" then
+      node = node.items[k]
+    else
+      return nil
+    end
   end
   return node
 end

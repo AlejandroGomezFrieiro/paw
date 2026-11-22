@@ -10,9 +10,7 @@ local util = paw.util
 
 --- Where a beat falls in a role marked from beat `from`, `per` columns a
 --- beat: the column a terminal shows it on.
-local function column(p, beat)
-  return math.floor((beat - (p.from or 0)) * (p.per or 1) + 0.5)
-end
+local function column(p, beat) return math.floor((beat - (p.from or 0)) * (p.per or 1) + 0.5) end
 
 --- A clip on the timeline: a row with its `label` (its name, how it is
 --- stretched, which take plays) over its body, a hairline where it starts,
@@ -29,11 +27,28 @@ end
 --- in a take lane (`paw.frontend.take_preview`), lit when `active`.
 role("clip", {
   props = {
-    id = "clip id", name = "string", label = "string", color = "#rrggbb", midi = "boolean", muted = "boolean",
-    current = "boolean", chosen = "boolean", offline = "boolean", length = "beats", per = "columns a beat",
-    repeats = "list of beats", warps = "list of beats", fade_in = "beats", fade_out = "beats", gain = "dB",
-    content = "key of what it shows", ghost = "boolean", take = "number", active = "boolean",
-    title_style = "highlight group", body_style = "highlight group",
+    id = "clip id",
+    name = "string",
+    label = "string",
+    color = "#rrggbb",
+    midi = "boolean",
+    muted = "boolean",
+    current = "boolean",
+    chosen = "boolean",
+    offline = "boolean",
+    length = "beats",
+    per = "columns a beat",
+    repeats = "list of beats",
+    warps = "list of beats",
+    fade_in = "beats",
+    fade_out = "beats",
+    gain = "dB",
+    content = "key of what it shows",
+    ghost = "boolean",
+    take = "number",
+    active = "boolean",
+    title_style = "highlight group",
+    body_style = "highlight group",
   },
   cells = function(buf, p)
     local g = draw.g
@@ -72,9 +87,16 @@ role("clip", {
 --- `selected`, every other row (`index`) a little lighter.
 role("beats", {
   props = {
-    from = "beat at the left edge", per = "columns a beat", style = "highlight group", tone = "lane | take | auto",
-    loop = "{ start, end }", lines = "list of { beat, bar }", beats = "boolean", color = "#rrggbb",
-    selected = "boolean", index = "number",
+    from = "beat at the left edge",
+    per = "columns a beat",
+    style = "highlight group",
+    tone = "lane | take | auto",
+    loop = "{ start, end }",
+    lines = "list of { beat, bar }",
+    beats = "boolean",
+    color = "#rrggbb",
+    selected = "boolean",
+    index = "number",
   },
   cells = function(buf, p)
     local g = draw.g
@@ -105,8 +127,12 @@ role("beats", {
 --- not `enabled`.
 role("curve", {
   props = {
-    values = "list of numbers 0..1 or false", points = "list of { beat, height }", from = "beat at the left edge",
-    per = "columns a beat", color = "#rrggbb", enabled = "boolean",
+    values = "list of numbers 0..1 or false",
+    points = "list of { beat, height }",
+    from = "beat at the left edge",
+    per = "columns a beat",
+    color = "#rrggbb",
+    enabled = "boolean",
   },
   cells = function(buf, p)
     if p.draw then p.draw(buf) end
@@ -118,10 +144,18 @@ role("curve", {
 --- when `selected`, with a stripe of `color` and a line under it, whose
 --- bottom edge a drag makes taller or shorter.
 role("trackhead", {
-  props = { style = "highlight group", stripe = "glyph", stripe_style = "highlight group", color = "#rrggbb", selected = "boolean" },
+  props = {
+    style = "highlight group",
+    stripe = "glyph",
+    stripe_style = "highlight group",
+    color = "#rrggbb",
+    selected = "boolean",
+  },
   cells = function(buf, p)
     buf:fill(0, 0, buf.width, buf.height, " ", p.style)
-    for row = 0, buf.height - 1 do buf:text(0, row, p.stripe, p.stripe_style) end
+    for row = 0, buf.height - 1 do
+      buf:text(0, row, p.stripe, p.stripe_style)
+    end
   end,
 })
 
@@ -147,7 +181,13 @@ role("recording", {
 --- each, on the fader's scale. Bound to a track's meter (`bind =
 --- "meter:<id>"`), a window moves the levels with `scene.live`.
 role("hmeter", {
-  props = { levels = "list of two numbers 0..", hold = "number", stereo = "boolean", at = "number 0..1", clipped = "boolean" },
+  props = {
+    levels = "list of two numbers 0..",
+    hold = "number",
+    stereo = "boolean",
+    at = "number 0..1",
+    clipped = "boolean",
+  },
   bound = { "levels", "hold", "clipped" },
   cells = function(buf, p)
     local l, r = (p.levels or {})[1] or 0, (p.levels or {})[2] or 0

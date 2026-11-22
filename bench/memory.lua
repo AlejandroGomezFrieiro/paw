@@ -42,10 +42,16 @@ if mode == "bigclip" then
   local tree = api.undo_tree()
   local rss_after = B.rss()
   local undo_ms = B.time(function()
-    for _ = 1, steps do api.undo() paw.flush() end
+    for _ = 1, steps do
+      api.undo()
+      paw.flush()
+    end
   end)
   local redo_ms = B.time(function()
-    for _ = 1, steps do api.redo() paw.flush() end
+    for _ = 1, steps do
+      api.redo()
+      paw.flush()
+    end
   end)
   local add_ms = B.time(function()
     for i = 1, adds do
@@ -56,12 +62,16 @@ if mode == "bigclip" then
   end)
   local s = B.stats(times)
   B.emit({
-    workload = "bigclip", notes = count, steps = steps,
+    workload = "bigclip",
+    notes = count,
+    steps = steps,
     -- Builds from before the history told its size leave this out.
     history_bytes_per_step = tree.bytes and (tree.bytes - bytes_before) / steps,
     rss_kb_per_step = (rss_after - rss_before) / steps,
-    edit_p50_ms = s.p50, edit_max_ms = s.max,
-    undo_ms_per_step = undo_ms / steps, redo_ms_per_step = redo_ms / steps,
+    edit_p50_ms = s.p50,
+    edit_max_ms = s.max,
+    undo_ms_per_step = undo_ms / steps,
+    redo_ms_per_step = redo_ms / steps,
     adds_per_second = adds / (add_ms / 1000),
   })
 elseif mode == "project" then
@@ -92,8 +102,13 @@ elseif mode == "project" then
   end
   local rss_undo = B.rss()
   B.emit({
-    workload = "memory", tracks = tracks, clips_per_track = clips, undo_steps = steps,
-    rss_start_kb = rss_start, rss_built_kb = rss_built, rss_undo_kb = rss_undo,
+    workload = "memory",
+    tracks = tracks,
+    clips_per_track = clips,
+    undo_steps = steps,
+    rss_start_kb = rss_start,
+    rss_built_kb = rss_built,
+    rss_undo_kb = rss_undo,
   })
 elseif mode == "churn" then
   local rounds = tonumber(a) or 20
@@ -107,7 +122,9 @@ elseif mode == "churn" then
       paw.flush()
       api.undo_checkpoint()
     end
-    for _ = 1, 10 do api.undo() end
+    for _ = 1, 10 do
+      api.undo()
+    end
     paw.flush()
     paw.render(B.tmp .. "/churn.wav", { tail = 0 })
     api.project_save(B.tmp .. "/churn.json")
@@ -119,7 +136,10 @@ elseif mode == "churn" then
   os.remove(B.tmp .. "/churn.json")
   local half = math.floor(rounds / 2)
   B.emit({
-    workload = "churn", rounds = rounds, rss_first_kb = samples[1], rss_mid_kb = samples[half],
+    workload = "churn",
+    rounds = rounds,
+    rss_first_kb = samples[1],
+    rss_mid_kb = samples[half],
     rss_last_kb = samples[rounds],
     -- Growth per round over the second half, in kB: near 0 when nothing leaks.
     growth_kb_per_round = (samples[rounds] - samples[half]) / math.max(1, rounds - half),

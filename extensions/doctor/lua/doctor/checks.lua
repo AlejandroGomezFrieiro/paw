@@ -15,7 +15,9 @@ local function write_sound(path, rate, channels, frames, sample)
     n = math.min(n, frames - at)
     if n <= 0 then return nil end
     for i = 0, n - 1 do
-      for ch = 1, channels do buf[i * channels + ch - 1] = sample(at + i, ch) end
+      for ch = 1, channels do
+        buf[i * channels + ch - 1] = sample(at + i, ch)
+      end
     end
     return ffi.string(buf, n * channels * 4)
   end)
@@ -98,15 +100,45 @@ return function(M)
       ctx:measure("block", e.block)
       ctx:measure("input_latency_ms", string.format("%.1f", e.input_latency))
       ctx:measure("output_latency_ms", string.format("%.1f", e.output_latency))
-      ctx:log(string.format("sound system %s, sample rate %d Hz, block %s frames (asked for %s)", e.backend, e.sample_rate,
-        e.block > 0 and e.block or "not known yet", e.buffer_size > 0 and e.buffer_size or "the device's own"))
-      ctx:log(string.format("output: %s%s; input: %s", e.device, (e.device_id == "" and e.backend ~= "null") and " (the system's default)" or "", e.input_device))
+      ctx:log(
+        string.format(
+          "sound system %s, sample rate %d Hz, block %s frames (asked for %s)",
+          e.backend,
+          e.sample_rate,
+          e.block > 0 and e.block or "not known yet",
+          e.buffer_size > 0 and e.buffer_size or "the device's own"
+        )
+      )
+      ctx:log(
+        string.format(
+          "output: %s%s; input: %s",
+          e.device,
+          (e.device_id == "" and e.backend ~= "null") and " (the system's default)" or "",
+          e.input_device
+        )
+      )
       ctx:log(string.format("latency reported: input %.1f ms, output %.1f ms", e.input_latency, e.output_latency))
       for _, d in ipairs(list.outputs) do
-        ctx:log(string.format("%s output: %s, %d channels, %s Hz", d.name == list.output and "chosen" or "found", d.name, d.channels, d.sample_rate or "?"))
+        ctx:log(
+          string.format(
+            "%s output: %s, %d channels, %s Hz",
+            d.name == list.output and "chosen" or "found",
+            d.name,
+            d.channels,
+            d.sample_rate or "?"
+          )
+        )
       end
       for _, d in ipairs(list.inputs) do
-        ctx:log(string.format("%s input: %s, %d channels, %s Hz", d.name == list.input and "chosen" or "found", d.name, d.channels, d.sample_rate or "?"))
+        ctx:log(
+          string.format(
+            "%s input: %s, %d channels, %s Hz",
+            d.name == list.input and "chosen" or "found",
+            d.name,
+            d.channels,
+            d.sample_rate or "?"
+          )
+        )
       end
       if e.lost then return "fail", "the audio device was lost: " .. tostring(e.lost.device) end
       if e.backend == "null" then
@@ -114,8 +146,12 @@ return function(M)
       else
         local chosen = entry(list.outputs, list.output) or {}
         if bluetooth({ name = e.device, id = e.device_id }) or bluetooth(chosen) then
-          ctx:warn("the output is a Bluetooth device (" .. e.device .. "): its latency is high, and playing along or recording against it is late. "
-            .. "Choose the interface with `:audio.output`, or set it in `init.lua` with `paw.audio.use`.")
+          ctx:warn(
+            "the output is a Bluetooth device ("
+              .. e.device
+              .. "): its latency is high, and playing along or recording against it is late. "
+              .. "Choose the interface with `:audio.output`, or set it in `init.lua` with `paw.audio.use`."
+          )
         end
         if e.output_latency > 80 then
           ctx:warn(string.format("the output latency is %.0f ms, too much to play along with", e.output_latency))
@@ -131,18 +167,37 @@ return function(M)
         for _, d in ipairs({ entry(list.outputs, list.output) or {}, entry(list.inputs, list.input) or {}, found or {} }) do
           if d.sample_rate and d.sample_rate ~= e.sample_rate and not said[d.name] then
             said[d.name] = true
-            ctx:warn(string.format("%s runs at %d Hz and the program at %d Hz: sound is converted, and PipeWire may retune the device. `:audio.rate` sets one rate for both",
-              d.name, d.sample_rate, e.sample_rate))
+            ctx:warn(
+              string.format(
+                "%s runs at %d Hz and the program at %d Hz: sound is converted, and PipeWire may retune the device. `:audio.rate` sets one rate for both",
+                d.name,
+                d.sample_rate,
+                e.sample_rate
+              )
+            )
           end
         end
         if e.input_channels == 0 then ctx:warn("no input is open: nothing can be recorded") end
       end
       local ms = e.block * 1000 / e.sample_rate
       if e.block >= 2048 or ms > 25 then
-        ctx:warn(string.format("the block is %d frames (%.0f ms): very large, notes played live will be late. `:audio.buffer 128` asks for less", e.block, ms))
+        ctx:warn(
+          string.format(
+            "the block is %d frames (%.0f ms): very large, notes played live will be late. `:audio.buffer 128` asks for less",
+            e.block,
+            ms
+          )
+        )
       end
-      return "ok", string.format("%s, %s -> %s, %g kHz, %s", e.backend, e.input_device, e.device, e.sample_rate / 1000,
-        e.block > 0 and (e.block .. " frames") or "block not known")
+      return "ok",
+        string.format(
+          "%s, %s -> %s, %g kHz, %s",
+          e.backend,
+          e.input_device,
+          e.device,
+          e.sample_rate / 1000,
+          e.block > 0 and (e.block .. " frames") or "block not known"
+        )
     end,
   })
 
@@ -187,8 +242,16 @@ return function(M)
       while true do
         ctx:say("playing a tone: left, right, both")
         ctx:play(0, total + 0.3)
-        local answer = ctx:ask("Did you hear the tone on the left, then the right, then both?",
-          { { "y", "heard it" }, { "n", "did not" }, { "w", "heard it, in the wrong places" }, { "r", "play it again" }, { "s", "skip" } })
+        local answer = ctx:ask(
+          "Did you hear the tone on the left, then the right, then both?",
+          {
+            { "y", "heard it" },
+            { "n", "did not" },
+            { "w", "heard it, in the wrong places" },
+            { "r", "play it again" },
+            { "s", "skip" },
+          }
+        )
         if answer == "y" then
           ctx:fact("heard", "left, right and both")
           return "ok", "the tone was heard on the left, the right and both"
@@ -196,8 +259,10 @@ return function(M)
           ctx:fact("heard", "in the wrong places")
           return "fail", "the tone was heard, but not where it should be (the channels may be swapped)"
         elseif answer == "n" then
-          local which = ctx:ask("Which did you miss?",
-            { { "l", "the left" }, { "r", "the right" }, { "b", "both" }, { "a", "all of it" }, { "s", "skip" } })
+          local which = ctx:ask(
+            "Which did you miss?",
+            { { "l", "the left" }, { "r", "the right" }, { "b", "both" }, { "a", "all of it" }, { "s", "skip" } }
+          )
           local said = { l = "the left", r = "the right", b = "both", a = "all of it" }
           if which == "skip" or which == "s" then return "fail", "the tone was not heard" end
           ctx:fact("heard", "missed " .. said[which])
@@ -222,10 +287,14 @@ return function(M)
       if e.input_channels == 0 then return "skip", "no input is open" end
       local n = e.input_channels
       local peaks = {}
-      for ch = 1, n do peaks[ch] = 0 end
+      for ch = 1, n do
+        peaks[ch] = 0
+      end
       local function sample()
         local levels = paw.audio.levels()
-        for ch = 1, n do peaks[ch] = math.max(peaks[ch], levels[ch] or 0) end
+        for ch = 1, n do
+          peaks[ch] = math.max(peaks[ch], levels[ch] or 0)
+        end
         ctx.run.meters = levels
         api.ui_redraw()
       end
@@ -233,12 +302,21 @@ return function(M)
       local seconds = ctx.settings.input_seconds
       if ctx:attended() then
         ctx:say("play or speak into each input")
-        local answer = ctx:ask("Play or speak into each input; the level of each channel is shown. Press d when done.",
-          { { "d", "done" }, { "s", "skip" } }, { timeout = seconds, each = sample, default = "d" })
-        if answer == "skip" or answer == "s" then ctx.run.meters = nil return "skip", "skipped" end
+        local answer = ctx:ask(
+          "Play or speak into each input; the level of each channel is shown. Press d when done.",
+          { { "d", "done" }, { "s", "skip" } },
+          { timeout = seconds, each = sample, default = "d" }
+        )
+        if answer == "skip" or answer == "s" then
+          ctx.run.meters = nil
+          return "skip", "skipped"
+        end
       else
         local to = api.now() + math.min(seconds, 3) * 1000
-        while api.now() < to do sample() ctx:sleep(40) end
+        while api.now() < to do
+          sample()
+          ctx:sleep(40)
+        end
       end
       ctx.run.meters = nil
       local active, silent, clipped = {}, {}, {}
@@ -255,7 +333,9 @@ return function(M)
       end
       ctx:fact("channels", n)
       ctx:fact("silent_channels", #silent > 0 and table.concat(silent, ",") or "none")
-      if #clipped > 0 then ctx:warn("channel " .. table.concat(clipped, ", ") .. " reached full scale: turn the input gain down") end
+      if #clipped > 0 then
+        ctx:warn("channel " .. table.concat(clipped, ", ") .. " reached full scale: turn the input gain down")
+      end
       if #active == 0 then
         return ctx:attended() and "fail" or "warn", "nothing arrived on any of the " .. n .. " channels"
       end
@@ -283,11 +363,17 @@ return function(M)
   --- Gives `{ round_trip, residual }` in milliseconds, or nil and why.
   function M.round_trip(info, click_at, applied)
     local peak = 0
-    for _, p in ipairs(info.peaks) do peak = math.max(peak, p) end
+    for _, p in ipairs(info.peaks) do
+      peak = math.max(peak, p)
+    end
     if peak < 0.01 then return nil, "no click came back (the loudest sample was " .. db(peak) .. ")" end
     local onset = info.onset(peak * 0.2)
     if onset < click_at - 0.05 then
-      return nil, string.format("the signal was there %.2f s before the click was played: this is not a loop-back, but a tone or noise", click_at - onset)
+      return nil,
+        string.format(
+          "the signal was there %.2f s before the click was played: this is not a loop-back, but a tone or noise",
+          click_at - onset
+        )
     end
     local trip = (onset - click_at) * 1000
     return { round_trip = trip, residual = trip - applied * 1000 }
@@ -302,8 +388,12 @@ return function(M)
       local e = api.engine_get()
       local spec = first_input()
       if not spec then return "skip", "no input is open" end
-      if ctx:ask("Is an output connected to the input (a cable, or a microphone near the speakers, volume low)? The click is loud.",
-        { { "y", "yes, measure" }, { "s", "skip" } }) ~= "y" then
+      if
+        ctx:ask(
+          "Is an output connected to the input (a cable, or a microphone near the speakers, volume low)? The click is loud.",
+          { { "y", "yes, measure" }, { "s", "skip" } }
+        ) ~= "y"
+      then
         return "skip", "no loop-back to measure with"
       end
       local path = ctx:file(ctx:dir() .. "/click.wav")
@@ -330,7 +420,14 @@ return function(M)
         os.remove(file)
         if not found then return "fail", problem end
         trips[#trips + 1], residuals[#residuals + 1] = found.round_trip, found.residual
-        ctx:log(string.format("measurement %d: %.2f ms (%.2f ms left after what the program takes off)", run, found.round_trip, found.residual))
+        ctx:log(
+          string.format(
+            "measurement %d: %.2f ms (%.2f ms left after what the program takes off)",
+            run,
+            found.round_trip,
+            found.residual
+          )
+        )
       end
       table.sort(trips)
       table.sort(residuals)
@@ -341,14 +438,28 @@ return function(M)
       local now = paw.transport.record_offset or 0
       local wanted = now + residual
       ctx:fact("record_offset_ms", string.format("%.1f", now))
-      ctx:log(string.format("the recording offset is %.1f ms; %.1f ms would put a take where it was played", now, wanted))
-      if spread > 2 then ctx:warn(string.format("the measurements differ by %.1f ms: something else is using the device, or the loop is not steady", spread)) end
+      ctx:log(
+        string.format("the recording offset is %.1f ms; %.1f ms would put a take where it was played", now, wanted)
+      )
+      if spread > 2 then
+        ctx:warn(
+          string.format(
+            "the measurements differ by %.1f ms: something else is using the device, or the loop is not steady",
+            spread
+          )
+        )
+      end
       if math.abs(residual) >= 1 then
         local set = ctx:ask(string.format("Set the recording offset to %.1f ms (now %.1f)?", wanted, now))
         if set == "y" then
           paw.transport.record_offset = wanted
           ctx:fact("record_offset_ms", string.format("%.1f", wanted))
-          ctx:log(string.format("set for this session; to keep it, put `paw.transport.record_offset = %.1f` in init.lua", wanted))
+          ctx:log(
+            string.format(
+              "set for this session; to keep it, put `paw.transport.record_offset = %.1f` in init.lua",
+              wanted
+            )
+          )
         end
       end
       return "ok", string.format("round trip %.1f ms; the offset should be %.1f ms (it is %.1f)", trip, wanted, now)
@@ -395,16 +506,33 @@ return function(M)
     local e = api.engine_get()
     local after = counters()
     return {
-      xruns = after.xruns - before.xruns, late = after.late - before.late, midi = after.midi - before.midi,
-      cpu_max = cpu_max, cpu_mean = count > 0 and cpu_sum / count or 0,
-      p99 = e.blocks.p99, worst = e.blocks.max, budget = e.blocks.budget,
+      xruns = after.xruns - before.xruns,
+      late = after.late - before.late,
+      midi = after.midi - before.midi,
+      cpu_max = cpu_max,
+      cpu_mean = count > 0 and cpu_sum / count or 0,
+      p99 = e.blocks.p99,
+      worst = e.blocks.max,
+      budget = e.blocks.budget,
     }
   end
 
   local function report_phase(ctx, key, label, r)
-    ctx:log(string.format("%s: %d xruns, %d late plugin blocks, %d MIDI events dropped; CPU %.0f%% on average, %.0f%% at most; "
-      .. "a block took %.2f ms at the 99th percentile and %.2f ms at worst, of %.2f ms available",
-      label, r.xruns, r.late, r.midi, r.cpu_mean * 100, r.cpu_max * 100, r.p99, r.worst, r.budget))
+    ctx:log(
+      string.format(
+        "%s: %d xruns, %d late plugin blocks, %d MIDI events dropped; CPU %.0f%% on average, %.0f%% at most; "
+          .. "a block took %.2f ms at the 99th percentile and %.2f ms at worst, of %.2f ms available",
+        label,
+        r.xruns,
+        r.late,
+        r.midi,
+        r.cpu_mean * 100,
+        r.cpu_max * 100,
+        r.p99,
+        r.worst,
+        r.budget
+      )
+    )
     ctx:measure(key .. "_xruns", r.xruns)
     ctx:measure(key .. "_late_blocks", r.late)
     ctx:measure(key .. "_cpu_max_percent", string.format("%.0f", r.cpu_max * 100))
@@ -429,9 +557,14 @@ return function(M)
       local length = streamed > 0 and math.ceil(streamed * 1e6 / (8 * e.sample_rate) * 1.15) + 5 or 30
       local path = ctx:file(ctx:dir() .. "/long.wav")
       ctx:say(string.format("writing a sound file of %d s", length))
-      paw.limit.unhurried(write_sound, path, e.sample_rate, 2, length * e.sample_rate, function(f)
-        return 0.1 * math.sin(2 * math.pi * 220 * f / e.sample_rate)
-      end)
+      paw.limit.unhurried(
+        write_sound,
+        path,
+        e.sample_rate,
+        2,
+        length * e.sample_rate,
+        function(f) return 0.1 * math.sin(2 * math.pi * 220 * f / e.sample_rate) end
+      )
       local disk = ctx:track({ name = "doctor disk" })
       ctx:say("bringing the file in")
       disk:add_clip({ start = 0, file = path })
@@ -442,7 +575,11 @@ return function(M)
       local two = phase(ctx, "playing many voices and a file from the disk", seconds)
       report_phase(ctx, "disk", on_disk and "with a file read from the disk" or "with a file held in memory", two)
       if not on_disk then
-        ctx:log("the file was held in memory, not read from the disk (paw.opt.media_stream is " .. streamed .. "): the second run says nothing about disk reads")
+        ctx:log(
+          "the file was held in memory, not read from the disk (paw.opt.media_stream is "
+            .. streamed
+            .. "): the second run says nothing about disk reads"
+        )
       end
       ctx:fact("media_stream_mb", streamed)
       ctx:fact("voices", ctx.settings.voices)
@@ -451,8 +588,12 @@ return function(M)
       if two.xruns + two.late > one.xruns + one.late then
         ctx:warn("reading from the disk added dropouts: " .. (two.xruns + two.late - one.xruns - one.late))
       end
-      local text = string.format("%d xruns and %d late blocks in all; CPU at most %.0f%%", one.xruns + two.xruns, one.late + two.late,
-        math.max(one.cpu_max, two.cpu_max) * 100)
+      local text = string.format(
+        "%d xruns and %d late blocks in all; CPU at most %.0f%%",
+        one.xruns + two.xruns,
+        one.late + two.late,
+        math.max(one.cpu_max, two.cpu_max) * 100
+      )
       if one.xruns + two.xruns >= 10 or math.max(one.cpu_max, two.cpu_max) > 0.95 then return "fail", text end
       if total > 0 then ctx:warn("there were dropouts: a larger block (`:audio.buffer 256`) may help") end
       return "ok", text
@@ -472,13 +613,18 @@ return function(M)
       local names = {}
       for _, p in ipairs(ports) do
         names[#names + 1] = p.name
-        ctx:log(string.format("port %s%s%s", p.name, p.open and "" or " (not open)", p.own and " (the program's own)" or ""))
+        ctx:log(
+          string.format("port %s%s%s", p.name, p.open and "" or " (not open)", p.own and " (the program's own)" or "")
+        )
       end
       ctx:fact("ports", #names > 0 and table.concat(names, ", ") or "none")
       if #ports == 0 then
-        return ctx:attended() and "fail" or "warn", "no MIDI input ports: is the controller connected? (`:midi.select` may have left it out)"
+        return ctx:attended() and "fail" or "warn",
+          "no MIDI input ports: is the controller connected? (`:midi.select` may have left it out)"
       end
-      if not ctx:attended() then return "ok", #ports .. (#ports == 1 and " port: " or " ports: ") .. table.concat(names, ", ") end
+      if not ctx:attended() then
+        return "ok", #ports .. (#ports == 1 and " port: " or " ports: ") .. table.concat(names, ", ")
+      end
 
       local seen = { note = nil, cc = nil, count = 0 }
       local handler = paw.on("midi.in", function(event)
@@ -489,30 +635,58 @@ return function(M)
       ctx:cleanup(function() paw.off(handler) end)
       local wait = ctx.settings.wait_seconds
       local function which(event)
-        return string.format("port %s, channel %s", event.port and ("“" .. event.port .. "”") or "unknown", event.channel or "?")
+        return string.format(
+          "port %s, channel %s",
+          event.port and ("“" .. event.port .. "”") or "unknown",
+          event.channel or "?"
+        )
       end
 
       ctx:say("press a key on the controller")
-      ctx:ask("Press a key on your controller.", { { "s", "skip" } },
-        { timeout = wait, done = function() return seen.note ~= nil end, default = "timeout" })
+      ctx:ask(
+        "Press a key on your controller.",
+        { { "s", "skip" } },
+        { timeout = wait, done = function() return seen.note ~= nil end, default = "timeout" }
+      )
       if seen.note then
-        ctx:log(string.format("a key arrived: %s, note %d, velocity %s", which(seen.note), seen.note.pitch, seen.note.velocity or "?"))
+        ctx:log(
+          string.format(
+            "a key arrived: %s, note %d, velocity %s",
+            which(seen.note),
+            seen.note.pitch,
+            seen.note.velocity or "?"
+          )
+        )
         ctx:fact("note_port", seen.note.port or "unknown")
       else
         ctx:log("no key was pressed in " .. wait .. " s")
       end
-      ctx:ask("Now move a knob or a fader.", { { "s", "skip" } },
-        { timeout = wait, done = function() return seen.cc ~= nil end, default = "timeout" })
+      ctx:ask(
+        "Now move a knob or a fader.",
+        { { "s", "skip" } },
+        { timeout = wait, done = function() return seen.cc ~= nil end, default = "timeout" }
+      )
       if seen.cc then
-        ctx:log(string.format("a control arrived: %s, controller %s, value %.2f", which(seen.cc), seen.cc.number or "?", seen.cc.value or 0))
+        ctx:log(
+          string.format(
+            "a control arrived: %s, controller %s, value %.2f",
+            which(seen.cc),
+            seen.cc.number or "?",
+            seen.cc.value or 0
+          )
+        )
         ctx:fact("cc_port", seen.cc.port or "unknown")
       else
         ctx:log("no knob was moved in " .. wait .. " s")
       end
-      if seen.note and seen.cc then return "ok", string.format("a key (note %d) and a control (%s) arrived", seen.note.pitch, tostring(seen.cc.number)) end
+      if seen.note and seen.cc then
+        return "ok",
+          string.format("a key (note %d) and a control (%s) arrived", seen.note.pitch, tostring(seen.cc.number))
+      end
       if seen.note then return "warn", "a key arrived; no control was moved" end
       if seen.cc then return "warn", "a control arrived; no key was pressed" end
-      return seen.count > 0 and "warn" or "fail", seen.count > 0 and "only other messages arrived" or "nothing arrived from any port in " .. wait .. " s"
+      return seen.count > 0 and "warn" or "fail",
+        seen.count > 0 and "only other messages arrived" or "nothing arrived from any port in " .. wait .. " s"
     end,
   })
 
@@ -546,8 +720,18 @@ return function(M)
         ctx:measure("peak_" .. ch, db(p))
       end
       local longest = 0
-      for _, p in ipairs(info.peaks) do longest = math.max(longest, p) end
-      ctx:log(string.format("recorded %.1f s, %d channel(s) at %d Hz; peak %s", info.frames / info.rate, info.channels, info.rate, table.concat(peaks, ", ")))
+      for _, p in ipairs(info.peaks) do
+        longest = math.max(longest, p)
+      end
+      ctx:log(
+        string.format(
+          "recorded %.1f s, %d channel(s) at %d Hz; peak %s",
+          info.frames / info.rate,
+          info.channels,
+          info.rate,
+          table.concat(peaks, ", ")
+        )
+      )
       ctx:fact("input", spec)
       ctx:fact("take_format", string.format("%d channels, %d Hz", info.channels, info.rate))
       if dropped > 0 then ctx:warn(dropped .. " frames of the take were lost to a slow disk") end
@@ -564,7 +748,9 @@ return function(M)
       end)
       ctx:measure("playback_peak", db(played))
       ctx:log("played back at " .. db(played))
-      if played < SILENT and longest >= SILENT then ctx:warn("the take has sound in it, but nothing was heard at the track's meter on playback") end
+      if played < SILENT and longest >= SILENT then
+        ctx:warn("the take has sound in it, but nothing was heard at the track's meter on playback")
+      end
       local heard
       if ctx:attended() and e.backend ~= "null" and longest >= SILENT then
         heard = ctx:ask("Did you hear the recording played back?")
@@ -572,9 +758,11 @@ return function(M)
         if heard == "n" then return "fail", "the take has sound, but it was not heard on playback: check the output" end
       end
       if longest < SILENT then
-        return ctx:attended() and "fail" or "warn", "the take is silent (peak " .. db(longest) .. "): nothing arrived on input " .. spec
+        return ctx:attended() and "fail" or "warn",
+          "the take is silent (peak " .. db(longest) .. "): nothing arrived on input " .. spec
       end
-      return "ok", string.format("%.1f s from input %s, peak %s", info.frames / info.rate, spec, table.concat(peaks, ", "))
+      return "ok",
+        string.format("%.1f s from input %s, peak %s", info.frames / info.rate, spec, table.concat(peaks, ", "))
     end,
   })
 
@@ -584,7 +772,9 @@ return function(M)
   local function find_plugin(types, fragment)
     local wanted, found = fragment:lower(), nil
     for _, t in ipairs(types) do
-      if t.format ~= "builtin" and ((t.name or ""):lower():find(wanted, 1, true) or t.kind:lower():find(wanted, 1, true)) then
+      if
+        t.format ~= "builtin" and ((t.name or ""):lower():find(wanted, 1, true) or t.kind:lower():find(wanted, 1, true))
+      then
         if not found or (t.category == "instrument" and found.category ~= "instrument") then found = t end
       end
     end
@@ -597,7 +787,12 @@ return function(M)
     ctx:say("waiting for " .. t.name .. " to load")
     ctx:wait_for(function() return device.status ~= "loading" end, 50000)
     if device.status ~= "running" then
-      return "failed", t.name .. " did not start (" .. tostring(device.status) .. (device.stopped and (": " .. tostring(device.stopped)) or "") .. ")"
+      return "failed",
+        t.name
+          .. " did not start ("
+          .. tostring(device.status)
+          .. (device.stopped and (": " .. tostring(device.stopped)) or "")
+          .. ")"
     end
     local function play_notes()
       local peak = 0
@@ -613,11 +808,15 @@ return function(M)
     local peak = play_notes()
     if peak < 1e-4 and ctx:attended() and device.editor == "closed" then
       -- Some instruments make no sound until their own window has been open.
-      local answer = ctx:ask(t.name .. " is silent. Some plugins make no sound until their editor has been opened once. Open it?")
+      local answer =
+        ctx:ask(t.name .. " is silent. Some plugins make no sound until their editor has been opened once. Open it?")
       if answer == "y" then
         device:open_editor()
-        ctx:ask("The editor is open. Press y when it has finished loading (load a sound there if it needs one).", { { "y", "try again" }, { "s", "skip" } },
-          { timeout = 90 })
+        ctx:ask(
+          "The editor is open. Press y when it has finished loading (load a sound there if it needs one).",
+          { { "y", "try again" }, { "s", "skip" } },
+          { timeout = 90 }
+        )
         peak = play_notes()
         if peak >= 1e-4 then ctx:log(t.name .. " sounded once its editor had been opened") end
       end
@@ -650,12 +849,18 @@ return function(M)
         local note = tostring(line):match("plugin scan: (.*)")
         if note then notes[#notes + 1] = note end
       end
-      for _, note in ipairs(notes) do ctx:log("scan: " .. note) end
+      for _, note in ipairs(notes) do
+        ctx:log("scan: " .. note)
+      end
       ctx:fact("scan_notes", #notes)
       if found == 0 then
-        ctx:warn("no CLAP, LV2 or VST3 plugin was found (plugins not scanned with --no-plugins? look in ~/.vst3, ~/.clap, ~/.lv2, or CLAP_PATH, LV2_PATH, VST3_PATH)")
+        ctx:warn(
+          "no CLAP, LV2 or VST3 plugin was found (plugins not scanned with --no-plugins? look in ~/.vst3, ~/.clap, ~/.lv2, or CLAP_PATH, LV2_PATH, VST3_PATH)"
+        )
       end
-      if #notes > 0 then ctx:warn(#notes .. " scan note(s) about files that could not be used: see above, and `:plugins.rescan`") end
+      if #notes > 0 then
+        ctx:warn(#notes .. " scan note(s) about files that could not be used: see above, and `:plugins.rescan`")
+      end
 
       local silent, failed = {}, {}
       for _, fragment in ipairs(ctx.settings.plugins) do
@@ -670,8 +875,14 @@ return function(M)
             ctx:log(string.format("%s (%s): sound, peak %s", t.name, t.format, db(detail)))
           elseif verdict == "silent" then
             silent[#silent + 1] = t.name
-            ctx:warn(string.format("%s (%s) made no sound for the notes it was sent. Some plugins need their editor opened once before they sound (`ge` on its track), "
-              .. "or a sound loaded in it; an effect makes none", t.name, t.format))
+            ctx:warn(
+              string.format(
+                "%s (%s) made no sound for the notes it was sent. Some plugins need their editor opened once before they sound (`ge` on its track), "
+                  .. "or a sound loaded in it; an effect makes none",
+                t.name,
+                t.format
+              )
+            )
           else
             failed[#failed + 1] = t.name
             ctx:log(detail)
@@ -679,13 +890,20 @@ return function(M)
           ctx:fact("plugin " .. fragment, verdict)
         end
       end
-      local summary = string.format("%d plugins found (%s)", found, (function()
-        local parts = {}
-        for _, format in ipairs(order) do if format ~= "builtin" then parts[#parts + 1] = format .. " " .. counts[format] end end
-        return #parts > 0 and table.concat(parts, ", ") or "none"
-      end)())
+      local summary = string.format(
+        "%d plugins found (%s)",
+        found,
+        (function()
+          local parts = {}
+          for _, format in ipairs(order) do
+            if format ~= "builtin" then parts[#parts + 1] = format .. " " .. counts[format] end
+          end
+          return #parts > 0 and table.concat(parts, ", ") or "none"
+        end)()
+      )
       if #ctx.settings.plugins > 0 then
-        summary = summary .. string.format("; of %d tried, %d silent, %d failed", #ctx.settings.plugins, #silent, #failed)
+        summary = summary
+          .. string.format("; of %d tried, %d silent, %d failed", #ctx.settings.plugins, #silent, #failed)
       end
       if #failed > 0 then return "fail", summary end
       return "ok", summary
@@ -708,13 +926,22 @@ return function(M)
       ctx:fact("DISPLAY", display or "unset")
       ctx:fact("WAYLAND_DISPLAY", wayland or "unset")
       ctx:fact("XAUTHORITY", auth or "unset")
-      ctx:log(string.format("DISPLAY=%s WAYLAND_DISPLAY=%s XAUTHORITY=%s", display or "unset", wayland or "unset", auth or "unset"))
+      ctx:log(
+        string.format(
+          "DISPLAY=%s WAYLAND_DISPLAY=%s XAUTHORITY=%s",
+          display or "unset",
+          wayland or "unset",
+          auth or "unset"
+        )
+      )
       if display then
         local n = display:match("^:(%d+)")
         if n and not api.fs_exists("/tmp/.X11-unix/X" .. n) then
           ctx:warn("DISPLAY is " .. display .. " but there is no X socket for it: plugin editors cannot open")
         end
-        if auth and not api.fs_exists(auth) then ctx:warn("XAUTHORITY names a file that is not there (" .. auth .. "): the display will refuse the program") end
+        if auth and not api.fs_exists(auth) then
+          ctx:warn("XAUTHORITY names a file that is not there (" .. auth .. "): the display will refuse the program")
+        end
       elseif not wayland then
         ctx:warn("neither DISPLAY nor WAYLAND_DISPLAY is set: plugin windows cannot open")
       end
@@ -727,7 +954,9 @@ return function(M)
 
       local where = env.data_dir .. "/recordings"
       local probe = where
-      while probe ~= "/" and not api.fs_exists(probe) do probe = probe:match("^(.*)/[^/]*$") or "/" end
+      while probe ~= "/" and not api.fs_exists(probe) do
+        probe = probe:match("^(.*)/[^/]*$") or "/"
+      end
       if probe == "" then probe = "/" end
       local space = select(2, pcall(api.fs_space, probe))
       local free = type(space) == "table" and space.free / 1024 or nil
@@ -737,8 +966,14 @@ return function(M)
         ctx:log(string.format("%.1f GB free where recordings go (%s)", gb, where))
         ctx:measure("free_disk_gb", string.format("%.1f", gb))
         -- Stereo float at 48 kHz is about 22 MB a minute.
-        if gb < 0.5 then status = "fail" ctx:warn(string.format("only %.2f GB free where recordings go", gb))
-        elseif gb < 5 then ctx:warn(string.format("%.1f GB free where recordings go: about %d minutes of stereo", gb, math.floor(free / 22000))) end
+        if gb < 0.5 then
+          status = "fail"
+          ctx:warn(string.format("only %.2f GB free where recordings go", gb))
+        elseif gb < 5 then
+          ctx:warn(
+            string.format("%.1f GB free where recordings go: about %d minutes of stereo", gb, math.floor(free / 22000))
+          )
+        end
       else
         ctx:warn("the free space where recordings go could not be read")
       end
@@ -746,26 +981,50 @@ return function(M)
       local gdi2m = paw.opt.vinput_gdi2m
       for _, program in ipairs({ "ffmpeg", "gdi2m" }) do
         local path = api.which(program)
-        if not path and program == "gdi2m" and type(gdi2m) == "string" and gdi2m ~= "" and api.fs_exists(gdi2m) then path = gdi2m end
+        if not path and program == "gdi2m" and type(gdi2m) == "string" and gdi2m ~= "" and api.fs_exists(gdi2m) then
+          path = gdi2m
+        end
         ctx:fact("program_" .. program, path or "missing")
         ctx:log(program .. ": " .. (path or "not found in PATH"))
         if not path then
-          ctx:warn(program == "ffmpeg" and "ffmpeg is not on the PATH: sound files that need it cannot be read or written"
-            or "gdi2m is not on the PATH: a guitar cannot be heard as MIDI (`extensions/vinput`)")
+          ctx:warn(
+            program == "ffmpeg" and "ffmpeg is not on the PATH: sound files that need it cannot be read or written"
+              or "gdi2m is not on the PATH: a guitar cannot be heard as MIDI (`extensions/vinput`)"
+          )
         end
       end
 
       ctx:fact("limit_async", api.limit_async == true)
       ctx:fact("threads", e.threads)
-      ctx:log(string.format("LuaJIT can stop runaway Lua from outside (limit_async): %s; the engine uses %d threads (asked for %d)",
-        tostring(api.limit_async == true), e.threads, e.threads_wanted))
+      ctx:log(
+        string.format(
+          "LuaJIT can stop runaway Lua from outside (limit_async): %s; the engine uses %d threads (asked for %d)",
+          tostring(api.limit_async == true),
+          e.threads,
+          e.threads_wanted
+        )
+      )
       if api.limit_async ~= true then
-        ctx:warn("limit_async is false: this build was made without LUAJIT_ENABLE_CHECKHOOK (`.cargo/config.toml`), so runaway Lua is caught more slowly")
+        ctx:warn(
+          "limit_async is false: this build was made without LUAJIT_ENABLE_CHECKHOOK (`.cargo/config.toml`), so runaway Lua is caught more slowly"
+        )
       end
       ctx:measure("leaked", e.leaked)
-      ctx:log(string.format("plugin processes stopped: %d; sound files in memory: %d; MIDI open: %s", e.devices_stopped, e.audio_files, tostring(e.midi)))
+      ctx:log(
+        string.format(
+          "plugin processes stopped: %d; sound files in memory: %d; MIDI open: %s",
+          e.devices_stopped,
+          e.audio_files,
+          tostring(e.midi)
+        )
+      )
       if e.devices_stopped > 0 then ctx:warn(e.devices_stopped .. " device(s) have stopped working") end
-      return status, string.format("display %s, %s", display or wayland or "none", free and string.format("%.0f GB free", free / 1048576) or "disk unknown")
+      return status,
+        string.format(
+          "display %s, %s",
+          display or wayland or "none",
+          free and string.format("%.0f GB free", free / 1048576) or "disk unknown"
+        )
     end,
   })
 end

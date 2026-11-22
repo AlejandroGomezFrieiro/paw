@@ -12,7 +12,9 @@ local initial = L.capture()
 
 local function reset()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.start_layout = nil
   L.restore(initial)
   paw.ui.focus("arrange")
@@ -52,7 +54,12 @@ end
 
 local function riff()
   local t = paw.add_track({ name = "Keys" })
-  local clip = t:add_clip({ start = 0, length = 8, name = "riff", notes = { { pitch = 60, start = 0, length = 1 }, { pitch = 64, start = 1, length = 1 } } })
+  local clip = t:add_clip({
+    start = 0,
+    length = 8,
+    name = "riff",
+    notes = { { pitch = 60, start = 0, length = 1 }, { pitch = 64, start = 1, length = 1 } },
+  })
   local other = t:add_clip({ start = 8, length = 8, name = "hook", notes = { { pitch = 72, start = 0, length = 2 } } })
   paw.cursor.set_track(t)
   return t, clip, other
@@ -91,7 +98,11 @@ test("window state: two piano rolls on two clips, each with its own cursor", fun
   eq(roll.clip_id, clip.id, "Ctrl-w h: the keys act on the left roll's clip")
   eq(paw.ui.location("pianoroll").uri:find("/clip/" .. clip.id, 1, true) ~= nil, true, "its locator")
   local right = L.windows(paw.ui.layout)[2]
-  eq(paw.ui.location("pianoroll", right).uri:find("/clip/" .. other.id, 1, true) ~= nil, true, "and the other window's its own")
+  eq(
+    paw.ui.location("pianoroll", right).uri:find("/clip/" .. other.id, 1, true) ~= nil,
+    true,
+    "and the other window's its own"
+  )
   keys("<C-w>c")
   eq(windows(), "pianoroll", "closing one leaves the other")
   eq(roll.clip_id, other.id, "on its clip")
@@ -106,7 +117,11 @@ test("window state: one score twice, and the notation beside the piano roll of t
     keys("<C-w>v")
   end)
   eq(windows(), "notation notation", "Ctrl-w v shows the notation again")
-  eq(table.concat(each("notation", function(v) return tostring(v.clip_id) end), " "), clip.id .. " " .. clip.id, "the same clip in both")
+  eq(
+    table.concat(each("notation", function(v) return tostring(v.clip_id) end), " "),
+    clip.id .. " " .. clip.id,
+    "the same clip in both"
+  )
   local before = paw.ui.views.notation.beat
   keys("l")
   local beats = each("notation", function(v) return v.beat end)
@@ -130,12 +145,18 @@ test("window state: :sp in the roll shows the roll again, on the clip of this wi
     keys(":sp<CR>")
   end)
   eq(windows(), "pianoroll pianoroll", "two rolls")
-  eq(table.concat(each("pianoroll", function(v) return tostring(v.clip_id) end), " "), clip.id .. " " .. clip.id, "on the same clip")
+  eq(
+    table.concat(each("pianoroll", function(v) return tostring(v.clip_id) end), " "),
+    clip.id .. " " .. clip.id,
+    "on the same clip"
+  )
 end)
 
 test("window state: the mixer twice, each window with its own row and scroll", function()
   start()
-  for i = 1, 12 do paw.add_track({ name = "T" .. i }) end
+  for i = 1, 12 do
+    paw.add_track({ name = "T" .. i })
+  end
   paw.cursor.set_track(paw.tracks()[1])
   sized(function()
     keys(":e mixer<CR>")
@@ -217,9 +238,13 @@ test("window state: two device panels on two tracks", function()
   local found = false
   local function walk(node)
     if node.view == "devices" and node.target == b.id then found = true end
-    for _, child in ipairs(node.children or {}) do walk(child) end
+    for _, child in ipairs(node.children or {}) do
+      walk(child)
+    end
   end
-  for _, t in ipairs(L.capture().tabs) do walk(t.layout) end
+  for _, t in ipairs(L.capture().tabs) do
+    walk(t.layout)
+  end
   eq(found, true, "a saved layout keeps the pinned track")
 end)
 

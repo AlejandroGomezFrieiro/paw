@@ -81,23 +81,71 @@ local function paint_chain(g, w, input, status)
     local x = PAD + (index - 1) * (bw + gap)
     if stage.key == "source" then
       local name = input.source ~= "" and view.short(input.source) or "choose…"
-      stage_box(g, x, y, bw, stage.title, name, input.source ~= "" and input.source:match(":(capture_%w+)$") or "the guitar, dry",
-        input.source == "" and c.warn or nil, { down = function() gui.list = { input = input.name } run.sources(input.kind, true) end })
+      stage_box(
+        g,
+        x,
+        y,
+        bw,
+        stage.title,
+        name,
+        input.source ~= "" and input.source:match(":(capture_%w+)$") or "the guitar, dry",
+        input.source == "" and c.warn or nil,
+        {
+          down = function()
+            gui.list = { input = input.name }
+            run.sources(input.kind, true)
+          end,
+        }
+      )
     elseif stage.key == "level" then
-      stage_box(g, x, y, bw, stage.title, string.format("× %.2f", input.gain),
-        status.level and string.format("%.0f dBFS, wants −18", status.level) or "wants −18 dBFS")
+      stage_box(
+        g,
+        x,
+        y,
+        bw,
+        stage.title,
+        string.format("× %.2f", input.gain),
+        status.level and string.format("%.0f dBFS, wants −18", status.level) or "wants −18 dBFS"
+      )
       meter(g, x + 12, y + 70, bw - 24, status.peak or status.level)
     elseif stage.key == "tracker" then
-      local sub = status.state == "running" and string.format("%d notes · %.1f ms a frame", status.notes or 0, status.load or 0)
+      local sub = status.state == "running"
+          and string.format("%d notes · %.1f ms a frame", status.notes or 0, status.load or 0)
         or status.text
-      stage_box(g, x, y, bw, stage.title, status.state == "running" and "running" or (status.text:match("^[^:]*")), sub,
-        state_colour[status.state] or c.select, { down = function() run.restart(input.name) end })
+      stage_box(
+        g,
+        x,
+        y,
+        bw,
+        stage.title,
+        status.state == "running" and "running" or (status.text:match("^[^:]*")),
+        sub,
+        state_colour[status.state] or c.select,
+        { down = function() run.restart(input.name) end }
+      )
     elseif stage.key == "notes" then
-      stage_box(g, x, y, bw, stage.title, "channel " .. input.channel,
-        (input.attack_velocity and "velocity from the picking" or "velocity 100") .. (input.split ~= "" and " · split" or ""))
+      stage_box(
+        g,
+        x,
+        y,
+        bw,
+        stage.title,
+        "channel " .. input.channel,
+        (input.attack_velocity and "velocity from the picking" or "velocity 100")
+          .. (input.split ~= "" and " · split" or "")
+      )
     else
-      stage_box(g, x, y, bw, stage.title, input.name, "tracks take it as MIDI", c.select,
-        { down = function() commands.activate({ input = input, name = true }) end })
+      stage_box(
+        g,
+        x,
+        y,
+        bw,
+        stage.title,
+        input.name,
+        "tracks take it as MIDI",
+        c.select,
+        { down = function() commands.activate({ input = input, name = true }) end }
+      )
     end
     if index < #stages then
       local ax, ay = x + bw + 5, y + (CHAIN - 28) / 2
@@ -119,13 +167,17 @@ local function paint_setting(g, w, y, input, setting, chosen, index)
     g:rect(x, y + 13, SLIDER, 4, { fill = c.well, radius = 2 })
     g:rect(x, y + 13, SLIDER * at, 4, { fill = chosen and c.select or mix(c.select, c.text_2, 0.6), radius = 2 })
     g:rect(x + (SLIDER - 10) * at, y + 8, 10, 14, { fill = chosen and c.text or c.text_2, radius = 3 })
-    local left = x   -- `x` moves on along the row
+    local left = x -- `x` moves on along the row
     local function to(e)
       local value = setting.min + util.clamp((e.x - left - 5) / (SLIDER - 10), 0, 1) * (setting.max - setting.min)
       vinput.set(name, setting.key, util.round(value, setting.step))
     end
     hit(x - 6, y, SLIDER + 12, ROW - 4, {
-      down = function(e) choose() to(e) end, drag = to,
+      down = function(e)
+        choose()
+        to(e)
+      end,
+      drag = to,
       double = function() vinput.set(name, setting.key, setting.default) end,
       wheel = function(e) vinput.nudge(name, setting.key, e.dy > 0 and 1 or -1) end,
     })
@@ -135,14 +187,26 @@ local function paint_setting(g, w, y, input, setting, chosen, index)
     if setting.key == "gain" then
       local advice = vinput.status(name).advice
       if advice then
-        x = button(g, x, y + 3, string.format("use %.2f", advice.gain), function() vinput.set(name, "gain", advice.gain) end, { color = c.select }) + 4
+        x = button(
+          g,
+          x,
+          y + 3,
+          string.format("use %.2f", advice.gain),
+          function() vinput.set(name, "gain", advice.gain) end,
+          { color = c.select }
+        ) + 4
       end
     end
   elseif setting and setting.type == "switch" then
     local on = input[setting.key]
     g:rect(x, y + 6, 38, 18, { fill = on and c.select or c.control_hover, radius = 9 })
     g:rect(x + (on and 22 or 2), y + 8, 14, 14, { fill = on and c.surface or c.text_2, radius = 7 })
-    hit(x - 4, y, 46, ROW - 4, { down = function() choose() vinput.set(name, setting.key, not on) end })
+    hit(x - 4, y, 46, ROW - 4, {
+      down = function()
+        choose()
+        vinput.set(name, setting.key, not on)
+      end,
+    })
     x = x + 52
     g:text(x, y + 8, vinput.format(setting, on), { color = c.select })
     x = x + text_width(vinput.format(setting, on)) + 18
@@ -154,15 +218,17 @@ local function paint_setting(g, w, y, input, setting, chosen, index)
     g:rect(x, y + 3, bw, 24, { fill = c.well, stroke = chosen and c.select or c.line_bar, radius = 5 })
     g:text(x + 10, y + 8, value, { color = empty and c.warn or c.text, width = bw - 30 })
     if setting and setting.type == "choice" then g:text(x + bw - 18, y + 8, "▾", { color = c.text_2 }) end
-    hit(x, y + 3, bw, 24, { down = function()
-      choose()
-      if setting and setting.type == "choice" then
-        gui.list = { input = name }
-        run.sources(input.kind, true)
-      else
-        commands.activate({ input = input, setting = setting, name = not setting })
-      end
-    end })
+    hit(x, y + 3, bw, 24, {
+      down = function()
+        choose()
+        if setting and setting.type == "choice" then
+          gui.list = { input = name }
+          run.sources(input.kind, true)
+        else
+          commands.activate({ input = input, setting = setting, name = not setting })
+        end
+      end,
+    })
     x = x + bw + 16
   end
   local help = setting and setting.help or "the MIDI port tracks take; renaming it takes the tracks along"
@@ -173,7 +239,9 @@ end
 local function paint_list(g, w, h, input)
   local sources = run.sources(input.kind)
   local items = {}
-  for _, name in ipairs(sources or {}) do items[#items + 1] = name end
+  for _, name in ipairs(sources or {}) do
+    items[#items + 1] = name
+  end
   local lw, lh = math.min(560, w - 2 * PAD), math.min(h - 80, 60 + math.max(1, #items) * 28)
   local x, y = (w - lw) / 2, math.max(30, (h - lh) / 2)
   -- Anywhere outside the list closes it.
@@ -181,12 +249,21 @@ local function paint_list(g, w, h, input)
   g:rect(0, 0, w, h, { fill = "#00000088" })
   g:rect(x, y, lw, lh, { fill = c.control, stroke = c.select, radius = 8 })
   g:text(x + 16, y + 12, "Source of " .. input.name, { color = c.text, size = 13, bold = true })
-  g:text(x + lw - 16, y + 14, "the port the guitar is on", { color = c.text_2, size = 11, align = "right", width = 160 })
+  g:text(
+    x + lw - 16,
+    y + 14,
+    "the port the guitar is on",
+    { color = c.text_2, size = 11, align = "right", width = 160 }
+  )
   if not sources then
     g:text(x + 16, y + 44, "Looking for audio ports…", { color = c.text_2 })
   elseif #items == 0 then
-    g:text(x + 16, y + 44, vinput.kinds[input.kind].program() and "No audio ports were found." or vinput.kinds[input.kind].missing,
-      { color = c.warn, width = lw - 32 })
+    g:text(
+      x + 16,
+      y + 44,
+      vinput.kinds[input.kind].program() and "No audio ports were found." or vinput.kinds[input.kind].missing,
+      { color = c.warn, width = lw - 32 }
+    )
   end
   for index, name in ipairs(items) do
     local iy = y + 40 + (index - 1) * 28
@@ -194,10 +271,12 @@ local function paint_list(g, w, h, input)
     local on = name == input.source
     if on then g:rect(x + 8, iy, lw - 16, 26, { fill = mix(c.control, c.select, 0.25), radius = 5 }) end
     g:text(x + 18, iy + 6, (on and "● " or "   ") .. name, { color = on and c.text or c.text, width = lw - 36 })
-    hit(x + 8, iy, lw - 16, 26, { down = function()
-      gui.list = nil
-      vinput.set(input.name, "source", name)
-    end })
+    hit(x + 8, iy, lw - 16, 26, {
+      down = function()
+        gui.list = nil
+        vinput.set(input.name, "source", name)
+      end,
+    })
   end
 end
 
@@ -224,8 +303,18 @@ function view:paint(g, ctx)
 
   if not input then
     g:text(PAD + 8, TOP + 40, "No virtual inputs yet.", { color = c.text, size = 16, bold = true })
-    g:text(PAD + 8, TOP + 68, "A virtual input turns something else into an input a track can take.", { color = c.text_2 })
-    g:text(PAD + 8, TOP + 88, "“+ Add” makes one that listens to a guitar and sends the notes it hears as MIDI.", { color = c.text_2 })
+    g:text(
+      PAD + 8,
+      TOP + 68,
+      "A virtual input turns something else into an input a track can take.",
+      { color = c.text_2 }
+    )
+    g:text(
+      PAD + 8,
+      TOP + 88,
+      "“+ Add” makes one that listens to a guitar and sends the notes it hears as MIDI.",
+      { color = c.text_2 }
+    )
     return
   end
 
@@ -233,8 +322,14 @@ function view:paint(g, ctx)
   -- On the right of the tabs: the input on or off, and away with it.
   local rx = w - PAD - 86
   button(g, rx, 11, "Remove", function() vinput.remove(input.name) end, { width = 86, color = c.text_2 })
-  button(g, rx - 76, 11, input.on and "On" or "Off", function() vinput.set(input.name, "on", not input.on) end,
-    { width = 68, on = input.on, lit = c.play_on })
+  button(
+    g,
+    rx - 76,
+    11,
+    input.on and "On" or "Off",
+    function() vinput.set(input.name, "on", not input.on) end,
+    { width = 68, on = input.on, lit = c.play_on }
+  )
 
   paint_chain(g, w, input, status)
 
@@ -257,7 +352,12 @@ function view:paint(g, ctx)
   if status.advice and status.state ~= "running" then
     said = said .. string.format("   ·   last time the level was %.1f dB %s", status.advice.db, status.advice.way)
   end
-  g:text(PAD + 18, h - BOTTOM + 13, said, { color = status.state == "failed" and c.error or c.text, width = w - 2 * PAD - 230 })
+  g:text(
+    PAD + 18,
+    h - BOTTOM + 13,
+    said,
+    { color = status.state == "failed" and c.error or c.text, width = w - 2 * PAD - 230 }
+  )
   button(g, w - PAD - 190, h - BOTTOM + 8, "New track from this input", function()
     local track = vinput.make_track(input.name)
     paw.notify("track “" .. track.name .. "” plays what “" .. input.name .. "” hears")

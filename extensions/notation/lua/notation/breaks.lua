@@ -62,7 +62,8 @@ function M.lines(widths, prefix, width, o)
           cost = 1e6 * (1 + (used - width) / width) * count
         elseif last then
           local fill = used / width
-          cost = (fill >= M.LONELY and 0 or 1e4 * (M.LONELY - fill) / M.LONELY) + (n > 1 and count == 1 and M.ALONE or 0)
+          cost = (fill >= M.LONELY and 0 or 1e4 * (M.LONELY - fill) / M.LONELY)
+            + (n > 1 and count == 1 and M.ALONE or 0)
         else
           cost = 100 * stretch * stretch + (stretch > M.STRETCH and 1e5 * (stretch - M.STRETCH) or 0)
         end
@@ -71,7 +72,9 @@ function M.lines(widths, prefix, width, o)
         if per and per > 0 and count < per and not last and not breaks[j + 1] then cost = cost + 1e8 end
         local total = base + cost
         local nxt = j + 1
-        if not best[nxt] or total < best[nxt] then best[nxt], from[nxt] = total, i end
+        if not best[nxt] or total < best[nxt] then
+          best[nxt], from[nxt] = total, i
+        end
         -- A line never runs over a break the score asks for.
         if breaks[j + 1] then break end
       end
@@ -81,7 +84,9 @@ function M.lines(widths, prefix, width, o)
   if not best[at] then
     -- Nothing fits the constraints (a join on the first measure of every
     -- way): one line each, as the measures come.
-    for i = 1, n do starts[i] = i end
+    for i = 1, n do
+      starts[i] = i
+    end
     return starts
   end
   while at > 1 do
@@ -100,7 +105,9 @@ function M.measure(widths, prefix, width, starts)
     local j = (starts[k + 1] or n + 1) - 1
     if j < n then
       local own = 0
-      for q = i, j do own = own + widths[q] end
+      for q = i, j do
+        own = own + widths[q]
+      end
       worst = math.max(worst, (width - prefix(i) - own) / math.max(1, own))
     end
   end

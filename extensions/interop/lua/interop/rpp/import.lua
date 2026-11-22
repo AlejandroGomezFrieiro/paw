@@ -32,7 +32,11 @@ function M.resolve(file, dir, record_path)
   file = file:gsub("\\", "/")
   local base = file:match("([^/]+)$") or file
   local tries = {}
-  if file:sub(1, 1) == "/" then tries[#tries + 1] = file else tries[#tries + 1] = dir .. "/" .. file end
+  if file:sub(1, 1) == "/" then
+    tries[#tries + 1] = file
+  else
+    tries[#tries + 1] = dir .. "/" .. file
+  end
   if record_path and record_path ~= "" then
     local rp = record_path:gsub("\\", "/")
     tries[#tries + 1] = (rp:sub(1, 1) == "/" and rp or dir .. "/" .. rp) .. "/" .. base
@@ -81,7 +85,10 @@ end
 -- Envelopes -----------------------------------------------------------------------
 
 local ENVELOPES = {
-  VOLENV2 = "volume", PANENV2 = "pan", MASTERVOLENV2 = "volume", MASTERPANENV2 = "pan",
+  VOLENV2 = "volume",
+  PANENV2 = "pan",
+  MASTERVOLENV2 = "volume",
+  MASTERPANENV2 = "pan",
 }
 
 --- REAPER's point shapes as paw's: 0 linear, 1 square (paw's "hold"),
@@ -146,7 +153,13 @@ local function import_envelopes(block, track, ctx, label)
     local has_points = env:child("PT") ~= nil
     if target and has_points then
       local points, shapes = lane_points(env, CONVERT[target], ctx, label .. " " .. target)
-      add_lane(track, { target = target, enabled = enabled_of(env), points = points }, shapes, ctx, label .. ": " .. target)
+      add_lane(
+        track,
+        { target = target, enabled = enabled_of(env), points = points },
+        shapes,
+        ctx,
+        label .. ": " .. target
+      )
     elseif has_points and name:match("ENV") and name ~= "TEMPOENVEX" then
       ctx.report:add("Envelopes other than track volume and pan", label .. ": " .. name)
     end
@@ -180,17 +193,30 @@ local function midi_source(source, ctx, label)
   -- at its own, which at the project's tempo is a different number of beats.
   local scale = 1 / src.ppq
   if src.ignore_tempo and src.ignore_tempo > 0 then scale = scale * ctx.tempo / src.ignore_tempo end
-  for what, n in pairs(src.other) do ctx.report:count("MIDI other than notes", label .. ": " .. what, n) end
+  for what, n in pairs(src.other) do
+    ctx.report:count("MIDI other than notes", label .. ": " .. what, n)
+  end
   if src.muted > 0 then ctx.report:count("Muted MIDI notes (left out)", label, src.muted) end
   local notes, controls, channels = {}, {}, 0
   for i, n in ipairs(src.notes) do
-    notes[i] = { start = n.tick * scale, length = n.length * scale, pitch = n.pitch, velocity = n.velocity, channel = n.channel }
+    notes[i] =
+      { start = n.tick * scale, length = n.length * scale, pitch = n.pitch, velocity = n.velocity, channel = n.channel }
   end
   for i, c in ipairs(src.controls or {}) do
     if c.channel ~= 0 then channels = channels + 1 end
-    controls[i] = { start = c.tick * scale, type = c.type, number = c.number, value = c.value, key = c.key, program = c.program, bank = c.bank }
+    controls[i] = {
+      start = c.tick * scale,
+      type = c.type,
+      number = c.number,
+      value = c.value,
+      key = c.key,
+      program = c.program,
+      bank = c.bank,
+    }
   end
-  if channels > 0 then ctx.report:count("MIDI controllers on channels other than 1 (played on channel 1)", label, channels) end
+  if channels > 0 then
+    ctx.report:count("MIDI controllers on channels other than 1 (played on channel 1)", label, channels)
+  end
   return notes, src.length * scale, controls
 end
 
@@ -202,12 +228,16 @@ local function clip_notes(notes, controls, source_len, offset, len, loop)
   local out, moves = {}, {}
   local function note(n, start, stop)
     out[#out + 1] = {
-      pitch = n.pitch, start = start, length = stop - start, velocity = math.max(1, math.min(127, n.velocity)),
+      pitch = n.pitch,
+      start = start,
+      length = stop - start,
+      velocity = math.max(1, math.min(127, n.velocity)),
       meta = n.channel and n.channel ~= 0 and { channel = n.channel + 1 } or nil,
     }
   end
   local function move(c, at)
-    moves[#moves + 1] = { start = at, type = c.type, number = c.number, value = c.value, key = c.key, program = c.program, bank = c.bank }
+    moves[#moves + 1] =
+      { start = at, type = c.type, number = c.number, value = c.value, key = c.key, program = c.program, bank = c.bank }
   end
   if loop then
     offset = offset % source_len
@@ -250,7 +280,9 @@ local function import_item(item, track, track_name, ctx)
   local function fade(line)
     if not line then return 0 end
     local len = (line:argn(3) or 0) > 0 and line:argn(3) or (line:argn(2) or 0)
-    if len > 0 and (line:argn(1) or 1) ~= 1 then ctx.report:count("Fade shapes (paw fades on a quarter sine)", track_name) end
+    if len > 0 and (line:argn(1) or 1) ~= 1 then
+      ctx.report:count("Fade shapes (paw fades on a quarter sine)", track_name)
+    end
     return len
   end
   local fade_in, fade_out = fade(item:child("FADEIN")), fade(item:child("FADEOUT"))
@@ -323,8 +355,14 @@ local function import_item(item, track, track_name, ctx)
     local offset = soffs * api.tempo_at(start_b) / 60
     local list, moves, looping = clip_notes(notes, controls, source_len, offset, len_b, loop and source_len > 0)
     local ok, id = pcall(api.clip_add, track, {
-      name = name, start = start_b, length = len_b, notes = list, controls = moves,
-      ["loop"] = looping.loop, loop_length = looping.loop_length, loop_start = looping.loop_start,
+      name = name,
+      start = start_b,
+      length = len_b,
+      notes = list,
+      controls = moves,
+      ["loop"] = looping.loop,
+      loop_length = looping.loop_length,
+      loop_start = looping.loop_start,
     })
     if not ok then return ctx.report:add("Items that could not be added", label .. ": " .. tostring(id)) end
     if muted then api.clip_set(id, "muted", true) end
@@ -351,8 +389,13 @@ local function import_item(item, track, track_name, ctx)
   local gain = db(item_vol * math.abs(take_vol))
   local function beats_from(at, seconds) return ctx.beat(api.tempo_seconds(at) + seconds) - at end
   local opts = {
-    name = name, start = start_b, file = path, offset = soffs, gain = gain,
-    stretch = math.abs(rate - 1) > 1e-9 and 1 / rate or nil, pitch = semitones,
+    name = name,
+    start = start_b,
+    file = path,
+    offset = soffs,
+    gain = gain,
+    stretch = math.abs(rate - 1) > 1e-9 and 1 / rate or nil,
+    pitch = semitones,
   }
   local ok, id = pcall(api.clip_add, track, opts)
   if not ok then return ctx.report:add("Unreadable media", label .. ": " .. tostring(id):gsub("\n.*", "")) end
@@ -381,8 +424,19 @@ local function import_item(item, track, track_name, ctx)
     local whole = natural + soffs / rate * api.tempo_at(start_b) / 60
     local at, stop = start_b + natural, start_b + len_b
     while at < stop - 1e-9 and whole > 1e-9 do
-      local piece = api.clip_add(track, { name = name, start = at, file = path, offset = 0, gain = gain,
-        stretch = opts.stretch, pitch = semitones, length = math.min(whole, stop - at) })
+      local piece = api.clip_add(
+        track,
+        {
+          name = name,
+          start = at,
+          file = path,
+          offset = 0,
+          gain = gain,
+          stretch = opts.stretch,
+          pitch = semitones,
+          length = math.min(whole, stop - at),
+        }
+      )
       ids[#ids + 1] = piece
       at = at + whole
     end
@@ -394,7 +448,9 @@ local function import_item(item, track, track_name, ctx)
     api.clip_set(ids[#ids], "fade_out", math.min(stop - ctx.beat(api.tempo_seconds(stop) - fade_out), last.length))
   end
   if muted then
-    for _, c in ipairs(ids) do api.clip_set(c, "muted", true) end
+    for _, c in ipairs(ids) do
+      api.clip_set(c, "muted", true)
+    end
   end
 end
 
@@ -433,18 +489,28 @@ local function import_param_env(env, device, track, track_name, ctx)
   local params = device and api.device_get(device).param_info or {}
   local info = param_of(env.tokens[2], params)
   if not info then
-    ctx.report:add("Plugin parameter automation", where .. (device and " (no such parameter here)" or " (its plugin did not come across)"))
+    ctx.report:add(
+      "Plugin parameter automation",
+      where .. (device and " (no such parameter here)" or " (its plugin did not come across)")
+    )
     return
   end
   local lo, hi = tonumber(env.tokens[3]) or 0, tonumber(env.tokens[4]) or 1
-  if hi <= lo then lo, hi = 0, 1 end
+  if hi <= lo then
+    lo, hi = 0, 1
+  end
   local function convert(v)
     local f = math.max(0, math.min(1, (v - lo) / (hi - lo)))
     return info.min + f * (info.max - info.min)
   end
   local points, shapes = lane_points(env, convert, ctx, where)
-  add_lane(track, { target = "param", device = device, param = info.key, enabled = enabled_of(env), points = points },
-    shapes, ctx, where)
+  add_lane(
+    track,
+    { target = "param", device = device, param = info.key, enabled = enabled_of(env), points = points },
+    shapes,
+    ctx,
+    where
+  )
 end
 
 local function import_chain(chain, track, track_name, ctx, chain_bypassed)
@@ -469,11 +535,17 @@ local function import_chain(chain, track, track_name, ctx, chain_bypassed)
       last = id
       if id then
         ctx.devices = ctx.devices + 1
-        for _, note in ipairs(notes) do ctx.report:add("Plugin settings", where .. ": " .. note) end
+        for _, note in ipairs(notes) do
+          ctx.report:add("Plugin settings", where .. ": " .. note)
+        end
       else
         ctx.report:add("Plugins left as placeholders", where .. " (" .. why .. ")")
         placeholders[#placeholders + 1] = {
-          name = d.display, format = d.format, position = position, reason = why, bypass = bypass,
+          name = d.display,
+          format = d.format,
+          position = position,
+          reason = why,
+          bypass = bypass,
           rpp = fmt.write(c),
         }
       end
@@ -513,9 +585,7 @@ local function tempo_map(project, ctx)
       if s.num >= 1 and s.num <= 64 and s.den >= 1 and s.den <= 64 then sigs[#sigs + 1] = s end
     end
   end
-  if shapes > 0 then
-    ctx.report:count("Tempo curve shapes (made straight ramps)", "tempo", shapes)
-  end
+  if shapes > 0 then ctx.report:count("Tempo curve shapes (made straight ramps)", "tempo", shapes) end
   return api.tempo_from_seconds(tempos, sigs)
 end
 
@@ -551,7 +621,9 @@ local function import_markers(project, ctx)
     end
   end
   table.sort(list, function(a, b) return a.beat < b.beat end)
-  for i, m in ipairs(list) do m.id = i end
+  for i, m in ipairs(list) do
+    m.id = i
+  end
   return list
 end
 
@@ -568,7 +640,9 @@ function M.doc(doc, opts)
     dir = opts.dir or dirname(path),
     report = reports.new("Not carried over from " .. (path:match("([^/]+)$") or path) .. ":"),
     record_path = project:get("RECORD_PATH"),
-    clips = 0, devices = 0, midi_tracks = {},
+    clips = 0,
+    devices = 0,
+    midi_tracks = {},
   }
   local map = tempo_map(project, ctx)
   local bpm = map.tempos[1].bpm
@@ -577,8 +651,15 @@ function M.doc(doc, opts)
   if opts.merge then
     ctx.tempo = paw.project.tempo
     if #map.tempos > 1 or #map.signatures > 1 or math.abs(bpm - ctx.tempo) > 1e-9 then
-      ctx.report:add("Tempo", string.format("the project keeps its own tempo map (%g BPM at the start); the file's (%g BPM, %d changes) is not used",
-        ctx.tempo, bpm, #map.tempos + #map.signatures - 2))
+      ctx.report:add(
+        "Tempo",
+        string.format(
+          "the project keeps its own tempo map (%g BPM at the start); the file's (%g BPM, %d changes) is not used",
+          ctx.tempo,
+          bpm,
+          #map.tempos + #map.signatures - 2
+        )
+      )
     end
   else
     api.project_new()
@@ -602,7 +683,9 @@ function M.doc(doc, opts)
     local meta = api.project_get().meta or {}
     local list = type(meta.markers) == "table" and meta.markers or {}
     local top = 0
-    for _, m in ipairs(list) do top = math.max(top, tonumber(m.id) or 0) end
+    for _, m in ipairs(list) do
+      top = math.max(top, tonumber(m.id) or 0)
+    end
     for i, m in ipairs(markers) do
       m.id = top + i
       list[#list + 1] = m
@@ -647,7 +730,9 @@ function M.doc(doc, opts)
     if depth > 0 then
       stack[#stack + 1] = #tracks
     elseif depth < 0 then
-      for _ = 1, -depth do stack[#stack] = nil end
+      for _ = 1, -depth do
+        stack[#stack] = nil
+      end
     end
   end
 
@@ -675,7 +760,9 @@ function M.doc(doc, opts)
     local main_on = not main or main:argn(1) ~= 0
     if t.parent and main_on then
       local ok, err = pcall(api.track_set, t.id, "output", tracks[t.parent].id)
-      if not ok then ctx.report:add("Routing", t.name .. ": into folder " .. tracks[t.parent].name .. ": " .. tostring(err)) end
+      if not ok then
+        ctx.report:add("Routing", t.name .. ": into folder " .. tracks[t.parent].name .. ": " .. tostring(err))
+      end
     end
     if not main_on then
       ctx.report:add("Tracks with the master/parent send off (here they still play through their output)", t.name)
@@ -718,7 +805,9 @@ function M.doc(doc, opts)
       if #holders > 0 then set_meta(t.id, "rpp_placeholders", holders) end
     end
     import_envelopes(block, t.id, ctx, t.name)
-    for _, item in ipairs(block:blocks("ITEM")) do import_item(item, t.id, t.name, ctx) end
+    for _, item in ipairs(block:blocks("ITEM")) do
+      import_item(item, t.id, t.name, ctx)
+    end
     if block:child("FREEZE") then ctx.report:add("Frozen tracks (the frozen audio is not used)", t.name) end
   end
 
@@ -733,7 +822,9 @@ function M.doc(doc, opts)
   end
 
   local ids = {}
-  for i, t in ipairs(tracks) do ids[i] = t.id end
+  for i, t in ipairs(tracks) do
+    ids[i] = t.id
+  end
   return { tracks = ids, report = ctx.report, clips = ctx.clips, devices = ctx.devices, tempo = ctx.tempo }
 end
 

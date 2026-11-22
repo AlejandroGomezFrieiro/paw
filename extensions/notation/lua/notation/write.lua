@@ -42,7 +42,14 @@ local function region(ctx)
   local range = ctx and ctx.range
   if clip and range and range.bars then
     local c = clip:get()
-    return { view = "notation", kind = "char", r0 = 0, r1 = 127, c0 = math.max(0, range.from - c.start), c1 = math.min(c.length, range.to - c.start) }
+    return {
+      view = "notation",
+      kind = "char",
+      r0 = 0,
+      r1 = 127,
+      c0 = math.max(0, range.from - c.start),
+      c1 = math.min(c.length, range.to - c.start),
+    }
   end
   return view:selection()
 end
@@ -79,7 +86,9 @@ end
 
 local function words(ctx)
   local out = {}
-  for _, a in ipairs(ctx.args or {}) do out[#out + 1] = tostring(a) end
+  for _, a in ipairs(ctx.args or {}) do
+    out[#out + 1] = tostring(a)
+  end
   return (table.concat(out, " "):match("^%s*(.-)%s*$"))
 end
 
@@ -98,12 +107,16 @@ local function put_mark(sc, beat, kind, fields, same)
   local t = midi.at_of(sc, f, ref)
   local list = {}
   for _, mk in ipairs(sc.marks or {}) do
-    if not (mk.kind == kind and midi.at_of(sc, f, mk.from) == t and (not same or same(mk))) then list[#list + 1] = mk end
+    if not (mk.kind == kind and midi.at_of(sc, f, mk.from) == t and (not same or same(mk))) then
+      list[#list + 1] = mk
+    end
   end
   local new
   if fields then
     new = { id = D.id(sc, "k"), kind = kind, from = ref }
-    for k, v in pairs(fields) do new[k] = v end
+    for k, v in pairs(fields) do
+      new[k] = v
+    end
     list[#list + 1] = new
   end
   sc.marks = list
@@ -121,9 +134,30 @@ end
 
 -- Dynamics -----------------------------------------------------------------------------------
 
-W.DYNAMICS = { "pppp", "ppp", "pp", "p", "mp", "mf", "f", "ff", "fff", "ffff", "sf", "sfz", "sffz", "fz", "rfz", "sfp", "fp", "niente" }
+W.DYNAMICS = {
+  "pppp",
+  "ppp",
+  "pp",
+  "p",
+  "mp",
+  "mf",
+  "f",
+  "ff",
+  "fff",
+  "ffff",
+  "sf",
+  "sfz",
+  "sffz",
+  "fz",
+  "rfz",
+  "sfp",
+  "fp",
+  "niente",
+}
 local DYN = {}
-for _, d in ipairs(W.DYNAMICS) do DYN[d] = true end
+for _, d in ipairs(W.DYNAMICS) do
+  DYN[d] = true
+end
 DYN.n = true
 
 --- Read a dynamics popover's text: `{ from, pin, to, subito }`, or nil and why.
@@ -142,7 +176,12 @@ function W.parse_dynamic(text)
   if to ~= "" and not DYN[to] then return nil, "`" .. to .. "` is not a dynamic" end
   if pin == "" and to ~= "" then return nil, "two dynamics need a hairpin between them: " .. from .. "<" .. to end
   if from == "" and pin == "" then return nil, "a dynamic, a hairpin, or both: mp, mp<f, <, >, niente<" end
-  return { from = from ~= "" and from or nil, pin = pin ~= "" and pin or nil, to = to ~= "" and to or nil, subito = subito or nil }
+  return {
+    from = from ~= "" and from or nil,
+    pin = pin ~= "" and pin or nil,
+    to = to ~= "" and to or nil,
+    subito = subito or nil,
+  }
 end
 
 --- The next dynamic written after a beat of the clip, or nil.
@@ -177,13 +216,20 @@ function W.dynamic(ctx)
     if d.from then put_mark(sc, a, "dynamic", { value = d.from, subito = d.subito }) end
     if d.pin then
       local niente = d.from == "niente" or d.to == "niente" or nil
-      put_mark(sc, a, "hairpin", { value = d.pin == "<" and "cresc" or "dim", to = (marks.ref(sc, finish)), niente = niente })
+      put_mark(
+        sc,
+        a,
+        "hairpin",
+        { value = d.pin == "<" and "cresc" or "dim", to = (marks.ref(sc, finish)), niente = niente }
+      )
     end
     if d.to then put_mark(sc, finish, "dynamic", { value = d.to }) end
   end)
   local said = {}
   if d.from then said[#said + 1] = d.from .. (d.subito and " subito" or "") end
-  if d.pin then said[#said + 1] = (d.pin == "<" and "crescendo" or "diminuendo") .. (d.to and (" to " .. d.to) or "") end
+  if d.pin then
+    said[#said + 1] = (d.pin == "<" and "crescendo" or "diminuendo") .. (d.to and (" to " .. d.to) or "")
+  end
   paw.notify(table.concat(said, ", "))
 end
 
@@ -191,13 +237,38 @@ end
 
 -- The tempos the words name when no number is given (quarters a minute).
 W.TEMPOS = {
-  Grave = 40, Largo = 50, Larghetto = 63, Lento = 52, Adagio = 70, Adagietto = 76, Andante = 92, Andantino = 100,
-  Moderato = 112, Allegretto = 120, Allegro = 132, Vivace = 160, Vivacissimo = 172, Presto = 180, Prestissimo = 208,
+  Grave = 40,
+  Largo = 50,
+  Larghetto = 63,
+  Lento = 52,
+  Adagio = 70,
+  Adagietto = 76,
+  Andante = 92,
+  Andantino = 100,
+  Moderato = 112,
+  Allegretto = 120,
+  Allegro = 132,
+  Vivace = 160,
+  Vivacissimo = 172,
+  Presto = 180,
+  Prestissimo = 208,
 }
-local UNITS = { ["q"] = 1, ["q."] = 1.5, ["h"] = 2, ["h."] = 3, ["e"] = 0.5, ["e."] = 0.75, ["w"] = 4, ["♩"] = 1, ["♩."] = 1.5 }
-local CHANGES = { ["rit."] = "rit.", rit = "rit.", ritardando = "rit.", ["rall."] = "rit.", rall = "rit.", rallentando = "rit.",
-  ["accel."] = "accel.", accel = "accel.", accelerando = "accel.", ["a tempo"] = "a tempo", ["tempo i"] = "a tempo",
-  ["tempo primo"] = "a tempo" }
+local UNITS =
+  { ["q"] = 1, ["q."] = 1.5, ["h"] = 2, ["h."] = 3, ["e"] = 0.5, ["e."] = 0.75, ["w"] = 4, ["♩"] = 1, ["♩."] = 1.5 }
+local CHANGES = {
+  ["rit."] = "rit.",
+  rit = "rit.",
+  ritardando = "rit.",
+  ["rall."] = "rit.",
+  rall = "rit.",
+  rallentando = "rit.",
+  ["accel."] = "accel.",
+  accel = "accel.",
+  accelerando = "accel.",
+  ["a tempo"] = "a tempo",
+  ["tempo i"] = "a tempo",
+  ["tempo primo"] = "a tempo",
+}
 
 --- Read a tempo popover's text: `{ text, bpm (quarters a minute), unit,
 --- per (the number written), change }`, or nil and why.
@@ -237,9 +308,7 @@ function W.tempo(ctx)
   local t, why = W.parse_tempo(text)
   if not t then return paw.notify(why, "warn") end
   local song = c.start + a
-  view:write(function(sc)
-    put_mark(sc, a, "tempo", { value = t.text, bpm = t.bpm, change = t.change })
-  end)
+  view:write(function(sc) put_mark(sc, a, "tempo", { value = t.text, bpm = t.bpm, change = t.change }) end)
   -- The mark plays: the song's tempo map follows it.
   if t.bpm then
     paw.tempo.set(song, t.bpm)
@@ -283,7 +352,9 @@ function W.parse_meter(text)
   local top, den = text:match("^([%d%+]+)/(%d+)$")
   if not top then return nil, "a time signature: 6/8, 3/4, 3+3+2/8, C, ¢" end
   den = tonumber(den)
-  if not ({ [1] = true, [2] = true, [4] = true, [8] = true, [16] = true, [32] = true })[den] then return nil, "the lower number is 2, 4, 8, 16 or 32" end
+  if not ({ [1] = true, [2] = true, [4] = true, [8] = true, [16] = true, [32] = true })[den] then
+    return nil, "the lower number is 2, 4, 8, 16 or 32"
+  end
   local groups, num = {}, 0
   for g in top:gmatch("%d+") do
     groups[#groups + 1] = tonumber(g)
@@ -314,13 +385,29 @@ function W.meter(ctx)
     sc._frame = nil
     D.touch(sc, mi)
   end)
-  paw.notify(m.num .. "/" .. m.den .. (m.groups and (" (" .. table.concat(m.groups, "+") .. ")") or "") .. " from bar " .. first.number)
+  paw.notify(
+    m.num
+      .. "/"
+      .. m.den
+      .. (m.groups and (" (" .. table.concat(m.groups, "+") .. ")") or "")
+      .. " from bar "
+      .. first.number
+  )
 end
 
 -- Key -------------------------------------------------------------------------------------
 
-local MODES = { major = true, minor = true, dorian = true, phrygian = true, lydian = true, mixolydian = true, locrian = true,
-  ionian = true, aeolian = true }
+local MODES = {
+  major = true,
+  minor = true,
+  dorian = true,
+  phrygian = true,
+  lydian = true,
+  mixolydian = true,
+  locrian = true,
+  ionian = true,
+  aeolian = true,
+}
 
 --- Read a key: `{ root, scale, fifths, name }`, or nil and why. A capital
 --- letter is major and a small one minor (Eb, f#m, c), or the mode is said.
@@ -339,9 +426,15 @@ function W.parse_key(text)
     scale = "major"
   else
     scale = MODES[rest] and rest or nil
-    if scale == "ionian" then scale = "major" elseif scale == "aeolian" then scale = "minor" end
+    if scale == "ionian" then
+      scale = "major"
+    elseif scale == "aeolian" then
+      scale = "minor"
+    end
   end
-  if not scale then return nil, "`" .. rest .. "` is not a mode: major, minor, dorian, phrygian, lydian, mixolydian, locrian" end
+  if not scale then
+    return nil, "`" .. rest .. "` is not a mode: major, minor, dorian, phrygian, lydian, mixolydian, locrian"
+  end
   local root = letter:upper() .. acc
   return { root = root, scale = scale, fifths = model.fifths_of(root, scale), name = root .. " " .. scale }
 end
@@ -371,7 +464,9 @@ function W.key(ctx)
   end)
   -- The key the piece starts in is the project's too, which harmony reads.
   if at_start then pcall(paw.harmony.set_key, k.name) end
-  paw.notify(k.name .. " from bar " .. first.number .. " (" .. math.abs(k.fifths) .. (k.fifths >= 0 and " sharps)" or " flats)"))
+  paw.notify(
+    k.name .. " from bar " .. first.number .. " (" .. math.abs(k.fifths) .. (k.fifths >= 0 and " sharps)" or " flats)")
+  )
   return true
 end
 
@@ -393,15 +488,26 @@ function W.clef(ctx, want)
     m.clef = next(clef) and clef or nil
     D.touch(sc, mi)
   end)
-  paw.notify(want == "off" and ("no clef change at bar " .. first.number) or (want .. " clef from bar " .. first.number))
+  paw.notify(
+    want == "off" and ("no clef change at bar " .. first.number) or (want .. " clef from bar " .. first.number)
+  )
   return true
 end
 
 -- Barlines, repeats, endings, rehearsal marks ------------------------------------------------------
 
-W.BARLINES = { ["|"] = "a plain barline", ["||"] = "a double barline", ["|."] = "the final barline", ["|:"] = "a repeat starts",
-  [":|"] = "a repeat ends", [":|:"] = "a repeat ends and another starts", ["1."] = "first ending", ["2."] = "second ending",
-  ["3."] = "third ending", off = "plain barlines, no repeats or endings" }
+W.BARLINES = {
+  ["|"] = "a plain barline",
+  ["||"] = "a double barline",
+  ["|."] = "the final barline",
+  ["|:"] = "a repeat starts",
+  [":|"] = "a repeat ends",
+  [":|:"] = "a repeat ends and another starts",
+  ["1."] = "first ending",
+  ["2."] = "second ending",
+  ["3."] = "third ending",
+  off = "plain barlines, no repeats or endings",
+}
 
 function W.bar(ctx)
   if not need_clip() then return end
@@ -422,7 +528,9 @@ function W.bar(ctx)
     end
     local volta = tonumber(what:match("^(%d)%.$"))
     if volta then
-      for mi = a, b do set(mi, "volta", volta) end
+      for mi = a, b do
+        set(mi, "volta", volta)
+      end
     elseif what == "|:" then
       set(a, "repeat_start", true)
     elseif what == "|" then
@@ -518,11 +626,31 @@ function W.chord_candidates(typed)
     local ok, here = pcall(paw.harmony.at, beat)
     if ok and here then add(here.name, "what sounds here") end
     local ok2, list = pcall(paw.harmony.chords, beat, beat + 8)
-    for _, ch in ipairs(ok2 and list or {}) do add(ch.name, "sounds at " .. paw.time.format(ch.at)) end
+    for _, ch in ipairs(ok2 and list or {}) do
+      add(ch.name, "sounds at " .. paw.time.format(ch.at))
+    end
   end
   local root = typed:match("^([A-G][#b]?)")
   if root then
-    for _, q in ipairs({ "", "m", "7", "maj7", "m7", "m7b5", "dim", "dim7", "aug", "sus4", "sus2", "6", "m6", "9", "add9", "7b9", "7#11" }) do
+    for _, q in ipairs({
+      "",
+      "m",
+      "7",
+      "maj7",
+      "m7",
+      "m7b5",
+      "dim",
+      "dim7",
+      "aug",
+      "sus4",
+      "sus2",
+      "6",
+      "m6",
+      "9",
+      "add9",
+      "7b9",
+      "7#11",
+    }) do
       add(root .. q)
     end
   end
@@ -571,9 +699,13 @@ function W.lyric(ctx)
       sev.lyric = text ~= "" and text or nil
     else
       local list = {}
-      for i = 1, math.max(#(sev.lyrics or {}), verse - 1) do list[i] = (sev.lyrics or {})[i] or "" end
+      for i = 1, math.max(#(sev.lyrics or {}), verse - 1) do
+        list[i] = (sev.lyrics or {})[i] or ""
+      end
       list[verse - 1] = text
-      while #list > 0 and list[#list] == "" do list[#list] = nil end
+      while #list > 0 and list[#list] == "" do
+        list[#list] = nil
+      end
       sev.lyrics = #list > 0 and list or nil
     end
     D.touch(sc, mi)
@@ -582,9 +714,22 @@ end
 
 -- Ornaments and techniques ---------------------------------------------------------------------------
 
-W.ORNAMENTS = { tr = "trill", trill = "trill", mordent = "mordent", mord = "mordent", prall = "prall", ["inverted mordent"] = "prall",
-  turn = "turn", ["inverted turn"] = "turn_inverted", fermata = "fermata", ["fermata short"] = "fermata_short",
-  ["fermata long"] = "fermata_long", tremolo = "tremolo", trem = "tremolo", off = "off" }
+W.ORNAMENTS = {
+  tr = "trill",
+  trill = "trill",
+  mordent = "mordent",
+  mord = "mordent",
+  prall = "prall",
+  ["inverted mordent"] = "prall",
+  turn = "turn",
+  ["inverted turn"] = "turn_inverted",
+  fermata = "fermata",
+  ["fermata short"] = "fermata_short",
+  ["fermata long"] = "fermata_long",
+  tremolo = "tremolo",
+  trem = "tremolo",
+  off = "off",
+}
 
 function W.ornament(ctx)
   if not need_clip() then return end
@@ -615,14 +760,34 @@ function W.ornament(ctx)
   paw.notify(kind == "off" and "no ornaments" or (text .. " on " .. #ids .. (#ids == 1 and " chord" or " chords")))
 end
 
-W.TECHNIQUES = { "pizz.", "arco", "con sord.", "senza sord.", "trem.", "harm.", "col legno", "sul pont.", "sul tasto", "ord.",
-  "l.v.", "palm mute", "let ring", "mute", "open", "legato", "non vib.", "vib." }
+W.TECHNIQUES = {
+  "pizz.",
+  "arco",
+  "con sord.",
+  "senza sord.",
+  "trem.",
+  "harm.",
+  "col legno",
+  "sul pont.",
+  "sul tasto",
+  "ord.",
+  "l.v.",
+  "palm mute",
+  "let ring",
+  "mute",
+  "open",
+  "legato",
+  "non vib.",
+  "vib.",
+}
 
 function W.technique(ctx)
   if not need_clip() then return end
   local text = words(ctx)
   local a, b, ranged = span(ctx)
-  view:write(function(sc) put_mark(sc, a, "technique", (text ~= "" and text ~= "off") and { value = text } or false) end)
+  view:write(
+    function(sc) put_mark(sc, a, "technique", (text ~= "" and text ~= "off") and { value = text } or false) end
+  )
   marks.tell({ kind = "technique", text = text, from = a, to = ranged and b or nil, clip = view:clip() })
   paw.notify(text ~= "" and text ~= "off" and text or "no technique here")
 end
@@ -655,7 +820,13 @@ function W.interval_note(n, iv, fifths)
   local out = { step = sp.letter, alter = sp.alter, octave = sp.octave }
   if iv.quality then
     -- The quality said: the size in semitones, the letter kept.
-    local want = SEMIS[iv.size] + (iv.quality == "m" and -1 or iv.quality == "A" and 1 or iv.quality == "d" and (PERFECT[iv.size] and -1 or -2) or 0)
+    local want = SEMIS[iv.size]
+      + (
+        iv.quality == "m" and -1
+        or iv.quality == "A" and 1
+        or iv.quality == "d" and (PERFECT[iv.size] and -1 or -2)
+        or 0
+      )
     local have = math.abs(D.pitch(out) - D.pitch(n))
     out.alter = out.alter + (want - have) * (iv.steps < 0 and -1 or 1)
   end
@@ -679,7 +850,9 @@ function W.interval(ctx)
         -- From the top note up, from the lowest down.
         local from = ev.notes[1]
         for _, n in ipairs(ev.notes) do
-          if (iv.steps >= 0 and D.pitch(n) > D.pitch(from)) or (iv.steps < 0 and D.pitch(n) < D.pitch(from)) then from = n end
+          if (iv.steps >= 0 and D.pitch(n) > D.pitch(from)) or (iv.steps < 0 and D.pitch(n) < D.pitch(from)) then
+            from = n
+          end
         end
         local note = W.interval_note(from, iv, fifths)
         local pitch = D.pitch(note)
@@ -704,7 +877,9 @@ function W.parse_tuplet(text)
   if not n then
     -- As many as the power of two below: 3 in the time of 2, 5 of 4, 7 of 4.
     n = 1
-    while n * 2 < a do n = n * 2 end
+    while n * 2 < a do
+      n = n * 2
+    end
     if a == 2 then n = 3 end
   end
   return { actual = a, normal = n }
@@ -747,9 +922,22 @@ local function make_tuplet(a, b, actual, normal)
     for k = 1, actual do
       local it = found[k]
       if it then
-        local x = { id = it.ev.id, kind = "chord", notes = it.ev.notes, art = it.ev.art, arpeggio = it.ev.arpeggio, orn = it.ev.orn,
-          lyric = it.ev.lyric, lyrics = it.ev.lyrics, dur = D.ratio(value), dots = 0, tuplet = tp }
-        for _, n in ipairs(x.notes) do n.tie = nil end
+        local x = {
+          id = it.ev.id,
+          kind = "chord",
+          notes = it.ev.notes,
+          art = it.ev.art,
+          arpeggio = it.ev.arpeggio,
+          orn = it.ev.orn,
+          lyric = it.ev.lyric,
+          lyrics = it.ev.lyrics,
+          dur = D.ratio(value),
+          dots = 0,
+          tuplet = tp,
+        }
+        for _, n in ipairs(x.notes) do
+          n.tie = nil
+        end
         evs[k] = x
       else
         evs[k] = { id = D.id(sc, "e"), kind = "rest", dur = D.ratio(value), dots = 0, tuplet = tp }
@@ -778,7 +966,10 @@ function W.tuplet(ctx)
       if view:toggle_tuplet() == false then paw.notify("plain values") end
       return
     end
-    return paw.notify("a tuplet is taken away by writing its notes again: select them and `notation.tuplet 2:2`", "warn")
+    return paw.notify(
+      "a tuplet is taken away by writing its notes again: select them and `notation.tuplet 2:2`",
+      "warn"
+    )
   end
   if not ranged then
     -- The beat under the cursor.
@@ -848,16 +1039,48 @@ local function list_of(items)
 end
 W.list_of = list_of
 
-cmd("notation.tempo", W.tempo, "A tempo mark at the cursor, which the song's tempo follows: `notation.tempo Allegro q=132`, `rit.` over the range, `a tempo`, `off`")
-cmd("notation.meter", W.meter, "The time signature from the cursor's bar, the music written again in its bars: `notation.meter 6/8`, `3+3+2/8`, `C`")
-cmd("notation.bar", W.bar, "A barline at the cursor (or the range's end): `||`, `|.`, `|:`, `:|`, `:|:`; endings `1.` `2.` over the range; `off`")
-cmd("notation.rehearsal", W.rehearsal, "A rehearsal mark at the cursor's bar (the next letter when none is given), and a song marker")
+cmd(
+  "notation.tempo",
+  W.tempo,
+  "A tempo mark at the cursor, which the song's tempo follows: `notation.tempo Allegro q=132`, `rit.` over the range, `a tempo`, `off`"
+)
+cmd(
+  "notation.meter",
+  W.meter,
+  "The time signature from the cursor's bar, the music written again in its bars: `notation.meter 6/8`, `3+3+2/8`, `C`"
+)
+cmd(
+  "notation.bar",
+  W.bar,
+  "A barline at the cursor (or the range's end): `||`, `|.`, `|:`, `:|`, `:|:`; endings `1.` `2.` over the range; `off`"
+)
+cmd(
+  "notation.rehearsal",
+  W.rehearsal,
+  "A rehearsal mark at the cursor's bar (the next letter when none is given), and a song marker"
+)
 cmd("notation.chord", W.chord, "A chord symbol at the cursor: `notation.chord Cmaj7`, `G/B`, `N.C.`, `off`")
-cmd("notation.lyric", W.lyric, "A syllable under the note at the cursor: `notation.lyric la-`; `verse=2` for the second verse")
-cmd("notation.orn", W.ornament, "An ornament on the chord or the range: `tr`, `mordent`, `prall`, `turn`, `fermata`, `trem`, `off`")
+cmd(
+  "notation.lyric",
+  W.lyric,
+  "A syllable under the note at the cursor: `notation.lyric la-`; `verse=2` for the second verse"
+)
+cmd(
+  "notation.orn",
+  W.ornament,
+  "An ornament on the chord or the range: `tr`, `mordent`, `prall`, `turn`, `fermata`, `trem`, `off`"
+)
 cmd("notation.tech", W.technique, "A playing technique at the cursor (written): `pizz.`, `arco`, `con sord.`, `off`")
-cmd("notation.interval", W.interval, "Add a note an interval above (or below) each chord of the range: `notation.interval 3`, `-6`, `8`, `m3`")
-cmd("notation.tuplet", W.tuplet, "The beat (or the range) as a tuplet: `notation.tuplet 3`, `5:4`; in insert mode, enter in it (`off` plain)")
+cmd(
+  "notation.interval",
+  W.interval,
+  "Add a note an interval above (or below) each chord of the range: `notation.interval 3`, `-6`, `8`, `m3`"
+)
+cmd(
+  "notation.tuplet",
+  W.tuplet,
+  "The beat (or the range) as a tuplet: `notation.tuplet 3`, `5:4`; in insert mode, enter in it (`off` plain)"
+)
 
 view.write_cmds = W
 return W

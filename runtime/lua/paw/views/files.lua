@@ -24,7 +24,7 @@ local M = {}
 
 local options = require("paw.options")
 options.define("files_hidden", false) -- list files whose names start with a dot
-options.define("files_hear", false)   -- hear the sound file under the cursor in a files buffer, once it rests there
+options.define("files_hear", false) -- hear the sound file under the cursor in a files buffer, once it rests there
 
 -- Paths ----------------------------------------------------------------------------
 
@@ -77,9 +77,7 @@ end
 --- The full path of a name that the user typed: `~` is the home folder, and
 --- a relative name is in `paw.files.here()`.
 ---   paw.files.path("mix.wav")  -- "/home/me/songs/mix.wav" in the folder of the project
-function M.path(name)
-  return resolve(name, M.here())
-end
+function M.path(name) return resolve(name, M.here()) end
 
 --- The full path of a project's name that the user typed, as `:w` takes
 --- it: as `path`, but a relative name goes beside a project folder, not
@@ -116,9 +114,7 @@ function M.cd(dir)
 end
 
 --- The name of the buffer that lists a folder, as a tree or not.
-function M.buffer_name(dir, tree)
-  return (tree and "paw://tree" or "paw://files") .. normalize(dir)
-end
+function M.buffer_name(dir, tree) return (tree and "paw://tree" or "paw://files") .. normalize(dir) end
 
 --- True if a path is a folder.
 function M.is_dir(path)
@@ -173,7 +169,9 @@ local function is_midi(path) return paw.midifile.is_midi_file(path) end
 --- The files the project plays, as a set of paths.
 local function used_media()
   local used = {}
-  for _, f in ipairs(api.media_list()) do used[normalize(f.path)] = true end
+  for _, f in ipairs(api.media_list()) do
+    used[normalize(f.path)] = true
+  end
   return used
 end
 
@@ -243,9 +241,13 @@ local function parse(text, ctx)
   local raw = list[1].text
   local dir = false
   local body = raw:match("^(.-)/$")
-  if body and body ~= "" then raw, dir = body, true end
+  if body and body ~= "" then
+    raw, dir = body, true
+  end
   local name = unquote(raw)
-  if name == "" or name == "." or name == ".." or name == "~" then return nil, "a file needs a name, not `" .. raw .. "`" end
+  if name == "" or name == "." or name == ".." or name == "~" then
+    return nil, "a file needs a name, not `" .. raw .. "`"
+  end
   local depth = ctx.kind.tree and math.floor(list[1].col / 2 + 0.5) or 0
   return { name = name, dir = dir, depth = depth }
 end
@@ -283,7 +285,9 @@ local function plan(ch, ctx)
     local f = e.fields
     local parent = root
     if tree then
-      while #stack > 0 and stack[#stack].depth >= f.depth do stack[#stack] = nil end
+      while #stack > 0 and stack[#stack].depth >= f.depth do
+        stack[#stack] = nil
+      end
       if #stack > 0 then parent = stack[#stack].final end
     end
     e.final = resolve(f.name, parent)
@@ -307,7 +311,9 @@ local function plan(ch, ctx)
   for _, e in ipairs(ch.lines) do
     local f = e.fields
     if e.base and not e.copy_of then
-      if f.dir ~= e.base.dir then row_error(e, "a file cannot become a folder, or a folder a file: delete the line and type the other") end
+      if f.dir ~= e.base.dir then
+        row_error(e, "a file cannot become a folder, or a folder a file: delete the line and type the other")
+      end
       local from = phys(e.id)
       if from ~= e.final then
         moves[#moves + 1] = { from = from, to = e.final, row = e, dir = f.dir }
@@ -329,7 +335,9 @@ local function plan(ch, ctx)
 
   -- What would be written over, or made twice, is refused here.
   local sources = {}
-  for _, m in ipairs(moves) do sources[m.from] = true end
+  for _, m in ipairs(moves) do
+    sources[m.from] = true
+  end
   local seen = {}
   local function claim(item, what)
     if seen[item.to] then row_error(item.row, "two lines make " .. shown(item.to, root)) end
@@ -341,10 +349,18 @@ local function plan(ch, ctx)
       row_error(item.row, shown(item.from, root) .. " cannot go inside itself")
     end
   end
-  for _, m in ipairs(moves) do claim(m, "move") end
-  for _, c in ipairs(copies) do claim(c) end
-  for _, m in ipairs(makes) do claim(m) end
-  for _, d in ipairs(folders) do claim(d) end
+  for _, m in ipairs(moves) do
+    claim(m, "move")
+  end
+  for _, c in ipairs(copies) do
+    claim(c)
+  end
+  for _, m in ipairs(makes) do
+    claim(m)
+  end
+  for _, d in ipairs(folders) do
+    claim(d)
+  end
 
   -- A name that another line gives up (a swap, a shift along) is reached
   -- by way of a temporary name.
@@ -357,9 +373,8 @@ local function plan(ch, ctx)
   end
 
   for _, d in ipairs(folders) do
-    steps[#steps + 1] = { text = "new folder " .. shown(d.to, root) .. "/", run = function(state)
-      make_dirs(d.to, state)
-    end }
+    steps[#steps + 1] =
+      { text = "new folder " .. shown(d.to, root) .. "/", run = function(state) make_dirs(d.to, state) end }
   end
   local function text_of(m)
     local verb = dirname(m.from) == dirname(m.to) and "rename " or "move "
@@ -374,9 +389,11 @@ local function plan(ch, ctx)
     local temps = {}
     for i, m in ipairs(moves) do
       temps[i] = join(dirname(m.from), ".move-" .. i .. "-" .. basename(m.from))
-      steps[#steps + 1] = { text = "move " .. shown(m.from, root) .. " aside", quiet = true, run = function(state)
-        move_now(m.from, temps[i], state)
-      end }
+      steps[#steps + 1] = {
+        text = "move " .. shown(m.from, root) .. " aside",
+        quiet = true,
+        run = function(state) move_now(m.from, temps[i], state) end,
+      }
     end
     for i, m in ipairs(moves) do
       steps[#steps + 1] = { text = text_of(m), run = function(state) move_now(temps[i], m.to, state) end }
@@ -387,34 +404,45 @@ local function plan(ch, ctx)
     end
   end
   for _, c in ipairs(copies) do
-    steps[#steps + 1] = { text = "copy " .. shown(c.from, root) .. " → " .. shown(c.to, root), run = function(state)
-      local from = api.fs_stat(c.from)
-      if from and from.dir then error(c.from .. " is a directory: only files are copied", 0) end
-      make_dirs(dirname(c.to), state)
-      api.fs_copy(c.from, c.to)
-      table.insert(state.undo, function() os.remove(c.to) end)
-    end }
+    steps[#steps + 1] = {
+      text = "copy " .. shown(c.from, root) .. " → " .. shown(c.to, root),
+      run = function(state)
+        local from = api.fs_stat(c.from)
+        if from and from.dir then error(c.from .. " is a directory: only files are copied", 0) end
+        make_dirs(dirname(c.to), state)
+        api.fs_copy(c.from, c.to)
+        table.insert(state.undo, function() os.remove(c.to) end)
+      end,
+    }
   end
   for _, m in ipairs(makes) do
-    steps[#steps + 1] = { text = "new file " .. shown(m.to, root), run = function(state)
-      make_dirs(dirname(m.to), state)
-      api.fs_create(m.to)
-      table.insert(state.undo, function() os.remove(m.to) end)
-    end }
+    steps[#steps + 1] = {
+      text = "new file " .. shown(m.to, root),
+      run = function(state)
+        make_dirs(dirname(m.to), state)
+        api.fs_create(m.to)
+        table.insert(state.undo, function() os.remove(m.to) end)
+      end,
+    }
   end
   -- What is deleted goes to the trash, deepest first.
   local gone = {}
-  for _, d in ipairs(ch.deleted) do gone[#gone + 1] = { path = phys(d.id), dir = d.base.dir } end
+  for _, d in ipairs(ch.deleted) do
+    gone[#gone + 1] = { path = phys(d.id), dir = d.base.dir }
+  end
   table.sort(gone, function(a, b) return #a.path > #b.path end)
   for _, g in ipairs(gone) do
-    steps[#steps + 1] = { text = "delete " .. shown(g.path, root) .. (g.dir and "/" or "") .. " (to the trash)", run = function(state)
-      if not exists(g.path) then return end
-      local trashed = api.fs_trash(g.path)
-      table.insert(state.undo, function()
-        api.fs_move(trashed, g.path)
-        os.remove(info_of(trashed))
-      end)
-    end }
+    steps[#steps + 1] = {
+      text = "delete " .. shown(g.path, root) .. (g.dir and "/" or "") .. " (to the trash)",
+      run = function(state)
+        if not exists(g.path) then return end
+        local trashed = api.fs_trash(g.path)
+        table.insert(state.undo, function()
+          api.fs_move(trashed, g.path)
+          os.remove(info_of(trashed))
+        end)
+      end,
+    }
   end
   return steps
 end
@@ -431,13 +459,25 @@ local function place(path, fresh)
     local track = not fresh and paw.cursor.track() or nil
     local ok, clip = pcall(paw.import_audio, path, { track = track and track.id, start = paw.cursor.beat })
     if not ok then return paw.notify("could not place " .. name .. ": " .. tostring(clip), "error") end
-    return paw.notify(string.format("%s: %.1f beats on “%s” at %s", name, clip.length, clip:track().name, paw.time.format(clip.start)))
+    return paw.notify(
+      string.format(
+        "%s: %.1f beats on “%s” at %s",
+        name,
+        clip.length,
+        clip:track().name,
+        paw.time.format(clip.start)
+      )
+    )
   end
   if is_midi(path) then
     local track = not fresh and paw.cursor.track() or nil
     local ok, done = pcall(paw.midifile.import, path, { track = track })
-    if not ok then return paw.notify("could not place " .. name .. ": " .. tostring(done):gsub("^[^:]*:%d+: ", ""), "error") end
-    return paw.notify(string.format("%s: %d notes on %d track%s", name, done.notes, #done.tracks, #done.tracks == 1 and "" or "s"))
+    if not ok then
+      return paw.notify("could not place " .. name .. ": " .. tostring(done):gsub("^[^:]*:%d+: ", ""), "error")
+    end
+    return paw.notify(
+      string.format("%s: %d notes on %d track%s", name, done.notes, #done.tracks, #done.tracks == 1 and "" or "s")
+    )
   end
   if path:lower():match("%.json$") then return paw.commands.run("open", { path }) end
   paw.notify(name .. " is not a project, a sound or a MIDI file", "warn")
@@ -445,7 +485,9 @@ end
 
 local function toggle(buf, path)
   local st = buf.state
-  if st.text:modified() then return paw.notify("the buffer has changes: `:w` applies them, `:e!` throws them away", "warn") end
+  if st.text:modified() then
+    return paw.notify("the buffer has changes: `:w` applies them, `:e!` throws them away", "warn")
+  end
   st.expanded = st.expanded or {}
   st.expanded[path] = not st.expanded[path] or nil
   tb.reload(buf)
@@ -483,7 +525,9 @@ local function follow()
     local line = t.lines[s.row]
     path = line and line.id
   end
-  if path ~= heard.path then heard.path, heard.since = path, api.now() end
+  if path ~= heard.path then
+    heard.path, heard.since = path, api.now()
+  end
   if not (path and hearable(path)) then
     if heard.playing then
       heard.playing = nil
@@ -529,11 +573,18 @@ local function kind(name, tree)
     keywords = {},
     first_style = "TrackName",
     keys = {
-      { "<CR>", tree and "open, place" or "open, place a sound" }, { "d", "trash", "dd" }, { "o", "new" }, { "y", "copy", "yyp" },
-      { "go", "new track" }, { "gh", "hear" }, { "-", "up" }, { ":", "does it", ":w" }, { "?", "keys" },
+      { "<CR>", tree and "open, place" or "open, place a sound" },
+      { "d", "trash", "dd" },
+      { "o", "new" },
+      { "y", "copy", "yyp" },
+      { "go", "new track" },
+      { "gh", "hear" },
+      { "-", "up" },
+      { ":", "does it", ":w" },
+      { "?", "keys" },
     },
     hint = tree
-      and "edit names and `:w` · Enter or `za` opens a folder · `dd` trash, `o` new (`name/` a folder), `yyp` copy · Enter places a sound · `go` new track · `gh` hear · `-` up"
+        and "edit names and `:w` · Enter or `za` opens a folder · `dd` trash, `o` new (`name/` a folder), `yyp` copy · Enter places a sound · `go` new track · `gh` hear · `-` up"
       or "edit names and `:w` · Enter opens, places a sound at the cursor · `dd` trash, `o` new (`name/` a folder), `yyp` copy · `go` new track · `gh` hear · `-` up",
     style = function(cell, i)
       if i == 1 then return cell:match("/$") and "Accent" or "TrackName" end
@@ -597,12 +648,20 @@ local function show(tree)
   end
 end
 
-paw.command("cd", function(ctx)
-  local arg = ctx.args[1] and tostring(ctx.args[1]) or nil
-  local dir, why = M.cd(arg)
-  if not dir then return paw.notify(why, "warn") end
-  paw.notify("relative names go to " .. dir)
-end, { desc = "Set the folder that relative names go to, as in Vim: `cd ~/songs`, `cd -` the one before; alone, the home folder", raw = false, complete = { "dirs" } })
+paw.command(
+  "cd",
+  function(ctx)
+    local arg = ctx.args[1] and tostring(ctx.args[1]) or nil
+    local dir, why = M.cd(arg)
+    if not dir then return paw.notify(why, "warn") end
+    paw.notify("relative names go to " .. dir)
+  end,
+  {
+    desc = "Set the folder that relative names go to, as in Vim: `cd ~/songs`, `cd -` the one before; alone, the home folder",
+    raw = false,
+    complete = { "dirs" },
+  }
+)
 paw.command("pwd", function()
   local how = chosen and "set with `:cd`" or api.project_get("path") and "the project's folder" or "where paw started"
   paw.notify(M.here() .. " (" .. how .. ")")
@@ -633,9 +692,7 @@ local function files_buffer()
   if buf and buf.state.kind and buf.state.kind.files then return buf, t, s end
 end
 
-local function ctx_of(buf)
-  return { buf = buf, args = buf.state.args, kind = buf.state.kind, target = buf.target }
-end
+local function ctx_of(buf) return { buf = buf, args = buf.state.args, kind = buf.state.kind, target = buf.target } end
 
 local function files_key(lhs, fn, desc, modes)
   paw.keymap.set(lhs, function(ctx)
@@ -656,7 +713,9 @@ local function fold_all(open)
   return function(buf)
     local st = buf.state
     if not st.kind.tree then return paw.notify("folders open in a tree: `:Files`", "warn") end
-    if st.text:modified() then return paw.notify("the buffer has changes: `:w` applies them, `:e!` throws them away", "warn") end
+    if st.text:modified() then
+      return paw.notify("the buffer has changes: `:w` applies them, `:e!` throws them away", "warn")
+    end
     st.expanded = {}
     if open then
       local function walk(dir, depth)

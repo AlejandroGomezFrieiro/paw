@@ -23,21 +23,21 @@ local plugins = home .. "/extensions"
 -- The plugins. Take a line out, or put `--` before it, to leave one out;
 -- each has a README in its directory saying what it adds and which keys.
 for _, name in ipairs({
-  "drums",      -- drum tracks in one step, a grid of the kit's pieces (`\kn`; `:drums.track`)
-  "notation",   -- a MIDI clip as staff notation, to read and edit (`\n` on a clip)
-  "utau",       -- singing synthesis and the vocal editor (`\Vt` adds a vocal track)
-  "vinput",     -- virtual inputs: a guitar heard as MIDI through gdi2m (`\i`)
-  "templates",  -- tracks, groups and device chains saved under a name (`\Tl` makes one, `\Ts` saves)
-  "pattern",    -- clips written as a line of pattern text (`\tt`)
-  "sections",   -- named sections of the song, and arranging by section (`\S…`)
-  "musicops",   -- humanize, strum, arpeggiate, scales and the project's key
-  "mixdiag",    -- the mix measured: loudness, true peak, phase (`<Space>m…`)
-  "undotree",   -- the undo tree, named checkpoints, A/B listening (`<Space>p…`)
-  "interop",    -- opening and writing the projects of REAPER and of DAWproject programs (`:e song.rpp`, `:import`, `:export`)
-  "tutor",      -- the course: `:tutor` starts it
-  "doctor",     -- a guided check of the hardware, with a written report (`:doctor`, `paw doctor`)
-  "luafx",      -- devices written in Lua: gain and pan, drive, chords, sine (and how to write your own)
-  "plugstate",  -- amp models, impulse responses, instrument files of plugins; snapshots (`]m`, `\s` in the device panel)
+  "drums", -- drum tracks in one step, a grid of the kit's pieces (`\kn`; `:drums.track`)
+  "notation", -- a MIDI clip as staff notation, to read and edit (`\n` on a clip)
+  "utau", -- singing synthesis and the vocal editor (`\Vt` adds a vocal track)
+  "vinput", -- virtual inputs: a guitar heard as MIDI through gdi2m (`\i`)
+  "templates", -- tracks, groups and device chains saved under a name (`\Tl` makes one, `\Ts` saves)
+  "pattern", -- clips written as a line of pattern text (`\tt`)
+  "sections", -- named sections of the song, and arranging by section (`\S…`)
+  "musicops", -- humanize, strum, arpeggiate, scales and the project's key
+  "mixdiag", -- the mix measured: loudness, true peak, phase (`<Space>m…`)
+  "undotree", -- the undo tree, named checkpoints, A/B listening (`<Space>p…`)
+  "interop", -- opening and writing the projects of REAPER and of DAWproject programs (`:e song.rpp`, `:import`, `:export`)
+  "tutor", -- the course: `:tutor` starts it
+  "doctor", -- a guided check of the hardware, with a written report (`:doctor`, `paw doctor`)
+  "luafx", -- devices written in Lua: gain and pan, drive, chords, sine (and how to write your own)
+  "plugstate", -- amp models, impulse responses, instrument files of plugins; snapshots (`]m`, `\s` in the device panel)
 }) do
   paw.ext.load(plugins .. "/" .. name)
 end

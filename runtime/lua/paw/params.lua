@@ -11,9 +11,7 @@ local M = {}
 local LOG_UNITS = { Hz = true, ms = true, s = true, Q = true, [":1"] = true }
 
 --- True if the parameter moves on a log scale.
-function M.is_log(p)
-  return LOG_UNITS[p.unit] and p.min > 0 and p.max / p.min >= 8 and #p.choices == 0
-end
+function M.is_log(p) return LOG_UNITS[p.unit] and p.min > 0 and p.max / p.min >= 8 and #p.choices == 0 end
 
 -- A number with at most `digits` decimals and no trailing zeros.
 local function trim(value, digits)
@@ -89,7 +87,8 @@ end
 -- A value rounded to what its unit shows, so that keys land on round numbers.
 local function round(p, value)
   local q
-  if p.unit == "dB" then q = 0.1
+  if p.unit == "dB" then
+    q = 0.1
   elseif M.is_log(p) then
     local mag = 10 ^ math.floor(math.log(math.abs(value), 10))
     q = mag / 100
@@ -101,9 +100,7 @@ end
 --- The value `steps` key presses away: a hundredth of the slider each, one
 --- option at a time for a choice.
 function M.step(p, value, steps)
-  if #p.choices > 0 then
-    return math.max(p.min, math.min(p.max, math.floor(value + 0.5) + (steps > 0 and 1 or -1)))
-  end
+  if #p.choices > 0 then return math.max(p.min, math.min(p.max, math.floor(value + 0.5) + (steps > 0 and 1 or -1))) end
   local moved = round(p, M.from_fraction(p, M.fraction(p, value) + steps / 100))
   if moved == value then moved = M.from_fraction(p, M.fraction(p, value) + steps / 100) end
   return math.max(p.min, math.min(p.max, moved))
@@ -116,18 +113,20 @@ function M.read(device, method, data)
   local text = paw.api.device_call(id, method, data and tostring(data) or nil)
   if text:find("\n") then
     local out = {}
-    for name, value in text:gmatch("(%S+) (%S+)") do out[name] = tonumber(value) or value end
+    for name, value in text:gmatch("(%S+) (%S+)") do
+      out[name] = tonumber(value) or value
+    end
     return out
   end
   local out = {}
-  for n in text:gmatch("%S+") do out[#out + 1] = tonumber(n) end
+  for n in text:gmatch("%S+") do
+    out[#out + 1] = tonumber(n)
+  end
   return out
 end
 
 --- The built-in presets of a device kind: a list of `{ name, params }`.
-function M.presets(kind)
-  return require("paw.device_presets")[kind] or {}
-end
+function M.presets(kind) return require("paw.device_presets")[kind] or {} end
 
 --- A preset's value for a parameter as a number: a choice may be named.
 function M.preset_value(p, value)

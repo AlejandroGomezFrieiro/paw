@@ -18,7 +18,10 @@ function M.target(name)
       local found
       for _, other in ipairs(vinput.inputs) do
         if other.name:lower():find(tostring(name):lower(), 1, true) then
-          if found then found = false break end
+          if found then
+            found = false
+            break
+          end
           found = other
         end
       end
@@ -44,10 +47,14 @@ end
 function M.pick_source(input)
   local sources = run.sources(input.kind, true)
   local items = {}
-  for _, name in ipairs(sources or {}) do items[#items + 1] = { label = name, source = name } end
+  for _, name in ipairs(sources or {}) do
+    items[#items + 1] = { label = name, source = name }
+  end
   if input.source ~= "" then
     local known = false
-    for _, item in ipairs(items) do known = known or item.source == input.source end
+    for _, item in ipairs(items) do
+      known = known or item.source == input.source
+    end
     if not known then table.insert(items, 1, { label = input.source .. "  (not there now)", source = input.source }) end
   end
   items[#items + 1] = { label = "Type a part of a port's name…", type = true }
@@ -94,7 +101,9 @@ end
 
 local function names()
   local out = {}
-  for i, input in ipairs(vinput.inputs) do out[i] = input.name end
+  for i, input in ipairs(vinput.inputs) do
+    out[i] = input.name
+  end
   return out
 end
 
@@ -108,8 +117,12 @@ command("vinput.add", function(ctx)
   local ok, input = pcall(vinput.add, spec)
   if not ok then return paw.notify(tostring(input), "warn") end
   M.open(input.name)
-  paw.notify("virtual input “" .. input.name .. "”: a track takes it as its MIDI input"
-    .. (input.source == "" and "; choose its source" or ""))
+  paw.notify(
+    "virtual input “"
+      .. input.name
+      .. "”: a track takes it as its MIDI input"
+      .. (input.source == "" and "; choose its source" or "")
+  )
 end, { desc = "A new guitar-to-MIDI input: `vinput.add Guitar source=Input_2 gain=1.2`" })
 
 command("vinput.remove", function(ctx)
@@ -125,12 +138,20 @@ command("vinput.set", function(ctx)
   local ok, err = pcall(vinput.set, input.name, key, value)
   if not ok then return paw.notify(tostring(err), "warn") end
   local setting = vinput.setting(input.kind, key)
-  paw.notify(input.name .. ": " .. key .. " " .. (setting and vinput.format(setting, input[key]) or tostring(input[key] or input.name)))
+  paw.notify(
+    input.name
+      .. ": "
+      .. key
+      .. " "
+      .. (setting and vinput.format(setting, input[key]) or tostring(input[key] or input.name))
+  )
 end, {
   desc = "Change a setting of a virtual input: `vinput.set gain 1.2`, `vinput.set threshold 0.8 input=Guitar`",
   complete = function()
     local words = { "name" }
-    for _, setting in ipairs(vinput.settings("gdi2m")) do words[#words + 1] = setting.key end
+    for _, setting in ipairs(vinput.settings("gdi2m")) do
+      words[#words + 1] = setting.key
+    end
     return words
   end,
 })
@@ -167,7 +188,9 @@ command("vinput.gain", function(ctx)
   local input = M.target(ctx.args[1])
   if not input then return end
   local advice = vinput.status(input.name).advice
-  if not advice then return paw.notify("the tracker says what gain it would take when it has heard some playing and stopped", "info") end
+  if not advice then
+    return paw.notify("the tracker says what gain it would take when it has heard some playing and stopped", "info")
+  end
   vinput.set(input.name, "gain", advice.gain)
   paw.notify(string.format("%s: gain %.2f, the level was %.1f dB %s", input.name, input.gain, advice.db, advice.way))
 end, { desc = "Take the gain the tracker asked for after its last run", complete = names })
@@ -176,7 +199,11 @@ command("vinput.status", function()
   if #vinput.inputs == 0 then return paw.notify("no virtual inputs: `:vinput.add` makes one") end
   local lines = {}
   for _, input in ipairs(vinput.inputs) do
-    lines[#lines + 1] = input.name .. ": " .. panel.status_text(vinput.status(input.name)) .. "   " .. panel.chain(input)
+    lines[#lines + 1] = input.name
+      .. ": "
+      .. panel.status_text(vinput.status(input.name))
+      .. "   "
+      .. panel.chain(input)
   end
   paw.notify(table.concat(lines, "\n"))
 end, { desc = "What every virtual input is doing" })
@@ -186,11 +213,13 @@ end, { desc = "What every virtual input is doing" })
 map("<localleader>i", "vinput", { view = "arrange", desc = "Virtual inputs (guitar to MIDI)" })
 
 local function pmap(lhs, rhs, desc, opts) map(lhs, rhs, paw.util.merge({ view = "vinput", desc = desc }, opts)) end
-local function move(by) return function(ctx)
-  panel.row = panel.row + by * (ctx.count or 1)
-  panel:current()
-  api.ui_redraw()
-end end
+local function move(by)
+  return function(ctx)
+    panel.row = panel.row + by * (ctx.count or 1)
+    panel:current()
+    api.ui_redraw()
+  end
+end
 -- `j` `k` only move, as in every view; the value under the cursor is `+`
 -- `-` (and `Ctrl-a` `Ctrl-x`, with a count).
 local motion = { motion = true }
@@ -198,14 +227,22 @@ pmap("j", move(1), "Down a row", motion)
 pmap("k", move(-1), "Up a row", motion)
 pmap("<Down>", move(1), "Down a row", motion)
 pmap("<Up>", move(-1), "Up a row", motion)
-pmap("gg", function(ctx) panel.row = ctx.count or 1 api.ui_redraw() end, "The first row, or row N", motion)
-pmap("G", function(ctx) panel.row = ctx.count or #panel:rows() api.ui_redraw() end, "The last row, or row N", motion)
-local function adjust(steps) return function(ctx)
-  local row = panel:current()
-  if not row then return end
-  if row.heading then return vinput.set(row.input.name, "on", steps > 0) end
-  if row.setting then vinput.nudge(row.input.name, row.setting.key, steps * (ctx.count or 1)) end
-end end
+pmap("gg", function(ctx)
+  panel.row = ctx.count or 1
+  api.ui_redraw()
+end, "The first row, or row N", motion)
+pmap("G", function(ctx)
+  panel.row = ctx.count or #panel:rows()
+  api.ui_redraw()
+end, "The last row, or row N", motion)
+local function adjust(steps)
+  return function(ctx)
+    local row = panel:current()
+    if not row then return end
+    if row.heading then return vinput.set(row.input.name, "on", steps > 0) end
+    if row.setting then vinput.nudge(row.input.name, row.setting.key, steps * (ctx.count or 1)) end
+  end
+end
 pmap("+", adjust(1), "More; on", { role = "main+" })
 pmap("-", adjust(-1), "Less; off", { role = "main-" })
 pmap("<C-a>", adjust(1), "More by the count; on", { role = "main+" })
@@ -239,19 +276,31 @@ paw.keymap.classic("<Esc>", function() paw.layout.back() end, { view = "vinput",
 
 if paw.ui.keybar then
   paw.ui.keybar.set("vinput", "n", {
-    { "<CR>", "change" }, { "-", "less" }, { "+", "more" }, { "o", "on/off" }, { "s", "source" }, { "a", "add" },
-    { "t", "track" }, { "ga", "take gain" }, { "r", "restart" }, { "D", "remove" }, { "<C-w>p", "back" },
+    { "<CR>", "change" },
+    { "-", "less" },
+    { "+", "more" },
+    { "o", "on/off" },
+    { "s", "source" },
+    { "a", "add" },
+    { "t", "track" },
+    { "ga", "take gain" },
+    { "r", "restart" },
+    { "D", "remove" },
+    { "<C-w>p", "back" },
   })
 end
 
 -- In the window's menus ----------------------------------------------------------
 
-table.insert(paw.frontend.menus.timeline, { label = "New track from a virtual input", run = function()
-  -- The first input, made if there is none; its window, to choose the source in.
-  local input = vinput.inputs[1] or vinput.add({})
-  vinput.make_track(input.name)
-  M.open(input.name)
-end })
+table.insert(paw.frontend.menus.timeline, {
+  label = "New track from a virtual input",
+  run = function()
+    -- The first input, made if there is none; its window, to choose the source in.
+    local input = vinput.inputs[1] or vinput.add({})
+    vinput.make_track(input.name)
+    M.open(input.name)
+  end,
+})
 table.insert(paw.frontend.menus.timeline, { label = "Virtual inputs…", run = function() M.open() end })
 
 package.loaded["vinput.commands"] = M

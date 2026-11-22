@@ -46,7 +46,9 @@ local function load()
     vinput, run, panel = require("vinput"), require("vinput.run"), require("vinput.panel")
     run.PERIOD, run.SETTLE, run.GRACE, run.RETRY = 40, 50, 1000, 60
   end
-  for i = #vinput.inputs, 1, -1 do vinput.remove(vinput.inputs[i].name) end
+  for i = #vinput.inputs, 1, -1 do
+    vinput.remove(vinput.inputs[i].name)
+  end
   paw.opt.vinput_run = false
   paw.opt.vinput_gdi2m = fake
   return vinput
@@ -55,7 +57,9 @@ end
 --- Let time pass until `done()` or three seconds are over.
 local function settle(done)
   local deadline = api.now() + 3000
-  while api.now() < deadline and not done() do paw.wait(20) end
+  while api.now() < deadline and not done() do
+    paw.wait(20)
+  end
   return done()
 end
 
@@ -73,7 +77,11 @@ test("vinput: an input is a MIDI port of the program's own, with a chain of sett
   fresh()
   load()
   local input = vinput.add({ name = "Guitar" })
-  eq(input.kind .. " " .. input.gain .. " " .. input.threshold .. " " .. input.channel, "gdi2m 1 0.85 1", "a new input has the tracker's usual settings")
+  eq(
+    input.kind .. " " .. input.gain .. " " .. input.threshold .. " " .. input.channel,
+    "gdi2m 1 0.85 1",
+    "a new input has the tracker's usual settings"
+  )
   eq(own_ports(), "Guitar", "and a MIDI port by its name")
   eq(vinput.add({}).name, "Guitar 2", "a second one gets a name of its own")
   vinput.set("Guitar", "gain", 99)
@@ -87,8 +95,12 @@ test("vinput: an input is a MIDI port of the program's own, with a chain of sett
   vinput.set("Guitar", "split", "E3:2, 64:3")
   vinput.set("Guitar", "source", "Steinberg UR22mkII  Input 2:capture_MONO")
   local argv = table.concat(vinput.kinds.gdi2m.argv(input), "|")
-  eq(argv:find("live|--device|Steinberg UR22mkII  Input 2:capture_MONO|--port|paw:Guitar (playback)|--gain|8|", 1, true) ~= nil, true,
-    "the tracker is given the source and this program's port")
+  eq(
+    argv:find("live|--device|Steinberg UR22mkII  Input 2:capture_MONO|--port|paw:Guitar (playback)|--gain|8|", 1, true)
+      ~= nil,
+    true,
+    "the tracker is given the source and this program's port"
+  )
   eq(argv:find("|--channel|3|--attack-velocity|--split|52:2,64:3", 1, true) ~= nil, true, "and how the notes go out")
   eq(vinput.remove("Guitar 2"), true, "an input is taken away")
   eq(own_ports(), "Guitar", "with its port")
@@ -99,7 +111,11 @@ test("vinput: a track takes the input by name, and follows when it is renamed", 
   load()
   vinput.add({ name = "Guitar" })
   local track = vinput.make_track("Guitar")
-  eq(track.name .. " " .. track.midi_input.port .. " " .. tostring(track.armed), "Guitar Guitar true", "a track made for the input takes it, armed")
+  eq(
+    track.name .. " " .. track.midi_input.port .. " " .. tostring(track.armed),
+    "Guitar Guitar true",
+    "a track made for the input takes it, armed"
+  )
   eq(#track:devices(), 1, "with an instrument to hear it through")
   local other = paw.add_track({ name = "Keys" })
   other:add_device("synth")
@@ -107,7 +123,10 @@ test("vinput: a track takes the input by name, and follows when it is renamed", 
   other.armed = true
   paw.flush()
   paw.midi.inject({ type = "note_on", pitch = 52, velocity = 100, port = "Guitar" })
-  T.until_(function() return select(1, track:meter()) > 0.01 end, "what arrives at the input's port to be heard on its track")
+  T.until_(
+    function() return select(1, track:meter()) > 0.01 end,
+    "what arrives at the input's port to be heard on its track"
+  )
   eq(select(1, other:meter()), 0, "and not on a track that takes another port")
   paw.midi.inject({ type = "note_off", pitch = 52, port = "Guitar" })
   vinput.set("Guitar", "name", "Strat")
@@ -128,11 +147,17 @@ test("vinput: the inputs are kept in a file and are there at the next start", fu
   file:close()
   eq(#data.inputs .. " " .. data.inputs[1].name .. " " .. data.inputs[1].gain, "2 Guitar 1.25", "the file has them")
   -- As a new start would: nothing known, then the file is read.
-  for _, input in ipairs(vinput.inputs) do paw.midi.close_port(input.name) end
+  for _, input in ipairs(vinput.inputs) do
+    paw.midi.close_port(input.name)
+  end
   vinput.inputs = {}
   vinput.load()
   local guitar, bass = vinput.get("Guitar"), vinput.get("Bass")
-  eq(guitar.source .. " " .. guitar.gain .. " " .. guitar.threshold .. " " .. tostring(guitar.on), "Input 2 1.25 0.8 true", "settings come back")
+  eq(
+    guitar.source .. " " .. guitar.gain .. " " .. guitar.threshold .. " " .. tostring(guitar.on),
+    "Input 2 1.25 0.8 true",
+    "settings come back"
+  )
   eq(tostring(bass.on) .. " " .. bass.mute_drop, "false 20", "an input that was off is off, with the rest as usual")
   eq(own_ports(), "Guitar, Bass", "and their ports are open again")
 end)
@@ -144,10 +169,18 @@ test("vinput: the tracker runs while the input is on, and is started again when 
   eq(vinput.status("Guitar").text, "waits for an audio device", "without a real audio device nothing is run")
   paw.opt.vinput_run = true
   run.sync()
-  eq(vinput.status("Guitar").state .. ": " .. vinput.status("Guitar").text, "blocked: not ready: choose the guitar's input", "an input with no source says so")
+  eq(
+    vinput.status("Guitar").state .. ": " .. vinput.status("Guitar").text,
+    "blocked: not ready: choose the guitar's input",
+    "an input with no source says so"
+  )
   vinput.set("Guitar", "source", "Input 2")
   eq(settle(function() return vinput.status("Guitar").state == "running" end), true, "with a source the tracker runs")
-  eq(settle(function() return (vinput.status("Guitar").notes or 0) >= 2 end), true, "and what it prints is read as it goes")
+  eq(
+    settle(function() return (vinput.status("Guitar").notes or 0) >= 2 end),
+    true,
+    "and what it prints is read as it goes"
+  )
   local status = vinput.status("Guitar")
   near(status.level, -19.8, 0.01, "the level it hears")
   near(status.peak, -9.5, 0.01, "the loudest the source was")
@@ -155,15 +188,23 @@ test("vinput: the tracker runs while the input is on, and is started again when 
   local file = assert(io.open(fake .. ".args", "r"))
   local args = file:read("*a")
   file:close()
-  eq(args:find("--device Input 2 --port paw:Guitar (playback) --gain 1 ", 1, true) ~= nil, true, "it was started with the input's settings")
+  eq(
+    args:find("--device Input 2 --port paw:Guitar (playback) --gain 1 ", 1, true) ~= nil,
+    true,
+    "it was started with the input's settings"
+  )
 
   vinput.set("Guitar", "gain", 2)
-  eq(settle(function()
-    local f = io.open(fake .. ".args", "r")
-    local now = f and f:read("*a") or ""
-    if f then f:close() end
-    return now:find("--gain 2 ", 1, true) ~= nil and vinput.status("Guitar").state == "running"
-  end), true, "a changed setting starts it again with the new value")
+  eq(
+    settle(function()
+      local f = io.open(fake .. ".args", "r")
+      local now = f and f:read("*a") or ""
+      if f then f:close() end
+      return now:find("--gain 2 ", 1, true) ~= nil and vinput.status("Guitar").state == "running"
+    end),
+    true,
+    "a changed setting starts it again with the new value"
+  )
   near(vinput.status("Guitar").advice.gain, 1.23, 0.001, "what the run that ended said of the level is kept")
   paw.cmd("vinput")
   T.keys("ga")
@@ -171,15 +212,27 @@ test("vinput: the tracker runs while the input is on, and is started again when 
   paw.ui.focus("arrange")
 
   vinput.set("Guitar", "on", false)
-  eq(settle(function() return vinput.status("Guitar").state == "off" end), true, "turned off, the tracker is asked to finish")
+  eq(
+    settle(function() return vinput.status("Guitar").state == "off" end),
+    true,
+    "turned off, the tracker is asked to finish"
+  )
   eq(run.jobs.Guitar.proc, nil, "and has")
 
   vinput.set("Guitar", "source", "Nowhere")
   vinput.set("Guitar", "on", true)
-  eq(settle(function() return vinput.status("Guitar").state == "failed" end), true, "a tracker that cannot start is given up on after a few tries")
+  eq(
+    settle(function() return vinput.status("Guitar").state == "failed" end),
+    true,
+    "a tracker that cannot start is given up on after a few tries"
+  )
   eq(vinput.status("Guitar").text, "stopped: no capture port matching 'Nowhere'", "with what it said")
   vinput.set("Guitar", "source", "Input 2")
-  eq(settle(function() return vinput.status("Guitar").state == "running" end), true, "a change is a reason to try again")
+  eq(
+    settle(function() return vinput.status("Guitar").state == "running" end),
+    true,
+    "a change is a reason to try again"
+  )
   vinput.remove("Guitar")
   eq(settle(function() return run.jobs.Guitar == nil end), true, "removing the input ends its tracker")
   paw.opt.vinput_run = false
@@ -189,14 +242,23 @@ test("vinput: what the tracker prints is read, in the forms it has", function()
   load()
   local parse = vinput.kinds.gdi2m.parse_log
   local seen = parse("  2.0s  act -45.9 dBFS  q 2  notes 3 (0.0/s)  inf 2.92 mean / 4.00 max ms\n")
-  eq(seen.level .. " " .. seen.notes .. " " .. seen.load .. " " .. tostring(seen.peak), "-45.9 3 2.92 nil", "the line a file source prints each second")
+  eq(
+    seen.level .. " " .. seen.notes .. " " .. seen.load .. " " .. tostring(seen.peak),
+    "-45.9 3 2.92 nil",
+    "the line a file source prints each second"
+  )
   seen = parse("midi      [4] Midi-Bridge:paw:Guitar (playback), channel 1\nlistening. Ctrl-C to stop.\n")
   eq(seen.wired, true, "the wire to this program's port")
-  seen = parse("  hops pushed 1112, dropped 3, peak queue depth 1 of 64\n  -> 34.2 dB LOW. Use --gain 51.6 to land on it\n")
+  seen =
+    parse("  hops pushed 1112, dropped 3, peak queue depth 1 of 64\n  -> 34.2 dB LOW. Use --gain 51.6 to land on it\n")
   eq(seen.dropped .. " " .. tostring(seen.advice), "3 nil", "after silence its wish for gain is not taken for advice")
   seen = parse("  -> 2.5 dB HIGH. Use --gain 0.75 to land on it\n")
   eq(seen.advice.way .. " " .. seen.advice.gain, "high 0.75", "after playing it is")
-  eq(parse("no MIDI port matches 'paw:Guitar (playback)' (or more than one does).\n").error ~= nil, true, "and what it says when it cannot start")
+  eq(
+    parse("no MIDI port matches 'paw:Guitar (playback)' (or more than one does).\n").error ~= nil,
+    true,
+    "and what it says when it cannot start"
+  )
 end)
 
 test("vinput: the ports to choose a source from come from the tracker", function()
@@ -205,11 +267,17 @@ test("vinput: the ports to choose a source from come from the tracker", function
   vinput.add({ name = "Guitar" })
   eq(run.sources("gdi2m", true), nil, "the first listing is not there at once")
   eq(settle(function() return run.sources("gdi2m") ~= nil end), true, "it arrives")
-  eq(table.concat(run.sources("gdi2m"), " | "), "Steinberg UR22mkII  Input 2:capture_MONO | Steinberg UR22mkII  Input 1:capture_MONO",
-    "the capture ports, without the entry for none")
+  eq(
+    table.concat(run.sources("gdi2m"), " | "),
+    "Steinberg UR22mkII  Input 2:capture_MONO | Steinberg UR22mkII  Input 1:capture_MONO",
+    "the capture ports, without the entry for none"
+  )
   paw.opt.vinput_gdi2m = T.scratch .. "/no-such-program"
-  eq(vinput.kinds.gdi2m.blocked(vinput.set("Guitar", "source", "Input 2")):find("gdi2m was not found", 1, true) ~= nil, true,
-    "a tracker that is not installed is said to be missing")
+  eq(
+    vinput.kinds.gdi2m.blocked(vinput.set("Guitar", "source", "Input 2")):find("gdi2m was not found", 1, true) ~= nil,
+    true,
+    "a tracker that is not installed is said to be missing"
+  )
 end)
 
 test("vinput: the panel shows each input's chain and is worked with the keys", function()
@@ -220,8 +288,16 @@ test("vinput: the panel shows each input's chain and is worked with the keys", f
   eq(paw.ui.focused, "vinput", "the command opens the panel")
   -- Tall enough for the panel beside whatever earlier tests left open.
   local screen = table.concat(api.ui_snapshot(120, 90), "\n")
-  eq(screen:find("● Guitar  UR22mkII Input 2 ▸ ×1.00 ▸ gdi2m ▸ ch 1 ▸ MIDI “Guitar”", 1, true) ~= nil, true, "the chain is drawn in a line")
-  eq(screen:find("Threshold", 1, true) ~= nil and screen:find("0.85", 1, true) ~= nil, true, "with its settings under it")
+  eq(
+    screen:find("● Guitar  UR22mkII Input 2 ▸ ×1.00 ▸ gdi2m ▸ ch 1 ▸ MIDI “Guitar”", 1, true) ~= nil,
+    true,
+    "the chain is drawn in a line"
+  )
+  eq(
+    screen:find("Threshold", 1, true) ~= nil and screen:find("0.85", 1, true) ~= nil,
+    true,
+    "with its settings under it"
+  )
   keys("jjj")
   eq(panel:current().setting.key, "gain", "j moves down the rows")
   keys("++")
@@ -256,14 +332,20 @@ test("vinput: the window is worked with the pointer", function()
   load()
   vinput.add({ name = "Guitar" })
   paw.cmd("vinput")
-  eq(paw.ui.visible("vinput") and paw.canvas.titles.vinput, "Virtual inputs", "the panel is docked, under its title, in a graphical frontend")
+  eq(
+    paw.ui.visible("vinput") and paw.canvas.titles.vinput,
+    "Virtual inputs",
+    "the panel is docked, under its title, in a graphical frontend"
+  )
   local function paint() return paw.canvas.paint("vinput", 880, 520).ops end
   local function find(ops, text)
     for _, op in ipairs(ops) do
       if op[1] == "t" and op[4] == text then return op end
     end
   end
-  local function click(x, y, kind) paw.canvas.pointer("vinput", { kind = kind or "down", x = x, y = y, button = "left" }) end
+  local function click(x, y, kind)
+    paw.canvas.pointer("vinput", { kind = kind or "down", x = x, y = y, button = "left" })
+  end
   local ops = paint()
   eq(find(ops, "choose…") ~= nil, true, "an input with no source asks for one in its chain")
 
@@ -310,10 +392,20 @@ test("vinput: the window's menus offer the inputs", function()
   fresh()
   load()
   local labels = {}
-  for index, entry in ipairs(paw.frontend.menus.timeline) do labels[entry.label] = index end
-  eq(labels["Virtual inputs…"] ~= nil and labels["New track from a virtual input"] ~= nil, true, "the timeline's menu has both entries")
+  for index, entry in ipairs(paw.frontend.menus.timeline) do
+    labels[entry.label] = index
+  end
+  eq(
+    labels["Virtual inputs…"] ~= nil and labels["New track from a virtual input"] ~= nil,
+    true,
+    "the timeline's menu has both entries"
+  )
   paw.frontend.act.menu("timeline", labels["New track from a virtual input"], -1, -1)
-  eq(#vinput.inputs .. " " .. paw.tracks()[1].midi_input.port, "1 Guitar", "with no input yet one is made, and a track that takes it")
+  eq(
+    #vinput.inputs .. " " .. paw.tracks()[1].midi_input.port,
+    "1 Guitar",
+    "with no input yet one is made, and a track that takes it"
+  )
   eq(paw.ui.focused, "vinput", "and the inputs are shown, for the source to be chosen")
   paw.canvas.close("vinput")
 end)

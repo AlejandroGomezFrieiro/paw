@@ -16,12 +16,12 @@ local function devices_of(kinds)
   local function look(track)
     for _, device in ipairs(track:devices()) do
       local kind = device.kind
-      if kind:match("^lua:") and (kinds == nil or kinds[kind]) and not device.offline then
-        out[#out + 1] = device
-      end
+      if kind:match("^lua:") and (kinds == nil or kinds[kind]) and not device.offline then out[#out + 1] = device end
     end
   end
-  for _, track in ipairs(paw.tracks()) do look(track) end
+  for _, track in ipairs(paw.tracks()) do
+    look(track)
+  end
   look(paw.master)
   return out
 end
@@ -32,7 +32,11 @@ local function restart(devices)
   local started, failed = 0, nil
   for _, device in ipairs(devices) do
     local ok, err = pcall(device.restart, device)
-    if ok then started = started + 1 else failed = failed or tostring(err):match("^[^\n]*") end
+    if ok then
+      started = started + 1
+    else
+      failed = failed or tostring(err):match("^[^\n]*")
+    end
   end
   return started, failed
 end
@@ -83,14 +87,22 @@ function M.check()
   report(found)
   if #found.changed > 0 then
     local kinds = {}
-    for _, kind in ipairs(found.changed) do kinds[kind] = true end
+    for _, kind in ipairs(found.changed) do
+      kinds[kind] = true
+    end
     local devices = devices_of(kinds)
     local started, failed = restart(devices)
     if failed then
       paw.notify(failed, "error")
     elseif started > 0 then
-      paw.notify(string.format("%s changed: %d device%s loaded again", table.concat(found.changed, ", "),
-        started, started == 1 and "" or "s"))
+      paw.notify(
+        string.format(
+          "%s changed: %d device%s loaded again",
+          table.concat(found.changed, ", "),
+          started,
+          started == 1 and "" or "s"
+        )
+      )
     end
   end
   paw.emit("luadev.checked", found)
@@ -137,10 +149,13 @@ end, { desc = "Load a device written in Lua again from its file, keeping its par
 paw.command("device.scripts", function()
   local lines = {}
   for _, s in ipairs(api.lua_devices()) do
-    lines[#lines + 1] = string.format("%-20s %-24s %s%s", s.kind, s.name, s.path, s.active and "" or "  (hidden by another)")
+    lines[#lines + 1] =
+      string.format("%-20s %-24s %s%s", s.kind, s.name, s.path, s.active and "" or "  (hidden by another)")
     if s.error then lines[#lines + 1] = "    " .. s.error end
   end
-  if #lines == 0 then lines[1] = "No devices written in Lua: put .lua files in " .. api.env().config_dir .. "/devices" end
+  if #lines == 0 then
+    lines[1] = "No devices written in Lua: put .lua files in " .. api.env().config_dir .. "/devices"
+  end
   paw.ui.page("Devices written in Lua", lines)
 end, { desc = "List the devices written in Lua, where their files are, and any that did not load" })
 

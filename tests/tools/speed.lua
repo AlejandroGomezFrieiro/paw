@@ -66,8 +66,19 @@ local function quick(ms, limit, what)
   local slow = slowdown()
   local allowed = limit * math.max(over, slow)
   if ms >= allowed then
-    error(string.format("%s: %.0f ms of processor time, the limit %.0f ms (%d ms times %.1f: overload %.1f, slowdown %.1f)",
-      what, ms, allowed, limit, math.max(over, slow), over, slow), 2)
+    error(
+      string.format(
+        "%s: %.0f ms of processor time, the limit %.0f ms (%d ms times %.1f: overload %.1f, slowdown %.1f)",
+        what,
+        ms,
+        allowed,
+        limit,
+        math.max(over, slow),
+        over,
+        slow
+      ),
+      2
+    )
   end
 end
 

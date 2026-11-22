@@ -7,13 +7,13 @@ local M = {}
 
 -- What the values after `# name` are, and how their words are read.
 M.params = {
-  vel = "number",      -- 0..1 of full velocity (above 1: a MIDI velocity)
-  legato = "number",   -- note length as a share of the event's length
-  add = "number",      -- semitones added to every note (scale steps with a key)
-  oct = "number",      -- octaves added
-  key = "pitch",       -- root note: numbers become scale degrees
-  scale = "scale",     -- scale for degrees (with `key`, or C4 without)
-  ch = "number",       -- a channel number, kept in each note's meta
+  vel = "number", -- 0..1 of full velocity (above 1: a MIDI velocity)
+  legato = "number", -- note length as a share of the event's length
+  add = "number", -- semitones added to every note (scale steps with a key)
+  oct = "number", -- octaves added
+  key = "pitch", -- root note: numbers become scale degrees
+  scale = "scale", -- scale for degrees (with `key`, or C4 without)
+  ch = "number", -- a channel number, kept in each note's meta
 }
 
 local Error = {}
@@ -21,14 +21,10 @@ Error.__index = Error
 Error.__tostring = function(e) return M.format_error(e) end
 
 --- "col 5: expected `]`", and the text with a caret under the place.
-function M.format_error(e)
-  return string.format("col %d: %s", e.pos, e.message)
-end
+function M.format_error(e) return string.format("col %d: %s", e.pos, e.message) end
 
 --- The text with a caret line under the error's place, for showing.
-function M.caret(e)
-  return e.text .. "\n" .. string.rep(" ", e.pos - 1) .. "^"
-end
+function M.caret(e) return e.text .. "\n" .. string.rep(" ", e.pos - 1) .. "^" end
 
 --- The most times `*` repeats a step.
 M.MAX_REPEAT = 256
@@ -45,9 +41,7 @@ function P:peek(offset)
   return self.text:sub(at, at)
 end
 
-function P:skip()
-  self.pos = self.text:find("[^%s]", self.pos) or #self.text + 1
-end
+function P:skip() self.pos = self.text:find("[^%s]", self.pos) or #self.text + 1 end
 
 function P:eof() return self.pos > #self.text end
 
@@ -129,7 +123,9 @@ function P:atom()
     if chord_text then
       if value.kind == "drum" then self:fail("a drum cannot be a chord", pos) end
       local parts = {}
-      for part in chord_text:sub(2):gmatch("[^']+") do parts[#parts + 1] = part end
+      for part in chord_text:sub(2):gmatch("[^']+") do
+        parts[#parts + 1] = part
+      end
       if #parts == 0 then self:fail("expected a chord name after `'`", pos + #text) end
       local shape = names.chords[parts[1]]
       if not shape then self:fail("unknown chord `" .. parts[1] .. "`", pos + #text + 1) end
@@ -216,7 +212,9 @@ function P:step()
       self.mode = mode
       if self:peek() ~= ")" then self:fail("expected `)`") end
       self.pos = self.pos + 1
-      if #args < 2 or #args > 3 then self:fail("a Euclidean rhythm takes 2 or 3 numbers: (hits,steps) or (hits,steps,rotation)", pos) end
+      if #args < 2 or #args > 3 then
+        self:fail("a Euclidean rhythm takes 2 or 3 numbers: (hits,steps) or (hits,steps,rotation)", pos)
+      end
       node = { t = "euclid", node = node, args = args, pos = pos }
     elseif ch == "?" then
       self.pos = self.pos + 1
@@ -253,14 +251,19 @@ function P:sequence()
       -- A range: `0 .. 3`.
       self.pos = self.pos + 2
       local last = steps[#steps]
-      if not last or last.node.t ~= "atom" or last.node.v.kind ~= "number" then self:fail("`..` needs a whole number before it", at) end
+      if not last or last.node.t ~= "atom" or last.node.v.kind ~= "number" then
+        self:fail("`..` needs a whole number before it", at)
+      end
       self:skip()
       local stop = self:atom()
-      if type(stop.v) ~= "table" or stop.v.kind ~= "number" then self:fail("`..` needs a whole number after it", stop.pos) end
+      if type(stop.v) ~= "table" or stop.v.kind ~= "number" then
+        self:fail("`..` needs a whole number after it", stop.pos)
+      end
       local from, to = last.node.v.n, stop.v.n
       local dir = to >= from and 1 or -1
       for n = from + dir, to, dir do
-        steps[#steps + 1] = { node = { t = "atom", v = { kind = "number", n = n }, pos = stop.pos, text = tostring(n) }, weight = 1 }
+        steps[#steps + 1] =
+          { node = { t = "atom", v = { kind = "number", n = n }, pos = stop.pos, text = tostring(n) }, weight = 1 }
       end
     elseif ch == "." and (self:peek(1) == "" or self:peek(1):match("%s")) then
       -- `a b . c d` groups into `[a b] [c d]`.
@@ -280,7 +283,9 @@ function P:sequence()
       steps[#steps + 1] = { node = last.node, weight = last.weight }
     else
       local node, weight, reps = self:step()
-      for _ = 1, reps do steps[#steps + 1] = { node = node, weight = weight } end
+      for _ = 1, reps do
+        steps[#steps + 1] = { node = node, weight = weight }
+      end
       local after = self:peek()
       if after ~= "" and not after:match("%s") and not closers[after] then
         self:fail("unexpected `" .. after .. "` (steps are separated by spaces)")
@@ -291,7 +296,9 @@ function P:sequence()
     if #steps == 0 then self:fail("`.` needs steps after it") end
     groups[#groups + 1] = steps
     local outer = {}
-    for i, g in ipairs(groups) do outer[i] = { node = { t = "seq", steps = g, pos = pos }, weight = 1 } end
+    for i, g in ipairs(groups) do
+      outer[i] = { node = { t = "seq", steps = g, pos = pos }, weight = 1 }
+    end
     steps = outer
   end
   return { t = "seq", steps = steps, pos = pos }
@@ -312,9 +319,12 @@ function P:group(closer, single)
     end
     for _, option in ipairs(options) do
       -- An empty pattern or parameter is reported by the caller, which knows what it is.
-      if #option.steps == 0 and (closer or single or #options > 1) and not (closer and self:eof()) then self:fail("empty sequence", option.pos) end
+      if #option.steps == 0 and (closer or single or #options > 1) and not (closer and self:eof()) then
+        self:fail("empty sequence", option.pos)
+      end
     end
-    layers[#layers + 1] = #options == 1 and options[1] or { t = "choose", items = options, seed = self:next_seed(), pos = options[1].pos }
+    layers[#layers + 1] = #options == 1 and options[1]
+      or { t = "choose", items = options, seed = self:next_seed(), pos = options[1].pos }
     if single or self:peek() ~= "," then break end
     self.pos = self.pos + 1
   end
@@ -332,7 +342,9 @@ end
 --- Parse a whole pattern: the notes, then any `# name values` parameters.
 --- Returns { main = node, params = { name = node }, seeds = n } or nil, error.
 function M.parse(text)
-  if type(text) ~= "string" then return nil, setmetatable({ message = "a pattern is text", pos = 1, text = tostring(text) }, Error) end
+  if type(text) ~= "string" then
+    return nil, setmetatable({ message = "a pattern is text", pos = 1, text = tostring(text) }, Error)
+  end
   local self = setmetatable({ text = text, pos = 1, seeds = 0, mode = "note", top = true }, P)
   local ok, result = pcall(function()
     local layers = self:group(nil)
@@ -348,7 +360,9 @@ function M.parse(text)
         if not name then self:fail("expected a parameter name after `#`") end
         if not M.params[name] then
           local known = {}
-          for k in pairs(M.params) do known[#known + 1] = k end
+          for k in pairs(M.params) do
+            known[#known + 1] = k
+          end
           table.sort(known)
           self:fail("unknown parameter `" .. name .. "` (" .. table.concat(known, ", ") .. ")")
         end

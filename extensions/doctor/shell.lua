@@ -16,7 +16,9 @@ for _, arg in ipairs(argv) do
     opts.plugins[#opts.plugins + 1] = value
   elseif key == "only" then
     opts.only = {}
-    for id in value:gmatch("[^,]+") do opts.only[#opts.only + 1] = tonumber(id) or id end
+    for id in value:gmatch("[^,]+") do
+      opts.only[#opts.only + 1] = tonumber(id) or id
+    end
   end
 end
 -- The plugins named in the configuration are tried unless some were asked for.

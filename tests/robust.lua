@@ -13,7 +13,9 @@ local function test(name, fn)
   T.test(name, function()
     T.after(function()
       local messages = paw.ui.messages
-      for i = #messages, 1, -1 do messages[i] = nil end
+      for i = #messages, 1, -1 do
+        messages[i] = nil
+      end
     end)
     return fn()
   end)
@@ -22,13 +24,54 @@ end
 -- Functions that wait, end the program, start processes or sockets, touch
 -- devices or write files: the odd arguments below would do that for real.
 local SPARED = {
-  "^quit$", "^reload$", "^sleep$", "^wait$", "^limit_", "^proc_", "^sock_", "^rpc_", "^render",
-  "^engine_restart$", "^engine_set_threads$", "^engine_hold$", "^audio_", "^midi_open", "^midi_close",
-  "^midi_test", "^midi_send$", "^project_load$", "^project_save$", "^project_backup$", "^project_recover$",
-  "^project_shelve$", "^project_unshelve$", "^checkpoint_", "^media_collect$", "^media_store$", "^media_adopt$",
-  "^media_relink$", "^fs_", "^test_", "^device_add$", "^device_editor$", "^device_restart$", "^device_load$",
-  "^plugins_", "^lua_devices_", "^canvas_export$", "^state_set$", "^ui_detach$", "^transport_record$",
-  "^measure", "^midi2_write$", "^chain_write$", "^timer_start$", "^trial_begin$", "^preview_play$", "^log$", "^undo_reset$",
+  "^quit$",
+  "^reload$",
+  "^sleep$",
+  "^wait$",
+  "^limit_",
+  "^proc_",
+  "^sock_",
+  "^rpc_",
+  "^render",
+  "^engine_restart$",
+  "^engine_set_threads$",
+  "^engine_hold$",
+  "^audio_",
+  "^midi_open",
+  "^midi_close",
+  "^midi_test",
+  "^midi_send$",
+  "^project_load$",
+  "^project_save$",
+  "^project_backup$",
+  "^project_recover$",
+  "^project_shelve$",
+  "^project_unshelve$",
+  "^checkpoint_",
+  "^media_collect$",
+  "^media_store$",
+  "^media_adopt$",
+  "^media_relink$",
+  "^fs_",
+  "^test_",
+  "^device_add$",
+  "^device_editor$",
+  "^device_restart$",
+  "^device_load$",
+  "^plugins_",
+  "^lua_devices_",
+  "^canvas_export$",
+  "^state_set$",
+  "^ui_detach$",
+  "^transport_record$",
+  "^measure",
+  "^midi2_write$",
+  "^chain_write$",
+  "^timer_start$",
+  "^trial_begin$",
+  "^preview_play$",
+  "^log$",
+  "^undo_reset$",
 }
 
 local function spared(name)
@@ -42,7 +85,8 @@ test("no paw.api function ends the program when given odd arguments", function()
   fresh()
   local t = paw.add_track({ name = "Odd" })
   t:add_clip({ start = 0, length = 4 })
-  local odd = { 1, -1, 0, 0 / 0, 1e300, -1e300, "abc", "", true, {}, { 1, 2 }, { x = 1 }, { cell = 1 }, { cell = { w = "a" } } }
+  local odd =
+    { 1, -1, 0, 0 / 0, 1e300, -1e300, "abc", "", true, {}, { 1, 2 }, { x = 1 }, { cell = 1 }, { cell = { w = "a" } } }
   local names = {}
   for name, fn in pairs(api) do
     if type(fn) == "function" and not spared(name) then names[#names + 1] = name end
@@ -84,7 +128,9 @@ test("adding notes one by one to a big clip takes about as long per note as to a
   local clip = paw.add_track({ name = "Many" }):add_clip({ start = 0, length = 4 })
   local function add(count, from)
     local t0 = api.now()
-    for i = 1, count do clip:add_note({ pitch = 60 + i % 12, start = (from + i) * 0.01, length = 0.1 }) end
+    for i = 1, count do
+      clip:add_note({ pitch = 60 + i % 12, start = (from + i) * 0.01, length = 0.1 })
+    end
     return api.now() - t0
   end
   local small = add(2000, 0)
@@ -92,7 +138,11 @@ test("adding notes one by one to a big clip takes about as long per note as to a
   local big = add(2000, 26000)
   eq(#clip:notes(), 28000, "every note is there")
   -- One by one these were a look at every note each (29 s for 32000).
-  eq(big < math.max(small * 8, 400), true, string.format("2000 notes: %.0f ms at the start, %.0f ms at 26000", small, big))
+  eq(
+    big < math.max(small * 8, 400),
+    true,
+    string.format("2000 notes: %.0f ms at the start, %.0f ms at 26000", small, big)
+  )
   local ids, unique = {}, true
   for _, n in ipairs(api.clip_notes(clip.id)) do
     if ids[n.id] then unique = false end
@@ -151,7 +201,11 @@ test("an option takes values of its type and range, and :set says what it takes"
   eq(paw.opt.ffmpeg, "7", "text stays text for an option that takes text")
   paw.opt.ffmpeg = ffmpeg
   paw.option.define("zz_lanes", 4, { min = 1, max = 16, integer = true })
-  T.fails(function() paw.opt.zz_lanes = 2.5 end, "zz_lanes takes a whole number from 1 to 16", "an extension's own range")
+  T.fails(
+    function() paw.opt.zz_lanes = 2.5 end,
+    "zz_lanes takes a whole number from 1 to 16",
+    "an extension's own range"
+  )
   paw.opt.zz_lanes = 16
   eq(paw.opt.zz_lanes, 16, "in range is taken")
   paw.opt.zz_free = { 1 }
@@ -225,14 +279,21 @@ test("commands given what they cannot take say so and change nothing", function(
   end
   eq(#paw.tracks(), 2, "no track was removed")
   for line, why in pairs({
-    ["clip.add -1 4"] = "takes length= and name=", ["clip.add abc"] = "takes length= and name=",
-    ["clip.add length=-4"] = "not -4", ["clip.add length=0"] = "not 0", ["clip.add length=abc"] = "not abc",
+    ["clip.add -1 4"] = "takes length= and name=",
+    ["clip.add abc"] = "takes length= and name=",
+    ["clip.add length=-4"] = "not -4",
+    ["clip.add length=0"] = "not 0",
+    ["clip.add length=abc"] = "not abc",
   }) do
     T.keys(":" .. line .. "<CR>")
     has(said("error"), why, ":" .. line .. " is refused")
   end
   eq(#a:clips(), 0, "no clip was made")
-  T.fails(function() T.render({ rate = -5 }) end, "a sample rate is a whole number of Hz from 8000 to 384000, not %-5", "rate=-5")
+  T.fails(
+    function() T.render({ rate = -5 }) end,
+    "a sample rate is a whole number of Hz from 8000 to 384000, not %-5",
+    "rate=-5"
+  )
   a:add_clip({ start = 0, length = 1 })
   T.fails(function() T.render({ tail = 1e9 }) end, "tail is at most 600 seconds", "an absurd tail")
 end)
@@ -263,13 +324,19 @@ test("stems add up to the mix with buses and returns on the way", function()
   eq(#files, 3, "a stem for each track with clips")
   local m, n = samples(mix.path)
   local sum = {}
-  for i = 0, n - 1 do sum[i] = 0 end
+  for i = 0, n - 1 do
+    sum[i] = 0
+  end
   for _, f in ipairs(files) do
     local x, k = samples(f)
-    for i = 0, math.min(n, k) - 1 do sum[i] = sum[i] + x[i] end
+    for i = 0, math.min(n, k) - 1 do
+      sum[i] = sum[i] + x[i]
+    end
   end
   local worst = 0
-  for i = 0, n - 1 do worst = math.max(worst, math.abs(sum[i] - m[i])) end
+  for i = 0, n - 1 do
+    worst = math.max(worst, math.abs(sum[i] - m[i]))
+  end
   eq(worst < 1e-5, true, "they add up to the mix: " .. worst)
 end)
 
@@ -287,7 +354,9 @@ end)
 
 test("thousands of tracks and the warnings they bring stay usable", function()
   fresh()
-  for i = 1, 1200 do api.track_add({ name = "T" .. i }) end
+  for i = 1, 1200 do
+    api.track_add({ name = "T" .. i })
+  end
   local said_count, notify = 0, paw.notify
   paw.notify = function(...)
     said_count = said_count + 1
@@ -304,7 +373,9 @@ end)
 
 test("muting twice says the second time that they were muted already, and a paste says what it did", function()
   fresh()
-  for i = 1, 4 do paw.add_track({ name = "M" .. i }) end
+  for i = 1, 4 do
+    paw.add_track({ name = "M" .. i })
+  end
   T.keys(":t2,t4 mute<CR>")
   eq(said("info"), "muted 3 tracks", "the first time")
   T.keys(":t2,t4 mute<CR>")
@@ -350,7 +421,9 @@ test(":query in a tab narrowed to a group sees that group, as Ex ranges do", fun
   eq(#paw.query("track"), 4, "the whole song: the group and its tracks, and the drums")
   paw.scope.narrow("Strings")
   local names = {}
-  for _, n in ipairs(paw.query("track")) do names[#names + 1] = n.data.name end
+  for _, n in ipairs(paw.query("track")) do
+    names[#names + 1] = n.data.name
+  end
   eq(table.concat(names, " "), "Strings Violins Cellos", "narrowed: the group's")
   paw.scope.widen()
 end)
@@ -359,18 +432,24 @@ test("a Lua device that fails or hangs in a render is ended as soon as it would 
   fresh()
   local dir = T.scratch .. "/failing-devices"
   os.execute("mkdir -p '" .. dir .. "'")
-  T.write_file(dir .. "/zz_fails.lua", [[
+  T.write_file(
+    dir .. "/zz_fails.lua",
+    [[
 local dev = require("paw.dsp").device { name = "Fails" }
 local n = 0
 function dev.process(b) n = n + 1 if n > 3 then error("broken") end end
 return dev
-]])
-  T.write_file(dir .. "/zz_hangs.lua", [[
+]]
+  )
+  T.write_file(
+    dir .. "/zz_hangs.lua",
+    [[
 local dev = require("paw.dsp").device { name = "Hangs" }
 local n = 0
 function dev.process(b) n = n + 1 if n > 3 then while true do end end end
 return dev
-]])
+]]
+  )
   paw.luadev.add_dir(dir)
   for _, kind in ipairs({ "lua:zz_fails", "lua:zz_hangs" }) do
     fresh()

@@ -4,9 +4,7 @@ local T = ...
 local test, eq, fresh = T.test, T.eq, T.fresh
 local api = paw.api
 
-local function said()
-  return paw.ui.messages[#paw.ui.messages].text
-end
+local function said() return paw.ui.messages[#paw.ui.messages].text end
 
 --- A project that came from a MIDI file: it has notes, no file, and nothing
 --- in its undo history, so it is not "modified".
@@ -24,9 +22,7 @@ local function imported()
   return path
 end
 
-local function kept(why)
-  eq(#paw.tracks(), 1, why)
-end
+local function kept(why) eq(#paw.tracks(), 1, why) end
 
 test("a project opened from a MIDI file counts as unsaved work, and the window asks about it", function()
   imported()
@@ -43,7 +39,11 @@ test(":open, :edit, :new and :recent leave an imported project in place and say 
     local before = paw.ui.messages[#paw.ui.messages]
     T.keys(line .. "<CR>")
     kept(line .. " left it")
-    eq(paw.ui.messages[#paw.ui.messages] ~= before and said():find("unsaved work", 1, true) ~= nil, true, line .. " says why: " .. said())
+    eq(
+      paw.ui.messages[#paw.ui.messages] ~= before and said():find("unsaved work", 1, true) ~= nil,
+      true,
+      line .. " says why: " .. said()
+    )
   end
   T.keys(":q<CR>")
   eq(said():find("unsaved work", 1, true) ~= nil, true, ":q is refused too")

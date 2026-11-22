@@ -12,8 +12,15 @@ local c = require("paw.canvas").palette
 
 local TABS = 22
 local SHORT = {
-  pitd = "Pitch", dyn = "Dynamics", tenc = "Tension", brec = "Breathiness", genc = "Gender",
-  voic = "Voicing", shfc = "Tone shift", grwc = "Growl", xsy = "Cross synth",
+  pitd = "Pitch",
+  dyn = "Dynamics",
+  tenc = "Tension",
+  brec = "Breathiness",
+  genc = "Gender",
+  voic = "Voicing",
+  shfc = "Tone shift",
+  grwc = "Growl",
+  xsy = "Cross synth",
 }
 
 return function(gui)
@@ -50,8 +57,15 @@ return function(gui)
     local x = gui.KEYS
     for _, cinfo in ipairs(list) do
       local label = (SHORT[cinfo.key] or cinfo.name) .. (lanes[cinfo.key] and " •" or "")
-      x = gui.button(g, x, cy + 2, label, cinfo.key == info.key, function() view.curve = cinfo.key end,
-        { height = 18, size = 11, width = #label * 6.5 + 14 })
+      x = gui.button(
+        g,
+        x,
+        cy + 2,
+        label,
+        cinfo.key == info.key,
+        function() view.curve = cinfo.key end,
+        { height = 18, size = 11, width = #label * 6.5 + 14 }
+      )
       x = x - 2
     end
     local top, h = graph()
@@ -94,7 +108,9 @@ return function(gui)
     end
     -- Filled from the default, so that a curve reads at a glance.
     local fill = { x_of(first - S.clip.start), dy }
-    for i = 1, #line do fill[#fill + 1] = line[i] end
+    for i = 1, #line do
+      fill[#fill + 1] = line[i]
+    end
     fill[#fill + 1], fill[#fill + 2] = x_of(last - S.clip.start), dy
     area:poly(fill, { fill = c.play_on .. "30" })
     area:poly(line, { color = c.play_on, width = 2 })
@@ -114,10 +130,25 @@ return function(gui)
     end
     -- The scale on the left, and the value at the cursor.
     g:rect(0, cy + TABS, gui.KEYS, geo.curve_h - TABS, { fill = c.panel })
-    g:text(gui.KEYS - 6, top - 6, string.format("%g", info.max), { color = c.text_3, size = 9, align = "right", width = gui.KEYS - 8 })
-    g:text(gui.KEYS - 6, top + h - 6, string.format("%g", info.min), { color = c.text_3, size = 9, align = "right", width = gui.KEYS - 8 })
+    g:text(
+      gui.KEYS - 6,
+      top - 6,
+      string.format("%g", info.max),
+      { color = c.text_3, size = 9, align = "right", width = gui.KEYS - 8 }
+    )
+    g:text(
+      gui.KEYS - 6,
+      top + h - 6,
+      string.format("%g", info.min),
+      { color = c.text_3, size = 9, align = "right", width = gui.KEYS - 8 }
+    )
     local here = #points > 0 and notes.value_at(points, S.clip.start + view.beat, info.default) or constant
-    g:text(6, top + h / 2 - 8, string.format("%g", math.floor(here * 10 + 0.5) / 10), { color = c.play_on, size = 12, bold = true, width = gui.KEYS - 8 })
+    g:text(
+      6,
+      top + h / 2 - 8,
+      string.format("%g", math.floor(here * 10 + 0.5) / 10),
+      { color = c.play_on, size = 12, bold = true, width = gui.KEYS - 8 }
+    )
     g:text(6, top + h / 2 + 6, "at cursor", { color = c.text_3, size = 8, width = gui.KEYS - 8 })
     S.curve = { info = info, top = top, h = h }
   end
@@ -138,12 +169,22 @@ return function(gui)
         d.samples[#d.samples + 1] = { clip.start + beat, v }
         d.line[#d.line + 1] = x_of(beat)
         d.line[#d.line + 1] = e.y - gui.geo.curve_y - TABS
-        d.label = string.format("%s %g at %s", info.name:lower(), math.floor(v * 10 + 0.5) / 10, paw.time.format(clip.start + beat))
+        d.label = string.format(
+          "%s %g at %s",
+          info.name:lower(),
+          math.floor(v * 10 + 0.5) / 10,
+          paw.time.format(clip.start + beat)
+        )
       else
         d.x1 = x
         local a, b = beat_at(math.min(d.x0, d.x1)), beat_at(math.max(d.x0, d.x1))
-        d.label = string.format("%s back to %g from %s to %s", info.name:lower(), info.default,
-          paw.time.format(clip.start + math.max(0, a)), paw.time.format(clip.start + b))
+        d.label = string.format(
+          "%s back to %g from %s to %s",
+          info.name:lower(),
+          info.default,
+          paw.time.format(clip.start + math.max(0, a)),
+          paw.time.format(clip.start + b)
+        )
       end
     elseif e.kind == "up" then
       gui.drag = nil
@@ -158,7 +199,9 @@ return function(gui)
         local b = clip.start + math.min(clip.length, beat_at(math.max(d.x0, d.x1)))
         if b - a < 1e-6 then
           local note = notes.near(clip.id, a - clip.start)
-          if note then a, b = clip.start + note.start, clip.start + note.start + note.length end
+          if note then
+            a, b = clip.start + note.start, clip.start + note.start + note.length
+          end
         end
         if b > a then notes.reset(clip.track, device, info.key, a, b) end
       end
@@ -182,7 +225,8 @@ return function(gui)
     if e.button == "right" then
       gui.drag = { mode = "erase", panel = stroke, info = info, x0 = x, x1 = x }
     else
-      gui.drag = { mode = "curve", panel = stroke, info = info, samples = {}, line = {}, top = S.curve.top, h = S.curve.h }
+      gui.drag =
+        { mode = "curve", panel = stroke, info = info, samples = {}, line = {}, top = S.curve.top, h = S.curve.h }
       stroke(view, { kind = "move", x = e.x, y = e.y }, clip, x)
     end
   end

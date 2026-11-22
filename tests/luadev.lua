@@ -13,7 +13,9 @@ local function scripts(files)
   dirs = dirs + 1
   local dir = T.scratch .. "/luadev" .. dirs
   os.execute("mkdir -p '" .. dir .. "'")
-  for name, text in pairs(files) do T.write_file(dir .. "/" .. name, text) end
+  for name, text in pairs(files) do
+    T.write_file(dir .. "/" .. name, text)
+  end
   return dir, paw.luadev.add_dir(dir)
 end
 
@@ -36,7 +38,6 @@ return dev
 
 local function gain_script(scale) return GAIN:gsub("SCALE", tostring(scale or 1)) end
 
-
 test("a device written in Lua is listed among the devices, as lua:<file>", function()
   fresh()
   local _, found = scripts({ ["listed_gain.lua"] = gain_script() })
@@ -53,13 +54,16 @@ end)
 
 test("a Lua device changes the sound by the numbers it says", function()
   fresh()
-  scripts({ ["numbers_gain.lua"] = gain_script(), ["numbers_dc.lua"] = [[
+  scripts({
+    ["numbers_gain.lua"] = gain_script(),
+    ["numbers_dc.lua"] = [[
     local dev = require("paw.dsp").device {
       params = { { key = "level", min = -1, max = 1, default = 0.25 } },
     }
     function dev.sample(l, r, b) return b.params.level, -b.params.level / 2 end
     return dev
-  ]] })
+  ]],
+  })
   local t = tone("tone", 4)
   local dry = render({ tail = 0, bits = 32 }).peak
   local fx = t:add_device("lua:numbers_gain", { gain = -6.0206 })
@@ -94,7 +98,8 @@ test("the luafx devices: gain and pan, drive, chords and sine", function()
   eq(driven > dry.peak * 1.5 and driven < 1.5, true, "drive: louder, and clipped softly (" .. driven .. ")")
 
   -- A chord of three from one note, heard by a device that counts them.
-  scripts({ ["count_notes.lua"] = [[
+  scripts({
+    ["count_notes.lua"] = [[
     local dsp = require("paw.dsp")
     local dev = dsp.device { category = "instrument" }
     local held = 0
@@ -106,7 +111,8 @@ test("the luafx devices: gain and pan, drive, chords and sine", function()
       for i = 0, b.frames - 1 do b.left[i], b.right[i] = held / 10, held / 10 end
     end
     return dev
-  ]] })
+  ]],
+  })
   local c = paw.add_track({ name = "chords" })
   c:add_device("lua:chords", { chord = 1 })
   c:add_device("lua:count_notes")
@@ -159,13 +165,15 @@ end)
 
 test("a script that fails is shown as stopped with its error, and starts again", function()
   fresh()
-  scripts({ ["fails_on_cue.lua"] = [[
+  scripts({
+    ["fails_on_cue.lua"] = [[
     local dev = require("paw.dsp").device { params = { { key = "fail", min = 0, max = 1, default = 0 } } }
     function dev.process(b)
       if b.params.fail > 0.5 then error("asked to fail") end
     end
     return dev
-  ]] })
+  ]],
+  })
   local t = tone("tone", 8)
   local fx = t:add_device("lua:fails_on_cue")
   local pid = tonumber(api.device_call(fx.id, "sandbox.pid"))
@@ -178,8 +186,11 @@ test("a script that fails is shown as stopped with its error, and starts again",
   paw.transport.stop()
   paw.off(handler)
   eq(stopped[1].device, fx.id, "the stop is told")
-  eq(stopped[1].reason:match("fails_on_cue%.lua:%d+: asked to fail") ~= nil, true,
-    "with the script's own error and line (" .. stopped[1].reason .. ")")
+  eq(
+    stopped[1].reason:match("fails_on_cue%.lua:%d+: asked to fail") ~= nil,
+    true,
+    "with the script's own error and line (" .. stopped[1].reason .. ")"
+  )
   eq(fx:get().stopped ~= nil, true, "the device says it has stopped")
   eq(#t:devices(), 2, "and is still in the project")
   local dry = render({ tail = 0 }).peak
@@ -209,7 +220,8 @@ test("a note played while the device is late still sounds, and its note-off stil
   fresh()
   -- Holds the notes it is given, a tenth each, and is slow for one block
   -- each time its stall parameter changes.
-  scripts({ ["late_once.lua"] = [[
+  scripts({
+    ["late_once.lua"] = [[
     local dsp = require("paw.dsp")
     local dev = dsp.device {
       category = "instrument",
@@ -229,7 +241,8 @@ test("a note played while the device is late still sounds, and its note-off stil
       for i = 0, b.frames - 1 do b.left[i], b.right[i] = held / 10, held / 10 end
     end
     return dev
-  ]] })
+  ]],
+  })
   local t = paw.add_track({ name = "late" })
   local dev = t:add_device("lua:late_once")
   local function late() return tonumber(api.device_call(dev.id, "sandbox.late")) end
@@ -256,14 +269,26 @@ test("a script that does not load says why, and nothing else is hurt", function(
     ["good_one.lua"] = gain_script(),
   })
   local why = {}
-  for _, e in ipairs(found.errors) do why[e.kind] = e.error end
-  eq(why["lua:broken_syntax"]:match("broken_syntax%.lua:2:") ~= nil, true, "a syntax error, with its line (" .. why["lua:broken_syntax"] .. ")")
+  for _, e in ipairs(found.errors) do
+    why[e.kind] = e.error
+  end
+  eq(
+    why["lua:broken_syntax"]:match("broken_syntax%.lua:2:") ~= nil,
+    true,
+    "a syntax error, with its line (" .. why["lua:broken_syntax"] .. ")"
+  )
   eq(why["lua:no_process"]:find("neither `process` nor `sample`", 1, true) ~= nil, true, "a device that runs nothing")
   eq(why["lua:never_ready"]:find("did not get ready within", 1, true) ~= nil, true, "a loop that never ends")
   eq(found.added[1], "lua:good_one", "the others load")
-  fails(function() paw.add_track({ name = "x" }):add_device("lua:broken_syntax") end, nil, "a script that did not load cannot be added")
+  fails(
+    function() paw.add_track({ name = "x" }):add_device("lua:broken_syntax") end,
+    nil,
+    "a script that did not load cannot be added"
+  )
   local listed = {}
-  for _, s in ipairs(api.lua_devices()) do listed[s.kind] = s end
+  for _, s in ipairs(api.lua_devices()) do
+    listed[s.kind] = s
+  end
   eq(listed["lua:broken_syntax"].error ~= nil, true, "the listing says why")
 end)
 
@@ -326,7 +351,8 @@ end)
 
 test("scripts call a Lua device, and what is posted to its kind reaches every one, a render's too", function()
   fresh()
-  scripts({ ["posted_level.lua"] = [[
+  scripts({
+    ["posted_level.lua"] = [[
     local dsp = require("paw.dsp")
     local dev = dsp.device { category = "instrument" }
     local level = 0
@@ -339,7 +365,8 @@ test("scripts call a Lua device, and what is posted to its kind reaches every on
       for i = 0, b.frames - 1 do b.left[i], b.right[i] = level, level end
     end
     return dev
-  ]] })
+  ]],
+  })
   local a = paw.add_track({ name = "a" })
   local first = a:add_device("lua:posted_level")
   a:add_clip({ start = 0, length = 4 })

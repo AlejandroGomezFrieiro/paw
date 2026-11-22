@@ -47,7 +47,9 @@ test("devices: the equaliser reports its curve", function()
   eq(#curve, 64, "as many points as asked for")
   near(curve[1], 0, 0.05, "flat at 20 Hz")
   local most = -100
-  for _, v in ipairs(curve) do most = math.max(most, v) end
+  for _, v in ipairs(curve) do
+    most = math.max(most, v)
+  end
   near(most, 6, 0.1, "6 dB at the top of the bell")
   near(paw.params.read(e, "at", 1000)[1], 6, 0.001, "and at one frequency")
   e:set("b4_gain", -3)
@@ -58,7 +60,9 @@ end)
 test("devices: an equaliser in a track changes the render", function()
   fresh()
   local s = {}
-  for i = 1, 48000 do s[i] = 0.25 * math.sin(2 * math.pi * 1000 * (i - 1) / 48000) end
+  for i = 1, 48000 do
+    s[i] = 0.25 * math.sin(2 * math.pi * 1000 * (i - 1) / 48000)
+  end
   local file = T.scratch .. "/sine1k.wav"
   T.write_wav(file, s, s, 48000)
   local t = paw.add_track()
@@ -71,7 +75,9 @@ end)
 --- One click in silence, as a file.
 local function click(name, level)
   local s = {}
-  for i = 1, 48000 do s[i] = 0 end
+  for i = 1, 48000 do
+    s[i] = 0
+  end
   s[12001] = level
   return T.write_wav(T.scratch .. "/" .. name .. ".wav", s)
 end
@@ -114,7 +120,9 @@ test("devices: a compressor's meters and curve are read from scripts", function(
   fresh()
   api.engine_restart({ backend = "null" })
   local s = {}
-  for i = 1, 96000 do s[i] = (i % 100 < 50) and 0.5 or -0.5 end
+  for i = 1, 96000 do
+    s[i] = (i % 100 < 50) and 0.5 or -0.5
+  end
   local file = T.write_wav(T.scratch .. "/square.wav", s)
   local t = paw.add_track()
   t:add_clip({ file = file, start = 0, length = 4 })
@@ -137,7 +145,9 @@ test("devices: the meter and the tuner are read while the song plays", function(
   api.engine_restart({ backend = "null" })
   local s = {}
   -- An A at 110 Hz, at -20 dBFS on both sides.
-  for i = 1, 48000 * 4 do s[i] = 0.1 * math.sin(2 * math.pi * 110 * (i - 1) / 48000) end
+  for i = 1, 48000 * 4 do
+    s[i] = 0.1 * math.sin(2 * math.pi * 110 * (i - 1) / 48000)
+  end
   local file = T.write_wav(T.scratch .. "/a110.wav", s, s, 48000)
   local t = paw.add_track({ name = "Guitar" })
   t:add_clip({ file = file, start = 0, length = 8 })
@@ -169,7 +179,9 @@ test("devices: every built-in preset names parameters its device has, inside the
   local count = 0
   for _, d in ipairs(api.device_types()) do
     local by_key = {}
-    for _, p in ipairs(d.params) do by_key[p.key] = p end
+    for _, p in ipairs(d.params) do
+      by_key[p.key] = p
+    end
     for _, preset in ipairs(paw.params.presets(d.kind)) do
       for key, value in pairs(preset.params) do
         local p = by_key[key]
@@ -217,12 +229,16 @@ test("devices: :eq, :tuner and :loudness open the effects' windows", function()
   paw.cmd("eq")
   eq(#t:devices(), 1, "and the second time opens the same one")
   local names = {}
-  for _, w in ipairs(paw.canvas.windows()) do names[w.name] = w.title end
+  for _, w in ipairs(paw.canvas.windows()) do
+    names[w.name] = w.title
+  end
   eq(names.eq_window, "EQ · Vox", "its window is open")
   eq(paw.ui.focused, "devices", "the keyboard stays in the device panel")
   local painted = paw.canvas.paint("eq_window", 900, 420)
   local texts = {}
-  for _, op in ipairs(painted.ops) do if op[1] == "t" then texts[#texts + 1] = op[4] end end
+  for _, op in ipairs(painted.ops) do
+    if op[1] == "t" then texts[#texts + 1] = op[4] end
+  end
   eq(table.concat(texts, " "):find("1k", 1, true) ~= nil, true, "the grid is painted")
   paw.cmd("tuner")
   eq(t:devices()[2]:get().kind, "tuner", "a tuner is added")
@@ -230,7 +246,9 @@ test("devices: :eq, :tuner and :loudness open the effects' windows", function()
   paw.cmd("loudness")
   eq(paw.master:devices()[#paw.master:devices()]:get().kind, "meter", "the master gets a meter")
   eq(#paw.canvas.paint("meter_window", 720, 380).ops > 5, true, "and its window is painted")
-  for _, name in ipairs({ "eq_window", "tuner_window", "meter_window" }) do paw.canvas.close(name) end
+  for _, name in ipairs({ "eq_window", "tuner_window", "meter_window" }) do
+    paw.canvas.close(name)
+  end
 end)
 
 test("devices: dragging a band's dot in the EQ window moves the band", function()
@@ -263,7 +281,9 @@ test("devices: a synced delay follows a tempo change in the map", function()
   paw.tempo.set(4, 60)
   -- A click at 4 s: beat 6, after the change to 60 bpm.
   local s = {}
-  for i = 1, 48000 * 7 do s[i] = 0 end
+  for i = 1, 48000 * 7 do
+    s[i] = 0
+  end
   s[48000 * 4 + 1] = 0.5
   local t = paw.add_track()
   t:add_clip({ file = T.write_wav(T.scratch .. "/late-click.wav", s), start = 0, length = 9 })
@@ -277,7 +297,11 @@ test("devices: a synced delay follows a tempo change in the map", function()
     if math.abs(v) > 0.05 then out[#out + 1] = i - 1 end
   end
   eq(out[1], 192000, "the click")
-  eq(math.abs(out[#out] - 240000) < 24, true, "the echo a second later: a quarter at 60, not at 120: " .. table.concat(out, " "))
+  eq(
+    math.abs(out[#out] - 240000) < 24,
+    true,
+    "the echo a second later: a quarter at 60, not at 120: " .. table.concat(out, " ")
+  )
 end)
 
 test("devices: no effect trips the NaN guard at the ends of its ranges", function()
@@ -289,7 +313,9 @@ test("devices: no effect trips the NaN guard at the ends of its ranges", functio
     if d.format == "builtin" and d.category == "effect" then
       for _, which in ipairs({ "min", "max" }) do
         local params = {}
-        for _, p in ipairs(d.params) do params[p.key] = p[which] end
+        for _, p in ipairs(d.params) do
+          params[p.key] = p[which]
+        end
         local dev = tone:add_device(d.kind, params)
         local info = render({ ["end"] = 2, tail = 0 })
         eq(info.nonfinite or 0, 0, d.kind .. " at every " .. which .. " renders finite")

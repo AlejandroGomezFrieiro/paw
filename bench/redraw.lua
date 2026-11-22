@@ -14,10 +14,10 @@ tracks, frames = tonumber(tracks) or 16, tonumber(frames) or 200
 for i = 0, tracks - 1 do
   local id = api.track_add({ name = "Track " .. i })
   api.device_add(id, "synth", { params = { wave = 1 } })
-  for c = 0, 7 do api.clip_add(id, { start = c * 4, length = 4, notes = B.bar_notes(0, i) }) end
-  if i % 3 == 0 then
-    paw.track(id):automate("volume"):set_points({ { 0, -12 }, { 16, -3 }, { 32, -9 } })
+  for c = 0, 7 do
+    api.clip_add(id, { start = c * 4, length = 4, notes = B.bar_notes(0, i) })
   end
+  if i % 3 == 0 then paw.track(id):automate("volume"):set_points({ { 0, -12 }, { 16, -3 }, { 32, -9 } }) end
 end
 api.undo_checkpoint()
 paw.flush()
@@ -31,13 +31,23 @@ local function measure(name, w, h, setup)
     times[i] = B.time(api.ui_snapshot, w, h)
   end
   table.sort(times)
-  B.emit({ bench = "redraw", layout = name, width = w, height = h, tracks = tracks, frames = frames,
-    p50_ms = times[math.ceil(#times / 2)], max_ms = times[#times] })
+  B.emit({
+    bench = "redraw",
+    layout = name,
+    width = w,
+    height = h,
+    tracks = tracks,
+    frames = frames,
+    p50_ms = times[math.ceil(#times / 2)],
+    max_ms = times[#times],
+  })
 end
 
 local ui = paw.ui
 local function arrange_only()
-  for _, v in ipairs({ "mixer", "pianoroll", "devices" }) do ui.hide(v) end
+  for _, v in ipairs({ "mixer", "pianoroll", "devices" }) do
+    ui.hide(v)
+  end
   ui.focus("arrange")
 end
 local function everything()

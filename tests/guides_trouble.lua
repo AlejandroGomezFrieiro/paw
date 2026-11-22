@@ -12,7 +12,9 @@ local keys = T.keys
 local function start()
   fresh()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.focus("arrange")
 end
 
@@ -29,10 +31,7 @@ local function said(from)
 end
 
 --- The last message now, for `said`.
-local function mark()
-  return paw.ui.messages[#paw.ui.messages]
-end
-
+local function mark() return paw.ui.messages[#paw.ui.messages] end
 
 test("guide: fix no sound", function()
   start()
@@ -84,8 +83,10 @@ test("guide: deal with a plugin that crashes or hangs", function()
   -- A device in a process of its own stands for the plugin.
   local scripts = T.scratch .. "/guide-plugin"
   os.execute("mkdir -p '" .. scripts .. "'")
-  T.write_file(scripts .. "/guide_fx.lua", "local dev = require('paw.dsp').device { name = 'Guide FX' }\n"
-    .. "function dev.process(b) end\nreturn dev\n")
+  T.write_file(
+    scripts .. "/guide_fx.lua",
+    "local dev = require('paw.dsp').device { name = 'Guide FX' }\n" .. "function dev.process(b) end\nreturn dev\n"
+  )
   paw.luadev.add_dir(scripts)
   local d = T.scratch .. "/guide-plugin"
   local lead = T.tone("Lead", 8)
@@ -98,7 +99,11 @@ test("guide: deal with a plugin that crashes or hangs", function()
   local pid = tonumber(api.device_call(fx.id, "sandbox.pid"))
   os.execute("kill -KILL " .. pid)
   T.until_(function() return fx:get().stopped ~= nil end, "the crash to be told", 5000)
-  eq(said(before):find("Guide FX on Lead stopped working: it was killed", 1, true) ~= nil, true, "a message names the device and why")
+  eq(
+    said(before):find("Guide FX on Lead stopped working: it was killed", 1, true) ~= nil,
+    true,
+    "a message names the device and why"
+  )
   eq(T.render({ tail = 0 }).peak > 0, true, "the track plays on without the effect")
   -- A save while it is stopped (the autosave too) keeps the state it had.
   before = mark()
@@ -120,13 +125,19 @@ test("guide: deal with a plugin that crashes or hangs", function()
   keys(":w " .. d .. "/song<CR>")
   before = mark()
   keys(":edit " .. d .. "/song offline<CR>")
-  eq(said(before):find("opened with every plugin offline", 1, true) ~= nil, true, ":edit song.json offline opens it with the plugins offline")
+  eq(
+    said(before):find("opened with every plugin offline", 1, true) ~= nil,
+    true,
+    ":edit song.json offline opens it with the plugins offline"
+  )
 end)
 
 --- The text of the page `:checkhealth` opened.
 local function page()
   local lines = {}
-  for _, line in ipairs(paw.ui.views.pager.lines) do lines[#lines + 1] = line.text end
+  for _, line in ipairs(paw.ui.views.pager.lines) do
+    lines[#lines + 1] = line.text
+  end
   return table.concat(lines, "\n")
 end
 
@@ -135,11 +146,20 @@ test("guide: run the window without a graphics card, then on the card again", fu
   local was = paw.frontend.window_renderer
   -- The window started on the processor because PAW_GUI_RENDERER asked.
   local before = mark()
-  paw.frontend.window_renderer_set({ renderer = "llvmpipe (LLVM 19.1.7, 256 bits)", version = "4.5", software = true, cause = "asked" })
+  paw.frontend.window_renderer_set({
+    renderer = "llvmpipe (LLVM 19.1.7, 256 bits)",
+    version = "4.5",
+    software = true,
+    cause = "asked",
+  })
   keys(":set window_fps=10<CR>")
   eq(paw.frontend.state(-1).window_fps, 10, "fewer frames a second")
   paw.opt.window_fps = "auto"
-  eq(said(before):find("The window draws on the processor", 1, true) ~= nil, true, "a warning when it starts: " .. said(before))
+  eq(
+    said(before):find("The window draws on the processor", 1, true) ~= nil,
+    true,
+    "a warning when it starts: " .. said(before)
+  )
   keys(":checkhealth window<CR>")
   eq(page():find("- WARN the window draws on the processor", 1, true) ~= nil, true, ":checkhealth window: " .. page())
   eq(page():find("    - PAW_GUI_RENDERER=software", 1, true) ~= nil, true, "the likely cause first")

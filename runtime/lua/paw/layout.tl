@@ -48,7 +48,8 @@ local opt = options.opt
 
 --- Which way a split stacks its children: `v` in rows, `h` in columns.
 local enum Dir
-  "v" "h"
+  "v"
+  "h"
 end
 
 --- What a view keeps for a window (`window_keep`): this module passes it
@@ -83,7 +84,7 @@ end
 --- `Ctrl-w |` hid.
 local record Zoom
   win: integer
-  hidden: {integer:boolean}
+  hidden: {integer: boolean}
   size: integer
 end
 local record Tab
@@ -91,7 +92,7 @@ local record Tab
   layout: Node
   win: integer
   prev: integer
-  last: {string:integer}
+  last: {string: integer}
   zoom: Zoom
 end
 
@@ -121,7 +122,7 @@ local record LeafFields
   min: integer
   float_below: integer
   hidden: boolean
-  opts: {string:string | number | boolean}
+  opts: {string: string | number | boolean}
 end
 
 --- How a view keeps a state for each window: `get` gives it, `set` puts
@@ -195,13 +196,12 @@ end
 --- list of `contracts.ScreenRect`, with the borders between windows, the
 --- place of each node of the tree, the tab line, and once drawn the size
 --- of each window (`sizes`) and the areas kept for pixels (`surfaces`).
-local record Arrangement
-  {contracts.ScreenRect}
-  nodes: {Node:Place}
+local record Arrangement is {contracts.ScreenRect}
+  nodes: {Node: Place}
   borders: {Border}
   floating: {Node}
   tabline: Tabline
-  sizes: {integer:string}
+  sizes: {integer: string}
   surfaces: {Surface}
 end
 
@@ -209,8 +209,7 @@ end
 --- view's name (`"roll"`), a window (`{ view = "roll", size = 20 }`), a
 --- split (`{ dir = "h", "arrange", "roll" }`, or with `children`), a tab
 --- (`{ name, layout, current }`), a list of tabs, or `{ tab, tabs }`.
-local record SpecNode
-  {string | SpecNode}
+local record SpecNode is {string | SpecNode}
   view: string
   target: string
   size: integer
@@ -218,7 +217,7 @@ local record SpecNode
   min: integer
   float_below: integer
   hidden: boolean
-  opts: {string:string | number | boolean}
+  opts: {string: string | number | boolean}
   dir: string
   children: {string | SpecNode}
   name: string
@@ -242,7 +241,7 @@ end
 --- arrangement's nodes to the nodes of the tree.
 local record DragOptions
   unit: types.Size
-  map: {Node:Node}
+  map: {Node: Node}
 end
 
 --- A window and the number of its tab.
@@ -258,7 +257,7 @@ local type Wrap = function(fn: KeyFn): KeyFn
 -- The parts of paw/ui.tl and of paw/canvas.tl that this module calls:
 -- those modules name this one's records, so this one cannot name theirs.
 local record Ui
-  views: {string:View}
+  views: {string: View}
   tabs: {Tab}
   tab: integer
   layout: Node
@@ -274,13 +273,13 @@ local record OpenView
   win: Node
 end
 local record Canvas
-  open_views: {string:OpenView}
+  open_views: {string: OpenView}
   inside: string
 end
 local record Keymap
-  set: function(lhs: string, rhs: contracts.KeyRhs, opts: {string:Opt})
-  textobject: function(lhs: string, fn: KeyFn, opts: {string:Opt})
-  operator: function(lhs: string, fn: function(region: Region, ctx?: KeyContext): Region, opts: {string:Opt})
+  set: function(lhs: string, rhs: contracts.KeyRhs, opts: {string: Opt})
+  textobject: function(lhs: string, fn: KeyFn, opts: {string: Opt})
+  operator: function(lhs: string, fn: function(region: Region, ctx?: KeyContext): Region, opts: {string: Opt})
 end
 --- A value of a key mapping's options (`desc`, `mode`, `motion`...).
 local type Opt = string | boolean | {string}
@@ -291,11 +290,11 @@ local record Paw is partial.Paw
   project: objects.Project
   time: objects.Time
 end
-local paw = (_G as {string:Paw}).paw
+local paw = (_G as {string: Paw}).paw
 
 -- Lua 5.1's function that Teal's library leaves out.
 local record Lua51
-  unpack: function<T>({T}, ? integer, ? integer): T...
+  unpack: function<T>({T}, ?integer, ?integer): T...
 end
 local unpack = (_G as Lua51).unpack
 
@@ -358,24 +357,24 @@ local record M
   type Wrap = Wrap
 
   --- Buffer types made with `paw.buftype`, by name.
-  types: {string:Buftype}
+  types: {string: Buftype}
   --- Every buffer, by number.
-  buffers: {integer:Buffer}
+  buffers: {integer: Buffer}
   --- Where a docked view goes when no window has it.
-  homes: {string:Home}
+  homes: {string: Home}
   --- Short names for the buffers of built-in views, to type after `:vs`.
-  names: {string:string}
+  names: {string: string}
   --- What a docked view's pane is called, where the view has no title of its own.
-  pane_titles: {string:string}
+  pane_titles: {string: string}
   --- What the built-in views are called in lists.
-  titles: {string:string}
+  titles: {string: string}
   --- The smallest window a split leaves, and the smallest that is drawn.
   min_width: integer
   min_height: integer
   --- How each view keeps a state for each window.
-  keepers: {string:{Keeper}}
+  keepers: {string: {Keeper}}
   --- Layouts a configuration names, by name: `paw.layouts.edit = { ... }`.
-  layouts: {string:Spec}
+  layouts: {string: Spec}
 
   record Bufs
     list: function(): {Buffer}
@@ -443,33 +442,47 @@ end
 M.types = {}
 M.buffers = {}
 M.homes = {}
-M.names = { pianoroll = "roll" }
+M.names = {pianoroll = "roll"}
 M.pane_titles = {
-  arrange = "Arrange", pianoroll = "Piano roll", mixer = "Mixer", devices = "Devices",
+  arrange = "Arrange",
+  pianoroll = "Piano roll",
+  mixer = "Mixer",
+  devices = "Devices",
 }
 M.titles = {
-  arrange = "the arrange view", pianoroll = "the piano roll", mixer = "the mixer", devices = "the device panel",
-  eventlist = "the event list", help = "keys", empty = "an empty window",
+  arrange = "the arrange view",
+  pianoroll = "the piano roll",
+  mixer = "the mixer",
+  devices = "the device panel",
+  eventlist = "the event list",
+  help = "keys",
+  empty = "an empty window",
 }
-local by_view: {string:Buffer} = {}   -- view name -> its buffer
+local by_view: {string: Buffer} = {} -- view name -> its buffer
 local next_win, next_buf = 0, 0
 
 M.min_width, M.min_height = 10, 3
 
-local function ui(): Ui return paw.ui end
+local function ui(): Ui
+  return paw.ui
+end
 
 local function focusable(name: string): boolean
   local view = ui().views[name]
   return view ~= nil and view.focusable ~= false
 end
 
-local function copy<T>(value: T): T return seats.copy(value) end
+local function copy<T>(value: T): T
+  return seats.copy(value)
+end
 
 --- A new window that shows `view`, with fields such as `size` or `hidden`.
 function M.leaf(view: string, fields?: LeafFields): Node
   next_win = next_win + 1
-  local win: Node = { view = view, id = next_win, opts = {}, state = {} }
-  for k, v in pairs((fields or {}) as {string:Kept}) do (win as {string:Kept})[k] = v end
+  local win: Node = {view = view, id = next_win, opts = {}, state = {}}
+  for k, v in pairs((fields or {}) as {string: Kept}) do
+    (win as {string: Kept})[k] = v
+  end
   return win
 end
 
@@ -480,24 +493,30 @@ end
 function M.default_tree(): Node
   return {
     dir = "v",
-    { dir = "h", M.leaf("arrange"), M.leaf("devices", { size = 40, hidden = true, float_below = 80 }) },
-    M.leaf("pianoroll", { hidden = true, weight = 2 }),
-    M.leaf("mixer", { weight = 0.5, min = 14, hidden = true }),
+    {dir = "h", M.leaf("arrange"), M.leaf("devices", {size = 40, hidden = true, float_below = 80})},
+    M.leaf("pianoroll", {hidden = true, weight = 2}),
+    M.leaf("mixer", {weight = 0.5, min = 14, hidden = true}),
   }
 end
 
-M.homes.devices = { side = "right", size = 40, float_below = 80 }
-M.homes.pianoroll = { side = "bottom", weight = 2 }
-M.homes.mixer = { side = "bottom", weight = 0.5, min = 14 }
+M.homes.devices = {side = "right", size = 40, float_below = 80}
+M.homes.pianoroll = {side = "bottom", weight = 2}
+M.homes.mixer = {side = "bottom", weight = 0.5, min = 14}
 
 -- The tree ----------------------------------------------------------------------
 
 --- True if a node takes space: a window that is not hidden, or a node with such a window.
 local function shown(node: Node): boolean
-  if node.hidden then return false end
-  if node.view then return true end
+  if node.hidden then
+    return false
+  end
+  if node.view then
+    return true
+  end
   for _, child in ipairs(node) do
-    if shown(child) then return true end
+    if shown(child) then
+      return true
+    end
   end
   return false
 end
@@ -513,10 +532,14 @@ function M.windows(root?: Node, all?: boolean): {Node}
         next_win = next_win + 1
         node.id, node.opts, node.state = next_win, node.opts or {}, node.state or {}
       end
-      if all or not node.hidden then out[#out + 1] = node end
+      if all or not node.hidden then
+        out[#out + 1] = node
+      end
       return
     end
-    for _, child in ipairs(node) do walk(child) end
+    for _, child in ipairs(node) do
+      walk(child)
+    end
   end
   walk(root or ui().layout)
   return out
@@ -525,10 +548,14 @@ end
 --- The split that contains `target` in the tree under `node`, and its place there.
 local function parent_of(node: Node, target: Node): Node, integer
   for i, child in ipairs(node) do
-    if child == target then return node, i end
+    if child == target then
+      return node, i
+    end
     if not child.view then
       local parent, at = parent_of(child, target)
-      if parent then return parent, at end
+      if parent then
+        return parent, at
+      end
     end
   end
 end
@@ -543,14 +570,18 @@ M.parent_of = parent_of
 -- command acts in one, paw puts the state of that window in the table and
 -- keeps the state of the window before. So the view's code is the same for
 -- one window or many.
-M.keepers = {}    -- view name -> { { key, get, set, fresh } }
-local bound: {string:Node} = {}  -- view name -> the window whose state is in the view's table now
+M.keepers = {} -- view name -> { { key, get, set, fresh } }
+local bound: {string: Node} = {} -- view name -> the window whose state is in the view's table now
 -- Windows that are in no tab: a view in a window of its own in a graphical
 -- frontend (paw/canvas.tl). Each has a state of its own, as a window of a
 -- tab has.
-local loose: {Node:boolean} = setmetatable({}, { __mode = "k" })
-seats.keep("layout.bound", function(): {string:Node} return bound end, function(b: {string:Node}) bound = b end,
-  function(): {string:Node} return {} end)
+local loose: {Node: boolean} = setmetatable({}, {__mode = "k"})
+seats.keep(
+  "layout.bound",
+  function(): {string: Node} return bound end,
+  function(b: {string: Node}) bound = b end,
+  function(): {string: Node} return {} end
+)
 
 --- Keep some state of a view for each window. `get()` gives it (one
 --- value), `set(value)` puts it back, `fresh(value)` gives what a new
@@ -559,8 +590,12 @@ seats.keep("layout.bound", function(): {string:Node} return bound end, function(
 function M.window_keep<T>(name: string, get: function(): (T), set: function(T), fresh?: function(T): (T), key?: string)
   local list = M.keepers[name] or {}
   M.keepers[name] = list
-  local entry: Keeper = { key = key, get = get as function(): (Kept), set = set as function(Kept),
-    fresh = (fresh as function(Kept): (Kept)) or function(v: Kept): Kept return v end }
+  local entry: Keeper = {
+    key = key,
+    get = get as function(): (Kept),
+    set = set as function(Kept),
+    fresh = (fresh as function(Kept): (Kept)) or function(v: Kept): Kept return v end,
+  }
   for i, k in ipairs(list) do
     if key ~= nil and k.key == key then
       list[i] = entry
@@ -573,17 +608,24 @@ end
 --- Keep fields of a view's table for each window: `keys` names them,
 --- `fresh` the ones a new window starts without (caches, what drawing
 --- measures). A new window starts with the others as they are.
-function M.window_fields(name: string, tbl: {string:Kept}, keys: {string}, fresh?: {string}, key?: string)
-  local without: {string:boolean} = {}
-  for _, k in ipairs(fresh or {}) do without[k] = true end
-  M.window_keep(name,
+function M.window_fields(name: string, tbl: {string: Kept}, keys: {string}, fresh?: {string}, key?: string)
+  local without: {string: boolean} = {}
+  for _, k in ipairs(fresh or {}) do
+    without[k] = true
+  end
+  M.window_keep(
+    name,
     function(): {Kept}
       local out: {Kept} = {}
-      for i, k in ipairs(keys) do out[i] = tbl[k] end
+      for i, k in ipairs(keys) do
+        out[i] = tbl[k]
+      end
       return out
     end,
     function(values: {Kept})
-      for i, k in ipairs(keys) do tbl[k] = values[i] end
+      for i, k in ipairs(keys) do
+        tbl[k] = values[i]
+      end
     end,
     function(values: {Kept}): {Kept}
       local out: {Kept} = {}
@@ -593,14 +635,18 @@ function M.window_fields(name: string, tbl: {string:Kept}, keys: {string}, fresh
           v = nil
         elseif type(v) == "table" then
           -- A list or a set of the window's own, not shared with the other.
-          local copied: {Kept:Kept} = {}
-          for kk, x in pairs(v as {Kept:Kept}) do copied[kk] = x end
+          local copied: {Kept: Kept} = {}
+          for kk, x in pairs(v as {Kept: Kept}) do
+            copied[kk] = x
+          end
           v = copied as Kept
         end
         out[i] = v
       end
       return out
-    end, key or "fields")
+    end,
+    key or "fields"
+  )
 end
 
 --- True if a view is shown in one window at a time: a view without a
@@ -615,39 +661,53 @@ end
 function M.bind(win: Node)
   local name = win and win.view
   local keep = name and M.keepers[name]
-  if not keep or bound[name] == win then return end
+  if not keep or bound[name] == win then
+    return
+  end
   local was = bound[name]
   local now: {Kept} = {}
-  for i, k in ipairs(keep) do now[i] = k.get() end
+  for i, k in ipairs(keep) do
+    now[i] = k.get()
+  end
   local saved = win.kept
   -- The window before went (another layout, a closed tab) or shows
   -- another view now: what the table holds is the view's latest state,
   -- and this window takes it.
-  if was and (was.view ~= name or not (loose[was] or M.get(was.id))) then was, saved = nil, nil end
+  if was and (was.view ~= name or not (loose[was] or M.get(was.id))) then
+    was, saved = nil, nil
+  end
   if was then
     was.kept = now
     if not saved then
       saved = {}
-      for i, k in ipairs(keep) do saved[i] = k.fresh(now[i]) end
+      for i, k in ipairs(keep) do
+        saved[i] = k.fresh(now[i])
+      end
     end
   else
     -- The first window takes the state that the table has.
     saved = saved or now
   end
-  for i, k in ipairs(keep) do k.set(saved[i]) end
+  for i, k in ipairs(keep) do
+    k.set(saved[i])
+  end
   win.kept = nil
   bound[name] = win
 end
 
 --- The window whose state the table of a view holds now, if any.
-function M.bound(name: string): Node return bound[name] end
+function M.bound(name: string): Node
+  return bound[name]
+end
 
 --- A window in no tab for the view `name`: a view in a window of its own
 --- of a graphical frontend. It starts from the state of the window `from`
 --- (the pane that it leaves), else of the window whose state the view
 --- holds now. It keeps its own state from then on.
 function M.loose(name: string, from?: Node): Node
-  if from and from.view == name then M.bind(from) end
+  if from and from.view == name then
+    M.bind(from)
+  end
   local win = M.leaf(name)
   loose[win] = true
   M.bind(win)
@@ -657,9 +717,13 @@ end
 --- True if a window of this number is in a tab of the seat, or is a
 --- window in no tab (`M.loose`) that is still in use.
 function M.alive(id: integer): boolean
-  if M.get(id) then return true end
+  if M.get(id) then
+    return true
+  end
   for win in pairs(loose) do
-    if win.id == id then return true end
+    if win.id == id then
+      return true
+    end
   end
   return false
 end
@@ -668,33 +732,40 @@ end
 --- view, in place of its own: a view in a window of its own that returns
 --- into its pane takes what it showed there.
 function M.hand_over(from: Node, to: Node)
-  if not (from and to and from.view == to.view and M.keepers[from.view]) then return end
+  if not (from and to and from.view == to.view and M.keepers[from.view]) then
+    return
+  end
   M.bind(from)
   to.kept = nil
   bound[from.view] = to
 end
 
 --- What `pcall` of a function gives, as `{ ok, results... }`.
-local record Results
-  {Kept}
+local record Results is {Kept}
   n: integer
 end
 local function pack(...: Kept): Results
-  local out: Results = { ... }
+  local out: Results = {...}
   out.n = select("#", ...)
   return out
 end
 
 --- Run `fn(...)` with the state of `win` in its view's table, then put
 --- back the state that was there.
-function M.within<A, R>(win: Node, fn: function(A...): (R...), ...: A): R...
+function M.within<A, R>(win: Node, fn: function(...: A): (R...), ...: A): R...
   local name = win and win.view
   local before = name and bound[name]
-  if not (name and M.keepers[name]) or before == win then return fn(...) end
+  if not (name and M.keepers[name]) or before == win then
+    return fn(...)
+  end
   M.bind(win)
-  local result = pack((pcall as function(function(A...): (R...), A...): (Kept...))(fn, ...))
-  if before then M.bind(before) end
-  if not result[1] then error(result[2], 0) end
+  local result = pack((pcall as function(function(...: A): (R...), ...: A): (Kept...))(fn, ...))
+  if before then
+    M.bind(before)
+  end
+  if not result[1] then
+    error(result[2], 0)
+  end
   return (unpack as function(Results, integer, integer): R...)(result, 2, result.n)
 end
 
@@ -704,7 +775,9 @@ end
 function M.settle()
   local u = ui()
   local t = u.tabs and u.tabs[u.tab]
-  if not t then return end
+  if not t then
+    return
+  end
   local canvas = paw.canvas
   for name in pairs(M.keepers) do
     -- A view in a window of its own of a graphical frontend, which has
@@ -721,7 +794,9 @@ function M.settle()
     if not (win and win.view == name and (not win.hidden or win == own)) then
       win = M.find(t.layout, name, true) or own or M.find(t.layout, name)
     end
-    if win then M.bind(win) end
+    if win then
+      M.bind(win)
+    end
   end
 end
 
@@ -729,10 +804,14 @@ end
 --- and options, and start from that seat's state.
 function M.copy_tabs(tabs: {Tab}): {Tab}
   local function walk(value: Kept): Kept
-    if type(value) ~= "table" then return value end
-    local out: {Kept:Kept} = {}
-    for k, v in pairs(value as {Kept:Kept}) do
-      if k ~= "kept" as Kept then out[k] = walk(v) end
+    if type(value) ~= "table" then
+      return value
+    end
+    local out: {Kept: Kept} = {}
+    for k, v in pairs(value as {Kept: Kept}) do
+      if k ~= "kept" as Kept then
+        out[k] = walk(v)
+      end
     end
     return out as Kept
   end
@@ -754,28 +833,38 @@ function M.find(root: Node, name: string, on_screen?: boolean): Node
   local all = M.windows(root, true)
   for _, id in ipairs(prefer) do
     for _, win in ipairs(all) do
-      if id and win.id == id and win.view == name and not win.hidden then return win end
+      if id and win.id == id and win.view == name and not win.hidden then
+        return win
+      end
     end
   end
   local hidden: Node
   for _, win in ipairs(all) do
     if win.view == name then
-      if not win.hidden then return win end
+      if not win.hidden then
+        return win
+      end
       hidden = hidden or win
     end
   end
-  if not on_screen then return hidden end
+  if not on_screen then
+    return hidden
+  end
 end
 
 --- A window by its number, and the tab it is in.
 function M.get(id: integer): Node, integer
   local u = ui()
   for _, win in ipairs(M.windows(u.layout, true)) do
-    if win.id == id then return win, u.tab end
+    if win.id == id then
+      return win, u.tab
+    end
   end
   for i, t in ipairs(u.tabs) do
     for _, win in ipairs(M.windows(t.layout, true)) do
-      if win.id == id then return win, i end
+      if win.id == id then
+        return win, i
+      end
     end
   end
 end
@@ -783,10 +872,16 @@ end
 --- Turn a tab's tree into one stacked in rows at the top, in place: the
 --- table stays the one the tab and `paw.ui.layout` hold.
 local function to_rows(root: Node)
-  if root.dir == "v" then return end
-  local inner: Node = { dir = root.dir }
-  for i, child in ipairs(root) do inner[i] = child end
-  for i = #root, 1, -1 do root[i] = nil end
+  if root.dir == "v" then
+    return
+  end
+  local inner: Node = {dir = root.dir}
+  for i, child in ipairs(root) do
+    inner[i] = child
+  end
+  for i = #root, 1, -1 do
+    root[i] = nil
+  end
   root.dir, root[1] = "v", inner
 end
 
@@ -843,30 +938,42 @@ local function keyboard_in(root: Node): Node
   local t = u.tabs and u.tabs[u.tab]
   if t and t.layout == root and t.win then
     for _, win in ipairs(M.windows(root)) do
-      if win.id == t.win then return win end
+      if win.id == t.win then
+        return win
+      end
     end
   end
   for _, win in ipairs(M.windows(root)) do
-    if focusable(win.view) then return win end
+    if focusable(win.view) then
+      return win
+    end
   end
 end
 
 --- Put a window for a docked view where it docks: on its side of the
 --- window that has the keyboard, as a split in Neovim is.
 local function place_home(root: Node, name: string, home: Home, hidden?: boolean): Node
-  local win = M.leaf(name, { size = home.size, weight = home.weight, min = home.min, float_below = home.float_below, hidden = hidden })
+  local win = M.leaf(
+    name, {size = home.size, weight = home.weight, min = home.min, float_below = home.float_below, hidden = hidden}
+  )
   local side = home.side or "bottom"
   local dir: Dir = (side == "left" or side == "right") and "h" or "v"
   local before = side == "left" or side == "top"
   local cur = keyboard_in(root)
   local parent, at: Node, integer
-  if cur then parent, at = parent_of(root, cur) end
+  if cur then
+    parent, at = parent_of(root, cur)
+  end
   if not parent then
     -- Nothing to stand beside: along that side of the tab.
     if dir == "h" then
-      local row: Node = { dir = "h" }
-      for i, child in ipairs(root) do row[i] = child end
-      for i = #root, 1, -1 do root[i] = nil end
+      local row: Node = {dir = "h"}
+      for i, child in ipairs(root) do
+        row[i] = child
+      end
+      for i = #root, 1, -1 do
+        root[i] = nil
+      end
       root[1] = row
       table.insert(row, before and 1 or #row + 1, win)
     else
@@ -877,7 +984,7 @@ local function place_home(root: Node, name: string, home: Home, hidden?: boolean
   if parent.dir == dir then
     table.insert(parent, before and at or at + 1, win)
   else
-    local node: Node = { dir = dir, size = cur.size, weight = cur.weight, min = cur.min }
+    local node: Node = {dir = dir, size = cur.size, weight = cur.weight, min = cur.min}
     cur.size, cur.weight, cur.min = nil, nil, nil
     node[1], node[2] = before and win or cur, before and cur or win
     parent[at] = node
@@ -888,7 +995,7 @@ end
 --- Dock a view in the current tab and remember the place for other tabs.
 --- See `paw.ui.dock`.
 function M.dock(name: string, opts: DockOptions)
-  local home: Home = { side = opts.side or "bottom", size = opts.size, weight = opts.weight, min = opts.min }
+  local home: Home = {side = opts.side or "bottom", size = opts.size, weight = opts.weight, min = opts.min}
   M.homes[name] = home
   local root = ui().layout
   remove_view(root, name)
@@ -904,7 +1011,7 @@ local function single(name: string): Buffer
   if not buf and ui().views[name] and not M.types[name] then
     next_buf = next_buf + 1
     local view = ui().views[name]
-    buf = { id = next_buf, name = view.bufname or M.names[name] or name, type = name, single = true, listed = true }
+    buf = {id = next_buf, name = view.bufname or M.names[name] or name, type = name, single = true, listed = true}
     M.buffers[buf.id] = buf
     by_view[name] = buf
   end
@@ -913,8 +1020,12 @@ end
 
 --- The buffer a window shows.
 function M.buf_of(win: Node): Buffer
-  if not win then return nil end
-  if win.buf then return M.buffers[win.buf] end
+  if not win then
+    return nil
+  end
+  if win.buf then
+    return M.buffers[win.buf]
+  end
   return single(win.view)
 end
 
@@ -922,15 +1033,23 @@ end
 --- has one buffer, whatever the target.
 function M.buf_create(type_name: string, target?: string): Buffer
   local def = M.types[type_name]
-  if not def then return single(type_name) end
+  if not def then
+    return single(type_name)
+  end
   if target ~= nil then
     for _, buf in pairs(M.buffers) do
-      if buf.type == type_name and buf.target == target then return buf end
+      if buf.type == type_name and buf.target == target then
+        return buf
+      end
     end
   end
   next_buf = next_buf + 1
-  local buf: Buffer = { id = next_buf, type = type_name, target = target, listed = def.listed ~= false, options = copy(def.options or {}) }
-  buf.name = def.bufname and def.bufname(target, buf) or (target ~= nil and type_name .. "://" .. tostring(target)) or type_name
+  local buf: Buffer = {
+    id = next_buf, type = type_name, target = target, listed = def.listed ~= false, options = copy(def.options or {})
+  }
+  buf.name = def.bufname and def.bufname(target, buf)
+    or (target ~= nil and type_name .. "://" .. tostring(target))
+    or type_name
   M.buffers[buf.id] = buf
   buf.state = def.create and def.create(target, buf) or {}
   return buf
@@ -940,7 +1059,9 @@ end
 --- a buffer, or the name or the short name of a view (`roll`). It can also
 --- be a type with a target (`type://target`). Nil when the name is not known.
 function M.resolve(name: string | integer): string, Buffer, string
-  if name == nil then return nil end
+  if name == nil then
+    return nil
+  end
   local number = tonumber(name)
   if number then
     local buf = M.buffers[number as integer]
@@ -948,36 +1069,56 @@ function M.resolve(name: string | integer): string, Buffer, string
   end
   local text = tostring(name)
   for _, buf in pairs(M.buffers) do
-    if buf.name == text then return buf.type, buf end
+    if buf.name == text then
+      return buf.type, buf
+    end
   end
   for view, short in pairs(M.names) do
-    if short == text and ui().views[view] then return view, single(view) end
+    if short == text and ui().views[view] then
+      return view, single(view)
+    end
   end
   local views = ui().views
   for view, def in pairs(views) do
-    if def.bufname == text then return view, single(view) end
+    if def.bufname == text then
+      return view, single(view)
+    end
   end
-  if M.types[text] then return text, M.buf_create(text) end
-  if views[text] and views[text].focusable ~= false then return text, single(text) end
+  if M.types[text] then
+    return text, M.buf_create(text)
+  end
+  if views[text] and views[text].focusable ~= false then
+    return text, single(text)
+  end
   -- A type may take names of its own form as targets (`paw://lane/3`).
   for type_name, def in pairs(M.types) do
-    if def.claims and def.claims(text) then return type_name, M.buf_create(type_name, text) end
+    if def.claims and def.claims(text) then
+      return type_name, M.buf_create(type_name, text)
+    end
   end
   local kind, target = text:match("^([%w_]+)://(.*)$")
-  if kind and M.types[kind] then return kind, M.buf_create(kind, target ~= "" and target or nil) end
+  if kind and M.types[kind] then
+    return kind, M.buf_create(kind, target ~= "" and target or nil)
+  end
   -- A view that opens a thing of its own in its window (`roll://7`, the
   -- piano roll on clip 7): the view, and what to open, for `open_target`.
   local view = kind and target ~= "" and M.view_named(kind)
-  if view and views[view].open_target then return view, single(view), target end
+  if view and views[view].open_target then
+    return view, single(view), target
+  end
 end
 
 --- The view a name or a short name (`roll`) stands for, or nil.
 function M.view_named(name: string): string
   local views = ui().views
   for view, short in pairs(M.names) do
-    if short == name and views[view] then return view end
+    if short == name and views[view] then
+      return view
+    end
   end
-  if views[name] and views[name].focusable ~= false and not M.types[name] then return name end
+  if views[name] and views[name].focusable ~= false and not M.types[name] then
+    return name
+  end
 end
 
 --- The clip a name of a window's thing stands for: an id (`7`), an
@@ -985,10 +1126,14 @@ end
 --- of the tracks. Nil if there is none.
 function M.clip_named(target: string | integer): objects.Clip
   local id = tonumber(target) or tonumber(tostring(target):match("^paw://clip/(%d+)"))
-  if id then return pcall(api.clip_get, id as integer) and paw.clip(id as integer) or nil end
+  if id then
+    return pcall(api.clip_get, id as integer) and paw.clip(id as integer) or nil
+  end
   for _, track in ipairs(api.track_list()) do
     for _, c in ipairs(api.clip_list(track)) do
-      if c.name == target then return paw.clip(c.id) end
+      if c.name == target then
+        return paw.clip(c.id)
+      end
     end
   end
 end
@@ -996,11 +1141,17 @@ end
 --- Open `target` in a window that shows the view `name`, by the view's
 --- `open_target(target)`: false and why when it cannot.
 local function aim(name: string, target: string): boolean, string
-  if target == nil then return true end
+  if target == nil then
+    return true
+  end
   local view = ui().views[name]
-  if not (view and view.open_target) then return false, name .. " opens nothing by name" end
+  if not (view and view.open_target) then
+    return false, name .. " opens nothing by name"
+  end
   local ok, why = view:open_target(target)
-  if ok == false then return false, why or ("nothing called `" .. tostring(target) .. "`") end
+  if ok == false then
+    return false, why or ("nothing called `" .. tostring(target) .. "`")
+  end
   api.ui_redraw()
   return true
 end
@@ -1010,14 +1161,20 @@ end
 function M.buffers_list(): {Buffer}
   local u = ui()
   for _, t in ipairs(u.tabs) do
-    for _, win in ipairs(M.windows(t.layout, true)) do M.buf_of(win) end
+    for _, win in ipairs(M.windows(t.layout, true)) do
+      M.buf_of(win)
+    end
   end
   for name in pairs(M.homes) do
-    if u.views[name] then single(name) end
+    if u.views[name] then
+      single(name)
+    end
   end
   local out: {Buffer} = {}
   for _, buf in pairs(M.buffers) do
-    if buf.listed then out[#out + 1] = buf end
+    if buf.listed then
+      out[#out + 1] = buf
+    end
   end
   table.sort(out, function(a: Buffer, b: Buffer): boolean return a.id < b.id end)
   return out
@@ -1027,16 +1184,20 @@ end
 --- every view's that can be shown.
 function M.buffer_names(): {commands.Item}
   local out: {commands.Item} = {}
-  local seen: {string:boolean} = {}
+  local seen: {string: boolean} = {}
   local function add(name: string, desc: string)
     if not seen[name] then
       seen[name] = true
-      out[#out + 1] = { text = name, desc = desc }
+      out[#out + 1] = {text = name, desc = desc}
     end
   end
-  for _, buf in ipairs(M.buffers_list()) do add(buf.name, M.title(buf)) end
+  for _, buf in ipairs(M.buffers_list()) do
+    add(buf.name, M.title(buf))
+  end
   for name, view in pairs(ui().views) do
-    if view.focusable ~= false and not M.types[name] then add(view.bufname or M.names[name] or name, view.title) end
+    if view.focusable ~= false and not M.types[name] then
+      add(view.bufname or M.names[name] or name, view.title)
+    end
   end
   table.sort(out, function(a: commands.Item, b: commands.Item): boolean return a.text < b.text end)
   return out
@@ -1047,13 +1208,17 @@ function M.title(buf: Buffer): string
   local def = M.types[buf.type]
   if def and def.title then
     local ok, text = pcall(def.title, buf) as (boolean, string)
-    if ok and text then return tostring(text) end
+    if ok and text then
+      return tostring(text)
+    end
   end
   local view = ui().views[buf.type]
   -- A view's title may say what it shows now (`view:title_of()`).
   if view and view.title_of then
     local ok, text = pcall(view.title_of, view) as (boolean, string)
-    if ok and text then return tostring(text) end
+    if ok and text then
+      return tostring(text)
+    end
   end
   return view and view.title or M.pane_titles[buf.type] or M.titles[buf.type] or buf.name
 end
@@ -1068,10 +1233,14 @@ end
 --- an unlisted one (an empty window's).
 local function reap(id: integer)
   local buf = id and M.buffers[id]
-  if not buf or buf.listed then return end
+  if not buf or buf.listed then
+    return
+  end
   for _, t in ipairs(ui().tabs) do
     for _, win in ipairs(M.windows(t.layout, true)) do
-      if win.buf == id then return end
+      if win.buf == id then
+        return
+      end
     end
   end
   M.buffers[id] = nil
@@ -1084,7 +1253,9 @@ function M.buf_delete(buf: Buffer)
     local win = tab_win.win
     if (buf.single and win.view == buf.type and not win.buf) or win.buf == buf.id then
       if not win.hidden then
-        if not M.close(win) then M.show_in(win, "empty") end
+        if not M.close(win) then
+          M.show_in(win, "empty")
+        end
       end
     end
   end
@@ -1092,14 +1263,18 @@ function M.buf_delete(buf: Buffer)
     buf.listed = false
   else
     local def = M.types[buf.type]
-    if def and def.delete then def.delete(buf) end
+    if def and def.delete then
+      def.delete(buf)
+    end
     M.buffers[buf.id] = nil
     for _, t in ipairs(ui().tabs) do
       local function walk(node: Node)
         for i = #node, 1, -1 do
           local child = node[i]
           if child.view then
-            if child.buf == buf.id then table.remove(node, i) end
+            if child.buf == buf.id then
+              table.remove(node, i)
+            end
           else
             walk(child)
           end
@@ -1119,9 +1294,13 @@ function M.drop_dead()
   local dead: {Buffer} = {}
   for _, buf in pairs(M.buffers) do
     local def = M.types[buf.type]
-    if def and def.alive and not buf.single and not def.alive(buf) then dead[#dead + 1] = buf end
+    if def and def.alive and not buf.single and not def.alive(buf) then
+      dead[#dead + 1] = buf
+    end
   end
-  for _, buf in ipairs(dead) do M.buf_delete(buf) end
+  for _, buf in ipairs(dead) do
+    M.buf_delete(buf)
+  end
 end
 events.on(kernel.project_loaded, function() M.drop_dead() end)
 
@@ -1160,68 +1339,111 @@ function M.buftype<B is contracts.Buftype>(name: string, def: B): B
   def.name = name
   M.types[name] = def
   local function win_of(ctx?: RenderContext): Node
-    if ctx and ctx.win then return ctx.win as Node end
-    local current = M.current()
-    if current and current.view == name then return current end
-    for _, win in ipairs(M.windows(ui().layout)) do
-      if win.view == name then return win end
+    if ctx and ctx.win then
+      return ctx.win as Node
     end
-    if def.window then return def.window() as Node end
+    local current = M.current()
+    if current and current.view == name then
+      return current
+    end
+    for _, win in ipairs(M.windows(ui().layout)) do
+      if win.view == name then
+        return win
+      end
+    end
+    if def.window then
+      return def.window() as Node
+    end
   end
   -- The keymap, the drawing and the mouse reach a type through a view of
   -- its name, as they reach every view.
   local view: View = {
-    name = name, buftype = def, window = false, modal = def.modal, help = def.help,
+    name = name,
+    buftype = def,
+    window = false,
+    modal = def.modal,
+    help = def.help,
     render = function(_: View, canvas: contracts.Buf, ctx?: RenderContext)
       local win = win_of(ctx)
-      if not win then return end
+      if not win then
+        return
+      end
       local merged: RenderContext = {}
-      for k, v in pairs((ctx or {}) as {string:Value}) do (merged as {string:Value})[k] = v end
+      for k, v in pairs((ctx or {}) as {string: Value}) do
+        (merged as {string: Value})[k] = v
+      end
       merged.win, merged.buf = win, M.buf_of(win)
-      if def.render then def.render(win, canvas, merged) end
+      if def.render then
+        def.render(win, canvas, merged)
+      end
     end,
     on_key = function(_: View, key: string): boolean
       local win = win_of()
-      if win and def.on_key then return def.on_key(win, key) end
+      if win and def.on_key then
+        return def.on_key(win, key)
+      end
     end,
     on_mouse = function(_: View, event: contracts.MouseEvent): boolean
       local win = event.win and M.get(event.win) or win_of()
-      if win and def.on_mouse then return def.on_mouse(win, event) end
+      if win and def.on_mouse then
+        return def.on_mouse(win, event)
+      end
     end,
   }
   if def.time then
     view.time_axis = function(_: View, ctx?: RenderContext): number, number, number return def.time.get(win_of(ctx)) end
-    view.set_time_axis = function(_: View, left: number, zoom: number, ctx?: RenderContext) def.time.set(win_of(ctx), left, zoom) end
+    view.set_time_axis = function(_: View, left: number, zoom: number, ctx?: RenderContext)
+      def.time.set(win_of(ctx), left, zoom)
+    end
   end
-  if def.describe then view.describe = function(): contracts.Description return def.describe(win_of()) end end
+  if def.describe then
+    view.describe = function(): contracts.Description return def.describe(win_of()) end
+  end
   if def.status then
-    view.status = function(_: View, ctx?: contracts.StatusContext): contracts.StatusText return def.status(win_of(), ctx) end
+    view.status = function(_: View, ctx?: contracts.StatusContext): contracts.StatusText
+      return def.status(win_of(), ctx)
+    end
   end
-  if def.subscope then view.subscope = function(): string return def.subscope(win_of()) end end
+  if def.subscope then
+    view.subscope = function(): string return def.subscope(win_of()) end
+  end
   if def.paint then
-    view.paint = function(_: View, g: contracts.Painter, ctx?: contracts.PaintContext) def.paint(win_of(ctx as RenderContext), g, ctx) end
+    view.paint = function(_: View, g: contracts.Painter, ctx?: contracts.PaintContext)
+      def.paint(win_of(ctx as RenderContext), g, ctx)
+    end
   end
-  if def.pointer then view.pointer = function(_: View, e: contracts.PointerEvent): boolean return def.pointer(win_of(), e) end end
+  if def.pointer then
+    view.pointer = function(_: View, e: contracts.PointerEvent): boolean return def.pointer(win_of(), e) end
+  end
   ui().views[name] = view
   if type(def.grid) == "function" then
     -- The grid of the window with the keys, asked for each time.
     local grid_of = def.grid
-    view.grid = setmetatable({} as contracts.Grid, { __index = function(_: contracts.Grid, key: string): Value
-      local win = win_of()
-      local g = win and grid_of(win)
-      return g and (g as {string:Value})[key]
-    end } as metatable<contracts.Grid>)
+    view.grid = setmetatable(
+      {} as contracts.Grid,
+      {
+        __index = function(_: contracts.Grid, key: string): Value
+          local win = win_of()
+          local g = win and grid_of(win)
+          return g and (g as {string: Value})[key]
+        end,
+      } as metatable<contracts.Grid>
+    )
   elseif def.grid then
     view.grid = def.grid as contracts.Grid
   end
-  M.powers(name, def, function(fn: KeyFn): KeyFn
-    return function(ctx?: KeyContext, region?: Region): Region
-      local win = win_of()
-      ctx = ctx or {}
-      ctx.win, ctx.buf = win, win and M.buf_of(win)
-      return fn(ctx, region)
+  M.powers(
+    name,
+    def,
+    function(fn: KeyFn): KeyFn
+      return function(ctx?: KeyContext, region?: Region): Region
+        local win = win_of()
+        ctx = ctx or {}
+        ctx.win, ctx.buf = win, win and M.buf_of(win)
+        return fn(ctx, region)
+      end
     end
-  end)
+  )
   api.ui_redraw()
   return def
 end
@@ -1238,58 +1460,81 @@ end
 function M.powers(scope: string, def: contracts.Powers, wrap?: Wrap)
   local keymap = paw.keymap as Keymap
   local wrapping = wrap or function(fn: KeyFn): KeyFn return fn end
-  local function each(list: {string:contracts.KeyRhs}, how: function(lhs: string, rhs: contracts.KeyRhs, opts: {string:Opt}))
+  local function each(
+    list: {string: contracts.KeyRhs}, how: function(lhs: string, rhs: contracts.KeyRhs, opts: {string: Opt})
+  )
     for lhs, entry in pairs(list or {}) do
-      local rhs, opts: contracts.KeyRhs, {string:Opt} = entry, { view = scope }
+      local rhs, opts: contracts.KeyRhs, {string: Opt} = entry, {view = scope}
       if entry is contracts.KeyEntry then
         rhs = entry[1]
-        for k, v in pairs(entry as {string:Opt}) do
-          if k ~= 1 as string then opts[k] = v end
+        for k, v in pairs(entry as {string: Opt}) do
+          if k ~= 1 as string then
+            opts[k] = v
+          end
         end
       end
       how(lhs, rhs, opts)
     end
   end
   local function wrapped(rhs: contracts.KeyRhs): contracts.KeyRhs
-    if rhs is contracts.KeyFn then return wrapping(rhs as KeyFn) as contracts.KeyFn end
+    if rhs is contracts.KeyFn then
+      return wrapping(rhs as KeyFn) as contracts.KeyFn
+    end
     return rhs
   end
-  each(def.keymaps, function(lhs: string, rhs: contracts.KeyRhs, opts: {string:Opt})
-    keymap.set(lhs, wrapped(rhs), opts)
-  end)
-  each(def.motions, function(lhs: string, rhs: contracts.KeyRhs, opts: {string:Opt})
-    opts.motion = true
-    keymap.set(lhs, wrapped(rhs), opts)
-  end)
-  each(def.textobjects as {string:contracts.KeyRhs}, function(lhs: string, fn: contracts.KeyRhs, opts: {string:Opt})
-    keymap.textobject(lhs, wrapping(fn as KeyFn), opts)
-  end)
+  each(
+    def.keymaps,
+    function(lhs: string, rhs: contracts.KeyRhs, opts: {string: Opt}) keymap.set(lhs, wrapped(rhs), opts) end
+  )
+  each(
+    def.motions,
+    function(lhs: string, rhs: contracts.KeyRhs, opts: {string: Opt})
+      opts.motion = true
+      keymap.set(lhs, wrapped(rhs), opts)
+    end
+  )
+  each(
+    def.textobjects as {string: contracts.KeyRhs},
+    function(lhs: string, fn: contracts.KeyRhs, opts: {string: Opt})
+      keymap.textobject(lhs, wrapping(fn as KeyFn), opts)
+    end
+  )
   -- An operator's function gets the region first, and `ctx` second.
-  each(def.operators as {string:contracts.KeyRhs}, function(lhs: string, rhs: contracts.KeyRhs, opts: {string:Opt})
-    local fn = rhs as function(region: Region, ctx?: KeyContext): Region
-    local wrapped_fn = wrapping(function(ctx?: KeyContext, region?: Region): Region return fn(region, ctx) end)
-    keymap.operator(lhs, function(region: Region, ctx?: KeyContext): Region return wrapped_fn(ctx, region) end, opts)
-  end)
+  each(
+    def.operators as {string: contracts.KeyRhs},
+    function(lhs: string, rhs: contracts.KeyRhs, opts: {string: Opt})
+      local fn = rhs as function(region: Region, ctx?: KeyContext): Region
+      local wrapped_fn = wrapping(function(ctx?: KeyContext, region?: Region): Region return fn(region, ctx) end)
+      keymap.operator(lhs, function(region: Region, ctx?: KeyContext): Region return wrapped_fn(ctx, region) end, opts)
+    end
+  )
 end
 
 -- Tabs and the current window ---------------------------------------------------
 
 --- The current tab.
-local function tab(): Tab local u = ui() return u.tabs[u.tab] end
+local function tab(): Tab
+  local u = ui()
+  return u.tabs[u.tab]
+end
 M.tab = tab
 
 --- Every window of every tab, as `{ win, tab }`.
 function M.all_windows(): {TabWindow}
   local out: {TabWindow} = {}
   for i, t in ipairs(ui().tabs) do
-    for _, win in ipairs(M.windows(t.layout, true)) do out[#out + 1] = { win = win, tab = i } end
+    for _, win in ipairs(M.windows(t.layout, true)) do
+      out[#out + 1] = {win = win, tab = i}
+    end
   end
   return out
 end
 
 local function first_window(root: Node): Node
   for _, win in ipairs(M.windows(root)) do
-    if focusable(win.view) then return win end
+    if focusable(win.view) then
+      return win
+    end
   end
 end
 
@@ -1299,20 +1544,28 @@ end
 function M.current(): Node
   local u, t = ui(), tab()
   local win = t.win and M.find_id(t.layout, t.win)
-  if win and win.hidden then win = nil end
+  if win and win.hidden then
+    win = nil
+  end
   if not (win and win.view == u.focused) then
     local named = u.focused and M.find(t.layout, u.focused)
-    if named and not named.hidden then win = named end
+    if named and not named.hidden then
+      win = named
+    end
   end
   win = win or first_window(t.layout)
-  if win and t.win ~= win.id then t.prev, t.win = t.win, win.id end
+  if win and t.win ~= win.id then
+    t.prev, t.win = t.win, win.id
+  end
   return win
 end
 
 --- The window of an id in the tree under `root`.
 function M.find_id(root: Node, id: integer): Node
   for _, win in ipairs(M.windows(root, true)) do
-    if win.id == id then return win end
+    if win.id == id then
+      return win
+    end
   end
 end
 
@@ -1322,22 +1575,30 @@ function M.enter(win: Node)
   local old = M.current()
   if old ~= win then
     local old_buf, new_buf = M.buf_of(old), M.buf_of(win)
-    if old then events.emit(win_leave, { win = old.id }) end
-    if old_buf and old_buf ~= new_buf then events.emit(buf_leave, { buf = old_buf.id, name = old_buf.name }) end
+    if old then
+      events.emit(win_leave, {win = old.id})
+    end
+    if old_buf and old_buf ~= new_buf then
+      events.emit(buf_leave, {buf = old_buf.id, name = old_buf.name})
+    end
     t.prev, t.win = old and old.id, win.id
-    events.emit(win_enter, { win = win.id })
-    if new_buf and old_buf ~= new_buf then events.emit(buf_enter, { buf = new_buf.id, name = new_buf.name }) end
+    events.emit(win_enter, {win = win.id})
+    if new_buf and old_buf ~= new_buf then
+      events.emit(buf_enter, {buf = new_buf.id, name = new_buf.name})
+    end
   end
   -- The view's table holds this window's state while it has the keyboard.
   M.bind(win)
   -- A view in a window of its own no longer has the keyboard there.
-  if paw.canvas then paw.canvas.inside = nil end
+  if paw.canvas then
+    paw.canvas.inside = nil
+  end
   t.last = t.last or {}
   t.last[win.view] = win.id
   if u.focused ~= win.view then
     local before = u.focused
     u.focused = win.view
-    events.emit(view_focused, { view = win.view, old = before })
+    events.emit(view_focused, {view = win.view, old = before})
   end
   api.ui_redraw()
 end
@@ -1346,7 +1607,9 @@ end
 --- is shown in one window at a time.
 local function take(name: string)
   local u = ui()
-  if not M.one_window(name) then return end
+  if not M.one_window(name) then
+    return
+  end
   for i, t in ipairs(u.tabs) do
     if i ~= u.tab then
       for _, win in ipairs(M.windows(t.layout)) do
@@ -1372,7 +1635,9 @@ function M.reveal(name: string, go?: boolean): Node
   local u = ui()
   local t = tab()
   local win = M.find(t.layout, name)
-  if win and not win.hidden then return win end
+  if win and not win.hidden then
+    return win
+  end
   if go then
     for i, other in ipairs(u.tabs) do
       local there = i ~= u.tab and M.find(other.layout, name)
@@ -1384,16 +1649,22 @@ function M.reveal(name: string, go?: boolean): Node
   end
   if not win then
     local home = M.homes[name]
-    if not home then return nil end
+    if not home then
+      return nil
+    end
     win = place_home(t.layout, name, home)
     M.tidy(t.layout)
   end
   win.hidden = false
   take(name)
   local buf = single(name)
-  if buf then buf.listed = true end
+  if buf then
+    buf.listed = true
+  end
   local view = u.views[name]
-  if view and view.on_show then view:on_show() end
+  if view and view.on_show then
+    view:on_show()
+  end
   api.ui_redraw()
   return win
 end
@@ -1406,7 +1677,11 @@ function M.conceal(name: string): boolean
     for _, win in ipairs(M.windows(t.layout)) do
       if win.view == name and not win.buf then
         win.hidden = true
-        if first_window(t.layout) then was = true else win.hidden = false end
+        if first_window(t.layout) then
+          was = true
+        else
+          win.hidden = false
+        end
       end
     end
   end
@@ -1417,7 +1692,9 @@ end
 local function focusable_windows(): {Node}
   local out: {Node} = {}
   for _, win in ipairs(M.windows(ui().layout)) do
-    if focusable(win.view) then out[#out + 1] = win end
+    if focusable(win.view) then
+      out[#out + 1] = win
+    end
   end
   return out
 end
@@ -1429,10 +1706,14 @@ M.focusable_windows = focusable_windows
 function M.close(win?: Node): boolean
   local u, t = ui(), tab()
   win = win or M.current()
-  if not win then return false end
+  if not win then
+    return false
+  end
   local others = 0
   for _, w in ipairs(focusable_windows()) do
-    if w ~= win then others = others + 1 end
+    if w ~= win then
+      others = others + 1
+    end
   end
   if others == 0 then
     if #u.tabs > 1 then
@@ -1448,25 +1729,39 @@ function M.close(win?: Node): boolean
   if again then
     again = false
     for _, w in ipairs(M.windows(t.layout, true)) do
-      if w ~= win and w.view == win.view then again = true end
+      if w ~= win and w.view == win.view then
+        again = true
+      end
     end
   end
   if win.buf or again then
     local parent, at = parent_of(t.layout, win)
-    if parent then table.remove(parent, at) end
+    if parent then
+      table.remove(parent, at)
+    end
     M.tidy(t.layout)
     reap(win.buf)
-    if bound[win.view] == win then bound[win.view] = nil end
+    if bound[win.view] == win then
+      bound[win.view] = nil
+    end
   else
     win.hidden = true
     local view = u.views[win.view]
-    if view and view.on_hide then view:on_hide() end
+    if view and view.on_hide then
+      view:on_hide()
+    end
   end
-  if t.zoom and t.zoom.win == win.id then t.zoom = nil end
+  if t.zoom and t.zoom.win == win.id then
+    t.zoom = nil
+  end
   if current then
     local prev = t.prev and M.find_id(t.layout, t.prev)
-    if not (prev and not prev.hidden and focusable(prev.view)) then prev = first_window(t.layout) end
-    if prev then M.enter(prev) end
+    if not (prev and not prev.hidden and focusable(prev.view)) then
+      prev = first_window(t.layout)
+    end
+    if prev then
+      M.enter(prev)
+    end
   end
   api.ui_redraw()
   return true
@@ -1488,7 +1783,9 @@ function M.back(): boolean
       end
     end
   end
-  if not win then return false end
+  if not win then
+    return false
+  end
   M.enter(win)
   return true
 end
@@ -1496,9 +1793,13 @@ end
 --- Close every window of the current tab but one.
 function M.only(win?: Node)
   win = win or M.current()
-  if not win then return end
+  if not win then
+    return
+  end
   for _, w in ipairs(focusable_windows()) do
-    if w ~= win then M.close(w) end
+    if w ~= win then
+      M.close(w)
+    end
   end
   M.enter(win)
 end
@@ -1507,7 +1808,9 @@ end
 --- fresh arrangement of the screen.
 local function rect_of(win: Node): contracts.ScreenRect
   for _, r in ipairs(ui().arrange()) do
-    if r.win == win.id then return r end
+    if r.win == win.id then
+      return r
+    end
   end
 end
 
@@ -1520,23 +1823,31 @@ function M.split(opts: SplitOptions): Node, string
   local u, t = ui(), tab()
   local cur = opts.win or M.current()
   local name = opts.view or "empty"
-  if not u.views[name] then return nil, "no buffer `" .. tostring(name) .. "`" end
+  if not u.views[name] then
+    return nil, "no buffer `" .. tostring(name) .. "`"
+  end
   local single_view = not M.types[name]
   local one = M.one_window(name)
-  if one and cur and cur.view == name then return nil, name .. " is in this window already" end
+  if one and cur and cur.view == name then
+    return nil, name .. " is in this window already"
+  end
   if cur then
     local r = rect_of(cur)
     local room = r and (opts.vertical and r.w or r.h)
     local least = opts.vertical and M.min_width or M.min_height
     -- Without a screen (a script, the graphical frontend) there is no room to measure.
-    if room and room > 0 and room < least * 2 + 1 then return nil, "not enough room" end
+    if room and room > 0 and room < least * 2 + 1 then
+      return nil, "not enough room"
+    end
   end
   local buf = opts.buf or (not single_view and M.buf_create(name).id) or nil
   local moved = one and remove_view(t.layout, name)
-  local win = M.leaf(name, { buf = buf })
+  local win = M.leaf(name, {buf = buf})
   local root = t.layout
   local parent, at: Node, integer
-  if cur then parent, at = parent_of(root, cur) end
+  if cur then
+    parent, at = parent_of(root, cur)
+  end
   if not parent then
     root[#root + 1] = win
   else
@@ -1553,7 +1864,7 @@ function M.split(opts: SplitOptions): Node, string
       end
       table.insert(parent, after and at + 1 or at, win)
     else
-      local node: Node = { dir = dir, size = cur.size, weight = cur.weight, min = cur.min }
+      local node: Node = {dir = dir, size = cur.size, weight = cur.weight, min = cur.min}
       cur.size, cur.weight, cur.min, cur.float_below = nil, nil, nil, nil
       node[1], node[2] = after and cur or win, after and win or cur
       parent[at] = node
@@ -1574,7 +1885,9 @@ function M.split(opts: SplitOptions): Node, string
   end
   M.enter(win)
   local ok, why = aim(name, opts.target)
-  if not ok then paw.notify(why, "warn") end
+  if not ok then
+    paw.notify(why, "warn")
+  end
   return win
 end
 
@@ -1587,19 +1900,23 @@ function M.show_in(win: Node, name: string, buf?: integer, target?: string): Nod
     if target ~= nil then
       M.enter(win)
       local ok, why = aim(name, target)
-      if not ok then paw.notify(why, "warn") end
+      if not ok then
+        paw.notify(why, "warn")
+      end
     end
     return win
   end
   local old_view, old_buf = win.view, win.buf
   local before = M.buf_of(win)
   -- What `Ctrl-^` goes back to.
-  win.alt = { view = old_view, buf = old_buf }
+  win.alt = {view = old_view, buf = old_buf}
   local single_view = not M.types[name]
   if M.one_window(name) then
     local moved = remove_view(t.layout, name, win)
     take(name)
-    if moved then paw.notify(called(name) .. " moved to this window") end
+    if moved then
+      paw.notify(called(name) .. " moved to this window")
+    end
   elseif not single_view and not buf then
     buf = M.buf_create(name).id
   end
@@ -1607,21 +1924,31 @@ function M.show_in(win: Node, name: string, buf?: integer, target?: string): Nod
   M.buf_of(win).listed = M.buf_of(win).listed or single_view
   if old_view ~= name and not old_buf and not M.find(t.layout, old_view, true) then
     local view = u.views[old_view]
-    if view and view.on_hide then view:on_hide() end
+    if view and view.on_hide then
+      view:on_hide()
+    end
   end
   if single_view and old_view ~= name then
     local view = u.views[name]
-    if view.on_show then M.within(win, function() view:on_show() end) end
+    if view.on_show then
+      M.within(win, function() view:on_show() end)
+    end
   end
   reap(old_buf)
   local after = M.buf_of(win)
   if t.win == win.id and before ~= after then
-    if before then events.emit(buf_leave, { buf = before.id, name = before.name }) end
-    if after then events.emit(buf_enter, { buf = after.id, name = after.name }) end
+    if before then
+      events.emit(buf_leave, {buf = before.id, name = before.name})
+    end
+    if after then
+      events.emit(buf_enter, {buf = after.id, name = after.name})
+    end
   end
   M.enter(win)
   local ok, why = aim(name, target)
-  if not ok then paw.notify(why, "warn") end
+  if not ok then
+    paw.notify(why, "warn")
+  end
   return win
 end
 
@@ -1642,15 +1969,21 @@ end
 --- "l"), `count` steps on.
 function M.neighbour(dir: string, count?: integer): Node
   local cur = M.current()
-  if not cur then return end
+  if not cur then
+    return
+  end
   local rects = ui().arrange()
-  local by_id: {integer:contracts.ScreenRect} = {}
+  local by_id: {integer: contracts.ScreenRect} = {}
   for _, r in ipairs(rects) do
-    if r.win then by_id[r.win] = r end
+    if r.win then
+      by_id[r.win] = r
+    end
   end
   local at = by_id[cur.id]
   for _ = 1, count or 1 do
-    if not at then return end
+    if not at then
+      return
+    end
     local best: contracts.ScreenRect
     local best_d: integer
     for _, r in ipairs(rects) do
@@ -1672,13 +2005,19 @@ function M.neighbour(dir: string, count?: integer): Node
           ok = ok and (r.x < at.x + at.w and at.x < r.x + r.w)
           d = d * 2 + (level and 0 or 1)
         end
-        if ok and (not best_d or d < best_d) then best, best_d = r, d end
+        if ok and (not best_d or d < best_d) then
+          best, best_d = r, d
+        end
       end
     end
-    if not best then break end
+    if not best then
+      break
+    end
     at = best
   end
-  if at and at.win ~= cur.id then return M.find_id(ui().layout, at.win) end
+  if at and at.win ~= cur.id then
+    return M.find_id(ui().layout, at.win)
+  end
 end
 
 --- Move the current window to an edge of the tab ("H", "J", "K", "L"),
@@ -1686,10 +2025,14 @@ end
 function M.move_to_edge(edge: string)
   local t = tab()
   local cur = M.current()
-  if not cur or #focusable_windows() < 2 then return end
+  if not cur or #focusable_windows() < 2 then
+    return
+  end
   local root = t.layout
   local parent, at = parent_of(root, cur)
-  if not parent then return end
+  if not parent then
+    return
+  end
   table.remove(parent, at)
   cur.size, cur.weight, cur.min, cur.float_below = nil, nil, nil, nil
   M.tidy(root)
@@ -1698,10 +2041,14 @@ function M.move_to_edge(edge: string)
   elseif edge == "J" then
     root[#root + 1] = cur
   else
-    local rest: Node = { dir = "v" }
-    for i, child in ipairs(root) do rest[i] = child end
-    for i = #root, 1, -1 do root[i] = nil end
-    root[1] = edge == "H" and { dir = "h", cur, rest } or { dir = "h", rest, cur }
+    local rest: Node = {dir = "v"}
+    for i, child in ipairs(root) do
+      rest[i] = child
+    end
+    for i = #root, 1, -1 do
+      root[i] = nil
+    end
+    root[1] = edge == "H" and {dir = "h", cur, rest} or {dir = "h", rest, cur}
   end
   M.tidy(root)
   api.ui_redraw()
@@ -1713,19 +2060,29 @@ end
 function M.exchange(count?: integer)
   local t = tab()
   local cur = M.current()
-  if not cur then return end
+  if not cur then
+    return
+  end
   local parent, at = parent_of(t.layout, cur)
-  if not parent then return end
+  if not parent then
+    return
+  end
   local list: {integer} = {}
   for i, child in ipairs(parent) do
-    if shown(child) then list[#list + 1] = i end
+    if shown(child) then
+      list[#list + 1] = i
+    end
   end
   local mine: integer
   for k, i in ipairs(list) do
-    if i == at then mine = k end
+    if i == at then
+      mine = k
+    end
   end
   local other = list[count or mine + 1] or list[mine - 1]
-  if not other or other == at then return end
+  if not other or other == at then
+    return
+  end
   local a, b = parent[at], parent[other]
   -- Sizes belong to the places, not to the windows.
   a.size, b.size = b.size, a.size
@@ -1741,14 +2098,22 @@ function M.rotate(back?: boolean)
   local t = tab()
   local cur = M.current()
   local parent = cur and parent_of(t.layout, cur)
-  if not parent then return end
+  if not parent then
+    return
+  end
   local places: {integer} = {}
   for i, child in ipairs(parent) do
-    if shown(child) then places[#places + 1] = i end
+    if shown(child) then
+      places[#places + 1] = i
+    end
   end
-  if #places < 2 then return end
+  if #places < 2 then
+    return
+  end
   local nodes: {Node} = {}
-  for k, i in ipairs(places) do nodes[k] = parent[i] end
+  for k, i in ipairs(places) do
+    nodes[k] = parent[i]
+  end
   for k, i in ipairs(places) do
     local from = back and (k % #places) + 1 or ((k - 2) % #places) + 1
     parent[i] = nodes[from]
@@ -1759,7 +2124,9 @@ end
 --- Move the current window to a tab of its own.
 function M.to_tab(): boolean
   local cur = M.current()
-  if not cur or #focusable_windows() < 2 then return false end
+  if not cur or #focusable_windows() < 2 then
+    return false
+  end
   local t = tab()
   local parent, at = parent_of(t.layout, cur)
   table.remove(parent, at)
@@ -1777,7 +2144,9 @@ function M.equalize()
       if not (child.view and not focusable(child.view)) then
         child.size, child.weight = nil, nil
       end
-      if not child.view then walk(child) end
+      if not child.view then
+        walk(child)
+      end
     end
   end
   walk(ui().layout)
@@ -1790,24 +2159,34 @@ end
 function M.resize(win: Node, axis: string, n: integer, relative?: boolean): boolean
   local u = ui()
   win = win or M.current()
-  if not win then return false end
+  if not win then
+    return false
+  end
   local dir: Dir = axis == "height" and "v" or "h"
   local root = u.layout
   local node, parent: Node, Node = win, nil
   while true do
     parent = parent_of(root, node)
-    if not parent then return false end
+    if not parent then
+      return false
+    end
     local count = 0
     for _, child in ipairs(parent) do
-      if shown(child) then count = count + 1 end
+      if shown(child) then
+        count = count + 1
+      end
     end
-    if parent.dir == dir and count > 1 then break end
+    if parent.dir == dir and count > 1 then
+      break
+    end
     node = parent
   end
   local rects = u.arrange()
   local r = rects.nodes and rects.nodes[node]
   local now = r and (axis == "height" and r.h or r.w) or node.size or 0
-  local total = rects.nodes and rects.nodes[parent] and (axis == "height" and rects.nodes[parent].h or rects.nodes[parent].w) or now
+  local total = rects.nodes
+    and rects.nodes[parent]
+    and (axis == "height" and rects.nodes[parent].h or rects.nodes[parent].w) or now
   local size = relative and now + n or n
   M.set_size(node, axis, math.max(1, math.min(size, total - 1)))
   api.ui_redraw()
@@ -1830,10 +2209,14 @@ end
 --- the top row of a window below a different window.
 function M.border_at(rects: Arrangement, x: number, y: number): Border
   for _, b in ipairs(rects.borders or {}) do
-    if b.dir == "h" and x == b.x and y >= b.y and y < b.y + b.h then return b end
+    if b.dir == "h" and x == b.x and y >= b.y and y < b.y + b.h then
+      return b
+    end
   end
   for _, b in ipairs(rects.borders or {}) do
-    if b.dir == "v" and y == b.y and x >= b.x and x < b.x + b.w then return b end
+    if b.dir == "v" and y == b.y and x >= b.x and x < b.x + b.w then
+      return b
+    end
   end
 end
 
@@ -1846,7 +2229,9 @@ function M.drag_border(border: Border, rects: Arrangement, x: number, y: number,
   opts = opts or {}
   local nodes = rects.nodes or {}
   local a, b = nodes[border.a], nodes[border.b]
-  if not (a and b) then return end
+  if not (a and b) then
+    return
+  end
   local across = border.dir == "h"
   local start = across and a.x or a.y
   local finish = across and b.x + b.w or b.y + b.h
@@ -1854,7 +2239,9 @@ function M.drag_border(border: Border, rects: Arrangement, x: number, y: number,
   local axis = across and "width" or "height"
   local unit = opts.unit and (across and opts.unit.w or opts.unit.h) or 1
   local first, second = border.a, border.b
-  if opts.map then first, second = opts.map[first], opts.map[second] end
+  if opts.map then
+    first, second = opts.map[first], opts.map[second]
+  end
   if second.size and not first.size then
     M.set_size(second, axis, math.max(1, math.floor((finish - at) / unit + 0.5)))
   else
@@ -1871,7 +2258,9 @@ function M.maximize(): boolean
     t.zoom = nil
     for _, win in ipairs(M.windows(t.layout, true)) do
       local hidden = zoom.hidden[win.id]
-      if hidden ~= nil then win.hidden = hidden end
+      if hidden ~= nil then
+        win.hidden = hidden
+      end
     end
     local win = M.find_id(t.layout, zoom.win)
     if win then
@@ -1881,8 +2270,10 @@ function M.maximize(): boolean
     return false
   end
   local cur = M.current()
-  if not cur then return end
-  t.zoom = { win = cur.id, hidden = {}, size = cur.size }
+  if not cur then
+    return
+  end
+  t.zoom = {win = cur.id, hidden = {}, size = cur.size}
   for _, win in ipairs(M.windows(t.layout, true)) do
     if win ~= cur and focusable(win.view) then
       t.zoom.hidden[win.id] = win.hidden == true
@@ -1902,17 +2293,21 @@ function M.tab_new(name?: string, view?: string, win?: Node, buf?: integer, targ
   local u = ui()
   if not win then
     view = view or "empty"
-    if M.types[view] then buf = buf or M.buf_create(view).id end
-    win = M.leaf(view, { buf = buf })
+    if M.types[view] then
+      buf = buf or M.buf_create(view).id
+    end
+    win = M.leaf(view, {buf = buf})
   end
-  local t: Tab = { name = name, layout = { dir = "v", win }, win = win.id }
+  local t: Tab = {name = name, layout = {dir = "v", win}, win = win.id}
   table.insert(u.tabs, u.tab + 1, t)
   M.tab_go(u.tab + 1)
   -- A view shown in one window at a time leaves the other tabs, each left
   -- with a window (`take`).
   take(win.view)
   local ok, why = aim(win.view, target)
-  if not ok then paw.notify(why, "warn") end
+  if not ok then
+    paw.notify(why, "warn")
+  end
   return t
 end
 
@@ -1922,7 +2317,9 @@ local function open_pending(root: Node)
   for _, win in ipairs(M.windows(root, true)) do
     local target = win.pending
     win.pending = nil
-    if target ~= nil then M.within(win, function(): boolean, string return aim(win.view, target) end) end
+    if target ~= nil then
+      M.within(win, function(): boolean, string return aim(win.view, target) end)
+    end
   end
 end
 
@@ -1934,11 +2331,15 @@ function M.tab_copy(name?: string): Tab
   local from = tab()
   local here = M.current()
   local root = M.import(M.export(from.layout))
-  if root.view then root = { dir = "v", root } end
+  if root.view then
+    root = {dir = "v", root}
+  end
   M.tidy(root)
-  local t: Tab = { name = name, layout = root }
+  local t: Tab = {name = name, layout = root}
   for _, win in ipairs(M.windows(root)) do
-    if here and win.view == here.view then t.win = win.id end
+    if here and win.view == here.view then
+      t.win = win.id
+    end
   end
   table.insert(u.tabs, u.tab + 1, t)
   open_pending(root)
@@ -1949,15 +2350,23 @@ end
 --- Go to tab `i`.
 function M.tab_go(i: integer): boolean
   local u = ui()
-  if not u.tabs[i] then return false end
+  if not u.tabs[i] then
+    return false
+  end
   local changed = i ~= u.tab
   u.tab = i
   u.layout = u.tabs[i].layout
   local t = u.tabs[i]
   local win = t.win and M.find_id(t.layout, t.win)
-  if not (win and not win.hidden) then win = first_window(t.layout) end
-  if changed then events.emit(tab_enter, { tab = i }) end
-  if win then M.enter(win) end
+  if not (win and not win.hidden) then
+    win = first_window(t.layout)
+  end
+  if changed then
+    events.emit(tab_enter, {tab = i})
+  end
+  if win then
+    M.enter(win)
+  end
   api.ui_redraw()
   return true
 end
@@ -1972,9 +2381,13 @@ end
 function M.tab_close(i?: integer): boolean
   local u = ui()
   i = i or u.tab
-  if #u.tabs < 2 or not u.tabs[i] then return false end
+  if #u.tabs < 2 or not u.tabs[i] then
+    return false
+  end
   local gone = table.remove(u.tabs, i)
-  for _, win in ipairs(M.windows(gone.layout, true)) do reap(win.buf) end
+  for _, win in ipairs(M.windows(gone.layout, true)) do
+    reap(win.buf)
+  end
   local go = math.min(u.tab > i and u.tab - 1 or u.tab, #u.tabs)
   u.tab = 0
   M.tab_go(go)
@@ -1986,12 +2399,16 @@ end
 function M.tab_move(to: integer, i?: integer): boolean
   local u = ui()
   i = i or u.tab
-  if not u.tabs[i] then return false end
+  if not u.tabs[i] then
+    return false
+  end
   to = math.max(1, math.min(#u.tabs, math.floor(to)))
   local current = u.tabs[u.tab]
   table.insert(u.tabs, to, table.remove(u.tabs, i))
   for k, t in ipairs(u.tabs) do
-    if t == current then u.tab = k end
+    if t == current then
+      u.tab = k
+    end
   end
   api.ui_redraw()
   return true
@@ -1999,7 +2416,9 @@ end
 
 --- What a tab is called: its name, else the buffer of its current window.
 function M.tab_title(t: Tab): string
-  if t.name then return t.name end
+  if t.name then
+    return t.name
+  end
   local win = t.win and M.find_id(t.layout, t.win) or first_window(t.layout)
   local buf = M.buf_of(win)
   return buf and buf.name or "?"
@@ -2009,22 +2428,30 @@ end
 
 --- A tree of windows as plain data, for `paw.layouts` and to save.
 local function export(node: Node): SpecNode
-  local out: SpecNode = { size = node.size, weight = node.weight, min = node.min }
+  local out: SpecNode = {size = node.size, weight = node.weight, min = node.min}
   if node.view then
     out.view, out.float_below, out.hidden = node.view, node.float_below, node.hidden or nil
-    if node.opts and next(node.opts) then out.opts = copy(node.opts) end
+    if node.opts and next(node.opts) then
+      out.opts = copy(node.opts)
+    end
     local buf = node.buf and M.buffers[node.buf]
-    if buf then out.target = buf.target end
+    if buf then
+      out.target = buf.target
+    end
     -- What a view opens in the window (its clip), as `roll://7` names it.
     local view = not buf and ui().views[node.view]
     if view and view.window_target then
       local ok, target = pcall(M.within, node, function(): string return view:window_target() end) as (boolean, string)
-      if ok then out.target = target end
+      if ok then
+        out.target = target
+      end
     end
     return out
   end
   out.dir, out.children = node.dir, {}
-  for i, child in ipairs(node) do out.children[i] = export(child) end
+  for i, child in ipairs(node) do
+    out.children[i] = export(child)
+  end
   return out
 end
 
@@ -2040,11 +2467,13 @@ function M.capture(): types.SavedLayout
     local has = i == u.tab and M.current() or (t.win and M.find_id(t.layout, t.win)) or first_window(t.layout)
     local current: integer
     for k, win in ipairs(M.windows(t.layout, true)) do
-      if win == has then current = k end
+      if win == has then
+        current = k
+      end
     end
-    tabs[i] = { name = t.name, layout = export(t.layout) as types.SavedNode, current = current }
+    tabs[i] = {name = t.name, layout = export(t.layout) as types.SavedNode, current = current}
   end
-  return { tab = u.tab, tabs = tabs }
+  return {tab = u.tab, tabs = tabs}
 end
 
 --- A node as saved, or as a configuration writes it: `"roll"` or
@@ -2053,13 +2482,30 @@ end
 --- not there (an extension not loaded) are left out.
 local function import(spec: Spec): Node
   local node_spec: SpecNode
-  if spec is string then node_spec = { view = spec } else node_spec = spec end
-  if type(node_spec) ~= "table" then return nil end
+  if spec is string then
+    node_spec = {view = spec}
+  else
+    node_spec = spec
+  end
+  if type(node_spec) ~= "table" then
+    return nil
+  end
   if node_spec.view then
     local name, _, named = M.resolve(node_spec.view)
-    if not name then return nil end
-    local win = M.leaf(name, { size = node_spec.size, weight = node_spec.weight, min = node_spec.min,
-      float_below = node_spec.float_below, hidden = node_spec.hidden, opts = copy(node_spec.opts or {}) })
+    if not name then
+      return nil
+    end
+    local win = M.leaf(
+      name,
+      {
+        size = node_spec.size,
+        weight = node_spec.weight,
+        min = node_spec.min,
+        float_below = node_spec.float_below,
+        hidden = node_spec.hidden,
+        opts = copy(node_spec.opts or {}),
+      }
+    )
     if M.types[name] then
       win.buf = M.buf_create(name, node_spec.target).id
     else
@@ -2068,10 +2514,14 @@ local function import(spec: Spec): Node
     end
     return win
   end
-  local node: Node = { dir = node_spec.dir == "h" and "h" or "v", size = node_spec.size, weight = node_spec.weight, min = node_spec.min }
+  local node: Node = {
+    dir = node_spec.dir == "h" and "h" or "v", size = node_spec.size, weight = node_spec.weight, min = node_spec.min
+  }
   for _, child in ipairs(node_spec.children or node_spec as {Spec}) do
     local made = import(child)
-    if made then node[#node + 1] = made end
+    if made then
+      node[#node + 1] = made
+    end
   end
   return node
 end
@@ -2089,25 +2539,35 @@ function M.restore(saved: SpecNode): boolean
     local spec = entry as SpecNode
     local root = import((spec.layout or spec[1] or spec) as Spec)
     if root then
-      if root.view then root = { dir = "v", root } end
+      if root.view then
+        root = {dir = "v", root}
+      end
       M.tidy(root)
       -- A view has one window in a tab: the first of any more.
-      local seen: {string:Node} = {}
+      local seen: {string: Node} = {}
       for _, win in ipairs(M.windows(root, true)) do
         if M.one_window(win.view) then
-          if seen[win.view] then remove_view(root, win.view, seen[win.view]) else seen[win.view] = win end
+          if seen[win.view] then
+            remove_view(root, win.view, seen[win.view])
+          else
+            seen[win.view] = win
+          end
         end
       end
       if first_window(root) then
         local current = spec.current and M.windows(root, true)[spec.current]
-        tabs[#tabs + 1] = { name = spec.name, layout = root, win = current and current.id }
+        tabs[#tabs + 1] = {name = spec.name, layout = root, win = current and current.id}
       end
     end
   end
-  if #tabs == 0 then return false end
+  if #tabs == 0 then
+    return false
+  end
   u.tabs, u.tab = tabs, 0
   local go = math.max(1, math.min(tonumber(saved.tab) or 1, #tabs)) as integer
-  for _, t in ipairs(tabs) do open_pending(t.layout) end
+  for _, t in ipairs(tabs) do
+    open_pending(t.layout)
+  end
   M.tab_go(go)
   return true
 end
@@ -2116,9 +2576,15 @@ end
 --- writes: a view's name (`"notation"`), a tree (`{ dir = "h", "roll",
 --- "notation" }`), a list of tabs, or what `M.capture` gives.
 function M.as_tabs(spec: Spec): SpecNode
-  if spec is string then return { { layout = spec } } end
-  if type(spec) ~= "table" then return {} end
-  if spec.view or spec.dir or spec.children then return { { layout = spec } } end
+  if spec is string then
+    return {{layout = spec}}
+  end
+  if type(spec) ~= "table" then
+    return {}
+  end
+  if spec.view or spec.dir or spec.children then
+    return {{layout = spec}}
+  end
   return spec
 end
 
@@ -2128,10 +2594,18 @@ end
 --- with one layout gives it as the default.
 function M.project_screen(): types.ProjectScreen
   local screen = api.project_screen()
-  if type(screen) ~= "table" then return nil end
-  if screen.tabs then return { default = screen as types.SavedLayout, seats = {} } end
-  if type(screen.seats) ~= "table" then screen.seats = {} end
-  if not (screen.default or next(screen.seats)) then return nil end
+  if type(screen) ~= "table" then
+    return nil
+  end
+  if screen.tabs then
+    return {default = screen as types.SavedLayout, seats = {}}
+  end
+  if type(screen.seats) ~= "table" then
+    screen.seats = {}
+  end
+  if not (screen.default or next(screen.seats)) then
+    return nil
+  end
   return screen
 end
 
@@ -2147,21 +2621,29 @@ function M.start()
   local name = opt.layout
   if name and name ~= "" then
     local ok, why = M.load(name)
-    if not ok then paw.notify(why, "warn") end
+    if not ok then
+      paw.notify(why, "warn")
+    end
   end
 end
 
 M.layouts = {}
 
-local function layout_dir(): string return api.env().state_dir .. "/layouts" end
-local function layout_file(name: string): string return layout_dir() .. "/" .. (tostring(name):gsub("[^%w%-_]", "_")) .. ".json" end
+local function layout_dir(): string
+  return api.env().state_dir .. "/layouts"
+end
+local function layout_file(name: string): string
+  return layout_dir() .. "/" .. (tostring(name):gsub("[^%w%-_]", "_")) .. ".json"
+end
 
 --- Write the tabs and windows as layout `name`, in the state directory.
 function M.save(name: string): boolean, string
   local file = layout_file(name)
   pcall(api.fs_mkdir, layout_dir())
   local handle = io.open(file .. ".tmp", "wb")
-  if not handle then return false, "cannot write " .. file end
+  if not handle then
+    return false, "cannot write " .. file
+  end
   handle:write(api.json_encode(M.capture(), true))
   handle:close()
   os.rename(file .. ".tmp", file)
@@ -2173,21 +2655,27 @@ function M.load(name: string): boolean, string
   local spec = M.layouts[name]
   if not spec then
     local handle = io.open(layout_file(name), "rb")
-    if not handle then return false, "no layout `" .. tostring(name) .. "`" end
+    if not handle then
+      return false, "no layout `" .. tostring(name) .. "`"
+    end
     local text = handle:read("*a")
     handle:close()
     local ok, data = pcall(api.json_decode, text) as (boolean, SpecNode)
-    if not ok or type(data) ~= "table" then return false, "layout `" .. tostring(name) .. "` cannot be read" end
+    if not ok or type(data) ~= "table" then
+      return false, "layout `" .. tostring(name) .. "` cannot be read"
+    end
     spec = data
   end
-  if not M.restore(spec as SpecNode) then return false, "layout `" .. tostring(name) .. "` has no window" end
+  if not M.restore(spec as SpecNode) then
+    return false, "layout `" .. tostring(name) .. "` has no window"
+  end
   return true
 end
 
 --- The names of the layouts there are: the configuration's and those saved.
 function M.layout_names(): {string}
   local out: {string} = {}
-  local seen: {string:boolean} = {}
+  local seen: {string: boolean} = {}
   for name in pairs(M.layouts) do
     seen[name] = true
     out[#out + 1] = name
@@ -2195,7 +2683,9 @@ function M.layout_names(): {string}
   local ok, entries = pcall(api.read_dir, layout_dir()) as (boolean, {types.DirEntry})
   for _, entry in ipairs(ok and entries or {}) do
     local name = entry.name:match("^(.*)%.json$")
-    if name and not seen[name] then out[#out + 1] = name end
+    if name and not seen[name] then
+      out[#out + 1] = name
+    end
   end
   table.sort(out)
   return out
@@ -2206,23 +2696,31 @@ end
 --- Before the windows are drawn: the current window, if it is time bound,
 --- leads the others that are. Returns the window to draw first and the set
 --- of windows that follow it.
-function M.time_lead(): Node, {integer:boolean}
+function M.time_lead(): Node, {integer: boolean}
   local u = ui()
   local lead = M.current()
-  if not (lead and lead.opts and lead.opts.timebind) then return nil end
+  if not (lead and lead.opts and lead.opts.timebind) then
+    return nil
+  end
   local view = u.views[lead.view]
-  if not (view and view.time_axis) then return nil end
-  local followers: {integer:boolean} = {}
+  if not (view and view.time_axis) then
+    return nil
+  end
+  local followers: {integer: boolean} = {}
   for _, win in ipairs(M.windows(u.layout)) do
     local other = u.views[win.view]
-    if win ~= lead and win.opts and win.opts.timebind and other and other.set_time_axis then followers[win.id] = true end
+    if win ~= lead and win.opts and win.opts.timebind and other and other.set_time_axis then
+      followers[win.id] = true
+    end
   end
-  if not next(followers) then return nil end
+  if not next(followers) then
+    return nil
+  end
   -- Playing, the windows follow the playhead together, whichever leads.
   local t = api.transport_get()
-  local left, zoom, span = view:time_axis({ win = lead })
+  local left, zoom, span = view:time_axis({win = lead})
   if t.playing and opt.follow and left and span and (t.position < left or t.position >= left + span) then
-    view:set_time_axis(paw.time.bar_floor(t.position), zoom, { win = lead })
+    view:set_time_axis(paw.time.bar_floor(t.position), zoom, {win = lead})
   end
   return lead, followers
 end
@@ -2231,17 +2729,21 @@ end
 function M.time_follow(lead: Node, win: Node)
   local u = ui()
   local lead_view, view = u.views[lead.view], u.views[win.view]
-  local left, zoom = M.within(lead, function(): number, number, number return lead_view:time_axis({ win = lead }) end)
-  if left then M.within(win, function() view:set_time_axis(left, zoom, { win = win }) end) end
+  local left, zoom = M.within(lead, function(): number, number, number return lead_view:time_axis({win = lead}) end)
+  if left then
+    M.within(win, function() view:set_time_axis(left, zoom, {win = win}) end)
+  end
 end
 
 --- Set a window option (`timebind`) on a window (the current one).
 function M.set_option(win: Node, name: string, value: string | number | boolean)
   win = win or M.current()
-  if not win then return end
+  if not win then
+    return
+  end
   win.opts = win.opts or {}
   win.opts[name] = value
-  events.emit(win_option, { win = win.id, name = name, value = value })
+  events.emit(win_option, {win = win.id, name = name, value = value})
   api.ui_redraw()
 end
 
@@ -2249,11 +2751,13 @@ end
 
 M.buf = {
   list = M.buffers_list,
-  get = function(name: string | integer): Buffer local _, buf = M.resolve(name) return buf end,
+  get = function(name: string | integer): Buffer local _, buf = M.resolve(name); return buf end,
   create = M.buf_create,
   delete = function(name: string | integer)
     local _, buf = M.resolve(name)
-    if buf then M.buf_delete(buf) end
+    if buf then
+      M.buf_delete(buf)
+    end
   end,
   current = function(): Buffer return M.buf_of(M.current()) end,
   of = M.buf_of,
@@ -2270,7 +2774,9 @@ M.win = {
   only = M.only,
   show = function(win: Node, name: string | integer): Node
     local view, buf, target = M.resolve(name)
-    if not view then error("no buffer `" .. tostring(name) .. "`", 2) end
+    if not view then
+      error("no buffer `" .. tostring(name) .. "`", 2)
+    end
     return M.show_in(win or M.current(), view, buf and not buf.single and buf.id or nil, target)
   end,
   resize = M.resize,
@@ -2278,7 +2784,9 @@ M.win = {
   maximize = M.maximize,
   option = function(win: Node, name: string, value?: string | number | boolean): string | number | boolean
     win = win or M.current()
-    if value == nil then return win and win.opts and win.opts[name] end
+    if value == nil then
+      return win and win.opts and win.opts[name]
+    end
     M.set_option(win, name, value)
   end,
   buf = M.buf_of,
@@ -2325,8 +2833,12 @@ function M.setup()
   -- one window at a time leaves the new window empty, on the start page.
   local function same_buffer(): string, Buffer
     local buf = M.buf_of(M.current())
-    if not buf then return "empty" end
-    if not buf.single or not M.one_window(buf.type) then return buf.type, buf end
+    if not buf then
+      return "empty"
+    end
+    if not buf.single or not M.one_window(buf.type) then
+      return buf.type, buf
+    end
     return "empty"
   end
 
@@ -2343,15 +2855,33 @@ function M.setup()
       elseif not empty then
         view, buf = same_buffer()
       end
-      local made, why = M.split({ vertical = vertical, view = view, buf = buf and not buf.single and buf.id or nil, target = target })
-      if not made then paw.notify(why, "warn") end
+      local made, why = M.split(
+        {vertical = vertical, view = view, buf = buf and not buf.single and buf.id or nil, target = target}
+      )
+      if not made then
+        paw.notify(why, "warn")
+      end
     end
   end
-  command("split", split(false), { desc = "Split the window in two, one above the other, the new one showing a buffer: `sp roll`, or the same buffer without a name (the arrange view and the piano roll show each other, any other view leaves an empty window)", complete = names })
-  command("vsplit", split(true), { desc = "Split the window in two side by side, the new one showing a buffer: `vs roll`, or the same buffer without a name (see `split`)", complete = names })
+  command(
+    "split",
+    split(false),
+    {
+      desc = "Split the window in two, one above the other, the new one showing a buffer: `sp roll`, or the same buffer without a name (the arrange view and the piano roll show each other, any other view leaves an empty window)",
+      complete = names,
+    }
+  )
+  command(
+    "vsplit",
+    split(true),
+    {
+      desc = "Split the window in two side by side, the new one showing a buffer: `vs roll`, or the same buffer without a name (see `split`)",
+      complete = names,
+    }
+  )
   alias("sp", "split")
   alias("vs", "vsplit")
-  command("vnew", split(true, true), { desc = "A new empty window beside this one" })
+  command("vnew", split(true, true), {desc = "A new empty window beside this one"})
 
   local function close_window(): boolean
     if paw.ui.float then
@@ -2367,181 +2897,284 @@ function M.setup()
     end
     return M.close()
   end
-  command("close", function(): Result
-    if not close_window() then paw.notify("the last window does not close: `:q` quits", "warn") end
-  end, { desc = "Close the window; a panel's comes back where it was" })
+  command(
+    "close",
+    function(): Result
+      if not close_window() then
+        paw.notify("the last window does not close: `:q` quits", "warn")
+      end
+    end,
+    {desc = "Close the window; a panel's comes back where it was"}
+  )
   -- A view's own name goes to it: `:arrange`, `:mixer`, `:roll`.
-  for _, view in ipairs({ "arrange", "mixer", "pianoroll" }) do
+  for _, view in ipairs({"arrange", "mixer", "pianoroll"}) do
     local word = M.names[view] or view
     if ui().views[view] and not commands.get(word) then
-      command(word, function(): Result paw.ui.focus(view) end, { desc = "Show " .. M.titles[view] .. " and go to it" })
+      command(word, function(): Result paw.ui.focus(view) end, {desc = "Show " .. M.titles[view] .. " and go to it"})
     end
   end
-  command("only", function(): Result M.only() end, { desc = "Close every window but this one" })
+  command("only", function(): Result M.only() end, {desc = "Close every window but this one"})
   -- `:q` closes the window, and quits from the last one.
-  command("q", function(): Result
-    if not close_window() then commands.run("quit") end
-  end, { desc = "Close the window; in the last one, quit unless there are unsaved changes" })
-  command("q!", function(): Result
-    if not close_window() then commands.run("quit!") end
-  end, { desc = "Close the window; in the last one, quit without saving" })
+  command(
+    "q",
+    function(): Result
+      if not close_window() then
+        commands.run("quit")
+      end
+    end,
+    {desc = "Close the window; in the last one, quit unless there are unsaved changes"}
+  )
+  command(
+    "q!",
+    function(): Result
+      if not close_window() then
+        commands.run("quit!")
+      end
+    end,
+    {desc = "Close the window; in the last one, quit without saving"}
+  )
   -- `:e roll` shows a buffer here; `:e song` opens a project.
-  command("e", function(ctx: Ctx): Result return commands.run("edit", ctx.args, ctx) end, { desc = "Show a buffer in this window: `e roll`; or open a file as `open` does: `e song`, `e song.mid`, `e take.wav`",
-    complete = function(text: string, info: commands.Info): {string | commands.Candidate}
-      if info.index > 1 then return {} end
-      local out = M.buffer_names() as {string | commands.Candidate}
-      for _, c in ipairs(commands.completers.openable(text)) do out[#out + 1] = c as commands.Candidate end
-      return out
-    end })
+  command(
+    "e",
+    function(ctx: Ctx): Result return commands.run("edit", ctx.args, ctx) end,
+    {
+      desc = "Show a buffer in this window: `e roll`; or open a file as `open` does: `e song`, `e song.mid`, `e take.wav`",
+      complete = function(text: string, info: commands.Info): {string | commands.Candidate}
+        if info.index > 1 then
+          return {}
+        end
+        local out = M.buffer_names() as {string | commands.Candidate}
+        for _, c in ipairs(commands.completers.openable(text)) do
+          out[#out + 1] = c as commands.Candidate
+        end
+        return out
+      end,
+    }
+  )
   -- `:e!` as in Vim: the saved project again, or another, without the unsaved work.
   paw.project.allow_discard("e")
 
   local function listed_step(step: integer)
     local list = M.buffers_list()
-    if #list == 0 then return end
+    if #list == 0 then
+      return
+    end
     local here = M.buf_of(M.current())
     local at = 0
     for i, buf in ipairs(list) do
-      if buf == here then at = i end
+      if buf == here then
+        at = i
+      end
     end
     local buf = list[(at - 1 + step) % #list + 1]
-    if at == 0 and step < 0 then buf = list[#list] end
+    if at == 0 and step < 0 then
+      buf = list[#list]
+    end
     M.show_in(M.current(), buf.type, not buf.single and buf.id or nil)
   end
-  command("buffer", function(ctx: Ctx): Result
-    if ctx.args[1] == "#" then
-      M.alternate()
-      return
-    end
-    local view, buf, target = M.resolve(ctx.args[1] as string)
-    if not view then
-      paw.notify("no buffer `" .. tostring(ctx.args[1]) .. "`: `:ls` lists them", "warn")
-      return
-    end
-    M.show_in(M.current(), view, buf and not buf.single and buf.id or nil, target)
-  end, { desc = "Show a buffer in this window, by name or number: `b roll`, `b 3`; `b #` what it showed before", complete = names })
-  alias("b", "buffer")
-  command("bnext", function(ctx: Ctx): Result listed_step(ctx.count or 1) end, { desc = "Show the next buffer in this window" })
-  command("bprevious", function(ctx: Ctx): Result listed_step(-(ctx.count or 1)) end, { desc = "Show the previous buffer in this window" })
-  alias("bn", "bnext")
-  alias("bp", "bprevious")
-  command("bdelete", function(ctx: Ctx): Result
-    local buf: Buffer
-    if ctx.args[1] ~= nil then
-      local _: string
-      _, buf = M.resolve(ctx.args[1] as string)
-    else
-      buf = M.buf_of(M.current())
-    end
-    if not buf then
-      paw.notify("no buffer `" .. tostring(ctx.args[1]) .. "`", "warn")
-      return
-    end
-    M.buf_delete(buf)
-  end, { desc = "Close every window of a buffer (this one's without a name); an empty one is forgotten", complete = names })
-  alias("bd", "bdelete")
-  command("buffers", function(): Result
-    local here = M.buf_of(M.current())
-    local on_screen: {integer:boolean} = {}
-    for _, t in ipairs(paw.ui.tabs) do
-      for _, win in ipairs(M.windows(t.layout)) do
-        local buf = M.buf_of(win)
-        if buf then on_screen[buf.id] = true end
-      end
-    end
-    local lines: {string | contracts.PageLine} = {}
-    for _, buf in ipairs(M.buffers_list()) do
-      local flags = (buf == here and "%" or " ") .. (on_screen[buf.id] and "a" or "h")
-      lines[#lines + 1] = string.format("%3d %s  %-14s %s", buf.id, flags, buf.name, M.title(buf))
-    end
-    lines[#lines + 1] = { text = "% this window's   a in a window   h in none; `:b <name>` shows one here, `:vs <name>` beside", style = "Dim" }
-    -- A project kept in a folder: its files, each a buffer that `:w`
-    -- writes, `+` when it differs from the disk.
-    local files = api.project_files()
-    if #files > 0 then
-      lines[#lines + 1] = ""
-      lines[#lines + 1] = { text = "Files", style = "Title" }
-      local changed = 0
-      for _, f in ipairs(files) do
-        if f.modified then changed = changed + 1 end
-        lines[#lines + 1] = string.format("  %s  %-10s %s", f.modified and "+" or " ", f.what, f.path)
-      end
-      lines[#lines + 1] = { text = string.format("+ differs from the disk (%d); `:w` writes this window's files, `:wa` all of them", changed), style = "Dim" }
-    end
-    paw.ui.page("Buffers", lines)
-  end, { desc = "List the buffers" })
-  alias("ls", "buffers")
-
-  command("tabnew", function(ctx: Ctx): Result
-    local name = ctx.args[1]
-    local view, buf, target: string, Buffer, string
-    if name ~= nil then view, buf, target = M.resolve(name as string) end
-    -- `:tabnew mixer` shows the mixer in it, `:tabnew roll://7` the piano
-    -- roll on clip 7; any other word names it.
-    M.tab_new(name ~= nil and tostring(name) or nil, view or nil, nil, buf and not buf.single and buf.id or nil, target)
-  end, { desc = "A new tab: `tabnew Mix` named, `tabnew mixer` showing the mixer, `tabnew roll://riff` the piano roll on the clip riff", complete = names })
-  command("tabclose", function(ctx: Ctx): Result
-    local n = ctx.args[1] and tonumber(ctx.args[1]) as integer
-    if ctx.args[1] and not (n and paw.ui.tabs[n]) then
-      paw.notify("no tab " .. tostring(ctx.args[1]), "warn")
-      return
-    end
-    if not M.tab_close(n) then paw.notify("the last tab does not close", "warn") end
-  end, { desc = "Close the tab, or tab n: `tabclose 2`" })
-  -- As in Vim: `:tabmove` to the end, `:tabmove 0` to the start,
-  -- `:tabmove 2` after tab 2, `:tabmove +1` and `:tabmove -1` one on or back.
-  command("tabmove", function(ctx: Ctx): Result
-    local u = paw.ui
-    local text = ctx.args[1] and tostring(ctx.args[1])
-    local to: integer
-    if not text then
-      to = #u.tabs
-    else
-      local sign, digits = text:match("^([%+%-]?)(%d*)$")
-      if not sign or (sign == "" and digits == "") then
-        paw.notify("usage: tabmove, tabmove 0, tabmove 2, tabmove +1, tabmove -1", "warn")
+  command(
+    "buffer",
+    function(ctx: Ctx): Result
+      if ctx.args[1] == "#" then
+        M.alternate()
         return
       end
-      local n = tonumber(digits) as integer or 1
-      if sign == "+" then
-        to = u.tab + n
-      elseif sign == "-" then
-        to = u.tab - n
-      else
-        to = n < u.tab and n + 1 or n
+      local view, buf, target = M.resolve(ctx.args[1] as string)
+      if not view then
+        paw.notify("no buffer `" .. tostring(ctx.args[1]) .. "`: `:ls` lists them", "warn")
+        return
       end
-    end
-    if to < 1 or to > #u.tabs then
-      paw.notify("no place " .. text .. " for the tab", "warn")
-      return
-    end
-    M.tab_move(to)
-  end, { desc = "Move the tab: `tabmove` to the end, `tabmove 0` to the start, `tabmove 2` after tab 2, `tabmove +1`" })
-  command("tabnext", function(ctx: Ctx): Result
-    local n = tonumber(ctx.args[1]) as integer
-    if n then
-      M.tab_go(n)
-      return
-    end
-    M.tab_step(ctx.count or 1)
-  end, { desc = "The next tab, or tab n: `tabn 2`" })
-  command("tabprevious", function(ctx: Ctx): Result M.tab_step(-((tonumber(ctx.args[1]) as integer) or ctx.count or 1)) end, { desc = "The previous tab" })
-  alias("tabn", "tabnext")
-  alias("tabp", "tabprevious")
-  command("tabs", function(): Result
-    local lines: {string | contracts.PageLine} = {}
-    local here = M.current()
-    for i, t in ipairs(paw.ui.tabs) do
-      lines[#lines + 1] = { text = "Tab " .. i .. (t.name and " " .. t.name or "") .. (i == paw.ui.tab and "  (this one)" or ""), style = "Title" }
-      for _, win in ipairs(M.windows(t.layout)) do
-        local buf = M.buf_of(win)
-        if buf and focusable(win.view) then
-          lines[#lines + 1] = string.format("  %s %s", win == here and ">" or " ", buf.name)
+      M.show_in(M.current(), view, buf and not buf.single and buf.id or nil, target)
+    end,
+    {
+      desc = "Show a buffer in this window, by name or number: `b roll`, `b 3`; `b #` what it showed before",
+      complete = names,
+    }
+  )
+  alias("b", "buffer")
+  command(
+    "bnext", function(ctx: Ctx): Result listed_step(ctx.count or 1) end, {desc = "Show the next buffer in this window"}
+  )
+  command(
+    "bprevious",
+    function(ctx: Ctx): Result listed_step(-(ctx.count or 1)) end,
+    {desc = "Show the previous buffer in this window"}
+  )
+  alias("bn", "bnext")
+  alias("bp", "bprevious")
+  command(
+    "bdelete",
+    function(ctx: Ctx): Result
+      local buf: Buffer
+      if ctx.args[1] ~= nil then
+        local _: string
+        _, buf = M.resolve(ctx.args[1] as string)
+      else
+        buf = M.buf_of(M.current())
+      end
+      if not buf then
+        paw.notify("no buffer `" .. tostring(ctx.args[1]) .. "`", "warn")
+        return
+      end
+      M.buf_delete(buf)
+    end,
+    {desc = "Close every window of a buffer (this one's without a name); an empty one is forgotten", complete = names}
+  )
+  alias("bd", "bdelete")
+  command(
+    "buffers",
+    function(): Result
+      local here = M.buf_of(M.current())
+      local on_screen: {integer: boolean} = {}
+      for _, t in ipairs(paw.ui.tabs) do
+        for _, win in ipairs(M.windows(t.layout)) do
+          local buf = M.buf_of(win)
+          if buf then
+            on_screen[buf.id] = true
+          end
         end
       end
-    end
-    paw.ui.page("Tabs", lines)
-  end, { desc = "List the tabs and their windows" })
+      local lines: {string | contracts.PageLine} = {}
+      for _, buf in ipairs(M.buffers_list()) do
+        local flags = (buf == here and "%" or " ") .. (on_screen[buf.id] and "a" or "h")
+        lines[#lines + 1] = string.format("%3d %s  %-14s %s", buf.id, flags, buf.name, M.title(buf))
+      end
+      lines[#lines + 1] = {
+        text = "% this window's   a in a window   h in none; `:b <name>` shows one here, `:vs <name>` beside",
+        style = "Dim",
+      }
+      -- A project kept in a folder: its files, each a buffer that `:w`
+      -- writes, `+` when it differs from the disk.
+      local files = api.project_files()
+      if #files > 0 then
+        lines[#lines + 1] = ""
+        lines[#lines + 1] = {text = "Files", style = "Title"}
+        local changed = 0
+        for _, f in ipairs(files) do
+          if f.modified then
+            changed = changed + 1
+          end
+          lines[#lines + 1] = string.format("  %s  %-10s %s", f.modified and "+" or " ", f.what, f.path)
+        end
+        lines[#lines + 1] = {
+          text = string.format(
+            "+ differs from the disk (%d); `:w` writes this window's files, `:wa` all of them", changed
+          ),
+          style = "Dim",
+        }
+      end
+      paw.ui.page("Buffers", lines)
+    end,
+    {desc = "List the buffers"}
+  )
+  alias("ls", "buffers")
+
+  command(
+    "tabnew",
+    function(ctx: Ctx): Result
+      local name = ctx.args[1]
+      local view, buf, target: string, Buffer, string
+      if name ~= nil then
+        view, buf, target = M.resolve(name as string)
+      end
+      -- `:tabnew mixer` shows the mixer in it, `:tabnew roll://7` the piano
+      -- roll on clip 7; any other word names it.
+      M.tab_new(
+        name ~= nil and tostring(name) or nil, view or nil, nil, buf and not buf.single and buf.id or nil, target
+      )
+    end,
+    {
+      desc = "A new tab: `tabnew Mix` named, `tabnew mixer` showing the mixer, `tabnew roll://riff` the piano roll on the clip riff",
+      complete = names,
+    }
+  )
+  command(
+    "tabclose",
+    function(ctx: Ctx): Result
+      local n = ctx.args[1] and tonumber(ctx.args[1]) as integer
+      if ctx.args[1] and not (n and paw.ui.tabs[n]) then
+        paw.notify("no tab " .. tostring(ctx.args[1]), "warn")
+        return
+      end
+      if not M.tab_close(n) then
+        paw.notify("the last tab does not close", "warn")
+      end
+    end,
+    {desc = "Close the tab, or tab n: `tabclose 2`"}
+  )
+  -- As in Vim: `:tabmove` to the end, `:tabmove 0` to the start,
+  -- `:tabmove 2` after tab 2, `:tabmove +1` and `:tabmove -1` one on or back.
+  command(
+    "tabmove",
+    function(ctx: Ctx): Result
+      local u = paw.ui
+      local text = ctx.args[1] and tostring(ctx.args[1])
+      local to: integer
+      if not text then
+        to = #u.tabs
+      else
+        local sign, digits = text:match("^([%+%-]?)(%d*)$")
+        if not sign or (sign == "" and digits == "") then
+          paw.notify("usage: tabmove, tabmove 0, tabmove 2, tabmove +1, tabmove -1", "warn")
+          return
+        end
+        local n = tonumber(digits) as integer or 1
+        if sign == "+" then
+          to = u.tab + n
+        elseif sign == "-" then
+          to = u.tab - n
+        else
+          to = n < u.tab and n + 1 or n
+        end
+      end
+      if to < 1 or to > #u.tabs then
+        paw.notify("no place " .. text .. " for the tab", "warn")
+        return
+      end
+      M.tab_move(to)
+    end,
+    {desc = "Move the tab: `tabmove` to the end, `tabmove 0` to the start, `tabmove 2` after tab 2, `tabmove +1`"}
+  )
+  command(
+    "tabnext",
+    function(ctx: Ctx): Result
+      local n = tonumber(ctx.args[1]) as integer
+      if n then
+        M.tab_go(n)
+        return
+      end
+      M.tab_step(ctx.count or 1)
+    end,
+    {desc = "The next tab, or tab n: `tabn 2`"}
+  )
+  command(
+    "tabprevious",
+    function(ctx: Ctx): Result M.tab_step(-((tonumber(ctx.args[1]) as integer) or ctx.count or 1)) end,
+    {desc = "The previous tab"}
+  )
+  alias("tabn", "tabnext")
+  alias("tabp", "tabprevious")
+  command(
+    "tabs",
+    function(): Result
+      local lines: {string | contracts.PageLine} = {}
+      local here = M.current()
+      for i, t in ipairs(paw.ui.tabs) do
+        lines[#lines + 1] = {
+          text = "Tab " .. i .. (t.name and " " .. t.name or "") .. (i == paw.ui.tab and "  (this one)" or ""),
+          style = "Title",
+        }
+        for _, win in ipairs(M.windows(t.layout)) do
+          local buf = M.buf_of(win)
+          if buf and focusable(win.view) then
+            lines[#lines + 1] = string.format("  %s %s", win == here and ">" or " ", buf.name)
+          end
+        end
+      end
+      paw.ui.page("Tabs", lines)
+    end,
+    {desc = "List the tabs and their windows"}
+  )
 
   -- `:resize 20`, `:resize +5`, `:vertical resize -10`.
   local function resize(axis: string, text: string)
@@ -2551,71 +3184,112 @@ function M.setup()
       return
     end
     local n = tonumber(digits) as integer
-    if sign == "-" then n = -n end
-    if not M.resize(nil, axis, n, sign ~= "") then paw.notify("the window has nothing to share its " .. axis .. " with", "warn") end
+    if sign == "-" then
+      n = -n
+    end
+    if not M.resize(nil, axis, n, sign ~= "") then
+      paw.notify("the window has nothing to share its " .. axis .. " with", "warn")
+    end
   end
-  command("resize", function(ctx: Ctx): Result resize("height", ctx.args[1] as string) end, { desc = "Set the window's height, or change it: `resize 20`, `resize +5`", raw = true })
-  command("vertical", function(ctx: Ctx): Result
-    local rest = tostring(ctx.args[1] or ""):match("^%s*res[a-z]*%s+(.*)$")
-    if not rest then
-      paw.notify("usage: vertical resize 40, vertical resize +5", "warn")
-      return
-    end
-    resize("width", rest)
-  end, { desc = "Set the window's width, or change it: `vertical resize 40`, `vertical resize -5`", raw = true })
-
-  -- Window options: `:setlocal timebind`, `:setlocal notimebind`, `:setlocal timebind!`.
-  local window_options: {string:boolean} = { timebind = true }
-  command("setlocal", function(ctx: Ctx): Result
-    local word = tostring(ctx.args[1] or "")
-    local name, flip = word:match("^(%a+)(!?)$")
-    local value = true
-    if name and name:sub(1, 2) == "no" and window_options[name:sub(3)] then name, value = name:sub(3), false end
-    if not (name and window_options[name]) then
-      local win = M.current()
-      local text: {string} = {}
-      for option in pairs(window_options) do text[#text + 1] = option .. "=" .. tostring(win and win.opts[option] or false) end
-      paw.notify(table.concat(text, " "))
-      return
-    end
-    if flip == "!" then value = not M.win.option(nil, name) end
-    M.set_option(nil, name, value)
-    paw.notify(name .. (value and " on" or " off") .. " in this window")
-  end, { desc = "Set an option of this window: `setlocal timebind` scrolls and zooms it with the other time bound windows",
-    complete = function(): {string | commands.Candidate} return { "timebind", "notimebind", "timebind!" } end })
-  alias("setl", "setlocal")
-
-  command("layout", function(ctx: Ctx): Result
-    local first, name = ctx.args[1], ctx.args[2]
-    if first == nil then
-      local list = M.layout_names()
-      paw.notify(#list > 0 and "layouts: " .. table.concat(list, ", ") or "no layouts yet: `:layout save <name>` keeps the tabs and windows as they are")
-      return
-    end
-    if first == "save" then
-      if name == nil then
-        paw.notify("usage: layout save <name>", "warn")
+  command(
+    "resize",
+    function(ctx: Ctx): Result resize("height", ctx.args[1] as string) end,
+    {desc = "Set the window's height, or change it: `resize 20`, `resize +5`", raw = true}
+  )
+  command(
+    "vertical",
+    function(ctx: Ctx): Result
+      local rest = tostring(ctx.args[1] or ""):match("^%s*res[a-z]*%s+(.*)$")
+      if not rest then
+        paw.notify("usage: vertical resize 40, vertical resize +5", "warn")
         return
       end
-      local ok, where = M.save(tostring(name))
-      paw.notify(ok and "layout " .. tostring(name) .. " saved" or where, ok and "info" or "error")
-      return
-    end
-    local ok, why = M.load(tostring(first))
-    if not ok then paw.notify(why, "warn") end
-  end, { desc = "Put back a layout of tabs and windows: `layout edit`; `layout save edit` keeps the one now",
-    complete = function(_: string, info: commands.Info): {string | commands.Candidate}
-      if info.index == 2 and info.words[1] == "save" then return M.layout_names() as {string | commands.Candidate} end
-      if info.index > 1 then return {} end
-      local out: {string | commands.Candidate} = { { text = "save", desc = "keep the tabs and windows as they are" } }
-      for _, name in ipairs(M.layout_names()) do out[#out + 1] = name end
-      return out
-    end })
+      resize("width", rest)
+    end,
+    {desc = "Set the window's width, or change it: `vertical resize 40`, `vertical resize -5`", raw = true}
+  )
 
-  local acts: {string:function(ctx: Ctx)} = {
-    s = function() split(false)({ args = {} }) end,
-    v = function() split(true)({ args = {} }) end,
-    n = function() split(false, true)({ args = {} }) end,
+  -- Window options: `:setlocal timebind`, `:setlocal notimebind`, `:setlocal timebind!`.
+  local window_options: {string: boolean} = {timebind = true}
+  command(
+    "setlocal",
+    function(ctx: Ctx): Result
+      local word = tostring(ctx.args[1] or "")
+      local name, flip = word:match("^(%a+)(!?)$")
+      local value = true
+      if name and name:sub(1, 2) == "no" and window_options[name:sub(3)] then
+        name, value = name:sub(3), false
+      end
+      if not (name and window_options[name]) then
+        local win = M.current()
+        local text: {string} = {}
+        for option in pairs(window_options) do
+          text[#text + 1] = option .. "=" .. tostring(win and win.opts[option] or false)
+        end
+        paw.notify(table.concat(text, " "))
+        return
+      end
+      if flip == "!" then
+        value = not M.win.option(nil, name)
+      end
+      M.set_option(nil, name, value)
+      paw.notify(name .. (value and " on" or " off") .. " in this window")
+    end,
+    {
+      desc = "Set an option of this window: `setlocal timebind` scrolls and zooms it with the other time bound windows",
+      complete = function(): {string | commands.Candidate} return {"timebind", "notimebind", "timebind!"} end,
+    }
+  )
+  alias("setl", "setlocal")
+
+  command(
+    "layout",
+    function(ctx: Ctx): Result
+      local first, name = ctx.args[1], ctx.args[2]
+      if first == nil then
+        local list = M.layout_names()
+        paw.notify(
+          #list > 0 and "layouts: " .. table.concat(list, ", ")
+            or "no layouts yet: `:layout save <name>` keeps the tabs and windows as they are"
+        )
+        return
+      end
+      if first == "save" then
+        if name == nil then
+          paw.notify("usage: layout save <name>", "warn")
+          return
+        end
+        local ok, where = M.save(tostring(name))
+        paw.notify(ok and "layout " .. tostring(name) .. " saved" or where, ok and "info" or "error")
+        return
+      end
+      local ok, why = M.load(tostring(first))
+      if not ok then
+        paw.notify(why, "warn")
+      end
+    end,
+    {
+      desc = "Put back a layout of tabs and windows: `layout edit`; `layout save edit` keeps the one now",
+      complete = function(_: string, info: commands.Info): {string | commands.Candidate}
+        if info.index == 2 and info.words[1] == "save" then
+          return M.layout_names() as {string | commands.Candidate}
+        end
+        if info.index > 1 then
+          return {}
+        end
+        local out: {string | commands.Candidate} = {{text = "save", desc = "keep the tabs and windows as they are"}}
+        for _, name in ipairs(M.layout_names()) do
+          out[#out + 1] = name
+        end
+        return out
+      end,
+    }
+  )
+
+  local acts: {string: function(ctx: Ctx)} = {
+    s = function() split(false)({args = {}}) end,
+    v = function() split(true)({args = {}}) end,
+    n = function() split(false, true)({args = {}}) end,
     c = function() commands.run("close") end,
     q = function() commands.run("q") end,
     o = function() M.only() end,
@@ -2623,85 +3297,130 @@ function M.setup()
     r = function() M.rotate(false) end,
     R = function() M.rotate(true) end,
     T = function()
-      if not M.to_tab() then paw.notify("the only window is a tab already", "warn") end
+      if not M.to_tab() then
+        paw.notify("the only window is a tab already", "warn")
+      end
     end,
     p = function()
       local t = tab()
       local win = t.prev and M.find_id(t.layout, t.prev)
-      if win and not win.hidden and focusable(win.view) then M.enter(win) end
+      if win and not win.hidden and focusable(win.view) then
+        M.enter(win)
+      end
     end,
   }
-  for _, dir in ipairs({ "h", "j", "k", "l" }) do
+  for _, dir in ipairs({"h", "j", "k", "l"}) do
     acts[dir] = function(ctx: Ctx)
       local win = M.neighbour(dir, ctx.count)
-      if win then M.enter(win) end
+      if win then
+        M.enter(win)
+      end
     end
     acts[dir:upper()] = function() M.move_to_edge(dir:upper()) end
   end
-  command("wincmd", function(ctx: Ctx): Result
-    local act = acts[tostring(ctx.args[1] or "")]
-    if not act then
-      paw.notify("usage: wincmd h, wincmd s, ... (what follows Ctrl-w)", "warn")
-      return
-    end
-    act(ctx)
-  end, { desc = "Do what Ctrl-w and a key do: `wincmd l` goes to the window on the right" })
+  command(
+    "wincmd",
+    function(ctx: Ctx): Result
+      local act = acts[tostring(ctx.args[1] or "")]
+      if not act then
+        paw.notify("usage: wincmd h, wincmd s, ... (what follows Ctrl-w)", "warn")
+        return
+      end
+      act(ctx)
+    end,
+    {desc = "Do what Ctrl-w and a key do: `wincmd l` goes to the window on the right"}
+  )
 
   local keys: {{string}} = {
-    { "s", "Split the window, one above the other" }, { "v", "Split the window, side by side" },
-    { "n", "A new empty window above or below" },
-    { "h", "The window on the left" }, { "j", "The window below" }, { "k", "The window above" }, { "l", "The window on the right" },
-    { "H", "Move the window to the far left" }, { "J", "Move the window to the bottom" },
-    { "K", "Move the window to the top" }, { "L", "Move the window to the far right" },
-    { "x", "Exchange the window with the next one" }, { "r", "Rotate the windows of the row or column" },
-    { "R", "Rotate them the other way" }, { "T", "Move the window to a tab of its own" },
-    { "p", "The window that had the keyboard before" }, { "c", "Close the window" },
-    { "q", "Close the window; in the last one, quit" }, { "o", "Close every other window" },
+    {"s", "Split the window, one above the other"},
+    {"v", "Split the window, side by side"},
+    {"n", "A new empty window above or below"},
+    {"h", "The window on the left"},
+    {"j", "The window below"},
+    {"k", "The window above"},
+    {"l", "The window on the right"},
+    {"H", "Move the window to the far left"},
+    {"J", "Move the window to the bottom"},
+    {"K", "Move the window to the top"},
+    {"L", "Move the window to the far right"},
+    {"x", "Exchange the window with the next one"},
+    {"r", "Rotate the windows of the row or column"},
+    {"R", "Rotate them the other way"},
+    {"T", "Move the window to a tab of its own"},
+    {"p", "The window that had the keyboard before"},
+    {"c", "Close the window"},
+    {"q", "Close the window; in the last one, quit"},
+    {"o", "Close every other window"},
   }
-  for _, k in ipairs(keys) do map("<C-w>" .. k[1], "wincmd " .. k[1], { desc = k[2] }) end
-  map("<C-w>w", "view.next", { desc = "The next window" })
-  map("<C-w>W", "view.prev", { desc = "The previous window" })
-  map("<C-w>|", "view.maximize", { desc = "Give the window the whole tab, or put the others back" })
-  map("gt", "tabnext", { desc = "The next tab" })
-  map("gT", "tabprevious", { desc = "The previous tab" })
+  for _, k in ipairs(keys) do
+    map("<C-w>" .. k[1], "wincmd " .. k[1], {desc = k[2]})
+  end
+  map("<C-w>w", "view.next", {desc = "The next window"})
+  map("<C-w>W", "view.prev", {desc = "The previous window"})
+  map("<C-w>|", "view.maximize", {desc = "Give the window the whole tab, or put the others back"})
+  map("gt", "tabnext", {desc = "The next tab"})
+  map("gT", "tabprevious", {desc = "The previous tab"})
 
   -- The project keeps the tabs and windows of each kind of seat (the
   -- graphical window, a terminal: `paw.seats.kind`), and a default: those
   -- of the seat that saved it. Opening it gives each seat its own, else
   -- the default. A project saved before keeps one layout, the default.
   options.define("project_screen", true)
-  events.on(project_saving, function()
-    if not opt.project_screen then return end
-    local screen = M.project_screen() or { seats = {} }
-    screen.default = M.capture()
-    screen.seats[seats.kind()] = screen.default
-    -- The other seats open now keep theirs too.
-    for _, id in ipairs(seats.list()) do
-      if id ~= seats.current then
-        screen.seats[seats.kind(id)] = seats.within(id, M.capture)
+  events.on(
+    project_saving,
+    function()
+      if not opt.project_screen then
+        return
+      end
+      local screen = M.project_screen() or {seats = {}}
+      screen.default = M.capture()
+      screen.seats[seats.kind()] = screen.default
+      -- The other seats open now keep theirs too.
+      for _, id in ipairs(seats.list()) do
+        if id ~= seats.current then
+          screen.seats[seats.kind(id)] = seats.within(id, M.capture)
+        end
+      end
+      api.project_screen_set(screen)
+    end
+  )
+  events.on(
+    kernel.project_loaded,
+    function()
+      if not opt.project_screen then
+        return
+      end
+      local screen = M.project_screen()
+      if not screen then
+        return
+      end
+      for _, id in ipairs(seats.list()) do
+        local mine = screen.seats[seats.kind(id)] or screen.default
+        if mine then
+          if id == seats.current then
+            M.restore(mine as SpecNode)
+          else
+            seats.within(id, M.restore, mine as SpecNode)
+          end
+        end
       end
     end
-    api.project_screen_set(screen)
-  end)
-  events.on(kernel.project_loaded, function()
-    if not opt.project_screen then return end
-    local screen = M.project_screen()
-    if not screen then return end
-    for _, id in ipairs(seats.list()) do
-      local mine = screen.seats[seats.kind(id)] or screen.default
-      if mine then
-        if id == seats.current then M.restore(mine as SpecNode) else seats.within(id, M.restore, mine as SpecNode) end
-      end
-    end
-  end)
+  )
   -- A seat that opens after the project did (a window attached to it)
   -- takes the layout that the project keeps for its kind, if any.
-  events.on(seat_opened, function(event: SeatOpened)
-    if not opt.project_screen then return end
-    local screen = M.project_screen()
-    local mine = screen and screen.seats[seats.kind(event.seat)]
-    if mine then paw.defer(function() seats.within(event.seat, M.restore, mine as SpecNode) end) end
-  end)
+  events.on(
+    seat_opened,
+    function(event: SeatOpened)
+      if not opt.project_screen then
+        return
+      end
+      local screen = M.project_screen()
+      local mine = screen and screen.seats[seats.kind(event.seat)]
+      if mine then
+        paw.defer(function() seats.within(event.seat, M.restore, mine as SpecNode) end)
+      end
+    end
+  )
 
   events.on(startup, function() M.start() end)
 end

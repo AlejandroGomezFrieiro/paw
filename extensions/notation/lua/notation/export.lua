@@ -4,16 +4,47 @@
 local model = require("notation.model")
 local M = {}
 
-local DIVISIONS = 24   -- per quarter: a 32nd is three, a triplet sixteenth two
+local DIVISIONS = 24 -- per quarter: a 32nd is three, a triplet sixteenth two
 
 -- LilyPond -------------------------------------------------------------------------------------
 
 local LY_ALTER = { [-2] = "eses", [-1] = "es", [0] = "", [1] = "is", [2] = "isis" }
-local LY_MAJOR = { [-7] = "ces", [-6] = "ges", [-5] = "des", [-4] = "aes", [-3] = "ees", [-2] = "bes", [-1] = "f",
-  [0] = "c", [1] = "g", [2] = "d", [3] = "a", [4] = "e", [5] = "b", [6] = "fis", [7] = "cis" }
-local LY_MINOR = { [-7] = "aes", [-6] = "ees", [-5] = "bes", [-4] = "f", [-3] = "c", [-2] = "g", [-1] = "d",
-  [0] = "a", [1] = "e", [2] = "b", [3] = "fis", [4] = "cis", [5] = "gis", [6] = "dis", [7] = "ais" }
-local MINORISH = { minor = true, aeolian = true, harmonic_minor = true, melodic_minor = true, minor_pentatonic = true, blues = true }
+local LY_MAJOR = {
+  [-7] = "ces",
+  [-6] = "ges",
+  [-5] = "des",
+  [-4] = "aes",
+  [-3] = "ees",
+  [-2] = "bes",
+  [-1] = "f",
+  [0] = "c",
+  [1] = "g",
+  [2] = "d",
+  [3] = "a",
+  [4] = "e",
+  [5] = "b",
+  [6] = "fis",
+  [7] = "cis",
+}
+local LY_MINOR = {
+  [-7] = "aes",
+  [-6] = "ees",
+  [-5] = "bes",
+  [-4] = "f",
+  [-3] = "c",
+  [-2] = "g",
+  [-1] = "d",
+  [0] = "a",
+  [1] = "e",
+  [2] = "b",
+  [3] = "fis",
+  [4] = "cis",
+  [5] = "gis",
+  [6] = "dis",
+  [7] = "ais",
+}
+local MINORISH =
+  { minor = true, aeolian = true, harmonic_minor = true, melodic_minor = true, minor_pentatonic = true, blues = true }
 
 local function ly_pitch(n)
   local name = model.LETTERS[n.letter]:lower() .. LY_ALTER[n.alter]
@@ -21,9 +52,7 @@ local function ly_pitch(n)
   return name .. (o > 0 and string.rep("'", o) or string.rep(",", -o))
 end
 
-local function ly_value(ev)
-  return tostring(math.floor(4 / ev.base + 0.5)) .. string.rep(".", ev.dots)
-end
+local function ly_value(ev) return tostring(math.floor(4 / ev.base + 0.5)) .. string.rep(".", ev.dots) end
 
 local function ly_events(evs, meter_of_m)
   local words = {}
@@ -45,15 +74,22 @@ local function ly_events(evs, meter_of_m)
     else
       if ev.grace then
         local g = {}
-        for i, n in ipairs(ev.grace) do g[i] = ly_pitch(n) .. "8" end
+        for i, n in ipairs(ev.grace) do
+          g[i] = ly_pitch(n) .. "8"
+        end
         words[#words + 1] = "\\acciaccatura { " .. table.concat(g, " ") .. " }"
       end
       local pitches = {}
-      for i, n in ipairs(ev.notes) do pitches[i] = ly_pitch(n) .. ((n.acc and n.courtesy) and "?" or "") end
+      for i, n in ipairs(ev.notes) do
+        pitches[i] = ly_pitch(n) .. ((n.acc and n.courtesy) and "?" or "")
+      end
       local tie = ev.notes[1].tie and "~" or ""
       local marks = (ev.staccato and "-." or "") .. (ev.arpeggio and "\\arpeggio" or "")
       if ev.arpeggio then words[#words + 1] = ev.arpeggio > 0 and "\\arpeggioArrowUp" or "\\arpeggioArrowDown" end
-      words[#words + 1] = (#pitches > 1 and ("<" .. table.concat(pitches, " ") .. ">") or pitches[1]) .. ly_value(ev) .. tie .. marks
+      words[#words + 1] = (#pitches > 1 and ("<" .. table.concat(pitches, " ") .. ">") or pitches[1])
+        .. ly_value(ev)
+        .. tie
+        .. marks
     end
   end
   if open then words[#words + 1] = "}" end
@@ -64,7 +100,8 @@ end
 function M.lilypond(layout, opts)
   opts = opts or {}
   local fifths = layout.fifths
-  local key = MINORISH[opts.scale or ""] and ("\\key " .. LY_MINOR[fifths] .. " \\minor") or ("\\key " .. LY_MAJOR[fifths] .. " \\major")
+  local key = MINORISH[opts.scale or ""] and ("\\key " .. LY_MINOR[fifths] .. " \\minor")
+    or ("\\key " .. LY_MAJOR[fifths] .. " \\major")
   local staves = {}
   for s, clef in ipairs(layout.staves) do
     local two = false
@@ -93,14 +130,22 @@ function M.lilypond(layout, opts)
     end
     local head = string.format("\\clef %s %s", clef == "treble8" and '"treble_8"' or clef, key)
     if two then
-      staves[s] = string.format("  \\new Staff <<\n    %s\n    \\new Voice { \\voiceOne\n%s\n    }\n    \\new Voice { \\voiceTwo\n%s\n    }\n  >>", head, voice_text(1), voice_text(2))
+      staves[s] = string.format(
+        "  \\new Staff <<\n    %s\n    \\new Voice { \\voiceOne\n%s\n    }\n    \\new Voice { \\voiceTwo\n%s\n    }\n  >>",
+        head,
+        voice_text(1),
+        voice_text(2)
+      )
     else
       staves[s] = string.format("  \\new Staff {\n    %s\n%s\n  }", head, voice_text(1))
     end
   end
   local body = #staves == 1 and staves[1] or ("  \\new PianoStaff <<\n" .. table.concat(staves, "\n") .. "\n  >>")
-  return string.format('\\version "2.24.0"\n\\header { title = "%s" tagline = ##f }\n\n\\score {\n%s\n  \\layout { }\n}\n',
-    (opts.title or ""):gsub('"', "'"), body)
+  return string.format(
+    '\\version "2.24.0"\n\\header { title = "%s" tagline = ##f }\n\n\\score {\n%s\n  \\layout { }\n}\n',
+    (opts.title or ""):gsub('"', "'"),
+    body
+  )
 end
 
 -- MusicXML -----------------------------------------------------------------------------------
@@ -150,10 +195,16 @@ function M.musicxml(layout, opts)
   local out = {}
   local function w(line) out[#out + 1] = line end
   w('<?xml version="1.0" encoding="UTF-8" standalone="no"?>')
-  w('<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">')
+  w(
+    '<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">'
+  )
   w('<score-partwise version="4.0">')
   w("  <work><work-title>" .. escape(opts.title or "") .. "</work-title></work>")
-  w('  <part-list><score-part id="P1"><part-name>' .. escape(opts.part or "Part") .. "</part-name></score-part></part-list>")
+  w(
+    '  <part-list><score-part id="P1"><part-name>'
+      .. escape(opts.part or "Part")
+      .. "</part-name></score-part></part-list>"
+  )
   w('  <part id="P1">')
   local meter_now
   for mi, m in ipairs(layout.measures) do
@@ -169,10 +220,22 @@ function M.musicxml(layout, opts)
         if #layout.staves > 1 then w("        <staves>" .. #layout.staves .. "</staves>") end
         for s, clef in ipairs(layout.staves) do
           local number = #layout.staves > 1 and (' number="' .. s .. '"') or ""
-          w("        <clef" .. number .. ">" .. (clef == "bass" and "<sign>F</sign><line>4</line>" or clef == "treble8" and "<sign>G</sign><line>2</line><clef-octave-change>-1</clef-octave-change>" or "<sign>G</sign><line>2</line>") .. "</clef>")
+          w(
+            "        <clef"
+              .. number
+              .. ">"
+              .. (clef == "bass" and "<sign>F</sign><line>4</line>" or clef == "treble8" and "<sign>G</sign><line>2</line><clef-octave-change>-1</clef-octave-change>" or "<sign>G</sign><line>2</line>")
+              .. "</clef>"
+          )
         end
         if opts.tab then
-          w("        <staff-details number=\"" .. (#layout.staves + 1) .. "\"><staff-lines>" .. #opts.tab .. "</staff-lines></staff-details>")
+          w(
+            '        <staff-details number="'
+              .. (#layout.staves + 1)
+              .. '"><staff-lines>'
+              .. #opts.tab
+              .. "</staff-lines></staff-details>"
+          )
         end
       end
       w("      </attributes>")
@@ -181,8 +244,13 @@ function M.musicxml(layout, opts)
     local bar_divisions = math.floor(m.length * DIVISIONS + 0.5)
     for _, d in ipairs(m.directions or {}) do
       local offset = math.floor((d.start - m.start) * DIVISIONS + 0.5)
-      w("      <direction placement=\"below\"><direction-type>" .. d.xml .. "</direction-type>"
-        .. (offset > 0 and ("<offset>" .. offset .. "</offset>") or "") .. "</direction>")
+      w(
+        '      <direction placement="below"><direction-type>'
+          .. d.xml
+          .. "</direction-type>"
+          .. (offset > 0 and ("<offset>" .. offset .. "</offset>") or "")
+          .. "</direction>"
+      )
     end
     local first_chunk = true
     for s in ipairs(layout.staves) do
@@ -192,7 +260,9 @@ function M.musicxml(layout, opts)
         table.insert(voices[ev.voice], ev)
       end
       local order = {}
-      for v in pairs(voices) do order[#order + 1] = v end
+      for v in pairs(voices) do
+        order[#order + 1] = v
+      end
       table.sort(order)
       for _, v in ipairs(order) do
         local evs = voices[v]
@@ -204,63 +274,144 @@ function M.musicxml(layout, opts)
         local t = m.start
         for k, ev in ipairs(evs) do
           if ev.start > t + 1e-6 then
-            w("      <forward><duration>" .. math.floor((ev.start - t) * DIVISIONS + 0.5) .. "</duration><voice>" .. voice .. "</voice>" .. staff .. "</forward>")
+            w(
+              "      <forward><duration>"
+                .. math.floor((ev.start - t) * DIVISIONS + 0.5)
+                .. "</duration><voice>"
+                .. voice
+                .. "</voice>"
+                .. staff
+                .. "</forward>"
+            )
           end
           t = ev.start + ev.length
           local duration = math.floor(ev.length * DIVISIONS + 0.5)
           local tm, tnot = "", {}
           if ev.tuplet then
             local normal = math.floor(ev.tuplet.n / ev.tuplet.ratio + 0.5)
-            tm = "<time-modification><actual-notes>" .. ev.tuplet.n .. "</actual-notes><normal-notes>" .. normal .. "</normal-notes></time-modification>"
-            if evs[k - 1] == nil or evs[k - 1].tuplet ~= ev.tuplet then tnot[#tnot + 1] = '<tuplet type="start" bracket="yes"/>' end
+            tm = "<time-modification><actual-notes>"
+              .. ev.tuplet.n
+              .. "</actual-notes><normal-notes>"
+              .. normal
+              .. "</normal-notes></time-modification>"
+            if evs[k - 1] == nil or evs[k - 1].tuplet ~= ev.tuplet then
+              tnot[#tnot + 1] = '<tuplet type="start" bracket="yes"/>'
+            end
             if evs[k + 1] == nil or evs[k + 1].tuplet ~= ev.tuplet then tnot[#tnot + 1] = '<tuplet type="stop"/>' end
           end
           if ev.kind == "rest" then
             if ev.whole then
-              w('      <note><rest measure="yes"/><duration>' .. duration .. "</duration><voice>" .. voice .. "</voice>" .. staff .. "</note>")
+              w(
+                '      <note><rest measure="yes"/><duration>'
+                  .. duration
+                  .. "</duration><voice>"
+                  .. voice
+                  .. "</voice>"
+                  .. staff
+                  .. "</note>"
+              )
             else
-              w("      <note><rest/><duration>" .. duration .. "</duration><voice>" .. voice .. "</voice><type>" .. XML_TYPE[ev.base] .. "</type>"
-                .. string.rep("<dot/>", ev.dots) .. tm .. staff .. (#tnot > 0 and ("<notations>" .. table.concat(tnot) .. "</notations>") or "") .. "</note>")
+              w(
+                "      <note><rest/><duration>"
+                  .. duration
+                  .. "</duration><voice>"
+                  .. voice
+                  .. "</voice><type>"
+                  .. XML_TYPE[ev.base]
+                  .. "</type>"
+                  .. string.rep("<dot/>", ev.dots)
+                  .. tm
+                  .. staff
+                  .. (#tnot > 0 and ("<notations>" .. table.concat(tnot) .. "</notations>") or "")
+                  .. "</note>"
+              )
             end
           else
             for _, g in ipairs(ev.grace or {}) do
-              w('      <note><grace slash="yes"/>' .. "<pitch><step>" .. model.LETTERS[g.letter] .. "</step>" .. (g.alter ~= 0 and ("<alter>" .. g.alter .. "</alter>") or "")
-                .. "<octave>" .. g.octave .. "</octave></pitch><voice>" .. voice .. "</voice><type>eighth</type>"
-                .. (g.acc and ("<accidental>" .. XML_ACC[g.acc] .. "</accidental>") or "") .. "<stem>up</stem>" .. staff .. "</note>")
+              w(
+                '      <note><grace slash="yes"/>'
+                  .. "<pitch><step>"
+                  .. model.LETTERS[g.letter]
+                  .. "</step>"
+                  .. (g.alter ~= 0 and ("<alter>" .. g.alter .. "</alter>") or "")
+                  .. "<octave>"
+                  .. g.octave
+                  .. "</octave></pitch><voice>"
+                  .. voice
+                  .. "</voice><type>eighth</type>"
+                  .. (g.acc and ("<accidental>" .. XML_ACC[g.acc] .. "</accidental>") or "")
+                  .. "<stem>up</stem>"
+                  .. staff
+                  .. "</note>"
+              )
             end
             for i, n in ipairs(ev.notes) do
               local parts = { "      <note>" }
               if i > 1 then parts[#parts + 1] = "<chord/>" end
-              parts[#parts + 1] = "<pitch><step>" .. model.LETTERS[n.letter] .. "</step>" .. (n.alter ~= 0 and ("<alter>" .. n.alter .. "</alter>") or "")
-                .. "<octave>" .. n.octave .. "</octave></pitch>"
+              parts[#parts + 1] = "<pitch><step>"
+                .. model.LETTERS[n.letter]
+                .. "</step>"
+                .. (n.alter ~= 0 and ("<alter>" .. n.alter .. "</alter>") or "")
+                .. "<octave>"
+                .. n.octave
+                .. "</octave></pitch>"
               parts[#parts + 1] = "<duration>" .. duration .. "</duration>"
               if n.tied then parts[#parts + 1] = '<tie type="stop"/>' end
               if n.tie then parts[#parts + 1] = '<tie type="start"/>' end
-              parts[#parts + 1] = "<voice>" .. voice .. "</voice><type>" .. XML_TYPE[ev.base] .. "</type>" .. string.rep("<dot/>", ev.dots)
-              if n.acc then parts[#parts + 1] = "<accidental" .. (n.courtesy and ' cautionary="yes"' or "") .. ">" .. XML_ACC[n.acc] .. "</accidental>" end
+              parts[#parts + 1] = "<voice>"
+                .. voice
+                .. "</voice><type>"
+                .. XML_TYPE[ev.base]
+                .. "</type>"
+                .. string.rep("<dot/>", ev.dots)
+              if n.acc then
+                parts[#parts + 1] = "<accidental"
+                  .. (n.courtesy and ' cautionary="yes"' or "")
+                  .. ">"
+                  .. XML_ACC[n.acc]
+                  .. "</accidental>"
+              end
               parts[#parts + 1] = tm
               if ev.stem then parts[#parts + 1] = "<stem>" .. (ev.stem > 0 and "up" or "down") .. "</stem>" end
               parts[#parts + 1] = staff
               if i == 1 then
-                for level, value in ipairs(beams[ev] or {}) do parts[#parts + 1] = '<beam number="' .. level .. '">' .. value .. "</beam>" end
+                for level, value in ipairs(beams[ev] or {}) do
+                  parts[#parts + 1] = '<beam number="' .. level .. '">' .. value .. "</beam>"
+                end
               end
               local nots = {}
               if n.tied then nots[#nots + 1] = '<tied type="stop"/>' end
               if n.tie then nots[#nots + 1] = '<tied type="start"/>' end
               if i == 1 then
-                for _, x in ipairs(tnot) do nots[#nots + 1] = x end
+                for _, x in ipairs(tnot) do
+                  nots[#nots + 1] = x
+                end
                 local arts = {}
                 if ev.staccato or (ev.art and ev.art.staccato) then arts[#arts + 1] = "<staccato/>" end
                 if ev.art and ev.art.accent then arts[#arts + 1] = "<accent/>" end
                 if ev.art and ev.art.tenuto then arts[#arts + 1] = "<tenuto/>" end
                 if ev.art and ev.art.marcato then arts[#arts + 1] = "<strong-accent/>" end
                 if #arts > 0 then nots[#nots + 1] = "<articulations>" .. table.concat(arts) .. "</articulations>" end
-                for _, sl in ipairs(ev.slurs or {}) do nots[#nots + 1] = '<slur type="' .. sl .. '"/>' end
+                for _, sl in ipairs(ev.slurs or {}) do
+                  nots[#nots + 1] = '<slur type="' .. sl .. '"/>'
+                end
               end
-              if ev.arpeggio then nots[#nots + 1] = '<arpeggiate direction="' .. (ev.arpeggio > 0 and "up" or "down") .. '"/>' end
-              if n.string then nots[#nots + 1] = "<technical><string>" .. n.string .. "</string><fret>" .. n.fret .. "</fret></technical>" end
+              if ev.arpeggio then
+                nots[#nots + 1] = '<arpeggiate direction="' .. (ev.arpeggio > 0 and "up" or "down") .. '"/>'
+              end
+              if n.string then
+                nots[#nots + 1] = "<technical><string>"
+                  .. n.string
+                  .. "</string><fret>"
+                  .. n.fret
+                  .. "</fret></technical>"
+              end
               if #nots > 0 then parts[#parts + 1] = "<notations>" .. table.concat(nots) .. "</notations>" end
-              if i == 1 and ev.lyric then parts[#parts + 1] = '<lyric number="1"><syllabic>single</syllabic><text>' .. escape(ev.lyric) .. "</text></lyric>" end
+              if i == 1 and ev.lyric then
+                parts[#parts + 1] = '<lyric number="1"><syllabic>single</syllabic><text>'
+                  .. escape(ev.lyric)
+                  .. "</text></lyric>"
+              end
               parts[#parts + 1] = "</note>"
               w(table.concat(parts))
             end
@@ -294,7 +445,10 @@ function M.track_layout(track, opts, bars_of)
     end
   end
   table.sort(notes, function(a, b) return a.start < b.start or (a.start == b.start and a.pitch < b.pitch) end)
-  return model.layout(notes, paw.util.merge(opts, { length = finish, offset = 0, bars = bars_of and bars_of(0, finish) or nil }))
+  return model.layout(
+    notes,
+    paw.util.merge(opts, { length = finish, offset = 0, bars = bars_of and bars_of(0, finish) or nil })
+  )
 end
 
 --- Write a file; returns nil and the error when it cannot be written.

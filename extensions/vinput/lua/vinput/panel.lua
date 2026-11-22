@@ -49,7 +49,9 @@ end
 function view.short(source)
   local text = source:gsub(":capture_%w+$", ""):gsub("%s+", " ")
   local words = {}
-  for word in text:gmatch("%S+") do words[#words + 1] = word end
+  for word in text:gmatch("%S+") do
+    words[#words + 1] = word
+  end
   -- A maker's name ahead of the model's says little.
   if #words > 2 and not words[1]:match("%d") and words[2]:match("%d") then table.remove(words, 1) end
   text = table.concat(words, " ")
@@ -93,9 +95,13 @@ local state_style = { running = "MeterLow", failed = "Error", blocked = "Warn", 
 function view:render(buf, ctx)
   local _, rows = self:current()
   local inputs = 0
-  for _, r in ipairs(rows) do if r.heading then inputs = inputs + 1 end end
+  for _, r in ipairs(rows) do
+    if r.heading then inputs = inputs + 1 end
+  end
   local inner = paw.ui.titlebar(buf, {
-    name = "Virtual inputs", context = "guitar to MIDI", focused = ctx.focused,
+    name = "Virtual inputs",
+    context = "guitar to MIDI",
+    focused = ctx.focused,
     right = inputs > 0 and tostring(inputs) or nil,
   })
   inner = inner:sub(1, 0, inner.width - 1, inner.height)
@@ -120,7 +126,8 @@ function view:render(buf, ctx)
     local input = r.input
     if r.heading then
       local status = vinput.status(input.name)
-      local x = inner:text(0, y, input.on and "● " or "○ ", input.on and (state_style[status.state] or "Accent") or "Faint")
+      local x =
+        inner:text(0, y, input.on and "● " or "○ ", input.on and (state_style[status.state] or "Accent") or "Faint")
 
       x = x + inner:text(x, y, input.name, input.on and "DeviceName" or "DeviceOff") + 2
       local right = view.status_text(status)
@@ -137,8 +144,15 @@ function view:render(buf, ctx)
       local x = 13
       if setting and setting.type == "number" then
         local bar = util.clamp(math.floor(w / 4), 8, 28)
-        paw.draw.slider(inner, x, y, bar, (input[setting.key] - setting.min) / (setting.max - setting.min),
-          chosen and "ParamBar" or "Dim", "ParamBarOff")
+        paw.draw.slider(
+          inner,
+          x,
+          y,
+          bar,
+          (input[setting.key] - setting.min) / (setting.max - setting.min),
+          chosen and "ParamBar" or "Dim",
+          "ParamBarOff"
+        )
         x = x + bar + 1
       end
       local empty = setting and setting.type ~= "number" and setting.type ~= "switch" and input[setting.key] == ""

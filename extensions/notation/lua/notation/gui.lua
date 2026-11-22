@@ -30,12 +30,23 @@ local EPS = 1e-6
 local INFO = 26
 
 -- bar_h is the toolbar's height: it grows a row for every row the buttons wrap to.
-local gui = { bar_h = 44, scroll = 0, hscroll = 0, drag = nil, hits = paw.canvas.hit_list(), buttons = {}, heads = {}, accidental = nil, rest = false, measures = {} }
+local gui = {
+  bar_h = 44,
+  scroll = 0,
+  hscroll = 0,
+  drag = nil,
+  hits = paw.canvas.hit_list(),
+  buttons = {},
+  heads = {},
+  accidental = nil,
+  rest = false,
+  measures = {},
+}
 view.gui = gui
-view.space = nil       -- the staff space chosen by zooming, in px; nil: by the size of a cell
-view.galley = false    -- one endless system, scrolled sideways
-view.page = false      -- the systems on pages of paper (`zp`)
-view.spread = 1        -- how widely notes are spaced
+view.space = nil -- the staff space chosen by zooming, in px; nil: by the size of a cell
+view.galley = false -- one endless system, scrolled sideways
+view.page = false -- the systems on pages of paper (`zp`)
+view.spread = 1 -- how widely notes are spaced
 
 local function round(v) return floor(v + 0.5) end
 local function alpha(colour, a) return colour .. string.format("%02x", floor(a * 255 + 0.5)) end
@@ -69,10 +80,16 @@ local styles = {}
 local function style_for(ctx)
   local cell = ctx.cell or { w = 8, h = 17 }
   local o = {
-    space = space_for(ctx), cell = cell, ink = ctx.fg or c.text, paper = ctx.bg or c.surface,
-    accent = c.select, whole_cells = ctx.surface and true or false,
+    space = space_for(ctx),
+    cell = cell,
+    ink = ctx.fg or c.text,
+    paper = ctx.bg or c.surface,
+    accent = c.select,
+    whole_cells = ctx.surface and true or false,
   }
-  if view.page and paw.opt.notation_paper == "white" then o.ink, o.paper = "#000000", "#ffffff" end
+  if view.page and paw.opt.notation_paper == "white" then
+    o.ink, o.paper = "#000000", "#ffffff"
+  end
   local key = table.concat({ o.space, cell.w, cell.h, o.ink, o.paper, tostring(o.whole_cells) }, ":")
   styles[key] = styles[key] or engrave.style(o)
   gui.last_space = o.space
@@ -83,7 +100,10 @@ end
 --- changes: wrapped, in the galley, or on pages.
 function view:engrave(layout, width, st, top)
   local geo = view.page and page.geometry(st.sp, st.whole and st.cell)
-  local key = table.concat({ tostring(layout), st.key, width, tostring(view.galley), view.spread, top or 0, geo and geo.key or "" }, ":")
+  local key = table.concat(
+    { tostring(layout), st.key, width, tostring(view.galley), view.spread, top or 0, geo and geo.key or "" },
+    ":"
+  )
   if gui.eng and gui.eng_key == key then return gui.eng end
   -- The staves' ink is kept across layouts while the style holds.
   if gui.measures.style ~= st.key then gui.measures = { style = st.key, generation = 0 } end
@@ -93,8 +113,11 @@ function view:engrave(layout, width, st, top)
   if geo then
     eng = page.systems(layout, st, geo, width, gui.measures)
   else
-    eng = engrave.systems(layout, st, { width = width, galley = view.galley, spread = view.spread, top = top or 0,
-      cache = gui.measures })
+    eng = engrave.systems(
+      layout,
+      st,
+      { width = width, galley = view.galley, spread = view.spread, top = top or 0, cache = gui.measures }
+    )
   end
   gui.eng, gui.eng_key, gui.page = eng, key, nil
   return eng
@@ -130,7 +153,8 @@ local function system_ops(eng, sys, layout)
       -- A written note's ink is kept by its id; the note that plays it may
       -- have another place among the clip's notes since.
       local index = h.id and layout.places and layout.places[h.id] or h.index
-      heads[#heads + 1] = util.merge(h, { x = h.x + placed.x, gx = h.gx + placed.x, y = h.y + sys.y, sys = sys, index = index })
+      heads[#heads + 1] =
+        util.merge(h, { x = h.x + placed.x, gx = h.gx + placed.x, y = h.y + sys.y, sys = sys, index = index })
     end
   end
   sys.prefix, sys.spans, sys.heads = prefix.ops, spans.ops, heads
@@ -199,10 +223,30 @@ local function lone_head(g, eng, layout, beat, step, colour, base, area, acciden
   local hx = round(x + dx - hw / 2)
   local ext = st.ledger_ext
   for p = -2, pos, -2 do
-    g.ops[#g.ops + 1] = { "r", round(hx - ext), round(engrave.y_of(st, sys, staff, p) + dy - st.ledger / 2), round(hw + 2 * ext), st.ledger, colour, "", 1, 0 }
+    g.ops[#g.ops + 1] = {
+      "r",
+      round(hx - ext),
+      round(engrave.y_of(st, sys, staff, p) + dy - st.ledger / 2),
+      round(hw + 2 * ext),
+      st.ledger,
+      colour,
+      "",
+      1,
+      0,
+    }
   end
   for p = 10, pos, 2 do
-    g.ops[#g.ops + 1] = { "r", round(hx - ext), round(engrave.y_of(st, sys, staff, p) + dy - st.ledger / 2), round(hw + 2 * ext), st.ledger, colour, "", 1, 0 }
+    g.ops[#g.ops + 1] = {
+      "r",
+      round(hx - ext),
+      round(engrave.y_of(st, sys, staff, p) + dy - st.ledger / 2),
+      round(hw + 2 * ext),
+      st.ledger,
+      colour,
+      "",
+      1,
+      0,
+    }
   end
   g:glyph(hx, round(y), st.em, gl.cp, colour, st.font.name)
   if base and base < 4 then
@@ -234,9 +278,15 @@ end
 --- score, where a staff shows several).
 local function heads_of(places, first, last, clip)
   local set, out = {}, {}
-  for _, p in ipairs(places) do set[p] = true end
+  for _, p in ipairs(places) do
+    set[p] = true
+  end
   for _, h in ipairs(gui.heads) do
-    if set[h.index] and (not first or (h.staff >= first and h.staff <= last)) and (not clip or not h.clip or h.clip == clip) then
+    if
+      set[h.index]
+      and (not first or (h.staff >= first and h.staff <= last))
+      and (not clip or not h.clip or h.clip == clip)
+    then
       out[#out + 1] = h
     end
   end
@@ -266,7 +316,8 @@ local function draw_selection(g, eng, layout, F, selection, area)
           local u = F.multi and layout.units[part.unit]
           local y0 = engrave.y_of(st, sys, u and u.first or 1, 8) - 2 * st.sp
           local y1 = engrave.y_of(st, sys, u and u.last or #layout.staves, 0) + 2 * st.sp
-          g.ops[#g.ops + 1] = { "r", round(x0 + dx), round(y0 + dy), round(x1 - x0), round(y1 - y0), alpha(st.accent, 0.15), "", 1, 0 }
+          g.ops[#g.ops + 1] =
+            { "r", round(x0 + dx), round(y0 + dy), round(x1 - x0), round(y1 - y0), alpha(st.accent, 0.15), "", 1, 0 }
         end
       end
     end
@@ -278,7 +329,9 @@ local function draw_selection(g, eng, layout, F, selection, area)
       local shift = c.start - F.start
       local region = util.merge(part.region, { c0 = part.region.c0 - shift, c1 = part.region.c1 - shift })
       local _, places = paw.edit.roll.notes(paw.clip(id), region)
-      for _, h in ipairs(heads_of(places, u and u.first, u and u.last, id)) do tint(g, eng, h, st.accent) end
+      for _, h in ipairs(heads_of(places, u and u.first, u and u.last, id)) do
+        tint(g, eng, h, st.accent)
+      end
     end
   end
 end
@@ -324,14 +377,18 @@ local function draw_ghosts(g, eng, layout, clip, area, F)
   local key = tostring(cur.item) .. ":" .. tostring(clip:get().stamp)
   if gui.ghost_key ~= key then
     local notes = clip:notes()
-    for _, n in ipairs(cur.item.notes) do notes[#notes + 1] = { pitch = n.pitch, start = n.start, length = n.length, velocity = n.velocity or 80 } end
+    for _, n in ipairs(cur.item.notes) do
+      notes[#notes + 1] = { pitch = n.pitch, start = n.start, length = n.length, velocity = n.velocity or 80 }
+    end
     table.sort(notes, function(a, b) return a.start < b.start end)
     local opts = view.layout_opts(clip:get())
     local ok, combined = pcall(model.layout, notes, opts)
     local ghosts = {}
     if ok then
       local mine = {}
-      for _, n in ipairs(cur.item.notes) do mine[n.pitch .. "@" .. string.format("%.4f", n.start)] = true end
+      for _, n in ipairs(cur.item.notes) do
+        mine[n.pitch .. "@" .. string.format("%.4f", n.start)] = true
+      end
       for _, ev in ipairs(model.events(combined)) do
         for _, n in ipairs(ev.notes or {}) do
           local played = notes[n.index]
@@ -344,7 +401,9 @@ local function draw_ghosts(g, eng, layout, clip, area, F)
     gui.ghost_key, gui.ghosts = key, ghosts
   end
   local colour = alpha(c.play_on, 0.45)
-  for _, gh in ipairs(gui.ghosts or {}) do lone_head(g, eng, layout, gh.beat + F.off, gh.step, colour, gh.base, area, gh.acc, F) end
+  for _, gh in ipairs(gui.ghosts or {}) do
+    lone_head(g, eng, layout, gh.beat + F.off, gh.step, colour, gh.base, area, gh.acc, F)
+  end
 end
 
 local SEVERITY_COLOUR = { c.error, c.warn, c.select, c.text_3 }
@@ -386,11 +445,23 @@ local function draw_diagnostics(g, eng, layout, clip, area, F)
       end
     end
     local first, last = mine(F)
-    for _, h in ipairs(heads_of(diag.places(d), first, last, clip.id)) do tint(g, eng, h, colour) end
+    for _, h in ipairs(heads_of(diag.places(d), first, last, clip.id)) do
+      tint(g, eng, h, colour)
+    end
   end
   for sys, severity in pairs(marked) do
     local y = engrave.y_of(st, sys, F.base + 1, 4) + dy
-    g.ops[#g.ops + 1] = { "r", 1, round(y - st.sp), max(2, round(st.sp / 3)), round(2 * st.sp), SEVERITY_COLOUR[severity] or c.warn, "", 1, 0 }
+    g.ops[#g.ops + 1] = {
+      "r",
+      1,
+      round(y - st.sp),
+      max(2, round(st.sp / 3)),
+      round(2 * st.sp),
+      SEVERITY_COLOUR[severity] or c.warn,
+      "",
+      1,
+      0,
+    }
   end
 end
 
@@ -399,7 +470,9 @@ end
 local function draw_caret(g, eng, layout, area, under_index, inserting, F)
   local st = eng.style
   local beat, step = view.beat, view.step
-  if gui.hover and inserting then beat, step = gui.hover.beat, gui.hover.step end
+  if gui.hover and inserting then
+    beat, step = gui.hover.beat, gui.hover.step
+  end
   local sys, x = at_beat(eng, beat + F.off)
   if not sys then return end
   local dy = area.top - gui.scroll
@@ -412,12 +485,25 @@ local function draw_caret(g, eng, layout, area, under_index, inserting, F)
     local here = view.beat + F.off
     local first, last = mine(F)
     for _, h in ipairs(heads_of({ under_index }, first, last, view.clip_id)) do
-      if (h.player or 1) == F.player and (abs(h.start - here) < EPS or (h.start <= here + EPS)) then tint(g, eng, h, st.accent) end
+      if (h.player or 1) == F.player and (abs(h.start - here) < EPS or (h.start <= here + EPS)) then
+        tint(g, eng, h, st.accent)
+      end
     end
   else
     local value = view:entry_length()
     local base = model.value_of(value) or 1
-    lone_head(g, eng, layout, beat + F.off, step, alpha(inserting and c.play_on or st.accent, 0.5), base, area, gui.accidental, F)
+    lone_head(
+      g,
+      eng,
+      layout,
+      beat + F.off,
+      step,
+      alpha(inserting and c.play_on or st.accent, 0.5),
+      base,
+      area,
+      gui.accidental,
+      F
+    )
   end
 end
 
@@ -452,7 +538,9 @@ local function playhead_mark(eng, layout, F, area, w, h)
         local m = placed.m
         local points = { { m.start, placed.x + model.x_of(placed.p, m.start) } }
         for _, slot in ipairs(placed.p.slots) do
-          if slot.t > m.start + EPS and slot.t < m.start + m.length - EPS then points[#points + 1] = { slot.t, placed.x + slot.x } end
+          if slot.t > m.start + EPS and slot.t < m.start + m.length - EPS then
+            points[#points + 1] = { slot.t, placed.x + slot.x }
+          end
         end
         points[#points + 1] = { m.start + m.length, placed.x + model.x_of(placed.p, m.start + m.length) }
         for i = 1, #points - 1 do
@@ -476,7 +564,10 @@ function view:scene_key()
   if not eng then return nil end
   local t = api.transport_get()
   local sys = at_beat(eng, self:follow_beat())
-  return table.concat({ tostring(t.playing), sys and sys.y or -1, view.galley and t.playing and t.position or 0, gui.scroll, gui.hscroll }, ":")
+  return table.concat(
+    { tostring(t.playing), sys and sys.y or -1, view.galley and t.playing and t.position or 0, gui.scroll, gui.hscroll },
+    ":"
+  )
 end
 view.scene_roles = { "playhead" }
 
@@ -496,7 +587,9 @@ local function bar_rows(groups, width)
   local rows, x = { {} }, 10
   for _, grp in ipairs(groups) do
     local gw = -5
-    for _, b in ipairs(grp) do gw = gw + b.w + 5 end
+    for _, b in ipairs(grp) do
+      gw = gw + b.w + 5
+    end
     if x > 10 and x + gw > width - 10 - (#rows == 1 and ZOOM_W or 0) then
       rows[#rows + 1] = {}
       x = 10
@@ -517,7 +610,12 @@ local function button(g, x, y, b)
     b.draw(x + b.w / 2, y + BTN / 2, ink2)
   else
     -- Centred text is centred on the `x` it is given, not started there.
-    g:text(x + b.w / 2, y + (BTN - 12) / 2 - 1, b.label, { color = ink2, bold = b.on or b.fill ~= nil, align = "center", width = b.w })
+    g:text(
+      x + b.w / 2,
+      y + (BTN - 12) / 2 - 1,
+      b.label,
+      { color = ink2, bold = b.on or b.fill ~= nil, align = "center", width = b.w }
+    )
   end
   if b.action then gui.hits:add(g, x, y, b.w, BTN, b.action).label = b.label end
 end
@@ -535,47 +633,88 @@ local function bar_groups(g, name, colour)
   local marks = view.marks
   local values, accidentals, shapes, dynamics = {}, {}, {}, {}
   for _, v in ipairs(VALUE_BUTTONS) do
-    values[#values + 1] = { w = 30, label = model.NAMES[v], on = view.value == v and not gui.rest, action = function()
-      view:choose(v)
-      gui.rest = false
-    end, draw = function(cx, cy, ink2)
-      local hx, hy = floor(cx - 4), floor(cy + 6)
-      icon(g, engrave.HEAD_GLYPH(v), hx, hy, ink2)
-      if v < 4 then
-        g:rect(hx + 6, hy - 16, 1, 16, { fill = ink2 })
-        local flags = model.flags(v)
-        if flags > 0 then icon(g, ({ "flag8thUp", "flag16thUp", "flag32ndUp" })[flags], hx + 6, hy - 16, ink2) end
-      end
-    end }
+    values[#values + 1] = {
+      w = 30,
+      label = model.NAMES[v],
+      on = view.value == v and not gui.rest,
+      action = function()
+        view:choose(v)
+        gui.rest = false
+      end,
+      draw = function(cx, cy, ink2)
+        local hx, hy = floor(cx - 4), floor(cy + 6)
+        icon(g, engrave.HEAD_GLYPH(v), hx, hy, ink2)
+        if v < 4 then
+          g:rect(hx + 6, hy - 16, 1, 16, { fill = ink2 })
+          local flags = model.flags(v)
+          if flags > 0 then icon(g, ({ "flag8thUp", "flag16thUp", "flag32ndUp" })[flags], hx + 6, hy - 16, ink2) end
+        end
+      end,
+    }
   end
-  values[#values + 1] = { w = 30, label = "dot", on = view.dot, action = function() view.dot = not view.dot end,
-    draw = function(cx, cy, ink2) icon(g, "augmentationDot", floor(cx - 2), floor(cy), ink2) end }
+  values[#values + 1] = {
+    w = 30,
+    label = "dot",
+    on = view.dot,
+    action = function() view.dot = not view.dot end,
+    draw = function(cx, cy, ink2) icon(g, "augmentationDot", floor(cx - 2), floor(cy), ink2) end,
+  }
   values[#values + 1] = { w = 44, label = "rest", on = gui.rest, action = function() gui.rest = not gui.rest end }
   for _, a in ipairs({ { -1, "flat" }, { 0, "natural" }, { 1, "sharp" } }) do
-    accidentals[#accidentals + 1] = { w = 30, label = a[2], on = gui.accidental == a[1], action = function()
-      gui.accidental = (gui.accidental ~= a[1]) and a[1] or nil
-    end, draw = function(cx, cy, ink2) icon(g, engrave.ACC_GLYPH[a[1]], floor(cx - 3), floor(cy + 1), ink2) end }
+    accidentals[#accidentals + 1] = {
+      w = 30,
+      label = a[2],
+      on = gui.accidental == a[1],
+      action = function() gui.accidental = (gui.accidental ~= a[1]) and a[1] or nil end,
+      draw = function(cx, cy, ink2) icon(g, engrave.ACC_GLYPH[a[1]], floor(cx - 3), floor(cy + 1), ink2) end,
+    }
   end
   local function art(kind, glyph_name)
-    shapes[#shapes + 1] = { w = 28, label = kind, action = function() marks.toggle_art(kind, view:chord_indices()) end,
-      draw = function(cx, cy, ink2) icon(g, glyph_name, floor(cx - 4), floor(cy + 2), ink2) end }
+    shapes[#shapes + 1] = {
+      w = 28,
+      label = kind,
+      action = function() marks.toggle_art(kind, view:chord_indices()) end,
+      draw = function(cx, cy, ink2) icon(g, glyph_name, floor(cx - 4), floor(cy + 2), ink2) end,
+    }
   end
   art("staccato", "articStaccatoAbove")
   art("accent", "articAccentAbove")
   art("tenuto", "articTenutoAbove")
-  shapes[#shapes + 1] = { w = 28, label = "slur", action = function() paw.cmd("notation.slur") end,
-    draw = function(cx, cy, ink2) g:poly({ cx - 8, cy + 3, cx - 4, cy - 2, cx + 4, cy - 2, cx + 8, cy + 3 }, { color = ink2, width = 1.6 }) end }
-  shapes[#shapes + 1] = { w = 28, label = "triplet", action = function() view:toggle_tuplet() end,
-    draw = function(cx, cy, ink2) icon(g, "tuplet3", floor(cx - 3), floor(cy + 5), ink2) end }
-  shapes[#shapes + 1] = { w = 32, label = "voice", action = function() view:toggle_voice() end,
-    draw = function(cx, cy, ink2) g:text(cx, cy - 7.5, "v2", { color = ink2, size = 12, align = "center" }) end }
+  shapes[#shapes + 1] = {
+    w = 28,
+    label = "slur",
+    action = function() paw.cmd("notation.slur") end,
+    draw = function(cx, cy, ink2)
+      g:poly({ cx - 8, cy + 3, cx - 4, cy - 2, cx + 4, cy - 2, cx + 8, cy + 3 }, { color = ink2, width = 1.6 })
+    end,
+  }
+  shapes[#shapes + 1] = {
+    w = 28,
+    label = "triplet",
+    action = function() view:toggle_tuplet() end,
+    draw = function(cx, cy, ink2) icon(g, "tuplet3", floor(cx - 3), floor(cy + 5), ink2) end,
+  }
+  shapes[#shapes + 1] = {
+    w = 32,
+    label = "voice",
+    action = function() view:toggle_voice() end,
+    draw = function(cx, cy, ink2) g:text(cx, cy - 7.5, "v2", { color = ink2, size = 12, align = "center" }) end,
+  }
   for _, d in ipairs({ "p", "mf", "f" }) do
     dynamics[#dynamics + 1] = { w = 32, label = d, action = function() paw.cmd("notation.dyn", { d }) end }
   end
-  dynamics[#dynamics + 1] = { w = 28, label = "cresc", action = function() paw.cmd("notation.cresc") end,
-    draw = function(cx, cy, ink2) g:poly({ cx + 8, cy - 4, cx - 8, cy, cx + 8, cy + 4 }, { color = ink2, width = 1.4 }) end }
-  dynamics[#dynamics + 1] = { w = 28, label = "dim", action = function() paw.cmd("notation.dim") end,
-    draw = function(cx, cy, ink2) g:poly({ cx - 8, cy - 4, cx + 8, cy, cx - 8, cy + 4 }, { color = ink2, width = 1.4 }) end }
+  dynamics[#dynamics + 1] = {
+    w = 28,
+    label = "cresc",
+    action = function() paw.cmd("notation.cresc") end,
+    draw = function(cx, cy, ink2) g:poly({ cx + 8, cy - 4, cx - 8, cy, cx + 8, cy + 4 }, { color = ink2, width = 1.4 }) end,
+  }
+  dynamics[#dynamics + 1] = {
+    w = 28,
+    label = "dim",
+    action = function() paw.cmd("notation.dim") end,
+    draw = function(cx, cy, ink2) g:poly({ cx - 8, cy - 4, cx + 8, cy, cx - 8, cy + 4 }, { color = ink2, width = 1.4 }) end,
+  }
   return { { { w = #name * 7 + 22, label = name, fill = colour } }, values, accidentals, shapes, dynamics }
 end
 
@@ -607,18 +746,31 @@ function view:status_text()
     for _, d in ipairs(diag.get(clip.id)) do
       local inside = self.beat >= d.at - EPS and self.beat < d.at + max(d.length, EPS) + EPS
       local about = false
-      for _, place in ipairs(index and diag.places(d) or {}) do about = about or place == index end
+      for _, place in ipairs(index and diag.places(d) or {}) do
+        about = about or place == index
+      end
       if about or (inside and not index) then return d.message end
     end
   end
   if note then
-    return string.format("%s  played at %s, %.2f beats long, velocity %d", model.name(written), paw.time.format(clip.start + note.start), note.length, note.velocity)
+    return string.format(
+      "%s  played at %s, %.2f beats long, velocity %d",
+      model.name(written),
+      paw.time.format(clip.start + note.start),
+      note.length,
+      note.velocity
+    )
   end
   self:layout()
   if paw.keymap.mode == "i" then
-    return "click the staff to enter a " .. (self.dot and "dotted " or "") .. model.NAMES[self.value] .. " there · letters enter notes · Esc ends"
+    return "click the staff to enter a "
+      .. (self.dot and "dotted " or "")
+      .. model.NAMES[self.value]
+      .. " there · letters enter notes · Esc ends"
   end
-  if gui.rest then return "rest: click the staff to clear a " .. model.NAMES[self.value] .. (self.dot and " dotted" or "") .. " there" end
+  if gui.rest then
+    return "rest: click the staff to clear a " .. model.NAMES[self.value] .. (self.dot and " dotted" or "") .. " there"
+  end
   return "click a note to choose it, drag it to move it · double click enters notes there · right click for more · Ctrl+wheel zooms"
 end
 
@@ -644,7 +796,9 @@ local function follow(eng, area, layout)
   end
   gui.scroll = util.clamp(gui.scroll, 0, max(0, eng.total - (area.bottom - area.top)))
   local last = eng.systems[#eng.systems]
-  gui.hscroll = view.galley and util.clamp(gui.hscroll, 0, max(0, (last and last.width or 0) - area.width + eng.style.sp * 2)) or 0
+  gui.hscroll = view.galley
+      and util.clamp(gui.hscroll, 0, max(0, (last and last.width or 0) - area.width + eng.style.sp * 2))
+    or 0
   gui.follow = true
 end
 
@@ -659,7 +813,14 @@ function view:paint(g, ctx)
   local clip = self:clip()
   if not clip then
     g:text(24, 24, "No clip is open as notation.", { color = ctx.fg or c.text, size = 16, bold = true })
-    g:text(24, 50, "Right click a MIDI clip and choose Open as notation, or put the cursor on one and type " .. paw.keymap.human("<localleader>n") .. ".", { color = c.text_2 })
+    g:text(
+      24,
+      50,
+      "Right click a MIDI clip and choose Open as notation, or put the cursor on one and type "
+        .. paw.keymap.human("<localleader>n")
+        .. ".",
+      { color = c.text_2 }
+    )
     return
   end
   local data = clip:get()
@@ -720,7 +881,13 @@ function view:paint(g, ctx)
     if sys then
       local foot = engrave.y_of(st, sys, F.base + F.count, 0) + 3 * st.sp + area.top - gui.scroll
       g:layer("popover")
-      popover.paint(g, x + (view.galley and -gui.hscroll or 0), math.min(math.max(area.top + 26, foot + 24), h - INFO - 2), w, c)
+      popover.paint(
+        g,
+        x + (view.galley and -gui.hscroll or 0),
+        math.min(math.max(area.top + 26, foot + 24), h - INFO - 2),
+        w,
+        c
+      )
     end
   end
 
@@ -728,9 +895,16 @@ function view:paint(g, ctx)
     toolbar(g, w, rows)
     local fifths = layout.fifths
     local key_text = view.key_name(fifths, select(2, view.key()), clip and clip.start)
-    gui.key_text = key_text .. "  ·  " .. layout.meter.num .. "/" .. layout.meter.den .. "  ·  " .. track.name
+    gui.key_text = key_text
+      .. "  ·  "
+      .. layout.meter.num
+      .. "/"
+      .. layout.meter.den
+      .. "  ·  "
+      .. track.name
       .. (F.multi and ("  ·  staff " .. (F.base + 1) .. " of " .. #layout.staves) or "")
-      .. (view.raw_view() and "  ·  raw" or "") .. (view.galley and "  ·  galley" or "")
+      .. (view.raw_view() and "  ·  raw" or "")
+      .. (view.galley and "  ·  galley" or "")
       .. (view.page and (view.parts and view.parts.check and "  ·  pages, to check" or "  ·  pages") or "")
     local iy = h - INFO
     g:rect(0, iy, w, INFO, { fill = c.control })
@@ -760,7 +934,9 @@ function view:locate(x, y, fine, activate)
       local staff, best = 1, math.huge
       for k = 1, #layout.staves do
         local mid = engrave.y_of(st, sys, k, 4)
-        if abs(py - mid) < best then staff, best = k, abs(py - mid) end
+        if abs(py - mid) < best then
+          staff, best = k, abs(py - mid)
+        end
       end
       local pos = floor((engrave.y_of(st, sys, staff, 0) - py) / (st.sp / 2) + 0.5)
       local step = model.CLEF_BOTTOM[layout.staves[staff]] + pos
@@ -773,7 +949,13 @@ function view:locate(x, y, fine, activate)
       end
       if not self:onto_staff(F, staff, nil, activate, beat) then return nil end
       F = self:frame()
-      return { sys = sys, staff = staff - F.base, step = step - F.dstep, beat = beat and beat - F.off, measure = measure }
+      return {
+        sys = sys,
+        staff = staff - F.base,
+        step = step - F.dstep,
+        beat = beat and beat - F.off,
+        measure = measure,
+      }
     end
   end
 end
@@ -784,7 +966,9 @@ local function head_at(x, y)
   local best, dist
   for _, hd in ipairs(gui.heads) do
     local d = abs(hd.x - x) / (0.9 * s) + abs(hd.y - y) / (0.5 * s)
-    if abs(hd.x - x) <= 0.9 * s and abs(hd.y - y) <= 0.5 * s and (not dist or d < dist) then best, dist = hd, d end
+    if abs(hd.x - x) <= 0.9 * s and abs(hd.y - y) <= 0.5 * s and (not dist or d < dist) then
+      best, dist = hd, d
+    end
   end
   return best
 end
@@ -828,13 +1012,21 @@ function view:menu_items(on_note, at)
     add("Into the other voice", "gV", function() self:toggle_voice() end)
     add("Triplets on this beat", paw.keymap.human("<localleader>3"), function() self:toggle_tuplet() end)
   else
-    add("Enter a " .. model.NAMES[self.value] .. " here", "Enter", function() if at and at.beat then self:enter_at(at) end end)
-    add("Rest here", "r", function() if at and at.beat then self:rest(at.beat, self:entry_length(), at.staff) end end)
+    add("Enter a " .. model.NAMES[self.value] .. " here", "Enter", function()
+      if at and at.beat then self:enter_at(at) end
+    end)
+    add("Rest here", "r", function()
+      if at and at.beat then self:rest(at.beat, self:entry_length(), at.staff) end
+    end)
     add("Paste here", "P", function() paw.keymap.normal("P") end)
   end
   items[#items + 1] = "-"
-  add(view.galley and "Wrapped systems" or "One long system (galley)", "zg", function() view.galley, view.page = not view.galley, false end)
-  add(view.page and "Systems without pages" or "Pages (page view)", "zp", function() view.page, view.galley = not view.page, false end)
+  add(view.galley and "Wrapped systems" or "One long system (galley)", "zg", function()
+    view.galley, view.page = not view.galley, false
+  end)
+  add(view.page and "Systems without pages" or "Pages (page view)", "zp", function()
+    view.page, view.galley = not view.page, false
+  end)
   return items
 end
 
@@ -868,7 +1060,9 @@ function view:move_note(index, note, step, beat)
     if not alone then
       local last = links[#links]
       len = f.starts[last.mi] + last.at + D.length(last.ev) - (f.starts[links[1].mi] + links[1].at)
-      for _, c in ipairs(D.tied_on(sc, entry.staff, entry.voice, id)) do D.remove_note(sc, c.note.id) end
+      for _, c in ipairs(D.tied_on(sc, entry.staff, entry.voice, id)) do
+        D.remove_note(sc, c.note.id)
+      end
       D.remove_note(sc, id)
     end
     local t = math.max(0, D.from_beats(beat) - D.origin(sc))
@@ -888,7 +1082,10 @@ end
 local function context_menu(self, hd, at, e)
   if paw.ui.menu then
     local cell = paw.canvas.cell
-    paw.ui.menu(self:menu_items(hd ~= nil, at), { x = e.col or floor((e.x or 0) / cell.w), y = e.row or floor((e.y or 0) / cell.h) })
+    paw.ui.menu(
+      self:menu_items(hd ~= nil, at),
+      { x = e.col or floor((e.x or 0) / cell.w), y = e.row or floor((e.y or 0) / cell.h) }
+    )
   end
 end
 
@@ -934,7 +1131,11 @@ function view:pointer(e)
     local at = self:locate(e.x, e.y, e.alt, true)
     if self:readonly() then return end
     if e.button == "right" then
-      if hd then self:set(hd.step, max(0, hd.start)) elseif at and at.beat then self:set(at.step, at.beat) end
+      if hd then
+        self:set(hd.step, max(0, hd.start))
+      elseif at and at.beat then
+        self:set(at.step, at.beat)
+      end
       return context_menu(self, hd, at, e)
     end
     if e.kind == "double" then
@@ -956,7 +1157,11 @@ function view:pointer(e)
     if e.shift then
       -- Stretch a selection from the cursor to here.
       if paw.keymap.mode ~= "x" then paw.keymap.visual_start("v") end
-      if hd then self:set(hd.step, max(0, hd.start)) elseif at and at.beat then self:set(at.step, at.beat) end
+      if hd then
+        self:set(hd.step, max(0, hd.start))
+      elseif at and at.beat then
+        self:set(at.step, at.beat)
+      end
       return
     end
     if paw.keymap.mode == "x" then paw.keymap.set_mode("n") end
@@ -966,7 +1171,14 @@ function view:pointer(e)
       if note then self:audition(note.pitch) end
       -- A drag moves it on the grid, from where it was taken.
       local from = self:locate(e.x, e.y, true)
-      gui.drag = { index = hd.index, from_step = hd.step, from_beat = from and from.beat or hd.start, start = hd.start, note = note, moved = false }
+      gui.drag = {
+        index = hd.index,
+        from_step = hd.step,
+        from_beat = from and from.beat or hd.start,
+        start = hd.start,
+        note = note,
+        moved = false,
+      }
     elseif at and at.beat then
       self:set(at.step, at.beat)
       gui.box = { x0 = e.x, y0 = e.y, x1 = e.x, y1 = e.y, at = at }

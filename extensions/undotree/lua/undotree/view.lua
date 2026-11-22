@@ -6,15 +6,13 @@ local undotree = require("undotree")
 local view = {
   title = "Undo tree",
   modal = true,
-  sel = 1,          -- the selected row
+  sel = 1, -- the selected row
   scroll = 0,
   against = "parent", -- the diff shown: "parent" (what the state's step did) or "current"
   rows = {},
 }
 
-local function selected()
-  return view.rows[view.sel]
-end
+local function selected() return view.rows[view.sel] end
 
 --- Read the tree again, keeping the selection on the same state if it is
 --- still there, or on `id` when given.
@@ -42,11 +40,17 @@ function view:render(buf)
       local style = s.current and "Accent" or (s.name and "Title" or "Normal")
       if r + 1 + self.scroll == self.sel then buf:fill(0, r, tree_w - 1, 1, " ", "Selected") end
       local x = buf:text(1, r, row.graph, "Dim") + 2
-      buf:text(x, r, paw.util.fit(undotree.describe(s), math.max(1, tree_w - x - 2)),
-        r + 1 + self.scroll == self.sel and "Selected" or style)
+      buf:text(
+        x,
+        r,
+        paw.util.fit(undotree.describe(s), math.max(1, tree_w - x - 2)),
+        r + 1 + self.scroll == self.sel and "Selected" or style
+      )
     end
   end
-  for r = 0, rows - 1 do buf:text(tree_w, r, paw.draw.g.rule, "Rule") end
+  for r = 0, rows - 1 do
+    buf:text(tree_w, r, paw.draw.g.rule, "Rule")
+  end
 
   -- What the selected state changed.
   local row = selected()
@@ -78,9 +82,12 @@ function view:render(buf)
       right:text(0, 1, "no change", "Dim")
     end
   end
-  buf:text(1, buf.height - 1,
+  buf:text(
+    1,
+    buf.height - 1,
     "j/k move  Enter go  u ^R undo redo  - + older newer  a mark A  b A/B  n name  c checkpoint  d diff  Space  q",
-    "Dim")
+    "Dim"
+  )
 end
 
 local function go(id)
@@ -136,12 +143,18 @@ local actions = {
   end,
   ["d"] = function() view.against = view.against == "parent" and "current" or "parent" end,
   ["<Space>"] = function()
-    if api.transport_get().playing then paw.transport.stop() else paw.transport.play() end
+    if api.transport_get().playing then
+      paw.transport.stop()
+    else
+      paw.transport.play()
+    end
   end,
   ["q"] = function() paw.ui.close() end,
   -- Escape closes the tree only while it floats, as a prompt does; in a
   -- window of its own it stays, and `q` closes it.
-  ["<Esc>"] = function() if paw.ui.float then paw.ui.close() end end,
+  ["<Esc>"] = function()
+    if paw.ui.float then paw.ui.close() end
+  end,
 }
 actions["<Down>"], actions["<Up>"] = actions.j, actions.k
 actions["<BS>"] = actions["-"]

@@ -25,18 +25,24 @@ function M.describe(opts)
   local wanted
   if opts.tracks then
     wanted = {}
-    for _, id in ipairs(opts.tracks) do wanted[tostring(id)] = true end
+    for _, id in ipairs(opts.tracks) do
+      wanted[tostring(id)] = true
+    end
   end
   if opts.clip then wanted = { [tostring(api.clip_get(opts.clip).track)] = true } end
   local desc = {
     tempos = json.array((function()
       local out = {}
-      for i, t in ipairs(snap.tempos) do out[i] = { pos = t.tick, bpm = t.bpm } end
+      for i, t in ipairs(snap.tempos) do
+        out[i] = { pos = t.tick, bpm = t.bpm }
+      end
       return out
     end)()),
     timesigs = json.array((function()
       local out = {}
-      for i, s in ipairs(snap.sigs) do out[i] = { bar = s.bar, num = s.num, den = s.den } end
+      for i, s in ipairs(snap.sigs) do
+        out[i] = { bar = s.bar, num = s.num, den = s.den }
+      end
       return out
     end)()),
     tracks = json.array(),
@@ -44,20 +50,30 @@ function M.describe(opts)
   for _, t in ipairs(snap.tracks) do
     if not wanted or wanted[t.id] then
       local track = {
-        name = t.name ~= "" and t.name or "Vocal", singer = t.config.singer or "",
-        phonemizer = t.config.phonemizer or "", renderer = t.config.renderer or "",
-        mute = t.muted and true or false, parts = json.array(),
+        name = t.name ~= "" and t.name or "Vocal",
+        singer = t.config.singer or "",
+        phonemizer = t.config.phonemizer or "",
+        renderer = t.config.renderer or "",
+        mute = t.muted and true or false,
+        parts = json.array(),
       }
       for _, p in ipairs(snap.parts) do
         if p.track == t.id and (not opts.clip or p.clip == opts.clip) then
           local part = { name = p.name or "", pos = p.pos, dur = p.dur, notes = json.array(), curves = json.array() }
           for _, n in ipairs(p.notes) do
-            part.notes[#part.notes + 1] = { pos = n.pos, dur = n.dur, tone = n.tone, payload = paw.api.base64_encode(n.payload, { url = true, pad = false }) }  -- as the engine's `--export` reads it
+            part.notes[#part.notes + 1] = {
+              pos = n.pos,
+              dur = n.dur,
+              tone = n.tone,
+              payload = paw.api.base64_encode(n.payload, { url = true, pad = false }),
+            } -- as the engine's `--export` reads it
           end
           for _, c in ipairs(p.curves) do
             if #c.knots > 0 then
               local knots = json.array()
-              for i, k in ipairs(c.knots) do knots[i] = { k[1], k[2], k[3] or 1, k[4] or 0 } end
+              for i, k in ipairs(c.knots) do
+                knots[i] = { k[1], k[2], k[3] or 1, k[4] or 0 }
+              end
               part.curves[#part.curves + 1] = { abbr = c.abbr, knots = knots }
             end
           end
@@ -125,7 +141,9 @@ function M.open_command(path)
   if not command or command == "" then command = os.getenv("PAW_UTAU_OPENUTAU") end
   if not command or command == "" then command = "OpenUtau" end
   local argv = {}
-  for word in command:gmatch("%S+") do argv[#argv + 1] = word end
+  for word in command:gmatch("%S+") do
+    argv[#argv + 1] = word
+  end
   argv[#argv + 1] = path
   return argv
 end

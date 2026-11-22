@@ -32,7 +32,9 @@ end
 
 local function paths()
   local out = {}
-  for i, entry in ipairs(paw.recent.list()) do out[i] = entry.path end
+  for i, entry in ipairs(paw.recent.list()) do
+    out[i] = entry.path
+  end
   return table.concat(out, " ")
 end
 
@@ -51,7 +53,9 @@ end)
 
 test("recent: only twenty are kept", function()
   keeping(function()
-    for i = 1, 22 do save("many" .. i) end
+    for i = 1, 22 do
+      save("many" .. i)
+    end
     local list = paw.recent.list()
     eq(#list, 20, "twenty")
     eq(list[1].path, dir .. "/many22.json", "the newest is first")

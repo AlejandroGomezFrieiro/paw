@@ -24,21 +24,27 @@ M.base64 = api.base64_encode
 --- line ends passed over). Raises when the text is not base64.
 function M.unbase64(text: string): string
   local bytes, why: string, string = api.base64_decode(text)
-  if not bytes then error("not base64: " .. why, 2) end
+  if not bytes then
+    error("not base64: " .. why, 2)
+  end
   return bytes
 end
 
 --- The unsigned 16-bit little-endian number at `at` (from 1), or nil past the end.
 function M.u16(data: string, at: integer): integer
   local a, b = data:byte(at, at + 1)
-  if not b then return nil end
+  if not b then
+    return nil
+  end
   return a + b * 256
 end
 
 --- The unsigned 32-bit little-endian number at `at` (from 1), or nil past the end.
 function M.u32(data: string, at: integer): integer
   local a, b, c, d = data:byte(at, at + 3)
-  if not d then return nil end
+  if not d then
+    return nil
+  end
   return a + b * 256 + c * 65536 + d * 16777216
 end
 
@@ -59,7 +65,9 @@ end
 --- or nil and why. A state without a controller part gives "" for it.
 function M.vst3_split(raw: string): string, string
   local size = M.u32(raw, 1)
-  if not size or 4 + size > #raw then return nil, "not a VST3 state" end
+  if not size or 4 + size > #raw then
+    return nil, "not a VST3 state"
+  end
   local csize = M.u32(raw, 5 + size)
   return raw:sub(5, 4 + size), csize and raw:sub(9 + size, 8 + size + csize) or ""
 end

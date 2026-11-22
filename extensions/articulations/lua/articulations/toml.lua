@@ -14,9 +14,13 @@ M.parse = paw.toml.decode
 function M.keys(t)
   local meta = getmetatable(t)
   local out = {}
-  for i, k in ipairs(meta and meta.__keys or {}) do out[i] = k end
+  for i, k in ipairs(meta and meta.__keys or {}) do
+    out[i] = k
+  end
   if #out == 0 then
-    for k in pairs(t) do out[#out + 1] = k end
+    for k in pairs(t) do
+      out[#out + 1] = k
+    end
     table.sort(out, function(a, b) return tostring(a) < tostring(b) end)
   end
   return out

@@ -3,9 +3,9 @@
 local api = paw.api
 
 local M = {
-  a = nil,        -- the state marked A
-  b = nil,        -- where A/B came from: the state toggled away from
-  pending = {},   -- checkpoints named before the project had a file: { name, id }
+  a = nil, -- the state marked A
+  b = nil, -- where A/B came from: the state toggled away from
+  pending = {}, -- checkpoints named before the project had a file: { name, id }
 }
 
 -- Reading ------------------------------------------------------------------------
@@ -14,7 +14,9 @@ local M = {
 function M.tree()
   local tree = api.undo_tree()
   tree.by_id = {}
-  for _, s in ipairs(tree.states) do tree.by_id[s.id] = s end
+  for _, s in ipairs(tree.states) do
+    tree.by_id[s.id] = s
+  end
   return tree
 end
 
@@ -47,24 +49,33 @@ end
 --- carries a branch down to its parent, and `─┘` joins a branch to the
 --- state it grew from.
 function M.rows(tree)
-  local rows, lanes = {}, {}   -- lanes[i] = the id that lane is heading for, or false
+  local rows, lanes = {}, {} -- lanes[i] = the id that lane is heading for, or false
   local states = tree.states
   for i = #states, 1, -1 do
     local s = states[i]
     local col, merging = nil, {}
     for l, want in ipairs(lanes) do
       if want == s.id then
-        if col then merging[l] = true else col = l end
+        if col then
+          merging[l] = true
+        else
+          col = l
+        end
       end
     end
     if not col then
       for l, want in ipairs(lanes) do
-        if not want then col = l break end
+        if not want then
+          col = l
+          break
+        end
       end
       col = col or #lanes + 1
     end
     local last_merge = 0
-    for l in pairs(merging) do last_merge = math.max(last_merge, l) end
+    for l in pairs(merging) do
+      last_merge = math.max(last_merge, l)
+    end
     local width = math.max(#lanes, col)
     local parts = {}
     for l = 1, width do
@@ -82,9 +93,13 @@ function M.rows(tree)
       if l < width then parts[#parts + 1] = (l >= col and l < last_merge) and "─" or " " end
     end
     rows[#rows + 1] = { id = s.id, graph = table.concat(parts), state = s, col = col, lanes = width }
-    for l in pairs(merging) do lanes[l] = false end
+    for l in pairs(merging) do
+      lanes[l] = false
+    end
     lanes[col] = s.parent or false
-    while #lanes > 0 and not lanes[#lanes] do lanes[#lanes] = nil end
+    while #lanes > 0 and not lanes[#lanes] do
+      lanes[#lanes] = nil
+    end
   end
   return rows
 end
@@ -211,7 +226,9 @@ function M.toggle()
 end
 
 function M.clear_ab()
-  for _, id in ipairs({ M.a, M.b }) do pcall(api.undo_keep, id, false) end
+  for _, id in ipairs({ M.a, M.b }) do
+    pcall(api.undo_keep, id, false)
+  end
   M.a, M.b = nil, nil
 end
 
@@ -255,11 +272,17 @@ function M.items()
   for i = #tree.states, 1, -1 do
     local s = tree.states[i]
     if s.name and not on_disk[s.name] then
-      items[#items + 1] = { name = s.name, time = s.time, state = s.id,
-        text = s.name .. "  " .. M.when(s.time) .. "  (this session only)" }
+      items[#items + 1] = {
+        name = s.name,
+        time = s.time,
+        state = s.id,
+        text = s.name .. "  " .. M.when(s.time) .. "  (this session only)",
+      }
     end
   end
-  for i, item in ipairs(items) do item.id = i end
+  for i, item in ipairs(items) do
+    item.id = i
+  end
   return items
 end
 
@@ -296,7 +319,9 @@ function M.choose()
     return
   end
   local lines = {}
-  for i, item in ipairs(items) do lines[#lines + 1] = string.format("%3d  %s", i, item.text) end
+  for i, item in ipairs(items) do
+    lines[#lines + 1] = string.format("%3d  %s", i, item.text)
+  end
   lines[#lines + 1] = ""
   lines[#lines + 1] = { text = ":checkpoint.restore <number or name> restores one", style = "Dim" }
   paw.ui.page("Checkpoints", lines)

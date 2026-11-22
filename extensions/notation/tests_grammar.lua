@@ -31,9 +31,7 @@ local function song(typed, length)
 end
 
 --- The written text of a staff and voice: "q C4 q D4 | R".
-local function written(view, staff, voice)
-  return require("notation.model").text(view:layout(), staff, voice)
-end
+local function written(view, staff, voice) return require("notation.model").text(view:layout(), staff, voice) end
 
 -- Steps of the staff, as the cursor counts them.
 local C4, D4, E4, G4 = 35, 36, 37, 39
@@ -311,8 +309,8 @@ test("grammar: in insert mode Ctrl-o runs one command, Ctrl-r pastes a register"
   keys("w")
   eq(paw.keymap.mode, "i", "back to entering after one command")
   view:set(C4, 4)
-  keys("<C-r>\"")
-  eq(written(view), "q C4 q D4 hr | q C4 q D4 hr", "Ctrl-r \": the bar pasted")
+  keys('<C-r>"')
+  eq(written(view), "q C4 q D4 hr | q C4 q D4 hr", 'Ctrl-r ": the bar pasted')
   eq(view.beat, 8, "the cursor after it")
   keys("<Esc>")
 end)
@@ -333,8 +331,10 @@ end)
 
 test("grammar: Tab takes the suggestion shown as ghost notes", function()
   local view, clip = song("c")
-  paw.complete.show({ { notes = { { pitch = 62, start = 1, length = 1 }, { pitch = 64, start = 2, length = 1 } } } },
-    { clip = clip.id })
+  paw.complete.show(
+    { { notes = { { pitch = 62, start = 1, length = 1 }, { pitch = 64, start = 2, length = 1 } } } },
+    { clip = clip.id }
+  )
   view:set(C4, 1)
   keys("1<Tab>")
   eq(written(view), "q C4 q D4 hr | R", "1 Tab: the next note")
@@ -348,7 +348,11 @@ end)
 test("grammar: Ex :s and :g change the notes, and notation shows them", function()
   local view = song("cdecdecd")
   keys(":%s/c4/db4/g<CR>")
-  eq(written(view), "q C#4 q D4 q E4 q C4 | q D4 q E4 q C#4 q D4", ":%s/c4/db4/g: a MIDI edit, spelled by the key (the bar's sharp holds)")
+  eq(
+    written(view),
+    "q C#4 q D4 q E4 q C4 | q D4 q E4 q C#4 q D4",
+    ":%s/c4/db4/g: a MIDI edit, spelled by the key (the bar's sharp holds)"
+  )
   keys("u")
   keys(":%s/c4/c#4/<CR>")
   eq(written(view), "q C#4 q D4 q E4 q Cn4 | q D4 q E4 q C#4 q D4", "without g, the first of each bar")

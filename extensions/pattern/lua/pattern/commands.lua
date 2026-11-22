@@ -4,9 +4,7 @@ local command, map = paw.command, paw.keymap.set
 
 local M = {}
 
-local function bar_text(pm)
-  return pm and pm.beats and (pm.beats .. " beats") or "a bar"
-end
+local function bar_text(pm) return pm and pm.beats and (pm.beats .. " beats") or "a bar" end
 
 --- The clip to act on: the MIDI clip under the cursor. With `create`, a new
 --- clip at the cursor when there is none, `cycles` cycles long; with `new`,
@@ -24,9 +22,7 @@ function M.target(create, cycles, new)
   return track:add_clip({ start = paw.cursor.beat, length = length, name = "pattern" }), true
 end
 
-local function report_error(err)
-  paw.notify("pattern: " .. tostring(err), "error")
-end
+local function report_error(err) paw.notify("pattern: " .. tostring(err), "error") end
 
 --- Give the clip under the cursor (or a new one) this text. Returns the clip,
 --- or nil after reporting why not. A new clip is not made for text that does
@@ -59,7 +55,9 @@ end
 
 command("pattern.set", function(ctx)
   local text = ctx.args[1]
-  if not text or text:match("^%s*$") then return paw.notify("usage: pattern.set <pattern>, e.g. `pattern.set bd*2 [~ sn]`", "warn") end
+  if not text or text:match("^%s*$") then
+    return paw.notify("usage: pattern.set <pattern>, e.g. `pattern.set bd*2 [~ sn]`", "warn")
+  end
   return M.set_text(text, ctx.count)
 end, { raw = true, desc = "Set the pattern of the clip under the cursor, or of a new clip: `pattern.set bd*2 [~ sn]`" })
 
@@ -84,16 +82,22 @@ command("pattern.detach", function()
   end
 end, { desc = "Stop the clip following its pattern, keeping its notes" })
 
-command("pattern.seed", function(ctx)
-  local clip = M.target(false)
-  if not clip then return end
-  local pm = pattern.get(clip)
-  if not pm then return paw.notify("the clip has no pattern", "warn") end
-  local seed = tonumber(ctx.args[1]) or (pm.seed or 0) + (tonumber(ctx.args.by) or 1) * (ctx.count or 1)
-  local notes, err = pattern.set(clip, pm.text, { seed = seed })
-  if not notes then return report_error(err) end
-  paw.notify(string.format("pattern seed %d: %d notes", seed, #notes))
-end, { desc = "Set the seed of the clip's random choices: `pattern.seed 7`; with no number, the next one (`by=-1` the previous)" })
+command(
+  "pattern.seed",
+  function(ctx)
+    local clip = M.target(false)
+    if not clip then return end
+    local pm = pattern.get(clip)
+    if not pm then return paw.notify("the clip has no pattern", "warn") end
+    local seed = tonumber(ctx.args[1]) or (pm.seed or 0) + (tonumber(ctx.args.by) or 1) * (ctx.count or 1)
+    local notes, err = pattern.set(clip, pm.text, { seed = seed })
+    if not notes then return report_error(err) end
+    paw.notify(string.format("pattern seed %d: %d notes", seed, #notes))
+  end,
+  {
+    desc = "Set the seed of the clip's random choices: `pattern.seed 7`; with no number, the next one (`by=-1` the previous)",
+  }
+)
 
 command("pattern.cycle", function(ctx)
   local clip = M.target(false)
@@ -119,12 +123,12 @@ command("pattern.info", function()
     local old = pattern.detached(clip)
     return paw.notify(old and ("detached from `" .. old .. "`") or "the clip has no pattern")
   end
-  paw.notify(string.format("%s   (seed %d, a cycle is %s, %d notes)", pm.text, pm.seed or 0, bar_text(pm), #clip:notes()))
+  paw.notify(
+    string.format("%s   (seed %d, a cycle is %s, %d notes)", pm.text, pm.seed or 0, bar_text(pm), #clip:notes())
+  )
 end, { desc = "Show the clip's pattern, seed and cycle length" })
 
-local amap = function(lhs, rhs, desc, opts)
-  map(lhs, rhs, paw.util.merge(opts or {}, { view = "arrange", desc = desc }))
-end
+local amap = function(lhs, rhs, desc, opts) map(lhs, rhs, paw.util.merge(opts or {}, { view = "arrange", desc = desc })) end
 paw.keymap.group("<localleader>t", "pattern", { view = "arrange" })
 amap("<localleader>tt", "pattern.edit", "Edit the clip's pattern (a new clip if none)")
 amap("<localleader>tn", function(ctx)
@@ -133,14 +137,19 @@ amap("<localleader>tn", function(ctx)
   if clip then paw.cursor.set_beat(clip.start + clip.length) end
   M.prompt("", ctx.count, nil, true)
 end, "New pattern clip at the cursor (after the clip under it)")
-amap("<localleader>tr", function(ctx) paw.cmd("pattern.seed", {}, { count = ctx.count }) end, "Next seed: roll the random choices again")
+amap(
+  "<localleader>tr",
+  function(ctx) paw.cmd("pattern.seed", {}, { count = ctx.count }) end,
+  "Next seed: roll the random choices again"
+)
 amap("<localleader>tR", function(ctx) paw.cmd("pattern.seed", { by = -1 }, { count = ctx.count }) end, "Previous seed")
 amap("<localleader>td", "pattern.detach", "Detach the clip from its pattern, keeping the notes")
 amap("<localleader>ti", "pattern.info", "Show the clip's pattern")
 amap("<localleader>tc", function()
-  paw.ui.input({ prompt = "beats per cycle (or bar): ", history = "pattern.cycle" }, function(value)
-    paw.cmd("pattern.cycle", { tonumber(value) or value })
-  end)
+  paw.ui.input(
+    { prompt = "beats per cycle (or bar): ", history = "pattern.cycle" },
+    function(value) paw.cmd("pattern.cycle", { tonumber(value) or value }) end
+  )
 end, "Set the beats per cycle of the clip's pattern")
 
 return M

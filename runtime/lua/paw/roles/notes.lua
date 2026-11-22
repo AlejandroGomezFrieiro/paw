@@ -17,9 +17,16 @@ local role = paw.roles.define
 --- draws the line the pitch takes.
 role("note", {
   props = {
-    label = "string", style = "highlight group", color = "#rrggbb", velocity = "number 0..127",
-    selected = "boolean", cursor = "boolean", pending = "boolean", ghost = "boolean",
-    bend = "semitones", bend_at = "number 0..1",
+    label = "string",
+    style = "highlight group",
+    color = "#rrggbb",
+    velocity = "number 0..127",
+    selected = "boolean",
+    cursor = "boolean",
+    pending = "boolean",
+    ghost = "boolean",
+    bend = "semitones",
+    bend_at = "number 0..1",
   },
   cells = function(buf, p)
     local w = buf.width
@@ -46,21 +53,32 @@ role("note", {
 --- keys `sounding` at the cursor.
 role("keyboard", {
   props = {
-    top = "pitch of the first row", cursor = "pitch", names = "list of { pitch, name }",
-    labels = "list of { pitch, label, style }", sounding = "list of pitches",
+    top = "pitch of the first row",
+    cursor = "pitch",
+    names = "list of { pitch, name }",
+    labels = "list of { pitch, label, style }",
+    sounding = "list of pitches",
   },
   cells = function(buf, p)
     local names, labels, sounds = {}, {}, {}
-    for _, n in ipairs(p.names or {}) do names[n[1]] = n[2] end
-    for _, l in ipairs(p.labels or {}) do labels[l[1]] = l end
-    for _, pitch in ipairs(p.sounding or {}) do sounds[pitch] = true end
+    for _, n in ipairs(p.names or {}) do
+      names[n[1]] = n[2]
+    end
+    for _, l in ipairs(p.labels or {}) do
+      labels[l[1]] = l
+    end
+    for _, pitch in ipairs(p.sounding or {}) do
+      sounds[pitch] = true
+    end
     local w = buf.width
     for row = 0, buf.height - 1 do
       local pitch = p.top - row
       if pitch < 0 then break end
       paw.draw.piano_key(buf, row, pitch, pitch == p.cursor, w, names[pitch])
       local look = labels[pitch]
-      if look and pitch ~= p.cursor then buf:text(0, row, paw.util.fit(look[2], w - 1) .. " ", look[3] or "PianoWhite") end
+      if look and pitch ~= p.cursor then
+        buf:text(0, row, paw.util.fit(look[2], w - 1) .. " ", look[3] or "PianoWhite")
+      end
       if sounds[pitch] then buf:text(w - 1, row, "•", "PianoCursor") end
     end
   end,
@@ -77,7 +95,14 @@ role("keyboard", {
 --- `spans_at(x)`, a function, gives the spans at another column `x`: a
 --- terminal moves the playhead by itself as the song plays.
 role("playhead", {
-  props = { at = "beat", from = "beat at the left edge", per = "columns a beat", lo = "beat", hi = "beat", spans = "list" },
+  props = {
+    at = "beat",
+    from = "beat at the left edge",
+    per = "columns a beat",
+    lo = "beat",
+    hi = "beat",
+    spans = "list",
+  },
   bound = { "at" },
   cells = function(buf, p)
     local g = paw.draw.g

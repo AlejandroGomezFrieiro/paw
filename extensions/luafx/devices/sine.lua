@@ -13,7 +13,9 @@ local dev = dsp.device {
 }
 
 local voices = {}
-for i = 1, 8 do voices[i] = { key = -1, phase = 0, step = 0, level = 0, target = 0, velocity = 0 } end
+for i = 1, 8 do
+  voices[i] = { key = -1, phase = 0, step = 0, level = 0, target = 0, velocity = 0 }
+end
 
 local function start(key, velocity, sample_rate)
   -- The quietest voice makes way.
@@ -38,7 +40,11 @@ local function render(b, from, to, up, down, gain)
       local phase, step, level, target = v.phase, v.step, v.level, v.target
       local amp = gain * v.velocity
       for i = from, to - 1 do
-        if level < target then level = math.min(target, level + up) else level = math.max(target, level - down) end
+        if level < target then
+          level = math.min(target, level + up)
+        else
+          level = math.max(target, level - down)
+        end
         local s = math.sin(phase) * level * amp
         left[i] = left[i] + s
         right[i] = right[i] + s
@@ -65,7 +71,9 @@ function dev.process(b)
     elseif e.type == dsp.NOTE_OFF then
       stop(e.key)
     elseif e.type == dsp.ALL_NOTES_OFF then
-      for _, v in ipairs(voices) do v.target = 0 end
+      for _, v in ipairs(voices) do
+        v.target = 0
+      end
     end
   end
   render(b, at, b.frames, up, down, gain)

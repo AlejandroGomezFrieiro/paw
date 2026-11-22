@@ -37,13 +37,25 @@ end)
 test("apidoc: the reference is a page of help, and its names are tags", function()
   local apidoc = assert(loadfile("tools/apidoc.lua"))("module")
   local page = T.read_file("docs/reference/api.md")
-  eq(page:find("- `paw.commands.define(name, run, opts)`: Define or replace a command.", 1, true) ~= nil, true, "a function with its comment")
+  eq(
+    page:find("- `paw.commands.define(name, run, opts)`: Define or replace a command.", 1, true) ~= nil,
+    true,
+    "a function with its comment"
+  )
   eq(page:find("- `paw.api.undo_discard()`", 1, true) ~= nil, true, "the kernel's functions too")
   local meta = T.read_file("runtime/types/paw.lua")
   eq(meta:find("---@meta", 1, true), 1, "a LuaLS meta file")
-  eq(meta:find("function paw.commands.define(name, run, opts) end", 1, true) ~= nil, true, "a function with its parameters")
+  eq(
+    meta:find("function paw.commands.define(name, run, opts) end", 1, true) ~= nil,
+    true,
+    "a function with its parameters"
+  )
   eq(meta:find("function paw.Track:clips() end", 1, true) ~= nil, true, "a method")
-  eq(meta:find("---@param id integer\nfunction paw.api.clip_get(id) end", 1, true) ~= nil, true, "a kernel function with its parameter's type")
+  eq(
+    meta:find("---@param id integer\nfunction paw.api.clip_get(id) end", 1, true) ~= nil,
+    true,
+    "a kernel function with its parameter's type"
+  )
   eq(#apidoc.functions() > 500, true, "it finds the functions")
   local tag = paw.help.lookup("paw.ext.unload")
   eq(tag ~= nil, true, ":help paw.ext.unload finds it")

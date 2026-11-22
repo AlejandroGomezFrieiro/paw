@@ -62,9 +62,7 @@ command("view.height", function(ctx)
   local by = (tonumber(ctx.args[1]) or 1) * (ctx.count or 1)
   local name = paw.ui.focused
   local node, in_row = layout_node(name)
-  if name ~= "arrange" and node and not in_row then
-    return resize(name .. "_height", by, name, "height", 3)
-  end
+  if name ~= "arrange" and node and not in_row then return resize(name .. "_height", by, name, "height", 3) end
   if not arrange_alone() and paw.layout.resize(nil, "height", by, true) then return end
   -- From "auto", from the height the tracks have now.
   local now = tonumber(paw.opt.track_height)

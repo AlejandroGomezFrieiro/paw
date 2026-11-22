@@ -3,18 +3,18 @@
 local api = paw.api
 local M = {}
 
-local active      -- { prompt, chars, pos, on_submit, complete, preview, note, history, index, matches, match, anchor, on_key, ghost }
+local active -- { prompt, chars, pos, on_submit, complete, preview, note, history, index, matches, match, anchor, on_key, ghost }
 local histories = {}
 -- A prompt open in one seat is that seat's; the history is everyone's.
 paw.seats.keep("cmdline", function() return active end, function(a) active = a end, function() return nil end)
 
-local function text()
-  return table.concat(active.chars)
-end
+local function text() return table.concat(active.chars) end
 
 local function set_text(value)
   active.chars = {}
-  for ch in value:gmatch("[%z\1-\127\194-\244][\128-\191]*") do active.chars[#active.chars + 1] = ch end
+  for ch in value:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+    active.chars[#active.chars + 1] = ch
+  end
   active.pos = #active.chars
 end
 
@@ -85,8 +85,19 @@ local function on_key(key, pasted)
   -- key that deletes clears it, and a motion key takes the selection off.
   local selected = a.selected
   a.selected = false
-  if selected and (pasted or key == "<Space>" or key == "<lt>" or not key:match("^<.+>$")
-    or key == "<BS>" or key == "<Del>" or key == "<C-u>" or key == "<C-w>") then
+  if
+    selected
+    and (
+      pasted
+      or key == "<Space>"
+      or key == "<lt>"
+      or not key:match("^<.+>$")
+      or key == "<BS>"
+      or key == "<Del>"
+      or key == "<C-u>"
+      or key == "<C-w>"
+    )
+  then
     set_text("")
     if key == "<BS>" or key == "<Del>" or key == "<C-u>" or key == "<C-w>" then
       if a.complete then refresh() end
@@ -129,8 +140,13 @@ local function on_key(key, pasted)
     return finish(true)
   elseif key == "<Esc>" or key == "<C-c>" then
     return finish(false)
-  elseif key == "<Tab>" or key == "<S-Tab>" or key == "<C-n>" or key == "<C-p>"
-    or (chosen and (key == "<Down>" or key == "<Up>")) then
+  elseif
+    key == "<Tab>"
+    or key == "<S-Tab>"
+    or key == "<C-n>"
+    or key == "<C-p>"
+    or (chosen and (key == "<Down>" or key == "<Up>"))
+  then
     complete((key == "<Tab>" or key == "<C-n>" or key == "<Down>") and 1 or -1)
     keep_matches = true
   elseif key == "<BS>" then
@@ -203,10 +219,19 @@ function M.open(opts, on_submit)
   local name = opts.history or opts.prompt or ""
   histories[name] = histories[name] or {}
   active = {
-    prompt = opts.prompt or "", on_submit = on_submit, complete = opts.complete, preview = opts.preview or opts.on_change,
-    anchor = opts.anchor, on_key = opts.on_key, back = opts.mode, ghost = opts.ghost,
+    prompt = opts.prompt or "",
+    on_submit = on_submit,
+    complete = opts.complete,
+    preview = opts.preview or opts.on_change,
+    anchor = opts.anchor,
+    on_key = opts.on_key,
+    back = opts.mode,
+    ghost = opts.ghost,
     label = opts.label or (opts.prompt or ""):match("^(%a[^:]*%a)"),
-    history = histories[name], history_name = name, chars = {}, pos = 0,
+    history = histories[name],
+    history_name = name,
+    chars = {},
+    pos = 0,
   }
   set_text(opts.text or "")
   active.selected = #active.chars > 0 and opts.select ~= false and opts.prompt ~= ":"
@@ -247,10 +272,17 @@ end
 function M.state()
   if not active then return nil end
   return {
-    prompt = active.prompt, before = table.concat(active.chars, "", 1, active.pos),
-    after = table.concat(active.chars, "", active.pos + 1), selected = active.selected or nil,
-    matches = active.matches, match = active.match, note = active.note, note_level = active.note_level,
-    anchored = active.anchor ~= nil, history = active.history_name, ghost = active.ghost,
+    prompt = active.prompt,
+    before = table.concat(active.chars, "", 1, active.pos),
+    after = table.concat(active.chars, "", active.pos + 1),
+    selected = active.selected or nil,
+    matches = active.matches,
+    match = active.match,
+    note = active.note,
+    note_level = active.note_level,
+    anchored = active.anchor ~= nil,
+    history = active.history_name,
+    ghost = active.ghost,
   }
 end
 
@@ -264,9 +296,7 @@ end
 local MAX_ROWS = 10
 
 --- A description in the list: its first line, without the examples.
-local function brief(desc)
-  return (desc:match("^[^\n]*"):gsub(":? `.*$", ""))
-end
+local function brief(desc) return (desc:match("^[^\n]*"):gsub(":? `.*$", "")) end
 
 --- The list of candidates, over the bottom of the screen immediately above
 --- the command line. It starts below the word that they complete.
@@ -331,7 +361,9 @@ function M.draw_anchored(buf, a, at)
   local typed = text()
   local note = a.note or ""
   local ghost = typed == "" and a.ghost or nil
-  local width = api.str_width(a.prompt) + math.max(api.str_width(typed) + 1, ghost and api.str_width(ghost) + 1 or 12) + 2
+  local width = api.str_width(a.prompt)
+    + math.max(api.str_width(typed) + 1, ghost and api.str_width(ghost) + 1 or 12)
+    + 2
   if note ~= "" then width = width + api.str_width(note) + 2 end
   width = math.min(math.max(width, 24), buf.width)
   local x = math.max(0, math.min(at.x, buf.width - width))
@@ -344,7 +376,9 @@ function M.draw_anchored(buf, a, at)
   if ghost then buf:text(x + 1 + used, y, paw.util.fit(ghost, math.max(1, room)), "PmenuDesc") end
   if note ~= "" then
     local w = math.min(api.str_width(note), math.max(0, room - api.str_width(typed) - 2))
-    if w >= 4 then buf:text(x + width - 1 - w, y, paw.util.fit(note, w), a.note_level == "error" and "Warn" or "PmenuDesc") end
+    if w >= 4 then
+      buf:text(x + width - 1 - w, y, paw.util.fit(note, w), a.note_level == "error" and "Warn" or "PmenuDesc")
+    end
   end
   local before = table.concat(a.chars, "", 1, a.pos)
   api.ui_cursor(x + 1 + used + api.str_width(before), y)
@@ -374,7 +408,12 @@ function M.draw_anchored(buf, a, at)
     buf:fill(lx, ly + row, list_w, 1, " ", sel and "PmenuSel" or "Pmenu")
     buf:text(lx + 1, ly + row, paw.util.fit(c.label, label_w), sel and "PmenuSel" or "Pmenu")
     if desc_w > 0 and c.desc then
-      buf:text(lx + 2 + label_w + 1, ly + row, paw.util.fit(brief(c.desc), desc_w), sel and "PmenuSelDesc" or "PmenuDesc")
+      buf:text(
+        lx + 2 + label_w + 1,
+        ly + row,
+        paw.util.fit(brief(c.desc), desc_w),
+        sel and "PmenuSelDesc" or "PmenuDesc"
+      )
     end
   end
 end
@@ -428,15 +467,22 @@ end
 --- limits of the value.
 function M.ask_value(opts, set)
   local now = opts.now
-  local shown = opts.show and opts.show(now) or (string.format("%g", now) .. (opts.unit and opts.unit ~= "" and " " .. opts.unit or ""))
-  M.open({ prompt = string.format("%s %s → (-6 sets, +=2 -=3 step): ", opts.label, shown), history = "value",
-    label = "Set " .. opts.label }, function(text)
-    local value = M.read_value(text, now, opts.parse)
-    if not value then return paw.notify("not a value: `" .. text .. "`", "warn") end
-    if opts.min then value = math.max(opts.min, value) end
-    if opts.max then value = math.min(opts.max, value) end
-    set(value)
-  end)
+  local shown = opts.show and opts.show(now)
+    or (string.format("%g", now) .. (opts.unit and opts.unit ~= "" and " " .. opts.unit or ""))
+  M.open(
+    {
+      prompt = string.format("%s %s → (-6 sets, +=2 -=3 step): ", opts.label, shown),
+      history = "value",
+      label = "Set " .. opts.label,
+    },
+    function(text)
+      local value = M.read_value(text, now, opts.parse)
+      if not value then return paw.notify("not a value: `" .. text .. "`", "warn") end
+      if opts.min then value = math.max(opts.min, value) end
+      if opts.max then value = math.min(opts.max, value) end
+      set(value)
+    end
+  )
 end
 paw.ui.ask_value = M.ask_value
 
@@ -479,15 +525,21 @@ paw.ui.view("cmdline", {
     if active and not anchored(active) then
       local used = buf:text(0, 0, active.prompt, "Accent")
       local typed = buf:text(used, 0, text(), active.selected and "Visual" or "Normal")
-      if typed == 0 and active.ghost then buf:text(used, 0, paw.util.fit(active.ghost, math.max(1, buf.width - used - 1)), "Dim") end
+      if typed == 0 and active.ghost then
+        buf:text(used, 0, paw.util.fit(active.ghost, math.max(1, buf.width - used - 1)), "Dim")
+      end
       -- What the line would do, at the right end while there is room.
       local note = active.note
       if note and note ~= "" then
         local w = api.str_width(note)
         local room = buf.width - used - typed - 3
         if room >= 8 then
-          buf:text(buf.width - math.min(w, room) - 1, 0, w > room and paw.util.fit(note, room) or note,
-            active.note_level == "error" and "Warn" or "Dim")
+          buf:text(
+            buf.width - math.min(w, room) - 1,
+            0,
+            w > room and paw.util.fit(note, room) or note,
+            active.note_level == "error" and "Warn" or "Dim"
+          )
         end
       end
       local before = table.concat(active.chars, "", 1, active.pos)
@@ -511,7 +563,12 @@ paw.ui.view("cmdline", {
       local how = M.messages_hint()
       local more = (message.text:find("\n") or message.level == "error") and ("  " .. how .. " shows it all") or ""
       local room = math.max(10, buf.width - api.str_width(more) - 1)
-      local used = buf:text(0, 0, api.str_width(first) > room and paw.util.fit(first, room) or first, levels[message.level] or "Info")
+      local used = buf:text(
+        0,
+        0,
+        api.str_width(first) > room and paw.util.fit(first, room) or first,
+        levels[message.level] or "Info"
+      )
       if more ~= "" then buf:text(used, 0, more, "Dim") end
     elseif paw.opt.keybar and pending == "" then
       -- With nothing to say, the line shows the keys worth knowing here,

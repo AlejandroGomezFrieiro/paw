@@ -11,7 +11,9 @@ local function test(name, fn)
     local result = { xpcall(fn, debug.traceback) }
     paw.lsp.stop()
     paw.diagnostic.reset()
-    while paw.ui.float do paw.ui.close() end
+    while paw.ui.float do
+      paw.ui.close()
+    end
     paw.ui.views.pianoroll.clip_id = nil
     paw.ui.hide("pianoroll")
     paw.ui.focus("arrange")
@@ -40,7 +42,9 @@ local function start()
   paw.lsp.stop()
   paw.diagnostic.reset()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.focus("arrange")
 end
 
@@ -53,10 +57,16 @@ end
 --- Two voices moving in parallel fifths, C5 over F4 then D5 over G4, with
 --- the upper one open in the piano roll.
 local function fifths()
-  local upper = paw.add_track({ name = "Upper" }):add_clip({ start = 0, length = 4,
-    notes = { { pitch = 72, start = 0, length = 1 }, { pitch = 74, start = 1, length = 1 } } })
-  paw.add_track({ name = "Lower" }):add_clip({ start = 0, length = 4,
-    notes = { { pitch = 65, start = 0, length = 1 }, { pitch = 67, start = 1, length = 1 } } })
+  local upper = paw.add_track({ name = "Upper" }):add_clip({
+    start = 0,
+    length = 4,
+    notes = { { pitch = 72, start = 0, length = 1 }, { pitch = 74, start = 1, length = 1 } },
+  })
+  paw.add_track({ name = "Lower" }):add_clip({
+    start = 0,
+    length = 4,
+    notes = { { pitch = 65, start = 0, length = 1 }, { pitch = 67, start = 1, length = 1 } },
+  })
   paw.ui.views.pianoroll:edit(upper)
   return upper
 end
@@ -67,11 +77,21 @@ test("midilsp: the engine is found from the option, then the environment", funct
   paw.opt.midilsp_cmd = "/opt/engine --rules /r"
   eq(table.concat(midilsp.engine(), " "), "/opt/engine --rules /r", "the option, as words")
   midilsp.configure()
-  eq(table.concat(paw.lsp.configs["midi-lsp"].cmd(), " "), "/opt/engine --rules /r --stdio", "the language role on stdio")
-  eq(table.concat(paw.lsp.configs["midi-lsp-suggest"].cmd(), " "), "/opt/engine --rules /r --role suggest --stdio", "and the suggestion role")
+  eq(
+    table.concat(paw.lsp.configs["midi-lsp"].cmd(), " "),
+    "/opt/engine --rules /r --stdio",
+    "the language role on stdio"
+  )
+  eq(
+    table.concat(paw.lsp.configs["midi-lsp-suggest"].cmd(), " "),
+    "/opt/engine --rules /r --role suggest --stdio",
+    "and the suggestion role"
+  )
   paw.opt.midilsp_cmd = saved
   local text = {}
-  for _, line in ipairs(midilsp.info_lines()) do text[#text + 1] = type(line) == "table" and line.text or line end
+  for _, line in ipairs(midilsp.info_lines()) do
+    text[#text + 1] = type(line) == "table" and line.text or line
+  end
   eq(table.concat(text, "\n"):find("preset default", 1, true) ~= nil, true, ":midilsp shows the settings")
 end)
 
@@ -87,8 +107,20 @@ end)
 
 test("midilsp: Problems lists every namespace's diagnostics with their fixes, and applies one", function()
   start()
-  local clip = paw.add_track({ name = "Oboe" }):add_clip({ start = 0, length = 4, notes = { { pitch = 100, start = 0, length = 1 } } })
-  paw.diagnostic.set("lint", clip, { { notes = { 1 }, message = "too high", fixes = { { title = "Down an octave", edits = { { note = 1, pitch = 88 } } } } } })
+  local clip = paw
+    .add_track({ name = "Oboe" })
+    :add_clip({ start = 0, length = 4, notes = { { pitch = 100, start = 0, length = 1 } } })
+  paw.diagnostic.set(
+    "lint",
+    clip,
+    {
+      {
+        notes = { 1 },
+        message = "too high",
+        fixes = { { title = "Down an octave", edits = { { note = 1, pitch = 88 } } } },
+      },
+    }
+  )
   paw.cmd("problems")
   local state = paw.pick.state()
   eq(#state.matches, 2, "the diagnostic and its fix")
@@ -102,8 +134,11 @@ test("midilsp: any server speaking MIDI LSP's dialect works through its adapter"
   local python = io.popen("command -v python3 2>/dev/null"):read("*l")
   if not python or python == "" then return "no python3" end
   start()
-  local clip = paw.add_track({ name = "Flute" }):add_clip({ start = 0, length = 4,
-    notes = { { pitch = 60, start = 0, length = 1 }, { pitch = 96, start = 1, length = 1 } } })
+  local clip = paw.add_track({ name = "Flute" }):add_clip({
+    start = 0,
+    length = 4,
+    notes = { { pitch = 60, start = 0, length = 1 }, { pitch = 96, start = 1, length = 1 } },
+  })
   paw.ui.views.pianoroll:edit(clip)
   paw.lsp.config("range-midi", { cmd = { python, "tests/fixtures/range_lint.py", "--midi" }, adapter = "midi-lsp" })
   paw.lsp.enable("range-midi")
@@ -165,7 +200,9 @@ test("midilsp: the engine marks a parallel fifth, and its fix is one undo step",
   -- The chords it hears.
   until_(function() return paw.lsp.analysis[clip.id] end, "the analysis")
   local chords = {}
-  for _, c in ipairs(paw.lsp.analysis[clip.id].chords) do chords[#chords + 1] = c.name .. "@" .. c.at end
+  for _, c in ipairs(paw.lsp.analysis[clip.id].chords) do
+    chords[#chords + 1] = c.name .. "@" .. c.at
+  end
   eq(table.concat(chords, " "), "F@0 G@1", "the chords, in project beats")
   -- Switching the rule off is sent at once.
   midilsp.set_rule("parallel-perfect", false)
@@ -190,7 +227,11 @@ test("midilsp: the engine's hover and suggestions come back", function()
   until_(function() return hover end, "the hover")
   eq(hover[1].client, "midi-lsp", "the language role hovers")
   local text = table.concat(hover[1].lines, "\n")
-  eq(text:find("chord  G", 1, true) ~= nil and text:find("note   D5", 1, true) ~= nil, true, "the note and the chord:\n" .. text)
+  eq(
+    text:find("chord  G", 1, true) ~= nil and text:find("note   D5", 1, true) ~= nil,
+    true,
+    "the note and the chord:\n" .. text
+  )
   local items
   paw.lsp.complete({ clip = clip.id, at = 2, trigger = "manual" }, function(list) items = list or {} end)
   until_(function() return items end, "the suggestions")
@@ -239,16 +280,26 @@ test("midilsp: in the terminal, a parallel fifth is marked, gone to, explained a
   paw.keymap.feed("gK")
   until_(function() return paw.ui.float and paw.ui.float.name == "pager" end, "the hover float")
   text = screen()
-  eq(text:find("parallel-perfect", 1, true) ~= nil and text:find("chord  G", 1, true) ~= nil, true, "the float:\n" .. text)
+  eq(
+    text:find("parallel-perfect", 1, true) ~= nil and text:find("chord  G", 1, true) ~= nil,
+    true,
+    "the float:\n" .. text
+  )
   paw.ui.close()
   -- :diagnostics lists it.
   paw.cmd("diagnostics")
   eq(paw.pick.state().matches[2]:find("Parallel fifths", 1, true) ~= nil, true, ":diagnostics lists it")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   -- :lsp info shows both roles running.
   paw.cmd("lsp", { "info" })
   text = screen()
-  eq(text:find("midi-lsp  running", 1, true) ~= nil and text:find("midi-lsp-suggest  running", 1, true) ~= nil, true, ":lsp info:\n" .. text)
+  eq(
+    text:find("midi-lsp  running", 1, true) ~= nil and text:find("midi-lsp-suggest  running", 1, true) ~= nil,
+    true,
+    ":lsp info:\n" .. text
+  )
   paw.ui.close()
   -- ,ca on D5 offers the engine's fixes; Enter applies the first as one undo step.
   paw.ui.focus("pianoroll")
@@ -285,13 +336,23 @@ test("midilsp: the engine's delivery and settings checks look at every render of
   local uri = paw.address.render(path)
   local function rules(ns)
     local out = {}
-    for _, d in ipairs(paw.diagnostic.get(uri, { namespace = ns })) do out[d.rule] = d end
+    for _, d in ipairs(paw.diagnostic.get(uri, { namespace = ns })) do
+      out[d.rule] = d
+    end
     return out
   end
-  until_(function() return next(rules("midilsp-delivery")) and next(rules("midilsp-settings")) end, "both checks", 120000)
+  until_(
+    function() return next(rules("midilsp-delivery")) and next(rules("midilsp-settings")) end,
+    "both checks",
+    120000
+  )
   local delivery = rules("midilsp-delivery")
   eq(delivery["delivery.integrated"] ~= nil, true, "the delivery check measured the master's loudness")
-  eq(delivery["delivery.integrated"].message:find("LUFS", 1, true) ~= nil, true, delivery["delivery.integrated"].message)
+  eq(
+    delivery["delivery.integrated"].message:find("LUFS", 1, true) ~= nil,
+    true,
+    delivery["delivery.integrated"].message
+  )
   local dither = rules("midilsp-settings")["render.no_dither"]
   eq(dither ~= nil, true, "the settings check: 16 bits without dither")
   eq(dither.fixes[1].title, "Render it again with dither", "with a fix")
@@ -299,11 +360,19 @@ test("midilsp: the engine's delivery and settings checks look at every render of
   paw.cmd("diagnostics")
   local text = table.concat(paw.pick.state().matches, "\n")
   eq(text:find("── Renders", 1, true) ~= nil and text:find("demo-master.wav", 1, true) ~= nil, true, text)
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   -- Rendered again with dither, the settings check has nothing to say about it.
   paw.diagnostic.apply(dither)
-  until_(function()
-    return paw.address.renders[path].opts.dither == true and next(rules("midilsp-delivery")) and rules("midilsp-settings")["render.no_dither"] == nil
-  end, "the render again, checked", 120000)
+  until_(
+    function()
+      return paw.address.renders[path].opts.dither == true
+        and next(rules("midilsp-delivery"))
+        and rules("midilsp-settings")["render.no_dither"] == nil
+    end,
+    "the render again, checked",
+    120000
+  )
   checks.stop()
 end)

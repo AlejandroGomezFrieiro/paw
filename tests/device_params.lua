@@ -27,7 +27,10 @@ test("device params: one description for each parameter of a built-in device", f
   eq(cutoff.automatable, true, "it can be automated")
   eq(cutoff.read_only, false, "it takes values")
   eq(cutoff.automated, false, "nothing moves it yet")
-  api.lane_add(track.id, { target = "param", device = synth.id, param = "cutoff", points = { { 0, 200 }, { 4, 8000 } } })
+  api.lane_add(
+    track.id,
+    { target = "param", device = synth.id, param = "cutoff", points = { { 0, 200 }, { 4, 8000 } } }
+  )
   eq(by_key(synth:get(), "cutoff").automated, true, "a lane moves it")
 end)
 
@@ -36,8 +39,14 @@ test("device params: values as text and back, the same as the device panel shows
   local track = paw.add_track({ name = "lead" })
   local synth = track:add_device("synth")
   local eqd = track:add_device("eq")
-  for _, case in ipairs({ { synth, "cutoff", 2500 }, { synth, "gain", -18 }, { synth, "wave", 2 },
-    { synth, "attack", 0.25 }, { eqd, "b5_freq", 12500 }, { eqd, "b5_q", 0.71 } }) do
+  for _, case in ipairs({
+    { synth, "cutoff", 2500 },
+    { synth, "gain", -18 },
+    { synth, "wave", 2 },
+    { synth, "attack", 0.25 },
+    { eqd, "b5_freq", 12500 },
+    { eqd, "b5_q", 0.71 },
+  }) do
     local dev, key, value = case[1], case[2], case[3]
     eq(api.device_param_text(dev.id, key, value), paw.params.format(by_key(dev:get(), key), value), key .. " as text")
   end
@@ -122,11 +131,18 @@ for _, format in ipairs({ "clap", "lv2", "vst3" }) do
     -- A quarter of the way up: VST3 values go from 0 to 1, CLAP's in dB.
     local value = gain.min + (gain.max - gain.min) / 4
     api.device_set_param(fx.id, "input_gain", value)
-    api.lane_add(track.id, { target = "param", device = fx.id, param = "input_gain", points = { { 0, gain.min }, { 4, gain.max } } })
+    api.lane_add(
+      track.id,
+      { target = "param", device = fx.id, param = "input_gain", points = { { 0, gain.min }, { 4, gain.max } } }
+    )
     local path = T.scratch .. "/ids-" .. format .. ".json"
     paw.project.save(path)
     local text = T.read_file(path)
-    eq(text:find('"input_gain": "' .. gain.id .. '"', 1, true) ~= nil, true, "the project keeps the plugin's id of each key it uses")
+    eq(
+      text:find('"input_gain": "' .. gain.id .. '"', 1, true) ~= nil,
+      true,
+      "the project keeps the plugin's id of each key it uses"
+    )
     -- A new version of the plugin calls the parameter otherwise: here the
     -- project knows it by another key, which only the id ties to it.
     T.write_file(path, (text:gsub('"input_gain"', '"in_level"')))
@@ -155,7 +171,11 @@ for _, format in ipairs({ "clap", "lv2", "vst3" }) do
     api.fs_mkdir(dir)
     api.chain_write(track.id, dir .. "/devices.json")
     local text = T.read_file(dir .. "/devices.json")
-    eq(text:find('"input_gain": "' .. gain.id .. '"', 1, true) ~= nil, true, "the chain file keeps the plugin's id of each key")
+    eq(
+      text:find('"input_gain": "' .. gain.id .. '"', 1, true) ~= nil,
+      true,
+      "the chain file keeps the plugin's id of each key"
+    )
     -- A new version of the plugin names the parameter otherwise.
     T.write_file(dir .. "/devices.json", (text:gsub('"input_gain"', '"in_level"')))
     fresh()

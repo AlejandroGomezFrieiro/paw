@@ -5,7 +5,8 @@ local test, eq = T.test, T.eq
 local api = paw.api
 
 test("zip: archives written and read again, and one the zip program deflated", function()
-  local bytes = paw.zip.write({ { name = "a.txt", data = "hello" }, { name = "dir/b.bin", data = string.rep("\0\255", 1000) } })
+  local bytes =
+    paw.zip.write({ { name = "a.txt", data = "hello" }, { name = "dir/b.bin", data = string.rep("\0\255", 1000) } })
   local files, names = paw.zip.read(bytes)
   eq(table.concat(names, ","), "a.txt,dir/b.bin", "names in order")
   eq(files["a.txt"], "hello", "a file back")

@@ -83,54 +83,89 @@ end
 
 local function names(list)
   local out = {}
-  for i, e in ipairs(list) do out[i] = e.name end
+  for i, e in ipairs(list) do
+    out[i] = e.name
+  end
   return out
 end
 
 local function complete_names() return names(P.instruments()) end
 
-command("part.score", function()
-  local condensed = view.parts and view.parts.condensed or false
-  if show({ kind = "score", condensed = condensed }) then
-    paw.notify("the full score at concert pitch" .. (condensed and ", condensed" or "") .. ": the cursor's staff is the track edited; :part off for the clip alone")
-  end
-end, { desc = "Show the full score to edit: every track with MIDI as an instrument, in orchestral order, the cursor's staff the track edited" })
+command(
+  "part.score",
+  function()
+    local condensed = view.parts and view.parts.condensed or false
+    if show({ kind = "score", condensed = condensed }) then
+      paw.notify(
+        "the full score at concert pitch"
+          .. (condensed and ", condensed" or "")
+          .. ": the cursor's staff is the track edited; :part off for the clip alone"
+      )
+    end
+  end,
+  {
+    desc = "Show the full score to edit: every track with MIDI as an instrument, in orchestral order, the cursor's staff the track edited",
+  }
+)
 
-command("part.condense", function(ctx)
-  local word = ctx.args[1]
-  local was = view.parts and view.parts.kind == "score" and view.parts.condensed or false
-  local on = word == "on" or (word ~= "off" and not was)
-  if show({ kind = "score", condensed = on }) then
-    paw.notify(on and "condensed: two players of an instrument share a staff (a2, 1., 2.)" or "every player on a staff of their own")
-  end
-end, { desc = "Condense the full score: two players of one instrument on one staff, with a2, 1. and 2. (`on`, `off`, or again to switch)", complete = function() return { "on", "off" } end })
+command(
+  "part.condense",
+  function(ctx)
+    local word = ctx.args[1]
+    local was = view.parts and view.parts.kind == "score" and view.parts.condensed or false
+    local on = word == "on" or (word ~= "off" and not was)
+    if show({ kind = "score", condensed = on }) then
+      paw.notify(
+        on and "condensed: two players of an instrument share a staff (a2, 1., 2.)"
+          or "every player on a staff of their own"
+      )
+    end
+  end,
+  {
+    desc = "Condense the full score: two players of one instrument on one staff, with a2, 1. and 2. (`on`, `off`, or again to switch)",
+    complete = function() return { "on", "off" } end,
+  }
+)
 
 local function show_part(e)
   if show({ kind = "part", track = e.id }) then
-    paw.notify("part: " .. e.name .. (e.transpose and (" (written in " .. e.transpose.name .. ")") or "") .. ", to edit; :part off for the clip alone")
+    paw.notify(
+      "part: "
+        .. e.name
+        .. (e.transpose and (" (written in " .. e.transpose.name .. ")") or "")
+        .. ", to edit; :part off for the clip alone"
+    )
   end
 end
 
-command("part", function(ctx)
-  local words = ctx.args[1]
-  if words == "off" then
-    view.parts, view.cache = nil, nil
-    api.ui_redraw()
-    return paw.notify("notation: the clip alone, to edit")
-  end
-  if not words or words == "" then
-    local id = part_track()
-    local list = P.instruments()
-    for _, e in ipairs(list) do
-      if e.id == id then return show_part(e) end
+command(
+  "part",
+  function(ctx)
+    local words = ctx.args[1]
+    if words == "off" then
+      view.parts, view.cache = nil, nil
+      api.ui_redraw()
+      return paw.notify("notation: the clip alone, to edit")
     end
-    if list[1] then return show_part(list[1]) end
-    return paw.notify("no track has MIDI to make a part of", "warn")
-  end
-  local e, list = instrument(words)
-  if not e then return paw.notify("no part '" .. words .. "': " .. table.concat(names(list), ", "), "warn") end
-  show_part(e)
-end, { raw = true, desc = "Show a part to play from, to edit as it is written: `part Flute 1` (by name or place in the score), alone the open clip's track's, `part off` the clip alone again", complete = complete_names })
+    if not words or words == "" then
+      local id = part_track()
+      local list = P.instruments()
+      for _, e in ipairs(list) do
+        if e.id == id then return show_part(e) end
+      end
+      if list[1] then return show_part(list[1]) end
+      return paw.notify("no track has MIDI to make a part of", "warn")
+    end
+    local e, list = instrument(words)
+    if not e then return paw.notify("no part '" .. words .. "': " .. table.concat(names(list), ", "), "warn") end
+    show_part(e)
+  end,
+  {
+    raw = true,
+    desc = "Show a part to play from, to edit as it is written: `part Flute 1` (by name or place in the score), alone the open clip's track's, `part off` the clip alone again",
+    complete = complete_names,
+  }
+)
 
 local function step(by)
   local list = P.instruments()
@@ -146,23 +181,55 @@ end
 command("part.next", function() step(1) end, { desc = "Show the next instrument's part, in score order" })
 command("part.prev", function() step(-1) end, { desc = "Show the previous instrument's part, in score order" })
 
-command("part.transpose", function(ctx)
-  local id = part_track()
-  if not id then return paw.notify("no track", "warn") end
-  local spec = ctx.args[1]
-  if not spec or spec == "" then
+command(
+  "part.transpose",
+  function(ctx)
+    local id = part_track()
+    if not id then return paw.notify("no track", "warn") end
+    local spec = ctx.args[1]
+    if not spec or spec == "" then
+      local iv = P.transposition(id)
+      return paw.notify(
+        iv and ("written in " .. iv.name .. ": " .. iv.semis .. " semitones from how it sounds")
+          or "written as it sounds"
+      )
+    end
+    if spec ~= "off" and spec ~= "default" and not P.interval(spec) then
+      return paw.notify(
+        "a transposition is a key: `Bb`, `A`, `F`, `Eb`, `Eb up` (sounding higher), `Bb octave`, `C octave`, `off`",
+        "warn"
+      )
+    end
+    P.keep(id, function(_, own) own.transpose = spec ~= "default" and spec or nil end)
+    view.cache = nil
     local iv = P.transposition(id)
-    return paw.notify(iv and ("written in " .. iv.name .. ": " .. iv.semis .. " semitones from how it sounds") or "written as it sounds")
-  end
-  if spec ~= "off" and spec ~= "default" and not P.interval(spec) then
-    return paw.notify("a transposition is a key: `Bb`, `A`, `F`, `Eb`, `Eb up` (sounding higher), `Bb octave`, `C octave`, `off`", "warn")
-  end
-  P.keep(id, function(_, own) own.transpose = spec ~= "default" and spec or nil end)
-  view.cache = nil
-  local iv = P.transposition(id)
-  paw.notify(iv and ("written in " .. iv.name .. " (" .. (iv.semis > 0 and "+" or "") .. iv.semis .. " semitones)") or "written as it sounds")
-end, { raw = true, desc = "How a track's part is written: `part.transpose Bb` (clarinet, trumpet), `F` (horn), `Eb` (alto sax), `Eb up` (E flat clarinet), `Bb octave` (tenor sax), `off`, `default` (from \"in Bb\" in its name)",
-  complete = function() return { "Bb", "A", "F", "Eb", "Eb up", "D up", "G", "Bb octave", "Eb octave", "C octave", "C up octave", "off", "default" } end })
+    paw.notify(
+      iv and ("written in " .. iv.name .. " (" .. (iv.semis > 0 and "+" or "") .. iv.semis .. " semitones)")
+        or "written as it sounds"
+    )
+  end,
+  {
+    raw = true,
+    desc = 'How a track\'s part is written: `part.transpose Bb` (clarinet, trumpet), `F` (horn), `Eb` (alto sax), `Eb up` (E flat clarinet), `Bb octave` (tenor sax), `off`, `default` (from "in Bb" in its name)',
+    complete = function()
+      return {
+        "Bb",
+        "A",
+        "F",
+        "Eb",
+        "Eb up",
+        "D up",
+        "G",
+        "Bb octave",
+        "Eb octave",
+        "C octave",
+        "C up octave",
+        "off",
+        "default",
+      }
+    end,
+  }
+)
 
 --- The stretch of the song a command works on, in song beats: its range,
 --- else the visual selection, else the cursor's bar.
@@ -176,34 +243,47 @@ local function stretch(ctx)
   if m then return start + m.start, start + m.start + m.length end
 end
 
-command("part.cue", function(ctx)
-  local id = part_track()
-  if not id then return paw.notify("no track", "warn") end
-  local words = ctx.args[1]
-  local from, to = stretch(ctx)
-  if words == "off" then
-    local gone = 0
+command(
+  "part.cue",
+  function(ctx)
+    local id = part_track()
+    if not id then return paw.notify("no track", "warn") end
+    local words = ctx.args[1]
+    local from, to = stretch(ctx)
+    if words == "off" then
+      local gone = 0
+      P.keep(id, function(part)
+        local keep = {}
+        for _, cue in ipairs(part.cues or {}) do
+          if from and (cue.to <= from + EPS or cue.at >= to - EPS) then
+            keep[#keep + 1] = cue
+          else
+            gone = gone + 1
+          end
+        end
+        part.cues = #keep > 0 and keep or nil
+      end)
+      view.cache = nil
+      return paw.notify(gone .. (gone == 1 and " cue" or " cues") .. " taken away")
+    end
+    local e = instrument(words)
+    if not e then return paw.notify("cue from which instrument? " .. table.concat(complete_names(), ", "), "warn") end
+    if e.id == id then return paw.notify("a cue is another instrument's notes", "warn") end
+    if not from then return paw.notify("no bars to cue: give a range (`:5,8part.cue Oboe`) or select them", "warn") end
     P.keep(id, function(part)
-      local keep = {}
-      for _, cue in ipairs(part.cues or {}) do
-        if from and (cue.to <= from + EPS or cue.at >= to - EPS) then keep[#keep + 1] = cue else gone = gone + 1 end
-      end
-      part.cues = #keep > 0 and keep or nil
+      part.cues = part.cues or {}
+      table.insert(part.cues, { from = e.id, at = from, to = to })
     end)
     view.cache = nil
-    return paw.notify(gone .. (gone == 1 and " cue" or " cues") .. " taken away")
-  end
-  local e = instrument(words)
-  if not e then return paw.notify("cue from which instrument? " .. table.concat(complete_names(), ", "), "warn") end
-  if e.id == id then return paw.notify("a cue is another instrument's notes", "warn") end
-  if not from then return paw.notify("no bars to cue: give a range (`:5,8part.cue Oboe`) or select them", "warn") end
-  P.keep(id, function(part)
-    part.cues = part.cues or {}
-    table.insert(part.cues, { from = e.id, at = from, to = to })
-  end)
-  view.cache = nil
-  paw.notify("cue from " .. e.name .. " in the rests there")
-end, { range = true, raw = true, desc = "Another instrument's notes written small in this part's rests, to come in by: `:5,8part.cue Oboe`, on a selection, `part.cue off`", complete = complete_names })
+    paw.notify("cue from " .. e.name .. " in the rests there")
+  end,
+  {
+    range = true,
+    raw = true,
+    desc = "Another instrument's notes written small in this part's rests, to come in by: `:5,8part.cue Oboe`, on a selection, `part.cue off`",
+    complete = complete_names,
+  }
+)
 
 --- The bar number of the cursor in the part shown.
 local function cursor_bar()
@@ -221,7 +301,11 @@ local function toggle(list_name, other)
       local list, kept = part[list_name] or {}, {}
       on = true
       for _, b in ipairs(list) do
-        if b == bar then on = false else kept[#kept + 1] = b end
+        if b == bar then
+          on = false
+        else
+          kept[#kept + 1] = b
+        end
       end
       if on then kept[#kept + 1] = bar end
       part[list_name] = #kept > 0 and kept or nil
@@ -236,12 +320,24 @@ local function toggle(list_name, other)
     end)
     view.cache = nil
     api.ui_redraw()
-    paw.notify((list_name == "breaks" and "a system starts at bar " or "bar " .. bar .. " kept on the system before") .. (list_name == "breaks" and bar or "")
-      .. (on and "" or ": taken away") .. ", in this part")
+    paw.notify(
+      (list_name == "breaks" and "a system starts at bar " or "bar " .. bar .. " kept on the system before")
+        .. (list_name == "breaks" and bar or "")
+        .. (on and "" or ": taken away")
+        .. ", in this part"
+    )
   end
 end
-command("part.break", toggle("breaks", "joins"), { desc = "In the part shown: start a system at the cursor's bar, or take that break away" })
-command("part.join", toggle("joins", "breaks"), { desc = "In the part shown: keep the cursor's bar on the system before, or not" })
+command(
+  "part.break",
+  toggle("breaks", "joins"),
+  { desc = "In the part shown: start a system at the cursor's bar, or take that break away" }
+)
+command(
+  "part.join",
+  toggle("joins", "breaks"),
+  { desc = "In the part shown: keep the cursor's bar on the system before, or not" }
+)
 command("part.bars-per-system", function(ctx)
   if not (view.parts and view.parts.kind == "part") then return paw.notify("show a part first (`:part`)", "warn") end
   local n = tonumber(ctx.args[1])
@@ -251,18 +347,27 @@ command("part.bars-per-system", function(ctx)
   paw.notify(n and (n .. " bars to a system in this part") or "as many bars to a system as fit, in this part")
 end, { desc = "In the part shown: that many bars to every system, or without a number as they fit" })
 
-command("part.name", function(ctx)
-  local id = part_track()
-  if not id then return paw.notify("no track", "warn") end
-  local full, short = tostring(ctx.args[1] or ""):match("^%s*(.-)%s*|%s*(.-)%s*$")
-  full = full or tostring(ctx.args[1] or ""):match("^%s*(.-)%s*$")
-  P.keep(id, function(part)
-    part.name = full ~= "" and full or nil
-    part.short = short ~= "" and short or nil
-  end)
-  view.cache = nil
-  paw.notify(full ~= "" and ("named " .. full .. (short and short ~= "" and (", " .. short) or "")) or "named as the track")
-end, { raw = true, desc = "The names a track's instrument has in the score and its part: `part.name Flute 1 | Fl. 1` (full, short), alone the track's name" })
+command(
+  "part.name",
+  function(ctx)
+    local id = part_track()
+    if not id then return paw.notify("no track", "warn") end
+    local full, short = tostring(ctx.args[1] or ""):match("^%s*(.-)%s*|%s*(.-)%s*$")
+    full = full or tostring(ctx.args[1] or ""):match("^%s*(.-)%s*$")
+    P.keep(id, function(part)
+      part.name = full ~= "" and full or nil
+      part.short = short ~= "" and short or nil
+    end)
+    view.cache = nil
+    paw.notify(
+      full ~= "" and ("named " .. full .. (short and short ~= "" and (", " .. short) or "")) or "named as the track"
+    )
+  end,
+  {
+    raw = true,
+    desc = "The names a track's instrument has in the score and its part: `part.name Flute 1 | Fl. 1` (full, short), alone the track's name",
+  }
+)
 
 -- Export ----------------------------------------------------------------------------------------
 
@@ -304,48 +409,63 @@ function P.musicxml(path)
   return #parts
 end
 
-command("part.export", function(ctx)
-  local path, what = ctx.args[1] and tostring(ctx.args[1]), ctx.args[2]
-  local kinds = { pdf = true, svg = true, png = true }
-  local stem = safe(heading().title ~= "" and heading().title or "score")
-  if not path or kinds[path] then path = stem .. "." .. (path or "pdf") end
-  local ext = (path:match("%.(%w+)$") or ""):lower()
-  if ext == "musicxml" or ext == "xml" or ext == "mxl" then
-    local ok, n = pcall(P.musicxml, path)
-    if not ok then return paw.notify("could not write " .. path .. ": " .. tostring(n), "error") end
-    return paw.notify("wrote " .. n .. " parts to " .. path)
-  end
-  if not kinds[ext] then return paw.notify("export a .pdf, .svg, .png, .musicxml or .mxl", "warn") end
-  local shown = view.parts and view.parts.kind
-  local jobs = {}
-  if what == "all" then
-    for _, e in ipairs(P.instruments()) do
-      jobs[#jobs + 1] = { track = e.id, path = path:gsub("%.(%w+)$", "-" .. safe(e.name) .. ".%1") }
+command(
+  "part.export",
+  function(ctx)
+    local path, what = ctx.args[1] and tostring(ctx.args[1]), ctx.args[2]
+    local kinds = { pdf = true, svg = true, png = true }
+    local stem = safe(heading().title ~= "" and heading().title or "score")
+    if not path or kinds[path] then path = stem .. "." .. (path or "pdf") end
+    local ext = (path:match("%.(%w+)$") or ""):lower()
+    if ext == "musicxml" or ext == "xml" or ext == "mxl" then
+      local ok, n = pcall(P.musicxml, path)
+      if not ok then return paw.notify("could not write " .. path .. ": " .. tostring(n), "error") end
+      return paw.notify("wrote " .. n .. " parts to " .. path)
     end
-  elseif what == "score" or (shown == "score" and what ~= "part") then
-    jobs[1] = { score = true, path = path }
-  else
-    jobs[1] = { track = part_track(), path = path }
-  end
-  local wrote, pages = {}, 0
-  for _, job in ipairs(jobs) do
-    local layout, err
-    if job.score then
-      layout, err = P.score_layout({ condensed = view.parts and view.parts.condensed })
+    if not kinds[ext] then return paw.notify("export a .pdf, .svg, .png, .musicxml or .mxl", "warn") end
+    local shown = view.parts and view.parts.kind
+    local jobs = {}
+    if what == "all" then
+      for _, e in ipairs(P.instruments()) do
+        jobs[#jobs + 1] = { track = e.id, path = path:gsub("%.(%w+)$", "-" .. safe(e.name) .. ".%1") }
+      end
+    elseif what == "score" or (shown == "score" and what ~= "part") then
+      jobs[1] = { score = true, path = path }
     else
-      layout, err = P.part_layout(job.track)
+      jobs[1] = { track = part_track(), path = path }
     end
-    if not layout then return paw.notify(err or "nothing to write", "warn") end
-    local ok, files, n = pcall(page.export, layout, job.path, ext, heading(layout.part_name))
-    if not ok then return paw.notify("could not write " .. job.path .. ": " .. tostring(files), "error") end
-    for _, f in ipairs(files) do wrote[#wrote + 1] = f end
-    pages = pages + n
-  end
-  paw.notify("wrote " .. (#jobs == 1 and (jobs[1].score and "the score" or "the part") or (#jobs .. " parts")) .. " to "
-    .. table.concat(wrote, ", ") .. ", " .. pages .. (pages == 1 and " page" or " pages"))
-  return wrote, pages
-end, { desc = "Write the part shown (or the score) as engraved pages: `part.export flute.pdf`, `part.export parts.pdf all` (a file for each part), `part.export score.pdf score`; `part.export score.musicxml` every part, transposed, in one file",
-  complete = { "files", function() return { "all", "score", "part" } end } })
+    local wrote, pages = {}, 0
+    for _, job in ipairs(jobs) do
+      local layout, err
+      if job.score then
+        layout, err = P.score_layout({ condensed = view.parts and view.parts.condensed })
+      else
+        layout, err = P.part_layout(job.track)
+      end
+      if not layout then return paw.notify(err or "nothing to write", "warn") end
+      local ok, files, n = pcall(page.export, layout, job.path, ext, heading(layout.part_name))
+      if not ok then return paw.notify("could not write " .. job.path .. ": " .. tostring(files), "error") end
+      for _, f in ipairs(files) do
+        wrote[#wrote + 1] = f
+      end
+      pages = pages + n
+    end
+    paw.notify(
+      "wrote "
+        .. (#jobs == 1 and (jobs[1].score and "the score" or "the part") or (#jobs .. " parts"))
+        .. " to "
+        .. table.concat(wrote, ", ")
+        .. ", "
+        .. pages
+        .. (pages == 1 and " page" or " pages")
+    )
+    return wrote, pages
+  end,
+  {
+    desc = "Write the part shown (or the score) as engraved pages: `part.export flute.pdf`, `part.export parts.pdf all` (a file for each part), `part.export score.pdf score`; `part.export score.musicxml` every part, transposed, in one file",
+    complete = { "files", function() return { "all", "score", "part" } end },
+  }
+)
 
 -- Keys ------------------------------------------------------------------------------------------
 

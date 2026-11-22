@@ -55,11 +55,27 @@ local function write_wav(path, frames)
   local data = table.concat(body)
   local function le(n, size)
     local out = {}
-    for i = 1, size do out[i] = string.char(math.floor(n / 256 ^ (i - 1)) % 256) end
+    for i = 1, size do
+      out[i] = string.char(math.floor(n / 256 ^ (i - 1)) % 256)
+    end
     return table.concat(out)
   end
-  T.write_file(path, "RIFF" .. le(36 + #data, 4) .. "WAVEfmt " .. le(16, 4) .. le(1, 2) .. le(1, 2)
-    .. le(48000, 4) .. le(96000, 4) .. le(2, 2) .. le(16, 2) .. "data" .. le(#data, 4) .. data)
+  T.write_file(
+    path,
+    "RIFF"
+      .. le(36 + #data, 4)
+      .. "WAVEfmt "
+      .. le(16, 4)
+      .. le(1, 2)
+      .. le(1, 2)
+      .. le(48000, 4)
+      .. le(96000, 4)
+      .. le(2, 2)
+      .. le(16, 2)
+      .. "data"
+      .. le(#data, 4)
+      .. data
+  )
 end
 
 test("plugstate: the sfizz state codec reads and writes back", function()
@@ -171,7 +187,9 @@ test("plugstate: an impulse response file goes into LSP's convolver", function()
   local before = render()
   -- An impulse response that is a click after 10 ms.
   local frames = {}
-  for i = 1, 4800 do frames[i] = i == 481 and 0.9 or 0 end
+  for i = 1, 4800 do
+    frames[i] = i == 481 and 0.9 or 0
+  end
   local file = T.scratch .. "/click.wav"
   write_wav(file, frames)
   local ok, err = plugstate.set(ir.id, slots[1].key, file)
@@ -263,91 +281,94 @@ local function devices_on(id)
   paw.fx.select(id)
 end
 
-test("plugstate: TONE3000 presets and block models are chosen with keys, undone, kept in snapshots and in the project", function()
-  local pkg, why = package("PAW_TEST_TONE3000")
-  if not pkg then return why end
-  local kind = kind_of("clap", "^TONE3000$")
-  if not kind then return "skipped: TONE3000 not found" end
-  load()
-  local t3k, juce = require("plugstate.tone3000"), require("plugstate.juce")
-  local factory = pkg .. "/share/tone3000/factory-presets"
+test(
+  "plugstate: TONE3000 presets and block models are chosen with keys, undone, kept in snapshots and in the project",
+  function()
+    local pkg, why = package("PAW_TEST_TONE3000")
+    if not pkg then return why end
+    local kind = kind_of("clap", "^TONE3000$")
+    if not kind then return "skipped: TONE3000 not found" end
+    load()
+    local t3k, juce = require("plugstate.tone3000"), require("plugstate.juce")
+    local factory = pkg .. "/share/tone3000/factory-presets"
 
-  fresh()
-  local track = long_guitar()
-  local amp = track:add_device(kind)
-  paw.flush()
-  api.undo_checkpoint()
-  eq(plugstate.adapter_of(amp.id).name, "tone3000", "the TONE3000 adapter knows the plugin")
-  local slot = plugstate.slot(amp.id)
-  eq(slot.key, "preset", "its first slot is the preset")
-  eq(#plugstate.files(slot), 8, "the eight factory presets beside the plugin")
-  eq(#plugstate.slots(amp.id), 11, "and the ten blocks of its chain")
-  local dry = sound()
+    fresh()
+    local track = long_guitar()
+    local amp = track:add_device(kind)
+    paw.flush()
+    api.undo_checkpoint()
+    eq(plugstate.adapter_of(amp.id).name, "tone3000", "the TONE3000 adapter knows the plugin")
+    local slot = plugstate.slot(amp.id)
+    eq(slot.key, "preset", "its first slot is the preset")
+    eq(#plugstate.files(slot), 8, "the eight factory presets beside the plugin")
+    eq(#plugstate.slots(amp.id), 11, "and the ten blocks of its chain")
+    local dry = sound()
 
-  devices_on(amp.id)
-  keys("]m")
-  eq(plugstate.slot(amp.id).value, factory .. "/Ampeg Bass Drive.t3kpreset", "]m loads the first preset")
-  eq(amp:get().meta.preset, "Ampeg Bass Drive", "and the device shows its name")
-  local ampeg = sound()
-  differs(ampeg, dry, "the preset changes the sound")
-  keys("]m")
-  eq(plugstate.slot(amp.id).value, factory .. "/Bogner Fullstack.t3kpreset", "]m again, the next one")
-  local bogner = sound()
-  differs(bogner, ampeg, "another preset, another sound")
-  eq(plugstate.slot(amp.id, "block1").label:match("^Block 1 %(.+%)$") ~= nil, true, "the block says its tone")
+    devices_on(amp.id)
+    keys("]m")
+    eq(plugstate.slot(amp.id).value, factory .. "/Ampeg Bass Drive.t3kpreset", "]m loads the first preset")
+    eq(amp:get().meta.preset, "Ampeg Bass Drive", "and the device shows its name")
+    local ampeg = sound()
+    differs(ampeg, dry, "the preset changes the sound")
+    keys("]m")
+    eq(plugstate.slot(amp.id).value, factory .. "/Bogner Fullstack.t3kpreset", "]m again, the next one")
+    local bogner = sound()
+    differs(bogner, ampeg, "another preset, another sound")
+    eq(plugstate.slot(amp.id, "block1").label:match("^Block 1 %(.+%)$") ~= nil, true, "the block says its tone")
 
-  keys("u")
-  eq(plugstate.slot(amp.id).value, factory .. "/Ampeg Bass Drive.t3kpreset", "u takes the preset back")
-  same(sound(), ampeg, "and the sound")
+    keys("u")
+    eq(plugstate.slot(amp.id).value, factory .. "/Ampeg Bass Drive.t3kpreset", "u takes the preset back")
+    same(sound(), ampeg, "and the sound")
 
-  -- A model of a file into a block: one from a preset, written out.
-  local preset = t3k.read_preset(factory .. "/Stereo Fuzz.t3kpreset")
-  local cached = juce.child(juce.child(t3k.blocks(preset)[1].block, "ModelCache"), "CachedModel")
-  local nam = T.scratch .. "/magnatone.nam"
-  T.write_file(nam, juce.get(cached, "data").binary)
-  keys(":plugstate.load slot=block2 " .. nam .. "<CR>")
-  local block = plugstate.slot(amp.id, "block2")
-  eq(block.value, nam, "block 2 holds the file")
-  eq(block.label, "Block 2 (magnatone)", "named after it")
-  local with_model = sound()
-  differs(with_model, ampeg, "the model plays")
-  local log = T.read_file(os.getenv("HOME") .. "/.config/TONE3000/TONE3000.log")
-  eq(log:find("tone 0 model %d+ %(cached%)") ~= nil, true, "the plugin loads it from the state, not the network")
+    -- A model of a file into a block: one from a preset, written out.
+    local preset = t3k.read_preset(factory .. "/Stereo Fuzz.t3kpreset")
+    local cached = juce.child(juce.child(t3k.blocks(preset)[1].block, "ModelCache"), "CachedModel")
+    local nam = T.scratch .. "/magnatone.nam"
+    T.write_file(nam, juce.get(cached, "data").binary)
+    keys(":plugstate.load slot=block2 " .. nam .. "<CR>")
+    local block = plugstate.slot(amp.id, "block2")
+    eq(block.value, nam, "block 2 holds the file")
+    eq(block.label, "Block 2 (magnatone)", "named after it")
+    local with_model = sound()
+    differs(with_model, ampeg, "the model plays")
+    local log = T.read_file(os.getenv("HOME") .. "/.config/TONE3000/TONE3000.log")
+    eq(log:find("tone 0 model %d+ %(cached%)") ~= nil, true, "the plugin loads it from the state, not the network")
 
-  -- Snapshots, and the project.
-  keys("\\s")
-  keys(":plugstate.load " .. factory .. "/Bogner Fullstack.t3kpreset<CR>")
-  keys("\\s")
-  eq(plugstate.current(amp.id), "B", "two snapshots, A and B")
-  keys("[v")
-  eq(plugstate.slot(amp.id, "block2").value, nam, "[v brings back A, with its model")
-  same(sound(), with_model, "and its sound")
-  local path = paw.project.save(T.scratch .. "/tone3000.json")
-  fresh()
-  paw.project.load(path)
-  local loaded = paw.tracks()[1]:devices()[2]
-  paw.flush()
-  eq(plugstate.slot(loaded.id, "block2").value, nam, "the project keeps the model")
-  same(sound(), with_model, "and sounds the same")
-  eq(#plugstate.snapshots(loaded.id), 2, "and the snapshots")
+    -- Snapshots, and the project.
+    keys("\\s")
+    keys(":plugstate.load " .. factory .. "/Bogner Fullstack.t3kpreset<CR>")
+    keys("\\s")
+    eq(plugstate.current(amp.id), "B", "two snapshots, A and B")
+    keys("[v")
+    eq(plugstate.slot(amp.id, "block2").value, nam, "[v brings back A, with its model")
+    same(sound(), with_model, "and its sound")
+    local path = paw.project.save(T.scratch .. "/tone3000.json")
+    fresh()
+    paw.project.load(path)
+    local loaded = paw.tracks()[1]:devices()[2]
+    paw.flush()
+    eq(plugstate.slot(loaded.id, "block2").value, nam, "the project keeps the model")
+    same(sound(), with_model, "and sounds the same")
+    eq(#plugstate.snapshots(loaded.id), 2, "and the snapshots")
 
-  -- The same preset in each format of the plugin sounds the same.
-  for _, format in ipairs({ "vst3", "lv2" }) do
-    local other = kind_of(format, "^TONE3000$")
-    if other then
-      fresh()
-      local d = long_guitar(format):add_device(other)
-      paw.flush()
-      local ok, err = plugstate.set(d.id, nil, factory .. "/Bogner Fullstack.t3kpreset")
-      eq(ok, true, format .. ": " .. tostring(err))
-      same(sound(), bogner, format .. ": Bogner Fullstack sounds as in CLAP")
+    -- The same preset in each format of the plugin sounds the same.
+    for _, format in ipairs({ "vst3", "lv2" }) do
+      local other = kind_of(format, "^TONE3000$")
+      if other then
+        fresh()
+        local d = long_guitar(format):add_device(other)
+        paw.flush()
+        local ok, err = plugstate.set(d.id, nil, factory .. "/Bogner Fullstack.t3kpreset")
+        eq(ok, true, format .. ": " .. tostring(err))
+        same(sound(), bogner, format .. ": Bogner Fullstack sounds as in CLAP")
+      end
     end
-  end
 
-  local bad, why2 = plugstate.set(amp.id, "block3", T.scratch .. "/none.nam")
-  eq(bad, nil, "a file that is not there")
-  eq(why2 ~= nil, true, "says why")
-end)
+    local bad, why2 = plugstate.set(amp.id, "block3", T.scratch .. "/none.nam")
+    eq(bad, nil, "a file that is not there")
+    eq(why2 ~= nil, true, "says why")
+  end
+)
 
 test("plugstate: Soundshed Guitar presets of a pack, scenes and block models", function()
   local pkg, why = package("PAW_TEST_SOUNDSHED")
@@ -426,8 +447,16 @@ test("plugstate: the JUCE layer reads and writes back each container, byte for b
   local juce, jx, js = require("plugstate.juce"), require("plugstate.jucexml"), require("plugstate.jucestate")
 
   -- vars of each kind
-  for _, case in ipairs({ { 7, "int" }, { -2, "int64" }, { 0.25 }, { true }, { false }, { "text" },
-    { { binary = "\0\1\2" } }, { { array = { 1.5, "a", true } } } }) do
+  for _, case in ipairs({
+    { 7, "int" },
+    { -2, "int64" },
+    { 0.25 },
+    { true },
+    { false },
+    { "text" },
+    { { binary = "\0\1\2" } },
+    { { array = { 1.5, "a", true } } },
+  }) do
     local raw = juce.raw(case[1], case[2])
     eq(juce.raw(juce.value(raw), case[2]), raw, "a var: " .. juce.show(raw))
   end
@@ -438,7 +467,8 @@ test("plugstate: the JUCE layer reads and writes back each container, byte for b
       juce.tree("PARAM", { { "id", "gain" }, { "value", 0.5 } }),
       juce.tree("PARAM", { { "id", "mix" }, { "value", 1 } }),
     }),
-    juce.tree("Slot", { { "file", "/a.wav" } }), juce.tree("Slot", { { "file", "/b.wav" } }),
+    juce.tree("Slot", { { "file", "/a.wav" } }),
+    juce.tree("Slot", { { "file", "/b.wav" } }),
   })
   local binary = juce.write(tree)
   local pretty = '<?xml version="1.0" encoding="UTF-8"?>\n\n<Plugin version="3" name="Lead &amp; Pad">\n'
@@ -446,8 +476,13 @@ test("plugstate: the JUCE layer reads and writes back each container, byte for b
     .. '  <!-- kept -->\n  <Slot file="/a.wav"/>\n  <Slot file="/b.wav"></Slot>\n</Plugin>\n'
   local vc2 = "VC2!" .. paw.bytes.le32(#pretty) .. pretty .. "\0"
   local containers = {
-    { "valuetree", binary }, { "prefix", "ABC1" .. binary .. "rest" }, { "xml", pretty }, { "vc2", vc2 },
-    { "gzip", paw.api.deflate(binary, "gzip") }, { "zlib", paw.api.deflate(vc2, "zlib") }, { "base64", juce.encode64(binary) },
+    { "valuetree", binary },
+    { "prefix", "ABC1" .. binary .. "rest" },
+    { "xml", pretty },
+    { "vc2", vc2 },
+    { "gzip", paw.api.deflate(binary, "gzip") },
+    { "zlib", paw.api.deflate(vc2, "zlib") },
+    { "base64", juce.encode64(binary) },
   }
   for _, c in ipairs(containers) do
     for _, format in ipairs({ "clap", "vst3", "lv2" }) do
@@ -474,7 +509,11 @@ test("plugstate: the JUCE layer reads and writes back each container, byte for b
   eq(jx.write(doc), (pretty:gsub("/a%.wav", "/c.wav")), "the other bytes of the XML stay as they were")
   eq(juce.find(doc.root, "/Plugin@name"), "Lead & Pad", "entities are read")
   juce.insert_path(doc.root, "/Plugin", jx.tree("Slot", { { "file", '/"d".wav' } }))
-  eq(jx.write(doc):find('<Slot file="/&quot;d&quot;.wav"/>', 1, true) ~= nil, true, "a new element is written as JUCE writes it")
+  eq(
+    jx.write(doc):find('<Slot file="/&quot;d&quot;.wav"/>', 1, true) ~= nil,
+    true,
+    "a new element is written as JUCE writes it"
+  )
   eq(juce.remove_path(doc.root, "/Plugin/Slot"), 3, "remove takes away each node the path names")
   eq(juce.find(doc.root, "/Plugin/Slot"), nil, "and they are gone")
 
@@ -497,15 +536,29 @@ test("plugstate: the JUCE layer reads and writes back each container, byte for b
   b:set_param("hidden", 1)
   b:remove("/Plugin/Slot[2]")
   local lines = juce.diff_text(a:diff(b))
-  eq(table.concat(lines, "\n"), 'set    /Plugin@name: "Lead" → "Pad"\n'
-    .. "add    /Plugin/PARAMETERS/PARAM[id=hidden] = <PARAM>\n"
-    .. "remove /Plugin/Slot[2] (was <Slot>)", "the changes, by path")
+  eq(
+    table.concat(lines, "\n"),
+    'set    /Plugin@name: "Lead" → "Pad"\n'
+      .. "add    /Plugin/PARAMETERS/PARAM[id=hidden] = <PARAM>\n"
+      .. "remove /Plugin/Slot[2] (was <Slot>)",
+    "the changes, by path"
+  )
 
   -- A preset: edits on a base, in a file, for another format.
   local file = T.scratch .. "/lead.jucepreset"
-  js.write_preset(file, { name = "Lead", base = paw.bytes.base64(binary), format = "clap",
-    edits = { { path = "/Plugin@name", value = "Big" }, { param = "gain", value = 0.1 },
-      { path = "/Plugin/New[id=x]@data", value = { binary = "\0\255" }, make = true } } })
+  js.write_preset(
+    file,
+    {
+      name = "Lead",
+      base = paw.bytes.base64(binary),
+      format = "clap",
+      edits = {
+        { path = "/Plugin@name", value = "Big" },
+        { param = "gain", value = 0.1 },
+        { path = "/Plugin/New[id=x]@data", value = { binary = "\0\255" }, make = true },
+      },
+    }
+  )
   local preset = js.read_preset(file)
   local made = js.open(js.generate(preset, "vst3", vst3), "vst3")
   eq(made:get("/Plugin@name"), "Big", "the preset's edit, in VST3")
@@ -528,85 +581,95 @@ end
 
 local function pitch() return T.frequency(T.render({ tail = 0, bits = 16 }), 0.5, 1.5) end
 
-test("plugstate: JUCE states of Surge XT: byte for byte, the changes by path, a preset of one format in the others", function()
-  local clap, vst3, lv2 = kind_of("clap", "^Surge XT$"), kind_of("vst3", "^Surge XT$"), kind_of("lv2", "^Surge XT$")
-  if not clap then return "skipped: Surge XT not found" end
-  load()
-  local js, jp = require("plugstate.jucestate"), require("plugstate.juceplugins")
-  fresh()
-  -- Each format: the real state goes through the layer unchanged.
-  for _, kind in ipairs({ clap, vst3, lv2 }) do
-    if kind then
-      local d = paw.add_track({ name = kind }):add_device(kind)
-      paw.flush()
-      local dev = api.device_get(d.id)
-      local state = api.device_state(d.id)
-      local doc = js.open(state, dev.plugin.format, { desc = js.plugin_of(dev) })
-      eq(doc:write(), state, kind .. ": written back byte for byte")
-      eq(doc:get("name"), "Init Saw", kind .. ": the description's path")
+test(
+  "plugstate: JUCE states of Surge XT: byte for byte, the changes by path, a preset of one format in the others",
+  function()
+    local clap, vst3, lv2 = kind_of("clap", "^Surge XT$"), kind_of("vst3", "^Surge XT$"), kind_of("lv2", "^Surge XT$")
+    if not clap then return "skipped: Surge XT not found" end
+    load()
+    local js, jp = require("plugstate.jucestate"), require("plugstate.juceplugins")
+    fresh()
+    -- Each format: the real state goes through the layer unchanged.
+    for _, kind in ipairs({ clap, vst3, lv2 }) do
+      if kind then
+        local d = paw.add_track({ name = kind }):add_device(kind)
+        paw.flush()
+        local dev = api.device_get(d.id)
+        local state = api.device_state(d.id)
+        local doc = js.open(state, dev.plugin.format, { desc = js.plugin_of(dev) })
+        eq(doc:write(), state, kind .. ": written back byte for byte")
+        eq(doc:get("name"), "Init Saw", kind .. ": the description's path")
+      end
     end
-  end
 
-  fresh()
-  local synth = instrument(clap, "clap")
-  api.undo_checkpoint()
-  eq(plugstate.adapter_of(synth.id).name, "juce", "the JUCE adapter knows the described plugin")
-  T.near(pitch(), 220, 6, "Init Saw plays A3")
-  -- Schema learning: keep the state, change the plugin, list the paths.
-  keys(":plugstate.mark<CR>")
-  api.device_set_param(synth.id, "a_octave", 4 / 6)
-  paw.flush()
-  local changes = jp.changes(synth.id)
-  local paths = {}
-  for _, c in ipairs(changes) do paths[#paths + 1] = c.path end
-  eq(table.concat(paths, " "):find("/patch/parameters/a_octave@value", 1, true) ~= nil, true,
-    "the octave's path changed: " .. table.concat(paths, " "))
-  T.near(pitch(), 440, 10, "an octave higher")
-  eq(#changes, 1, "only the octave: the description leaves out the window's state")
-  local file = T.scratch .. "/octave.jucepreset"
-  keys(":plugstate.preset_write " .. file .. "<CR>")
-  eq(js.read_preset(file).plugin, "surge-xt", "the preset names the plugin")
-  keys("u")
-
-  --- Wait until the plugin holds an octave (two seconds at most): an undo
-  --- reaches the plugin a moment later.
-  local function holds(d, octave, key)
+    fresh()
+    local synth = instrument(clap, "clap")
+    api.undo_checkpoint()
+    eq(plugstate.adapter_of(synth.id).name, "juce", "the JUCE adapter knows the described plugin")
+    T.near(pitch(), 220, 6, "Init Saw plays A3")
+    -- Schema learning: keep the state, change the plugin, list the paths.
+    keys(":plugstate.mark<CR>")
+    api.device_set_param(synth.id, "a_octave", 4 / 6)
     paw.flush()
-    T.until_(function() return plugstate.slot(d.id, key or "octave").value == octave end,
-      "the plugin to hold " .. tostring(octave))
-  end
-
-  -- The preset, written from CLAP, in the other formats.
-  for _, kind in ipairs({ clap, vst3, lv2 }) do
-    if kind then
-      fresh()
-      local d = instrument(kind, kind)
-      api.undo_checkpoint()
-      T.near(pitch(), 220, 6, kind .. ": A3 before")
-      keys(":plugstate.load " .. file .. "<CR>")
-      holds(d, "1")
-      eq(plugstate.slot(d.id, "octave").value, "1", kind .. ": the slot reads it")
-      T.near(pitch(), 440, 10, kind .. ": the preset made in CLAP plays an octave higher")
-      keys("u")
-      holds(d, "0")
-      T.near(pitch(), 220, 6, kind .. ": u takes it back")
+    local changes = jp.changes(synth.id)
+    local paths = {}
+    for _, c in ipairs(changes) do
+      paths[#paths + 1] = c.path
     end
-  end
+    eq(
+      table.concat(paths, " "):find("/patch/parameters/a_octave@value", 1, true) ~= nil,
+      true,
+      "the octave's path changed: " .. table.concat(paths, " ")
+    )
+    T.near(pitch(), 440, 10, "an octave higher")
+    eq(#changes, 1, "only the octave: the description leaves out the window's state")
+    local file = T.scratch .. "/octave.jucepreset"
+    keys(":plugstate.preset_write " .. file .. "<CR>")
+    eq(js.read_preset(file).plugin, "surge-xt", "the preset names the plugin")
+    keys("u")
 
-  -- A path set with a command, as one undo step.
-  fresh()
-  local d = instrument(lv2 or clap, "path")
-  api.undo_checkpoint()
-  keys(":plugstate.path /patch/meta@name Paw Lead<CR>")
-  holds(d, "Paw Lead", "name")
-  eq(plugstate.slot(d.id, "name").value, "Paw Lead", ":plugstate.path sets the name in the plugin")
-  keys(":plugstate.load slot=octave -1<CR>")
-  holds(d, "-1")
-  T.near(pitch(), 110, 4, "the octave slot: an octave lower")
-  keys("u")
-  holds(d, "0")
-  T.near(pitch(), 220, 6, "u: back")
-end)
+    --- Wait until the plugin holds an octave (two seconds at most): an undo
+    --- reaches the plugin a moment later.
+    local function holds(d, octave, key)
+      paw.flush()
+      T.until_(
+        function() return plugstate.slot(d.id, key or "octave").value == octave end,
+        "the plugin to hold " .. tostring(octave)
+      )
+    end
+
+    -- The preset, written from CLAP, in the other formats.
+    for _, kind in ipairs({ clap, vst3, lv2 }) do
+      if kind then
+        fresh()
+        local d = instrument(kind, kind)
+        api.undo_checkpoint()
+        T.near(pitch(), 220, 6, kind .. ": A3 before")
+        keys(":plugstate.load " .. file .. "<CR>")
+        holds(d, "1")
+        eq(plugstate.slot(d.id, "octave").value, "1", kind .. ": the slot reads it")
+        T.near(pitch(), 440, 10, kind .. ": the preset made in CLAP plays an octave higher")
+        keys("u")
+        holds(d, "0")
+        T.near(pitch(), 220, 6, kind .. ": u takes it back")
+      end
+    end
+
+    -- A path set with a command, as one undo step.
+    fresh()
+    local d = instrument(lv2 or clap, "path")
+    api.undo_checkpoint()
+    keys(":plugstate.path /patch/meta@name Paw Lead<CR>")
+    holds(d, "Paw Lead", "name")
+    eq(plugstate.slot(d.id, "name").value, "Paw Lead", ":plugstate.path sets the name in the plugin")
+    keys(":plugstate.load slot=octave -1<CR>")
+    holds(d, "-1")
+    T.near(pitch(), 110, 4, "the octave slot: an octave lower")
+    keys("u")
+    holds(d, "0")
+    T.near(pitch(), 220, 6, "u: back")
+  end
+)
 
 test("plugstate: the JUCE layer reads TONE3000's real states byte for byte in each format", function()
   local pkg, why = package("PAW_TEST_TONE3000")
@@ -654,7 +717,6 @@ test("plugstate: Musio's state through the JUCE layer (needs PAW_TEST_MUSIO)", f
   eq(plugstate.slot(d.id, "room").value, "Scoring Stage", "u takes it back")
 end)
 
-
 -- --- state lanes ---------------------------------------------------------------
 -- A model, a preset or a snapshot on the device's state lane changes at its
 -- point as the song plays and in a render. Each test measures where the
@@ -683,7 +745,9 @@ end
 
 local function rms(list, from, to)
   local sum, n = 0, 0
-  for i = from + 1, math.min(to, #list) do sum, n = sum + list[i] ^ 2, n + 1 end
+  for i = from + 1, math.min(to, #list) do
+    sum, n = sum + list[i] ^ 2, n + 1
+  end
   return math.sqrt(sum / math.max(n, 1)) / 32768
 end
 
@@ -731,7 +795,11 @@ test("plugstate: a state lane gives sfizz another instrument through its saved s
   local track = paw.add_track({ name = "sfizz" })
   -- An instrument lets go of its notes when it takes a new state: a note
   -- starts a little after the point.
-  track:add_clip({ start = 0, length = 4, notes = { { pitch = "A3", start = 0, length = 2 }, { pitch = "A3", start = 2.25, length = 1.75 } } })
+  track:add_clip({
+    start = 0,
+    length = 4,
+    notes = { { pitch = "A3", start = 0, length = 2 }, { pitch = "A3", start = 2.25, length = 1.75 } },
+  })
   local sfizz = track:add_device(kind)
   paw.flush()
   local low, high = T.scratch .. "/low.sfz", T.scratch .. "/high.sfz"
@@ -779,12 +847,15 @@ test("plugstate: a state lane switches TONE3000's preset through its state, at t
   if not kind then return "skipped: TONE3000 not found" end
   load()
   local factory = pkg .. "/share/tone3000/factory-presets"
-  local a, b, lane, again, at, info = amp_lane(kind, nil, factory .. "/Ampeg Bass Drive.t3kpreset",
-    factory .. "/Bogner Fullstack.t3kpreset")
+  local a, b, lane, again, at, info =
+    amp_lane(kind, nil, factory .. "/Ampeg Bass Drive.t3kpreset", factory .. "/Bogner Fullstack.t3kpreset")
   local changed = first_difference(lane, a, 2)
   print(string.format("      TONE3000: the sound changes at frame %s, the point is at %d", tostring(changed), at))
-  eq(changed ~= nil and changed >= at and changed < at + 512, true,
-    "the sound changes within a block of the point: " .. tostring(changed) .. " for " .. at)
+  eq(
+    changed ~= nil and changed >= at and changed < at + 512,
+    true,
+    "the sound changes within a block of the point: " .. tostring(changed) .. " for " .. at
+  )
   local d = first_difference(again, lane, 2)
   local worst, last = 0, nil
   for i = 1, math.min(#again, #lane) do
@@ -799,33 +870,48 @@ test("plugstate: a state lane switches TONE3000's preset through its state, at t
   T.near(rms(lane, 9600, at - 9600), rms(a, 9600, at - 9600), 0.003, "the first before it, from the start")
 end)
 
-test("plugstate: a state lane switches Soundshed Guitar's scene through its state, at the point, in every render", function()
-  local pkg, why = package("PAW_TEST_SOUNDSHED")
-  if not pkg then return why end
-  local kind = kind_of("vst3", "^Soundshed Guitar$")
-  if not kind then return "skipped: Soundshed Guitar not found" end
-  load()
-  local a, b, lane, again, at, info = amp_lane(kind, "scene", "Rhythm", "Solo", function(amp)
-    local found = plugstate.search(plugstate.slot(amp.id), "black album")
-    eq(#found, 1, "the preset of the pack")
-    eq(plugstate.set(amp.id, "preset", found[1].path), true, "a preset with scenes")
-  end)
-  -- Two instances of Soundshed do not give the same samples, but each
-  -- render of the lane does: where the change lands is where the level
-  -- leaves the first scene's, in windows of 128 frames.
-  local changed
-  for w = 9600, #lane - 128, 128 do
-    local x, y = rms(lane, w, w + 128), rms(a, w, w + 128)
-    if math.abs(x - y) > 0.3 * y then changed = w break end
+test(
+  "plugstate: a state lane switches Soundshed Guitar's scene through its state, at the point, in every render",
+  function()
+    local pkg, why = package("PAW_TEST_SOUNDSHED")
+    if not pkg then return why end
+    local kind = kind_of("vst3", "^Soundshed Guitar$")
+    if not kind then return "skipped: Soundshed Guitar not found" end
+    load()
+    local a, b, lane, again, at, info = amp_lane(kind, "scene", "Rhythm", "Solo", function(amp)
+      local found = plugstate.search(plugstate.slot(amp.id), "black album")
+      eq(#found, 1, "the preset of the pack")
+      eq(plugstate.set(amp.id, "preset", found[1].path), true, "a preset with scenes")
+    end)
+    -- Two instances of Soundshed do not give the same samples, but each
+    -- render of the lane does: where the change lands is where the level
+    -- leaves the first scene's, in windows of 128 frames.
+    local changed
+    for w = 9600, #lane - 128, 128 do
+      local x, y = rms(lane, w, w + 128), rms(a, w, w + 128)
+      if math.abs(x - y) > 0.3 * y then
+        changed = w
+        break
+      end
+    end
+    print(
+      string.format(
+        "      Soundshed: the level changes in the window from frame %s, the point is at %d",
+        tostring(changed),
+        at
+      )
+    )
+    -- The plugin moves to a new scene over a few milliseconds of its own.
+    eq(
+      changed ~= nil and changed >= at - 128 and changed < at + 2048,
+      true,
+      "the sound changes at the point: " .. tostring(changed) .. " for " .. at
+    )
+    eq(first_difference(again, lane, 2), nil, "a second render is the same")
+    local late = at + info.sample_rate
+    T.near(rms(lane, late, late + 9600), rms(b, late, late + 9600), 0.003, "the second scene after the point")
   end
-  print(string.format("      Soundshed: the level changes in the window from frame %s, the point is at %d", tostring(changed), at))
-  -- The plugin moves to a new scene over a few milliseconds of its own.
-  eq(changed ~= nil and changed >= at - 128 and changed < at + 2048, true,
-    "the sound changes at the point: " .. tostring(changed) .. " for " .. at)
-  eq(first_difference(again, lane, 2), nil, "a second render is the same")
-  local late = at + info.sample_rate
-  T.near(rms(lane, late, late + 9600), rms(b, late, late + 9600), 0.003, "the second scene after the point")
-end)
+)
 
 --- Play from the start and wait until the playhead is past `beat` and
 --- `done()` holds (four seconds at most); say whether it did.
@@ -845,33 +931,44 @@ local function plays_past(beat, done)
   return false
 end
 
-test("plugstate: as the song plays, a state lane switches the NAM model and TONE3000's preset at their points", function()
-  local kind = kind_of("lv2", "^Neural Amp Modeler$")
-  local models = os.getenv("PAW_TEST_NAM_MODELS")
-  if not kind or not models then return "skipped: Neural Amp Modeler and its models not found" end
-  load()
-  local one, two = models .. "/BossLSTM-1x16.nam", models .. "/BossWN-feather.nam"
-  fresh()
-  local amp = long_guitar():add_device(kind)
-  paw.flush()
-  plugstate.lane_point(amp.id, 0, plugstate.lane_state(amp.id, nil, one))
-  plugstate.lane_point(amp.id, 1, plugstate.lane_state(amp.id, nil, two))
-  eq(plays_past(1, function() return plugstate.slot(amp.id).value == two end), true,
-    "NAM holds the second model once the playhead is past its point")
-  eq(plays_past(0, function() return plugstate.slot(amp.id).value == one end), true,
-    "and the first again when the song plays from the start")
+test(
+  "plugstate: as the song plays, a state lane switches the NAM model and TONE3000's preset at their points",
+  function()
+    local kind = kind_of("lv2", "^Neural Amp Modeler$")
+    local models = os.getenv("PAW_TEST_NAM_MODELS")
+    if not kind or not models then return "skipped: Neural Amp Modeler and its models not found" end
+    load()
+    local one, two = models .. "/BossLSTM-1x16.nam", models .. "/BossWN-feather.nam"
+    fresh()
+    local amp = long_guitar():add_device(kind)
+    paw.flush()
+    plugstate.lane_point(amp.id, 0, plugstate.lane_state(amp.id, nil, one))
+    plugstate.lane_point(amp.id, 1, plugstate.lane_state(amp.id, nil, two))
+    eq(
+      plays_past(1, function() return plugstate.slot(amp.id).value == two end),
+      true,
+      "NAM holds the second model once the playhead is past its point"
+    )
+    eq(
+      plays_past(0, function() return plugstate.slot(amp.id).value == one end),
+      true,
+      "and the first again when the song plays from the start"
+    )
 
-  local pkg = package("PAW_TEST_TONE3000")
-  local t3k = pkg and kind_of("clap", "^TONE3000$")
-  if not t3k then return end
-  local factory = pkg .. "/share/tone3000/factory-presets"
-  local a, b = factory .. "/Ampeg Bass Drive.t3kpreset", factory .. "/Bogner Fullstack.t3kpreset"
-  fresh()
-  local tone = long_guitar():add_device(t3k)
-  paw.flush()
-  plugstate.lane_point(tone.id, 0, (plugstate.lane_state(tone.id, nil, a)))
-  plugstate.lane_point(tone.id, 1, (plugstate.lane_state(tone.id, nil, b)))
-  eq(plays_past(1, function() return plugstate.slot(tone.id).value == b end), true,
-    "TONE3000 holds the second preset once the playhead is past its point")
-end)
-
+    local pkg = package("PAW_TEST_TONE3000")
+    local t3k = pkg and kind_of("clap", "^TONE3000$")
+    if not t3k then return end
+    local factory = pkg .. "/share/tone3000/factory-presets"
+    local a, b = factory .. "/Ampeg Bass Drive.t3kpreset", factory .. "/Bogner Fullstack.t3kpreset"
+    fresh()
+    local tone = long_guitar():add_device(t3k)
+    paw.flush()
+    plugstate.lane_point(tone.id, 0, (plugstate.lane_state(tone.id, nil, a)))
+    plugstate.lane_point(tone.id, 1, (plugstate.lane_state(tone.id, nil, b)))
+    eq(
+      plays_past(1, function() return plugstate.slot(tone.id).value == b end),
+      true,
+      "TONE3000 holds the second preset once the playhead is past its point"
+    )
+  end
+)

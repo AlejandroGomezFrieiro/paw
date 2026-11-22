@@ -11,7 +11,9 @@ local args = { ... }
 local tracks = tonumber(args[1]) or 16
 local seconds = tonumber(args[2]) or 20
 local only = {}
-for i = 3, #args do only[args[i]] = true end
+for i = 3, #args do
+  only[args[i]] = true
+end
 
 -- Settings that keep each effect busy, where its defaults would let it idle.
 local busy = {
@@ -26,7 +28,9 @@ local function build(kind)
   local bars = math.ceil(seconds / 2)
   for i = 0, tracks - 1 do
     local id = api.track_add({ name = "T" .. i })
-    for bar = 0, bars - 1 do api.clip_add(id, { start = bar * 4, length = 4, file = wav }) end
+    for bar = 0, bars - 1 do
+      api.clip_add(id, { start = bar * 4, length = 4, file = wav })
+    end
     if kind then api.device_add(id, kind, { params = busy[kind] or {} }) end
   end
   paw.flush()
@@ -52,7 +56,11 @@ for _, d in ipairs(api.device_types()) do
     local ms = render(d.kind)
     local per = (ms - base) / tracks
     B.emit({
-      workload = "devices", kind = d.kind, tracks = tracks, audio_seconds = audio, processing_ms = ms,
+      workload = "devices",
+      kind = d.kind,
+      tracks = tracks,
+      audio_seconds = audio,
+      processing_ms = ms,
       -- One instance's share of one core, in per cent, in real time.
       core_percent = per / (audio * 1000) * 100,
     })

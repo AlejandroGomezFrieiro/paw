@@ -15,9 +15,9 @@ local json = require("utau.json")
 local engine = utau.engine
 
 local M = {
-  pending = {},  -- request id -> { action, kind, clip, sent }
-  info = {},     -- clip id -> note id -> { current, count, vcurrent, vcount, phrase }
-  last = nil,    -- the last answer: { ok, message, error, changed }
+  pending = {}, -- request id -> { action, kind, clip, sent }
+  info = {}, -- clip id -> note id -> { current, count, vcurrent, vcount, phrase }
+  last = nil, -- the last answer: { ok, message, error, changed }
 }
 
 local request = 0
@@ -30,7 +30,11 @@ function M.set_option(track_id, key, value)
   for k, v in pairs(type(utau.config(track_id).options) == "table" and utau.config(track_id).options or {}) do
     options[k] = v
   end
-  if value == nil or value == "" then options[key] = nil else options[key] = tostring(value) end
+  if value == nil or value == "" then
+    options[key] = nil
+  else
+    options[key] = tostring(value)
+  end
   utau.configure(track_id, { options = next(options) and options or false })
 end
 
@@ -41,9 +45,7 @@ end
 
 --- AI pitch on or off for a track: on, the renderer's pitch model sings and
 --- the drawn pitch is added on top; off, the notes and drawn pitch alone.
-function M.ai_pitch(track_id, on)
-  M.set_option(track_id, "pitchmode", (not on) and "manual" or nil)
-end
+function M.ai_pitch(track_id, on) M.set_option(track_id, "pitchmode", (not on) and "manual" or nil) end
 
 --- Unison: `voices` voices (1 is off), with `opts` spacing (stereo %),
 --- pitch (detune cents), timing (ms), level (dB of the doubles).
@@ -87,7 +89,11 @@ function M.retake(clip_id, action, opts)
   args.notes = json.array(ids)
   request = request + 1
   local ok = engine.send(proto.encode.run_batch_edit({
-    request = request, name = "retake", parts = { tostring(clip_id) }, notes = ids, args = json.encode(args),
+    request = request,
+    name = "retake",
+    parts = { tostring(clip_id) },
+    notes = ids,
+    args = json.encode(args),
   }))
   if not ok then return nil end
   M.pending[request] = { action = action, kind = args.kind, clip = clip_id, sent = api.now() }
@@ -100,14 +106,27 @@ engine.handlers.BatchEditResult = function(m)
   M.pending[m.request] = nil
   local ok, v = pcall(json.decode, m.message or "")
   if not ok then v = nil end
-  local answer = { ok = m.ok, message = m.message, error = type(v) == "table" and v.error or nil,
-    changed = type(v) == "table" and v.changed or 0, action = p.action, kind = p.kind, clip = p.clip }
+  local answer = {
+    ok = m.ok,
+    message = m.message,
+    error = type(v) == "table" and v.error or nil,
+    changed = type(v) == "table" and v.changed or 0,
+    action = p.action,
+    kind = p.kind,
+    clip = p.clip,
+  }
   if type(v) == "table" and type(v.phrases) == "table" then
     local notes = M.info[p.clip] or {}
     M.info[p.clip] = notes
     for _, ph in ipairs(v.phrases) do
       for _, id in ipairs(ph.notes or {}) do
-        notes[id] = { current = ph.current, count = ph.count, vcurrent = ph.vcurrent or 0, vcount = ph.vcount or 1, phrase = ph.hash }
+        notes[id] = {
+          current = ph.current,
+          count = ph.count,
+          vcurrent = ph.vcurrent or 0,
+          vcount = ph.vcount or 1,
+          phrase = ph.hash,
+        }
       end
     end
   end
@@ -116,7 +135,14 @@ engine.handlers.BatchEditResult = function(m)
     if not m.ok or answer.error then
       paw.notify("utau: " .. tostring(answer.error or m.message), "warn")
     elseif answer.changed > 0 then
-      paw.notify(string.format("utau: %s take for %d phrase%s, singing it", p.kind, answer.changed, answer.changed == 1 and "" or "s"))
+      paw.notify(
+        string.format(
+          "utau: %s take for %d phrase%s, singing it",
+          p.kind,
+          answer.changed,
+          answer.changed == 1 and "" or "s"
+        )
+      )
     else
       paw.notify("utau: no other " .. p.kind .. " take there")
     end
@@ -125,11 +151,9 @@ engine.handlers.BatchEditResult = function(m)
 end
 
 --- What the engine said about a note's takes, or nil.
-function M.take_info(clip_id, index)
-  return M.info[clip_id] and M.info[clip_id][index]
-end
+function M.take_info(clip_id, index) return M.info[clip_id] and M.info[clip_id][index] end
 
-M.TIMING_RANGE = 18   -- ticks either way
+M.TIMING_RANGE = 18 -- ticks either way
 
 --- The onset offset, in ticks, a timing take gives a note: repeatable for
 --- the same note and take, within ±range, small more often than large.
@@ -192,7 +216,9 @@ function M.renderer_of(track_id)
 end
 
 local STANDARD = {}
-for _, abbr in ipairs(utau.CURVES) do STANDARD[abbr] = true end
+for _, abbr in ipairs(utau.CURVES) do
+  STANDARD[abbr] = true
+end
 
 --- The curves the renderer offers beyond the standard ones.
 function M.extra_expressions(track_id)
@@ -212,7 +238,9 @@ function M.add_curve(track_id, desc)
   if not device then error("not a vocal track", 0) end
   local config = utau.config(track_id)
   local map = {}
-  for k, v in pairs(type(config.curves) == "table" and config.curves or {}) do map[k] = v end
+  for k, v in pairs(type(config.curves) == "table" and config.curves or {}) do
+    map[k] = v
+  end
   for slot, c in pairs(map) do
     if c.abbr == desc.abbr then return slot end
   end
@@ -233,7 +261,9 @@ function M.remove_curve(track_id, abbr)
   local device = utau.device_of(track_id)
   local config = utau.config(track_id)
   local map = {}
-  for k, v in pairs(type(config.curves) == "table" and config.curves or {}) do map[k] = v end
+  for k, v in pairs(type(config.curves) == "table" and config.curves or {}) do
+    map[k] = v
+  end
   for slot, c in pairs(map) do
     if c.abbr == abbr then
       local lane = require("utau.notes").lane(track_id, device, slot)

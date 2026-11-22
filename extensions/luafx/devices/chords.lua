@@ -12,7 +12,9 @@ local shapes = {
   { "Minor 7", { 0, 3, 7, 10 } },
 }
 local names = {}
-for i, s in ipairs(shapes) do names[i] = s[1] end
+for i, s in ipairs(shapes) do
+  names[i] = s[1]
+end
 
 local dev = dsp.device {
   name = "Chords (Lua)",
@@ -47,7 +49,9 @@ function dev.process(b)
       end
       held[id] = keys
     elseif e.type == dsp.NOTE_OFF then
-      for _, key in ipairs(held[id] or {}) do b:note_off(e.frame, key, e.channel) end
+      for _, key in ipairs(held[id] or {}) do
+        b:note_off(e.frame, key, e.channel)
+      end
       held[id] = nil
     else
       b:pass(e)

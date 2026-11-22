@@ -50,9 +50,7 @@ end
 
 local exists = paw.api.fs_exists
 
-local function place(entry)
-  return entry.path:match("^(.*)/[^/]*$") or "."
-end
+local function place(entry) return entry.path:match("^(.*)/[^/]*$") or "." end
 
 --- The projects opened or saved last, newest first: `{ path, name, time }`
 --- (`time` is when, in seconds since 1970). A file that is gone is left out.
@@ -151,7 +149,9 @@ paw.pick.sources.recent = {
   on_choose = function(item) M.open(item.path) end,
   delete = function(items)
     local gone = {}
-    for _, item in ipairs(items) do gone[item.path] = true end
+    for _, item in ipairs(items) do
+      gone[item.path] = true
+    end
     local kept = {}
     for _, entry in ipairs(read()) do
       if type(entry) == "table" and not gone[entry.path] then kept[#kept + 1] = entry end

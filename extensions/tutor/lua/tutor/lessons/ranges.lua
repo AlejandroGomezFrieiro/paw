@@ -38,13 +38,20 @@ have the `:t` of Vim, because `t` starts a range of tracks.]],
     local function track(name, device, params, make)
       local t = paw.add_track({ name = name, volume = name == "Keys" and -10 or -4 })
       t:add_device(device, params)
-      for i = 1, 4 do t:add_clip({ name = name:sub(1, 1):lower() .. i, start = (i - 1) * 4, length = 4, notes = make(i) }) end
+      for i = 1, 4 do
+        t:add_clip({ name = name:sub(1, 1):lower() .. i, start = (i - 1) * 4, length = 4, notes = make(i) })
+      end
     end
     track("Drums", "drums", {}, function() return look.drums(look.beat) end)
     local roots = { "A1", "F1", "C2", "G1" }
     track("Bass", "synth", { wave = 2, cutoff = 600, release = 0.05 }, function(i) return look.pulse(roots[i], 4) end)
     local chords = { { "A3", "C4", "E4" }, { "F3", "A3", "C4" }, { "G3", "C4", "E4" }, { "G3", "B3", "D4" } }
-    track("Keys", "synth", { wave = 3, attack = 0.05, release = 0.4, cutoff = 1800 }, function(i) return look.chord(chords[i], 4) end)
+    track(
+      "Keys",
+      "synth",
+      { wave = 3, attack = 0.05, release = 0.4, cutoff = 1800 },
+      function(i) return look.chord(chords[i], 4) end
+    )
     paw.transport.loop_start, paw.transport.loop_end, paw.transport.loop_enabled = 0, 16, true
   end,
   at = function() paw.cursor.set_track(paw.track("Drums")) end,
@@ -86,7 +93,11 @@ have the `:t` of Vim, because `t` starts a range of tracks.]],
         local c4, d4 = 0, 0
         for _, c in ipairs(look.clips("Keys")) do
           for _, n in ipairs(c:notes()) do
-            if n.pitch == 60 then c4 = c4 + 1 elseif n.pitch == 62 then d4 = d4 + 1 end
+            if n.pitch == 60 then
+              c4 = c4 + 1
+            elseif n.pitch == 62 then
+              d4 = d4 + 1
+            end
           end
         end
         return c4 == 0 and d4 == 4

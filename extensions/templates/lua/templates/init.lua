@@ -23,7 +23,7 @@ function M.dir()
 end
 
 local function file_name(name)
-  local text = tostring(name or ""):gsub("[/\\:%*%?\"<>|%c]", "_"):gsub("^%s+", ""):gsub("%s+$", "")
+  local text = tostring(name or ""):gsub('[/\\:%*%?"<>|%c]', "_"):gsub("^%s+", ""):gsub("%s+$", "")
   if text == "" then error("a template needs a name", 3) end
   return text
 end
@@ -32,9 +32,7 @@ end
 --- name cannot hold made `_`.
 M.file_name = file_name
 
-function M.path(kind, name)
-  return M.dir() .. "/" .. kind .. "/" .. file_name(name) .. ".json"
-end
+function M.path(kind, name) return M.dir() .. "/" .. kind .. "/" .. file_name(name) .. ".json" end
 
 local function write(kind, name, data)
   local path = M.path(kind, name)
@@ -88,7 +86,9 @@ end
 function M.save_fx(track, name)
   track = type(track) == "table" and track or paw.track(track)
   local devices = {}
-  for i, device in ipairs(track:devices()) do devices[i] = device:snapshot() end
+  for i, device in ipairs(track:devices()) do
+    devices[i] = device:snapshot()
+  end
   if #devices == 0 then error("the track has no devices to save", 2) end
   return write("fx", name, { devices = unrouted(devices) })
 end
@@ -155,7 +155,9 @@ function M.load(name, opts)
     local track = opts.track and paw.track(opts.track) or paw.cursor.track()
     if not track then error("no track to add the devices to", 2) end
     local made = {}
-    for i, device in ipairs(data.devices or {}) do made[i] = paw.restore_device(device, track) end
+    for i, device in ipairs(data.devices or {}) do
+      made[i] = paw.restore_device(device, track)
+    end
     return made, kind
   end
   -- A group: its own track first, then its members under it, in order.

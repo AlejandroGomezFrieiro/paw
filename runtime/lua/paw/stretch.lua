@@ -31,7 +31,9 @@ local EPS = 1e-9
 --- the first and the last. With `back`, the other way.
 local function unstretched(warp, x, back)
   local from, to = "source", "target"
-  if back then from, to = to, from end
+  if back then
+    from, to = to, from
+  end
   local n = #warp
   if x <= warp[1][from] then return warp[1][to] + x - warp[1][from] end
   for i = 2, n do
@@ -46,9 +48,7 @@ end
 --- along the tempo (`clip.bent`, when it follows a tempo that changes in it).
 function M.file_at(c, by)
   local warp = c.warp or {}
-  if #warp == 0 and not c.bent then
-    return c.offset + paw.time.seconds(by, c.start) / (c.stretch or 1)
-  end
+  if #warp == 0 and not c.bent then return c.offset + paw.time.seconds(by, c.start) / (c.stretch or 1) end
   local played = c.bent and by * 60 / c.source_tempo or paw.time.seconds(by, c.start) / (c.stretch or 1)
   if #warp == 0 then return c.offset + played end
   return unstretched(warp, unstretched(warp, c.offset) + played, true)
@@ -57,9 +57,7 @@ end
 --- Seconds of an audio clip's file that `beats` beats of it from beat `at`
 --- (its start when left out) play.
 function M.file_seconds(c, beats, at)
-  if #(c.warp or {}) == 0 and not c.bent then
-    return paw.time.seconds(beats, at or c.start) / (c.stretch or 1)
-  end
+  if #(c.warp or {}) == 0 and not c.bent then return paw.time.seconds(beats, at or c.start) / (c.stretch or 1) end
   local from = (at or c.start) - c.start
   return M.file_at(c, from + beats) - M.file_at(c, from)
 end
@@ -76,7 +74,6 @@ function M.lead(c)
   end
   return u * (c.stretch or 1)
 end
-
 
 --- The play position of a clip after its start moves `by` beats later
 --- (earlier below 0), while its sound stays at the same time. For sound,
@@ -106,11 +103,15 @@ function M.move_content(id, by)
     api.clip_set(id, "offset", m.offset)
   elseif math.abs(m.shift) > EPS then
     local notes = api.clip_notes(id)
-    for _, n in ipairs(notes) do n.start = n.start + m.shift end
+    for _, n in ipairs(notes) do
+      n.start = n.start + m.shift
+    end
     api.clip_set_notes(id, notes)
     if c.control_count > 0 then
       local controls = api.clip_controls(id)
-      for _, move in ipairs(controls) do move.start = move.start + m.shift end
+      for _, move in ipairs(controls) do
+        move.start = move.start + m.shift
+      end
       api.clip_set_controls(id, controls)
     end
     paw.takes.shift(id, m.shift)
@@ -190,7 +191,9 @@ end
 function M.markers(c)
   if #(c.warp or {}) == 0 then return nil end
   local out = {}
-  for i, m in ipairs(c.warp) do out[i] = { source = m.source, target = m.target } end
+  for i, m in ipairs(c.warp) do
+    out[i] = { source = m.source, target = m.target }
+  end
   return out
 end
 
@@ -205,21 +208,19 @@ end
 --- it and the markers next to it stretches, and the start and the end of
 --- the clip do not move. The stretch on each side stays between 0.25 and 4.
 --- Returns its index, which can be different.
-function M.warp_move(id, index, beat)
-  return api.clip_warp_move(id, index, beat)
-end
+function M.warp_move(id, index, beat) return api.clip_warp_move(id, index, beat) end
 
 --- Take warp marker `index` off a clip.
-function M.warp_remove(id, index)
-  api.clip_warp_remove(id, index)
-end
+function M.warp_remove(id, index) api.clip_warp_remove(id, index) end
 
 --- The index of a clip's warp marker nearest `beat`, and how far it is.
 function M.warp_near(c, beat)
   local best, dist
   for i, m in ipairs(c.warp or {}) do
     local d = math.abs(m.beat - beat)
-    if not dist or d < dist then best, dist = i, d end
+    if not dist or d < dist then
+      best, dist = i, d
+    end
   end
   return best, dist
 end
@@ -237,7 +238,6 @@ function M.warp_snap(id, step)
     n = #api.clip_get(id).warp
   end
 end
-
 
 --- Shift an audio clip's pitch to `semitones` (fractions allowed) above its file's.
 function M.pitch(id, semitones)
@@ -316,9 +316,7 @@ function M.badge(c)
   if c.stretch and math.abs(c.stretch - 1) > EPS then
     parts[#parts + 1] = string.format(ascii and "x%.3g" or "×%.3g", c.stretch)
   end
-  if c.pitch and math.abs(c.pitch) > EPS then
-    parts[#parts + 1] = string.format("%+.3gst", c.pitch)
-  end
+  if c.pitch and math.abs(c.pitch) > EPS then parts[#parts + 1] = string.format("%+.3gst", c.pitch) end
   -- Following the tempo, and looping.
   if c.timebase == "stretch" then parts[#parts + 1] = ascii and "bpm" or "♩" end
   if c.loop then parts[#parts + 1] = ascii and "loop" or "↻" end

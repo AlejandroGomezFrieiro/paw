@@ -30,7 +30,9 @@ end
 local function settle(list, side)
   if #list == 0 then return end
   local ok, err = pcall(function()
-    for _, c in ipairs(list) do merge.resolve(view.doc, c, side) end
+    for _, c in ipairs(list) do
+      merge.resolve(view.doc, c, side)
+    end
     write()
   end)
   if not ok then return paw.notify("cannot settle: " .. tostring(err):match("[^\n]*"), "error") end
@@ -47,7 +49,15 @@ function view:render(buf)
   local rows = buf.height - 8
   if self.sel <= self.scroll then self.scroll = self.sel - 1 end
   if self.sel > self.scroll + rows then self.scroll = self.sel - rows end
-  buf:text(1, 0, paw.util.fit(string.format("%s: %d conflict%s", self.path:match("[^/]*$"), #list, #list == 1 and "" or "s"), buf.width - 2), "HelpSection")
+  buf:text(
+    1,
+    0,
+    paw.util.fit(
+      string.format("%s: %d conflict%s", self.path:match("[^/]*$"), #list, #list == 1 and "" or "s"),
+      buf.width - 2
+    ),
+    "HelpSection"
+  )
   for r = 0, rows - 1 do
     local c = list[r + 1 + self.scroll]
     if c then
@@ -62,7 +72,9 @@ function view:render(buf)
   if c then
     local function side(name, label)
       local absent = false
-      for _, s in ipairs(c.absent or {}) do absent = absent or s == name end
+      for _, s in ipairs(c.absent or {}) do
+        absent = absent or s == name
+      end
       local text = absent and "(not there)" or data.show(c[name], buf.width - 12)
       buf:text(1, y, label, "Dim")
       buf:text(10, y, text, name == "ours" and "Info" or name == "theirs" and "Warn" or "Normal")
@@ -76,7 +88,9 @@ function view:render(buf)
 end
 
 local single = {
-  co = "ours", ct = "theirs", cb = "base",
+  co = "ours",
+  ct = "theirs",
+  cb = "base",
 }
 
 function view:on_key(key)

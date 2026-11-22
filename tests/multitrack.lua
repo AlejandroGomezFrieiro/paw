@@ -23,7 +23,9 @@ local keys = T.keys
 
 local function notes(list)
   local out = {}
-  for _, n in ipairs(list) do out[#out + 1] = { pitch = n[1], start = n[2], length = n[3] or 1, velocity = 100 } end
+  for _, n in ipairs(list) do
+    out[#out + 1] = { pitch = n[1], start = n[2], length = n[3] or 1, velocity = 100 }
+  end
   return out
 end
 
@@ -32,7 +34,9 @@ end
 local function song()
   fresh()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.focus("arrange")
   paw.opt.grid, paw.opt.note_grid, paw.opt.ripple, paw.opt.roll_context = 1, 0.25, false, "all"
   local keys_t = paw.add_track({ name = "Keys" })
@@ -41,10 +45,20 @@ local function song()
   local drums_t = paw.add_track({ name = "Drums" })
   drums_t.meta = { drums = { map = "gm", rows = {} } }
   local s = {
-    keys = keys_t:add_clip({ name = "chords", start = 0, length = 8, notes = notes({ { 60, 0 }, { 64, 1 }, { 67, 2 } }) }),
+    keys = keys_t:add_clip({
+      name = "chords",
+      start = 0,
+      length = 8,
+      notes = notes({ { 60, 0 }, { 64, 1 }, { 67, 2 } }),
+    }),
     bass = bass_t:add_clip({ name = "line", start = 2, length = 4, notes = notes({ { 36, 0 }, { 43, 1 }, { 40, 2 } }) }),
     pad = pad_t:add_clip({ name = "pad", start = 0, length = 8, notes = notes({ { 72, 0, 4 }, { 76, 4, 4 } }) }),
-    drums = drums_t:add_clip({ name = "beat", start = 0, length = 8, notes = notes({ { 36, 0, 0.25 }, { 38, 1, 0.25 } }) }),
+    drums = drums_t:add_clip({
+      name = "beat",
+      start = 0,
+      length = 8,
+      notes = notes({ { 36, 0, 0.25 }, { 38, 1, 0.25 } }),
+    }),
     tracks = { keys = keys_t, bass = bass_t, pad = pad_t, drums = drums_t },
   }
   api.undo_checkpoint()
@@ -53,7 +67,9 @@ end
 
 local function pitches(list)
   local out = {}
-  for _, n in ipairs(list) do out[#out + 1] = n.pitch .. "@" .. n.start end
+  for _, n in ipairs(list) do
+    out[#out + 1] = n.pitch .. "@" .. n.start
+  end
   table.sort(out)
   return table.concat(out, " ")
 end
@@ -98,7 +114,9 @@ local function cells(width, height)
     for _, run in ipairs(shot.rows[y + 1] or {}) do
       if x >= run.x and x < run.x + run.w then
         local chars = {}
-        for ch in run.text:gmatch("[%z\1-\127\194-\244][\128-\191]*") do chars[#chars + 1] = ch end
+        for ch in run.text:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+          chars[#chars + 1] = ch
+        end
         return { ch = chars[x - run.x + 1] or " ", fg = run.fg, bg = run.bg, text = run.text }
       end
     end
@@ -106,15 +124,15 @@ local function cells(width, height)
   local lines = {}
   for i, row in ipairs(shot.rows) do
     local parts = {}
-    for _, run in ipairs(row) do parts[#parts + 1] = run.text end
+    for _, run in ipairs(row) do
+      parts[#parts + 1] = run.text
+    end
     lines[i] = table.concat(parts)
   end
   return at, table.concat(lines, "\n")
 end
 
-local function faint(colour)
-  return paw.draw.mix(require("paw.theme").palette.bg, colour, 0.20)
-end
+local function faint(colour) return paw.draw.mix(require("paw.theme").palette.bg, colour, 0.20) end
 
 test("the terminal's piano roll draws other tracks' notes dashed in their colours, its own solid and named", function()
   local s = song()
@@ -155,14 +173,22 @@ test("the terminal's piano roll draws every clip edited, says which is active an
   local at, text = cells(120, 30)
   local bass_colour = paw.draw.track_colour(api.track_get(s.tracks.bass.id))
   local first = text:match("^[^\n]*")
-  eq(first:find(" chords ", 1, true) ~= nil and first:find("Keys  +1 clip", 1, true) ~= nil, true, "the title: the active clip and one more")
+  eq(
+    first:find(" chords ", 1, true) ~= nil and first:find("Keys  +1 clip", 1, true) ~= nil,
+    true,
+    "the title: the active clip and one more"
+  )
   local note = at(3.5, 43) -- not the one under the cursor, which is drawn as the cursor
   eq(note.ch ~= "╌" and note.bg == bass_colour, true, "a bass note drawn as a note, in the bass's colour")
   eq(text:find("▏C2", 1, true) ~= nil, true, "and named")
   keys("ga")
   at, text = cells(120, 30)
   first = text:match("^[^\n]*")
-  eq(first:find(" line ", 1, true) ~= nil and first:find("Bass  +1 clip", 1, true) ~= nil, true, "ga: the bass clip is active")
+  eq(
+    first:find(" line ", 1, true) ~= nil and first:find("Bass  +1 clip", 1, true) ~= nil,
+    true,
+    "ga: the bass clip is active"
+  )
   eq(at(1.5, 43).bg, bass_colour, "its notes where they were, a beat in now")
   -- A stretch of time across both, deleted, in the terminal.
   roll:set(40, -0.5)
@@ -180,48 +206,59 @@ test("the terminal's piano roll draws every clip edited, says which is active an
   paw.opt.note_zoom = zoom
 end)
 
-test("several clips are edited at once, new notes go to the active one, the cursor keeps its place in the song", function()
-  local s = song()
-  local roll = paw.ui.views.pianoroll
-  rc.open({ s.keys.id, s.bass.id }, s.keys.id)
-  eq(rc.active() .. " " .. #rc.ids(), s.keys.id .. " 2", "keys active, two clips editable")
-  eq(pitches(rc.context()), "72@0 76@4", "the bass is no longer context")
-  eq(pitches(roll:ordered()), "36@2 40@4 43@3 60@0 64@1 67@2", "motions see the notes of both, in the roll's beats")
-  keys("gg")
-  eq(roll.pitch, 67, "gg: the highest of both")
-  keys("G")
-  eq(roll.pitch, 36, "G: the lowest of both")
-  roll:set(nil, 0)
-  keys("ww")
-  eq(roll.pitch .. "@" .. roll.beat, "36@2", "w goes from note to note across the clips, the lowest of a chord first")
-  keys("w")
-  eq(roll.pitch .. "@" .. roll.beat, "43@3", "then the next bass note")
-  keys("<CR>")
-  eq(melody(s.bass), "36@0+1 40@2+1", "Enter on a bass note removes it from the bass clip")
-  keys("u")
-  roll:set(50, 0.5)
-  keys("<CR>")
-  eq(melody(s.keys):find("50@0.5", 1, true) ~= nil, true, "a new note goes into the active clip")
-  roll:set(52, 6.5)
-  keys("<CR>")
-  eq(melody(s.keys):find("52@6.5", 1, true) ~= nil, true, "inside both, still into the active one")
-  roll:set(nil, 3)
-  rc.activate(s.bass.id)
-  eq(rc.active() .. " " .. #rc.ids() .. " " .. roll.beat, s.bass.id .. " 2 1", "the bass active: the cursor is one beat into it")
-  keys("gn")
-  eq(rc.active(), s.keys.id, "gn: the next clip edited is active")
-  eq(roll.beat, 3, "and the cursor where it was")
-  roll:set(72, 0)
-  keys("gE")
-  eq(#rc.ids() .. " " .. tostring(rc.editable(s.pad.id)), "3 true", "gE on a context note edits its clip too")
-  keys("gE")
-  eq(#rc.ids() .. " " .. tostring(rc.editable(s.pad.id)), "2 false", "and again no longer")
-  keys("ga")
-  eq(rc.active() .. " " .. #rc.ids(), s.pad.id .. " 2", "ga makes the clip of the note under the cursor active, in the old one's place")
-  eq(rc.editable(s.bass.id) and not rc.editable(s.keys.id), true, "the others stay")
-  paw.ui.views.pianoroll:edit(s.keys)
-  eq(#rc.ids(), 1, "opening a clip edits it alone")
-end)
+test(
+  "several clips are edited at once, new notes go to the active one, the cursor keeps its place in the song",
+  function()
+    local s = song()
+    local roll = paw.ui.views.pianoroll
+    rc.open({ s.keys.id, s.bass.id }, s.keys.id)
+    eq(rc.active() .. " " .. #rc.ids(), s.keys.id .. " 2", "keys active, two clips editable")
+    eq(pitches(rc.context()), "72@0 76@4", "the bass is no longer context")
+    eq(pitches(roll:ordered()), "36@2 40@4 43@3 60@0 64@1 67@2", "motions see the notes of both, in the roll's beats")
+    keys("gg")
+    eq(roll.pitch, 67, "gg: the highest of both")
+    keys("G")
+    eq(roll.pitch, 36, "G: the lowest of both")
+    roll:set(nil, 0)
+    keys("ww")
+    eq(roll.pitch .. "@" .. roll.beat, "36@2", "w goes from note to note across the clips, the lowest of a chord first")
+    keys("w")
+    eq(roll.pitch .. "@" .. roll.beat, "43@3", "then the next bass note")
+    keys("<CR>")
+    eq(melody(s.bass), "36@0+1 40@2+1", "Enter on a bass note removes it from the bass clip")
+    keys("u")
+    roll:set(50, 0.5)
+    keys("<CR>")
+    eq(melody(s.keys):find("50@0.5", 1, true) ~= nil, true, "a new note goes into the active clip")
+    roll:set(52, 6.5)
+    keys("<CR>")
+    eq(melody(s.keys):find("52@6.5", 1, true) ~= nil, true, "inside both, still into the active one")
+    roll:set(nil, 3)
+    rc.activate(s.bass.id)
+    eq(
+      rc.active() .. " " .. #rc.ids() .. " " .. roll.beat,
+      s.bass.id .. " 2 1",
+      "the bass active: the cursor is one beat into it"
+    )
+    keys("gn")
+    eq(rc.active(), s.keys.id, "gn: the next clip edited is active")
+    eq(roll.beat, 3, "and the cursor where it was")
+    roll:set(72, 0)
+    keys("gE")
+    eq(#rc.ids() .. " " .. tostring(rc.editable(s.pad.id)), "3 true", "gE on a context note edits its clip too")
+    keys("gE")
+    eq(#rc.ids() .. " " .. tostring(rc.editable(s.pad.id)), "2 false", "and again no longer")
+    keys("ga")
+    eq(
+      rc.active() .. " " .. #rc.ids(),
+      s.pad.id .. " 2",
+      "ga makes the clip of the note under the cursor active, in the old one's place"
+    )
+    eq(rc.editable(s.bass.id) and not rc.editable(s.keys.id), true, "the others stay")
+    paw.ui.views.pianoroll:edit(s.keys)
+    eq(#rc.ids(), 1, "opening a clip edits it alone")
+  end
+)
 
 test("operators, yank and paste act on every clip edited, each note staying in its own, one undo step each", function()
   local s = song()
@@ -231,7 +268,11 @@ test("operators, yank and paste act on every clip edited, each note staying in i
   keys("v")
   roll:set(60, 3)
   keys("d")
-  eq(melody(s.keys) .. " | " .. melody(s.bass), "60@0+1 | 43@1+1 40@2+1", "beats 1 to 3: E and G of the keys, the first bass note")
+  eq(
+    melody(s.keys) .. " | " .. melody(s.bass),
+    "60@0+1 | 43@1+1 40@2+1",
+    "beats 1 to 3: E and G of the keys, the first bass note"
+  )
   keys("u")
   eq(melody(s.keys) .. " | " .. melody(s.bass), "60@0+1 64@1+1 67@2+1 | 36@0+1 43@1+1 40@2+1", "one u brings both back")
   keys("0y$")
@@ -247,11 +288,19 @@ test("operators, yank and paste act on every clip edited, each note staying in i
   keys("u")
   roll:set(60, 0)
   keys("vG$>")
-  eq(melody(s.keys) .. " | " .. melody(s.bass), "60@0.25+1 64@1.25+1 67@2.25+1 | 36@0.25+1 43@1.25+1 40@2.25+1", "> moves the notes of both")
+  eq(
+    melody(s.keys) .. " | " .. melody(s.bass),
+    "60@0.25+1 64@1.25+1 67@2.25+1 | 36@0.25+1 43@1.25+1 40@2.25+1",
+    "> moves the notes of both"
+  )
   keys("u")
   roll:set(60, 2)
   keys("v$<C-a>")
-  eq(melody(s.keys) .. " | " .. melody(s.bass), "60@0+1 64@1+1 68@2+1 | 37@0+1 44@1+1 41@2+1", "<C-a> on a selection over both")
+  eq(
+    melody(s.keys) .. " | " .. melody(s.bass),
+    "60@0+1 64@1+1 68@2+1 | 37@0+1 44@1+1 41@2+1",
+    "<C-a> on a selection over both"
+  )
   keys("u")
   keys("0yie")
   eq(#paw.keymap.getreg().notes, 6, "ie is every note of the clips edited")
@@ -268,17 +317,29 @@ test("the pointer chooses, drags and deletes notes in several clips as one step"
   local s = song()
   local act = paw.frontend.act
   rc.open({ s.keys.id, s.bass.id }, s.keys.id)
-  eq(act.select_notes_box(s.keys.id, 2.5, 30, 3.5, 70), 3, "a box over beats 2.5 to 3.5 takes the keys' G and two bass notes")
+  eq(
+    act.select_notes_box(s.keys.id, 2.5, 30, 3.5, 70),
+    3,
+    "a box over beats 2.5 to 3.5 takes the keys' G and two bass notes"
+  )
   local refs = paw.frontend.chosen_refs()
   eq(#refs, 3, "chosen in both clips")
   eq(paw.frontend.chosen_text(s.keys.id):match("^3 notes in 2 clips") ~= nil, true, "said in words")
   -- Drag the keys' G one beat later and two semitones up: the bass notes follow.
   act.drag_notes(s.keys.id, 3, 1, 2)
   api.undo_checkpoint()
-  eq(melody(s.keys) .. " | " .. melody(s.bass), "60@0+1 64@1+1 69@3+1 | 38@1+1 40@2+1 45@2+1", "both clips' notes moved, each in its own clip")
+  eq(
+    melody(s.keys) .. " | " .. melody(s.bass),
+    "60@0+1 64@1+1 69@3+1 | 38@1+1 40@2+1 45@2+1",
+    "both clips' notes moved, each in its own clip"
+  )
   eq(#paw.frontend.chosen_refs(), 3, "and are still chosen")
   paw.undo()
-  eq(melody(s.keys) .. " | " .. melody(s.bass), "60@0+1 64@1+1 67@2+1 | 36@0+1 43@1+1 40@2+1", "one undo puts both back")
+  eq(
+    melody(s.keys) .. " | " .. melody(s.bass),
+    "60@0+1 64@1+1 67@2+1 | 36@0+1 43@1+1 40@2+1",
+    "one undo puts both back"
+  )
   act.select_notes_box(s.keys.id, 2.5, 30, 3.5, 70)
   act.drag_notes(s.keys.id, 3, -10, 0)
   eq(melody(s.bass):sub(1, 6), "36@0+1", "a drag stops where a note would leave its clip")
@@ -342,32 +403,38 @@ test("several chosen clips open together: Enter on a selection, or a double clic
   eq(#rc.ids(), 1, "on a clip alone, that clip alone")
 end)
 
-test("a window is sent the notes of every clip edited as notes on the roll's plane, each in its own clip and colour", function()
-  local s = song()
-  rc.open({ s.keys.id, s.bass.id }, s.keys.id)
-  paw.ui.show("pianoroll")
-  local roll = paw.ui.views.pianoroll
-  roll.top, roll.scroll = 80, 0
-  paw.frontend.act.select_notes_box(s.keys.id, 2.5, 30, 3.5, 70)
-  api.scene_forget(0)
-  api.scene_roles(0, { "note" })
-  paw.ui.render_scene("pianoroll", 140, 90, { w = 8, h = 16 })
-  local patch = api.json_decode(api.scene_end(0, "multitrack"))
-  api.scene_forget(0)
-  local keys, bass, chosen = 0, nil, 0
-  for _, n in ipairs(patch.set) do
-    if n.role == "note" then
-      if n.hit.clip == s.keys.id then keys = keys + 1 end
-      if n.hit.clip == s.bass.id and n.hit.place == 1 then bass = n end
-      if n.props.selected then chosen = chosen + 1 end
+test(
+  "a window is sent the notes of every clip edited as notes on the roll's plane, each in its own clip and colour",
+  function()
+    local s = song()
+    rc.open({ s.keys.id, s.bass.id }, s.keys.id)
+    paw.ui.show("pianoroll")
+    local roll = paw.ui.views.pianoroll
+    roll.top, roll.scroll = 80, 0
+    paw.frontend.act.select_notes_box(s.keys.id, 2.5, 30, 3.5, 70)
+    api.scene_forget(0)
+    api.scene_roles(0, { "note" })
+    paw.ui.render_scene("pianoroll", 140, 90, { w = 8, h = 16 })
+    local patch = api.json_decode(api.scene_end(0, "multitrack"))
+    api.scene_forget(0)
+    local keys, bass, chosen = 0, nil, 0
+    for _, n in ipairs(patch.set) do
+      if n.role == "note" then
+        if n.hit.clip == s.keys.id then keys = keys + 1 end
+        if n.hit.clip == s.bass.id and n.hit.place == 1 then bass = n end
+        if n.props.selected then chosen = chosen + 1 end
+      end
     end
+    eq(keys, 3, "the active clip's notes")
+    eq(
+      bass ~= nil and bass.r[1] .. " " .. bass.props.color,
+      "2 " .. paw.draw.track_colour(api.track_get(s.tracks.bass.id)),
+      "a bass note in the keys' beats, in the bass's colour, named by its clip and place"
+    )
+    eq(chosen, 3, "the chosen notes of both")
+    paw.ui.hide("pianoroll")
   end
-  eq(keys, 3, "the active clip's notes")
-  eq(bass ~= nil and bass.r[1] .. " " .. bass.props.color, "2 " .. paw.draw.track_colour(api.track_get(s.tracks.bass.id)),
-    "a bass note in the keys' beats, in the bass's colour, named by its clip and place")
-  eq(chosen, 3, "the chosen notes of both")
-  paw.ui.hide("pianoroll")
-end)
+)
 
 test("the layers of the piano roll draw back to front, the same for both frontends", function()
   local s = song()
@@ -378,7 +445,9 @@ test("the layers of the piano roll draw back to front, the same for both fronten
   roll.layer("test-under", 5, function(p) p.roll:text(0, 0, "under", "Bright") end)
   local orders = {}
   for _, layer in ipairs(roll.layers) do
-    if layer.name:match("^test") or layer.name == "context" or layer.name == "notes" then orders[#orders + 1] = layer.name end
+    if layer.name:match("^test") or layer.name == "context" or layer.name == "notes" then
+      orders[#orders + 1] = layer.name
+    end
   end
   eq(table.concat(orders, " "), "test-under context notes test-marks", "back to front")
   paw.ui.show("pianoroll")
@@ -399,5 +468,9 @@ test("musicops operators work on every clip the piano roll edits", function()
   roll:set(60, 0)
   paw.ui.focus("pianoroll")
   keys("vG$gzt")
-  eq(melody(s.keys) .. " | " .. melody(s.bass), "60@0+0.5 64@1+0.5 67@2+0.5 | 36@0+0.5 43@1+0.5 40@2+0.5", "staccato on both clips")
+  eq(
+    melody(s.keys) .. " | " .. melody(s.bass),
+    "60@0+0.5 64@1+0.5 67@2+0.5 | 36@0+0.5 43@1+0.5 40@2+0.5",
+    "staccato on both clips"
+  )
 end)

@@ -13,7 +13,6 @@ local test, eq = T.test, T.eq
 
 -- "Make music with paw" (docs/tutorials/make-music) --------------------------
 
-
 --- Type the keys of a step, each item as one key at the keyboard: the
 --- kernel closes the undo step after each.
 local function step(...)
@@ -30,7 +29,11 @@ local function open(script)
   paw.keymap.feed("<Esc><Esc>")
   if script then
     step(":example make-music/" .. script:gsub("%.lua$", "") .. "<CR>")
-    eq(paw.ui.message.text:find("opened the example", 1, true) ~= nil, true, ":example opens " .. script .. ": " .. paw.ui.message.text)
+    eq(
+      paw.ui.message.text:find("opened the example", 1, true) ~= nil,
+      true,
+      ":example opens " .. script .. ": " .. paw.ui.message.text
+    )
   end
   paw.flush()
 end
@@ -43,7 +46,9 @@ local function melody(clip)
     return a.pitch < b.pitch
   end)
   local out = {}
-  for _, n in ipairs(notes) do out[#out + 1] = string.format("%d@%g+%g", n.pitch, n.start, n.length) end
+  for _, n in ipairs(notes) do
+    out[#out + 1] = string.format("%d@%g+%g", n.pitch, n.start, n.length)
+  end
   return table.concat(out, " ")
 end
 
@@ -73,7 +78,9 @@ end
 --- Wait for a file that a render writes.
 local function wait_for_file(path)
   local deadline = api.now() + 60000
-  while file_size(path) == 0 and api.now() < deadline do paw.wait(50) end
+  while file_size(path) == 0 and api.now() < deadline do
+    paw.wait(50)
+  end
   return file_size(path) > 0
 end
 
@@ -87,14 +94,18 @@ test("make music 1: the first song has drums, bass and keys in a loop of four ba
   step("<C-d>", "<C-d>", "<CR>", "8l", "<CR>")
   step("2k", "4h", "<CR>", "8l", "<CR>")
   step("4k", "0", "i", "l")
-  for _ = 1, 7 do step("<Space>", "l") end
+  for _ = 1, 7 do
+    step("<Space>", "l")
+  end
   step("<Esc>")
   step("<C-w>p", "&", "&", "&")
   local drums = paw.track("Drums")
   eq(#drums:clips(), 4, "four bars of drums")
-  eq(melody(drums:clips()[4]),
+  eq(
+    melody(drums:clips()[4]),
     "36@0+0.25 42@0+0.25 42@0.5+0.25 38@1+0.25 42@1+0.25 42@1.5+0.25 36@2+0.25 42@2+0.25 42@2.5+0.25 38@3+0.25 42@3+0.25 42@3.5+0.25",
-    "kick, snare and hi-hats in each bar")
+    "kick, snare and hi-hats in each bar"
+  )
 
   step("o", "grn", "<C-u>", "Bass<CR>", "a", "synth", "<CR>", "0")
   step("i", "<CR>", "J", "3-", "16l", "<CR>", "4-", "16l", "<CR>", "7+", "16l", "<CR>", "5-", "16l", "<Esc>")
@@ -108,11 +119,18 @@ test("make music 1: the first song has drums, bass and keys in a loop of four ba
   step("c", "I64<CR>", "16l", "<CR>")
   step("c", "V<CR>", "16l", "<Esc>")
   step("<C-w>p")
-  eq(melody(paw.track("Keys"):clips()[1]),
-    "57@0+4 60@0+4 64@0+4 57@4+4 60@4+4 65@4+4 55@8+4 60@8+4 64@8+4 55@12+4 59@12+4 62@12+4", "the chords Am F C G")
+  eq(
+    melody(paw.track("Keys"):clips()[1]),
+    "57@0+4 60@0+4 64@0+4 57@4+4 60@4+4 65@4+4 55@8+4 60@8+4 64@8+4 55@12+4 59@12+4 62@12+4",
+    "the chords Am F C G"
+  )
 
   step("gg", "0", "gl4W")
-  eq(paw.transport.loop_enabled and paw.transport.loop_start == 0 and paw.transport.loop_end == 16, true, "the loop is bars 1 to 4")
+  eq(
+    paw.transport.loop_enabled and paw.transport.loop_start == 0 and paw.transport.loop_end == 16,
+    true,
+    "the loop is bars 1 to 4"
+  )
   step("gs")
   eq(listen() > 0.01, true, "the song plays")
 
@@ -150,7 +168,9 @@ test("make music 2: a lead played on a MIDI keyboard is recorded over the loop a
   step("0", "R")
   for i, pitch in ipairs({ "E5", "C5", "A4", "C5" }) do
     local deadline = api.now() + 10000
-    while paw.transport.position < i - 1 + 0.08 and api.now() < deadline do api.sleep(2) end
+    while paw.transport.position < i - 1 + 0.08 and api.now() < deadline do
+      api.sleep(2)
+    end
     key(pitch, true)
     T.until_beat(i - 1 + 0.5)
     key(pitch, false)
@@ -167,7 +187,9 @@ test("make music 2: a lead played on a MIDI keyboard is recorded over the loop a
   eq(paw.ui.focused, "pianoroll", "Enter opens the take")
   step("=ie")
   local quantized = melody(clip)
-  for _, n in ipairs(clip:notes()) do eq(n.start % 0.25, 0, "each note starts on the grid") end
+  for _, n in ipairs(clip:notes()) do
+    eq(n.start % 0.25, 0, "each note starts on the grid")
+  end
   step("u")
   eq(melody(clip), played, "u gives back the notes as played")
   step("<C-r>")
@@ -229,8 +251,11 @@ test("make music 3: a guitar through an amp chain is recorded in two takes and c
   eq(paw.takes.count(clips[2]), 2, "each piece keeps both takes")
   eq(clips[1].meta.takes.active, 2, "bar 1 plays take 2")
   eq(clips[2].meta.takes.active, 1, "bar 2 plays take 1")
-  eq(clips[1].name:match("%.2$") ~= nil and clips[2].name:match("%.1$") ~= nil, true,
-    "each piece is named after the take it plays: " .. clips[1].name .. ", " .. clips[2].name)
+  eq(
+    clips[1].name:match("%.2$") ~= nil and clips[2].name:match("%.1$") ~= nil,
+    true,
+    "each piece is named after the take it plays: " .. clips[1].name .. ", " .. clips[2].name
+  )
   eq(listen() > 0.01, true, "the comp plays")
 
   step("0", "w", ":clip.fade out=2<CR>")
@@ -256,9 +281,20 @@ test("make music 4: the song is arranged into verse and chorus, with markers, a 
   eq(#paw.track("Drums"):clips(), 16, "sixteen bars of drums")
   eq(#paw.track("Lead"):clips(), 2, "two choruses")
 
-  step("0", ":marker Verse<CR>", "5|", ":marker Chorus<CR>", "9|", ":marker Second verse<CR>", "13|", ":marker Last chorus<CR>")
+  step(
+    "0",
+    ":marker Verse<CR>",
+    "5|",
+    ":marker Chorus<CR>",
+    "9|",
+    ":marker Second verse<CR>",
+    "13|",
+    ":marker Last chorus<CR>"
+  )
   local markers = {}
-  for _, m in ipairs(paw.markers.list()) do markers[#markers + 1] = m.name .. "@" .. m.beat end
+  for _, m in ipairs(paw.markers.list()) do
+    markers[#markers + 1] = m.name .. "@" .. m.beat
+  end
   eq(table.concat(markers, " "), "Verse@0 Chorus@16 Second verse@32 Last chorus@48", "four markers")
 
   step(":tempo 104<CR>")
@@ -286,7 +322,9 @@ test("make music 5: the song is mixed, rendered to WAV and MP3, and the file pla
   step("<Space>mm")
   eq(paw.ui.focused, "mixer", "Space mm opens the mixer")
   step("V", "$", "6-", "<Esc>")
-  for _, track in ipairs(paw.tracks()) do eq(track.volume, -6, track.name .. " is 6 dB lower") end
+  for _, track in ipairs(paw.tracks()) do
+    eq(track.volume, -6, track.name .. " is 6 dB lower")
+  end
   step("0", "l", "3-")
   eq(paw.track("Bass").volume, -9, "the bass is 3 dB lower again")
   step("l", "j", "3-")
@@ -322,7 +360,11 @@ test("make music 5: the song is mixed, rendered to WAV and MP3, and the file pla
   step("5|", "A", "<C-u>", "-20<CR>", "W", "A", "<C-u>", "0<CR>")
   local points = paw.track("Lead"):lane("volume"):points()
   eq(#points, 2, "two points of volume automation")
-  eq(points[1][1] == 16 and points[1][2] == -20 and points[2][1] == 20 and points[2][2] == 0, true, "the lead comes up in bar 5")
+  eq(
+    points[1][1] == 16 and points[1][2] == -20 and points[2][1] == 20 and points[2][2] == 0,
+    true,
+    "the lead comes up in bar 5"
+  )
 
   local folder = T.scratch .. "/my-songs"
   os.execute("mkdir -p '" .. folder .. "'")

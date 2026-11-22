@@ -19,7 +19,9 @@ local function sh(cmd) os.execute(cmd) end
 local function tidy()
   paw.audition.stop()
   paw.opt.files_hear = false
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   L.restore(initial)
   for _, buf in ipairs(L.buffers_list()) do
     if buf.type == "textbuf" then L.buf_delete(buf) end
@@ -31,7 +33,9 @@ local function start()
   after(tidy)
   api.engine_restart({ backend = "null" })
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   L.restore(initial)
   paw.ui.focus("arrange")
   for _, buf in ipairs(L.buffers_list()) do
@@ -54,13 +58,19 @@ local function screen() return table.concat(api.ui_snapshot(W, H), "\n") end
 
 local function lines()
   local out = {}
-  for i, l in ipairs(tb.buf().state.text.lines) do out[i] = l.text end
+  for i, l in ipairs(tb.buf().state.text.lines) do
+    out[i] = l.text
+  end
   return out
 end
 
 local function row_of(name)
   for i, text in ipairs(lines()) do
-    if text:match("^%s*" .. name:gsub("%p", "%%%0") .. "[/%s]") or text:match("^%s*" .. name:gsub("%p", "%%%0") .. "$") then return i end
+    if
+      text:match("^%s*" .. name:gsub("%p", "%%%0") .. "[/%s]") or text:match("^%s*" .. name:gsub("%p", "%%%0") .. "$")
+    then
+      return i
+    end
   end
   error("no line for " .. name .. ":\n" .. table.concat(lines(), "\n"), 2)
 end
@@ -80,7 +90,9 @@ local function plan_of()
   local steps, err = tb.plan(tb.buf())
   if not steps then return nil, err end
   local out = {}
-  for _, s in ipairs(steps) do if not s.quiet then out[#out + 1] = s.text end end
+  for _, s in ipairs(steps) do
+    if not s.quiet then out[#out + 1] = s.text end
+  end
   return table.concat(out, "\n")
 end
 
@@ -89,7 +101,9 @@ local function write()
   keys(":w<CR>")
   eq(paw.ui.focused, "textbuf.plan", "the plan is shown")
   local shown = {}
-  for _, step in ipairs(paw.ui.views["textbuf.plan"].shown) do shown[#shown + 1] = step.text end
+  for _, step in ipairs(paw.ui.views["textbuf.plan"].shown) do
+    shown[#shown + 1] = step.text
+  end
   keys("y")
   return table.concat(shown, "\n")
 end
@@ -98,7 +112,9 @@ local function open(dir) keys(":e " .. dir .. "<CR>") end
 
 local function wait_for(cond, ms)
   local limit = api.now() + (ms or 5000)
-  while not cond() and api.now() < limit do paw.wait(10) end
+  while not cond() and api.now() < limit do
+    paw.wait(10)
+  end
   return cond() and true or false
 end
 
@@ -126,7 +142,7 @@ end)
 
 test("files: paw started with a folder that is no project lists it, as `:e` does", function()
   start()
-  paw.open(root .. "/samples")  -- what `paw <path>` runs
+  paw.open(root .. "/samples") -- what `paw <path>` runs
   eq(tb.buf().name, "paw://files" .. root .. "/samples", "the folder is the buffer")
 end)
 
@@ -187,7 +203,11 @@ test("files: new lines make files and folders, and a copied line copies the file
   eq(exists(root .. "/fresh.txt"), true, "the file is made")
   eq((api.fs_stat(root .. "/newdir") or {}).dir, true, "the folder is made")
   eq(exists(root .. "/newdir/inside.txt"), true, "and what is in it")
-  eq((api.fs_stat(root .. "/kick-copy.wav") or {}).size, (api.fs_stat(root .. "/kick.wav") or {}).size, "the copy is the same size")
+  eq(
+    (api.fs_stat(root .. "/kick-copy.wav") or {}).size,
+    (api.fs_stat(root .. "/kick.wav") or {}).size,
+    "the copy is the same size"
+  )
   eq(exists(root .. "/kick.wav"), true, "and the original stays")
 end)
 
@@ -317,14 +337,28 @@ test("files: a sound file is heard with gh, and as the cursor rests on it when a
   start()
   open(root)
   keys(":" .. row_of("kick.wav") .. "<CR>gh")
-  eq(wait_for(function() local s = paw.audition.state() return s and s.kind == "file" and s.file:match("kick.wav$") end), true, "gh plays it")
+  eq(
+    wait_for(function()
+      local s = paw.audition.state()
+      return s and s.kind == "file" and s.file:match("kick.wav$")
+    end),
+    true,
+    "gh plays it"
+  )
   paw.audition.stop()
   paw.opt.files_hear = true
   keys(":" .. row_of("notes.txt") .. "<CR>")
   paw.wait(300)
   eq(paw.audition.state(), nil, "a text file makes no sound")
   keys(":" .. row_of("kick.wav") .. "<CR>")
-  eq(wait_for(function() local s = paw.audition.state() return s and s.kind == "file" end), true, "it plays when the cursor has rested")
+  eq(
+    wait_for(function()
+      local s = paw.audition.state()
+      return s and s.kind == "file"
+    end),
+    true,
+    "it plays when the cursor has rested"
+  )
   keys(":" .. row_of("notes.txt") .. "<CR>")
   eq(wait_for(function() return paw.audition.state() == nil end), true, "and stops when it moves on")
   paw.opt.files_hear = false
@@ -344,7 +378,11 @@ test("files: the media folder marks what no clip plays, and `:media.unused` list
   paw.project.save(song .. "/song.json")
   keys(":files media<CR>")
   eq(tb.buf().name, "paw://files" .. song .. "/media", "`:files media` is the project's folder")
-  eq(lines()[row_of("spare-" .. T.scratch:match("(%d+-%d+)$") .. ".wav")]:find("unused", 1, true) ~= nil, true, "the spare file is marked")
+  eq(
+    lines()[row_of("spare-" .. T.scratch:match("(%d+-%d+)$") .. ".wav")]:find("unused", 1, true) ~= nil,
+    true,
+    "the spare file is marked"
+  )
   eq(lines()[row_of("used.wav")]:find("unused", 1, true), nil, "the one a clip plays is not")
   keys(":media.unused<CR>")
   eq(#lines(), 1, "only the unused file is listed: " .. table.concat(lines(), "\n"))
@@ -363,5 +401,9 @@ test("files: `:help files` is the page that says how the file manager works", fu
   local buf = L.buf_of(win)
   eq(buf.name, "help://file-manager.md", "in the file manager's page")
   local _, _, t, st = tb.here()
-  eq(t:line(st.row):find("paw shows a folder as text", 1, true) ~= nil, true, "at the first paragraph: " .. t:line(st.row))
+  eq(
+    t:line(st.row):find("paw shows a folder as text", 1, true) ~= nil,
+    true,
+    "at the first paragraph: " .. t:line(st.row)
+  )
 end)

@@ -15,19 +15,19 @@ local midi = require("notation.midi")
 
 local EPS = 1e-6
 
-paw.option.define("notation_grid", 0.25)   -- the smallest value written, in beats
+paw.option.define("notation_grid", 0.25) -- the smallest value written, in beats
 
 local view = {
-  title = "Notation",  -- what its pane and the list of buffers call it
+  title = "Notation", -- what its pane and the list of buffers call it
   clip_id = nil,
-  beat = 0,          -- the cursor, in beats from the start of the clip
-  step = 35,         -- the cursor's staff position, as a diatonic step (C4 is 35)
-  value = 1,         -- the value chosen for entering notes: 4 whole ... 0.125 32nd
-  dot = false,       -- and whether it is dotted
-  voice = 1,         -- the voice notes are entered in, on the cursor's staff
-  first = 1,         -- the first measure on screen
-  chord = nil,       -- notes entered at one place in insert mode: { beat, pitches }
-  last = nil,        -- the last note entered in insert mode: { id, step, pitch, beat }
+  beat = 0, -- the cursor, in beats from the start of the clip
+  step = 35, -- the cursor's staff position, as a diatonic step (C4 is 35)
+  value = 1, -- the value chosen for entering notes: 4 whole ... 0.125 32nd
+  dot = false, -- and whether it is dotted
+  voice = 1, -- the voice notes are entered in, on the cursor's staff
+  first = 1, -- the first measure on screen
+  chord = nil, -- notes entered at one place in insert mode: { beat, pitches }
+  last = nil, -- the last note entered in insert mode: { id, step, pitch, beat }
 }
 
 --- Where play starts from this view: the cursor, as a beat of the song.
@@ -39,7 +39,9 @@ end
 function view:clip()
   if self.clip_id and pcall(api.clip_get, self.clip_id) then return paw.clip(self.clip_id) end
   -- Undone or deleted: kept, so that a redo shows it again.
-  if self.clip_id then self.gone, self.clip_id, self.cache = self.clip_id, nil, nil end
+  if self.clip_id then
+    self.gone, self.clip_id, self.cache = self.clip_id, nil, nil
+  end
   if self.gone and pcall(api.clip_get, self.gone) then
     self.clip_id, self.gone = self.gone, nil
     return paw.clip(self.clip_id)
@@ -69,8 +71,23 @@ end
 --- key the music is read in (`paw.harmony.key` at `beat`) when it is the
 --- minor key of the signature in force, so a song in A minor is called so
 --- rather than C major; else the signature's major key.
-local MAJORS = { [-7] = "Cb", [-6] = "Gb", [-5] = "Db", [-4] = "Ab", [-3] = "Eb", [-2] = "Bb", [-1] = "F",
-  [0] = "C", "G", "D", "A", "E", "B", "F#", "C#" }
+local MAJORS = {
+  [-7] = "Cb",
+  [-6] = "Gb",
+  [-5] = "Db",
+  [-4] = "Ab",
+  [-3] = "Eb",
+  [-2] = "Bb",
+  [-1] = "F",
+  [0] = "C",
+  "G",
+  "D",
+  "A",
+  "E",
+  "B",
+  "F#",
+  "C#",
+}
 
 -- Reading the song's keys again after an edit takes a while on a long
 -- song (most of a second for 10000 notes): the title is drawn on every
@@ -82,7 +99,9 @@ local stale_at, waiting
 local function song_notes()
   local n = 0
   for _, id in ipairs(api.track_list()) do
-    for _, c in ipairs(api.clip_list(id)) do n = n + (c.note_count or 0) end
+    for _, c in ipairs(api.clip_list(id)) do
+      n = n + (c.note_count or 0)
+    end
   end
   return n
 end
@@ -164,18 +183,19 @@ function view.bars(start, length)
     sigs[#sigs + 1] = table.concat({ p.beat, p.num, p.den }, "/")
   end
   -- And what reads them, should something stand in for the song's.
-  local key = table.concat({ start, length, table.concat(sigs, ","), tostring(t.signature_at or t.sig_at or t.meter_at) }, ":")
+  local key =
+    table.concat({ start, length, table.concat(sigs, ","), tostring(t.signature_at or t.sig_at or t.meter_at) }, ":")
   if bars_made[key] then return bars_made[key] end
   local out = view.count_bars(start, length)
-  if bars_count > 16 then bars_made, bars_count = {}, 0 end
+  if bars_count > 16 then
+    bars_made, bars_count = {}, 0
+  end
   bars_made[key], bars_count, bars_keys[out] = out, bars_count + 1, key
   return out
 end
 
 --- The key `view.bars` knows a list of bars by, if it made it.
-function view.bars_key(bars)
-  return bars_keys[bars]
-end
+function view.bars_key(bars) return bars_keys[bars] end
 
 --- The bars of a stretch, counted one by one from the song's start.
 function view.count_bars(start, length)
@@ -227,10 +247,14 @@ end
 local function serial(v)
   if type(v) ~= "table" then return tostring(v) end
   local keys = {}
-  for k in pairs(v) do keys[#keys + 1] = k end
+  for k in pairs(v) do
+    keys[#keys + 1] = k
+  end
   table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
   local out = {}
-  for _, k in ipairs(keys) do out[#out + 1] = tostring(k) .. "=" .. serial(v[k]) end
+  for _, k in ipairs(keys) do
+    out[#out + 1] = tostring(k) .. "=" .. serial(v[k])
+  end
   return "{" .. table.concat(out, ",") .. "}"
 end
 
@@ -248,11 +272,19 @@ function view.layout_opts(c, own)
   settings.grid = (own.settings or {}).grid or paw.opt.notation_grid
   -- The track's clef, else the staves the clip was written on in notation.
   local staves = type(own.staves) == "table" and own.staves or nil
-  local clef = view.track_clef(c.track) or view.track_clefs[c.track] or (staves and (#staves == 2 and "grand" or staves[1]))
+  local clef = view.track_clef(c.track)
+    or view.track_clefs[c.track]
+    or (staves and (#staves == 2 and "grand" or staves[1]))
   return {
-    length = c.length, offset = c.start, bars = view.bars(c.start, c.length), fifths = fifths,
-    clef = clef, grid = paw.opt.notation_grid, tempo = view.tempo_at(c.start),
-    settings = settings, tuplets = own.tuplets,
+    length = c.length,
+    offset = c.start,
+    bars = view.bars(c.start, c.length),
+    fifths = fifths,
+    clef = clef,
+    grid = paw.opt.notation_grid,
+    tempo = view.tempo_at(c.start),
+    settings = settings,
+    tuplets = own.tuplets,
   }
 end
 
@@ -260,7 +292,9 @@ end
 --- filled in by the editor's features (dynamics, articulations, lyrics).
 view.decorators = {}
 function view.decorate(layout, clip)
-  for _, fn in ipairs(view.decorators) do fn(layout, clip) end
+  for _, fn in ipairs(view.decorators) do
+    fn(layout, clip)
+  end
   return layout
 end
 
@@ -295,7 +329,9 @@ function view:frame()
       for k, u in ipairs(layout.units) do
         for p, ids in ipairs(u.players) do
           for _, id in ipairs(ids) do
-            if id == c.id then found, player = k, p end
+            if id == c.id then
+              found, player = k, p
+            end
           end
         end
       end
@@ -309,13 +345,32 @@ function view:frame()
       local u = layout.units[found]
       local start = layout.start_beat or c.start
       local written = layout.written or { steps = 0, fifths = 0 }
-      return { layout = layout, off = c.start - start, base = u.first - 1, count = u.last - u.first + 1, unit = found,
-        player = player, start = start, multi = true, dstep = written.steps, dfifths = written.fifths }
+      return {
+        layout = layout,
+        off = c.start - start,
+        base = u.first - 1,
+        count = u.last - u.first + 1,
+        unit = found,
+        player = player,
+        start = start,
+        multi = true,
+        dstep = written.steps,
+        dfifths = written.fifths,
+      }
     end
   end
   local layout = self:layout()
-  return { layout = layout, off = 0, base = 0, count = layout and #layout.staves or 1, unit = 1, player = 1, start = c.start,
-    dstep = 0, dfifths = 0 }
+  return {
+    layout = layout,
+    off = 0,
+    base = 0,
+    count = layout and #layout.staves or 1,
+    unit = 1,
+    player = 1,
+    start = c.start,
+    dstep = 0,
+    dfifths = 0,
+  }
 end
 
 -- How far the heap may grow past what is live before Lua collects again
@@ -346,11 +401,27 @@ local function make_layout(self)
   local opts = view.layout_opts(c)
   -- Laid out from the score the clip's notes are written as.
   local sc = view.score_of(c)
-  local stamp = table.concat({ tostring(sc), c.length, opts.fifths, paw.opt.notation_grid,
-    tostring(opts.bars[1] and opts.bars[1].number), serial(view.track_meta(c.track)) }, ":")
+  local stamp = table.concat(
+    {
+      tostring(sc),
+      c.length,
+      opts.fifths,
+      paw.opt.notation_grid,
+      tostring(opts.bars[1] and opts.bars[1].number),
+      serial(view.track_meta(c.track)),
+    },
+    ":"
+  )
   if self.cache and self.cache.stamp == stamp then return self.cache.layout end
-  local layout = L.layout(sc, { length = c.length, fifths = opts.fifths, grid = paw.opt.notation_grid,
-    number = opts.bars[1] and opts.bars[1].number })
+  local layout = L.layout(
+    sc,
+    {
+      length = c.length,
+      fifths = opts.fifths,
+      grid = paw.opt.notation_grid,
+      number = opts.bars[1] and opts.bars[1].number,
+    }
+  )
   -- Each written note knows the note that plays it, by its place among the clip's.
   local place = {}
   for i, n in ipairs(view.notes_of(c)) do
@@ -364,7 +435,9 @@ local function make_layout(self)
           n.index = place[n.head or n.id]
           layout.places[n.id] = n.index
         end
-        for _, n in ipairs(ev.grace or {}) do n.index = place[n.id] end
+        for _, n in ipairs(ev.grace or {}) do
+          n.index = place[n.id]
+        end
       end
     end
   end
@@ -389,8 +462,23 @@ function view.score_of(c)
   local own = view.own(c)
   local old = type(c.meta) == "table" and type(c.meta.score) == "table" and c.meta.score or nil
   local opts = view.layout_opts(c, own)
-  local key = table.concat({ c.id, tostring(c.stamp), tostring(c.note_count), c.length, c.start, opts.fifths, tostring(opts.tempo),
-    tostring(opts.clef), serial(own), view.bars_key(opts.bars) or serial(opts.bars), paw.opt.notation_grid, old and tostring(old.rev) or "" }, ":")
+  local key = table.concat(
+    {
+      c.id,
+      tostring(c.stamp),
+      tostring(c.note_count),
+      c.length,
+      c.start,
+      opts.fifths,
+      tostring(opts.tempo),
+      tostring(opts.clef),
+      serial(own),
+      view.bars_key(opts.bars) or serial(opts.bars),
+      paw.opt.notation_grid,
+      old and tostring(old.rev) or "",
+    },
+    ":"
+  )
   local hit = derived[c.id]
   if hit and hit.key == key then return hit.score end
   local notes = api.clip_notes(c.id)
@@ -400,7 +488,9 @@ function view.score_of(c)
     opts = view.layout_opts(c, own)
   end
   local sc = midi.derive(notes, own, opts)
-  if derived_count > 8 then derived, derived_count = {}, 0 end
+  if derived_count > 8 then
+    derived, derived_count = {}, 0
+  end
   derived[c.id], derived_count = { key = key, score = sc, notes = notes }, derived_count + 1
   return sc
 end
@@ -422,9 +512,7 @@ end
 -- The cursor ------------------------------------------------------------------------------
 
 --- The tuplet notes are entered in, `{ actual, normal }`, or nil.
-function view:entry_tuplet()
-  return self.tuplet or (self.triplets and { 3, 2 }) or nil
-end
+function view:entry_tuplet() return self.tuplet or (self.triplets and { 3, 2 }) or nil end
 
 --- The value chosen, in beats, with its dot, and as a tuplet's (a
 --- triplet's) when entering in one.
@@ -530,7 +618,9 @@ function view:describe()
   if ev and ev.tuplet then how[#how + 1] = "in a tuplet of " .. ev.tuplet.n end
   if ev then how[#how + 1] = "voice " .. (ev.voice or 1) end
   local marks = {}
-  for k in pairs(ev and ev.art or {}) do marks[#marks + 1] = k end
+  for k in pairs(ev and ev.art or {}) do
+    marks[#marks + 1] = k
+  end
   table.sort(marks)
   if ev and ev.staccato and not (ev.art and ev.art.staccato) then marks[#marks + 1] = "staccato" end
   if #marks > 0 then how[#how + 1] = table.concat(marks, ", ") end
@@ -545,8 +635,14 @@ function view:describe()
   return {
     { text = "Note  " .. model.name(written), style = "Title" },
     "  written " .. table.concat(how, ", "),
-    string.format("  played at %s, %g beats long, velocity %d (MIDI note %d, n%s)", paw.time.format(c.start + note.start),
-      note.length, note.velocity, note.pitch, tostring(note.id)),
+    string.format(
+      "  played at %s, %g beats long, velocity %d (MIDI note %d, n%s)",
+      paw.time.format(c.start + note.start),
+      note.length,
+      note.velocity,
+      note.pitch,
+      tostring(note.id)
+    ),
     "",
   }
 end
@@ -662,7 +758,8 @@ function view:to_bar(n)
   local m = layout.measures[i]
   local at = n > 0 and i + n or ((self.beat > m.start + EPS) and i + n + 1 or i + n)
   at = util.clamp(at, 1, #layout.measures + 1)
-  local target = at > #layout.measures and (m.start + (#layout.measures - i + 1) * layout.meter.bar) or layout.measures[at].start
+  local target = at > #layout.measures and (m.start + (#layout.measures - i + 1) * layout.meter.bar)
+    or layout.measures[at].start
   self:set(nil, math.max(0, target))
 end
 
@@ -707,7 +804,9 @@ function view.store(clip, before, sc)
   view.cache = nil
   -- New notes are named by their MIDI notes from now on.
   view.renamed = {}
-  for id, k in pairs(named) do view.renamed[id] = "n" .. k end
+  for id, k in pairs(named) do
+    view.renamed[id] = "n" .. k
+  end
   return named
 end
 
@@ -733,24 +832,24 @@ function view:write(fn)
 end
 
 --- The measure and ticks into it of a beat of the clip.
-local function where(sc, beat)
-  return D.locate(sc, D.from_beats(beat) - D.origin(sc))
-end
+local function where(sc, beat) return D.locate(sc, D.from_beats(beat) - D.origin(sc)) end
 view.where = where
 
 --- The id of the staff a pitch (or a step) is written on.
 function view:staff_id(sc, pitch, step)
   local s = 1
   if #sc.staves == 2 then
-    if step then s = step < 35 and 2 or 1 else s = pitch < 60 and 2 or 1 end
+    if step then
+      s = step < 35 and 2 or 1
+    else
+      s = pitch < 60 and 2 or 1
+    end
   end
   return sc.staves[s].id
 end
 
 --- A note spelled as the key has it, or as `sp` (a model spelling) says.
-local function spelled(pitch, sp)
-  return D.spelled(sp or model.spell(pitch, (view.key())))
-end
+local function spelled(pitch, sp) return D.spelled(sp or model.spell(pitch, (view.key()))) end
 
 --- The written event under the cursor and the note there, from the layout
 --- (whose events name the score's: `source`, `mi`, `at`, `staff_id`), to
@@ -785,7 +884,12 @@ local function chain(sc, eid)
     end
     if not tied then break end
     local f = D.frame(sc)
-    out[#out + 1] = { ev = nxt, mi = seq[k + 1].mi, entry = D.voice(sc.measures[seq[k + 1].mi], entry.staff, entry.voice), at = seq[k + 1].s - f.starts[seq[k + 1].mi] }
+    out[#out + 1] = {
+      ev = nxt,
+      mi = seq[k + 1].mi,
+      entry = D.voice(sc.measures[seq[k + 1].mi], entry.staff, entry.voice),
+      at = seq[k + 1].s - f.starts[seq[k + 1].mi],
+    }
     k = k + 1
   end
   return out
@@ -817,13 +921,28 @@ local function lift(sc, eid)
   local f = D.frame(sc)
   local first = f.starts[head.mi] + head.at
   local last = links[#links]
-  local was = { notes = head.ev.notes, art = head.ev.art, arpeggio = head.ev.arpeggio, beam = head.ev.beam, id = head.ev.id,
-    orn = head.ev.orn, lyric = head.ev.lyric, lyrics = head.ev.lyrics,
-    staff = head.entry.staff, voice = head.entry.voice, mi = head.mi, at = head.at,
-    len = f.starts[last.mi] + last.at + D.length(last.ev) - first, graces = graces_before(head.entry, head.ev) }
+  local was = {
+    notes = head.ev.notes,
+    art = head.ev.art,
+    arpeggio = head.ev.arpeggio,
+    beam = head.ev.beam,
+    id = head.ev.id,
+    orn = head.ev.orn,
+    lyric = head.ev.lyric,
+    lyrics = head.ev.lyrics,
+    staff = head.entry.staff,
+    voice = head.entry.voice,
+    mi = head.mi,
+    at = head.at,
+    len = f.starts[last.mi] + last.at + D.length(last.ev) - first,
+    graces = graces_before(head.entry, head.ev),
+  }
   for _, g in ipairs(was.graces) do
     for k, x in ipairs(head.entry.events) do
-      if x == g then table.remove(head.entry.events, k) break end
+      if x == g then
+        table.remove(head.entry.events, k)
+        break
+      end
     end
   end
   for _, link in ipairs(links) do
@@ -843,11 +962,29 @@ view.lift = lift
 --- keeping its ids, marks and grace notes; what is there gives way.
 local function drop(sc, was, t, len, staff, voice)
   local mi, at = D.locate(sc, math.max(0, t))
-  local ev = D.put_chord(sc, mi, staff or was.staff, voice or was.voice, at, len, was.notes,
-    { id = was.id, art = was.art, arpeggio = was.arpeggio, beam = was.beam, orn = was.orn, lyric = was.lyric, lyrics = was.lyrics })
+  local ev = D.put_chord(
+    sc,
+    mi,
+    staff or was.staff,
+    voice or was.voice,
+    at,
+    len,
+    was.notes,
+    {
+      id = was.id,
+      art = was.art,
+      arpeggio = was.arpeggio,
+      beam = was.beam,
+      orn = was.orn,
+      lyric = was.lyric,
+      lyrics = was.lyrics,
+    }
+  )
   if #was.graces > 0 then
     local _, entry, k = D.find(sc, ev.id)
-    for g = #was.graces, 1, -1 do table.insert(entry.events, k, was.graces[g]) end
+    for g = #was.graces, 1, -1 do
+      table.insert(entry.events, k, was.graces[g])
+    end
   end
   D.fix_ties(sc, staff or was.staff, voice or was.voice, math.max(1, mi - 1), mi)
   return ev
@@ -863,7 +1000,13 @@ local function join_chord(sc, eid, note)
   end
   local id
   for k, link in ipairs(links) do
-    local n = { id = (k == 1 and note.id) or D.id(sc, "n"), step = note.step, alter = note.alter, octave = note.octave, tie = k < #links or nil }
+    local n = {
+      id = (k == 1 and note.id) or D.id(sc, "n"),
+      step = note.step,
+      alter = note.alter,
+      octave = note.octave,
+      tie = k < #links or nil,
+    }
     id = id or n.id
     table.insert(link.ev.notes, n)
     table.sort(link.ev.notes, function(a, b) return D.pitch(a) < D.pitch(b) end)
@@ -937,7 +1080,9 @@ function view:make_room(sc, pitch, continues)
     local upper = clef == "treble" and sc.staves[1] or { id = D.id(sc, "s"), clef = "treble" }
     local lower = clef == "bass" and sc.staves[1] or { id = D.id(sc, "s"), clef = "bass" }
     sc.staves = { upper, lower }
-    for i in ipairs(sc.measures) do D.touch(sc, i) end
+    for i in ipairs(sc.measures) do
+      D.touch(sc, i)
+    end
   end
 end
 
@@ -1022,7 +1167,13 @@ end
 function view:rest(beat, length, staff)
   self:write(function(sc)
     if self.push and view.push_on then
-      view.push_on(sc, (sc.staves[staff or 1] or sc.staves[1]).id, self.voice or 1, D.from_beats(beat) - D.origin(sc), D.from_beats(length))
+      view.push_on(
+        sc,
+        (sc.staves[staff or 1] or sc.staves[1]).id,
+        self.voice or 1,
+        D.from_beats(beat) - D.origin(sc),
+        D.from_beats(length)
+      )
     end
     self:clear(sc, beat, length, staff)
   end)
@@ -1045,9 +1196,7 @@ function view:change(fn)
 end
 
 --- Respell (and so repitch) a written note and what is tied on from it.
-local function respell(sc, note, sp)
-  D.respell(sc, note.id, sp.letter, sp.alter, sp.octave)
-end
+local function respell(sc, note, sp) D.respell(sc, note.id, sp.letter, sp.alter, sp.octave) end
 
 --- The score's chord under the cursor: the score event, and the written
 --- event (the piece of it) the cursor is on.
@@ -1073,7 +1222,9 @@ function view:relength(fn)
   end) ~= false
 end
 
-function view:lengthen(by) return self:relength(function(l) return l + by end) end
+function view:lengthen(by)
+  return self:relength(function(l) return l + by end)
+end
 
 --- Lengthen (or with `by` below 0, shorten) every chord of a region by `by` beats.
 function view:relength_region(region, by)
@@ -1086,7 +1237,9 @@ function view:relength_region(region, by)
       local inside = region.kind == "line" or (ev.start >= region.c0 - EPS and ev.start < region.c1 - EPS)
       if inside and region.kind == "block" then
         inside = false
-        for _, n in ipairs(ev.notes) do inside = inside or (n.pitch >= region.r0 and n.pitch <= region.r1) end
+        for _, n in ipairs(ev.notes) do
+          inside = inside or (n.pitch >= region.r0 and n.pitch <= region.r1)
+        end
       end
       if inside then ids[#ids + 1] = ev.source.id end
     end
@@ -1098,7 +1251,12 @@ function view:relength_region(region, by)
       local was = lift(sc, ids[k])
       if was then
         local f = D.frame(sc)
-        drop(sc, was, f.starts[was.mi] + was.at, math.max(D.from_beats(paw.opt.notation_grid / 2), was.len + D.from_beats(by)))
+        drop(
+          sc,
+          was,
+          f.starts[was.mi] + was.at,
+          math.max(D.from_beats(paw.opt.notation_grid / 2), was.len + D.from_beats(by))
+        )
       end
     end
   end)
@@ -1155,7 +1313,13 @@ local function written_in(clip, from, to, low, high)
   for id, w in pairs(midi.written(sc)) do
     local at = (origin + w.s) / D.Q
     local hit = place[midi.midi_id(id) or -1]
-    if hit and (not from or at >= from - EPS) and (not to or at < to - EPS) and (not low or w.pitch >= low) and (not high or w.pitch <= high) then
+    if
+      hit
+      and (not from or at >= from - EPS)
+      and (not to or at < to - EPS)
+      and (not low or w.pitch >= low)
+      and (not high or w.pitch <= high)
+    then
       out[#out + 1] = { index = hit.index, note = hit.note, w = w, at = at }
     end
   end
@@ -1292,7 +1456,9 @@ function view:toggle_voice()
     local whole = not n or #source.notes == 1
     local notes = {}
     if whole then
-      for _, x in ipairs(head.ev.notes) do notes[#notes + 1] = { id = x.id, step = x.step, alter = x.alter, octave = x.octave } end
+      for _, x in ipairs(head.ev.notes) do
+        notes[#notes + 1] = { id = x.id, step = x.step, alter = x.alter, octave = x.octave }
+      end
     else
       local note = D.find_note(sc, n.head or n.id)
       notes[1] = { id = note.id, step = note.step, alter = note.alter, octave = note.octave }
@@ -1312,14 +1478,32 @@ function view:toggle_voice()
     if whole then
       lift(sc, source.id)
     else
-      for _, c in ipairs(D.tied_on(sc, staff, head.entry.voice, notes[1].id)) do D.remove_note(sc, c.note.id) end
+      for _, c in ipairs(D.tied_on(sc, staff, head.entry.voice, notes[1].id)) do
+        D.remove_note(sc, c.note.id)
+      end
       D.remove_note(sc, notes[1].id)
     end
     if target then
-      for _, x in ipairs(notes) do join_chord(sc, target.id, x) end
+      for _, x in ipairs(notes) do
+        join_chord(sc, target.id, x)
+      end
     else
-      drop(sc, { notes = notes, graces = {}, staff = staff, voice = to, id = whole and source.id or nil,
-        art = whole and source.art or nil, arpeggio = whole and source.arpeggio or nil }, t, len, staff, to)
+      drop(
+        sc,
+        {
+          notes = notes,
+          graces = {},
+          staff = staff,
+          voice = to,
+          id = whole and source.id or nil,
+          art = whole and source.art or nil,
+          arpeggio = whole and source.arpeggio or nil,
+        },
+        t,
+        len,
+        staff,
+        to
+      )
     end
   end)
   if moved == false then return nil end
@@ -1342,7 +1526,8 @@ function view:toggle_staff()
     local staff = sc.staves[to].id
     local first
     for _, note in ipairs(was.notes) do
-      first = first or view.add_sounding(sc, { step = note.step, alter = note.alter, octave = note.octave }, t, was.len, staff)
+      first = first
+        or view.add_sounding(sc, { step = note.step, alter = note.alter, octave = note.octave }, t, was.len, staff)
     end
   end)
   return to
@@ -1381,7 +1566,10 @@ function view:toggle_grace()
       local value = D.ticks(graces[#graces].dur)
       for _, g in ipairs(graces) do
         for j, x in ipairs(entry.events) do
-          if x == g then table.remove(entry.events, j) break end
+          if x == g then
+            table.remove(entry.events, j)
+            break
+          end
         end
       end
       local t = f.starts[mi] + at - value * #graces
@@ -1395,11 +1583,14 @@ function view:toggle_grace()
     local seq = D.sequence(sc, entry.staff, entry.voice)
     local here, nxt, before
     for i, it in ipairs(seq) do
-      if it.ev == ev then here, nxt, before = it, seq[i + 1], seq[i - 1] end
+      if it.ev == ev then
+        here, nxt, before = it, seq[i + 1], seq[i - 1]
+      end
     end
     if not (nxt and nxt.ev.kind == "chord") then return false end
     local len = here.e - here.s
-    local grace = { id = D.id(sc, "e"), kind = "chord", grace = "acciaccatura", dur = { 1, 8 }, dots = 0, notes = ev.notes }
+    local grace =
+      { id = D.id(sc, "e"), kind = "chord", grace = "acciaccatura", dur = { 1, 8 }, dots = 0, notes = ev.notes }
     ev.kind, ev.notes, ev.art, ev.arpeggio = "rest", nil, nil, nil
     local _, nentry, nk = D.find(sc, nxt.ev.id)
     table.insert(nentry.events, nk, grace)
@@ -1470,9 +1661,20 @@ function view:toggle_tuplet()
       return false
     end
     local function keep(it, extra)
-      local out = { id = it.ev.id, kind = "chord", notes = it.ev.notes, art = it.ev.art, arpeggio = it.ev.arpeggio, beam = it.ev.beam }
-      for _, n in ipairs(out.notes) do n.tie = nil end
-      for k, x in pairs(extra) do out[k] = x end
+      local out = {
+        id = it.ev.id,
+        kind = "chord",
+        notes = it.ev.notes,
+        art = it.ev.art,
+        arpeggio = it.ev.arpeggio,
+        beam = it.ev.beam,
+      }
+      for _, n in ipairs(out.notes) do
+        n.tie = nil
+      end
+      for k, x in pairs(extra) do
+        out[k] = x
+      end
       return out
     end
     if span and span.s == a then
@@ -1489,7 +1691,16 @@ function view:toggle_tuplet()
         local p = math.min(places[i], units - 1)
         local q = places[i + 1] and math.min(places[i + 1], units) or units
         if q > p then
-          D.put_chord(sc, mi, staff, v, a + p * step, (q - p) * step, it.ev.notes, { id = it.ev.id, art = it.ev.art, arpeggio = it.ev.arpeggio })
+          D.put_chord(
+            sc,
+            mi,
+            staff,
+            v,
+            a + p * step,
+            (q - p) * step,
+            it.ev.notes,
+            { id = it.ev.id, art = it.ev.art, arpeggio = it.ev.arpeggio }
+          )
         end
       end
       on = false
@@ -1585,7 +1796,9 @@ function view:delete()
   return self:write(function(sc)
     local note, _, _, entry = D.find_note(sc, id)
     if not note then return false end
-    for _, c in ipairs(D.tied_on(sc, entry.staff, entry.voice, id)) do D.remove_note(sc, c.note.id) end
+    for _, c in ipairs(D.tied_on(sc, entry.staff, entry.voice, id)) do
+      D.remove_note(sc, c.note.id)
+    end
     D.remove_note(sc, id)
   end) ~= false
 end
@@ -1649,9 +1862,13 @@ function view:merge_chords(ids)
     local notes = {}
     for k = 2, #ids do
       local was = lift(sc, ids[k])
-      for _, n in ipairs(was and was.notes or {}) do notes[#notes + 1] = n end
+      for _, n in ipairs(was and was.notes or {}) do
+        notes[#notes + 1] = n
+      end
     end
-    for _, n in ipairs(notes) do join_chord(sc, ids[1], { id = n.id, step = n.step, alter = n.alter, octave = n.octave }) end
+    for _, n in ipairs(notes) do
+      join_chord(sc, ids[1], { id = n.id, step = n.step, alter = n.alter, octave = n.octave })
+    end
     local _, _, _, _, ev = D.find(sc, ids[1])
     count = ev and #ev.notes
   end)
@@ -1672,10 +1889,19 @@ function view:enter(letter, advance)
   local from = self.last and self.last.step or self.step
   local l = LETTER_STEP[letter]
   local step = math.floor(from / 7) * 7 + l
-  if step - from > 3 then step = step - 7 elseif from - step > 3 then step = step + 7 end
+  if step - from > 3 then
+    step = step - 7
+  elseif from - step > 3 then
+    step = step + 7
+  end
   local pitch = model.key_pitch(step, fifths)
   -- MIDI ends at G9 and starts at C-1: past them the cursor stays.
-  if pitch > 127 or pitch < 0 then return paw.notify(pitch > 127 and "no note that high: MIDI ends at G9" or "no note that low: MIDI starts at C-1", "warn") end
+  if pitch > 127 or pitch < 0 then
+    return paw.notify(
+      pitch > 127 and "no note that high: MIDI ends at G9" or "no note that low: MIDI starts at C-1",
+      "warn"
+    )
+  end
   local building = self.chord and math.abs(self.chord.beat - self.beat) < EPS
   if not building then self.chord = { beat = self.beat, pitches = {} } end
   self.chord.pitches[pitch] = true
@@ -1697,7 +1923,9 @@ end
 function view:remember_chord()
   if not self.chord then return end
   local pitches = {}
-  for p in pairs(self.chord.pitches) do pitches[#pitches + 1] = p end
+  for p in pairs(self.chord.pitches) do
+    pitches[#pitches + 1] = p
+  end
   table.sort(pitches)
   self.again = { pitches = pitches, step = self.last and self.last.step }
 end
@@ -1712,7 +1940,9 @@ function view:add_interval(interval)
   local step = last.step + interval - 1
   local pitch = model.key_pitch(step, fifths)
   if pitch > 127 then return paw.notify("no note that high", "warn") end
-  if not (self.chord and math.abs(self.chord.beat - last.beat) < EPS) then self.chord = { beat = last.beat, pitches = { [last.pitch] = true } } end
+  if not (self.chord and math.abs(self.chord.beat - last.beat) < EPS) then
+    self.chord = { beat = last.beat, pitches = { [last.pitch] = true } }
+  end
   self.chord.pitches[pitch] = true
   local id = self:place(pitch, last.beat, self:entry_length(), true)
   self:audition(pitch)
@@ -1727,9 +1957,16 @@ function view:repeat_chord()
   if not (again and #again.pitches > 0) then return paw.notify("nothing entered yet to repeat", "warn") end
   local id
   self:write(function(sc)
-    for k, p in ipairs(again.pitches) do id = self:put(sc, spelled(p), self.beat, self:entry_length(), k > 1) end
+    for k, p in ipairs(again.pitches) do
+      id = self:put(sc, spelled(p), self.beat, self:entry_length(), k > 1)
+    end
   end)
-  self.last = { id = id and view.now_id(id), step = again.step or self.step, pitch = again.pitches[#again.pitches], beat = self.beat }
+  self.last = {
+    id = id and view.now_id(id),
+    step = again.step or self.step,
+    pitch = again.pitches[#again.pitches],
+    beat = self.beat,
+  }
   self.chord = nil
   self:step_on(1)
 end
@@ -1750,9 +1987,13 @@ function view:tie_last()
     local len = D.from_beats(self:entry_length())
     local mi, at = D.locate(sc, t)
     local notes = {}
-    for i, n in ipairs(tail.ev.notes) do notes[i] = { step = n.step, alter = n.alter, octave = n.octave } end
+    for i, n in ipairs(tail.ev.notes) do
+      notes[i] = { step = n.step, alter = n.alter, octave = n.octave }
+    end
     D.put_chord(sc, mi, entry.staff, entry.voice, at, len, notes)
-    for _, n in ipairs(tail.ev.notes) do n.tie = true end
+    for _, n in ipairs(tail.ev.notes) do
+      n.tie = true
+    end
     D.touch(sc, tail.mi)
     D.fix_ties(sc, entry.staff, entry.voice, tail.mi, mi)
     finish = (D.origin(sc) + t + len) / D.Q
@@ -1850,7 +2091,8 @@ end
 local function open(self, clip)
   self.clip_id, self.beat, self.first, self.chord, self.last, self.cache = clip.id, 0, 1, nil, nil, nil
   self.parts, self.gone = nil, nil
-  self.triplets, self.tuplet, self.again, self.push, self.repitch, self.grace, self.pending_grace = false, nil, nil, nil, nil, nil, nil
+  self.triplets, self.tuplet, self.again, self.push, self.repitch, self.grace, self.pending_grace =
+    false, nil, nil, nil, nil, nil, nil
   local layout = self:layout()
   local first = model.events(layout)[1]
   self.step = 35

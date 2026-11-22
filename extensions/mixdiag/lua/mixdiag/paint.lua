@@ -14,8 +14,8 @@ local severity_colour = { error = c.error, warn = c.warn, info = c.select, hint 
 local paint = {
   title = "Mix report",
   modal = true,
-  window = false,      -- the terminal's view is the one offered; it names this as `painted`
-  hover = nil,         -- the finding under the pointer, and where the pointer is
+  window = false, -- the terminal's view is the one offered; it names this as `painted`
+  hover = nil, -- the finding under the pointer, and where the pointer is
 }
 -- Each window looking at it points on its own.
 paw.seats.fields("mixdiag.paint", paint, { "hover" })
@@ -29,15 +29,11 @@ local function meter_colour(db)
   return c.meter_low
 end
 
-local function number(v, format)
-  return v and string.format(format or "%.1f", v) or "–"
-end
+local function number(v, format) return v and string.format(format or "%.1f", v) or "–" end
 
 --- A bar from `low` to `high` dB along `width`: `at` is where `db` falls
 --- on it, 0 to 1.
-local function fraction(db, low, high)
-  return paw.util.clamp((db - low) / (high - low), 0, 1)
-end
+local function fraction(db, low, high) return paw.util.clamp((db - low) / (high - low), 0, 1) end
 
 --- One row of bars: a label, a bar to `db`, the number, and a mark at the
 --- target if there is one.
@@ -47,8 +43,13 @@ local function bar(g, y, label, db, low, high, text, opts)
   g:text(0, y + 3, label, { color = c.text_2, width = LABEL - 8 })
   g:rect(LABEL, y + 4, w, ROW - 10, { fill = c.meter_well, radius = 3 })
   if db then
-    g:rect(LABEL, y + 4, math.max(2, w * fraction(db, low, high)), ROW - 10,
-      { fill = opts.colour or meter_colour(db), radius = 3 })
+    g:rect(
+      LABEL,
+      y + 4,
+      math.max(2, w * fraction(db, low, high)),
+      ROW - 10,
+      { fill = opts.colour or meter_colour(db), radius = 3 }
+    )
   end
   if opts.target then
     local x = LABEL + w * fraction(opts.target, low, high)
@@ -76,8 +77,17 @@ local function draw_loudness(g, result, target, y)
     bar(g, y, row[1], row[2], row[3], row[4], row[5], { target = row[6], colour = (not peak) and c.select or nil })
     y = y + ROW
   end
-  g:text(0, y + 2, string.format("range %s LU    correlation %s    mono loss %s dB", number(result.lra), number(result.correlation, "%.2f"),
-    number(result.mono_loss)), { color = c.text_3, size = 11, width = g.width })
+  g:text(
+    0,
+    y + 2,
+    string.format(
+      "range %s LU    correlation %s    mono loss %s dB",
+      number(result.lra),
+      number(result.correlation, "%.2f"),
+      number(result.mono_loss)
+    ),
+    { color = c.text_3, size = 11, width = g.width }
+  )
   return y + 28
 end
 
@@ -122,10 +132,16 @@ local function draw_spectrum(g, result)
   local points, base, named = {}, top + h, 0
   for i, band in ipairs(bands) do
     local centre = math.sqrt(math.max(band.low, fmin) * band.high)
-    if i == 1 then points[#points + 1] = x_of(fmin); points[#points + 1] = base end
+    if i == 1 then
+      points[#points + 1] = x_of(fmin)
+      points[#points + 1] = base
+    end
     points[#points + 1] = x_of(centre)
     points[#points + 1] = y_of(band.share)
-    if i == #bands then points[#points + 1] = x_of(fmax); points[#points + 1] = base end
+    if i == #bands then
+      points[#points + 1] = x_of(fmax)
+      points[#points + 1] = base
+    end
     -- A name is left out where the one before it still takes the room.
     local x = x_of(math.max(band.low, fmin)) + 3
     if x >= named then
@@ -184,7 +200,9 @@ local function draw_tip(self, g, items, width, height)
   local y = self.hover.y - h - 10
   if y < HEAD then y = self.hover.y + 22 end
   g:rect(x, y, w, h, { fill = c.card, stroke = c.card_line, radius = 5 })
-  for i, line in ipairs(wrapped) do g:text(x + 10, y + 7 + (i - 1) * 17, line[1], { color = line[2] }) end
+  for i, line in ipairs(wrapped) do
+    g:text(x + 10, y + 7 + (i - 1) * 17, line[1], { color = line[2] })
+  end
 end
 
 local function draw_head(g, width)
@@ -192,20 +210,30 @@ local function draw_head(g, width)
   local job = mixdiag.job
   if job then
     local done = job.progress or 0
-    g:text(110, 10, string.format("measuring the %s… %d%%", job.range.label, math.floor(done * 100 + 0.5)), { color = c.warn })
+    g:text(
+      110,
+      10,
+      string.format("measuring the %s… %d%%", job.range.label, math.floor(done * 100 + 0.5)),
+      { color = c.warn }
+    )
     g:rect(14, HEAD - 12, width - 28, 4, { fill = c.meter_well, radius = 2 })
     g:rect(14, HEAD - 12, math.max(2, (width - 28) * done), 4, { fill = c.warn, radius = 2 })
   elseif mixdiag.result then
     local range = mixdiag.range_measured and mixdiag.range_measured.label or "mix"
-    g:text(110, 10, "the " .. range .. (mixdiag.stale() and ", measured before the last change" or ""),
-      { color = mixdiag.stale() and c.warn or c.text_2 })
+    g:text(
+      110,
+      10,
+      "the " .. range .. (mixdiag.stale() and ", measured before the last change" or ""),
+      { color = mixdiag.stale() and c.warn or c.text_2 }
+    )
     g:text(14, 29, mixdiag.summary(mixdiag.result), { color = c.text_2, size = 11 })
   else
     g:text(110, 10, "nothing measured yet", { color = c.text_3 })
     g:text(14, 29, "a measures the song, l the loop, t the cursor's track", { color = c.text_3, size = 11 })
   end
   local target = mixdiag.target()
-  local aim = target.integrated and string.format("target %s: %g LUFS, %g dBTP", target.name, target.integrated, target.true_peak or 0)
+  local aim = target.integrated
+      and string.format("target %s: %g LUFS, %g dBTP", target.name, target.integrated, target.true_peak or 0)
     or "target: " .. target.name
   g:text(width - 14, 10, aim, { color = c.text_3, size = 11, align = "right", width = width - 140 })
   g:line(0, HEAD - 0.5, width, HEAD - 0.5, { color = c.divider })
@@ -214,8 +242,12 @@ end
 local function draw_foot(g, width, height)
   local y = height - FOOT
   g:rect(0, y, width, FOOT, { fill = c.panel })
-  g:text(12, y + 6, "click a finding to choose it, again to go there   j k move   Enter go   a measure the song   l the loop   t the track   T target   q close",
-    { color = c.text_3, size = 11, width = width - 24 })
+  g:text(
+    12,
+    y + 6,
+    "click a finding to choose it, again to go there   j k move   Enter go   a measure the song   l the loop   t the track   T target   q close",
+    { color = c.text_3, size = 11, width = width - 24 }
+  )
 end
 
 function paint:paint(g, ctx)
@@ -262,7 +294,11 @@ function paint:pointer(e)
     self.hover = nil
   elseif e.kind == "down" and e.button == "left" and item then
     -- A click chooses a finding; a click on the one chosen goes there.
-    if item == list.at then list:on_key("<CR>") else list.at = item end
+    if item == list.at then
+      list:on_key("<CR>")
+    else
+      list.at = item
+    end
   end
 end
 

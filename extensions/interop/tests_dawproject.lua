@@ -58,18 +58,35 @@ local function write_wav(path, seconds, freq)
   local data = table.concat(samples)
   local b64 = paw.bytes
   local function u16(x) return string.char(x % 256, math.floor(x / 256) % 256) end
-  T.write_file(path, "RIFF" .. b64.le32(36 + #data) .. "WAVEfmt " .. b64.le32(16) .. u16(1) .. u16(1)
-    .. b64.le32(rate) .. b64.le32(rate * 2) .. u16(2) .. u16(16) .. "data" .. b64.le32(#data) .. data)
+  T.write_file(
+    path,
+    "RIFF"
+      .. b64.le32(36 + #data)
+      .. "WAVEfmt "
+      .. b64.le32(16)
+      .. u16(1)
+      .. u16(1)
+      .. b64.le32(rate)
+      .. b64.le32(rate * 2)
+      .. u16(2)
+      .. u16(16)
+      .. "data"
+      .. b64.le32(#data)
+      .. data
+  )
 end
 
 --- xmllint's verdict on a file against a schema of the format, or nil when
 --- there is no xmllint.
 local function validate(path, schema)
-  if os.execute("command -v xmllint >/dev/null 2>&1") ~= 0 and os.execute("command -v xmllint >/dev/null 2>&1") ~= true then
+  if
+    os.execute("command -v xmllint >/dev/null 2>&1") ~= 0 and os.execute("command -v xmllint >/dev/null 2>&1") ~= true
+  then
     return nil
   end
   local out = path .. ".lint"
-  local code = os.execute(string.format("xmllint --noout --schema '%s/schema/%s' '%s' > '%s' 2>&1", HERE, schema, path, out))
+  local code =
+    os.execute(string.format("xmllint --noout --schema '%s/schema/%s' '%s' > '%s' 2>&1", HERE, schema, path, out))
   return code == 0 or code == true, T.read_file(out)
 end
 
@@ -78,10 +95,18 @@ end
 test("dawproject: tempo points in seconds are placed in beats", function()
   local d = load()
   local path = scratch_dir() .. "/seconds.dawproject"
-  T.write_file(path, paw.zip.write({ { name = "project.xml", data = [[<?xml version="1.0"?>
+  T.write_file(
+    path,
+    paw.zip.write({
+      {
+        name = "project.xml",
+        data = [[<?xml version="1.0"?>
 <Project version="1.0"><Transport><Tempo value="120"/></Transport><Arrangement>
 <TempoAutomation timeUnit="seconds"><RealPoint time="2" value="60" interpolation="hold"/></TempoAutomation>
-</Arrangement></Project>]] } }))
+</Arrangement></Project>]],
+      },
+    })
+  )
   d.import(path)
   local points = paw.tempo.points()
   eq(#points, 2, "a tempo change")
@@ -108,7 +133,9 @@ test("dawproject: import, track by track and clip by clip", function()
   near(paw.master.volume, -6.0206, 1e-3, "master volume")
 
   local names = {}
-  for i, t in ipairs(paw.tracks()) do names[i] = t.name end
+  for i, t in ipairs(paw.tracks()) do
+    names[i] = t.name
+  end
   eq(table.concat(names, ","), "Group,Bass,Drumloop,Reverb", "tracks in order, the nested one after its group")
   local group, bass, drums, verb = paw.track("Group"), paw.track("Bass"), paw.track("Drumloop"), paw.track("Reverb")
   eq(bass.output, group.id, "Bass goes into its group")
@@ -182,7 +209,11 @@ test("dawproject: import, track by track and clip by clip", function()
   near(marks[2].beat, 8, 1e-9, "beat")
 
   -- What did not come across.
-  eq(has_item(report, "Plugins and devices left as placeholders", "Nowhere Synth (not installed here)"), true, "CLAP left behind")
+  eq(
+    has_item(report, "Plugins and devices left as placeholders", "Nowhere Synth (not installed here)"),
+    true,
+    "CLAP left behind"
+  )
   eq(has_item(report, "Plugins and devices left as placeholders", "Nowhere Verb"), true, "VST3 left behind")
   eq(has_item(report, "Note-off velocities", "Bass"), true, "a release velocity")
   local holders = bass.meta.dawproject_placeholders
@@ -196,55 +227,101 @@ end)
 local function describe()
   local p = paw.project.get()
   local out = {
-    tempo = p.tempo, sig = p.sig_num .. "/" .. p.sig_den,
+    tempo = p.tempo,
+    sig = p.sig_num .. "/" .. p.sig_den,
     master = string.format("%.4f %.4f %s", paw.master.volume, paw.master.pan, tostring(paw.master.mute)),
     tracks = {},
   }
   local name_of = {}
-  for _, t in ipairs(paw.tracks()) do name_of[t.id] = t.name end
+  for _, t in ipairs(paw.tracks()) do
+    name_of[t.id] = t.name
+  end
   local map = paw.tempo.points()
   local tempo = {}
-  for _, tp in ipairs(map) do tempo[#tempo + 1] = string.format("%.4f:%g:%s", tp.beat, tp.bpm, tostring(tp.ramp)) end
+  for _, tp in ipairs(map) do
+    tempo[#tempo + 1] = string.format("%.4f:%g:%s", tp.beat, tp.bpm, tostring(tp.ramp))
+  end
   out.map = table.concat(tempo, " ")
   local lists = { paw.tracks() }
   table.insert(lists[1], paw.master)
   for _, t in ipairs(lists[1]) do
     local g = t:get()
     local d = {
-      string.format("%s vol %.4f pan %.4f mute %s solo %s out %s colour %s",
-        g.name, g.volume, g.pan, tostring(g.mute), tostring(g.solo), tostring(name_of[g.output]), tostring(g.color)),
+      string.format(
+        "%s vol %.4f pan %.4f mute %s solo %s out %s colour %s",
+        g.name,
+        g.volume,
+        g.pan,
+        tostring(g.mute),
+        tostring(g.solo),
+        tostring(name_of[g.output]),
+        tostring(g.color)
+      ),
     }
-    for _, s in ipairs(g.sends or {}) do d[#d + 1] = string.format("send %s %.4f pre %s", name_of[s.target], s.level, tostring(s.pre)) end
+    for _, s in ipairs(g.sends or {}) do
+      d[#d + 1] = string.format("send %s %.4f pre %s", name_of[s.target], s.level, tostring(s.pre))
+    end
     for _, lane in ipairs(t:lanes()) do
       local l = lane:get()
       local pts = {}
-      for _, pt in ipairs(lane:points()) do pts[#pts + 1] = string.format("%.6f:%.4f", pt[1], pt[2]) end
-      for _, s in ipairs(api.lane_shapes(l.id)) do pts[#pts + 1] = string.format("%s@%.6f", s.shape, s.beat) end
+      for _, pt in ipairs(lane:points()) do
+        pts[#pts + 1] = string.format("%.6f:%.4f", pt[1], pt[2])
+      end
+      for _, s in ipairs(api.lane_shapes(l.id)) do
+        pts[#pts + 1] = string.format("%s@%.6f", s.shape, s.beat)
+      end
       d[#d + 1] = string.format("lane %s %s %s", l.target, tostring(l.param), table.concat(pts, " "))
     end
     for _, dev in ipairs(t:devices()) do
       local keys = {}
-      for k in pairs(dev.params) do keys[#keys + 1] = k end
+      for k in pairs(dev.params) do
+        keys[#keys + 1] = k
+      end
       table.sort(keys)
       local params = {}
-      for _, k in ipairs(keys) do params[#params + 1] = string.format("%s=%.4f", k, dev.params[k]) end
+      for _, k in ipairs(keys) do
+        params[#params + 1] = string.format("%s=%.4f", k, dev.params[k])
+      end
       d[#d + 1] = string.format("device %s bypass %s %s", dev.kind, tostring(dev.bypass), table.concat(params, ","))
     end
     for _, c in ipairs(t.id ~= 0 and t:clips() or {}) do
       local cg = c:get()
-      local line = string.format("clip %s %s %.6f+%.6f muted %s", cg.kind, cg.name, cg.start, cg.length, tostring(cg.muted))
+      local line =
+        string.format("clip %s %s %.6f+%.6f muted %s", cg.kind, cg.name, cg.start, cg.length, tostring(cg.muted))
       if cg["loop"] then line = line .. string.format(" loop %.6f+%.6f", cg.loop_start, cg.loop_length) end
       if cg.kind == "audio" then
-        line = line .. string.format(" %s offset %.6f gain %.4f fades %.6f %.6f stretch %.6f", cg.file:match("[^/]+$"),
-          cg.offset, cg.gain, cg.fade_in, cg.fade_out, cg.stretch)
+        line = line
+          .. string.format(
+            " %s offset %.6f gain %.4f fades %.6f %.6f stretch %.6f",
+            cg.file:match("[^/]+$"),
+            cg.offset,
+            cg.gain,
+            cg.fade_in,
+            cg.fade_out,
+            cg.stretch
+          )
       else
         for _, n in ipairs(c:notes()) do
-          line = line .. string.format(" [%d %.6f %.6f %d %s]", n.pitch, n.start, n.length, n.velocity,
-            tostring(n.meta and n.meta.channel))
+          line = line
+            .. string.format(
+              " [%d %.6f %.6f %d %s]",
+              n.pitch,
+              n.start,
+              n.length,
+              n.velocity,
+              tostring(n.meta and n.meta.channel)
+            )
         end
         for _, m in ipairs(c:controls()) do
-          line = line .. string.format(" {%s %s %s %.6f %.4f}", m.type, tostring(m.number or m.program),
-            tostring(m.key), m.start, m.value)
+          line = line
+            .. string.format(
+              " {%s %s %s %.6f %.4f}",
+              m.type,
+              tostring(m.number or m.program),
+              tostring(m.key),
+              m.start,
+              m.value
+            )
         end
       end
       d[#d + 1] = line
@@ -260,9 +337,13 @@ local function describe()
 end
 
 local function same(a, b)
-  for _, key in ipairs({ "tempo", "sig", "master", "map", "markers" }) do eq(b[key], a[key], key) end
+  for _, key in ipairs({ "tempo", "sig", "master", "map", "markers" }) do
+    eq(b[key], a[key], key)
+  end
   eq(#b.tracks, #a.tracks, "number of tracks")
-  for i = 1, #a.tracks do eq(b.tracks[i], a.tracks[i], "track " .. i) end
+  for i = 1, #a.tracks do
+    eq(b.tracks[i], a.tracks[i], "track " .. i)
+  end
 end
 
 local function build(dir)
@@ -287,14 +368,25 @@ local function build(dir)
   bus.color = "#e04020"
   keys:send(verb, -9)
   api.track_set(snare.id, "sends", { { target = verb.id, level = -15.5, pre = true } })
-  kick:add_clip({ name = "kick", start = 0, length = 3, notes = {
-    { pitch = 36, start = 0, length = 0.25, velocity = 120 },
-    { pitch = 36, start = 1.5, length = 0.25, velocity = 90, meta = { channel = 10 } },
-  } })
-  local chords = keys:add_clip({ name = "chords", start = 3, length = 6, notes = {
-    { pitch = 60, start = 0, length = 2, velocity = 80 }, { pitch = 64, start = 0, length = 2, velocity = 80 },
-    { pitch = 67, start = 2.5, length = 0.125, velocity = 64 },
-  } })
+  kick:add_clip({
+    name = "kick",
+    start = 0,
+    length = 3,
+    notes = {
+      { pitch = 36, start = 0, length = 0.25, velocity = 120 },
+      { pitch = 36, start = 1.5, length = 0.25, velocity = 90, meta = { channel = 10 } },
+    },
+  })
+  local chords = keys:add_clip({
+    name = "chords",
+    start = 3,
+    length = 6,
+    notes = {
+      { pitch = 60, start = 0, length = 2, velocity = 80 },
+      { pitch = 64, start = 0, length = 2, velocity = 80 },
+      { pitch = 67, start = 2.5, length = 0.125, velocity = 64 },
+    },
+  })
   chords:set_controls({
     { start = 0, type = "cc", number = 1, value = 0.5 },
     { start = 0.5, type = "program", program = 5 },
@@ -302,19 +394,43 @@ local function build(dir)
     { start = 1.5, type = "pressure", value = 0.75 },
     { start = 2, type = "pressure", key = 64, value = 0.25 },
   })
-  local quiet = keys:add_clip({ name = "muted", start = 12, length = 3, notes = { { pitch = 72, start = 0, length = 1 } } })
+  local quiet =
+    keys:add_clip({ name = "muted", start = 12, length = 3, notes = { { pitch = 72, start = 0, length = 1 } } })
   quiet.muted = true
-  api.clip_add(kick.id, { name = "loop", start = 4, length = 5, notes = {
-    { pitch = 38, start = -0.5, length = 0.25, velocity = 100 }, { pitch = 42, start = 0.5, length = 0.25, velocity = 70 },
-  }, ["loop"] = true, loop_length = 2, loop_start = -0.5 })
+  api.clip_add(
+    kick.id,
+    {
+      name = "loop",
+      start = 4,
+      length = 5,
+      notes = {
+        { pitch = 38, start = -0.5, length = 0.25, velocity = 100 },
+        { pitch = 42, start = 0.5, length = 0.25, velocity = 70 },
+      },
+      ["loop"] = true,
+      loop_length = 2,
+      loop_start = -0.5,
+    }
+  )
   local wav = dir .. "/media/tone.wav"
   local audio = gtr:add_clip({ name = "tone", start = 1, file = wav, offset = 0.25, gain = 0 })
   audio.length = 2
   api.clip_set(audio.id, "fade_in", 0.25)
   api.clip_set(audio.id, "fade_out", 0.5)
   api.clip_add(gtr.id, { name = "slow", start = 4, file = wav, offset = 0.5, length = 2, stretch = 2 })
-  api.clip_add(gtr.id, { name = "looped", start = 6, file = wav, offset = 0.75, length = 6, ["loop"] = true,
-    loop_length = 2.5, loop_start = -0.4166666666666667 })
+  api.clip_add(
+    gtr.id,
+    {
+      name = "looped",
+      start = 6,
+      file = wav,
+      offset = 0.75,
+      length = 6,
+      ["loop"] = true,
+      loop_length = 2.5,
+      loop_start = -0.4166666666666667,
+    }
+  )
   keys:automate("volume"):set_points({ { 0, -10 }, { 4, 0 }, { 8, -120 } })
   api.lane_set_shapes(keys:lane("volume").id, { { beat = 0, shape = "hold", tension = 0 } })
   gtr:automate("pan"):set_points({ { 0, -1 }, { 6, 0.5 } })
@@ -337,10 +453,16 @@ test("dawproject: export, then import, gives the same project", function()
   local path = dir .. "/built.dawproject"
   local result = d.export(path)
   local report = result.report
-  eq(has_item(report, "Devices of paw (written as built-in devices that only paw reads)", "Verb: synth"), true,
-    "paw's own devices are listed: " .. report:text())
-  eq(has_item(report, "Regions written as markers at their start (paw reads them back as regions)", "regions"), true,
-    "regions are listed")
+  eq(
+    has_item(report, "Devices of paw (written as built-in devices that only paw reads)", "Verb: synth"),
+    true,
+    "paw's own devices are listed: " .. report:text()
+  )
+  eq(
+    has_item(report, "Regions written as markers at their start (paw reads them back as regions)", "regions"),
+    true,
+    "regions are listed"
+  )
   -- The archive holds the project, the metadata and the audio, once.
   local files, names = paw.zip.read(T.read_file(path))
   eq(table.concat(names, ","), "project.xml,metadata.xml,audio/tone.wav", "the files of the archive")
@@ -373,7 +495,8 @@ test("dawproject: the official schema accepts what paw writes of an imported pro
   eq(ok, true, "valid: " .. tostring(why))
   -- The plugins that stayed behind go out again, with their states.
   local root = d.xml.parse(files["project.xml"])
-  local clap = root:child("Structure"):child("Track"):child("Track"):child("Channel"):child("Devices"):child("ClapPlugin")
+  local clap =
+    root:child("Structure"):child("Track"):child("Track"):child("Channel"):child("Devices"):child("ClapPlugin")
   eq(clap.attr.deviceID, "com.nowhere.synth", "the placeholder is written back")
   eq(files[clap:child("State").attr.path], "nowhere-state-bytes", "with its state")
   d.import(dir .. "/again.dawproject", { media_dir = dir .. "/back" })
@@ -396,12 +519,22 @@ test("dawproject: plugins go out and come back with their settings", function()
   local want = api.device_get(v.id).params.sidechain_reactivity
   local path = T.scratch .. "/fx.dawproject"
   local result = d.export(path)
-  eq(has_item(result.report, "VST3 plugins written without their class id (not installed here; a DAW finds them by name)",
-    "FX: Gate Mono"), false, "the VST3 class id is known")
+  eq(
+    has_item(
+      result.report,
+      "VST3 plugins written without their class id (not installed here; a DAW finds them by name)",
+      "FX: Gate Mono"
+    ),
+    false,
+    "the VST3 class id is known"
+  )
   local files = paw.zip.read(T.read_file(path))
   local cid = api.device_get(v.id).plugin.id
-  eq(files["project.xml"]:find('<Vst3Plugin id="[^"]*" name="Gate Mono" deviceID="' .. cid .. '"') ~= nil, true,
-    "written as deviceID")
+  eq(
+    files["project.xml"]:find('<Vst3Plugin id="[^"]*" name="Gate Mono" deviceID="' .. cid .. '"') ~= nil,
+    true,
+    "written as deviceID"
+  )
   eq(files["plugins/001.clap-preset"] ~= nil, true, "the CLAP state")
   eq(files["plugins/002.vstpreset"]:sub(1, 4), "VST3", "the VST3 state as a .vstpreset")
   d.import(path)
@@ -439,13 +572,20 @@ for _, format in ipairs({ "clap", "vst3" }) do
     track:add_clip({ start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 4 } } })
     local fx = track:add_device(kind)
     local gain = api.device_param(fx.id, "input_gain")
-    api.lane_add(track.id, { target = "param", device = fx.id, param = "input_gain", points = { { 0, gain.min }, { 4, gain.max } } })
+    api.lane_add(
+      track.id,
+      { target = "param", device = fx.id, param = "input_gain", points = { { 0, gain.min }, { 4, gain.max } } }
+    )
     local dir = scratch_dir()
     d.export(dir .. "/ids.dawproject")
     local xml = paw.zip.read(T.read_file(dir .. "/ids.dawproject"))["project.xml"]
     local n = tonumber(gain.id)
     local signed = string.format("%d", n >= 2 ^ 31 and n - 2 ^ 32 or n)
-    eq(xml:find('name="Input gain" parameterID="' .. signed .. '"', 1, true) ~= nil, true, "the plugin's own id of the parameter")
+    eq(
+      xml:find('name="Input gain" parameterID="' .. signed .. '"', 1, true) ~= nil,
+      true,
+      "the plugin's own id of the parameter"
+    )
     local plugin = fx:get().plugin
     eq(xml:find('deviceID="' .. plugin.id .. '"', 1, true) ~= nil, true, "and of the plugin: " .. plugin.id)
     T.write_file(dir .. "/project.xml", xml)

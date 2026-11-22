@@ -23,8 +23,12 @@ local function start()
   fresh()
   api.engine_restart({ backend = "null" })
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
-  for _, name in ipairs({ "pianoroll", "mixer", "devices" }) do paw.ui.hide(name) end
+  while paw.ui.float do
+    paw.ui.close()
+  end
+  for _, name in ipairs({ "pianoroll", "mixer", "devices" }) do
+    paw.ui.hide(name)
+  end
   paw.ui.focus("arrange")
 end
 
@@ -36,7 +40,9 @@ test("the mixer's fader scale labels the rows its cap takes", function()
   api.undo_checkpoint()
   shot(160, 60)
   local rect
-  for _, r in ipairs(paw.ui.rects) do if r.name == "mixer" then rect = r end end
+  for _, r in ipairs(paw.ui.rects) do
+    if r.name == "mixer" then rect = r end
+  end
   local s = mixer.geometry.strips[#mixer.geometry.strips]
   local fx = s.x + math.floor(s.w / 2) + 1
   for _, mark in ipairs({ 6, 0, -6, -12, -24, -48 }) do
@@ -52,8 +58,11 @@ end)
 test("the welcome page and the empty roll name the right keys", function()
   start()
   local lines = screen()
-  eq(lines:find("i Enter%s+enter notes") ~= nil and lines:find("then I%s+type them") ~= nil, true,
-    "`i` `Enter` enters notes, then `I` types them like a piano (`I` in the arrange view chooses the input)")
+  eq(
+    lines:find("i Enter%s+enter notes") ~= nil and lines:find("then I%s+type them") ~= nil,
+    true,
+    "`i` `Enter` enters notes, then `I` types them like a piano (`I` in the arrange view chooses the input)"
+  )
   paw.ui.show("pianoroll")
   local text = screen(140, 44)
   local at = text:find("press Enter", 1, true)

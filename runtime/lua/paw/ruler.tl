@@ -39,17 +39,19 @@ local record Paw is partial.Paw
   tempo: TempoModule
   time: objects.Time
 end
-local paw = (_G as {string:Paw}).paw
+local paw = (_G as {string: Paw}).paw
 local opt = options.opt
 
 local record M
-  labels: {string:Label}
+  labels: {string: Label}
 end
 M.labels = {}
 
 local function has(list: {string}, value: string): boolean
   for _, v in ipairs(list) do
-    if v == value then return true end
+    if v == value then
+      return true
+    end
   end
   return false
 end
@@ -57,15 +59,19 @@ end
 --- Add a part of the bar labels, or put a new one in place of one of that
 --- name. It goes into `paw.opt.barlabel` (unless `hidden`).
 function M.add(name: string, spec: Label): Label
-  assert(type(name) == "string" and type(spec) == "table" and type(spec.render) == "function",
-    "usage: paw.ruler.add(name, { order = 50, render = function(bar, ctx) ... end })")
+  assert(
+    type(name) == "string" and type(spec) == "table" and type(spec.render) == "function",
+    "usage: paw.ruler.add(name, { order = 50, render = function(bar, ctx) ... end })"
+  )
   spec.name = name
   spec.order = spec.order or 50
   M.labels[name] = spec
   local shown = opt.barlabel as {string}
   if not spec.hidden and not has(shown, name) then
     local list: {string} = {}
-    for i, n in ipairs(shown) do list[i] = n end
+    for i, n in ipairs(shown) do
+      list[i] = n
+    end
     list[#list + 1] = name
     opt.barlabel = list
   end
@@ -78,7 +84,9 @@ function M.remove(name: string)
   M.labels[name] = nil
   local list: {string} = {}
   for _, n in ipairs(opt.barlabel as {string}) do
-    if n ~= name then list[#list + 1] = n end
+    if n ~= name then
+      list[#list + 1] = n
+    end
   end
   opt.barlabel = list
   api.ui_redraw()
@@ -89,8 +97,12 @@ end
 --- (paw/defaults/cursor.lua). Nil for the cursor's own bar.
 function M.relative(bar: integer, beat: number): integer
   local at = paw.time.bar_of(beat)
-  if bar > at then return bar - at end
-  if bar == at then return nil end
+  if bar > at then
+    return bar - at
+  end
+  if bar == at then
+    return nil
+  end
   return at - bar + (paw.tempo.is_bar_line(beat) and 0 or 1)
 end
 
@@ -101,16 +113,25 @@ end
 ---   paw.ruler.set("number", { styles = { cursor = "Title" } })
 function M.set(name: string, patch: contracts.RulerPatch): Label
   local l = M.labels[name]
-  if not l then error("no bar label part `" .. tostring(name) .. "`", 2) end
+  if not l then
+    error("no bar label part `" .. tostring(name) .. "`", 2)
+  end
   local copy: Label = {
-    name = l.name, order = patch.order or l.order, render = patch.render or l.render,
-    hidden = l.hidden, ext = paw.ext.caller(),
+    name = l.name,
+    order = patch.order or l.order,
+    render = patch.render or l.render,
+    hidden = l.hidden,
+    ext = paw.ext.caller(),
   }
-  for _, field in ipairs({ "glyphs", "styles" }) do
-    local own: {string:string} = {}
-    for k, v in pairs((l as {string:{string:string}})[field] or {}) do own[k] = v end
-    for k, v in pairs((patch as {string:{string:string}})[field] or {}) do own[k] = v end
-    ;(copy as {string:{string:string}})[field] = own
+  for _, field in ipairs({"glyphs", "styles"}) do
+    local own: {string: string} = {}
+    for k, v in pairs((l as {string: {string: string}})[field] or {}) do
+      own[k] = v
+    end
+    for k, v in pairs((patch as {string: {string: string}})[field] or {}) do
+      own[k] = v
+    end
+    (copy as {string: {string: string}})[field] = own
   end
   M.labels[name] = copy
   api.ui_redraw()
@@ -120,16 +141,25 @@ end
 -- Styles, by name: `cursor` (the cursor's bar, with `relativebar`) and
 -- `relative` (the counts); a bar's number in the loop or the punch range
 -- keeps their colors.
-M.add("number", {
-  order = 10, glyphs = {}, styles = {},
-  render = function(bar: integer, ctx: Context): Cells
-    if ctx.cursor and opt.relativebar then return { { tostring(bar), ctx.styles.cursor or "RulerBarCursor" } } end
-    if ctx.relative then
-      return { { tostring(ctx.relative), ctx.style == "RulerBar" and (ctx.styles.relative or "RulerBarRelative") or ctx.style } }
-    end
-    return { { tostring(bar), ctx.style } }
-  end,
-})
+M.add(
+  "number",
+  {
+    order = 10,
+    glyphs = {},
+    styles = {},
+    render = function(bar: integer, ctx: Context): Cells
+      if ctx.cursor and opt.relativebar then
+        return {{tostring(bar), ctx.styles.cursor or "RulerBarCursor"}}
+      end
+      if ctx.relative then
+        return {
+          {tostring(ctx.relative), ctx.style == "RulerBar" and (ctx.styles.relative or "RulerBarRelative") or ctx.style}
+        }
+      end
+      return {{tostring(bar), ctx.style}}
+    end,
+  }
+)
 
 --- The pieces of bar `bar`'s label, from the parts in `paw.opt.barlabel`
 --- in their order. `bar` is the song's bar: in a scope with time, its
@@ -141,23 +171,34 @@ function M.label(bar: integer, beat: number, style: string, cursor_beat: number,
   local list: {Label} = {}
   for _, name in ipairs(opt.barlabel as {string}) do
     local l = M.labels[name]
-    if l then list[#list + 1] = l end
+    if l then
+      list[#list + 1] = l
+    end
   end
-  table.sort(list, function(a: Label, b: Label): boolean
-    if a.order ~= b.order then return a.order < b.order end
-    return a.name < b.name
-  end)
+  table.sort(
+    list,
+    function(a: Label, b: Label): boolean
+      if a.order ~= b.order then
+        return a.order < b.order
+      end
+      return a.name < b.name
+    end
+  )
   local song_bar = bar
   bar = bar - (paw.scope and paw.scope.bar_offset() or 0)
   local ctx: Context = {
-    bar = bar, song_bar = song_bar, beat = beat, style = style, g = paw.draw.g,
+    bar = bar,
+    song_bar = song_bar,
+    beat = beat,
+    style = style,
+    g = paw.draw.g,
     cursor = paw.time.bar_of(cursor_beat) == song_bar,
     relative = opt.relativebar and M.relative(song_bar, cursor_beat) or nil,
   }
   local left: integer = room or 1000
   local out: {Piece} = {}
   local function put(text: string, group: string)
-    out[#out + 1] = { text, group }
+    out[#out + 1] = {text, group}
     left = left - api.str_width(text)
   end
   for _, l in ipairs(list) do
@@ -168,7 +209,9 @@ function M.label(bar: integer, beat: number, style: string, cursor_beat: number,
     elseif cells is string then
       put(cells, style)
     elseif cells is {Piece} then
-      for _, piece in ipairs(cells) do put(piece[1], piece[2] or style) end
+      for _, piece in ipairs(cells) do
+        put(piece[1], piece[2] or style)
+      end
     end
   end
   return out

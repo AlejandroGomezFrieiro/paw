@@ -51,20 +51,29 @@ local Q = D.Q
 M.VERSION = 1
 local EPS = 1e-6
 
-M.DYNAMICS = { ppp = 25, pp = 38, p = 52, mp = 66, mf = 80, f = 96, ff = 112, fff = 124, pppp = 16, ffff = 127, niente = 8 }
+M.DYNAMICS =
+  { ppp = 25, pp = 38, p = 52, mp = 66, mf = 80, f = 96, ff = 112, fff = 124, pppp = 16, ffff = 127, niente = 8 }
 -- Dynamics of one moment: louder by `add` over what holds, or at `level`,
 -- for the notes that start there; `after` holds from just after it.
-M.MOMENTS = { sf = { add = 24 }, sfz = { add = 30 }, sffz = { add = 36 }, fz = { add = 24 }, rfz = { add = 18 },
-  fp = { level = 96, after = "p" }, sfp = { add = 30, after = "p" } }
+M.MOMENTS = {
+  sf = { add = 24 },
+  sfz = { add = 30 },
+  sffz = { add = 36 },
+  fz = { add = 24 },
+  rfz = { add = 18 },
+  fp = { level = 96, after = "p" },
+  sfp = { add = 30, after = "p" },
+}
 M.ORDER = { "ppp", "pp", "p", "mp", "mf", "f", "ff", "fff" }
 M.ARTICULATIONS = { staccato = true, staccatissimo = true, accent = true, tenuto = true, marcato = true }
 -- How long a note marked so is played, of its written length.
 M.GATE = { staccatissimo = 0.25, staccato = 0.5, tenuto = 1, fermata = 1, fermata_short = 1, fermata_long = 1 }
 M.ACCENT = { accent = 20, marcato = 30 }
-local GRACE = Q / 8   -- a grace note sounds a 32nd before its note
+local GRACE = Q / 8 -- a grace note sounds a 32nd before its note
 
 -- The keys of a note's `meta.notation` that the score decides.
-local DECIDED = { "letter", "alter", "pitch", "voice", "staff", "grace", "strum", "chord", "beam", "art", "orn", "stem", "lyrics" }
+local DECIDED =
+  { "letter", "alter", "pitch", "voice", "staff", "grace", "strum", "chord", "beam", "art", "orn", "stem", "lyrics" }
 
 local function clamp_vel(v) return math.max(1, math.min(127, math.floor(v + 0.5))) end
 
@@ -75,10 +84,14 @@ function M.midi_id(id) return tonumber(type(id) == "string" and id:match("^n(%d+
 local function serial(v)
   if type(v) ~= "table" then return tostring(v) end
   local keys = {}
-  for k in pairs(v) do keys[#keys + 1] = k end
+  for k in pairs(v) do
+    keys[#keys + 1] = k
+  end
   table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
   local out = {}
-  for _, k in ipairs(keys) do out[#out + 1] = tostring(k) .. "=" .. serial(v[k]) end
+  for _, k in ipairs(keys) do
+    out[#out + 1] = tostring(k) .. "=" .. serial(v[k])
+  end
   return "{" .. table.concat(out, ",") .. "}"
 end
 M.serial = serial
@@ -128,7 +141,9 @@ end
 --- Whether the chord before item `k` of a voice ties a note of `pitch` into it.
 local function tied_into(seq, k, pitch)
   local j = k - 1
-  while seq[j] and seq[j].ev.grace do j = j - 1 end
+  while seq[j] and seq[j].ev.grace do
+    j = j - 1
+  end
   local prev = seq[j]
   if not (prev and prev.ev.kind == "chord" and prev.e == seq[k].s) then return false end
   for _, n in ipairs(prev.ev.notes) do
@@ -154,8 +169,17 @@ function M.written(sc, from, to)
         elseif ev.kind == "chord" then
           for j, g in ipairs(graces) do
             for _, n in ipairs(g.ev.notes) do
-              out[n.id] = { pitch = D.pitch(n), s = it.s - (#graces - j + 1) * GRACE, len = GRACE, staff = st.id, voice = v, ev = g.ev,
-                grace = g.ev.grace, mi = g.mi, note = n }
+              out[n.id] = {
+                pitch = D.pitch(n),
+                s = it.s - (#graces - j + 1) * GRACE,
+                len = GRACE,
+                staff = st.id,
+                voice = v,
+                ev = g.ev,
+                grace = g.ev.grace,
+                mi = g.mi,
+                note = n,
+              }
             end
           end
           graces = {}
@@ -173,7 +197,8 @@ function M.written(sc, from, to)
                 if not found then break end
                 e, cur, at = nxt.e, found, at + 1
               end
-              out[n.id] = { pitch = pitch, s = it.s, len = e - it.s, staff = st.id, voice = v, ev = ev, mi = it.mi, note = n }
+              out[n.id] =
+                { pitch = pitch, s = it.s, len = e - it.s, staff = st.id, voice = v, ev = ev, mi = it.mi, note = n }
             end
           end
         else
@@ -189,38 +214,50 @@ end
 --- decided keys }`, and verse 1 of its lyric; each made when it is asked for.
 function M.decisions(sc, written)
   local two = #sc.staves == 2
-  return setmetatable({}, { __index = function(out, id)
-    local w = written[id]
-    if not w then return nil end
-    local ev, note = w.ev, w.note
-    local d = { voice = w.voice, letter = note.step, alter = note.alter, pitch = w.pitch }
-    if two then d.staff = D.staff_index(sc, w.staff) end
-    if ev.grace then d.grace = ev.grace end
-    d.strum = ev.arpeggio
-    d.art = ev.art and next(ev.art) and util.merge(ev.art, {}) or nil
-    d.orn, d.stem = ev.orn, ev.stem
-    -- The first note written of a chord carries what is the chord's.
-    local first
-    for _, n in ipairs(ev.notes) do
-      if written[n.id] and (not first or tostring(n.id) < tostring(first)) then first = n.id end
-    end
-    if first == id then
-      d.beam = ev.beam
-      d.lyric, d.lyrics = ev.lyric, ev.lyrics
-    end
-    out[id] = d
-    return d
-  end })
+  return setmetatable({}, {
+    __index = function(out, id)
+      local w = written[id]
+      if not w then return nil end
+      local ev, note = w.ev, w.note
+      local d = { voice = w.voice, letter = note.step, alter = note.alter, pitch = w.pitch }
+      if two then d.staff = D.staff_index(sc, w.staff) end
+      if ev.grace then d.grace = ev.grace end
+      d.strum = ev.arpeggio
+      d.art = ev.art and next(ev.art) and util.merge(ev.art, {}) or nil
+      d.orn, d.stem = ev.orn, ev.stem
+      -- The first note written of a chord carries what is the chord's.
+      local first
+      for _, n in ipairs(ev.notes) do
+        if written[n.id] and (not first or tostring(n.id) < tostring(first)) then first = n.id end
+      end
+      if first == id then
+        d.beam = ev.beam
+        d.lyric, d.lyrics = ev.lyric, ev.lyrics
+      end
+      out[id] = d
+      return d
+    end,
+  })
 end
 
 --- Whether what notation decided about a written note is the same in two
 --- scores (`a` and `b`, from `M.written`), without making the decisions.
 local function decided_alike(a, b)
   local ea, eb = a.ev, b.ev
-  return a.voice == b.voice and a.staff == b.staff and a.pitch == b.pitch and a.note.step == b.note.step
-    and a.note.alter == b.note.alter and ea.grace == eb.grace and ea.arpeggio == eb.arpeggio and ea.orn == eb.orn
-    and ea.stem == eb.stem and ea.beam == eb.beam and ea.lyric == eb.lyric and #ea.notes == #eb.notes
-    and M.same(ea.art, eb.art) and M.same(ea.lyrics, eb.lyrics)
+  return a.voice == b.voice
+    and a.staff == b.staff
+    and a.pitch == b.pitch
+    and a.note.step == b.note.step
+    and a.note.alter == b.note.alter
+    and ea.grace == eb.grace
+    and ea.arpeggio == eb.arpeggio
+    and ea.orn == eb.orn
+    and ea.stem == eb.stem
+    and ea.beam == eb.beam
+    and ea.lyric == eb.lyric
+    and #ea.notes == #eb.notes
+    and M.same(ea.art, eb.art)
+    and M.same(ea.lyrics, eb.lyrics)
 end
 
 -- Loudness -------------------------------------------------------------------------------------
@@ -240,7 +277,9 @@ function M.resolve(sc)
         if mo.after then out.dyns[#out.dyns + 1] = { t = s + 1, level = M.DYNAMICS[mo.after] } end
       elseif mk.kind == "hairpin" then
         local e = M.at_of(sc, f, mk.to)
-        if e and e > s then out.pins[#out.pins + 1] = { s = s, e = e, kind = mk.value == "dim" and "dim" or "cresc" } end
+        if e and e > s then
+          out.pins[#out.pins + 1] = { s = s, e = e, kind = mk.value == "dim" and "dim" or "cresc" }
+        end
       end
     end
   end
@@ -257,7 +296,9 @@ function M.velocity(res, t, art, have)
   local function at(x)
     local v, key
     for _, d in ipairs(res.dyns) do
-      if d.t <= x then v, key = d.level, "d" .. d.t .. ":" .. d.level end
+      if d.t <= x then
+        v, key = d.level, "d" .. d.t .. ":" .. d.level
+      end
     end
     return v, key
   end
@@ -274,7 +315,9 @@ function M.velocity(res, t, art, have)
       from = from or M.DYNAMICS.mf
       local to, to_key
       for _, d in ipairs(res.dyns) do
-        if not to and d.t >= e then to, to_key = d.level, "d" .. d.t .. ":" .. d.level end
+        if not to and d.t >= e then
+          to, to_key = d.level, "d" .. d.t .. ":" .. d.level
+        end
       end
       to = to or (from + (h.kind == "cresc" and 24 or -24))
       v = from + (to - from) * (t - h.s) / math.max(1, e - h.s)
@@ -304,9 +347,15 @@ end
 --- them), as a set.
 local function sources(res)
   local out = {}
-  for _, d in ipairs(res.dyns) do out["d" .. d.t .. ":" .. d.level] = true end
-  for _, h in ipairs(res.pins) do out["h" .. h.s .. ":" .. h.e .. ":" .. h.kind] = true end
-  for _, mo in ipairs(res.moments) do out["m" .. mo.t .. ":" .. tostring(mo.level or mo.add)] = true end
+  for _, d in ipairs(res.dyns) do
+    out["d" .. d.t .. ":" .. d.level] = true
+  end
+  for _, h in ipairs(res.pins) do
+    out["h" .. h.s .. ":" .. h.e .. ":" .. h.kind] = true
+  end
+  for _, mo in ipairs(res.moments) do
+    out["m" .. mo.t .. ":" .. tostring(mo.level or mo.add)] = true
+  end
   return out
 end
 
@@ -319,9 +368,7 @@ local function written_now(why, known)
 end
 
 --- Whether a set of articulations has an accent or a marcato.
-local function accented(art)
-  return art ~= nil and (art.accent or art.marcato) and true or false
-end
+local function accented(art) return art ~= nil and (art.accent or art.marcato) and true or false end
 
 --- How much of its written length a note with articulations `art` plays,
 --- or nil when they do not say.
@@ -413,7 +460,9 @@ function M.clip_part(sc)
     if m.clef then
       b = b or {}
       b.clef = {}
-      for sid, clef in pairs(m.clef) do b.clef[D.staff_index(sc, sid) or 1] = clef end
+      for sid, clef in pairs(m.clef) do
+        b.clef[D.staff_index(sc, sid) or 1] = clef
+      end
     end
     if b then
       b.at = (origin + f.starts[i]) / Q
@@ -451,7 +500,14 @@ local function tuplets_of(sc, from, to)
           if span then
             span.e = math.max(span.e, e)
           else
-            out[key] = { s = s, e = e, n = tp.actual, normal = tp.normal, staff = D.staff_index(sc, entry.staff) or 1, voice = entry.voice }
+            out[key] = {
+              s = s,
+              e = e,
+              n = tp.actual,
+              normal = tp.normal,
+              staff = D.staff_index(sc, entry.staff) or 1,
+              voice = entry.voice,
+            }
           end
         end
         s = e
@@ -460,8 +516,14 @@ local function tuplets_of(sc, from, to)
   end
   local list = {}
   for _, span in pairs(out) do
-    local tp = { start = (origin + span.s) / Q, length = (span.e - span.s) / Q, n = span.n, normal = span.normal,
-      staff = span.staff, voice = span.voice }
+    local tp = {
+      start = (origin + span.s) / Q,
+      length = (span.e - span.s) / Q,
+      n = span.n,
+      normal = span.normal,
+      staff = span.staff,
+      voice = span.voice,
+    }
     list[string.format("%.6f:%.6f:%d:%d:%d:%d", tp.start, tp.length, tp.n, tp.normal, tp.staff, tp.voice)] = tp
   end
   return list
@@ -490,7 +552,9 @@ local function legacy(own)
   for _, sl in ipairs(own.slurs or {}) do
     marks[#marks + 1] = { kind = "slur", at = sl.from, to = sl.to, staff = sl.staff }
   end
-  for _, b in ipairs(own.bars or {}) do bars[#bars + 1] = b end
+  for _, b in ipairs(own.bars or {}) do
+    bars[#bars + 1] = b
+  end
   return marks, bars
 end
 
@@ -534,7 +598,9 @@ local function put_clip_part(sc, own)
     sc.layout = { breaks = {}, per_system = own.layout.per_system }
     for _, br in ipairs(own.layout.breaks or {}) do
       local mi = D.locate(sc, D.from_beats(br.at) - D.origin(sc))
-      if sc.measures[mi] then sc.layout.breaks[#sc.layout.breaks + 1] = { id = D.id(sc, "l"), measure = sc.measures[mi].id, kind = br.kind } end
+      if sc.measures[mi] then
+        sc.layout.breaks[#sc.layout.breaks + 1] = { id = D.id(sc, "l"), measure = sc.measures[mi].id, kind = br.kind }
+      end
     end
   end
 end
@@ -549,7 +615,9 @@ local function put_note_part(ev, by_id)
     if note then
       local own = own_of(note)
       if type(own.art) == "table" then
-        for k, v in pairs(own.art) do art[k] = v end
+        for k, v in pairs(own.art) do
+          art[k] = v
+        end
       end
       ev.orn = ev.orn or own.orn
       ev.stem = ev.stem or own.stem
@@ -571,10 +639,33 @@ local function voices_token(m)
     out[#out + 1] = "|" .. entry.staff .. ":" .. entry.voice
     for _, ev in ipairs(entry.events) do
       local tp = ev.tuplet
-      out[#out + 1] = ev.id .. "," .. ev.kind .. "," .. ev.dur[1] .. "," .. ev.dur[2] .. "," .. (ev.dots or 0) .. ","
-        .. (tp and (tp.id .. "/" .. tp.actual .. "/" .. tp.normal) or "") .. "," .. (ev.grace or "") .. ","
-        .. (ev.arpeggio or "") .. "," .. (ev.beam or "") .. "," .. (ev.stem or "") .. "," .. (ev.orn or "") .. ","
-        .. (ev.lyric or "") .. "," .. (ev.art and serial(ev.art) or "") .. "," .. (ev.lyrics and serial(ev.lyrics) or "")
+      out[#out + 1] = ev.id
+        .. ","
+        .. ev.kind
+        .. ","
+        .. ev.dur[1]
+        .. ","
+        .. ev.dur[2]
+        .. ","
+        .. (ev.dots or 0)
+        .. ","
+        .. (tp and (tp.id .. "/" .. tp.actual .. "/" .. tp.normal) or "")
+        .. ","
+        .. (ev.grace or "")
+        .. ","
+        .. (ev.arpeggio or "")
+        .. ","
+        .. (ev.beam or "")
+        .. ","
+        .. (ev.stem or "")
+        .. ","
+        .. (ev.orn or "")
+        .. ","
+        .. (ev.lyric or "")
+        .. ","
+        .. (ev.art and serial(ev.art) or "")
+        .. ","
+        .. (ev.lyrics and serial(ev.lyrics) or "")
       for _, n in ipairs(ev.notes or {}) do
         out[#out + 1] = n.id .. "," .. n.step .. "," .. n.alter .. "," .. n.octave .. (n.tie and "~" or "")
       end
@@ -612,7 +703,7 @@ end
 
 M.memo = true
 local written_memo, written_count = {}, 0
-M.stats = { measures = 0 }   -- measures written, not found in the memo
+M.stats = { measures = 0 } -- measures written, not found in the memo
 
 local function num(x) return string.format("%.17g", x) end
 
@@ -624,9 +715,23 @@ local function note_key(n, keep)
   local own = type(meta) == "table" and type(meta.notation) == "table" and meta.notation or nil
   local lyric = type(meta) == "table" and meta.lyric or nil
   if not own then return (keep[n.index] or "?") .. "," .. n.pitch .. "," .. (lyric and serial(lyric) or "") end
-  return table.concat({ keep[n.index] or "?", n.pitch, lyric and serial(lyric) or "", tostring(own.letter), tostring(own.alter),
-    tostring(own.pitch), tostring(own.beam), tostring(own.orn), tostring(own.stem), tostring(own.grace),
-    own.art ~= nil and serial(own.art) or "", own.lyrics ~= nil and serial(own.lyrics) or "" }, ",")
+  return table.concat(
+    {
+      keep[n.index] or "?",
+      n.pitch,
+      lyric and serial(lyric) or "",
+      tostring(own.letter),
+      tostring(own.alter),
+      tostring(own.pitch),
+      tostring(own.beam),
+      tostring(own.orn),
+      tostring(own.stem),
+      tostring(own.grace),
+      own.art ~= nil and serial(own.art) or "",
+      own.lyrics ~= nil and serial(own.lyrics) or "",
+    },
+    ","
+  )
 end
 
 --- A transcribed chord as text, for the keys of the measures it is in;
@@ -635,9 +740,13 @@ local function chord_key(c, keep, known)
   local hit = known[c]
   if hit then return hit end
   local out = { tostring(c.arpeggio), tostring(c.staccato) }
-  for _, n in ipairs(c.notes) do out[#out + 1] = note_key(n, keep) end
+  for _, n in ipairs(c.notes) do
+    out[#out + 1] = note_key(n, keep)
+  end
   out[#out + 1] = "/"
-  for _, n in ipairs(c.grace or {}) do out[#out + 1] = note_key(n, keep) end
+  for _, n in ipairs(c.grace or {}) do
+    out[#out + 1] = note_key(n, keep)
+  end
   hit = table.concat(out, ";")
   known[c] = hit
   return hit
@@ -649,7 +758,9 @@ local function by_start(a, b) return a.start < b.start end
 
 local function sorted_keys(t)
   local out = {}
-  for k in pairs(t) do out[#out + 1] = k end
+  for k in pairs(t) do
+    out[#out + 1] = k
+  end
   table.sort(out)
   return out
 end
@@ -664,15 +775,21 @@ local function write_measures(tr, o, keep, next_id, by_id)
   local measures = model.measures_of(o.bars, #o.staves)
   local lines = model.lines(tr, measures, #o.staves)
   local bars = {}
-  for i, m in ipairs(measures) do bars[i] = { start = m.start, num = m.meter.num, den = m.meter.den } end
+  for i, m in ipairs(measures) do
+    bars[i] = { start = m.start, num = m.meter.num, den = m.meter.den }
+  end
   local score = D.new(bars, o.staves)
   score.next = math.max(score.next, next_id)
   local voices_of = {}
-  for s, voices in ipairs(lines) do voices_of[s] = sorted_keys(voices) end
+  for s, voices in ipairs(lines) do
+    voices_of[s] = sorted_keys(voices)
+  end
   local head = table.concat(o.staves, ",") .. "|" .. tostring(o.fifths)
-  local before = {}   -- by staff: the steps the bar before left altered
-  for s = 1, #o.staves do before[s] = {} end
-  local count = {}    -- by segment: the written pieces it has had
+  local before = {} -- by staff: the steps the bar before left altered
+  for s = 1, #o.staves do
+    before[s] = {}
+  end
+  local count = {} -- by segment: the written pieces it has had
   local tokens, known = {}, {}
   for i, m in ipairs(measures) do
     local stop = m.start + m.length
@@ -680,8 +797,19 @@ local function write_measures(tr, o, keep, next_id, by_id)
     local key = { i, num(m.start), m.meter.num, m.meter.den, head }
     for _, tp in ipairs(o.tuplets or {}) do
       if tp.start < stop + 1e-3 and tp.start + tp.length > m.start - 1e-3 then
-        key[#key + 1] = table.concat({ "t", num(tp.start), num(tp.length), tostring(tp.n), tostring(tp.normal), tostring(tp.staff),
-          tostring(tp.voice), tostring(tp.plain) }, ",")
+        key[#key + 1] = table.concat(
+          {
+            "t",
+            num(tp.start),
+            num(tp.length),
+            tostring(tp.n),
+            tostring(tp.normal),
+            tostring(tp.staff),
+            tostring(tp.voice),
+            tostring(tp.plain),
+          },
+          ","
+        )
       end
     end
     for s = 1, #o.staves do
@@ -692,8 +820,15 @@ local function write_measures(tr, o, keep, next_id, by_id)
           key[#key + 1] = "v" .. s .. ":" .. v
           for _, p in ipairs(pieces) do
             local c = p.seg.chord
-            key[#key + 1] = num(p.a) .. "," .. num(p.b) .. "," .. (count[p.seg] or 0) .. ","
-              .. (p.seg.e > stop + 1e-6 and "~" or "") .. "," .. (c and chord_key(c, keep, known) or "r")
+            key[#key + 1] = num(p.a)
+              .. ","
+              .. num(p.b)
+              .. ","
+              .. (count[p.seg] or 0)
+              .. ","
+              .. (p.seg.e > stop + 1e-6 and "~" or "")
+              .. ","
+              .. (c and chord_key(c, keep, known) or "r")
           end
         end
       end
@@ -706,7 +841,9 @@ local function write_measures(tr, o, keep, next_id, by_id)
         for _, v in ipairs(voices_of[s]) do
           local pieces = lines[s][v].pieces[i]
           if pieces then
-            for _, p in ipairs(pieces) do p.evs = {} end
+            for _, p in ipairs(pieces) do
+              p.evs = {}
+            end
             model.write_pieces(m, s, v, pieces, o.tuplets)
           end
         end
@@ -720,9 +857,13 @@ local function write_measures(tr, o, keep, next_id, by_id)
             local c, had = p.seg.chord, count[p.seg] or 0
             table.sort(p.evs, by_start)
             local total = had + #p.evs + (p.seg.e > stop + 1e-6 and 1 or 0)
-            for k, ev in ipairs(p.evs) do model.tie_piece(ev, c, had + k, total) end
+            for k, ev in ipairs(p.evs) do
+              model.tie_piece(ev, c, had + k, total)
+            end
             if c and had > 0 then
-              for _, n in ipairs(c.notes) do st.pieces[n.index] = had end
+              for _, n in ipairs(c.notes) do
+                st.pieces[n.index] = had
+              end
             end
             made[#made + 1] = #p.evs
           end
@@ -730,17 +871,23 @@ local function write_measures(tr, o, keep, next_id, by_id)
       end
       model.order(m)
       local spelled = {}
-      for s, clef in ipairs(o.staves) do spelled[s] = model.spell_measure(m, s, clef, o.fifths or 0, before[s]) end
+      for s, clef in ipairs(o.staves) do
+        spelled[s] = model.spell_measure(m, s, clef, o.fifths or 0, before[s])
+      end
       L.import_measure(score, i, m, st)
       L.normalize_measure(score, i)
       if score.next ~= mark then return nil end
       local sm = score.measures[i]
       for _, entry in ipairs(sm.voices) do
-        for _, ev in ipairs(entry.events) do put_note_part(ev, by_id) end
+        for _, ev in ipairs(entry.events) do
+          put_note_part(ev, by_id)
+        end
       end
       hit = { voices = sm.voices, token = voices_token(sm), before = spelled, made = made }
       M.stats.measures = M.stats.measures + 1
-      if written_count > 4000 then written_memo, written_count = {}, 0 end
+      if written_count > 4000 then
+        written_memo, written_count = {}, 0
+      end
       written_memo[key], written_count = hit, written_count + 1
     end
     local sm = score.measures[i]
@@ -784,7 +931,9 @@ function M.derive(notes, own, opts)
     if k then top = math.max(top, k) end
   end
   local sc, tokens
-  if M.memo and named then sc, tokens = write_measures(tr, o, keep, top + 1, by_id) end
+  if M.memo and named then
+    sc, tokens = write_measures(tr, o, keep, top + 1, by_id)
+  end
   if not sc then
     sc = L.import(model.engrave_score(tr, o), { keep = keep, next = top + 1 })
     D.each(sc, function(ev) put_note_part(ev, by_id) end)
@@ -794,7 +943,9 @@ function M.derive(notes, own, opts)
   sc._transcribed = tr
   sc.layout = { breaks = {} }
   put_clip_part(sc, own)
-  for i, m in ipairs(sc.measures) do m.v = token_of(m, tokens[i]) end
+  for i, m in ipairs(sc.measures) do
+    m.v = token_of(m, tokens[i])
+  end
   sc.rev = D.token()
   sc._frame = nil
   return sc, by_id
@@ -802,7 +953,9 @@ end
 
 --- Mark a derived score's measures by their content again, after a change.
 function M.retoken(sc)
-  for _, m in ipairs(sc.measures) do m.v = token_of(m) end
+  for _, m in ipairs(sc.measures) do
+    m.v = token_of(m)
+  end
   sc._frame = nil
 end
 
@@ -825,8 +978,12 @@ M.same = same
 --- A note's `meta.notation` with the decided keys of `d` in place of its own.
 local function with_decisions(own, d)
   local out = {}
-  for k, v in pairs(own) do out[k] = v end
-  for _, k in ipairs(DECIDED) do out[k] = d[k] end
+  for k, v in pairs(own) do
+    out[k] = v
+  end
+  for _, k in ipairs(DECIDED) do
+    out[k] = d[k]
+  end
   return out
 end
 
@@ -868,7 +1025,9 @@ function M.sync(clip_id, before, after, own, fixed)
         end
         return false
       end
-      while from > 1 and (tied_out(before, from - 1) or tied_out(after, from - 1)) do from = from - 1 end
+      while from > 1 and (tied_out(before, from - 1) or tied_out(after, from - 1)) do
+        from = from - 1
+      end
     else
       from, to = 1, 0
     end
@@ -888,7 +1047,9 @@ function M.sync(clip_id, before, after, own, fixed)
     local k = M.midi_id(id)
     if not k or place[k] or taken[k] or k <= top then
       top = math.max(top, k or 0) + 1
-      while place[top] or taken[top] do top = top + 1 end
+      while place[top] or taken[top] do
+        top = top + 1
+      end
       k = top
     end
     taken[k] = true
@@ -901,7 +1062,12 @@ function M.sync(clip_id, before, after, own, fixed)
     local art = w.ev.art
     local decided = b and not decided_alike(b, w) and not same(db[id], da[id])
     -- A note the edit did not change, nor any mark that plays: not touched.
-    local alike = b and w.pitch == b.pitch and w.s == b.s and w.len == b.len and ob == oa and not decided
+    local alike = b
+      and w.pitch == b.pitch
+      and w.s == b.s
+      and w.len == b.len
+      and ob == oa
+      and not decided
       and not marks_changed
     local d = (not alike or not i) and da[id]
     if i and not alike then
@@ -909,9 +1075,13 @@ function M.sync(clip_id, before, after, own, fixed)
       local own_n = own_of(n)
       local meta_now = util.merge(own_n, {})
       local change, any = { index = i }, false
-      if w.pitch ~= b.pitch then change.pitch, any = w.pitch, true end
+      if w.pitch ~= b.pitch then
+        change.pitch, any = w.pitch, true
+      end
       local ds = (oa + w.s) - (ob + b.s)
-      if ds ~= 0 then change.start, any = math.max(0, n.start + ds / Q), true end
+      if ds ~= 0 then
+        change.start, any = math.max(0, n.start + ds / Q), true
+      end
       local length = n.length
       if w.len ~= b.len then
         length = math.max(1 / 64, n.length + (w.len - b.len) / Q)
@@ -951,7 +1121,9 @@ function M.sync(clip_id, before, after, own, fixed)
         meta_now.len, meta_now.sounding = w.len / Q, length
       elseif gb and not ga then
         local was = wrote.length
-        if was and math.abs(was.v - n.length) < EPS then change.length, any = was.from, true end
+        if was and math.abs(was.v - n.length) < EPS then
+          change.length, any = was.from, true
+        end
         wrote.length, meta_now.len, meta_now.sounding = nil, nil, nil
       elseif meta_now.len and w.len ~= b.len then
         meta_now.len, meta_now.sounding = w.len / Q, length
@@ -990,10 +1162,18 @@ function M.sync(clip_id, before, after, own, fixed)
     -- A grace note before the clip's first beat starts before the clip.
     local start = (oa + w.s) / Q
     if not w.grace then start = math.max(0, start) end
-    add[#add + 1] = { id = k, pitch = w.pitch, start = start, length = length,
-      velocity = M.velocity(ra, w.s, art, default) or default, meta = meta }
+    add[#add + 1] = {
+      id = k,
+      pitch = w.pitch,
+      start = start,
+      length = length,
+      velocity = M.velocity(ra, w.s, art, default) or default,
+      meta = meta,
+    }
   end
-  if #set > 0 or #remove > 0 or #add > 0 then api.clip_notes_edit(clip_id, { set = set, remove = remove, add = add }) end
+  if #set > 0 or #remove > 0 or #add > 0 then
+    api.clip_notes_edit(clip_id, { set = set, remove = remove, add = add })
+  end
   -- What the clip keeps. The staves stay as notation wrote on them where
   -- the notes now would be given others (a treble staff after a note is
   -- taken a little under it, say); where the track fixes them, the track's.
@@ -1001,16 +1181,24 @@ function M.sync(clip_id, before, after, own, fixed)
   if not fixed then
     -- The pitches the clip has now.
     local gone, pitches = {}, {}
-    for _, i in ipairs(remove) do gone[i] = true end
+    for _, i in ipairs(remove) do
+      gone[i] = true
+    end
     for _, ch in ipairs(set) do
-      if ch.pitch then gone[ch.index], pitches[#pitches + 1] = true, ch.pitch end
+      if ch.pitch then
+        gone[ch.index], pitches[#pitches + 1] = true, ch.pitch
+      end
     end
     for i, n in ipairs(notes) do
       if not gone[i] then pitches[#pitches + 1] = n.pitch end
     end
-    for _, n in ipairs(add) do pitches[#pitches + 1] = n.pitch end
+    for _, n in ipairs(add) do
+      pitches[#pitches + 1] = n.pitch
+    end
     local clefs = {}
-    for i, st in ipairs(after.staves) do clefs[i] = st.clef end
+    for i, st in ipairs(after.staves) do
+      clefs[i] = st.clef
+    end
     staves = not same(model.choose_clef(pitches), clefs) and clefs or nil
   end
   local pb, pa = M.clip_part(before), M.clip_part(after)
@@ -1023,7 +1211,14 @@ function M.sync(clip_id, before, after, own, fixed)
     if not ta[key] then tuplets_changed = true end
   end
   local stamped = own.version == M.VERSION or (#set == 0 and #add == 0)
-  if not same(pb, pa) or tuplets_changed or not same(staves, own.staves) or own.slurs or M.is_legacy(own) or not stamped then
+  if
+    not same(pb, pa)
+    or tuplets_changed
+    or not same(staves, own.staves)
+    or own.slurs
+    or M.is_legacy(own)
+    or not stamped
+  then
     local mine = util.merge(own, {})
     mine.marks, mine.bars, mine.layout, mine.slurs, mine.staves = pa.marks, pa.bars, pa.layout, nil, staves
     mine.version = M.VERSION
@@ -1067,9 +1262,13 @@ function M.tuplets_kept(kept, before, after)
     end
   end
   for _, tp in pairs(gone) do
-    if tp then out[#out + 1] = { start = tp.start, length = tp.length, plain = true, staff = tp.staff, voice = tp.voice } end
+    if tp then
+      out[#out + 1] = { start = tp.start, length = tp.length, plain = true, staff = tp.staff, voice = tp.voice }
+    end
   end
-  for _, tp in pairs(made) do out[#out + 1] = tp end
+  for _, tp in pairs(made) do
+    out[#out + 1] = tp
+  end
   table.sort(out, function(a, b) return a.start < b.start end)
   return #out > 0 and out or nil
 end
@@ -1098,7 +1297,9 @@ function M.legacy_notes(c, notes)
       local own = with_decisions(own_of(n), d)
       local w = written[wid]
       -- Rendered shorter than written (90%, or as marked): written as long as it is.
-      if math.abs(w.len / Q - n.length) > EPS then own.len, own.sounding = w.len / Q, n.length end
+      if math.abs(w.len / Q - n.length) > EPS then
+        own.len, own.sounding = w.len / Q, n.length
+      end
       meta.notation = own
       if d.lyric then meta.lyric = d.lyric end
       out[i] = util.merge(n, { meta = meta })
@@ -1110,7 +1311,9 @@ function M.legacy_notes(c, notes)
   local own = util.merge(type(c.meta.notation) == "table" and c.meta.notation or {}, {})
   own.marks, own.bars, own.layout, own.version = part.marks, part.bars, part.layout, M.VERSION
   local tuplets = {}
-  for _, tp in pairs(tuplets_of(sc)) do tuplets[#tuplets + 1] = tp end
+  for _, tp in pairs(tuplets_of(sc)) do
+    tuplets[#tuplets + 1] = tp
+  end
   table.sort(tuplets, function(a, b) return a.start < b.start end)
   own.tuplets = #tuplets > 0 and tuplets or own.tuplets
   return out, own

@@ -40,7 +40,9 @@ such a copy.]],
     keys:add_device("synth", { wave = 3, attack = 0.02, release = 0.5, cutoff = 1800 })
     keys:add_device("delay", { time = 450, feedback = 0.35, mix = 0.25 })
     local chords = look.chord({ "D4", "F4", "A4" }, 4)
-    for _, n in ipairs(look.chord({ "C4", "E4", "G4" }, 4, 4)) do chords[#chords + 1] = n end
+    for _, n in ipairs(look.chord({ "C4", "E4", "G4" }, 4, 4)) do
+      chords[#chords + 1] = n
+    end
     keys:add_clip({ name = "chords", start = 0, length = 8, notes = chords })
   end,
   at = function() paw.cursor.set_track(paw.track("Keys")) end,

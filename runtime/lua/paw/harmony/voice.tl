@@ -34,17 +34,21 @@ local record M
   styles: {string}
 end
 
-M.styles = { "smooth", "close", "drop2", "open", "spread" }
+M.styles = {"smooth", "close", "drop2", "open", "spread"}
 
 --- The tones to voice in `count` voices: the root doubled when there are
 --- more voices than tones; the fifth, then the root, left out when fewer.
 local function fitted(tones: {integer}, count: integer): {integer}
   local list: {integer} = {}
-  for i, t in ipairs(tones) do list[i] = t end
+  for i, t in ipairs(tones) do
+    list[i] = t
+  end
   while #list > count do
     local fifth: integer
     for i, t in ipairs(list) do
-      if i > 1 and (t - list[1]) % 12 == 7 then fifth = i end
+      if i > 1 and (t - list[1]) % 12 == 7 then
+        fifth = i
+      end
     end
     table.remove(list, fifth or 1)
   end
@@ -62,14 +66,20 @@ local function closes(list: {integer}, low: integer, high: integer): {{integer}}
   local out: {{integer}} = {}
   for r = 1, #list do
     local order: {integer} = {}
-    for k = 0, #list - 1 do order[#order + 1] = list[(r - 1 + k) % #list + 1] end
+    for k = 0, #list - 1 do
+      order[#order + 1] = list[(r - 1 + k) % #list + 1]
+    end
     local first = order[1] + 12 * math.floor((low - order[1]) / 12)
-    if first < low then first = first + 12 end
+    if first < low then
+      first = first + 12
+    end
     for base = first, high, 12 do
-      local pitches, p = { base }, base
+      local pitches, p = {base}, base
       for k = 2, #order do
         p = p + ((order[k] - p) % 12)
-        if p == pitches[#pitches] then p = p + 12 end
+        if p == pitches[#pitches] then
+          p = p + 12
+        end
         pitches[#pitches + 1] = p
       end
       out[#out + 1] = pitches
@@ -86,12 +96,16 @@ end
 --- A voicing in `style` made from a close one.
 local function restyle(close: {integer}, style: string): {integer}
   local p: {integer} = {}
-  for i, v in ipairs(close) do p[i] = v end
+  for i, v in ipairs(close) do
+    p[i] = v
+  end
   local n = #p
   if style == "drop2" and n >= 3 then
     p[n - 1] = p[n - 1] - 12
   elseif style == "open" and n >= 3 then
-    for i = n - 1, 1, -2 do p[i] = p[i] - 12 end
+    for i = n - 1, 1, -2 do
+      p[i] = p[i] - 12
+    end
   elseif style == "spread" then
     p[1] = p[1] - 12
   end
@@ -100,7 +114,9 @@ end
 
 local function copy(list: {number}): {number}
   local out: {number} = {}
-  for i, v in ipairs(list) do out[i] = v end
+  for i, v in ipairs(list) do
+    out[i] = v
+  end
   return out
 end
 
@@ -109,18 +125,24 @@ end
 --- the nearest note of the other chord, in the two directions, and halves
 --- the sum.
 function M.distance(a: {number}, b: {number}): number
-  if not a or not b or #a == 0 or #b == 0 then return 0 end
+  if not a or not b or #a == 0 or #b == 0 then
+    return 0
+  end
   local x, y = sorted(copy(a)), sorted(copy(b))
   if #x == #y then
     local d: number = 0
-    for i = 1, #x do d = d + math.abs(x[i] - y[i]) end
+    for i = 1, #x do
+      d = d + math.abs(x[i] - y[i])
+    end
     return d
   end
   local function near(from: {number}, to: {number}): number
     local d: number = 0
     for _, p in ipairs(from) do
       local best = math.huge
-      for _, q in ipairs(to) do best = math.min(best, math.abs(p - q)) end
+      for _, q in ipairs(to) do
+        best = math.min(best, math.abs(p - q))
+      end
       d = d + best
     end
     return d
@@ -134,15 +156,19 @@ function M.candidates(tones: {integer}, opts: Options): {Candidate}
   local low, high = opts.low or 48, opts.high or 84
   local count = opts.count or #tones
   local list = fitted(tones, count)
-  local styles = (opts.style == nil or opts.style == "smooth") and { "close", "drop2", "open" } or { opts.style }
+  local styles = (opts.style == nil or opts.style == "smooth") and {"close", "drop2", "open"} or {opts.style}
   local out: {Candidate} = {}
   for _, style in ipairs(styles) do
     -- A dropped voice lands up to two octaves lower: start the close chords higher.
     for _, close in ipairs(closes(list, low, high + (style == "close" and 0 or 24))) do
       local p = restyle(close, style)
       local ok = p[1] >= low and p[#p] <= high
-      if ok and opts.bass then ok = p[1] % 12 == opts.bass end
-      if ok then out[#out + 1] = { pitches = p, style = style } end
+      if ok and opts.bass then
+        ok = p[1] % 12 == opts.bass
+      end
+      if ok then
+        out[#out + 1] = {pitches = p, style = style}
+      end
     end
   end
   return out
@@ -159,7 +185,7 @@ function M.voice(tones: {integer}, opts: Options): {integer}
   local list = M.candidates(tones, opts)
   if #list == 0 and opts.bass then
     -- The same options without the bass.
-    list = M.candidates(tones, { low = opts.low, high = opts.high, count = opts.count, style = opts.style })
+    list = M.candidates(tones, {low = opts.low, high = opts.high, count = opts.count, style = opts.style})
   end
   local center = opts.center or ((opts.low or 48) + (opts.high or 84)) / 2
   local best: {integer}
@@ -169,8 +195,12 @@ function M.voice(tones: {integer}, opts: Options): {integer}
     local mid = (p[1] + p[#p]) / 2
     local k = M.distance(opts.prev, p) + 0.5 * M.distance(p, opts.next) + 0.1 * math.abs(mid - center)
     -- In close position the root at the bottom reads best, other things equal.
-    if p[1] % 12 ~= tones[1] then k = k + 0.5 end
-    if not cost or k < cost - 1e-9 then best, cost = p, k end
+    if p[1] % 12 ~= tones[1] then
+      k = k + 0.5
+    end
+    if not cost or k < cost - 1e-9 then
+      best, cost = p, k
+    end
   end
   return best
 end

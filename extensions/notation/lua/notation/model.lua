@@ -40,7 +40,7 @@ M.NAMES = { [4] = "whole", [2] = "half", [1] = "quarter", [0.5] = "eighth", [0.2
 
 --- The written value of a duration: its base (4 a whole note, 1 a quarter)
 --- and how many dots, or nil when one value cannot show it.
-local values = { {}, {} }   -- what value_of found, by the dots allowed and the duration
+local values = { {}, {} } -- what value_of found, by the dots allowed and the duration
 local value_count = 0
 function M.value_of(d, max_dots)
   local memo = values[(max_dots or 1) >= 2 and 2 or 1]
@@ -52,12 +52,23 @@ function M.value_of(d, max_dots)
   if hit then return hit[1], hit[2] end
   local base, dots
   for _, b in ipairs(M.BASES) do
-    if near(d, b) then base, dots = b, 0 break end
-    if near(d, b * 1.5) then base, dots = b, 1 break end
-    if (max_dots or 1) >= 2 and near(d, b * 1.75) then base, dots = b, 2 break end
+    if near(d, b) then
+      base, dots = b, 0
+      break
+    end
+    if near(d, b * 1.5) then
+      base, dots = b, 1
+      break
+    end
+    if (max_dots or 1) >= 2 and near(d, b * 1.75) then
+      base, dots = b, 2
+      break
+    end
   end
   value_count = value_count + 1
-  if value_count > 20000 then values, value_count = { {}, {} }, 0 end
+  if value_count > 20000 then
+    values, value_count = { {}, {} }, 0
+  end
   memo[key] = { base, dots }
   return base, dots
 end
@@ -89,12 +100,23 @@ function M.meter(num, den, groups)
     local beats, s = {}, 0
     for _, g in ipairs(groups) do
       local node = { s = s, e = s + g * unit, free = true, children = {}, beat = true }
-      for k = 0, g - 1 do node.children[k + 1] = binary(s + k * unit, unit) end
+      for k = 0, g - 1 do
+        node.children[k + 1] = binary(s + k * unit, unit)
+      end
       beats[#beats + 1] = node
       s = s + g * unit
     end
-    return { root = { s = 0, e = bar, children = beats }, bar = bar, beat = unit, beats = beats, compound = false,
-      unit = unit, num = num, den = den, groups = groups }
+    return {
+      root = { s = 0, e = bar, children = beats },
+      bar = bar,
+      beat = unit,
+      beats = beats,
+      compound = false,
+      unit = unit,
+      num = num,
+      den = den,
+      groups = groups,
+    }
   end
   local compound = den >= 8 and num % 3 == 0 and num > 3
   local beat_len = compound and 3 * unit or unit
@@ -104,7 +126,9 @@ function M.meter(num, den, groups)
     local node
     if compound then
       node = { s = s, e = s + beat_len, free = true, children = {} }
-      for k = 0, 2 do node.children[k + 1] = binary(s + k * unit, unit) end
+      for k = 0, 2 do
+        node.children[k + 1] = binary(s + k * unit, unit)
+      end
     else
       node = binary(s, beat_len)
     end
@@ -119,7 +143,16 @@ function M.meter(num, den, groups)
       { s = 2 * beat_len, e = 4 * beat_len, children = { beats[3], beats[4] } },
     }
   end
-  return { root = root, bar = bar, beat = beat_len, beats = beats, compound = compound, unit = unit, num = num, den = den }
+  return {
+    root = root,
+    bar = bar,
+    beat = beat_len,
+    beats = beats,
+    compound = compound,
+    unit = unit,
+    num = num,
+    den = den,
+  }
 end
 
 --- Where a click `t` beats into a bar lands when notes of `value` beats are
@@ -201,11 +234,11 @@ end
 
 -- Pitch -------------------------------------------------------------------------------
 
-local LETTER_PC = { [0] = 0, 2, 4, 5, 7, 9, 11 }      -- C D E F G A B
+local LETTER_PC = { [0] = 0, 2, 4, 5, 7, 9, 11 } -- C D E F G A B
 local LETTER_FIFTHS = { [0] = 0, 2, 4, -1, 1, 3, 5 }
 M.LETTERS = { [0] = "C", "D", "E", "F", "G", "A", "B" }
-local SHARP_ORDER = { 3, 0, 4, 1, 5, 2, 6 }           -- F C G D A E B
-local FLAT_ORDER = { 6, 2, 5, 1, 4, 0, 3 }            -- B E A D G C F
+local SHARP_ORDER = { 3, 0, 4, 1, 5, 2, 6 } -- F C G D A E B
+local FLAT_ORDER = { 6, 2, 5, 1, 4, 0, 3 } -- B E A D G C F
 
 --- How the key alters a letter: 1 sharp, -1 flat, 0 neither.
 function M.key_alter(letter, fifths)
@@ -225,7 +258,7 @@ end
 --- `octave`, and `step`, the diatonic step counted from C-1 (C4 is 35).
 --- Notes of the key take its letters; the others lean the way the key
 --- does, as written music usually has them (C#, Eb, F#, G#, Bb in C major).
-local spellings = {}   -- by key and pitch class: { letter, alter }
+local spellings = {} -- by key and pitch class: { letter, alter }
 function M.spell(pitch, fifths)
   fifths = fifths or 0
   local pc = pitch % 12
@@ -281,8 +314,20 @@ end
 --- A key as a number of sharps (positive) or flats (negative), from a root
 --- such as "D", "F#" or "Bb" and a scale or mode name.
 local MODE_DEGREE = {
-  major = 0, ionian = 0, pentatonic = 0, dorian = 2, phrygian = 4, lydian = -1, mixolydian = 1,
-  minor = 3, aeolian = 3, harmonic_minor = 3, melodic_minor = 3, minor_pentatonic = 3, blues = 3, locrian = 5,
+  major = 0,
+  ionian = 0,
+  pentatonic = 0,
+  dorian = 2,
+  phrygian = 4,
+  lydian = -1,
+  mixolydian = 1,
+  minor = 3,
+  aeolian = 3,
+  harmonic_minor = 3,
+  melodic_minor = 3,
+  minor_pentatonic = 3,
+  blues = 3,
+  locrian = 5,
 }
 function M.fifths_of(root, scale)
   local letter, acc = tostring(root or "C"):match("^([A-Ga-g])([#b]*)$")
@@ -294,15 +339,25 @@ function M.fifths_of(root, scale)
   local alter = (acc == "#" and 1) or (acc == "##" and 2) or (acc == "b" and -1) or (acc == "bb" and -2) or 0
   local f = LETTER_FIFTHS[index] + 7 * alter - (MODE_DEGREE[scale or "major"] or 0)
   if scale == "chromatic" or scale == "whole_tone" then return 0 end
-  if f > 6 then f = f - 12 elseif f < -6 then f = f + 12 end
+  if f > 6 then
+    f = f - 12
+  elseif f < -6 then
+    f = f + 12
+  end
   return f
 end
 
 -- Staves ------------------------------------------------------------------------------
 
 --- The step of each clef's bottom line: E4 for treble, G2 for bass.
-M.CLEF_BOTTOM = { treble = 4 * 7 + 2 + 7, bass = 2 * 7 + 4 + 7, treble8 = 3 * 7 + 2 + 7, bass8 = 1 * 7 + 4 + 7,
-  alto = 3 * 7 + 3 + 7, tenor = 3 * 7 + 1 + 7 }
+M.CLEF_BOTTOM = {
+  treble = 4 * 7 + 2 + 7,
+  bass = 2 * 7 + 4 + 7,
+  treble8 = 3 * 7 + 2 + 7,
+  bass8 = 1 * 7 + 4 + 7,
+  alto = 3 * 7 + 3 + 7,
+  tenor = 3 * 7 + 1 + 7,
+}
 M.CLEFS = { "treble", "treble8", "bass", "bass8", "alto", "tenor" }
 
 -- Where a key signature's sharps and flats go on the treble staff, in order.
@@ -357,7 +412,9 @@ function M.even_bars(offset, length, num, den)
   local origin = first_bar * bar - offset
   local count = math.max(1, math.ceil((offset + math.max(length, EPS)) / bar - EPS) - first_bar)
   local out = {}
-  for i = 1, count do out[i] = { start = origin + (i - 1) * bar, num = num, den = den, number = first_bar + i } end
+  for i = 1, count do
+    out[i] = { start = origin + (i - 1) * bar, num = num, den = den, number = first_bar + i }
+  end
   return out
 end
 
@@ -384,7 +441,9 @@ end
 function M.tuplet_normal(n)
   if n == 2 then return 3 end
   local normal = 1
-  while normal * 2 < n do normal = normal * 2 end
+  while normal * 2 < n do
+    normal = normal * 2
+  end
   return normal
 end
 
@@ -419,7 +478,11 @@ local function tuplet_spans(m, bounds, user, staff, voice)
       if x > b.s + EPS and x < b.e - EPS then
         local rel = x - b.s
         inner = inner + 1
-        if multiple(rel, b.len / 3) then on_eighth = true else sixths = true end
+        if multiple(rel, b.len / 3) then
+          on_eighth = true
+        else
+          sixths = true
+        end
         if not plain(rel) then need = true end
         if not multiple(rel, b.len / 12) then fits3 = false end
         if not multiple(rel, b.len / 6) then fits6 = false end
@@ -549,15 +612,32 @@ function M.transcription(notes, opts)
   local finish = bars[#bars].start + bars[#bars].num * 4 / bars[#bars].den
 
   local pitches = {}
-  for i, n in ipairs(notes) do pitches[i] = n.pitch end
+  for i, n in ipairs(notes) do
+    pitches[i] = n.pitch
+  end
   local staves = M.choose_clef(pitches, opts.clef)
 
   local settings = score_layer.settings(opts.settings)
   if opts.grid and not (opts.settings and opts.settings.grid) then settings.grid = opts.grid end
-  local ctx = { bars = bars, finish = finish, tempo = opts.tempo or 120, staves = staves, settings = settings, tuplets = opts.tuplets, debug = opts.debug }
+  local ctx = {
+    bars = bars,
+    finish = finish,
+    tempo = opts.tempo or 120,
+    staves = staves,
+    settings = settings,
+    tuplets = opts.tuplets,
+    debug = opts.debug,
+  }
   local sc = settings.mode == "raw" and score_layer.raw(notes, ctx) or score_layer.transcribe(notes, ctx)
-  return sc, { bars = bars, staves = staves, fifths = fifths, grid = opts.grid or settings.grid or 0.25,
-    tuplets = settings.mode ~= "raw" and opts.tuplets or nil, stems = opts.stems }
+  return sc,
+    {
+      bars = bars,
+      staves = staves,
+      fifths = fifths,
+      grid = opts.grid or settings.grid or 0.25,
+      tuplets = settings.mode ~= "raw" and opts.tuplets or nil,
+      stems = opts.stems,
+    }
 end
 
 --- The empty measures of bars (`{ start, num, den, number }`), each with a
@@ -567,7 +647,9 @@ function M.measures_of(bars, staves)
   for i, b in ipairs(bars) do
     local meter = meter_of(b.num, b.den)
     local m = { number = b.number or i, index = i, start = b.start, length = meter.bar, meter = meter, staves = {} }
-    for s = 1, staves do m.staves[s] = {} end
+    for s = 1, staves do
+      m.staves[s] = {}
+    end
     measures[i] = m
   end
   return measures
@@ -588,7 +670,11 @@ function M.lines(sc, measures, staves)
     local lo, hi = 1, #measures
     while lo < hi do
       local mid = floor((lo + hi + 1) / 2)
-      if measures[mid].start <= t + EPS then lo = mid else hi = mid - 1 end
+      if measures[mid].start <= t + EPS then
+        lo = mid
+      else
+        hi = mid - 1
+      end
     end
     return lo
   end
@@ -614,7 +700,9 @@ function M.lines(sc, measures, staves)
         if e > c.start + EPS then
           if c.start > t + EPS then segments[#segments + 1] = { s = t, e = c.start } end
           segments[#segments + 1] = { s = c.start, e = e, chord = c }
-          for mi = measure_at(c.start), measure_at(e - 1e-3) do touched[mi] = true end
+          for mi = measure_at(c.start), measure_at(e - 1e-3) do
+            touched[mi] = true
+          end
           t = e
         end
       end
@@ -677,7 +765,9 @@ function M.write_pieces(m, s, v, pieces, tuplets)
           if a >= sp.s - EPS and b <= sp.e + EPS then inside = sp end
         end
         if inside then
-          for _, piece in ipairs(split_tuplet(a, b, inside)) do out[#out + 1] = { piece[1], piece[2], tuplet = inside } end
+          for _, piece in ipairs(split_tuplet(a, b, inside)) do
+            out[#out + 1] = { piece[1], piece[2], tuplet = inside }
+          end
         else
           for _, piece in ipairs(M.split(a - m.start, b - m.start, m.meter, rest)) do
             out[#out + 1] = { m.start + piece[1], m.start + piece[2] }
@@ -688,9 +778,21 @@ function M.write_pieces(m, s, v, pieces, tuplets)
     for _, piece in ipairs(out) do
       local len = piece[2] - piece[1]
       local base, dots = M.value_of(piece.tuplet and len * piece.tuplet.ratio or len, 2)
-      local ev = { kind = rest and "rest" or "note", start = piece[1], length = len, base = base, dots = dots or 0,
-        measure = m.index, staff = s, voice = v, tuplet = piece.tuplet, source = p.seg.chord }
-      if piece.whole then ev.whole, ev.base, ev.dots = true, 4, 0 end
+      local ev = {
+        kind = rest and "rest" or "note",
+        start = piece[1],
+        length = len,
+        base = base,
+        dots = dots or 0,
+        measure = m.index,
+        staff = s,
+        voice = v,
+        tuplet = piece.tuplet,
+        source = p.seg.chord,
+      }
+      if piece.whole then
+        ev.whole, ev.base, ev.dots = true, 4, 0
+      end
       table.insert(p.seg.pieces, ev)
       table.insert(m.staves[s], ev)
       if p.evs then p.evs[#p.evs + 1] = ev end
@@ -710,7 +812,9 @@ function M.tie_piece(ev, c, k, count)
     ev.arpeggio, ev.staccato = c.arpeggio, c.staccato
     if c.grace then
       ev.grace = {}
-      for j, n in ipairs(c.grace) do ev.grace[j] = { pitch = n.pitch, index = n.index, meta = n.meta } end
+      for j, n in ipairs(c.grace) do
+        ev.grace[j] = { pitch = n.pitch, index = n.index, meta = n.meta }
+      end
     end
   end
 end
@@ -722,7 +826,9 @@ end
 
 --- Put a measure's events of each staff in time order, voice by voice.
 function M.order(m)
-  for _, evs in ipairs(m.staves) do table.sort(evs, by_start_voice) end
+  for _, evs in ipairs(m.staves) do
+    table.sort(evs, by_start_voice)
+  end
 end
 
 --- Measures of written events from score events (see `notation.score`).
@@ -732,7 +838,9 @@ function M.engrave_score(sc, o)
   local lines = M.lines(sc, measures, #staves)
   for s, voices in ipairs(lines) do
     for v, line in pairs(voices) do
-      for mi, pieces in pairs(line.pieces) do M.write_pieces(measures[mi], s, v, pieces, o.tuplets) end
+      for mi, pieces in pairs(line.pieces) do
+        M.write_pieces(measures[mi], s, v, pieces, o.tuplets)
+      end
       -- Ties from piece to piece of one segment.
       for _, seg in ipairs(line.segments) do
         table.sort(seg.pieces, by_start)
@@ -743,9 +851,18 @@ function M.engrave_score(sc, o)
       end
     end
   end
-  for _, m in ipairs(measures) do M.order(m) end
-  local result = { measures = measures, staves = staves, meter = measures[1].meter, fifths = o.fifths or 0, grid = o.grid or 0.25,
-    origin = bars[1].start, score = sc }
+  for _, m in ipairs(measures) do
+    M.order(m)
+  end
+  local result = {
+    measures = measures,
+    staves = staves,
+    meter = measures[1].meter,
+    fifths = o.fifths or 0,
+    grid = o.grid or 0.25,
+    origin = bars[1].start,
+    score = sc,
+  }
   M.spell_all(result)
   if o.stems ~= false then M.stems_and_beams(result) end
   return result
@@ -754,8 +871,10 @@ end
 --- Spell every note and decide which accidentals are shown.
 function M.spell_all(layout)
   for s, clef in ipairs(layout.staves) do
-    local before = {}  -- steps left altered against the key by the last bar
-    for _, m in ipairs(layout.measures) do before = M.spell_measure(m, s, clef, m.fifths or layout.fifths, before) end
+    local before = {} -- steps left altered against the key by the last bar
+    for _, m in ipairs(layout.measures) do
+      before = M.spell_measure(m, s, clef, m.fifths or layout.fifths, before)
+    end
   end
 end
 
@@ -798,8 +917,12 @@ function M.spell_measure(m, s, clef, fifths, before)
   local bottom = M.CLEF_BOTTOM[m.clefs and m.clefs[s] or clef]
   local state, reminded = {}, {}
   for _, ev in ipairs(m.staves[s]) do
-    for _, n in ipairs(ev.grace or {}) do spell_note(n, false, fifths, bottom, state, reminded, before) end
-    for _, n in ipairs(ev.notes or {}) do spell_note(n, n.tied, fifths, bottom, state, reminded, before) end
+    for _, n in ipairs(ev.grace or {}) do
+      spell_note(n, false, fifths, bottom, state, reminded, before)
+    end
+    for _, n in ipairs(ev.notes or {}) do
+      spell_note(n, n.tied, fifths, bottom, state, reminded, before)
+    end
     if ev.notes then table.sort(ev.notes, by_step) end
   end
   local out = {}
@@ -894,7 +1017,9 @@ function M.stems_and_beams(layout)
         for _, ev in ipairs(list) do
           local rel = ev.start - m.start
           local g0, g1 = beam_group(meter, rel)
-          if ev.tuplet then g0, g1 = ev.tuplet.s - m.start, ev.tuplet.e - m.start end
+          if ev.tuplet then
+            g0, g1 = ev.tuplet.s - m.start, ev.tuplet.e - m.start
+          end
           local beamable = ev.kind == "note" and ev.base and ev.base <= 0.5 and rel + ev.length <= g1 + EPS
           if beamable and current and near(current.g0, g0) and not breaks_beam(ev) then
             current.events[#current.events + 1] = ev
@@ -911,8 +1036,16 @@ function M.stems_and_beams(layout)
           local i = 1
           while i <= #groups do
             local a, b = groups[i], groups[i + 1]
-            if b and near(a.g1, b.g0) and (near(a.g0, 0) or near(a.g0, 2)) and plain_pair(a, m) and plain_pair(b, m) and not breaks_beam(b.events[1]) then
-              merged[#merged + 1] = { g0 = a.g0, g1 = b.g1, events = { a.events[1], a.events[2], b.events[1], b.events[2] } }
+            if
+              b
+              and near(a.g1, b.g0)
+              and (near(a.g0, 0) or near(a.g0, 2))
+              and plain_pair(a, m)
+              and plain_pair(b, m)
+              and not breaks_beam(b.events[1])
+            then
+              merged[#merged + 1] =
+                { g0 = a.g0, g1 = b.g1, events = { a.events[1], a.events[2], b.events[1], b.events[2] } }
               i = i + 2
             else
               merged[#merged + 1] = a
@@ -925,7 +1058,9 @@ function M.stems_and_beams(layout)
           if #g.events >= 2 then
             next_beam = next_beam + 1
             local dir = forced or stem_for(g.events)
-            for _, ev in ipairs(g.events) do ev.beam, ev.stem = next_beam, dir end
+            for _, ev in ipairs(g.events) do
+              ev.beam, ev.stem = next_beam, dir
+            end
           end
         end
         for _, ev in ipairs(list) do
@@ -980,7 +1115,9 @@ function M.space(layout, o)
       end
     end
     local keys = {}
-    for k in pairs(times) do keys[#keys + 1] = k end
+    for k in pairs(times) do
+      keys[#keys + 1] = k
+    end
     table.sort(keys)
     local slots, x = {}, o.lead
     for i, k in ipairs(keys) do
@@ -1044,7 +1181,9 @@ function M.events(layout, staff)
   for _, m in ipairs(layout.measures) do
     for s, evs in ipairs(m.staves) do
       if not staff or staff == s then
-        for _, ev in ipairs(evs) do out[#out + 1] = ev end
+        for _, ev in ipairs(evs) do
+          out[#out + 1] = ev
+        end
       end
     end
   end
@@ -1052,7 +1191,9 @@ function M.events(layout, staff)
   local was = kept and kept[staff or 0]
   if was and #was == #out then
     local same = {}
-    for _, ev in ipairs(was) do same[ev] = true end
+    for _, ev in ipairs(was) do
+      same[ev] = true
+    end
     local all = true
     for _, ev in ipairs(out) do
       if not same[ev] then
@@ -1076,7 +1217,9 @@ function M.events(layout, staff)
   for _, m in ipairs(layout.measures) do
     for s, evs in ipairs(m.staves) do
       if not staff or staff == s then
-        for _, ev in ipairs(evs) do one[#one + 1] = ev end
+        for _, ev in ipairs(evs) do
+          one[#one + 1] = ev
+        end
       end
     end
     table.sort(one, by_start_staff_voice)
@@ -1106,7 +1249,9 @@ end
 --- unless told; 0 for all).
 local LETTER_OF = { [4] = "w", [2] = "h", [1] = "q", [0.5] = "e", [0.25] = "s", [0.125] = "t" }
 local function acc_text(n)
-  local acc = n.acc and ((n.acc == 1 and "#") or (n.acc == -1 and "b") or (n.acc == 0 and "n") or (n.acc == 2 and "x") or "bb") or ""
+  local acc = n.acc
+      and ((n.acc == 1 and "#") or (n.acc == -1 and "b") or (n.acc == 0 and "n") or (n.acc == 2 and "x") or "bb")
+    or ""
   if n.courtesy then acc = "(" .. acc .. ")" end
   return M.LETTERS[n.letter] .. acc .. n.octave
 end
@@ -1135,12 +1280,16 @@ function M.text(layout, staff, voice)
             words[#words + 1] = prefix .. value .. "r"
           else
             local names = {}
-            for i, n in ipairs(ev.notes) do names[i] = acc_text(n) end
+            for i, n in ipairs(ev.notes) do
+              names[i] = acc_text(n)
+            end
             local tie = ev.notes[1].tie and "~" or ""
             local grace = ""
             if ev.grace then
               local g = {}
-              for i, n in ipairs(ev.grace) do g[i] = acc_text(n) end
+              for i, n in ipairs(ev.grace) do
+                g[i] = acc_text(n)
+              end
               grace = "[" .. table.concat(g, " ") .. "]"
             end
             local body = #names > 1 and "<" .. table.concat(names, " ") .. ">" or names[1]

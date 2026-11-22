@@ -20,7 +20,12 @@ local function song()
     paw.opt.gdefault = false
   end)
   local drums = paw.add_track({ name = "Drums" })
-  drums:add_clip({ name = "d", start = 0, length = 8, notes = { { 36, 0, 1 }, { 38, 1, 1, 30 }, { 36, 4, 1, 120 }, { 38, 5, 1 } } })
+  drums:add_clip({
+    name = "d",
+    start = 0,
+    length = 8,
+    notes = { { 36, 0, 1 }, { 38, 1, 1, 30 }, { 36, 4, 1, 120 }, { 38, 5, 1 } },
+  })
   paw.cursor.set_track(t)
   api.undo_checkpoint()
   return t, drums
@@ -42,14 +47,20 @@ end
 
 local function pitches(clip)
   local out = {}
-  for _, n in ipairs(clip:notes()) do out[#out + 1] = n.pitch end
+  for _, n in ipairs(clip:notes()) do
+    out[#out + 1] = n.pitch
+  end
   return table.concat(out, " ")
 end
 
 test("ex: ranges name bars, beats, the cursor, the end, marks and offsets", function()
   song()
   local r = ex.range("5,8d")
-  eq(r.from .. "-" .. r.to, paw.time.bar_start(5) .. "-" .. paw.time.bar_start(9), "5,8 is bars 5 to 8, the end of 8 included")
+  eq(
+    r.from .. "-" .. r.to,
+    paw.time.bar_start(5) .. "-" .. paw.time.bar_start(9),
+    "5,8 is bars 5 to 8, the end of 8 included"
+  )
   r = ex.range("2.3,2.4y")
   eq(r.from .. "-" .. r.to, "6-8", "2.3,2.4 is beats 3 and 4 of bar 2")
   paw.cursor.set_beat(5)
@@ -167,7 +178,9 @@ test("ex: :s sets velocity and length by field, and an empty replacement removes
   local d = drums:clips()[1]
   run("%s/vel>100/vel=90/g")
   local vels = {}
-  for _, n in ipairs(d:notes()) do vels[#vels + 1] = n.velocity end
+  for _, n in ipairs(d:notes()) do
+    vels[#vels + 1] = n.velocity
+  end
   eq(vels[3], 90, "vel>100 set to 90")
   paw.undo()
   run("%s/vel<40/vel+20 len*2/g")
@@ -267,7 +280,11 @@ end)
 test("ex: normal runs keys at each bar, track or match", function()
   song()
   local seen = {}
-  paw.keymap.set("Q", function() seen[#seen + 1] = paw.cursor.track().name .. "@" .. paw.cursor.beat end, { view = "arrange" })
+  paw.keymap.set(
+    "Q",
+    function() seen[#seen + 1] = paw.cursor.track().name .. "@" .. paw.cursor.beat end,
+    { view = "arrange" }
+  )
   run("t1 1,3normal Q")
   eq(table.concat(seen, " "), "T@0 T@4 T@8", "at the start of each bar")
   seen = {}
@@ -315,7 +332,9 @@ test("ex: typing a line shows what it matches and would make, and Escape changes
   eq(#shown.matches, 3, "the views are told the matches")
   local first = shown.notes[t:clips()[1].id]
   local change
-  for _, m in pairs(first) do change = m.change end
+  for _, m in pairs(first) do
+    change = m.change
+  end
   eq(change.pitch, 62, "and what each becomes")
   keys("<Esc>")
   eq(ex.shown(), nil, "Escape takes it away")
@@ -345,7 +364,11 @@ test("ex: :s with c asks about each match, and what was said yes to is one undo 
   keys("y")
   keys("n")
   keys("y")
-  eq(pitches(t:clips()[1]) .. "|" .. pitches(t:clips()[2]) .. "|" .. pitches(t:clips()[3]), "62 61 62 63|60 61 62 63|62 61 62 63", "yes, no, yes")
+  eq(
+    pitches(t:clips()[1]) .. "|" .. pitches(t:clips()[2]) .. "|" .. pitches(t:clips()[3]),
+    "62 61 62 63|60 61 62 63|62 61 62 63",
+    "yes, no, yes"
+  )
   eq(step_name(), ":%s/c4/d4/gc", "as one step")
   paw.undo()
   eq(pitches(t:clips()[3]), "60 61 62 63", "undone together")
@@ -362,8 +385,14 @@ test("ex: completion offers marks, tracks and pattern fields", function()
   paw.cursor.set_beat(4)
   paw.keymap.mark("a")
   local labels = {}
-  for _, c in ipairs(paw.commands.complete("'")) do labels[#labels + 1] = c.label end
-  eq(table.concat(labels, " "):match("^'<,'> 'a") ~= nil, true, "the selection and the marks after ': " .. table.concat(labels, " "))
+  for _, c in ipairs(paw.commands.complete("'")) do
+    labels[#labels + 1] = c.label
+  end
+  eq(
+    table.concat(labels, " "):match("^'<,'> 'a") ~= nil,
+    true,
+    "the selection and the marks after ': " .. table.concat(labels, " ")
+  )
   local c = paw.commands.complete("t/dr")
   eq(c[1] and c[1].text, "t/Drums/ ", "tracks after t/")
   c = paw.commands.complete("%s/ve")
@@ -377,9 +406,15 @@ end)
 
 test("ex: an extension adds a pattern field and a command that takes a range", function()
   local t = song()
-  ex.field("lyric", { level = "note", type = "text",
-    get = function(item) return item.note.meta and item.note.meta.lyric end,
-    set = function(item, value, change) change.meta = paw.util.merge(item.note.meta or {}, { lyric = value }) end })
+  ex.field(
+    "lyric",
+    {
+      level = "note",
+      type = "text",
+      get = function(item) return item.note.meta and item.note.meta.lyric end,
+      set = function(item, value, change) change.meta = paw.util.merge(item.note.meta or {}, { lyric = value }) end,
+    }
+  )
   run("1s/c4/lyric=la/")
   eq(t:clips()[1]:notes()[1].meta.lyric, "la", "a field of its own, set")
   run("g/lyric:la/transpose 1")

@@ -35,7 +35,7 @@ local record Paw is partial.Paw
   time: objects.Time
   util: UtilModule
 end
-local paw = (_G as {string:Paw}).paw
+local paw = (_G as {string: Paw}).paw
 local opt = options.opt
 local events = require("paw.events")
 local kernel = require("paw.events.kernel")
@@ -133,18 +133,22 @@ end
 function M.mix(a: string, b: string, t: number): string
   local r1, g1, b1 = rgb(a)
   local r2, g2, b2 = rgb(b)
-  local function ch(x: integer, y: integer): integer return math.floor(x + (y - x) * t + 0.5) end
+  local function ch(x: integer, y: integer): integer
+    return math.floor(x + (y - x) * t + 0.5)
+  end
   return string.format("#%02x%02x%02x", ch(r1, r2), ch(g1, g2), ch(b1, b2))
 end
 
 -- Colours on terminals without 24-bit colour ----------------------------------
 
-local cube: {integer} = { 0, 95, 135, 175, 215, 255 }
+local cube: {integer} = {0, 95, 135, 175, 215, 255}
 
 local function nearest_level(v: integer): integer
   local best, at = math.huge, 1
   for i, level in ipairs(cube) do
-    if math.abs(level - v) < best then best, at = math.abs(level - v), i end
+    if math.abs(level - v) < best then
+      best, at = math.abs(level - v), i
+    end
   end
   return at - 1
 end
@@ -161,8 +165,12 @@ function M.nearest256(hex: string): integer, string
     -- nearest of the points around it that keeps one.
     local function around(v: integer): {integer}
       local lo = 1
-      for i, level in ipairs(cube) do if level <= v then lo = i end end
-      return { lo - 1, math.min(5, lo) }
+      for i, level in ipairs(cube) do
+        if level <= v then
+          lo = i
+        end
+      end
+      return {lo - 1, math.min(5, lo)}
     end
     local best: {number}
     for _, a in ipairs(around(r)) do
@@ -170,12 +178,16 @@ function M.nearest256(hex: string): integer, string
         for _, c3 in ipairs(around(b)) do
           if not (a == b2 and b2 == c3) then
             local d = (cube[a + 1] - r) ^ 2 + (cube[b2 + 1] - g) ^ 2 + (cube[c3 + 1] - b) ^ 2
-            if not best or d < best[1] then best = { d, a, b2, c3 } end
+            if not best or d < best[1] then
+              best = {d, a, b2, c3}
+            end
           end
         end
       end
     end
-    if best then ri, gi, bi = best[2] as integer, best[3] as integer, best[4] as integer end
+    if best then
+      ri, gi, bi = best[2] as integer, best[3] as integer, best[4] as integer
+    end
   end
   local cr, cg, cb = cube[ri + 1], cube[gi + 1], cube[bi + 1]
   local index = 16 + 36 * ri + 6 * gi + bi
@@ -187,7 +199,9 @@ function M.nearest256(hex: string): integer, string
   local gdist = (level - r) ^ 2 + (level - g) ^ 2 + (level - b) ^ 2
   -- A colour with little hue in it is a grey: the cube's nearest point would
   -- give it a tint it does not have.
-  if spread <= 28 or (gdist < dist and ri == gi and gi == bi) then return 232 + grey, string.format("#%02x%02x%02x", level, level, level) end
+  if spread <= 28 or (gdist < dist and ri == gi and gi == bi) then
+    return 232 + grey, string.format("#%02x%02x%02x", level, level, level)
+  end
   return index, string.format("#%02x%02x%02x", cr, cg, cb)
 end
 
@@ -196,19 +210,27 @@ end
 --- truecolor or 24bit, or a TERM that ends in -direct.
 function M.truecolor(): boolean
   local want = tostring(opt.termcolors or "auto")
-  if want == "true" or want == "truecolor" or want == "24bit" then return true end
-  if want == "256" then return false end
+  if want == "true" or want == "truecolor" or want == "24bit" then
+    return true
+  end
+  if want == "256" then
+    return false
+  end
   local colorterm = (os.getenv("COLORTERM") or ""):lower()
-  if colorterm == "truecolor" or colorterm == "24bit" then return true end
+  if colorterm == "truecolor" or colorterm == "24bit" then
+    return true
+  end
   return (os.getenv("TERM") or ""):match("%-direct$") ~= nil
 end
 
 --- A highlight definition as this terminal can show it. On a terminal
 --- without 24-bit color, each `#rrggbb` becomes the nearest of the 256.
 function M.term_def(def: Def, truecolor: boolean): Def
-  if truecolor or not def is types.CellStyle then return def end
-  local out: {string:types.Colour | boolean} = {}
-  for k, v in pairs(def as {string:types.Colour | boolean}) do
+  if truecolor or not (def is types.CellStyle) then
+    return def
+  end
+  local out: {string: types.Colour | boolean} = {}
+  for k, v in pairs(def as {string: types.Colour | boolean}) do
     if (k == "fg" or k == "bg") and v is string and v:match("^#%x%x%x%x%x%x$") then
       out[k] = M.nearest256(v)
     else
@@ -225,48 +247,150 @@ end
 -- characters that sit on that edge, not ones centred in the cell, which
 -- would stand half a cell to the right of everything that starts there.
 local unicode: Glyphs = {
-  rule = "│", bar = "▏", beat = "▏", step = "▏", tick = "▏", cap = "▼", playhead = "▏",
-  loop_in = "▕", loop_out = "▕", clip_start = "▏", punch_in = "▕", punch_out = "▕",
-  meter_full = "━", meter_half = "╸", meter_off = "─", peak = "▔", upper = "▀", lower = "▄", full = "█",
-  slider_on = "━", knob = "●", slider_off = "─", pan_rail = "─", pan_mark = "┃",
-  fader = "━", fader_rail = "│", zero = "╪", point = "◆", open = "▾", closed = "▸",
-  stripe = "▌", stripe_sel = "█", send = "↗", out = "→", chain = "›", sep = "│", dot = "·",
-  play = "▶", stop = "■", rec = "●", modified = "●", bypass = "◌", on = "●", ellipsis = "…",
-  cursor = "▶", warn = "!", error = "✗", hairline = "▏", strip_sep = "┃",
-  tl = "╭", tr = "╮", bl = "╰", br = "╯", h = "─", v = "│", mark = "▌",
-  move_up = "↑", move_down = "↓", remove = "×", editor = "⧉",
-  eighths = { "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█" },
+  rule = "│",
+  bar = "▏",
+  beat = "▏",
+  step = "▏",
+  tick = "▏",
+  cap = "▼",
+  playhead = "▏",
+  loop_in = "▕",
+  loop_out = "▕",
+  clip_start = "▏",
+  punch_in = "▕",
+  punch_out = "▕",
+  meter_full = "━",
+  meter_half = "╸",
+  meter_off = "─",
+  peak = "▔",
+  upper = "▀",
+  lower = "▄",
+  full = "█",
+  slider_on = "━",
+  knob = "●",
+  slider_off = "─",
+  pan_rail = "─",
+  pan_mark = "┃",
+  fader = "━",
+  fader_rail = "│",
+  zero = "╪",
+  point = "◆",
+  open = "▾",
+  closed = "▸",
+  stripe = "▌",
+  stripe_sel = "█",
+  send = "↗",
+  out = "→",
+  chain = "›",
+  sep = "│",
+  dot = "·",
+  play = "▶",
+  stop = "■",
+  rec = "●",
+  modified = "●",
+  bypass = "◌",
+  on = "●",
+  ellipsis = "…",
+  cursor = "▶",
+  warn = "!",
+  error = "✗",
+  hairline = "▏",
+  strip_sep = "┃",
+  tl = "╭",
+  tr = "╮",
+  bl = "╰",
+  br = "╯",
+  h = "─",
+  v = "│",
+  mark = "▌",
+  move_up = "↑",
+  move_down = "↓",
+  remove = "×",
+  editor = "⧉",
+  eighths = {"▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"},
 }
 local ascii: Glyphs = {
-  rule = "|", bar = "|", beat = ":", step = ".", tick = ".", cap = "v", playhead = "|",
-  loop_in = "[", loop_out = "]", clip_start = "|", punch_in = "{", punch_out = "}",
-  meter_full = "=", meter_half = "-", meter_off = ".", peak = "-", upper = "'", lower = ".", full = ":",
-  slider_on = "=", knob = "o", slider_off = "-", pan_rail = "-", pan_mark = "|",
-  fader = "=", fader_rail = "|", zero = "+", point = "*", open = "v", closed = ">",
-  stripe = "|", stripe_sel = "#", send = "^", out = ">", chain = ">", sep = "|", dot = ".",
-  play = ">", stop = "#", rec = "*", modified = "*", bypass = "o", on = "*", ellipsis = "~",
-  cursor = ">", warn = "!", error = "x", hairline = "|", strip_sep = "|",
-  tl = "+", tr = "+", bl = "+", br = "+", h = "-", v = "|", mark = "|",
-  move_up = "^", move_down = "v", remove = "x", editor = "#",
-  eighths = { ".", ".", "-", "-", "=", "=", "#", "#" },
+  rule = "|",
+  bar = "|",
+  beat = ":",
+  step = ".",
+  tick = ".",
+  cap = "v",
+  playhead = "|",
+  loop_in = "[",
+  loop_out = "]",
+  clip_start = "|",
+  punch_in = "{",
+  punch_out = "}",
+  meter_full = "=",
+  meter_half = "-",
+  meter_off = ".",
+  peak = "-",
+  upper = "'",
+  lower = ".",
+  full = ":",
+  slider_on = "=",
+  knob = "o",
+  slider_off = "-",
+  pan_rail = "-",
+  pan_mark = "|",
+  fader = "=",
+  fader_rail = "|",
+  zero = "+",
+  point = "*",
+  open = "v",
+  closed = ">",
+  stripe = "|",
+  stripe_sel = "#",
+  send = "^",
+  out = ">",
+  chain = ">",
+  sep = "|",
+  dot = ".",
+  play = ">",
+  stop = "#",
+  rec = "*",
+  modified = "*",
+  bypass = "o",
+  on = "*",
+  ellipsis = "~",
+  cursor = ">",
+  warn = "!",
+  error = "x",
+  hairline = "|",
+  strip_sep = "|",
+  tl = "+",
+  tr = "+",
+  bl = "+",
+  br = "+",
+  h = "-",
+  v = "|",
+  mark = "|",
+  move_up = "^",
+  move_down = "v",
+  remove = "x",
+  editor = "#",
+  eighths = {".", ".", "-", "-", "=", "=", "#", "#"},
 }
 
 --- The characters views draw with, by what they are for. The same table
 --- holds plain ASCII ones while `paw.opt.ascii` is on.
 M.g = {}
-M.glyphs = { unicode = unicode, ascii = ascii }
+M.glyphs = {unicode = unicode, ascii = ascii}
 
 --- Take the glyphs `paw.opt.ascii` asks for into `paw.draw.g`.
 function M.use_glyphs()
   local from = opt.ascii and ascii or unicode
   local into = M.g as GlyphTable
-  for k, v in pairs(from as GlyphTable) do into[k] = v end
+  for k, v in pairs(from as GlyphTable) do
+    into[k] = v
+  end
 end
 
 -- Shades of a colour ----------------------------------------------------------
 
-local hues: {string:Hue} = {}
-local stereo_groups: {string:boolean} = {}
+local hues: {string: Hue} = {}
+local stereo_groups: {string: boolean} = {}
 
 --- Highlight groups in the shades of one color (`#rrggbb`), made the first
 --- time that a caller asks for the color:
@@ -280,27 +404,31 @@ local stereo_groups: {string:boolean} = {}
 ---   plate               a name plate: light text on a deep shade
 function M.hue(colour: string): Hue
   local known = hues[colour]
-  if known then return known end
-  if not (type(colour) == "string" and colour:match("^#%x%x%x%x%x%x$")) then return M.hue(theme.hues[1]) end
+  if known then
+    return known
+  end
+  if not (type(colour) == "string" and colour:match("^#%x%x%x%x%x%x$")) then
+    return M.hue(theme.hues[1])
+  end
   local c, mix = theme.palette, M.mix
   local key = colour:sub(2)
   local dark = mix(colour, "#000000", 0.78)
-  local defs: {string:types.CellStyle} = {
-    fg = { fg = colour },
-    title = { fg = mix(colour, "#ffffff", 0.85), bg = mix(c.bg, colour, 0.55), bold = true },
-    body = { fg = mix(c.bg, colour, 0.75), bg = mix(c.bg, colour, 0.20) },
-    title_cur = { fg = dark, bg = colour, bold = true },
-    body_cur = { fg = mix(colour, "#ffffff", 0.25), bg = mix(c.bg, colour, 0.34) },
-    title_off = { fg = c.dim, bg = mix(c.bg, colour, 0.10), italic = true },
-    body_off = { fg = mix(c.bg, colour, 0.30), bg = mix(c.bg, colour, 0.06) },
-    lane_sel = { fg = c.line_hi, bg = mix(c.bg, colour, 0.06) },
-    note = { fg = dark, bg = colour },
-    note_soft = { fg = dark, bg = mix(c.bg, colour, 0.82) },
-    note_faint = { fg = dark, bg = mix(c.bg, colour, 0.6) },
-    pill = { fg = dark, bg = colour, bold = true },
-    plate = { fg = mix(colour, "#ffffff", 0.85), bg = mix(c.bg, colour, 0.55), bold = true },
+  local defs: {string: types.CellStyle} = {
+    fg = {fg = colour},
+    title = {fg = mix(colour, "#ffffff", 0.85), bg = mix(c.bg, colour, 0.55), bold = true},
+    body = {fg = mix(c.bg, colour, 0.75), bg = mix(c.bg, colour, 0.20)},
+    title_cur = {fg = dark, bg = colour, bold = true},
+    body_cur = {fg = mix(colour, "#ffffff", 0.25), bg = mix(c.bg, colour, 0.34)},
+    title_off = {fg = c.dim, bg = mix(c.bg, colour, 0.10), italic = true},
+    body_off = {fg = mix(c.bg, colour, 0.30), bg = mix(c.bg, colour, 0.06)},
+    lane_sel = {fg = c.line_hi, bg = mix(c.bg, colour, 0.06)},
+    note = {fg = dark, bg = colour},
+    note_soft = {fg = dark, bg = mix(c.bg, colour, 0.82)},
+    note_faint = {fg = dark, bg = mix(c.bg, colour, 0.6)},
+    pill = {fg = dark, bg = colour, bold = true},
+    plate = {fg = mix(colour, "#ffffff", 0.85), bg = mix(c.bg, colour, 0.55), bold = true},
   }
-  local names: {string:string} = {}
+  local names: {string: string} = {}
   for name, def in pairs(defs) do
     names[name] = "Hue_" .. name .. "_" .. key
     paw.ui.hl(names[name], def)
@@ -319,11 +447,17 @@ end
 --- The color of a track: its own color if it has one. If not, a color of
 --- the theme, by the place of the track in the track list.
 function M.track_colour(track: types.Track, index?: integer): string
-  if track.color and track.color:match("^#%x%x%x%x%x%x$") then return track.color end
-  if track.master then return theme.palette.dim end
+  if track.color and track.color:match("^#%x%x%x%x%x%x$") then
+    return track.color
+  end
+  if track.master then
+    return theme.palette.dim
+  end
   -- A member of a group is in its group's colour, so a section reads as one.
   local group = track.id and paw.groups and paw.groups.of(track.id)
-  if group then return M.track_colour(api.track_get(group)) end
+  if group then
+    return M.track_colour(api.track_get(group))
+  end
   -- By its place in the list, which folding a group away does not change.
   return theme.hues[((track.index or index or 1) - 1) % #theme.hues + 1]
 end
@@ -335,8 +469,12 @@ end
 
 --- The shade of a note by how hard it is played.
 function M.note_style(hue: Hue, velocity: number): string
-  if velocity >= 90 then return hue.note end
-  if velocity >= 50 then return hue.note_soft end
+  if velocity >= 90 then
+    return hue.note
+  end
+  if velocity >= 50 then
+    return hue.note_soft
+  end
   return hue.note_faint
 end
 
@@ -375,7 +513,9 @@ function M.meter(buf: Buf, x: integer, y: integer, width: integer, peak: number,
   end
   if hold and hold > 1e-5 then
     local at = math.min(width - 1, math.floor(M.level(hold) * width))
-    if at >= math.floor(filled) then buf:text(x + at, y, g.meter_half, "MeterPeak") end
+    if at >= math.floor(filled) then
+      buf:text(x + at, y, g.meter_half, "MeterPeak")
+    end
   end
 end
 
@@ -387,7 +527,9 @@ function M.vmeter(buf: Buf, x: integer, y: integer, height: integer, peak: numbe
   -- The unlit part in one go: most of a meter, most of the time.
   local lit = math.min(height, math.ceil(filled - 0.06))
   local off = height - math.max(0, lit)
-  if off > 0 then buf:fill(x, y, 1, off, g.v, "MeterOff") end
+  if off > 0 then
+    buf:fill(x, y, 1, off, g.v, "MeterOff")
+  end
   local hold_row = hold and hold > 1e-5 and math.min(height - 1, math.floor(M.level(hold) * height)) or nil
   for row = 0, height - 1 do
     local from_bottom = height - 1 - row
@@ -412,7 +554,9 @@ function M.stereo_meter(buf: Buf, x: integer, y: integer, width: integer, left: 
     return
   end
   local p = theme.palette
-  local colours: {string:string} = { off = p.bg_hl, MeterLow = p.meter_low, MeterMid = p.meter_mid, MeterHigh = p.meter_high }
+  local colours: {string: string} = {
+    off = p.bg_hl, MeterLow = p.meter_low, MeterMid = p.meter_mid, MeterHigh = p.meter_high
+  }
   local lf, rf = M.level(left) * width, M.level(right) * width
   for cell = 0, width - 1 do
     local style = meter_style((cell + 1) / width)
@@ -421,7 +565,7 @@ function M.stereo_meter(buf: Buf, x: integer, y: integer, width: integer, left: 
     local name = "MeterLR_" .. up .. "_" .. down
     if not stereo_groups[name] then
       stereo_groups[name] = true
-      paw.ui.hl(name, { fg = colours[up], bg = colours[down] })
+      paw.ui.hl(name, {fg = colours[up], bg = colours[down]})
     end
     buf:text(x + cell, y, g.upper, name)
   end
@@ -431,14 +575,14 @@ local record Held
   peak: number
   time: number
 end
-local held: {string:Held} = {}
+local held: {string: Held} = {}
 --- Peaks held for some time, by key. `hold(key, peak)` gives the loudest
 --- peak of the last two seconds, which falls after that time.
 function M.hold(key: string, peak: number): number
   local now = api.now()
   local h = held[key]
   if not h or peak >= h.peak or now - h.time > 2000 then
-    h = { peak = peak, time = now }
+    h = {peak = peak, time = now}
     held[key] = h
   end
   return h.peak
@@ -447,7 +591,7 @@ end
 -- The tracks whose meters reached full scale since their light was put out.
 -- A light that came on in the last take is not news in the next: they go
 -- out when the transport starts.
-local clipped: {integer:boolean} = {}
+local clipped: {integer: boolean} = {}
 events.on(kernel.transport_play, function() clipped = {} end)
 
 --- The meter of a track as the mixer shows it, in a terminal and in a
@@ -457,7 +601,9 @@ events.on(kernel.transport_play, function() clipped = {} end)
 function M.track_peak(id: integer): number, number, number, boolean
   local left, right = api.track_meter(id)
   local loudest = math.max(left, right)
-  if loudest >= 0.9999 then clipped[id] = true end
+  if loudest >= 0.9999 then
+    clipped[id] = true
+  end
   return left, right, M.hold("mix" .. id, loudest), clipped[id] == true
 end
 
@@ -471,9 +617,13 @@ end
 function M.slider(buf: Buf, x: integer, y: integer, width: integer, fraction: number, on?: Style, off?: Style)
   local g = M.g
   local at = math.floor(paw.util.clamp(fraction, 0, 1) * (width - 1) + 0.5)
-  if at > 0 then buf:text(x, y, string.rep(g.slider_on, at), on or "ParamBar") end
+  if at > 0 then
+    buf:text(x, y, string.rep(g.slider_on, at), on or "ParamBar")
+  end
   buf:text(x + at, y, g.knob, on or "ParamBar")
-  if at < width - 1 then buf:text(x + at + 1, y, string.rep(g.slider_off, width - 1 - at), off or "ParamBarOff") end
+  if at < width - 1 then
+    buf:text(x + at + 1, y, string.rep(g.slider_off, width - 1 - at), off or "ParamBarOff")
+  end
 end
 
 --- A pan from -1 to 1 as a bar that is `width` cells wide (an odd number
@@ -489,13 +639,17 @@ end
 --- Where a pan from -1 to 1 points, in a few cells: `L30`, `C`, `R100`.
 function M.pan_text(pan: number): string
   local amount = math.floor(math.abs(pan) * 100 + 0.5)
-  if amount == 0 then return "C" end
+  if amount == 0 then
+    return "C"
+  end
   return (pan < 0 and "L" or "R") .. amount
 end
 
 --- A volume in dB as few cells as it can: `-4.0`, `-inf`, `+2.5`.
 function M.db_text(db: number): string
-  if db <= -100 then return "-inf" end
+  if db <= -100 then
+    return "-inf"
+  end
   return string.format(db > 0.05 and "+%.1f" or "%.1f", db)
 end
 
@@ -506,7 +660,9 @@ function M.chips(buf: Buf, x: integer, y: integer, list: {Chip}, gap?: integer):
   local at = x
   for i, chip in ipairs(list) do
     at = at + buf:text(at, y, chip[1], chip[2] and chip[3] or "FlagOff")
-    if i < #list then at = at + gap end
+    if i < #list then
+      at = at + gap
+    end
   end
   return at - x
 end
@@ -532,15 +688,19 @@ function M.miniroll(notes: {types.Note}, width: integer, rows: integer, zoom: nu
     low, span = low - pad, 12
   end
   -- Which levels sound in each column.
-  local lit: {{integer:boolean}} = {}
-  for col = 1, width do lit[col] = {} end
+  local lit: {{integer: boolean}} = {}
+  for col = 1, width do
+    lit[col] = {}
+  end
   for _, n in ipairs(notes) do
     local c0 = math.max(0, math.floor((n.start - from) * zoom + 1e-9))
     local c1 = math.min(width - 1, math.ceil((n.start + n.length - from) * zoom - 1e-9) - 1)
     -- A lone pitch sits in the middle, not at the bottom.
     local level = span == 1 and math.floor(levels / 2) or math.floor((n.pitch - low) / span * levels)
     for col = c0, math.max(c0, c1) do
-      if lit[col + 1] then lit[col + 1][level] = true end
+      if lit[col + 1] then
+        lit[col + 1][level] = true
+      end
     end
   end
   local out: {string} = {}
@@ -562,7 +722,9 @@ end
 --- sounds show.
 function M.wave_reach(a: number): number
   a = math.min(math.abs(a), 1)
-  if opt.wave_scale ~= "db" then return a end
+  if opt.wave_scale ~= "db" then
+    return a
+  end
   return a <= 1e-4 and 0 or paw.util.clamp((20 * math.log10(a) + 48) / 48, 0, 1)
 end
 local wave_reach = M.wave_reach
@@ -583,7 +745,9 @@ function M.waveform(peaks: {{number}}, rows: integer): {string}, {{WaveRun}}
   local cells: {{string}} = {}
   local flips: {{boolean}} = {}
   local clips: {boolean} = {}
-  for row = 1, rows do cells[row], flips[row] = {}, {} end
+  for row = 1, rows do
+    cells[row], flips[row] = {}, {}
+  end
   local count = 0
   for i, p in ipairs(peaks) do
     count = i
@@ -593,7 +757,9 @@ function M.waveform(peaks: {{number}}, rows: integer): {string}, {{WaveRun}}
     -- Eighths from the top of the rows, the wave covering [top, bottom).
     local top = math.floor(half - (high < 0 and -1 or 1) * wave_reach(high) * half + 0.5)
     local bottom = math.floor(half - (low < 0 and -1 or 1) * wave_reach(low) * half + 0.5)
-    if bottom <= top then top, bottom = math.min(top, rows * 8 - 1), math.min(top, rows * 8 - 1) + 1 end
+    if bottom <= top then
+      top, bottom = math.min(top, rows * 8 - 1), math.min(top, rows * 8 - 1) + 1
+    end
     for row = 1, rows do
       local from, to = math.max(top - (row - 1) * 8, 0), math.min(bottom - (row - 1) * 8, 8)
       local cell, flip = " ", false
@@ -607,8 +773,10 @@ function M.waveform(peaks: {{number}}, rows: integer): {string}, {{WaveRun}}
         else
           -- Floating in the middle row: a thin line, or a half block.
           local mid = (from + to) / 2
-          cell = to - from >= 5 and g.full or to - from <= 2 and (plain and g.peak or "─")
-            or mid < 4 and g.upper or g.lower
+          cell = to - from >= 5 and g.full
+            or to - from <= 2 and (plain and g.peak or "─")
+            or mid < 4 and g.upper
+            or g.lower
         end
       end
       cells[row][i], flips[row][i] = cell, flip
@@ -624,36 +792,46 @@ function M.waveform(peaks: {{number}}, rows: integer): {string}, {{WaveRun}}
       local mark: string
       if cell ~= " " then
         mark = (clips[i] and "clip" or "") .. (flips[row][i] and "flip" or "")
-        if mark == "" then mark = nil end
+        if mark == "" then
+          mark = nil
+        end
       end
       if run and run.mark == mark then
         run.cells[#run.cells + 1] = cell
       else
-        run = { column = i - 1, cells = { cell }, mark = mark }
+        run = {column = i - 1, cells = {cell}, mark = mark}
         line[#line + 1] = run
       end
     end
-    for _, r in ipairs(line) do r.text, r.cells = table.concat(r.cells), nil end
+    for _, r in ipairs(line) do
+      r.text, r.cells = table.concat(r.cells), nil
+    end
     out[row], runs[row] = table.concat(cells[row]), line
   end
   return out, runs
 end
 
 local function utf8_char(code: integer): string
-  if code < 0x800 then return string.char(0xC0 + math.floor(code / 64), 0x80 + code % 64) end
+  if code < 0x800 then
+    return string.char(0xC0 + math.floor(code / 64), 0x80 + code % 64)
+  end
   return string.char(0xE0 + math.floor(code / 4096), 0x80 + math.floor(code / 64) % 64, 0x80 + code % 64)
 end
 
-local dots: {{integer}} = { { 0x01, 0x02, 0x04, 0x40 }, { 0x08, 0x10, 0x20, 0x80 } }
-local lines3: {string:{string}} = { unicode = { "▁", "─", "▔" }, ascii = { "_", "-", "'" } }
+local dots: {{integer}} = {{0x01, 0x02, 0x04, 0x40}, {0x08, 0x10, 0x20, 0x80}}
+local lines3: {string: {string}} = {unicode = {"▁", "─", "▔"}, ascii = {"_", "-", "'"}}
 
 --- How paw draws curves in cells: "sextant", "braille" or "line", from
 --- `paw.opt.curve_glyphs`. `paw.opt.braille = false` and `paw.opt.ascii`
 --- both mean "line". `paw.opt.ascii` wins over all, and uses ASCII characters.
 function M.curve_glyphs(): string
-  if opt.ascii or opt.braille == false then return "line" end
+  if opt.ascii or opt.braille == false then
+    return "line"
+  end
   local kind = opt.curve_glyphs
-  if kind == "braille" or kind == "line" then return kind end
+  if kind == "braille" or kind == "line" then
+    return kind
+  end
   return "sextant"
 end
 
@@ -662,19 +840,35 @@ end
 --- middle right, bottom left, bottom right. The patterns that are not in
 --- that block are a space, the left half, the right half and the full block.
 function M.sextant(bits: integer): string
-  if bits == 0 then return " " end
-  if bits == 21 then return "▌" end
-  if bits == 42 then return "▐" end
-  if bits == 63 then return "█" end
+  if bits == 0 then
+    return " "
+  end
+  if bits == 21 then
+    return "▌"
+  end
+  if bits == 42 then
+    return "▐"
+  end
+  if bits == 63 then
+    return "█"
+  end
   local n = bits - 1
-  if bits > 21 then n = n - 1 end
-  if bits > 42 then n = n - 1 end
+  if bits > 21 then
+    n = n - 1
+  end
+  if bits > 42 then
+    n = n - 1
+  end
   local cp = 0x1FB00 + n
-  return string.char(0xF0 + math.floor(cp / 262144), 0x80 + math.floor(cp / 4096) % 64, 0x80 + math.floor(cp / 64) % 64, 0x80 + cp % 64)
+  return string.char(
+    0xF0 + math.floor(cp / 262144), 0x80 + math.floor(cp / 4096) % 64, 0x80 + math.floor(cp / 64) % 64, 0x80 + cp % 64
+  )
 end
 
 --- A braille character from its eight dots: bit k is dot k + 1.
-function M.braille(bits: integer): string return utf8_char(0x2800 + bits) end
+function M.braille(bits: integer): string
+  return utf8_char(0x2800 + bits)
+end
 
 --- A connected line over a grid of cells, for a curve. `y(sx)` gives the
 --- row of the line from the top, in `sub` rows for each cell (3 for
@@ -683,8 +877,8 @@ function M.braille(bits: integer): string return utf8_char(0x2800 + bits) end
 --- The function fills a jump from the last row to this row, to keep the
 --- line connected. Returns `{ [row * width + col] = bits }`, the bits as
 --- `M.sextant` or `M.braille` take them.
-function M.trace(width: integer, samples: integer, y: Row, sub: integer, kind: string): {integer:integer}
-  local cells: {integer:integer} = {}
+function M.trace(width: integer, samples: integer, y: Row, sub: integer, kind: string): {integer: integer}
+  local cells: {integer: integer} = {}
   local last: integer
   for sx = 0, samples - 1 do
     local row = y(sx)
@@ -693,15 +887,23 @@ function M.trace(width: integer, samples: integer, y: Row, sub: integer, kind: s
       if last then
         a, b = math.min(row, last), math.max(row, last)
         if math.abs(row - last) > 1 then
-          if row > last then a = last + 1 else b = last - 1 end
+          if row > last then
+            a = last + 1
+          else
+            b = last - 1
+          end
         end
       end
       local side = sx % 2
       for r = a, b do
         local bit: integer
-        if kind == "braille" then bit = dots[side + 1][r % 4 + 1] else bit = (2 ^ ((r % 3) * 2 + side)) as integer end
+        if kind == "braille" then
+          bit = dots[side + 1][r % 4 + 1]
+        else
+          bit = (2 ^ ((r % 3) * 2 + side)) as integer
+        end
         local key = math.floor(r / sub) * width + math.floor(sx / 2)
-        cells[key] = (cells[key] or 0) + bit  -- each cell and side comes from one sample
+        cells[key] = (cells[key] or 0) + bit -- each cell and side comes from one sample
       end
       last = row
     end
@@ -729,11 +931,19 @@ function M.curve(buf: Buf, y: integer, rows: integer, value: Height, style?: Sty
   end
   local sub = kind == "braille" and 4 or 3
   local steps = rows * sub
-  local cells = M.trace(buf.width, buf.width * 2, function(sx: integer): integer
-    local v = value(sx)
-    if not v then return nil end
-    return steps - 1 - math.min(steps - 1, math.floor(paw.util.clamp(v, 0, 1) * steps))
-  end, sub, kind)
+  local cells = M.trace(
+    buf.width,
+    buf.width * 2,
+    function(sx: integer): integer
+      local v = value(sx)
+      if not v then
+        return nil
+      end
+      return steps - 1 - math.min(steps - 1, math.floor(paw.util.clamp(v, 0, 1) * steps))
+    end,
+    sub,
+    kind
+  )
   local glyph = kind == "braille" and M.braille or M.sextant
   for key, bits in pairs(cells) do
     buf:text(key % buf.width, y + math.floor(key / buf.width), glyph(bits), style)
@@ -754,11 +964,17 @@ function M.piano_key(buf: Buf, row: integer, pitch: integer, cursor: boolean, wi
   else
     -- Two white keys with no black one between them get a line instead.
     buf:fill(0, row, width, 1, (step == 0 or step == 5) and (opt.ascii and "_" or "▁") or " ", "PianoWhite")
-    if step == 0 and not name then buf:text(1, row, music.name(pitch), "PianoC") end
+    if step == 0 and not name then
+      buf:text(1, row, music.name(pitch), "PianoC")
+    end
   end
   -- A key the instrument names (a drum, a keyswitch) shows its name.
-  if name then buf:text(0, row, paw.util.fit(name, width - 1), "PianoC") end
-  if cursor then buf:text(0, row, paw.util.fit(music.name(pitch), width - 1) .. " ", "PianoCursor") end
+  if name then
+    buf:text(0, row, paw.util.fit(name, width - 1), "PianoC")
+  end
+  if cursor then
+    buf:text(0, row, paw.util.fit(music.name(pitch), width - 1) .. " ", "PianoCursor")
+  end
 end
 
 --- The bars and beats from `from` for `span` beats, as the project counts
@@ -769,7 +985,7 @@ function M.bar_lines(from: number, span: number): {BarLine}
   -- From the tempo map: bars, and the beats of the signature in each.
   local out: {BarLine} = {}
   for _, line in ipairs(paw.tempo.lines(from - 1e-9, from + span + 1e-9)) do
-    out[#out + 1] = line.index == 0 and { beat = line.beat, bar = line.bar } or { beat = line.beat }
+    out[#out + 1] = line.index == 0 and {beat = line.beat, bar = line.bar} or {beat = line.beat}
   end
   return out
 end
@@ -786,9 +1002,11 @@ function M.beats(ruler: Buf, scroll: number, span: number, zoom: number, origin:
   local free = 0
   for _, line in ipairs(M.bar_lines(origin + scroll, span)) do
     local at = math.floor((line.beat - origin - scroll) * zoom + 0.5)
-    lines[#lines + 1] = { x = at, bar = line.bar ~= nil, beat = line.beat - origin }
+    lines[#lines + 1] = {x = at, bar = line.bar ~= nil, beat = line.beat - origin}
     if line.bar then
-      if (line.bar - 1) % every == 0 and at >= free then free = at + ruler:text(at, 0, tostring(line.bar), "RulerBar") + 1 end
+      if (line.bar - 1) % every == 0 and at >= free then
+        free = at + ruler:text(at, 0, tostring(line.bar), "RulerBar") + 1
+      end
     elseif zoom >= 2 and at >= free then
       ruler:text(at, 0, g.tick, "RulerTick")
     end
@@ -802,27 +1020,41 @@ end
 function M.keys(buf: Buf, x: integer, y: integer, entries: {KeyHint}, width: integer, groups?: string): integer
   local g = M.g
   local key, text, sep_style = "KeyBarKey", "KeyBarText", "KeyBarSep"
-  if groups == "FloatFooter" then key, text, sep_style = "FooterKey", "FooterText", "FooterSep" end
+  if groups == "FloatFooter" then
+    key, text, sep_style = "FooterKey", "FooterText", "FooterSep"
+  end
   local list: {KeyHint} = {}
   local last: KeyHint
   for _, entry in ipairs(entries) do
-    if entry[1] == "?" then last = entry else list[#list + 1] = entry end
+    if entry[1] == "?" then
+      last = entry
+    else
+      list[#list + 1] = entry
+    end
   end
   local room = width
-  if last then room = room - api.str_width(last[1]) - api.str_width(last[2]) - 4 end
+  if last then
+    room = room - api.str_width(last[1]) - api.str_width(last[2]) - 4
+  end
   local at = x
   local sep = " " .. g.dot .. " "
   local function put(entry: KeyHint)
-    if at > x then at = at + buf:text(at, y, sep, sep_style) end
+    if at > x then
+      at = at + buf:text(at, y, sep, sep_style)
+    end
     at = at + buf:text(at, y, entry[1], key)
     at = at + buf:text(at, y, " " .. entry[2], text)
   end
   for _, entry in ipairs(list) do
     local need = api.str_width(entry[1]) + api.str_width(entry[2]) + 1 + (at > x and 3 or 0)
-    if at + need > x + room then break end
+    if at + need > x + room then
+      break
+    end
     put(entry)
   end
-  if last then put(last) end
+  if last then
+    put(last)
+  end
   return at - x
 end
 

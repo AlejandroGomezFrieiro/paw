@@ -8,7 +8,9 @@ local pick = paw.pick
 local function start()
   fresh()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.focus("arrange")
 end
 
@@ -70,7 +72,9 @@ test("the status line names the focused view and shows its grid", function()
     local out = {}
     for _, list in pairs(paw.ui.views.status.segments(140)) do
       for _, seg in ipairs(list) do
-        for _, piece in ipairs(seg) do out[#out + 1] = piece[1] end
+        for _, piece in ipairs(seg) do
+          out[#out + 1] = piece[1]
+        end
       end
     end
     return table.concat(out, "|")

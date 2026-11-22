@@ -45,12 +45,17 @@ local function column(lines, rect, y, text)
     x = x + api.str_width(ch)
   end
   local want = {}
-  for ch in text:gmatch("[%z\1-\127\194-\244][\128-\191]*") do want[#want + 1] = ch end
+  for ch in text:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+    want[#want + 1] = ch
+  end
   for i = 1, #cells - #want + 1 do
     if cells[i].x >= rect.x then
       local same = true
       for j = 1, #want do
-        if cells[i + j - 1].ch ~= want[j] then same = false break end
+        if cells[i + j - 1].ch ~= want[j] then
+          same = false
+          break
+        end
       end
       if same then return cells[i].x end
     end
@@ -66,7 +71,9 @@ end
 
 local function done()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   require("paw.menu").close(0)
   paw.mouse.forget()
   api.scene_forget(0)
@@ -102,8 +109,14 @@ test("a click on a device's preset caret opens its presets; + add a device opens
   click(column(lines, rect, y, "Synth " .. paw.draw.g.open) + 6, y)
   local items = require("paw.menu").shown()
   local labels = {}
-  for _, item in ipairs(items or {}) do labels[#labels + 1] = type(item) == "table" and item.label or item end
-  eq(table.concat(labels, "|"):find("Save as a preset…", 1, true) ~= nil, true, "the menu of presets: " .. table.concat(labels, "|"))
+  for _, item in ipairs(items or {}) do
+    labels[#labels + 1] = type(item) == "table" and item.label or item
+  end
+  eq(
+    table.concat(labels, "|"):find("Save as a preset…", 1, true) ~= nil,
+    true,
+    "the menu of presets: " .. table.concat(labels, "|")
+  )
   require("paw.menu").close(0)
   rect, lines = shown(t)
   local foot = rect.y + 1 + panel.geometry.foot
@@ -168,7 +181,9 @@ test("Ctrl and the wheel nudge a parameter, the wheel alone moves the row; A aut
   eq(lines[y + 1]:sub(-6):find("A", 1, true) ~= nil, true, "A on the row: " .. lines[y + 1])
   click(rect.x + lay.tools, y)
   local lane
-  for _, l in ipairs(api.lane_list(t.id)) do if l.target == "param" and l.param == p.key then lane = l end end
+  for _, l in ipairs(api.lane_list(t.id)) do
+    if l.target == "param" and l.param == p.key then lane = l end
+  end
   eq(lane ~= nil, true, "A gives the parameter a lane")
   click(rect.x + lay.tools + 2, y)
   eq(paw.learn.learning ~= nil and paw.learn.learning.param, p.key, "L waits for a controller for it")
@@ -229,15 +244,45 @@ test("in a window the panel is its scene: a band, a name and a power button a de
   local r = params[1].r
   local bar = params[1].hit.bar
   local held = {}
-  eq(paw.roles.input(0, "devices", panel, nil, { kind = "down", x = r[1] + bar / 2, y = r[2] + 0.5, button = "left" }, held), true, "the slider takes the press")
+  eq(
+    paw.roles.input(
+      0,
+      "devices",
+      panel,
+      nil,
+      { kind = "down", x = r[1] + bar / 2, y = r[2] + 0.5, button = "left" },
+      held
+    ),
+    true,
+    "the slider takes the press"
+  )
   paw.roles.input(0, "devices", panel, nil, { kind = "up", x = r[1] + bar / 2, y = r[2] + 0.5, button = "left" }, held)
-  near(paw.params.fraction(p, api.device_get(synth.id).params[p.key]), 0.5, 0.01, "halfway along it, halfway along the range")
+  near(
+    paw.params.fraction(p, api.device_get(synth.id).params[p.key]),
+    0.5,
+    0.01,
+    "halfway along it, halfway along the range"
+  )
   eq(panel.row, index, "and the row is chosen")
   -- The power button bypasses the device.
   local power = nodes(patch, "power")[1]
   paw.mouse.forget()
-  paw.roles.input(0, "devices", panel, nil, { kind = "down", x = power.r[1] + 1, y = power.r[2] + 0.5, button = "left" }, held)
-  paw.roles.input(0, "devices", panel, nil, { kind = "up", x = power.r[1] + 1, y = power.r[2] + 0.5, button = "left" }, held)
+  paw.roles.input(
+    0,
+    "devices",
+    panel,
+    nil,
+    { kind = "down", x = power.r[1] + 1, y = power.r[2] + 0.5, button = "left" },
+    held
+  )
+  paw.roles.input(
+    0,
+    "devices",
+    panel,
+    nil,
+    { kind = "up", x = power.r[1] + 1, y = power.r[2] + 0.5, button = "left" },
+    held
+  )
   eq(api.device_get(synth.id).bypass, true, "the power button bypasses it")
 end)
 
@@ -250,7 +295,10 @@ test("a parameter a lane moves is bound to the live values: the song moves it wi
   paw.cursor.set_track(t)
   local p
   for _, row in ipairs(panel:rows()) do
-    if row.param and row.device.id == synth.id and #row.param.choices == 0 and not row.host then p = row.param break end
+    if row.param and row.device.id == synth.id and #row.param.choices == 0 and not row.host then
+      p = row.param
+      break
+    end
   end
   local lane = paw.device(synth.id):automate(p.key)
   lane:add(0, p.min)
@@ -261,7 +309,9 @@ test("a parameter a lane moves is bound to the live values: the song moves it wi
   local bind = "param:" .. synth.id .. ":" .. p.key
   local patch = scene()
   local found
-  for _, n in ipairs(nodes(patch, "param")) do if n.bind == bind then found = n end end
+  for _, n in ipairs(nodes(patch, "param")) do
+    if n.bind == bind then found = n end
+  end
   eq(found ~= nil, true, "the slider is bound to its parameter")
   eq(found.props.fraction, nil, "and is sent without where it sits")
   eq(found.props.bar ~= nil, true, "but with its slider's length")

@@ -15,9 +15,15 @@ os.execute("mkdir -p '" .. scratch .. "'")
 local function checkout_files()
   -- .claude holds the worktrees of other checkouts, whose own suites write
   -- into them while this one runs.
-  local out, pipe = {}, io.popen("find . -path ./target -prune -o -path ./.git -prune -o -path ./.claude -prune -o -type f -print 2>/dev/null")
+  local out, pipe =
+    {},
+    io.popen(
+      "find . -path ./target -prune -o -path ./.git -prune -o -path ./.claude -prune -o -type f -print 2>/dev/null"
+    )
   if not pipe then return nil end
-  for line in pipe:lines() do out[line] = true end
+  for line in pipe:lines() do
+    out[line] = true
+  end
   pipe:close()
   return out
 end
@@ -64,9 +70,7 @@ local function until_(cond, what, ms)
   while true do
     local value = cond()
     if value then return value end
-    if api.now() > deadline then
-      error(string.format("waited %d ms in vain for %s", ms, what or "a condition"), 2)
-    end
+    if api.now() > deadline then error(string.format("waited %d ms in vain for %s", ms, what or "a condition"), 2) end
     paw.wait(5)
   end
 end
@@ -92,8 +96,16 @@ local function next_block(n, device, ms)
   local deadline = api.now() + ms
   while (api.blocks(device) or 0) < want do
     if api.now() > deadline then
-      error(string.format("the engine ran %d of %d blocks%s in %d ms", (api.blocks(device) or 0) - start,
-        want - start, device and (" of device " .. device) or "", ms), 2)
+      error(
+        string.format(
+          "the engine ran %d of %d blocks%s in %d ms",
+          (api.blocks(device) or 0) - start,
+          want - start,
+          device and (" of device " .. device) or "",
+          ms
+        ),
+        2
+      )
     end
     api.sleep(1)
   end
@@ -182,7 +194,6 @@ local function frequency(info, from, to)
   return rises / (to - from)
 end
 
-
 local function read_file(path)
   local file = assert(io.open(path, "rb"))
   local data = file:read("*a")
@@ -207,7 +218,9 @@ local function three_clips()
   t:add_device("synth", { cutoff = 900 })
   for i, name in ipairs({ "a", "b", "c" }) do
     local notes = {}
-    for beat = 0, 3 do notes[#notes + 1] = { pitch = 60 + beat, start = beat, length = 1 } end
+    for beat = 0, 3 do
+      notes[#notes + 1] = { pitch = 60 + beat, start = beat, length = 1 }
+    end
     t:add_clip({ name = name, start = (i - 1) * 4, length = 4, notes = notes })
   end
   paw.cursor.set_track(t)
@@ -233,7 +246,9 @@ local function melody(clip)
     if a.start ~= b.start then return a.start < b.start end
     return a.pitch < b.pitch
   end)
-  for i, n in ipairs(notes) do notes[i] = string.format("%d@%g+%g", n.pitch, n.start, n.length) end
+  for i, n in ipairs(notes) do
+    notes[i] = string.format("%d@%g+%g", n.pitch, n.start, n.length)
+  end
   return table.concat(notes, " ")
 end
 
@@ -271,10 +286,29 @@ end
 --   T.test("the widget counts", function() T.fresh() T.eq(1 + 1, 2, "sum") end)
 
 local T = {
-  test = test, last = last, after = after, eq = eq, near = near, fails = fails, fresh = fresh, render = render, tone = tone, cpu_ms = cpu_ms, quick = quick,
-  until_ = until_, next_block = next_block, until_beat = until_beat,
-  scratch = scratch, read_file = read_file, write_file = write_file, frequency = frequency,
-  channel_peaks = channel_peaks, three_clips = three_clips, layout = layout, melody = melody, keys = keys,
+  test = test,
+  last = last,
+  after = after,
+  eq = eq,
+  near = near,
+  fails = fails,
+  fresh = fresh,
+  render = render,
+  tone = tone,
+  cpu_ms = cpu_ms,
+  quick = quick,
+  until_ = until_,
+  next_block = next_block,
+  until_beat = until_beat,
+  scratch = scratch,
+  read_file = read_file,
+  write_file = write_file,
+  frequency = frequency,
+  channel_peaks = channel_peaks,
+  three_clips = three_clips,
+  layout = layout,
+  melody = melody,
+  keys = keys,
   roll_notes = roll_notes,
 }
 local files = {}
@@ -286,7 +320,9 @@ local function lua_files(dir, pattern)
     end
   end
   table.sort(found)
-  for _, path in ipairs(found) do files[#files + 1] = path end
+  for _, path in ipairs(found) do
+    files[#files + 1] = path
+  end
 end
 lua_files("tests", "%.lua$")
 local extensions = {}
@@ -294,9 +330,15 @@ for _, entry in ipairs(api.read_dir("extensions")) do
   if entry.is_dir then extensions[#extensions + 1] = entry.name end
 end
 table.sort(extensions)
-for _, name in ipairs(extensions) do lua_files("extensions/" .. name, "^tests[%w_]*%.lua$") end
-for _, path in ipairs(files) do assert(loadfile(path))(T) end
-for _, t in ipairs(lasts) do tests[#tests + 1] = t end
+for _, name in ipairs(extensions) do
+  lua_files("extensions/" .. name, "^tests[%w_]*%.lua$")
+end
+for _, path in ipairs(files) do
+  assert(loadfile(path))(T)
+end
+for _, t in ipairs(lasts) do
+  tests[#tests + 1] = t
+end
 
 -- Run ------------------------------------------------------------------------
 
@@ -304,7 +346,10 @@ local only = ...
 for _, t in ipairs(tests) do
   if not only or t.name:find(only, 1, true) then
     local ok, err = xpcall(t.fn, debug.traceback)
-    for i = #cleanups, 1, -1 do pcall(cleanups[i]) cleanups[i] = nil end
+    for i = #cleanups, 1, -1 do
+      pcall(cleanups[i])
+      cleanups[i] = nil
+    end
     if ok and type(err) == "string" then
       print("skip  " .. t.name .. " (" .. err .. ")")
     elseif ok then

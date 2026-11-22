@@ -32,14 +32,20 @@ end
 
 local function count(n)
   local total = (n.change and 1 or 0) + (n.hidden or 0)
-  for _, child in ipairs(n.children) do total = total + count(child) end
+  for _, child in ipairs(n.children) do
+    total = total + count(child)
+  end
   return total
 end
 
 local function union_keys(a, b)
   local keys = {}
-  for k in pairs(a) do keys[k] = true end
-  for k in pairs(b) do keys[k] = true end
+  for k in pairs(a) do
+    keys[k] = true
+  end
+  for k in pairs(b) do
+    keys[k] = true
+  end
   return data.sorted_keys(keys)
 end
 
@@ -49,8 +55,14 @@ local function fields(parent, a, b, skip, o)
   for _, k in ipairs(union_keys(a, b)) do
     if not (skip and skip[k]) and not data.equal(a[k], b[k]) then
       local sign = a[k] == nil and "+" or b[k] == nil and "-" or "~"
-      add(parent, node(sign, k .. ": " .. show(a[k]) .. " -> " .. show(b[k]),
-        { address = o.address, trail = o.trail, change = true }))
+      add(
+        parent,
+        node(
+          sign,
+          k .. ": " .. show(a[k]) .. " -> " .. show(b[k]),
+          { address = o.address, trail = o.trail, change = true }
+        )
+      )
     end
   end
 end
@@ -60,7 +72,9 @@ end
 local function match(a, b, field)
   local A, B = data.by(a, field), data.by(b, field)
   local out = {}
-  for _, k in ipairs(B.order) do out[#out + 1] = { key = k, a = A.by[k], b = B.by[k] } end
+  for _, k in ipairs(B.order) do
+    out[#out + 1] = { key = k, a = A.by[k], b = B.by[k] }
+  end
   for _, k in ipairs(A.order) do
     if B.by[k] == nil then out[#out + 1] = { key = k, a = A.by[k] } end
   end
@@ -70,8 +84,12 @@ end
 --- Whether the items two lists have in common are in another order.
 local function reordered(A, B)
   local first, second = {}, {}
-  for _, k in ipairs(A.order) do if B.by[k] ~= nil then first[#first + 1] = k end end
-  for _, k in ipairs(B.order) do if A.by[k] ~= nil then second[#second + 1] = k end end
+  for _, k in ipairs(A.order) do
+    if B.by[k] ~= nil then first[#first + 1] = k end
+  end
+  for _, k in ipairs(B.order) do
+    if A.by[k] ~= nil then second[#second + 1] = k end
+  end
   for i = 1, #first do
     if first[i] ~= second[i] then return true end
   end
@@ -85,8 +103,13 @@ local function sign_of(p) return p.a == nil and "+" or p.b == nil and "-" or "~"
 -- Notes and controls ---------------------------------------------------------
 
 local function note_text(n)
-  return string.format("%s at %s, %s long, velocity %s", data.pitch(n.pitch), num(n.start or 0),
-    num(n.length or 0), num(n.velocity or 100))
+  return string.format(
+    "%s at %s, %s long, velocity %s",
+    data.pitch(n.pitch),
+    num(n.start or 0),
+    num(n.length or 0),
+    num(n.velocity or 100)
+  )
 end
 
 local function more(parent, shown, total, o)
@@ -117,11 +140,16 @@ local function notes_node(a, b, clip)
         for _, k in ipairs(union_keys(p.a, p.b)) do
           if not data.equal(p.a[k], p.b[k]) then
             local x, y = p.a[k], p.b[k]
-            if k == "pitch" then x, y = data.pitch(x), data.pitch(y) else x, y = show(x, 24), show(y, 24) end
+            if k == "pitch" then
+              x, y = data.pitch(x), data.pitch(y)
+            else
+              x, y = show(x, 24), show(y, 24)
+            end
             parts[#parts + 1] = k .. " " .. tostring(x) .. " -> " .. tostring(y)
           end
         end
-        lines[#lines + 1] = node("~", "note " .. p.key .. " " .. data.pitch(p.b.pitch) .. ": " .. table.concat(parts, ", "), where)
+        lines[#lines + 1] =
+          node("~", "note " .. p.key .. " " .. data.pitch(p.b.pitch) .. ": " .. table.concat(parts, ", "), where)
       end
     end
   else
@@ -137,7 +165,8 @@ local function notes_node(a, b, clip)
         seen[k] = seen[k] - 1
       else
         added = added + 1
-        lines[#lines + 1] = node("+", "note " .. note_text(n), { address = address, trail = trail .. " › notes", change = true })
+        lines[#lines + 1] =
+          node("+", "note " .. note_text(n), { address = address, trail = trail .. " › notes", change = true })
       end
     end
     for _, n in ipairs(a) do
@@ -145,7 +174,8 @@ local function notes_node(a, b, clip)
       if (seen[k] or 0) > 0 then
         seen[k] = seen[k] - 1
         removed = removed + 1
-        lines[#lines + 1] = node("-", "note " .. note_text(n), { address = address, trail = trail .. " › notes", change = true })
+        lines[#lines + 1] =
+          node("-", "note " .. note_text(n), { address = address, trail = trail .. " › notes", change = true })
       end
     end
   end
@@ -155,7 +185,9 @@ local function notes_node(a, b, clip)
   if removed > 0 then parts[#parts + 1] = "-" .. removed end
   if changed > 0 then parts[#parts + 1] = "~" .. changed end
   local head = node("~", "notes " .. table.concat(parts, " "), { address = address, trail = trail .. " › notes" })
-  for i = 1, math.min(#lines, SHOWN) do add(head, lines[i]) end
+  for i = 1, math.min(#lines, SHOWN) do
+    add(head, lines[i])
+  end
   more(head, SHOWN, #lines, head)
   -- What is not listed still counts as changes.
   head.hidden = math.max(0, #lines - SHOWN)
@@ -196,7 +228,9 @@ local function controls_node(a, b, clip)
   end
   if #lines == 0 then return nil end
   local head = node("~", "controls +" .. added .. " -" .. removed, { address = where.address, trail = where.trail })
-  for i = 1, math.min(#lines, SHOWN) do add(head, lines[i]) end
+  for i = 1, math.min(#lines, SHOWN) do
+    add(head, lines[i])
+  end
   more(head, SHOWN, #lines, head)
   head.hidden = math.max(0, #lines - SHOWN)
   return head
@@ -204,9 +238,7 @@ end
 
 -- Clips ----------------------------------------------------------------------
 
-local function clip_label(c)
-  return string.format('clip %d "%s"', c.id, c.name or "")
-end
+local function clip_label(c) return string.format('clip %d "%s"', c.id, c.name or "") end
 
 local function clip_summary(c)
   local content = c.content or {}
@@ -219,8 +251,11 @@ local function clip_node(a, b, track)
   local address = "paw://clip/" .. c.id
   local trail = track.trail .. " › " .. clip_label(c)
   if not a or not b then
-    return node(a and "-" or "+", clip_label(c) .. ", at beat " .. num(c.start) .. ", " .. num(c.length) .. " beats long, "
-      .. clip_summary(c), { address = a and track.address or address, trail = trail, change = true })
+    return node(
+      a and "-" or "+",
+      clip_label(c) .. ", at beat " .. num(c.start) .. ", " .. num(c.length) .. " beats long, " .. clip_summary(c),
+      { address = a and track.address or address, trail = trail, change = true }
+    )
   end
   if data.equal(a, b) then return nil end
   local head = node("~", clip_label(b), { address = address, trail = trail })
@@ -228,11 +263,21 @@ local function clip_node(a, b, track)
   local o = { address = address, trail = trail }
   fields(head, a, b, { id = true, content = true, meta = true, name = true }, o)
   if a.name ~= b.name then
-    add(head, node("~", "name: " .. show(a.name) .. " -> " .. show(b.name), { address = address, trail = trail, change = true }))
+    add(
+      head,
+      node("~", "name: " .. show(a.name) .. " -> " .. show(b.name), { address = address, trail = trail, change = true })
+    )
   end
   local ca, cb = a.content or {}, b.content or {}
   if ca.kind ~= cb.kind then
-    add(head, node("~", "content: " .. show(ca.kind) .. " -> " .. show(cb.kind), { address = address, trail = trail, change = true }))
+    add(
+      head,
+      node(
+        "~",
+        "content: " .. show(ca.kind) .. " -> " .. show(cb.kind),
+        { address = address, trail = trail, change = true }
+      )
+    )
   elseif cb.kind == "midi" then
     local clip = { id = b.id, trail = trail }
     add(head, notes_node(ca.notes or {}, cb.notes or {}, clip))
@@ -257,7 +302,11 @@ local function device_node(a, b, track)
   local address = track.address .. "/device/" .. d.id
   local trail = track.trail .. " › " .. device_label(d)
   if not a or not b then
-    return node(a and "-" or "+", device_label(d), { address = a and track.address or address, trail = trail, change = true })
+    return node(
+      a and "-" or "+",
+      device_label(d),
+      { address = a and track.address or address, trail = trail, change = true }
+    )
   end
   if data.equal(a, b) then return nil end
   local head = node("~", device_label(b), { address = address, trail = trail })
@@ -266,14 +315,25 @@ local function device_node(a, b, track)
   local pa, pb = a.params or {}, b.params or {}
   for _, k in ipairs(union_keys(pa, pb)) do
     if pa[k] ~= pb[k] then
-      add(head, node(pa[k] == nil and "+" or pb[k] == nil and "-" or "~",
-        string.format("%s: %s -> %s", k, show(pa[k]), show(pb[k])),
-        { address = address .. "/param/" .. k, trail = trail .. " › " .. k, change = true }))
+      add(
+        head,
+        node(
+          pa[k] == nil and "+" or pb[k] == nil and "-" or "~",
+          string.format("%s: %s -> %s", k, show(pa[k]), show(pb[k])),
+          { address = address .. "/param/" .. k, trail = trail .. " › " .. k, change = true }
+        )
+      )
     end
   end
   if a.state ~= b.state then
-    add(head, node("~", string.format("plugin state changed (%d -> %d bytes)", #(a.state or ""), #(b.state or "")),
-      { address = address, trail = trail .. " › state", change = true }))
+    add(
+      head,
+      node(
+        "~",
+        string.format("plugin state changed (%d -> %d bytes)", #(a.state or ""), #(b.state or "")),
+        { address = address, trail = trail .. " › state", change = true }
+      )
+    )
   end
   fields(head, a.meta, b.meta, nil, { address = address, trail = trail .. " › meta" })
   return #head.children > 0 and head or nil
@@ -283,7 +343,9 @@ end
 
 local function lane_label(l)
   local t = l.target or {}
-  if t.kind == "param" then return string.format("lane %d: %s of device %s", l.id, tostring(t.param), tostring(t.device)) end
+  if t.kind == "param" then
+    return string.format("lane %d: %s of device %s", l.id, tostring(t.param), tostring(t.device))
+  end
   return string.format("lane %d: %s", l.id, tostring(t.kind))
 end
 
@@ -294,8 +356,11 @@ local function lane_node(a, b, track)
   local address = "paw://lane/" .. l.id
   local trail = track.trail .. " › " .. lane_label(l)
   if not a or not b then
-    return node(a and "-" or "+", lane_label(l) .. ", " .. plural(#(l.points or {}), "point"),
-      { address = a and track.address or address, trail = trail, change = true })
+    return node(
+      a and "-" or "+",
+      lane_label(l) .. ", " .. plural(#(l.points or {}), "point"),
+      { address = a and track.address or address, trail = trail, change = true }
+    )
   end
   if data.equal(a, b) then return nil end
   local head = node("~", lane_label(b), { address = address, trail = trail })
@@ -319,8 +384,11 @@ local function lane_node(a, b, track)
     if added > 0 then parts[#parts + 1] = "+" .. added end
     if removed > 0 then parts[#parts + 1] = "-" .. removed end
     if moved > 0 then parts[#parts + 1] = "~" .. moved end
-    local points = add(head, node("~", "points " .. table.concat(parts, " "), { address = address, trail = trail .. " › points" }))
-    for i = 1, math.min(#lines, SHOWN) do add(points, lines[i]) end
+    local points =
+      add(head, node("~", "points " .. table.concat(parts, " "), { address = address, trail = trail .. " › points" }))
+    for i = 1, math.min(#lines, SHOWN) do
+      add(points, lines[i])
+    end
     more(points, SHOWN, #lines, points)
     points.hidden = math.max(0, #lines - SHOWN)
   end
@@ -354,10 +422,18 @@ local function track_node(a, b)
   local address = "paw://track/" .. t.id
   local track = { address = address, trail = track_label(t) }
   if not a or not b then
-    local head = node(a and "-" or "+", track_label(t), { address = a and "paw://project" or address, trail = track.trail, change = true })
+    local head = node(
+      a and "-" or "+",
+      track_label(t),
+      { address = a and "paw://project" or address, trail = track.trail, change = true }
+    )
     local from = t
-    for _, d in ipairs(from.devices or {}) do add(head, node(" ", device_label(d))) end
-    for _, c in ipairs(from.clips or {}) do add(head, node(" ", clip_label(c) .. ", " .. clip_summary(c))) end
+    for _, d in ipairs(from.devices or {}) do
+      add(head, node(" ", device_label(d)))
+    end
+    for _, c in ipairs(from.clips or {}) do
+      add(head, node(" ", clip_label(c) .. ", " .. clip_summary(c)))
+    end
     return head
   end
   if data.equal(a, b) then return nil end
@@ -373,14 +449,20 @@ local function track_node(a, b)
   end
 
   local devices, DA, DB = match(a.devices, b.devices, "id")
-  for _, p in ipairs(devices) do add(head, device_node(p.a, p.b, track)) end
+  for _, p in ipairs(devices) do
+    add(head, device_node(p.a, p.b, track))
+  end
   if reordered(DA, DB) then
     add(head, node("~", "devices in another order", { address = address, trail = track.trail, change = true }))
   end
   local clips = match(a.clips, b.clips, "id")
-  for _, p in ipairs(clips) do add(head, clip_node(p.a, p.b, track)) end
+  for _, p in ipairs(clips) do
+    add(head, clip_node(p.a, p.b, track))
+  end
   local lanes = match(a.lanes, b.lanes, "id")
-  for _, p in ipairs(lanes) do add(head, lane_node(p.a, p.b, track)) end
+  for _, p in ipairs(lanes) do
+    add(head, lane_node(p.a, p.b, track))
+  end
   -- Clips off the timeline, which cues play (the clip launcher's slots).
   for _, p in ipairs((match(a.cues, b.cues, "id"))) do
     local n = clip_node(p.a, p.b, track)
@@ -403,24 +485,43 @@ local function tempo_group(a, b)
   for _, p in ipairs((match(a.tempo_changes, b.tempo_changes, "beat"))) do
     if not data.equal(p.a, p.b) then
       local text = "tempo at beat " .. num(p.key)
-      if not p.a then text = text .. ": " .. num(p.b.bpm) .. " bpm" .. (p.b.ramp and " ramping" or "")
-      elseif not p.b then text = text .. " (was " .. num(p.a.bpm) .. " bpm)"
-      else text = text .. ": " .. num(p.a.bpm) .. " -> " .. num(p.b.bpm) .. " bpm" end
-      add(head, node(sign_of(p), text, { address = o.address, trail = o.trail .. " › beat " .. num(p.key), change = true }))
+      if not p.a then
+        text = text .. ": " .. num(p.b.bpm) .. " bpm" .. (p.b.ramp and " ramping" or "")
+      elseif not p.b then
+        text = text .. " (was " .. num(p.a.bpm) .. " bpm)"
+      else
+        text = text .. ": " .. num(p.a.bpm) .. " -> " .. num(p.b.bpm) .. " bpm"
+      end
+      add(
+        head,
+        node(sign_of(p), text, { address = o.address, trail = o.trail .. " › beat " .. num(p.key), change = true })
+      )
     end
   end
   for _, p in ipairs((match(a.sig_changes, b.sig_changes, "beat"))) do
     if not data.equal(p.a, p.b) then
       local function sig(s) return s and (s.num .. "/" .. s.den) or "none" end
-      add(head, node(sign_of(p), "time signature at beat " .. num(p.key) .. ": " .. sig(p.a) .. " -> " .. sig(p.b),
-        { address = o.address, trail = o.trail .. " › beat " .. num(p.key), change = true }))
+      add(
+        head,
+        node(
+          sign_of(p),
+          "time signature at beat " .. num(p.key) .. ": " .. sig(p.a) .. " -> " .. sig(p.b),
+          { address = o.address, trail = o.trail .. " › beat " .. num(p.key), change = true }
+        )
+      )
     end
   end
   return #head.children > 0 and head or nil
 end
 
 local function marker_text(m)
-  local text = (m.length and "region" or "marker") .. " " .. m.id .. " " .. show(m.name or "") .. " at beat " .. num(m.beat or 0)
+  local text = (m.length and "region" or "marker")
+    .. " "
+    .. m.id
+    .. " "
+    .. show(m.name or "")
+    .. " at beat "
+    .. num(m.beat or 0)
   if m.length then text = text .. ", " .. num(m.length) .. " beats long" end
   return text
 end
@@ -430,15 +531,33 @@ local function markers_group(a, b)
   for _, p in ipairs((match(a, b, "id"))) do
     if not data.equal(p.a, p.b) then
       local m = p.b or p.a
-      local where = { address = p.b and ("paw://marker/" .. p.key) or "paw://project", trail = "markers › " .. show(m.name or p.key), change = true }
+      local where = {
+        address = p.b and ("paw://marker/" .. p.key) or "paw://project",
+        trail = "markers › " .. show(m.name or p.key),
+        change = true,
+      }
       if not p.a or not p.b then
         add(head, node(sign_of(p), marker_text(m), where))
       else
         local parts = {}
         for _, k in ipairs(union_keys(p.a, p.b)) do
-          if not data.equal(p.a[k], p.b[k]) then parts[#parts + 1] = k .. " " .. show(p.a[k]) .. " -> " .. show(p.b[k]) end
+          if not data.equal(p.a[k], p.b[k]) then
+            parts[#parts + 1] = k .. " " .. show(p.a[k]) .. " -> " .. show(p.b[k])
+          end
         end
-        add(head, node("~", (m.length and "region " or "marker ") .. p.key .. " " .. show(m.name or "") .. ": " .. table.concat(parts, ", "), where))
+        add(
+          head,
+          node(
+            "~",
+            (m.length and "region " or "marker ")
+              .. p.key
+              .. " "
+              .. show(m.name or "")
+              .. ": "
+              .. table.concat(parts, ", "),
+            where
+          )
+        )
       end
     end
   end
@@ -452,13 +571,22 @@ function M.diff(a, b)
   local root = { children = {} }
 
   local project = node("~", "Project", { address = "paw://project", trail = "project" })
-  local skip = setmetatable({ tracks = true, master = true, meta = true }, { __index = function(_, k) return TEMPO_FIELDS[k] or k == "tempo_changes" or k == "sig_changes" or nil end })
+  local skip = setmetatable(
+    { tracks = true, master = true, meta = true },
+    { __index = function(_, k) return TEMPO_FIELDS[k] or k == "tempo_changes" or k == "sig_changes" or nil end }
+  )
   fields(project, a, b, skip, { address = "paw://project", trail = "project" })
   local ma, mb = a.meta or {}, b.meta or {}
   for _, k in ipairs(union_keys(ma, mb)) do
     if k ~= "markers" and not data.equal(ma[k], mb[k]) then
-      add(project, node(ma[k] == nil and "+" or mb[k] == nil and "-" or "~", "meta." .. k .. ": " .. show(ma[k]) .. " -> " .. show(mb[k]),
-        { address = "paw://project", trail = "project › meta." .. k, change = true }))
+      add(
+        project,
+        node(
+          ma[k] == nil and "+" or mb[k] == nil and "-" or "~",
+          "meta." .. k .. ": " .. show(ma[k]) .. " -> " .. show(mb[k]),
+          { address = "paw://project", trail = "project › meta." .. k, change = true }
+        )
+      )
     end
   end
   local tracks, TA, TB = match(a.tracks, b.tracks, "id")
@@ -469,7 +597,9 @@ function M.diff(a, b)
   add(root, tempo_group(a, b))
   add(root, markers_group(ma.markers, mb.markers))
   if a.master or b.master then add(root, track_node(a.master, b.master)) end
-  for _, p in ipairs(tracks) do add(root, track_node(p.a, p.b)) end
+  for _, p in ipairs(tracks) do
+    add(root, track_node(p.a, p.b))
+  end
 
   local total = 0
   for _, child in ipairs(root.children) do
@@ -487,10 +617,14 @@ function M.flatten(root, open)
   local function walk(n, depth)
     out[#out + 1] = { node = n, depth = depth }
     if #n.children > 0 and (not open or open(n)) then
-      for _, child in ipairs(n.children) do walk(child, depth + 1) end
+      for _, child in ipairs(n.children) do
+        walk(child, depth + 1)
+      end
     end
   end
-  for _, n in ipairs(root.children) do walk(n, 0) end
+  for _, n in ipairs(root.children) do
+    walk(n, 0)
+  end
   return out
 end
 
@@ -511,9 +645,13 @@ function M.entries(root)
     if n.change then
       out[#out + 1] = { address = n.address, text = (n.trail or "") .. ": " .. n.sign .. " " .. n.text, sign = n.sign }
     end
-    for _, child in ipairs(n.children) do walk(child) end
+    for _, child in ipairs(n.children) do
+      walk(child)
+    end
   end
-  for _, n in ipairs(root.children) do walk(n) end
+  for _, n in ipairs(root.children) do
+    walk(n)
+  end
   return out
 end
 

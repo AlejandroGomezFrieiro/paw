@@ -67,8 +67,12 @@ local function snapshot()
   local sc = clip and view.score_of(clip:get())
   local out = { measures = {}, marks = {}, score = sc ~= nil }
   if sc then
-    for _, m in ipairs(sc.measures) do out.measures[m.id] = content(m) end
-    for _, mk in ipairs(sc.marks) do out.marks[mk.id] = api.json_encode(mk) end
+    for _, m in ipairs(sc.measures) do
+      out.measures[m.id] = content(m)
+    end
+    for _, mk in ipairs(sc.marks) do
+      out.marks[mk.id] = api.json_encode(mk)
+    end
   end
   return out
 end
@@ -97,9 +101,7 @@ local function over(state, fn)
 end
 
 --- The command line a popover's text makes.
-local function line_of(state, text)
-  return state.range .. state.spec.command .. " " .. text
-end
+local function line_of(state, text) return state.range .. state.spec.command .. " " .. text end
 
 --- Show what the text would do: run it as a trial, kept from the history
 --- and the messages, and the measures it changed drawn as a ghost.
@@ -118,7 +120,9 @@ local function preview(text)
   local before = snapshot()
   W.entering = state.mode == "i"
   local said, level = quietly(function()
-    paw.audition.try(function() over(state, function() paw.commands.exec(line_of(state, text)) end) end)
+    paw.audition.try(function()
+      over(state, function() paw.commands.exec(line_of(state, text)) end)
+    end)
   end)
   W.entering = nil
   if level == "error" then
@@ -175,8 +179,15 @@ function P.open(name, opts)
   open_now = { spec = spec, range = range, mode = entering and "i" or "n", region = opts.region }
   local state = open_now
   cmdline.open({
-    prompt = spec.prompt, history = "notation." .. spec.name, label = spec.label, text = opts.text,
-    complete = spec.complete, on_change = preview, anchor = anchor, mode = state.mode, ghost = spec.hint,
+    prompt = spec.prompt,
+    history = "notation." .. spec.name,
+    label = spec.label,
+    text = opts.text,
+    complete = spec.complete,
+    on_change = preview,
+    anchor = anchor,
+    mode = state.mode,
+    ghost = spec.hint,
     on_key = spec.on_key and function(key, text) return spec.on_key(key, text, state) end,
   }, function(text) commit(state, text) end)
   -- One that needs no text shows what Enter would do at once.
@@ -188,96 +199,298 @@ end
 local function items(list) return W.list_of(list) end
 
 local DYNAMIC_ITEMS = {
-  { "ppp", "very very soft" }, { "pp", "very soft" }, { "p", "soft" }, { "mp", "moderately soft" }, { "mf", "moderately loud" },
-  { "f", "loud" }, { "ff", "very loud" }, { "fff", "very very loud" }, { "sfz", "a sudden accent" }, { "sf", "a sudden accent" },
-  { "fz", "forced" }, { "rfz", "reinforced" }, { "fp", "loud, then at once soft" }, { "sfp", "accent, then at once soft" },
-  { "p subito", "suddenly soft" }, { "f subito", "suddenly loud" }, { "<", "crescendo to the next dynamic" },
-  { ">", "diminuendo to the next dynamic" }, { "mp<f", "mp, crescendo to f over the selection" },
-  { "f>p", "f, diminuendo to p over the selection" }, { "niente<", "crescendo from nothing" }, { ">niente", "diminuendo to nothing" },
+  { "ppp", "very very soft" },
+  { "pp", "very soft" },
+  { "p", "soft" },
+  { "mp", "moderately soft" },
+  { "mf", "moderately loud" },
+  { "f", "loud" },
+  { "ff", "very loud" },
+  { "fff", "very very loud" },
+  { "sfz", "a sudden accent" },
+  { "sf", "a sudden accent" },
+  { "fz", "forced" },
+  { "rfz", "reinforced" },
+  { "fp", "loud, then at once soft" },
+  { "sfp", "accent, then at once soft" },
+  { "p subito", "suddenly soft" },
+  { "f subito", "suddenly loud" },
+  { "<", "crescendo to the next dynamic" },
+  { ">", "diminuendo to the next dynamic" },
+  { "mp<f", "mp, crescendo to f over the selection" },
+  { "f>p", "f, diminuendo to p over the selection" },
+  { "niente<", "crescendo from nothing" },
+  { ">niente", "diminuendo to nothing" },
   { "off", "take the dynamic here away" },
 }
 
 local TEMPO_ITEMS = {
-  { "Allegro q=132", "lively" }, { "Andante q=92", "walking" }, { "Adagio q=70", "slow" }, { "Moderato q=112", "moderate" },
-  { "Presto q=180", "very fast" }, { "Largo q=50", "broad" }, { "Vivace q=160", "lively and fast" }, { "q=120", "a metronome mark" },
-  { "q.=60", "dotted quarters a minute" }, { "rit.", "slowing to the end of the selection" }, { "accel.", "quickening to the end of the selection" },
-  { "a tempo", "back to the tempo before" }, { "off", "take the tempo mark here away" },
+  { "Allegro q=132", "lively" },
+  { "Andante q=92", "walking" },
+  { "Adagio q=70", "slow" },
+  { "Moderato q=112", "moderate" },
+  { "Presto q=180", "very fast" },
+  { "Largo q=50", "broad" },
+  { "Vivace q=160", "lively and fast" },
+  { "q=120", "a metronome mark" },
+  { "q.=60", "dotted quarters a minute" },
+  { "rit.", "slowing to the end of the selection" },
+  { "accel.", "quickening to the end of the selection" },
+  { "a tempo", "back to the tempo before" },
+  { "off", "take the tempo mark here away" },
 }
 
 local METER_ITEMS = {
-  { "4/4" }, { "3/4" }, { "2/4" }, { "6/8" }, { "9/8" }, { "12/8" }, { "5/4" }, { "7/8" }, { "3+3+2/8", "three beats: 3, 3, 2 eighths" },
-  { "2+2+3/8", "three beats: 2, 2, 3 eighths" }, { "2/2" }, { "C", "common time, 4/4" }, { "¢", "cut time, 2/2" },
+  { "4/4" },
+  { "3/4" },
+  { "2/4" },
+  { "6/8" },
+  { "9/8" },
+  { "12/8" },
+  { "5/4" },
+  { "7/8" },
+  { "3+3+2/8", "three beats: 3, 3, 2 eighths" },
+  { "2+2+3/8", "three beats: 2, 2, 3 eighths" },
+  { "2/2" },
+  { "C", "common time, 4/4" },
+  { "¢", "cut time, 2/2" },
 }
 
 local KEY_ITEMS = {
-  { "C", "C major" }, { "G", "G major, 1 sharp" }, { "D", "D major, 2 sharps" }, { "A", "A major, 3 sharps" }, { "E", "E major, 4 sharps" },
-  { "B", "B major, 5 sharps" }, { "F#", "F# major, 6 sharps" }, { "F", "F major, 1 flat" }, { "Bb", "Bb major, 2 flats" },
-  { "Eb", "Eb major, 3 flats" }, { "Ab", "Ab major, 4 flats" }, { "Db", "Db major, 5 flats" }, { "a", "A minor" }, { "e", "E minor" },
-  { "b", "B minor" }, { "f#m", "F# minor" }, { "c#m", "C# minor" }, { "d", "D minor" }, { "g", "G minor" }, { "c", "C minor" },
-  { "f", "F minor" }, { "D dorian" }, { "E phrygian" }, { "F lydian" }, { "G mixolydian" }, { "off", "no key change here" },
+  { "C", "C major" },
+  { "G", "G major, 1 sharp" },
+  { "D", "D major, 2 sharps" },
+  { "A", "A major, 3 sharps" },
+  { "E", "E major, 4 sharps" },
+  { "B", "B major, 5 sharps" },
+  { "F#", "F# major, 6 sharps" },
+  { "F", "F major, 1 flat" },
+  { "Bb", "Bb major, 2 flats" },
+  { "Eb", "Eb major, 3 flats" },
+  { "Ab", "Ab major, 4 flats" },
+  { "Db", "Db major, 5 flats" },
+  { "a", "A minor" },
+  { "e", "E minor" },
+  { "b", "B minor" },
+  { "f#m", "F# minor" },
+  { "c#m", "C# minor" },
+  { "d", "D minor" },
+  { "g", "G minor" },
+  { "c", "C minor" },
+  { "f", "F minor" },
+  { "D dorian" },
+  { "E phrygian" },
+  { "F lydian" },
+  { "G mixolydian" },
+  { "off", "no key change here" },
 }
 
 local CLEF_ITEMS = {
-  { "treble" }, { "bass" }, { "alto", "C clef on the middle line" }, { "tenor", "C clef on the fourth line" },
-  { "treble8", "an octave lower, as a guitar is written" }, { "bass8", "an octave lower" }, { "off", "no clef change here" },
+  { "treble" },
+  { "bass" },
+  { "alto", "C clef on the middle line" },
+  { "tenor", "C clef on the fourth line" },
+  { "treble8", "an octave lower, as a guitar is written" },
+  { "bass8", "an octave lower" },
+  { "off", "no clef change here" },
 }
 
 local BAR_ITEMS = {}
-for _, k in ipairs({ "||", "|.", "|:", ":|", ":|:", "1.", "2.", "3.", "|", "off" }) do BAR_ITEMS[#BAR_ITEMS + 1] = { k, W.BARLINES[k] } end
+for _, k in ipairs({ "||", "|.", "|:", ":|", ":|:", "1.", "2.", "3.", "|", "off" }) do
+  BAR_ITEMS[#BAR_ITEMS + 1] = { k, W.BARLINES[k] }
+end
 
 local ORN_ITEMS = {
-  { "tr", "trill" }, { "mordent" }, { "prall", "inverted mordent" }, { "turn" }, { "fermata", "a pause, held" },
-  { "fermata short" }, { "fermata long" }, { "trem", "tremolo" }, { "off", "take the ornaments away" },
+  { "tr", "trill" },
+  { "mordent" },
+  { "prall", "inverted mordent" },
+  { "turn" },
+  { "fermata", "a pause, held" },
+  { "fermata short" },
+  { "fermata long" },
+  { "trem", "tremolo" },
+  { "off", "take the ornaments away" },
 }
 
 local TUPLET_ITEMS = {
-  { "3", "three in the time of two" }, { "5", "five in the time of four" }, { "6", "six in the time of four" },
-  { "7", "seven in the time of four" }, { "2", "two in the time of three (a duplet)" }, { "5:4" }, { "7:8" }, { "off", "plain values again" },
+  { "3", "three in the time of two" },
+  { "5", "five in the time of four" },
+  { "6", "six in the time of four" },
+  { "7", "seven in the time of four" },
+  { "2", "two in the time of three (a duplet)" },
+  { "5:4" },
+  { "7:8" },
+  { "off", "plain values again" },
 }
 
 local INTERVAL_ITEMS = {
-  { "3", "a third above" }, { "6", "a sixth above" }, { "8", "an octave above" }, { "5", "a fifth above" }, { "4", "a fourth above" },
-  { "-3", "a third below" }, { "-6", "a sixth below" }, { "-8", "an octave below" }, { "m3", "a minor third above" },
-  { "M3", "a major third above" }, { "P5", "a perfect fifth above" },
+  { "3", "a third above" },
+  { "6", "a sixth above" },
+  { "8", "an octave above" },
+  { "5", "a fifth above" },
+  { "4", "a fourth above" },
+  { "-3", "a third below" },
+  { "-6", "a sixth below" },
+  { "-8", "an octave below" },
+  { "m3", "a minor third above" },
+  { "M3", "a major third above" },
+  { "P5", "a perfect fifth above" },
 }
 
 local VOICE_ITEMS = { { "1", "up stems" }, { "2", "down stems" }, { "3" }, { "4" } }
 
-P.define({ key = "d", name = "dynamics", command = "notation.dyn", prompt = "dynamic ", label = "Write a dynamic",
-  complete = items(DYNAMIC_ITEMS), hint = "pp p mp mf f ff  mp<f  sfz" })
-P.define({ key = "t", name = "tempo", command = "notation.tempo", prompt = "tempo ", label = "Write a tempo mark",
-  complete = items(TEMPO_ITEMS), hint = "Allegro q=132  rit.  a tempo" })
-P.define({ key = "m", name = "meter", command = "notation.meter", prompt = "time ", label = "Write a time signature",
-  complete = items(METER_ITEMS), hint = "6/8  3+3+2/8" })
-P.define({ key = "k", name = "key", command = "notation.key", prompt = "key ", label = "Write a key signature",
-  complete = items(KEY_ITEMS), hint = "Eb  f#m  D dorian" })
-P.define({ key = "C", name = "clef", command = "notation.clef", prompt = "clef ", label = "Write a clef",
-  complete = items(CLEF_ITEMS), hint = "bass  treble8  alto" })
-P.define({ key = "b", name = "bars", command = "notation.bar", prompt = "bar ", label = "Write a barline",
-  complete = items(BAR_ITEMS), hint = "||  |:  :|  |.  1.  2." })
-P.define({ key = "X", name = "text", command = "notation.text", prompt = "text ", label = "Write text",
-  complete = items({ { "dolce" }, { "espressivo" }, { "cantabile" }, { "legato" }, { "Solo" }, { "Tutti" }, { "sempre" } }), hint = "dolce  Solo" })
-P.define({ key = "r", name = "rehearsal", command = "notation.rehearsal", prompt = "rehearsal ", label = "Write a rehearsal mark",
-  complete = items({ { "A" }, { "B" }, { "C" }, { "Intro" }, { "Verse" }, { "Chorus" }, { "Bridge" }, { "off", "take it away" } }),
-  hint = "A (Enter alone: the next letter)", empty = true })
-P.define({ key = "i", name = "intervals", command = "notation.interval", prompt = "interval ", label = "Add an interval",
-  complete = items(INTERVAL_ITEMS), hint = "3  -6  8  m3  P5" })
-P.define({ key = "3", name = "tuplets", command = "notation.tuplet", prompt = "tuplet ", label = "Write a tuplet",
-  complete = items(TUPLET_ITEMS), hint = "3  5:4  off" })
-P.define({ key = "v", name = "voice", command = "notation.voice", prompt = "voice ", label = "Choose a voice",
-  complete = items(VOICE_ITEMS), hint = "1 to 4" })
-P.define({ key = "o", name = "ornaments", command = "notation.orn", prompt = "ornament ", label = "Write an ornament",
-  complete = items(ORN_ITEMS), hint = "tr  mordent  turn  fermata" })
+P.define({
+  key = "d",
+  name = "dynamics",
+  command = "notation.dyn",
+  prompt = "dynamic ",
+  label = "Write a dynamic",
+  complete = items(DYNAMIC_ITEMS),
+  hint = "pp p mp mf f ff  mp<f  sfz",
+})
+P.define({
+  key = "t",
+  name = "tempo",
+  command = "notation.tempo",
+  prompt = "tempo ",
+  label = "Write a tempo mark",
+  complete = items(TEMPO_ITEMS),
+  hint = "Allegro q=132  rit.  a tempo",
+})
+P.define({
+  key = "m",
+  name = "meter",
+  command = "notation.meter",
+  prompt = "time ",
+  label = "Write a time signature",
+  complete = items(METER_ITEMS),
+  hint = "6/8  3+3+2/8",
+})
+P.define({
+  key = "k",
+  name = "key",
+  command = "notation.key",
+  prompt = "key ",
+  label = "Write a key signature",
+  complete = items(KEY_ITEMS),
+  hint = "Eb  f#m  D dorian",
+})
+P.define({
+  key = "C",
+  name = "clef",
+  command = "notation.clef",
+  prompt = "clef ",
+  label = "Write a clef",
+  complete = items(CLEF_ITEMS),
+  hint = "bass  treble8  alto",
+})
+P.define({
+  key = "b",
+  name = "bars",
+  command = "notation.bar",
+  prompt = "bar ",
+  label = "Write a barline",
+  complete = items(BAR_ITEMS),
+  hint = "||  |:  :|  |.  1.  2.",
+})
+P.define({
+  key = "X",
+  name = "text",
+  command = "notation.text",
+  prompt = "text ",
+  label = "Write text",
+  complete = items({
+    { "dolce" },
+    { "espressivo" },
+    { "cantabile" },
+    { "legato" },
+    { "Solo" },
+    { "Tutti" },
+    { "sempre" },
+  }),
+  hint = "dolce  Solo",
+})
+P.define({
+  key = "r",
+  name = "rehearsal",
+  command = "notation.rehearsal",
+  prompt = "rehearsal ",
+  label = "Write a rehearsal mark",
+  complete = items({
+    { "A" },
+    { "B" },
+    { "C" },
+    { "Intro" },
+    { "Verse" },
+    { "Chorus" },
+    { "Bridge" },
+    { "off", "take it away" },
+  }),
+  hint = "A (Enter alone: the next letter)",
+  empty = true,
+})
+P.define({
+  key = "i",
+  name = "intervals",
+  command = "notation.interval",
+  prompt = "interval ",
+  label = "Add an interval",
+  complete = items(INTERVAL_ITEMS),
+  hint = "3  -6  8  m3  P5",
+})
+P.define({
+  key = "3",
+  name = "tuplets",
+  command = "notation.tuplet",
+  prompt = "tuplet ",
+  label = "Write a tuplet",
+  complete = items(TUPLET_ITEMS),
+  hint = "3  5:4  off",
+})
+P.define({
+  key = "v",
+  name = "voice",
+  command = "notation.voice",
+  prompt = "voice ",
+  label = "Choose a voice",
+  complete = items(VOICE_ITEMS),
+  hint = "1 to 4",
+})
+P.define({
+  key = "o",
+  name = "ornaments",
+  command = "notation.orn",
+  prompt = "ornament ",
+  label = "Write an ornament",
+  complete = items(ORN_ITEMS),
+  hint = "tr  mordent  turn  fermata",
+})
 local tech = {}
-for _, t in ipairs(W.TECHNIQUES) do tech[#tech + 1] = { t } end
-P.define({ key = "p", name = "techniques", command = "notation.tech", prompt = "technique ", label = "Write a playing technique",
-  complete = items(tech), hint = "pizz.  arco  con sord." })
+for _, t in ipairs(W.TECHNIQUES) do
+  tech[#tech + 1] = { t }
+end
+P.define({
+  key = "p",
+  name = "techniques",
+  command = "notation.tech",
+  prompt = "technique ",
+  label = "Write a playing technique",
+  complete = items(tech),
+  hint = "pizz.  arco  con sord.",
+})
 
 -- Marks that drifted: no letter of its own, `g@` opens it (an operator, so
 -- over what a motion or the selection reaches), and `:notation.apply-marks`
 -- is the same without the prompt.
-P.define({ name = "apply-marks", command = "notation.apply-marks", prompt = "apply marks ", label = "Apply the marks to the notes",
-  hint = "Enter: the notes play as the dynamics and articulations say", empty = true, at_once = true })
+P.define({
+  name = "apply-marks",
+  command = "notation.apply-marks",
+  prompt = "apply marks ",
+  label = "Apply the marks to the notes",
+  hint = "Enter: the notes play as the dynamics and articulations say",
+  empty = true,
+  at_once = true,
+})
 
 -- Lyrics and chord symbols are typed along the music: Space puts down what
 -- is typed and goes on, the line open for the next.
@@ -290,7 +503,12 @@ local function next_note()
   return true
 end
 
-P.define({ key = "l", name = "lyrics", command = "notation.lyric", prompt = "lyric ", label = "Write a lyric",
+P.define({
+  key = "l",
+  name = "lyrics",
+  command = "notation.lyric",
+  prompt = "lyric ",
+  label = "Write a lyric",
   hint = "syllables, Space next, - hyphen",
   on_key = function(key, text, state)
     local ending = (key == "-" and "-") or (key == "_" and "_") or ((key == "<Space>" or key == " ") and "") or nil
@@ -310,8 +528,14 @@ P.define({ key = "l", name = "lyrics", command = "notation.lyric", prompt = "lyr
   end,
 })
 
-P.define({ key = "q", name = "chords", command = "notation.chord", prompt = "chord ", label = "Write a chord symbol",
-  complete = function(text) return W.chord_candidates(text) end, hint = "Cmaj7  G/B  N.C.",
+P.define({
+  key = "q",
+  name = "chords",
+  command = "notation.chord",
+  prompt = "chord ",
+  label = "Write a chord symbol",
+  complete = function(text) return W.chord_candidates(text) end,
+  hint = "Cmaj7  G/B  N.C.",
   on_key = function(key, text, state)
     if key ~= "<Space>" and key ~= " " then return nil end
     if text:match("%S") then commit(state, text) end
@@ -328,23 +552,33 @@ P.define({ key = "q", name = "chords", command = "notation.chord", prompt = "cho
 
 -- Keys -----------------------------------------------------------------------------------------
 
-local function opener(name) return function() P.open(name) end end
+local function opener(name)
+  return function() P.open(name) end
+end
 
 for _, name in ipairs(P.order) do
   local spec = P.specs[name]
   local desc = "Popover: " .. spec.name .. " (" .. spec.hint .. ")"
-  if spec.key then keymap.set("<localleader>" .. spec.key, opener(name), { view = "notation", mode = { "n", "x" }, desc = desc }) end
+  if spec.key then
+    keymap.set("<localleader>" .. spec.key, opener(name), { view = "notation", mode = { "n", "x" }, desc = desc })
+  end
 end
 local function again()
   if not P.last then return paw.notify("no popover yet", "warn") end
   P.open(P.last.name, { text = P.last.text })
 end
-keymap.set("<localleader>.", again, { view = "notation", mode = { "n", "x" }, desc = "The last popover again, with what was typed in it" })
+keymap.set(
+  "<localleader>.",
+  again,
+  { view = "notation", mode = { "n", "x" }, desc = "The last popover again, with what was typed in it" }
+)
 
 -- The ghost: the measures the preview changed, drawn in the accent.
 table.insert(view.decorators, function(layout)
   local ghost = view.ghost
-  for _, m in ipairs(layout.measures) do m.ghost = ghost and m.id and ghost.measures[m.id] or nil end
+  for _, m in ipairs(layout.measures) do
+    m.ghost = ghost and m.id and ghost.measures[m.id] or nil
+  end
 end)
 
 --- Draw the open popover on an engraved page (`notation.gui`): a box at
@@ -367,7 +601,12 @@ function P.paint(g, x, y, width, colours)
   local cx = x + 8 + used + 8 * api.str_width(st.before)
   g:rect(cx, y + 4, 1, h - 8, { fill = colours.text })
   if note ~= "" then
-    g:text(x + w - 8, y + 4, note, { color = st.note_level == "error" and colours.warn or colours.text_2, align = "right", width = w / 2 })
+    g:text(
+      x + w - 8,
+      y + 4,
+      note,
+      { color = st.note_level == "error" and colours.warn or colours.text_2, align = "right", width = w / 2 }
+    )
   end
   local list = st.matches or {}
   for i = 1, math.min(#list, 8) do

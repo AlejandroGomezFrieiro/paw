@@ -2,14 +2,14 @@
 local templates = require("templates")
 local command = paw.command
 
-local function clean(err)
-  return (tostring(err):gsub("^[^:]*:%d+: ", ""):match("^[^\n]*"))
-end
+local function clean(err) return (tostring(err):gsub("^[^:]*:%d+: ", ""):match("^[^\n]*")) end
 
 --- A path as it is said: under the home directory, from `~`.
 local function shown(path)
   local home = os.getenv("HOME")
-  if home and home ~= "" and home ~= "/" and path:sub(1, #home + 1) == home .. "/" then return "~" .. path:sub(#home + 1) end
+  if home and home ~= "" and home ~= "/" and path:sub(1, #home + 1) == home .. "/" then
+    return "~" .. path:sub(#home + 1)
+  end
   return path
 end
 
@@ -42,26 +42,38 @@ local function saving(kind, name, save, said)
   end)
 end
 
-command("template.save", function(ctx)
-  local track = paw.cursor.track()
-  if not track then return paw.notify("no track to save", "warn") end
-  local group = paw.groups.is_group(track.id)
-  named(ctx.args[1], track.name, function(name)
-    saving(group and "group" or "track", name, function(n)
-      return (group and templates.save_group or templates.save_track)(track, n)
-    end, function(kept, path)
-      return string.format("%s “%s” saved as a template (%s)", group and "group" or "track", kept, path)
+command(
+  "template.save",
+  function(ctx)
+    local track = paw.cursor.track()
+    if not track then return paw.notify("no track to save", "warn") end
+    local group = paw.groups.is_group(track.id)
+    named(ctx.args[1], track.name, function(name)
+      saving(
+        group and "group" or "track",
+        name,
+        function(n) return (group and templates.save_group or templates.save_track)(track, n) end,
+        function(kept, path)
+          return string.format("%s “%s” saved as a template (%s)", group and "group" or "track", kept, path)
+        end
+      )
     end)
-  end)
-end, { desc = "Save the track as a template, or the group with every track in it: `template.save Lead vocal`", raw = true })
+  end,
+  { desc = "Save the track as a template, or the group with every track in it: `template.save Lead vocal`", raw = true }
+)
 
 command("template.fx", function(ctx)
   local track = paw.cursor.track()
   if not track then return paw.notify("no track", "warn") end
   named(ctx.args[1], track.name .. " chain", function(name)
-    saving("fx", name, function(n) return templates.save_fx(track, n) end, function(kept, path)
-      return string.format("the devices of “%s” saved as the chain “%s” (%s)", track.name, kept, path)
-    end)
+    saving(
+      "fx",
+      name,
+      function(n) return templates.save_fx(track, n) end,
+      function(kept, path)
+        return string.format("the devices of “%s” saved as the chain “%s” (%s)", track.name, kept, path)
+      end
+    )
   end)
 end, { desc = "Save the track's devices as a chain to add elsewhere: `template.fx Vocal chain`", raw = true })
 
@@ -99,7 +111,9 @@ end, {
   raw = true,
   complete = function()
     local names = {}
-    for i, item in ipairs(templates.list()) do names[i] = item.name end
+    for i, item in ipairs(templates.list()) do
+      names[i] = item.name
+    end
     return names
   end,
 })
@@ -107,17 +121,22 @@ end, {
 command("template.delete", function(ctx)
   local name = ctx.args[1]
   if name and name ~= "" then
-    return paw.notify(templates.delete(name) and ("template “" .. name .. "” deleted") or ("no template `" .. name .. "`"))
+    return paw.notify(
+      templates.delete(name) and ("template “" .. name .. "” deleted") or ("no template `" .. name .. "`")
+    )
   end
   pick(nil, function(item)
     templates.delete(item.name, item.kind)
     paw.notify("template “" .. item.name .. "” deleted")
   end)
 end, {
-  desc = "Delete a template: `template.delete Lead vocal`; alone, choose from a list", raw = true,
+  desc = "Delete a template: `template.delete Lead vocal`; alone, choose from a list",
+  raw = true,
   complete = function()
     local names = {}
-    for i, item in ipairs(templates.list()) do names[i] = item.name end
+    for i, item in ipairs(templates.list()) do
+      names[i] = item.name
+    end
     return names
   end,
 })
@@ -126,12 +145,18 @@ command("templates", function()
   local items = templates.list()
   if #items == 0 then return paw.notify("no templates yet, in " .. shown(templates.dir())) end
   local lines = {}
-  for i, item in ipairs(items) do lines[i] = string.format("%-16s %s", item.title, item.name) end
+  for i, item in ipairs(items) do
+    lines[i] = string.format("%-16s %s", item.title, item.name)
+  end
   paw.notify(table.concat(lines, "\n"))
 end, { desc = "List the templates" })
 
 paw.keymap.group("<localleader>T", "templates", { view = "arrange" })
-paw.keymap.set("<localleader>Tl", "template.load", { view = "arrange", desc = "Make a track, group or chain from a template" })
+paw.keymap.set(
+  "<localleader>Tl",
+  "template.load",
+  { view = "arrange", desc = "Make a track, group or chain from a template" }
+)
 paw.keymap.set("<localleader>Ts", "template.save", { view = "arrange", desc = "Save the track or group as a template" })
 paw.keymap.set("<localleader>Tf", "template.fx", { view = "arrange", desc = "Save the track's devices as a chain" })
 
@@ -139,6 +164,9 @@ paw.keymap.set("<localleader>Tf", "template.fx", { view = "arrange", desc = "Sav
 table.insert(paw.frontend.menus.timeline, { label = "From a template…", command = "template.load" })
 table.insert(paw.frontend.menus.track, { label = "Save as a template…", command = "template.save" })
 table.insert(paw.frontend.menus.track, { label = "Save its devices as a chain…", command = "template.fx" })
-table.insert(paw.frontend.menus.track, { label = "Add devices from a template…", run = function()
-  pick("fx", function(item) load(item.name, "fx") end)
-end })
+table.insert(paw.frontend.menus.track, {
+  label = "Add devices from a template…",
+  run = function()
+    pick("fx", function(item) load(item.name, "fx") end)
+  end,
+})

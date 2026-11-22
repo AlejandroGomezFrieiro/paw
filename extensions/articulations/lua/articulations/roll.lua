@@ -59,9 +59,14 @@ roll.layer("articulations", 22, function(L)
   for _, part in ipairs(L.parts) do
     local track = part.track
     local chosen = {}
-    for _, place in ipairs(paw.frontend.chosen_notes(part.id)) do chosen[place] = true end
+    for _, place in ipairs(paw.frontend.chosen_notes(part.id)) do
+      chosen[place] = true
+    end
     local shown, places = part.clip:notes({
-      from = L.from - part.offset, to = L.to - part.offset, low = math.max(0, L.top - L.rows + 1), high = L.top,
+      from = L.from - part.offset,
+      to = L.to - part.offset,
+      low = math.max(0, L.top - L.rows + 1),
+      high = L.top,
     })
     for k, note in ipairs(shown) do
       local attr = art.attr_of(note)
@@ -106,7 +111,9 @@ function M.segments(clip)
   end
   for _, n in ipairs(tops) do
     local tag, a = art.tag_of(c.track, n)
-    if not tag then tag, a = default and default.tag, default end
+    if not tag then
+      tag, a = default and default.tag, default
+    end
     tag = tag or "·"
     local last = out[#out]
     if last and last.tag == tag then
@@ -162,7 +169,9 @@ roll.describer("articulations", function(note, part)
     return lines
   end
   local a, exact = art.resolve(map, attr)
-  if not a then return { "  articulation  " .. m2.describe(attr) .. ", which " .. map.name .. " cannot play", articulation = true } end
+  if not a then
+    return { "  articulation  " .. m2.describe(attr) .. ", which " .. map.name .. " cannot play", articulation = true }
+  end
   -- As the map writes it; in paw's key names too when they differ (a map
   -- whose `middle_c` is C3, a track whose keyswitches are shifted).
   local send = a.send or a.out
@@ -171,9 +180,14 @@ roll.describer("articulations", function(note, part)
     sent = a.out ~= "" and (", sent as " .. send .. " (" .. a.out .. " in the map)") or (", sent as " .. send)
   end
   local how = exact and "" or ", played as " .. a.name .. " (" .. a.code .. ") by M2-123's fallback"
-  local lines = { "  articulation  " .. (exact and a.name .. " (" .. a.code .. ")" or m2.describe(attr)) .. how .. sent, articulation = true }
+  local lines = {
+    "  articulation  " .. (exact and a.name .. " (" .. a.code .. ")" or m2.describe(attr)) .. how .. sent,
+    articulation = true,
+  }
   local delay = a.delay or map.delay
-  if delay then lines[2] = "  delay         " .. art.maps.delay_text(delay) .. (a.delay and "" or " (the instrument's)") end
+  if delay then
+    lines[2] = "  delay         " .. art.maps.delay_text(delay) .. (a.delay and "" or " (the instrument's)")
+  end
   return lines
 end)
 
@@ -185,11 +199,20 @@ if paw.roll_draw and paw.roll_draw.articulation then
     names = function(track)
       local map = art.map_of(track)
       local out, seen = {}, {}
-      local function add(name) if name and not seen[name] then seen[name], out[#out + 1] = true, name end end
+      local function add(name)
+        if name and not seen[name] then
+          seen[name], out[#out + 1] = true, name
+        end
+      end
       if map then
-        for _, a in ipairs(map.arts) do add(a.id) add(a.name) end
+        for _, a in ipairs(map.arts) do
+          add(a.id)
+          add(a.name)
+        end
       else
-        for _, w in ipairs(m2.words) do add(w[1]) end
+        for _, w in ipairs(m2.words) do
+          add(w[1])
+        end
       end
       add("none")
       return out
@@ -206,7 +229,9 @@ end
 roll.entering("articulations", function(note, clip)
   local pen = art.pen(clip:get().track)
   if pen then
-    for k, v in pairs(art.attr_fields(note, pen.attr)) do note[k] = v end
+    for k, v in pairs(art.attr_fields(note, pen.attr)) do
+      note[k] = v
+    end
   end
 end)
 

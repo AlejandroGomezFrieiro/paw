@@ -35,10 +35,26 @@ local function bursts(path, rate)
     out[#out + 1] = string.char(v % 256, math.floor(v / 256) % 256)
   end
   local data = table.concat(out)
-  local function u32(n) return string.char(n % 256, math.floor(n / 256) % 256, math.floor(n / 65536) % 256, math.floor(n / 16777216) % 256) end
+  local function u32(n)
+    return string.char(n % 256, math.floor(n / 256) % 256, math.floor(n / 65536) % 256, math.floor(n / 16777216) % 256)
+  end
   local function u16(n) return string.char(n % 256, math.floor(n / 256) % 256) end
-  T.write_file(path, "RIFF" .. u32(36 + #data) .. "WAVEfmt " .. u32(16) .. u16(1) .. u16(1) .. u32(rate) .. u32(rate * 2)
-    .. u16(2) .. u16(16) .. "data" .. u32(#data) .. data)
+  T.write_file(
+    path,
+    "RIFF"
+      .. u32(36 + #data)
+      .. "WAVEfmt "
+      .. u32(16)
+      .. u16(1)
+      .. u16(1)
+      .. u32(rate)
+      .. u32(rate * 2)
+      .. u16(2)
+      .. u16(16)
+      .. "data"
+      .. u32(#data)
+      .. data
+  )
 end
 
 --- A track with the bursts as a clip from beat 0, quiet in paw (its gain
@@ -107,7 +123,9 @@ test("ara: the plugin's archive is saved beside its state and given back when th
   paw.project.save(dir)
   local files = api.read_dir(dir .. "/tracks/Vox")
   local found
-  for _, f in ipairs(files) do if f.name:match("%.ara$") then found = f.name end end
+  for _, f in ipairs(files) do
+    if f.name:match("%.ara$") then found = f.name end
+  end
   eq(found ~= nil, true, "a .ara file beside the state")
   -- A new session: the plugin is made again from the files.
   fresh()

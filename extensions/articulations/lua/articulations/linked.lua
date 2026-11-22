@@ -24,7 +24,11 @@ local function inverse(fn, y)
   local lo, hi = 0, 1
   for _ = 1, 30 do
     local mid = (lo + hi) / 2
-    if fn(mid) < y then lo = mid else hi = mid end
+    if fn(mid) < y then
+      lo = mid
+    else
+      hi = mid
+    end
   end
   return (lo + hi) / 2
 end
@@ -51,13 +55,27 @@ paw.curves.provide("articulations.linked", function(uri, parts)
   local entry = M.entry(c.track, id)
   if not entry then return nil, "the track's map links no controllers as `" .. id .. "`" end
   local mine = {}
-  for _, n in ipairs(entry.cc) do mine[n] = true end
+  for _, n in ipairs(entry.cc) do
+    mine[n] = true
+  end
   local t = {
-    uri = uri, kind = "control", clip = parts.clip, track = c.track, linked = entry,
-    shapes = { hold = true }, min = 0, max = 1, lo = 0, hi = 1, step = 1 / 127, scale = 127,
+    uri = uri,
+    kind = "control",
+    clip = parts.clip,
+    track = c.track,
+    linked = entry,
+    shapes = { hold = true },
+    min = 0,
+    max = 1,
+    lo = 0,
+    hi = 1,
+    step = 1 / 127,
+    scale = 127,
   }
   local ccs = {}
-  for i, n in ipairs(entry.cc) do ccs[i] = "CC" .. n end
+  for i, n in ipairs(entry.cc) do
+    ccs[i] = "CC" .. n
+  end
   t.name = function() return entry.name .. " (" .. table.concat(ccs, " ") .. ") · " .. api.clip_get(parts.clip).name end
   t.format = function(v) return tostring(math.floor(v * 127 + 0.5)) end
   t.flat = entry.default and function() return entry.default end or nil
@@ -67,7 +85,8 @@ paw.curves.provide("articulations.linked", function(uri, parts)
     local out = {}
     for _, ctl in ipairs(api.clip_controls(parts.clip)) do
       if ctl.type == "cc" and ctl.number == entry.cc[1] and not ctl.key then
-        out[#out + 1] = { beat = start + ctl.start, value = inverse(entry.curves[1], ctl.value), shape = "hold", tension = 0 }
+        out[#out + 1] =
+          { beat = start + ctl.start, value = inverse(entry.curves[1], ctl.value), shape = "hold", tension = 0 }
       end
     end
     return out
@@ -85,7 +104,8 @@ paw.curves.provide("articulations.linked", function(uri, parts)
     for _, q in ipairs(points) do
       local v = util.clamp(q.value, 0, 1)
       for i, n in ipairs(entry.cc) do
-        list[#list + 1] = { start = q.beat - cl.start, type = "cc", number = n, value = util.clamp(entry.curves[i](v), 0, 1) }
+        list[#list + 1] =
+          { start = q.beat - cl.start, type = "cc", number = n, value = util.clamp(entry.curves[i](v), 0, 1) }
       end
     end
     table.sort(list, function(a, b)
@@ -106,20 +126,36 @@ function M.open(id)
   local entry = M.entry(c.track, id)
   if not entry then
     local map = art.map_of(c.track)
-    error(map and ("the map links no controllers" .. (id and (" as `" .. id .. "`") or "") .. ": [linked] in " .. tostring(map.file))
-      or "the track has no articulation map: :art.map", 0)
+    error(
+      map
+          and ("the map links no controllers" .. (id and (" as `" .. id .. "`") or "") .. ": [linked] in " .. tostring(
+            map.file
+          ))
+        or "the track has no articulation map: :art.map",
+      0
+    )
   end
   local beat = roll:clip() and (c.start + roll.beat) or paw.cursor.beat
   return require("paw.views.curve").open(M.uri(c.id, entry), { beat = beat })
 end
 
-paw.command("art.lane", function(ctx)
-  local id = (tostring(ctx.args[1] or ""):match("^%s*(.-)%s*$"))
-  local win, why = M.open(id ~= "" and id or nil)
-  if not win and why then error(why, 0) end
-end, { raw = true, desc = "Open the clip's linked controllers (dynamics on CC1 and CC11) as one curve: `art.lane dynamics`; alone, the map's first" })
+paw.command(
+  "art.lane",
+  function(ctx)
+    local id = (tostring(ctx.args[1] or ""):match("^%s*(.-)%s*$"))
+    local win, why = M.open(id ~= "" and id or nil)
+    if not win and why then error(why, 0) end
+  end,
+  {
+    raw = true,
+    desc = "Open the clip's linked controllers (dynamics on CC1 and CC11) as one curve: `art.lane dynamics`; alone, the map's first",
+  }
+)
 
-paw.keymap.set("<localleader>c", function() paw.commands.exec("art.lane") end,
-  { view = "pianoroll", desc = "The instrument's linked controllers (dynamics) as one curve", repeatable = false })
+paw.keymap.set(
+  "<localleader>c",
+  function() paw.commands.exec("art.lane") end,
+  { view = "pianoroll", desc = "The instrument's linked controllers (dynamics) as one curve", repeatable = false }
+)
 
 return M

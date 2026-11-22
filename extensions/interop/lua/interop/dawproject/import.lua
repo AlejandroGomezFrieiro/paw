@@ -45,8 +45,18 @@ end
 
 -- Devices ------------------------------------------------------------------------------
 
-local PLUGINS = { ClapPlugin = true, Vst3Plugin = true, Vst2Plugin = true, AuPlugin = true, Device = true,
-  BuiltinDevice = true, Equalizer = true, Compressor = true, NoiseGate = true, Limiter = true }
+local PLUGINS = {
+  ClapPlugin = true,
+  Vst3Plugin = true,
+  Vst2Plugin = true,
+  AuPlugin = true,
+  Device = true,
+  BuiltinDevice = true,
+  Equalizer = true,
+  Compressor = true,
+  NoiseGate = true,
+  Limiter = true,
+}
 
 local installed = interop.installed
 
@@ -103,7 +113,9 @@ local function import_device(e, track, ctx, label, position)
     local t = find_vst3(name, e.attr.deviceVendor, device_id ~= "" and device_id or nil)
     if t then
       local s, class = nil, nil
-      if state then s, class = vst3.state(state) end
+      if state then
+        s, class = vst3.state(state)
+      end
       id, why = add(t.kind, { state = s and b64.base64(s) or nil })
       if not id and s then
         id, why = add(t.kind)
@@ -117,7 +129,11 @@ local function import_device(e, track, ctx, label, position)
     id, why = add(device_id:sub(5))
     set_params = true
   elseif (tag == "Device" or tag == "BuiltinDevice") and device_id:match("^lv2:") then
-    if installed(device_id) then id, why = add(device_id) else why = "not installed here" end
+    if installed(device_id) then
+      id, why = add(device_id)
+    else
+      why = "not installed here"
+    end
     set_params = true
   elseif tag == "Vst2Plugin" then
     why = "VST2 plugins are not hosted here"
@@ -130,8 +146,12 @@ local function import_device(e, track, ctx, label, position)
     ctx.report:add("Plugins and devices left as placeholders", where .. " (" .. tostring(why) .. ")")
     ctx.placeholders[track] = ctx.placeholders[track] or {}
     table.insert(ctx.placeholders[track], {
-      name = name, format = tag, position = position, reason = why,
-      xml = paw.xml.encode(e, { indent = "  ", digits = 12 }), state = state and b64.base64(state) or nil,
+      name = name,
+      format = tag,
+      position = position,
+      reason = why,
+      xml = paw.xml.encode(e, { indent = "  ", digits = 12 }),
+      state = state and b64.base64(state) or nil,
     })
     return nil
   end
@@ -144,8 +164,16 @@ local function import_device(e, track, ctx, label, position)
     local p = param_key(id, pe, tag == "ClapPlugin" or tag == "Vst3Plugin")
     if p then
       if pe.attr.id then
-        ctx.params[pe.attr.id] = { kind = "param", track = track, device = id, key = p.key, min = p.min, max = p.max,
-          own_min = num(pe.attr.min), own_max = num(pe.attr.max) }
+        ctx.params[pe.attr.id] = {
+          kind = "param",
+          track = track,
+          device = id,
+          key = p.key,
+          min = p.min,
+          max = p.max,
+          own_min = num(pe.attr.min),
+          own_max = num(pe.attr.max),
+        }
       end
       local v = num(pe.attr.value)
       if set_params and v then pcall(api.device_set_param, id, p.key, v) end
@@ -153,7 +181,9 @@ local function import_device(e, track, ctx, label, position)
       unknown[#unknown + 1] = pe.attr.name or "?"
     end
   end
-  if #unknown > 0 then ctx.report:add("Plugin settings", where .. ": parameters not found here: " .. table.concat(unknown, ", ")) end
+  if #unknown > 0 then
+    ctx.report:add("Plugin settings", where .. ": parameters not found here: " .. table.concat(unknown, ", "))
+  end
   return id
 end
 
@@ -166,7 +196,9 @@ local function import_channel(c, track, ctx, label)
   if p then api.track_set(track, "pan", pan(p)) end
   if mute and mute.attr.value == "true" then api.track_set(track, "mute", true) end
   if track ~= 0 and c.attr.solo == "true" then api.track_set(track, "solo", true) end
-  if vol and vol.attr.id then ctx.params[vol.attr.id] = { kind = "volume", track = track, max = num(vol.attr.max, 1) } end
+  if vol and vol.attr.id then
+    ctx.params[vol.attr.id] = { kind = "volume", track = track, max = num(vol.attr.max, 1) }
+  end
   if p and p.attr.id then ctx.params[p.attr.id] = { kind = "pan", track = track } end
   if mute and mute.attr.id then ctx.params[mute.attr.id] = { kind = "mute", track = track, label = label } end
   local devices = c:child("Devices")
@@ -199,7 +231,9 @@ local function import_tracks(parent_el, parent_track, ctx)
         local t = { id = id, el = e, channel = c, parent = parent_track, name = api.track_get(id, "name") }
         ctx.list[#ctx.list + 1] = t
         ctx.tracks[e.attr.id or ""] = id
-        if e.attr.color and e.attr.color:match("^#%x%x%x%x%x%x$") then api.track_set(id, "color", e.attr.color:lower()) end
+        if e.attr.color and e.attr.color:match("^#%x%x%x%x%x%x$") then
+          api.track_set(id, "color", e.attr.color:lower())
+        end
         if c then import_channel(c, id, ctx, t.name) end
         if e.name == "Track" then import_tracks(e, t, ctx) end
       end
@@ -229,7 +263,8 @@ local function routing(ctx)
       elseif enable and enable.attr.value == "false" then
         ctx.report:add("Sends that are off (left out)", what)
       else
-        sends[#sends + 1] = { target = target, level = level(s:child("Volume")) or 0, pre = s.attr.type == "pre" or nil }
+        sends[#sends + 1] =
+          { target = target, level = level(s:child("Volume")) or 0, pre = s.attr.type == "pre" or nil }
         local sp = s:child("Pan")
         if sp and math.abs(pan(sp)) > 1e-6 then ctx.report:add("Send pan", what) end
         local sv = s:child("Volume")
@@ -245,8 +280,18 @@ end
 
 -- Clips --------------------------------------------------------------------------------
 
-local CONTENT = { Timeline = true, Lanes = true, Notes = true, Clips = true, ClipSlot = true, markers = true,
-  Warps = true, Audio = true, Video = true, Points = true }
+local CONTENT = {
+  Timeline = true,
+  Lanes = true,
+  Notes = true,
+  Clips = true,
+  ClipSlot = true,
+  markers = true,
+  Warps = true,
+  Audio = true,
+  Video = true,
+  Points = true,
+}
 
 local function content_of(e)
   for _, c in ipairs(e.children) do
@@ -279,7 +324,9 @@ local function midi_content(e, ctx, label, notes, moves)
       local vel = num(n.attr.vel, 100 / 127)
       local channel = num(n.attr.channel, 0)
       notes[#notes + 1] = {
-        start = num(n.attr.time, 0), length = num(n.attr.duration, 0.25), pitch = num(n.attr.key, 60),
+        start = num(n.attr.time, 0),
+        length = num(n.attr.duration, 0.25),
+        pitch = num(n.attr.key, 60),
         velocity = math.max(1, math.min(127, math.floor(vel * 127 + 0.5))),
         meta = channel ~= 0 and { channel = channel + 1 } or nil,
       }
@@ -288,7 +335,9 @@ local function midi_content(e, ctx, label, notes, moves)
     end
     if rel > 0 then ctx.report:count("Note-off velocities", label, rel) end
   elseif e.name == "Lanes" then
-    for _, c in ipairs(e.children) do midi_content(c, ctx, label, notes, moves) end
+    for _, c in ipairs(e.children) do
+      midi_content(c, ctx, label, notes, moves)
+    end
   elseif e.name == "Points" then
     local target = e:child("Target")
     local unit = e.attr.unit
@@ -299,7 +348,10 @@ local function midi_content(e, ctx, label, notes, moves)
           m.start = num(pt.attr.time, 0)
           moves[#moves + 1] = m
         else
-          ctx.report:count("Expressions other than MIDI controllers", label .. ": " .. tostring(target and target.attr.expression))
+          ctx.report:count(
+            "Expressions other than MIDI controllers",
+            label .. ": " .. tostring(target and target.attr.expression)
+          )
         end
       end
     end
@@ -379,8 +431,7 @@ import_clip = function(c, track, ctx, place, parent_unit, lo, hi, outer)
     return ps + (beat - start)
   end
   local loop_start, loop_end = num(c.attr.loopStart), num(c.attr.loopEnd)
-  local looping = loop_start and loop_end and loop_end > loop_start
-    and content_at(stop) > loop_end + 1e-6
+  local looping = loop_start and loop_end and loop_end > loop_start and content_at(stop) > loop_end + 1e-6
   local content = content_of(c)
   if c.attr.reference then
     content = ctx.ids[c.attr.reference]
@@ -397,14 +448,22 @@ import_clip = function(c, track, ctx, place, parent_unit, lo, hi, outer)
     local inner = content:all("Clip")
     for _, ic in ipairs(inner) do
       import_clip(ic, track, ctx, inner_place, cu, a, b, {
-        name = name, muted = muted, fade_in = #inner == 1 and fade_in or 0, fade_out = #inner == 1 and fade_out or 0,
+        name = name,
+        muted = muted,
+        fade_in = #inner == 1 and fade_in or 0,
+        fade_out = #inner == 1 and fade_out or 0,
       })
     end
     return
   end
   if content.name == "Audio" or content.name == "Warps" then
     local audio = content.name == "Audio" and content or content:child("Audio")
-    if not audio then return ctx.report:add("Clip contents paw cannot read", label .. ": warps of " .. tostring(content_of(content) and content_of(content).name)) end
+    if not audio then
+      return ctx.report:add(
+        "Clip contents paw cannot read",
+        label .. ": warps of " .. tostring(content_of(content) and content_of(content).name)
+      )
+    end
     local path = audio_path(audio:child("File"), ctx, label)
     if not path then return end
     -- File seconds at the clip's content time, and how many times as long
@@ -429,11 +488,13 @@ import_clip = function(c, track, ctx, place, parent_unit, lo, hi, outer)
         if #warps > 2 then ctx.report:count("Warp points between the first and the last (stretched evenly)", label) end
       end
     end
-    if cu ~= "seconds" and content.name == "Audio" then
-      ctx.report:add("Audio in beats (read as seconds)", label)
-    end
+    if cu ~= "seconds" and content.name == "Audio" then ctx.report:add("Audio in beats (read as seconds)", label) end
     local opts = {
-      name = name, start = a, file = path, offset = math.max(0, file_at(content_at(a))), length = b - a,
+      name = name,
+      start = a,
+      file = path,
+      offset = math.max(0, file_at(content_at(a))),
+      length = b - a,
       stretch = math.abs(stretch - 1) > 1e-9 and stretch or nil,
     }
     if looping then
@@ -464,16 +525,16 @@ import_clip = function(c, track, ctx, place, parent_unit, lo, hi, outer)
   -- MIDI: notes and moves at content times; in paw, from the clip's start.
   local notes, moves = {}, {}
   midi_content(content, ctx, label, notes, moves)
-  if cu == "seconds" then
-    ctx.report:add("MIDI clips timed in seconds (read at the tempo of their start)", label)
-  end
+  if cu == "seconds" then ctx.report:add("MIDI clips timed in seconds (read at the tempo of their start)", label) end
   local scale = cu == "seconds" and api.tempo_at(start) / 60 or 1
   local base = content_at(a)
   for _, n in ipairs(notes) do
     n.start = (n.start - base) * scale
     n.length = n.length * scale
   end
-  for _, m in ipairs(moves) do m.start = (m.start - base) * scale end
+  for _, m in ipairs(moves) do
+    m.start = (m.start - base) * scale
+  end
   table.sort(moves, function(x, y) return x.start < y.start end)
   local opts = { name = name, start = a, length = b - a, notes = notes, controls = moves }
   if looping then
@@ -481,11 +542,17 @@ import_clip = function(c, track, ctx, place, parent_unit, lo, hi, outer)
     opts.loop_length = (loop_end - loop_start) * scale
     opts.loop_start = (loop_start - base) * scale
     -- paw keeps the repeat within one length before the clip.
-    while opts.loop_start < -opts.loop_length do opts.loop_start = opts.loop_start + opts.loop_length end
-    while opts.loop_start > 1e-9 do opts.loop_start = opts.loop_start - opts.loop_length end
+    while opts.loop_start < -opts.loop_length do
+      opts.loop_start = opts.loop_start + opts.loop_length
+    end
+    while opts.loop_start > 1e-9 do
+      opts.loop_start = opts.loop_start - opts.loop_length
+    end
   end
   local ok, id = pcall(api.clip_add, track, opts)
-  if not ok then return ctx.report:add("Clips that could not be added", label .. ": " .. tostring(id):gsub("\n.*", "")) end
+  if not ok then
+    return ctx.report:add("Clips that could not be added", label .. ": " .. tostring(id):gsub("\n.*", ""))
+  end
   if muted then api.clip_set(id, "muted", true) end
   if fade_in > 0 or fade_out > 0 then ctx.report:count("Fades on MIDI clips", label) end
   ctx.clips = ctx.clips + 1
@@ -501,7 +568,12 @@ local function import_points(p, ctx, unit)
     return ctx.report:count("Expressions on the arrangement (outside clips)", where .. ": " .. target.attr.expression)
   end
   local dest = ctx.params[target.attr.parameter or ""]
-  if not dest then return ctx.report:add("Automation of parameters paw does not have", where .. ": " .. tostring(target.attr.parameter)) end
+  if not dest then
+    return ctx.report:add(
+      "Automation of parameters paw does not have",
+      where .. ": " .. tostring(target.attr.parameter)
+    )
+  end
   if dest.kind == "mute" or dest.kind == "send" then
     return ctx.report:add("Automation of " .. (dest.kind == "mute" and "mute" or "send levels"), dest.label or where)
   end
@@ -529,7 +601,9 @@ local function import_points(p, ctx, unit)
   end
   if #points == 0 then return end
   local opts = { target = dest.kind, points = points }
-  if dest.kind == "param" then opts.target, opts.device, opts.param = "param", dest.device, dest.key end
+  if dest.kind == "param" then
+    opts.target, opts.device, opts.param = "param", dest.device, dest.key
+  end
   local ok, id = pcall(api.lane_add, dest.track, opts)
   if not ok then return ctx.report:add("Automation", where .. ": " .. tostring(id)) end
   local stored, shapes = api.lane_points(id), {}
@@ -544,7 +618,9 @@ end
 local function walk_lanes(e, ctx, track, unit)
   local t = e.attr.track and ctx.tracks[e.attr.track]
   if t == false then
-    if #e.children > 0 then ctx.report:add("The master of the file (merged: the project keeps its own)", "its clips and automation") end
+    if #e.children > 0 then
+      ctx.report:add("The master of the file (merged: the project keeps its own)", "its clips and automation")
+    end
     return
   end
   if e.attr.track and t == nil then
@@ -554,7 +630,9 @@ local function walk_lanes(e, ctx, track, unit)
   unit = e.attr.timeUnit or unit
   if track then ctx.label = track == 0 and "Master" or api.track_get(track, "name") end
   if e.name == "Lanes" then
-    for _, c in ipairs(e.children) do walk_lanes(c, ctx, track, unit) end
+    for _, c in ipairs(e.children) do
+      walk_lanes(c, ctx, track, unit)
+    end
   elseif e.name == "Clips" then
     if not track then return ctx.report:add("Clips not on a track", "arrangement") end
     if track == 0 then return ctx.report:add("Clips on the master (left out)", "Master") end
@@ -569,7 +647,9 @@ local function walk_lanes(e, ctx, track, unit)
     local clip = xml.element("Clip", { time = "0" })
     clip.children = { e }
     local last = 4
-    for _, n in ipairs(e:all("Note")) do last = math.max(last, num(n.attr.time, 0) + num(n.attr.duration, 0)) end
+    for _, n in ipairs(e:all("Note")) do
+      last = math.max(last, num(n.attr.time, 0) + num(n.attr.duration, 0))
+    end
     clip.attr.duration = tostring(last)
     import_clip(clip, track, ctx, function(x) return to_beats(x, unit) end, unit, -INF, INF, {})
   elseif e.name == "markers" or e.name == "Markers" then
@@ -593,7 +673,9 @@ local function import_markers(m, ctx)
   local meta = api.project_get().meta or {}
   local all = type(meta.markers) == "table" and meta.markers or {}
   local top = 0
-  for _, x in ipairs(all) do top = math.max(top, tonumber(x.id) or 0) end
+  for _, x in ipairs(all) do
+    top = math.max(top, tonumber(x.id) or 0)
+  end
   for i, x in ipairs(list) do
     x.id = top + i
     all[#all + 1] = x
@@ -617,8 +699,11 @@ local function tempo_map(root, arr, ctx)
     local seconds = ta.attr.timeUnit == "seconds"
     local list = {}
     for _, pt in ipairs(ta:all("RealPoint")) do
-      list[#list + 1] = { [seconds and "seconds" or "beat"] = num(pt.attr.time, 0),
-        bpm = math.max(1, math.min(999, num(pt.attr.value, bpm))), ramp = pt.attr.interpolation == "linear" }
+      list[#list + 1] = {
+        [seconds and "seconds" or "beat"] = num(pt.attr.time, 0),
+        bpm = math.max(1, math.min(999, num(pt.attr.value, bpm))),
+        ramp = pt.attr.interpolation == "linear",
+      }
     end
     if seconds and #list > 0 then
       table.insert(list, 1, { seconds = 0, bpm = bpm, ramp = false })
@@ -634,7 +719,8 @@ local function tempo_map(root, arr, ctx)
   if sa then
     local list = {}
     for _, pt in ipairs(sa:all("TimeSignaturePoint")) do
-      list[#list + 1] = { beat = num(pt.attr.time, 0), num = num(pt.attr.numerator, 4), den = num(pt.attr.denominator, 4) }
+      list[#list + 1] =
+        { beat = num(pt.attr.time, 0), num = num(pt.attr.numerator, 4), den = num(pt.attr.denominator, 4) }
     end
     table.sort(list, function(x, y) return x.beat < y.beat end)
     if #list > 0 then
@@ -647,7 +733,9 @@ end
 
 local function index_ids(e, ids)
   if e.attr.id then ids[e.attr.id] = e end
-  for _, c in ipairs(e.children) do index_ids(c, ids) end
+  for _, c in ipairs(e.children) do
+    index_ids(c, ids)
+  end
 end
 
 --- Import the files of an archive (name to contents). `opts.path` is
@@ -662,10 +750,20 @@ function M.files(files, opts)
   local dir = path:match("^(.*)/[^/]*$") or "."
   local stem = (path:match("([^/]+)$") or path):gsub("%.[Dd][Aa][Ww][Pp][Rr][Oo][Jj][Ee][Cc][Tt]$", "")
   local ctx = {
-    files = files, dir = dir, media_dir = opts.media_dir or (dir .. "/" .. stem .. " media"),
+    files = files,
+    dir = dir,
+    media_dir = opts.media_dir or (dir .. "/" .. stem .. " media"),
     report = reports.new("Not carried over from " .. (path:match("([^/]+)$") or path) .. ":"),
-    tracks = {}, channels = {}, params = {}, list = {}, placeholders = {}, extracted = {}, ids = {},
-    clips = 0, devices = 0, merge = opts.merge,
+    tracks = {},
+    channels = {},
+    params = {},
+    list = {},
+    placeholders = {},
+    extracted = {},
+    ids = {},
+    clips = 0,
+    devices = 0,
+    merge = opts.merge,
   }
   index_ids(root, ctx.ids)
   local arr = root:child("Arrangement")
@@ -673,8 +771,14 @@ function M.files(files, opts)
   if opts.merge then
     local p = api.project_get()
     if #tempos > 1 or #sigs > 1 or math.abs(tempos[1].bpm - p.tempo) > 1e-9 then
-      ctx.report:add("Tempo", string.format("the project keeps its own tempo map (%g BPM); the file's (%g BPM) is not used",
-        p.tempo, tempos[1].bpm))
+      ctx.report:add(
+        "Tempo",
+        string.format(
+          "the project keeps its own tempo map (%g BPM); the file's (%g BPM) is not used",
+          p.tempo,
+          tempos[1].bpm
+        )
+      )
     end
   else
     api.project_new()
@@ -706,9 +810,13 @@ function M.files(files, opts)
     end
   end
   local scenes = root:child("Scenes")
-  if scenes and #scenes.children > 0 then ctx.report:count("Scenes of the clip launcher", "scenes", #scenes.children) end
+  if scenes and #scenes.children > 0 then
+    ctx.report:count("Scenes of the clip launcher", "scenes", #scenes.children)
+  end
   local ids = {}
-  for i, t in ipairs(ctx.list) do ids[i] = t.id end
+  for i, t in ipairs(ctx.list) do
+    ids[i] = t.id
+  end
   return { tracks = ids, report = ctx.report, clips = ctx.clips, devices = ctx.devices }
 end
 

@@ -24,55 +24,76 @@
 local api = paw.api
 local M = {}
 
-local maps = {}     -- mode -> scope -> lhs -> mapping
-local pending = {}  -- keys typed so far of an unfinished sequence
-local count         -- number typed before the sequence
-local register      -- register named with `"x` for the next command
-local op            -- the operator waiting for a motion: { map, count, register, key }
-local awaiting      -- function that takes the next key, whatever it is
+local maps = {} -- mode -> scope -> lhs -> mapping
+local pending = {} -- keys typed so far of an unfinished sequence
+local count -- number typed before the sequence
+local register -- register named with `"x` for the next command
+local op -- the operator waiting for a motion: { map, count, register, key }
+local awaiting -- function that takes the next key, whatever it is
 local timer
-local hint_at       -- when to start listing the keys that can follow
+local hint_at -- when to start listing the keys that can follow
 
-local track = {}    -- the command being typed: { keys, edits, norepeat }
-local last_change   -- the keys of the last command that changed the project
-local replaying     -- `.` is running: its keys are not a new change
-local depth = 0     -- how many replays (macros, `.`) are running inside each other
-local macro         -- { name, keys } while recording
+local track = {} -- the command being typed: { keys, edits, norepeat }
+local last_change -- the keys of the last command that changed the project
+local replaying -- `.` is running: its keys are not a new change
+local depth = 0 -- how many replays (macros, `.`) are running inside each other
+local macro -- { name, keys } while recording
 local last_macro
 
 local registers = {}
 local marks, jumps = {}, {}
 local changes = {} -- view -> positions where the project was edited, newest last
-local groups = {}   -- scope -> keys -> name of a prefix that only leads to more keys
-local group_lhs = {}   -- the groups on a leader: { scope, prefix as written, name, keys now }
+local groups = {} -- scope -> keys -> name of a prefix that only leads to more keys
+local group_lhs = {} -- the groups on a leader: { scope, prefix as written, name, keys now }
 
 --- The mode: "n", "i", "x" (visual), "o" (after an operator) or "c".
 --- @type string
 M.mode = "n"
-M.visual = nil      -- the open selection's fixed end: { kind, row, col, view }
+M.visual = nil -- the open selection's fixed end: { kind, row, col, view }
 M.registers = registers
 
 -- Everything above but the mappings is each seat's own: two people can be
 -- half way through two commands, in two modes, with registers of their own.
-paw.seats.keep("keymap",
+paw.seats.keep(
+  "keymap",
   function()
-    return pending, count, register, op, awaiting, timer, hint_at, track, last_change, macro, last_macro,
-      registers, marks, jumps, M.mode, M.visual, M.last_visual, M.search_text
+    return pending,
+      count,
+      register,
+      op,
+      awaiting,
+      timer,
+      hint_at,
+      track,
+      last_change,
+      macro,
+      last_macro,
+      registers,
+      marks,
+      jumps,
+      M.mode,
+      M.visual,
+      M.last_visual,
+      M.search_text
   end,
   function(...)
-    pending, count, register, op, awaiting, timer, hint_at, track, last_change, macro, last_macro,
-      registers, marks, jumps, M.mode, M.visual, M.last_visual, M.search_text = ...
+    pending, count, register, op, awaiting, timer, hint_at, track, last_change, macro, last_macro, registers, marks, jumps, M.mode, M.visual, M.last_visual, M.search_text =
+      ...
     M.registers = registers
   end,
-  function() return {}, nil, nil, nil, nil, nil, nil, {}, nil, nil, nil, {}, {}, {}, "n", nil, nil, nil end)
+  function() return {}, nil, nil, nil, nil, nil, nil, {}, nil, nil, nil, {}, {}, {}, "n", nil, nil, nil end
+)
 
 --- A leader option as a key: a space (the default leader) is `<Space>`.
 local function leader_key(value) return value == " " and "<Space>" or value end
 
 --- Write `<leader>` and `<localleader>` as the keys the options name.
 function M.expand(lhs)
-  return (lhs:gsub("<[Ll]ocal[Ll]eader>", function() return leader_key(paw.opt.localleader) end)
-    :gsub("<[Ll]eader>", function() return leader_key(paw.opt.leader) end))
+  return (
+    lhs
+      :gsub("<[Ll]ocal[Ll]eader>", function() return leader_key(paw.opt.localleader) end)
+      :gsub("<[Ll]eader>", function() return leader_key(paw.opt.leader) end)
+  )
 end
 
 --- Split `gg<C-x>` into { "g", "g", "<C-x>" }, and expand `<leader>` and `<localleader>`.
@@ -92,9 +113,25 @@ function M.parse(lhs)
 end
 
 local key_names = {
-  CR = "Enter", Enter = "Enter", Return = "Enter", Space = "Space", Esc = "Esc", BS = "Backspace",
-  Del = "Delete", Tab = "Tab", lt = "<", Bar = "|", Bslash = "\\", Up = "Up", Down = "Down",
-  Left = "Left", Right = "Right", Home = "Home", End = "End", PageUp = "PageUp", PageDown = "PageDown",
+  CR = "Enter",
+  Enter = "Enter",
+  Return = "Enter",
+  Space = "Space",
+  Esc = "Esc",
+  BS = "Backspace",
+  Del = "Delete",
+  Tab = "Tab",
+  lt = "<",
+  Bar = "|",
+  Bslash = "\\",
+  Up = "Up",
+  Down = "Down",
+  Left = "Left",
+  Right = "Right",
+  Home = "Home",
+  End = "End",
+  PageUp = "PageUp",
+  PageDown = "PageDown",
 }
 local modifier_names = { C = "Ctrl", A = "Alt", M = "Alt", S = "Shift", D = "Super" }
 
@@ -130,14 +167,16 @@ end
 --- "visual" or "insert".
 function M.all(view)
   local out = {}
-  local shadowed = {}   -- mode .. keys the part of the view takes over
+  local shadowed = {} -- mode .. keys the part of the view takes over
   -- A part of the view the cursor is in comes first: its keys win.
   if view == paw.ui.focused then
     local sub = M.scopes()
     for i = 1, #sub - 2 do
       for _, mode in ipairs({ "n", "x", "i" }) do
         local list = {}
-        for _, map in pairs(maps[mode] and maps[mode][sub[i]] or {}) do list[#list + 1] = map end
+        for _, map in pairs(maps[mode] and maps[mode][sub[i]] or {}) do
+          list[#list + 1] = map
+        end
         table.sort(list, function(a, b) return a.lhs:lower() .. a.lhs < b.lhs:lower() .. b.lhs end)
         for _, map in ipairs(list) do
           if not shadowed[mode .. table.concat(map.keys)] and (mode ~= "x" or not M.has("n", map)) then
@@ -155,7 +194,9 @@ function M.all(view)
     end
   end
   for _, map in ipairs(M.list("x", view)) do
-    if not shadowed["x" .. table.concat(map.keys)] and not map.motion and not map.object and not M.has("n", map) then out[#out + 1] = { map = map, kind = "visual" } end
+    if not shadowed["x" .. table.concat(map.keys)] and not map.motion and not map.object and not M.has("n", map) then
+      out[#out + 1] = { map = map, kind = "visual" }
+    end
   end
   for _, map in ipairs(M.list("o", view)) do
     if map.object then out[#out + 1] = { map = map, kind = "object" } end
@@ -223,16 +264,12 @@ end
 --- own, as `ctx.op_count`. It tells how far or how many times: `3gUib` is
 --- three steps up over a bar. `ctx.count` is the count of the motion or
 --- object alone.
-function M.operator(lhs, fn, opts)
-  M.set(lhs, nil, paw.util.merge(opts or {}, { mode = { "n", "x" }, operator = fn }))
-end
+function M.operator(lhs, fn, opts) M.set(lhs, nil, paw.util.merge(opts or {}, { mode = { "n", "x" }, operator = fn })) end
 
 --- Define a text object: `fn(ctx)` returns a region, or nil when there is
 --- nothing of that kind at the cursor.
 ---   paw.keymap.textobject("ic", function() ... end, { view = "arrange", desc = "The clip" })
-function M.textobject(lhs, fn, opts)
-  M.set(lhs, nil, paw.util.merge(opts or {}, { mode = { "o", "x" }, object = fn }))
-end
+function M.textobject(lhs, fn, opts) M.set(lhs, nil, paw.util.merge(opts or {}, { mode = { "o", "x" }, object = fn })) end
 
 --- Remove a mapping: `opts.mode` and `opts.view` as `set` took them.
 function M.del(lhs, opts)
@@ -246,7 +283,9 @@ end
 function M.each(fn)
   for mode, by_scope in pairs(maps) do
     for scope, by_keys in pairs(by_scope) do
-      for keys, map in pairs(by_keys) do fn(map, mode, scope, keys) end
+      for keys, map in pairs(by_keys) do
+        fn(map, mode, scope, keys)
+      end
     end
   end
 end
@@ -268,8 +307,10 @@ local classic = {}
 --- Make a classic mapping, keeping what it covers to put back.
 local function apply(entry)
   local lhs, rhs, opts = entry[1], entry[2], entry[3]
-  local modes = type(opts.mode) == "table" and opts.mode or opts.mode and { opts.mode }
-    or (opts.motion or opts.operator) and { "n", "x", "o" } or { "n" }
+  local modes = type(opts.mode) == "table" and opts.mode
+    or opts.mode and { opts.mode }
+    or (opts.motion or opts.operator) and { "n", "x", "o" }
+    or { "n" }
   local scope, keys = opts.view or "global", table.concat(M.parse(lhs))
   entry.covered = {}
   for _, mode in ipairs(modes) do
@@ -307,9 +348,13 @@ end
 paw.on("option.changed", function(e)
   if e.name ~= "keys" then return end
   if e.value == "classic" then
-    for _, entry in ipairs(classic) do apply(entry) end
+    for _, entry in ipairs(classic) do
+      apply(entry)
+    end
   elseif e.old == "classic" then
-    for i = #classic, 1, -1 do revert(classic[i]) end
+    for i = #classic, 1, -1 do
+      revert(classic[i])
+    end
   end
 end)
 
@@ -321,9 +366,13 @@ function M.list(mode, view)
   local out = {}
   for _, scope in ipairs({ view or false, "global" }) do
     local list = {}
-    for _, map in pairs(scope and maps[mode] and maps[mode][scope] or {}) do list[#list + 1] = map end
+    for _, map in pairs(scope and maps[mode] and maps[mode][scope] or {}) do
+      list[#list + 1] = map
+    end
     table.sort(list, function(a, b) return a.lhs:lower() .. a.lhs < b.lhs:lower() .. b.lhs end)
-    for _, map in ipairs(list) do out[#out + 1] = map end
+    for _, map in ipairs(list) do
+      out[#out + 1] = map
+    end
   end
   return out
 end
@@ -334,7 +383,9 @@ function M.every()
   local out = {}
   for _, by_scope in pairs(maps) do
     for _, by_keys in pairs(by_scope) do
-      for _, map in pairs(by_keys) do out[#out + 1] = map end
+      for _, map in pairs(by_keys) do
+        out[#out + 1] = map
+      end
     end
   end
   table.sort(out, function(a, b)
@@ -367,9 +418,9 @@ end
 -- until insert mode ends (the clip `i` made, the notes drawn into it) is
 -- one undo step, as an insert is in Vim: the steps after the first join it.
 local insert_undo
-local insert_hint_at   -- when insert mode's keys show, in a view that lists them
-local key_serial = 0   -- counts the keys handled: what one key did together
-local left_insert      -- the insert that ended last: { undo, key }
+local insert_hint_at -- when insert mode's keys show, in a view that lists them
+local key_serial = 0 -- counts the keys handled: what one key did together
+local left_insert -- the insert that ended last: { undo, key }
 
 --- Change mode. When visual mode stops, the selection closes. `gv` opens it again.
 function M.set_mode(mode)
@@ -422,16 +473,18 @@ end
 
 local function region(r, c, r2, c2, kind)
   return {
-    view = paw.ui.focused, kind = kind,
-    r0 = math.min(r, r2), r1 = math.max(r, r2), c0 = math.min(c, c2), c1 = math.max(c, c2),
+    view = paw.ui.focused,
+    kind = kind,
+    r0 = math.min(r, r2),
+    r1 = math.max(r, r2),
+    c0 = math.min(c, c2),
+    c1 = math.max(c, c2),
   }
 end
 
 --- The row a region starts on: rows count downwards in most views, upwards
 --- (`grid.down = -1`) in the piano roll.
-local function first_row(g, reg)
-  return g.down == -1 and reg.r1 or reg.r0
-end
+local function first_row(g, reg) return g.down == -1 and reg.r1 or reg.r0 end
 
 --- Start a selection from the cursor: "v" a range of time, "V" whole rows,
 --- "b" a rectangle. The same kind again stops visual mode.
@@ -472,7 +525,9 @@ local function selected(v, g, row, col)
   -- names them (`clips`), and is not stretched by the cursor.
   if v.region then
     local out = v.region()
-    if out then out.visual, out.view = true, v.view end
+    if out then
+      out.visual, out.view = true, v.view
+    end
     return out
   end
   local out = region(v.row, v.col, row, col, v.kind == "V" and "line" or v.kind == "b" and "block" or "char")
@@ -490,7 +545,7 @@ local function selected(v, g, row, col)
   return out
 end
 
-local ranged   -- the region `:'<,'>` names while its command runs
+local ranged -- the region `:'<,'>` names while its command runs
 
 --- The region selected in the focused view, or nil outside visual mode. It
 --- goes from the cursor to the start of the selection. Both ends are
@@ -541,9 +596,7 @@ function M.setreg(value, name, yank)
 end
 
 --- What a register holds (the unnamed one when `name` is nil).
-function M.getreg(name)
-  return registers[name and name:lower() or '"']
-end
+function M.getreg(name) return registers[name and name:lower() or '"'] end
 
 -- Marks and jumps -------------------------------------------------------------
 
@@ -572,7 +625,9 @@ function M.push_jump()
   local list = jumps[paw.ui.focused] or {}
   jumps[paw.ui.focused] = list
   if list.at then
-    for i = #list, list.at + 1, -1 do list[i] = nil end
+    for i = #list, list.at + 1, -1 do
+      list[i] = nil
+    end
     list.at = nil
   end
   local here = position(g)
@@ -625,9 +680,7 @@ function M.change(n)
 end
 
 --- The places edits happened in a view, oldest first.
-function M.changes(view)
-  return changes[view or paw.ui.focused] or {}
-end
+function M.changes(view) return changes[view or paw.ui.focused] or {} end
 
 --- Set mark `name` (a letter) at the cursor of the focused view.
 function M.mark(name)
@@ -668,7 +721,9 @@ end
 function M.delmarks(spec, all)
   local names = {}
   if all then
-    for c = ("a"):byte(), ("z"):byte() do names[#names + 1] = string.char(c) end
+    for c = ("a"):byte(), ("z"):byte() do
+      names[#names + 1] = string.char(c)
+    end
   else
     spec = spec:gsub("%s+", "")
     local i = 1
@@ -676,10 +731,16 @@ function M.delmarks(spec, all)
       local first, dash, last = spec:sub(i, i), spec:sub(i + 1, i + 1), spec:sub(i + 2, i + 2)
       if not first:match("^%a$") then return nil, "`" .. first .. "` is not a mark name" end
       if dash == "-" then
-        if not last:match("^%a$") or last:byte() < first:byte() or (last:match("%l") == nil) ~= (first:match("%l") == nil) then
+        if
+          not last:match("^%a$")
+          or last:byte() < first:byte()
+          or (last:match("%l") == nil) ~= (first:match("%l") == nil)
+        then
           return nil, "`" .. spec:sub(i, i + 2) .. "` is not a range of marks"
         end
-        for c = first:byte(), last:byte() do names[#names + 1] = string.char(c) end
+        for c = first:byte(), last:byte() do
+          names[#names + 1] = string.char(c)
+        end
         i = i + 3
       else
         names[#names + 1] = first
@@ -690,16 +751,16 @@ function M.delmarks(spec, all)
   local removed = 0
   for _, name in ipairs(names) do
     for _, list in pairs(marks) do
-      if list[name] then list[name], removed = nil, removed + 1 end
+      if list[name] then
+        list[name], removed = nil, removed + 1
+      end
     end
   end
   return removed
 end
 
 --- The marks of a view: name -> position.
-function M.marks(view)
-  return marks[view or paw.ui.focused] or {}
-end
+function M.marks(view) return marks[view or paw.ui.focused] or {} end
 
 -- Search ----------------------------------------------------------------------
 
@@ -807,7 +868,11 @@ local function run(map, char)
     end
     if not reg then return end
     -- The cursor ends up where the region starts.
-    if reg.kind == "line" then g.set(first_row(g, reg), c) else g.set(r, reg.c0) end
+    if reg.kind == "line" then
+      g.set(first_row(g, reg), c)
+    else
+      g.set(r, reg.c0)
+    end
     return o.map.operator(reg, ctx)
   end
 
@@ -819,7 +884,11 @@ local function run(map, char)
       if not reg then return end
       label(map.desc)
       if map.count == "operator" then ctx.op_count = ctx.count end
-      if reg.kind == "line" then g.set(first_row(g, reg), col) else g.set(first_row(g, reg), reg.c0) end
+      if reg.kind == "line" then
+        g.set(first_row(g, reg), col)
+      else
+        g.set(first_row(g, reg), reg.c0)
+      end
       return map.operator(reg, ctx)
     end
     if not g then return paw.notify("nothing in this view for `" .. map.lhs .. "` to act on", "warn") end
@@ -838,7 +907,9 @@ local function run(map, char)
       if r == v.object.at_row and c == v.object.at_col then again = v.object end
     end
     local from_row, from_col
-    if g then from_row, from_col = g.get() end
+    if g then
+      from_row, from_col = g.get()
+    end
     if again then
       from_row, from_col = again.row, again.col
       g.set(from_row, from_col)
@@ -860,7 +931,8 @@ local function run(map, char)
       end
       g.set(reg.r1, reg.c1)
       local at_row, at_col = g.get()
-      M.visual.object = { map = map, count = ctx.count or 1, row = from_row, col = from_col, at_row = at_row, at_col = at_col }
+      M.visual.object =
+        { map = map, count = ctx.count or 1, row = from_row, col = from_col, at_row = at_row, at_col = at_col }
     end
     return
   end
@@ -881,7 +953,9 @@ local function scopes()
   if view and view.subscope then
     local ok, sub = pcall(view.subscope, view)
     if ok and type(sub) == "table" then
-      for _, s in ipairs(sub) do out[#out + 1] = s end
+      for _, s in ipairs(sub) do
+        out[#out + 1] = s
+      end
     elseif ok and sub then
       out[#out + 1] = sub
     end
@@ -937,7 +1011,12 @@ local function held(key)
 end
 
 local function idle()
-  return M.mode == "n" and #pending == 0 and not count and not register and not op and not awaiting
+  return M.mode == "n"
+    and #pending == 0
+    and not count
+    and not register
+    and not op
+    and not awaiting
     and not paw.ui.grabber
 end
 
@@ -948,7 +1027,7 @@ local text_changes = 0
 --- buffer). Then `.` repeats the command that made it.
 function M.changed() text_changes = text_changes + 1 end
 
-local after   -- { fn, armed }: to run once the next whole command is done
+local after -- { fn, armed }: to run once the next whole command is done
 
 --- Run `fn` after paw gets and does the next whole command. Insert mode uses
 --- it for Ctrl-o, to return to insert mode after one command.
@@ -959,9 +1038,7 @@ local function finish_command()
   if not idle() then return end
   if track.keys and api.project_get("edits") ~= track.edits then push_change() end
   local changed = track.keys and (api.project_get("edits") ~= track.edits or text_changes ~= track.texts)
-  if changed and not track.norepeat and not replaying then
-    last_change = track.keys
-  end
+  if changed and not track.norepeat and not replaying then last_change = track.keys end
   track = {}
   -- The command that asked is done now; the one after it is the one waited for.
   if after and depth == 0 then
@@ -1016,7 +1093,9 @@ handle = function(key)
     -- The same key again is a second step (`]]` pans twice), unless the
     -- view maps the pair itself (`]]` to the next section).
     exact, longer = lookup(first.key .. key)
-    if key == first.key and not exact then exact, longer = nil, nil end
+    if key == first.key and not exact then
+      exact, longer = nil, nil
+    end
     if reopened and not (exact or longer) then
       -- Closed again as the key left it.
       M.set_mode("n")
@@ -1050,7 +1129,11 @@ handle = function(key)
     end
     if key == '"' then
       awaiting = function(name)
-        if name:match('^[%w_"]$') then register = name else reset() end
+        if name:match('^[%w_"]$') then
+          register = name
+        else
+          reset()
+        end
       end
       return
     end
@@ -1088,16 +1171,27 @@ handle = function(key)
     -- Wait for the rest. Only when what was typed is a mapping already does
     -- the wait end by itself, in favour of that one; a bare prefix stays
     -- until it is finished or Escape drops it.
-    if exact and #pending == 1 and M.mode ~= "o" and not exact.char
-      and (exact.nowait or exact.role == "second+" or exact.role == "second-") then
+    if
+      exact
+      and #pending == 1
+      and M.mode ~= "o"
+      and not exact.char
+      and (exact.nowait or exact.role == "second+" or exact.role == "second-")
+    then
       -- It runs now; the wait is only for a key that makes a longer one.
       -- Its change is a step of its own, so that one undo takes it back.
       api.undo_checkpoint()
       local before, typed_count, typed_register, visual = api.project_get("edits"), count, register, M.mode == "x"
       take(exact)
       pending = { key }
-      eager = { key = key, before = before, after = api.project_get("edits"), count = typed_count, register = typed_register,
-        visual = visual }
+      eager = {
+        key = key,
+        before = before,
+        after = api.project_get("edits"),
+        count = typed_count,
+        register = typed_register,
+        visual = visual,
+      }
       timer = api.timer_start(paw.opt.timeoutlen, false, function()
         timer = nil
         if not eager then return end
@@ -1134,7 +1228,9 @@ handle = function(key)
       reset()
       return paw.notify(typed .. " is not mapped", "warn")
     end
-    for i = n + 1, #keys do handle(keys[i]) end
+    for i = n + 1, #keys do
+      handle(keys[i])
+    end
   else
     local mode = M.mode
     reset()
@@ -1170,7 +1266,9 @@ function M.dispatch(key)
     local due = next_key
     next_key = {}
     local grabber = paw.ui.grabber
-    for _, fn in ipairs(due) do paw.try(fn) end
+    for _, fn in ipairs(due) do
+      paw.try(fn)
+    end
     -- What they asked takes the next key; this one only brought it up.
     if paw.ui.grabber and paw.ui.grabber ~= grabber then return end
   end
@@ -1178,7 +1276,9 @@ function M.dispatch(key)
   if macro and depth == 0 then macro.keys[#macro.keys + 1] = key end
   -- A key of insert mode: its edits join the step the insert made first.
   if M.mode == "i" and insert_undo and api.undo_current() ~= insert_undo then api.undo_join(api.undo_current()) end
-  if not track.keys then track.keys, track.edits, track.texts = {}, api.project_get("edits"), text_changes end
+  if not track.keys then
+    track.keys, track.edits, track.texts = {}, api.project_get("edits"), text_changes
+  end
   track.keys[#track.keys + 1] = key
   local ok, err = xpcall(handle, debug.traceback, key)
   if not ok then
@@ -1224,9 +1324,7 @@ end
 
 --- Type keys from inside a mapping, as `:normal` does. The keys run as a
 --- part of the current command, not as a separate command.
-function M.normal(keys)
-  return replay(M.parse(keys))
-end
+function M.normal(keys) return replay(M.parse(keys)) end
 
 -- Repeating ---------------------------------------------------------------------
 
@@ -1234,12 +1332,18 @@ end
 function M.repeat_last(n)
   if not last_change then return paw.notify("nothing to repeat yet") end
   local keys = {}
-  for i, key in ipairs(last_change) do keys[i] = key end
+  for i, key in ipairs(last_change) do
+    keys[i] = key
+  end
   if n then
     -- The count sits after a register name, if there is one.
     local at = keys[1] == '"' and 3 or 1
-    while keys[at] and keys[at]:match("^%d$") do table.remove(keys, at) end
-    for digit in tostring(n):reverse():gmatch("%d") do table.insert(keys, at, digit) end
+    while keys[at] and keys[at]:match("^%d$") do
+      table.remove(keys, at)
+    end
+    for digit in tostring(n):reverse():gmatch("%d") do
+      table.insert(keys, at, digit)
+    end
   end
   replaying = true
   local ok, err = pcall(replay, keys)
@@ -1255,9 +1359,7 @@ function M.record(name)
 end
 
 --- The register being recorded into, if any.
-function M.recording()
-  return macro and macro.name
-end
+function M.recording() return macro and macro.name end
 
 --- Play the keys in a register `n` times. `@` as the name plays the last register again.
 function M.play(name, n)
@@ -1304,7 +1406,9 @@ local function insert_hints()
     if (a.order or 1e9) ~= (b.order or 1e9) then return (a.order or 1e9) < (b.order or 1e9) end
     return a.key:lower() .. a.key < b.key:lower() .. b.key
   end)
-  for _, entry in ipairs(out) do entry.order = nil end
+  for _, entry in ipairs(out) do
+    entry.order = nil
+  end
   return out, "-- INSERT -- <CR> opens, <BS> takes back, <Esc> ends"
 end
 

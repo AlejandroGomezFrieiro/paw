@@ -28,15 +28,17 @@ local M = { plugins = {} }
 --- True when bytes start as zlib data does (a header whose check holds).
 local function is_zlib(data)
   local a, b = data:byte(1, 2)
-  return a ~= nil and b ~= nil and a % 16 == 8 and math.floor(a / 16) <= 7 and (a * 256 + b) % 31 == 0
+  return a ~= nil
+    and b ~= nil
+    and a % 16 == 8
+    and math.floor(a / 16) <= 7
+    and (a * 256 + b) % 31 == 0
     and math.floor(b / 32) % 2 == 0
 end
 
 local PRIVATE = "JUCEPrivateData"
 
-local function le64(n)
-  return paw.bytes.le32(n % 4294967296) .. paw.bytes.le32(math.floor(n / 4294967296))
-end
+local function le64(n) return paw.bytes.le32(n % 4294967296) .. paw.bytes.le32(math.floor(n / 4294967296)) end
 
 local function u64(data, at)
   local lo, hi = paw.bytes.u32(data, at), paw.bytes.u32(data, at + 4)
@@ -96,9 +98,15 @@ function M.unwrap(raw, format)
     if not component then error(controller, 0) end
     -- In a VstW chunk, the private data is inside the chunk: it stays there.
     local data, trailer, private = component, nil, nil
-    if component:sub(1, 4) ~= "VstW" then data, trailer, private = M.split_private(component) end
+    if component:sub(1, 4) ~= "VstW" then
+      data, trailer, private = M.split_private(component)
+    end
     return {
-      format = format, data = data, trailer = trailer, private = private, controller = controller,
+      format = format,
+      data = data,
+      trailer = trailer,
+      private = private,
+      controller = controller,
       wrap = function(new)
         if new == data then return raw end
         return vst3.join(new .. (trailer or ""), controller)
@@ -109,7 +117,9 @@ function M.unwrap(raw, format)
     if not text then error("the LV2 state has no JUCE data (no StateString)", 0) end
     local data = juce.decode64(text)
     return {
-      format = format, data = data, text = raw,
+      format = format,
+      data = data,
+      text = raw,
       wrap = function(new)
         if new == data then return raw end
         return before .. juce.encode64(new) .. after
@@ -134,8 +144,14 @@ function M.wrap(data, format, template, opts)
       "@prefix lv2: <http://lv2plug.in/ns/lv2core#> .\n",
       "@prefix pset: <http://lv2plug.in/ns/ext/presets#> .\n",
       "@prefix state: <http://lv2plug.in/ns/ext/state#> .\n\n",
-      "<urn:paw:state>\n\ta pset:Preset ;\n\tlv2:appliesTo <", uri, "> ;\n",
-      "\tstate:state [\n\t\t<", uri, ':StateString> "', juce.encode64(data), '"\n\t] .\n',
+      "<urn:paw:state>\n\ta pset:Preset ;\n\tlv2:appliesTo <",
+      uri,
+      "> ;\n",
+      "\tstate:state [\n\t\t<",
+      uri,
+      ':StateString> "',
+      juce.encode64(data),
+      '"\n\t] .\n',
     })
   end
   return data
@@ -163,8 +179,13 @@ local function header_layer(data, header, layers)
   local skip = header.skip or #(header.magic or "")
   local size = header.size and paw.bytes.u32(data, header.size) or (#data - skip)
   if not size or skip + size > #data then return nil end
-  layers[#layers + 1] = { name = "header", head = data:sub(1, skip), tail = data:sub(skip + size + 1), header = header,
-    inner = data:sub(skip + 1, skip + size) }
+  layers[#layers + 1] = {
+    name = "header",
+    head = data:sub(1, skip),
+    tail = data:sub(skip + size + 1),
+    header = header,
+    inner = data:sub(skip + 1, skip + size),
+  }
   return decode(data:sub(skip + 1, skip + size), layers, nil, 2)
 end
 
@@ -184,8 +205,13 @@ function decode(data, layers, desc, depth)
     local size = at and be32(data, at)
     if size and at + 3 + size <= #data then
       local inner = data:sub(at + 4, at + 3 + size)
-      layers[#layers + 1] = { name = "vstw", head = data:sub(1, at - 1), tail = data:sub(at + 4 + size), inner = inner,
-        original = data }
+      layers[#layers + 1] = {
+        name = "vstw",
+        head = data:sub(1, at - 1),
+        tail = data:sub(at + 4 + size),
+        inner = inner,
+        original = data,
+      }
       return decode(inner, layers, nil, depth + 1)
     end
   end
@@ -214,9 +240,7 @@ function decode(data, layers, desc, depth)
     return decode(inner, layers, nil, depth + 1)
   end
   local bom = data:sub(1, 3) == "\239\187\191" and 4 or 1
-  if data:match("^%s*<[%?%a!]", bom) then
-    return xml_layer(data, layers)
-  end
+  if data:match("^%s*<[%?%a!]", bom) then return xml_layer(data, layers) end
   -- A prefix of four letters before a tree: the description's, or four
   -- that hold a digit ("T3KB"): a tree's own type can start with four
   -- capitals ("PARAMETERS").
@@ -242,7 +266,9 @@ end
 local function encode(layers, i, root)
   local layer = layers[i]
   if layer.name == "valuetree" then return juce.write(root) .. layer.tail end
-  if layer.name == "xml" then return xml.write({ root = root, before = layer.doc.before, after = layer.doc.after, source = layer.doc.source }) end
+  if layer.name == "xml" then
+    return xml.write({ root = root, before = layer.doc.before, after = layer.doc.after, source = layer.doc.source })
+  end
   if layer.name == "prefix" then return layer.prefix .. encode(layers, i + 1, root) end
   if layer.name == "vc2" then
     local text = encode(layers, i + 1, root)
@@ -295,8 +321,14 @@ function M.open(state64, format, opts)
   local desc = opts.desc or (opts.plugin and M.plugins[opts.plugin])
   local root, layers, close = M.decode(outer.data, desc)
   local doc = setmetatable({
-    format = outer.format, outer = outer, root = root, layers = layers, close = close, plugin = desc,
-    original = juce.write(root), raw = raw,
+    format = outer.format,
+    outer = outer,
+    root = root,
+    layers = layers,
+    close = close,
+    plugin = desc,
+    original = juce.write(root),
+    raw = raw,
   }, Doc)
   if desc and desc.root and root.type ~= desc.root then
     error("not a state of " .. (desc.title or desc.name) .. " (its root is " .. root.type .. ")", 0)
@@ -312,9 +344,7 @@ end
 
 --- The state (paw's base64) now: byte for byte the one opened when
 --- nothing changed.
-function Doc:write()
-  return paw.bytes.base64(self.outer.wrap(self:data()))
-end
+function Doc:write() return paw.bytes.base64(self.outer.wrap(self:data())) end
 
 --- The state for another format of the same plugin: `template` is a state
 --- (paw's base64) of that format, for what is around the data; else see
@@ -330,7 +360,8 @@ function Doc:layer_names()
   local out = { self.format }
   if self.outer.trailer then out[#out + 1] = "juce-private" end
   for _, l in ipairs(self.layers) do
-    out[#out + 1] = l.name == "prefix" and ("prefix " .. l.prefix) or (l.name == "header" and ("header " .. (l.header.magic or "")) or l.name)
+    out[#out + 1] = l.name == "prefix" and ("prefix " .. l.prefix)
+      or (l.name == "header" and ("header " .. (l.header.magic or "")) or l.name)
   end
   return out
 end
@@ -388,9 +419,7 @@ function Doc:param_holder()
   return find(self.root) or find(self.root, true)
 end
 
-local function is_param(c)
-  return juce.get(c, "id") ~= nil and (c.type == "PARAM" or juce.get_raw(c, "value") ~= nil)
-end
+local function is_param(c) return juce.get(c, "id") ~= nil and (c.type == "PARAM" or juce.get_raw(c, "value") ~= nil) end
 
 --- The parameters: `{ { id, value }, ... }` in their order (values as
 --- numbers when they read as numbers).
@@ -418,9 +447,7 @@ end
 --- see as a parameter).
 function Doc:set_param(id, v)
   local holder = self:param_holder()
-  if not holder then
-    holder = juce.ensure(self.root, "/" .. self.root.type .. "/PARAMETERS")
-  end
+  if not holder then holder = juce.ensure(self.root, "/" .. self.root.type .. "/PARAMETERS") end
   self.changed = true
   for _, c in ipairs(holder.children) do
     if is_param(c) and juce.get(c, "id") == id then
@@ -500,7 +527,9 @@ end
 --- in the device's format. `current` also gives what is around the data.
 function M.generate(preset, format, current, opts)
   local base, base_format = preset.base, preset.format
-  if not base then base, base_format = current, format end
+  if not base then
+    base, base_format = current, format
+  end
   if not base then error("the preset has no base state, and there is no state of the device", 0) end
   local desc = preset.plugin and M.plugins[preset.plugin] or (opts and opts.desc)
   local doc = M.open(base, base_format, { desc = desc })
@@ -520,8 +549,12 @@ local function to_json(v)
   if type(v) == "table" and v.binary then return { binary64 = paw.bytes.base64(v.binary) } end
   if type(v) == "table" and v.type and v.props then
     local t = { type = v.type, props = {}, children = {}, xml = v.xml or nil }
-    for _, p in ipairs(v.props) do t.props[#t.props + 1] = { p[1], paw.bytes.base64(p[2]) } end
-    for _, c in ipairs(v.children) do t.children[#t.children + 1] = to_json(c) end
+    for _, p in ipairs(v.props) do
+      t.props[#t.props + 1] = { p[1], paw.bytes.base64(p[2]) }
+    end
+    for _, c in ipairs(v.children) do
+      t.children[#t.children + 1] = to_json(c)
+    end
     return { tree = t }
   end
   return v
@@ -532,8 +565,12 @@ local function from_json(v)
   if type(v) == "table" and v.tree then
     local function build(t)
       local node = { type = t.type, props = {}, children = {}, xml = t.xml or nil }
-      for _, p in ipairs(t.props or {}) do node.props[#node.props + 1] = { p[1], paw.bytes.unbase64(p[2]) } end
-      for _, c in ipairs(t.children or {}) do node.children[#node.children + 1] = build(c) end
+      for _, p in ipairs(t.props or {}) do
+        node.props[#node.props + 1] = { p[1], paw.bytes.unbase64(p[2]) }
+      end
+      for _, c in ipairs(t.children or {}) do
+        node.children[#node.children + 1] = build(c)
+      end
       return node
     end
     return build(v.tree)
@@ -545,11 +582,26 @@ end
 function M.write_preset(path, preset)
   local edits = {}
   for i, e in ipairs(preset.edits or {}) do
-    edits[i] = { path = e.path or e[1], value = to_json(e.value == nil and e[2] or e.value), kind = e.kind or e[3],
-      make = e.make, remove = e.remove, param = e.param, insert = e.insert and to_json(e.insert), index = e.index }
+    edits[i] = {
+      path = e.path or e[1],
+      value = to_json(e.value == nil and e[2] or e.value),
+      kind = e.kind or e[3],
+      make = e.make,
+      remove = e.remove,
+      param = e.param,
+      insert = e.insert and to_json(e.insert),
+      index = e.index,
+    }
   end
-  local text = paw.json.encode({ juce_preset = 1, plugin = preset.plugin, name = preset.name, format = preset.format,
-    framework = preset.framework, base = preset.base, edits = edits })
+  local text = paw.json.encode({
+    juce_preset = 1,
+    plugin = preset.plugin,
+    name = preset.name,
+    format = preset.format,
+    framework = preset.framework,
+    base = preset.base,
+    edits = edits,
+  })
   local f = assert(io.open(path, "wb"))
   f:write(text)
   f:close()

@@ -150,7 +150,7 @@ local record Paw
   defer: function(fn: function(), ms?: number): integer
   cancel: function(handle: integer)
 end
-local paw = (_G as {string:Paw}).paw
+local paw = (_G as {string: Paw}).paw
 
 local record M
   type Thing = Thing
@@ -173,21 +173,33 @@ end
 M.schemes = {}
 M.changed = events.event("address.changed")
 
-local function decode(s: string): string return (s:gsub("%%(%x%x)", function(h: string): string return string.char(tonumber(h, 16) as integer) end)) end
-local function encode(s: string): string return (s:gsub("[^%w%-%._~/]", function(c: string): string return string.format("%%%02X", c:byte()) end)) end
+local function decode(s: string): string
+  return (s:gsub("%%(%x%x)", function(h: string): string return string.char(tonumber(h, 16) as integer) end))
+end
+local function encode(s: string): string
+  return (s:gsub("[^%w%-%._~/]", function(c: string): string return string.format("%%%02X", c:byte()) end))
+end
 
 --- An address in parts: `{ kind = "note", track?, device?, param?, send?,
 --- clip?, note?, lane?, marker?, control?, number?, path?, segments }`, or
 --- nil when it is not one. The fragment (`#mix`) is kept as `fragment`.
 function M.parse(uri: string): Parts
-  if not uri is string then return nil end
+  if not (uri is string) then
+    return nil
+  end
   local body, fragment = uri:match("^paw://([^#]*)#?(.*)$")
-  if not body then return nil end
+  if not body then
+    return nil
+  end
   local seg: {string} = {}
-  for part in body:gmatch("[^/]+") do seg[#seg + 1] = part end
-  local out: Parts = { segments = seg, fragment = fragment ~= "" and fragment or nil, uri = uri }
+  for part in body:gmatch("[^/]+") do
+    seg[#seg + 1] = part
+  end
+  local out: Parts = {segments = seg, fragment = fragment ~= "" and fragment or nil, uri = uri}
   local head = seg[1]
-  local function int(s: string): integer return tonumber(s) as integer end
+  local function int(s: string): integer
+    return tonumber(s) as integer
+  end
   if head == "project" or head == "tempo" then
     out.kind = head
   elseif head == "track" then
@@ -195,7 +207,9 @@ function M.parse(uri: string): Parts
     out.kind = "track"
     if seg[3] == "device" then
       out.device, out.kind = int(seg[4]), "device"
-      if seg[5] == "param" then out.param, out.kind = seg[6] and decode(seg[6]), "param" end
+      if seg[5] == "param" then
+        out.param, out.kind = seg[6] and decode(seg[6]), "param"
+      end
     elseif seg[3] == "send" then
       out.send, out.kind = int(seg[4]), "send"
     end
@@ -225,23 +239,41 @@ end
 --- The addresses of the project, the tempo map, a track, a clip and a note.
 --- Also the addresses of a lane, a marker, a rendered file and a send, as
 --- `parse` reads them.
-function M.project(): string return "paw://project" end
+function M.project(): string
+  return "paw://project"
+end
 --- The tempo map's address.
-function M.tempo(): string return "paw://tempo" end
+function M.tempo(): string
+  return "paw://tempo"
+end
 --- A track's address.
-function M.track(id: integer): string return "paw://track/" .. id end
+function M.track(id: integer): string
+  return "paw://track/" .. id
+end
 --- A clip's address.
-function M.clip(id: integer): string return "paw://clip/" .. id end
+function M.clip(id: integer): string
+  return "paw://clip/" .. id
+end
 --- A note's address: its clip, and the note's id there.
-function M.note(clip: integer, id: integer): string return "paw://clip/" .. clip .. "/note/" .. id end
+function M.note(clip: integer, id: integer): string
+  return "paw://clip/" .. clip .. "/note/" .. id
+end
 --- An automation lane's address.
-function M.lane(id: integer): string return "paw://lane/" .. id end
+function M.lane(id: integer): string
+  return "paw://lane/" .. id
+end
 --- A marker's address.
-function M.marker(id: integer): string return "paw://marker/" .. id end
+function M.marker(id: integer): string
+  return "paw://marker/" .. id
+end
 --- A rendered file's address.
-function M.render(path: string): string return "paw://render/" .. encode(path) end
+function M.render(path: string): string
+  return "paw://render/" .. encode(path)
+end
 --- The address of a track's send to another.
-function M.send(track: integer, target: integer): string return "paw://track/" .. track .. "/send/" .. target end
+function M.send(track: integer, target: integer): string
+  return "paw://track/" .. track .. "/send/" .. target
+end
 
 --- A device's address, under its track's.
 function M.device(id: integer): string
@@ -250,10 +282,14 @@ function M.device(id: integer): string
 end
 
 --- A device parameter's address, by its key.
-function M.param(device: integer, key: string): string return M.device(device) .. "/param/" .. encode(key) end
+function M.param(device: integer, key: string): string
+  return M.device(device) .. "/param/" .. encode(key)
+end
 
 --- A location: an address and, optionally, a part of it.
-function M.location(uri: string, selector?: contracts.Selector): contracts.Location return { uri = uri, selector = selector } end
+function M.location(uri: string, selector?: contracts.Selector): contracts.Location
+  return {uri = uri, selector = selector}
+end
 
 --- What `paw.address.of` reads of a table of `paw.api`.
 local record Fields
@@ -270,21 +306,39 @@ end
 --- `paw.clip(7)`, a device), or of a table from `paw.api` (with its fields).
 function M.of(object: string | Thing): string, string
   if object is string then
-    if M.parse(object) then return object end
+    if M.parse(object) then
+      return object
+    end
     return nil
   end
-  if type(object) ~= "table" then return nil end
-  local mt = getmetatable(object as {string:Value}) as Value
+  if type(object) ~= "table" then
+    return nil
+  end
+  local mt = getmetatable(object as {string: Value}) as Value
   local t = object as Fields
-  if mt == paw.Track as Value then return M.track(t.id) end
-  if mt == paw.Clip as Value then return M.clip(t.id) end
-  if mt == paw.Device as Value then return M.device(t.id) end
-  if t.param_info and t.id then return M.device(t.id) end
-  if t.kind and t.track and t.id and t.length then return M.clip(t.id) end
-  if t.sends and t.devices and t.id then return M.track(t.id) end
+  if mt == paw.Track as Value then
+    return M.track(t.id)
+  end
+  if mt == paw.Clip as Value then
+    return M.clip(t.id)
+  end
+  if mt == paw.Device as Value then
+    return M.device(t.id)
+  end
+  if t.param_info and t.id then
+    return M.device(t.id)
+  end
+  if t.kind and t.track and t.id and t.length then
+    return M.clip(t.id)
+  end
+  if t.sends and t.devices and t.id then
+    return M.track(t.id)
+  end
   for name, scheme in pairs(M.schemes) do
     local uri = scheme.of and scheme.of(object)
-    if uri then return uri, name end
+    if uri then
+      return uri, name
+    end
   end
   return nil
 end
@@ -296,14 +350,18 @@ local clip_notes = api.clip_notes as function(id: integer): {types.Note}
 
 local function try<A, R>(fn: function(A): R, value: A): R
   local ok, v = pcall(fn, value)
-  if ok then return v end
+  if ok then
+    return v
+  end
 end
 
 --- The note of a clip with an id, and its place in the clip (from 1).
 function M.find_note(clip: integer, id: integer): types.Note, integer
   local notes = try(clip_notes, clip)
   for place, n in ipairs(notes or {}) do
-    if n.id == id then return n, place end
+    if n.id == id then
+      return n, place
+    end
   end
 end
 
@@ -324,48 +382,74 @@ end
 --- `place`; a parameter is `{ key, value, info }`), or nil when it is gone.
 function M.resolve(uri: string): Thing
   local p = M.parse(uri)
-  if not p then return nil end
-  if p.kind == "project" then return api.project_get() as Thing end
-  if p.kind == "tempo" then return api.tempo_points() as Thing end
-  if p.kind == "track" then return p.track and try(api.track_get, p.track) as Thing end
+  if not p then
+    return nil
+  end
+  if p.kind == "project" then
+    return api.project_get() as Thing
+  end
+  if p.kind == "tempo" then
+    return api.tempo_points() as Thing
+  end
+  if p.kind == "track" then
+    return p.track and try(api.track_get, p.track) as Thing
+  end
   if p.kind == "device" or p.kind == "param" then
     local d = p.device and try(api.device_get, p.device)
-    if not d or d.track ~= p.track then return nil end
-    if p.kind == "device" then return d as Thing end
+    if not d or d.track ~= p.track then
+      return nil
+    end
+    if p.kind == "device" then
+      return d as Thing
+    end
     for _, info in ipairs(d.param_info or {}) do
-      if info.key == p.param then return { key = p.param, value = d.params[p.param], info = info, device = d.id } as Param end
+      if info.key == p.param then
+        return {key = p.param, value = d.params[p.param], info = info, device = d.id} as Param
+      end
     end
     return nil
   end
   if p.kind == "send" then
     local t = p.track and try(api.track_get, p.track)
     for _, s in ipairs(t and t.sends or {}) do
-      if s.target == p.send then return s as Thing end
+      if s.target == p.send then
+        return s as Thing
+      end
     end
     return nil
   end
-  if p.kind == "clip" then return p.clip and try(api.clip_get, p.clip) as Thing end
+  if p.kind == "clip" then
+    return p.clip and try(api.clip_get, p.clip) as Thing
+  end
   if p.kind == "note" then
     local n, place = M.find_note(p.clip, p.note)
-    if n then return util.merge(n as {string:Value}, { place = place as Value, clip = p.clip as Value }) as PlacedNote end
+    if n then
+      return util.merge(n as {string: Value}, {place = place as Value, clip = p.clip as Value}) as PlacedNote
+    end
     return nil
   end
   if p.kind == "control" then
     local out: {types.Control} = {}
     for _, c in ipairs(try(api.clip_controls, p.clip) or {}) do
-      if c.type as string == p.control and (not p.number or c.number == p.number) then out[#out + 1] = c end
+      if c.type as string == p.control and (not p.number or c.number == p.number) then
+        out[#out + 1] = c
+      end
     end
     return try(api.clip_get, p.clip) and out as Thing or nil
   end
-  if p.kind == "lane" then return p.lane and try(api.lane_get, p.lane) as Thing end
+  if p.kind == "lane" then
+    return p.lane and try(api.lane_get, p.lane) as Thing
+  end
   if p.kind == "marker" then
     for _, m in ipairs(paw.markers and paw.markers.list() or {}) do
-      if m.id == p.marker then return m as Thing end
+      if m.id == p.marker then
+        return m as Thing
+      end
     end
     return nil
   end
   if p.kind == "render" then
-    return M.renders[p.path] or (io.open(p.path) and { path = p.path } as Rendered) or nil
+    return M.renders[p.path] or (io.open(p.path) and {path = p.path} as Rendered) or nil
   end
   local scheme = M.schemes[p.kind]
   return scheme and scheme.resolve(uri, p)
@@ -374,10 +458,18 @@ end
 --- The address that holds this one (a note's clip, a device's track), or nil.
 function M.parent(uri: string): string
   local p = M.parse(uri)
-  if not p then return nil end
-  if p.kind == "note" or p.kind == "control" then return M.clip(p.clip) end
-  if p.kind == "param" then return "paw://track/" .. p.track .. "/device/" .. p.device end
-  if p.kind == "device" or p.kind == "send" then return M.track(p.track) end
+  if not p then
+    return nil
+  end
+  if p.kind == "note" or p.kind == "control" then
+    return M.clip(p.clip)
+  end
+  if p.kind == "param" then
+    return "paw://track/" .. p.track .. "/device/" .. p.device
+  end
+  if p.kind == "device" or p.kind == "send" then
+    return M.track(p.track)
+  end
   if p.kind == "clip" then
     local c = try(api.clip_get, p.clip)
     return c and M.track(c.track) or nil
@@ -386,9 +478,13 @@ function M.parent(uri: string): string
     local l = try(api.lane_get, p.lane)
     return l and l.track and M.track(l.track) or M.project()
   end
-  if p.kind == "project" then return nil end
+  if p.kind == "project" then
+    return nil
+  end
   local scheme = M.schemes[p.kind]
-  if scheme and scheme.parent then return scheme.parent(uri, p) end
+  if scheme and scheme.parent then
+    return scheme.parent(uri, p)
+  end
   return M.project()
 end
 
@@ -396,22 +492,36 @@ end
 function M.children(uri: string): {string}
   local p = M.parse(uri)
   local out: {string} = {}
-  if not p then return out end
+  if not p then
+    return out
+  end
   if p.kind == "project" then
-    for _, id in ipairs(api.track_list()) do out[#out + 1] = M.track(id) end
+    for _, id in ipairs(api.track_list()) do
+      out[#out + 1] = M.track(id)
+    end
     out[#out + 1] = M.track(0)
     out[#out + 1] = M.tempo()
   elseif p.kind == "track" then
     local t = try(api.track_get, p.track)
-    for _, d in ipairs(t and t.devices or {}) do out[#out + 1] = "paw://track/" .. p.track .. "/device/" .. d end
-    for _, s in ipairs(t and t.sends or {}) do out[#out + 1] = M.send(p.track, s.target) end
-    for _, c in ipairs(t and try(api.clip_list, p.track) or {}) do out[#out + 1] = M.clip(c.id) end
+    for _, d in ipairs(t and t.devices or {}) do
+      out[#out + 1] = "paw://track/" .. p.track .. "/device/" .. d
+    end
+    for _, s in ipairs(t and t.sends or {}) do
+      out[#out + 1] = M.send(p.track, s.target)
+    end
+    for _, c in ipairs(t and try(api.clip_list, p.track) or {}) do
+      out[#out + 1] = M.clip(c.id)
+    end
   elseif p.kind == "device" then
     local d = try(api.device_get, p.device)
-    for _, info in ipairs(d and d.param_info or {}) do out[#out + 1] = uri .. "/param/" .. encode(info.key) end
+    for _, info in ipairs(d and d.param_info or {}) do
+      out[#out + 1] = uri .. "/param/" .. encode(info.key)
+    end
   elseif p.kind == "clip" then
     for _, n in ipairs(try(clip_notes, p.clip) or {}) do
-      if n.id then out[#out + 1] = M.note(p.clip, n.id) end
+      if n.id then
+        out[#out + 1] = M.note(p.clip, n.id)
+      end
     end
   elseif M.schemes[p.kind] and M.schemes[p.kind].children then
     out = M.schemes[p.kind].children(uri, p)
@@ -422,11 +532,17 @@ end
 --- True if `uri` is `ancestor` or is inside it (a note inside its clip, a
 --- parameter inside its device and track). All addresses are inside the project.
 function M.within(uri: string, ancestor: string): boolean
-  if ancestor == M.project() then return true end
+  if ancestor == M.project() then
+    return true
+  end
   local at = uri
   for _ = 1, 8 do
-    if not at then return false end
-    if at == ancestor or at:sub(1, #ancestor + 1) == ancestor .. "/" then return true end
+    if not at then
+      return false
+    end
+    if at == ancestor or at:sub(1, #ancestor + 1) == ancestor .. "/" then
+      return true
+    end
     at = M.parent(at)
   end
   return false
@@ -437,8 +553,12 @@ function M.track_of(uri: string): integer
   local at = uri
   for _ = 1, 8 do
     local p = at and M.parse(at)
-    if not p then return nil end
-    if p.track then return p.track end
+    if not p then
+      return nil
+    end
+    if p.track then
+      return p.track
+    end
     at = M.parent(at)
   end
 end
@@ -458,55 +578,85 @@ end
 
 -- Workspace edits ------------------------------------------------------------
 
-local TRACK_FIELDS: {string:boolean} = { volume = true, pan = true, mute = true, solo = true, name = true, output = true, armed = true }
-local CLIP_FIELDS: {string:boolean} = { start = true, length = true, name = true, muted = true }
-local NOTE_FIELDS: {string:boolean} = { pitch = true, start = true, length = true, velocity = true, meta = true, attr = true }
+local TRACK_FIELDS: {string: boolean} = {
+  volume = true, pan = true, mute = true, solo = true, name = true, output = true, armed = true
+}
+local CLIP_FIELDS: {string: boolean} = {start = true, length = true, name = true, muted = true}
+local NOTE_FIELDS: {string: boolean} = {
+  pitch = true, start = true, length = true, velocity = true, meta = true, attr = true
+}
 
 -- Check one change; return what to do, or nil and why not.
 local function plan(change: Change): Parts, string
   local p = M.parse(change.uri)
-  if not p then return nil, "not an address: " .. tostring(change.uri) end
+  if not p then
+    return nil, "not an address: " .. tostring(change.uri)
+  end
   local what = change.delete and "delete" or change.insert and "insert" or change.set and "set"
-  if not what then return nil, change.uri .. ": a change sets, inserts or deletes" end
-  if p.kind ~= "render" and not M.resolve(change.uri) then return nil, change.uri .. " is gone" end
-  local function only(fields: {string:boolean}, set: {string:Value}): boolean, string
+  if not what then
+    return nil, change.uri .. ": a change sets, inserts or deletes"
+  end
+  if p.kind ~= "render" and not M.resolve(change.uri) then
+    return nil, change.uri .. " is gone"
+  end
+  local function only(fields: {string: boolean}, set: {string: Value}): boolean, string
     for k in pairs(set) do
-      if not fields[k] then return nil, string.format("%s: cannot set `%s`", change.uri, k) end
+      if not fields[k] then
+        return nil, string.format("%s: cannot set `%s`", change.uri, k)
+      end
     end
     return true
   end
   if p.kind == "note" then
-    if what == "insert" then return nil, "notes are inserted into their clip" end
+    if what == "insert" then
+      return nil, "notes are inserted into their clip"
+    end
     if what == "set" then
       local ok, err = only(NOTE_FIELDS, change.set)
-      if not ok then return nil, err end
+      if not ok then
+        return nil, err
+      end
     end
   elseif p.kind == "clip" then
     if what == "set" then
       local ok, err = only(CLIP_FIELDS, change.set)
-      if not ok then return nil, err end
+      if not ok then
+        return nil, err
+      end
     elseif what == "insert" and not (change.insert.notes or change.insert.pitch) then
       return nil, change.uri .. ": a clip takes notes"
     end
   elseif p.kind == "track" then
     if what == "set" then
       local ok, err = only(TRACK_FIELDS, change.set)
-      if not ok then return nil, err end
+      if not ok then
+        return nil, err
+      end
     elseif what == "insert" and not (change.insert.device or change.insert.clip) then
       return nil, change.uri .. ": a track takes a device or a clip"
     elseif what == "delete" and p.track == 0 then
       return nil, "the master track stays"
     end
   elseif p.kind == "device" then
-    if what == "insert" then return nil, "nothing is inserted into a device" end
+    if what == "insert" then
+      return nil, "nothing is inserted into a device"
+    end
   elseif p.kind == "param" then
-    if what ~= "set" or change.set.value == nil then return nil, change.uri .. ": a parameter takes `set = { value = ... }`" end
+    if what ~= "set" or change.set.value == nil then
+      return nil, change.uri .. ": a parameter takes `set = { value = ... }`"
+    end
   elseif p.kind == "send" then
-    if what == "insert" then return nil, "nothing is inserted into a send" end
+    if what == "insert" then
+      return nil, "nothing is inserted into a send"
+    end
   elseif p.kind == "render" then
-    if what ~= "set" then return nil, "a render is rendered again with `set`" end
+    if what ~= "set" then
+      return nil, "a render is rendered again with `set`"
+    end
   elseif M.schemes[p.kind] then
-    if not M.schemes[p.kind].edit then return nil, p.kind .. " addresses cannot be edited" end
+    if not M.schemes[p.kind].edit then
+      return nil, p.kind .. " addresses cannot be edited"
+    end
   else
     return nil, p.kind .. " addresses cannot be edited"
   end
@@ -533,15 +683,19 @@ function M.edit(changes: {Change}, label?: string): boolean, string
   local plans: {Parts} = {}
   for i, change in ipairs(changes or {}) do
     local p, why = plan(change)
-    if not p then return nil, why end
+    if not p then
+      return nil, why
+    end
     plans[i] = p
   end
-  if label then api.undo_label(label) end
+  if label then
+    api.undo_label(label)
+  end
   -- Notes go clip by clip in one edit each, by their places before it.
   local by_clip: {integer: objects.NotesEditInput} = {}
   local renders: {Rerender} = {}
   local function clip_edit(id: integer): objects.NotesEditInput
-    by_clip[id] = by_clip[id] or { set = {}, remove = {}, add = {} }
+    by_clip[id] = by_clip[id] or {set = {}, remove = {}, add = {}}
     return by_clip[id]
   end
   for i, change in ipairs(changes) do
@@ -549,31 +703,45 @@ function M.edit(changes: {Change}, label?: string): boolean, string
     if p.kind == "note" then
       local _, place = M.find_note(p.clip, p.note)
       local e = clip_edit(p.clip)
-      if change.delete then e.remove[#e.remove + 1] = place
-      else e.set[#e.set + 1] = util.merge(change.set, { index = place as Value }) as objects.NoteChangeInput end
+      if change.delete then
+        e.remove[#e.remove + 1] = place
+      else
+        e.set[#e.set + 1] = util.merge(change.set, {index = place as Value}) as objects.NoteChangeInput
+      end
     elseif p.kind == "clip" then
-      if change.delete then api.clip_remove(p.clip)
+      if change.delete then
+        api.clip_remove(p.clip)
       elseif change.insert then
         local e = clip_edit(p.clip)
-        for _, n in ipairs(change.insert.notes or { change.insert as objects.NoteInput }) do e.add[#e.add + 1] = n end
+        for _, n in ipairs(change.insert.notes or {change.insert as objects.NoteInput}) do
+          e.add[#e.add + 1] = n
+        end
       else
-        for k, v in pairs(change.set) do clip_set(p.clip, k, v) end
+        for k, v in pairs(change.set) do
+          clip_set(p.clip, k, v)
+        end
       end
     elseif p.kind == "track" then
-      if change.delete then api.track_remove(p.track)
+      if change.delete then
+        api.track_remove(p.track)
       elseif change.insert and change.insert.device then
-        api.device_add(p.track, change.insert.device, { params = change.insert.params, index = change.insert.index })
+        api.device_add(p.track, change.insert.device, {params = change.insert.params, index = change.insert.index})
       elseif change.insert then
         api.clip_add(p.track, change.insert.clip)
       else
-        for k, v in pairs(change.set) do track_set(p.track, k, v) end
+        for k, v in pairs(change.set) do
+          track_set(p.track, k, v)
+        end
       end
     elseif p.kind == "device" then
-      if change.delete then api.device_remove(p.device)
+      if change.delete then
+        api.device_remove(p.device)
       else
         for k, v in pairs(change.set) do
           if k == "params" then
-            for key, value in pairs(v as {string: number | string}) do api.device_set_param(p.device, key, value) end
+            for key, value in pairs(v as {string: number | string}) do
+              api.device_set_param(p.device, key, value)
+            end
           else
             device_set(p.device, k, v)
           end
@@ -584,22 +752,27 @@ function M.edit(changes: {Change}, label?: string): boolean, string
     elseif p.kind == "send" then
       local sends: {types.Send} = {}
       for _, s in ipairs(api.track_get(p.track).sends) do
-        if s.target ~= p.send then sends[#sends + 1] = s
-        elseif not change.delete then sends[#sends + 1] = util.merge(s as {string:Value}, change.set) as types.Send end
+        if s.target ~= p.send then
+          sends[#sends + 1] = s
+        elseif not change.delete then
+          sends[#sends + 1] = util.merge(s as {string: Value}, change.set) as types.Send
+        end
       end
-      api.track_set(p.track, { sends = sends })
+      api.track_set(p.track, {sends = sends})
     elseif p.kind == "render" then
-      renders[#renders + 1] = { path = p.path, opts = change.set as RenderOptions }
+      renders[#renders + 1] = {path = p.path, opts = change.set as RenderOptions}
     else
       M.schemes[p.kind].edit(change, p)
     end
   end
-  for id, e in pairs(by_clip) do paw.clip(id):edit_notes(e) end
+  for id, e in pairs(by_clip) do
+    paw.clip(id):edit_notes(e)
+  end
   -- A render is not an edit of the project: it is made again afterwards,
   -- with what was set over the options it was made with.
   for _, r in ipairs(renders) do
     local before = M.renders[r.path] and M.renders[r.path].opts or {}
-    paw.render(r.path, util.merge(util.merge(before, r.opts), { background = true as RenderValue }))
+    paw.render(r.path, util.merge(util.merge(before, r.opts), {background = true as RenderValue}))
   end
   return true
 end
@@ -611,7 +784,9 @@ end
 M.renders = {}
 
 -- The project's count of edits, read alone (`project_get(key)`, which Teal does not see).
-local function edits(): integer return (api.project_get as function(string): integer)("edits") end
+local function edits(): integer
+  return (api.project_get as function(string): integer)("edits")
+end
 
 local render_before: events.Event<RenderBefore> = events.event("render.before")
 local render_finished: events.Event<types.RenderResult> = events.event("render.finished")
@@ -619,11 +794,15 @@ local render_finished: events.Event<types.RenderResult> = events.event("render.f
 local pending_opts: {string: RenderOptions} = {}
 events.on(render_before, function(e: RenderBefore) pending_opts[e.path] = e.opts end)
 local function rendered(info: types.RenderResult)
-  if not info is types.RenderResult or not info.path then return end
-  local entry = util.merge(info as {string:Value}, { opts = (pending_opts[info.path] or {}) as Value, at = api.now() as Value }) as Rendered
+  if not (info is types.RenderResult) or not info.path then
+    return
+  end
+  local entry = util.merge(
+    info as {string: Value}, {opts = (pending_opts[info.path] or {}) as Value, at = api.now() as Value}
+  ) as Rendered
   pending_opts[info.path] = nil
   M.renders[info.path] = entry
-  events.emit(M.changed, { uris = { M.render(info.path) }, revision = edits(), rendered = entry })
+  events.emit(M.changed, {uris = {M.render(info.path)}, revision = edits(), rendered = entry})
 end
 events.on(kernel.render_done, rendered)
 events.on(render_finished, rendered)
@@ -637,45 +816,84 @@ events.on(kernel.project_loaded, function() M.renders = {} end)
 -- become one `address.changed { uris, revision }` for the edit, after the
 -- kernel's own `changed`, so that whoever watches addresses never diffs
 -- snapshots.
-local pending: {string:boolean} = {}
+local pending: {string: boolean} = {}
 local scheduled: integer = nil
 local function tell()
   -- Told now (at the kernel's `changed`): the timer is not needed any more.
-  if scheduled then paw.cancel(scheduled) end
+  if scheduled then
+    paw.cancel(scheduled)
+  end
   scheduled = nil
-  if not next(pending) then return end
+  if not next(pending) then
+    return
+  end
   local uris: {string} = {}
-  for uri in pairs(pending) do uris[#uris + 1] = uri end
+  for uri in pairs(pending) do
+    uris[#uris + 1] = uri
+  end
   table.sort(uris)
   pending = {}
-  events.emit(M.changed, { uris = uris, revision = edits() })
+  events.emit(M.changed, {uris = uris, revision = edits()})
 end
 local function changed(uris: {string})
-  for _, uri in ipairs(uris) do pending[uri] = true end
-  if not scheduled then scheduled = paw.defer(tell, 0) end
+  for _, uri in ipairs(uris) do
+    pending[uri] = true
+  end
+  if not scheduled then
+    scheduled = paw.defer(tell, 0)
+  end
 end
-local function family(name: string): events.Event<WithId> return events.event(name) end
-events.on(family("track.*"), function(e: WithId) if e.id then changed({ M.track(e.id) }) end end)
-events.on(family("clip.*"), function(e: WithId) if e.id then changed({ M.clip(e.id) }) end end)
-events.on(family("device.*"), function(e: WithId)
-  if not e.id then return end
-  local ok, d = pcall(api.device_get, e.id)
-  changed({ ok and ("paw://track/" .. d.track .. "/device/" .. e.id) or M.project() })
-end)
-events.on(family("lane.*"), function(e: WithId) if e.id then changed({ M.lane(e.id) }) end end)
-events.on(events.pattern("project.*"), function() changed({ M.project() }) end)
+local function family(name: string): events.Event<WithId>
+  return events.event(name)
+end
+events.on(
+  family("track.*"),
+  function(e: WithId)
+    if e.id then
+      changed({M.track(e.id)})
+    end
+  end
+)
+events.on(
+  family("clip.*"),
+  function(e: WithId)
+    if e.id then
+      changed({M.clip(e.id)})
+    end
+  end
+)
+events.on(
+  family("device.*"),
+  function(e: WithId)
+    if not e.id then
+      return
+    end
+    local ok, d = pcall(api.device_get, e.id)
+    changed({ok and ("paw://track/" .. d.track .. "/device/" .. e.id) or M.project()})
+  end
+)
+events.on(
+  family("lane.*"),
+  function(e: WithId)
+    if e.id then
+      changed({M.lane(e.id)})
+    end
+  end
+)
+events.on(events.pattern("project.*"), function() changed({M.project()}) end)
 -- What changes without an event of its own (the tempo map, the project's
 -- meta) is the project's.
-events.on(kernel.changed, function()
-  changed({ M.project() })
-  tell()
-end)
+events.on(kernel.changed, function() changed({M.project()}); tell() end)
 
 --- True if an address matches a pattern: `paw://track/*` (one level),
 --- `paw://track/**` (any depth), or an exact address.
 function M.matches(pattern: string, uri: string): boolean
-  if pattern == uri then return true end
-  local lua = "^" .. pattern:gsub("[%^%$%(%)%%%.%[%]%+%-%?]", "%%%0"):gsub("%*%*", "\1"):gsub("%*", "[^/]*"):gsub("\1", ".*") .. "$"
+  if pattern == uri then
+    return true
+  end
+  local lua = "^"
+    .. pattern:gsub("[%^%$%(%)%%%.%[%]%+%-%?]", "%%%0"):gsub("%*%*", "\1"):gsub("%*", "[^/]*"):gsub("\1", ".*")
+    .. "$"
   return uri:match(lua) ~= nil
 end
 

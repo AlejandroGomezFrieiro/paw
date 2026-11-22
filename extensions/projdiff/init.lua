@@ -14,12 +14,21 @@ local function compare(ctx)
     return
   end
   local tree = projdiff.diff.diff(versions.from.project, versions.to.project)
-  return tree, string.format("%s → %s: %d change%s", versions.from_label, versions.to_label, tree.count, tree.count == 1 and "" or "s")
+  return tree,
+    string.format(
+      "%s → %s: %d change%s",
+      versions.from_label,
+      versions.to_label,
+      tree.count,
+      tree.count == 1 and "" or "s"
+    )
 end
 
 local function versions_complete()
   local words = { "now", "HEAD", "HEAD~1" }
-  for _, s in ipairs(projdiff.snapshots()) do words[#words + 1] = "snap:" .. s.name end
+  for _, s in ipairs(projdiff.snapshots()) do
+    words[#words + 1] = "snap:" .. s.name
+  end
   return words
 end
 
@@ -42,14 +51,28 @@ end, { desc = "The changes of `Pdiff` as a quickfix list, each a place to jump t
 
 command("Psnapshot", function(ctx)
   local name, file = projdiff.snapshot(table.concat(ctx.args, " "))
-  paw.notify("snapshot " .. name .. (file and " written beside the project" or " kept for this session") .. "; `:Pdiff snap:" .. name .. "` compares with it")
+  paw.notify(
+    "snapshot "
+      .. name
+      .. (file and " written beside the project" or " kept for this session")
+      .. "; `:Pdiff snap:"
+      .. name
+      .. "` compares with it"
+  )
 end, { desc = "Keep the project as it is, to compare with later: `Psnapshot before the bridge`", raw = true })
 
-command("Pmerge", function(ctx)
-  local path = ctx.args[1] or paw.api.project_get("path")
-  if not path then return paw.notify("the project has no file: `:Pmerge file.json`", "warn") end
-  mergeview.open(path)
-end, { desc = "Settle the conflicts a git merge left in a project (the open one, or `Pmerge file.json`)", complete = { "files" } })
+command(
+  "Pmerge",
+  function(ctx)
+    local path = ctx.args[1] or paw.api.project_get("path")
+    if not path then return paw.notify("the project has no file: `:Pmerge file.json`", "warn") end
+    mergeview.open(path)
+  end,
+  {
+    desc = "Settle the conflicts a git merge left in a project (the open one, or `Pmerge file.json`)",
+    complete = { "files" },
+  }
+)
 
 command("Pgit", function()
   local root = debug.getinfo(1, "S").source:match("^@(.*)/[^/]*$") or "extensions/projdiff"
@@ -58,9 +81,9 @@ command("Pgit", function()
     "*.json diff=paw merge=paw   (or the names of your project files)",
     "",
     { text = "And this to the repository (git config) or ~/.gitconfig", style = "HelpSection" },
-    "[diff \"paw\"]",
+    '[diff "paw"]',
     "  textconv = paw --clean --no-plugins --no-listen --audio null -l " .. root .. "/git.lua textconv",
-    "[merge \"paw\"]",
+    '[merge "paw"]',
     "  name = paw project merge",
     "  driver = paw --clean --no-plugins --no-listen --audio null -l " .. root .. "/git.lua merge %O %A %B %L %P",
     "",
@@ -79,6 +102,9 @@ paw.on("project.loaded", function()
   local meta = paw.api.project_get().meta
   local list = meta and meta.merge_conflicts
   if type(list) == "table" and #list > 0 then
-    paw.notify(#list .. " merge conflict" .. (#list == 1 and "" or "s") .. " left in this project: `:Pmerge` settles them", "warn")
+    paw.notify(
+      #list .. " merge conflict" .. (#list == 1 and "" or "s") .. " left in this project: `:Pmerge` settles them",
+      "warn"
+    )
   end
 end)

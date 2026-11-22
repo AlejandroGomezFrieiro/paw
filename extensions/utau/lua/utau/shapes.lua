@@ -50,7 +50,9 @@ function M.pp(note)
   local pp = props(note).pp
   if type(pp) ~= "table" or type(pp.pts) ~= "table" or #pp.pts < 1 then return copy(M.DEFAULT_PP) end
   local out = { snap = pp.snap ~= false, pts = {} }
-  for i, p in ipairs(pp.pts) do out.pts[i] = { p[1] or 0, p[2] or 0, p[3] or 0 } end
+  for i, p in ipairs(pp.pts) do
+    out.pts[i] = { p[1] or 0, p[2] or 0, p[3] or 0 }
+  end
   table.sort(out.pts, function(a, b) return a[1] < b[1] end)
   return out
 end
@@ -66,7 +68,9 @@ function M.vb(note)
   local vb = props(note).vb
   if type(vb) ~= "table" or (vb[1] or 0) <= 0 then return nil end
   local out = {}
-  for i = 1, 8 do out[i] = vb[i] or 0 end
+  for i = 1, 8 do
+    out[i] = vb[i] or 0
+  end
   return out
 end
 
@@ -167,7 +171,9 @@ function M.drag_vibrato(vb0, which, note, dbeat, dcents, tempo)
   elseif which == "drift" then
     vb[7] = clamp(vb0[7] + dcents / math.max(1, vb0[3]) * 100, -100, 100)
   end
-  for i = 1, 8 do vb[i] = math.floor(vb[i] * 10 + 0.5) / 10 end
+  for i = 1, 8 do
+    vb[i] = math.floor(vb[i] * 10 + 0.5) / 10
+  end
   return vb
 end
 

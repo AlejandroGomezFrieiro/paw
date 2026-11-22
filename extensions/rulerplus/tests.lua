@@ -11,7 +11,9 @@ local function song()
   local keys = paw.add_track({ name = "Keys" })
   local notes = {}
   for i, chord in ipairs({ { "C4", "E4", "G4" }, { "F4", "A4", "C5" } }) do
-    for _, pitch in ipairs(chord) do notes[#notes + 1] = { pitch = pitch, start = (i - 1) * 8, length = 8 } end
+    for _, pitch in ipairs(chord) do
+      notes[#notes + 1] = { pitch = pitch, start = (i - 1) * 8, length = 8 }
+    end
   end
   keys:add_clip({ start = 0, length = 16, notes = notes })
   paw.cursor.set_track(keys)
@@ -59,13 +61,19 @@ end)
 test("rulerplus: :ext.unload puts the bar labels back as they were", function()
   T.fresh()
   local labels = {}
-  for k, v in pairs(paw.ruler.labels) do labels[k] = v end
+  for k, v in pairs(paw.ruler.labels) do
+    labels[k] = v
+  end
   local shown = table.concat(paw.opt.barlabel, ",")
   local before = ruler()
   paw.ext.load("extensions/rulerplus")
   paw.keymap.feed(":ext.unload rulerplus<CR>")
-  for k, v in pairs(labels) do eq(paw.ruler.labels[k], v, "the part " .. k) end
-  for k in pairs(paw.ruler.labels) do eq(labels[k] ~= nil, true, "no part left: " .. k) end
+  for k, v in pairs(labels) do
+    eq(paw.ruler.labels[k], v, "the part " .. k)
+  end
+  for k in pairs(paw.ruler.labels) do
+    eq(labels[k] ~= nil, true, "no part left: " .. k)
+  end
   eq(table.concat(paw.opt.barlabel, ","), shown, "paw.opt.barlabel")
   eq(ruler(), before, "the ruler")
 end)

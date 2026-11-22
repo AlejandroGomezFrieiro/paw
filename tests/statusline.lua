@@ -12,7 +12,9 @@ local initial = paw.layout.capture()
 
 --- The windows a test opened go when it ends.
 local function tidy()
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.layout.restore(initial)
   for _, buf in ipairs(paw.layout.buffers_list()) do
     if buf.type == "textbuf" then paw.layout.buf_delete(buf) end
@@ -23,7 +25,9 @@ local function start()
   fresh()
   after(tidy)
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.focus("arrange")
   sl.reset()
   after(function() sl.reset() end)
@@ -32,7 +36,9 @@ end
 --- The text of a line as pieces gave it.
 local function text_of(list)
   local out = {}
-  for i, piece in ipairs(list) do out[i] = piece[1] end
+  for i, piece in ipairs(list) do
+    out[i] = piece[1]
+  end
   return table.concat(out)
 end
 
@@ -53,14 +59,16 @@ end)
 
 test("statusline: sections hold components by name, function or table, in the order given", function()
   start()
-  sl.setup({ sections = {
-    a = { "mode" },
-    b = { function() return "bee" end },
-    c = { { function() return "see" end, style = "StatusOn" }, { "grid", min = 10 } },
-    x = {},
-    y = { function() return { { "why", "StatusWarn" } } end },
-    z = { function() return "zed" end },
-  } })
+  sl.setup({
+    sections = {
+      a = { "mode" },
+      b = { function() return "bee" end },
+      c = { { function() return "see" end, style = "StatusOn" }, { "grid", min = 10 } },
+      x = {},
+      y = { function() return { { "why", "StatusWarn" } } end },
+      z = { function() return "zed" end },
+    },
+  })
   local l = line()
   local left, right = text_of(l.left), text_of(l.right)
   eq(left:find("bee", 1, true) < left:find("see", 1, true), true, "b before c")
@@ -68,7 +76,9 @@ test("statusline: sections hold components by name, function or table, in the or
   eq(right:find("why", 1, true) < right:find("zed", 1, true), true, "y before z: " .. right)
   eq(left:find("bpm", 1, true), nil, "what is left out is not there")
   local styles = {}
-  for _, piece in ipairs(l.left) do styles[piece[1]] = piece[2] end
+  for _, piece in ipairs(l.left) do
+    styles[piece[1]] = piece[2]
+  end
   eq(styles.see, "StatusOn", "a table's style")
   eq(styles.bee, "StatusLine", "a section's own, for plain text")
   eq(sl.customized(), true, "the window is told the line")
@@ -77,14 +87,21 @@ end)
 test("statusline: a component may have a condition, a narrowest screen and a rank", function()
   start()
   local on = false
-  sl.setup({ sections = {
-    a = {}, b = {}, c = {
-      { function() return "alpha" end, cond = function() return on end },
-      { function() return "wide" end, min = 100 },
-      { function() return "late" end, rank = 9 },
-      { function() return "early" end, rank = 1 },
-    }, x = {}, y = {}, z = {},
-  } })
+  sl.setup({
+    sections = {
+      a = {},
+      b = {},
+      c = {
+        { function() return "alpha" end, cond = function() return on end },
+        { function() return "wide" end, min = 100 },
+        { function() return "late" end, rank = 9 },
+        { function() return "early" end, rank = 1 },
+      },
+      x = {},
+      y = {},
+      z = {},
+    },
+  })
   eq(text_of(line(140).left):find("alpha", 1, true), nil, "no when its condition is false")
   on = true
   eq(text_of(line(140).left):find("alpha", 1, true) ~= nil, true, "shown once it holds")
@@ -141,10 +158,13 @@ end)
 test("statusline: a component with a key is called again only when its key changes", function()
   start()
   local key, calls = "one", 0
-  paw.statusline.component("counted", { key = function() return key end, fn = function()
-    calls = calls + 1
-    return "n" .. calls
-  end })
+  paw.statusline.component("counted", {
+    key = function() return key end,
+    fn = function()
+      calls = calls + 1
+      return "n" .. calls
+    end,
+  })
   sl.setup({ sections = { z = { "counted" } } })
   line()
   line()
@@ -178,7 +198,9 @@ test("statusline: a theme chooses the colours of the mode pill and of each secti
   paw.keymap.set_mode("n")
   sl.setup({ theme = { c = "StatusDim" }, sections = { c = { function() return "dimmed" end } } })
   local styles = {}
-  for _, piece in ipairs(line().left) do styles[piece[1]] = piece[2] end
+  for _, piece in ipairs(line().left) do
+    styles[piece[1]] = piece[2]
+  end
   eq(styles.dimmed, "StatusDim", "a section drawn in a group of the theme's")
 end)
 

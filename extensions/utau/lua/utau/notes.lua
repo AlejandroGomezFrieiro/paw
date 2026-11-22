@@ -9,18 +9,12 @@ local copy = paw.util.copy
 M.copy = copy
 
 --- The notes of a clip, in time order (the order the kernel keeps them in).
-function M.list(clip_id)
-  return api.clip_notes(clip_id)
-end
+function M.list(clip_id) return api.clip_notes(clip_id) end
 
 --- Whether a lyric is a rest, which is not sung (UTAU's `R`).
-function M.is_rest(lyric)
-  return lyric == "R" or lyric == "r"
-end
+function M.is_rest(lyric) return lyric == "R" or lyric == "r" end
 
-function M.lyric(note)
-  return note.meta and note.meta.lyric or nil
-end
+function M.lyric(note) return note.meta and note.meta.lyric or nil end
 
 --- Change some notes of a clip with `fn(note, index)`, which returns true for
 --- each note it changed. One edit for all of them. Returns how many changed.
@@ -83,7 +77,9 @@ end
 function M.walker(list)
   local j = 0
   return function(beat)
-    while list[j + 1] and list[j + 1].start <= beat + 1e-9 do j = j + 1 end
+    while list[j + 1] and list[j + 1].start <= beat + 1e-9 do
+      j = j + 1
+    end
     for k = j, math.max(1, j - 8), -1 do
       local n = list[k]
       if beat < n.start + n.length then return n, k end
@@ -100,7 +96,9 @@ function M.sampler(points, default)
   return function(beat)
     if #points == 0 then return default end
     if beat <= points[1][1] then return points[1][2] end
-    while points[i + 1] and points[i + 1][1] <= beat do i = i + 1 end
+    while points[i + 1] and points[i + 1][1] <= beat do
+      i = i + 1
+    end
     local a, b = points[i], points[i + 1]
     if not b then return a[2] end
     if b[1] <= a[1] then return b[2] end
@@ -188,7 +186,9 @@ function M.bend(track_id, device_id, abbr, beat, delta, width)
   for _, p in ipairs(points) do
     if math.abs(p[1] - beat) > 1e-9 then out[#out + 1] = p end
   end
-  for _, p in ipairs(around) do out[#out + 1] = p end
+  for _, p in ipairs(around) do
+    out[#out + 1] = p
+  end
   out[#out + 1] = { beat, value }
   table.sort(out, function(a, b) return a[1] < b[1] end)
   api.lane_set_points(lane, out)

@@ -17,7 +17,9 @@ local initial = L.capture()
 local function tidy()
   require("paw.menu").close(0)
   L.restore(initial)
-  for name in pairs(paw.canvas.open_views) do paw.canvas.close(name) end
+  for name in pairs(paw.canvas.open_views) do
+    paw.canvas.close(name)
+  end
   paw.ui.focus("arrange")
 end
 
@@ -25,11 +27,15 @@ local function start()
   T.after(tidy)
   fresh()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   require("paw.menu").close(0)
   paw.mouse.forget()
   L.restore(initial)
-  for name in pairs(paw.canvas.open_views) do paw.canvas.close(name) end
+  for name in pairs(paw.canvas.open_views) do
+    paw.canvas.close(name)
+  end
   paw.ui.focus("arrange")
 end
 
@@ -39,7 +45,9 @@ local function screen() return table.concat(api.ui_snapshot(W, H), "\n") end
 
 local function beats(points)
   local out = {}
-  for i, q in ipairs(points) do out[i] = string.format("%g", q.beat) end
+  for i, q in ipairs(points) do
+    out[i] = string.format("%g", q.beat)
+  end
   return table.concat(out, " ")
 end
 
@@ -88,11 +96,15 @@ test("curves in cells are connected sextants, and steep jumps have no gaps", fun
   paw.opt.ascii = false
   local braille = plot(function(i) return i / 12 end, "braille")
   local any = false
-  for _, ch in pairs(braille) do any = any or ch:find("^\226[\160-\163]") ~= nil end
+  for _, ch in pairs(braille) do
+    any = any or ch:find("^\226[\160-\163]") ~= nil
+  end
   eq(any, true, "braille on request")
   local lines = plot(function(i) return i / 12 end, "line")
   local ok = true
-  for _, ch in pairs(lines) do ok = ok and (ch == "▁" or ch == "─" or ch == "▔") end
+  for _, ch in pairs(lines) do
+    ok = ok and (ch == "▁" or ch == "─" or ch == "▔")
+  end
   eq(ok, true, "and lines")
 end)
 
@@ -137,7 +149,11 @@ test("a lane's held and smooth stretches are played as drawn", function()
   local t = paw.add_track({ name = "Pad" })
   local lane = t:automate("volume")
   local c = curves.target(paw.address.lane(lane.id))
-  c.write({ { beat = 0, value = -24, shape = "hold" }, { beat = 4, value = 0, shape = "smooth" }, { beat = 8, value = -12 } })
+  c.write({
+    { beat = 0, value = -24, shape = "hold" },
+    { beat = 4, value = 0, shape = "smooth" },
+    { beat = 8, value = -12 },
+  })
   near(api.lane_value_at(lane.id, 3.9), -24, 1e-9, "a held value jumps at the next point")
   near(api.lane_value_at(lane.id, 6), -6, 1e-6, "a smooth stretch is half way at its middle")
   near(curves.value_at(c.points(), 5), api.lane_value_at(lane.id, 5), 1e-3, "and the editor draws what plays")
@@ -168,7 +184,11 @@ test("a curve is a buffer named by its address, shown in a window split off", fu
   local text = screen()
   eq(text:find("2 points", 1, true) ~= nil, true, "the editor shows how many points")
   eq(text:find("-12.0 dB", 1, true) ~= nil, true, "and the value in its unit")
-  eq(text:find("[\240][\159][\172-\175]") ~= nil or text:find("[▌▐█]") ~= nil, true, "the curve drawn in sextants")
+  eq(
+    text:find("[\240][\159][\172-\175]") ~= nil or text:find("[▌▐█]") ~= nil,
+    true,
+    "the curve drawn in sextants"
+  )
   paw.commands.exec("close")
   paw.commands.exec("vs " .. uri)
   eq(paw.win.current().view, "curve", ":vs takes an address")
@@ -289,7 +309,11 @@ test("insert mode draws the value as the cursor moves and writes it on Esc as on
   keys("<Esc>")
   eq(paw.keymap.mode, "n", "Esc leaves")
   local points = lane:points()
-  eq(beats(curves.target(paw.address.lane(lane.id)).points()), "0 0.5 0.75 1 8", "a point at each step the cursor drew at")
+  eq(
+    beats(curves.target(paw.address.lane(lane.id)).points()),
+    "0 0.5 0.75 1 8",
+    "a point at each step the cursor drew at"
+  )
   near(points[2][2], -10, 1e-9, "raised two steps")
   near(points[3][2], -10, 1e-9, "on along")
   near(points[4][2], -8, 1e-9, "and two more")
@@ -322,7 +346,9 @@ end)
 test("gS thins a curve drawn finely and keeps its shape", function()
   start()
   local points = {}
-  for i = 0, 32 do points[#points + 1] = { i / 8, i <= 16 and -24 + i or -8 } end
+  for i = 0, 32 do
+    points[#points + 1] = { i / 8, i <= 16 and -24 + i or -8 }
+  end
   local _, lane = lane_with(points)
   keys("gSS")
   eq(#lane:points(), 3, "a ramp and a level are three points")
@@ -389,26 +415,37 @@ test("the mouse adds and drags points, draws over empty space and opens menus", 
   screen()
   local c = curves.target(paw.address.lane(lane.id))
   local x, y = at(2, 0.5)
-  m("down", x, y) m("up", x, y)
+  m("down", x, y)
+  m("up", x, y)
   paw.mouse.forget()
   eq(#lane:points(), 2, "a click adds a point")
   eq(lane:points()[2][1], 2, "where it was clicked")
   local x2, y2 = at(3, 0.9)
-  m("down", x, y) m("drag", x2, y2) m("up", x2, y2)
+  m("down", x, y)
+  m("drag", x2, y2)
+  m("up", x2, y2)
   paw.mouse.forget()
   eq(lane:points()[2][1], 3, "a point dragged moves in time")
   eq(c.frac(lane:points()[2][2]) > 0.8, true, "and in value")
   local a = at(4, 0.2)
   local b = at(6, 0.2)
-  m("down", a, y) m("drag", b, y) m("up", b, y)
+  m("down", a, y)
+  m("drag", b, y)
+  m("up", b, y)
   paw.mouse.forget()
-  eq(#lane:points() >= 5, true, "a drag over empty space draws: " .. beats(curves.target(paw.address.lane(lane.id)).points()))
-  m("down", a, y, "right") m("up", a, y, "right")
+  eq(
+    #lane:points() >= 5,
+    true,
+    "a drag over empty space draws: " .. beats(curves.target(paw.address.lane(lane.id)).points())
+  )
+  m("down", a, y, "right")
+  m("up", a, y, "right")
   eq(screen():find("Remove the point", 1, true) ~= nil, true, "a right click on a point opens its menu")
   require("paw.menu").close(0)
   paw.mouse.forget()
   local ex, ey = at(7, 0.95)
-  m("down", ex, ey, "right") m("up", ex, ey, "right")
+  m("down", ex, ey, "right")
+  m("up", ex, ey, "right")
   eq(screen():find("Thin out the points", 1, true) ~= nil, true, "elsewhere the curve's menu")
   require("paw.menu").close(0)
 end)
@@ -435,7 +472,9 @@ test("a curve opens in a window of its own and draws there", function()
   local lines = {}
   for _, row in ipairs(api.ui_view_snapshot("curve", 80, 20).rows) do
     local parts = {}
-    for _, run in ipairs(row) do parts[#parts + 1] = run.text end
+    for _, run in ipairs(row) do
+      parts[#parts + 1] = run.text
+    end
     lines[#lines + 1] = table.concat(parts)
   end
   eq(table.concat(lines, "\n"):find("2 points", 1, true) ~= nil, true, "drawn in cells")
@@ -456,7 +495,9 @@ test("in a window of its own the plot is drawn in pixels between the cells' back
         if op[8] == "" and not first_text and first_poly then first_text = i end
       end
       -- The window draws the cells' sextants and dots as rectangles smaller than a cell.
-      if op[1] == "r" and op[4] < paw.canvas.cell.w - 0.01 and op[5] < paw.canvas.cell.h - 0.01 then sextants = sextants + 1 end
+      if op[1] == "r" and op[4] < paw.canvas.cell.w - 0.01 and op[5] < paw.canvas.cell.h - 0.01 then
+        sextants = sextants + 1
+      end
       if op[1] == "r" and i > 1 and not first_poly then last_back = i end
     end
     return kinds, sextants, first_poly, last_back, first_text
@@ -482,7 +523,9 @@ test("where the terminal shows pictures the plot is a strip under the cells, one
     local out = {}
     for row = s.y, s.y + s.h - 1 do
       local chars = {}
-      for ch in lines[row + 1]:gmatch("[%z\1-\127\194-\244][\128-\191]*") do chars[#chars + 1] = ch end
+      for ch in lines[row + 1]:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+        chars[#chars + 1] = ch
+      end
       out[#out + 1] = table.concat(chars, "", s.x + 1, math.min(#chars, s.x + s.w))
     end
     return table.concat(out, "\n")
@@ -512,7 +555,9 @@ test("where the terminal shows pictures the plot is a strip under the cells, one
     editor.picture(g, px, t, t.points(), { left = 0, zoom = 4 })
   end, { w = 400, h = 200, cell = { w = 10, h = 20 } })
   local kinds = {}
-  for _, op in ipairs(ops) do kinds[op[1]] = (kinds[op[1]] or 0) + 1 end
+  for _, op in ipairs(ops) do
+    kinds[op[1]] = (kinds[op[1]] or 0) + 1
+  end
   eq((kinds.cut or 0) >= 1, true, "cut at a bar: " .. paw.inspect(ops[1]))
   eq(kinds.p, 2 * ((kinds.cut or 0) + 1), "a line and a fill between cuts")
   for _, op in ipairs(ops) do
@@ -523,7 +568,9 @@ test("where the terminal shows pictures the plot is a strip under the cells, one
   paw.commands.exec("vs")
   api.ui_snapshot(W, H)
   local keys = {}
-  for _, strip in ipairs(paw.ui.rects.surfaces or {}) do keys[#keys + 1] = strip.key end
+  for _, strip in ipairs(paw.ui.rects.surfaces or {}) do
+    keys[#keys + 1] = strip.key
+  end
   eq(#keys, 2, "a strip in each window")
   eq(keys[1] ~= keys[2], true, "kept apart")
 

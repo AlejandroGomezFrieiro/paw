@@ -64,34 +64,54 @@ local function run()
     local f = assert(io.open(golden_path, "wb"))
     -- One line for each seed and day, so that a review sees what changed.
     local seeds = {}
-    for k in pairs(golden) do seeds[#seeds + 1] = k end
+    for k in pairs(golden) do
+      seeds[#seeds + 1] = k
+    end
     table.sort(seeds)
     local lines = {}
     for _, s in ipairs(seeds) do
       local ds = {}
-      for k in pairs(golden[s]) do ds[#ds + 1] = k end
+      for k in pairs(golden[s]) do
+        ds[#ds + 1] = k
+      end
       table.sort(ds, function(a, b) return tonumber(a:match("%d+")) < tonumber(b:match("%d+")) end)
       local inner = {}
-      for _, d in ipairs(ds) do inner[#inner + 1] = string.format("    %q: %s", d, api.json_encode(golden[s][d])) end
+      for _, d in ipairs(ds) do
+        inner[#inner + 1] = string.format("    %q: %s", d, api.json_encode(golden[s][d]))
+      end
       lines[#lines + 1] = string.format("  %q: {\n%s\n  }", s, table.concat(inner, ",\n"))
     end
     f:write("{\n", table.concat(lines, ",\n"), "\n}\n")
     f:close()
   elseif not mine then
-    print(string.format("e2e: no approved render for %s %s day %d (tests/tools/e2e.sh --approve)", scenario_name, key, day))
+    print(
+      string.format("e2e: no approved render for %s %s day %d (tests/tools/e2e.sh --approve)", scenario_name, key, day)
+    )
   end
   -- Save, as the user ends the session.
   run:type({ "<Esc>", ":w " .. workdir .. "/project<CR>" })
   if not (paw.ui.message and paw.ui.message.text:find("^saved")) then
     run:fail("save", "the save at the end of the day says: " .. tostring(paw.ui.message and paw.ui.message.text))
   end
-  print(string.format("e2e: %s seed %d day %d: %d steps, the slowest key %.1f ms (%s)", scenario_name, seed, day,
-    run.step, worst.ms, worst.name))
+  print(
+    string.format(
+      "e2e: %s seed %d day %d: %d steps, the slowest key %.1f ms (%s)",
+      scenario_name,
+      seed,
+      day,
+      run.step,
+      worst.ms,
+      worst.name
+    )
+  )
 end
 
 local ok, err = xpcall(run, function(e)
   if type(e) == "table" and e.e2e then return e end
-  return { where = string.format("scenario %s, seed %d, day %d", scenario_name, seed, day), text = debug.traceback(tostring(e), 2) }
+  return {
+    where = string.format("scenario %s, seed %d, day %d", scenario_name, seed, day),
+    text = debug.traceback(tostring(e), 2),
+  }
 end)
 if not ok then
   -- Keep what the day made, beside the project of the day before.

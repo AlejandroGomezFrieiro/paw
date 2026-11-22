@@ -128,7 +128,7 @@ global record paw
    hooks: HooksModule
    import_audio: Untyped
    insert: InsertModule
-   inspect: function<T>(value: T, indent?: string, seen?: {UtilModule.Data:boolean}): string
+   inspect: function<T>(value: T, indent?: string, seen?: {UtilModule.Data: boolean}): string
    is_audio_file: Untyped
    is_chain_file: Untyped
    json: Untyped
@@ -138,7 +138,7 @@ global record paw
    lanes: LanesModule
    lang: LangModule
    layout: LayoutModule
-   layouts: {string:LayoutModule.Spec}
+   layouts: {string: LayoutModule.Spec}
    learn: Untyped
    limit: LimitModule
    loading: Untyped

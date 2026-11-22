@@ -63,7 +63,9 @@ local map = keymap.set
 local lines = { motion = true, linewise = true }
 local far_lines = { motion = true, linewise = true, jump = true }
 local function dmap(lhs, rhs, desc, opts) map(lhs, rhs, util.merge({ view = "devices", desc = desc }, opts)) end
-local function step(n) return function(ctx) to(panel.row + n * (ctx.count or 1)) end end
+local function step(n)
+  return function(ctx) to(panel.row + n * (ctx.count or 1)) end
+end
 
 dmap("j", step(1), "Next row", lines)
 dmap("k", step(-1), "Previous row", lines)
@@ -93,7 +95,9 @@ dmap("e", function(ctx)
   for _ = 1, ctx.count or 1 do
     local _, last = span_of(panel.row)
     if not last then break end
-    if last > panel.row then to(last) else
+    if last > panel.row then
+      to(last)
+    else
       local _, after = span_of(last + 1)
       if after then to(after) end
     end
@@ -102,7 +106,9 @@ end, "The last parameter of this device, or of the next", lines)
 
 -- The value under the cursor: a step of the parameter's range for each of
 -- the count; on a device's own row its wet/dry mix.
-local function adjust(sign) return function(ctx) panel:adjust(sign * (ctx.count or 1)) end end
+local function adjust(sign)
+  return function(ctx) panel:adjust(sign * (ctx.count or 1)) end
+end
 dmap("+", adjust(1), "Raise the parameter, or the device's wet mix", { role = "main+" })
 dmap("-", adjust(-1), "Lower the parameter, or the device's wet mix", { role = "main-" })
 dmap("<C-a>", adjust(1), "Raise the parameter a step for each of the count", { role = "main+" })
@@ -162,12 +168,16 @@ function panel:describe()
     local p = row.param
     out[#out + 1] = { text = "Parameter  " .. p.name, style = "Title" }
     out[#out + 1] = "  now      " .. paw.frontend.format_value(p, panel.value(row))
-    out[#out + 1] = "  from     " .. paw.frontend.format_value(p, p.min) .. " to " .. paw.frontend.format_value(p, p.max)
+    out[#out + 1] = "  from     "
+      .. paw.frontend.format_value(p, p.min)
+      .. " to "
+      .. paw.frontend.format_value(p, p.max)
     if p.default ~= nil then out[#out + 1] = "  default  " .. paw.frontend.format_value(p, p.default) end
     out[#out + 1] = ""
   end
   out[#out + 1] = { text = "Device  " .. d.name, style = "Title" }
-  out[#out + 1] = string.format("  %s%s, %d parameters", d.format or "", d.bypass and ", bypassed" or "", #(d.param_info or {}))
+  out[#out + 1] =
+    string.format("  %s%s, %d parameters", d.format or "", d.bypass and ", bypassed" or "", #(d.param_info or {}))
   local preset = type(d.meta) == "table" and d.meta.preset
   if preset then out[#out + 1] = "  preset   " .. preset end
   local key = paw.routes.sidechain_text(d)
@@ -176,13 +186,13 @@ function panel:describe()
 end
 
 -- Operators over rows.
-local function op(lhs, fn, desc, opts)
-  keymap.operator(lhs, fn, util.merge({ view = "devices", desc = desc }, opts))
-end
+local function op(lhs, fn, desc, opts) keymap.operator(lhs, fn, util.merge({ view = "devices", desc = desc }, opts)) end
 --- The register value for whole devices: one, or several in their order.
 local function taken(devices)
   local snaps = {}
-  for i, id in ipairs(devices) do snaps[i] = paw.device(id):snapshot() end
+  for i, id in ipairs(devices) do
+    snaps[i] = paw.device(id):snapshot()
+  end
   if #snaps == 1 then return { kind = "device", device = snaps[1] }, 1 end
   return { kind = "devices", devices = snaps }, #snaps
 end
@@ -192,7 +202,9 @@ op("d", function(region, ctx)
   if #devices > 0 then
     local value, n = taken(devices)
     keymap.setreg(value, ctx.register)
-    for _, id in ipairs(devices) do paw.device(id):remove() end
+    for _, id in ipairs(devices) do
+      paw.device(id):remove()
+    end
     paw.notify(n .. (n == 1 and " device cut" or " devices cut"))
   end
   reset(params)
@@ -205,7 +217,9 @@ op("y", function(region, ctx)
     return paw.notify(n .. (n == 1 and " device yanked" or " devices yanked"))
   end
   local values = {}
-  for _, row in ipairs(params) do values[#values + 1] = { key = row.param.key, value = panel.value(row) } end
+  for _, row in ipairs(params) do
+    values[#values + 1] = { key = row.param.key, value = panel.value(row) }
+  end
   keymap.setreg({ kind = "params", values = values }, ctx.register, true)
   paw.notify(#values .. (#values == 1 and " setting yanked" or " settings yanked"))
 end, "Yank: devices whole, or the settings of parameters")
@@ -219,72 +233,102 @@ op("gc", function(region)
     end
   end
   local all = #ids > 0
-  for _, id in ipairs(ids) do all = all and api.device_get(id).bypass end
-  for _, id in ipairs(ids) do paw.device(id).bypass = not all end
+  for _, id in ipairs(ids) do
+    all = all and api.device_get(id).bypass
+  end
+  for _, id in ipairs(ids) do
+    paw.device(id).bypass = not all
+  end
 end, "Bypass the devices, or let them play again", { role = "mute" })
 
 -- On a selection the value keys change every parameter selected.
 local function vop(lhs, sign, desc, role)
-  map(lhs, nil, { view = "devices", mode = "x", desc = desc, role = role, operator = function(region, ctx)
-    local list = rows()
-    for i = region.r0, region.r1 do
-      local row = list[i]
-      if row and row.param then
-        api.device_set_param(row.device.id, row.param.key, paw.params.step(row.param, panel.value(row), sign * (ctx.count or 1)))
+  map(lhs, nil, {
+    view = "devices",
+    mode = "x",
+    desc = desc,
+    role = role,
+    operator = function(region, ctx)
+      local list = rows()
+      for i = region.r0, region.r1 do
+        local row = list[i]
+        if row and row.param then
+          api.device_set_param(
+            row.device.id,
+            row.param.key,
+            paw.params.step(row.param, panel.value(row), sign * (ctx.count or 1))
+          )
+        end
       end
-    end
-  end })
+    end,
+  })
 end
 vop("+", 1, "Raise the parameters selected", "main+")
 vop("-", -1, "Lower the parameters selected", "main-")
 vop("<C-a>", 1, "Raise the parameters selected by the count", "main+")
 vop("<C-x>", -1, "Lower the parameters selected by the count", "main-")
 
-local function paste(offset) return function(ctx)
-  local value, track = keymap.getreg(ctx.register), paw.cursor.track()
-  if not track then return paw.notify("no track selected", "warn") end
-  local device = panel:selected()
-  -- Settings: onto the device under the cursor, by the parameters' keys.
-  if value and value.kind == "params" then
-    if not device then return end
-    for _, v in ipairs(value.values) do api.device_set_param(device.id, v.key, v.value) end
-    return paw.notify(#value.values .. " settings pasted on " .. device.name)
+local function paste(offset)
+  return function(ctx)
+    local value, track = keymap.getreg(ctx.register), paw.cursor.track()
+    if not track then return paw.notify("no track selected", "warn") end
+    local device = panel:selected()
+    -- Settings: onto the device under the cursor, by the parameters' keys.
+    if value and value.kind == "params" then
+      if not device then return end
+      for _, v in ipairs(value.values) do
+        api.device_set_param(device.id, v.key, v.value)
+      end
+      return paw.notify(#value.values .. " settings pasted on " .. device.name)
+    end
+    if not (value and (value.kind == "device" or value.kind == "devices")) then
+      return paw.notify("no device in the register: `yy` or `dd` on one first", "warn")
+    end
+    local at = device and device.index + offset or nil
+    -- Several devices, from a selection, go in in their order.
+    for i, snap in ipairs(value.devices or { value.device }) do
+      paw.restore_device(snap, track, at and at + i - 1)
+    end
   end
-  if not (value and (value.kind == "device" or value.kind == "devices")) then
-    return paw.notify("no device in the register: `yy` or `dd` on one first", "warn")
-  end
-  local at = device and device.index + offset or nil
-  -- Several devices, from a selection, go in in their order.
-  for i, snap in ipairs(value.devices or { value.device }) do paw.restore_device(snap, track, at and at + i - 1) end
-end end
+end
 dmap("p", paste(1), "Paste devices after this one, or settings onto it")
 dmap("P", paste(0), "Paste devices before this one, or settings onto it")
 
 -- A window of the panel pinned to a track shows that track's devices
 -- wherever the cursor goes: two panels show two tracks.
-paw.command("devices.pin", function(ctx)
-  local L = paw.layout
-  local cur = L.current()
-  local win = cur and cur.view == "devices" and cur or L.find(paw.ui.layout, "devices", true)
-  if not win then return paw.notify("no device panel on the screen: `" .. paw.keymap.human("<leader>dd") .. "` shows it", "warn") end
-  local name = ctx.args[1] and table.concat(ctx.args, " ")
-  L.within(win, function()
-    if name then
-      local id = panel.track_named(name)
-      if not id then return paw.notify("no track `" .. name .. "`", "warn") end
-      return panel:set_pin(id)
+paw.command(
+  "devices.pin",
+  function(ctx)
+    local L = paw.layout
+    local cur = L.current()
+    local win = cur and cur.view == "devices" and cur or L.find(paw.ui.layout, "devices", true)
+    if not win then
+      return paw.notify("no device panel on the screen: `" .. paw.keymap.human("<leader>dd") .. "` shows it", "warn")
     end
-    if panel.pin then return panel:set_pin(nil) end
-    local id = panel:track_id()
-    if not id then return paw.notify("no track to pin the panel to", "warn") end
-    panel:set_pin(id)
-  end)
-end, { desc = "Keep the device panel on a track whatever the cursor is on, or follow the cursor again: `devices.pin`, `devices.pin Bass`", complete = { "tracks" } })
+    local name = ctx.args[1] and table.concat(ctx.args, " ")
+    L.within(win, function()
+      if name then
+        local id = panel.track_named(name)
+        if not id then return paw.notify("no track `" .. name .. "`", "warn") end
+        return panel:set_pin(id)
+      end
+      if panel.pin then return panel:set_pin(nil) end
+      local id = panel:track_id()
+      if not id then return paw.notify("no track to pin the panel to", "warn") end
+      panel:set_pin(id)
+    end)
+  end,
+  {
+    desc = "Keep the device panel on a track whatever the cursor is on, or follow the cursor again: `devices.pin`, `devices.pin Bass`",
+    complete = { "tracks" },
+  }
+)
 dmap("<localleader>p", "devices.pin", "Pin the panel to its track, or follow the cursor again")
 
-
 -- The keys the panel had before the rule (`paw.opt.keys = "classic"`).
-local function classic(lhs, rhs, desc, opts) keymap.classic(lhs, rhs, util.merge({ view = "devices", desc = desc, mode = "n" }, opts)) end
+local function classic(lhs, rhs, desc, opts)
+  keymap.classic(lhs, rhs, util.merge({ view = "devices", desc = desc, mode = "n" }, opts))
+end
 classic("l", adjust(1), "Raise the parameter")
 classic("h", adjust(-1), "Lower the parameter")
 classic("L", function() panel:adjust(10) end, "Raise the parameter a lot")

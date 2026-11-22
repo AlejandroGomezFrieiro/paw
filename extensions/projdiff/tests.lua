@@ -81,53 +81,78 @@ local function lacks(text, part, what)
   if text:find(part, 1, true) then error((what or "text") .. " holds `" .. part .. "`:\n" .. text, 2) end
 end
 
-test("projdiff: a project file saved again is the same bytes, and the model writes it the way the merge does", function()
-  load()
-  local path = fixture("stable")
-  local first = projdiff.read(path)
-  api.project_save(path)
-  eq(projdiff.read(path), first, "saved twice")
-  local doc = decode(path)
-  eq(api.project_file_text(doc), first, "decoded and written by the model")
-end)
-
-test("projdiff: a diff names tracks added, removed and renamed, devices, clips, notes, lanes, tempo and markers", function()
-  load()
-  local path = fixture("diff")
-  local base, now = decode(path), decode(path)
-  local lead, bass = track(now, "Lead"), track(now, "Bass")
-  lead.name = "Keys"
-  lead.volume = -3
-  lead.devices[1].params.cutoff = 1200
-  lead.clips[1].start = 8
-  lead.clips[1].content.notes[2].pitch = 65
-  table.remove(lead.clips[1].content.notes, 3)
-  table.insert(lead.clips[1].content.notes, { id = 9, pitch = 72, start = 3, length = 1, velocity = 100 })
-  lead.lanes[1].points[2][2] = -6
-  table.insert(lead.lanes[1].points, { 4, -9 })
-  for i, t in ipairs(now.project.tracks) do
-    if t == bass then table.remove(now.project.tracks, i) break end
+test(
+  "projdiff: a project file saved again is the same bytes, and the model writes it the way the merge does",
+  function()
+    load()
+    local path = fixture("stable")
+    local first = projdiff.read(path)
+    api.project_save(path)
+    eq(projdiff.read(path), first, "saved twice")
+    local doc = decode(path)
+    eq(api.project_file_text(doc), first, "decoded and written by the model")
   end
-  table.insert(now.project.tracks, { id = 90, name = "Pad", volume = 0, pan = 0, mute = false, solo = false, armed = false, sends = list(), devices = list(), clips = list(), meta = {}, monitor = false })
-  now.project.tempo_changes = { { beat = 16, bpm = 90 } }
-  now.project.meta.markers[1].beat = 12
-  table.insert(now.project.meta.markers, { id = 7, beat = 20, name = "Outro" })
-  local text = lines(base, now)
-  has(text, ('track %d "Lead" -> "Keys"'):format(lead.id), "the rename")
-  has(text, "volume: 0 -> -3", "the fader")
-  has(text, "cutoff: 800 -> 1200", "the parameter")
-  has(text, "start: 0 -> 8", "the clip moved")
-  has(text, "notes +1 -1 ~1", "notes summarised per clip")
-  has(text, "note 2 F4: pitch E4 -> F4", "a note changed")
-  has(text, "note 9 C5 at 3", "a note added")
-  has(text, "points +1 ~1", "automation")
-  has(text, "- track " .. bass.id .. ' "Bass"', "a track removed")
-  has(text, '+ track 90 "Pad"', "a track added")
-  has(text, "tempo at beat 16: 90 bpm", "the tempo map")
-  has(text, 'marker 1 "Chorus": beat 8 -> 12', "a marker moved")
-  has(text, 'marker 7 "Outro" at beat 20', "a marker added")
-  eq(projdiff.diff.diff(base.project, base.project).count, 0, "no difference from itself")
-end)
+)
+
+test(
+  "projdiff: a diff names tracks added, removed and renamed, devices, clips, notes, lanes, tempo and markers",
+  function()
+    load()
+    local path = fixture("diff")
+    local base, now = decode(path), decode(path)
+    local lead, bass = track(now, "Lead"), track(now, "Bass")
+    lead.name = "Keys"
+    lead.volume = -3
+    lead.devices[1].params.cutoff = 1200
+    lead.clips[1].start = 8
+    lead.clips[1].content.notes[2].pitch = 65
+    table.remove(lead.clips[1].content.notes, 3)
+    table.insert(lead.clips[1].content.notes, { id = 9, pitch = 72, start = 3, length = 1, velocity = 100 })
+    lead.lanes[1].points[2][2] = -6
+    table.insert(lead.lanes[1].points, { 4, -9 })
+    for i, t in ipairs(now.project.tracks) do
+      if t == bass then
+        table.remove(now.project.tracks, i)
+        break
+      end
+    end
+    table.insert(
+      now.project.tracks,
+      {
+        id = 90,
+        name = "Pad",
+        volume = 0,
+        pan = 0,
+        mute = false,
+        solo = false,
+        armed = false,
+        sends = list(),
+        devices = list(),
+        clips = list(),
+        meta = {},
+        monitor = false,
+      }
+    )
+    now.project.tempo_changes = { { beat = 16, bpm = 90 } }
+    now.project.meta.markers[1].beat = 12
+    table.insert(now.project.meta.markers, { id = 7, beat = 20, name = "Outro" })
+    local text = lines(base, now)
+    has(text, ('track %d "Lead" -> "Keys"'):format(lead.id), "the rename")
+    has(text, "volume: 0 -> -3", "the fader")
+    has(text, "cutoff: 800 -> 1200", "the parameter")
+    has(text, "start: 0 -> 8", "the clip moved")
+    has(text, "notes +1 -1 ~1", "notes summarised per clip")
+    has(text, "note 2 F4: pitch E4 -> F4", "a note changed")
+    has(text, "note 9 C5 at 3", "a note added")
+    has(text, "points +1 ~1", "automation")
+    has(text, "- track " .. bass.id .. ' "Bass"', "a track removed")
+    has(text, '+ track 90 "Pad"', "a track added")
+    has(text, "tempo at beat 16: 90 bpm", "the tempo map")
+    has(text, 'marker 1 "Chorus": beat 8 -> 12', "a marker moved")
+    has(text, 'marker 7 "Outro" at beat 20', "a marker added")
+    eq(projdiff.diff.diff(base.project, base.project).count, 0, "no difference from itself")
+  end
+)
 
 test("projdiff: changes have addresses to go to, and become quickfix entries", function()
   load()
@@ -140,7 +165,9 @@ test("projdiff: changes have addresses to go to, and become quickfix entries", f
   local entries = projdiff.diff.entries(tree)
   eq(#entries, 2, "two changes")
   local by = {}
-  for _, e in ipairs(entries) do by[#by + 1] = e.address end
+  for _, e in ipairs(entries) do
+    by[#by + 1] = e.address
+  end
   table.sort(by)
   eq(by[1], "paw://clip/" .. lead.clips[1].id .. "/note/1", "the note")
   eq(by[2], "paw://track/" .. lead.id .. "/device/" .. lead.devices[1].id .. "/param/cutoff", "the parameter")
@@ -180,7 +207,9 @@ end
 
 local function names(doc)
   local out = {}
-  for _, t in ipairs(doc.project.tracks) do out[#out + 1] = t.name end
+  for _, t in ipairs(doc.project.tracks) do
+    out[#out + 1] = t.name
+  end
   return table.concat(out, ",")
 end
 
@@ -199,11 +228,33 @@ test("projdiff: changes to different tracks, clips, notes and parameters merge w
   track(ours, "Lead").volume = -3
   track(ours, "Lead").devices[1].params.cutoff = 1500
   track(ours, "Lead").clips[1].content.notes[1].start = 0.5
-  table.insert(track(ours, "Lead").clips, { id = 100, name = "ours", start = 8, length = 4, muted = false, content = { kind = "midi", notes = list() }, meta = {} })
+  table.insert(
+    track(ours, "Lead").clips,
+    {
+      id = 100,
+      name = "ours",
+      start = 8,
+      length = 4,
+      muted = false,
+      content = { kind = "midi", notes = list() },
+      meta = {},
+    }
+  )
   track(theirs, "Bass").pan = 0.5
   track(theirs, "Lead").devices[1].params.resonance = 0.4
   track(theirs, "Lead").clips[1].content.notes[2].velocity = 70
-  table.insert(track(theirs, "Bass").clips, { id = 100, name = "theirs", start = 8, length = 4, muted = false, content = { kind = "midi", notes = list() }, meta = {} })
+  table.insert(
+    track(theirs, "Bass").clips,
+    {
+      id = 100,
+      name = "theirs",
+      start = 8,
+      length = 4,
+      muted = false,
+      content = { kind = "midi", notes = list() },
+      meta = {},
+    }
+  )
   theirs.project.tempo = 100
   ours.project.tempo_changes = { { beat = 16, bpm = 90 } }
   theirs.project.tempo_changes = { { beat = 32, bpm = 140 } }
@@ -235,13 +286,33 @@ end)
 test("projdiff: tracks, notes and markers both sides added keep both, with new numbers where they clash", function()
   local base, ours, theirs = sides()
   local function new_track(id, name, output)
-    return { id = id, name = name, volume = 0, pan = 0, mute = false, solo = false, armed = false, output = output, sends = list(), devices = list(), clips = list(), meta = {}, monitor = false }
+    return {
+      id = id,
+      name = name,
+      volume = 0,
+      pan = 0,
+      mute = false,
+      solo = false,
+      armed = false,
+      output = output,
+      sends = list(),
+      devices = list(),
+      clips = list(),
+      meta = {},
+      monitor = false,
+    }
   end
   table.insert(ours.project.tracks, new_track(50, "Ours", nil))
   table.insert(theirs.project.tracks, new_track(50, "Theirs", nil))
   table.insert(theirs.project.tracks, new_track(51, "Feeds", 50))
-  table.insert(track(ours, "Lead").clips[1].content.notes, { id = 4, pitch = 72, start = 3, length = 1, velocity = 100 })
-  table.insert(track(theirs, "Lead").clips[1].content.notes, { id = 4, pitch = 74, start = 3.5, length = 1, velocity = 100 })
+  table.insert(
+    track(ours, "Lead").clips[1].content.notes,
+    { id = 4, pitch = 72, start = 3, length = 1, velocity = 100 }
+  )
+  table.insert(
+    track(theirs, "Lead").clips[1].content.notes,
+    { id = 4, pitch = 74, start = 3.5, length = 1, velocity = 100 }
+  )
   table.insert(ours.project.meta.markers, { id = 2, beat = 16, name = "A" })
   table.insert(theirs.project.meta.markers, { id = 2, beat = 24, name = "B" })
   local merged, conflicts = projdiff.merge.files(base, ours, theirs)
@@ -272,7 +343,10 @@ test("projdiff: the same thing changed two ways is a conflict that holds ours an
   track(theirs, "Lead").clips[1].content.notes[1].velocity = 80
   track(ours, "Bass").volume = -6
   for i, t in ipairs(theirs.project.tracks) do
-    if t.name == "Bass" then table.remove(theirs.project.tracks, i) break end
+    if t.name == "Bass" then
+      table.remove(theirs.project.tracks, i)
+      break
+    end
   end
   local merged, conflicts = projdiff.merge.files(base, ours, theirs)
   eq(#conflicts, 3, "three conflicts")
@@ -287,7 +361,11 @@ test("projdiff: the same thing changed two ways is a conflict that holds ours an
   end
   eq(cutoff.theirs, 300, "theirs")
   eq(cutoff.base, 800, "before")
-  eq(projdiff.merge.describe(merged, cutoff.path):find("params › cutoff", 1, true) ~= nil, true, "in words: " .. projdiff.merge.describe(merged, cutoff.path))
+  eq(
+    projdiff.merge.describe(merged, cutoff.path):find("params › cutoff", 1, true) ~= nil,
+    true,
+    "in words: " .. projdiff.merge.describe(merged, cutoff.path)
+  )
   local text = api.project_file_text(merged)
   local again = decode(reopen(merged))
   eq(#projdiff.merge.conflicts(again), 3, "still recorded in the file")
@@ -301,7 +379,10 @@ test("projdiff: conflicts are settled one by one, ours, theirs or what it was", 
   track(theirs, "Lead").devices[1].params.cutoff = 300
   track(ours, "Bass").volume = -6
   for i, t in ipairs(theirs.project.tracks) do
-    if t.name == "Bass" then table.remove(theirs.project.tracks, i) break end
+    if t.name == "Bass" then
+      table.remove(theirs.project.tracks, i)
+      break
+    end
   end
   local merged = projdiff.merge.files(base, ours, theirs)
   local list = projdiff.merge.conflicts(merged)
@@ -337,7 +418,11 @@ test("projdiff: :Pmerge shows the conflicts and co, ct settle them in the file",
   eq(paw.ui.float, nil, "closed when the last is settled")
   local settled = decode(path)
   eq(#projdiff.merge.conflicts(settled), 0, "none left")
-  eq(track(settled, "Lead").devices[1].params.cutoff, 300, "theirs for the first (the conflicts are in order of the file)")
+  eq(
+    track(settled, "Lead").devices[1].params.cutoff,
+    300,
+    "theirs for the first (the conflicts are in order of the file)"
+  )
 end)
 
 -- The views -------------------------------------------------------------------
@@ -398,7 +483,9 @@ end
 
 test("projdiff: git shows a project as text and merges two branches that changed it apart", function()
   load()
-  if os.execute("command -v git >/dev/null 2>&1") ~= 0 and os.execute("command -v git >/dev/null 2>&1") ~= true then return "no git" end
+  if os.execute("command -v git >/dev/null 2>&1") ~= 0 and os.execute("command -v git >/dev/null 2>&1") ~= true then
+    return "no git"
+  end
   local bin = (os.getenv("PAW_TEST_BIN") or "target/release") .. "/paw"
   local root = scratch .. "/repo"
   local script = io.popen("pwd"):read("*l") .. "/extensions/projdiff/git.lua"
@@ -457,38 +544,60 @@ test("projdiff: git shows a project as text and merges two branches that changed
   os.execute("rm -rf '" .. root .. "'")
 end)
 
-test("projdiff: a reopened project with audio differs in nothing, edits not yet an undo step count, and #0 and odd lengths read well", function()
-  start()
-  local dir = scratch .. "/pdiff-media"
-  os.execute("rm -rf '" .. dir .. "' && mkdir -p '" .. dir .. "/media'")
-  local s = {}
-  for i = 1, 4800 do s[i] = 0.1 end
-  local wav = T.write_wav(dir .. "/media/tone.wav", s)
-  local t = paw.add_track({ name = "Audio" })
-  t:add_clip({ file = wav, start = 0, length = 2 })
-  api.undo_checkpoint()
-  local path = dir .. "/song.json"
-  api.project_save(path)
-  eq(T.read_file(path):find('"media/tone.wav"', 1, true) ~= nil, true, "the file names its media relative to itself")
-  api.project_load(path)
-  paw.cmd("Pdiff")
-  eq(paw.ui.message and paw.ui.message.text, "saved → now: 0 changes (nothing differs)", "nothing differs after reopening")
-  -- An edit from Lua that no key made an undo step of.
-  paw.tracks()[1]:add_clip({ name = "odd", start = 16, length = 0.1 + 0.7 })
-  paw.cmd("Pdiff")
-  local view = require("projdiff.view")
-  eq(view.title_text:find("saved → now: 1 change", 1, true) ~= nil, true, "the edit is seen: " .. tostring(view.title_text))
-  local found
-  for _, row in ipairs(view.rows) do
-    if row.node.text:find("odd", 1, true) then found = row.node.text end
+test(
+  "projdiff: a reopened project with audio differs in nothing, edits not yet an undo step count, and #0 and odd lengths read well",
+  function()
+    start()
+    local dir = scratch .. "/pdiff-media"
+    os.execute("rm -rf '" .. dir .. "' && mkdir -p '" .. dir .. "/media'")
+    local s = {}
+    for i = 1, 4800 do
+      s[i] = 0.1
+    end
+    local wav = T.write_wav(dir .. "/media/tone.wav", s)
+    local t = paw.add_track({ name = "Audio" })
+    t:add_clip({ file = wav, start = 0, length = 2 })
+    api.undo_checkpoint()
+    local path = dir .. "/song.json"
+    api.project_save(path)
+    eq(T.read_file(path):find('"media/tone.wav"', 1, true) ~= nil, true, "the file names its media relative to itself")
+    api.project_load(path)
+    paw.cmd("Pdiff")
+    eq(
+      paw.ui.message and paw.ui.message.text,
+      "saved → now: 0 changes (nothing differs)",
+      "nothing differs after reopening"
+    )
+    -- An edit from Lua that no key made an undo step of.
+    paw.tracks()[1]:add_clip({ name = "odd", start = 16, length = 0.1 + 0.7 })
+    paw.cmd("Pdiff")
+    local view = require("projdiff.view")
+    eq(
+      view.title_text:find("saved → now: 1 change", 1, true) ~= nil,
+      true,
+      "the edit is seen: " .. tostring(view.title_text)
+    )
+    local found
+    for _, row in ipairs(view.rows) do
+      if row.node.text:find("odd", 1, true) then found = row.node.text end
+    end
+    eq(
+      found and found:match('"odd", .*'),
+      '"odd", at beat 16, 0.8 beats long, 0 notes',
+      "a length reads without floating point's noise"
+    )
+    paw.keymap.feed("q")
+    local from = mark()
+    paw.cmd("Pdiff", { "#0" })
+    local levels = {}
+    for _, m in ipairs(since(from)) do
+      levels[#levels + 1] = m.level .. ": " .. m.text
+    end
+    eq(
+      table.concat(levels, "; "),
+      "warn: there is no undo state #0: the states are numbered from 1, as the undo tree shows them",
+      "#0 is said plainly"
+    )
+    if paw.ui.float then paw.keymap.feed("q") end
   end
-  eq(found and found:match('"odd", .*'), '"odd", at beat 16, 0.8 beats long, 0 notes', "a length reads without floating point's noise")
-  paw.keymap.feed("q")
-  local from = mark()
-  paw.cmd("Pdiff", { "#0" })
-  local levels = {}
-  for _, m in ipairs(since(from)) do levels[#levels + 1] = m.level .. ": " .. m.text end
-  eq(table.concat(levels, "; "), "warn: there is no undo state #0: the states are numbered from 1, as the undo tree shows them",
-    "#0 is said plainly")
-  if paw.ui.float then paw.keymap.feed("q") end
-end)
+)

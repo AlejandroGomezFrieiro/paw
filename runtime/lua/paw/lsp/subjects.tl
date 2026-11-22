@@ -49,7 +49,7 @@ local record Paw is partial.Paw
   markers: MarkersModule
   roll_clips: RollClips
 end
-local paw = (_G as {string:Paw}).paw
+local paw = (_G as {string: Paw}).paw
 local opt = options.opt
 
 --- What a server is attached to besides the subjects: `focus` (what the
@@ -94,8 +94,8 @@ local record DeviceDoc
   kind: string
   format: string
   bypass: boolean
-  params: {string:number}
-  units: {string:Unit}
+  params: {string: number}
+  units: {string: Unit}
 end
 
 --- A send as a subject shows it.
@@ -209,32 +209,41 @@ local record M
   type ProjectDoc = ProjectDoc
   type RenderDoc = RenderDoc
   --- The subjects, by name.
-  list: {string:Subject}
+  list: {string: Subject}
 end
 M.list = {}
 
 --- Add or replace a subject.
 function M.define(name: string, spec: Subject)
-  assert(type(spec) == "table" and spec.build and spec.targets, "usage: paw.lsp.subject(name, { targets = fn, build = fn, ... })")
+  assert(
+    type(spec) == "table" and spec.build and spec.targets,
+    "usage: paw.lsp.subject(name, { targets = fn, build = fn, ... })"
+  )
   spec.name = name
   spec.language = spec.language or ("paw-" .. name)
-  spec.depends = spec.depends or { "paw://**" }
+  spec.depends = spec.depends or {"paw://**"}
   M.list[name] = spec
 end
 
 --- The URI of the document a subject makes of an address.
 function M.uri(name: string, address: string): string
   local spec = M.list[name]
-  if spec and spec.own then return address end
+  if spec and spec.own then
+    return address
+  end
   return address .. "#" .. name
 end
 
 --- A document URI in its parts: the subject and the address.
 function M.split(uri: string): string, string
   local address, name = tostring(uri):match("^(.-)#(.+)$")
-  if address then return name, address end
+  if address then
+    return name, address
+  end
   for n, spec in pairs(M.list) do
-    if spec.own and spec.own(uri) then return n, uri end
+    if spec.own and spec.own(uri) then
+      return n, uri
+    end
   end
 end
 
@@ -250,24 +259,36 @@ function M.track_passes(track: types.Track, where?: Where): boolean
   where = where or {}
   if where.tracks then
     local any = false
-    for _, p in ipairs(where.tracks) do any = any or glob(p, track.name) end
-    if not any then return false end
+    for _, p in ipairs(where.tracks) do
+      any = any or glob(p, track.name)
+    end
+    if not any then
+      return false
+    end
   end
-  if where.drums ~= nil and where.drums ~= paw.harmony.is_drums(track) then return false end
+  if where.drums ~= nil and where.drums ~= paw.harmony.is_drums(track) then
+    return false
+  end
   return true
 end
 
 -- The seats: each person's terminal or window.
 local function each_seat(look: function())
   local seats = paw.seats and paw.seats.list() or {}
-  if #seats <= 1 then look() else for _, seat in ipairs(seats) do paw.seats.within(seat, look) end end
+  if #seats <= 1 then
+    look()
+  else
+    for _, seat in ipairs(seats) do
+      paw.seats.within(seat, look)
+    end
+  end
 end
 
 -- The clips open in a piano roll, the active one and every other it edits
 -- with it (paw.roll_clips): each seat (each person's terminal or window)
 -- has its own, and the servers are shared, so they get all of them.
 local function open_clips(): {integer}
-  local open: {integer:boolean} = {}
+  local open: {integer: boolean} = {}
   local out: {integer} = {}
   local function add(id: integer)
     if id and not open[id] and pcall(api.clip_get, id) then
@@ -275,49 +296,82 @@ local function open_clips(): {integer}
       out[#out + 1] = id
     end
   end
-  each_seat(function()
-    local view = paw.ui.views.pianoroll as PianoRoll
-    add(view and view.clip_id)
-    for _, id in ipairs(paw.roll_clips and paw.roll_clips.ids() or {}) do add(id) end
-  end)
+  each_seat(
+    function()
+      local view = paw.ui.views.pianoroll as PianoRoll
+      add(view and view.clip_id)
+      for _, id in ipairs(paw.roll_clips and paw.roll_clips.ids() or {}) do
+        add(id)
+      end
+    end
+  )
   return out
 end
 
 -- The track each seat's cursor is on.
 local function focused_tracks(): {integer}
-  local seen: {integer:boolean} = {}
+  local seen: {integer: boolean} = {}
   local out: {integer} = {}
-  each_seat(function()
-    local id = paw.cursor.track_id()
-    if id and not seen[id] then seen[id], out[#out + 1] = true, id end
-  end)
+  each_seat(
+    function()
+      local id = paw.cursor.track_id()
+      if id and not seen[id] then
+        seen[id], out[#out + 1] = true, id
+      end
+    end
+  )
   return out
 end
 
 local function all_tracks(): {integer}
   local out: {integer} = {}
-  for _, id in ipairs(api.track_list()) do out[#out + 1] = id end
+  for _, id in ipairs(api.track_list()) do
+    out[#out + 1] = id
+  end
   out[#out + 1] = 0
   return out
 end
 
 local function device_of(id: integer): DeviceDoc
   local d = api.device_get(id)
-  local units: {string:Unit} = {}
-  for _, info in ipairs(d.param_info or {}) do units[info.key] = { min = info.min, max = info.max, unit = info.unit, name = info.name } end
-  return { id = d.id, address = A.device(d.id), name = d.name, kind = d.kind, format = d.format, bypass = d.bypass,
-    params = d.params, units = units }
+  local units: {string: Unit} = {}
+  for _, info in ipairs(d.param_info or {}) do
+    units[info.key] = {min = info.min, max = info.max, unit = info.unit, name = info.name}
+  end
+  return {
+    id = d.id,
+    address = A.device(d.id),
+    name = d.name,
+    kind = d.kind,
+    format = d.format,
+    bypass = d.bypass,
+    params = d.params,
+    units = units,
+  }
 end
 
 local function track_of(id: integer): TrackDoc
   local t = api.track_get(id)
   local devices: {DeviceDoc} = {}
-  for _, d in ipairs(t.devices or {}) do devices[#devices + 1] = device_of(d) end
+  for _, d in ipairs(t.devices or {}) do
+    devices[#devices + 1] = device_of(d)
+  end
   local sends: {SendDoc} = {}
-  for _, s in ipairs(t.sends or {}) do sends[#sends + 1] = { target = s.target, level = s.level, pre = s.pre or false } end
+  for _, s in ipairs(t.sends or {}) do
+    sends[#sends + 1] = {target = s.target, level = s.level, pre = s.pre or false}
+  end
   return {
-    id = id, address = A.track(id), name = t.name, master = id == 0, volume = t.volume, pan = t.pan,
-    mute = t.mute, solo = t.solo, output = t.output, sends = sends, devices = devices,
+    id = id,
+    address = A.track(id),
+    name = t.name,
+    master = id == 0,
+    volume = t.volume,
+    pan = t.pan,
+    mute = t.mute,
+    solo = t.solo,
+    output = t.output,
+    sends = sends,
+    devices = devices,
     drums = paw.harmony.is_drums(t) or nil,
   }
 end
@@ -332,136 +386,199 @@ end
 
 -- A MIDI clip, with what sounds with it: MIDI LSP's take document
 -- (paw/lsp/document.tl). By focus, the clips open in a piano roll.
-M.define("clip", {
-  language = "paw-clip",
-  own = function(uri: string): boolean return kind_of(uri) == "clip" end,
-  targets = function(where: Where): {string}
-    local ids: {integer} = {}
-    if where.focus == false then
-      for _, t in ipairs(all_tracks()) do
-        for _, c in ipairs(api.clip_list(t)) do if c.kind == "midi" then ids[#ids + 1] = c.id end end
+M.define(
+  "clip",
+  {
+    language = "paw-clip",
+    own = function(uri: string): boolean return kind_of(uri) == "clip" end,
+    targets = function(where: Where): {string}
+      local ids: {integer} = {}
+      if where.focus == false then
+        for _, t in ipairs(all_tracks()) do
+          for _, c in ipairs(api.clip_list(t)) do
+            if c.kind == "midi" then
+              ids[#ids + 1] = c.id
+            end
+          end
+        end
+      else
+        ids = open_clips()
       end
-    else
-      ids = open_clips()
-    end
-    local out: {string} = {}
-    for _, id in ipairs(ids) do
-      local ok, c = pcall(api.clip_get, id) as (boolean, types.Clip)
-      if ok and c.kind == "midi" and M.track_passes(api.track_get(c.track), where) then out[#out + 1] = A.clip(id) end
-    end
-    return out
-  end,
-  key = function(address: string): string return document.key_of(A.parse(address).clip) end,
-  build = function(address: string, _?: Where, key?: string): rpc.Payload
-    return document.build(A.parse(address).clip, key) as rpc.Payload
-  end,
-  depends = { "paw://clip/*", "paw://track/*", "paw://project" },
-})
+      local out: {string} = {}
+      for _, id in ipairs(ids) do
+        local ok, c = pcall(api.clip_get, id) as (boolean, types.Clip)
+        if ok and c.kind == "midi" and M.track_passes(api.track_get(c.track), where) then
+          out[#out + 1] = A.clip(id)
+        end
+      end
+      return out
+    end,
+    key = function(address: string): string return document.key_of(A.parse(address).clip) end,
+    build = function(address: string, _?: Where, key?: string): rpc.Payload
+      return document.build(A.parse(address).clip, key) as rpc.Payload
+    end,
+    depends = {"paw://clip/*", "paw://track/*", "paw://project"},
+  }
+)
 
 -- One track: its chain of devices with their parameters, its routing, and
 -- what its clips are. By focus, the track a cursor is on.
-M.define("track", {
-  language = "paw-track",
-  own = function(uri: string): boolean return kind_of(uri) == "track" end,
-  targets = function(where: Where): {string}
-    local out: {string} = {}
-    for _, id in ipairs(where.focus and focused_tracks() or all_tracks()) do
-      local ok, t = pcall(api.track_get, id) as (boolean, types.Track)
-      if ok and M.track_passes(t, where) then out[#out + 1] = A.track(id) end
-    end
-    return out
-  end,
-  build = function(address: string): rpc.Payload
-    local id = A.parse(address).track
-    local out = track_of(id)
-    out.clips = {}
-    for _, c in ipairs(api.clip_list(id)) do
-      out.clips[#out.clips + 1] = { id = c.id, address = A.clip(c.id), name = c.name, kind = c.kind, start = c.start,
-        length = c.length, muted = c.muted, notes = c.note_count, file = c.file }
-    end
-    return out as rpc.Payload
-  end,
-  depends = { "paw://track/**", "paw://clip/*" },
-})
+M.define(
+  "track",
+  {
+    language = "paw-track",
+    own = function(uri: string): boolean return kind_of(uri) == "track" end,
+    targets = function(where: Where): {string}
+      local out: {string} = {}
+      for _, id in ipairs(where.focus and focused_tracks() or all_tracks()) do
+        local ok, t = pcall(api.track_get, id) as (boolean, types.Track)
+        if ok and M.track_passes(t, where) then
+          out[#out + 1] = A.track(id)
+        end
+      end
+      return out
+    end,
+    build = function(address: string): rpc.Payload
+      local id = A.parse(address).track
+      local out = track_of(id)
+      out.clips = {}
+      for _, c in ipairs(api.clip_list(id)) do
+        out.clips[#out.clips + 1] = {
+          id = c.id,
+          address = A.clip(c.id),
+          name = c.name,
+          kind = c.kind,
+          start = c.start,
+          length = c.length,
+          muted = c.muted,
+          notes = c.note_count,
+          file = c.file,
+        }
+      end
+      return out as rpc.Payload
+    end,
+    depends = {"paw://track/**", "paw://clip/*"},
+  }
+)
 
-options.define("loudness_target", -14)  -- LUFS a mix is meant to sit at (for a mix server)
-options.define("true_peak_target", -1)  -- dBTP it should stay under
+options.define("loudness_target", -14) -- LUFS a mix is meant to sit at (for a mix server)
+options.define("true_peak_target", -1) -- dBTP it should stay under
 
 -- The mix: every track with its fader, pan, mute and solo, sends, where it
 -- goes, its devices and their parameters; the master; the tempo; the
 -- loudness it is meant for; the options of the last render.
-M.define("mix", {
-  language = "paw-mix",
-  targets = function(): {string} return { A.project() } end,
-  build = function(): rpc.Payload
-    local tracks: {TrackDoc} = {}
-    for _, id in ipairs(api.track_list()) do tracks[#tracks + 1] = track_of(id) end
-    local last: A.Rendered
-    for _, r in pairs(A.renders) do if not last or r.at > last.at then last = r end end
-    local e = api.engine_get()
-    local doc: MixDoc = {
-      tracks = tracks, master = track_of(0),
-      tempo = paw.tempo.points(), signatures = paw.tempo.signatures(),
-      sample_rate = e.sample_rate,
-      targets = { loudness_lufs = opt.loudness_target, true_peak_dbtp = opt.true_peak_target },
-      render = last and { path = last.path, opts = last.opts } or nil,
-    }
-    return doc as rpc.Payload
-  end,
-  depends = { "paw://track/**", "paw://project" },
-})
+M.define(
+  "mix",
+  {
+    language = "paw-mix",
+    targets = function(): {string} return {A.project()} end,
+    build = function(): rpc.Payload
+      local tracks: {TrackDoc} = {}
+      for _, id in ipairs(api.track_list()) do
+        tracks[#tracks + 1] = track_of(id)
+      end
+      local last: A.Rendered
+      for _, r in pairs(A.renders) do
+        if not last or r.at > last.at then
+          last = r
+        end
+      end
+      local e = api.engine_get()
+      local doc: MixDoc = {
+        tracks = tracks,
+        master = track_of(0),
+        tempo = paw.tempo.points(),
+        signatures = paw.tempo.signatures(),
+        sample_rate = e.sample_rate,
+        targets = {loudness_lufs = opt.loudness_target, true_peak_dbtp = opt.true_peak_target},
+        render = last and {path = last.path, opts = last.opts} or nil,
+      }
+      return doc as rpc.Payload
+    end,
+    depends = {"paw://track/**", "paw://project"},
+  }
+)
 
 -- The whole project, summarised: tracks with what is on them, markers, the
 -- tempo, how long it is.
-M.define("project", {
-  language = "paw-project",
-  own = function(uri: string): boolean return uri == A.project() end,
-  targets = function(): {string} return { A.project() } end,
-  build = function(): rpc.Payload
-    local p = api.project_get()
-    local tracks: {ProjectTrack} = {}
-    local finish = 0.0
-    for _, id in ipairs(api.track_list()) do
-      local t = api.track_get(id)
-      local clips = api.clip_list(id)
-      for _, c in ipairs(clips) do finish = math.max(finish, c.start + c.length) end
-      tracks[#tracks + 1] = { id = id, address = A.track(id), name = t.name, clips = #clips, devices = #(t.devices or {}) }
-    end
-    local doc: ProjectDoc = { name = p.name, path = p.path, tracks = tracks, length = finish, tempo = paw.tempo.points(),
-      markers = paw.markers and paw.markers.list() or {} }
-    return doc as rpc.Payload
-  end,
-  depends = { "paw://track/*", "paw://clip/*", "paw://project" },
-})
+M.define(
+  "project",
+  {
+    language = "paw-project",
+    own = function(uri: string): boolean return uri == A.project() end,
+    targets = function(): {string} return {A.project()} end,
+    build = function(): rpc.Payload
+      local p = api.project_get()
+      local tracks: {ProjectTrack} = {}
+      local finish = 0.0
+      for _, id in ipairs(api.track_list()) do
+        local t = api.track_get(id)
+        local clips = api.clip_list(id)
+        for _, c in ipairs(clips) do
+          finish = math.max(finish, c.start + c.length)
+        end
+        tracks[#tracks + 1] = {
+          id = id, address = A.track(id), name = t.name, clips = #clips, devices = #(t.devices or {})
+        }
+      end
+      local doc: ProjectDoc = {
+        name = p.name,
+        path = p.path,
+        tracks = tracks,
+        length = finish,
+        tempo = paw.tempo.points(),
+        markers = paw.markers and paw.markers.list() or {},
+      }
+      return doc as rpc.Payload
+    end,
+    depends = {"paw://track/*", "paw://clip/*", "paw://project"},
+  }
+)
 
 -- A rendered file: where, its format, rate and depth, how long, and what
 -- the render measured (peak, loudness) with the options it was made with.
-M.define("render", {
-  language = "paw-render",
-  own = function(uri: string): boolean return kind_of(uri) == "render" end,
-  targets = function(): {string}
-    local out: {string} = {}
-    for path in pairs(A.renders) do out[#out + 1] = A.render(path) end
-    table.sort(out)
-    return out
-  end,
-  key = function(address: string): string
-    local r = A.renders[A.parse(address).path]
-    return r and tostring(r.at) or nil
-  end,
-  build = function(address: string): rpc.Payload
-    local rendered = A.renders[A.parse(address).path]
-    if not rendered then return nil end
-    -- What the render returned (`types.RenderResult`), as paw.address keeps it.
-    local r = rendered as types.RenderResult
-    local doc: RenderDoc = {
-      path = r.path, format = r.format, sample_rate = r.sample_rate, bits = r.bits, channels = r.channels,
-      seconds = r.seconds, frames = r.frames, peak = r.peak, loudness = r.loudness, gain = r.gain, opts = rendered.opts,
-      master = track_of(0),
-    }
-    return doc as rpc.Payload
-  end,
-  depends = { "paw://render/**" },
-})
+M.define(
+  "render",
+  {
+    language = "paw-render",
+    own = function(uri: string): boolean return kind_of(uri) == "render" end,
+    targets = function(): {string}
+      local out: {string} = {}
+      for path in pairs(A.renders) do
+        out[#out + 1] = A.render(path)
+      end
+      table.sort(out)
+      return out
+    end,
+    key = function(address: string): string
+      local r = A.renders[A.parse(address).path]
+      return r and tostring(r.at) or nil
+    end,
+    build = function(address: string): rpc.Payload
+      local rendered = A.renders[A.parse(address).path]
+      if not rendered then
+        return nil
+      end
+      -- What the render returned (`types.RenderResult`), as paw.address keeps it.
+      local r = rendered as types.RenderResult
+      local doc: RenderDoc = {
+        path = r.path,
+        format = r.format,
+        sample_rate = r.sample_rate,
+        bits = r.bits,
+        channels = r.channels,
+        seconds = r.seconds,
+        frames = r.frames,
+        peak = r.peak,
+        loudness = r.loudness,
+        gain = r.gain,
+        opts = rendered.opts,
+        master = track_of(0),
+      }
+      return doc as rpc.Payload
+    end,
+    depends = {"paw://render/**"},
+  }
+)
 
 return M

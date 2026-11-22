@@ -122,7 +122,9 @@ local CHAR = "[%z\1-\127\194-\244][\128-\191]*"
 
 --- How many cells a string takes.
 local function width(s: string): integer
-  if not s:find("[\128-\255]") then return #s end
+  if not s:find("[\128-\255]") then
+    return #s
+  end
   local _, n = s:gsub("[^\128-\191]", "")
   return n
 end
@@ -141,7 +143,9 @@ local function cut(s: string, n: integer): string, string
   return s:sub(1, at - 1), s:sub(at)
 end
 
-local function trim(s: string): string return (s:gsub("^%s+", ""):gsub("%s+$", "")) end
+local function trim(s: string): string
+  return (s:gsub("^%s+", ""):gsub("%s+$", ""))
+end
 
 -- Inline -----------------------------------------------------------------------
 --
@@ -163,7 +167,9 @@ local function closing(s: string, from: integer, delim: string): integer
       i = close and close + #ticks or i + #ticks
     elseif s:sub(i, i + #delim - 1) == delim and s:sub(i - 1, i - 1) ~= " " then
       -- `_` closes only at the end of a word, so that snake_case stays.
-      if delim:sub(1, 1) ~= "_" or not s:sub(i + #delim, i + #delim):match("[%w]") then return i end
+      if delim:sub(1, 1) ~= "_" or not s:sub(i + #delim, i + #delim):match("[%w]") then
+        return i
+      end
       i = i + 1
     else
       i = i + 1
@@ -177,7 +183,7 @@ inline = function(s: string, style?: string, link?: string, out?: {Run}): {Run}
   local buf: {string} = {}
   local function flush()
     if #buf > 0 then
-      out[#out + 1] = { text = table.concat(buf), style = style, link = link }
+      out[#out + 1] = {text = table.concat(buf), style = style, link = link}
       buf = {}
     end
   end
@@ -193,8 +199,10 @@ inline = function(s: string, style?: string, link?: string, out?: {Run}): {Run}
       if close then
         flush()
         local code = s:sub(i + #ticks, close - 1)
-        if code:match("^ .* $") and code:match("%S") then code = code:sub(2, -2) end
-        out[#out + 1] = { text = code, style = "HelpCode", link = link, code = true }
+        if code:match("^ .* $") and code:match("%S") then
+          code = code:sub(2, -2)
+        end
+        out[#out + 1] = {text = code, style = "HelpCode", link = link, code = true}
         i = close + #ticks
       else
         buf[#buf + 1] = ticks
@@ -203,7 +211,7 @@ inline = function(s: string, style?: string, link?: string, out?: {Run}): {Run}
     elseif c == "!" and s:match("^!%[[^%]]*%]%([^)]*%)", i) then
       local alt, after = s:match("^!%[([^%]]*)%]%([^)]*%)()", i)
       flush()
-      out[#out + 1] = { text = "[picture: " .. alt .. "]", style = "HelpDim" }
+      out[#out + 1] = {text = "[picture: " .. alt .. "]", style = "HelpDim"}
       i = after
     elseif c == "[" and s:match("^%[.-%]%(", i) then
       -- The link's text may hold code with brackets in it; its target ends at
@@ -218,7 +226,9 @@ inline = function(s: string, style?: string, link?: string, out?: {Run}): {Run}
           depth = depth + 1
         elseif d == "]" then
           depth = depth - 1
-          if depth == 0 then break end
+          if depth == 0 then
+            break
+          end
         end
         j = j + 1
       end
@@ -234,7 +244,7 @@ inline = function(s: string, style?: string, link?: string, out?: {Run}): {Run}
     elseif c == "<" and s:match("^<https?://[^>%s]+>", i) then
       local url = s:match("^<([^>]+)>", i)
       flush()
-      out[#out + 1] = { text = url, style = "HelpLink", link = url }
+      out[#out + 1] = {text = url, style = "HelpLink", link = url}
       i = i + #url + 2
     elseif (c == "*" or c == "_") and not (c == "_" and s:sub(i - 1, i - 1):match("[%w]")) then
       local delim = s:sub(i + 1, i + 1) == c and c .. c or c
@@ -262,7 +272,9 @@ M.inline = inline
 --- The text of runs without their marks: a heading as it reads.
 function M.plain(s: string): string
   local out: {string} = {}
-  for _, run in ipairs(inline(s)) do out[#out + 1] = run.text end
+  for _, run in ipairs(inline(s)) do
+    out[#out + 1] = run.text
+  end
   return table.concat(out)
 end
 
@@ -287,7 +299,11 @@ local function cells(line: string): {string}
       i = i + 2
     elseif c == "`" then
       local run = line:match("^`+", i)
-      if not ticks then ticks = run elseif run == ticks then ticks = nil end
+      if not ticks then
+        ticks = run
+      elseif run == ticks then
+        ticks = nil
+      end
       cur[#cur + 1] = run
       i = i + #run
     else
@@ -304,13 +320,17 @@ local function cells(line: string): {string}
   return out
 end
 
-local function is_rule_row(line: string): boolean return line:match("^%s*|?%s*:?%-%-+:?%s*|") ~= nil or line:match("^%s*|%s*:?%-+") ~= nil end
+local function is_rule_row(line: string): boolean
+  return line:match("^%s*|?%s*:?%-%-+:?%s*|") ~= nil or line:match("^%s*|%s*:?%-+") ~= nil
+end
 
 --- Markdown as a list of blocks (headings, paragraphs, lists, code, tables)
 --- for `render`.
 function M.parse(text: string): {Block}
   local lines: {string} = {}
-  for line in (text:gsub("\r", "") .. "\n"):gmatch("([^\n]*)\n") do lines[#lines + 1] = (line:gsub("\t", "    ")) end
+  for line in (text:gsub("\r", "") .. "\n"):gmatch("([^\n]*)\n") do
+    lines[#lines + 1] = (line:gsub("\t", "    "))
+  end
   local blocks: {Block} = {}
   local function add(block: Block): Block
     blocks[#blocks + 1] = block
@@ -319,8 +339,12 @@ function M.parse(text: string): {Block}
   -- The indents of the list items open, to tell how deep an item is.
   local stack: {integer} = {}
   local function depth_of(indent: integer): integer
-    while #stack > 0 and indent < stack[#stack] do stack[#stack] = nil end
-    if #stack == 0 or indent > stack[#stack] then stack[#stack + 1] = indent end
+    while #stack > 0 and indent < stack[#stack] do
+      stack[#stack] = nil
+    end
+    if #stack == 0 or indent > stack[#stack] then
+      stack[#stack + 1] = indent
+    end
     return #stack
   end
   local i = 1
@@ -330,10 +354,14 @@ function M.parse(text: string): {Block}
     local indent = #line:match("^ *")
     local fence = line:match("^%s*(```+)")
     local item_indent, marker, item_text = line:match("^( *)([-*+]) +(.*)$")
-    if not marker then item_indent, marker, item_text = line:match("^( *)(%d+[.)]) +(.*)$") end
+    if not marker then
+      item_indent, marker, item_text = line:match("^( *)(%d+[.)]) +(.*)$")
+    end
     if line:match("^%s*$") then
       para = nil
-      if blocks[#blocks] and blocks[#blocks].type ~= "blank" then add({ type = "blank" }) end
+      if blocks[#blocks] and blocks[#blocks].type ~= "blank" then
+        add({type = "blank"})
+      end
       i = i + 1
     elseif fence then
       para = nil
@@ -343,7 +371,7 @@ function M.parse(text: string): {Block}
         body[#body + 1] = lines[i]:sub(math.min(indent, #lines[i]:match("^ *")) + 1)
         i = i + 1
       end
-      add({ type = "code", lines = body, depth = indent > 0 and #stack or 0 })
+      add({type = "code", lines = body, depth = indent > 0 and #stack or 0})
       i = i + 1
     elseif line:match("^%s*<!%-%-") then
       para = nil
@@ -354,39 +382,41 @@ function M.parse(text: string): {Block}
       end
       local names = comment:match("<!%-%-%s*tags:%s*(.-)%s*%-%->")
       if names then
-        local block: Block = { type = "tags", names = {} }
-        for name in names:gmatch("%S+") do block.names[#block.names + 1] = name end
+        local block: Block = {type = "tags", names = {}}
+        for name in names:gmatch("%S+") do
+          block.names[#block.names + 1] = name
+        end
         add(block)
       end
       i = i + 1
     elseif line:match("^#+%s") and indent == 0 then
       para = nil
       local hashes, title = line:match("^(#+)%s+(.-)%s*#*%s*$")
-      add({ type = "heading", level = #hashes, text = title })
+      add({type = "heading", level = #hashes, text = title})
       stack = {}
       i = i + 1
     elseif line:match("^%s*|") and lines[i + 1] and is_rule_row(lines[i + 1]) then
       para = nil
-      local rows = { cells(line) }
+      local rows = {cells(line)}
       i = i + 2
       while i <= #lines and lines[i]:match("^%s*|") do
         rows[#rows + 1] = cells(lines[i])
         i = i + 1
       end
-      add({ type = "table", rows = rows, depth = indent > 0 and #stack or 0 })
+      add({type = "table", rows = rows, depth = indent > 0 and #stack or 0})
     elseif line:match("^%s*([-*_])%s*%1%s*%1[-*_%s]*$") and not marker then
       para = nil
-      add({ type = "rule" })
+      add({type = "rule"})
       i = i + 1
     elseif marker then
-      para = add({ type = "item", depth = depth_of(#item_indent), marker = marker, text = item_text })
+      para = add({type = "item", depth = depth_of(#item_indent), marker = marker, text = item_text})
       i = i + 1
     elseif line:match("^%s*>") then
       local quoted = line:match("^%s*> ?(.*)$")
       if para and para.type == "quote" then
         para.text = para.text .. " " .. quoted
       else
-        para = add({ type = "quote", text = quoted })
+        para = add({type = "quote", text = quoted})
       end
       i = i + 1
     elseif indent >= 4 and #stack == 0 and (not blocks[#blocks] or blocks[#blocks].type == "blank") then
@@ -399,8 +429,10 @@ function M.parse(text: string): {Block}
       while #body > 0 and body[#body]:match("^%s*$") do
         body[#body], blank_after = nil, true
       end
-      add({ type = "code", lines = body, depth = 0 })
-      if blank_after then add({ type = "blank" }) end
+      add({type = "code", lines = body, depth = 0})
+      if blank_after then
+        add({type = "blank"})
+      end
     elseif para and (para.type == "para" or para.type == "item") then
       -- A line going on with the paragraph or item before it.
       para.text = para.text .. " " .. trim(line)
@@ -408,12 +440,16 @@ function M.parse(text: string): {Block}
     else
       -- Text indented under a list item goes on in the list; text at the
       -- margin ends it.
-      if indent == 0 then stack = {} end
-      para = add({ type = "para", text = trim(line), depth = indent > 0 and #stack or 0 })
+      if indent == 0 then
+        stack = {}
+      end
+      para = add({type = "para", text = trim(line), depth = indent > 0 and #stack or 0})
       i = i + 1
     end
   end
-  while blocks[#blocks] and blocks[#blocks].type == "blank" do blocks[#blocks] = nil end
+  while blocks[#blocks] and blocks[#blocks].type == "blank" do
+    blocks[#blocks] = nil
+  end
   return blocks
 end
 
@@ -440,16 +476,22 @@ local function words_of(runs: {Run}): {{Run}}
         local piece = text:sub(pos, (s or #text + 1) - 1)
         if piece ~= "" then
           cur = cur or {}
-          cur[#cur + 1] = { text = piece, style = run.style, link = run.link }
+          cur[#cur + 1] = {text = piece, style = run.style, link = run.link}
         end
-        if not s then break end
-        if cur then words[#words + 1] = cur end
+        if not s then
+          break
+        end
+        if cur then
+          words[#words + 1] = cur
+        end
         cur = nil
         pos = e + 1
       end
     end
   end
-  if cur then words[#words + 1] = cur end
+  if cur then
+    words[#words + 1] = cur
+  end
   return words
 end
 
@@ -463,27 +505,35 @@ local function word_width(word: {Run}): integer
 end
 
 local function new_line(prefix?: string, style?: string): Line
-  local line: Line = { text = prefix or "", w = width(prefix or ""), spans = {}, links = {}, codes = {} }
-  if style and prefix and prefix ~= "" then line.spans[1] = { 0, width(prefix), style } end
+  local line: Line = {text = prefix or "", w = width(prefix or ""), spans = {}, links = {}, codes = {}}
+  if style and prefix and prefix ~= "" then
+    line.spans[1] = {0, width(prefix), style}
+  end
   return line
 end
 
-local function append(line: Line, text: string, style?: string, link?: string, code?: string, first?: boolean, tw?: integer)
+local function append(
+  line: Line, text: string, style?: string, link?: string, code?: string, first?: boolean, tw?: integer
+)
   local c0 = line.w
   line.text = line.text .. text
   local c1 = c0 + (tw or width(text))
   line.w = c1
-  if style then line.spans[#line.spans + 1] = { c0, c1, style } end
+  if style then
+    line.spans[#line.spans + 1] = {c0, c1, style}
+  end
   if link then
     local last = line.links[#line.links]
     -- A link's words with the spaces between them are one link.
     if last and last[3] == link and last[2] >= c0 - 1 then
       last[2] = c1
     else
-      line.links[#line.links + 1] = { c0, c1, link }
+      line.links[#line.links + 1] = {c0, c1, link}
     end
   end
-  if code then line.codes[#line.codes + 1] = { c0, c1, text, first } end
+  if code then
+    line.codes[#line.codes + 1] = {c0, c1, text, first}
+  end
 end
 
 --- Runs filled into lines `w` wide: the first line starts with `first`
@@ -511,8 +561,12 @@ local function fill(runs: {Run}, w: integer, first: string, rest: string, style?
       used = used + 1
     end
     local has_code = false
-    for _, piece in ipairs(word) do has_code = has_code or piece.code end
-    if lead == "lead" and not has_code then leading = false end
+    for _, piece in ipairs(word) do
+      has_code = has_code or piece.code
+    end
+    if lead == "lead" and not has_code then
+      leading = false
+    end
     for _, piece in ipairs(word) do
       local text, tw = piece.text, piece.w
       -- A word wider than the whole line is cut where the line ends.
@@ -540,21 +594,33 @@ local function column_widths(natural: {integer}, w: integer): {integer}
   local n = #natural
   local room = w - 2 * (n - 1)
   local total = 0
-  for _, nw in ipairs(natural) do total = total + nw end
+  for _, nw in ipairs(natural) do
+    total = total + nw
+  end
   local out: {integer} = {}
   if total <= room then
-    for i, nw in ipairs(natural) do out[i] = nw end
+    for i, nw in ipairs(natural) do
+      out[i] = nw
+    end
     return out
   end
   local open: {boolean} = {}
   local left = room
-  for i = 1, n do open[i] = true end
+  for i = 1, n do
+    open[i] = true
+  end
   local changed = true
   while changed do
     changed = false
     local count = 0
-    for i = 1, n do if open[i] then count = count + 1 end end
-    if count == 0 then break end
+    for i = 1, n do
+      if open[i] then
+        count = count + 1
+      end
+    end
+    if count == 0 then
+      break
+    end
     local share = math.floor(left / count)
     for i = 1, n do
       if open[i] and natural[i] <= share then
@@ -563,7 +629,11 @@ local function column_widths(natural: {integer}, w: integer): {integer}
     end
   end
   local count = 0
-  for i = 1, n do if open[i] then count = count + 1 end end
+  for i = 1, n do
+    if open[i] then
+      count = count + 1
+    end
+  end
   for i = 1, n do
     if open[i] then
       out[i] = math.max(8, math.floor(left / count))
@@ -574,7 +644,9 @@ end
 
 local function runs_width(runs: {Run}): integer
   local n = 0
-  for _, run in ipairs(runs) do n = n + width(run.text) end
+  for _, run in ipairs(runs) do
+    n = n + width(run.text)
+  end
   return n
 end
 
@@ -588,31 +660,43 @@ function M.render(blocks: {Block}, opts?: M.RenderOptions): M.Document
   local W = opts.width or 78
   local lines: {Line} = {}
   local anchors: {Anchor} = {}
-  local function push(line: Line) lines[#lines + 1] = line end
+  local function push(line: Line)
+    lines[#lines + 1] = line
+  end
   local function blank()
-    if #lines > 0 and lines[#lines].text ~= "" then push(new_line()) end
+    if #lines > 0 and lines[#lines].text ~= "" then
+      push(new_line())
+    end
   end
   local function codes_of(from: integer)
     for row = from, #lines do
       for _, code in ipairs(lines[row].codes) do
-        anchors[#anchors + 1] = { row = row, col = code[1], kind = "code", text = code[3], first = code[4] }
+        anchors[#anchors + 1] = {row = row, col = code[1], kind = "code", text = code[3], first = code[4]}
       end
     end
   end
   local pause = opts.pause
   for _, block in ipairs(blocks) do
-    if pause then pause() end
+    if pause then
+      pause()
+    end
     local from = #lines + 1
     local t = block.type
     if t == "blank" then
       blank()
     elseif t == "heading" then
       blank()
-      if block.level == 2 then push(new_line(string.rep("─", W), "HelpRule")) end
+      if block.level == 2 then
+        push(new_line(string.rep("─", W), "HelpRule"))
+      end
       local tag = opts.heading_tag and opts.heading_tag(block)
       local style = block.level == 1 and "HelpTitle" or "HelpHeading"
       local runs = inline(block.text, style)
-      for _, run in ipairs(runs) do if run.code then run.style = style end end
+      for _, run in ipairs(runs) do
+        if run.code then
+          run.style = style
+        end
+      end
       local room = W - (tag and width(tag) + 3 or 0)
       local body = fill(runs, math.max(20, room), "", "")
       for k, line in ipairs(body) do
@@ -622,14 +706,20 @@ function M.render(blocks: {Block}, opts?: M.RenderOptions): M.Document
         end
         push(line)
       end
-      anchors[#anchors + 1] = { row = from + (block.level == 2 and 1 or 0), kind = "heading", level = block.level, text = M.plain(block.text) }
+      anchors[#anchors + 1] = {
+        row = from + (block.level == 2 and 1 or 0), kind = "heading", level = block.level, text = M.plain(block.text)
+      }
     elseif t == "para" or t == "quote" then
       -- A paragraph that starts in bold is named by those words.
       local lead = t == "para" and block.text:match("^%*%*(.-)%*%*")
-      if lead then anchors[#anchors + 1] = { row = from, kind = "lead", text = lead:gsub("[%.:]$", "") } end
+      if lead then
+        anchors[#anchors + 1] = {row = from, kind = "lead", text = lead:gsub("[%.:]$", "")}
+      end
       local indent = string.rep(" ", (block.depth or 0) * 4)
       local prefix = t == "quote" and indent .. "│ " or indent
-      for _, line in ipairs(fill(inline(block.text), W, prefix, prefix)) do push(line) end
+      for _, line in ipairs(fill(inline(block.text), W, prefix, prefix)) do
+        push(line)
+      end
     elseif t == "item" then
       local pad = string.rep("    ", block.depth - 1)
       local bullet: string
@@ -640,7 +730,9 @@ function M.render(blocks: {Block}, opts?: M.RenderOptions): M.Document
       end
       local first = pad .. bullet
       for k, line in ipairs(fill(inline(block.text), W, first, string.rep(" ", width(first)), nil, "lead")) do
-        if k == 1 then line.spans[#line.spans + 1] = { width(pad), width(first), "HelpBullet" } end
+        if k == 1 then
+          line.spans[#line.spans + 1] = {width(pad), width(first), "HelpBullet"}
+        end
         push(line)
       end
     elseif t == "code" then
@@ -654,7 +746,7 @@ function M.render(blocks: {Block}, opts?: M.RenderOptions): M.Document
       blank()
       push(new_line(string.rep("─", W), "HelpRule"))
     elseif t == "tags" then
-      anchors[#anchors + 1] = { row = #lines + 1, kind = "tags", names = block.names }
+      anchors[#anchors + 1] = {row = #lines + 1, kind = "tags", names = block.names}
     elseif t == "table" then
       local indent = string.rep(" ", (block.depth or 0) * 4)
       local rows: {{{Run}}} = {}
@@ -673,13 +765,19 @@ function M.render(blocks: {Block}, opts?: M.RenderOptions): M.Document
         laid[r] = {}
         for c = 1, #widths do
           laid[r][c] = fill(row[c] or {}, widths[c], "", "", r == 1 and "HelpTableHead" or nil, c == 1 and "all" or nil)
-          if r > 1 and #laid[r][c] > 1 then tall = true end
+          if r > 1 and #laid[r][c] > 1 then
+            tall = true
+          end
         end
       end
       for r = 1, #laid do
-        if r > 2 and tall then push(new_line()) end
+        if r > 2 and tall then
+          push(new_line())
+        end
         local height = 0
-        for c = 1, #widths do height = math.max(height, #laid[r][c]) end
+        for c = 1, #widths do
+          height = math.max(height, #laid[r][c])
+        end
         for k = 1, height do
           local line = new_line(indent)
           for c = 1, #widths do
@@ -687,9 +785,15 @@ function M.render(blocks: {Block}, opts?: M.RenderOptions): M.Document
             local at = line.w
             if part then
               line.text, line.w = line.text .. part.text, line.w + part.w
-              for _, s in ipairs(part.spans) do line.spans[#line.spans + 1] = { s[1] + at, s[2] + at, s[3] } end
-              for _, l in ipairs(part.links) do line.links[#line.links + 1] = { l[1] + at, l[2] + at, l[3] } end
-              for _, code in ipairs(part.codes) do line.codes[#line.codes + 1] = { code[1] + at, code[2] + at, code[3], code[4] and k == 1 } end
+              for _, s in ipairs(part.spans) do
+                line.spans[#line.spans + 1] = {s[1] + at, s[2] + at, s[3]}
+              end
+              for _, l in ipairs(part.links) do
+                line.links[#line.links + 1] = {l[1] + at, l[2] + at, l[3]}
+              end
+              for _, code in ipairs(part.codes) do
+                line.codes[#line.codes + 1] = {code[1] + at, code[2] + at, code[3], code[4] and k == 1}
+              end
             end
             if c < #widths then
               local pad = widths[c] - (part and part.w or 0) + 2
@@ -702,15 +806,21 @@ function M.render(blocks: {Block}, opts?: M.RenderOptions): M.Document
         end
         if r == 1 then
           local parts: {string} = {}
-          for c, cw in ipairs(widths) do parts[c] = string.rep("─", cw) end
+          for c, cw in ipairs(widths) do
+            parts[c] = string.rep("─", cw)
+          end
           push(new_line(indent .. table.concat(parts, "  "), "HelpRule"))
         end
       end
     end
-    if t ~= "heading" then codes_of(from) end
+    if t ~= "heading" then
+      codes_of(from)
+    end
   end
-  while #lines > 0 and lines[#lines].text == "" do lines[#lines] = nil end
-  return { lines = lines, anchors = anchors }
+  while #lines > 0 and lines[#lines].text == "" do
+    lines[#lines] = nil
+  end
+  return {lines = lines, anchors = anchors}
 end
 
 return M

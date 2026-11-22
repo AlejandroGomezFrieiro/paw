@@ -7,9 +7,7 @@ Report.__index = Report
 
 local M = {}
 
-function M.new(title)
-  return setmetatable({ title = title, groups = {}, order = {} }, Report)
-end
+function M.new(title) return setmetatable({ title = title, groups = {}, order = {} }, Report) end
 
 local function group(self, name)
   local g = self.groups[name]

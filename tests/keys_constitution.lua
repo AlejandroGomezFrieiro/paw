@@ -14,8 +14,12 @@ local function start()
   fresh()
   api.engine_restart({ backend = "null" })
   keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
-  for _, name in ipairs({ "pianoroll", "mixer", "devices" }) do paw.ui.hide(name) end
+  while paw.ui.float do
+    paw.ui.close()
+  end
+  for _, name in ipairs({ "pianoroll", "mixer", "devices" }) do
+    paw.ui.hide(name)
+  end
   paw.ui.focus("arrange")
 end
 
@@ -40,7 +44,8 @@ test("every view's keys keep to the one rule, the bundled extensions' too", func
   -- Loading every extension here would change the suite's kernel for the
   -- tests after this one: a kernel of its own walks them.
   -- The shell's parent is this kernel: the same program runs the walk.
-  local cmd = 'exec "$(readlink /proc/$PPID/exe)" --clean --no-plugins --no-listen --audio null -l tests/fixtures/keys_walk.lua 2>&1'
+  local cmd =
+    'exec "$(readlink /proc/$PPID/exe)" --clean --no-plugins --no-listen --audio null -l tests/fixtures/keys_walk.lua 2>&1'
   local out = io.popen(cmd):read("*a")
   eq(out:match("done%s*$") ~= nil, true, "the walk ran to its end:\n" .. out)
   local wrong = {}
@@ -55,13 +60,29 @@ test("the structural keys are motions wherever they are mapped: the arrange view
   local found = {}
   for _, map in ipairs(keymap.every()) do
     local keys = table.concat(map.keys)
-    if map.mode == "n" and (keys == "]]" or keys == "[[" or keys == "]c" or keys == "]n" or keys == "[{" or keys == "]}" or keys == "]s" or keys == "[s") then
+    if
+      map.mode == "n"
+      and (
+        keys == "]]"
+        or keys == "[["
+        or keys == "]c"
+        or keys == "]n"
+        or keys == "[{"
+        or keys == "]}"
+        or keys == "]s"
+        or keys == "[s"
+      )
+    then
       found[#found + 1] = map.scope .. " " .. keys
     end
   end
   table.sort(found)
   local text = table.concat(found, ", ")
-  eq(text:find("arrange [{", 1, true) ~= nil and text:find("arrange ]}", 1, true) ~= nil, true, "the arrange view's group keys: " .. text)
+  eq(
+    text:find("arrange [{", 1, true) ~= nil and text:find("arrange ]}", 1, true) ~= nil,
+    true,
+    "the arrange view's group keys: " .. text
+  )
   eq(text:find("pianoroll ]n", 1, true) ~= nil, true, "the roll's next note of a pitch")
   keymap.set("]}", function() end, { view = "keyrule.test", desc = "test: not a motion" })
   local wrong = table.concat(broken(), "\n")
@@ -70,7 +91,6 @@ test("the structural keys are motions wherever they are mapped: the arrange view
 end)
 
 test("the rule holds for a mapping made later, and says what it broke", function()
-
   start()
   keymap.set("j", function() end, { view = "keyrule.test", desc = "test: a fader on j" })
   local found = table.concat(broken(), "\n")
@@ -89,7 +109,11 @@ test("a view's own keys may not shadow a global leader key", function()
   eq(found:find("keyrule.test n <leader>mm: shadows a global leader key", 1, true) ~= nil, true, found)
   eq(found:find("<localleader>m", 1, true), nil, "the local leader is free")
   eq(paw.opt.localleader ~= paw.opt.leader, true, "the two leaders are two keys")
-  eq(table.concat(keymap.parse("<LocalLeader>x")), paw.opt.localleader .. "x", "<LocalLeader> is expanded like <leader>")
+  eq(
+    table.concat(keymap.parse("<LocalLeader>x")),
+    paw.opt.localleader .. "x",
+    "<LocalLeader> is expanded like <leader>"
+  )
   eq(keymap.human("<localleader>d"), paw.opt.localleader .. "d", "and shown as typed")
 end)
 
@@ -102,7 +126,10 @@ test("Escape cancels and stays in every view", function()
   local moved = {}
   local function stays(name, open)
     open()
-    if paw.ui.focused ~= name then moved[#moved + 1] = name .. " did not open" return end
+    if paw.ui.focused ~= name then
+      moved[#moved + 1] = name .. " did not open"
+      return
+    end
     keymap.feed("3d<Esc>")
     keymap.feed("<Esc><Esc>")
     if paw.ui.focused ~= name then moved[#moved + 1] = name .. " -> " .. tostring(paw.ui.focused) end
@@ -110,25 +137,37 @@ test("Escape cancels and stays in every view", function()
     eq(keymap.mode, "n", name .. ": normal mode")
     paw.ui.focus("arrange")
   end
-  stays("pianoroll", function() paw.ui.views.pianoroll:edit(clip) paw.ui.focus("pianoroll") end)
-  stays("mixer", function() paw.ui.show("mixer") paw.ui.focus("mixer") end)
-  stays("devices", function() paw.ui.show("devices") paw.ui.focus("devices") end)
+  stays("pianoroll", function()
+    paw.ui.views.pianoroll:edit(clip)
+    paw.ui.focus("pianoroll")
+  end)
+  stays("mixer", function()
+    paw.ui.show("mixer")
+    paw.ui.focus("mixer")
+  end)
+  stays("devices", function()
+    paw.ui.show("devices")
+    paw.ui.focus("devices")
+  end)
   eq(table.concat(moved, ", "), "", "views Escape left")
   -- A second Escape soon after says how to leave.
   paw.ui.show("mixer")
   paw.ui.focus("mixer")
   keymap.feed("<Esc><Esc>")
   eq((paw.ui.message and paw.ui.message.text or ""):find("<C-w>p goes back", 1, true) ~= nil, true, "the hint")
-  for _, name in ipairs({ "pianoroll", "mixer", "devices" }) do paw.ui.hide(name) end
+  for _, name in ipairs({ "pianoroll", "mixer", "devices" }) do
+    paw.ui.hide(name)
+  end
 end)
-
 
 -- The mixer as a grid -----------------------------------------------------------------------
 
 local function mixer(tracks)
   start()
   local out = {}
-  for i, name in ipairs(tracks) do out[i] = paw.add_track({ name = name }) end
+  for i, name in ipairs(tracks) do
+    out[i] = paw.add_track({ name = name })
+  end
   api.undo_checkpoint()
   paw.cursor.set_track(out[1])
   paw.ui.show("mixer")
@@ -165,7 +204,9 @@ test("in the mixer h l go between strips and j k along a strip's rows, which + -
   eq(paw.mixer_rows.current().field, "monitor", "G is the bottom row")
   keys("K")
   eq(paw.ui.float ~= nil, true, "K describes")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.hide("mixer")
 end)
 
@@ -225,7 +266,11 @@ test("in the device panel w b go from device to device, + - change a parameter, 
   keys("gcc")
   eq(api.device_get(delay.id).bypass, true, "gcc bypasses it")
   keys("Mr")
-  eq(api.track_get(t.id).mute and api.track_get(t.id).armed, true, "M r mute and arm the panel's track, as wherever there is a track")
+  eq(
+    api.track_get(t.id).mute and api.track_get(t.id).armed,
+    true,
+    "M r mute and arm the panel's track, as wherever there is a track"
+  )
   keys("b")
   eq(paw.ui.views.devices.row, 1, "b is the device before")
   paw.ui.views.devices.row = param_row(synth, "cutoff")
@@ -236,8 +281,12 @@ test("in the device panel w b go from device to device, + - change a parameter, 
   keys(".")
   eq(api.device_get(synth.id).params.cutoff > after, true, ". does it again")
   keys("dd")
-  near(api.device_get(synth.id).params.cutoff, synth:get().param_info[param_row(synth, "cutoff") - 1].default, 1e-3,
-    "dd on a parameter puts it back at its default")
+  near(
+    api.device_get(synth.id).params.cutoff,
+    synth:get().param_info[param_row(synth, "cutoff") - 1].default,
+    1e-3,
+    "dd on a parameter puts it back at its default"
+  )
   paw.ui.views.devices.row = 1
   paw.ui.hide("devices")
 end)
@@ -252,7 +301,12 @@ test("in the device panel y p copy a device's settings onto another", function()
   eq(keymap.getreg().kind, "params", "yy on a parameter yanks its setting")
   paw.ui.views.devices.row = param_row(other, "cutoff")
   keys("p")
-  near(api.device_get(other.id).params.cutoff, api.device_get(synth.id).params.cutoff, 1e-6, "p puts it on the device under the cursor")
+  near(
+    api.device_get(other.id).params.cutoff,
+    api.device_get(synth.id).params.cutoff,
+    1e-6,
+    "p puts it on the device under the cursor"
+  )
   eq(#t:devices(), 3, "no device was added")
   paw.ui.views.devices.row = 1
   paw.ui.hide("devices")
@@ -260,28 +314,36 @@ end)
 
 -- The piano roll ---------------------------------------------------------------------------
 
-test("in the piano roll + - are the pitch, Alt-l Alt-h the length, and a selection takes in the note under its end", function()
-  start()
-  local t = paw.add_track({ name = "Keys" })
-  local clip = t:add_clip({ name = "c", start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1 }, { pitch = 60, start = 2, length = 1 } } })
-  api.undo_checkpoint()
-  local roll = paw.ui.views.pianoroll
-  roll:edit(clip)
-  paw.ui.focus("pianoroll")
-  roll:set(60, 0)
-  keys("2+")
-  eq(T.melody(clip), "62@0+1 60@2+1", "2+ raises the note two semitones")
-  keys("<A-l>")
-  eq(T.melody(clip), "62@0+1.25 60@2+1", "Alt-l lengthens it")
-  keys("<C-d>")
-  eq(roll.pitch, 50, "Ctrl-d is an octave down")
-  roll:set(60, 2)
-  keys("vd")
-  eq(T.melody(clip), "62@0+1.25", "v d on a note takes the whole note")
-  keymap.feed("<Esc>")
-  eq(paw.ui.focused, "pianoroll", "Escape stays")
-  paw.ui.hide("pianoroll")
-end)
+test(
+  "in the piano roll + - are the pitch, Alt-l Alt-h the length, and a selection takes in the note under its end",
+  function()
+    start()
+    local t = paw.add_track({ name = "Keys" })
+    local clip = t:add_clip({
+      name = "c",
+      start = 0,
+      length = 4,
+      notes = { { pitch = 60, start = 0, length = 1 }, { pitch = 60, start = 2, length = 1 } },
+    })
+    api.undo_checkpoint()
+    local roll = paw.ui.views.pianoroll
+    roll:edit(clip)
+    paw.ui.focus("pianoroll")
+    roll:set(60, 0)
+    keys("2+")
+    eq(T.melody(clip), "62@0+1 60@2+1", "2+ raises the note two semitones")
+    keys("<A-l>")
+    eq(T.melody(clip), "62@0+1.25 60@2+1", "Alt-l lengthens it")
+    keys("<C-d>")
+    eq(roll.pitch, 50, "Ctrl-d is an octave down")
+    roll:set(60, 2)
+    keys("vd")
+    eq(T.melody(clip), "62@0+1.25", "v d on a note takes the whole note")
+    keymap.feed("<Esc>")
+    eq(paw.ui.focused, "pianoroll", "Escape stays")
+    paw.ui.hide("pianoroll")
+  end
+)
 
 -- The old keys ---------------------------------------------------------------------------------
 

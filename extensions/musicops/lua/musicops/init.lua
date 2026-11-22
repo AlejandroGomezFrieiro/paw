@@ -19,7 +19,9 @@ M.MIN_LENGTH = 1 / 64
 
 local function copy(n)
   local out = {}
-  for k, v in pairs(n) do out[k] = v end
+  for k, v in pairs(n) do
+    out[k] = v
+  end
   return out
 end
 
@@ -91,7 +93,9 @@ function M.chords(notes, tolerance)
     current[#current + 1] = n
   end
   for _, g in ipairs(groups) do
-    for _, n in ipairs(g) do n._order = nil end
+    for _, n in ipairs(g) do
+      n._order = nil
+    end
   end
   return groups
 end
@@ -198,7 +202,9 @@ function M.staccato(notes, opts)
   opts = opts or {}
   local factor = opts.factor or 0.5
   local out = sorted(notes)
-  for _, n in ipairs(out) do n.length = n.length * factor end
+  for _, n in ipairs(out) do
+    n.length = n.length * factor
+  end
   return finish(out)
 end
 
@@ -206,7 +212,9 @@ end
 function M.set_length(notes, opts)
   opts = opts or {}
   local out = sorted(notes)
-  for _, n in ipairs(out) do n.length = opts.length or 0.25 end
+  for _, n in ipairs(out) do
+    n.length = opts.length or 0.25
+  end
   return finish(out)
 end
 
@@ -215,7 +223,9 @@ end
 function M.reverse(notes)
   local out = sorted(notes)
   local s0, e1 = M.span(out)
-  for _, n in ipairs(out) do n.start = s0 + e1 - (n.start + n.length) end
+  for _, n in ipairs(out) do
+    n.start = s0 + e1 - (n.start + n.length)
+  end
   return finish(out)
 end
 
@@ -233,14 +243,10 @@ function M.stretch(notes, opts)
 end
 
 --- Twice as fast: starts and lengths halved from `anchor` (default: the first start).
-function M.double_time(notes, opts)
-  return M.stretch(notes, { factor = 0.5, anchor = opts and opts.anchor })
-end
+function M.double_time(notes, opts) return M.stretch(notes, { factor = 0.5, anchor = opts and opts.anchor }) end
 
 --- Half as fast: starts and lengths doubled from `anchor`.
-function M.half_time(notes, opts)
-  return M.stretch(notes, { factor = 2, anchor = opts and opts.anchor })
-end
+function M.half_time(notes, opts) return M.stretch(notes, { factor = 2, anchor = opts and opts.anchor }) end
 
 -- Chords ------------------------------------------------------------------------
 
@@ -269,17 +275,27 @@ end
 local function arp_order(chord, mode)
   local seq = {}
   if mode == "played" then
-    for i, n in ipairs(chord) do seq[i] = n end
+    for i, n in ipairs(chord) do
+      seq[i] = n
+    end
     return seq
   end
   local asc = {}
-  for i, n in ipairs(chord) do asc[i] = n end
+  for i, n in ipairs(chord) do
+    asc[i] = n
+  end
   table.sort(asc, function(a, b) return a.pitch < b.pitch end)
   if mode == "down" then
-    for i = #asc, 1, -1 do seq[#seq + 1] = asc[i] end
+    for i = #asc, 1, -1 do
+      seq[#seq + 1] = asc[i]
+    end
   elseif mode == "updown" then
-    for _, n in ipairs(asc) do seq[#seq + 1] = n end
-    for i = #asc - 1, 2, -1 do seq[#seq + 1] = asc[i] end
+    for _, n in ipairs(asc) do
+      seq[#seq + 1] = n
+    end
+    for i = #asc - 1, 2, -1 do
+      seq[#seq + 1] = asc[i]
+    end
   else
     seq = asc
   end
@@ -300,7 +316,9 @@ function M.arpeggiate(notes, opts)
       out[#out + 1] = chord[1]
     else
       local finish_at = -math.huge
-      for _, n in ipairs(chord) do finish_at = math.max(finish_at, n.start + n.length) end
+      for _, n in ipairs(chord) do
+        finish_at = math.max(finish_at, n.start + n.length)
+      end
       local seq = arp_order(chord, mode)
       local i, t = 0, chord.start
       while t < finish_at - EPS do
@@ -336,15 +354,21 @@ function M.invert(notes, opts)
       local bottom, top = lo.pitch, hi.pitch
       if dir > 0 then
         local p = bottom
-        while p <= top do p = p + 12 end
+        while p <= top do
+          p = p + 12
+        end
         if p <= 127 then lo.pitch = p end
       else
         local p = top
-        while p >= bottom do p = p - 12 end
+        while p >= bottom do
+          p = p - 12
+        end
         if p >= 0 then hi.pitch = p end
       end
     end
-    for _, n in ipairs(chord) do out[#out + 1] = n end
+    for _, n in ipairs(chord) do
+      out[#out + 1] = n
+    end
   end
   return finish(out)
 end
@@ -367,7 +391,9 @@ end
 --- Move every note `semitones` up (or down when negative).
 function M.transpose(notes, semitones)
   local out = sorted(notes)
-  for _, n in ipairs(out) do n.pitch = n.pitch + (semitones or 0) end
+  for _, n in ipairs(out) do
+    n.pitch = n.pitch + (semitones or 0)
+  end
   return finish(out)
 end
 
@@ -377,7 +403,9 @@ end
 function M.transpose_scale(notes, degrees, key)
   key = scale.parse(key or scale.current())
   local out = sorted(notes)
-  for _, n in ipairs(out) do n.pitch = scale.step(key, n.pitch, degrees or 0) end
+  for _, n in ipairs(out) do
+    n.pitch = scale.step(key, n.pitch, degrees or 0)
+  end
   return finish(out)
 end
 
@@ -386,7 +414,9 @@ end
 function M.snap_scale(notes, key, opts)
   key = scale.parse(key or scale.current())
   local out = sorted(notes)
-  for _, n in ipairs(out) do n.pitch = scale.snap(key, n.pitch, opts and opts.dir) end
+  for _, n in ipairs(out) do
+    n.pitch = scale.snap(key, n.pitch, opts and opts.dir)
+  end
   return finish(out)
 end
 
@@ -406,7 +436,9 @@ function M.mirror(notes, opts)
       n.pitch = scale.pitch(key, 2 * da - d) + offset
     end
   else
-    for _, n in ipairs(out) do n.pitch = 2 * axis - n.pitch end
+    for _, n in ipairs(out) do
+      n.pitch = 2 * axis - n.pitch
+    end
   end
   return finish(out)
 end
@@ -444,9 +476,7 @@ function M.crescendo(notes, opts)
 end
 
 --- Softer and softer: a crescendo by `-amount`.
-function M.diminuendo(notes, opts)
-  return M.crescendo(notes, { amount = -(opts and opts.amount or 30) })
-end
+function M.diminuendo(notes, opts) return M.crescendo(notes, { amount = -(opts and opts.amount or 30) }) end
 
 --- Bring velocities closer to `center` (default their average) by `ratio`
 --- (default 0.5: half as far). A ratio above 1 spreads them out instead.
@@ -457,18 +487,20 @@ function M.compress(notes, opts)
   local center = opts.center
   if not center then
     local sum = 0
-    for _, n in ipairs(out) do sum = sum + n.velocity end
+    for _, n in ipairs(out) do
+      sum = sum + n.velocity
+    end
     center = sum / #out
   end
   local ratio = opts.ratio or 0.5
-  for _, n in ipairs(out) do n.velocity = center + (n.velocity - center) * ratio end
+  for _, n in ipairs(out) do
+    n.velocity = center + (n.velocity - center) * ratio
+  end
   return finish(out)
 end
 
 --- Set every velocity to `velocity`, or with none to their average.
-function M.set_velocity(notes, opts)
-  return M.compress(notes, { ratio = 0, center = opts and opts.velocity })
-end
+function M.set_velocity(notes, opts) return M.compress(notes, { ratio = 0, center = opts and opts.velocity }) end
 
 --- Make the notes on every `grid`-th beat (default 1, each beat; `offset`
 --- moves the grid) louder by `amount` (default 20).

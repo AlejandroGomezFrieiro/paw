@@ -64,7 +64,9 @@ M.list = {
 --- The names of the beats, sorted.
 function M.names()
   local out = {}
-  for name in pairs(M.list) do out[#out + 1] = name end
+  for name in pairs(M.list) do
+    out[#out + 1] = name
+  end
   table.sort(out)
   return out
 end
@@ -96,7 +98,9 @@ function M.apply(clip, name)
   -- in the grid, so they are counted for the message.
   local rows = {}
   local info = require("drums").info(clip:get().track)
-  for _, r in ipairs(info and info.rows or {}) do rows[r.note] = true end
+  for _, r in ipairs(info and info.rows or {}) do
+    rows[r.note] = true
+  end
   local remove, hidden = {}, 0
   for i, n in ipairs(clip:notes()) do
     remove[i] = i

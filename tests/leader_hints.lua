@@ -23,15 +23,21 @@ end
 --- A clip open as notation, the cursor in it.
 local function song()
   fresh()
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   -- A view another test left in a window of its own is not drawn in the terminal.
-  for name in pairs(paw.canvas.open_views) do paw.canvas.close(name) end
+  for name in pairs(paw.canvas.open_views) do
+    paw.canvas.close(name)
+  end
   L.restore(initial)
   local view = load()
   local track = paw.add_track({ name = "Lead" })
   track:add_device("synth")
   local notes = {}
-  for i, p in ipairs({ 60, 62, 64, 65 }) do notes[i] = { pitch = p, start = i - 1, length = 1, velocity = 80 } end
+  for i, p in ipairs({ 60, 62, 64, 65 }) do
+    notes[i] = { pitch = p, start = i - 1, length = 1, velocity = 80 }
+  end
   local clip = track:add_clip({ start = 0, length = 4, name = "tune", notes = notes })
   paw.flush()
   paw.keymap.set_mode("n")
@@ -53,7 +59,11 @@ test("leader: Space Space plays and stops at once, and Space alone lists the lea
   fresh()
   paw.ui.focus("arrange")
   local hints, wait = paw.opt.hint_delay, paw.opt.timeoutlen
-  T.after(function() paw.opt.hint_delay, paw.opt.timeoutlen = hints, wait; paw.keymap.feed("<Esc>"); paw.transport.stop() end)
+  T.after(function()
+    paw.opt.hint_delay, paw.opt.timeoutlen = hints, wait
+    paw.keymap.feed("<Esc>")
+    paw.transport.stop()
+  end)
   paw.opt.hint_delay, paw.opt.timeoutlen = 20, 10000
   paw.keymap.feed("<Space>")
   eq(paw.transport.playing, false, "one Space only waits")
@@ -67,31 +77,41 @@ test("leader: Space Space plays and stops at once, and Space alone lists the lea
   eq(paw.transport.playing, false, "and stops")
 end)
 
-test("leader: in the notation view the local leader lists the popovers by name, and the leader the global keys", function()
-  local view = song()
-  local hints, wait = paw.opt.hint_delay, paw.opt.timeoutlen
-  T.after(function() paw.opt.hint_delay, paw.opt.timeoutlen = hints, wait; paw.keymap.feed("<Esc>") end)
-  paw.opt.hint_delay, paw.opt.timeoutlen = 20, 100
-  paw.keymap.feed("<localleader>")
-  paw.wait(400)
-  eq(paw.keymap.pending(), paw.opt.localleader, "still waiting, the list is on")
-  for _, key in ipairs({ "d", "t", "k", "m", "q", "l" }) do
-    eq((hint_of(key) or ""):match("^Popover: %a+") ~= nil, true, paw.opt.localleader .. key .. " is listed as a popover")
+test(
+  "leader: in the notation view the local leader lists the popovers by name, and the leader the global keys",
+  function()
+    local view = song()
+    local hints, wait = paw.opt.hint_delay, paw.opt.timeoutlen
+    T.after(function()
+      paw.opt.hint_delay, paw.opt.timeoutlen = hints, wait
+      paw.keymap.feed("<Esc>")
+    end)
+    paw.opt.hint_delay, paw.opt.timeoutlen = 20, 100
+    paw.keymap.feed("<localleader>")
+    paw.wait(400)
+    eq(paw.keymap.pending(), paw.opt.localleader, "still waiting, the list is on")
+    for _, key in ipairs({ "d", "t", "k", "m", "q", "l" }) do
+      eq(
+        (hint_of(key) or ""):match("^Popover: %a+") ~= nil,
+        true,
+        paw.opt.localleader .. key .. " is listed as a popover"
+      )
+    end
+    eq(hint_of("d"):match("^Popover: dynamics") ~= nil, true, "with its name")
+    paw.keymap.feed("<Esc>")
+    eq(paw.keymap.pending(), "", "Escape drops it")
+    -- The leader is the global one here: no popover on it.
+    paw.keymap.feed("<Space>")
+    paw.wait(400)
+    eq((hint_of("d") or ""):match("^Popover") == nil, true, "Space d is not a popover")
+    eq(hint_of("m") ~= nil, true, "and the mix is on it")
+    paw.keymap.feed("<Esc>")
+    T.after(function() paw.ui.hide("mixer") end)
+    paw.keymap.feed("<Space>mm")
+    eq(paw.ui.visible("mixer"), true, "Space mm is the mixer in the notation view, as everywhere")
+    eq(view.popover.active(), false, "and no popover opened")
   end
-  eq(hint_of("d"):match("^Popover: dynamics") ~= nil, true, "with its name")
-  paw.keymap.feed("<Esc>")
-  eq(paw.keymap.pending(), "", "Escape drops it")
-  -- The leader is the global one here: no popover on it.
-  paw.keymap.feed("<Space>")
-  paw.wait(400)
-  eq((hint_of("d") or ""):match("^Popover") == nil, true, "Space d is not a popover")
-  eq(hint_of("m") ~= nil, true, "and the mix is on it")
-  paw.keymap.feed("<Esc>")
-  T.after(function() paw.ui.hide("mixer") end)
-  paw.keymap.feed("<Space>mm")
-  eq(paw.ui.visible("mixer"), true, "Space mm is the mixer in the notation view, as everywhere")
-  eq(view.popover.active(), false, "and no popover opened")
-end)
+)
 
 test("leader: , and ; repeat the last f the other way and the same way, at once", function()
   local view = song()
@@ -114,7 +134,10 @@ test("leader: a leader set in init.lua moves every key on it", function()
   fresh()
   paw.ui.focus("arrange")
   local leader = paw.opt.leader
-  T.after(function() paw.opt.leader = leader; paw.ui.hide("mixer") end)
+  T.after(function()
+    paw.opt.leader = leader
+    paw.ui.hide("mixer")
+  end)
   paw.ui.hide("mixer")
   paw.opt.leader = ","
   paw.keymap.feed(",mm")
@@ -135,8 +158,13 @@ test("popover: an empty prompt shows examples, and Tab fills the line", function
   paw.keymap.feed("<Tab>")
   eq(#rows_with("pp p mp mf f ff  mp<f  sfz"), 0, "gone once the line has text")
   paw.keymap.feed("<Esc>")
-  for key, ghost in pairs({ t = "Allegro q=132  rit.  a tempo", k = "Eb  f#m  D dorian", m = "6/8  3+3+2/8", q = "Cmaj7  G/B  N.C.",
-      l = "syllables, Space next, - hyphen" }) do
+  for key, ghost in pairs({
+    t = "Allegro q=132  rit.  a tempo",
+    k = "Eb  f#m  D dorian",
+    m = "6/8  3+3+2/8",
+    q = "Cmaj7  G/B  N.C.",
+    l = "syllables, Space next, - hyphen",
+  }) do
     paw.keymap.feed("<localleader>" .. key)
     -- An extension's longer mapping (the pattern's `,t…`) makes the popover wait out `timeoutlen`.
     paw.wait(150)
@@ -155,14 +183,24 @@ end)
 
 test("panes: the arrange view keeps two fifths of a column with a roll, notation, quickfix and a curve", function()
   fresh()
-  local tree = { dir = "v", L.leaf("arrange"), L.leaf("pianoroll", { weight = 2 }), L.leaf("notation", { weight = 2 }),
-    L.leaf("qflist", { size = 10 }), L.leaf("curve", { size = 8 }) }
+  local tree = {
+    dir = "v",
+    L.leaf("arrange"),
+    L.leaf("pianoroll", { weight = 2 }),
+    L.leaf("notation", { weight = 2 }),
+    L.leaf("qflist", { size = 10 }),
+    L.leaf("curve", { size = 8 }),
+  }
   local rects = paw.ui.place(tree, 0, 0, 100, 60)
   local arrange
-  for _, r in ipairs(rects) do if r.name == "arrange" then arrange = r end end
+  for _, r in ipairs(rects) do
+    if r.name == "arrange" then arrange = r end
+  end
   eq(arrange.h >= 24, true, "arrange has at least 24 of 60 rows, got " .. arrange.h)
   local sum = 0
-  for _, r in ipairs(rects) do sum = sum + r.h end
+  for _, r in ipairs(rects) do
+    sum = sum + r.h
+  end
   eq(sum, 60, "and the rows add up")
 end)
 
@@ -176,7 +214,12 @@ test("roll.toggle: with no clip open it opens the clip under the cursor, or says
   eq(api.json_encode(paw.ui.arrange()), before, "the layout is as it was")
   eq((paw.ui.message and paw.ui.message.text or ""):match("no clip") ~= nil, true, "the message line says so")
   local track = paw.add_track({ name = "Lead" })
-  track:add_clip({ start = 0, length = 4, name = "tune", notes = { { pitch = 60, start = 0, length = 1, velocity = 80 } } })
+  track:add_clip({
+    start = 0,
+    length = 4,
+    name = "tune",
+    notes = { { pitch = 60, start = 0, length = 1, velocity = 80 } },
+  })
   paw.flush()
   paw.cursor.set_track(track)
   paw.cursor.set_beat(1)
@@ -204,6 +247,8 @@ test("help: a key's entry is its row in the key table, and the help split takes 
   eq(#t:line(s.row) < 120, true, "a one-line entry, not a paragraph")
   local _, height = paw.ui.size()
   for _, r in ipairs(paw.ui.arrange()) do
-    if r.name == "textbuf" then eq(r.h >= math.floor(height / 2) - 1, true, "help has about half of " .. height .. ", got " .. r.h) end
+    if r.name == "textbuf" then
+      eq(r.h >= math.floor(height / 2) - 1, true, "help has about half of " .. height .. ", got " .. r.h)
+    end
   end
 end)

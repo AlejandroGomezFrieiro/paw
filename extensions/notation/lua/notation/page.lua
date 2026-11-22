@@ -23,8 +23,8 @@ P.MARGIN_MM = 13
 --- Between pages on the screen, in pixels.
 P.GAP = 16
 
-paw.option.define("notation_paper", "white")   -- the page view's paper: "white", or "theme" for the theme's colours
-paw.option.define("notation_sheet", "a4")      -- the page view's and the PDF's sheet: "a4" or "letter"
+paw.option.define("notation_paper", "white") -- the page view's paper: "white", or "theme" for the theme's colours
+paw.option.define("notation_sheet", "a4") -- the page view's and the PDF's sheet: "a4" or "letter"
 
 --- The pages' geometry for a staff space `sp` in px (and a cell, for whole
 --- cells): `width`, `height`, `margin`, `header` (more room above the first
@@ -36,8 +36,12 @@ function P.geometry(sp, cell)
   local function cols(v) return math.ceil(v / cw) * cw end
   local function rows(v) return math.ceil(v / ch) * ch end
   return {
-    width = cols(size[1] * px), height = rows(size[2] * px), margin = cols(P.MARGIN_MM * px),
-    header = rows(10 * sp), gap = rows(P.GAP), key = table.concat({ sp, cw, ch, paw.opt.notation_sheet }, ":"),
+    width = cols(size[1] * px),
+    height = rows(size[2] * px),
+    margin = cols(P.MARGIN_MM * px),
+    header = rows(10 * sp),
+    gap = rows(P.GAP),
+    key = table.concat({ sp, cw, ch, paw.opt.notation_sheet }, ":"),
   }
 end
 
@@ -66,7 +70,10 @@ function P.systems(layout, st, geo, width, cache)
   local cw = st.whole and st.cell.w or 1
   local x = max(0, floor((width - geo.width) / 2 / cw) * cw)
   local eng = engrave.systems(layout, st, {
-    x = x + geo.margin, width = x + geo.width - geo.margin, top = geo.gap, cache = cache,
+    x = x + geo.margin,
+    width = x + geo.width - geo.margin,
+    top = geo.gap,
+    cache = cache,
     page = { height = geo.height, margin = geo.margin, header = geo.header, gap = geo.gap },
   })
   eng.page_x, eng.geometry = x, geo
@@ -87,20 +94,58 @@ function P.paper(out, eng, dx, dy, opts)
       if opts.shadow then out[#out + 1] = { "r", x + 3, y + 3, geo.width, height, "#00000040", "", 1, 0 } end
       out[#out + 1] = { "r", x, y, geo.width, height, st.paper, "", 1, 0 }
       if i == 1 then
-        out[#out + 1] = { "t", x + geo.width / 2, y + geo.margin, title, st.ink, round(2.6 * s), 1, "center", geo.width - 2 * geo.margin }
+        out[#out + 1] = {
+          "t",
+          x + geo.width / 2,
+          y + geo.margin,
+          title,
+          st.ink,
+          round(2.6 * s),
+          1,
+          "center",
+          geo.width - 2 * geo.margin,
+        }
         if composer ~= "" then
-          out[#out + 1] = { "t", x + geo.width - geo.margin, y + geo.margin + round(4.2 * s), composer, st.ink, round(1.4 * s), 0, "right",
-            geo.width / 2 }
+          out[#out + 1] = {
+            "t",
+            x + geo.width - geo.margin,
+            y + geo.margin + round(4.2 * s),
+            composer,
+            st.ink,
+            round(1.4 * s),
+            0,
+            "right",
+            geo.width / 2,
+          }
         end
         -- A part names its instrument at the top left, as parts are printed.
         if opts.part and opts.part ~= "" then
-          out[#out + 1] = { "t", x + geo.margin, y + geo.margin + round(4.2 * s), opts.part, st.ink, round(1.5 * s), 1, "left", geo.width / 2 }
+          out[#out + 1] = {
+            "t",
+            x + geo.margin,
+            y + geo.margin + round(4.2 * s),
+            opts.part,
+            st.ink,
+            round(1.5 * s),
+            1,
+            "left",
+            geo.width / 2,
+          }
         end
       else
         -- Even pages' numbers at the left, odd ones' at the right.
         local right = i % 2 == 1
-        out[#out + 1] = { "t", right and x + geo.width - geo.margin or x + geo.margin, y + round(geo.margin / 2), tostring(i), st.ink,
-          round(1.3 * s), 0, right and "right" or "left", 100 }
+        out[#out + 1] = {
+          "t",
+          right and x + geo.width - geo.margin or x + geo.margin,
+          y + round(geo.margin / 2),
+          tostring(i),
+          st.ink,
+          round(1.3 * s),
+          0,
+          right and "right" or "left",
+          100,
+        }
       end
     end
   end
@@ -131,19 +176,29 @@ end
 --- instrument). Returns the files written, and the number of pages.
 function P.export(layout, path, format, heading)
   local sp = 10
-  local st = engrave.style({ space = sp, cell = { w = 1, h = 1 }, ink = "#000000", paper = "#ffffff", accent = "#000000",
-    whole_cells = false })
+  local st = engrave.style({
+    space = sp,
+    cell = { w = 1, h = 1 },
+    ink = "#000000",
+    paper = "#ffffff",
+    accent = "#000000",
+    whole_cells = false,
+  })
   local geo = P.geometry(sp)
   geo.gap = 0
   local eng = P.systems(layout, st, geo, geo.width)
   local pages = {}
   for i, page in ipairs(eng.pages) do
     local height = geo.height
-    if i == #eng.pages and #page.systems > 0 then
-      height = math.min(height, page.at - page.y + geo.margin)
-    end
+    if i == #eng.pages and #page.systems > 0 then height = math.min(height, page.at - page.y + geo.margin) end
     local ops = {}
-    P.paper(ops, eng, 0, -page.y, { only = i, title = heading.title, composer = heading.composer, part = heading.part, heights = { [i] = height } })
+    P.paper(
+      ops,
+      eng,
+      0,
+      -page.y,
+      { only = i, title = heading.title, composer = heading.composer, part = heading.part, heights = { [i] = height } }
+    )
     P.music(ops, eng, layout, 0, -page.y, i)
     pages[i] = { ops = ops, width = geo.width, height = height }
   end

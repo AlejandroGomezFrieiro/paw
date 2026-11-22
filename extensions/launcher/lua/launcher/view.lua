@@ -13,7 +13,8 @@ local launcher = require("launcher")
 -- Each window of the session view has its own scroll: it shows in any
 -- number of windows. The slot of the cursor is one for them all.
 local view = {
-  scroll = 0, top = 0,
+  scroll = 0,
+  top = 0,
   title = "Session",
   help = "launcher",
   window_state = { "scroll", "top", "geometry" },
@@ -27,14 +28,10 @@ local GUTTER = 4 -- the row numbers
 local SCENES = 14 -- the scenes' column
 
 --- Columns a track takes on a screen `w` wide with `n` tracks, the gap after it included.
-function view.column_width(w, n)
-  return util.clamp(math.floor((w - GUTTER - SCENES) / math.max(1, n)), 10, 20)
-end
+function view.column_width(w, n) return util.clamp(math.floor((w - GUTTER - SCENES) / math.max(1, n)), 10, 20) end
 
 --- The text of a slot, `width` cells: a mark, then the clip's name.
-local function label(mark, name, width)
-  return util.fit(mark .. " " .. name, width)
-end
+local function label(mark, name, width) return util.fit(mark .. " " .. name, width) end
 
 local function slot_cell(buf, x, y, width, clip, hue, state)
   local g = draw.g
@@ -68,10 +65,13 @@ local function status_text(s)
   if not s then return "timeline", "TrackIndex" end
   local queued = s.queued == "stop" and (" " .. g.closed .. g.stop)
     or s.queued == "arrangement" and (" " .. g.closed .. "tl")
-    or type(s.queued) == "number" and (" " .. g.closed .. (s.queued + 1)) or ""
+    or type(s.queued) == "number" and (" " .. g.closed .. (s.queued + 1))
+    or ""
   if s.slot then
     local bar = paw.time.bar(0)
-    local at = s.length and string.format(" %d/%d", math.floor(s.phase / bar) + 1, math.max(1, math.ceil(s.length / bar - 1e-9))) or ""
+    local at = s.length
+        and string.format(" %d/%d", math.floor(s.phase / bar) + 1, math.max(1, math.ceil(s.length / bar - 1e-9)))
+      or ""
     return g.play .. " " .. (s.slot + 1) .. at .. queued, "Bright"
   elseif s.stopped then
     return g.stop .. " stopped" .. queued, "TrackInfo"
@@ -91,7 +91,10 @@ function view:scene_key()
   for _, c in ipairs(geo.columns) do
     local s = state[c.id]
     if s then
-      local filled = s.length and s.length > 0 and math.floor(util.clamp((s.phase or 0) / s.length, 0, 1) * (geo.cw - 1) + 0.5) or 0
+      local filled = s.length
+          and s.length > 0
+          and math.floor(util.clamp((s.phase or 0) / s.length, 0, 1) * (geo.cw - 1) + 0.5)
+        or 0
       parts[#parts + 1] = table.concat({ c.id, tostring(s.slot), tostring(s.queued), filled, (status_text(s)) }, "/")
     end
   end
@@ -159,9 +162,7 @@ function view:render(buf, ctx)
       else
         slot_cell(body, x, r + 1, cw - 1, clip, hue, cell)
       end
-      if selected and row == launcher.row then
-        body:text(x - 1, r + 1, g.mark, ctx.focused and "Cursor" or "Accent")
-      end
+      if selected and row == launcher.row then body:text(x - 1, r + 1, g.mark, ctx.focused and "Cursor" or "Accent") end
     end
     local text, style = status_text(state[id])
     body:text(x, h - 1, util.fit(text, cw - 1), style)
@@ -271,7 +272,11 @@ function view:on_mouse(e)
   local row = self.top + y - 1
   local step, sideways = mouse.wheel(e)
   if step then
-    if sideways or mouse.has(e, "S") then paw.cursor.move_track(step) else self.top = math.max(0, self.top + step) end
+    if sideways or mouse.has(e, "S") then
+      paw.cursor.move_track(step)
+    else
+      self.top = math.max(0, self.top + step)
+    end
     return api.ui_redraw()
   end
   local in_slots = y >= 1 and y <= geo.shown
@@ -301,7 +306,11 @@ function view:on_mouse(e)
     if clip then
       local where = screen(e)
       local menus = require("paw.mouse_menus")
-      mouse.grab(e, { up = function(u) if not u.moved then paw.ui.menu(menus.clip(clip.id, clip.start), where) end end })
+      mouse.grab(e, {
+        up = function(u)
+          if not u.moved then paw.ui.menu(menus.clip(clip.id, clip.start), where) end
+        end,
+      })
     end
     return
   end

@@ -11,10 +11,16 @@ local keys, until_, until_beat = T.keys, T.until_, T.until_beat
 --- port `Keys A`.
 local function studio(name)
   fresh()
-  api.engine_restart({ backend = "null", test_input = { frequency = 440, level = -12, channels = 2 }, test_midi = { "Keys A" } })
+  api.engine_restart({
+    backend = "null",
+    test_input = { frequency = 440, level = -12, channels = 2 },
+    test_midi = { "Keys A" },
+  })
   T.after(function() api.engine_restart({ backend = "null" }) end)
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.focus("arrange")
   T.after(function()
     paw.opt.count_in = 0
@@ -23,7 +29,6 @@ local function studio(name)
   paw.project.tempo = 120
   paw.project.save(T.scratch .. "/" .. name .. ".json")
 end
-
 
 --- The bottom lines of the terminal screen.
 local function status()
@@ -119,7 +124,9 @@ test("guide: use the metronome", function()
   eq(paw.opt.count_in, 0, ":countin off stops it too")
 
   -- The sound of the click.
-  T.after(function() paw.opt.click_level, paw.opt.click_accent, paw.opt.click_output = 0, true, 0 end)
+  T.after(function()
+    paw.opt.click_level, paw.opt.click_accent, paw.opt.click_output = 0, true, 0
+  end)
   keys(":click level=-6<CR>")
   eq(api.transport_get().click_level, -6, ":click level=-6 makes it quieter")
   keys(":click accent=off<CR>")
@@ -130,7 +137,11 @@ test("guide: use the metronome", function()
   keys(":click output=song<CR>")
   eq(api.transport_get().click_output, 0, ":click output=song puts it back")
   keys(":click<CR>")
-  eq(paw.ui.messages[#paw.ui.messages].text, "click at -6 dB, the first beat higher, with the song", ":click shows the settings")
+  eq(
+    paw.ui.messages[#paw.ui.messages].text,
+    "click at -6 dB, the first beat higher, with the song",
+    ":click shows the settings"
+  )
 
   -- Esc cancels a count.
   keys("gM")

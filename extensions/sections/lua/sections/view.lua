@@ -24,9 +24,7 @@ function view:render(buf, ctx)
   self.shown = height
   if self.sel <= self.scroll then self.scroll = self.sel - 1 end
   if self.sel > self.scroll + height then self.scroll = self.sel - height end
-  if #list == 0 then
-    buf:text(1, 0, "No sections yet. a adds one at the edit cursor.", "Dim")
-  end
+  if #list == 0 then buf:text(1, 0, "No sections yet. a adds one at the edit cursor.", "Dim") end
   for r = 0, height - 1 do
     local i = r + 1 + self.scroll
     local item = list[i]
@@ -37,9 +35,19 @@ function view:render(buf, ctx)
     -- The section under the cursor is marked as on the ruler.
     if here then buf:text(1, r, "▍", "SectionCurrent") end
     local x = 4 + buf:text(3, r, string.format("%2d", i), "Dim")
-    buf:text(x + 1, r, paw.util.fit(ui.describe(item), math.max(1, buf.width - x - 2)), chosen and "Selected" or (here and "Title" or "Normal"))
+    buf:text(
+      x + 1,
+      r,
+      paw.util.fit(ui.describe(item), math.max(1, buf.width - x - 2)),
+      chosen and "Selected" or (here and "Title" or "Normal")
+    )
   end
-  buf:text(1, buf.height - 1, paw.util.fit("j/k move  Enter go there  r rename  a add at the cursor  x remove  q close", buf.width - 2), "Dim")
+  buf:text(
+    1,
+    buf.height - 1,
+    paw.util.fit("j/k move  Enter go there  r rename  a add at the cursor  x remove  q close", buf.width - 2),
+    "Dim"
+  )
 end
 
 local function act(fn)
@@ -65,7 +73,9 @@ local actions = {
   q = function() paw.ui.close() end,
   -- Escape closes the list only while it floats, as a prompt does; in a
   -- window of its own it stays, and `q` closes it.
-  ["<Esc>"] = function() if paw.ui.float then paw.ui.close() end end,
+  ["<Esc>"] = function()
+    if paw.ui.float then paw.ui.close() end
+  end,
 }
 actions["<Down>"], actions["<Up>"], actions.l = actions.j, actions.k, actions["<CR>"]
 
@@ -85,7 +95,11 @@ function view:on_mouse(event)
     local i = event.y + 1 + self.scroll
     if rows()[i] and event.y < self.shown then
       -- A click selects a section; a click on the one selected goes there.
-      if i == self.sel then actions["<CR>"]() else self.sel = i end
+      if i == self.sel then
+        actions["<CR>"]()
+      else
+        self.sel = i
+      end
     end
   end
   api.ui_redraw()
@@ -104,7 +118,9 @@ function view.open()
   view:on_show()
   -- The marks, the number and the description, inside the box.
   local width = 48
-  for _, s in ipairs(rows()) do width = math.max(width, api.str_width(ui.describe(s)) + 12) end
+  for _, s in ipairs(rows()) do
+    width = math.max(width, api.str_width(ui.describe(s)) + 12)
+  end
   paw.ui.open("sections", { title = "Sections", width = math.min(width, 80), height = math.min(#rows() + 3, 30) })
 end
 

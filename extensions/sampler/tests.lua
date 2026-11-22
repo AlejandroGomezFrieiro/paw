@@ -85,7 +85,11 @@ end)
 
 test("sampler: an instrument is summed up by name, format and articulations", function()
   local s = load()
-  eq(s.summary({ name = "Violins", format = "sfz", articulations = { {}, {}, {} } }), "Violins · SFZ · 3 articulations", "with articulations")
+  eq(
+    s.summary({ name = "Violins", format = "sfz", articulations = { {}, {}, {} } }),
+    "Violins · SFZ · 3 articulations",
+    "with articulations"
+  )
   eq(s.summary({ name = "Piano", format = "dspreset", articulations = {} }), "Piano · Decent Sampler", "without")
   eq(s.summary({ name = "", path = "", articulations = {} }), "no instrument yet", "empty")
   eq(s.summary({ path = "/x.sfz", error = "missing" }), "cannot read /x.sfz", "missing")
@@ -112,10 +116,14 @@ end)
 test("sampler: a sampler track plays an SFZ instrument at the keys' pitches", function()
   local track, why = sampler_track("basic.sfz")
   if not track then return why end
-  track:add_clip({ start = 0, length = 4, notes = {
-    { pitch = 57, start = 0, length = 1, velocity = 127 },
-    { pitch = 69, start = 2, length = 1, velocity = 127 },
-  } })
+  track:add_clip({
+    start = 0,
+    length = 4,
+    notes = {
+      { pitch = 57, start = 0, length = 1, velocity = 127 },
+      { pitch = 69, start = 2, length = 1, velocity = 127 },
+    },
+  })
   local info = T.render({ bits = 16, tail = 0, ["end"] = 4 })
   near(T.frequency(info, 0.05, 0.45), 220, 6, "A3")
   near(T.frequency(info, 1.05, 1.45), 440, 8, "A4")
@@ -128,19 +136,27 @@ test("sampler: describe gives keyswitches and articulations with their M2-123 co
   eq(d.format, "sfz", "format")
   eq(d.range[1] .. "-" .. d.range[2], "48-96", "range")
   eq(#d.keyswitches, 2, "keyswitches")
-  eq(d.articulations[2].name .. " " .. d.articulations[2].m2 .. " " .. d.articulations[2].keyswitch, "Staccato 11.0 25", "staccato")
+  eq(
+    d.articulations[2].name .. " " .. d.articulations[2].m2 .. " " .. d.articulations[2].keyswitch,
+    "Staccato 11.0 25",
+    "staccato"
+  )
   eq(paw.track_kinds.describe(track.id), "Sampler track · ks · SFZ · 2 articulations", "what K and the header say")
 end)
 
 test("sampler: a keyswitch note chooses the articulation in a render", function()
   local track = sampler_track("ks.sfz")
   if not track then return "the sampler is not built" end
-  track:add_clip({ start = 0, length = 8, notes = {
-    { pitch = 69, start = 0, length = 1, velocity = 100 },
-    { pitch = 25, start = 2, length = 0.25, velocity = 100 },
-    { pitch = 69, start = 2, length = 1, velocity = 100 },
-    { pitch = 69, start = 4, length = 1, velocity = 100 },
-  } })
+  track:add_clip({
+    start = 0,
+    length = 8,
+    notes = {
+      { pitch = 69, start = 0, length = 1, velocity = 100 },
+      { pitch = 25, start = 2, length = 0.25, velocity = 100 },
+      { pitch = 69, start = 2, length = 1, velocity = 100 },
+      { pitch = 69, start = 4, length = 1, velocity = 100 },
+    },
+  })
   local info = T.render({ bits = 16, tail = 0, ["end"] = 6 })
   near(T.frequency(info, 0.05, 0.45), 440, 8, "sustain by default")
   near(T.frequency(info, 1.05, 1.45), 660, 10, "staccato after its keyswitch")
@@ -170,9 +186,15 @@ test("sampler: a file that is not there, or not an instrument, is said so in a l
   paw.ui.focus("arrange")
   local from = mark()
   paw.commands.exec("sampler.load " .. T.scratch .. "/nonexistent.sfz")
-  eq(paw.ui.message and paw.ui.message.text, "sampler: no such file: " .. T.scratch .. "/nonexistent.sfz", "a missing file is said so")
+  eq(
+    paw.ui.message and paw.ui.message.text,
+    "sampler: no such file: " .. T.scratch .. "/nonexistent.sfz",
+    "a missing file is said so"
+  )
   local bytes = {}
-  for i = 0, 255 do bytes[#bytes + 1] = string.char((i * 37) % 256) end
+  for i = 0, 255 do
+    bytes[#bytes + 1] = string.char((i * 37) % 256)
+  end
   for name, body in pairs({
     junk = "\0\1\2 this is <not> an sfz {{{ <region> sample=\n\255\254",
     binary = table.concat(bytes),
@@ -186,9 +208,15 @@ test("sampler: a file that is not there, or not an instrument, is said so in a l
     paw.commands.exec("sampler.track " .. path)
   end
   paw.commands.exec("sampler.track " .. T.scratch .. "/nonexistent.sfz")
-  eq(paw.ui.message and paw.ui.message.text, "sampler: no such file: " .. T.scratch .. "/nonexistent.sfz", "and when making a track")
+  eq(
+    paw.ui.message and paw.ui.message.text,
+    "sampler: no such file: " .. T.scratch .. "/nonexistent.sfz",
+    "and when making a track"
+  )
   local said = {}
-  for _, m in ipairs(since(from)) do said[#said + 1] = m.text end
+  for _, m in ipairs(since(from)) do
+    said[#said + 1] = m.text
+  end
   local text = table.concat(said, "\n")
   eq(text:find("traceback", 1, true), nil, "no stack trace: " .. text)
   eq(text:find("junk", 1, true) ~= nil, true, "the file is named: " .. text)
@@ -204,26 +232,31 @@ test("sampler: an instrument heard in a trial is taken back without a trace", fu
   eq(sampler.describe(running(device)).name, "basic", "put back")
 end)
 
-test("sampler: the picker lists the library, hears the instrument under the selection, and Escape puts the old one back", function()
-  local track, device = sampler_track("basic.sfz")
-  if not track then return device end
-  local before = paw.opt.sampler_libraries
-  T.after(function()
-    paw.opt.sampler_libraries = before
-    paw.keymap.feed("<Esc><Esc>")
-  end)
-  paw.opt.sampler_libraries = fixture_dir()
-  paw.cmd("sampler.load")
-  local screen = table.concat(api.ui_snapshot(120, 30), "\n")
-  assert(screen:find("Instruments", 1, true), "the picker is open:\n" .. screen)
-  assert(screen:find("ks%s+DS") and screen:find("ks%s+SFZ"), "it lists the fixtures in both formats:\n" .. screen)
-  paw.keymap.feed("vel")
-  local limit = api.now() + 5000
-  while api.now() < limit and sampler.known(device).name ~= "vel" do paw.wait(20) end
-  eq(sampler.known(device).name, "vel", "heard: loaded as a trial")
-  screen = table.concat(api.ui_snapshot(120, 30), "\n")
-  assert(screen:find("vel · SFZ", 1, true), "the pane says what plays:\n" .. screen)
-  paw.keymap.feed("<Esc>")
-  paw.flush()
-  eq(sampler.describe(running(device)).name, "basic", "Escape puts the old one back")
-end)
+test(
+  "sampler: the picker lists the library, hears the instrument under the selection, and Escape puts the old one back",
+  function()
+    local track, device = sampler_track("basic.sfz")
+    if not track then return device end
+    local before = paw.opt.sampler_libraries
+    T.after(function()
+      paw.opt.sampler_libraries = before
+      paw.keymap.feed("<Esc><Esc>")
+    end)
+    paw.opt.sampler_libraries = fixture_dir()
+    paw.cmd("sampler.load")
+    local screen = table.concat(api.ui_snapshot(120, 30), "\n")
+    assert(screen:find("Instruments", 1, true), "the picker is open:\n" .. screen)
+    assert(screen:find("ks%s+DS") and screen:find("ks%s+SFZ"), "it lists the fixtures in both formats:\n" .. screen)
+    paw.keymap.feed("vel")
+    local limit = api.now() + 5000
+    while api.now() < limit and sampler.known(device).name ~= "vel" do
+      paw.wait(20)
+    end
+    eq(sampler.known(device).name, "vel", "heard: loaded as a trial")
+    screen = table.concat(api.ui_snapshot(120, 30), "\n")
+    assert(screen:find("vel · SFZ", 1, true), "the pane says what plays:\n" .. screen)
+    paw.keymap.feed("<Esc>")
+    paw.flush()
+    eq(sampler.describe(running(device)).name, "basic", "Escape puts the old one back")
+  end
+)

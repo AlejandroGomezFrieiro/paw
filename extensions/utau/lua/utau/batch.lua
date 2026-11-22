@@ -45,45 +45,109 @@ end
 M.OPS = {
   { id = "romaji_to_hiragana", name = "Romaji to hiragana", lyric = lyric_op(kana.to_hiragana) },
   { id = "kana_to_romaji", name = "Kana to romaji", lyric = lyric_op(kana.to_romaji) },
-  { id = "vcv_to_cv", name = "Japanese VCV to CV (\"a ka\" -> \"ka\")",
-    lyric = function(text) return text:match("^%s*[aiueonN%-]%s+(%S.*)$") end },
-  { id = "remove_tone_suffix", name = "Remove tone suffix (\"ka_C4\" -> \"ka\")",
+  {
+    id = "vcv_to_cv",
+    name = 'Japanese VCV to CV ("a ka" -> "ka")',
+    lyric = function(text) return text:match("^%s*[aiueonN%-]%s+(%S.*)$") end,
+  },
+  {
+    id = "remove_tone_suffix",
+    name = 'Remove tone suffix ("ka_C4" -> "ka")',
     lyric = function(text)
       local s = text:gsub("[_%s]?[A-G]#?b?%-?%d$", "")
       if s ~= "" then return s end
-    end },
-  { id = "remove_hint", name = "Remove phonetic hints (\"read[r iy d]\" -> \"read\")",
+    end,
+  },
+  {
+    id = "remove_hint",
+    name = 'Remove phonetic hints ("read[r iy d]" -> "read")',
     lyric = function(text)
       local s = trim(text:gsub("%b[]", ""))
       if s ~= "" then return s end
-    end },
-  { id = "dash_to_plus", name = "Dash to plus (\"-\" -> \"+\")",
-    lyric = function(text) if trim(text) == "-" then return "+" end end },
+    end,
+  },
+  {
+    id = "dash_to_plus",
+    name = 'Dash to plus ("-" -> "+")',
+    lyric = function(text)
+      if trim(text) == "-" then return "+" end
+    end,
+  },
   { id = "lowercase", name = "Lowercase lyrics", lyric = function(text) return text:lower() end },
   { id = "replace", name = "Find and replace: `find=ka replace=ga [pattern=1]`", lyric = replace },
-  { id = "reset_pitch", name = "Reset pitch transitions",
-    props = function(p) if p.pp then p.pp = nil; return true end end },
-  { id = "clear_vibrato", name = "Clear vibrato",
-    props = function(p) if p.vb then p.vb = nil; return true end end },
-  { id = "vibrato_long", name = "Add vibrato to long notes (1 beat or more)",
+  {
+    id = "reset_pitch",
+    name = "Reset pitch transitions",
+    props = function(p)
+      if p.pp then
+        p.pp = nil
+        return true
+      end
+    end,
+  },
+  {
+    id = "clear_vibrato",
+    name = "Clear vibrato",
+    props = function(p)
+      if p.vb then
+        p.vb = nil
+        return true
+      end
+    end,
+  },
+  {
+    id = "vibrato_long",
+    name = "Add vibrato to long notes (1 beat or more)",
     props = function(p, note)
       if p.vb or note.length < 1 - 1e-6 or notes.is_rest(notes.lyric(note)) then return false end
       p.vb = notes.copy(VIBRATO_ON)
       return true
-    end },
-  { id = "reset_exp", name = "Reset note expressions",
-    props = function(p) if p.ex then p.ex = nil; return true end end },
-  { id = "reset_phonemes", name = "Reset phoneme timing and overrides",
-    props = function(p) if p.ph then p.ph = nil; return true end end },
-  { id = "reset_po", name = "Reset phonemizer overrides",
-    props = function(p) if p.po then p.po = nil; return true end end },
-  { id = "reset_all", name = "Reset all note properties",
+    end,
+  },
+  {
+    id = "reset_exp",
+    name = "Reset note expressions",
+    props = function(p)
+      if p.ex then
+        p.ex = nil
+        return true
+      end
+    end,
+  },
+  {
+    id = "reset_phonemes",
+    name = "Reset phoneme timing and overrides",
+    props = function(p)
+      if p.ph then
+        p.ph = nil
+        return true
+      end
+    end,
+  },
+  {
+    id = "reset_po",
+    name = "Reset phonemizer overrides",
+    props = function(p)
+      if p.po then
+        p.po = nil
+        return true
+      end
+    end,
+  },
+  {
+    id = "reset_all",
+    name = "Reset all note properties",
     props = function(p)
       local had = next(p) ~= nil
-      for k in pairs(p) do p[k] = nil end
+      for k in pairs(p) do
+        p[k] = nil
+      end
       return had
-    end },
-  { id = "fix_overlap", name = "Fix overlaps (trim notes to the next one)",
+    end,
+  },
+  {
+    id = "fix_overlap",
+    name = "Fix overlaps (trim notes to the next one)",
     timing = function(list)
       local changed = 0
       for i = 1, #list - 1 do
@@ -94,8 +158,11 @@ M.OPS = {
         end
       end
       return changed
-    end },
-  { id = "fill_gaps", name = "Close small gaps (up to an eighth note)",
+    end,
+  },
+  {
+    id = "fill_gaps",
+    name = "Close small gaps (up to an eighth note)",
     timing = function(list)
       local changed = 0
       for i = 1, #list - 1 do
@@ -107,10 +174,13 @@ M.OPS = {
         end
       end
       return changed
-    end },
+    end,
+  },
 }
 M.BY_ID = {}
-for _, op in ipairs(M.OPS) do M.BY_ID[op.id] = op end
+for _, op in ipairs(M.OPS) do
+  M.BY_ID[op.id] = op
+end
 
 --- Run a batch edit on a clip's notes, or only those in `which` (index -> true).
 --- Returns how many notes changed.
@@ -144,49 +214,115 @@ end
 --- vibrato, `{ exp, value }` sets a note expression, `{ transition }` shapes
 --- the pitch into notes after a leap, `{ reset }` puts curves back.
 M.PRESETS = {
-  { id = "breath_in", name = "Breath at phrase starts",
-    ops = { { curve = "brec", shape = "attack", value = 45, len_beats = 0.35, where = "phrase_start" } } },
-  { id = "soft_endings", name = "Soft phrase endings",
-    ops = { { curve = "dyn", shape = "release", value = -60, len = 0.4, where = "phrase_end" },
-            { curve = "brec", shape = "release", value = 25, len = 0.4, where = "phrase_end" } } },
-  { id = "swell", name = "Swell on long notes", ops = { { curve = "dyn", shape = "swell", value = 30, where = "long" } } },
-  { id = "tension_high", name = "Tension on high notes",
-    ops = { { curve = "tenc", shape = "by_pitch", value = 5, max = 60 } } },
+  {
+    id = "breath_in",
+    name = "Breath at phrase starts",
+    ops = { { curve = "brec", shape = "attack", value = 45, len_beats = 0.35, where = "phrase_start" } },
+  },
+  {
+    id = "soft_endings",
+    name = "Soft phrase endings",
+    ops = {
+      { curve = "dyn", shape = "release", value = -60, len = 0.4, where = "phrase_end" },
+      { curve = "brec", shape = "release", value = 25, len = 0.4, where = "phrase_end" },
+    },
+  },
+  {
+    id = "swell",
+    name = "Swell on long notes",
+    ops = { { curve = "dyn", shape = "swell", value = 30, where = "long" } },
+  },
+  {
+    id = "tension_high",
+    name = "Tension on high notes",
+    ops = { { curve = "tenc", shape = "by_pitch", value = 5, max = 60 } },
+  },
   { id = "overshoot", name = "Overshoot on leaps", ops = { { transition = "overshoot", min_jump = 2 } } },
   { id = "preparation", name = "Preparation before leaps", ops = { { transition = "preparation", min_jump = 3 } } },
   { id = "crisp", name = "Crisp consonants", ops = { { exp = "vel", value = 140 } } },
-  { id = "vib_gentle", name = "Vibrato: gentle, delayed", ops = { { vibrato = { 60, 180, 25, 35, 15, 0, 0, 0 }, min = 1 } } },
-  { id = "vib_pop", name = "Vibrato: pop (fast, narrow)", ops = { { vibrato = { 50, 150, 18, 20, 10, 0, 0, 0 }, min = 0.75 } } },
-  { id = "vib_opera", name = "Vibrato: operatic (wide, slow)", ops = { { vibrato = { 85, 210, 60, 15, 10, 0, 10, 10 }, min = 0.5 } } },
+  {
+    id = "vib_gentle",
+    name = "Vibrato: gentle, delayed",
+    ops = { { vibrato = { 60, 180, 25, 35, 15, 0, 0, 0 }, min = 1 } },
+  },
+  {
+    id = "vib_pop",
+    name = "Vibrato: pop (fast, narrow)",
+    ops = { { vibrato = { 50, 150, 18, 20, 10, 0, 0, 0 }, min = 0.75 } },
+  },
+  {
+    id = "vib_opera",
+    name = "Vibrato: operatic (wide, slow)",
+    ops = { { vibrato = { 85, 210, 60, 15, 10, 0, 10, 10 }, min = 0.5 } },
+  },
   { id = "vib_off", name = "No vibrato", ops = { { vibrato = false } } },
-  { id = "raspy", name = "Harsh: raspy",
-    ops = { { curve = "tenc", shape = "span", value = 40 }, { curve = "brec", shape = "span", value = 20 },
-            { curve = "voic", shape = "span", value = 88 }, { curve = "grwc", shape = "span", value = 25 } } },
-  { id = "scream", name = "Harsh: scream",
-    ops = { { curve = "tenc", shape = "span", value = 80 }, { curve = "brec", shape = "span", value = 35 },
-            { curve = "voic", shape = "span", value = 72 }, { curve = "genc", shape = "span", value = -10 },
-            { curve = "grwc", shape = "span", value = 55 }, { curve = "dyn", shape = "span", value = 20 },
-            { vibrato = false }, { exp = "vel", value = 150 } } },
-  { id = "growl", name = "Harsh: death growl",
-    ops = { { curve = "genc", shape = "span", value = -40 }, { curve = "tenc", shape = "span", value = 70 },
-            { curve = "brec", shape = "span", value = 45 }, { curve = "voic", shape = "span", value = 58 },
-            { curve = "grwc", shape = "span", value = 85 }, { vibrato = false }, { exp = "vel", value = 160 } } },
-  { id = "fry", name = "Harsh: vocal fry onsets",
-    ops = { { curve = "voic", shape = "attack", value = 40, len_beats = 0.2, base = 100 },
-            { curve = "brec", shape = "attack", value = 55, len_beats = 0.2 } } },
-  { id = "reset", name = "Reset tuning curves under the notes",
-    ops = { { reset = { "dyn", "tenc", "brec", "genc", "voic", "grwc" } } } },
+  {
+    id = "raspy",
+    name = "Harsh: raspy",
+    ops = {
+      { curve = "tenc", shape = "span", value = 40 },
+      { curve = "brec", shape = "span", value = 20 },
+      { curve = "voic", shape = "span", value = 88 },
+      { curve = "grwc", shape = "span", value = 25 },
+    },
+  },
+  {
+    id = "scream",
+    name = "Harsh: scream",
+    ops = {
+      { curve = "tenc", shape = "span", value = 80 },
+      { curve = "brec", shape = "span", value = 35 },
+      { curve = "voic", shape = "span", value = 72 },
+      { curve = "genc", shape = "span", value = -10 },
+      { curve = "grwc", shape = "span", value = 55 },
+      { curve = "dyn", shape = "span", value = 20 },
+      { vibrato = false },
+      { exp = "vel", value = 150 },
+    },
+  },
+  {
+    id = "growl",
+    name = "Harsh: death growl",
+    ops = {
+      { curve = "genc", shape = "span", value = -40 },
+      { curve = "tenc", shape = "span", value = 70 },
+      { curve = "brec", shape = "span", value = 45 },
+      { curve = "voic", shape = "span", value = 58 },
+      { curve = "grwc", shape = "span", value = 85 },
+      { vibrato = false },
+      { exp = "vel", value = 160 },
+    },
+  },
+  {
+    id = "fry",
+    name = "Harsh: vocal fry onsets",
+    ops = {
+      { curve = "voic", shape = "attack", value = 40, len_beats = 0.2, base = 100 },
+      { curve = "brec", shape = "attack", value = 55, len_beats = 0.2 },
+    },
+  },
+  {
+    id = "reset",
+    name = "Reset tuning curves under the notes",
+    ops = { { reset = { "dyn", "tenc", "brec", "genc", "voic", "grwc" } } },
+  },
 }
 M.PRESET_BY_ID = {}
-for _, p in ipairs(M.PRESETS) do M.PRESET_BY_ID[p.id] = p end
+for _, p in ipairs(M.PRESETS) do
+  M.PRESET_BY_ID[p.id] = p
+end
 
 --- Phrase starts and ends: a gap of a beat or a rest separates phrases.
 local function phrases(list)
   local starts, ends = {}, {}
   for i, n in ipairs(list) do
     local prev, nxt = list[i - 1], list[i + 1]
-    if not prev or n.start - (prev.start + prev.length) >= 1 - 1e-9 or notes.is_rest(notes.lyric(prev)) then starts[i] = true end
-    if not nxt or nxt.start - (n.start + n.length) >= 1 - 1e-9 or notes.is_rest(notes.lyric(nxt)) then ends[i] = true end
+    if not prev or n.start - (prev.start + prev.length) >= 1 - 1e-9 or notes.is_rest(notes.lyric(prev)) then
+      starts[i] = true
+    end
+    if not nxt or nxt.start - (n.start + n.length) >= 1 - 1e-9 or notes.is_rest(notes.lyric(nxt)) then
+      ends[i] = true
+    end
   end
   return starts, ends
 end
@@ -248,7 +384,9 @@ function M.preset(id, clip_id, which)
   end
   local done = {}
   local selected = {}
-  for _, index in ipairs(chosen) do selected[index] = true end
+  for _, index in ipairs(chosen) do
+    selected[index] = true
+  end
   for _, op in ipairs(preset.ops) do
     if op.curve then
       local base = notes.default(device, op.curve)

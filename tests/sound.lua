@@ -1,7 +1,8 @@
 -- Sound tests.
 local T = ...
 local test, eq, near, fails, fresh, render, tone = T.test, T.eq, T.near, T.fails, T.fresh, T.render, T.tone
-local until_, scratch, read_file, write_file, frequency, channel_peaks = T.until_, T.scratch, T.read_file, T.write_file, T.frequency, T.channel_peaks
+local until_, scratch, read_file, write_file, frequency, channel_peaks =
+  T.until_, T.scratch, T.read_file, T.write_file, T.frequency, T.channel_peaks
 local paw = require("paw")
 local api = paw.api
 local fixtures = "tests/fixtures/"
@@ -125,7 +126,11 @@ test("audio clips play back what was rendered", function()
   near(clip.length, 2, 0.01, "length follows the file")
   local out = render({ tail = 0 })
   near(out.peak, source.peak, 0.01, "same level")
-  eq(paw.render(scratch .. "/gap.wav", { start = 0, ["end"] = 0.9, tail = 0 }).peak < 0.001, true, "silent before the clip")
+  eq(
+    paw.render(scratch .. "/gap.wav", { start = 0, ["end"] = 0.9, tail = 0 }).peak < 0.001,
+    true,
+    "silent before the clip"
+  )
   clip.gain = -6
   near(render({ tail = 0 }).peak / source.peak, 0.501, 0.02, "clip gain")
   -- A different sample rate must not change the pitch or length.
@@ -163,7 +168,9 @@ end)
 test("unreadable audio files say what is wrong", function()
   fresh()
   local t = paw.add_track()
-  local function add(path) return function() t:add_clip({ start = 0, file = path }) end end
+  local function add(path)
+    return function() t:add_clip({ start = 0, file = path }) end
+  end
   write_file(scratch .. "/notes.wav", "a text file named like a sound\n")
   fails(add(scratch .. "/notes.wav"), "notes%.wav is not an audio file", "text")
   write_file(scratch .. "/cut.wav", read_file(fixtures .. "tone-mono-8k.wav"):sub(1, 3000))
@@ -208,7 +215,11 @@ test("audio clips report their waveform", function()
   paw.opt.zoom, paw.opt.track_height = 2, "auto"
   local rows = paw.draw.waveform(clip:peaks(8), 2)
   eq(rows[1], "  ▄▄▆▆  ", "silence draws nothing, a column reaches as far as the wave does: " .. rows[1])
-  eq(rows[2], "  ▄▄▂▂──", "below the middle, drawn in reverse so the glyph is what is left, and a level held below it is a line: " .. rows[2])
+  eq(
+    rows[2],
+    "  ▄▄▂▂──",
+    "below the middle, drawn in reverse so the glyph is what is left, and a level held below it is a line: " .. rows[2]
+  )
   eq(text:find("▄▆", 1, true) ~= nil, true, "waveform on screen, at four columns for the clip")
 
   -- Only the part the clip plays, and silence past the end of the file.
@@ -238,7 +249,11 @@ test("drums respond to the General MIDI drum notes", function()
   fresh()
   local t = paw.add_track({ name = "drums" })
   t:add_device("drums")
-  t:add_clip({ start = 0, length = 4, notes = { { pitch = 36, start = 0, length = 0.25 }, { pitch = 42, start = 1, length = 0.25 } } })
+  t:add_clip({
+    start = 0,
+    length = 4,
+    notes = { { pitch = 36, start = 0, length = 0.25 }, { pitch = 42, start = 1, length = 0.25 } },
+  })
   eq(paw.render(scratch .. "/kick.wav", { start = 0, ["end"] = 0.5, tail = 0 }).peak > 0.1, true, "kick")
   eq(paw.render(scratch .. "/hat.wav", { start = 1, ["end"] = 1.2, tail = 0 }).peak > 0.02, true, "hat")
   eq(paw.render(scratch .. "/rest.wav", { start = 3, ["end"] = 4, tail = 0 }).peak < 0.001, true, "rest")

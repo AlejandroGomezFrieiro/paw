@@ -13,13 +13,14 @@ function M.parse(text)
 end
 
 --- A number as the file writes it: 0.5, 120, 0.333333333333.
-function M.number(n)
-  return paw.xml.encode({ name = "n", attr = { v = n } }, { digits = 12 }):match('v="(.-)"')
-end
+function M.number(n) return paw.xml.encode({ name = "n", attr = { v = n } }, { digits = 12 }):match('v="(.-)"') end
 
 --- The text of a document whose root is `root`, laid out on lines.
 function M.write(root)
-  return paw.xml.encode(root, { declaration = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n', indent = "  ", digits = 12 })
+  return paw.xml.encode(
+    root,
+    { declaration = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n', indent = "  ", digits = 12 }
+  )
 end
 
 return M

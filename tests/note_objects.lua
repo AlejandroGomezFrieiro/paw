@@ -13,11 +13,25 @@ local function song()
   T.fresh()
   paw.keymap.feed("<Esc><Esc>")
   local t = paw.add_track({ name = "P" })
-  local clip = t:add_clip({ start = 0, length = 8, notes = {
-    N(48, 0, 2), N(52, 0, 2), N(55, 0, 2), N(72, 0, 1), N(74, 1, 1),
-    N(50, 2, 2), N(53, 2, 2), N(57, 2, 2), N(76, 2, 2),
-    N(60, 5, 0.5), N(64, 5.5, 0.5), N(67, 6, 0.5), N(72, 6.5, 0.5),
-  } })
+  local clip = t:add_clip({
+    start = 0,
+    length = 8,
+    notes = {
+      N(48, 0, 2),
+      N(52, 0, 2),
+      N(55, 0, 2),
+      N(72, 0, 1),
+      N(74, 1, 1),
+      N(50, 2, 2),
+      N(53, 2, 2),
+      N(57, 2, 2),
+      N(76, 2, 2),
+      N(60, 5, 0.5),
+      N(64, 5.5, 0.5),
+      N(67, 6, 0.5),
+      N(72, 6.5, 0.5),
+    },
+  })
   api.undo_checkpoint()
   local roll = paw.ui.views.pianoroll
   roll:edit(clip)
@@ -72,7 +86,11 @@ test("the piano roll's text objects take notes, chords, phrases, voices and pitc
   eq(yanked(), 2, "iv: the inner voice, the third from the top")
   roll:set(48, 0)
   keys("div")
-  eq(melody(clip), "52@0+2 55@0+2 72@0+1 74@1+1 53@2+2 57@2+2 76@2+2", "div deletes the bass line and no note between its notes")
+  eq(
+    melody(clip),
+    "52@0+2 55@0+2 72@0+1 74@1+1 53@2+2 57@2+2 76@2+2",
+    "div deletes the bass line and no note between its notes"
+  )
   paw.undo()
 
   roll:set(72, 0)

@@ -22,7 +22,9 @@ end
 
 local function names(track)
   local out = {}
-  for _, c in ipairs(track:clips()) do out[#out + 1] = c.name end
+  for _, c in ipairs(track:clips()) do
+    out[#out + 1] = c.name
+  end
   return table.concat(out, " ")
 end
 
@@ -85,7 +87,11 @@ test("undotree: g- and g+ visit every state in time order", function()
     T.keys("g-")
     if api.undo_current() ~= seen[#seen] then seen[#seen + 1] = api.undo_current() end
   end
-  eq(table.concat(seen, " "), table.concat({ ids[5], ids[4], ids[3], ids[2], ids[1] }, " "), "g- goes back through every state")
+  eq(
+    table.concat(seen, " "),
+    table.concat({ ids[5], ids[4], ids[3], ids[2], ids[1] }, " "),
+    "g- goes back through every state"
+  )
   seen = { api.undo_current() }
   for _ = 1, #ids do
     T.keys("g+")
@@ -117,8 +123,12 @@ test("undotree: what differs between two states", function()
   local s1 = step(function()
     t = paw.add_track({ name = "Bass" })
     t:add_device("synth", { cutoff = 900 })
-    clip = t:add_clip({ name = "riff", start = 0, length = 4,
-      notes = { { pitch = 40, start = 0 }, { pitch = 43, start = 1 }, { pitch = 45, start = 2 } } })
+    clip = t:add_clip({
+      name = "riff",
+      start = 0,
+      length = 4,
+      notes = { { pitch = 40, start = 0 }, { pitch = 43, start = 1 }, { pitch = 45, start = 2 } },
+    })
   end)
   local s2 = step(function()
     t.volume = -6
@@ -236,7 +246,9 @@ test("undotree: A/B while playing keeps the transport going", function()
   paw.transport.seek(0)
   paw.transport.play()
   local deadline = api.now() + 10000
-  while paw.transport.position < 1 and api.now() < deadline do api.sleep(5) end
+  while paw.transport.position < 1 and api.now() < deadline do
+    api.sleep(5)
+  end
   for i = 1, 4 do
     paw.flush()
     local before = paw.transport.position
@@ -250,7 +262,9 @@ test("undotree: A/B while playing keeps the transport going", function()
     eq(t.volume, i % 2 == 1 and -3 or -12, "and the engine has that mix")
     local start = paw.transport.position
     local wait = api.now() + 10000
-    while paw.transport.position < start + 0.2 and api.now() < wait do api.sleep(5) end
+    while paw.transport.position < start + 0.2 and api.now() < wait do
+      api.sleep(5)
+    end
     eq(paw.transport.position >= start + 0.2, true, "the position keeps moving after switch " .. i)
   end
   eq(t:meter() > 0, true, "the track is sounding")
@@ -310,18 +324,24 @@ test("undotree: in a window of its own it takes keys and clicks as in the termin
   local function shown()
     local painted = paw.canvas.paint("undotree", 1200, 400, { cell = cell, fresh = true })
     local text = {}
-    for _, op in ipairs(painted.ops) do if op[1] == "m" then text[#text + 1] = op[6] end end
+    for _, op in ipairs(painted.ops) do
+      if op[1] == "m" then text[#text + 1] = op[6] end
+    end
     return table.concat(text, " ")
   end
   local snap = api.ui_view_snapshot("undotree", 120, 19)
   local first = {}
-  for _, run in ipairs(snap.rows[1]) do first[#first + 1] = run.text end
+  for _, run in ipairs(snap.rows[1]) do
+    first[#first + 1] = run.text
+  end
   eq(table.concat(first):find("#" .. s3, 1, true) ~= nil, true, "the newest state first")
   eq(shown():find("#" .. s3, 1, true) ~= nil, true, "and in the window")
   paw.canvas.key("undotree", "j")
   paw.canvas.key("undotree", "<CR>")
   eq(api.undo_current(), s2, "j and Enter go to the state below")
-  for _, key in ipairs({ "n", "<C-u>", "v", "e", "r", "s", "e", "<CR>" }) do paw.canvas.key("undotree", key) end
+  for _, key in ipairs({ "n", "<C-u>", "v", "e", "r", "s", "e", "<CR>" }) do
+    paw.canvas.key("undotree", key)
+  end
   eq(ext().tree().by_id[s2].name, "verse", "n names it, typed in the window")
   eq(shown():find('"verse"', 1, true) ~= nil, true, "which the window shows")
   -- A click on the first row chooses the newest state.
@@ -355,7 +375,9 @@ test("undotree: the painted window draws the tree, goes where a node is clicked 
   paw.undo()
   local s3 = step(function() t:add_clip({ name = "new", start = 4, length = 4 }) end)
   local offered = {}
-  for _, entry in ipairs(paw.canvas.openable()) do offered[entry.name] = entry.title end
+  for _, entry in ipairs(paw.canvas.openable()) do
+    offered[entry.name] = entry.title
+  end
   eq(offered.undotree_paint, "Undo tree", "the window offers the painted tree")
   eq(offered.undotree, nil, "instead of the terminal's")
   paw.canvas.open("undotree_paint")
@@ -375,7 +397,10 @@ test("undotree: the painted window draws the tree, goes where a node is clicked 
   eq(text:find("#" .. s3, 1, true) ~= nil and text:find("#" .. s2, 1, true) ~= nil, true, "each state is labelled")
   -- A click on a node goes there.
   local node = nodes[2]
-  paw.canvas.pointer("undotree_paint", { kind = "down", x = node[2] + node[4] / 2, y = node[3] + node[5] / 2, button = "left" })
+  paw.canvas.pointer(
+    "undotree_paint",
+    { kind = "down", x = node[2] + node[4] / 2, y = node[3] + node[5] / 2, button = "left" }
+  )
   eq(api.undo_current(), s2, "a click on the second node goes to #" .. s2 .. " (the old branch)")
   local now = painted_tree()
   eq(now[2][6], paw.canvas.palette.select, "which is now the lit one")

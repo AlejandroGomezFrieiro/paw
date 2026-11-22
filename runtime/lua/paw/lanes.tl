@@ -53,7 +53,7 @@ local record Paw is partial.Paw
   groups: Groups
   frontend: Frontend
 end
-local paw = (_G as {string:Paw}).paw
+local paw = (_G as {string: Paw}).paw
 
 local record M
   type Row = Row
@@ -62,7 +62,7 @@ local record M
   --- The automation modes a track can be in (`track.automation`), in the
   --- order `:automation` steps through them, and what each does.
   modes: {types.AutoMode}
-  mode_text: {types.AutoMode:string}
+  mode_text: {types.AutoMode: string}
   --- The event that says the lanes shown (automation or takes) changed.
   changed: events.Event<Changed>
   param_of: function(lane: types.Lane): types.ParamInfo, types.Device
@@ -70,21 +70,25 @@ end
 
 M.changed = events.event("lanes.changed")
 
-local open: {integer:boolean} = {}
+local open: {integer: boolean} = {}
 do
   local saved = api.state_get("lanes_open")
   if type(saved) == "table" then
-    for key, on in pairs(saved as {string:boolean}) do
+    for key, on in pairs(saved as {string: boolean}) do
       local id = tonumber(key)
-      if on and id then open[id as integer] = true end
+      if on and id then
+        open[id as integer] = true
+      end
     end
   end
 end
 
 local function save()
-  local out: {string:boolean} = {}
+  local out: {string: boolean} = {}
   for id, on in pairs(open) do
-    if on then out[tostring(id)] = true end
+    if on then
+      out[tostring(id)] = true
+    end
   end
   api.state_set("lanes_open", out)
   api.ui_redraw()
@@ -93,13 +97,17 @@ local function save()
 end
 
 local function id_of(track: TrackRef): integer
-  if track is contracts.TrackHandle then return track.id end
+  if track is contracts.TrackHandle then
+    return track.id
+  end
   return track
 end
 
 local function lane_of(lane: LaneRef): types.Lane
   -- A test of the table, as `is integer` is a test with math.type, which LuaJIT does not have.
-  if lane is types.Lane then return lane end
+  if lane is types.Lane then
+    return lane
+  end
   return api.lane_get(lane)
 end
 
@@ -129,7 +137,9 @@ end
 --- The lanes shown under a track: none when they are closed.
 function M.shown(track: TrackRef): {types.Lane}
   local id = id_of(track)
-  if not open[id] then return {} end
+  if not open[id] then
+    return {}
+  end
   local ok, list = pcall(api.lane_list, id)
   return ok and list or {}
 end
@@ -139,8 +149,10 @@ end
 function M.lines(): {Row}
   local out: {Row} = {}
   for _, id in ipairs(paw.groups.rows()) do
-    out[#out + 1] = { track = id }
-    for _, lane in ipairs(M.shown(id)) do out[#out + 1] = { track = id, lane = lane.id } end
+    out[#out + 1] = {track = id}
+    for _, lane in ipairs(M.shown(id)) do
+      out[#out + 1] = {track = id, lane = lane.id}
+    end
   end
   return out
 end
@@ -148,15 +160,21 @@ end
 --- The parameter a lane moves: its name, and the parameter's description
 --- for a device's lane.
 local function param_of(lane: types.Lane): types.ParamInfo, types.Device
-  if lane.target ~= "param" then return nil end
+  if lane.target ~= "param" then
+    return nil
+  end
   local ok, d = pcall(api.device_get, lane.device)
-  if not ok then return nil end
+  if not ok then
+    return nil
+  end
   for _, p in ipairs(d.param_info) do
-    if p.key == lane.param then return p, d end
+    if p.key == lane.param then
+      return p, d
+    end
   end
 end
 
-M.modes = { "read", "touch", "latch", "write", "off" }
+M.modes = {"read", "touch", "latch", "write", "off"}
 M.mode_text = {
   read = "the lanes play; moving a control writes nothing",
   touch = "a control writes while it is held or moved, then the lane takes over again",
@@ -168,8 +186,12 @@ M.mode_text = {
 --- What a lane is called: Volume, Pan, or its device and parameter.
 function M.name(lane: LaneRef): string
   local l = lane_of(lane)
-  if l.target == "volume" then return "Volume" end
-  if l.target == "pan" then return "Pan" end
+  if l.target == "volume" then
+    return "Volume"
+  end
+  if l.target == "pan" then
+    return "Pan"
+  end
   if l.target == "state" then
     local ok, d = pcall(api.device_get, l.device)
     return (ok and d and d.name or "?") .. " › state"
@@ -181,8 +203,12 @@ end
 --- A value of a lane as its target shows it: "-6.0 dB", "L30", "800 Hz".
 function M.format(lane: LaneRef, value: number): string
   local l = lane_of(lane)
-  if l.target == "volume" then return string.format("%.1f dB", value) end
-  if l.target == "pan" then return paw.draw.pan_text(value) end
+  if l.target == "volume" then
+    return string.format("%.1f dB", value)
+  end
+  if l.target == "pan" then
+    return paw.draw.pan_text(value)
+  end
   if l.target == "state" then
     local index = math.floor((value or 0) + 0.5)
     return (l.states or {})[index + 1] or "-"
@@ -195,11 +221,19 @@ end
 --- hundredth of the parameter's range.
 function M.step(lane: LaneRef): number
   local l = lane_of(lane)
-  if l.target == "volume" then return 1 end
-  if l.target == "pan" then return 0.05 end
-  if l.target == "state" then return 1 end
+  if l.target == "volume" then
+    return 1
+  end
+  if l.target == "pan" then
+    return 0.05
+  end
+  if l.target == "state" then
+    return 1
+  end
   local p = param_of(l)
-  if p and #p.choices > 0 then return 1 end
+  if p and #p.choices > 0 then
+    return 1
+  end
   return (l.max - l.min) / 100
 end
 
@@ -214,9 +248,15 @@ local track_number = api.track_get as function(integer, string): number
 function M.value_at(lane: LaneRef, beat: number): number
   local l = lane_of(lane)
   local ok, v = pcall(api.lane_value_at, l.id, beat)
-  if ok and v then return v end
-  if l.target == "volume" or l.target == "pan" then return track_number(l.track, l.target) end
-  if l.target == "state" then return 0 end
+  if ok and v then
+    return v
+  end
+  if l.target == "volume" or l.target == "pan" then
+    return track_number(l.track, l.target)
+  end
+  if l.target == "state" then
+    return 0
+  end
   local d = api.device_get(l.device)
   return d.params[l.param] or 0
 end
@@ -228,7 +268,9 @@ function M.point_at(lane_id: integer, beat: number, reach?: number): integer, ty
   local at: integer
   for i, p in ipairs(api.lane_points(lane_id)) do
     local d = math.abs(p[1] - beat)
-    if d <= (reach or 1e-9) and (not best or d < math.abs(best[1] - beat)) then best, at = p, i end
+    if d <= (reach or 1e-9) and (not best or d < math.abs(best[1] - beat)) then
+      best, at = p, i
+    end
   end
   return at, best
 end
@@ -242,11 +284,14 @@ function M.edit(lane_id: integer, fn: function({types.LanePoint}))
 end
 
 -- A track that goes away takes its open lanes with it.
-events.on(kernel.track_removed, function(event: kernel.TrackId)
-  if open[event.id] then
-    open[event.id] = nil
-    save()
+events.on(
+  kernel.track_removed,
+  function(event: kernel.TrackId)
+    if open[event.id] then
+      open[event.id] = nil
+      save()
+    end
   end
-end)
+)
 
 return M

@@ -10,7 +10,9 @@ local function start()
   fresh()
   api.engine_restart({ backend = "null" })
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.focus("arrange")
   paw.audition.stop()
   paw.audition.heard = {}
@@ -22,7 +24,9 @@ end
 --- Wait, letting timers fire, until `cond()` holds or `ms` have passed.
 local function wait_for(cond, ms)
   local limit = api.now() + (ms or 5000)
-  while not cond() and api.now() < limit do paw.wait(10) end
+  while not cond() and api.now() < limit do
+    paw.wait(10)
+  end
   return cond()
 end
 
@@ -34,9 +38,15 @@ local function heard() return paw.pick.state() and paw.pick.state().audition end
 local function keys_track()
   local t = paw.add_track({ name = "Keys" })
   t:add_device("synth", { attack = 0.001, release = 0.01 })
-  t:add_clip({ start = 0, length = 4, notes = {
-    { pitch = "C4", start = 0, length = 1 }, { pitch = "E4", start = 1, length = 1 }, { pitch = "G4", start = 2, length = 2 },
-  } })
+  t:add_clip({
+    start = 0,
+    length = 4,
+    notes = {
+      { pitch = "C4", start = 0, length = 1 },
+      { pitch = "E4", start = 1, length = 1 },
+      { pitch = "G4", start = 2, length = 2 },
+    },
+  })
   paw.flush()
   api.undo_checkpoint()
   paw.cursor.set_track(t)
@@ -46,7 +56,9 @@ end
 
 local function pitches(notes)
   local out = {}
-  for i, n in ipairs(notes or {}) do out[i] = paw.music.name(n.pitch) end
+  for i, n in ipairs(notes or {}) do
+    out[i] = paw.music.name(n.pitch)
+  end
   return table.concat(out, " ")
 end
 
@@ -80,14 +92,23 @@ end)
 test("Ctrl-Space turns hearing off and on, and the picker remembers it", function()
   start()
   local calls = 0
-  local spec = { title = "Sounds", items = { "one", "two" }, audition = function() calls = calls + 1 end, on_choose = function() end }
+  local spec = {
+    title = "Sounds",
+    items = { "one", "two" },
+    audition = function() calls = calls + 1 end,
+    on_choose = function() end,
+  }
   paw.pick(spec)
   keys("<C-Space>")
   eq(heard().on, false, "off")
   keys("<C-n>")
   paw.wait(paw.opt.audition_delay + 100)
   eq(calls, 0, "nothing is heard while it is off")
-  eq(table.concat(api.ui_snapshot(120, 30), "\n"):find("off · Ctrl-Space hears", 1, true) ~= nil, true, "the pane says it is off")
+  eq(
+    table.concat(api.ui_snapshot(120, 30), "\n"):find("off · Ctrl-Space hears", 1, true) ~= nil,
+    true,
+    "the pane says it is off"
+  )
   keys("<Esc>")
   paw.pick(spec)
   eq(heard().on, false, "still off when opened again")
@@ -145,7 +166,11 @@ test("moving through presets keeps the bar going and swaps only the sound", func
   wait_for(function() return heard() and heard().item ~= nil end)
   local first = paw.audition.state()
   keys("<C-u>Saw")
-  eq(wait_for(function() return heard() and heard().label == "Saw bass · loop bar 1" end), true, "the next preset is heard")
+  eq(
+    wait_for(function() return heard() and heard().label == "Saw bass · loop bar 1" end),
+    true,
+    "the next preset is heard"
+  )
   eq(api.device_get(device.id).params.cutoff, 900, "and loaded")
   eq(paw.audition.state().notes == first.notes, true, "over the same phrase, not started again")
   keys("<Esc>")
@@ -197,10 +222,14 @@ test("a sound file in the file picker plays on its own, with its outline in the 
   paw.opt.audition_level = -6
   paw.pick.file({ dir = "tests/fixtures", extensions = { "wav" }, on_choose = function() end })
   keys("tone-mono-8k")
-  eq(wait_for(function()
-    local s = paw.audition.state()
-    return s and s.kind == "file" and s.state ~= "loading"
-  end), true, "it is read and played")
+  eq(
+    wait_for(function()
+      local s = paw.audition.state()
+      return s and s.kind == "file" and s.state ~= "loading"
+    end),
+    true,
+    "it is read and played"
+  )
   local s = paw.audition.state()
   eq(s.file:match("[^/]*$"), "tone-mono-8k.wav", "that file")
   eq(s.level, -6, "at the audition level")
@@ -220,9 +249,15 @@ test("a MIDI file in the file picker plays its first bars through an instrument 
   start()
   local path = T.scratch .. "/audition-tune.mid"
   local src = paw.add_track({ name = "Src" })
-  src:add_clip({ start = 0, length = 16, notes = {
-    { pitch = "C4", start = 0, length = 1 }, { pitch = "D4", start = 4, length = 1 }, { pitch = "E4", start = 12, length = 1 },
-  } })
+  src:add_clip({
+    start = 0,
+    length = 16,
+    notes = {
+      { pitch = "C4", start = 0, length = 1 },
+      { pitch = "D4", start = 4, length = 1 },
+      { pitch = "E4", start = 12, length = 1 },
+    },
+  })
   paw.midifile.export(path, {})
   fresh()
   api.undo_checkpoint()
@@ -249,7 +284,9 @@ test("a beat is written into the clip as a trial and its first bar played; Escap
   paw.cursor.set_beat(0)
   local clip = paw.cursor.clip() or t:add_clip({ start = 0, length = 8 })
   clip.length = 8
-  for i = #clip:notes(), 1, -1 do clip:remove_note(i) end
+  for i = #clip:notes(), 1, -1 do
+    clip:remove_note(i)
+  end
   clip:add_note({ pitch = 81, start = 0, length = 0.25 })
   paw.flush()
   api.undo_checkpoint()
@@ -271,15 +308,25 @@ test("a snippet is heard over the harmony around it, and nothing is written unti
   start()
   -- A snippet of the test's own: the extension's would be left loaded for
   -- the tests after this one.
-  paw.snippet.add({ name = "dominant", source = "config", expand = function(ctx)
-    return { notes = { { pitch = 67, start = ctx.at, length = 4 }, { pitch = 71, start = ctx.at, length = 4 } } }
-  end })
+  paw.snippet.add({
+    name = "dominant",
+    source = "config",
+    expand = function(ctx)
+      return { notes = { { pitch = 67, start = ctx.at, length = 4 }, { pitch = 71, start = ctx.at, length = 4 } } }
+    end,
+  })
   after(function() paw.snippet.remove("dominant") end)
   local strings = paw.add_track({ name = "Strings" })
   strings:add_device("synth")
-  strings:add_clip({ start = 0, length = 8, notes = {
-    { pitch = "C3", start = 4, length = 4 }, { pitch = "E3", start = 4, length = 4 }, { pitch = "G3", start = 4, length = 4 },
-  } })
+  strings:add_clip({
+    start = 0,
+    length = 8,
+    notes = {
+      { pitch = "C3", start = 4, length = 4 },
+      { pitch = "E3", start = 4, length = 4 },
+      { pitch = "G3", start = 4, length = 4 },
+    },
+  })
   local piano = paw.add_track({ name = "Piano" })
   piano:add_device("synth")
   local clip = piano:add_clip({ start = 0, length = 8, notes = {} })
@@ -294,7 +341,9 @@ test("a snippet is heard over the harmony around it, and nothing is written unti
   eq(wait_for(function() return heard() and heard().item ~= nil end), true, "it is heard")
   local now = paw.audition.state()
   local tracks = {}
-  for _, n in ipairs(now.notes) do tracks[n.track] = true end
+  for _, n in ipairs(now.notes) do
+    tracks[n.track] = true
+  end
   eq(tracks[piano.id], true, "its notes, through the piano")
   eq(#clip:notes(), 0, "nothing written yet")
   eq(heard().label:find("^dominant") ~= nil, true, "the pane says what plays: " .. heard().label)

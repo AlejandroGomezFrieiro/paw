@@ -22,7 +22,9 @@ end
 
 local function words(text)
   local out = {}
-  for word in tostring(text):gmatch("%S+") do out[#out + 1] = word end
+  for word in tostring(text):gmatch("%S+") do
+    out[#out + 1] = word
+  end
   return out
 end
 
@@ -45,8 +47,12 @@ local function command(...)
   local engine = M.engine()
   if not engine then return nil end
   local out = {}
-  for _, w in ipairs(engine) do out[#out + 1] = w end
-  for _, w in ipairs({ ... }) do out[#out + 1] = w end
+  for _, w in ipairs(engine) do
+    out[#out + 1] = w
+  end
+  for _, w in ipairs({ ... }) do
+    out[#out + 1] = w
+  end
   return out
 end
 
@@ -59,7 +65,9 @@ function M.settings()
   local out = { preset = "default", rules = {} }
   if type(stored) == "table" then
     out.preset = stored.preset or out.preset
-    for id, on in pairs(type(stored.rules) == "table" and stored.rules or {}) do out.rules[id] = { enabled = on == true } end
+    for id, on in pairs(type(stored.rules) == "table" and stored.rules or {}) do
+      out.rules[id] = { enabled = on == true }
+    end
   end
   return out
 end
@@ -67,7 +75,9 @@ end
 local function store(preset, rules)
   local meta = api.project_get().meta or {}
   local flat = {}
-  for id, r in pairs(rules) do flat[id] = r.enabled end
+  for id, r in pairs(rules) do
+    flat[id] = r.enabled
+  end
   meta.midilsp = { preset = preset, rules = next(flat) and flat or nil }
   api.project_set("meta", meta)
   M.configure()
@@ -93,7 +103,9 @@ end
 --- The presets the engine has (empty until it has started).
 function M.presets()
   local out = {}
-  for name in pairs((catalog() or {}).presets or {}) do out[#out + 1] = name end
+  for name in pairs((catalog() or {}).presets or {}) do
+    out[#out + 1] = name
+  end
   table.sort(out)
   return out
 end
@@ -101,7 +113,9 @@ end
 --- The ids of the engine's rules (empty until it has started).
 function M.rule_ids()
   local out = {}
-  for _, r in ipairs((catalog() or {}).rules or {}) do out[#out + 1] = r.id end
+  for _, r in ipairs((catalog() or {}).rules or {}) do
+    out[#out + 1] = r.id
+  end
   table.sort(out)
   return out
 end
@@ -139,10 +153,16 @@ function M.pick_rules()
   if not rules then return paw.notify("midilsp: the engine is not running", "warn") end
   local s, items = M.settings(), {}
   for _, r in ipairs(rules) do
-    items[#items + 1] = { text = string.format("%s  %-24s %s", rule_on(r.id, s) and "on " or "off", r.id, r.title or ""), id = r.id }
+    items[#items + 1] =
+      { text = string.format("%s  %-24s %s", rule_on(r.id, s) and "on " or "off", r.id, r.title or ""), id = r.id }
   end
-  paw.pick({ title = "MIDI LSP rules (" .. s.preset .. ")", items = items,
-    on_choose = function(item) if item then M.set_rule(item.id, "toggle") end end })
+  paw.pick({
+    title = "MIDI LSP rules (" .. s.preset .. ")",
+    items = items,
+    on_choose = function(item)
+      if item then M.set_rule(item.id, "toggle") end
+    end,
+  })
 end
 
 -- Starting ------------------------------------------------------------------------
@@ -171,7 +191,12 @@ end
 function M.start(loud)
   M.configure()
   if not M.engine() then
-    if loud then paw.notify("midilsp: no engine: set paw.opt.midilsp_cmd or $MIDI_LSP_ENGINE, or put reaper-midi-lsp on the PATH", "warn") end
+    if loud then
+      paw.notify(
+        "midilsp: no engine: set paw.opt.midilsp_cmd or $MIDI_LSP_ENGINE, or put reaper-midi-lsp on the PATH",
+        "warn"
+      )
+    end
     return false
   end
   paw.lsp.enable(M.LSP)
@@ -192,14 +217,22 @@ function M.info_lines()
   local s = M.settings()
   local lines = {
     { text = "Engine", style = "Title" },
-    "  " .. (engine and table.concat(engine, " ") or "not found: paw.opt.midilsp_cmd, $MIDI_LSP_ENGINE or reaper-midi-lsp on the PATH"),
+    "  "
+      .. (
+        engine and table.concat(engine, " ")
+        or "not found: paw.opt.midilsp_cmd, $MIDI_LSP_ENGINE or reaper-midi-lsp on the PATH"
+      ),
     "",
     { text = "Settings, kept with the project", style = "Title" },
     "  preset " .. s.preset,
   }
-  for id, r in pairs(s.rules) do lines[#lines + 1] = string.format("  rule %s %s", id, r.enabled and "on" or "off") end
+  for id, r in pairs(s.rules) do
+    lines[#lines + 1] = string.format("  rule %s %s", id, r.enabled and "on" or "off")
+  end
   lines[#lines + 1] = ""
-  for _, line in ipairs(paw.lsp.info_lines()) do lines[#lines + 1] = line end
+  for _, line in ipairs(paw.lsp.info_lines()) do
+    lines[#lines + 1] = line
+  end
   return lines
 end
 
@@ -212,7 +245,15 @@ function M.problems()
   for _, d in ipairs(paw.diagnostic.get()) do
     local ok, c = pcall(api.clip_get, d.clip)
     local where = ok and string.format("%s %s", c.name, paw.time.format(c.start + d.at)) or "?"
-    items[#items + 1] = { text = string.format("%-7s %-16s %s", paw.diagnostic.severity[d.severity], paw.util.fit(where, 16), paw.diagnostic.format(d):gsub("^%a+ ", "")), diagnostic = d }
+    items[#items + 1] = {
+      text = string.format(
+        "%-7s %-16s %s",
+        paw.diagnostic.severity[d.severity],
+        paw.util.fit(where, 16),
+        paw.diagnostic.format(d):gsub("^%a+ ", "")
+      ),
+      diagnostic = d,
+    }
     for _, fix in ipairs(d.fixes) do
       items[#items + 1] = { text = "        fix: " .. tostring(fix.title), diagnostic = d, fix = fix }
     end
@@ -223,7 +264,11 @@ function M.problems()
     items = items,
     on_choose = function(item)
       if not item then return end
-      if item.fix then paw.diagnostic.apply(item.diagnostic, item.fix) else paw.diagnostic.show(item.diagnostic) end
+      if item.fix then
+        paw.diagnostic.apply(item.diagnostic, item.fix)
+      else
+        paw.diagnostic.show(item.diagnostic)
+      end
     end,
   })
 end

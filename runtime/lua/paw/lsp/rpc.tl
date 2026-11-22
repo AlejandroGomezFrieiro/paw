@@ -9,7 +9,8 @@ local type util = require("paw.util")
 --- How messages are cut from the bytes: one a line (the default), or
 --- LSP's `Content-Length` headers.
 local enum Framing
-  "lines" "headers"
+  "lines"
+  "headers"
 end
 
 --- A JSON value whose shape the method of its message names (the `params`
@@ -60,23 +61,31 @@ local record M
   type Reader = Reader
 end
 
-local object_mt: metatable<{Json:Json}> = {}
+local object_mt: metatable<{Json: Json}> = {}
 
 --- A table that is written as a JSON object even when it is empty
 --- (`{}` alone is written as `[]`): `t`, or a new table.
-function M.object(t?: {string:Json}): Payload
-  return setmetatable((t or {}) as {Json:Json}, object_mt) as Payload
+function M.object(t?: {string: Json}): Payload
+  return setmetatable((t or {}) as {Json: Json}, object_mt) as Payload
 end
 
-local escapes: {string:string} = { ['"'] = '\\"', ["\\"] = "\\\\", ["\b"] = "\\b", ["\f"] = "\\f", ["\n"] = "\\n", ["\r"] = "\\r", ["\t"] = "\\t" }
+local escapes: {string: string} = {
+  ['"'] = '\\"', ["\\"] = "\\\\", ["\b"] = "\\b", ["\f"] = "\\f", ["\n"] = "\\n", ["\r"] = "\\r", ["\t"] = "\\t"
+}
 
-local function is_array(t: {Json:Json}): boolean
-  if getmetatable(t) == object_mt then return false end
+local function is_array(t: {Json: Json}): boolean
+  if getmetatable(t) == object_mt then
+    return false
+  end
   local n = #(t as {Json})
-  if n == 0 then return next(t) == nil end
+  if n == 0 then
+    return next(t) == nil
+  end
   for k in pairs(t) do
     if k is number then
-      if k < 1 or k > n or k % 1 ~= 0 then return false end
+      if k < 1 or k > n or k % 1 ~= 0 then
+        return false
+      end
     else
       return false
     end
@@ -84,11 +93,13 @@ local function is_array(t: {Json:Json}): boolean
   return true
 end
 
-local encode: function(t: {Json:Json}, out: {string})
+local encode: function(t: {Json: Json}, out: {string})
 
 local function value(v: Json, out: {string})
   if v is string then
-    out[#out + 1] = '"' .. v:gsub('[%c"\\]', function(c: string): string return escapes[c] or string.format("\\u%04x", c:byte()) end) .. '"'
+    out[#out + 1] = '"'
+      .. v:gsub('[%c"\\]', function(c: string): string return escapes[c] or string.format("\\u%04x", c:byte()) end)
+      .. '"'
   elseif v is number then
     -- Whole numbers as integers: ticks, pitches and ids are integers to a
     -- server, and Lua has only one kind of number.
@@ -101,18 +112,20 @@ local function value(v: Json, out: {string})
     end
   elseif v is boolean then
     out[#out + 1] = tostring(v)
-  elseif v is {Json:Json} then
+  elseif v is {Json: Json} then
     encode(v, out)
   else
     out[#out + 1] = "null"
   end
 end
 
-encode = function(t: {Json:Json}, out: {string})
+encode = function(t: {Json: Json}, out: {string})
   if is_array(t) then
     out[#out + 1] = "["
     for i, v in ipairs(t as {Json}) do
-      if i > 1 then out[#out + 1] = "," end
+      if i > 1 then
+        out[#out + 1] = ","
+      end
       value(v, out)
     end
     out[#out + 1] = "]"
@@ -120,7 +133,9 @@ encode = function(t: {Json:Json}, out: {string})
     out[#out + 1] = "{"
     local first = true
     for k, v in pairs(t) do
-      if not first then out[#out + 1] = "," end
+      if not first then
+        out[#out + 1] = ","
+      end
       first = false
       value(tostring(k), out)
       out[#out + 1] = ":"
@@ -140,7 +155,9 @@ end
 --- A message as the bytes to send in `framing` ("lines" or "headers").
 function M.frame<T>(message: T, framing?: Framing): string
   local text = M.encode(message)
-  if framing == "headers" then return "Content-Length: " .. #text .. "\r\n\r\n" .. text end
+  if framing == "headers" then
+    return "Content-Length: " .. #text .. "\r\n\r\n" .. text
+  end
   return text .. "\n"
 end
 
@@ -154,7 +171,7 @@ function M.reader(framing?: Framing): Reader
   local function decode(text: string, out: {Message})
     local message, err = api.json_decode(text)
     -- The one place a message comes in: JSON as the kernel reads it.
-    out[#out + 1] = type(message) == "table" and message as Message or { invalid = text, error = err or "not an object" }
+    out[#out + 1] = type(message) == "table" and message as Message or {invalid = text, error = err or "not an object"}
   end
   function self:push(bytes: string): {Message}
     buffer = buffer .. bytes
@@ -162,7 +179,9 @@ function M.reader(framing?: Framing): Reader
     if framing == "headers" then
       while true do
         local head_end = buffer:find("\r\n\r\n", 1, true)
-        if not head_end then break end
+        if not head_end then
+          break
+        end
         local length = tonumber(buffer:sub(1, head_end):match("[Cc]ontent%-[Ll]ength:%s*(%d+)"))
         if not length then
           -- Not a header we understand: drop it and look for the next one.
@@ -177,10 +196,14 @@ function M.reader(framing?: Framing): Reader
     else
       while true do
         local nl = buffer:find("\n", 1, true)
-        if not nl then break end
+        if not nl then
+          break
+        end
         local line = buffer:sub(1, nl - 1)
         buffer = buffer:sub(nl + 1)
-        if line:match("%S") then decode(line, out) end
+        if line:match("%S") then
+          decode(line, out)
+        end
       end
     end
     return out

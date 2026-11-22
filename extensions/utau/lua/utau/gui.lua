@@ -29,17 +29,33 @@ local c = require("paw.canvas").palette
 local TOOLBAR, RULER, KEYS, PHONEMES, INFO = 38, 24, 64, 30, 26
 local TABS, GRAPH, INSPECTOR = 22, 92, 252
 local STATE_COLOUR = {
-  [proto.state.pending] = c.control_hover, [proto.state.rendering] = c.warn, [proto.state.draft] = c.select,
-  [proto.state.final] = c.play_on, [proto.state.error] = c.error,
+  [proto.state.pending] = c.control_hover,
+  [proto.state.rendering] = c.warn,
+  [proto.state.draft] = c.select,
+  [proto.state.final] = c.play_on,
+  [proto.state.error] = c.error,
 }
 
 -- What only the graphical editor keeps: how far it is zoomed and scrolled,
 -- the tool, which panels show, what is being dragged, and where the
 -- buttons and fields are.
 local gui = {
-  zoom = 96, row = 22, top = 76, scroll = 0, tool = "notes", drag = nil, hits = paw.canvas.hit_list(), buttons = {}, singers = false,
-  curves = true, inspector = true, popup = nil, fields = {},
-  KEYS = KEYS, TOOLBAR = TOOLBAR, RULER = RULER,
+  zoom = 96,
+  row = 22,
+  top = 76,
+  scroll = 0,
+  tool = "notes",
+  drag = nil,
+  hits = paw.canvas.hit_list(),
+  buttons = {},
+  singers = false,
+  curves = true,
+  inspector = true,
+  popup = nil,
+  fields = {},
+  KEYS = KEYS,
+  TOOLBAR = TOOLBAR,
+  RULER = RULER,
 }
 view.gui = gui
 gui.view = view
@@ -69,8 +85,21 @@ local inspector = require("utau.gui_inspector")(gui)
 --- A button: drawn, and remembered for the pointer.
 local function button(g, x, y, label, on, action, opts)
   opts = opts or {}
-  local next_x = paw.canvas.button(g, gui.hits, x, y, label, action, { on = on, color = opts.color, size = opts.size,
-    width = opts.width or (#label * 7 + 18), height = opts.height or 22 })
+  local next_x = paw.canvas.button(
+    g,
+    gui.hits,
+    x,
+    y,
+    label,
+    action,
+    {
+      on = on,
+      color = opts.color,
+      size = opts.size,
+      width = opts.width or (#label * 7 + 18),
+      height = opts.height or 22,
+    }
+  )
   return next_x - 2
 end
 gui.button = button
@@ -114,7 +143,12 @@ function view:paint(g, ctx)
   local clip = self:clip()
   if not clip then
     g:text(24, 24, "No vocal clip is open.", { color = c.text, size = 16, bold = true })
-    g:text(24, 50, "Double click a clip of a vocal track, or put the cursor on one and run :utau.edit.", { color = c.text_2 })
+    g:text(
+      24,
+      50,
+      "Double click a clip of a vocal track, or put the cursor on one and run :utau.edit.",
+      { color = c.text_2 }
+    )
     return
   end
   local track = api.track_get(clip.track)
@@ -133,25 +167,45 @@ function view:paint(g, ctx)
   local top = TOOLBAR
   gui.size = { w = roll_w, h = roll_h }
   gui.geo = {
-    w = w, h = h, roll_y = TOOLBAR + RULER, roll_w = roll_w, roll_h = roll_h,
-    ph_y = TOOLBAR + RULER + roll_h, curve_y = TOOLBAR + RULER + roll_h + PHONEMES, curve_h = curve_h,
-    info_y = h - INFO, side_x = w - side, side_w = side,
+    w = w,
+    h = h,
+    roll_y = TOOLBAR + RULER,
+    roll_w = roll_w,
+    roll_h = roll_h,
+    ph_y = TOOLBAR + RULER + roll_h,
+    curve_y = TOOLBAR + RULER + roll_h + PHONEMES,
+    curve_h = curve_h,
+    info_y = h - INFO,
+    side_x = w - side,
+    side_w = side,
   }
   -- Keep what is scrolled to within reach, and the playhead in sight.
   gui.top = util.clamp(gui.top, roll_h / gui.row - 1, 127)
   gui.scroll = math.max(0, view.follow(gui.scroll, roll_w / gui.zoom, clip))
   -- One look at the notes for everything below.
   local S = {
-    clip = clip, track = track, device = device, list = list, tempo = tempo, hue = hue,
-    selected = {}, targets = {}, roll_w = roll_w, roll_h = roll_h,
+    clip = clip,
+    track = track,
+    device = device,
+    list = list,
+    tempo = tempo,
+    hue = hue,
+    selected = {},
+    targets = {},
+    roll_w = roll_w,
+    roll_h = roll_h,
   }
   local _, under = cursor_note(list)
   S.under = under
   local region = self:visual_region()
   for i, n in ipairs(list) do
-    if (region and paw.edit.roll.inside(n, region)) or (not region and self.sel[view.key_of(n)]) then S.selected[i] = true end
+    if (region and paw.edit.roll.inside(n, region)) or (not region and self.sel[view.key_of(n)]) then
+      S.selected[i] = true
+    end
   end
-  for i in pairs(S.selected) do S.targets[#S.targets + 1] = i end
+  for i in pairs(S.selected) do
+    S.targets[#S.targets + 1] = i
+  end
   table.sort(S.targets)
   if #S.targets == 0 and under then S.targets[1] = under end
   gui.S = S
@@ -167,13 +221,26 @@ function view:paint(g, ctx)
   for _, s in ipairs(utau.singers) do
     if s.id == config.singer then singer = s.name end
   end
-  x = button(g, x, 8, singer .. "  ▾", gui.singers, function() gui.singers = not gui.singers end, { color = c.text_2 })
+  x = button(
+    g,
+    x,
+    8,
+    singer .. "  ▾",
+    gui.singers,
+    function() gui.singers = not gui.singers end,
+    { color = c.text_2 }
+  )
   local state, counts = utau.status(clip.track)
   local parts = {}
   for _, name in ipairs({ "final", "draft", "rendering", "pending", "error" }) do
     if counts[name] then parts[#parts + 1] = counts[name] .. " " .. name end
   end
-  g:text(x + 4, 12, state .. (#parts > 0 and ("  ·  " .. table.concat(parts, ", ")) or ""), { color = state == "ready" and c.play_on or c.warn, width = 200 })
+  g:text(
+    x + 4,
+    12,
+    state .. (#parts > 0 and ("  ·  " .. table.concat(parts, ", ")) or ""),
+    { color = state == "ready" and c.play_on or c.warn, width = 200 }
+  )
   -- From the right: zoom, grid, panels, tools.
   local right = w - 10
   local function from_right(label, on, action)
@@ -245,20 +312,26 @@ function view:paint(g, ctx)
   for index, note in ipairs(list) do
     local start, length, pitch = note.start, note.length, note.pitch
     if drag and drag.moving and drag.moving[index] then
-      if drag.mode == "move" then start, pitch = math.max(0, start + drag.dbeat), util.clamp(pitch + drag.dpitch, 0, 127) end
+      if drag.mode == "move" then
+        start, pitch = math.max(0, start + drag.dbeat), util.clamp(pitch + drag.dpitch, 0, 127)
+      end
       if drag.mode == "stretch" then length = math.max(grid, length + drag.dlen) end
     end
     if start + length >= view_left and start <= view_right and pitch >= low and pitch <= high then
       local lyric = notes.lyric(note) or paw.opt.utau_default_lyric
       local bad = false
-      for _, p in ipairs(phonemes and phonemes.notes[index] or {}) do bad = bad or p.flags % 2 == 1 end
+      for _, p in ipairs(phonemes and phonemes.notes[index] or {}) do
+        bad = bad or p.flags % 2 == 1
+      end
       local fill = notes.is_rest(lyric) and c.control_hover or bad and c.error or hue
       local nx, ny, nw = x_of(start), y_of(pitch), math.max(4, length * gui.zoom - 1)
       local typing = entry and entry.kind == "lyric" and entry.index == index
       local chosen = S.selected[index]
       roll:rect(nx, ny + 1, nw, gui.row - 2, {
-        fill = typing and c.warn or fill, radius = 3,
-        stroke = chosen and c.warn or index == under and c.text or nil, width = 2,
+        fill = typing and c.warn or fill,
+        radius = 3,
+        stroke = chosen and c.warn or index == under and c.text or nil,
+        width = 2,
       })
       if typing then lyric = self:entry_text() .. "▏" end
       local props = note.meta and note.meta.utau
@@ -267,7 +340,13 @@ function view:paint(g, ctx)
   end
   -- A note being drawn.
   if drag and drag.mode == "new" then
-    roll:rect(x_of(drag.start), y_of(drag.pitch) + 1, math.max(4, drag.length * gui.zoom - 1), gui.row - 2, { fill = hue .. "99", stroke = c.text, radius = 3 })
+    roll:rect(
+      x_of(drag.start),
+      y_of(drag.pitch) + 1,
+      math.max(4, drag.length * gui.zoom - 1),
+      gui.row - 2,
+      { fill = hue .. "99", stroke = c.text, radius = 3 }
+    )
   end
 
   -- The pitch that was drawn, as it bends away from the notes; then the
@@ -306,24 +385,47 @@ function view:paint(g, ctx)
   local inset = gui.tool == "pitch" and 11 or 5
   for _, l in ipairs(labels) do
     local nx, ny, nw = l[1], l[2], l[3]
-    roll:text(nx + inset, ny + (gui.row - 15) / 2, l[4], { color = l[5] and c.text_2 or c.surface, width = nw - inset - 1 })
-    if l[6] and nw > 30 then roll:text(nx + nw - 14, ny + (gui.row - 15) / 2, "~", { color = c.surface, bold = true }) end
+    roll:text(
+      nx + inset,
+      ny + (gui.row - 15) / 2,
+      l[4],
+      { color = l[5] and c.text_2 or c.surface, width = nw - inset - 1 }
+    )
+    if l[6] and nw > 30 then
+      roll:text(nx + nw - 14, ny + (gui.row - 15) / 2, "~", { color = c.surface, bold = true })
+    end
   end
   -- The box being dragged out, and the selection of visual mode.
   if drag and drag.mode == "box" then
     local x0, y0 = math.min(drag.x0, drag.x1), math.min(drag.y0, drag.y1)
-    roll:rect(x0, y0, math.abs(drag.x1 - drag.x0), math.abs(drag.y1 - drag.y0), { fill = c.select .. "33", stroke = c.select })
+    roll:rect(
+      x0,
+      y0,
+      math.abs(drag.x1 - drag.x0),
+      math.abs(drag.y1 - drag.y0),
+      { fill = c.select .. "33", stroke = c.select }
+    )
   end
   if region then
     local x0, x1 = x_of(region.c0), x_of(region.c1)
     local y0, y1 = y_of(region.r1), y_of(region.r0) + gui.row
-    if region.kind == "line" then x0, x1 = 0, roll_w end
-    if region.kind == "char" then y0, y1 = 0, roll_h end
+    if region.kind == "line" then
+      x0, x1 = 0, roll_w
+    end
+    if region.kind == "char" then
+      y0, y1 = 0, roll_h
+    end
     roll:rect(x0, y0, x1 - x0, y1 - y0, { fill = c.select .. "26", stroke = c.select .. "88" })
   end
   -- The editor's cursor, where there is no note under it.
   if not under then
-    roll:rect(x_of(self.beat), y_of(self.pitch), math.max(2, grid * gui.zoom), gui.row, { stroke = c.select .. "aa", radius = 2 })
+    roll:rect(
+      x_of(self.beat),
+      y_of(self.pitch),
+      math.max(2, grid * gui.zoom),
+      gui.row,
+      { stroke = c.select .. "aa", radius = 2 }
+    )
   end
 
   local playhead = transport.position >= clip.start and transport.position <= clip.start + clip.length
@@ -343,7 +445,9 @@ function view:paint(g, ctx)
       keys:line(0, y + gui.row, KEYS, y + gui.row, { color = c.key_line })
     end
     if pitch == self.pitch then keys:rect(0, y, KEYS, gui.row, { fill = c.select .. "bb" }) end
-    if pitch % 12 == 0 then keys:text(KEYS - 26, y + 3, music.name(pitch), { color = c.text_off, size = 10, bold = true }) end
+    if pitch % 12 == 0 then
+      keys:text(KEYS - 26, y + 3, music.name(pitch), { color = c.text_off, size = 10, bold = true })
+    end
   end
 
   -- Phonemes, under the notes they belong to: a box from each one's start
@@ -366,7 +470,13 @@ function view:paint(g, ctx)
         local missing, changed = p.flags % 2 == 1, math.floor(p.flags / 2) % 2 == 1
         local colour = missing and c.error or changed and c.mute or c.select
         local marked = self.ph and note_index == ph_note and k == ph_k
-        strip:rect(x0, 4, math.max(2, x1 - x0 - 1), PHONEMES - 8, { fill = colour .. (marked and "66" or "22"), radius = 2 })
+        strip:rect(
+          x0,
+          4,
+          math.max(2, x1 - x0 - 1),
+          PHONEMES - 8,
+          { fill = colour .. (marked and "66" or "22"), radius = 2 }
+        )
         strip:line(x0, 2, x0, PHONEMES - 2, { color = colour, width = 2 })
         local name = p.phoneme ~= "" and p.phoneme or p.alias
         if entry and entry.kind == "phoneme" and entry.note == note_index and entry.k == k then
@@ -402,19 +512,30 @@ function view:paint(g, ctx)
     info = entry.kind == "lyric" and "typing a lyric: Tab goes on to the next note, Enter keeps it, Esc drops it"
       or "typing " .. (entry.label or entry.kind or "") .. ": Enter keeps it, Esc drops it"
   elseif total > 0 and missing == total then
-    info = "the voicebank has none of these phonemes (red): its aliases may be in kana, try :utau.batch romaji_to_hiragana"
+    info =
+      "the voicebank has none of these phonemes (red): its aliases may be in kana, try :utau.batch romaji_to_hiragana"
   elseif gui.tool == "pitch" then
-    info = "pitch: draw over the notes to bend them · drag a point, double click adds one, right click removes it, Ctrl+click its shape · Ctrl+click a note: vibrato"
+    info =
+      "pitch: draw over the notes to bend them · drag a point, double click adds one, right click removes it, Ctrl+click its shape · Ctrl+click a note: vibrato"
   elseif gui.tool == "select" then
-    info = "select: drag a box around notes, Shift adds · drag them to move · Ctrl+C copies, Ctrl+V pastes at the cursor, Del removes"
+    info =
+      "select: drag a box around notes, Shift adds · drag them to move · Ctrl+C copies, Ctrl+V pastes at the cursor, Del removes"
   else
     local note = under and list[under]
     if note and #S.targets <= 1 then
-      info = string.format("%s  %s  length %g  “%s”", music.name(note.pitch), paw.time.format(clip.start + note.start), note.length, notes.lyric(note) or paw.opt.utau_default_lyric)
+      info = string.format(
+        "%s  %s  length %g  “%s”",
+        music.name(note.pitch),
+        paw.time.format(clip.start + note.start),
+        note.length,
+        notes.lyric(note) or paw.opt.utau_default_lyric
+      )
     elseif #S.targets > 1 then
-      info = #S.targets .. " notes selected: drag one to move them all, its right edge to stretch them · Del removes · Ctrl+C copies"
+      info = #S.targets
+        .. " notes selected: drag one to move them all, its right edge to stretch them · Del removes · Ctrl+C copies"
     else
-      info = "notes: drag on empty space draws one, Ctrl+drag selects · click selects, Shift+click adds · double click types the lyric · right click removes"
+      info =
+        "notes: drag on empty space draws one, Ctrl+drag selects · click selects, Shift+click adds · double click types the lyric · right click removes"
     end
   end
   g:text(12, iy + 6, info, { color = c.text_2, width = w - 24 })
@@ -425,11 +546,14 @@ function view:paint(g, ctx)
     local lx, ly, lw = gui.singer_x, TOOLBAR - 2, 360
     g:rect(lx, ly, lw, rows * 24 + 8, { fill = c.panel, stroke = c.select, radius = 6 })
     gui.singer_list = { x = lx, y = ly + 4, w = lw, row = 24 }
-    if #utau.singers == 0 then
-      g:text(lx + 12, ly + 9, "no singers: the engine is " .. state, { color = c.text_2 })
-    end
+    if #utau.singers == 0 then g:text(lx + 12, ly + 9, "no singers: the engine is " .. state, { color = c.text_2 }) end
     for i, s in ipairs(utau.singers) do
-      g:text(lx + 12, ly + 9 + (i - 1) * 24, (s.id == config.singer and "● " or "   ") .. s.name, { color = s.id == config.singer and c.select or c.text, width = lw - 90 })
+      g:text(
+        lx + 12,
+        ly + 9 + (i - 1) * 24,
+        (s.id == config.singer and "● " or "   ") .. s.name,
+        { color = s.id == config.singer and c.select or c.text, width = lw - 90 }
+      )
       g:text(lx + lw - 12, ly + 9 + (i - 1) * 24, s.type or "", { color = c.text_3, align = "right", width = 80 })
     end
   end
@@ -464,9 +588,7 @@ local function notes_in_box(list, x0, y0, x1, y1)
 end
 
 --- Hear the note at a place of the clip.
-local function hear(clip, index)
-  audition.note(clip.id, index)
-end
+local function hear(clip, index) audition.note(clip.id, index) end
 gui.hear = hear
 
 --- Move or stretch the selection by what a drag did.
@@ -549,7 +671,12 @@ function view:pointer(e)
   if (e.kind == "down" or e.kind == "double") and e.y >= geo.ph_y and e.y < geo.ph_y + PHONEMES and e.x >= KEYS then
     return pitch_panel.phoneme_pointer(self, e, clip)
   end
-  if (e.kind == "down" or e.kind == "double") and geo.curve_h > 0 and e.y >= geo.curve_y and e.y < geo.curve_y + geo.curve_h then
+  if
+    (e.kind == "down" or e.kind == "double")
+    and geo.curve_h > 0
+    and e.y >= geo.curve_y
+    and e.y < geo.curve_y + geo.curve_h
+  then
     return curve_panel.pointer(self, e, clip)
   end
 
@@ -565,7 +692,9 @@ function view:pointer(e)
       local phrase = self:phrase_at(beat_at(x), list)
       if phrase then
         local indices = {}
-        for i = phrase.first, phrase.last do indices[#indices + 1] = i end
+        for i = phrase.first, phrase.last do
+          indices[#indices + 1] = i
+        end
         self:select(indices, e.shift)
       end
     end
@@ -597,13 +726,22 @@ function view:pointer(e)
     elseif note then
       if not self.sel[view.key_of(note)] then self:select({ index }) end
       local moving = {}
-      for _, i in ipairs(self:selected(list)) do moving[i] = true end
+      for _, i in ipairs(self:selected(list)) do
+        moving[i] = true
+      end
       gui.drag = {
-        mode = edge and "stretch" or "move", index = index, moving = moving, dbeat = 0, dpitch = 0, dlen = 0,
+        mode = edge and "stretch" or "move",
+        index = index,
+        moving = moving,
+        dbeat = 0,
+        dpitch = 0,
+        dlen = 0,
         from = { beat = beat_at(x), pitch = pitch_at(y), start = note.start, note = note.pitch, length = note.length },
         min_start = math.huge,
       }
-      for i in pairs(moving) do gui.drag.min_start = math.min(gui.drag.min_start, list[i].start) end
+      for i in pairs(moving) do
+        gui.drag.min_start = math.min(gui.drag.min_start, list[i].start)
+      end
       hear(clip, index)
     elseif e.ctrl or gui.tool == "select" then
       if not e.shift then self:clear_selection() end
@@ -652,7 +790,12 @@ function view:pointer(e)
       self:select(notes_in_box(list, drag.x0, drag.y0, drag.x1, drag.y1), drag.add)
     elseif drag.mode == "new" and drag.start < clip.length then
       local c_obj = paw.clip(clip.id)
-      local index = c_obj:add_note({ pitch = drag.pitch, start = drag.start, length = math.min(drag.length, clip.length - drag.start), velocity = paw.opt.velocity })
+      local index = c_obj:add_note({
+        pitch = drag.pitch,
+        start = drag.start,
+        length = math.min(drag.length, clip.length - drag.start),
+        velocity = paw.opt.velocity,
+      })
       if index then
         self:select({ index })
         hear(clip, index)
@@ -672,9 +815,7 @@ function view:on_close()
   paw.ui.hide("utau")
 end
 
-function view:on_hide()
-  paw.canvas.close("utau")
-end
+function view:on_hide() paw.canvas.close("utau") end
 
 -- Opening a vocal clip (the vocal track kind's editor) opens this editor, in
 -- the terminal and in a window.
@@ -684,7 +825,9 @@ function view:edit(clip_id)
   if self.clip_id ~= clip_id then return end
   local list = notes.list(clip_id)
   local high = 60
-  for _, n in ipairs(list) do high = math.max(high, n.pitch) end
+  for _, n in ipairs(list) do
+    high = math.max(high, n.pitch)
+  end
   gui.top, gui.scroll, gui.drag, gui.singers, gui.popup = high + 5, 0, nil, false, nil
   paw.canvas.open("utau", { title = "Vocal editor", width = 1180, height = 620 })
 end

@@ -10,7 +10,9 @@ local function start()
   fresh()
   api.engine_restart({ backend = "null" })
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.focus("arrange")
 end
 
@@ -98,7 +100,11 @@ test("a bound controller takes hold of a fader only when it reaches it", functio
   eq(#paw.learn.bindings(), 2, "learning a target again replaces what moved it")
   paw.cmd("learn.remove", { "pan" })
   eq(#paw.learn.bindings(), 1, "a binding is taken away by what it moves")
-  fails(function() paw.learn.bind({ cc = 200 }, { track = t.id, target = "volume" }) end, "0 to 127", "a bad controller number")
+  fails(
+    function() paw.learn.bind({ cc = 200 }, { track = t.id, target = "volume" }) end,
+    "0 to 127",
+    "a bad controller number"
+  )
 end)
 
 test("a sweep of a control is one undo step, and bindings are saved with the project", function()
@@ -108,7 +114,9 @@ test("a sweep of a control is one undo step, and bindings are saved with the pro
   api.undo_checkpoint()
   paw.learn.bind({ cc = 7 }, { track = t.id, target = "volume" })
   api.undo_checkpoint()
-  for _, v in ipairs({ 0.5, 0.55, 0.6, 0.65, 0.7 }) do cc(7, v) end
+  for _, v in ipairs({ 0.5, 0.55, 0.6, 0.65, 0.7 }) do
+    cc(7, v)
+  end
   near(t.volume, -60 + 66 * 0.7, 1e-6, "swept up")
   paw.undo()
   eq(t.volume, -27, "one undo takes the whole sweep back")
@@ -144,7 +152,9 @@ test("markers and regions are placed, found, moved and undone", function()
   markers.add(8, "")
   api.undo_checkpoint()
   local names = {}
-  for i, m in ipairs(markers.list()) do names[i] = markers.label(m) .. "@" .. m.beat end
+  for i, m in ipairs(markers.list()) do
+    names[i] = markers.label(m) .. "@" .. m.beat
+  end
   eq(table.concat(names, " "), "Intro@0 2@8 Chorus@16", "in order of time; one without a name goes by its number")
   eq(markers.find("chorus").id, chorus.id, "found by name, whatever the case")
   eq(markers.find(1).id, intro.id, "by number")
@@ -198,7 +208,11 @@ test("markers are reached by keys and commands and drawn on the ruler", function
   eq(bridge.beat .. "+" .. bridge.length, "4+8", "a region over the loop")
   paw.transport.loop_start, paw.transport.loop_end, paw.transport.loop_enabled = 0, 4, false
   paw.cmd("region.loop", { "Bridge" })
-  eq(paw.transport.loop_start .. " " .. paw.transport.loop_end .. " " .. tostring(paw.transport.loop_enabled), "4 12 true", "looped")
+  eq(
+    paw.transport.loop_start .. " " .. paw.transport.loop_end .. " " .. tostring(paw.transport.loop_enabled),
+    "4 12 true",
+    "looped"
+  )
   paw.transport.loop_enabled = false
   local text = table.concat(api.ui_snapshot(120, 20), "\n")
   eq(text:find("▼Verse", 1, true) ~= nil, true, "a marker's name is on the ruler")
@@ -467,7 +481,11 @@ test("a punched take records from the punch in to the punch out while the song p
     mic.input, mic.armed = "1", true
     paw.cmd("punch", { "2", "2" })
     local t = api.transport_get()
-    eq(t.punch_start .. " " .. t.punch_end .. " " .. tostring(t.punch_enabled), "4 8 true", "bar 2, as the loop counts bars")
+    eq(
+      t.punch_start .. " " .. t.punch_end .. " " .. tostring(t.punch_enabled),
+      "4 8 true",
+      "bar 2, as the loop counts bars"
+    )
     paw.transport.seek(2)
     paw.transport.record()
     until_beat(9.2) -- from beat 2 to past beat 9
@@ -509,7 +527,11 @@ test("a punched take records from the punch in to the punch out while the song p
     t = api.transport_get()
     eq(t.punch_start .. " " .. t.punch_end .. " " .. tostring(t.punch_enabled), "4 8 true", "loaded again")
     local s = paw.frontend.state(-1)
-    eq(s.project.punch_start .. " " .. s.project.punch_end .. " " .. tostring(s.project.punch_enabled), "4 8 true", "and the window is told")
+    eq(
+      s.project.punch_start .. " " .. s.project.punch_end .. " " .. tostring(s.project.punch_enabled),
+      "4 8 true",
+      "and the window is told"
+    )
     -- Toggled, and drawn on the ruler.
     paw.cmd("punch")
     eq(paw.transport.punch_enabled, false, "toggled off")
@@ -601,13 +623,23 @@ local function three_takes()
   local wav = render({ tail = 0, bits = 32 })
   source:remove()
   local t = paw.add_track({ name = "vox" })
-  local clip = t:add_clip({ file = wav.path, start = 0, length = 8, offset = 8, meta = {
-    takes = { active = 3, origin = 8, list = {
-      { name = "vox.1", file = wav.path, offset = 0, gain = 0 },
-      { name = "vox.2", file = wav.path, offset = 4, gain = -6 },
-      { name = "vox.3" },
-    } },
-  } })
+  local clip = t:add_clip({
+    file = wav.path,
+    start = 0,
+    length = 8,
+    offset = 8,
+    meta = {
+      takes = {
+        active = 3,
+        origin = 8,
+        list = {
+          { name = "vox.1", file = wav.path, offset = 0, gain = 0 },
+          { name = "vox.2", file = wav.path, offset = 4, gain = -6 },
+          { name = "vox.3" },
+        },
+      },
+    },
+  })
   return t, clip, wav
 end
 
@@ -625,7 +657,9 @@ test("a drag across a take lane makes that take play over the stretch, as one un
   api.undo_checkpoint()
   local clips = t:clips()
   local shape = {}
-  for i, c in ipairs(clips) do shape[i] = c.start .. "+" .. c.length .. ":" .. select(2, paw.takes.count(c.id)) end
+  for i, c in ipairs(clips) do
+    shape[i] = c.start .. "+" .. c.length .. ":" .. select(2, paw.takes.count(c.id))
+  end
   eq(table.concat(shape, " "), "0+2:3 2+4:1 6+2:3", "cut on the grid at both ends, take 1 between")
   near(clips[2].offset, 1, 1e-9, "take 1 lined up: two beats into its stretch of the file")
   near(clips[3].offset, 8 + 3, 1e-9, "while take 3 plays on after it")
@@ -657,7 +691,9 @@ test("a drag across a take lane makes that take play over the stretch, as one un
   -- Off the grid with Shift.
   act.comp(t.id, 2, 1.3, 2.7, true)
   local starts = {}
-  for i, c in ipairs(t:clips()) do starts[i] = c.start end
+  for i, c in ipairs(t:clips()) do
+    starts[i] = c.start
+  end
   eq(table.concat(starts, " "), "0 1.3 2.7", "exactly where it was dragged")
   -- Clips without takes are left alone.
   local plain = t:add_clip({ file = clip.file, start = 10, length = 4 })
@@ -679,7 +715,9 @@ test("the window draws other takes from their own files, and the terminal shows 
   paw.takes.select(clip.id, 2)
   local own = paw.frontend.peaks(clip.id, 64)
   local same = true
-  for i = 1, #own do same = same and math.abs(own[i] - preview[i]) < 1e-6 end
+  for i = 1, #own do
+    same = same and math.abs(own[i] - preview[i]) < 1e-6
+  end
   eq(same, true, "a take's picture is its sound, gain and all")
   -- MIDI takes give their notes.
   local keys = paw.add_track({ name = "keys" })
@@ -705,7 +743,9 @@ test("comping notes joins the pieces back exactly when the same take plays acros
   local t = paw.add_track({ name = "comp" })
   local function beats(pitch)
     local notes = {}
-    for i = 0, 7 do notes[i + 1] = { pitch = pitch, start = i, length = 1 } end
+    for i = 0, 7 do
+      notes[i + 1] = { pitch = pitch, start = i, length = 1 }
+    end
     return notes
   end
   local clip = t:add_clip({ start = 0, length = 8, notes = beats(60) })
@@ -895,7 +935,11 @@ test("the window is told of markers, takes, automation modes and lanes shown as 
   paw.flush()
   local s = paw.frontend.state(-1)
   eq(#s.project.markers, 2, "markers")
-  eq(s.project.markers[1].name .. " " .. s.project.markers[1].length, "1 4", "a region without a name goes by its number")
+  eq(
+    s.project.markers[1].name .. " " .. s.project.markers[1].length,
+    "1 4",
+    "a region without a name goes by its number"
+  )
   eq(s.project.markers[2].name .. " " .. s.project.markers[2].length, "Verse 0", "a marker has no length")
   eq(s.tracks[1].automation, "latch", "the track's automation mode")
   eq(#s.tracks[1].lane_rows, 1, "a track with no lanes got one for its fader, shown as a row")
@@ -931,13 +975,19 @@ test("the window's render dialog renders a region, and leaving saves first when 
   paw.transport.loop_start, paw.transport.loop_end = 0, 8
   local d = paw.frontend.render_dialog()
   local names = {}
-  for i, r in ipairs(d.ranges) do names[i] = r.name end
+  for i, r in ipairs(d.ranges) do
+    names[i] = r.name
+  end
   eq(table.concat(names, " "), "song loop region:" .. region.id, "what can be rendered")
   eq(d.path:match("[^/]+$"), "untitled.wav", "to a file named after the project")
   local out = T.scratch .. "/dialog"
   paw.frontend.act.render({ path = out .. ".wav", range = "region:" .. region.id, format = "flac", bits = 32, tail = 0 })
   until_(function() return not paw.render_status() end, "the render to finish", 60000)
-  eq(#T.read_file(out .. ".flac") > 1000, true, "the region was rendered, as the format chosen and not as the path was typed")
+  eq(
+    #T.read_file(out .. ".flac") > 1000,
+    true,
+    "the region was rendered, as the format chosen and not as the path was typed"
+  )
   fails(function() paw.frontend.act.render({ path = "", range = "song" }) end, "name a file", "no file named")
   -- Leaving: a project with a file is saved, and then left.
   local path = T.scratch .. "/leave"
@@ -957,7 +1007,9 @@ test("a take chosen over a selected stretch plays there alone", function()
   local t = paw.add_track({ name = "comp" })
   local function beats(pitch)
     local notes = {}
-    for i = 0, 7 do notes[i + 1] = { pitch = pitch, start = i, length = 1 } end
+    for i = 0, 7 do
+      notes[i + 1] = { pitch = pitch, start = i, length = 1 }
+    end
     return notes
   end
   local clip = t:add_clip({ start = 0, length = 8, notes = beats(60) })
@@ -975,12 +1027,22 @@ test("a take chosen over a selected stretch plays there alone", function()
   eq(#clips, 3, "the clip is cut at both ends of the stretch")
   local function pitches(c)
     local out = {}
-    for i, n in ipairs(c:notes()) do out[i] = n.pitch end
+    for i, n in ipairs(c:notes()) do
+      out[i] = n.pitch
+    end
     return table.concat(out, " ")
   end
-  eq(clips[2].start .. " " .. clips[2].start + clips[2].length, sel.c0 .. " " .. sel.c1, "the middle piece is the stretch")
+  eq(
+    clips[2].start .. " " .. clips[2].start + clips[2].length,
+    sel.c0 .. " " .. sel.c1,
+    "the middle piece is the stretch"
+  )
   eq(pitches(clips[2]):find("72") == nil and #clips[2]:notes() > 0, true, "which plays the first take")
-  eq(pitches(clips[1]):find("60") == nil and pitches(clips[3]):find("60") == nil, true, "while what is around it plays on as it did")
+  eq(
+    pitches(clips[1]):find("60") == nil and pitches(clips[3]):find("60") == nil,
+    true,
+    "while what is around it plays on as it did"
+  )
   eq(paw.takes.count(clips[1].id) .. " " .. paw.takes.count(clips[3].id), "2 2", "and every piece keeps both takes")
   paw.takes.select(clips[3].id, 1)
   eq(#clips[3]:notes(), clips[3].length, "lined up: the last piece's first take has a note a beat")

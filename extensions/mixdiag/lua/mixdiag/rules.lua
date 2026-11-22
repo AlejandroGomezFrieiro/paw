@@ -45,7 +45,8 @@ rules.clip = {
         last.count, last.last, last.peak = last.count + 1, beat, math.max(last.peak, run.peak)
         last.frames = last.frames + run.frames
       else
-        groups[#groups + 1] = { beat = beat, last = beat, seconds = run.at, count = 1, peak = run.peak, frames = run.frames }
+        groups[#groups + 1] =
+          { beat = beat, last = beat, seconds = run.at, count = 1, peak = run.peak, frames = run.frames }
       end
     end
     local need = math.max(0, r.true_peak)
@@ -57,17 +58,31 @@ rules.clip = {
         add({
           severity = "error",
           message = string.format("%d more clipped passages after these", #groups - rule.max + (r.clip_runs - #r.runs)),
-          beat = g.beat, seconds = g.seconds, track = ctx.range.track or 0,
+          beat = g.beat,
+          seconds = g.seconds,
+          track = ctx.range.track or 0,
         })
         break
       end
       add({
         severity = "error",
-        message = string.format("%s clips at %s: %d run%s, %d samples, up to %s dBFS",
-          who, ctx.where(g.beat, g.seconds), g.count, g.count == 1 and "" or "s", g.frames, db(g.peak)),
+        message = string.format(
+          "%s clips at %s: %d run%s, %d samples, up to %s dBFS",
+          who,
+          ctx.where(g.beat, g.seconds),
+          g.count,
+          g.count == 1 and "" or "s",
+          g.frames,
+          db(g.peak)
+        ),
         fix = ctx.kind == "file" and "use an unclipped source or re-render it lower"
-          or string.format("lower the master or what feeds it by at least %.1f dB, or end the master chain with a limiter", need + 0.1),
-        beat = g.beat, seconds = g.seconds, track = ctx.range.track or 0,
+          or string.format(
+            "lower the master or what feeds it by at least %.1f dB, or end the master chain with a limiter",
+            need + 0.1
+          ),
+        beat = g.beat,
+        seconds = g.seconds,
+        track = ctx.range.track or 0,
       })
     end
   end,
@@ -86,20 +101,35 @@ rules.true_peak = {
     if ceiling and r.true_peak > ceiling then
       add({
         severity = t.kind == "deliver" and "error" or "warn",
-        message = string.format("true peak %s dBTP at %s, over the %s dBTP ceiling for %s", db(r.true_peak),
-          ctx.where(beat, r.true_peak_at), db(ceiling), why),
-        fix = string.format("lower the limiter's ceiling (or the master) by at least %.1f dB; check a true-peak meter on the render", r.true_peak - ceiling),
-        beat = beat, seconds = r.true_peak_at, track = 0,
+        message = string.format(
+          "true peak %s dBTP at %s, over the %s dBTP ceiling for %s",
+          db(r.true_peak),
+          ctx.where(beat, r.true_peak_at),
+          db(ceiling),
+          why
+        ),
+        fix = string.format(
+          "lower the limiter's ceiling (or the master) by at least %.1f dB; check a true-peak meter on the render",
+          r.true_peak - ceiling
+        ),
+        beat = beat,
+        seconds = r.true_peak_at,
+        track = 0,
         -- How far a fader should come down to fix it (the diagnostic's fix).
         lower = math.ceil((r.true_peak - ceiling) * 10) / 10,
       })
     elseif not ceiling and r.true_peak > 0 and r.clip_runs == 0 then
       add({
         severity = "warn",
-        message = string.format("inter-sample peak %s dBTP at %s although no sample is over full scale", db(r.true_peak),
-          ctx.where(beat, r.true_peak_at)),
+        message = string.format(
+          "inter-sample peak %s dBTP at %s although no sample is over full scale",
+          db(r.true_peak),
+          ctx.where(beat, r.true_peak_at)
+        ),
         fix = "a converter or lossy encoder will clip it; leave about 1 dB of headroom (a true-peak limiter, or the master down)",
-        beat = beat, seconds = r.true_peak_at, track = 0,
+        beat = beat,
+        seconds = r.true_peak_at,
+        track = 0,
       })
     end
   end,
@@ -119,21 +149,39 @@ rules.loudness = {
       if math.abs(diff) <= (t.tolerance or 0) then return end
       add({
         severity = ctx.whole and "error" or "info",
-        message = string.format("integrated loudness %s LUFS is %s LU %s the %s LUFS of %s", lu(r.integrated),
-          lu(math.abs(diff)), diff > 0 and "over" or "under", lu(t.integrated), t.name),
-        fix = string.format("%s the master by %.1f dB%s", diff > 0 and "lower" or "raise", math.abs(diff),
-          diff < 0 and string.format(" (true peak would then be %s dBTP)", db(r.true_peak - diff)) or ""),
-        beat = beat, track = 0,
+        message = string.format(
+          "integrated loudness %s LUFS is %s LU %s the %s LUFS of %s",
+          lu(r.integrated),
+          lu(math.abs(diff)),
+          diff > 0 and "over" or "under",
+          lu(t.integrated),
+          t.name
+        ),
+        fix = string.format(
+          "%s the master by %.1f dB%s",
+          diff > 0 and "lower" or "raise",
+          math.abs(diff),
+          diff < 0 and string.format(" (true peak would then be %s dBTP)", db(r.true_peak - diff)) or ""
+        ),
+        beat = beat,
+        track = 0,
         lower = diff > 0 and math.floor(diff * 10 + 0.5) / 10 or nil,
       })
     elseif t.kind == "normalize" then
       if diff > rule.slack then
         add({
           severity = "info",
-          message = string.format("integrated loudness %s LUFS: %s turns %s down %.1f dB to %s LUFS", lu(r.integrated),
-            t.name, what, diff, lu(t.integrated)),
+          message = string.format(
+            "integrated loudness %s LUFS: %s turns %s down %.1f dB to %s LUFS",
+            lu(r.integrated),
+            t.name,
+            what,
+            diff,
+            lu(t.integrated)
+          ),
           fix = "the extra loudness is not heard there; if it came from limiting, less of it keeps more dynamics at the same playback level",
-          beat = beat, track = 0,
+          beat = beat,
+          track = 0,
         })
       elseif diff < -rule.slack then
         -- Quiet tracks are raised only as far as the true-peak ceiling allows.
@@ -142,10 +190,21 @@ rules.loudness = {
         if short > rule.slack then
           add({
             severity = "info",
-            message = string.format("integrated loudness %s LUFS with true peak %s dBTP: %s can raise it only %.1f dB, so it plays %.1f dB quieter than other tracks",
-              lu(r.integrated), db(r.true_peak), t.name, math.max(0, room), short),
-            fix = string.format("if it should match, raise the level by about %.1f dB into a limiter with a %s dBTP ceiling", short, db(t.true_peak or -1)),
-            beat = beat, track = 0,
+            message = string.format(
+              "integrated loudness %s LUFS with true peak %s dBTP: %s can raise it only %.1f dB, so it plays %.1f dB quieter than other tracks",
+              lu(r.integrated),
+              db(r.true_peak),
+              t.name,
+              math.max(0, room),
+              short
+            ),
+            fix = string.format(
+              "if it should match, raise the level by about %.1f dB into a limiter with a %s dBTP ceiling",
+              short,
+              db(t.true_peak or -1)
+            ),
+            beat = beat,
+            track = 0,
           })
         end
       end
@@ -162,11 +221,21 @@ rules.track_over = {
         local beat = ctx.beat(t.over_at)
         add({
           severity = master_clips and "warn" or "info",
-          message = string.format("%s peaks at %s dBFS after its fader, first over full scale at %s", ctx.track_name(t.id),
-            db(t.peak), ctx.where(beat, t.over_at)),
-          fix = string.format("lower its fader or clip gain by %.1f dB%s", t.peak + 0.1,
-            master_clips and " (the master clips too)" or "; the mix is floating point, so this only clips in a device that clips, or when it reaches the master"),
-          beat = beat, seconds = t.over_at, track = t.id,
+          message = string.format(
+            "%s peaks at %s dBFS after its fader, first over full scale at %s",
+            ctx.track_name(t.id),
+            db(t.peak),
+            ctx.where(beat, t.over_at)
+          ),
+          fix = string.format(
+            "lower its fader or clip gain by %.1f dB%s",
+            t.peak + 0.1,
+            master_clips and " (the master clips too)"
+              or "; the mix is floating point, so this only clips in a device that clips, or when it reaches the master"
+          ),
+          beat = beat,
+          seconds = t.over_at,
+          track = t.id,
           lower = math.ceil((t.peak + 0.1) * 10) / 10,
         })
       end
@@ -200,10 +269,17 @@ rules.phase = {
         local beat = ctx.beat(from)
         add({
           severity = "warn",
-          message = string.format("stereo correlation down to %.2f from %s to %s (%.1f s): this passage partly cancels in mono",
-            low, ctx.where(beat, from), ctx.where(ctx.beat(to), to), to - from),
+          message = string.format(
+            "stereo correlation down to %.2f from %s to %s (%.1f s): this passage partly cancels in mono",
+            low,
+            ctx.where(beat, from),
+            ctx.where(ctx.beat(to), to),
+            to - from
+          ),
           fix = "look for a track with one side's polarity flipped, a widener, or a doubled part a few ms apart",
-          beat = beat, seconds = from, track = ctx.range.track or 0,
+          beat = beat,
+          seconds = from,
+          track = ctx.range.track or 0,
         })
       end
       first, low = nil, 1
@@ -233,15 +309,22 @@ rules.mono = {
         severity = "error",
         message = string.format("the %s cancels completely in mono (correlation %.2f)", ctx.range.label, r.correlation),
         fix = "one side is the other with its polarity flipped: find the track and undo the flip",
-        beat = ctx.range.start, track = ctx.range.track or 0,
+        beat = ctx.range.start,
+        track = ctx.range.track or 0,
       })
     elseif r.mono_loss > rule.limit then
       add({
         severity = "warn",
-        message = string.format("the %s is %.1f dB quieter summed to mono (correlation %.2f, width %.2f)",
-          ctx.range.label, r.mono_loss, r.correlation, r.width),
+        message = string.format(
+          "the %s is %.1f dB quieter summed to mono (correlation %.2f, width %.2f)",
+          ctx.range.label,
+          r.mono_loss,
+          r.correlation,
+          r.width
+        ),
         fix = "check wideners and polarity, and keep the low end centred",
-        beat = ctx.range.start, track = ctx.range.track or 0,
+        beat = ctx.range.start,
+        track = ctx.range.track or 0,
       })
     end
   end,
@@ -262,10 +345,17 @@ rules.dc = {
       local span = to and string.format(" from %s for %d s", ctx.where(beat, from), to - from) or ""
       add({
         severity = "warn",
-        message = string.format("DC offset of %.2f %% (%.0f dBFS) on the %s side%s", v * 100,
-          20 * math.log10(math.abs(v)), side, span),
+        message = string.format(
+          "DC offset of %.2f %% (%.0f dBFS) on the %s side%s",
+          v * 100,
+          20 * math.log10(math.abs(v)),
+          side,
+          span
+        ),
         fix = "it wastes headroom and clicks at edits; high-pass the offending source (a DC filter, or EQ at 20 Hz)",
-        beat = beat or (ctx.kind ~= "file" and ctx.range.start or nil), seconds = from, track = ctx.range.track or 0,
+        beat = beat or (ctx.kind ~= "file" and ctx.range.start or nil),
+        seconds = from,
+        track = ctx.range.track or 0,
       })
     end
     for ch, side in ipairs({ "left", "right" }) do
@@ -283,7 +373,11 @@ rules.dc = {
           local over = math.abs(m) >= rule.limit
           if first and (not over or (m > 0) ~= (sum > 0)) then close(sec) end
           if over then
-            if first then sum = sum + m else first, sum = sec, m end
+            if first then
+              sum = sum + m
+            else
+              first, sum = sec, m
+            end
           end
         end
         close(#means)
@@ -294,8 +388,8 @@ rules.dc = {
 
 rules.silence = {
   desc = "Long silence at the start or end of the render",
-  start = 1,     -- seconds
-  ending = 2,    -- seconds, not counting the tail added for releases
+  start = 1, -- seconds
+  ending = 2, -- seconds, not counting the tail added for releases
   check = function(ctx, add, rule)
     local r = ctx.result
     if not r.sound_start or not ctx.whole then return end
@@ -303,9 +397,16 @@ rules.silence = {
       local beat = ctx.beat(r.sound_start)
       add({
         severity = "info",
-        message = string.format("the render starts with %.1f s of silence; sound begins at %s", r.sound_start, ctx.where(beat, r.sound_start)),
-        fix = ctx.kind == "file" and "trim the start" or "start the export where the sound starts, or move the material earlier",
-        beat = ctx.beat(0), seconds = 0, track = 0,
+        message = string.format(
+          "the render starts with %.1f s of silence; sound begins at %s",
+          r.sound_start,
+          ctx.where(beat, r.sound_start)
+        ),
+        fix = ctx.kind == "file" and "trim the start"
+          or "start the export where the sound starts, or move the material earlier",
+        beat = ctx.beat(0),
+        seconds = 0,
+        track = 0,
       })
     end
     local content = r.seconds - (r.tail or 0)
@@ -313,9 +414,15 @@ rules.silence = {
       local beat = ctx.beat(r.sound_end)
       add({
         severity = "info",
-        message = string.format("%.1f s of silence before the end, from %s", content - r.sound_end, ctx.where(beat, r.sound_end)),
+        message = string.format(
+          "%.1f s of silence before the end, from %s",
+          content - r.sound_end,
+          ctx.where(beat, r.sound_end)
+        ),
         fix = ctx.kind == "file" and "trim the end" or "shorten the last clip, or end the export earlier",
-        beat = beat, seconds = r.sound_end, track = 0,
+        beat = beat,
+        seconds = r.sound_end,
+        track = 0,
       })
     end
   end,
@@ -330,9 +437,14 @@ rules.infrasonic = {
       if band.name == "sub" and band.share > rule.limit then
         add({
           severity = "info",
-          message = string.format("%.1f %% of the energy is below %.0f Hz, under what speakers play", 10 ^ (band.share / 10) * 100, band.high),
+          message = string.format(
+            "%.1f %% of the energy is below %.0f Hz, under what speakers play",
+            10 ^ (band.share / 10) * 100,
+            band.high
+          ),
           fix = "it costs headroom and moves woofers; high-pass the bass, kick and pads around 25-30 Hz",
-          beat = ctx.range.start, track = ctx.range.track or 0,
+          beat = ctx.range.start,
+          track = ctx.range.track or 0,
         })
       end
     end
@@ -365,7 +477,8 @@ rules.forgotten = {
           severity = "warn",
           message = t.name .. " is soloed, so the measurement heard only soloed tracks",
           fix = "unsolo it to measure the whole mix",
-          beat = range.start, track = id,
+          beat = range.start,
+          track = id,
         })
       end
       if t.mute and clips > 0 then
@@ -373,15 +486,22 @@ rules.forgotten = {
           severity = "hint",
           message = string.format("%s is muted and has %d clip%s here", t.name, clips, clips == 1 and "" or "s"),
           fix = "unmute it, or remove it if it is not wanted",
-          beat = range.start, track = id,
+          beat = range.start,
+          track = id,
         })
       elseif #muted > 0 then
         add({
           severity = "hint",
-          message = string.format("%s has %d muted clip%s, the first at %s", t.name, #muted, #muted == 1 and "" or "s",
-            ctx.where(muted[1].start)),
+          message = string.format(
+            "%s has %d muted clip%s, the first at %s",
+            t.name,
+            #muted,
+            #muted == 1 and "" or "s",
+            ctx.where(muted[1].start)
+          ),
           fix = "unmute them (`gc`), or delete them",
-          beat = muted[1].start, track = id,
+          beat = muted[1].start,
+          track = id,
         })
       end
       for _, dev_id in ipairs(t.devices or {}) do
@@ -391,7 +511,8 @@ rules.forgotten = {
             severity = "hint",
             message = string.format("the %s on %s is bypassed", dev.name or dev.kind, t.name),
             fix = "switch it back on, or remove it",
-            beat = range.start, track = id,
+            beat = range.start,
+            track = id,
           })
         end
       end
@@ -399,10 +520,15 @@ rules.forgotten = {
         if not lane.enabled and (lane.point_count or 0) > 0 then
           add({
             severity = "hint",
-            message = string.format("%s automation on %s is switched off (%d points)",
-              lane.target == "param" and (lane.param or "parameter") or lane.target, t.name, lane.point_count),
+            message = string.format(
+              "%s automation on %s is switched off (%d points)",
+              lane.target == "param" and (lane.param or "parameter") or lane.target,
+              t.name,
+              lane.point_count
+            ),
             fix = "turn it back on (`<leader>at`) or clear it",
-            beat = range.start, track = id,
+            beat = range.start,
+            track = id,
           })
         end
       end
@@ -417,7 +543,9 @@ rules.no_sound = {
   check = function(ctx, add, rule)
     if ctx.kind ~= "mix" then return end
     local any_solo = false
-    for _, id in ipairs(api.track_list()) do any_solo = any_solo or api.track_get(id, "solo") end
+    for _, id in ipairs(api.track_list()) do
+      any_solo = any_solo or api.track_get(id, "solo")
+    end
     if any_solo then return end
     for _, peak in ipairs(ctx.result.tracks or {}) do
       if peak.id ~= 0 and peak.peak <= rule.floor then
@@ -429,9 +557,15 @@ rules.no_sound = {
         if ok and not t.mute and playing > 0 then
           add({
             severity = "hint",
-            message = string.format("%s has %d clip%s here but made no sound", t.name, playing, playing == 1 and "" or "s"),
+            message = string.format(
+              "%s has %d clip%s here but made no sound",
+              t.name,
+              playing,
+              playing == 1 and "" or "s"
+            ),
             fix = "it may have no instrument, a bypassed one, or its fader all the way down",
-            beat = ctx.range.start, track = peak.id,
+            beat = ctx.range.start,
+            track = peak.id,
           })
         end
       end

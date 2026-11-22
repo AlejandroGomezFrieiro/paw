@@ -9,7 +9,9 @@ test("the transport plays, seeks, loops and stops", function()
   local t = paw.add_track()
   t:add_device("synth")
   local notes = {}
-  for beat = 0, 7 do notes[#notes + 1] = { pitch = "A3", start = beat, length = 1 } end
+  for beat = 0, 7 do
+    notes[#notes + 1] = { pitch = "A3", start = beat, length = 1 }
+  end
   t:add_clip({ start = 0, length = 8, notes = notes })
   paw.project.tempo = 240 -- four beats a second
   eq(paw.transport.playing, false, "starts stopped")
@@ -21,7 +23,11 @@ test("the transport plays, seeks, loops and stops", function()
   -- Not faster than real time: four beats a second. (A loaded machine may
   -- make it later, not sooner.)
   local pos = paw.transport.position
-  eq(api.now() - began >= (pos - 2) * 250 * 0.8, true, "advanced in real time, got " .. pos .. " after " .. (api.now() - began) .. " ms")
+  eq(
+    api.now() - began >= (pos - 2) * 250 * 0.8,
+    true,
+    "advanced in real time, got " .. pos .. " after " .. (api.now() - began) .. " ms"
+  )
   until_(function() return select(1, t:meter()) > 0.01 end, "the meter to move")
   paw.transport.loop_start, paw.transport.loop_end, paw.transport.loop_enabled = 0, 1, true
   paw.transport.seek(0)

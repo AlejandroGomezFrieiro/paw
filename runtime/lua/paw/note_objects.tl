@@ -48,7 +48,9 @@ local record M
   type Phrase = Phrase
 end
 
-local function finish(n: Note): number return n.start + n.length end
+local function finish(n: Note): number
+  return n.start + n.length
+end
 
 --- The phrases of `notes`: a rest longer than `rest` beats ends one.
 function M.phrases(notes: {Note}, rest: number): {Phrase}
@@ -56,7 +58,7 @@ function M.phrases(notes: {Note}, rest: number): {Phrase}
   local current: Phrase
   for _, n in ipairs(notes) do
     if not current or n.start - current.finish > rest + EPS then
-      current = { start = n.start, finish = finish(n), notes = {} }
+      current = {start = n.start, finish = finish(n), notes = {}}
       out[#out + 1] = current
     end
     current.notes[#current.notes + 1] = n
@@ -69,16 +71,22 @@ end
 --- rest, or of the last one after them all. Nil if there is none.
 function M.phrase_at(list: {Phrase}, beat: number): integer
   for i, p in ipairs(list) do
-    if beat < p.finish - EPS then return i end
+    if beat < p.finish - EPS then
+      return i
+    end
   end
-  if #list > 0 then return #list end
+  if #list > 0 then
+    return #list
+  end
 end
 
 --- The notes that start at `start`.
 function M.onset(notes: {Note}, start: number): {Note}
   local out: {Note} = {}
   for _, n in ipairs(notes) do
-    if math.abs(n.start - start) < EPS then out[#out + 1] = n end
+    if math.abs(n.start - start) < EPS then
+      out[#out + 1] = n
+    end
   end
   return out
 end
@@ -87,7 +95,9 @@ end
 function M.sounding(notes: {Note}, beat: number): {Note}
   local out: {Note} = {}
   for _, n in ipairs(notes) do
-    if n.start <= beat + EPS and finish(n) > beat + EPS then out[#out + 1] = n end
+    if n.start <= beat + EPS and finish(n) > beat + EPS then
+      out[#out + 1] = n
+    end
   end
   return out
 end
@@ -98,9 +108,13 @@ end
 --- more notes start together.
 function M.chords(notes: {Note}, at: Note, beat: number, count: integer): {Note}
   local out = at and M.onset(notes, at.start) or M.sounding(notes, beat)
-  if #out == 0 then return out end
+  if #out == 0 then
+    return out
+  end
   local last = -math.huge
-  for _, n in ipairs(out) do last = math.max(last, n.start) end
+  for _, n in ipairs(out) do
+    last = math.max(last, n.start)
+  end
   local more = (count or 1) - 1
   local i = 1
   while more > 0 and i <= #notes do
@@ -108,9 +122,13 @@ function M.chords(notes: {Note}, at: Note, beat: number, count: integer): {Note}
     if n.start > last + EPS then
       -- The notes are in the order they start: those of one start follow.
       local j = i
-      while j < #notes and math.abs(notes[j + 1].start - n.start) < EPS do j = j + 1 end
+      while j < #notes and math.abs(notes[j + 1].start - n.start) < EPS do
+        j = j + 1
+      end
       if j > i then
-        for k = i, j do out[#out + 1] = notes[k] end
+        for k = i, j do
+          out[#out + 1] = notes[k]
+        end
         more = more - 1
       end
       last = n.start
@@ -125,22 +143,30 @@ end
 --- Where each note is in the texture, by its place in `notes`.
 local function places(notes: {Note}): {Place}
   local longest = 0.0
-  for _, n in ipairs(notes) do longest = math.max(longest, n.length) end
+  for _, n in ipairs(notes) do
+    longest = math.max(longest, n.length)
+  end
   local out: {Place} = {}
   local first = 1
   for i, n in ipairs(notes) do
-    while first < i and notes[first].start + longest < n.start - EPS do first = first + 1 end
+    while first < i and notes[first].start + longest < n.start - EPS do
+      first = first + 1
+    end
     local above, below = 0, 0
     local j = first
     while j <= #notes and notes[j].start <= n.start + EPS do
       local m = notes[j]
       local with = math.abs(m.start - n.start) < EPS or finish(m) > n.start + LEGATO
       if j ~= i and with then
-        if m.pitch > n.pitch then above = above + 1 elseif m.pitch < n.pitch then below = below + 1 end
+        if m.pitch > n.pitch then
+          above = above + 1
+        elseif m.pitch < n.pitch then
+          below = below + 1
+        end
       end
       j = j + 1
     end
-    out[i] = { rank = above + 1, bass = below == 0 and above > 0, alone = above == 0 and below == 0 }
+    out[i] = {rank = above + 1, bass = below == 0 and above > 0, alone = above == 0 and below == 0}
   end
   return out
 end
@@ -153,15 +179,25 @@ function M.voice(notes: {Note}, of: Note): {Note}
   local where = places(notes)
   local mine: Place
   for i, n in ipairs(notes) do
-    if n == of then mine = where[i] end
+    if n == of then
+      mine = where[i]
+    end
   end
-  if not mine then return {} end
+  if not mine then
+    return {}
+  end
   local out: {Note} = {}
   for i, n in ipairs(notes) do
     local p = where[i]
     local yes: boolean
-    if mine.bass then yes = p.bass or p.alone else yes = p.rank == mine.rank and not p.bass end
-    if yes then out[#out + 1] = n end
+    if mine.bass then
+      yes = p.bass or p.alone
+    else
+      yes = p.rank == mine.rank and not p.bass
+    end
+    if yes then
+      out[#out + 1] = n
+    end
   end
   return out
 end
@@ -169,8 +205,10 @@ end
 --- The notes of `voice` and the notes that double them an octave or more
 --- away: notes that start with one of them on the same pitch class.
 function M.doublings(notes: {Note}, voice: {Note}): {Note}
-  local inside: {Note:boolean} = {}
-  for _, n in ipairs(voice) do inside[n] = true end
+  local inside: {Note: boolean} = {}
+  for _, n in ipairs(voice) do
+    inside[n] = true
+  end
   local out: {Note} = {}
   for _, n in ipairs(notes) do
     local yes = inside[n]
@@ -182,7 +220,9 @@ function M.doublings(notes: {Note}, voice: {Note}): {Note}
         end
       end
     end
-    if yes then out[#out + 1] = n end
+    if yes then
+      out[#out + 1] = n
+    end
   end
   return out
 end
@@ -191,7 +231,9 @@ end
 function M.pitch(notes: {Note}, pitch: integer, class: boolean): {Note}
   local out: {Note} = {}
   for _, n in ipairs(notes) do
-    if n.pitch == pitch or (class and n.pitch % 12 == pitch % 12) then out[#out + 1] = n end
+    if n.pitch == pitch or (class and n.pitch % 12 == pitch % 12) then
+      out[#out + 1] = n
+    end
   end
   return out
 end
@@ -199,16 +241,18 @@ end
 --- A region of the piano roll that names `notes` alone: the block they
 --- span, its end moved on to `to` when that is later. Nil for no notes.
 function M.region(notes: {Note}, to?: number): edit.Region
-  if #notes == 0 then return nil end
+  if #notes == 0 then
+    return nil
+  end
   local r0, r1, c0, c1 = 127, 0, math.huge, -math.huge
-  local named: {integer:{integer:boolean}} = {}
+  local named: {integer: {integer: boolean}} = {}
   for _, n in ipairs(notes) do
     r0, r1 = math.min(r0, n.pitch), math.max(r1, n.pitch)
     c0, c1 = math.min(c0, n.start), math.max(c1, finish(n))
     named[n.clip] = named[n.clip] or {}
     named[n.clip][n.id] = true
   end
-  return { view = "pianoroll", kind = "block", r0 = r0, r1 = r1, c0 = c0, c1 = math.max(c1, to or c1), notes = named }
+  return {view = "pianoroll", kind = "block", r0 = r0, r1 = r1, c0 = c0, c1 = math.max(c1, to or c1), notes = named}
 end
 
 return M

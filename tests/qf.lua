@@ -19,10 +19,16 @@ local function test(name, fn)
     paw.diagnostic.reset()
     local s = qf.stack()
     s.lists, s.at = {}, 0
-    for _, source in ipairs({ "render", "plugin scan", "tests" }) do qf.feed(source, {}) end
+    for _, source in ipairs({ "render", "plugin scan", "tests" }) do
+      qf.feed(source, {})
+    end
     paw.keymap.feed("<Esc><Esc>")
-    while paw.ui.float do paw.ui.close() end
-    for view in pairs(paw.canvas.open_views) do paw.canvas.close(view) end
+    while paw.ui.float do
+      paw.ui.close()
+    end
+    for view in pairs(paw.canvas.open_views) do
+      paw.canvas.close(view)
+    end
     L.restore(initial)
     paw.ui.views.pianoroll.clip_id = nil
     paw.ui.focus("arrange")
@@ -49,8 +55,15 @@ local keys = T.keys
 -- Two tracks, a clip of notes on the first, a synth on the second.
 local function song()
   local a = paw.add_track({ name = "Oboe" })
-  local clip = a:add_clip({ start = 4, length = 4, name = "tune", notes = {
-    { pitch = 60, start = 0, length = 1 }, { pitch = 100, start = 2, length = 1 } } })
+  local clip = a:add_clip({
+    start = 4,
+    length = 4,
+    name = "tune",
+    notes = {
+      { pitch = 60, start = 0, length = 1 },
+      { pitch = 100, start = 2, length = 1 },
+    },
+  })
   local b = paw.add_track({ name = "Bass" })
   local synth = b:add_device("synth")
   return a, b, clip, synth
@@ -67,11 +80,18 @@ test("qf: ]q [q ]Q [Q go through a list from Lua, to each entry's place, stoppin
   }, { title = "Mine" })
   eq(qf.current().title, "Mine", "the list is current")
   keys("]q")
-  eq(paw.ui.focused .. " " .. paw.cursor.track_id() .. " " .. paw.cursor.beat, "arrange " .. a.id .. " 12", "the first ]q goes to the first entry")
+  eq(
+    paw.ui.focused .. " " .. paw.cursor.track_id() .. " " .. paw.cursor.beat,
+    "arrange " .. a.id .. " 12",
+    "the first ]q goes to the first entry"
+  )
   keys("]q")
   local roll = paw.ui.views.pianoroll
-  eq(paw.ui.focused .. " " .. tostring(roll.clip_id) .. " " .. roll.beat .. " " .. roll.pitch,
-    "pianoroll " .. clip.id .. " 2 100", "a note's entry opens its clip in the piano roll, the cursor on it")
+  eq(
+    paw.ui.focused .. " " .. tostring(roll.clip_id) .. " " .. roll.beat .. " " .. roll.pitch,
+    "pianoroll " .. clip.id .. " 2 100",
+    "a note's entry opens its clip in the piano roll, the cursor on it"
+  )
   keys("]q")
   eq(paw.cursor.track_id(), b.id, "a track's")
   keys("]q")
@@ -125,14 +145,20 @@ test("qf: :copen docks the list along the bottom; j and Enter go to an entry in 
   local cur = L.current()
   eq(cur.view, "qflist", "the list's window has the keyboard")
   local rects = {}
-  for _, r in ipairs(paw.ui.arrange(W, H)) do rects[r.name] = r end
+  for _, r in ipairs(paw.ui.arrange(W, H)) do
+    rects[r.name] = r
+  end
   eq(rects.qflist.w, W, "the whole width")
   eq(rects.qflist.h, paw.opt.qf_height, "qf_height rows")
   eq(rects.qflist.y > rects.arrange.y, true, "below the arrange view")
   local text = screen()
   eq(text:find("Quickfix list · Places", 1, true) ~= nil, true, "its title\n" .. text)
   eq(text:find("the cutoff", 1, true) ~= nil, true, "and entries")
-  eq(text:find("Bass › Synth · Cutoff", 1, true) ~= nil or text:find("Bass › Synth", 1, true) ~= nil, true, "where each is")
+  eq(
+    text:find("Bass › Synth · Cutoff", 1, true) ~= nil or text:find("Bass › Synth", 1, true) ~= nil,
+    true,
+    "where each is"
+  )
   keys("j<CR>")
   eq(paw.ui.focused, "devices", "Enter on a parameter goes to the device panel")
   local row = paw.ui.views.devices:rows()[paw.ui.views.devices.row]
@@ -141,8 +167,11 @@ test("qf: :copen docks the list along the bottom; j and Enter go to an entry in 
   ex("copen")
   eq(L.current().view, "qflist", ":copen again goes to the window it has")
   keys("j<CR>")
-  eq(paw.ui.focused .. " " .. paw.cursor.track_id() .. " " .. tostring(paw.cursor.lane_id()) .. " " .. paw.cursor.beat,
-    "arrange " .. a.id .. " " .. lane.id .. " 6", "a lane's point: its row in the arrange view, at the point")
+  eq(
+    paw.ui.focused .. " " .. paw.cursor.track_id() .. " " .. tostring(paw.cursor.lane_id()) .. " " .. paw.cursor.beat,
+    "arrange " .. a.id .. " " .. lane.id .. " 6",
+    "a lane's point: its row in the arrange view, at the point"
+  )
   ex("copen")
   keys("G<CR>")
   eq(paw.cursor.beat, 16, "a bar of the project")
@@ -150,7 +179,9 @@ test("qf: :copen docks the list along the bottom; j and Enter go to an entry in 
   keys("gg<CR>")
   eq(paw.ui.focused .. " " .. paw.cursor.beat, "arrange 4", "a clip: in the arrange view, where it starts")
   ex("cclose")
-  for _, r in ipairs(paw.ui.arrange(W, H)) do eq(r.name ~= "qflist", true, ":cclose closes it") end
+  for _, r in ipairs(paw.ui.arrange(W, H)) do
+    eq(r.name ~= "qflist", true, ":cclose closes it")
+  end
   ex("cwindow")
   eq(L.current().view, "qflist", ":cwindow opens it while there are entries")
   qf.set({}, { title = "Places" })
@@ -164,12 +195,16 @@ test("qf: the list is a buffer: :vs quickfix shows it beside, q closes it", func
   qf.set({ { address = A.track(a.id), text = "here" } }, { title = "Mine" })
   ex("vs quickfix")
   local names = {}
-  for _, r in ipairs(paw.ui.arrange(W, H)) do if r.win then names[#names + 1] = r.name end end
+  for _, r in ipairs(paw.ui.arrange(W, H)) do
+    if r.win then names[#names + 1] = r.name end
+  end
   eq(table.concat(names, " "), "arrange qflist", "beside the arrange view")
   eq(screen():find("here", 1, true) ~= nil, true, "showing the entry")
   keys("q")
   names = {}
-  for _, r in ipairs(paw.ui.arrange(W, H)) do if r.win then names[#names + 1] = r.name end end
+  for _, r in ipairs(paw.ui.arrange(W, H)) do
+    if r.win then names[#names + 1] = r.name end
+  end
   eq(table.concat(names, " "), "arrange", "q closes the window")
 end)
 
@@ -177,7 +212,10 @@ test("qf: lists keep a history: :colder and :cnewer, one of the same title repla
   start()
   local a = paw.add_track({ name = "Oboe" })
   qf.set({ { address = A.track(a.id), text = "first" } }, { title = "One" })
-  qf.set({ { address = A.track(a.id), text = "second" }, { address = A.track(a.id), text = "more" } }, { title = "Two" })
+  qf.set(
+    { { address = A.track(a.id), text = "second" }, { address = A.track(a.id), text = "more" } },
+    { title = "Two" }
+  )
   eq(qf.current().title, "Two", "the newest is current")
   ex("colder")
   eq(qf.current().title, "One", ":colder")
@@ -185,11 +223,17 @@ test("qf: lists keep a history: :colder and :cnewer, one of the same title repla
   eq(qf.current().title, "Two", ":cnewer")
   ex("cc 2")
   qf.set({ { address = A.track(a.id), text = "new" }, { address = A.track(a.id), text = "more" } }, { title = "Two" })
-  eq(#qf.stack().lists .. " " .. qf.current().idx, "2 2", "the same title is replaced in place, the entry it was on kept")
+  eq(
+    #qf.stack().lists .. " " .. qf.current().idx,
+    "2 2",
+    "the same title is replaced in place, the entry it was on kept"
+  )
   ex("colder")
   qf.set({ { address = A.track(a.id), text = "third" } }, { title = "Three" })
   eq(#qf.stack().lists, 2, "a new list after an older one drops the newer, as in Neovim")
-  for i = 1, 12 do qf.set({}, { title = "L" .. i }) end
+  for i = 1, 12 do
+    qf.set({}, { title = "L" .. i })
+  end
   eq(#qf.stack().lists, qf.HISTORY, "ten are kept")
 end)
 
@@ -199,8 +243,13 @@ test("qf: diagnostics feed Problems; :cdiag makes a list of them; :cfix makes th
   local list = {}
   for place, n in ipairs(clip:notes()) do
     if n.pitch > 84 then
-      list[#list + 1] = { notes = { place }, severity = "error", rule = "range", message = "too high",
-        fixes = { { title = "Down an octave", edits = { { note = place, pitch = n.pitch - 12 } } } } }
+      list[#list + 1] = {
+        notes = { place },
+        severity = "error",
+        rule = "range",
+        message = "too high",
+        fixes = { { title = "Down an octave", edits = { { note = place, pitch = n.pitch - 12 } } } },
+      }
     end
   end
   paw.diagnostic.set("range", clip, list)
@@ -208,7 +257,11 @@ test("qf: diagnostics feed Problems; :cdiag makes a list of them; :cfix makes th
   local problems = qf.current()
   eq(problems and problems.title, qf.PROBLEMS, "Problems is made, and current while nothing else is")
   eq(#problems.entries, 1, "with what is worse than a hint (qf_diagnostics)")
-  eq(problems.entries[1].text .. " " .. problems.entries[1].source, "range: too high range", "as the diagnostic says it")
+  eq(
+    problems.entries[1].text .. " " .. problems.entries[1].source,
+    "range: too high range",
+    "as the diagnostic says it"
+  )
   ex("cdiag")
   eq(qf.current().title .. " " .. #qf.current().entries, "Diagnostics 2", ":cdiag lists every one")
   ex("cdiag error")
@@ -227,7 +280,9 @@ end)
 test("qf: :cdo runs a command on each entry and :cfdo once a track, each as one undo step", function()
   start()
   local tracks = {}
-  for i = 1, 3 do tracks[i] = paw.add_track({ name = "T" .. i }) end
+  for i = 1, 3 do
+    tracks[i] = paw.add_track({ name = "T" .. i })
+  end
   local clip = tracks[1]:add_clip({ start = 0, length = 4, notes = {} })
   qf.set({
     { address = A.track(tracks[1].id), text = "a" },
@@ -237,15 +292,21 @@ test("qf: :cdo runs a command on each entry and :cfdo once a track, each as one 
   api.undo_checkpoint()
   ex("cfdo track.mute")
   api.undo_checkpoint()
-  eq(tostring(tracks[1].mute) .. " " .. tostring(tracks[2].mute) .. " " .. tostring(tracks[3].mute), "true false true",
-    ":cfdo mutes each track once")
+  eq(
+    tostring(tracks[1].mute) .. " " .. tostring(tracks[2].mute) .. " " .. tostring(tracks[3].mute),
+    "true false true",
+    ":cfdo mutes each track once"
+  )
   paw.undo()
   eq(tostring(tracks[1].mute) .. " " .. tostring(tracks[3].mute), "false false", "one undo takes it back")
   local seen = {}
   paw.command("qf.test.target", function(ctx) seen[#seen + 1] = ctx.target end, { desc = "Note the target" })
   ex("cdo qf.test.target")
-  eq(table.concat(seen, " "), A.track(tracks[1].id) .. " " .. A.clip(clip.id) .. " " .. A.track(tracks[3].id),
-    ":cdo gives each entry's address as the target")
+  eq(
+    table.concat(seen, " "),
+    A.track(tracks[1].id) .. " " .. A.clip(clip.id) .. " " .. A.track(tracks[3].id),
+    ":cdo gives each entry's address as the target"
+  )
   eq(qf.current().idx, 3, "and leaves the last current")
   ex("cdo track.solo")
   api.undo_checkpoint()
@@ -269,7 +330,11 @@ test("qf: location lists are each window's own: :ldiag, :lopen below it, :lnext"
   local cur = L.current()
   eq(cur.view .. " " .. L.buf_of(cur).name, "qflist loclist " .. win.id, "its window shows that list")
   ex("lnext")
-  eq(paw.ui.focused .. " " .. roll.beat .. " " .. roll.pitch, "pianoroll 2 100", ":lnext from the list's window uses its list")
+  eq(
+    paw.ui.focused .. " " .. roll.beat .. " " .. roll.pitch,
+    "pianoroll 2 100",
+    ":lnext from the list's window uses its list"
+  )
   paw.ui.focus("arrange")
   ex("lnext")
   eq(paw.ui.focused, "arrange", "a window without one has none")
@@ -292,7 +357,9 @@ test("qf: renders that clip, are too loud or fail are problems, with a fix to re
   eq(#qf.fed("render"), 1, "each file has its own")
   paw.emit("render.failed", { path = "/nowhere/x.wav", error = "the disk is full" })
   local said
-  for _, e in ipairs(qf.fed("render")) do if e.address == A.render("/nowhere/x.wav") then said = e.text end end
+  for _, e in ipairs(qf.fed("render")) do
+    if e.address == A.render("/nowhere/x.wav") then said = e.text end
+  end
   eq(said, "render of x.wav failed: the disk is full", "a failed render")
 end)
 
@@ -301,7 +368,9 @@ test("qf: missing sound files, stopped plugins and plugin files that fail are pr
   local dir = T.scratch .. "/qfmedia"
   os.execute("mkdir -p '" .. dir .. "/media'")
   local s = {}
-  for i = 1, 4800 do s[i] = 0.1 end
+  for i = 1, 4800 do
+    s[i] = 0.1
+  end
   local t = paw.add_track({ name = "Drums" })
   t:add_clip({ file = T.write_wav(dir .. "/media/kick.wav", s), start = 0, length = 2, name = "kick" })
   paw.project.save(dir .. "/song.json")
@@ -348,18 +417,24 @@ test("qf: any extension feeds Problems, and the window shows the list in a windo
   eq(qf.current().title, qf.PROBLEMS, "Problems")
   eq(qf.current().entries[1].source, "tests", "the source named")
   local openable = {}
-  for _, v in ipairs(paw.canvas.openable()) do openable[v.name] = true end
+  for _, v in ipairs(paw.canvas.openable()) do
+    openable[v.name] = true
+  end
   eq(openable.qflist, true, "More lists it")
   ex("qf.window")
   local windows = paw.frontend.state(-1).modal.windows
   local found
-  for _, w in ipairs(windows) do if w.name == "qflist" then found = w end end
+  for _, w in ipairs(windows) do
+    if w.name == "qflist" then found = w end
+  end
   eq(found and found.cells, true, "it opens in a window, drawn in cells")
   local snap = api.ui_view_snapshot("qflist", 100, 8)
   local text = {}
   for _, row in ipairs(snap.rows) do
     local parts = {}
-    for _, run in ipairs(row) do parts[#parts + 1] = run.text end
+    for _, run in ipairs(row) do
+      parts[#parts + 1] = run.text
+    end
     text[#text + 1] = table.concat(parts)
   end
   eq(table.concat(text, "\n"):find("from an extension", 1, true) ~= nil, true, table.concat(text, "\n"))

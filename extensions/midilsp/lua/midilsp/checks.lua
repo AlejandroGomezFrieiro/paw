@@ -17,7 +17,7 @@ local A = paw.address
 
 local M = { DELIVERY = "midilsp-delivery", SETTINGS = "midilsp-settings" }
 
-paw.option.define("midilsp_render_checks", true)    -- check every render with the engine's delivery and settings checks
+paw.option.define("midilsp_render_checks", true) -- check every render with the engine's delivery and settings checks
 paw.option.define("midilsp_delivery_target", "spotify") -- "spotify", "ebu-r128", or "" for information only
 
 -- A program installed beside the engine (as the engine's package installs
@@ -35,8 +35,10 @@ end
 local function lower_master(db)
   if not db or db <= 0 then return nil end
   db = math.ceil(db * 10) / 10
-  return { title = string.format("Lower the master by %.1f dB", db),
-    edit = { { uri = A.track(0), set = { volume = api.track_get(0, "volume") - db } } } }
+  return {
+    title = string.format("Lower the master by %.1f dB", db),
+    edit = { { uri = A.track(0), set = { volume = api.track_get(0, "volume") - db } } },
+  }
 end
 
 -- Where a finding is: the render, at its time.
@@ -56,16 +58,18 @@ function M.delivery_diagnostic(f, doc)
   return { location = located(doc, f), fixes = { fix } }
 end
 
-
 -- The render's file format as REAPER's RENDER_FORMAT has it (formats.py there).
 local function format_of(r)
   local kind = tostring(r.format or (r.path or ""):match("%.(%w+)$") or "wav"):lower()
   if kind == "flac" then
     local bits = r.bits or 24
     return paw.bytes.base64("calf" .. string.char(bits % 256, math.floor(bits / 256) % 256, 0, 0))
-  elseif kind == "mp3" then return "l3pm"
-  elseif kind == "ogg" then return "vggo"
-  elseif kind == "opus" then return "SggO"
+  elseif kind == "mp3" then
+    return "l3pm"
+  elseif kind == "ogg" then
+    return "vggo"
+  elseif kind == "opus" then
+    return "SggO"
   end
   local bits = r.bits or 24
   return paw.bytes.base64("evaw" .. string.char(bits == 32 and 32 or bits))
@@ -81,21 +85,31 @@ function M.settings_of(doc)
   local norm, target, brickwall = 0, 0, 0
   if opts.loudness then
     norm, target = 1, 10 ^ (opts.loudness / 20)
-    if opts.normalize then norm, brickwall = norm + 64, 10 ^ (opts.normalize / 20) end
+    if opts.normalize then
+      norm, brickwall = norm + 64, 10 ^ (opts.normalize / 20)
+    end
   elseif opts.normalize then
     norm, target = 1 + 4, 10 ^ (opts.normalize / 20)
   end
   local fx = {}
   for _, d in ipairs(r.master and r.master.devices or {}) do
-    fx[#fx + 1] = { name = d.name, ident = d.kind or "", original_name = d.name, enabled = not d.bypass, offline = false }
+    fx[#fx + 1] =
+      { name = d.name, ident = d.kind or "", original_name = d.name, enabled = not d.bypass, offline = false }
   end
   return {
-    schema = 1, source = "paw",
-    project_srate = api.engine_get().sample_rate, project_srate_forced = true,
+    schema = 1,
+    source = "paw",
+    project_srate = api.engine_get().sample_rate,
+    project_srate_forced = true,
     render = {
-      settings = 0, srate = opts.sample_rate or 0, dither = opts.dither and 1 or 0,
-      normalize = norm, normalize_target = target, brickwall = brickwall,
-      format = format_of(r), format2 = "",
+      settings = 0,
+      srate = opts.sample_rate or 0,
+      dither = opts.dither and 1 or 0,
+      normalize = norm,
+      normalize_target = target,
+      brickwall = brickwall,
+      format = format_of(r),
+      format2 = "",
     },
     master = { fx_enabled = true, fx = fx },
   }
@@ -106,11 +120,16 @@ function M.settings_diagnostic(f, doc)
   if f.rule == "render.no_dither" then
     fix = { title = "Render it again with dither", edit = { { uri = doc.address, set = { dither = true } } } }
   elseif f.rule == "render.srate_mismatch" and f.limit then
-    fix = { title = string.format("Render it again at %d Hz", f.limit), edit = { { uri = doc.address, set = { sample_rate = f.limit } } } }
+    fix = {
+      title = string.format("Render it again at %d Hz", f.limit),
+      edit = { { uri = doc.address, set = { sample_rate = f.limit } } },
+    }
   elseif f.rule == "master.limiter_bypassed" then
     local i = tonumber(tostring(f.where or ""):match("(%d+)$"))
     local d = i and doc.data.master and doc.data.master.devices[i]
-    if d then fix = { title = "Switch " .. d.name .. " on", edit = { { uri = A.device(d.id), set = { bypass = false } } } } end
+    if d then
+      fix = { title = "Switch " .. d.name .. " on", edit = { { uri = A.device(d.id), set = { bypass = false } } } }
+    end
   end
   return { location = { uri = doc.address }, fixes = { fix } }
 end
@@ -122,7 +141,8 @@ function M.start()
   if delivery then
     local target = paw.opt.midilsp_delivery_target
     paw.lsp.config(M.DELIVERY, {
-      kind = "oneshot", cmd = { delivery, "--target", "{target}", "{file}" },
+      kind = "oneshot",
+      cmd = { delivery, "--target", "{target}", "{file}" },
       attach = { subjects = { "render" } },
       settings = { target = target ~= "" and target or nil },
       -- It reads WAV files.
@@ -134,7 +154,8 @@ function M.start()
   end
   if settings then
     paw.lsp.config(M.SETTINGS, {
-      kind = "oneshot", cmd = { settings, "--settings-json", "{input}" },
+      kind = "oneshot",
+      cmd = { settings, "--settings-json", "{input}" },
       attach = { subjects = { "render" } },
       input = M.settings_of,
       timeout_ms = 30000,

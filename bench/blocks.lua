@@ -42,9 +42,24 @@ local info = api.engine_get()
 paw.transport.stop()
 local b = info.blocks
 B.emit({
-  workload = "blocks", tracks = tracks, kind = kind, fx = fx == "1" and 1 or 0, automation = automation == "1" and 1 or 0,
-  buffer = buffer, seconds = seconds, edits = edits, blocks = b.count, budget_ms = b.budget, mean_ms = b.mean,
-  p50_ms = b.p50, p99_ms = b.p99, p999_ms = b.p999, max_ms = b.max, max_load = b.max / b.budget,
-  xruns = info.xruns, leaked = info.leaked, threads = info.threads or 1,
+  workload = "blocks",
+  tracks = tracks,
+  kind = kind,
+  fx = fx == "1" and 1 or 0,
+  automation = automation == "1" and 1 or 0,
+  buffer = buffer,
+  seconds = seconds,
+  edits = edits,
+  blocks = b.count,
+  budget_ms = b.budget,
+  mean_ms = b.mean,
+  p50_ms = b.p50,
+  p99_ms = b.p99,
+  p999_ms = b.p999,
+  max_ms = b.max,
+  max_load = b.max / b.budget,
+  xruns = info.xruns,
+  leaked = info.leaked,
+  threads = info.threads or 1,
 })
 api.quit(0)

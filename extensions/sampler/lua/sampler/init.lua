@@ -120,7 +120,9 @@ function M.instruments(roots)
       end
     end
   end
-  for _, root in ipairs(roots or M.roots()) do walk(root, 0, root) end
+  for _, root in ipairs(roots or M.roots()) do
+    walk(root, 0, root)
+  end
   table.sort(found, function(a, b) return a.path < b.path end)
   return found
 end
@@ -129,7 +131,9 @@ end
 --- middle of its range, for the picker to play.
 function M.phrase(d)
   local lo, hi = 48, 72
-  if d and type(d.range) == "table" and d.range[1] then lo, hi = d.range[1], d.range[2] end
+  if d and type(d.range) == "table" and d.range[1] then
+    lo, hi = d.range[1], d.range[2]
+  end
   local mid = math.floor((lo + hi) / 2)
   local root = math.max(lo, math.min(hi - 12, mid - 6))
   local notes = {}

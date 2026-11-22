@@ -4,7 +4,9 @@ local H = paw.harmony
 --- The selection's notes in chords: those starting within a sixteenth.
 local function groups(notes)
   local sorted = {}
-  for i, n in ipairs(notes) do sorted[i] = n end
+  for i, n in ipairs(notes) do
+    sorted[i] = n
+  end
   table.sort(sorted, function(a, b) return a.start < b.start or (a.start == b.start and a.pitch < b.pitch) end)
   local out = {}
   for _, n in ipairs(sorted) do
@@ -40,7 +42,10 @@ return {
   {
     name = "voice-lead",
     desc = "the selected chords voiced again to move as little as they can, each the same chord",
-    choices = { { name = "bass", values = { "keep", "free" } }, { name = "voicing", values = { "smooth", "close", "drop2", "open" } } },
+    choices = {
+      { name = "bass", values = { "keep", "free" } },
+      { name = "voicing", values = { "smooth", "close", "drop2", "open" } },
+    },
     expand = function(ctx)
       if not ctx.selection or #ctx.selection == 0 then return nil, "select the chords to voice first" end
       local notes, prev = {}, nil
@@ -57,7 +62,10 @@ return {
         if here then
           local ordered = {}
           for _, t in ipairs(here.tones) do
-            if seen[t] then ordered[#ordered + 1] = t seen[t] = nil end
+            if seen[t] then
+              ordered[#ordered + 1] = t
+              seen[t] = nil
+            end
           end
           for _, pc in ipairs(pcs) do
             if seen[pc] then ordered[#ordered + 1] = pc end
@@ -67,17 +75,24 @@ return {
         local pitches
         if i == 1 then
           pitches = {}
-          for k, n in ipairs(g.notes) do pitches[k] = n.pitch end
+          for k, n in ipairs(g.notes) do
+            pitches[k] = n.pitch
+          end
         else
           pitches = ctx:voice(pcs, {
-            prev = prev, next = false, count = #g.notes, low = ctx.range.low, high = ctx.range.high,
+            prev = prev,
+            next = false,
+            count = #g.notes,
+            low = ctx.range.low,
+            high = ctx.range.high,
             bass = ctx.values.bass ~= "free" and g.notes[1].pitch % 12 or nil,
           })
         end
         local length = g.notes[1].length
         for k, p in ipairs(pitches or {}) do
           local source = g.notes[math.min(k, #g.notes)]
-          notes[#notes + 1] = { pitch = p, start = g.start, length = source.length or length, velocity = source.velocity }
+          notes[#notes + 1] =
+            { pitch = p, start = g.start, length = source.length or length, velocity = source.velocity }
         end
         prev = pitches or prev
       end

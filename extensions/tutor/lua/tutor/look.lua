@@ -4,9 +4,7 @@ local api = paw.api
 local M = {}
 
 --- A track by name, or nil.
-function M.track(name)
-  return paw.track(name)
-end
+function M.track(name) return paw.track(name) end
 
 --- A track's clips in time order.
 function M.clips(track)
@@ -23,7 +21,9 @@ end
 --- A track's clip names in time order: "kick snare fill".
 function M.names(track)
   local out = {}
-  for i, c in ipairs(M.clips(track)) do out[i] = c.name end
+  for i, c in ipairs(M.clips(track)) do
+    out[i] = c.name
+  end
   return table.concat(out, " ")
 end
 
@@ -44,7 +44,9 @@ function M.melody(clip)
     if a.start ~= b.start then return a.start < b.start end
     return a.pitch < b.pitch
   end)
-  for i, n in ipairs(notes) do notes[i] = string.format("%d@%g+%g", n.pitch, n.start, n.length) end
+  for i, n in ipairs(notes) do
+    notes[i] = string.format("%d@%g+%g", n.pitch, n.start, n.length)
+  end
   return table.concat(notes, " ")
 end
 
@@ -88,14 +90,10 @@ end
 -- messages shown. `ctx` is the step's own table.
 
 --- Whether a command ran since the step began, how many times.
-function M.ran(ctx, name)
-  return (ctx.commands[name] or 0) > 0, ctx.commands[name] or 0
-end
+function M.ran(ctx, name) return (ctx.commands[name] or 0) > 0, ctx.commands[name] or 0 end
 
 --- Whether an event was seen since the step began.
-function M.saw(ctx, name)
-  return (ctx.events[name] or 0) > 0
-end
+function M.saw(ctx, name) return (ctx.events[name] or 0) > 0 end
 
 --- Whether a message containing `text` was shown since the step began.
 function M.said(ctx, text)
@@ -116,9 +114,7 @@ function M.became(ctx, name, now)
 end
 
 --- Whether the transport played and then stopped since the step began.
-function M.played(ctx)
-  return M.saw(ctx, "transport.play") and not paw.transport.playing
-end
+function M.played(ctx) return M.saw(ctx, "transport.play") and not paw.transport.playing end
 
 --- A list of notes from text: "C4:0:1 D4:1:1" is pitch, start, length (and velocity).
 function M.notes(text)
@@ -126,7 +122,9 @@ function M.notes(text)
   for item in text:gmatch("%S+") do
     local pitch, start, length, velocity = item:match("^([^:]+):([^:]+):([^:]+):?(%d*)$")
     out[#out + 1] = {
-      pitch = tonumber(pitch) or paw.music.pitch(pitch), start = tonumber(start), length = tonumber(length),
+      pitch = tonumber(pitch) or paw.music.pitch(pitch),
+      start = tonumber(start),
+      length = tonumber(length),
       velocity = tonumber(velocity) or 100,
     }
   end
@@ -142,7 +140,8 @@ function M.drums(rows, bars)
       for i = 1, #steps do
         local ch = steps:sub(i, i)
         if ch ~= "." then
-          notes[#notes + 1] = { pitch = pitch, start = bar * 4 + (i - 1) * 0.25, length = 0.25, velocity = ch == "x" and 115 or 75 }
+          notes[#notes + 1] =
+            { pitch = pitch, start = bar * 4 + (i - 1) * 0.25, length = 0.25, velocity = ch == "x" and 115 or 75 }
         end
       end
     end
@@ -172,13 +171,9 @@ function M.chord(pitches, beats, from)
 end
 
 --- The register's value, or nil.
-function M.register(name)
-  return paw.keymap.getreg(name)
-end
+function M.register(name) return paw.keymap.getreg(name) end
 
 --- The value of a device parameter.
-function M.param(device, key)
-  return device and api.device_get(device.id).params[key]
-end
+function M.param(device, key) return device and api.device_get(device.id).params[key] end
 
 return M

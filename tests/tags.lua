@@ -21,13 +21,17 @@ end
 
 local function le(s, at, n)
   local v = 0
-  for i = n, 1, -1 do v = v * 256 + s:byte(at + i - 1) end
+  for i = n, 1, -1 do
+    v = v * 256 + s:byte(at + i - 1)
+  end
   return v
 end
 
 local function be(s, at, n)
   local v = 0
-  for i = 1, n do v = v * 256 + s:byte(at + i - 1) end
+  for i = 1, n do
+    v = v * 256 + s:byte(at + i - 1)
+  end
   return v
 end
 
@@ -101,14 +105,25 @@ test("a WAV carries the project's tags in an INFO chunk and is still a WAV", fun
   paw.render(path, { tail = 0, bits = 16 })
   local info, size_ok = wav_info(T.read_file(path))
   eq(info.INAM, nil, "a WAV is not titled with the project's name unless asked")
-  eq(info.IART .. "|" .. info.IPRD .. "|" .. info.ITRK .. "|" .. info.ICRD .. "|" .. info.IGNR .. "|" .. info.ICMT,
-    "Ana|First|3|2026|Ambient|a note", "every tag is there")
+  eq(
+    info.IART .. "|" .. info.IPRD .. "|" .. info.ITRK .. "|" .. info.ICRD .. "|" .. info.IGNR .. "|" .. info.ICMT,
+    "Ana|First|3|2026|Ambient|a note",
+    "every tag is there"
+  )
   eq(size_ok, true, "the RIFF size covers the chunk")
   local again = paw.render(dir .. "/b.wav", { tail = 0, bits = 16, tags = { artist = "Bo", title = "Other" } })
   local info2 = wav_info(T.read_file(dir .. "/b.wav"))
-  eq(info2.IART .. "|" .. info2.INAM .. "|" .. info2.IPRD, "Bo|Other|First", "a render's own tags go over the project's")
+  eq(
+    info2.IART .. "|" .. info2.INAM .. "|" .. info2.IPRD,
+    "Bo|Other|First",
+    "a render's own tags go over the project's"
+  )
   eq(again.frames, 48000, "and the audio is as long as it was")
-  fails(function() paw.render(dir .. "/c.wav", { tail = 0, tags = { artsit = "x" } }) end, "artsit", "a tag that does not exist is refused")
+  fails(
+    function() paw.render(dir .. "/c.wav", { tail = 0, tags = { artsit = "x" } }) end,
+    "artsit",
+    "a tag that does not exist is refused"
+  )
   paw.render_tags({ artist = "", album = "", track = "", year = "", genre = "", comment = "" })
   eq(next(paw.render_tags()), nil, "empty values take tags out")
 end)
@@ -119,17 +134,36 @@ test("a FLAC carries Vorbis comments and a cover picture", function()
   local path = dir .. "/a.flac"
   paw.render(path, { tail = 0, bits = 16, tags = { title = "Song", comment = "x=y" } })
   local blocks = flac_blocks(T.read_file(path))
-  eq(blocks.comments.TITLE .. "|" .. blocks.comments.ARTIST .. "|" .. blocks.comments.TRACKNUMBER .. "|" .. blocks.comments.DATE
-    .. "|" .. blocks.comments.COMMENT, "Song|Ana|3/12|2026|x=y", "the comments are there")
+  eq(
+    blocks.comments.TITLE
+      .. "|"
+      .. blocks.comments.ARTIST
+      .. "|"
+      .. blocks.comments.TRACKNUMBER
+      .. "|"
+      .. blocks.comments.DATE
+      .. "|"
+      .. blocks.comments.COMMENT,
+    "Song|Ana|3/12|2026|x=y",
+    "the comments are there"
+  )
   eq(blocks.picture and blocks.picture.mime, "image/png", "the cover is a PNG")
   eq(blocks.picture and blocks.picture.data, T.read_file(cover), "and is the file's bytes")
   if have("ffmpeg") then
     local ok = os.execute("ffmpeg -v error -i " .. sh_quote(path) .. " -f null - 2>/dev/null")
     eq(ok == true or ok == 0, true, "ffmpeg decodes the file, tags and cover included")
   end
-  fails(function() paw.render(dir .. "/b.flac", { tail = 0, tags = { cover = "/no/such.png" } }) end, "cover", "a cover that cannot be read is refused")
+  fails(
+    function() paw.render(dir .. "/b.flac", { tail = 0, tags = { cover = "/no/such.png" } }) end,
+    "cover",
+    "a cover that cannot be read is refused"
+  )
   eq(#api.read_dir(dir), 1, "and leaves nothing")
-  fails(function() paw.render(dir .. "/c.flac", { tail = 0, tags = { cover = "tests/fixtures/shape.wav" } }) end, "PNG or JPEG", "a cover that is no picture is refused")
+  fails(
+    function() paw.render(dir .. "/c.flac", { tail = 0, tags = { cover = "tests/fixtures/shape.wav" } }) end,
+    "PNG or JPEG",
+    "a cover that is no picture is refused"
+  )
 end)
 
 --- What ffprobe says of a file: tags (lowercase) and the kinds of its streams.
@@ -157,13 +191,25 @@ end
 test("MP3, Ogg and Opus carry the tags and the cover, read back with ffprobe", function()
   if not (have("ffmpeg") and have("ffprobe")) then return "skipped: ffmpeg and ffprobe not found" end
   local dir = setup("lossy")
-  paw.render_tags({ title = "Song", artist = "Ana", album = "First", track = "3", year = 2026, genre = "Ambient", comment = "a=b; c", cover = cover })
+  paw.render_tags({
+    title = "Song",
+    artist = "Ana",
+    album = "First",
+    track = "3",
+    year = 2026,
+    genre = "Ambient",
+    comment = "a=b; c",
+    cover = cover,
+  })
   for _, ext in ipairs({ "mp3", "ogg", "opus" }) do
     local path = dir .. "/a." .. ext
     paw.render(path, { tail = 0 })
     local tags, streams = probe(path)
-    eq(tags.title .. "|" .. tags.artist .. "|" .. tags.album .. "|" .. tags.genre,
-      "Song|Ana|First|Ambient", ext .. ": the text tags are there")
+    eq(
+      tags.title .. "|" .. tags.artist .. "|" .. tags.album .. "|" .. tags.genre,
+      "Song|Ana|First|Ambient",
+      ext .. ": the text tags are there"
+    )
     eq(tags.track, "3", ext .. ": the track")
     eq((tags.date or tags.year or ""):sub(1, 4), "2026", ext .. ": the year")
     eq(tags.comment, "a=b; c", ext .. ": the comment, with what ffmpeg reads specially")
@@ -187,7 +233,9 @@ test("the tags are given to :render, :render.tags and the window's dialog, and k
   eq(info.INAM .. "|" .. info.IART .. "|" .. info.IPRD, "Mine|Bo|Two words", "a render's options go over the project's")
   eq(paw.render_tags().artist, "Ana", "and do not change them")
   paw.frontend.act.render({ path = dir .. "/b.wav", tail = 0, tags = { artist = "Cy", year = "1999" } })
-  while paw.render_status() do paw.wait(10) end
+  while paw.render_status() do
+    paw.wait(10)
+  end
   info = wav_info(T.read_file(dir .. "/b.wav"))
   eq(info.IART .. "|" .. info.ICRD, "Cy|1999", "the dialog's tags are written")
   eq(paw.render_tags().artist, "Cy", "and become the project's")

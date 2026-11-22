@@ -43,8 +43,10 @@ end
 
 --- A controller as text: "CC 74 ch 1", "pitch wheel ch 2", "note 36 ch 10".
 function M.source_name(b)
-  local what = b.source == "cc" and ("CC " .. b.number) or b.source == "note" and ("note " .. b.number)
-    or b.source == "bend" and "pitch wheel" or "pressure"
+  local what = b.source == "cc" and ("CC " .. b.number)
+    or b.source == "note" and ("note " .. b.number)
+    or b.source == "bend" and "pitch wheel"
+    or "pressure"
   return b.channel and (what .. " ch " .. b.channel) or what
 end
 
@@ -62,8 +64,10 @@ M.triggers = {}
 --- `under_cursor(focused)` (the target under the cursor of a view, or nil).
 --- A target can keep a number in `slot`, such as a row.
 function M.trigger(name, spec)
-  assert(type(name) == "string" and type(spec) == "table" and type(spec.press) == "function",
-    "paw.learn.trigger(name, { press = function(binding, down) ... end, name = ... })")
+  assert(
+    type(name) == "string" and type(spec) == "table" and type(spec.press) == "function",
+    "paw.learn.trigger(name, { press = function(binding, down) ... end, name = ... })"
+  )
   M.triggers[name] = spec
 end
 
@@ -92,13 +96,18 @@ function M.target_name(t)
 end
 
 local function same_target(a, b)
-  return a.track == b.track and a.target == b.target and a.device == b.device and a.param == b.param
+  return a.track == b.track
+    and a.target == b.target
+    and a.device == b.device
+    and a.param == b.param
     and a.slot == b.slot
 end
 
 local function key(b)
-  return table.concat({ b.source, b.number or "", b.channel or "", b.track or "", b.target, b.device or "",
-    b.param or "", b.slot or "" }, ":")
+  return table.concat(
+    { b.source, b.number or "", b.channel or "", b.track or "", b.target, b.device or "", b.param or "", b.slot or "" },
+    ":"
+  )
 end
 
 --- The source of a `midi.in` event that can move something, or nil:
@@ -130,13 +139,21 @@ local function check(target)
     local device = api.device_get(target.device)
     assert(device.track == target.track, "the device is not on that track")
     local found = false
-    for _, p in ipairs(device.param_info) do found = found or p.key == target.param end
+    for _, p in ipairs(device.param_info) do
+      found = found or p.key == target.param
+    end
     assert(found, "the device has no parameter `" .. tostring(target.param) .. "`")
   elseif target.target ~= "volume" and target.target ~= "pan" then
     local names = {}
-    for name in pairs(M.triggers) do names[#names + 1] = "`" .. name .. "`" end
+    for name in pairs(M.triggers) do
+      names[#names + 1] = "`" .. name .. "`"
+    end
     table.sort(names)
-    error("a controller moves `volume`, `pan` or a `param`" .. (#names > 0 and (", or presses " .. table.concat(names, ", ")) or ""), 3)
+    error(
+      "a controller moves `volume`, `pan` or a `param`"
+        .. (#names > 0 and (", or presses " .. table.concat(names, ", ")) or ""),
+      3
+    )
   end
 end
 
@@ -147,17 +164,32 @@ end
 function M.bind(source, target)
   check(target)
   local b = {
-    source = source.cc and "cc" or source.note and "note" or source.bend and "bend" or source.pressure and "pressure"
+    source = source.cc and "cc"
+      or source.note and "note"
+      or source.bend and "bend"
+      or source.pressure and "pressure"
       or source.source,
-    number = source.cc or source.note or source.number, channel = source.channel,
-    track = target.track, target = target.target or "volume", device = target.device, param = target.param,
+    number = source.cc or source.note or source.number,
+    channel = source.channel,
+    track = target.track,
+    target = target.target or "volume",
+    device = target.device,
+    param = target.param,
     slot = target.slot,
   }
-  assert(b.source == "cc" or b.source == "bend" or b.source == "pressure" or b.source == "note",
-    "a controller is `cc`, `note`, `bend` or `pressure`")
-  assert(b.source ~= "note" or M.is_trigger(b), "a key or a pad presses a button (such as the clip launcher's); it moves nothing")
+  assert(
+    b.source == "cc" or b.source == "bend" or b.source == "pressure" or b.source == "note",
+    "a controller is `cc`, `note`, `bend` or `pressure`"
+  )
+  assert(
+    b.source ~= "note" or M.is_trigger(b),
+    "a key or a pad presses a button (such as the clip launcher's); it moves nothing"
+  )
   if b.source == "cc" or b.source == "note" then
-    assert(type(b.number) == "number" and b.number >= 0 and b.number <= 127, "controller and note numbers go from 0 to 127")
+    assert(
+      type(b.number) == "number" and b.number >= 0 and b.number <= 127,
+      "controller and note numbers go from 0 to 127"
+    )
   end
   local list = {}
   for _, old in ipairs(M.bindings()) do
@@ -174,7 +206,11 @@ function M.unbind(which)
   local list, gone = {}, 0
   for i, b in ipairs(M.bindings()) do
     local hit = type(which) == "number" and i == which or type(which) == "table" and same_target(b, which)
-    if hit then gone = gone + 1 else list[#list + 1] = b end
+    if hit then
+      gone = gone + 1
+    else
+      list[#list + 1] = b
+    end
   end
   if gone > 0 then save(list) end
   return gone
@@ -262,7 +298,9 @@ function M.start(target)
   check(target)
   M.learning = target
   api.ui_redraw()
-  paw.notify("learn: move a knob or fader of the controller for " .. M.target_name(target) .. " (`:learn.cancel` gives up)")
+  paw.notify(
+    "learn: move a knob or fader of the controller for " .. M.target_name(target) .. " (`:learn.cancel` gives up)"
+  )
 end
 
 --- Stop the wait for a controller to learn.
@@ -308,7 +346,10 @@ end)
 local seen = {}
 local function look(id)
   local ok, volume = pcall(api.track_get, id, "volume")
-  if not ok then seen[id] = nil return end
+  if not ok then
+    seen[id] = nil
+    return
+  end
   local was = seen[id]
   local t = { volume = volume, pan = api.track_get(id, "pan") }
   seen[id] = t
@@ -318,11 +359,17 @@ local function look(id)
 end
 local function look_all()
   seen = {}
-  for _, id in ipairs(api.track_list()) do look(id) end
+  for _, id in ipairs(api.track_list()) do
+    look(id)
+  end
   look(0)
 end
-paw.on("track.changed", function(e) if e.id then look(e.id) end end)
-paw.on("track.added", function(e) if e.id then look(e.id) end end)
+paw.on("track.changed", function(e)
+  if e.id then look(e.id) end
+end)
+paw.on("track.added", function(e)
+  if e.id then look(e.id) end
+end)
 paw.on("project.loaded", function()
   M.learning, M.last, hold = nil, nil, {}
   look_all()
@@ -359,7 +406,12 @@ function M.under_cursor()
     local panel = ui.views.devices
     local row = panel:rows()[panel.row]
     if row and row.param then
-      return { track = api.device_get(row.device.id).track, target = "param", device = row.device.id, param = row.param.key }
+      return {
+        track = api.device_get(row.device.id).track,
+        target = "param",
+        device = row.device.id,
+        param = row.param.key,
+      }
     end
   elseif ui.focused == "mixer" then
     local track = paw.cursor.track_id()
@@ -379,11 +431,15 @@ end, {
   complete = function()
     local words = { "volume", "pan" }
     for _, trigger in pairs(M.triggers) do
-      for _, word in ipairs(trigger.words or {}) do words[#words + 1] = word end
+      for _, word in ipairs(trigger.words or {}) do
+        words[#words + 1] = word
+      end
     end
     local track = paw.cursor.track_id()
     for _, id in ipairs(track and api.track_get(track).devices or {}) do
-      for _, p in ipairs(api.device_get(id).param_info) do words[#words + 1] = p.key end
+      for _, p in ipairs(api.device_get(id).param_info) do
+        words[#words + 1] = p.key
+      end
     end
     return words
   end,
@@ -400,18 +456,22 @@ end, { desc = "Bind a MIDI controller to a parameter of a device, by their ids: 
 paw.fx.learn = function(device, param)
   M.start({ track = api.device_get(device).track, target = "param", device = device, param = param })
 end
-paw.command("learn.remove", function(ctx)
-  local which = tonumber(ctx.args[1])
-  if not which then
-    local target = ctx.args[1] and M.target_for(table.concat(ctx.args, " ")) or M.under_cursor() or M.last
-    if not target or M.unbind(target) == 0 then return paw.notify("learn: no controller moves that", "warn") end
-    return paw.notify("learn: nothing moves " .. M.target_name(target) .. " now")
-  end
-  local b = M.bindings()[which]
-  if not b then return paw.notify("learn: there are " .. #M.bindings() .. " bindings", "warn") end
-  M.unbind(which)
-  paw.notify("learn: " .. M.source_name(b) .. " no longer moves " .. M.target_name(b))
-end, { desc = "Take a controller binding away: `learn.remove 2` (as `learn.list` numbers them), `learn.remove volume`" })
+paw.command(
+  "learn.remove",
+  function(ctx)
+    local which = tonumber(ctx.args[1])
+    if not which then
+      local target = ctx.args[1] and M.target_for(table.concat(ctx.args, " ")) or M.under_cursor() or M.last
+      if not target or M.unbind(target) == 0 then return paw.notify("learn: no controller moves that", "warn") end
+      return paw.notify("learn: nothing moves " .. M.target_name(target) .. " now")
+    end
+    local b = M.bindings()[which]
+    if not b then return paw.notify("learn: there are " .. #M.bindings() .. " bindings", "warn") end
+    M.unbind(which)
+    paw.notify("learn: " .. M.source_name(b) .. " no longer moves " .. M.target_name(b))
+  end,
+  { desc = "Take a controller binding away: `learn.remove 2` (as `learn.list` numbers them), `learn.remove volume`" }
+)
 paw.command("learn.clear", function()
   M.clear()
   paw.notify("learn: every controller binding is gone")

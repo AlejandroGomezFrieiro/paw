@@ -19,8 +19,22 @@ local function write_wav(path, left, right, rate)
     end
   end
   data = table.concat(data)
-  T.write_file(path, "RIFF" .. u32(36 + #data) .. "WAVEfmt " .. u32(16) .. u16(1) .. u16(2) .. u32(rate)
-    .. u32(rate * 4) .. u16(4) .. u16(16) .. "data" .. u32(#data) .. data)
+  T.write_file(
+    path,
+    "RIFF"
+      .. u32(36 + #data)
+      .. "WAVEfmt "
+      .. u32(16)
+      .. u16(1)
+      .. u16(2)
+      .. u32(rate)
+      .. u32(rate * 4)
+      .. u16(4)
+      .. u16(16)
+      .. "data"
+      .. u32(#data)
+      .. data
+  )
   return path
 end
 
@@ -41,12 +55,16 @@ end
 --- sample at `at` seconds.
 local function steady(name, seconds, level)
   local s = {}
-  for i = 1, math.floor(seconds * 48000) do s[i] = level end
+  for i = 1, math.floor(seconds * 48000) do
+    s[i] = level
+  end
   return write_wav(T.scratch .. "/" .. name .. ".wav", s)
 end
 local function impulse(name, seconds, at, level)
   local s = {}
-  for i = 1, math.floor(seconds * 48000) do s[i] = 0 end
+  for i = 1, math.floor(seconds * 48000) do
+    s[i] = 0
+  end
   s[math.floor(at * 48000) + 1] = level
   return write_wav(T.scratch .. "/" .. name .. ".wav", s)
 end
@@ -96,7 +114,11 @@ test("audio clips fade in and out, and a cut edge does not click", function()
   paw.ui.focus("arrange")
   paw.keymap.feed("<Esc>S")
   local a, b = t:clips()[1], t:clips()[2]
-  eq(a.fade_in .. "," .. a.fade_out .. " " .. b.fade_in .. "," .. b.fade_out, "1,0 0,1", "a split keeps the fades at the outer edges")
+  eq(
+    a.fade_in .. "," .. a.fade_out .. " " .. b.fade_in .. "," .. b.fade_out,
+    "1,0 0,1",
+    "a split keeps the fades at the outer edges"
+  )
 
   paw.commands.exec("clip.fade 0")
   paw.cursor.set_beat(0)
@@ -197,7 +219,12 @@ test("MIDI clips hold controller moves, and the synth follows the wheel and the 
   local info = render({ tail = 0, bits = 16 })
   near(T.frequency(info, 0.2, 0.9), 220, 2, "before the wheel moves")
   near(T.frequency(info, 1.2, 1.9), 220 * 2 ^ (2 / 12), 2, "bent up two semitones after it")
-  near(T.frequency(render({ start = 3, tail = 0, bits = 16 }), 0.1, 0.4), 220 * 2 ^ (2 / 12), 3, "playing from later still starts bent")
+  near(
+    T.frequency(render({ start = 3, tail = 0, bits = 16 }), 0.1, 0.4),
+    220 * 2 ^ (2 / 12),
+    3,
+    "playing from later still starts bent"
+  )
 
   -- The sustain pedal holds a short note until it comes up.
   clip:set_notes({ { pitch = "A3", start = 0, length = 0.5 } })
@@ -205,7 +232,10 @@ test("MIDI clips hold controller moves, and the synth follows the wheel and the 
   info = render({ tail = 0, bits = 16 })
   local quiet = T.channel_peaks(info, 1.0, 1.9)
   eq(quiet < 0.001, true, "a short note is over after a beat")
-  clip:set_controls({ { start = 0, type = "cc", number = 64, value = 1 }, { start = 4, type = "cc", number = 64, value = 0 } })
+  clip:set_controls({
+    { start = 0, type = "cc", number = 64, value = 1 },
+    { start = 4, type = "cc", number = 64, value = 0 },
+  })
   info = render({ tail = 0, bits = 16 })
   eq(T.channel_peaks(info, 1.0, 1.9) > 0.05, true, "with the pedal down it sounds on")
   eq(T.channel_peaks(info, 2.5, 3.9) < 0.001, true, "and stops when the pedal comes up")
@@ -224,9 +254,17 @@ test("MIDI clips hold controller moves, and the synth follows the wheel and the 
   eq(moves[4].key, 57, "a move can belong to one note")
   eq(moves[5].value, 0.123456789, "values are fractions, not seven-bit steps")
   T.fails(function() clip:set_controls({ { start = 0, type = "bend", value = 2 } }) end, "range", "a bend past the end")
-  T.fails(function() clip:set_controls({ { start = 0, type = "cc", number = 200, value = 0 } }) end, "127", "a controller that does not exist")
+  T.fails(
+    function() clip:set_controls({ { start = 0, type = "cc", number = 200, value = 0 } }) end,
+    "127",
+    "a controller that does not exist"
+  )
   T.fails(function() clip:set_controls({ { start = 0, type = "wobble", value = 0 } }) end, "wobble", "an unknown kind")
-  T.fails(function() clip:set_controls({ { start = 0, type = "program", program = 1, key = 60 } }) end, "channel", "a program for one note")
+  T.fails(
+    function() clip:set_controls({ { start = 0, type = "program", program = 1, key = 60 } }) end,
+    "channel",
+    "a program for one note"
+  )
 
   -- They survive undo, saving, copying and cutting.
   api.undo_checkpoint()
@@ -258,9 +296,14 @@ end)
 test("a note has controllers of its own, as in MIDI 2.0", function()
   fresh()
   local t = sine_track()
-  local clip = t:add_clip({ start = 0, length = 8, notes = {
-    { pitch = "A3", start = 0, length = 2 }, { pitch = "A3", start = 4, length = 2 },
-  } })
+  local clip = t:add_clip({
+    start = 0,
+    length = 8,
+    notes = {
+      { pitch = "A3", start = 0, length = 2 },
+      { pitch = "A3", start = 4, length = 2 },
+    },
+  })
   -- One semitone of the 48 a note's own bend spans.
   clip:set_controls({ { start = 0, type = "bend", key = "A3", value = 1 / 48 } })
   local info = render({ tail = 0, bits = 16 })
@@ -419,19 +462,27 @@ test("a script can start more timers than Lua has stack slots, and the API still
   -- Each timer used to hold its function in a slot of a stack with room
   -- for about 8000: past that, every call that made a list failed.
   local handles = {}
-  for i = 1, 9000 do handles[i] = paw.defer(function() end, 60000) end
+  for i = 1, 9000 do
+    handles[i] = paw.defer(function() end, 60000)
+  end
   local t = paw.add_track({ name = "T" })
-  for i = 1, 3 do t:add_clip({ start = i * 4, length = 4 }) end
+  for i = 1, 3 do
+    t:add_clip({ start = i * 4, length = 4 })
+  end
   paw.flush()
   eq(#api.clip_list(t.id), 3, "a list is made")
-  for _, h in ipairs(handles) do paw.cancel(h) end
+  for _, h in ipairs(handles) do
+    paw.cancel(h)
+  end
 end)
 
 test("clip events name each clip added, changed, moved to another track and removed, also among many", function()
   fresh()
   local a, b = paw.add_track({ name = "A" }), paw.add_track({ name = "B" })
   local clips = {}
-  for i = 1, 300 do clips[i] = a:add_clip({ start = i * 4, length = 4 }) end
+  for i = 1, 300 do
+    clips[i] = a:add_clip({ start = i * 4, length = 4 })
+  end
   paw.flush()
   local seen = {}
   local handle = paw.on("clip.*", function(e, name) seen[#seen + 1] = name:sub(6) .. ":" .. e.id .. "@" .. e.track end)
@@ -442,14 +493,33 @@ test("clip events name each clip added, changed, moved to another track and remo
     table.sort(seen)
     return table.concat(seen, " ")
   end
-  eq(step(function() clips[150].start = clips[150].start + 1 end), "changed:" .. clips[150].id .. "@" .. a.id, "moved in time")
+  eq(
+    step(function() clips[150].start = clips[150].start + 1 end),
+    "changed:" .. clips[150].id .. "@" .. a.id,
+    "moved in time"
+  )
   local new
-  eq(step(function() new = a:add_clip({ start = 2, length = 1 }) end), "added:" .. new.id .. "@" .. a.id, "added among many")
+  eq(
+    step(function() new = a:add_clip({ start = 2, length = 1 }) end),
+    "added:" .. new.id .. "@" .. a.id,
+    "added among many"
+  )
   eq(step(function() api.clip_remove(clips[7].id) end), "removed:" .. clips[7].id .. "@" .. a.id, "removed among many")
-  eq(step(function() api.clip_set(clips[9].id, "track", b.id) end), "changed:" .. clips[9].id .. "@" .. b.id, "to another track")
+  eq(
+    step(function() api.clip_set(clips[9].id, "track", b.id) end),
+    "changed:" .. clips[9].id .. "@" .. b.id,
+    "to another track"
+  )
   local both = { "removed:" .. clips[1].id .. "@" .. a.id, "removed:" .. clips[2].id .. "@" .. a.id }
   table.sort(both)
-  eq(step(function() api.clip_remove(clips[1].id) api.clip_remove(clips[2].id) end), table.concat(both, " "), "two removed")
+  eq(
+    step(function()
+      api.clip_remove(clips[1].id)
+      api.clip_remove(clips[2].id)
+    end),
+    table.concat(both, " "),
+    "two removed"
+  )
   paw.off(handle)
 end)
 
@@ -477,7 +547,13 @@ test("edits in a script that never waits leave no timers behind", function()
   local t = paw.add_track({ name = "T" })
   paw.flush()
   api.undo_checkpoint()
-  local function count() local n = 0 for _ in pairs(paw.timers) do n = n + 1 end return n end
+  local function count()
+    local n = 0
+    for _ in pairs(paw.timers) do
+      n = n + 1
+    end
+    return n
+  end
   local before = count()
   for i = 1, 50 do
     t:add_clip({ start = i * 4, length = 4 })
@@ -501,7 +577,9 @@ test("an LV2 plugin that follows the song's tempo is told it", function()
   local function echo()
     local s, best, at = samples(render({ ["end"] = 8, tail = 0, bits = 16 })), 0, 0
     for i, v in ipairs(s) do
-      if math.abs(v) > best then best, at = math.abs(v), i - 1 end
+      if math.abs(v) > best then
+        best, at = math.abs(v), i - 1
+      end
     end
     return at / 48000 - 0.25
   end
@@ -550,9 +628,13 @@ test("a render can be one track, dithered, or brought to a level", function()
   b:clips()[1].gain = -60
   local function steps(opts)
     local seen, s = {}, samples(render(paw.util.merge({ tail = 0, bits = 16 }, opts)))
-    for i = 1000, 3000 do seen[s[i]] = true end
+    for i = 1000, 3000 do
+      seen[s[i]] = true
+    end
     local n = 0
-    for _ in pairs(seen) do n = n + 1 end
+    for _ in pairs(seen) do
+      n = n + 1
+    end
     return n, s
   end
   eq(steps({}), 1, "without dither every sample of a steady level is the same")
@@ -679,14 +761,22 @@ end
 test("one note is added, changed and removed without the others crossing over", function()
   fresh()
   local t = paw.add_track({ name = "notes" })
-  local clip = t:add_clip({ start = 0, length = 8, notes = {
-    { pitch = "C4", start = 0, length = 1 },
-    { pitch = "E4", start = 1, length = 1, meta = { lyric = "la" } },
-    { pitch = "G4", start = 2, length = 2 },
-  } })
+  local clip = t:add_clip({
+    start = 0,
+    length = 8,
+    notes = {
+      { pitch = "C4", start = 0, length = 1 },
+      { pitch = "E4", start = 1, length = 1, meta = { lyric = "la" } },
+      { pitch = "G4", start = 2, length = 2 },
+    },
+  })
   api.undo_checkpoint()
 
-  eq(clip:add_note({ pitch = "D4", start = 1, length = 0.5, velocity = 90 }), 2, "a new note goes where it starts, lower pitches first")
+  eq(
+    clip:add_note({ pitch = "D4", start = 1, length = 0.5, velocity = 90 }),
+    2,
+    "a new note goes where it starts, lower pitches first"
+  )
   eq(clip:add_note({ pitch = "A4", start = 6, length = 1 }), 5, "or at the end")
   local notes = clip:notes()
   eq(#notes, 5, "the others are still there")
@@ -764,7 +854,9 @@ test("tracks are processed on several threads, and sound the same", function()
     t:add_device("synth", { wave = i % 4, attack = 0.002, release = 0.05 })
     if i % 2 == 0 then t:add_device("delay", { time = 50 * i, mix = 0.3 }) end
     local notes = {}
-    for step = 0, 15 do notes[#notes + 1] = { pitch = 40 + (i * 5 + step * 3) % 36, start = step * 0.5, length = 0.4 } end
+    for step = 0, 15 do
+      notes[#notes + 1] = { pitch = 40 + (i * 5 + step * 3) % 36, start = step * 0.5, length = 0.4 }
+    end
     t:add_clip({ start = 0, length = 8, notes = notes })
     t.output = i % 3 == 0 and a.id or i % 3 == 1 and b.id or nil
     if i % 4 == 0 then t:send(a, -6) end
@@ -808,7 +900,9 @@ test("devices at rest sleep through silence, and sound the same", function()
   t:add_device("reverb", { decay = 1, mix = 50 })
   for _, at in ipairs({ 0, 40 }) do
     local notes = {}
-    for step = 0, 15 do notes[#notes + 1] = { pitch = 48 + step % 12, start = step * 0.5, length = 0.4 } end
+    for step = 0, 15 do
+      notes[#notes + 1] = { pitch = 48 + step % 12, start = step * 0.5, length = 0.4 }
+    end
     t:add_clip({ start = at, length = 8, notes = notes })
   end
   paw.flush()
@@ -829,7 +923,10 @@ test("devices at rest sleep through silence, and sound the same", function()
   next_block(20)
   eq(api.engine_get().device_sleeps, before, "and nothing sleeps then")
   paw.opt.device_sleep = true
-  until_(function() return api.engine_get().device_sleeps > before end, "stopped and silent, the devices to sleep again")
+  until_(
+    function() return api.engine_get().device_sleeps > before end,
+    "stopped and silent, the devices to sleep again"
+  )
 end)
 
 -- Choosing devices and inputs ---------------------------------------------------
@@ -885,10 +982,15 @@ test("a track takes MIDI from one port and channel, playing and recording", func
   with_test_input(function()
     fresh()
     local ports = {}
-    for i, p in ipairs(paw.midi.inputs()) do ports[i] = p.name end
+    for i, p in ipairs(paw.midi.inputs()) do
+      ports[i] = p.name
+    end
     eq(table.concat(ports, ", "), "Keys A, Keys B", "the ports to choose from")
     local a, any = paw.add_track({ name = "a" }), paw.add_track({ name = "any" })
-    for _, t in ipairs({ a, any }) do t:add_device("synth") t.armed = true end
+    for _, t in ipairs({ a, any }) do
+      t:add_device("synth")
+      t.armed = true
+    end
     a.midi_input = { port = "Keys A", channel = 2 }
     eq(a.midi_input.port .. "/" .. a.midi_input.channel, "Keys A/2", "the choice reads back")
     paw.flush()
@@ -915,7 +1017,9 @@ test("a track takes MIDI from one port and channel, playing and recording", func
     paw.transport.stop()
     local pitches = function(t)
       local out = {}
-      for i, n in ipairs(t:clips()[1]:notes()) do out[i] = n.pitch end
+      for i, n in ipairs(t:clips()[1]:notes()) do
+        out[i] = n.pitch
+      end
       return table.concat(out, " ")
     end
     eq(pitches(a), "65", "a take keeps only what the track hears")
@@ -947,7 +1051,10 @@ test("a whole first session: input, monitoring, an effect, a take that plays bac
     gtr:add_device("gain", { gain = -6 })
     paw.flush()
     -- The meter falls slowly from where it was.
-    until_(function() return math.abs(select(1, gtr:meter()) - test_level / 2) < 0.01 end, "the input to be heard through the effect")
+    until_(
+      function() return math.abs(select(1, gtr:meter()) - test_level / 2) < 0.01 end,
+      "the input to be heard through the effect"
+    )
     gtr.armed = true
     paw.transport.record()
     until_beat(paw.transport.position + 1.6)
@@ -1011,7 +1118,9 @@ test("an edit answered by a handler is one undo step, and undo is not answered a
   paw.flush()
   eq(clip.start .. "/" .. marker.start, "0/16", "one undo takes back the edit and the answer")
   eq(#seen > 0, true, "undo reports the change")
-  for _, event in ipairs(seen) do eq(event.restored, true, "and marks it restored") end
+  for _, event in ipairs(seen) do
+    eq(event.restored, true, "and marks it restored")
+  end
   seen = {}
   paw.redo()
   paw.flush()
@@ -1060,13 +1169,19 @@ test("a MIDI port of the program's own is one more input for a track to take", f
   paw.midi.inject({ type = "note_off", pitch = 64, port = "Guitar to MIDI" })
   eq(paw.midi.close_port("Guitar to MIDI"), true, "the port is taken away")
   eq(paw.midi.close_port("Guitar to MIDI"), false, "once")
-  for _, p in ipairs(paw.midi.inputs()) do eq(p.own, false, "and no longer listed") end
+  for _, p in ipairs(paw.midi.inputs()) do
+    eq(p.own, false, "and no longer listed")
+  end
 end)
 
 test("JSON goes to text and back, and a helper process is asked to finish", function()
   local text = paw.json.encode({ name = "Guitar", gain = 1.5, on = true, split = { { pitch = 52, channel = 2 } } })
   local back = paw.json.decode(text)
-  eq(back.name .. " " .. back.gain .. " " .. tostring(back.on) .. " " .. back.split[1].pitch, "Guitar 1.5 true 52", "a table survives the trip")
+  eq(
+    back.name .. " " .. back.gain .. " " .. tostring(back.on) .. " " .. back.split[1].pitch,
+    "Guitar 1.5 true 52",
+    "a table survives the trip"
+  )
   eq(paw.json.encode({ a = 1 }, true):find("\n") ~= nil, true, "pretty text is on several lines")
   local value, why = paw.json.decode("{ not json")
   eq(value == nil and type(why) == "string", true, "what is not JSON gives nil and the reason")
@@ -1090,13 +1205,21 @@ test("a sound file is brought in on a track of its own, from a command, a path o
   local file = T.scratch .. "/sounds/My take.wav"
   paw.render(file, { ["end"] = 4, tail = 0 })
   fresh()
-  eq(paw.is_audio_file("a/b/Take.MP3") and paw.is_audio_file("x.flac") and not paw.is_audio_file("song.json"), true, "sound files are told by their ending")
+  eq(
+    paw.is_audio_file("a/b/Take.MP3") and paw.is_audio_file("x.flac") and not paw.is_audio_file("song.json"),
+    true,
+    "sound files are told by their ending"
+  )
 
   paw.cursor.set_beat(8)
   paw.cmd("import", { file })
   local track = paw.tracks()[1]
   local clip = track:clips()[1]
-  eq(track.name .. " " .. clip.kind .. " " .. clip.start, "My take audio 8", "the file is a clip on a new track named after it, at the cursor")
+  eq(
+    track.name .. " " .. clip.kind .. " " .. clip.start,
+    "My take audio 8",
+    "the file is a clip on a new track named after it, at the cursor"
+  )
   near(clip.length, 4, 0.05, "as long as it sounds")
   eq(paw.cursor.track_id(), track.id, "and the cursor is on the track")
   eq(render({ tail = 0 }).peak > 0.01, true, "it plays")
@@ -1105,7 +1228,11 @@ test("a sound file is brought in on a track of its own, from a command, a path o
   eq(#paw.tracks(), before, "a file that is not there leaves no empty track behind")
 
   paw.cmd("import", { "tests/fixtures/tone-stereo-44k.mp3" })
-  eq(paw.tracks()[#paw.tracks()].name .. " " .. paw.tracks()[#paw.tracks()]:clips()[1].kind, "tone-stereo-44k audio", "an mp3 comes in the same way")
+  eq(
+    paw.tracks()[#paw.tracks()].name .. " " .. paw.tracks()[#paw.tracks()]:clips()[1].kind,
+    "tone-stereo-44k audio",
+    "an mp3 comes in the same way"
+  )
 
   -- From the command line a sound file starts the project.
   fresh()
@@ -1123,7 +1250,11 @@ test("a sound file is brought in on a track of its own, from a command, a path o
   local chosen
   paw.pick.file({ dir = T.scratch .. "/sounds", extensions = { "wav" }, on_choose = function(path) chosen = path end })
   local lines = table.concat(api.ui_snapshot(100, 30), "\n")
-  eq(lines:find("more/", 1, true) ~= nil and lines:find("My take.wav", 1, true) ~= nil, true, "directories and sound files are listed")
+  eq(
+    lines:find("more/", 1, true) ~= nil and lines:find("My take.wav", 1, true) ~= nil,
+    true,
+    "directories and sound files are listed"
+  )
   eq(lines:find("notes.txt", 1, true), nil, "other files are not")
   paw.keymap.feed("My<CR>")
   eq(chosen, file, "choosing a file gives its path")
@@ -1141,22 +1272,38 @@ test("tracks are grouped: members sound through the group, stand under it, and f
   local groups = paw.groups
   local function order()
     local out = {}
-    for i, track in ipairs(paw.tracks()) do out[i] = string.rep(">", groups.depth(track.id)) .. track.name end
+    for i, track in ipairs(paw.tracks()) do
+      out[i] = string.rep(">", groups.depth(track.id)) .. track.name
+    end
     return table.concat(out, " ")
   end
   local function rows()
     local out = {}
-    for i, id in ipairs(groups.rows()) do out[i] = api.track_get(id).name end
+    for i, id in ipairs(groups.rows()) do
+      out[i] = api.track_get(id).name
+    end
     return table.concat(out, " ")
   end
   local alone = render({ tail = 0.2 }).peak
 
   local strings = groups.make({ t[2], t[4] }, "Strings")
-  eq(order(), "Drums Strings >Violins >Cellos Violas Bass", "a group stands above its members, which come together under it")
+  eq(
+    order(),
+    "Drums Strings >Violins >Cellos Violas Bass",
+    "a group stands above its members, which come together under it"
+  )
   eq(t[2].output .. " " .. t[4].output, strings.id .. " " .. strings.id, "the members sound through the group")
   groups.add(t[3], strings)
   eq(order(), "Drums Strings >Violins >Cellos >Violas Bass", "a track put into the group joins its rows")
-  eq(#groups.members(strings) .. " " .. tostring(groups.is_group(strings)) .. " " .. tostring(groups.of(t[3]) == strings.id), "3 true true", "the group knows its members and they their group")
+  eq(
+    #groups.members(strings)
+      .. " "
+      .. tostring(groups.is_group(strings))
+      .. " "
+      .. tostring(groups.of(t[3]) == strings.id),
+    "3 true true",
+    "the group knows its members and they their group"
+  )
   near(render({ tail = 0.2 }).peak, alone, 0.02, "everything still sounds")
   strings.mute = true
   eq(render({ tail = 0.2 }).peak < alone * 0.75, true, "muting the group mutes its members")
@@ -1166,9 +1313,15 @@ test("tracks are grouped: members sound through the group, stand under it, and f
   groups.fold(strings, true)
   eq(rows(), "Drums Strings Bass", "a folded group's members are not among the rows that are drawn")
   local state = paw.frontend.state(-1)
-  eq(#state.tracks .. " " .. tostring(state.tracks[2].folded) .. " " .. state.tracks[2].members, "4 true 3", "a frontend is given the rows, and told the group is folded and how many it holds")
+  eq(
+    #state.tracks .. " " .. tostring(state.tracks[2].folded) .. " " .. state.tracks[2].members,
+    "4 true 3",
+    "a frontend is given the rows, and told the group is folded and how many it holds"
+  )
   local clip_rows = {}
-  for _, clip in ipairs(state.clips) do clip_rows[#clip_rows + 1] = clip.track end
+  for _, clip in ipairs(state.clips) do
+    clip_rows[#clip_rows + 1] = clip.track
+  end
   table.sort(clip_rows)
   eq(table.concat(clip_rows, " "), "0 2", "and no clips of tracks that are out of sight")
   paw.cursor.set_track(t[1])
@@ -1201,17 +1354,27 @@ test("tracks are grouped: members sound through the group, stand under it, and f
   eq(t[3].output, section.id, "and sounds where its old group sounds")
   paw.cursor.set_track(strings)
   paw.cmd("track.ungroup", {})
-  eq(order(), "Drums Orchestra >Violins >Cellos >Violas >Bass", "a dissolved group, empty of its own, goes; its members stay a level up")
+  eq(
+    order(),
+    "Drums Orchestra >Violins >Cellos >Violas >Bass",
+    "a dissolved group, empty of its own, goes; its members stay a level up"
+  )
   api.undo_checkpoint()
   section:remove()
   api.undo_checkpoint()
   eq(order(), "Drums Violins Cellos Violas Bass", "members of a group that is removed stand free")
   paw.undo()
-  eq(order(), "Drums Orchestra >Violins >Cellos >Violas >Bass", "and undo puts the group and its members back as one step")
+  eq(
+    order(),
+    "Drums Orchestra >Violins >Cellos >Violas >Bass",
+    "and undo puts the group and its members back as one step"
+  )
 
   -- The commands on a selection.
   fresh()
-  for i = 1, 3 do paw.add_track({ name = "T" .. i }) end
+  for i = 1, 3 do
+    paw.add_track({ name = "T" .. i })
+  end
   paw.cursor.set_track(paw.tracks()[2])
   paw.keymap.feed("Vj")
   paw.cmd("track.group", { "Pair" })

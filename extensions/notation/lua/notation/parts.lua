@@ -38,21 +38,84 @@ P.FAMILIES = { "woodwinds", "brass", "percussion", "keyboards", "voices", "strin
 --- it, with their short names. The longest word found in a name decides
 --- ("bass clarinet" before "clarinet", "english horn" before "horn").
 P.WORDS = {
-  woodwinds = { { "piccolo", "Picc." }, { "flute", "Fl." }, { "alto flute", "A. Fl." }, { "oboe", "Ob." }, { "english horn", "E. Hn." },
-    { "cor anglais", "C. A." }, { "clarinet", "Cl." }, { "bass clarinet", "B. Cl." }, { "bassoon", "Bsn." },
-    { "contrabassoon", "Cbsn." }, { "soprano sax", "S. Sax." }, { "alto sax", "A. Sax." }, { "tenor sax", "T. Sax." },
-    { "baritone sax", "Bar. Sax." }, { "saxophone", "Sax." }, { "recorder", "Rec." }, { "woodwinds", "Ww." }, { "winds", "Wi." } },
-  brass = { { "horn", "Hn." }, { "french horn", "Hn." }, { "trumpet", "Tpt." }, { "cornet", "Cnt." }, { "flugelhorn", "Flg." },
-    { "trombone", "Tbn." }, { "bass trombone", "B. Tbn." }, { "euphonium", "Euph." }, { "tuba", "Tba." }, { "brass", "Br." } },
-  percussion = { { "timpani", "Timp." }, { "percussion", "Perc." }, { "drums", "Dr." }, { "drum", "Dr." }, { "snare", "S. D." },
-    { "cymbal", "Cym." }, { "triangle", "Tri." }, { "glockenspiel", "Glock." }, { "xylophone", "Xyl." }, { "vibraphone", "Vib." },
-    { "marimba", "Mar." }, { "tubular bells", "T. B." } },
-  keyboards = { { "harp", "Hp." }, { "guitar", "Gtr." }, { "bass guitar", "B. Gtr." }, { "celesta", "Cel." }, { "piano", "Pno." },
-    { "harpsichord", "Hpd." }, { "organ", "Org." }, { "keyboard", "Kbd." }, { "synth", "Syn." } },
-  voices = { { "soprano", "S." }, { "mezzo", "Mez." }, { "alto", "A." }, { "tenor", "T." }, { "baritone", "Bar." }, { "voice", "V." },
-    { "vocals", "Voc." }, { "choir", "Ch." }, { "chorus", "Ch." } },
-  strings = { { "violin", "Vln." }, { "viola", "Vla." }, { "violoncello", "Vc." }, { "cello", "Vc." }, { "double bass", "Cb." },
-    { "contrabass", "Cb." }, { "bass", "Cb." }, { "strings", "Str." } },
+  woodwinds = {
+    { "piccolo", "Picc." },
+    { "flute", "Fl." },
+    { "alto flute", "A. Fl." },
+    { "oboe", "Ob." },
+    { "english horn", "E. Hn." },
+    { "cor anglais", "C. A." },
+    { "clarinet", "Cl." },
+    { "bass clarinet", "B. Cl." },
+    { "bassoon", "Bsn." },
+    { "contrabassoon", "Cbsn." },
+    { "soprano sax", "S. Sax." },
+    { "alto sax", "A. Sax." },
+    { "tenor sax", "T. Sax." },
+    { "baritone sax", "Bar. Sax." },
+    { "saxophone", "Sax." },
+    { "recorder", "Rec." },
+    { "woodwinds", "Ww." },
+    { "winds", "Wi." },
+  },
+  brass = {
+    { "horn", "Hn." },
+    { "french horn", "Hn." },
+    { "trumpet", "Tpt." },
+    { "cornet", "Cnt." },
+    { "flugelhorn", "Flg." },
+    { "trombone", "Tbn." },
+    { "bass trombone", "B. Tbn." },
+    { "euphonium", "Euph." },
+    { "tuba", "Tba." },
+    { "brass", "Br." },
+  },
+  percussion = {
+    { "timpani", "Timp." },
+    { "percussion", "Perc." },
+    { "drums", "Dr." },
+    { "drum", "Dr." },
+    { "snare", "S. D." },
+    { "cymbal", "Cym." },
+    { "triangle", "Tri." },
+    { "glockenspiel", "Glock." },
+    { "xylophone", "Xyl." },
+    { "vibraphone", "Vib." },
+    { "marimba", "Mar." },
+    { "tubular bells", "T. B." },
+  },
+  keyboards = {
+    { "harp", "Hp." },
+    { "guitar", "Gtr." },
+    { "bass guitar", "B. Gtr." },
+    { "celesta", "Cel." },
+    { "piano", "Pno." },
+    { "harpsichord", "Hpd." },
+    { "organ", "Org." },
+    { "keyboard", "Kbd." },
+    { "synth", "Syn." },
+  },
+  voices = {
+    { "soprano", "S." },
+    { "mezzo", "Mez." },
+    { "alto", "A." },
+    { "tenor", "T." },
+    { "baritone", "Bar." },
+    { "voice", "V." },
+    { "vocals", "Voc." },
+    { "choir", "Ch." },
+    { "chorus", "Ch." },
+  },
+  strings = {
+    { "violin", "Vln." },
+    { "viola", "Vla." },
+    { "violoncello", "Vc." },
+    { "cello", "Vc." },
+    { "double bass", "Cb." },
+    { "contrabass", "Cb." },
+    { "bass", "Cb." },
+    { "strings", "Str." },
+  },
 }
 
 --- The family, the place in it and the short name of a name, or nil.
@@ -62,9 +125,7 @@ function P.family(name)
   for fi, family in ipairs(P.FAMILIES) do
     for rank, w in ipairs(P.WORDS[family]) do
       local at = low:find(w[1], 1, true)
-      if at and (not best or #w[1] > #best.word) then
-        best = { family = fi, rank = rank, word = w[1], short = w[2] }
-      end
+      if at and (not best or #w[1] > #best.word) then best = { family = fi, rank = rank, word = w[1], short = w[2] } end
     end
   end
   return best
@@ -144,12 +205,21 @@ function P.interval(spec)
   local pc = (PC[l] + alter) % 12
   local up = rest:find("up", 1, true) ~= nil
   local steps, semis
-  if up then steps, semis = -l, -pc else steps, semis = (7 - l) % 7, (12 - pc) % 12 end
+  if up then
+    steps, semis = -l, -pc
+  else
+    steps, semis = (7 - l) % 7, (12 - pc) % 12
+  end
   if rest:find("octave", 1, true) then
     steps, semis = steps + (up and -7 or 7), semis + (up and -12 or 12)
   end
   if steps == 0 and semis == 0 then return nil end
-  return { steps = steps, semis = semis, fifths = fifths_of(steps, semis), name = letter .. acc .. (rest ~= "" and (" " .. rest) or "") }
+  return {
+    steps = steps,
+    semis = semis,
+    fifths = fifths_of(steps, semis),
+    name = letter .. acc .. (rest ~= "" and (" " .. rest) or ""),
+  }
 end
 
 --- The interval a track's part is written at: its `meta.notation.transpose`,
@@ -195,7 +265,9 @@ function P.transpose_score(sc, iv, fifths)
   for mi, m in ipairs(sc.measures) do
     for _, entry in ipairs(m.voices or {}) do
       for _, ev in ipairs(entry.events) do
-        for _, n in ipairs(ev.notes or {}) do move(n) end
+        for _, n in ipairs(ev.notes or {}) do
+          move(n)
+        end
       end
     end
     if m.key then m.key = { fifths = m.key.fifths + f } end
@@ -217,7 +289,9 @@ function P.instruments(opts)
   local wanted
   if opts.tracks then
     wanted = {}
-    for _, id in ipairs(opts.tracks) do wanted[id] = true end
+    for _, id in ipairs(opts.tracks) do
+      wanted[id] = true
+    end
   end
   local out = {}
   for order, track in ipairs(paw.tracks()) do
@@ -239,9 +313,19 @@ function P.instruments(opts)
       -- A track in a group named for a family ("Strings", "Flutes") is of that family.
       local by_group = group and P.family(api.track_get(group, "name"))
       local family = (by_group and by_group.family) or (found and found.family) or #P.FAMILIES + 1
-      out[#out + 1] = { id = t.id, track = track, clip = clip, clips = clips, name = own.name or t.name, short = own.short or P.short(t.name),
-        family = family, rank = found and found.family == family and found.rank or 0, order = order,
-        transpose = P.transposition(t.id), group = group }
+      out[#out + 1] = {
+        id = t.id,
+        track = track,
+        clip = clip,
+        clips = clips,
+        name = own.name or t.name,
+        short = own.short or P.short(t.name),
+        family = family,
+        rank = found and found.family == family and found.rank or 0,
+        order = order,
+        transpose = P.transposition(t.id),
+        group = group,
+      }
     end
   end
   table.sort(out, function(a, b)
@@ -269,7 +353,9 @@ local function one_clef(e)
   for _, clip in ipairs(e.clips) do
     local sc = view.score_of(clip:get())
     local shape = {}
-    for k, st in ipairs(sc.staves) do shape[k] = tostring(st.clef) end
+    for k, st in ipairs(sc.staves) do
+      shape[k] = tostring(st.clef)
+    end
     shape = table.concat(shape, "+")
     if seen and shape ~= seen then
       view.track_clefs[e.id] = "grand"
@@ -309,7 +395,9 @@ local function compose(group, first)
   if #group > 1 then
     local sc = base.score
     local taken, marks, index = {}, {}, {}
-    for mi, m in ipairs(sc.measures) do index[m.id] = mi end
+    for mi, m in ipairs(sc.measures) do
+      index[m.id] = mi
+    end
     for _, mk in ipairs(sc.marks or {}) do
       local mi = mk.from and index[mk.from.measure]
       if not mi or (owners[mi] or 1) == 1 then marks[#marks + 1] = mk end
@@ -346,7 +434,9 @@ local function compose(group, first)
   end
   local out = base
   out.owners = {}
-  for mi in ipairs(base.score.measures) do out.owners[mi] = group[owners[mi] or 1].clip end
+  for mi in ipairs(base.score.measures) do
+    out.owners[mi] = group[owners[mi] or 1].clip
+  end
   return out
 end
 
@@ -365,7 +455,9 @@ local function scores(list, written)
   end
   local all = view.files.parts(clips)
   local first = math.huge
-  for _, p in ipairs(all) do first = math.min(first, p.beat) end
+  for _, p in ipairs(all) do
+    first = math.min(first, p.beat)
+  end
   local groups = {}
   for k, p in ipairs(all) do
     p.clip = clips[k]
@@ -377,8 +469,12 @@ local function scores(list, written)
     local p = compose(group, first)
     parts[i] = p
     p.entry = list[i]
-    for mi in ipairs(p.score.measures) do D.touch(p.score, mi) end
-    if written and list[i].transpose then p.fifths = (p.fifths or 0) + P.transpose_score(p.score, list[i].transpose, p.fifths) end
+    for mi in ipairs(p.score.measures) do
+      D.touch(p.score, mi)
+    end
+    if written and list[i].transpose then
+      p.fifths = (p.fifths or 0) + P.transpose_score(p.score, list[i].transpose, p.fifths)
+    end
   end
   return parts, first
 end
@@ -391,8 +487,10 @@ P.scores = scores
 local function lay(p, number)
   local sc = p.score
   local f = D.frame(sc)
-  local layout = L.layout(sc, { length = (D.origin(sc) + f.finish) / D.Q, fifths = p.fifths or 0, grid = paw.opt.notation_grid,
-    number = number })
+  local layout = L.layout(
+    sc,
+    { length = (D.origin(sc) + f.finish) / D.Q, fifths = p.fifths or 0, grid = paw.opt.notation_grid, number = number }
+  )
   -- Each measure's notes are its clip's (`p.owners`), and say so (`clip`).
   local places = {}
   for mi, m in ipairs(layout.measures) do
@@ -408,8 +506,12 @@ local function lay(p, number)
     for _, evs in ipairs(m.staves) do
       for _, ev in ipairs(evs) do
         ev.clip = clip.id
-        for _, n in ipairs(ev.notes or {}) do n.index = place[n.head or n.id] end
-        for _, n in ipairs(ev.grace or {}) do n.index = place[n.id] end
+        for _, n in ipairs(ev.notes or {}) do
+          n.index = place[n.head or n.id]
+        end
+        for _, n in ipairs(ev.grace or {}) do
+          n.index = place[n.id]
+        end
       end
     end
   end
@@ -448,7 +550,9 @@ local function share(layouts)
         for _, mk in ipairs(mm.marks or {}) do
           if mk.kind ~= "tempo" then list[#list + 1] = mk end
         end
-        for _, mk in ipairs(tempos) do list[#list + 1] = util.merge(mk, { staff = 1 }) end
+        for _, mk in ipairs(tempos) do
+          list[#list + 1] = util.merge(mk, { staff = 1 })
+        end
         mm.marks = list
       end
     end
@@ -490,8 +594,13 @@ function P.multirests(layout)
     local m = list[i]
     local j = i
     if resting(m) then
-      while j < n and not (list[j].repeat_end or list[j].barline) and resting(list[j + 1]) and not starts(list[j + 1])
-        and same_meter(list[j + 1], m) do
+      while
+        j < n
+        and not (list[j].repeat_end or list[j].barline)
+        and resting(list[j + 1])
+        and not starts(list[j + 1])
+        and same_meter(list[j + 1], m)
+      do
         j = j + 1
       end
     end
@@ -502,12 +611,26 @@ function P.multirests(layout)
       m.multirest, m.length, m.staves = count, length, {}
       m.repeat_end, m.barline = list[j].repeat_end, list[j].barline
       for k = 1, #layout.staves do
-        m.staves[k] = { { kind = "rest", whole = true, multirest = count, start = m.start, length = length, base = 4, dots = 0,
-          voice = 1, staff = k, measure = index } }
+        m.staves[k] = {
+          {
+            kind = "rest",
+            whole = true,
+            multirest = count,
+            start = m.start,
+            length = length,
+            base = 4,
+            dots = 0,
+            voice = 1,
+            staff = k,
+            measure = index,
+          },
+        }
       end
     else
       for _, evs in ipairs(m.staves) do
-        for _, ev in ipairs(evs) do ev.measure = index end
+        for _, ev in ipairs(evs) do
+          ev.measure = index
+        end
       end
     end
     m.index = index
@@ -532,8 +655,10 @@ local function put_cue(layout, cue, source)
       local evs = {}
       for _, ev in ipairs(sm.staves[1] or {}) do
         if ev.voice == 1 and not ev.whole then
-          evs[#evs + 1] = setmetatable({ cue = true, beam = false, stem = ev.stem and 1 or nil, shift = ev.kind == "rest" and 2 or nil },
-            { __index = ev })
+          evs[#evs + 1] = setmetatable(
+            { cue = true, beam = false, stem = ev.stem and 1 or nil, shift = ev.kind == "rest" and 2 or nil },
+            { __index = ev }
+          )
         end
       end
       if #evs > 0 then
@@ -556,7 +681,9 @@ end
 --- The bar numbers a part asks to start a system at, as measure indices.
 local function part_breaks(layout, own)
   local by_number = {}
-  for i, m in ipairs(layout.measures) do by_number[m.number] = i end
+  for i, m in ipairs(layout.measures) do
+    by_number[m.number] = i
+  end
   local breaks, joins = {}, {}
   for _, b in ipairs(own.breaks or {}) do
     if by_number[b] then breaks[by_number[b]] = true end
@@ -592,7 +719,8 @@ function P.part_layout(track_id, opts)
       local sc = D.copy(concert[si].score)
       if not opts.concert and entry.transpose then P.transpose_score(sc, entry.transpose, concert[si].fifths) end
       sc.staves = { { id = sc.staves[1].id, clef = layout.staves[1] } }
-      local source = L.layout(sc, { length = (D.origin(sc) + D.frame(sc).finish) / D.Q, fifths = layout.fifths, number = number })
+      local source =
+        L.layout(sc, { length = (D.origin(sc) + D.frame(sc).finish) / D.Q, fifths = layout.fifths, number = number })
       source.cue_name = src.short
       put_cue(layout, { at = cue.at - first, to = cue.to - first }, source)
     end
@@ -613,9 +741,21 @@ function P.part_layout(track_id, opts)
     layout.written = { steps = steps, fifths = f }
   end
   local ids = {}
-  for k, c in ipairs(entry.clips) do ids[k] = c.id end
-  layout.units = { { first = 1, last = #layout.staves, tracks = { track_id }, clips = ids, players = { ids }, family = entry.family,
-    group = entry.group, name = entry.name } }
+  for k, c in ipairs(entry.clips) do
+    ids[k] = c.id
+  end
+  layout.units = {
+    {
+      first = 1,
+      last = #layout.staves,
+      tracks = { track_id },
+      clips = ids,
+      players = { ids },
+      family = entry.family,
+      group = entry.group,
+      name = entry.name,
+    },
+  }
   -- "Clarinet in B♭" over the part, unless its name says so already.
   local key = entry.transpose and entry.transpose.name:match("^%S+"):gsub("^(%u)b$", "%1♭"):gsub("^(%u)#$", "%1♯")
   layout.part_name = entry.name .. ((key and not entry.name:find(" in ", 1, true)) and (" in " .. key) or "")
@@ -627,7 +767,11 @@ end
 --- and "Flute 2"), share a staff in a condensed score.
 local function base_name(e) return (e.name:gsub("%s+%d+%s*$", ""):gsub("%s+[IV]+%s*$", "")) end
 local function pairs_with(a, b, la, lb)
-  return a.family == b.family and base_name(a) == base_name(b) and base_name(a) ~= a.name and #la.staves == 1 and #lb.staves == 1
+  return a.family == b.family
+    and base_name(a) == base_name(b)
+    and base_name(a) ~= a.name
+    and #la.staves == 1
+    and #lb.staves == 1
     and la.staves[1] == lb.staves[1]
 end
 
@@ -636,7 +780,14 @@ local function same(ea, eb)
   if #ea ~= #eb then return false end
   for i, a in ipairs(ea) do
     local b = eb[i]
-    if a.kind ~= b.kind or abs(a.start - b.start) > EPS or abs(a.length - b.length) > EPS or #(a.notes or {}) ~= #(b.notes or {}) then return false end
+    if
+      a.kind ~= b.kind
+      or abs(a.start - b.start) > EPS
+      or abs(a.length - b.length) > EPS
+      or #(a.notes or {}) ~= #(b.notes or {})
+    then
+      return false
+    end
     for k, n in ipairs(a.notes or {}) do
       if n.pitch ~= b.notes[k].pitch then return false end
     end
@@ -658,18 +809,31 @@ local function voices(ea, eb)
   for k, list in ipairs({ ea, eb }) do
     local dir = k == 1 and 1 or -1
     for _, ev in ipairs(list) do
-      out[#out + 1] = setmetatable({ voice = k, player = k, stem = ev.stem and dir or nil,
-        beam = ev.beam and (k .. ":" .. tostring(ev.beam)) or nil, shift = ev.kind == "rest" and 2 * dir or nil }, { __index = ev })
+      out[#out + 1] = setmetatable(
+        {
+          voice = k,
+          player = k,
+          stem = ev.stem and dir or nil,
+          beam = ev.beam and (k .. ":" .. tostring(ev.beam)) or nil,
+          shift = ev.kind == "rest" and 2 * dir or nil,
+        },
+        { __index = ev }
+      )
     end
   end
-  table.sort(out, function(a, b) return a.start < b.start - EPS or (abs(a.start - b.start) < EPS and a.voice < b.voice) end)
+  table.sort(
+    out,
+    function(a, b) return a.start < b.start - EPS or (abs(a.start - b.start) < EPS and a.voice < b.voice) end
+  )
   return out
 end
 
 --- The second player's events, said to be theirs.
 local function seconds(list)
   local out = {}
-  for i, ev in ipairs(list) do out[i] = setmetatable({ player = 2 }, { __index = ev }) end
+  for i, ev in ipairs(list) do
+    out[i] = setmetatable({ player = 2 }, { __index = ev })
+  end
   return out
 end
 
@@ -678,7 +842,9 @@ end
 --- (`meta.notation.part.split`).
 function P.split_bars(track_id)
   local set = {}
-  for _, n in ipairs(P.own(track_id).split or {}) do set[n] = true end
+  for _, n in ipairs(P.own(track_id).split or {}) do
+    set[n] = true
+  end
   return set
 end
 
@@ -715,7 +881,9 @@ function P.condense(la, lb, split)
     for _, mk in ipairs(mb.marks or {}) do
       if not seen[mk.kind .. ":" .. mk.at .. ":" .. tostring(mk.value)] then marks[#marks + 1] = mk end
     end
-    if now and now ~= state and now ~= "div." then marks[#marks + 1] = { at = ma.start, kind = "text", value = now, staff = 1 } end
+    if now and now ~= state and now ~= "div." then
+      marks[#marks + 1] = { at = ma.start, kind = "text", value = now, staff = 1 }
+    end
     if now then state = now end
     out.measures[i] = setmetatable({ staves = { evs }, marks = marks, condensed = now }, { __index = ma })
   end
@@ -738,7 +906,9 @@ function P.score_layout(opts)
   local parts, first = scores(list, false)
   local number = first_number(first)
   local layouts = {}
-  for i, p in ipairs(parts) do layouts[i] = lay(p, number) end
+  for i, p in ipairs(parts) do
+    layouts[i] = lay(p, number)
+  end
   share(layouts)
   -- What goes on the page: an instrument, or two condensed.
   local units = {}
@@ -748,17 +918,35 @@ function P.score_layout(opts)
     if opts.condensed and b and pairs_with(a, b, layouts[i], layouts[i + 1]) then
       local base = base_name(a)
       local na, nb = a.name:match("(%S+)%s*$"), b.name:match("(%S+)%s*$")
-      units[#units + 1] = { layout = P.condense(layouts[i], layouts[i + 1], P.split_bars(a.id)), entry = a, entries = { a, b },
-        tracks = { a.id, b.id }, full = base .. " " .. na .. "." .. nb, short = (P.short(base):gsub("%s+%S+$", "")) .. " " .. na .. "." .. nb }
+      units[#units + 1] = {
+        layout = P.condense(layouts[i], layouts[i + 1], P.split_bars(a.id)),
+        entry = a,
+        entries = { a, b },
+        tracks = { a.id, b.id },
+        full = base .. " " .. na .. "." .. nb,
+        short = (P.short(base):gsub("%s+%S+$", "")) .. " " .. na .. "." .. nb,
+      }
       i = i + 2
     else
-      units[#units + 1] = { layout = layouts[i], entry = a, entries = { a }, tracks = { a.id }, full = a.name, short = a.short }
+      units[#units + 1] =
+        { layout = layouts[i], entry = a, entries = { a }, tracks = { a.id }, full = a.name, short = a.short }
       i = i + 1
     end
   end
   local top = layouts[1]
-  local out = setmetatable({ staves = {}, tracks = {}, labels = {}, brackets = {}, braces = {}, spans = {}, units = {},
-    asked = { breaks = {}, joins = {} } }, { __index = top })
+  local out = setmetatable(
+    {
+      staves = {},
+      tracks = {},
+      labels = {},
+      brackets = {},
+      braces = {},
+      spans = {},
+      units = {},
+      asked = { breaks = {}, joins = {} },
+    },
+    { __index = top }
+  )
   out.measures = {}
   for mi, m in ipairs(top.measures) do
     out.measures[mi] = setmetatable({ staves = {}, marks = {}, rehearsal = m.rehearsal }, { __index = m })
@@ -778,7 +966,10 @@ function P.score_layout(opts)
       for _, mk in ipairs(m.marks or {}) do
         -- Tempo marks once, over the score.
         if mk.kind ~= "tempo" or base == 0 then
-          out.measures[mi].marks[#out.measures[mi].marks + 1] = setmetatable({ staff = base + (mk.staff or 1) }, { __index = mk })
+          out.measures[mi].marks[#out.measures[mi].marks + 1] = setmetatable(
+            { staff = base + (mk.staff or 1) },
+            { __index = mk }
+          )
         end
       end
     end
@@ -796,11 +987,21 @@ function P.score_layout(opts)
     local condensed
     if #u.tracks > 1 then
       condensed = {}
-      for mi, m in ipairs(u.layout.measures) do condensed[mi] = m.condensed or false end
+      for mi, m in ipairs(u.layout.measures) do
+        condensed[mi] = m.condensed or false
+      end
     end
-    out.units[#out.units + 1] = { first = base + 1, last = base + count, tracks = u.tracks, clips = clips, players = players,
+    out.units[#out.units + 1] = {
+      first = base + 1,
+      last = base + count,
+      tracks = u.tracks,
+      clips = clips,
+      players = players,
       family = u.entry.family,
-      group = u.entry.group, name = u.full, condensed = condensed }
+      group = u.entry.group,
+      name = u.full,
+      condensed = condensed,
+    }
     if count == 2 then out.braces[#out.braces + 1] = { base + 1, base + 2 } end
     -- A family's barlines run through it, and a bracket goes over it.
     local family = u.entry.family
@@ -821,10 +1022,14 @@ end
 local function serial(v)
   if type(v) ~= "table" then return tostring(v) end
   local keys = {}
-  for k in pairs(v) do keys[#keys + 1] = k end
+  for k in pairs(v) do
+    keys[#keys + 1] = k
+  end
   table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
   local out = {}
-  for _, k in ipairs(keys) do out[#out + 1] = tostring(k) .. "=" .. serial(v[k]) end
+  for _, k in ipairs(keys) do
+    out[#out + 1] = tostring(k) .. "=" .. serial(v[k])
+  end
   return "{" .. table.concat(out, ",") .. "}"
 end
 
@@ -838,8 +1043,15 @@ function P.view_layout(v)
   local scope = shown.scope and rawget(paw, "scope")
   if scope and scope.limits_tracks() then tracks = scope.tracks() end
   local p = api.project_get()
-  local stamp = { shown.kind, tostring(shown.track), tostring(shown.condensed), tostring(paw.opt.notation_grid),
-    table.concat(tracks or {}, ","), tostring(shown.from), tostring(shown.to) }
+  local stamp = {
+    shown.kind,
+    tostring(shown.track),
+    tostring(shown.condensed),
+    tostring(paw.opt.notation_grid),
+    table.concat(tracks or {}, ","),
+    tostring(shown.from),
+    tostring(shown.to),
+  }
   -- The view asks for its layout many times a key: while nothing was
   -- edited or undone since, it is the one made last.
   local quick = table.concat(stamp, ":") .. ":" .. tostring(p.edits) .. ":" .. tostring(api.undo_current())

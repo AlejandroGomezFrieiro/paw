@@ -6,10 +6,17 @@
 local interop = require("interop")
 
 interop.register({
-  name = "rpp", desc = "REAPER projects", extensions = { "rpp" }, project = true, module = "interop.rpp",
+  name = "rpp",
+  desc = "REAPER projects",
+  extensions = { "rpp" },
+  project = true,
+  module = "interop.rpp",
 })
 
 interop.register({
-  name = "dawproject", desc = "DAWproject files (Bitwig Studio, Studio One, Cubase)", extensions = { "dawproject" },
-  project = true, module = "interop.dawproject",
+  name = "dawproject",
+  desc = "DAWproject files (Bitwig Studio, Studio One, Cubase)",
+  extensions = { "dawproject" },
+  project = true,
+  module = "interop.dawproject",
 })

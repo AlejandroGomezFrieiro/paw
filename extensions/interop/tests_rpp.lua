@@ -37,8 +37,22 @@ local function write_wav(path, seconds, freq, level)
   local data = table.concat(samples)
   local b64 = paw.bytes
   local function u16(x) return string.char(x % 256, math.floor(x / 256) % 256) end
-  T.write_file(path, "RIFF" .. b64.le32(36 + #data) .. "WAVEfmt " .. b64.le32(16) .. u16(1) .. u16(1)
-    .. b64.le32(rate) .. b64.le32(rate * 2) .. u16(2) .. u16(16) .. "data" .. b64.le32(#data) .. data)
+  T.write_file(
+    path,
+    "RIFF"
+      .. b64.le32(36 + #data)
+      .. "WAVEfmt "
+      .. b64.le32(16)
+      .. u16(1)
+      .. u16(1)
+      .. b64.le32(rate)
+      .. b64.le32(rate * 2)
+      .. u16(2)
+      .. u16(16)
+      .. "data"
+      .. b64.le32(#data)
+      .. data
+  )
 end
 
 --- A folder in the scratch directory holding a copy of a fixture, with the
@@ -51,10 +65,13 @@ local function project_dir(fixture)
   T.write_file(dir .. "/" .. fixture, T.read_file(FIXTURES .. fixture))
   write_wav(dir .. "/media/tone.wav", 2, 440)
   local midi = require("interop.rpp.midi")
-  T.write_file(dir .. "/media/riff.mid", midi.write_smf({
-    { tick = 0, length = 240, pitch = 50, velocity = 90 },
-    { tick = 480, length = 480, pitch = 52, velocity = 70 },
-  }, 480, 100))
+  T.write_file(
+    dir .. "/media/riff.mid",
+    midi.write_smf({
+      { tick = 0, length = 240, pitch = 50, velocity = 90 },
+      { tick = 480, length = 480, pitch = 52, velocity = 70 },
+    }, 480, 100)
+  )
   return dir
 end
 
@@ -112,7 +129,7 @@ test("rpp: tokens, quotes and numbers", function()
   eq(fmt.quote("a b"), '"a b"', "spaces")
   eq(fmt.quote(""), '""', "empty")
   eq(fmt.quote('say "hi"'), "'say \"hi\"'", "double quote inside")
-  eq(fmt.quote([[it's "x"]]), "`it's \"x\"`", "both quotes inside")
+  eq(fmt.quote([[it's "x"]]), '`it\'s "x"`', "both quotes inside")
   eq(fmt.number(4), "4", "integer")
   eq(fmt.number(0.70794578438414), "0.70794578438414", "14 decimals")
   eq(fmt.number(441.6), "441.6", "shortest form")
@@ -129,7 +146,8 @@ test("rpp: a changed line is rewritten, the rest stays as read", function()
   track:set("NAME", "Rhythm Guitar")
   track:add(fmt.line("MUTESOLO", 1, 0, 0), 2)
   local out = fmt.write(doc)
-  local want = text:gsub("  TEMPO 135 4 4 0\n", "  TEMPO 96 3 4 0\n")
+  local want = text
+    :gsub("  TEMPO 135 4 4 0\n", "  TEMPO 96 3 4 0\n")
     :gsub('    NAME "Lead Guitar"\n', '    NAME "Rhythm Guitar"\n    MUTESOLO 1 0 0\n')
   eq(out, want, "only the changed lines differ")
   -- A tree built from nothing.
@@ -137,7 +155,11 @@ test("rpp: a changed line is rewritten, the rest stays as read", function()
   local root = new:add(fmt.block("REAPER_PROJECT", 0.1, "7.0/x", 0))
   root:add(fmt.line("NAME", "two words"))
   root:add(fmt.block("SOURCE", "WAVE")):add(fmt.line("FILE", "a.wav")):quoted(1)
-  eq(fmt.write(new), '<REAPER_PROJECT 0.1 7.0/x 0\n  NAME "two words"\n  <SOURCE WAVE\n    FILE "a.wav"\n  >\n>\n', "new tree")
+  eq(
+    fmt.write(new),
+    '<REAPER_PROJECT 0.1 7.0/x 0\n  NAME "two words"\n  <SOURCE WAVE\n    FILE "a.wav"\n  >\n>\n',
+    "new tree"
+  )
   -- And it reads back as the same tree.
   local again = fmt.parse(fmt.write(new))
   eq(again.project:child("SOURCE"):get("FILE"), "a.wav", "read back")
@@ -202,7 +224,9 @@ test("rpp: import, track by track and clip by clip", function()
   near(paw.master.volume, -6.0206, 1e-3, "master volume")
 
   local names = {}
-  for i, t in ipairs(paw.tracks()) do names[i] = t.name end
+  for i, t in ipairs(paw.tracks()) do
+    names[i] = t.name
+  end
   eq(table.concat(names, ","), "Band,Keys,Gtr DI,Verb", "tracks in order")
   local band, keys, gtr, verb = by_name("Band"), by_name("Keys"), by_name("Gtr DI"), by_name("Verb")
 
@@ -347,9 +371,7 @@ test("rpp: what is not carried over is reported, grouped", function()
   local r = load()
   local dir = project_dir("song.rpp")
   local report = r.import(dir .. "/song.rpp").report
-  local function check(group, pattern)
-    eq(has_item(report, group, pattern), true, group .. ": " .. pattern)
-  end
+  local function check(group, pattern) eq(has_item(report, group, pattern), true, group .. ": " .. pattern) end
   check("Envelope curve shapes (fast start, fast end and Bezier made straight or smooth)", "Band volume")
   check("Plugins left as placeholders", "Nowhere Amp")
   check("Plugins left as placeholders", "JS: loser/masterLimiter")
@@ -374,7 +396,7 @@ test("rpp: MIDI timing follows the project tempo", function()
   -- The same item at three tempos: 1.5 s in, a note on beat 2 of the item.
   for _, bpm in ipairs({ 60, 90, 137 }) do
     local doc = fmt.parse(table.concat({
-      "<REAPER_PROJECT 0.1 \"7.55\" 0",
+      '<REAPER_PROJECT 0.1 "7.55" 0',
       "  TEMPO " .. bpm .. " 4 4",
       "  <TRACK",
       "    NAME M",
@@ -408,7 +430,7 @@ end)
 test("rpp: an envelope's points become an automation lane", function()
   local r = load()
   local doc = r.parse(table.concat({
-    "<REAPER_PROJECT 0.1 \"7.55\" 0",
+    '<REAPER_PROJECT 0.1 "7.55" 0',
     "  TEMPO 120 4 4",
     "  <TRACK",
     "    NAME E",
@@ -455,13 +477,19 @@ test("rpp: plugin parameter lanes go to REAPER with the plugin's own ids, and co
   track:add_clip({ start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 4 } } })
   local fx = track:add_device(kind)
   local gain = api.device_param(fx.id, "input_gain")
-  api.lane_add(track.id, { target = "param", device = fx.id, param = "input_gain", points = { { 0, gain.min }, { 4, gain.max } } })
+  api.lane_add(
+    track.id,
+    { target = "param", device = fx.id, param = "input_gain", points = { { 0, gain.min }, { 4, gain.max } } }
+  )
   r.export(T.scratch .. "/ids.rpp")
   local n = tonumber(gain.id)
   local ident = string.format("%d", n >= 2 ^ 31 and n - 2 ^ 32 or n)
   local text = T.read_file(T.scratch .. "/ids.rpp")
-  eq(text:find("<PARMENV " .. (gain.index - 1) .. ":" .. ident .. " ", 1, true) ~= nil, true,
-    "the place and the signed id, as REAPER writes them")
+  eq(
+    text:find("<PARMENV " .. (gain.index - 1) .. ":" .. ident .. " ", 1, true) ~= nil,
+    true,
+    "the place and the signed id, as REAPER writes them"
+  )
   T.fresh()
   r.import(T.scratch .. "/ids.rpp")
   local lanes = api.lane_list(paw.track("Lim").id)
@@ -471,38 +499,45 @@ end)
 
 -- Commands --------------------------------------------------------------------------
 
-test("interop: :import, :e, :export and :w take REAPER and DAWproject files, their ending choosing the format", function()
-  load()
-  local dir = project_dir("song.rpp")
-  T.write_file(dir .. "/studio.dawproject", T.read_file(HERE .. "/fixtures/dawproject/studio.dawproject"))
-  for _, f in ipairs({ { "song.rpp", "rpp", "<REAPER_PROJECT" }, { "studio.dawproject", "dawproject", "PK" } }) do
-    local file, ext, head = dir .. "/" .. f[1], f[2], f[3]
-    paw.project.new()
-    paw.commands.exec("import " .. file)
-    eq(#paw.tracks(), 4, ":import " .. ext)
-    paw.commands.exec("import " .. file)
-    eq(#paw.tracks(), 8, ":import adds the tracks of " .. ext)
-    paw.commands.exec("e " .. file)
-    eq(#paw.tracks(), 8, ":e leaves an unsaved project alone")
-    paw.project.new()
-    paw.commands.exec("e " .. file)
-    eq(#paw.tracks(), 4, ":e " .. ext .. " opens it as the project")
-    paw.commands.exec("export " .. dir .. "/out." .. ext)
-    eq(T.read_file(dir .. "/out." .. ext):sub(1, #head), head, ":export " .. ext)
-    paw.commands.exec("w " .. dir .. "/out2." .. ext)
-    eq(T.read_file(dir .. "/out2." .. ext):sub(1, #head), head, ":w " .. ext)
+test(
+  "interop: :import, :e, :export and :w take REAPER and DAWproject files, their ending choosing the format",
+  function()
+    load()
+    local dir = project_dir("song.rpp")
+    T.write_file(dir .. "/studio.dawproject", T.read_file(HERE .. "/fixtures/dawproject/studio.dawproject"))
+    for _, f in ipairs({ { "song.rpp", "rpp", "<REAPER_PROJECT" }, { "studio.dawproject", "dawproject", "PK" } }) do
+      local file, ext, head = dir .. "/" .. f[1], f[2], f[3]
+      paw.project.new()
+      paw.commands.exec("import " .. file)
+      eq(#paw.tracks(), 4, ":import " .. ext)
+      paw.commands.exec("import " .. file)
+      eq(#paw.tracks(), 8, ":import adds the tracks of " .. ext)
+      paw.commands.exec("e " .. file)
+      eq(#paw.tracks(), 8, ":e leaves an unsaved project alone")
+      paw.project.new()
+      paw.commands.exec("e " .. file)
+      eq(#paw.tracks(), 4, ":e " .. ext .. " opens it as the project")
+      paw.commands.exec("export " .. dir .. "/out." .. ext)
+      eq(T.read_file(dir .. "/out." .. ext):sub(1, #head), head, ":export " .. ext)
+      paw.commands.exec("w " .. dir .. "/out2." .. ext)
+      eq(T.read_file(dir .. "/out2." .. ext):sub(1, #head), head, ":w " .. ext)
+    end
+    paw.commands.exec("export " .. dir .. "/ref.dawproject embed=false")
+    local files = paw.zip.read(T.read_file(dir .. "/ref.dawproject"))
+    eq(files["audio/loop.wav"], nil, "embed=false leaves the audio out")
+    -- Other files still go to the original commands.
+    paw.commands.exec("w " .. dir .. "/song")
+    eq(#T.read_file(dir .. "/song/project.toml") > 0, true, "w song saves as before")
+    T.write_file(dir .. "/broken.dawproject", "not a zip")
+    paw.commands.exec("import " .. dir .. "/broken.dawproject")
+    eq(#paw.tracks(), 4, "a broken file leaves the project alone")
+    eq(
+      paw.formats.get("rpp").project and paw.formats.get("dawproject").project,
+      true,
+      "both are formats of whole projects"
+    )
   end
-  paw.commands.exec("export " .. dir .. "/ref.dawproject embed=false")
-  local files = paw.zip.read(T.read_file(dir .. "/ref.dawproject"))
-  eq(files["audio/loop.wav"], nil, "embed=false leaves the audio out")
-  -- Other files still go to the original commands.
-  paw.commands.exec("w " .. dir .. "/song")
-  eq(#T.read_file(dir .. "/song/project.toml") > 0, true, "w song saves as before")
-  T.write_file(dir .. "/broken.dawproject", "not a zip")
-  paw.commands.exec("import " .. dir .. "/broken.dawproject")
-  eq(#paw.tracks(), 4, "a broken file leaves the project alone")
-  eq(paw.formats.get("rpp").project and paw.formats.get("dawproject").project, true, "both are formats of whole projects")
-end)
+)
 
 -- Export ------------------------------------------------------------------------------
 
@@ -511,51 +546,100 @@ local function describe()
   local p = paw.project.get()
   local tr = paw.transport.get()
   local out = {
-    tempo = p.tempo, sig = p.sig_num .. "/" .. p.sig_den,
+    tempo = p.tempo,
+    sig = p.sig_num .. "/" .. p.sig_den,
     loop = tr.loop_enabled and string.format("%.6f-%.6f", tr.loop_start, tr.loop_end) or "off",
     master = string.format("%.4f %.4f %s", paw.master.volume, paw.master.pan, tostring(paw.master.mute)),
     tracks = {},
   }
   local name_of = {}
-  for _, t in ipairs(paw.tracks()) do name_of[t.id] = t.name end
+  for _, t in ipairs(paw.tracks()) do
+    name_of[t.id] = t.name
+  end
   for _, t in ipairs(paw.tracks()) do
     local g = t:get()
     local d = {
-      string.format("%s vol %.4f pan %.4f mute %s solo %s armed %s out %s input %s monitor %s colour %s",
-        g.name, g.volume, g.pan, tostring(g.mute), tostring(g.solo), tostring(g.armed),
-        tostring(name_of[g.output]), tostring(g.input), tostring(g.monitor), tostring(g.color)),
+      string.format(
+        "%s vol %.4f pan %.4f mute %s solo %s armed %s out %s input %s monitor %s colour %s",
+        g.name,
+        g.volume,
+        g.pan,
+        tostring(g.mute),
+        tostring(g.solo),
+        tostring(g.armed),
+        tostring(name_of[g.output]),
+        tostring(g.input),
+        tostring(g.monitor),
+        tostring(g.color)
+      ),
     }
-    for _, s in ipairs(g.sends) do d[#d + 1] = string.format("send %s %.4f pre %s", name_of[s.target], s.level, tostring(s.pre)) end
+    for _, s in ipairs(g.sends) do
+      d[#d + 1] = string.format("send %s %.4f pre %s", name_of[s.target], s.level, tostring(s.pre))
+    end
     for _, lane in ipairs(t:lanes()) do
       local l = lane:get()
       local pts = {}
-      for _, pt in ipairs(lane:points()) do pts[#pts + 1] = string.format("%.6f:%.4f", pt[1], pt[2]) end
-      for _, s in ipairs(api.lane_shapes(l.id)) do pts[#pts + 1] = string.format("%s@%.6f", s.shape, s.beat) end
-      d[#d + 1] = string.format("lane %s %s %s %s", l.target, tostring(l.param), tostring(l.enabled), table.concat(pts, " "))
+      for _, pt in ipairs(lane:points()) do
+        pts[#pts + 1] = string.format("%.6f:%.4f", pt[1], pt[2])
+      end
+      for _, s in ipairs(api.lane_shapes(l.id)) do
+        pts[#pts + 1] = string.format("%s@%.6f", s.shape, s.beat)
+      end
+      d[#d + 1] =
+        string.format("lane %s %s %s %s", l.target, tostring(l.param), tostring(l.enabled), table.concat(pts, " "))
     end
     for _, dev in ipairs(t:devices()) do
       local keys = {}
-      for k in pairs(dev.params) do keys[#keys + 1] = k end
+      for k in pairs(dev.params) do
+        keys[#keys + 1] = k
+      end
       table.sort(keys)
       local params = {}
-      for _, k in ipairs(keys) do params[#params + 1] = string.format("%s=%.4f", k, dev.params[k]) end
+      for _, k in ipairs(keys) do
+        params[#params + 1] = string.format("%s=%.4f", k, dev.params[k])
+      end
       d[#d + 1] = string.format("device %s bypass %s %s", dev.kind, tostring(dev.bypass), table.concat(params, ","))
     end
     for _, c in ipairs(t:clips()) do
       local cg = c:get()
-      local line = string.format("clip %s %s %.6f+%.6f muted %s", cg.kind, cg.name, cg.start, cg.length, tostring(cg.muted))
+      local line =
+        string.format("clip %s %s %.6f+%.6f muted %s", cg.kind, cg.name, cg.start, cg.length, tostring(cg.muted))
       if cg["loop"] then line = line .. string.format(" loop %.6f+%.6f", cg.loop_start, cg.loop_length) end
       if cg.kind == "audio" then
-        line = line .. string.format(" %s offset %.6f gain %.4f fades %.6f %.6f stretch %.6f pitch %.4f", cg.file,
-          cg.offset, cg.gain, cg.fade_in, cg.fade_out, cg.stretch, cg.pitch)
+        line = line
+          .. string.format(
+            " %s offset %.6f gain %.4f fades %.6f %.6f stretch %.6f pitch %.4f",
+            cg.file,
+            cg.offset,
+            cg.gain,
+            cg.fade_in,
+            cg.fade_out,
+            cg.stretch,
+            cg.pitch
+          )
       else
         for _, n in ipairs(c:notes()) do
-          line = line .. string.format(" [%d %.6f %.6f %d %s]", n.pitch, n.start, n.length, n.velocity,
-            tostring(n.meta and n.meta.channel))
+          line = line
+            .. string.format(
+              " [%d %.6f %.6f %d %s]",
+              n.pitch,
+              n.start,
+              n.length,
+              n.velocity,
+              tostring(n.meta and n.meta.channel)
+            )
         end
         for _, m in ipairs(c:controls()) do
-          line = line .. string.format(" {%s %s %s %s %.6f %.3f}", m.type, tostring(m.number or m.program),
-            tostring(m.key), tostring(m.bank), m.start, m.value)
+          line = line
+            .. string.format(
+              " {%s %s %s %s %.6f %.3f}",
+              m.type,
+              tostring(m.number or m.program),
+              tostring(m.key),
+              tostring(m.bank),
+              m.start,
+              m.value
+            )
         end
       end
       d[#d + 1] = line
@@ -566,9 +650,13 @@ local function describe()
 end
 
 local function same(a, b)
-  for _, key in ipairs({ "tempo", "sig", "loop", "master" }) do eq(b[key], a[key], key) end
+  for _, key in ipairs({ "tempo", "sig", "loop", "master" }) do
+    eq(b[key], a[key], key)
+  end
   eq(#b.tracks, #a.tracks, "number of tracks")
-  for i = 1, #a.tracks do eq(b.tracks[i], a.tracks[i], "track " .. i) end
+  for i = 1, #a.tracks do
+    eq(b.tracks[i], a.tracks[i], "track " .. i)
+  end
 end
 
 local function build(dir)
@@ -594,14 +682,25 @@ local function build(dir)
   keys:send(verb, -9)
   snare:send(verb, -15.5)
   api.track_set(snare.id, "sends", { { target = verb.id, level = -15.5, pre = true } })
-  kick:add_clip({ name = "kick", start = 0, length = 3, notes = {
-    { pitch = 36, start = 0, length = 0.25, velocity = 120 },
-    { pitch = 36, start = 1.5, length = 0.25, velocity = 90, meta = { channel = 10 } },
-  } })
-  local chords = keys:add_clip({ name = "chords", start = 3, length = 6, notes = {
-    { pitch = 60, start = 0, length = 2, velocity = 80 }, { pitch = 64, start = 0, length = 2, velocity = 80 },
-    { pitch = 67, start = 2.5, length = 0.125, velocity = 64 },
-  } })
+  kick:add_clip({
+    name = "kick",
+    start = 0,
+    length = 3,
+    notes = {
+      { pitch = 36, start = 0, length = 0.25, velocity = 120 },
+      { pitch = 36, start = 1.5, length = 0.25, velocity = 90, meta = { channel = 10 } },
+    },
+  })
+  local chords = keys:add_clip({
+    name = "chords",
+    start = 3,
+    length = 6,
+    notes = {
+      { pitch = 60, start = 0, length = 2, velocity = 80 },
+      { pitch = 64, start = 0, length = 2, velocity = 80 },
+      { pitch = 67, start = 2.5, length = 0.125, velocity = 64 },
+    },
+  })
   chords:set_controls({
     { start = 0, type = "cc", number = 1, value = 64 / 127 },
     { start = 0.5, type = "program", program = 5, bank = 130 },
@@ -610,12 +709,26 @@ local function build(dir)
     { start = 2, type = "pressure", key = 64, value = 20 / 127 },
     { start = 2.5, type = "cc", number = 64, value = 1 },
   })
-  local quiet = keys:add_clip({ name = "muted", start = 12, length = 3, notes = { { pitch = 72, start = 0, length = 1 } } })
+  local quiet =
+    keys:add_clip({ name = "muted", start = 12, length = 3, notes = { { pitch = 72, start = 0, length = 1 } } })
   quiet.muted = true
   -- A looped MIDI clip whose repeated stretch begins half a beat before it.
-  api.clip_add(kick.id, { name = "loop", start = 4, length = 5, notes = {
-    { pitch = 38, start = -0.5, length = 0.25, velocity = 100 }, { pitch = 42, start = 0.5, length = 0.25, velocity = 70 },
-  }, controls = { { start = 0, type = "cc", number = 7, value = 64 / 127 } }, ["loop"] = true, loop_length = 2, loop_start = -0.5 })
+  api.clip_add(
+    kick.id,
+    {
+      name = "loop",
+      start = 4,
+      length = 5,
+      notes = {
+        { pitch = 38, start = -0.5, length = 0.25, velocity = 100 },
+        { pitch = 42, start = 0.5, length = 0.25, velocity = 70 },
+      },
+      controls = { { start = 0, type = "cc", number = 7, value = 64 / 127 } },
+      ["loop"] = true,
+      loop_length = 2,
+      loop_start = -0.5,
+    }
+  )
   local wav = dir .. "/media/tone.wav"
   local audio = gtr:add_clip({ start = 1, file = wav, offset = 0.25, gain = -3.5 })
   audio.length = 2
@@ -623,11 +736,25 @@ local function build(dir)
   api.clip_set(audio.id, "fade_out", 0.5)
   -- Faster and higher; and a looped clip of the part of the file after 0.5 s.
   api.clip_add(gtr.id, { name = "fast", start = 4, file = wav, offset = 0, length = 1, stretch = 0.5, pitch = 3 })
-  api.clip_add(gtr.id, { name = "looped", start = 6, file = wav, offset = 0.75, length = 6, ["loop"] = true,
-    loop_length = 2.5, loop_start = -0.4166666666666667 })
+  api.clip_add(
+    gtr.id,
+    {
+      name = "looped",
+      start = 6,
+      file = wav,
+      offset = 0.75,
+      length = 6,
+      ["loop"] = true,
+      loop_length = 2.5,
+      loop_start = -0.4166666666666667,
+    }
+  )
   keys:automate("volume"):set_points({ { 0, -10 }, { 4, 0 }, { 8, -120 } })
   local vol = keys:lane("volume")
-  api.lane_set_shapes(vol.id, { { beat = 0, shape = "hold", tension = 0 }, { beat = 4, shape = "smooth", tension = 0 } })
+  api.lane_set_shapes(
+    vol.id,
+    { { beat = 0, shape = "hold", tension = 0 }, { beat = 4, shape = "smooth", tension = 0 } }
+  )
   local pan = gtr:automate("pan")
   pan:set_points({ { 0, -1 }, { 6, 0.5 } })
   pan.enabled = false
@@ -709,9 +836,18 @@ test("rpp: plugins go out and come back with their settings", function()
   eq(devs[2].bypass, true, "bypass")
   -- A VST3 that came from REAPER goes back with its state.
   local vdoc = r.parse(table.concat({
-    "<REAPER_PROJECT 0.1 \"7.55\" 0", "  TEMPO 120 4 4", "  <TRACK", "    NAME V", "    <FXCHAIN", "      BYPASS 0 0 0",
+    '<REAPER_PROJECT 0.1 "7.55" 0',
+    "  TEMPO 120 4 4",
+    "  <TRACK",
+    "    NAME V",
+    "    <FXCHAIN",
+    "      BYPASS 0 0 0",
     '      <VST "VST3: Gate Mono (LSP VST3)" lsp-plugins.vst3 0 "" 1{00000000000000000000000000000000} ""',
-    "      >", "      WAK 0 0", "    >", "  >", ">",
+    "      >",
+    "      WAK 0 0",
+    "    >",
+    "  >",
+    ">",
   }, "\n"))
   -- REAPER's chunk around the state of a gate made here.
   local fx = require("interop.rpp.fx")
@@ -732,7 +868,11 @@ test("rpp: plugins go out and come back with their settings", function()
   local reaper_state = fx.vst3_state_to_reaper(b64.unbase64(state))
   local header = b64.unbase64("9mZpeO5e7f4CAAAAAQAAAAAAAAACAAAAAAAAAAIAAAABAAAAAAAAAAIAAAAAAAAAGAAAAAEAAAD//wAA")
   header = header:sub(1, #header - 12) .. b64.le32(#reaper_state) .. header:sub(#header - 7)
-  vdoc.project:child("TRACK"):child("FXCHAIN"):child("VST"):set_data({ b64.base64(header), b64.base64(reaper_state), "AAAAAAAA" })
+  vdoc.project
+    :child("TRACK")
+    :child("FXCHAIN")
+    :child("VST")
+    :set_data({ b64.base64(header), b64.base64(reaper_state), "AAAAAAAA" })
   r.save(vdoc, dir .. "/vst3.rpp")
   r.import(dir .. "/vst3.rpp")
   local v = paw.track("V"):devices()[1]
@@ -754,7 +894,15 @@ test("rpp: routing a folder cannot hold is written as a send", function()
   paw.add_track({ name = "Late", output = bus })
   paw.flush()
   local result = r.export(T.scratch .. "/route.rpp")
-  eq(has_item(result.report, "Routing written as a send (REAPER folders need the child right after its parent)", "Late -> Bus"), true, "reported")
+  eq(
+    has_item(
+      result.report,
+      "Routing written as a send (REAPER folders need the child right after its parent)",
+      "Late -> Bus"
+    ),
+    true,
+    "reported"
+  )
   local late = r.read(T.scratch .. "/route.rpp").project:blocks("TRACK")[3]
   eq(late:child("MAINSEND"):arg(1), "0", "no parent send")
   local bus_block = r.read(T.scratch .. "/route.rpp").project:blocks("TRACK")[1]
@@ -819,8 +967,16 @@ test("rpp: sections go out as regions and note attributes are listed as left out
   require("sections").add("Chorus", 4)
   paw.flush()
   local result = r.export(T.scratch .. "/sections.rpp")
-  eq(has_item(result.report, "Note attributes (MIDI 2.0 articulations)", "Strings"), true, "attributes listed: " .. result.report:text())
-  eq(has_item(result.report, "Sections written as regions (they come back as regions)", "sections"), true, "sections listed")
+  eq(
+    has_item(result.report, "Note attributes (MIDI 2.0 articulations)", "Strings"),
+    true,
+    "attributes listed: " .. result.report:text()
+  )
+  eq(
+    has_item(result.report, "Sections written as regions (they come back as regions)", "sections"),
+    true,
+    "sections listed"
+  )
   r.import(T.scratch .. "/sections.rpp")
   local regions = paw.markers.regions()
   eq(regions[1].name .. " " .. regions[2].name, "Verse Chorus", "the sections are REAPER regions")
@@ -833,15 +989,26 @@ end)
 --- dump's lines by kind, each line a list of its values.
 local function reaper_open(path, build)
   local reaper = os.getenv("PAW_REAPER")
-  if not reaper or reaper == "" then return nil, "skipped: set PAW_REAPER to the reaper program to open the file in REAPER" end
+  if not reaper or reaper == "" then
+    return nil, "skipped: set PAW_REAPER to the reaper program to open the file in REAPER"
+  end
   local dump = path .. ".dump"
-  local code = os.execute(string.format("'%s/tools/reaper-open.sh' '%s' '%s' %s 2>&1", HERE, path, dump,
-    build and ("'" .. build .. "'") or ""))
+  local code = os.execute(
+    string.format(
+      "'%s/tools/reaper-open.sh' '%s' '%s' %s 2>&1",
+      HERE,
+      path,
+      dump,
+      build and ("'" .. build .. "'") or ""
+    )
+  )
   if code ~= 0 and code ~= true then error("reaper-open.sh failed: " .. tostring(code)) end
   local out = {}
   for line in T.read_file(dump):gmatch("[^\n]+") do
     local fields = {}
-    for f in (line .. "\t"):gmatch("([^\t]*)\t") do fields[#fields + 1] = tonumber(f) or f end
+    for f in (line .. "\t"):gmatch("([^\t]*)\t") do
+      fields[#fields + 1] = tonumber(f) or f
+    end
     local kind = table.remove(fields, 1)
     out[kind] = out[kind] or {}
     table.insert(out[kind], fields)
@@ -880,7 +1047,9 @@ test("rpp: REAPER opens an exported project with the same tracks, items, notes a
   eq(got.track[4][7], -1, "Snare closes it")
   -- Sends, from the sender.
   local sends = {}
-  for _, s in ipairs(got.send or {}) do sends[#sends + 1] = string.format("%d>%d %.2f", s[1], s[2], 20 * math.log10(s[3])) end
+  for _, s in ipairs(got.send or {}) do
+    sends[#sends + 1] = string.format("%d>%d %.2f", s[1], s[2], 20 * math.log10(s[3]))
+  end
   table.sort(sends)
   eq(table.concat(sends, ", "), "3>5 -15.50, 4>5 -9.00", "sends")
   -- Items and their notes.
@@ -944,7 +1113,9 @@ test("rpp: REAPER opens an exported project with the same tracks, items, notes a
         end
         local moves = ccs[index[t.id] .. ":" .. k] or {}
         local wantc = 0
-        for _, m in ipairs(c:controls()) do wantc = wantc + (m.type == "program" and m.bank and 3 or 1) end
+        for _, m in ipairs(c:controls()) do
+          wantc = wantc + (m.type == "program" and m.bank and 3 or 1)
+        end
         eq(#moves, wantc, what .. " controller events")
       end
       checked = checked + 1
@@ -954,13 +1125,20 @@ test("rpp: REAPER opens an exported project with the same tracks, items, notes a
   -- The controllers of the chords, as REAPER reads them.
   local chords = ccs[index[paw.track("Keys").id] .. ":1"]
   local text = {}
-  for _, c in ipairs(chords) do text[#text + 1] = string.format("%d:%d,%d", c[4], c[6], c[7]) end
-  eq(table.concat(text, " "), "176:1,64 176:0,1 176:32,2 192:5,0 224:0,32 208:100,0 160:64,20 176:64,127",
-    "CC 1, bank and program, pitch bend, pressure, key pressure, sustain")
+  for _, c in ipairs(chords) do
+    text[#text + 1] = string.format("%d:%d,%d", c[4], c[6], c[7])
+  end
+  eq(
+    table.concat(text, " "),
+    "176:1,64 176:0,1 176:32,2 192:5,0 224:0,32 208:100,0 160:64,20 176:64,127",
+    "CC 1, bank and program, pitch bend, pressure, key pressure, sustain"
+  )
   -- Envelopes: the volume of Keys with its hold and smooth shapes.
   local shapes = {}
   for _, p in ipairs(got.point or {}) do
-    if p[1] == index[paw.track("Keys").id] and p[2] == "Volume" then shapes[#shapes + 1] = string.format("%.3f:%d", p[3], p[5]) end
+    if p[1] == index[paw.track("Keys").id] and p[2] == "Volume" then
+      shapes[#shapes + 1] = string.format("%.3f:%d", p[3], p[5])
+    end
   end
   eq(table.concat(shapes, " "), string.format("0.000:1 %.3f:2 %.3f:0", sec(4), sec(8)), "Keys volume points and shapes")
   -- Markers and the region.

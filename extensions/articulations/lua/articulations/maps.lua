@@ -24,11 +24,22 @@ M.SUFFIX = ".art.toml"
 
 -- Colours of Reaticulate's classes, so that imported banks keep theirs.
 M.colours = {
-  default = "#8a8f98", long = "#4a7fd0", ["long-light"] = "#86abe8", ["long-dark"] = "#2c5596",
-  short = "#d08a3c", ["short-light"] = "#e8b27a", ["short-dark"] = "#93581f",
-  legato = "#4caf6d", ["legato-light"] = "#86d29f", ["legato-dark"] = "#2c7a47",
-  fx = "#b05cc8", ["fx-light"] = "#d293e2", ["fx-dark"] = "#76378a",
-  textured = "#a2a447", ["textured-light"] = "#c6c87e", ["textured-dark"] = "#6d6f26",
+  default = "#8a8f98",
+  long = "#4a7fd0",
+  ["long-light"] = "#86abe8",
+  ["long-dark"] = "#2c5596",
+  short = "#d08a3c",
+  ["short-light"] = "#e8b27a",
+  ["short-dark"] = "#93581f",
+  legato = "#4caf6d",
+  ["legato-light"] = "#86d29f",
+  ["legato-dark"] = "#2c7a47",
+  fx = "#b05cc8",
+  ["fx-light"] = "#d293e2",
+  ["fx-dark"] = "#76378a",
+  textured = "#a2a447",
+  ["textured-light"] = "#c6c87e",
+  ["textured-dark"] = "#6d6f26",
 }
 
 --- A colour for a class name or `#rrggbb`.
@@ -95,7 +106,8 @@ function M.events(text, offset)
       if not pitch then return nil, "`" .. word .. "`: `" .. tostring(key) .. "` is not a key (D1, C#1, 26)" end
       vel = tonumber(vel)
       if vel and (vel < 1 or vel > 127) then return nil, "`" .. word .. "`: a velocity runs from 1 to 127" end
-      out[#out + 1] = { type = name == "ks" and "note" or "hold", key = pitch, velocity = vel or 100, given = vel ~= nil }
+      out[#out + 1] =
+        { type = name == "ks" and "note" or "hold", key = pitch, velocity = vel or 100, given = vel ~= nil }
     elseif name and name:match("^cc%d+$") then
       local number = tonumber(name:sub(3))
       local lo, hi = value:match("^(%d+)%-(%d+)$")
@@ -108,7 +120,9 @@ function M.events(text, offset)
     elseif name == "pc" then
       local program, bank = value:match("^(%d+)/?(%d*)$")
       program = tonumber(program)
-      if not program or program > 127 then return nil, "`" .. word .. "`: a program runs from 0 to 127 (`pc=12`, `pc=12/258` with a bank)" end
+      if not program or program > 127 then
+        return nil, "`" .. word .. "`: a program runs from 0 to 127 (`pc=12`, `pc=12/258` with a bank)"
+      end
       out[#out + 1] = { type = "program", program = program, bank = tonumber(bank) }
     elseif name == "ch" then
       local ch = tonumber(value)
@@ -130,7 +144,9 @@ function M.out_text(events)
   local words = {}
   for _, e in ipairs(events) do
     if e.type == "note" or e.type == "hold" then
-      words[#words + 1] = (e.type == "note" and "ks=" or "hold=") .. music.name(e.key) .. ((e.velocity and (e.given or e.velocity ~= 100)) and ":" .. e.velocity or "")
+      words[#words + 1] = (e.type == "note" and "ks=" or "hold=")
+        .. music.name(e.key)
+        .. ((e.velocity and (e.given or e.velocity ~= 100)) and ":" .. e.velocity or "")
     elseif e.type == "cc" then
       words[#words + 1] = "cc" .. e.number .. "=" .. e.value
     elseif e.type == "program" then
@@ -166,13 +182,25 @@ end
 --- points `"0:0 0.5:0.3 1:1"`, as a function of 0..1 to 0..1; nil and why.
 function M.curve(text)
   text = tostring(text or "linear")
-  if text == "linear" then return function(x) return x end end
-  if text == "exp" then return function(x) return x * x end end
-  if text == "log" then return function(x) return math.sqrt(x) end end
-  if text == "s" then return function(x) return x * x * (3 - 2 * x) end end
+  if text == "linear" then
+    return function(x) return x end
+  end
+  if text == "exp" then
+    return function(x) return x * x end
+  end
+  if text == "log" then
+    return function(x) return math.sqrt(x) end
+  end
+  if text == "s" then
+    return function(x) return x * x * (3 - 2 * x) end
+  end
   local pts = {}
-  for a, b in text:gmatch("([%d%.]+):([%d%.]+)") do pts[#pts + 1] = { tonumber(a), tonumber(b) } end
-  if #pts < 2 then return nil, "`" .. text .. "` is not a curve: linear, exp, log, s, or points such as \"0:0 0.5:0.3 1:1\"" end
+  for a, b in text:gmatch("([%d%.]+):([%d%.]+)") do
+    pts[#pts + 1] = { tonumber(a), tonumber(b) }
+  end
+  if #pts < 2 then
+    return nil, "`" .. text .. '` is not a curve: linear, exp, log, s, or points such as "0:0 0.5:0.3 1:1"'
+  end
   table.sort(pts, function(p, q) return p[1] < q[1] end)
   return function(x)
     if x <= pts[1][1] then return pts[1][2] end
@@ -194,11 +222,44 @@ function M.hash(text)
   return bit.tohex(h)
 end
 
-local ART_FIELDS = { m2 = true, out = true, tag = true, name = true, class = true, colour = true, color = true, mark = true,
-  text = true, range = true, mono = true, group = true, program = true, icon = true, delay = true }
-local TOP_FIELDS = { format = true, name = true, family = true, match = true, range = true, comfortable = true,
-  keyswitches = true, default = true, send = true, chase = true, labels = true, art = true, mod = true, generated = true,
-  source = true, delay = true, linked = true, middle_c = true, checked = true }
+local ART_FIELDS = {
+  m2 = true,
+  out = true,
+  tag = true,
+  name = true,
+  class = true,
+  colour = true,
+  color = true,
+  mark = true,
+  text = true,
+  range = true,
+  mono = true,
+  group = true,
+  program = true,
+  icon = true,
+  delay = true,
+}
+local TOP_FIELDS = {
+  format = true,
+  name = true,
+  family = true,
+  match = true,
+  range = true,
+  comfortable = true,
+  keyswitches = true,
+  default = true,
+  send = true,
+  chase = true,
+  labels = true,
+  art = true,
+  mod = true,
+  generated = true,
+  source = true,
+  delay = true,
+  linked = true,
+  middle_c = true,
+  checked = true,
+}
 
 --- Read a map from its text. Returns the map, or nil and what is wrong.
 function M.parse(text, file)
@@ -210,26 +271,46 @@ function M.parse(text, file)
   for k in pairs(t) do
     if not TOP_FIELDS[k] then return bad("`" .. k .. "` is not a field of a map") end
   end
-  if type(t.art) ~= "table" or next(t.art) == nil then return bad("a map needs an `[art]` table with at least one articulation") end
+  if type(t.art) ~= "table" or next(t.art) == nil then
+    return bad("a map needs an `[art]` table with at least one articulation")
+  end
   local map = {
-    file = file, name = t.name or (file and file:match("([^/]+)%.art%.toml$")) or "articulations", family = t.family,
+    file = file,
+    name = t.name or (file and file:match("([^/]+)%.art%.toml$")) or "articulations",
+    family = t.family,
     match = type(t.match) == "table" and t.match or (t.match and { t.match } or {}),
-    send = t.send or "change", chase = t.chase or {}, labels = t.labels or {}, generated = t.generated, source = t.source,
-    arts = {}, by_id = {}, by_code = {}, mods = {}, hash = M.hash(text),
+    send = t.send or "change",
+    chase = t.chase or {},
+    labels = t.labels or {},
+    generated = t.generated,
+    source = t.source,
+    arts = {},
+    by_id = {},
+    by_code = {},
+    mods = {},
+    hash = M.hash(text),
   }
-  if map.send ~= "change" and map.send ~= "every" then return bad("`send` is \"change\" or \"every\"") end
+  if map.send ~= "change" and map.send ~= "every" then return bad('`send` is "change" or "every"') end
   local offset = M.offset(t.middle_c)
-  if not offset then return bad("`middle_c = \"" .. tostring(t.middle_c) .. "\"`: the name the instrument gives key 60, C-1 to C6 (\"C3\", \"C4\")") end
+  if not offset then
+    return bad(
+      '`middle_c = "' .. tostring(t.middle_c) .. '"`: the name the instrument gives key 60, C-1 to C6 ("C3", "C4")'
+    )
+  end
   map.offset, map.middle_c, map.checked = offset, t.middle_c, t.checked
   for _, name in ipairs({ "range", "comfortable", "keyswitches" }) do
     if t[name] ~= nil then
       map[name] = M.range(t[name], offset)
-      if not map[name] then return bad("`" .. name .. " = " .. tostring(t[name]) .. "`: a range of keys is written `G3-A7` or `55-100`") end
+      if not map[name] then
+        return bad("`" .. name .. " = " .. tostring(t[name]) .. "`: a range of keys is written `G3-A7` or `55-100`")
+      end
     end
   end
   for _, id in ipairs(toml.keys(t.art)) do
     local a = t.art[id]
-    if type(a) ~= "table" then return bad("articulation `" .. id .. "` is a table: `" .. id .. " = { m2 = \"11.0\", out = \"ks=D1\" }`") end
+    if type(a) ~= "table" then
+      return bad("articulation `" .. id .. "` is a table: `" .. id .. ' = { m2 = "11.0", out = "ks=D1" }`')
+    end
     for k in pairs(a) do
       if not ART_FIELDS[k] then return bad("articulation `" .. id .. "`: `" .. k .. "` is not one of its fields") end
     end
@@ -239,15 +320,26 @@ function M.parse(text, file)
     if not events then return bad("articulation `" .. id .. "`: " .. why2) end
     local art = {
       -- `out` as the map writes it; `send` in paw's key names, as the core takes it.
-      id = id, code = m2.code(attr), attr = attr, out = a.out or "", send = M.out_text(events), events = events,
-      name = a.name or id:gsub("-", " "):gsub("^%l", string.upper), tag = a.tag or id:sub(1, 3),
-      class = a.class or a.colour or a.color, mark = a.mark, text = a.text, mono = a.mono, group = a.group,
-      program = tonumber(a.program), icon = a.icon,
+      id = id,
+      code = m2.code(attr),
+      attr = attr,
+      out = a.out or "",
+      send = M.out_text(events),
+      events = events,
+      name = a.name or id:gsub("-", " "):gsub("^%l", string.upper),
+      tag = a.tag or id:sub(1, 3),
+      class = a.class or a.colour or a.color,
+      mark = a.mark,
+      text = a.text,
+      mono = a.mono,
+      group = a.group,
+      program = tonumber(a.program),
+      icon = a.icon,
     }
     art.colour = M.colour(art.class)
     if a.delay ~= nil then
       art.delay = M.delay(a.delay)
-      if not art.delay then return bad("articulation `" .. id .. "`: `delay` is written \"-80ms\"") end
+      if not art.delay then return bad("articulation `" .. id .. '`: `delay` is written "-80ms"') end
     end
     if a.range then
       art.range = M.range(a.range, offset)
@@ -265,22 +357,43 @@ function M.parse(text, file)
       local on, why = M.events(m.out or "", offset)
       local off, why2 = M.events(m.off or "", offset)
       if not on or not off then return bad("modifier `" .. id .. "`: " .. (why or why2)) end
-      map.mods[#map.mods + 1] = { id = id, m2 = m.m2, out = m.out or "", off = m.off or "", on_events = on, off_events = off,
-        text = m.text, name = m.name or m.text or id, group = m.group, tag = m.tag or id:sub(1, 3) }
+      map.mods[#map.mods + 1] = {
+        id = id,
+        m2 = m.m2,
+        out = m.out or "",
+        off = m.off or "",
+        on_events = on,
+        off_events = off,
+        text = m.text,
+        name = m.name or m.text or id,
+        group = m.group,
+        tag = m.tag or id:sub(1, 3),
+      }
     end
   end
   if t.delay ~= nil then
     map.delay = M.delay(t.delay)
-    if not map.delay then return bad("`delay` is written \"-80ms\"") end
+    if not map.delay then return bad('`delay` is written "-80ms"') end
   end
   -- Controllers drawn as one: `dynamics = { cc = [1, 11], curve = ["linear", "s"], default = 0.7 }`.
   map.linked = {}
   for _, id in ipairs(t.linked and toml.keys(t.linked) or {}) do
     local l = t.linked[id]
-    if type(l) ~= "table" or type(l.cc) ~= "table" or #l.cc == 0 then return bad("linked `" .. id .. "` names its controllers: `cc = [1, 11]`") end
-    local entry = { id = id, name = l.name or (id:gsub("^%l", string.upper)), cc = {}, curves = {}, curve_text = {}, default = tonumber(l.default) }
+    if type(l) ~= "table" or type(l.cc) ~= "table" or #l.cc == 0 then
+      return bad("linked `" .. id .. "` names its controllers: `cc = [1, 11]`")
+    end
+    local entry = {
+      id = id,
+      name = l.name or (id:gsub("^%l", string.upper)),
+      cc = {},
+      curves = {},
+      curve_text = {},
+      default = tonumber(l.default),
+    }
     for i, n in ipairs(l.cc) do
-      if type(n) ~= "number" or n < 0 or n > 127 then return bad("linked `" .. id .. "`: a controller runs from 0 to 127") end
+      if type(n) ~= "number" or n < 0 or n > 127 then
+        return bad("linked `" .. id .. "`: a controller runs from 0 to 127")
+      end
       local text = type(l.curve) == "table" and l.curve[i] or l.curve or "linear"
       local fn, why = M.curve(text)
       if not fn then return bad("linked `" .. id .. "`: " .. why) end
@@ -289,14 +402,18 @@ function M.parse(text, file)
     map.linked[#map.linked + 1] = entry
   end
   local default = t.default
-  if default ~= nil and not map.by_id[default] then return bad("`default = \"" .. tostring(default) .. "\"` names no articulation of the map") end
+  if default ~= nil and not map.by_id[default] then
+    return bad('`default = "' .. tostring(default) .. '"` names no articulation of the map')
+  end
   map.default = default or (map.by_code["10.0"] and map.by_code["10.0"].id) or map.arts[1].id
   -- The keyswitch rows: as the map says, else every key an articulation is switched with.
   if not map.keyswitches then
     local lo, hi
     for _, art in ipairs(map.arts) do
       for _, e in ipairs(art.events) do
-        if e.type == "note" or e.type == "hold" then lo, hi = math.min(lo or e.key, e.key), math.max(hi or e.key, e.key) end
+        if e.type == "note" or e.type == "hold" then
+          lo, hi = math.min(lo or e.key, e.key), math.max(hi or e.key, e.key)
+        end
       end
     end
     if lo then map.keyswitches = { lo, hi } end
@@ -331,16 +448,16 @@ function M.dirs()
   local env = api.env()
   local out = { { dir = env.config_dir .. "/articulations", kind = "user" } }
   for _, ext in ipairs(paw.ext.list()) do
-    if ext.ok and not ext.path:match("%.lua$") then out[#out + 1] = { dir = ext.path .. "/articulations", kind = "extension" } end
+    if ext.ok and not ext.path:match("%.lua$") then
+      out[#out + 1] = { dir = ext.path .. "/articulations", kind = "extension" }
+    end
   end
   out[#out + 1] = { dir = M.generated_dir(), kind = "generated" }
   return out
 end
 
 --- Where maps made from a library are kept.
-function M.generated_dir()
-  return api.env().data_dir .. "/articulations/generated"
-end
+function M.generated_dir() return api.env().data_dir .. "/articulations/generated" end
 
 local function walk(dir, rel, into)
   for _, item in ipairs(api.read_dir(dir)) do
@@ -353,7 +470,7 @@ local function walk(dir, rel, into)
   end
 end
 
-local cache = {}   -- by file: { text, map, err }
+local cache = {} -- by file: { text, map, err }
 
 --- A map from its file, read again only when the file changed. Returns the
 --- map, or nil and what is wrong.
@@ -430,7 +547,8 @@ function M.find(which)
 end
 
 -- The schemes of `match` that name a plugin: by its format, or any format.
-M.PLUGIN_SCHEMES = { clap = "clap", vst3 = "vst3", vst = "vst", vst2 = "vst", lv2 = "lv2", ladspa = "ladspa", plugin = true }
+M.PLUGIN_SCHEMES =
+  { clap = "clap", vst3 = "vst3", vst = "vst", vst2 = "vst", lv2 = "lv2", ladspa = "ladspa", plugin = true }
 
 --- Whether a `match` entry that names a plugin (`vst3:MODO BASS 2`,
 --- `clap:org.surge-synth-team.surge-xt`, `plugin:Circvit Bass`) names a
@@ -517,7 +635,9 @@ function M.shift(map, shift)
   end
   for i, m in ipairs(map.mods) do
     local on, off = move(m.on_events), move(m.off_events)
-    if not on or not off then return nil, (m.text or m.id) .. ": a keyswitch moved " .. shift .. " keys leaves the keys 0 to 127" end
+    if not on or not off then
+      return nil, (m.text or m.id) .. ": a keyswitch moved " .. shift .. " keys leaves the keys 0 to 127"
+    end
     copy.mods[i] = setmetatable({ on_events = on, off_events = off }, { __index = m })
   end
   if map.keyswitches then

@@ -26,7 +26,9 @@ end
 
 local function spans(track)
   local out = {}
-  for _, c in ipairs(track:clips()) do out[#out + 1] = c.start .. "+" .. c.length end
+  for _, c in ipairs(track:clips()) do
+    out[#out + 1] = c.start .. "+" .. c.length
+  end
   table.sort(out)
   return table.concat(out, " ")
 end
@@ -80,7 +82,9 @@ T.test("insert mode: an extension's key and kind of clip come and go with it", f
   track_at(0)
   local dir = T.scratch .. "/insertext"
   os.execute("mkdir -p '" .. dir .. "'")
-  T.write_file(dir .. "/init.lua", [[
+  T.write_file(
+    dir .. "/init.lua",
+    [[
     paw.clip_kinds.define("cue", {
       title = "Cue clip", insert = "c",
       serialize = function(d) return { text = d.text } end,
@@ -88,17 +92,24 @@ T.test("insert mode: an extension's key and kind of clip come and go with it", f
       create = function() return { text = "go" } end,
     })
     paw.insert.add("M", { kind = "midi", desc = "A two-bar clip", length = "2 bars" })
-  ]])
+  ]]
+  )
   T.write_file(dir .. "/manifest.lua", 'return { name = "insertext", version = "0.1.0" }')
   local before = table.concat(paw.opt.insertkeys, ",")
-  T.after(function() if paw.ext.loaded.insertext then paw.ext.unload("insertext") end end)
+  T.after(function()
+    if paw.ext.loaded.insertext then paw.ext.unload("insertext") end
+  end)
   assert(paw.ext.load(dir).ok, "the extension loads")
   local track = paw.cursor.track()
   keys("iMc<Esc>")
   eq(spans(track), "0+8 8+4", "M a two-bar clip, c a cue clip after it")
   eq(track:clips()[2].kind, "cue", "of the kind")
   local insert_keys = table.concat(paw.opt.insertkeys, ",")
-  eq(insert_keys:find("M", 1, true) ~= nil and insert_keys:find("c", 1, true) ~= nil, true, "both keys work: " .. insert_keys)
+  eq(
+    insert_keys:find("M", 1, true) ~= nil and insert_keys:find("c", 1, true) ~= nil,
+    true,
+    "both keys work: " .. insert_keys
+  )
   paw.ext.unload("insertext")
   eq(tostring(paw.insert.get("M")) .. " " .. tostring(paw.insert.get("c")), "nil nil", "both go with it")
   eq(table.concat(paw.opt.insertkeys, ","), before, "and out of paw.opt.insertkeys")

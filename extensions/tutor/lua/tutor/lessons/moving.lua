@@ -46,7 +46,12 @@ is the first clip. `|` and `:5` take a bar number, not a column or a line.]],
     bass:add_clip({ name = "outro", start = 24, length = 4, notes = look.pulse("D2", 4) })
     local lead = paw.add_track({ name = "Lead", volume = -8 })
     lead:add_device("synth", { wave = 1, cutoff = 2500, release = 0.2 })
-    lead:add_clip({ name = "melody", start = 16, length = 8, notes = look.notes("D5:0:1 F5:1:1 A5:2:2 G5:4:1 F5:5:1 E5:6:2") })
+    lead:add_clip({
+      name = "melody",
+      start = 16,
+      length = 8,
+      notes = look.notes("D5:0:1 F5:1:1 A5:2:2 G5:4:1 F5:5:1 E5:6:2"),
+    })
     local pad = paw.add_track({ name = "Pad", volume = -12 })
     pad:add_device("synth", { wave = 3, attack = 0.3, release = 0.6, cutoff = 1500 })
     pad:add_clip({ name = "pad", start = 16, length = 12, notes = look.chord({ "D4", "F4", "A4" }, 12) })

@@ -11,7 +11,9 @@ local function load()
   return require("notation"), require("notation.model")
 end
 
-local function N(pitch, start, length, velocity) return { pitch = pitch, start = start, length = length, velocity = velocity or 80 } end
+local function N(pitch, start, length, velocity)
+  return { pitch = pitch, start = start, length = length, velocity = velocity or 80 }
+end
 
 local keys = T.keys
 
@@ -37,29 +39,50 @@ test("notation: a played note that lands on the grid by chance is read as played
   -- From a MIDI file at 480 ticks a beat: the E5 starts on beat four and
   -- is let go 400 ticks later, five sixths of a beat, among notes that are
   -- off the grid.
-  local played = { N(72, 0.0042, 0.8292), N(74, 1, 0.3937), N(76, 1.5229, 0.3771), N(77, 2.0292, 0.7833), N(76, 3, 0.8333),
-    N(74, 4.0417, 0.4896), N(72, 4.4667, 0.3854) }
-  eq(model.text(model.layout(played, { length = 8 })), "q C5 e D5 e E5 q F5 q E5 | e D5 e C5 qr hr", "a quarter, not a sextuplet")
-  eq(model.text(model.layout({ N(60, 0, 5 / 6), N(62, 1, 1) }, { length = 4 })), "6{q~ C4 s C4 sr} q D4 hr",
-    "notes drawn on the grid are written as they are")
+  local played = {
+    N(72, 0.0042, 0.8292),
+    N(74, 1, 0.3937),
+    N(76, 1.5229, 0.3771),
+    N(77, 2.0292, 0.7833),
+    N(76, 3, 0.8333),
+    N(74, 4.0417, 0.4896),
+    N(72, 4.4667, 0.3854),
+  }
+  eq(
+    model.text(model.layout(played, { length = 8 })),
+    "q C5 e D5 e E5 q F5 q E5 | e D5 e C5 qr hr",
+    "a quarter, not a sextuplet"
+  )
+  eq(
+    model.text(model.layout({ N(60, 0, 5 / 6), N(62, 1, 1) }, { length = 4 })),
+    "6{q~ C4 s C4 sr} q D4 hr",
+    "notes drawn on the grid are written as they are"
+  )
   local entered = N(76, 3, 5 / 6)
   entered.meta = { notation = { letter = 2, alter = 0, pitch = 76 } }
   played[5] = entered
-  eq(model.text(model.layout(played, { length = 8 })):match("^[^|]*"), "q C5 e D5 e E5 q F5 6{q~ E5 s E5 sr} ",
-    "and so is a note notation wrote, among played ones")
+  eq(
+    model.text(model.layout(played, { length = 8 })):match("^[^|]*"),
+    "q C5 e D5 e E5 q F5 6{q~ E5 s E5 sr} ",
+    "and so is a note notation wrote, among played ones"
+  )
 end)
 
 --- A row of the screen as its characters, one a cell.
 local function cells(row)
   local out = {}
-  for ch in row:gmatch("[%z\1-\127\194-\244][\128-\191]*") do out[#out + 1] = ch end
+  for ch in row:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+    out[#out + 1] = ch
+  end
   return out
 end
 
 --- Eight quarter notes over two bars, C D E F G A B C.
 local function scale()
   local notes = {}
-  for i, p in ipairs({ 72, 74, 76, 77, 79, 81, 83, 84 }) do notes[i] = N(p, i - 1, 1) end
+  for i, p in ipairs({ 72, 74, 76, 77, 79, 81, 83, 84 }) do
+    notes[i] = N(p, i - 1, 1)
+  end
   return notes
 end
 
@@ -91,12 +114,19 @@ test("notation: a dynamic's popover opens under the row it previews on", functio
   local rows = api.ui_snapshot(160, 50)
   local prompt, ghost
   for i, row in ipairs(rows) do
-    if row:find("dynamic ff", 1, true) then prompt = i
-    elseif row:find("ff", 1, true) and not ghost then ghost = i end
+    if row:find("dynamic ff", 1, true) then
+      prompt = i
+    elseif row:find("ff", 1, true) and not ghost then
+      ghost = i
+    end
   end
   keys("<Esc>")
   eq(prompt ~= nil, true, "the prompt is open")
-  eq(ghost ~= nil and ghost < prompt, true, "the ff it would write is drawn, above the prompt:\n" .. table.concat(rows, "\n"))
+  eq(
+    ghost ~= nil and ghost < prompt,
+    true,
+    "the ff it would write is drawn, above the prompt:\n" .. table.concat(rows, "\n")
+  )
 end)
 
 test("notation: K on a note says how it is written and what MIDI note it is", function()
@@ -111,8 +141,16 @@ test("notation: K on a note says how it is written and what MIDI note it is", fu
   local text = screen(160, 50)
   keys("q")
   eq(text:find("Note  D5", 1, true) ~= nil, true, "the note's name:\n" .. text)
-  eq(text:find("written quarter, voice 1, staccato, under mf", 1, true) ~= nil, true, "its value, voice, marks and dynamic:\n" .. text)
-  eq(text:find("played at 1.2.00, 0.5 beats long, velocity 80 (MIDI note 74", 1, true) ~= nil, true, "the MIDI note:\n" .. text)
+  eq(
+    text:find("written quarter, voice 1, staccato, under mf", 1, true) ~= nil,
+    true,
+    "its value, voice, marks and dynamic:\n" .. text
+  )
+  eq(
+    text:find("played at 1.2.00, 0.5 beats long, velocity 80 (MIDI note 74", 1, true) ~= nil,
+    true,
+    "the MIDI note:\n" .. text
+  )
   eq(text:find("Clip  tune", 1, true) ~= nil, true, "then the clip and track, as everywhere")
 end)
 
@@ -127,7 +165,11 @@ test("notation: in insert mode the title keeps the key and metre beside the INS 
   end
   eq(title ~= nil, true, "the badge is drawn")
   eq(title:find("C major  4/4", 1, true) ~= nil, true, "the key and metre whole: " .. tostring(title))
-  eq(title:find("quarter", 1, true) == title:find("INS quarter", 1, true) + 4, true, "the value once, in the badge: " .. title)
+  eq(
+    title:find("quarter", 1, true) == title:find("INS quarter", 1, true) + 4,
+    true,
+    "the value once, in the badge: " .. title
+  )
 end)
 
 test("notation: the title names a song in A minor so, not C major, with no key set", function()
@@ -164,7 +206,11 @@ test("notation: in the cell view a low second voice's stems stop at their system
     if first and tonumber(first) > 1 and not numbers then numbers = i end
   end
   eq(numbers ~= nil, true, "two systems:\n" .. table.concat(rows, "\n"))
-  eq(rows[numbers]:find("│", 1, true), nil, "nothing of the system above on its bar numbers:\n" .. table.concat(rows, "\n", math.max(1, numbers - 12), numbers))
+  eq(
+    rows[numbers]:find("│", 1, true),
+    nil,
+    "nothing of the system above on its bar numbers:\n" .. table.concat(rows, "\n", math.max(1, numbers - 12), numbers)
+  )
 end)
 
 test("notation: a dynamic written inside a hairpin ends its ramp there, as it is drawn", function()
@@ -173,7 +219,9 @@ test("notation: a dynamic written inside a hairpin ends its ramp there, as it is
   keys("v6l<localleader>dp<lt>f<CR>")
   local function velocities()
     local out = {}
-    for i, n in ipairs(clip:notes()) do out[i] = n.velocity end
+    for i, n in ipairs(clip:notes()) do
+      out[i] = n.velocity
+    end
     return out
   end
   local v = velocities()
@@ -195,6 +243,14 @@ test("notation: :notation.set alone lists every setting on a page, saying which 
   for _, k in ipairs(require("notation.score").ORDER) do
     eq(text:find("  " .. k .. " ", 1, true) ~= nil, true, k .. " is listed:\n" .. text)
   end
-  eq(text:find("swing       off       (default auto)", 1, true) ~= nil, true, "a setting changed says its default:\n" .. text)
-  eq(text:find("chord       35       ", 1, true) ~= nil and text:find("(default 35)", 1, true) == nil, true, "one left alone, its value")
+  eq(
+    text:find("swing       off       (default auto)", 1, true) ~= nil,
+    true,
+    "a setting changed says its default:\n" .. text
+  )
+  eq(
+    text:find("chord       35       ", 1, true) ~= nil and text:find("(default 35)", 1, true) == nil,
+    true,
+    "one left alone, its value"
+  )
 end)

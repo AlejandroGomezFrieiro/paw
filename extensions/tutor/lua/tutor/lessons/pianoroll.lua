@@ -105,7 +105,8 @@ of it is one undo step. `.` repeats it at the cursor, as Vim repeats an insert.]
       say = "`<Esc>` writes the notes that you drew and leaves insert mode. Press `<Esc>`.",
       keys = { "<Esc>" },
       check = function(_, look)
-        return paw.keymap.mode == "n" and look.melody(look.clip("Piano")):find("69@0+1 67@1+1 65@2+1 64@3+1 64@4+1", 1, true) ~= nil
+        return paw.keymap.mode == "n"
+          and look.melody(look.clip("Piano")):find("69@0+1 67@1+1 65@2+1 64@3+1 64@4+1", 1, true) ~= nil
       end,
       done = "The notes A G F E go into the notes E D C that were there before. All of this is one undo step.",
     },
@@ -126,7 +127,9 @@ of it is one undo step. `.` repeats it at the cursor, as Vim repeats an insert.]
       keys = { "<CR>", "J", "4l", "<Esc>" },
       check = function(_, look)
         local m = look.melody(look.clip("Piano"))
-        return paw.keymap.mode == "n" and m:find("60@8+1 64@8+1 67@8+1", 1, true) ~= nil and m:find("48@9+1", 1, true) ~= nil
+        return paw.keymap.mode == "n"
+          and m:find("60@8+1 64@8+1 67@8+1", 1, true) ~= nil
+          and m:find("48@9+1", 1, true) ~= nil
       end,
       done = "The clip has a C major chord, then a C3 below it.",
       hint = "`<Space>` adds a rest of one step before the next note.",

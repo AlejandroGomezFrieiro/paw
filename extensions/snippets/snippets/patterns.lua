@@ -23,7 +23,9 @@ local function span(ctx)
   end
   local bars = v == "2 bars" and 2 or v == "4 bars" and 4 or 1
   local finish = ctx.at
-  for _ = 1, bars * math.max(1, ctx.count) do finish = finish + paw.time.bar(finish) end
+  for _ = 1, bars * math.max(1, ctx.count) do
+    finish = finish + paw.time.bar(finish)
+  end
   return ctx.at, finish
 end
 
@@ -71,17 +73,23 @@ return {
       if not c then return nil, "no chord here" end
       local from = math.max(ctx.at, c.at)
       local to = c.at + c.length
-      if ctx.region then from, to = ctx.region.from, ctx.region.to end
+      if ctx.region then
+        from, to = ctx.region.from, ctx.region.to
+      end
       local rate = ({ grid = ctx.grid, ["1/8"] = 0.5, ["1/16"] = 0.25, ["1/4"] = 1 })[ctx.values.rate or "grid"]
       local _, pitches = ctx:chord(c.tones, from, to, { count = math.max(3, #c.tones) })
       if not pitches then return nil, "the chord does not fit the track's range" end
       local order = {}
-      for i, p in ipairs(pitches) do order[i] = p end
+      for i, p in ipairs(pitches) do
+        order[i] = p
+      end
       local pattern = ctx.values.pattern
       if pattern == "down" then
         table.sort(order, function(a, b) return a > b end)
       elseif pattern == "up-down" then
-        for i = #pitches - 1, 2, -1 do order[#order + 1] = pitches[i] end
+        for i = #pitches - 1, 2, -1 do
+          order[#order + 1] = pitches[i]
+        end
       elseif pattern == "broken" then
         -- Low, high, middle, high: as an Alberti bass.
         order = { pitches[1], pitches[#pitches], pitches[math.max(1, #pitches - 1)], pitches[#pitches] }
@@ -118,7 +126,9 @@ return {
           local at, k = part.from, 0
           while at < part.to - 1e-9 do
             local p = root
-            if k % 2 == 1 then p = pattern == "octaves" and (root + 12 <= 127 and root + 12 or root) or (fifth or root) end
+            if k % 2 == 1 then
+              p = pattern == "octaves" and (root + 12 <= 127 and root + 12 or root) or (fifth or root)
+            end
             notes[#notes + 1] = { pitch = p, start = at, length = math.min(1, part.to - at) }
             at, k = at + 1, k + 1
           end

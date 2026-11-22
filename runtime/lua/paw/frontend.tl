@@ -239,7 +239,7 @@ local record Modal
   panes: PanesModule.State
   windows: {CanvasModule.WindowInfo}
   views: {CanvasModule.Openable}
-  menus: {string:{MenuLabel}}
+  menus: {string: {MenuLabel}}
   device: integer
   param: integer
 end
@@ -467,7 +467,7 @@ local record RenderDialog
   path: string
   ranges: {RangeChoice}
   sample_rate: integer
-  formats: {string:boolean}
+  formats: {string: boolean}
   tags: types.RenderTags
 end
 
@@ -611,7 +611,7 @@ end
 local record InputOptions
   prompt: string
   text: string
-  complete: function(text: string): {{string:string}}
+  complete: function(text: string): {{string: string}}
 end
 local record MouseEvent
   kind: string
@@ -680,7 +680,7 @@ local record Source
 end
 local record Routes
   sidechain_text: function(device: types.Device): string
-  reaching: function(track: integer): {integer:boolean}
+  reaching: function(track: integer): {integer: boolean}
   outputs: function(device: integer): {Output}
   set_output: function(device: integer, pair: integer, target: integer)
   spread: function(device: integer)
@@ -723,11 +723,15 @@ local record RollClips
 end
 local record Controls
   select: function(clip: integer, place: integer, mode: string)
-  select_box: function(clip: integer, kind: string, number: integer, beat0: number, low: number, beat1: number, high: number, mode?: string): integer
+  select_box: function(
+    clip: integer, kind: string, number: integer, beat0: number, low: number, beat1: number, high: number, mode?: string
+  ): integer
   clear: function(clip: integer)
   move: function(clip: integer, dbeat: number, dfraction: number, free: boolean): integer
   remove: function(clip: integer): integer
-  line: function(clip: integer, kind: string, number: integer, beat0: number, f0: number, beat1: number, f1: number, free: boolean): integer
+  line: function(
+    clip: integer, kind: string, number: integer, beat0: number, f0: number, beat1: number, f1: number, free: boolean
+  ): integer
 end
 local record MixerRowInfo
   kind: string
@@ -831,7 +835,7 @@ local record Paw
   import_audio: function(path: string, opts: ImportOptions): objects.Clip
   notify: function(text: string, level?: string)
 end
-local paw = (_G as {string:Paw}).paw
+local paw = (_G as {string: Paw}).paw
 
 -- One field of the kernel's tables, read alone: quicker than the whole
 -- table where the state is made, which runs for every frame.
@@ -840,7 +844,9 @@ local track_flag = api.track_get as function(id: integer, key: string): boolean
 local track_number = api.track_get as function(id: integer, key: string): number
 local project_text = api.project_get as function(key: string): string
 
-local function render_module(): RenderModule return require("paw.render") end
+local function render_module(): RenderModule
+  return require("paw.render")
+end
 
 --- The pointer's gestures (`paw.frontend.act`): each is a function of the
 --- frontend's arguments. Other modules add their own.
@@ -928,7 +934,9 @@ local record Act
   roll_toggle_clip: function(_: integer, id: number)
   roll_show_track: function(_: integer, id: number)
   select_note: function(clip: integer, index: integer, mode?: string)
-  select_notes_box: function(clip: integer, beat0: number, pitch0: number, beat1: number, pitch1: number, mode?: string): integer
+  select_notes_box: function(
+    clip: integer, beat0: number, pitch0: number, beat1: number, pitch1: number, mode?: string
+  ): integer
   select_all_notes: function(clip: integer)
   clear_note_selection: function()
   drag_notes: function(clip: integer, index: integer, dbeat: number, dpitch?: number, copy?: boolean, free?: boolean)
@@ -956,12 +964,30 @@ local record Act
   draw_controls: function(clip: integer, kind: types.ControlType, number: integer, points: {Point})
   clear_controls: function(clip: integer, kind: types.ControlType, number: integer)
   select_control: function(clip: integer, place: integer, mode: integer | string)
-  select_controls: function(clip: integer, kind: string, number: integer, beat0: number, low: number, beat1: number, high: number, mode: integer | string): integer
+  select_controls: function(
+    clip: integer,
+    kind: string,
+    number: integer,
+    beat0: number,
+    low: number,
+    beat1: number,
+    high: number,
+    mode: integer | string
+  ): integer
   select_all_controls: function(clip: integer, kind: string, number: integer): integer
   clear_control_selection: function(clip: integer)
   move_controls: function(clip: integer, dbeat: number, dfraction: number, free?: boolean | integer): integer
   remove_chosen_controls: function(clip: integer): integer
-  line_controls: function(clip: integer, kind: string, number: integer, beat0: number, f0: number, beat1: number, f1: number, free?: boolean | integer): integer
+  line_controls: function(
+    clip: integer,
+    kind: string,
+    number: integer,
+    beat0: number,
+    f0: number,
+    beat1: number,
+    f1: number,
+    free?: boolean | integer
+  ): integer
   open_event_list: function(clip: integer)
   remove_point: function(lane: integer, index: integer)
   set_param: function(device: integer, key: string, fraction: number)
@@ -1002,7 +1028,7 @@ local record M
   polled: number
   --- What extensions add to the frontend's right-click menus, by kind:
   --- `clip`, `track` and `timeline`.
-  menus: {string:{MenuEntry}}
+  menus: {string: {MenuEntry}}
   --- Bands of extensions under the ruler.
   bands: {Band}
   --- The pointer's gestures.
@@ -1015,15 +1041,27 @@ local record M
   --- What the window said of the OpenGL that draws it.
   window_renderer: Renderer
   --- What to do about a window that draws on the processor, by cause.
-  software_advice: {string:string}
+  software_advice: {string: string}
   --- Another file for the window's layout than the state folder's (tests).
   layout_path: string
 end
 
 M.revision, M.max_params, M.peak_points, M.preview_notes = 0, 16, 128, 2000
 
-local function bump() M.revision = M.revision + 1 end
-for _, name in ipairs({ "changed", "transport.changed", "cursor.changed", "project.loaded", "engine.started", "option.changed", "lanes.changed" }) do
+local function bump()
+  M.revision = M.revision + 1
+end
+for _, name in ipairs(
+  {
+    "changed",
+    "transport.changed",
+    "cursor.changed",
+    "project.loaded",
+    "engine.started",
+    "option.changed",
+    "lanes.changed",
+  }
+) do
   local event: events.Event<events.Payload> = events.event(name)
   events.on(event, bump)
 end
@@ -1031,7 +1069,9 @@ end
 -- Values as text in their unit, and sliders on a log scale for frequencies
 -- and times: see `paw.params`.
 --- A parameter's value as text in its unit (see `paw.params.format`).
-function M.format_value(param: types.ParamInfo, value: number): string return paw.params.format(param, value) end
+function M.format_value(param: types.ParamInfo, value: number): string
+  return paw.params.format(param, value)
+end
 local format_value = M.format_value
 
 local function device_state(id: integer): DeviceState
@@ -1044,20 +1084,28 @@ local function device_state(id: integer): DeviceState
     local p = own[i]
     local value = d.params[p.key]
     params[i] = {
-      key = p.key, name = p.name, text = format_value(p, value),
+      key = p.key,
+      name = p.name,
+      text = format_value(p, value),
       -- Sliders work on 0..1 whatever the parameter's own range is.
       value = paw.params.fraction(p, value),
-      min = p.min, max = p.max,
+      min = p.min,
+      max = p.max,
       -- Where the slider rests, for a double click.
       default = paw.params.fraction(p, p.default),
     }
   end
-  local meta = d.meta as {string:string}
+  local meta = d.meta as {string: string}
   return {
-    id = d.id, name = d.name, format = d.format, bypass = d.bypass, params = params,
+    id = d.id,
+    name = d.name,
+    format = d.format,
+    bypass = d.bypass,
+    params = params,
     more = #own - #params,
     -- The wet share, 0 to 1, and the output gain in dB.
-    wet = (d.params.fx_wet or 100) / 100, gain = d.params.fx_gain or 0,
+    wet = (d.params.fx_wet or 100) / 100,
+    gain = d.params.fx_gain or 0,
     -- "open", "closed", or "" for a device with no window of its own.
     editor = d.editor or "",
     -- Why a plugin has stopped working, or "".
@@ -1073,11 +1121,15 @@ local function device_state(id: integer): DeviceState
     -- How many output pairs it has (1 for most), and how many of the
     -- further ones play somewhere; `outputs_menu` routes them.
     pairs = math.max(1, #(d.ports and d.ports.outputs or {})) as integer,
-    routed = (function(): integer
-      local n = 0
-      for _ in pairs(d.outputs or {}) do n = n + 1 end
-      return n
-    end)(),
+    routed = (
+      function(): integer
+        local n = 0
+        for _ in pairs(d.outputs or {}) do
+          n = n + 1
+        end
+        return n
+      end
+    )(),
   }
 end
 
@@ -1090,13 +1142,15 @@ end
 --- `command` is a command line and `run` a function given the clip or track
 --- and the beat that was clicked; either runs with the cursor put there
 --- first. `only` keeps a clip's entry to "midi" or "audio" clips.
-M.menus = { clip = {}, track = {}, timeline = {} }
+M.menus = {clip = {}, track = {}, timeline = {}}
 
-local function menus(): {string:{MenuLabel}}
-  local out: {string:{MenuLabel}} = {}
+local function menus(): {string: {MenuLabel}}
+  local out: {string: {MenuLabel}} = {}
   for kind, entries in pairs(M.menus) do
     local list: {MenuLabel} = {}
-    for i, entry in ipairs(entries) do list[i] = { label = entry.label, only = entry.only or "" } end
+    for i, entry in ipairs(entries) do
+      list[i] = {label = entry.label, only = entry.only or ""}
+    end
     out[kind] = list
   end
   return out
@@ -1146,15 +1200,21 @@ function M.band_state(): Bands
     if #entries > 0 then
       for j, e in ipairs(entries) do
         out[#out + 1] = {
-          row = rows, band = i, index = j, beat = tonumber(e.beat) or 0, length = tonumber(e.length) or 0,
-          name = tostring(e.name or ""), color = e.color or "", active = e.command ~= nil or e.run ~= nil,
+          row = rows,
+          band = i,
+          index = j,
+          beat = tonumber(e.beat) or 0,
+          length = tonumber(e.length) or 0,
+          name = tostring(e.name or ""),
+          color = e.color or "",
+          active = e.command ~= nil or e.run ~= nil,
           hint = tostring(e.hint or e.name or ""),
         }
       end
       rows = rows + 1
     end
   end
-  return { rows = rows, entries = out }
+  return {rows = rows, entries = out}
 end
 
 --- The candidates of a prompt, as the terminal shows them above the line.
@@ -1163,13 +1223,19 @@ end
 --- them (0 for none).
 function M.completions(prompt: Prompt): Completions
   local all = prompt.matches
-  if not all or #all == 0 then return nil end
+  if not all or #all == 0 then
+    return nil
+  end
   local rows = 10
   local first = math.max(1, math.min((prompt.match or 0) - rows + 1, #all - rows + 1))
-  local list: Completions = { total = #all, chosen = (prompt.match or 0) > 0 and prompt.match - first + 1 or 0, items = {} }
+  local list: Completions = {
+    total = #all, chosen = (prompt.match or 0) > 0 and prompt.match - first + 1 or 0, items = {}
+  }
   for i = first, math.min(#all, first + rows - 1) do
     local c = all[i]
-    list.items[#list.items + 1] = { label = c.label, desc = c.desc and (c.desc:match("^[^\n]*"):gsub(":? `.*$", "")) or "" }
+    list.items[#list.items + 1] = {
+      label = c.label, desc = c.desc and (c.desc:match("^[^\n]*"):gsub(":? `.*$", "")) or ""
+    }
   end
   return list
 end
@@ -1179,13 +1245,13 @@ function M.send_list(track: types.Track): {Send}
   local out: {Send} = {}
   for i, send in ipairs(track.sends or {}) do
     local ok, to = pcall(api.track_get, send.target)
-    out[i] = { name = ok and (to as types.Track).name or "?", level = send.level }
+    out[i] = {name = ok and (to as types.Track).name or "?", level = send.level}
   end
   return out
 end
 
-local mode_names: {string:string} = { n = "NORMAL", c = "COMMAND", i = "INSERT", o = "PENDING" }
-local visual_names: {string:string} = { v = "VISUAL", V = "V-LINE", b = "V-BLOCK", clips = "CLIPS" }
+local mode_names: {string: string} = {n = "NORMAL", c = "COMMAND", i = "INSERT", o = "PENDING"}
+local visual_names: {string: string} = {v = "VISUAL", V = "V-LINE", b = "V-BLOCK", clips = "CLIPS"}
 
 --- Where the keyboard is: the mode, what is half typed, the prompt or the
 --- message, the selection, and the cursors of the panels. Small, and sent
@@ -1195,10 +1261,14 @@ local function modal(): Modal
   local hint, pointer = paw.mouse.hint_text()
   local _, menu_count = ((require as function(string): Menu)("paw.menu")).shown()
   local out: Modal = {
-    mode = keymap.mode, pending = keymap.pending(), recording = keymap.recording() or "",
+    mode = keymap.mode,
+    pending = keymap.pending(),
+    recording = keymap.recording() or "",
     name = keymap.mode == "x" and keymap.visual and visual_names[keymap.visual.kind]
-      or mode_names[keymap.mode] or keymap.mode:upper(),
-    focused = ui.focused, mixer = ui.visible("mixer"),
+      or mode_names[keymap.mode]
+      or keymap.mode:upper(),
+    focused = ui.focused,
+    mixer = ui.visible("mixer"),
     float = ui.float and (ui.float.title or ui.float.name) or nil,
     -- A menu the kernel opened (a right click in a pane drawn from its
     -- scene), by how many were: the window shows it (`paw.frontend.menu("shown")`).
@@ -1215,38 +1285,58 @@ local function modal(): Modal
     learning = paw.learn and paw.learn.learning and paw.learn.target_name(paw.learn.learning) or nil,
   }
   -- Chosen clips are told one by one, with the clips (`selected`).
-  if out.selection then out.selection.clips = nil end
+  if out.selection then
+    out.selection.clips = nil
+  end
   local prompt = ((require as function(string): Cmdline)("paw.views.cmdline")).state()
   if prompt then
     local shown = prompt as PromptState
     shown.matches = M.completions(prompt)
     out.prompt = shown
   elseif ui.message then
-    out.message = { text = ui.message.text:match("^[^\n]*"), level = ui.message.level, time = ui.message.time }
+    out.message = {text = ui.message.text:match("^[^\n]*"), level = ui.message.level, time = ui.message.time}
   elseif opt.keybar and keymap.pending() == "" then
     -- With nothing to say, the keys worth knowing here, as the terminal's
     -- bottom line shows them.
     out.keys = {}
-    for i, entry in ipairs(ui.keybar.entries()) do out.keys[i] = { key = entry[1], desc = entry[2] } end
+    for i, entry in ipairs(ui.keybar.entries()) do
+      out.keys[i] = {key = entry[1], desc = entry[2]}
+    end
     local topic = paw.help and paw.help.topic_of(ui.focused)
-    if topic then out.keys[#out.keys + 1] = { key = ":help " .. topic, desc = "the manual" } end
+    if topic then
+      out.keys[#out.keys + 1] = {key = ":help " .. topic, desc = "the manual"}
+    end
   end
   -- What an Ex line being typed would act on: the stretch of time, the
   -- tracks, and the clips that match with how many matches each holds.
   local shown = paw.ex and paw.ex.shown()
   if shown then
-    out.ex = { from = shown.from, to = shown.to, tracks = {}, clips = {}, current = shown.current and shown.current.clip and shown.current.clip.id }
-    for id in pairs(shown.tracks or {}) do out.ex.tracks[#out.ex.tracks + 1] = id end
-    for id, n in pairs(shown.clips or {}) do out.ex.clips[#out.ex.clips + 1] = { id = id, count = n, notes = shown.notes[id] ~= nil } end
+    out.ex = {
+      from = shown.from,
+      to = shown.to,
+      tracks = {},
+      clips = {},
+      current = shown.current and shown.current.clip and shown.current.clip.id,
+    }
+    for id in pairs(shown.tracks or {}) do
+      out.ex.tracks[#out.ex.tracks + 1] = id
+    end
+    for id, n in pairs(shown.clips or {}) do
+      out.ex.clips[#out.ex.clips + 1] = {id = id, count = n, notes = shown.notes[id] ~= nil}
+    end
   end
   -- The row of a strip the keyboard is on in the mixer.
   if out.mixer and ui.focused == "mixer" then
     local row, id = ((require as function(string): MixerRows)("paw.mixer_rows")).current()
-    if row then out.mixer_row = { track = id, kind = row.kind, index = row.index or 0, field = row.field or "" } end
+    if row then
+      out.mixer_row = {track = id, kind = row.kind, index = row.index or 0, field = row.field or ""}
+    end
   end
   -- The status line when it was set up (`paw.statusline.setup`): the
   -- pieces of each side as `{ text, style }`, for a window that draws it.
-  if paw.statusline.customized() then out.statusline = paw.statusline.frontend() end
+  if paw.statusline.customized() then
+    out.statusline = paw.statusline.frontend()
+  end
   local qf = paw.qf and paw.qf.status()
   if qf then
     local text: {string} = {}
@@ -1255,11 +1345,13 @@ local function modal(): Modal
       text[#text + 1] = piece[1] as string
       worst = math.max(worst, piece[2] == "StatusError" and 2 or piece[2] == "StatusWarn" and 1 or 0)
     end
-    out.qf = { text = table.concat(text), level = worst }
+    out.qf = {text = table.concat(text), level = worst}
   end
   if opt.hints then
     local hints, title = keymap.hints()
-    if hints then out.hints = { title = title, items = hints } end
+    if hints then
+      out.hints = {title = title, items = hints}
+    end
   end
   local under = paw.cursor.clip()
   out.clip = ui.focused == "arrange" and under and under.id or nil
@@ -1280,7 +1372,9 @@ local function modal(): Modal
     if row then
       out.device, out.param = row.device.index, 0
       for i, p in ipairs(row.device.param_info) do
-        if row.param and p.key == row.param.key then out.param = i end
+        if row.param and p.key == row.param.key then
+          out.param = i
+        end
       end
     end
   end
@@ -1290,38 +1384,56 @@ end
 --- The float that is open (help, a list, a picker), drawn as text `width`
 --- columns wide: its title and its lines. Nil when there is none.
 function M.float(width: integer, height: integer): FloatText
-  if not paw.ui.float then return nil end
+  if not paw.ui.float then
+    return nil
+  end
   local lines = api.ui_snapshot(width, height)
   local rect: Rect
   for _, r in ipairs(paw.ui.rects) do
-    if r.name == paw.ui.float.name then rect = r end
+    if r.name == paw.ui.float.name then
+      rect = r
+    end
   end
-  if not rect then return nil end
+  if not rect then
+    return nil
+  end
   local out: {string} = {}
   for y = rect.y, rect.y + rect.h - 1 do
     local cells: {string} = {}
-    for ch in (lines[y + 1] or ""):gmatch("[%z\1-\127\194-\244][\128-\191]*") do cells[#cells + 1] = ch end
+    for ch in (lines[y + 1] or ""):gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+      cells[#cells + 1] = ch
+    end
     out[#out + 1] = table.concat(cells, "", rect.x + 1, math.min(#cells, rect.x + rect.w))
   end
-  return { title = paw.ui.float.title or paw.ui.float.name, lines = out }
+  return {title = paw.ui.float.title or paw.ui.float.name, lines = out}
 end
 
 --- The stretch of a lane's range that is worth drawing it over: a fader's
 --- travel for volume, the whole range for anything else.
 function M.lane_span(lane: types.Lane): number, number
-  if lane.target == "volume" then return -60, 6 end
+  if lane.target == "volume" then
+    return -60, 6
+  end
   return lane.min, lane.max
 end
 
 --- What a lane moves, in words: `Volume`, `Pan`, `Synth · cutoff`.
 function M.lane_name(lane: types.Lane): string
-  if lane.target == "volume" then return "Volume" end
-  if lane.target == "pan" then return "Pan" end
+  if lane.target == "volume" then
+    return "Volume"
+  end
+  if lane.target == "pan" then
+    return "Pan"
+  end
   local ok, got = pcall(api.device_get, lane.device)
-  if not ok then return tostring(lane.param) end
+  if not ok then
+    return tostring(lane.param)
+  end
   local device = got as types.Device
   for _, p in ipairs(device.param_info) do
-    if p.key == lane.param then return device.name .. " · " .. p.name end
+    if p.key == lane.param then
+      return device.name .. " · " .. p.name
+    end
   end
   return device.name .. " · " .. tostring(lane.param)
 end
@@ -1331,20 +1443,43 @@ end
 --- without takes, which has nothing in the lanes.
 function M.take_rows(clip: types.Clip): {TakeRow}
   local takes = paw.takes.of(clip)
-  if not takes then return nil end
+  if not takes then
+    return nil
+  end
   local out: {TakeRow} = {}
   local seconds = clip.kind == "audio" and paw.stretch.file_seconds(clip, clip.length) or 0
   for i, entry in ipairs(takes.list) do
     local key: string
     if clip.kind == "audio" then
       local c = paw.takes.content(clip, i)
-      key = string.format("%s|%.17g|%.17g|%.17g|%.17g|%.17g|%.17g|%s|%s|%.17g|%.17g", c.file, c.offset, c.gain, clip.length,
-        seconds, clip.stretch, clip.pitch, tostring(clip.stretching), tostring(clip.loop), clip.loop_start, clip.loop_length or 0)
+      key = string.format(
+        "%s|%.17g|%.17g|%.17g|%.17g|%.17g|%.17g|%s|%s|%.17g|%.17g",
+        c.file,
+        c.offset,
+        c.gain,
+        clip.length,
+        seconds,
+        clip.stretch,
+        clip.pitch,
+        tostring(clip.stretching),
+        tostring(clip.loop),
+        clip.loop_start,
+        clip.loop_length or 0
+      )
     else
-      key = string.format("%s|%d|%d|%d|%.17g|%s|%.17g|%.17g", tostring(clip.stamp), takes.active, i, #(entry.notes or {}),
-        clip.length, tostring(clip.loop), clip.loop_start, clip.loop_length or 0)
+      key = string.format(
+        "%s|%d|%d|%d|%.17g|%s|%.17g|%.17g",
+        tostring(clip.stamp),
+        takes.active,
+        i,
+        #(entry.notes or {}),
+        clip.length,
+        tostring(clip.loop),
+        clip.loop_start,
+        clip.loop_length or 0
+      )
     end
-    out[i] = { name = entry.name or ("take " .. i), key = key }
+    out[i] = {name = entry.name or ("take " .. i), key = key}
   end
   return out
 end
@@ -1357,7 +1492,9 @@ end
 --- shorter or longer in time as the clip stretches it.
 function M.take_preview(id: integer, take: integer, points?: number): {number}
   local ok, got = pcall(api.clip_get, id)
-  if not ok then return {} end
+  if not ok then
+    return {}
+  end
   local clip = got as types.Clip
   local c = paw.takes.content(clip, take)
   local flat: {number} = {}
@@ -1402,7 +1539,9 @@ function M.take_preview(id: integer, take: integer, points?: number): {number}
   end
   local i = 0
   for _, n in ipairs(paw.stretch.sounding(clip, c.notes, M.preview_notes)) do
-    if i >= M.preview_notes then break end
+    if i >= M.preview_notes then
+      break
+    end
     if n.start >= 0 and n.start < clip.length then
       i = i + 1
       flat[3 * i - 2], flat[3 * i - 1], flat[3 * i] = n.start, n.length, n.pitch
@@ -1417,12 +1556,25 @@ end
 function M.content_key(clip: types.Clip): string
   local repeats = clip.loop and string.format("|%.17g|%.17g", clip.loop_start, clip.loop_length) or ""
   -- Its warp markers change its waveform.
-  for _, m in ipairs(clip.warp or {}) do repeats = repeats .. string.format("|%.17g:%.17g", m.source, m.target) end
-  if clip.kind == "audio" then
-    return string.format("%s|%.17g|%.17g|%.17g|%.17g|%.17g|%.17g|%s%s", clip.file, clip.offset, clip.length, clip.gain,
-      paw.time.seconds(clip.length, clip.start), clip.stretch, clip.pitch, tostring(clip.stretching), repeats)
+  for _, m in ipairs(clip.warp or {}) do
+    repeats = repeats .. string.format("|%.17g:%.17g", m.source, m.target)
   end
-  return clip.stamp and string.format("%.0f|%.0f|%.17g%s", clip.stamp, clip.control_stamp or 0, clip.length, repeats) or nil
+  if clip.kind == "audio" then
+    return string.format(
+      "%s|%.17g|%.17g|%.17g|%.17g|%.17g|%.17g|%s%s",
+      clip.file,
+      clip.offset,
+      clip.length,
+      clip.gain,
+      paw.time.seconds(clip.length, clip.start),
+      clip.stretch,
+      clip.pitch,
+      tostring(clip.stretching),
+      repeats
+    )
+  end
+  return clip.stamp and string.format("%.0f|%.0f|%.17g%s", clip.stamp, clip.control_stamp or 0, clip.length, repeats)
+    or nil
 end
 
 --- A MIDI clip's notes for the small picture inside it: one flat list
@@ -1432,13 +1584,17 @@ function M.preview(id: integer): {number}
   local flat: {number} = {}
   local ok, got = pcall(api.clip_notes, id)
   local notes = got as {types.Note}
-  local c: types.Clip = ok and api.clip_get(id) or { length = 0 }
+  local c: types.Clip = ok and api.clip_get(id) or {length = 0}
   local length = c.length
   -- A looped clip shows its notes over and over, as they sound.
-  if ok then notes = paw.stretch.sounding(c, notes, M.preview_notes) end
+  if ok then
+    notes = paw.stretch.sounding(c, notes, M.preview_notes)
+  end
   local i = 0
   for _, n in ipairs(ok and notes or {}) do
-    if i >= M.preview_notes then break end
+    if i >= M.preview_notes then
+      break
+    end
     -- Notes hidden by a trim of the clip's edges are not drawn.
     if n.start >= 0 and n.start < length then
       i = i + 1
@@ -1453,7 +1609,9 @@ end
 function M.vca_words(id: integer): string
   local names: {string} = {}
   local list = paw.vca.is_vca(id) and paw.vca.members(id) or paw.vca.of(id)
-  for i, other in ipairs(list) do names[i] = track_text(other, "name") end
+  for i, other in ipairs(list) do
+    names[i] = track_text(other, "name")
+  end
   return table.concat(names, ", ")
 end
 
@@ -1467,16 +1625,21 @@ end
 -- What the state's parts that only a turn with input, an edit or a redraw
 -- can change were made for (`still_key`), by seat: the drawn tracks and
 -- the modal state. While the song plays and nobody types, they are kept.
-local kept: {integer:Kept} = {}
+local kept: {integer: Kept} = {}
 
 --- What those parts depend on: the project's revision, the redraws, the
 --- input that came (`paw.remote.touches`), the seat and the keys typed.
 --- A render in the background changes the modal state on its own.
 local function still_key(): string
-  if api.render_status() then return nil end
+  if api.render_status() then
+    return nil
+  end
   local keymap = paw.keymap
-  return table.concat({ M.revision, api.ui_redraws(), paw.remote and paw.remote.touches or 0, seats.current,
-    keymap.mode, keymap.pending() } as {string | number}, ":")
+  return table.concat(
+    {M.revision, api.ui_redraws(), paw.remote and paw.remote.touches or 0, seats.current, keymap.mode, keymap.pending()}
+      as {string | number},
+    ":"
+  )
 end
 
 --- The data that paw sends to a graphical frontend: transport, tracks,
@@ -1503,36 +1666,68 @@ function M.state(known: integer): State
   local inputs: {number} = {}
   local device_levels = paw.audio.levels()
   for i, id in ipairs(ids) do
-    inputs[i] = id ~= 0 and paw.audio.level({ input = track_text(id, "input") }, device_levels) or 0
+    inputs[i] = id ~= 0 and paw.audio.level({input = track_text(id, "input")}, device_levels) or 0
   end
   local num, den = paw.tempo.signature_at(t.position)
   local out: State = {
-    revision = M.revision, playing = t.playing, recording = t.take ~= nil, position = t.position,
+    revision = M.revision,
+    playing = t.playing,
+    recording = t.take ~= nil,
+    position = t.position,
     -- Beats of a count-in still to be counted before the take starts; 0 for none.
     counting = t.counting or 0,
-    time = paw.time.format(t.position), clock = paw.time.clock(t.position),
+    time = paw.time.format(t.position),
+    clock = paw.time.clock(t.position),
     -- The tempo and signature where the playhead is.
-    tempo = math.floor(paw.tempo.at(t.position) * 100 + 0.5) / 100, signature = num .. "/" .. den,
-    cpu = paw.audio.load(e.cpu), levels = levels, inputs = inputs, modal = same and same.modal or modal(), armed = t.recording,
+    tempo = math.floor(paw.tempo.at(t.position) * 100 + 0.5) / 100,
+    signature = num .. "/" .. den,
+    cpu = paw.audio.load(e.cpu),
+    levels = levels,
+    inputs = inputs,
+    modal = same and same.modal or modal(),
+    armed = t.recording,
     -- What went wrong while playing (see `:engine.status`).
-    xruns = e.xruns, late_blocks = e.late_blocks, midi_dropped = e.midi_dropped,
-    record_dropped = e.record_dropped, devices_stopped = e.devices_stopped,
+    xruns = e.xruns,
+    late_blocks = e.late_blocks,
+    midi_dropped = e.midi_dropped,
+    record_dropped = e.record_dropped,
+    devices_stopped = e.devices_stopped,
     -- How often the window draws while the song plays (`paw.opt.window_fps`).
     window_fps = opt.window_fps,
     window_cache = opt.window_cache,
   }
-  if key and not same then kept[seat] = { key = key, ids = ids, modal = out.modal } end
-  if known == M.revision then return out end
+  if key and not same then
+    kept[seat] = {key = key, ids = ids, modal = out.modal}
+  end
+  if known == M.revision then
+    return out
+  end
 
   local p = api.project_get()
   local project: ProjectState = {
-    name = p.name, modified = p.modified, tempo = out.tempo, bar = paw.time.bar(), length = p.length,
-    signature = out.signature, loop_enabled = t.loop_enabled, loop_start = t.loop_start,
-    loop_end = t.loop_end, metronome = t.metronome, backend = e.backend, sample_rate = e.sample_rate,
+    name = p.name,
+    modified = p.modified,
+    tempo = out.tempo,
+    bar = paw.time.bar(),
+    length = p.length,
+    signature = out.signature,
+    loop_enabled = t.loop_enabled,
+    loop_start = t.loop_start,
+    loop_end = t.loop_end,
+    metronome = t.metronome,
+    backend = e.backend,
+    sample_rate = e.sample_rate,
     -- Recording only between two points, and the bars counted before a take.
-    punch_enabled = t.punch_enabled, punch_start = t.punch_start, punch_end = t.punch_end,
-    count_in = t.count_in, pre_roll = t.pre_roll, pre_roll_seconds = t.pre_roll_seconds,
-    grid = opt.grid, note_grid = opt.note_grid, threads = e.threads, xruns = e.xruns,
+    punch_enabled = t.punch_enabled,
+    punch_start = t.punch_start,
+    punch_end = t.punch_end,
+    count_in = t.count_in,
+    pre_roll = t.pre_roll,
+    pre_roll_seconds = t.pre_roll_seconds,
+    grid = opt.grid,
+    note_grid = opt.note_grid,
+    threads = e.threads,
+    xruns = e.xruns,
     -- The engine in a few words: backend, output device, sample rate.
     engine = paw.audio.summary(),
   }
@@ -1544,50 +1739,70 @@ function M.state(known: integer): State
   -- tempos at the bottom and the top of the row.
   if paw.tempolane.shown() then
     local lo, hi = paw.tempolane.range()
-    project.tempo_lane = { lo = lo, hi = hi, points = paw.tempo.points() }
+    project.tempo_lane = {lo = lo, hi = hi, points = paw.tempo.points()}
   end
   -- Markers and regions (`paw.markers`): { id, beat, name, length } each.
   project.markers = {}
   for i, m in ipairs(paw.markers and paw.markers.list() or {}) do
-    project.markers[i] = { id = m.id, beat = m.beat, name = paw.markers.label(m), length = m.length or 0 }
+    project.markers[i] = {id = m.id, beat = m.beat, name = paw.markers.label(m), length = m.length or 0}
   end
   -- Extensions' bands under it (`M.bands`).
   project.bands = M.band_state()
   local last = math.max(p.length or 0, t.loop_end or 0)
-  for _, mark in ipairs(project.marks) do last = math.max(last, mark.beat) end
+  for _, mark in ipairs(project.marks) do
+    last = math.max(last, mark.beat)
+  end
   local stop = paw.time.bar_start(paw.time.bar_of(last) + 17)
   project.lines = {}
   local lines = paw.tempo.lines(0, stop)
   for i, line in ipairs(lines) do
-    local next_beat = lines[i + 1] and lines[i + 1].beat or line.beat + (line.beat - (lines[i - 1] and lines[i - 1].beat or line.beat - 1))
+    local next_beat = lines[i + 1] and lines[i + 1].beat
+      or line.beat + (line.beat - (lines[i - 1] and lines[i - 1].beat or line.beat - 1))
     project.lines[i] = {
-      beat = line.beat, bar = line.bar, index = line.index, next = next_beat,
-      label = line.index == 0 and tostring(line.bar) or "", place = line.bar .. "." .. (line.index + 1),
+      beat = line.beat,
+      bar = line.bar,
+      index = line.index,
+      next = next_beat,
+      label = line.index == 0 and tostring(line.bar) or "",
+      place = line.bar .. "." .. (line.index + 1),
     }
   end
   out.selected = paw.cursor.track_id() or -1
   out.cursor = paw.cursor.beat
   out.tracks, out.clips, out.devices = {}, {}, {}
-  local chosen_set: {integer:boolean} = {}
-  for _, id in ipairs(M.chosen_clips()) do chosen_set[id] = true end
+  local chosen_set: {integer: boolean} = {}
+  for _, id in ipairs(M.chosen_clips()) do
+    chosen_set[id] = true
+  end
   for i, id in ipairs(ids) do
     local track = api.track_get(id)
     -- What the track's sound goes through, in a few words.
     local chain: {string} = {}
-    for j, device in ipairs(track.devices or {}) do chain[j] = api.device_get(device).name end
+    for j, device in ipairs(track.devices or {}) do
+      chain[j] = api.device_get(device).name
+    end
     local to: types.Track
     if track.output then
       local ok, got = pcall(api.track_get, track.output)
       to = ok and got as types.Track or nil
     end
     local row: TrackState = {
-      id = id, name = track.name, volume = track.volume, pan = track.pan, mute = track.mute,
-      solo = track.solo, armed = track.armed, master = track.master, lanes = {},
-      input = track.input, monitor = track.monitor,
+      id = id,
+      name = track.name,
+      volume = track.volume,
+      pan = track.pan,
+      mute = track.mute,
+      solo = track.solo,
+      armed = track.armed,
+      master = track.master,
+      lanes = {},
+      input = track.input,
+      monitor = track.monitor,
       -- What the track takes in, in words (`UR22mkII · 1/2`), or nil.
       input_label = not track.master and paw.audio.label(track) or nil,
       -- The colour everything of the track's is drawn in, as in the terminal.
-      color = paw.draw.track_colour(track, i), chain = table.concat(chain, " › "),
+      color = paw.draw.track_colour(track, i),
+      chain = table.concat(chain, " › "),
       -- Its kind, in a few words ("Vocal track · Kitane"), or nil.
       kind = id ~= 0 and paw.track_kinds.describe(id) or nil,
       output = to and to.name or nil,
@@ -1613,16 +1828,26 @@ function M.state(known: integer): State
       take_rows = id ~= 0 and paw.takes.lane_count(id) or 0,
     }
     out.tracks[i] = row
-    for j, lane in ipairs(id ~= 0 and paw.lanes.shown(id) or {}) do row.lane_rows[j] = lane.id end
+    for j, lane in ipairs(id ~= 0 and paw.lanes.shown(id) or {}) do
+      row.lane_rows[j] = lane.id
+    end
     -- Points are in the target's own units; `min` and `max` give its range,
     -- `lo` and `hi` the part of it a frontend draws the lane over, and
     -- `name` says what the lane moves.
     for j, lane in ipairs(api.lane_list(id)) do
       local lo, hi = M.lane_span(lane)
       row.lanes[j] = {
-        id = lane.id, target = lane.target, device = lane.device, param = lane.param,
-        enabled = lane.enabled, min = lane.min, max = lane.max, points = api.lane_points(lane.id),
-        lo = lo, hi = hi, name = M.lane_name(lane),
+        id = lane.id,
+        target = lane.target,
+        device = lane.device,
+        param = lane.param,
+        enabled = lane.enabled,
+        min = lane.min,
+        max = lane.max,
+        points = api.lane_points(lane.id),
+        lo = lo,
+        hi = hi,
+        name = M.lane_name(lane),
       }
     end
     local take_lanes = row.take_rows > 0
@@ -1632,22 +1857,31 @@ function M.state(known: integer): State
       local notches = paw.stretch.repeats(clip)
       -- Its warp markers, in beats from its start.
       local warps: {number} = {}
-      for j, m in ipairs(clip.warp or {}) do warps[j] = m.beat - clip.start end
+      for j, m in ipairs(clip.warp or {}) do
+        warps[j] = m.beat - clip.start
+      end
       local content = M.content_key(clip)
       local takes, take = paw.takes.count(clip)
       out.clips[#out.clips + 1] = {
         -- In take lanes: each take's name, and what changes exactly when
         -- its picture does (fetch `M.take_preview` again then).
         take_rows = take_lanes and M.take_rows(clip) or nil,
-        id = clip.id, track = i - 1, start = clip.start, length = clip.length,
+        id = clip.id,
+        track = i - 1,
+        start = clip.start,
+        length = clip.length,
         name = (clip.offline and "offline · " or "") .. (mark and mark .. " · " or "") .. clip.name,
-        midi = clip.kind == "midi", muted = clip.muted,
+        midi = clip.kind == "midi",
+        muted = clip.muted,
         -- How many takes it has (1 without others), and which plays.
-        takes = takes, take = take,
+        takes = takes,
+        take = take,
         -- Chosen with the pointer (`M.chosen_clips`).
         selected = chosen_set[clip.id] or false,
         -- An audio clip's fades, in beats, and its gain in dB.
-        fade_in = clip.fade_in, fade_out = clip.fade_out, gain = clip.gain,
+        fade_in = clip.fade_in,
+        fade_out = clip.fade_out,
+        gain = clip.gain,
         -- Its file is missing: silent until relinked. The name says so too.
         offline = clip.offline or nil,
         -- Changes exactly when the clip's notes or controller moves do:
@@ -1656,17 +1890,23 @@ function M.state(known: integer): State
         -- Changes exactly when the clip's waveform does: fetch `M.peaks` again then.
         waveform = clip.kind == "audio" and content or nil,
         -- Whether it loops, and where its repeats begin, in beats from its start.
-        loop = clip.loop or nil, notches = notches, warps = warps,
+        loop = clip.loop or nil,
+        notches = notches,
+        warps = warps,
       }
     end
   end
   if out.selected >= 0 then
-    for i, id in ipairs(api.track_get(out.selected).devices) do out.devices[i] = device_state(id) end
+    for i, id in ipairs(api.track_get(out.selected).devices) do
+      out.devices[i] = device_state(id)
+    end
     out.routing = M.routing(out.selected)
   end
   if known < 0 then
     out.kinds = {}
-    for i, info in ipairs(api.device_types()) do out.kinds[i] = info.kind end
+    for i, info in ipairs(api.device_types()) do
+      out.kinds[i] = info.kind
+    end
   end
   return out
 end
@@ -1682,29 +1922,38 @@ function M.save_as(after?: function())
     or (p.name ~= "" and p.name or "song")
   local home = os.getenv("HOME") or ""
   local dir = paw.files.here()
-  if home ~= "" and (dir == home or dir:sub(1, #home + 1) == home .. "/") then dir = "~" .. dir:sub(#home + 1) end
-  paw.ui.input({
-    prompt = "Save as (" .. dir .. "): ",
-    text = name,
-    complete = function(text: string): {{string:string}}
-      return commands.completers.projects(text) as {{string:string}}
-    end,
-  }, function(typed: string)
-    if typed == "" then return end
-    local saved, note = paw.project.write(paw.files.project_path(typed))
-    paw.notify(note and (note .. ": " .. saved) or ("saved " .. saved))
-    if after then after() end
-  end)
+  if home ~= "" and (dir == home or dir:sub(1, #home + 1) == home .. "/") then
+    dir = "~" .. dir:sub(#home + 1)
+  end
+  paw.ui.input(
+    {
+      prompt = "Save as (" .. dir .. "): ",
+      text = name,
+      complete = function(text: string): {{string: string}}
+        return commands.completers.projects(text) as {{string: string}}
+      end,
+    },
+    function(typed: string)
+      if typed == "" then
+        return
+      end
+      local saved, note = paw.project.write(paw.files.project_path(typed))
+      paw.notify(note and (note .. ": " .. saved) or ("saved " .. saved))
+      if after then
+        after()
+      end
+    end
+  )
 end
 
 options.define("native_dialogs", true) -- the window opens the desktop's file dialogs, not the kernel's list
 -- Frames a second the window draws while the song plays (the playhead, the
 -- meters): "auto" is 30 on a graphics card and 15 on the processor. Keys,
 -- the pointer and edits are drawn at once all the same.
-options.define("window_fps", "auto", { type = { "number", "string" }, min = 1, max = 60, values = { "auto" } })
+options.define("window_fps", "auto", {type = {"number", "string"}, min = 1, max = 60, values = {"auto"}})
 -- The window keeps what does not move in a pane as textures, and paints a
 -- part again only when it changes: true, false, or "auto" (on).
-options.define("window_cache", "auto", { type = { "boolean", "string" }, values = { "auto", true, false } })
+options.define("window_cache", "auto", {type = {"boolean", "string"}, values = {"auto", true, false}})
 
 --- What the graphical window said of the OpenGL that draws it when it
 --- started: `{ renderer, version, software, cause }`, or nil before a
@@ -1730,8 +1979,14 @@ function M.window_renderer_set(info: Renderer)
   M.window_renderer = info
   if type(info) == "table" and info.software then
     local advice = M.software_advice[info.cause] or M.software_advice.driver
-    paw.notify("The window draws on the processor (" .. tostring(info.renderer):match("^%S+") .. "), which costs CPU while a song plays: "
-      .. advice .. ". See :checkhealth window.", "warn")
+    paw.notify(
+      "The window draws on the processor ("
+        .. tostring(info.renderer):match("^%S+")
+        .. "), which costs CPU while a song plays: "
+        .. advice
+        .. ". See :checkhealth window.",
+      "warn"
+    )
   end
 end
 
@@ -1745,18 +2000,20 @@ function M.dialog_info(): DialogInfo
   local dir = paw.files.here()
   local name = p.path and p.path:match("([^/]+)$") or ((p.name ~= "" and p.name or "song") .. ".json")
   -- What a render can write: wav and flac, and the lossy formats ffmpeg can make.
-  local render: {string} = { "wav", "flac" }
+  local render: {string} = {"wav", "flac"}
   for ext, available in pairs(M.render_dialog().formats) do
-    if available then render[#render + 1] = ext end
+    if available then
+      render[#render + 1] = ext
+    end
   end
   table.sort(render)
-  return { native = opt.native_dialogs and true or false, dir = dir, name = name, render = render }
+  return {native = opt.native_dialogs and true or false, dir = dir, name = name, render = render}
 end
 
 --- Tells if paw would lose data if it closes now: { modified, name, path }.
 function M.closing(): Closing
   local p = api.project_get()
-  return { modified = paw.project.unsaved(), name = p.name, path = p.path }
+  return {modified = paw.project.unsaved(), name = p.name, path = p.path}
 end
 
 --- The start values of the render dialog. These are the file that a render
@@ -1766,24 +2023,36 @@ end
 --- (`formats`: `{ mp3 = true, ogg = false, ... }`).
 function M.render_dialog(): RenderDialog
   local t = api.transport_get()
-  local ranges: {RangeChoice} = { { name = "song", label = "The whole song" } }
+  local ranges: {RangeChoice} = {{name = "song", label = "The whole song"}}
   if t.loop_end > t.loop_start then
-    ranges[#ranges + 1] = { name = "loop", label = string.format("The loop (%s – %s)", paw.time.format(t.loop_start), paw.time.format(t.loop_end)) }
+    ranges[#ranges + 1] = {
+      name = "loop",
+      label = string.format("The loop (%s – %s)", paw.time.format(t.loop_start), paw.time.format(t.loop_end)),
+    }
   end
   local sel = paw.keymap.selection()
-  if sel and sel.c0 and sel.c1 and sel.c1 > sel.c0 then ranges[#ranges + 1] = { name = "selection", label = "The selection" } end
+  if sel and sel.c0 and sel.c1 and sel.c1 > sel.c0 then
+    ranges[#ranges + 1] = {name = "selection", label = "The selection"}
+  end
   for _, r in ipairs(paw.markers.regions()) do
-    ranges[#ranges + 1] = { name = "region:" .. r.id, label = "Region “" .. paw.markers.label(r) .. "”" }
+    ranges[#ranges + 1] = {name = "region:" .. r.id, label = "Region “" .. paw.markers.label(r) .. "”"}
   end
   -- A project with no file yet renders in the folder for relative names.
   local path = render_module().default_path()
-  if not path:find("/", 1, true) then path = paw.files.here() .. "/" .. path end
-  local formats: {string:boolean} = {}
+  if not path:find("/", 1, true) then
+    path = paw.files.here() .. "/" .. path
+  end
+  local formats: {string: boolean} = {}
   for _, f in ipairs(api.render_formats(opt.ffmpeg)) do
-    if f.lossy then formats[f.extensions[1]] = f.available end
+    if f.lossy then
+      formats[f.extensions[1]] = f.available
+    end
   end
   return {
-    path = path, ranges = ranges, sample_rate = api.engine_get().sample_rate, formats = formats,
+    path = path,
+    ranges = ranges,
+    sample_rate = api.engine_get().sample_rate,
+    formats = formats,
     tags = render_module().tags(),
   }
 end
@@ -1795,13 +2064,18 @@ end
 --- `act.choose_input` takes one by heading and place.
 function M.input_menu(track: integer): InputMenu
   local out: InputMenu = {
-    audio = {}, midi = {}, channel = {}, midi_out = {}, midi_out_channel = {}, midi_out_form = {},
+    audio = {},
+    midi = {},
+    channel = {},
+    midi_out = {},
+    midi_out_channel = {},
+    midi_out_form = {},
     monitor = track_flag(track, "monitor"),
   }
-  local lists = out as {string:{Check}}
+  local lists = out as {string: {Check}}
   for _, choice in ipairs(paw.audio.choices(track)) do
     local list = lists[choice.group]
-    list[#list + 1] = { label = choice.label, checked = choice.checked }
+    list[#list + 1] = {label = choice.label, checked = choice.checked}
   end
   return out
 end
@@ -1811,7 +2085,9 @@ function M.recent_menu(): {RangeChoice}
   return paw.recent.menu()
 end
 
-local function layout_file(): string return M.layout_path or api.env().state_dir .. "/window.json" end
+local function layout_file(): string
+  return M.layout_path or api.env().state_dir .. "/window.json"
+end
 
 --- How the window was left (its size, the zoom, the heights of rows and of
 --- the piano roll, if the mixer shows): a table, empty when nothing
@@ -1820,7 +2096,9 @@ local function layout_file(): string return M.layout_path or api.env().state_dir
 --- file, for tests.)
 function M.layout_get(): WindowLayout
   local handle = io.open(layout_file(), "rb")
-  if not handle then return {} end
+  if not handle then
+    return {}
+  end
   local text = handle:read("*a")
   handle:close()
   local ok, data = pcall(api.json_decode, text)
@@ -1832,7 +2110,9 @@ function M.layout_set(layout: WindowLayout)
   local file = layout_file()
   pcall(api.fs_mkdir, (file:match("^(.*)/[^/]*$") or "."))
   local handle = io.open(file .. ".tmp", "wb")
-  if not handle then return end
+  if not handle then
+    return
+  end
   handle:write(api.json_encode(layout, true))
   handle:close()
   os.rename(file .. ".tmp", file)
@@ -1843,16 +2123,16 @@ end
 --- `{ label, checked }`.
 --- `act.choose_engine` takes one by heading and place.
 function M.engine_menu(): EngineMenu
-  local out: EngineMenu = { info = {}, output = {}, input = {}, block = {}, rate = {}, backend = {} }
+  local out: EngineMenu = {info = {}, output = {}, input = {}, block = {}, rate = {}, backend = {}}
   local ok, got = pcall(paw.audio.engine_choices)
   if not ok then
-    out.info[1] = { label = tostring(got):match("[^\n]*"), checked = false }
+    out.info[1] = {label = tostring(got):match("[^\n]*"), checked = false}
     return out
   end
-  local lists = out as {string:{Check}}
+  local lists = out as {string: {Check}}
   for _, choice in ipairs(got as {Choice}) do
     local list = lists[choice.group]
-    list[#list + 1] = { label = choice.label, checked = choice.checked }
+    list[#list + 1] = {label = choice.label, checked = choice.checked}
   end
   return out
 end
@@ -1882,7 +2162,9 @@ local A: Act = {}
 M.act = A
 M.openers = {}
 
-local function snap(beat: number): number return math.max(0, paw.cursor.snap(beat)) end
+local function snap(beat: number): number
+  return math.max(0, paw.cursor.snap(beat))
+end
 
 local function note_snap(beat: number): number
   local grid = opt.note_grid
@@ -1891,8 +2173,12 @@ end
 
 --- Give the arrange view the keyboard, unless a window is open over it.
 local function to_arrange()
-  if paw.keymap.mode == "x" then paw.keymap.set_mode("n") end
-  if not paw.ui.float and paw.ui.focused ~= "arrange" then paw.ui.focus("arrange") end
+  if paw.keymap.mode == "x" then
+    paw.keymap.set_mode("n")
+  end
+  if not paw.ui.float and paw.ui.focused ~= "arrange" then
+    paw.ui.focus("arrange")
+  end
 end
 
 -- Clips chosen with the pointer -----------------------------------------------
@@ -1908,42 +2194,56 @@ end
 
 --- The clips chosen with the pointer, and the one a Shift click counts from.
 local record Picked
-  set: {integer:boolean}
+  set: {integer: boolean}
   anchor: integer
 end
 --- The clips chosen before the last plain click, and when.
 local record Recent
-  set: {integer:boolean}
+  set: {integer: boolean}
   at: number
 end
 
-local picked: Picked = { set = {}, anchor = nil }
+local picked: Picked = {set = {}, anchor = nil}
 local recently_chosen: Recent -- the clips chosen before the last plain click: { set, at }
 -- A gesture is choosing: the cursor and mode it moves keep the choice.
 local pointing = false
 -- Each window and terminal chooses clips of its own.
-seats.keep("frontend.picked", function(): Picked return picked end, function(p: Picked) picked = p end,
-  function(): Picked return { set = {}, anchor = nil } end)
-seats.keep("frontend.recently_chosen", function(): Recent return recently_chosen end,
-  function(r: Recent) recently_chosen = r end, function(): Recent return nil end)
+seats.keep(
+  "frontend.picked",
+  function(): Picked return picked end,
+  function(p: Picked) picked = p end,
+  function(): Picked return {set = {}, anchor = nil} end
+)
+seats.keep(
+  "frontend.recently_chosen",
+  function(): Recent return recently_chosen end,
+  function(r: Recent) recently_chosen = r end,
+  function(): Recent return nil end
+)
 
 --- The ids of the chosen clips, in order.
 function M.chosen_clips(): {integer}
   local keymap = paw.keymap
   -- Another kind of selection is open: that is what the keys act on.
-  if keymap.mode == "x" and not (keymap.visual and keymap.visual.region) then return {} end
+  if keymap.mode == "x" and not (keymap.visual and keymap.visual.region) then
+    return {}
+  end
   local out: {integer} = {}
   for id in pairs(picked.set) do
-    if pcall(api.clip_get, id) then out[#out + 1] = id end
+    if pcall(api.clip_get, id) then
+      out[#out + 1] = id
+    end
   end
   table.sort(out)
   return out
 end
 
 --- Where each drawn track is, by id: its row from 1.
-local function row_index(): {integer:integer}
-  local rows: {integer:integer} = {}
-  for i, id in ipairs(paw.groups.rows()) do rows[id] = i end
+local function row_index(): {integer: integer}
+  local rows: {integer: integer} = {}
+  for i, id in ipairs(paw.groups.rows()) do
+    rows[id] = i
+  end
   return rows
 end
 
@@ -1951,7 +2251,7 @@ end
 --- they span, and `clips`, the set of them.
 local function clip_region(): Region
   local rows = row_index()
-  local set: {integer:boolean} = {}
+  local set: {integer: boolean} = {}
   local r0, r1, c0, c1 = math.huge, -math.huge, math.huge, -math.huge
   for _, id in ipairs(M.chosen_clips()) do
     local c = api.clip_get(id)
@@ -1962,8 +2262,10 @@ local function clip_region(): Region
       c0, c1 = math.min(c0, c.start), math.max(c1, c.start + c.length)
     end
   end
-  if not next(set) then return nil end
-  return { kind = "clips", clips = set, r0 = r0, r1 = r1, c0 = c0, c1 = c1 }
+  if not next(set) then
+    return nil
+  end
+  return {kind = "clips", clips = set, r0 = r0, r1 = r1, c0 = c0, c1 = c1}
 end
 
 local function changed()
@@ -1973,15 +2275,19 @@ end
 
 --- Choose a set of clips (`{ [id] = true }`); with `visual` they become
 --- visual mode's selection.
-local function choose_clips(set: {integer:boolean}, anchor: integer, visual: boolean)
-  picked = { set = set, anchor = anchor or picked.anchor }
+local function choose_clips(set: {integer: boolean}, anchor: integer, visual: boolean)
+  picked = {set = set, anchor = anchor or picked.anchor}
   local keymap = paw.keymap
   pointing = true
   if visual and next(set) and clip_region() then
-    if not paw.ui.float and paw.ui.focused ~= "arrange" then paw.ui.focus("arrange") end
+    if not paw.ui.float and paw.ui.focused ~= "arrange" then
+      paw.ui.focus("arrange")
+    end
     local region = clip_region()
-    keymap.visual = { kind = "clips", row = region.r0, col = region.c0, view = paw.ui.focused, region = clip_region }
-    if keymap.mode ~= "x" then keymap.set_mode("x") end
+    keymap.visual = {kind = "clips", row = region.r0, col = region.c0, view = paw.ui.focused, region = clip_region}
+    if keymap.mode ~= "x" then
+      keymap.set_mode("x")
+    end
   elseif keymap.mode == "x" then
     keymap.set_mode("n")
   end
@@ -1996,25 +2302,35 @@ local record ModeChanged
 end
 local mode_changed: events.Event<ModeChanged> = events.event("mode.changed")
 
-events.on(mode_changed, function(e: ModeChanged)
-  if not pointing and e.old == "x" and next(picked.set) then
-    picked.set = {}
-    changed()
+events.on(
+  mode_changed,
+  function(e: ModeChanged)
+    if not pointing and e.old == "x" and next(picked.set) then
+      picked.set = {}
+      changed()
+    end
   end
-end)
+)
 local cursor_changed: events.Event<events.Payload> = events.event("cursor.changed")
-events.on(cursor_changed, function()
-  if pointing or paw.keymap.mode == "x" or not next(picked.set) then return end
-  local under = paw.cursor.clip()
-  if not (under and picked.set[under.id]) then
-    picked.set = {}
-    changed()
+events.on(
+  cursor_changed,
+  function()
+    if pointing or paw.keymap.mode == "x" or not next(picked.set) then
+      return
+    end
+    local under = paw.cursor.clip()
+    if not (under and picked.set[under.id]) then
+      picked.set = {}
+      changed()
+    end
   end
-end)
+)
 
 --- Let go of the chosen clips.
 function A.clear_clip_selection()
-  if next(picked.set) then choose_clips({}, nil, false) end
+  if next(picked.set) then
+    choose_clips({}, nil, false)
+  end
 end
 
 --- Put the cursor on a track at a beat: a click on a lane or a header. A
@@ -2022,8 +2338,12 @@ end
 function A.select(track: integer, beat?: number)
   pointing = true
   to_arrange()
-  if track ~= 0 then paw.cursor.set_track(track) end
-  if beat then paw.cursor.set_beat(snap(beat)) end
+  if track ~= 0 then
+    paw.cursor.set_track(track)
+  end
+  if beat then
+    paw.cursor.set_beat(snap(beat))
+  end
   pointing = false
   if beat and next(picked.set) then
     picked.set = {}
@@ -2039,7 +2359,9 @@ local function cursor_into(id: integer, beat?: number)
   to_arrange()
   paw.cursor.set_track(c.track)
   beat = snap(beat or c.start)
-  if beat < c.start or beat >= c.start + c.length then beat = c.start end
+  if beat < c.start or beat >= c.start + c.length then
+    beat = c.start
+  end
   paw.cursor.set_beat(beat)
   pointing = false
 end
@@ -2050,7 +2372,9 @@ local function clips_in(row0: integer, row1: integer, from: number, to: number):
   local out: {integer} = {}
   for row = math.max(1, math.min(row0, row1)), math.min(#rows, math.max(row0, row1)) do
     for _, c in ipairs(api.clip_list(rows[row])) do
-      if c.start < to - 1e-9 and c.start + c.length > from + 1e-9 then out[#out + 1] = c.id end
+      if c.start < to - 1e-9 and c.start + c.length > from + 1e-9 then
+        out[#out + 1] = c.id
+      end
     end
   end
   return out
@@ -2066,17 +2390,24 @@ function A.select_clip(id: integer, beat?: number, mode?: string)
   mode = mode or "only"
   if mode == "only" then
     -- What was chosen before, for a double click that follows.
-    recently_chosen = { set = {}, at = api.now() }
-    for _, other in ipairs(M.chosen_clips()) do recently_chosen.set[other] = true end
-    return choose_clips({ [id] = true }, id, false)
+    recently_chosen = {set = {}, at = api.now()}
+    for _, other in ipairs(M.chosen_clips()) do
+      recently_chosen.set[other] = true
+    end
+    return choose_clips({[id] = true}, id, false)
   end
-  local set: {integer:boolean} = {}
-  for _, other in ipairs(M.chosen_clips()) do set[other] = true end
+  local set: {integer: boolean} = {}
+  for _, other in ipairs(M.chosen_clips()) do
+    set[other] = true
+  end
   if mode == "toggle" then
     set[id] = not set[id] or nil
     return choose_clips(set, set[id] and id or picked.anchor, true)
   end
-  local anchor = picked.anchor and set[picked.anchor] and pcall(api.clip_get, picked.anchor) and api.clip_get(picked.anchor)
+  local anchor = picked.anchor
+    and set[picked.anchor]
+    and pcall(api.clip_get, picked.anchor)
+    and api.clip_get(picked.anchor)
   local c = api.clip_get(id)
   if not anchor then
     set[id] = true
@@ -2086,11 +2417,15 @@ function A.select_clip(id: integer, beat?: number, mode?: string)
   local from, to = math.min(anchor.start, c.start), math.max(anchor.start, c.start)
   if anchor.track == c.track then
     for _, other in ipairs(api.clip_list(c.track)) do
-      if other.start >= from - 1e-9 and other.start <= to + 1e-9 then set[other.id] = true end
+      if other.start >= from - 1e-9 and other.start <= to + 1e-9 then
+        set[other.id] = true
+      end
     end
   else
     to = math.max(anchor.start + anchor.length, c.start + c.length)
-    for _, other in ipairs(clips_in(rows[anchor.track] or 1, rows[c.track] or 1, from, to)) do set[other] = true end
+    for _, other in ipairs(clips_in(rows[anchor.track] or 1, rows[c.track] or 1, from, to)) do
+      set[other] = true
+    end
   end
   set[id] = true
   choose_clips(set, anchor.id, true)
@@ -2101,29 +2436,41 @@ end
 --- clips it touches are chosen. `mode` as for `select_clip`: "add" keeps
 --- those chosen already, "toggle" turns the ones it touches over.
 function A.select_clips_box(row0: integer, beat0: number, row1: integer, beat1: number, mode?: string): integer
-  local set: {integer:boolean} = {}
+  local set: {integer: boolean} = {}
   if mode == "add" or mode == "toggle" then
-    for _, id in ipairs(M.chosen_clips()) do set[id] = true end
+    for _, id in ipairs(M.chosen_clips()) do
+      set[id] = true
+    end
   end
   local touched = clips_in(row0, row1, math.min(beat0, beat1), math.max(beat0, beat1))
   for _, id in ipairs(touched) do
-    if mode == "toggle" and set[id] then set[id] = nil else set[id] = true end
+    if mode == "toggle" and set[id] then
+      set[id] = nil
+    else
+      set[id] = true
+    end
   end
   choose_clips(set, touched[1] or picked.anchor, true)
   local count = 0
-  for _ in pairs(set) do count = count + 1 end
+  for _ in pairs(set) do
+    count = count + 1
+  end
   return count
 end
 
 --- Choose a set of clips (`{ [id] = true }`), as visual mode's selection:
 --- what `:select` does.
-function M.choose_clips(set: {integer:boolean}) choose_clips(set, nil, true) end
+function M.choose_clips(set: {integer: boolean})
+  choose_clips(set, nil, true)
+end
 
 --- Every clip on the timeline, chosen.
 function A.select_all_clips()
-  local set: {integer:boolean} = {}
+  local set: {integer: boolean} = {}
   for _, track in ipairs(paw.groups.rows()) do
-    for _, c in ipairs(api.clip_list(track)) do set[c.id] = true end
+    for _, c in ipairs(api.clip_list(track)) do
+      set[c.id] = true
+    end
   end
   choose_clips(set, nil, true)
 end
@@ -2132,7 +2479,9 @@ end
 local function snapshot_at(clip: objects.Clip, start: number): objects.ClipSnapshot
   local taken = clip:snapshot()
   local out: objects.ClipSnapshot = {}
-  for k, v in pairs(taken as {string:Value}) do (out as {string:Value})[k] = v end
+  for k, v in pairs(taken as {string: Value}) do
+    (out as {string: Value})[k] = v
+  end
   out.start = start
   return out
 end
@@ -2147,8 +2496,10 @@ function A.move_clip(id: integer, start: number, track?: integer, copy?: boolean
     local made = paw.restore_clip(snapshot_at(clip, start), track)
     return made.id
   end
-  api.clip_set(id, { start = start })
-  if track ~= api.clip_get(id).track then api.clip_set(id, { track = track }) end
+  api.clip_set(id, {start = start})
+  if track ~= api.clip_get(id).track then
+    api.clip_set(id, {track = track})
+  end
   return id
 end
 
@@ -2157,10 +2508,12 @@ end
 local function grabbed_clips(id: integer): {integer}
   local ids = M.chosen_clips()
   for _, other in ipairs(ids) do
-    if other == id then return ids end
+    if other == id then
+      return ids
+    end
   end
-  choose_clips({ [id] = true }, id, false)
-  return { id }
+  choose_clips({[id] = true}, id, false)
+  return {id}
 end
 
 --- Drag clips: the one at `id` and, if it is chosen, the others chosen with
@@ -2182,9 +2535,13 @@ function A.drag_clips(id: integer, dbeat: number, drows?: number, copy?: boolean
     clips[i] = c
     by = math.max(by, -c.start)
     local row = rows[c.track]
-    if row then rows_by = util.clamp(rows_by, 1 - row, #list - row) as integer end
+    if row then
+      rows_by = util.clamp(rows_by, 1 - row, #list - row) as integer
+    end
   end
-  if math.abs(by) < 1e-9 and rows_by == 0 and not copy then return ids end
+  if math.abs(by) < 1e-9 and rows_by == 0 and not copy then
+    return ids
+  end
   local out: {integer} = {}
   for i, c in ipairs(clips) do
     local row = rows[c.track]
@@ -2193,14 +2550,18 @@ function A.drag_clips(id: integer, dbeat: number, drows?: number, copy?: boolean
       local made = paw.restore_clip(snapshot_at(paw.clip(c.id), c.start + by), track)
       out[i] = made.id
     else
-      api.clip_set(c.id, { start = c.start + by })
-      if track ~= c.track then api.clip_set(c.id, { track = track }) end
+      api.clip_set(c.id, {start = c.start + by})
+      if track ~= c.track then
+        api.clip_set(c.id, {track = track})
+      end
       out[i] = c.id
     end
   end
   if copy then
-    local set: {integer:boolean} = {}
-    for _, cid in ipairs(out) do set[cid] = true end
+    local set: {integer: boolean} = {}
+    for _, cid in ipairs(out) do
+      set[cid] = true
+    end
     choose_clips(set, out[1], #out > 1)
   end
   return out
@@ -2212,12 +2573,16 @@ end
 --- dragged out over it again.
 local function shift_content(id: integer, by: number)
   local notes = api.clip_notes(id)
-  for _, n in ipairs(notes) do n.start = n.start + by end
+  for _, n in ipairs(notes) do
+    n.start = n.start + by
+  end
   api.clip_set_notes(id, notes)
   local c = api.clip_get(id)
   if c.control_count > 0 then
     local controls = api.clip_controls(id)
-    for _, move in ipairs(controls) do move.start = move.start + by end
+    for _, move in ipairs(controls) do
+      move.start = move.start + by
+    end
     api.clip_set_controls(id, controls)
   end
   -- The takes that are not playing stay lined up with the one that is.
@@ -2243,7 +2608,9 @@ end
 --- the sound is stretched instead (`A.stretch_clips`). One undo step.
 --- Returns the ids.
 function A.trim_clips(id: integer, edge: string, dbeat: number, free?: boolean, slip?: boolean): {integer}
-  if slip and free and edge == "end" then return A.stretch_clips(id, dbeat) end
+  if slip and free and edge == "end" then
+    return A.stretch_clips(id, dbeat)
+  end
   local ids = grabbed_clips(id)
   local held = api.clip_get(id)
   local least = free and 1 / 64 or opt.grid
@@ -2255,7 +2622,7 @@ function A.trim_clips(id: integer, edge: string, dbeat: number, free?: boolean, 
         paw.stretch.move_content(cid, -dbeat)
       elseif c.kind == "audio" then
         -- Later in the clip is earlier in the file, which has no time before 0.
-        api.clip_set(cid, { offset = math.max(0, c.offset - paw.stretch.file_seconds(c, dbeat)) })
+        api.clip_set(cid, {offset = math.max(0, c.offset - paw.stretch.file_seconds(c, dbeat))})
       else
         shift_content(cid, dbeat)
       end
@@ -2264,35 +2631,39 @@ function A.trim_clips(id: integer, edge: string, dbeat: number, free?: boolean, 
   end
   local at = edge == "start" and held.start or held.start + held.length
   local by = (free and math.max(0, at + dbeat) or snap(at + dbeat)) - at
-  if math.abs(by) < 1e-9 then return ids end
+  if math.abs(by) < 1e-9 then
+    return ids
+  end
   for _, cid in ipairs(ids) do
     local c = api.clip_get(cid)
     if edge == "start" then
       local d = math.min(by, c.length - least)
       d = math.max(d, -c.start)
       -- A looped clip turns its loop round instead of running out of file.
-      if c.kind == "audio" and not c.loop then d = math.max(d, file_start(c)) end
+      if c.kind == "audio" and not c.loop then
+        d = math.max(d, file_start(c))
+      end
       if math.abs(d) > 1e-9 then
-        api.clip_set(cid, { start = c.start + d })
-        api.clip_set(cid, { length = c.length - d })
+        api.clip_set(cid, {start = c.start + d})
+        api.clip_set(cid, {length = c.length - d})
         if c.loop then
           paw.stretch.move_content(cid, d)
         elseif c.kind == "audio" then
-          api.clip_set(cid, { offset = math.max(0, c.offset + paw.stretch.file_seconds(c, d)) })
+          api.clip_set(cid, {offset = math.max(0, c.offset + paw.stretch.file_seconds(c, d))})
         else
           shift_content(cid, -d)
         end
         if c.kind == "audio" then
-          api.clip_set(cid, { fade_in = math.min(c.fade_in, c.length - d) })
-          api.clip_set(cid, { fade_out = math.min(c.fade_out, c.length - d) })
+          api.clip_set(cid, {fade_in = math.min(c.fade_in, c.length - d)})
+          api.clip_set(cid, {fade_out = math.min(c.fade_out, c.length - d)})
         end
       end
     else
       local length = math.max(least, c.length + by)
-      api.clip_set(cid, { length = length })
+      api.clip_set(cid, {length = length})
       if c.kind == "audio" then
-        api.clip_set(cid, { fade_in = math.min(c.fade_in, length) })
-        api.clip_set(cid, { fade_out = math.min(c.fade_out, length) })
+        api.clip_set(cid, {fade_in = math.min(c.fade_in, length)})
+        api.clip_set(cid, {fade_out = math.min(c.fade_out, length)})
       end
     end
   end
@@ -2309,12 +2680,16 @@ function A.stretch_clips(id: integer, dbeat: number): {integer}
   local held = api.clip_get(id)
   local at = held.start + held.length
   local by = snap(at + dbeat) - at
-  if math.abs(by) < 1e-9 then return ids end
+  if math.abs(by) < 1e-9 then
+    return ids
+  end
   for _, cid in ipairs(ids) do
     local c = api.clip_get(cid)
     if c.kind == "audio" then
       local ok, err = pcall(paw.stretch.to, cid, math.max(opt.grid, c.length + by)) as (boolean, string)
-      if not ok then paw.notify((tostring(err):gsub("^[^:]*:%d+: ", "")), "warn") end
+      if not ok then
+        paw.notify((tostring(err):gsub("^[^:]*:%d+: ", "")), "warn")
+      end
     end
   end
   return ids
@@ -2335,13 +2710,23 @@ function A.stretch_clip(id: integer, what: string)
     from, to = sel.c0, sel.c1
   elseif what == "loop" then
     local t = api.transport_get()
-    if not (t.loop_end > t.loop_start) then return paw.notify("there is no loop to stretch the clip to", "warn") end
+    if not (t.loop_end > t.loop_start) then
+      return paw.notify("there is no loop to stretch the clip to", "warn")
+    end
     from, to = t.loop_start, t.loop_end
   end
-  local ok, err = pcall(function()
-    if from then paw.stretch.fit(id, from, to) else paw.stretch.reset(id) end
-  end) as (boolean, string)
-  if not ok then paw.notify((tostring(err):gsub("^[^:]*:%d+: ", "")), "warn") end
+  local ok, err = pcall(
+    function()
+      if from then
+        paw.stretch.fit(id, from, to)
+      else
+        paw.stretch.reset(id)
+      end
+    end
+  ) as (boolean, string)
+  if not ok then
+    paw.notify((tostring(err):gsub("^[^:]*:%d+: ", "")), "warn")
+  end
 end
 
 --- Warp markers in the window (`paw.stretch.warp_add`): a double click on
@@ -2351,7 +2736,9 @@ end
 --- step; a refusal is said, not raised.
 local function warp_run(f: function())
   local ok, err = pcall(f) as (boolean, string)
-  if not ok then paw.notify((tostring(err):gsub("^[^:]*:%d+: ", ""):gsub("^runtime error: ", "")), "warn") end
+  if not ok then
+    paw.notify((tostring(err):gsub("^[^:]*:%d+: ", ""):gsub("^runtime error: ", "")), "warn")
+  end
 end
 
 function A.warp_add(id: integer, beat: number)
@@ -2375,7 +2762,11 @@ function A.set_fade(id: integer, which: string, beats: number)
     local c = api.clip_get(cid)
     if c.kind == "audio" then
       local fade = util.clamp(beats, 0, c.length)
-      if which == "out" then api.clip_set(cid, { fade_out = fade }) else api.clip_set(cid, { fade_in = fade }) end
+      if which == "out" then
+        api.clip_set(cid, {fade_out = fade})
+      else
+        api.clip_set(cid, {fade_in = fade})
+      end
     end
   end
 end
@@ -2387,13 +2778,15 @@ function A.set_clip_gain(id: integer, db: number)
   local by = db - api.clip_get(id).gain
   for _, cid in ipairs(grabbed_clips(id)) do
     local c = api.clip_get(cid)
-    if c.kind == "audio" then api.clip_set(cid, { gain = util.clamp(c.gain + by, -60, 24) }) end
+    if c.kind == "audio" then
+      api.clip_set(cid, {gain = util.clamp(c.gain + by, -60, 24)})
+    end
   end
 end
 
 --- Drag a clip's right edge to a new length, never shorter than a grid step.
 function A.resize_clip(id: integer, length: number)
-  api.clip_set(id, { length = math.max(opt.grid, paw.cursor.snap(length)) })
+  api.clip_set(id, {length = math.max(opt.grid, paw.cursor.snap(length))})
 end
 
 --- A tempo (`kind` "tempo") or signature change flagged on the ruler at
@@ -2405,17 +2798,29 @@ function A.tempo_mark(action: string, kind: string, beat: number, to?: number)
   local index: integer
   local beats: {number} = {}
   if kind == "tempo" then
-    for i, p in ipairs(tempos) do beats[i] = p.beat end
+    for i, p in ipairs(tempos) do
+      beats[i] = p.beat
+    end
   else
-    for i, p in ipairs(signatures) do beats[i] = p.beat end
+    for i, p in ipairs(signatures) do
+      beats[i] = p.beat
+    end
   end
   for i, b in ipairs(beats) do
-    if math.abs(b - beat) < 1e-6 then index = i end
+    if math.abs(b - beat) < 1e-6 then
+      index = i
+    end
   end
-  if not index or index == 1 then return end
+  if not index or index == 1 then
+    return
+  end
   local was = beats[index]
   if action == "remove" then
-    if kind == "tempo" then api.tempo_remove(was) else api.signature_remove(was) end
+    if kind == "tempo" then
+      api.tempo_remove(was)
+    else
+      api.signature_remove(was)
+    end
   elseif action == "move" then
     local moved: number
     if kind == "tempo" then
@@ -2432,21 +2837,33 @@ function A.tempo_mark(action: string, kind: string, beat: number, to?: number)
       signatures[#signatures + 1] = point
       moved = point.beat
     end
-    if math.abs(moved - was) > 1e-9 then api.tempo_set_points(tempos, signatures) end
+    if math.abs(moved - was) > 1e-9 then
+      api.tempo_set_points(tempos, signatures)
+    end
   elseif action == "edit" then
     local where = "bar " .. paw.time.bar_of(was)
     if kind == "tempo" then
       local point = tempos[index]
-      paw.ui.input({ prompt = "tempo at " .. where .. ": ", text = string.format("%g", point.bpm) }, function(text: string)
-        local bpm = tonumber(text)
-        if bpm then api.tempo_set(point.beat, bpm) end
-      end)
+      paw.ui.input(
+        {prompt = "tempo at " .. where .. ": ", text = string.format("%g", point.bpm)},
+        function(text: string)
+          local bpm = tonumber(text)
+          if bpm then
+            api.tempo_set(point.beat, bpm)
+          end
+        end
+      )
     else
       local point = signatures[index]
-      paw.ui.input({ prompt = "signature at " .. where .. ": ", text = point.num .. "/" .. point.den }, function(text: string)
-        local n, d = tostring(text):match("^%s*(%d+)%s*/%s*(%d+)%s*$")
-        if n then api.signature_set(point.beat, tonumber(n) as integer, tonumber(d) as integer) end
-      end)
+      paw.ui.input(
+        {prompt = "signature at " .. where .. ": ", text = point.num .. "/" .. point.den},
+        function(text: string)
+          local n, d = tostring(text):match("^%s*(%d+)%s*/%s*(%d+)%s*$")
+          if n then
+            api.signature_set(point.beat, tonumber(n) as integer, tonumber(d) as integer)
+          end
+        end
+      )
     end
   end
 end
@@ -2456,7 +2873,9 @@ end
 
 --- Show the tempo lane, or hide it.
 function A.tempo_lane(on?: boolean): boolean
-  if on == nil then return paw.tempolane.toggle() end
+  if on == nil then
+    return paw.tempolane.toggle()
+  end
   paw.tempolane.show(on)
   return on
 end
@@ -2484,14 +2903,16 @@ end
 --- Draw over the lane with a pencil: `points` are `{ beat, fraction }`.
 function A.tempo_draw(points: {Point})
   local out: {TempolaneModule.StrokePoint} = {}
-  for i, p in ipairs(points) do out[i] = { snap(p[1]), paw.tempolane.bpm(p[2]) } end
+  for i, p in ipairs(points) do
+    out[i] = {snap(p[1]), paw.tempolane.bpm(p[2])}
+  end
   paw.tempolane.draw(out)
 end
 
 --- A double click on an empty lane: a clip of one bar in the bar clicked.
 function A.add_clip(track: integer, beat: number): integer
   local start = paw.time.bar_floor(math.max(0, beat))
-  local id = api.clip_add(track, { start = start, length = paw.time.bar(start) })
+  local id = api.clip_add(track, {start = start, length = paw.time.bar(start)})
   A.select(track, api.clip_get(id).start)
   return id
 end
@@ -2507,24 +2928,34 @@ function A.open_clip(id: integer)
   local before = recently_chosen and api.now() - recently_chosen.at < 1500 and recently_chosen.set
   if not (before and before[id]) then
     before = {}
-    for _, other in ipairs(M.chosen_clips()) do before[other] = true end
+    for _, other in ipairs(M.chosen_clips()) do
+      before[other] = true
+    end
   end
   local together: {integer} = {}
   if before[id] then
     for other in pairs(before) do
       local ok, c = pcall(api.clip_get, other)
-      if ok and (c as types.Clip).kind == "midi" then together[#together + 1] = other end
+      if ok and (c as types.Clip).kind == "midi" then
+        together[#together + 1] = other
+      end
     end
     table.sort(together)
   end
   A.select_clip(id, clip.start)
   for _, opener in ipairs(M.openers) do
-    if opener(clip) then return end
+    if opener(clip) then
+      return
+    end
   end
-  if clip.kind ~= "midi" then return end
+  if clip.kind ~= "midi" then
+    return
+  end
   -- Opened by the pointer, the roll shows the clips whole where it can.
   paw.ui.views.pianoroll.fit_next = true
-  if #together > 1 then return paw.roll_clips.open(together, id) end
+  if #together > 1 then
+    return paw.roll_clips.open(together, id)
+  end
   paw.ui.views.pianoroll:edit(clip)
 end
 
@@ -2535,11 +2966,15 @@ function A.record()
   local t = api.transport_get()
   if t.recording or t.take then
     paw.transport.recording = false
-    if t.playing then paw.transport.stop() end
+    if t.playing then
+      paw.transport.stop()
+    end
     return
   end
   local armed = false
-  for _, id in ipairs(api.track_list()) do armed = armed or track_flag(id, "armed") end
+  for _, id in ipairs(api.track_list()) do
+    armed = armed or track_flag(id, "armed")
+  end
   if not armed then
     local track = paw.cursor.track()
     if not track then
@@ -2567,8 +3002,12 @@ end
 --- chosen if it is one of them, else it is chosen alone.
 function A.menu_target(id: integer, beat?: number)
   local among = false
-  for _, other in ipairs(M.chosen_clips()) do among = among or other == id end
-  if among then return cursor_into(id, beat) end
+  for _, other in ipairs(M.chosen_clips()) do
+    among = among or other == id
+  end
+  if among then
+    return cursor_into(id, beat)
+  end
   A.select_clip(id, beat)
 end
 
@@ -2585,7 +3024,9 @@ end
 --- Start a plugin again that has stopped working.
 function A.restart_device(id: integer)
   local ok, err = pcall(api.device_restart, id) as (boolean, string)
-  if not ok then paw.notify(tostring(err):match("^[^\n]*"), "error") end
+  if not ok then
+    paw.notify(tostring(err):match("^[^\n]*"), "error")
+  end
 end
 
 --- An entry an extension added to a menu (`paw.frontend.menus`), by its
@@ -2595,8 +3036,12 @@ end
 --- the cursor where it is.
 function A.menu(kind: string, index: integer, target?: integer, beat?: number)
   local entry = (M.menus[kind] or {})[index]
-  if not entry then return end
-  if beat and beat < 0 then beat = nil end
+  if not entry then
+    return
+  end
+  if beat and beat < 0 then
+    beat = nil
+  end
   if kind == "clip" then
     A.menu_target(target, beat)
   elseif target and target > 0 then
@@ -2615,9 +3060,13 @@ end
 --- (`paw.frontend.bands`), by the band's place in the list and the entry's
 --- in what it returns: its command runs, in the arrange view.
 function A.band(band: integer, index: integer)
-  if not M.bands[band] then return end
+  if not M.bands[band] then
+    return
+  end
   local entry = band_entries(band)[index]
-  if not entry then return end
+  if not entry then
+    return
+  end
   to_arrange()
   if entry.run then
     entry.run(entry)
@@ -2630,7 +3079,9 @@ end
 --- which only moves the playhead.
 function A.set_loop(from: number, to: number)
   from, to = snap(math.min(from, to)), snap(math.max(from, to))
-  if to - from < opt.grid then return paw.transport.seek(from) end
+  if to - from < opt.grid then
+    return paw.transport.seek(from)
+  end
   paw.transport.loop_start, paw.transport.loop_end = from, to
   paw.transport.loop_enabled = true
 end
@@ -2642,10 +3093,14 @@ end
 --- the selected row (the second of a double click) chooses it.
 function A.float_pointer(kind: string, line: integer, col?: integer)
   local float = paw.ui.float
-  if not float then return end
+  if not float then
+    return
+  end
   for _, r in ipairs(paw.ui.rects) do
     if r.name == float.name then
-      return paw.ui.mouse({ kind = kind, button = "left", x = r.x + math.max(0, (col or 1) - 1), y = r.y + math.max(0, line - 1) })
+      return paw.ui.mouse(
+        {kind = kind, button = "left", x = r.x + math.max(0, (col or 1) - 1), y = r.y + math.max(0, line - 1)}
+      )
     end
   end
 end
@@ -2659,25 +3114,35 @@ local splitting = false
 --- cursor instead.
 function A.split_clips(): boolean
   local ids = M.chosen_clips()
-  if splitting or #ids == 0 then return false end
+  if splitting or #ids == 0 then
+    return false
+  end
   local beat, track, visual = paw.cursor.beat, paw.cursor.track_id(), paw.keymap.mode == "x"
-  local set: {integer:boolean} = {}
+  local set: {integer: boolean} = {}
   splitting, pointing = true, true
-  local ok, err = pcall(function()
-    for _, id in ipairs(ids) do
-      set[id] = true
-      local c = api.clip_get(id)
-      if beat > c.start + 1e-9 and beat < c.start + c.length - 1e-9 then
-        paw.cursor.set_track(c.track)
-        commands.exec("clip.split")
-        local right = paw.track(c.track):clip_at(beat)
-        if right then set[right.id] = true end
+  local ok, err = pcall(
+    function()
+      for _, id in ipairs(ids) do
+        set[id] = true
+        local c = api.clip_get(id)
+        if beat > c.start + 1e-9 and beat < c.start + c.length - 1e-9 then
+          paw.cursor.set_track(c.track)
+          commands.exec("clip.split")
+          local right = paw.track(c.track):clip_at(beat)
+          if right then
+            set[right.id] = true
+          end
+        end
       end
     end
-  end) as (boolean, string)
-  if track then paw.cursor.set_track(track) end
+  ) as (boolean, string)
+  if track then
+    paw.cursor.set_track(track)
+  end
   splitting, pointing = false, false
-  if not ok then error(err, 0) end
+  if not ok then
+    error(err, 0)
+  end
   choose_clips(set, ids[1], visual or #ids > 1)
   return true
 end
@@ -2689,14 +3154,20 @@ end
 --- as it is.
 function A.glue_clips()
   local region = clip_region()
-  if not region then return paw.notify("no clips chosen to glue", "warn") end
+  if not region then
+    return paw.notify("no clips chosen to glue", "warn")
+  end
   local glued = false
   for _, track in ipairs(paw.edit.arrange.tracks(region)) do
     local audio: {integer} = {}
     local midi = 0
     for _, c in ipairs(api.clip_list(track)) do
       if region.clips[c.id] then
-        if c.kind == "audio" then audio[#audio + 1] = c.id else midi = midi + 1 end
+        if c.kind == "audio" then
+          audio[#audio + 1] = c.id
+        else
+          midi = midi + 1
+        end
       end
     end
     local ok, done: boolean, boolean = true, false
@@ -2713,16 +3184,26 @@ function A.glue_clips()
     elseif midi >= 2 and #audio == 0 then
       local fine, result = pcall(paw.edit.arrange.join, track, region.c0, region.c1, region.clips)
       ok = fine
-      if fine then done = result as boolean else why = tostring(result) end
+      if fine then
+        done = result as boolean
+      else
+        why = tostring(result)
+      end
     elseif #audio > 0 and midi > 0 then
       paw.notify("audio and MIDI clips cannot be glued together", "warn")
     end
-    if not ok then return paw.notify(why:match("^[^\n]*"), "warn") end
+    if not ok then
+      return paw.notify(why:match("^[^\n]*"), "warn")
+    end
     glued = glued or done
   end
-  if not glued then paw.notify("glue takes two or more chosen clips of one kind on a track", "warn") end
-  local left: {integer:boolean} = {}
-  for _, id in ipairs(M.chosen_clips()) do left[id] = true end
+  if not glued then
+    paw.notify("glue takes two or more chosen clips of one kind on a track", "warn")
+  end
+  local left: {integer: boolean} = {}
+  for _, id in ipairs(M.chosen_clips()) do
+    left[id] = true
+  end
   choose_clips(left, nil, false)
 end
 
@@ -2731,7 +3212,9 @@ end
 --- edit cursor stays where it is.
 function A.menu_split(id: integer)
   grabbed_clips(id)
-  if not A.split_clips() then commands.exec("clip.split") end
+  if not A.split_clips() then
+    commands.exec("clip.split")
+  end
 end
 
 function A.menu_glue(id: integer)
@@ -2767,7 +3250,9 @@ end
 --- Punch in and out between two beats, on the grid, and turn punching on.
 function A.set_punch(from: number, to: number)
   from, to = snap(math.min(from, to)), snap(math.max(from, to))
-  if to - from < opt.grid then return end
+  if to - from < opt.grid then
+    return
+  end
   paw.transport.punch_start, paw.transport.punch_end = from, to
   paw.transport.punch_enabled = true
 end
@@ -2785,13 +3270,17 @@ end
 --- undo step. Returns how many pieces play the take now.
 function A.comp(track: integer, take: integer, from: number, to: number, free?: boolean): integer
   local a, b = math.min(from, to), math.max(from, to)
-  if not free then a, b = snap(a), snap(b) end
+  if not free then
+    a, b = snap(a), snap(b)
+  end
   a = math.max(0, a)
   if b - a < (free and 1 / 64 or opt.grid) - 1e-9 then
     return A.take_click(track, take, math.min(from, to)) and 1 or 0
   end
   local n = paw.takes.comp(track, take, a, b)
-  if n > 0 then paw.cursor.set_track(track) end
+  if n > 0 then
+    paw.cursor.set_track(track)
+  end
   return n
 end
 
@@ -2823,7 +3312,9 @@ end
 --- places in the track list, from 1.
 function A.select_range(row0: integer, beat0: number, row1: integer, beat1: number)
   local tracks = paw.groups.rows()
-  if #tracks == 0 then return end
+  if #tracks == 0 then
+    return
+  end
   to_arrange()
   local clamp = util.clamp
   paw.cursor.set_track(tracks[clamp(row0, 1, #tracks) as integer])
@@ -2844,7 +3335,7 @@ local ui_focus: events.Event<Focus> = events.event("ui.focus")
 --- The window got the focus of the desktop (true), or lost it.
 function A.focus(on: boolean)
   paw.ui.has_focus = on
-  events.emit(ui_focus, { focused = on })
+  events.emit(ui_focus, {focused = on})
 end
 
 function A.keys(keys: string)
@@ -2857,13 +3348,17 @@ function A.keys(keys: string)
   paw.keymap.feed(keys)
 end
 
-function A.set_volume(track: integer, db: number) api.track_set(track, { volume = util.fader_db(track_number(track, "volume"), db) }) end
+function A.set_volume(track: integer, db: number)
+  api.track_set(track, {volume = util.fader_db(track_number(track, "volume"), db)})
+end
 
 --- A fader, a pan or a parameter is under the pointer (`on`), or let go:
 --- in touch mode it writes automation for as long as it is held. `device`
 --- and `param` name a parameter; 0 and "" for a fader or a pan.
 function A.hold(track: integer, target: string, device: integer, param: string, on: boolean)
-  if target ~= "param" then device, param = nil, nil end
+  if target ~= "param" then
+    device, param = nil, nil
+  end
   api.automation_hold(track, target, device, param, on)
 end
 
@@ -2876,7 +3371,9 @@ end
 function A.leave(how: string, what: string)
   local function go()
     if what == "quit" then
-      if how == "discard" then paw.autosave.discard = true end
+      if how == "discard" then
+        paw.autosave.discard = true
+      end
       api.quit(0)
     elseif what == "new" then
       paw.project.new()
@@ -2886,7 +3383,9 @@ function A.leave(how: string, what: string)
       commands.exec("open")
     end
   end
-  if how ~= "save" then return go() end
+  if how ~= "save" then
+    return go()
+  end
   if project_text("path") then
     paw.project.write()
     return go()
@@ -2902,7 +3401,7 @@ function A.chosen(kind: string, path: string)
     local saved, note = paw.project.write(path)
     paw.notify(note and (note .. ": " .. saved) or ("saved " .. saved))
   else
-    commands.run("import", { path })
+    commands.run("import", {path})
   end
 end
 
@@ -2916,7 +3415,7 @@ end
 --- a track of its own, at `beat` or the edit cursor. Anything else is said
 --- to be refused. Returns `{ open, clips, refused }`.
 function A.drop(paths: {string}, row?: integer, beat?: number): Dropped
-  local out: Dropped = { clips = {}, refused = 0 }
+  local out: Dropped = {clips = {}, refused = 0}
   local sounds, midis: {string}, {string} = {}, {}
   for _, path in ipairs(paths) do
     if paw.is_audio_file(path) then
@@ -2927,31 +3426,46 @@ function A.drop(paths: {string}, row?: integer, beat?: number): Dropped
       out.open = out.open or path
     else
       out.refused = out.refused + 1
-      paw.notify("cannot take " .. (path:match("([^/]+)$") or path) .. ": it is not a sound file, a MIDI file or a project", "warn")
+      paw.notify(
+        "cannot take " .. (path:match("([^/]+)$") or path) .. ": it is not a sound file, a MIDI file or a project",
+        "warn"
+      )
     end
   end
-  if out.open then return out end
+  if out.open then
+    return out
+  end
   local rows = paw.groups.rows()
   local track = row and rows[row]
   local start = beat and snap(beat)
   for _, path in ipairs(midis) do
-    local ok, got = pcall(paw.midifile.import, path, { start = start })
+    local ok, got = pcall(paw.midifile.import, path, {start = start})
     if ok then
       local done = got as MidifileModule.Imported
-      for _, clip in ipairs(done.clips) do out.clips[#out.clips + 1] = (clip as objects.Clip).id end
-      paw.notify(string.format("dropped %s: %d notes on %d tracks", path:match("([^/]+)$") or path, done.notes, #done.tracks))
+      for _, clip in ipairs(done.clips) do
+        out.clips[#out.clips + 1] = (clip as objects.Clip).id
+      end
+      paw.notify(
+        string.format("dropped %s: %d notes on %d tracks", path:match("([^/]+)$") or path, done.notes, #done.tracks)
+      )
     else
       out.refused = out.refused + 1
       paw.notify("could not import " .. path .. ": " .. tostring(got), "error")
     end
   end
   for _, path in ipairs(sounds) do
-    local ok, got = pcall(paw.import_audio, path, { track = track, start = start })
+    local ok, got = pcall(paw.import_audio, path, {track = track, start = start})
     if ok then
       local clip = got as objects.Clip
       out.clips[#out.clips + 1] = clip.id
-      if track then start = clip.start + clip.length end
-      paw.notify(string.format("dropped %s: %.1f beats on track “%s”", path:match("([^/]+)$") or path, clip.length, clip:track().name))
+      if track then
+        start = clip.start + clip.length
+      end
+      paw.notify(
+        string.format(
+          "dropped %s: %.1f beats on track “%s”", path:match("([^/]+)$") or path, clip.length, clip:track().name
+        )
+      )
     else
       out.refused = out.refused + 1
       paw.notify("could not import " .. path .. ": " .. tostring(got), "error")
@@ -2968,11 +3482,13 @@ end
 --- Show a track's lanes as rows of their own under it, or hide them. A
 --- track that has none yet gets one for its fader, to draw on.
 function A.lane_rows(track: integer): boolean
-  if not paw.lanes.is_open(track) and #api.lane_list(track) == 0 then A.lane(track, "volume") end
+  if not paw.lanes.is_open(track) and #api.lane_list(track) == 0 then
+    A.lane(track, "volume")
+  end
   return paw.lanes.toggle(track)
 end
 
-local lossy_formats: {string:string} = { flac = "flac", mp3 = "mp3", ogg = "ogg", opus = "opus" }
+local lossy_formats: {string: string} = {flac = "flac", mp3 = "mp3", ogg = "ogg", opus = "opus"}
 
 --- Render as the window's dialog says: `o.path`, `o.range` (a name from
 --- `render_dialog`), `o.format` ("wav", "flac", "mp3", "ogg" or "opus"), `o.quality` (for those
@@ -2984,27 +3500,42 @@ local lossy_formats: {string:string} = { flac = "flac", mp3 = "mp3", ogg = "ogg"
 --- runs in the background: the state's `modal.render` says how far it is.
 function A.render(o: RenderRequest)
   local render = render_module()
-  if o.tags then render.tags(o.tags) end
+  if o.tags then
+    render.tags(o.tags)
+  end
   local opts: RenderModule.Options = {
-    tail = tonumber(o.tail), bits = tonumber(o.bits) as integer, dither = o.dither and true or nil,
-    normalize = tonumber(o.normalize), channels = o.mono and 1 or nil, background = true,
+    tail = tonumber(o.tail),
+    bits = tonumber(o.bits) as integer,
+    dither = o.dither and true or nil,
+    normalize = tonumber(o.normalize),
+    channels = o.mono and 1 or nil,
+    background = true,
   }
   local format = lossy_formats[o.format] or "wav"
-  if format == "flac" and opts.bits == 32 then opts.bits = 24 end
-  if format ~= "wav" and format ~= "flac" then opts.bits, opts.dither, opts.quality = nil, nil, o.quality end
+  if format == "flac" and opts.bits == 32 then
+    opts.bits = 24
+  end
+  if format ~= "wav" and format ~= "flac" then
+    opts.bits, opts.dither, opts.quality = nil, nil, o.quality
+  end
   local range = o.range or "song"
   local region = range:match("^region:(%d+)$")
   if region then
-    local r = paw.markers.find({ id = tonumber(region) as integer })
-    if not r then error("that region is gone", 0) end
+    local r = paw.markers.find({id = tonumber(region) as integer})
+    if not r then
+      error("that region is gone", 0)
+    end
     opts.start, opts["end"] = r.beat, r.beat + r.length
   elseif range ~= "song" then
     opts.range = range
   end
   local path = util.expand_path(tostring(o.path or ""))
-  if path == "" then error("render: name a file to write", 0) end
-  local stem = path:gsub("%.[Ww][Aa][Vv]$", ""):gsub("%.[Ff][Ll][Aa][Cc]$", ""):gsub("%.[Mm][Pp]3$", "")
-    :gsub("%.[Oo][Gg][Gg]$", ""):gsub("%.[Oo][Pp][Uu][Ss]$", "")
+  if path == "" then
+    error("render: name a file to write", 0)
+  end
+  local stem = path:gsub("%.[Ww][Aa][Vv]$", ""):gsub("%.[Ff][Ll][Aa][Cc]$", ""):gsub("%.[Mm][Pp]3$", ""):gsub(
+    "%.[Oo][Gg][Gg]$", ""
+  ):gsub("%.[Oo][Pp][Uu][Ss]$", "")
   if o.stems then
     opts.format = format
     local files = render.stems(stem .. " stems", opts)
@@ -3024,25 +3555,35 @@ end
 --- A track cannot play into itself or into a track that plays into it.
 function M.routing(track: integer): Routing
   local t = api.track_get(track)
-  local targets: {Target} = { { id = 0, name = "Master" } }
+  local targets: {Target} = {{id = 0, name = "Master"}}
   -- Not a track whose sound reaches this one, by any route.
   local reaching = paw.routes.reaching(track)
   for _, id in ipairs(api.track_list()) do
-    if id ~= track and not reaching[id] then targets[#targets + 1] = { id = id, name = track_text(id, "name") } end
+    if id ~= track and not reaching[id] then
+      targets[#targets + 1] = {id = id, name = track_text(id, "name")}
+    end
   end
   local sends: {SendState} = {}
   for i, send in ipairs(t.sends or {}) do
     local ok, to = pcall(api.track_get, send.target)
-    sends[i] = { target = send.target, name = ok and (to as types.Track).name or "?", level = send.level, pre = send.pre or false }
+    sends[i] = {
+      target = send.target, name = ok and (to as types.Track).name or "?", level = send.level, pre = send.pre or false
+    }
   end
   local ok, to = pcall(api.track_get, t.output or 0)
-  return { output = t.output and ok and (to as types.Track).name or "Master", output_id = t.output or 0, targets = targets, sends = sends, master = t.master or false }
+  return {
+    output = t.output and ok and (to as types.Track).name or "Master",
+    output_id = t.output or 0,
+    targets = targets,
+    sends = sends,
+    master = t.master or false,
+  }
 end
 
 --- Play a track into another (`target` 0 or nil for the master).
 function A.set_output(track: integer, target?: integer)
   if target and target ~= 0 then
-    api.track_set(track, { output = target })
+    api.track_set(track, {output = target})
   else
     api.track_set(track, "output", nil)
   end
@@ -3052,27 +3593,37 @@ end
 function A.add_send(track: integer, target: integer, level?: number)
   local sends = api.track_get(track).sends
   for _, send in ipairs(sends) do
-    if send.target == target then return end
+    if send.target == target then
+      return
+    end
   end
-  sends[#sends + 1] = { target = target, level = level or opt.send_level }
-  api.track_set(track, { sends = sends })
+  sends[#sends + 1] = {target = target, level = level or opt.send_level}
+  api.track_set(track, {sends = sends})
 end
 
 --- Change the send at `index` (from 1): `level` in dB, `pre` whether it is
 --- taken ahead of the fader; nil leaves either as it is.
 function A.set_send(track: integer, index: integer, level?: number, pre?: boolean)
   local sends = api.track_get(track).sends
-  if not sends[index] then return end
-  if level ~= nil then sends[index].level = util.fader_db(sends[index].level, level) end
-  if pre ~= nil then sends[index].pre = pre and true or nil end
-  api.track_set(track, { sends = sends })
+  if not sends[index] then
+    return
+  end
+  if level ~= nil then
+    sends[index].level = util.fader_db(sends[index].level, level)
+  end
+  if pre ~= nil then
+    sends[index].pre = pre and true or nil
+  end
+  api.track_set(track, {sends = sends})
 end
 
 function A.remove_send(track: integer, index: integer)
   local sends = api.track_get(track).sends
-  if not sends[index] then return end
+  if not sends[index] then
+    return
+  end
   table.remove(sends, index)
-  api.track_set(track, { sends = sends })
+  api.track_set(track, {sends = sends})
 end
 
 --- The menu of the side-chain of a device: "None" first, then the tracks
@@ -3081,11 +3632,11 @@ end
 --- `act.choose_sidechain` takes one by place.
 function M.sidechain_menu(device: integer): {Check}
   local d = api.device_get(device)
-  local out: {Check} = { { label = "None: its own input", checked = d.sidechain == nil } }
+  local out: {Check} = {{label = "None: its own input", checked = d.sidechain == nil}}
   for _, source in ipairs(paw.routes.sidechain_sources(device)) do
-    out[#out + 1] = { label = source.name, checked = source.id == d.sidechain }
+    out[#out + 1] = {label = source.name, checked = source.id == d.sidechain}
   end
-  out[#out + 1] = { label = "Before the fader", checked = d.sidechain_pre or false }
+  out[#out + 1] = {label = "Before the fader", checked = d.sidechain_pre or false}
   return out
 end
 
@@ -3100,13 +3651,15 @@ function M.outputs_menu(device: integer): {PairMenu}
   local reaching = paw.routes.reaching(d.track)
   for _, o in ipairs(paw.routes.outputs(device)) do
     if o.pair > 1 then
-      local choices: {Check} = { { label = "Nowhere: not heard", checked = o.target == nil } }
+      local choices: {Check} = {{label = "Nowhere: not heard", checked = o.target == nil}}
       for _, id in ipairs(api.track_list()) do
         if id ~= d.track and not reaching[id] then
-          choices[#choices + 1] = { label = track_text(id, "name"), checked = id == o.target }
+          choices[#choices + 1] = {label = track_text(id, "name"), checked = id == o.target}
         end
       end
-      out[#out + 1] = { label = string.format("%d %s → %s", o.pair, o.name, o.target_name or "not heard"), choices = choices }
+      out[#out + 1] = {
+        label = string.format("%d %s → %s", o.pair, o.name, o.target_name or "not heard"), choices = choices
+      }
     end
   end
   return out
@@ -3115,19 +3668,25 @@ end
 --- Route a device's output pair `pair` (from 2) to the `index`th choice of
 --- its menu (`M.outputs_menu`): 1 for nowhere, then the tracks it lists.
 function A.route_pair(device: integer, pair: integer, index: integer)
-  if index == 1 then return paw.routes.set_output(device, pair, nil) end
+  if index == 1 then
+    return paw.routes.set_output(device, pair, nil)
+  end
   local d = api.device_get(device)
   local reaching = paw.routes.reaching(d.track)
   local n = 1
   for _, id in ipairs(api.track_list()) do
     if id ~= d.track and not reaching[id] then
       n = n + 1
-      if n == index then return paw.routes.set_output(device, pair, id) end
+      if n == index then
+        return paw.routes.set_output(device, pair, id)
+      end
     end
   end
 end
 
-function A.spread_outputs(device: integer) paw.routes.spread(device) end
+function A.spread_outputs(device: integer)
+  paw.routes.spread(device)
+end
 
 --- Choose from a device's side-chain menu (`M.sidechain_menu`), by place
 --- from 1: none, a track, or the last entry, which turns taking it before
@@ -3140,14 +3699,16 @@ function A.choose_sidechain(device: integer, index: integer)
   elseif sources[index - 1] then
     paw.routes.set_sidechain(device, sources[index - 1].id, d.sidechain_pre)
   elseif index == #sources + 2 and d.sidechain then
-    api.device_set(device, { sidechain_pre = not d.sidechain_pre })
+    api.device_set(device, {sidechain_pre = not d.sidechain_pre})
   end
 end
 
-function A.set_pan(track: integer, pan: number) api.track_set(track, { pan = util.clamp(pan, -1, 1) }) end
+function A.set_pan(track: integer, pan: number)
+  api.track_set(track, {pan = util.clamp(pan, -1, 1)})
+end
 
 function A.toggle(track: integer, flag: string)
-  local patch: {string:boolean} = { [flag] = not track_flag(track, flag) }
+  local patch: {string: boolean} = {[flag] = not track_flag(track, flag)}
   api.track_set(track, patch as types.Track)
 end
 
@@ -3156,7 +3717,9 @@ local function nth(list: {Choice}, group: string, index: integer): Choice
   for _, choice in ipairs(list) do
     if choice.group == group then
       n = n + 1
-      if n == index then return choice end
+      if n == index then
+        return choice
+      end
     end
   end
 end
@@ -3165,7 +3728,9 @@ end
 --- entry, from 1, under the heading `group`.
 function A.choose_input(track: integer, group: string, index: integer)
   local choice = nth(paw.audio.choices(track), group, index)
-  if not choice then return end
+  if not choice then
+    return
+  end
   paw.audio.choose(track, choice)
   A.select(track)
 end
@@ -3173,7 +3738,9 @@ end
 --- Choose an audio device or a block size from `M.engine_menu`.
 function A.choose_engine(group: string, index: integer)
   local choice = nth(paw.audio.engine_choices(), group, index)
-  if choice then paw.audio.choose_engine(choice) end
+  if choice then
+    paw.audio.choose_engine(choice)
+  end
 end
 
 --- A click on a device of a track's chain, as a mixer strip lists them: the
@@ -3183,14 +3750,18 @@ function A.pick_device(track: integer, index: integer)
   A.select(track)
   local panel = paw.ui.views.devices
   for row, entry in ipairs(panel:rows()) do
-    if not entry.param and entry.device.index == index then panel.row = row end
+    if not entry.param and entry.device.index == index then
+      panel.row = row
+    end
   end
   paw.ui.focus("devices")
 end
 
 function A.rename_track(track: integer, name: string)
   name = name:match("^%s*(.-)%s*$")
-  if name ~= "" then api.track_set(track, { name = name }) end
+  if name ~= "" then
+    api.track_set(track, {name = name})
+  end
 end
 
 --- Give a track one of the theme's colours by name, any `#rrggbb`, or "none".
@@ -3208,12 +3779,16 @@ function A.move_track(track: integer, index: integer)
   local rows = groups.rows()
   local target = rows[util.clamp(index, 1, #rows) as integer]
   for place, id in ipairs(api.track_list()) do
-    if id == target then api.track_move(track, place) end
+    if id == target then
+      api.track_move(track, place)
+    end
   end
   local above: integer
   rows = groups.rows()
   for i, id in ipairs(rows) do
-    if id == track then above = rows[i - 1] end
+    if id == track then
+      above = rows[i - 1]
+    end
   end
   local want: integer
   if above then
@@ -3224,18 +3799,24 @@ function A.move_track(track: integer, index: integer)
       -- A group cannot go inside itself; then it stays in its own group.
       pcall(groups.add, track, want)
     else
-      while groups.of(track) do groups.remove(track, true) end
+      while groups.of(track) do
+        groups.remove(track, true)
+      end
     end
   end
-  if groups.is_group(track) then groups.gather(track) end
+  if groups.is_group(track) then
+    groups.gather(track)
+  end
   local group = groups.of(track)
-  if group then groups.gather(group) end
+  if group then
+    groups.gather(group)
+  end
 end
 
 --- Drag a track's bottom edge: its height, as a share of the zoom's height
 --- that every track has (`1` for that height, which is then not kept).
 function A.set_track_height(track: integer, share: number)
-  api.track_set(track, { height = share })
+  api.track_set(track, {height = share})
 end
 
 --- A press on one of a track's M, S or R buttons swept down across others:
@@ -3245,7 +3826,7 @@ function A.set_flag(track: integer, flag: string, on: boolean)
   if flag ~= "mute" and flag ~= "solo" and flag ~= "armed" then
     error("not a flag of a track: " .. tostring(flag), 2)
   end
-  local patch: {string:boolean} = { [flag] = on and true or false }
+  local patch: {string: boolean} = {[flag] = on and true or false}
   api.track_set(track, patch as types.Track)
 end
 
@@ -3271,7 +3852,7 @@ end
 
 --- The notes chosen in a clip: their places, and the clip's stamp then.
 local record Chosen
-  places: {integer:boolean}
+  places: {integer: boolean}
   stamp: integer
 end
 
@@ -3279,9 +3860,13 @@ end
 -- are kept as long as the clip's notes are what the pointer's own edits
 -- left; an edit made any other way (a key, an undo) forgets them, since
 -- places move. Each window and terminal chooses notes of its own.
-local chosen: {integer:Chosen} = {}
-seats.keep("frontend.chosen", function(): {integer:Chosen} return chosen end, function(c: {integer:Chosen}) chosen = c end,
-  function(): {integer:Chosen} return {} end)
+local chosen: {integer: Chosen} = {}
+seats.keep(
+  "frontend.chosen",
+  function(): {integer: Chosen} return chosen end,
+  function(c: {integer: Chosen}) chosen = c end,
+  function(): {integer: Chosen} return {} end
+)
 
 local function stamp_of(clip: integer): integer
   local ok, data = pcall(api.clip_get, clip)
@@ -3290,8 +3875,8 @@ end
 
 --- Choose notes of `clip` by their places (`{ [place] = true }`), as the
 --- pointer would: what `:select` does.
-function M.choose_notes(clip: integer, places: {integer:boolean})
-  chosen[clip] = next(places) and { places = places, stamp = stamp_of(clip) } or nil
+function M.choose_notes(clip: integer, places: {integer: boolean})
+  chosen[clip] = next(places) and {places = places, stamp = stamp_of(clip)} or nil
   api.ui_redraw()
 end
 
@@ -3299,9 +3884,13 @@ end
 --- of the clip changed after the selection.
 function M.chosen_notes(clip: integer): {integer}
   local entry = chosen[clip]
-  if not entry or entry.stamp ~= stamp_of(clip) then return {} end
+  if not entry or entry.stamp ~= stamp_of(clip) then
+    return {}
+  end
   local out: {integer} = {}
-  for place in pairs(entry.places) do out[#out + 1] = place end
+  for place in pairs(entry.places) do
+    out[#out + 1] = place
+  end
   table.sort(out)
   return out
 end
@@ -3316,21 +3905,25 @@ local function parts_for(clip: integer): {Part}
     -- Offsets count from the clip named, which is the active one when the
     -- gesture gives beats.
     local base = rc.offset(clip)
-    for _, part in ipairs(parts) do part.offset = part.offset - base end
+    for _, part in ipairs(parts) do
+      part.offset = part.offset - base
+    end
     return parts
   end
   local c = api.clip_get(clip)
-  return { { id = clip, clip = paw.clip(clip), offset = 0, start = c.start, length = c.length } }
+  return {{id = clip, clip = paw.clip(clip), offset = 0, start = c.start, length = c.length}}
 end
 
 --- The chosen notes of the clips a gesture on `clip` reaches: clip id ->
 --- places, and how many there are.
-local function chosen_map(clip: integer): {integer:{integer}}, integer
-  local map: {integer:{integer}} = {}
+local function chosen_map(clip: integer): {integer: {integer}}, integer
+  local map: {integer: {integer}} = {}
   local count = 0
   for _, part in ipairs(parts_for(clip)) do
     local places = M.chosen_notes(part.id)
-    if #places > 0 then map[part.id], count = places, count + #places end
+    if #places > 0 then
+      map[part.id], count = places, count + #places
+    end
   end
   return map, count
 end
@@ -3339,9 +3932,13 @@ end
 function M.chosen_refs(): {{integer}}
   local out: {{integer}} = {}
   local active = paw.roll_clips.active()
-  if not active then return out end
+  if not active then
+    return out
+  end
   for _, part in ipairs(parts_for(active)) do
-    for _, place in ipairs(M.chosen_notes(part.id)) do out[#out + 1] = { part.id, place } end
+    for _, place in ipairs(M.chosen_notes(part.id)) do
+      out[#out + 1] = {part.id, place}
+    end
   end
   return out
 end
@@ -3350,7 +3947,9 @@ end
 --- for a toolbar: `3 notes · 5.1.00 – 5.3.00`, or "" with none chosen.
 function M.chosen_text(clip: integer): string
   local map, count = chosen_map(clip)
-  if count == 0 then return "" end
+  if count == 0 then
+    return ""
+  end
   local first, last, clips = math.huge, -math.huge, 0
   for id, places in pairs(map) do
     local c = api.clip_get(id)
@@ -3358,27 +3957,41 @@ function M.chosen_text(clip: integer): string
     clips = clips + 1
     for _, place in ipairs(places) do
       local n = notes[place]
-      if n then first, last = math.min(first, c.start + n.start), math.max(last, c.start + n.start + n.length) end
+      if n then
+        first, last = math.min(first, c.start + n.start), math.max(last, c.start + n.start + n.length)
+      end
     end
   end
-  if first == math.huge then return "" end
-  return string.format("%d note%s%s · %s – %s", count, count == 1 and "" or "s",
-    clips > 1 and " in " .. clips .. " clips" or "", paw.time.format(first), paw.time.format(last))
+  if first == math.huge then
+    return ""
+  end
+  return string.format(
+    "%d note%s%s · %s – %s",
+    count,
+    count == 1 and "" or "s",
+    clips > 1 and " in " .. clips .. " clips" or "",
+    paw.time.format(first),
+    paw.time.format(last)
+  )
 end
 
 --- Choose notes: `map` is clip id -> places, and replaces every choice.
-local function choose_all(map: {integer:{integer}})
+local function choose_all(map: {integer: {integer}})
   chosen = {}
   for clip, places in pairs(map) do
-    local set: {integer:boolean} = {}
-    for _, place in ipairs(places) do set[place] = true end
-    if next(set) then chosen[clip] = { places = set, stamp = stamp_of(clip) } end
+    local set: {integer: boolean} = {}
+    for _, place in ipairs(places) do
+      set[place] = true
+    end
+    if next(set) then
+      chosen[clip] = {places = set, stamp = stamp_of(clip)}
+    end
   end
   api.ui_redraw()
 end
 
 local function choose(clip: integer, places: {integer})
-  choose_all({ [clip] = places })
+  choose_all({[clip] = places})
 end
 
 --- Where a note is wanted: its start and pitch.
@@ -3392,7 +4005,7 @@ end
 local function places_of(clip: integer, wanted: {Wanted}): {integer}
   local notes = paw.clip(clip):notes()
   local out: {integer} = {}
-  local used: {integer:boolean} = {}
+  local used: {integer: boolean} = {}
   for _, want in ipairs(wanted) do
     for place, n in ipairs(notes) do
       if not used[place] and n.pitch == want.pitch and math.abs(n.start - want.start) < 1e-6 then
@@ -3408,7 +4021,9 @@ end
 -- is off in the piano roll (`paw.opt.note_snap`): then to the nearest of
 -- 960 ticks a beat, as MIDI files count them.
 local function snap_note(beat: number, free: boolean): number
-  if free or not opt.note_snap then return math.max(0, math.floor(beat * 960 + 0.5) / 960) end
+  if free or not opt.note_snap then
+    return math.max(0, math.floor(beat * 960 + 0.5) / 960)
+  end
   return note_snap(beat)
 end
 
@@ -3436,7 +4051,9 @@ function A.add_note(clip: integer, pitch: integer, start: number, length?: numbe
   local c = part.clip
   free = free or not opt.note_snap
   start = snap_note(start, free)
-  if start >= c.length or c:note_at(pitch, start) then return end
+  if start >= c.length or c:note_at(pitch, start) then
+    return
+  end
   local roll = paw.ui.views.pianoroll
   if not length or length <= 0 then
     length = roll:step_length()
@@ -3444,9 +4061,13 @@ function A.add_note(clip: integer, pitch: integer, start: number, length?: numbe
     length = math.max(free and 1 / 64 or opt.note_grid, snap_note(length, free))
     roll:set_step(length)
   end
-  local index = c:add_note(roll.new_note(c, { pitch = pitch, start = start, length = math.min(length, c.length - start), velocity = opt.velocity }))
+  local index = c:add_note(
+    roll.new_note(
+      c, {pitch = pitch, start = start, length = math.min(length, c.length - start), velocity = opt.velocity}
+    )
+  )
   c:track():play_note(pitch, opt.velocity, 150)
-  choose(part.id, { index })
+  choose(part.id, {index})
   return index
 end
 
@@ -3454,53 +4075,85 @@ end
 --- edited too, or no longer. `beat` is the roll's.
 function A.context_click(clip: integer, beat: number, pitch: number)
   local behind = paw.roll_clips.context_at(math.floor(pitch + 0.5), beat + paw.roll_clips.offset(clip))
-  if behind then paw.roll_clips.toggle(behind.clip) end
+  if behind then
+    paw.roll_clips.toggle(behind.clip)
+  end
 end
 
 --- The clips list of the roll's side panel: make one active, edit it too
 --- (or no longer), show a track's notes behind the roll's or not.
-function A.roll_activate(_: integer, id: number) paw.roll_clips.activate(math.floor(id)) end
-function A.roll_toggle_clip(_: integer, id: number) paw.roll_clips.toggle(math.floor(id)) end
+function A.roll_activate(_: integer, id: number)
+  paw.roll_clips.activate(math.floor(id))
+end
+function A.roll_toggle_clip(_: integer, id: number)
+  paw.roll_clips.toggle(math.floor(id))
+end
 function A.roll_show_track(_: integer, id: number)
   local track = math.floor(id)
   for _, t in ipairs(paw.roll_clips.tracks()) do
-    if t.id == track then return paw.roll_clips.show_track(track, not t.on) end
+    if t.id == track then
+      return paw.roll_clips.show_track(track, not t.on)
+    end
   end
 end
 
 --- Choose notes with a click: `mode` is "only" (the note alone), "add" or
 --- "toggle" (Shift or Ctrl held).
 function A.select_note(clip: integer, index: integer, mode?: string)
-  if mode == "only" or mode == nil then return choose(clip, { index }) end
+  if mode == "only" or mode == nil then
+    return choose(clip, {index})
+  end
   local map = chosen_map(clip)
-  local set: {integer:boolean} = {}
-  for _, place in ipairs(map[clip] or {}) do set[place] = true end
-  if mode == "toggle" and set[index] then set[index] = nil else set[index] = true end
+  local set: {integer: boolean} = {}
+  for _, place in ipairs(map[clip] or {}) do
+    set[place] = true
+  end
+  if mode == "toggle" and set[index] then
+    set[index] = nil
+  else
+    set[index] = true
+  end
   local out: {integer} = {}
-  for place in pairs(set) do out[#out + 1] = place end
+  for place in pairs(set) do
+    out[#out + 1] = place
+  end
   map[clip] = out
   choose_all(map)
 end
 
 --- Choose the notes a box touches: from `beat0, pitch0` to `beat1, pitch1`,
 --- in any order, in every clip the roll edits. `mode` as for `select_note`.
-function A.select_notes_box(clip: integer, beat0: number, pitch0: number, beat1: number, pitch1: number, mode?: string): integer
-  if beat0 > beat1 then beat0, beat1 = beat1, beat0 end
-  if pitch0 > pitch1 then pitch0, pitch1 = pitch1, pitch0 end
-  local map: {integer:{integer}} = (mode == "add" or mode == "toggle") and chosen_map(clip) or {}
+function A.select_notes_box(
+  clip: integer, beat0: number, pitch0: number, beat1: number, pitch1: number, mode?: string
+): integer
+  if beat0 > beat1 then
+    beat0, beat1 = beat1, beat0
+  end
+  if pitch0 > pitch1 then
+    pitch0, pitch1 = pitch1, pitch0
+  end
+  local map: {integer: {integer}} = (mode == "add" or mode == "toggle") and chosen_map(clip) or {}
   local count = 0
   for _, part in ipairs(parts_for(clip)) do
-    local set: {integer:boolean} = {}
-    for _, place in ipairs(map[part.id] or {}) do set[place] = true end
+    local set: {integer: boolean} = {}
+    for _, place in ipairs(map[part.id] or {}) do
+      set[place] = true
+    end
     local notes = part.clip:notes()
     for place, n in ipairs(notes) do
       local start = n.start + part.offset
       if n.start >= 0 and n.pitch >= pitch0 and n.pitch <= pitch1 and start < beat1 and start + n.length > beat0 then
-        if mode == "toggle" and set[place] then set[place] = nil else set[place] = true end
+        if mode == "toggle" and set[place] then
+          set[place] = nil
+        else
+          set[place] = true
+        end
       end
     end
     local out: {integer} = {}
-    for place in pairs(set) do out[#out + 1] = place end
+    for place in pairs(set) do
+      out[#out + 1] = place
+    end
     map[part.id], count = out, count + #out
   end
   choose_all(map)
@@ -3508,13 +4161,15 @@ function A.select_notes_box(clip: integer, beat0: number, pitch0: number, beat1:
 end
 
 function A.select_all_notes(clip: integer)
-  local map: {integer:{integer}} = {}
+  local map: {integer: {integer}} = {}
   for _, part in ipairs(parts_for(clip)) do
     local out: {integer} = {}
     local notes = part.clip:notes()
     for place, n in ipairs(notes) do
       -- Not those hidden by a trim of the clip's edges.
-      if n.start >= 0 and n.start < part.length then out[#out + 1] = place end
+      if n.start >= 0 and n.start < part.length then
+        out[#out + 1] = place
+      end
     end
     map[part.id] = out
   end
@@ -3522,23 +4177,27 @@ function A.select_all_notes(clip: integer)
 end
 
 function A.clear_note_selection()
-  if next(chosen) then choose_all({}) end
+  if next(chosen) then
+    choose_all({})
+  end
 end
 
 --- The notes a gesture on the note at `index` acts on: all the chosen ones
 --- if it is one of them, else that note alone, which is then the chosen
 --- one. Clip id -> places.
-local function grabbed(clip: integer, index: integer): {integer:{integer}}
+local function grabbed(clip: integer, index: integer): {integer: {integer}}
   local map = chosen_map(clip)
   for _, place in ipairs(map[clip] or {}) do
-    if place == index then return map end
+    if place == index then
+      return map
+    end
   end
-  choose(clip, { index })
-  return { [clip] = { index } }
+  choose(clip, {index})
+  return {[clip] = {index}}
 end
 
 --- The parts a map of chosen notes is in, each with its notes and places.
-local function grabbed_parts(clip: integer, map: {integer:{integer}}): {Part}
+local function grabbed_parts(clip: integer, map: {integer: {integer}}): {Part}
   local out: {Part} = {}
   for _, part in ipairs(parts_for(clip)) do
     if map[part.id] then
@@ -3552,7 +4211,9 @@ end
 --- A note with its fields laid over: a copy.
 local function note_with(n: types.Note, start: number, pitch: integer): objects.NoteInput
   local out: objects.NoteInput = {}
-  for k, v in pairs(n as {string:Value}) do (out as {string:Value})[k] = v end
+  for k, v in pairs(n as {string: Value}) do
+    (out as {string: Value})[k] = v
+  end
   out.start, out.pitch = start, pitch
   return out
 end
@@ -3563,7 +4224,9 @@ end
 --- notes stay and copies are dropped. Each note stays in its own clip.
 function A.drag_notes(clip: integer, index: integer, dbeat: number, dpitch?: number, copy?: boolean, free?: boolean)
   local held = paw.clip(clip):notes()[index]
-  if not held then return end
+  if not held then
+    return
+  end
   local parts = grabbed_parts(clip, grabbed(clip, index))
   local by = snap_note(held.start + dbeat, free) - held.start
   local up = math.floor((dpitch or 0) + 0.5)
@@ -3576,28 +4239,34 @@ function A.drag_notes(clip: integer, index: integer, dbeat: number, dpitch?: num
       up = util.clamp(up, -n.pitch, 127 - n.pitch) as integer
     end
   end
-  if math.abs(by) < 1e-9 and up == 0 and not copy then return end
-  local after: {integer:{Wanted}} = {}
+  if math.abs(by) < 1e-9 and up == 0 and not copy then
+    return
+  end
+  local after: {integer: {Wanted}} = {}
   for _, part in ipairs(parts) do
     local wanted: {Wanted} = {}
     local set: {objects.NoteChangeInput} = {}
     local add: {objects.NoteInput} = {}
     for _, place in ipairs(part.places) do
       local n = part.notes[place]
-      local moved: Wanted = { start = n.start + by, pitch = n.pitch + up }
+      local moved: Wanted = {start = n.start + by, pitch = n.pitch + up}
       wanted[#wanted + 1] = moved
       if copy then
         add[#add + 1] = note_with(n, moved.start, moved.pitch)
       else
-        set[#set + 1] = { index = place, start = moved.start, pitch = moved.pitch }
+        set[#set + 1] = {index = place, start = moved.start, pitch = moved.pitch}
       end
     end
-    part.clip:edit_notes({ set = set, add = add })
+    part.clip:edit_notes({set = set, add = add})
     after[part.id] = wanted
   end
-  if up ~= 0 then paw.clip(clip):track():play_note(held.pitch + up, held.velocity, 120) end
-  local map: {integer:{integer}} = {}
-  for id, wanted in pairs(after) do map[id] = places_of(id, wanted) end
+  if up ~= 0 then
+    paw.clip(clip):track():play_note(held.pitch + up, held.velocity, 120)
+  end
+  local map: {integer: {integer}} = {}
+  for id, wanted in pairs(after) do
+    map[id] = places_of(id, wanted)
+  end
   choose_all(map)
 end
 
@@ -3605,7 +4274,9 @@ end
 --- with it: `dstart` moves their starts (the ends stay), `dlength` their ends.
 function A.stretch_notes(clip: integer, index: integer, dstart?: number, dlength?: number, free?: boolean): boolean
   local held = paw.clip(clip):notes()[index]
-  if not held then return end
+  if not held then
+    return
+  end
   local parts = grabbed_parts(clip, grabbed(clip, index))
   local least = (free or not opt.note_snap) and 1 / 64 or opt.note_grid
   -- The grabbed note's end lands on the grid; the others change by as much.
@@ -3619,7 +4290,7 @@ function A.stretch_notes(clip: integer, index: integer, dstart?: number, dlength
   else
     dlength = 0
   end
-  local map: {integer:{integer}} = {}
+  local map: {integer: {integer}} = {}
   for _, part in ipairs(parts) do
     local wanted: {Wanted} = {}
     local set: {objects.NoteChangeInput} = {}
@@ -3628,10 +4299,10 @@ function A.stretch_notes(clip: integer, index: integer, dstart?: number, dlength
       local stop = n.start + n.length
       local start = util.clamp(n.start + dstart, 0, stop - least)
       local length = math.max(least, math.min(stop + dlength, part.length) - start)
-      wanted[#wanted + 1] = { start = start, pitch = n.pitch }
-      set[#set + 1] = { index = place, start = start, length = length }
+      wanted[#wanted + 1] = {start = start, pitch = n.pitch}
+      set[#set + 1] = {index = place, start = start, length = length}
     end
-    part.clip:edit_notes({ set = set })
+    part.clip:edit_notes({set = set})
     map[part.id] = places_of(part.id, wanted)
   end
   choose_all(map)
@@ -3641,7 +4312,7 @@ end
 --- Take a note away, and with it the others if it is one of the chosen.
 function A.remove_note(clip: integer, index: integer)
   for _, part in ipairs(grabbed_parts(clip, grabbed(clip, index))) do
-    part.clip:edit_notes({ remove = part.places })
+    part.clip:edit_notes({remove = part.places})
   end
   choose_all({})
 end
@@ -3649,9 +4320,11 @@ end
 --- Take the chosen notes away: what Delete does in the piano roll.
 function A.remove_chosen_notes(clip: integer): boolean
   local map, count = chosen_map(clip)
-  if count == 0 then return false end
+  if count == 0 then
+    return false
+  end
   for _, part in ipairs(grabbed_parts(clip, map)) do
-    part.clip:edit_notes({ remove = part.places })
+    part.clip:edit_notes({remove = part.places})
   end
   choose_all({})
   return true
@@ -3662,13 +4335,15 @@ function A.move_note(clip: integer, index: integer, start: number, pitch: intege
   pitch = util.clamp(pitch, 0, 127) as integer
   local c = paw.clip(clip)
   local before = c:notes()[index]
-  local at = c:set_note(index, { start = note_snap(start), pitch = pitch })
-  if before and before.pitch ~= pitch then c:track():play_note(pitch, before.velocity, 120) end
+  local at = c:set_note(index, {start = note_snap(start), pitch = pitch})
+  if before and before.pitch ~= pitch then
+    c:track():play_note(pitch, before.velocity, 120)
+  end
   return at
 end
 
 function A.resize_note(clip: integer, index: integer, length: number)
-  paw.clip(clip):set_note(index, { length = math.max(opt.note_grid, note_snap(length)) })
+  paw.clip(clip):set_note(index, {length = math.max(opt.note_grid, note_snap(length))})
 end
 
 --- How hard a note is played; with the note among the chosen, all of them.
@@ -3676,12 +4351,18 @@ function A.set_velocity(clip: integer, index: integer, velocity: number): intege
   local v = util.clamp(math.floor(velocity + 0.5), 1, 127) as integer
   local map = chosen_map(clip)
   local among = false
-  for _, place in ipairs(map[clip] or {}) do among = among or place == index end
-  if not among then return paw.clip(clip):set_note(index, { velocity = v }) end
+  for _, place in ipairs(map[clip] or {}) do
+    among = among or place == index
+  end
+  if not among then
+    return paw.clip(clip):set_note(index, {velocity = v})
+  end
   for _, part in ipairs(grabbed_parts(clip, map)) do
     local set: {objects.NoteChangeInput} = {}
-    for i, place in ipairs(part.places) do set[i] = { index = place, velocity = v } end
-    part.clip:edit_notes({ set = set })
+    for i, place in ipairs(part.places) do
+      set[i] = {index = place, velocity = v}
+    end
+    part.clip:edit_notes({set = set})
   end
   choose_all(map)
 end
@@ -3709,7 +4390,9 @@ function A.erase_notes(clip: integer, points: {Point}): integer
     for s = 0, steps do
       local t = s / steps
       local beat, pitch = b0 + (b1 - b0) * t, p0 + (p1 - p0) * t
-      if not n.hidden and math.floor(pitch + 0.5) == n.pitch and beat >= n.start and beat < n.start + n.length then return true end
+      if not n.hidden and math.floor(pitch + 0.5) == n.pitch and beat >= n.start and beat < n.start + n.length then
+        return true
+      end
     end
     return false
   end
@@ -3719,7 +4402,7 @@ function A.erase_notes(clip: integer, points: {Point}): integer
     local notes = part.clip:notes()
     for place, n in ipairs(notes) do
       -- Notes hidden by a trim of the clip's start are not there to cross.
-      local seen: Seen = { start = n.start + part.offset, length = n.length, pitch = n.pitch, hidden = n.start < 0 }
+      local seen: Seen = {start = n.start + part.offset, length = n.length, pitch = n.pitch, hidden = n.start < 0}
       for i = 1, #points do
         local a, b = points[i], points[math.min(i + 1, #points)]
         if crosses(seen, a[1], a[2], b[1], b[2]) then
@@ -3728,10 +4411,14 @@ function A.erase_notes(clip: integer, points: {Point}): integer
         end
       end
     end
-    if #hit > 0 then part.clip:edit_notes({ remove = hit }) end
+    if #hit > 0 then
+      part.clip:edit_notes({remove = hit})
+    end
     count = count + #hit
   end
-  if count > 0 then choose_all({}) end
+  if count > 0 then
+    choose_all({})
+  end
   return count
 end
 
@@ -3745,19 +4432,25 @@ function A.select_pitches(clip: integer, low: number, high: number, mode?: strin
   return A.select_notes_box(clip, from - 1, low, to + 1, high, mode)
 end
 
-local function by_beat(a: Point, b: Point): boolean return a[1] < b[1] end
+local function by_beat(a: Point, b: Point): boolean
+  return a[1] < b[1]
+end
 
 --- Draw over the velocity strip: `points` are `{ beat, fraction }` as the
 --- pointer went (fraction 0 at the bottom, 1 at the top). Each note starting
 --- within the stretch drawn over, or within `reach` beats of a click, takes
 --- the height drawn above its start; with notes chosen, only those.
 function A.draw_velocities(clip: integer, points: {Point}, reach?: number): integer
-  if #points == 0 then return 0 end
+  if #points == 0 then
+    return 0
+  end
   table.sort(points, by_beat)
   reach = reach or 0
   local from, to = points[1][1] - reach, points[#points][1] + reach
   local function height(beat: number): number
-    if beat <= points[1][1] then return points[1][2] end
+    if beat <= points[1][1] then
+      return points[1][2]
+    end
     for i = 2, #points do
       local a, b = points[i - 1], points[i]
       if beat <= b[1] then
@@ -3769,20 +4462,26 @@ function A.draw_velocities(clip: integer, points: {Point}, reach?: number): inte
   local map, chosen_count = chosen_map(clip)
   local count = 0
   for _, part in ipairs(parts_for(clip)) do
-    local only: {integer:boolean} = {}
-    for _, place in ipairs(map[part.id] or {}) do only[place] = true end
+    local only: {integer: boolean} = {}
+    for _, place in ipairs(map[part.id] or {}) do
+      only[place] = true
+    end
     local set: {objects.NoteChangeInput} = {}
     local notes = part.clip:notes()
     for place, n in ipairs(notes) do
       local start = n.start + part.offset
       if (chosen_count == 0 or only[place]) and n.start >= 0 and start >= from - 1e-9 and start <= to + 1e-9 then
-        set[#set + 1] = { index = place, velocity = util.clamp(math.floor(height(start) * 127 + 0.5), 1, 127) as integer }
+        set[#set + 1] = {index = place, velocity = util.clamp(math.floor(height(start) * 127 + 0.5), 1, 127) as integer}
       end
     end
-    if #set > 0 then part.clip:edit_notes({ set = set }) end
+    if #set > 0 then
+      part.clip:edit_notes({set = set})
+    end
     count = count + #set
   end
-  if count > 0 and chosen_count > 0 then choose_all(map) end
+  if count > 0 and chosen_count > 0 then
+    choose_all(map)
+  end
   return count
 end
 
@@ -3807,31 +4506,39 @@ function A.quantize_notes(clip: integer, strength?: number): integer
   local map, chosen_count = chosen_map(clip)
   local some = chosen_count > 0
   local count = 0
-  local after: {integer:{Wanted}} = {}
+  local after: {integer: {Wanted}} = {}
   for _, part in ipairs(parts_for(clip)) do
     local notes = part.clip:notes()
     local places = map[part.id] or {}
     if not some then
-      for place in ipairs(notes) do places[place] = place end
+      for place in ipairs(notes) do
+        places[place] = place
+      end
     end
     local set: {objects.NoteChangeInput} = {}
     local wanted: {Wanted} = {}
     for _, place in ipairs(places) do
       local n = notes[place]
-      local start = math.max(0, math.min(n.start + (note_snap(n.start) - n.start) * strength, part.length - opt.note_grid))
-      set[#set + 1] = { index = place, start = start, length = math.min(n.length, part.length - start) }
-      wanted[#wanted + 1] = { start = start, pitch = n.pitch }
+      local start = math.max(
+        0, math.min(n.start + (note_snap(n.start) - n.start) * strength, part.length - opt.note_grid)
+      )
+      set[#set + 1] = {index = place, start = start, length = math.min(n.length, part.length - start)}
+      wanted[#wanted + 1] = {start = start, pitch = n.pitch}
     end
     if #set > 0 then
-      part.clip:edit_notes({ set = set })
+      part.clip:edit_notes({set = set})
       after[part.id] = wanted
     end
     count = count + #set
   end
-  if count == 0 then return 0 end
+  if count == 0 then
+    return 0
+  end
   if some then
-    local out: {integer:{integer}} = {}
-    for id, wanted in pairs(after) do out[id] = places_of(id, wanted) end
+    local out: {integer: {integer}} = {}
+    for id, wanted in pairs(after) do
+      out[id] = places_of(id, wanted)
+    end
     choose_all(out)
   end
   return count
@@ -3843,45 +4550,58 @@ end
 -- on when the last of them is let go.
 local record Stepping
   on: boolean
-  held: {integer:boolean}
+  held: {integer: boolean}
   entered: boolean
 end
-local stepping: Stepping = { on = false, held = {}, entered = false }
+local stepping: Stepping = {on = false, held = {}, entered = false}
 
 --- True if step input (notes from a MIDI keyboard) is on.
-function M.step_input(): boolean return stepping.on end
+function M.step_input(): boolean
+  return stepping.on
+end
 
 function A.toggle_step_input()
   stepping.on, stepping.held, stepping.entered = not stepping.on, {}, false
-  paw.notify(stepping.on and "step input: play notes on a MIDI keyboard to enter them at the cursor" or "step input off")
+  paw.notify(
+    stepping.on and "step input: play notes on a MIDI keyboard to enter them at the cursor" or "step input off"
+  )
   api.ui_redraw()
 end
 
-events.on(kernel.midi_in, function(event: types.MidiEvent)
-  if not stepping.on or not paw.ui.visible("pianoroll") or api.transport_get().playing then return end
-  local roll = paw.ui.views.pianoroll
-  local clip = roll:clip()
-  if not clip or not event.pitch then return end
-  if event.type == "note_on" and (event.velocity or 0) > 0 then
-    local length = roll:step_length()
-    if roll.beat + length > clip.length + 1e-9 then
-      clip.length = paw.time.bar_ceil(clip.start + roll.beat + length - 1e-9) - clip.start
+events.on(
+  kernel.midi_in,
+  function(event: types.MidiEvent)
+    if not stepping.on or not paw.ui.visible("pianoroll") or api.transport_get().playing then
+      return
     end
-    clip:edit_notes({
-      remove = roll:starting_here(clip, event.pitch),
-      add = { { pitch = event.pitch, start = roll.beat, length = length, velocity = event.velocity as integer } },
-    })
-    roll.pitch = event.pitch
-    stepping.held[event.pitch], stepping.entered = true, true
-    api.ui_redraw()
-  elseif event.type == "note_off" or event.type == "note_on" then
-    stepping.held[event.pitch] = nil
-    if stepping.entered and next(stepping.held) == nil then
-      stepping.entered = false
-      roll:step(1)
+    local roll = paw.ui.views.pianoroll
+    local clip = roll:clip()
+    if not clip or not event.pitch then
+      return
+    end
+    if event.type == "note_on" and (event.velocity or 0) > 0 then
+      local length = roll:step_length()
+      if roll.beat + length > clip.length + 1e-9 then
+        clip.length = paw.time.bar_ceil(clip.start + roll.beat + length - 1e-9) - clip.start
+      end
+      clip:edit_notes(
+        {
+          remove = roll:starting_here(clip, event.pitch),
+          add = {{pitch = event.pitch, start = roll.beat, length = length, velocity = event.velocity as integer}},
+        }
+      )
+      roll.pitch = event.pitch
+      stepping.held[event.pitch], stepping.entered = true, true
+      api.ui_redraw()
+    elseif event.type == "note_off" or event.type == "note_on" then
+      stepping.held[event.pitch] = nil
+      if stepping.entered and next(stepping.held) == nil then
+        stepping.entered = false
+        roll:step(1)
+      end
     end
   end
-end)
+)
 
 --- A click on the piano roll's ruler: the playhead to that beat of the clip.
 function A.roll_seek(clip: integer, beat: number)
@@ -3904,7 +4624,7 @@ function A.lane(track: integer, target: types.LaneTarget, device?: integer, para
       return lane.id
     end
   end
-  return api.lane_add(track, { target = target, device = device, param = param })
+  return api.lane_add(track, {target = target, device = device, param = param})
 end
 
 function A.add_point(lane: integer, beat: number, fraction: number)
@@ -3914,7 +4634,7 @@ end
 function A.move_point(lane: integer, index: integer, beat: number, fraction: number)
   local points = api.lane_points(lane)
   table.remove(points, index)
-  points[#points + 1] = { snap(beat), lane_value(lane, fraction) }
+  points[#points + 1] = {snap(beat), lane_value(lane, fraction)}
   api.lane_set_points(lane, points)
 end
 
@@ -3922,19 +4642,23 @@ end
 --- they were drawn. They replace what the lane held over the stretch drawn
 --- across, at most one to a quarter of a grid step.
 function A.draw_lane(lane: integer, points: {Point})
-  if #points == 0 then return end
+  if #points == 0 then
+    return
+  end
   table.sort(points, by_beat)
   local step = opt.grid / 4
   local from, to = math.max(0, points[1][1]), math.max(0, points[#points][1])
   local out: {types.LanePoint} = {}
   for _, p in ipairs(api.lane_points(lane)) do
-    if p[1] < from - 1e-9 or p[1] > to + 1e-9 then out[#out + 1] = p end
+    if p[1] < from - 1e-9 or p[1] > to + 1e-9 then
+      out[#out + 1] = p
+    end
   end
   local last: number
   for i, p in ipairs(points) do
     local beat = math.max(0, p[1])
     if not last or beat - last >= step - 1e-9 or i == #points then
-      out[#out + 1] = { beat, lane_value(lane, p[2]) }
+      out[#out + 1] = {beat, lane_value(lane, p[2])}
       last = beat
     end
   end
@@ -3942,7 +4666,7 @@ function A.draw_lane(lane: integer, points: {Point})
 end
 
 function A.toggle_lane(lane: integer)
-  api.lane_set(lane, { enabled = not api.lane_get(lane).enabled })
+  api.lane_set(lane, {enabled = not api.lane_get(lane).enabled})
 end
 
 function A.clear_lane(lane: integer)
@@ -3962,7 +4686,9 @@ end
 --- in the clip. They replace the moves of that kind over the stretch drawn
 --- across, one to a note-grid step.
 function A.draw_controls(clip: integer, kind: types.ControlType, number: integer, points: {Point})
-  if #points == 0 then return end
+  if #points == 0 then
+    return
+  end
   table.sort(points, by_beat)
   local c = paw.clip(clip)
   local grid = opt.note_grid
@@ -3972,19 +4698,28 @@ function A.draw_controls(clip: integer, kind: types.ControlType, number: integer
   end
   local out: {objects.ControlInput} = {}
   for _, control in ipairs(c:controls()) do
-    if not (same(control) and control.start >= from - 1e-9 and control.start <= to + 1e-9) then out[#out + 1] = control as objects.ControlInput end
+    if not (same(control) and control.start >= from - 1e-9 and control.start <= to + 1e-9) then
+      out[#out + 1] = control as objects.ControlInput
+    end
   end
   -- Each step takes the height drawn nearest to it.
-  local steps, nearest: {number:number}, {number:number} = {}, {}
+  local steps, nearest: {number: number}, {number: number} = {}, {}
   for _, p in ipairs(points) do
     local at = note_snap(p[1])
     local off = math.abs(p[1] - at)
-    if not nearest[at] or off < nearest[at] then steps[at], nearest[at] = p[2], off end
+    if not nearest[at] or off < nearest[at] then
+      steps[at], nearest[at] = p[2], off
+    end
   end
   for beat = from, to + 1e-9, grid do
     local fraction = steps[note_snap(beat)]
     if fraction and beat < c.length then
-      out[#out + 1] = { start = note_snap(beat), type = kind, number = kind == "cc" and number or nil, value = control_value(kind, fraction) }
+      out[#out + 1] = {
+        start = note_snap(beat),
+        type = kind,
+        number = kind == "cc" and number or nil,
+        value = control_value(kind, fraction),
+      }
     end
   end
   c:set_controls(out)
@@ -3995,7 +4730,9 @@ function A.clear_controls(clip: integer, kind: types.ControlType, number: intege
   local c = paw.clip(clip)
   local out: {objects.ControlInput} = {}
   for _, control in ipairs(c:controls()) do
-    if not (control.type == kind and control.key == nil and (kind ~= "cc" or control.number == number)) then out[#out + 1] = control as objects.ControlInput end
+    if not (control.type == kind and control.key == nil and (kind ~= "cc" or control.number == number)) then
+      out[#out + 1] = control as objects.ControlInput
+    end
   end
   c:set_controls(out)
 end
@@ -4003,27 +4740,53 @@ end
 -- Moves of the strip chosen, moved and taken away, drawn as a line, and
 -- the event list: `paw.controls` says what each does.
 -- A window names a mode by number: 0 alone, 1 add, 2 toggle.
-local modes: {integer:string} = { [0] = "only", [1] = "add", [2] = "toggle" }
-local function mode_of(mode: integer | string): string return modes[mode as integer] or mode as string end
-function A.select_control(clip: integer, place: integer, mode: integer | string) paw.controls.select(clip, place, mode_of(mode)) end
-function A.select_controls(clip: integer, kind: string, number: integer, beat0: number, low: number, beat1: number, high: number, mode: integer | string): integer
+local modes: {integer: string} = {[0] = "only", [1] = "add", [2] = "toggle"}
+local function mode_of(mode: integer | string): string
+  return modes[mode as integer] or mode as string
+end
+function A.select_control(clip: integer, place: integer, mode: integer | string)
+  paw.controls.select(clip, place, mode_of(mode))
+end
+function A.select_controls(
+  clip: integer,
+  kind: string,
+  number: integer,
+  beat0: number,
+  low: number,
+  beat1: number,
+  high: number,
+  mode: integer | string
+): integer
   return paw.controls.select_box(clip, kind, number, beat0, low, beat1, high, mode_of(mode))
 end
 function A.select_all_controls(clip: integer, kind: string, number: integer): integer
   return paw.controls.select_box(clip, kind, number, -1, 0, paw.clip(clip).length + 1, 1)
 end
-function A.clear_control_selection(clip: integer) paw.controls.clear(clip) end
+function A.clear_control_selection(clip: integer)
+  paw.controls.clear(clip)
+end
 function A.move_controls(clip: integer, dbeat: number, dfraction: number, free?: boolean | integer): integer
   return paw.controls.move(clip, dbeat, dfraction, free == true or free == 1)
 end
-function A.remove_chosen_controls(clip: integer): integer return paw.controls.remove(clip) end
-function A.line_controls(clip: integer, kind: string, number: integer, beat0: number, f0: number, beat1: number, f1: number, free?: boolean | integer): integer
+function A.remove_chosen_controls(clip: integer): integer
+  return paw.controls.remove(clip)
+end
+function A.line_controls(
+  clip: integer,
+  kind: string,
+  number: integer,
+  beat0: number,
+  f0: number,
+  beat1: number,
+  f1: number,
+  free?: boolean | integer
+): integer
   return paw.controls.line(clip, kind, number, beat0, f0, beat1, f1, free == true or free == 1)
 end
 
 --- The event list of the clip in the piano roll, in a window of its own.
 function A.open_event_list(clip: integer)
-  paw.canvas.open_view("eventlist", { title = "Events · " .. paw.clip(clip).name, width = 520, height = 440 })
+  paw.canvas.open_view("eventlist", {title = "Events · " .. paw.clip(clip).name, width = 520, height = 440})
 end
 
 function A.remove_point(lane: integer, index: integer)
@@ -4036,7 +4799,9 @@ end
 
 local function param_of(device: integer, key: string): types.ParamInfo
   for _, p in ipairs(api.device_get(device).param_info) do
-    if p.key == key then return p end
+    if p.key == key then
+      return p
+    end
   end
   error("the device has no parameter `" .. tostring(key) .. "`", 3)
 end
@@ -4053,11 +4818,11 @@ function A.reset_param(device: integer, key: string)
 end
 
 function A.toggle_bypass(device: integer)
-  api.device_set(device, { bypass = not api.device_get(device).bypass })
+  api.device_set(device, {bypass = not api.device_get(device).bypass})
 end
 
 function A.add_device(kind: string, query?: string): integer
-  return paw.fx.add(assert(paw.cursor.track(), "no track selected"), kind, { query = query }).id
+  return paw.fx.add(assert(paw.cursor.track(), "no track selected"), kind, {query = query}).id
 end
 
 --- Move a device one place earlier (-1) or later (1) in its track's chain.

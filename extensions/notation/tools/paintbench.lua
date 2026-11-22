@@ -15,6 +15,10 @@ local window = args[2] == "window" or args[3] == "window"
 local in_notation = args[2] == "notation" or args[3] == "notation"
 paw.ext.load("extensions/notation")
 local bench = require("notation.bench")
-local result = bench.run(bars, window and { cell = { w = 7.8, h = 17 } } or { glyphs = true, surface = true, cell = { w = 13, h = 27 } }, nil,
-  { notation = in_notation })
+local result = bench.run(
+  bars,
+  window and { cell = { w = 7.8, h = 17 } } or { glyphs = true, surface = true, cell = { w = 13, h = 27 } },
+  nil,
+  { notation = in_notation }
+)
 print(bench.format(result))

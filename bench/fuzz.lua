@@ -35,9 +35,7 @@ local function pick(list) return list[int(1, #list)] end
 local function chance(p) return rand() < p end
 
 local NAN, INF = 0 / 0, 1 / 0
-local function weird_number()
-  return pick({ NAN, INF, -INF, 1e300, -1e300, -1, 0, 1e-320, 2 ^ 53, -(2 ^ 31), 1e9 })
-end
+local function weird_number() return pick({ NAN, INF, -INF, 1e300, -1e300, -1, 0, 1e-320, 2 ^ 53, -(2 ^ 31), 1e9 }) end
 local function number(a, b)
   if chance(0.05) then return weird_number() end
   return a + rand() * (b - a)
@@ -49,8 +47,14 @@ local stats = { ops = 0, rejected = 0, checks = { undo = 0, save = 0, render = 0
 local function fail(step, what, detail)
   -- Keep the project that broke, to look at.
   local kept = pcall(api.project_save, B.tmp .. "/fuzz-failed-" .. seed)
-  B.emit({ workload = "fuzz", seed = seed, step = step, failed = what, detail = detail,
-    project = kept and (B.tmp .. "/fuzz-failed-" .. seed) or nil })
+  B.emit({
+    workload = "fuzz",
+    seed = seed,
+    step = step,
+    failed = what,
+    detail = detail,
+    project = kept and (B.tmp .. "/fuzz-failed-" .. seed) or nil,
+  })
   io.stdout:flush()
   api.quit(1)
   error("stop", 0)
@@ -69,9 +73,13 @@ local function all(kind)
   local out = {}
   for _, t in ipairs(tracks()) do
     local view = api.track_get(t)
-    for _, id in ipairs(view[kind]) do out[#out + 1] = id end
+    for _, id in ipairs(view[kind]) do
+      out[#out + 1] = id
+    end
   end
-  for _, id in ipairs(api.track_get(0)[kind]) do out[#out + 1] = id end
+  for _, id in ipairs(api.track_get(0)[kind]) do
+    out[#out + 1] = id
+  end
   return out
 end
 local function any_of(kind)
@@ -82,7 +90,9 @@ end
 local function any_lane()
   local out = {}
   for _, t in ipairs(tracks()) do
-    for _, l in ipairs(api.lane_list(t)) do out[#out + 1] = l.id end
+    for _, l in ipairs(api.lane_list(t)) do
+      out[#out + 1] = l.id
+    end
   end
   if #out == 0 or chance(0.05) then return int(1, 100000) end
   return pick(out)
@@ -102,133 +112,259 @@ local function notes(n)
 end
 
 local ops = {
-  { 8, "track_add", function()
-    local opts = { name = chance(0.02) and string.rep("x", 10000) or "T" }
-    if chance(0.2) then opts.volume = number(-60, 12) end
-    if chance(0.2) then opts.pan = number(-1, 1) end
-    if chance(0.1) then opts.index = int(-3, 30) end
-    if chance(0.1) then opts.output = any_track() end
-    if chance(0.02) then opts.bogus = 1 end
-    -- Keep projects small, except now and then.
-    if #tracks() > 12 and not chance(0.02) then return end
-    api.track_add(opts)
-  end },
+  {
+    8,
+    "track_add",
+    function()
+      local opts = { name = chance(0.02) and string.rep("x", 10000) or "T" }
+      if chance(0.2) then opts.volume = number(-60, 12) end
+      if chance(0.2) then opts.pan = number(-1, 1) end
+      if chance(0.1) then opts.index = int(-3, 30) end
+      if chance(0.1) then opts.output = any_track() end
+      if chance(0.02) then opts.bogus = 1 end
+      -- Keep projects small, except now and then.
+      if #tracks() > 12 and not chance(0.02) then return end
+      api.track_add(opts)
+    end,
+  },
   { 2, "track_remove", function() api.track_remove(any_track()) end },
   { 2, "track_move", function() api.track_move(any_track(), int(0, 20)) end },
-  { 10, "track_set", function()
-    local key = pick({ "volume", "pan", "mute", "solo", "armed", "monitor", "output", "sends", "input", "name", "color", "nope" })
-    local value
-    if key == "volume" or key == "pan" then value = number(-100, 30)
-    elseif key == "mute" or key == "solo" or key == "armed" or key == "monitor" then value = chance(0.5)
-    elseif key == "output" then value = chance(0.3) and nil or any_track()
-    elseif key == "sends" then value = chance(0.3) and {} or { { target = any_track(), level = number(-60, 6) } }
-    elseif key == "input" then value = pick({ "1", "1/2", "2/3", "3", "0", "1/3", "", nil, 7, "x" })
-    else value = chance(0.8) and "name" or 42 end
-    api.track_set(any_track(), key, value)
-  end },
-  { 6, "device_add", function()
-    local kind = chance(0.05) and "nonexistent" or pick({ "synth", "drums", "gain", "delay" })
-    local opts = nil
-    if chance(0.3) then opts = { params = { gain = number(-60, 12), cutoff = number(20, 20000) } } end
-    if chance(0.1) then opts = { index = int(-2, 10) } end
-    if chance(0.3) and kind ~= "nonexistent" then opts = nil end
-    api.device_add(any_track(), kind, opts)
-  end },
+  {
+    10,
+    "track_set",
+    function()
+      local key = pick({
+        "volume",
+        "pan",
+        "mute",
+        "solo",
+        "armed",
+        "monitor",
+        "output",
+        "sends",
+        "input",
+        "name",
+        "color",
+        "nope",
+      })
+      local value
+      if key == "volume" or key == "pan" then
+        value = number(-100, 30)
+      elseif key == "mute" or key == "solo" or key == "armed" or key == "monitor" then
+        value = chance(0.5)
+      elseif key == "output" then
+        value = chance(0.3) and nil or any_track()
+      elseif key == "sends" then
+        value = chance(0.3) and {} or { { target = any_track(), level = number(-60, 6) } }
+      elseif key == "input" then
+        value = pick({ "1", "1/2", "2/3", "3", "0", "1/3", "", nil, 7, "x" })
+      else
+        value = chance(0.8) and "name" or 42
+      end
+      api.track_set(any_track(), key, value)
+    end,
+  },
+  {
+    6,
+    "device_add",
+    function()
+      local kind = chance(0.05) and "nonexistent" or pick({ "synth", "drums", "gain", "delay" })
+      local opts = nil
+      if chance(0.3) then opts = { params = { gain = number(-60, 12), cutoff = number(20, 20000) } } end
+      if chance(0.1) then opts = { index = int(-2, 10) } end
+      if chance(0.3) and kind ~= "nonexistent" then opts = nil end
+      api.device_add(any_track(), kind, opts)
+    end,
+  },
   { 2, "device_remove", function() api.device_remove(any_of("devices")) end },
   { 2, "device_move", function() api.device_move(any_of("devices"), any_track(), int(0, 5)) end },
-  { 8, "device_set_param", function()
-    local name = pick({ "gain", "cutoff", "resonance", "wave", "attack", "release", "time", "feedback", "mix", "decay", "kick_tune", "nope" })
-    api.device_set_param(any_of("devices"), name, number(-100, 20000))
-  end },
-  { 2, "device_set", function() api.device_set(any_of("devices"), pick({ "bypass", "meta", "nope" }), chance(0.5)) end },
-  { 8, "clip_add", function()
-    local opts = { start = number(0, 16), length = chance(0.8) and number(0.25, 8) or nil }
-    if chance(0.25) then
-      opts.file = chance(0.9) and wav or (dir .. "/missing.wav")
-      if chance(0.3) then opts.offset = number(-1, 3) end
-      if chance(0.3) then opts.gain = number(-30, 6) end
-    else
-      opts.notes = notes(int(0, chance(0.05) and 3000 or 20))
-    end
-    if chance(0.02) then opts.kind = "video" end
-    api.clip_add(any_track(), opts)
-  end },
+  {
+    8,
+    "device_set_param",
+    function()
+      local name = pick({
+        "gain",
+        "cutoff",
+        "resonance",
+        "wave",
+        "attack",
+        "release",
+        "time",
+        "feedback",
+        "mix",
+        "decay",
+        "kick_tune",
+        "nope",
+      })
+      api.device_set_param(any_of("devices"), name, number(-100, 20000))
+    end,
+  },
+  {
+    2,
+    "device_set",
+    function() api.device_set(any_of("devices"), pick({ "bypass", "meta", "nope" }), chance(0.5)) end,
+  },
+  {
+    8,
+    "clip_add",
+    function()
+      local opts = { start = number(0, 16), length = chance(0.8) and number(0.25, 8) or nil }
+      if chance(0.25) then
+        opts.file = chance(0.9) and wav or (dir .. "/missing.wav")
+        if chance(0.3) then opts.offset = number(-1, 3) end
+        if chance(0.3) then opts.gain = number(-30, 6) end
+      else
+        opts.notes = notes(int(0, chance(0.05) and 3000 or 20))
+      end
+      if chance(0.02) then opts.kind = "video" end
+      api.clip_add(any_track(), opts)
+    end,
+  },
   { 3, "clip_remove", function() api.clip_remove(any_of("clips")) end },
-  { 8, "clip_set", function()
-    local key = pick({ "start", "length", "muted", "track", "gain", "offset", "name", "nope" })
-    local value
-    if key == "muted" then value = chance(0.5)
-    elseif key == "track" then value = any_track()
-    elseif key == "name" then value = "c"
-    else value = number(-4, 16) end
-    api.clip_set(any_of("clips"), key, value)
-  end },
-  { 5, "clip_notes", function()
-    if chance(0.5) then api.clip_set_notes(any_of("clips"), notes(int(0, 30)))
-    else api.clip_add_notes(any_of("clips"), notes(int(1, 10))) end
-  end },
-  { 4, "lane_add", function()
-    local track = any_track()
-    local opts = { target = pick({ "volume", "pan", "param", "tempo" }), points = {} }
-    for i = 1, int(0, 6) do opts.points[i] = { number(0, 16), number(-60, 6) } end
-    if opts.target == "param" then
-      opts.device = any_of("devices")
-      opts.param = pick({ "cutoff", "gain", "mix", "nope" })
-    end
-    api.lane_add(track, opts)
-  end },
-  { 4, "lane_points", function()
-    local lane = any_lane()
-    if chance(0.5) then
-      api.lane_add_point(lane, number(0, 16), number(-60, 6))
-    else
-      local points = {}
-      for i = 1, int(0, 8) do points[i] = { number(0, 16), number(-60, 6) } end
-      api.lane_set_points(lane, points)
-    end
-  end },
-  { 2, "lane_misc", function()
-    if chance(0.5) then api.lane_remove(any_lane()) else api.lane_set(any_lane(), "enabled", chance(0.5)) end
-  end },
-  { 3, "project_set", function()
-    local key = pick({ "tempo", "sig_num", "sig_den", "name", "nope" })
-    local value = key == "name" and "p" or number(-10, 400)
-    if key == "sig_num" or key == "sig_den" then value = int(-2, 70) end
-    api.project_set(key, value)
-  end },
+  {
+    8,
+    "clip_set",
+    function()
+      local key = pick({ "start", "length", "muted", "track", "gain", "offset", "name", "nope" })
+      local value
+      if key == "muted" then
+        value = chance(0.5)
+      elseif key == "track" then
+        value = any_track()
+      elseif key == "name" then
+        value = "c"
+      else
+        value = number(-4, 16)
+      end
+      api.clip_set(any_of("clips"), key, value)
+    end,
+  },
+  {
+    5,
+    "clip_notes",
+    function()
+      if chance(0.5) then
+        api.clip_set_notes(any_of("clips"), notes(int(0, 30)))
+      else
+        api.clip_add_notes(any_of("clips"), notes(int(1, 10)))
+      end
+    end,
+  },
+  {
+    4,
+    "lane_add",
+    function()
+      local track = any_track()
+      local opts = { target = pick({ "volume", "pan", "param", "tempo" }), points = {} }
+      for i = 1, int(0, 6) do
+        opts.points[i] = { number(0, 16), number(-60, 6) }
+      end
+      if opts.target == "param" then
+        opts.device = any_of("devices")
+        opts.param = pick({ "cutoff", "gain", "mix", "nope" })
+      end
+      api.lane_add(track, opts)
+    end,
+  },
+  {
+    4,
+    "lane_points",
+    function()
+      local lane = any_lane()
+      if chance(0.5) then
+        api.lane_add_point(lane, number(0, 16), number(-60, 6))
+      else
+        local points = {}
+        for i = 1, int(0, 8) do
+          points[i] = { number(0, 16), number(-60, 6) }
+        end
+        api.lane_set_points(lane, points)
+      end
+    end,
+  },
+  {
+    2,
+    "lane_misc",
+    function()
+      if chance(0.5) then
+        api.lane_remove(any_lane())
+      else
+        api.lane_set(any_lane(), "enabled", chance(0.5))
+      end
+    end,
+  },
+  {
+    3,
+    "project_set",
+    function()
+      local key = pick({ "tempo", "sig_num", "sig_den", "name", "nope" })
+      local value = key == "name" and "p" or number(-10, 400)
+      if key == "sig_num" or key == "sig_den" then value = int(-2, 70) end
+      api.project_set(key, value)
+    end,
+  },
   { 10, "undo", function() api.undo() end },
   { 6, "redo", function() api.redo() end },
-  { 6, "transport", function()
-    local what = int(1, 6)
-    if what == 1 then api.transport_play()
-    elseif what == 2 then api.transport_stop()
-    elseif what == 3 then api.transport_seek(number(0, 32))
-    elseif what == 4 then api.transport_set(pick({ "loop_enabled", "metronome" }), chance(0.5))
-    elseif what == 5 then api.transport_set(pick({ "loop_start", "loop_end" }), number(0, 32))
-    else api.transport_set("recording", chance(0.5)) end
-  end },
-  { 3, "notes_live", function()
-    if chance(0.5) then
-      api.note_on(any_track(), int(0, 127), chance(0.1) and weird_number() or int(0, 127))
-    else
-      api.midi_inject({ type = pick({ "note_on", "note_off", "cc" }), pitch = int(0, 140), velocity = int(0, 127) })
-    end
-  end },
-  { 1, "engine_restart", function()
-    local opts = { backend = "null", buffer_size = pick({ 16, 64, 128, 512, 1024, 4096 }), sample_rate = pick({ 22050, 44100, 48000, 96000 }) }
-    if chance(0.3) then opts.test_input = { frequency = 440, level = -12, channels = int(1, 4) } end
-    api.engine_restart(opts)
-  end },
-  { 1, "record", function()
-    api.transport_set("recording", true)
-    api.transport_play()
-    api.sleep(int(5, 40))
-    api.transport_stop()
-  end },
+  {
+    6,
+    "transport",
+    function()
+      local what = int(1, 6)
+      if what == 1 then
+        api.transport_play()
+      elseif what == 2 then
+        api.transport_stop()
+      elseif what == 3 then
+        api.transport_seek(number(0, 32))
+      elseif what == 4 then
+        api.transport_set(pick({ "loop_enabled", "metronome" }), chance(0.5))
+      elseif what == 5 then
+        api.transport_set(pick({ "loop_start", "loop_end" }), number(0, 32))
+      else
+        api.transport_set("recording", chance(0.5))
+      end
+    end,
+  },
+  {
+    3,
+    "notes_live",
+    function()
+      if chance(0.5) then
+        api.note_on(any_track(), int(0, 127), chance(0.1) and weird_number() or int(0, 127))
+      else
+        api.midi_inject({ type = pick({ "note_on", "note_off", "cc" }), pitch = int(0, 140), velocity = int(0, 127) })
+      end
+    end,
+  },
+  {
+    1,
+    "engine_restart",
+    function()
+      local opts = {
+        backend = "null",
+        buffer_size = pick({ 16, 64, 128, 512, 1024, 4096 }),
+        sample_rate = pick({ 22050, 44100, 48000, 96000 }),
+      }
+      if chance(0.3) then opts.test_input = { frequency = 440, level = -12, channels = int(1, 4) } end
+      api.engine_restart(opts)
+    end,
+  },
+  {
+    1,
+    "record",
+    function()
+      api.transport_set("recording", true)
+      api.transport_play()
+      api.sleep(int(5, 40))
+      api.transport_stop()
+    end,
+  },
 }
 
 local total = 0
-for _, op in ipairs(ops) do total = total + op[1] end
+for _, op in ipairs(ops) do
+  total = total + op[1]
+end
 local function choose()
   local r = rand() * total
   for _, op in ipairs(ops) do
@@ -246,10 +382,14 @@ local function fmt(v)
     return string.format("%.17g", v)
   elseif t == "table" then
     local keys = {}
-    for k in pairs(v) do keys[#keys + 1] = k end
+    for k in pairs(v) do
+      keys[#keys + 1] = k
+    end
     table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
     local out = {}
-    for _, k in ipairs(keys) do out[#out + 1] = tostring(k) .. "=" .. fmt(v[k]) end
+    for _, k in ipairs(keys) do
+      out[#out + 1] = tostring(k) .. "=" .. fmt(v[k])
+    end
     return "{" .. table.concat(out, ",") .. "}"
   end
   return tostring(v)
@@ -285,8 +425,12 @@ end
 
 local function first_difference(a, b)
   local la, lb = {}, {}
-  for line in (a .. "\n"):gmatch("(.-)\n") do la[#la + 1] = line end
-  for line in (b .. "\n"):gmatch("(.-)\n") do lb[#lb + 1] = line end
+  for line in (a .. "\n"):gmatch("(.-)\n") do
+    la[#la + 1] = line
+  end
+  for line in (b .. "\n"):gmatch("(.-)\n") do
+    lb[#lb + 1] = line
+  end
   for i = 1, math.max(#la, #lb) do
     if la[i] ~= lb[i] then return string.format("line %d:\n  before: %s\n  after:  %s", i, la[i], lb[i]) end
   end
@@ -330,7 +474,9 @@ local function check_undo(step)
     if not api.redo() then fail(step, "undo", "redo refused right after an undo") end
     paw.flush()
     local after = dump()
-    if after ~= before then fail(step, "undo", "undo then redo changed the project: " .. first_difference(before, after)) end
+    if after ~= before then
+      fail(step, "undo", "undo then redo changed the project: " .. first_difference(before, after))
+    end
     stats.checks.undo = stats.checks.undo + 1
   end
 end
@@ -338,7 +484,9 @@ end
 --- Every file of a project folder, by its path in the folder, as one text.
 local function folder(path)
   local out, pipe = {}, io.popen("cd '" .. path .. "' && find . -type f | LC_ALL=C sort")
-  for name in pipe:lines() do out[#out + 1] = name .. "\n" .. (read(path .. "/" .. name) or "") end
+  for name in pipe:lines() do
+    out[#out + 1] = name .. "\n" .. (read(path .. "/" .. name) or "")
+  end
   pipe:close()
   return table.concat(out, "\n")
 end
@@ -359,12 +507,16 @@ local function check_save(step)
   api.project_load(b)
   paw.flush()
   local again = dump()
-  if again ~= loaded then fail(step, "save", "a second load changed the project: " .. first_difference(loaded, again)) end
+  if again ~= loaded then
+    fail(step, "save", "a second load changed the project: " .. first_difference(loaded, again))
+  end
   -- A project never named takes its folder's name when saved.
   before = before:gsub("name=untitled,", "name=a,", 1)
   if before ~= saved then
     -- Saving may only move recordings beside the file.
-    if not before:find("recordings") then fail(step, "save", "saving changed the project: " .. first_difference(before, saved)) end
+    if not before:find("recordings") then
+      fail(step, "save", "saving changed the project: " .. first_difference(before, saved))
+    end
   end
   stats.checks.save = stats.checks.save + 1
 end
@@ -416,14 +568,26 @@ end
 
 api.transport_stop()
 local kinds = 0
-for _ in pairs(stats.errors) do kinds = kinds + 1 end
+for _ in pairs(stats.errors) do
+  kinds = kinds + 1
+end
 B.emit({
-  workload = "fuzz", seed = seed, steps = steps, ops = stats.ops, rejected = stats.rejected, rejection_kinds = kinds,
-  undo_checks = stats.checks.undo, save_checks = stats.checks.save, render_checks = stats.checks.render,
-  view_checks = stats.checks.views, failed = false,
+  workload = "fuzz",
+  seed = seed,
+  steps = steps,
+  ops = stats.ops,
+  rejected = stats.rejected,
+  rejection_kinds = kinds,
+  undo_checks = stats.checks.undo,
+  save_checks = stats.checks.save,
+  render_checks = stats.checks.render,
+  view_checks = stats.checks.views,
+  failed = false,
 })
 if verbose then
-  for k, n in pairs(stats.errors) do print(n, k) end
+  for k, n in pairs(stats.errors) do
+    print(n, k)
+  end
 end
 os.execute("rm -rf '" .. dir .. "'")
 api.quit(0)

@@ -25,10 +25,24 @@ for i = 1, rounds do
 end
 table.sort(times)
 local parts = {}
-for _, c in ipairs(chords) do parts[#parts + 1] = string.format("%g:%g:%d:%s:%s", c.at, c.length, c.root, c.quality.name or tostring(c.quality), tostring(c.bass)) end
+for _, c in ipairs(chords) do
+  parts[#parts + 1] =
+    string.format("%g:%g:%d:%s:%s", c.at, c.length, c.root, c.quality.name or tostring(c.quality), tostring(c.bass))
+end
 local text = table.concat(parts, " ")
 local sum = 0
-for i = 1, #text do sum = (sum * 31 + text:byte(i)) % 2147483647 end
-print(string.format('{"notes":%d,"chords":%d,"p50_ms":%.1f,"min_ms":%.1f,"max_ms":%.1f,"hash":%d}',
-  #harmony.notes(), #chords, times[math.ceil(#times / 2)], times[1], times[#times], sum))
+for i = 1, #text do
+  sum = (sum * 31 + text:byte(i)) % 2147483647
+end
+print(
+  string.format(
+    '{"notes":%d,"chords":%d,"p50_ms":%.1f,"min_ms":%.1f,"max_ms":%.1f,"hash":%d}',
+    #harmony.notes(),
+    #chords,
+    times[math.ceil(#times / 2)],
+    times[1],
+    times[#times],
+    sum
+  )
+)
 api.quit(0)

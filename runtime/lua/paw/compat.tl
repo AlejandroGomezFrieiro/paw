@@ -47,17 +47,17 @@ local record Bit32
   arshift: function(number, number): integer
   lrotate: function(number, number): integer
   rrotate: function(number, number): integer
-  extract: function(number, number, ? number): integer
-  replace: function(number, number, number, ? number): integer
+  extract: function(number, number, ?number): integer
+  replace: function(number, number, number, ?number): integer
 end
 
 local record Utf8
   char: function(...: number): string
   charpattern: string
-  codepoint: function(string, ? number, ? number): integer...
+  codepoint: function(string, ?number, ?number): integer...
   codes: function(string): (function(string, integer): (integer, integer), string, integer)
-  len: function(string, ? number, ? number): integer, integer
-  offset: function(string, number, ? number): integer
+  len: function(string, ?number, ?number): integer, integer
+  offset: function(string, number, ?number): integer
 end
 
 local record Globals
@@ -117,20 +117,32 @@ function bit32.bnot(x: number): integer
 end
 
 function bit32.lshift(x: number, disp: number): integer
-  if disp < 0 then return bit32.rshift(x, -disp) end
-  if disp >= 32 then return 0 end
+  if disp < 0 then
+    return bit32.rshift(x, -disp)
+  end
+  if disp >= 32 then
+    return 0
+  end
   return floor(lsh(x, disp) % U)
 end
 
 function bit32.rshift(x: number, disp: number): integer
-  if disp < 0 then return bit32.lshift(x, -disp) end
-  if disp >= 32 then return 0 end
+  if disp < 0 then
+    return bit32.lshift(x, -disp)
+  end
+  if disp >= 32 then
+    return 0
+  end
   return floor(rsh(x, disp) % U)
 end
 
 function bit32.arshift(x: number, disp: number): integer
-  if disp < 0 then return bit32.lshift(x, -disp) end
-  if disp >= 32 then disp = 31 end
+  if disp < 0 then
+    return bit32.lshift(x, -disp)
+  end
+  if disp >= 32 then
+    disp = 31
+  end
   return floor(arsh(x, disp) % U)
 end
 
@@ -144,9 +156,15 @@ end
 
 local function field(name: string, f: number, w: number): integer, integer
   local fi, wi = integer(f, 2, name), integer(w or 1, 3, name)
-  if fi < 0 then argerror(2, name, "field cannot be negative", 4) end
-  if wi <= 0 then argerror(3, name, "width must be positive", 4) end
-  if fi + wi > 32 then error("trying to access non-existent bits", 3) end
+  if fi < 0 then
+    argerror(2, name, "field cannot be negative", 4)
+  end
+  if wi <= 0 then
+    argerror(3, name, "width must be positive", 4)
+  end
+  if fi + wi > 32 then
+    error("trying to access non-existent bits", 3)
+  end
   return fi, wi
 end
 
@@ -165,7 +183,7 @@ end
 -- utf8, as Lua 5.3's lutf8lib.c
 
 local MAXUTF = 0x10FFFF
-local LIMITS = { 0x7F, 0x7FF, 0xFFFF }
+local LIMITS = {0x7F, 0x7FF, 0xFFFF}
 
 local function iscont(s: string, i: integer): boolean
   local b = byte(s, i)
@@ -175,42 +193,66 @@ end
 -- The code point at byte `i` and the byte after it, or nil.
 local function decode(s: string, i: integer): integer, integer
   local c = byte(s, i)
-  if not c then return nil end
-  if c < 0x80 then return c, i + 1 end
+  if not c then
+    return nil
+  end
+  if c < 0x80 then
+    return c, i + 1
+  end
   local count, res: integer, integer
-  if c < 0xC0 then return nil
-  elseif c < 0xE0 then count, res = 1, c - 0xC0
-  elseif c < 0xF0 then count, res = 2, c - 0xE0
-  elseif c < 0xF8 then count, res = 3, c - 0xF0
-  else return nil end
+  if c < 0xC0 then
+    return nil
+  elseif c < 0xE0 then
+    count, res = 1, c - 0xC0
+  elseif c < 0xF0 then
+    count, res = 2, c - 0xE0
+  elseif c < 0xF8 then
+    count, res = 3, c - 0xF0
+  else
+    return nil
+  end
   for k = 1, count do
     local cc = byte(s, i + k)
-    if not cc or cc < 0x80 or cc >= 0xC0 then return nil end
+    if not cc or cc < 0x80 or cc >= 0xC0 then
+      return nil
+    end
     res = res * 64 + (cc - 0x80)
   end
-  if res > MAXUTF or res <= LIMITS[count] then return nil end
+  if res > MAXUTF or res <= LIMITS[count] then
+    return nil
+  end
   return res, i + count + 1
 end
 
 -- A position from the end of the string when it is negative.
 local function posrelat(pos: integer, len: integer): integer
-  if pos >= 0 then return pos end
-  if -pos > len then return 0 end
+  if pos >= 0 then
+    return pos
+  end
+  if -pos > len then
+    return 0
+  end
   return len + pos + 1
 end
 
-local utf: Utf8 = { charpattern = "[%z\1-\127\194-\244][\128-\191]*" }
+local utf: Utf8 = {charpattern = "[%z\1-\127\194-\244][\128-\191]*"}
 
 local function encode(code: integer): string
-  if code < 0x80 then return char(code) end
+  if code < 0x80 then
+    return char(code)
+  end
   if code < 0x800 then
     return char(0xC0 + floor(code / 0x40), 0x80 + code % 0x40)
   end
   if code < 0x10000 then
     return char(0xE0 + floor(code / 0x1000), 0x80 + floor(code / 0x40) % 0x40, 0x80 + code % 0x40)
   end
-  return char(0xF0 + floor(code / 0x40000), 0x80 + floor(code / 0x1000) % 0x40,
-    0x80 + floor(code / 0x40) % 0x40, 0x80 + code % 0x40)
+  return char(
+    0xF0 + floor(code / 0x40000),
+    0x80 + floor(code / 0x1000) % 0x40,
+    0x80 + floor(code / 0x40) % 0x40,
+    0x80 + code % 0x40
+  )
 end
 
 function utf.char(...: number): string
@@ -218,7 +260,9 @@ function utf.char(...: number): string
   local parts: {string} = {}
   for i = 1, n do
     local code = integer((select(i, ...)), i, "utf8.char")
-    if code < 0 or code > MAXUTF then argerror(i, "utf8.char", "value out of range") end
+    if code < 0 or code > MAXUTF then
+      argerror(i, "utf8.char", "value out of range")
+    end
     parts[i] = encode(code)
   end
   return table.concat(parts)
@@ -228,14 +272,22 @@ function utf.codepoint(s: string, i?: number, j?: number): integer...
   local len = #s
   local posi = posrelat(integer(i or 1, 2, "utf8.codepoint"), len)
   local pose = posrelat(integer(j or posi, 3, "utf8.codepoint"), len)
-  if posi < 1 then argerror(2, "utf8.codepoint", "out of range") end
-  if pose > len then argerror(3, "utf8.codepoint", "out of range") end
-  if posi > pose then return end
+  if posi < 1 then
+    argerror(2, "utf8.codepoint", "out of range")
+  end
+  if pose > len then
+    argerror(3, "utf8.codepoint", "out of range")
+  end
+  if posi > pose then
+    return
+  end
   local codes: {integer} = {}
   local p = posi
   while p <= pose do
     local code, nextp = decode(s, p)
-    if not code then error("invalid UTF-8 code", 2) end
+    if not code then
+      error("invalid UTF-8 code", 2)
+    end
     codes[#codes + 1] = code
     p = nextp
   end
@@ -246,12 +298,18 @@ function utf.len(s: string, i?: number, j?: number): integer, integer
   local len = #s
   local posi = posrelat(integer(i or 1, 2, "utf8.len"), len)
   local posj = posrelat(integer(j or -1, 3, "utf8.len"), len)
-  if posi < 1 or posi - 1 > len then argerror(2, "utf8.len", "initial position out of string") end
-  if posj > len then argerror(3, "utf8.len", "final position out of string") end
+  if posi < 1 or posi - 1 > len then
+    argerror(2, "utf8.len", "initial position out of string")
+  end
+  if posj > len then
+    argerror(3, "utf8.len", "final position out of string")
+  end
   local n = 0
   while posi <= posj do
     local _, nextp = decode(s, posi)
-    if not nextp then return nil, posi end
+    if not nextp then
+      return nil, posi
+    end
     posi = nextp
     n = n + 1
   end
@@ -262,26 +320,38 @@ function utf.offset(s: string, n: number, i?: number): integer
   local len = #s
   local ni = integer(n, 2, "utf8.offset")
   local posi = posrelat(integer(i or (ni >= 0 and 1 or len + 1), 3, "utf8.offset"), len)
-  if posi < 1 or posi - 1 > len then argerror(3, "utf8.offset", "position out of range") end
+  if posi < 1 or posi - 1 > len then
+    argerror(3, "utf8.offset", "position out of range")
+  end
   posi = posi - 1 -- from 0, as in C
   if ni == 0 then
-    while posi > 0 and iscont(s, posi + 1) do posi = posi - 1 end
+    while posi > 0 and iscont(s, posi + 1) do
+      posi = posi - 1
+    end
     return posi + 1
   end
-  if iscont(s, posi + 1) then error("initial position is a continuation byte", 2) end
+  if iscont(s, posi + 1) then
+    error("initial position is a continuation byte", 2)
+  end
   if ni < 0 then
     while ni < 0 and posi > 0 do
-      repeat posi = posi - 1 until not (posi > 0 and iscont(s, posi + 1))
+      repeat
+        posi = posi - 1
+      until not (posi > 0 and iscont(s, posi + 1))
       ni = ni + 1
     end
   else
     ni = ni - 1
     while ni > 0 and posi < len do
-      repeat posi = posi + 1 until not iscont(s, posi + 1)
+      repeat
+        posi = posi + 1
+      until not iscont(s, posi + 1)
       ni = ni - 1
     end
   end
-  if ni == 0 then return posi + 1 end
+  if ni == 0 then
+    return posi + 1
+  end
   return nil
 end
 
@@ -292,11 +362,17 @@ local function codes_next(s: string, i: integer): integer, integer
     n = 0
   elseif n < len then
     n = n + 1
-    while iscont(s, n + 1) do n = n + 1 end
+    while iscont(s, n + 1) do
+      n = n + 1
+    end
   end
-  if n >= len then return nil end
+  if n >= len then
+    return nil
+  end
   local code, nextp = decode(s, n + 1)
-  if not code or iscont(s, nextp) then error("invalid UTF-8 code", 2) end
+  if not code or iscont(s, nextp) then
+    error("invalid UTF-8 code", 2)
+  end
   return n + 1, code
 end
 
@@ -311,20 +387,24 @@ local preload = package.preload
 preload["compat53.utf8"] = function(): Utf8 return utf end
 -- compat-5.3 looks for its C parts and for `struct`: say that they are not
 -- here, so it does not find a copy that is on the system.
-local absent = { "compat53.table", "compat53.io", "compat53.string", "struct" }
+local absent = {"compat53.table", "compat53.io", "compat53.string", "struct"}
 for _, name in ipairs(absent) do
   preload[name] = function(): Utf8 error("not in paw", 0) end
 end
 
-local libs = _G as {string:{string:function}}
-local own: {string:function} = {}
-local patterns = { "find", "match", "gsub", "gmatch" }
-for _, name in ipairs(patterns) do own[name] = libs.string[name] end
+local libs = _G as {string: {string: function}}
+local own: {string: function} = {}
+local patterns = {"find", "match", "gsub", "gmatch"}
+for _, name in ipairs(patterns) do
+  own[name] = libs.string[name]
+end
 G.require("compat53")
-for _, name in ipairs(absent) do preload[name] = nil end
+for _, name in ipairs(absent) do
+  preload[name] = nil
+end
 preload["compat53.utf8"] = nil
 
-local module = package.loaded["compat53.module"] as {string:{string:function}}
+local module = package.loaded["compat53.module"] as {string: {string: function}}
 for _, name in ipairs(patterns) do
   libs.string[name] = own[name]
   module.string[name] = own[name]
@@ -333,4 +413,4 @@ end
 G.bit32 = bit32
 package.loaded.bit32 = bit32
 
-return { bit32 = bit32, utf8 = utf }
+return {bit32 = bit32, utf8 = utf}

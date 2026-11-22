@@ -16,9 +16,17 @@ test("frames: paw.opt.fps set in init.lua is the ceiling of the frame rate", fun
   os.execute("mkdir -p '" .. dir .. "/state'")
   T.write_file(dir .. "/init.lua", "paw.opt.fps = 12\n")
   T.write_file(dir .. "/show.lua", "print('FRAME_MS ' .. paw.ui.frame_ms())\n")
-  local pipe = io.popen(string.format(
-    "XDG_STATE_HOME='%s/state' XDG_DATA_HOME='%s/state' XDG_CACHE_HOME='%s/state' '%s' --config '%s' --no-plugins --no-listen --audio null -l '%s/show.lua' 2>&1",
-    dir, dir, dir, binary(), dir, dir))
+  local pipe = io.popen(
+    string.format(
+      "XDG_STATE_HOME='%s/state' XDG_DATA_HOME='%s/state' XDG_CACHE_HOME='%s/state' '%s' --config '%s' --no-plugins --no-listen --audio null -l '%s/show.lua' 2>&1",
+      dir,
+      dir,
+      dir,
+      binary(),
+      dir,
+      dir
+    )
+  )
   local out = pipe:read("*a")
   pipe:close()
   local ms = tonumber(out:match("FRAME_MS ([%d%.]+)"))
@@ -45,9 +53,17 @@ local function same_as_whole(at, to, what)
   eq(moved ~= nil, true, what .. ": drawn by its live parts only")
   local whole = api.ui_frame_snapshot(W, H)
   local differ = false
-  for row = 1, H do differ = differ or first.cells[row] ~= whole.cells[row] end
+  for row = 1, H do
+    differ = differ or first.cells[row] ~= whole.cells[row]
+  end
   eq(differ, true, what .. ": the playhead moved")
-  for row = 1, H do eq(moved.cells[row], whole.cells[row], what .. ", row " .. row .. ":\n" .. moved.text[row] .. "\n" .. whole.text[row]) end
+  for row = 1, H do
+    eq(
+      moved.cells[row],
+      whole.cells[row],
+      what .. ", row " .. row .. ":\n" .. moved.text[row] .. "\n" .. whole.text[row]
+    )
+  end
   return moved
 end
 
@@ -62,8 +78,14 @@ end)
 test("frames: what is drawn over a live part stays over it", function()
   T.fresh()
   T.tone("Lead", 16)
-  paw.ui.view("frames_probe", { still = true, render = function(_, buf) buf:fill(0, 0, buf.width, buf.height, "#", "Normal") end })
-  T.after(function() paw.ui.close() paw.ui.views.frames_probe = nil end)
+  paw.ui.view(
+    "frames_probe",
+    { still = true, render = function(_, buf) buf:fill(0, 0, buf.width, buf.height, "#", "Normal") end }
+  )
+  T.after(function()
+    paw.ui.close()
+    paw.ui.views.frames_probe = nil
+  end)
   paw.ui.open("frames_probe", { width = 60, height = 20 })
   local moved = same_as_whole(2, 6, "under a float")
   eq(table.concat(moved.text, "\n"):find("####", 1, true) ~= nil, true, "the float shows")
@@ -72,7 +94,10 @@ end)
 test("frames: a view that does not say what moves in it is drawn whole", function()
   T.fresh()
   paw.ui.view("frames_moving", { render = function(_, buf) buf:text(0, 0, tostring(paw.transport.position)) end })
-  T.after(function() paw.ui.close() paw.ui.views.frames_moving = nil end)
+  T.after(function()
+    paw.ui.close()
+    paw.ui.views.frames_moving = nil
+  end)
   paw.ui.open("frames_moving", { width = 30, height = 6 })
   api.ui_frame_snapshot(120, 40)
   eq(api.ui_frame_snapshot(120, 40, true), nil, "no frame of the live parts only")

@@ -11,9 +11,15 @@ local function song()
   paw.opt.grid = 1
   local a, b = paw.add_track({ name = "a" }), paw.add_track({ name = "b" })
   a:add_device("synth")
-  local clip = a:add_clip({ start = 4, length = 4, name = "riff", notes = {
-    { pitch = 60, start = 0, length = 1, velocity = 100 }, { pitch = 64, start = 1, length = 1, velocity = 80 },
-  } })
+  local clip = a:add_clip({
+    start = 4,
+    length = 4,
+    name = "riff",
+    notes = {
+      { pitch = 60, start = 0, length = 1, velocity = 100 },
+      { pitch = 64, start = 1, length = 1, velocity = 80 },
+    },
+  })
   paw.flush()
   return a, b, clip
 end
@@ -88,7 +94,11 @@ test("the pointer selects, moves, copies, resizes and makes clips", function()
   eq(made.length, 4, "a bar long")
 
   act.open_clip(clip.id)
-  eq(paw.ui.visible("pianoroll") and paw.ui.views.pianoroll:clip().id, clip.id, "a double click on a clip opens its notes")
+  eq(
+    paw.ui.visible("pianoroll") and paw.ui.views.pianoroll:clip().id,
+    clip.id,
+    "a double click on a clip opens its notes"
+  )
   act.close_roll()
   eq(paw.ui.visible("pianoroll"), false, "and they close again")
   eq(paw.ui.focused, "arrange", "leaving the arrange view with the keyboard")
@@ -127,7 +137,11 @@ test("menus act on what was clicked, and dragging selects or loops", function()
   act.set_loop_edge("start", 12)
   eq(paw.transport.loop_start .. " " .. paw.transport.loop_end, "9 10", "and stay a step apart")
   act.ruler_click(6.3)
-  eq(paw.cursor.beat .. " " .. paw.transport.position, "6 6", "a click on the ruler puts the edit cursor and the playhead")
+  eq(
+    paw.cursor.beat .. " " .. paw.transport.position,
+    "6 6",
+    "a click on the ruler puts the edit cursor and the playhead"
+  )
 
   act.select_range(1, 4, 2, 8)
   local sel = paw.frontend.state(-1).modal.selection
@@ -209,7 +223,9 @@ test("any parameter is automated, and lanes are drawn with a pencil", function()
   act.add_point(pan.id, 2, 1)
   act.add_point(pan.id, 6, 0)
   local stroke = {}
-  for i = 0, 40 do stroke[#stroke + 1] = { 1 + i * 0.05, i / 40 } end
+  for i = 0, 40 do
+    stroke[#stroke + 1] = { 1 + i * 0.05, i / 40 }
+  end
   act.draw_lane(pan.id, stroke)
   local points = pan:points()
   eq(points[1][1], 0, "what was before the stroke stays")
@@ -236,7 +252,9 @@ test("controller moves are drawn into a clip with a pencil", function()
   local _, _, clip = song()
   paw.opt.note_grid = 0.25
   local stroke = {}
-  for i = 0, 20 do stroke[#stroke + 1] = { i * 0.05, 0.5 + i / 40 } end
+  for i = 0, 20 do
+    stroke[#stroke + 1] = { i * 0.05, 0.5 + i / 40 }
+  end
   act.draw_controls(clip.id, "bend", nil, stroke)
   local controls = clip:controls()
   eq(#controls, 5, "one move to a step of the note grid")
@@ -305,7 +323,11 @@ test("a view paints in pixels for a graphical frontend, and gets the pointer", f
   paw.canvas.open("scope", { title = "Scope", width = 320, height = 200 })
   local windows = paw.frontend.state(-1).modal.windows
   eq(#windows, 1, "the frontend is told which windows are open")
-  eq(windows[1].name .. " " .. windows[1].title .. " " .. windows[1].width, "scope Scope 320", "with their titles and sizes")
+  eq(
+    windows[1].name .. " " .. windows[1].title .. " " .. windows[1].width,
+    "scope Scope 320",
+    "with their titles and sizes"
+  )
   eq(paw.ui.focused, "scope", "an opened window has the keyboard")
 
   local drawing = paw.canvas.paint("scope", 320, 200)
@@ -315,18 +337,25 @@ test("a view paints in pixels for a graphical frontend, and gets the pointer", f
   eq(ops[1][1] .. " " .. ops[1][4] .. "x" .. ops[1][5], "r 320x200", "a rectangle")
   eq(ops[2][4], "hello", "text")
   eq(ops[3][2], "M 0.0 30.0 L 320.0 30.0", "a line, as a path")
-  eq(table.concat({ ops[4][2], ops[4][3], ops[4][4], ops[4][5] }, " "), "20 40 100 20", "a rectangle is cut to the part it is drawn in")
+  eq(
+    table.concat({ ops[4][2], ops[4][3], ops[4][4], ops[4][5] }, " "),
+    "20 40 100 20",
+    "a rectangle is cut to the part it is drawn in"
+  )
   eq(ops[5][2], "M 20.0 65.0 L 120.0 65.0", "and so is a line")
 
   paw.canvas.pointer("scope", { kind = "down", x = 12, y = 34, button = "left" })
   eq(seen[1], "down 12,34", "the view is handed the pointer")
   paw.ui.views.scope.paint = function() error("broken") end
-  eq(paw.canvas.paint("scope", 100, 100).ops[2][4]:find("broken", 1, true) ~= nil, true, "a view that fails to paint says so in its window")
+  eq(
+    paw.canvas.paint("scope", 100, 100).ops[2][4]:find("broken", 1, true) ~= nil,
+    true,
+    "a view that fails to paint says so in its window"
+  )
   paw.canvas.close("scope")
   eq(#paw.frontend.state(-1).modal.windows, 0, "and a window is closed")
   eq(paw.ui.focused, "arrange", "giving the keyboard back")
 end)
-
 
 test("extensions add entries to the frontend's menus", function()
   fresh()
@@ -335,10 +364,17 @@ test("extensions add entries to the frontend's menus", function()
   local menus = paw.frontend.menus
   local seen = {}
   local before = { #menus.clip, #menus.timeline }
-  table.insert(menus.clip, { label = "Count notes", only = "midi", run = function(id, beat) seen[#seen + 1] = id .. "@" .. beat end })
+  table.insert(
+    menus.clip,
+    { label = "Count notes", only = "midi", run = function(id, beat) seen[#seen + 1] = id .. "@" .. beat end }
+  )
   table.insert(menus.timeline, { label = "Mark here", command = "track.rename Marked" })
   local told = paw.frontend.state(-1).modal.menus
-  eq(told.clip[#told.clip].label .. " " .. told.clip[#told.clip].only, "Count notes midi", "the frontend is told the entries")
+  eq(
+    told.clip[#told.clip].label .. " " .. told.clip[#told.clip].only,
+    "Count notes midi",
+    "the frontend is told the entries"
+  )
   eq(told.timeline[#told.timeline].label, "Mark here", "of each menu")
 
   paw.cursor.set_beat(0)
@@ -361,7 +397,9 @@ test("a picker in a floating window takes clicks and the wheel", function()
   fresh()
   local chosen
   local items = {}
-  for i = 1, 60 do items[i] = "item " .. i end
+  for i = 1, 60 do
+    items[i] = "item " .. i
+  end
   paw.pick({ title = "Things", items = items, on_choose = function(item) chosen = item end })
   local float = paw.frontend.float(104, 40)
   local line
@@ -385,7 +423,11 @@ end)
 -- Inputs and devices, chosen from menus the kernel fills.
 
 local function with_test_input(fn)
-  api.engine_restart({ backend = "null", test_input = { frequency = 440, level = -12, channels = 2 }, test_midi = { "Keys A" } })
+  api.engine_restart({
+    backend = "null",
+    test_input = { frequency = 440, level = -12, channels = 2 },
+    test_midi = { "Keys A" },
+  })
   local ok, err = xpcall(fn, debug.traceback)
   api.engine_restart({ backend = "null" })
   if not ok then error(err, 0) end
@@ -393,7 +435,9 @@ end
 
 local function labels(list)
   local out = {}
-  for i, entry in ipairs(list) do out[i] = (entry.checked and "*" or "") .. entry.label end
+  for i, entry in ipairs(list) do
+    out[i] = (entry.checked and "*" or "") .. entry.label
+  end
   return table.concat(out, ", ")
 end
 
@@ -401,12 +445,20 @@ test("a track's input is chosen from a menu: audio channels and pairs by device,
   with_test_input(function()
     local a = song()
     local menu = paw.frontend.input_menu(a.id)
-    eq(labels(menu.audio), "*No audio input, test signal · 1, test signal · 2, test signal · 1/2", "each channel and each pair, named with the device")
+    eq(
+      labels(menu.audio),
+      "*No audio input, test signal · 1, test signal · 2, test signal · 1/2",
+      "each channel and each pair, named with the device"
+    )
     eq(labels(menu.midi), "*All MIDI ports, Keys A", "every port, or one")
     eq(#menu.channel, 17, "every channel, or one of sixteen")
     act.choose_input(a.id, "audio", 4)
     eq(a.input, "1/2", "choosing a pair")
-    eq(labels(paw.frontend.input_menu(a.id).audio):find("*test signal · 1/2", 1, true) ~= nil, true, "is shown as chosen")
+    eq(
+      labels(paw.frontend.input_menu(a.id).audio):find("*test signal · 1/2", 1, true) ~= nil,
+      true,
+      "is shown as chosen"
+    )
     eq(paw.frontend.state(-1).tracks[1].input_label, "test signal · 1/2", "and in the header")
     act.choose_input(a.id, "midi", 2)
     act.choose_input(a.id, "channel", 3)
@@ -437,8 +489,16 @@ test("the audio devices are chosen from the engine's menu", function()
   with_test_input(function()
     song()
     local menu = paw.frontend.engine_menu()
-    eq(menu.info[1].label:find("48 kHz", 1, true) ~= nil, true, "the sample rate and block size are shown: " .. menu.info[1].label)
-    eq(labels(menu.input):find("*test signal  (2 ch)", 1, true) ~= nil, true, "the input open, with its channels: " .. labels(menu.input))
+    eq(
+      menu.info[1].label:find("48 kHz", 1, true) ~= nil,
+      true,
+      "the sample rate and block size are shown: " .. menu.info[1].label
+    )
+    eq(
+      labels(menu.input):find("*test signal  (2 ch)", 1, true) ~= nil,
+      true,
+      "the input open, with its channels: " .. labels(menu.input)
+    )
     eq(#menu.block, 8, "the device's own block size, or one of seven")
     act.choose_engine("block", 4)
     eq(api.engine_get().buffer_size, 128, "a block size is chosen")
@@ -451,15 +511,23 @@ test("notes are drawn, chosen with clicks and a box, and moved and stretched tog
   fresh()
   local track = paw.add_track({ name = "Keys" })
   track:add_device("synth")
-  local clip = track:add_clip({ start = 0, length = 8, notes = {
-    { pitch = 60, start = 0, length = 1 }, { pitch = 64, start = 1, length = 1 },
-    { pitch = 67, start = 2, length = 1 }, { pitch = 72, start = 4, length = 2 },
-  } })
+  local clip = track:add_clip({
+    start = 0,
+    length = 8,
+    notes = {
+      { pitch = 60, start = 0, length = 1 },
+      { pitch = 64, start = 1, length = 1 },
+      { pitch = 67, start = 2, length = 1 },
+      { pitch = 72, start = 4, length = 2 },
+    },
+  })
   local act, id = paw.frontend.act, clip.id
   local function chosen() return table.concat(paw.frontend.chosen_notes(id), " ") end
   local function notes()
     local out = {}
-    for i, n in ipairs(clip:notes()) do out[i] = n.pitch .. "@" .. n.start .. "+" .. n.length end
+    for i, n in ipairs(clip:notes()) do
+      out[i] = n.pitch .. "@" .. n.start .. "+" .. n.length
+    end
     return table.concat(out, " ")
   end
   paw.ui.views.pianoroll:edit(clip)
@@ -529,7 +597,9 @@ test("notes are drawn, chosen with clicks and a box, and moved and stretched tog
   -- Velocity of the chosen, and the keys.
   act.set_velocity(id, 1, 40)
   local v = {}
-  for i, n in ipairs(clip:notes()) do v[i] = n.velocity end
+  for i, n in ipairs(clip:notes()) do
+    v[i] = n.velocity
+  end
   eq(table.concat(v, " "), "40 100 40 100", "a velocity set on a chosen note goes to all of them")
   paw.keymap.feed("x")
   eq(notes(), "67@2+1 72@5+2", "x takes the chosen notes away")
@@ -553,17 +623,25 @@ local function grid_song()
   for t = 1, 3 do
     tracks[t] = paw.add_track({ name = "t" .. t })
     for i = 0, 3 do
-      local c = tracks[t]:add_clip({ start = i * 4, length = 2, name = t .. "." .. (i + 1),
-        notes = { { pitch = 60, start = 0, length = 1 } } })
+      local c = tracks[t]:add_clip({
+        start = i * 4,
+        length = 2,
+        name = t .. "." .. (i + 1),
+        notes = { { pitch = 60, start = 0, length = 1 } },
+      })
       clips[t .. "." .. (i + 1)] = c.id
     end
   end
   paw.flush()
   local names = {}
-  for name, id in pairs(clips) do names[id] = name end
+  for name, id in pairs(clips) do
+    names[id] = name
+  end
   local function chosen()
     local out = {}
-    for i, id in ipairs(paw.frontend.chosen_clips()) do out[i] = names[id] end
+    for i, id in ipairs(paw.frontend.chosen_clips()) do
+      out[i] = names[id]
+    end
     table.sort(out)
     return table.concat(out, " ")
   end
@@ -578,7 +656,10 @@ test("clips are chosen with clicks, Ctrl, Shift and a box", function()
   local state = paw.frontend.state(-1)
   local flags = 0
   for _, clip in ipairs(state.clips) do
-    if clip.selected then flags = flags + 1 eq(clip.id, c["1.2"], "the frontend is told which clip") end
+    if clip.selected then
+      flags = flags + 1
+      eq(clip.id, c["1.2"], "the frontend is told which clip")
+    end
   end
   eq(flags, 1, "one clip is drawn chosen")
   act.select_clip(c["2.3"], 8, "toggle")
@@ -613,11 +694,19 @@ test("the keys act on the chosen clips", function()
   act.select_clips_box(1, 3, 2, 9, "only")
   paw.keymap.feed("y")
   local reg = paw.keymap.getreg()
-  eq(reg.kind .. " " .. #reg.rows .. " " .. #reg.rows[1] .. " " .. reg.length, "range 2 2 6", "y yanks the chosen clips, whole")
+  eq(
+    reg.kind .. " " .. #reg.rows .. " " .. #reg.rows[1] .. " " .. reg.length,
+    "range 2 2 6",
+    "y yanks the chosen clips, whole"
+  )
   act.select_clip(c["1.1"], 0, "only")
   act.select_clip(c["3.4"], 12, "toggle")
   paw.keymap.feed("d")
-  eq(#tracks[1]:clips() .. " " .. #tracks[3]:clips() .. " " .. #tracks[2]:clips(), "3 3 4", "d deletes them and nothing between")
+  eq(
+    #tracks[1]:clips() .. " " .. #tracks[3]:clips() .. " " .. #tracks[2]:clips(),
+    "3 3 4",
+    "d deletes them and nothing between"
+  )
   eq(chosen(), "", "and lets go of them")
   paw.cursor.set_track(tracks[1])
   paw.cursor.set_beat(20)
@@ -637,7 +726,10 @@ end)
 
 test("chosen clips move and copy together, by whole grid steps, as one undo step", function()
   local _, c, chosen = grid_song()
-  local function at(name) local clip = paw.clip(c[name]) return clip:track().name .. "@" .. clip.start end
+  local function at(name)
+    local clip = paw.clip(c[name])
+    return clip:track().name .. "@" .. clip.start
+  end
   act.select_clip(c["1.2"], 4, "only")
   act.select_clip(c["2.3"], 8, "toggle")
   api.undo_checkpoint()
@@ -670,7 +762,11 @@ test("chosen clips move and copy together, by whole grid steps, as one undo step
   act.select_clip(c["2.3"], 8, "toggle")
   local made = act.drag_clips(c["2.2"], 12, 1, true, false)
   eq(at("2.2") .. " " .. at("2.3"), "t2@4 t2@8", "with Ctrl the clips stay")
-  eq(#made .. " " .. paw.clip(made[1]):track().name .. "@" .. paw.clip(made[1]).start .. " " .. paw.clip(made[2]).start, "2 t3@16 20", "and copies are dropped")
+  eq(
+    #made .. " " .. paw.clip(made[1]):track().name .. "@" .. paw.clip(made[1]).start .. " " .. paw.clip(made[2]).start,
+    "2 t3@16 20",
+    "and copies are dropped"
+  )
   eq(#paw.clip(made[1]):notes(), 1, "with their notes")
   eq(table.concat(paw.frontend.chosen_clips(), " "), made[1] .. " " .. made[2], "the copies are then the chosen ones")
 
@@ -685,10 +781,15 @@ test("either edge of chosen clips is trimmed, hiding notes, and Alt slips what p
   clip:add_note({ pitch = 64, start = 1.5, length = 0.5 })
   local function notes()
     local out = {}
-    for i, n in ipairs(clip:notes()) do out[i] = n.pitch .. "@" .. n.start end
+    for i, n in ipairs(clip:notes()) do
+      out[i] = n.pitch .. "@" .. n.start
+    end
     return table.concat(out, " ")
   end
-  local function place(id) local x = paw.clip(id) return x.start .. "+" .. x.length end
+  local function place(id)
+    local x = paw.clip(id)
+    return x.start .. "+" .. x.length
+  end
   act.select_clip(c["1.2"], 4, "only")
   api.undo_checkpoint()
   act.trim_clips(c["1.2"], "start", 1.2, false, false)
@@ -700,12 +801,20 @@ test("either edge of chosen clips is trimmed, hiding notes, and Alt slips what p
   eq(place(c["1.2"]) .. " " .. notes(), "4+2 60@0 64@1.5", "as one undo step")
   act.trim_clips(c["1.2"], "start", 1, false, false)
   act.trim_clips(c["1.2"], "start", -3, false, false)
-  eq(place(c["1.2"]) .. " " .. notes(), "2+4 60@2 64@3.5", "dragged out again the hidden note comes back, and the clip reaches further")
+  eq(
+    place(c["1.2"]) .. " " .. notes(),
+    "2+4 60@2 64@3.5",
+    "dragged out again the hidden note comes back, and the clip reaches further"
+  )
   act.trim_clips(c["1.2"], "start", 9, false, false)
   eq(place(c["1.2"]), "5+1", "never shorter than a grid step")
   paw.ui.views.pianoroll:edit(paw.clip(clip.id))
   local shown = T.roll_notes()
-  eq(#shown .. " " .. shown[1].hit.place .. " " .. shown[1].props.label, "1 2 E4", "the piano roll does not show the hidden note, and names the other by its place")
+  eq(
+    #shown .. " " .. shown[1].hit.place .. " " .. shown[1].props.label,
+    "1 2 E4",
+    "the piano roll does not show the hidden note, and names the other by its place"
+  )
   paw.ui.hide("pianoroll")
   paw.ui.focus("arrange")
   act.select_all_notes(clip.id)
@@ -721,11 +830,17 @@ test("either edge of chosen clips is trimmed, hiding notes, and Alt slips what p
   -- Slip.
   act.select_clip(c["1.3"], 8, "only")
   act.trim_clips(c["1.3"], "start", 0.5, false, true)
-  eq(place(c["1.3"]) .. " " .. paw.clip(c["1.3"]):notes()[1].start, "8+2 0.5", "Alt moves what plays inside, the edges staying")
+  eq(
+    place(c["1.3"]) .. " " .. paw.clip(c["1.3"]):notes()[1].start,
+    "8+2 0.5",
+    "Alt moves what plays inside, the edges staying"
+  )
 
   -- Audio: the clip starts further into its file.
   local samples = {}
-  for i = 1, 48000 * 4 do samples[i] = 0.25 end
+  for i = 1, 48000 * 4 do
+    samples[i] = 0.25
+  end
   local file = T.write_wav(T.scratch .. "/trim.wav", samples)
   local audio = tracks[3]:add_clip({ file = file, start = 20, length = 4 })
   audio.fade_in = 1
@@ -747,8 +862,11 @@ test("either edge of chosen clips is trimmed, hiding notes, and Alt slips what p
   act.select_clip(other.id, 30, "toggle")
   act.set_fade(audio.id, "in", 1.5)
   act.set_fade(audio.id, "out", 9)
-  eq(audio.fade_in .. " " .. audio.fade_out .. " " .. other.fade_in .. " " .. other.fade_out, "1.5 4 1.5 2",
-    "a corner handle sets the fade of the chosen audio clips, each no longer than the clip")
+  eq(
+    audio.fade_in .. " " .. audio.fade_out .. " " .. other.fade_in .. " " .. other.fade_out,
+    "1.5 4 1.5 2",
+    "a corner handle sets the fade of the chosen audio clips, each no longer than the clip"
+  )
   act.set_clip_gain(audio.id, -6)
   eq(audio:get().gain .. " " .. other:get().gain, "-6 -6", "the top line sets their gain")
   act.set_clip_gain(audio.id, -100)
@@ -762,11 +880,17 @@ end)
 
 test("a track's height is its own, flags are swept, and headers are dragged into and out of groups", function()
   fresh()
-  local a, b, c, d = paw.add_track({ name = "a" }), paw.add_track({ name = "b" }), paw.add_track({ name = "c" }), paw.add_track({ name = "d" })
+  local a, b, c, d =
+    paw.add_track({ name = "a" }),
+    paw.add_track({ name = "b" }),
+    paw.add_track({ name = "c" }),
+    paw.add_track({ name = "d" })
   paw.flush()
   local function heights()
     local out = {}
-    for i, t in ipairs(paw.frontend.state(-1).tracks) do out[i] = t.height end
+    for i, t in ipairs(paw.frontend.state(-1).tracks) do
+      out[i] = t.height
+    end
     return table.concat(out, " ")
   end
   eq(heights(), "1 1 1 1 1", "every track is as tall as the zoom makes them")
@@ -784,11 +908,19 @@ test("a track's height is its own, flags are swept, and headers are dragged into
   act.set_flag(a.id, "mute", true)
   act.set_flag(b.id, "mute", true)
   act.set_flag(c.id, "mute", true)
-  eq(tostring(a.mute) .. tostring(b.mute) .. tostring(c.mute) .. tostring(d.mute), "truetruetruefalse", "a sweep sets each flag it crosses as the first was set")
+  eq(
+    tostring(a.mute) .. tostring(b.mute) .. tostring(c.mute) .. tostring(d.mute),
+    "truetruetruefalse",
+    "a sweep sets each flag it crosses as the first was set"
+  )
   act.set_flag(b.id, "armed", true)
   eq(b.armed, true, "arm too")
   act.sweep_flag(3, 1, "solo", true)
-  eq(tostring(a.solo) .. tostring(b.solo) .. tostring(c.solo) .. tostring(d.solo), "truetruetruefalse", "a sweep upwards over three rows")
+  eq(
+    tostring(a.solo) .. tostring(b.solo) .. tostring(c.solo) .. tostring(d.solo),
+    "truetruetruefalse",
+    "a sweep upwards over three rows"
+  )
   T.fails(function() act.set_flag(a.id, "volume", true) end, "flag", "only flags")
 
   -- Groups.
@@ -821,10 +953,16 @@ test("the chosen clips are split at the edit cursor and glued", function()
   paw.keymap.feed("S")
   local function starts(t)
     local out = {}
-    for i, clip in ipairs(tracks[t]:clips()) do out[i] = clip.start .. "+" .. clip.length end
+    for i, clip in ipairs(tracks[t]:clips()) do
+      out[i] = clip.start .. "+" .. clip.length
+    end
     return table.concat(out, " ")
   end
-  eq(starts(1) .. " | " .. starts(2), "0+2 4+1 5+1 8+2 12+2 | 0+2 4+1 5+3 8+2 12+2", "S splits every chosen clip at the cursor")
+  eq(
+    starts(1) .. " | " .. starts(2),
+    "0+2 4+1 5+1 8+2 12+2 | 0+2 4+1 5+3 8+2 12+2",
+    "S splits every chosen clip at the cursor"
+  )
   eq(#paw.frontend.chosen_clips(), 4, "and both halves are chosen")
   act.clear_clip_selection()
   paw.cursor.set_track(tracks[3])
@@ -842,7 +980,9 @@ test("the chosen clips are split at the edit cursor and glued", function()
 
   -- Audio clips are glued into a new file.
   local samples = {}
-  for i = 1, 48000 do samples[i] = 0.25 end
+  for i = 1, 48000 do
+    samples[i] = 0.25
+  end
   local file = T.write_wav(T.scratch .. "/glue.wav", samples)
   local a1 = tracks[2]:add_clip({ file = file, start = 20, length = 1 })
   local a2 = tracks[2]:add_clip({ file = file, start = 21, length = 1 })
@@ -872,20 +1012,30 @@ test("the piano roll's other gestures: erase, keyboard ranges, velocity strokes,
   fresh()
   local track = paw.add_track({ name = "Keys" })
   track:add_device("synth")
-  local clip = track:add_clip({ start = 4, length = 8, notes = {
-    { pitch = 60, start = 0, length = 1, velocity = 100 }, { pitch = 64, start = 1, length = 1, velocity = 100 },
-    { pitch = 67, start = 2, length = 1, velocity = 100 }, { pitch = 72, start = 4, length = 2, velocity = 100 },
-  } })
+  local clip = track:add_clip({
+    start = 4,
+    length = 8,
+    notes = {
+      { pitch = 60, start = 0, length = 1, velocity = 100 },
+      { pitch = 64, start = 1, length = 1, velocity = 100 },
+      { pitch = 67, start = 2, length = 1, velocity = 100 },
+      { pitch = 72, start = 4, length = 2, velocity = 100 },
+    },
+  })
   local act, id = paw.frontend.act, clip.id
   local function chosen() return table.concat(paw.frontend.chosen_notes(id), " ") end
   local function notes()
     local out = {}
-    for i, n in ipairs(clip:notes()) do out[i] = n.pitch .. "@" .. n.start .. "+" .. n.length end
+    for i, n in ipairs(clip:notes()) do
+      out[i] = n.pitch .. "@" .. n.start .. "+" .. n.length
+    end
     return table.concat(out, " ")
   end
   local function velocities()
     local out = {}
-    for i, n in ipairs(clip:notes()) do out[i] = n.velocity end
+    for i, n in ipairs(clip:notes()) do
+      out[i] = n.velocity
+    end
     return table.concat(out, " ")
   end
   paw.ui.views.pianoroll:edit(clip)
@@ -944,12 +1094,20 @@ test("the piano roll's other gestures: erase, keyboard ranges, velocity strokes,
   eq(paw.opt.note_snap, true, "and on")
 
   -- Quantize: the chosen notes, or all.
-  local q = track:add_clip({ start = 20, length = 4, notes = {
-    { pitch = 60, start = 0.1, length = 0.5 }, { pitch = 62, start = 1.2, length = 0.5 }, { pitch = 64, start = 3.9, length = 0.5 },
-  } })
+  local q = track:add_clip({
+    start = 20,
+    length = 4,
+    notes = {
+      { pitch = 60, start = 0.1, length = 0.5 },
+      { pitch = 62, start = 1.2, length = 0.5 },
+      { pitch = 64, start = 3.9, length = 0.5 },
+    },
+  })
   local function starts()
     local out = {}
-    for i, n in ipairs(q:notes()) do out[i] = n.start .. "+" .. n.length end
+    for i, n in ipairs(q:notes()) do
+      out[i] = n.start .. "+" .. n.length
+    end
     return table.concat(out, " ")
   end
   act.select_note(q.id, 2, "only")
@@ -967,7 +1125,11 @@ test("the piano roll's other gestures: erase, keyboard ranges, velocity strokes,
   eq(starts(), "0+0.5 1.5+0.5 3.5+0.5", "the command does the same, at a strength")
 
   -- The other clips of the track show faintly where they overlap this one.
-  local other = track:add_clip({ start = 22, length = 4, notes = { { pitch = 70, start = 0, length = 1 }, { pitch = 71, start = 3, length = 1 } } })
+  local other = track:add_clip({
+    start = 22,
+    length = 4,
+    notes = { { pitch = 70, start = 0, length = 1 }, { pitch = 71, start = 3, length = 1 } },
+  })
   local ghosts = paw.roll_clips.context()
   eq(#ghosts, 1, "only the notes that sound during this clip")
   eq(ghosts[1].pitch .. "@" .. ghosts[1].start, "70@2", "placed in this clip's beats")
@@ -993,8 +1155,14 @@ test("the piano roll's other gestures: erase, keyboard ranges, velocity strokes,
   paw.midi.note_off(67)
   paw.flush()
   local entered = {}
-  for i, n in ipairs(s:notes()) do entered[i] = n.pitch .. "@" .. n.start .. "+" .. n.length .. "/" .. n.velocity end
-  eq(table.concat(entered, " "), "60@0+0.5/90 64@0+0.5/80 67@0.5+0.5/100", "a chord at the cursor, then the next note a step on")
+  for i, n in ipairs(s:notes()) do
+    entered[i] = n.pitch .. "@" .. n.start .. "+" .. n.length .. "/" .. n.velocity
+  end
+  eq(
+    table.concat(entered, " "),
+    "60@0+0.5/90 64@0+0.5/80 67@0.5+0.5/100",
+    "a chord at the cursor, then the next note a step on"
+  )
   eq(roll.beat, 1, "the cursor waits after the last note")
   paw.transport.play()
   paw.midi.note_on(69, 100)
@@ -1017,7 +1185,9 @@ test("an audio clip's start is trimmed by the tempo map where it is", function()
   paw.project.tempo = 120
   paw.tempo.set(8, 60)
   local samples = {}
-  for i = 1, 48000 * 8 do samples[i] = 0.25 end
+  for i = 1, 48000 * 8 do
+    samples[i] = 0.25
+  end
   local file = T.write_wav(T.scratch .. "/map.wav", samples)
   local track = paw.add_track({ name = "a" })
   local clip = track:add_clip({ file = file, start = 10, length = 4 })
@@ -1037,11 +1207,17 @@ test("a track's output and sends are shown and changed", function()
   local verb = paw.add_track({ name = "Reverb" })
   local act = paw.frontend.act
   local r = paw.frontend.routing(a.id)
-  eq(r.output .. " " .. #r.targets .. " " .. r.targets[1].name, "Master 3 Master", "a track plays into the master, and may play into the others")
+  eq(
+    r.output .. " " .. #r.targets .. " " .. r.targets[1].name,
+    "Master 3 Master",
+    "a track plays into the master, and may play into the others"
+  )
   act.set_output(a.id, bus.id)
   eq(paw.frontend.routing(a.id).output, "Bus", "its output is another track")
   local names = {}
-  for i, t in ipairs(paw.frontend.routing(bus.id).targets) do names[i] = t.name end
+  for i, t in ipairs(paw.frontend.routing(bus.id).targets) do
+    names[i] = t.name
+  end
   eq(table.concat(names, " "), "Master Reverb", "a track that plays into this one is not offered as its output")
   act.set_output(a.id, 0)
   eq(a.output, nil, "and the master again")
@@ -1049,11 +1225,19 @@ test("a track's output and sends are shown and changed", function()
   act.add_send(a.id, verb.id, -9)
   act.add_send(a.id, verb.id, -3)
   local sends = paw.frontend.routing(a.id).sends
-  eq(#sends .. " " .. sends[1].name .. " " .. sends[1].level .. " " .. tostring(sends[1].pre), "1 Reverb -9 false", "a send has a target and a level, once")
+  eq(
+    #sends .. " " .. sends[1].name .. " " .. sends[1].level .. " " .. tostring(sends[1].pre),
+    "1 Reverb -9 false",
+    "a send has a target and a level, once"
+  )
   act.set_send(a.id, 1, -20)
   act.set_send(a.id, 1, nil, true)
   sends = paw.frontend.routing(a.id).sends
-  eq(sends[1].level .. " " .. tostring(sends[1].pre), "-20 true", "its level and whether it is ahead of the fader are changed apart")
+  eq(
+    sends[1].level .. " " .. tostring(sends[1].pre),
+    "-20 true",
+    "its level and whether it is ahead of the fader are changed apart"
+  )
   paw.cursor.set_track(a)
   eq(paw.frontend.state(-1).routing.sends[1].name, "Reverb", "the frontend is told the selected track's routing")
   act.remove_send(a.id, 1)

@@ -11,7 +11,9 @@ local function load()
   return require("notation"), require("notation.model")
 end
 
-local function N(pitch, start, length, velocity) return { pitch = pitch, start = start, length = length, velocity = velocity or 80 } end
+local function N(pitch, start, length, velocity)
+  return { pitch = pitch, start = start, length = length, velocity = velocity or 80 }
+end
 
 --- A track with a clip open as notation.
 local function song(notes, length)
@@ -83,31 +85,38 @@ test("notation: every key of the view says the clip is gone when an undo took it
   paw.ui.focus("arrange")
 end)
 
-test("notation: on a long song the title does not read the song's key on every key, but once the edits pause", function()
-  local notes = {}
-  for i = 1, 3000 do notes[i] = N(57 + i % 12, (i - 1) * 0.25, 0.25) end
-  local view, clip = song(notes, 750)
-  paw.ui.focus("notation")
-  api.ui_snapshot(120, 30)
-  clip:add_note(N(60, 0.125, 0.125))
-  api.undo_checkpoint()
-  local t0 = api.now()
-  api.ui_snapshot(120, 30)
-  eq(paw.harmony.fresh(), false, "a draw after an edit leaves the reading for later")
-  for _ = 1, 200 do
-    if paw.harmony.fresh() then break end
-    paw.wait(25)
+test(
+  "notation: on a long song the title does not read the song's key on every key, but once the edits pause",
+  function()
+    local notes = {}
+    for i = 1, 3000 do
+      notes[i] = N(57 + i % 12, (i - 1) * 0.25, 0.25)
+    end
+    local view, clip = song(notes, 750)
+    paw.ui.focus("notation")
+    api.ui_snapshot(120, 30)
+    clip:add_note(N(60, 0.125, 0.125))
+    api.undo_checkpoint()
+    local t0 = api.now()
+    api.ui_snapshot(120, 30)
+    eq(paw.harmony.fresh(), false, "a draw after an edit leaves the reading for later")
+    for _ = 1, 200 do
+      if paw.harmony.fresh() then break end
+      paw.wait(25)
+    end
+    eq(paw.harmony.fresh(), true, "and it is read once the edits pause: after " .. (api.now() - t0) .. " ms")
+    eq(view:clip().id, clip.id, "")
+    paw.ui.focus("arrange")
   end
-  eq(paw.harmony.fresh(), true, "and it is read once the edits pause: after " .. (api.now() - t0) .. " ms")
-  eq(view:clip().id, clip.id, "")
-  paw.ui.focus("arrange")
-end)
+)
 
 test("notation: a page of a few tall systems keeps them close, not spread over the page", function()
   load()
   local E = require("notation.engrave")
   local systems = {}
-  for i = 1, 3 do systems[i] = { height = 400 } end
+  for i = 1, 3 do
+    systems[i] = { height = 400 }
+  end
   local pg = { height = 1200, gap = 20, margin = 50, header = 0 }
   local pages = E.paginate(systems, pg, 0, function(sys, y) sys.y = y end, 1)
   eq(#pages, 2, "two systems on the first page, the third on the next")
@@ -120,7 +129,9 @@ test("notation: the key bar names + and - for sharp and flat, as the manual does
   paw.ui.focus("notation")
   paw.keymap.set_mode("n")
   local words = {}
-  for _, e in ipairs(paw.ui.keybar.entries()) do words[#words + 1] = e[1] .. " " .. e[2] end
+  for _, e in ipairs(paw.ui.keybar.entries()) do
+    words[#words + 1] = e[1] .. " " .. e[2]
+  end
   local line = table.concat(words, " · ")
   eq(line:find("+ sharp", 1, true) ~= nil and line:find("- flat", 1, true) ~= nil, true, "the key bar: " .. line)
   paw.keymap.feed("+")
@@ -139,7 +150,9 @@ test("notation: entering and moving notes at the top of the MIDI range stops at 
   T.keys("0i3456<Esc>")
   T.keys("0>>")
   eq(table.concat(errors(from), "; "), "", "no error")
-  for _, n in ipairs(clip:notes()) do eq(n.pitch <= 127, true, "every pitch within MIDI: " .. n.pitch) end
+  for _, n in ipairs(clip:notes()) do
+    eq(n.pitch <= 127, true, "every pitch within MIDI: " .. n.pitch)
+  end
   eq(#clip:notes() > 0, true, "the notes that fit were entered")
   paw.ui.focus("arrange")
 end)

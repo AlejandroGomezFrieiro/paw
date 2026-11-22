@@ -22,18 +22,18 @@ local util = paw.util
 local drums = require("drums")
 local E = require("drums.edit")
 
-local CW = 3      -- columns a step takes: a separator, then the hit
-local LANE = 2    -- the velocity lane's rows, under the pieces
+local CW = 3 -- columns a step takes: a separator, then the hit
+local LANE = 2 -- the velocity lane's rows, under the pieces
 local EPS = 1e-6
 
 local view = {
   clip_id = nil,
-  row = 1,         -- cursor row, a place in `rows()`
-  beat = 0,        -- cursor, in beats from the start of the clip
-  step = nil,      -- beats a column is; paw.opt.drums_step until changed
-  first = 1,       -- the row at the top of the screen
-  scroll = 0,      -- the cell at the left edge
-  drag = nil,      -- what a drag of the pointer is about to do
+  row = 1, -- cursor row, a place in `rows()`
+  beat = 0, -- cursor, in beats from the start of the clip
+  step = nil, -- beats a column is; paw.opt.drums_step until changed
+  first = 1, -- the row at the top of the screen
+  scroll = 0, -- the cell at the left edge
+  drag = nil, -- what a drag of the pointer is about to do
   title = "Drum grid",
 }
 
@@ -60,14 +60,10 @@ function view:rows()
   return drums.rows(self:track_id(), clip)
 end
 
-function view:step_size()
-  return self.step or paw.opt.drums_step
-end
+function view:step_size() return self.step or paw.opt.drums_step end
 
 --- The piece under the cursor: `{ note, name }`.
-function view:piece()
-  return self:rows()[self.row]
-end
+function view:piece() return self:rows()[self.row] end
 
 --- Open a clip of a drum track in the grid, with the cursor on its first hit.
 function view:edit(clip)
@@ -79,16 +75,16 @@ function view:edit(clip)
   local first = clip:notes()[1]
   if first then
     for i, row in ipairs(rows) do
-      if row.note == first.pitch then self.row, self.beat = i, E.cell(first.start, self:step_size()) * self:step_size() end
+      if row.note == first.pitch then
+        self.row, self.beat = i, E.cell(first.start, self:step_size()) * self:step_size()
+      end
     end
   end
   paw.ui.focus("drums")
 end
 
 --- How a hit of some velocity is drawn: a bar as tall as it is hard.
-function view.glyph(velocity)
-  return paw.draw.g.eighths[util.clamp(math.ceil(velocity / 127 * 8), 1, 8)]
-end
+function view.glyph(velocity) return paw.draw.g.eighths[util.clamp(math.ceil(velocity / 127 * 8), 1, 8)] end
 
 -- A step of a row, `CW` cells: its line on the left (`line`, "bar" or
 -- "beat"), its shade (`dark` every other beat, so that a bar reads at a
@@ -98,7 +94,11 @@ paw.ui.role("step", {
   cells = function(buf, p)
     local g = paw.draw.g
     buf:fill(0, 0, buf.width, 1, " ", p.dark and "RollRowBlack" or "RollRow")
-    if p.line == "bar" then buf:text(0, 0, g.bar, "RollBar") elseif p.line == "beat" then buf:text(0, 0, g.beat, "RollBeat") end
+    if p.line == "bar" then
+      buf:text(0, 0, g.bar, "RollBar")
+    elseif p.line == "beat" then
+      buf:text(0, 0, g.beat, "RollBeat")
+    end
     buf:text(1, 0, g.dot, "Faint")
   end,
 })
@@ -107,11 +107,22 @@ paw.ui.role("step", {
 -- (`velocity`), in the track's colour (`style`; `color` for a window), with
 -- a tick after it when it is off the grid (`off`).
 paw.ui.role("hit", {
-  props = { velocity = "number 1..127", off = "boolean", line = "bar | beat", dark = "boolean", style = "highlight group", color = "#rrggbb" },
+  props = {
+    velocity = "number 1..127",
+    off = "boolean",
+    line = "bar | beat",
+    dark = "boolean",
+    style = "highlight group",
+    color = "#rrggbb",
+  },
   cells = function(buf, p)
     local g = paw.draw.g
     buf:fill(0, 0, buf.width, 1, " ", p.dark and "RollRowBlack" or "RollRow")
-    if p.line == "bar" then buf:text(0, 0, g.bar, "RollBar") elseif p.line == "beat" then buf:text(0, 0, g.beat, "RollBeat") end
+    if p.line == "bar" then
+      buf:text(0, 0, g.bar, "RollBar")
+    elseif p.line == "beat" then
+      buf:text(0, 0, g.beat, "RollBeat")
+    end
     local glyph = view.glyph(p.velocity)
     buf:text(1, 0, glyph .. (p.off and "'" or glyph), p.style)
   end,
@@ -123,13 +134,27 @@ local function toolbar(buf, y, clip, step)
   local function button(text, on, action)
     local w = api.str_width(text) + 2
     if x + w > buf.width then return end
-    buf:mark("button", x, y, w, 1, { text = " " .. text .. " ", on = on, style = "TrackInfo", on_style = "TitleBarFocus", hit = action })
+    buf:mark(
+      "button",
+      x,
+      y,
+      w,
+      1,
+      { text = " " .. text .. " ", on = on, style = "TrackInfo", on_style = "TitleBarFocus", hit = action }
+    )
     x = x + w + 1
   end
   local playing = api.transport_get().playing
   button(playing and "■ stop" or "▶ play", playing, { kind = "tool", play = true })
   x = x + 1
-  for _, s in ipairs({ { 1, "1/4" }, { 1 / 2, "1/8" }, { 1 / 4, "1/16" }, { 1 / 8, "1/32" }, { 1 / 3, "1/8T" }, { 1 / 6, "1/16T" } }) do
+  for _, s in ipairs({
+    { 1, "1/4" },
+    { 1 / 2, "1/8" },
+    { 1 / 4, "1/16" },
+    { 1 / 8, "1/32" },
+    { 1 / 3, "1/8T" },
+    { 1 / 6, "1/16T" },
+  }) do
     button(s[2], math.abs(step - s[1]) < EPS, { kind = "tool", step = s[1] })
   end
   x = x + 1
@@ -169,7 +194,9 @@ function view:render(buf, ctx)
 
   -- The names on the left: as wide as the longest, within reason.
   local namew = 6
-  for _, row in ipairs(rows) do namew = math.max(namew, api.str_width(row.name) + 2) end
+  for _, row in ipairs(rows) do
+    namew = math.max(namew, api.str_width(row.name) + 2)
+  end
   namew = math.min(namew, 16)
   -- Under the title the toolbar, then the ruler; under the pieces the
   -- velocity lane. The toolbar and the lane are there when every piece has
@@ -194,10 +221,17 @@ function view:render(buf, ctx)
   -- Title: the clip in its track's colour, the piece and place under the cursor, the step.
   local piece = rows[self.row]
   local under = piece and E.hit(clip, piece.note, cur * step, step)
-  local status = string.format("step %s  vel %d%s  %s", E.step_label(step),
-    under and under.velocity or paw.opt.drums_velocity, under and "" or " new", info and info.map or "")
+  local status = string.format(
+    "step %s  vel %d%s  %s",
+    E.step_label(step),
+    under and under.velocity or paw.opt.drums_velocity,
+    under and "" or " new",
+    info and info.map or ""
+  )
   paw.ui.titlebar(buf, {
-    pill = { c.name, hue.pill }, name = track.name, focused = ctx.focused,
+    pill = { c.name, hue.pill },
+    name = track.name,
+    focused = ctx.focused,
     context = string.format("%s  %s", piece and piece.name or "-", paw.time.format(c.start + self.beat)),
     right = status,
   })
@@ -206,7 +240,13 @@ function view:render(buf, ctx)
   -- The ruler: bars as the project counts them, beats between as ticks, as in the roll.
   local ry = head - 1
   buf:fill(0, ry, w, 1, " ", "Ruler")
-  buf:hit(namew, ry, math.min(cells, total - self.scroll) * CW, 1, { kind = "ruler", hint = "click to move the playhead here" })
+  buf:hit(
+    namew,
+    ry,
+    math.min(cells, total - self.scroll) * CW,
+    1,
+    { kind = "ruler", hint = "click to move the playhead here" }
+  )
   local bar = paw.time.bar()
   for i = 0, cells - 1 do
     local cell = self.scroll + i
@@ -246,7 +286,8 @@ function view:render(buf, ctx)
       local pos = cell * step
       local abs = c.start + pos
       local line = math.abs(abs / bar - math.floor(abs / bar + 0.5)) < EPS and "bar"
-        or math.abs(abs - math.floor(abs + 0.5)) < EPS and "beat" or nil
+        or math.abs(abs - math.floor(abs + 0.5)) < EPS and "beat"
+        or nil
       local dark = math.floor(abs + EPS) % 2 == 1
       local hit = hits[row.note] and hits[row.note][cell]
       local velocity, off = hit and hit.velocity, hit and hit.off
@@ -255,7 +296,14 @@ function view:render(buf, ctx)
       end
       local action = { kind = "cell", row = index, cell = cell }
       if velocity then
-        buf:mark("hit", cx, y, CW, 1, { velocity = velocity, off = off, line = line, dark = dark, style = hue.fg, color = colour, hit = action })
+        buf:mark(
+          "hit",
+          cx,
+          y,
+          CW,
+          1,
+          { velocity = velocity, off = off, line = line, dark = dark, style = hue.fg, color = colour, hit = action }
+        )
       else
         buf:mark("step", cx, y, CW, 1, { line = line, dark = dark, hit = action })
       end
@@ -276,7 +324,13 @@ function view:render(buf, ctx)
     buf:fill(0, ly, w, lane, " ", "Ruler")
     buf:text(1, ly, "velocity", "Faint")
     if piece then buf:text(1, ly + 1, util.fit(piece.name, namew - 2), hue.fg) end
-    buf:hit(namew, ly, math.min(cells, total - self.scroll) * CW, lane, { kind = "velocity", hint = "click or drag: how hard the row's hits are" })
+    buf:hit(
+      namew,
+      ly,
+      math.min(cells, total - self.scroll) * CW,
+      lane,
+      { kind = "velocity", hint = "click or drag: how hard the row's hits are" }
+    )
     for i = 0, cells - 1 do
       local cell = self.scroll + i
       if cell >= total then break end
@@ -299,7 +353,9 @@ function view:render(buf, ctx)
     if i >= 0 and i < cells then
       local cx = namew + i * CW
       buf:text(cx, ry, g.cap, "RulerPlayhead")
-      for r = 0, math.min(body, #rows - self.first + 1) - 1 do buf:fill(cx, head + r, 1, 1, nil, "PlayheadShade") end
+      for r = 0, math.min(body, #rows - self.first + 1) - 1 do
+        buf:fill(cx, head + r, 1, 1, nil, "PlayheadShade")
+      end
     end
   end
 end
@@ -328,16 +384,24 @@ function view:to_hit(dir, count)
   local piece, clip = self:piece(), self:clip()
   if not (piece and clip) then return end
   local starts = {}
-  for _, n in ipairs(clip:notes({ low = piece.note, high = piece.note })) do starts[#starts + 1] = n.start end
+  for _, n in ipairs(clip:notes({ low = piece.note, high = piece.note })) do
+    starts[#starts + 1] = n.start
+  end
   for _ = 1, count or 1 do
     local found
     if dir > 0 then
       for _, s in ipairs(starts) do
-        if s > self.beat + EPS then found = s break end
+        if s > self.beat + EPS then
+          found = s
+          break
+        end
       end
     else
       for i = #starts, 1, -1 do
-        if starts[i] < self.beat - EPS then found = starts[i] break end
+        if starts[i] < self.beat - EPS then
+          found = starts[i]
+          break
+        end
       end
     end
     if not found then return end
@@ -430,9 +494,7 @@ end
 
 --- How hard a hit is for a point of the velocity lane `rect`: as hard as
 --- can be at its top, half as hard half way down.
-local function velocity_at(rect, y)
-  return drums.clamp_velocity((rect.y + rect.h - y) / rect.h * 127)
-end
+local function velocity_at(rect, y) return drums.clamp_velocity((rect.y + rect.h - y) / rect.h * 127) end
 
 --- Apply what a drag collected, as one edit: the cells of a row painted
 --- (true) or erased (false), or the velocities of the cursor's row.
@@ -453,7 +515,12 @@ local function finish(self, drag)
     end
     for cell, on in pairs(drag.cells) do
       if on and not existing[cell] and cell * step < clip.length - EPS then
-        add[#add + 1] = { pitch = piece.note, start = cell * step, length = math.min(step, clip.length - cell * step), velocity = paw.opt.drums_velocity }
+        add[#add + 1] = {
+          pitch = piece.note,
+          start = cell * step,
+          length = math.min(step, clip.length - cell * step),
+          velocity = paw.opt.drums_velocity,
+        }
       end
     end
     if #add > 0 or #remove > 0 then clip:edit_notes({ add = add, remove = remove }) end
@@ -478,7 +545,9 @@ local function hold(self, e, drag, collect)
       local at = cell_at(self, d.x)
       if not at then return end
       -- Every cell crossed since the last move, so a quick stroke leaves no gaps.
-      for k = math.min(drag.last, at), math.max(drag.last, at) do collect(drag, k, d) end
+      for k = math.min(drag.last, at), math.max(drag.last, at) do
+        collect(drag, k, d)
+      end
       drag.last = at
     end,
     up = function()
@@ -538,9 +607,12 @@ view.gestures = {
     if not cell then return end
     local rect = e.rect
     self.beat = cell * self:step_size()
-    hold(self, e, { values = { [cell] = velocity_at(rect, e.y) }, last = cell }, function(drag, k, d)
-      drag.values[k] = velocity_at(rect, d.y)
-    end)
+    hold(
+      self,
+      e,
+      { values = { [cell] = velocity_at(rect, e.y) }, last = cell },
+      function(drag, k, d) drag.values[k] = velocity_at(rect, d.y) end
+    )
     api.ui_redraw()
   end,
 }

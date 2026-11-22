@@ -7,7 +7,9 @@ local exists = paw.api.fs_exists
 --- Whether words name a file rather than words to find an instrument by:
 --- a path, or a name with an instrument's extension.
 local function file_like(text)
-  return text:find("/", 1, true) ~= nil or text:lower():match("%.sfz$") ~= nil or text:lower():match("%.dspreset$") ~= nil
+  return text:find("/", 1, true) ~= nil
+    or text:lower():match("%.sfz$") ~= nil
+    or text:lower():match("%.dspreset$") ~= nil
 end
 
 --- The sampler device of the cursor's track, or a warning.
@@ -113,19 +115,29 @@ paw.track_kinds.define("sampler", {
 
 command("sampler.track", function(ctx)
   local args = { kind = "sampler", name = ctx.args.name or "Sampler" }
-  for i, word in ipairs(ctx.args) do args[i] = word end
+  for i, word in ipairs(ctx.args) do
+    args[i] = word
+  end
   paw.cmd("track.add", args)
 end, { desc = "Add a sampler track, with an instrument: a file, words to find one by, or chosen from a list" })
 
-command("sampler.load", function(ctx)
-  local device, track = cursor_device()
-  if not device then return end
-  local text = ctx.args[1] and (tostring(ctx.args[1]):gsub("^%s+", ""):gsub("%s+$", "")) or ""
-  local path = text:gsub("^~", os.getenv("HOME") or "~")
-  if path ~= "" and exists(path) then return load(device, path) end
-  if file_like(path) then return paw.notify("sampler: no such file: " .. path, "error") end
-  sampler.pick(track, text ~= "" and text or nil)
-end, { desc = "Choose the sampler's instrument: a file (`sampler.load ~/sfz/Violins.sfz`), or from a list where each is heard (`sampler.load violin`)", raw = true, complete = "files" })
+command(
+  "sampler.load",
+  function(ctx)
+    local device, track = cursor_device()
+    if not device then return end
+    local text = ctx.args[1] and (tostring(ctx.args[1]):gsub("^%s+", ""):gsub("%s+$", "")) or ""
+    local path = text:gsub("^~", os.getenv("HOME") or "~")
+    if path ~= "" and exists(path) then return load(device, path) end
+    if file_like(path) then return paw.notify("sampler: no such file: " .. path, "error") end
+    sampler.pick(track, text ~= "" and text or nil)
+  end,
+  {
+    desc = "Choose the sampler's instrument: a file (`sampler.load ~/sfz/Violins.sfz`), or from a list where each is heard (`sampler.load violin`)",
+    raw = true,
+    complete = "files",
+  }
+)
 
 command("sampler.info", function()
   local device = cursor_device()
@@ -139,10 +151,12 @@ command("sampler.info", function()
     lines[#lines + 1] = "plays " .. paw.music.name(d.range[1]) .. " to " .. paw.music.name(d.range[2])
   end
   for _, a in ipairs(d.articulations or {}) do
-    lines[#lines + 1] = string.format("%s (%s)%s", a.name, a.m2,
-      a.keyswitch and (", keyswitch " .. paw.music.name(a.keyswitch)) or "")
+    lines[#lines + 1] =
+      string.format("%s (%s)%s", a.name, a.m2, a.keyswitch and (", keyswitch " .. paw.music.name(a.keyswitch)) or "")
   end
-  for _, w in ipairs(d.warnings or {}) do lines[#lines + 1] = "not played: " .. w end
+  for _, w in ipairs(d.warnings or {}) do
+    lines[#lines + 1] = "not played: " .. w
+  end
   paw.notify(table.concat(lines, "\n"))
 end, { desc = "What the sampler's instrument is: range, articulations, what it does not play" })
 

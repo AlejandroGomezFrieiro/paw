@@ -29,15 +29,21 @@ local function encode(v)
   end
   if t == "string" then return string.format("%q", v):gsub("\\\n", "\\n") end
   local keys = {}
-  for k in pairs(v) do keys[#keys + 1] = k end
+  for k in pairs(v) do
+    keys[#keys + 1] = k
+  end
   if #keys == #v then
     local out = {}
-    for i = 1, #v do out[i] = encode(v[i]) end
+    for i = 1, #v do
+      out[i] = encode(v[i])
+    end
     return "[" .. table.concat(out, ",") .. "]"
   end
   table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
   local out = {}
-  for _, k in ipairs(keys) do out[#out + 1] = string.format("%q", tostring(k)) .. ":" .. encode(v[k]) end
+  for _, k in ipairs(keys) do
+    out[#out + 1] = string.format("%q", tostring(k)) .. ":" .. encode(v[k])
+  end
   return "{" .. table.concat(out, ",") .. "}"
 end
 M.json = encode
@@ -61,11 +67,15 @@ end
 --- Sorted copy, and quantiles of a list of numbers.
 function M.stats(list)
   local s = {}
-  for i, v in ipairs(list) do s[i] = v end
+  for i, v in ipairs(list) do
+    s[i] = v
+  end
   table.sort(s)
   local function q(p) return s[math.max(1, math.min(#s, math.ceil(p * #s)))] or 0 end
   local sum = 0
-  for _, v in ipairs(s) do sum = sum + v end
+  for _, v in ipairs(s) do
+    sum = sum + v
+  end
   return { n = #s, mean = #s > 0 and sum / #s or 0, p50 = q(0.5), p99 = q(0.99), max = s[#s] or 0 }
 end
 
@@ -74,7 +84,10 @@ end
 function M.wav()
   local path = M.tmp .. "/bench-2s.wav"
   local f = io.open(path, "rb")
-  if f then f:close() return path end
+  if f then
+    f:close()
+    return path
+  end
   local rate, frames = 48000, 96000
   local parts = {}
   local seed = 1
@@ -91,11 +104,27 @@ function M.wav()
     end
   end
   local data = table.concat(parts)
-  local function u32(n) return string.char(n % 256, math.floor(n / 256) % 256, math.floor(n / 65536) % 256, math.floor(n / 16777216) % 256) end
+  local function u32(n)
+    return string.char(n % 256, math.floor(n / 256) % 256, math.floor(n / 65536) % 256, math.floor(n / 16777216) % 256)
+  end
   local function u16(n) return string.char(n % 256, math.floor(n / 256) % 256) end
   f = assert(io.open(path, "wb"))
-  f:write("RIFF", u32(36 + #data), "WAVE", "fmt ", u32(16), u16(1), u16(2), u32(rate), u32(rate * 4), u16(4), u16(16),
-    "data", u32(#data), data)
+  f:write(
+    "RIFF",
+    u32(36 + #data),
+    "WAVE",
+    "fmt ",
+    u32(16),
+    u16(1),
+    u16(2),
+    u32(rate),
+    u32(rate * 4),
+    u16(4),
+    u16(16),
+    "data",
+    u32(#data),
+    data
+  )
   f:close()
   return path
 end
@@ -128,7 +157,9 @@ function M.build(opts)
       api.device_add(id, "synth", { params = { wave = 1, cutoff = 4000 } })
       local notes = {}
       for bar = 0, bars - 1 do
-        for _, n in ipairs(M.bar_notes(bar, i)) do notes[#notes + 1] = n end
+        for _, n in ipairs(M.bar_notes(bar, i)) do
+          notes[#notes + 1] = n
+        end
       end
       api.clip_add(id, { start = 0, length = bars * 4, notes = notes })
     else
@@ -139,7 +170,9 @@ function M.build(opts)
     if opts.fx then api.device_add(id, "delay") end
     if opts.automation then
       local points = {}
-      for bar = 0, bars do points[#points + 1] = { bar * 4, bar % 2 == 1 and -6 or -1 } end
+      for bar = 0, bars do
+        points[#points + 1] = { bar * 4, bar % 2 == 1 and -6 or -1 }
+      end
       api.lane_add(id, { target = "volume", points = points })
     end
   end

@@ -11,7 +11,9 @@ local keys = T.keys
 local function start()
   fresh()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.focus("arrange")
 end
 
@@ -24,7 +26,9 @@ end
 --- Wait for a render started in the background.
 local function rendered(path)
   local deadline = api.now() + 30000
-  while (api.render_status() or not exists(path)) and api.now() < deadline do paw.wait(20) end
+  while (api.render_status() or not exists(path)) and api.now() < deadline do
+    paw.wait(20)
+  end
   eq(exists(path), true, "the file " .. path)
 end
 
@@ -47,7 +51,7 @@ test("guide: export a song as WAV, FLAC or MP3", function()
   -- A name alone goes into the folder of the project.
   keys(":render guide-export-test.wav<CR>")
   rendered(d .. "/song/guide-export-test.wav")
-  keys(":render.tags artist=Ana album=\"First one\" year=2026<CR>")
+  keys(':render.tags artist=Ana album="First one" year=2026<CR>')
   eq(paw.render_tags().artist .. "/" .. paw.render_tags().album, "Ana/First one", ":render.tags sets the tags")
   local mp3
   for _, f in ipairs(api.render_formats()) do
@@ -75,7 +79,10 @@ end)
 --- The length of a WAV file in seconds.
 local function seconds(path)
   local data = T.read_file(path)
-  local function u32(at) local a, b, c, d = data:byte(at, at + 3) return a + b * 256 + c * 65536 + d * 16777216 end
+  local function u32(at)
+    local a, b, c, d = data:byte(at, at + 3)
+    return a + b * 256 + c * 65536 + d * 16777216
+  end
   local rate, bytes = u32(25), u32(29)
   local at = data:find("data", 37, true)
   return u32(at + 4) / bytes, rate
@@ -130,7 +137,9 @@ test("guide: export MIDI for another program", function()
   keys(":export " .. d .. "/riff.mid clip<CR>")
   local function parts(path)
     local out = {}
-    for _, part in ipairs(paw.midifile.parts(paw.midifile.read(path))) do out[#out + 1] = part.name .. ":" .. #part.notes end
+    for _, part in ipairs(paw.midifile.parts(paw.midifile.read(path))) do
+      out[#out + 1] = part.name .. ":" .. #part.notes
+    end
     return table.concat(out, " ")
   end
   eq(parts(d .. "/riff.mid"), "Bass:2", ":export clip writes the clip at the cursor")
@@ -185,7 +194,11 @@ T.last("guide: move a song between paw and REAPER, many times: placeholders retu
   close_page()
   local text = T.read_file(d .. "/again.rpp")
   eq(text:find("VSTi: ReaSynth (Cockos)", 1, true) ~= nil, true, "the plugin paw could not use returns for REAPER")
-  eq(text:find("eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEAA=", 1, true) ~= nil, true, "with its settings")
+  eq(
+    text:find("eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEAA=", 1, true) ~= nil,
+    true,
+    "with its settings"
+  )
 end)
 
 T.last("guide: move a song between paw and other DAWs", function()
@@ -200,7 +213,11 @@ T.last("guide: move a song between paw and other DAWs", function()
   eq(#paw.tracks(), 4, "with its tracks")
   eq(exists(d .. "/from-bitwig media/loop.wav"), true, "the audio goes into a folder beside the file")
   local page = table.concat(api.ui_snapshot(100, 30), "\n")
-  eq(page:find("Not carried over from from-bitwig.dawproject", 1, true) ~= nil, true, "a page lists what paw could not bring across")
+  eq(
+    page:find("Not carried over from from-bitwig.dawproject", 1, true) ~= nil,
+    true,
+    "a page lists what paw could not bring across"
+  )
   keys("q")
   eq(paw.ui.focused, "arrange", "q closes the page")
   keys(":w " .. d .. "/from-bitwig<CR>")

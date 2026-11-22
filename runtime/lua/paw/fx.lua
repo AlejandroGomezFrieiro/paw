@@ -34,7 +34,9 @@ function M.place(track, kind, opts)
   local default = M.default_preset(kind)
   if default then
     local ok, err = pcall(M.load, device, default)
-    if not ok then paw.notify("the default preset `" .. default .. "` did not load: " .. tostring(err):match("^[^\n]*"), "warn") end
+    if not ok then
+      paw.notify("the default preset `" .. default .. "` did not load: " .. tostring(err):match("^[^\n]*"), "warn")
+    end
   end
   return device
 end
@@ -96,9 +98,7 @@ local function shown_of(d)
 end
 
 --- The keys of the parameters the user chose to show for a device.
-function M.shown(device)
-  return shown_of(api.device_get(id_of(device)))
-end
+function M.shown(device) return shown_of(api.device_get(id_of(device))) end
 
 --- Show a parameter first on the card of the device. The device keeps this setting.
 function M.show_param(device, key)
@@ -137,10 +137,14 @@ function M.card_params(d)
       out[#out + 1] = by_key[key]
     end
   end
-  for _, key in ipairs(shown_of(d)) do add(key) end
+  for _, key in ipairs(shown_of(d)) do
+    add(key)
+  end
   local last = M.last_touched
   if last and last.device == d.id then add(last.param) end
-  for _, p in ipairs(d.param_info) do add(p.key) end
+  for _, p in ipairs(d.param_info) do
+    add(p.key)
+  end
   return out
 end
 
@@ -160,20 +164,34 @@ function M.pick_param(device)
   local d = device:get()
   local items = {}
   local shown = {}
-  for _, k in ipairs(shown_of(d)) do shown[k] = true end
-  for _, p in ipairs(d.param_info) do items[#items + 1] = p end
+  for _, k in ipairs(shown_of(d)) do
+    shown[k] = true
+  end
+  for _, p in ipairs(d.param_info) do
+    items[#items + 1] = p
+  end
   paw.pick({
     title = "Parameters · " .. d.name,
     items = items,
     format = function(p)
-      return string.format("%s %-34s %s", shown[p.key] and "●" or " ", p.name, paw.frontend.format_value(p, d.params[p.key]))
+      return string.format(
+        "%s %-34s %s",
+        shown[p.key] and "●" or " ",
+        p.name,
+        paw.frontend.format_value(p, d.params[p.key])
+      )
     end,
     on_choose = function(p)
       if not M.host_params[p.key] then M.show_param(d.id, p.key) end
       M.focus_param(d.id, p.key)
     end,
     actions = {
-      ["<C-x>"] = { desc = "stop showing it first", fn = function(p) if p then M.hide_param(d.id, p.key) end end },
+      ["<C-x>"] = {
+        desc = "stop showing it first",
+        fn = function(p)
+          if p then M.hide_param(d.id, p.key) end
+        end,
+      },
     },
   })
 end
@@ -197,9 +215,7 @@ function M.presets_dir()
   return api.env().data_dir .. "/presets"
 end
 
-local function safe(text)
-  return (tostring(text):gsub("[/\\:%*%?\"<>|%c]", "_"))
-end
+local function safe(text) return (tostring(text):gsub('[/\\:%*%?"<>|%c]', "_")) end
 
 local function preset_name(name)
   local text = tostring(name or ""):gsub("^%s+", ""):gsub("%s+$", "")
@@ -237,7 +253,11 @@ function M.user_presets(kind)
     if not entry.is_dir and entry.name:match("%.json$") then
       local data = read_json(kind_dir(kind) .. "/" .. entry.name)
       if data and data.kind == kind then
-        out[#out + 1] = { name = data.name or entry.name:gsub("%.json$", ""), path = kind_dir(kind) .. "/" .. entry.name, user = true }
+        out[#out + 1] = {
+          name = data.name or entry.name:gsub("%.json$", ""),
+          path = kind_dir(kind) .. "/" .. entry.name,
+          user = true,
+        }
       end
     end
   end
@@ -252,7 +272,9 @@ function M.factory_presets(device)
   local d = device:get()
   if d.format == "builtin" or M.factory[d.kind] then
     local out = {}
-    for i, p in ipairs(M.factory[d.kind] or {}) do out[i] = { name = p.name, params = p.params, category = p.category or "" } end
+    for i, p in ipairs(M.factory[d.kind] or {}) do
+      out[i] = { name = p.name, params = p.params, category = p.category or "" }
+    end
     return out
   end
   local ok, answer = pcall(api.device_call, d.id, "presets", "")
@@ -264,7 +286,9 @@ end
 function M.presets(device)
   device = as_device(device)
   local out = {}
-  for _, p in ipairs(M.user_presets(device.kind)) do out[#out + 1] = p end
+  for _, p in ipairs(M.user_presets(device.kind)) do
+    out[#out + 1] = p
+  end
   for _, p in ipairs(M.factory_presets(device)) do
     p.factory = true
     out[#out + 1] = p
@@ -280,7 +304,10 @@ function M.save(device, name)
   local path = kind_dir(snap.kind) .. "/" .. safe(name) .. ".json"
   local d = device:get()
   write_json(path, {
-    version = 1, name = name, kind = snap.kind, state = snap.state,
+    version = 1,
+    name = name,
+    kind = snap.kind,
+    state = snap.state,
     -- Every value, so the preset says what it sounds like even without the state.
     params = d.params,
     -- What the project set over the plugin's state, applied over it again.
@@ -325,14 +352,22 @@ function M.load(device, preset)
     local data = read_json(p.path)
     if not data then error("cannot read " .. p.path, 2) end
     -- A plugin's state says everything; its values are only for a device without one.
-    api.device_load(d.id, { name = p.name, state = data.state, params = data.state and (data.overrides or {}) or data.params or {} })
+    api.device_load(
+      d.id,
+      { name = p.name, state = data.state, params = data.state and (data.overrides or {}) or data.params or {} }
+    )
   elseif p.params then
     -- A built-in device's preset sets what it names; the rest stay where they are.
     local by_key, params = {}, {}
-    for _, info in ipairs(d.param_info) do by_key[info.key] = info end
-    for key, value in pairs(type(d.overrides) == "table" and d.overrides or {}) do params[key] = value end
+    for _, info in ipairs(d.param_info) do
+      by_key[info.key] = info
+    end
+    for key, value in pairs(type(d.overrides) == "table" and d.overrides or {}) do
+      params[key] = value
+    end
     for key, value in pairs(p.params) do
-      local info = by_key[key] or error("preset `" .. p.name .. "` sets `" .. key .. "`, which " .. d.kind .. " does not have", 2)
+      local info = by_key[key]
+        or error("preset `" .. p.name .. "` sets `" .. key .. "`, which " .. d.kind .. " does not have", 2)
       params[key] = paw.params.preset_value(info, value)
     end
     api.device_load(d.id, { name = p.name, params = params })
@@ -439,7 +474,9 @@ end
 function M.device_list(wanted)
   local lib = M.library()
   local recency = {}
-  for i, kind in ipairs(lib.recent) do recency[kind] = i end
+  for i, kind in ipairs(lib.recent) do
+    recency[kind] = i
+  end
   local out = paw.device_types()
   for _, info in ipairs(out) do
     info.favourite = lib.favourites[info.kind] == true
@@ -449,7 +486,9 @@ function M.device_list(wanted)
   table.sort(out, function(a, b)
     if group(a) ~= group(b) then return group(a) < group(b) end
     if a.recent and b.recent and a.recent ~= b.recent then return a.recent < b.recent end
-    if wanted and group(a) == 2 and (a.category == wanted) ~= (b.category == wanted) then return a.category == wanted end
+    if wanted and group(a) == 2 and (a.category == wanted) ~= (b.category == wanted) then
+      return a.category == wanted
+    end
     if (a.format == "builtin") ~= (b.format == "builtin") then return a.format == "builtin" end
     return a.name:lower() < b.name:lower()
   end)
@@ -460,8 +499,15 @@ end
 --- vendor. Then the extension that it came with, if any, its format, and
 --- if it is an instrument or an effect.
 function M.device_line(info)
-  return string.format("%s %-28s %-14s %s%s %s", info.favourite and "★" or " ", info.name,
-    info.vendor ~= "" and info.vendor or "—", info.from and ("[" .. info.from .. "] ") or "", info.format, info.category)
+  return string.format(
+    "%s %-28s %-14s %s%s %s",
+    info.favourite and "★" or " ",
+    info.name,
+    info.vendor ~= "" and info.vendor or "—",
+    info.from and ("[" .. info.from .. "] ") or "",
+    info.format,
+    info.category
+  )
 end
 
 --- Whether a device passes one `@` filter word.
@@ -487,7 +533,9 @@ function M.preferred(track_id)
   local track = paw.track(track_id)
   if not track then return "effect" end
   local category = {}
-  for _, info in ipairs(paw.device_types()) do category[info.kind] = info.category end
+  for _, info in ipairs(paw.device_types()) do
+    category[info.kind] = info.category
+  end
   for _, device in ipairs(track:devices()) do
     if category[device:get().kind] == "instrument" then return "effect" end
   end
@@ -549,15 +597,15 @@ function M.search(query, limit, wanted)
     end)
   end
   local list = {}
-  for i = 1, math.min(limit or 40, #out) do list[i] = out[i].info end
+  for i = 1, math.min(limit or 40, #out) do
+    list[i] = out[i].info
+  end
   return list
 end
 
 -- Commands, keys, the picker ---------------------------------------------------------
 
-local function clean(err)
-  return (tostring(err):gsub("^[^:]*:%d+: ", ""):match("^[^\n]*"))
-end
+local function clean(err) return (tostring(err):gsub("^[^:]*:%d+: ", ""):match("^[^\n]*")) end
 
 --- The device the preset commands act on: the one selected in the device
 --- panel (its row stays where it was when another view has the keys).
@@ -604,14 +652,18 @@ function M.pick(device)
       }
     end,
     actions = {
-      ["<C-s>"] = { desc = "default for new ones", fn = function(p)
-        if not p then return end
-        M.set_default(d.kind, p.name)
-        paw.notify(p.name .. " is what new " .. d.name .. " devices start from")
-      end },
+      ["<C-s>"] = {
+        desc = "default for new ones",
+        fn = function(p)
+          if not p then return end
+          M.set_default(d.kind, p.name)
+          paw.notify(p.name .. " is what new " .. d.name .. " devices start from")
+        end,
+      },
     },
     preview = function(p)
-      local lines = { { text = p.name, style = "Title" }, "", p.user and ("user preset  " .. p.path) or "factory preset" }
+      local lines =
+        { { text = p.name, style = "Title" }, "", p.user and ("user preset  " .. p.path) or "factory preset" }
       if p.category and p.category ~= "" then lines[#lines + 1] = "in " .. p.category end
       if p.name == default then lines[#lines + 1] = "new " .. d.name .. " devices start from it" end
       return lines
@@ -622,78 +674,115 @@ end
 --- Define the commands for devices. The runtime calls this once at start.
 function M.setup()
   local command = paw.command
-  local function with_device(fn) return function(ctx)
-    local device = M.target()
-    if not device then return end
-    local ok, err = pcall(fn, device, ctx)
-    if not ok then paw.notify(clean(err), "error") end
-  end end
-  command("preset", with_device(function(device, ctx)
-    local name = ctx.args[1] and table.concat(ctx.args, " ")
-    if not name then return M.pick(device) end
-    local p = M.load(device, name)
-    paw.notify(device:get().name .. ": " .. p.name)
-  end), { desc = "Load a preset into the device: `preset Soft pad`; with no name, choose in a picker (yours first, then the factory's)" })
-  command("preset.save", with_device(function(device, ctx)
-    local function save(name)
-      if not name or name == "" then return end
-      local ok, path = pcall(M.save, device, name)
-      if not ok then return paw.notify(clean(path), "error") end
-      paw.notify("saved the preset “" .. name .. "” (" .. path .. ")")
+  local function with_device(fn)
+    return function(ctx)
+      local device = M.target()
+      if not device then return end
+      local ok, err = pcall(fn, device, ctx)
+      if not ok then paw.notify(clean(err), "error") end
     end
-    if ctx.args[1] then return save(table.concat(ctx.args, " ")) end
-    paw.ui.input({ prompt = "Preset name: ", text = M.current(device) or "" }, save)
-  end), { desc = "Save the device as it is now as a preset of yours: `preset.save Warm`" })
-  command("preset.next", with_device(function(device, ctx)
-    local p = M.step(device, ctx.count or 1)
-    paw.notify(device:get().name .. ": " .. p.name)
-  end), { desc = "Load the device's next preset" })
-  command("preset.prev", with_device(function(device, ctx)
-    local p = M.step(device, -(ctx.count or 1))
-    paw.notify(device:get().name .. ": " .. p.name)
-  end), { desc = "Load the device's previous preset" })
-  command("preset.default", with_device(function(device, ctx)
-    local kind, name = device.kind, ctx.args[1] and table.concat(ctx.args, " ") or M.current(device)
-    if name == "none" then
-      M.set_default(kind, nil)
-      return paw.notify("new " .. device:get().name .. " devices start as the plugin makes them")
-    end
-    if not name then
-      -- Nothing loaded yet: keep the device as it is, and start from that.
-      name = "Default"
-      M.save(device, name)
-    end
-    M.set_default(kind, name)
-    paw.notify("new " .. device:get().name .. " devices start from “" .. name .. "”")
-  end), { desc = "New devices of this kind start from this preset (or the one named); `preset.default none` stops that" })
-  command("preset.delete", with_device(function(device, ctx)
-    local name = ctx.args[1] and table.concat(ctx.args, " ") or M.current(device)
-    if not name then return paw.notify("usage: preset.delete <name>", "warn") end
-    M.delete(device.kind, name)
-    paw.notify("deleted the preset “" .. name .. "”")
-  end), { desc = "Delete one of your presets of this device: `preset.delete Warm`" })
+  end
+  command(
+    "preset",
+    with_device(function(device, ctx)
+      local name = ctx.args[1] and table.concat(ctx.args, " ")
+      if not name then return M.pick(device) end
+      local p = M.load(device, name)
+      paw.notify(device:get().name .. ": " .. p.name)
+    end),
+    {
+      desc = "Load a preset into the device: `preset Soft pad`; with no name, choose in a picker (yours first, then the factory's)",
+    }
+  )
+  command(
+    "preset.save",
+    with_device(function(device, ctx)
+      local function save(name)
+        if not name or name == "" then return end
+        local ok, path = pcall(M.save, device, name)
+        if not ok then return paw.notify(clean(path), "error") end
+        paw.notify("saved the preset “" .. name .. "” (" .. path .. ")")
+      end
+      if ctx.args[1] then return save(table.concat(ctx.args, " ")) end
+      paw.ui.input({ prompt = "Preset name: ", text = M.current(device) or "" }, save)
+    end),
+    { desc = "Save the device as it is now as a preset of yours: `preset.save Warm`" }
+  )
+  command(
+    "preset.next",
+    with_device(function(device, ctx)
+      local p = M.step(device, ctx.count or 1)
+      paw.notify(device:get().name .. ": " .. p.name)
+    end),
+    { desc = "Load the device's next preset" }
+  )
+  command(
+    "preset.prev",
+    with_device(function(device, ctx)
+      local p = M.step(device, -(ctx.count or 1))
+      paw.notify(device:get().name .. ": " .. p.name)
+    end),
+    { desc = "Load the device's previous preset" }
+  )
+  command(
+    "preset.default",
+    with_device(function(device, ctx)
+      local kind, name = device.kind, ctx.args[1] and table.concat(ctx.args, " ") or M.current(device)
+      if name == "none" then
+        M.set_default(kind, nil)
+        return paw.notify("new " .. device:get().name .. " devices start as the plugin makes them")
+      end
+      if not name then
+        -- Nothing loaded yet: keep the device as it is, and start from that.
+        name = "Default"
+        M.save(device, name)
+      end
+      M.set_default(kind, name)
+      paw.notify("new " .. device:get().name .. " devices start from “" .. name .. "”")
+    end),
+    { desc = "New devices of this kind start from this preset (or the one named); `preset.default none` stops that" }
+  )
+  command(
+    "preset.delete",
+    with_device(function(device, ctx)
+      local name = ctx.args[1] and table.concat(ctx.args, " ") or M.current(device)
+      if not name then return paw.notify("usage: preset.delete <name>", "warn") end
+      M.delete(device.kind, name)
+      paw.notify("deleted the preset “" .. name .. "”")
+    end),
+    { desc = "Delete one of your presets of this device: `preset.delete Warm`" }
+  )
 
-  command("param", with_device(function(device) M.pick_param(device) end),
-    { desc = "Find a parameter of the device by name, and show it first on its card" })
-  command("param.last", function(ctx)
-    local last = M.last_touched
-    if not (last and pcall(api.device_get, last.device)) then
-      return paw.notify("no parameter touched yet: move one in a plugin's window, or here", "warn")
-    end
-    local d = api.device_get(last.device)
-    paw.cursor.set_track(d.track)
-    paw.ui.focus("devices")
-    M.focus_param(last.device, last.param)
-    local what = ctx.args[1]
-    if what == "automate" then
-      paw.device(last.device):automate(last.param)
-      paw.notify("automating " .. d.name .. " · " .. last.param)
-    elseif what == "learn" and M.learn then
-      M.learn(last.device, last.param)
-    elseif what == "show" then
-      M.show_param(last.device, last.param)
-    end
-  end, { desc = "Go to the parameter last touched; `param.last automate`, `param.last learn` or `param.last show` act on it" })
+  command(
+    "param",
+    with_device(function(device) M.pick_param(device) end),
+    { desc = "Find a parameter of the device by name, and show it first on its card" }
+  )
+  command(
+    "param.last",
+    function(ctx)
+      local last = M.last_touched
+      if not (last and pcall(api.device_get, last.device)) then
+        return paw.notify("no parameter touched yet: move one in a plugin's window, or here", "warn")
+      end
+      local d = api.device_get(last.device)
+      paw.cursor.set_track(d.track)
+      paw.ui.focus("devices")
+      M.focus_param(last.device, last.param)
+      local what = ctx.args[1]
+      if what == "automate" then
+        paw.device(last.device):automate(last.param)
+        paw.notify("automating " .. d.name .. " · " .. last.param)
+      elseif what == "learn" and M.learn then
+        M.learn(last.device, last.param)
+      elseif what == "show" then
+        M.show_param(last.device, last.param)
+      end
+    end,
+    {
+      desc = "Go to the parameter last touched; `param.last automate`, `param.last learn` or `param.last show` act on it",
+    }
+  )
 
   local function dmap(lhs, rhs, desc) paw.keymap.set(lhs, rhs, { view = "devices", desc = desc }) end
   dmap("f", "param", "Find a parameter by name")
@@ -706,21 +795,33 @@ function M.setup()
     if n and rows[n] then return paw.track(rows[n]) end
     return paw.track(text)
   end
-  local function to_track(copy) return function(ctx)
-    local device = M.target()
-    if not device then return end
-    local name = table.concat(ctx.args, " ")
-    local track = name ~= "" and track_named(name)
-    if not track then return paw.notify("usage: device." .. (copy and "copy_to" or "move_to") .. " <track name or number>", "warn") end
-    if copy then
-      paw.restore_device(device:snapshot(), track)
-    else
-      device:move(#track:devices() + 1, track)
+  local function to_track(copy)
+    return function(ctx)
+      local device = M.target()
+      if not device then return end
+      local name = table.concat(ctx.args, " ")
+      local track = name ~= "" and track_named(name)
+      if not track then
+        return paw.notify("usage: device." .. (copy and "copy_to" or "move_to") .. " <track name or number>", "warn")
+      end
+      if copy then
+        paw.restore_device(device:snapshot(), track)
+      else
+        device:move(#track:devices() + 1, track)
+      end
+      paw.notify(device:get().name .. (copy and " copied to " or " moved to ") .. track.name)
     end
-    paw.notify(device:get().name .. (copy and " copied to " or " moved to ") .. track.name)
-  end end
-  command("device.copy_to", to_track(true), { desc = "Copy the device, with its state, to the end of another track: `device.copy_to Bass`, `device.copy_to 3`" })
-  command("device.move_to", to_track(false), { desc = "Move the device to the end of another track: `device.move_to Bass`" })
+  end
+  command(
+    "device.copy_to",
+    to_track(true),
+    { desc = "Copy the device, with its state, to the end of another track: `device.copy_to Bass`, `device.copy_to 3`" }
+  )
+  command(
+    "device.move_to",
+    to_track(false),
+    { desc = "Move the device to the end of another track: `device.move_to Bass`" }
+  )
 
   -- What the window's device card does: the same, for the device clicked.
   local A = paw.frontend.act
@@ -761,13 +862,18 @@ function M.setup()
     local current, default = M.current(device), M.default_preset(device.kind)
     local list = M.presets(device)
     local at = 1
-    for i, p in ipairs(list) do if p.name == current then at = i end end
+    for i, p in ipairs(list) do
+      if p.name == current then at = i end
+    end
     local first = math.max(1, math.min(at - math.floor(M.menu_size / 2), #list - M.menu_size + 1))
     local out = {}
     menu_map = {}
     for i, p in ipairs(list) do
       if p.user or (i >= first and i < first + M.menu_size) then
-        out[#out + 1] = (p.name == current and "● " or "") .. p.name .. (p.user and "" or "  · factory") .. (p.name == default and "  ★" or "")
+        out[#out + 1] = (p.name == current and "● " or "")
+          .. p.name
+          .. (p.user and "" or "  · factory")
+          .. (p.name == default and "  ★" or "")
         menu_map[#out] = i
       end
     end
@@ -793,8 +899,16 @@ function M.setup()
   function A.search_devices(query)
     local out = {}
     for i, info in ipairs(M.search(query, 40, M.preferred(paw.cursor.track_id()))) do
-      out[i] = { kind = info.kind, line = (info.favourite and "★ " or "") .. info.name
-        .. (info.vendor ~= "" and "  · " .. info.vendor or "") .. "  · " .. info.format .. " " .. info.category }
+      out[i] = {
+        kind = info.kind,
+        line = (info.favourite and "★ " or "")
+          .. info.name
+          .. (info.vendor ~= "" and "  · " .. info.vendor or "")
+          .. "  · "
+          .. info.format
+          .. " "
+          .. info.category,
+      }
     end
     return out
   end

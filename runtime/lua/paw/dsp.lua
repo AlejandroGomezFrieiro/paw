@@ -36,14 +36,14 @@ if not pcall(ffi.typeof, "paw_event") then
 end
 
 -- What an event is: `e.type` is one of these.
-M.NOTE_ON = 1      -- e.key, e.value (velocity, 0 to 1), e.channel (1 to 16), e.attr (see M.attr)
-M.NOTE_OFF = 2     -- e.key, e.channel
-M.CC = 3           -- e.key (the controller's number), e.value (0 to 1), e.channel
-M.BEND = 4         -- e.value (-1 to 1, 0 at rest), e.channel
-M.PRESSURE = 5     -- channel pressure: e.value (0 to 1), e.channel
-M.PROGRAM = 6      -- e.key (the program), e.value (the bank, or -1), e.channel
+M.NOTE_ON = 1 -- e.key, e.value (velocity, 0 to 1), e.channel (1 to 16), e.attr (see M.attr)
+M.NOTE_OFF = 2 -- e.key, e.channel
+M.CC = 3 -- e.key (the controller's number), e.value (0 to 1), e.channel
+M.BEND = 4 -- e.value (-1 to 1, 0 at rest), e.channel
+M.PRESSURE = 5 -- channel pressure: e.value (0 to 1), e.channel
+M.PROGRAM = 6 -- e.key (the program), e.value (the bank, or -1), e.channel
 M.ALL_NOTES_OFF = 7
-M.OTHER = 8        -- anything else (a note's own controllers, RPNs): pass it on with b:pass(e)
+M.OTHER = 8 -- anything else (a note's own controllers, RPNs): pass it on with b:pass(e)
 
 --- A note-on's MIDI 2.0 attribute as `{ type, data }`, or nil when it has
 --- none. `e.attr` holds it as one number, `type * 65536 + data`, 0 for
@@ -76,7 +76,11 @@ function M.db(gain)
 end
 
 function M.clamp(x, lo, hi)
-  if x < lo then return lo elseif x > hi then return hi end
+  if x < lo then
+    return lo
+  elseif x > hi then
+    return hi
+  end
   return x
 end
 
@@ -91,7 +95,11 @@ end
 
 --- A soft clip: tanh, close enough and cheaper.
 function M.saturate(x)
-  if x > 3 then return 1 elseif x < -3 then return -1 end
+  if x > 3 then
+    return 1
+  elseif x < -3 then
+    return -1
+  end
   local x2 = x * x
   return x * (27 + x2) / (27 + 9 * x2)
 end
@@ -149,9 +157,7 @@ function M.onepole(hz, sample_rate)
   return f
 end
 
-function OnePole:set(hz, sample_rate)
-  self.a = exp(-2 * pi * hz / sample_rate)
-end
+function OnePole:set(hz, sample_rate) self.a = exp(-2 * pi * hz / sample_rate) end
 
 function OnePole:lowpass(x)
   local z = x + self.a * (self.z - x)
@@ -159,9 +165,7 @@ function OnePole:lowpass(x)
   return z
 end
 
-function OnePole:highpass(x)
-  return x - self:lowpass(x)
-end
+function OnePole:highpass(x) return x - self:lowpass(x) end
 
 function OnePole:reset() self.z = 0 end
 
@@ -222,7 +226,9 @@ function Biquad:process(x)
   return y
 end
 
-function Biquad:reset() self.z1, self.z2 = 0, 0 end
+function Biquad:reset()
+  self.z1, self.z2 = 0, 0
+end
 
 local Smoother = {}
 Smoother.__index = Smoother
@@ -327,7 +333,9 @@ function M.device(def)
   if type(def) ~= "table" then error("dsp.device takes a table", 2) end
   if def._specs then return def end
   local specs = {}
-  for i, p in ipairs(def.params or {}) do specs[i] = param_spec(p, i) end
+  for i, p in ipairs(def.params or {}) do
+    specs[i] = param_spec(p, i)
+  end
   local seen = {}
   for _, s in ipairs(specs) do
     if seen[s.key] then error("two parameters have the key " .. s.key, 2) end
@@ -336,7 +344,7 @@ function M.device(def)
   def._specs = specs
   def.category = def.category or "effect"
   if def.category ~= "effect" and def.category ~= "instrument" then
-    error("category must be \"effect\" or \"instrument\", not " .. tostring(def.category), 2)
+    error('category must be "effect" or "instrument", not ' .. tostring(def.category), 2)
   end
   return def
 end
@@ -344,14 +352,31 @@ end
 --- For the host: the block a device is given, over the host's buffers.
 function M._block(dev, ptr, max_block, max_events, sample_rate)
   local b = setmetatable({
-    left = ffi.cast("float*", ptr.left), right = ffi.cast("float*", ptr.right),
-    key_left = nil, key_right = nil,
-    events = ffi.cast("paw_event*", ptr.events_in), out = ffi.cast("paw_event*", ptr.events_out),
-    frames = 0, nevents = 0, nout = 0, max_block = max_block, max_events = max_events,
-    sample_rate = sample_rate, params = {},
-    playing = false, tempo = 120, beat = 0, seconds = 0, bar = 0, bar_start = 0, sig_num = 4, sig_den = 4,
+    left = ffi.cast("float*", ptr.left),
+    right = ffi.cast("float*", ptr.right),
+    key_left = nil,
+    key_right = nil,
+    events = ffi.cast("paw_event*", ptr.events_in),
+    out = ffi.cast("paw_event*", ptr.events_out),
+    frames = 0,
+    nevents = 0,
+    nout = 0,
+    max_block = max_block,
+    max_events = max_events,
+    sample_rate = sample_rate,
+    params = {},
+    playing = false,
+    tempo = 120,
+    beat = 0,
+    seconds = 0,
+    bar = 0,
+    bar_start = 0,
+    sig_num = 4,
+    sig_den = 4,
   }, Block)
-  for _, s in ipairs(dev._specs) do b.params[s.key] = s.default end
+  for _, s in ipairs(dev._specs) do
+    b.params[s.key] = s.default
+  end
   dev.values = b.params
   dev.sample_rate = sample_rate
   return b

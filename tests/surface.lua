@@ -36,13 +36,17 @@ local probe = paw.ui.view("surface_probe", {
 local function start()
   fresh()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.focus("arrange")
   probe.events, probe.ctx = {}, nil
   paw.mouse.forget()
   -- The tests after these find the screen as it was.
   after(function()
-    while paw.ui.float do paw.ui.close() end
+    while paw.ui.float do
+      paw.ui.close()
+    end
     paw.ui.focus("arrange")
     paw.mouse.forget()
   end)
@@ -67,7 +71,9 @@ test("a view keeps cells for its pixels where the terminal shows images, and dra
   -- The float is 40 by 12 with a border: inside 38 by 10, less the title row.
   same({ s.w, s.h, s.cell.w, s.cell.h }, { 38, 9, 10, 20 }, "its cells and their size")
   local row = {}
-  for ch in lines[s.y + 1]:gmatch("[%z\1-\127\194-\244][\128-\191]*") do row[#row + 1] = ch end
+  for ch in lines[s.y + 1]:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+    row[#row + 1] = ch
+  end
   eq(table.concat(row, "", s.x + 1, s.x + s.w):find("%S"), nil, "its cells are blank")
   eq(table.concat(lines, "\n"):find("drawn in cells", 1, true), nil, "no cells drawn")
   same(probe.ctx and { probe.ctx.width, probe.ctx.height }, { 380, 180 }, "painted in pixels of whole cells")
@@ -105,8 +111,18 @@ test("the pointer over a surface reaches the view's pointer in pixels of its dra
   local s = shown()
   local x0, y0 = s.x * 10, s.y * 20
   local function m(kind, x, y, extra)
-    local e = { kind = kind, x = math.floor(x / 10), y = math.floor(y / 20), button = kind:match("scroll") and "" or "left", mods = "", px = x, py = y }
-    for k, v in pairs(extra or {}) do e[k] = v end
+    local e = {
+      kind = kind,
+      x = math.floor(x / 10),
+      y = math.floor(y / 20),
+      button = kind:match("scroll") and "" or "left",
+      mods = "",
+      px = x,
+      py = y,
+    }
+    for k, v in pairs(extra or {}) do
+      e[k] = v
+    end
     paw.ui.mouse(e)
   end
   m("move", x0 + 37, y0 + 45, { button = "" })
@@ -116,10 +132,15 @@ test("the pointer over a surface reaches the view's pointer in pixels of its dra
   m("drag", x0 - 30, y0 - 50)
   m("up", x0 - 30, y0 - 50)
   local got = {}
-  for _, e in ipairs(probe.events) do got[#got + 1] = { e.kind, e.x, e.y, e.ctrl } end
+  for _, e in ipairs(probe.events) do
+    got[#got + 1] = { e.kind, e.x, e.y, e.ctrl }
+  end
   same(got, {
-    { "hover", 37, 45, false }, { "down", 37, 45, true }, { "move", 52, 49, false },
-    { "move", -30, -50, false }, { "up", -30, -50, false },
+    { "hover", 37, 45, false },
+    { "down", 37, 45, true },
+    { "move", 52, 49, false },
+    { "move", -30, -50, false },
+    { "up", -30, -50, false },
   }, "hover, press, drags and release, exact to the pixel")
   eq(paw.ui.focused, "surface_probe", "a press gives it the keyboard")
 
@@ -128,7 +149,9 @@ test("the pointer over a surface reaches the view's pointer in pixels of its dra
   m("up", x0 + 5, y0 + 5)
   m("down", x0 + 6, y0 + 6)
   local kinds = {}
-  for _, e in ipairs(probe.events) do kinds[#kinds + 1] = e.kind end
+  for _, e in ipairs(probe.events) do
+    kinds[#kinds + 1] = e.kind
+  end
   same(kinds, { "down", "up", "down", "double" }, "a second press on the cell is a double click")
   m("up", x0 + 6, y0 + 6)
 
@@ -172,7 +195,8 @@ test("a drawing marks glyphs, barlines and layers for the frontend to make into 
   })
   after(function() paw.ui.views.surface_marks = nil end)
   local window_cell = paw.canvas.cell
-  local ops = paw.canvas.paint("surface_marks", 400, 200, { surface = true, glyphs = true, cell = { w = 11, h = 23 } }).ops
+  local ops =
+    paw.canvas.paint("surface_marks", 400, 200, { surface = true, glyphs = true, cell = { w = 11, h = 23 } }).ops
   same(ops, {
     { "g", 15, 60, 32, 0xE050, paw.canvas.palette.text, "Leland" },
     { "cut", 110, 20, 100 },

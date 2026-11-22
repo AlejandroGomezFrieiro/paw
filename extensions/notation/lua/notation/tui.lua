@@ -17,7 +17,7 @@ local view = require("notation")
 local floor = math.floor
 local EPS = 1e-6
 
-view.zoom = 1   -- how wide the terminal spaces notes: 1 gives a sixteenth three columns; above 1 the staff is open too
+view.zoom = 1 -- how wide the terminal spaces notes: 1 gives a sixteenth three columns; above 1 the staff is open too
 
 -- Where a key signature's sharps and flats go, on each clef.
 local function key_positions(fifths, clef) return model.key_positions(fifths, clef) end
@@ -27,9 +27,7 @@ local room_for_changes, draw_directions
 
 --- Whether the staff is drawn dense: lines on rows, spaces between them.
 --- ASCII has no half blocks to put a head between two rows.
-function view.dense()
-  return view.zoom <= 1 and not paw.opt.ascii
-end
+function view.dense() return view.zoom <= 1 and not paw.opt.ascii end
 
 local function unit(d)
   -- A head is two cells wide: at least one clear after it.
@@ -46,7 +44,9 @@ local function rows_for(height, staves, extra, lines, most)
     -- The last system may lose a little of the room under it.
     local systems = floor((height + margin - 1) / per)
     -- More systems win; between as many, more room above and below.
-    if systems >= 1 and (not best or systems > best[3]) and (margin >= 3 or not best) then best = { margin, per, systems } end
+    if systems >= 1 and (not best or systems > best[3]) and (margin >= 3 or not best) then
+      best = { margin, per, systems }
+    end
   end
   if best then return best[1], best[2], best[3] end
   return 1, staves * (lines + 2) + (type(extra) == "function" and extra(1) or extra), 1
@@ -58,10 +58,14 @@ end
 --- measure they show.
 local function pack(layout, first, width, systems, prefix)
   local widths = {}
-  for i, m in ipairs(layout.measures) do widths[i] = m.width + 1 end
+  for i, m in ipairs(layout.measures) do
+    widths[i] = m.width + 1
+  end
   local starts = breaks.lines(widths, prefix, width, engrave.asked(layout))
   local k = 1
-  while starts[k + 1] and starts[k + 1] <= first do k = k + 1 end
+  while starts[k + 1] and starts[k + 1] <= first do
+    k = k + 1
+  end
   local out, last = {}, starts[k] - 1
   for s = k, math.min(#starts, k + systems - 1) do
     local row = { measures = {}, prefix = prefix(starts[s]) }
@@ -107,8 +111,12 @@ end
 
 --- Ledger lines from the staff out to step `pos`, centred on column `x`.
 local function ledgers(buf, G, R, x, pos, style)
-  for p = -2, pos, -2 do buf:text(x - 1, R.above(p), G.ledger, style) end
-  for p = 10, pos, 2 do buf:text(x - 1, R.above(p), G.ledger, style) end
+  for p = -2, pos, -2 do
+    buf:text(x - 1, R.above(p), G.ledger, style)
+  end
+  for p = 10, pos, 2 do
+    buf:text(x - 1, R.above(p), G.ledger, style)
+  end
 end
 
 --- An arc from column `x0` to `x1` on row `y` (ties and slurs); `open`
@@ -117,7 +125,9 @@ local function arc(buf, set, x0, x1, y, style, open)
   if x1 < x0 then return end
   if x1 == x0 then return buf:text(x0, y, set[2], style) end
   buf:text(x0, y, set[1], style)
-  for x = x0 + 1, x1 - 1 do buf:text(x, y, set[2], style) end
+  for x = x0 + 1, x1 - 1 do
+    buf:text(x, y, set[2], style)
+  end
   buf:text(x1, y, open and set[2] or set[3], style)
 end
 
@@ -130,7 +140,9 @@ room_for_changes = function(layout)
       extra = extra + math.max(1, math.abs(m.fifths or 0), m.fifths == 0 and math.abs(m.key_from or 0) or 0) + 1
     end
     if extra > 0 then
-      for _, slot in ipairs(m.slots) do slot.x = slot.x + extra end
+      for _, slot in ipairs(m.slots) do
+        slot.x = slot.x + extra
+      end
       m.width = m.width + extra
     end
   end
@@ -158,43 +170,69 @@ draw_directions = function(buf, layout, m, inside, o)
     local R = o.rows[s]
     clef = m.clefs and m.clefs[s] or clef
     if m.clef_change and m.clef_change[s] and inside then
-      for _, r in ipairs(cells.small_clef(clef)) do buf:text(x, R.above(r[1]), r[2], ink) end
+      for _, r in ipairs(cells.small_clef(clef)) do
+        buf:text(x, R.above(r[1]), r[2], ink)
+      end
     end
     if m.key_change and m.index > 1 and inside then
       local kx = x + (m.clef_change and 3 or 0)
       local from, fifths = m.key_from or 0, m.fifths or 0
       if fifths == 0 or (from ~= 0 and (from > 0) ~= (fifths > 0)) then
-        for i, pos in ipairs(key_positions(from, clef)) do buf:text(kx + i - 1, R.above(pos), G.acc[0], ink) end
+        for i, pos in ipairs(key_positions(from, clef)) do
+          buf:text(kx + i - 1, R.above(pos), G.acc[0], ink)
+        end
         kx = kx + math.abs(from)
       end
-      for i, pos in ipairs(key_positions(fifths, clef)) do buf:text(kx + i - 1, R.above(pos), G.acc[fifths > 0 and 1 or -1], ink) end
+      for i, pos in ipairs(key_positions(fifths, clef)) do
+        buf:text(kx + i - 1, R.above(pos), G.acc[fifths > 0 and 1 or -1], ink)
+      end
     end
     if m.barline == "||" or m.barline == "|." then
-      for y = R.above(8), R.above(0) do buf:text(o.bx, y, m.barline == "||" and G.repeat_bar or (ascii and "#" or "┃"), m.ghost and ink or o.bar_style) end
+      for y = R.above(8), R.above(0) do
+        buf:text(
+          o.bx,
+          y,
+          m.barline == "||" and G.repeat_bar or (ascii and "#" or "┃"),
+          m.ghost and ink or o.bar_style
+        )
+      end
     end
   end
   local used = x + #tostring(m.number) + 1
-  if m.rehearsal then used = used + buf:text(used, top_row, "[" .. m.rehearsal .. "]", m.ghost and ink or { fg = o.colour, bold = true }) + 1 end
+  if m.rehearsal then
+    used = used
+      + buf:text(used, top_row, "[" .. m.rehearsal .. "]", m.ghost and ink or { fg = o.colour, bold = true })
+      + 1
+  end
   if m.volta then
     -- The ending's number where it starts; its line over every bar of it.
     local label = (before and before.volta == m.volta and inside) and "" or (m.volta .. ".")
     local corner = label ~= "" and G.bracket_over[1] or G.bracket_over[2]
     buf:text(used, top_row, corner .. label, ink)
-    for vx = used + 1 + #label, o.bx - 1 do buf:text(vx, top_row, G.bracket_over[2], ink) end
+    for vx = used + 1 + #label, o.bx - 1 do
+      buf:text(vx, top_row, G.bracket_over[2], ink)
+    end
   end
   for _, mk in ipairs(m.marks or {}) do
     local mx = o.xt(mk.at)
     local style = (m.ghost or mk.ghost) and "ExGhost"
     if mk.kind == "tempo" then
       local label = mk.value:gsub("q(%.?)%s*=%s*", (ascii and "q" or "♩") .. "%1=")
-      if not mk.change and mk.bpm and not label:find("=") then label = label .. (ascii and " q=" or " ♩=") .. math.floor(mk.bpm + 0.5) end
+      if not mk.change and mk.bpm and not label:find("=") then
+        label = label .. (ascii and " q=" or " ♩=") .. math.floor(mk.bpm + 0.5)
+      end
       buf:text(math.max(mx, used), top_row, label, style or { fg = o.colour, bold = true })
     elseif mk.kind == "chord" then
       buf:text(mx, text_row, mk.value, style or { fg = o.colour, bold = true })
     elseif mk.kind == "technique" then
       buf:text(mx, text_row, mk.value, style or { fg = o.colour, italic = true })
     elseif mk.kind == "dyn" and mk.subito then
-      buf:text(mx + #mk.value + 1, math.min(o.band(1) + o.staff_rows - 1, o.bottom), "sub.", style or { fg = o.colour, italic = true })
+      buf:text(
+        mx + #mk.value + 1,
+        math.min(o.band(1) + o.staff_rows - 1, o.bottom),
+        "sub.",
+        style or { fg = o.colour, italic = true }
+      )
     elseif (mk.kind == "cresc" or mk.kind == "dim") and mk.niente then
       local at = mk.kind == "cresc" and mx or (mk.to >= m.start + m.length - EPS and o.bx - 1 or o.xt(mk.to))
       buf:text(at, math.min(o.band(1) + o.staff_rows - 1, o.bottom), "o", style or ink)
@@ -255,8 +293,8 @@ function view:render(buf, ctx)
   local inserting = ctx.focused and paw.keymap.mode == "i"
   local G = cells.glyphs()
   local dense = view.dense()
-  local step = dense and 2 or 1          -- staff steps a row
-  local lines = dense and 5 or 9         -- rows from the top line to the bottom one
+  local step = dense and 2 or 1 -- staff steps a row
+  local lines = dense and 5 or 9 -- rows from the top line to the bottom one
   -- A grand staff in a panel too low for both staves: the cursor's staff alone.
   local only
   if #layout.staves == 2 and h - 1 < 2 * (lines + 2 * (dense and 2 or 1)) then
@@ -279,7 +317,15 @@ function view:render(buf, ctx)
       local y0, y1 = math.max(by, 1), math.min(by + bh, h)
       if y1 > y0 then return real:fill(bx, y0, bw, y1 - y0, ...) end
     end,
-  }, { __index = function(_, k) local v = real[k] if type(v) == "function" then return function(_, ...) return v(real, ...) end end return v end })
+  }, {
+    __index = function(_, k)
+      local v = real[k]
+      if type(v) == "function" then
+        return function(_, ...) return v(real, ...) end
+      end
+      return v
+    end,
+  })
 
   -- Title: the clip, its track, where the cursor is, what will be entered.
   local under = self:note()
@@ -292,8 +338,11 @@ function view:render(buf, ctx)
   local value = (model.NAMES[self.value] or "?") .. (self.dot and " dotted" or "")
   local clip = self:clip()
   local keyname = view.key_name(fifths, stored, clip and clip.start)
-  local extra = (layout.labels and ("  " .. view.score_name() .. ", staff " .. (F.base + 1) .. " of " .. #layout.staves) or "")
-    .. (layout.part_name and ("  part: " .. layout.part_name) or "") .. (self.parts and self.parts.check and ", to check" or "")
+  local extra = (
+    layout.labels and ("  " .. view.score_name() .. ", staff " .. (F.base + 1) .. " of " .. #layout.staves) or ""
+  )
+    .. (layout.part_name and ("  part: " .. layout.part_name) or "")
+    .. (self.parts and self.parts.check and ", to check" or "")
     .. (view.raw_view() and "  raw" or "")
     .. ((self.voice or 1) > 1 and ("  voice " .. self.voice) or "")
     .. (only and ("  " .. (only == 1 and "right hand" or "left hand") .. " (low panel)") or "")
@@ -304,11 +353,23 @@ function view:render(buf, ctx)
   if inserting then
     local tp = self:entry_tuplet()
     local how = self.repitch and " REPITCH " or self.push and " PUSH " or " INS "
-    badge = how .. value .. (tp and (" " .. tp[1] .. ":" .. tp[2]) or "") .. (self.grace and (" " .. self.grace) or "") .. " "
+    badge = how
+      .. value
+      .. (tp and (" " .. tp[1] .. ":" .. tp[2]) or "")
+      .. (self.grace and (" " .. self.grace) or "")
+      .. " "
   end
-  local right = (badge and "" or value .. "  ") .. keyname .. "  " .. layout.meter.num .. "/" .. layout.meter.den .. extra
+  local right = (badge and "" or value .. "  ")
+    .. keyname
+    .. "  "
+    .. layout.meter.num
+    .. "/"
+    .. layout.meter.den
+    .. extra
   paw.ui.titlebar(real, {
-    pill = { c.name, hue.pill }, name = track.name, focused = ctx.focused,
+    pill = { c.name, hue.pill },
+    name = track.name,
+    focused = ctx.focused,
     context = string.format("%s  %s", here, paw.time.format(c.start + self.beat)),
     right = right .. (badge and string.rep(" ", api.str_width(badge) + 1) or ""),
   })
@@ -339,14 +400,17 @@ function view:render(buf, ctx)
       for _, ev in ipairs(m.staves[staves] or {}) do
         if ev.kind == "note" then
           local low = math.huge
-          for _, n in ipairs(ev.notes or {}) do low = math.min(low, n.pos) end
+          for _, n in ipairs(ev.notes or {}) do
+            low = math.min(low, n.pos)
+          end
           if (ev.stem or 0) < 0 and (ev.base or 1) < 4 then low = math.min(low - stem_len, 4) end
           below = math.max(below, math.ceil(-low / step))
         end
       end
     end
   end
-  local extra = tab and (tab.strings + 1 + math.max(0, tab_room - 1)) or function(margin) return math.max(0, below - margin) end
+  local extra = tab and (tab.strings + 1 + math.max(0, tab_room - 1))
+    or function(margin) return math.max(0, below - margin) end
   local margin, per, systems = rows_for(h - 1, staves, extra, lines, dense and (staves == 2 and 2 or 3) or 4)
   if tab then tab_room = math.max(0, tab_room - margin) end
   local staff_rows = lines + 2 * margin
@@ -354,7 +418,9 @@ function view:render(buf, ctx)
   -- clef, the key, the time.
   local edge = staves == 2 and 1 or 0
   local clef_w = 0
-  for _, clef in ipairs(layout.staves) do clef_w = math.max(clef_w, cells.clef_width(clef)) end
+  for _, clef in ipairs(layout.staves) do
+    clef_w = math.max(clef_w, cells.clef_width(clef))
+  end
   local key_x = edge + 2 + clef_w
   local function meter_changes(i)
     local m, before = layout.measures[i], layout.measures[i - 1]
@@ -409,14 +475,18 @@ function view:render(buf, ctx)
     -- bottom line `margin + lines - 1` rows into the band.
     local function band(s) return top + (s - 1) * staff_rows end
     local rows = {}
-    for s in ipairs(layout.staves) do rows[s] = cells.rows(band(s) + margin + lines - 1, dense) end
+    for s in ipairs(layout.staves) do
+      rows[s] = cells.rows(band(s) + margin + lines - 1, dense)
+    end
     local function row_of(s, pos) return rows[s].above(pos) end
     geometry.systems[si] = { top = top, measures = sys.measures, row_of = row_of, rows = rows, width = sys.width }
     local y0, y1 = row_of(1, 8), row_of(staves, 0)
     -- Rows a line runs along, for the barlines to join.
     local line_row = {}
     for s in ipairs(layout.staves) do
-      for pos = 0, 8, 2 do line_row[row_of(s, pos)] = true end
+      for pos = 0, 8, 2 do
+        line_row[row_of(s, pos)] = true
+      end
     end
     --- A barline from the top line to the bottom one, joining the lines with `set`.
     local function barline(x, set)
@@ -433,13 +503,19 @@ function view:render(buf, ctx)
       local first = sys.measures[1].m
       clef = first.clefs and first.clefs[s] or clef
       local fifths = first.fifths or fifths
-      for pos = 0, 8, 2 do buf:fill(edge, R.above(pos), sys.width - edge, 1, G.line, staff_style) end
-      for _, r in ipairs(cells.clef(clef, dense)) do ink(buf, edge + 1, R.above(r[1]), r[2], staff_styles[s] or clef_style) end
+      for pos = 0, 8, 2 do
+        buf:fill(edge, R.above(pos), sys.width - edge, 1, G.line, staff_style)
+      end
+      for _, r in ipairs(cells.clef(clef, dense)) do
+        ink(buf, edge + 1, R.above(r[1]), r[2], staff_styles[s] or clef_style)
+      end
       if clef == "treble8" or clef == "bass8" then buf:text(edge + 1, R.above(-4), "8", clef_style) end
       if layout.names and layout.names[s] ~= "" then buf:text(edge + 1, band(s), layout.names[s], "Dim") end
       -- A score's instrument names: in full on the first system, short after.
       for _, l in ipairs(layout.labels or {}) do
-        if l.first == s then buf:text(edge + 1, band(s), (sys.measures[1].m.index == 1 and l.full or l.short) or "", "Dim") end
+        if l.first == s then
+          buf:text(edge + 1, band(s), (sys.measures[1].m.index == 1 and l.full or l.short) or "", "Dim")
+        end
       end
       for i, pos in ipairs(key_positions(fifths, clef)) do
         buf:text(key_x + i - 1, R.above(pos), fifths > 0 and G.acc[1] or G.acc[-1], note_style)
@@ -456,7 +532,12 @@ function view:render(buf, ctx)
       local b0, b1 = row_of(1, 8), row_of(2, 0)
       local mid = floor((b0 + b1) / 2)
       for y = b0, b1 do
-        buf:text(0, y, y == b0 and G.brace[1] or y == b1 and G.brace[4] or y == mid and G.brace[3] or G.brace[2], clef_style)
+        buf:text(
+          0,
+          y,
+          y == b0 and G.brace[1] or y == b1 and G.brace[4] or y == mid and G.brace[3] or G.brace[2],
+          clef_style
+        )
       end
     end
     -- Where keys go: a mark at the active staff's start, over the brace.
@@ -470,7 +551,12 @@ function view:render(buf, ctx)
     if tab then
       for i = 1, tab.strings do
         buf:fill(2, tab_top + i - 1, sys.width - 2, 1, G.line, staff_style)
-        buf:text(0, tab_top + i - 1, (paw.music.name(tab.tuning[tab.strings - i + 1]):gsub("%-?%d+$", "")):sub(1, 2), "Dim")
+        buf:text(
+          0,
+          tab_top + i - 1,
+          (paw.music.name(tab.tuning[tab.strings - i + 1]):gsub("%-?%d+$", "")):sub(1, 2),
+          "Dim"
+        )
       end
     end
 
@@ -484,7 +570,12 @@ function view:render(buf, ctx)
       barline(bx, pi == #sys.measures and G.last or G.join)
       buf:text(mx, top + math.max(0, margin - 2), tostring(m.number), "Faint")
       if placed ~= sys.measures[1] and meter_changes(m.index) then
-        buf:text(mx + 1 + #tostring(m.number), top + math.max(0, margin - 2), m.meter.num .. "/" .. m.meter.den, "Bright")
+        buf:text(
+          mx + 1 + #tostring(m.number),
+          top + math.max(0, margin - 2),
+          m.meter.num .. "/" .. m.meter.den,
+          "Bright"
+        )
       end
 
       -- The selection of visual mode.
@@ -501,7 +592,9 @@ function view:render(buf, ctx)
               yb = math.min(yb, rows[s].below(model.spell(pitches[1], fifths).step - bottom))
             end
             if not pitches then yb = ya - 1 end
-            if selection.kind == "line" then x0, x1 = mx, bx end
+            if selection.kind == "line" then
+              x0, x1 = mx, bx
+            end
             if yb >= ya then buf:fill(x0, ya, x1 - x0, yb - ya + 1, nil, "Visual") end
           end
         end
@@ -531,7 +624,11 @@ function view:render(buf, ctx)
           local tip = b.dir > 0 and -math.huge or math.huge
           for _, ev in ipairs(b.events) do
             local top_pos, low_pos = ev.notes[#ev.notes].pos, ev.notes[1].pos
-            if b.dir > 0 then tip = math.max(tip, top_pos + stem_len, 4) else tip = math.min(tip, low_pos - stem_len, 4) end
+            if b.dir > 0 then
+              tip = math.max(tip, top_pos + stem_len, 4)
+            else
+              tip = math.min(tip, low_pos - stem_len, 4)
+            end
           end
           -- On the dense staff a beam runs along a row.
           if dense then tip = b.dir > 0 and tip + tip % 2 or tip - tip % 2 end
@@ -560,9 +657,13 @@ function view:render(buf, ctx)
               end
             elseif value >= 1 then
               if dense then
-                for i, ch in ipairs(G.quarter) do buf:text(rx, row(6 + sh) + i - 1, ch, note_style) end
+                for i, ch in ipairs(G.quarter) do
+                  buf:text(rx, row(6 + sh) + i - 1, ch, note_style)
+                end
               else
-                for i, part in ipairs(G.quarter_open) do buf:text(rx + part[1], row(7 + sh) + i - 1, part[2], note_style) end
+                for i, part in ipairs(G.quarter_open) do
+                  buf:text(rx + part[1], row(7 + sh) + i - 1, part[2], note_style)
+                end
               end
             else
               -- A flag for each beam the value would have, down a slanted stroke.
@@ -572,7 +673,12 @@ function view:render(buf, ctx)
               end
             end
             if ev.dots > 0 and not ev.whole then
-              buf:text(rx + (value >= 2 and 2 or value < 1 and math.max(1, model.flags(value)) or 1), row(5 + sh), dense and G.space_dot or G.dot, note_style)
+              buf:text(
+                rx + (value >= 2 and 2 or value < 1 and math.max(1, model.flags(value)) or 1),
+                row(5 + sh),
+                dense and G.space_dot or G.dot,
+                note_style
+              )
             end
           else
             local hollow = (ev.base or 1) >= 2
@@ -582,23 +688,45 @@ function view:render(buf, ctx)
               local prev = ev.notes[i - 1]
               shifted[i] = prev and n.step - prev.step == 1 and not shifted[i - 1] or false
             end
-            for i, n in ipairs(ev.notes) do ledgers(buf, G, R, ex + (shifted[i] and 2 or 0), n.pos, faint) end
+            for i, n in ipairs(ev.notes) do
+              ledgers(buf, G, R, ex + (shifted[i] and 2 or 0), n.pos, faint)
+            end
             -- Cells the heads take, by column and row, for the stem to pass by.
             local taken = { [ex] = {}, [ex + 1] = {}, [ex + 2] = {}, [ex + 3] = {} }
             local boxed = dense and hollow
             for i, n in ipairs(ev.notes) do
               local hx = ex + (shifted[i] and 2 or 0)
-              local is_cursor = under and ctx.focused and mine and (ev.player or 1) == F.player and (ev.clip or c.id) == c.id
+              local is_cursor = under
+                and ctx.focused
+                and mine
+                and (ev.player or 1) == F.player
+                and (ev.clip or c.id) == c.id
                 and n.index == written.index
-                and ev.start <= self.beat + F.off + EPS and self.beat + F.off < ev.start + ev.length - EPS
+                and ev.start <= self.beat + F.off + EPS
+                and self.beat + F.off < ev.start + ev.length - EPS
               -- The note under the piano roll's cursor stands out.
-              head(buf, G, R, hx, n.pos, hollow, is_cursor and "NoteCursor" or mine and partner == n.index and "Bright" or note_style)
+              head(
+                buf,
+                G,
+                R,
+                hx,
+                n.pos,
+                hollow,
+                is_cursor and "NoteCursor" or mine and partner == n.index and "Bright" or note_style
+              )
               for _, y in ipairs({ R.above(n.pos), R.below(n.pos) }) do
                 taken[hx][y], taken[hx + 1][y] = true, true
               end
               -- Open heads in spaces a third apart share a row.
               local prev = ev.notes[i - 1]
-              if boxed and prev and n.pos % 2 ~= 0 and n.pos - prev.pos == 2 and not shifted[i] and not shifted[i - 1] then
+              if
+                boxed
+                and prev
+                and n.pos % 2 ~= 0
+                and n.pos - prev.pos == 2
+                and not shifted[i]
+                and not shifted[i - 1]
+              then
                 buf:text(hx, R.below(n.pos), G.hollow_join, note_style)
               end
               if n.acc then buf:text(hx - 1, row(n.pos), G.acc[n.acc], n.courtesy and "Dim" or note_style) end
@@ -627,8 +755,15 @@ function view:render(buf, ctx)
               if n.acc then left = ex - 2 end
             end
             if ev.arpeggio then
-              for p = ev.notes[1].pos, ev.notes[#ev.notes].pos do buf:text(left, row(p), G.arpeggio, note_style) end
-              buf:text(left, row(ev.arpeggio > 0 and ev.notes[#ev.notes].pos + step or ev.notes[1].pos - step), ev.arpeggio > 0 and "^" or "v", note_style)
+              for p = ev.notes[1].pos, ev.notes[#ev.notes].pos do
+                buf:text(left, row(p), G.arpeggio, note_style)
+              end
+              buf:text(
+                left,
+                row(ev.arpeggio > 0 and ev.notes[#ev.notes].pos + step or ev.notes[1].pos - step),
+                ev.arpeggio > 0 and "^" or "v",
+                note_style
+              )
               left = left - 1
             end
             if ev.grace then
@@ -644,14 +779,21 @@ function view:render(buf, ctx)
               local up = (ev.stem or 1) > 0
               local p = up and ev.notes[1].pos - 2 or ev.notes[#ev.notes].pos + 2
               local art = ev.art or {}
-              for _, mark in ipairs({ { ev.staccato or art.staccato, G.staccato }, { art.tenuto, G.tenuto }, { art.accent, ">" }, { art.marcato, "^" } }) do
+              for _, mark in ipairs({
+                { ev.staccato or art.staccato, G.staccato },
+                { art.tenuto, G.tenuto },
+                { art.accent, ">" },
+                { art.marcato, "^" },
+              }) do
                 if mark[1] then
                   buf:text(ex, up and R.below(p) or R.above(p), mark[2], note_style)
                   p = p + (up and -step or step)
                 end
               end
             end
-            if ev.lyric and s == 1 then buf:text(ex, band(1) + staff_rows - (staves == 2 and 1 or 2), ev.lyric, "Normal") end
+            if ev.lyric and s == 1 then
+              buf:text(ex, band(1) + staff_rows - (staves == 2 and 1 or 2), ev.lyric, "Normal")
+            end
             -- The stem, at the heads' right side going up and their left
             -- going down, from the head furthest along it to its tip.
             if ev.stem then
@@ -670,7 +812,11 @@ function view:render(buf, ctx)
                 buf:text(ex, R.below(low_pos), G.hollow_down, note_style)
               end
               local ya, yb
-              if up then ya, yb = tip_row(tip), R.above(low_pos) - 1 else ya, yb = R.below(top_pos) + 1, tip_row(tip) end
+              if up then
+                ya, yb = tip_row(tip), R.above(low_pos) - 1
+              else
+                ya, yb = R.below(top_pos) + 1, tip_row(tip)
+              end
               for y = ya, yb do
                 if not taken[sx][y] then buf:text(sx, y, G.stem, note_style) end
               end
@@ -692,7 +838,9 @@ function view:render(buf, ctx)
                 local x0 = stem_x(ev)
                 local nxt = list[i + 1]
                 if nxt and (nxt.flags or 0) >= level then
-                  for bx2 = x0, stem_x(nxt) do buf:text(bx2, y, G.beam, note_style) end
+                  for bx2 = x0, stem_x(nxt) do
+                    buf:text(bx2, y, G.beam, note_style)
+                  end
                 elseif level > 1 and not (list[i - 1] and (list[i - 1].flags or 0) >= level) then
                   -- A part beam toward the neighbour.
                   if nxt then
@@ -706,7 +854,9 @@ function view:render(buf, ctx)
               end
             end
           end
-          for _, ev in ipairs(list) do buf:text(stem_x(ev), tip_row(b.tip), b.dir > 0 and G.beam_up or G.beam_down, note_style) end
+          for _, ev in ipairs(list) do
+            buf:text(stem_x(ev), tip_row(b.tip), b.dir > 0 and G.beam_up or G.beam_down, note_style)
+          end
         end
         -- Slurs: an arc over the notes, to where the slur ends in this system.
         for _, ev in ipairs(evs) do
@@ -716,7 +866,8 @@ function view:render(buf, ctx)
             local x1 = x_in(sys, last_ev.measure, last_ev.start)
             local top_pos = math.max(ev.notes[#ev.notes].pos, last_ev.notes and last_ev.notes[#last_ev.notes].pos or 0)
             local over = (ev.stem or 1) < 0
-            local y = over and R.above(top_pos + 2) or R.below(math.min(ev.notes[1].pos, last_ev.notes and last_ev.notes[1].pos or 0) - 2)
+            local y = over and R.above(top_pos + 2)
+              or R.below(math.min(ev.notes[1].pos, last_ev.notes and last_ev.notes[1].pos or 0) - 2)
             if (x1 or sys.width) > x0 + 1 then
               arc(buf, over and G.tie_over or G.tie_under, x0, (x1 or sys.width), y, faint, not x1)
             end
@@ -738,7 +889,11 @@ function view:render(buf, ctx)
           local edge_pos = up and 10 or -2
           for _, ev in ipairs(tp.events) do
             for _, n in ipairs(ev.notes or {}) do
-              if up then edge_pos = math.max(edge_pos, n.pos + stem_len + 1) else edge_pos = math.min(edge_pos, n.pos - stem_len - 1) end
+              if up then
+                edge_pos = math.max(edge_pos, n.pos + stem_len + 1)
+              else
+                edge_pos = math.min(edge_pos, n.pos - stem_len - 1)
+              end
             end
           end
           local y = up and R.above(edge_pos) or R.below(edge_pos)
@@ -748,13 +903,17 @@ function view:render(buf, ctx)
       end
 
       if tab then
-        for i = 1, tab.strings do buf:text(bx, tab_top + i - 1, G.bar, bar_style) end
+        for i = 1, tab.strings do
+          buf:text(bx, tab_top + i - 1, G.bar, bar_style)
+        end
         -- Frets, at the notes' places; a tied note's continuation is not played again.
         for st = 1, staves do
           for _, ev in ipairs(m.staves[st]) do
             if ev.kind == "note" then
               for _, n in ipairs(ev.notes) do
-                if n.string and not n.tied then buf:text(xt(ev.start), tab_top + n.string - 1, tostring(n.fret), note_style) end
+                if n.string and not n.tied then
+                  buf:text(xt(ev.start), tab_top + n.string - 1, tostring(n.fret), note_style)
+                end
               end
             end
           end
@@ -773,7 +932,9 @@ function view:render(buf, ctx)
             local dyn_row = dyn_row_of(mk)
             local x1 = mk.to >= m.start + m.length - EPS and bx - 1 or xt(mk.to)
             local style = mk.ghost and "ExGhost" or note_style
-            for hx = mx - 1, x1 do buf:text(hx, dyn_row, G.hairpin, style) end
+            for hx = mx - 1, x1 do
+              buf:text(hx, dyn_row, G.hairpin, style)
+            end
             if mk.kind == "dim" and mk.to <= m.start + m.length + EPS then buf:text(x1, dyn_row, ">", style) end
           end
         end
@@ -789,20 +950,29 @@ function view:render(buf, ctx)
           for _, other in ipairs(m.marks) do
             if other.kind == "dyn" and math.abs(other.at - mk.at) < EPS then mxp = mxp + #other.value + 1 end
           end
-          for hx = mxp, x1 do buf:text(hx, dyn_row, G.hairpin, note_style) end
+          for hx = mxp, x1 do
+            buf:text(hx, dyn_row, G.hairpin, note_style)
+          end
           if mk.kind == "cresc" then
             buf:text(mxp, dyn_row, "<", note_style)
           elseif mk.to <= m.start + m.length + EPS then
             buf:text(x1, dyn_row, ">", note_style)
           end
         elseif mk.kind == "text" then
-          buf:text(mxp, band_of(mk) + math.max(0, margin - 2) + (margin > 1 and 1 or 0), tostring(mk.value), mk.ghost and note_style or { fg = colour, italic = true })
+          buf:text(
+            mxp,
+            band_of(mk) + math.max(0, margin - 2) + (margin > 1 and 1 or 0),
+            tostring(mk.value),
+            mk.ghost and note_style or { fg = colour, italic = true }
+          )
         end
       end
       for st in ipairs(layout.staves) do
         local R = rows[st]
         for _, at in ipairs({ m.repeat_start and { mx, 1 } or nil, m.repeat_end and { bx, -1 } or nil }) do
-          for y = R.above(8), R.above(0) do buf:text(at[1], y, G.repeat_bar, bar_style) end
+          for y = R.above(8), R.above(0) do
+            buf:text(at[1], y, G.repeat_bar, bar_style)
+          end
           if dense then
             buf:text(at[1] + at[2], R.above(4), ":", note_style)
           else
@@ -813,8 +983,20 @@ function view:render(buf, ctx)
       end
 
       draw_directions(buf, layout, m, pi > 1, {
-        mx = mx, bx = bx, xt = xt, rows = rows, band = band, staff_rows = staff_rows, margin = margin, G = G,
-        note_style = note_style, colour = colour, bar_style = bar_style, bottom = h - 1, top = top })
+        mx = mx,
+        bx = bx,
+        xt = xt,
+        rows = rows,
+        band = band,
+        staff_rows = staff_rows,
+        margin = margin,
+        G = G,
+        note_style = note_style,
+        colour = colour,
+        bar_style = bar_style,
+        bottom = h - 1,
+        top = top,
+      })
 
       if t.position >= F.start + m.start - EPS and t.position < F.start + m.start + m.length - EPS then
         local px = xt(t.position - F.start)
@@ -830,12 +1012,16 @@ function view:render(buf, ctx)
     local beat, cstep, s = self.beat + F.off, self.step + F.dstep, nil
     local hover = view.cell_hover
     if inserting and hover and hover.from_beat == self.beat and hover.from_step == self.step then
-      beat, cstep, s, under = hover.beat + F.off, hover.step + F.dstep, only and 1 or F.base + self:staff_of_step(hover.step), nil
+      beat, cstep, s, under =
+        hover.beat + F.off, hover.step + F.dstep, only and 1 or F.base + self:staff_of_step(hover.step), nil
     end
     for _, sys in ipairs(geometry.systems) do
       for _, placed in ipairs(sys.measures) do
         local m = placed.m
-        if beat >= m.start - EPS and (beat < m.start + m.length - EPS or (m.index == #layout.measures and beat <= m.start + m.length + EPS)) then
+        if
+          beat >= m.start - EPS
+          and (beat < m.start + m.length - EPS or (m.index == #layout.measures and beat <= m.start + m.length + EPS))
+        then
           s = s or (only and 1 or F.base + self:cursor_staff())
 
           local R = sys.rows[s]
@@ -881,7 +1067,11 @@ end
 function view:snap(m, rel, fine)
   local grid = self:layout().grid
   if fine then return util.clamp(floor(rel / grid + 0.5) * grid, 0, m.length - grid) end
-  return model.snap(m.meter, rel, self.value * (self:entry_tuplet() and self:entry_tuplet()[2] / self:entry_tuplet()[1] or 1))
+  return model.snap(
+    m.meter,
+    rel,
+    self.value * (self:entry_tuplet() and self:entry_tuplet()[2] / self:entry_tuplet()[1] or 1)
+  )
 end
 
 --- What is at a cell of the view: the line or space, the beat there
@@ -914,8 +1104,14 @@ function view:cell_at(x, y, fine, activate)
               for _, ev in ipairs(m.staves[s] or {}) do
                 local hx = placed.x + floor(model.x_of(m, ev.start) + 0.5)
                 for _, n in ipairs(ev.notes or {}) do
-                  if not at.note and n.step == near and at.beat >= ev.start - EPS and at.beat < ev.start + ev.length - EPS
-                    and x >= hx and x <= hx + 3 then
+                  if
+                    not at.note
+                    and n.step == near
+                    and at.beat >= ev.start - EPS
+                    and at.beat < ev.start + ev.length - EPS
+                    and x >= hx
+                    and x <= hx + 3
+                  then
                     at.note, at.beat, at.step, player, owner = n.index, ev.start, near, ev.player, ev.clip
                   end
                 end
@@ -956,7 +1152,10 @@ function view:on_mouse(e)
   -- A press on another staff of a score makes it the active one.
   local at = self:cell_at(e.x, e.y, paw.mouse.has(e, "A"), e.kind == "down")
   if e.kind == "move" then
-    view.cell_hover = inserting and at and { beat = at.beat, step = at.step, from_beat = self.beat, from_step = self.step } or nil
+    view.cell_hover = inserting
+        and at
+        and { beat = at.beat, step = at.step, from_beat = self.beat, from_step = self.step }
+      or nil
     hint(self, at)
     return api.ui_redraw()
   end
@@ -998,7 +1197,9 @@ function view:on_mouse(e)
         hint(self, there)
       end,
       up = function()
-        if to and (to.step ~= at.step or math.abs(to.beat - at.beat) > EPS) then self:move_note(at.note, note, to.step, to.beat) end
+        if to and (to.step ~= at.step or math.abs(to.beat - at.beat) > EPS) then
+          self:move_note(at.note, note, to.step, to.beat)
+        end
       end,
       cancel = function() self:set(at.step, at.beat) end,
     })

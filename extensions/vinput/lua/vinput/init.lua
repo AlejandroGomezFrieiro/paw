@@ -18,8 +18,8 @@ local api = paw.api
 local util = paw.util
 
 local M = {
-  kinds = {},    -- by name: { title, stages, defaults(), argv(input), ... }
-  inputs = {},   -- in the order they were made
+  kinds = {}, -- by name: { title, stages, defaults(), argv(input), ... }
+  inputs = {}, -- in the order they were made
 }
 
 --- The settings of a kind, in the order of its stages: each is
@@ -71,7 +71,9 @@ end
 local function unique(name)
   if not M.get(name) then return name end
   local n = 2
-  while M.get(name .. " " .. n) do n = n + 1 end
+  while M.get(name .. " " .. n) do
+    n = n + 1
+  end
   return name .. " " .. n
 end
 
@@ -118,7 +120,10 @@ end
 --- A change was made: keep it (soon: a slider that is dragged changes many
 --- times a second), let the trackers follow, draw again.
 local function changed()
-  if not pending then pending = paw.defer(function() pending = nil M.save() end, 300) end
+  if not pending then pending = paw.defer(function()
+    pending = nil
+    M.save()
+  end, 300) end
   require("vinput.run").sync()
   api.ui_redraw()
   paw.emit("vinput.changed", {})
@@ -131,7 +136,9 @@ end)
 --- Read the inputs kept from earlier runs and open their ports.
 function M.load()
   local run = require("vinput.run")
-  for _, input in ipairs(M.inputs) do paw.midi.close_port(input.name) end
+  for _, input in ipairs(M.inputs) do
+    paw.midi.close_port(input.name)
+  end
   M.inputs = {}
   local path = M.path()
   local file = path and io.open(path, "r")
@@ -142,7 +149,12 @@ function M.load()
       paw.notify("virtual inputs: " .. path .. " is not readable: " .. tostring(why), "warn")
     else
       for _, saved in ipairs(type(data.inputs) == "table" and data.inputs or {}) do
-        if type(saved) == "table" and M.kinds[saved.kind] and clean_name(saved.name) ~= "" and not M.get(saved.name) then
+        if
+          type(saved) == "table"
+          and M.kinds[saved.kind]
+          and clean_name(saved.name) ~= ""
+          and not M.get(saved.name)
+        then
           local input = M.kinds[saved.kind].defaults()
           input.kind, input.name, input.on = saved.kind, clean_name(saved.name), saved.on ~= false
           for _, setting in ipairs(M.settings(saved.kind)) do
@@ -257,16 +269,15 @@ function M.make_track(name, instrument)
 end
 
 --- What an input is doing: `{ state, text, level, notes, load, advice }`.
-function M.status(name)
-  return require("vinput.run").status(name)
-end
+function M.status(name) return require("vinput.run").status(name) end
 
 --- A setting's value in words.
 function M.format(setting, value)
   if setting.format then return setting.format(value) end
   if setting.type == "switch" then return value and "on" or "off" end
   if setting.type == "number" then
-    local text = setting.whole and string.format("%d", value) or string.format("%." .. (setting.digits or 2) .. "f", value)
+    local text = setting.whole and string.format("%d", value)
+      or string.format("%." .. (setting.digits or 2) .. "f", value)
     return setting.unit and (text .. " " .. setting.unit) or text
   end
   return value == "" and (setting.empty or "none") or tostring(value)

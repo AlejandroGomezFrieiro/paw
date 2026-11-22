@@ -4,16 +4,22 @@ local HOOK = "A4:0:0.5 C5:0.5:0.5 E5:1:1 D5:2:0.5 C5:2.5:0.5 A4:3:1"
 --- The hook's notes moved by `by` semitones, as `look.melody` writes them.
 local function hook(look, by)
   local notes = look.notes(HOOK)
-  for _, n in ipairs(notes) do n.pitch = n.pitch + by end
+  for _, n in ipairs(notes) do
+    n.pitch = n.pitch + by
+  end
   local out = {}
-  for i, n in ipairs(notes) do out[i] = string.format("%d@%g+%g", n.pitch, n.start, n.length) end
+  for i, n in ipairs(notes) do
+    out[i] = string.format("%d@%g+%g", n.pitch, n.start, n.length)
+  end
   table.sort(out)
   return table.concat(out, " ")
 end
 
 local function sorted(look, clip)
   local list = {}
-  for item in look.melody(clip):gmatch("%S+") do list[#list + 1] = item end
+  for item in look.melody(clip):gmatch("%S+") do
+    list[#list + 1] = item
+  end
   table.sort(list)
   return table.concat(list, " ")
 end
@@ -86,19 +92,19 @@ items that were there. `:lua paw.opt.ripple = true` moves those items later.]],
       done = "Four hooks fill four bars.",
     },
     {
-      say = "Named registers keep more than one item. Press `j` to go to Bass and `0` to go to its start. Press `\"ayic` to yank clip A into register a.",
-      keys = { "j", "0", "\"ayic" },
+      say = 'Named registers keep more than one item. Press `j` to go to Bass and `0` to go to its start. Press `"ayic` to yank clip A into register a.',
+      keys = { "j", "0", '"ayic' },
       start = function(ctx) ctx.before = paw.keymap.getreg("a") end,
       check = function(ctx)
         local r = paw.keymap.getreg("a")
         return r and r ~= ctx.before and r.kind == "range" and r.rows[1] and r.rows[1][1] and r.rows[1][1].name == "A"
       end,
       done = "Register a contains A.",
-      hint = "`\"` is the double quote key. Press `\"`, then `a`, then `yic`.",
+      hint = '`"` is the double quote key. Press `"`, then `a`, then `yic`.',
     },
     {
-      say = "Press `w` to go to B. Press `\"byic` to yank it into register b.",
-      keys = { "w", "\"byic" },
+      say = 'Press `w` to go to B. Press `"byic` to yank it into register b.',
+      keys = { "w", '"byic' },
       start = function(ctx) ctx.before = paw.keymap.getreg("b") end,
       check = function(ctx)
         local r = paw.keymap.getreg("b")
@@ -110,11 +116,11 @@ items that were there. `:lua paw.opt.ripple = true` moves those items later.]],
       say = "`:registers` shows the contents of each register. Type `:registers` and `<CR>`. Look at the list, then press `q` to close it.",
       keys = { ":registers", "<CR>", "q" },
       check = function(ctx, look) return look.ran(ctx, "registers") and not look.float() end,
-      done = "The list showed `\"a` and `\"b`, with `\"0` and the unnamed `\"\"`.",
+      done = 'The list showed `"a` and `"b`, with `"0` and the unnamed `""`.',
     },
     {
-      say = "Press `$` to go to the end of B. Press `\"ap` to paste A there, and `\"bp` to paste B after it.",
-      keys = { "$", "\"ap", "\"bp" },
+      say = 'Press `$` to go to the end of B. Press `"ap` to paste A there, and `"bp` to paste B after it.',
+      keys = { "$", '"ap', '"bp' },
       check = function(_, look) return look.names("Bass") == "A B A B" end,
       done = "The bass line is A B A B. It plays two times.",
     },
@@ -127,7 +133,9 @@ items that were there. `:lua paw.opt.ripple = true` moves those items later.]],
     {
       say = "Now we record a macro. Press `k` to go up to Lead and `0` to go to its start. Then press `qq` to record keys into register q.",
       keys = { "k", "0", "qq" },
-      check = function(_, look) return paw.keymap.recording() == "q" and look.cursor_track() == "Lead" and paw.cursor.beat == 0 end,
+      check = function(_, look)
+        return paw.keymap.recording() == "q" and look.cursor_track() == "Lead" and paw.cursor.beat == 0
+      end,
       done = "The status line shows `recording @q`.",
     },
     {
@@ -146,7 +154,9 @@ items that were there. `:lua paw.opt.ripple = true` moves those items later.]],
       keys = { "@q", "@@" },
       check = function(_, look)
         local clips = look.clips("Lead")
-        return #clips == 4 and sorted(look, clips[2]) == hook(look, 12) and sorted(look, clips[3]) == hook(look, 12)
+        return #clips == 4
+          and sorted(look, clips[2]) == hook(look, 12)
+          and sorted(look, clips[3]) == hook(look, 12)
           and sorted(look, clips[4]) == hook(look, 0)
       end,
       done = "Three hooks are one octave higher. The last hook did not change.",

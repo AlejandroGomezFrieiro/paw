@@ -31,9 +31,7 @@ local function is_dir(path)
 end
 
 --- Ask the running engine to look for singers again.
-function M.rescan()
-  engine.send(proto.encode.request_singers(true))
-end
+function M.rescan() engine.send(proto.encode.request_singers(true)) end
 
 --- Install a voicebank archive, package or folder. `opts.to` installs into
 --- another OpenUtau folder. Returns `{ { kind, path }, ... }`.
@@ -60,15 +58,23 @@ function M.install(path, opts)
     if not f then error("no such file " .. path, 0) end
     f:close()
     local args = { "--install", path, "--install-to", target }
-    if opts.singer_type then args[#args + 1] = "--singer-type"; args[#args + 1] = opts.singer_type end
-    if opts.encoding then args[#args + 1] = "--archive-encoding"; args[#args + 1] = opts.encoding end
+    if opts.singer_type then
+      args[#args + 1] = "--singer-type"
+      args[#args + 1] = opts.singer_type
+    end
+    if opts.encoding then
+      args[#args + 1] = "--archive-encoding"
+      args[#args + 1] = opts.encoding
+    end
     local code, out = engine.tool(args, opts.timeout or 1800)
     for line in out:gmatch("[^\n]+") do
       local kind, where = line:match("^installed: (%S+) (.+)$")
       if kind then installed[#installed + 1] = { kind = kind, path = where } end
     end
     if code ~= 0 then
-      local why = out:match("error: ([^\n]+)") or out:match("paw%-utau%-engine: ([^\n]+)") or ("exit code " .. tostring(code))
+      local why = out:match("error: ([^\n]+)")
+        or out:match("paw%-utau%-engine: ([^\n]+)")
+        or ("exit code " .. tostring(code))
       error("could not install " .. path:match("([^/]+)$") .. ": " .. why, 0)
     end
   end

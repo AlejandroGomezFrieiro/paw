@@ -8,7 +8,20 @@ local EPS = 1e-9
 local M = {}
 
 -- Names offered when adding or renaming a section.
-M.names = { "Intro", "Verse", "Pre-Chorus", "Chorus", "Post-Chorus", "Bridge", "Breakdown", "Build", "Drop", "Solo", "Interlude", "Outro" }
+M.names = {
+  "Intro",
+  "Verse",
+  "Pre-Chorus",
+  "Chorus",
+  "Post-Chorus",
+  "Bridge",
+  "Breakdown",
+  "Build",
+  "Drop",
+  "Solo",
+  "Interlude",
+  "Outro",
+}
 
 local function complete(text)
   local out, wanted = {}, text:lower()
@@ -19,20 +32,24 @@ local function complete(text)
       out[#out + 1] = name
     end
   end
-  for _, s in ipairs(S.list()) do offer(s.name) end
-  for _, name in ipairs(M.names) do offer(name) end
+  for _, s in ipairs(S.list()) do
+    offer(s.name)
+  end
+  for _, name in ipairs(M.names) do
+    offer(name)
+  end
   return out
 end
 
-local function bar_of(beat)
-  return paw.time.bar_of(beat + EPS)
-end
+local function bar_of(beat) return paw.time.bar_of(beat + EPS) end
 
 --- One line describing a section, for lists.
 function M.describe(s)
   -- Whole bars of the signature map, and the part of one left over.
   local first, last = paw.time.bar_of(s.start + EPS), paw.time.bar_of(s.finish - EPS)
-  local bars = last - first + (s.finish - paw.time.bar_start(last)) / paw.time.bar(s.finish - EPS)
+  local bars = last
+    - first
+    + (s.finish - paw.time.bar_start(last)) / paw.time.bar(s.finish - EPS)
     - (s.start - paw.time.bar_start(first)) / paw.time.bar(s.start + EPS)
   bars = math.floor(bars * 1000 + 0.5) / 1000
   return string.format("%-16s bar %-4d %g bar%s", s.name, bar_of(s.start), bars, bars == 1 and "" or "s")
@@ -52,7 +69,9 @@ function M.choose(title, fn)
   if #list == 0 then return paw.notify("no sections yet: `<localleader>Sa` adds one at the cursor", "warn") end
   if paw.pick then
     local items = {}
-    for i, s in ipairs(list) do items[i] = { text = M.describe(s), start = s.start, section = s } end
+    for i, s in ipairs(list) do
+      items[i] = { text = M.describe(s), start = s.start, section = s }
+    end
     return paw.pick({
       title = title,
       items = items,
@@ -84,9 +103,7 @@ end
 local command = paw.command
 
 --- The section a command names (`ctx.args[1]`), or the one under the cursor.
-local function target(ctx, key)
-  return S.need(ctx.args[key or 1])
-end
+local function target(ctx, key) return S.need(ctx.args[key or 1]) end
 
 local function guarded(fn)
   return function(ctx)
@@ -95,37 +112,59 @@ local function guarded(fn)
   end
 end
 
-command("section.add", guarded(function(ctx)
-  local at = tonumber(ctx.args.at) or cursor.beat
-  local function add(name)
-    if name == "" then return end
-    local ok, err = pcall(S.add, name, at)
-    if not ok then paw.notify(tostring(err), "warn") end
-  end
-  if ctx.args[1] then return add(table.concat(ctx.args, " ")) end
-  local here = S.at(at)
-  paw.ui.input({ prompt = "Section at bar " .. bar_of(at) .. ": ", complete = complete,
-    text = here and math.abs(here.start - at) < EPS and here.name or nil }, add)
-end), { desc = "Add a section at the cursor: `section.add Chorus`, `section.add Outro at=64`" })
+command(
+  "section.add",
+  guarded(function(ctx)
+    local at = tonumber(ctx.args.at) or cursor.beat
+    local function add(name)
+      if name == "" then return end
+      local ok, err = pcall(S.add, name, at)
+      if not ok then paw.notify(tostring(err), "warn") end
+    end
+    if ctx.args[1] then return add(table.concat(ctx.args, " ")) end
+    local here = S.at(at)
+    paw.ui.input(
+      {
+        prompt = "Section at bar " .. bar_of(at) .. ": ",
+        complete = complete,
+        text = here and math.abs(here.start - at) < EPS and here.name or nil,
+      },
+      add
+    )
+  end),
+  { desc = "Add a section at the cursor: `section.add Chorus`, `section.add Outro at=64`" }
+)
 
-command("section.rename", guarded(function(ctx)
-  local s = target(ctx, "section")
-  local function rename(name)
-    if name == "" then return end
-    local ok, err = pcall(S.rename, s.start and { start = s.start }, name)
-    if not ok then paw.notify(tostring(err), "warn") end
-  end
-  if ctx.args[1] then return rename(table.concat(ctx.args, " ")) end
-  paw.ui.input({ prompt = "Rename " .. s.name .. " to: ", text = s.name, complete = complete }, rename)
-end), { desc = "Rename the section at the cursor: `section.rename Hook`, or another: `section.rename Hook section=Chorus`" })
+command(
+  "section.rename",
+  guarded(function(ctx)
+    local s = target(ctx, "section")
+    local function rename(name)
+      if name == "" then return end
+      local ok, err = pcall(S.rename, s.start and { start = s.start }, name)
+      if not ok then paw.notify(tostring(err), "warn") end
+    end
+    if ctx.args[1] then return rename(table.concat(ctx.args, " ")) end
+    paw.ui.input({ prompt = "Rename " .. s.name .. " to: ", text = s.name, complete = complete }, rename)
+  end),
+  { desc = "Rename the section at the cursor: `section.rename Hook`, or another: `section.rename Hook section=Chorus`" }
+)
 
-command("section.remove", guarded(function(ctx)
-  local s = target(ctx)
-  S.remove({ start = s.start })
-  paw.notify("removed section " .. s.name .. "; what was in it stays")
-end), { desc = "Remove the section marker at the cursor, or a named one; the timeline stays as it is" })
+command(
+  "section.remove",
+  guarded(function(ctx)
+    local s = target(ctx)
+    S.remove({ start = s.start })
+    paw.notify("removed section " .. s.name .. "; what was in it stays")
+  end),
+  { desc = "Remove the section marker at the cursor, or a named one; the timeline stays as it is" }
+)
 
-command("section.list", function() require("sections.view").open() end, { desc = "List the sections, to go to, rename, add and remove" })
+command(
+  "section.list",
+  function() require("sections.view").open() end,
+  { desc = "List the sections, to go to, rename, add and remove" }
+)
 
 command("section.goto", function(ctx)
   if ctx.args[1] then
@@ -138,36 +177,56 @@ end, {
   desc = "Go to a section: `section.goto chorus`, `section.goto 3`, or choose from the list",
   complete = function()
     local out = {}
-    for _, s in ipairs(S.list()) do out[#out + 1] = s.name end
+    for _, s in ipairs(S.list()) do
+      out[#out + 1] = s.name
+    end
     return out
   end,
 })
 
-command("section.move", guarded(function(ctx)
-  local by = tonumber(ctx.args.by) or 1
-  by = by * (ctx.count or 1)
-  local s = A.move(target(ctx), by)
-  if s then cursor.set_beat(s.start) end
-end), { desc = "Move the section past the next one on every track: `section.move by=-1` past the one before" })
+command(
+  "section.move",
+  guarded(function(ctx)
+    local by = tonumber(ctx.args.by) or 1
+    by = by * (ctx.count or 1)
+    local s = A.move(target(ctx), by)
+    if s then cursor.set_beat(s.start) end
+  end),
+  { desc = "Move the section past the next one on every track: `section.move by=-1` past the one before" }
+)
 
-command("section.duplicate", guarded(function(ctx)
-  local copy
-  for _ = 1, ctx.count or 1 do copy = A.duplicate(target(ctx)) end
-  if copy then cursor.set_beat(copy.start) end
-end), { desc = "Repeat the section after itself on every track, pushing the rest along" })
+command(
+  "section.duplicate",
+  guarded(function(ctx)
+    local copy
+    for _ = 1, ctx.count or 1 do
+      copy = A.duplicate(target(ctx))
+    end
+    if copy then cursor.set_beat(copy.start) end
+  end),
+  { desc = "Repeat the section after itself on every track, pushing the rest along" }
+)
 
-command("section.delete", guarded(function(ctx)
-  local s = target(ctx)
-  keymap.setreg(A.delete({ start = s.start }), ctx.register)
-  cursor.set_beat(s.start)
-  paw.notify("deleted section " .. s.name)
-end), { desc = "Delete the section from every track and close the gap; `section.put` puts it back elsewhere" })
+command(
+  "section.delete",
+  guarded(function(ctx)
+    local s = target(ctx)
+    keymap.setreg(A.delete({ start = s.start }), ctx.register)
+    cursor.set_beat(s.start)
+    paw.notify("deleted section " .. s.name)
+  end),
+  { desc = "Delete the section from every track and close the gap; `section.put` puts it back elsewhere" }
+)
 
-command("section.yank", guarded(function(ctx)
-  local s = target(ctx)
-  keymap.setreg(A.yank({ start = s.start }), ctx.register, true)
-  paw.notify("yanked section " .. s.name)
-end), { desc = "Yank the section on every track, with its automation and marker" })
+command(
+  "section.yank",
+  guarded(function(ctx)
+    local s = target(ctx)
+    keymap.setreg(A.yank({ start = s.start }), ctx.register, true)
+    paw.notify("yanked section " .. s.name)
+  end),
+  { desc = "Yank the section on every track, with its automation and marker" }
+)
 
 --- Where to insert: before or after the section at the cursor, or at the
 --- cursor if it is before the first one.
@@ -177,26 +236,40 @@ local function insert_point(after)
   return after and s.finish or s.start
 end
 
-command("section.put", guarded(function(ctx)
-  local value = keymap.getreg(ctx.register)
-  local at = insert_point(not ctx.args.before)
-  local s
-  for _ = 1, ctx.count or 1 do s = A.insert(value, at) end
-  if s then cursor.set_beat(s.start) end
-end), { desc = "Insert the register after the section at the cursor on every track, pushing the rest along; `before=true` before it" })
+command(
+  "section.put",
+  guarded(function(ctx)
+    local value = keymap.getreg(ctx.register)
+    local at = insert_point(not ctx.args.before)
+    local s
+    for _ = 1, ctx.count or 1 do
+      s = A.insert(value, at)
+    end
+    if s then cursor.set_beat(s.start) end
+  end),
+  {
+    desc = "Insert the register after the section at the cursor on every track, pushing the rest along; `before=true` before it",
+  }
+)
 
-command("section.copy", guarded(function(ctx)
-  local after = ctx.args.after
-  local function copy(s)
-    local ok, err = pcall(function()
-      local new = A.copy({ start = s.start }, insert_point(after))
-      if new then cursor.set_beat(new.start) end
-    end)
-    if not ok then paw.notify(tostring(err), "warn") end
-  end
-  if ctx.args[1] then return copy(S.need(table.concat(ctx.args, " "))) end
-  M.choose(after and "Copy after this section" or "Copy before this section", copy)
-end), { desc = "Insert a copy of a section before the one at the cursor: `section.copy Chorus`; `after=true` after it; none named: choose" })
+command(
+  "section.copy",
+  guarded(function(ctx)
+    local after = ctx.args.after
+    local function copy(s)
+      local ok, err = pcall(function()
+        local new = A.copy({ start = s.start }, insert_point(after))
+        if new then cursor.set_beat(new.start) end
+      end)
+      if not ok then paw.notify(tostring(err), "warn") end
+    end
+    if ctx.args[1] then return copy(S.need(table.concat(ctx.args, " "))) end
+    M.choose(after and "Copy after this section" or "Copy before this section", copy)
+  end),
+  {
+    desc = "Insert a copy of a section before the one at the cursor: `section.copy Chorus`; `after=true` after it; none named: choose",
+  }
+)
 
 -- Keys ------------------------------------------------------------------------------
 
@@ -204,25 +277,27 @@ local function amap(lhs, rhs, desc, opts)
   keymap.set(lhs, rhs, paw.util.merge({ view = "arrange", desc = desc }, opts or {}))
 end
 
-local function to_section(dir) return function(ctx)
-  local beat = cursor.beat
-  for _ = 1, ctx.count or 1 do
-    local found
-    if dir > 0 then
-      -- Past the last section: the end of the project.
-      found = S.next_start(beat)
-      local length = paw.project.length or 0
-      if not found and length > beat + EPS then found = length end
-    else
-      -- Before the first: the start of the project.
-      found = S.prev_start(beat)
-      if not found and beat > EPS then found = 0 end
+local function to_section(dir)
+  return function(ctx)
+    local beat = cursor.beat
+    for _ = 1, ctx.count or 1 do
+      local found
+      if dir > 0 then
+        -- Past the last section: the end of the project.
+        found = S.next_start(beat)
+        local length = paw.project.length or 0
+        if not found and length > beat + EPS then found = length end
+      else
+        -- Before the first: the start of the project.
+        found = S.prev_start(beat)
+        if not found and beat > EPS then found = 0 end
+      end
+      if not found then break end
+      beat = found
     end
-    if not found then break end
-    beat = found
+    cursor.set_beat(beat)
   end
-  cursor.set_beat(beat)
-end end
+end
 
 -- `]]` `[[` as in Vim: the next and the previous of the kind. `]s` `[s` stay the
 -- core's, the tracks of a group.
@@ -243,10 +318,16 @@ local function section_region(ctx, whole_bars)
   return { view = "arrange", kind = "block", r0 = 1, r1 = n, c0 = c0, c1 = c1 }
 end
 
-keymap.textobject("is", function(ctx) return section_region(ctx, false) end,
-  { view = "arrange", desc = "The section, on every track (`2is` two)" })
-keymap.textobject("as", function(ctx) return section_region(ctx, true) end,
-  { view = "arrange", desc = "The section widened to whole bars, on every track" })
+keymap.textobject(
+  "is",
+  function(ctx) return section_region(ctx, false) end,
+  { view = "arrange", desc = "The section, on every track (`2is` two)" }
+)
+keymap.textobject(
+  "as",
+  function(ctx) return section_region(ctx, true) end,
+  { view = "arrange", desc = "The section widened to whole bars, on every track" }
+)
 
 keymap.group("<localleader>S", "sections", { view = "arrange" })
 amap("<localleader>Sa", "section.add", "Add a section at the cursor")
@@ -254,13 +335,41 @@ amap("<localleader>Sr", "section.rename", "Rename the section")
 amap("<localleader>Sx", "section.remove", "Remove the section marker, keeping the timeline")
 amap("<localleader>Ss", "section.goto", "Go to a section from the list")
 amap("<localleader>Sl", "section.list", "List the sections")
-amap("<localleader>SL", function(ctx) paw.cmd("section.move", { by = 1 }, { count = ctx.count }) end, "Move the section later, past the next")
-amap("<localleader>SH", function(ctx) paw.cmd("section.move", { by = -1 }, { count = ctx.count }) end, "Move the section earlier, past the one before")
-amap("<localleader>S&", function(ctx) paw.cmd("section.duplicate", {}, { count = ctx.count }) end, "Repeat the section after itself")
-amap("<localleader>Sd", function(ctx) paw.cmd("section.delete", {}, { register = ctx.register }) end, "Delete the section and close the gap")
-amap("<localleader>Sy", function(ctx) paw.cmd("section.yank", {}, { register = ctx.register }) end, "Yank the section with its marker and automation")
-amap("<localleader>Sp", function(ctx) paw.cmd("section.put", {}, { register = ctx.register, count = ctx.count }) end, "Insert the register after this section")
-amap("<localleader>SP", function(ctx) paw.cmd("section.put", { before = true }, { register = ctx.register, count = ctx.count }) end, "Insert the register before this section")
+amap(
+  "<localleader>SL",
+  function(ctx) paw.cmd("section.move", { by = 1 }, { count = ctx.count }) end,
+  "Move the section later, past the next"
+)
+amap(
+  "<localleader>SH",
+  function(ctx) paw.cmd("section.move", { by = -1 }, { count = ctx.count }) end,
+  "Move the section earlier, past the one before"
+)
+amap(
+  "<localleader>S&",
+  function(ctx) paw.cmd("section.duplicate", {}, { count = ctx.count }) end,
+  "Repeat the section after itself"
+)
+amap(
+  "<localleader>Sd",
+  function(ctx) paw.cmd("section.delete", {}, { register = ctx.register }) end,
+  "Delete the section and close the gap"
+)
+amap(
+  "<localleader>Sy",
+  function(ctx) paw.cmd("section.yank", {}, { register = ctx.register }) end,
+  "Yank the section with its marker and automation"
+)
+amap(
+  "<localleader>Sp",
+  function(ctx) paw.cmd("section.put", {}, { register = ctx.register, count = ctx.count }) end,
+  "Insert the register after this section"
+)
+amap(
+  "<localleader>SP",
+  function(ctx) paw.cmd("section.put", { before = true }, { register = ctx.register, count = ctx.count }) end,
+  "Insert the register before this section"
+)
 amap("<localleader>Sc", "section.copy", "Insert a copy of a section before this one")
 
 -- The ruler ---------------------------------------------------------------------------
@@ -305,7 +414,9 @@ function M.draw(_, layer)
       ruler:text(lx, 0, label, current and current.index == i and "SectionCurrent" or "Section")
       -- A click on it goes to the section, in either frontend.
       ruler:hit(lx, 0, math.max(1, math.min(x1, width) - lx), 1, {
-        kind = "section", cmd = "section.goto " .. i, hint = "section " .. s.name .. ": click goes to its start",
+        kind = "section",
+        cmd = "section.goto " .. i,
+        hint = "section " .. s.name .. ": click goes to its start",
       })
     end
     if x0 >= 0 and x0 < width then layer.lanes:fill(x0, 0, 1, layer.lanes.height, nil, "SectionEdge") end

@@ -61,7 +61,9 @@ rebind = function(staves, sm)
   if not sm then return end
   local by = {}
   for _, entry in ipairs(sm.voices) do
-    for _, sev in ipairs(entry.events) do by[sev.id] = sev end
+    for _, sev in ipairs(entry.events) do
+      by[sev.id] = sev
+    end
   end
   for _, evs in ipairs(staves) do
     for _, ev in ipairs(evs) do
@@ -84,19 +86,43 @@ function M.layout(score, opts)
   local origin = D.origin(score)
   local count, starts, lengths, meters = shown(score, opts.length or 0)
   local staves, ids = {}, {}
-  for i, s in ipairs(score.staves) do staves[i], ids[s.id] = s.clef, i end
+  for i, s in ipairs(score.staves) do
+    staves[i], ids[s.id] = s.clef, i
+  end
   local clefs = table.concat(staves, ",") .. ":" .. (opts.fifths or 0) .. ":" .. origin
   local measures, built = {}, {}
   local tuplet_serial = 0
   local function add(m, s, v, sev, t, len, extra)
-    local ev = { kind = sev.kind == "chord" and "note" or "rest", start = (origin + starts[m.index] + t) / Q, length = len / Q,
-      base = D.ticks(sev.dur) / Q, dots = sev.dots or 0, measure = m.index, staff = s, voice = v, source = sev, sid = sev.id,
-      mi = m.index, at = t, staff_id = score.staves[s].id }
-    for k, x in pairs(extra or {}) do ev[k] = x end
+    local ev = {
+      kind = sev.kind == "chord" and "note" or "rest",
+      start = (origin + starts[m.index] + t) / Q,
+      length = len / Q,
+      base = D.ticks(sev.dur) / Q,
+      dots = sev.dots or 0,
+      measure = m.index,
+      staff = s,
+      voice = v,
+      source = sev,
+      sid = sev.id,
+      mi = m.index,
+      at = t,
+      staff_id = score.staves[s].id,
+    }
+    for k, x in pairs(extra or {}) do
+      ev[k] = x
+    end
     if sev.kind == "chord" then
       ev.notes = {}
       for k, n in ipairs(sev.notes) do
-        ev.notes[k] = { pitch = D.pitch(n), id = n.id, letter = n.step, alter = n.alter, octave = n.octave, spelled = true, tie = n.tie }
+        ev.notes[k] = {
+          pitch = D.pitch(n),
+          id = n.id,
+          letter = n.step,
+          alter = n.alter,
+          octave = n.octave,
+          spelled = true,
+          tie = n.tie,
+        }
       end
       ev.arpeggio = ARPEGGIO[sev.arpeggio or ""]
       ev.art = sev.art and next(sev.art) and sev.art or nil
@@ -131,8 +157,16 @@ function M.layout(score, opts)
         if sev.grace then
           graces = graces or {}
           for _, n in ipairs(sev.notes or {}) do
-            graces[#graces + 1] = { pitch = D.pitch(n), id = n.id, letter = n.step, alter = n.alter, octave = n.octave, spelled = true, source = sev,
-              sid = sev.id }
+            graces[#graces + 1] = {
+              pitch = D.pitch(n),
+              id = n.id,
+              letter = n.step,
+              alter = n.alter,
+              octave = n.octave,
+              spelled = true,
+              source = sev,
+              sid = sev.id,
+            }
           end
         else
           local len = D.length(sev)
@@ -141,8 +175,14 @@ function M.layout(score, opts)
             local tp = tuplets[sev.tuplet.id]
             if not tp then
               tuplet_serial = tuplet_serial + 1
-              tp = { s = (origin + starts[i] + t) / Q, n = sev.tuplet.actual, ratio = sev.tuplet.actual / sev.tuplet.normal,
-                id = tuplet_serial, staff = s, voice = v }
+              tp = {
+                s = (origin + starts[i] + t) / Q,
+                n = sev.tuplet.actual,
+                ratio = sev.tuplet.actual / sev.tuplet.normal,
+                id = tuplet_serial,
+                staff = s,
+                voice = v,
+              }
               tuplets[sev.tuplet.id] = tp
             end
             tp.e = (origin + starts[i] + t + len) / Q
@@ -150,7 +190,9 @@ function M.layout(score, opts)
           end
           local ev = add(m, s, v, sev, t, len, extra)
           if sev.kind == "chord" then graces = nil end
-          if v == 1 and sev.kind == "rest" and t == 0 and len == lengths[i] and not sev.tuplet then ev.whole, ev.base, ev.dots = true, 4, 0 end
+          if v == 1 and sev.kind == "rest" and t == 0 and len == lengths[i] and not sev.tuplet then
+            ev.whole, ev.base, ev.dots = true, 4, 0
+          end
           t = t + len
         end
       end
@@ -165,11 +207,15 @@ function M.layout(score, opts)
         m.overfull = true
       end
     end
-    for s = 1, #staves do table.sort(m.staves[s], by_start_voice) end
+    for s = 1, #staves do
+      table.sort(m.staves[s], by_start_voice)
+    end
   end
   -- The key and the clefs in force, as measures change them.
   local fifths, in_force = opts.fifths or 0, {}
-  for k, clef in ipairs(staves) do in_force[k] = clef end
+  for k, clef in ipairs(staves) do
+    in_force[k] = clef
+  end
   for i = 1, count do
     local meter = D.meter(meters[i][1], meters[i][2], meters[i].groups)
     local sm, before, after = score.measures[i], score.measures[i - 1], score.measures[i + 1]
@@ -188,15 +234,40 @@ function M.layout(score, opts)
       end
     end
     local now = table.concat(in_force, ",")
-    local key = table.concat({ i, tostring(sm and sm.v), tostring(before and before.v), tostring(after and after.v), clefs,
-      starts[i], lengths[i], i == count and "last" or "", fifths, now }, "|")
-    local m = { number = (opts.number or 1) + i - 1, index = i, start = (origin + starts[i]) / Q, length = lengths[i] / Q,
-      meter = meter, staves = {}, id = sm and sm.id, v = sm and sm.v, fifths = fifths, key_change = key_change or nil,
+    local key = table.concat(
+      {
+        i,
+        tostring(sm and sm.v),
+        tostring(before and before.v),
+        tostring(after and after.v),
+        clefs,
+        starts[i],
+        lengths[i],
+        i == count and "last" or "",
+        fifths,
+        now,
+      },
+      "|"
+    )
+    local m = {
+      number = (opts.number or 1) + i - 1,
+      index = i,
+      start = (origin + starts[i]) / Q,
+      length = lengths[i] / Q,
+      meter = meter,
+      staves = {},
+      id = sm and sm.id,
+      v = sm and sm.v,
+      fifths = fifths,
+      key_change = key_change or nil,
       key_from = key_change and key_from or nil,
-      clef_change = clef_change }
+      clef_change = clef_change,
+    }
     if now ~= table.concat(staves, ",") then
       m.clefs = {}
-      for k, clef in ipairs(in_force) do m.clefs[k] = clef end
+      for k, clef in ipairs(in_force) do
+        m.clefs[k] = clef
+      end
     end
     if sm then
       m.repeat_start, m.repeat_end = sm.repeat_start, sm.barline == ":|"
@@ -207,11 +278,15 @@ function M.layout(score, opts)
       m.staves, m.incomplete, m.overfull = hit.staves, hit.incomplete, hit.overfull
       rebind(hit.staves, sm)
     else
-      for s = 1, #staves do m.staves[s] = {} end
+      for s = 1, #staves do
+        m.staves[s] = {}
+      end
       build(m, i)
       built[i] = true
       M.stats.measures = M.stats.measures + 1
-      if kept_count > 2000 then kept, kept_count = {}, 0 end
+      if kept_count > 2000 then
+        kept, kept_count = {}, 0
+      end
       kept[key], kept_count = { staves = m.staves, incomplete = m.incomplete, overfull = m.overfull }, kept_count + 1
     end
     measures[i] = m
@@ -236,7 +311,9 @@ function M.layout(score, opts)
         for _, n in ipairs(ev.notes) do
           if n.tie then
             for _, o in ipairs(nxt.notes) do
-              if o.pitch == n.pitch then o.tied, o.head = true, n.head or n.id end
+              if o.pitch == n.pitch then
+                o.tied, o.head = true, n.head or n.id
+              end
             end
           end
         end
@@ -248,8 +325,16 @@ function M.layout(score, opts)
       end
     end
   end
-  local result = { measures = measures, staves = staves, meter = measures[1].meter, fifths = measures[1].fifths or opts.fifths or 0,
-    grid = opts.grid or 0.25, origin = origin / Q, score = score._transcribed or { events = {} }, doc = score }
+  local result = {
+    measures = measures,
+    staves = staves,
+    meter = measures[1].meter,
+    fifths = measures[1].fifths or opts.fifths or 0,
+    grid = opts.grid or 0.25,
+    origin = origin / Q,
+    score = score._transcribed or { events = {} },
+    doc = score,
+  }
   -- Accidentals and stems of the measures laid out now, each run of them
   -- after the measure before it, which says what its bar left altered.
   local i = 1
@@ -289,15 +374,21 @@ local function normal_of(tp) return math.floor(tp.n / tp.ratio + 0.5) end
 function M.import(layout, opts)
   opts = opts or {}
   local bars = {}
-  for i, m in ipairs(layout.measures) do bars[i] = { start = m.start, num = m.meter.num, den = m.meter.den } end
+  for i, m in ipairs(layout.measures) do
+    bars[i] = { start = m.start, num = m.meter.num, den = m.meter.den }
+  end
   local score = D.new(bars, layout.staves)
   score.next = math.max(score.next, opts.next or 1)
   local keep = opts.keep
   -- How many written notes each played note has had, and the ids given.
   local st = { keep = keep or {}, stable = keep ~= nil, used = {}, pieces = {}, written = {} }
-  for i, m in ipairs(layout.measures) do M.import_measure(score, i, m, st) end
+  for i, m in ipairs(layout.measures) do
+    M.import_measure(score, i, m, st)
+  end
   -- A second voice that is only rests is none.
-  for i in ipairs(score.measures) do M.normalize_measure(score, i) end
+  for i in ipairs(score.measures) do
+    M.normalize_measure(score, i)
+  end
   return score, st.written
 end
 
@@ -349,18 +440,32 @@ function M.import_measure(score, i, m, st)
       local entry = D.voice(sm, staff, ev.voice, true)
       for _, g in ipairs(ev.grace or {}) do
         local note = note_of(g, st, score)
-        entry.events[#entry.events + 1] = { id = event_id(score, at, ev, "g", note), kind = "chord", grace = "acciaccatura", dur = { 1, 8 }, dots = 0, notes = { note } }
+        entry.events[#entry.events + 1] = {
+          id = event_id(score, at, ev, "g", note),
+          kind = "chord",
+          grace = "acciaccatura",
+          dur = { 1, 8 },
+          dots = 0,
+          notes = { note },
+        }
       end
       if not (ev.whole and ev.voice == 1) then
         -- A stretch no single value can write (shorter than a 32nd, off its
         -- grid) is written as long as it is.
         local base = ev.base or ev.length * (ev.tuplet and ev.tuplet.ratio or 1)
-        local sev = { kind = ev.kind == "note" and "chord" or "rest", dur = D.ratio(D.from_beats(base)), dots = ev.dots or 0 }
-        if ev.whole then sev.dur, sev.dots = D.ratio(D.from_beats(m.length)), 0 end
+        local sev =
+          { kind = ev.kind == "note" and "chord" or "rest", dur = D.ratio(D.from_beats(base)), dots = ev.dots or 0 }
+        if ev.whole then
+          sev.dur, sev.dots = D.ratio(D.from_beats(m.length)), 0
+        end
         if ev.tuplet then
           local tp = tuplets[ev.tuplet]
           if not tp then
-            tp = { id = stable and event_id(score, at, ev, "t") or D.id(score, "t"), actual = ev.tuplet.n, normal = normal_of(ev.tuplet) }
+            tp = {
+              id = stable and event_id(score, at, ev, "t") or D.id(score, "t"),
+              actual = ev.tuplet.n,
+              normal = normal_of(ev.tuplet),
+            }
             tuplets[ev.tuplet] = tp
           end
           sev.tuplet = tp
@@ -375,7 +480,9 @@ function M.import_measure(score, i, m, st)
           end
           sev.id = event_id(score, at, ev, "e", sev.notes[1])
           local art = {}
-          for k, x in pairs(ev.art or {}) do art[k] = x end
+          for k, x in pairs(ev.art or {}) do
+            art[k] = x
+          end
           if ev.staccato then art.staccato = true end
           sev.art = next(art) and art or nil
           sev.arpeggio = ev.arpeggio == 1 and "up" or ev.arpeggio == -1 and "down" or nil
@@ -393,11 +500,17 @@ function M.import_measure(score, i, m, st)
   local f = D.frame(score)
   for _, entry in ipairs(sm.voices) do
     local t = 0
-    for _, ev in ipairs(entry.events) do t = t + D.length(ev) end
+    for _, ev in ipairs(entry.events) do
+      t = t + D.length(ev)
+    end
     if t < f.lengths[i] then
       for k, p in ipairs(D.values(t, f.lengths[i], f.meters[i], true)) do
-        entry.events[#entry.events + 1] = { id = "r" .. i .. "." .. D.staff_index(score, entry.staff) .. "." .. entry.voice .. ".f" .. k,
-          kind = "rest", dur = p.dur, dots = p.dots }
+        entry.events[#entry.events + 1] = {
+          id = "r" .. i .. "." .. D.staff_index(score, entry.staff) .. "." .. entry.voice .. ".f" .. k,
+          kind = "rest",
+          dur = p.dur,
+          dots = p.dots,
+        }
       end
     end
   end
@@ -407,7 +520,9 @@ end
 --- second voice that is only rests is none.
 function M.normalize_measure(score, i)
   for _, st in ipairs(score.staves) do
-    for v = 1, 4 do D.normalize(score, i, st.id, v) end
+    for v = 1, 4 do
+      D.normalize(score, i, st.id, v)
+    end
   end
 end
 

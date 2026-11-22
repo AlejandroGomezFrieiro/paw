@@ -41,9 +41,7 @@ function M.open(state64, format)
   if not at then error("not a state of Soundshed Guitar", 0) end
   local root = J.parse(data, at)
   local text = data:sub(at, root.e)
-  return text, J.parse(text), function(new)
-    return close(data:sub(1, at - 1) .. new .. data:sub(root.e + 1))
-  end
+  return text, J.parse(text), function(new) return close(data:sub(1, at - 1) .. new .. data:sub(root.e + 1)) end
 end
 
 --- The scene that plays: its node, and the graph's node.
@@ -81,7 +79,9 @@ function M.blocks(text, root)
       out[#out + 1] = {
         key = category .. count[category],
         label = node.fields.label and J.value(text, node.fields.label) or category,
-        node = node, type = kind, resource = first,
+        node = node,
+        type = kind,
+        resource = first,
       }
     end
   end
@@ -90,9 +90,7 @@ end
 
 --- Where the plugin keeps its files: `~/.config/Soundshed Guitar/data/v1`
 --- (JUCE's folder of application data; it does not read XDG_CONFIG_HOME).
-function M.data_dir()
-  return (os.getenv("HOME") or "") .. "/.config/Soundshed Guitar/data/v1"
-end
+function M.data_dir() return (os.getenv("HOME") or "") .. "/.config/Soundshed Guitar/data/v1" end
 
 --- A name for a file the library names by id: the plugin's copy of a
 --- pack's file is `<id>-<name>.<ext>`.
@@ -156,19 +154,25 @@ end
 --- factory packs that come with the plugin.
 function M.preset_folders()
   local dirs = {}
-  for _, dir in ipairs(plugstate.share_dirs("soundshed-guitar/resources/ui/presets/factory")) do dirs[#dirs + 1] = dir end
+  for _, dir in ipairs(plugstate.share_dirs("soundshed-guitar/resources/ui/presets/factory")) do
+    dirs[#dirs + 1] = dir
+  end
   return dirs
 end
 
 function M.list_presets(roots)
   if not roots then
     roots = plugstate.roots()
-    for i, dir in ipairs(M.preset_folders()) do table.insert(roots, i, dir) end
+    for i, dir in ipairs(M.preset_folders()) do
+      table.insert(roots, i, dir)
+    end
   end
   local out = {}
   for _, root in ipairs(roots) do
     for _, f in ipairs(plugstate.files({ types = { "presets", "json" } }, { root })) do
-      for _, p in ipairs(M.presets_in(f.path, f.folder)) do out[#out + 1] = p end
+      for _, p in ipairs(M.presets_in(f.path, f.folder)) do
+        out[#out + 1] = p
+      end
     end
   end
   return out
@@ -196,9 +200,13 @@ function M.preset_text(ref)
   if not text then error("no preset " .. id .. " in " .. file, 0) end
   -- The pack's files: id -> the name in the zip.
   local files = {}
-  for _, r in ipairs(paw.json.decode(list).resources or {}) do files[r.id] = r.fileName end
+  for _, r in ipairs(paw.json.decode(list).resources or {}) do
+    files[r.id] = r.fileName
+  end
   local pack = plugstate.stem(file):gsub("%.soundshed$", "")
-  local dir = (os.getenv("XDG_DATA_HOME") or ((os.getenv("HOME") or ".") .. "/.local/share")) .. "/paw/plugstate/" .. pack
+  local dir = (os.getenv("XDG_DATA_HOME") or ((os.getenv("HOME") or ".") .. "/.local/share"))
+    .. "/paw/plugstate/"
+    .. pack
   local edits = {}
   local function walk(text_, node)
     if node.kind == "object" then
@@ -224,9 +232,13 @@ function M.preset_text(ref)
         end
         edits[#edits + 1] = { res, "[" .. table.concat(items, ",") .. "]" }
       end
-      for _, k in ipairs(node.keys) do if k ~= "resources" then walk(text_, node.fields[k]) end end
+      for _, k in ipairs(node.keys) do
+        if k ~= "resources" then walk(text_, node.fields[k]) end
+      end
     elseif node.kind == "array" then
-      for _, v in ipairs(node.items) do walk(text_, v) end
+      for _, v in ipairs(node.items) do
+        walk(text_, v)
+      end
     end
   end
   local proot = J.parse(text)
@@ -253,12 +265,19 @@ function M.with_preset(text, root, ptext, proot)
     local medits = {}
     if mroot.fields.activePresetIds then medits[#medits + 1] = { mroot.fields.activePresetIds, "[" .. key .. "]" } end
     if mroot.fields.presets then
-      medits[#medits + 1] = { mroot.fields.presets, "{" .. key .. ":" .. paw.json.encode({ mix = 1, mute = false, name = name, pan = 0, solo = false }) .. "}" }
+      medits[#medits + 1] = {
+        mroot.fields.presets,
+        "{" .. key .. ":" .. paw.json.encode({ mix = 1, mute = false, name = name, pan = 0, solo = false }) .. "}",
+      }
     end
-    if mroot.fields.presetData then medits[#medits + 1] = { mroot.fields.presetData, "{" .. key .. ":" .. ptext .. "}" } end
+    if mroot.fields.presetData then
+      medits[#medits + 1] = { mroot.fields.presetData, "{" .. key .. ":" .. ptext .. "}" }
+    end
     edits[#edits + 1] = { mixer, J.edit(m, medits) }
   end
-  if first and root.fields.activeSceneId then edits[#edits + 1] = { root.fields.activeSceneId, ptext:sub(first.s, first.e) } end
+  if first and root.fields.activeSceneId then
+    edits[#edits + 1] = { root.fields.activeSceneId, ptext:sub(first.s, first.e) }
+  end
   return J.edit(text, edits)
 end
 
@@ -280,19 +299,39 @@ function M.slots(id, d)
   if type(pid) == "string" then
     for _, p in ipairs(M.list_presets()) do
       local own = p.path:match("#(.+)$") or p.preset.id
-      if own and (pid == own or pid:sub(-#own - 2) == "__" .. own) then value = p.path break end
+      if own and (pid == own or pid:sub(-#own - 2) == "__" .. own) then
+        value = p.path
+        break
+      end
     end
   end
   local slots = {
-    { key = "preset", label = "Preset", what = "preset", kind = "file", types = { "presets", "json" },
-      list = M.list_presets, value = value },
-    { key = "scene", label = "Scene", what = "scene", kind = "text", choices = scenes,
-      value = scene and scene.fields.title and J.value(text, scene.fields.title) or nil },
+    {
+      key = "preset",
+      label = "Preset",
+      what = "preset",
+      kind = "file",
+      types = { "presets", "json" },
+      list = M.list_presets,
+      value = value,
+    },
+    {
+      key = "scene",
+      label = "Scene",
+      what = "scene",
+      kind = "text",
+      choices = scenes,
+      value = scene and scene.fields.title and J.value(text, scene.fields.title) or nil,
+    },
   }
   for _, b in ipairs(M.blocks(text, root)) do
     slots[#slots + 1] = {
-      key = b.key, label = b.label, what = b.type == "nam" and "model" or "impulse response", kind = "file",
-      types = b.type == "nam" and { "nam" } or { "wav" }, value = M.resource_value(text, b.resource),
+      key = b.key,
+      label = b.label,
+      what = b.type == "nam" and "model" or "impulse response",
+      kind = "file",
+      types = b.type == "nam" and { "nam" } or { "wav" },
+      value = M.resource_value(text, b.resource),
     }
   end
   return slots
@@ -311,7 +350,10 @@ function M.load(id, d, slot, value)
     for i, sc in ipairs(scenes and scenes.items or {}) do
       local title = sc.fields.title and J.value(text, sc.fields.title) or ""
       if tostring(i) == want or title:lower() == want or J.value(text, sc.fields.id) == want then
-        return { state = close(J.edit(text, { { root.fields.activeSceneId, text:sub(sc.fields.id.s, sc.fields.id.e) } })), name = title }
+        return {
+          state = close(J.edit(text, { { root.fields.activeSceneId, text:sub(sc.fields.id.s, sc.fields.id.e) } })),
+          name = title,
+        }
       end
     end
     error("no scene " .. tostring(value) .. " (the scenes: " .. table.concat(slot.choices or {}, ", ") .. ")", 0)
@@ -355,7 +397,9 @@ function M.describe(path)
     local p = found.preset
     if p.description then words[#words + 1] = p.description end
     local titles = {}
-    for _, sc in ipairs(p.scenes or {}) do titles[#titles + 1] = sc.title end
+    for _, sc in ipairs(p.scenes or {}) do
+      titles[#titles + 1] = sc.title
+    end
     if #titles > 0 then words[#words + 1] = "scenes: " .. table.concat(titles, ", ") end
     return table.concat(words, " · ")
   end

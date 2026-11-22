@@ -13,7 +13,9 @@ local initial = L.capture()
 
 local function clean()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   for _, buf in ipairs(L.buffers_list()) do
     if buf.type == "textbuf" then L.buf_delete(buf) end
   end
@@ -54,46 +56,65 @@ local function message() return paw.ui.message and paw.ui.message.text or "" end
 -- Markdown --------------------------------------------------------------------------
 
 test("Markdown is made into text: headings with their tag, bullets, aligned tables, code apart, links", function()
-  local doc = md.render(md.parse(table.concat({
-    "# Title",
-    "",
-    "## A section",
-    "",
-    "Some **bold** and *italic* words with `gU` and a [link](other.md#there).",
-    "",
-    "- one item that is long enough to wrap onto the next line of the page, so that the hanging indent shows",
-    "  - a nested item",
-    "1. first",
-    "",
-    "| Key | What |",
-    "| --- | --- |",
-    "| `dd` | delete a track |",
-    "| `yy` | yank it |",
-    "",
-    "```lua",
-    "paw.opt.keys = \"classic\"",
-    "```",
-  }, "\n")), { width = 60, heading_tag = function(b) return b.level == 1 and "title" or "a-section" end })
+  local doc = md.render(
+    md.parse(table.concat({
+      "# Title",
+      "",
+      "## A section",
+      "",
+      "Some **bold** and *italic* words with `gU` and a [link](other.md#there).",
+      "",
+      "- one item that is long enough to wrap onto the next line of the page, so that the hanging indent shows",
+      "  - a nested item",
+      "1. first",
+      "",
+      "| Key | What |",
+      "| --- | --- |",
+      "| `dd` | delete a track |",
+      "| `yy` | yank it |",
+      "",
+      "```lua",
+      'paw.opt.keys = "classic"',
+      "```",
+    }, "\n")),
+    { width = 60, heading_tag = function(b) return b.level == 1 and "title" or "a-section" end }
+  )
   local text = {}
-  for i, line in ipairs(doc.lines) do text[i] = line.text end
+  for i, line in ipairs(doc.lines) do
+    text[i] = line.text
+  end
   local shown = table.concat(text, "\n")
   eq(text[1]:match("^Title %s+%*title%*$") ~= nil, true, "the title with its tag at the right: " .. text[1])
   eq(md.width(text[1]), 60, "the tag ends at the page's edge")
   eq(text[3], string.rep("─", 60), "a rule above a section")
   eq(shown:find("Some bold and italic words with gU and a link.", 1, true) ~= nil, true, "marks taken out: " .. shown)
   eq(shown:find("  • one item that is long enough", 1, true) ~= nil, true, "a bullet")
-  eq(shown:find("\n    so that the hanging indent shows", 1, true) ~= nil or shown:find("\n    [^ ]", 1) ~= nil, true, "the item goes on under its text")
+  eq(
+    shown:find("\n    so that the hanging indent shows", 1, true) ~= nil or shown:find("\n    [^ ]", 1) ~= nil,
+    true,
+    "the item goes on under its text"
+  )
   eq(shown:find("      • a nested item", 1, true) ~= nil, true, "a nested item deeper")
   eq(shown:find("\n 1. first", 1, true) ~= nil, true, "a number")
-  eq(shown:find("Key  What\n───  ──────────────\ndd   delete a track\nyy   yank it", 1, true) ~= nil, true, "the table's columns aligned: " .. shown)
-  eq(shown:find("\n    paw.opt.keys = \"classic\"", 1, true) ~= nil, true, "code indented")
+  eq(
+    shown:find(
+      "Key  What\n───  ──────────────\ndd   delete a track\nyy   yank it",
+      1,
+      true
+    ) ~= nil,
+    true,
+    "the table's columns aligned: " .. shown
+  )
+  eq(shown:find('\n    paw.opt.keys = "classic"', 1, true) ~= nil, true, "code indented")
   -- What each piece is drawn as, and the link's target.
   local para
   for _, line in ipairs(doc.lines) do
     if line.text:find("^Some") then para = line end
   end
   local styles = {}
-  for _, span in ipairs(para.spans) do styles[#styles + 1] = span[3] end
+  for _, span in ipairs(para.spans) do
+    styles[#styles + 1] = span[3]
+  end
   eq(table.concat(styles, " "), "HelpBold HelpItalic HelpCode HelpLink", "bold, italic, code, link")
   eq(para.links[1][3], "other.md#there", "the link's target")
   eq(para.codes[1][3], "gU", "the code, for tags")
@@ -102,7 +123,9 @@ end)
 test("a table too wide for the page wraps its widest column", function()
   local long = string.rep("word ", 30)
   local doc = md.render(md.parse("| A | B |\n| --- | --- |\n| `x` | " .. long .. " |\n| `y` | short |"), { width = 40 })
-  for _, line in ipairs(doc.lines) do eq(md.width(line.text) <= 40, true, "within the page: " .. line.text) end
+  for _, line in ipairs(doc.lines) do
+    eq(md.width(line.text) <= 40, true, "within the page: " .. line.text)
+  end
   eq(doc.lines[3].text:match("^x  word") ~= nil, true, "the first column keeps its width")
   eq(doc.lines[4].text:match("^   word") ~= nil, true, "the cell goes on under itself")
 end)
@@ -134,43 +157,91 @@ test("tags are found for keys, commands, options, Lua modules, sections and page
   eq(tag.source.doc.lines[tag.row].text:find("gU", 1, true) ~= nil, true, "the tag's line names it")
 end)
 
-test("the manual's pages are found by kind: their folder's, else the section of docs/README.md that lists them", function()
-  start()
-  local docs = T.scratch .. "/helpkinds/docs"
-  for _, dir in ipairs({ "tutorials/course", "how-to", "reference", "explanation" }) do os.execute("mkdir -p '" .. docs .. "/" .. dir .. "'") end
-  T.write_file(docs .. "/README.md", table.concat({
-    "# Manual", "", "## Tutorials", "", "- [Course](tutorials/course/README.md)", "",
-    "## Reference", "", "- [Zeta](reference/zeta.md)", "- [Old](old.md)", "- [Alpha](reference/alpha.md)", "",
-    "## Explanation", "", "- [Why](why.md)",
-  }, "\n"))
-  local files = {
-    "tutorials/course/README.md", "tutorials/course/02-two.md", "tutorials/course/01-one.md",
-    "how-to/record.md", "reference/record.md", "reference/alpha.md", "reference/zeta.md", "reference/keys.md",
-    "explanation/about-x.md", "old.md", "why.md", "loose.md",
-  }
-  for _, rel in ipairs(files) do T.write_file(docs .. "/" .. rel, "# " .. rel .. "\n") end
-  local got = {}
-  for _, s in ipairs(H.manual_sources(H.normalize(docs))) do
-    got[#got + 1] = s.group .. ":" .. s.name .. "=" .. s.aliases[1]
+test(
+  "the manual's pages are found by kind: their folder's, else the section of docs/README.md that lists them",
+  function()
+    start()
+    local docs = T.scratch .. "/helpkinds/docs"
+    for _, dir in ipairs({ "tutorials/course", "how-to", "reference", "explanation" }) do
+      os.execute("mkdir -p '" .. docs .. "/" .. dir .. "'")
+    end
+    T.write_file(
+      docs .. "/README.md",
+      table.concat({
+        "# Manual",
+        "",
+        "## Tutorials",
+        "",
+        "- [Course](tutorials/course/README.md)",
+        "",
+        "## Reference",
+        "",
+        "- [Zeta](reference/zeta.md)",
+        "- [Old](old.md)",
+        "- [Alpha](reference/alpha.md)",
+        "",
+        "## Explanation",
+        "",
+        "- [Why](why.md)",
+      }, "\n")
+    )
+    local files = {
+      "tutorials/course/README.md",
+      "tutorials/course/02-two.md",
+      "tutorials/course/01-one.md",
+      "how-to/record.md",
+      "reference/record.md",
+      "reference/alpha.md",
+      "reference/zeta.md",
+      "reference/keys.md",
+      "explanation/about-x.md",
+      "old.md",
+      "why.md",
+      "loose.md",
+    }
+    for _, rel in ipairs(files) do
+      T.write_file(docs .. "/" .. rel, "# " .. rel .. "\n")
+    end
+    local got = {}
+    for _, s in ipairs(H.manual_sources(H.normalize(docs))) do
+      got[#got + 1] = s.group .. ":" .. s.name .. "=" .. s.aliases[1]
+    end
+    eq(
+      table.concat(got, " "),
+      table.concat({
+        -- Reference first, as docs/README.md orders it, then the rest by name.
+        "reference:zeta.md=zeta",
+        "reference:old.md=old",
+        "reference:alpha.md=alpha",
+        "reference:keys.md=keys",
+        "reference:loose.md=loose",
+        "reference:reference/record.md=reference-record",
+        "how-to:how-to/record.md=how-to-record",
+        "explanation:why.md=why",
+        "explanation:about-x.md=about-x",
+        "tutorials:course/README.md=course",
+        "tutorials:course/01-one.md=course-1",
+        "tutorials:course/02-two.md=course-2",
+      }, " "),
+      "kinds, names and order"
+    )
+    -- The contents show them under the four headings, in Diátaxis' order.
+    local text = {}
+    for _, line in ipairs(H.index().sources[1].doc.lines) do
+      text[#text + 1] = line.text
+    end
+    text = table.concat(text, "\n")
+    local at = {}
+    for _, heading in ipairs({ "Tutorials", "How-to guides", "Reference", "Explanation", "Extensions" }) do
+      at[#at + 1] = text:find("\n" .. heading .. " ", 1, true) or text:find("\n" .. heading .. "\n", 1, true) or 0
+    end
+    eq(
+      at[1] > 0 and at[1] < at[2] and at[2] < at[3] and at[3] < at[4] and at[4] < at[5],
+      true,
+      "the kinds in order: " .. table.concat(at, " ")
+    )
   end
-  eq(table.concat(got, " "), table.concat({
-    -- Reference first, as docs/README.md orders it, then the rest by name.
-    "reference:zeta.md=zeta", "reference:old.md=old", "reference:alpha.md=alpha", "reference:keys.md=keys",
-    "reference:loose.md=loose", "reference:reference/record.md=reference-record",
-    "how-to:how-to/record.md=how-to-record",
-    "explanation:why.md=why", "explanation:about-x.md=about-x",
-    "tutorials:course/README.md=course", "tutorials:course/01-one.md=course-1", "tutorials:course/02-two.md=course-2",
-  }, " "), "kinds, names and order")
-  -- The contents show them under the four headings, in Diátaxis' order.
-  local text = {}
-  for _, line in ipairs(H.index().sources[1].doc.lines) do text[#text + 1] = line.text end
-  text = table.concat(text, "\n")
-  local at = {}
-  for _, heading in ipairs({ "Tutorials", "How-to guides", "Reference", "Explanation", "Extensions" }) do
-    at[#at + 1] = text:find("\n" .. heading .. " ", 1, true) or text:find("\n" .. heading .. "\n", 1, true) or 0
-  end
-  eq(at[1] > 0 and at[1] < at[2] and at[2] < at[3] and at[3] < at[4] and at[4] < at[5], true, "the kinds in order: " .. table.concat(at, " "))
-end)
+)
 
 test("a link to the manual's contents page goes to help's contents", function()
   start()
@@ -191,7 +262,9 @@ test("a topic finds the tag itself first, then those that start with it, then th
   eq(completion[1] and completion[1].text, "help key-rule", "Tab completes the tag")
   completion = paw.commands.complete("help quickfx")
   local any = false
-  for _, c in ipairs(completion) do any = any or c.label == "quickfix-list" end
+  for _, c in ipairs(completion) do
+    any = any or c.label == "quickfix-list"
+  end
   eq(any, true, "a fuzzy match is offered too")
 end)
 
@@ -291,8 +364,14 @@ test(":helpgrep puts every line that holds the words in the quickfix list and go
   local list = paw.qf.current()
   eq(list.title, "helpgrep timebind", "the list")
   eq(#list.entries > 1, true, "with entries")
-  for _, e in ipairs(list.entries) do eq(e.text:lower():find("timebind", 1, true) ~= nil, true, "each holds it") end
-  eq(paw.qf.where(list.entries[1]):match("^.+:%d+$") ~= nil, true, "named by page and line: " .. paw.qf.where(list.entries[1]))
+  for _, e in ipairs(list.entries) do
+    eq(e.text:lower():find("timebind", 1, true) ~= nil, true, "each holds it")
+  end
+  eq(
+    paw.qf.where(list.entries[1]):match("^.+:%d+$") ~= nil,
+    true,
+    "named by page and line: " .. paw.qf.where(list.entries[1])
+  )
   local _, line = here()
   eq(line and line:lower():find("timebind", 1, true) ~= nil, true, "the cursor on the first")
   paw.cmd("cnext")
@@ -310,12 +389,15 @@ test("the page of an extension that is not loaded says how to load it", function
   local name = here()
   eq(name, "help://helpdemo.md", "its page")
   eq(message():find("helpdemo is not loaded", 1, true) ~= nil, true, "said: " .. message())
-  local text = table.concat(paw.textbuf.buf().state.text.lines[3] and { paw.textbuf.buf().state.text.lines[3].text } or {}, "")
+  local text =
+    table.concat(paw.textbuf.buf().state.text.lines[3] and { paw.textbuf.buf().state.text.lines[3].text } or {}, "")
   local all = {}
-  for _, l in ipairs(paw.textbuf.buf().state.text.lines) do all[#all + 1] = l.text end
+  for _, l in ipairs(paw.textbuf.buf().state.text.lines) do
+    all[#all + 1] = l.text
+  end
   all = table.concat(all, " ")
   eq(all:find("This extension is not loaded", 1, true) ~= nil, true, "the page says so: " .. text)
-  eq(all:find("paw.ext.load(\"" .. H.normalize(dir) .. "\")", 1, true) ~= nil, true, "and how to load it")
+  eq(all:find('paw.ext.load("' .. H.normalize(dir) .. '")', 1, true) ~= nil, true, "and how to load it")
   table.remove(H.extra)
   H.dirty = true
   -- A bundled one is loaded by its name.
@@ -326,7 +408,9 @@ test("the page of an extension that is not loaded says how to load it", function
   if name then
     paw.cmd("help", { name })
     local text = {}
-    for _, l in ipairs(paw.textbuf.buf().state.text.lines) do text[#text + 1] = l.text end
+    for _, l in ipairs(paw.textbuf.buf().state.text.lines) do
+      text[#text + 1] = l.text
+    end
     eq(table.concat(text, "\n"):find(":ext.load " .. name, 1, true) ~= nil, true, name .. "'s page names :ext.load")
   end
 end)
@@ -353,7 +437,9 @@ test("the keys picker shows the help of the key chosen, wide columns, and a key 
   -- A key's help is its row in the key table, so the preview names that page.
   eq(text:find("Keys, by idea", 1, true) ~= nil, true, "the manual's page is named in the preview")
   local shown = {}
-  for _, e in ipairs(paw.ui.keybar.entries()) do shown[#shown + 1] = e[1] .. " " .. e[2] end
+  for _, e in ipairs(paw.ui.keybar.entries()) do
+    shown[#shown + 1] = e[1] .. " " .. e[2]
+  end
   eq(table.concat(shown, " · "), "Enter run · Ctrl-] help · Esc close", "the key line")
   paw.ui.close()
 end)

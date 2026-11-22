@@ -115,7 +115,7 @@ local record Paw is partial.Paw
   transport: objects.Transport
   render: function(path: string, opts: RenderOptions)
 end
-local paw = (_G as {string:Paw}).paw
+local paw = (_G as {string: Paw}).paw
 
 local record M
   type Marker = Marker
@@ -129,36 +129,51 @@ end
 --- A region has a `length` in beats. A marker has no length.
 function M.list(): {Marker}
   local list = api.project_get().meta.markers
-  if not list is {Marker} then return {} end
+  if not (list is {Marker}) then
+    return {}
+  end
   local out: {Marker} = {}
-  for i, m in ipairs(list) do out[i] = m end
-  table.sort(out, function(a: Marker, b: Marker): boolean
-    if a.beat ~= b.beat then return a.beat < b.beat end
-    return a.id < b.id
-  end)
+  for i, m in ipairs(list) do
+    out[i] = m
+  end
+  table.sort(
+    out,
+    function(a: Marker, b: Marker): boolean
+      if a.beat ~= b.beat then
+        return a.beat < b.beat
+      end
+      return a.id < b.id
+    end
+  )
   return out
 end
 
 local function save(list: {Marker})
   local meta = api.project_get().meta
   meta.markers = #list > 0 and list or nil
-  api.project_set({ meta = meta })
+  api.project_set({meta = meta})
 end
 
 --- The regions alone.
 function M.regions(): {Marker}
   local out: {Marker} = {}
   for _, m in ipairs(M.list()) do
-    if m.length then out[#out + 1] = m end
+    if m.length then
+      out[#out + 1] = m
+    end
   end
   return out
 end
 
 --- What a marker is called on screen: its name, or its number in the song.
 function M.label(marker: Marker): string
-  if marker.name and marker.name ~= "" then return marker.name end
+  if marker.name and marker.name ~= "" then
+    return marker.name
+  end
   for i, m in ipairs(M.list()) do
-    if m.id == marker.id then return tostring(i) end
+    if m.id == marker.id then
+      return tostring(i)
+    end
   end
   return "?"
 end
@@ -167,10 +182,16 @@ end
 function M.add(beat: number, name?: string | number, opts?: AddOptions): Marker
   opts = opts or {}
   assert(beat is number and beat >= 0, "a marker is at a beat from 0 up")
-  if opts.length ~= nil then assert(type(opts.length) == "number" and opts.length > 0, "a region has a length above 0") end
+  if opts.length ~= nil then
+    assert(type(opts.length) == "number" and opts.length > 0, "a region has a length above 0")
+  end
   local list, id = M.list(), 1
-  for _, m in ipairs(list) do id = math.max(id, m.id + 1) end
-  local marker: Marker = { id = id, beat = beat, name = name and tostring(name) or "", length = opts.length, color = opts.color }
+  for _, m in ipairs(list) do
+    id = math.max(id, m.id + 1)
+  end
+  local marker: Marker = {
+    id = id, beat = beat, name = name and tostring(name) or "", length = opts.length, color = opts.color
+  }
   list[#list + 1] = marker
   save(list)
   return marker
@@ -182,29 +203,41 @@ function M.find(which: number | string | ById): Marker
   local list = M.list()
   if which is ById then
     for _, m in ipairs(list) do
-      if m.id == which.id then return m end
+      if m.id == which.id then
+        return m
+      end
     end
     return nil
   end
   local n = tonumber(which) as integer
-  if n and list[n] then return list[n] end
+  if n and list[n] then
+    return list[n]
+  end
   local name = tostring(which):lower()
   for _, m in ipairs(list) do
-    if m.name:lower() == name then return m end
+    if m.name:lower() == name then
+      return m
+    end
   end
   for _, m in ipairs(list) do
-    if m.name ~= "" and m.name:lower():find(name, 1, true) == 1 then return m end
+    if m.name ~= "" and m.name:lower():find(name, 1, true) == 1 then
+      return m
+    end
   end
 end
 
 --- A region by number, id or name.
 function M.region(which: number | string | ById): Marker
   local m = M.find(which)
-  if m and m.length then return m end
+  if m and m.length then
+    return m
+  end
   -- A marker and a region may share a name: the region is the one meant.
   local name = tostring(which):lower()
   for _, r in ipairs(M.regions()) do
-    if r.name:lower() == name then return r end
+    if r.name:lower() == name then
+      return r
+    end
   end
 end
 
@@ -215,13 +248,23 @@ function M.set(id: integer, fields: Fields): Marker
   for _, m in ipairs(list) do
     if m.id == id then
       found = m
-      if fields.beat then m.beat = math.max(0, fields.beat) end
-      if fields.name then m.name = tostring(fields.name) end
-      if fields.length ~= nil then m.length = fields.length and math.max(1e-6, fields.length as number) or nil end
-      if fields.color ~= nil then m.color = fields.color as string or nil end
+      if fields.beat then
+        m.beat = math.max(0, fields.beat)
+      end
+      if fields.name then
+        m.name = tostring(fields.name)
+      end
+      if fields.length ~= nil then
+        m.length = fields.length and math.max(1e-6, fields.length as number) or nil
+      end
+      if fields.color ~= nil then
+        m.color = fields.color as string or nil
+      end
     end
   end
-  if not found then error("no marker " .. tostring(id), 2) end
+  if not found then
+    error("no marker " .. tostring(id), 2)
+  end
   save(list)
   return found
 end
@@ -230,9 +273,15 @@ end
 function M.remove(id: integer): boolean
   local list, gone: {Marker}, boolean = {}, false
   for _, m in ipairs(M.list()) do
-    if m.id == id then gone = true else list[#list + 1] = m end
+    if m.id == id then
+      gone = true
+    else
+      list[#list + 1] = m
+    end
   end
-  if gone then save(list) end
+  if gone then
+    save(list)
+  end
   return gone
 end
 
@@ -243,11 +292,17 @@ function M.at(beat: number, reach?: number): Marker
   local best, far: Marker, number
   for _, m in ipairs(M.list()) do
     local d = math.abs(m.beat - beat)
-    if d <= reach and (not far or d < far) then best, far = m, d end
+    if d <= reach and (not far or d < far) then
+      best, far = m, d
+    end
   end
-  if best then return best end
+  if best then
+    return best
+  end
   for _, m in ipairs(M.list()) do
-    if m.length and beat >= m.beat and beat < m.beat + m.length then best = m end
+    if m.length and beat >= m.beat and beat < m.beat + m.length then
+      best = m
+    end
   end
   return best
 end
@@ -256,8 +311,9 @@ end
 function M.around(beat: number): Marker
   local best: Marker
   for _, m in ipairs(M.list()) do
-    if m.length and beat >= m.beat - 1e-9 and beat < m.beat + m.length - 1e-9
-        and (not best or m.length < best.length) then
+    if
+      m.length and beat >= m.beat - 1e-9 and beat < m.beat + m.length - 1e-9 and (not best or m.length < best.length)
+    then
       best = m
     end
   end
@@ -267,7 +323,9 @@ end
 --- The first marker after a beat, and the last before it.
 function M.next(beat: number): Marker
   for _, m in ipairs(M.list()) do
-    if m.beat > beat + 1e-9 then return m end
+    if m.beat > beat + 1e-9 then
+      return m
+    end
   end
 end
 
@@ -275,7 +333,9 @@ end
 function M.prev(beat: number): Marker
   local found: Marker
   for _, m in ipairs(M.list()) do
-    if m.beat < beat - 1e-9 then found = m end
+    if m.beat < beat - 1e-9 then
+      found = m
+    end
   end
   return found
 end
@@ -283,12 +343,17 @@ end
 -- A region is a range to render: `paw.render(path, { range = "Verse" })`.
 do
   local ranges = (require as function(string): Render)("paw.render").ranges
-  setmetatable(ranges, {
-    __index = function(_: {string: Range}, name: string): Range
-      local region = M.region(name)
-      if region then return function(): number, number return region.beat, region.beat + region.length end end
-    end,
-  } as metatable<{string: Range}>)
+  setmetatable(
+    ranges,
+    {
+      __index = function(_: {string: Range}, name: string): Range
+        local region = M.region(name)
+        if region then
+          return function(): number, number return region.beat, region.beat + region.length end
+        end
+      end,
+    } as metatable<{string: Range}>
+  )
 end
 
 --- Render every region to a file of its own in `dir`, named after it:
@@ -297,12 +362,16 @@ end
 function M.render_regions(dir: string, opts?: RenderOptions): {string}
   opts = opts or {}
   local regions = M.regions()
-  if #regions == 0 then error("there are no regions to render: `:region name` makes one", 0) end
+  if #regions == 0 then
+    error("there are no regions to render: `:region name` makes one", 0)
+  end
   pcall(api.fs_mkdir, dir)
   local files: {string} = {}
   for i, region in ipairs(regions) do
     local each: RenderOptions = {}
-    for k, v in pairs(opts) do each[k] = v end
+    for k, v in pairs(opts) do
+      each[k] = v
+    end
     each.format, each.range = nil, nil
     each.start, each["end"] = region.beat as RenderValue, (region.beat + region.length) as RenderValue
     local name = M.label(region):gsub("[/%z]", "_")
@@ -321,7 +390,9 @@ end
 local function names(): {string}
   local out: {string} = {}
   for _, m in ipairs(M.list()) do
-    if m.name ~= "" then out[#out + 1] = m.name end
+    if m.name ~= "" then
+      out[#out + 1] = m.name
+    end
   end
   return out
 end
@@ -341,8 +412,10 @@ local function wanted(ctx: commands.Context, kind?: string): Marker
     return m ~= nil and (kind == nil or (kind == "region") == (m.length ~= nil))
   end
   if ctx.args.id then
-    local m = M.find({ id = tonumber(ctx.args.id) as integer })
-    if not m then paw.notify("that marker is gone", "warn") end
+    local m = M.find({id = tonumber(ctx.args.id) as integer})
+    if not m then
+      paw.notify("that marker is gone", "warn")
+    end
     return m
   end
   local word = ctx.args[1] and words(ctx.args)
@@ -355,12 +428,18 @@ local function wanted(ctx: commands.Context, kind?: string): Marker
       if kind == "marker" and not fits(m) then
         m = nil
         for _, x in ipairs(M.list()) do
-          if not x.length and x.name:lower() == word:lower() then m = x end
+          if not x.length and x.name:lower() == word:lower() then
+            m = x
+          end
         end
       end
     end
-    if not fits(m) then m = nil end
-    if not m then paw.notify("no " .. what .. " `" .. word .. "`", "warn") end
+    if not fits(m) then
+      m = nil
+    end
+    if not m then
+      paw.notify("no " .. what .. " `" .. word .. "`", "warn")
+    end
   else
     local beat = paw.cursor.beat
     if kind == "region" then
@@ -370,22 +449,30 @@ local function wanted(ctx: commands.Context, kind?: string): Marker
       local far: number
       for _, x in ipairs(M.list()) do
         local d = math.abs(x.beat - beat)
-        if not x.length and d <= reach and (not far or d < far) then m, far = x, d end
+        if not x.length and d <= reach and (not far or d < far) then
+          m, far = x, d
+        end
       end
     else
       m = M.at(beat)
     end
-    if not m then paw.notify("no " .. what .. " at the cursor", "warn") end
+    if not m then
+      paw.notify("no " .. what .. " at the cursor", "warn")
+    end
   end
   return m
 end
 
 --- A name for a new marker that has none: "Marker 3" for the third.
 function M.default_name(): string
-  local taken: {string:boolean} = {}
+  local taken: {string: boolean} = {}
   local n = #M.list() + 1
-  for _, m in ipairs(M.list()) do taken[m.name] = true end
-  while taken["Marker " .. n] do n = n + 1 end
+  for _, m in ipairs(M.list()) do
+    taken[m.name] = true
+  end
+  while taken["Marker " .. n] do
+    n = n + 1
+  end
   return "Marker " .. n
 end
 
@@ -396,170 +483,290 @@ local function input(opts: InputOptions, on_submit: function(text: string))
   (paw.ui.input as function(InputOptions, function(string)))(opts, on_submit)
 end
 
-commands.define("marker", function(ctx: Context): Result
-  local name = words(ctx.args):match("^%s*(.-)%s*$")
-  if name == "" then name = M.default_name() end
-  local m = M.add(tonumber(ctx.args.at) or paw.cursor.beat, name)
-  paw.notify(describe(m))
-end, { desc = "Put a marker at the cursor: `marker Chorus`; alone, it is called Marker 1, Marker 2...; `at=` a beat instead" })
+commands.define(
+  "marker",
+  function(ctx: Context): Result
+    local name = words(ctx.args):match("^%s*(.-)%s*$")
+    if name == "" then
+      name = M.default_name()
+    end
+    local m = M.add(tonumber(ctx.args.at) or paw.cursor.beat, name)
+    paw.notify(describe(m))
+  end,
+  {
+    desc = "Put a marker at the cursor: `marker Chorus`; alone, it is called Marker 1, Marker 2...; `at=` a beat instead",
+  }
+)
 
-commands.define("marker.new", function(): Result
-  local beat = paw.cursor.beat
-  input({ prompt = "Marker name: ", text = M.default_name(), label = "Put a marker" }, function(name: string)
-    local args: commands.Args = { name }
-    args.at = beat
-    commands.run("marker", args)
-  end)
-end, { desc = "Put a marker at the cursor, asking for its name (Marker 1, Marker 2... if none is typed)" })
+commands.define(
+  "marker.new",
+  function(): Result
+    local beat = paw.cursor.beat
+    input(
+      {prompt = "Marker name: ", text = M.default_name(), label = "Put a marker"},
+      function(name: string) local args: commands.Args = {name}; args.at = beat; commands.run("marker", args) end
+    )
+  end,
+  {desc = "Put a marker at the cursor, asking for its name (Marker 1, Marker 2... if none is typed)"}
+)
 
-commands.define("marker.remove", function(ctx: Context): Result
-  -- From a menu (`id=`), whichever it is; typed, markers only.
-  local m = wanted(ctx, (not ctx.args.id) and "marker" or nil)
-  if not m then return end
-  M.remove(m.id)
-  paw.notify("removed the " .. describe(m))
-end, { desc = "Remove the marker at the cursor, or the one named or numbered: `marker.remove Chorus`; regions stay (`region.remove`)", complete = names })
+commands.define(
+  "marker.remove",
+  function(ctx: Context): Result
+    -- From a menu (`id=`), whichever it is; typed, markers only.
+    local m = wanted(ctx, (not ctx.args.id) and "marker" or nil)
+    if not m then
+      return
+    end
+    M.remove(m.id)
+    paw.notify("removed the " .. describe(m))
+  end,
+  {
+    desc = "Remove the marker at the cursor, or the one named or numbered: `marker.remove Chorus`; regions stay (`region.remove`)",
+    complete = names,
+  }
+)
 
-commands.define("marker.rename", function(ctx: Context): Result
-  local m = ctx.args.id and M.find({ id = tonumber(ctx.args.id) as integer }) or M.at(paw.cursor.beat)
-  if not m then
-    paw.notify("no marker at the cursor", "warn")
-    return
-  end
-  if ctx.args[1] then return M.set(m.id, { name = words(ctx.args) }) as Result end
-  input({ prompt = (m.length and "Region" or "Marker") .. " name: ", text = m.name }, function(name: string)
-    M.set(m.id, { name = name })
-  end)
-end, { desc = "Name the marker or region at the cursor: `marker.rename Bridge`; alone, asks" })
+commands.define(
+  "marker.rename",
+  function(ctx: Context): Result
+    local m = ctx.args.id and M.find({id = tonumber(ctx.args.id) as integer}) or M.at(paw.cursor.beat)
+    if not m then
+      paw.notify("no marker at the cursor", "warn")
+      return
+    end
+    if ctx.args[1] then
+      return M.set(m.id, {name = words(ctx.args)}) as Result
+    end
+    input(
+      {prompt = (m.length and "Region" or "Marker") .. " name: ", text = m.name},
+      function(name: string) M.set(m.id, {name = name}) end
+    )
+  end,
+  {desc = "Name the marker or region at the cursor: `marker.rename Bridge`; alone, asks"}
+)
 
 -- For a frontend, where a marker is dragged: `marker.set id=3 beat=17.5`.
-commands.define("marker.set", function(ctx: Context): Result
-  local id = tonumber(ctx.args.id) as integer
-  if not (id and M.find({ id = id })) then
-    paw.notify("that marker is gone", "warn")
-    return
-  end
-  M.set(id, { beat = tonumber(ctx.args.beat), length = tonumber(ctx.args.length), name = ctx.args.name and tostring(ctx.args.name) })
-end, { desc = "Move or change a marker by its id: `marker.set id=3 beat=16`" })
+commands.define(
+  "marker.set",
+  function(ctx: Context): Result
+    local id = tonumber(ctx.args.id) as integer
+    if not (id and M.find({id = id})) then
+      paw.notify("that marker is gone", "warn")
+      return
+    end
+    M.set(
+      id,
+      {
+        beat = tonumber(ctx.args.beat),
+        length = tonumber(ctx.args.length),
+        name = ctx.args.name and tostring(ctx.args.name),
+      }
+    )
+  end,
+  {desc = "Move or change a marker by its id: `marker.set id=3 beat=16`"}
+)
 
-commands.define("marker.move", function(): Result
-  local m = M.at(paw.cursor.beat, math.huge)
-  if not m then
-    paw.notify("there are no markers", "warn")
-    return
-  end
-  M.set(m.id, { beat = paw.cursor.beat })
-end, { desc = "Bring the nearest marker to the cursor" })
+commands.define(
+  "marker.move",
+  function(): Result
+    local m = M.at(paw.cursor.beat, math.huge)
+    if not m then
+      paw.notify("there are no markers", "warn")
+      return
+    end
+    M.set(m.id, {beat = paw.cursor.beat})
+  end,
+  {desc = "Bring the nearest marker to the cursor"}
+)
 
-commands.define("marker.next", function(ctx: Context): Result
-  local beat = paw.cursor.beat
-  for _ = 1, ctx.count or 1 do
-    local m = M.next(beat)
-    if not m then break end
-    beat = m.beat
-  end
-  paw.cursor.set_beat(beat)
-end, { desc = "Go to the next marker or region start" })
+commands.define(
+  "marker.next",
+  function(ctx: Context): Result
+    local beat = paw.cursor.beat
+    for _ = 1, ctx.count or 1 do
+      local m = M.next(beat)
+      if not m then
+        break
+      end
+      beat = m.beat
+    end
+    paw.cursor.set_beat(beat)
+  end,
+  {desc = "Go to the next marker or region start"}
+)
 
-commands.define("marker.prev", function(ctx: Context): Result
-  local beat = paw.cursor.beat
-  for _ = 1, ctx.count or 1 do
-    local m = M.prev(beat)
-    if not m then break end
-    beat = m.beat
-  end
-  paw.cursor.set_beat(beat)
-end, { desc = "Go to the marker or region start before the cursor" })
+commands.define(
+  "marker.prev",
+  function(ctx: Context): Result
+    local beat = paw.cursor.beat
+    for _ = 1, ctx.count or 1 do
+      local m = M.prev(beat)
+      if not m then
+        break
+      end
+      beat = m.beat
+    end
+    paw.cursor.set_beat(beat)
+  end,
+  {desc = "Go to the marker or region start before the cursor"}
+)
 
-commands.define("marker.goto", function(ctx: Context): Result
-  local m = wanted(ctx)
-  if m then paw.cursor.set_beat(m.beat) end
-end, { desc = "Go to a marker or region by number or name: `marker.goto 3`, `marker.goto Chorus`", complete = names })
+commands.define(
+  "marker.goto",
+  function(ctx: Context): Result
+    local m = wanted(ctx)
+    if m then
+      paw.cursor.set_beat(m.beat)
+    end
+  end,
+  {desc = "Go to a marker or region by number or name: `marker.goto 3`, `marker.goto Chorus`", complete = names}
+)
 
-commands.define("marker.list", function(): Result
-  local list = M.list()
-  if #list == 0 then
-    paw.notify("there are no markers: `:marker name` puts one at the cursor")
-    return
-  end
-  local items: {Item} = {}
-  for i, m in ipairs(list) do
-    local where = paw.time.format(m.beat)
-    if m.length then where = where .. " – " .. paw.time.format(m.beat + m.length) end
-    items[i] = { text = string.format("%2d  %-7s %-24s %s", i, m.length and "region" or "marker", M.label(m), where), beat = m.beat,
-      name = M.label(m), kind = m.length and "region" or "marker" }
-  end
-  paw.pick({ title = "Markers and regions", items = items, on_choose = function(item: Item) paw.cursor.set_beat(item.beat) end,
-    -- What is typed finds a name, not the number of the line: `Chorus 2`.
-    search = function(item: Item): string return item.name .. " " .. item.kind end,
-    primary = function(item: Item): string return item.name end } as contracts.PickSource<Item>)
-end, { desc = "List the markers and regions; choose one to go there" })
+commands.define(
+  "marker.list",
+  function(): Result
+    local list = M.list()
+    if #list == 0 then
+      paw.notify("there are no markers: `:marker name` puts one at the cursor")
+      return
+    end
+    local items: {Item} = {}
+    for i, m in ipairs(list) do
+      local where = paw.time.format(m.beat)
+      if m.length then
+        where = where .. " – " .. paw.time.format(m.beat + m.length)
+      end
+      items[i] = {
+        text = string.format("%2d  %-7s %-24s %s", i, m.length and "region" or "marker", M.label(m), where),
+        beat = m.beat,
+        name = M.label(m),
+        kind = m.length and "region" or "marker",
+      }
+    end
+    paw.pick(
+      {
+        title = "Markers and regions",
+        items = items,
+        on_choose = function(item: Item) paw.cursor.set_beat(item.beat) end,
+        -- What is typed finds a name, not the number of the line: `Chorus 2`.
+        search = function(item: Item): string return item.name .. " " .. item.kind end,
+        primary = function(item: Item): string return item.name end,
+      } as contracts.PickSource<Item>
+    )
+  end,
+  {desc = "List the markers and regions; choose one to go there"}
+)
 
 --- The stretch a new region covers: the selection, else the loop.
 local function region_span(): number, number
   local sel = paw.keymap.selection()
-  if sel and sel.c0 and sel.c1 and sel.c1 > sel.c0 then return sel.c0, sel.c1 end
+  if sel and sel.c0 and sel.c1 and sel.c1 > sel.c0 then
+    return sel.c0, sel.c1
+  end
   local t = api.transport_get()
-  if t.loop_end > t.loop_start then return t.loop_start, t.loop_end end
+  if t.loop_end > t.loop_start then
+    return t.loop_start, t.loop_end
+  end
   paw.notify("a region is made over the selection or the loop: select a stretch of time first", "warn")
   return nil, nil
 end
 
 local function add_region(from: number, to: number, name: string)
-  local m = M.add(from, name, { length = to - from })
+  local m = M.add(from, name, {length = to - from})
   paw.notify(describe(m) .. ", " .. string.format("%g", to - from) .. " beats")
 end
 
-commands.define("region", function(ctx: Context): Result
-  local from, to = region_span()
-  if from then add_region(from, to, words(ctx.args)) end
-end, { desc = "Make a region over the selection, or over the loop: `region Verse`" })
+commands.define(
+  "region",
+  function(ctx: Context): Result
+    local from, to = region_span()
+    if from then
+      add_region(from, to, words(ctx.args))
+    end
+  end,
+  {desc = "Make a region over the selection, or over the loop: `region Verse`"}
+)
 
-commands.define("region.new", function(): Result
-  local from, to = region_span()
-  if not from then return end
-  input({ prompt = "Region name: ", label = "Make a region" }, function(name: string)
-    add_region(from, to, name)
-  end)
-end, { desc = "Make a region over the selection, or over the loop, asking for its name" })
+commands.define(
+  "region.new",
+  function(): Result
+    local from, to = region_span()
+    if not from then
+      return
+    end
+    input({prompt = "Region name: ", label = "Make a region"}, function(name: string) add_region(from, to, name) end)
+  end,
+  {desc = "Make a region over the selection, or over the loop, asking for its name"}
+)
 
-commands.define("region.remove", function(ctx: Context): Result
-  local m = wanted(ctx, "region")
-  if not m then return end
-  M.remove(m.id)
-  paw.notify("removed the " .. describe(m) .. "; its clips stay")
-end, { desc = "Remove the region the cursor is in, or the one named: `region.remove Verse`; its clips and the markers stay", complete = names })
+commands.define(
+  "region.remove",
+  function(ctx: Context): Result
+    local m = wanted(ctx, "region")
+    if not m then
+      return
+    end
+    M.remove(m.id)
+    paw.notify("removed the " .. describe(m) .. "; its clips stay")
+  end,
+  {
+    desc = "Remove the region the cursor is in, or the one named: `region.remove Verse`; its clips and the markers stay",
+    complete = names,
+  }
+)
 
-commands.define("region.loop", function(ctx: Context): Result
-  local m = wanted(ctx, "region")
-  if not m then return end
-  local t = paw.transport
-  t.loop_start, t.loop_end, t.loop_enabled = m.beat, m.beat + m.length, true
-  paw.notify("looping " .. describe(m))
-end, { desc = "Loop the region at the cursor, or the one named: `region.loop Verse`", complete = names })
+commands.define(
+  "region.loop",
+  function(ctx: Context): Result
+    local m = wanted(ctx, "region")
+    if not m then
+      return
+    end
+    local t = paw.transport
+    t.loop_start, t.loop_end, t.loop_enabled = m.beat, m.beat + m.length, true
+    paw.notify("looping " .. describe(m))
+  end,
+  {desc = "Loop the region at the cursor, or the one named: `region.loop Verse`", complete = names}
+)
 
-commands.define("render.regions", function(ctx: Context): Result
-  local dir = ctx.args[1]
-  if not dir then
-    input({ prompt = "Render the regions into the folder: ", text = "regions", label = "Render the regions" }, function(text: string)
-      if text ~= "" then commands.run("render.regions", { text }) end
-    end)
-    return
-  end
-  local opts: RenderOptions = {}
-  for k, v in pairs(ctx.args as {string | integer: commands.Arg}) do
-    if k is string then opts[k] = v as RenderValue end
-  end
-  opts.background = (api.ui_attached() or nil) as RenderValue
-  local files = M.render_regions(dir as string, opts)
-  paw.notify(string.format("rendering %d region%s into %s", #files, #files == 1 and "" or "s", dir as string))
-end, { desc = "Render every region to a file of its own: `render.regions out` (alone, it asks for the folder), `render.regions out format=flac bits=24`, `render.regions out format=mp3 quality=best`" })
+commands.define(
+  "render.regions",
+  function(ctx: Context): Result
+    local dir = ctx.args[1]
+    if not dir then
+      input(
+        {prompt = "Render the regions into the folder: ", text = "regions", label = "Render the regions"},
+        function(text: string)
+          if text ~= "" then
+            commands.run("render.regions", {text})
+          end
+        end
+      )
+      return
+    end
+    local opts: RenderOptions = {}
+    for k, v in pairs(ctx.args as {string | integer: commands.Arg}) do
+      if k is string then
+        opts[k] = v as RenderValue
+      end
+    end
+    opts.background = (api.ui_attached() or nil) as RenderValue
+    local files = M.render_regions(dir as string, opts)
+    paw.notify(string.format("rendering %d region%s into %s", #files, #files == 1 and "" or "s", dir as string))
+  end,
+  {
+    desc = "Render every region to a file of its own: `render.regions out` (alone, it asks for the folder), `render.regions out format=flac bits=24`, `render.regions out format=mp3 quality=best`",
+  }
+)
 
 -- On the arrange view's ruler ------------------------------------------------------
 
 local function draw(_: Arrange, layer: Layer)
   local list = M.list()
-  if #list == 0 then return end
+  if #list == 0 then
+    return
+  end
   local ruler = layer.ruler2 or layer.ruler
   local width = ruler.width
   -- Regions first, as bands; then every name where it starts, each given
@@ -567,7 +774,9 @@ local function draw(_: Arrange, layer: Layer)
   for _, m in ipairs(list) do
     if m.length then
       local x0, x1 = math.max(0, layer.x(m.beat)), math.min(width, layer.x(m.beat + m.length))
-      if x1 > x0 then ruler:fill(x0, 0, x1 - x0, 1, " ", "Region") end
+      if x1 > x0 then
+        ruler:fill(x0, 0, x1 - x0, 1, " ", "Region")
+      end
     end
   end
   for i, m in ipairs(list) do
@@ -575,12 +784,17 @@ local function draw(_: Arrange, layer: Layer)
     local stop = width
     for j = i + 1, #list do
       local nx = layer.x(list[j].beat)
-      if nx > x then stop = math.min(stop, nx) break end
+      if nx > x then
+        stop = math.min(stop, nx)
+        break
+      end
     end
     if x >= 0 and x < width and stop > x then
       local text = (m.length and "▏" or "▼") .. M.label(m)
       -- Cut where the next one starts; nothing is padded over a region's band.
-      if api.str_width(text) > stop - x then text = util.fit(text, stop - x) end
+      if api.str_width(text) > stop - x then
+        text = util.fit(text, stop - x)
+      end
       ruler:text(x, 0, text, m.length and "RegionName" or "Marker")
     end
   end

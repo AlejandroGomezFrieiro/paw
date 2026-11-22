@@ -22,7 +22,9 @@ local function turn() paw.wait(0) end
 
 local function names(changes)
   local out = {}
-  for _, c in ipairs(changes) do out[#out + 1] = c.name end
+  for _, c in ipairs(changes) do
+    out[#out + 1] = c.name
+  end
   table.sort(out)
   return table.concat(out, " ")
 end
@@ -36,7 +38,11 @@ test("edit.before and edit.after hear what a turn changed, once, as one undo ste
   t.volume = -6
   turn()
   eq(#before, 1, "edit.before once")
-  eq(names(before[1].changes):find("track.added", 1, true) ~= nil, true, "with what changed: " .. names(before[1].changes))
+  eq(
+    names(before[1].changes):find("track.added", 1, true) ~= nil,
+    true,
+    "with what changed: " .. names(before[1].changes)
+  )
   eq(#after, 1, "edit.after once")
   eq(after[1].state, api.undo_current(), "with the undo state the edit made")
   turn()
@@ -115,7 +121,9 @@ test("project.saving may refuse a save, and project.saved comes after one", func
   T.fresh()
   local path = T.scratch .. "/hooks-save.json"
   local refuse = true
-  local saving = hear("project.saving", function() if refuse then return false, "not yet" end end)
+  local saving = hear("project.saving", function()
+    if refuse then return false, "not yet" end
+  end)
   local saved = hear("project.saved")
   fails(function() paw.project.save(path) end, "not saved: not yet", "a refused save")
   eq(io.open(path) == nil, true, "nothing written")
@@ -132,7 +140,9 @@ test("key.pre sees each key first and may take it from the keymap", function()
   paw.add_track({ name = "B" })
   paw.flush()
   paw.cursor.set_track(paw.track("A"))
-  local seen = hear("key.pre", function(e) if e.key == "j" then return false end end)
+  local seen = hear("key.pre", function(e)
+    if e.key == "j" then return false end
+  end)
   paw._kernel.key("j")
   eq(paw.cursor.index(), 1, "a key taken does nothing")
   eq(seen[1].key, "j", "the key")
@@ -185,12 +195,16 @@ test("view.opened and view.closed hear views come on and off the screen", functi
   paw.ui.toggle("mixer")
   turn()
   local found = false
-  for _, e in ipairs(opened) do found = found or e.name == "mixer" end
+  for _, e in ipairs(opened) do
+    found = found or e.name == "mixer"
+  end
   eq(found, true, "the mixer opened")
   paw.ui.toggle("mixer")
   turn()
   found = false
-  for _, e in ipairs(closed) do found = found or e.name == "mixer" end
+  for _, e in ipairs(closed) do
+    found = found or e.name == "mixer"
+  end
   eq(found, true, "and closed")
 end)
 
@@ -211,7 +225,9 @@ test("every event the runtime and the kernel emit is in the table of events", fu
   local section = doc:match("\n## Every event\n(.*)$")
   assert(section, "docs/reference/events.md has a section of every event")
   local listed = {}
-  for name in section:gmatch("`([%w_.*]+)`") do listed[name] = true end
+  for name in section:gmatch("`([%w_.*]+)`") do
+    listed[name] = true
+  end
   local missing = {}
   local function check(name)
     if not listed[name] and not listed[name:match("^[^.]+") .. ".*"] then missing[name] = true end
@@ -221,19 +237,38 @@ test("every event the runtime and the kernel emit is in the table of events", fu
     for path in p:lines() do
       local text = T.read_file(path)
       for _, pattern in ipairs(patterns) do
-        for name in text:gmatch(pattern) do check(name) end
+        for name in text:gmatch(pattern) do
+          check(name)
+        end
       end
     end
     p:close()
   end
-  scan("runtime/lua/paw", "lua", { 'paw%.emit%("([%w_]+%.[%w_.]+)"', 'events%.emit%("([%w_]+%.[%w_.]+)"', 'paw%.emit, "([%w_]+%.[%w_.]+)"' })
-  scan("crates/paw-core/src", "rs", { 'emit%(%s*"([%w_]+%.[%w_.]+)"', 'push%(%(%s*"([%w_]+%.[%w_.]+)"', '%(%s*"([%w_]+%.[%w_.]+)",%s*json!', '%(%s*"([%w_]+%.[%w_.]+)",%s*with_' })
+  scan(
+    "runtime/lua/paw",
+    "lua",
+    { 'paw%.emit%("([%w_]+%.[%w_.]+)"', 'events%.emit%("([%w_]+%.[%w_.]+)"', 'paw%.emit, "([%w_]+%.[%w_.]+)"' }
+  )
+  scan(
+    "crates/paw-core/src",
+    "rs",
+    {
+      'emit%(%s*"([%w_]+%.[%w_.]+)"',
+      'push%(%(%s*"([%w_]+%.[%w_.]+)"',
+      '%(%s*"([%w_]+%.[%w_.]+)",%s*json!',
+      '%(%s*"([%w_]+%.[%w_.]+)",%s*with_',
+    }
+  )
   -- The kinds of thing whose events are made by name: `clip.added`, `lane.removed`.
   for _, kind in ipairs({ "clip", "lane" }) do
-    for _, what in ipairs({ "added", "changed", "removed" }) do check(kind .. "." .. what) end
+    for _, what in ipairs({ "added", "changed", "removed" }) do
+      check(kind .. "." .. what)
+    end
   end
   local list = {}
-  for name in pairs(missing) do list[#list + 1] = name end
+  for name in pairs(missing) do
+    list[#list + 1] = name
+  end
   table.sort(list)
   eq(table.concat(list, " "), "", "events missing from the table")
 end)

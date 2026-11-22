@@ -16,13 +16,33 @@ local floor = math.floor
 
 local LETTERS = { [0] = "c", "d", "e", "f", "g", "a", "b" }
 local ALTER = { [-2] = "eses", [-1] = "es", [0] = "", [1] = "is", [2] = "isis" }
-local VALUES = { [2 * W] = "\\breve", [W] = "1", [W / 2] = "2", [W / 4] = "4", [W / 8] = "8", [W / 16] = "16", [W / 32] = "32",
-  [W / 64] = "64", [W / 128] = "128" }
-local CLEFS = { treble = "treble", bass = "bass", alto = "alto", tenor = "tenor", treble8 = '"treble_8"', bass8 = '"bass_8"' }
-local ART = { staccato = "-.", staccatissimo = "-!", accent = "->", tenuto = "--", marcato = "-^", fermata = "\\fermata",
-  fermata_short = "\\shortfermata", fermata_long = "\\longfermata" }
-local ART_ORDER = { "accent", "marcato", "staccato", "staccatissimo", "tenuto", "fermata", "fermata_short", "fermata_long" }
-local ORN = { trill = "\\trill", mordent = "\\mordent", prall = "\\prall", turn = "\\turn", turn_inverted = "\\reverseturn" }
+local VALUES = {
+  [2 * W] = "\\breve",
+  [W] = "1",
+  [W / 2] = "2",
+  [W / 4] = "4",
+  [W / 8] = "8",
+  [W / 16] = "16",
+  [W / 32] = "32",
+  [W / 64] = "64",
+  [W / 128] = "128",
+}
+local CLEFS =
+  { treble = "treble", bass = "bass", alto = "alto", tenor = "tenor", treble8 = '"treble_8"', bass8 = '"bass_8"' }
+local ART = {
+  staccato = "-.",
+  staccatissimo = "-!",
+  accent = "->",
+  tenuto = "--",
+  marcato = "-^",
+  fermata = "\\fermata",
+  fermata_short = "\\shortfermata",
+  fermata_long = "\\longfermata",
+}
+local ART_ORDER =
+  { "accent", "marcato", "staccato", "staccatissimo", "tenuto", "fermata", "fermata_short", "fermata_long" }
+local ORN =
+  { trill = "\\trill", mordent = "\\mordent", prall = "\\prall", turn = "\\turn", turn_inverted = "\\reverseturn" }
 local UNITS = { q = "4", ["q."] = "4.", h = "2", ["h."] = "2.", e = "8", ["e."] = "8.", w = "1" }
 
 local function pitch(n)
@@ -31,9 +51,7 @@ local function pitch(n)
   return name .. (o > 0 and string.rep("'", o) or string.rep(",", -o))
 end
 
-local function value(ev)
-  return (VALUES[D.ticks(ev.dur)] or "4") .. string.rep(".", ev.dots or 0)
-end
+local function value(ev) return (VALUES[D.ticks(ev.dur)] or "4") .. string.rep(".", ev.dots or 0) end
 
 local function quote(text) return '"' .. tostring(text):gsub("\\", "\\\\"):gsub('"', '\\"') .. '"' end
 
@@ -41,20 +59,38 @@ local function quote(text) return '"' .. tostring(text):gsub("\\", "\\\\"):gsub(
 local function key_of(name, fifths)
   local root, mode = tostring(name or ""):match("^([A-G][#b]?)%s+(%a+)$")
   if not root then
-    local major = { [-7] = "ces", [-6] = "ges", [-5] = "des", [-4] = "aes", [-3] = "ees", [-2] = "bes", [-1] = "f",
-      [0] = "c", [1] = "g", [2] = "d", [3] = "a", [4] = "e", [5] = "b", [6] = "fis", [7] = "cis" }
+    local major = {
+      [-7] = "ces",
+      [-6] = "ges",
+      [-5] = "des",
+      [-4] = "aes",
+      [-3] = "ees",
+      [-2] = "bes",
+      [-1] = "f",
+      [0] = "c",
+      [1] = "g",
+      [2] = "d",
+      [3] = "a",
+      [4] = "e",
+      [5] = "b",
+      [6] = "fis",
+      [7] = "cis",
+    }
     return "\\key " .. (major[fifths or 0] or "c") .. " \\major"
   end
   local letter = root:sub(1, 1):lower()
   local acc = root:sub(2)
-  local lily = letter .. (acc == "#" and "is" or acc == "b" and ((letter == "e" or letter == "a") and "s" or "es") or "")
+  local lily = letter
+    .. (acc == "#" and "is" or acc == "b" and ((letter == "e" or letter == "a") and "s" or "es") or "")
   return "\\key " .. lily .. " \\" .. mode
 end
 
 --- A length in ticks as `\partial`'s duration.
 local function partial(ticks, den)
   local unit = W / den
-  if ticks % unit ~= 0 then den, unit = 32, W / 32 end
+  if ticks % unit ~= 0 then
+    den, unit = 32, W / 32
+  end
   return "\\partial " .. den .. "*" .. floor(ticks / unit + 0.5)
 end
 
@@ -80,7 +116,9 @@ local function part_text(part, pi, first_part)
     for v = 1, 4 do
       local seq = D.sequence(sc, st.id, v)
       local has = false
-      for _, it in ipairs(seq) do has = has or it.ev.kind == "chord" end
+      for _, it in ipairs(seq) do
+        has = has or it.ev.kind == "chord"
+      end
       if has or v == 1 then voices[#voices + 1] = { staff = s, id = st.id, v = v, seq = seq } end
       local prev
       for _, it in ipairs(seq) do
@@ -89,7 +127,9 @@ local function part_text(part, pi, first_part)
             local all = true
             for _, n in ipairs(it.ev.notes) do
               local found = false
-              for _, p in ipairs(prev.ev.notes) do found = found or (p.tie and D.pitch(p) == D.pitch(n)) end
+              for _, p in ipairs(prev.ev.notes) do
+                found = found or (p.tie and D.pitch(p) == D.pitch(n))
+              end
               all = all and found
             end
             tied_in[it.ev.id] = all
@@ -147,7 +187,15 @@ local function part_text(part, pi, first_part)
         if tp.change or not (tp.unit or mk.bpm) then
           add(post, id, "^\\markup { \\italic " .. quote(mk.value or "") .. " }")
         elseif tp.unit and UNITS[tp.unit] then
-          add(pre, id, "\\tempo " .. (tp.words and (quote(tp.words) .. " ") or "") .. UNITS[tp.unit] .. " = " .. string.format("%g", tp.per))
+          add(
+            pre,
+            id,
+            "\\tempo "
+              .. (tp.words and (quote(tp.words) .. " ") or "")
+              .. UNITS[tp.unit]
+              .. " = "
+              .. string.format("%g", tp.per)
+          )
         else
           add(pre, id, "\\tempo " .. quote(tp.words or mk.value or "") .. " 4 = " .. string.format("%g", mk.bpm))
         end
@@ -204,15 +252,25 @@ local function part_text(part, pi, first_part)
         if m.key and mi > 1 then w(key_of(m.key.name, m.key.fifths)) end
         if m.clef and m.clef[voice.id] and mi > 1 then w("\\clef " .. (CLEFS[m.clef[voice.id]] or "treble")) end
         if mi == 1 or m.meter then
-          if m.meter_symbol then w("\\defaultTimeSignature") elseif mi > 1 then w("\\numericTimeSignature") end
-          w("\\time " .. (meter.groups and (table.concat(meter.groups, ",") .. " ") or "") .. meter[1] .. "/" .. meter[2])
+          if m.meter_symbol then
+            w("\\defaultTimeSignature")
+          elseif mi > 1 then
+            w("\\numericTimeSignature")
+          end
+          w(
+            "\\time "
+              .. (meter.groups and (table.concat(meter.groups, ",") .. " ") or "")
+              .. meter[1]
+              .. "/"
+              .. meter[2]
+          )
         end
       end
       if is_top and first_part then
         if m.rehearsal then w("\\mark " .. quote(m.rehearsal)) end
         local before = sc.measures[mi - 1]
         if m.volta and not (before and before.volta == m.volta) then
-          w("\\set Score.repeatCommands = #'((volta \"" .. m.volta .. ".\"))")
+          w("\\set Score.repeatCommands = #'((volta \"" .. m.volta .. '."))')
         end
         if m.repeat_start and not (before and before.barline) then w('\\bar ".|:"') end
       end
@@ -240,13 +298,22 @@ local function part_text(part, pi, first_part)
                 local g = {}
                 for _, ge in ipairs(graces) do
                   local ps = {}
-                  for i, n in ipairs(ge.notes) do ps[i] = pitch(n) end
+                  for i, n in ipairs(ge.notes) do
+                    ps[i] = pitch(n)
+                  end
                   g[#g + 1] = (#ps > 1 and ("<" .. table.concat(ps, " ") .. ">") or ps[1]) .. value(ge)
                 end
-                w((graces[1].grace == "appoggiatura" and "\\appoggiatura" or "\\acciaccatura") .. " { " .. table.concat(g, " ") .. " }")
+                w(
+                  (graces[1].grace == "appoggiatura" and "\\appoggiatura" or "\\acciaccatura")
+                    .. " { "
+                    .. table.concat(g, " ")
+                    .. " }"
+                )
                 graces = {}
               end
-              for _, x in ipairs(pre[ev.id] or {}) do w(x) end
+              for _, x in ipairs(pre[ev.id] or {}) do
+                w(x)
+              end
               if ev.kind == "rest" then
                 w("r" .. value(ev) .. table.concat(post[ev.id] or {}))
               else
@@ -305,7 +372,12 @@ local function part_text(part, pi, first_part)
       local syl = {}
       for _, it in ipairs(voice.seq) do
         local ev = it.ev
-        if ev.kind == "chord" and not ev.grace and not tied_in[ev.id] and not (cut > 0 and it.mi == 1 and it.s < cut) then
+        if
+          ev.kind == "chord"
+          and not ev.grace
+          and not tied_in[ev.id]
+          and not (cut > 0 and it.mi == 1 and it.s < cut)
+        then
           local text = verse == 1 and ev.lyric or (ev.lyrics or {})[verse - 1]
           if not text or text == "" then
             syl[#syl + 1] = "_"
@@ -338,11 +410,16 @@ local function part_text(part, pi, first_part)
     end
     local with = (#sc.staves == 1 and part.name) and (" \\with { instrumentName = " .. quote(part.name) .. " }") or ""
     staves[#staves + 1] = "    \\new Staff" .. with .. " <<\n" .. table.concat(lines, "\n") .. "\n    >>"
-    for _, l in ipairs(lyric_lines) do staves[#staves + 1] = l end
+    for _, l in ipairs(lyric_lines) do
+      staves[#staves + 1] = l
+    end
   end
   if #sc.staves > 1 then
-    return "  \\new PianoStaff" .. (part.name and (" \\with { instrumentName = " .. quote(part.name) .. " }") or "") .. " <<\n"
-      .. table.concat(staves, "\n") .. "\n  >>"
+    return "  \\new PianoStaff"
+      .. (part.name and (" \\with { instrumentName = " .. quote(part.name) .. " }") or "")
+      .. " <<\n"
+      .. table.concat(staves, "\n")
+      .. "\n  >>"
   end
   return table.concat(staves, "\n")
 end
@@ -352,9 +429,16 @@ end
 function M.write(parts, opts)
   opts = opts or {}
   local body = {}
-  for i, p in ipairs(parts) do body[#body + 1] = part_text(p, i, i == 1) end
-  return '\\version "2.24.0"\n\\header { title = ' .. quote(opts.title or "") .. " composer = " .. quote(opts.composer or "")
-    .. " tagline = ##f }\n\n\\score {\n  <<\n" .. table.concat(body, "\n") .. "\n  >>\n  \\layout { }\n}\n"
+  for i, p in ipairs(parts) do
+    body[#body + 1] = part_text(p, i, i == 1)
+  end
+  return '\\version "2.24.0"\n\\header { title = '
+    .. quote(opts.title or "")
+    .. " composer = "
+    .. quote(opts.composer or "")
+    .. " tagline = ##f }\n\n\\score {\n  <<\n"
+    .. table.concat(body, "\n")
+    .. "\n  >>\n  \\layout { }\n}\n"
 end
 
 return M

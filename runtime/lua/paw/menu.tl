@@ -61,7 +61,7 @@ local record Paw
 end
 -- The global `paw` of the declarations does not hold this module, so its
 -- local has a name of its own.
-local runtime = (_G as {string:Paw}).paw
+local runtime = (_G as {string: Paw}).paw
 
 local record M
   type Level = Level
@@ -69,15 +69,21 @@ end
 
 -- The menus open, the first at the bottom: `{ items, x, y, selected, rect }`,
 -- with what took the keys before.
-local open: Open = { levels = {}, grabber = nil }
-seats.keep("menu", function(): Open return open end, function(o: Open) open = o end,
-  function(): Open return { levels = {}, grabber = nil } end)
+local open: Open = {levels = {}, grabber = nil}
+seats.keep(
+  "menu",
+  function(): Open return open end,
+  function(o: Open) open = o end,
+  function(): Open return {levels = {}, grabber = nil} end
+)
 
 local function separator(item: Entry): boolean
   return item == "-" or (item is Item and item.separator)
 end
 local function usable(item: Entry): boolean
-  if separator(item) or not item is Item then return false end
+  if separator(item) or not (item is Item) then
+    return false
+  end
   return item.enabled ~= false and (item.run ~= nil or item.items ~= nil)
 end
 
@@ -91,7 +97,9 @@ local on_key: function(key: string, pasted?: boolean): boolean
 --- Let go of the menu, or of the submenus above level `keep`.
 function M.close(keep?: integer)
   keep = keep or 0
-  for i = #open.levels, keep + 1, -1 do open.levels[i] = nil end
+  for i = #open.levels, keep + 1, -1 do
+    open.levels[i] = nil
+  end
   if #open.levels == 0 and runtime.ui.grabber == on_key then
     runtime.ui.grabber = open.grabber
     open.grabber = nil
@@ -103,12 +111,14 @@ local function first_usable(items: {Entry}, from: integer, step: integer): integ
   local n = #items
   for k = 0, n - 1 do
     local i = (from - 1 + k * step) % n + 1
-    if usable(items[i]) then return i end
+    if usable(items[i]) then
+      return i
+    end
   end
 end
 
 local function push(items: {Entry}, x: number, y: number)
-  open.levels[#open.levels + 1] = { items = items, x = x, y = y, selected = first_usable(items, 1, 1) or 1 }
+  open.levels[#open.levels + 1] = {items = items, x = x, y = y, selected = first_usable(items, 1, 1) or 1}
   api.ui_redraw()
 end
 
@@ -116,8 +126,12 @@ end
 --- of the file.
 function M.open(items: {Entry}, opts?: contracts.MenuOptions)
   opts = opts or {}
-  if #items == 0 then return end
-  if #open.levels == 0 then open.grabber = runtime.ui.grabber end
+  if #items == 0 then
+    return
+  end
+  if #open.levels == 0 then
+    open.grabber = runtime.ui.grabber
+  end
   open.levels = {}
   open.count = (open.count or 0) + 1
   runtime.ui.grabber = on_key
@@ -130,7 +144,9 @@ end
 --- when none is open.
 function M.shown(): {Entry}, integer
   local first = open.levels[1]
-  if first then return first.items, open.count end
+  if first then
+    return first.items, open.count
+  end
 end
 
 --- Choose entry `index` of level `at`: a submenu opens beside it, anything
@@ -138,13 +154,15 @@ end
 local function choose(at: integer, index: integer)
   local level = open.levels[at]
   local entry = level and level.items[index]
-  if not (entry and usable(entry)) then return end
+  if not (entry and usable(entry)) then
+    return
+  end
   local item = entry as Item
   level.selected = index
   M.close(at)
   if item.items then
     -- Beside its entry; before the menu has been drawn, near it.
-    local r = level.rect or { x = level.x, y = level.y, w = 3 }
+    local r = level.rect or {x = level.x, y = level.y, w = 3}
     return push(item.items, r.x + r.w - 1, r.y + index)
   end
   M.close(0)
@@ -153,7 +171,9 @@ end
 
 on_key = function(key: string): boolean
   local level = open.levels[#open.levels]
-  if not level then return end
+  if not level then
+    return
+  end
   local items = level.items
   if key == "j" or key == "<Down>" or key == "<C-n>" or key == "<Tab>" then
     level.selected = first_usable(items, level.selected % #items + 1, 1) or level.selected
@@ -184,7 +204,9 @@ function M.draw(buf: Buf)
       if not separator(entry) then
         local item = entry as Item
         label_w = math.max(label_w, api.str_width(item.label) + (item.items and 2 or 0))
-        if item.keys then keys_w = math.max(keys_w, api.str_width(item.keys)) end
+        if item.keys then
+          keys_w = math.max(keys_w, api.str_width(item.keys))
+        end
       end
     end
     local w = math.min(buf.width, label_w + (keys_w > 0 and keys_w + 2 or 0) + 4 + 2)
@@ -193,16 +215,24 @@ function M.draw(buf: Buf)
     -- A submenu that has no room to the right of its menu opens to the left.
     if level ~= open.levels[1] and level.x + w > buf.width then
       local parent = open.levels[1]
-      for i, l in ipairs(open.levels) do if open.levels[i + 1] == level then parent = l end end
-      if parent.rect then x = math.max(0, parent.rect.x - w + 1) end
+      for i, l in ipairs(open.levels) do
+        if open.levels[i + 1] == level then
+          parent = l
+        end
+      end
+      if parent.rect then
+        x = math.max(0, parent.rect.x - w + 1)
+      end
     end
     local y = util.clamp(level.y, 0, math.max(0, buf.height - h))
-    level.rect = { x = x, y = y, w = w, h = h }
+    level.rect = {x = x, y = y, w = w, h = h}
     local inner = runtime.ui.box(buf:sub(x, y, w, h), nil, "BorderFocus")
     inner:fill(0, 0, inner.width, inner.height, " ", "Pmenu")
     for i, entry in ipairs(items) do
       local row = i - 1
-      if row >= inner.height then break end
+      if row >= inner.height then
+        break
+      end
       if separator(entry) then
         inner:fill(0, row, inner.width, 1, g.h, "Border")
       else
@@ -210,7 +240,9 @@ function M.draw(buf: Buf)
         local sel = i == level.selected
         local style = sel and "PmenuSel" or usable(item) and "Pmenu" or "PmenuDesc"
         inner:fill(0, row, inner.width, 1, " ", style)
-        if item.checked then inner:text(0, row, g.on, style) end
+        if item.checked then
+          inner:text(0, row, g.on, style)
+        end
         inner:text(2, row, util.fit(item.label, math.max(1, inner.width - 3)), style)
         if item.items then
           inner:text(inner.width - 1, row, g.closed, style)
@@ -228,7 +260,9 @@ local function under(x: number, y: number): integer, integer
     local r = open.levels[at].rect
     if r and x >= r.x and x < r.x + r.w and y >= r.y and y < r.y + r.h then
       local index = (y - r.y) as integer
-      if index < 1 or index > #open.levels[at].items then index = nil end
+      if index < 1 or index > #open.levels[at].items then
+        index = nil
+      end
       return at, index
     end
   end
@@ -237,7 +271,9 @@ end
 -- The pointer goes to the menu first while one is open; anything outside
 -- it lets it go.
 mouse.overlays[#mouse.overlays + 1] = function(e: contracts.MouseEvent): boolean
-  if #open.levels == 0 then return false end
+  if #open.levels == 0 then
+    return false
+  end
   local at, index = under(e.x, e.y)
   local kind = e.kind
   if kind == "move" or kind == "drag" then
@@ -245,12 +281,15 @@ mouse.overlays[#mouse.overlays + 1] = function(e: contracts.MouseEvent): boolean
       local level = open.levels[at]
       local entry = level.items[index]
       local item = entry is Item and entry or nil
-      local same = level.selected == index and (#open.levels == at or (#open.levels == at + 1 and item and item.items ~= nil))
+      local same = level.selected == index
+        and (#open.levels == at or (#open.levels == at + 1 and item and item.items ~= nil))
       if not same then
         if usable(entry) then
           level.selected = index
           M.close(at)
-          if item.items then choose(at, index) end
+          if item.items then
+            choose(at, index)
+          end
         end
         api.ui_redraw()
       end

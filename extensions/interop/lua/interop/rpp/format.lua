@@ -83,21 +83,19 @@ end
 
 local function signature(tokens)
   local parts = {}
-  for i, t in ipairs(tokens) do parts[i] = type(t) == "number" and M.number(t) or tostring(t) end
+  for i, t in ipairs(tokens) do
+    parts[i] = type(t) == "number" and M.number(t) or tostring(t)
+  end
   return table.concat(parts, "\0")
 end
 
 -- Nodes --------------------------------------------------------------------------
 
 --- A new line node: `rpp.line("TEMPO", 120, 4, 4)`.
-function M.line(...)
-  return setmetatable({ tokens = { ... } }, Node)
-end
+function M.line(...) return setmetatable({ tokens = { ... } }, Node) end
 
 --- A new, empty block node: `rpp.block("TRACK", "{GUID}")`.
-function M.block(...)
-  return setmetatable({ tokens = { ... }, children = {} }, Node)
-end
+function M.block(...) return setmetatable({ tokens = { ... }, children = {} }, Node) end
 
 --- The node's name: its first token (a block's without the `<`).
 function Node:name() return self.tokens[1] end
@@ -125,7 +123,9 @@ end
 --- does for some fields, such as file paths, whatever they hold.
 function Node:quoted(...)
   self.quotes = self.quotes or {}
-  for _, i in ipairs({ ... }) do self.quotes[i + 1] = '"' end
+  for _, i in ipairs({ ... }) do
+    self.quotes[i + 1] = '"'
+  end
   return self
 end
 
@@ -179,7 +179,11 @@ end
 
 --- Add a child at the end, or at a 1-based position.
 function Node:add(child, index)
-  if index then table.insert(self.children, index, child) else self.children[#self.children + 1] = child end
+  if index then
+    table.insert(self.children, index, child)
+  else
+    self.children[#self.children + 1] = child
+  end
   return child
 end
 
@@ -250,7 +254,9 @@ end
 --- Walk the subtree depth first, calling fn(node, parent) for every node.
 function Node:walk(fn, parent)
   fn(self, parent)
-  for _, c in ipairs(self.children or {}) do c:walk(fn, self) end
+  for _, c in ipairs(self.children or {}) do
+    c:walk(fn, self)
+  end
 end
 
 -- Parsing ----------------------------------------------------------------------
@@ -292,7 +298,9 @@ function M.parse(text)
     end
   end
   -- Blocks left open at the end of the file get no closing line, as read.
-  for i = #stack, 2, -1 do stack[i].close = stack[i].close or "" end
+  for i = #stack, 2, -1 do
+    stack[i].close = stack[i].close or ""
+  end
   doc.eol = text:match("\r\n") and "\r\n" or "\n"
   return doc
 end
@@ -314,11 +322,15 @@ local function emit(node, depth, out, eol)
     out[#out + 1] = node.raw
   else
     local parts, quotes = {}, node.quotes or {}
-    for i, t in ipairs(node.tokens) do parts[i] = M.quote(t, quotes[i]) end
+    for i, t in ipairs(node.tokens) do
+      parts[i] = M.quote(t, quotes[i])
+    end
     out[#out + 1] = indent .. (node.children and "<" or "") .. table.concat(parts, " ") .. eol
   end
   if node.children then
-    for _, c in ipairs(node.children) do emit(c, depth + 1, out, eol) end
+    for _, c in ipairs(node.children) do
+      emit(c, depth + 1, out, eol)
+    end
     out[#out + 1] = node.close or (indent .. ">" .. eol)
   end
 end
@@ -327,7 +339,9 @@ end
 function M.write(node)
   local out, eol = {}, node.eol or "\n"
   if node.doc then
-    for _, c in ipairs(node.children) do emit(c, 0, out, eol) end
+    for _, c in ipairs(node.children) do
+      emit(c, 0, out, eol)
+    end
   else
     emit(node, 0, out, eol)
   end
@@ -344,8 +358,6 @@ function M.save(doc, path)
 end
 
 --- A new, empty document whose lines will end in `eol` (default "\n").
-function M.document(eol)
-  return setmetatable({ tokens = {}, children = {}, doc = true, eol = eol or "\n" }, Doc)
-end
+function M.document(eol) return setmetatable({ tokens = {}, children = {}, doc = true, eol = eol or "\n" }, Doc) end
 
 return M

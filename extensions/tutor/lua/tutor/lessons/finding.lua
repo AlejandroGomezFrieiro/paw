@@ -48,7 +48,7 @@ history (`<Up>`).]],
         if paw.keymap.hints() then ctx.hints = true end
         return ctx.hints and paw.keymap.pending() == ""
       end,
-      done = "Each command that is not complete shows what can come next. Try `,`, `d` or `\"` later.",
+      done = 'Each command that is not complete shows what can come next. Try `,`, `d` or `"` later.',
       hint = "Do not press a key until the box shows.",
     },
     {

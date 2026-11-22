@@ -41,8 +41,8 @@ local record Runtime is partial.Paw
   ui: Ui
   canvas: Canvas
 end
-local runtime = (_G as {string:Runtime}).paw
-local unpack = (_G as {string:function({Buf}, integer, integer): Buf...}).unpack
+local runtime = (_G as {string: Runtime}).paw
+local unpack = (_G as {string: function({Buf}, integer, integer): Buf...}).unpack
 
 local grid_text, grid_fill = api.grid_text, api.grid_fill
 local floor, max, min = math.floor, math.max, math.min
@@ -66,8 +66,10 @@ end
 local Meta = Buf as metatable<Buf>
 Meta.__index = Buf
 
-local function new(x: integer, y: integer, width: integer, height: integer, cx: integer, cy: integer, cw: integer, ch: integer): Buf
-  return setmetatable({ x = x, y = y, width = width, height = height, cx = cx, cy = cy, cw = cw, ch = ch } as Buf, Meta)
+local function new(
+  x: integer, y: integer, width: integer, height: integer, cx: integer, cy: integer, cw: integer, ch: integer
+): Buf
+  return setmetatable({x = x, y = y, width = width, height = height, cx = cx, cy = cy, cw = cw, ch = ch} as Buf, Meta)
 end
 
 --- The buffer that covers a whole screen of the given size.
@@ -137,14 +139,20 @@ function Buf:columns(widths: {integer | string}, gap?: integer): Buf...
   gap = gap or 0
   local fixed, flexible = 0, 0
   for _, w in ipairs(widths) do
-    if w is string then flexible = flexible + 1 else fixed = fixed + w end
+    if w is string then
+      flexible = flexible + 1
+    else
+      fixed = fixed + w
+    end
   end
   local rest = max(0, self.width - fixed - gap * (#widths - 1))
   local out: {Buf} = {}
   local x = 0
   for i, w in ipairs(widths) do
     local width = w is string and floor(rest / flexible) or w as integer
-    if x >= self.width then break end
+    if x >= self.width then
+      break
+    end
     out[i] = self:sub(x, 0, min(width, self.width - x), self.height)
     x = x + width + gap
   end

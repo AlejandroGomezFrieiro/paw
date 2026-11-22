@@ -7,7 +7,8 @@ local test, eq = T.test, T.eq
 
 test("help: every extension command and key finds where its own extension's pages describe it", function()
   local bin = (os.getenv("PAW_TEST_BIN") or "target/release") .. "/paw"
-  local p = io.popen("'" .. bin .. "' --clean --no-plugins --no-listen --audio null -l tests/tools/help_walk.lua 2>/dev/null")
+  local p =
+    io.popen("'" .. bin .. "' --clean --no-plugins --no-listen --audio null -l tests/tools/help_walk.lua 2>/dev/null")
   local out = p:read("*a")
   p:close()
   local walked = tonumber(out:match("WALKED (%d+)"))

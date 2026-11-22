@@ -49,8 +49,12 @@ function M.formats(id)
   local out, seen = {}, {}
   for _, s in ipairs(plugstate.slots(id)) do
     if s.kind == "file" then
-      if takes(s, "nam") and not seen.nam then out[#out + 1], seen.nam = "nam", true end
-      if takes(s, "wav") and not seen.ir then out[#out + 1], seen.ir = "ir", true end
+      if takes(s, "nam") and not seen.nam then
+        out[#out + 1], seen.nam = "nam", true
+      end
+      if takes(s, "wav") and not seen.ir then
+        out[#out + 1], seen.ir = "ir", true
+      end
     end
   end
   return out
@@ -85,16 +89,28 @@ local LOADS = { nam = true, ir = true }
 --- and number of models.
 function M.tone_line(tone)
   local fmt = tostring(tone.format or "")
-  return string.format("%-38s %-18s %-8s %-6s %-14s %3s models%s", cut(tone.title, 38), cut(author(tone), 18),
-    cut(tone.gear, 8), fmt, cut(names(tone.sizes), 14), tostring(tone.models_count or "?"),
-    LOADS[fmt] and "" or "  (paw cannot load " .. fmt .. ")")
+  return string.format(
+    "%-38s %-18s %-8s %-6s %-14s %3s models%s",
+    cut(tone.title, 38),
+    cut(author(tone), 18),
+    cut(tone.gear, 8),
+    fmt,
+    cut(names(tone.sizes), 14),
+    tostring(tone.models_count or "?"),
+    LOADS[fmt] and "" or "  (paw cannot load " .. fmt .. ")"
+  )
 end
 
 local function tone_preview(tone)
   local lines = { { text = tostring(tone.title), style = "Title" }, "by " .. author(tone) }
-  lines[#lines + 1] = string.format("%s · %s · %s", tostring(tone.gear or "?"), tostring(tone.format or "?"), names(tone.sizes))
-  lines[#lines + 1] = string.format("%s models · %s downloads · %s favorites", tostring(tone.models_count or "?"),
-    tostring(tone.downloads_count or "?"), tostring(tone.favorites_count or "?"))
+  lines[#lines + 1] =
+    string.format("%s · %s · %s", tostring(tone.gear or "?"), tostring(tone.format or "?"), names(tone.sizes))
+  lines[#lines + 1] = string.format(
+    "%s models · %s downloads · %s favorites",
+    tostring(tone.models_count or "?"),
+    tostring(tone.downloads_count or "?"),
+    tostring(tone.favorites_count or "?")
+  )
   if tone.license then lines[#lines + 1] = "license: " .. tostring(tone.license) end
   local makes, tags = names(tone.makes), names(tone.tags)
   if makes ~= "" then lines[#lines + 1] = "makes: " .. makes end
@@ -102,7 +118,9 @@ local function tone_preview(tone)
   if tone.url then lines[#lines + 1] = tostring(tone.url) end
   if type(tone.description) == "string" and tone.description ~= "" then
     lines[#lines + 1] = ""
-    for para in tone.description:gmatch("[^\n]+") do lines[#lines + 1] = para end
+    for para in tone.description:gmatch("[^\n]+") do
+      lines[#lines + 1] = para
+    end
   end
   lines[#lines + 1] = ""
   lines[#lines + 1] = { text = "Powered by TONE3000 · https://www.tone3000.com", style = "Dim" }
@@ -118,8 +136,13 @@ local function remember(id, slot_key, tone, model)
   local data = type(meta.plugstate) == "table" and meta.plugstate or {}
   data.tone3000 = type(data.tone3000) == "table" and data.tone3000 or {}
   data.tone3000[slot_key] = {
-    tone_id = tone.id, tone = tone.title, model_id = model.id, model = model.name, author = author(tone),
-    license = tone.license, url = tone.url,
+    tone_id = tone.id,
+    tone = tone.title,
+    model_id = model.id,
+    model = model.name,
+    author = author(tone),
+    license = tone.license,
+    url = tone.url,
   }
   meta.plugstate = data
   api.device_set(id, "meta", meta)
@@ -142,9 +165,18 @@ function M.load_model(job, tone, model)
     local ok, why = plugstate.set(id, slot.key, path)
     if not ok then return say(device_name(id) .. ": " .. tostring(why), "error") end
     remember(id, slot.key, tone, model)
-    paw.notify(string.format("%s: %s %s from TONE3000 (%s by %s%s)%s", device_name(id), slot.what or "file",
-      tostring(model.name), tostring(tone.title), author(tone), tone.license and (", " .. tone.license) or "",
-      cached and ", from the cache" or ""))
+    paw.notify(
+      string.format(
+        "%s: %s %s from TONE3000 (%s by %s%s)%s",
+        device_name(id),
+        slot.what or "file",
+        tostring(model.name),
+        tostring(tone.title),
+        author(tone),
+        tone.license and (", " .. tone.license) or "",
+        cached and ", from the cache" or ""
+      )
+    )
     if M.on_loaded then M.on_loaded(id, slot.key, path) end
   end)
 end
@@ -163,15 +195,23 @@ function M.pick_model(job, tone)
       title = "TONE3000 · " .. tostring(tone.title) .. " · " .. #models .. " models",
       items = models,
       format = function(m)
-        return string.format("%-44s %-10s %s", cut(m.name, 44), tostring(m.size or ""),
-          m.architecture_version and ("A" .. tostring(m.architecture_version)) or "")
+        return string.format(
+          "%-44s %-10s %s",
+          cut(m.name, 44),
+          tostring(m.size or ""),
+          m.architecture_version and ("A" .. tostring(m.architecture_version)) or ""
+        )
       end,
       primary = function(m) return tostring(m.name) end,
       on_choose = function(m) M.load_model(job, tone, m) end,
       preview = function(m)
-        return { { text = tostring(m.name), style = "Title" }, tostring(tone.title) .. " by " .. author(tone),
-          "size: " .. tostring(m.size or "?"), "license: " .. tostring(tone.license or "?"),
-          { text = "Powered by TONE3000", style = "Dim" } }
+        return {
+          { text = tostring(m.name), style = "Title" },
+          tostring(tone.title) .. " by " .. author(tone),
+          "size: " .. tostring(m.size or "?"),
+          "license: " .. tostring(tone.license or "?"),
+          { text = "Powered by TONE3000", style = "Dim" },
+        }
       end,
     })
   end)
@@ -179,13 +219,22 @@ end
 
 local function pick_tones(job)
   local items = {}
-  for _, t in ipairs(job.tones) do items[#items + 1] = t end
+  for _, t in ipairs(job.tones) do
+    items[#items + 1] = t
+  end
   if job.page < job.pages then items[#items + 1] = { more = 1 } end
   if job.page > 1 then items[#items + 1] = { more = -1 } end
-  local function page(n) return function() M.page(job, job.page + n) end end
+  local function page(n)
+    return function() M.page(job, job.page + n) end
+  end
   paw.pick({
-    title = string.format("TONE3000 · %s · page %d of %d · %d tones", job.words ~= "" and ("“" .. job.words .. "”") or "trending",
-      job.page, job.pages, job.total),
+    title = string.format(
+      "TONE3000 · %s · page %d of %d · %d tones",
+      job.words ~= "" and ("“" .. job.words .. "”") or "trending",
+      job.page,
+      job.pages,
+      job.total
+    ),
     items = items,
     format = function(t)
       if t.more then
@@ -198,7 +247,9 @@ local function pick_tones(job)
     empty = "TONE3000 finds no tones" .. (job.words ~= "" and (" with “" .. job.words .. "”") or ""),
     on_choose = function(t)
       if t.more then return M.page(job, job.page + t.more) end
-      if not LOADS[tostring(t.format)] then return say("paw cannot load a tone of the format " .. tostring(t.format), "warn") end
+      if not LOADS[tostring(t.format)] then
+        return say("paw cannot load a tone of the format " .. tostring(t.format), "warn")
+      end
       M.pick_model(job, t)
     end,
     actions = {
@@ -216,7 +267,9 @@ end
 function M.page(job, n)
   if n < 1 or (job.pages and n > job.pages) then return say("no page " .. n, "warn") end
   local params = {}
-  for k, v in pairs(job.params) do params[k] = v end
+  for k, v in pairs(job.params) do
+    params[k] = v
+  end
   params.page, params.page_size = n, M.PAGE_SIZE
   say(string.format("searching%s (page %d) …", job.words ~= "" and (" “" .. job.words .. "”") or "", n))
   return client.search(params, function(result)
@@ -243,7 +296,9 @@ function M.search(id, opts)
   if format == "model" then format = "nam" end
   if format and format ~= "" then
     local ok = false
-    for _, f in ipairs(formats) do ok = ok or f == format end
+    for _, f in ipairs(formats) do
+      ok = ok or f == format
+    end
     if not ok then return say(device_name(id) .. " does not load " .. format .. " files", "warn") end
   elseif #formats == 1 then
     format = formats[1]
@@ -253,9 +308,15 @@ function M.search(id, opts)
   -- own browser asks for; the API leaves them out unless asked.
   local architecture = opts.architecture or (a and a.name == "tone3000" and 2 or nil)
   local job = {
-    device = id, slot = opts.slot, words = opts.words or "",
+    device = id,
+    slot = opts.slot,
+    words = opts.words or "",
     params = {
-      query = opts.words, gears = opts.gear, format = format, creators = opts.by, sort = opts.sort,
+      query = opts.words,
+      gears = opts.gear,
+      format = format,
+      creators = opts.by,
+      sort = opts.sort,
       architecture = architecture,
     },
   }
@@ -273,10 +334,17 @@ paw.command("plugstate.search", function(ctx)
   local id, why = plugstate.target()
   if not id then return paw.notify(why, "warn") end
   local words = {}
-  for _, w in ipairs(ctx.args) do words[#words + 1] = tostring(w) end
+  for _, w in ipairs(ctx.args) do
+    words[#words + 1] = tostring(w)
+  end
   M.search(id, {
-    words = table.concat(words, " "), gear = arg(ctx, "gear"), format = arg(ctx, "type"), by = arg(ctx, "by"),
-    sort = arg(ctx, "sort"), slot = arg(ctx, "slot"), architecture = arg(ctx, "arch"),
+    words = table.concat(words, " "),
+    gear = arg(ctx, "gear"),
+    format = arg(ctx, "type"),
+    by = arg(ctx, "by"),
+    sort = arg(ctx, "sort"),
+    slot = arg(ctx, "slot"),
+    architecture = arg(ctx, "arch"),
   })
 end, {
   desc = "Search TONE3000's library for a model or an impulse response for the plugin: `plugstate.search plexi`; "
@@ -291,30 +359,43 @@ end, { desc = "The next page of the last TONE3000 search (a count skips more)" }
 
 paw.command("plugstate.search_prompt", function()
   if not plugstate.target() then return paw.notify(select(2, plugstate.target()), "warn") end
-  paw.ui.input({ prompt = "TONE3000 search: " }, function(text)
-    paw.commands.exec("plugstate.search " .. text)
-  end)
+  paw.ui.input({ prompt = "TONE3000 search: " }, function(text) paw.commands.exec("plugstate.search " .. text) end)
 end, { desc = "Ask for words, then search TONE3000's library for the plugin" })
 
-paw.keymap.set("<localleader>t", "plugstate.search_prompt", { view = "devices", desc = "Search TONE3000's library for a model or an impulse response" })
+paw.keymap.set(
+  "<localleader>t",
+  "plugstate.search_prompt",
+  { view = "devices", desc = "Search TONE3000's library for a model or an impulse response" }
+)
 
 paw.health.register("plugstate.tone3000", function(h)
-  if paw.health.executable("curl") then h.ok("curl: " .. paw.health.executable("curl"))
-  else h.error("no curl on the PATH", "paw asks TONE3000 through curl") end
+  if paw.health.executable("curl") then
+    h.ok("curl: " .. paw.health.executable("curl"))
+  else
+    h.error("no curl on the PATH", "paw asks TONE3000 through curl")
+  end
   local sources = {}
   if (os.getenv("TONE3000_TOKEN") or "") ~= "" then sources[#sources + 1] = "TONE3000_TOKEN" end
   local file = paw.opt.plugstate_tone3000_token_file or ""
   if file ~= "" then sources[#sources + 1] = "the token file " .. file end
-  if paw.health.executable(client.secret_tool) then sources[#sources + 1] = "the keyring (secret-tool), if it has an entry" end
+  if paw.health.executable(client.secret_tool) then
+    sources[#sources + 1] = "the keyring (secret-tool), if it has an entry"
+  end
   local auth = client.auth
   if auth then
     sources[#sources + 1] = "the sign-in of :plugstate.tone3000_login, if there is one"
-    if auth.client_id() then h.ok("client_id for the sign-in: " .. auth.client_id())
-    else h.info("no client_id: set paw.opt.plugstate_tone3000_client_id to sign in with :plugstate.tone3000_login") end
+    if auth.client_id() then
+      h.ok("client_id for the sign-in: " .. auth.client_id())
+    else
+      h.info("no client_id: set paw.opt.plugstate_tone3000_client_id to sign in with :plugstate.tone3000_login")
+    end
   end
   if paw.opt.plugstate_tone3000_plugin_session then sources[#sources + 1] = "the session of the TONE3000 plugin" end
-  if #sources > 0 then h.ok("a token from (the first that has one): " .. table.concat(sources, ", "))
-  else h.info("no token: the search works only where TONE3000 lets it without one; a download needs one") end
+  if #sources > 0 then
+    h.ok("a token from (the first that has one): " .. table.concat(sources, ", "))
+  else
+    h.info("no token: the search works only where TONE3000 lets it without one; a download needs one")
+  end
   h.info("downloads in " .. client.cache_dir())
 end, { desc = "TONE3000's library: curl, where the token comes from, the cache" })
 

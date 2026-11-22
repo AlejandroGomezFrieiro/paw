@@ -55,13 +55,23 @@ local function render(win, canvas, ctx)
   local name = type(buf and buf.target) == "number" and "Location list" or "Quickfix list"
   local body = paw.ui.titlebar(canvas, {
     name = name .. (list and list.title ~= "" and (" · " .. list.title) or ""),
-    context = list and string.format("%d entr%s%s", n.total, n.total == 1 and "y" or "ies", #counts > 0 and ("  " .. table.concat(counts, " ")) or "") or "",
+    context = list and string.format(
+      "%d entr%s%s",
+      n.total,
+      n.total == 1 and "y" or "ies",
+      #counts > 0 and ("  " .. table.concat(counts, " ")) or ""
+    ) or "",
     right = #stack.lists > 1 and string.format("list %d of %d", stack.at, #stack.lists) or nil,
     focused = ctx.focused,
   })
   local w, h = body.width, body.height
   if #entries == 0 then
-    body:text(2, 0, list and "No entries." or "No lists yet: problems come here, and `:cdiag` puts the diagnostics here.", "Empty")
+    body:text(
+      2,
+      0,
+      list and "No entries." or "No lists yet: problems come here, and `:cdiag` puts the diagnostics here.",
+      "Empty"
+    )
     return
   end
   if s.row <= s.top then s.top = s.row - 1 end
@@ -84,12 +94,21 @@ local function render(win, canvas, ctx)
     if i == list.idx then body:text(0, y, g.cursor, here and ctx.focused and "SelectedMark" or "Accent") end
     if e.severity then body:text(2, y, LETTER[e.severity], STYLE[e.severity]) end
     local x = 4
-    body:text(x, y, util.fit(qf.where(e), where_w), e.fixed and "Dim" or (here and ctx.focused and "Selected" or "Bright"))
+    body:text(
+      x,
+      y,
+      util.fit(qf.where(e), where_w),
+      e.fixed and "Dim" or (here and ctx.focused and "Selected" or "Bright")
+    )
     x = x + where_w + 1
     local room = w - x - source_w - 1
-    local text = e.text .. (e.fix and not e.fixed and ("  " .. g.out .. " " .. qf.fix_title(e)) or "") .. (e.fixed and "  (fixed)" or "")
+    local text = e.text
+      .. (e.fix and not e.fixed and ("  " .. g.out .. " " .. qf.fix_title(e)) or "")
+      .. (e.fixed and "  (fixed)" or "")
     if room > 0 then body:text(x, y, util.fit(text, room), e.fixed and "Dim" or base) end
-    if source_w > 0 and e.source then body:text(w - source_w + 1, y, util.fit("[" .. e.source .. "]", source_w - 1), "Dim") end
+    if source_w > 0 and e.source then
+      body:text(w - source_w + 1, y, util.fit("[" .. e.source .. "]", source_w - 1), "Dim")
+    end
   end
 end
 
@@ -102,7 +121,8 @@ layout.buftype("qflist", {
   bufname = function(target) return type(target) == "number" and ("loclist " .. target) or "quickfix" end,
   title = function(buf)
     local list = qf.current(type(buf.target) == "number" and qf.loc_stack(buf.target, true) or qf.stack())
-    return (type(buf.target) == "number" and "Location list" or "Quickfix list") .. (list and list.title ~= "" and (" · " .. list.title) or "")
+    return (type(buf.target) == "number" and "Location list" or "Quickfix list")
+      .. (list and list.title ~= "" and (" · " .. list.title) or "")
   end,
   create = function() return {} end,
   render = render,
@@ -168,7 +188,10 @@ qmap("<Down>", function(ctx) move(ctx.count or 1) end, "The next entry", motion)
 qmap("<Up>", function(ctx) move(-(ctx.count or 1)) end, "The entry above", motion)
 qmap("<C-d>", function() move(10) end, "Ten entries down")
 qmap("<C-u>", function() move(-10) end, "Ten entries up")
-qmap("gg", function(ctx) move(-math.huge) if ctx.count then move(ctx.count - 1) end end, "The first entry", motion)
+qmap("gg", function(ctx)
+  move(-math.huge)
+  if ctx.count then move(ctx.count - 1) end
+end, "The first entry", motion)
 qmap("G", function() move(math.huge) end, "The last entry", motion)
 qmap("<CR>", function() M.choose() end, "Go to the entry: the view that shows it gets the keyboard")
 qmap("<leader>la", fix_here, "Make the entry's fix, as one undo step")
@@ -179,11 +202,18 @@ qmap("q", function()
 end, "Close the window")
 
 paw.ui.keybar.set("qflist", "n", {
-  { "j", "next" }, { "k", "previous" }, { "<CR>", "jump" }, { "<leader>la", "fix" }, { "q", "close" }, { "?", "keys" },
+  { "j", "next" },
+  { "k", "previous" },
+  { "<CR>", "jump" },
+  { "<leader>la", "fix" },
+  { "q", "close" },
+  { "?", "keys" },
 })
 
-paw.command("qf.window", function()
-  paw.canvas.open_view("qflist", { title = "Quickfix list", width = 760, height = 300 })
-end, { desc = "Show the quickfix list in a window of its own, in the graphical frontend" })
+paw.command(
+  "qf.window",
+  function() paw.canvas.open_view("qflist", { title = "Quickfix list", width = 760, height = 300 }) end,
+  { desc = "Show the quickfix list in a window of its own, in the graphical frontend" }
+)
 
 return M

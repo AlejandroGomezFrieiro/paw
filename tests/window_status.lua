@@ -11,7 +11,9 @@ local function modal() return paw.frontend.state(-1).modal end
 local function calm()
   fresh()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.message = nil
   paw.ui.focus("arrange")
 end
@@ -20,7 +22,11 @@ test("the window is told the keys of the focused view when there is no message",
   calm()
   local keys = modal().keys
   eq(keys ~= nil and #keys > 3, true, "keys are listed")
-  eq(keys[1].key .. " " .. keys[1].desc, paw.ui.keybar.entries()[1][1] .. " " .. paw.ui.keybar.entries()[1][2], "the first as the terminal shows it")
+  eq(
+    keys[1].key .. " " .. keys[1].desc,
+    paw.ui.keybar.entries()[1][1] .. " " .. paw.ui.keybar.entries()[1][2],
+    "the first as the terminal shows it"
+  )
   paw.ui.focus("mixer")
   local mixer = modal().keys
   eq(mixer[1].desc, paw.ui.keybar.entries()[1][2], "the mixer's own")
@@ -52,7 +58,9 @@ test("a long list of candidates is told ten at a time with the one chosen among 
   calm()
   paw.keymap.feed(":")
   paw.keymap.feed("<Tab>")
-  for _ = 1, 14 do paw.keymap.feed("<Tab>") end
+  for _ = 1, 14 do
+    paw.keymap.feed("<Tab>")
+  end
   local list = modal().prompt.matches
   eq(#list.items, 10, "ten shown")
   eq(list.total > 10, true, "of more")
@@ -98,7 +106,11 @@ test("an Ex line being typed tells the window its range, tracks and the question
   paw.keymap.feed("<Esc><Esc>")
   paw.ui.focus("arrange")
   local t = paw.add_track({ name = "Drums" })
-  t:add_clip({ start = 0, length = 8, notes = { { pitch = 60, start = 0, length = 1 }, { pitch = 62, start = 1, length = 1 } } })
+  t:add_clip({
+    start = 0,
+    length = 8,
+    notes = { { pitch = 60, start = 0, length = 1 }, { pitch = 62, start = 1, length = 1 } },
+  })
   paw.flush()
   paw.keymap.feed(":t/Drums/ 1,2")
   local state = modal()

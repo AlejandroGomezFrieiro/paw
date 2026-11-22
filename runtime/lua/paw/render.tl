@@ -69,8 +69,7 @@ local record Before
 end
 
 --- An entry of `M.options`: the key with its `=`, the values to complete, and what it is.
-local record Option
-  {string | {string}}
+local record Option is {string | {string}}
 end
 
 --- A value that a copy passes on and never reads.
@@ -95,7 +94,7 @@ local record Paw is partial.Paw
   groups: GroupsModule
   tracks: function(): {objects.Track}
 end
-local paw = (_G as {string:Paw}).paw
+local paw = (_G as {string: Paw}).paw
 
 local record M
   type Range = Range
@@ -127,26 +126,32 @@ M.ranges = {
   song = function(): number, number | string return 0, nil end,
   loop = function(): number, number | string
     local t = api.transport_get()
-    if not (t.loop_end > t.loop_start) then return nil, "there is no loop" end
+    if not (t.loop_end > t.loop_start) then
+      return nil, "there is no loop"
+    end
     return t.loop_start, t.loop_end
   end,
   selection = function(): number, number | string
     local sel = paw.keymap.selection()
-    if not (sel and sel.c0 and sel.c1 and sel.c1 > sel.c0) then return nil, "nothing is selected: select a stretch of time first" end
+    if not (sel and sel.c0 and sel.c1 and sel.c1 > sel.c0) then
+      return nil, "nothing is selected: select a stretch of time first"
+    end
     return sel.c0, sel.c1
   end,
 }
 
 --- A shallow copy of a record.
 local function copy<T>(t: T): T
-  local out: {string:Value} = {}
-  for k, v in pairs(t as {string:Value}) do out[k] = v end
+  local out: {string: Value} = {}
+  for k, v in pairs(t as {string: Value}) do
+    out[k] = v
+  end
   return out as T
 end
 
 --- A shallow copy of a record with the fields of `extra` laid over it.
 local function over<T>(base: T, extra: T): T
-  return util.merge(base as {string:Value}, extra as {string:Value}) as T
+  return util.merge(base as {string: Value}, extra as {string: Value}) as T
 end
 
 --- The options as the kernel takes them: `range` turned into `start` and
@@ -155,25 +160,42 @@ local function kernel_opts(opts: Options): types.RenderOptions
   local out = copy(opts or {})
   local range = out.range
   out.range, out.background, out.format = nil, nil, nil
-  if out.channels == "mono" then out.channels = 1 elseif out.channels == "stereo" then out.channels = 2 end
-  if out.rate then out.sample_rate, out.rate = out.rate, nil end
+  if out.channels == "mono" then
+    out.channels = 1
+  elseif out.channels == "stereo" then
+    out.channels = 2
+  end
+  if out.rate then
+    out.sample_rate, out.rate = out.rate, nil
+  end
   local rate = out.sample_rate
   if rate ~= nil and not (type(rate) == "number" and rate % 1 == 0 and rate >= 8000 and rate <= 384000) then
     error("a sample rate is a whole number of Hz from 8000 to 384000, not " .. tostring(rate), 0)
   end
   out.ffmpeg = out.ffmpeg or options.opt.ffmpeg
   out.bitrate = tonumber(out.bitrate) as integer
-  if out.tags and next(out.tags as {string:string}) == nil then out.tags = nil end
+  if out.tags and next(out.tags as {string: string}) == nil then
+    out.tags = nil
+  end
   if range and range ~= "song" then
     local resolve = M.ranges[range]
     if not resolve then
       local names: {string} = {}
-      for name in pairs(M.ranges) do names[#names + 1] = name end
+      for name in pairs(M.ranges) do
+        names[#names + 1] = name
+      end
       table.sort(names)
-      error(string.format("no range `%s`: use %s, or start= and end= in beats", tostring(range), table.concat(names, ", ")), 0)
+      error(
+        string.format(
+          "no range `%s`: use %s, or start= and end= in beats", tostring(range), table.concat(names, ", ")
+        ),
+        0
+      )
     end
     local start, finish = resolve()
-    if not start then error(finish as string, 0) end
+    if not start then
+      error(finish as string, 0)
+    end
     out.start, out["end"] = start, finish as number
   end
   return out as types.RenderOptions
@@ -181,7 +203,9 @@ end
 
 local function check(path: string)
   local why = api.render_check(path, options.opt.ffmpeg)
-  if why then error(why, 0) end
+  if why then
+    error(why, 0)
+  end
 end
 
 --- A render waiting for the one running.
@@ -194,7 +218,7 @@ end
 local queue: {Queued} = {}
 
 local function start(path: string, opts: types.RenderOptions)
-  events.emit(M.before, { path = path, opts = opts })
+  events.emit(M.before, {path = path, opts = opts})
   api.render_start(path, opts)
   paw.ui.poke()
 end
@@ -239,21 +263,25 @@ function M.render(path: string, opts?: Options): types.RenderResult
   check(path)
   -- The renders folder is made when the first render goes into it.
   local dir = M.renders_dir()
-  if dir and path:match("^(.*)/[^/]+$") == dir then pcall(api.fs_mkdir, dir) end
+  if dir and path:match("^(.*)/[^/]+$") == dir then
+    pcall(api.fs_mkdir, dir)
+  end
   local background = opts and opts.background
   local kopts = kernel_opts(opts)
   if background then
     if api.render_status() then
-      queue[#queue + 1] = { path = path, opts = kopts }
+      queue[#queue + 1] = {path = path, opts = kopts}
     else
       start(path, kopts)
     end
     return nil
   end
-  events.emit(M.before, { path = path, opts = kopts })
+  events.emit(M.before, {path = path, opts = kopts})
   local info = api.render(path, kopts)
   -- What the render had to leave out (a plugin that stopped answering).
-  for _, why in ipairs(info.left_out or {}) do paw.notify(why, "warn") end
+  for _, why in ipairs(info.left_out or {}) do
+    paw.notify(why, "warn")
+  end
   -- As `render.done` says of a render in the background.
   local finished = copy(info)
   finished.path = info.path or path
@@ -261,7 +289,7 @@ function M.render(path: string, opts?: Options): types.RenderResult
   return info
 end
 
-M.tag_names = { "title", "artist", "album", "track", "year", "genre", "comment", "cover" }
+M.tag_names = {"title", "artist", "album", "track", "year", "genre", "comment", "cover"}
 
 --- What the project's rendered files are tagged with (`project.meta.tags`):
 --- `paw.render_tags()` gives `{ title, artist, album, track, year, genre, comment, cover }`
@@ -269,8 +297,8 @@ M.tag_names = { "title", "artist", "album", "track", "year", "genre", "comment",
 --- an empty string takes one out. A relative `cover` is from the project's directory.
 function M.tags(set?: types.RenderTags): types.RenderTags
   local meta = api.project_get().meta
-  local tags = (meta.tags or {}) as {string:string}
-  local given = set as {string:string | number}
+  local tags = (meta.tags or {}) as {string: string}
+  local given = set as {string: string | number}
   local changed = false
   for _, key in ipairs(M.tag_names) do
     local value = given and given[key]
@@ -283,7 +311,7 @@ function M.tags(set?: types.RenderTags): types.RenderTags
   -- The project is only touched when a tag is different.
   if changed then
     meta.tags = next(tags) ~= nil and tags or nil
-    api.project_set({ meta = meta })
+    api.project_set({meta = meta})
   end
   return tags as types.RenderTags
 end
@@ -294,7 +322,9 @@ end
 --- far the encoding is.
 function M.status(): Status
   local s = api.render_status() as Status
-  if s then s.queued = #queue end
+  if s then
+    s.queued = #queue
+  end
   return s
 end
 
@@ -319,12 +349,14 @@ function M.stems(dir: string, opts?: Options): {string}
   check(dir .. "/stem." .. ext)
   pcall(api.fs_mkdir, dir)
   local out: {string} = {}
-  local used: {string:integer} = {}
+  local used: {string: integer} = {}
   local tracks = opts.tracks
   if not tracks then
     tracks = {}
     for _, track in ipairs(paw.tracks()) do
-      if not track.mute and #track:clips() > 0 then tracks[#tracks + 1] = track.id end
+      if not track.mute and #track:clips() > 0 then
+        tracks[#tracks + 1] = track.id
+      end
     end
   end
   for _, given in ipairs(tracks) do
@@ -333,12 +365,14 @@ function M.stems(dir: string, opts?: Options): {string}
     local name = api.track_get(id).name:gsub("[^%w%-_ ]", "_")
     -- Two tracks of one name get a number each.
     used[name] = (used[name] or 0) + 1
-    if used[name] > 1 then name = name .. " " .. used[name] end
+    if used[name] > 1 then
+      name = name .. " " .. used[name]
+    end
     local path = string.format("%s/%s.%s", dir, name, ext)
     -- A lossy stem is titled after its track, unless the options say otherwise.
     local lossy = ext ~= "wav" and ext ~= "flac"
-    local tags = over(lossy and { title = name } or {}, opts.tags or {})
-    M.render(path, over(opts, { tracks = { id }, format = false, tags = tags }))
+    local tags = over(lossy and {title = name} or {}, opts.tags or {})
+    M.render(path, over(opts, {tracks = {id}, format = false, tags = tags}))
     out[#out + 1] = path
   end
   return out
@@ -355,63 +389,85 @@ local function next_in_queue()
   end
 end
 
-local function name_of(path: string): string return tostring(path):match("([^/]+)$") or tostring(path) end
+local function name_of(path: string): string
+  return tostring(path):match("([^/]+)$") or tostring(path)
+end
 
 --- Say what a render came to. The peak has its sign (`+6.2 dB` is over
 --- full scale) and a peak over it is a warning, as it clips.
 local function notify_rendered(path: string, info: types.RenderResult, more: string)
   local peak = 20 * math.log10(math.max(info.peak, 1e-6))
-  paw.notify(string.format("rendered %s: %.1f s, peak %+.1f dB%s%s", name_of(path), info.seconds, peak, more,
-    peak > 0 and " (clips)" or ""), peak > 0 and "warn" or "info")
+  paw.notify(
+    string.format(
+      "rendered %s: %.1f s, peak %+.1f dB%s%s", name_of(path), info.seconds, peak, more, peak > 0 and " (clips)" or ""
+    ),
+    peak > 0 and "warn" or "info"
+  )
 end
 
 events.on(kernel.render_progress, function() api.ui_redraw() end)
-events.on(kernel.render_done, function(info: types.RenderResult)
-  notify_rendered(info.path, info, info.loudness and string.format(", %.1f LUFS", info.loudness) or "")
-  for _, why in ipairs(info.left_out or {}) do paw.notify(why, "warn") end
-  next_in_queue()
-end)
-events.on(kernel.render_failed, function(e: kernel.RenderEnd)
-  paw.notify("render of " .. name_of(e.path) .. " failed: " .. tostring(e.error), "error")
-  next_in_queue()
-end)
-events.on(kernel.render_cancelled, function(e: kernel.RenderEnd)
-  queue = {}
-  paw.notify("render of " .. name_of(e.path) .. " cancelled; no file written")
-end)
+events.on(
+  kernel.render_done,
+  function(info: types.RenderResult)
+    notify_rendered(info.path, info, info.loudness and string.format(", %.1f LUFS", info.loudness) or "")
+    for _, why in ipairs(info.left_out or {}) do
+      paw.notify(why, "warn")
+    end
+    next_in_queue()
+  end
+)
+events.on(
+  kernel.render_failed,
+  function(e: kernel.RenderEnd)
+    paw.notify("render of " .. name_of(e.path) .. " failed: " .. tostring(e.error), "error")
+    next_in_queue()
+  end
+)
+events.on(
+  kernel.render_cancelled,
+  function(e: kernel.RenderEnd)
+    queue = {}
+    paw.notify("render of " .. name_of(e.path) .. " cancelled; no file written")
+  end
+)
 -- `Esc` in normal mode, with nothing else to cancel, stops a render.
 local escape: events.Event<events.Payload> = events.event("escape")
-events.on(escape, function()
-  if api.render_status() then M.cancel() end
-end)
+events.on(
+  escape,
+  function()
+    if api.render_status() then
+      M.cancel()
+    end
+  end
+)
 
 -- The command ------------------------------------------------------------------
 
 M.options = {
-  { "range=", { "song", "loop", "selection" }, "what to render" },
-  { "start=", nil, "beat to start at" },
-  { "end=", nil, "beat to end at" },
-  { "tail=", { "0", "1", "2", "4" }, "seconds after the end" },
-  { "rate=", { "44100", "48000", "96000" }, "sample rate" },
-  { "bits=", { "16", "24", "32" }, "sample size; 32 is float" },
-  { "quality=", { "low", "medium", "high", "best" }, "of an MP3, Ogg or Opus file" },
-  { "bitrate=", { "128", "192", "256", "320" }, "kbit/s of an MP3, Ogg or Opus file" },
-  { "channels=", { "stereo", "mono" }, "" },
-  { "dither=", { "true" }, "dither at 16 or 24 bits" },
-  { "normalize=", { "-1", "-0.3" }, "peak level in dB" },
-  { "loudness=", { "-14", "-16", "-23" }, "integrated loudness in LUFS" },
-  { "tracks=", { "selected", "all" }, "a stem of these tracks (ids, comma-separated)" },
-  { "stems=", { "true" }, "one file per track, into a directory" },
-  { "master=", { "false" }, "leave out the master's devices and fader" },
-  { "wait=", { "true" }, "render in the foreground" },
-  { "title=", nil, "tag; the project's name by default" },
-  { "artist=", nil, "tag" },
-  { "album=", nil, "tag" },
-  { "track=", nil, "tag: a number, or 3/12" },
-  { "year=", nil, "tag" },
-  { "genre=", nil, "tag" },
-  { "comment=", nil, "tag" },
-  { "cover=", nil, "tag: a PNG or JPEG file" },
+  {"range=", {"song", "loop", "selection"}, "what to render"},
+  {"start=", nil, "beat to start at"},
+  {"end=", nil, "beat to end at"},
+  {"tail=", {"0", "1", "2", "4"}, "seconds after the end"},
+  {"rate=", {"44100", "48000", "96000"}, "sample rate"},
+  {"bits=", {"16", "24", "32"}, "sample size; 32 is float"},
+  {"quality=", {"low", "medium", "high", "best"}, "of an MP3, Ogg or Opus file"},
+  {"bitrate=", {"128", "192", "256", "320"}, "kbit/s of an MP3, Ogg or Opus file"},
+  {"channels=", {"stereo", "mono"}, ""},
+  {"dither=", {"true"}, "dither at 16 or 24 bits"},
+  {"normalize=", {"-1", "-0.3"}, "peak level in dB"},
+  {"loudness=", {"-14", "-16", "-23"}, "integrated loudness in LUFS"},
+  {"tracks=", {"selected", "all"}, "a stem of these tracks (ids, comma-separated)"},
+  {"stems=", {"true"}, "one file per track, into a directory"},
+  {"master=", {"false"}, "leave out the master's devices and fader"},
+  {"wait=", {"true"}, "render in the foreground"},
+  {"title=", nil, "tag; the project's name by default"},
+  {"artist=", nil, "tag"},
+  {"album=", nil, "tag"},
+  {"track=", nil, "tag: a number, or 3/12"},
+  {"year=", nil, "tag"},
+  {"genre=", nil, "tag"},
+  {"comment=", nil, "tag"},
+  {"cover=", nil, "tag: a PNG or JPEG file"},
 }
 
 --- The folder that renders go to when no place is named: `renders/` in
@@ -420,9 +476,13 @@ M.options = {
 function M.renders_dir(): string
   local p = api.project_get()
   local path = p.path and tostring(p.path)
-  if not path or path == "" then return nil end
+  if not path or path == "" then
+    return nil
+  end
   local dir = path:match("^(.*)/[^/]+$") or "."
-  if path:match("/project%.toml$") then return dir .. "/renders" end
+  if path:match("/project%.toml$") then
+    return dir .. "/renders"
+  end
   return dir
 end
 
@@ -435,114 +495,171 @@ function M.default_path(): string
 end
 
 local function track_list(spec: commands.Arg): {integer}
-  if spec == nil or spec == "all" then return nil end
+  if spec == nil or spec == "all" then
+    return nil
+  end
   if spec == "selected" then
     local id = paw.cursor.track_id()
-    if not id then error("no track is selected", 0) end
-    return { id }
+    if not id then
+      error("no track is selected", 0)
+    end
+    return {id}
   end
   local ids: {integer} = {}
   for n in tostring(spec):gmatch("[^,%s]+") do
     local id = tonumber(n) as integer
-    if not id then error("not a track id: " .. n, 0) end
+    if not id then
+      error("not a track id: " .. n, 0)
+    end
     ids[#ids + 1] = id
   end
   return ids
 end
 
-commands.define("render", function(ctx: commands.Context): commands.Result
-  local a = ctx.args
-  local opts: Options = {
-    range = a.range as string, start = tonumber(a.start), ["end"] = tonumber(a["end"]), tail = tonumber(a.tail),
-    rate = tonumber(a.rate) as integer, bits = tonumber(a.bits) as integer, quality = a.quality and tostring(a.quality) or nil,
-    bitrate = tonumber(a.bitrate) as integer, dither = a.dither == true or nil,
-    channels = a.channels == "mono" and 1 or a.channels == "stereo" and 2 or tonumber(a.channels) as integer,
-    normalize = tonumber(a.normalize), loudness = tonumber(a.loudness),
-    master = a.master ~= false and nil or false, tracks = track_list(a.tracks),
-    background = a.wait ~= true,
-  }
-  local tags: {string:string} = {}
-  for _, key in ipairs(M.tag_names) do
-    if a[key] ~= nil and a[key] ~= true then tags[key] = a[key] as string end
-  end
-  opts.tags = next(tags) ~= nil and tags as types.RenderTags or nil
-  if opts.start or opts["end"] then opts.range = nil end
-  -- `:render stems` and `:render Strings`: by group, the plan shown first.
-  local stems = (require as function(string): Stems)("paw.stems")
-  if a[1] == "stems" or stems.names_group(a[1]) then
-    opts.tracks = nil
-    return stems.command(ctx, opts)
-  end
-  if a.stems == true then
-    local dir = a[1] and (paw.files as Files).path(tostring(a[1])) or ((M.renders_dir() or ".") .. "/stems")
-    local made = M.stems(dir, over(opts, { format = a.format as string }))
-    return paw.notify(string.format("rendering %d stem%s into %s", #made, #made == 1 and "" or "s", dir))
-  end
-  -- A relative name goes beside the project, or to the folder `:cd` set.
-  local path = a[1] and (paw.files as Files).path(tostring(a[1])) or M.default_path()
-  local info = M.render(path, opts)
-  if info then
-    notify_rendered(path, info, "")
-  else
-    paw.notify("rendering " .. name_of(path) .. " · Esc cancels")
-  end
-end, {
-  desc = "Render to WAV or FLAC by the file's extension, or MP3, Ogg or Opus with ffmpeg installed: `render mix.flac "
-    .. "range=loop tail=2 bits=16 dither=true channels=mono rate=44100 normalize=-1 loudness=-14 tracks=selected master=false stems=true`; "
-    .. "`render stems [dir]` one file per group (`render stems tracks` per track), `render Strings` one group",
-  complete = function(rest: string): {string}
-    local before, last = rest:match("^(.-)(%S*)$")
-    local out: {string} = {}
-    local key = last:match("^(%w+)=")
-    if before == "" and not key then
-      out[1] = "stems"
-      for _, id in ipairs(api.track_list()) do
-        if paw.groups.is_group(id) then out[#out + 1] = api.track_get(id).name end
+commands.define(
+  "render",
+  function(ctx: commands.Context): commands.Result
+    local a = ctx.args
+    local opts: Options = {
+      range = a.range as string,
+      start = tonumber(a.start),
+      ["end"] = tonumber(a["end"]),
+      tail = tonumber(a.tail),
+      rate = tonumber(a.rate) as integer,
+      bits = tonumber(a.bits) as integer,
+      quality = a.quality and tostring(a.quality) or nil,
+      bitrate = tonumber(a.bitrate) as integer,
+      dither = a.dither == true or nil,
+      channels = a.channels == "mono" and 1 or a.channels == "stereo" and 2 or tonumber(a.channels) as integer,
+      normalize = tonumber(a.normalize),
+      loudness = tonumber(a.loudness),
+      master = a.master ~= false and nil or false,
+      tracks = track_list(a.tracks),
+      background = a.wait ~= true,
+    }
+    local tags: {string: string} = {}
+    for _, key in ipairs(M.tag_names) do
+      if a[key] ~= nil and a[key] ~= true then
+        tags[key] = a[key] as string
       end
     end
-    for _, o in ipairs(M.options) do
-      local name = o[1] as string
-      if key and name == key .. "=" then
-        for _, v in ipairs(o[2] as {string} or {}) do out[#out + 1] = before .. name .. v end
-      elseif not key then
-        out[#out + 1] = before .. name
-      end
+    opts.tags = next(tags) ~= nil and tags as types.RenderTags or nil
+    if opts.start or opts["end"] then
+      opts.range = nil
     end
-    return out
+    -- `:render stems` and `:render Strings`: by group, the plan shown first.
+    local stems = (require as function(string): Stems)("paw.stems")
+    if a[1] == "stems" or stems.names_group(a[1]) then
+      opts.tracks = nil
+      return stems.command(ctx, opts)
+    end
+    if a.stems == true then
+      local dir = a[1] and (paw.files as Files).path(tostring(a[1])) or ((M.renders_dir() or ".") .. "/stems")
+      local made = M.stems(dir, over(opts, {format = a.format as string}))
+      return paw.notify(string.format("rendering %d stem%s into %s", #made, #made == 1 and "" or "s", dir))
+    end
+    -- A relative name goes beside the project, or to the folder `:cd` set.
+    local path = a[1] and (paw.files as Files).path(tostring(a[1])) or M.default_path()
+    local info = M.render(path, opts)
+    if info then
+      notify_rendered(path, info, "")
+    else
+      paw.notify("rendering " .. name_of(path) .. " · Esc cancels")
+    end
   end,
-})
+  {
+    desc = "Render to WAV or FLAC by the file's extension, or MP3, Ogg or Opus with ffmpeg installed: `render mix.flac "
+      .. "range=loop tail=2 bits=16 dither=true channels=mono rate=44100 normalize=-1 loudness=-14 tracks=selected master=false stems=true`; "
+      .. "`render stems [dir]` one file per group (`render stems tracks` per track), `render Strings` one group",
+    complete = function(rest: string): {string}
+      local before, last = rest:match("^(.-)(%S*)$")
+      local out: {string} = {}
+      local key = last:match("^(%w+)=")
+      if before == "" and not key then
+        out[1] = "stems"
+        for _, id in ipairs(api.track_list()) do
+          if paw.groups.is_group(id) then
+            out[#out + 1] = api.track_get(id).name
+          end
+        end
+      end
+      for _, o in ipairs(M.options) do
+        local name = o[1] as string
+        if key and name == key .. "=" then
+          for _, v in ipairs(o[2] as {string} or {}) do
+            out[#out + 1] = before .. name .. v
+          end
+        elseif not key then
+          out[#out + 1] = before .. name
+        end
+      end
+      return out
+    end,
+  }
+)
 
-commands.define("render.tags", function(ctx: commands.Context): commands.Result
-  local set: {string:string} = {}
-  for _, key in ipairs(M.tag_names) do
-    if ctx.args[key] ~= nil and ctx.args[key] ~= true then set[key] = ctx.args[key] as string end
-  end
-  local tags = M.tags(next(set) ~= nil and set as types.RenderTags or nil) as {string:string}
-  local words: {string} = {}
-  for _, key in ipairs(M.tag_names) do
-    if tags[key] then words[#words + 1] = key .. "=" .. tostring(tags[key]) end
-  end
-  paw.notify(#words > 0 and ("rendered files are tagged " .. table.concat(words, ", "))
-    or "no tags: set some with `render.tags artist=Me album=First`")
-end, {
-  desc = "Show or set the tags of the project's rendered files: `render.tags artist=Me album=\"First one\" track=3 "
-    .. "year=2026 genre=Ambient comment=\"a note\" cover=cover.png`; an empty value takes one out",
-})
+commands.define(
+  "render.tags",
+  function(ctx: commands.Context): commands.Result
+    local set: {string: string} = {}
+    for _, key in ipairs(M.tag_names) do
+      if ctx.args[key] ~= nil and ctx.args[key] ~= true then
+        set[key] = ctx.args[key] as string
+      end
+    end
+    local tags = M.tags(next(set) ~= nil and set as types.RenderTags or nil) as {string: string}
+    local words: {string} = {}
+    for _, key in ipairs(M.tag_names) do
+      if tags[key] then
+        words[#words + 1] = key .. "=" .. tostring(tags[key])
+      end
+    end
+    paw.notify(
+      #words > 0 and ("rendered files are tagged " .. table.concat(words, ", "))
+        or "no tags: set some with `render.tags artist=Me album=First`"
+    )
+  end,
+  {
+    desc = "Show or set the tags of the project's rendered files: `render.tags artist=Me album=\"First one\" track=3 "
+      .. "year=2026 genre=Ambient comment=\"a note\" cover=cover.png`; an empty value takes one out",
+  }
+)
 
-commands.define("render.cancel", function(): commands.Result
-  if not M.cancel() then paw.notify("nothing is being rendered") end
-end, { desc = "Stop the render running in the background; it leaves no file" })
+commands.define(
+  "render.cancel",
+  function(): commands.Result
+    if not M.cancel() then
+      paw.notify("nothing is being rendered")
+    end
+  end,
+  {desc = "Stop the render running in the background; it leaves no file"}
+)
 
-commands.define("stems", function(ctx: commands.Context): commands.Result
-  local dir = ctx.args[1] and (paw.files as Files).path(tostring(ctx.args[1])) or ((M.renders_dir() or ".") .. "/stems")
-  local made = M.stems(dir, {
-    tail = tonumber(ctx.args.tail), bits = tonumber(ctx.args.bits) as integer, format = ctx.args.format as string,
-    quality = ctx.args.quality and tostring(ctx.args.quality) or nil, bitrate = tonumber(ctx.args.bitrate) as integer,
-    master = ctx.args.master ~= false and nil or false, background = ctx.args.wait ~= true,
-  })
-  paw.notify(string.format("rendering %d stem%s into %s", #made, #made == 1 and "" or "s", dir))
-end, { desc = "Render each track on its own into a directory: `stems out tail=2 bits=24 format=flac master=false`" })
+commands.define(
+  "stems",
+  function(ctx: commands.Context): commands.Result
+    local dir = ctx.args[1] and (paw.files as Files).path(tostring(ctx.args[1]))
+      or ((M.renders_dir() or ".") .. "/stems")
+    local made = M.stems(
+      dir,
+      {
+        tail = tonumber(ctx.args.tail),
+        bits = tonumber(ctx.args.bits) as integer,
+        format = ctx.args.format as string,
+        quality = ctx.args.quality and tostring(ctx.args.quality) or nil,
+        bitrate = tonumber(ctx.args.bitrate) as integer,
+        master = ctx.args.master ~= false and nil or false,
+        background = ctx.args.wait ~= true,
+      }
+    )
+    paw.notify(string.format("rendering %d stem%s into %s", #made, #made == 1 and "" or "s", dir))
+  end,
+  {desc = "Render each track on its own into a directory: `stems out tail=2 bits=24 format=flac master=false`"}
+)
 
-return setmetatable(M, {
-  __call = function(_: M, path: string, opts?: Options): types.RenderResult return M.render(path, opts) end,
-} as metatable<M>)
+return setmetatable(
+  M,
+  {
+    __call = function(_: M, path: string, opts?: Options): types.RenderResult return M.render(path, opts) end,
+  } as metatable<M>
+)

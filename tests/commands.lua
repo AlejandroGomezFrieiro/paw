@@ -134,7 +134,10 @@ test("the built-in commands do what their descriptions say", function()
   eq(#paw.tracks(), 3, "write and edit round-trip")
   run("render " .. scratch .. "/commands.wav tail=0 bits=16")
   -- It renders in the background.
-  for _ = 1, 500 do if not paw.render_status() then break end paw.wait(10) end
+  for _ = 1, 500 do
+    if not paw.render_status() then break end
+    paw.wait(10)
+  end
   eq(io.open(scratch .. "/commands.wav", "rb") ~= nil, true, "render wrote a file")
   eq(paw.cmd("lua", { "return 6 * 7" }), nil, "lua runs")
   fails(function() run("no.such") end, "no.such", "unknown command")
@@ -167,7 +170,11 @@ test("automation is edited at the cursor, drawn and reported", function()
   local state = paw.frontend.state(-1)
   local lanes = state.tracks[1].lanes
   eq(#lanes, 3, "the frontend state lists the lanes")
-  eq(lanes[1].target .. "/" .. tostring(lanes[1].enabled) .. "/" .. #lanes[1].points, "volume/true/2", "with their points")
+  eq(
+    lanes[1].target .. "/" .. tostring(lanes[1].enabled) .. "/" .. #lanes[1].points,
+    "volume/true/2",
+    "with their points"
+  )
 
   local copy = t:duplicate()
   eq(#copy:lanes(), 3, "a duplicated track keeps its automation")

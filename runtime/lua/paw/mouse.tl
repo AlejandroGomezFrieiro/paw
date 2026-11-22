@@ -84,7 +84,7 @@ local type Overlay = function(e: MouseEvent): boolean
 -- The parts of paw/ui.tl and paw/canvas.tl that this module calls: those
 -- modules name this one's types, so this one cannot name theirs.
 local record Ui
-  views: {string:View}
+  views: {string: View}
   rects: layout.Arrangement
   pressed: string
 end
@@ -95,7 +95,7 @@ local record Paw
   ui: Ui
   canvas: Canvas
 end
-local paw = (_G as {string:Paw}).paw
+local paw = (_G as {string: Paw}).paw
 
 local record M
   type Handlers = Handlers
@@ -117,13 +117,19 @@ M.overlays = {}
 -- Each seat has its own: the gesture under way, the last press, what the
 -- status line says about the pointer.
 local state: State = {}
-seats.keep("mouse", function(): State return state end, function(s: State) state = s end, function(): State return {} end)
+seats.keep(
+  "mouse", function(): State return state end, function(s: State) state = s end, function(): State return {} end
+)
 
 --- A copy of an event with other fields laid over it.
 local function merged(event: MouseEvent, extra: MouseEvent): MouseEvent
   local out: MouseEvent = {}
-  for k, v in pairs(event as {string:MouseEvent}) do (out as {string:MouseEvent})[k] = v end
-  for k, v in pairs(extra as {string:MouseEvent}) do (out as {string:MouseEvent})[k] = v end
+  for k, v in pairs(event as {string: MouseEvent}) do
+    (out as {string: MouseEvent})[k] = v
+  end
+  for k, v in pairs(extra as {string: MouseEvent}) do
+    (out as {string: MouseEvent})[k] = v
+  end
   return out
 end
 
@@ -132,13 +138,19 @@ end
 --- second press itself. For the pointer of a window, in fractions of a
 --- cell, the cell that contains it counts.
 local function mark_double(event: MouseEvent)
-  if event.kind ~= "down" then return end
+  if event.kind ~= "down" then
+    return
+  end
   local now, last = api.now(), state.last
   local x, y = math.floor(event.x), math.floor(event.y)
-  local double = last and not last.double and last.button == event.button and last.x == x
-    and last.y == y and now - last.time <= M.double_ms
+  local double = last
+    and not last.double
+    and last.button == event.button
+    and last.x == x
+    and last.y == y
+    and now - last.time <= M.double_ms
   event.double = double or nil
-  state.last = { button = event.button, x = x, y = y, time = now, double = double }
+  state.last = {button = event.button, x = x, y = y, time = now, double = double}
 end
 M.mark_double = mark_double
 
@@ -150,8 +162,12 @@ end
 --- How a click with modifiers chooses: "toggle" with Ctrl, "add" with
 --- Shift, else "only".
 function M.mode(event: MouseEvent): string
-  if M.has(event, "C") then return "toggle" end
-  if M.has(event, "S") then return "add" end
+  if M.has(event, "C") then
+    return "toggle"
+  end
+  if M.has(event, "S") then
+    return "add"
+  end
   return "only"
 end
 
@@ -163,8 +179,13 @@ end
 --- different button calls `handlers.cancel()` and stops the gesture.
 function M.grab(down: MouseEvent, handlers: Handlers)
   state.gesture = {
-    handlers = handlers, button = down.button, x0 = down.x, y0 = down.y,
-    ox = down.view_x or 0, oy = down.view_y or 0, moved = false,
+    handlers = handlers,
+    button = down.button,
+    x0 = down.x,
+    y0 = down.y,
+    ox = down.view_x or 0,
+    oy = down.view_y or 0,
+    moved = false,
   }
 end
 
@@ -181,12 +202,16 @@ end
 
 local function feed_gesture(event: MouseEvent)
   local g = state.gesture
-  local e = merged(event, { x = event.x - g.ox, y = event.y - g.oy })
+  local e = merged(event, {x = event.x - g.ox, y = event.y - g.oy})
   e.dx, e.dy = e.x - g.x0, e.y - g.y0
   -- A window's pointer comes in fractions of a cell (`fine`): half of one
   -- away is away, so that a click that wavers a pixel stays a click.
   local away: boolean
-  if event.fine then away = math.abs(e.dx) >= 0.5 or math.abs(e.dy) >= 0.5 else away = e.dx ~= 0 or e.dy ~= 0 end
+  if event.fine then
+    away = math.abs(e.dx) >= 0.5 or math.abs(e.dy) >= 0.5
+  else
+    away = e.dx ~= 0 or e.dy ~= 0
+  end
   g.moved = g.moved or away
   e.moved = g.moved
   if event.kind == "up" then
@@ -194,7 +219,9 @@ local function feed_gesture(event: MouseEvent)
     state.gesture, state.hint, state.shape = nil, nil, nil
     -- Whatever the view saw of the press is over too.
     paw.ui.pressed = nil
-    if g.handlers.up then g.handlers.up(e) end
+    if g.handlers.up then
+      g.handlers.up(e)
+    end
   elseif g.handlers.drag then
     g.handlers.drag(e)
   end
@@ -222,22 +249,31 @@ end
 --- Called by `paw.ui.mouse` first: true when the event was taken here and
 --- goes no further.
 function M.take(event: MouseEvent): boolean
-  if opt.mouse == false then return true end
+  if opt.mouse == false then
+    return true
+  end
   event.mods = event.mods or ""
   mark_double(event)
   local g = state.gesture
   if g then
-    if (event.kind == "drag" or event.kind == "up") and (event.button == g.button or event.button == "" or not event.button) then
+    if
+      (event.kind == "drag" or event.kind == "up")
+      and (event.button == g.button or event.button == "" or not event.button)
+    then
       feed_gesture(event)
       return true
     elseif event.kind == "down" then
       state.gesture = nil
-      if g.handlers.cancel then g.handlers.cancel() end
+      if g.handlers.cancel then
+        g.handlers.cancel()
+      end
       api.ui_redraw()
     end
   end
   for i = #M.overlays, 1, -1 do
-    if M.overlays[i](event) then return true end
+    if M.overlays[i](event) then
+      return true
+    end
   end
   state.hinted = false
   return false
@@ -256,9 +292,13 @@ function M.to_view(view: View, event: MouseEvent): boolean
   end
   if g and event.kind == "down" then
     state.gesture = nil
-    if g.handlers.cancel then g.handlers.cancel() end
+    if g.handlers.cancel then
+      g.handlers.cancel()
+    end
   end
-  if view.on_mouse then view:on_mouse(merged(event, { view_x = 0, view_y = 0 })) end
+  if view.on_mouse then
+    view:on_mouse(merged(event, {view_x = 0, view_y = 0}))
+  end
 end
 
 --- `paw.ui.mouse` calls this for the view that gets an event. Over the
@@ -293,16 +333,23 @@ function M.to_surface(target: contracts.ScreenRect, event: MouseEvent): boolean
     state.surface = inside and s.key or nil
   elseif kind == "drag" or kind == "up" then
     inside = state.surface == s.key
-    if kind == "up" then state.surface = nil end
+    if kind == "up" then
+      state.surface = nil
+    end
   end
-  if not inside then return false end
+  if not inside then
+    return false
+  end
   local cw, ch = s.cell.w, s.cell.h
   local e: PointerEvent = {
     x = event.px and event.px - s.x * cw or (event.x - s.x + 0.5) * cw,
     y = event.py and event.py - s.y * ch or (event.y - s.y + 0.5) * ch,
-    ctrl = M.has(event, "C"), shift = M.has(event, "S"), alt = M.has(event, "A"),
+    ctrl = M.has(event, "C"),
+    shift = M.has(event, "S"),
+    alt = M.has(event, "A"),
     button = event.button ~= "" and event.button or nil,
-    col = event.x, row = event.y,
+    col = event.x,
+    row = event.y,
   }
   if kind == "drag" then
     e.kind = "move"
@@ -319,7 +366,9 @@ function M.to_surface(target: contracts.ScreenRect, event: MouseEvent): boolean
   limit.named("the mouse", function() paw.canvas.view_pointer(view, e) end)
   if kind == "down" and event.double then
     local double: PointerEvent = {}
-    for k, v in pairs(e as {string:PointerEvent}) do (double as {string:PointerEvent})[k] = v end
+    for k, v in pairs(e as {string: PointerEvent}) do
+      (double as {string: PointerEvent})[k] = v
+    end
     double.kind = "double"
     limit.named("the mouse", function() paw.canvas.view_pointer(view, double) end)
   end
@@ -357,10 +406,18 @@ end
 --- value tells if it goes to the side.
 function M.wheel(event: MouseEvent): integer, boolean
   local kind = event.kind
-  if kind == "scroll_down" then return 1, false end
-  if kind == "scroll_up" then return -1, false end
-  if kind == "scroll_right" then return 1, true end
-  if kind == "scroll_left" then return -1, true end
+  if kind == "scroll_down" then
+    return 1, false
+  end
+  if kind == "scroll_up" then
+    return -1, false
+  end
+  if kind == "scroll_right" then
+    return 1, true
+  end
+  if kind == "scroll_left" then
+    return -1, true
+  end
 end
 
 return M

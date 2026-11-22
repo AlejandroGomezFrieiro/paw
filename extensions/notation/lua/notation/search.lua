@@ -11,8 +11,12 @@ paw.grep.source("notation", function(add)
         local field = WORDS[mk.kind]
         if field and type(mk.value) == "string" and mk.value ~= "" then
           local at = tonumber(mk.at)
-          add({ text = mk.value, field = field, where = c.name .. (at and " " .. paw.time.format(c.start + at) or ""),
-            location = { uri = paw.address.clip(c.id), selector = at and { time = { at, at } } or nil } })
+          add({
+            text = mk.value,
+            field = field,
+            where = c.name .. (at and " " .. paw.time.format(c.start + at) or ""),
+            location = { uri = paw.address.clip(c.id), selector = at and { time = { at, at } } or nil },
+          })
         end
       end
     end

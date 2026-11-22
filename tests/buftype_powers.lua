@@ -12,7 +12,9 @@ local initial = L.capture()
 
 local function reset()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   L.restore(initial)
   paw.ui.focus("arrange")
 end
@@ -29,13 +31,17 @@ end
 
 local function status_text()
   local parts = {}
-  for _, piece in ipairs(paw.statusline.line(200).left) do parts[#parts + 1] = piece[1] end
+  for _, piece in ipairs(paw.statusline.line(200).left) do
+    parts[#parts + 1] = piece[1]
+  end
   return table.concat(parts)
 end
 
 local function pager_text()
   local out = {}
-  for _, line in ipairs(paw.ui.views.pager.lines) do out[#out + 1] = line.text end
+  for _, line in ipairs(paw.ui.views.pager.lines) do
+    out[#out + 1] = line.text
+  end
   return table.concat(out, "\n")
 end
 
@@ -56,15 +62,19 @@ local function define_tally(heard)
       }
     end,
     keymaps = {
-      ["<localleader>m"] = { function(ctx)
-        table.insert(ctx.buf.state.marks, ctx.win.state.col)
-      end, desc = "Mark the cursor's place" },
+      ["<localleader>m"] = {
+        function(ctx) table.insert(ctx.buf.state.marks, ctx.win.state.col) end,
+        desc = "Mark the cursor's place",
+      },
     },
     motions = {
       ["]t"] = function(ctx) ctx.win.state.col = (ctx.win.state.col or 0) + 4 end,
     },
     textobjects = {
-      it = { function(ctx) return { kind = "char", r0 = 0, r1 = 0, c0 = ctx.win.state.col, c1 = ctx.win.state.col + 2 } end, desc = "Two cells" },
+      it = {
+        function(ctx) return { kind = "char", r0 = 0, r1 = 0, c0 = ctx.win.state.col, c1 = ctx.win.state.col + 2 } end,
+        desc = "Two cells",
+      },
     },
     operators = {
       ["g!"] = function(region, ctx) heard[#heard + 1] = { region = region, buf = ctx.buf.state.target } end,

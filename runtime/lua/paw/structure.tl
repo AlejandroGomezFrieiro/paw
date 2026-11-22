@@ -58,7 +58,9 @@ end
 --- under the cursor, on its track; nil when there is none.
 function M.same_clip(dir: integer, count?: integer): types.Clip
   local track = cursor.track()
-  if not track then return nil end
+  if not track then
+    return nil
+  end
   local here = cursor.clip()
   local list = api.clip_list(track.id)
   table.sort(list, function(a: types.Clip, b: types.Clip): boolean return a.start < b.start end)
@@ -74,7 +76,9 @@ function M.same_clip(dir: integer, count?: integer): types.Clip
         break
       end
     end
-    if not step then break end
+    if not step then
+      break
+    end
     found, beat = step, step.start
   end
   return found
@@ -83,7 +87,11 @@ end
 local function to_same_clip(dir: integer): function(contracts.KeyContext)
   return function(ctx: contracts.KeyContext)
     local c = M.same_clip(dir, ctx.count)
-    if not c then return paw.notify(dir > 0 and "no later clip of this kind on the track" or "no earlier clip of this kind on the track", "warn") end
+    if not c then
+      return paw.notify(
+        dir > 0 and "no later clip of this kind on the track" or "no earlier clip of this kind on the track", "warn"
+      )
+    end
     cursor.set_beat(c.start)
   end
 end
@@ -95,7 +103,9 @@ local function siblings(id: integer): {integer}
   local parent = groups.of(id)
   local out: {integer} = {}
   for _, other in ipairs(groups.rows()) do
-    if groups.of(other) == parent then out[#out + 1] = other end
+    if groups.of(other) == parent then
+      out[#out + 1] = other
+    end
   end
   return out
 end
@@ -103,12 +113,16 @@ end
 local function to_sibling(dir: integer): function(contracts.KeyContext)
   return function(ctx: contracts.KeyContext)
     local id = cursor.track_id()
-    if not id then return end
+    if not id then
+      return
+    end
     local list = siblings(id)
     for i, other in ipairs(list) do
       if other == id then
         local to = list[i + dir * (ctx.count or 1)]
-        if not to then return paw.notify(dir > 0 and "the last track of its group" or "the first track of its group", "warn") end
+        if not to then
+          return paw.notify(dir > 0 and "the last track of its group" or "the first track of its group", "warn")
+        end
         cursor.set_track(to)
         return
       end
@@ -120,10 +134,14 @@ local function to_parent(ctx: contracts.KeyContext)
   local id = cursor.track_id()
   for _ = 1, ctx.count or 1 do
     local up = id and groups.of(id)
-    if not up then break end
+    if not up then
+      break
+    end
     id = up
   end
-  if not id or id == cursor.track_id() then return paw.notify("the track is in no group", "warn") end
+  if not id or id == cursor.track_id() then
+    return paw.notify("the track is in no group", "warn")
+  end
   cursor.set_track(id)
 end
 
@@ -137,24 +155,34 @@ local function to_group_end(ctx: contracts.KeyContext)
   local list = api.track_list()
   for _ = 1, ctx.count or 1 do
     local group = id and groups.of(id)
-    if not group then break end
+    if not group then
+      break
+    end
     local _, finish = group_rows(group)
     if list[finish] == id then
       group = groups.of(group)
-      if not group then break end
+      if not group then
+        break
+      end
       _, finish = group_rows(group)
     end
     id = list[finish]
   end
-  if not id or id == cursor.track_id() then return paw.notify("the track is in no group, or at its end", "warn") end
+  if not id or id == cursor.track_id() then
+    return paw.notify("the track is in no group, or at its end", "warn")
+  end
   cursor.set_track(id)
 end
 
 local function to_child()
   local id = cursor.track_id()
   local first = id and groups.is_group(id) and groups.members(id)[1]
-  if not first then return paw.notify("not a group with tracks in it", "warn") end
-  if groups.folded(id) then groups.fold(id, false) end
+  if not first then
+    return paw.notify("not a group with tracks in it", "warn")
+  end
+  if groups.folded(id) then
+    groups.fold(id, false)
+  end
   cursor.set_track(first)
 end
 
@@ -162,8 +190,12 @@ end
 --- group it belongs to.
 local function cursor_group(): integer
   local id = cursor.track_id()
-  if not id then return nil end
-  if groups.is_group(id) then return id end
+  if not id then
+    return nil
+  end
+  if groups.is_group(id) then
+    return id
+  end
   return groups.of(id)
 end
 
@@ -173,28 +205,38 @@ group_rows = function(group: integer): integer, integer
   local list = api.track_list()
   local at: integer
   for i, id in ipairs(list) do
-    if id == group then at = i end
+    if id == group then
+      at = i
+    end
   end
   local finish = at
   local function inside(id: integer): boolean
     local up = groups.of(id)
     while up do
-      if up == group then return true end
+      if up == group then
+        return true
+      end
       up = groups.of(up)
     end
   end
-  while list[finish + 1] and inside(list[finish + 1]) do finish = finish + 1 end
+  while list[finish + 1] and inside(list[finish + 1]) do
+    finish = finish + 1
+  end
   return at, finish
 end
 
 local function group_object(with_head: boolean): function(): contracts.Region
   return function(): contracts.Region
     local group = cursor_group()
-    if not group then return nil end
+    if not group then
+      return nil
+    end
     local at, finish = group_rows(group)
     local first = with_head and at or at + 1
-    if finish < first then return nil end
-    return { view = "arrange", kind = "line", r0 = first, r1 = finish, c0 = 0, c1 = 0 }
+    if finish < first then
+      return nil
+    end
+    return {view = "arrange", kind = "line", r0 = first, r1 = finish, c0 = 0, c1 = 0}
   end
 end
 
@@ -203,7 +245,9 @@ end
 local function to_same_note(dir: integer): function(contracts.KeyContext)
   return function(ctx: contracts.KeyContext)
     local roll = paw.ui.views.pianoroll as Roll
-    if not roll:clip() then return end
+    if not roll:clip() then
+      return
+    end
     local pitch = roll.pitch
     local beat = roll.beat
     local notes = roll:ordered()
@@ -217,10 +261,14 @@ local function to_same_note(dir: integer): function(contracts.KeyContext)
           break
         end
       end
-      if not step then break end
+      if not step then
+        break
+      end
       found, beat = step, step.start
     end
-    if not found then return paw.notify("no other " .. paw.music.name(pitch) .. (dir > 0 and " after it" or " before it"), "warn") end
+    if not found then
+      return paw.notify("no other " .. paw.music.name(pitch) .. (dir > 0 and " after it" or " before it"), "warn")
+    end
     roll:set(pitch, found.start)
   end
 end
@@ -241,24 +289,30 @@ local function amap(lhs: string, fn: function(contracts.KeyContext), desc: strin
 end
 -- `]c` `[c`, not `]]` `[[`: `]` and `[` pan at once, and a second press
 -- is a second step of the pan.
-amap("]c", to_same_clip(1), "The next clip of the same kind on the track", { motion = true, jump = true })
-amap("[c", to_same_clip(-1), "The clip of the same kind before, on the track", { motion = true, jump = true })
-amap("]s", to_sibling(1), "The next track in the same group", { motion = true, linewise = true })
-amap("[s", to_sibling(-1), "The track before in the same group", { motion = true, linewise = true })
-amap("[{", to_parent, "Up to the group the track is in", { motion = true, linewise = true, jump = true })
-amap("]}", to_group_end, "The last track of the group", { motion = true, linewise = true, jump = true })
-amap("[u", to_parent, "Up to the group the track is in (as [{)", { motion = true, linewise = true, jump = true })
-amap("]u", to_child, "Down into the group: its first track", { motion = true, linewise = true })
-keymap.textobject("ig", group_object(false), { view = "arrange", desc = "The tracks of the group" })
-keymap.textobject("ag", group_object(true), { view = "arrange", desc = "The group with its tracks" })
+amap("]c", to_same_clip(1), "The next clip of the same kind on the track", {motion = true, jump = true})
+amap("[c", to_same_clip(-1), "The clip of the same kind before, on the track", {motion = true, jump = true})
+amap("]s", to_sibling(1), "The next track in the same group", {motion = true, linewise = true})
+amap("[s", to_sibling(-1), "The track before in the same group", {motion = true, linewise = true})
+amap("[{", to_parent, "Up to the group the track is in", {motion = true, linewise = true, jump = true})
+amap("]}", to_group_end, "The last track of the group", {motion = true, linewise = true, jump = true})
+amap("[u", to_parent, "Up to the group the track is in (as [{)", {motion = true, linewise = true, jump = true})
+amap("]u", to_child, "Down into the group: its first track", {motion = true, linewise = true})
+keymap.textobject("ig", group_object(false), {view = "arrange", desc = "The tracks of the group"})
+keymap.textobject("ag", group_object(true), {view = "arrange", desc = "The group with its tracks"})
 
 -- `]n` `[n`, not `]]` `[[`: `]` and `[` change the velocity at once.
-keymap.set("]n", to_same_note(1), { view = "pianoroll", desc = "The next note of the same pitch", motion = true, jump = true })
-keymap.set("[n", to_same_note(-1), { view = "pianoroll", desc = "The note of the same pitch before", motion = true, jump = true })
+keymap.set(
+  "]n", to_same_note(1), {view = "pianoroll", desc = "The next note of the same pitch", motion = true, jump = true}
+)
+keymap.set(
+  "[n", to_same_note(-1), {view = "pianoroll", desc = "The note of the same pitch before", motion = true, jump = true}
+)
 
 -- Commands -------------------------------------------------------------------------------
 
-local function query_text(ctx: Context): string return (ctx.args[1] as string or ""):match("^%s*(.-)%s*$") end
+local function query_text(ctx: Context): string
+  return (ctx.args[1] as string or ""):match("^%s*(.-)%s*$")
+end
 
 local function run(ctx: Context, opts: SelectOptions): {Node}
   local q = query_text(ctx)
@@ -271,31 +325,57 @@ local function run(ctx: Context, opts: SelectOptions): {Node}
     paw.notify(tostring(nodes), "error")
     return nil
   end
-  local counts, order: {string:integer}, {string} = {}, {}
+  local counts, order: {string: integer}, {string} = {}, {}
   for _, n in ipairs(nodes) do
     local k = n.kind == "group" and "track" or n.kind
-    if not counts[k] then order[#order + 1] = k end
+    if not counts[k] then
+      order[#order + 1] = k
+    end
     counts[k] = (counts[k] or 0) + 1
   end
   local parts: {string} = {}
-  for _, k in ipairs(order) do parts[#parts + 1] = counts[k] .. " " .. k .. (counts[k] == 1 and "" or "s") end
-  paw.notify(#nodes == 0 and "nothing in the project is " .. q or ((opts.choose == false and "found " or "chose ") .. table.concat(parts, ", ")))
+  for _, k in ipairs(order) do
+    parts[#parts + 1] = counts[k] .. " " .. k .. (counts[k] == 1 and "" or "s")
+  end
+  paw.notify(
+    #nodes == 0 and "nothing in the project is " .. q
+      or ((opts.choose == false and "found " or "chose ") .. table.concat(parts, ", "))
+  )
   return nodes
 end
 
 local function complete_query(text: string): {string}
   local out: {string} = {}
   for _, k in ipairs(paw.query.KINDS) do
-    if k:sub(1, #text) == text then out[#out + 1] = k end
+    if k:sub(1, #text) == text then
+      out[#out + 1] = k
+    end
   end
   return out
 end
 
-commands.define("select", function(ctx: Context): commands.Result run(ctx, {}) end, { raw = true, complete = complete_query,
-  desc = "Choose what a query finds (its clips, or its notes in the piano roll) and list it in the quickfix list: `select clip[name~=pizz] > note[pitch>=c5]`" })
-commands.define("query", function(ctx: Context): commands.Result run(ctx, { choose = false, title = "query" }) end, { raw = true, complete = complete_query,
-  desc = "List what a query finds in the quickfix list: `query note[lyric=la]`, `query group[name=Strings] clip`" })
-commands.define("lquery", function(ctx: Context): commands.Result run(ctx, { choose = false, title = "query", loc = true }) end, { raw = true, complete = complete_query,
-  desc = "As `query`, into the window's location list" })
+commands.define(
+  "select",
+  function(ctx: Context): commands.Result run(ctx, {}) end,
+  {
+    raw = true,
+    complete = complete_query,
+    desc = "Choose what a query finds (its clips, or its notes in the piano roll) and list it in the quickfix list: `select clip[name~=pizz] > note[pitch>=c5]`",
+  }
+)
+commands.define(
+  "query",
+  function(ctx: Context): commands.Result run(ctx, {choose = false, title = "query"}) end,
+  {
+    raw = true,
+    complete = complete_query,
+    desc = "List what a query finds in the quickfix list: `query note[lyric=la]`, `query group[name=Strings] clip`",
+  }
+)
+commands.define(
+  "lquery",
+  function(ctx: Context): commands.Result run(ctx, {choose = false, title = "query", loc = true}) end,
+  {raw = true, complete = complete_query, desc = "As `query`, into the window's location list"}
+)
 
 return M

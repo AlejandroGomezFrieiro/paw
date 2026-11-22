@@ -79,7 +79,10 @@ function M.freeze(track, opts)
   if M.frozen(track) then error(name .. " is frozen already", 0) end
   local holder = M.holder(track)
   if holder then
-    error(string.format("%s sounds through %s, which is frozen: unfreeze that first", name, api.track_get(holder, "name")), 0)
+    error(
+      string.format("%s sounds through %s, which is frozen: unfreeze that first", name, api.track_get(holder, "name")),
+      0
+    )
   end
   local path = file_for(track)
   paw.render(path, M.render_opts(track, opts))
@@ -127,7 +130,14 @@ local function edited(event)
   if event.restored or not event.track then return end
   if M.state(event.track) then ask(event.track) end
 end
-for _, name in ipairs({ "clip.added", "clip.changed", "clip.removed", "device.added", "device.changed", "device.removed" }) do
+for _, name in ipairs({
+  "clip.added",
+  "clip.changed",
+  "clip.removed",
+  "device.added",
+  "device.changed",
+  "device.removed",
+}) do
   paw.on(name, edited)
 end
 paw.on("track.changed", function(event)
@@ -158,7 +168,9 @@ end
 
 local function track_names()
   local out = {}
-  for _, id in ipairs(paw.scope.tracks()) do out[#out + 1] = api.track_get(id, "name") end
+  for _, id in ipairs(paw.scope.tracks()) do
+    out[#out + 1] = api.track_get(id, "name")
+  end
   return out
 end
 
@@ -171,18 +183,27 @@ paw.command("freeze", function(ctx)
   paw.notify(string.format("frozen: %s · its devices rest; `:unfreeze` plays them again", table.concat(done, ", ")))
 end, {
   desc = "Render the track or group in place and play that, its devices at rest: `freeze`, `freeze Strings`, `:t2,t4freeze`, `freeze tail=4`",
-  range = true, complete = track_names,
+  range = true,
+  complete = track_names,
 })
 
-paw.command("unfreeze", function(ctx)
-  local done = {}
-  for _, id in ipairs(chosen(ctx)) do
-    -- A track inside a frozen group thaws that group.
-    local which = M.frozen(id) and id or M.holder(id) or id
-    M.unfreeze(which)
-    done[#done + 1] = api.track_get(which, "name")
-  end
-  paw.notify("unfrozen: " .. table.concat(done, ", "))
-end, { desc = "Play a frozen track's clips and devices again: `unfreeze`, `unfreeze Strings`", range = true, complete = track_names })
+paw.command(
+  "unfreeze",
+  function(ctx)
+    local done = {}
+    for _, id in ipairs(chosen(ctx)) do
+      -- A track inside a frozen group thaws that group.
+      local which = M.frozen(id) and id or M.holder(id) or id
+      M.unfreeze(which)
+      done[#done + 1] = api.track_get(which, "name")
+    end
+    paw.notify("unfrozen: " .. table.concat(done, ", "))
+  end,
+  {
+    desc = "Play a frozen track's clips and devices again: `unfreeze`, `unfreeze Strings`",
+    range = true,
+    complete = track_names,
+  }
+)
 
 return M

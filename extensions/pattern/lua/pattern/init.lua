@@ -7,18 +7,16 @@ local core = require("pattern.core")
 
 local api = paw.api
 local M = {
-  drums = names.drums,     -- word -> General MIDI note, for the drum names
-  chords = names.chords,   -- chord name -> semitones above the root
-  scales = names.scales,   -- scale name -> semitones, for degrees
-  params = parser.params,  -- the `# name` parameters and how their values read
+  drums = names.drums, -- word -> General MIDI note, for the drum names
+  chords = names.chords, -- chord name -> semitones above the root
+  scales = names.scales, -- scale name -> semitones, for degrees
+  params = parser.params, -- the `# name` parameters and how their values read
   core = core,
 }
 
 --- Parse pattern text. Returns a tree, or nil and an error with `message`,
 --- `pos` (1-based column) and `text`; `tostring(err)` is "col 5: message".
-function M.parse(text)
-  return parser.parse(text)
-end
+function M.parse(text) return parser.parse(text) end
 
 --- The error's text with a caret line under its column.
 M.caret = parser.caret
@@ -56,7 +54,9 @@ function M.notes(text, cycles, opts)
   local compiled = compiled_or_error(text, opts.seed)
   local beats = opts.beats or paw.time.bar()
   return eval.notes(compiled, {
-    beats = beats, length = opts.length or (cycles or 1) * beats, velocity = opts.velocity or paw.opt.velocity,
+    beats = beats,
+    length = opts.length or (cycles or 1) * beats,
+    velocity = opts.velocity or paw.opt.velocity,
   })
 end
 
@@ -70,16 +70,14 @@ M.bjorklund = core.bjorklund
 -- notes no longer match it, they were edited by other means, and the clip lets
 -- go of the pattern (see `refresh`).
 
-local function clip_id(clip)
-  return type(clip) == "table" and clip.id or clip
-end
+local function clip_id(clip) return type(clip) == "table" and clip.id or clip end
 
 local function digest(notes)
   local h1, h2 = 5381, 0
   local parts = {}
   for i, n in ipairs(notes) do
-    parts[i] = string.format("%d:%.6f:%.6f:%d:%s", n.pitch, n.start, n.length, n.velocity or 0,
-      n.meta and n.meta.channel or "")
+    parts[i] =
+      string.format("%d:%.6f:%.6f:%d:%s", n.pitch, n.start, n.length, n.velocity or 0, n.meta and n.meta.channel or "")
   end
   table.sort(parts)
   local text = table.concat(parts, ";")
@@ -92,9 +90,7 @@ local function digest(notes)
 end
 M.digest = digest
 
-local function cycle_beats(pm)
-  return tonumber(pm.beats) or paw.time.bar()
-end
+local function cycle_beats(pm) return tonumber(pm.beats) or paw.time.bar() end
 
 --- The pattern a clip follows: { text, seed, beats, ... } or nil.
 function M.get(clip)
@@ -114,22 +110,27 @@ local function write_meta(id, pm, extra)
   if type(meta) ~= "table" then meta = {} end
   meta.pattern = pm
   for k, v in pairs(extra or {}) do
-    if v == false then meta[k] = nil else meta[k] = v end
+    if v == false then
+      meta[k] = nil
+    else
+      meta[k] = v
+    end
   end
   api.clip_set(id, "meta", meta)
 end
 
 -- A name for the clip in the arrange view: the pattern text.
-local function label(text)
-  return "≈ " .. text
-end
+local function label(text) return "≈ " .. text end
 M.label = label
 
 local function rename(id, pm, c)
   if not paw.opt.pattern_names then return end
   local want = label(pm.text)
   -- Only a name we gave it, or the default one, is ours to change.
-  if c.name == want then pm.name = want return end
+  if c.name == want then
+    pm.name = want
+    return
+  end
   if c.name == pm.name or c.name == "midi" or c.name == "pattern" or c.name == "" then
     api.clip_set(id, "name", want)
     pm.name = want
@@ -143,7 +144,9 @@ local function apply(id, pm)
   if not compiled then return nil, err end
   local c = api.clip_get(id)
   local ok, notes = pcall(eval.notes, compiled, {
-    beats = cycle_beats(pm), length = c.length, velocity = paw.opt.velocity,
+    beats = cycle_beats(pm),
+    length = c.length,
+    velocity = paw.opt.velocity,
   })
   if not ok then return nil, setmetatable({ message = tostring(notes), pos = 1, text = pm.text }, parser.Error) end
   local fresh = digest(notes)
@@ -169,7 +172,9 @@ function M.set(clip, text, opts)
   opts = opts or {}
   local id = clip_id(clip)
   local c = api.clip_get(id)
-  if c.kind ~= "midi" then return nil, setmetatable({ message = "not a MIDI clip", pos = 1, text = text }, parser.Error) end
+  if c.kind ~= "midi" then
+    return nil, setmetatable({ message = "not a MIDI clip", pos = 1, text = text }, parser.Error)
+  end
   local old = M.get(id) or {}
   local pm = {
     text = text,
@@ -177,7 +182,11 @@ function M.set(clip, text, opts)
     beats = old.beats,
     name = old.name,
   }
-  if opts.beats == false then pm.beats = nil elseif opts.beats then pm.beats = opts.beats end
+  if opts.beats == false then
+    pm.beats = nil
+  elseif opts.beats then
+    pm.beats = opts.beats
+  end
   return apply(id, pm)
 end
 
@@ -206,12 +215,13 @@ function M.refresh(clip)
     -- Edited by hand, unless the notes are what the pattern gives anyway
     -- (a split cuts them where the shorter pattern does).
     local compiled = M.compile(pm.text, pm.seed)
-    local fresh = compiled and digest(eval.notes(compiled, {
-      beats = cycle_beats(pm), length = c.length, velocity = paw.opt.velocity,
-    }))
-    if fresh ~= current then
-      return M.detach(id, "the notes of `" .. c.name .. "` were edited")
-    end
+    local fresh = compiled
+      and digest(eval.notes(compiled, {
+        beats = cycle_beats(pm),
+        length = c.length,
+        velocity = paw.opt.velocity,
+      }))
+    if fresh ~= current then return M.detach(id, "the notes of `" .. c.name .. "` were edited") end
   end
   local _, err = apply(id, pm)
   if err then paw.notify("pattern: " .. tostring(err), "error") end
@@ -231,7 +241,9 @@ end
 
 --- Re-evaluate every pattern clip, for instance after changing `drums`.
 function M.refresh_all()
-  for _, id in ipairs(M.clips()) do M.refresh(id) end
+  for _, id in ipairs(M.clips()) do
+    M.refresh(id)
+  end
 end
 
 return M

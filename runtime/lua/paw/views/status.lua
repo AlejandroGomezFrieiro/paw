@@ -11,9 +11,7 @@ function view.grid_text(grid) return paw.statusline.grid_text(grid) end
 --- The segments for a screen `width` wide, as `{ left = {...}, right = {...} }`.
 function view.segments(width) return paw.statusline.segments(width) end
 
-function view:render(buf)
-  paw.statusline.draw(buf)
-end
+function view:render(buf) paw.statusline.draw(buf) end
 
 paw.ui.view("status", view)
 return view

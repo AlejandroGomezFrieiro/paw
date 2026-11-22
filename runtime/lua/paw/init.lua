@@ -20,7 +20,9 @@ function paw.failure(err)
   short = short:gsub("%s+$", "")
   -- A module in Lua or in Teal (`paw/x.tl:12:`).
   local file, line, rest = short:match("^[^\n]-([%w_%-]+%.lua):(%d+): (.*)$")
-  if not file then file, line, rest = short:match("^[^\n]-([%w_%-]+%.tl):(%d+): (.*)$") end
+  if not file then
+    file, line, rest = short:match("^[^\n]-([%w_%-]+%.tl):(%d+): (.*)$")
+  end
   if file then
     -- An error raised by the code itself (`attempt to index a nil value`)
     -- says where; one raised on purpose says what to do, and that is enough.
@@ -138,7 +140,8 @@ paw.Track, paw.Device, paw.Clip, paw.Lane = objects.Track, objects.Device, objec
 paw.tracks, paw.track, paw.device, paw.clip = objects.tracks, objects.track, objects.device, objects.clip
 paw.lane = objects.lane
 paw.add_track = objects.add_track
-paw.restore_track, paw.restore_clip, paw.restore_device = objects.restore_track, objects.restore_clip, objects.restore_device
+paw.restore_track, paw.restore_clip, paw.restore_device =
+  objects.restore_track, objects.restore_clip, objects.restore_device
 paw.master, paw.project, paw.transport, paw.time = objects.master, objects.project, objects.transport, objects.time
 paw.midi = objects.midi
 paw.tempo = require("paw.tempo")
@@ -153,7 +156,9 @@ paw.plugins = require("paw.plugins")
 --- @type function(): {types.DeviceType}
 function paw.device_types()
   local list = api.device_types()
-  for _, info in ipairs(list) do info.from = paw.plugins.from[info.kind] end
+  for _, info in ipairs(list) do
+    info.from = paw.plugins.from[info.kind]
+  end
   return list
 end
 
@@ -168,7 +173,9 @@ function paw.bounce(track, opts)
   opts = opts or {}
   track = type(track) == "table" and track or paw.track(track)
   local finish = 0
-  for _, clip in ipairs(track:clips()) do finish = math.max(finish, clip.start + clip.length) end
+  for _, clip in ipairs(track:clips()) do
+    finish = math.max(finish, clip.start + clip.length)
+  end
   if finish <= 0 then return nil end
   local dir = api.media_dir()
   pcall(paw.api.fs_mkdir, dir)
@@ -178,7 +185,8 @@ function paw.bounce(track, opts)
   for i, id in ipairs(api.track_list()) do
     if id == track.id then index = i end
   end
-  local bounced = paw.add_track({ name = opts.name or (track.name .. " (bounced)"), index = index + 1, output = track.output })
+  local bounced =
+    paw.add_track({ name = opts.name or (track.name .. " (bounced)"), index = index + 1, output = track.output })
   bounced:add_clip({ file = path, start = 0, name = track.name })
   track.mute = true
   return bounced
@@ -242,7 +250,11 @@ paw.state = setmetatable({}, {
 local function warn()
   local list = api.warnings()
   for i, warning in ipairs(list) do
-    if i <= 5 then paw.notify(warning, "warn") else api.log("[warn] " .. warning) end
+    if i <= 5 then
+      paw.notify(warning, "warn")
+    else
+      api.log("[warn] " .. warning)
+    end
   end
   if #list > 5 then paw.notify(string.format("and %d more warnings, in the log", #list - 5), "warn") end
 end
@@ -254,7 +266,17 @@ paw._kernel = K
 function K.startup()
   paw.ui.theme(require("paw.theme").groups)
   paw.statusline = require("paw.statusline")
-  for _, name in ipairs({ "arrange", "status", "cmdline", "mixer", "devices", "pianoroll", "eventlist", "help", "effect_windows" }) do
+  for _, name in ipairs({
+    "arrange",
+    "status",
+    "cmdline",
+    "mixer",
+    "devices",
+    "pianoroll",
+    "eventlist",
+    "help",
+    "effect_windows",
+  }) do
     require("paw.views." .. name)
   end
   -- What the pointer does in them: the window's gestures, in cells.
@@ -327,7 +349,11 @@ function K.startup()
     local init = paw.lang.find(env.config_dir .. "/init")
     if init then
       local chunk, err = paw.lang.loadfile(init)
-      if chunk then paw.try(paw.limit.untrusted(chunk)) else paw.notify(err, "error") end
+      if chunk then
+        paw.try(paw.limit.untrusted(chunk))
+      else
+        paw.notify(err, "error")
+      end
     end
     paw.snippet.load_dir(env.config_dir .. "/snippets", "config")
   end
@@ -336,9 +362,7 @@ function K.startup()
 end
 
 --- The program is about to end.
-function K.exit()
-  paw.emit("exit", {})
-end
+function K.exit() paw.emit("exit", {}) end
 
 function K.key(key)
   if paw.remote and paw.remote.touch then paw.remote.touch() end
@@ -367,9 +391,7 @@ function K.focus(on)
   paw.emit("ui.focus", { focused = on })
 end
 
-function K.resize(width, height)
-  paw.emit("ui.resized", { width = width, height = height })
-end
+function K.resize(width, height) paw.emit("ui.resized", { width = width, height = height }) end
 
 --- Send the change events for the edits made until now. The kernel does
 --- this at the end of each turn. Call `paw.flush()` to make handlers run sooner.
@@ -408,13 +430,9 @@ function K.settle()
   if paw.remote and paw.remote.turn then paw.limit.guard("sending the state", paw.remote.turn) end
 end
 
-function K.timer(fn)
-  paw.limit.guard("a timer", fn)
-end
+function K.timer(fn) paw.limit.guard("a timer", fn) end
 
-function K.render(width, height)
-  paw.limit.guard("drawing the screen", paw.ui.render, paw.ui.Buf.root(width, height))
-end
+function K.render(width, height) paw.limit.guard("drawing the screen", paw.ui.render, paw.ui.Buf.root(width, height)) end
 
 --- Only the live parts of the screen drawn again (`paw.api.ui_redraw_live`):
 --- false when it must be drawn whole.
@@ -439,7 +457,9 @@ local function rpc(method, params, client)
     local code = params[1]
     if type(code) ~= "string" then error("`eval` takes the code to run, as a string", 0) end
     local chunk, err = loadstring("return " .. code, "=rpc")
-    if not chunk then chunk, err = loadstring(code, "=rpc") end
+    if not chunk then
+      chunk, err = loadstring(code, "=rpc")
+    end
     if not chunk then error(err, 0) end
     return chunk(unpack(params, 2))
   elseif method == "cmd" then
@@ -473,25 +493,21 @@ function K.rpc_closed(client)
 end
 
 --- Whose turn it is: a connection with a seat of its own, or 0.
-function K.seat(client)
-  paw.seats.enter(client)
-end
+function K.seat(client) paw.seats.enter(client) end
 
 --- A connection's terminal attached, or went away.
-function K.seat_open(client, why)
-  paw.seats.open(client, why)
-end
+function K.seat_open(client, why) paw.seats.open(client, why) end
 
-function K.seat_close(client, why)
-  paw.limit.guard("leaving a seat", paw.seats.close, client, why)
-end
+function K.seat_close(client, why) paw.limit.guard("leaving a seat", paw.seats.close, client, why) end
 
 -- With a screen attached, stdout belongs to the terminal UI.
 local raw_print = print
 function print(...)
   if not api.ui_attached() then return raw_print(...) end
   local parts = {}
-  for i = 1, select("#", ...) do parts[i] = tostring((select(i, ...))) end
+  for i = 1, select("#", ...) do
+    parts[i] = tostring((select(i, ...)))
+  end
   paw.notify(table.concat(parts, "  "))
 end
 

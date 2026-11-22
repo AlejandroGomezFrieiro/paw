@@ -17,7 +17,9 @@ local function screen(e) return { x = e.x + (e.view_x or 0), y = e.y + (e.view_y
 local function drag(e, get, set, track, target)
   local start = get()
   if target then A.hold(track, target, 0, "", true) end
-  local function let_go() if target then A.hold(track, target, 0, "", false) end end
+  local function let_go()
+    if target then A.hold(track, target, 0, "", false) end
+  end
   mouse.grab(e, { drag = function(d) set(start, d) end, up = let_go, cancel = let_go })
 end
 
@@ -55,8 +57,15 @@ local function strip_gesture(_, e)
   if e.kind == "move" then
     local t = api.track_get(id)
     if h.kind == "peak" then return mouse.hint("the loudest of late · click to put out the clip light") end
-    if h.kind == "output" then return mouse.hint(t.name .. " plays into " .. paw.frontend.routing(id).output .. " · click to choose another") end
-    return mouse.hint(t.name .. " · " .. draw_db(t.volume) .. " · drag the fader or the pan · double click resets · right click for more")
+    if h.kind == "output" then
+      return mouse.hint(t.name .. " plays into " .. paw.frontend.routing(id).output .. " · click to choose another")
+    end
+    return mouse.hint(
+      t.name
+        .. " · "
+        .. draw_db(t.volume)
+        .. " · drag the fader or the pan · double click resets · right click for more"
+    )
   end
   if e.kind ~= "down" then return end
   if id ~= 0 then paw.cursor.set_track(id) end
@@ -67,7 +76,11 @@ local function strip_gesture(_, e)
   if e.button == "left" and h.kind == "output" then return paw.commands.exec("track.output") end
   if e.button == "right" then
     if id == 0 then return end
-    return mouse.grab(e, { up = function(u) if not u.moved then paw.ui.menu(menus.track(id), screen(e)) end end })
+    return mouse.grab(e, {
+      up = function(u)
+        if not u.moved then paw.ui.menu(menus.track(id), screen(e)) end
+      end,
+    })
   end
   if e.button ~= "left" then return end
   local kind = h.kind
@@ -80,9 +93,13 @@ local function strip_gesture(_, e)
     end, id, "volume")
   elseif kind == "volume" then
     if e.double then return A.set_volume(id, 0) end
-    return drag(e, function() return api.track_get(id, "volume") end, function(start, d)
-      A.set_volume(id, start + d.dx * (mouse.has(d, "S") and 0.1 or 1))
-    end, id, "volume")
+    return drag(
+      e,
+      function() return api.track_get(id, "volume") end,
+      function(start, d) A.set_volume(id, start + d.dx * (mouse.has(d, "S") and 0.1 or 1)) end,
+      id,
+      "volume"
+    )
   elseif kind == "pan" then
     if e.double then return A.set_pan(id, 0) end
     local rect, fine = e.rect, e.fine
@@ -96,15 +113,24 @@ local function strip_gesture(_, e)
   elseif kind == "send" then
     local send = (api.track_get(id).sends or {})[h.index]
     if not send then return end
-    return drag(e, function() return send.level end, function(start, d)
-      A.set_send(id, h.index, start + d.dx * (mouse.has(d, "S") and 0.1 or 1))
-    end)
+    return drag(
+      e,
+      function() return send.level end,
+      function(start, d) A.set_send(id, h.index, start + d.dx * (mouse.has(d, "S") and 0.1 or 1)) end
+    )
   end
 end
 
 mixer.gestures = {
-  strip = strip_gesture, fader = strip_gesture, volume = strip_gesture, pan = strip_gesture,
-  flag = strip_gesture, insert = strip_gesture, send = strip_gesture, peak = strip_gesture, output = strip_gesture,
+  strip = strip_gesture,
+  fader = strip_gesture,
+  volume = strip_gesture,
+  pan = strip_gesture,
+  flag = strip_gesture,
+  insert = strip_gesture,
+  send = strip_gesture,
+  peak = strip_gesture,
+  output = strip_gesture,
 }
 
 -- The device panel ---------------------------------------------------------------------
@@ -116,15 +142,17 @@ local devices = paw.ui.views.devices
 local function menu_at(e, kind, args)
   local items = require("paw.window_menus").items(kind, args)
   if #items == 0 then return end
-  return mouse.grab(e, { up = function(u) if not u.moved then paw.ui.menu(items, screen(e)) end end })
+  return mouse.grab(e, {
+    up = function(u)
+      if not u.moved then paw.ui.menu(items, screen(e)) end
+    end,
+  })
 end
 
 --- Where along a slider of `bar` columns from the left of its region the
 --- pointer is, from 0 to 1: the middle of a terminal's cell, a window's
 --- point.
-local function on_bar(x, rect, bar, fine)
-  return util.clamp((x - rect.x + (fine and 0 or 0.5)) / math.max(1, bar), 0, 1)
-end
+local function on_bar(x, rect, bar, fine) return util.clamp((x - rect.x + (fine and 0 or 0.5)) / math.max(1, bar), 0, 1) end
 
 --- What the pointer says over each part of the panel.
 local device_hints = {
@@ -135,7 +163,9 @@ local device_hints = {
   preset = "the presets of the device: choose one, or save one",
   outputs = "where the further outputs of the device play",
   sidechain = "the track the device listens to (side-chain)",
-  up = "move the device up the chain", down = "move the device down the chain", remove = "remove the device",
+  up = "move the device up the chain",
+  down = "move the device down the chain",
+  remove = "remove the device",
   editor = "show or hide the plugin's own window",
   status = "click to bring the plugin back",
   automate = "automate: a lane for this parameter, with a point at its value",
@@ -183,9 +213,15 @@ local function device_gesture(self, e)
     local items = row.param and menus.param(row.device.id, row.param.key) or {}
     local lens = menus.lens({ uri = uri })
     if #items > 0 and #lens > 0 then items[#items + 1] = "-" end
-    for _, item in ipairs(lens) do items[#items + 1] = item end
+    for _, item in ipairs(lens) do
+      items[#items + 1] = item
+    end
     if #items == 0 then return end
-    return mouse.grab(e, { up = function(u) if not u.moved then paw.ui.menu(items, screen(e)) end end })
+    return mouse.grab(e, {
+      up = function(u)
+        if not u.moved then paw.ui.menu(items, screen(e)) end
+      end,
+    })
   end
   if e.button ~= "left" then return end
   if h.index then choose(h.index) end
@@ -206,22 +242,25 @@ local function device_gesture(self, e)
           A.set_param(id, h.key, on_bar(m.x, rect, h.bar, fine))
         end
       end,
-      up = let_go, cancel = let_go,
+      up = let_go,
+      cancel = let_go,
     })
   elseif kind == "device" then
     -- Dragged up or down the panel, the device goes before the device of
     -- the row it is let go on (after the last, below them).
     -- The heading's row in the view is its region's; the title is row 0.
     local top = e.rect.y
-    return mouse.grab(e, { up = function(u)
-      if not u.moved then return end
-      local rows = self:rows()
-      local target = rows[self.scroll + math.floor(top + u.dy + 0.5)]
-      local d = api.device_get(id)
-      local index = target and target.device.index or #api.track_get(d.track).devices + 1
-      if target and target.device.id ~= id and target.device.index > d.index then index = index + 1 end
-      if index ~= d.index then A.place_device(id, index, mouse.has(u, "C")) end
-    end })
+    return mouse.grab(e, {
+      up = function(u)
+        if not u.moved then return end
+        local rows = self:rows()
+        local target = rows[self.scroll + math.floor(top + u.dy + 0.5)]
+        local d = api.device_get(id)
+        local index = target and target.device.index or #api.track_get(d.track).devices + 1
+        if target and target.device.id ~= id and target.device.index > d.index then index = index + 1 end
+        if index ~= d.index then A.place_device(id, index, mouse.has(u, "C")) end
+      end,
+    })
   elseif kind == "power" then
     A.toggle_bypass(id)
   elseif kind == "preset" then
@@ -235,7 +274,11 @@ local function device_gesture(self, e)
   elseif kind == "editor" then
     api.device_editor(id)
   elseif kind == "status" then
-    if h.status == "offline" then A.toggle_offline(id) else A.restart_device(id) end
+    if h.status == "offline" then
+      A.toggle_offline(id)
+    else
+      A.restart_device(id)
+    end
   elseif kind == "automate" then
     A.automate_param(id, h.key)
   elseif kind == "learn" then
@@ -261,4 +304,6 @@ local function device_gesture(self, e)
 end
 
 devices.gestures = {}
-for kind in pairs(device_hints) do devices.gestures[kind] = device_gesture end
+for kind in pairs(device_hints) do
+  devices.gestures[kind] = device_gesture
+end

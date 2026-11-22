@@ -99,12 +99,16 @@ test("guide: arrange your screen: windows, tabs and layouts", function()
   eq(#paw.ui.tabs, 1, ":tabclose")
   keys(":tabnew<CR>")
   eq(windows(), "empty", "a tab without a view: the start page")
-  eq(table.concat(api.ui_snapshot(W, H), "\n"):find("Recent projects", 1, true) ~= nil, true, "which lists the recent projects")
+  eq(
+    table.concat(api.ui_snapshot(W, H), "\n"):find("Recent projects", 1, true) ~= nil,
+    true,
+    "which lists the recent projects"
+  )
   keys(":tabclose<CR>")
   -- A start layout.
   paw.ui.start_layout = "notation"
   L.start()
-  eq(windows(), "notation", "paw.ui.start_layout = \"notation\"")
+  eq(windows(), "notation", 'paw.ui.start_layout = "notation"')
   paw.ui.start_layout = { dir = "h", "notation", "roll" }
   L.start()
   eq(windows(), "notation pianoroll", "a start layout that splits the screen")

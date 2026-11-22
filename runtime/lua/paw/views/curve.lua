@@ -19,15 +19,15 @@ local mouse = paw.mouse
 
 local M = {}
 local EPS = 1e-9
-local AXIS = 10  -- the columns of the value axis at the left
+local AXIS = 10 -- the columns of the value axis at the left
 
 -- What is under way in some window, each seat its own: the points insert
 -- mode has drawn (`{ win, from, to, points }`), a wave made with `g~`
 -- whose choices can still be stepped through, and what the pointer drags.
 local insert, gen, drag
-paw.seats.keep("curve", function() return insert, gen, drag end,
-  function(i, g, d) insert, gen, drag = i, g, d end,
-  function() return nil, nil, nil end)
+paw.seats.keep("curve", function() return insert, gen, drag end, function(i, g, d)
+  insert, gen, drag = i, g, d
+end, function() return nil, nil, nil end)
 
 -- The window a graphical frontend draws the editor in, when it shows it in
 -- a window of its own (`:curve.window`).
@@ -72,9 +72,7 @@ end
 --- has not written yet in their place.
 local function shown_points(win, t)
   local points = t.points()
-  if insert and insert.win == win.id then
-    return curves.splice(points, insert.from, insert.to, insert.points)
-  end
+  if insert and insert.win == win.id then return curves.splice(points, insert.from, insert.to, insert.points) end
   if drag and drag.win == win.id and drag.points then return drag.points end
   return points
 end
@@ -90,7 +88,9 @@ local function point_at(points, beat, zoom)
   local best, at
   for i, q in ipairs(points) do
     local d = math.abs(q.beat - beat)
-    if d <= reach and (not best or d < math.abs(best.beat - beat)) then best, at = q, i end
+    if d <= reach and (not best or d < math.abs(best.beat - beat)) then
+      best, at = q, i
+    end
   end
   return at, best
 end
@@ -131,10 +131,16 @@ function M.picture(g, px, t, points, s)
   local track = t.track and api.track_get(t.track) or { master = true }
   local dot = px.cell.h / (s.sub or 4)
   paw.plot.curve(g, px, {
-    points = points, from = s.left, pixels_per_beat = s.zoom * px.cell.w,
-    frac = t.frac, flat = #points == 0 and t.flat and t.flat() or nil,
-    color = paw.draw.track_colour(track), top = dot / 2, bottom = dot / 2,
-    beats = s.zoom >= 4, markers = false,
+    points = points,
+    from = s.left,
+    pixels_per_beat = s.zoom * px.cell.w,
+    frac = t.frac,
+    flat = #points == 0 and t.flat and t.flat() or nil,
+    color = paw.draw.track_colour(track),
+    top = dot / 2,
+    bottom = dot / 2,
+    beats = s.zoom >= 4,
+    markers = false,
   })
 end
 
@@ -152,8 +158,15 @@ local function render(win, canvas, ctx)
   local inserting = insert and insert.win == win.id
   local mode = ctx.focused and paw.keymap.mode or "n"
   local where = paw.time.format(s.beat) .. "  " .. t.format(s.value)
-  paw.ui.titlebar(canvas, { name = t.name(), context = where, focused = ctx.focused,
-    right = string.format("%d point%s", #points, #points == 1 and "" or "s") })
+  paw.ui.titlebar(
+    canvas,
+    {
+      name = t.name(),
+      context = where,
+      focused = ctx.focused,
+      right = string.format("%d point%s", #points, #points == 1 and "" or "s"),
+    }
+  )
   if inserting and ctx.focused then
     local text = " INS draw "
     canvas:text(math.max(0, W - api.str_width(text) - 1), 0, text, "RulerInsert")
@@ -165,7 +178,11 @@ local function render(win, canvas, ctx)
   -- The cursor stays in sight, unless another window leads this one's time.
   if not ctx.follower then
     local col = (s.beat - s.left) * s.zoom
-    if col < 0 then s.left = s.beat elseif col >= pw - 1 then s.left = s.beat - (pw - 2) / s.zoom end
+    if col < 0 then
+      s.left = s.beat
+    elseif col >= pw - 1 then
+      s.left = s.beat - (pw - 2) / s.zoom
+    end
     s.left = math.max(0, s.left)
   end
   local span = pw / s.zoom
@@ -178,9 +195,16 @@ local function render(win, canvas, ctx)
   -- Where the terminal shows pictures, the grid and the curve are one under
   -- the cells, which keep the points, the cursor and the playhead.
   local pictured = plot:strip(0, 0, pw, rows, {
-    key = "curve:" .. tostring(win.id), under = true,
+    key = "curve:" .. tostring(win.id),
+    under = true,
     draw = function(gp, px)
-      M.picture(gp, px, t, points, { left = s.left, zoom = s.zoom, sub = paw.draw.curve_glyphs() == "braille" and 4 or 3 })
+      M.picture(
+        gp,
+        px,
+        t,
+        points,
+        { left = s.left, zoom = s.zoom, sub = paw.draw.curve_glyphs() == "braille" and 4 or 3 }
+      )
     end,
   })
   -- Beats only once they are far enough apart not to be noise, as in the arrange view.
@@ -222,9 +246,13 @@ local function render(win, canvas, ctx)
         plot:text(cx, math.floor(y / sub), paw.opt.ascii and "*" or "─", hue.fg)
       end
     else
-      local cells = paw.draw.trace(pw, pw * 2, function(sx)
-        return dot_y(value_at(t, points, s.left + (sx + 0.5) / (2 * s.zoom)))
-      end, sub, kind)
+      local cells = paw.draw.trace(
+        pw,
+        pw * 2,
+        function(sx) return dot_y(value_at(t, points, s.left + (sx + 0.5) / (2 * s.zoom))) end,
+        sub,
+        kind
+      )
       local glyph = kind == "braille" and paw.draw.braille or paw.draw.sextant
       for key, bits in pairs(cells) do
         plot:text(key % pw, math.floor(key / pw), glyph(bits), hue.fg)
@@ -264,11 +292,21 @@ local function render(win, canvas, ctx)
   if gen and gen.win == win.id then
     text = M.gen_text()
   elseif q then
-    text = string.format("point %d: %s at %s · %s%s", at, t.format(q.value), paw.time.format(q.beat), q.shape,
-      q.shape == "smooth" and string.format(" %+.2f", q.tension) or "")
+    text = string.format(
+      "point %d: %s at %s · %s%s",
+      at,
+      t.format(q.value),
+      paw.time.format(q.beat),
+      q.shape,
+      q.shape == "smooth" and string.format(" %+.2f", q.tension) or ""
+    )
   else
-    text = string.format("curve %s at %s · grid %s", t.format(value_at(t, points, s.beat)), paw.time.format(s.beat),
-      paw.ui.views.status.grid_text(s.grid))
+    text = string.format(
+      "curve %s at %s · grid %s",
+      t.format(value_at(t, points, s.beat)),
+      paw.time.format(s.beat),
+      paw.ui.views.status.grid_text(s.grid)
+    )
   end
   canvas:text(1, bottom, util.fit(text, W - 2), "Dim")
 end
@@ -409,7 +447,10 @@ function M.under_cursor(note)
     local lane = paw.cursor.lane_id()
     if lane then return paw.address.lane(lane) end
     if paw.tempolane.shown() then return paw.address.tempo() end
-    return nil, "not on a lane row: `" .. paw.keymap.human("<leader>aa") .. "` shows the lanes, `" .. paw.keymap.human("<leader>al") .. "` chooses one"
+    return nil,
+      "not on a lane row: `" .. paw.keymap.human("<leader>aa") .. "` shows the lanes, `" .. paw.keymap.human(
+        "<leader>al"
+      ) .. "` chooses one"
   end
   -- A view that knows the curve of what is under its cursor (the mixer's fader).
   local view = paw.ui.views[focused]
@@ -431,9 +472,7 @@ local function here()
   return win, t, state(win, t), t.points()
 end
 
-local function say(t, q)
-  paw.notify(string.format("%s: %s at %s", t.name(), t.format(q.value), paw.time.format(q.beat)))
-end
+local function say(t, q) paw.notify(string.format("%s: %s at %s", t.name(), t.format(q.value), paw.time.format(q.beat))) end
 
 --- Move the cursor along the grid, `n` steps.
 function M.move(n)
@@ -489,7 +528,11 @@ function M.add(on_curve)
   local v = on_curve and value_at(t, points, s.beat) or s.value
   local at = point_at(points, s.beat, math.huge)
   local q = { beat = s.beat, value = v, shape = "linear", tension = 0 }
-  if at then points[at] = q else points[#points + 1] = q end
+  if at then
+    points[at] = q
+  else
+    points[#points + 1] = q
+  end
   write(t, points, "Add a point")
   s.value = v
   say(t, q)
@@ -525,14 +568,26 @@ function M.type_value()
   if not win then return end
   local at, q = point_at(points, s.beat, s.zoom)
   local now = q and q.value or s.value
-  paw.ui.ask_value({ label = t.name(), now = now * t.scale, min = t.min * t.scale, max = t.max * t.scale,
-    show = function(v) return t.format(v / t.scale) end }, function(v)
-    v = v / t.scale
-    local list = t.points()
-    if at then list[at].value = v else list[#list + 1] = { beat = s.beat, value = v, shape = "linear", tension = 0 } end
-    write(t, list, "Set a point")
-    s.value = v
-  end)
+  paw.ui.ask_value(
+    {
+      label = t.name(),
+      now = now * t.scale,
+      min = t.min * t.scale,
+      max = t.max * t.scale,
+      show = function(v) return t.format(v / t.scale) end,
+    },
+    function(v)
+      v = v / t.scale
+      local list = t.points()
+      if at then
+        list[at].value = v
+      else
+        list[#list + 1] = { beat = s.beat, value = v, shape = "linear", tension = 0 }
+      end
+      write(t, list, "Set a point")
+      s.value = v
+    end
+  )
 end
 
 local SHAPES = { "linear", "hold", "smooth" }
@@ -550,14 +605,26 @@ local function shape_points(t, points, list, shape)
     for _ = 1, #SHAPES do
       if t.has(shape) then break end
       for i, name in ipairs(SHAPES) do
-        if name == shape then shape = SHAPES[i % #SHAPES + 1] break end
+        if name == shape then
+          shape = SHAPES[i % #SHAPES + 1]
+          break
+        end
       end
     end
   end
   if not t.has(shape) then
-    return paw.notify(t.name() .. " has no " .. shape .. " stretches" .. (t.kind == "control" and ": a controller's moves hold until the next" or ""), "warn")
+    return paw.notify(
+      t.name()
+        .. " has no "
+        .. shape
+        .. " stretches"
+        .. (t.kind == "control" and ": a controller's moves hold until the next" or ""),
+      "warn"
+    )
   end
-  for _, i in ipairs(list) do points[i].shape = shape end
+  for _, i in ipairs(list) do
+    points[i].shape = shape
+  end
   write(t, points, "Shape the curve")
   paw.notify(shape .. (shape == "smooth" and ": `[` `]` bend it" or ""))
 end
@@ -604,7 +671,9 @@ end
 
 local function without(points, list)
   local gone, out = {}, {}
-  for _, i in ipairs(list) do gone[i] = true end
+  for _, i in ipairs(list) do
+    gone[i] = true
+  end
   for i, q in ipairs(points) do
     if not gone[i] then out[#out + 1] = q end
   end
@@ -629,49 +698,67 @@ M.ops = {
     yank(points, list, ctx.register)
     write(t, without(points, list))
   end),
-  yank = on_region(function(_, points, list, _, ctx)
-    paw.notify(yank(points, list, ctx.register) .. " points yanked")
-  end),
-  raise = function(n) return on_region(function(t, points, list, _, ctx)
-    for _, i in ipairs(list) do points[i].value = nudge(t, points[i].value, n * (ctx.count or 1)) end
-    write(t, points)
-  end) end,
-  shift = function(n) return on_region(function(t, points, list, _, ctx, s)
-    local by = n * (ctx.count or 1) * s.grid
-    local moving, keep = {}, {}
-    for _, i in ipairs(list) do moving[i] = true end
-    local landed = {}
-    for i, q in ipairs(points) do
-      if moving[i] then
-        q.beat = math.max(0, q.beat + by)
-        landed[#landed + 1] = q.beat
+  yank = on_region(
+    function(_, points, list, _, ctx) paw.notify(yank(points, list, ctx.register) .. " points yanked") end
+  ),
+  raise = function(n)
+    return on_region(function(t, points, list, _, ctx)
+      for _, i in ipairs(list) do
+        points[i].value = nudge(t, points[i].value, n * (ctx.count or 1))
       end
-    end
-    -- A point moved onto another's beat takes its place.
-    for i, q in ipairs(points) do
-      local covered = false
-      if not moving[i] then
-        for _, b in ipairs(landed) do covered = covered or math.abs(q.beat - b) < EPS end
+      write(t, points)
+    end)
+  end,
+  shift = function(n)
+    return on_region(function(t, points, list, _, ctx, s)
+      local by = n * (ctx.count or 1) * s.grid
+      local moving, keep = {}, {}
+      for _, i in ipairs(list) do
+        moving[i] = true
       end
-      if not covered then keep[#keep + 1] = q end
-    end
-    write(t, keep)
-    if paw.keymap.visual then
-      paw.keymap.visual.col = math.max(0, paw.keymap.visual.col + by)
-      s.beat = math.max(0, s.beat + by)
-    end
-  end) end,
+      local landed = {}
+      for i, q in ipairs(points) do
+        if moving[i] then
+          q.beat = math.max(0, q.beat + by)
+          landed[#landed + 1] = q.beat
+        end
+      end
+      -- A point moved onto another's beat takes its place.
+      for i, q in ipairs(points) do
+        local covered = false
+        if not moving[i] then
+          for _, b in ipairs(landed) do
+            covered = covered or math.abs(q.beat - b) < EPS
+          end
+        end
+        if not covered then keep[#keep + 1] = q end
+      end
+      write(t, keep)
+      if paw.keymap.visual then
+        paw.keymap.visual.col = math.max(0, paw.keymap.visual.col + by)
+        s.beat = math.max(0, s.beat + by)
+      end
+    end)
+  end,
   shape = on_region(function(t, points, list) shape_points(t, points, list, nil) end),
   thin = on_region(function(t, points, list, region)
     if #list < 3 and region.kind ~= "line" then return paw.notify("thinning needs three points or more", "warn") end
     local a, b = list[1], list[#list]
     local part = {}
-    for i = a, b do part[#part + 1] = points[i] end
+    for i = a, b do
+      part[#part + 1] = points[i]
+    end
     local thinned = curves.thin(part, 0.01, t.frac)
     local out = {}
-    for i = 1, a - 1 do out[#out + 1] = points[i] end
-    for _, q in ipairs(thinned) do out[#out + 1] = q end
-    for i = b + 1, #points do out[#out + 1] = points[i] end
+    for i = 1, a - 1 do
+      out[#out + 1] = points[i]
+    end
+    for _, q in ipairs(thinned) do
+      out[#out + 1] = q
+    end
+    for i = b + 1, #points do
+      out[#out + 1] = points[i]
+    end
     write(t, out)
     paw.notify(string.format("%d points, %d before", #out, #points))
   end),
@@ -679,25 +766,35 @@ M.ops = {
     if #list < 3 then return paw.notify("smoothing needs three points or more", "warn") end
     local a, b = list[1], list[#list]
     local part = {}
-    for i = a, b do part[#part + 1] = points[i] end
+    for i = a, b do
+      part[#part + 1] = points[i]
+    end
     local soft = curves.smooth(part, ctx.count or 1)
-    for k = 1, #soft do points[a + k - 1] = soft[k] end
+    for k = 1, #soft do
+      points[a + k - 1] = soft[k]
+    end
     write(t, points)
     paw.notify(string.format("smoothed %d points", #list))
   end),
   quantize = on_region(function(t, points, list, _, _, s)
     if #list == 0 then return end
     local part, rest = {}, without(points, list)
-    for _, i in ipairs(list) do part[#part + 1] = points[i] end
+    for _, i in ipairs(list) do
+      part[#part + 1] = points[i]
+    end
     local snapped = curves.quantize(part, s.grid)
     -- What lands on a beat a point outside it holds takes its place.
     local out = {}
     for _, q in ipairs(rest) do
       local covered = false
-      for _, p in ipairs(snapped) do covered = covered or math.abs(p.beat - q.beat) < EPS end
+      for _, p in ipairs(snapped) do
+        covered = covered or math.abs(p.beat - q.beat) < EPS
+      end
       if not covered then out[#out + 1] = q end
     end
-    for _, q in ipairs(snapped) do out[#out + 1] = q end
+    for _, q in ipairs(snapped) do
+      out[#out + 1] = q
+    end
     write(t, curves.sorted(out))
   end),
 }
@@ -707,10 +804,14 @@ function M.paste(register, count)
   local win, t, s, points = here()
   if not win then return end
   local value = paw.keymap.getreg(register)
-  if not (value and value.kind == "curve") then return paw.notify("no points in the register: `y` some first", "warn") end
+  if not (value and value.kind == "curve") then
+    return paw.notify("no points in the register: `y` some first", "warn")
+  end
   local new, at = {}, s.beat
   local length = 0
-  for _, q in ipairs(value.points) do length = math.max(length, q.beat) end
+  for _, q in ipairs(value.points) do
+    length = math.max(length, q.beat)
+  end
   local period = length + s.grid
   for k = 0, (count or 1) - 1 do
     for _, q in ipairs(value.points) do
@@ -777,7 +878,9 @@ function M.gen_text()
   if not gen then return "" end
   local parts = {}
   for i, name in ipairs(CHOICES) do
-    local value = name == "wave" and curves.waves[gen.wave] or name == "rate" and curves.rates[gen.rate][2] or curves.depths[gen.depth][2]
+    local value = name == "wave" and curves.waves[gen.wave]
+      or name == "rate" and curves.rates[gen.rate][2]
+      or curves.depths[gen.depth][2]
     parts[#parts + 1] = (i == gen.choice and "[" .. value .. "]" or value)
   end
   return table.concat(parts, " · ") .. "   Tab next choice · Ctrl-n Ctrl-p change it · Ctrl-y keep"
@@ -786,12 +889,19 @@ end
 local function gen_write(first)
   local win = layout.get(gen.win) or (loose and loose.id == gen.win and loose)
   local t = win and M.target(win)
-  if not t then gen = nil return end
+  if not t then
+    gen = nil
+    return
+  end
   -- Changed after the turn that wrote it: into the same undo step.
   if not first and api.undo_current() ~= gen.undo_before then api.undo_join(api.undo_current()) end
   local wave = curves.generate(curves.waves[gen.wave], gen.from, gen.to, {
-    rate = curves.rates[gen.rate][1], depth = curves.depths[gen.depth][1], centre = gen.centre,
-    unfrac = t.unfrac, smooth = t.has("smooth"), seed = gen.seed,
+    rate = curves.rates[gen.rate][1],
+    depth = curves.depths[gen.depth][1],
+    centre = gen.centre,
+    unfrac = t.unfrac,
+    smooth = t.has("smooth"),
+    seed = gen.seed,
   })
   write(t, curves.splice(gen.before, gen.from, gen.to, wave), first and "Make a " .. curves.waves[gen.wave] or nil)
   api.ui_redraw()
@@ -810,7 +920,9 @@ function M.generate(wave, from, to, opts)
   for i, name in ipairs(curves.waves) do
     if name == wave then index = i end
   end
-  if not (index and curves.waves[index]) then return paw.notify("no wave `" .. tostring(wave) .. "`: " .. table.concat(curves.waves, ", "), "warn") end
+  if not (index and curves.waves[index]) then
+    return paw.notify("no wave `" .. tostring(wave) .. "`: " .. table.concat(curves.waves, ", "), "warn")
+  end
   local function place(list, v, default)
     for i, entry in ipairs(list) do
       if math.abs(entry[1] - (tonumber(v) or -1)) < EPS then return i end
@@ -818,9 +930,17 @@ function M.generate(wave, from, to, opts)
     return default
   end
   gen = {
-    win = win.id, wave = index, from = from, to = to, before = points, choice = 1, seed = math.floor(from * 97 + to),
-    rate = place(curves.rates, opts.rate, 3), depth = place(curves.depths, opts.depth, 2),
-    centre = t.frac(value_at(t, points, from)), undo_before = api.undo_current(),
+    win = win.id,
+    wave = index,
+    from = from,
+    to = to,
+    before = points,
+    choice = 1,
+    seed = math.floor(from * 97 + to),
+    rate = place(curves.rates, opts.rate, 3),
+    depth = place(curves.depths, opts.depth, 2),
+    centre = t.frac(value_at(t, points, from)),
+    undo_before = api.undo_current(),
   }
   gen_write(true)
 end
@@ -851,7 +971,11 @@ end
 local function wave_menu(from, to, where)
   local items = {}
   for i, name in ipairs(curves.waves) do
-    items[#items + 1] = { label = name:sub(1, 1):upper() .. name:sub(2), keys = tostring(i), run = function() M.generate(i, from, to) end }
+    items[#items + 1] = {
+      label = name:sub(1, 1):upper() .. name:sub(2),
+      keys = tostring(i),
+      run = function() M.generate(i, from, to) end,
+    }
   end
   paw.ui.menu(items, where or { x = 4, y = 4 })
 end
@@ -896,20 +1020,30 @@ local function point_menu(win, t, at)
   local q = points[at]
   local items = {}
   for _, shape in ipairs(SHAPES) do
-    items[#items + 1] = { label = shape:sub(1, 1):upper() .. shape:sub(2), checked = q.shape == shape, enabled = t.has(shape),
-      run = function() shape_points(t, t.points(), { at }, shape) end }
+    items[#items + 1] = {
+      label = shape:sub(1, 1):upper() .. shape:sub(2),
+      checked = q.shape == shape,
+      enabled = t.has(shape),
+      run = function() shape_points(t, t.points(), { at }, shape) end,
+    }
   end
   items[#items + 1] = "-"
-  items[#items + 1] = { label = "Set its value…", run = function()
-    local s = state(win, t)
-    s.beat, s.value = q.beat, q.value
-    M.type_value()
-  end }
-  items[#items + 1] = { label = "Remove the point", run = function()
-    local list = t.points()
-    table.remove(list, at)
-    write(t, list, "Remove a point")
-  end }
+  items[#items + 1] = {
+    label = "Set its value…",
+    run = function()
+      local s = state(win, t)
+      s.beat, s.value = q.beat, q.value
+      M.type_value()
+    end,
+  }
+  items[#items + 1] = {
+    label = "Remove the point",
+    run = function()
+      local list = t.points()
+      table.remove(list, at)
+      write(t, list, "Remove a point")
+    end,
+  }
   return items
 end
 
@@ -947,7 +1081,9 @@ function def.on_mouse(win, e)
   end
   local inside = e.x >= geo.x and e.x < geo.x + geo.w and e.y >= geo.y and e.y < geo.y + geo.rows
   if e.kind == "move" then
-    if inside then mouse.hint("curve: click a point to choose it, drag to move it · drag elsewhere to draw · right click for more") end
+    if inside then
+      mouse.hint("curve: click a point to choose it, drag to move it · drag elsewhere to draw · right click for more")
+    end
     return
   end
   if e.kind ~= "down" or not inside then return end
@@ -963,12 +1099,14 @@ function def.on_mouse(win, e)
     if x == e.x and math.abs(y - e.y) <= 1 then at = i end
   end
   if e.button == "right" then
-    return mouse.grab(e, { up = function(u)
-      if u.moved then return end
-      if at then return paw.ui.menu(point_menu(win, t, at), where) end
-      s.beat, s.value = snapped(s, beat), value
-      paw.ui.menu(curve_menu(win, t, where), where)
-    end })
+    return mouse.grab(e, {
+      up = function(u)
+        if u.moved then return end
+        if at then return paw.ui.menu(point_menu(win, t, at), where) end
+        s.beat, s.value = snapped(s, beat), value
+        paw.ui.menu(curve_menu(win, t, where), where)
+      end,
+    })
   end
   if e.button ~= "left" then return end
   local free = mouse.has(e, "S")
@@ -981,7 +1119,9 @@ function def.on_mouse(win, e)
       drag = function(d)
         local b, v = at_cell(win, t, d.x, d.y)
         local moved = {}
-        for i, p in ipairs(points) do moved[i] = curves.copy(p) end
+        for i, p in ipairs(points) do
+          moved[i] = curves.copy(p)
+        end
         moved[at].beat, moved[at].value = snapped(s, b, free), util.clamp(v, t.min, t.max)
         drag.points = curves.sorted(moved)
         s.beat, s.value = moved[at].beat, moved[at].value
@@ -1055,8 +1195,14 @@ function M.automate(device_id, key)
     api.undo_label("Automate " .. info.name)
     lane = device:automate(key)
     lane:add(beat, d.params[key])
-    paw.notify(string.format("%s automated: a point at %s, %s · `gc` edits the curve", paw.lanes.name(lane.id),
-      paw.time.format(beat), paw.frontend.format_value(info, d.params[key])))
+    paw.notify(
+      string.format(
+        "%s automated: a point at %s, %s · `gc` edits the curve",
+        paw.lanes.name(lane.id),
+        paw.time.format(beat),
+        paw.frontend.format_value(info, d.params[key])
+      )
+    )
   end
   paw.lanes.open(d.track)
   paw.cursor.set_track(d.track, lane.id)
@@ -1073,10 +1219,16 @@ command("curve.open", function(ctx)
   if uri == "window" or uri == "here" or uri == "note" then
     opts[uri], uri = true, nil
   end
-  for i = 2, #ctx.args do opts[tostring(ctx.args[i])] = true end
-  if ctx.args.device and ctx.args.param then uri = paw.address.param(tonumber(ctx.args.device), tostring(ctx.args.param)) end
+  for i = 2, #ctx.args do
+    opts[tostring(ctx.args[i])] = true
+  end
+  if ctx.args.device and ctx.args.param then
+    uri = paw.address.param(tonumber(ctx.args.device), tostring(ctx.args.param))
+  end
   local why
-  if not uri then uri, why = M.under_cursor(opts.note) end
+  if not uri then
+    uri, why = M.under_cursor(opts.note)
+  end
   if not uri then return paw.notify(why, "warn") end
   local beat = paw.ui.focused ~= "curve" and paw.cursor.beat or nil
   if paw.ui.focused == "pianoroll" then
@@ -1096,23 +1248,36 @@ command("curve.window", function()
   if not uri then return paw.notify("no curve here: `:curve.open` opens one", "warn") end
   M.open(uri, { window = true })
 end, { desc = "Show this curve in a window of its own, in the graphical frontend" })
-command("param.automate", function(ctx)
-  local device, key = tonumber(ctx.args[1]), ctx.args[2] and tostring(ctx.args[2])
-  if not (device and key) then
-    local _, row = paw.ui.views.devices:selected()
-    if not (row and row.param) then return paw.notify("no parameter under the cursor", "warn") end
-    device, key = row.device.id, row.param.key
-  end
-  M.automate(device, key)
-end, { desc = "Automate a parameter (the device panel's under the cursor): its lane, a first point at its value at the cursor, shown as a row" })
+command(
+  "param.automate",
+  function(ctx)
+    local device, key = tonumber(ctx.args[1]), ctx.args[2] and tostring(ctx.args[2])
+    if not (device and key) then
+      local _, row = paw.ui.views.devices:selected()
+      if not (row and row.param) then return paw.notify("no parameter under the cursor", "warn") end
+      device, key = row.device.id, row.param.key
+    end
+    M.automate(device, key)
+  end,
+  {
+    desc = "Automate a parameter (the device panel's under the cursor): its lane, a first point at its value at the cursor, shown as a row",
+  }
+)
 command("curve.generate", function(ctx)
   local win, _, s = here()
   if not win then return end
   local sel = paw.keymap.selection()
   local from, to = s.left, s.left + (s.geo and s.geo.w or 40) / s.zoom
-  if sel and sel.view == "curve" then from, to = sel.c0, sel.c1 end
+  if sel and sel.view == "curve" then
+    from, to = sel.c0, sel.c1
+  end
   paw.keymap.set_mode("n")
-  M.generate(ctx.args[1] and tostring(ctx.args[1]) or "sine", from, to, { rate = ctx.args.rate, depth = ctx.args.depth })
+  M.generate(
+    ctx.args[1] and tostring(ctx.args[1]) or "sine",
+    from,
+    to,
+    { rate = ctx.args.rate, depth = ctx.args.depth }
+  )
 end, {
   desc = "Draw a wave over the selection, or what shows: `curve.generate sine rate=1 depth=0.5` (rate in beats a cycle, depth a fraction of the height)",
   complete = function() return curves.waves end,
@@ -1121,7 +1286,9 @@ end, {
 local nx = { "n", "x" }
 local motion = { motion = true }
 local function cmap(lhs, rhs, desc, opts) map(lhs, rhs, util.merge({ view = "curve", desc = desc }, opts)) end
-local function count(fn) return function(ctx) fn(ctx.count or 1) end end
+local function count(fn)
+  return function(ctx) fn(ctx.count or 1) end
+end
 
 cmap("l", count(M.move), "Right one grid step", motion)
 cmap("h", count(function(n) M.move(-n) end), "Left one grid step", motion)
@@ -1146,7 +1313,12 @@ cmap("x", count(M.remove), "Remove the point under the cursor")
 cmap("+", count(M.nudge_point), "Raise the point under the cursor", { role = "main+" })
 cmap("-", count(function(n) M.nudge_point(-n) end), "Lower the point under the cursor", { role = "main-" })
 cmap("<C-a>", count(M.nudge_point), "Raise the point under the cursor by the count", { role = "main+" })
-cmap("<C-x>", count(function(n) M.nudge_point(-n) end), "Lower the point under the cursor by the count", { role = "main-" })
+cmap(
+  "<C-x>",
+  count(function(n) M.nudge_point(-n) end),
+  "Lower the point under the cursor by the count",
+  { role = "main-" }
+)
 cmap("]", count(function(n) M.tension(0.25 * n) end), "Bend the smooth stretch: move early", { role = "second+" })
 cmap("[", count(function(n) M.tension(-0.25 * n) end), "Bend the smooth stretch: move late", { role = "second-" })
 cmap("c", M.type_value, "Type the value of the point under the cursor")
@@ -1189,7 +1361,12 @@ vmap("H", M.ops.shift(-1), "Move the points selected earlier")
 vmap("~", M.ops.shape, "The next shape for the points selected")
 
 -- Insert mode: each move of the cursor draws.
-local function imap(lhs, fn, desc) map(lhs, function(ctx) fn(ctx) M.insert_mark() end, { view = "curve", mode = "i", desc = desc }) end
+local function imap(lhs, fn, desc)
+  map(lhs, function(ctx)
+    fn(ctx)
+    M.insert_mark()
+  end, { view = "curve", mode = "i", desc = desc })
+end
 imap("l", function() M.move(1) end, "Draw a grid step right")
 imap("h", function() M.move(-1) end, "Back a grid step")
 imap("<Right>", function() M.move(1) end, "Draw a grid step right")
@@ -1211,13 +1388,29 @@ gmap("<C-n>", function() M.gen_step(1) end, "Change the choice")
 gmap("<C-p>", function() M.gen_step(-1) end, "Change the choice back")
 gmap("<C-y>", M.gen_finish, "Keep the wave")
 gmap("<Esc>", M.gen_finish, "Keep the wave")
-paw.on("view.focused", function() if gen then M.gen_finish() end end)
+paw.on("view.focused", function()
+  if gen then M.gen_finish() end
+end)
 
 paw.ui.keybar.set("curve", "n", {
-  { "i", "draw" }, { "o", "point" }, { "x", "remove" }, { "w", "next" }, { "~", "shape" }, { "g~", "wave" }, { "?", "keys" },
+  { "i", "draw" },
+  { "o", "point" },
+  { "x", "remove" },
+  { "w", "next" },
+  { "~", "shape" },
+  { "g~", "wave" },
+  { "?", "keys" },
 })
-paw.ui.keybar.set("curve", "i", { { "h", "back" }, { "l", "right" }, { "k", "up" }, { "j", "down" }, { "<Esc>", "write" } })
-paw.ui.keybar.set("curve", "x", { { "d", "delete" }, { "+", "raise" }, { "<lt>", "earlier" }, { ">", "later" }, { "gs", "smooth" }, { "g~", "wave" } })
+paw.ui.keybar.set(
+  "curve",
+  "i",
+  { { "h", "back" }, { "l", "right" }, { "k", "up" }, { "j", "down" }, { "<Esc>", "write" } }
+)
+paw.ui.keybar.set(
+  "curve",
+  "x",
+  { { "d", "delete" }, { "+", "raise" }, { "<lt>", "earlier" }, { ">", "later" }, { "gs", "smooth" }, { "g~", "wave" } }
+)
 paw.ui.keybar.set("curve.gen", "n", { { "<Tab>", "next choice" }, { "<C-n>", "change" }, { "<C-y>", "keep" } })
 
 -- Where it opens from: `gC` or Enter on a lane row, a parameter, the mixer's
@@ -1225,12 +1418,18 @@ paw.ui.keybar.set("curve.gen", "n", { { "<Tab>", "next choice" }, { "<C-n>", "ch
 map("gC", "curve.open", { view = "arrange.lane", desc = "Edit this lane's curve" })
 map("<CR>", "curve.open", { view = "arrange.lane", desc = "Edit this lane's curve" })
 map("gC", "curve.open", { view = "devices", desc = "Edit the parameter's curve" })
-map("A", "param.automate", { view = "devices", desc = "Automate the parameter: its lane, with a point at its value at the cursor" })
+map(
+  "A",
+  "param.automate",
+  { view = "devices", desc = "Automate the parameter: its lane, with a point at its value at the cursor" }
+)
 map("gC", "curve.open", { view = "pianoroll", desc = "Edit the strip's controller as a curve" })
 map("gX", "curve.open note", { view = "pianoroll", desc = "Edit the note's own expression as a curve" })
 
 -- The keys the curve editor had before the rule (`paw.opt.keys = "classic"`).
-local function classic(lhs, rhs, desc, opts) paw.keymap.classic(lhs, rhs, util.merge({ view = "curve", desc = desc }, opts)) end
+local function classic(lhs, rhs, desc, opts)
+  paw.keymap.classic(lhs, rhs, util.merge({ view = "curve", desc = desc }, opts))
+end
 classic("K", count(function(n) M.climb(10 * n) end), "Ten steps higher", motion)
 classic("J", count(function(n) M.climb(-10 * n) end), "Ten steps lower", motion)
 classic("s", M.cycle_shape, "The next shape of the stretch from the point: straight, held, smooth")

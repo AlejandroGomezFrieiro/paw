@@ -13,7 +13,9 @@ local A = paw.frontend.act
 
 local function wait_for(ready, ms)
   local deadline = api.now() + (ms or 10000)
-  while not ready() and api.now() < deadline do paw.wait(10) end
+  while not ready() and api.now() < deadline do
+    paw.wait(10)
+  end
   return ready()
 end
 
@@ -69,7 +71,10 @@ test("a MIDI output's form is checked, saved, undone and copied with the track",
   -- Choosing another port keeps the form.
   paw.routes.set_midi_out(paw.track("Hardware").id, "Other", 3)
   eq(paw.track("Hardware").midi_output.form, "mpe", "the form stays with the route")
-  fails(function() paw.routes.set_midi_out(paw.track("Hardware").id, "Other", 3, "loud") end, "auto, plain, mpe or cc14")
+  fails(
+    function() paw.routes.set_midi_out(paw.track("Hardware").id, "Other", 3, "loud") end,
+    "auto, plain, mpe or cc14"
+  )
 end)
 
 test("the terminal and the window choose the form a track's MIDI output sends in", function()
@@ -77,8 +82,11 @@ test("the terminal and the window choose the form a track's MIDI output sends in
   local t = paw.add_track({ name = "Hardware" })
   paw.cursor.set_track(t)
   paw.commands.exec("track.midi_out Some synth 5 mpe")
-  eq(t.midi_output.port .. " " .. t.midi_output.channel .. " " .. t.midi_output.form, "Some synth 5 mpe",
-    ":track.midi_out takes a form after the port and channel")
+  eq(
+    t.midi_output.port .. " " .. t.midi_output.channel .. " " .. t.midi_output.form,
+    "Some synth 5 mpe",
+    ":track.midi_out takes a form after the port and channel"
+  )
   paw.commands.exec("track.midi_out Some synth cc14")
   eq(t.midi_output.form .. " " .. tostring(t.midi_output.channel), "cc14 nil", "or alone")
   local menu = paw.frontend.input_menu(t.id)
@@ -103,9 +111,15 @@ test("a route in MPE plays each note of a chord on a channel of its own, bent th
   return with_loop(function(heard)
     paw.project.tempo = 120
     local t = paw.add_track({ name = "Hardware" })
-    local clip = t:add_clip({ start = 0, length = 4, notes = {
-      { pitch = "C4", start = 0, length = 2 }, { pitch = "E4", start = 0, length = 2 }, { pitch = "G4", start = 0, length = 2 },
-    } })
+    local clip = t:add_clip({
+      start = 0,
+      length = 4,
+      notes = {
+        { pitch = "C4", start = 0, length = 2 },
+        { pitch = "E4", start = 0, length = 2 },
+        { pitch = "G4", start = 0, length = 2 },
+      },
+    })
     -- The E a semitone up, half a beat in.
     clip:set_controls({ { start = 0.5, type = "bend", key = "E4", value = 1 / 48 } })
     t.midi_output = { port = "paw: " .. LOOP, form = "mpe", members = 4 }
@@ -138,7 +152,9 @@ test("a route in MPE plays each note of a chord on a channel of its own, bent th
     eq(announced, true, "the zone was announced on channel 1, with its four member channels")
     wait_for(function()
       local offs = 0
-      for _, e in ipairs(heard) do if e.type == "note_off" then offs = offs + 1 end end
+      for _, e in ipairs(heard) do
+        if e.type == "note_off" then offs = offs + 1 end
+      end
       return offs >= 3
     end, 4000)
     local offs = {}
@@ -160,7 +176,9 @@ test("a route with 14-bit controllers sends the fine part of control changes bel
     t.midi_output = { port = "paw: " .. LOOP, channel = 3, form = "cc14" }
     paw.transport.play()
     wait_for(function()
-      for _, e in ipairs(heard) do if e.type == "cc" and e.number == 33 then return true end end
+      for _, e in ipairs(heard) do
+        if e.type == "cc" and e.number == 33 then return true end
+      end
     end, 8000)
     paw.transport.stop()
     local coarse, fine
@@ -170,8 +188,11 @@ test("a route with 14-bit controllers sends the fine part of control changes bel
     end
     eq(coarse and coarse.channel, 3, "the coarse part on its channel")
     eq(fine and fine.channel, 3, "and the fine part, on 33")
-    eq(math.floor(coarse.value * 127 + 0.5) * 128 + math.floor(fine.value * 127 + 0.5), 8193,
-      "together the fourteen bits")
+    eq(
+      math.floor(coarse.value * 127 + 0.5) * 128 + math.floor(fine.value * 127 + 0.5),
+      8193,
+      "together the fourteen bits"
+    )
   end)
 end)
 
@@ -179,14 +200,18 @@ end)
 
 local function starts(list)
   local out = {}
-  for i, m in ipairs(list) do out[i] = string.format("%g", m.start) end
+  for i, m in ipairs(list) do
+    out[i] = string.format("%g", m.start)
+  end
   return table.concat(out, " ")
 end
 
 --- The moves of `clip` whose places are `places`.
 local function picked(clip, places)
   local all, out = clip:controls(), {}
-  for i, place in ipairs(places) do out[i] = all[place] end
+  for i, place in ipairs(places) do
+    out[i] = all[place]
+  end
   return out
 end
 
@@ -197,9 +222,12 @@ local function moves_clip()
   local t = paw.add_track({ name = "Keys" })
   local clip = t:add_clip({ start = 0, length = 8, notes = { { pitch = "C4", start = 0, length = 1 } } })
   clip:set_controls({
-    { start = 0, type = "cc", number = 1, value = 0.2 }, { start = 1, type = "cc", number = 1, value = 0.4 },
-    { start = 2, type = "cc", number = 1, value = 0.6 }, { start = 3, type = "cc", number = 1, value = 0.8 },
-    { start = 1, type = "bend", value = 0.5 }, { start = 1.5, type = "cc", number = 74, value = 0.9 },
+    { start = 0, type = "cc", number = 1, value = 0.2 },
+    { start = 1, type = "cc", number = 1, value = 0.4 },
+    { start = 2, type = "cc", number = 1, value = 0.6 },
+    { start = 3, type = "cc", number = 1, value = 0.8 },
+    { start = 1, type = "bend", value = 0.5 },
+    { start = 1.5, type = "cc", number = 74, value = 0.9 },
   })
   return clip
 end
@@ -207,7 +235,11 @@ end
 test("controller moves in the strip are chosen with a click or a box, moved, and taken away", function()
   local clip = moves_clip()
   local id = clip.id
-  eq(A.select_controls(id, "cc", 1, 0.5, 0, 2.5, 1, "only"), 2, "a box over two beats chooses the modulation moves there")
+  eq(
+    A.select_controls(id, "cc", 1, 0.5, 0, 2.5, 1, "only"),
+    2,
+    "a box over two beats chooses the modulation moves there"
+  )
   eq(starts(picked(clip, paw.controls.chosen(id))), "1 2", "and not the wheel or another controller in it")
   eq(A.select_controls(id, "cc", 1, 0, 0.5, 8, 1, "only"), 2, "a box can take only the high ones")
   eq(starts(picked(clip, paw.controls.chosen(id))), "2 3", "those above the middle")
@@ -230,7 +262,9 @@ test("controller moves in the strip are chosen with a click or a box, moved, and
   eq(A.remove_chosen_controls(id), 2, "Delete takes the chosen away")
   api.undo_checkpoint()
   local left = {}
-  for _, m in ipairs(clip:controls()) do left[#left + 1] = m.type .. (m.number or "") .. "@" .. m.start end
+  for _, m in ipairs(clip:controls()) do
+    left[#left + 1] = m.type .. (m.number or "") .. "@" .. m.start
+  end
   eq(table.concat(left, " "), "cc1@1 bend@1 cc74@1.5 cc1@2", "the rest stay")
   paw.undo()
   eq(#clip:controls(), 6, "undo brings them back")
@@ -257,14 +291,18 @@ test("a line of controller moves replaces those between its ends, a move to each
   -- The wheel rests in the middle of the strip.
   A.line_controls(id, "bend", nil, 4, 0.5, 5, 1, true)
   local bends = {}
-  for _, m in ipairs(clip:controls()) do if m.type == "bend" and m.start >= 4 then bends[#bends + 1] = m end end
+  for _, m in ipairs(clip:controls()) do
+    if m.type == "bend" and m.start >= 4 then bends[#bends + 1] = m end
+  end
   eq(#bends, 33, "off the grid, a move to each 32nd of a beat")
   near(bends[1].value, 0, 1e-9, "from rest")
   near(bends[#bends].value, 1, 1e-9, "to the top")
   paw.ui.views.pianoroll:edit(clip)
   paw.commands.exec("controls.line cc 7 0 127")
   local volume = {}
-  for _, m in ipairs(clip:controls()) do if m.type == "cc" and m.number == 7 then volume[#volume + 1] = m end end
+  for _, m in ipairs(clip:controls()) do
+    if m.type == "cc" and m.number == 7 then volume[#volume + 1] = m end
+  end
   eq(#volume, 32, ":controls.line draws across the whole clip without a selection")
   near(volume[#volume].value, 1, 1e-9, "up to 127")
 end)
@@ -273,9 +311,14 @@ test("the event list shows every note and move in time order and changes each ce
   fresh()
   paw.project.tempo = 120
   local t = paw.add_track({ name = "Keys" })
-  local clip = t:add_clip({ start = 4, length = 4, notes = {
-    { pitch = "C4", start = 0, length = 1, velocity = 100 }, { pitch = "E4", start = 1, length = 0.5, velocity = 90 },
-  } })
+  local clip = t:add_clip({
+    start = 4,
+    length = 4,
+    notes = {
+      { pitch = "C4", start = 0, length = 1, velocity = 100 },
+      { pitch = "E4", start = 1, length = 0.5, velocity = 90 },
+    },
+  })
   clip:set_controls({
     { start = 0.5, type = "cc", number = 74, value = 0.5 },
     { start = 1, type = "bend", key = "E4", value = 1 / 48 },
@@ -306,7 +349,11 @@ test("the event list shows every note and move in time order and changes each ce
   eq(table_of()[1], "2.1.50|cc|74|100|", "the list is in time order again")
   fails(function() paw.controls.edit(id, row(1), "kind", "bend") end, "kind stays", "a row's kind")
   fails(function() paw.controls.edit(id, row(1), "time", "12.1") end, "outside the clip", "a time past the clip")
-  fails(function() paw.controls.edit(id, row(1), "value", "loud") end, "a value is a number", "a value that is no number")
+  fails(
+    function() paw.controls.edit(id, row(1), "value", "loud") end,
+    "a value is a number",
+    "a value that is no number"
+  )
   paw.controls.remove_row(id, row(1))
   eq(#clip:controls(), 1, "a move taken away")
   paw.controls.add(id, 3, "cc", 11)
@@ -317,7 +364,8 @@ end)
 test("the event list floats over the terminal, its keys change a cell, and the window opens it alone", function()
   fresh()
   local t = paw.add_track({ name = "Keys" })
-  local clip = t:add_clip({ start = 0, length = 4, notes = { { pitch = "C4", start = 0, length = 1, velocity = 100 } } })
+  local clip =
+    t:add_clip({ start = 0, length = 4, notes = { { pitch = "C4", start = 0, length = 1, velocity = 100 } } })
   clip:set_controls({ { start = 1, type = "cc", number = 1, value = 0 } })
   paw.ui.views.pianoroll:edit(clip)
   paw.keymap.feed("E")
@@ -332,7 +380,9 @@ test("the event list floats over the terminal, its keys change a cell, and the w
   eq(paw.ui.float, nil, "q closes it")
   A.open_event_list(clip.id)
   local open = false
-  for _, w in ipairs(paw.canvas.windows()) do open = open or w.name == "eventlist" end
+  for _, w in ipairs(paw.canvas.windows()) do
+    open = open or w.name == "eventlist"
+  end
   eq(open, true, "the window's piano roll opens it in a window of its own")
   paw.canvas.close("eventlist")
 end)

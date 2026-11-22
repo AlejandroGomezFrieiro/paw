@@ -78,7 +78,7 @@ for _, format in ipairs({ "clap", "lv2", "vst3" }) do
       if p.key == "output_gain" or p.key == "g_out" then gain = p end
     end
     fx:set(gain.key, gain.min)
-    paw.project.save(scratch .. "/" .. format .. "-crash.json")   -- the project now has the plugin's state
+    paw.project.save(scratch .. "/" .. format .. "-crash.json") -- the project now has the plugin's state
     local stopped = {}
     local handler = paw.on("device.stopped", function(e) stopped[#stopped + 1] = e end)
     paw.transport.play()
@@ -93,7 +93,10 @@ for _, format in ipairs({ "clap", "lv2", "vst3" }) do
     eq(fx:get().stopped ~= nil, true, "the device says that it has stopped")
     eq(#t:devices(), 2, "and is still in the project")
     paw.transport.play()
-    until_(function() return select(1, t:meter()) > dry * 0.3 end, "the track to play on, an effect that is gone passed through")
+    until_(
+      function() return select(1, t:meter()) > dry * 0.3 end,
+      "the track to play on, an effect that is gone passed through"
+    )
     paw.transport.stop()
     fails(function() fx:open_editor() end, "not running", "asking a stopped plugin for something")
     fx:restart()

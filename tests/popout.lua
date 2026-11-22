@@ -13,7 +13,9 @@ local initial = L.capture()
 local function tidy()
   P.area(0, 0)
   L.restore(initial)
-  for name in pairs(paw.canvas.open_views) do paw.canvas.close(name) end
+  for name in pairs(paw.canvas.open_views) do
+    paw.canvas.close(name)
+  end
   paw.ui.focus("arrange")
 end
 
@@ -21,7 +23,9 @@ local function start()
   T.after(tidy)
   fresh()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   tidy()
   P.area(1200, 700)
 end

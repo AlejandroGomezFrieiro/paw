@@ -20,15 +20,31 @@ local function burst_file(name, level)
   end
   local data = table.concat(samples)
   local path = T.scratch .. "/" .. name .. ".wav"
-  T.write_file(path, "RIFF" .. u32(36 + #data) .. "WAVEfmt " .. u32(16) .. u16(1) .. u16(1) .. u32(48000)
-    .. u32(96000) .. u16(2) .. u16(16) .. "data" .. u32(#data) .. data)
+  T.write_file(
+    path,
+    "RIFF"
+      .. u32(36 + #data)
+      .. "WAVEfmt "
+      .. u32(16)
+      .. u16(1)
+      .. u16(1)
+      .. u32(48000)
+      .. u32(96000)
+      .. u16(2)
+      .. u16(16)
+      .. "data"
+      .. u32(#data)
+      .. data
+  )
   return path
 end
 
 --- The characters of a line, one for each cell.
 local function chars(line)
   local out = {}
-  for c in line:gmatch("[%z\1-\127\194-\244][\128-\191]*") do out[#out + 1] = c end
+  for c in line:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+    out[#out + 1] = c
+  end
   return out
 end
 
@@ -57,10 +73,14 @@ test("a hit shows in its own column of the waveform, as a thin line when quiet a
   local lit = lit_columns(rows)
   eq(lit[4], true, "the hit is in the column where it sounds")
   local count = 0
-  for _ in pairs(lit) do count = count + 1 end
+  for _ in pairs(lit) do
+    count = count + 1
+  end
   eq(count, 1, "and nowhere else")
   -- 0.8 of the way up and down: all four rows are drawn there.
-  for row = 1, 4 do eq(chars(rows[row])[5] ~= " ", true, "row " .. row .. " has the hit") end
+  for row = 1, 4 do
+    eq(chars(rows[row])[5] ~= " ", true, "row " .. row .. " has the hit")
+  end
   eq(chars(rows[1])[5], "▅", "the top row is filled from its bottom up to the 0.8 mark, five eighths of it")
   eq(chars(rows[4])[5], "▃", "and the bottom one from its top down, three eighths, drawn in reverse")
 
@@ -137,7 +157,9 @@ test("the waveform is the same in cells with graphics on and off, and in ASCII i
   paw.opt.ascii = false
   local lit = lit_columns(rows)
   eq(lit[4], true, "ASCII draws the hit too")
-  for _, row in ipairs(rows) do eq(row:find("[\128-\255]") == nil, true, "with nothing outside ASCII: " .. row) end
+  for _, row in ipairs(rows) do
+    eq(row:find("[\128-\255]") == nil, true, "with nothing outside ASCII: " .. row)
+  end
   paw.opt.zoom, paw.opt.track_height = 2, "auto"
 end)
 

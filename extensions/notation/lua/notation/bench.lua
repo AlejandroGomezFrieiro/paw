@@ -22,7 +22,9 @@ function M.notes(bars)
       if t + len > 4 then len = 4 - t end
       local p = scale[rnd(#scale) + 1]
       notes[#notes + 1] = { pitch = p, start = bar * 4 + t, length = len, velocity = 90 }
-      if rnd(4) == 0 then notes[#notes + 1] = { pitch = p - 12 - rnd(8), start = bar * 4 + t, length = len, velocity = 80 } end
+      if rnd(4) == 0 then
+        notes[#notes + 1] = { pitch = p - 12 - rnd(8), start = bar * 4 + t, length = len, velocity = 80 }
+      end
       t = t + len
     end
   end
@@ -62,7 +64,9 @@ function M.run(bars, opts, rounds, how, clock)
   local drawing
   out.first, drawing = time(paint)
   local same, cursor, edit, relayout = {}, {}, {}, {}
-  for i = 1, rounds do same[i] = time(paint) end
+  for i = 1, rounds do
+    same[i] = time(paint)
+  end
   for i = 1, rounds do
     view:move(view:entry_length() * (i % 2 == 0 and -1 or 1), 0)
     cursor[i] = time(paint)
@@ -76,7 +80,9 @@ function M.run(bars, opts, rounds, how, clock)
       -- The cursor on the note, then the edit as the key makes it.
       for _, ev in ipairs(require("notation.model").events(view:layout())) do
         for _, w in ipairs(ev.notes or {}) do
-          if w.index == at and not w.tied then view.beat, view.step = ev.start, w.step end
+          if w.index == at and not w.tied then
+            view.beat, view.step = ev.start, w.step
+          end
         end
       end
       edit[i] = time(function()
@@ -94,7 +100,9 @@ function M.run(bars, opts, rounds, how, clock)
   end
   out.same, out.cursor, out.edit, out.relayout = median(same), median(cursor), median(edit), median(relayout)
   local kinds = {}
-  for _, op in ipairs(drawing.ops) do kinds[op[1]] = (kinds[op[1]] or 0) + 1 end
+  for _, op in ipairs(drawing.ops) do
+    kinds[op[1]] = (kinds[op[1]] or 0) + 1
+  end
   out.ops, out.kinds, out.json, out.bars, out.notes = #drawing.ops, kinds, #api.json_encode(drawing.ops), bars, #notes
   api.clip_remove(id)
   return out
@@ -132,7 +140,9 @@ function M.pair(bars, opts, rounds)
     end)
     for _, ev in ipairs(model.events(view:layout())) do
       for _, w in ipairs(ev.notes or {}) do
-        if w.index == at and not w.tied then view.beat, view.step = ev.start, w.step end
+        if w.index == at and not w.tied then
+          view.beat, view.step = ev.start, w.step
+        end
       end
     end
     notation[i] = time(function()
@@ -147,11 +157,24 @@ end
 
 function M.format(r)
   local kinds = {}
-  for k, v in pairs(r.kinds) do kinds[#kinds + 1] = k .. "=" .. v end
+  for k, v in pairs(r.kinds) do
+    kinds[#kinds + 1] = k .. "=" .. v
+  end
   table.sort(kinds)
-  return string.format("bars=%d notes=%d ops=%d (%s) json=%d bytes\n"
-    .. "paint first=%.2fms same=%.2fms cursor move=%.2fms edit=%.2fms relayout=%.2fms",
-    r.bars, r.notes, r.ops, table.concat(kinds, " "), r.json, r.first, r.same, r.cursor, r.edit, r.relayout)
+  return string.format(
+    "bars=%d notes=%d ops=%d (%s) json=%d bytes\n"
+      .. "paint first=%.2fms same=%.2fms cursor move=%.2fms edit=%.2fms relayout=%.2fms",
+    r.bars,
+    r.notes,
+    r.ops,
+    table.concat(kinds, " "),
+    r.json,
+    r.first,
+    r.same,
+    r.cursor,
+    r.edit,
+    r.relayout
+  )
 end
 
 return M

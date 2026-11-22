@@ -37,9 +37,10 @@ test("a one-note edit to a clip of many notes costs the undo history a few kilob
   -- The clip itself is about 50,000 notes of some 60 bytes.
   local whole = per_step(function(i) api.clip_note_set(clip, 1 + i * 997 % count, { velocity = 1 + i }) end, 20)
   eq(whole < 64 * 1024, true, string.format("one note set: %d bytes a step", whole))
-  local added = per_step(function(i)
-    api.clip_note_add(clip, { start = i * 997 % count / 4, length = 0.25, pitch = 100 })
-  end, 20)
+  local added = per_step(
+    function(i) api.clip_note_add(clip, { start = i * 997 % count / 4, length = 0.25, pitch = 100 }) end,
+    20
+  )
   eq(added < 64 * 1024, true, string.format("one note added: %d bytes a step", added))
   local removed = per_step(function(i) api.clip_note_remove(clip, 1 + i * 997 % count) end, 20)
   eq(removed < 64 * 1024, true, string.format("one note removed: %d bytes a step", removed))
@@ -53,17 +54,24 @@ test("a one-note edit to a clip of many notes costs the undo history a few kilob
 
   -- And every step undoes and redoes to what it was.
   local now = api.clip_notes(clip)
-  for _ = 1, 65 do api.undo() end
+  for _ = 1, 65 do
+    api.undo()
+  end
   paw.flush()
   eq(#api.clip_notes(clip), count, "undone to the clip as it was made")
   eq(api.clip_notes(clip)[1 + 997 % count].velocity, 90, "and the first note set is as it was")
-  for _ = 1, 65 do api.redo() end
+  for _ = 1, 65 do
+    api.redo()
+  end
   paw.flush()
   local again = api.clip_notes(clip)
   eq(#again, #now, "redone")
   for i = 1, #now, 997 do
-    eq(again[i].velocity == now[i].velocity and again[i].start == now[i].start and again[i].id == now[i].id, true,
-      "note " .. i .. " as it was")
+    eq(
+      again[i].velocity == now[i].velocity and again[i].start == now[i].start and again[i].id == now[i].id,
+      true,
+      "note " .. i .. " as it was"
+    )
   end
 end)
 
@@ -94,19 +102,27 @@ test("a clip moved on a track of thousands of clips costs what it moved, and und
   paw.flush()
   api.undo_checkpoint()
   eq(added, 1)
-  for _, id in ipairs(on) do paw.off(id) end
+  for _, id in ipairs(on) do
+    paw.off(id)
+  end
 
   local function starts()
     local out = {}
-    for _, c in ipairs(api.clip_list(track)) do out[#out + 1] = c.id .. "@" .. c.start end
+    for _, c in ipairs(api.clip_list(track)) do
+      out[#out + 1] = c.id .. "@" .. c.start
+    end
     return table.concat(out, " ")
   end
   local now = starts()
-  for _ = 1, 41 do api.undo() end
+  for _ = 1, 41 do
+    api.undo()
+  end
   paw.flush()
   eq(#api.clip_list(track), 3000, "undone to the clips as they were made")
   eq(api.clip_get(ids[97]).start, 96 * 4, "and where they were")
-  for _ = 1, 41 do api.redo() end
+  for _ = 1, 41 do
+    api.redo()
+  end
   paw.flush()
   eq(starts(), now, "redone to every clip where it was")
 end)

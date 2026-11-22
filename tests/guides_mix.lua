@@ -11,7 +11,9 @@ local keys = T.keys
 local function start()
   fresh()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.focus("arrange")
 end
 
@@ -220,7 +222,9 @@ T.last("guide: check the mix", function()
   eq(mixdiag.job, nil, "the measurement ends")
   eq(mixdiag.line:find("LUFS", 1, true) ~= nil, true, "the message gives the loudness: " .. mixdiag.line)
   local rules = {}
-  for _, f in ipairs(mixdiag.findings) do rules[f.rule] = f end
+  for _, f in ipairs(mixdiag.findings) do
+    rules[f.rule] = f
+  end
   eq(rules.mono ~= nil, true, "a finding says the mix cancels in mono")
   eq(rules.phase ~= nil and rules.phase.beat ~= nil, true, "and a phase finding has its place")
   paw.cursor.set_beat(12)

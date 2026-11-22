@@ -37,40 +37,77 @@ function M.of_clip(clip_id)
   for place, n in ipairs(notes) do
     local attr = art.attr_of(n)
     local a, exact = art.resolve(map, attr)
-    if not attr then a, exact = art.default_of(c.track, map), true end
+    if not attr then
+      a, exact = art.default_of(c.track, map), true
+    end
     local ks = keys[n.pitch]
     if ks or (map.keyswitches and inside(map.keyswitches, n.pitch)) then
-      out[#out + 1] = { notes = { place }, severity = "warning", rule = "keyswitch-row",
-        message = music.name(n.pitch) .. " is a keyswitch row" .. (ks and (" (" .. ks.name .. ")") or "") .. ": it switches the instrument, it does not sound",
-        fixes = { { title = "Make the keyswitches of the clip the articulation of the notes after them", apply = function()
-          require("articulations.commands").from_keyswitches(clip_id)
-        end } } }
+      out[#out + 1] = {
+        notes = { place },
+        severity = "warning",
+        rule = "keyswitch-row",
+        message = music.name(n.pitch)
+          .. " is a keyswitch row"
+          .. (ks and (" (" .. ks.name .. ")") or "")
+          .. ": it switches the instrument, it does not sound",
+        fixes = {
+          {
+            title = "Make the keyswitches of the clip the articulation of the notes after them",
+            apply = function() require("articulations.commands").from_keyswitches(clip_id) end,
+          },
+        },
+      }
     else
       local range = a and a.range or map.range
       if range and not inside(range, n.pitch) then
         local fixes = {}
         for _, step in ipairs({ 12, -12, 24, -24 }) do
           if inside(range, n.pitch + step) and #fixes == 0 then
-            fixes[1] = { title = "Move it an octave " .. (step > 0 and "up" or "down") .. (math.abs(step) == 24 and " twice" or ""),
-              edits = { { note = place, pitch = n.pitch + step } } }
+            fixes[1] = {
+              title = "Move it an octave "
+                .. (step > 0 and "up" or "down")
+                .. (math.abs(step) == 24 and " twice" or ""),
+              edits = { { note = place, pitch = n.pitch + step } },
+            }
           end
         end
-        out[#out + 1] = { notes = { place }, severity = "warning", rule = "out-of-range", fixes = fixes,
-          message = string.format("%s is outside what %s plays%s (%s)", music.name(n.pitch), map.name, a and a.range and (" as " .. a.name) or "", range_text(range)) }
+        out[#out + 1] = {
+          notes = { place },
+          severity = "warning",
+          rule = "out-of-range",
+          fixes = fixes,
+          message = string.format(
+            "%s is outside what %s plays%s (%s)",
+            music.name(n.pitch),
+            map.name,
+            a and a.range and (" as " .. a.name) or "",
+            range_text(range)
+          ),
+        }
       end
     end
     if attr and not exact then
       local fixes = {}
       if a then
-        fixes[#fixes + 1] = { title = "Make it " .. a.name .. " (" .. a.code .. ")", apply = function()
-          art.set({ { clip = clip_id, place = place } }, { attr = a.attr })
-        end }
+        fixes[#fixes + 1] = {
+          title = "Make it " .. a.name .. " (" .. a.code .. ")",
+          apply = function() art.set({ { clip = clip_id, place = place } }, { attr = a.attr }) end,
+        }
       end
-      fixes[#fixes + 1] = { title = "Take the articulation away", apply = function()
-        art.set({ { clip = clip_id, place = place } }, false)
-      end }
-      out[#out + 1] = { notes = { place }, severity = "info", rule = "unknown-articulation", fixes = fixes,
-        message = m2.describe(attr) .. " is not in " .. map.name .. (a and (": it plays as " .. a.name .. " (" .. a.code .. ")") or ": it plays as the instrument decides") }
+      fixes[#fixes + 1] = {
+        title = "Take the articulation away",
+        apply = function() art.set({ { clip = clip_id, place = place } }, false) end,
+      }
+      out[#out + 1] = {
+        notes = { place },
+        severity = "info",
+        rule = "unknown-articulation",
+        fixes = fixes,
+        message = m2.describe(attr)
+          .. " is not in "
+          .. map.name
+          .. (a and (": it plays as " .. a.name .. " (" .. a.code .. ")") or ": it plays as the instrument decides"),
+      }
     end
     if not ks then
       local key = string.format("%.6f", n.start)
@@ -84,9 +121,15 @@ function M.of_clip(clip_id)
       for i = 2, #chord do
         if chord[i].art ~= first then
           local places = {}
-          for k, x in ipairs(chord) do places[k] = x.place end
-          out[#out + 1] = { notes = places, severity = "warning", rule = "mixed-chord",
-            message = "a chord of two articulations: keyswitches cannot play both at once, the last switched wins" }
+          for k, x in ipairs(chord) do
+            places[k] = x.place
+          end
+          out[#out + 1] = {
+            notes = places,
+            severity = "warning",
+            rule = "mixed-chord",
+            message = "a chord of two articulations: keyswitches cannot play both at once, the last switched wins",
+          }
           break
         end
       end
@@ -107,7 +150,7 @@ function M.schedule()
   end, 150)
 end
 
-local published = {}  -- the clips something was said about, to take it back
+local published = {} -- the clips something was said about, to take it back
 
 --- Check every MIDI clip of the tracks that have a map, now.
 function M.check()

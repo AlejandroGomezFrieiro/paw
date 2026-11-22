@@ -36,60 +36,165 @@ function M.is_file(path)
   return false
 end
 
-local TYPES = { maxima = { 8, 1 }, long = { 4, 1 }, breve = { 2, 1 }, whole = { 1, 1 }, half = { 1, 2 }, quarter = { 1, 4 },
-  eighth = { 1, 8 }, ["16th"] = { 1, 16 }, ["32nd"] = { 1, 32 }, ["64th"] = { 1, 64 }, ["128th"] = { 1, 128 },
-  ["256th"] = { 1, 256 } }
+local TYPES = {
+  maxima = { 8, 1 },
+  long = { 4, 1 },
+  breve = { 2, 1 },
+  whole = { 1, 1 },
+  half = { 1, 2 },
+  quarter = { 1, 4 },
+  eighth = { 1, 8 },
+  ["16th"] = { 1, 16 },
+  ["32nd"] = { 1, 32 },
+  ["64th"] = { 1, 64 },
+  ["128th"] = { 1, 128 },
+  ["256th"] = { 1, 256 },
+}
 local TYPE_OF = {}
-for name, r in pairs(TYPES) do TYPE_OF[D.ticks(r)] = name end
+for name, r in pairs(TYPES) do
+  TYPE_OF[D.ticks(r)] = name
+end
 
 local STEPS = { C = 0, D = 1, E = 2, F = 3, G = 4, A = 5, B = 6 }
 local LETTERS = { [0] = "C", "D", "E", "F", "G", "A", "B" }
 
 local CLEFS = { G2 = "treble", F4 = "bass", C3 = "alto", C4 = "tenor", ["G2-1"] = "treble8", ["F4-1"] = "bass8" }
-local CLEF_SIGN = { treble = { "G", 2 }, bass = { "F", 4 }, alto = { "C", 3 }, tenor = { "C", 4 }, treble8 = { "G", 2, -1 }, bass8 = { "F", 4, -1 } }
+local CLEF_SIGN = {
+  treble = { "G", 2 },
+  bass = { "F", 4 },
+  alto = { "C", 3 },
+  tenor = { "C", 4 },
+  treble8 = { "G", 2, -1 },
+  bass8 = { "F", 4, -1 },
+}
 
 -- Keys: the root by fifths, and where each mode's root lies from the major's.
-local ROOTS = { "Cb", "Gb", "Db", "Ab", "Eb", "Bb", "F", "C", "G", "D", "A", "E", "B", "F#", "C#", "G#", "D#", "A#", "E#", "B#" }
-local MODE_FIFTHS = { major = 0, ionian = 0, minor = 3, aeolian = 3, dorian = 2, phrygian = 4, lydian = -1, mixolydian = 1, locrian = 5 }
+local ROOTS =
+  { "Cb", "Gb", "Db", "Ab", "Eb", "Bb", "F", "C", "G", "D", "A", "E", "B", "F#", "C#", "G#", "D#", "A#", "E#", "B#" }
+local MODE_FIFTHS =
+  { major = 0, ionian = 0, minor = 3, aeolian = 3, dorian = 2, phrygian = 4, lydian = -1, mixolydian = 1, locrian = 5 }
 
 --- A key's name as the score keeps it ("Eb major", "D dorian").
 function M.key_name(fifths, mode)
   mode = MODE_FIFTHS[mode or ""] and mode or "major"
-  if mode == "ionian" then mode = "major" elseif mode == "aeolian" then mode = "minor" end
+  if mode == "ionian" then
+    mode = "major"
+  elseif mode == "aeolian" then
+    mode = "minor"
+  end
   local root = ROOTS[fifths + MODE_FIFTHS[mode] + 8]
   return root and (root .. " " .. mode) or nil
 end
 
 -- Marks: the names MusicXML gives what the score keeps.
 local DYNAMICS = {}
-for _, d in ipairs({ "pppp", "ppp", "pp", "p", "mp", "mf", "f", "ff", "fff", "ffff", "sf", "sfz", "sffz", "fz", "rfz", "sfp", "fp" }) do
+for _, d in ipairs({
+  "pppp",
+  "ppp",
+  "pp",
+  "p",
+  "mp",
+  "mf",
+  "f",
+  "ff",
+  "fff",
+  "ffff",
+  "sf",
+  "sfz",
+  "sffz",
+  "fz",
+  "rfz",
+  "sfp",
+  "fp",
+}) do
   DYNAMICS[d] = d
 end
 DYNAMICS.n, DYNAMICS.niente = "niente", "niente"
 DYNAMICS.ppppp, DYNAMICS.pppppp, DYNAMICS.fffff, DYNAMICS.ffffff = "pppp", "pppp", "ffff", "ffff"
 DYNAMICS.rf, DYNAMICS.sfpp, DYNAMICS.sfzp = "rfz", "sfp", "sfp"
-local ARTICULATIONS = { staccato = "staccato", staccatissimo = "staccatissimo", spiccato = "staccatissimo", accent = "accent",
-  ["strong-accent"] = "marcato", tenuto = "tenuto" }
-local XML_ART = { staccato = "staccato", staccatissimo = "staccatissimo", accent = "accent", marcato = "strong-accent", tenuto = "tenuto" }
-local ORNAMENTS = { ["trill-mark"] = "trill", mordent = "mordent", ["inverted-mordent"] = "prall", turn = "turn",
-  ["delayed-turn"] = "turn", ["inverted-turn"] = "turn_inverted", tremolo = "tremolo" }
-local XML_ORN = { trill = "trill-mark", mordent = "mordent", prall = "inverted-mordent", turn = "turn", turn_inverted = "inverted-turn",
-  tremolo = "tremolo" }
+local ARTICULATIONS = {
+  staccato = "staccato",
+  staccatissimo = "staccatissimo",
+  spiccato = "staccatissimo",
+  accent = "accent",
+  ["strong-accent"] = "marcato",
+  tenuto = "tenuto",
+}
+local XML_ART = {
+  staccato = "staccato",
+  staccatissimo = "staccatissimo",
+  accent = "accent",
+  marcato = "strong-accent",
+  tenuto = "tenuto",
+}
+local ORNAMENTS = {
+  ["trill-mark"] = "trill",
+  mordent = "mordent",
+  ["inverted-mordent"] = "prall",
+  turn = "turn",
+  ["delayed-turn"] = "turn",
+  ["inverted-turn"] = "turn_inverted",
+  tremolo = "tremolo",
+}
+local XML_ORN = {
+  trill = "trill-mark",
+  mordent = "mordent",
+  prall = "inverted-mordent",
+  turn = "turn",
+  turn_inverted = "inverted-turn",
+  tremolo = "tremolo",
+}
 local UNITS = { whole = "w", half = "h", quarter = "q", eighth = "e" }
 -- Words that change the tempo, as the tempo popover reads them.
-local CHANGES = { ["rit."] = "rit.", rit = "rit.", ritardando = "rit.", ["rall."] = "rit.", rall = "rit.", rallentando = "rit.",
-  ["accel."] = "accel.", accel = "accel.", accelerando = "accel.", ["a tempo"] = "a tempo", ["tempo i"] = "a tempo",
-  ["tempo primo"] = "a tempo" }
+local CHANGES = {
+  ["rit."] = "rit.",
+  rit = "rit.",
+  ritardando = "rit.",
+  ["rall."] = "rit.",
+  rall = "rit.",
+  rallentando = "rit.",
+  ["accel."] = "accel.",
+  accel = "accel.",
+  accelerando = "accel.",
+  ["a tempo"] = "a tempo",
+  ["tempo i"] = "a tempo",
+  ["tempo primo"] = "a tempo",
+}
 local UNIT_XML = { w = "whole", h = "half", q = "quarter", e = "eighth" }
 
 -- Chord symbols: MusicXML's kinds and the suffixes written for them.
 local KINDS = {
-  major = "", minor = "m", augmented = "aug", diminished = "dim", dominant = "7", ["major-seventh"] = "maj7",
-  ["minor-seventh"] = "m7", ["diminished-seventh"] = "dim7", ["augmented-seventh"] = "aug7", ["half-diminished"] = "m7b5",
-  ["major-minor"] = "m(maj7)", ["major-sixth"] = "6", ["minor-sixth"] = "m6", ["dominant-ninth"] = "9", ["major-ninth"] = "maj9",
-  ["minor-ninth"] = "m9", ["dominant-11th"] = "11", ["major-11th"] = "maj11", ["minor-11th"] = "m11", ["dominant-13th"] = "13",
-  ["major-13th"] = "maj13", ["minor-13th"] = "m13", ["suspended-second"] = "sus2", ["suspended-fourth"] = "sus4", power = "5",
-  ["Neapolitan"] = "", ["Italian"] = "", ["French"] = "", ["German"] = "", pedal = "", Tristan = "",
+  major = "",
+  minor = "m",
+  augmented = "aug",
+  diminished = "dim",
+  dominant = "7",
+  ["major-seventh"] = "maj7",
+  ["minor-seventh"] = "m7",
+  ["diminished-seventh"] = "dim7",
+  ["augmented-seventh"] = "aug7",
+  ["half-diminished"] = "m7b5",
+  ["major-minor"] = "m(maj7)",
+  ["major-sixth"] = "6",
+  ["minor-sixth"] = "m6",
+  ["dominant-ninth"] = "9",
+  ["major-ninth"] = "maj9",
+  ["minor-ninth"] = "m9",
+  ["dominant-11th"] = "11",
+  ["major-11th"] = "maj11",
+  ["minor-11th"] = "m11",
+  ["dominant-13th"] = "13",
+  ["major-13th"] = "maj13",
+  ["minor-13th"] = "m13",
+  ["suspended-second"] = "sus2",
+  ["suspended-fourth"] = "sus4",
+  power = "5",
+  ["Neapolitan"] = "",
+  ["Italian"] = "",
+  ["French"] = "",
+  ["German"] = "",
+  pedal = "",
+  Tristan = "",
 }
 local KIND_OF = {}
 for kind, suffix in pairs(KINDS) do
@@ -120,7 +225,9 @@ end
 
 local function gcd(a, b)
   a, b = abs(a), abs(b)
-  while b ~= 0 do a, b = b, a % b end
+  while b ~= 0 do
+    a, b = b, a % b
+  end
   return a
 end
 
@@ -141,7 +248,9 @@ end
 --- Text of a lyric or words element, the parts of an elision joined.
 local function texts(el, name)
   local out = {}
-  for _, t in ipairs(xml.children(el, name)) do out[#out + 1] = t.text or "" end
+  for _, t in ipairs(xml.children(el, name)) do
+    out[#out + 1] = t.text or ""
+  end
   return table.concat(out, "‿")
 end
 
@@ -166,7 +275,8 @@ local function harmony_text(h, count)
     text = text .. (KINDS[kind_name] or "")
     if KINDS[kind_name] == nil then count("<kind>" .. kind_name) end
     for _, dg in ipairs(xml.children(h, "degree")) do
-      local value, alter, typ = xml.text(dg, "degree-value"), tonumber(xml.text(dg, "degree-alter") or "") or 0, xml.text(dg, "degree-type")
+      local value, alter, typ =
+        xml.text(dg, "degree-value"), tonumber(xml.text(dg, "degree-alter") or "") or 0, xml.text(dg, "degree-type")
       local acc = alter > 0 and "#" or alter < 0 and "b" or ""
       if typ == "add" then
         text = text .. "add" .. acc .. value
@@ -186,7 +296,15 @@ end
 --- attributes, at places in ticks from its start. `st` is what holds from
 --- the measures before (divisions, staves, transposition, instruments).
 local function read_measure(el, st, count)
-  local rec = { notes = {}, dirs = {}, harmonies = {}, barlines = {}, clefs = {}, implicit = el.attr.implicit == "yes", number = el.attr.number }
+  local rec = {
+    notes = {},
+    dirs = {},
+    harmonies = {},
+    barlines = {},
+    clefs = {},
+    implicit = el.attr.implicit == "yes",
+    number = el.attr.number,
+  }
   local pos, reach = 0, 0
   local last
   local function ticks(d) return (d or 0) * Q / st.divisions end
@@ -204,8 +322,12 @@ local function read_measure(el, st, count)
             local fifths = int(xml.number(a, "fifths") or 0)
             -- A transposing part's written key, at concert pitch.
             if st.transpose then fifths = fifths + 7 * st.transpose.chromatic - 12 * st.transpose.diatonic end
-            while fifths > 7 do fifths = fifths - 12 end
-            while fifths < -7 do fifths = fifths + 12 end
+            while fifths > 7 do
+              fifths = fifths - 12
+            end
+            while fifths < -7 do
+              fifths = fifths + 12
+            end
             local mode = xml.text(a, "mode")
             rec.key = { fifths = fifths, mode = MODE_FIFTHS[mode or ""] and mode or "major" }
           else
@@ -224,8 +346,12 @@ local function read_measure(el, st, count)
               num = num + tonumber(g)
             end
             if num > 0 then
-              rec.time = { num = num, den = den, groups = #groups > 1 and groups or nil,
-                symbol = (a.attr.symbol == "common" or a.attr.symbol == "cut") and a.attr.symbol or nil }
+              rec.time = {
+                num = num,
+                den = den,
+                groups = #groups > 1 and groups or nil,
+                symbol = (a.attr.symbol == "common" or a.attr.symbol == "cut") and a.attr.symbol or nil,
+              }
             end
           end
         elseif an == "staves" then
@@ -244,18 +370,26 @@ local function read_measure(el, st, count)
             count("clefs of other kinds")
           end
         elseif an == "transpose" then
-          local c, d, o = xml.number(a, "chromatic") or 0, xml.number(a, "diatonic") or 0, xml.number(a, "octave-change") or 0
+          local c, d, o =
+            xml.number(a, "chromatic") or 0, xml.number(a, "diatonic") or 0, xml.number(a, "octave-change") or 0
           st.transpose = (c ~= 0 or d ~= 0 or o ~= 0) and { chromatic = c + 12 * o, diatonic = d + 7 * o } or nil
           if st.transpose and not st.transposed then
             st.transposed = true
             count("transposing parts, written at concert pitch")
           end
-        elseif an ~= "measure-style" and an ~= "staff-details" and an ~= "instruments" and an ~= "part-symbol" and an ~= "footnote" then
+        elseif
+          an ~= "measure-style"
+          and an ~= "staff-details"
+          and an ~= "instruments"
+          and an ~= "part-symbol"
+          and an ~= "footnote"
+        then
           count("<" .. an .. ">")
         end
       end
     elseif name == "note" then
-      local n = { staff = tonumber(xml.text(k, "staff") or "1") or 1, voice = xml.text(k, "voice") or "1", order = #rec.notes }
+      local n =
+        { staff = tonumber(xml.text(k, "staff") or "1") or 1, voice = xml.text(k, "voice") or "1", order = #rec.notes }
       if xml.child(k, "cue") then
         count("cue notes")
       else
@@ -277,7 +411,10 @@ local function read_measure(el, st, count)
         else
           local p, un = xml.child(k, "pitch"), xml.child(k, "unpitched")
           if p then
-            local step, alter, octave = STEPS[xml.text(p, "step") or "C"] or 0, tonumber(xml.text(p, "alter") or "") or 0, int(xml.number(p, "octave") or 4)
+            local step, alter, octave =
+              STEPS[xml.text(p, "step") or "C"] or 0,
+              tonumber(xml.text(p, "alter") or "") or 0,
+              int(xml.number(p, "octave") or 4)
             if alter ~= floor(alter) then
               count("microtonal alterations (rounded)")
               alter = int(alter)
@@ -289,7 +426,8 @@ local function read_measure(el, st, count)
               local diatonic = D.diatonic(n.pitch) + tp.diatonic
               local s = diatonic % 7
               local o = floor(diatonic / 7) - 1
-              n.pitch = { step = s, alter = written + tp.chromatic - D.pitch({ step = s, alter = 0, octave = o }), octave = o }
+              n.pitch =
+                { step = s, alter = written + tp.chromatic - D.pitch({ step = s, alter = 0, octave = o }), octave = o }
             end
           elseif un then
             -- A drum's note: where its instrument plays, which the drum kit hears.
@@ -299,7 +437,11 @@ local function read_measure(el, st, count)
               local sp = require("notation.model").spell(key, 0)
               n.pitch = { step = sp.letter, alter = sp.alter, octave = sp.octave }
             else
-              n.pitch = { step = STEPS[xml.text(un, "display-step") or "E"] or 2, alter = 0, octave = int(xml.number(un, "display-octave") or 4) }
+              n.pitch = {
+                step = STEPS[xml.text(un, "display-step") or "E"] or 2,
+                alter = 0,
+                octave = int(xml.number(un, "display-octave") or 4),
+              }
             end
           else
             n.rest = true
@@ -310,8 +452,12 @@ local function read_measure(el, st, count)
         n.dots = #xml.children(k, "dot")
         local tm = xml.child(k, "time-modification")
         if tm then
-          n.tm = { actual = int(xml.number(tm, "actual-notes") or 1), normal = int(xml.number(tm, "normal-notes") or 1),
-            normal_type = TYPES[xml.text(tm, "normal-type") or ""], normal_dots = #xml.children(tm, "normal-dot") }
+          n.tm = {
+            actual = int(xml.number(tm, "actual-notes") or 1),
+            normal = int(xml.number(tm, "normal-notes") or 1),
+            normal_type = TYPES[xml.text(tm, "normal-type") or ""],
+            normal_dots = #xml.children(tm, "normal-dot"),
+          }
           if n.tm.actual == n.tm.normal then n.tm = nil end
         end
         for _, t in ipairs(xml.children(k, "tie")) do
@@ -359,9 +505,13 @@ local function read_measure(el, st, count)
             elseif xn == "arpeggiate" then
               n.arpeggio = x.attr.direction == "down" and "down" or "up"
             elseif xn == "dynamics" then
-              for _, d in ipairs(x.children) do n.dyns[#n.dyns + 1] = d.name == "other-dynamics" and (d.text or "") or d.name end
+              for _, d in ipairs(x.children) do
+                n.dyns[#n.dyns + 1] = d.name == "other-dynamics" and (d.text or "") or d.name
+              end
             elseif xn == "technical" then
-              for _, t in ipairs(x.children) do count("<" .. t.name .. ">") end
+              for _, t in ipairs(x.children) do
+                count("<" .. t.name .. ">")
+              end
             else
               count("<" .. xn .. ">")
             end
@@ -383,7 +533,9 @@ local function read_measure(el, st, count)
           local text = texts(ly, "text")
           local syl = xml.text(ly, "syllabic")
           if syl == "begin" or syl == "middle" then text = text .. "-" end
-          if xml.child(ly, "extend") and (xml.child(ly, "extend").attr.type or "start") == "start" then text = text .. "_" end
+          if xml.child(ly, "extend") and (xml.child(ly, "extend").attr.type or "start") == "start" then
+            text = text .. "_"
+          end
           if text ~= "" then n.lyrics[#n.lyrics + 1] = { verse = verse, text = text } end
         end
         rec.notes[#rec.notes + 1] = n
@@ -406,16 +558,21 @@ local function read_measure(el, st, count)
             local w = (x.text or ""):match("^%s*(.-)%s*$")
             if w ~= "" then dir.words[#dir.words + 1] = w end
           elseif xn == "dynamics" then
-            for _, d in ipairs(x.children) do dir.dyns[#dir.dyns + 1] = d.name == "other-dynamics" and (d.text or "") or d.name end
+            for _, d in ipairs(x.children) do
+              dir.dyns[#dir.dyns + 1] = d.name == "other-dynamics" and (d.text or "") or d.name
+            end
           elseif xn == "wedge" then
             dir.wedges = dir.wedges or {}
-            dir.wedges[#dir.wedges + 1] = { type = x.attr.type, number = x.attr.number or "1", niente = x.attr.niente == "yes" }
+            dir.wedges[#dir.wedges + 1] =
+              { type = x.attr.type, number = x.attr.number or "1", niente = x.attr.niente == "yes" }
           elseif xn == "metronome" then
             local unit = xml.text(x, "beat-unit")
             if xml.child(x, "per-minute") then
               dir.unit = UNITS[unit or ""] and (UNITS[unit] .. (xml.child(x, "beat-unit-dot") and "." or "")) or nil
               dir.per = tonumber((xml.text(x, "per-minute") or ""):match("[%d%.]+") or "")
-              dir.unit_beats = TYPES[unit or ""] and D.ticks(TYPES[unit]) / Q * (xml.child(x, "beat-unit-dot") and 1.5 or 1) or 1
+              dir.unit_beats = TYPES[unit or ""]
+                  and D.ticks(TYPES[unit]) / Q * (xml.child(x, "beat-unit-dot") and 1.5 or 1)
+                or 1
             else
               count("metric modulations")
             end
@@ -431,11 +588,15 @@ local function read_measure(el, st, count)
       rec.dirs[#rec.dirs + 1] = dir
     elseif name == "harmony" then
       local text = harmony_text(k, count)
-      if text then rec.harmonies[#rec.harmonies + 1] = { t = pos + ticks(xml.number(k, "offset") or 0), value = text } end
+      if text then
+        rec.harmonies[#rec.harmonies + 1] = { t = pos + ticks(xml.number(k, "offset") or 0), value = text }
+      end
     elseif name == "barline" then
       rec.barlines[#rec.barlines + 1] = k
     elseif name == "sound" then
-      if tonumber(k.attr.tempo or "") then rec.dirs[#rec.dirs + 1] = { t = pos, words = {}, dyns = {}, tempo = tonumber(k.attr.tempo), silent = true } end
+      if tonumber(k.attr.tempo or "") then
+        rec.dirs[#rec.dirs + 1] = { t = pos, words = {}, dyns = {}, tempo = tonumber(k.attr.tempo), silent = true }
+      end
     elseif name == "print" then
       if k.attr["new-system"] == "yes" or k.attr["new-page"] == "yes" then rec.new_system = true end
     else
@@ -460,7 +621,9 @@ local function voice_maps(recs, count)
   local maps = {}
   for staff, set in pairs(seen) do
     local list = {}
-    for v in pairs(set) do list[#list + 1] = v end
+    for v in pairs(set) do
+      list[#list + 1] = v
+    end
     table.sort(list, function(a, b)
       local x, y = tonumber(a), tonumber(b)
       if x and y then return x < y end
@@ -477,7 +640,11 @@ local function voice_maps(recs, count)
     if not plain or not used[1] then
       map = {}
       for i, v in ipairs(list) do
-        if i <= 4 then map[v] = i else count("voices past the fourth on a staff") end
+        if i <= 4 then
+          map[v] = i
+        else
+          count("voices past the fourth on a staff")
+        end
       end
     end
     maps[staff] = map
@@ -543,13 +710,24 @@ local function build_voices(sc, m, rec, staves, maps, len, meter, out)
       return a.order < b.order
     end)
     local evs = {}
-    local open   -- the tuplet being filled: { tp, filled, span }
+    local open -- the tuplet being filled: { tp, filled, span }
     for _, n in ipairs(g.notes) do
       local prev = evs[#evs]
-      if n.chord and prev and not prev.rest and abs(prev.start - n.start) < EPS and (prev.grace ~= nil) == (n.grace ~= nil) and n.pitch then
-        prev.ev.notes[#prev.ev.notes + 1] = { id = D.id(sc, "n"), step = n.pitch.step, alter = n.pitch.alter, octave = n.pitch.octave, tie = n.tie }
+      if
+        n.chord
+        and prev
+        and not prev.rest
+        and abs(prev.start - n.start) < EPS
+        and (prev.grace ~= nil) == (n.grace ~= nil)
+        and n.pitch
+      then
+        prev.ev.notes[#prev.ev.notes + 1] =
+          { id = D.id(sc, "n"), step = n.pitch.step, alter = n.pitch.alter, octave = n.pitch.octave, tie = n.tie }
         prev.srcs[#prev.srcs + 1] = n
-      elseif n.measure_rest or (n.rest and not n.grace and not n.tm and abs(n.start) < EPS and abs(n.len - len) <= 2 and not n.type) then
+      elseif
+        n.measure_rest
+        or (n.rest and not n.grace and not n.tm and abs(n.start) < EPS and abs(n.len - len) <= 2 and not n.type)
+      then
         -- A whole bar's rest is the voice's silence.
         open = nil
       else
@@ -557,16 +735,28 @@ local function build_voices(sc, m, rec, staves, maps, len, meter, out)
         local ev = { id = D.id(sc, "e"), kind = n.rest and "rest" or "chord", dur = dur, dots = dots > 0 and dots or 0 }
         if n.grace then ev.grace = n.grace end
         if n.tm and not n.grace then
-          local fresh = n.tuplet_start or not open or open.tp.actual ~= n.tm.actual or open.tp.normal ~= n.tm.normal or open.filled >= open.span - 2
+          local fresh = n.tuplet_start
+            or not open
+            or open.tp.actual ~= n.tm.actual
+            or open.tp.normal ~= n.tm.normal
+            or open.filled >= open.span - 2
           if fresh then
-            local unit = n.tm.normal_type and D.ticks(n.tm.normal_type) * (n.tm.normal_dots > 0 and 1.5 or 1) or D.ticks(dur) * (dots > 0 and 1.5 or 1)
-            open = { tp = { id = D.id(sc, "t"), actual = n.tm.actual, normal = n.tm.normal }, filled = 0, span = n.tm.normal * unit }
+            local unit = n.tm.normal_type and D.ticks(n.tm.normal_type) * (n.tm.normal_dots > 0 and 1.5 or 1)
+              or D.ticks(dur) * (dots > 0 and 1.5 or 1)
+            open = {
+              tp = { id = D.id(sc, "t"), actual = n.tm.actual, normal = n.tm.normal },
+              filled = 0,
+              span = n.tm.normal * unit,
+            }
           end
           ev.tuplet = open.tp
         elseif not n.grace then
           open = nil
         end
-        if n.pitch and not n.rest then ev.notes = { { id = D.id(sc, "n"), step = n.pitch.step, alter = n.pitch.alter, octave = n.pitch.octave, tie = n.tie } } end
+        if n.pitch and not n.rest then
+          ev.notes =
+            { { id = D.id(sc, "n"), step = n.pitch.step, alter = n.pitch.alter, octave = n.pitch.octave, tie = n.tie } }
+        end
         local item = { ev = ev, start = n.start, rest = n.rest, grace = n.grace, srcs = { n } }
         evs[#evs + 1] = item
         if ev.tuplet then
@@ -579,7 +769,9 @@ local function build_voices(sc, m, rec, staves, maps, len, meter, out)
     local list, t = {}, 0
     local any = false
     local function rests_to(b)
-      for _, p in ipairs(D.values(t, b, meter, true)) do list[#list + 1] = { id = D.id(sc, "e"), kind = "rest", dur = p.dur, dots = p.dots } end
+      for _, p in ipairs(D.values(t, b, meter, true)) do
+        list[#list + 1] = { id = D.id(sc, "e"), kind = "rest", dur = p.dur, dots = p.dots }
+      end
       t = b
     end
     for _, it in ipairs(evs) do
@@ -606,7 +798,9 @@ end
 local function read_part(part_el, info, count)
   local st = { divisions = 1, staves = 1, tab = {}, unpitched = info.unpitched or {}, verses = {}, verse_count = 0 }
   local recs = {}
-  for _, mel in ipairs(xml.children(part_el, "measure")) do recs[#recs + 1] = read_measure(mel, st, count) end
+  for _, mel in ipairs(xml.children(part_el, "measure")) do
+    recs[#recs + 1] = read_measure(mel, st, count)
+  end
   local maps = voice_maps(recs, count)
   local sc = { version = 1, staves = {}, measures = {}, marks = {}, style = {}, next = 1 }
   -- Staves and their clefs where the part starts.
@@ -636,7 +830,9 @@ local function read_part(part_el, info, count)
   -- Each measure's length: its time signature's, or a pickup's (the
   -- score's origin), or one of its own for a bar shorter or longer.
   local meter, written, key_now, clefs_now = { num = 4, den = 4 }, nil, nil, {}
-  for s, id in pairs(staves) do clefs_now[s] = first_clef[s] or (s == 2 and "bass" or "treble") end
+  for s, id in pairs(staves) do
+    clefs_now[s] = first_clef[s] or (s == 2 and "bass" or "treble")
+  end
   local origin = 0
   local out = { count = count, placed = {}, tab = st.tab }
   local pending_clefs = {}
@@ -661,13 +857,21 @@ local function read_part(part_el, info, count)
         -- A bar of another length, given a time signature of its own.
         len = int(rec.length)
         den = meter.den
-        while (len * den) % W ~= 0 and den < 256 do den = den * 2 end
+        while (len * den) % W ~= 0 and den < 256 do
+          den = den * 2
+        end
         num = floor(len * den / W + 0.5)
         count("bars of other lengths than their time signature's, given their own")
       end
     end
     local want = { num, den, groups = (num == meter.num and den == meter.den) and meter.groups or nil }
-    if not written or written[1] ~= want[1] or written[2] ~= want[2] or tostring(written.groups and table.concat(written.groups, "+")) ~= tostring(want.groups and table.concat(want.groups, "+")) then
+    if
+      not written
+      or written[1] ~= want[1]
+      or written[2] ~= want[2]
+      or tostring(written.groups and table.concat(written.groups, "+"))
+        ~= tostring(want.groups and table.concat(want.groups, "+"))
+    then
       m.meter, m.groups = { num, den }, want.groups
       written = want
     end
@@ -675,10 +879,18 @@ local function read_part(part_el, info, count)
     local mt = { num, den, groups = want.groups }
     -- Everything in the bar moves by a pickup's empty start.
     if shift > 0 then
-      for _, n in ipairs(rec.notes) do n.start = n.start + shift end
-      for _, d in ipairs(rec.dirs) do d.t = d.t + shift end
-      for _, h in ipairs(rec.harmonies) do h.t = h.t + shift end
-      for _, c in ipairs(rec.clefs) do c.t = c.t + shift end
+      for _, n in ipairs(rec.notes) do
+        n.start = n.start + shift
+      end
+      for _, d in ipairs(rec.dirs) do
+        d.t = d.t + shift
+      end
+      for _, h in ipairs(rec.harmonies) do
+        h.t = h.t + shift
+      end
+      for _, c in ipairs(rec.clefs) do
+        c.t = c.t + shift
+      end
     end
     if rec.key then
       if i == 1 or not key_now or key_now.fifths ~= rec.key.fifths or key_now.mode ~= rec.key.mode then
@@ -720,7 +932,12 @@ local function read_part(part_el, info, count)
         m.barline = "||"
       elseif loc == "right" and style == "light-heavy" then
         m.barline = "|."
-      elseif style and style ~= "regular" and not (loc == "left" and style == "heavy-light") and not (loc == "right" and style == "light-heavy") then
+      elseif
+        style
+        and style ~= "regular"
+        and not (loc == "left" and style == "heavy-light")
+        and not (loc == "right" and style == "light-heavy")
+      then
         count("barlines of style " .. style)
       end
       if ending then
@@ -729,7 +946,9 @@ local function read_part(part_el, info, count)
         if ending.attr.type == "start" and number then
           out.volta = { from = i, number = number }
         elseif (ending.attr.type == "stop" or ending.attr.type == "discontinue") and out.volta then
-          for k = out.volta.from, i do sc.measures[k].volta = out.volta.number end
+          for k = out.volta.from, i do
+            sc.measures[k].volta = out.volta.number
+          end
           out.volta = nil
         end
       end
@@ -751,10 +970,14 @@ local function read_part(part_el, info, count)
       local ev = it.ev
       local art, lyrics = {}, {}
       for _, n in ipairs(it.srcs) do
-        for k in pairs(n.art or {}) do art[k] = true end
+        for k in pairs(n.art or {}) do
+          art[k] = true
+        end
         if n.orn then ev.orn = n.orn end
         if n.arpeggio then ev.arpeggio = n.arpeggio end
-        for _, ly in ipairs(n.lyrics or {}) do lyrics[ly.verse] = lyrics[ly.verse] or ly.text end
+        for _, ly in ipairs(n.lyrics or {}) do
+          lyrics[ly.verse] = lyrics[ly.verse] or ly.text
+        end
         for _, d in ipairs(n.dyns or {}) do
           if DYNAMICS[d] then
             sc.marks[#sc.marks + 1] = { id = D.id(sc, "k"), kind = "dynamic", from = ref(it.at), value = DYNAMICS[d] }
@@ -767,7 +990,8 @@ local function read_part(part_el, info, count)
           if sl.type == "start" then
             slurs[key] = { staff = staff, from = ref(it.at) }
           elseif sl.type == "stop" and slurs[key] then
-            sc.marks[#sc.marks + 1] = { id = D.id(sc, "k"), kind = "slur", staff = staff, from = slurs[key].from, to = ref(it.at) }
+            sc.marks[#sc.marks + 1] =
+              { id = D.id(sc, "k"), kind = "slur", staff = staff, from = slurs[key].from, to = ref(it.at) }
             slurs[key] = nil
           elseif sl.type == "stop" then
             count("slurs with no start")
@@ -777,11 +1001,15 @@ local function read_part(part_el, info, count)
       if ev.kind == "chord" then
         if next(art) then ev.art = art end
         local most = 0
-        for verse in pairs(lyrics) do most = math.max(most, verse) end
+        for verse in pairs(lyrics) do
+          most = math.max(most, verse)
+        end
         if lyrics[1] then ev.lyric = lyrics[1] end
         if most > 1 then
           ev.lyrics = {}
-          for verse = 2, most do ev.lyrics[verse - 1] = lyrics[verse] or "" end
+          for verse = 2, most do
+            ev.lyrics[verse - 1] = lyrics[verse] or ""
+          end
         end
         -- The beam the file gives it, for `beam_breaks`.
         if not it.grace then it.ev._xbeam = n0.beam or "none" end
@@ -798,7 +1026,8 @@ local function read_part(part_el, info, count)
       for _, dy in ipairs(d.dyns) do
         if DYNAMICS[dy] then
           subito = lower == "subito" or lower == "sub." or lower == "sub"
-          sc.marks[#sc.marks + 1] = { id = D.id(sc, "k"), kind = "dynamic", from = ref(d.t), value = DYNAMICS[dy], subito = subito or nil }
+          sc.marks[#sc.marks + 1] =
+            { id = D.id(sc, "k"), kind = "dynamic", from = ref(d.t), value = DYNAMICS[dy], subito = subito or nil }
         else
           count("dynamics of other kinds")
         end
@@ -810,8 +1039,14 @@ local function read_part(part_el, info, count)
           wedges[key] = { from = ref(d.t), value = w.type == "crescendo" and "cresc" or "dim", niente = w.niente }
         elseif w.type == "stop" and wedges[key] then
           local h = wedges[key]
-          sc.marks[#sc.marks + 1] = { id = D.id(sc, "k"), kind = "hairpin", from = h.from, to = ref(d.t), value = h.value,
-            niente = (h.niente or w.niente) or nil }
+          sc.marks[#sc.marks + 1] = {
+            id = D.id(sc, "k"),
+            kind = "hairpin",
+            from = h.from,
+            to = ref(d.t),
+            value = h.value,
+            niente = (h.niente or w.niente) or nil,
+          }
           wedges[key] = nil
         end
       end
@@ -822,17 +1057,24 @@ local function read_part(part_el, info, count)
         tempos[#tempos + 1] = { t = at + d.t, bpm = d.tempo }
       elseif d.per or d.tempo or change or named then
         local text = words
-        if d.unit and d.per then text = (text ~= "" and (text .. " ") or "") .. d.unit .. "=" .. (d.per == floor(d.per) and string.format("%d", d.per) or tostring(d.per)) end
+        if d.unit and d.per then
+          text = (text ~= "" and (text .. " ") or "")
+            .. d.unit
+            .. "="
+            .. (d.per == floor(d.per) and string.format("%d", d.per) or tostring(d.per))
+        end
         local bpm = d.tempo or (d.per and d.per * (d.unit_beats or 1)) or nil
         if text == "" and bpm then text = "q=" .. string.format("%g", bpm) end
-        sc.marks[#sc.marks + 1] = { id = D.id(sc, "k"), kind = "tempo", from = ref(d.t), value = text, bpm = bpm, change = change }
+        sc.marks[#sc.marks + 1] =
+          { id = D.id(sc, "k"), kind = "tempo", from = ref(d.t), value = text, bpm = bpm, change = change }
         if bpm then tempos[#tempos + 1] = { t = at + d.t, bpm = bpm } end
       elseif words ~= "" then
         local technique
         for _, tq in ipairs(write_cmds.TECHNIQUES) do
           if tq:lower() == lower then technique = tq end
         end
-        sc.marks[#sc.marks + 1] = { id = D.id(sc, "k"), kind = technique and "technique" or "text", from = ref(d.t), value = words }
+        sc.marks[#sc.marks + 1] =
+          { id = D.id(sc, "k"), kind = technique and "technique" or "text", from = ref(d.t), value = words }
       end
     end
     for _, h in ipairs(rec.harmonies) do
@@ -840,12 +1082,18 @@ local function read_part(part_el, info, count)
     end
     at = at + len
   end
-  for _ in pairs(slurs) do count("slurs with no end") end
-  for _ in pairs(wedges) do count("hairpins with no end") end
+  for _ in pairs(slurs) do
+    count("slurs with no end")
+  end
+  for _ in pairs(wedges) do
+    count("hairpins with no end")
+  end
   sc.origin = D.ratio(origin)
   sc._frame = nil
   for _, s in ipairs(sc.staves) do
-    for v = 1, 4 do D.fix_ties(sc, s.id, v, 1, #sc.measures) end
+    for v = 1, 4 do
+      D.fix_ties(sc, s.id, v, 1, #sc.measures)
+    end
   end
   sc.rev = D.token()
   return sc, { tempos = tempos, rehearsals = rehearsals, percussion = st.percussion, beams = st.beams }
@@ -867,7 +1115,13 @@ local function beam_breaks(sc, beamed)
           if ev.kind == "note" and ev.source then
             local before = prev[ev.voice]
             local x = ev.source._xbeam
-            if before and ev.beam and before.beam == ev.beam and (x == "begin" or x == "none") and ev.source.beam ~= "break" then
+            if
+              before
+              and ev.beam
+              and before.beam == ev.beam
+              and (x == "begin" or x == "none")
+              and ev.source.beam ~= "break"
+            then
               ev.source.beam = "break"
               changed = true
             end
@@ -879,12 +1133,16 @@ local function beam_breaks(sc, beamed)
       end
     end
     if not changed then break end
-    for _, m in ipairs(sc.measures) do m.v = D.token() end
+    for _, m in ipairs(sc.measures) do
+      m.v = D.token()
+    end
     sc.rev = D.token()
   end
   for _, m in ipairs(sc.measures) do
     for _, entry in ipairs(m.voices) do
-      for _, ev in ipairs(entry.events) do ev._xbeam = nil end
+      for _, ev in ipairs(entry.events) do
+        ev._xbeam = nil
+      end
     end
   end
 end
@@ -912,7 +1170,9 @@ function M.parse(text)
     for _, k in ipairs(root.children) do
       if k.name ~= "measure" then kids[#kids + 1] = k end
     end
-    for _, p in ipairs(order) do kids[#kids + 1] = p end
+    for _, p in ipairs(order) do
+      kids[#kids + 1] = p
+    end
     root = { name = "score-partwise", attrs = root.attr, kids = kids }
   end
   if root.name ~= "score-partwise" then return nil, "not a MusicXML score (its root is <" .. root.name .. ">)" end
@@ -943,9 +1203,14 @@ function M.parse(text)
     -- A file with no beams at all leaves them to the metre.
     beam_breaks(sc, extra.beams)
     file.parts[#file.parts + 1] = {
-      id = info.id, name = (info.name and info.name ~= "") and info.name or ("Part " .. i), score = sc,
-      program = info.program and int(info.program) - 1 or nil, channel = info.channel and int(info.channel) or nil,
-      drums = info.channel == 10 or extra.percussion or false, tempos = extra.tempos, rehearsals = extra.rehearsals,
+      id = info.id,
+      name = (info.name and info.name ~= "") and info.name or ("Part " .. i),
+      score = sc,
+      program = info.program and int(info.program) - 1 or nil,
+      channel = info.channel and int(info.channel) or nil,
+      drums = info.channel == 10 or extra.percussion or false,
+      tempos = extra.tempos,
+      rehearsals = extra.rehearsals,
     }
   end
   if #file.parts == 0 then return nil, "there are no parts in it" end
@@ -967,12 +1232,22 @@ function M.read_text(path)
   if root then
     for _, rf in ipairs(xml.children(xml.child(root, "rootfiles"), "rootfile")) do
       local name = rf.attr["full-path"]
-      if name and files[name] and (rf.attr["media-type"] or "application/vnd.recordare.musicxml+xml"):match("musicxml") then return files[name] end
+      if
+        name
+        and files[name]
+        and (rf.attr["media-type"] or "application/vnd.recordare.musicxml+xml"):match("musicxml")
+      then
+        return files[name]
+      end
     end
   end
   local names = {}
   for name in pairs(files) do
-    if not name:match("^META%-INF/") and name:lower():match("%.x?m?l?$") and (name:lower():match("%.musicxml$") or name:lower():match("%.xml$")) then
+    if
+      not name:match("^META%-INF/")
+      and name:lower():match("%.x?m?l?$")
+      and (name:lower():match("%.musicxml$") or name:lower():match("%.xml$"))
+    then
       names[#names + 1] = name
     end
   end
@@ -991,7 +1266,9 @@ end
 --- What was left out of a file, as one line, or nil.
 function M.skipped_text(file)
   local list = {}
-  for what, n in pairs(file.skipped) do list[#list + 1] = n .. " " .. what end
+  for what, n in pairs(file.skipped) do
+    list[#list + 1] = n .. " " .. what
+  end
   table.sort(list)
   return #list > 0 and table.concat(list, ", ") or nil
 end
@@ -1009,7 +1286,9 @@ local function divisions_of(scores)
   for _, sc in ipairs(scores) do
     local f = D.frame(sc)
     g = gcd(g, D.origin(sc))
-    for i = 1, f.count do g = gcd(g, f.lengths[i]) end
+    for i = 1, f.count do
+      g = gcd(g, f.lengths[i])
+    end
     D.each(sc, function(ev, _, _, _, s, e)
       g = gcd(g, e - s)
       g = gcd(g, s)
@@ -1064,14 +1343,26 @@ local function harmony_xml(text)
   if not root then return nil end
   local bass_step, bass_acc
   local before, b, ba = rest:match("^(.*)/([A-G])([#b]*)$")
-  if before then rest, bass_step, bass_acc = before, b, ba end
+  if before then
+    rest, bass_step, bass_acc = before, b, ba
+  end
   local function alter(a)
     local n = select(2, a:gsub("#", "")) - select(2, a:gsub("b", ""))
     return n ~= 0 and ("<root-alter>" .. n .. "</root-alter>") or ""
   end
-  local out = "<root><root-step>" .. root .. "</root-step>" .. alter(acc) .. "</root>"
-    .. '<kind text="' .. esc(rest) .. '">' .. kind_of(rest) .. "</kind>"
-  if bass_step then out = out .. "<bass><bass-step>" .. bass_step .. "</bass-step>" .. alter(bass_acc):gsub("root", "bass") .. "</bass>" end
+  local out = "<root><root-step>"
+    .. root
+    .. "</root-step>"
+    .. alter(acc)
+    .. "</root>"
+    .. '<kind text="'
+    .. esc(rest)
+    .. '">'
+    .. kind_of(rest)
+    .. "</kind>"
+  if bass_step then
+    out = out .. "<bass><bass-step>" .. bass_step .. "</bass-step>" .. alter(bass_acc):gsub("root", "bass") .. "</bass>"
+  end
   return out
 end
 
@@ -1092,8 +1383,12 @@ local function part_xml(w, part, pid, divisions, g)
       local beams = beam_values(evs)
       for _, ev in ipairs(evs) do
         if ev.sid and ev.sid ~= "" then shown[ev.sid] = { stem = ev.stem, beams = beams[ev.sid] } end
-        for _, n in ipairs(ev.notes or {}) do notes_shown[n.id] = n end
-        for _, gn in ipairs(ev.grace or {}) do notes_shown[gn.id] = gn end
+        for _, n in ipairs(ev.notes or {}) do
+          notes_shown[n.id] = n
+        end
+        for _, gn in ipairs(ev.grace or {}) do
+          notes_shown[gn.id] = gn
+        end
       end
     end
   end
@@ -1126,7 +1421,9 @@ local function part_xml(w, part, pid, divisions, g)
   D.each(sc, function(ev, _, staff, voice, s)
     if ev.kind == "chord" and not ev.grace then
       local tied = true
-      for _, n in ipairs(ev.notes) do tied = tied and tied_in[n.id] or false end
+      for _, n in ipairs(ev.notes) do
+        tied = tied and tied_in[n.id] or false
+      end
       if not tied then
         chords_by_staff[staff] = chords_by_staff[staff] or {}
         table.insert(chords_by_staff[staff], { ev = ev, s = s, voice = voice })
@@ -1143,10 +1440,25 @@ local function part_xml(w, part, pid, divisions, g)
       local first, last
       local list = chords_by_staff[mk.staff or sc.staves[1].id] or {}
       for _, c in ipairs(list) do
-        if a and b and c.s >= a and c.s <= b and (not first or c.s < first.s or (c.s == first.s and c.voice < first.voice)) then first = c end
+        if
+          a
+          and b
+          and c.s >= a
+          and c.s <= b
+          and (not first or c.s < first.s or (c.s == first.s and c.voice < first.voice))
+        then
+          first = c
+        end
       end
       for _, c in ipairs(list) do
-        if first and c.s >= a and c.s <= b and (not last or c.s > last.s or (c.s == last.s and c.voice == first.voice)) then last = c end
+        if
+          first
+          and c.s >= a
+          and c.s <= b
+          and (not last or c.s > last.s or (c.s == last.s and c.voice == first.voice))
+        then
+          last = c
+        end
       end
       if first and last and first ~= last then slur_list[#slur_list + 1] = { first = first, last = last } end
     end
@@ -1155,7 +1467,9 @@ local function part_xml(w, part, pid, divisions, g)
   local ends = {}
   for _, sl in ipairs(slur_list) do
     local number = 1
-    while ends[number] and ends[number] >= sl.first.s do number = number + 1 end
+    while ends[number] and ends[number] >= sl.first.s do
+      number = number + 1
+    end
     ends[number] = sl.last.s
     slur_start[sl.first.ev.id] = slur_start[sl.first.ev.id] or {}
     table.insert(slur_start[sl.first.ev.id], number)
@@ -1180,7 +1494,9 @@ local function part_xml(w, part, pid, divisions, g)
     local a, b = midi.at_of(sc, f, mk.from), midi.at_of(sc, f, mk.to)
     if a and b then
       local number = 1
-      while pin_ends[number] and pin_ends[number] >= a do number = number + 1 end
+      while pin_ends[number] and pin_ends[number] >= a do
+        number = number + 1
+      end
       pin_ends[number] = b
       pin_number[mk] = number
     end
@@ -1191,19 +1507,56 @@ local function part_xml(w, part, pid, divisions, g)
     if mi then
       if mk.kind == "dynamic" then
         local name = mk.value == "niente" and "n" or mk.value
-        put(mi, t, '<direction placement="below"><direction-type><dynamics><' .. name .. "/></dynamics></direction-type>"
-          .. (mk.subito and "<direction-type><words>subito</words></direction-type>" or "") .. "%OFFSET%" .. staff_tag
-          .. (midi.DYNAMICS[mk.value] and ('<sound dynamics="' .. floor(midi.DYNAMICS[mk.value] / 0.9 + 0.5) .. '"/>') or "") .. "</direction>")
+        put(
+          mi,
+          t,
+          '<direction placement="below"><direction-type><dynamics><'
+            .. name
+            .. "/></dynamics></direction-type>"
+            .. (mk.subito and "<direction-type><words>subito</words></direction-type>" or "")
+            .. "%OFFSET%"
+            .. staff_tag
+            .. (midi.DYNAMICS[mk.value] and ('<sound dynamics="' .. floor(midi.DYNAMICS[mk.value] / 0.9 + 0.5) .. '"/>') or "")
+            .. "</direction>"
+        )
       elseif mk.kind == "hairpin" and pin_number[mk] then
         local number = pin_number[mk]
         local cresc = mk.value ~= "dim"
-        put(mi, t, '<direction placement="below"><direction-type><wedge type="' .. (cresc and "crescendo" or "diminuendo") .. '" number="' .. number .. '"'
-          .. ((mk.niente and cresc) and ' niente="yes"' or "") .. "/></direction-type>%OFFSET%" .. staff_tag .. "</direction>")
+        put(
+          mi,
+          t,
+          '<direction placement="below"><direction-type><wedge type="'
+            .. (cresc and "crescendo" or "diminuendo")
+            .. '" number="'
+            .. number
+            .. '"'
+            .. ((mk.niente and cresc) and ' niente="yes"' or "")
+            .. "/></direction-type>%OFFSET%"
+            .. staff_tag
+            .. "</direction>"
+        )
         local mj = f.index[mk.to.measure] or mi
-        put(mj,D.ticks(mk.to.at or { 0, 1 }), '<direction placement="below"><direction-type><wedge type="stop" number="' .. number .. '"'
-          .. ((mk.niente and not cresc) and ' niente="yes"' or "") .. "/></direction-type>%OFFSET%" .. staff_tag .. "</direction>")
+        put(
+          mj,
+          D.ticks(mk.to.at or { 0, 1 }),
+          '<direction placement="below"><direction-type><wedge type="stop" number="'
+            .. number
+            .. '"'
+            .. ((mk.niente and not cresc) and ' niente="yes"' or "")
+            .. "/></direction-type>%OFFSET%"
+            .. staff_tag
+            .. "</direction>"
+        )
       elseif mk.kind == "text" or mk.kind == "technique" then
-        put(mi, t, '<direction placement="above"><direction-type><words>' .. esc(mk.value or "") .. "</words></direction-type>%OFFSET%" .. staff_tag .. "</direction>")
+        put(
+          mi,
+          t,
+          '<direction placement="above"><direction-type><words>'
+            .. esc(mk.value or "")
+            .. "</words></direction-type>%OFFSET%"
+            .. staff_tag
+            .. "</direction>"
+        )
       elseif mk.kind == "tempo" then
         local tp = write_cmds.parse_tempo(tostring(mk.value or "")) or {}
         local body = ""
@@ -1212,11 +1565,25 @@ local function part_xml(w, part, pid, divisions, g)
         else
           if tp.words then body = "<direction-type><words>" .. esc(tp.words) .. "</words></direction-type>" end
           local unit = tp.unit:gsub("♩", "q")
-          body = body .. "<direction-type><metronome><beat-unit>" .. UNIT_XML[unit:sub(1, 1)] .. "</beat-unit>"
-            .. (unit:sub(2, 2) == "." and "<beat-unit-dot/>" or "") .. "<per-minute>" .. string.format("%g", tp.per) .. "</per-minute></metronome></direction-type>"
+          body = body
+            .. "<direction-type><metronome><beat-unit>"
+            .. UNIT_XML[unit:sub(1, 1)]
+            .. "</beat-unit>"
+            .. (unit:sub(2, 2) == "." and "<beat-unit-dot/>" or "")
+            .. "<per-minute>"
+            .. string.format("%g", tp.per)
+            .. "</per-minute></metronome></direction-type>"
         end
-        put(mi, t, '<direction placement="above">' .. body .. "%OFFSET%" .. staff_tag
-          .. (mk.bpm and ('<sound tempo="' .. string.format("%g", mk.bpm) .. '"/>') or "") .. "</direction>")
+        put(
+          mi,
+          t,
+          '<direction placement="above">'
+            .. body
+            .. "%OFFSET%"
+            .. staff_tag
+            .. (mk.bpm and ('<sound tempo="' .. string.format("%g", mk.bpm) .. '"/>') or "")
+            .. "</direction>"
+        )
       elseif mk.kind == "chord" then
         local h = harmony_xml(tostring(mk.value or ""))
         if h then put(mi, t, "<harmony>" .. h .. "%OFFSET%" .. staff_tag .. "</harmony>", true) end
@@ -1225,7 +1592,15 @@ local function part_xml(w, part, pid, divisions, g)
   end
   for mi, m in ipairs(sc.measures) do
     if m.rehearsal then
-      put(mi, -1, '<direction placement="above"><direction-type><rehearsal>' .. esc(m.rehearsal) .. "</rehearsal></direction-type>" .. staff_tag .. "</direction>")
+      put(
+        mi,
+        -1,
+        '<direction placement="above"><direction-type><rehearsal>'
+          .. esc(m.rehearsal)
+          .. "</rehearsal></direction-type>"
+          .. staff_tag
+          .. "</direction>"
+      )
     end
   end
   for _, list in pairs(dirs) do
@@ -1270,9 +1645,13 @@ local function part_xml(w, part, pid, divisions, g)
     if breaks[m.id] then w('      <print new-system="yes"/>') end
     local vs, ve = volta_edges(mi)
     if m.repeat_start or vs then
-      w('      <barline location="left">' .. (m.repeat_start and "<bar-style>heavy-light</bar-style>" or "")
-        .. (vs and ('<ending number="' .. m.volta .. '" type="start">' .. m.volta .. ".</ending>") or "")
-        .. (m.repeat_start and '<repeat direction="forward"/>' or "") .. "</barline>")
+      w(
+        '      <barline location="left">'
+          .. (m.repeat_start and "<bar-style>heavy-light</bar-style>" or "")
+          .. (vs and ('<ending number="' .. m.volta .. '" type="start">' .. m.volta .. ".</ending>") or "")
+          .. (m.repeat_start and '<repeat direction="forward"/>' or "")
+          .. "</barline>"
+      )
     end
     local attrs = {}
     local meter = f.meters[mi]
@@ -1281,14 +1660,30 @@ local function part_xml(w, part, pid, divisions, g)
       -- The score's key, else the project's; a score with neither says none.
       local k = m.key or (part.fifths and { fifths = part.fifths, name = part.key_name })
       local mode = k and k.name and k.name:match("%s(%a+)$")
-      if k then attrs[#attrs + 1] = "<key><fifths>" .. k.fifths .. "</fifths>" .. (mode and ("<mode>" .. mode .. "</mode>") or "") .. "</key>" end
+      if k then
+        attrs[#attrs + 1] = "<key><fifths>"
+          .. k.fifths
+          .. "</fifths>"
+          .. (mode and ("<mode>" .. mode .. "</mode>") or "")
+          .. "</key>"
+      end
     elseif m.key then
       local mode = m.key.name and m.key.name:match("%s(%a+)$")
-      attrs[#attrs + 1] = "<key><fifths>" .. m.key.fifths .. "</fifths>" .. (mode and ("<mode>" .. mode .. "</mode>") or "") .. "</key>"
+      attrs[#attrs + 1] = "<key><fifths>"
+        .. m.key.fifths
+        .. "</fifths>"
+        .. (mode and ("<mode>" .. mode .. "</mode>") or "")
+        .. "</key>"
     end
     if mi == 1 or m.meter then
       local top = meter.groups and table.concat(meter.groups, "+") or tostring(meter[1])
-      attrs[#attrs + 1] = "<time" .. (m.meter_symbol and (' symbol="' .. m.meter_symbol .. '"') or "") .. "><beats>" .. top .. "</beats><beat-type>" .. meter[2] .. "</beat-type></time>"
+      attrs[#attrs + 1] = "<time"
+        .. (m.meter_symbol and (' symbol="' .. m.meter_symbol .. '"') or "")
+        .. "><beats>"
+        .. top
+        .. "</beats><beat-type>"
+        .. meter[2]
+        .. "</beat-type></time>"
     end
     if mi == 1 and nstaves > 1 then attrs[#attrs + 1] = "<staves>" .. nstaves .. "</staves>" end
     if mi == 1 and part.transpose then
@@ -1296,15 +1691,27 @@ local function part_xml(w, part, pid, divisions, g)
       -- notes to sounding ones, an octave apart from the rest.
       local iv = part.transpose
       local octave = iv.steps >= 0 and floor(iv.steps / 7) or -floor(-iv.steps / 7)
-      attrs[#attrs + 1] = "<transpose><diatonic>" .. -(iv.steps - 7 * octave) .. "</diatonic><chromatic>" .. -(iv.semis - 12 * octave)
-        .. "</chromatic>" .. (octave ~= 0 and ("<octave-change>" .. -octave .. "</octave-change>") or "") .. "</transpose>"
+      attrs[#attrs + 1] = "<transpose><diatonic>"
+        .. -(iv.steps - 7 * octave)
+        .. "</diatonic><chromatic>"
+        .. -(iv.semis - 12 * octave)
+        .. "</chromatic>"
+        .. (octave ~= 0 and ("<octave-change>" .. -octave .. "</octave-change>") or "")
+        .. "</transpose>"
     end
     for s, st in ipairs(sc.staves) do
       local clef = mi == 1 and st.clef or (m.clef and m.clef[st.id])
       local sign = clef and CLEF_SIGN[clef]
       if sign then
-        attrs[#attrs + 1] = "<clef" .. (nstaves > 1 and (' number="' .. s .. '"') or "") .. "><sign>" .. sign[1] .. "</sign><line>" .. sign[2] .. "</line>"
-          .. (sign[3] and ("<clef-octave-change>" .. sign[3] .. "</clef-octave-change>") or "") .. "</clef>"
+        attrs[#attrs + 1] = "<clef"
+          .. (nstaves > 1 and (' number="' .. s .. '"') or "")
+          .. "><sign>"
+          .. sign[1]
+          .. "</sign><line>"
+          .. sign[2]
+          .. "</line>"
+          .. (sign[3] and ("<clef-octave-change>" .. sign[3] .. "</clef-octave-change>") or "")
+          .. "</clef>"
       end
     end
     if #attrs > 0 then w("      <attributes>" .. table.concat(attrs) .. "</attributes>") end
@@ -1346,7 +1753,15 @@ local function part_xml(w, part, pid, divisions, g)
       end
       if e.empty then
         flush(len, skip)
-        w('      <note><rest measure="yes"/><duration>' .. dv(len - skip) .. "</duration><voice>" .. voice .. "</voice>" .. staff .. "</note>")
+        w(
+          '      <note><rest measure="yes"/><duration>'
+            .. dv(len - skip)
+            .. "</duration><voice>"
+            .. voice
+            .. "</voice>"
+            .. staff
+            .. "</note>"
+        )
         pos = len - skip
       else
         -- Each event's start, so that what is before an event goes before it.
@@ -1365,7 +1780,11 @@ local function part_xml(w, part, pid, divisions, g)
             local main, nxt = nil, nil
             for j = k, #items do
               if not items[j].ev.grace then
-                if not main then main = items[j] elseif not nxt then nxt = items[j] end
+                if not main then
+                  main = items[j]
+                elseif not nxt then
+                  nxt = items[j]
+                end
               end
             end
             flush(nxt and nxt.s - 1 or len, it.s)
@@ -1386,7 +1805,11 @@ local function part_xml(w, part, pid, divisions, g)
               local unit = span / ev.tuplet.normal
               local ntype = TYPE_OF[floor(unit + 0.5)]
               local ndot = not ntype and TYPE_OF[floor(unit / 1.5 + 0.5)]
-              tm = "<time-modification><actual-notes>" .. ev.tuplet.actual .. "</actual-notes><normal-notes>" .. ev.tuplet.normal .. "</normal-notes>"
+              tm = "<time-modification><actual-notes>"
+                .. ev.tuplet.actual
+                .. "</actual-notes><normal-notes>"
+                .. ev.tuplet.normal
+                .. "</normal-notes>"
                 .. (ntype and ("<normal-type>" .. ntype .. "</normal-type>") or ndot and ("<normal-type>" .. ndot .. "</normal-type><normal-dot/>") or "")
                 .. "</time-modification>"
               if k == first then tnot[#tnot + 1] = '<tuplet type="start"/>' end
@@ -1395,25 +1818,49 @@ local function part_xml(w, part, pid, divisions, g)
             local typetag = (typ and ("<type>" .. typ .. "</type>") or "") .. string.rep("<dot/>", ev.dots or 0)
             local look = shown[ev.id] or {}
             if ev.kind == "rest" then
-              w("      <note><rest/><duration>" .. dv(dur) .. "</duration><voice>" .. voice .. "</voice>" .. typetag .. tm .. staff
-                .. (#tnot > 0 and ("<notations>" .. table.concat(tnot) .. "</notations>") or "") .. "</note>")
+              w(
+                "      <note><rest/><duration>"
+                  .. dv(dur)
+                  .. "</duration><voice>"
+                  .. voice
+                  .. "</voice>"
+                  .. typetag
+                  .. tm
+                  .. staff
+                  .. (#tnot > 0 and ("<notations>" .. table.concat(tnot) .. "</notations>") or "")
+                  .. "</note>"
+              )
             else
               for i, n in ipairs(ev.notes) do
                 -- The note's id goes out with it: `n41` is the clip's MIDI note 41.
                 local id = type(n.id) == "string" and n.id:match("^n[%d.]+$")
                 local parts = { id and ('      <note id="' .. id .. '">') or "      <note>" }
-                if ev.grace then parts[#parts + 1] = ev.grace == "acciaccatura" and '<grace slash="yes"/>' or "<grace/>" end
+                if ev.grace then
+                  parts[#parts + 1] = ev.grace == "acciaccatura" and '<grace slash="yes"/>' or "<grace/>"
+                end
                 if i > 1 then parts[#parts + 1] = "<chord/>" end
-                parts[#parts + 1] = "<pitch><step>" .. LETTERS[n.step] .. "</step>" .. ((n.alter or 0) ~= 0 and ("<alter>" .. n.alter .. "</alter>") or "")
-                  .. "<octave>" .. n.octave .. "</octave></pitch>"
+                parts[#parts + 1] = "<pitch><step>"
+                  .. LETTERS[n.step]
+                  .. "</step>"
+                  .. ((n.alter or 0) ~= 0 and ("<alter>" .. n.alter .. "</alter>") or "")
+                  .. "<octave>"
+                  .. n.octave
+                  .. "</octave></pitch>"
                 if not ev.grace then parts[#parts + 1] = "<duration>" .. dv(dur) .. "</duration>" end
                 if tied_in[n.id] then parts[#parts + 1] = '<tie type="stop"/>' end
                 if n.tie and not ev.grace then parts[#parts + 1] = '<tie type="start"/>' end
                 parts[#parts + 1] = "<voice>" .. voice .. "</voice>" .. typetag
                 local ns = notes_shown[n.id]
                 if ns and ns.acc then
-                  local ACC = { [-2] = "flat-flat", [-1] = "flat", [0] = "natural", [1] = "sharp", [2] = "double-sharp" }
-                  if ACC[ns.acc] then parts[#parts + 1] = "<accidental" .. (ns.courtesy and ' cautionary="yes"' or "") .. ">" .. ACC[ns.acc] .. "</accidental>" end
+                  local ACC =
+                    { [-2] = "flat-flat", [-1] = "flat", [0] = "natural", [1] = "sharp", [2] = "double-sharp" }
+                  if ACC[ns.acc] then
+                    parts[#parts + 1] = "<accidental"
+                      .. (ns.courtesy and ' cautionary="yes"' or "")
+                      .. ">"
+                      .. ACC[ns.acc]
+                      .. "</accidental>"
+                  end
                 end
                 parts[#parts + 1] = tm
                 if ev.grace then
@@ -1423,15 +1870,23 @@ local function part_xml(w, part, pid, divisions, g)
                 end
                 parts[#parts + 1] = staff
                 if i == 1 then
-                  for level, value in ipairs(look.beams or {}) do parts[#parts + 1] = '<beam number="' .. level .. '">' .. value .. "</beam>" end
+                  for level, value in ipairs(look.beams or {}) do
+                    parts[#parts + 1] = '<beam number="' .. level .. '">' .. value .. "</beam>"
+                  end
                 end
                 local nots = {}
                 if tied_in[n.id] then nots[#nots + 1] = '<tied type="stop"/>' end
                 if n.tie and not ev.grace then nots[#nots + 1] = '<tied type="start"/>' end
                 if i == 1 then
-                  for _, num in ipairs(slur_stop[ev.id] or {}) do nots[#nots + 1] = '<slur type="stop" number="' .. num .. '"/>' end
-                  for _, num in ipairs(slur_start[ev.id] or {}) do nots[#nots + 1] = '<slur type="start" number="' .. num .. '"/>' end
-                  for _, x in ipairs(tnot) do nots[#nots + 1] = x end
+                  for _, num in ipairs(slur_stop[ev.id] or {}) do
+                    nots[#nots + 1] = '<slur type="stop" number="' .. num .. '"/>'
+                  end
+                  for _, num in ipairs(slur_start[ev.id] or {}) do
+                    nots[#nots + 1] = '<slur type="start" number="' .. num .. '"/>'
+                  end
+                  for _, x in ipairs(tnot) do
+                    nots[#nots + 1] = x
+                  end
                   local art = ev.art or {}
                   local arts = {}
                   for _, a in ipairs({ "accent", "marcato", "staccato", "staccatissimo", "tenuto" }) do
@@ -1442,14 +1897,19 @@ local function part_xml(w, part, pid, divisions, g)
                   if art.fermata_short then nots[#nots + 1] = '<fermata type="upright">angled</fermata>' end
                   if art.fermata_long then nots[#nots + 1] = '<fermata type="upright">square</fermata>' end
                   if ev.orn and XML_ORN[ev.orn] then
-                    nots[#nots + 1] = "<ornaments><" .. XML_ORN[ev.orn] .. (ev.orn == "tremolo" and ' type="single">3</tremolo>' or "/>") .. "</ornaments>"
+                    nots[#nots + 1] = "<ornaments><"
+                      .. XML_ORN[ev.orn]
+                      .. (ev.orn == "tremolo" and ' type="single">3</tremolo>' or "/>")
+                      .. "</ornaments>"
                   end
                 end
                 if ev.arpeggio then nots[#nots + 1] = '<arpeggiate direction="' .. ev.arpeggio .. '"/>' end
                 if #nots > 0 then parts[#parts + 1] = "<notations>" .. table.concat(nots) .. "</notations>" end
                 if i == 1 and not ev.grace then
                   local verses = { ev.lyric }
-                  for v2, text in ipairs(ev.lyrics or {}) do verses[v2 + 1] = text end
+                  for v2, text in ipairs(ev.lyrics or {}) do
+                    verses[v2 + 1] = text
+                  end
                   for verse = 1, math.max(#(ev.lyrics or {}) + 1, 1) do
                     local text = verses[verse]
                     if text and text ~= "" then
@@ -1459,8 +1919,15 @@ local function part_xml(w, part, pid, divisions, g)
                       local word = (hyphen or extend) and text:sub(1, -2) or text
                       local syl = lyric_open[key] and (hyphen and "middle" or "end") or (hyphen and "begin" or "single")
                       lyric_open[key] = hyphen
-                      parts[#parts + 1] = '<lyric number="' .. verse .. '"><syllabic>' .. syl .. "</syllabic><text>" .. esc(word) .. "</text>"
-                        .. (extend and "<extend/>" or "") .. "</lyric>"
+                      parts[#parts + 1] = '<lyric number="'
+                        .. verse
+                        .. '"><syllabic>'
+                        .. syl
+                        .. "</syllabic><text>"
+                        .. esc(word)
+                        .. "</text>"
+                        .. (extend and "<extend/>" or "")
+                        .. "</lyric>"
                     end
                   end
                 end
@@ -1482,9 +1949,16 @@ local function part_xml(w, part, pid, divisions, g)
     end
     if m.barline or ve then
       local style = m.barline == "||" and "light-light" or "light-heavy"
-      local stop = ve and ('<ending number="' .. m.volta .. '" type="' .. (m.barline == ":|" and "stop" or "discontinue") .. '"/>') or ""
-      w('      <barline location="right">' .. ((m.barline and m.barline ~= "|") and ("<bar-style>" .. style .. "</bar-style>") or "") .. stop
-        .. (m.barline == ":|" and '<repeat direction="backward"/>' or "") .. "</barline>")
+      local stop = ve
+          and ('<ending number="' .. m.volta .. '" type="' .. (m.barline == ":|" and "stop" or "discontinue") .. '"/>')
+        or ""
+      w(
+        '      <barline location="right">'
+          .. ((m.barline and m.barline ~= "|") and ("<bar-style>" .. style .. "</bar-style>") or "")
+          .. stop
+          .. (m.barline == ":|" and '<repeat direction="backward"/>' or "")
+          .. "</barline>"
+      )
     end
     w("    </measure>")
   end
@@ -1503,11 +1977,16 @@ function M.write(parts, opts)
   local out = {}
   local function w(line) out[#out + 1] = line end
   w('<?xml version="1.0" encoding="UTF-8" standalone="no"?>')
-  w('<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">')
+  w(
+    '<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">'
+  )
   w('<score-partwise version="4.0">')
   if opts.title and opts.title ~= "" then w("  <work><work-title>" .. esc(opts.title) .. "</work-title></work>") end
-  w("  <identification>" .. ((opts.composer and opts.composer ~= "") and ('<creator type="composer">' .. esc(opts.composer) .. "</creator>") or "")
-    .. "<encoding><software>paw</software></encoding></identification>")
+  w(
+    "  <identification>"
+      .. ((opts.composer and opts.composer ~= "") and ('<creator type="composer">' .. esc(opts.composer) .. "</creator>") or "")
+      .. "<encoding><software>paw</software></encoding></identification>"
+  )
   w("  <part-list>")
   local scores = {}
   for i, p in ipairs(parts) do
@@ -1517,19 +1996,42 @@ function M.write(parts, opts)
     local channel = (i - 1) % 15 + 1
     if channel >= 10 then channel = channel + 1 end
     if p.group then
-      w('    <part-group type="start" number="' .. p.group.number .. '"><group-name>' .. esc(p.group.name)
-        .. "</group-name><group-symbol>bracket</group-symbol><group-barline>yes</group-barline></part-group>")
+      w(
+        '    <part-group type="start" number="'
+          .. p.group.number
+          .. '"><group-name>'
+          .. esc(p.group.name)
+          .. "</group-name><group-symbol>bracket</group-symbol><group-barline>yes</group-barline></part-group>"
+      )
     end
-    w('    <score-part id="' .. pid .. '"><part-name>' .. esc(p.name or ("Part " .. i)) .. "</part-name>"
-      .. (p.short and ("<part-abbreviation>" .. esc(p.short) .. "</part-abbreviation>") or "")
-      .. '<score-instrument id="' .. pid .. '-I1"><instrument-name>' .. esc(p.name or ("Part " .. i)) .. "</instrument-name></score-instrument>"
-      .. '<midi-instrument id="' .. pid .. '-I1"><midi-channel>' .. (p.drums and 10 or channel) .. "</midi-channel>"
-      .. "<midi-program>" .. ((p.program or 0) + 1) .. "</midi-program></midi-instrument></score-part>")
+    w(
+      '    <score-part id="'
+        .. pid
+        .. '"><part-name>'
+        .. esc(p.name or ("Part " .. i))
+        .. "</part-name>"
+        .. (p.short and ("<part-abbreviation>" .. esc(p.short) .. "</part-abbreviation>") or "")
+        .. '<score-instrument id="'
+        .. pid
+        .. '-I1"><instrument-name>'
+        .. esc(p.name or ("Part " .. i))
+        .. "</instrument-name></score-instrument>"
+        .. '<midi-instrument id="'
+        .. pid
+        .. '-I1"><midi-channel>'
+        .. (p.drums and 10 or channel)
+        .. "</midi-channel>"
+        .. "<midi-program>"
+        .. ((p.program or 0) + 1)
+        .. "</midi-program></midi-instrument></score-part>"
+    )
     if p.group_end then w('    <part-group type="stop" number="' .. p.group_end .. '"/>') end
   end
   w("  </part-list>")
   local divisions, g = divisions_of(scores)
-  for i, p in ipairs(parts) do part_xml(w, p, "P" .. i, divisions, g) end
+  for i, p in ipairs(parts) do
+    part_xml(w, p, "P" .. i, divisions, g)
+  end
   w("</score-partwise>")
   return table.concat(out, "\n") .. "\n"
 end
@@ -1537,9 +2039,14 @@ end
 --- A compressed MusicXML file (.mxl) of a document's text.
 function M.mxl(text, name)
   name = (name or "score") .. ".musicxml"
-  local container = '<?xml version="1.0" encoding="UTF-8"?>\n<container><rootfiles><rootfile full-path="' .. esc(name)
+  local container = '<?xml version="1.0" encoding="UTF-8"?>\n<container><rootfiles><rootfile full-path="'
+    .. esc(name)
     .. '" media-type="application/vnd.recordare.musicxml+xml"/></rootfiles></container>\n'
-  return paw.zip.write({ { name = "mimetype", data = "application/vnd.recordare.musicxml" }, { name = "META-INF/container.xml", data = container }, { name = name, data = text } })
+  return paw.zip.write({
+    { name = "mimetype", data = "application/vnd.recordare.musicxml" },
+    { name = "META-INF/container.xml", data = container },
+    { name = name, data = text },
+  })
 end
 
 return M

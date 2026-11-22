@@ -9,7 +9,9 @@ local function start()
   fresh()
   api.engine_restart({ backend = "null" })
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.focus("arrange")
   paw.project.tempo = 120
 end
@@ -54,7 +56,9 @@ local function settled()
   for _ = 1, 1500 do
     local busy = false
     for _, t in ipairs(paw.tracks()) do
-      for _, c in ipairs(api.clip_list(t.id)) do busy = busy or c.stretching or false end
+      for _, c in ipairs(api.clip_list(t.id)) do
+        busy = busy or c.stretching or false
+      end
     end
     if not busy then return end
     paw.wait(10)
@@ -230,9 +234,14 @@ local function phrase_file()
   start()
   local t = paw.add_track({ name = "source" })
   t:add_device("synth", { attack = 0.001, release = 0.01 })
-  t:add_clip({ start = 0, length = 2, notes = {
-    { pitch = "A3", start = 0.25, length = 0.5 }, { pitch = "E4", start = 1, length = 0.5 },
-  } })
+  t:add_clip({
+    start = 0,
+    length = 2,
+    notes = {
+      { pitch = "A3", start = 0.25, length = 0.5 },
+      { pitch = "E4", start = 1, length = 0.5 },
+    },
+  })
   local info = render({ tail = 0, bits = 16 })
   start()
   return info.path
@@ -258,7 +267,9 @@ test("a looped audio clip repeats its sound exactly", function()
   -- The window marks each repeat, and so does the terminal's label.
   local state = paw.frontend.state(-1)
   local shown
-  for _, c in ipairs(state.clips) do if c.id == clip.id then shown = c end end
+  for _, c in ipairs(state.clips) do
+    if c.id == clip.id then shown = c end
+  end
   eq(#shown.notches, 2, "two notches")
   near(shown.notches[1], 2, 1e-9, "at the second repeat")
   eq(shown.name:find("↻", 1, true) ~= nil, true, "a mark in its name")
@@ -277,9 +288,14 @@ test("a looped MIDI clip repeats its notes exactly, cut at the loop's end", func
   start()
   local t = paw.add_track({ name = "keys" })
   t:add_device("synth", { attack = 0.001, release = 0.01 })
-  local clip = t:add_clip({ start = 0, length = 2, notes = {
-    { pitch = "A3", start = 0, length = 0.5 }, { pitch = "C4", start = 1, length = 1.5 },
-  } })
+  local clip = t:add_clip({
+    start = 0,
+    length = 2,
+    notes = {
+      { pitch = "A3", start = 0, length = 0.5 },
+      { pitch = "C4", start = 1, length = 1.5 },
+    },
+  })
   paw.stretch.loop(clip.id, true)
   near(clip.loop_length, 2, 1e-9, "the clip's length")
   clip.length = 6
@@ -309,9 +325,14 @@ test("splitting, trimming and moving what plays in a looped clip keep what it pl
   start()
   local t = paw.add_track({ name = "keys" })
   t:add_device("synth", { attack = 0.001, release = 0.01 })
-  local clip = t:add_clip({ start = 0, length = 2, notes = {
-    { pitch = "A3", start = 0, length = 0.5 }, { pitch = "C4", start = 1, length = 0.5 },
-  } })
+  local clip = t:add_clip({
+    start = 0,
+    length = 2,
+    notes = {
+      { pitch = "A3", start = 0, length = 0.5 },
+      { pitch = "C4", start = 1, length = 0.5 },
+    },
+  })
   paw.stretch.loop(clip.id, true)
   clip.length = 8
   local before = T.read_file(render({ tail = 0, bits = 16 }).path)
@@ -476,7 +497,9 @@ test("in the window an end dragged with Alt and Shift stretches, and the menu fi
   near(clip.stretch, 1.5, 1e-9, "the sound stretched to it")
   paw.flush()
   local function shown()
-    for _, c in ipairs(paw.frontend.state(-1).clips) do if c.id == clip.id then return c end end
+    for _, c in ipairs(paw.frontend.state(-1).clips) do
+      if c.id == clip.id then return c end
+    end
   end
   eq(shown().name:find("stretching", 1, true) ~= nil, true, "shown as being stretched")
   local key = shown().waveform
@@ -542,9 +565,14 @@ test("comping a looped clip keeps the loop on every piece, and joins pieces that
   start()
   local t = paw.add_track({ name = "keys" })
   t:add_device("synth", { attack = 0.001, release = 0.01 })
-  local clip = t:add_clip({ start = 0, length = 2, notes = {
-    { pitch = "A3", start = 0, length = 0.5 }, { pitch = "C4", start = 1, length = 0.5 },
-  } })
+  local clip = t:add_clip({
+    start = 0,
+    length = 2,
+    notes = {
+      { pitch = "A3", start = 0, length = 0.5 },
+      { pitch = "C4", start = 1, length = 0.5 },
+    },
+  })
   paw.stretch.loop(clip.id, true)
   clip.length = 8
   paw.takes.new(clip.id)
@@ -555,7 +583,9 @@ test("comping a looped clip keeps the loop on every piece, and joins pieces that
   eq(act.comp(t.id, 1, 3, 5, false), 1, "take 1 over the middle")
   local clips = t:clips()
   eq(#clips, 3, "three pieces")
-  for i, c in ipairs(clips) do eq(c.loop, true, "piece " .. i .. " loops") end
+  for i, c in ipairs(clips) do
+    eq(c.loop, true, "piece " .. i .. " loops")
+  end
   near(clips[2].loop_start, -1, 1e-9, "the middle piece a beat into a repeat")
   local flat = paw.frontend.preview(clips[2].id)
   eq(flat[3], 60, "it plays take 1's second note first")

@@ -20,15 +20,21 @@ for t = 0, tracks - 1 do
     local list = {}
     for n = 0, per_clip - 1 do
       -- A fixed spread of pitches and starts inside the bar.
-      list[#list + 1] = { pitch = 36 + (t * 7 + c * 5 + n * 3) % 48, start = (n % 16) * 0.25,
-        length = 0.25 + (n % 3) * 0.25, velocity = 60 + (n * 13) % 60 }
+      list[#list + 1] = {
+        pitch = 36 + (t * 7 + c * 5 + n * 3) % 48,
+        start = (n % 16) * 0.25,
+        length = 0.25 + (n % 3) * 0.25,
+        velocity = 60 + (n * 13) % 60,
+      }
     end
     api.clip_add(id, { start = c * 4, length = 4, notes = list, name = "c" .. c })
     made = made + 1
   end
   if t % 4 == 0 then
     local points = {}
-    for bar = 0, per_track, 4 do points[#points + 1] = { bar * 4, bar % 8 == 0 and -12 or -3 } end
+    for bar = 0, per_track, 4 do
+      points[#points + 1] = { bar * 4, bar % 8 == 0 and -12 or -3 }
+    end
     api.lane_add(id, { target = "volume", points = points })
   end
 end

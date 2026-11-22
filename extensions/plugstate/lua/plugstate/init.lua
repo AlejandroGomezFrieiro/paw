@@ -31,9 +31,15 @@ M.basename, M.stem = basename, stem
 --- particular plugin wins over a general one. An adapter with `fallback =
 --- true` is asked after all the others.
 function M.adapter(def)
-  assert(type(def.name) == "string" and def.matches and def.slots and def.load, "an adapter needs name, matches, slots and load")
+  assert(
+    type(def.name) == "string" and def.matches and def.slots and def.load,
+    "an adapter needs name, matches, slots and load"
+  )
   for i, a in ipairs(M.adapters) do
-    if a.name == def.name then table.remove(M.adapters, i) break end
+    if a.name == def.name then
+      table.remove(M.adapters, i)
+      break
+    end
   end
   table.insert(M.adapters, def.fallback and #M.adapters + 1 or 1, def)
 end
@@ -62,7 +68,9 @@ function M.slot(id, name)
   local slots = M.slots(id)
   if not name or name == "" then return slots[1] end
   for _, s in ipairs(slots) do
-    if s.key == name or (s.label or ""):lower() == name:lower() or (s.what or ""):lower() == name:lower() then return s end
+    if s.key == name or (s.label or ""):lower() == name:lower() or (s.what or ""):lower() == name:lower() then
+      return s
+    end
   end
 end
 
@@ -89,9 +97,7 @@ function M.set(id, slot_key, value)
   if not a then return nil, "no adapter knows this device" end
   local slot = M.slot(id, slot_key)
   if not slot then return nil, "the device has no " .. (slot_key or "file") .. " to set" end
-  if type(value) == "string" and slot.kind ~= "text" then
-    value = value:gsub("^~", os.getenv("HOME") or "~")
-  end
+  if type(value) == "string" and slot.kind ~= "text" then value = value:gsub("^~", os.getenv("HOME") or "~") end
   local ok, spec = pcall(a.load, id, d, slot, value)
   if not ok then return nil, (tostring(spec):gsub("^.-:%d+: ", "")) end
   spec.name = spec.name or (type(value) == "string" and stem(value)) or tostring(value)
@@ -129,13 +135,17 @@ function M.share_dirs(sub)
     seen[dir] = true
   end
   for _, var in ipairs({ "CLAP_PATH", "VST3_PATH", "LV2_PATH" }) do
-    for dir in (os.getenv(var) or ""):gmatch("[^:]+") do try(dir) end
+    for dir in (os.getenv(var) or ""):gmatch("[^:]+") do
+      try(dir)
+    end
   end
   local home, user = os.getenv("HOME"), os.getenv("USER")
   local profiles = { "/run/current-system/sw/lib/clap" }
   if home then profiles[#profiles + 1] = home .. "/.nix-profile/lib/clap" end
   if user then profiles[#profiles + 1] = "/etc/profiles/per-user/" .. user .. "/lib/clap" end
-  for _, dir in ipairs(profiles) do try(dir) end
+  for _, dir in ipairs(profiles) do
+    try(dir)
+  end
   return out
 end
 
@@ -162,7 +172,9 @@ function M.files(slot, roots)
   end
   if not roots then
     roots = M.roots()
-    for i, dir in ipairs(slot.folders or {}) do table.insert(roots, i, dir) end
+    for i, dir in ipairs(slot.folders or {}) do
+      table.insert(roots, i, dir)
+    end
     local here = type(slot.value) == "string" and slot.value:find("/", 1, true) and dirname(slot.value)
     if here then table.insert(roots, 1, here) end
   end
@@ -180,7 +192,9 @@ function M.files(slot, roots)
       end
     end
   end
-  for _, root in ipairs(roots) do walk(root, 0, root) end
+  for _, root in ipairs(roots) do
+    walk(root, 0, root)
+  end
   table.sort(found, function(x, y) return x.path < y.path end)
   return found
 end
@@ -188,13 +202,18 @@ end
 --- The files whose name or folder holds every word of `query`.
 function M.search(slot, query, roots)
   local words = {}
-  for w in (query or ""):lower():gmatch("%S+") do words[#words + 1] = w end
+  for w in (query or ""):lower():gmatch("%S+") do
+    words[#words + 1] = w
+  end
   local out = {}
   for _, f in ipairs(M.files(slot, roots)) do
     local text = (f.name .. " " .. f.folder):lower()
     local all = true
     for _, w in ipairs(words) do
-      if not text:find(w, 1, true) then all = false break end
+      if not text:find(w, 1, true) then
+        all = false
+        break
+      end
     end
     if all then out[#out + 1] = f end
   end
@@ -239,9 +258,14 @@ function M.snapshot(id, name)
   local data, meta = data_of(id)
   if not name or name == "" then
     local taken = {}
-    for _, s in ipairs(data.snapshots) do taken[s.name] = true end
+    for _, s in ipairs(data.snapshots) do
+      taken[s.name] = true
+    end
     for c in ("ABCDEFGHIJKLMNOPQRSTUVWXYZ"):gmatch(".") do
-      if not taken[c] then name = c break end
+      if not taken[c] then
+        name = c
+        break
+      end
     end
     name = name or ("snapshot " .. (#data.snapshots + 1))
   end
@@ -249,7 +273,9 @@ function M.snapshot(id, name)
   local snap = { name = name, state = api.device_state(id), params = d.params }
   local replaced = false
   for i, s in ipairs(data.snapshots) do
-    if s.name == name then data.snapshots[i], replaced = snap, true end
+    if s.name == name then
+      data.snapshots[i], replaced = snap, true
+    end
   end
   if not replaced then data.snapshots[#data.snapshots + 1] = snap end
   data.current = name
@@ -319,13 +345,13 @@ function M.lane_state(id, slot_key, value)
   if not a then return nil, "no adapter knows this device" end
   local slot = M.slot(id, slot_key)
   if not slot then return nil, "the device has no " .. (slot_key or "file") .. " to set" end
-  if type(value) == "string" and slot.kind ~= "text" then
-    value = value:gsub("^~", os.getenv("HOME") or "~")
-  end
+  if type(value) == "string" and slot.kind ~= "text" then value = value:gsub("^~", os.getenv("HOME") or "~") end
   local ok, spec = pcall(a.load, id, d, slot, value)
   if not ok then return nil, (tostring(spec):gsub("^.-:%d+: ", "")) end
-  local name = spec.name or (a.name_of and type(value) == "string" and a.name_of(value))
-    or (type(value) == "string" and stem(value)) or tostring(value)
+  local name = spec.name
+    or (a.name_of and type(value) == "string" and a.name_of(value))
+    or (type(value) == "string" and stem(value))
+    or tostring(value)
   local state = { name = name, call = spec.call, state = spec.state, params = spec.params }
   if state.state and not state.params then state.params = d.params end
   return state

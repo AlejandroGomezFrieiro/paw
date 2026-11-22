@@ -63,7 +63,7 @@ local record Paw is partial.Paw
   seats: SeatsModule
   util: UtilModule
 end
-local paw = (_G as {string:Paw}).paw
+local paw = (_G as {string: Paw}).paw
 
 --- Where a terminal's hit region in a plane is (`plane:region()`): the
 --- corner of the plane's buffer on the screen, and the plane.
@@ -110,7 +110,7 @@ local record M
     region: function(self: Plane): PlaceIn
   end
   --- Every role, by name.
-  registry: {string:contracts.Role<contracts.MarkProps>}
+  registry: {string: contracts.Role<contracts.MarkProps>}
   --- The version of the roles a frontend may know (`scene.watch`'s `roles`).
   version: integer
   gesture: function(view: View, e: MouseEvent): boolean
@@ -122,9 +122,14 @@ M.version = 1
 -- The hit regions each window of the terminal's screen drew last, by the
 -- view's name and its window: `{ x, y, w, h, hit }` each, in screen cells.
 -- A seat's screen is its own.
-local hits: {string:{Region}} = {}
+local hits: {string: {Region}} = {}
 local drawing: {Region} = nil
-paw.seats.keep("roles", function(): {string:{Region}} return hits end, function(h: {string:{Region}}) hits = h end, function(): {string:{Region}} return {} end)
+paw.seats.keep(
+  "roles",
+  function(): {string: {Region}} return hits end,
+  function(h: {string: {Region}}) hits = h end,
+  function(): {string: {Region}} return {} end
+)
 
 --- Define a role. `spec.cells(buf, props, ctx)` draws it in cells. It is
 --- necessary, because the terminal comes first. `spec.props` names its
@@ -132,19 +137,27 @@ paw.seats.keep("roles", function(): {string:{Region}} return hits end, function(
 --- `spec.bound` is the props that a frontend takes from the live value when
 --- the mark is bound to one. paw does not send these props.
 function M.define<P is contracts.MarkProps>(name: string, spec: contracts.Role<P>)
-  if type(name) ~= "string" or name == "" then error("a role needs a name", 2) end
-  if type(spec) ~= "table" or type(spec.cells) ~= "function" then error("role " .. name .. ": cells(buf, props, ctx) draws it", 2) end
+  if type(name) ~= "string" or name == "" then
+    error("a role needs a name", 2)
+  end
+  if type(spec) ~= "table" or type(spec.cells) ~= "function" then
+    error("role " .. name .. ": cells(buf, props, ctx) draws it", 2)
+  end
   M.registry[name] = spec as contracts.Role<contracts.MarkProps>
 end
 
 --- What of a role's props goes to a frontend: data only, and not what it
 --- takes from a live value (`left`, names to leave out).
 local function wire(props: MarkProps, left: {string}): role_props.Props
-  local out: {string:Data} = {}
-  for k, v in pairs(props as {string:Data}) do
-    if k ~= "hit" and k ~= "bind" and k ~= "key" and type(v) ~= "function" then out[k] = v end
+  local out: {string: Data} = {}
+  for k, v in pairs(props as {string: Data}) do
+    if k ~= "hit" and k ~= "bind" and k ~= "key" and type(v) ~= "function" then
+      out[k] = v
+    end
   end
-  for _, k in ipairs(left or {}) do out[k] = nil end
+  for _, k in ipairs(left or {}) do
+    out[k] = nil
+  end
   return out as role_props.Props
 end
 
@@ -168,25 +181,35 @@ end
 local function shown(buf: Buf, x: number, y: number, w: number, h: number): Region
   local x0, y0 = math.max(buf.x + x, buf.cx), math.max(buf.y + y, buf.cy)
   local x1, y1 = math.min(buf.x + x + w, buf.cx + buf.cw), math.min(buf.y + y + h, buf.cy + buf.ch)
-  if x1 <= x0 or y1 <= y0 then return nil end
-  return { x = x0, y = y0, w = x1 - x0, h = y1 - y0 }
+  if x1 <= x0 or y1 <= y0 then
+    return nil
+  end
+  return {x = x0, y = y0, w = x1 - x0, h = y1 - y0}
 end
 
 --- Open a node of a scene being drawn over `buf`'s rectangle `x, y, w, h`;
 --- true when one was, to be closed.
 local function open(buf: Buf, x: number, y: number, w: number, h: number, opts: types.SceneOpenOptions): boolean
-  if not paw.ui.scene_drawing then return false end
-  local r: types.Rect = { x = buf.x + x, y = buf.y + y, w = w, h = h }
+  if not paw.ui.scene_drawing then
+    return false
+  end
+  local r: types.Rect = {x = buf.x + x, y = buf.y + y, w = w, h = h}
   local cut = shown(buf, x, y, w, h)
-  if not cut then return false end
-  if cut.x ~= r.x or cut.y ~= r.y or cut.w ~= r.w or cut.h ~= r.h then opts.clip = cut as types.Rect end
+  if not cut then
+    return false
+  end
+  if cut.x ~= r.x or cut.y ~= r.y or cut.w ~= r.w or cut.h ~= r.h then
+    opts.clip = cut as types.Rect
+  end
   return api.scene_open(r, opts)
 end
 
 --- A hit region of the terminal's screen, where it shows; `plane` the
 --- plane it is in, if any, for where in its domain a press is.
 local function region(buf: Buf, x: number, y: number, w: number, h: number, action: HitAction, plane?: PlaceIn)
-  if not drawing then return end
+  if not drawing then
+    return
+  end
   local r = shown(buf, x, y, w, h)
   if r then
     r.hit, r.plane = action, plane
@@ -196,13 +219,19 @@ end
 
 --- What the view's cells hold of a role's props, and what goes to a
 --- frontend: the opts of its node.
-local function node_opts(role: string, spec: contracts.Role<contracts.MarkProps>, props: MarkProps): types.SceneOpenOptions
-  return { role = role, props = wire(props, props.bind and spec.bound), hit = props.hit, bind = props.bind, key = props.key }
+local function node_opts(
+  role: string, spec: contracts.Role<contracts.MarkProps>, props: MarkProps
+): types.SceneOpenOptions
+  return {
+    role = role, props = wire(props, props.bind and spec.bound), hit = props.hit, bind = props.bind, key = props.key
+  }
 end
 
 local function spec_of(role: string): contracts.Role<contracts.MarkProps>
   local spec = M.registry[role]
-  if not spec then error("no role " .. tostring(role), 3) end
+  if not spec then
+    error("no role " .. tostring(role), 3)
+  end
   return spec
 end
 
@@ -212,12 +241,9 @@ end
 local function cells(sub: Buf, role: string, spec: contracts.Role<contracts.MarkProps>, props: MarkProps)
   local u = paw.ui
   if props.bind and spec.bound and u.live_drawing() then
-    return u.live(sub, function(b: Buf)
-      u.live_value(props.bind, props)
-      spec.cells(b, props, { role = role })
-    end)
+    return u.live(sub, function(b: Buf) u.live_value(props.bind, props); spec.cells(b, props, {role = role}) end)
   end
-  return spec.cells(sub, props, { role = role })
+  return spec.cells(sub, props, {role = role})
 end
 
 --- `buf:mark(role, x, y, w, h, props)`: mark a role over an area. A
@@ -231,9 +257,15 @@ function M.mark(buf: Buf, role: string, x: number, y: number, w: number, h: numb
   local sub = buf:sub(x, y, w, h)
   local opened = open(buf, x, y, sub.width, sub.height, node_opts(role, spec, props))
   local ok, err = pcall(cells, sub, role, spec, props) as (boolean, string)
-  if opened then api.scene_close() end
-  if not ok then error(err, 0) end
-  if props.hit then region(buf, x, y, sub.width, sub.height, props.hit) end
+  if opened then
+    api.scene_close()
+  end
+  if not ok then
+    error(err, 0)
+  end
+  if props.hit then
+    region(buf, x, y, sub.width, sub.height, props.hit)
+  end
   return sub
 end
 
@@ -241,7 +273,9 @@ end
 --- move or the wheel there goes to the view's gesture for `action.kind`,
 --- in either frontend.
 function M.hit(buf: Buf, x: number, y: number, w: number, h: number, action: HitAction)
-  if open(buf, x, y, w, h, { hit = action }) then api.scene_close() end
+  if open(buf, x, y, w, h, {hit = action}) then
+    api.scene_close()
+  end
   region(buf, x, y, w, h, action)
 end
 
@@ -271,7 +305,9 @@ PlaneMeta.__index = Plane
 --- plane's edge: the first and how many (one at least).
 local function along(axis: Axis, v: number, len: number): integer, integer
   local a, b = (v - axis.from) * axis.per, (v + len - axis.from) * axis.per
-  if a > b then a, b = b, a end
+  if a > b then
+    a, b = b, a
+  end
   local first = math.floor(a + 0.5)
   return first, math.max(1, math.floor(b + 0.5) - first)
 end
@@ -285,26 +321,38 @@ end
 
 --- A point of the plane's buffer (fractions of its cells) in its domain.
 function Plane:at(cx: number, cy: number): types.Point
-  return { x = self.x.from + cx / self.x.per, y = self.y.from + cy / self.y.per }
+  return {x = self.x.from + cx / self.x.per, y = self.y.from + cy / self.y.per}
 end
 
 --- What a terminal's hit region in the plane says of where a press is.
 function Plane:region(): PlaceIn
-  return { x = self.buf.x, y = self.buf.y, plane = self }
+  return {x = self.buf.x, y = self.buf.y, plane = self}
 end
 
-local function put(plane: Plane, x: number, y: number, w: number, h: number, opts: types.SceneOpenOptions, draw?: function(sub: Buf)): Buf
+local function put(
+  plane: Plane, x: number, y: number, w: number, h: number, opts: types.SceneOpenOptions, draw?: function(sub: Buf)
+): Buf
   local cx, cy, cw, ch = plane:cells(x, y, w, h)
   local buf = plane.buf
   local sub = buf:sub(cx, cy, cw, ch)
-  if not shown(buf, cx, cy, cw, ch) then return sub end
+  if not shown(buf, cx, cy, cw, ch) then
+    return sub
+  end
   opts.into = plane.key
-  local opened = plane.scene and api.scene_open({ x = x, y = y, w = w, h = h }, opts)
+  local opened = plane.scene and api.scene_open({x = x, y = y, w = w, h = h}, opts)
   local ok, err = true, nil as string
-  if draw then ok, err = pcall(draw, sub) as (boolean, string) end
-  if opened then api.scene_close() end
-  if not ok then error(err, 0) end
-  if opts.hit then region(buf, cx, cy, cw, ch, opts.hit as HitAction, plane:region()) end
+  if draw then
+    ok, err = pcall(draw, sub) as (boolean, string)
+  end
+  if opened then
+    api.scene_close()
+  end
+  if not ok then
+    error(err, 0)
+  end
+  if opts.hit then
+    region(buf, cx, cy, cw, ch, opts.hit as HitAction, plane:region())
+  end
   return sub
 end
 
@@ -319,7 +367,7 @@ end
 --- `plane:hit(x, y, w, h, action)`: a hit region over a rectangle of the
 --- plane's domain.
 function Plane:hit(x: number, y: number, w: number, h: number, action: HitAction)
-  put(self, x, y, w, h, { hit = action })
+  put(self, x, y, w, h, {hit = action})
 end
 
 --- `buf:plane(x, y, w, h, opts)`: a plane over an area. Each axis of the
@@ -332,12 +380,14 @@ end
 ---   roll:mark("note", 1.5, 60, 0.5, 1, { label = "C4" })
 function M.plane(buf: Buf, x: number, y: number, w: number, h: number, opts: contracts.PlaneOptions): Plane
   local sub = buf:sub(x, y, w, h)
-  local plane = setmetatable({ buf = sub, x = opts.x, y = opts.y, key = opts.key or "plane" } as Plane, PlaneMeta)
-  if open(buf, x, y, sub.width, sub.height, { plane = { x = opts.x, y = opts.y }, key = plane.key, hit = opts.hit }) then
+  local plane = setmetatable({buf = sub, x = opts.x, y = opts.y, key = opts.key or "plane"} as Plane, PlaneMeta)
+  if open(buf, x, y, sub.width, sub.height, {plane = {x = opts.x, y = opts.y}, key = plane.key, hit = opts.hit}) then
     api.scene_close()
     plane.scene = true
   end
-  if opts.hit then region(buf, x, y, sub.width, sub.height, opts.hit, plane:region()) end
+  if opts.hit then
+    region(buf, x, y, sub.width, sub.height, opts.hit, plane:region())
+  end
   return plane
 end
 
@@ -348,13 +398,17 @@ function M.gesture(view: View, e: MouseEvent): boolean
   local fn = view.gestures and view.gestures[h.kind]
   if fn then
     local taken = fn(view, e)
-    if taken ~= false then return true end
+    if taken ~= false then
+      return true
+    end
   end
   if e.kind == "move" and h.hint then
     paw.mouse.hint(h.hint)
     return true
   end
-  if fn or e.kind ~= "down" or e.button ~= "left" then return false end
+  if fn or e.kind ~= "down" or e.button ~= "left" then
+    return false
+  end
   if h.keys then
     paw.keymap.feed(h.keys)
   elseif h.cmd then
@@ -370,7 +424,9 @@ end
 local function under(list: {Region}, x: number, y: number): Region
   for i = #list, 1, -1 do
     local r = list[i]
-    if x >= r.x and x < r.x + r.w and y >= r.y and y < r.y + r.h then return r end
+    if x >= r.x and x < r.x + r.w and y >= r.y and y < r.y + r.h then
+      return r
+    end
   end
 end
 
@@ -379,16 +435,23 @@ end
 --- of the hit region under it. True when it was taken.
 function M.pointer(view: View, name: string, event: MouseEvent): boolean
   local kind = event.kind
-  if kind ~= "down" and kind ~= "move" and not kind:match("^scroll") then return false end
+  if kind ~= "down" and kind ~= "move" and not kind:match("^scroll") then
+    return false
+  end
   local list = hits[key_of(name, event.win)]
   local ox, oy = event.view_x or 0, event.view_y or 0
   local r = list and under(list, event.x + ox, event.y + oy)
-  if not r then return false end
-  local rect: types.Rect = { x = r.x - ox, y = r.y - oy, w = r.w, h = r.h }
-  local e = paw.util.merge(event as {string:Data}, { hit = r.hit as {Data:Data}, rect = rect as {Data:Data} }) as MouseEvent
+  if not r then
+    return false
+  end
+  local rect: types.Rect = {x = r.x - ox, y = r.y - oy, w = r.w, h = r.h}
+  local e = paw.util.merge(event as {string: Data}, {hit = r.hit as {Data: Data}, rect = rect as {Data: Data}})
+    as MouseEvent
   -- In a plane, where in its domain: at the middle of the cell.
   local p = r.plane
-  if p then e.at = p.plane:at(event.x + ox - p.x + 0.5, event.y + oy - p.y + 0.5) end
+  if p then
+    e.at = p.plane:at(event.x + ox - p.x + 0.5, event.y + oy - p.y + 0.5)
+  end
   return M.gesture(view, e)
 end
 
@@ -402,46 +465,66 @@ function M.input(client: integer, id: string, view: View, win: integer, event: S
   local kind = event.kind
   -- The pointer left the window: what the status line said of it goes.
   if kind == "leave" then
-    if not paw.mouse.gesture() then paw.mouse.hint(nil) end
+    if not paw.mouse.gesture() then
+      paw.mouse.hint(nil)
+    end
     return true
   end
   local mods = (event.ctrl and "C" or "") .. (event.alt and "A" or "") .. (event.shift and "S" or "")
   local x, y = tonumber(event.x) or 0, tonumber(event.y) or 0
   if kind == "move" or kind == "up" then
     local g = paw.mouse.gesture()
-    if not (g and g == held.gesture) then return false end
-    if kind == "up" then held.gesture = nil end
-    local e: MouseEvent = { kind = kind == "move" and "drag" or "up", x = x, y = y, button = held.button, mods = mods, fine = true }
+    if not (g and g == held.gesture) then
+      return false
+    end
+    if kind == "up" then
+      held.gesture = nil
+    end
+    local e: MouseEvent = {
+      kind = kind == "move" and "drag" or "up", x = x, y = y, button = held.button, mods = mods, fine = true
+    }
     paw.limit.named("the mouse", function(): boolean return paw.mouse.to_view(view, e) end)
     api.ui_redraw()
     return true
   end
   local e: MouseEvent
   if kind == "down" then
-    e = { kind = "down", button = event.button or "left" }
+    e = {kind = "down", button = event.button or "left"}
   elseif kind == "hover" then
-    e = { kind = "move", button = "" }
+    e = {kind = "move", button = ""}
   elseif kind == "wheel" then
     local dx, dy = tonumber(event.dx) or 0, tonumber(event.dy) or 0
-    if event.shift and dx == 0 then dx, dy = dy, 0 end
+    if event.shift and dx == 0 then
+      dx, dy = dy, 0
+    end
     if math.abs(dx) > math.abs(dy) then
-      e = { kind = dx > 0 and "scroll_left" or "scroll_right" }
+      e = {kind = dx > 0 and "scroll_left" or "scroll_right"}
     else
-      e = { kind = dy > 0 and "scroll_up" or "scroll_down" }
+      e = {kind = dy > 0 and "scroll_up" or "scroll_down"}
     end
     e.button = ""
   else
     return false
   end
   local found = api.scene_hit(client, id, x, y)
-  if not found then return false end
+  if not found then
+    return false
+  end
   if kind == "down" then
-    if win then paw.panes.focus(win) else paw.canvas.focus(view.name) end
+    if win then
+      paw.panes.focus(win)
+    else
+      paw.canvas.focus(view.name)
+    end
   end
   e.x, e.y, e.mods, e.view_x, e.view_y, e.win, e.fine = x, y, mods, 0, 0, win, true
   e.hit, e.rect, e.at = found.hit as HitAction, found.rect, found.at
-  if kind == "down" then paw.mouse.mark_double(e) end
-  if not paw.limit.named("the mouse", function(): boolean return M.gesture(view, e) end) then return false end
+  if kind == "down" then
+    paw.mouse.mark_double(e)
+  end
+  if not paw.limit.named("the mouse", function(): boolean return M.gesture(view, e) end) then
+    return false
+  end
   if kind == "down" then
     -- The gesture holds the pointer from here on, in units.
     held.gesture, held.button = paw.mouse.gesture(), e.button

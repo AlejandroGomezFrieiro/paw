@@ -14,12 +14,16 @@ local function start()
   fresh()
   api.engine_restart({ backend = "null" })
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.layout.restore(initial)
   paw.ui.focus("arrange")
   T.after(function()
     paw.keymap.feed("<Esc><Esc>")
-    while paw.ui.float do paw.ui.close() end
+    while paw.ui.float do
+      paw.ui.close()
+    end
     paw.layout.restore(initial)
     paw.ui.focus("arrange")
   end)
@@ -62,26 +66,28 @@ end
 --- 10, in one track, with running status, controllers, a tempo change, a
 --- time signature, a marker, a lyric and a sysex.
 local function format0()
-  return header(0, 1, 96) .. track(
-    meta(0, 0x03, "Demo song"),
-    tempo(0, 100),
-    meta(0, 0x58, string.char(3, 2, 24, 8)),          -- 3/4
-    meta(0, 0x06, "Verse"),
-    ev(0, 0xC0, 5),                                    -- program 5 on channel 1
-    ev(0, 0xB0, 7, 100),                               -- volume
-    meta(0, 0x05, "la"),
-    ev(0, 0x90, 60, 100),                              -- C4 on
-    ev(0, 64, 90),                                     -- E4 on, running status
-    ev(0, 0x99, 36, 120),                              -- kick on channel 10
-    ev(48, 0x89, 36, 0),
-    ev(0, 0xE0, 0, 96),                                -- bend up, 0x3000
-    ev(0, 0xD0, 64),                                   -- channel pressure
-    vlq(0) .. "\240\3\65\16\247",                      -- sysex
-    ev(48, 0x80, 60, 0),                               -- C4 off: a beat long
-    ev(0, 0x90, 64, 0),                                -- E4 off by velocity 0
-    tempo(96, 150),                                    -- at beat 2
-    ev(0, 0x90, 67, 80),
-    ev(192, 0x80, 67, 0))                              -- G4: two beats
+  return header(0, 1, 96)
+    .. track(
+      meta(0, 0x03, "Demo song"),
+      tempo(0, 100),
+      meta(0, 0x58, string.char(3, 2, 24, 8)), -- 3/4
+      meta(0, 0x06, "Verse"),
+      ev(0, 0xC0, 5), -- program 5 on channel 1
+      ev(0, 0xB0, 7, 100), -- volume
+      meta(0, 0x05, "la"),
+      ev(0, 0x90, 60, 100), -- C4 on
+      ev(0, 64, 90), -- E4 on, running status
+      ev(0, 0x99, 36, 120), -- kick on channel 10
+      ev(48, 0x89, 36, 0),
+      ev(0, 0xE0, 0, 96), -- bend up, 0x3000
+      ev(0, 0xD0, 64), -- channel pressure
+      vlq(0) .. "\240\3\65\16\247", -- sysex
+      ev(48, 0x80, 60, 0), -- C4 off: a beat long
+      ev(0, 0x90, 64, 0), -- E4 off by velocity 0
+      tempo(96, 150), -- at beat 2
+      ev(0, 0x90, 67, 80),
+      ev(192, 0x80, 67, 0)
+    ) -- G4: two beats
 end
 
 --- Format 1 at 480 ticks a beat: a conductor track and two named tracks,
@@ -89,17 +95,22 @@ end
 local function format1()
   return header(1, 3, 480)
     .. track(meta(0, 0x03, "Conductor"), tempo(0, 90), meta(0, 0x58, string.char(4, 2, 24, 8)), tempo(1920, 120))
-    .. track(meta(0, 0x03, "Bass"),
-      ev(0, 0x91, 40, 100), ev(240, 0x91, 40, 90),      -- struck again half a beat in
-      ev(240, 0x81, 40, 0), ev(480, 0x81, 40, 0),       -- the first ends at 1, the second at 2
-      ev(0, 0xB1, 1, 64))                               -- mod wheel at beat 2
-    .. track(meta(0, 0x03, "Lead"),
-      ev(1920, 0x92, 72, 110), ev(960, 0x82, 72, 0))    -- bar 2, two beats
+    .. track(
+      meta(0, 0x03, "Bass"),
+      ev(0, 0x91, 40, 100),
+      ev(240, 0x91, 40, 90), -- struck again half a beat in
+      ev(240, 0x81, 40, 0),
+      ev(480, 0x81, 40, 0), -- the first ends at 1, the second at 2
+      ev(0, 0xB1, 1, 64)
+    ) -- mod wheel at beat 2
+    .. track(meta(0, 0x03, "Lead"), ev(1920, 0x92, 72, 110), ev(960, 0x82, 72, 0)) -- bar 2, two beats
 end
 
 local function names()
   local out = {}
-  for _, t in ipairs(paw.tracks()) do out[#out + 1] = t.name end
+  for _, t in ipairs(paw.tracks()) do
+    out[#out + 1] = t.name
+  end
   return table.concat(out, ",")
 end
 
@@ -150,8 +161,13 @@ test("a format 1 MIDI file pairs a key struck again first on, first off", functi
 end)
 
 test("format 2, frame timing, a cut-off file and something not MIDI are read or refused in words", function()
-  local f = assert(smf.parse(header(2, 2, 96) .. track(ev(0, 0x90, 60, 100), ev(96, 0x80, 60, 0))
-    .. track(ev(0, 0x90, 62, 100), ev(96, 0x80, 62, 0))))
+  local f = assert(
+    smf.parse(
+      header(2, 2, 96)
+        .. track(ev(0, 0x90, 60, 100), ev(96, 0x80, 60, 0))
+        .. track(ev(0, 0x90, 62, 100), ev(96, 0x80, 62, 0))
+    )
+  )
   eq(f.tracks[2].notes[1].tick, 96, "format 2's tracks follow one another")
   -- 25 frames a second, 40 ticks a frame: a thousand ticks a second.
   f = assert(smf.parse(header(0, 1, 0xE728) .. track(tempo(0, 60), ev(0, 0x90, 60, 100), ev(1000, 0x80, 60, 0))))
@@ -159,7 +175,11 @@ test("format 2, frame timing, a cut-off file and something not MIDI are read or 
   near(f.tempos[1].bpm, 120, 1e-9, "at 120")
   local whole = format1()
   f = assert(smf.parse(whole:sub(1, #whole - 7)))
-  eq(f.skipped["a track cut short"] ~= nil or f.skipped["notes without an end (held to the end)"] ~= nil, true, "a cut-off file reads what is there")
+  eq(
+    f.skipped["a track cut short"] ~= nil or f.skipped["notes without an end (held to the end)"] ~= nil,
+    true,
+    "a cut-off file reads what is there"
+  )
   local none, why = smf.parse("RIFF....WAVEfmt ")
   eq(none, nil, "a wav is not MIDI")
   eq(why, "not a MIDI file", "and says so")
@@ -167,13 +187,26 @@ end)
 
 test("a MIDI file written and read again keeps its notes, controls, tempo map and markers", function()
   local f = assert(smf.parse(format0()))
-  local again = assert(smf.parse(smf.encode({ format = 1, ppq = f.ppq, tempos = f.tempos, signatures = f.signatures,
-    markers = f.markers, tracks = { {}, f.tracks[1] } })))
+  local again = assert(
+    smf.parse(
+      smf.encode({
+        format = 1,
+        ppq = f.ppq,
+        tempos = f.tempos,
+        signatures = f.signatures,
+        markers = f.markers,
+        tracks = { {}, f.tracks[1] },
+      })
+    )
+  )
   eq(#again.tracks[2].notes, 4, "the notes")
   for i, n in ipairs(f.tracks[1].notes) do
     local m = again.tracks[2].notes[i]
-    eq(m.tick .. ":" .. m.length .. ":" .. m.pitch .. ":" .. m.velocity .. ":" .. m.channel .. ":" .. tostring(m.lyric),
-      n.tick .. ":" .. n.length .. ":" .. n.pitch .. ":" .. n.velocity .. ":" .. n.channel .. ":" .. tostring(n.lyric), "note " .. i)
+    eq(
+      m.tick .. ":" .. m.length .. ":" .. m.pitch .. ":" .. m.velocity .. ":" .. m.channel .. ":" .. tostring(m.lyric),
+      n.tick .. ":" .. n.length .. ":" .. n.pitch .. ":" .. n.velocity .. ":" .. n.channel .. ":" .. tostring(n.lyric),
+      "note " .. i
+    )
   end
   eq(#again.tracks[2].controls, #f.tracks[1].controls, "the controls")
   eq(#again.tempos, 2, "the tempos")
@@ -183,41 +216,48 @@ end)
 
 -- Opening ----------------------------------------------------------------------
 
-test(":open with a MIDI file makes a project of it: a track a channel, clips, controls, tempo map, nothing to undo", function()
-  start()
-  paw.add_track({ name = "Old" })
-  api.undo_checkpoint()
-  local path = file("demo.mid", format0())
-  T.keys(":open! " .. path .. "<CR>")
-  eq(names(), "Channel 1,Channel 10", "a format 0 file is split by channel")
-  local p = api.project_get()
-  eq(p.path, nil, "the project has no file: saving asks for one")
-  eq(p.name, "demo", "it is named after the file")
-  eq(p.modified, false, "nothing is changed yet")
-  eq(paw.undo(), false, "and nothing is to be undone")
-  local melody, drums = paw.tracks()[1], paw.tracks()[2]
-  eq(#melody:devices(), 0, "a melody track has no instrument, as a new track has none")
-  eq(drums:devices()[1].kind, "drums", "channel 10 plays the drum kit")
-  local clip = melody:clips()[1]
-  eq(clip.start, 0, "the clip starts at the bar of its first note")
-  near(clip.length, 6, 1e-9, "and spans whole 3/4 bars")
-  local notes = clip:notes()
-  eq(#notes, 3, "the melody's notes")
-  near(notes[3].start, 2, 1e-9, "G4 at beat 2")
-  near(notes[3].length, 2, 1e-9, "for two beats")
-  eq(notes[1].meta.lyric, "la", "the lyric stays with its note")
-  local controls = clip:controls()
-  near(control(controls, "cc", 7).value, 100 / 127, 1e-9, "the volume controller as a clip control")
-  near(control(controls, "bend").value, 0.5, 1e-9, "the pitch bend, -1 to 1")
-  near(control(controls, "pressure").value, 64 / 127, 1e-9, "the channel pressure")
-  eq(control(controls, "program").program, 5, "the program change")
-  near(paw.tempo.at(0), 100, 0.01, "the first tempo")
-  near(paw.tempo.at(3), 150, 0.01, "the tempo change")
-  eq(table.concat({ paw.tempo.signature_at(0) }, "/"), "3/4", "the time signature")
-  eq(paw.markers.list()[1].name, "Verse", "the marker")
-  eq(paw.ui.message.text:find("4 notes on 2 tracks", 1, true) ~= nil, true, "the status line says what came: " .. paw.ui.message.text)
-  eq(paw.ui.message.text:find("1 sysex", 1, true) ~= nil, true, "and what was left out")
-end)
+test(
+  ":open with a MIDI file makes a project of it: a track a channel, clips, controls, tempo map, nothing to undo",
+  function()
+    start()
+    paw.add_track({ name = "Old" })
+    api.undo_checkpoint()
+    local path = file("demo.mid", format0())
+    T.keys(":open! " .. path .. "<CR>")
+    eq(names(), "Channel 1,Channel 10", "a format 0 file is split by channel")
+    local p = api.project_get()
+    eq(p.path, nil, "the project has no file: saving asks for one")
+    eq(p.name, "demo", "it is named after the file")
+    eq(p.modified, false, "nothing is changed yet")
+    eq(paw.undo(), false, "and nothing is to be undone")
+    local melody, drums = paw.tracks()[1], paw.tracks()[2]
+    eq(#melody:devices(), 0, "a melody track has no instrument, as a new track has none")
+    eq(drums:devices()[1].kind, "drums", "channel 10 plays the drum kit")
+    local clip = melody:clips()[1]
+    eq(clip.start, 0, "the clip starts at the bar of its first note")
+    near(clip.length, 6, 1e-9, "and spans whole 3/4 bars")
+    local notes = clip:notes()
+    eq(#notes, 3, "the melody's notes")
+    near(notes[3].start, 2, 1e-9, "G4 at beat 2")
+    near(notes[3].length, 2, 1e-9, "for two beats")
+    eq(notes[1].meta.lyric, "la", "the lyric stays with its note")
+    local controls = clip:controls()
+    near(control(controls, "cc", 7).value, 100 / 127, 1e-9, "the volume controller as a clip control")
+    near(control(controls, "bend").value, 0.5, 1e-9, "the pitch bend, -1 to 1")
+    near(control(controls, "pressure").value, 64 / 127, 1e-9, "the channel pressure")
+    eq(control(controls, "program").program, 5, "the program change")
+    near(paw.tempo.at(0), 100, 0.01, "the first tempo")
+    near(paw.tempo.at(3), 150, 0.01, "the tempo change")
+    eq(table.concat({ paw.tempo.signature_at(0) }, "/"), "3/4", "the time signature")
+    eq(paw.markers.list()[1].name, "Verse", "the marker")
+    eq(
+      paw.ui.message.text:find("4 notes on 2 tracks", 1, true) ~= nil,
+      true,
+      "the status line says what came: " .. paw.ui.message.text
+    )
+    eq(paw.ui.message.text:find("1 sysex", 1, true) ~= nil, true, "and what was left out")
+  end
+)
 
 test("a format 1 file opens with a track each, named, and the arrange view and piano roll show the notes", function()
   start()
@@ -231,7 +271,11 @@ test("a format 1 file opens with a track each, named, and the arrange view and p
   local bass = paw.tracks()[1]:clips()[1]
   near(control(bass:controls(), "cc", 1).value, 64 / 127, 1e-9, "the mod wheel")
   local arrange = screen()
-  eq(arrange:find("Bass", 1, true) ~= nil and arrange:find("Lead", 1, true) ~= nil, true, "the arrange view shows the tracks:\n" .. arrange)
+  eq(
+    arrange:find("Bass", 1, true) ~= nil and arrange:find("Lead", 1, true) ~= nil,
+    true,
+    "the arrange view shows the tracks:\n" .. arrange
+  )
   paw.cursor.set_track(paw.tracks()[1])
   paw.cursor.beat = 0
   paw.ui.views.pianoroll:edit(bass)
@@ -317,7 +361,9 @@ test("import completes and lists MIDI files beside sound files, and a dropped MI
   eq(paw.ui.float ~= nil, true, "the list is open")
   eq(screen():find("drop.mid", 1, true) ~= nil, true, "and shows the MIDI file")
   paw.keymap.feed("<Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   local out = paw.frontend.act.drop({ path }, nil, 0)
   eq(#out.clips, 2, "the dropped file's clips")
   eq(names(), "Bass,Lead", "on tracks of their own")
@@ -331,8 +377,12 @@ test(":export writes the project as a format 1 MIDI file with its tempo map, and
   paw.tempo.set_signature(1, 6, 8)
   paw.tempo.set(6, 140)
   local t = paw.add_track({ name = "Keys" })
-  t:add_clip({ start = 3, length = 6, notes = { { pitch = 60, start = 0, length = 1, velocity = 90 }, { pitch = 64, start = 2, length = 0.5 } },
-    controls = { { start = 1, type = "cc", number = 64, value = 1 } } })
+  t:add_clip({
+    start = 3,
+    length = 6,
+    notes = { { pitch = 60, start = 0, length = 1, velocity = 90 }, { pitch = 64, start = 2, length = 0.5 } },
+    controls = { { start = 1, type = "cc", number = 64, value = 1 } },
+  })
   local d = paw.add_track({ name = "Beat" })
   d:add_device("drums")
   d:add_clip({ start = 0, length = 3, notes = { { pitch = 36, start = 0, length = 0.25 } } })

@@ -23,7 +23,11 @@ function M.partner(of)
   local clip = view:clip()
   if not (clip and M.bound(clip.id)) then return nil end
   local note
-  if of == "pianoroll" then note = view:note() else note = roll:note_at(roll.pitch, roll.beat) end
+  if of == "pianoroll" then
+    note = view:note()
+  else
+    note = roll:note_at(roll.pitch, roll.beat)
+  end
   return note and note.id
 end
 

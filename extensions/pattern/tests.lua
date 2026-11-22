@@ -36,21 +36,27 @@ end
 --- Just the words, in order: "a b a c".
 local function words(text, cycles, opts)
   local out = {}
-  for _, e in ipairs(load().events(text, cycles or 1, opts)) do out[#out + 1] = e.text end
+  for _, e in ipairs(load().events(text, cycles or 1, opts)) do
+    out[#out + 1] = e.text
+  end
   return table.concat(out, " ")
 end
 
 --- Pitches of each event: "60,64,67 62".
 local function pitches(text, cycles)
   local out = {}
-  for _, e in ipairs(load().events(text, cycles or 1)) do out[#out + 1] = table.concat(e.pitches, ",") end
+  for _, e in ipairs(load().events(text, cycles or 1)) do
+    out[#out + 1] = table.concat(e.pitches, ",")
+  end
   return table.concat(out, " ")
 end
 
 --- A clip's notes: "36@0+1v100".
 local function notes_of(clip)
   local out = {}
-  for _, n in ipairs(clip:notes()) do out[#out + 1] = string.format("%d@%g+%gv%d", n.pitch, n.start, n.length, n.velocity) end
+  for _, n in ipairs(clip:notes()) do
+    out[#out + 1] = string.format("%d@%g+%gv%d", n.pitch, n.start, n.length, n.velocity)
+  end
   return table.concat(out, " ")
 end
 
@@ -92,11 +98,16 @@ test("pattern: alternation and polymeter over several cycles", function()
   eq(words("<a!2 b>", 6), "a a b a a b", "replicated within alternation")
   eq(ev("<a@3 b>", 4), "0-3 a, 3-4 b", "weighted alternation holds a step")
   eq(words("<[a a] b>", 2), "a a b", "a group as a step")
-  eq(ev("{a b c}%4", 2),
-    "0-1/4 a, 1/4-1/2 b, 1/2-3/4 c, 3/4-1 a, 1-5/4 b, 5/4-3/2 c, 3/2-7/4 a, 7/4-2 b", "polymeter steps")
-  eq(ev("{a b c, d e}", 2),
+  eq(
+    ev("{a b c}%4", 2),
+    "0-1/4 a, 1/4-1/2 b, 1/2-3/4 c, 3/4-1 a, 1-5/4 b, 5/4-3/2 c, 3/2-7/4 a, 7/4-2 b",
+    "polymeter steps"
+  )
+  eq(
+    ev("{a b c, d e}", 2),
     "0-1/3 a, 0-1/3 d, 1/3-2/3 b, 1/3-2/3 e, 2/3-1 c, 2/3-1 d, 1-4/3 a, 1-4/3 e, 4/3-5/3 b, 4/3-5/3 d, 5/3-2 c, 5/3-2 e",
-    "polymeter layers at the first layer's steps")
+    "polymeter layers at the first layer's steps"
+  )
   eq(words("<a b, c d e>", 6), "a c b d a e b c a d b e", "alternation layers each at their own length")
   eq(words("[a, <b c>]", 2), "a b a c", "stack with alternation")
 end)
@@ -111,7 +122,9 @@ test("pattern: stacks, Euclidean rhythms and chords", function()
   eq(ev("[bd sn](2,4)"), "0-1/8 bd, 1/8-1/4 sn, 1/2-5/8 bd, 5/8-3/4 sn", "a group on each hit")
   eq(words("bd(<3 5>,8)", 2), "bd bd bd bd bd bd bd bd", "hits that alternate: 3 then 5")
   local bj = {}
-  for _, hit in ipairs(load().bjorklund(7, 16)) do bj[#bj + 1] = hit and "x" or "." end
+  for _, hit in ipairs(load().bjorklund(7, 16)) do
+    bj[#bj + 1] = hit and "x" or "."
+  end
   eq(table.concat(bj), "x..x.x.x..x.x.x.", "(7,16) as Tidal has it")
   eq(pitches("c'maj e3'min7 c'maj'ii g3'dom7'o"), "60,64,67 52,55,59,62 67,72,76 43,50,59,65", "chords, inverted, open")
   eq(pitches("c'maj'5 60'm"), "60,64,67,72,76 60,63,67", "a chord over more notes; from a number")
@@ -130,7 +143,9 @@ test("pattern: degrees in a key, and parameters", function()
   local p = load()
   local function vel(text)
     local out = {}
-    for _, n in ipairs(p.notes(text, 1, { beats = 4 })) do out[#out + 1] = n.velocity .. "/" .. n.length end
+    for _, n in ipairs(p.notes(text, 1, { beats = 4 })) do
+      out[#out + 1] = n.velocity .. "/" .. n.length
+    end
     return table.concat(out, " ")
   end
   eq(vel("bd*4 # vel 1 0.6 0.8 0.6"), "127/1 76/1 102/1 76/1", "velocity per step")
@@ -172,10 +187,18 @@ test("pattern: errors say where they are", function()
   eq(err_of("bd sn]"), "col 6: `]` without an opening bracket", "stray closer")
   eq(err_of("bd zz sn"), "col 4: unknown name `zz`: not a note, a number or a drum", "unknown word")
   eq(err_of("c'nope"), "col 3: unknown chord `nope`", "unknown chord")
-  eq(err_of("bd(3)"), "col 3: a Euclidean rhythm takes 2 or 3 numbers: (hits,steps) or (hits,steps,rotation)", "euclid arity")
+  eq(
+    err_of("bd(3)"),
+    "col 3: a Euclidean rhythm takes 2 or 3 numbers: (hits,steps) or (hits,steps,rotation)",
+    "euclid arity"
+  )
   eq(err_of("bd*x"), "col 4: expected a number, not `x`", "speed")
   eq(err_of("bd # vel"), "col 9: `vel` needs a value", "empty parameter")
-  eq(err_of("bd # pan 1"), "col 6: unknown parameter `pan` (add, ch, key, legato, oct, scale, vel)", "unknown parameter")
+  eq(
+    err_of("bd # pan 1"),
+    "col 6: unknown parameter `pan` (add, ch, key, legato, oct, scale, vel)",
+    "unknown parameter"
+  )
   eq(err_of("1 # scale nope"), "col 11: unknown scale `nope`", "unknown scale")
   eq(err_of("bd 1.5"), "col 4: a note number must be whole, not `1.5`", "fraction")
   eq(err_of("bd [sn ~] {hh"), "col 11: missing `}` for the bracket at col 11", "the right bracket")

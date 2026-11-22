@@ -15,7 +15,6 @@ local motion, need_track, amap = common.motion, common.need_track, common.amap
 -- lines and a note is a word. So `dw` deletes up to the next clip, `yy` yanks
 -- a track, `3>ic` nudges a clip three steps later, `.` does it again.
 
-
 -- The names the key hints give to prefixes that only lead to more keys.
 -- The leader keys are a noun, then a verb or an object: `<leader>f` finds,
 -- `<leader>fc` finds a clip, `<leader>dd` shows the devices, `<leader>ts`
@@ -42,7 +41,11 @@ local far_lines = { motion = true, linewise = true, jump = true }
 -- Space is the leader: Space Space plays and stops, at once (no other key
 -- starts with it, so it never waits).
 map("<leader><Space>", "transport.toggle", { mode = nx, role = "play", desc = "Play or stop" })
-map("<S-CR>", "transport.play_other", { mode = nx, desc = "Play from the playhead (the other start than <Space><Space>)" })
+map(
+  "<S-CR>",
+  "transport.play_other",
+  { mode = nx, desc = "Play from the playhead (the other start than <Space><Space>)" }
+)
 map("gs", "transport.start", { mode = nx, desc = "Playhead to the start" })
 map("g0", "transport.start", { mode = nx, desc = "Playhead to the start, in every view" })
 map("gp", "transport.to_cursor", { mode = nx, desc = "Playhead to the cursor" })
@@ -63,17 +66,40 @@ map("?", "pick.keys", { mode = nx, desc = "Show key mappings" })
 map("u", "undo", { desc = "Undo", repeatable = false })
 map("<C-r>", "redo", { desc = "Redo", repeatable = false })
 map(".", function(ctx) keymap.repeat_last(ctx.count) end, { desc = "Repeat the last change", repeatable = false })
-map("q", function(ctx) keymap.record(ctx.char) end, { mode = nx, char = true, record = true, desc = "Record keys into a register; `q` again stops" })
-map("@", function(ctx)
-  if ctx.char == ":" then
-    for _ = 1, ctx.count or 1 do paw.commands.exec(paw.state.last_cmdline or "") end
-  else
-    keymap.play(ctx.char, ctx.count)
-  end
-end, { mode = nx, char = true, repeatable = false, desc = "Play the keys in a register; `@@` the last one, `@:` the last command" })
+map(
+  "q",
+  function(ctx) keymap.record(ctx.char) end,
+  { mode = nx, char = true, record = true, desc = "Record keys into a register; `q` again stops" }
+)
+map(
+  "@",
+  function(ctx)
+    if ctx.char == ":" then
+      for _ = 1, ctx.count or 1 do
+        paw.commands.exec(paw.state.last_cmdline or "")
+      end
+    else
+      keymap.play(ctx.char, ctx.count)
+    end
+  end,
+  {
+    mode = nx,
+    char = true,
+    repeatable = false,
+    desc = "Play the keys in a register; `@@` the last one, `@:` the last command",
+  }
+)
 map("m", function(ctx) keymap.mark(ctx.char) end, { char = true, desc = "Set a mark at the cursor" })
-map("'", function(ctx) keymap.goto_mark(ctx.char) end, { motion = true, char = true, desc = "Go to a mark; `''` goes back, `'.` to the last edit" })
-map("`", function(ctx) keymap.goto_mark(ctx.char) end, { motion = true, char = true, desc = "Go to a mark; `` `. `` goes to the last edit" })
+map(
+  "'",
+  function(ctx) keymap.goto_mark(ctx.char) end,
+  { motion = true, char = true, desc = "Go to a mark; `''` goes back, `'.` to the last edit" }
+)
+map(
+  "`",
+  function(ctx) keymap.goto_mark(ctx.char) end,
+  { motion = true, char = true, desc = "Go to a mark; `` `. `` goes to the last edit" }
+)
 map("g;", function(ctx) keymap.change(ctx.count or 1) end, { desc = "Back to where the project was edited before" })
 map("g,", function(ctx) keymap.change(-(ctx.count or 1)) end, { desc = "Forward again through the edits" })
 map("<C-o>", function(ctx) keymap.jump(ctx.count or 1) end, { desc = "Back to where the cursor jumped from" })
@@ -253,7 +279,9 @@ end, "The region the cursor is in, on this track")
 aobject("ar", function()
   local r = region_here()
   local n = #api.track_list()
-  if r and n > 0 then return { view = "arrange", kind = "block", r0 = 1, r1 = n, c0 = r.beat, c1 = r.beat + r.length } end
+  if r and n > 0 then
+    return { view = "arrange", kind = "block", r0 = 1, r1 = n, c0 = r.beat, c1 = r.beat + r.length }
+  end
 end, "The region the cursor is in, on every track")
 for _, lhs in ipairs({ "it", "at" }) do
   aobject(lhs, function()
@@ -290,7 +318,9 @@ aop("y", function(region, ctx)
   local value = edit.arrange.yank(region)
   keymap.setreg(value, ctx.register, true)
   if value.kind == "tracks" then
-    paw.notify(#value.tracks == 1 and "yanked track " .. value.tracks[1].name or "yanked " .. #value.tracks .. " tracks")
+    paw.notify(
+      #value.tracks == 1 and "yanked track " .. value.tracks[1].name or "yanked " .. #value.tracks .. " tracks"
+    )
   else
     paw.notify(string.format("yanked %g beats", value.length))
   end
@@ -298,7 +328,9 @@ end, "Yank")
 aop("c", function(region, ctx)
   -- Empty the stretch and start a fresh clip there, open for typing notes.
   local c0, c1 = edit.arrange.span(region)
-  if c1 - c0 < 1e-9 then c0, c1 = cursor.beat, cursor.beat + paw.opt.clip_length end
+  if c1 - c0 < 1e-9 then
+    c0, c1 = cursor.beat, cursor.beat + paw.opt.clip_length
+  end
   local removed = edit.arrange.delete(util.merge(region, { kind = "char", c0 = c0, c1 = c1 }))
   keymap.setreg(removed, ctx.register)
   local track = need_track()
@@ -331,14 +363,26 @@ amap("x", function() keymap.normal("dic") end, "Delete the clip")
 amap("D", function() keymap.normal("d$") end, "Delete to the end of the track")
 amap("C", function() keymap.normal("c$") end, "Change to the end of the track")
 amap("Y", function() keymap.normal("y$") end, "Yank to the end of the track")
-amap("p", function(ctx) edit.arrange.paste(keymap.getreg(ctx.register), false, ctx.count) end, "Paste after the clip, or tracks below")
-amap("P", function(ctx) edit.arrange.paste(keymap.getreg(ctx.register), true, ctx.count) end, "Paste at the cursor, or tracks above")
+amap(
+  "p",
+  function(ctx) edit.arrange.paste(keymap.getreg(ctx.register), false, ctx.count) end,
+  "Paste after the clip, or tracks below"
+)
+amap(
+  "P",
+  function(ctx) edit.arrange.paste(keymap.getreg(ctx.register), true, ctx.count) end,
+  "Paste at the cursor, or tracks above"
+)
 amap("&", "clip.duplicate", "Repeat the clip after itself")
 amap("~", "clip.mute", "Mute or unmute the clip")
 amap("S", "clip.split", "Split the clip at the cursor")
 amap("J", "clip.join", "Join the clip with those over it, or with the next one")
 amap("<CR>", "clip.edit", "Edit the clip's notes")
-amap("i", function() paw.insert.start() end, "Insert mode: m a MIDI clip, a an automation point, r a region, ' a marker; Enter enters notes")
+amap(
+  "i",
+  function() paw.insert.start() end,
+  "Insert mode: m a MIDI clip, a an automation point, r a region, ' a marker; Enter enters notes"
+)
 amap("grc", "clip.rename", "Rename the clip")
 amap("gw", "clip.warp", "Put a warp marker on the audio clip at the cursor")
 amap("gW", "clip.warp remove", "Take off the clip's warp marker nearest the cursor")
@@ -364,7 +408,9 @@ amap("<leader>ax", "lane.clear", "Clear the volume automation")
 
 -- Arrange: on a selection.
 -- `role` as in normal mode: `]` `[` run at once, as they do there, though `]g` waits for its `g`.
-local function ax(lhs, fn, desc, role) map(lhs, nil, { view = "arrange", mode = "x", operator = fn, desc = desc, role = role }) end
+local function ax(lhs, fn, desc, role)
+  map(lhs, nil, { view = "arrange", mode = "x", operator = fn, desc = desc, role = role })
+end
 ax("x", function(region, ctx) keymap.setreg(edit.arrange.delete(region), ctx.register) end, "Delete")
 ax("p", function(region, ctx)
   local value = keymap.getreg(ctx.register)
@@ -401,20 +447,24 @@ ax("<CR>", function(region)
 end, "Edit the notes of the selected MIDI clips together")
 -- The main value of what is selected: whole tracks (`V`) their volume, a
 -- stretch of clips the pitch of their notes; the second the tracks' pan.
-local function main_value(sign) return function(region, ctx)
-  local n = sign * (ctx.count or 1)
-  if region.kind ~= "line" then return edit.arrange.transpose(region, n) end
-  for _, id in ipairs(edit.arrange.tracks(region)) do
-    local track = paw.track(id)
-    track.volume = util.fader_db(track.volume, track.volume + n)
+local function main_value(sign)
+  return function(region, ctx)
+    local n = sign * (ctx.count or 1)
+    if region.kind ~= "line" then return edit.arrange.transpose(region, n) end
+    for _, id in ipairs(edit.arrange.tracks(region)) do
+      local track = paw.track(id)
+      track.volume = util.fader_db(track.volume, track.volume + n)
+    end
   end
-end end
-local function pan_value(sign) return function(region, ctx)
-  for _, id in ipairs(edit.arrange.tracks(region)) do
-    local track = paw.track(id)
-    track.pan = util.clamp(util.round(track.pan + 0.1 * sign * (ctx.count or 1), 0.01), -1, 1)
+end
+local function pan_value(sign)
+  return function(region, ctx)
+    for _, id in ipairs(edit.arrange.tracks(region)) do
+      local track = paw.track(id)
+      track.pan = util.clamp(util.round(track.pan + 0.1 * sign * (ctx.count or 1), 0.01), -1, 1)
+    end
   end
-end end
+end
 ax("<C-a>", main_value(1), "Tracks louder, or the clips' notes up")
 ax("<C-x>", main_value(-1), "Tracks softer, or the clips' notes down")
 ax("+", main_value(1), "Tracks louder, or the clips' notes up")
@@ -426,7 +476,6 @@ ax("H", function(region, ctx) shift(region, -(ctx.count or 1)) end, "Move the cl
 
 -- Device panel: its rows are devices and parameters (paw/device_rows.lua).
 paw.device_rows = require("paw.device_rows")
-
 
 -- Piano roll: motions.
 local function pmap(lhs, rhs, desc, opts) map(lhs, rhs, util.merge({ view = "pianoroll", desc = desc }, opts)) end
@@ -443,10 +492,12 @@ local function here()
   end
   return notes
 end
-local function move(dbeat, dpitch) return function(ctx)
-  local n = ctx.count or 1
-  roll:move(dbeat * n * paw.opt.note_grid, dpitch * n)
-end end
+local function move(dbeat, dpitch)
+  return function(ctx)
+    local n = ctx.count or 1
+    roll:move(dbeat * n * paw.opt.note_grid, dpitch * n)
+  end
+end
 pmap("h", move(-1, 0), "Left one step", motion)
 pmap("l", move(1, 0), "Right one step", motion)
 pmap("j", move(0, -1), "Down a semitone", linewise)
@@ -497,7 +548,11 @@ local function to_phrase(dir, count)
       end
     end
     if not found then
-      if dir > 0 then beat = select(2, roll:span()) else beat = (roll:span()) end
+      if dir > 0 then
+        beat = select(2, roll:span())
+      else
+        beat = (roll:span())
+      end
       break
     end
     pitch, beat = found.notes[1].pitch, found.start
@@ -559,7 +614,9 @@ local function region_of(notes, picked, to)
   if not reg then return end
   local count = 0
   for _, n in ipairs(notes) do
-    if n.pitch >= reg.r0 and n.pitch <= reg.r1 and n.start >= reg.c0 - 1e-9 and n.start < reg.c1 - 1e-9 then count = count + 1 end
+    if n.pitch >= reg.r0 and n.pitch <= reg.r1 and n.start >= reg.c0 - 1e-9 and n.start < reg.c1 - 1e-9 then
+      count = count + 1
+    end
   end
   if count == #picked then reg.notes = nil end
   return reg
@@ -570,88 +627,117 @@ local function stretch(c0, c1)
 end
 
 for _, lhs in ipairs({ "in", "an" }) do
-  pobject(lhs, function(ctx)
-    local notes, at = here()
-    if not at then return end
-    -- The note, and with a count the next notes of its voice.
-    local voice = noteobj.voice(notes, at)
-    local first = 1
-    for i, n in ipairs(voice) do
-      if n == at then first = i end
-    end
-    local last = math.min(#voice, first + (ctx.count or 1) - 1)
-    local picked = {}
-    for i = first, last do picked[#picked + 1] = voice[i] end
-    -- `an`: up to where the next note of the voice starts.
-    local after = lhs == "an" and voice[last + 1]
-    return region_of(notes, picked, after and after.start)
-  end, lhs == "in" and "The note under the cursor (2in: and the next of its voice)" or "The note and the rest after it, up to the next of its voice")
+  pobject(
+    lhs,
+    function(ctx)
+      local notes, at = here()
+      if not at then return end
+      -- The note, and with a count the next notes of its voice.
+      local voice = noteobj.voice(notes, at)
+      local first = 1
+      for i, n in ipairs(voice) do
+        if n == at then first = i end
+      end
+      local last = math.min(#voice, first + (ctx.count or 1) - 1)
+      local picked = {}
+      for i = first, last do
+        picked[#picked + 1] = voice[i]
+      end
+      -- `an`: up to where the next note of the voice starts.
+      local after = lhs == "an" and voice[last + 1]
+      return region_of(notes, picked, after and after.start)
+    end,
+    lhs == "in" and "The note under the cursor (2in: and the next of its voice)"
+      or "The note and the rest after it, up to the next of its voice"
+  )
 end
 for _, lhs in ipairs({ "ic", "ac" }) do
-  pobject(lhs, function(ctx)
-    local notes, at = here()
-    if not notes then return end
-    local chord = noteobj.chords(notes, at, roll.beat, ctx.count or 1)
-    if #chord == 0 then return end
-    if lhs == "ic" then return region_of(notes, chord) end
-    -- `ac`: the chord as the harmony reads it (a broken chord too): every
-    -- note that starts while it holds, in the phrase of the chord. Where
-    -- no chord is read, the notes that sound with these.
-    local s0, s1, e1 = math.huge, -math.huge, -math.huge
-    for _, n in ipairs(chord) do s0, s1, e1 = math.min(s0, n.start), math.max(s1, n.start), math.max(e1, n.start + n.length) end
-    local base = roll:clip().start
-    local h0, h1 = paw.harmony.at(base + s0), paw.harmony.at(base + s1)
-    local from, to, starting = s0, e1, false
-    if h0 and h1 then
-      local phrases = noteobj.phrases(notes, paw.opt.phrase_rest)
-      local p0, p1 = phrases[noteobj.phrase_at(phrases, s0)], phrases[noteobj.phrase_at(phrases, s1)]
-      from, to, starting = math.max(h0.at - base, p0.start), math.min(h1.at + h1.length - base, p1.finish), true
-    end
-    local inside = {}
-    for _, n in ipairs(chord) do inside[n] = true end
-    local picked = {}
-    for _, n in ipairs(notes) do
-      local yes = inside[n]
-      if starting then
-        yes = yes or (n.start >= from - 1e-9 and n.start < to - 1e-9)
-      else
-        yes = yes or (n.start < to - 1e-9 and n.start + n.length > from + 1e-9)
+  pobject(
+    lhs,
+    function(ctx)
+      local notes, at = here()
+      if not notes then return end
+      local chord = noteobj.chords(notes, at, roll.beat, ctx.count or 1)
+      if #chord == 0 then return end
+      if lhs == "ic" then return region_of(notes, chord) end
+      -- `ac`: the chord as the harmony reads it (a broken chord too): every
+      -- note that starts while it holds, in the phrase of the chord. Where
+      -- no chord is read, the notes that sound with these.
+      local s0, s1, e1 = math.huge, -math.huge, -math.huge
+      for _, n in ipairs(chord) do
+        s0, s1, e1 = math.min(s0, n.start), math.max(s1, n.start), math.max(e1, n.start + n.length)
       end
-      if yes then picked[#picked + 1] = n end
-    end
-    return region_of(notes, picked)
-  end, lhs == "ic" and "The chord: the notes that start with the one under the cursor (2ic: and the next chord)"
-    or "The chord as the harmony reads it: every note that starts while it holds")
+      local base = roll:clip().start
+      local h0, h1 = paw.harmony.at(base + s0), paw.harmony.at(base + s1)
+      local from, to, starting = s0, e1, false
+      if h0 and h1 then
+        local phrases = noteobj.phrases(notes, paw.opt.phrase_rest)
+        local p0, p1 = phrases[noteobj.phrase_at(phrases, s0)], phrases[noteobj.phrase_at(phrases, s1)]
+        from, to, starting = math.max(h0.at - base, p0.start), math.min(h1.at + h1.length - base, p1.finish), true
+      end
+      local inside = {}
+      for _, n in ipairs(chord) do
+        inside[n] = true
+      end
+      local picked = {}
+      for _, n in ipairs(notes) do
+        local yes = inside[n]
+        if starting then
+          yes = yes or (n.start >= from - 1e-9 and n.start < to - 1e-9)
+        else
+          yes = yes or (n.start < to - 1e-9 and n.start + n.length > from + 1e-9)
+        end
+        if yes then picked[#picked + 1] = n end
+      end
+      return region_of(notes, picked)
+    end,
+    lhs == "ic" and "The chord: the notes that start with the one under the cursor (2ic: and the next chord)"
+      or "The chord as the harmony reads it: every note that starts while it holds"
+  )
 end
 for _, lhs in ipairs({ "ip", "ap" }) do
-  pobject(lhs, function(ctx)
-    local notes = here()
-    if not notes then return end
-    local list = noteobj.phrases(notes, paw.opt.phrase_rest)
-    local first = noteobj.phrase_at(list, roll.beat)
-    if not first then return end
-    local last = math.min(#list, first + (ctx.count or 1) - 1)
-    local c0, c1 = list[first].start, list[last].finish
-    if lhs == "ap" then c1 = list[last + 1] and list[last + 1].start or math.max(c1, select(2, roll:span())) end
-    return stretch(c0, c1)
-  end, lhs == "ip" and "The phrase: notes with no long rest between them (from a rest, the next)" or "The phrase and the rest after it")
+  pobject(
+    lhs,
+    function(ctx)
+      local notes = here()
+      if not notes then return end
+      local list = noteobj.phrases(notes, paw.opt.phrase_rest)
+      local first = noteobj.phrase_at(list, roll.beat)
+      if not first then return end
+      local last = math.min(#list, first + (ctx.count or 1) - 1)
+      local c0, c1 = list[first].start, list[last].finish
+      if lhs == "ap" then c1 = list[last + 1] and list[last + 1].start or math.max(c1, select(2, roll:span())) end
+      return stretch(c0, c1)
+    end,
+    lhs == "ip" and "The phrase: notes with no long rest between them (from a rest, the next)"
+      or "The phrase and the rest after it"
+  )
 end
 for _, lhs in ipairs({ "iv", "av" }) do
-  pobject(lhs, function()
-    local notes, at = here()
-    if not at then return end
-    local voice = noteobj.voice(notes, at)
-    if lhs == "av" then voice = noteobj.doublings(notes, voice) end
-    return region_of(notes, voice)
-  end, lhs == "iv" and "The voice of the note under the cursor: the top line, the bass, or the line between"
-    or "The voice and the notes that double it in other octaves")
+  pobject(
+    lhs,
+    function()
+      local notes, at = here()
+      if not at then return end
+      local voice = noteobj.voice(notes, at)
+      if lhs == "av" then voice = noteobj.doublings(notes, voice) end
+      return region_of(notes, voice)
+    end,
+    lhs == "iv" and "The voice of the note under the cursor: the top line, the bass, or the line between"
+      or "The voice and the notes that double it in other octaves"
+  )
 end
 for _, lhs in ipairs({ "i=", "a=" }) do
-  pobject(lhs, function()
-    local notes, at = here()
-    if not notes then return end
-    return region_of(notes, noteobj.pitch(notes, at and at.pitch or roll.pitch, lhs == "a="))
-  end, lhs == "i=" and "Every note of the pitch under the cursor" or "Every note of the pitch class under the cursor, in every octave")
+  pobject(
+    lhs,
+    function()
+      local notes, at = here()
+      if not notes then return end
+      return region_of(notes, noteobj.pitch(notes, at and at.pitch or roll.pitch, lhs == "a="))
+    end,
+    lhs == "i=" and "Every note of the pitch under the cursor"
+      or "Every note of the pitch class under the cursor, in every octave"
+  )
 end
 for _, lhs in ipairs({ "ib", "ab" }) do
   pobject(lhs, function(ctx)
@@ -711,8 +797,16 @@ local function shift_notes(clip, region, steps)
   edit.roll.each(clip, region, function(n) n.start = math.max(0, n.start + by) end)
   if region.kind ~= "line" then roll:set(nil, roll.beat + by) end
 end
-pop(">", function(clip, region, ctx) shift_notes(clip, region, region.visual and ctx.count or 1) end, "Move notes later")
-pop("<lt>", function(clip, region, ctx) shift_notes(clip, region, -(region.visual and ctx.count or 1)) end, "Move notes earlier")
+pop(
+  ">",
+  function(clip, region, ctx) shift_notes(clip, region, region.visual and ctx.count or 1) end,
+  "Move notes later"
+)
+pop(
+  "<lt>",
+  function(clip, region, ctx) shift_notes(clip, region, -(region.visual and ctx.count or 1)) end,
+  "Move notes earlier"
+)
 pop("=", function(clip, region)
   local grid = paw.opt.note_grid
   edit.roll.each(clip, region, function(n)
@@ -722,7 +816,9 @@ end, "Snap notes to the grid")
 pop("gl", function(_, region)
   local clip = roll:clip()
   local c0, c1 = region.c0, region.c1
-  if region.kind == "line" then c0, c1 = roll:span() end
+  if region.kind == "line" then
+    c0, c1 = roll:span()
+  end
   transport.loop_start, transport.loop_end, transport.loop_enabled = clip.start + c0, clip.start + c1, true
 end, "Loop")
 
@@ -772,36 +868,60 @@ command("notes.quantize", function(ctx)
   paw.notify(string.format("%d note%s on the %g-beat grid", n, n == 1 and "" or "s", paw.opt.note_grid))
 end, { desc = "Quantize the piano roll's chosen notes, or all, to its grid: `notes.quantize [strength%]`" })
 pmap("E", "notes.list", "The clip's notes and controller moves as a list, to change in place")
-command("notes.list", function()
-  local clip = roll:clip()
-  if not clip then return paw.notify("open a clip in the piano roll first", "warn") end
-  paw.ui.open("eventlist", { title = "Events · " .. clip.name, width = 60, height = 24 })
-end, { desc = "List the piano roll's notes and controller moves, each cell changed in place (Enter), `x` deletes, `a` adds a move" })
-command("controls.line", function(ctx)
-  local clip = roll:clip()
-  if not clip then return paw.notify("open a clip in the piano roll first", "warn") end
-  local args = ctx.args
-  local kind, at = args[1], 2
-  local number
-  if kind == "cc" then number, at = tonumber(args[2]), 3 end
-  local from, to = tonumber(args[at]), tonumber(args[at + 1])
-  if not (kind == "cc" and number or kind == "bend" or kind == "pressure") or not from or not to then
-    return paw.notify("controls.line cc 74 0 127, controls.line bend -8192 8191, controls.line pressure 0 127", "warn")
-  end
-  -- From and to in the units the event list shows: seven-bit steps, or the wheel's -8192 to 8191.
-  local function height(v) return kind == "bend" and (v / 8192 + 1) / 2 or v / 127 end
-  local selection = keymap.selection()
-  local b0, b1 = 0, clip.length
-  if selection and paw.ui.focused == "pianoroll" and selection.kind ~= "line" then b0, b1 = selection.c0, selection.c1 end
-  -- The last step of the stretch reaches `to`.
-  b1 = math.max(b0, b1 - paw.opt.note_grid)
-  local made = paw.frontend.act.line_controls(clip.id, kind, number, b0, height(from), b1, height(to), false)
-  keymap.set_mode("n")
-  paw.notify(string.format("%d %s moves in a line", made, kind == "cc" and "CC " .. number or kind))
-end, { desc = "Draw a straight line of controller moves over the piano roll's selection, or its whole clip: "
-  .. "`controls.line cc 74 0 127`, `controls.line bend 0 8191`, `controls.line pressure 127 0`" })
-command("notes.step_input", function() paw.frontend.act.toggle_step_input() end,
-  { desc = "Turn step input on or off: notes from a MIDI keyboard are entered at the piano roll's cursor while stopped" })
+command(
+  "notes.list",
+  function()
+    local clip = roll:clip()
+    if not clip then return paw.notify("open a clip in the piano roll first", "warn") end
+    paw.ui.open("eventlist", { title = "Events · " .. clip.name, width = 60, height = 24 })
+  end,
+  {
+    desc = "List the piano roll's notes and controller moves, each cell changed in place (Enter), `x` deletes, `a` adds a move",
+  }
+)
+command(
+  "controls.line",
+  function(ctx)
+    local clip = roll:clip()
+    if not clip then return paw.notify("open a clip in the piano roll first", "warn") end
+    local args = ctx.args
+    local kind, at = args[1], 2
+    local number
+    if kind == "cc" then
+      number, at = tonumber(args[2]), 3
+    end
+    local from, to = tonumber(args[at]), tonumber(args[at + 1])
+    if not (kind == "cc" and number or kind == "bend" or kind == "pressure") or not from or not to then
+      return paw.notify(
+        "controls.line cc 74 0 127, controls.line bend -8192 8191, controls.line pressure 0 127",
+        "warn"
+      )
+    end
+    -- From and to in the units the event list shows: seven-bit steps, or the wheel's -8192 to 8191.
+    local function height(v) return kind == "bend" and (v / 8192 + 1) / 2 or v / 127 end
+    local selection = keymap.selection()
+    local b0, b1 = 0, clip.length
+    if selection and paw.ui.focused == "pianoroll" and selection.kind ~= "line" then
+      b0, b1 = selection.c0, selection.c1
+    end
+    -- The last step of the stretch reaches `to`.
+    b1 = math.max(b0, b1 - paw.opt.note_grid)
+    local made = paw.frontend.act.line_controls(clip.id, kind, number, b0, height(from), b1, height(to), false)
+    keymap.set_mode("n")
+    paw.notify(string.format("%d %s moves in a line", made, kind == "cc" and "CC " .. number or kind))
+  end,
+  {
+    desc = "Draw a straight line of controller moves over the piano roll's selection, or its whole clip: "
+      .. "`controls.line cc 74 0 127`, `controls.line bend 0 8191`, `controls.line pressure 127 0`",
+  }
+)
+command(
+  "notes.step_input",
+  function() paw.frontend.act.toggle_step_input() end,
+  {
+    desc = "Turn step input on or off: notes from a MIDI keyboard are entered at the piano roll's cursor while stopped",
+  }
+)
 pmap("D", function() keymap.normal("d$") end, "Delete to the end of the clip")
 pmap("C", function() keymap.normal("c$") end, "Change to the end of the clip")
 pmap("Y", function() keymap.normal("y$") end, "Yank to the end of the clip")
@@ -826,12 +946,14 @@ pmap("H", function()
   local step = math.min(paw.opt.note_grid, roll.beat)
   if roll:change(function(n) n.start = math.max(0, n.start - step) end) then roll:move(-step, 0) end
 end, "Move the note left")
-local function transpose(sign) return function(ctx)
-  local by = sign * (ctx.count or 1)
-  local clip, place = chosen()
-  if clip then return paw.frontend.act.drag_notes(clip, place, 0, by, false, true) end
-  if roll:change(function(n) n.pitch = util.clamp(n.pitch + by, 0, 127) end) then roll:move(0, by) end
-end end
+local function transpose(sign)
+  return function(ctx)
+    local by = sign * (ctx.count or 1)
+    local clip, place = chosen()
+    if clip then return paw.frontend.act.drag_notes(clip, place, 0, by, false, true) end
+    if roll:change(function(n) n.pitch = util.clamp(n.pitch + by, 0, 127) end) then roll:move(0, by) end
+  end
+end
 pmap("+", transpose(1), "Move the note up a semitone", { role = "main+" })
 pmap("-", transpose(-1), "Move the note down a semitone", { role = "main-" })
 pmap("<C-a>", transpose(1), "Move the note up a semitone for each of the count", { role = "main+" })
@@ -849,7 +971,11 @@ pmap("gh", function() roll:audition() end, "Hear the pitch under the cursor")
 -- `Shift-Tab` go round them; with no other track shown, `Tab` is the next
 -- view as everywhere.
 pmap("]t", function(ctx) paw.roll_clips.step_track(ctx.count or 1) end, "The next track shown becomes the one edited")
-pmap("[t", function(ctx) paw.roll_clips.step_track(-(ctx.count or 1)) end, "The track shown before becomes the one edited")
+pmap(
+  "[t",
+  function(ctx) paw.roll_clips.step_track(-(ctx.count or 1)) end,
+  "The track shown before becomes the one edited"
+)
 pmap("<Tab>", function(ctx)
   if not paw.roll_clips.step_track(ctx.count or 1, true) then paw.cmd("view.next") end
 end, "The next track shown becomes the one edited, round; else the next view")
@@ -874,8 +1000,11 @@ pmap("gE", function()
 end, "Edit the clip of the note under the cursor too, or no longer")
 pmap("gn", function(ctx) paw.roll_clips.cycle(ctx.count or 1) end, "The next clip edited becomes the active one")
 pmap("gN", function(ctx) paw.roll_clips.cycle(-(ctx.count or 1)) end, "The clip edited before becomes the active one")
-command("roll.tracks", function() paw.roll_clips.pick() end,
-  { desc = "Choose whose notes the piano roll shows behind its own, and which clips it edits together" })
+command(
+  "roll.tracks",
+  function() paw.roll_clips.pick() end,
+  { desc = "Choose whose notes the piano roll shows behind its own, and which clips it edits together" }
+)
 command("roll.only", function() paw.roll_clips.only() end, { desc = "Edit the piano roll's active clip alone" })
 -- Escape cancels and stays, as in every view: `<C-w>p` goes back to the
 -- window before, `<leader>vp` hides the roll.
@@ -893,23 +1022,61 @@ end, { view = "pianoroll", desc = "Let go of the chosen notes; back to the windo
 -- device or parameter. `K` means other things in these views, so asking
 -- what is known about it is `gK`.
 for _, v in ipairs({ "pianoroll", "arrange", "mixer", "devices" }) do
-  map("]d", function(ctx) paw.diagnostic.jump(1, ctx.count) end, { view = v, desc = "Next diagnostic here", jump = true })
-  map("[d", function(ctx) paw.diagnostic.jump(-1, ctx.count) end, { view = v, desc = "Previous diagnostic here", jump = true })
-  map("gK", function() paw.lsp.show_hover() end, { view = v, desc = "What the diagnostics and language servers say about what is under the cursor" })
-  map("<leader>la", function() paw.lsp.code_actions() end, { view = v, desc = "Fixes and actions for what is under the cursor" })
-  map("<leader>ll", function() paw.lsp.show_hover() end, { view = v, desc = "The problems and what the language servers say about what is under the cursor" })
+  map(
+    "]d",
+    function(ctx) paw.diagnostic.jump(1, ctx.count) end,
+    { view = v, desc = "Next diagnostic here", jump = true }
+  )
+  map(
+    "[d",
+    function(ctx) paw.diagnostic.jump(-1, ctx.count) end,
+    { view = v, desc = "Previous diagnostic here", jump = true }
+  )
+  map(
+    "gK",
+    function() paw.lsp.show_hover() end,
+    { view = v, desc = "What the diagnostics and language servers say about what is under the cursor" }
+  )
+  map(
+    "<leader>la",
+    function() paw.lsp.code_actions() end,
+    { view = v, desc = "Fixes and actions for what is under the cursor" }
+  )
+  map(
+    "<leader>ll",
+    function() paw.lsp.show_hover() end,
+    { view = v, desc = "The problems and what the language servers say about what is under the cursor" }
+  )
 end
 map("<leader>li", "lsp info", { desc = "The language servers and what they can do" })
-command("diagnostics", function(ctx) paw.diagnostic.list(ctx.args[1] == "clip" and paw.ui.views.pianoroll.clip_id or nil) end,
-  { desc = "List the diagnostics, grouped by what they are about, or (`diagnostics clip`) the piano roll's; Enter goes to one", complete = { "clip" } })
-command("lsp", function(ctx) paw.lsp.command(ctx) end,
-  { desc = "Language servers: `lsp info`, `lsp start|stop|restart [name]`, `lsp log`", complete = function() return paw.lsp.command_complete() end })
+command(
+  "diagnostics",
+  function(ctx) paw.diagnostic.list(ctx.args[1] == "clip" and paw.ui.views.pianoroll.clip_id or nil) end,
+  {
+    desc = "List the diagnostics, grouped by what they are about, or (`diagnostics clip`) the piano roll's; Enter goes to one",
+    complete = { "clip" },
+  }
+)
+command(
+  "lsp",
+  function(ctx) paw.lsp.command(ctx) end,
+  {
+    desc = "Language servers: `lsp info`, `lsp start|stop|restart [name]`, `lsp log`",
+    complete = function() return paw.lsp.command_complete() end,
+  }
+)
 
 -- Piano roll: on a selection.
 local function px(lhs, fn, desc, role)
-  map(lhs, nil, { view = "pianoroll", mode = "x", desc = desc, role = role, operator = function(region, ctx)
-    if roll:clip() then fn(editing(), region, ctx) end
-  end })
+  map(lhs, nil, {
+    view = "pianoroll",
+    mode = "x",
+    desc = desc,
+    role = role,
+    operator = function(region, ctx)
+      if roll:clip() then fn(editing(), region, ctx) end
+    end,
+  })
 end
 px("x", function(clip, region, ctx) keymap.setreg(edit.roll.delete(clip, region), ctx.register) end, "Delete")
 px("p", function(clip, region, ctx)
@@ -927,8 +1094,12 @@ px("<C-x>", function(clip, region, ctx)
   local by = ctx.count or 1
   edit.roll.each(clip, region, function(n) n.pitch = math.max(0, n.pitch - by) end)
 end, "Down a semitone")
-px("]", function(clip, region) edit.roll.each(clip, region, function(n) n.velocity = math.min(127, n.velocity + 10) end) end, "Louder", "second+")
-px("[", function(clip, region) edit.roll.each(clip, region, function(n) n.velocity = math.max(1, n.velocity - 10) end) end, "Softer", "second-")
+px("]", function(clip, region)
+  edit.roll.each(clip, region, function(n) n.velocity = math.min(127, n.velocity + 10) end)
+end, "Louder", "second+")
+px("[", function(clip, region)
+  edit.roll.each(clip, region, function(n) n.velocity = math.max(1, n.velocity - 10) end)
+end, "Softer", "second-")
 local function lengthen_region(clip, region)
   edit.roll.each(clip, region, function(n) n.length = n.length + paw.opt.note_grid end)
 end
@@ -946,9 +1117,14 @@ px("-", function(clip, region, ctx)
   edit.roll.each(clip, region, function(n) n.pitch = math.max(0, n.pitch - by) end)
 end, "Down a semitone")
 for lhs, fn in pairs({ ["+"] = lengthen_region, ["-"] = shorten_region }) do
-  keymap.classic(lhs, nil, { view = "pianoroll", mode = "x", desc = lhs == "+" and "Lengthen" or "Shorten", operator = function(region)
-    if roll:clip() then fn(editing(), region) end
-  end })
+  keymap.classic(lhs, nil, {
+    view = "pianoroll",
+    mode = "x",
+    desc = lhs == "+" and "Lengthen" or "Shorten",
+    operator = function(region)
+      if roll:clip() then fn(editing(), region) end
+    end,
+  })
 end
 
 -- Piano roll: insert mode is a pencil (`paw.roll_draw`). It draws a note
@@ -960,17 +1136,33 @@ local function drawmap(lhs, fn, desc, extra)
 end
 local drawing = paw.roll_draw
 for digit = 0, 9 do
-  drawmap(tostring(digit), function() drawing.digit(digit) end, digit == 0 and "The start of the note (or a count)" or "A count for the next key")
+  drawmap(
+    tostring(digit),
+    function() drawing.digit(digit) end,
+    digit == 0 and "The start of the note (or a count)" or "A count for the next key"
+  )
 end
-for _, lhs in ipairs({ "l", "<Right>" }) do drawmap(lhs, function() drawing.grow(1) end, "The edge a step right: longer at the end, shorter at the start") end
-for _, lhs in ipairs({ "h", "<Left>" }) do drawmap(lhs, function() drawing.grow(-1) end, "The edge a step left: shorter at the end, longer at the start") end
-for _, lhs in ipairs({ "k", "<Up>" }) do drawmap(lhs, function() drawing.bend(1) end, "Bend the note up at its end") end
-for _, lhs in ipairs({ "j", "<Down>" }) do drawmap(lhs, function() drawing.bend(-1) end, "Bend the note down at its end") end
+for _, lhs in ipairs({ "l", "<Right>" }) do
+  drawmap(lhs, function() drawing.grow(1) end, "The edge a step right: longer at the end, shorter at the start")
+end
+for _, lhs in ipairs({ "h", "<Left>" }) do
+  drawmap(lhs, function() drawing.grow(-1) end, "The edge a step left: shorter at the end, longer at the start")
+end
+for _, lhs in ipairs({ "k", "<Up>" }) do
+  drawmap(lhs, function() drawing.bend(1) end, "Bend the note up at its end")
+end
+for _, lhs in ipairs({ "j", "<Down>" }) do
+  drawmap(lhs, function() drawing.bend(-1) end, "Bend the note down at its end")
+end
 drawmap("o", function() drawing.edge() end, "The other edge of the note")
 drawmap("^", function() drawing.edge("start") end, "The start of the note")
 drawmap("$", function() drawing.edge("end") end, "The end of the note")
-for _, lhs in ipairs({ "+", "<C-a>" }) do drawmap(lhs, function() drawing.pitch(1) end, "The note up a semitone") end
-for _, lhs in ipairs({ "-", "<C-x>" }) do drawmap(lhs, function() drawing.pitch(-1) end, "The note down a semitone") end
+for _, lhs in ipairs({ "+", "<C-a>" }) do
+  drawmap(lhs, function() drawing.pitch(1) end, "The note up a semitone")
+end
+for _, lhs in ipairs({ "-", "<C-x>" }) do
+  drawmap(lhs, function() drawing.pitch(-1) end, "The note down a semitone")
+end
 drawmap("K", function() drawing.pitch(12) end, "The note up an octave")
 drawmap("J", function() drawing.pitch(-12) end, "The note down an octave")
 drawmap("r", function(ctx) drawing.name(ctx.char) end, "The pitch by its name: r c, r f then #", { char = true })
@@ -979,15 +1171,31 @@ drawmap("b", function() drawing.accidental(-1) end, "After r and a name: flat")
 drawmap(">", function() drawing.nudge(1) end, "The note a step later")
 drawmap("<lt>", function() drawing.nudge(-1) end, "The note a step earlier")
 drawmap("=", function() drawing.length_key() end, "The length in note values: =4 a beat, =8. dotted, =8t triplet")
-drawmap(".", function() if not drawing.length_key(".") then drawing.again() end end, "The note or chord again, after this one")
+drawmap(".", function()
+  if not drawing.length_key(".") then drawing.again() end
+end, "The note or chord again, after this one")
 drawmap("t", function() drawing.length_key("t") end, "After = and a value: a triplet")
 drawmap("<CR>", function() drawing.next("legato") end, "Keep the note, and draw the next where it ends")
 drawmap("<Space>", function() drawing.next("rest") end, "Keep the note, and draw the next after a step's rest")
 drawmap("c", function() drawing.pick_chord() end, "A chord here: choose or type its symbol (V7, ii, Cmaj7, F#m9/C#)")
-drawmap("m", function(ctx) drawing.mark(ctx.char) end, "A mark of the song here: mk a key, mt a tempo, ms a time signature, m' a marker", { char = true })
-drawmap("C", function() drawing.pick_chord(true) end, "A strummed chord here: its notes one after the other (strum, strum_dir)")
+drawmap(
+  "m",
+  function(ctx) drawing.mark(ctx.char) end,
+  "A mark of the song here: mk a key, mt a tempo, ms a time signature, m' a marker",
+  { char = true }
+)
+drawmap(
+  "C",
+  function() drawing.pick_chord(true) end,
+  "A strummed chord here: its notes one after the other (strum, strum_dir)"
+)
 drawmap("a", function() drawing.articulate() end, "An articulation on the note (from the articulations extension)")
-drawmap("e", function(ctx) drawing.expression(ctx.char) end, "A controller here: em modulation, ee expression, eb breath, es sustain, e and a number", { char = true })
+drawmap(
+  "e",
+  function(ctx) drawing.expression(ctx.char) end,
+  "A controller here: em modulation, ee expression, eb breath, es sustain, e and a number",
+  { char = true }
+)
 drawmap("<C-n>", function() drawing.suggest(1) end, "Suggest what comes next here: the next suggestion")
 drawmap("<C-p>", function() drawing.suggest(-1) end, "Suggest what comes next here: the suggestion before")
 drawmap("<C-e>", function() drawing.unsuggest() end, "Put back what was there before the suggestions")
@@ -1007,9 +1215,16 @@ drawmap("<C-o>", function()
 end, "One command of normal mode, then draw again")
 -- The piano's letters do nothing while drawing: said, not lost in silence.
 for _, lhs in ipairs({ "w", "s", "d", "f", "g", "y", "u", "p", ";" }) do
-  drawmap(lhs, function()
-    paw.notify("drawing a note: h j k l shape it, Enter keeps it; I types notes as a piano (" .. lhs .. " is a key there)", "warn")
-  end, "Not a key while drawing: says that I types notes")
+  drawmap(
+    lhs,
+    function()
+      paw.notify(
+        "drawing a note: h j k l shape it, Enter keeps it; I types notes as a piano (" .. lhs .. " is a key there)",
+        "warn"
+      )
+    end,
+    "Not a key while drawing: says that I types notes"
+  )
 end
 
 -- Piano roll: insert mode the other way (`I`, or `paw.opt.roll_insert =
@@ -1027,7 +1242,11 @@ for semitone, key in ipairs(layout) do
   end
 end
 for digit = 1, 9 do
-  imap(tostring(digit), function() roll:set_step(digit * paw.opt.note_grid) end, "Notes " .. digit .. " grid steps long")
+  imap(
+    tostring(digit),
+    function() roll:set_step(digit * paw.opt.note_grid) end,
+    "Notes " .. digit .. " grid steps long"
+  )
 end
 imap("<Space>", function() roll:step(1) end, "A rest: step on")
 imap("<BS>", function() roll:backspace() end, "Step back, removing what was entered there")
@@ -1053,7 +1272,9 @@ end, {
   desc = "Expand a snippet at the piano roll's cursor: `snippet dominant`, `3snippet arp`; alone, choose one",
   complete = function()
     local out = {}
-    for _, s in ipairs(paw.snippet.offered("pianoroll")) do out[#out + 1] = { text = s.name, desc = s.desc } end
+    for _, s in ipairs(paw.snippet.offered("pianoroll")) do
+      out[#out + 1] = { text = s.name, desc = s.desc }
+    end
     return out
   end,
 })
@@ -1069,13 +1290,20 @@ smap("<C-n>", function() paw.snippet.step(1) end, "The snippet's choice: its nex
 smap("<C-p>", function() paw.snippet.step(-1) end, "The snippet's choice: its value before")
 smap("<C-y>", function() paw.snippet.finish() end, "End the snippet, keeping its notes")
 smap("<Esc>", function() paw.snippet.finish() end, "End the snippet, keeping its notes")
-map("<C-s>", function(ctx) paw.snippet.pick({ count = ctx.count }) end,
-  { view = "pianoroll", mode = { "n", "i", "x" }, desc = "Choose a snippet to expand here", repeatable = false })
+map(
+  "<C-s>",
+  function(ctx) paw.snippet.pick({ count = ctx.count }) end,
+  { view = "pianoroll", mode = { "n", "i", "x" }, desc = "Choose a snippet to expand here", repeatable = false }
+)
 
 -- Piano roll: suggestions (`paw.complete`). Ctrl-Space asks the sources;
 -- while a suggestion shows, its keys come first, in normal and insert mode.
 local ni = { "n", "i" }
-map("<C-Space>", function() paw.complete.request("manual") end, { view = "pianoroll", mode = ni, desc = "Suggest what comes next", repeatable = false })
+map(
+  "<C-Space>",
+  function() paw.complete.request("manual") end,
+  { view = "pianoroll", mode = ni, desc = "Suggest what comes next", repeatable = false }
+)
 local function cmap(lhs, fn, desc, modes)
   map(lhs, fn, { view = "pianoroll.complete", mode = modes or ni, desc = desc, repeatable = false })
 end
@@ -1090,15 +1318,32 @@ cmap("<C-e>", function() paw.complete.dismiss() end, "Dismiss the suggestion")
 cmap("<Esc>", function() paw.complete.dismiss() end, "Dismiss the suggestion")
 cmap("gh", function() paw.complete.audition() end, "Hear the suggestion, from a bar before", { "n" })
 
-command("complete", function() paw.complete.request("manual") end, { desc = "Suggest what comes next in the piano roll" })
-command("complete.accept", function(args) paw.complete.accept(args[1] == "next") end,
-  { desc = "Accept the suggestion: `:complete.accept next` takes its next note or chord only" })
+command(
+  "complete",
+  function() paw.complete.request("manual") end,
+  { desc = "Suggest what comes next in the piano roll" }
+)
+command(
+  "complete.accept",
+  function(args) paw.complete.accept(args[1] == "next") end,
+  { desc = "Accept the suggestion: `:complete.accept next` takes its next note or chord only" }
+)
 command("complete.dismiss", function() paw.complete.dismiss() end, { desc = "Dismiss the suggestion" })
-command("complete.audition", function() paw.complete.audition() end, { desc = "Hear the suggestion through the track, from a bar before" })
+command(
+  "complete.audition",
+  function() paw.complete.audition() end,
+  { desc = "Hear the suggestion through the track, from a bar before" }
+)
 command("complete.sources", function()
   local lines = {}
   for _, s in ipairs(paw.complete.list()) do
-    lines[#lines + 1] = string.format("%-16s priority %-4d %s%s", s.name, s.priority, table.concat(s.views, ","), s.auto and "  auto" or "")
+    lines[#lines + 1] = string.format(
+      "%-16s priority %-4d %s%s",
+      s.name,
+      s.priority,
+      table.concat(s.views, ","),
+      s.auto and "  auto" or ""
+    )
   end
   paw.notify(#lines > 0 and table.concat(lines, "\n") or "no completion sources: an extension adds them")
 end, { desc = "List the completion sources" })

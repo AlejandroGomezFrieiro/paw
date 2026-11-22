@@ -39,7 +39,7 @@ local record Paw
   time: objects.Time
   notify: function(text: string, level?: string)
 end
-local paw = (_G as {string:Paw}).paw
+local paw = (_G as {string: Paw}).paw
 
 local record M
   type StrokePoint = StrokePoint
@@ -56,7 +56,9 @@ local function changed()
 end
 
 --- True if the row shows.
-function M.shown(): boolean return shown end
+function M.shown(): boolean
+  return shown
+end
 
 --- Show the row, or hide it (`on` false).
 function M.show(on?: boolean)
@@ -103,7 +105,9 @@ function M.bpm(fraction: number): number
   return math.max(20, math.floor(lo + util.clamp(fraction, 0, 1) * (hi - lo) + 0.5))
 end
 
-local function clamp_bpm(bpm: number): number return math.max(1, math.min(999, bpm)) end
+local function clamp_bpm(bpm: number): number
+  return math.max(1, math.min(999, bpm))
+end
 
 --- A tempo change at a beat, which holds. If a change is there, it gets the tempo.
 function M.add(beat: number, bpm: number)
@@ -116,9 +120,13 @@ function M.move(beat: number, to?: number, bpm?: number): boolean
   local map = api.tempo_points()
   local index: integer
   for i, p in ipairs(map.tempos) do
-    if math.abs(p.beat - beat) < 1e-6 then index = i end
+    if math.abs(p.beat - beat) < 1e-6 then
+      index = i
+    end
   end
-  if not index then return false end
+  if not index then
+    return false
+  end
   local point = map.tempos[index]
   point.bpm = clamp_bpm(bpm or point.bpm)
   if index > 1 then
@@ -126,7 +134,9 @@ function M.move(beat: number, to?: number, bpm?: number): boolean
     -- Not onto another change, and never to the start.
     local target = math.max(options.opt.grid, to or point.beat)
     for i = #map.tempos, 1, -1 do
-      if math.abs(map.tempos[i].beat - target) < 1e-6 then table.remove(map.tempos, i) end
+      if math.abs(map.tempos[i].beat - target) < 1e-6 then
+        table.remove(map.tempos, i)
+      end
     end
     point.beat = target
     map.tempos[#map.tempos + 1] = point
@@ -151,7 +161,9 @@ end
 function M.ramp(beat: number, on?: boolean): boolean
   for _, p in ipairs(paw.tempo.points()) do
     if math.abs(p.beat - beat) < 1e-6 then
-      if on == nil then on = not p.ramp end
+      if on == nil then
+        on = not p.ramp
+      end
       api.tempo_set(p.beat, p.bpm, on)
       return on
     end
@@ -163,14 +175,18 @@ end
 --- stays, with its tempo taken from the stroke if it reaches it), each a
 --- slope to the next, at most one to `step` beats.
 function M.draw(points: {StrokePoint}, step?: number)
-  if #points == 0 then return end
+  if #points == 0 then
+    return
+  end
   table.sort(points, function(a: StrokePoint, b: StrokePoint): boolean return a[1] < b[1] end)
   step = step or math.max(0.5, options.opt.grid)
   local from, to = math.max(0, points[1][1]), math.max(0, points[#points][1])
   local map = api.tempo_points()
   local out: {types.TempoPoint} = {}
   for i, p in ipairs(map.tempos) do
-    if i == 1 or p.beat < from - 1e-9 or p.beat > to + 1e-9 then out[#out + 1] = p end
+    if i == 1 or p.beat < from - 1e-9 or p.beat > to + 1e-9 then
+      out[#out + 1] = p
+    end
   end
   local last: number
   for i, p in ipairs(points) do
@@ -179,21 +195,25 @@ function M.draw(points: {StrokePoint}, step?: number)
       local bpm = clamp_bpm(p[2])
       local at: integer
       for j, q in ipairs(out) do
-        if math.abs(q.beat - beat) < 1e-6 then at = j end
+        if math.abs(q.beat - beat) < 1e-6 then
+          at = j
+        end
       end
       if at == 1 then
         out[1].bpm = bpm
       elseif at then
         out[at].bpm = bpm
       else
-        out[#out + 1] = { beat = beat, bpm = bpm, ramp = i < #points }
+        out[#out + 1] = {beat = beat, bpm = bpm, ramp = i < #points}
       end
       last = beat
     end
   end
   -- The stroke's last change holds: what comes after it was not drawn.
   for _, p in ipairs(out) do
-    if math.abs(p.beat - last) < 1e-6 and p.beat > 0 then p.ramp = false end
+    if math.abs(p.beat - last) < 1e-6 and p.beat > 0 then
+      p.ramp = false
+    end
   end
   table.sort(out, function(a: types.TempoPoint, b: types.TempoPoint): boolean return a.beat < b.beat end)
   api.tempo_set_points(out, map.signatures)
@@ -201,36 +221,48 @@ end
 
 --- Define the tempo lane's commands with `command`.
 function M.commands(command: TempoModule.Define)
-  command("tempo.lane", function(ctx: commands.Context): commands.Result
-    local word = ctx.args[1]
-    if word == "on" or word == "off" then
-      M.show(word == "on")
-    elseif word == nil then
-      M.toggle()
-    else
-      paw.notify("tempo.lane: `on`, `off`, or nothing to toggle", "warn")
-      return
-    end
-    paw.notify(shown and "tempo lane shown under the ruler" or "tempo lane hidden")
-  end, {
-    desc = "Show or hide the tempo curve under the ruler: `tempo.lane`, `tempo.lane on`, `tempo.lane off`",
-    label = "Tempo lane",
-    complete = function(): {string} return { "on", "off" } end,
-  })
+  command(
+    "tempo.lane",
+    function(ctx: commands.Context): commands.Result
+      local word = ctx.args[1]
+      if word == "on" or word == "off" then
+        M.show(word == "on")
+      elseif word == nil then
+        M.toggle()
+      else
+        paw.notify("tempo.lane: `on`, `off`, or nothing to toggle", "warn")
+        return
+      end
+      paw.notify(shown and "tempo lane shown under the ruler" or "tempo lane hidden")
+    end,
+    {
+      desc = "Show or hide the tempo curve under the ruler: `tempo.lane`, `tempo.lane on`, `tempo.lane off`",
+      label = "Tempo lane",
+      complete = function(): {string} return {"on", "off"} end,
+    }
+  )
 
-  command("tempo.move", function(ctx: commands.Context): commands.Result
-    local a = ctx.args
-    local to = a[1]
-    if not to then error("tempo.move: say where to, a bar (17) or a bar and beat (17.3)", 0) end
-    local from = paw.tempo.point_at(a[2] and paw.tempo.place(a[2]) or paw.cursor.beat)
-    if from.beat == 0 then error("the start's tempo does not move", 0) end
-    local target = paw.tempo.place(to)
-    M.move(from.beat, target, from.bpm)
-    paw.notify(string.format("%g bpm moved to %s", from.bpm, paw.time.format(target)))
-  end, {
-    desc = "Move the tempo change at or before the cursor (or at a bar) to another bar: `tempo.move 17`, `tempo.move 17 9`",
-    label = "Move a tempo change",
-  })
+  command(
+    "tempo.move",
+    function(ctx: commands.Context): commands.Result
+      local a = ctx.args
+      local to = a[1]
+      if not to then
+        error("tempo.move: say where to, a bar (17) or a bar and beat (17.3)", 0)
+      end
+      local from = paw.tempo.point_at(a[2] and paw.tempo.place(a[2]) or paw.cursor.beat)
+      if from.beat == 0 then
+        error("the start's tempo does not move", 0)
+      end
+      local target = paw.tempo.place(to)
+      M.move(from.beat, target, from.bpm)
+      paw.notify(string.format("%g bpm moved to %s", from.bpm, paw.time.format(target)))
+    end,
+    {
+      desc = "Move the tempo change at or before the cursor (or at a bar) to another bar: `tempo.move 17`, `tempo.move 17 9`",
+      label = "Move a tempo change",
+    }
+  )
 end
 
 return M

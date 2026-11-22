@@ -30,7 +30,9 @@ end
 local function holds(id)
   local out = {}
   for _, other in ipairs(api.track_list()) do
-    if other ~= id and paw.scope.contains(other, id) and #api.clip_list(other) > 0 then out[#out + 1] = name_of(other) end
+    if other ~= id and paw.scope.contains(other, id) and #api.clip_list(other) > 0 then
+      out[#out + 1] = name_of(other)
+    end
   end
   return out
 end
@@ -143,8 +145,14 @@ function M.confirm(plan, dir, opts)
     w = math.max(w, api.str_width(line) + 4)
   end
   confirm.plan, confirm.opts, confirm.lines, confirm.scroll = plan, opts, lines, 0
-  paw.ui.open("render.plan", { title = string.format("Render %d stem%s into %s", #plan, #plan == 1 and "" or "s", dir),
-    width = math.min(w, 110), height = math.min(#lines + 3, 30) })
+  paw.ui.open(
+    "render.plan",
+    {
+      title = string.format("Render %d stem%s into %s", #plan, #plan == 1 and "" or "s", dir),
+      width = math.min(w, 110),
+      height = math.min(#lines + 3, 30),
+    }
+  )
 end
 
 --- What `:render stems` and `:render <group>` do with the command's options.
@@ -163,8 +171,6 @@ end
 
 --- True if `:render <word>` names a group to render alone, and not a file:
 --- the name of a group, with no file ending.
-function M.names_group(word)
-  return type(word) == "string" and not word:find("[./]") and paw.scope.find(word) ~= nil
-end
+function M.names_group(word) return type(word) == "string" and not word:find("[./]") and paw.scope.find(word) ~= nil end
 
 return M

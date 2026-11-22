@@ -20,7 +20,9 @@ local env = api.env()
 --- project file: one per project file.
 function M.project_dir(path)
   local hash = 5381
-  for i = 1, #path do hash = (hash * 33 + path:byte(i)) % 4294967296 end
+  for i = 1, #path do
+    hash = (hash * 33 + path:byte(i)) % 4294967296
+  end
   local name = path:match("([^/]+)%.[^./]*$") or path:match("([^/]+)$") or "project"
   return string.format("%s/projects/%s-%08x", env.state_dir, name:gsub("[^%w%-_]", "_"), hash)
 end
@@ -66,7 +68,9 @@ paw.on("device.stopped", function(event)
   local data = M.memory(path)
   local ok, device = pcall(api.device_get, event.device)
   data.stopped[tostring(event.device)] = {
-    kind = ok and device.kind or nil, name = event.name, reason = event.reason,
+    kind = ok and device.kind or nil,
+    name = event.name,
+    reason = event.reason,
   }
   remember(path, data)
 end)
@@ -88,7 +92,9 @@ end)
 function M.open(path, opts)
   opts = opts or {}
   local offline = {}
-  for _, id in ipairs(opts.offline or {}) do offline[#offline + 1] = id end
+  for _, id in ipairs(opts.offline or {}) do
+    offline[#offline + 1] = id
+  end
   local held = {}
   if not opts.plugins_offline and not opts.all_online then
     for _, entry in ipairs(M.suggested(path)) do
@@ -104,19 +110,31 @@ function M.open(path, opts)
     if ok and device.kind == entry.kind and device.offline then names[#names + 1] = entry.name end
   end
   if opts.plugins_offline then
-    paw.notify("opened with every plugin offline: `:plugins.online` brings them up, `o` in the device panel one at a time")
+    paw.notify(
+      "opened with every plugin offline: `:plugins.online` brings them up, `o` in the device panel one at a time"
+    )
   elseif #names > 0 then
-    paw.notify(string.format("%s could not be loaded last time and %s offline: `:plugins.online` tries again",
-      table.concat(names, ", "), #names == 1 and "is" or "are"), "warn")
+    paw.notify(
+      string.format(
+        "%s could not be loaded last time and %s offline: `:plugins.online` tries again",
+        table.concat(names, ", "),
+        #names == 1 and "is" or "are"
+      ),
+      "warn"
+    )
   end
 end
 
 --- Every device of the project, with its track.
 local function each_device(fn)
   for _, track in ipairs(paw.tracks()) do
-    for _, device in ipairs(track:devices()) do fn(device) end
+    for _, device in ipairs(track:devices()) do
+      fn(device)
+    end
   end
-  for _, device in ipairs(paw.master:devices()) do fn(device) end
+  for _, device in ipairs(paw.master:devices()) do
+    fn(device)
+  end
 end
 
 --- Bring every offline device up. Returns how many.
@@ -150,7 +168,9 @@ end
 
 paw.command("plugins.online", function()
   local count = M.online()
-  paw.notify(count == 0 and "no device is offline" or string.format("%d device%s coming up", count, count == 1 and "" or "s"))
+  paw.notify(
+    count == 0 and "no device is offline" or string.format("%d device%s coming up", count, count == 1 and "" or "s")
+  )
 end, { desc = "Bring every offline device up" })
 
 paw.command("plugins.offline", function()

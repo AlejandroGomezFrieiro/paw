@@ -8,20 +8,18 @@ local api = paw.api
 local proto = require("utau.proto")
 
 local M = {
-  state = "off",      -- off, missing, starting, ready, failed
-  reason = nil,       -- why it is missing or failed
-  info = nil,         -- the engine's Hello
-  handlers = {},      -- message name -> function(message, frame)
-  on_connect = nil,   -- called once the socket is up, to send the project
+  state = "off", -- off, missing, starting, ready, failed
+  reason = nil, -- why it is missing or failed
+  info = nil, -- the engine's Hello
+  handlers = {}, -- message name -> function(message, frame)
+  on_connect = nil, -- called once the socket is up, to send the project
 }
 
 local link -- { proc, listener, conn, path, buf = { chunks } }
 
 local exists = paw.api.fs_exists
 
-local function home()
-  return os.getenv("HOME") or "."
-end
+local function home() return os.getenv("HOME") or "." end
 
 --- Where the engine is: the `utau_engine` option, `$PAW_UTAU_ENGINE`, the
 --- one built with the extension (`bin/` beside it, where the Nix package
@@ -29,8 +27,11 @@ end
 function M.find()
   local loaded = paw.ext.loaded.utau
   -- `false`, not nil, where there is nothing: the list must have no holes.
-  local candidates = { paw.opt.utau_engine or false, os.getenv("PAW_UTAU_ENGINE") or false,
-    loaded and loaded.path .. "/bin/paw-utau-engine" or false }
+  local candidates = {
+    paw.opt.utau_engine or false,
+    os.getenv("PAW_UTAU_ENGINE") or false,
+    loaded and loaded.path .. "/bin/paw-utau-engine" or false,
+  }
   for dir in (os.getenv("PATH") or ""):gmatch("[^:]+") do
     candidates[#candidates + 1] = dir .. "/paw-utau-engine"
   end
@@ -46,9 +47,7 @@ local function cache_dir()
 end
 
 --- The engine's own log file.
-function M.log_path()
-  return cache_dir() .. "/utau-engine.log"
-end
+function M.log_path() return cache_dir() .. "/utau-engine.log" end
 
 local function socket_path()
   local dir = os.getenv("XDG_RUNTIME_DIR")
@@ -71,9 +70,7 @@ function M.send(frame)
   return true
 end
 
-function M.connected()
-  return link ~= nil and link.conn ~= nil
-end
+function M.connected() return link ~= nil and link.conn ~= nil end
 
 --- Stop the engine, politely if it is listening.
 function M.stop()
@@ -86,7 +83,9 @@ function M.stop()
   if link.proc then
     -- It exits on its own after Shutdown; give it a moment, then insist.
     local deadline = api.now() + 2000
-    while api.now() < deadline and api.proc_status(link.proc).running do api.sleep(20) end
+    while api.now() < deadline and api.proc_status(link.proc).running do
+      api.sleep(20)
+    end
     api.proc_kill(link.proc)
   end
   link = nil
@@ -123,7 +122,10 @@ function M.start()
       argv[#argv + 1] = value
     end
   end
-  flag("--openutau-dir", paw.opt.utau_openutau_dir ~= "" and paw.opt.utau_openutau_dir or os.getenv("PAW_UTAU_OPENUTAU_DIR"))
+  flag(
+    "--openutau-dir",
+    paw.opt.utau_openutau_dir ~= "" and paw.opt.utau_openutau_dir or os.getenv("PAW_UTAU_OPENUTAU_DIR")
+  )
   flag("--data-dir", paw.opt.utau_data_dir)
   flag("--cache-dir", paw.opt.utau_cache_dir)
   pcall(paw.api.fs_mkdir, cache_dir())
@@ -175,7 +177,9 @@ function M.tool(args, seconds)
   local exe = M.find()
   if not exe then error("paw-utau-engine not found: set PAW_UTAU_ENGINE or paw.opt.utau_engine", 0) end
   local argv = { exe }
-  for _, a in ipairs(args) do argv[#argv + 1] = a end
+  for _, a in ipairs(args) do
+    argv[#argv + 1] = a
+  end
   local dir = M.openutau_dir()
   if dir then
     argv[#argv + 1] = "--openutau-dir"
@@ -246,7 +250,9 @@ function M.pump()
         return got
       end
       link.chunks = { rest }
-      for _, frame in ipairs(frames) do dispatch(frame) end
+      for _, frame in ipairs(frames) do
+        dispatch(frame)
+      end
     end
   end
   if link and link.proc then

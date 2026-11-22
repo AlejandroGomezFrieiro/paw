@@ -15,12 +15,16 @@ end
 
 -- The verse is drums, bass and keys. The chorus adds the lead, and the
 -- guitar answers it in the second half.
-for _, name in ipairs({ "Drums", "Bass", "Keys" }) do repeat_clips(paw.track(name), 16) end
+for _, name in ipairs({ "Drums", "Bass", "Keys" }) do
+  repeat_clips(paw.track(name), 16)
+end
 for _, name in ipairs({ "Lead", "Guitar" }) do
   local clip = paw.track(name):clips()[1]
   clip.start = name == "Guitar" and 24 or 16
 end
-for _, track in ipairs(paw.tracks()) do repeat_clips(track, 32) end
+for _, track in ipairs(paw.tracks()) do
+  repeat_clips(track, 32)
+end
 
 for _, marker in ipairs({ { 0, "Verse" }, { 16, "Chorus" }, { 32, "Second verse" }, { 48, "Last chorus" } }) do
   paw.markers.add(marker[1], marker[2])

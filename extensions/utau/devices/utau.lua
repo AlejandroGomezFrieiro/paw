@@ -85,22 +85,28 @@ local function set_voice(n, text)
     if not hash then error("a phrase is `hash start rate channels quality path`, not `" .. line .. "`", 0) end
     channels = tonumber(channels)
     if channels ~= 1 and channels ~= 2 then error("phrases are mono or stereo", 0) end
-    list[#list + 1] = { hash = hash, start = tonumber(start), rate = tonumber(rate), channels = channels,
-      quality = tonumber(quality), path = path }
+    list[#list + 1] = {
+      hash = hash,
+      start = tonumber(start),
+      rate = tonumber(rate),
+      channels = channels,
+      quality = tonumber(quality),
+      path = path,
+    }
   end
   -- Map the new before letting go of the old: a file in both stays mapped.
   for _, p in ipairs(list) do
     p.map = map(p.path)
     p.frames = floor(p.map.n / p.channels)
   end
-  for _, p in ipairs(voices[n] or {}) do unmap(p.path) end
+  for _, p in ipairs(voices[n] or {}) do
+    unmap(p.path)
+  end
   table.sort(list, function(a, b) return a.start < b.start end)
   voices[n] = list
 end
 
-function dev.init(rate)
-  sample_rate = rate
-end
+function dev.init(rate) sample_rate = rate end
 
 --- Calls: `voice.<n>` (posted to every device) gives voice n its phrases;
 --- `audition` (`rate channels path`) plays a clip once, now; `list` (a

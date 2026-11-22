@@ -25,10 +25,10 @@ local P = require("notation.parts")
 
 local S = {}
 local EPS = 1e-6
-local ROWS = 128   -- rows of the grid an instrument takes: its pitches
+local ROWS = 128 -- rows of the grid an instrument takes: its pitches
 
-paw.option.define("score_dim", false)     -- the staves not under the cursor drawn dimmer
-paw.option.define("score_colors", false)  -- the staves not under the cursor in their tracks' colours
+paw.option.define("score_dim", false) -- the staves not under the cursor drawn dimmer
+paw.option.define("score_colors", false) -- the staves not under the cursor in their tracks' colours
 
 -- Staves and instruments ---------------------------------------------------------------------------
 
@@ -46,7 +46,11 @@ function S.runs(layout)
   local out = {}
   for k, u in ipairs(layout.units or {}) do
     local run = out[#out]
-    if run and layout.units[run.last].family == u.family then run.last = k else out[#out + 1] = { first = k, last = k } end
+    if run and layout.units[run.last].family == u.family then
+      run.last = k
+    else
+      out[#out + 1] = { first = k, last = k }
+    end
   end
   return out
 end
@@ -172,9 +176,7 @@ function S.player(dir)
   return true
 end
 
-local function alone()
-  paw.notify("the clip alone: :score shows every track's staff", "warn")
-end
+local function alone() paw.notify("the clip alone: :score shows every track's staff", "warn") end
 
 --- A staff down (1) or up (-1), `count` times: through a grand staff's two,
 --- then into the next instrument.
@@ -193,7 +195,9 @@ function S.unit(dir, count)
   if not (F and F.multi) then return alone() end
   local units = F.layout.units
   local k = util.clamp(F.unit + dir * (count or 1), 1, #units)
-  if k == F.unit then return paw.notify(dir > 0 and "the last instrument of the score" or "the first instrument of the score", "warn") end
+  if k == F.unit then
+    return paw.notify(dir > 0 and "the last instrument of the score" or "the first instrument of the score", "warn")
+  end
   view:activate(S.clip_at(units[k], 1, S.song()))
 end
 
@@ -248,9 +252,7 @@ end
 -- operator or a command sees it.
 
 --- The grid row of a pitch of an instrument.
-local function row_of(F, unit, pitch)
-  return (#(F.layout.units or { 1 }) - unit) * ROWS + pitch
-end
+local function row_of(F, unit, pitch) return (#(F.layout.units or { 1 }) - unit) * ROWS + pitch end
 
 --- The instrument and pitch of a grid row.
 local function unit_of_row(F, row)
@@ -267,13 +269,17 @@ function S.split(F, region)
   if not F.multi then return { { unit = 1, clips = { view.clip_id }, region = region } } end
   local top = unit_of_row(F, region.r1)
   local bottom = unit_of_row(F, region.r0)
-  if region.unit then top, bottom = region.unit, region.unit end
+  if region.unit then
+    top, bottom = region.unit, region.unit
+  end
   local out, mine = {}, nil
   for k = top, bottom do
     local u = F.layout.units[k]
     local _, low = unit_of_row(F, region.r0)
     local _, high = unit_of_row(F, region.r1)
-    if top ~= bottom then low, high = 0, 127 end
+    if top ~= bottom then
+      low, high = 0, 127
+    end
     -- A condensed staff: the player under the cursor's, or both where
     -- they play the same (`a2`) or the region takes the staff whole.
     local players = { k == F.unit and F.player or 1 }
@@ -295,9 +301,19 @@ function S.split(F, region)
       if not found then clips[#clips + 1] = S.clip_at(u, p, F.start + region.c0) end
     end
 
-    local part = { unit = k, clips = clips, region = util.merge(region, { r0 = low, r1 = high,
-      kind = top ~= bottom and region.kind ~= "line" and "block" or region.kind, unit = false }) }
-    if k == F.unit then mine = part else out[#out + 1] = part end
+    local part = {
+      unit = k,
+      clips = clips,
+      region = util.merge(
+        region,
+        { r0 = low, r1 = high, kind = top ~= bottom and region.kind ~= "line" and "block" or region.kind, unit = false }
+      ),
+    }
+    if k == F.unit then
+      mine = part
+    else
+      out[#out + 1] = part
+    end
   end
   out[#out + 1] = mine
   return out
@@ -364,7 +380,6 @@ function S.operate(fn, region, ctx)
   return result
 end
 
-
 --- The selection as the open clip has it (its beats and pitches), or nil
 --- when there is none or it leaves out the active staff. What every
 --- command and drawing of the view reads.
@@ -421,7 +436,9 @@ do
     local hits = plain.search(text)
     local F = view:frame()
     if not (F and F.multi) then return hits end
-    for _, hit in ipairs(hits) do hit.row, hit.col = row_of(F, F.unit, hit.row), hit.col + F.off end
+    for _, hit in ipairs(hits) do
+      hit.row, hit.col = row_of(F, F.unit, hit.row), hit.col + F.off
+    end
     return hits
   end
 end
@@ -442,8 +459,16 @@ function S.wrap_maps()
           local region = fn(ctx)
           local F = view:frame()
           if not (region and F and F.multi) then return region end
-          return util.merge(region, { c0 = region.c0 + F.off, c1 = region.c1 + F.off, r0 = row_of(F, F.unit, region.r0),
-            r1 = row_of(F, F.unit, region.r1), unit = F.unit })
+          return util.merge(
+            region,
+            {
+              c0 = region.c0 + F.off,
+              c1 = region.c1 + F.off,
+              r0 = row_of(F, F.unit, region.r0),
+              r1 = row_of(F, F.unit, region.r1),
+              unit = F.unit,
+            }
+          )
         end
         map.score_wrapped = true
       end
@@ -519,7 +544,6 @@ do
     if u and u.condensed and not self.mirroring then
       local _, mi = self:measure_at(self.beat + F.off, F.layout)
       if mi and u.condensed[mi] == "a2" then
-
         local other = S.clip_at(u, 3 - F.player, S.song())
         self.mirroring = true
         local ok, err = pcall(S.within, other, function() write(self, fn) end)
@@ -533,7 +557,6 @@ end
 
 -- Showing a score -------------------------------------------------------------------------------
 
-
 --- Show a score of `tracks` (all of them when nil) in the view, named
 --- `label`. The cursor's track stays the active staff when it is shown.
 function S.show(tracks, label, opts)
@@ -545,8 +568,16 @@ function S.show(tracks, label, opts)
   end
   if not clip then return paw.notify(tracks and "none of those tracks has MIDI" or "no track has MIDI", "warn") end
   if not view:clip() or view:clip().id ~= clip.id then view:edit(clip) end
-  view.parts = { kind = "score", condensed = view.parts and view.parts.condensed or opts.condensed, tracks = tracks,
-    label = label, from = opts.from, to = opts.to, check = opts.check, scope = opts.scope }
+  view.parts = {
+    kind = "score",
+    condensed = view.parts and view.parts.condensed or opts.condensed,
+    tracks = tracks,
+    label = label,
+    from = opts.from,
+    to = opts.to,
+    check = opts.check,
+    scope = opts.scope,
+  }
   view.cache = nil
   local F = view:frame()
   if not (F and F.multi) then return end
@@ -564,7 +595,8 @@ local function selected_tracks()
   if not region then
     local last = keymap.last_visual
     if not (last and last.view == "arrange") then return nil end
-    region = { r0 = math.min(last.row, last.cursor_row or last.row), r1 = math.max(last.row, last.cursor_row or last.row) }
+    region =
+      { r0 = math.min(last.row, last.cursor_row or last.row), r1 = math.max(last.row, last.cursor_row or last.row) }
   end
   local rows, out = paw.groups.rows(), {}
   for r = math.max(1, region.r0), region.r1 do
@@ -575,8 +607,15 @@ end
 
 local function shown_message(F)
   local count = #F.layout.units
-  paw.notify(view.score_name() .. ": " .. count .. (count == 1 and " instrument" or " instruments")
-    .. ", editing " .. api.track_get(api.clip_get(view.clip_id).track).name .. "; Ctrl-j Ctrl-k ]] [[ move between staves")
+  paw.notify(
+    view.score_name()
+      .. ": "
+      .. count
+      .. (count == 1 and " instrument" or " instruments")
+      .. ", editing "
+      .. api.track_get(api.clip_get(view.clip_id).track).name
+      .. "; Ctrl-j Ctrl-k ]] [[ move between staves"
+  )
 end
 
 paw.command("score", function(ctx)
@@ -598,13 +637,17 @@ paw.command("score", function(ctx)
   elseif words ~= "" then
     local scope = paw.scope
     local group = scope.find(words)
-    if not group then return paw.notify("no group '" .. words .. "': `:score` alone, `all`, `selection`, or a group's name", "warn") end
+    if not group then
+      return paw.notify("no group '" .. words .. "': `:score` alone, `all`, `selection`, or a group's name", "warn")
+    end
     tracks, label = scope.tracks(group), "the score of " .. api.track_get(group, "name")
   end
   -- Alone: the tracks the tab is narrowed to, whichever they are then.
   local F = S.show(tracks, label, { scope = words == "" and not tracks })
   if F then shown_message(F) end
-end, { raw = true, range = true,
+end, {
+  raw = true,
+  range = true,
   desc = "Show a score to edit, a staff for each track with MIDI: alone the scope's (or every track), `all`, a group's name (`score Strings`), `selection` (the arrange view's tracks), `off` the clip alone",
   complete = function()
     local out = { "all", "selection", "off" }
@@ -612,7 +655,8 @@ end, { raw = true, range = true,
       if paw.groups.is_group(id) then out[#out + 1] = api.track_get(id, "name") end
     end
     return out
-  end })
+  end,
+})
 
 paw.command("score.check", function()
   if view.parts and view.parts.check then
@@ -628,41 +672,56 @@ paw.command("score.check", function()
   paw.notify("the pages as they will be exported, to read: :score.check again (or zp) to edit")
 end, { desc = "Show the score's pages as they will be exported, to check them (read only); again, back to editing" })
 
-paw.command("score.split", function(ctx)
-  local F = view:frame()
-  local u = F and F.multi and F.layout.units[F.unit]
-  if not (u and u.condensed) then return paw.notify("not on a condensed staff (`:part.condense`)", "warn") end
-  local bars = {}
-  local from, to
-  if ctx.range and ctx.range.from then
-    from, to = ctx.range.from - F.start, ctx.range.to - F.start
-  else
-    local sel = keymap.selection()
-    if sel and sel.view == "notation" then
-      from, to = sel.c0, sel.c1
+paw.command(
+  "score.split",
+  function(ctx)
+    local F = view:frame()
+    local u = F and F.multi and F.layout.units[F.unit]
+    if not (u and u.condensed) then return paw.notify("not on a condensed staff (`:part.condense`)", "warn") end
+    local bars = {}
+    local from, to
+    if ctx.range and ctx.range.from then
+      from, to = ctx.range.from - F.start, ctx.range.to - F.start
     else
-      local m = view:measure_at(view.beat + F.off, F.layout)
-      from, to = m.start, m.start + m.length
+      local sel = keymap.selection()
+      if sel and sel.view == "notation" then
+        from, to = sel.c0, sel.c1
+      else
+        local m = view:measure_at(view.beat + F.off, F.layout)
+        from, to = m.start, m.start + m.length
+      end
     end
-  end
-  for _, m in ipairs(F.layout.measures) do
-    if m.start < to - EPS and m.start + m.length > from + EPS then bars[#bars + 1] = m.number end
-  end
-  local joined
-  P.keep(u.tracks[1], function(part)
-    local set, kept = {}, {}
-    for _, n in ipairs(part.split or {}) do set[n] = true end
-    joined = #bars > 0 and set[bars[1]] or false
-    for _, n in ipairs(bars) do set[n] = not joined or nil end
-    for n in pairs(set) do kept[#kept + 1] = n end
-    table.sort(kept)
-    part.split = #kept > 0 and kept or nil
-  end)
-  view.cache = nil
-  api.ui_redraw()
-  paw.notify(joined and "written a2 again where the players play the same; an edit there is made for both"
-    or "the two players written apart there: an edit is the cursor's player's alone")
-end, { range = true, desc = "On a condensed staff: write the two players apart in the cursor's bar (or the range, or selection) though they play the same, so that an edit there is one player's; again, together (a2)" })
+    for _, m in ipairs(F.layout.measures) do
+      if m.start < to - EPS and m.start + m.length > from + EPS then bars[#bars + 1] = m.number end
+    end
+    local joined
+    P.keep(u.tracks[1], function(part)
+      local set, kept = {}, {}
+      for _, n in ipairs(part.split or {}) do
+        set[n] = true
+      end
+      joined = #bars > 0 and set[bars[1]] or false
+      for _, n in ipairs(bars) do
+        set[n] = not joined or nil
+      end
+      for n in pairs(set) do
+        kept[#kept + 1] = n
+      end
+      table.sort(kept)
+      part.split = #kept > 0 and kept or nil
+    end)
+    view.cache = nil
+    api.ui_redraw()
+    paw.notify(
+      joined and "written a2 again where the players play the same; an edit there is made for both"
+        or "the two players written apart there: an edit is the cursor's player's alone"
+    )
+  end,
+  {
+    range = true,
+    desc = "On a condensed staff: write the two players apart in the cursor's bar (or the range, or selection) though they play the same, so that an edit there is one player's; again, together (a2)",
+  }
+)
 
 -- Ex over staves -------------------------------------------------------------------------------------
 --
@@ -681,7 +740,9 @@ local function staff_clips(layout, a, b)
   for staff = a, b do
     local _, u = S.unit_of(layout, staff)
     for _, id in ipairs(u and u.clips or {}) do
-      if not seen[id] then seen[id], out[#out + 1] = true, id end
+      if not seen[id] then
+        seen[id], out[#out + 1] = true, id
+      end
     end
   end
   return out
@@ -707,8 +768,12 @@ A.clips_at = function(s, i)
       local b = a
       local more = s:match("^,s?()", j)
       local b2, k = nil, nil
-      if more then b2, k = staff_at(more) end
-      if b2 then b, j = b2, k end
+      if more then
+        b2, k = staff_at(more)
+      end
+      if b2 then
+        b, j = b2, k
+      end
       if b < a then error("`" .. s:sub(i, j - 1) .. "`: a range of staves goes from the first to the last", 0) end
       return staff_clips(layout, a, b), j
     end
@@ -720,7 +785,9 @@ A.clips_at = function(s, i)
     for _, u in ipairs(layout.units) do
       local group = u.group and api.track_get(u.group, "name"):lower()
       if group == low or P.FAMILIES[u.family] == low then
-        for _, id in ipairs(u.clips) do out[#out + 1] = id end
+        for _, id in ipairs(u.clips) do
+          out[#out + 1] = id
+        end
       end
     end
     if #out > 0 then return out, e end
@@ -735,7 +802,9 @@ A.selection = function(region, r)
   if #parts > 1 then
     r.clips, r.pitches = {}, nil
     for _, part in ipairs(parts) do
-      for _, id in ipairs(part.clips) do r.clips[#r.clips + 1] = id end
+      for _, id in ipairs(part.clips) do
+        r.clips[#r.clips + 1] = id
+      end
     end
   elseif region.kind ~= "char" then
     r.pitches = { parts[1].region.r0, parts[1].region.r1 }
@@ -746,7 +815,11 @@ A.each_clip = function(range, run)
   local mine
   for _, id in ipairs(range.clips) do
     local one = util.merge(range, { clips = { id } })
-    if id == view.clip_id then mine = one else S.within(id, function() run(one) end) end
+    if id == view.clip_id then
+      mine = one
+    else
+      S.within(id, function() run(one) end)
+    end
   end
   if mine then return run(mine) end
 end
@@ -754,13 +827,35 @@ end
 -- Keys ---------------------------------------------------------------------------------------------
 
 local motion = { motion = true, linewise = true }
-local function smap(lhs, fn, desc, opts) keymap.set(lhs, fn, util.merge({ view = "notation", desc = desc }, opts or motion)) end
-smap("]]", function(ctx) S.unit(1, ctx.count) end, "The next instrument's staff (a grand staff is one)", util.merge(motion, { jump = true }))
-smap("[[", function(ctx) S.unit(-1, ctx.count) end, "The previous instrument's staff", util.merge(motion, { jump = true }))
+local function smap(lhs, fn, desc, opts)
+  keymap.set(lhs, fn, util.merge({ view = "notation", desc = desc }, opts or motion))
+end
+smap(
+  "]]",
+  function(ctx) S.unit(1, ctx.count) end,
+  "The next instrument's staff (a grand staff is one)",
+  util.merge(motion, { jump = true })
+)
+smap(
+  "[[",
+  function(ctx) S.unit(-1, ctx.count) end,
+  "The previous instrument's staff",
+  util.merge(motion, { jump = true })
+)
 smap("]s", function(ctx) S.sibling(1, ctx.count) end, "The next instrument in the same group")
 smap("[s", function(ctx) S.sibling(-1, ctx.count) end, "The previous instrument in the same group")
-smap("[{", function(ctx) S.edge(-1, ctx.count) end, "The first instrument of the group (again: of the group before)", util.merge(motion, { jump = true }))
-smap("]}", function(ctx) S.edge(1, ctx.count) end, "The last instrument of the group (again: of the group after)", util.merge(motion, { jump = true }))
+smap(
+  "[{",
+  function(ctx) S.edge(-1, ctx.count) end,
+  "The first instrument of the group (again: of the group before)",
+  util.merge(motion, { jump = true })
+)
+smap(
+  "]}",
+  function(ctx) S.edge(1, ctx.count) end,
+  "The last instrument of the group (again: of the group after)",
+  util.merge(motion, { jump = true })
+)
 
 S.wrap_maps()
 view.staves = S

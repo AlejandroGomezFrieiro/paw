@@ -75,9 +75,22 @@ if mode == "clips" then
   local m, m1, m2 = summary(move)
   local d, d1, d2 = summary(del)
   B.emit({
-    workload = nosync and "edit_nosync" or "edit", clips = n, add_ms = a, move_ms = m, delete_ms = d, undo_ms = undo_ms, undo_steps = undone,
-    redo_ms = redo_ms, redo_steps = redone, clips_after_undo = after,
-    add_first_ms = a1, add_last_ms = a2, move_first_ms = m1, move_last_ms = m2, delete_first_ms = d1, delete_last_ms = d2,
+    workload = nosync and "edit_nosync" or "edit",
+    clips = n,
+    add_ms = a,
+    move_ms = m,
+    delete_ms = d,
+    undo_ms = undo_ms,
+    undo_steps = undone,
+    redo_ms = redo_ms,
+    redo_steps = redone,
+    clips_after_undo = after,
+    add_first_ms = a1,
+    add_last_ms = a2,
+    move_first_ms = m1,
+    move_last_ms = m2,
+    delete_first_ms = d1,
+    delete_last_ms = d2,
     rss_kb = B.rss(),
   })
 elseif mode == "notes" then
@@ -87,7 +100,11 @@ elseif mode == "notes" then
   api.undo_checkpoint()
   local add, move, del = {}, {}, {}
   for i = 1, n do
-    add[i] = turn(api.clip_add_notes, clip, { { pitch = 36 + (i - 1) % 48, start = (i - 1) * 0.25, length = 0.25, velocity = 100 } })
+    add[i] = turn(
+      api.clip_add_notes,
+      clip,
+      { { pitch = 36 + (i - 1) % 48, start = (i - 1) * 0.25, length = 0.25, velocity = 100 } }
+    )
   end
   -- One note at a time, as the piano roll does it. Builds from before there
   -- was a call for one note (and `list`, to compare) read the notes, change
@@ -119,8 +136,17 @@ elseif mode == "notes" then
   local m, m1, m2 = summary(move)
   local d, d1, d2 = summary(del)
   B.emit({
-    workload = nosync and "notes_nosync" or "notes", notes = n, add_ms = a, move_ms = m, delete_ms = d,
-    add_first_ms = a1, add_last_ms = a2, move_first_ms = m1, move_last_ms = m2, delete_first_ms = d1, delete_last_ms = d2,
+    workload = nosync and "notes_nosync" or "notes",
+    notes = n,
+    add_ms = a,
+    move_ms = m,
+    delete_ms = d,
+    add_first_ms = a1,
+    add_last_ms = a2,
+    move_first_ms = m1,
+    move_last_ms = m2,
+    delete_first_ms = d1,
+    delete_last_ms = d2,
     rss_kb = B.rss(),
   })
 elseif mode == "scale" then
@@ -144,9 +170,19 @@ elseif mode == "scale" then
   local add_track = turn(api.track_add, { name = "one more" })
   local sv, sc, su, sr = B.stats(vol), B.stats(clipmove), B.stats(undo), B.stats(redo)
   B.emit({
-    workload = "scale", tracks = n, build_ms = build_ms, volume_ms = sv.p50, volume_max_ms = sv.max,
-    clip_move_ms = sc.p50, clip_move_max_ms = sc.max, undo_ms = su.p50, undo_max_ms = su.max,
-    redo_ms = sr.p50, redo_max_ms = sr.max, track_add_ms = add_track, rss_kb = B.rss(),
+    workload = "scale",
+    tracks = n,
+    build_ms = build_ms,
+    volume_ms = sv.p50,
+    volume_max_ms = sv.max,
+    clip_move_ms = sc.p50,
+    clip_move_max_ms = sc.max,
+    undo_ms = su.p50,
+    undo_max_ms = su.max,
+    redo_ms = sr.p50,
+    redo_max_ms = sr.max,
+    track_add_ms = add_track,
+    rss_kb = B.rss(),
   })
 else
   error("usage: edit.lua clips|notes|scale <n>")

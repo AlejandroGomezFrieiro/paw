@@ -25,11 +25,17 @@ end
 local function orchestra()
   fresh()
   local t = {}
-  for i, n in ipairs({ "Drums", "Violins", "Cellos", "Violas", "Bass", "Keys" }) do t[i] = paw.add_track({ name = n }) end
+  for i, n in ipairs({ "Drums", "Violins", "Cellos", "Violas", "Bass", "Keys" }) do
+    t[i] = paw.add_track({ name = n })
+  end
   paw.groups.make({ t[2], t[3], t[4] }, "Strings")
   local low = paw.groups.make({ t[3], t[4] }, "Low")
   paw.opt.track_height = 1
-  after(function() paw.opt.track_height = "auto" paw.opt.relativenumber = false paw.opt.relativebar = false end)
+  after(function()
+    paw.opt.track_height = "auto"
+    paw.opt.relativenumber = false
+    paw.opt.relativebar = false
+  end)
   paw.cursor.set_track(t[1])
   paw.flush()
   return t, low
@@ -69,9 +75,13 @@ end)
 
 test("track column: an extension's part shows in its order, and set moves a built-in one", function()
   orchestra()
-  paw.trackcolumn.add("ext", { order = 15, width = 1, render = function(_, ctx)
-    if ctx.line == 0 then return { { "E", "TrackSign" } } end
-  end })
+  paw.trackcolumn.add("ext", {
+    order = 15,
+    width = 1,
+    render = function(_, ctx)
+      if ctx.line == 0 then return { { "E", "TrackSign" } } end
+    end,
+  })
   local fold = paw.trackcolumn.components.fold
   after(function()
     paw.trackcolumn.remove("ext")
@@ -91,11 +101,15 @@ test("relative bars: 4W lands on the bar marked 4, 4B on the one behind marked 4
   --- The label of a bar on the ruler, read cell by cell.
   local function label_at(bar)
     local cells = {}
-    for ch in lines()[1]:gmatch("[%z\1-\127\194-\244][\128-\191]*") do cells[#cells + 1] = ch end
+    for ch in lines()[1]:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+      cells[#cells + 1] = ch
+    end
     local view = paw.ui.views.arrange
     local x = view.geometry.hw + math.floor((paw.time.bar_start(bar) - view.scroll) * view.geometry.zoom + 0.5)
     local digits = ""
-    while cells[x + 1] and cells[x + 1]:match("^%d$") do digits, x = digits .. cells[x + 1], x + 1 end
+    while cells[x + 1] and cells[x + 1]:match("^%d$") do
+      digits, x = digits .. cells[x + 1], x + 1
+    end
     return tonumber(digits)
   end
   eq(label_at(3), 3, "the cursor's bar keeps its number")

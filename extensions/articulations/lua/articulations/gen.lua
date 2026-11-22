@@ -51,9 +51,16 @@ function M.code(arts)
       a.m2 = m2.code(attr)
     else
       repeat
-        a.m2 = string.format("%02X.%X%s", custom.type, math.floor(custom.n / 16), custom.n % 16 == 0 and "" or string.format("%X", custom.n % 16))
+        a.m2 = string.format(
+          "%02X.%X%s",
+          custom.type,
+          math.floor(custom.n / 16),
+          custom.n % 16 == 0 and "" or string.format("%X", custom.n % 16)
+        )
         custom.n = custom.n + 1
-        if custom.n == 256 then custom.type, custom.n = custom.type + 1, 0 end
+        if custom.n == 256 then
+          custom.type, custom.n = custom.type + 1, 0
+        end
       until not taken[a.m2]
     end
     taken[a.m2] = true
@@ -66,12 +73,28 @@ end
 -- by code: a mark on the note, or a technique's text over the run.
 local MARKS = { ["11.0"] = "staccato", ["11.1"] = "staccato", ["11.4"] = "staccatissimo", ["10.6"] = "marcato" }
 local TEXTS = {
-  ["11.A"] = "pizz.", ["11.B"] = "Bartók pizz.", ["11.C"] = "col legno", ["11.D"] = "col legno", ["12.0"] = "trem.",
-  ["14.0"] = "harm.", ["14.1"] = "harm.", ["14.2"] = "col legno", ["14.3"] = "flaut.", ["10.8"] = "senza vib.",
+  ["11.A"] = "pizz.",
+  ["11.B"] = "Bartók pizz.",
+  ["11.C"] = "col legno",
+  ["11.D"] = "col legno",
+  ["12.0"] = "trem.",
+  ["14.0"] = "harm.",
+  ["14.1"] = "harm.",
+  ["14.2"] = "col legno",
+  ["14.3"] = "flaut.",
+  ["10.8"] = "senza vib.",
 }
 -- The colour of each classification (Reaticulate's classes).
-local CLASSES = { [0x10] = "long", [0x11] = "short", [0x12] = "long-dark", [0x13] = "long-dark", [0x14] = "long-light",
-  [0x15] = "fx", [0x16] = "textured", [0x17] = "fx" }
+local CLASSES = {
+  [0x10] = "long",
+  [0x11] = "short",
+  [0x12] = "long-dark",
+  [0x13] = "long-dark",
+  [0x14] = "long-light",
+  [0x15] = "fx",
+  [0x16] = "textured",
+  [0x17] = "fx",
+}
 
 --- Fill in what a coded articulation leaves out, from the profile: its
 --- tag (`stc`, `pz`), its class, and the mark or text the score shows.
@@ -94,8 +117,21 @@ end
 --- range, keyswitches, default, chase, family, arts = { { id, name, m2, out,
 --- tag, class, text, range, program, icon } } }`.
 function M.text(spec)
-  local lines = { "# paw articulation map, one instrument" .. (spec.comment and ("\n# " .. spec.comment) or ""), "format = 1" }
-  for _, key in ipairs({ "name", "family", "generated", "source", "match", "range", "comfortable", "keyswitches", "default", "send", "chase" }) do
+  local lines =
+    { "# paw articulation map, one instrument" .. (spec.comment and ("\n# " .. spec.comment) or ""), "format = 1" }
+  for _, key in ipairs({
+    "name",
+    "family",
+    "generated",
+    "source",
+    "match",
+    "range",
+    "comfortable",
+    "keyswitches",
+    "default",
+    "send",
+    "chase",
+  }) do
     if spec[key] ~= nil then lines[#lines + 1] = key .. " = " .. toml.inline(spec[key]) end
   end
   lines[#lines + 1] = ""
@@ -119,7 +155,9 @@ function M.text(spec)
     lines[#lines + 1] = ""
     lines[#lines + 1] = "[mod]"
     for _, m in ipairs(spec.mods) do
-      lines[#lines + 1] = toml.key(m.id) .. " = " .. toml.inline({ m2 = m.m2, out = m.out, off = m.off, text = m.text }, { "m2", "out", "off", "text" })
+      lines[#lines + 1] = toml.key(m.id)
+        .. " = "
+        .. toml.inline({ m2 = m.m2, out = m.out, off = m.off, text = m.text }, { "m2", "out", "off", "text" })
     end
   end
   -- Dynamics on the modulation wheel and expression, as most sampled
@@ -128,7 +166,8 @@ function M.text(spec)
   if spec.linked ~= false then
     lines[#lines + 1] = ""
     lines[#lines + 1] = "[linked]"
-    lines[#lines + 1] = spec.linked or 'dynamics = { cc = [1, 11], curve = ["linear", "linear"], default = 0.7, name = "Dynamics" }'
+    lines[#lines + 1] = spec.linked
+      or 'dynamics = { cc = [1, 11], curve = ["linear", "linear"], default = 0.7, name = "Dynamics" }'
   end
   return table.concat(lines, "\n") .. "\n"
 end
@@ -156,7 +195,9 @@ local function sfz_source(path, root, defines, depth)
     else
       -- Longest names first, so that $A does not eat $AB.
       table.sort(defines, function(a, b) return #a[1] > #b[1] end)
-      for _, d in ipairs(defines) do line = line:gsub(d[1]:gsub("%$", "%%$"), (d[2]:gsub("%%", "%%%%"))) end
+      for _, d in ipairs(defines) do
+        line = line:gsub(d[1]:gsub("%$", "%%$"), (d[2]:gsub("%%", "%%%%")))
+      end
       out[#out + 1] = line
     end
   end
@@ -171,7 +212,9 @@ function M.sfz_headers(text)
     -- A value runs to the next `name=` (sample paths and labels have spaces).
     local s = " " .. body:gsub("%s+", " ") .. " "
     local starts = {}
-    for at, name in s:gmatch("()%s([%w_]+)=") do starts[#starts + 1] = { at = at, name = name } end
+    for at, name in s:gmatch("()%s([%w_]+)=") do
+      starts[#starts + 1] = { at = at, name = name }
+    end
     for i, st in ipairs(starts) do
       local from = st.at + #st.name + 2
       local to = starts[i + 1] and starts[i + 1].at - 1 or #s
@@ -182,9 +225,7 @@ function M.sfz_headers(text)
   return out
 end
 
-local function sfz_key(v)
-  return v and maps.key(v)
-end
+local function sfz_key(v) return v and maps.key(v) end
 
 --- A map spec from an SFZ's keyswitches, or nil and why.
 function M.sfz(path)
@@ -205,7 +246,9 @@ function M.sfz(path)
   for _, h in ipairs(M.sfz_headers(text)) do
     if levels[h.header] then
       reset(h.header)
-      for k, v in pairs(h.ops) do levels[h.header][k] = v end
+      for k, v in pairs(h.ops) do
+        levels[h.header][k] = v
+      end
     end
     for k, v in pairs(h.ops) do
       local n = k:match("^label_key(%d+)$")
@@ -214,9 +257,13 @@ function M.sfz(path)
     if h.header == "region" then
       local op = {}
       for _, name in ipairs({ "control", "global", "master", "group" }) do
-        for k, v in pairs(levels[name]) do op[k] = v end
+        for k, v in pairs(levels[name]) do
+          op[k] = v
+        end
       end
-      for k, v in pairs(h.ops) do op[k] = v end
+      for k, v in pairs(h.ops) do
+        op[k] = v
+      end
       sw_lo, sw_hi = sfz_key(op.sw_lokey) or sw_lo, sfz_key(op.sw_hikey) or sw_hi
       sw_default = sfz_key(op.sw_default) or sw_default
       local key = sfz_key(op.key)
@@ -245,17 +292,25 @@ function M.sfz(path)
   local arts, default = {}, nil
   for _, s in ipairs(switches) do
     local name = s.label or labels[s.key] or ("Keyswitch " .. music.name(s.key))
-    local a = { name = name, guess = m2.guess(name), out = (s.held and "hold=" or "ks=") .. music.name(s.key),
-      range = range_text(s.lo, s.hi) }
+    local a = {
+      name = name,
+      guess = m2.guess(name),
+      out = (s.held and "hold=" or "ks=") .. music.name(s.key),
+      range = range_text(s.lo, s.hi),
+    }
     arts[#arts + 1] = a
     if s.key == sw_default then default = a end
   end
   local coded = M.code(arts)
   local spec = {
-    name = path:match("([^/]+)%.[^.]*$") or path, generated = "sfz:" .. path, match = { "sfz:" .. path:match("[^/]+$") },
-    range = range_text(lo, hi), keyswitches = range_text(sw_lo or switches[1].key, sw_hi or switches[#switches].key), arts = arts,
+    name = path:match("([^/]+)%.[^.]*$") or path,
+    generated = "sfz:" .. path,
+    match = { "sfz:" .. path:match("[^/]+$") },
+    range = range_text(lo, hi),
+    keyswitches = range_text(sw_lo or switches[1].key, sw_hi or switches[#switches].key),
+    arts = arts,
   }
-  M.text(spec)  -- gives the articulations their ids
+  M.text(spec) -- gives the articulations their ids
   spec.default = (default or arts[1]).id
   return spec, { articulations = #arts, coded = coded }
 end
@@ -307,7 +362,9 @@ function M.ds_text(text, name)
   local arts = {}
   local all_lo, all_hi
   for _, g in ipairs(groups) do
-    if g.lo then all_lo, all_hi = math.min(all_lo or g.lo, g.lo), math.max(all_hi or g.hi, g.hi) end
+    if g.lo then
+      all_lo, all_hi = math.min(all_lo or g.lo, g.lo), math.max(all_hi or g.hi, g.hi)
+    end
   end
   each(root, "midi", function(midi)
     for _, note in ipairs(midi.kids) do
@@ -315,25 +372,38 @@ function M.ds_text(text, name)
         local on, lo, hi = {}, nil, nil
         for _, b in ipairs(note.kids) do
           local value = tostring(b.attrs.translationValue or ""):lower()
-          if b.name == "binding" and b.attrs.parameter == "ENABLED" and (b.attrs.level or "group") == "group"
-            and (value == "true" or value == "1") then
+          if
+            b.name == "binding"
+            and b.attrs.parameter == "ENABLED"
+            and (b.attrs.level or "group") == "group"
+            and (value == "true" or value == "1")
+          then
             local i = tonumber(b.attrs.position or b.attrs.groupIndex)
             local g = i and groups[i + 1]
             if g then
               on[#on + 1] = g.name
-              if g.lo then lo, hi = math.min(lo or g.lo, g.lo), math.max(hi or g.hi, g.hi) end
+              if g.lo then
+                lo, hi = math.min(lo or g.lo, g.lo), math.max(hi or g.hi, g.hi)
+              end
             end
           end
         end
         if #on > 0 then
           local label = table.concat(on, " + ")
-          arts[#arts + 1] = { name = label, guess = m2.guess(label), out = "ks=" .. music.name(tonumber(note.attrs.note)), range = range_text(lo, hi),
-            key = tonumber(note.attrs.note) }
+          arts[#arts + 1] = {
+            name = label,
+            guess = m2.guess(label),
+            out = "ks=" .. music.name(tonumber(note.attrs.note)),
+            range = range_text(lo, hi),
+            key = tonumber(note.attrs.note),
+          }
         end
       end
     end
   end)
-  if #arts == 0 then return nil, (name or "the preset") .. " has no keyswitches (<midi><note> bindings that enable groups)" end
+  if #arts == 0 then
+    return nil, (name or "the preset") .. " has no keyswitches (<midi><note> bindings that enable groups)"
+  end
   local coded = M.code(arts)
   local ks_lo, ks_hi
   for _, a in ipairs(arts) do
@@ -401,13 +471,21 @@ function M.folder(dir)
     if count > 0 then
       local name = sub:gsub("_", " ")
       arts[#arts + 1] = { name = name, guess = m2.guess(name), out = "attr", range = range_text(lo, hi) }
-      if lo then all_lo, all_hi = math.min(all_lo or lo, lo), math.max(all_hi or hi, hi) end
+      if lo then
+        all_lo, all_hi = math.min(all_lo or lo, lo), math.max(all_hi or hi, hi)
+      end
     end
   end
   if #arts < 1 then return nil, dir .. " has no folders of samples to be articulations" end
   local coded = M.code(arts)
-  local spec = { name = dir:match("[^/]+$"), generated = "folder:" .. dir, match = { "folder:" .. dir:match("[^/]+$") },
-    range = range_text(all_lo, all_hi), arts = arts, comment = "Played by the attribute alone: a sampler that reads the folder chooses the samples." }
+  local spec = {
+    name = dir:match("[^/]+$"),
+    generated = "folder:" .. dir,
+    match = { "folder:" .. dir:match("[^/]+$") },
+    range = range_text(all_lo, all_hi),
+    arts = arts,
+    comment = "Played by the attribute alone: a sampler that reads the folder chooses the samples.",
+  }
   M.text(spec)
   local sus
   for _, a in ipairs(arts) do
@@ -425,26 +503,44 @@ end
 function M.describe(d)
   local arts = {}
   local ks = {}
-  for _, k in ipairs(d.keyswitches or {}) do ks[k.name or ""] = k.pitch end
+  for _, k in ipairs(d.keyswitches or {}) do
+    ks[k.name or ""] = k.pitch
+  end
   for _, a in ipairs(d.articulations or {}) do
     local key = tonumber(a.keyswitch) or ks[a.name or ""]
-    arts[#arts + 1] = { name = a.name or "?", m2 = a.m2 and m2.parse(a.m2) and m2.code(m2.parse(a.m2)) or nil,
-      guess = m2.guess(a.name), out = key and ("ks=" .. music.name(key) .. " attr") or "attr" }
+    arts[#arts + 1] = {
+      name = a.name or "?",
+      m2 = a.m2 and m2.parse(a.m2) and m2.code(m2.parse(a.m2)) or nil,
+      guess = m2.guess(a.name),
+      out = key and ("ks=" .. music.name(key) .. " attr") or "attr",
+    }
   end
   if #arts == 0 then
     for _, k in ipairs(d.keyswitches or {}) do
-      arts[#arts + 1] = { name = k.name or music.name(k.pitch), guess = m2.guess(k.name), out = "ks=" .. music.name(k.pitch) }
+      arts[#arts + 1] =
+        { name = k.name or music.name(k.pitch), guess = m2.guess(k.name), out = "ks=" .. music.name(k.pitch) }
     end
   end
   if #arts == 0 then return nil, (d.name or "the device") .. " names no articulations or keyswitches" end
   local coded = M.code(arts)
   local klo, khi
   for _, k in ipairs(d.keyswitches or {}) do
-    if tonumber(k.pitch) then klo, khi = math.min(klo or k.pitch, k.pitch), math.max(khi or k.pitch, k.pitch) end
+    if tonumber(k.pitch) then
+      klo, khi = math.min(klo or k.pitch, k.pitch), math.max(khi or k.pitch, k.pitch)
+    end
   end
-  local range = d.range and (d.range.lo or d.range[1]) and range_text(d.range.lo or d.range[1], d.range.hi or d.range[2]) or nil
-  local spec = { name = d.name or "Sampler", generated = "describe:" .. tostring(d.format or "?") .. ":" .. tostring(d.name or ""),
-    match = { "describe:" .. tostring(d.name or "") }, range = range, keyswitches = range_text(klo, khi), arts = arts }
+  local range = d.range
+      and (d.range.lo or d.range[1])
+      and range_text(d.range.lo or d.range[1], d.range.hi or d.range[2])
+    or nil
+  local spec = {
+    name = d.name or "Sampler",
+    generated = "describe:" .. tostring(d.format or "?") .. ":" .. tostring(d.name or ""),
+    match = { "describe:" .. tostring(d.name or "") },
+    range = range,
+    keyswitches = range_text(klo, khi),
+    arts = arts,
+  }
   M.text(spec)
   spec.default = arts[1].id
   return spec, { articulations = #arts, coded = coded }
@@ -476,7 +572,9 @@ local function numbers(text)
   for part in tostring(text or ""):gmatch("[^,%s]+") do
     local a, b = part:match("^(%d+)%-(%d+)$")
     if a then
-      for n = tonumber(a), tonumber(b) do out[#out + 1] = n end
+      for n = tonumber(a), tonumber(b) do
+        out[#out + 1] = n
+      end
     elseif tonumber(part) then
       out[#out + 1] = tonumber(part)
     end
@@ -491,11 +589,15 @@ function M.out_of_reaticulate(o)
   for ev in tostring(o or ""):gmatch("[^/]+") do
     local kind, ch, args = ev:match("^%-?([%a%-]*)@?([%d%.%-]*):?([%d,%-]*)")
     local a = {}
-    for n in (args or ""):gmatch("[^,]+") do a[#a + 1] = tonumber(n) end
+    for n in (args or ""):gmatch("[^,]+") do
+      a[#a + 1] = tonumber(n)
+    end
     if kind == "cc" and a[1] and a[2] then
       words[#words + 1] = "cc" .. a[1] .. "=" .. a[2]
     elseif (kind == "note" or kind == "note-hold") and a[1] then
-      words[#words + 1] = (kind == "note" and "ks=" or "hold=") .. music.name(a[1]) .. (a[2] and a[2] ~= 127 and a[2] > 0 and (":" .. a[2]) or "")
+      words[#words + 1] = (kind == "note" and "ks=" or "hold=")
+        .. music.name(a[1])
+        .. (a[2] and a[2] ~= 127 and a[2] > 0 and (":" .. a[2]) or "")
     elseif kind == "program" and a[1] then
       words[#words + 1] = "pc=" .. a[1]
     elseif kind == "pitch" and a[1] then
@@ -551,15 +653,29 @@ function M.reabank(text)
       if code and not m2.guess(a.name) then stats.by_icon = stats.by_icon + 1 end
       local outline, whole = M.out_of_reaticulate(a.attrs.o)
       if not whole then stats.outs_lost = stats.outs_lost + 1 end
-      arts[#arts + 1] = { name = a.name, guess = code, out = outline, class = a.attrs.c, program = a.program,
-        icon = icon ~= "" and icon or nil }
+      arts[#arts + 1] = {
+        name = a.name,
+        guess = code,
+        out = outline,
+        class = a.attrs.c,
+        program = a.program,
+        icon = icon ~= "" and icon or nil,
+      }
     end
     M.code(arts)
     local group = bank.attrs.g or "Reaticulate"
     local name = bank.attrs.n or bank.name
-    local spec = { name = name, family = nil, source = "reaticulate:" .. (bank.attrs.id or name),
-      match = { "reaticulate:" .. group .. "/" .. name }, chase = bank.attrs.chase and numbers(bank.attrs.chase) or nil,
-      arts = arts, mods = mods, file = slug(group:gsub("/", " ")) .. "/" .. slug(name), group = group }
+    local spec = {
+      name = name,
+      family = nil,
+      source = "reaticulate:" .. (bank.attrs.id or name),
+      match = { "reaticulate:" .. group .. "/" .. name },
+      chase = bank.attrs.chase and numbers(bank.attrs.chase) or nil,
+      arts = arts,
+      mods = mods,
+      file = slug(group:gsub("/", " ")) .. "/" .. slug(name),
+      group = group,
+    }
     if #arts > 0 then
       M.text(spec)
       spec.default = arts[1].id
@@ -576,18 +692,34 @@ function M.reabank(text)
 end
 
 -- Spitfire's UACC numbers, by code: what Reaticulate's banks use as program numbers.
-local UACC = { ["10.0"] = 1, ["10.2"] = 20, ["11.0"] = 40, ["11.5"] = 42, ["11.4"] = 41, ["11.A"] = 56, ["11.B"] = 57,
-  ["11.C"] = 58, ["12.0"] = 11, ["13.0"] = 70, ["13.2"] = 71, ["14.0"] = 10, ["10.6"] = 52, ["10.4"] = 23 }
+local UACC = {
+  ["10.0"] = 1,
+  ["10.2"] = 20,
+  ["11.0"] = 40,
+  ["11.5"] = 42,
+  ["11.4"] = 41,
+  ["11.A"] = 56,
+  ["11.B"] = 57,
+  ["11.C"] = 58,
+  ["12.0"] = 11,
+  ["13.0"] = 70,
+  ["13.2"] = 71,
+  ["14.0"] = 10,
+  ["10.6"] = 52,
+  ["10.4"] = 23,
+}
 
 --- A map as a Reaticulate bank (`.reabank` text). What a bank cannot say
 --- (ranges, keyswitch rows, codes, notation marks) is left out.
 function M.to_reabank(map)
   local lines = {
-    "//! g=\"paw\" n=\"" .. map.name:gsub('"', "'") .. "\"",
+    '//! g="paw" n="' .. map.name:gsub('"', "'") .. '"',
   }
   if #map.chase > 0 then
     local nums = {}
-    for i, n in ipairs(map.chase) do nums[i] = tostring(n) end
+    for i, n in ipairs(map.chase) do
+      nums[i] = tostring(n)
+    end
     lines[#lines + 1] = "//! chase=" .. table.concat(nums, ",")
   end
   lines[#lines + 1] = "Bank * * paw - " .. map.name
@@ -596,7 +728,9 @@ function M.to_reabank(map)
   for _, a in ipairs(map.arts) do
     local program = a.program or UACC[a.code]
     if not program or used[program] then
-      while used[next_free] do next_free = next_free + 1 end
+      while used[next_free] do
+        next_free = next_free + 1
+      end
       program = next_free
     end
     used[program] = true
@@ -617,8 +751,12 @@ function M.to_reabank(map)
       end
     end
     if channel then
-      if #outs == 0 then outs[1] = "@" .. channel else
-        for i, o in ipairs(outs) do outs[i] = o:gsub("^([%a%-]+)", "%1@" .. channel) end
+      if #outs == 0 then
+        outs[1] = "@" .. channel
+      else
+        for i, o in ipairs(outs) do
+          outs[i] = o:gsub("^([%a%-]+)", "%1@" .. channel)
+        end
       end
     end
     local head = "//! c=" .. (a.class or "default") .. " i=" .. (a.icon or a.id)

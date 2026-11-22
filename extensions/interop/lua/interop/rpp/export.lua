@@ -35,9 +35,7 @@ local function guid_maker(seed)
     end
     return table.concat(out)
   end
-  return function()
-    return "{" .. hex(8) .. "-" .. hex(4) .. "-" .. hex(4) .. "-" .. hex(4) .. "-" .. hex(12) .. "}"
-  end
+  return function() return "{" .. hex(8) .. "-" .. hex(4) .. "-" .. hex(4) .. "-" .. hex(4) .. "-" .. hex(12) .. "}" end
 end
 
 --- A colour as #rrggbb to REAPER's native colour (red + green * 256 +
@@ -55,7 +53,8 @@ local function relative(path, dir)
   return path
 end
 
-local SOURCE_TYPES = { wav = "WAVE", wave = "WAVE", aif = "WAVE", aiff = "WAVE", flac = "FLAC", mp3 = "MP3", ogg = "VORBIS" }
+local SOURCE_TYPES =
+  { wav = "WAVE", wave = "WAVE", aif = "WAVE", aiff = "WAVE", flac = "FLAC", mp3 = "MP3", ogg = "VORBIS" }
 
 --- REAPER's point shape for each of paw's: hold is square (1), smooth is
 --- slow start and end (2).
@@ -143,13 +142,17 @@ local function fx_chain(name, track, t, ctx, label)
       local index, info
       local d = api.device_get(device)
       for i, p in ipairs(d.param_info or {}) do
-        if p.key == lane.param then index, info = i, p end
+        if p.key == lane.param then
+          index, info = i, p
+        end
       end
       if written and index then
         chain:add(param_envelope(lane, index, info, d.format, ctx, label .. ": " .. lane.param))
       else
-        ctx.report:add("Plugin parameter automation", label .. ": " .. tostring(lane.param)
-          .. (written and "" or " (its device is not written)"))
+        ctx.report:add(
+          "Plugin parameter automation",
+          label .. ": " .. tostring(lane.param) .. (written and "" or " (its device is not written)")
+        )
       end
     end
   end
@@ -170,7 +173,9 @@ local function fx_chain(name, track, t, ctx, label)
   -- Plugins kept from an imported REAPER project go back as they were, at
   -- their places in the chain.
   local entries = {}
-  for _, device in ipairs(t.devices) do entries[#entries + 1] = { device = device } end
+  for _, device in ipairs(t.devices) do
+    entries[#entries + 1] = { device = device }
+  end
   local holders = {}
   for _, holder in ipairs((t.meta or {}).rpp_placeholders or {}) do
     if holder.rpp then holders[#holders + 1] = holder end
@@ -281,8 +286,13 @@ local function control_ticks(controls, from, to, shift)
   for _, c in ipairs(controls) do
     if c.start >= from - 1e-9 and c.start < to - 1e-9 then
       out[#out + 1] = {
-        tick = math.floor((c.start - shift) * M.PPQ + 0.5), type = c.type, number = c.number, value = c.value,
-        key = c.key, program = c.program, bank = c.bank,
+        tick = math.floor((c.start - shift) * M.PPQ + 0.5),
+        type = c.type,
+        number = c.number,
+        value = c.value,
+        key = c.key,
+        program = c.program,
+        bank = c.bank,
       }
     end
   end
@@ -295,7 +305,9 @@ local function midi_item(clip, ctx, label)
   -- starts into by the stretch's distance before the clip's start.
   local from, beats = repeat_of(clip)
   local lo, hi, shift = 0, clip.length, 0
-  if from then lo, hi, shift = from, from + beats, from end
+  if from then
+    lo, hi, shift = from, from + beats, from
+  end
   item_common(item, clip, ctx, from ~= nil)
   item:add(fmt.line("VOLPAN", 1, 0, 1, -1))
   item:add(fmt.line("SOFFS", from and -from * 60 / api.tempo_at(clip.start) or 0))
@@ -312,8 +324,14 @@ local function midi_item(clip, ctx, label)
   -- in a looped clip, those outside the repeated stretch.
   for _, n in ipairs(api.clip_notes(clip.id)) do
     if n.start >= lo - 1e-9 and n.start < hi - 1e-9 then
-      shown[#shown + 1] = { start = n.start - shift, length = n.length, pitch = n.pitch, velocity = n.velocity,
-        meta = n.meta, attr = n.attr }
+      shown[#shown + 1] = {
+        start = n.start - shift,
+        length = n.length,
+        pitch = n.pitch,
+        velocity = n.velocity,
+        meta = n.meta,
+        attr = n.attr,
+      }
     end
   end
   for _, n in ipairs(shown) do
@@ -325,7 +343,10 @@ local function midi_item(clip, ctx, label)
     if n.attr then attrs = attrs + 1 end
     local channel = n.meta and tonumber(n.meta.channel)
     notes[#notes + 1] = {
-      tick = tick, length = math.max(1, stop - tick), pitch = n.pitch, velocity = n.velocity,
+      tick = tick,
+      length = math.max(1, stop - tick),
+      pitch = n.pitch,
+      velocity = n.velocity,
       channel = channel and math.max(0, math.min(15, channel - 1)) or 0,
     }
   end
@@ -337,13 +358,20 @@ local function midi_item(clip, ctx, label)
   local other = 0
   for i = #controls, 1, -1 do
     local c = controls[i]
-    if c.type ~= "cc" and c.type ~= "bend" and c.type ~= "pressure" and c.type ~= "program" or (c.key and c.type ~= "pressure") then
+    if
+      c.type ~= "cc" and c.type ~= "bend" and c.type ~= "pressure" and c.type ~= "program"
+      or (c.key and c.type ~= "pressure")
+    then
       other = other + 1
       table.remove(controls, i)
     end
   end
-  if other > 0 then ctx.report:count("Controllers MIDI 1.0 has no event for (registered, assignable, per note)", label, other) end
-  for _, line in ipairs(midi.event_lines(notes, length, controls)) do source:add(line) end
+  if other > 0 then
+    ctx.report:count("Controllers MIDI 1.0 has no event for (registered, assignable, per note)", label, other)
+  end
+  for _, line in ipairs(midi.event_lines(notes, length, controls)) do
+    source:add(line)
+  end
   source:add(fmt.line("CCINTERP", 32))
   source:add(fmt.line("GUID", ctx.guid()))
   source:add(fmt.line("IGNTEMPO", 0, 120, 4, 4))
@@ -358,7 +386,9 @@ end
 --- directly, or follows a sibling in that folder.
 local function layout(list)
   local index = {}
-  for i, t in ipairs(list) do index[t.id] = i end
+  for i, t in ipairs(list) do
+    index[t.id] = i
+  end
   local depth, stack, unfoldered = {}, {}, {}
   for i, t in ipairs(list) do
     depth[i] = 0
@@ -404,7 +434,11 @@ local function track_block(t, i, ctx, depth, unfoldered, index, receives)
   local input, monitor = -1, 0
   if t.input then
     local a = t.input:match("^(%d+)/(%d+)$")
-    if a then input = 1024 + tonumber(a) - 1 else input = (tonumber(t.input) or 1) - 1 end
+    if a then
+      input = 1024 + tonumber(a) - 1
+    else
+      input = (tonumber(t.input) or 1) - 1
+    end
   end
   if t.monitor then monitor = 1 end
   block:add(fmt.line("REC", t.armed and 1 or 0, input, monitor, 0, 0, 0, 0, 0))
@@ -419,7 +453,9 @@ local function track_block(t, i, ctx, depth, unfoldered, index, receives)
   block:add(fmt.line("MAINSEND", unfoldered[t.id] and 0 or 1, 0))
   for _, r in ipairs(receives[t.id] or {}) do
     -- Mode 0 is after the fader, 3 before it (after the plugins).
-    block:add(fmt.line("AUXRECV", index[r.from] - 1, r.pre and 3 or 0, amp(r.level), 0, 0, 0, 0, 0, 0, "-1:U", 0, -1, "")):quoted(13)
+    block
+      :add(fmt.line("AUXRECV", index[r.from] - 1, r.pre and 3 or 0, amp(r.level), 0, 0, 0, 0, 0, 0, "-1:U", 0, -1, ""))
+      :quoted(13)
   end
   return block
 end
@@ -458,7 +494,9 @@ function M.tempo_envelope(ctx)
   local ramp = false
   for _, p in ipairs(points) do
     -- A signature change inside a ramp keeps the ramp going through it.
-    if p.bpm == nil then p.bpm, p.ramp = api.tempo_at(p.beat), ramp end
+    if p.bpm == nil then
+      p.bpm, p.ramp = api.tempo_at(p.beat), ramp
+    end
     ramp = p.ramp
     local t = string.format("%.12f", api.tempo_seconds(p.beat))
     if p.sig then
@@ -477,7 +515,10 @@ function M.doc(opts)
   local p = api.project_get()
   local tr = api.transport_get()
   local ctx = {
-    tempo = p.tempo, sec = api.tempo_seconds, dir = opts.dir, iid = 0,
+    tempo = p.tempo,
+    sec = api.tempo_seconds,
+    dir = opts.dir,
+    iid = 0,
     guid = guid_maker(opts.seed or (os.time() + math.floor(api.now()))),
     report = reports.new("Not written to " .. (opts.name or "the REAPER project") .. ":"),
   }
@@ -512,7 +553,9 @@ function M.doc(opts)
   line("TEMPO", p.tempo, p.sig_num, p.sig_den, 0)
   line("PLAYRATE", 1, 0, 0.25, 4)
   local a, b = 0, 0
-  if looped then a, b = ctx.sec(tr.loop_start), ctx.sec(tr.loop_end) end
+  if looped then
+    a, b = ctx.sec(tr.loop_start), ctx.sec(tr.loop_end)
+  end
   line("SELECTION", a, b)
   line("SELECTION2", a, b)
   line("MASTERAUTOMODE", 0)
@@ -530,7 +573,9 @@ function M.doc(opts)
   if master_chain then root:add(master_chain) end
   for _, lane in ipairs(api.lane_list(0)) do
     if lane.target == "volume" or lane.target == "pan" then
-      root:add(envelope(lane.target == "volume" and "MASTERVOLENV2" or "MASTERPANENV2", lane, ctx, "Master " .. lane.target))
+      root:add(
+        envelope(lane.target == "volume" and "MASTERVOLENV2" or "MASTERPANENV2", lane, ctx, "Master " .. lane.target)
+      )
     end
   end
   -- Markers and regions (paw.markers: `project.meta.markers`, a region
@@ -568,15 +613,19 @@ function M.doc(opts)
   root:add(fmt.block("PROJBAY"))
 
   local list = {}
-  for i, id in ipairs(api.track_list()) do list[i] = api.track_get(id) end
+  for i, id in ipairs(api.track_list()) do
+    list[i] = api.track_get(id)
+  end
   local depth, unfoldered, index = layout(list)
   local receives = {}
   for _, t in ipairs(list) do
     if unfoldered[t.id] then
       receives[t.output] = receives[t.output] or {}
       table.insert(receives[t.output], { from = t.id, level = 0 })
-      ctx.report:add("Routing written as a send (REAPER folders need the child right after its parent)",
-        t.name .. " -> " .. api.track_get(t.output, "name"))
+      ctx.report:add(
+        "Routing written as a send (REAPER folders need the child right after its parent)",
+        t.name .. " -> " .. api.track_get(t.output, "name")
+      )
     end
     for _, s in ipairs(t.sends or {}) do
       receives[s.target] = receives[s.target] or {}

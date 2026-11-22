@@ -74,7 +74,9 @@ M.set_expression = shapes.set_expression
 function M.apply(view, fn)
   local indices = view:targets()
   local which = {}
-  for _, i in ipairs(indices) do which[i] = true end
+  for _, i in ipairs(indices) do
+    which[i] = true
+  end
   if not next(which) then return 0 end
   return notes.change_props(view.clip_id, function(p, note)
     fn(p, note)
@@ -88,12 +90,22 @@ end
 local function fields(view, S)
   local out = {}
   local function add(f) out[#out + 1] = f end
-  add({ key = "lyric", label = "Lyric", kind = "text",
-    get = function(n) return notes.lyric(n) or "" end })
-  add({ key = "tu", label = "Tuning", kind = "number", min = -1200, max = 1200, step = 1, unit = "c",
+  add({ key = "lyric", label = "Lyric", kind = "text", get = function(n) return notes.lyric(n) or "" end })
+  add({
+    key = "tu",
+    label = "Tuning",
+    kind = "number",
+    min = -1200,
+    max = 1200,
+    step = 1,
+    unit = "c",
     get = function(n) return props(n).tu or 0 end,
-    set = function(p, v) p.tu = (v and v ~= 0) and math.floor(v + 0.5) or nil end })
-  add({ key = "po", label = "Phonemizer", kind = "choice",
+    set = function(p, v) p.tu = (v and v ~= 0) and math.floor(v + 0.5) or nil end,
+  })
+  add({
+    key = "po",
+    label = "Phonemizer",
+    kind = "choice",
     get = function(n) return props(n).po or "" end,
     set = function(p, v) p.po = (v and v ~= "") and v or nil end,
     show = function(v)
@@ -105,50 +117,89 @@ local function fields(view, S)
     end,
     options = function()
       local list = { { label = "the track's own", value = "" } }
-      for _, ph in ipairs(utau.phonemizers) do list[#list + 1] = { label = ph.name, value = ph.id, detail = ph.tag } end
+      for _, ph in ipairs(utau.phonemizers) do
+        list[#list + 1] = { label = ph.name, value = ph.id, detail = ph.tag }
+      end
       return list
-    end })
+    end,
+  })
   add({ section = "Vibrato" })
-  add({ key = "vb", label = "Vibrato", kind = "toggle",
+  add({
+    key = "vb",
+    label = "Vibrato",
+    kind = "toggle",
     get = function(n) return shapes.vb(n) ~= nil end,
-    set = function(p, on) p.vb = on and shapes.copy(shapes.DEFAULT_VB) or nil end })
+    set = function(p, on) p.vb = on and shapes.copy(shapes.DEFAULT_VB) or nil end,
+  })
   local first = S.list[S.targets[1]]
   if first and shapes.vb(first) then
     for _, vf in ipairs(shapes.VB_FIELDS) do
-      add({ key = "vb" .. vf.i, label = vf.name, kind = "number", min = vf.min, max = vf.max, step = vf.step, unit = vf.unit, indent = true,
-        get = function(n) local vb = shapes.vb(n) return vb and vb[vf.i] or shapes.DEFAULT_VB[vf.i] end,
+      add({
+        key = "vb" .. vf.i,
+        label = vf.name,
+        kind = "number",
+        min = vf.min,
+        max = vf.max,
+        step = vf.step,
+        unit = vf.unit,
+        indent = true,
+        get = function(n)
+          local vb = shapes.vb(n)
+          return vb and vb[vf.i] or shapes.DEFAULT_VB[vf.i]
+        end,
         set = function(p, v, n)
           local vb = shapes.vb(n) or shapes.copy(shapes.DEFAULT_VB)
           vb[vf.i] = v == nil and shapes.DEFAULT_VB[vf.i] or v
           p.vb = vb
-        end })
+        end,
+      })
     end
   end
   add({ section = "Transition" })
-  add({ key = "pp", label = "Points", kind = "button", button = "Reset",
+  add({
+    key = "pp",
+    label = "Points",
+    kind = "button",
+    button = "Reset",
     get = function(n)
       local pp = shapes.pp(n)
-      return string.format("%d, %d ms%s", #pp.pts, math.floor(pp.pts[#pp.pts][1] - pp.pts[1][1] + 0.5), shapes.has_pp(n) and "" or " (default)")
+      return string.format(
+        "%d, %d ms%s",
+        #pp.pts,
+        math.floor(pp.pts[#pp.pts][1] - pp.pts[1][1] + 0.5),
+        shapes.has_pp(n) and "" or " (default)"
+      )
     end,
-    set = function(p) p.pp = nil end })
-  add({ key = "snap", label = "From the note before", kind = "toggle",
+    set = function(p) p.pp = nil end,
+  })
+  add({
+    key = "snap",
+    label = "From the note before",
+    kind = "toggle",
     get = function(n) return shapes.pp(n).snap end,
     set = function(p, on, n)
       local pp = shapes.pp(n)
       pp.snap = on
       p.pp = pp
-    end })
+    end,
+  })
   add({ section = "Expressions" })
   for _, e in ipairs(M.expressions(S.clip.track)) do
-    local f = { key = "ex:" .. e.abbr, label = e.name:sub(1, 1):upper() .. e.name:sub(2), abbr = e.abbr,
+    local f = {
+      key = "ex:" .. e.abbr,
+      label = e.name:sub(1, 1):upper() .. e.name:sub(2),
+      abbr = e.abbr,
       get = function(n) return expression(n, e.abbr) or e.default end,
-      set = function(p, v) M.set_expression(p, e.abbr, (v ~= nil and math.abs(v - e.default) > 1e-9) and v or nil) end }
+      set = function(p, v) M.set_expression(p, e.abbr, (v ~= nil and math.abs(v - e.default) > 1e-9) and v or nil) end,
+    }
     if e.kind == 2 and e.options and #e.options > 0 then
       f.kind = "choice"
       f.show = function(v) return tostring(e.options[math.floor(v) + 1] or v) end
       f.options = function()
         local list = {}
-        for i, o in ipairs(e.options) do list[i] = { label = o, value = i - 1 } end
+        for i, o in ipairs(e.options) do
+          list[i] = { label = o, value = i - 1 }
+        end
         return list
       end
     elseif e.kind == 3 then
@@ -197,10 +248,16 @@ return function(gui)
       return
     end
     local first = list[targets[1]]
-    local title = #targets == 1 and string.format("%s  ·  %s", music.name(first.pitch), paw.time.format(S.clip.start + first.start))
+    local title = #targets == 1
+        and string.format("%s  ·  %s", music.name(first.pitch), paw.time.format(S.clip.start + first.start))
       or string.format("%d notes", #targets)
     g:text(14, 10, title, { color = c.text, bold = true, size = 14, width = w - 20 })
-    g:text(14, 30, #targets == 1 and string.format("length %g", first.length) or "a value set here goes to all of them", { color = c.text_3, size = 10, width = w - 20 })
+    g:text(
+      14,
+      30,
+      #targets == 1 and string.format("length %g", first.length) or "a value set here goes to all of them",
+      { color = c.text_3, size = 10, width = w - 20 }
+    )
     local y = 50
     local drag = gui.drag
     for _, f in ipairs(fields(view, S)) do
@@ -216,7 +273,9 @@ return function(gui)
         for i = 2, #targets do
           if f.get(list[targets[i]]) ~= value then mixed = true end
         end
-        if drag and drag.mode == "field" and drag.field.key == f.key then value, mixed = drag.value, false end
+        if drag and drag.mode == "field" and drag.field.key == f.key then
+          value, mixed = drag.value, false
+        end
         local lx = f.indent and 26 or 14
         g:text(lx, y + 4, f.label, { color = c.text_2, size = 11, width = 120 })
         local vx, vw = 128, w - 128 - 10
@@ -224,7 +283,12 @@ return function(gui)
         local entry = view.entry
         if entry and entry.kind == "field" and entry.key == f.key then
           g:rect(vx, y + 1, vw, ROW - 3, { fill = c.warn, radius = 4 })
-          g:text(vx + 6, y + 4, view:entry_text() .. "▏", { color = c.surface, bold = true, size = 11, width = vw - 8 })
+          g:text(
+            vx + 6,
+            y + 4,
+            view:entry_text() .. "▏",
+            { color = c.surface, bold = true, size = 11, width = vw - 8 }
+          )
         elseif f.kind == "toggle" then
           g:rect(vx, y + 2, 34, ROW - 5, { fill = (value and not mixed) and c.select or c.control, radius = 8 })
           g:rect((value and not mixed) and vx + 19 or vx + 3, y + 5, 12, ROW - 11, { fill = c.text, radius = 6 })
@@ -241,7 +305,12 @@ return function(gui)
             local frac = util.clamp((value - f.min) / (f.max - f.min), 0, 1)
             g:rect(vx + 1, y + ROW - 5, (vw - 2) * frac, 2, { fill = c.select })
           end
-          g:text(vx + 6, y + 4, text .. (f.kind == "choice" and "  ▾" or ""), { color = c.text, size = 11, width = vw - 8 })
+          g:text(
+            vx + 6,
+            y + 4,
+            text .. (f.kind == "choice" and "  ▾" or ""),
+            { color = c.text, size = 11, width = vw - 8 }
+          )
         end
         gui.fields[#gui.fields + 1] = { x = ox + vx, y = oy + y, w = vw, h = ROW, field = f, value = value }
         y = y + ROW
@@ -260,7 +329,12 @@ return function(gui)
         local o = view:phoneme_override(targets[1], k)
         local missing = p.flags % 2 == 1
         local name = p.phoneme ~= "" and p.phoneme or p.alias
-        g:text(14, y + 2, name, { color = missing and c.error or o.phoneme and c.mute or c.select, bold = true, size = 11, width = 110 })
+        g:text(
+          14,
+          y + 2,
+          name,
+          { color = missing and c.error or o.phoneme and c.mute or c.select, bold = true, size = 11, width = 110 }
+        )
         local notes_ = {}
         if missing then notes_[#notes_ + 1] = "not in the voicebank" end
         if o.offset then notes_[#notes_ + 1] = string.format("%+d ticks", o.offset) end
@@ -278,7 +352,9 @@ return function(gui)
       if #words > 1 and #indices > 1 then
         -- Several words go to the notes in order, as the lyric sheet does.
         local which = {}
-        for _, i in ipairs(indices) do which[i] = true end
+        for _, i in ipairs(indices) do
+          which[i] = true
+        end
         local k = 0
         notes.change(view.clip_id, function(n)
           k = k + 1
@@ -286,7 +362,9 @@ return function(gui)
           return true
         end, which)
       else
-        for _, i in ipairs(indices) do notes.set_lyric(view.clip_id, i, text) end
+        for _, i in ipairs(indices) do
+          notes.set_lyric(view.clip_id, i, text)
+        end
       end
       return
     end
@@ -311,15 +389,23 @@ return function(gui)
       if d.moved then
         M.apply(view, function(p, n) f.set(p, d.value, n) end)
       else
-        view:type_text(string.format("%g", d.v0), function(text) commit_text(view, f, text) end,
-          { kind = "field", key = f.key, label = f.label:lower() })
+        view:type_text(
+          string.format("%g", d.v0),
+          function(text) commit_text(view, f, text) end,
+          { kind = "field", key = f.key, label = f.label:lower() }
+        )
       end
     end
   end
 
   function I.pointer(view, e)
     for _, slot in ipairs(gui.fields) do
-      if e.x >= slot.x and e.x < slot.x + slot.w + (slot.field.kind == "button" and 60 or 0) and e.y >= slot.y and e.y < slot.y + slot.h then
+      if
+        e.x >= slot.x
+        and e.x < slot.x + slot.w + (slot.field.kind == "button" and 60 or 0)
+        and e.y >= slot.y
+        and e.y < slot.y + slot.h
+      then
         local f = slot.field
         if e.button == "right" then
           if f.set and f.kind ~= "toggle" then M.apply(view, function(p, n) f.set(p, nil, n) end) end
@@ -328,14 +414,27 @@ return function(gui)
         if f.kind == "number" then
           gui.drag = { mode = "field", panel = field_drag, field = f, v0 = slot.value, value = slot.value, x0 = e.x }
         elseif f.kind == "text" then
-          view:type_text(slot.value, function(text) commit_text(view, f, text) end, { kind = "field", key = f.key, label = f.label:lower() })
+          view:type_text(
+            slot.value,
+            function(text) commit_text(view, f, text) end,
+            { kind = "field", key = f.key, label = f.label:lower() }
+          )
         elseif f.kind == "toggle" then
           M.apply(view, function(p, n) f.set(p, not slot.value, n) end)
         elseif f.kind == "button" then
           M.apply(view, function(p, n) f.set(p, nil, n) end)
         elseif f.kind == "choice" then
-          gui.popup = { x = slot.x - 60, y = slot.y + slot.h, w = slot.w + 60, items = f.options(), scroll = 0, current = slot.value,
-            pick = function(value) M.apply(view, function(p, n) f.set(p, value, n) end) end }
+          gui.popup = {
+            x = slot.x - 60,
+            y = slot.y + slot.h,
+            w = slot.w + 60,
+            items = f.options(),
+            scroll = 0,
+            current = slot.value,
+            pick = function(value)
+              M.apply(view, function(p, n) f.set(p, value, n) end)
+            end,
+          }
         end
         return
       end
@@ -352,7 +451,12 @@ return function(gui)
     for r = 1, rows do
       local item = popup.items[r + popup.scroll]
       local on = item.value == popup.current
-      g:text(x + 10, popup.y + 6 + (r - 1) * 20, (on and "● " or "   ") .. item.label, { color = on and c.select or c.text, size = 11, width = popup.w - 20 })
+      g:text(
+        x + 10,
+        popup.y + 6 + (r - 1) * 20,
+        (on and "● " or "   ") .. item.label,
+        { color = on and c.select or c.text, size = 11, width = popup.w - 20 }
+      )
     end
     if #popup.items > rows then
       g:text(x + popup.w - 12, popup.y + rows * 20 - 8, "⋮", { color = c.text_3, align = "right", width = 20 })

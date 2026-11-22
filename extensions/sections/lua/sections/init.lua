@@ -57,9 +57,7 @@ M.write = write
 
 --- Where the last section ends: the end of the project, but at least a bar
 --- after it starts.
-local function last_finish(start)
-  return math.max(paw.project.length or 0, start + paw.time.bar(start))
-end
+local function last_finish(start) return math.max(paw.project.length or 0, start + paw.time.bar(start)) end
 
 --- Every section, in order: { index, name, start, finish }.
 function M.list()
@@ -76,23 +74,31 @@ end
 function M.at(beat)
   local found
   for _, s in ipairs(M.list()) do
-    if s.start <= beat + EPS then found = s else break end
+    if s.start <= beat + EPS then
+      found = s
+    else
+      break
+    end
   end
   return found
 end
 
 --- The section under the edit cursor.
-function M.current()
-  return M.at(paw.cursor.beat)
-end
+function M.current() return M.at(paw.cursor.beat) end
 
 --- A section by name: exactly, then ignoring case, then by the start of the
 --- name. Nil when none matches.
 function M.find(name)
   local list, wanted = M.list(), tostring(name):lower()
-  for _, s in ipairs(list) do if s.name == name then return s end end
-  for _, s in ipairs(list) do if s.name:lower() == wanted then return s end end
-  for _, s in ipairs(list) do if s.name:lower():sub(1, #wanted) == wanted then return s end end
+  for _, s in ipairs(list) do
+    if s.name == name then return s end
+  end
+  for _, s in ipairs(list) do
+    if s.name:lower() == wanted then return s end
+  end
+  for _, s in ipairs(list) do
+    if s.name:lower():sub(1, #wanted) == wanted then return s end
+  end
 end
 
 --- A section from what a caller may give: an index, a name, a section
@@ -106,9 +112,7 @@ end
 
 local function need(which)
   local s = M.get(which)
-  if not s then
-    error(which == nil and "no section at the cursor" or "no section `" .. tostring(which) .. "`", 0)
-  end
+  if not s then error(which == nil and "no section at the cursor" or "no section `" .. tostring(which) .. "`", 0) end
   return s
 end
 M.need = need
@@ -179,7 +183,9 @@ end
 --- Replace every section at once with a list of { name, start }.
 function M.set(list)
   local copy = {}
-  for i, s in ipairs(list) do copy[i] = { name = tostring(s.name), start = s.start } end
+  for i, s in ipairs(list) do
+    copy[i] = { name = tostring(s.name), start = s.start }
+  end
   write(copy)
 end
 
@@ -187,7 +193,9 @@ end
 
 local function fingerprint(list)
   local parts = {}
-  for i, s in ipairs(list) do parts[i] = string.format("%.9g\0%s", s.start, s.name) end
+  for i, s in ipairs(list) do
+    parts[i] = string.format("%.9g\0%s", s.start, s.name)
+  end
   return table.concat(parts, "\1")
 end
 

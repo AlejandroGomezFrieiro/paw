@@ -60,8 +60,15 @@ local function merged(entries)
   local out = {}
   for _, e in ipairs(entries) do
     local prev = out[#out]
-    local joins = prev and prev.kind == "chord" and e.kind == "chord" and not prev.tuplet and not e.tuplet
-      and not prev.grace and not e.grace and prev.at + prev.len == e.at and #prev.notes == #e.notes
+    local joins = prev
+      and prev.kind == "chord"
+      and e.kind == "chord"
+      and not prev.tuplet
+      and not e.tuplet
+      and not prev.grace
+      and not e.grace
+      and prev.at + prev.len == e.at
+      and #prev.notes == #e.notes
     if joins then
       for k, n in ipairs(prev.notes) do
         if not (n.tie and D.pitch(e.notes[k]) == D.pitch(n)) then joins = false end
@@ -69,7 +76,9 @@ local function merged(entries)
     end
     if joins then
       prev.len = prev.len + e.len
-      for k, n in ipairs(prev.notes) do n.tie = e.notes[k].tie end
+      for k, n in ipairs(prev.notes) do
+        n.tie = e.notes[k].tie
+      end
     else
       local copy = util.merge(e, {})
       if e.notes then copy.notes = D.copy(e.notes) end
@@ -89,9 +98,20 @@ local function notes_of(sc, notes, keep)
 end
 
 local function event_of(sc, e, keep, tp)
-  return { id = keep and e.id or D.id(sc, "e"), kind = e.kind, dur = e.dur, dots = e.dots or 0, tuplet = tp,
-    notes = e.notes and notes_of(sc, e.notes, keep) or nil, art = e.art, arpeggio = e.arpeggio, beam = e.beam,
-    stem = e.stem, grace = e.grace, lyric = e.lyric }
+  return {
+    id = keep and e.id or D.id(sc, "e"),
+    kind = e.kind,
+    dur = e.dur,
+    dots = e.dots or 0,
+    tuplet = tp,
+    notes = e.notes and notes_of(sc, e.notes, keep) or nil,
+    art = e.art,
+    arpeggio = e.arpeggio,
+    beam = e.beam,
+    stem = e.stem,
+    grace = e.grace,
+    lyric = e.lyric,
+  }
 end
 
 --- Write entries (a fragment's line: `{ at, len, kind, notes, ... }`, `at`
@@ -112,7 +132,12 @@ function P.lay(sc, staff, v, t0, entries, length, keep)
       k = k + 1
     elseif e.tuplet then
       local group = { e }
-      while list[k + #group] and list[k + #group].tuplet and list[k + #group].tuplet.id == e.tuplet.id and not list[k + #group].grace do
+      while
+        list[k + #group]
+        and list[k + #group].tuplet
+        and list[k + #group].tuplet.id == e.tuplet.id
+        and not list[k + #group].grace
+      do
         group[#group + 1] = list[k + #group]
       end
       local span = group[#group].at + group[#group].len - e.at
@@ -122,7 +147,9 @@ function P.lay(sc, staff, v, t0, entries, length, keep)
       if at + span <= f.lengths[mi] then
         local tp = { id = D.id(sc, "t"), actual = e.tuplet.actual, normal = e.tuplet.normal }
         local evs = {}
-        for i, g in ipairs(group) do evs[i] = event_of(sc, g, keep, tp) end
+        for i, g in ipairs(group) do
+          evs[i] = event_of(sc, g, keep, tp)
+        end
         D.splice(sc, mi, staff, v, at, at + span, evs)
       else
         for _, g in ipairs(group) do
@@ -158,8 +185,19 @@ end
 function P.put(sc, staff, v, t, len, e, keep)
   local mi, at = D.locate(sc, t)
   local notes = {}
-  for i, n in ipairs(e.notes) do notes[i] = { id = keep and n.id or nil, step = n.step, alter = n.alter, octave = n.octave } end
-  return D.put_chord(sc, mi, staff, v, at, len, notes, { id = keep and e.id or nil, art = e.art, arpeggio = e.arpeggio, beam = e.beam })
+  for i, n in ipairs(e.notes) do
+    notes[i] = { id = keep and n.id or nil, step = n.step, alter = n.alter, octave = n.octave }
+  end
+  return D.put_chord(
+    sc,
+    mi,
+    staff,
+    v,
+    at,
+    len,
+    notes,
+    { id = keep and e.id or nil, art = e.art, arpeggio = e.arpeggio, beam = e.beam }
+  )
 end
 
 -- Fragments: what is yanked ----------------------------------------------------------------------
@@ -177,14 +215,18 @@ function P.fragment(sc, sel)
       ms[#ms + 1] = m
     end
     local staves = {}
-    for i, st in ipairs(sc.staves) do staves[i] = st.id end
+    for i, st in ipairs(sc.staves) do
+      staves[i] = st.id
+    end
     return { measures = ms, staves = staves, base = sel.from, length = sel.to - sel.from }
   end
   local items = O.items(sc, sel)
   local base = sel.from
   if sel.events or sel.notes then
     base = math.huge
-    for _, it in ipairs(items) do base = math.min(base, it.s) end
+    for _, it in ipairs(items) do
+      base = math.min(base, it.s)
+    end
     if base == math.huge then base = sel.from end
   end
   local lines, order, finish = {}, {}, sel.to
@@ -197,9 +239,21 @@ function P.fragment(sc, sel)
       order[#order + 1] = line
     end
     local ev = it.ev
-    local e = { at = it.s - base, len = it.e - it.s, kind = ev.kind, id = ev.id, dur = ev.dur, dots = ev.dots, grace = ev.grace,
-      art = ev.art, arpeggio = ev.arpeggio, beam = ev.beam, stem = ev.stem, lyric = ev.lyric,
-      tuplet = ev.tuplet and { id = ev.tuplet.id, actual = ev.tuplet.actual, normal = ev.tuplet.normal } or nil }
+    local e = {
+      at = it.s - base,
+      len = it.e - it.s,
+      kind = ev.kind,
+      id = ev.id,
+      dur = ev.dur,
+      dots = ev.dots,
+      grace = ev.grace,
+      art = ev.art,
+      arpeggio = ev.arpeggio,
+      beam = ev.beam,
+      stem = ev.stem,
+      lyric = ev.lyric,
+      tuplet = ev.tuplet and { id = ev.tuplet.id, actual = ev.tuplet.actual, normal = ev.tuplet.normal } or nil,
+    }
     if it.notes then e.notes = D.copy(it.notes) end
     line.entries[#line.entries + 1] = e
     finish = math.max(finish, it.e)
@@ -214,13 +268,17 @@ function P.value(sc, frag)
   local ids = {}
   for _, line in ipairs(frag.lines or {}) do
     for _, e in ipairs(line.entries) do
-      for _, n in ipairs(e.notes or {}) do ids[n.id] = true end
+      for _, n in ipairs(e.notes or {}) do
+        ids[n.id] = true
+      end
     end
   end
   for _, m in ipairs(frag.measures or {}) do
     for _, entry in ipairs(m.voices) do
       for _, ev in ipairs(entry.events) do
-        for _, n in ipairs(ev.notes or {}) do ids[n.id] = true end
+        for _, n in ipairs(ev.notes or {}) do
+          ids[n.id] = true
+        end
       end
     end
   end
@@ -229,7 +287,14 @@ function P.value(sc, frag)
   local clip = view:clip()
   for _, n in ipairs(clip and clip:notes() or {}) do
     if n.id and ids["n" .. n.id] then
-      notes[#notes + 1] = { pitch = n.pitch, start = n.start - from, length = n.length, velocity = n.velocity, meta = n.meta, attr = n.attr }
+      notes[#notes + 1] = {
+        pitch = n.pitch,
+        start = n.start - from,
+        length = n.length,
+        velocity = n.velocity,
+        meta = n.meta,
+        attr = n.attr,
+      }
       top = math.max(top, n.pitch)
     end
   end
@@ -252,17 +317,25 @@ function P.remove_measures(sc, a, b)
   local after = sc.measures[b + 1]
   if after and not after.meter then after.meter = f.meters[b + 1] end
   local gone = {}
-  for i = a, b do gone[sc.measures[i].id] = true end
+  for i = a, b do
+    gone[sc.measures[i].id] = true
+  end
   local marks = {}
   for _, mk in ipairs(sc.marks or {}) do
     if not (gone[mk.from and mk.from.measure] or (mk.to and gone[mk.to.measure])) then marks[#marks + 1] = mk end
   end
   sc.marks = marks
-  for i = b, a, -1 do table.remove(sc.measures, i) end
+  for i = b, a, -1 do
+    table.remove(sc.measures, i)
+  end
   sc._frame = nil
-  for i = a, #sc.measures do D.touch(sc, i) end
+  for i = a, #sc.measures do
+    D.touch(sc, i)
+  end
   for _, st in ipairs(sc.staves) do
-    for v = 1, 4 do D.fix_ties(sc, st.id, v, math.max(1, a - 1), math.min(#sc.measures, a)) end
+    for v = 1, 4 do
+      D.fix_ties(sc, st.id, v, math.max(1, a - 1), math.min(#sc.measures, a))
+    end
   end
 end
 
@@ -273,7 +346,9 @@ function P.insert_measures(sc, at, frag)
   local follow = sc.measures[at]
   if follow and not follow.meter then follow.meter = f.meters[at] end
   local staff_of = {}
-  for i, id in ipairs(frag.staves or {}) do staff_of[id] = sc.staves[i] and sc.staves[i].id end
+  for i, id in ipairs(frag.staves or {}) do
+    staff_of[id] = sc.staves[i] and sc.staves[i].id
+  end
   for k, m in ipairs(frag.measures) do
     local copy = D.copy(m)
     copy.id = D.id(sc, "m")
@@ -283,9 +358,12 @@ function P.insert_measures(sc, at, frag)
       if entry.staff then
         for _, ev in ipairs(entry.events) do
           ev.id = D.id(sc, "e")
-          for _, n in ipairs(ev.notes or {}) do n.id = D.id(sc, "n") end
+          for _, n in ipairs(ev.notes or {}) do
+            n.id = D.id(sc, "n")
+          end
           if ev.tuplet then
-            tuplets[ev.tuplet.id] = tuplets[ev.tuplet.id] or { id = D.id(sc, "t"), actual = ev.tuplet.actual, normal = ev.tuplet.normal }
+            tuplets[ev.tuplet.id] = tuplets[ev.tuplet.id]
+              or { id = D.id(sc, "t"), actual = ev.tuplet.actual, normal = ev.tuplet.normal }
             ev.tuplet = tuplets[ev.tuplet.id]
           end
         end
@@ -296,7 +374,9 @@ function P.insert_measures(sc, at, frag)
     table.insert(sc.measures, at + k - 1, copy)
   end
   sc._frame = nil
-  for i = at, #sc.measures do D.touch(sc, i) end
+  for i = at, #sc.measures do
+    D.touch(sc, i)
+  end
 end
 
 -- Deleting, moving and pasting ----------------------------------------------------------------------
@@ -310,9 +390,7 @@ function P.delete(sc, sel)
   elseif sel.notes or sel.pitches then
     for _, it in ipairs(O.items(sc, sel)) do
       for _, n in ipairs(it.notes) do
-        if D.find_note(sc, n.id) then
-          D.remove_note(sc, n.id)
-        end
+        if D.find_note(sc, n.id) then D.remove_note(sc, n.id) end
       end
     end
   elseif sel.events then
@@ -455,12 +533,18 @@ function P.retrograde(sc, sel)
     for _, u in ipairs(units) do
       u.main.at = frag.length - (u.main.at + u.main.len)
       if u.main.notes then
-        for _, n in ipairs(u.main.notes) do n.tie = nil end
+        for _, n in ipairs(u.main.notes) do
+          n.tie = nil
+        end
       end
-      for _, g in ipairs(u.graces) do g.at = u.main.at end
+      for _, g in ipairs(u.graces) do
+        g.at = u.main.at
+      end
     end
     for k = #units, 1, -1 do
-      for _, g in ipairs(units[k].graces) do out[#out + 1] = g end
+      for _, g in ipairs(units[k].graces) do
+        out[#out + 1] = g
+      end
       out[#out + 1] = units[k].main
     end
     local st = sc.staves[line.staff_index] or sc.staves[1]
@@ -515,7 +599,9 @@ function P.filter(name, fn, desc) P.filters[name] = { fn = fn, desc = desc or ""
 
 P.filter("reverse", function(events)
   local out = {}
-  for k = #events, 1, -1 do out[#out + 1] = events[k] end
+  for k = #events, 1, -1 do
+    out[#out + 1] = events[k]
+  end
   return out
 end, "the line backwards: a retrograde")
 P.filter("transpose", function(events, args)
@@ -533,7 +619,9 @@ P.filter("rhythm", function(events, args)
   -- Every note the same value: `rhythm 1/8`.
   local a, b = tostring(args[1] or "1/4"):match("^(%d+)/(%d+)$")
   local len = a and D.ticks({ tonumber(a), tonumber(b) }) or D.Q
-  for _, e in ipairs(events) do e.len = len end
+  for _, e in ipairs(events) do
+    e.len = len
+  end
   return events
 end, "every event one value: `rhythm 1/8`")
 
@@ -546,14 +634,18 @@ local function event_text(e)
   if not e.notes or #e.notes == 0 then
     words[2] = "r"
   else
-    for _, n in ipairs(e.notes) do words[#words + 1] = model.name({ letter = n.step, alter = n.alter, octave = n.octave }) end
+    for _, n in ipairs(e.notes) do
+      words[#words + 1] = model.name({ letter = n.step, alter = n.alter, octave = n.octave })
+    end
   end
   return table.concat(words, " ")
 end
 
 local function text_event(line)
   local words = {}
-  for w in line:gmatch("%S+") do words[#words + 1] = w end
+  for w in line:gmatch("%S+") do
+    words[#words + 1] = w
+  end
   if #words == 0 then return nil end
   local a, b = words[1]:match("^(%d+)/(%d+)$")
   if not a or tonumber(b) == 0 then return nil, "`" .. line .. "`: an event starts with its length, `1/4`" end
@@ -573,7 +665,9 @@ end
 --- Run a shell command over events as text; the events it writes back, or nil and why not.
 local function shell(cmd, events)
   local lines = {}
-  for i, e in ipairs(events) do lines[i] = event_text(e) end
+  for i, e in ipairs(events) do
+    lines[i] = event_text(e)
+  end
   local path = os.tmpname()
   local fh = io.open(path, "w")
   if not fh then return nil, "no room for the filter's input" end
@@ -598,7 +692,9 @@ end
 --- comes back. Nil and why on failure.
 function P.run_filter(sc, sel, line)
   local words = {}
-  for w in line:gmatch("%S+") do words[#words + 1] = w end
+  for w in line:gmatch("%S+") do
+    words[#words + 1] = w
+  end
   if #words == 0 then return nil, "a filter: " .. P.filter_names() .. ", or a shell command" end
   local named = P.filters[words[1]]
   local frag = P.fragment(sc, sel)
@@ -612,7 +708,9 @@ function P.run_filter(sc, sel, line)
         local notes
         if e.kind == "chord" then
           notes = {}
-          for k, n in ipairs(e.notes) do notes[k] = { step = n.step, alter = n.alter, octave = n.octave } end
+          for k, n in ipairs(e.notes) do
+            notes[k] = { step = n.step, alter = n.alter, octave = n.octave }
+          end
         end
         events[#events + 1] = { len = e.len, notes = notes }
         prev_end = e.at + e.len
@@ -630,7 +728,8 @@ function P.run_filter(sc, sel, line)
     local entries, at = {}, 0
     for _, e in ipairs(back) do
       if e.len and e.len > 0 then
-        entries[#entries + 1] = { at = at, len = e.len, kind = e.notes and #e.notes > 0 and "chord" or "rest", notes = e.notes }
+        entries[#entries + 1] =
+          { at = at, len = e.len, kind = e.notes and #e.notes > 0 and "chord" or "rest", notes = e.notes }
         at = at + e.len
       end
     end
@@ -643,7 +742,9 @@ end
 
 function P.filter_names()
   local names = {}
-  for name in pairs(P.filters) do names[#names + 1] = name end
+  for name in pairs(P.filters) do
+    names[#names + 1] = name
+  end
   table.sort(names)
   return table.concat(names, ", ")
 end
@@ -714,7 +815,9 @@ function P.paste(value, before, count)
     cur.voice = view:cursor_voice()
     local t = cur.t
     if frag.measures then
-      for _ = 1, count or 1 do P.put_fragment(sc, frag, t, cur, false, not before) end
+      for _ = 1, count or 1 do
+        P.put_fragment(sc, frag, t, cur, false, not before)
+      end
       local mi = D.locate(sc, t)
       local f = D.frame(sc)
       local first = before and mi or mi + 1
@@ -759,7 +862,11 @@ local LETTER_STEP = LETTER
 function P.nearest(letter, from)
   local l = LETTER_STEP[letter]
   local step = floor(from / 7) * 7 + l
-  if step - from > 3 then step = step - 7 elseif from - step > 3 then step = step + 7 end
+  if step - from > 3 then
+    step = step - 7
+  elseif from - step > 3 then
+    step = step + 7
+  end
   return step
 end
 
@@ -843,7 +950,9 @@ function P.repitch_enter(letter, add)
     local keep = ev.notes[1]
     for k = #ev.notes, 2, -1 do
       local n = ev.notes[k]
-      for _, c in ipairs(D.tied_on(sc, cur.staff, cur.voice, n.id)) do D.remove_note(sc, c.note.id) end
+      for _, c in ipairs(D.tied_on(sc, cur.staff, cur.voice, n.id)) do
+        D.remove_note(sc, c.note.id)
+      end
       D.remove_note(sc, n.id)
     end
     D.respell(sc, keep.id, note.step, note.alter, note.octave)
@@ -870,8 +979,18 @@ function P.put_grace(sc, mi, staff, v, at, kind, sp)
   for i, ev in ipairs(entry and entry.events or {}) do
     if x == at and not ev.grace then
       if ev.kind ~= "chord" then return false end
-      table.insert(entry.events, i, { id = D.id(sc, "e"), kind = "chord", grace = kind, dur = { 1, 8 }, dots = 0,
-        notes = { { id = D.id(sc, "n"), step = sp.letter, alter = sp.alter, octave = sp.octave } } })
+      table.insert(
+        entry.events,
+        i,
+        {
+          id = D.id(sc, "e"),
+          kind = "chord",
+          grace = kind,
+          dur = { 1, 8 },
+          dots = 0,
+          notes = { { id = D.id(sc, "n"), step = sp.letter, alter = sp.alter, octave = sp.octave } },
+        }
+      )
       D.touch(sc, mi)
       return true
     end

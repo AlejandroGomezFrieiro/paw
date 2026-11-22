@@ -19,15 +19,25 @@ local EPS = 1e-6
 --- the one whose tonic sounds longest, major before minor.
 function M.guess_key(notes)
   local weight, first = {}, nil
-  for pc = 0, 11 do weight[pc] = 0 end
+  for pc = 0, 11 do
+    weight[pc] = 0
+  end
   for _, n in ipairs(notes) do
     local pc = n.pitch % 12
     weight[pc] = weight[pc] + n.length
-    if not first or n.start < first.start - EPS or (math.abs(n.start - first.start) < EPS and n.pitch < first.pitch) then first = n end
+    if
+      not first
+      or n.start < first.start - EPS
+      or (math.abs(n.start - first.start) < EPS and n.pitch < first.pitch)
+    then
+      first = n
+    end
   end
   local function rank(tonic, mode)
     local score = 0
-    for _, step in ipairs(SCALES[mode]) do score = score + weight[(tonic + step) % 12] end
+    for _, step in ipairs(SCALES[mode]) do
+      score = score + weight[(tonic + step) % 12]
+    end
     return score, (first and first.pitch % 12 == tonic) and 1 or 0, weight[tonic]
   end
   local best, best_rank
@@ -39,7 +49,9 @@ function M.guess_key(notes)
         if better or r[i] < best_rank[i] - EPS then break end
         if r[i] > best_rank[i] + EPS then better = true end
       end
-      if better then best, best_rank = { tonic = tonic, mode = mode }, r end
+      if better then
+        best, best_rank = { tonic = tonic, mode = mode }, r
+      end
     end
   end
   best.name = NAMES[best.tonic + 1] .. " " .. best.mode
@@ -74,7 +86,9 @@ end
 
 local function signature(notes)
   local parts = {}
-  for i, n in ipairs(notes) do parts[i] = string.format("%d@%.4f+%.4f", n.pitch, n.start, n.length) end
+  for i, n in ipairs(notes) do
+    parts[i] = string.format("%d@%.4f+%.4f", n.pitch, n.start, n.length)
+  end
   table.sort(parts)
   return table.concat(parts, " ")
 end
@@ -115,7 +129,9 @@ function M.suggest(ctx)
   if #motif > 0 and #motif < #phrase then
     local first, second = moved(motif, half, 1, key), moved(motif, 2 * half, 2, key)
     if first and second then
-      for _, n in ipairs(second) do first[#first + 1] = n end
+      for _, n in ipairs(second) do
+        first[#first + 1] = n
+      end
       add("the motif, rising", first, "in " .. name)
     end
   end

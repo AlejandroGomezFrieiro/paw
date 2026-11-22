@@ -19,7 +19,9 @@ local function N(pitch, start, length) return { pitch = pitch, start = start, le
 --- A bar of four quarters from `pitch` up the C major scale.
 local function bar(notes, b, pitch)
   local scale = { 0, 2, 4, 5 }
-  for k = 0, 3 do notes[#notes + 1] = N(pitch + scale[k + 1], b * 4 + k, 1) end
+  for k = 0, 3 do
+    notes[#notes + 1] = N(pitch + scale[k + 1], b * 4 + k, 1)
+  end
 end
 
 --- A quartet in the track order a score would not keep: the cello first.
@@ -31,12 +33,18 @@ local function quartet(bars)
   local view, P = load()
   bars = bars or 8
   local fl1, fl2, cl, vc = {}, {}, {}, {}
-  bar(fl1, 0, 72) bar(fl2, 0, 72)
+  bar(fl1, 0, 72)
+  bar(fl2, 0, 72)
   bar(fl1, 1, 74)
-  bar(fl1, 2, 76) bar(fl2, 2, 67)
-  bar(cl, 0, 60) bar(cl, 5, 62)
-  bar(vc, 0, 48) bar(vc, 5, 48)
-  for b = 6, bars - 1 do bar(vc, b, 48) end
+  bar(fl1, 2, 76)
+  bar(fl2, 2, 67)
+  bar(cl, 0, 60)
+  bar(cl, 5, 62)
+  bar(vc, 0, 48)
+  bar(vc, 5, 48)
+  for b = 6, bars - 1 do
+    bar(vc, b, 48)
+  end
   local tracks = {}
   for _, spec in ipairs({ { "Violoncello", vc }, { "Flute 1", fl1 }, { "Flute 2", fl2 }, { "Clarinet in Bb", cl } }) do
     local track = paw.add_track({ name = spec[1] })
@@ -52,7 +60,9 @@ local function pitches(evs)
   local out = {}
   for _, ev in ipairs(evs) do
     if ev.kind == "note" then
-      for _, n in ipairs(ev.notes) do out[#out + 1] = require("notation.model").name(n) end
+      for _, n in ipairs(ev.notes) do
+        out[#out + 1] = require("notation.model").name(n)
+      end
     end
   end
   return table.concat(out, " ")
@@ -61,8 +71,14 @@ end
 test("the full score orders instruments as an orchestra does, a bracket over each family", function()
   local _, P = quartet()
   local names = {}
-  for i, e in ipairs(P.instruments()) do names[i] = e.name end
-  eq(table.concat(names, ", "), "Flute 1, Flute 2, Clarinet in Bb, Violoncello", "woodwinds before strings, the flutes before the clarinet")
+  for i, e in ipairs(P.instruments()) do
+    names[i] = e.name
+  end
+  eq(
+    table.concat(names, ", "),
+    "Flute 1, Flute 2, Clarinet in Bb, Violoncello",
+    "woodwinds before strings, the flutes before the clarinet"
+  )
   local layout = P.score_layout()
   eq(#layout.staves, 4, "a staff each")
   eq(layout.labels[1].full .. " / " .. layout.labels[1].short, "Flute 1 / Fl. 1", "a full name and a short one")
@@ -78,7 +94,11 @@ test("a part for an instrument in B flat is written a major second up, in its ke
   local iv = P.interval("Bb")
   eq(iv.steps .. "," .. iv.semis .. "," .. iv.fifths, "1,2,2", "B flat: a second, two semitones, two sharps")
   iv = P.interval("Eb up")
-  eq(iv.steps .. "," .. iv.semis .. "," .. iv.fifths, "-2,-3,3", "an E flat clarinet is written a minor third down: C major as A major")
+  eq(
+    iv.steps .. "," .. iv.semis .. "," .. iv.fifths,
+    "-2,-3,3",
+    "an E flat clarinet is written a minor third down: C major as A major"
+  )
   iv = P.interval("F")
   eq(iv.steps .. "," .. iv.semis .. "," .. iv.fifths, "4,7,1", "a horn in F a fifth up")
   eq(P.interval("Bb octave").semis, 14, "a tenor sax a ninth up")
@@ -151,7 +171,8 @@ test("a part's pages turn where it rests", function()
   track:add_clip({ start = 0, length = 160 * 4, name = "cello", notes = notes })
   paw.flush()
   local layout = P.part_layout(track.id)
-  local st = engrave.style({ space = 10, cell = { w = 1, h = 1 }, ink = "#000000", paper = "#ffffff", accent = "#000000" })
+  local st =
+    engrave.style({ space = 10, cell = { w = 1, h = 1 }, ink = "#000000", paper = "#ffffff", accent = "#000000" })
   local geo = page.geometry(10)
   local eng = page.systems(layout, st, geo, geo.width)
   ok(#eng.pages >= 3, "a part of several pages")
@@ -220,7 +241,10 @@ test("parts and the score export as PDF pages and MusicXML with parts", function
   local n = P.musicxml(dir .. "/score.musicxml")
   eq(n, 4, "four parts")
   local xml = io.open(dir .. "/score.musicxml"):read("*a")
-  ok(xml:find("<transpose><diatonic>-1</diatonic><chromatic>-2</chromatic></transpose>", 1, true), "the clarinet says how it sounds")
+  ok(
+    xml:find("<transpose><diatonic>-1</diatonic><chromatic>-2</chromatic></transpose>", 1, true),
+    "the clarinet says how it sounds"
+  )
   ok(xml:find('<part-group type="start" number="1"><group-name>Woodwinds', 1, true), "the woodwinds bracketed")
   ok(xml:find("<part-abbreviation>Fl. 1</part-abbreviation>", 1, true), "short names")
   -- Read back, the clarinet is at concert pitch again.
@@ -240,7 +264,10 @@ test("the terminal's cell view draws the score's names and a part's multi-measur
   eq(view.parts and view.parts.kind, "score", "\\Ps shows the score")
   local text = table.concat(api.ui_snapshot(140, 60), "\n")
   ok(text:find("Flute 1", 1, true), "the first flute named")
-  ok(text:find("the full score, staff 4 of 4", 1, true), "the info line says what is shown, and the cello's staff is the active one")
+  ok(
+    text:find("the full score, staff 4 of 4", 1, true),
+    "the info line says what is shown, and the cello's staff is the active one"
+  )
   paw.commands.exec("part Violoncello")
   text = table.concat(api.ui_snapshot(140, 60), "\n")
   ok(text:find("━━ 4 ━━", 1, true), "the cello's four bars of rest as one")
@@ -256,5 +283,9 @@ end)
 test(":help notation-parts finds the parts' section", function()
   load()
   local tag = paw.help.lookup("notation-parts")
-  eq(tag and (tag.source.name .. " " .. tag.name), "notation/doc/reference.md notation-parts", "the reference's section")
+  eq(
+    tag and (tag.source.name .. " " .. tag.name),
+    "notation/doc/reference.md notation-parts",
+    "the reference's section"
+  )
 end)

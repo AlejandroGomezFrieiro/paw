@@ -50,13 +50,17 @@ end
 
 --- Where a failure happened, for the message and the repeat command.
 function E:where(what)
-  return string.format("scenario %s, seed %d, day %d, step %d%s", self.scenario, self.seed, self.day, self.step,
-    what and (" (" .. what .. ")") or "")
+  return string.format(
+    "scenario %s, seed %d, day %d, step %d%s",
+    self.scenario,
+    self.seed,
+    self.day,
+    self.step,
+    what and (" (" .. what .. ")") or ""
+  )
 end
 
-function E:fail(what, text)
-  error({ e2e = true, where = self:where(what), text = text }, 0)
-end
+function E:fail(what, text) error({ e2e = true, where = self:where(what), text = text }, 0) end
 
 -- What paw holds, in the shape of the model -----------------------------------------
 
@@ -72,19 +76,38 @@ function E.snapshot()
   end
   table.sort(out.markers, Model.marker_order)
   local names = {}
-  for _, t in ipairs(paw.tracks()) do names[t.id] = t.name end
+  for _, t in ipairs(paw.tracks()) do
+    names[t.id] = t.name
+  end
   for _, t in ipairs(paw.tracks()) do
     local g = t:get()
-    local track = { name = g.name, color = t.color, volume = g.volume, pan = g.pan, mute = g.mute, solo = g.solo,
-      devices = {}, sends = {}, clips = {}, notes = {}, lanes = {} }
+    local track = {
+      name = g.name,
+      color = t.color,
+      volume = g.volume,
+      pan = g.pan,
+      mute = g.mute,
+      solo = g.solo,
+      devices = {},
+      sends = {},
+      clips = {},
+      notes = {},
+      lanes = {},
+    }
     for _, l in ipairs(api.lane_list(t.id)) do
       local points = {}
-      for _, p in ipairs(api.lane_points(l.id)) do points[#points + 1] = { p[1], p[2] } end
+      for _, p in ipairs(api.lane_points(l.id)) do
+        points[#points + 1] = { p[1], p[2] }
+      end
       track.lanes[#track.lanes + 1] = { target = l.param and (l.target .. ":" .. l.param) or l.target, points = points }
     end
     table.sort(track.lanes, function(a, b) return a.target < b.target end)
-    for _, d in ipairs(t:devices()) do track.devices[#track.devices + 1] = d.kind end
-    for _, s in ipairs(g.sends or {}) do track.sends[#track.sends + 1] = { target = names[s.target], level = s.level } end
+    for _, d in ipairs(t:devices()) do
+      track.devices[#track.devices + 1] = d.kind
+    end
+    for _, s in ipairs(g.sends or {}) do
+      track.sends[#track.sends + 1] = { target = names[s.target], level = s.level }
+    end
     for _, c in ipairs(t:clips()) do
       local cg = c:get()
       local clip = { kind = cg.kind, start = cg.start, length = cg.length, name = cg.name, muted = cg.muted }
@@ -95,7 +118,8 @@ function E.snapshot()
         for _, n in ipairs(c:notes()) do
           clip.notes[#clip.notes + 1] = { pitch = n.pitch, start = n.start, length = n.length, velocity = n.velocity }
           if n.start >= 0 and n.start < cg.length then
-            track.notes[#track.notes + 1] = { pitch = n.pitch, start = cg.start + n.start, length = n.length, velocity = n.velocity }
+            track.notes[#track.notes + 1] =
+              { pitch = n.pitch, start = cg.start + n.start, length = n.length, velocity = n.velocity }
           end
         end
         Model.sort_notes(clip.notes)
@@ -113,7 +137,9 @@ function E:compare(what, want, got)
   local diffs = Model.diff(want or self.model, got or E.snapshot())
   if #diffs > 0 then
     local shown = {}
-    for i = 1, math.min(8, #diffs) do shown[i] = "  " .. diffs[i] end
+    for i = 1, math.min(8, #diffs) do
+      shown[i] = "  " .. diffs[i]
+    end
     if #diffs > 8 then shown[#shown + 1] = string.format("  ... and %d more", #diffs - 8) end
     self:fail(what, "paw differs from the model:\n" .. table.concat(shown, "\n"))
   end
@@ -136,7 +162,9 @@ function E:type(list)
     -- A key that begins a longer one (`]` and `]g`) waits for the next key
     -- up to `timeoutlen`, as the person does.
     local deadline = api.now() + paw.opt.timeoutlen + 5000
-    while paw.keymap.pending() ~= "" and api.now() < deadline do paw.wait(10) end
+    while paw.keymap.pending() ~= "" and api.now() < deadline do
+      paw.wait(10)
+    end
     paw.flush()
     api.undo_checkpoint()
   end
@@ -203,9 +231,7 @@ end
 --- Keys that put the arrange cursor on track `i` (1 = first) at bar `bar`.
 --- The arrange view has the keyboard: the scenarios go back to it after
 --- each visit to another view.
-function E.go(i, bar)
-  return { "<Esc>", tostring(i) .. "G", tostring(bar or 1) .. "|" }
-end
+function E.go(i, bar) return { "<Esc>", tostring(i) .. "G", tostring(bar or 1) .. "|" } end
 
 --- The keys of insert mode that draw `notes` one after the other from the
 --- cursor, each `{ pitch, length }` (length in steps of a quarter beat), the
@@ -215,7 +241,11 @@ function E.draw(notes, velocity)
   for i, n in ipairs(notes) do
     local d = n[1] - pitch
     local k = ""
-    if d > 0 then k = d .. "k" elseif d < 0 then k = (-d) .. "j" end
+    if d > 0 then
+      k = d .. "k"
+    elseif d < 0 then
+      k = -d .. "j"
+    end
     keys[#keys + 1] = k .. n[2] .. "l"
     if i < #notes then keys[#keys + 1] = "<CR>" end
     out[#out + 1] = { pitch = n[1], start = at, length = n[2] / 4, velocity = velocity or 100 }

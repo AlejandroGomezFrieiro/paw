@@ -24,13 +24,9 @@ end
 
 --- The file of a lesson's practice project: the `project.toml` of its
 --- folder.
-function M.practice(id)
-  return M.ensure(M.dir() .. "/practice") .. "/" .. id .. "/project.toml"
-end
+function M.practice(id) return M.ensure(M.dir() .. "/practice") .. "/" .. id .. "/project.toml" end
 
-function M.progress_path()
-  return M.dir() .. "/progress.lua"
-end
+function M.progress_path() return M.dir() .. "/progress.lua" end
 
 -- Plain Lua data written as a Lua literal, read back in an empty environment.
 local function encode(value, indent)
@@ -40,7 +36,9 @@ local function encode(value, indent)
   if kind == "number" or kind == "boolean" then return tostring(value) end
   if kind ~= "table" then return "nil" end
   local keys = {}
-  for k in pairs(value) do keys[#keys + 1] = k end
+  for k in pairs(value) do
+    keys[#keys + 1] = k
+  end
   table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
   local inner, parts = indent .. "  ", {}
   for _, k in ipairs(keys) do

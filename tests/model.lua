@@ -181,10 +181,14 @@ end)
 test("notes carry extension data through edits, undo and saving", function()
   fresh()
   local t = paw.add_track({ name = "Words" })
-  local clip = t:add_clip({ start = 0, length = 4, notes = {
-    { pitch = 60, start = 1, length = 1, meta = { lyric = "la", extra = { 1, 2 } } },
-    { pitch = 62, start = 0, length = 1 },
-  } })
+  local clip = t:add_clip({
+    start = 0,
+    length = 4,
+    notes = {
+      { pitch = 60, start = 1, length = 1, meta = { lyric = "la", extra = { 1, 2 } } },
+      { pitch = 62, start = 0, length = 1 },
+    },
+  })
   local notes = clip:notes()
   eq(notes[1].meta, nil, "a note without data has no meta")
   eq(notes[2].meta.lyric, "la", "the data is kept, and stays with its note when the list is sorted")
@@ -207,8 +211,11 @@ test("saving and loading keeps every number exactly", function()
   fresh()
   local t = paw.add_track({ pan = 0.123456789012345678 })
   -- Found by the fuzzer: these came back from a saved file one bit off.
-  t:add_clip({ start = 1.3859882354736328, length = 3.9661864042282104,
-    notes = { { pitch = 60, start = 0.15935707092285156, length = 1.9014935493469238 } } })
+  t:add_clip({
+    start = 1.3859882354736328,
+    length = 3.9661864042282104,
+    notes = { { pitch = 60, start = 0.15935707092285156, length = 1.9014935493469238 } },
+  })
   local before = t:clips()[1]
   local note = before:notes()[1]
   paw.project.load(paw.project.save(scratch .. "/exact.json"))
@@ -247,11 +254,18 @@ end)
 test("note lists read and write the same through either path", function()
   fresh()
   local clip = paw.add_track():add_clip({ start = 0, length = 8 })
-  local notes = { { pitch = 60, start = 0.5, length = 0.25 }, { pitch = 64, start = 0, length = 1.5, velocity = 7, extra = "ignored" } }
+  local notes = {
+    { pitch = 60, start = 0.5, length = 0.25 },
+    { pitch = 64, start = 0, length = 1.5, velocity = 7, extra = "ignored" },
+  }
   api.clip_set_notes(clip.id, notes)
   local got = api.clip_notes(clip.id)
   eq(#got, 2, "count")
-  eq(got[1].pitch .. "/" .. got[1].start .. "/" .. got[1].length .. "/" .. got[1].velocity, "64/0/1.5/7", "sorted, fields")
+  eq(
+    got[1].pitch .. "/" .. got[1].start .. "/" .. got[1].length .. "/" .. got[1].velocity,
+    "64/0/1.5/7",
+    "sorted, fields"
+  )
   eq(got[2].velocity, 100, "default velocity")
   eq(got[1].extra, nil, "unknown fields are not kept")
   api.clip_add_notes(clip.id, {})
@@ -260,7 +274,11 @@ test("note lists read and write the same through either path", function()
   fails(function() api.clip_set_notes(clip.id, { { pitch = "C4", start = 0, length = 1 } }) end, "u8", "a pitch name")
   fails(function() api.clip_set_notes(clip.id, { { pitch = 300, start = 0, length = 1 } }) end, "300", "pitch 300")
   fails(function() api.clip_set_notes(clip.id, { { pitch = 60, length = 1 } }) end, "start", "no start")
-  fails(function() api.clip_set_notes(clip.id, { { pitch = 60.5, start = 0, length = 1 } }) end, nil, "a fractional pitch")
+  fails(
+    function() api.clip_set_notes(clip.id, { { pitch = 60.5, start = 0, length = 1 } }) end,
+    nil,
+    "a fractional pitch"
+  )
   fails(function() api.clip_set_notes(clip.id, "notes") end, nil, "not a table")
   api.clip_set_notes(clip.id, { [1] = { pitch = 1, start = 0, length = 1 }, x = 1 })
   eq(#api.clip_notes(clip.id), 1, "a list with another key goes through the general path")
@@ -342,7 +360,8 @@ test("levels are kept within range, so that nothing turns into infinity", functi
   local g = paw.add_track()
   g:add_clip({ start = 0, length = 1, file = "tests/fixtures/shape.wav" })
   g:add_device("gain")
-  local text = read_file(paw.project.save(scratch .. "/param.json")):gsub('"params": {}', '"params": { "gain": 1e300 }', 1)
+  local text =
+    read_file(paw.project.save(scratch .. "/param.json")):gsub('"params": {}', '"params": { "gain": 1e300 }', 1)
   write_file(scratch .. "/param.json", text)
   paw.project.load(scratch .. "/param.json")
   local info = render({ ["end"] = 1, tail = 0, bits = 32 })
@@ -380,12 +399,16 @@ end)
 test("a track the engine had no room for sounds once there is room", function()
   fresh()
   local tracks = {}
-  for i = 1, 1030 do tracks[i] = api.track_add({ name = "t" .. i }) end
+  for i = 1, 1030 do
+    tracks[i] = api.track_add({ name = "t" .. i })
+  end
   -- Sync without handing the warnings to the notifier, to read them here.
   api.events_take()
   local warnings = api.warnings()
   eq(#warnings > 0 and warnings[1]:find("too many tracks") ~= nil, true, "a warning for the tracks over the limit")
-  for i = 1, 20 do api.track_remove(tracks[i]) end
+  for i = 1, 20 do
+    api.track_remove(tracks[i])
+  end
   paw.flush()
   local last = paw.track(tracks[1030])
   last:add_device("synth")

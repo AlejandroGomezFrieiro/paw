@@ -21,7 +21,11 @@ test("lanes hold sorted points in their target's units", function()
   lane:add(8, 0)
   lane:add(0, -60)
   lane:add(8, -6)
-  eq(paw.inspect(lane:points()), paw.inspect({ { 0, -60 }, { 8, -6 } }), "sorted, and a point at the same beat replaced")
+  eq(
+    paw.inspect(lane:points()),
+    paw.inspect({ { 0, -60 }, { 8, -6 } }),
+    "sorted, and a point at the same beat replaced"
+  )
   eq(lane:value_at(4), -33, "linear between points")
   eq(lane:value_at(-1) .. "/" .. lane:value_at(20), "-60/-6", "held outside them")
   lane:set_points({ { beat = 2, value = 100 } })
@@ -175,6 +179,11 @@ test("automation applies the same when playback starts in the middle", function(
   for _, at in ipairs({ 0.01, 0.25, 0.75, 1.5 }) do
     local want = db(-30 + at * 15) * (at > 0.5 and db(-24) or 1)
     near(relative(middle, middle_ref, at) / want, 1, 0.05, "from the middle, at beat " .. 4 + at * 2)
-    near(relative(middle, middle_ref, at) / relative(full, full_ref, 2 + at), 1, 0.03, "the same as from the start, at beat " .. 4 + at * 2)
+    near(
+      relative(middle, middle_ref, at) / relative(full, full_ref, 2 + at),
+      1,
+      0.03,
+      "the same as from the start, at beat " .. 4 + at * 2
+    )
   end
 end)

@@ -15,9 +15,13 @@ local function test(name, fn)
     paw.lsp.stop()
     paw.diagnostic.reset()
     paw.annotation.reset()
-    while paw.ui.float do paw.ui.close() end
+    while paw.ui.float do
+      paw.ui.close()
+    end
     paw.ui.views.pianoroll.clip_id = nil
-    for _, v in ipairs({ "pianoroll", "mixer", "devices" }) do paw.ui.hide(v) end
+    for _, v in ipairs({ "pianoroll", "mixer", "devices" }) do
+      paw.ui.hide(v)
+    end
     paw.ui.focus("arrange")
     if not result[1] then error(result[2], 0) end
     return result[2]
@@ -41,7 +45,9 @@ local function start()
   fresh()
   paw.lsp.stop()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.focus("arrange")
 end
 
@@ -110,8 +116,16 @@ test("lenses: a one-shot server checks each render, and says when it fails", fun
   local t = paw.add_track({ name = "Tone" })
   t:add_device("synth")
   t:add_clip({ start = 0, length = 2, notes = { { pitch = 69, start = 0, length = 2, velocity = 120 } } })
-  paw.lsp.config("peaks", { kind = "oneshot", cmd = { python(), "tests/fixtures/peak_check.py", "--over", "{over}", "{input}" },
-    attach = { subjects = { "render" } }, settings = { over = -40 }, timeout_ms = 20000 })
+  paw.lsp.config(
+    "peaks",
+    {
+      kind = "oneshot",
+      cmd = { python(), "tests/fixtures/peak_check.py", "--over", "{over}", "{input}" },
+      attach = { subjects = { "render" } },
+      settings = { over = -40 },
+      timeout_ms = 20000,
+    }
+  )
   paw.lsp.enable("peaks")
   eq(paw.lsp.clients()[1].status, "ready", "a one-shot server is ready, with nothing running")
   local path = T.scratch .. "/lenses.wav"
@@ -130,7 +144,9 @@ test("lenses: a one-shot server checks each render, and says when it fails", fun
   until_(function() return paw.lsp.clients()[1].status == "failed" end, "the failure")
   has(paw.lsp.clients()[1].error, "not JSON", "why")
   local info = {}
-  for _, l in ipairs(paw.lsp.info_lines()) do info[#info + 1] = type(l) == "table" and l.text or l end
+  for _, l in ipairs(paw.lsp.info_lines()) do
+    info[#info + 1] = type(l) == "table" and l.text or l
+  end
   has(table.concat(info, "\n"), "one-shot command", ":lsp info says how it runs")
 end)
 
@@ -158,8 +174,15 @@ test("lenses: an extension's addresses and subject, and a Lua server in this pro
       local list = {}
       for i, w in ipairs(params.textDocument.data.words) do
         if w == "lu" then
-          list[#list + 1] = { severity = 3, message = "say it longer", code = "vowel",
-            data = { location = { uri = "paw://lyric/" .. i }, fixes = { { title = "Make it loo", edit = { { uri = "paw://lyric/" .. i, set = { text = "loo" } } } } } } }
+          list[#list + 1] = {
+            severity = 3,
+            message = "say it longer",
+            code = "vowel",
+            data = {
+              location = { uri = "paw://lyric/" .. i },
+              fixes = { { title = "Make it loo", edit = { { uri = "paw://lyric/" .. i, set = { text = "loo" } } } } },
+            },
+          }
         end
       end
       ctx.notify("textDocument/publishDiagnostics", { uri = params.textDocument.uri, diagnostics = list })
@@ -167,7 +190,10 @@ test("lenses: an extension's addresses and subject, and a Lua server in this pro
     ["textDocument/hover"] = function(params) return { contents = "a word: " .. params.paw.location.uri } end,
     -- It asks for an edit of its own.
     ["workspace/executeCommand"] = function(params, ctx)
-      return ctx.request("workspace/applyEdit", { edit = { paw = { { uri = "paw://lyric/3", set = { text = params.arguments[1] } } } } })
+      return ctx.request(
+        "workspace/applyEdit",
+        { edit = { paw = { { uri = "paw://lyric/3", set = { text = params.arguments[1] } } } } }
+      )
     end,
   }
   paw.lsp.config("lyrics", { server = server })
@@ -183,11 +209,18 @@ test("lenses: an extension's addresses and subject, and a Lua server in this pro
   paw.lsp.hover_at({ uri = "paw://lyric/1" }, function(s) hover = s end)
   eq(hover[1].lines[1], "a word: paw://lyric/1", "asked about a word")
   local answer
-  paw.lsp.request("lyrics", "workspace/executeCommand", { command = "set", arguments = { "li" } }, function(_, r) answer = r end)
+  paw.lsp.request(
+    "lyrics",
+    "workspace/executeCommand",
+    { command = "set", arguments = { "li" } },
+    function(_, r) answer = r end
+  )
   eq(answer.applied, true, "a server's edit is made")
   eq(words[3], "li", "as it asked")
   local info = {}
-  for _, l in ipairs(paw.lsp.info_lines()) do info[#info + 1] = type(l) == "table" and l.text or l end
+  for _, l in ipairs(paw.lsp.info_lines()) do
+    info[#info + 1] = type(l) == "table" and l.text or l
+  end
   has(table.concat(info, "\n"), "in-process Lua", ":lsp info says how it runs")
   A.schemes.lyric = nil
   paw.lsp.subjects.lyrics = nil
@@ -199,10 +232,20 @@ test("lenses: diagnostics on devices, parameters and stretches of time are drawn
   local synth = t:add_device("synth")
   paw.flush()
   paw.diagnostic.set("lint", "lint", {
-    { location = { uri = A.param(synth.id, "cutoff") }, severity = "warning", message = "cutoff is very low",
-      fixes = { { title = "Open the cutoff", edit = { { uri = A.param(synth.id, "cutoff"), set = { value = 4000 } } } } } },
+    {
+      location = { uri = A.param(synth.id, "cutoff") },
+      severity = "warning",
+      message = "cutoff is very low",
+      fixes = {
+        { title = "Open the cutoff", edit = { { uri = A.param(synth.id, "cutoff"), set = { value = 4000 } } } },
+      },
+    },
     { location = { uri = A.device(synth.id) }, severity = "info", message = "no preset" },
-    { location = { uri = A.project(), selector = { time = { 8, 12 } } }, severity = "error", message = "too busy here" },
+    {
+      location = { uri = A.project(), selector = { time = { 8, 12 } } },
+      severity = "error",
+      message = "too busy here",
+    },
   })
   paw.cursor.set_track(t.id)
   paw.ui.show("devices")
@@ -211,7 +254,10 @@ test("lenses: diagnostics on devices, parameters and stretches of time are drawn
   -- The ruler marks the stretch, on the left edge of its first cell.
   local ruler
   for _, line in ipairs(api.ui_snapshot(140, 50)) do
-    if line:find("cur", 1, true) then ruler = line break end
+    if line:find("cur", 1, true) then
+      ruler = line
+      break
+    end
   end
   has(ruler or "", paw.draw.g.mark, "the ruler marks the stretch of time")
   -- ]d in the device panel goes to the parameter.
@@ -230,44 +276,76 @@ test("lenses: diagnostics on devices, parameters and stretches of time are drawn
   local found
   for _ = 1, 3 do
     paw.keymap.feed("]d")
-    if paw.cursor.beat == 8 then found = true break end
+    if paw.cursor.beat == 8 then
+      found = true
+      break
+    end
   end
   eq(found, true, "the cursor goes to where the stretch starts")
 end)
 
-test("lenses: every clip the piano roll edits is shown to the servers and marked, and the mouse's menus offer the lens", function()
-  start()
-  local a = paw.add_track({ name = "Upper" }):add_clip({ start = 0, length = 4, notes = { { pitch = 72, start = 0, length = 1 } } })
-  local b = paw.add_track({ name = "Lower" }):add_clip({ start = 4, length = 4, notes = { { pitch = 48, start = 1, length = 1 } } })
-  paw.flush()
-  paw.ui.views.pianoroll:edit(a)
-  paw.roll_clips.open({ a.id, b.id }, a.id)
-  -- Shown to a server attached to clips: both, by focus.
-  local opened = {}
-  paw.lsp.config("seen", { server = {
-    initialize = function() return { capabilities = { paw = { subjects = { "clip" } } } } end,
-    ["textDocument/didOpen"] = function(p) opened[#opened + 1] = p.textDocument.uri end,
-  } })
-  paw.lsp.enable("seen")
-  table.sort(opened)
-  local want = { A.clip(a.id), A.clip(b.id) }
-  table.sort(want)
-  eq(table.concat(opened, " "), table.concat(want, " "), "the active clip and the other one edited")
-  -- A diagnostic on the other clip's note is drawn at its place in the roll.
-  local nid = b:notes()[1].id
-  paw.diagnostic.set("lint", "lint", { { location = { uri = A.note(b.id, nid) }, severity = 2, message = "low" } })
-  local painted = {}
-  local cells = { width = 80, fill = function(_, x, y, w, h, ch, style) painted[#painted + 1] = x .. "," .. y .. " " .. tostring(style) end,
-    text = function() end }
-  paw.diagnostic.paint_roll({ roll = cells, ruler = cells, clip = a, parts = paw.roll_clips.parts(),
-    x = function(beat) return beat * 4 end, row = function(pitch) return 100 - pitch end })
-  eq(painted[1], "20,52 DiagnosticUnderlineWarn", "at beat 5 of the roll, the note's row")
-  -- The mouse's menus: on the note, on the track.
-  local menus = require("paw.mouse_menus")
-  local labels = {}
-  for _, item in ipairs(menus.note(b.id, 1)) do if type(item) == "table" then labels[#labels + 1] = item.label end end
-  eq(table.concat(labels, "|"):find("Fixes and actions…|What the language servers say about it", 1, true) ~= nil, true, table.concat(labels, "|"))
-  labels = {}
-  for _, item in ipairs(menus.track(b:get().track)) do if type(item) == "table" then labels[#labels + 1] = item.label end end
-  eq(table.concat(labels, "|"):find("Fixes and actions…", 1, true) ~= nil, true, "on the track too")
-end)
+test(
+  "lenses: every clip the piano roll edits is shown to the servers and marked, and the mouse's menus offer the lens",
+  function()
+    start()
+    local a = paw
+      .add_track({ name = "Upper" })
+      :add_clip({ start = 0, length = 4, notes = { { pitch = 72, start = 0, length = 1 } } })
+    local b = paw
+      .add_track({ name = "Lower" })
+      :add_clip({ start = 4, length = 4, notes = { { pitch = 48, start = 1, length = 1 } } })
+    paw.flush()
+    paw.ui.views.pianoroll:edit(a)
+    paw.roll_clips.open({ a.id, b.id }, a.id)
+    -- Shown to a server attached to clips: both, by focus.
+    local opened = {}
+    paw.lsp.config(
+      "seen",
+      {
+        server = {
+          initialize = function() return { capabilities = { paw = { subjects = { "clip" } } } } end,
+          ["textDocument/didOpen"] = function(p) opened[#opened + 1] = p.textDocument.uri end,
+        },
+      }
+    )
+    paw.lsp.enable("seen")
+    table.sort(opened)
+    local want = { A.clip(a.id), A.clip(b.id) }
+    table.sort(want)
+    eq(table.concat(opened, " "), table.concat(want, " "), "the active clip and the other one edited")
+    -- A diagnostic on the other clip's note is drawn at its place in the roll.
+    local nid = b:notes()[1].id
+    paw.diagnostic.set("lint", "lint", { { location = { uri = A.note(b.id, nid) }, severity = 2, message = "low" } })
+    local painted = {}
+    local cells = {
+      width = 80,
+      fill = function(_, x, y, w, h, ch, style) painted[#painted + 1] = x .. "," .. y .. " " .. tostring(style) end,
+      text = function() end,
+    }
+    paw.diagnostic.paint_roll({
+      roll = cells,
+      ruler = cells,
+      clip = a,
+      parts = paw.roll_clips.parts(),
+      x = function(beat) return beat * 4 end,
+      row = function(pitch) return 100 - pitch end,
+    })
+    eq(painted[1], "20,52 DiagnosticUnderlineWarn", "at beat 5 of the roll, the note's row")
+    -- The mouse's menus: on the note, on the track.
+    local menus = require("paw.mouse_menus")
+    local labels = {}
+    for _, item in ipairs(menus.note(b.id, 1)) do
+      if type(item) == "table" then labels[#labels + 1] = item.label end
+    end
+    eq(
+      table.concat(labels, "|"):find("Fixes and actions…|What the language servers say about it", 1, true) ~= nil,
+      true,
+      table.concat(labels, "|")
+    )
+    labels = {}
+    for _, item in ipairs(menus.track(b:get().track)) do
+      if type(item) == "table" then labels[#labels + 1] = item.label end
+    end
+    eq(table.concat(labels, "|"):find("Fixes and actions…", 1, true) ~= nil, true, "on the track too")
+  end
+)

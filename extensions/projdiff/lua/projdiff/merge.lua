@@ -37,7 +37,9 @@ local function sort_list(list, name)
   local field = SORTED[name]
   if not field then return list end
   local items = {}
-  for i, item in ipairs(list) do items[i] = { i = i, item = item } end
+  for i, item in ipairs(list) do
+    items[i] = { i = i, item = item }
+  end
   local function at(item)
     local v = item[field]
     return type(v) == "number" and v or 0
@@ -47,19 +49,21 @@ local function sort_list(list, name)
     if x ~= y then return x < y end
     return a.i < b.i
   end)
-  for i, entry in ipairs(items) do list[i] = entry.item end
+  for i, entry in ipairs(items) do
+    list[i] = entry.item
+  end
   return list
 end
 
 --- An empty list that the model reads as a list: a plain empty table reads
 --- as an empty object.
-local function empty_list()
-  return paw.api.json_decode("[]")
-end
+local function empty_list() return paw.api.json_decode("[]") end
 
 local function appended(path, seg)
   local out = {}
-  for i, s in ipairs(path) do out[i] = s end
+  for i, s in ipairs(path) do
+    out[i] = s
+  end
   out[#out + 1] = seg
   return out
 end
@@ -81,7 +85,9 @@ end
 local function merge_object(base, ours, theirs, path, ctx)
   local keys = {}
   for _, t in ipairs({ base or {}, ours, theirs }) do
-    for k in pairs(t) do keys[k] = true end
+    for k in pairs(t) do
+      keys[k] = true
+    end
   end
   local out = {}
   for _, k in ipairs(data.sorted_keys(keys)) do
@@ -99,7 +105,9 @@ local function merge_keyed(base, ours, theirs, path, ctx, field)
     if not next_id then
       next_id = 0
       for _, A in ipairs({ B, O, T }) do
-        for _, k in ipairs(A.order) do next_id = math.max(next_id, k) end
+        for _, k in ipairs(A.order) do
+          next_id = math.max(next_id, k)
+        end
       end
     end
     next_id = next_id + 1
@@ -113,7 +121,9 @@ local function merge_keyed(base, ours, theirs, path, ctx, field)
     for _, k in ipairs(T.order) do
       if B.by[k] == nil and O.by[k] ~= nil and not data.equal(O.by[k], T.by[k]) then
         local copy = {}
-        for key, v in pairs(T.by[k]) do copy[key] = v end
+        for key, v in pairs(T.by[k]) do
+          copy[key] = v
+        end
         copy.id = fresh()
         moved[k] = copy
       end
@@ -150,7 +160,9 @@ local function merge_keyed(base, ours, theirs, path, ctx, field)
 
   -- What theirs added goes after the item before it in theirs.
   local result = {}
-  for _, k in ipairs(keep) do result[#result + 1] = k end
+  for _, k in ipairs(keep) do
+    result[#result + 1] = k
+  end
   local previous
   for _, k in ipairs(T.order) do
     if O.by[k] == nil then
@@ -177,7 +189,9 @@ local function merge_keyed(base, ours, theirs, path, ctx, field)
   end
 
   local out = {}
-  for _, k in ipairs(result) do out[#out + 1] = items[k] end
+  for _, k in ipairs(result) do
+    out[#out + 1] = items[k]
+  end
   if #out == 0 then return empty_list() end
   return sort_list(out, name)
 end
@@ -195,7 +209,9 @@ local function merge_set(base, ours, theirs, path)
   end
   local b, o, t = counts(base), counts(ours), counts(theirs)
   local want = {}
-  for c, n in pairs(o) do want[c] = n + (t[c] or 0) - (b[c] or 0) end
+  for c, n in pairs(o) do
+    want[c] = n + (t[c] or 0) - (b[c] or 0)
+  end
   for c, n in pairs(t) do
     if want[c] == nil then want[c] = n - (b[c] or 0) end
   end
@@ -213,9 +229,7 @@ local function merge_set(base, ours, theirs, path)
   return sort_list(out, list_name(path))
 end
 
-local function is_list(t)
-  return data.is_array(t)
-end
+local function is_list(t) return data.is_array(t) end
 
 function merge(base, ours, theirs, path, ctx)
   if data.equal(ours, theirs) then return ours end
@@ -242,13 +256,23 @@ end
 local function each_thing(project, fn)
   local function track(t)
     fn(t)
-    for _, d in ipairs(t.devices or {}) do fn(d) end
-    for _, c in ipairs(t.clips or {}) do fn(c) end
-    for _, l in ipairs(t.lanes or {}) do fn(l) end
-    for _, c in ipairs(t.cues or {}) do fn(c) end
+    for _, d in ipairs(t.devices or {}) do
+      fn(d)
+    end
+    for _, c in ipairs(t.clips or {}) do
+      fn(c)
+    end
+    for _, l in ipairs(t.lanes or {}) do
+      fn(l)
+    end
+    for _, c in ipairs(t.cues or {}) do
+      fn(c)
+    end
   end
   if project.master then track(project.master) end
-  for _, t in ipairs(project.tracks or {}) do track(t) end
+  for _, t in ipairs(project.tracks or {}) do
+    track(t)
+  end
 end
 
 local function things(project)
@@ -263,7 +287,9 @@ local function copy(v)
   if type(v) ~= "table" then return v end
   if next(v) == nil then return paw.api.json_encode(v) == "[]" and empty_list() or {} end
   local out = {}
-  for k, x in pairs(v) do out[k] = copy(x) end
+  for k, x in pairs(v) do
+    out[k] = copy(x)
+  end
   return out
 end
 
@@ -273,7 +299,9 @@ local function renumber(base, ours, theirs)
   local B, O, T = things(base), things(ours), things(theirs.project)
   local map, top = {}, 0
   for _, set in ipairs({ B, O, T }) do
-    for id in pairs(set) do top = math.max(top, id) end
+    for id in pairs(set) do
+      top = math.max(top, id)
+    end
   end
   for id, x in pairs(T) do
     if B[id] == nil and O[id] ~= nil and not data.equal(O[id], x) then
@@ -290,7 +318,9 @@ local function renumber(base, ours, theirs)
   local function track(t)
     remap(t, "id")
     remap(t, "output")
-    for _, s in ipairs(t.sends or {}) do remap(s, "target") end
+    for _, s in ipairs(t.sends or {}) do
+      remap(s, "target")
+    end
     for _, d in ipairs(t.devices or {}) do
       remap(d, "id")
       remap(d, "sidechain")
@@ -298,15 +328,21 @@ local function renumber(base, ours, theirs)
         if map[id] then d.outputs[pair] = map[id] end
       end
     end
-    for _, c in ipairs(t.clips or {}) do remap(c, "id") end
+    for _, c in ipairs(t.clips or {}) do
+      remap(c, "id")
+    end
     for _, l in ipairs(t.lanes or {}) do
       remap(l, "id")
       if l.target then remap(l.target, "device") end
     end
-    for _, c in ipairs(t.cues or {}) do remap(c, "id") end
+    for _, c in ipairs(t.cues or {}) do
+      remap(c, "id")
+    end
   end
   if project.master then track(project.master) end
-  for _, t in ipairs(project.tracks or {}) do track(t) end
+  for _, t in ipairs(project.tracks or {}) do
+    track(t)
+  end
   return out
 end
 
@@ -322,8 +358,12 @@ function M.files(base, ours, theirs)
   if type(merged) ~= "table" then merged = ours end
   -- Conflicts an earlier merge left unsettled stay.
   local all = {}
-  for _, c in ipairs(M.conflicts(merged)) do all[#all + 1] = c end
-  for _, c in ipairs(ctx.conflicts) do all[#all + 1] = c end
+  for _, c in ipairs(M.conflicts(merged)) do
+    all[#all + 1] = c
+  end
+  for _, c in ipairs(ctx.conflicts) do
+    all[#all + 1] = c
+  end
   M.record(merged, all)
   return merged, ctx.conflicts
 end
@@ -368,19 +408,23 @@ local function walk(doc, path)
   for _, seg in ipairs(path) do
     if type(here) ~= "table" then return nil end
     holder = here
-    if type(seg) == "string" then here = here[seg] else here = find(here, seg) end
+    if type(seg) == "string" then
+      here = here[seg]
+    else
+      here = find(here, seg)
+    end
   end
   return here, holder
 end
 
 --- What a path names in a file (nil when it is not there).
-function M.at(doc, path)
-  return (walk(doc, path))
-end
+function M.at(doc, path) return (walk(doc, path)) end
 
 local function put(doc, path, value)
   local parent_path = {}
-  for i = 1, #path - 1 do parent_path[i] = path[i] end
+  for i = 1, #path - 1 do
+    parent_path[i] = path[i]
+  end
   local parent = walk(doc, parent_path)
   if type(parent) ~= "table" then return false end
   local last = path[#path]
@@ -400,9 +444,7 @@ local function put(doc, path, value)
   return true
 end
 
-local function same_path(a, b)
-  return data.equal(a, b)
-end
+local function same_path(a, b) return data.equal(a, b) end
 
 --- Settle a conflict by taking `side` ("ours", "theirs" or "base") of it
 --- and forgetting that it was one. Returns whether the path was there to settle.
@@ -420,8 +462,12 @@ end
 --- Settle every conflict one way.
 function M.resolve_all(doc, side)
   local list = {}
-  for i, c in ipairs(M.conflicts(doc)) do list[i] = c end
-  for _, c in ipairs(list) do M.resolve(doc, c, side) end
+  for i, c in ipairs(M.conflicts(doc)) do
+    list[i] = c
+  end
+  for _, c in ipairs(list) do
+    M.resolve(doc, c, side)
+  end
 end
 
 --- A path in words for a file: `tracks › track 3 "Lead" › volume`.
@@ -435,7 +481,8 @@ function M.describe(doc, path)
       local item = type(here) == "table" and find(here, seg) or nil
       local field, key = unsegment(seg)
       local name = item and (item.name or item.kind)
-      parts[#parts + 1] = (field == "id" and "" or (field == 1 and "beat " or (field .. " "))) .. tostring(key)
+      parts[#parts + 1] = (field == "id" and "" or (field == 1 and "beat " or (field .. " ")))
+        .. tostring(key)
         .. (name and (' "' .. tostring(name) .. '"') or "")
       here = item
     end

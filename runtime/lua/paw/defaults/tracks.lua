@@ -41,25 +41,34 @@ command("track.add", function(ctx)
   end
   cursor.set_track(track)
   return track
-end, { desc = "Add a track below the cursor, or above it: `track.add Bass device=synth`, `track.add above=true`; a kind an extension defines: `track.add vocal`", complete = function()
-  local out = {}
-  for _, spec in ipairs(paw.track_kinds.list()) do out[#out + 1] = { text = spec.name, desc = spec.title } end
-  return out
-end })
-command("track.new", function()
-  local items = { { text = "Track            an ordinary track" } }
-  for _, spec in ipairs(paw.track_kinds.list()) do
-    items[#items + 1] = { text = string.format("%-16s %s", spec.title, spec.desc or ""), kind = spec.name }
-  end
-  paw.pick({
-    title = "New track",
-    items = items,
-    format = function(item) return item.text end,
-    on_choose = function(item)
-      paw.cmd("track.add", item.kind and { kind = item.kind } or {})
-    end,
-  })
-end, { desc = "Add a track of a kind chosen from a list: an ordinary one, or one an extension defines (a vocal track, a drum track)" })
+end, {
+  desc = "Add a track below the cursor, or above it: `track.add Bass device=synth`, `track.add above=true`; a kind an extension defines: `track.add vocal`",
+  complete = function()
+    local out = {}
+    for _, spec in ipairs(paw.track_kinds.list()) do
+      out[#out + 1] = { text = spec.name, desc = spec.title }
+    end
+    return out
+  end,
+})
+command(
+  "track.new",
+  function()
+    local items = { { text = "Track            an ordinary track" } }
+    for _, spec in ipairs(paw.track_kinds.list()) do
+      items[#items + 1] = { text = string.format("%-16s %s", spec.title, spec.desc or ""), kind = spec.name }
+    end
+    paw.pick({
+      title = "New track",
+      items = items,
+      format = function(item) return item.text end,
+      on_choose = function(item) paw.cmd("track.add", item.kind and { kind = item.kind } or {}) end,
+    })
+  end,
+  {
+    desc = "Add a track of a kind chosen from a list: an ordinary one, or one an extension defines (a vocal track, a drum track)",
+  }
+)
 command("track.remove", function(ctx)
   -- Never the cursor's track when another was meant.
   if ctx.args[1] ~= nil then
@@ -107,7 +116,9 @@ end, {
   desc = "Give the track a colour: `track.color teal`, `track.color #ff8800`, `track.color none`",
   complete = function()
     local words = { "none" }
-    for _, name in ipairs(colour_names) do words[#words + 1] = name end
+    for _, name in ipairs(colour_names) do
+      words[#words + 1] = name
+    end
     return words
   end,
 })
@@ -141,23 +152,36 @@ local function pick_target(track, title, with_master, on_choose)
     end
     table.sort(items, function(a, b) return rank[a.id] < rank[b.id] end)
   end
-  paw.pick({ title = title, items = items, format = function(t) return t.name end, on_choose = function(t) on_choose(t.id) end })
+  paw.pick({
+    title = title,
+    items = items,
+    format = function(t) return t.name end,
+    on_choose = function(t) on_choose(t.id) end,
+  })
 end
 
-command("track.output", function(ctx)
-  local track = need_track()
-  if not track then return end
-  local function set(target)
-    local ok, err = pcall(paw.frontend.act.set_output, track.id, target)
-    if not ok then return paw.notify((tostring(err):gsub("^[^:]*:%d+: ", ""):match("^[^\n]*")), "warn") end
-    paw.notify(track.name .. " → " .. paw.frontend.routing(track.id).output)
-  end
-  local name = ctx.args[1]
-  if not name or name == "" then return pick_target(track.id, "Output of " .. track.name, true, set) end
-  local target = track_named(name)
-  if not target then return paw.notify("no track `" .. name .. "`", "warn") end
-  set(target)
-end, { desc = "Play the track into another: `track.output Drum bus`, `track.output master`; alone, choose from a list", raw = true, complete = "tracks" })
+command(
+  "track.output",
+  function(ctx)
+    local track = need_track()
+    if not track then return end
+    local function set(target)
+      local ok, err = pcall(paw.frontend.act.set_output, track.id, target)
+      if not ok then return paw.notify((tostring(err):gsub("^[^:]*:%d+: ", ""):match("^[^\n]*")), "warn") end
+      paw.notify(track.name .. " → " .. paw.frontend.routing(track.id).output)
+    end
+    local name = ctx.args[1]
+    if not name or name == "" then return pick_target(track.id, "Output of " .. track.name, true, set) end
+    local target = track_named(name)
+    if not target then return paw.notify("no track `" .. name .. "`", "warn") end
+    set(target)
+  end,
+  {
+    desc = "Play the track into another: `track.output Drum bus`, `track.output master`; alone, choose from a list",
+    raw = true,
+    complete = "tracks",
+  }
+)
 
 --- The tracks a command for each track is about: those of a selection
 --- of whole tracks in the arrange view or of strips in the mixer, else the
@@ -175,53 +199,67 @@ local function selected_tracks()
   return id and { id } or {}
 end
 
-command("send", function(ctx)
-  local ids = selected_tracks()
-  if #ids == 0 then return paw.notify("no track selected", "warn") end
-  local asked = tonumber(ctx.args[2]) or tonumber(ctx.args.level)
-  local level = asked or paw.opt.send_level
-  local pre = ctx.args.pre ~= nil and ctx.args.pre ~= false and ctx.args.pre ~= 0 and ctx.args.pre ~= "0" or nil
-  local function add(target)
-    local to, said = api.track_get(target, "name"), {}
-    for _, id in ipairs(ids) do
-      local name = api.track_get(id, "name")
-      local index
-      for i, send in ipairs(api.track_get(id).sends) do
-        if send.target == target then index = i end
-      end
-      if id == target or target == 0 then
-        said[#said + 1] = name .. " cannot send to " .. (target == 0 and "the master" or "itself")
-      elseif index then
-        -- The send is there: a level or `pre` given sets it; else it is as it was.
-        local send = api.track_get(id).sends[index]
-        local was = send.level
-        local changed = (asked and math.abs(asked - was) > 1e-9) or (ctx.args.pre ~= nil and (send.pre or false) ~= (pre or false))
-        if changed then
-          paw.frontend.act.set_send(id, index, asked, ctx.args.pre ~= nil and (pre or false) or nil)
-          local now = api.track_get(id).sends[index].level
-          said[#said + 1] = string.format("%s ↗ %s now at %g dB (was %g)%s", name, to, now, was,
-            pre and ", ahead of the fader" or "")
-        else
-          said[#said + 1] = string.format("%s already sends to %s at %g dB: unchanged", name, to, was)
+command(
+  "send",
+  function(ctx)
+    local ids = selected_tracks()
+    if #ids == 0 then return paw.notify("no track selected", "warn") end
+    local asked = tonumber(ctx.args[2]) or tonumber(ctx.args.level)
+    local level = asked or paw.opt.send_level
+    local pre = ctx.args.pre ~= nil and ctx.args.pre ~= false and ctx.args.pre ~= 0 and ctx.args.pre ~= "0" or nil
+    local function add(target)
+      local to, said = api.track_get(target, "name"), {}
+      for _, id in ipairs(ids) do
+        local name = api.track_get(id, "name")
+        local index
+        for i, send in ipairs(api.track_get(id).sends) do
+          if send.target == target then index = i end
         end
-      else
-        paw.frontend.act.add_send(id, target, level)
-        if pre then paw.frontend.act.set_send(id, #api.track_get(id).sends, nil, true) end
-        said[#said + 1] = string.format("%s ↗ %s at %g dB%s", name, to, level, pre and ", ahead of the fader" or "")
+        if id == target or target == 0 then
+          said[#said + 1] = name .. " cannot send to " .. (target == 0 and "the master" or "itself")
+        elseif index then
+          -- The send is there: a level or `pre` given sets it; else it is as it was.
+          local send = api.track_get(id).sends[index]
+          local was = send.level
+          local changed = (asked and math.abs(asked - was) > 1e-9)
+            or (ctx.args.pre ~= nil and (send.pre or false) ~= (pre or false))
+          if changed then
+            paw.frontend.act.set_send(id, index, asked, ctx.args.pre ~= nil and (pre or false) or nil)
+            local now = api.track_get(id).sends[index].level
+            said[#said + 1] = string.format(
+              "%s ↗ %s now at %g dB (was %g)%s",
+              name,
+              to,
+              now,
+              was,
+              pre and ", ahead of the fader" or ""
+            )
+          else
+            said[#said + 1] = string.format("%s already sends to %s at %g dB: unchanged", name, to, was)
+          end
+        else
+          paw.frontend.act.add_send(id, target, level)
+          if pre then paw.frontend.act.set_send(id, #api.track_get(id).sends, nil, true) end
+          said[#said + 1] = string.format("%s ↗ %s at %g dB%s", name, to, level, pre and ", ahead of the fader" or "")
+        end
       end
+      if keymap.mode == "x" then keymap.set_mode("n") end
+      paw.notify(#said == 1 and said[1] or string.format("%d tracks: %s", #said, table.concat(said, "; ")))
     end
-    if keymap.mode == "x" then keymap.set_mode("n") end
-    paw.notify(#said == 1 and said[1] or string.format("%d tracks: %s", #said, table.concat(said, "; ")))
-  end
-  local name = ctx.args[1]
-  if not name then
-    local first = api.track_get(ids[1], "name")
-    return pick_target(ids[1], "Send " .. (#ids == 1 and first or #ids .. " tracks") .. " to", false, add)
-  end
-  local target = track_named(tostring(name))
-  if not target or target == 0 then return paw.notify("no track `" .. tostring(name) .. "` to send to", "warn") end
-  add(target)
-end, { desc = "Send the track's sound (or the selected tracks') to another as well, at `send_level` dB unless told: `send Reverb -9`, `send Reverb -9 pre=1`; again with a level, set the send's level; alone, choose from a list", complete = { "tracks" } })
+    local name = ctx.args[1]
+    if not name then
+      local first = api.track_get(ids[1], "name")
+      return pick_target(ids[1], "Send " .. (#ids == 1 and first or #ids .. " tracks") .. " to", false, add)
+    end
+    local target = track_named(tostring(name))
+    if not target or target == 0 then return paw.notify("no track `" .. tostring(name) .. "` to send to", "warn") end
+    add(target)
+  end,
+  {
+    desc = "Send the track's sound (or the selected tracks') to another as well, at `send_level` dB unless told: `send Reverb -9`, `send Reverb -9 pre=1`; again with a level, set the send's level; alone, choose from a list",
+    complete = { "tracks" },
+  }
+)
 
 command("send.remove", function(ctx)
   local track = need_track()
@@ -240,7 +278,9 @@ end, {
   desc = "Take a send away: `send.remove Reverb`; alone, the first",
   complete = function()
     local track, out = cursor.track(), {}
-    for _, send in ipairs(track and track:get().sends or {}) do out[#out + 1] = api.track_get(send.target, "name") end
+    for _, send in ipairs(track and track:get().sends or {}) do
+      out[#out + 1] = api.track_get(send.target, "name")
+    end
     return out
   end,
 })
@@ -272,7 +312,14 @@ command("track.group", function(ctx)
     local group = paw.groups.make(tracks, text)
     if keymap.mode == "x" then keymap.set_mode("n") end
     cursor.set_track(group)
-    paw.notify(string.format("group “%s” holds %d track%s; its fader and devices act on all of them", text, #tracks, #tracks == 1 and "" or "s"))
+    paw.notify(
+      string.format(
+        "group “%s” holds %d track%s; its fader and devices act on all of them",
+        text,
+        #tracks,
+        #tracks == 1 and "" or "s"
+      )
+    )
   end
   if name then return make(name) end
   paw.ui.input({ prompt = "Group name: ", text = "Group" }, make)
@@ -285,7 +332,9 @@ command("track.ungroup", function()
     paw.groups.dissolve(track.id)
     return paw.notify("the group is dissolved; its tracks stay")
   end
-  for _, id in ipairs(chosen_tracks()) do paw.groups.remove(id) end
+  for _, id in ipairs(chosen_tracks()) do
+    paw.groups.remove(id)
+  end
 end, { desc = "Take the track out of its group; on a group, dissolve it" })
 
 command("track.into", function(ctx)
@@ -310,10 +359,15 @@ command("track.into", function(ctx)
     return paw.notify("no group `" .. name .. "`", "warn")
   end
   if #groups == 0 then return paw.notify("no groups yet: `:track.group` makes one", "warn") end
-  paw.pick({ title = "Move into group", items = groups, format = function(g) return g.name end,
-    on_choose = function(g) into(g.id) end })
+  paw.pick({
+    title = "Move into group",
+    items = groups,
+    format = function(g) return g.name end,
+    on_choose = function(g) into(g.id) end,
+  })
 end, {
-  desc = "Move the track into a group: `track.into Strings`; alone, choose it from a list", raw = true,
+  desc = "Move the track into a group: `track.into Strings`; alone, choose it from a list",
+  raw = true,
   complete = function()
     local out = {}
     for _, id in ipairs(api.track_list()) do
@@ -329,7 +383,9 @@ command("track.fold", function(ctx)
   local group = paw.groups.is_group(track.id) and track.id or paw.groups.of(track.id)
   if not group then return paw.notify("not in a group", "warn") end
   if ctx.args[1] == "all" or ctx.args[1] == "none" then
-    for _, id in ipairs(api.track_list()) do paw.groups.fold(id, ctx.args[1] == "all") end
+    for _, id in ipairs(api.track_list()) do
+      paw.groups.fold(id, ctx.args[1] == "all")
+    end
     return
   end
   paw.groups.fold(group)
@@ -341,8 +397,13 @@ command("group.link", function()
   local group = paw.groups.is_group(track.id) and track.id or paw.groups.of(track.id)
   if not group then return paw.notify("not in a group", "warn") end
   paw.groups.link(group)
-  paw.notify(string.format("faders of “%s” %s", api.track_get(group, "name"),
-    paw.groups.linked(group) and "are linked: moving one member's fader moves the others" or "are free again"))
+  paw.notify(
+    string.format(
+      "faders of “%s” %s",
+      api.track_get(group, "name"),
+      paw.groups.linked(group) and "are linked: moving one member's fader moves the others" or "are free again"
+    )
+  )
 end, { desc = "Link the faders of the group's members, or let them go: moving one moves the others by as many dB" })
 
 -- VCAs: faders over tracks that do not route them (see paw.vca).
@@ -356,7 +417,9 @@ end
 
 local function vca_names()
   local out = {}
-  for _, id in ipairs(paw.vca.list()) do out[#out + 1] = api.track_get(id, "name") end
+  for _, id in ipairs(paw.vca.list()) do
+    out[#out + 1] = api.track_get(id, "name")
+  end
   return out
 end
 
@@ -364,14 +427,21 @@ end
 local function with_vca(name, title, from, act)
   if name == "" then name = nil end
   local vcas = {}
-  for _, id in ipairs(from) do vcas[#vcas + 1] = { id = id, name = api.track_get(id, "name") } end
+  for _, id in ipairs(from) do
+    vcas[#vcas + 1] = { id = id, name = api.track_get(id, "name") }
+  end
   if name then
     local id = vca_named(name)
     if id then return act(id) end
     return paw.notify("no VCA `" .. name .. "`", "warn")
   end
   if #vcas == 0 then return paw.notify("no VCAs here: `:vca.make` makes one", "warn") end
-  paw.pick({ title = title, items = vcas, format = function(v) return v.name end, on_choose = function(v) act(v.id) end })
+  paw.pick({
+    title = title,
+    items = vcas,
+    format = function(v) return v.name end,
+    on_choose = function(v) act(v.id) end,
+  })
 end
 
 command("vca.make", function(ctx)
@@ -382,34 +452,61 @@ command("vca.make", function(ctx)
     local vca = paw.vca.make(tracks, text)
     if keymap.mode == "x" then keymap.set_mode("n") end
     cursor.set_track(vca)
-    paw.notify(string.format("VCA “%s” moves %d track%s; their routing is as it was", text, #tracks, #tracks == 1 and "" or "s"))
+    paw.notify(
+      string.format(
+        "VCA “%s” moves %d track%s; their routing is as it was",
+        text,
+        #tracks,
+        #tracks == 1 and "" or "s"
+      )
+    )
   end
   if ctx.args[1] and ctx.args[1] ~= "" then return make(ctx.args[1]) end
   paw.ui.input({ prompt = "VCA name: ", text = "VCA" }, make)
 end, { desc = "A new VCA over the selected tracks (or the cursor track): `vca.make Drums`", raw = true })
 
-command("vca.assign", function(ctx)
-  local tracks = chosen_tracks()
-  if #tracks == 0 then return paw.notify("no track to put under a VCA", "warn") end
-  with_vca(ctx.args[1], "Put under VCA", paw.vca.list(), function(vca)
-    for _, id in ipairs(tracks) do
-      local ok, err = pcall(paw.vca.assign, id, vca)
-      if not ok then return paw.notify(tostring(err):gsub("^[^:]*:%d+: ", ""), "warn") end
-    end
-  end)
-end, { desc = "Put the selected tracks under a VCA: `vca.assign Drums`; alone, choose it from a list", raw = true, complete = vca_names })
+command(
+  "vca.assign",
+  function(ctx)
+    local tracks = chosen_tracks()
+    if #tracks == 0 then return paw.notify("no track to put under a VCA", "warn") end
+    with_vca(ctx.args[1], "Put under VCA", paw.vca.list(), function(vca)
+      for _, id in ipairs(tracks) do
+        local ok, err = pcall(paw.vca.assign, id, vca)
+        if not ok then return paw.notify(tostring(err):gsub("^[^:]*:%d+: ", ""), "warn") end
+      end
+    end)
+  end,
+  {
+    desc = "Put the selected tracks under a VCA: `vca.assign Drums`; alone, choose it from a list",
+    raw = true,
+    complete = vca_names,
+  }
+)
 
-command("vca.release", function(ctx)
-  local tracks = chosen_tracks()
-  local name = ctx.args[1]
-  if not name or name == "" then
-    for _, id in ipairs(tracks) do paw.vca.unassign(id) end
-    return
-  end
-  with_vca(name, "Take out of VCA", paw.vca.list(), function(vca)
-    for _, id in ipairs(tracks) do paw.vca.unassign(id, vca) end
-  end)
-end, { desc = "Take the selected tracks out of a VCA (`vca.release Drums`), or out of all of them", raw = true, complete = vca_names })
+command(
+  "vca.release",
+  function(ctx)
+    local tracks = chosen_tracks()
+    local name = ctx.args[1]
+    if not name or name == "" then
+      for _, id in ipairs(tracks) do
+        paw.vca.unassign(id)
+      end
+      return
+    end
+    with_vca(name, "Take out of VCA", paw.vca.list(), function(vca)
+      for _, id in ipairs(tracks) do
+        paw.vca.unassign(id, vca)
+      end
+    end)
+  end,
+  {
+    desc = "Take the selected tracks out of a VCA (`vca.release Drums`), or out of all of them",
+    raw = true,
+    complete = vca_names,
+  }
+)
 
 command("vca.dissolve", function()
   local track = need_track()
@@ -460,14 +557,20 @@ end, { desc = "Move the track down or up, by the count: `track.move by=-1`" })
 -- What each choice of input means, and the lists, are `paw.audio`'s; here
 -- they are a picker and commands.
 local group_names = {
-  audio = "audio", midi = "MIDI", channel = "MIDI channel", midi_out = "MIDI out", midi_out_channel = "out channel",
+  audio = "audio",
+  midi = "MIDI",
+  channel = "MIDI channel",
+  midi_out = "MIDI out",
+  midi_out_channel = "out channel",
   midi_out_form = "out form",
 }
 local function input_picker(track)
   local items = {}
   local t = track:get()
   items[1] = { label = (t.monitor and "● " or "○ ") .. "Monitor: hear the input without arming", monitor = true }
-  for _, choice in ipairs(paw.audio.choices(track)) do items[#items + 1] = choice end
+  for _, choice in ipairs(paw.audio.choices(track)) do
+    items[#items + 1] = choice
+  end
   paw.pick({
     title = "Input of " .. t.name,
     items = items,
@@ -517,7 +620,10 @@ command("track.midi", function(ctx)
     -- A part of a port's name is enough.
     local found = port ~= "all" and port
     for _, p in ipairs(paw.midi.inputs()) do
-      if found and p.name:lower():find(found:lower(), 1, true) then found = p.name break end
+      if found and p.name:lower():find(found:lower(), 1, true) then
+        found = p.name
+        break
+      end
     end
     value.midi_port = found or false
   end
@@ -531,7 +637,9 @@ end, {
   desc = "Take MIDI from one port and channel, or all: `track.midi Keystation ch=1`, `track.midi all`",
   complete = function()
     local words = { "all" }
-    for _, p in ipairs(paw.midi.inputs()) do words[#words + 1] = p.name end
+    for _, p in ipairs(paw.midi.inputs()) do
+      words[#words + 1] = p.name
+    end
     return words
   end,
 })
@@ -540,7 +648,9 @@ command("track.color.pick", function()
   if not track then return end
   local hues = require("paw.theme").hues
   local items = {}
-  for i, name in ipairs(colour_names) do items[#items + 1] = { name = name, value = hues[i] } end
+  for i, name in ipairs(colour_names) do
+    items[#items + 1] = { name = name, value = hues[i] }
+  end
   items[#items + 1] = { name = "none", value = nil }
   paw.pick({
     title = "Colour of " .. track.name,

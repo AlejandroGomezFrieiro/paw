@@ -11,8 +11,12 @@ local role = paw.roles.define
 --- "center" in the rectangle, cut to it.
 role("label", {
   props = {
-    text = "string", style = "highlight group", align = "left | right | center", tone = "theme token (window)",
-    font = "mono (the default) | sans | title: how a window writes it", strike = "boolean (window)",
+    text = "string",
+    style = "highlight group",
+    align = "left | right | center",
+    tone = "theme token (window)",
+    font = "mono (the default) | sans | title: how a window writes it",
+    strike = "boolean (window)",
     capital = "boolean: a window writes the first letter in capitals",
   },
   cells = function(buf, p)
@@ -28,9 +32,14 @@ role("label", {
 --- in place of the text where it has them.
 role("button", {
   props = {
-    text = "string", style = "highlight group", on = "boolean", menu = "boolean: it opens a menu",
-    quiet = "boolean: no face until the pointer is on it", off = "boolean: dimmed",
-    tone = "theme token of its text (window)", words = "string (window)",
+    text = "string",
+    style = "highlight group",
+    on = "boolean",
+    menu = "boolean: it opens a menu",
+    quiet = "boolean: no face until the pointer is on it",
+    off = "boolean: dimmed",
+    tone = "theme token of its text (window)",
+    words = "string (window)",
     icon = "up | down | remove | window | plus | automate | learn | plugs | warning | circle | mic | speaker (window)",
   },
   cells = function(buf, p)
@@ -42,12 +51,13 @@ role("button", {
 --- window draws `icon` in place of the letter (a button's icons).
 role("switch", {
   props = {
-    letter = "string", on = "boolean", style = "highlight group when on", tone = "mute | solo | rec | play_on | select",
+    letter = "string",
+    on = "boolean",
+    style = "highlight group when on",
+    tone = "mute | solo | rec | play_on | select",
     icon = "a button's icon (window)",
   },
-  cells = function(buf, p)
-    buf:text(0, 0, p.letter or "?", p.on and p.style or "FlagOff")
-  end,
+  cells = function(buf, p) buf:text(0, 0, p.letter or "?", p.on and p.style or "FlagOff") end,
 })
 
 --- A value turned between two ends (a pan): `value` from -1 to 1. A rail
@@ -127,9 +137,15 @@ role("chip", {
 --- from `scene.live`, so that automation moves it with no new scene.
 role("param", {
   props = {
-    fraction = "number 0..1", text = "string", bar = "number (columns)", centred = "boolean", steps = "number",
-    style = "highlight group of the bar", off_style = "highlight group of the rest of the rail",
-    value_style = "highlight group of the value", dim = "boolean (window)",
+    fraction = "number 0..1",
+    text = "string",
+    bar = "number (columns)",
+    centred = "boolean",
+    steps = "number",
+    style = "highlight group of the bar",
+    off_style = "highlight group of the rest of the rail",
+    value_style = "highlight group of the value",
+    dim = "boolean (window)",
   },
   bound = { "fraction", "text" },
   cells = function(buf, p)
@@ -146,9 +162,7 @@ role("param", {
 --- paints a power button, lit when on.
 role("power", {
   props = { on = "boolean" },
-  cells = function(buf, p)
-    buf:text(0, 0, p.on and " on " or " off ", p.on and "FlagOff" or "Mute")
-  end,
+  cells = function(buf, p) buf:text(0, 0, p.on and " on " or " off ", p.on and "FlagOff" or "Mute") end,
 })
 
 --- The heading of a group of rows, such as a device and its parameters:

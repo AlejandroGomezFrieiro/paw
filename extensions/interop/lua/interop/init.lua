@@ -31,11 +31,13 @@ function M.find_plugin(query) return api.device_find(query) end
 --- The kinds of device by kind, each looked up the first time it is met:
 --- `types[kind]` is its entry of `paw.api.device_types`, or false.
 function M.device_types()
-  return setmetatable({}, { __index = function(t, kind)
-    local v = api.device_find({ kind = kind }) or false
-    rawset(t, kind, v)
-    return v
-  end })
+  return setmetatable({}, {
+    __index = function(t, kind)
+      local v = api.device_find({ kind = kind }) or false
+      rawset(t, kind, v)
+      return v
+    end,
+  })
 end
 
 --- A tempo map from points in seconds: see `paw.api.tempo_from_seconds`.
@@ -65,26 +67,39 @@ function M.register(spec)
     local out = {}
     for k, v in pairs(args or {}) do
       if type(k) == "string" then
-        if v == "false" then v = false elseif v == "true" then v = true end
+        if v == "false" then
+          v = false
+        elseif v == "true" then
+          v = true
+        end
         out[k] = v
       end
     end
     return out
   end
   local f = {}
-  for k, v in pairs(spec) do f[k] = v end
+  for k, v in pairs(spec) do
+    f[k] = v
+  end
   f.module = nil
   if spec.import ~= false then
     f.import = function(path, opts)
       local result = require(mod).import(path, paw.util.merge(words(opts.args), { merge = opts.merge }))
-      return M.said(result, string.format("%s %s: %d tracks, %d clips, %d plugins",
-        opts.merge and "imported" or "opened", path, #result.tracks, result.clips, result.devices))
+      return M.said(
+        result,
+        string.format(
+          "%s %s: %d tracks, %d clips, %d plugins",
+          opts.merge and "imported" or "opened",
+          path,
+          #result.tracks,
+          result.clips,
+          result.devices
+        )
+      )
     end
   end
   if spec.export ~= false then
-    f.export = function(path, opts)
-      return M.said(require(mod).export(path, words(opts.args)), "wrote " .. path)
-    end
+    f.export = function(path, opts) return M.said(require(mod).export(path, words(opts.args)), "wrote " .. path) end
   end
   return paw.formats.register(f)
 end

@@ -28,7 +28,9 @@ end
 --- boundary on the grid when it can be. Returns the boundaries.
 function M.split(ctx, from, to, parts)
   local total = 0
-  for _, p in ipairs(parts) do total = total + p end
+  for _, p in ipairs(parts) do
+    total = total + p
+  end
   local out, acc = { from }, 0
   for i = 1, #parts - 1 do
     acc = acc + parts[i]

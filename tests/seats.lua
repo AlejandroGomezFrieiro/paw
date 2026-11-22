@@ -10,7 +10,9 @@ local K = paw._kernel
 local function start()
   fresh()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.focus("arrange")
 end
 
@@ -40,7 +42,9 @@ end
 
 test("two terminals each have a cursor, a mode and keys of their own, and edit one project", function()
   start()
-  for _, name in ipairs({ "Drums", "Bass", "Keys" }) do paw.add_track({ name = name }) end
+  for _, name in ipairs({ "Drums", "Bass", "Keys" }) do
+    paw.add_track({ name = name })
+  end
   paw.cursor.set_track(paw.tracks()[1])
   paw.cursor.set_beat(4)
   K.seat_open(7, "terminal")
@@ -110,7 +114,9 @@ test("a timer started in a seat runs in that seat", function()
   start()
   K.seat_open(9, "terminal")
   local seen
-  as(9, function() paw.defer(function() seen = paw.seats.current end, 1) end)
+  as(9, function()
+    paw.defer(function() seen = paw.seats.current end, 1)
+  end)
   paw.wait(30)
   K.seat_close(9, "terminal")
   eq(seen, 9, "the deferred function ran in the terminal's seat")
@@ -166,7 +172,9 @@ test("the project keeps a layout for each kind of seat, and a default", function
     local out
     as(seat, function()
       out = {}
-      for _, win in ipairs(L.windows(paw.ui.layout)) do out[#out + 1] = win.view end
+      for _, win in ipairs(L.windows(paw.ui.layout)) do
+        out[#out + 1] = win.view
+      end
       out = table.concat(out, " ")
     end)
     return out
@@ -181,8 +189,11 @@ test("the project keeps a layout for each kind of seat, and a default", function
   local path = T.scratch .. "/seats-screen"
   keys(0, ":w " .. path .. "<CR>")
   local screen = L.project_screen()
-  eq(screen.seats[mine] ~= nil and screen.seats[other] ~= nil and screen.default ~= nil, true,
-    "the project keeps the layout of each seat and a default")
+  eq(
+    screen.seats[mine] ~= nil and screen.seats[other] ~= nil and screen.default ~= nil,
+    true,
+    "the project keeps the layout of each seat and a default"
+  )
   keys(0, ":e arrange<CR>")
   keys(seat, ":e arrange<CR>")
   keys(0, ":e " .. path .. "<CR>")
@@ -205,6 +216,8 @@ test("with one seat, nothing is put away or brought back", function()
   start()
   local stowed = 0
   paw.seats.keep("test.counting", function() stowed = stowed + 1 end, function() end, function() end)
-  for _ = 1, 5 do keys(0, "j") end
+  for _ = 1, 5 do
+    keys(0, "j")
+  end
   eq(stowed, 0, "turns in the instance's seat move no state")
 end)

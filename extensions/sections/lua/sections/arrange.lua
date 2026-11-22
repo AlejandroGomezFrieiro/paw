@@ -45,9 +45,7 @@ local function piece(c, notes, from, to)
   return snap
 end
 
-local function notes_of(c)
-  return c.kind == "midi" and api.clip_notes(c.id) or nil
-end
+local function notes_of(c) return c.kind == "midi" and api.clip_notes(c.id) or nil end
 
 --- Put a clip snapshot on a track, `meta` included.
 local function restore(snap, track)
@@ -96,7 +94,11 @@ end
 local function before(points, x)
   local prev, nxt
   for _, p in ipairs(points) do
-    if p[1] < x - EPS then prev = p elseif not nxt then nxt = p end
+    if p[1] < x - EPS then
+      prev = p
+    elseif not nxt then
+      nxt = p
+    end
   end
   if not prev then return nxt[2] end
   if not nxt then return prev[2] end
@@ -106,7 +108,11 @@ end
 local function after(points, x)
   local prev, nxt
   for _, p in ipairs(points) do
-    if p[1] <= x + EPS then prev = p elseif not nxt then nxt = p end
+    if p[1] <= x + EPS then
+      prev = p
+    elseif not nxt then
+      nxt = p
+    end
   end
   if not prev then return nxt[2] end
   if not nxt or math.abs(prev[1] - x) < EPS then return prev[2] end
@@ -157,7 +163,9 @@ end
 --- Every track with its row (0 for the master track) and lanes.
 local function all_tracks()
   local out = { { id = 0, row = 0 } }
-  for row, id in ipairs(api.track_list()) do out[#out + 1] = { id = id, row = row } end
+  for row, id in ipairs(api.track_list()) do
+    out[#out + 1] = { id = id, row = row }
+  end
   return out
 end
 
@@ -186,9 +194,7 @@ end
 
 -- Rebuilding ---------------------------------------------------------------------------
 
-local function covers(p, beat)
-  return not p.value and beat >= p.from - EPS and beat < p.to - EPS
-end
+local function covers(p, beat) return not p.value and beat >= p.from - EPS and beat < p.to - EPS end
 
 --- Lay the timeline out again from a plan; see the top of this file.
 function M.rebuild(plan)
@@ -213,7 +219,9 @@ function M.rebuild(plan)
 
   for _, t in ipairs(tracks) do
     if t.row > 0 then
-      for _, edge in ipairs(edges) do cut(t.id, edge) end
+      for _, edge in ipairs(edges) do
+        cut(t.id, edge)
+      end
       local clips = api.clip_list(t.id)
       local copies = {}
       for _, c in ipairs(clips) do
@@ -239,7 +247,9 @@ function M.rebuild(plan)
           copies[#copies + 1] = paw.util.merge(snap, { start = p.at + snap.start })
         end
       end
-      for _, snap in ipairs(copies) do restore(snap, t.id) end
+      for _, snap in ipairs(copies) do
+        restore(snap, t.id)
+      end
     end
   end
 
@@ -269,7 +279,9 @@ function M.rebuild(plan)
   local old = S.list()
   for _, p in ipairs(plan) do
     if p.value then
-      for _, s in ipairs(p.value.sections or {}) do list[#list + 1] = { name = s.name, start = p.at + s.start } end
+      for _, s in ipairs(p.value.sections or {}) do
+        list[#list + 1] = { name = s.name, start = p.at + s.start }
+      end
     else
       for _, s in ipairs(old) do
         if covers(p, s.start) then list[#list + 1] = { name = s.name, start = s.start - p.from + p.at } end
@@ -298,7 +310,9 @@ function M.move(which, by)
     local _, other = neighbour(s, dir)
     if not other then break end
     local first, second = s, other
-    if dir < 0 then first, second = other, s end
+    if dir < 0 then
+      first, second = other, s
+    end
     local a, b, c = first.start, second.start, second.finish
     M.rebuild({
       { from = 0, to = a, at = 0 },
@@ -357,8 +371,6 @@ function M.insert(value, at)
 end
 
 --- Insert a copy of a section at a beat. Returns the copy.
-function M.copy(which, at)
-  return M.insert(M.yank(which), at)
-end
+function M.copy(which, at) return M.insert(M.yank(which), at) end
 
 return M

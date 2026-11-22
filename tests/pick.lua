@@ -7,13 +7,13 @@ local pick = paw.pick
 --- The texts `pick.filter` returns, best first.
 local function ranked(query, list)
   local out = {}
-  for i, r in ipairs(pick.filter(query, list)) do out[i] = r.text end
+  for i, r in ipairs(pick.filter(query, list)) do
+    out[i] = r.text
+  end
   return out
 end
 
-local function screen(w, h)
-  return table.concat(api.ui_snapshot(w or 100, h or 30), "\n")
-end
+local function screen(w, h) return table.concat(api.ui_snapshot(w or 100, h or 30), "\n") end
 
 local function has(text, part, what)
   if not text:find(part, 1, true) then error(string.format("%s: %q is not in\n%s", what or "text", part, text), 2) end
@@ -57,8 +57,11 @@ test("pick: ranking prefers runs, word starts and short lines", function()
   eq(ranked("dh", { "dashboard", "Dragonfly Hall" })[1], "Dragonfly Hall", "word starts")
   eq(ranked("tp", { "setup", "transport.play" })[1], "transport.play", "after a separator")
   eq(ranked("ms", { "mono synth", "mysynth" })[1], "mono synth", "two word starts beat a run in one word")
-  eq(table.concat(ranked("bass", { "a big bad ass sound", "Bass Synth", "Bass" }), "|"),
-    "Bass|Bass Synth|a big bad ass sound", "shorter first, scattered last")
+  eq(
+    table.concat(ranked("bass", { "a big bad ass sound", "Bass Synth", "Bass" }), "|"),
+    "Bass|Bass Synth|a big bad ass sound",
+    "shorter first, scattered last"
+  )
   eq(ranked("cs", { "clipSplit", "chorus" })[1], "clipSplit", "a capital inside a word starts one")
   eq(table.concat(ranked("", { "c", "a", "b" }), ""), "cab", "an empty query keeps the order")
 end)
@@ -85,12 +88,19 @@ test("pick: the call as other extensions make it", function()
   eq(paw.ui.focused, "arrange", "focus goes back")
 
   chosen = nil
-  paw.pick({ items = { "one", "two" }, on_choose = function(item) chosen = item end, on_cancel = function() cancelled = true end })
+  paw.pick({
+    items = { "one", "two" },
+    on_choose = function(item) chosen = item end,
+    on_cancel = function() cancelled = true end,
+  })
   paw.keymap.feed("<C-n><CR>")
   eq(chosen, "two", "a plain string item comes back as the string")
 
-  paw.pick({ items = function() return { { name = "x" }, { name = "y" } } end, format = function(i) return "item " .. i.name end,
-    on_choose = function(item) chosen = item end })
+  paw.pick({
+    items = function() return { { name = "x" }, { name = "y" } } end,
+    format = function(i) return "item " .. i.name end,
+    on_choose = function(item) chosen = item end,
+  })
   eq(pick.state().matches[2], "item y", "items from a function, lines from format")
   paw.keymap.feed("y<CR>")
   eq(chosen.name, "y", "matched on the formatted line")
@@ -157,7 +167,9 @@ test("pick: preview, actions, multi-select and resume", function()
   start()
   local acted, many
   paw.pick({
-    title = "Things", items = { "one", "two", "three" }, on_choose = function() end,
+    title = "Things",
+    items = { "one", "two", "three" },
+    on_choose = function() end,
     preview = function(item) return { "about " .. item } end,
     actions = { ["<C-e>"] = { fn = function(item, query) acted = item .. "|" .. query end, desc = "act" } },
   })
@@ -171,14 +183,32 @@ test("pick: preview, actions, multi-select and resume", function()
   eq(pick.state().query, "tw", "resume brings back the query")
   paw.keymap.feed("<Esc>")
 
-  paw.pick({ items = { "a", "b", "c" }, multi = true, on_choose = function() end, on_choose_multi = function(items) many = items end })
+  paw.pick({
+    items = { "a", "b", "c" },
+    multi = true,
+    on_choose = function() end,
+    on_choose_multi = function(items) many = items end,
+  })
   paw.keymap.feed("<Tab><C-n><Tab><CR>")
   eq(table.concat(many, ","), "a,c", "Tab marks several")
 end)
 
 test("pick: stays quick with thousands of items", function()
   start()
-  local words = { "Dragonfly", "Hall", "Reverb", "Plate", "Compressor", "Limiter", "Delay", "Chorus", "EQ", "Gate", "Tape", "Synth" }
+  local words = {
+    "Dragonfly",
+    "Hall",
+    "Reverb",
+    "Plate",
+    "Compressor",
+    "Limiter",
+    "Delay",
+    "Chorus",
+    "EQ",
+    "Gate",
+    "Tape",
+    "Synth",
+  }
   local items = {}
   for i = 1, 6000 do
     items[i] = "clap:vendor." .. words[i % #words + 1] .. " " .. words[(i * 7) % #words + 1] .. " " .. i
@@ -200,8 +230,14 @@ end)
 test("pick: the letter after <leader>f is the domain's letter: fc clips, fr regions, fm markers, ft tracks", function()
   start()
   paw.add_track({ name = "Bass" })
-  for keys, title in pairs({ ["<Space>fc"] = "Clips", ["<Space>fr"] = "Regions", ["<Space>fm"] = "Markers", ["<Space>ft"] = "Tracks",
-      ["<Space>f:"] = "Commands", ["<Space>da"] = "Add a device" }) do
+  for keys, title in pairs({
+    ["<Space>fc"] = "Clips",
+    ["<Space>fr"] = "Regions",
+    ["<Space>fm"] = "Markers",
+    ["<Space>ft"] = "Tracks",
+    ["<Space>f:"] = "Commands",
+    ["<Space>da"] = "Add a device",
+  }) do
     paw.keymap.feed(keys)
     eq(pick.state() and pick.state().title, title, keys)
     paw.keymap.feed("<Esc>")
@@ -308,15 +344,23 @@ test("pick: files opens projects and imports audio", function()
   os.execute("cp tests/fixtures/tone-mono-8k.wav '" .. dir .. "/sub/take.wav'")
   os.execute("cp tests/fixtures/tone-mono-8k.wav '" .. dir .. "/sub/.hidden/no.wav'")
   local found = {}
-  for _, f in ipairs(pick.walk(dir, 1000)) do found[#found + 1] = f.kind .. ":" .. f.path:sub(#dir + 2) end
+  for _, f in ipairs(pick.walk(dir, 1000)) do
+    found[#found + 1] = f.kind .. ":" .. f.path:sub(#dir + 2)
+  end
   table.sort(found)
-  eq(table.concat(found, " "), "audio:sub/take.wav project:song.json", "projects and audio, not other JSON or hidden files")
+  eq(
+    table.concat(found, " "),
+    "audio:sub/take.wav project:song.json",
+    "projects and audio, not other JSON or hidden files"
+  )
 
   -- The real source walks the working directory, the repository here.
   paw.project.new()
   t = paw.add_track({ name = "Import" })
   paw.pick("files")
-  while pick.state().note do paw.wait(5) end
+  while pick.state().note do
+    paw.wait(5)
+  end
   paw.cursor.set_track(t)
   paw.cursor.set_beat(4)
   paw.keymap.feed("fixtures tone-mono-8k.wav<CR>")
@@ -340,7 +384,9 @@ test("pick: files reads in slices, skips build folders and says when it stops", 
   T.write_file(dir .. "/.gitignore", "ignored/\n")
   local function names(list)
     local out = {}
-    for i, f in ipairs(list) do out[i] = f.path:sub(#dir + 2) end
+    for i, f in ipairs(list) do
+      out[i] = f.path:sub(#dir + 2)
+    end
     table.sort(out)
     return table.concat(out, " ")
   end
@@ -352,7 +398,10 @@ test("pick: files reads in slices, skips build folders and says when it stops", 
   paw.keymap.feed(" ff")
   eq(pick.state() ~= nil, true, "the picker is open before the walk is done")
   local waited = 0
-  while pick.state().note and not pick.state().note:find("stopped") and waited < 2000 do paw.wait(5) waited = waited + 5 end
+  while pick.state().note and not pick.state().note:find("stopped") and waited < 2000 do
+    paw.wait(5)
+    waited = waited + 5
+  end
   eq(pick.state().note, "stopped at 100 entries (files_limit)", "the picker says it stopped at the limit")
   has(screen(), "stopped at 100 entries", "the query line shows it")
   paw.keymap.feed("<Esc>")
@@ -383,7 +432,9 @@ test("pick: sources can be added, and the picker of pickers lists them", functio
   eq(pick.state() and pick.state().title, "zz_test", "opens the chosen source")
   paw.keymap.feed("y<CR>")
   eq(got, "y", "which works")
-  paw.pick.sources.zz_fn = function() return { title = "Made", items = { "z" }, on_choose = function(item) got = item end } end
+  paw.pick.sources.zz_fn = function()
+    return { title = "Made", items = { "z" }, on_choose = function(item) got = item end }
+  end
   paw.commands.exec("pick zz_fn")
   eq(pick.state().title, "Made", "a source can be a function")
   paw.keymap.feed("<CR>")

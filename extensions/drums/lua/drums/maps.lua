@@ -37,22 +37,60 @@ M.gm = {
 
 -- Every note of the General MIDI percussion map, 35 to 81, in order.
 local gm_names = {
-  [35] = "Acoustic kick", [36] = "Kick", [37] = "Side stick", [38] = "Snare", [39] = "Clap",
-  [40] = "Electric snare", [41] = "Low floor tom", [42] = "Closed hat", [43] = "High floor tom",
-  [44] = "Pedal hat", [45] = "Low tom", [46] = "Open hat", [47] = "Low-mid tom", [48] = "High-mid tom",
-  [49] = "Crash", [50] = "High tom", [51] = "Ride", [52] = "China", [53] = "Ride bell",
-  [54] = "Tambourine", [55] = "Splash", [56] = "Cowbell", [57] = "Crash 2", [58] = "Vibraslap",
-  [59] = "Ride 2", [60] = "High bongo", [61] = "Low bongo", [62] = "Mute high conga",
-  [63] = "Open high conga", [64] = "Low conga", [65] = "High timbale", [66] = "Low timbale",
-  [67] = "High agogo", [68] = "Low agogo", [69] = "Cabasa", [70] = "Maracas", [71] = "Short whistle",
-  [72] = "Long whistle", [73] = "Short guiro", [74] = "Long guiro", [75] = "Claves",
-  [76] = "High wood block", [77] = "Low wood block", [78] = "Mute cuica", [79] = "Open cuica",
-  [80] = "Mute triangle", [81] = "Open triangle",
+  [35] = "Acoustic kick",
+  [36] = "Kick",
+  [37] = "Side stick",
+  [38] = "Snare",
+  [39] = "Clap",
+  [40] = "Electric snare",
+  [41] = "Low floor tom",
+  [42] = "Closed hat",
+  [43] = "High floor tom",
+  [44] = "Pedal hat",
+  [45] = "Low tom",
+  [46] = "Open hat",
+  [47] = "Low-mid tom",
+  [48] = "High-mid tom",
+  [49] = "Crash",
+  [50] = "High tom",
+  [51] = "Ride",
+  [52] = "China",
+  [53] = "Ride bell",
+  [54] = "Tambourine",
+  [55] = "Splash",
+  [56] = "Cowbell",
+  [57] = "Crash 2",
+  [58] = "Vibraslap",
+  [59] = "Ride 2",
+  [60] = "High bongo",
+  [61] = "Low bongo",
+  [62] = "Mute high conga",
+  [63] = "Open high conga",
+  [64] = "Low conga",
+  [65] = "High timbale",
+  [66] = "Low timbale",
+  [67] = "High agogo",
+  [68] = "Low agogo",
+  [69] = "Cabasa",
+  [70] = "Maracas",
+  [71] = "Short whistle",
+  [72] = "Long whistle",
+  [73] = "Short guiro",
+  [74] = "Long guiro",
+  [75] = "Claves",
+  [76] = "High wood block",
+  [77] = "Low wood block",
+  [78] = "Mute cuica",
+  [79] = "Open cuica",
+  [80] = "Mute triangle",
+  [81] = "Open triangle",
 }
 M.gm_names = gm_names
 
 local full = {}
-for note = 35, 81 do full[#full + 1] = { note = note, name = gm_names[note] } end
+for note = 35, 81 do
+  full[#full + 1] = { note = note, name = gm_names[note] }
+end
 M["gm-full"] = { label = "General MIDI: all 47 percussion notes", rows = full }
 
 -- A kit of toms and cymbals as a drummer sets one up, for General MIDI kits

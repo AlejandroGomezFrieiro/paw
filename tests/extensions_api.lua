@@ -11,13 +11,13 @@ local function write(path, text)
   f:close()
 end
 
-local function dir(name)
-  return T.scratch .. "/extapi/" .. name
-end
+local function dir(name) return T.scratch .. "/extapi/" .. name end
 
 local function names(list)
   local out = {}
-  for _, item in ipairs(list) do out[#out + 1] = item end
+  for _, item in ipairs(list) do
+    out[#out + 1] = item
+  end
   return table.concat(out, " ")
 end
 
@@ -50,17 +50,27 @@ test("the API has a version, and requirements are checked against it", function(
   write(dir("future") .. "/init.lua", "paw.command('future.hi', function() end)")
   local entry = paw.ext.load(dir("future"))
   eq(entry.ok, false, "an extension for a later API does not load")
-  eq(entry.error:find("needs the paw API >=9.0, and this is 1.0.0", 1, true) ~= nil, true, "and says why: " .. tostring(entry.error))
+  eq(
+    entry.error:find("needs the paw API >=9.0, and this is 1.0.0", 1, true) ~= nil,
+    true,
+    "and says why: " .. tostring(entry.error)
+  )
   eq(paw.commands.get("future.hi"), nil, "nothing of it ran")
   paw.ext.unload("future")
 end)
 
 test("an extension's requirements are loaded before it, and their versions checked", function()
   T.after(read_errors)
-  write(dir("reqs/base") .. "/manifest.lua", 'return { version = "1.4.0", description = "the base", provides = { "basics" } }')
+  write(
+    dir("reqs/base") .. "/manifest.lua",
+    'return { version = "1.4.0", description = "the base", provides = { "basics" } }'
+  )
   write(dir("reqs/base") .. "/init.lua", "paw.command('base.hi', function() return 'base' end)")
   write(dir("reqs/top") .. "/manifest.lua", 'return { version = "0.2.0", requires = { paw = "^1", base = ">=1.2" } }')
-  write(dir("reqs/top") .. "/init.lua", "assert(paw.ext.loaded.base, 'base first') paw.command('top.hi', function() return paw.cmd('base.hi') end)")
+  write(
+    dir("reqs/top") .. "/init.lua",
+    "assert(paw.ext.loaded.base, 'base first') paw.command('top.hi', function() return paw.cmd('base.hi') end)"
+  )
   write(dir("reqs/old") .. "/manifest.lua", 'return { requires = { base = ">=2" } }')
   write(dir("reqs/old") .. "/init.lua", "")
   write(dir("reqs/needy") .. "/manifest.lua", 'return { requires = { basics = "*", nowhere = "*" } }')
@@ -73,11 +83,17 @@ test("an extension's requirements are loaded before it, and their versions check
   eq(old.ok, false, "a version too old is refused")
   eq(old.error, "needs base >=2, and this is 1.4.0", "and says so")
   local needy = paw.ext.load(dir("reqs/needy"))
-  eq(needy.error, "needs the extension nowhere, which is not to be found", "a name provided counts; a missing one does not")
+  eq(
+    needy.error,
+    "needs the extension nowhere, which is not to be found",
+    "a name provided counts; a missing one does not"
+  )
   local ok, why = paw.ext.unload("base")
   eq(ok, nil, "an extension another requires stays")
   eq(why, "top requires base: unload it first", "and says which")
-  for _, name in ipairs({ "needy", "old", "top", "base" }) do eq(paw.ext.unload(name), true, "unload " .. name) end
+  for _, name in ipairs({ "needy", "old", "top", "base" }) do
+    eq(paw.ext.unload(name), true, "unload " .. name)
+  end
   eq(paw.commands.get("base.hi"), nil, "gone with it")
 end)
 
@@ -86,7 +102,9 @@ test("what an extension registers is its own, and unloading it takes all of it a
   local root = dir("owner")
   write(root .. "/manifest.lua", 'return { version = "0.3.0", description = "owns things" }')
   write(root .. "/lua/owner/lib.lua", "return { word = 'lib' }")
-  write(root .. "/init.lua", [[
+  write(
+    root .. "/init.lua",
+    [[
     local lib = require("owner.lib")
     paw.command("owner.go", function() return lib.word end, { desc = "Go" })
     -- One of the core's own, replaced: unloading puts the core's back.
@@ -107,7 +125,8 @@ test("what an extension registers is its own, and unloading it takes all of it a
     paw.ui.layer("arrange", "header", "owned", 99, function() end)
     paw.on("track.added", function() _G.owner_heard = (_G.owner_heard or 0) + 1 end)
     paw.option.define("owned_option", 7)
-  ]])
+  ]]
+  )
   local core_info = paw.commands.get("info")
   local entry = paw.ext.load(root)
   eq(entry.ok, true, "loads: " .. tostring(entry.error))
@@ -119,13 +138,26 @@ test("what an extension registers is its own, and unloading it takes all of it a
   eq(provided("owner", "track_kinds"), "ownedkind", "its kind of track")
   eq(provided("owner", "hooks"), "track.added", "its hook")
   eq(provided("owner", "options"), "owned_option", "its option")
-  for _, kind in ipairs({ "key_groups", "textbuf_kinds", "pickers", "query_fields", "statusline", "grep", "ex_fields", "completers", "curves", "layers" }) do
+  for _, kind in ipairs({
+    "key_groups",
+    "textbuf_kinds",
+    "pickers",
+    "query_fields",
+    "statusline",
+    "grep",
+    "ex_fields",
+    "completers",
+    "curves",
+    "layers",
+  }) do
     eq(provided("owner", kind) ~= "", true, "it owns its " .. kind)
   end
   eq(paw.commands.get("owner.go").ext, "owner", "a command says whose it is")
   paw.cmd("extensions")
   local shown = {}
-  for _, line in ipairs(paw.ui.views.pager.lines) do shown[#shown + 1] = line.text end
+  for _, line in ipairs(paw.ui.views.pager.lines) do
+    shown[#shown + 1] = line.text
+  end
   paw.ui.close()
   shown = table.concat(shown, "\n")
   eq(shown:find("owner 0.3.0", 1, true) ~= nil, true, ":extensions shows the name and version")
@@ -140,7 +172,11 @@ test("what an extension registers is its own, and unloading it takes all of it a
   eq(paw.ext.loaded.owner, nil, "is no longer loaded")
   eq(paw.commands.get("owner.go"), nil, "its command is gone")
   eq(paw.commands.get("info"), core_info, "the core's command it replaced is back")
-  eq(paw.keymap.groups().global and paw.keymap.groups().global[table.concat(paw.keymap.parse("<leader>Z"))], nil, "its key group is gone")
+  eq(
+    paw.keymap.groups().global and paw.keymap.groups().global[table.concat(paw.keymap.parse("<leader>Z"))],
+    nil,
+    "its key group is gone"
+  )
   for _, map in ipairs(paw.keymap.every()) do
     if map.lhs == "<leader>Zo" then error("its key is still mapped") end
   end
@@ -156,11 +192,15 @@ test("what an extension registers is its own, and unloading it takes all of it a
   eq(paw.query.fields.track.ownedness, nil, "its query field")
   eq(paw.statusline.components.owned, nil, "its status line component")
   eq(paw.grep.sources.owned, nil, "its grep source")
-  for _, name in ipairs(paw.grep.order) do eq(name ~= "owned", true, "and its place in the order") end
+  for _, name in ipairs(paw.grep.order) do
+    eq(name ~= "owned", true, "and its place in the order")
+  end
   eq(paw.ex.fields.owned, nil, "its field")
   eq(paw.commands.completers.owned, nil, "its completer")
   eq(paw.curves.providers.owned, nil, "its curve provider")
-  for _, layer in ipairs(paw.ui.layers.arrange.header or {}) do eq(layer.name ~= "owned", true, "its layer") end
+  for _, layer in ipairs(paw.ui.layers.arrange.header or {}) do
+    eq(layer.name ~= "owned", true, "its layer")
+  end
   eq(package.loaded["owner.lib"], nil, "its modules are forgotten")
   paw.add_track({ name = "unheard" })
   paw.flush()
@@ -202,9 +242,12 @@ end)
 
 test("a role an extension defines is its own, and goes with it", function()
   T.after(read_errors)
-  write(dir("roley") .. "/init.lua", [[
+  write(
+    dir("roley") .. "/init.lua",
+    [[
 paw.ui.role("roley.dot", { cells = function(buf) buf:text(0, 0, "o", "Normal") end })
-]])
+]]
+  )
   paw.ext.load(dir("roley"))
   eq(paw.roles.registry["roley.dot"] ~= nil, true, "the role is defined")
   eq(provided("roley", "roles"), "roley.dot", "and listed as the extension's")
@@ -221,17 +264,24 @@ local function offered(kind)
   return false
 end
 
-test("unloading takes away what an extension registered later, its timers, options, and devices written in Lua", function()
-  T.fresh()
-  T.after(read_errors)
-  local root = dir("later")
-  write(root .. "/devices/laterfx.lua", [[
+test(
+  "unloading takes away what an extension registered later, its timers, options, and devices written in Lua",
+  function()
+    T.fresh()
+    T.after(read_errors)
+    local root = dir("later")
+    write(
+      root .. "/devices/laterfx.lua",
+      [[
 local dsp = require("paw.dsp")
 local dev = dsp.device { name = "Later fx", params = { { key = "gain", name = "Gain", min = -60, max = 12, default = 0 } } }
 function dev.process(b) end
 return dev
-]])
-  write(root .. "/init.lua", [[
+]]
+    )
+    write(
+      root .. "/init.lua",
+      [[
 paw.option.define("later_size", 3, { min = 1, max = 9, integer = true })
 _G.later_ticks = 0
 paw.every(5, function() _G.later_ticks = _G.later_ticks + 1 end)
@@ -241,78 +291,100 @@ paw.command("later.arm", function()
   paw.on("later.ping", function() _G.later_heard = true end)
   _G.later_timer = paw.defer(function() _G.later_fired = true end, 60000)
 end)
-]])
-  local entry = paw.ext.load(root)
-  eq(entry.ok, true, "loads: " .. tostring(entry.error))
-  eq(offered("lua:laterfx"), true, "its device is offered")
-  eq(provided("later", "device_dirs"), root .. "/devices", "and listed as its own")
-  paw.opt.later_size = 5
-  paw.wait(60)
-  eq(_G.later_ticks > 0, true, "its timer runs")
-  paw.cmd("later.arm")
-  eq(paw.commands.get("later.made") ~= nil, true, "a command made from its own command")
-  eq(provided("later", "commands"), ":later.arm :later.made", "is its own too")
-  eq(provided("later", "hooks"), "later.ping", "and the hook")
-  eq(provided("later", "timers"), "timer timer", "and both timers")
+]]
+    )
+    local entry = paw.ext.load(root)
+    eq(entry.ok, true, "loads: " .. tostring(entry.error))
+    eq(offered("lua:laterfx"), true, "its device is offered")
+    eq(provided("later", "device_dirs"), root .. "/devices", "and listed as its own")
+    paw.opt.later_size = 5
+    paw.wait(60)
+    eq(_G.later_ticks > 0, true, "its timer runs")
+    paw.cmd("later.arm")
+    eq(paw.commands.get("later.made") ~= nil, true, "a command made from its own command")
+    eq(provided("later", "commands"), ":later.arm :later.made", "is its own too")
+    eq(provided("later", "hooks"), "later.ping", "and the hook")
+    eq(provided("later", "timers"), "timer timer", "and both timers")
 
-  -- A device of its own on a track keeps it loaded, unless forced.
-  local t = paw.add_track({ name = "Uses it" })
-  local d = t:add_device("lua:laterfx")
-  paw.flush()
-  local ok, why = paw.ext.unload("later")
-  eq(ok, nil, "refused while a track holds its device")
-  eq(why, "lua:laterfx on Uses it: remove it first, or `:ext.unload! later` leaves it there", "and says where")
-  eq(paw.ext.loaded.later ~= nil, true, "still loaded")
-  paw.commands.exec("ext.unload! later")
-  eq(paw.ext.loaded.later, nil, "forced, it unloads")
-  eq(paw.ui.message.text, "later unloaded: what it registered is gone; lua:laterfx on Uses it left there until removed", "and says what is left")
-  eq(api.device_get(d.id).kind, "lua:laterfx", "the device stays on its track")
-  eq(offered("lua:laterfx"), false, "but is offered no more")
+    -- A device of its own on a track keeps it loaded, unless forced.
+    local t = paw.add_track({ name = "Uses it" })
+    local d = t:add_device("lua:laterfx")
+    paw.flush()
+    local ok, why = paw.ext.unload("later")
+    eq(ok, nil, "refused while a track holds its device")
+    eq(why, "lua:laterfx on Uses it: remove it first, or `:ext.unload! later` leaves it there", "and says where")
+    eq(paw.ext.loaded.later ~= nil, true, "still loaded")
+    paw.commands.exec("ext.unload! later")
+    eq(paw.ext.loaded.later, nil, "forced, it unloads")
+    eq(
+      paw.ui.message.text,
+      "later unloaded: what it registered is gone; lua:laterfx on Uses it left there until removed",
+      "and says what is left"
+    )
+    eq(api.device_get(d.id).kind, "lua:laterfx", "the device stays on its track")
+    eq(offered("lua:laterfx"), false, "but is offered no more")
 
-  eq(paw.commands.get("later.made"), nil, "the command made later is gone")
-  for _, map in ipairs(paw.keymap.every()) do
-    if map.lhs == "<leader>Zl" then error("the key mapped later is still mapped") end
+    eq(paw.commands.get("later.made"), nil, "the command made later is gone")
+    for _, map in ipairs(paw.keymap.every()) do
+      if map.lhs == "<leader>Zl" then error("the key mapped later is still mapped") end
+    end
+    paw.emit("later.ping")
+    eq(_G.later_heard, nil, "the hook added later no longer runs")
+    eq(paw.timers[_G.later_timer], nil, "its timer waiting is cancelled")
+    local ticks = _G.later_ticks
+    paw.wait(60)
+    eq(_G.later_ticks, ticks, "the repeating one stopped")
+    eq(paw.opt.later_size, nil, "its option is gone, with the value set")
+    eq(paw.option.definitions().later_size, nil, "and its definition")
+    -- Loaded again, it starts afresh.
+    eq(paw.ext.load(root).ok, true, "loads again")
+    eq(paw.opt.later_size, 3, "with its option's default")
+    eq(offered("lua:laterfx"), true, "and its device")
+    t:remove()
+    paw.flush()
+    eq(paw.ext.unload("later"), true, "with no device on a track it unloads")
+    _G.later_ticks, _G.later_timer, _G.later_fired = nil, nil, nil
   end
-  paw.emit("later.ping")
-  eq(_G.later_heard, nil, "the hook added later no longer runs")
-  eq(paw.timers[_G.later_timer], nil, "its timer waiting is cancelled")
-  local ticks = _G.later_ticks
-  paw.wait(60)
-  eq(_G.later_ticks, ticks, "the repeating one stopped")
-  eq(paw.opt.later_size, nil, "its option is gone, with the value set")
-  eq(paw.option.definitions().later_size, nil, "and its definition")
-  -- Loaded again, it starts afresh.
-  eq(paw.ext.load(root).ok, true, "loads again")
-  eq(paw.opt.later_size, 3, "with its option's default")
-  eq(offered("lua:laterfx"), true, "and its device")
-  t:remove()
-  paw.flush()
-  eq(paw.ext.unload("later"), true, "with no device on a track it unloads")
-  _G.later_ticks, _G.later_timer, _G.later_fired = nil, nil, nil
-end)
+)
 
-test("unloading an extension that redefined a core option puts the core's definition back, and leaves the core's timers", function()
-  T.fresh()
-  write(dir("redef") .. "/init.lua", [[
+test(
+  "unloading an extension that redefined a core option puts the core's definition back, and leaves the core's timers",
+  function()
+    T.fresh()
+    write(
+      dir("redef") .. "/init.lua",
+      [[
 paw.option.define("lua_devices_watch", 250)
 paw.luadev.watch()
-]])
-  local before = paw.option.definitions().lua_devices_watch
-  local timers = 0
-  for _ in pairs(paw.timers) do timers = timers + 1 end
-  eq(paw.ext.load(dir("redef")).ok, true, "loads")
-  eq(paw.opt.lua_devices_watch, 250, "its default")
-  eq(paw.ext.unload("redef"), true, "unloads")
-  eq(paw.option.definitions().lua_devices_watch, before, "the core's definition is back")
-  eq(paw.opt.lua_devices_watch, before.default, "with its default")
-  local after = 0
-  for _ in pairs(paw.timers) do after = after + 1 end
-  eq(after, timers, "the core's watch, started again while it loaded, is not taken away")
-end)
+]]
+    )
+    local before = paw.option.definitions().lua_devices_watch
+    local timers = 0
+    for _ in pairs(paw.timers) do
+      timers = timers + 1
+    end
+    eq(paw.ext.load(dir("redef")).ok, true, "loads")
+    eq(paw.opt.lua_devices_watch, 250, "its default")
+    eq(paw.ext.unload("redef"), true, "unloads")
+    eq(paw.option.definitions().lua_devices_watch, before, "the core's definition is back")
+    eq(paw.opt.lua_devices_watch, before.default, "with its default")
+    local after = 0
+    for _ in pairs(paw.timers) do
+      after = after + 1
+    end
+    eq(after, timers, "the core's watch, started again while it loaded, is not taken away")
+  end
+)
 
 test("an extension that maps a key another one mapped wins, and checkhealth says so", function()
-  write(dir("first") .. "/init.lua", 'paw.keymap.set("<F9>", function() _G.extapi_key = "first" end, { view = "arrange", desc = "First" })')
-  write(dir("second") .. "/init.lua", 'paw.keymap.set("<F9>", function() _G.extapi_key = "second" end, { view = "arrange", desc = "Second" })')
+  write(
+    dir("first") .. "/init.lua",
+    'paw.keymap.set("<F9>", function() _G.extapi_key = "first" end, { view = "arrange", desc = "First" })'
+  )
+  write(
+    dir("second") .. "/init.lua",
+    'paw.keymap.set("<F9>", function() _G.extapi_key = "second" end, { view = "arrange", desc = "Second" })'
+  )
   paw.ext.load(dir("first"))
   paw.ext.load(dir("second"))
   T.after(function()
@@ -331,16 +403,26 @@ test("an extension that maps a key another one mapped wins, and checkhealth says
 end)
 
 test("the key rule: an extension's key of one view goes on the local leader, not the leader", function()
-  write(dir("viewlead") .. "/init.lua", 'paw.keymap.set("<leader>Zq", function() end, { view = "arrange", desc = "One view" })\n'
-    .. 'paw.keymap.set("<localleader>Zq", function() end, { view = "arrange", desc = "One view" })')
+  write(
+    dir("viewlead") .. "/init.lua",
+    'paw.keymap.set("<leader>Zq", function() end, { view = "arrange", desc = "One view" })\n'
+      .. 'paw.keymap.set("<localleader>Zq", function() end, { view = "arrange", desc = "One view" })'
+  )
   paw.ext.load(dir("viewlead"))
   T.after(function() paw.ext.unload("viewlead") end)
-  eq(table.concat(paw.keyrule.broken(), "\n"), "arrange n <leader>Zq: a key of one view on the leader: use `<localleader>`", "the one on the leader")
+  eq(
+    table.concat(paw.keyrule.broken(), "\n"),
+    "arrange n <leader>Zq: a key of one view on the leader: use `<localleader>`",
+    "the one on the leader"
+  )
 end)
 
 test("checkhealth says when an extension gives a key of the core another meaning, not when it wraps it", function()
-  write(dir("rekey") .. "/init.lua", 'paw.keymap.set("]s", function() end, { view = "arrange", motion = true, desc = "Something else" })\n'
-    .. 'paw.keymap.set("<CR>", "clip.edit", { view = "arrange", desc = "Edit the clip\'s notes" })')
+  write(
+    dir("rekey") .. "/init.lua",
+    'paw.keymap.set("]s", function() end, { view = "arrange", motion = true, desc = "Something else" })\n'
+      .. 'paw.keymap.set("<CR>", "clip.edit", { view = "arrange", desc = "Edit the clip\'s notes" })'
+  )
   paw.ext.load(dir("rekey"))
   T.after(function() paw.ext.unload("rekey") end)
   local said = {}

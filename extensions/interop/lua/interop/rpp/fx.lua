@@ -20,7 +20,8 @@ local fmt = require("interop.rpp.format")
 local b64 = paw.bytes
 local M = {}
 
-local PLUGIN_BLOCKS = { VST = true, CLAP = true, LV2 = true, JS = true, DX = true, AU = true, VIDEO_EFFECT = true, CONTAINER = true }
+local PLUGIN_BLOCKS =
+  { VST = true, CLAP = true, LV2 = true, JS = true, DX = true, AU = true, VIDEO_EFFECT = true, CONTAINER = true }
 M.PLUGIN_BLOCKS = PLUGIN_BLOCKS
 
 --- "VST3i: SINE Player (Orchestral Tools)" -> "VST3i", "SINE Player", "Orchestral Tools"
@@ -149,7 +150,9 @@ function M.import(block, track, bypass, notes)
     if not t then return nil, "not installed here" end
     local parts, why = M.vst_parts(block)
     local state
-    if parts then state, why = M.vst3_state_from_reaper(parts.data) end
+    if parts then
+      state, why = M.vst3_state_from_reaper(parts.data)
+    end
     local id, err = add(t.kind, { state = state and b64.base64(state) or nil })
     if not id and state then
       -- The plugin refused the state: keep the plugin with its defaults.
@@ -182,7 +185,12 @@ function M.export(device, info)
   local state = api.device_state(device)
   local format = info and info.format or d.format
   if format == "clap" then
-    local display = string.format("CLAP%s: %s (%s)", info.category == "instrument" and "i" or "", info.name, info.vendor ~= "" and info.vendor or "unknown")
+    local display = string.format(
+      "CLAP%s: %s (%s)",
+      info.category == "instrument" and "i" or "",
+      info.name,
+      info.vendor ~= "" and info.vendor or "unknown"
+    )
     local block = fmt.block("CLAP", display, (d.kind:gsub("^clap:", "")), "")
     if meta and meta.header and meta.header[1] == "CLAP" then
       block.tokens, block.quotes = meta.header, meta.quotes
@@ -191,7 +199,12 @@ function M.export(device, info)
     if state then block:add(fmt.block("STATE")):set_data(state) end
     return block
   elseif format == "lv2" then
-    local display = string.format("LV2%s: %s (%s)", info.category == "instrument" and "i" or "", info.name, info.vendor ~= "" and info.vendor or "unknown")
+    local display = string.format(
+      "LV2%s: %s (%s)",
+      info.category == "instrument" and "i" or "",
+      info.name,
+      info.vendor ~= "" and info.vendor or "unknown"
+    )
     local block = fmt.block("LV2", display, (d.kind:gsub("^lv2:", "")), "")
     if meta and meta.header and meta.header[1] == "LV2" then
       block.tokens, block.quotes = meta.header, meta.quotes
@@ -199,7 +212,9 @@ function M.export(device, info)
     block:add(fmt.line("CFG", 0, 0, 0, ""))
     local line, n = nil, 0
     local keys = {}
-    for key in pairs(d.params or {}) do keys[#keys + 1] = key end
+    for key in pairs(d.params or {}) do
+      keys[#keys + 1] = key
+    end
     table.sort(keys)
     for _, key in ipairs(keys) do
       if not line or n >= 12 then
@@ -213,7 +228,8 @@ function M.export(device, info)
     return block, state and "LV2 plugins: state beyond the control ports is not written" or nil
   elseif format == "vst3" then
     if not (meta and meta.vst_header and meta.header) then
-      return nil, "a VST3 plugin is only written back when it came from a REAPER project (REAPER's id for it is unknown)"
+      return nil,
+        "a VST3 plugin is only written back when it came from a REAPER project (REAPER's id for it is unknown)"
     end
     local data = state and M.vst3_state_to_reaper(b64.unbase64(state))
     if not data then return nil, "its state could not be read" end

@@ -57,7 +57,9 @@ replace mode.]],
   -- The tests' audio engine plays a test tone as its input, the way the suite
   -- tests recording.
   test = {
-    before = function() api.engine_restart({ backend = "null", test_input = { frequency = 440, level = -12, channels = 2 } }) end,
+    before = function()
+      api.engine_restart({ backend = "null", test_input = { frequency = 440, level = -12, channels = 2 } })
+    end,
     after = function() api.engine_restart({ backend = "null" }) end,
   },
   steps = {
@@ -96,7 +98,11 @@ replace mode.]],
       keys = { "0", "R", { sim = play_three_notes, instead = {} }, "R", "<leader><Space>" },
       check = function(_, look)
         local clip = look.clips("Keys")[1]
-        return clip and clip.kind == "midi" and #clip:notes() > 0 and not paw.transport.playing and not paw.transport.recording
+        return clip
+          and clip.kind == "midi"
+          and #clip:notes() > 0
+          and not paw.transport.playing
+          and not paw.transport.recording
       end,
       done = "A MIDI clip contains the notes that you played. `<CR>` on the clip opens it in the piano roll.",
     },

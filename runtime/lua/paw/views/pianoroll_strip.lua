@@ -29,7 +29,12 @@ local M = {
 
 -- What the strip shows, for each seat: one of `M.kinds`.
 local shown = M.kinds[1]
-paw.seats.keep("pianoroll.strip", function() return shown end, function(s) shown = s end, function() return M.kinds[1] end)
+paw.seats.keep(
+  "pianoroll.strip",
+  function() return shown end,
+  function(s) shown = s end,
+  function() return M.kinds[1] end
+)
 
 --- What the strip shows now: `{ label, short, kind, number }`, `kind` nil
 --- for the velocities.
@@ -60,7 +65,9 @@ local function draw(self, buf)
   local hue = paw.draw.track_hue(api.track_get(api.clip_get(clip.id).track))
   local list, value = {}, shown.kind == "bend" and 0 or nil
   local chosen = {}
-  for _, place in ipairs(controls.chosen(clip.id)) do chosen[place] = true end
+  for _, place in ipairs(controls.chosen(clip.id)) do
+    chosen[place] = true
+  end
   for place, c in ipairs(clip:controls()) do
     if controls.is(c, shown.kind, shown.number) then list[#list + 1] = { c = c, place = place } end
   end
@@ -70,9 +77,23 @@ local function draw(self, buf)
   -- each move, the chosen brighter.
   local scroll, zoom, kind = self.scroll, g.zoom, shown.kind
   local pictured = lane:strip(0, 0, tw, rows, {
-    key = "pianoroll:strip", under = true,
-    draw = function(gp, px) M.picture(gp, px, { list = list, chosen = chosen, kind = kind, scroll = scroll, zoom = zoom,
-      length = length, color = paw.draw.track_colour(api.track_get(api.clip_get(clip.id).track)) }) end,
+    key = "pianoroll:strip",
+    under = true,
+    draw = function(gp, px)
+      M.picture(
+        gp,
+        px,
+        {
+          list = list,
+          chosen = chosen,
+          kind = kind,
+          scroll = scroll,
+          zoom = zoom,
+          length = length,
+          color = paw.draw.track_colour(api.track_get(api.clip_get(clip.id).track)),
+        }
+      )
+    end,
   })
   if pictured then return end
   local at = 1
@@ -116,8 +137,14 @@ function M.picture(g, px, o)
   end
   local part = { w = x1 - x0, h = px.h, cell = px.cell }
   local _, Y = paw.plot.curve(g:sub(x0, 0, x1 - x0, px.h), part, {
-    points = points, from = o.scroll + x0 / ppb, pixels_per_beat = ppb, color = o.color,
-    guides = false, markers = false, grid = false, fill = 0.3,
+    points = points,
+    from = o.scroll + x0 / ppb,
+    pixels_per_beat = ppb,
+    color = o.color,
+    guides = false,
+    markers = false,
+    grid = false,
+    fill = 0.3,
   })
   for _, item in ipairs(o.list) do
     local x = X(item.c.start)
@@ -156,7 +183,11 @@ function M.press(self, e, clip)
   local where = { x = math.floor(e.x + (e.view_x or 0)), y = math.floor(e.y + (e.view_y or 0)) }
   if e.x < g.keys then
     if e.button == "left" or e.button == "right" then
-      mouse.grab(e, { up = function(u) if not u.moved then choose_kind(where) end end })
+      mouse.grab(e, {
+        up = function(u)
+          if not u.moved then choose_kind(where) end
+        end,
+      })
     end
     return true
   end
@@ -203,15 +234,21 @@ function M.press(self, e, clip)
           A.select_control(clip.id, place, mouse.has(e, "C") and "toggle" or "add")
         else
           local among = false
-          for _, p in ipairs(controls.chosen(clip.id)) do among = among or p == place end
+          for _, p in ipairs(controls.chosen(clip.id)) do
+            among = among or p == place
+          end
           if not among then A.select_control(clip.id, place, "only") end
         end
         mouse.grab(e, {
           drag = function(d)
-            mouse.hint(string.format("moving the chosen moves by %g beats", math.floor(d.dx / g.zoom * 100 + 0.5) / 100))
+            mouse.hint(
+              string.format("moving the chosen moves by %g beats", math.floor(d.dx / g.zoom * 100 + 0.5) / 100)
+            )
           end,
           up = function(u)
-            if u.moved and not toggling then A.move_controls(clip.id, u.dx / g.zoom, -u.dy / rows, mouse.has(u, "S")) end
+            if u.moved and not toggling then
+              A.move_controls(clip.id, u.dx / g.zoom, -u.dy / rows, mouse.has(u, "S"))
+            end
           end,
         })
         return true
@@ -223,7 +260,16 @@ function M.press(self, e, clip)
     mouse.grab(e, {
       up = function(u)
         local a, b = math.min(x0, u.x), math.max(x0, u.x)
-        A.select_controls(clip.id, kind, number, beat(a), fraction(math.max(y0, u.y)), beat(b + (e.fine and 0 or 1)), fraction(math.min(y0, u.y)), mouse.has(u, "S") and "add" or "only")
+        A.select_controls(
+          clip.id,
+          kind,
+          number,
+          beat(a),
+          fraction(math.max(y0, u.y)),
+          beat(b + (e.fine and 0 or 1)),
+          fraction(math.min(y0, u.y)),
+          mouse.has(u, "S") and "add" or "only"
+        )
       end,
     })
     return true
@@ -233,7 +279,10 @@ function M.press(self, e, clip)
     drag = function(d)
       stroke[#stroke + 1] = { beat(d.x), fraction(d.y) }
       local f = stroke[#stroke][2]
-      mouse.hint(kind == "bend" and string.format("bend %d", math.floor(8192 * (f * 2 - 1) + 0.5)) or string.format("value %d", math.floor(127 * f + 0.5)))
+      mouse.hint(
+        kind == "bend" and string.format("bend %d", math.floor(8192 * (f * 2 - 1) + 0.5))
+          or string.format("value %d", math.floor(127 * f + 0.5))
+      )
     end,
     up = function() A.draw_controls(clip.id, kind, number, stroke) end,
   })

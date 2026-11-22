@@ -20,8 +20,15 @@ local M = {}
 function M.encode(pads)
   local lines = { "sampler 1" }
   for _, p in ipairs(pads) do
-    lines[#lines + 1] = string.format("%d %s %s %s %d %s", p.note, tostring(p.level or 0), tostring(p.pan or 0),
-      tostring(p.tune or 0), p.group or 0, p.file)
+    lines[#lines + 1] = string.format(
+      "%d %s %s %s %d %s",
+      p.note,
+      tostring(p.level or 0),
+      tostring(p.pan or 0),
+      tostring(p.tune or 0),
+      p.group or 0,
+      p.file
+    )
   end
   return table.concat(lines, "\n") .. "\n"
 end
@@ -31,8 +38,14 @@ function M.decode(text)
   for line in (text or ""):gmatch("[^\n]+") do
     local note, level, pan, tune, group, file = line:match("^(%d+) (%S+) (%S+) (%S+) (%d+) (.+)$")
     if note then
-      pads[#pads + 1] = { note = tonumber(note), level = tonumber(level), pan = tonumber(pan), tune = tonumber(tune),
-        group = tonumber(group), file = file }
+      pads[#pads + 1] = {
+        note = tonumber(note),
+        level = tonumber(level),
+        pan = tonumber(pan),
+        tune = tonumber(tune),
+        group = tonumber(group),
+        file = file,
+      }
     end
   end
   return pads
@@ -92,8 +105,20 @@ end
 -- first that is still free. Hats are one group, so that a closed or pedal hat
 -- cuts off an open one.
 M.names = {
-  { words = { "open", "oh", "ohh", "ohat" }, also = { "hat", "hh", "hihat", "oh", "ohh", "ohat" }, notes = { 46 }, group = 1, name = "Open hat" },
-  { words = { "pedal", "foot", "ph", "phh" }, also = { "hat", "hh", "hihat", "ph", "phh" }, notes = { 44 }, group = 1, name = "Pedal hat" },
+  {
+    words = { "open", "oh", "ohh", "ohat" },
+    also = { "hat", "hh", "hihat", "oh", "ohh", "ohat" },
+    notes = { 46 },
+    group = 1,
+    name = "Open hat",
+  },
+  {
+    words = { "pedal", "foot", "ph", "phh" },
+    also = { "hat", "hh", "hihat", "ph", "phh" },
+    notes = { 44 },
+    group = 1,
+    name = "Pedal hat",
+  },
   { words = { "hat", "hh", "hihat", "hats", "ch", "chh", "closed" }, notes = { 42 }, group = 1, name = "Closed hat" },
   { words = { "kick", "bd", "bassdrum", "kik", "kck" }, notes = { 36, 35 }, name = "Kick" },
   { words = { "rim", "rimshot", "stick", "sidestick", "rs" }, notes = { 37 }, name = "Rim" },
@@ -125,8 +150,12 @@ local function words_of(name)
   local set = {}
   -- `ClosedHat` and `closed_hat` alike.
   local spaced = name:gsub("(%l)(%u)", "%1 %2"):lower()
-  for word in spaced:gmatch("[%a]+") do set[word] = true end
-  for word in spaced:gmatch("[%w]+") do set[word] = true end
+  for word in spaced:gmatch("[%a]+") do
+    set[word] = true
+  end
+  for word in spaced:gmatch("[%w]+") do
+    set[word] = true
+  end
   return set
 end
 
@@ -135,10 +164,14 @@ function M.classify(name)
   local words = words_of(name)
   for _, entry in ipairs(M.names) do
     local hit = false
-    for _, w in ipairs(entry.words) do hit = hit or words[w] end
+    for _, w in ipairs(entry.words) do
+      hit = hit or words[w]
+    end
     if hit and entry.also then
       local also = false
-      for _, w in ipairs(entry.also) do also = also or words[w] end
+      for _, w in ipairs(entry.also) do
+        also = also or words[w]
+      end
       hit = also
     end
     if hit then return entry end
@@ -171,11 +204,15 @@ function M.from_folder(dir)
     local entry = M.classify(stem)
     local note
     for _, n in ipairs(entry and entry.notes or {}) do
-      if not taken[n] then note = n break end
+      if not taken[n] then
+        note = n
+        break
+      end
     end
     if note then
       taken[note] = true
-      pads[#pads + 1] = { note = note, file = dir .. "/" .. file, level = 0, pan = 0, tune = 0, group = entry.group or 0 }
+      pads[#pads + 1] =
+        { note = note, file = dir .. "/" .. file, level = 0, pan = 0, tune = 0, group = entry.group or 0 }
       rows[#rows + 1] = { note = note, name = stem }
     else
       unknown[#unknown + 1] = { file = file, stem = stem }
@@ -183,14 +220,18 @@ function M.from_folder(dir)
   end
   local next_note = 60
   for _, u in ipairs(unknown) do
-    while taken[next_note] and next_note < 127 do next_note = next_note + 1 end
+    while taken[next_note] and next_note < 127 do
+      next_note = next_note + 1
+    end
     taken[next_note] = true
     pads[#pads + 1] = { note = next_note, file = dir .. "/" .. u.file, level = 0, pan = 0, tune = 0, group = 0 }
     rows[#rows + 1] = { note = next_note, name = u.stem }
   end
   -- Rows in the order of the General MIDI map, as a beat reads.
   local order = {}
-  for i, row in ipairs(drums.maps.gm.rows) do order[row.note] = i end
+  for i, row in ipairs(drums.maps.gm.rows) do
+    order[row.note] = i
+  end
   table.sort(rows, function(a, b)
     local oa, ob = order[a.note] or 100 + a.note, order[b.note] or 100 + b.note
     return oa < ob

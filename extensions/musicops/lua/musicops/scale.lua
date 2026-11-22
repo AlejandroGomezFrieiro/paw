@@ -27,9 +27,7 @@ M.default = "C major"
 M.project = H.project_key
 
 --- The key to work in: the project's, or C major.
-function M.current()
-  return M.project() or M.parse(M.default)
-end
+function M.current() return M.project() or M.parse(M.default) end
 
 --- Set the project's key (one edit), or clear it with nil.
 function M.set(spec)

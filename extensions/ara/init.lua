@@ -38,7 +38,9 @@ command("ara.add", function(ctx)
     return add(track, kind)
   end
   local kinds = ara.kinds()
-  if #kinds == 0 then return paw.notify("ara: paw knows no ARA plugin (`:plugins.rescan` reads the plugin files again)", "warn") end
+  if #kinds == 0 then
+    return paw.notify("ara: paw knows no ARA plugin (`:plugins.rescan` reads the plugin files again)", "warn")
+  end
   paw.pick({
     title = "ARA plugins",
     items = function() return kinds end,
@@ -49,7 +51,9 @@ end, {
   desc = "Put an ARA plugin first on the track of the cursor, to play and edit its audio clips: `ara.add org.ara-audio.examples.testplugin.clap`",
   complete = function()
     local out = {}
-    for _, t in ipairs(ara.kinds()) do out[#out + 1] = (t.kind:gsub("^clap:", "")) end
+    for _, t in ipairs(ara.kinds()) do
+      out[#out + 1] = (t.kind:gsub("^clap:", ""))
+    end
     return out
   end,
 })
@@ -66,7 +70,9 @@ local function notes_into_clip(device, track, tries)
   if not ok then return paw.notify("ara: " .. tostring(notes), "error") end
   if not notes then
     if tries <= 0 then return paw.notify("ara: the plugin did not finish its analysis", "warn") end
-    if tries % 10 == 0 then paw.notify(string.format("ara: the plugin listens to the clips (%d%%)", math.floor(progress * 100))) end
+    if tries % 10 == 0 then
+      paw.notify(string.format("ara: the plugin listens to the clips (%d%%)", math.floor(progress * 100)))
+    end
     return paw.defer(function() notes_into_clip(device, track, tries - 1) end, 100)
   end
   if #notes == 0 then return paw.notify("ara: the plugin found no notes", "warn") end
@@ -76,7 +82,9 @@ local function notes_into_clip(device, track, tries)
     last = math.max(last, n.start + n.length)
   end
   local start = math.floor(first)
-  for _, n in ipairs(notes) do n.start = n.start - start end
+  for _, n in ipairs(notes) do
+    n.start = n.start - start
+  end
   local name = api.track_get(track).name .. " notes"
   local index = 1
   for i, id in ipairs(api.track_list()) do
@@ -110,11 +118,22 @@ keymap.set("<localleader>as", "ara.status", { view = "arrange", desc = "What the
 paw.health.register("ara", function(h)
   local path = ara.bridge_path()
   if not path then
-    return h.error("paw-ara.so not found", { "it is built with the extension's package (extensions/ara/nix)",
-      "or set paw.opt.ara_bridge to where it is" })
+    return h.error(
+      "paw-ara.so not found",
+      { "it is built with the extension's package (extensions/ara/nix)", "or set paw.opt.ara_bridge to where it is" }
+    )
   end
-  if paw.plugins.attached.ara then h.ok("the attachment " .. path) else h.error("paw-ara.so did not load", path) end
+  if paw.plugins.attached.ara then
+    h.ok("the attachment " .. path)
+  else
+    h.error("paw-ara.so did not load", path)
+  end
   local kinds = ara.kinds()
-  if #kinds == 0 then h.info("no ARA plugin found: `:plugins.rescan` reads the plugin files again")
-  else for _, t in ipairs(kinds) do h.ok("ARA plugin: " .. t.name) end end
+  if #kinds == 0 then
+    h.info("no ARA plugin found: `:plugins.rescan` reads the plugin files again")
+  else
+    for _, t in ipairs(kinds) do
+      h.ok("ARA plugin: " .. t.name)
+    end
+  end
 end, { desc = "ARA plugins" })

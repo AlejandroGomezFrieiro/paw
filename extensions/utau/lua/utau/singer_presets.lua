@@ -22,13 +22,11 @@ end
 
 --- A name as a file name.
 function M.file_name(name)
-  local s = tostring(name or ""):gsub("[/\\:%*%?\"<>|%c]", "_"):gsub("^%s+", ""):gsub("%s+$", "")
+  local s = tostring(name or ""):gsub('[/\\:%*%?"<>|%c]', "_"):gsub("^%s+", ""):gsub("%s+$", "")
   return s ~= "" and s or "Preset"
 end
 
-function M.path(name)
-  return M.dir() .. "/" .. M.file_name(name) .. ".json"
-end
+function M.path(name) return M.dir() .. "/" .. M.file_name(name) .. ".json" end
 
 --- A vocal track's voice as a preset.
 function M.from_track(track_id, name)
@@ -36,7 +34,9 @@ function M.from_track(track_id, name)
   if not device then error("not a vocal track", 0) end
   local config = utau.config(track_id)
   local options = {}
-  for k, v in pairs(type(config.options) == "table" and config.options or {}) do options[k] = tostring(v) end
+  for k, v in pairs(type(config.options) == "table" and config.options or {}) do
+    options[k] = tostring(v)
+  end
   if config.voice_color then options.subbank = config.voice_color end
   local curves = {}
   local d = api.device_get(device)
@@ -44,10 +44,16 @@ function M.from_track(track_id, name)
     if info.key ~= "voice" then curves[info.key] = d.params[info.key] or info.default end
   end
   return {
-    version = M.VERSION, name = name,
-    singer = config.singer or "", phonemizer = config.phonemizer or "", renderer = config.renderer or "",
-    resampler = config.resampler or "", wavtool = config.wavtool or "", pitchBendRange = 12,
-    options = options, curves = curves,
+    version = M.VERSION,
+    name = name,
+    singer = config.singer or "",
+    phonemizer = config.phonemizer or "",
+    renderer = config.renderer or "",
+    resampler = config.resampler or "",
+    wavtool = config.wavtool or "",
+    pitchBendRange = 12,
+    options = options,
+    curves = curves,
   }
 end
 
@@ -118,8 +124,12 @@ function M.apply(track_id, preset)
   local function str(v) return type(v) == "string" and v ~= "" and v or false end
   local subbank = type(preset.options) == "table" and preset.options.subbank
   utau.configure(track_id, {
-    singer = str(preset.singer), phonemizer = str(preset.phonemizer), renderer = str(preset.renderer),
-    resampler = str(preset.resampler), wavtool = str(preset.wavtool), voice_color = str(subbank),
+    singer = str(preset.singer),
+    phonemizer = str(preset.phonemizer),
+    renderer = str(preset.renderer),
+    resampler = str(preset.resampler),
+    wavtool = str(preset.wavtool),
+    voice_color = str(subbank),
     options = next(options) and options or false,
   })
   local d = api.device_get(device)

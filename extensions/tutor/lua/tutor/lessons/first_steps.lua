@@ -37,12 +37,16 @@ tracks (`:5,8d`, `:%s/c4/d4/g`). Lesson 17 shows them.]],
     local bass = paw.add_track({ name = "Bass", volume = -4 })
     bass:add_device("synth", { wave = 2, cutoff = 600, release = 0.05 })
     local line = look.pulse("A1", 4)
-    for _, n in ipairs(look.pulse("F1", 4, 4)) do line[#line + 1] = n end
+    for _, n in ipairs(look.pulse("F1", 4, 4)) do
+      line[#line + 1] = n
+    end
     bass:add_clip({ name = "bass", start = 0, length = 8, notes = line })
     local keys = paw.add_track({ name = "Keys", volume = -10 })
     keys:add_device("synth", { wave = 3, attack = 0.05, release = 0.4, cutoff = 2000 })
     local chords = look.chord({ "A3", "C4", "E4" }, 4)
-    for _, n in ipairs(look.chord({ "F3", "A3", "C4" }, 4, 4)) do chords[#chords + 1] = n end
+    for _, n in ipairs(look.chord({ "F3", "A3", "C4" }, 4, 4)) do
+      chords[#chords + 1] = n
+    end
     keys:add_clip({ name = "chords", start = 0, length = 8, notes = chords })
     paw.transport.loop_start, paw.transport.loop_end, paw.transport.loop_enabled = 0, 8, true
   end,

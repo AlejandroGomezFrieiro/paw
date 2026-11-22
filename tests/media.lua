@@ -26,22 +26,24 @@ test("a render to a format that cannot be written is refused before rendering", 
   T.fails(function() paw.cmd("render", { path }) end, "AAC", "the command refuses it too")
   eq(exists(path), false, "and writes nothing")
   local names = {}
-  for _, f in ipairs(api.render_formats()) do names[#names + 1] = f.name end
+  for _, f in ipairs(api.render_formats()) do
+    names[#names + 1] = f.name
+  end
   eq(names[1], "WAV", "the formats that can be written are listed")
 end)
 
 --- A file of `seconds` of a steady level, at 48 kHz.
 local function steady(path, seconds, level)
   local s = {}
-  for i = 1, math.floor(seconds * 48000) do s[i] = level end
+  for i = 1, math.floor(seconds * 48000) do
+    s[i] = level
+  end
   return T.write_wav(path, s)
 end
 
 local function mkdir(path) os.execute("mkdir -p '" .. path .. "'") end
 
-local function peak()
-  return T.render({ tail = 0, bits = 16 }).peak
-end
+local function peak() return T.render({ tail = 0, bits = 16 }).peak end
 
 local function missing_warnings()
   local n = 0
@@ -97,7 +99,11 @@ test("an old project with full paths opens unchanged", function()
   -- Moved with the old full path in it: found by its place in the folder.
   os.rename(dir, dir .. "-moved")
   paw.project.load(dir .. "-moved/old.json")
-  eq(paw.tracks()[1]:clips()[1].file, dir .. "-moved/media/a.wav", "a full path into the old folder is found in the new one")
+  eq(
+    paw.tracks()[1]:clips()[1].file,
+    dir .. "-moved/media/a.wav",
+    "a full path into the old folder is found in the new one"
+  )
   T.near(peak(), 0.25, 0.002, "and plays")
 end)
 
@@ -115,7 +121,9 @@ test("a renamed file is offline, reported once, kept on saving, and relinked", f
   eq(#paw.media.missing(), 1, "and listed as missing")
   local state = paw.frontend.state(-1)
   local drawn
-  for _, c in ipairs(state.clips) do if c.id == clip.id then drawn = c end end
+  for _, c in ipairs(state.clips) do
+    if c.id == clip.id then drawn = c end
+  end
   eq(drawn.offline, true, "the window is told")
   eq(drawn.name:find("offline", 1, true) ~= nil, true, "and draws it as offline")
   paw.flush()
@@ -198,8 +206,11 @@ test("a project folder records the hash of each file in media.json, the same on 
   local first = T.read_file(dir .. "/media.json")
   local hash = paw.media.list()[1].hash
   eq(hash and hash:match("^b3:%x+$") ~= nil and #hash == 67, true, "paw.media.list gives the hash")
-  eq(first:find('"media/a.wav"', 1, true) ~= nil and first:find(hash, 1, true) ~= nil, true,
-    "media.json names the file as the clip does, with its hash")
+  eq(
+    first:find('"media/a.wav"', 1, true) ~= nil and first:find(hash, 1, true) ~= nil,
+    true,
+    "media.json names the file as the clip does, with its hash"
+  )
   paw.project.load(dir)
   paw.project.save()
   eq(T.read_file(dir .. "/media.json"), first, "saved again, the same bytes")
@@ -224,7 +235,11 @@ test("a project with recordings, moved with its folder, plays them", function()
       t.armed = false
       paw.project.save(dir .. "/song.json")
       local file = t:clips()[1].file
-      eq(file:sub(1, #dir + 7), dir .. "/media/", "the take is in the project's folder (saved first: " .. tostring(saved_first) .. ")")
+      eq(
+        file:sub(1, #dir + 7),
+        dir .. "/media/",
+        "the take is in the project's folder (saved first: " .. tostring(saved_first) .. ")"
+      )
       os.rename(dir, dir .. "-moved")
       paw.project.load(dir .. "-moved/song.json")
       local clip = paw.tracks()[1]:clips()[1]
@@ -244,7 +259,10 @@ local function checksum(path)
   local d = T.read_file(path)
   local at = d:find("data", 1, true) + 8
   local a, b = 1, 0
-  for i = at, #d do a = (a + d:byte(i)) % 65521; b = (b + a) % 65521 end
+  for i = at, #d do
+    a = (a + d:byte(i)) % 65521
+    b = (b + a) % 65521
+  end
   return string.format("%d %08x", #d - at + 1, b * 65536 + a)
 end
 
@@ -258,7 +276,10 @@ test("a render gives the same samples as the renderer before it moved to a threa
   local info = paw.render(T.scratch .. "/same32.wav", { bits = 32, tail = 1 })
   eq(info.frames, 870858, "as many frames")
   eq(checksum(info.path), "6966864 29c4bee4", "the same float samples")
-  info = paw.render(T.scratch .. "/same24.wav", { bits = 24, tail = 1, normalize = -1, dither = true, start = 4, ["end"] = 12 })
+  info = paw.render(
+    T.scratch .. "/same24.wav",
+    { bits = 24, tail = 1, normalize = -1, dither = true, start = 4, ["end"] = 12 }
+  )
   eq(checksum(info.path), "1522290 feb3b22f", "and the same normalized, dithered 24-bit samples")
 end)
 
@@ -272,10 +293,23 @@ test("a render takes a range, a tail, a rate, a channel count and a sample size"
   T.near(info.seconds, 2, 1e-3, "the loop is four beats")
   info = paw.render(T.scratch .. "/between.wav", { start = 2, ["end"] = 6, tail = 1.5 })
   T.near(info.seconds, 2 + 1.5, 1e-3, "between two beats, with a tail in seconds")
-  T.fails(function() paw.render(T.scratch .. "/sel.wav", { range = "selection" }) end, "selected", "no selection, no range")
-  T.fails(function() paw.render(T.scratch .. "/x.wav", { range = "chorus" }) end, "loop", "an unknown range names the known ones")
+  T.fails(
+    function() paw.render(T.scratch .. "/sel.wav", { range = "selection" }) end,
+    "selected",
+    "no selection, no range"
+  )
+  T.fails(
+    function() paw.render(T.scratch .. "/x.wav", { range = "chorus" }) end,
+    "loop",
+    "an unknown range names the known ones"
+  )
   paw.render_ranges.chorus = function() return 1, 3 end
-  T.near(paw.render(T.scratch .. "/chorus.wav", { range = "chorus", tail = 0 }).seconds, 1, 1e-3, "a range an extension adds")
+  T.near(
+    paw.render(T.scratch .. "/chorus.wav", { range = "chorus", tail = 0 }).seconds,
+    1,
+    1e-3,
+    "a range an extension adds"
+  )
   paw.render_ranges.chorus = nil
 
   info = paw.render(T.scratch .. "/mono.wav", { channels = "mono", bits = 16, rate = 44100, ["end"] = 2, tail = 0 })
@@ -284,8 +318,12 @@ test("a render takes a range, a tail, a rate, a channel count and a sample size"
   eq(u32(head, 25), 44100, "at the rate asked for")
   eq(u16(head, 35), 16, "of 16 bits")
   -- (At 44.1 kHz the file is converted, and its sudden start rings a little.)
-  T.near(paw.render(T.scratch .. "/mono48.wav", { channels = 1, ["end"] = 2, tail = 0 }).peak, 0.5, 0.002,
-    "both sides mixed at half each")
+  T.near(
+    paw.render(T.scratch .. "/mono48.wav", { channels = 1, ["end"] = 2, tail = 0 }).peak,
+    0.5,
+    0.002,
+    "both sides mixed at half each"
+  )
   T.fails(function() paw.render(T.scratch .. "/x.flac", { bits = 32 }) end, "16, 24", "FLAC has no float samples")
   T.fails(function() paw.render(T.scratch .. "/x.wav", { channels = 6 }) end, "mono", "only mono and stereo")
 end)
@@ -361,7 +399,9 @@ test("a render in the background reports progress, can be cancelled, and leaves 
   local last = events[#events]
   eq(last and last.name, "render.cancelled", "it says it was cancelled")
   local progress = 0
-  for _, ev in ipairs(events) do if ev.name == "render.progress" then progress = math.max(progress, ev.e.fraction) end end
+  for _, ev in ipairs(events) do
+    if ev.name == "render.progress" then progress = math.max(progress, ev.e.fraction) end
+  end
   eq(progress > 0, true, "and reported progress before")
 
   events = {}
@@ -373,7 +413,9 @@ test("a render in the background reports progress, can be cancelled, and leaves 
   eq(events[#events].name, "render.done", "a render ends with render.done")
   T.near(events[#events].e.peak, 10 ^ (-60 / 20) * 0.5, 0.0005, "of the project as it was when the render started")
   eq(exists(path), true, "under its name")
-  for _, h in ipairs(handles) do paw.off(h) end
+  for _, h in ipairs(handles) do
+    paw.off(h)
+  end
 end)
 
 test("the render command takes its options and completes them", function()
@@ -385,7 +427,9 @@ test("the render command takes its options and completes them", function()
   local spec = paw.commands.get("render")
   local words = spec.complete("mix.wav ra")
   local found = false
-  for _, w in ipairs(words) do if w == "mix.wav range=" then found = true end end
+  for _, w in ipairs(words) do
+    if w == "mix.wav range=" then found = true end
+  end
   eq(found, true, "options complete")
   words = spec.complete("mix.wav range=")
   eq(#words, 3, "and their values: song, loop, selection")
@@ -396,7 +440,9 @@ end)
 --- A file of a tone at `freq` Hz, at `rate`, 16 bits.
 local function tone_file(path, rate, freq, seconds, level)
   local s = {}
-  for i = 1, math.floor(seconds * rate) do s[i] = level * math.sin(2 * math.pi * freq * (i - 1) / rate) end
+  for i = 1, math.floor(seconds * rate) do
+    s[i] = level * math.sin(2 * math.pi * freq * (i - 1) / rate)
+  end
   return T.write_wav(path, s, s, rate)
 end
 
@@ -424,61 +470,68 @@ end)
 --- A file rising from 0 to `top` over `seconds`, at 48 kHz.
 local function ramp(path, seconds, top)
   local s, n = {}, math.floor(seconds * 48000)
-  for i = 1, n do s[i] = top * (i - 1) / n end
+  for i = 1, n do
+    s[i] = top * (i - 1) / n
+  end
   return T.write_wav(path, s)
 end
 
-test("an audio clip's edit list: a gain on a part and a pencil fix play through, are saved in the clip's file, and come back without the cache", function()
-  fresh()
-  T.after(function() api.media_store(0) end)
-  -- Every version on the disk: the cache is where it is kept.
-  api.media_store(0.0001)
-  local _, store = api.media_store()
-  local t = paw.add_track({ name = "Take" })
-  local src = steady(T.scratch .. "/edit-steady.wav", 2, 0.5)
-  local before = T.read_file(src)
-  local clip = t:add_clip({ file = src, start = 0, length = 4 })
-  paw.flush()
-  api.undo_checkpoint()
-  paw.cursor.set_track(t)
-  paw.cursor.beat = 0
-  T.keys(":clip.gain 0.5 1 -120<CR>")
-  eq(paw.ui.message.text, clip.name .. ": -120 dB from 0.5 s to 1 s (1 edit in its list)", "said")
-  local fix = {}
-  for i = 1, 100 do fix[i] = 0.1 end
-  paw.media.pencil(clip, 1.5, fix, 0)
-  api.undo_checkpoint()
-  paw.flush()
-  local function heard()
-    local s = T.samples(T.render({ tail = 0, bits = 16, ["end"] = 4 }))
-    return s
+test(
+  "an audio clip's edit list: a gain on a part and a pencil fix play through, are saved in the clip's file, and come back without the cache",
+  function()
+    fresh()
+    T.after(function() api.media_store(0) end)
+    -- Every version on the disk: the cache is where it is kept.
+    api.media_store(0.0001)
+    local _, store = api.media_store()
+    local t = paw.add_track({ name = "Take" })
+    local src = steady(T.scratch .. "/edit-steady.wav", 2, 0.5)
+    local before = T.read_file(src)
+    local clip = t:add_clip({ file = src, start = 0, length = 4 })
+    paw.flush()
+    api.undo_checkpoint()
+    paw.cursor.set_track(t)
+    paw.cursor.beat = 0
+    T.keys(":clip.gain 0.5 1 -120<CR>")
+    eq(paw.ui.message.text, clip.name .. ": -120 dB from 0.5 s to 1 s (1 edit in its list)", "said")
+    local fix = {}
+    for i = 1, 100 do
+      fix[i] = 0.1
+    end
+    paw.media.pencil(clip, 1.5, fix, 0)
+    api.undo_checkpoint()
+    paw.flush()
+    local function heard()
+      local s = T.samples(T.render({ tail = 0, bits = 16, ["end"] = 4 }))
+      return s
+    end
+    local s = heard()
+    T.near(s[1000], 0.5, 0.01, "the sound before the part")
+    T.near(s[36000], 0, 0.001, "the part is silent")
+    T.near(s[72010], 0.1, 0.01, "the pencil fix in the left channel")
+    T.near(s[60000], 0.5, 0.01, "and the sound after the part")
+    eq(T.read_file(src) == before, true, "the file is as it was")
+    -- Kept in the bake cache, by what it is made of (bake/store.rs).
+    local bakes = assert(os.getenv("XDG_CACHE_HOME"), "a cache of the tests' own") .. "/paw/bakes"
+    local found = io.popen('grep -rls \'"op": "edit"\' \'' .. bakes .. "'"):read("*a")
+    eq(found ~= "", true, "the version is in the cache")
+    -- Saved: the edit list is in the clip's own file.
+    local dir = T.scratch .. "/edits-song"
+    paw.project.save(dir)
+    local name = clip.name
+    local list = api.json_decode(T.read_file(dir .. "/tracks/Take/clips/" .. name .. ".edits.json"))
+    eq(#list .. " " .. list[1].kind .. " " .. list[2].kind, "2 gain pencil", "the clip's file holds its edit list")
+    -- Without the cache, it is made again.
+    os.execute("rm -rf '" .. store .. "' '" .. bakes .. "'")
+    paw.project.load(dir)
+    paw.flush()
+    local again = heard()
+    T.near(again[36000], 0, 0.001, "opened again without the cache, the part is silent")
+    T.near(again[72010], 0.1, 0.01, "and the fix is there")
+    T.keys(":clip.edits.clear<CR>")
+    T.near(heard()[36000], 0.5, 0.01, ":clip.edits.clear plays the file again")
   end
-  local s = heard()
-  T.near(s[1000], 0.5, 0.01, "the sound before the part")
-  T.near(s[36000], 0, 0.001, "the part is silent")
-  T.near(s[72010], 0.1, 0.01, "the pencil fix in the left channel")
-  T.near(s[60000], 0.5, 0.01, "and the sound after the part")
-  eq(T.read_file(src) == before, true, "the file is as it was")
-  -- Kept in the bake cache, by what it is made of (bake/store.rs).
-  local bakes = assert(os.getenv("XDG_CACHE_HOME"), "a cache of the tests' own") .. "/paw/bakes"
-  local found = io.popen("grep -rls '\"op\": \"edit\"' '" .. bakes .. "'"):read("*a")
-  eq(found ~= "", true, "the version is in the cache")
-  -- Saved: the edit list is in the clip's own file.
-  local dir = T.scratch .. "/edits-song"
-  paw.project.save(dir)
-  local name = clip.name
-  local list = api.json_decode(T.read_file(dir .. "/tracks/Take/clips/" .. name .. ".edits.json"))
-  eq(#list .. " " .. list[1].kind .. " " .. list[2].kind, "2 gain pencil", "the clip's file holds its edit list")
-  -- Without the cache, it is made again.
-  os.execute("rm -rf '" .. store .. "' '" .. bakes .. "'")
-  paw.project.load(dir)
-  paw.flush()
-  local again = heard()
-  T.near(again[36000], 0, 0.001, "opened again without the cache, the part is silent")
-  T.near(again[72010], 0.1, 0.01, "and the fix is there")
-  T.keys(":clip.edits.clear<CR>")
-  T.near(heard()[36000], 0.5, 0.01, ":clip.edits.clear plays the file again")
-end)
+)
 
 test("an audio clip is reversed, normalized and glued without touching its file", function()
   fresh()

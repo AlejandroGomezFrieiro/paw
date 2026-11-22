@@ -35,14 +35,24 @@ a track moves, its marks move with it. `:marks` shows them.]],
     drums:add_device("drums")
     drums:add_clip({ name = "intro", start = 0, length = 8, notes = look.drums({ [42] = "x.o.x.o.x.o.x.o." }, 2) })
     drums:add_clip({ name = "verse", start = 8, length = 16, notes = look.drums(look.beat, 4) })
-    drums:add_clip({ name = "chorus", start = 24, length = 16, notes = look.drums({ [36] = "x...x...x...x...", [38] = "....x.......x...", [46] = "..x...x...x...x." }, 4) })
+    drums:add_clip({
+      name = "chorus",
+      start = 24,
+      length = 16,
+      notes = look.drums({ [36] = "x...x...x...x...", [38] = "....x.......x...", [46] = "..x...x...x...x." }, 4),
+    })
     local bass = paw.add_track({ name = "Bass", volume = -4 })
     bass:add_device("synth", { wave = 2, cutoff = 700, release = 0.05 })
     bass:add_clip({ name = "verse", start = 8, length = 16, notes = look.pulse("E2", 16) })
     bass:add_clip({ name = "chorus", start = 24, length = 16, notes = look.pulse("A1", 16) })
     local lead = paw.add_track({ name = "Lead", volume = -8 })
     lead:add_device("synth", { wave = 1, cutoff = 2600, release = 0.2 })
-    lead:add_clip({ name = "hook", start = 24, length = 8, notes = look.notes("E5:0:1 E5:1:0.5 D5:1.5:0.5 C5:2:1 A4:3:1 C5:4:2 B4:6:2") })
+    lead:add_clip({
+      name = "hook",
+      start = 24,
+      length = 8,
+      notes = look.notes("E5:0:1 E5:1:0.5 D5:1.5:0.5 C5:2:1 A4:3:1 C5:4:2 B4:6:2"),
+    })
     paw.transport.loop_start, paw.transport.loop_end, paw.transport.loop_enabled = 0, 8, false
   end,
   at = function() paw.cursor.set_track(paw.track("Drums")) end,
@@ -62,7 +72,9 @@ a track moves, its marks move with it. `:marks` shows them.]],
     {
       say = "`gl` is the loop operator. Press `glic` to loop the clip under the cursor.",
       keys = { "glic" },
-      check = function() return paw.transport.loop_start == 24 and paw.transport.loop_end == 40 and paw.transport.loop_enabled end,
+      check = function()
+        return paw.transport.loop_start == 24 and paw.transport.loop_end == 40 and paw.transport.loop_enabled
+      end,
       done = "The chorus is the loop.",
     },
     {
@@ -81,7 +93,10 @@ a track moves, its marks move with it. `:marks` shows them.]],
       say = "`ma` sets mark a at the cursor. Press `ma`.",
       keys = { "ma" },
       start = function(ctx) ctx.before = paw.keymap.marks("arrange").a end,
-      check = function(ctx) local m = paw.keymap.marks("arrange").a return m and m ~= ctx.before and m.beat == 24 end,
+      check = function(ctx)
+        local m = paw.keymap.marks("arrange").a
+        return m and m ~= ctx.before and m.beat == 24
+      end,
       done = "Mark a is on the chorus. `:marks` shows the marks.",
     },
     {

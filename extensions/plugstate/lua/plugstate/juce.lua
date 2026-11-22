@@ -54,9 +54,12 @@ M.read_cint, M.cint = read_cint, cint
 
 -- --- var ----------------------------------------------------------------------
 
-local KIND = { int = 1, ["true"] = 2, ["false"] = 3, double = 4, string = 5, int64 = 6, array = 7, binary = 8, undefined = 9 }
+local KIND =
+  { int = 1, ["true"] = 2, ["false"] = 3, double = 4, string = 5, int64 = 6, array = 7, binary = 8, undefined = 9 }
 local KIND_NAME = {}
-for name, n in pairs(KIND) do KIND_NAME[n] = name end
+for name, n in pairs(KIND) do
+  KIND_NAME[n] = name
+end
 KIND_NAME[2], KIND_NAME[3] = "bool", "bool"
 M.KIND = KIND
 
@@ -84,12 +87,21 @@ end
 function value(raw)
   if not raw or raw == "" then return nil end
   local kind, data = raw:byte(1), raw:sub(2)
-  if kind == 1 then ffi.copy(i1, data, 4) return tonumber(i1[0]) end
+  if kind == 1 then
+    ffi.copy(i1, data, 4)
+    return tonumber(i1[0])
+  end
   if kind == 2 then return true end
   if kind == 3 then return false end
-  if kind == 4 then ffi.copy(d1, data, 8) return tonumber(d1[0]) end
+  if kind == 4 then
+    ffi.copy(d1, data, 8)
+    return tonumber(d1[0])
+  end
   if kind == 5 then return (data:gsub("%z$", "")) end
-  if kind == 6 then ffi.copy(l1, data, 8) return tonumber(l1[0]) end
+  if kind == 6 then
+    ffi.copy(l1, data, 8)
+    return tonumber(l1[0])
+  end
   if kind == 7 then return { array = array_of(data) } end
   if kind == 8 then return { binary = data } end
   return nil
@@ -98,9 +110,7 @@ M.value = value
 
 --- The kind of a stored var: "int", "bool", "double", "string", "int64",
 --- "array", "binary" or "undefined".
-function M.kind(raw)
-  return raw and raw ~= "" and KIND_NAME[raw:byte(1)] or nil
-end
+function M.kind(raw) return raw and raw ~= "" and KIND_NAME[raw:byte(1)] or nil end
 
 --- A var stored: `kind` is "int", "int64", "double" (numbers without it),
 --- "string", "binary" (a string of bytes), or none for what the value is.
@@ -110,8 +120,14 @@ function M.raw(v, kind)
   if t == "boolean" then return string.char(v and 2 or 3) end
   if kind == "string" then return "\5" .. tostring(v) .. "\0" end
   if t == "number" then
-    if kind == "int" then i1[0] = v return "\1" .. ffi.string(i1, 4) end
-    if kind == "int64" then l1[0] = v return "\6" .. ffi.string(l1, 8) end
+    if kind == "int" then
+      i1[0] = v
+      return "\1" .. ffi.string(i1, 4)
+    end
+    if kind == "int64" then
+      l1[0] = v
+      return "\6" .. ffi.string(l1, 8)
+    end
     d1[0] = v
     return "\4" .. ffi.string(d1, 8)
   end
@@ -152,7 +168,9 @@ function M.parse(s, i)
   end
   n, i = read_cint(s, i)
   if n < 0 then error("not a JUCE tree", 0) end
-  for k = 1, n do node.children[k], i = M.parse(s, i) end
+  for k = 1, n do
+    node.children[k], i = M.parse(s, i)
+  end
   return node, i
 end
 
@@ -174,7 +192,9 @@ local function emit(node, out)
     out[#out + 1] = p[2]
   end
   out[#out + 1] = cint(#node.children)
-  for _, c in ipairs(node.children) do emit(c, out) end
+  for _, c in ipairs(node.children) do
+    emit(c, out)
+  end
 end
 
 --- The bytes of a tree.
@@ -218,7 +238,10 @@ end
 --- Take a property away. True when it was there.
 function M.unset(node, name)
   for i, p in ipairs(node.props) do
-    if p[1] == name then table.remove(node.props, i) return true end
+    if p[1] == name then
+      table.remove(node.props, i)
+      return true
+    end
   end
   return false
 end
@@ -233,18 +256,26 @@ end
 --- A new tree. `props` is `{ { name, value, kind }, ... }`.
 function M.tree(kind, props, children)
   local node = { type = kind, props = {}, children = children or {} }
-  for _, p in ipairs(props or {}) do M.set(node, p[1], p[2], p[3]) end
+  for _, p in ipairs(props or {}) do
+    M.set(node, p[1], p[2], p[3])
+  end
   return node
 end
 
 --- A deep copy of a tree (what it keeps of its source text too).
 function M.copy(node)
   local out = {}
-  for k, v in pairs(node) do out[k] = v end
+  for k, v in pairs(node) do
+    out[k] = v
+  end
   out.props = {}
-  for i, p in ipairs(node.props) do out.props[i] = { p[1], p[2] } end
+  for i, p in ipairs(node.props) do
+    out.props[i] = { p[1], p[2] }
+  end
   out.children = {}
-  for i, c in ipairs(node.children) do out.children[i] = M.copy(c) end
+  for i, c in ipairs(node.children) do
+    out.children[i] = M.copy(c)
+  end
   return out
 end
 
@@ -254,7 +285,9 @@ end
 local function parse_path(path)
   local steps, prop = {}, nil
   local body, at = path:match("^(.-)@([^/%[%]@]+)$")
-  if body then path, prop = body, at end
+  if body then
+    path, prop = body, at
+  end
   path = path:gsub("^/", "")
   if path ~= "" then
     -- Split on `/` outside brackets.
@@ -262,8 +295,14 @@ local function parse_path(path)
     local parts = {}
     for i = 1, #path do
       local c = path:sub(i, i)
-      if c == "[" then depth = depth + 1 elseif c == "]" then depth = depth - 1
-      elseif c == "/" and depth == 0 then parts[#parts + 1] = path:sub(start, i - 1) start = i + 1 end
+      if c == "[" then
+        depth = depth + 1
+      elseif c == "]" then
+        depth = depth - 1
+      elseif c == "/" and depth == 0 then
+        parts[#parts + 1] = path:sub(start, i - 1)
+        start = i + 1
+      end
     end
     parts[#parts + 1] = path:sub(start)
     for _, part in ipairs(parts) do
@@ -296,9 +335,7 @@ local function show_plain(v)
   return tostring(v)
 end
 
-local function matches(node, step)
-  return step.type == "*" or node.type == step.type
-end
+local function matches(node, step) return step.type == "*" or node.type == step.type end
 
 local function pick(nodes, filter)
   if filter.index then return { nodes[filter.index] } end
@@ -317,7 +354,9 @@ local function select(candidates, step)
   for _, c in ipairs(candidates) do
     if matches(c, step) then found[#found + 1] = c end
   end
-  for _, f in ipairs(step.filters) do found = pick(found, f) end
+  for _, f in ipairs(step.filters) do
+    found = pick(found, f)
+  end
   return found
 end
 
@@ -327,14 +366,19 @@ function M.query(root, path)
   local steps, prop = parse_path(path)
   if #steps == 0 then return { { node = root } }, prop end
   local level = {}
-  for _, n in ipairs(select({ root }, steps[1])) do level[#level + 1] = { node = n } end
+  for _, n in ipairs(select({ root }, steps[1])) do
+    level[#level + 1] = { node = n }
+  end
   for s = 2, #steps do
     local nxt = {}
     for _, at in ipairs(level) do
       local found = select(at.node.children, steps[s])
       for _, n in ipairs(found) do
         for i, c in ipairs(at.node.children) do
-          if c == n then nxt[#nxt + 1] = { node = n, parent = at.node, index = i } break end
+          if c == n then
+            nxt[#nxt + 1] = { node = n, parent = at.node, index = i }
+            break
+          end
         end
       end
     end
@@ -391,11 +435,11 @@ end
 function M.set_path(root, path, v, kind, opts)
   local found, prop = M.query(root, path)
   if not prop then error("the path names no property (`@name` at its end): " .. path, 0) end
-  if #found == 0 and opts and opts.make then
-    found = { { node = M.ensure(root, (path:gsub("@[^@]*$", ""))) } }
-  end
+  if #found == 0 and opts and opts.make then found = { { node = M.ensure(root, (path:gsub("@[^@]*$", ""))) } } end
   if #found == 0 then error("nothing at " .. path, 0) end
-  for _, at in ipairs(found) do M.set(at.node, prop, v, kind) end
+  for _, at in ipairs(found) do
+    M.set(at.node, prop, v, kind)
+  end
   return #found
 end
 
@@ -414,7 +458,11 @@ function M.remove_path(root, path)
     local at = found[i]
     if not at.parent then error("the root cannot be taken away", 0) end
     for k, c in ipairs(at.parent.children) do
-      if c == at.node then table.remove(at.parent.children, k) n = n + 1 break end
+      if c == at.node then
+        table.remove(at.parent.children, k)
+        n = n + 1
+        break
+      end
     end
   end
   return n
@@ -432,7 +480,7 @@ end
 
 -- --- the tree as a list of paths, differences ------------------------------------
 
-local function simple(v) return type(v) == "string" and v ~= "" and #v <= 64 and not v:find("[%]%[/\"@%c]") end
+local function simple(v) return type(v) == "string" and v ~= "" and #v <= 64 and not v:find('[%]%[/"@%c]') end
 
 -- The step of a child in its parent's path: its type, and when the parent
 -- has more children of that type, `[id=...]` when its id is unique among
@@ -461,8 +509,12 @@ function M.walk(root)
   local out = {}
   local function go(node, path)
     out[#out + 1] = { path = path, node = node }
-    for _, p in ipairs(node.props) do out[#out + 1] = { path = path .. "@" .. p[1], raw = p[2] } end
-    for i, c in ipairs(node.children) do go(c, path .. "/" .. step_of(node, c, i)) end
+    for _, p in ipairs(node.props) do
+      out[#out + 1] = { path = path .. "@" .. p[1], raw = p[2] }
+    end
+    for i, c in ipairs(node.children) do
+      go(c, path .. "/" .. step_of(node, c, i))
+    end
   end
   go(root, "/" .. root.type)
   return out
@@ -483,7 +535,10 @@ function M.show(raw, max)
   if type(v) == "table" and v.array then
     local parts = {}
     for i, item in ipairs(v.array) do
-      if i > 8 then parts[#parts + 1] = "…" break end
+      if i > 8 then
+        parts[#parts + 1] = "…"
+        break
+      end
       parts[#parts + 1] = M.show(M.raw(item), 20)
     end
     return "[" .. table.concat(parts, ", ") .. "]"
@@ -501,8 +556,12 @@ function M.diff(a, b)
   -- or without others beside it.
   local function key(path) return (path:gsub("%[1%]", "")) end
   local ia, ib = {}, {}
-  for _, e in ipairs(wa) do ia[key(e.path)] = e end
-  for _, e in ipairs(wb) do ib[key(e.path)] = e end
+  for _, e in ipairs(wa) do
+    ia[key(e.path)] = e
+  end
+  for _, e in ipairs(wb) do
+    ib[key(e.path)] = e
+  end
   local out = {}
   local function under(path, gone)
     for g in pairs(gone) do
@@ -564,7 +623,9 @@ function M.dump(root, opts)
       if #node.children > 0 then lines[#lines + 1] = indent .. "  …" end
       return
     end
-    for _, c in ipairs(node.children) do go(c, indent .. "  ", depth + 1) end
+    for _, c in ipairs(node.children) do
+      go(c, indent .. "  ", depth + 1)
+    end
   end
   go(root, "", 1)
   return lines
@@ -574,9 +635,13 @@ end
 
 local CHARS = ".ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+"
 local DIGIT = ffi.new("int8_t[256]", -1)
-for i = 1, 64 do DIGIT[CHARS:byte(i)] = i - 1 end
+for i = 1, 64 do
+  DIGIT[CHARS:byte(i)] = i - 1
+end
 local CHAR = ffi.new("uint8_t[64]")
-for i = 1, 64 do CHAR[i - 1] = CHARS:byte(i) end
+for i = 1, 64 do
+  CHAR[i - 1] = CHARS:byte(i)
+end
 
 --- Bytes from JUCE's "<size>.<chars>" text.
 function M.decode64(text)
@@ -593,9 +658,7 @@ function M.decode64(text)
     local byte, off = bit.rshift(pos, 3), bit.band(pos, 7)
     if byte < size then
       out[byte] = bit.bor(out[byte], bit.band(bit.lshift(v, off), 0xff))
-      if off > 2 and byte + 1 < size then
-        out[byte + 1] = bit.bor(out[byte + 1], bit.rshift(v, 8 - off))
-      end
+      if off > 2 and byte + 1 < size then out[byte + 1] = bit.bor(out[byte + 1], bit.rshift(v, 8 - off)) end
     end
     pos = pos + 6
   end
@@ -643,15 +706,11 @@ function M.open(state64, format)
   if format == "lv2" then
     local before, text, after = raw:match('^(.-StateString>%s*")(%d+%.[^"]*)(".*)$')
     if not text then error("the state has no JUCE data", 0) end
-    return M.decode64(text), function(data)
-      return paw.bytes.base64(before .. M.encode64(data) .. after)
-    end
+    return M.decode64(text), function(data) return paw.bytes.base64(before .. M.encode64(data) .. after) end
   elseif format == "vst3" then
     local component, controller = vst3.split(raw)
     if not component then error(controller, 0) end
-    return component, function(data)
-      return paw.bytes.base64(vst3.join(data, controller))
-    end
+    return component, function(data) return paw.bytes.base64(vst3.join(data, controller)) end
   end
   return raw, function(data) return paw.bytes.base64(data) end
 end

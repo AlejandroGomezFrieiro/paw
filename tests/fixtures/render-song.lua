@@ -19,7 +19,9 @@ local function pattern(rows, bars)
         local ch = steps:sub(i, i)
         if ch ~= "." then
           notes[#notes + 1] = {
-            pitch = pitch, start = bar * 4 + (i - 1) * 0.25, length = 0.25,
+            pitch = pitch,
+            start = bar * 4 + (i - 1) * 0.25,
+            length = 0.25,
             velocity = ch == "X" and 120 or 80,
           }
         end
@@ -28,7 +30,8 @@ local function pattern(rows, bars)
   end
   return notes
 end
-local beat = { [36] = "X.....x...X.....", [38] = "....X.......X..x", [42] = "x.x.x.x.x.x.x.x.", [46] = "..............x." }
+local beat =
+  { [36] = "X.....x...X.....", [38] = "....X.......X..x", [42] = "x.x.x.x.x.x.x.x.", [46] = "..............x." }
 for bar = 0, 3 do
   drums:add_clip({ name = "beat", start = bar * 8, length = 8, notes = pattern(beat, 2) })
 end
@@ -64,7 +67,9 @@ pad:add_device("synth", { wave = 3, attack = 0.4, release = 0.8, cutoff = 1500 }
 local chords = { { "A3", "C4", "E4" }, { "F3", "A3", "C4" }, { "C3", "E3", "G3" }, { "G3", "B3", "D4" } }
 for i, chord in ipairs(chords) do
   local held = {}
-  for _, pitch in ipairs(chord) do held[#held + 1] = { pitch = pitch, start = 0, length = 8, velocity = 70 } end
+  for _, pitch in ipairs(chord) do
+    held[#held + 1] = { pitch = pitch, start = 0, length = 8, velocity = 70 }
+  end
   pad:add_clip({ name = "chord", start = (i - 1) * 8, length = 8, notes = held })
 end
 

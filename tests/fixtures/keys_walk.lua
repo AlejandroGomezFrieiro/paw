@@ -6,21 +6,42 @@
 --   paw --clean --no-plugins --no-listen --audio null -l tests/fixtures/keys_walk.lua
 local api = paw.api
 for _, entry in ipairs(api.read_dir("extensions")) do
-  if entry.is_dir and (io.open("extensions/" .. entry.name .. "/init.lua") or io.open("extensions/" .. entry.name .. "/init.tl")) then
+  if
+    entry.is_dir
+    and (io.open("extensions/" .. entry.name .. "/init.lua") or io.open("extensions/" .. entry.name .. "/init.tl"))
+  then
     local ok, err = pcall(paw.ext.load, "extensions/" .. entry.name)
     if not ok or not (paw.ext.loaded[entry.name] and paw.ext.loaded[entry.name].ok) then
       print("wrong: load " .. entry.name .. ": " .. tostring(err or paw.ext.loaded[entry.name].error))
     end
   end
 end
-for _, line in ipairs(paw.keyrule.broken()) do print("wrong: rule " .. line) end
-for _, line in ipairs(paw.keyrule.lost_groups()) do print("wrong: group " .. line .. " leads to nothing") end
+for _, line in ipairs(paw.keyrule.broken()) do
+  print("wrong: rule " .. line)
+end
+for _, line in ipairs(paw.keyrule.lost_groups()) do
+  print("wrong: group " .. line .. " leads to nothing")
+end
 
 -- The leader keys are a domain, then a verb or an object (docs/reference/keys.md):
 -- the key after the leader is one of these, with this name, in every view.
-local domains = { a = "automation", c = "clip", d = "devices", f = "find", g = "versions", h = "tutor",
-  l = "language servers", m = "mix", n = "notation", p = "project", r = "markers and regions", t = "tracks",
-  T = "tempo and transport", u = "utau", v = "views" }
+local domains = {
+  a = "automation",
+  c = "clip",
+  d = "devices",
+  f = "find",
+  g = "versions",
+  h = "tutor",
+  l = "language servers",
+  m = "mix",
+  n = "notation",
+  p = "project",
+  r = "markers and regions",
+  t = "tracks",
+  T = "tempo and transport",
+  u = "utau",
+  v = "views",
+}
 local leader = table.concat(paw.keymap.parse("<leader>"))
 local groups = paw.keymap.groups()
 for _, map in ipairs(paw.keymap.every()) do
@@ -34,7 +55,16 @@ for _, map in ipairs(paw.keymap.every()) do
     elseif domains[domain] == nil then
       print("wrong: domain " .. map.scope .. " " .. map.lhs .. ": " .. domain .. " is not a domain of the leader")
     elseif name ~= domains[domain] then
-      print("wrong: domain " .. map.scope .. " " .. map.lhs .. ": the group is " .. tostring(name) .. ", not " .. domains[domain])
+      print(
+        "wrong: domain "
+          .. map.scope
+          .. " "
+          .. map.lhs
+          .. ": the group is "
+          .. tostring(name)
+          .. ", not "
+          .. domains[domain]
+      )
     end
   end
 end
@@ -53,7 +83,9 @@ local function stays(name, open)
   if paw.ui.focused ~= name then return print("wrong: escape " .. name .. ": did not open") end
   paw.keymap.feed("3<Esc><Esc><Esc>")
   if paw.ui.focused ~= name then print("wrong: escape " .. name .. ": left for " .. tostring(paw.ui.focused)) end
-  if paw.keymap.pending() ~= "" then print("wrong: escape " .. name .. ": left " .. paw.keymap.pending() .. " typed") end
+  if paw.keymap.pending() ~= "" then
+    print("wrong: escape " .. name .. ": left " .. paw.keymap.pending() .. " typed")
+  end
 end
 stays("drums", function()
   local beat = require("drums").make_track({ name = "Beat" })
@@ -66,6 +98,9 @@ stays("notation", function()
   paw.cursor.set_beat(0)
   paw.keymap.feed("<localleader>n")
 end)
-stays("vinput", function() paw.ui.show("vinput") paw.ui.focus("vinput") end)
+stays("vinput", function()
+  paw.ui.show("vinput")
+  paw.ui.focus("vinput")
+end)
 print("done")
 api.quit(0)

@@ -24,12 +24,12 @@ local api = paw.api
 local notes = require("utau.notes")
 
 local M = {
-  known = {},   -- clip id -> { id, track, start, length, stamp, notes } as of the last turn
-  kept = {},    -- clip id -> a segment, for clips that left the vocal tracks
+  known = {}, -- clip id -> { id, track, start, length, stamp, notes } as of the last turn
+  kept = {}, -- clip id -> a segment, for clips that left the vocal tracks
 }
 
 local EPS = 1e-9
-local EDGE = 1 / 960   -- half an OpenUtau tick: where a written stretch meets the rest
+local EDGE = 1 / 960 -- half an OpenUtau tick: where a written stretch meets the rest
 
 local function utau() return package.loaded["utau"] or require("utau") end
 
@@ -49,8 +49,13 @@ local function scan()
     for _, c in ipairs(api.clip_list(vocal.track)) do
       if c.kind == "midi" then
         out[c.id] = {
-          id = c.id, track = vocal.track, device = vocal.device, start = c.start, length = c.length,
-          stamp = c.stamp, notes = c.note_count or 0,
+          id = c.id,
+          track = vocal.track,
+          device = vocal.device,
+          start = c.start,
+          length = c.length,
+          stamp = c.stamp,
+          notes = c.note_count or 0,
           mark = type(c.meta) == "table" and tonumber(c.meta.utau_clip) or nil,
         }
       end
@@ -114,7 +119,9 @@ local function splice(lane, value, from, to, fill)
     if p[1] < from - EDGE - EPS or p[1] > to + EDGE + EPS then out[#out + 1] = p end
   end
   if from - EDGE >= 0 then out[#out + 1] = { from - EDGE, before } end
-  for _, p in ipairs(fill or {}) do out[#out + 1] = p end
+  for _, p in ipairs(fill or {}) do
+    out[#out + 1] = p
+  end
   out[#out + 1] = { to + EDGE, after }
   table.sort(out, function(a, b) return a[1] < b[1] end)
   api.lane_set_points(lane, out)
@@ -147,8 +154,11 @@ function M.write(track, device, seg, at, length)
     local value = params[info.key] or info.default
     local lane = lanes[info.key]
     local points = lane and api.lane_points(lane) or {}
-    if curve and not (curve.constant and #points == 0 and math.abs(curve.constant - value) < 1e-9)
-      and not same(points, value, at, curve) then
+    if
+      curve
+      and not (curve.constant and #points == 0 and math.abs(curve.constant - value) < 1e-9)
+      and not same(points, value, at, curve)
+    then
       lane = lane or notes.lane(track, device, info.key, true)
       local fill = {}
       if curve.constant then
@@ -173,9 +183,7 @@ function M.clear(track, device, from, to)
   local params = api.device_get(device).params
   for _, info in ipairs(M.params(device)) do
     local lane = lanes_of(track, device)[info.key]
-    if lane and api.lane_get(lane).point_count > 0 then
-      splice(lane, params[info.key] or info.default, from, to)
-    end
+    if lane and api.lane_get(lane).point_count > 0 then splice(lane, params[info.key] or info.default, from, to) end
   end
 end
 
@@ -210,9 +218,7 @@ local function shift(old, new)
 end
 
 --- Take note of where every vocal clip is, without changing anything.
-function M.refresh()
-  M.known = scan()
-end
+function M.refresh() M.known = scan() end
 
 local busy = false
 
@@ -276,17 +282,19 @@ function M.follow()
         end
       end
     end
-    for _, m in ipairs(moves) do vacate(m.old) end
-    for _, old in ipairs(gone) do vacate(old) end
+    for _, m in ipairs(moves) do
+      vacate(m.old)
+    end
+    for _, old in ipairs(gone) do
+      vacate(old)
+    end
 
     for _, m in ipairs(moves) do
       M.write(m.new.track, m.new.device, m.seg, m.old.start + m.by, m.old.length)
       M.kept[m.new.id] = nil
     end
     for _, c in ipairs(copies) do
-      if c.seg then
-        M.write(c.new.track, c.new.device, c.seg, c.new.start, math.min(c.seg.length, c.new.length))
-      end
+      if c.seg then M.write(c.new.track, c.new.device, c.seg, c.new.start, math.min(c.seg.length, c.new.length)) end
       if c.source == c.new.id then M.kept[c.new.id] = nil end
     end
     for _, c in ipairs(marks) do
@@ -311,7 +319,10 @@ function M.attach()
   paw.on("clip.*", on_change)
   paw.on("track.*", on_change)
   paw.on("device.*", on_change)
-  paw.on("project.loaded", function() M.kept = {}; M.refresh() end)
+  paw.on("project.loaded", function()
+    M.kept = {}
+    M.refresh()
+  end)
   M.refresh()
 end
 

@@ -26,7 +26,9 @@ return function(M, util)
     local e = api.engine_get()
     local env = api.env()
     local out = {}
-    local function add(label, value) if value and value ~= "" then out[#out + 1] = { label, tostring(value) } end end
+    local function add(label, value)
+      if value and value ~= "" then out[#out + 1] = { label, tostring(value) } end
+    end
     local function line(path) return (read(path) or ""):match("^[^\n]*") end
     add("Program", "paw " .. tostring(paw.version))
     add("Kernel", line("/proc/sys/kernel/osrelease"))
@@ -34,7 +36,14 @@ return function(M, util)
     add("Host", line("/proc/sys/kernel/hostname"))
     local cpu = read("/proc/cpuinfo") or ""
     local _, cores = cpu:gsub("\nprocessor", "")
-    add("Processor", string.format("%s, %d threads", cpu:match("model name%s*:%s*([^\n]*)") or "unknown", cores + (cpu:match("^processor") and 1 or 0)))
+    add(
+      "Processor",
+      string.format(
+        "%s, %d threads",
+        cpu:match("model name%s*:%s*([^\n]*)") or "unknown",
+        cores + (cpu:match("^processor") and 1 or 0)
+      )
+    )
     local memory = tonumber((read("/proc/meminfo") or ""):match("MemTotal:%s*(%d+)"))
     add("Memory", memory and string.format("%.1f GB", memory / 1048576))
     add("Sound system", e.backend)
@@ -42,7 +51,14 @@ return function(M, util)
     add("Input", e.input_device)
     add("Sample rate", string.format("%d Hz", e.sample_rate))
     add("Block", e.block > 0 and (e.block .. " frames") or "not known yet")
-    add("Display", string.format("DISPLAY=%s WAYLAND_DISPLAY=%s", os.getenv("DISPLAY") or "unset", os.getenv("WAYLAND_DISPLAY") or "unset"))
+    add(
+      "Display",
+      string.format(
+        "DISPLAY=%s WAYLAND_DISPLAY=%s",
+        os.getenv("DISPLAY") or "unset",
+        os.getenv("WAYLAND_DISPLAY") or "unset"
+      )
+    )
     add("Configuration", env.clean and "none (--clean)" or env.config_dir)
     add("State directory", env.state_dir)
     return out
@@ -54,7 +70,9 @@ return function(M, util)
       checks[#checks + 1] = { id = r.id, name = r.name, status = r.status, summary = r.summary, facts = r.facts }
     end
     local machine = {}
-    for _, m in ipairs(run.machine) do machine[m[1]] = m[2] end
+    for _, m in ipairs(run.machine) do
+      machine[m[1]] = m[2]
+    end
     return { version = 1, time = os.time(), attended = run.attended, machine = machine, checks = checks }
   end
 
@@ -74,33 +92,57 @@ return function(M, util)
   function M.changes(old, new)
     local out = {}
     local labels = {}
-    for label in pairs(old.machine or {}) do labels[label] = true end
-    for label in pairs(new.machine or {}) do labels[label] = true end
+    for label in pairs(old.machine or {}) do
+      labels[label] = true
+    end
+    for label in pairs(new.machine or {}) do
+      labels[label] = true
+    end
     local names = {}
-    for label in pairs(labels) do names[#names + 1] = label end
+    for label in pairs(labels) do
+      names[#names + 1] = label
+    end
     table.sort(names)
     for _, label in ipairs(names) do
       local a, b = (old.machine or {})[label], (new.machine or {})[label]
       if a ~= b then out[#out + 1] = string.format("- %s: %s → %s", label, a or "not known", b or "not known") end
     end
     local was = {}
-    for _, c in ipairs(old.checks or {}) do was[c.id] = c end
+    for _, c in ipairs(old.checks or {}) do
+      was[c.id] = c
+    end
     for _, c in ipairs(new.checks or {}) do
       local p = was[c.id]
       if not p then
         out[#out + 1] = string.format("- %s: new, %s", c.name, MARKS[c.status] or c.status)
       elseif p.status ~= c.status and p.status ~= "skip" and c.status ~= "skip" then
-        out[#out + 1] = string.format("- %s: %s → %s (%s)", c.name, MARKS[p.status] or p.status, MARKS[c.status] or c.status, c.summary)
+        out[#out + 1] = string.format(
+          "- %s: %s → %s (%s)",
+          c.name,
+          MARKS[p.status] or p.status,
+          MARKS[c.status] or c.status,
+          c.summary
+        )
       end
       if p and p.status ~= "skip" and c.status ~= "skip" then
         local keys = {}
-        for key in pairs(c.facts or {}) do keys[#keys + 1] = key end
-        for key in pairs(p.facts or {}) do if (c.facts or {})[key] == nil then keys[#keys + 1] = key end end
+        for key in pairs(c.facts or {}) do
+          keys[#keys + 1] = key
+        end
+        for key in pairs(p.facts or {}) do
+          if (c.facts or {})[key] == nil then keys[#keys + 1] = key end
+        end
         table.sort(keys)
         for _, key in ipairs(keys) do
           local a, b = (p.facts or {})[key], (c.facts or {})[key]
           if tostring(a) ~= tostring(b) then
-            out[#out + 1] = string.format("- %s, %s: %s → %s", c.name, key, a == nil and "not there" or tostring(a), b == nil and "not there" or tostring(b))
+            out[#out + 1] = string.format(
+              "- %s, %s: %s → %s",
+              c.name,
+              key,
+              a == nil and "not there" or tostring(a),
+              b == nil and "not there" or tostring(b)
+            )
           end
         end
       end
@@ -115,14 +157,21 @@ return function(M, util)
     local function add(text) lines[#lines + 1] = text or "" end
     add("# paw doctor, " .. os.date("%Y-%m-%d %H:%M", math.floor(run.started_at or os.time())))
     add()
-    add(string.format("%s run, %s. Written by `:doctor` or `paw doctor`.",
-      run.attended and "An attended" or "An unattended", seconds(((run.finished or api.now()) - run.started) / 1000)))
+    add(
+      string.format(
+        "%s run, %s. Written by `:doctor` or `paw doctor`.",
+        run.attended and "An attended" or "An unattended",
+        seconds(((run.finished or api.now()) - run.started) / 1000)
+      )
+    )
     add()
     add("## This machine")
     add()
     add("| | |")
     add("| --- | --- |")
-    for _, m in ipairs(run.machine) do add("| " .. cell(m[1]) .. " | " .. cell(m[2]) .. " |") end
+    for _, m in ipairs(run.machine) do
+      add("| " .. cell(m[1]) .. " | " .. cell(m[2]) .. " |")
+    end
     add()
     add("## Result")
     add()
@@ -138,21 +187,35 @@ return function(M, util)
       add()
       local changes = M.changes(run.before, now)
       if #changes == 0 then add("Nothing that is compared has changed.") end
-      for _, change in ipairs(changes) do add(change) end
+      for _, change in ipairs(changes) do
+        add(change)
+      end
       add()
     end
     for index, r in ipairs(run.done) do
       add(string.format("## %d. %s: %s", index, r.name, MARKS[r.status] or r.status))
       add()
-      if r.summary ~= "" then add(r.summary) add() end
-      for _, text in ipairs(r.lines) do add("- " .. text:gsub("\n", "\n  ")) end
-      if #r.lines > 0 then add() end
-      if #r.fact_order > 0 or #r.measure_order > 0 then
-        for _, key in ipairs(r.fact_order) do add(string.format("- `%s`: %s", key, tostring(r.facts[key]))) end
-        for _, key in ipairs(r.measure_order) do add(string.format("- `%s`: %s (measured)", key, tostring(r.measures[key]))) end
+      if r.summary ~= "" then
+        add(r.summary)
         add()
       end
-      if r.seconds then add(string.format("Took %s.", seconds(r.seconds))) add() end
+      for _, text in ipairs(r.lines) do
+        add("- " .. text:gsub("\n", "\n  "))
+      end
+      if #r.lines > 0 then add() end
+      if #r.fact_order > 0 or #r.measure_order > 0 then
+        for _, key in ipairs(r.fact_order) do
+          add(string.format("- `%s`: %s", key, tostring(r.facts[key])))
+        end
+        for _, key in ipairs(r.measure_order) do
+          add(string.format("- `%s`: %s (measured)", key, tostring(r.measures[key])))
+        end
+        add()
+      end
+      if r.seconds then
+        add(string.format("Took %s.", seconds(r.seconds)))
+        add()
+      end
     end
     if run.problem then
       add("## Problem")

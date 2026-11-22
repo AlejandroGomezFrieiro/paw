@@ -19,11 +19,18 @@ return {
       local to = S.until_(ctx, target.at)
       -- With a count, a chain back from the target: 2 is V7/V then V7.
       local n = math.max(1, ctx.count)
-      local bounds = S.split(ctx, ctx.at, to, (function()
-        local w = {}
-        for i = 1, n do w[i] = 1 end
-        return w
-      end)())
+      local bounds = S.split(
+        ctx,
+        ctx.at,
+        to,
+        (function()
+          local w = {}
+          for i = 1, n do
+            w[i] = 1
+          end
+          return w
+        end)()
+      )
       local chords = {}
       for i = 1, n do
         local root = (target.root + 7 * (n - i + 1)) % 12
@@ -60,15 +67,20 @@ return {
     expand = function(ctx)
       local target, why = S.next_chord(ctx)
       if not target then return nil, why end
-      local minor = target.quality == "min" or target.quality == "m7" or target.quality == "m6" or target.quality == "m9"
+      local minor = target.quality == "min"
+        or target.quality == "m7"
+        or target.quality == "m6"
+        or target.quality == "m9"
       local parts = ({ half = { 1, 1 }, ["3:1"] = { 3, 1 }, ["1:3"] = { 1, 3 } })[ctx.values.split or "half"]
       local b = S.split(ctx, ctx.at, target.at, parts)
       local two = (target.root + 2) % 12
       local five = (target.root + 7) % 12
-      return { notes = S.progression(ctx, {
-        { tones = H.tones(two, minor and "m7b5" or "m7"), from = b[1], to = b[2] },
-        { tones = S.dominant_tones(five, minor and "7b9" or "7"), from = b[2], to = b[3] },
-      }) }
+      return {
+        notes = S.progression(ctx, {
+          { tones = H.tones(two, minor and "m7b5" or "m7"), from = b[1], to = b[2] },
+          { tones = S.dominant_tones(five, minor and "7b9" or "7"), from = b[2], to = b[3] },
+        }),
+      }
     end,
   },
   {
@@ -79,7 +91,12 @@ return {
       local target, why = S.next_chord(ctx)
       if not target then return nil, why end
       local root = (target.root + 1) % 12
-      return { notes = S.progression(ctx, { { tones = S.dominant_tones(root, ctx.values.kind), from = ctx.at, to = target.at } }) }
+      return {
+        notes = S.progression(
+          ctx,
+          { { tones = S.dominant_tones(root, ctx.values.kind), from = ctx.at, to = target.at } }
+        ),
+      }
     end,
   },
   {
@@ -97,32 +114,49 @@ return {
   {
     name = "sus",
     desc = "the next chord suspended from here, resolving when it comes",
-    choices = { S.voicings, { name = "sus", values = { "sus4", "sus2", "7sus4" } }, { name = "resolve", values = { "1 beat", "2 beats", "the whole chord" } } },
+    choices = {
+      S.voicings,
+      { name = "sus", values = { "sus4", "sus2", "7sus4" } },
+      { name = "resolve", values = { "1 beat", "2 beats", "the whole chord" } },
+    },
     expand = function(ctx)
       local target, why = S.next_chord(ctx)
       if not target then return nil, why end
       local resolve = ctx.values.resolve
-      local finish = resolve == "1 beat" and target.at + 1 or resolve == "2 beats" and target.at + 2 or target.at + target.length
+      local finish = resolve == "1 beat" and target.at + 1
+        or resolve == "2 beats" and target.at + 2
+        or target.at + target.length
       finish = math.min(finish, target.at + target.length)
       local plain = target.tones
       local suspended = H.tones(target.root, ctx.values.sus or "sus4")
-      return { notes = S.progression(ctx, {
-        { tones = suspended, from = ctx.at, to = target.at },
-        { tones = plain, from = target.at, to = finish },
-      }) }
+      return {
+        notes = S.progression(ctx, {
+          { tones = suspended, from = ctx.at, to = target.at },
+          { tones = plain, from = target.at, to = finish },
+        }),
+      }
     end,
   },
   {
     name = "cadence",
     desc = "an authentic cadence to the key's tonic, a bar for each chord from here",
-    choices = { S.voicings, { name = "kind", values = { "V-I", "IV-V-I", "ii-V-I", "IV-I" } }, { name = "each", values = { "1 bar", "2 beats", "2 bars" } } },
+    choices = {
+      S.voicings,
+      { name = "kind", values = { "V-I", "IV-V-I", "ii-V-I", "IV-I" } },
+      { name = "each", values = { "1 bar", "2 beats", "2 bars" } },
+    },
     expand = function(ctx)
       local key = ctx.key
       local minor = key.scale == "minor" or key.scale == "harmonic_minor" or key.scale == "dorian"
       local tonic = key.root
-      local each = ctx.values.each == "2 beats" and 2 or ctx.values.each == "2 bars" and 2 * paw.time.bar(ctx.at) or paw.time.bar(ctx.at)
+      local each = ctx.values.each == "2 beats" and 2
+        or ctx.values.each == "2 bars" and 2 * paw.time.bar(ctx.at)
+        or paw.time.bar(ctx.at)
       local plan = ({
-        ["V-I"] = { "V", "I" }, ["IV-V-I"] = { "IV", "V", "I" }, ["ii-V-I"] = { "ii", "V", "I" }, ["IV-I"] = { "IV", "I" },
+        ["V-I"] = { "V", "I" },
+        ["IV-V-I"] = { "IV", "V", "I" },
+        ["ii-V-I"] = { "ii", "V", "I" },
+        ["IV-I"] = { "IV", "I" },
       })[ctx.values.kind or "V-I"]
       local chords, at = {}, ctx.at
       for _, degree in ipairs(plan) do

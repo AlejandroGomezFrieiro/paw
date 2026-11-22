@@ -28,7 +28,9 @@ end
 --- The names of the checks, sorted.
 function M.names()
   local out = {}
-  for name in pairs(M.checks) do out[#out + 1] = name end
+  for name in pairs(M.checks) do
+    out[#out + 1] = name
+  end
   table.sort(out)
   return out
 end
@@ -56,7 +58,9 @@ end
 --- Run the checks named (all when none), each a result of `run`.
 function M.check(names)
   local out = {}
-  for _, name in ipairs(names and #names > 0 and names or M.names()) do out[#out + 1] = M.run(name) end
+  for _, name in ipairs(names and #names > 0 and names or M.names()) do
+    out[#out + 1] = M.run(name)
+  end
   return out
 end
 
@@ -80,7 +84,9 @@ function M.lines(results)
     lines[#lines + 1] = { text = r.name .. (r.desc and ": " .. r.desc or ""), style = "Title" }
     for _, item in ipairs(r.items) do
       lines[#lines + 1] = { text = "- " .. LEVELS[item.level] .. " " .. item.text, style = STYLES[item.level] }
-      for _, advice in ipairs(item.advice or {}) do lines[#lines + 1] = { text = "    - " .. advice, style = "Dim" } end
+      for _, advice in ipairs(item.advice or {}) do
+        lines[#lines + 1] = { text = "    - " .. advice, style = "Dim" }
+      end
     end
     if #r.items == 0 then lines[#lines + 1] = { text = "- nothing to report", style = "Dim" } end
   end
@@ -88,23 +94,27 @@ function M.lines(results)
 end
 
 --- An executable on the PATH, or at a path: where it is, or nil.
-function M.executable(name)
-  return paw.api.which(name)
-end
+function M.executable(name) return paw.api.which(name) end
 
 -- The core's own checks ----------------------------------------------------------
 
 M.register("paw", function(h)
   h.ok("paw " .. paw.version .. ", Lua API " .. api.version)
   local env = api.env()
-  h.info(env.runtime_dir and "the Lua runtime is read from " .. env.runtime_dir or "the Lua runtime is the one built in")
+  h.info(
+    env.runtime_dir and "the Lua runtime is read from " .. env.runtime_dir or "the Lua runtime is the one built in"
+  )
   if api.limit_async then
     h.ok("Lua that runs away is stopped, in compiled code too (LUAJIT_ENABLE_CHECKHOOK)")
   else
-    h.warn("LuaJIT was built without LUAJIT_ENABLE_CHECKHOOK: code that is not the runtime's runs uncompiled, to be stoppable",
-      "build with the repository's .cargo/config.toml")
+    h.warn(
+      "LuaJIT was built without LUAJIT_ENABLE_CHECKHOOK: code that is not the runtime's runs uncompiled, to be stoppable",
+      "build with the repository's .cargo/config.toml"
+    )
   end
-  if (paw.opt.lua_limit or 0) == 0 then h.warn("no time limit on Lua (paw.opt.lua_limit = 0)", "a loop that does not end will hang the program") end
+  if (paw.opt.lua_limit or 0) == 0 then
+    h.warn("no time limit on Lua (paw.opt.lua_limit = 0)", "a loop that does not end will hang the program")
+  end
 end, { desc = "the program and its Lua" })
 
 M.register("audio", function(h)
@@ -112,11 +122,25 @@ M.register("audio", function(h)
   if e.backend == "null" then
     h.warn("the null audio backend: nothing is heard", { "start without --audio null", ":audio picks a device" })
   else
-    h.ok(string.format("%s on %s, %d Hz, %d frames a block", tostring(e.backend), tostring(e.device or "the default device"),
-      e.sample_rate or 0, e.buffer_size or e.block or 0))
+    h.ok(
+      string.format(
+        "%s on %s, %d Hz, %d frames a block",
+        tostring(e.backend),
+        tostring(e.device or "the default device"),
+        e.sample_rate or 0,
+        e.buffer_size or e.block or 0
+      )
+    )
   end
-  if (e.xruns or 0) > 0 then h.warn(e.xruns .. " dropouts (xruns) so far", { "a larger block (:audio.device) or fewer plugins", ":doctor runs a guided check" }) end
-  if (e.devices_stopped or 0) > 0 then h.error(e.devices_stopped .. " devices stopped working", "`:fx` shows which; restart them from the devices view") end
+  if (e.xruns or 0) > 0 then
+    h.warn(
+      e.xruns .. " dropouts (xruns) so far",
+      { "a larger block (:audio.device) or fewer plugins", ":doctor runs a guided check" }
+    )
+  end
+  if (e.devices_stopped or 0) > 0 then
+    h.error(e.devices_stopped .. " devices stopped working", "`:fx` shows which; restart them from the devices view")
+  end
   local inputs = api.midi_inputs()
   h.info(#inputs == 0 and "no MIDI inputs" or (#inputs .. " MIDI inputs"))
 end, { desc = "the audio engine and MIDI" })
@@ -135,8 +159,14 @@ M.register("plugins", function(h)
   table.sort(parts)
   h.info("devices: " .. table.concat(parts, ", "))
   if plugins == 0 then
-    h.warn("no plugins found", { "they are looked for where CLAP, LV2 and VST3 plugins are installed, and in CLAP_PATH, LV2_PATH, VST3_PATH",
-      "`--no-plugins` leaves them out", ":plugins.rescan looks again" })
+    h.warn(
+      "no plugins found",
+      {
+        "they are looked for where CLAP, LV2 and VST3 plugins are installed, and in CLAP_PATH, LV2_PATH, VST3_PATH",
+        "`--no-plugins` leaves them out",
+        ":plugins.rescan looks again",
+      }
+    )
   else
     h.ok(plugins .. " plugins")
   end
@@ -147,8 +177,13 @@ M.register("ffmpeg", function(h)
   if path then
     h.ok("ffmpeg at " .. path)
   else
-    h.warn("ffmpeg not found (paw.opt.ffmpeg = " .. tostring(paw.opt.ffmpeg) .. ")",
-      { "renders to MP3, Ogg and Opus need it; WAV and FLAC do not", "install ffmpeg, or set paw.opt.ffmpeg to its path" })
+    h.warn(
+      "ffmpeg not found (paw.opt.ffmpeg = " .. tostring(paw.opt.ffmpeg) .. ")",
+      {
+        "renders to MP3, Ogg and Opus need it; WAV and FLAC do not",
+        "install ffmpeg, or set paw.opt.ffmpeg to its path",
+      }
+    )
   end
 end, { desc = "renders to compressed formats" })
 
@@ -160,8 +195,10 @@ M.register("git", function(h)
   if driver and driver ~= "" then
     h.ok("git shows MIDI clip files as text with `" .. driver .. "`")
   else
-    h.warn("git shows the MIDI clip files (.midi2) of a project as binary",
-      { "set it one time: git config --global diff.paw-midi2.textconv \"paw clip cat\"" })
+    h.warn(
+      "git shows the MIDI clip files (.midi2) of a project as binary",
+      { 'set it one time: git config --global diff.paw-midi2.textconv "paw clip cat"' }
+    )
   end
 end, { desc = "project folders in version control" })
 
@@ -169,10 +206,22 @@ M.register("terminal", function(h)
   if not api.ui_attached() then return h.info("no terminal attached (headless, or a script)") end
   local caps = api.ui_caps()
   if caps.graphics then
-    h.ok(string.format("pictures through the kitty graphics protocol, cells of %dx%d pixels", caps.cell and caps.cell.w or 0, caps.cell and caps.cell.h or 0))
+    h.ok(
+      string.format(
+        "pictures through the kitty graphics protocol, cells of %dx%d pixels",
+        caps.cell and caps.cell.w or 0,
+        caps.cell and caps.cell.h or 0
+      )
+    )
   else
-    h.warn("this terminal shows no pictures: curves and waveforms are drawn in cells",
-      { "kitty, WezTerm, Ghostty and Konsole show them", "not inside tmux", "paw.opt.graphics turns them off by choice" })
+    h.warn(
+      "this terminal shows no pictures: curves and waveforms are drawn in cells",
+      {
+        "kitty, WezTerm, Ghostty and Konsole show them",
+        "not inside tmux",
+        "paw.opt.graphics turns them off by choice",
+      }
+    )
   end
   if paw.opt.graphics == false then h.info("paw.opt.graphics is off") end
 end, { desc = "the terminal interface" })
@@ -204,7 +253,10 @@ M.register("fonts", function(h)
   if found and found ~= "" then
     h.ok("a font for Japanese and Chinese text in the window: " .. found)
   else
-    h.warn("no font for Japanese or Chinese text found by fontconfig", { "lyrics in those scripts show as boxes in the window", "install Noto Sans CJK, or any CJK font" })
+    h.warn(
+      "no font for Japanese or Chinese text found by fontconfig",
+      { "lyrics in those scripts show as boxes in the window", "install Noto Sans CJK, or any CJK font" }
+    )
   end
 end, { desc = "fonts the window falls back on" })
 
@@ -216,32 +268,48 @@ M.register("extensions", function(h)
     if e.ok then
       local wants = e.manifest and e.manifest.requires
       local needs = {}
-      for other, want in pairs(wants or {}) do needs[#needs + 1] = other .. " " .. tostring(want) end
+      for other, want in pairs(wants or {}) do
+        needs[#needs + 1] = other .. " " .. tostring(want)
+      end
       table.sort(needs)
       h.ok(name .. (#needs > 0 and " (requires " .. table.concat(needs, ", ") .. ")" or ""))
       for _, o in ipairs(e.overrides or {}) do
-        h.warn(string.format("%s replaces the %s %s of %s", e.name, o.kind, o.what, o.of),
-          { "the extension loaded last wins: load them in the other order, or map it again in init.lua" })
+        h.warn(
+          string.format("%s replaces the %s %s of %s", e.name, o.kind, o.what, o.of),
+          { "the extension loaded last wins: load them in the other order, or map it again in init.lua" }
+        )
       end
       -- A key of the core given another meaning. A wrap that keeps what the
       -- key does (and so its description) is not.
       for _, item in ipairs(e.owned and e.owned.keys or {}) do
         local old, new = item.old, item.value
         if old and new and not old.ext and old.desc ~= new.desc then
-          h.warn(string.format("%s replaces the key %s of the core: “%s” becomes “%s”", e.name,
-            new.lhs .. " (" .. new.mode .. (new.scope ~= "global" and ", " .. new.scope or "") .. ")", tostring(old.desc), tostring(new.desc)),
-            { "a key means the same in every view: give the extension's action a key of its own" })
+          h.warn(
+            string.format(
+              "%s replaces the key %s of the core: “%s” becomes “%s”",
+              e.name,
+              new.lhs .. " (" .. new.mode .. (new.scope ~= "global" and ", " .. new.scope or "") .. ")",
+              tostring(old.desc),
+              tostring(new.desc)
+            ),
+            { "a key means the same in every view: give the extension's action a key of its own" }
+          )
         end
       end
     else
-      h.error(name .. ": " .. tostring(e.error):match("^[^\n]*"), { ":messages has the whole error", ":ext.load " .. e.name .. " tries again once it is fixed" })
+      h.error(
+        name .. ": " .. tostring(e.error):match("^[^\n]*"),
+        { ":messages has the whole error", ":ext.load " .. e.name .. " tries again once it is fixed" }
+      )
     end
   end
 end, { desc = "extensions, their versions and what they require" })
 
 M.register("teal", function(h)
   local files = {}
-  for file in pairs(paw.lang.problems) do files[#files + 1] = file end
+  for file in pairs(paw.lang.problems) do
+    files[#files + 1] = file
+  end
   table.sort(files)
   if #files == 0 then h.ok("no type errors in the files in Teal loaded") end
   for _, file in ipairs(files) do
@@ -252,7 +320,9 @@ end, { desc = "the types of the configuration and extensions written in Teal" })
 
 paw.command("checkhealth", function(ctx)
   local names = {}
-  for _, name in ipairs(ctx.args) do names[#names + 1] = tostring(name) end
+  for _, name in ipairs(ctx.args) do
+    names[#names + 1] = tostring(name)
+  end
   local results = M.check(names)
   paw.ui.page("Health", M.lines(results))
   return M.worst(results)

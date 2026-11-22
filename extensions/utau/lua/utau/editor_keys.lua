@@ -25,7 +25,9 @@ function editor:copy()
     to = math.max(to, list[i].start + list[i].length)
   end
   local out = {}
-  for k, i in ipairs(indices) do out[k] = util.merge(list[i], { start = list[i].start - from }) end
+  for k, i in ipairs(indices) do
+    out[k] = util.merge(list[i], { start = list[i].start - from })
+  end
   return { kind = "notes", shape = "char", top = 0, length = to - from, notes = out }
 end
 
@@ -69,7 +71,9 @@ end, "Paste at the cursor (window), select a block (terminal)")
 local function select_all()
   local list = notes.list(editor.clip_id)
   local all = {}
-  for i in ipairs(list) do all[i] = i end
+  for i in ipairs(list) do
+    all[i] = i
+  end
   editor:select(all)
   paw.notify(#all .. " notes selected")
 end
@@ -77,7 +81,9 @@ local function select_phrase()
   local phrase = editor:phrase_at(editor.beat)
   if not phrase then return end
   local indices = {}
-  for i = phrase.first, phrase.last do indices[#indices + 1] = i end
+  for i = phrase.first, phrase.last do
+    indices[#indices + 1] = i
+  end
   editor:select(indices)
 end
 -- The phrase is `vap`, the text object, as a paragraph is in Vim.
@@ -100,7 +106,13 @@ emap("<leader><Space>", function() editor:play_from_cursor() end, "Play from the
 
 -- `]e` `[e` go through the curves (the expressions), as `]t` `[t` go through takes: `gc` mutes
 -- and `gC` opens a curve in every other view.
-local function next_curve(dir) return function(ctx) for _ = 1, ctx.count or 1 do editor:next_curve(dir) end end end
+local function next_curve(dir)
+  return function(ctx)
+    for _ = 1, ctx.count or 1 do
+      editor:next_curve(dir)
+    end
+  end
+end
 emap("]e", next_curve(1), "Show the next curve under the notes")
 emap("[e", next_curve(-1), "Show the previous curve under the notes")
 keymap.classic("gc", next_curve(1), { view = "utau", desc = "Show the next curve under the notes" })
@@ -110,23 +122,45 @@ keymap.classic("gC", next_curve(-1), { view = "utau", desc = "Show the previous 
 
 -- `]p` `[p` go through the phonemes, as they go through presets in the device
 -- panel: `(` `)` stay the phrase motions of musicops.
-emap("]p", function(ctx) for _ = 1, ctx.count or 1 do editor:step_phoneme(1) end end, "Next phoneme")
-emap("[p", function(ctx) for _ = 1, ctx.count or 1 do editor:step_phoneme(-1) end end, "Previous phoneme")
-emap("]", function(ctx) editor:shift_phoneme(5 * (ctx.count or 1)) end, "The phoneme starts 5 ticks later", { role = "second+" })
-emap("[", function(ctx) editor:shift_phoneme(-5 * (ctx.count or 1)) end, "The phoneme starts 5 ticks earlier", { role = "second-" })
+emap("]p", function(ctx)
+  for _ = 1, ctx.count or 1 do
+    editor:step_phoneme(1)
+  end
+end, "Next phoneme")
+emap("[p", function(ctx)
+  for _ = 1, ctx.count or 1 do
+    editor:step_phoneme(-1)
+  end
+end, "Previous phoneme")
+emap(
+  "]",
+  function(ctx) editor:shift_phoneme(5 * (ctx.count or 1)) end,
+  "The phoneme starts 5 ticks later",
+  { role = "second+" }
+)
+emap(
+  "[",
+  function(ctx) editor:shift_phoneme(-5 * (ctx.count or 1)) end,
+  "The phoneme starts 5 ticks earlier",
+  { role = "second-" }
+)
 emap("grp", function() editor:replace_phoneme() end, "Type the phoneme to sing instead")
 emap("gR", function() editor:reset_phoneme() end, "Put the phoneme back as the voicebank has it")
 
 -- Note properties ----------------------------------------------------------------------
 
 local VB_KEYS = {}
-for _, f in ipairs(shapes.VB_FIELDS) do VB_KEYS[f.key] = f end
+for _, f in ipairs(shapes.VB_FIELDS) do
+  VB_KEYS[f.key] = f
+end
 
 --- Give the selected notes (or the one under the cursor) properties:
 --- `tuning=20 vibrato=on depth=40 period=150 po=default vel=120`.
 command("utau.note", function(ctx)
   local which = {}
-  for _, i in ipairs(editor:targets()) do which[i] = true end
+  for _, i in ipairs(editor:targets()) do
+    which[i] = true
+  end
   if not next(which) then return paw.notify("no note under the editor's cursor", "warn") end
   local count = notes.change_props(editor.clip_id, function(p, note)
     for key, value in pairs(ctx.args) do

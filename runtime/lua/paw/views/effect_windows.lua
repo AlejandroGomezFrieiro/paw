@@ -24,9 +24,7 @@ local function read(id, method, data)
   return ok and value or nil
 end
 
-local function exists(id)
-  return id and (pcall(api.device_get, id))
-end
+local function exists(id) return id and (pcall(api.device_get, id)) end
 
 local function mix(a, b, t) return paw.draw.mix(a, b, t) end
 
@@ -57,9 +55,7 @@ local EQ = { top = 40, left = 44, right = 16, bottom = 28, range = 18 }
 local eq = { drag = nil, hover = nil }
 paw.seats.keep("eq_window", function() return eq end, function(e) eq = e end, function() return {} end)
 
-local function eq_area(width, height)
-  return EQ.left, EQ.top, width - EQ.left - EQ.right, height - EQ.top - EQ.bottom
-end
+local function eq_area(width, height) return EQ.left, EQ.top, width - EQ.left - EQ.right, height - EQ.top - EQ.bottom end
 
 local function freq_x(f, x, w) return x + math.log(f / 20) / math.log(1000) * w end
 local function x_freq(px, x, w) return 20 * 1000 ^ util.clamp((px - x) / w, 0, 1) end
@@ -78,8 +74,14 @@ local function bands(d, width, height)
     local kind = math.floor(p("type") + 0.5)
     local gain = GAIN_TYPES[kind] and p("gain") or 0
     out[b] = {
-      index = b, on = p("on") >= 0.5, kind = kind, freq = p("freq"), gain = p("gain"), q = p("q"),
-      x = freq_x(p("freq"), x, w), y = gain_y(gain, y, h),
+      index = b,
+      on = p("on") >= 0.5,
+      kind = kind,
+      freq = p("freq"),
+      gain = p("gain"),
+      q = p("q"),
+      x = freq_x(p("freq"), x, w),
+      y = gain_y(gain, y, h),
     }
   end
   return out
@@ -89,7 +91,9 @@ local function band_at(list, px, py)
   local best, dist = nil, 14
   for _, b in ipairs(list) do
     local d = math.sqrt((b.x - px) ^ 2 + (b.y - py) ^ 2)
-    if d < dist and b.on then best, dist = b, d end
+    if d < dist and b.on then
+      best, dist = b, d
+    end
   end
   return best
 end
@@ -109,7 +113,12 @@ paw.ui.view("eq_window", {
     local d = api.device_get(id)
     local track = api.track_get(d.track)
     g:rect(0, 0, width, 30, { fill = c.bg_alt })
-    g:text(12, 7, track.name .. "  ·  EQ" .. (d.bypass and "  (bypassed)" or ""), { color = c.bright, size = 14, bold = true })
+    g:text(
+      12,
+      7,
+      track.name .. "  ·  EQ" .. (d.bypass and "  (bypassed)" or ""),
+      { color = c.bright, size = 14, bold = true }
+    )
     local x, y, w, h = eq_area(width, height)
     -- Grid: decibels every 6, frequencies at the round numbers.
     for db = -EQ.range, EQ.range, 6 do
@@ -135,7 +144,9 @@ paw.ui.view("eq_window", {
     fill[#fill + 1], fill[#fill + 2] = x + w, gain_y(0, y, h)
     local inside = g:sub(x, y, w, h)
     if #curve > 1 then
-      for i = 1, #fill, 2 do fill[i], fill[i + 1] = fill[i] - x, fill[i + 1] - y end
+      for i = 1, #fill, 2 do
+        fill[i], fill[i + 1] = fill[i] - x, fill[i + 1] - y
+      end
       inside:poly(fill, { fill = mix(c.bg, c.accent, 0.14) })
       g:poly(points, { color = c.accent, width = 2 })
     end
@@ -160,10 +171,22 @@ paw.ui.view("eq_window", {
         return ""
       end
       local k = "b" .. b.index .. "_"
-      local text = string.format("%d  %s  %s  %s  Q %s", b.index, fmt(k .. "type"), fmt(k .. "freq"), fmt(k .. "gain"), fmt(k .. "q"))
+      local text = string.format(
+        "%d  %s  %s  %s  Q %s",
+        b.index,
+        fmt(k .. "type"),
+        fmt(k .. "freq"),
+        fmt(k .. "gain"),
+        fmt(k .. "q")
+      )
       g:text(width - 12, 8, text, { color = c.fg, size = 13, align = "right", width = width / 2 })
     else
-      g:text(width - 12, 9, "drag a dot · wheel for Q · double click", { color = c.faint, size = 11, align = "right", width = width / 2 })
+      g:text(
+        width - 12,
+        9,
+        "drag a dot · wheel for Q · double click",
+        { color = c.faint, size = 11, align = "right", width = width / 2 }
+      )
     end
   end,
   pointer = function(_, e)
@@ -201,7 +224,9 @@ paw.ui.view("eq_window", {
         local best, dist
         for _, cand in ipairs(list) do
           local dd = math.abs(math.log(cand.freq / f))
-          if not cand.on and (not best or dd < dist) then best, dist = cand, dd end
+          if not cand.on and (not best or dd < dist) then
+            best, dist = cand, dd
+          end
         end
         if best then
           local k = "b" .. best.index .. "_"
@@ -239,20 +264,38 @@ paw.ui.view("tuner_window", {
     local cents = sure and (p.cents or 0) or 0
     local tuned = sure and math.abs(cents) < 3
     local colour = not sure and c.faint or tuned and c.meter_low or math.abs(cents) < 15 and c.meter_mid or c.meter_high
-    g:text(width / 2, height * 0.12, sure and tostring(p.note) or "–", { color = colour, size = 64, bold = true, align = "center" })
+    g:text(
+      width / 2,
+      height * 0.12,
+      sure and tostring(p.note) or "–",
+      { color = colour, size = 64, bold = true, align = "center" }
+    )
     -- The scale: ±50 cents, a tick every 10, the middle long.
     local x0, x1, sy = width * 0.1, width * 0.9, height * 0.62
     g:line(x0, sy, x1, sy, { color = c.line_hi, width = 2 })
     for k = -50, 50, 10 do
       local tx = x0 + (k + 50) / 100 * (x1 - x0)
       local long = k == 0
-      g:line(tx, sy - (long and 22 or 10), tx, sy + (long and 22 or 10), { color = long and c.dim or c.line_hi, width = long and 2 or 1 })
-      if k % 50 == 0 then g:text(tx, sy + 28, (k > 0 and "+" or "") .. k, { color = c.faint, size = 11, align = "center" }) end
+      g:line(
+        tx,
+        sy - (long and 22 or 10),
+        tx,
+        sy + (long and 22 or 10),
+        { color = long and c.dim or c.line_hi, width = long and 2 or 1 }
+      )
+      if k % 50 == 0 then
+        g:text(tx, sy + 28, (k > 0 and "+" or "") .. k, { color = c.faint, size = 11, align = "center" })
+      end
     end
     if sure then
       local nx = x0 + (util.clamp(cents, -50, 50) + 50) / 100 * (x1 - x0)
       g:rect(nx - 4, sy - 30, 8, 60, { fill = colour, radius = 3 })
-      g:text(width / 2, height * 0.80, string.format("%+.1f cents   %.2f Hz", cents, p.freq or 0), { color = c.fg, size = 15, align = "center" })
+      g:text(
+        width / 2,
+        height * 0.80,
+        string.format("%+.1f cents   %.2f Hz", cents, p.freq or 0),
+        { color = c.fg, size = 15, align = "center" }
+      )
     else
       g:text(width / 2, height * 0.80, "play a single note", { color = c.faint, size = 14, align = "center" })
     end
@@ -275,8 +318,10 @@ paw.ui.view("meter_window", {
     end
     local m = read(id, "meters") or {}
     local cols = {
-      { "Momentary", lufs(m.momentary), "LUFS" }, { "Short-term", lufs(m.short_term), "LUFS" },
-      { "Integrated", lufs(m.integrated), "LUFS" }, { "True peak", lufs(m.true_peak), "dBTP" },
+      { "Momentary", lufs(m.momentary), "LUFS" },
+      { "Short-term", lufs(m.short_term), "LUFS" },
+      { "Integrated", lufs(m.integrated), "LUFS" },
+      { "True peak", lufs(m.true_peak), "dBTP" },
       { "Correlation", m.correlation and string.format("%+.2f", m.correlation) or "–", "" },
     }
     local cw = width / #cols
@@ -291,7 +336,7 @@ paw.ui.view("meter_window", {
     local x, y, w, h = 40, 92, width - 56, height - 120
     g:rect(x, y, w, h, { fill = c.bg_dark })
     for db = -80, 0, 20 do
-      local ly = y + (-db) / 90 * h
+      local ly = y + -db / 90 * h
       g:line(x, ly, x + w, ly, { color = c.line, width = 1 })
       g:text(x - 6, ly - 7, tostring(db), { color = c.faint, size = 10, align = "right" })
     end
@@ -300,11 +345,18 @@ paw.ui.view("meter_window", {
     local bw = w / n
     for i, v in ipairs(bands) do
       local bh = util.clamp((v + 90) / 90, 0, 1) * h
-      if bh > 0.5 then g:rect(x + (i - 1) * bw + 1, y + h - bh, math.max(1, bw - 2), bh, { fill = mix(c.bg, c.normal, 0.8) }) end
+      if bh > 0.5 then
+        g:rect(x + (i - 1) * bw + 1, y + h - bh, math.max(1, bw - 2), bh, { fill = mix(c.bg, c.normal, 0.8) })
+      end
     end
     for _, f in ipairs({ 100, 1000, 10000 }) do
       local lx = x + math.log(f / 20) / math.log(1000) * w
-      g:text(lx, y + h + 6, f >= 1000 and (f / 1000) .. "k" or tostring(f), { color = c.faint, size = 11, align = "center" })
+      g:text(
+        lx,
+        y + h + 6,
+        f >= 1000 and (f / 1000) .. "k" or tostring(f),
+        { color = c.faint, size = 11, align = "center" }
+      )
     end
   end,
 })

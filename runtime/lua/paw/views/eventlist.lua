@@ -14,9 +14,7 @@ paw.seats.fields("eventlist", view, { "row", "column", "scroll" }, { row = 1, co
 local HEADINGS = { time = "Time", kind = "Kind", which = "Which", value = "Value", length = "Length" }
 local WIDTHS = { time = 11, kind = 11, which = 10, value = 11, length = 8 }
 
-function view:clip()
-  return paw.ui.views.pianoroll:clip()
-end
+function view:clip() return paw.ui.views.pianoroll:clip() end
 
 --- The rows of the clip open in the piano roll, with the cursor kept on one.
 function view:rows()
@@ -55,7 +53,8 @@ function view:render(buf, ctx)
     x = 1
     for c, name in ipairs(controls.columns) do
       local style = here and (c == self.column and ctx.focused and "RollCursor" or "Selected")
-        or name == "kind" and (row.kind == "note" and "Bright" or "Accent") or "Normal"
+        or name == "kind" and (row.kind == "note" and "Bright" or "Accent")
+        or "Normal"
       buf:text(x, y, util.fit(cells[name], WIDTHS[name]), style)
       x = x + WIDTHS[name] + 1
     end

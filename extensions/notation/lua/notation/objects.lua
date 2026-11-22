@@ -44,8 +44,13 @@ function O.cursor(sc)
   local ev, n = view:event_at(view.beat, view.step)
   local si = (ev and n and ev.staff) or view:staff_of_step(view.step, layout)
   local st = sc.staves[si] or sc.staves[1]
-  return { t = math.max(0, O.ticks(sc, view.beat)), staff = st.id, staff_index = D.staff_index(sc, st.id),
-    voice = (ev and n and ev.voice) or view.voice or 1, step = view.step }
+  return {
+    t = math.max(0, O.ticks(sc, view.beat)),
+    staff = st.id,
+    staff_index = D.staff_index(sc, st.id),
+    voice = (ev and n and ev.voice) or view.voice or 1,
+    step = view.step,
+  }
 end
 
 --- The item of a voice (`D.sequence`'s) sounding at `t`, not a grace note.
@@ -84,7 +89,9 @@ local function tie_chain(sc, staff, v, nid)
           local before = seq[i - 1]
           if before.ev.kind == "chord" and before.e == it.s then
             for _, b in ipairs(before.ev.notes) do
-              if b.tie and D.pitch(b) == D.pitch(n) then head, found = b.id, true end
+              if b.tie and D.pitch(b) == D.pitch(n) then
+                head, found = b.id, true
+              end
             end
           end
         end
@@ -92,7 +99,9 @@ local function tie_chain(sc, staff, v, nid)
     end
   end
   ids[head] = true
-  for _, c in ipairs(D.tied_on(sc, staff, v, head)) do ids[c.note.id] = true end
+  for _, c in ipairs(D.tied_on(sc, staff, v, head)) do
+    ids[c.note.id] = true
+  end
   return ids
 end
 O.tie_chain = tie_chain
@@ -121,8 +130,15 @@ end
 --- The keymap's region for a selection.
 function O.region(sc, sel)
   local pitch = view:cursor_pitch()
-  return { view = "notation", kind = "char", r0 = pitch, r1 = pitch,
-    c0 = math.max(0, O.beat(sc, sel.from)), c1 = O.beat(sc, sel.to), score = sel }
+  return {
+    view = "notation",
+    kind = "char",
+    r0 = pitch,
+    r1 = pitch,
+    c0 = math.max(0, O.beat(sc, sel.from)),
+    c1 = O.beat(sc, sel.to),
+    score = sel,
+  }
 end
 
 --- The selection a region names: its own, else the stretch of time it
@@ -131,12 +147,21 @@ end
 --- reaches over the note it found.
 function O.of_region(sc, region)
   if region.score then return region.score end
-  if region.visual and O.visual and math.abs(O.visual.c0 - region.c0) < EPS and math.abs(O.visual.c1 - region.c1) < EPS then
+  if
+    region.visual
+    and O.visual
+    and math.abs(O.visual.c0 - region.c0) < EPS
+    and math.abs(O.visual.c1 - region.c1) < EPS
+  then
     return O.visual.sel
   end
   local f = D.frame(sc)
   if region.kind == "line" then
-    return { from = 0, to = math.max(f.finish, O.ticks(sc, view:clip() and view:clip():get().length or 0)), pitches = { region.r0, region.r1 } }
+    return {
+      from = 0,
+      to = math.max(f.finish, O.ticks(sc, view:clip() and view:clip():get().length or 0)),
+      pitches = { region.r0, region.r1 },
+    }
   end
   local c1 = region.c1
   local reach = O.reach
@@ -176,14 +201,25 @@ function O.items(sc, sel)
                 notes = {}
                 for _, n in ipairs(it.ev.notes) do
                   local p = D.pitch(n)
-                  if (not sel.notes or sel.notes[n.id]) and (not sel.pitches or (p >= sel.pitches[1] and p <= sel.pitches[2])) then
+                  if
+                    (not sel.notes or sel.notes[n.id])
+                    and (not sel.pitches or (p >= sel.pitches[1] and p <= sel.pitches[2]))
+                  then
                     notes[#notes + 1] = n
                   end
                 end
               end
               if not ((it.ev.kind == "rest" and by_note) or (notes and #notes == 0)) then
-                out[#out + 1] = { ev = it.ev, mi = it.mi, staff = st.id, voice = v, s = it.s, e = it.e, notes = notes,
-                  whole = notes ~= nil and #notes == #it.ev.notes }
+                out[#out + 1] = {
+                  ev = it.ev,
+                  mi = it.mi,
+                  staff = st.id,
+                  voice = v,
+                  s = it.s,
+                  e = it.e,
+                  notes = notes,
+                  whole = notes ~= nil and #notes == #it.ev.notes,
+                }
               end
             end
           end
@@ -200,7 +236,9 @@ function O.heads(sc, sel)
   local items = O.items(sc, sel)
   local chosen, conts = {}, {}
   for _, it in ipairs(items) do
-    for _, n in ipairs(it.notes or {}) do chosen[n.id] = true end
+    for _, n in ipairs(it.notes or {}) do
+      chosen[n.id] = true
+    end
     local key = it.staff .. ":" .. it.voice
     conts[key] = conts[key] or O.continuations(sc, it.staff, it.voice)
   end
@@ -227,7 +265,9 @@ end
 
 local function span_of(items)
   local a, b = math.huge, -math.huge
-  for _, it in ipairs(items) do a, b = math.min(a, it.s), math.max(b, it.e) end
+  for _, it in ipairs(items) do
+    a, b = math.min(a, it.s), math.max(b, it.e)
+  end
   return a, b
 end
 
@@ -290,7 +330,9 @@ function O.beat_of(sc, around, count)
     if at >= s and at < e then
       local last = beats[math.min(#beats, k + (count or 1) - 1)]
       local sel = { from = f.starts[mi] + s, to = f.starts[mi] + D.from_beats(last.e) }
-      if not around then sel.staff, sel.voice = cur.staff, cur.voice end
+      if not around then
+        sel.staff, sel.voice = cur.staff, cur.voice
+      end
       return sel
     end
   end
@@ -329,7 +371,9 @@ function O.slur(sc, around)
   if not mk then return nil end
   local sel = { from = s, to = e + 1, staff = cur.staff, voice = cur.voice }
   local items = O.items(sc, sel)
-  if #items > 0 then sel.from, sel.to = span_of(items) end
+  if #items > 0 then
+    sel.from, sel.to = span_of(items)
+  end
   if around then sel.slur = mk.id end
   return sel
 end
@@ -348,16 +392,24 @@ function O.phrase(sc, around, count)
   end
   if not k then return nil end
   -- From a rest: the phrase after it.
-  while seq[k] and seq[k].ev.kind == "rest" do k = k + 1 end
+  while seq[k] and seq[k].ev.kind == "rest" do
+    k = k + 1
+  end
   if not seq[k] then return nil end
   local a = k
-  while seq[a - 1] and seq[a - 1].ev.kind == "chord" do a = a - 1 end
+  while seq[a - 1] and seq[a - 1].ev.kind == "chord" do
+    a = a - 1
+  end
   local function run_end(i)
-    while seq[i + 1] and seq[i + 1].ev.kind == "chord" do i = i + 1 end
+    while seq[i + 1] and seq[i + 1].ev.kind == "chord" do
+      i = i + 1
+    end
     return i
   end
   local function rests_end(i)
-    while seq[i + 1] and seq[i + 1].ev.kind == "rest" do i = i + 1 end
+    while seq[i + 1] and seq[i + 1].ev.kind == "rest" do
+      i = i + 1
+    end
     return i
   end
   local b = run_end(k)
@@ -434,13 +486,19 @@ function O.find_letter(sc, letter, dir, count)
   local found, note
   local left = count or 1
   local first, last, step = 1, #list, 1
-  if dir < 0 then first, last, step = #list, 1, -1 end
+  if dir < 0 then
+    first, last, step = #list, 1, -1
+  end
   for i = first, last, step do
     local it = list[i]
     if (dir > 0 and it.s > cur.t) or (dir < 0 and it.s < cur.t) then
       local hit
       for _, n in ipairs(it.ev.notes) do
-        if n.step == letter and (not hit or math.abs(D.diatonic(n) - cur.step) < math.abs(D.diatonic(hit) - cur.step)) then hit = n end
+        if
+          n.step == letter and (not hit or math.abs(D.diatonic(n) - cur.step) < math.abs(D.diatonic(hit) - cur.step))
+        then
+          hit = n
+        end
       end
       if hit then
         left = left - 1
@@ -468,21 +526,29 @@ function O.phrase_start(sc, dir, count)
   local seq = D.sequence(sc, cur.staff, cur.voice)
   local starts = {}
   for i, it in ipairs(seq) do
-    if it.ev.kind == "chord" and not it.ev.grace and (i == 1 or seq[i - 1].ev.kind == "rest") then starts[#starts + 1] = it end
+    if it.ev.kind == "chord" and not it.ev.grace and (i == 1 or seq[i - 1].ev.kind == "rest") then
+      starts[#starts + 1] = it
+    end
   end
   local left, found = count or 1, nil
   if dir > 0 then
     for _, it in ipairs(starts) do
       if it.s > cur.t then
         left = left - 1
-        if left == 0 then found = it break end
+        if left == 0 then
+          found = it
+          break
+        end
       end
     end
   else
     for i = #starts, 1, -1 do
       if starts[i].s < cur.t then
         left = left - 1
-        if left == 0 then found = starts[i] break end
+        if left == 0 then
+          found = starts[i]
+          break
+        end
       end
     end
   end

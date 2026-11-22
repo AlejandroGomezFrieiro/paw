@@ -30,13 +30,20 @@ the arrange view, `v` with `j` `k` is already a block of time on some tracks.
     local function track(name, device, params, make)
       local t = paw.add_track({ name = name, volume = name == "Keys" and -10 or -4 })
       t:add_device(device, params)
-      for i = 1, 4 do t:add_clip({ name = name:sub(1, 1):lower() .. i, start = (i - 1) * 4, length = 4, notes = make(i) }) end
+      for i = 1, 4 do
+        t:add_clip({ name = name:sub(1, 1):lower() .. i, start = (i - 1) * 4, length = 4, notes = make(i) })
+      end
     end
     track("Drums", "drums", {}, function() return look.drums(look.beat) end)
     local roots = { "A1", "F1", "C2", "G1" }
     track("Bass", "synth", { wave = 2, cutoff = 600, release = 0.05 }, function(i) return look.pulse(roots[i], 4) end)
     local chords = { { "A3", "C4", "E4" }, { "F3", "A3", "C4" }, { "G3", "C4", "E4" }, { "G3", "B3", "D4" } }
-    track("Keys", "synth", { wave = 3, attack = 0.05, release = 0.4, cutoff = 1800 }, function(i) return look.chord(chords[i], 4) end)
+    track(
+      "Keys",
+      "synth",
+      { wave = 3, attack = 0.05, release = 0.4, cutoff = 1800 },
+      function(i) return look.chord(chords[i], 4) end
+    )
     paw.transport.loop_start, paw.transport.loop_end, paw.transport.loop_enabled = 0, 16, true
   end,
   at = function() paw.cursor.set_track(paw.track("Drums")) end,
@@ -68,7 +75,9 @@ the arrange view, `v` with `j` `k` is already a block of time on some tracks.
     {
       say = "Press `u` to undo the delete.",
       keys = { "u" },
-      check = function(ctx, look) return look.ran(ctx, "undo") and look.names("Drums") == "d1 d2 d3 d4" and look.names("Bass") == "b1 b2 b3 b4" end,
+      check = function(ctx, look)
+        return look.ran(ctx, "undo") and look.names("Drums") == "d1 d2 d3 d4" and look.names("Bass") == "b1 b2 b3 b4"
+      end,
       done = "The clips are back.",
     },
     {
@@ -102,7 +111,9 @@ the arrange view, `v` with `j` `k` is already a block of time on some tracks.
     {
       say = "Press `gv` and `~` again to unmute them.",
       keys = { "gv", "~" },
-      check = function(ctx, look) return look.became(ctx, "unmuted", not look.track("Drums").mute and not look.track("Bass").mute) end,
+      check = function(ctx, look)
+        return look.became(ctx, "unmuted", not look.track("Drums").mute and not look.track("Bass").mute)
+      end,
       done = "`~` mutes and unmutes.",
     },
     {

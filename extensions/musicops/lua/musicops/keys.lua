@@ -14,9 +14,9 @@ local EPS = 1e-9
 
 local M = {}
 
-local NOTES = { "pianoroll", "utau" }               -- views that edit one clip's notes
+local NOTES = { "pianoroll", "utau" } -- views that edit one clip's notes
 local ALL = { "pianoroll", "utau", "arrange" }
-local POLY = { "pianoroll", "arrange" }             -- not the vocal editor: one voice, and lyrics
+local POLY = { "pianoroll", "arrange" } -- not the vocal editor: one voice, and lyrics
 
 -- Targets ---------------------------------------------------------------------
 
@@ -34,7 +34,11 @@ end
 function M.apply_to_clip(clip, pick, fn)
   local inside, keep = {}, {}
   for _, n in ipairs(clip:notes()) do
-    if pick(n) then inside[#inside + 1] = n else keep[#keep + 1] = n end
+    if pick(n) then
+      inside[#inside + 1] = n
+    else
+      keep[#keep + 1] = n
+    end
   end
   if #inside == 0 then return 0 end
   local finish = 0
@@ -66,14 +70,18 @@ function M.apply_arrange(region, fn, skip)
   for _, track in ipairs(edit.arrange.tracks(region)) do
     for _, c in ipairs(api.clip_list(track)) do
       local whole = region.kind == "line"
-      if c.kind == "midi" and (whole or (c.start < region.c1 - EPS and c.start + c.length > region.c0 + EPS))
-        and not (skip and skip(paw.clip(c.id))) then
+      if
+        c.kind == "midi"
+        and (whole or (c.start < region.c1 - EPS and c.start + c.length > region.c0 + EPS))
+        and not (skip and skip(paw.clip(c.id)))
+      then
         index = index + 1
         local i = index
-        count = count + M.apply_to_clip(paw.clip(c.id), function(n)
-          local at = c.start + n.start
-          return whole or (at >= region.c0 - EPS and at < region.c1 - EPS)
-        end, function(notes) return fn(notes, i) end)
+        count = count
+          + M.apply_to_clip(paw.clip(c.id), function(n)
+            local at = c.start + n.start
+            return whole or (at >= region.c0 - EPS and at < region.c1 - EPS)
+          end, function(notes) return fn(notes, i) end)
       end
     end
   end
@@ -92,15 +100,23 @@ function M.apply(view, region, fn, skip)
     for i, part in ipairs(parts) do
       if not (skip and skip(part.clip)) then
         local mine = paw.util.merge(region, { c0 = region.c0 - part.offset, c1 = region.c1 - part.offset })
-        count = count + M.apply_to_clip(part.clip, function(n) return edit.roll.inside(n, mine, part.clip.id) end,
-          function(notes) return fn(notes, i) end)
+        count = count
+          + M.apply_to_clip(
+            part.clip,
+            function(n) return edit.roll.inside(n, mine, part.clip.id) end,
+            function(notes) return fn(notes, i) end
+          )
       end
     end
     return count
   end
   local clip = M.view_clip(view)
   if not clip or (skip and skip(clip)) then return 0 end
-  return M.apply_to_clip(clip, function(n) return edit.roll.inside(n, region, clip.id) end, function(notes) return fn(notes, 1) end)
+  return M.apply_to_clip(
+    clip,
+    function(n) return edit.roll.inside(n, region, clip.id) end,
+    function(notes) return fn(notes, 1) end
+  )
 end
 
 -- Operators ---------------------------------------------------------------------
@@ -118,17 +134,27 @@ function M.operator(lhs, desc, views, fn, pitched)
     keymap.operator(lhs, function(region, ctx)
       local amount = region.visual and ctx.count or nil
       local drums = 0
-      local skip = pitched and function(clip)
-        if not M.on_drum_track(clip) then return false end
-        drums = drums + 1
-        return true
-      end
-      M.apply(view, region, function(notes, index)
-        return fn(notes, amount, { index = index, view = view, ctx = ctx })
-      end, skip)
+      local skip = pitched
+        and function(clip)
+          if not M.on_drum_track(clip) then return false end
+          drums = drums + 1
+          return true
+        end
+      M.apply(
+        view,
+        region,
+        function(notes, index) return fn(notes, amount, { index = index, view = view, ctx = ctx }) end,
+        skip
+      )
       if drums > 0 then
-        paw.notify(string.format("left %d clip%s of drum tracks alone: their pitches are drum sounds",
-          drums, drums == 1 and "" or "s"), "warn")
+        paw.notify(
+          string.format(
+            "left %d clip%s of drum tracks alone: their pitches are drum sounds",
+            drums,
+            drums == 1 and "" or "s"
+          ),
+          "warn"
+        )
       end
     end, { view = view, desc = desc })
   end
@@ -160,85 +186,162 @@ op("gzh", "Humanize timing and velocity", ALL, function(notes, amount, info)
     seed = last_seed + info.index - 1,
   })
 end)
-op("gzs", "Strum chords upwards", POLY, function(notes, amount)
-  return mo.strum(notes, { step = pct(amount) or opt("strum"), dir = "up", tolerance = opt("together") })
-end)
-op("gzS", "Strum chords downwards", POLY, function(notes, amount)
-  return mo.strum(notes, { step = pct(amount) or opt("strum"), dir = "down", tolerance = opt("together") })
-end)
+op(
+  "gzs",
+  "Strum chords upwards",
+  POLY,
+  function(notes, amount)
+    return mo.strum(notes, { step = pct(amount) or opt("strum"), dir = "up", tolerance = opt("together") })
+  end
+)
+op(
+  "gzS",
+  "Strum chords downwards",
+  POLY,
+  function(notes, amount)
+    return mo.strum(notes, { step = pct(amount) or opt("strum"), dir = "down", tolerance = opt("together") })
+  end
+)
 for lhs, mode in pairs({ gzp = "up", gzP = "down", gzb = "updown", gzB = "played" }) do
-  op(lhs, "Arpeggiate chords " .. (mode == "played" and "as played" or mode), POLY, function(notes, amount)
-    return mo.arpeggiate(notes, {
-      mode = mode, step = amount and 1 / amount or opt("arp_step") or paw.opt.note_grid,
-      gate = opt("arp_gate"), tolerance = opt("together"),
-    })
-  end)
+  op(
+    lhs,
+    "Arpeggiate chords " .. (mode == "played" and "as played" or mode),
+    POLY,
+    function(notes, amount)
+      return mo.arpeggiate(notes, {
+        mode = mode,
+        step = amount and 1 / amount or opt("arp_step") or paw.opt.note_grid,
+        gate = opt("arp_gate"),
+        tolerance = opt("together"),
+      })
+    end
+  )
 end
-op("gzl", "Legato: hold each note to the next", ALL, function(notes)
-  return mo.legato(notes, { gap = opt("legato_gap") })
-end)
-op("gzt", "Staccato: shorten the notes", ALL, function(notes, amount)
-  return mo.staccato(notes, { factor = pct(amount) or opt("staccato") })
-end)
-op("gzq", "Quantize, with strength and swing", ALL, function(notes, amount)
-  return mo.quantize(notes, {
-    grid = paw.opt.note_grid, strength = pct(amount) or opt("strength"), swing = opt("swing"),
-  })
-end)
-op("gzw", "Quantize with swing", ALL, function(notes, amount)
-  return mo.quantize(notes, {
-    grid = paw.opt.note_grid, strength = opt("strength"), swing = pct(amount) or opt("swing_amount"),
-  })
-end)
-op("gz>", "Crescendo", POLY, function(notes, amount)
-  return mo.crescendo(notes, { amount = amount or opt("ramp") })
-end)
-op("gz<lt>", "Diminuendo", POLY, function(notes, amount)
-  return mo.diminuendo(notes, { amount = amount or opt("ramp") })
-end)
-op("gzc", "Compress velocities towards their average", POLY, function(notes, amount)
-  return mo.compress(notes, { ratio = pct(amount) or opt("compress") })
-end)
-op("gzv", "Even out velocities: all the average, or the count", POLY, function(notes, amount)
-  return mo.set_velocity(notes, { velocity = amount })
-end)
-op("gze", "Accent the notes on the beat", POLY, function(notes, amount)
-  return mo.accent(notes, { amount = amount or opt("accent"), grid = 1 })
-end)
+op(
+  "gzl",
+  "Legato: hold each note to the next",
+  ALL,
+  function(notes) return mo.legato(notes, { gap = opt("legato_gap") }) end
+)
+op(
+  "gzt",
+  "Staccato: shorten the notes",
+  ALL,
+  function(notes, amount) return mo.staccato(notes, { factor = pct(amount) or opt("staccato") }) end
+)
+op(
+  "gzq",
+  "Quantize, with strength and swing",
+  ALL,
+  function(notes, amount)
+    return mo.quantize(notes, {
+      grid = paw.opt.note_grid,
+      strength = pct(amount) or opt("strength"),
+      swing = opt("swing"),
+    })
+  end
+)
+op(
+  "gzw",
+  "Quantize with swing",
+  ALL,
+  function(notes, amount)
+    return mo.quantize(notes, {
+      grid = paw.opt.note_grid,
+      strength = opt("strength"),
+      swing = pct(amount) or opt("swing_amount"),
+    })
+  end
+)
+op("gz>", "Crescendo", POLY, function(notes, amount) return mo.crescendo(notes, { amount = amount or opt("ramp") }) end)
+op(
+  "gz<lt>",
+  "Diminuendo",
+  POLY,
+  function(notes, amount) return mo.diminuendo(notes, { amount = amount or opt("ramp") }) end
+)
+op(
+  "gzc",
+  "Compress velocities towards their average",
+  POLY,
+  function(notes, amount) return mo.compress(notes, { ratio = pct(amount) or opt("compress") }) end
+)
+op(
+  "gzv",
+  "Even out velocities: all the average, or the count",
+  POLY,
+  function(notes, amount) return mo.set_velocity(notes, { velocity = amount }) end
+)
+op(
+  "gze",
+  "Accent the notes on the beat",
+  POLY,
+  function(notes, amount) return mo.accent(notes, { amount = amount or opt("accent"), grid = 1 }) end
+)
 op("gzr", "Reverse in time", ALL, function(notes) return mo.reverse(notes) end)
 op("gzd", "Double time: twice as fast", ALL, function(notes) return mo.double_time(notes) end)
 op("gzD", "Half time: half as fast", ALL, function(notes) return mo.half_time(notes) end)
-op("gzu", "Invert chords upwards", POLY, function(notes, amount)
-  return mo.invert(notes, { dir = 1, times = amount or 1, tolerance = opt("together") })
-end, true)
-op("gzU", "Invert chords downwards", POLY, function(notes, amount)
-  return mo.invert(notes, { dir = -1, times = amount or 1, tolerance = opt("together") })
-end, true)
-op("gzk", "Up a step of the scale", ALL, function(notes, amount)
-  return mo.transpose_scale(notes, amount or 1, scale.current())
-end, true)
-op("gzj", "Down a step of the scale", ALL, function(notes, amount)
-  return mo.transpose_scale(notes, -(amount or 1), scale.current())
-end, true)
-op("gzn", "Snap to the scale", ALL, function(notes)
-  return mo.snap_scale(notes, scale.current(), { dir = opt("snap") })
-end, true)
-op("gzm", "Mirror the melody around its first note, in the scale", ALL, function(notes)
-  return mo.mirror(notes, { key = opt("mirror_chromatic") and nil or scale.current() })
-end, true)
-op("gzo", "Double an octave up", POLY, function(notes, amount)
-  return mo.add_octave(notes, { by = 12 * (amount or 1) })
-end, true)
-op("gzO", "Double an octave down", POLY, function(notes, amount)
-  return mo.add_octave(notes, { by = -12 * (amount or 1) })
-end, true)
+op(
+  "gzu",
+  "Invert chords upwards",
+  POLY,
+  function(notes, amount) return mo.invert(notes, { dir = 1, times = amount or 1, tolerance = opt("together") }) end,
+  true
+)
+op(
+  "gzU",
+  "Invert chords downwards",
+  POLY,
+  function(notes, amount) return mo.invert(notes, { dir = -1, times = amount or 1, tolerance = opt("together") }) end,
+  true
+)
+op(
+  "gzk",
+  "Up a step of the scale",
+  ALL,
+  function(notes, amount) return mo.transpose_scale(notes, amount or 1, scale.current()) end,
+  true
+)
+op(
+  "gzj",
+  "Down a step of the scale",
+  ALL,
+  function(notes, amount) return mo.transpose_scale(notes, -(amount or 1), scale.current()) end,
+  true
+)
+op(
+  "gzn",
+  "Snap to the scale",
+  ALL,
+  function(notes) return mo.snap_scale(notes, scale.current(), { dir = opt("snap") }) end,
+  true
+)
+op(
+  "gzm",
+  "Mirror the melody around its first note, in the scale",
+  ALL,
+  function(notes) return mo.mirror(notes, { key = opt("mirror_chromatic") and nil or scale.current() }) end,
+  true
+)
+op(
+  "gzo",
+  "Double an octave up",
+  POLY,
+  function(notes, amount) return mo.add_octave(notes, { by = 12 * (amount or 1) }) end,
+  true
+)
+op(
+  "gzO",
+  "Double an octave down",
+  POLY,
+  function(notes, amount) return mo.add_octave(notes, { by = -12 * (amount or 1) }) end,
+  true
+)
 op("gzx", "Remove overlapping notes of a pitch", ALL, function(notes) return mo.remove_overlaps(notes) end)
 
 -- Text objects and motions ------------------------------------------------------------
 
-local function phrases(clip)
-  return mo.phrases(clip:notes(), paw.opt.phrase_rest)
-end
+local function phrases(clip) return mo.phrases(clip:notes(), paw.opt.phrase_rest) end
 
 --- The phrase at the cursor (or the next one, from a rest) and `count - 1`
 --- more; with `around` up to where the phrase after them starts.
@@ -295,17 +398,31 @@ end
 -- The vocal editor's phrases; the piano roll has paw's own (`ip`, `(` `)`).
 for _, view in ipairs({ "utau" }) do
   local function object(lhs, fn, desc) keymap.textobject(lhs, fn, { view = view, desc = desc }) end
-  object("ip", function(ctx) return M.phrase_region(view, ctx.count, false) end, "The phrase: notes with no long rest between them")
+  object(
+    "ip",
+    function(ctx) return M.phrase_region(view, ctx.count, false) end,
+    "The phrase: notes with no long rest between them"
+  )
   object("ap", function(ctx) return M.phrase_region(view, ctx.count, true) end, "The phrase and the rest after it")
-  keymap.set(")", function(ctx) M.phrase_motion(view, 1, ctx.count) end, { view = view, motion = true, jump = true, desc = "Next phrase" })
-  keymap.set("(", function(ctx) M.phrase_motion(view, -1, ctx.count) end, { view = view, motion = true, jump = true, desc = "Start of this phrase, or the previous one" })
+  keymap.set(
+    ")",
+    function(ctx) M.phrase_motion(view, 1, ctx.count) end,
+    { view = view, motion = true, jump = true, desc = "Next phrase" }
+  )
+  keymap.set(
+    "(",
+    function(ctx) M.phrase_motion(view, -1, ctx.count) end,
+    { view = view, motion = true, jump = true, desc = "Start of this phrase, or the previous one" }
+  )
 end
 
 -- Key and scale -----------------------------------------------------------------------
 
 local function key_command(ctx)
   local words = {}
-  for _, w in ipairs(ctx.args) do words[#words + 1] = tostring(w) end
+  for _, w in ipairs(ctx.args) do
+    words[#words + 1] = tostring(w)
+  end
   local text = table.concat(words, " ")
   if text == "" then
     local key = scale.project()
@@ -324,9 +441,11 @@ paw.command("musicops.key", key_command, { desc = "Set the project's key: `key D
 if not paw.commands.get("key") or paw.commands.get("key").alias_of == "musicops.key" then
   paw.commands.alias("key", "musicops.key")
 end
-paw.command("musicops.scales", function()
-  paw.ui.page("Scales", scale.names())
-end, { desc = "List the scales `key` knows" })
+paw.command(
+  "musicops.scales",
+  function() paw.ui.page("Scales", scale.names()) end,
+  { desc = "List the scales `key` knows" }
+)
 
 local function lock(ctx)
   local arg = ctx and ctx.args and ctx.args[1]
@@ -337,22 +456,48 @@ local function lock(ctx)
   end
   paw.notify("scale lock " .. (paw.opt.musicops_scale_lock and ("on: " .. scale.name(scale.current())) or "off"))
 end
-paw.command("musicops.lock", lock, { desc = "Keep note entry and transposing in the key: `musicops.lock on|off`, alone toggles" })
+paw.command(
+  "musicops.lock",
+  lock,
+  { desc = "Keep note entry and transposing in the key: `musicops.lock on|off`, alone toggles" }
+)
 keymap.set("gzL", function() lock() end, { desc = "Scale lock on or off", repeatable = false })
 
 --- Apply a function of the module to the notes of the clip being edited:
 --- `:musicops.apply humanize timing=0.05 seed=3`, `:musicops.apply transpose_scale 2`.
 local APPLY = {
-  humanize = true, quantize = true, legato = true, staccato = true, set_length = true, reverse = true,
-  stretch = true, double_time = true, half_time = true, strum = true, arpeggiate = true, invert = true,
-  add_octave = true, transpose = true, transpose_scale = true, snap_scale = true, mirror = true, ramp = true,
-  crescendo = true, diminuendo = true, compress = true, set_velocity = true, accent = true, remove_overlaps = true,
+  humanize = true,
+  quantize = true,
+  legato = true,
+  staccato = true,
+  set_length = true,
+  reverse = true,
+  stretch = true,
+  double_time = true,
+  half_time = true,
+  strum = true,
+  arpeggiate = true,
+  invert = true,
+  add_octave = true,
+  transpose = true,
+  transpose_scale = true,
+  snap_scale = true,
+  mirror = true,
+  ramp = true,
+  crescendo = true,
+  diminuendo = true,
+  compress = true,
+  set_velocity = true,
+  accent = true,
+  remove_overlaps = true,
 }
 paw.command("musicops.apply", function(ctx)
   local name = ctx.args[1]
   if not APPLY[name] then
     local names = {}
-    for k in pairs(APPLY) do names[#names + 1] = k end
+    for k in pairs(APPLY) do
+      names[#names + 1] = k
+    end
     table.sort(names)
     return paw.notify("usage: musicops.apply <" .. table.concat(names, "|") .. "> name=value ...", "warn")
   end
@@ -441,10 +586,12 @@ function M.install_locks()
       if not locked() then return call(orig, ctx) end
       local roll = paw.ui.views.pianoroll
       local key, to = scale.current(), nil
-      if roll:change(function(n)
-        n.pitch = math.max(0, math.min(127, scale.step(key, n.pitch, dir * (ctx.count or 1))))
-        to = n.pitch
-      end) then
+      if
+        roll:change(function(n)
+          n.pitch = math.max(0, math.min(127, scale.step(key, n.pitch, dir * (ctx.count or 1))))
+          to = n.pitch
+        end)
+      then
         roll:move(0, to - roll.pitch)
       end
     end, { view = "pianoroll", desc = orig and orig.desc, role = orig and orig.role, musicops = true })
@@ -452,12 +599,17 @@ function M.install_locks()
     for _, view in ipairs(NOTES) do
       local xorig = original("x", view, lhs)
       keymap.set(lhs, nil, {
-        view = view, mode = "x", desc = xorig and xorig.desc, musicops = true,
+        view = view,
+        mode = "x",
+        desc = xorig and xorig.desc,
+        musicops = true,
         operator = function(region, ctx)
           if not locked() then return call(xorig, region, ctx) end
-          M.apply(view, region, function(notes)
-            return mo.transpose_scale(notes, dir * (ctx.count or 1), scale.current())
-          end)
+          M.apply(
+            view,
+            region,
+            function(notes) return mo.transpose_scale(notes, dir * (ctx.count or 1), scale.current()) end
+          )
         end,
       })
     end

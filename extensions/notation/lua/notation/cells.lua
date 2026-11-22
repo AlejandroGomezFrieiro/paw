@@ -15,43 +15,100 @@ local M = {}
 -- DejaVu Sans Mono and Noto Sans Mono, which terminals fall back to for the
 -- fonts that lack them, and they are one cell wide everywhere.
 M.unicode = {
-  line = "─", bar = "│",
+  line = "─",
+  bar = "│",
   -- Barlines joining the lines: on the top line, a middle line, the bottom line.
-  join = { "┬", "┼", "┴" }, first = { "┌", "├", "└" }, last = { "┐", "┤", "┘" },
+  join = { "┬", "┼", "┴" },
+  first = { "┌", "├", "└" },
+  last = { "┐", "┤", "┘" },
   -- Heads, two cells wide: on a row; in a space, the row above's lower
   -- half and the row below's upper half. Open heads are outlined.
-  filled = "██", hollow = "()",
-  filled_space = { "▄▄", "▀▀" }, hollow_space = { "╭╮", "╰╯" },
+  filled = "██",
+  hollow = "()",
+  filled_space = { "▄▄", "▀▀" },
+  hollow_space = { "╭╮", "╰╯" },
   -- An open head in a space with its stem: up from its right side, down from its left.
-  hollow_up = "╭┤", hollow_down = "├╯", hollow_join = "├┤",
-  stem = "│", beam = "━", beam_up = "┳", beam_down = "┻", stub_right = "━╸", stub_left = "╺━",
-  flag_up = "╲", flag_down = "╱", ledger = "────", dot = "·", space_dot = ".",
+  hollow_up = "╭┤",
+  hollow_down = "├╯",
+  hollow_join = "├┤",
+  stem = "│",
+  beam = "━",
+  beam_up = "┳",
+  beam_down = "┻",
+  stub_right = "━╸",
+  stub_left = "╺━",
+  flag_up = "╲",
+  flag_down = "╱",
+  ledger = "────",
+  dot = "·",
+  space_dot = ".",
   acc = { [1] = "♯", [-1] = "♭", [0] = "♮", [2] = "x", [-2] = "♭" },
   -- Rests: the whole hangs from the fourth line, the half sits on the
   -- third; the quarter zigzags down the middle of the staff; an eighth
   -- is a flag on a slanted stroke, one more for each shorter value.
-  whole = "▄▄", half = "▀▀", whole_open = { "▄▄", "▀▀" }, half_open = { "▀▀", "▄▄" },
-  quarter = { "╲", "╱", "╲" }, quarter_open = { { 0, "╲" }, { 1, "╲" }, { 1, "╱" }, { 0, "╱" }, { 0, "╲" } }, flag_rest = "7",
-  tie_under = { "╰", "─", "╯" }, tie_over = { "╭", "─", "╮" },
-  bracket_over = { "┌", "─", "┐" }, bracket_under = { "└", "─", "┘" },
-  arpeggio = "┆", grace = "•", repeat_bar = "║", brace = { "⎧", "⎪", "⎨", "⎩" },
-  hairpin = "─", staccato = "·", tenuto = "–",
+  whole = "▄▄",
+  half = "▀▀",
+  whole_open = { "▄▄", "▀▀" },
+  half_open = { "▀▀", "▄▄" },
+  quarter = { "╲", "╱", "╲" },
+  quarter_open = { { 0, "╲" }, { 1, "╲" }, { 1, "╱" }, { 0, "╱" }, { 0, "╲" } },
+  flag_rest = "7",
+  tie_under = { "╰", "─", "╯" },
+  tie_over = { "╭", "─", "╮" },
+  bracket_over = { "┌", "─", "┐" },
+  bracket_under = { "└", "─", "┘" },
+  arpeggio = "┆",
+  grace = "•",
+  repeat_bar = "║",
+  brace = { "⎧", "⎪", "⎨", "⎩" },
+  hairpin = "─",
+  staccato = "·",
+  tenuto = "–",
 }
 
 M.ascii = {
-  line = "-", bar = "|",
-  join = { "+", "+", "+" }, first = { "+", "+", "+" }, last = { "+", "+", "+" },
-  filled = "@@", hollow = "()",
-  filled_space = { "@@", "@@" }, hollow_space = { "()", "()" }, hollow_up = "()", hollow_down = "()", hollow_join = "()",
-  stem = "|", beam = "=", beam_up = "=", beam_down = "=", stub_right = "=-", stub_left = "-=",
-  flag_up = "\\", flag_down = "/", ledger = "----", dot = ".", space_dot = ".",
+  line = "-",
+  bar = "|",
+  join = { "+", "+", "+" },
+  first = { "+", "+", "+" },
+  last = { "+", "+", "+" },
+  filled = "@@",
+  hollow = "()",
+  filled_space = { "@@", "@@" },
+  hollow_space = { "()", "()" },
+  hollow_up = "()",
+  hollow_down = "()",
+  hollow_join = "()",
+  stem = "|",
+  beam = "=",
+  beam_up = "=",
+  beam_down = "=",
+  stub_right = "=-",
+  stub_left = "-=",
+  flag_up = "\\",
+  flag_down = "/",
+  ledger = "----",
+  dot = ".",
+  space_dot = ".",
   acc = { [1] = "#", [-1] = "b", [0] = "n", [2] = "x", [-2] = "b" },
-  whole = "==", half = "==", whole_open = { "==", "  " }, half_open = { "==", "  " },
-  quarter = { "\\", "/", "\\" }, quarter_open = { { 0, "\\" }, { 1, "\\" }, { 1, "/" }, { 0, "/" }, { 0, "\\" } }, flag_rest = "7",
-  tie_under = { "\\", "_", "/" }, tie_over = { "/", "~", "\\" },
-  bracket_over = { "+", "-", "+" }, bracket_under = { "+", "-", "+" },
-  arpeggio = "S", grace = "*", repeat_bar = "#", brace = { "/", "|", "<", "\\" },
-  hairpin = "-", staccato = ".", tenuto = "_",
+  whole = "==",
+  half = "==",
+  whole_open = { "==", "  " },
+  half_open = { "==", "  " },
+  quarter = { "\\", "/", "\\" },
+  quarter_open = { { 0, "\\" }, { 1, "\\" }, { 1, "/" }, { 0, "/" }, { 0, "\\" } },
+  flag_rest = "7",
+  tie_under = { "\\", "_", "/" },
+  tie_over = { "/", "~", "\\" },
+  bracket_over = { "+", "-", "+" },
+  bracket_under = { "+", "-", "+" },
+  arpeggio = "S",
+  grace = "*",
+  repeat_bar = "#",
+  brace = { "/", "|", "<", "\\" },
+  hairpin = "-",
+  staccato = ".",
+  tenuto = "_",
 }
 
 --- The characters in use.
@@ -63,7 +120,14 @@ function M.glyphs() return paw.opt.ascii and M.ascii or M.unicode end
 -- side of its F line.
 local CLEFS = {
   treble = {
-    { 10, "  ╭╮" }, { 8, "  │╯" }, { 6, " ╭╯" }, { 4, "╭┼╮" }, { 2, "│●┼╮" }, { 0, "╰─┼╯" }, { -2, "  │" }, { -4, " ╰╯" },
+    { 10, "  ╭╮" },
+    { 8, "  │╯" },
+    { 6, " ╭╯" },
+    { 4, "╭┼╮" },
+    { 2, "│●┼╮" },
+    { 0, "╰─┼╯" },
+    { -2, "  │" },
+    { -4, " ╰╯" },
   },
   bass = { { 8, "╭─╮" }, { 6, "● │:" }, { 4, " ╱" }, { 2, "╱" } },
   -- A C clef's two strokes, its point on its middle line.
@@ -96,12 +160,32 @@ function M.small_clef(clef)
 end
 
 -- Box drawing characters by whether they reach the top and the bottom of their cell.
-local REACH_DOWN = { ["│"] = true, ["┼"] = true, ["╭"] = true, ["╮"] = true, ["┬"] = true, ["├"] = true, ["┤"] = true, ["╷"] = true }
-local REACH_UP = { ["│"] = true, ["┼"] = true, ["╰"] = true, ["╯"] = true, ["┴"] = true, ["├"] = true, ["┤"] = true, ["╵"] = true }
+local REACH_DOWN = {
+  ["│"] = true,
+  ["┼"] = true,
+  ["╭"] = true,
+  ["╮"] = true,
+  ["┬"] = true,
+  ["├"] = true,
+  ["┤"] = true,
+  ["╷"] = true,
+}
+local REACH_UP = {
+  ["│"] = true,
+  ["┼"] = true,
+  ["╰"] = true,
+  ["╯"] = true,
+  ["┴"] = true,
+  ["├"] = true,
+  ["┤"] = true,
+  ["╵"] = true,
+}
 
 local function chars(s)
   local out = {}
-  for ch in s:gmatch("[%z\1-\127\194-\244][\128-\191]*") do out[#out + 1] = ch end
+  for ch in s:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+    out[#out + 1] = ch
+  end
   return out
 end
 
@@ -130,7 +214,9 @@ end
 --- How many columns a clef takes.
 function M.clef_width(clef)
   local w = 0
-  for _, r in ipairs((paw.opt.ascii and ASCII_CLEFS or CLEFS)[clef] or CLEFS.treble) do w = math.max(w, #chars(r[2])) end
+  for _, r in ipairs((paw.opt.ascii and ASCII_CLEFS or CLEFS)[clef] or CLEFS.treble) do
+    w = math.max(w, #chars(r[2]))
+  end
   return w
 end
 

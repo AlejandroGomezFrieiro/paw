@@ -28,25 +28,38 @@ local function line(text)
 end
 
 local tune = "E5:1 F5:.5 G5:.5 A5:1 G5:1 | F5:1 E5:1 D5:2 | E5:.5 F5:.5 G5:1 C6:1.5 B5:.5 | A5:2 G5:2 | "
-local flute1 = line(tune
-  .. "C5:1 D5:1 E5:1 F5:1 | G5:3 r:1 | E5:1 G5:1 C6:1 B5:1 | A5:4 | "
-  .. "r:4 | r:4 | r:4 | r:4 | "
-  .. "G5:1 A5:1 B5:1 C6:1 | D6:2 B5:2 | C6:1 G5:1 E5:1 G5:1 | C6:4")
-local flute2 = line(tune
-  .. "r:4 | r:4 | C5:1 E5:1 A5:1 G5:1 | F5:4 | "
-  .. "r:4 | r:4 | r:4 | r:4 | "
-  .. "E5:1 F5:1 G5:1 A5:1 | B5:2 G5:2 | E5:1 E5:1 C5:1 E5:1 | E5:4")
-local clarinet = line("r:4 | r:4 | r:4 | r:4 | "
-  .. "E4:2 F4:2 | G4:4 | C4:2 E4:2 | F4:4 | "
-  .. "G4:1 A4:1 Bb4:1 A4:1 | G4:2 F4:2 | E4:1 F4:1 G4:1 E4:1 | D4:4 | "
-  .. "D4:2 F4:2 | G4:4 | G4:2 E4:2 | E4:4")
-local cello = line("C3:4 | G2:4 | A2:2 E2:2 | F2:2 G2:2 | "
-  .. "C3:2 B2:2 | E2:4 | A2:4 | D3:2 G2:2 | "
-  .. "r:4 | r:4 | C3:2 A2:2 | G2:4 | "
-  .. "G2:4 | G2:4 | C3:2 G2:2 | C2:4")
+local flute1 = line(
+  tune
+    .. "C5:1 D5:1 E5:1 F5:1 | G5:3 r:1 | E5:1 G5:1 C6:1 B5:1 | A5:4 | "
+    .. "r:4 | r:4 | r:4 | r:4 | "
+    .. "G5:1 A5:1 B5:1 C6:1 | D6:2 B5:2 | C6:1 G5:1 E5:1 G5:1 | C6:4"
+)
+local flute2 = line(
+  tune
+    .. "r:4 | r:4 | C5:1 E5:1 A5:1 G5:1 | F5:4 | "
+    .. "r:4 | r:4 | r:4 | r:4 | "
+    .. "E5:1 F5:1 G5:1 A5:1 | B5:2 G5:2 | E5:1 E5:1 C5:1 E5:1 | E5:4"
+)
+local clarinet = line(
+  "r:4 | r:4 | r:4 | r:4 | "
+    .. "E4:2 F4:2 | G4:4 | C4:2 E4:2 | F4:4 | "
+    .. "G4:1 A4:1 Bb4:1 A4:1 | G4:2 F4:2 | E4:1 F4:1 G4:1 E4:1 | D4:4 | "
+    .. "D4:2 F4:2 | G4:4 | G4:2 E4:2 | E4:4"
+)
+local cello = line(
+  "C3:4 | G2:4 | A2:2 E2:2 | F2:2 G2:2 | "
+    .. "C3:2 B2:2 | E2:4 | A2:4 | D3:2 G2:2 | "
+    .. "r:4 | r:4 | C3:2 A2:2 | G2:4 | "
+    .. "G2:4 | G2:4 | C3:2 G2:2 | C2:4"
+)
 
 local tracks = {}
-for _, spec in ipairs({ { "Violoncello", cello }, { "Clarinet in Bb", clarinet }, { "Flute 1", flute1 }, { "Flute 2", flute2 } }) do
+for _, spec in ipairs({
+  { "Violoncello", cello },
+  { "Clarinet in Bb", clarinet },
+  { "Flute 1", flute1 },
+  { "Flute 2", flute2 },
+}) do
   local track = paw.add_track({ name = spec[1] })
   track:add_clip({ start = 0, length = 64, name = spec[1], notes = spec[2] })
   tracks[spec[1]] = track

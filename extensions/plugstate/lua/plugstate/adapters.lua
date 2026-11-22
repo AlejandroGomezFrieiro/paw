@@ -77,7 +77,8 @@ plugstate.adapter({
   name = "lsp-ir",
   desc = "LSP Impulse Responses and Impulse Reverb: their impulse response files",
   matches = function(d)
-    return d.plugin and d.plugin.format == "lv2"
+    return d.plugin
+      and d.plugin.format == "lv2"
       and (d.plugin.id:find("^http://lsp%-plug%.in/plugins/lv2/impulse_re") ~= nil)
   end,
   slots = function(id)
@@ -110,9 +111,14 @@ function M.nam_info(path)
     local depth, close = 0, nil
     for i = open, #head do
       local c = head:sub(i, i)
-      if c == "{" then depth = depth + 1 elseif c == "}" then
+      if c == "{" then
+        depth = depth + 1
+      elseif c == "}" then
         depth = depth - 1
-        if depth == 0 then close = i break end
+        if depth == 0 then
+          close = i
+          break
+        end
       end
     end
     local ok, meta = pcall(paw.json.decode, close and head:sub(open, close) or "")
@@ -146,7 +152,9 @@ plugstate.adapter({
   desc = "Neural Amp Modeler (LV2): its .nam model",
   matches = function(d) return d.plugin and d.plugin.format == "lv2" and d.plugin.id == M.NAM end,
   slots = function(id)
-    return M.property_slots(id, function(slot) slot.what, slot.types = "model", slot.types or { "nam" } end)
+    return M.property_slots(id, function(slot)
+      slot.what, slot.types = "model", slot.types or { "nam" }
+    end)
   end,
   load = function(_, _, slot, value) return M.property_load(slot, value) end,
   describe = M.nam_words,
@@ -197,7 +205,16 @@ plugstate.adapter({
   matches = function(d) return d.plugin and d.plugin.format == "vst3" and (d.plugin.name or ""):lower() == "sfizz" end,
   slots = function(id)
     local ok, path = pcall(function() return codec.path(api.device_state(id)) end)
-    return { { key = "sfzfile", label = "SFZ file", what = "instrument", kind = "file", types = { "sfz" }, value = ok and path or nil } }
+    return {
+      {
+        key = "sfzfile",
+        label = "SFZ file",
+        what = "instrument",
+        kind = "file",
+        types = { "sfz" },
+        value = ok and path or nil,
+      },
+    }
   end,
   load = function(id, _, _, value)
     local f = io.open(value, "rb")

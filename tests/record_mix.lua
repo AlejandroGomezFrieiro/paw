@@ -8,7 +8,9 @@ local keys, until_, until_beat = T.keys, T.until_, T.until_beat
 local function start()
   fresh()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.focus("arrange")
 end
 
@@ -87,7 +89,11 @@ end)
 
 test("R records from the cursor, as <Space><Space> plays from it", function()
   start()
-  api.engine_restart({ backend = "null", test_input = { frequency = 440, level = -12, channels = 2 }, test_midi = { "Keys A" } })
+  api.engine_restart({
+    backend = "null",
+    test_input = { frequency = 440, level = -12, channels = 2 },
+    test_midi = { "Keys A" },
+  })
   T.after(function() api.engine_restart({ backend = "null" }) end)
   T.after(function() paw.opt.count_in = 0 end)
   paw.opt.count_in = 0
@@ -106,58 +112,65 @@ test("R records from the cursor, as <Space><Space> plays from it", function()
   paw.flush()
   local clips = gtr:clips()
   eq(#clips, 1, "the take is a clip")
-  eq(math.abs(clips[1].start - 8) < 0.01, true, "it starts at the cursor, not at the playhead (" .. clips[1].start .. ")")
+  eq(
+    math.abs(clips[1].start - 8) < 0.01,
+    true,
+    "it starts at the cursor, not at the playhead (" .. clips[1].start .. ")"
+  )
 end)
 
-test("<Space><Space> plays from the cursor, 200 bars ahead; gs keeps the playhead; play_from=playhead is the old way", function()
-  start()
-  T.after(function() paw.opt.play_from = "cursor" end)
-  paw.transport.seek(0)
-  paw.flush()
-  keys("201|")
-  eq(paw.cursor.beat, 800, "the cursor is 200 bars ahead")
-  keys("<leader><Space>")
-  paw.flush()
-  eq(paw.transport.playing, true, "plays")
-  eq(paw.transport.position >= 800, true, "from the cursor, not from the playhead at 0 ")
-  keys("<leader><Space>")
-  paw.flush()
-  eq(paw.transport.playing, false, "stops")
-  eq(paw.cursor.beat, 800, "the cursor did not move by itself")
-  eq(paw.transport.position >= 800, true, "the playhead stays where it stopped")
-  keys("gs")
-  paw.flush()
-  eq(paw.transport.position, 0, "gs puts the playhead at the start")
-  keys("<leader><Space>")
-  paw.flush()
-  eq(paw.transport.position < 10, true, "a playhead put by hand is where play starts")
-  keys("<leader><Space>")
-  paw.flush()
-  keys("l")
-  keys("<leader><Space>")
-  paw.flush()
-  eq(paw.transport.position >= 800, true, "the cursor moved: play starts there again")
-  keys("<leader><Space>")
-  paw.flush()
-  paw.transport.seek(0)
-  keys("<S-CR>")
-  paw.flush()
-  eq(paw.transport.position < 10, true, "Shift-Enter plays from the playhead")
-  keys("<leader><Space>")
-  paw.flush()
-  paw.opt.play_from = "playhead"
-  paw.transport.seek(0)
-  keys("<leader><Space>")
-  paw.flush()
-  eq(paw.transport.position < 10, true, "play_from=playhead: from the playhead")
-  keys("<leader><Space>")
-  paw.flush()
-  keys("<S-CR>")
-  paw.flush()
-  eq(paw.transport.position >= 800, true, "play_from=playhead: Shift-Enter plays from the cursor")
-  keys("<leader><Space>")
-  paw.flush()
-end)
+test(
+  "<Space><Space> plays from the cursor, 200 bars ahead; gs keeps the playhead; play_from=playhead is the old way",
+  function()
+    start()
+    T.after(function() paw.opt.play_from = "cursor" end)
+    paw.transport.seek(0)
+    paw.flush()
+    keys("201|")
+    eq(paw.cursor.beat, 800, "the cursor is 200 bars ahead")
+    keys("<leader><Space>")
+    paw.flush()
+    eq(paw.transport.playing, true, "plays")
+    eq(paw.transport.position >= 800, true, "from the cursor, not from the playhead at 0 ")
+    keys("<leader><Space>")
+    paw.flush()
+    eq(paw.transport.playing, false, "stops")
+    eq(paw.cursor.beat, 800, "the cursor did not move by itself")
+    eq(paw.transport.position >= 800, true, "the playhead stays where it stopped")
+    keys("gs")
+    paw.flush()
+    eq(paw.transport.position, 0, "gs puts the playhead at the start")
+    keys("<leader><Space>")
+    paw.flush()
+    eq(paw.transport.position < 10, true, "a playhead put by hand is where play starts")
+    keys("<leader><Space>")
+    paw.flush()
+    keys("l")
+    keys("<leader><Space>")
+    paw.flush()
+    eq(paw.transport.position >= 800, true, "the cursor moved: play starts there again")
+    keys("<leader><Space>")
+    paw.flush()
+    paw.transport.seek(0)
+    keys("<S-CR>")
+    paw.flush()
+    eq(paw.transport.position < 10, true, "Shift-Enter plays from the playhead")
+    keys("<leader><Space>")
+    paw.flush()
+    paw.opt.play_from = "playhead"
+    paw.transport.seek(0)
+    keys("<leader><Space>")
+    paw.flush()
+    eq(paw.transport.position < 10, true, "play_from=playhead: from the playhead")
+    keys("<leader><Space>")
+    paw.flush()
+    keys("<S-CR>")
+    paw.flush()
+    eq(paw.transport.position >= 800, true, "play_from=playhead: Shift-Enter plays from the cursor")
+    keys("<leader><Space>")
+    paw.flush()
+  end
+)
 
 test("the fader: - on a track above +6 dB goes down a dB, not to +6", function()
   start()
@@ -220,7 +233,10 @@ test(":render expands ~ as :import and :export do", function()
   local render = require("paw.render")
   local real, got = render.render, nil
   T.after(function() render.render = real end)
-  render.render = function(path) got = path return { peak = 0, length = 0, path = path, sample_rate = 48000 } end
+  render.render = function(path)
+    got = path
+    return { peak = 0, length = 0, path = path, sample_rate = 48000 }
+  end
   keys(":render ~/paw-mix.wav<CR>")
   render.render = real
   eq(got, os.getenv("HOME") .. "/paw-mix.wav", ":render ~/ names a file in the home folder")
@@ -272,9 +288,10 @@ local function plays(track)
   -- Heard within 50 blocks of the engine (about half a second of sound),
   -- however slowly the machine runs them.
   local from = api.blocks()
-  local heard = until_(function()
-    return track:meter() > 0.02 and "heard" or api.blocks() - from > 50 and "silent"
-  end, "a key to be heard or not")
+  local heard = until_(
+    function() return track:meter() > 0.02 and "heard" or api.blocks() - from > 50 and "silent" end,
+    "a key to be heard or not"
+  )
   paw.midi.inject({ type = "note_off", pitch = 60, port = "Keys A", channel = 1 })
   T.next_block(5)
   return heard == "heard"
@@ -312,7 +329,9 @@ end)
 test(":click sets the metronome's level, accent and output", function()
   start()
   local saved = { paw.opt.click_level, paw.opt.click_accent, paw.opt.click_output }
-  T.after(function() paw.opt.click_level, paw.opt.click_accent, paw.opt.click_output = saved[1], saved[2], saved[3] end)
+  T.after(function()
+    paw.opt.click_level, paw.opt.click_accent, paw.opt.click_output = saved[1], saved[2], saved[3]
+  end)
   keys(":click<CR>")
   eq(said(), "click at +0 dB, the first beat higher, with the song", ":click alone says what it is")
   keys(":click level=-12 accent=off<CR>")
@@ -333,8 +352,10 @@ test(":plugins.offline and :edit offline cover devices written in Lua", function
   start()
   local dir = T.scratch .. "/lua-offline"
   os.execute("mkdir -p '" .. dir .. "'")
-  T.write_file(dir .. "/offline_fx.lua", "local dev = require('paw.dsp').device { name = 'Offline FX' }\n"
-    .. "function dev.process(b) end\nreturn dev\n")
+  T.write_file(
+    dir .. "/offline_fx.lua",
+    "local dev = require('paw.dsp').device { name = 'Offline FX' }\n" .. "function dev.process(b) end\nreturn dev\n"
+  )
   paw.luadev.add_dir(dir)
   local lead = T.tone("Lead", 4)
   paw.cursor.set_track(lead)
@@ -376,7 +397,9 @@ test("MIDI overdub: with midi_record merge a take joins the clip under it, in on
   start()
   keyboard()
   local was = { paw.opt.midi_record, paw.opt.count_in }
-  T.after(function() paw.opt.midi_record, paw.opt.count_in = was[1], was[2] end)
+  T.after(function()
+    paw.opt.midi_record, paw.opt.count_in = was[1], was[2]
+  end)
   paw.opt.count_in = 0
   paw.project.save(T.scratch .. "/overdub.json")
   local t = paw.add_track({ name = "Keys" })

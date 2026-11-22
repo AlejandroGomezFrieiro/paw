@@ -6,22 +6,24 @@ local test, eq, fresh = T.test, T.eq, T.fresh
 local api = paw.api
 local pick = paw.pick
 
-local function screen(w, h)
-  return table.concat(api.ui_snapshot(w or 100, h or 30), "\n")
-end
+local function screen(w, h) return table.concat(api.ui_snapshot(w or 100, h or 30), "\n") end
 
 local function has(text, part, what)
   if not text:find(part, 1, true) then error(string.format("%s: %q is not in\n%s", what or "text", part, text), 2) end
 end
 
 local function lacks(text, part, what)
-  if text:find(part, 1, true) then error(string.format("%s: %q should not be in\n%s", what or "text", part, text), 2) end
+  if text:find(part, 1, true) then
+    error(string.format("%s: %q should not be in\n%s", what or "text", part, text), 2)
+  end
 end
 
 local function start()
   fresh()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.focus("arrange")
 end
 
@@ -78,7 +80,9 @@ test(":help all lists every key in one page", function()
   paw.cmd("help", { "all" })
   eq(paw.ui.float and paw.ui.float.name, "help", "the long list")
   local keys = {}
-  for _, line in ipairs(paw.ui.views.help.lines) do keys[#keys + 1] = line.key or "" end
+  for _, line in ipairs(paw.ui.views.help.lines) do
+    keys[#keys + 1] = line.key or ""
+  end
   has(table.concat(keys, "\n"), "Ctrl-w o", "with keys humanised")
   paw.ui.close()
 end)
@@ -128,7 +132,9 @@ test("the list shows at most ten, and Tab and Shift-Tab move through them all", 
   eq(n > 10, true, "more than ten track commands")
   local rows = 0
   for line in screen(100, 30):gmatch("[^\n]+") do
-    if line:find("Toggle mute", 1, true) or line:find("Toggle solo", 1, true) or line:find("track%.") then rows = rows + 1 end
+    if line:find("Toggle mute", 1, true) or line:find("Toggle solo", 1, true) or line:find("track%.") then
+      rows = rows + 1
+    end
   end
   eq(rows <= 11, true, "no more than ten rows of candidates and the prompt: " .. rows)
   paw.keymap.feed("<Tab><Tab><S-Tab>")
@@ -165,9 +171,11 @@ test("devices, options, views and files complete", function()
   eq(first("view.toggle mix"), "view.toggle mixer", "a view")
   T.write_file(T.scratch .. "/flowfile.wav", "")
   eq(first("open " .. T.scratch .. "/flowf"), "open " .. T.scratch .. "/flowfile.wav", "a file")
-  local dirs = paw.commands.complete("import " .. T.scratch:match("^(.*/)") )
+  local dirs = paw.commands.complete("import " .. T.scratch:match("^(.*/)"))
   local found
-  for _, c in ipairs(dirs) do if c.label:match("/$") then found = true end end
+  for _, c in ipairs(dirs) do
+    if c.label:match("/$") then found = true end
+  end
   eq(found, true, "directories end in /")
 end)
 
@@ -242,14 +250,18 @@ test("c and = in the device panel ask for the parameter's value in its unit", fu
   local panel = paw.ui.views.devices
   local cutoff
   for i, row in ipairs(panel:rows()) do
-    if row.param and row.param.key == "cutoff" then panel.row, cutoff = i, row end
+    if row.param and row.param.key == "cutoff" then
+      panel.row, cutoff = i, row
+    end
   end
   T.keys("c800<CR>")
   eq(api.device_get(cutoff.device.id).params.cutoff, 800, "cutoff 800 Hz")
   T.keys("c+=200<CR>")
   eq(api.device_get(cutoff.device.id).params.cutoff, 1000, "+=200 steps")
   for i, row in ipairs(panel:rows()) do
-    if row.param and #row.param.choices > 0 then panel.row, cutoff = i, row end
+    if row.param and #row.param.choices > 0 then
+      panel.row, cutoff = i, row
+    end
   end
   if cutoff.param.choices[2] then
     T.keys("c" .. cutoff.param.choices[2] .. "<CR>")
@@ -289,10 +301,14 @@ test("Ctrl-w < and > change the side panel's width or the header width; sizes ar
   eq(paw.opt.devices_width, dw - 2, "the device panel")
   local rects = paw.ui.arrange(120, 30)
   local width
-  for _, r in ipairs(rects) do if r.name == "devices" then width = r.w end end
+  for _, r in ipairs(rects) do
+    if r.name == "devices" then width = r.w end
+  end
   eq(width, dw - 2, "and it is drawn so")
   paw.opt.devices_width = 50
-  for _, r in ipairs(paw.ui.arrange(120, 30)) do if r.name == "devices" then width = r.w end end
+  for _, r in ipairs(paw.ui.arrange(120, 30)) do
+    if r.name == "devices" then width = r.w end
+  end
   eq(width, 50, "setting the option sets the size")
   paw.ui.focus("mixer")
   paw.keymap.feed("<C-w>+")
@@ -310,11 +326,15 @@ test("Ctrl-w _ maximises the focused panel and puts the others back", function()
   paw.ui.focus("devices")
   paw.keymap.feed("<C-w>_")
   local names = {}
-  for _, r in ipairs(paw.ui.arrange(120, 30)) do names[#names + 1] = r.name .. ":" .. r.w end
+  for _, r in ipairs(paw.ui.arrange(120, 30)) do
+    names[#names + 1] = r.name .. ":" .. r.w
+  end
   eq(table.concat(names, " "), "devices:120 status:120 cmdline:120", "only the panel, the whole width")
   paw.keymap.feed("<C-w>_")
   names = {}
-  for _, r in ipairs(paw.ui.arrange(120, 30)) do names[#names + 1] = r.name end
+  for _, r in ipairs(paw.ui.arrange(120, 30)) do
+    names[#names + 1] = r.name
+  end
   eq(table.concat(names, " "), "arrange devices mixer status cmdline", "back as it was")
   eq(paw.ui.focused, "devices", "with the panel focused")
   paw.ui.hide("mixer")
@@ -415,7 +435,9 @@ end)
 local function lane_setup()
   start()
   paw.lanes.open(1, false)
-  for _, id in ipairs(api.track_list()) do paw.lanes.open(id, false) end
+  for _, id in ipairs(api.track_list()) do
+    paw.lanes.open(id, false)
+  end
   local t = paw.add_track({ name = "Lead", volume = -6 })
   t:add_device("synth")
   local other = paw.add_track({ name = "Other" })
@@ -427,7 +449,9 @@ end
 
 local function points(lane)
   local out = {}
-  for i, p in ipairs(api.lane_points(lane)) do out[i] = string.format("%g:%g", p[1], p[2]) end
+  for i, p in ipairs(api.lane_points(lane)) do
+    out[i] = string.format("%g:%g", p[1], p[2])
+  end
   return table.concat(out, " ")
 end
 
@@ -546,7 +570,9 @@ test("Space cf asks for the clip's fades; grC chooses the track's colour", funct
   T.keys("teal<CR>")
   local theme = require("paw.theme")
   local teal
-  for i, name in ipairs(theme.hue_names) do if name == "teal" then teal = theme.hues[i] end end
+  for i, name in ipairs(theme.hue_names) do
+    if name == "teal" then teal = theme.hues[i] end
+  end
   eq(t.color, teal, "teal")
   T.keys("grCnone<CR>")
   eq(t.color, nil, "none goes back to the theme's")
@@ -593,7 +619,8 @@ end)
 
 test("the limit reaches into compiled code, so extensions are compiled", function()
   eq(api.limit_async, true, "this build's LuaJIT looks for hooks in compiled loops")
-  local hot = paw.limit.untrusted(loadstring("return function(n) local x = 0 for i = 1, n do x = x + i end return x end")())
+  local hot =
+    paw.limit.untrusted(loadstring("return function(n) local x = 0 for i = 1, n do x = x + i end return x end")())
   local traces = 0
   local function count() traces = traces + 1 end
   jit.attach(count, "trace")
@@ -625,14 +652,24 @@ test("time spent waiting in the kernel does not count against a callback", funct
     paw.api.wait(400)
     -- Enough work afterwards for the clock to be looked at again.
     local x = 0
-    for i = 1, 400000 do x = x + i % 3 end
-    paw.limit.unhurried(function() local till = paw.api.now() + 300 while paw.api.now() < till do end end)
-    for i = 1, 400000 do x = x + i % 3 end
+    for i = 1, 400000 do
+      x = x + i % 3
+    end
+    paw.limit.unhurried(function()
+      local till = paw.api.now() + 300
+      while paw.api.now() < till do
+      end
+    end)
+    for i = 1, 400000 do
+      x = x + i % 3
+    end
     reached = true
   end)
   paw.opt.lua_limit = limit
   eq(reached, true, "the callback ran to its end")
-  for i = before + 1, #paw.ui.messages do eq(paw.ui.messages[i].level ~= "error", true, "no error") end
+  for i = before + 1, #paw.ui.messages do
+    eq(paw.ui.messages[i].level ~= "error", true, "no error")
+  end
 end)
 
 test(":lua asked for by hand gets far longer than a callback", function()
@@ -640,8 +677,15 @@ test(":lua asked for by hand gets far longer than a callback", function()
   local limit = paw.opt.lua_limit
   paw.opt.lua_limit = 100
   local before = #paw.ui.messages
-  paw.limit.guard("test", paw.commands.run, "lua", { "(function() local t = paw.api.now() + 300 while paw.api.now() < t do end return 'done' end)()" })
+  paw.limit.guard(
+    "test",
+    paw.commands.run,
+    "lua",
+    { "(function() local t = paw.api.now() + 300 while paw.api.now() < t do end return 'done' end)()" }
+  )
   paw.opt.lua_limit = limit
   eq(paw.ui.messages[#paw.ui.messages].text, '"done"', "it ran to the end")
-  for i = before + 1, #paw.ui.messages do eq(paw.ui.messages[i].level ~= "error", true, "no error") end
+  for i = before + 1, #paw.ui.messages do
+    eq(paw.ui.messages[i].level ~= "error", true, "no error")
+  end
 end)

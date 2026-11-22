@@ -16,7 +16,9 @@ local function tidy()
   -- Arranged on the terminal's screen again, as the other tests expect.
   P.area(0, 0)
   L.restore(initial)
-  for name in pairs(paw.canvas.open_views) do paw.canvas.close(name) end
+  for name in pairs(paw.canvas.open_views) do
+    paw.canvas.close(name)
+  end
   paw.ui.focus("arrange")
 end
 
@@ -24,7 +26,9 @@ local function start()
   T.after(tidy)
   fresh()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   tidy()
   P.area(W, H)
 end
@@ -57,20 +61,23 @@ local function painted(pane)
   return table.concat(out, " ")
 end
 
-test("panes: the window's area is laid out as the terminal lays out the tab, the device panel beside the arrange view", function()
-  start()
-  paw.ui.show("devices")
-  local by, focused = panes()
-  eq(by.arrange ~= nil and by.devices ~= nil, true, "the arrange view and the device panel")
-  eq(by.arrange.kind .. " " .. by.devices.kind, "cells cells", "both the kernel's scenes")
-  eq(by.arrange.titled, true, "the arrange view's ruler its first row, under no title of the window's")
-  eq(by.devices.x + by.devices.w, W, "the panel along the right edge")
-  eq(by.arrange.x + by.arrange.w, by.devices.x, "the arrange view beside it")
-  eq(by.arrange.h, H, "the whole height")
-  eq(focused and focused.view, "arrange", "the arrange view has the keyboard")
-  eq(#P.state().borders, 1, "one border between them")
-  eq(P.state().tabs[2], nil, "one tab")
-end)
+test(
+  "panes: the window's area is laid out as the terminal lays out the tab, the device panel beside the arrange view",
+  function()
+    start()
+    paw.ui.show("devices")
+    local by, focused = panes()
+    eq(by.arrange ~= nil and by.devices ~= nil, true, "the arrange view and the device panel")
+    eq(by.arrange.kind .. " " .. by.devices.kind, "cells cells", "both the kernel's scenes")
+    eq(by.arrange.titled, true, "the arrange view's ruler its first row, under no title of the window's")
+    eq(by.devices.x + by.devices.w, W, "the panel along the right edge")
+    eq(by.arrange.x + by.arrange.w, by.devices.x, "the arrange view beside it")
+    eq(by.arrange.h, H, "the whole height")
+    eq(focused and focused.view, "arrange", "the arrange view has the keyboard")
+    eq(#P.state().borders, 1, "one border between them")
+    eq(P.state().tabs[2], nil, "one tab")
+  end
+)
 
 test("panes: :vs paw://lane/N is a pane drawn in cells beside the arrange view, and has the keyboard", function()
   start()
@@ -151,48 +158,59 @@ test("panes: tabs are listed with the row of them along the top, and a click on 
   ex("tabclose")
 end)
 
-test("panes: a view that paints is docked where it docks, and popped out it gives the keyboard back when closed", function()
-  start()
-  local seen = {}
-  paw.ui.view("panes_probe", {
-    title = "Probe",
-    render = function(_, buf) buf:text(0, 0, "probe") end,
-    paint = function(_, g, ctx)
-      seen.size = ctx.width .. "x" .. ctx.height
-      g:text(4, 4, "painted probe")
-    end,
-    pointer = function(_, e) seen.pointer = e.kind end,
-  })
-  paw.ui.dock("panes_probe", { side = "bottom", hidden = true })
-  paw.canvas.open("panes_probe", { title = "The probe", width = 600, height = 300 })
-  eq(paw.canvas.open_views.panes_probe, nil, "no window of its own")
-  local by, focused = panes()
-  eq(focused and focused.view, "panes_probe", "docked, with the keyboard")
-  eq(by.panes_probe.kind .. " " .. by.panes_probe.title, "paint The probe", "painted, under the title it was opened with")
-  eq(painted(by.panes_probe), "painted probe", "painted at the pane's size")
-  eq(seen.size, by.panes_probe.w .. "x" .. by.panes_probe.h, "the pane's size")
-  P.pointer(by.panes_probe.win, { kind = "down", x = 3, y = 3, button = "left" })
-  eq(seen.pointer, "down", "the pointer reaches it")
-  -- Popped out: the pane goes, and :q in its window brings the keyboard back.
-  paw.ui.focus("arrange")
-  paw.canvas.open("panes_probe", { window = true })
-  eq(paw.canvas.open_views.panes_probe ~= nil, true, "a window of its own on request")
-  eq(panes().panes_probe, nil, "and no pane")
-  local runs = {}
-  for _, op in ipairs(paw.canvas.paint("panes_probe", 600, 300, { bars = true }).ops) do
-    if op[1] == "m" then runs[#runs + 1] = op[6] end
+test(
+  "panes: a view that paints is docked where it docks, and popped out it gives the keyboard back when closed",
+  function()
+    start()
+    local seen = {}
+    paw.ui.view("panes_probe", {
+      title = "Probe",
+      render = function(_, buf) buf:text(0, 0, "probe") end,
+      paint = function(_, g, ctx)
+        seen.size = ctx.width .. "x" .. ctx.height
+        g:text(4, 4, "painted probe")
+      end,
+      pointer = function(_, e) seen.pointer = e.kind end,
+    })
+    paw.ui.dock("panes_probe", { side = "bottom", hidden = true })
+    paw.canvas.open("panes_probe", { title = "The probe", width = 600, height = 300 })
+    eq(paw.canvas.open_views.panes_probe, nil, "no window of its own")
+    local by, focused = panes()
+    eq(focused and focused.view, "panes_probe", "docked, with the keyboard")
+    eq(
+      by.panes_probe.kind .. " " .. by.panes_probe.title,
+      "paint The probe",
+      "painted, under the title it was opened with"
+    )
+    eq(painted(by.panes_probe), "painted probe", "painted at the pane's size")
+    eq(seen.size, by.panes_probe.w .. "x" .. by.panes_probe.h, "the pane's size")
+    P.pointer(by.panes_probe.win, { kind = "down", x = 3, y = 3, button = "left" })
+    eq(seen.pointer, "down", "the pointer reaches it")
+    -- Popped out: the pane goes, and :q in its window brings the keyboard back.
+    paw.ui.focus("arrange")
+    paw.canvas.open("panes_probe", { window = true })
+    eq(paw.canvas.open_views.panes_probe ~= nil, true, "a window of its own on request")
+    eq(panes().panes_probe, nil, "and no pane")
+    local runs = {}
+    for _, op in ipairs(paw.canvas.paint("panes_probe", 600, 300, { bars = true }).ops) do
+      if op[1] == "m" then runs[#runs + 1] = op[6] end
+    end
+    eq(
+      table.concat(runs, " "):find("NOR", 1, true) ~= nil,
+      true,
+      "the status line under it, with the mode: " .. table.concat(runs, " ")
+    )
+    eq(seen.size, "600x" .. (300 - 2 * paw.canvas.cell.h), "over the status line and the command line")
+    paw.canvas.key("panes_probe", "<Esc>")
+    eq(paw.canvas.open_views.panes_probe ~= nil, true, "Esc stays in the view")
+    paw.canvas.key("panes_probe", ":q<CR>")
+    eq(paw.canvas.open_views.panes_probe, nil, ":q closes the window")
+    local _, now = panes()
+    eq(now.view, "arrange", "the keyboard is back where it was")
+    paw.ui.hide("panes_probe")
+    paw.ui.views.panes_probe = nil
   end
-  eq(table.concat(runs, " "):find("NOR", 1, true) ~= nil, true, "the status line under it, with the mode: " .. table.concat(runs, " "))
-  eq(seen.size, "600x" .. (300 - 2 * paw.canvas.cell.h), "over the status line and the command line")
-  paw.canvas.key("panes_probe", "<Esc>")
-  eq(paw.canvas.open_views.panes_probe ~= nil, true, "Esc stays in the view")
-  paw.canvas.key("panes_probe", ":q<CR>")
-  eq(paw.canvas.open_views.panes_probe, nil, ":q closes the window")
-  local _, now = panes()
-  eq(now.view, "arrange", "the keyboard is back where it was")
-  paw.ui.hide("panes_probe")
-  paw.ui.views.panes_probe = nil
-end)
+)
 
 test("panes: keys typed in the main window while a view is popped out go to the window before it", function()
   start()
@@ -225,13 +243,33 @@ test("panes: every kind of buffer paints in a pane without failing", function()
   local clip = t:add_clip({ start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
   paw.cursor.set_track(t)
   local names = {
-    paw.address.lane(lane.id), "paw://tempo", "quickfix", "paw://tracks", "paw://sends", "paw://markers",
+    paw.address.lane(lane.id),
+    "paw://tempo",
+    "quickfix",
+    "paw://tracks",
+    "paw://sends",
+    "paw://markers",
     "paw://track/" .. t.id .. "/devices",
   }
   -- The views of the runtime and of the extensions loaded, as far as these
   -- tests have loaded them.
-  for _, name in ipairs({ "empty", "eventlist", "notation", "drums", "utau", "utau_lyrics", "vinput", "doctor",
-    "undotree", "undotree_paint", "mixdiag", "mixdiag_paint", "sections", "tutor", "tracklist" }) do
+  for _, name in ipairs({
+    "empty",
+    "eventlist",
+    "notation",
+    "drums",
+    "utau",
+    "utau_lyrics",
+    "vinput",
+    "doctor",
+    "undotree",
+    "undotree_paint",
+    "mixdiag",
+    "mixdiag_paint",
+    "sections",
+    "tutor",
+    "tracklist",
+  }) do
     if paw.ui.views[name] then names[#names + 1] = name end
   end
   table.sort(names)

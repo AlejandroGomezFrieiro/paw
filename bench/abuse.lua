@@ -79,19 +79,37 @@ case("file: tempo negative", function() return load((valid_project():gsub('"temp
 case("file: tempo 1e308", function() return load((valid_project():gsub('"tempo": 120.0', '"tempo": 1e308'))) end)
 case("file: sig_den 0", function() return load((valid_project():gsub('"sig_den": 4', '"sig_den": 0'))) end)
 case("file: clip length -4", function() return load((valid_project():gsub('"length": 4.0', '"length": -4.0', 1))) end)
-case("file: clip start 1e300", function() return load((valid_project():gsub('"start": 0.0,\n        "length": 4.0', '"start": 1e300,\n        "length": 4.0', 1))) end)
+case(
+  "file: clip start 1e300",
+  function()
+    return load(
+      (valid_project():gsub('"start": 0.0,\n        "length": 4.0', '"start": 1e300,\n        "length": 4.0', 1))
+    )
+  end
+)
 case("file: note length -1", function() return load((valid_project():gsub('"length": 1.0', '"length": -1.0', 1))) end)
 case("file: volume 1e300", function() return load((valid_project():gsub('"volume": 0.0', '"volume": 1e300', 1))) end)
 case("file: duplicate track ids", function()
   local text = valid_project()
-  local p = text:gsub('"tracks": %[', '"tracks": [ { "id": 1, "name": "dup", "volume": 0.0, "pan": 0.0, "mute": false, "solo": false, "armed": false, "output": null, "sends": [], "devices": [], "clips": [], "color": null },', 1)
+  local p = text:gsub(
+    '"tracks": %[',
+    '"tracks": [ { "id": 1, "name": "dup", "volume": 0.0, "pan": 0.0, "mute": false, "solo": false, "armed": false, "output": null, "sends": [], "devices": [], "clips": [], "color": null },',
+    1
+  )
   return load(p)
 end)
-case("file: track routed into itself", function()
-  return load((valid_project():gsub('"output": null', '"output": 1', 1)))
-end)
-case("file: unknown device kind", function() return load((valid_project():gsub('"kind": "delay"', '"kind": "no-such-device"', 1))) end)
-case("file: parameter 1e300", function() return load((valid_project():gsub('"params": {}', '"params": { "cutoff": 1e300 }', 1))) end)
+case(
+  "file: track routed into itself",
+  function() return load((valid_project():gsub('"output": null', '"output": 1', 1))) end
+)
+case(
+  "file: unknown device kind",
+  function() return load((valid_project():gsub('"kind": "delay"', '"kind": "no-such-device"', 1))) end
+)
+case(
+  "file: parameter 1e300",
+  function() return load((valid_project():gsub('"params": {}', '"params": { "cutoff": 1e300 }', 1))) end
+)
 case("file: missing audio file", function()
   local t = api.track_add({})
   api.clip_add(t, { start = 0, length = 4, file = B.wav() })
@@ -116,9 +134,17 @@ end)
 case("file: 5000 tracks", function()
   local parts = {}
   for i = 1, 5000 do
-    parts[i] = string.format('{ "id": %d, "name": "T%d", "volume": 0.0, "pan": 0.0, "mute": false, "solo": false, "armed": false, "output": null, "sends": [], "devices": [{ "id": %d, "kind": "gain", "bypass": false, "params": {} }], "clips": [{ "id": %d, "name": "c", "start": 0.0, "length": 4.0, "muted": false, "content": { "kind": "midi", "notes": [] } }], "color": null }', i, i, 100000 + i, 200000 + i)
+    parts[i] = string.format(
+      '{ "id": %d, "name": "T%d", "volume": 0.0, "pan": 0.0, "mute": false, "solo": false, "armed": false, "output": null, "sends": [], "devices": [{ "id": %d, "kind": "gain", "bypass": false, "params": {} }], "clips": [{ "id": %d, "name": "c", "start": 0.0, "length": 4.0, "muted": false, "content": { "kind": "midi", "notes": [] } }], "color": null }',
+      i,
+      i,
+      100000 + i,
+      200000 + i
+    )
   end
-  local text = '{ "version": 1, "project": { "name": "big", "tempo": 120.0, "sig_num": 4, "sig_den": 4, "master": { "id": 0, "name": "Master", "volume": 0.0, "pan": 0.0, "mute": false, "solo": false, "armed": false, "output": null, "sends": [], "devices": [], "clips": [], "color": null }, "tracks": [' .. table.concat(parts, ",") .. '] } }'
+  local text = '{ "version": 1, "project": { "name": "big", "tempo": 120.0, "sig_num": 4, "sig_den": 4, "master": { "id": 0, "name": "Master", "volume": 0.0, "pan": 0.0, "mute": false, "solo": false, "armed": false, "output": null, "sends": [], "devices": [], "clips": [], "color": null }, "tracks": ['
+    .. table.concat(parts, ",")
+    .. "] } }"
   local outcome, detail = load(text)
   local warnings = api.warnings()
   return outcome, detail .. "; " .. #warnings .. " warnings, first: " .. tostring(warnings[1])
@@ -145,8 +171,14 @@ local function still_sane(what)
   return "ok", what .. " went through and nothing broke"
 end
 
-case("api: track volume NaN at add", function() api.track_add({ volume = 0 / 0 }) return still_sane("track_add") end)
-case("api: track pan inf at add", function() api.track_add({ pan = 1 / 0 }) return still_sane("track_add") end)
+case("api: track volume NaN at add", function()
+  api.track_add({ volume = 0 / 0 })
+  return still_sane("track_add")
+end)
+case("api: track pan inf at add", function()
+  api.track_add({ pan = 1 / 0 })
+  return still_sane("track_add")
+end)
 case("api: parameter NaN", function()
   local _, d = synth_track()
   api.device_set_param(d, "cutoff", 0 / 0)
@@ -163,7 +195,9 @@ case("api: note length -1", function()
   -- A note-off before its note-on leaves the note sounding to the end.
   api.render(dir .. "/neg.wav", { start = 0, ["end"] = 16, tail = 0, bits = 16 })
   local tail = api.render(dir .. "/neg2.wav", { start = 12, ["end"] = 16, tail = 0, bits = 16 })
-  if tail.peak > 0.001 then return "BAD", "a note with a negative length keeps sounding after its clip ends (peak " .. tail.peak .. ")" end
+  if tail.peak > 0.001 then
+    return "BAD", "a note with a negative length keeps sounding after its clip ends (peak " .. tail.peak .. ")"
+  end
   return still_sane("negative note length")
 end)
 case("api: note pitch 200", function()
@@ -234,7 +268,9 @@ case("api: engine buffer 1e9", function()
   return "BAD", "the engine took a buffer of 1e9 frames"
 end)
 case("api: tiny loop under load", function()
-  for _ = 1, 50 do synth_track() end
+  for _ = 1, 50 do
+    synth_track()
+  end
   paw.transport.loop_start, paw.transport.loop_end = 0, 0.0001
   paw.transport.loop_enabled = true
   api.engine_reset_stats()
@@ -253,12 +289,16 @@ case("api: seek to 1e300 and play", function()
   return "ok", "position " .. tostring(api.transport_get().position)
 end)
 case("api: 2000 tracks", function()
-  for i = 1, 2000 do api.track_add({}) end
+  for i = 1, 2000 do
+    api.track_add({})
+  end
   paw.flush()
   local warnings = api.warnings()
   -- Remove the first 1000: the rest should now all get an engine slot.
   local list = api.track_list()
-  for i = 1, 1000 do api.track_remove(list[i]) end
+  for i = 1, 1000 do
+    api.track_remove(list[i])
+  end
   paw.flush()
   local t = list[2000]
   api.device_add(t, "synth")
@@ -283,7 +323,9 @@ case("api: 1e6 notes in one clip", function()
   local t = api.track_add({})
   api.device_add(t, "synth")
   local notes = {}
-  for i = 1, 1000000 do notes[i] = { pitch = 36 + i % 48, start = i * 0.001, length = 0.01 } end
+  for i = 1, 1000000 do
+    notes[i] = { pitch = 36 + i % 48, start = i * 0.001, length = 0.01 }
+  end
   local t0 = api.now()
   api.clip_add(t, { start = 0, length = 1001, notes = notes })
   paw.flush()
@@ -294,7 +336,9 @@ case("api: 1e6 notes in one clip", function()
 end)
 
 if name == "list" then
-  for _, n in ipairs(order) do print(n) end
+  for _, n in ipairs(order) do
+    print(n)
+  end
   api.quit(0)
   return
 end

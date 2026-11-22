@@ -12,9 +12,7 @@ local M = { data = data, diff = diff, merge = merge, text = text }
 -- but kept in this session.
 local memory = {}
 
-local function quote(s)
-  return "'" .. s:gsub("'", "'\\''") .. "'"
-end
+local function quote(s) return "'" .. s:gsub("'", "'\\''") .. "'" end
 
 local function read(path)
   local file, err = io.open(path, "rb")
@@ -88,7 +86,10 @@ function M.state(id)
   if id == nil then paw.api.undo_checkpoint() end
   local ok, project = pcall(paw.api.undo_project, id)
   if not ok then
-    if id then return nil, string.format("there is no undo state #%d: the states are numbered from 1, as the undo tree shows them", id) end
+    if id then
+      return nil,
+        string.format("there is no undo state #%d: the states are numbered from 1, as the undo tree shows them", id)
+    end
     return nil, tostring(project):match("[^\n]*"):gsub("^runtime error: ", "")
   end
   return { version = 1, project = project }
@@ -97,8 +98,12 @@ end
 --- The snapshots there are: `{ name, file?, time? }`, the oldest first.
 function M.snapshots()
   local out = {}
-  for _, c in ipairs(paw.api.checkpoint_list()) do out[#out + 1] = { name = c.name, file = c.file, time = c.time } end
-  for _, name in ipairs(data.sorted_keys(memory)) do out[#out + 1] = { name = name } end
+  for _, c in ipairs(paw.api.checkpoint_list()) do
+    out[#out + 1] = { name = c.name, file = c.file, time = c.time }
+  end
+  for _, name in ipairs(data.sorted_keys(memory)) do
+    out[#out + 1] = { name = name }
+  end
   return out
 end
 
@@ -151,7 +156,9 @@ function M.version(spec)
     local doc, err = M.file(spec, true)
     return doc, spec:match("[^/]*$"), err
   end
-  if not project.path then return nil, spec, "the project has no file yet, so there is no revision of it: " .. spec .. " is not a file either" end
+  if not project.path then
+    return nil, spec, "the project has no file yet, so there is no revision of it: " .. spec .. " is not a file either"
+  end
   local doc, err = M.git(spec, project.path)
   return doc, spec, err
 end
@@ -163,7 +170,9 @@ function M.compare(args)
   local project = paw.api.project_get()
   local first, second = args[1], args[2]
   if not first then
-    if not project.path then return nil, "the project has no file to compare with: `:Pdiff #3` or `:Pdiff snap:name`" end
+    if not project.path then
+      return nil, "the project has no file to compare with: `:Pdiff #3` or `:Pdiff snap:name`"
+    end
     first = project.path
   end
   local a, label_a, err_a = M.version(first)

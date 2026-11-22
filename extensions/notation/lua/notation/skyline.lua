@@ -63,7 +63,9 @@ Sky.__index = Sky
 function K.new(width, top, bottom)
   local n = max(1, ceil(width))
   local t, b = {}, {}
-  for i = 0, n do t[i], b[i] = huge, -huge end
+  for i = 0, n do
+    t[i], b[i] = huge, -huge
+  end
   return setmetatable({ n = n, top = t, bottom = b, staff_top = top or huge, staff_bottom = bottom or -huge }, Sky)
 end
 
@@ -78,7 +80,9 @@ end
 
 --- A line from `x0, y0` to `x1, y1`, `w` px thick.
 function Sky:line(x0, y0, x1, y1, w)
-  if x1 < x0 then x0, y0, x1, y1 = x1, y1, x0, y0 end
+  if x1 < x0 then
+    x0, y0, x1, y1 = x1, y1, x0, y0
+  end
   local half = (w or 1) / 2
   local tops, bottoms = self.top, self.bottom
   local span = x1 - x0
@@ -120,7 +124,9 @@ end
 --- staff's own lines counted unless `bare`.
 function Sky:over(l, r, bare)
   local t, b = huge, -huge
-  if not bare then t, b = self.staff_top, self.staff_bottom end
+  if not bare then
+    t, b = self.staff_top, self.staff_bottom
+  end
   local tops, bottoms = self.top, self.bottom
   for i = max(0, floor(l)), min(self.n, ceil(r)) do
     if tops[i] < t then t = tops[i] end
@@ -192,7 +198,9 @@ function K.place(items, skies, st, new_ink)
   while i <= #by_order do
     local order = by_order[i].spec.order
     local j = i
-    while by_order[j + 1] and by_order[j + 1].spec.order == order do j = j + 1 end
+    while by_order[j + 1] and by_order[j + 1].spec.order == order do
+      j = j + 1
+    end
     local rows, singles = {}, {}
     for k = i, j do
       local item = by_order[k]
@@ -227,8 +235,12 @@ function K.place(items, skies, st, new_ink)
         local d = need(item)
         if not dy or (item.side == "above" and d < dy) or (item.side ~= "above" and d > dy) then dy = d end
       end
-      for _, item in ipairs(row) do item.dy = dy end
-      for _, item in ipairs(row) do skies[item.staff]:shape(item.ink.shape, 0, dy) end
+      for _, item in ipairs(row) do
+        item.dy = dy
+      end
+      for _, item in ipairs(row) do
+        skies[item.staff]:shape(item.ink.shape, 0, dy)
+      end
     end
     for _, item in ipairs(singles) do
       item.dy = need(item)

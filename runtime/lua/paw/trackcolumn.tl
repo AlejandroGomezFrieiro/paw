@@ -56,7 +56,7 @@ local record Paw is partial.Paw
   draw: DrawModule
   frontend: Frontend
 end
-local paw = (_G as {string:Paw}).paw
+local paw = (_G as {string: Paw}).paw
 local opt = options.opt
 
 --- A component placed for one draw: where it starts and how wide it is.
@@ -77,14 +77,16 @@ end
 local record M
   type Part = Part
   type Layout = Layout
-  components: {string:Component}
-  signs: {string:Sign}
+  components: {string: Component}
+  signs: {string: Sign}
 end
 M.components, M.signs = {}, {}
 
 local function has<T>(list: {T}, value: T): boolean
   for _, v in ipairs(list) do
-    if v == value then return true end
+    if v == value then
+      return true
+    end
   end
   return false
 end
@@ -92,8 +94,10 @@ end
 --- Add a component, or put a new one in place of one of that name. It
 --- goes into `paw.opt.trackcolumn` (unless `hidden`), so it shows at once.
 function M.add(name: string, spec: Component): Component
-  assert(type(name) == "string" and type(spec) == "table" and type(spec.render) == "function",
-    "usage: paw.trackcolumn.add(name, { order = 50, width = 1, render = function(track, ctx) ... end })")
+  assert(
+    type(name) == "string" and type(spec) == "table" and type(spec.render) == "function",
+    "usage: paw.trackcolumn.add(name, { order = 50, width = 1, render = function(track, ctx) ... end })"
+  )
   spec.name = name
   spec.order = spec.order or 50
   spec.width = spec.width or 1
@@ -101,7 +105,9 @@ function M.add(name: string, spec: Component): Component
   local shown = opt.trackcolumn as {string}
   if not spec.hidden and not has(shown, name) then
     local list: {string} = {}
-    for i, n in ipairs(shown) do list[i] = n end
+    for i, n in ipairs(shown) do
+      list[i] = n
+    end
     list[#list + 1] = name
     opt.trackcolumn = list
   end
@@ -114,7 +120,9 @@ function M.remove(name: string)
   M.components[name] = nil
   local list: {string} = {}
   for _, n in ipairs(opt.trackcolumn as {string}) do
-    if n ~= name then list[#list + 1] = n end
+    if n ~= name then
+      list[#list + 1] = n
+    end
   end
   opt.trackcolumn = list
   api.ui_redraw()
@@ -125,7 +133,10 @@ end
 --- shows. `nil` for `spec` takes the sign away.
 function M.sign(name: string, spec: Sign)
   if spec then
-    assert(type(spec.render) == "function", "usage: paw.trackcolumn.sign(name, { priority = 10, render = function(track, ctx) ... end })")
+    assert(
+      type(spec.render) == "function",
+      "usage: paw.trackcolumn.sign(name, { priority = 10, render = function(track, ctx) ... end })"
+    )
     spec.name = name
     spec.priority = spec.priority or 10
   end
@@ -139,13 +150,19 @@ end
 --- puts back the one it found (paw/ext.lua). `ext` names the extension
 --- whose code made the change, nil for the user's.
 local function patched(from: Patch, patch: Patch): Patch
-  local out: {string:Field} = {}
-  for k, v in pairs(from as {string:Field}) do out[k] = v end
-  for k, v in pairs(patch as {string:Field}) do
+  local out: {string: Field} = {}
+  for k, v in pairs(from as {string: Field}) do
+    out[k] = v
+  end
+  for k, v in pairs(patch as {string: Field}) do
     if k == "glyphs" or k == "styles" then
-      local own: {string:string} = {}
-      for name, value in pairs((from as {string:{string:string}})[k] or {}) do own[name] = value end
-      for name, value in pairs(v as {string:string}) do own[name] = value end
+      local own: {string: string} = {}
+      for name, value in pairs((from as {string: {string: string}})[k] or {}) do
+        own[name] = value
+      end
+      for name, value in pairs(v as {string: string}) do
+        own[name] = value
+      end
       out[k] = own as Field
     else
       out[k] = v
@@ -164,7 +181,9 @@ end
 ---   paw.trackcolumn.set("number", { width = 4, styles = { cursor = "Title" } })
 function M.set(name: string, patch: Patch): Component
   local c = M.components[name]
-  if not c then error("no track column component `" .. tostring(name) .. "`", 2) end
+  if not c then
+    error("no track column component `" .. tostring(name) .. "`", 2)
+  end
   local copy = patched(c as Patch, patch) as Component
   M.components[name] = copy
   api.ui_redraw()
@@ -176,7 +195,9 @@ end
 ---   paw.trackcolumn.set_sign("diagnostics", { glyphs = { error = "E", warn = "W" } })
 function M.set_sign(name: string, patch: Patch): Sign
   local s = M.signs[name]
-  if not s then error("no track column sign `" .. tostring(name) .. "`", 2) end
+  if not s then
+    error("no track column sign `" .. tostring(name) .. "`", 2)
+  end
   local copy = patched(s as Patch, patch) as Sign
   M.signs[name] = copy
   api.ui_redraw()
@@ -185,7 +206,7 @@ end
 
 --- A glyph of a component, by name: its own (`set`), else paw's (`paw.draw.g`).
 local function glyph(ctx: Context, name: string): string
-  return ctx.glyphs and ctx.glyphs[name] or (ctx.g as {string:string})[name]
+  return ctx.glyphs and ctx.glyphs[name] or (ctx.g as {string: string})[name]
 end
 
 --- A highlight group of a component, by name: its own, else `default`.
@@ -195,8 +216,12 @@ end
 
 --- The first piece of cells, as text and style.
 local function first(cells: Cells): string, string
-  if cells is string then return cells, nil end
-  if cells is {Piece} and cells[1] then return cells[1][1], cells[1][2] end
+  if cells is string then
+    return cells, nil
+  end
+  if cells is {Piece} and cells[1] then
+    return cells[1][1], cells[1][2]
+  end
 end
 
 -- The components that come with paw ---------------------------------------------
@@ -204,55 +229,76 @@ end
 --- Columns of the number component: wide enough for the largest number, and
 --- a space after it, as Neovim's.
 local function number_width(frame: Frame): integer
-  if not (opt.number or opt.relativenumber) then return 0 end
+  if not (opt.number or opt.relativenumber) then
+    return 0
+  end
   local most = math.max(#frame.rows, opt.relativenumber and frame.count or 0)
   return math.max(2, #tostring(most)) + 1
 end
 
-M.add("number", {
-  order = 10, width = number_width,
-  render = function(_: integer, ctx: Context): Cells
-    if ctx.line ~= 0 then return nil end
-    local text: string
-    local group = style(ctx, "number", "TrackNr")
-    if ctx.cursor then
-      -- The cursor's track: its number (with 'number'), else 0, as Neovim.
-      text = opt.number and ctx.kind == "track" and tostring(ctx.row) or (opt.relativenumber and "0" or nil)
-      group = style(ctx, "cursor", "TrackNrCursor")
-    elseif opt.relativenumber and ctx.relative then
-      text = tostring(ctx.relative)
-      group = style(ctx, "relative", group)
-    elseif opt.number and ctx.kind == "track" then
-      text = tostring(ctx.row)
-    end
-    if not text then return nil end
-    -- Against the right edge, a column before the next part.
-    return { { string.format("%" .. math.max(1, ctx.width - 1) .. "s", text), group } }
-  end,
-})
+M.add(
+  "number",
+  {
+    order = 10,
+    width = number_width,
+    render = function(_: integer, ctx: Context): Cells
+      if ctx.line ~= 0 then
+        return nil
+      end
+      local text: string
+      local group = style(ctx, "number", "TrackNr")
+      if ctx.cursor then
+        -- The cursor's track: its number (with 'number'), else 0, as Neovim.
+        text = opt.number and ctx.kind == "track" and tostring(ctx.row) or (opt.relativenumber and "0" or nil)
+        group = style(ctx, "cursor", "TrackNrCursor")
+      elseif opt.relativenumber and ctx.relative then
+        text = tostring(ctx.relative)
+        group = style(ctx, "relative", group)
+      elseif opt.number and ctx.kind == "track" then
+        text = tostring(ctx.row)
+      end
+      if not text then
+        return nil
+      end
+      -- Against the right edge, a column before the next part.
+      return {{string.format("%" .. math.max(1, ctx.width - 1) .. "s", text), group}}
+    end,
+  }
+)
 
 -- The signs: the one of the highest priority, on a track's first line.
 -- Worked out once a draw for every track, so the component's width can
 -- say whether any track has one.
-local shown_signs: {integer:Piece} = {}
+local shown_signs: {integer: Piece} = {}
 local signs_sorted: {Sign} = {}
 
 local function signs_width(frame: Frame): integer
   shown_signs, signs_sorted = {}, {}
-  for _, s in pairs(M.signs) do signs_sorted[#signs_sorted + 1] = s end
-  if #signs_sorted == 0 then return 0 end
-  table.sort(signs_sorted, function(a: Sign, b: Sign): boolean
-    if a.priority ~= b.priority then return a.priority > b.priority end
-    return a.name < b.name
-  end)
+  for _, s in pairs(M.signs) do
+    signs_sorted[#signs_sorted + 1] = s
+  end
+  if #signs_sorted == 0 then
+    return 0
+  end
+  table.sort(
+    signs_sorted,
+    function(a: Sign, b: Sign): boolean
+      if a.priority ~= b.priority then
+        return a.priority > b.priority
+      end
+      return a.name < b.name
+    end
+  )
   local any = false
   for i, id in ipairs(frame.rows) do
     for _, s in ipairs(signs_sorted) do
-      local ctx: Context = { row = i, line = 0, kind = "track", width = 1, g = paw.draw.g, glyphs = s.glyphs or {}, styles = s.styles or {} }
+      local ctx: Context = {
+        row = i, line = 0, kind = "track", width = 1, g = paw.draw.g, glyphs = s.glyphs or {}, styles = s.styles or {}
+      }
       local ok, cells = pcall(s.render, id, ctx)
       local text, group = first(ok and cells as Cells or nil)
       if text and text ~= "" then
-        shown_signs[id], any = { text, group }, true
+        shown_signs[id], any = {text, group}, true
         break
       end
     end
@@ -260,26 +306,34 @@ local function signs_width(frame: Frame): integer
   return any and 1 or 0
 end
 
-M.add("signs", {
-  order = 20, width = signs_width,
-  render = function(track: integer, ctx: Context): Cells
-    if ctx.line ~= 0 or ctx.kind ~= "track" then return nil end
-    local piece = shown_signs[track]
-    return piece and { { piece[1], piece[2] or style(ctx, "sign", "TrackSign") } } or nil
-  end,
-  -- What each sign says of the track, for `K`.
-  describe = function(track: integer, ctx: Context): string
-    local out: {string} = {}
-    for _, s in ipairs(signs_sorted) do
-      if s.describe then
-        ctx.glyphs, ctx.styles = s.glyphs or {}, s.styles or {}
-        local ok, text = pcall(s.describe, track, ctx)
-        if ok and text then out[#out + 1] = text end
+M.add(
+  "signs",
+  {
+    order = 20,
+    width = signs_width,
+    render = function(track: integer, ctx: Context): Cells
+      if ctx.line ~= 0 or ctx.kind ~= "track" then
+        return nil
       end
-    end
-    return #out > 0 and table.concat(out, "; ") or nil
-  end,
-})
+      local piece = shown_signs[track]
+      return piece and {{piece[1], piece[2] or style(ctx, "sign", "TrackSign")}} or nil
+    end,
+    -- What each sign says of the track, for `K`.
+    describe = function(track: integer, ctx: Context): string
+      local out: {string} = {}
+      for _, s in ipairs(signs_sorted) do
+        if s.describe then
+          ctx.glyphs, ctx.styles = s.glyphs or {}, s.styles or {}
+          local ok, text = pcall(s.describe, track, ctx)
+          if ok and text then
+            out[#out + 1] = text
+          end
+        end
+      end
+      return #out > 0 and table.concat(out, "; ") or nil
+    end,
+  }
+)
 
 -- The folds of groups, as a tree: an open group has `▾` on its line and a
 -- guide down its members, `╰` on the last; a folded one has `▸`. Each
@@ -287,11 +341,11 @@ M.add("signs", {
 -- kept until the project changes.
 local record Tree
   key: string
-  depth: {integer:integer}
-  chain: {integer:{integer}}
-  group: {integer:boolean}
-  folded: {integer:boolean}
-  last: {integer:integer}
+  depth: {integer: integer}
+  chain: {integer: {integer}}
+  group: {integer: boolean}
+  folded: {integer: boolean}
+  last: {integer: integer}
   width: integer
 end
 local tree: Tree
@@ -299,9 +353,11 @@ events.on(kernel.changed, function() tree = nil end)
 
 local function tree_of(rows: {integer}): Tree
   local key = table.concat(rows as {string}, ",")
-  if tree and tree.key == key then return tree end
+  if tree and tree.key == key then
+    return tree
+  end
   local groups = paw.groups
-  local t: Tree = { key = key, depth = {}, chain = {}, group = {}, folded = {}, last = {}, width = 0 }
+  local t: Tree = {key = key, depth = {}, chain = {}, group = {}, folded = {}, last = {}, width = 0}
   for i, id in ipairs(rows) do
     local chain: {integer} = {}
     local at = groups.of(id)
@@ -313,7 +369,9 @@ local function tree_of(rows: {integer}): Tree
     if groups.is_group(id) then
       t.group[id], t.folded[id] = true, groups.folded(id)
     end
-    for _, g in ipairs(chain) do t.last[g] = i end
+    for _, g in ipairs(chain) do
+      t.last[g] = i
+    end
     t.width = math.max(t.width, #chain + (t.group[id] and 1 or 0))
   end
   tree = t
@@ -323,57 +381,71 @@ end
 -- The tracks of the last layout, for a part that needs them all.
 local frame_rows: {integer} = {}
 
-M.add("fold", {
-  order = 30,
-  -- Glyphs, by name: `open` and `closed` on a group, `guide` down its
-  -- members, `last` on its last member; paw's own (`paw.draw.g`, ASCII
-  -- with `paw.opt.ascii`) when not set.
-  glyphs = {},
-  width = function(frame: Frame): integer return tree_of(frame.rows).width end,
-  render = function(track: integer, ctx: Context): Cells
-    local t = tree_of(frame_rows)
-    if not t.chain[track] then return nil end
-    local guide, last_mark = glyph(ctx, "guide") or ctx.g.v, glyph(ctx, "last") or ctx.g.bl
-    local first_line = ctx.line == 0 and ctx.kind == "track"
-    local out: {string} = {}
-    for d, group in ipairs(t.chain[track]) do
-      local last = t.last[group] == ctx.row
-      if first_line then
-        out[d] = last and last_mark or guide
-      else
-        out[d] = last and " " or guide
+M.add(
+  "fold",
+  {
+    order = 30,
+    -- Glyphs, by name: `open` and `closed` on a group, `guide` down its
+    -- members, `last` on its last member; paw's own (`paw.draw.g`, ASCII
+    -- with `paw.opt.ascii`) when not set.
+    glyphs = {},
+    width = function(frame: Frame): integer return tree_of(frame.rows).width end,
+    render = function(track: integer, ctx: Context): Cells
+      local t = tree_of(frame_rows)
+      if not t.chain[track] then
+        return nil
       end
-    end
-    if t.group[track] then
-      if first_line then
-        out[#out + 1] = t.folded[track] and glyph(ctx, "closed") or glyph(ctx, "open")
-      elseif not t.folded[track] and t.last[track] then
-        out[#out + 1] = guide
+      local guide, last_mark = glyph(ctx, "guide") or ctx.g.v, glyph(ctx, "last") or ctx.g.bl
+      local first_line = ctx.line == 0 and ctx.kind == "track"
+      local out: {string} = {}
+      for d, group in ipairs(t.chain[track]) do
+        local last = t.last[group] == ctx.row
+        if first_line then
+          out[d] = last and last_mark or guide
+        else
+          out[d] = last and " " or guide
+        end
       end
-    end
-    if #out == 0 then return nil end
-    return { { table.concat(out), style(ctx, "fold", "TrackFold") } }
-  end,
-  -- A click on the mark of a group folds it away or opens it, as `za`.
-  click = function(track: integer, ctx: Context)
-    local t = tree_of(frame_rows)
-    if t.group[track] and ctx.line == 0 and ctx.kind == "track" and ctx.x == t.depth[track] then
-      paw.frontend.act.fold(track)
-    end
-  end,
-  -- What `K` says: the group a track is in, and of a group what it holds.
-  describe = function(track: integer): string
-    local groups = paw.groups
-    local words: {string} = {}
-    if groups.is_group(track) then
-      local n = #groups.members(track)
-      words[1] = string.format("a group of %d track%s, %s", n, n == 1 and "" or "s", groups.folded(track) and "folded (za opens it)" or "open (za folds it)")
-    end
-    local of = groups.of(track)
-    if of then words[#words + 1] = "in the group " .. tostring(api.track_get(of).name) end
-    return #words > 0 and table.concat(words, "; ") or nil
-  end,
-})
+      if t.group[track] then
+        if first_line then
+          out[#out + 1] = t.folded[track] and glyph(ctx, "closed") or glyph(ctx, "open")
+        elseif not t.folded[track] and t.last[track] then
+          out[#out + 1] = guide
+        end
+      end
+      if #out == 0 then
+        return nil
+      end
+      return {{table.concat(out), style(ctx, "fold", "TrackFold")}}
+    end,
+    -- A click on the mark of a group folds it away or opens it, as `za`.
+    click = function(track: integer, ctx: Context)
+      local t = tree_of(frame_rows)
+      if t.group[track] and ctx.line == 0 and ctx.kind == "track" and ctx.x == t.depth[track] then
+        paw.frontend.act.fold(track)
+      end
+    end,
+    -- What `K` says: the group a track is in, and of a group what it holds.
+    describe = function(track: integer): string
+      local groups = paw.groups
+      local words: {string} = {}
+      if groups.is_group(track) then
+        local n = #groups.members(track)
+        words[1] = string.format(
+          "a group of %d track%s, %s",
+          n,
+          n == 1 and "" or "s",
+          groups.folded(track) and "folded (za opens it)" or "open (za folds it)"
+        )
+      end
+      local of = groups.of(track)
+      if of then
+        words[#words + 1] = "in the group " .. tostring(api.track_get(of).name)
+      end
+      return #words > 0 and table.concat(words, "; ") or nil
+    end,
+  }
+)
 
 -- Laying out and drawing ---------------------------------------------------------
 
@@ -384,13 +456,20 @@ function M.layout(frame: Frame, room: integer): Layout
   local list: {Component} = {}
   for _, name in ipairs(opt.trackcolumn as {string}) do
     local c = M.components[name]
-    if c and not has(list, c) then list[#list + 1] = c end
+    if c and not has(list, c) then
+      list[#list + 1] = c
+    end
   end
-  table.sort(list, function(a: Component, b: Component): boolean
-    if a.order ~= b.order then return a.order < b.order end
-    return a.name < b.name
-  end)
-  local out: Layout = { parts = {}, width = 0, frame = frame }
+  table.sort(
+    list,
+    function(a: Component, b: Component): boolean
+      if a.order ~= b.order then
+        return a.order < b.order
+      end
+      return a.name < b.name
+    end
+  )
+  local out: Layout = {parts = {}, width = 0, frame = frame}
   frame_rows = frame.rows
   for _, c in ipairs(list) do
     local w: integer
@@ -402,7 +481,7 @@ function M.layout(frame: Frame, room: integer): Layout
       w = ok and math.floor(tonumber(n) or 0) or 0
     end
     if w > 0 and out.width + w <= room then
-      out.parts[#out.parts + 1] = { component = c, x = out.width, width = w }
+      out.parts[#out.parts + 1] = {component = c, x = out.width, width = w}
       out.width = out.width + w
     end
   end
@@ -412,7 +491,9 @@ end
 --- Draw one line of the column for `track` at line `y` of `buf` (the
 --- column's own part of the view), with what `ctx` says of the line.
 function M.draw(buf: contracts.Buf, L: Layout, y: integer, track: integer, ctx: Context)
-  if L.width == 0 then return end
+  if L.width == 0 then
+    return
+  end
   buf:fill(0, y, L.width, 1, " ", ctx.cursor and "TrackColumnCursor" or "TrackColumn")
   ctx.g = paw.draw.g
   for _, part in ipairs(L.parts) do
@@ -426,7 +507,9 @@ function M.draw(buf: contracts.Buf, L: Layout, y: integer, track: integer, ctx: 
       local x = part.x
       for _, piece in ipairs(cells) do
         local room = part.x + part.width - x
-        if room <= 0 then break end
+        if room <= 0 then
+          break
+        end
         local text = api.str_width(piece[1]) > room and util.fit(piece[1], room) or piece[1]
         x = x + buf:text(x, y, text, piece[2])
       end
@@ -454,14 +537,18 @@ function M.describe(track: integer): {string}
   local list: {Component} = {}
   for _, name in ipairs(opt.trackcolumn as {string}) do
     local c = M.components[name]
-    if c and c.describe and not has(list, c) then list[#list + 1] = c end
+    if c and c.describe and not has(list, c) then
+      list[#list + 1] = c
+    end
   end
   table.sort(list, function(a: Component, b: Component): boolean return a.order < b.order end)
   local out: {string} = {}
   for _, c in ipairs(list) do
-    local ctx: Context = { line = 0, kind = "track", g = paw.draw.g, glyphs = c.glyphs or {}, styles = c.styles or {} }
+    local ctx: Context = {line = 0, kind = "track", g = paw.draw.g, glyphs = c.glyphs or {}, styles = c.styles or {}}
     local ok, text = pcall(c.describe, track, ctx)
-    if ok and text and text ~= "" then out[#out + 1] = text end
+    if ok and text and text ~= "" then
+      out[#out + 1] = text
+    end
   end
   return out
 end

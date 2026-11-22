@@ -45,7 +45,12 @@ M.eq = {
         local kind = math.floor((p["b" .. b .. "_type"] or 3) + 0.5)
         if kind < 2 or kind > 4 then gain = 0 end
         local y = math.floor((1 - (gain + EQ_RANGE) / (2 * EQ_RANGE)) * (rows - 1) + 0.5)
-        buf:text(paw.util.clamp(col(p["b" .. b .. "_freq"] or 1000), 0, w - 1), paw.util.clamp(y, 0, rows - 1), tostring(b), "Bright")
+        buf:text(
+          paw.util.clamp(col(p["b" .. b .. "_freq"] or 1000), 0, w - 1),
+          paw.util.clamp(y, 0, rows - 1),
+          tostring(b),
+          "Bright"
+        )
       end
     end
     buf:text(w - 7, 0, "+" .. EQ_RANGE .. " dB", "Faint")

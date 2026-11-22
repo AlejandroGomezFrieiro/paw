@@ -49,9 +49,7 @@ function M.target()
   return M.targets[name] or M.targets.none, name
 end
 
-local function project_length()
-  return api.project_get().length
-end
+local function project_length() return api.project_get().length end
 
 --- The stretch of the project a scope means: "song", "loop", "selection",
 --- "track" (the cursor track's contribution to the song), a table
@@ -156,7 +154,9 @@ end
 
 local function ignored()
   local out = {}
-  for name in tostring(paw.opt.mixdiag_ignore or ""):gmatch("[%w_]+") do out[name] = true end
+  for name in tostring(paw.opt.mixdiag_ignore or ""):gmatch("[%w_]+") do
+    out[name] = true
+  end
   return out
 end
 
@@ -195,7 +195,9 @@ end
 
 local function sort_findings(list)
   local order = {}
-  for i, id in ipairs(api.track_list()) do order[id] = i end
+  for i, id in ipairs(api.track_list()) do
+    order[id] = i
+  end
   table.sort(list, function(a, b)
     local ab, bb = a.beat or math.huge, b.beat or math.huge
     if ab ~= bb then return ab < bb end
@@ -211,7 +213,9 @@ function M.diagnose(result, range)
   local ctx = M.context(result, range)
   local off, list = ignored(), {}
   local names = {}
-  for name in pairs(M.rules) do names[#names + 1] = name end
+  for name in pairs(M.rules) do
+    names[#names + 1] = name
+  end
   table.sort(names)
   for _, name in ipairs(names) do
     local rule = M.rules[name]
@@ -255,17 +259,28 @@ function M.finish(result, range, quiet)
   M.measured_at = api.now()
   M.findings = M.diagnose(result, range)
   local counts = {}
-  for _, f in ipairs(M.findings) do counts[f.severity] = (counts[f.severity] or 0) + 1 end
+  for _, f in ipairs(M.findings) do
+    counts[f.severity] = (counts[f.severity] or 0) + 1
+  end
   local tally = {}
   for _, s in ipairs(M.severities) do
     if counts[s] then tally[#tally + 1] = counts[s] .. " " .. s end
   end
-  M.line = string.format("mix (%s): %s  │ %s  │ %.1f s", range.label, M.summary(result),
-    #tally > 0 and table.concat(tally, ", ") or "no findings", result.elapsed or 0)
+  M.line = string.format(
+    "mix (%s): %s  │ %s  │ %.1f s",
+    range.label,
+    M.summary(result),
+    #tally > 0 and table.concat(tally, ", ") or "no findings",
+    result.elapsed or 0
+  )
   if not quiet then
     local worst = M.findings[1] and "info"
     for _, f in ipairs(M.findings) do
-      if f.severity == "error" then worst = "error" elseif f.severity == "warn" and worst ~= "error" then worst = "warn" end
+      if f.severity == "error" then
+        worst = "error"
+      elseif f.severity == "warn" and worst ~= "error" then
+        worst = "warn"
+      end
     end
     paw.notify(M.line, worst == "error" and "warn" or "info")
   end
@@ -277,9 +292,7 @@ function M.finish(result, range, quiet)
 end
 
 --- Whether the project changed since the measurement.
-function M.stale()
-  return M.result and M.result.edits ~= nil and api.project_get("edits") ~= M.result.edits
-end
+function M.stale() return M.result and M.result.edits ~= nil and api.project_get("edits") ~= M.result.edits end
 
 function M.clear()
   M.cancel()
@@ -323,7 +336,10 @@ function M.jump(f)
   if f.track and f.track ~= 0 and pcall(api.track_get, f.track) then paw.cursor.set_track(f.track) end
   if f.beat then paw.cursor.set_beat(math.max(0, f.beat)) end
   M.current = f
-  paw.notify(string.format("%s: %s", f.severity, M.format(f)), f.severity == "error" and "error" or f.severity == "warn" and "warn" or "info")
+  paw.notify(
+    string.format("%s: %s", f.severity, M.format(f)),
+    f.severity == "error" and "error" or f.severity == "warn" and "warn" or "info"
+  )
 end
 
 --- The next (`dir` 1) or previous (-1) finding from the cursor, `count` times,
@@ -378,7 +394,13 @@ function M.items()
   for _, f in ipairs(M.findings) do
     local where = ctx and ctx.where(f.beat, f.seconds) or ""
     local track = f.track and f.track ~= 0 and ctx and ctx.track_name(f.track) or ""
-    local text = string.format("%-5s  %-9s %-10s %s", f.severity, where, paw.util.fit and paw.util.fit(track, 10) or track, M.format(f))
+    local text = string.format(
+      "%-5s  %-9s %-10s %s",
+      f.severity,
+      where,
+      paw.util.fit and paw.util.fit(track, 10) or track,
+      M.format(f)
+    )
     items[#items + 1] = { text = text, beat = f.beat, track = f.track, finding = f, severity = f.severity }
   end
   return items
@@ -391,7 +413,9 @@ function M.list()
     return paw.pick({
       title = "Mix",
       items = M.items(),
-      on_choose = function(item) if item and item.finding then M.jump(item.finding) end end,
+      on_choose = function(item)
+        if item and item.finding then M.jump(item.finding) end
+      end,
     })
   end
   require("mixdiag.view").open()
@@ -400,9 +424,7 @@ end
 --- The report: what was measured, the numbers and the findings, with keys
 --- to measure again. Floating in the terminal; in a window of its own in
 --- the graphical frontend.
-function M.report()
-  require("mixdiag.view").open()
-end
+function M.report() require("mixdiag.view").open() end
 
 -- The strip of marks above the arrange view ----------------------------------
 
@@ -411,8 +433,6 @@ function M.show_strip()
   require("mixdiag.view").strip(true)
 end
 
-function M.hide_strip()
-  require("mixdiag.view").strip(false)
-end
+function M.hide_strip() require("mixdiag.view").strip(false) end
 
 return M

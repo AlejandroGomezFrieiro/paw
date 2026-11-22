@@ -41,7 +41,9 @@ local function track_id(ref)
   if #partial == 1 then return partial[1].id end
   if #partial > 1 then
     local names = {}
-    for i, t in ipairs(partial) do names[i] = string.format("%q (id %d)", t.name, t.id) end
+    for i, t in ipairs(partial) do
+      names[i] = string.format("%q (id %d)", t.name, t.id)
+    end
     fail("`" .. text .. "` matches several tracks: " .. table.concat(names, ", ") .. "; use an id")
   end
   fail("no track named `" .. text .. "` (get_project lists the tracks)")
@@ -61,7 +63,9 @@ end
 
 local function markers_view()
   local out = {}
-  for i, m in ipairs(paw.markers.list()) do out[i] = marker_view(m) end
+  for i, m in ipairs(paw.markers.list()) do
+    out[i] = marker_view(m)
+  end
   return out
 end
 
@@ -77,8 +81,13 @@ local function marker_ref(ref, regions_only)
   end
   if found and regions_only and not found.length then found = nil end
   if not found then
-    fail(string.format("no %s %s (get_project lists them)", regions_only and "region" or "marker",
-      type(ref) == "number" and ref or "named `" .. tostring(ref) .. "`"))
+    fail(
+      string.format(
+        "no %s %s (get_project lists them)",
+        regions_only and "region" or "marker",
+        type(ref) == "number" and ref or "named `" .. tostring(ref) .. "`"
+      )
+    )
   end
   return found
 end
@@ -94,7 +103,17 @@ end
 -- Device kinds -----------------------------------------------------------------
 
 local function matches(info, words)
-  local hay = (info.kind .. " " .. info.name .. " " .. (info.vendor or "") .. " " .. (info.category or "") .. " " .. info.format):lower()
+  local hay = (
+    info.kind
+    .. " "
+    .. info.name
+    .. " "
+    .. (info.vendor or "")
+    .. " "
+    .. (info.category or "")
+    .. " "
+    .. info.format
+  ):lower()
   for _, word in ipairs(words) do
     if not hay:find(word, 1, true) then return false end
   end
@@ -103,7 +122,9 @@ end
 
 local function search(query, format)
   local words = {}
-  for word in tostring(query or ""):lower():gmatch("%S+") do words[#words + 1] = word end
+  for word in tostring(query or ""):lower():gmatch("%S+") do
+    words[#words + 1] = word
+  end
   local out = {}
   for _, info in ipairs(api.device_types()) do
     if (not format or info.format == format) and matches(info, words) then out[#out + 1] = info end
@@ -133,8 +154,14 @@ local function param_list(d)
   local out = {}
   for i, p in ipairs(d.param_info) do
     out[i] = {
-      key = p.key, name = p.name, value = d.params[p.key], min = p.min, max = p.max,
-      default = p.default, unit = p.unit, choices = p.choices,
+      key = p.key,
+      name = p.name,
+      value = d.params[p.key],
+      min = p.min,
+      max = p.max,
+      default = p.default,
+      unit = p.unit,
+      choices = p.choices,
     }
   end
   return out
@@ -143,8 +170,15 @@ end
 local function device_view(id, full)
   local d = api.device_get(id)
   local v = {
-    id = d.id, kind = d.kind, name = d.name, format = d.format, bypass = d.bypass, index = d.index,
-    track = d.track, missing = d.missing, param_count = #d.param_info,
+    id = d.id,
+    kind = d.kind,
+    name = d.name,
+    format = d.format,
+    bypass = d.bypass,
+    index = d.index,
+    track = d.track,
+    missing = d.missing,
+    param_count = #d.param_info,
   }
   if full then v.params = param_list(d) end
   return v
@@ -152,11 +186,15 @@ end
 
 --- What `filter` ({ from, to, pitches }) keeps of a clip's notes.
 local function note_keeper(filter)
-  if not filter then return function() return true end end
+  if not filter then
+    return function() return true end
+  end
   local pitches
   if filter.pitches then
     pitches = {}
-    for _, p in ipairs(filter.pitches) do pitches[p] = true end
+    for _, p in ipairs(filter.pitches) do
+      pitches[p] = true
+    end
   end
   return function(n)
     return (not pitches or pitches[n.pitch])
@@ -166,13 +204,29 @@ local function note_keeper(filter)
 end
 
 local function note_view(n)
-  return { id = n.id, pitch = n.pitch, start = n.start, length = n.length, velocity = n.velocity, lyric = n.meta and n.meta.lyric }
+  return {
+    id = n.id,
+    pitch = n.pitch,
+    start = n.start,
+    length = n.length,
+    velocity = n.velocity,
+    lyric = n.meta and n.meta.lyric,
+  }
 end
 
 local function clip_view(c, notes, filter)
   local v = {
-    id = c.id, name = c.name, track = c.track, start = c.start, length = c.length, kind = c.kind,
-    muted = c.muted, file = c.file, gain = c.gain, offset = c.offset, note_count = c.note_count,
+    id = c.id,
+    name = c.name,
+    track = c.track,
+    start = c.start,
+    length = c.length,
+    kind = c.kind,
+    muted = c.muted,
+    file = c.file,
+    gain = c.gain,
+    offset = c.offset,
+    note_count = c.note_count,
   }
   if c.kind == "midi" then
     local list = api.clip_notes(c.id)
@@ -194,8 +248,14 @@ end
 
 local function lane_view(lane, points)
   local v = {
-    id = lane.id, target = lane.target, device = lane.device, param = lane.param, enabled = lane.enabled,
-    min = lane.min, max = lane.max, point_count = lane.point_count,
+    id = lane.id,
+    target = lane.target,
+    device = lane.device,
+    param = lane.param,
+    enabled = lane.enabled,
+    min = lane.min,
+    max = lane.max,
+    point_count = lane.point_count,
   }
   if points then v.points = api.lane_points(lane.id) end
   return v
@@ -209,17 +269,41 @@ end
 local function track_view(id, detail)
   local t = api.track_get(id)
   local v = {
-    id = id, index = t.index, name = t.name, volume = t.volume, pan = t.pan, mute = t.mute, solo = t.solo,
-    armed = t.armed, master = t.master, input = t.input, monitor = t.monitor, color = t.color,
-    output = t.output, sends = {}, devices = {}, clips = {}, lanes = {},
+    id = id,
+    index = t.index,
+    name = t.name,
+    volume = t.volume,
+    pan = t.pan,
+    mute = t.mute,
+    solo = t.solo,
+    armed = t.armed,
+    master = t.master,
+    input = t.input,
+    monitor = t.monitor,
+    color = t.color,
+    output = t.output,
+    sends = {},
+    devices = {},
+    clips = {},
+    lanes = {},
   }
   if t.output then v.output_name = api.track_get(t.output).name end
   for i, s in ipairs(t.sends or {}) do
-    v.sends[i] = { target = s.target, level = s.level, name = exists(api.track_get, s.target) and api.track_get(s.target).name or "?" }
+    v.sends[i] = {
+      target = s.target,
+      level = s.level,
+      name = exists(api.track_get, s.target) and api.track_get(s.target).name or "?",
+    }
   end
-  for i, d in ipairs(t.devices) do v.devices[i] = device_view(d, detail) end
-  for i, c in ipairs(api.clip_list(id)) do v.clips[i] = clip_view(c, false) end
-  for i, l in ipairs(api.lane_list(id)) do v.lanes[i] = lane_view(l, detail) end
+  for i, d in ipairs(t.devices) do
+    v.devices[i] = device_view(d, detail)
+  end
+  for i, c in ipairs(api.clip_list(id)) do
+    v.clips[i] = clip_view(c, false)
+  end
+  for i, l in ipairs(api.lane_list(id)) do
+    v.lanes[i] = lane_view(l, detail)
+  end
   if detail then
     -- What the engine's meter holds now: the level while playing, and the
     -- last peak it kept otherwise; a render measures every track's peak.
@@ -238,9 +322,7 @@ if not rawget(_G, "__paw_mcp_hooked") then
   paw.on("project.saved", function() paw.state[SAVED] = api.project_get().edits end)
   paw.on("project.loaded", function() paw.state[SAVED] = api.project_get().edits end)
 end
-local function unsaved(p)
-  return p.modified and paw.state[SAVED] ~= p.edits
-end
+local function unsaved(p) return p.modified and paw.state[SAVED] ~= p.edits end
 
 local function project_key()
   local key = paw.harmony.project_key()
@@ -250,12 +332,24 @@ end
 local function project_view()
   local p, t = api.project_get(), api.transport_get()
   local v = {
-    name = p.name, path = p.path, modified = unsaved(p), tempo = p.tempo, sig_num = p.sig_num,
-    sig_den = p.sig_den, length = p.length, transport = t, tracks = {}, key = project_key(),
-    tempo_ramp = p.tempo_ramp, tempo_changes = p.tempo_changes, sig_changes = p.sig_changes,
+    name = p.name,
+    path = p.path,
+    modified = unsaved(p),
+    tempo = p.tempo,
+    sig_num = p.sig_num,
+    sig_den = p.sig_den,
+    length = p.length,
+    transport = t,
+    tracks = {},
+    key = project_key(),
+    tempo_ramp = p.tempo_ramp,
+    tempo_changes = p.tempo_changes,
+    sig_changes = p.sig_changes,
     markers = markers_view(),
   }
-  for i, id in ipairs(api.track_list()) do v.tracks[i] = track_view(id, false) end
+  for i, id in ipairs(api.track_list()) do
+    v.tracks[i] = track_view(id, false)
+  end
   v.master = track_view(0, false)
   return v
 end
@@ -272,16 +366,34 @@ local function set_params(id, params)
     end
     if not info then
       local keys = {}
-      for i, p in ipairs(d.param_info) do if i <= 40 then keys[i] = p.key end end
-      fail(string.format("%s has no parameter `%s`; it has: %s%s", d.name, key, table.concat(keys, ", "), #d.param_info > 40 and ", ..." or ""))
+      for i, p in ipairs(d.param_info) do
+        if i <= 40 then keys[i] = p.key end
+      end
+      fail(
+        string.format(
+          "%s has no parameter `%s`; it has: %s%s",
+          d.name,
+          key,
+          table.concat(keys, ", "),
+          #d.param_info > 40 and ", ..." or ""
+        )
+      )
     end
     if type(value) == "string" then
       local index
       for i, choice in ipairs(info.choices or {}) do
         if choice:lower() == value:lower() then index = i - 1 end
       end
-      value = index or tonumber(value) or fail(string.format("`%s` is not a value of %s (%s)", value, info.key,
-        #(info.choices or {}) > 0 and "one of: " .. table.concat(info.choices, ", ") or "a number"))
+      value = index
+        or tonumber(value)
+        or fail(
+          string.format(
+            "`%s` is not a value of %s (%s)",
+            value,
+            info.key,
+            #(info.choices or {}) > 0 and "one of: " .. table.concat(info.choices, ", ") or "a number"
+          )
+        )
     end
     if type(value) ~= "number" then fail("parameter values are numbers (or a choice's name)") end
     api.device_set_param(id, info.key, value)
@@ -309,15 +421,22 @@ end
 
 local function set_sends(id, sends)
   local list = {}
-  for i, s in ipairs(sends) do list[i] = { target = track_id(s.target), level = s.level or 0 } end
+  for i, s in ipairs(sends) do
+    list[i] = { target = track_id(s.target), level = s.level or 0 }
+  end
   api.track_set(id, "sends", list)
 end
 
 function T.add_track(a)
   local output = a.output ~= nil and track_id(a.output) or nil
-  local id = api.track_add({ name = a.name, index = a.index, volume = a.volume, pan = a.pan, output = output, color = a.color })
-  for _, d in ipairs(a.devices or {}) do add_device(id, d) end
-  for _, c in ipairs(a.clips or {}) do add_clip(id, c) end
+  local id =
+    api.track_add({ name = a.name, index = a.index, volume = a.volume, pan = a.pan, output = output, color = a.color })
+  for _, d in ipairs(a.devices or {}) do
+    add_device(id, d)
+  end
+  for _, c in ipairs(a.clips or {}) do
+    add_clip(id, c)
+  end
   if a.sends then set_sends(id, a.sends) end
   return { track = track_view(id, false) }
 end
@@ -342,7 +461,8 @@ function T.remove(a)
   for _, id in ipairs(a.automation or {}) do
     local lane = api.lane_get(need(api.lane_get, id, "automation lane"))
     api.lane_remove(id)
-    removed[#removed + 1] = string.format("automation lane %d (%s%s)", id, lane.target, lane.param and " " .. lane.param or "")
+    removed[#removed + 1] =
+      string.format("automation lane %d (%s%s)", id, lane.target, lane.param and " " .. lane.param or "")
   end
   for _, id in ipairs(a.clips or {}) do
     local c = api.clip_get(need(api.clip_get, id, "clip"))
@@ -379,13 +499,21 @@ end
 --- What `r` ({ all, ids, pitches, from, to }) picks out of a clip's notes:
 --- everything with `all`, else the notes that fit everything that is given.
 local function note_picker(r)
-  if not r then return function() return false end end
-  if r.all then return function() return true end end
-  if not (r.ids or r.pitches or r.from or r.to) then return function() return false end end
+  if not r then
+    return function() return false end
+  end
+  if r.all then
+    return function() return true end
+  end
+  if not (r.ids or r.pitches or r.from or r.to) then
+    return function() return false end
+  end
   local ids
   if r.ids then
     ids = {}
-    for _, id in ipairs(r.ids) do ids[id] = true end
+    for _, id in ipairs(r.ids) do
+      ids[id] = true
+    end
   end
   local keep = note_keeper(r)
   return function(n) return (not ids or ids[n.id]) and keep(n) end
@@ -402,11 +530,15 @@ end
 local function edit_notes(id, c, a)
   local list = api.clip_notes(id)
   local place = {}
-  for i, n in ipairs(list) do place[n.id or -i] = i end
+  for i, n in ipairs(list) do
+    place[n.id or -i] = i
+  end
   local changes = {}
   for _, e in ipairs(a.edit_notes or {}) do
     local i = place[e.id]
-    if not i then fail(string.format("clip %d has no note %s (get_clip lists the notes and their ids)", id, tostring(e.id))) end
+    if not i then
+      fail(string.format("clip %d has no note %s (get_clip lists the notes and their ids)", id, tostring(e.id)))
+    end
     local into = changes[i] or {}
     for _, key in ipairs({ "pitch", "start", "length", "velocity" }) do
       if e[key] ~= nil then into[key] = e[key] end
@@ -414,10 +546,13 @@ local function edit_notes(id, c, a)
     changes[i] = into
   end
   local pick = note_picker(a.remove_notes)
-  local velocities = a.set_velocity and note_picker({
-    pitches = a.set_velocity.pitches, from = a.set_velocity.from, to = a.set_velocity.to,
-    all = not (a.set_velocity.pitches or a.set_velocity.from or a.set_velocity.to),
-  })
+  local velocities = a.set_velocity
+    and note_picker({
+      pitches = a.set_velocity.pitches,
+      from = a.set_velocity.from,
+      to = a.set_velocity.to,
+      all = not (a.set_velocity.pitches or a.set_velocity.from or a.set_velocity.to),
+    })
   local semitones, spec = 0, nil
   if type(a.transpose) == "number" then
     semitones = a.transpose
@@ -431,7 +566,9 @@ local function edit_notes(id, c, a)
       removed = removed + 1
     else
       local now = { pitch = n.pitch, start = n.start, length = n.length, velocity = n.velocity }
-      for key, value in pairs(changes[i] or {}) do now[key] = value end
+      for key, value in pairs(changes[i] or {}) do
+        now[key] = value
+      end
       if spec then
         local pitch, key = degrees_up(c, n, spec)
         now.pitch = pitch
@@ -445,13 +582,16 @@ local function edit_notes(id, c, a)
       if velocities and velocities(n) then now.velocity = a.set_velocity.value end
       now.velocity = math.max(1, math.min(127, now.velocity))
       if now.pitch ~= n.pitch or now.start ~= n.start or now.length ~= n.length or now.velocity ~= n.velocity then
-        edit.set[#edit.set + 1] = { index = i, pitch = now.pitch, start = now.start, length = now.length, velocity = now.velocity }
+        edit.set[#edit.set + 1] =
+          { index = i, pitch = now.pitch, start = now.start, length = now.length, velocity = now.velocity }
       end
     end
   end
   if #edit.set > 0 or #edit.remove > 0 then api.clip_notes_edit(id, edit) end
   local used = {}
-  for name in pairs(keys) do used[#used + 1] = name end
+  for name in pairs(keys) do
+    used[#used + 1] = name
+  end
   table.sort(used)
   return removed, #edit.set, used
 end
@@ -463,7 +603,13 @@ function T.edit_clip(a)
     if a[key] ~= nil then api.clip_set(id, key, a[key]) end
   end
   if a.track ~= nil then api.clip_set(id, "track", track_id(a.track)) end
-  local touches_notes = a.remove_notes or a.edit_notes or a.transpose or a.notes or a.add_notes or a.velocity or a.set_velocity
+  local touches_notes = a.remove_notes
+    or a.edit_notes
+    or a.transpose
+    or a.notes
+    or a.add_notes
+    or a.velocity
+    or a.set_velocity
   if touches_notes and c.kind ~= "midi" then fail("clip " .. id .. " is an audio clip; only MIDI clips have notes") end
   local removed, changed, keys = 0, 0, {}
   if a.remove_notes or a.edit_notes or a.transpose or a.velocity or a.set_velocity then
@@ -492,7 +638,9 @@ function T.duplicate_clip(a)
     made[i] = copy_of(c, { start = at + (i - 1) * (a.gap and c.length + a.gap or c.length), track = track })
   end
   local clips = {}
-  for i, copy in ipairs(made) do clips[i] = clip_view(api.clip_get(copy), false) end
+  for i, copy in ipairs(made) do
+    clips[i] = clip_view(api.clip_get(copy), false)
+  end
   return { clips = clips }
 end
 
@@ -503,7 +651,9 @@ function T.repeat_bars(a)
   local tracks
   if a.tracks then
     tracks = {}
-    for _, ref in ipairs(a.tracks) do tracks[track_id(ref)] = true end
+    for _, ref in ipairs(a.tracks) do
+      tracks[track_id(ref)] = true
+    end
   end
   local source, skipped = {}, {}
   for _, id in ipairs(api.track_list()) do
@@ -526,7 +676,9 @@ function T.repeat_bars(a)
     end
   end
   local clips = {}
-  for i, id in ipairs(made) do clips[i] = clip_view(api.clip_get(id), false) end
+  for i, id in ipairs(made) do
+    clips[i] = clip_view(api.clip_get(id), false)
+  end
   return { clips = clips, source = #source, skipped = skipped }
 end
 
@@ -548,7 +700,9 @@ function T.set_device(a)
   if a.params and #v.params > 24 then
     -- Only what was asked about, for a plugin with hundreds of parameters.
     local wanted, keep = {}, {}
-    for key in pairs(a.params) do wanted[tostring(key):lower()] = true end
+    for key in pairs(a.params) do
+      wanted[tostring(key):lower()] = true
+    end
     for _, p in ipairs(v.params) do
       if wanted[p.key:lower()] or wanted[p.name:lower()] then keep[#keep + 1] = p end
     end
@@ -566,7 +720,9 @@ function T.automate(a)
     if not a.param then fail("automating a device needs `param`, the parameter's key or name") end
   else
     track = track_id(track)
-    if target ~= "volume" and target ~= "pan" then fail("target is `volume` or `pan`; for a device parameter give `device` and `param`") end
+    if target ~= "volume" and target ~= "pan" then
+      fail("target is `volume` or `pan`; for a device parameter give `device` and `param`")
+    end
   end
   local lane
   for _, l in ipairs(api.lane_list(track)) do
@@ -595,7 +751,9 @@ function T.automate(a)
   if a.clear then api.lane_set_points(lane.id, {}) end
   if a.points then
     if a.mode == "add" then
-      for _, p in ipairs(a.points) do api.lane_add_point(lane.id, p[1], p[2]) end
+      for _, p in ipairs(a.points) do
+        api.lane_add_point(lane.id, p[1], p[2])
+      end
     else
       api.lane_set_points(lane.id, a.points)
     end
@@ -620,8 +778,12 @@ function T.set_project(a)
   if a.tempo_changes or a.signature_changes then
     local map = api.tempo_points()
     local tempos, sigs = { map.tempos[1] }, { map.signatures[1] }
-    for i, c in ipairs(a.tempo_changes or {}) do tempos[i + 1] = c end
-    for i, c in ipairs(a.signature_changes or {}) do sigs[i + 1] = c end
+    for i, c in ipairs(a.tempo_changes or {}) do
+      tempos[i + 1] = c
+    end
+    for i, c in ipairs(a.signature_changes or {}) do
+      sigs[i + 1] = c
+    end
     if not a.tempo_changes then tempos = map.tempos end
     if not a.signature_changes then sigs = map.signatures end
     api.tempo_set_points(tempos, sigs)
@@ -641,7 +803,10 @@ function T.marker(a)
   local m = marker_ref(a.marker)
   if action == "remove" then
     paw.markers.remove(m.id)
-    return { removed = { string.format("%s %d %q", m.length and "region" or "marker", m.id, m.name) }, markers = markers_view() }
+    return {
+      removed = { string.format("%s %d %q", m.length and "region" or "marker", m.id, m.name) },
+      markers = markers_view(),
+    }
   elseif action == "rename" then
     if not a.name then fail("rename needs the new `name`") end
     paw.markers.set(m.id, { name = a.name })
@@ -675,7 +840,9 @@ end
 local function history()
   local tree = api.undo_tree()
   local by_id = {}
-  for _, s in ipairs(tree.states) do by_id[s.id] = s end
+  for _, s in ipairs(tree.states) do
+    by_id[s.id] = s
+  end
   return tree, by_id
 end
 
@@ -690,7 +857,8 @@ function T.undo(a)
     while state and #out < (a.limit or 20) do
       -- The first state is the project as it was opened, with nothing to undo.
       if state.parent then
-        out[#out + 1] = { id = state.id, label = step_label(state), time = state.time, current = state.id == tree.current }
+        out[#out + 1] =
+          { id = state.id, label = step_label(state), time = state.time, current = state.id == tree.current }
       end
       state = state.parent and by_id[state.parent] or nil
     end
@@ -719,30 +887,48 @@ function T.file(a)
     return { saved = path, project = { name = p.name, tempo = p.tempo } }
   end
   if unsaved(p) and not a.discard then
-    fail("the project has unsaved changes, which " .. a.action .. " would lose for good (it also clears undo): save first, or pass discard=true")
+    fail(
+      "the project has unsaved changes, which "
+        .. a.action
+        .. " would lose for good (it also clears undo): save first, or pass discard=true"
+    )
   end
-  if a.action == "load" then api.project_load(a.path) else api.project_new() end
+  if a.action == "load" then
+    api.project_load(a.path)
+  else
+    api.project_new()
+  end
   paw.state[SAVED] = api.project_get().edits
   paw.flush()
   return { project = project_view() }
 end
 
-local LOUDNESS = { "integrated", "short_term_max", "momentary_max", "lra", "true_peak", "sample_peak", "clipped_samples" }
+local LOUDNESS =
+  { "integrated", "short_term_max", "momentary_max", "lra", "true_peak", "sample_peak", "clipped_samples" }
 
 --- LUFS and peaks of a rendered file, as the kernel measures them.
 local function loudness_of(path)
   local ok, m = pcall(api.measure, { file = path })
   if not ok then return nil end
   local out = {}
-  for _, key in ipairs(LOUDNESS) do out[key] = m[key] end
+  for _, key in ipairs(LOUDNESS) do
+    out[key] = m[key]
+  end
   return out
 end
 
 function T.render(a)
   local p = api.project_get()
   local opts = {
-    start = a.start, ["end"] = a["end"], tail = a.tail, bits = a.bits, sample_rate = a.sample_rate,
-    loudness = a.loudness, normalize = a.normalize, quality = a.quality, dither = a.dither,
+    start = a.start,
+    ["end"] = a["end"],
+    tail = a.tail,
+    bits = a.bits,
+    sample_rate = a.sample_rate,
+    loudness = a.loudness,
+    normalize = a.normalize,
+    quality = a.quality,
+    dither = a.dither,
   }
   if a.region then
     local from, to = marker_range(marker_ref(a.region, true))
@@ -751,13 +937,24 @@ function T.render(a)
   local ids
   if a.tracks then
     ids = {}
-    for i, ref in ipairs(a.tracks) do ids[i] = track_id(ref) end
+    for i, ref in ipairs(a.tracks) do
+      ids[i] = track_id(ref)
+    end
   end
   local start, finish = opts.start or 0, opts["end"] or p.length
   if a.stems then
     opts.tracks = ids
     local files = require("paw.render").stems(a.path, paw.util.merge(opts, { format = a.format }))
-    return { render = { stems = files, start = start, ["end"] = finish, tempo = p.tempo, sig_num = p.sig_num, sig_den = p.sig_den } }
+    return {
+      render = {
+        stems = files,
+        start = start,
+        ["end"] = finish,
+        tempo = p.tempo,
+        sig_num = p.sig_num,
+        sig_den = p.sig_den,
+      },
+    }
   end
   opts.tracks = ids
   local info = paw.render(a.path, opts)
@@ -767,9 +964,7 @@ function T.render(a)
   return { render = info, loudness = loudness_of(info.path or a.path) }
 end
 
-function T.analyze(a)
-  return { loudness = loudness_of(a.path) }
-end
+function T.analyze(a) return { loudness = loudness_of(a.path) } end
 
 -- Reads ------------------------------------------------------------------------
 
@@ -801,7 +996,14 @@ function T.find_devices(a)
   local out, limit = {}, a.limit or 25
   for i = 1, math.min(limit, #found) do
     local info = found[i]
-    out[i] = { kind = info.kind, name = info.name, format = info.format, vendor = info.vendor, category = info.category, params = #info.params }
+    out[i] = {
+      kind = info.kind,
+      name = info.name,
+      format = info.format,
+      vendor = info.vendor,
+      category = info.category,
+      params = #info.params,
+    }
     if a.params then out[i].param_info = info.params end
   end
   return { total = #found, devices = out, all = #api.device_types() }
@@ -809,9 +1011,20 @@ end
 
 function T.status(a)
   local p, e = api.project_get(), api.engine_get()
-  local out = { transport = api.transport_get(), engine = e, project = {
-    name = p.name, path = p.path, modified = unsaved(p), tempo = p.tempo, sig_num = p.sig_num, sig_den = p.sig_den, length = p.length,
-  }, messages = {} }
+  local out = {
+    transport = api.transport_get(),
+    engine = e,
+    project = {
+      name = p.name,
+      path = p.path,
+      modified = unsaved(p),
+      tempo = p.tempo,
+      sig_num = p.sig_num,
+      sig_den = p.sig_den,
+      length = p.length,
+    },
+    messages = {},
+  }
   local msgs = paw.ui.messages
   for i = math.max(1, #msgs - (a.messages or 10) + 1), #msgs do
     out.messages[#out.messages + 1] = { text = msgs[i].text, level = msgs[i].level }
@@ -823,13 +1036,18 @@ end
 
 function T.find(a)
   local ok, nodes = pcall(paw.query, a.query)
-  if not ok then fail("the query `" .. a.query .. "` does not parse: " .. clean(nodes) .. " (see the `query` help page)") end
+  if not ok then
+    fail("the query `" .. a.query .. "` does not parse: " .. clean(nodes) .. " (see the `query` help page)")
+  end
   local out, limit = {}, a.limit or 50
   for i = 1, math.min(limit, #nodes) do
     local n = nodes[i]
     local d = n.data or {}
     out[i] = {
-      kind = n.kind, id = n.id or d.id, clip = n.clip, text = paw.query.describe(n),
+      kind = n.kind,
+      id = n.id or d.id,
+      clip = n.clip,
+      text = paw.query.describe(n),
       track = n.kind == "clip" and d.track or (n.track and (type(n.track) == "table" and n.track.id or n.track)) or nil,
       beat = n.kind == "note" and d.start or d.start or d.beat,
     }
@@ -842,7 +1060,8 @@ local function instrument_kinds()
   for _, info in ipairs(api.device_types()) do
     local category = (info.category or ""):lower()
     -- A plugin that does not say what it is may well be an instrument.
-    out[info.kind] = category:find("instrument", 1, true) ~= nil or category:find("synth", 1, true) ~= nil
+    out[info.kind] = category:find("instrument", 1, true) ~= nil
+      or category:find("synth", 1, true) ~= nil
       or (info.format ~= "builtin" and category == "")
   end
   return out
@@ -853,7 +1072,9 @@ function T.diagnose(a)
   local function add(severity, rule, message, where)
     counts[severity] = counts[severity] + 1
     local f = { severity = severity, rule = rule, message = message }
-    for k, v in pairs(where or {}) do f[k] = v end
+    for k, v in pairs(where or {}) do
+      f[k] = v
+    end
     findings[#findings + 1] = f
   end
   local ids = api.track_list()
@@ -864,7 +1085,9 @@ function T.diagnose(a)
   for _, id in ipairs(api.track_list()) do
     local t = api.track_get(id)
     if t.output and t.output ~= 0 then fed[t.output] = true end
-    for _, s in ipairs(t.sends or {}) do fed[s.target] = true end
+    for _, s in ipairs(t.sends or {}) do
+      fed[s.target] = true
+    end
   end
   local soloed
   for _, id in ipairs(api.track_list()) do
@@ -889,7 +1112,12 @@ function T.diagnose(a)
     for _, c in ipairs(clips) do
       if c.kind == "midi" and not c.muted then
         if c.note_count == 0 then
-          add("info", "empty_clip", string.format("clip %d %q on %s has no notes", c.id, c.name, label), { track = id, clip = c.id })
+          add(
+            "info",
+            "empty_clip",
+            string.format("clip %d %q on %s has no notes", c.id, c.name, label),
+            { track = id, clip = c.id }
+          )
         else
           sounding = sounding + c.note_count
           local beyond = 0
@@ -897,7 +1125,18 @@ function T.diagnose(a)
             if n.start >= c.length - 1e-9 then beyond = beyond + 1 end
           end
           if beyond > 0 then
-            add("warning", "notes_beyond_clip", string.format("clip %d %q has %d note%s starting after its end, which never sound", c.id, c.name, beyond, beyond == 1 and "" or "s"), { track = id, clip = c.id })
+            add(
+              "warning",
+              "notes_beyond_clip",
+              string.format(
+                "clip %d %q has %d note%s starting after its end, which never sound",
+                c.id,
+                c.name,
+                beyond,
+                beyond == 1 and "" or "s"
+              ),
+              { track = id, clip = c.id }
+            )
           end
         end
       end
@@ -905,28 +1144,59 @@ function T.diagnose(a)
     for _, d in ipairs(t.devices) do
       local dev = api.device_get(d)
       if dev.missing then
-        add("error", "missing_device", string.format("device %d %s on %s is not loaded (plugin not found)", d, dev.name, label), { track = id, device = d })
+        add(
+          "error",
+          "missing_device",
+          string.format("device %d %s on %s is not loaded (plugin not found)", d, dev.name, label),
+          { track = id, device = d }
+        )
       end
       if instruments[dev.kind] then
-        if dev.bypass then bypassed = true else has_instrument = true end
+        if dev.bypass then
+          bypassed = true
+        else
+          has_instrument = true
+        end
       end
     end
     if sounding > 0 and not has_instrument and id ~= 0 then
-      add("error", "silent_midi_track", label .. " has MIDI notes but "
-        .. (bypassed and "its instrument is bypassed" or "no instrument device") .. ": it makes no sound (add_device `synth` or `drums`)", where)
+      add(
+        "error",
+        "silent_midi_track",
+        label
+          .. " has MIDI notes but "
+          .. (bypassed and "its instrument is bypassed" or "no instrument device")
+          .. ": it makes no sound (add_device `synth` or `drums`)",
+        where
+      )
     end
     if id == 0 and #clips > 0 then
       add("warning", "clip_on_master", "the master track holds clips, which nothing plays", where)
     end
     local out = t.output
     if out and out ~= 0 and exists(api.track_get, out) and api.track_get(out).mute then
-      add("warning", "muted_destination", label .. " plays into the muted track " .. string.format("%q", api.track_get(out).name), where)
+      add(
+        "warning",
+        "muted_destination",
+        label .. " plays into the muted track " .. string.format("%q", api.track_get(out).name),
+        where
+      )
     end
     for _, s in ipairs(t.sends or {}) do
       if not exists(api.track_get, s.target) then
-        add("error", "orphan_send", label .. " has a send to a track that no longer exists (id " .. s.target .. ")", where)
+        add(
+          "error",
+          "orphan_send",
+          label .. " has a send to a track that no longer exists (id " .. s.target .. ")",
+          where
+        )
       elseif api.track_get(s.target).mute then
-        add("warning", "muted_destination", label .. " sends to the muted track " .. string.format("%q", api.track_get(s.target).name), where)
+        add(
+          "warning",
+          "muted_destination",
+          label .. " sends to the muted track " .. string.format("%q", api.track_get(s.target).name),
+          where
+        )
       end
     end
     for _, l in ipairs(api.lane_list(id)) do
@@ -935,11 +1205,26 @@ function T.diagnose(a)
         if p[2] < l.min - 1e-9 or p[2] > l.max + 1e-9 then outside = outside + 1 end
       end
       if outside > 0 then
-        add("warning", "automation_out_of_range", string.format("automation lane %d on %s has %d point%s outside its range %g to %g", l.id, label, outside, outside == 1 and "" or "s", l.min, l.max), { track = id })
+        add(
+          "warning",
+          "automation_out_of_range",
+          string.format(
+            "automation lane %d on %s has %d point%s outside its range %g to %g",
+            l.id,
+            label,
+            outside,
+            outside == 1 and "" or "s",
+            l.min,
+            l.max
+          ),
+          { track = id }
+        )
       end
     end
   end
-  for _, id in ipairs(ids) do check_track(id) end
+  for _, id in ipairs(ids) do
+    check_track(id)
+  end
   if a.track == nil then check_track(0) end
 
   local summary
@@ -951,18 +1236,40 @@ function T.diagnose(a)
       paw.emit("render.before", { path = nil, opts = range, measure = true })
       paw.flush()
       local m = api.measure({ start = 0, ["end"] = length, tail = 1 })
-      summary = { integrated = m.integrated, true_peak = m.true_peak, sample_peak = m.sample_peak, clipped_samples = m.clipped_samples, lra = m.lra }
-      if not m.sound_start then
-        add("error", "silent_mix", "the mix is silent: nothing rises above -60 dBFS")
-      end
+      summary = {
+        integrated = m.integrated,
+        true_peak = m.true_peak,
+        sample_peak = m.sample_peak,
+        clipped_samples = m.clipped_samples,
+        lra = m.lra,
+      }
+      if not m.sound_start then add("error", "silent_mix", "the mix is silent: nothing rises above -60 dBFS") end
       if (m.over_samples or 0) > 0 or (m.clipped_samples or 0) > 0 then
-        add("error", "clipping", string.format("the mix clips: %d sample%s at or over full scale (sample peak %.1f dBFS)", m.clipped_samples, m.clipped_samples == 1 and "" or "s", m.sample_peak))
+        add(
+          "error",
+          "clipping",
+          string.format(
+            "the mix clips: %d sample%s at or over full scale (sample peak %.1f dBFS)",
+            m.clipped_samples,
+            m.clipped_samples == 1 and "" or "s",
+            m.sample_peak
+          )
+        )
       elseif m.true_peak and m.true_peak > -1 then
-        add("warning", "true_peak", string.format("the true peak is %.1f dBTP, over the -1 dBTP streaming services ask for", m.true_peak))
+        add(
+          "warning",
+          "true_peak",
+          string.format("the true peak is %.1f dBTP, over the -1 dBTP streaming services ask for", m.true_peak)
+        )
       end
       for _, tp in ipairs(m.tracks or {}) do
         if tp.over_at and exists(api.track_get, tp.id) then
-          add("warning", "track_clipping", string.format("track %q goes over full scale at %.1f s", api.track_get(tp.id).name, tp.over_at), { track = tp.id })
+          add(
+            "warning",
+            "track_clipping",
+            string.format("track %q goes over full scale at %.1f s", api.track_get(tp.id).name, tp.over_at),
+            { track = tp.id }
+          )
         end
       end
     end
@@ -975,7 +1282,8 @@ function T.diagnose(a)
     for i, d in ipairs(list) do
       if i > 50 then break end
       local sev = ({ "error", "warning", "info", "info" })[d.severity] or "info"
-      published[#published + 1] = { severity = sev, source = d.source, message = tostring(d.message), where = paw.diagnostic.where(d) }
+      published[#published + 1] =
+        { severity = sev, source = d.source, message = tostring(d.message), where = paw.diagnostic.where(d) }
     end
   end
   return { findings = findings, counts = counts, measure = summary, published = published }
@@ -998,7 +1306,9 @@ function T.lua(a)
   local chunk = loadstring("return " .. a.code, "=lua") or assert(loadstring(a.code, "=lua"))
   local results = { chunk() }
   local shown = {}
-  for i = 1, table.maxn(results) do shown[i] = paw.inspect(results[i]) end
+  for i = 1, table.maxn(results) do
+    shown[i] = paw.inspect(results[i])
+  end
   return { result = table.concat(shown, "\n") }
 end
 
@@ -1041,9 +1351,22 @@ end
 -- Entry ------------------------------------------------------------------------
 
 local writes = {
-  add_track = true, set_track = true, remove = true, add_clip = true, edit_clip = true, add_device = true,
-  set_device = true, automate = true, set_project = true, marker = true, duplicate_clip = true,
-  repeat_bars = true, batch = true, command = true, keys = true, lua = true,
+  add_track = true,
+  set_track = true,
+  remove = true,
+  add_clip = true,
+  edit_clip = true,
+  add_device = true,
+  set_device = true,
+  automate = true,
+  set_project = true,
+  marker = true,
+  duplicate_clip = true,
+  repeat_bars = true,
+  batch = true,
+  command = true,
+  keys = true,
+  lua = true,
 }
 local rollback = { command = false, keys = false, lua = false }
 

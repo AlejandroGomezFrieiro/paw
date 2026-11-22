@@ -21,8 +21,9 @@ local function said(id, slot, path)
   local words = words_of(id, slot, path)
   local a = plugstate.adapter_of(id)
   local name = a and a.name_of and a.name_of(path) or plugstate.stem(path)
-  paw.notify(string.format("%s: %s %s%s", device_name(id), slot.what or "file", name,
-    words and ("  (" .. words .. ")") or ""))
+  paw.notify(
+    string.format("%s: %s %s%s", device_name(id), slot.what or "file", name, words and ("  (" .. words .. ")") or "")
+  )
 end
 
 --- Set the slot to a file, and say so.
@@ -50,7 +51,10 @@ function plugstate.pick(id, slot, query)
       return string.format("%s %-32s %s", now, f.name, f.folder)
     end,
     primary = function(f) return f.name end,
-    empty = "no " .. (slot.what or "file") .. " files in " .. table.concat(roots, ", ")
+    empty = "no "
+      .. (slot.what or "file")
+      .. " files in "
+      .. table.concat(roots, ", ")
       .. " (the folders are paw.opt.plugstate_folders)",
     on_choose = function(f) load(id, slot, f.path) end,
     audition_key = "plugstate",
@@ -76,7 +80,9 @@ end
 local function slot_and_words(ctx)
   local slot = ctx.args.slot and tostring(ctx.args.slot) or nil
   local words = {}
-  for _, w in ipairs(ctx.args) do words[#words + 1] = tostring(w) end
+  for _, w in ipairs(ctx.args) do
+    words[#words + 1] = tostring(w)
+  end
   return slot, table.concat(words, " ")
 end
 
@@ -87,7 +93,9 @@ command("plugstate.load", function(ctx)
   if not id then return end
   local key, text = slot_and_words(ctx)
   local slot = plugstate.slot(id, key)
-  if not slot then return paw.notify(device_name(id) .. ": no " .. (key or "file") .. " to set (`:plugstate.info` lists them)", "warn") end
+  if not slot then
+    return paw.notify(device_name(id) .. ": no " .. (key or "file") .. " to set (`:plugstate.info` lists them)", "warn")
+  end
   local path = text:gsub("^~", os.getenv("HOME") or "~")
   if slot.kind ~= "file" and text ~= "" then return load(id, slot, text) end
   if path ~= "" and exists(path) then return load(id, slot, path) end
@@ -112,12 +120,22 @@ command("plugstate.at", function(ctx)
     state, why = plugstate.lane_snapshot(id, tostring(ctx.args.snapshot))
   else
     local slot = plugstate.slot(id, key)
-    if not slot then return paw.notify(device_name(id) .. ": no " .. (key or "file") .. " to set (`:plugstate.info` lists them)", "warn") end
+    if not slot then
+      return paw.notify(
+        device_name(id) .. ": no " .. (key or "file") .. " to set (`:plugstate.info` lists them)",
+        "warn"
+      )
+    end
     local value = text
     if slot.kind == "file" and not exists((text:gsub("^~", os.getenv("HOME") or "~"))) then
       local found = text ~= "" and plugstate.search(slot, text) or {}
       if #found ~= 1 then
-        return paw.notify(device_name(id) .. ": " .. (#found == 0 and "no file found by `" .. text .. "`" or #found .. " files found: give more words"), "warn")
+        return paw.notify(
+          device_name(id)
+            .. ": "
+            .. (#found == 0 and "no file found by `" .. text .. "`" or #found .. " files found: give more words"),
+          "warn"
+        )
       end
       value = found[1].path
     end
@@ -139,9 +157,20 @@ local function step(n)
     if not id then return end
     local key = ctx.args.slot and tostring(ctx.args.slot) or nil
     local slot = plugstate.slot(id, key)
-    if not slot or slot.kind ~= "file" then return paw.notify(device_name(id) .. ": no file to step through", "warn") end
+    if not slot or slot.kind ~= "file" then
+      return paw.notify(device_name(id) .. ": no file to step through", "warn")
+    end
     local f = plugstate.neighbour(slot, n * (ctx.count or 1))
-    if not f then return paw.notify(device_name(id) .. ": no " .. (slot.what or "file") .. " files beside it or in " .. table.concat(plugstate.roots(), ", "), "warn") end
+    if not f then
+      return paw.notify(
+        device_name(id)
+          .. ": no "
+          .. (slot.what or "file")
+          .. " files beside it or in "
+          .. table.concat(plugstate.roots(), ", "),
+        "warn"
+      )
+    end
     load(id, slot, f.path)
   end
 end
@@ -157,8 +186,13 @@ command("plugstate.info", function()
   if api.device_get(id).plugin then
     local doc = require("plugstate.juceplugins").open(id)
     if doc then
-      lines[#lines + 1] = "state: " .. (doc.title or doc.framework) .. " · " .. table.concat(doc:layer_names(), " › ")
-        .. " · " .. #doc:params() .. " parameters in it"
+      lines[#lines + 1] = "state: "
+        .. (doc.title or doc.framework)
+        .. " · "
+        .. table.concat(doc:layer_names(), " › ")
+        .. " · "
+        .. #doc:params()
+        .. " parameters in it"
     end
   end
   for _, s in ipairs(plugstate.slots(id)) do
@@ -175,34 +209,54 @@ command("plugstate.info", function()
   local snaps = plugstate.snapshots(id)
   if #snaps > 0 then
     local names = {}
-    for _, s in ipairs(snaps) do names[#names + 1] = (s.name == plugstate.current(id) and "●" or "") .. s.name end
+    for _, s in ipairs(snaps) do
+      names[#names + 1] = (s.name == plugstate.current(id) and "●" or "") .. s.name
+    end
     lines[#lines + 1] = "snapshots: " .. table.concat(names, ", ")
   end
   paw.notify(table.concat(lines, "\n"))
 end, { desc = "What the plugin holds besides its parameters (its files), and its snapshots" })
 
-command("plugstate.files", function(ctx)
-  local id = target()
-  if not id then return end
-  local key, text = slot_and_words(ctx)
-  local slot = plugstate.slot(id, key)
-  if not slot or slot.kind ~= "file" then return paw.notify(device_name(id) .. ": no file to list", "warn") end
-  local found = plugstate.search(slot, text)
-  local lines = { string.format("%d %s files%s", #found, slot.what or "", text ~= "" and (" with “" .. text .. "”") or "") }
-  for i, f in ipairs(found) do
-    if i > 40 then lines[#lines + 1] = "…" break end
-    lines[#lines + 1] = (f.path == slot.value and "● " or "  ") .. f.name .. (f.folder ~= "" and ("  " .. f.folder) or "")
-  end
-  paw.notify(table.concat(lines, "\n"))
-end, { desc = "List the files the plugin can load, in the library folders: `plugstate.files clean` lists those with the word" })
+command(
+  "plugstate.files",
+  function(ctx)
+    local id = target()
+    if not id then return end
+    local key, text = slot_and_words(ctx)
+    local slot = plugstate.slot(id, key)
+    if not slot or slot.kind ~= "file" then return paw.notify(device_name(id) .. ": no file to list", "warn") end
+    local found = plugstate.search(slot, text)
+    local lines =
+      { string.format("%d %s files%s", #found, slot.what or "", text ~= "" and (" with “" .. text .. "”") or "") }
+    for i, f in ipairs(found) do
+      if i > 40 then
+        lines[#lines + 1] = "…"
+        break
+      end
+      lines[#lines + 1] = (f.path == slot.value and "● " or "  ")
+        .. f.name
+        .. (f.folder ~= "" and ("  " .. f.folder) or "")
+    end
+    paw.notify(table.concat(lines, "\n"))
+  end,
+  {
+    desc = "List the files the plugin can load, in the library folders: `plugstate.files clean` lists those with the word",
+  }
+)
 
-command("plugstate.snapshot", function(ctx)
-  local id = target()
-  if not id then return end
-  local name = table.concat(ctx.args, " ")
-  local kept, replaced = plugstate.snapshot(id, name)
-  paw.notify(string.format("%s: snapshot %s %s", device_name(id), kept, replaced and "replaced" or "kept"))
-end, { desc = "Keep the plugin's whole state as a named snapshot in the project: `plugstate.snapshot crunch` (none: A, B, C...)" })
+command(
+  "plugstate.snapshot",
+  function(ctx)
+    local id = target()
+    if not id then return end
+    local name = table.concat(ctx.args, " ")
+    local kept, replaced = plugstate.snapshot(id, name)
+    paw.notify(string.format("%s: snapshot %s %s", device_name(id), kept, replaced and "replaced" or "kept"))
+  end,
+  {
+    desc = "Keep the plugin's whole state as a named snapshot in the project: `plugstate.snapshot crunch` (none: A, B, C...)",
+  }
+)
 
 local function recalled(id, snap, err)
   if not snap then return paw.notify(device_name(id) .. ": " .. tostring(err), "warn") end
@@ -238,7 +292,9 @@ end, {
   complete = function()
     local id = plugstate.target()
     local names = {}
-    for _, s in ipairs(id and plugstate.snapshots(id) or {}) do names[#names + 1] = s.name end
+    for _, s in ipairs(id and plugstate.snapshots(id) or {}) do
+      names[#names + 1] = s.name
+    end
     return names
   end,
 })
@@ -264,7 +320,9 @@ end, { desc = "Forget a snapshot: `plugstate.forget crunch`" })
 
 command("plugstate.adapters", function()
   local lines = {}
-  for _, a in ipairs(plugstate.adapters) do lines[#lines + 1] = string.format("%-8s %s", a.name, a.desc or "") end
+  for _, a in ipairs(plugstate.adapters) do
+    lines[#lines + 1] = string.format("%-8s %s", a.name, a.desc or "")
+  end
   paw.notify(table.concat(lines, "\n"))
 end, { desc = "The kinds of plugin plugstate knows, and what of their state it sets" })
 

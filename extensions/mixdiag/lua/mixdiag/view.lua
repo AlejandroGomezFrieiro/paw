@@ -23,24 +23,41 @@ local list = { title = "Mix report", items = {}, at = 1, scroll = 0, modal = tru
 local function head(mixdiag)
   local target = mixdiag.target()
   local lines = {}
-  local aim = target.integrated and string.format("target %s: %g LUFS, %g dBTP", target.name, target.integrated, target.true_peak or 0)
+  local aim = target.integrated
+      and string.format("target %s: %g LUFS, %g dBTP", target.name, target.integrated, target.true_peak or 0)
     or "target: " .. target.name
   if mixdiag.job then
-    lines[1] = { string.format("measuring the %s… %d%%", mixdiag.job.range.label, math.floor((mixdiag.job.progress or 0) * 100 + 0.5)), "Warn" }
+    lines[1] = {
+      string.format(
+        "measuring the %s… %d%%",
+        mixdiag.job.range.label,
+        math.floor((mixdiag.job.progress or 0) * 100 + 0.5)
+      ),
+      "Warn",
+    }
   elseif mixdiag.result then
     local range = mixdiag.range_measured and mixdiag.range_measured.label or "mix"
-    lines[1] = { "the " .. range .. (mixdiag.stale() and ", measured before the last change" or ""), mixdiag.stale() and "Warn" or "Title" }
+    lines[1] = {
+      "the " .. range .. (mixdiag.stale() and ", measured before the last change" or ""),
+      mixdiag.stale() and "Warn" or "Title",
+    }
   else
     lines[1] = { "nothing measured yet", "Dim" }
   end
-  lines[2] = { mixdiag.result and mixdiag.summary(mixdiag.result) or "a measures the song, l the loop, t the cursor's track", mixdiag.result and "Normal" or "Dim" }
+  lines[2] = {
+    mixdiag.result and mixdiag.summary(mixdiag.result) or "a measures the song, l the loop, t the cursor's track",
+    mixdiag.result and "Normal" or "Dim",
+  }
   local counts = {}
-  for _, f in ipairs(mixdiag.findings or {}) do counts[f.severity] = (counts[f.severity] or 0) + 1 end
+  for _, f in ipairs(mixdiag.findings or {}) do
+    counts[f.severity] = (counts[f.severity] or 0) + 1
+  end
   local tally = {}
   for _, s in ipairs(mixdiag.severities) do
     if counts[s] then tally[#tally + 1] = counts[s] .. " " .. s end
   end
-  lines[3] = { (mixdiag.result and (#tally > 0 and table.concat(tally, ", ") or "no findings") .. "   " or "") .. aim, "Dim" }
+  lines[3] =
+    { (mixdiag.result and (#tally > 0 and table.concat(tally, ", ") or "no findings") .. "   " or "") .. aim, "Dim" }
   return lines
 end
 
@@ -49,7 +66,9 @@ function list:render(buf)
   self.items = mixdiag.result and mixdiag.items() or {}
   self.at = paw.util.clamp(self.at, 1, math.max(1, #self.items))
   local top = head(mixdiag)
-  for i, line in ipairs(top) do buf:text(1, i - 1, paw.util.fit(line[1], math.max(1, buf.width - 2)), line[2]) end
+  for i, line in ipairs(top) do
+    buf:text(1, i - 1, paw.util.fit(line[1], math.max(1, buf.width - 2)), line[2])
+  end
   buf:fill(0, #top, buf.width, 1, paw.draw.g.h, "Rule")
   local first = #top + 1
   local rows = buf.height - first - 1
@@ -64,7 +83,15 @@ function list:render(buf)
     if i == self.at then buf:fill(0, first + row, buf.width, 1, " ", "Visual") end
     buf:text(1, first + row, paw.util.fit(item.text, math.max(1, buf.width - 2)), styles[item.severity] or "Normal")
   end
-  buf:text(1, buf.height - 1, paw.util.fit("j/k move  Enter go there  a measure the song  l the loop  t the track  T target  q close", buf.width - 2), "Dim")
+  buf:text(
+    1,
+    buf.height - 1,
+    paw.util.fit(
+      "j/k move  Enter go there  a measure the song  l the loop  t the track  T target  q close",
+      buf.width - 2
+    ),
+    "Dim"
+  )
 end
 
 --- Go to the finding chosen. Floating, the report closes first; in a window
@@ -97,7 +124,9 @@ local actions = {
   q = function() paw.ui.close() end,
   -- Escape closes the report only while it floats, as a prompt does; in a
   -- window of its own it stays, and `q` closes it.
-  ["<Esc>"] = function() if paw.ui.float then paw.ui.close() end end,
+  ["<Esc>"] = function()
+    if paw.ui.float then paw.ui.close() end
+  end,
 }
 actions["<Down>"], actions["<Up>"], actions["<Enter>"] = actions.j, actions.k, actions["<CR>"]
 
@@ -114,7 +143,11 @@ function list:on_mouse(event)
     local i = event.y - self.first + 1 + self.scroll
     if event.y >= self.first and event.y < self.first + self.rows and self.items[i] then
       -- A click chooses a finding; a click on the one chosen goes there.
-      if i == self.at then go() else self.at = i end
+      if i == self.at then
+        go()
+      else
+        self.at = i
+      end
     end
   end
   api.ui_redraw()
@@ -127,7 +160,9 @@ function M.open()
   list.at, list.scroll = 1, 0
   local items = require("mixdiag").items()
   local width = 60
-  for _, item in ipairs(items) do width = math.max(width, api.str_width(item.text) + 6) end
+  for _, item in ipairs(items) do
+    width = math.max(width, api.str_width(item.text) + 6)
+  end
   paw.ui.open("mixdiag", { title = "Mix report", width = math.min(width, 140), height = math.min(#items + 8, 30) })
 end
 
@@ -159,7 +194,9 @@ function strip:render(buf)
         columns[x] = mark.severity
       end
     end
-    for x, severity in pairs(columns) do buf:text(x, 0, glyphs[severity], styles[severity]) end
+    for x, severity in pairs(columns) do
+      buf:text(x, 0, glyphs[severity], styles[severity])
+    end
   else
     buf:text(0, 0, " mix" .. (label or ""), "Dim")
   end
@@ -192,7 +229,10 @@ if paw.frontend and paw.frontend.bands then
       local f = flag.worst
       flag.name = flag.count > 1 and (f.rule .. " +" .. (flag.count - 1)) or f.rule
       flag.color = colours[f.severity]
-      flag.hint = f.severity .. ": " .. mixdiag.format(f) .. (flag.count > 1 and string.format(" (and %d more here)", flag.count - 1) or "")
+      flag.hint = f.severity
+        .. ": "
+        .. mixdiag.format(f)
+        .. (flag.count > 1 and string.format(" (and %d more here)", flag.count - 1) or "")
       flag.run = function() mixdiag.jump(f) end
     end
     return out
@@ -213,8 +253,6 @@ function M.strip(show)
   end
 end
 
-function M.strip_visible()
-  return docked and paw.ui.visible("mixdiag_strip")
-end
+function M.strip_visible() return docked and paw.ui.visible("mixdiag_strip") end
 
 return M

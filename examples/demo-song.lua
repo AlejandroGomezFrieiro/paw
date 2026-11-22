@@ -3,8 +3,12 @@
 -- then a phrase in two voices), a melody over the second half that leaves
 -- its last bar open, and a reverb they are sent to.
 paw.project.tempo = 108
-local function clip(track, start, length, name, notes) return track:add_clip({ start = start, length = length, name = name, notes = notes }) end
-local function note(pitch, start, length, velocity) return { pitch = pitch, start = start, length = length, velocity = velocity } end
+local function clip(track, start, length, name, notes)
+  return track:add_clip({ start = start, length = length, name = name, notes = notes })
+end
+local function note(pitch, start, length, velocity)
+  return { pitch = pitch, start = start, length = length, velocity = velocity }
+end
 
 local drums = paw.add_track({ name = "Drums", volume = -2 })
 drums:add_device("drums")
@@ -15,10 +19,14 @@ for bar = 0, 7 do
     local t = s * 0.5
     if s == 0 or s == 4 or s == 5 and not fill then n[#n + 1] = note(36, t, 0.25, 110) end
     if s == 2 or s == 6 and not fill then n[#n + 1] = note(38, t, 0.25, 105) end
-    if not (fill and s >= 6) then n[#n + 1] = note(s == 7 and bar % 2 == 1 and 46 or 42, t, 0.25, s % 2 == 0 and 92 or 58) end
+    if not (fill and s >= 6) then
+      n[#n + 1] = note(s == 7 and bar % 2 == 1 and 46 or 42, t, 0.25, s % 2 == 0 and 92 or 58)
+    end
   end
   if fill then
-    for i, t in ipairs({ 3, 3.25, 3.5, 3.75 }) do n[#n + 1] = note(i < 3 and 38 or 45, t, 0.25, 70 + i * 12) end
+    for i, t in ipairs({ 3, 3.25, 3.5, 3.75 }) do
+      n[#n + 1] = note(i < 3 and 38 or 45, t, 0.25, 70 + i * 12)
+    end
   end
   clip(drums, bar * 4, 4, fill and "fill" or "beat", n)
 end
@@ -56,7 +64,9 @@ n = {}
 local lines = { { 64, 69, 72, 69 }, { 65, 69, 72, 69 }, { 64, 67, 72, 67 }, { 64, 68, 71, 68 } }
 for bar = 0, 3 do
   n[#n + 1] = note(bar == 3 and 59 or 60, bar * 4, 4, 70)
-  for b, p in ipairs(lines[bar + 1]) do n[#n + 1] = note(p, bar * 4 + b - 1, 1, b == 1 and 84 or 72) end
+  for b, p in ipairs(lines[bar + 1]) do
+    n[#n + 1] = note(p, bar * 4 + b - 1, 1, b == 1 and 84 or 72)
+  end
 end
 clip(keys, 16, 16, "phrase", n)
 
@@ -64,12 +74,23 @@ clip(keys, 16, 16, "phrase", n)
 local lead = paw.add_track({ name = "Lead", volume = -7, pan = 0.2 })
 lead:add_device("synth", { wave = 2, cutoff = 2200, attack = 0.01, release = 0.25 })
 local tune = {
-  { 76, 0, 1 }, { 74, 1, 0.5 }, { 72, 1.5, 0.5 }, { 74, 2, 1 }, { 76, 3, 1 },
-  { 72, 4, 1.5 }, { 69, 5.5, 0.5 }, { 69, 6, 2 },
-  { 67, 8, 1 }, { 72, 9, 1 }, { 76, 10, 1 }, { 79, 11, 1 },
+  { 76, 0, 1 },
+  { 74, 1, 0.5 },
+  { 72, 1.5, 0.5 },
+  { 74, 2, 1 },
+  { 76, 3, 1 },
+  { 72, 4, 1.5 },
+  { 69, 5.5, 0.5 },
+  { 69, 6, 2 },
+  { 67, 8, 1 },
+  { 72, 9, 1 },
+  { 76, 10, 1 },
+  { 79, 11, 1 },
 }
 n = {}
-for i, t in ipairs(tune) do n[i] = note(t[1], t[2], t[3] * 0.9, 64 + (i * 23) % 36) end
+for i, t in ipairs(tune) do
+  n[i] = note(t[1], t[2], t[3] * 0.9, 64 + (i * 23) % 36)
+end
 clip(lead, 16, 16, "melody", n)
 lead:automate("volume"):set_points({ { 14, -20 }, { 16, -7 }, { 28, -7 }, { 32, -12 } })
 

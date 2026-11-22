@@ -38,9 +38,7 @@ function M.info(which)
   if type(info) == "table" and type(info.rows) == "table" then return info end
 end
 
-function M.is_drum(which)
-  return M.info(which) ~= nil
-end
+function M.is_drum(which) return M.info(which) ~= nil end
 
 --- Make a track a drum track with a map: the name of one in `drums.maps`,
 --- or a list of rows `{ note, name }`. `label` names a list of rows.
@@ -52,7 +50,9 @@ function M.set_map(which, map, label)
   else
     name = map or paw.opt.drums_map
     local def = M.maps[name]
-    if not def then error("no drum map `" .. tostring(name) .. "`: there are " .. table.concat(M.map_names(), ", "), 0) end
+    if not def then
+      error("no drum map `" .. tostring(name) .. "`: there are " .. table.concat(M.map_names(), ", "), 0)
+    end
     rows = def.rows
   end
   if #rows == 0 then error("a drum map needs at least one row", 0) end
@@ -146,8 +146,6 @@ function M.hear(which, note, velocity)
 end
 
 --- Clamp a velocity to MIDI's.
-function M.clamp_velocity(v)
-  return util.clamp(math.floor(v + 0.5), 1, 127)
-end
+function M.clamp_velocity(v) return util.clamp(math.floor(v + 0.5), 1, 127) end
 
 return M

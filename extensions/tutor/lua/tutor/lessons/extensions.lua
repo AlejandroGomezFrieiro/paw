@@ -1,7 +1,5 @@
 -- Lesson 16: what each bundled extension adds, one thing to try in each.
-local function loaded(name)
-  return paw.ext.loaded[name] ~= nil and paw.ext.loaded[name].ok
-end
+local function loaded(name) return paw.ext.loaded[name] ~= nil and paw.ext.loaded[name].ok end
 
 return {
   id = "extensions",
@@ -33,7 +31,12 @@ extensions.]],
     drums:add_device("drums")
     local keys = paw.add_track({ name = "Keys", volume = -8 })
     keys:add_device("synth", { wave = 1, attack = 0.01, release = 0.3, cutoff = 2200 })
-    keys:add_clip({ name = "tune", start = 0, length = 8, notes = look.notes("C4:0:1 D4:1:1 E4:2:1 G4:3:1 E4:4:1 D4:5:1 C4:6:2") })
+    keys:add_clip({
+      name = "tune",
+      start = 0,
+      length = 8,
+      notes = look.notes("C4:0:1 D4:1:1 E4:2:1 G4:3:1 E4:4:1 D4:5:1 C4:6:2"),
+    })
     paw.transport.loop_start, paw.transport.loop_end, paw.transport.loop_enabled = 0, 8, true
   end,
   at = function() paw.cursor.set_track(paw.track("Drums")) end,
@@ -54,7 +57,8 @@ extensions.]],
       say = "musicops adds musical operators under `gz`. Type `:tutor.try musicops` and `<CR>`. Press `j` to go to Keys. Press `gzkic` to move each note of the clip one step up the scale.",
       keys = { ":tutor.try musicops", "<CR>", "j", "gzkic" },
       check = function(_, look)
-        return loaded("musicops") and look.melody(look.clip("Keys")) == "62@0+1 64@1+1 65@2+1 69@3+1 65@4+1 64@5+1 62@6+2"
+        return loaded("musicops")
+          and look.melody(look.clip("Keys")) == "62@0+1 64@1+1 65@2+1 69@3+1 65@4+1 64@5+1 62@6+2"
       end,
       done = "The tune is D E F A F E D now. It moved in C major. `gzh` humanizes, `gzs` strums, and `.` repeats them.",
     },

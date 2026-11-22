@@ -18,14 +18,16 @@ paw.ui.hl("TutorDim", { fg = "#565f89" })
 function M.keys(text)
   local leader, localleader = paw.opt.leader, paw.opt.localleader
   if leader == " " then leader = "<Space>" end
-  return (text:gsub("`([^`]*)`", function(code)
-    if code:match("^<[Ll]eader>") then
-      code = code:gsub("<[Ll]eader>", function() return leader end)
-    elseif #code > 1 and code:sub(1, 1) == "\\" and localleader ~= "\\" then
-      code = localleader .. code:sub(2)
-    end
-    return "`" .. code .. "`"
-  end))
+  return (
+    text:gsub("`([^`]*)`", function(code)
+      if code:match("^<[Ll]eader>") then
+        code = code:gsub("<[Ll]eader>", function() return leader end)
+      elseif #code > 1 and code:sub(1, 1) == "\\" and localleader ~= "\\" then
+        code = localleader .. code:sub(2)
+      end
+      return "`" .. code .. "`"
+    end)
+  )
 end
 
 --- Split text into words, each with a style (`code` in the key style) and
@@ -40,7 +42,8 @@ local function words(text, style)
       out[#out + 1] = { text = word, style = style, space = space ~= "" }
     end
     if not s then break end
-    out[#out + 1] = { text = text:sub(s + 1, e - 1), style = "TutorKey", space = s > 1 and text:sub(s - 1, s - 1):match("%s") ~= nil }
+    out[#out + 1] =
+      { text = text:sub(s + 1, e - 1), style = "TutorKey", space = s > 1 and text:sub(s - 1, s - 1):match("%s") ~= nil }
     pos = e + 1
   end
   return out
@@ -77,7 +80,10 @@ function M.paragraphs()
     return out
   end
   if S.paused then
-    add("This is not the lesson's project, so the tutor is waiting. `:tutor` goes back to the lesson, `<leader>hq` leaves the tutor.", "TutorHint")
+    add(
+      "This is not the lesson's project, so the tutor is waiting. `:tutor` goes back to the lesson, `<leader>hq` leaves the tutor.",
+      "TutorHint"
+    )
     return out
   end
   if S.just_done then add("✓ " .. S.just_done, "TutorDone") end
@@ -86,7 +92,14 @@ function M.paragraphs()
     local n = tutor.number(lesson)
     local following = tutor.lessons[n + 1]
     if following then
-      add(string.format("Lesson done. `<leader>hn` goes on to lesson %d, %s; `<leader>hl` lists the lessons; `<leader>hq` leaves the tutor; `:help course-%d` is this lesson to read again.", n + 1, following.title, n))
+      add(
+        string.format(
+          "Lesson done. `<leader>hn` goes on to lesson %d, %s; `<leader>hl` lists the lessons; `<leader>hq` leaves the tutor; `:help course-%d` is this lesson to read again.",
+          n + 1,
+          following.title,
+          n
+        )
+      )
     else
       add("That was the last lesson. `<leader>hl` lists them all; `<leader>hq` leaves the tutor.")
     end
@@ -97,7 +110,12 @@ function M.paragraphs()
   if step.unchecked then
     add("The tutor cannot see this one happen: press `<leader>hn` when you have done it.", "TutorDim")
   end
-  if S.hint then add("Hint: " .. (step.hint or "Do exactly the keys shown, in order. `<leader>hr` starts the lesson again."), "TutorHint") end
+  if S.hint then
+    add(
+      "Hint: " .. (step.hint or "Do exactly the keys shown, in order. `<leader>hr` starts the lesson again."),
+      "TutorHint"
+    )
+  end
   if S.error then add("The tutor's check failed: " .. S.error, "Error") end
   return out
 end
@@ -120,7 +138,9 @@ function view:render(buf)
   local body_rows = h - 1
   local rows = {}
   for _, para in ipairs(M.paragraphs()) do
-    for _, line in ipairs(wrap(words(para.text, para.style), w - 2)) do rows[#rows + 1] = line end
+    for _, line in ipairs(wrap(words(para.text, para.style), w - 2)) do
+      rows[#rows + 1] = line
+    end
   end
   -- When it does not all fit, what was just done gives way to what to do.
   while #rows > body_rows and #rows > 0 and S.just_done do
@@ -129,10 +149,13 @@ function view:render(buf)
   end
   for _, line in ipairs(rows) do
     if y >= body_rows then break end
-    for _, piece in ipairs(line) do inner:text(1 + piece.x, y, piece.text, piece.style) end
+    for _, piece in ipairs(line) do
+      inner:text(1 + piece.x, y, piece.text, piece.style)
+    end
     y = y + 1
   end
-  local footer = "`<leader>hh` hint · `<leader>hn` skip · `<leader>hr` restart · `<leader>hl` lessons · `<leader>hq` leave"
+  local footer =
+    "`<leader>hh` hint · `<leader>hn` skip · `<leader>hr` restart · `<leader>hl` lessons · `<leader>hq` leave"
   -- The lesson's page of help, where there is room for it.
   local page = lesson and string.format(" · `:help course-%d` the lesson to read", tutor.number(lesson))
   if page and api.str_width((footer .. page):gsub("`", "")) < w - 2 then footer = footer .. page end
@@ -158,7 +181,9 @@ end
 --- The panel as lines of text, for tests and for reading.
 function M.text()
   local lines = {}
-  for _, para in ipairs(M.paragraphs()) do lines[#lines + 1] = para.text end
+  for _, para in ipairs(M.paragraphs()) do
+    lines[#lines + 1] = para.text
+  end
   return table.concat(lines, "\n")
 end
 

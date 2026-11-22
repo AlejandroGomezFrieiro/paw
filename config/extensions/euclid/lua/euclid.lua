@@ -16,7 +16,8 @@ function M.notes(pattern, opts)
   local notes = {}
   for i, hit in ipairs(pattern) do
     if hit then
-      notes[#notes + 1] = { pitch = opts.pitch, start = (i - 1) * opts.step, length = opts.step, velocity = opts.velocity }
+      notes[#notes + 1] =
+        { pitch = opts.pitch, start = (i - 1) * opts.step, length = opts.step, velocity = opts.velocity }
     end
   end
   return notes

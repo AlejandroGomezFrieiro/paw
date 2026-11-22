@@ -11,9 +11,15 @@ local api = paw.api
 -- happens to theirs.
 local function start()
   fresh()
-  api.engine_restart({ backend = "null", test_input = { frequency = 440, level = -12, channels = 2 }, test_midi = { "Keystation 49" } })
+  api.engine_restart({
+    backend = "null",
+    test_input = { frequency = 440, level = -12, channels = 2 },
+    test_midi = { "Keystation 49" },
+  })
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.focus("arrange")
   T.after(function() api.engine_restart({ backend = "null" }) end)
 end
@@ -55,7 +61,9 @@ end
 
 local function names()
   local out = {}
-  for _, t in ipairs(paw.tracks()) do out[#out + 1] = t.name end
+  for _, t in ipairs(paw.tracks()) do
+    out[#out + 1] = t.name
+  end
   return table.concat(out, " ")
 end
 
@@ -63,7 +71,9 @@ local function cursor_track() return paw.cursor.track() and paw.cursor.track().n
 
 local function notes(clip)
   local out = {}
-  for _, n in ipairs(clip:notes()) do out[#out + 1] = string.format("%d@%g+%g v%d", n.pitch, n.start, n.length, n.velocity) end
+  for _, n in ipairs(clip:notes()) do
+    out[#out + 1] = string.format("%d@%g+%g v%d", n.pitch, n.start, n.length, n.velocity)
+  end
   table.sort(out)
   return table.concat(out, " ")
 end
@@ -89,8 +99,14 @@ test("guide: start paw the first time and hear sound", function()
   local pipe = io.popen("readlink /proc/" .. api.env().pid .. "/exe")
   local binary = pipe:read("*l")
   pipe:close()
-  os.execute(string.format("XDG_STATE_HOME='%s/guide-state' '%s' doctor --clean --no-plugins --audio null --only system > '%s' 2>/dev/null",
-    T.scratch, binary, out))
+  os.execute(
+    string.format(
+      "XDG_STATE_HOME='%s/guide-state' '%s' doctor --clean --no-plugins --audio null --only system > '%s' 2>/dev/null",
+      T.scratch,
+      binary,
+      out
+    )
+  )
   local report = T.read_file(out)
   eq(report:find("The sound system", 1, true) ~= nil, true, "the report has the sound system")
   eq(report:find("null", 1, true) ~= nil, true, "and names the backend")
@@ -106,10 +122,16 @@ test("guide: start paw the first time and hear sound", function()
   keys(":doctor output<CR>")
   local doctor = require("doctor")
   local limit = api.now() + 20000
-  while doctor.running() and api.now() < limit do paw.wait(20) end
+  while doctor.running() and api.now() < limit do
+    paw.wait(20)
+  end
   local result = doctor.run().done[1]
   eq(result.id, "output", "the output check ran")
-  eq(result.status .. ": " .. result.summary, "skip: the null backend makes no sound to listen to", "and on the null backend says so")
+  eq(
+    result.status .. ": " .. result.summary,
+    "skip: the null backend makes no sound to listen to",
+    "and on the null backend says so"
+  )
   keys("q")
   paw.ui.focus("arrange")
   -- An instrument.
@@ -144,10 +166,19 @@ test("guide: connect a MIDI keyboard", function()
   local function play()
     -- The note before dies away first.
     local quiet = api.now() + 3000
-    while t:meter() > 0.0005 and api.now() < quiet do paw.wait(20) end
-    return loudest(t, 300, function() paw.midi.inject({ type = "note_on", pitch = 60, velocity = 100, port = "Keystation 49" }) end)
+    while t:meter() > 0.0005 and api.now() < quiet do
+      paw.wait(20)
+    end
+    return loudest(
+      t,
+      300,
+      function() paw.midi.inject({ type = "note_on", pitch = 60, velocity = 100, port = "Keystation 49" }) end
+    )
   end
-  local function release() paw.midi.inject({ type = "note_off", pitch = 60, port = "Keystation 49" }) paw.wait(100) end
+  local function release()
+    paw.midi.inject({ type = "note_off", pitch = 60, port = "Keystation 49" })
+    paw.wait(100)
+  end
   eq(play() > 0.01, true, "the selected track plays the keyboard, not armed")
   release()
   local other = paw.add_track({ name = "Other" })
@@ -178,7 +209,11 @@ test("guide: connect a MIDI keyboard", function()
   keys("Keystation<CR>")
   eq(t.midi_input and t.midi_input.port, "Keystation 49", "I takes one port")
   keys(":track.midi Keystation ch=1<CR>")
-  eq(t.midi_input.port .. " " .. tostring(t.midi_input.channel), "Keystation 49 1", ":track.midi takes a port and a channel")
+  eq(
+    t.midi_input.port .. " " .. tostring(t.midi_input.channel),
+    "Keystation 49 1",
+    ":track.midi takes a port and a channel"
+  )
   keys(":midi.select Keystation<CR>")
   T.after(function() paw.midi.select(nil) end)
   eq(play() > 0.01, true, "the selected port still plays")
@@ -200,7 +235,7 @@ test("guide: use your own plugins", function()
   load_bundled("doctor", true)
   local before = paw.opt.doctor_plugins
   T.after(function() paw.opt.doctor_plugins = before end)
-  keys(":lua paw.opt.doctor_plugins = { \"surge\" }<CR>")
+  keys(':lua paw.opt.doctor_plugins = { "surge" }<CR>')
   eq(paw.inspect(paw.opt.doctor_plugins), paw.inspect({ "surge" }), "the plugins for the doctor")
 end)
 
@@ -414,9 +449,10 @@ test("guide: find and change a setting inside a plugin", function()
   keys(":plugstate.mark<CR>")
   api.device_set_param(comp.id, "output_gain", -6)
   -- The plugin takes the value in its next block.
-  T.until_(function()
-    return require("plugstate.juceplugins").open(comp.id):get("/LSP/Parameters@g_out") ~= 1
-  end, "the plugin to take the value")
+  T.until_(
+    function() return require("plugstate.juceplugins").open(comp.id):get("/LSP/Parameters@g_out") ~= 1 end,
+    "the plugin to take the value"
+  )
   keys(":plugstate.changes<CR>")
   eq(said():find("set    /LSP/Parameters@g_out: 1 → ", 1, true) ~= nil, true, "the path that changed: " .. said())
   --- The value at a path of the plugin's state once it is `want` (two
@@ -500,7 +536,9 @@ test("guide: switch amp models and presets from paw", function()
   keys(":messages<CR>")
   shows("block2 (Block 2", ":messages lists the blocks")
   keys("<Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.focus("devices")
   keys(":plugstate.load slot=block2 " .. nam .. "<CR>")
   eq(plugstate.slot(amp.id, "block2").value, nam, "the block plays the model")
@@ -518,7 +556,9 @@ end)
 
 local function clip_layout(t)
   local out = {}
-  for _, c in ipairs(api.clip_list(t.id)) do out[#out + 1] = string.format("%s@%g+%g", c.name, c.start, c.length) end
+  for _, c in ipairs(api.clip_list(t.id)) do
+    out[#out + 1] = string.format("%s@%g+%g", c.name, c.start, c.length)
+  end
   return table.concat(out, " ")
 end
 
@@ -589,9 +629,16 @@ test("guide: change the velocity, length and pitch of notes, and quantize them",
   start()
   local t = paw.add_track({ name = "Keys" })
   t:add_device("synth")
-  local c = t:add_clip({ name = "a", start = 0, length = 4, notes = {
-    { pitch = 60, start = 0, length = 1 }, { pitch = 64, start = 1, length = 1 }, { pitch = 67, start = 2, length = 1 },
-  } })
+  local c = t:add_clip({
+    name = "a",
+    start = 0,
+    length = 4,
+    notes = {
+      { pitch = 60, start = 0, length = 1 },
+      { pitch = 64, start = 1, length = 1 },
+      { pitch = 67, start = 2, length = 1 },
+    },
+  })
   paw.cursor.set_track(t)
   paw.cursor.set_beat(0)
   api.undo_checkpoint()
@@ -627,7 +674,11 @@ test("guide: change the velocity, length and pitch of notes, and quantize them",
   keys("<Esc>")
   eq(notes(c), "67@0+1 v110 71@1+1 v110 74@2+1 v110", "gv 5<C-x> down")
   -- Quantize.
-  c:set_notes({ { pitch = 60, start = 0.1, length = 0.9 }, { pitch = 64, start = 1.05, length = 1 }, { pitch = 67, start = 2.2, length = 1 } })
+  c:set_notes({
+    { pitch = 60, start = 0.1, length = 0.9 },
+    { pitch = 64, start = 1.05, length = 1 },
+    { pitch = 67, start = 2.2, length = 1 },
+  })
   paw.opt.note_grid = 0.25
   api.undo_checkpoint()
   keys(":notes.quantize<CR>")
@@ -682,7 +733,11 @@ test("guide: loop a part of the song while you work", function()
   keys("vllll<Space>rn")
   keys("Outro<CR>")
   local outro = paw.markers.region("Outro")
-  eq(outro and outro.beat .. "-" .. outro.beat + outro.length, "40-44", "Space rn makes a region over the selection, with the name typed")
+  eq(
+    outro and outro.beat .. "-" .. outro.beat + outro.length,
+    "40-44",
+    "Space rn makes a region over the selection, with the name typed"
+  )
   paw.cursor.set_beat(41)
   keys("<Space>rl")
   eq(loop(), "40-44 true", "Space rl loops the region the cursor is in")
@@ -870,7 +925,12 @@ test("guide: search the project and go through the results", function()
   local voice = paw.add_track({ name = "Voice" })
   s:add_clip({ name = "pizz", start = 0, length = 4, notes = { { pitch = 84, start = 0, length = 1 } } })
   v:add_clip({ name = "pizz", start = 8, length = 4, notes = { { pitch = 60, start = 0, length = 1, velocity = 127 } } })
-  voice:add_clip({ name = "line", start = 0, length = 4, notes = { { pitch = 64, start = 0, length = 1, meta = { lyric = "la" } } } })
+  voice:add_clip({
+    name = "line",
+    start = 0,
+    length = 4,
+    notes = { { pitch = 64, start = 0, length = 1, meta = { lyric = "la" } } },
+  })
   paw.cursor.set_track(voice)
   paw.cursor.set_beat(12)
   api.undo_checkpoint()
@@ -886,7 +946,9 @@ test("guide: search the project and go through the results", function()
   paw.ui.focus("arrange")
   keys(":vimgrep /la/ lyric<CR>")
   local found = {}
-  for _, e in ipairs(paw.qf.current().entries) do found[#found + 1] = e.text end
+  for _, e in ipairs(paw.qf.current().entries) do
+    found[#found + 1] = e.text
+  end
   eq(table.concat(found, " | "), "lyric: la", "only the lyrics")
   keys("<Space>fn")
   shows("la", "the notes with their lyrics")
@@ -910,7 +972,9 @@ end)
 
 test("guide: change a sound at a point in the song", function()
   start()
-  for _, id in ipairs(api.track_list()) do paw.lanes.open(id, false) end
+  for _, id in ipairs(api.track_list()) do
+    paw.lanes.open(id, false)
+  end
   local t = T.tone("Guitar", 8, "A3")
   local amp = t:add_device("gain", { gain = -40 })
   paw.cursor.set_track(t)
@@ -946,12 +1010,18 @@ test("guide: use articulations with a plugin instrument", function()
   local art = require("articulations")
   local bass = paw.add_track({ name = "Bass" })
   bass:add_device("synth")
-  local clip = bass:add_clip({ start = 0, length = 4, notes = { { pitch = 40, start = 0, length = 1 }, { pitch = 43, start = 1, length = 1 } } })
+  local clip = bass:add_clip({
+    start = 0,
+    length = 4,
+    notes = { { pitch = 40, start = 0, length = 1 }, { pitch = 43, start = 1, length = 1 } },
+  })
   paw.flush()
   api.undo_checkpoint()
   -- The plugin as device_get tells it: the suite has no MODO BASS 2.
-  local map = require("articulations.commands").auto_map(bass.id,
-    { name = "MODO BASS 2", plugin = { format = "vst3", id = "0", name = "MODO BASS 2" } })
+  local map = require("articulations.commands").auto_map(
+    bass.id,
+    { name = "MODO BASS 2", plugin = { format = "vst3", id = "0", name = "MODO BASS 2" } }
+  )
   eq(map and art.info(bass.id).map, "plugins/ik-multimedia/modo-bass-2", "the map of the plugin binds itself")
   eq(paw.ui.messages[#paw.ui.messages].text:find("bound", 1, true) ~= nil, true, "a message tells so")
 
@@ -1004,13 +1074,17 @@ test("guide: write an importer or exporter", function()
   keys(":export " .. dir .. "/copy.notes<CR>")
   eq(T.read_file(dir .. "/copy.notes"), "60 0 1\n64 1 1\n67 2 2\n", ":export writes them")
   local names = {}
-  for _, c in ipairs(paw.commands.complete("import " .. dir .. "/so")) do names[#names + 1] = c.text end
+  for _, c in ipairs(paw.commands.complete("import " .. dir .. "/so")) do
+    names[#names + 1] = c.text
+  end
   eq(table.concat(names, " "):find("song.notes", 1, true) ~= nil, true, ":import completes the files of the format")
   keys(":help formats<CR>")
   shows("help://formats.md", ":help formats opens the page of the formats")
   local _, _, text = paw.textbuf.here()
   local listed = false
-  for row = 0, 40 do listed = listed or (text:line(row) or ""):find("Lists of notes", 1, true) ~= nil end
+  for row = 0, 40 do
+    listed = listed or (text:line(row) or ""):find("Lists of notes", 1, true) ~= nil
+  end
   eq(listed, true, "which lists it")
   keys(":q<CR>")
   keys(':lua paw.formats.unregister("notes")<CR>')
@@ -1023,13 +1097,16 @@ test("guide: write an extension in Teal", function()
   api.fs_mkdir(dir)
   -- The guide's extension, as it is on the page.
   local page = T.read_file("docs/how-to/write-an-extension-in-teal.md")
-  local code = page:match("```lua\n   (paw.command%(\"scale.notes\".-)   ```"):gsub("\n   ", "\n")
+  local code = page:match('```lua\n   (paw.command%("scale.notes".-)   ```'):gsub("\n   ", "\n")
   T.write_file(dir .. "/scale.tl", code)
   eq(#paw.lang.check({ dir .. "/scale.tl" }), 0, "its types are correct")
   -- The examples of events and setters are correct Teal too.
-  local events = page:match("```lua\n(local kernel = .-)```") .. page:match("```lua\n(local record Filled.-)```")
-    .. "local id = 1\n" .. page:match("```lua\n(paw.api.track_set.-)```")
-    .. page:match("```lua\n(local track: paw.Track.-)```") .. "print(volume)\n"
+  local events = page:match("```lua\n(local kernel = .-)```")
+    .. page:match("```lua\n(local record Filled.-)```")
+    .. "local id = 1\n"
+    .. page:match("```lua\n(paw.api.track_set.-)```")
+    .. page:match("```lua\n(local track: paw.Track.-)```")
+    .. "print(volume)\n"
   T.write_file(dir .. "/events.tl", events)
   eq(#paw.lang.check({ dir .. "/events.tl" }), 0, "the examples of events, setters and objects check")
   -- The example of the library of Lua 5.3 checks, and its asserts hold.
@@ -1048,7 +1125,11 @@ test("guide: configure an editor for paw's code", function()
   local include = table.concat(paw.lang.tlconfig().include_dir, " ")
   eq(include:find("runtime/types", 1, true) ~= nil, true, "tlconfig.lua points the Teal server at runtime/types")
   local luarc = T.read_file(".luarc.json")
-  eq(luarc:find('"workspace.library": ["runtime/types"]', 1, true) ~= nil, true, ".luarc.json gives LuaLS runtime/types")
+  eq(
+    luarc:find('"workspace.library": ["runtime/types"]', 1, true) ~= nil,
+    true,
+    ".luarc.json gives LuaLS runtime/types"
+  )
   eq(luarc:find('"diagnostics.globals": ["paw"]', 1, true) ~= nil, true, "and the global paw")
   eq(T.read_file("runtime/types/paw.lua"):find("---@class paw\n", 1, true) ~= nil, true, "which declares paw")
   local example = page:match("for example\n   `([^`]+)`")
@@ -1121,7 +1202,9 @@ test("guide: personalize the track column and the ruler", function()
   eq(text:find("·9", 1, true) ~= nil and text:find("·8", 1, true) == nil, true, "a dot before bar 9:\n" .. text)
   paw.keymap.feed("K")
   local described = screen(160, 30)
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   eq(described:find("ready to record", 1, true) ~= nil, true, "K tells it:\n" .. described)
   keys(":set trackcolumn-=signs<CR>:set barlabel-=eight<CR>")
   text = table.concat(api.ui_snapshot(160, 30), "\n", 1, 4)
@@ -1165,8 +1248,11 @@ test("guide: personalize insert mode", function()
   keys("iMM<Esc>")
   local clips = drums:clips()
   table.sort(clips, function(a, b) return a.start < b.start end)
-  eq(#clips .. " " .. clips[2].start .. " " .. clips[2].name .. " " .. #clips[2]:notes(), "2 8 Drums 2 12",
-    "two drum clips, one after the other, with their notes")
+  eq(
+    #clips .. " " .. clips[2].start .. " " .. clips[2].name .. " " .. #clips[2]:notes(),
+    "2 8 Drums 2 12",
+    "two drum clips, one after the other, with their notes"
+  )
   keys("u")
   eq(#drums:clips(), 0, "u removes both")
   paw.cursor.set_beat(0)
@@ -1203,11 +1289,19 @@ test("guide: work on one section of a song", function()
   keys(":narrow Bridge<CR>")
   eq(#paw.ui.tabs, 2, "a new tab")
   shows("Song › Bridge", "the status line shows the path")
-  eq(paw.cursor.beat >= bridge.beat and paw.cursor.beat <= bridge.beat + bridge.length, true, "the cursor is in the section")
+  eq(
+    paw.cursor.beat >= bridge.beat and paw.cursor.beat <= bridge.beat + bridge.length,
+    true,
+    "the cursor is in the section"
+  )
   keys("0")
   eq(paw.cursor.beat, bridge.beat, "0 goes to its start")
   keys("3|")
-  eq(paw.cursor.beat, bridge.beat + 8, "3| is bar 3 of the section (region " .. bridge.beat .. "+" .. bridge.length .. ")")
+  eq(
+    paw.cursor.beat,
+    bridge.beat + 8,
+    "3| is bar 3 of the section (region " .. bridge.beat .. "+" .. bridge.length .. ")"
+  )
   eq(tr.loop_enabled and tr.loop_start == bridge.beat, true, "the loop is the section")
   keys(":narrow Orchestra<CR>")
   shows("Song › Bridge › Orchestra", "narrow again: the path has both")
@@ -1229,11 +1323,26 @@ test("guide: select a chord, a phrase, a voice or a pitch in the piano roll", fu
   local function N(pitch, s, length) return { pitch = pitch, start = s, length = length, velocity = 100 } end
   local t = paw.add_track({ name = "P" })
   t:add_device("synth")
-  local c = t:add_clip({ name = "a", start = 0, length = 8, notes = {
-    N(48, 0, 2), N(52, 0, 2), N(55, 0, 2), N(72, 0, 1), N(74, 1, 1),
-    N(50, 2, 2), N(53, 2, 2), N(57, 2, 2), N(76, 2, 2),
-    N(60, 5, 0.5), N(64, 5.5, 0.5), N(67, 6, 0.5), N(72, 6.5, 0.5),
-  } })
+  local c = t:add_clip({
+    name = "a",
+    start = 0,
+    length = 8,
+    notes = {
+      N(48, 0, 2),
+      N(52, 0, 2),
+      N(55, 0, 2),
+      N(72, 0, 1),
+      N(74, 1, 1),
+      N(50, 2, 2),
+      N(53, 2, 2),
+      N(57, 2, 2),
+      N(76, 2, 2),
+      N(60, 5, 0.5),
+      N(64, 5.5, 0.5),
+      N(67, 6, 0.5),
+      N(72, 6.5, 0.5),
+    },
+  })
   paw.cursor.set_track(t)
   paw.cursor.set_beat(0)
   api.undo_checkpoint()
@@ -1286,7 +1395,11 @@ test("guide: select a chord, a phrase, a voice or a pitch in the piano roll", fu
   keys("u")
   roll:set(72, 0)
   keys("vi=+")
-  eq(notes(c):find("73@0", 1, true) ~= nil and notes(c):find("72@", 1, true) == nil, true, "vi= then + moves every note of the pitch up")
+  eq(
+    notes(c):find("73@0", 1, true) ~= nil and notes(c):find("72@", 1, true) == nil,
+    true,
+    "vi= then + moves every note of the pitch up"
+  )
   keys("u")
   keys("va=")
   keys("<Esc>")

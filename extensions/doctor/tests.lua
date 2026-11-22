@@ -21,16 +21,33 @@ local function load()
 end
 
 local function null_backend()
-  api.engine_restart({ backend = "null", test_input = { frequency = 440, level = -12, channels = 2 }, test_midi = { "Keys A" } })
+  api.engine_restart({
+    backend = "null",
+    test_input = { frequency = 440, level = -12, channels = 2 },
+    test_midi = { "Keys A" },
+  })
 end
 
 --- Short runs: a quarter-second tone, a second of dropouts, and so on.
-local quick = { tone = 0.2, seconds = 1, record_seconds = 1, input_seconds = 0.6, wait_seconds = 0.4, round_trips = 1, plugin_seconds = 0.5, voices = 3 }
+local quick = {
+  tone = 0.2,
+  seconds = 1,
+  record_seconds = 1,
+  input_seconds = 0.6,
+  wait_seconds = 0.4,
+  round_trips = 1,
+  plugin_seconds = 0.5,
+  voices = 3,
+}
 
 local function run(opts)
   local o = {}
-  for k, v in pairs(quick) do o[k] = v end
-  for k, v in pairs(opts or {}) do o[k] = v end
+  for k, v in pairs(quick) do
+    o[k] = v
+  end
+  for k, v in pairs(opts or {}) do
+    o[k] = v
+  end
   return doctor.run_to_end(o, 120)
 end
 
@@ -59,14 +76,18 @@ local function state()
     tracks[#tracks + 1] = t
   end
   return paw.json.encode({
-    project = project, tree = api.undo_tree(), tracks = tracks,
+    project = project,
+    tree = api.undo_tree(),
+    tracks = tracks,
     transport = { position = api.transport_get().position, loop = api.transport_get().loop_enabled },
   })
 end
 
 local function listing(dir)
   local names = {}
-  for _, e in ipairs(api.read_dir(dir)) do names[#names + 1] = e.name end
+  for _, e in ipairs(api.read_dir(dir)) do
+    names[#names + 1] = e.name
+  end
   return table.concat(names, ",")
 end
 
@@ -77,7 +98,8 @@ test("the doctor lists nine checks, and another extension can add one", function
   eq(#doctor.checks >= 9, true, "the checks that come with it")
   eq(doctor.checks[1].id, "system", "the sound system first")
   table.insert(doctor.checks, {
-    name = "Mine", unattended = true,
+    name = "Mine",
+    unattended = true,
     run = function(ctx)
       ctx:fact("answer", 42)
       return "ok", "it works"
@@ -208,7 +230,11 @@ test("a whole doctor run leaves the open project exactly as it was, and nothing 
   fresh()
   local t = paw.add_track({ name = "Keep" })
   t:add_device("synth")
-  t:add_clip({ start = 0, length = 4, notes = { { pitch = "C4", start = 0, length = 1 }, { pitch = "E4", start = 1, length = 1 } } })
+  t:add_clip({
+    start = 0,
+    length = 4,
+    notes = { { pitch = "C4", start = 0, length = 1 }, { pitch = "E4", start = 1, length = 1 } },
+  })
   paw.add_track({ name = "Other" })
   paw.flush()
   api.undo_checkpoint()
@@ -259,7 +285,11 @@ test("the doctor's dropout check runs, reports its numbers and takes its file aw
   eq(c.status ~= "fail", true, c.summary)
   local joined = table.concat(c.lines, "\n")
   eq(joined:find("synth voices alone: %d+ xruns") ~= nil, true, joined)
-  eq(joined:find("read from the disk: %d+ xruns") ~= nil, true, "the second run was with a file read from the disk: " .. joined)
+  eq(
+    joined:find("read from the disk: %d+ xruns") ~= nil,
+    true,
+    "the second run was with a file read from the disk: " .. joined
+  )
   eq(c.measures.disk_cpu_max_percent ~= nil, true, "the CPU load")
   eq(listing(T.scratch .. "/doctor"):find("tmp-", 1, true), nil, "the long file is gone")
 end)
@@ -270,7 +300,8 @@ test("a doctor check that raises an error fails, and what it added is taken away
   fresh()
   local seen
   table.insert(doctor.checks, {
-    id = "bad", name = "Bad",
+    id = "bad",
+    name = "Bad",
     run = function(ctx)
       ctx:track({ name = "left behind" })
       ctx:file(ctx:dir() .. "/x.wav")
@@ -279,7 +310,8 @@ test("a doctor check that raises an error fails, and what it added is taken away
     end,
   })
   table.insert(doctor.checks, {
-    id = "after", name = "After",
+    id = "after",
+    name = "After",
     run = function(ctx)
       ctx:scratch()
       seen = #api.track_list()
@@ -317,7 +349,8 @@ test("cancelling a doctor run mid-question ends it, cleans up and writes the rep
   api.undo_checkpoint()
   local before = state()
   table.insert(doctor.checks, {
-    id = "asks", name = "Asks",
+    id = "asks",
+    name = "Asks",
     run = function(ctx)
       ctx:track({ name = "temporary" })
       ctx:ask("Will you answer?")
@@ -327,11 +360,15 @@ test("cancelling a doctor run mid-question ends it, cleans up and writes the rep
   table.insert(doctor.checks, { id = "never", name = "Never", run = function() return "ok", "ran" end })
   local started = doctor.start({ only = { "asks", "never" } })
   local limit = api.now() + 5000
-  while not started.prompt and api.now() < limit do paw.wait(20) end
+  while not started.prompt and api.now() < limit do
+    paw.wait(20)
+  end
   eq(started.prompt ~= nil, true, "the question is shown")
   eq(doctor.answer("x"), false, "a key that is not an answer is not one")
   eq(doctor.cancel(), true, "cancelled")
-  while started.running and api.now() < limit + 5000 do paw.wait(20) end
+  while started.running and api.now() < limit + 5000 do
+    paw.wait(20)
+  end
   table.remove(doctor.checks)
   table.remove(doctor.checks)
   eq(started.running, false, "ended")
@@ -348,7 +385,9 @@ test("the doctor's report holds each check, the machine, and what changed since 
   fresh()
   local value = "one"
   table.insert(doctor.checks, {
-    id = "drifting", name = "Drifting", unattended = true,
+    id = "drifting",
+    name = "Drifting",
+    unattended = true,
     run = function(ctx)
       ctx:fact("setting", value)
       return value == "one" and "ok" or "warn", "setting is " .. value
@@ -414,7 +453,11 @@ test("the doctor's page lists the checks and the question being asked", function
   paw.ui.close()
   paw.cmd("doctor")
   eq(paw.ui.focused, "doctor", "with no terminal, the page has the keyboard")
-  eq(paw.ui.visible("doctor") and require("paw.canvas").titles.doctor, "Doctor", "docked for a graphical frontend, under its title")
+  eq(
+    paw.ui.visible("doctor") and require("paw.canvas").titles.doctor,
+    "Doctor",
+    "docked for a graphical frontend, under its title"
+  )
   paw.cmd("doctor.close")
   paw.flush()
   eq(paw.ui.float, nil, "closed")
@@ -429,9 +472,16 @@ test("paw doctor runs from the shell without the extension in the configuration"
   local pipe = io.popen("readlink /proc/" .. api.env().pid .. "/exe")
   local binary = pipe:read("*l")
   pipe:close()
-  local code = os.execute(string.format(
-    "XDG_STATE_HOME='%s' XDG_CONFIG_HOME='%s/none' '" .. binary .. "' doctor --clean --no-plugins --audio null --only system,environment > '%s' 2>/dev/null",
-    state, state, out))
+  local code = os.execute(
+    string.format(
+      "XDG_STATE_HOME='%s' XDG_CONFIG_HOME='%s/none' '"
+        .. binary
+        .. "' doctor --clean --no-plugins --audio null --only system,environment > '%s' 2>/dev/null",
+      state,
+      state,
+      out
+    )
+  )
   local report = text(out)
   eq(code == 0 or code == true, true, "it exits with 0 when nothing failed")
   eq(report:find("# paw doctor", 1, true) ~= nil, true, "a report on the standard output")
@@ -452,17 +502,24 @@ test("the doctor's window paints the checks and its buttons answer the question"
   end
   eq(table.concat(words, "\n"):find("The sound system", 1, true) ~= nil, true, "the list")
   eq(table.concat(words, "\n"):find("Run all", 1, true) ~= nil, true, "and the button")
-  table.insert(doctor.checks, { id = "asks", name = "Asks", run = function(ctx) return ctx:ask("Heard it?") == "y" and "ok" or "fail", "" end })
+  table.insert(
+    doctor.checks,
+    { id = "asks", name = "Asks", run = function(ctx) return ctx:ask("Heard it?") == "y" and "ok" or "fail", "" end }
+  )
   local started = doctor.start({ only = { "asks" } })
   local limit = api.now() + 5000
-  while not started.prompt and api.now() < limit do paw.wait(20) end
+  while not started.prompt and api.now() < limit do
+    paw.wait(20)
+  end
   local at
   for _, op in ipairs(canvas.paint("doctor", 900, 560).ops) do
     if op[1] == "t" and op[4]:find("yes  (y)", 1, true) then at = op end
   end
   eq(at ~= nil, true, "a button for yes")
   canvas.pointer("doctor", { kind = "down", button = "left", x = at[2] + 2, y = at[3] + 2 })
-  while started.running and api.now() < limit + 5000 do paw.wait(20) end
+  while started.running and api.now() < limit + 5000 do
+    paw.wait(20)
+  end
   table.remove(doctor.checks)
   eq(result(started, "asks").status, "ok", "a click on the button answered")
   paw.cmd("doctor.close")

@@ -2,16 +2,16 @@
 -- its own engine, paw-utau-engine (engine/). See README.md beside this file.
 local api = paw.api
 
-paw.option.define("utau_engine", "")         -- path to paw-utau-engine; found by itself when empty
-paw.option.define("utau_openutau_dir", "")   -- OpenUtau's data folder (Singers, Resamplers); read only
-paw.option.define("utau_data_dir", "")       -- the engine's own data folder; its default when empty
-paw.option.define("utau_cache_dir", "")      -- the engine's render cache; its default when empty
+paw.option.define("utau_engine", "") -- path to paw-utau-engine; found by itself when empty
+paw.option.define("utau_openutau_dir", "") -- OpenUtau's data folder (Singers, Resamplers); read only
+paw.option.define("utau_data_dir", "") -- the engine's own data folder; its default when empty
+paw.option.define("utau_cache_dir", "") -- the engine's render cache; its default when empty
 paw.option.define("utau_log_level", "info")
 paw.option.define("utau_default_lyric", "a") -- sung by notes that have no lyric
-paw.option.define("utau_drafts", true)       -- quick drafts of DiffSinger phrases before final quality
-paw.option.define("utau_final_delay", 1500)  -- ms of quiet after an edit before rendering final quality
+paw.option.define("utau_drafts", true) -- quick drafts of DiffSinger phrases before final quality
+paw.option.define("utau_final_delay", 1500) -- ms of quiet after an edit before rendering final quality
 paw.option.define("utau_render_timeout", 600) -- seconds an offline render waits for the singing
-paw.option.define("utau_openutau", "")       -- command that opens a .ustx in OpenUtau; `OpenUtau` when empty
+paw.option.define("utau_openutau", "") -- command that opens a .ustx in OpenUtau; `OpenUtau` when empty
 
 local utau = require("utau")
 package.loaded["paw.utau"] = utau
@@ -53,10 +53,15 @@ paw.health.register("utau", function(h)
   if engine then
     h.ok("the engine at " .. engine)
   else
-    h.error("paw-utau-engine not found", { "set paw.opt.utau_engine or $PAW_UTAU_ENGINE to it",
-      "or run the program built with it: nix run .#paw-utau" })
+    h.error(
+      "paw-utau-engine not found",
+      { "set paw.opt.utau_engine or $PAW_UTAU_ENGINE to it", "or run the program built with it: nix run .#paw-utau" }
+    )
   end
   local state = utau.engine.state
-  if state == "failed" then h.error("the engine failed: " .. tostring(utau.engine.reason), ":messages has more")
-  elseif state then h.info("the engine is " .. state) end
+  if state == "failed" then
+    h.error("the engine failed: " .. tostring(utau.engine.reason), ":messages has more")
+  elseif state then
+    h.info("the engine is " .. state)
+  end
 end, { desc = "singing synthesis" })

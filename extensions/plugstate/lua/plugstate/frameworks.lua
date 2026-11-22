@@ -40,16 +40,31 @@ local f1 = ffi.new("float[1]")
 local d1 = ffi.new("double[1]")
 local i1 = ffi.new("int32_t[1]")
 
-local function f32(data, at) ffi.copy(f1, data:sub(at, at + 3), 4) return tonumber(f1[0]) end
-local function pack_f32(v) f1[0] = v return ffi.string(f1, 4) end
-local function f64(data, at) ffi.copy(d1, data:sub(at, at + 7), 8) return tonumber(d1[0]) end
-local function pack_f64(v) d1[0] = v return ffi.string(d1, 8) end
+local function f32(data, at)
+  ffi.copy(f1, data:sub(at, at + 3), 4)
+  return tonumber(f1[0])
+end
+local function pack_f32(v)
+  f1[0] = v
+  return ffi.string(f1, 4)
+end
+local function f64(data, at)
+  ffi.copy(d1, data:sub(at, at + 7), 8)
+  return tonumber(d1[0])
+end
+local function pack_f64(v)
+  d1[0] = v
+  return ffi.string(d1, 8)
+end
 local function i32(data, at)
   if at + 3 > #data then return nil end
   ffi.copy(i1, data:sub(at, at + 3), 4)
   return tonumber(i1[0])
 end
-local function pack_i32(v) i1[0] = v return ffi.string(i1, 4) end
+local function pack_i32(v)
+  i1[0] = v
+  return ffi.string(i1, 4)
+end
 M.f32, M.f64, M.i32 = f32, f64, i32
 
 --- A float that a person or a framework writes: "80", "1.29999995".
@@ -69,9 +84,7 @@ local function plausible(v)
 end
 
 -- A name for a property in a path: no `/`, `@`, brackets or space.
-local function safe(name)
-  return (tostring(name):gsub("[/@%[%]%s]", "_"))
-end
+local function safe(name) return (tostring(name):gsub("[/@%[%]%s]", "_")) end
 
 -- --- the format around the plugin's data --------------------------------------------
 
@@ -79,10 +92,14 @@ end
 --- the component's part (the controller's stays), else the bytes as they are.
 function M.outer(raw, format)
   local data, controller = nil, nil
-  if format == "vst3" then data, controller = vst3.split(raw) end
+  if format == "vst3" then
+    data, controller = vst3.split(raw)
+  end
   if data then
     return {
-      format = format, data = data, controller = controller,
+      format = format,
+      data = data,
+      controller = controller,
       wrap = function(new)
         if new == data then return raw end
         return vst3.join(new, controller)
@@ -97,7 +114,9 @@ end
 function M.wrap(data, format, template)
   if format == "vst3" then
     local component, controller = nil, nil
-    if template then component, controller = vst3.split(template) end
+    if template then
+      component, controller = vst3.split(template)
+    end
     return vst3.join(data, component and controller or "")
   end
   if format == "lv2" then error("an LV2 state is Turtle text: a state of another format does not go into it", 0) end
@@ -182,16 +201,26 @@ end
 
 function Doc:layer_names()
   local out = { self.format, self.framework }
-  for _, l in ipairs(self.layers or {}) do out[#out + 1] = l end
+  for _, l in ipairs(self.layers or {}) do
+    out[#out + 1] = l
+  end
   return out
 end
 
 local function document(reader, outer, made, opts)
   local doc = setmetatable({
-    format = outer.format, outer = outer, root = made.root, close = made.close, layers = made.layers,
-    framework = made.framework or reader.name, title = made.title or reader.title,
-    params_path = made.params, reader_params = made.read_params, reader_set_param = made.set_param,
-    plugin = opts and opts.desc, notes = made.notes,
+    format = outer.format,
+    outer = outer,
+    root = made.root,
+    close = made.close,
+    layers = made.layers,
+    framework = made.framework or reader.name,
+    title = made.title or reader.title,
+    params_path = made.params,
+    reader_params = made.read_params,
+    reader_set_param = made.set_param,
+    plugin = opts and opts.desc,
+    notes = made.notes,
   }, Doc)
   doc.original = juce.write(doc.root)
   return doc
@@ -206,7 +235,10 @@ end
 function M.reader(def)
   assert(type(def.name) == "string" and def.detect and def.open, "a reader needs name, detect and open")
   for i, r in ipairs(M.readers) do
-    if r.name == def.name then table.remove(M.readers, i) break end
+    if r.name == def.name then
+      table.remove(M.readers, i)
+      break
+    end
   end
   table.insert(M.readers, 1, def)
   return def
@@ -225,8 +257,13 @@ end
 -- between `__dpf_parameters_begin__` and `__dpf_parameters_end__`. Each
 -- string ends with a zero byte; 0xfe and a zero byte end the state.
 
-local DPF = { program = "__dpf_program__", sb = "__dpf_state_begin__", se = "__dpf_state_end__",
-  pb = "__dpf_parameters_begin__", pe = "__dpf_parameters_end__" }
+local DPF = {
+  program = "__dpf_program__",
+  sb = "__dpf_state_begin__",
+  se = "__dpf_state_end__",
+  pb = "__dpf_parameters_begin__",
+  pe = "__dpf_parameters_end__",
+}
 
 local function dpf_number(v, o)
   if type(v) ~= "number" then return tostring(v) end
@@ -236,13 +273,16 @@ local function dpf_number(v, o)
 end
 
 M.reader({
-  name = "dpf", title = "DPF (DISTRHO Plugin Framework)",
+  name = "dpf",
+  title = "DPF (DISTRHO Plugin Framework)",
   detect = function(data) return data:sub(1, 6) == "__dpf_" end,
   open = function(data)
     local stop = data:find("\254", 1, true)
     if not stop then error("a DPF state with no end", 0) end
     local words = {}
-    for w in (data:sub(1, stop - 1)):gmatch("([^%z]*)%z") do words[#words + 1] = w end
+    for w in (data:sub(1, stop - 1)):gmatch("([^%z]*)%z") do
+      words[#words + 1] = w
+    end
     local tail = data:sub(stop)
     local root = juce.tree("DPF")
     local state, params = juce.tree("State"), juce.tree("Parameters")
@@ -250,9 +290,17 @@ M.reader({
     local i, section, order = 1, nil, {}
     while i <= #words do
       local w = words[i]
-      if w == DPF.sb then section = "s" order[#order + 1] = "s" i = i + 1
-      elseif w == DPF.pb then section = "p" order[#order + 1] = "p" i = i + 1
-      elseif w == DPF.se or w == DPF.pe then section = nil i = i + 1
+      if w == DPF.sb then
+        section = "s"
+        order[#order + 1] = "s"
+        i = i + 1
+      elseif w == DPF.pb then
+        section = "p"
+        order[#order + 1] = "p"
+        i = i + 1
+      elseif w == DPF.se or w == DPF.pe then
+        section = nil
+        i = i + 1
       elseif w == DPF.program and not section then
         remember(root, "program", tonumber(words[i + 1]) or words[i + 1], "int", words[i + 1])
         order[#order + 1] = "program"
@@ -364,14 +412,21 @@ local function pack_lsp_value(t, v, o)
 end
 
 M.reader({
-  name = "lsp", title = "LSP (lsp-plugin-fw)",
+  name = "lsp",
+  title = "LSP (lsp-plugin-fw)",
   detect = function(data) return data:sub(1, 4) == "LSP " or data:sub(1, 4) == "LSPS" end,
   open = function(data)
     local head = data:sub(1, 4) == "LSPS" and 6 or 8
     local root = juce.tree("LSP")
     local params, state = juce.tree("Parameters"), juce.tree("State")
     root.children = { params, state }
-    remember(root, "version", data:sub(1, 4) == "LSPS" and (data:byte(5) + data:byte(6) * 256) or paw.bytes.u32(data, 5), "int", data:sub(5, head))
+    remember(
+      root,
+      "version",
+      data:sub(1, 4) == "LSPS" and (data:byte(5) + data:byte(6) * 256) or paw.bytes.u32(data, 5),
+      "int",
+      data:sub(5, head)
+    )
     local records, at = {}, head + 1
     while at <= #data do
       local name, from = lsp_string(data, at)
@@ -385,7 +440,9 @@ M.reader({
         at = b + size
       else
         local flags
-        if name:sub(1, 1) == "/" then flags, from = data:byte(from), from + 1 end
+        if name:sub(1, 1) == "/" then
+          flags, from = data:byte(from), from + 1
+        end
         local t = data:sub(from, from)
         local v, kind, stop, ctype = lsp_value(data, t, from + 1)
         if v == nil then break end
@@ -435,7 +492,10 @@ local function counted(info)
     if n then ids[n] = p end
   end
   local list, n = {}, 0
-  while ids[n] do list[#list + 1] = ids[n] n = n + 1 end
+  while ids[n] do
+    list[#list + 1] = ids[n]
+    n = n + 1
+  end
   return list
 end
 M.counted = counted
@@ -454,7 +514,8 @@ local function leading_strings(data, limit)
 end
 
 M.reader({
-  name = "iplug2", title = "iPlug2",
+  name = "iplug2",
+  title = "iPlug2",
   detect = function(data, format, ctx)
     if ctx.hint ~= "iplug2" and not data:match("^....###[^%z]+###") then return false end
     return #data >= 8
@@ -476,7 +537,9 @@ M.reader({
           for j = 0, n - 1 do
             if plausible(f64(data, at + 8 * j)) then score = score + 1 end
           end
-          if score > best or (score == best and score == n) then start, best = at, score end
+          if score > best or (score == best and score == n) then
+            start, best = at, score
+          end
         end
       end
     end
@@ -529,7 +592,8 @@ M.reader({
 -- list of parameters, in their order.
 
 M.reader({
-  name = "dplug", title = "Dplug",
+  name = "dplug",
+  title = "Dplug",
   detect = function(data) return data:sub(1, 4) == "\11\32\186\146" and #data >= 24 end,
   open = function(data, _, ctx)
     local list = counted(ctx.param_info)
@@ -561,7 +625,9 @@ M.reader({
     end
     local function close(r)
       -- The header stays; the current preset can change.
-      local out = { data:sub(1, 16) .. text_of(r, "preset", function(v) return pack_i32(tonumber(v) or 0) end) .. data:sub(21, 24) }
+      local out = {
+        data:sub(1, 16) .. text_of(r, "preset", function(v) return pack_i32(tonumber(v) or 0) end) .. data:sub(21, 24),
+      }
       local ps, st = juce.child(r, "Parameters"), juce.child(r, "State")
       for _, name in ipairs(names) do
         out[#out + 1] = text_of(ps, name, function(v) return pack_f32(tonumber(v) or 0) end)
@@ -644,12 +710,15 @@ local function nih_value(node)
 end
 
 M.reader({
-  name = "json", title = "JSON",
+  name = "json",
+  title = "JSON",
   detect = function(data) return data:match("^%s*[{%[]") ~= nil and data:match("[}%]]%s*%z?$") ~= nil end,
   open = function(data)
     local stop = #data
     local trailing = ""
-    if data:sub(-1) == "\0" then stop, trailing = #data - 1, "\0" end
+    if data:sub(-1) == "\0" then
+      stop, trailing = #data - 1, "\0"
+    end
     local text = data:sub(1, stop)
     local jroot = jsonspan.parse(text)
     local spans = {}
@@ -686,7 +755,9 @@ M.reader({
         end
         error("no parameter " .. tostring(id) .. " in the state", 0)
       end
-    elseif jroot.kind == "object" and (jroot.fields.synth_version or (jroot.fields.settings and jroot.fields.author)) then
+    elseif
+      jroot.kind == "object" and (jroot.fields.synth_version or (jroot.fields.settings and jroot.fields.author))
+    then
       framework, title, params = "vital", "Vital (JSON)", "/state/settings"
     end
     local known = {}
@@ -702,7 +773,9 @@ M.reader({
             error("JSON: only values can change, not the keys (" .. n.type .. "@" .. p[1] .. ")", 0)
           end
         end
-        for _, c in ipairs(n.children) do walk(c) end
+        for _, c in ipairs(n.children) do
+          walk(c)
+        end
       end
       walk(r)
       local edits = {}
@@ -713,8 +786,15 @@ M.reader({
       end
       return jsonspan.edit(text, edits) .. trailing
     end
-    return { root = root, close = close, params = params, framework = framework, title = title,
-      read_params = read_params, set_param = set_param }
+    return {
+      root = root,
+      close = close,
+      params = params,
+      framework = framework,
+      title = title,
+      read_params = read_params,
+      set_param = set_param,
+    }
   end,
 })
 
@@ -730,14 +810,16 @@ local function turtle_unescape(s)
 end
 
 local function turtle_string(s)
-  if s:find("\n", 1, true) then
-    return '"""' .. s:gsub("\\", "\\\\"):gsub('"""', '\\"\\"\\"') .. '"""'
-  end
+  if s:find("\n", 1, true) then return '"""' .. s:gsub("\\", "\\\\"):gsub('"""', '\\"\\"\\"') .. '"""' end
   return '"' .. s:gsub("\\", "\\\\"):gsub('"', '\\"'):gsub("\t", "\\t"):gsub("\r", "\\r") .. '"'
 end
 
-local function percent_decode(s) return (s:gsub("%%(%x%x)", function(h) return string.char(tonumber(h, 16)) end)) end
-local function percent_encode(s) return (s:gsub("[^%w%-%._~/:]", function(c) return string.format("%%%02X", c:byte()) end)) end
+local function percent_decode(s)
+  return (s:gsub("%%(%x%x)", function(h) return string.char(tonumber(h, 16)) end))
+end
+local function percent_encode(s)
+  return (s:gsub("[^%w%-%._~/:]", function(c) return string.format("%%%02X", c:byte()) end))
+end
 
 -- The end of the Turtle value that starts at `i`: the value's last byte.
 local function value_end(t, i)
@@ -748,10 +830,14 @@ local function value_end(t, i)
       local k = t:find('"""', j, true)
       if not k then error("an unfinished string in the LV2 state", 0) end
       local slashes = 0
-      while t:sub(k - 1 - slashes, k - 1 - slashes) == "\\" do slashes = slashes + 1 end
+      while t:sub(k - 1 - slashes, k - 1 - slashes) == "\\" do
+        slashes = slashes + 1
+      end
       if slashes % 2 == 0 then
         local e = k + 2
-        while t:sub(e + 1, e + 1) == '"' do e = e + 1 end
+        while t:sub(e + 1, e + 1) == '"' do
+          e = e + 1
+        end
         return e
       end
       j = k + 1
@@ -761,7 +847,11 @@ local function value_end(t, i)
     while true do
       local k = t:find('["\\]', j)
       if not k then error("an unfinished string in the LV2 state", 0) end
-      if t:sub(k, k) == "\\" then j = k + 2 else return k end
+      if t:sub(k, k) == "\\" then
+        j = k + 2
+      else
+        return k
+      end
     end
   elseif c == "<" then
     return t:find(">", i, true) or error("an unfinished URI in the LV2 state", 0)
@@ -770,8 +860,10 @@ local function value_end(t, i)
     local depth, j = 0, i
     while j <= #t do
       local d = t:sub(j, j)
-      if d == '"' then j = value_end(t, j)
-      elseif d == c then depth = depth + 1
+      if d == '"' then
+        j = value_end(t, j)
+      elseif d == c then
+        depth = depth + 1
       elseif d == close then
         depth = depth - 1
         if depth == 0 then return j end
@@ -818,7 +910,8 @@ end
 local function turtle_text(v, o)
   local x = o and o.extra or {}
   if x.kind == "typed" then
-    local body = type(v) == "boolean" and tostring(v) or (type(v) == "number" and (x.int and string.format("%d", v) or number_text(v, true)) or tostring(v))
+    local body = type(v) == "boolean" and tostring(v)
+      or (type(v) == "number" and (x.int and string.format("%d", v) or number_text(v, true)) or tostring(v))
     return turtle_string(body) .. "^^" .. x.type
   elseif x.kind == "uri" then
     return x.type == "file" and ("<file://" .. percent_encode(tostring(v)) .. ">") or ("<" .. tostring(v) .. ">")
@@ -835,13 +928,16 @@ local function key_name(uri, taken)
   local name = safe(uri:match("[#/:]([^#/:]+)$") or uri)
   if taken[name] then name = safe(uri:match("[/:]([^/:]+)$") or uri) end
   local base, n = name, 2
-  while taken[name] do name, n = base .. n, n + 1 end
+  while taken[name] do
+    name, n = base .. n, n + 1
+  end
   taken[name] = true
   return name
 end
 
 M.reader({
-  name = "lv2", title = "LV2 (ports and state keys)",
+  name = "lv2",
+  title = "LV2 (ports and state keys)",
   detect = function(data, format) return format == "lv2" and data:find("lv2:appliesTo", 1, true) ~= nil end,
   open = function(data, _, ctx)
     local t = data
@@ -865,8 +961,11 @@ M.reader({
         local key = t:sub(i + 1, ke - 1)
         local vs = t:find("%S", ke + 1)
         local ve = value_end(t, vs)
-        if t:sub(vs, vs) == '"' and t:sub(ve + 1, ve + 2) == "^^" then ve = value_end(t, ve + 3)
-        elseif t:sub(vs, vs) == '"' and t:sub(ve + 1, ve + 1) == "@" then ve = value_end(t, ve + 1) end
+        if t:sub(vs, vs) == '"' and t:sub(ve + 1, ve + 2) == "^^" then
+          ve = value_end(t, ve + 3)
+        elseif t:sub(vs, vs) == '"' and t:sub(ve + 1, ve + 1) == "@" then
+          ve = value_end(t, ve + 1)
+        end
         local kind, v, typ, vkind = turtle_value(t, vs, ve)
         if key:sub(1, 12) == "urn:distrho:" then dpf = true end
         local name = key:sub(1, 12) == "urn:distrho:" and safe(key:sub(13)) or key_name(key, taken)
@@ -878,8 +977,11 @@ M.reader({
       end
     end
     local rootname = "LV2"
-    if dpf or ctx.hint == "dpf" then rootname = "DPF"
-    elseif uri:find("^https?://lsp%-plug%.in/") then rootname = "LSP" end
+    if dpf or ctx.hint == "dpf" then
+      rootname = "DPF"
+    elseif uri:find("^https?://lsp%-plug%.in/") then
+      rootname = "LSP"
+    end
     local root = juce.tree(rootname)
     root.children = { state, ports }
     if rootname == "DPF" then root.children = { state, ports } end
@@ -893,20 +995,28 @@ M.reader({
       end
       table.sort(edits, function(a, b) return a[1].s > b[1].s end)
       local out = t
-      for _, e in ipairs(edits) do out = out:sub(1, e[1].s - 1) .. e[2] .. out:sub(e[1].e + 1) end
+      for _, e in ipairs(edits) do
+        out = out:sub(1, e[1].s - 1) .. e[2] .. out:sub(e[1].e + 1)
+      end
       return out
     end
     local framework = rootname == "DPF" and "dpf" or (rootname == "LSP" and "lsp" or "lv2")
-    return { root = root, close = close, params = "/" .. rootname .. "/Parameters", framework = framework,
+    return {
+      root = root,
+      close = close,
+      params = "/" .. rootname .. "/Parameters",
+      framework = framework,
       title = rootname == "LV2" and "LV2 (ports and state keys)" or (rootname .. " in LV2 (ports and state keys)"),
-      layers = { "turtle" } }
+      layers = { "turtle" },
+    }
   end,
 })
 
 -- --- JUCE --------------------------------------------------------------------------------
 
 M.reader({
-  name = "juce", title = "JUCE",
+  name = "juce",
+  title = "JUCE",
   detect = function() return true end,
   -- JUCE's own document: see `open` below.
   juce = true,
@@ -921,7 +1031,8 @@ M.reader({
 -- shows each of them by its place (`@at8`): a guess, which can be changed.
 
 M.reader({
-  name = "binary", title = "unknown (the bytes as they are)",
+  name = "binary",
+  title = "unknown (the bytes as they are)",
   detect = function() return true end,
   open = function(data)
     local root = juce.tree("State")
@@ -968,8 +1079,12 @@ M.reader({
       end
       return d
     end
-    return { root = root, close = close, params = floats and "/State/Floats" or nil,
-      notes = { "plugstate does not know this format: the bytes are a binary value" } }
+    return {
+      root = root,
+      close = close,
+      params = floats and "/State/Floats" or nil,
+      notes = { "plugstate does not know this format: the bytes are a binary value" },
+    }
   end,
 })
 
@@ -985,14 +1100,20 @@ table.sort(M.readers, function(a, b) return ORDER[a.name] < ORDER[b.name] end)
 -- does not run it.
 
 local MARKERS = {
-  { "juce", "JucePlugin_" }, { "juce", "JUCE v" },
-  { "iplug2", "iPlug2" }, { "dpf", "DISTRHO" }, { "lsp", "lsp-plug.in" },
-  { "nih-plug", "nih_plug" }, { "dplug", "Dplug" }, { "hise", "N4hise" },
+  { "juce", "JucePlugin_" },
+  { "juce", "JUCE v" },
+  { "iplug2", "iPlug2" },
+  { "dpf", "DISTRHO" },
+  { "lsp", "lsp-plug.in" },
+  { "nih-plug", "nih_plug" },
+  { "dplug", "Dplug" },
+  { "hise", "N4hise" },
   { "vstgui", "VSTGUI" },
 }
 
 local folders = {
-  vst3 = { "VST3_PATH", "/.vst3", "lib/vst3" }, clap = { "CLAP_PATH", "/.clap", "lib/clap" },
+  vst3 = { "VST3_PATH", "/.vst3", "lib/vst3" },
+  clap = { "CLAP_PATH", "/.clap", "lib/clap" },
   lv2 = { "LV2_PATH", "/.lv2", "lib/lv2" },
 }
 
@@ -1003,10 +1124,15 @@ function M.binary_of(plugin)
   if not plugin or not folders[plugin.format] then return nil end
   local f = folders[plugin.format]
   local dirs = {}
-  for dir in (os.getenv(f[1]) or ""):gmatch("[^:]+") do dirs[#dirs + 1] = dir end
+  for dir in (os.getenv(f[1]) or ""):gmatch("[^:]+") do
+    dirs[#dirs + 1] = dir
+  end
   local home, user = os.getenv("HOME"), os.getenv("USER")
   if #dirs == 0 then
-    if home then dirs[#dirs + 1] = home .. f[2] dirs[#dirs + 1] = home .. "/.nix-profile/" .. f[3] end
+    if home then
+      dirs[#dirs + 1] = home .. f[2]
+      dirs[#dirs + 1] = home .. "/.nix-profile/" .. f[3]
+    end
     if user then dirs[#dirs + 1] = "/etc/profiles/per-user/" .. user .. "/" .. f[3] end
     dirs[#dirs + 1] = "/run/current-system/sw/" .. f[3]
     dirs[#dirs + 1] = "/usr/lib/" .. plugin.format
@@ -1060,7 +1186,10 @@ function M.markers(path)
   -- The order: a framework that is made on top of another first.
   local name
   for _, n in ipairs({ "hise", "juce", "dpf", "lsp", "nih-plug", "dplug", "iplug2", "vstgui" }) do
-    if found[n] then name = n break end
+    if found[n] then
+      name = n
+      break
+    end
   end
   M.hint_cache[path] = { name = name or false, version = version }
   return name, version
@@ -1084,7 +1213,8 @@ function M.open(state64, format, opts)
         local ok, doc = pcall(jucestate.open, state64, format, { desc = opts.desc })
         if ok then
           doc.framework = (ctx.hint == "hise") and "hise" or "juce"
-          doc.title = doc.framework == "hise" and "HISE (on JUCE)" or ("JUCE" .. (ctx.version and (" " .. ctx.version) or ""))
+          doc.title = doc.framework == "hise" and "HISE (on JUCE)"
+            or ("JUCE" .. (ctx.version and (" " .. ctx.version) or ""))
           return doc
         end
         tried[#tried + 1] = "juce: " .. tostring(doc)
@@ -1112,8 +1242,11 @@ function M.open_device(id, state64)
   if not d.plugin then error(d.name .. " is not a plugin", 0) end
   local hint, version = M.markers(M.binary_of(d.plugin))
   local desc = jucestate.plugin_of(d)
-  return M.open(state64 or api.device_state(id), d.plugin.format,
-    { hint = hint or nil, version = version, param_info = d.param_info, desc = desc })
+  return M.open(
+    state64 or api.device_state(id),
+    d.plugin.format,
+    { hint = hint or nil, version = version, param_info = d.param_info, desc = desc }
+  )
 end
 
 -- --- presets ------------------------------------------------------------------------------
@@ -1125,7 +1258,9 @@ end
 function M.generate(preset, format, current, opts)
   opts = opts or {}
   local base, base_format = preset.base, preset.format
-  if not base then base, base_format = current, format end
+  if not base then
+    base, base_format = current, format
+  end
   if not base then error("the preset has no base state, and there is no state of the device", 0) end
   local framework = preset.framework
   if framework == nil or framework == "juce" or framework == "hise" then

@@ -34,7 +34,9 @@ M.INTERVALS = {
   { id = "double", name = "double", semis = 0 },
 }
 M.INTERVAL = {}
-for _, iv in ipairs(M.INTERVALS) do M.INTERVAL[iv.id] = iv end
+for _, iv in ipairs(M.INTERVALS) do
+  M.INTERVAL[iv.id] = iv
+end
 
 -- Krumhansl-Kessler key profiles, index 1 = tonic.
 M.PROFILES = {
@@ -44,7 +46,9 @@ M.PROFILES = {
 
 local function correlation(x, y)
   local n, mx, my = #x, 0, 0
-  for i = 1, n do mx, my = mx + x[i], my + y[i] end
+  for i = 1, n do
+    mx, my = mx + x[i], my + y[i]
+  end
   mx, my = mx / n, my / n
   local sxy, sxx, syy = 0, 0, 0
   for i = 1, n do
@@ -58,15 +62,23 @@ end
 --- The key of a melody, `{ { pitch, length }, ... }`: `{ tonic = 0..11, scale = "major" | "minor" }`.
 function M.detect_key(list)
   local hist = {}
-  for i = 1, 12 do hist[i] = 0 end
-  for _, n in ipairs(list) do hist[n[1] % 12 + 1] = hist[n[1] % 12 + 1] + (n[2] or 1) end
+  for i = 1, 12 do
+    hist[i] = 0
+  end
+  for _, n in ipairs(list) do
+    hist[n[1] % 12 + 1] = hist[n[1] % 12 + 1] + (n[2] or 1)
+  end
   local best, score
   for _, scale in ipairs({ "major", "minor" }) do
     for tonic = 0, 11 do
       local profile = {}
-      for pc = 0, 11 do profile[pc + 1] = M.PROFILES[scale][(pc - tonic) % 12 + 1] end
+      for pc = 0, 11 do
+        profile[pc + 1] = M.PROFILES[scale][(pc - tonic) % 12 + 1]
+      end
       local r = correlation(hist, profile)
-      if not score or r > score + 1e-12 then best, score = { tonic = tonic, scale = scale }, r end
+      if not score or r > score + 1e-12 then
+        best, score = { tonic = tonic, scale = scale }, r
+      end
     end
   end
   return best
@@ -80,7 +92,10 @@ function M.transpose(pitch, steps, key)
   local base = pitch - rel
   local degree, chroma = 1, 0
   for i = #scale, 1, -1 do
-    if scale[i] <= rel then degree, chroma = i, rel - scale[i] break end
+    if scale[i] <= rel then
+      degree, chroma = i, rel - scale[i]
+      break
+    end
   end
   local n = #scale
   local nd = degree - 1 + steps
@@ -93,9 +108,7 @@ function M.apply(pitch, iv, key)
   return M.transpose(pitch, iv.steps, key)
 end
 
-function M.key_name(key)
-  return M.NAMES[key.tonic % 12 + 1] .. " " .. (key.scale or "major")
-end
+function M.key_name(key) return M.NAMES[key.tonic % 12 + 1] .. " " .. (key.scale or "major") end
 
 local LETTERS = { C = 0, D = 2, E = 4, F = 5, G = 7, A = 9, B = 11 }
 
@@ -153,8 +166,8 @@ local function wobble(seed, take)
 end
 M.wobble = wobble
 
-M.TIMING_RANGE = 18   -- ticks either way
-M.TUNING_RANGE = 8    -- cents either way
+M.TIMING_RANGE = 18 -- ticks either way
+M.TUNING_RANGE = 8 -- cents either way
 
 --- Make a harmony or double track of a vocal track. `opts`: `interval`
 --- (an id of M.INTERVALS, "3up" by default), `key` (a name; the project's or
@@ -166,7 +179,11 @@ function M.create(track_id, opts)
   if not utau.device_of(track_id) then error("not a vocal track", 0) end
   local iv = M.INTERVAL[opts.interval or "3up"] or error("no interval `" .. tostring(opts.interval) .. "`", 0)
   local key, source
-  if opts.key then key, source = M.parse_key(opts.key), "given" else key, source = M.key_of(track_id) end
+  if opts.key then
+    key, source = M.parse_key(opts.key), "given"
+  else
+    key, source = M.key_of(track_id)
+  end
   local index = 0
   for i, id in ipairs(api.track_list()) do
     if id == track_id then index = i end
@@ -182,7 +199,7 @@ function M.create(track_id, opts)
   local take = opts.take or 1
   local count = 0
   for _, clip in ipairs(snap.clips) do
-    clip.meta = nil   -- a new part, not a copy that should take the source's curves again
+    clip.meta = nil -- a new part, not a copy that should take the source's curves again
     for _, n in ipairs(clip.notes or {}) do
       n.pitch = math.max(0, math.min(127, M.apply(n.pitch, iv, key)))
       if iv.id == "double" then

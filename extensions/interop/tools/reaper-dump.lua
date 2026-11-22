@@ -56,7 +56,11 @@ local i = 0
 while true do
   local ret, isrgn, pos, rgnend, name, _, color = reaper.EnumProjectMarkers3(0, i)
   if ret == 0 then break end
-  if isrgn then w("region", pos, rgnend, name, color) else w("marker", pos, name, color) end
+  if isrgn then
+    w("region", pos, rgnend, name, color)
+  else
+    w("marker", pos, name, color)
+  end
   i = i + 1
 end
 
@@ -81,8 +85,19 @@ local function envelopes(tr, index)
 end
 
 local master = reaper.GetMasterTrack(0)
-w("track", 0, "MASTER", reaper.GetMediaTrackInfo_Value(master, "D_VOL"), reaper.GetMediaTrackInfo_Value(master, "D_PAN"),
-  reaper.GetMediaTrackInfo_Value(master, "B_MUTE"), 0, 0, 0, 1, reaper.TrackFX_GetCount(master))
+w(
+  "track",
+  0,
+  "MASTER",
+  reaper.GetMediaTrackInfo_Value(master, "D_VOL"),
+  reaper.GetMediaTrackInfo_Value(master, "D_PAN"),
+  reaper.GetMediaTrackInfo_Value(master, "B_MUTE"),
+  0,
+  0,
+  0,
+  1,
+  reaper.TrackFX_GetCount(master)
+)
 for f = 0, reaper.TrackFX_GetCount(master) - 1 do
   local _, name = reaper.TrackFX_GetFXName(master, f, "")
   w("fx", 0, f + 1, name)
@@ -93,18 +108,32 @@ for t = 0, reaper.CountTracks(0) - 1 do
   local tr = reaper.GetTrack(0, t)
   local index = t + 1
   local _, name = reaper.GetTrackName(tr)
-  w("track", index, name, reaper.GetMediaTrackInfo_Value(tr, "D_VOL"), reaper.GetMediaTrackInfo_Value(tr, "D_PAN"),
-    reaper.GetMediaTrackInfo_Value(tr, "B_MUTE"), reaper.GetMediaTrackInfo_Value(tr, "I_SOLO"),
-    reaper.GetMediaTrackInfo_Value(tr, "I_FOLDERDEPTH"), colour(reaper.GetMediaTrackInfo_Value(tr, "I_CUSTOMCOLOR")),
-    reaper.GetMediaTrackInfo_Value(tr, "B_MAINSEND"), reaper.TrackFX_GetCount(tr))
+  w(
+    "track",
+    index,
+    name,
+    reaper.GetMediaTrackInfo_Value(tr, "D_VOL"),
+    reaper.GetMediaTrackInfo_Value(tr, "D_PAN"),
+    reaper.GetMediaTrackInfo_Value(tr, "B_MUTE"),
+    reaper.GetMediaTrackInfo_Value(tr, "I_SOLO"),
+    reaper.GetMediaTrackInfo_Value(tr, "I_FOLDERDEPTH"),
+    colour(reaper.GetMediaTrackInfo_Value(tr, "I_CUSTOMCOLOR")),
+    reaper.GetMediaTrackInfo_Value(tr, "B_MAINSEND"),
+    reaper.TrackFX_GetCount(tr)
+  )
   for f = 0, reaper.TrackFX_GetCount(tr) - 1 do
     local _, fxname = reaper.TrackFX_GetFXName(tr, f, "")
     w("fx", index, f + 1, fxname)
   end
   for s = 0, reaper.GetTrackNumSends(tr, 0) - 1 do
     local dest = reaper.GetTrackSendInfo_Value(tr, 0, s, "P_DESTTRACK")
-    w("send", index, track_number(dest), reaper.GetTrackSendInfo_Value(tr, 0, s, "D_VOL"),
-      reaper.GetTrackSendInfo_Value(tr, 0, s, "B_MUTE"))
+    w(
+      "send",
+      index,
+      track_number(dest),
+      reaper.GetTrackSendInfo_Value(tr, 0, s, "D_VOL"),
+      reaper.GetTrackSendInfo_Value(tr, 0, s, "B_MUTE")
+    )
   end
   envelopes(tr, index)
   for it = 0, reaper.CountTrackMediaItems(tr) - 1 do
@@ -114,14 +143,37 @@ for t = 0, reaper.CountTracks(0) - 1 do
     local function tv(key) return take and reaper.GetMediaItemTakeInfo_Value(take, key) or 0 end
     local src = take and reaper.GetMediaItemTake_Source(take)
     local srcfile = src and reaper.GetMediaSourceFileName(src, "") or ""
-    w("item", index, it + 1, iv("D_POSITION"), iv("D_LENGTH"), iv("B_LOOPSRC"), iv("D_FADEINLEN"), iv("D_FADEOUTLEN"),
-      iv("D_VOL") * math.abs(tv("D_VOL")), iv("B_MUTE"), tv("D_STARTOFFS"), tv("D_PLAYRATE"), tv("D_PITCH"), srcfile)
+    w(
+      "item",
+      index,
+      it + 1,
+      iv("D_POSITION"),
+      iv("D_LENGTH"),
+      iv("B_LOOPSRC"),
+      iv("D_FADEINLEN"),
+      iv("D_FADEOUTLEN"),
+      iv("D_VOL") * math.abs(tv("D_VOL")),
+      iv("B_MUTE"),
+      tv("D_STARTOFFS"),
+      tv("D_PLAYRATE"),
+      tv("D_PITCH"),
+      srcfile
+    )
     if take and reaper.TakeIsMIDI(take) then
       local _, notes, ccs = reaper.MIDI_CountEvts(take)
       for n = 0, notes - 1 do
         local _, _, muted, s, e, chan, pitch, vel = reaper.MIDI_GetNote(take, n)
-        w("note", index, it + 1, reaper.MIDI_GetProjTimeFromPPQPos(take, s), reaper.MIDI_GetProjTimeFromPPQPos(take, e),
-          pitch, vel, chan, b(muted))
+        w(
+          "note",
+          index,
+          it + 1,
+          reaper.MIDI_GetProjTimeFromPPQPos(take, s),
+          reaper.MIDI_GetProjTimeFromPPQPos(take, e),
+          pitch,
+          vel,
+          chan,
+          b(muted)
+        )
       end
       for c = 0, ccs - 1 do
         local _, _, _, ppq, status, chan, d1, d2 = reaper.MIDI_GetCC(take, c)

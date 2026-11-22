@@ -45,8 +45,12 @@ end
 --- read, so that what does not change is written back as it was.
 local function node_of(el)
   local node = { type = el.name, props = {}, children = {}, xml = true, _span = el.span, _text = el.text }
-  for _, k in ipairs(el.order) do node.props[#node.props + 1] = { k, juce.raw(el.attr[k], "string") } end
-  for i, c in ipairs(el.children) do node.children[i] = node_of(c) end
+  for _, k in ipairs(el.order) do
+    node.props[#node.props + 1] = { k, juce.raw(el.attr[k], "string") }
+  end
+  for i, c in ipairs(el.children) do
+    node.children[i] = node_of(c)
+  end
   -- Text that is only the layout between children is none.
   if el.text and el.text:find("%S") then node.text = el.text end
   node._text0 = node.text
@@ -68,9 +72,15 @@ local function element_of(node)
     el.order[i] = p[1]
     el.attr[p[1]] = M.text_of(p[2])
   end
-  for i, c in ipairs(node.children) do el.children[i] = element_of(c) end
+  for i, c in ipairs(node.children) do
+    el.children[i] = element_of(c)
+  end
   -- Text as read, layout and all, while it did not change.
-  if node.text == node._text0 then el.text = node._text else el.text = node.text end
+  if node.text == node._text0 then
+    el.text = node._text
+  else
+    el.text = node.text
+  end
   return el
 end
 
@@ -90,7 +100,9 @@ end
 function M.tree(kind, props, children)
   local node = juce.tree(kind, nil, children)
   node.xml = true
-  for _, p in ipairs(props or {}) do juce.set(node, p[1], p[2], p[3]) end
+  for _, p in ipairs(props or {}) do
+    juce.set(node, p[1], p[2], p[3])
+  end
   return node
 end
 

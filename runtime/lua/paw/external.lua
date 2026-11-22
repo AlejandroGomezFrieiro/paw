@@ -28,15 +28,15 @@ local function names(paths)
   return table.concat(out, ", ")
 end
 
-local function count(paths)
-  return string.format("%d file%s", #paths, #paths == 1 and "" or "s")
-end
+local function count(paths) return string.format("%d file%s", #paths, #paths == 1 and "" or "s") end
 
 --- Read the changed files again, as one undo step.
 function M.reload()
   local paths = api.project_changed_files()
   local ok, err = pcall(api.project_reload)
-  if not ok then return paw.notify("could not read the project again: " .. tostring(err):gsub("^[^:]*:%d+: ", ""), "error") end
+  if not ok then
+    return paw.notify("could not read the project again: " .. tostring(err):gsub("^[^:]*:%d+: ", ""), "error")
+  end
   api.undo_label("read again from the disk")
   paw.notify(string.format("read again: %s changed outside paw (%s); `u` goes back", count(paths), names(paths)))
 end
@@ -45,8 +45,13 @@ end
 function M.keep()
   local paths = api.project_changed_files()
   api.project_keep_changes()
-  paw.notify(string.format("kept paw's version: %s changed outside paw (%s); the next save writes over them, `:e!` reads them",
-    count(paths), names(paths)))
+  paw.notify(
+    string.format(
+      "kept paw's version: %s changed outside paw (%s); the next save writes over them, `:e!` reads them",
+      count(paths),
+      names(paths)
+    )
+  )
 end
 
 local asking = false
@@ -67,15 +72,18 @@ function M.act()
     string.format("%s changed outside paw (%s): read again? y/n ", count(paths), names(paths)),
     function(key)
       asking = false
-      if key == "y" or key == "Y" then M.reload() else M.keep() end
-    end)
+      if key == "y" or key == "Y" then
+        M.reload()
+      else
+        M.keep()
+      end
+    end
+  )
 end
 
 -- Coming back to paw is the focus that the terminal (mode 1004) or the
 -- window reports. A terminal that does not report it has the next key.
-paw.on("files.changed", function()
-  paw.keymap.on_next_key(M.act)
-end)
+paw.on("files.changed", function() paw.keymap.on_next_key(M.act) end)
 paw.on("ui.focus", function(event)
   if event.focused then M.act() end
 end)

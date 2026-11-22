@@ -13,7 +13,9 @@ local initial = L.capture()
 
 local function reset()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   L.restore(initial)
   paw.opt.scope_rest = "play"
   paw.ui.focus("arrange")
@@ -31,7 +33,9 @@ local function screen() return table.concat(api.ui_snapshot(W, H), "\n") end
 
 local function names(ids)
   local out = {}
-  for i, id in ipairs(ids) do out[i] = api.track_get(id).name end
+  for i, id in ipairs(ids) do
+    out[i] = api.track_get(id).name
+  end
   return table.concat(out, " ")
 end
 
@@ -48,9 +52,15 @@ end
 local function synth(name, pitch)
   local t = paw.add_track({ name = name })
   t:add_device("synth", { attack = 0.001, release = 0.05 })
-  t:add_clip({ start = 0, length = 4, notes = {
-    { pitch = pitch, start = 0, length = 1 }, { pitch = pitch + 4, start = 1, length = 1 }, { pitch = pitch + 7, start = 2, length = 2 },
-  } })
+  t:add_clip({
+    start = 0,
+    length = 4,
+    notes = {
+      { pitch = pitch, start = 0, length = 1 },
+      { pitch = pitch + 4, start = 1, length = 1 },
+      { pitch = pitch + 7, start = 2, length = 2 },
+    },
+  })
   return t
 end
 
@@ -64,7 +74,15 @@ local function orchestra()
   local orch = paw.groups.make({ strings, brass }, "Orchestra")
   paw.flush()
   api.undo_checkpoint()
-  return { violins = violins, cellos = cellos, horns = horns, drums = drums, strings = strings, brass = brass, orchestra = orch }
+  return {
+    violins = violins,
+    cellos = cellos,
+    horns = horns,
+    drums = drums,
+    strings = strings,
+    brass = brass,
+    orchestra = orch,
+  }
 end
 
 --- The samples of a 32-bit float WAV file written by `paw.render`.
@@ -109,8 +127,11 @@ test("narrowing to a group opens a tab of its tracks alone, and widening comes b
   eq(names(paw.groups.rows()), "Strings Violins Cellos", "the arrange view's rows")
   eq(paw.cursor.track_id(), o.strings.id, "the cursor came inside")
   local text = screen()
-  eq(text:find("Violins", 1, true) ~= nil and text:find("Horns", 1, true) == nil and text:find("Drums", 1, true) == nil, true,
-    "drawn: only the strings")
+  eq(
+    text:find("Violins", 1, true) ~= nil and text:find("Horns", 1, true) == nil and text:find("Drums", 1, true) == nil,
+    true,
+    "drawn: only the strings"
+  )
   eq(text:find("Song › Strings", 1, true) ~= nil, true, "the status line says so")
   -- The rest of the program sees the scope too.
   local items = paw.pick.sources.tracks.items()
@@ -221,12 +242,14 @@ test("paw://tracks in a scope lists its tracks, and writing it leaves the rest a
   paw.scope.narrow("Strings")
   keys(":e paw://tracks<CR>")
   local lines = {}
-  for i, l in ipairs(paw.textbuf.buf().state.text.lines) do lines[i] = l.text end
+  for i, l in ipairs(paw.textbuf.buf().state.text.lines) do
+    lines[i] = l.text
+  end
   local text = table.concat(lines, "\n")
   eq(text:find("Violins", 1, true) ~= nil and text:find("Horns", 1, true) == nil, true, "only the strings: " .. text)
   -- Rename the cellos and write: the rest keeps its tracks and their order.
   keys("G0")
-  keys("cw\"Basses\"<Esc>")
+  keys('cw"Basses"<Esc>')
   keys(":w<CR>")
   keys("y")
   eq(o.cellos.name, "Basses", "renamed")
@@ -458,7 +481,9 @@ test("a frozen track's heavy Lua device rests: the engine works far less", funct
   start()
   local dir = T.scratch .. "/heavy-devices"
   os.execute("mkdir -p '" .. dir .. "'")
-  T.write_file(dir .. "/heavy.lua", [[
+  T.write_file(
+    dir .. "/heavy.lua",
+    [[
 local dev = require("paw.dsp").device { name = "Heavy" }
 local x = 0
 function dev.process(b)
@@ -470,7 +495,8 @@ function dev.process(b)
   end
 end
 return dev
-]])
+]]
+  )
   paw.luadev.add_dir(dir)
   local t = synth("Heavy", 60)
   t:add_device("lua:heavy")
@@ -503,7 +529,11 @@ test(":render stems shows a plan of one file per group, and they add up to the m
   keys(":render stems " .. dir .. " wait=true bits=32 tail=1<CR>")
   eq(paw.ui.float and paw.ui.float.name, "render.plan", "a plan first")
   local text = screen()
-  eq(text:find("Orchestra.wav", 1, true) ~= nil and text:find("Drums.wav", 1, true) ~= nil, true, "a file per group: " .. text)
+  eq(
+    text:find("Orchestra.wav", 1, true) ~= nil and text:find("Drums.wav", 1, true) ~= nil,
+    true,
+    "a file per group: " .. text
+  )
   eq(text:find("Violins, Cellos, Horns", 1, true) ~= nil, true, "saying what each holds")
   keys("y")
   local a = { path = dir .. "/Orchestra.wav" }
@@ -514,17 +544,23 @@ test(":render stems shows a plan of one file per group, and they add up to the m
   local y = samples(b.path)
   local m, k = samples(mix.path)
   local worst = 0
-  for i = 0, math.min(n, k) - 1 do worst = math.max(worst, math.abs(x[i] + y[i] - m[i])) end
+  for i = 0, math.min(n, k) - 1 do
+    worst = math.max(worst, math.abs(x[i] + y[i] - m[i]))
+  end
   eq(worst < 1e-5, true, "they add up to the mix: " .. worst)
   -- Narrowed, the parts of the group; and one group on its own.
   paw.scope.narrow("Orchestra")
   local plan = paw.stems.plan({ dir = dir })
   local list = {}
-  for i, s in ipairs(plan) do list[i] = s.file:match("([^/]+)$") end
+  for i, s in ipairs(plan) do
+    list[i] = s.file:match("([^/]+)$")
+  end
   eq(table.concat(list, " "), "Strings.wav Brass.wav", "in a scope: its groups")
   plan = paw.stems.plan({ dir = dir, tracks = true })
   list = {}
-  for i, s in ipairs(plan) do list[i] = s.name end
+  for i, s in ipairs(plan) do
+    list[i] = s.name
+  end
   eq(table.concat(list, " "), "Violins Cellos Horns", "per track")
   paw.scope.widen()
   keys(":render Strings bits=32 wait=true<CR>")

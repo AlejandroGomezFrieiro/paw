@@ -18,7 +18,9 @@ end
 
 local function keys()
   local out = {}
-  for _, k in ipairs(H.keys()) do out[#out + 1] = string.format("%g:%s", k.at, k.name) end
+  for _, k in ipairs(H.keys()) do
+    out[#out + 1] = string.format("%g:%s", k.at, k.name)
+  end
   return table.concat(out, " ")
 end
 
@@ -44,7 +46,9 @@ local function line(name, list, start)
   local track = paw.add_track({ name = name })
   local notes, at = {}, start or 0
   for _, entry in ipairs(list) do
-    if entry[1] ~= "r" then notes[#notes + 1] = { pitch = music.pitch(entry[1]), start = at, length = entry[2], velocity = 90 } end
+    if entry[1] ~= "r" then
+      notes[#notes + 1] = { pitch = music.pitch(entry[1]), start = at, length = entry[2], velocity = 90 }
+    end
     at = at + entry[2]
   end
   track:add_clip({ start = 0, length = math.max(4, math.ceil(at / 4) * 4), notes = notes })
@@ -54,7 +58,11 @@ end
 test("harmony: block chords in C major are named, numbered and in C major", function()
   fresh()
   chords("Piano", {
-    { "C3 C4 E4 G4", 4 }, { "A2 A3 C4 E4", 4 }, { "D3 D4 F4 A4", 4 }, { "G2 G3 B3 D4 F4", 4 }, { "C3 C4 E4 G4", 4 },
+    { "C3 C4 E4 G4", 4 },
+    { "A2 A3 C4 E4", 4 },
+    { "D3 D4 F4 A4", 4 },
+    { "G2 G3 B3 D4 F4", 4 },
+    { "C3 C4 E4 G4", 4 },
   })
   paw.flush()
   eq(reading(), "0:C 4:Am 8:Dm 12:G7 16:C", "the names")
@@ -73,8 +81,14 @@ end)
 test("harmony: inversions are read from the bass and written as slash chords", function()
   fresh()
   chords("Piano", {
-    { "E3 G3 C4", 4 }, { "F3 A3 C4", 4 }, { "B2 F3 G3 D4", 4 }, { "C3 E3 G3 C4", 4 },
-    { "F2 A3 D4", 4 }, { "G2 B3 D4 F4", 4 }, { "E3 G#3 B3 D4", 4 }, { "A2 E3 A3 C4", 4 },
+    { "E3 G3 C4", 4 },
+    { "F3 A3 C4", 4 },
+    { "B2 F3 G3 D4", 4 },
+    { "C3 E3 G3 C4", 4 },
+    { "F2 A3 D4", 4 },
+    { "G2 B3 D4 F4", 4 },
+    { "E3 G#3 B3 D4", 4 },
+    { "A2 E3 A3 C4", 4 },
   })
   paw.flush()
   eq(reading(), "0:C/E 4:F 8:G7/B 12:C 16:Dm/F 20:G7 24:E7 28:Am", "inversions and their bass")
@@ -83,13 +97,25 @@ end)
 test("harmony: sevenths, half-diminished and diminished chords", function()
   fresh()
   chords("Keys", {
-    { "C3 E3 G3 B3", 4 }, { "A2 C3 E3 G3", 4 }, { "D3 F3 A3 C4", 4 }, { "G2 B2 D3 F3", 4 },
-    { "B2 D3 F3 A3", 4 }, { "E3 G#3 B3 D4", 4 }, { "G#2 B2 D3 F3", 4 }, { "A2 C3 E3 A3", 4 },
-    { "F3 A3 C4 E4", 4 }, { "C3 E3 G3 A3", 4 }, { "G2 C3 D3 F3", 4 }, { "C3 G3 C4", 4 },
+    { "C3 E3 G3 B3", 4 },
+    { "A2 C3 E3 G3", 4 },
+    { "D3 F3 A3 C4", 4 },
+    { "G2 B2 D3 F3", 4 },
+    { "B2 D3 F3 A3", 4 },
+    { "E3 G#3 B3 D4", 4 },
+    { "G#2 B2 D3 F3", 4 },
+    { "A2 C3 E3 A3", 4 },
+    { "F3 A3 C4 E4", 4 },
+    { "C3 E3 G3 A3", 4 },
+    { "G2 C3 D3 F3", 4 },
+    { "C3 G3 C4", 4 },
   })
   paw.flush()
-  eq(reading(), "0:Cmaj7 4:Am7 8:Dm7 12:G7 16:Bm7b5 20:E7 24:G#dim7 28:Am 32:Fmaj7 36:C6 40:G7sus4 44:C5",
-    "every quality")
+  eq(
+    reading(),
+    "0:Cmaj7 4:Am7 8:Dm7 12:G7 16:Bm7b5 20:E7 24:G#dim7 28:Am 32:Fmaj7 36:C6 40:G7sus4 44:C5",
+    "every quality"
+  )
 end)
 
 test("harmony: a chord holds across the melody's passing notes", function()
@@ -97,10 +123,30 @@ test("harmony: a chord holds across the melody's passing notes", function()
   chords("Piano", { { "C3 E3 G3", 4 }, { "F3 A3 C4", 4 }, { "G2 B2 D3", 4 }, { "C3 E3 G3", 4 } })
   -- Stepwise eighths and sixteenths, half of them outside the chord.
   line("Flute", {
-    { "C5", 0.5 }, { "D5", 0.5 }, { "E5", 0.5 }, { "F5", 0.5 }, { "G5", 1 }, { "E5", 0.5 }, { "D5", 0.5 },
-    { "C5", 0.5 }, { "D5", 0.25 }, { "E5", 0.25 }, { "F5", 1 }, { "A5", 0.5 }, { "G5", 0.5 }, { "F5", 1 },
-    { "D5", 0.5 }, { "E5", 0.5 }, { "F5", 1 }, { "B4", 0.5 }, { "C5", 0.5 }, { "D5", 1 },
-    { "E5", 0.5 }, { "D5", 0.25 }, { "C5", 0.25 }, { "C5", 3 },
+    { "C5", 0.5 },
+    { "D5", 0.5 },
+    { "E5", 0.5 },
+    { "F5", 0.5 },
+    { "G5", 1 },
+    { "E5", 0.5 },
+    { "D5", 0.5 },
+    { "C5", 0.5 },
+    { "D5", 0.25 },
+    { "E5", 0.25 },
+    { "F5", 1 },
+    { "A5", 0.5 },
+    { "G5", 0.5 },
+    { "F5", 1 },
+    { "D5", 0.5 },
+    { "E5", 0.5 },
+    { "F5", 1 },
+    { "B4", 0.5 },
+    { "C5", 0.5 },
+    { "D5", 1 },
+    { "E5", 0.5 },
+    { "D5", 0.25 },
+    { "C5", 0.25 },
+    { "C5", 3 },
   })
   paw.flush()
   eq(reading(), "0:C 4:F 8:G 12:C", "the chords, not the passing notes")
@@ -114,8 +160,22 @@ test("harmony: a melody alone names no chords, an arpeggio in eighths does", fun
   eq(keys(), "0:C major", "but is in C major")
   fresh()
   line("Harp", {
-    { "C4", 0.5 }, { "E4", 0.5 }, { "G4", 0.5 }, { "E4", 0.5 }, { "C4", 0.5 }, { "E4", 0.5 }, { "G4", 0.5 }, { "E4", 0.5 },
-    { "A3", 0.5 }, { "C4", 0.5 }, { "F4", 0.5 }, { "C4", 0.5 }, { "A3", 0.5 }, { "C4", 0.5 }, { "F4", 0.5 }, { "C4", 0.5 },
+    { "C4", 0.5 },
+    { "E4", 0.5 },
+    { "G4", 0.5 },
+    { "E4", 0.5 },
+    { "C4", 0.5 },
+    { "E4", 0.5 },
+    { "G4", 0.5 },
+    { "E4", 0.5 },
+    { "A3", 0.5 },
+    { "C4", 0.5 },
+    { "F4", 0.5 },
+    { "C4", 0.5 },
+    { "A3", 0.5 },
+    { "C4", 0.5 },
+    { "F4", 0.5 },
+    { "C4", 0.5 },
   })
   paw.flush()
   eq(reading(), "0:C 4:F/A", "the chords the notes spell out one at a time")
@@ -124,11 +184,23 @@ end)
 test("harmony: a modulation from C major to G major is found", function()
   fresh()
   chords("Strings", {
-    { "C3 E3 G3", 4 }, { "F3 A3 C4", 4 }, { "G2 B2 D3 F3", 4 }, { "C3 E3 G3", 4 },
-    { "A2 C3 E3", 4 }, { "D3 F3 A3", 4 }, { "G2 B2 D3", 4 }, { "C3 E3 G3", 4 },
+    { "C3 E3 G3", 4 },
+    { "F3 A3 C4", 4 },
+    { "G2 B2 D3 F3", 4 },
+    { "C3 E3 G3", 4 },
+    { "A2 C3 E3", 4 },
+    { "D3 F3 A3", 4 },
+    { "G2 B2 D3", 4 },
+    { "C3 E3 G3", 4 },
     -- The pivot (Am, ii in G), then D7 and G with their F sharps.
-    { "A2 C3 E3", 4 }, { "D3 F#3 A3 C4", 4 }, { "G2 B2 D3", 4 }, { "E3 G3 B3", 4 },
-    { "C3 E3 G3", 4 }, { "A2 C3 E3 G3", 4 }, { "D3 F#3 A3 C4", 4 }, { "G2 B2 D3", 4 },
+    { "A2 C3 E3", 4 },
+    { "D3 F#3 A3 C4", 4 },
+    { "G2 B2 D3", 4 },
+    { "E3 G3 B3", 4 },
+    { "C3 E3 G3", 4 },
+    { "A2 C3 E3 G3", 4 },
+    { "D3 F#3 A3 C4", 4 },
+    { "G2 B2 D3", 4 },
   })
   paw.flush()
   -- The pivot belongs to both keys and is heard in the old one: the new key
@@ -202,31 +274,42 @@ test("harmony: the reading is cached, follows edits and undo, and says when it c
   paw.off(id)
 end)
 
-test("harmony: an edit reads again where it changed the notes, and a view draws the reading before it until then", function()
-  fresh()
-  local piano = chords("Piano", { { "C3 E3 G3", 4 }, { "F3 A3 C4", 4 } })
-  local pad = chords("Pad", { { "A2 C3 E3", 4, at = 16 } })
-  paw.flush()
-  eq(reading(), "0:C 4:F 16:Am", "read")
-  local clip = pad:clips()[1]
-  api.clip_set_notes(clip.id, { { pitch = music.pitch("D3"), start = 16, length = 4, velocity = 90 },
-    { pitch = music.pitch("F3"), start = 16, length = 4, velocity = 90 }, { pitch = music.pitch("A3"), start = 16, length = 4, velocity = 90 } })
-  paw.flush()
-  eq(reading(), "0:C 4:F 16:Dm", "the edited clip is read again, the other kept")
-  piano:clips()[1]:add_note({ pitch = music.pitch("Bb3"), start = 0, length = 4 })
-  paw.flush()
-  local function shown()
-    local out = {}
-    for _, c in ipairs(H.chords(nil, nil, true)) do out[#out + 1] = string.format("%g:%s", c.at, c.name) end
-    return table.concat(out, " ")
+test(
+  "harmony: an edit reads again where it changed the notes, and a view draws the reading before it until then",
+  function()
+    fresh()
+    local piano = chords("Piano", { { "C3 E3 G3", 4 }, { "F3 A3 C4", 4 } })
+    local pad = chords("Pad", { { "A2 C3 E3", 4, at = 16 } })
+    paw.flush()
+    eq(reading(), "0:C 4:F 16:Am", "read")
+    local clip = pad:clips()[1]
+    api.clip_set_notes(
+      clip.id,
+      {
+        { pitch = music.pitch("D3"), start = 16, length = 4, velocity = 90 },
+        { pitch = music.pitch("F3"), start = 16, length = 4, velocity = 90 },
+        { pitch = music.pitch("A3"), start = 16, length = 4, velocity = 90 },
+      }
+    )
+    paw.flush()
+    eq(reading(), "0:C 4:F 16:Dm", "the edited clip is read again, the other kept")
+    piano:clips()[1]:add_note({ pitch = music.pitch("Bb3"), start = 0, length = 4 })
+    paw.flush()
+    local function shown()
+      local out = {}
+      for _, c in ipairs(H.chords(nil, nil, true)) do
+        out[#out + 1] = string.format("%g:%s", c.at, c.name)
+      end
+      return table.concat(out, " ")
+    end
+    eq(shown(), "0:C 4:F 16:Dm", "a view gets the reading before the edit at once")
+    for _ = 1, 200 do
+      if H.fresh() then break end
+      paw.wait(10)
+    end
+    eq(shown(), "0:C7 4:F 16:Dm", "and the new one once it is read")
   end
-  eq(shown(), "0:C 4:F 16:Dm", "a view gets the reading before the edit at once")
-  for _ = 1, 200 do
-    if H.fresh() then break end
-    paw.wait(10)
-  end
-  eq(shown(), "0:C7 4:F 16:Dm", "and the new one once it is read")
-end)
+)
 
 test("harmony: the project's key wins over the one read, and is kept in the project", function()
   fresh()
@@ -276,7 +359,9 @@ test("harmony: voicings fit the range and lead smoothly", function()
   local g7 = H.tones(7, "7")
   local p = V.voice(g7, { low = 48, high = 84, prev = { 60, 64, 67 } })
   eq(#p, 4, "four voices")
-  for _, x in ipairs(p) do eq(x >= 48 and x <= 84, true, "within the range") end
+  for _, x in ipairs(p) do
+    eq(x >= 48 and x <= 84, true, "within the range")
+  end
   eq(V.distance({ 60, 64, 67 }, p) <= 5, true, "close to the C major before: " .. table.concat(p, " "))
   local into = V.voice(g7, { low = 48, high = 84, next = { 60, 64, 67, 72 } })
   eq(V.distance(into, { 60, 64, 67, 72 }) <= 5, true, "close to the C after: " .. table.concat(into, " "))
@@ -305,18 +390,25 @@ test("harmony: a provider answers instead of the reading", function()
   chords("Piano", { { "C3 E3 G3", 4 } })
   paw.flush()
   eq(H.provider(), "builtin", "the built-in reading")
-  H.provide("server", function(from, to)
-    return { { at = 0, length = 2, root = 2, quality = "m7" }, { at = 2, length = 2, root = 7, quality = "7" } },
-      { { at = 0, length = 4, tonic = 0, mode = "major" } }
-  end, 100)
+  H.provide(
+    "server",
+    function(from, to)
+      return { { at = 0, length = 2, root = 2, quality = "m7" }, { at = 2, length = 2, root = 7, quality = "7" } }, {
+        { at = 0, length = 4, tonic = 0, mode = "major" },
+      }
+    end,
+    100
+  )
   eq(reading(), "0:Dm7 2:G7", "the provider's chords")
   eq(reading(nil, nil, "roman"), "0:ii7 2:V7", "named in its key")
   eq(H.provider(), "server", "said")
   H.provide("silent", function() return nil end, 200)
   eq(H.provider(), "server", "one that does not answer is passed over")
-  H.provide("server", function()
-    return { { at = 0, length = 2, root = 2, quality = "min7", ["function"] = "S" } }, {}
-  end, 50)
+  H.provide(
+    "server",
+    function() return { { at = 0, length = 2, root = 2, quality = "min7", ["function"] = "S" } }, {} end,
+    50
+  )
   eq(reading(), "0:Dm7 2:C", "the built-in reading fills in what a provider's answer does not cover")
   eq(H.at(0)["function"], "S", "a provider's own fields are kept, and its names for qualities understood")
   H.provide("server", nil)

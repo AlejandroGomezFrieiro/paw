@@ -23,10 +23,23 @@ local function wav(path, seconds)
     parts[i] = string.char(v % 256, math.floor(v / 256), v % 256, math.floor(v / 256))
   end
   local data = table.concat(parts)
-  local function u32(x) return string.char(x % 256, math.floor(x / 256) % 256, math.floor(x / 65536) % 256, math.floor(x / 16777216)) end
+  local function u32(x)
+    return string.char(x % 256, math.floor(x / 256) % 256, math.floor(x / 65536) % 256, math.floor(x / 16777216))
+  end
   local f = io.open(path, "wb")
-  f:write("RIFF" .. u32(36 + #data) .. "WAVEfmt " .. u32(16) .. string.char(1, 0, 2, 0) .. u32(48000) .. u32(192000)
-    .. string.char(4, 0, 16, 0) .. "data" .. u32(#data) .. data)
+  f:write(
+    "RIFF"
+      .. u32(36 + #data)
+      .. "WAVEfmt "
+      .. u32(16)
+      .. string.char(1, 0, 2, 0)
+      .. u32(48000)
+      .. u32(192000)
+      .. string.char(4, 0, 16, 0)
+      .. "data"
+      .. u32(#data)
+      .. data
+  )
   f:close()
 end
 
@@ -45,7 +58,11 @@ while api.now() - start < minutes * 60000 do
     local t = paw.add_track({ name = "t" .. i })
     t:add_device(i % 2 == 0 and "synth" or "gain")
     if i % 2 == 0 then
-      t:add_clip({ start = 0, length = 8, notes = { { pitch = 60, start = 0, length = 4 }, { pitch = 64, start = 4, length = 4 } } })
+      t:add_clip({
+        start = 0,
+        length = 8,
+        notes = { { pitch = 60, start = 0, length = 4 }, { pitch = 64, start = 4, length = 4 } },
+      })
     else
       t:add_clip({ start = 0, file = file })
     end
@@ -62,7 +79,9 @@ while api.now() - start < minutes * 60000 do
     tracks[i % 6 + 1].volume = -(i % 12)
     api.undo_checkpoint()
   end
-  for _ = 1, 10 do paw.undo() end
+  for _ = 1, 10 do
+    paw.undo()
+  end
   paw.transport.play()
   paw.wait(1000)
   paw.transport.stop()
@@ -70,7 +89,16 @@ while api.now() - start < minutes * 60000 do
   paw.project.load(string.format("%s/song-%d.json", dir, round % 5))
   if round % 10 == 0 then
     local e = api.engine_get()
-    print(string.format("round %d  %.1f min  rss %d kB  audio files %d  xruns %d", round, (api.now() - start) / 60000, rss(), e.audio_files or -1, e.xruns))
+    print(
+      string.format(
+        "round %d  %.1f min  rss %d kB  audio files %d  xruns %d",
+        round,
+        (api.now() - start) / 60000,
+        rss(),
+        e.audio_files or -1,
+        e.xruns
+      )
+    )
     io.stdout:flush()
   end
 end

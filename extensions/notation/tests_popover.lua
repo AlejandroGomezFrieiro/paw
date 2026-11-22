@@ -10,7 +10,9 @@ local function load()
   return require("notation"), require("notation.doc")
 end
 
-local function N(pitch, start, length, velocity) return { pitch = pitch, start = start, length = length, velocity = velocity or 80 } end
+local function N(pitch, start, length, velocity)
+  return { pitch = pitch, start = start, length = length, velocity = velocity or 80 }
+end
 
 local keys = T.keys
 
@@ -41,14 +43,18 @@ end
 
 local function velocities(clip)
   local out = {}
-  for _, n in ipairs(clip:notes()) do out[#out + 1] = n.velocity end
+  for _, n in ipairs(clip:notes()) do
+    out[#out + 1] = n.velocity
+  end
   return table.concat(out, " ")
 end
 
 --- Eight quarter notes, C D E F G A B C.
 local function scale()
   local notes = {}
-  for i, p in ipairs({ 60, 62, 64, 65, 67, 69, 71, 72 }) do notes[i] = N(p, i - 1, 1) end
+  for i, p in ipairs({ 60, 62, 64, 65, 67, 69, 71, 72 }) do
+    notes[i] = N(p, i - 1, 1)
+  end
   return notes
 end
 
@@ -107,7 +113,9 @@ test("popover: completion lists what can be typed with what it means", function(
   keys("<localleader>dm")
   local st = require("paw.views.cmdline").state()
   local labels = {}
-  for _, c in ipairs(st.matches or {}) do labels[#labels + 1] = c.label .. "=" .. tostring(c.desc) end
+  for _, c in ipairs(st.matches or {}) do
+    labels[#labels + 1] = c.label .. "=" .. tostring(c.desc)
+  end
   local text = table.concat(labels, ";")
   eq(text:find("mp=moderately soft", 1, true) ~= nil, true, text)
   eq(text:find("mf=moderately loud", 1, true) ~= nil, true, text)
@@ -146,7 +154,9 @@ test("popover: in visual mode it is for the selection, as :'<,'> is", function()
   eq(#pins, 1, "a hairpin between")
   eq(pins[1].value, "cresc", "a crescendo")
   local v = {}
-  for i, n in ipairs(clip:notes()) do v[i] = n.velocity end
+  for i, n in ipairs(clip:notes()) do
+    v[i] = n.velocity
+  end
   eq(v[1], 66, "mp at the start")
   eq(v[2] > v[1] and v[3] > v[2], true, "rising: " .. velocities(clip))
   eq(v[5], 96, "f from the end")
@@ -176,7 +186,9 @@ test("popover: sfz, fp and subito play as they say", function()
   view:set(nil, 4)
   keys("<localleader>dfp<CR>")
   local v = {}
-  for i, n in ipairs(clip:notes()) do v[i] = n.velocity end
+  for i, n in ipairs(clip:notes()) do
+    v[i] = n.velocity
+  end
   eq(v[2], 52, "p")
   eq(v[3], 82, "an sfz is an accent over p")
   eq(v[4], 52, "p again after it")
@@ -246,7 +258,11 @@ test("popover: a tempo mark plays, rit. slows to the end of the selection, a tem
   view:set(nil, 4)
   keys("v3l<localleader>trit.<CR>")
   eq(paw.tempo.at(4), 132, "rit. starts from the tempo there")
-  eq(paw.tempo.at(7.9) < 132 and paw.tempo.at(8) <= 106, true, "slowing to the end of the selection: " .. paw.tempo.at(8))
+  eq(
+    paw.tempo.at(7.9) < 132 and paw.tempo.at(8) <= 106,
+    true,
+    "slowing to the end of the selection: " .. paw.tempo.at(8)
+  )
   view:set(nil, 8)
   keys("<localleader>ta tempo<CR>")
   eq(paw.tempo.at(8), 132, "a tempo")
@@ -260,14 +276,22 @@ end)
 test("popover: a time signature writes the bars again, the music where it was", function()
   local view, clip = song(scale())
   local before = {}
-  for i, n in ipairs(clip:notes()) do before[i] = n.start .. ":" .. n.pitch end
+  for i, n in ipairs(clip:notes()) do
+    before[i] = n.start .. ":" .. n.pitch
+  end
   keys("<localleader>m6/8<CR>")
   local sc = score_of(clip)
   eq(sc.measures[1].meter[1] .. "/" .. sc.measures[1].meter[2], "6/8", "6/8 from bar 1")
   local after = {}
-  for i, n in ipairs(clip:notes()) do after[i] = n.start .. ":" .. n.pitch end
+  for i, n in ipairs(clip:notes()) do
+    after[i] = n.start .. ":" .. n.pitch
+  end
   eq(table.concat(after, " "), table.concat(before, " "), "every note where it was")
-  eq(require("notation.model").text(view:layout()):match("^[^|]*"), "q C4 e~ D4 e D4 q E4 ", "bar 1 holds three quarters, D tied over the half bar")
+  eq(
+    require("notation.model").text(view:layout()):match("^[^|]*"),
+    "q C4 e~ D4 e D4 q E4 ",
+    "bar 1 holds three quarters, D tied over the half bar"
+  )
   eq(paw.time.signature_at(0), 6, "the song's bars follow")
   keys("<localleader>m3+3+2/8<CR>")
   sc = score_of(clip)
@@ -353,7 +377,9 @@ test("popover: text, rehearsal marks with song markers, techniques", function()
   eq(sc.measures[1].rehearsal, "A", "A first")
   eq(sc.measures[3].rehearsal, "B", "B next")
   local names = {}
-  for _, m in ipairs(paw.markers.list()) do names[#names + 1] = m.name .. "@" .. m.beat end
+  for _, m in ipairs(paw.markers.list()) do
+    names[#names + 1] = m.name .. "@" .. m.beat
+  end
   eq(table.concat(names, " "), "A@0 B@8", "song markers")
   keys("<localleader>ppizz.<CR>")
   eq(marks_of(clip, "technique")[1].value, "pizz.", "a technique")
@@ -363,7 +389,9 @@ test("popover: intervals add a note to each chord of the selection", function()
   local view, clip = song({ N(60, 0, 1), N(62, 1, 1), N(64, 2, 1) }, 4)
   keys("v2l<localleader>i3<CR>")
   local pitches = {}
-  for _, n in ipairs(clip:notes()) do pitches[#pitches + 1] = n.pitch end
+  for _, n in ipairs(clip:notes()) do
+    pitches[#pitches + 1] = n.pitch
+  end
   eq(table.concat(pitches, " "), "60 64 62 65 64 67", "a third above each, in the key")
   view:set(nil, 0)
   keys("<Esc><localleader>i-6<CR>")
@@ -384,7 +412,9 @@ test("popover: tuplets, on a beat and while entering", function()
   eq(paw.keymap.mode, "i", "still entering")
   keys("cdefg<Esc>")
   local starts = {}
-  for _, n in ipairs(clip:notes()) do starts[#starts + 1] = string.format("%.2f", n.start) end
+  for _, n in ipairs(clip:notes()) do
+    starts[#starts + 1] = string.format("%.2f", n.start)
+  end
   eq(table.concat(starts, " "), "0.00 0.80 1.60 2.40 3.20", "five in the time of four quarters")
   view = song({ N(60, 0, 0.5), N(62, 0.5, 0.5) }, 4)
   view:set(nil, 0)
@@ -433,7 +463,9 @@ test("popover: chord symbols with Space to the next beat and Tab from what sound
   keys("<localleader>qCmaj7<Space>G/B<CR>")
   local list = marks_of(clip, "chord")
   local values = {}
-  for _, mk in ipairs(list) do values[#values + 1] = mk.value end
+  for _, mk in ipairs(list) do
+    values[#values + 1] = mk.value
+  end
   eq(table.concat(values, " "), "Cmaj7 G/B", "one a beat")
   view:set(nil, 0)
   keys("<localleader>q")
@@ -448,12 +480,16 @@ test("popover: ornaments and fermatas on the chord", function()
   keys("<localleader>otr<CR>")
   local D = require("notation.doc")
   local first
-  D.each(score_of(clip), function(ev) if ev.kind == "chord" and not first then first = ev end end)
+  D.each(score_of(clip), function(ev)
+    if ev.kind == "chord" and not first then first = ev end
+  end)
   eq(first.orn, "trill", "a trill")
   view:set(nil, 7)
   keys("<localleader>ofermata<CR>")
   local last
-  D.each(score_of(clip), function(ev) if ev.kind == "chord" then last = ev end end)
+  D.each(score_of(clip), function(ev)
+    if ev.kind == "chord" then last = ev end
+  end)
   eq(last.art and last.art.fermata, true, "a fermata")
   eq(clip:notes()[8].length, 1, "held its whole length")
 end)
@@ -507,7 +543,9 @@ test("score: after an undo the page names the score's own chords, not ones an ed
   view:set(nil, 0)
   keys("vl:notation.voice 2<CR>")
   local moved = 0
-  D.each(score_of(clip), function(ev, _, _, v) if ev.kind == "chord" and v == 2 then moved = moved + 1 end end)
+  D.each(score_of(clip), function(ev, _, _, v)
+    if ev.kind == "chord" and v == 2 then moved = moved + 1 end
+  end)
   eq(moved, 2, "both chords moved into voice 2")
   view:layout()
   keys("u")
@@ -528,6 +566,8 @@ test("score: after an undo the page names the score's own chords, not ones an ed
   view:set(nil, 0)
   keys("<localleader>otr<CR>")
   local first
-  D.each(score_of(clip), function(ev) if ev.kind == "chord" and not first then first = ev end end)
+  D.each(score_of(clip), function(ev)
+    if ev.kind == "chord" and not first then first = ev end
+  end)
   eq(first.orn, "trill", "the chord under the cursor took the trill")
 end)

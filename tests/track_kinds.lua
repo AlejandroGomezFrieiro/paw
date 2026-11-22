@@ -38,7 +38,11 @@ test("a kind of track is made by track.add and from the list of kinds, and says 
   eq(paw.track_kinds.of(track.id), "bleep", "the track is of the kind")
   eq(track.meta.kind, "bleep", "kept on the track")
   eq(paw.cursor.track_id(), track.id, "the cursor goes to it")
-  eq(screen():find(" B Bleep loud", 1, true) ~= nil, true, "the header shows the kind's letter before the name, a column clear of it")
+  eq(
+    screen():find(" B Bleep loud", 1, true) ~= nil,
+    true,
+    "the header shows the kind's letter before the name, a column clear of it"
+  )
   -- K says what it is.
   paw.cmd("info")
   eq(screen():find("kind    Bleep track · bleeping on 1 device", 1, true) ~= nil, true, "K says the kind")

@@ -71,9 +71,7 @@ Ctx.__index = Ctx
 --- cancelled, a check that was skipped or one that is out of time raise
 --- there, so that the check ends and what it added is taken away.
 local function pause(run, ready)
-  run.waiter = function()
-    return run.cancelled or run.skipping or api.now() > run.deadline or ready()
-  end
+  run.waiter = function() return run.cancelled or run.skipping or api.now() > run.deadline or ready() end
   coroutine.yield()
   run.waiter = nil
   if run.waiter_error then
@@ -176,7 +174,9 @@ function Ctx:cleanup(fn) table.insert(self.cleanups, fn) end
 function Ctx:track(opts)
   self:scratch()
   local track = paw.add_track(opts)
-  self:cleanup(function() if track:exists() then track:remove() end end)
+  self:cleanup(function()
+    if track:exists() then track:remove() end
+  end)
   return track
 end
 
@@ -243,8 +243,16 @@ end
 
 local function new_result(check)
   return {
-    id = id_of(check), name = check.name, status = "skip", summary = "", lines = {}, warnings = {},
-    facts = {}, fact_order = {}, measures = {}, measure_order = {},
+    id = id_of(check),
+    name = check.name,
+    status = "skip",
+    summary = "",
+    lines = {},
+    warnings = {},
+    facts = {},
+    fact_order = {},
+    measures = {},
+    measure_order = {},
   }
 end
 
@@ -295,7 +303,10 @@ local function stamp()
   local path, n = dir .. "/" .. name, 1
   local function taken(p)
     local file = io.open(p .. ".md", "r")
-    if file then file:close() return true end
+    if file then
+      file:close()
+      return true
+    end
   end
   while taken(path) do
     n = n + 1
@@ -317,7 +328,11 @@ local function finish(run)
   run.running = false
   run.finished = api.now()
   local wrote, path = pcall(M.write_report, run)
-  if wrote then run.report = path else run.problem = (run.problem and run.problem .. "; " or "") .. "no report: " .. tostring(path) end
+  if wrote then
+    run.report = path
+  else
+    run.problem = (run.problem and run.problem .. "; " or "") .. "no report: " .. tostring(path)
+  end
   paw.emit("doctor.done", { report = run.report, problem = run.problem })
   if run.on_done then paw.try(run.on_done, run) end
 end
@@ -345,7 +360,9 @@ local function tick()
   if run.waiter then
     -- A check's own waiting code that fails ends that check, not the doctor.
     local fine, ready = pcall(run.waiter)
-    if not fine then run.waiter_error, ready = ready, true end
+    if not fine then
+      run.waiter_error, ready = ready, true
+    end
     if not ready then return end
   end
   local ok, err = coroutine.resume(run.co)
@@ -380,8 +397,14 @@ function M.start(opts)
   opts = opts or {}
   if S and S.running then error("the doctor is running already", 2) end
   local run = {
-    running = true, attended = not opts.unattended, opts = opts, settings = M.settings(opts),
-    list = select_checks(opts), done = {}, started = api.now(), autosave = paw.opt.autosave,
+    running = true,
+    attended = not opts.unattended,
+    opts = opts,
+    settings = M.settings(opts),
+    list = select_checks(opts),
+    done = {},
+    started = api.now(),
+    autosave = paw.opt.autosave,
   }
   if #run.list == 0 then error("no check to run", 2) end
   S = run
@@ -431,7 +454,10 @@ function M.skip()
   if S.prompt and S.prompt.answer == nil then
     -- A question skipped is a question not answered.
     for _, choice in ipairs(S.prompt.choices) do
-      if choice[1] == "s" then S.prompt.answer = "s" return true end
+      if choice[1] == "s" then
+        S.prompt.answer = "s"
+        return true
+      end
     end
   end
   S.skipping = true
@@ -442,8 +468,15 @@ end
 function M.run_to_end(opts, limit)
   local run = M.start(opts)
   local at = api.now() + (limit or 3600) * 1000
-  while run.running and api.now() < at do paw.wait(20) end
-  if run.running then M.cancel() while run.running do paw.wait(20) end end
+  while run.running and api.now() < at do
+    paw.wait(20)
+  end
+  if run.running then
+    M.cancel()
+    while run.running do
+      paw.wait(20)
+    end
+  end
   return run
 end
 

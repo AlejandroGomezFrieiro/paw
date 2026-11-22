@@ -35,15 +35,17 @@ local model = require("notation.model")
 
 local M = {}
 
-local W = 40320          -- ticks in a whole note
-local Q = W / 4          -- in a quarter, a beat
+local W = 40320 -- ticks in a whole note
+local Q = W / 4 -- in a quarter, a beat
 M.W, M.Q = W, Q
 
 local floor, abs = math.floor, math.abs
 
 local function gcd(a, b)
   a, b = abs(a), abs(b)
-  while b ~= 0 do a, b = b, a % b end
+  while b ~= 0 do
+    a, b = b, a % b
+  end
   return a
 end
 
@@ -73,7 +75,11 @@ local serial = 0
 --- A token that differs from every other made in this run and before it.
 local function token()
   serial = serial + 1
-  return string.format("%x.%x", floor((paw and paw.api and paw.api.now() or os.clock() * 1000) * 1000) % 0xfffffff, serial)
+  return string.format(
+    "%x.%x",
+    floor((paw and paw.api and paw.api.now() or os.clock() * 1000) * 1000) % 0xfffffff,
+    serial
+  )
 end
 M.token = token
 
@@ -152,7 +158,9 @@ function M.origin(score) return M.ticks(score.origin or { 0, 1 }) end
 --- beats) and the staves' clefs.
 function M.new(bars, clefs)
   local score = { version = 1, staves = {}, measures = {}, marks = {}, style = {}, next = 1 }
-  for i, clef in ipairs(clefs) do score.staves[i] = { id = "s" .. i, clef = clef } end
+  for i, clef in ipairs(clefs) do
+    score.staves[i] = { id = "s" .. i, clef = clef }
+  end
   score.next = #clefs + 1
   local origin = bars[1] and bars[1].start or 0
   score.origin = M.ratio(M.from_beats(origin))
@@ -227,7 +235,9 @@ end
 function M.meter(num, den, groups) return model.meter_of(num, den, groups) end
 
 local BASES = {}
-for _, b in ipairs(model.BASES) do BASES[#BASES + 1] = M.from_beats(b) end
+for _, b in ipairs(model.BASES) do
+  BASES[#BASES + 1] = M.from_beats(b)
+end
 
 --- Written values for a stretch `a` to `b` (ticks into a measure) as the
 --- metre divides it: `{ { s, len, dur, dots } }`. `rest` writes silence.
@@ -245,7 +255,10 @@ function M.values(a, b, meter, rest)
       while e - t > 0 do
         local step
         for _, v in ipairs(BASES) do
-          if v <= e - t then step = v break end
+          if v <= e - t then
+            step = v
+            break
+          end
         end
         step = step or (e - t)
         out[#out + 1] = { s = t, len = step, dur = M.ratio(step), dots = 0 }
@@ -264,8 +277,14 @@ local function tuplet_values(a, b, tp)
   while written > 0 do
     local pick, dots
     for _, v in ipairs(BASES) do
-      if v * 1.5 <= written then pick, dots = v, 1 break end
-      if v <= written then pick, dots = v, 0 break end
+      if v * 1.5 <= written then
+        pick, dots = v, 1
+        break
+      end
+      if v <= written then
+        pick, dots = v, 0
+        break
+      end
     end
     pick, dots = pick or written, dots or 0
     local w = pick * (dots == 1 and 1.5 or 1)
@@ -296,7 +315,8 @@ function M.line(score, mi, staff, v)
   -- What does not fill the bar is shown as rests.
   if t < f.lengths[mi] then
     for _, p in ipairs(M.values(t, f.lengths[mi], f.meters[mi], true)) do
-      items[#items + 1] = { ev = { id = M.id(score, "e"), kind = "rest", dur = p.dur, dots = p.dots }, s = p.s, e = p.s + p.len }
+      items[#items + 1] =
+        { ev = { id = M.id(score, "e"), kind = "rest", dur = p.dur, dots = p.dots }, s = p.s, e = p.s + p.len }
     end
   end
   return items
@@ -305,7 +325,8 @@ end
 local function copy_notes(score, notes, tie, keep)
   local out = {}
   for i, n in ipairs(notes) do
-    out[i] = { id = keep and n.id or M.id(score, "n"), step = n.step, alter = n.alter, octave = n.octave, tie = tie or nil }
+    out[i] =
+      { id = keep and n.id or M.id(score, "n"), step = n.step, alter = n.alter, octave = n.octave, tie = tie or nil }
   end
   return out
 end
@@ -320,12 +341,29 @@ local function pieces(score, item, a, b, meter, rest)
   for k, p in ipairs(vals) do
     local piece
     if rest or ev.kind == "rest" then
-      piece = { id = (k == 1 and not rest) and ev.id or M.id(score, "e"), kind = "rest", dur = p.dur, dots = p.dots, tuplet = tp }
+      piece = {
+        id = (k == 1 and not rest) and ev.id or M.id(score, "e"),
+        kind = "rest",
+        dur = p.dur,
+        dots = p.dots,
+        tuplet = tp,
+      }
     else
       local last = k == #vals
-      piece = { id = k == 1 and ev.id or M.id(score, "e"), kind = "chord", dur = p.dur, dots = p.dots, tuplet = tp,
-        art = k == 1 and ev.art or nil, arpeggio = k == 1 and ev.arpeggio or nil, beam = k == 1 and ev.beam or nil, stem = ev.stem,
-        orn = k == 1 and ev.orn or nil, lyric = k == 1 and ev.lyric or nil, lyrics = k == 1 and ev.lyrics or nil }
+      piece = {
+        id = k == 1 and ev.id or M.id(score, "e"),
+        kind = "chord",
+        dur = p.dur,
+        dots = p.dots,
+        tuplet = tp,
+        art = k == 1 and ev.art or nil,
+        arpeggio = k == 1 and ev.arpeggio or nil,
+        beam = k == 1 and ev.beam or nil,
+        stem = ev.stem,
+        orn = k == 1 and ev.orn or nil,
+        lyric = k == 1 and ev.lyric or nil,
+        lyrics = k == 1 and ev.lyrics or nil,
+      }
       if k == 1 then
         piece.notes = {}
         for i, n in ipairs(ev.notes) do
@@ -347,7 +385,11 @@ local function tuplets_of(items)
     local tp = it.ev.tuplet
     if tp and not it.ev.grace then
       local span = out[tp.id]
-      if span then span.e = it.e else out[tp.id] = { s = it.s, e = it.e, tuplet = tp } end
+      if span then
+        span.e = it.e
+      else
+        out[tp.id] = { s = it.s, e = it.e, tuplet = tp }
+      end
     end
   end
   return out
@@ -375,7 +417,8 @@ function M.splice(score, mi, staff, v, a, b, new)
         if it.ev.tuplet and it.ev.tuplet.id == id then
           if not placed then
             for _, p in ipairs(M.values(span.s, span.e, meter, true)) do
-              kept[#kept + 1] = { ev = { id = M.id(score, "e"), kind = "rest", dur = p.dur, dots = p.dots }, s = p.s, e = p.s + p.len }
+              kept[#kept + 1] =
+                { ev = { id = M.id(score, "e"), kind = "rest", dur = p.dur, dots = p.dots }, s = p.s, e = p.s + p.len }
             end
             placed = true
           end
@@ -399,7 +442,8 @@ function M.splice(score, mi, staff, v, a, b, new)
       end
     else
       for _, p in ipairs(M.values(a, b, meter, true)) do
-        out[#out + 1] = { ev = { id = M.id(score, "e"), kind = "rest", dur = p.dur, dots = p.dots }, s = p.s, e = p.s + p.len }
+        out[#out + 1] =
+          { ev = { id = M.id(score, "e"), kind = "rest", dur = p.dur, dots = p.dots }, s = p.s, e = p.s + p.len }
       end
     end
   end
@@ -421,21 +465,27 @@ function M.splice(score, mi, staff, v, a, b, new)
         for _, p in ipairs(pieces(score, it, it.s, a, meter)) do
           -- What is cut short is no longer tied on.
           if p.e == a and p.ev.notes then
-            for _, n in ipairs(p.ev.notes) do n.tie = nil end
+            for _, n in ipairs(p.ev.notes) do
+              n.tie = nil
+            end
           end
           out[#out + 1] = p
         end
       end
       insert()
       if it.e > b then
-        for _, p in ipairs(pieces(score, it, b, it.e, meter, true)) do out[#out + 1] = p end
+        for _, p in ipairs(pieces(score, it, b, it.e, meter, true)) do
+          out[#out + 1] = p
+        end
       end
     end
   end
   insert()
   local entry = M.voice(score.measures[mi], staff, v, true)
   entry.events = {}
-  for _, it in ipairs(out) do entry.events[#entry.events + 1] = it.ev end
+  for _, it in ipairs(out) do
+    entry.events[#entry.events + 1] = it.ev
+  end
   M.normalize(score, mi, staff, v)
   M.touch(score, mi)
 end
@@ -463,7 +513,9 @@ function M.normalize(score, mi, staff, v)
   local items = M.line(score, mi, staff, v)
   -- Tuplets of nothing but rests.
   local silent = {}
-  for id in pairs(tuplets_of(items)) do silent[id] = true end
+  for id in pairs(tuplets_of(items)) do
+    silent[id] = true
+  end
   for _, it in ipairs(items) do
     if it.ev.tuplet and it.ev.kind ~= "rest" then silent[it.ev.tuplet.id] = nil end
   end
@@ -473,7 +525,11 @@ function M.normalize(score, mi, staff, v)
     local ev = it.ev
     local plain_rest = ev.kind == "rest" and (not ev.tuplet or silent[ev.tuplet.id]) and not ev.grace
     if plain_rest then
-      if run then run.e = it.e else run = { s = it.s, e = it.e, ids = {} } end
+      if run then
+        run.e = it.e
+      else
+        run = { s = it.s, e = it.e, ids = {} }
+      end
       run.ids[#run.ids + 1] = ev.id
     else
       run = rests_of(score, run, f.meters[mi], out)
@@ -487,7 +543,10 @@ function M.normalize(score, mi, staff, v)
       entry.events = {}
     else
       for i, e in ipairs(m.voices) do
-        if e == entry then table.remove(m.voices, i) break end
+        if e == entry then
+          table.remove(m.voices, i)
+          break
+        end
       end
     end
   else
@@ -522,11 +581,15 @@ function M.fix_ties(score, staff, v, from, to)
     local ev = it.ev
     if ev.kind == "chord" and not ev.grace then
       local k = i + 1
-      while seq[k] and seq[k].ev.grace do k = k + 1 end
+      while seq[k] and seq[k].ev.grace do
+        k = k + 1
+      end
       local nxt = seq[k]
       local pitches = {}
       if nxt and nxt.ev.kind == "chord" and nxt.s == it.e then
-        for _, n in ipairs(nxt.ev.notes) do pitches[M.pitch(n)] = true end
+        for _, n in ipairs(nxt.ev.notes) do
+          pitches[M.pitch(n)] = true
+        end
       end
       for _, n in ipairs(ev.notes) do
         if n.tie and not pitches[M.pitch(n)] and it.mi <= to then
@@ -555,10 +618,18 @@ function M.put_chord(score, mi, staff, v, at, len, notes, extra)
     local evs = {}
     for k, p in ipairs(vals) do
       local last = remaining - seg <= 0 and k == #vals
-      local ev = { id = M.id(score, "e"), kind = "chord", dur = p.dur, dots = p.dots, notes = copy_notes(score, notes, not last, not first) }
+      local ev = {
+        id = M.id(score, "e"),
+        kind = "chord",
+        dur = p.dur,
+        dots = p.dots,
+        notes = copy_notes(score, notes, not last, not first),
+      }
       if not first then
         first = ev
-        for key, value in pairs(extra or {}) do ev[key] = value end
+        for key, value in pairs(extra or {}) do
+          ev[key] = value
+        end
       end
       evs[#evs + 1] = ev
     end
@@ -589,14 +660,30 @@ function M.put_tuplet_chord(score, mi, staff, v, at, value, actual, normal, note
     local width = value * normal
     if at + width > f.lengths[mi] then return nil, "no room for the tuplet before the barline" end
     local tp = { id = M.id(score, "t"), actual = actual, normal = normal }
-    local ev = { id = M.id(score, "e"), kind = "chord", dur = M.ratio(value), dots = 0, tuplet = tp, notes = copy_notes(score, notes) }
+    local ev = {
+      id = M.id(score, "e"),
+      kind = "chord",
+      dur = M.ratio(value),
+      dots = 0,
+      tuplet = tp,
+      notes = copy_notes(score, notes),
+    }
     local evs = { ev }
-    for k = 2, actual do evs[k] = { id = M.id(score, "e"), kind = "rest", dur = M.ratio(value), dots = 0, tuplet = tp } end
+    for k = 2, actual do
+      evs[k] = { id = M.id(score, "e"), kind = "rest", dur = M.ratio(value), dots = 0, tuplet = tp }
+    end
     M.splice(score, mi, staff, v, at, at + width, evs)
     return ev
   end
   local b = math.min(at + len, span.e)
-  local ev = { id = M.id(score, "e"), kind = "chord", dur = M.ratio(value), dots = 0, tuplet = span.tuplet, notes = copy_notes(score, notes) }
+  local ev = {
+    id = M.id(score, "e"),
+    kind = "chord",
+    dur = M.ratio(value),
+    dots = 0,
+    tuplet = span.tuplet,
+    notes = copy_notes(score, notes),
+  }
   M.splice(score, mi, staff, v, at, b, { ev })
   return ev
 end
@@ -655,7 +742,9 @@ local function ties_along(seq, nid)
   local current, pitch
   for i, it in ipairs(seq) do
     for _, n in ipairs(it.ev.notes or {}) do
-      if n.id == nid then current, pitch = it, M.pitch(n) end
+      if n.id == nid then
+        current, pitch = it, M.pitch(n)
+      end
     end
     if current == it then
       local cur_note
@@ -705,7 +794,10 @@ function M.remove_note(score, nid)
     ev.orn, ev.lyric, ev.lyrics = nil, nil, nil
     if ev.grace then
       for i, other in ipairs(entry.events) do
-        if other == ev then table.remove(entry.events, i) break end
+        if other == ev then
+          table.remove(entry.events, i)
+          break
+        end
       end
     end
   end
@@ -761,7 +853,11 @@ local function materialize(m)
   lazy[m] = nil
   setmetatable(m, nil)
   for k, x in next, from do
-    if type(x) == "table" then m[k] = copy(x) else m[k] = x end
+    if type(x) == "table" then
+      m[k] = copy(x)
+    else
+      m[k] = x
+    end
   end
   return m
 end
@@ -771,15 +867,17 @@ Lazy.__index = function(m, k)
   if type(x) ~= "table" then return x end
   return materialize(m)[k]
 end
-Lazy.__newindex = function(m, k, v)
-  rawset(materialize(m), k, v)
-end
+Lazy.__newindex = function(m, k, v) rawset(materialize(m), k, v) end
 
 copy = function(v)
   if lazy[v] then materialize(v) end
   local out = {}
   for k, x in next, v do
-    if type(x) == "table" then out[k] = copy(x) else out[k] = x end
+    if type(x) == "table" then
+      out[k] = copy(x)
+    else
+      out[k] = x
+    end
   end
   return out
 end
@@ -808,7 +906,11 @@ function M.copy(v, lazily)
       end
       out[k] = list
     elseif k ~= "_frame" and k ~= "_transcribed" then
-      if type(x) == "table" then out[k] = copy(x) else out[k] = x end
+      if type(x) == "table" then
+        out[k] = copy(x)
+      else
+        out[k] = x
+      end
     end
   end
   return out
@@ -831,7 +933,9 @@ function M.decode(stored)
   for i, text in ipairs(stored.measures) do
     local m = type(text) == "string" and paw.api.json_decode(text) or M.copy(text)
     m.voices = m.voices or {}
-    for _, entry in ipairs(m.voices) do entry.events = entry.events or {} end
+    for _, entry in ipairs(m.voices) do
+      entry.events = entry.events or {}
+    end
     score.measures[i] = m
   end
   score.marks = score.marks or {}

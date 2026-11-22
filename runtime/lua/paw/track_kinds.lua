@@ -64,7 +64,9 @@ end
 --- The defined kinds, in the order they were defined.
 function M.list()
   local out = {}
-  for i, name in ipairs(M.order) do out[i] = M.kinds[name] end
+  for i, name in ipairs(M.order) do
+    out[i] = M.kinds[name]
+  end
   return out
 end
 

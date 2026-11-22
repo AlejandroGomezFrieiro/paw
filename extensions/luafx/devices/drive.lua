@@ -22,7 +22,9 @@ function dev.process(b)
   -- The filters are only worked out again when the tone moves.
   if p.tone ~= tone then
     tone = p.tone
-    for _, f in ipairs(filters) do f:set("lowpass", tone, 0.707, 0, b.sample_rate) end
+    for _, f in ipairs(filters) do
+      f:set("lowpass", tone, 0.707, 0, b.sample_rate)
+    end
   end
   local drive, out = dsp.gain(p.drive), dsp.gain(p.output)
   local wet = p.mix / 100

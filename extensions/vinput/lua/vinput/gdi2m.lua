@@ -37,39 +37,118 @@ function K.splits(text)
 end
 
 K.stages = {
-  { key = "source", title = "Source", settings = {
-    { key = "source", name = "Source", type = "choice", default = "", empty = "choose the guitar's input",
-      help = "the audio port the guitar is plugged into: dry, no effects" },
-  } },
-  { key = "level", title = "Level", settings = {
-    { key = "gain", name = "Gain", type = "number", min = 0.1, max = 8, step = 0.05, default = 1, unit = "×",
-      help = "level ahead of the tracker; after a few seconds of playing it says what it would rather have" },
-  } },
-  { key = "tracker", title = "gdi2m", settings = {
-    { key = "threshold", name = "Threshold", type = "number", min = 0.5, max = 0.99, step = 0.01, default = 0.85,
-      help = "how sure the tracker must be to start a note: lower finds more notes and more wrong ones" },
-    { key = "mute_drop", name = "Damping", type = "number", min = 0, max = 40, step = 1, default = 20, unit = "dB", digits = 0,
-      help = "how far the level must fall for damped strings to end every note; 0 leaves it to the tracker" },
-    { key = "sus_off", name = "Ringing", type = "number", min = 0.05, max = 0.9, step = 0.05, default = 0.35,
-      help = "how sure the tracker must stay that a note still rings: lower holds notes longer" },
-  } },
-  { key = "notes", title = "Notes", settings = {
-    { key = "attack_velocity", name = "Velocity", type = "switch", default = false,
-      format = function(on) return on and "follows the picking" or "always 100" end,
-      help = "how hard notes are: as hard as the string was picked, or all the same" },
-    { key = "channel", name = "Channel", type = "number", min = 1, max = 16, step = 1, default = 1, whole = true,
-      help = "the MIDI channel the notes are sent on" },
-    { key = "split", name = "Split", type = "text", default = "", empty = "none",
-      check = function(text) return K.splits(text) ~= nil, select(2, K.splits(text)) end,
-      help = "notes from a pitch upward on another channel: `E3:2`, or several, `E3:2, E4:3`" },
-  } },
+  {
+    key = "source",
+    title = "Source",
+    settings = {
+      {
+        key = "source",
+        name = "Source",
+        type = "choice",
+        default = "",
+        empty = "choose the guitar's input",
+        help = "the audio port the guitar is plugged into: dry, no effects",
+      },
+    },
+  },
+  {
+    key = "level",
+    title = "Level",
+    settings = {
+      {
+        key = "gain",
+        name = "Gain",
+        type = "number",
+        min = 0.1,
+        max = 8,
+        step = 0.05,
+        default = 1,
+        unit = "×",
+        help = "level ahead of the tracker; after a few seconds of playing it says what it would rather have",
+      },
+    },
+  },
+  {
+    key = "tracker",
+    title = "gdi2m",
+    settings = {
+      {
+        key = "threshold",
+        name = "Threshold",
+        type = "number",
+        min = 0.5,
+        max = 0.99,
+        step = 0.01,
+        default = 0.85,
+        help = "how sure the tracker must be to start a note: lower finds more notes and more wrong ones",
+      },
+      {
+        key = "mute_drop",
+        name = "Damping",
+        type = "number",
+        min = 0,
+        max = 40,
+        step = 1,
+        default = 20,
+        unit = "dB",
+        digits = 0,
+        help = "how far the level must fall for damped strings to end every note; 0 leaves it to the tracker",
+      },
+      {
+        key = "sus_off",
+        name = "Ringing",
+        type = "number",
+        min = 0.05,
+        max = 0.9,
+        step = 0.05,
+        default = 0.35,
+        help = "how sure the tracker must stay that a note still rings: lower holds notes longer",
+      },
+    },
+  },
+  {
+    key = "notes",
+    title = "Notes",
+    settings = {
+      {
+        key = "attack_velocity",
+        name = "Velocity",
+        type = "switch",
+        default = false,
+        format = function(on) return on and "follows the picking" or "always 100" end,
+        help = "how hard notes are: as hard as the string was picked, or all the same",
+      },
+      {
+        key = "channel",
+        name = "Channel",
+        type = "number",
+        min = 1,
+        max = 16,
+        step = 1,
+        default = 1,
+        whole = true,
+        help = "the MIDI channel the notes are sent on",
+      },
+      {
+        key = "split",
+        name = "Split",
+        type = "text",
+        default = "",
+        empty = "none",
+        check = function(text) return K.splits(text) ~= nil, select(2, K.splits(text)) end,
+        help = "notes from a pitch upward on another channel: `E3:2`, or several, `E3:2, E4:3`",
+      },
+    },
+  },
   { key = "port", title = "MIDI port", settings = {} },
 }
 
 function K.defaults()
   local input = {}
   for _, stage in ipairs(K.stages) do
-    for _, setting in ipairs(stage.settings) do input[setting.key] = setting.default end
+    for _, setting in ipairs(stage.settings) do
+      input[setting.key] = setting.default
+    end
   end
   return input
 end
@@ -102,14 +181,23 @@ end
 --- The command that runs an input.
 function K.argv(input)
   local argv = {
-    K.program(), "live", "--device", input.source,
+    K.program(),
+    "live",
+    "--device",
+    input.source,
     -- As PipeWire shows this program's port to gdi2m.
-    "--port", "paw:" .. input.name .. " (playback)",
-    "--gain", string.format("%g", input.gain),
-    "--threshold", string.format("%g", input.threshold),
-    "--mute-drop-db", string.format("%g", input.mute_drop),
-    "--sus-off", string.format("%g", input.sus_off),
-    "--channel", tostring(input.channel),
+    "--port",
+    "paw:" .. input.name .. " (playback)",
+    "--gain",
+    string.format("%g", input.gain),
+    "--threshold",
+    string.format("%g", input.threshold),
+    "--mute-drop-db",
+    string.format("%g", input.mute_drop),
+    "--sus-off",
+    string.format("%g", input.sus_off),
+    "--channel",
+    tostring(input.channel),
   }
   if input.attack_velocity then argv[#argv + 1] = "--attack-velocity" end
   local splits = K.splits(input.split)
@@ -136,9 +224,7 @@ function K.parse_list(text)
       inside = false
     elseif inside then
       local index, name = line:match("^%s*%[(%d+)%]%s+(.-)%s*$")
-      if index and tonumber(index) > 0 then
-        out[#out + 1] = (name:gsub("%s+%(default%)$", ""))
-      end
+      if index and tonumber(index) > 0 then out[#out + 1] = (name:gsub("%s+%(default%)$", "")) end
     end
   end
   return out
@@ -153,9 +239,11 @@ function K.parse_log(text)
   local out = {}
   for line in text:gmatch("[^\n]+") do
     -- `  2.0s  in -47.0 pk / -48.4 rms dBFS  [ch0 -47.0]  act -52.2 dBFS  q 0  notes 0 (0.0/s)  inf 3.39 mean / 4.97 max ms`
-    local seconds, level, queue, notes, load = line:match("^%s*([%d%.]+)s%s.-act%s+(%-?[%d%.]+) dBFS%s+q (%d+)%s+notes (%d+).-inf ([%d%.]+) mean")
+    local seconds, level, queue, notes, load =
+      line:match("^%s*([%d%.]+)s%s.-act%s+(%-?[%d%.]+) dBFS%s+q (%d+)%s+notes (%d+).-inf ([%d%.]+) mean")
     if seconds then
-      out.seconds, out.level, out.queue, out.notes, out.load = tonumber(seconds), tonumber(level), tonumber(queue), tonumber(notes), tonumber(load)
+      out.seconds, out.level, out.queue, out.notes, out.load =
+        tonumber(seconds), tonumber(level), tonumber(queue), tonumber(notes), tonumber(load)
       out.peak = tonumber(line:match("in (%-?[%d%.]+) pk"))
     elseif line:match("^midi%s+%[%d+%]") then
       out.wired = true
@@ -169,8 +257,15 @@ function K.parse_log(text)
       out.dropped = tonumber(line:match("dropped (%d+)"))
     elseif line:match("^%s*[%d%.]+ s wall") then
       out.notes = tonumber(line:match("(%d+) notes")) or out.notes
-    elseif line:lower():match("^error") or line:match("could not") or line:match("no MIDI port matches")
-      or line:match("no capture") or line:match("more than one") or line:match("cannot") or line:match("load failed") then
+    elseif
+      line:lower():match("^error")
+      or line:match("could not")
+      or line:match("no MIDI port matches")
+      or line:match("no capture")
+      or line:match("more than one")
+      or line:match("cannot")
+      or line:match("load failed")
+    then
       out.error = line:gsub("^%s+", "")
     end
   end

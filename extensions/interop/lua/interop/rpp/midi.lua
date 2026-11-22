@@ -42,7 +42,11 @@ local function pair(events, end_tick)
 end
 
 local KIND_NAMES = {
-  [10] = "aftertouch", [11] = "CC", [12] = "program change", [13] = "channel pressure", [14] = "pitch bend",
+  [10] = "aftertouch",
+  [11] = "CC",
+  [12] = "program change",
+  [13] = "channel pressure",
+  [14] = "pitch bend",
 }
 
 --- A raw controller event as paw has it: { tick, type, value (0 to 1, or
@@ -52,7 +56,12 @@ local function control_of(tick, status, d1, d2)
   if kind == 11 then
     return { tick = tick, type = "cc", number = d1, value = d2 / 127, channel = channel }
   elseif kind == 14 then
-    return { tick = tick, type = "bend", value = math.max(-1, math.min(1, (d1 + d2 * 128 - 8192) / 8192)), channel = channel }
+    return {
+      tick = tick,
+      type = "bend",
+      value = math.max(-1, math.min(1, (d1 + d2 * 128 - 8192) / 8192)),
+      channel = channel,
+    }
   elseif kind == 13 then
     return { tick = tick, type = "pressure", value = d1 / 127, channel = channel }
   elseif kind == 10 then
@@ -72,8 +81,14 @@ local function join_banks(controls)
       local msb, lsb
       for i = #out, 1, -1 do
         local p = out[i]
-        if p.tick ~= c.tick or p.type ~= "cc" or p.channel ~= c.channel or (p.number ~= 0 and p.number ~= 32) then break end
-        if p.number == 0 then msb = math.floor(p.value * 127 + 0.5) else lsb = math.floor(p.value * 127 + 0.5) end
+        if p.tick ~= c.tick or p.type ~= "cc" or p.channel ~= c.channel or (p.number ~= 0 and p.number ~= 32) then
+          break
+        end
+        if p.number == 0 then
+          msb = math.floor(p.value * 127 + 0.5)
+        else
+          lsb = math.floor(p.value * 127 + 0.5)
+        end
         table.remove(out, i)
       end
       if msb or lsb then c.bank = (msb or 0) * 128 + (lsb or 0) end
@@ -121,7 +136,11 @@ function M.read_source(source)
           count("muted " .. (KIND_NAMES[kind] or "other events"))
         else
           local c = control_of(tick, status, d1, d2)
-          if c then out.controls[#out.controls + 1] = c else count("other events") end
+          if c then
+            out.controls[#out.controls + 1] = c
+          else
+            count("other events")
+          end
         end
       end
     elseif name == "X" or name == "x" or name == "Xm" or name == "xm" then
@@ -133,7 +152,11 @@ function M.read_source(source)
   out.controls = join_banks(out.controls)
   local notes, open = pair(events, tick)
   for _, n in ipairs(notes) do
-    if n.muted then out.muted = out.muted + 1 else out.notes[#out.notes + 1] = n end
+    if n.muted then
+      out.muted = out.muted + 1
+    else
+      out.notes[#out.notes + 1] = n
+    end
   end
   if open > 0 then out.other["notes without an end (held to the end)"] = open end
   return out
@@ -174,7 +197,9 @@ function M.event_lines(notes, length, controls)
   end
   -- Offs before ons at the same tick, so a repeated note is not cut short;
   -- controller moves before both, in their own order.
-  for i, e in ipairs(events) do e[6] = i end
+  for i, e in ipairs(events) do
+    e[6] = i
+  end
   table.sort(events, function(a, b)
     if a[1] ~= b[1] then return a[1] < b[1] end
     local ka = a[3] >= 0xa0 and -1 or a[2]
@@ -186,8 +211,8 @@ function M.event_lines(notes, length, controls)
   end)
   local lines, tick = {}, 0
   for _, e in ipairs(events) do
-    lines[#lines + 1] = fmt.line("E", e[1] - tick, string.format("%02x", e[3]), string.format("%02x", e[4]),
-      string.format("%02x", e[5]))
+    lines[#lines + 1] =
+      fmt.line("E", e[1] - tick, string.format("%02x", e[3]), string.format("%02x", e[4]), string.format("%02x", e[5]))
     tick = e[1]
   end
   lines[#lines + 1] = fmt.line("E", math.max(0, length - tick), "b0", "7b", "00")
@@ -207,20 +232,29 @@ function M.read_smf(data)
   local function count(what, n) out.other[what] = (out.other[what] or 0) + (n or 1) end
   for _, track in ipairs(file.tracks) do
     for _, n in ipairs(track.notes) do
-      out.notes[#out.notes + 1] = { tick = n.tick, length = n.length, pitch = n.pitch, velocity = n.velocity, channel = n.channel }
+      out.notes[#out.notes + 1] =
+        { tick = n.tick, length = n.length, pitch = n.pitch, velocity = n.velocity, channel = n.channel }
     end
     for _, c in ipairs(track.controls) do
       local status = ({ cc = 0xb0, bend = 0xe0, program = 0xc0 })[c.type] or (c.key and 0xa0 or 0xd0)
       local d1, d2
-      if c.type == "cc" then d1, d2 = c.number, c.value
-      elseif c.type == "bend" then d1, d2 = c.value % 128, math.floor(c.value / 128)
-      elseif c.type == "program" then d1, d2 = c.program, 0
-      elseif c.key then d1, d2 = c.key, c.value
-      else d1, d2 = c.value, 0 end
+      if c.type == "cc" then
+        d1, d2 = c.number, c.value
+      elseif c.type == "bend" then
+        d1, d2 = c.value % 128, math.floor(c.value / 128)
+      elseif c.type == "program" then
+        d1, d2 = c.program, 0
+      elseif c.key then
+        d1, d2 = c.key, c.value
+      else
+        d1, d2 = c.value, 0
+      end
       out.controls[#out.controls + 1] = control_of(c.tick, status + (c.channel or 0), d1, d2)
     end
   end
-  for what, n in pairs(file.skipped) do count(what, n) end
+  for what, n in pairs(file.skipped) do
+    count(what, n)
+  end
   if #file.markers > 0 then count("markers", #file.markers) end
   table.sort(out.notes, function(a, b)
     if a.tick ~= b.tick then return a.tick < b.tick end
@@ -234,7 +268,12 @@ end
 
 --- Write a Standard MIDI File (format 0) with these notes in ticks.
 function M.write_smf(notes, ppq, bpm)
-  return smf.encode({ format = 0, ppq = ppq, tempos = { { tick = 0, bpm = bpm or 120 } }, tracks = { { notes = notes } } })
+  return smf.encode({
+    format = 0,
+    ppq = ppq,
+    tempos = { { tick = 0, bpm = bpm or 120 } },
+    tracks = { { notes = notes } },
+  })
 end
 
 return M

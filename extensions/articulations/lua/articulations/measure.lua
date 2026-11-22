@@ -18,16 +18,18 @@ local M = {}
 
 M.method = "the first 1 ms block reaching 20 dB under the note's loudest, in the first 2 s after it"
 
-local SPACING = 8      -- beats between two articulations' notes
-local LENGTH = 4       -- beats a note is held
-local LEAD = 0.5       -- beats before a note its keyswitch and controllers come
-local WINDOW = 2       -- seconds looked at after a note
+local SPACING = 8 -- beats between two articulations' notes
+local LENGTH = 4 -- beats a note is held
+local LEAD = 0.5 -- beats before a note its keyswitch and controllers come
+local WINDOW = 2 -- seconds looked at after a note
 local BELOW = 10 ^ (-20 / 20)
 
 local function song_end()
   local finish = 0
   for _, id in ipairs(api.track_list()) do
-    for _, c in ipairs(api.clip_list(id)) do finish = math.max(finish, c.start + c.length) end
+    for _, c in ipairs(api.clip_list(id)) do
+      finish = math.max(finish, c.start + c.length)
+    end
   end
   return finish
 end
@@ -62,7 +64,9 @@ function M.score(map)
       end
     end
     local note = { pitch = pitch_of(map, a), start = t, length = LENGTH, velocity = 100 }
-    for k, v in pairs(art.attr_fields(note, a.attr)) do note[k] = v end
+    for k, v in pairs(art.attr_fields(note, a.attr)) do
+      note[k] = v
+    end
     notes[#notes + 1] = note
   end
   table.sort(controls, function(x, y) return x.start < y.start end)
@@ -106,7 +110,9 @@ function M.measure(track)
     local from = paw.time.to_seconds(start + at[i]) - origin
     local b = sound.blocks(from, from + WINDOW, 1)
     local loudest = 0
-    for _, v in ipairs(b) do loudest = math.max(loudest, v) end
+    for _, v in ipairs(b) do
+      loudest = math.max(loudest, v)
+    end
     local onset
     if loudest > 1e-4 then
       for k, v in ipairs(b) do
@@ -173,33 +179,52 @@ end
 function M.lines(map, results)
   local lines = { { text = "Articulation delays · " .. map.name, style = "Title" }, "  measured: " .. M.method, "" }
   for _, r in ipairs(results) do
-    lines[#lines + 1] = string.format("  %-22s %-5s %s   delay %s%s", r.art.name, r.art.code,
+    lines[#lines + 1] = string.format(
+      "  %-22s %-5s %s   delay %s%s",
+      r.art.name,
+      r.art.code,
       r.onset and ("sounds " .. r.onset .. " ms after its note") or "no sound",
       r.delay and maps.delay_text(r.delay) or "—",
-      r.now and ("  (now " .. maps.delay_text(r.now) .. ")") or "")
+      r.now and ("  (now " .. maps.delay_text(r.now) .. ")") or ""
+    )
   end
   lines[#lines + 1] = ""
   lines[#lines + 1] = "  :art.measure! writes them into " .. tostring(map.file)
   return lines
 end
 
-local plan  -- the last measurement: { track, results }
+local plan -- the last measurement: { track, results }
 
-paw.command("art.measure", function()
-  local track = paw.ui.views.pianoroll:clip() and paw.ui.views.pianoroll:clip():get().track or (paw.cursor.track() and paw.cursor.track().id)
-  if not track then error("no track here", 0) end
-  local results = M.measure(track)
-  plan = { track = track, results = results }
-  paw.ui.page("Articulation delays", M.lines(art.map_of(track), results))
-end, { desc = "Measure how late each articulation of the track's instrument sounds (one note each, rendered offline), and show the delays to write" })
+paw.command(
+  "art.measure",
+  function()
+    local track = paw.ui.views.pianoroll:clip() and paw.ui.views.pianoroll:clip():get().track
+      or (paw.cursor.track() and paw.cursor.track().id)
+    if not track then error("no track here", 0) end
+    local results = M.measure(track)
+    plan = { track = track, results = results }
+    paw.ui.page("Articulation delays", M.lines(art.map_of(track), results))
+  end,
+  {
+    desc = "Measure how late each articulation of the track's instrument sounds (one note each, rendered offline), and show the delays to write",
+  }
+)
 
-paw.command("art.measure!", function()
-  local track = paw.ui.views.pianoroll:clip() and paw.ui.views.pianoroll:clip():get().track or (paw.cursor.track() and paw.cursor.track().id)
-  if not track then error("no track here", 0) end
-  local results = plan and plan.track == track and plan.results or M.measure(track)
-  plan = nil
-  local file = M.apply(track, results)
-  paw.notify("delays written into " .. file)
-end, { label = "Articulation delays", desc = "Write the delays :art.measure found (or measure now) into the instrument's map, and send them" })
+paw.command(
+  "art.measure!",
+  function()
+    local track = paw.ui.views.pianoroll:clip() and paw.ui.views.pianoroll:clip():get().track
+      or (paw.cursor.track() and paw.cursor.track().id)
+    if not track then error("no track here", 0) end
+    local results = plan and plan.track == track and plan.results or M.measure(track)
+    plan = nil
+    local file = M.apply(track, results)
+    paw.notify("delays written into " .. file)
+  end,
+  {
+    label = "Articulation delays",
+    desc = "Write the delays :art.measure found (or measure now) into the instrument's map, and send them",
+  }
+)
 
 return M

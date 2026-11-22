@@ -77,9 +77,13 @@ paw.ui.view("scene_parity_around", {
 paw.ui.view("scene_parity_strip", {
   render = function(_, buf)
     buf:fill(0, 0, buf.width, buf.height, " ", "Normal")
-    local drawn = buf:strip(2, 1, 10, 3, { key = "probe", under = true, draw = function(g, px)
-      g:rect(0, 0, px.w, px.h, { fill = "#204060" })
-    end })
+    local drawn = buf:strip(
+      2,
+      1,
+      10,
+      3,
+      { key = "probe", under = true, draw = function(g, px) g:rect(0, 0, px.w, px.h, { fill = "#204060" }) end }
+    )
     buf:text(0, 0, drawn and "pixels" or "cells", "Title")
     buf:text(3, 2, "+", "Normal")
   end,
@@ -87,7 +91,8 @@ paw.ui.view("scene_parity_strip", {
 paw.ui.view("scene_parity_paint", {
   paint = function(_, g, ctx) g:rect(0, 0, ctx.width, ctx.height, { fill = "#102030" }) end,
 })
-local OWN = { scene_parity_replay = true, scene_parity_around = true, scene_parity_strip = true, scene_parity_paint = true }
+local OWN =
+  { scene_parity_replay = true, scene_parity_around = true, scene_parity_strip = true, scene_parity_paint = true }
 
 --- Every view there is, but this file's own, by name.
 local function views()
@@ -129,7 +134,9 @@ local function lowered(name, width, height)
   api.track_meter = function() return 0.5, 0.25 end
   local draw = require("paw.draw")
   draw.clear_peak(0)
-  for _, id in ipairs(api.track_list()) do draw.clear_peak(id) end
+  for _, id in ipairs(api.track_list()) do
+    draw.clear_peak(id)
+  end
   paw.ui.pictures = {}
   local ok, snap = pcall(api.ui_view_snapshot, name, width, height)
   paw.ui.pictures = nil
@@ -188,7 +195,9 @@ test("a scene drawn again is sent as what changed of it", function()
   -- stays as it was.
   local wider = scene_of("scene_parity_strip", 40, 6, "again")
   local keys = {}
-  for _, node in ipairs(wider.set or {}) do keys[#keys + 1] = node.k end
+  for _, node in ipairs(wider.set or {}) do
+    keys[#keys + 1] = node.k
+  end
   table.sort(keys)
   eq(table.concat(keys, " "), "f0,0,40,6 f0,0,40,6#2", "the backgrounds, new")
   eq(#(wider.drop or {}), 2, "and the old ones gone")
@@ -229,85 +238,103 @@ test("a view that paints is one picture of the whole in its scene", function()
   api.scene_forget(0)
 end)
 
-test("the piano roll with notes on its plane, two clips edited, a drawing and a selection is its drawing in its scene", function()
-  fresh()
-  local saved = paw.opt.note_zoom
-  T.after(function()
-    paw.opt.note_zoom = saved
-    paw.ui.views.pianoroll:set_step(nil)
-    paw.keymap.feed("<Esc><Esc>")
-    paw.roll_clips.only()
-    paw.ui.hide("pianoroll")
+test(
+  "the piano roll with notes on its plane, two clips edited, a drawing and a selection is its drawing in its scene",
+  function()
+    fresh()
+    local saved = paw.opt.note_zoom
+    T.after(function()
+      paw.opt.note_zoom = saved
+      paw.ui.views.pianoroll:set_step(nil)
+      paw.keymap.feed("<Esc><Esc>")
+      paw.roll_clips.only()
+      paw.ui.hide("pianoroll")
+      api.scene_forget(0)
+    end)
+    local t = paw.add_track({ name = "keys" })
+    local u = paw.add_track({ name = "bass" })
+    local a = t:add_clip({
+      start = 0,
+      length = 8,
+      notes = {
+        { pitch = 60, start = 0, length = 1 },
+        { pitch = 64, start = 1.25, length = 0.33 },
+        { pitch = 67, start = 2.1, length = 3 },
+      },
+    })
+    local b = u:add_clip({ start = 2, length = 4, notes = { { pitch = 48, start = 0.5, length = 2 } } })
+    paw.roll_clips.open({ a.id, b.id }, a.id)
+    local roll = paw.ui.views.pianoroll
+    roll.top, roll.scroll, roll.pitch, roll.beat = 70, 0, 64, 1.25
+    paw.frontend.act.select_note(a.id, 3, "only")
+    -- Notes between cells at every zoom: a column a beat, two, five.
+    for _, zoom in ipairs({ 1, 2, 5 }) do
+      paw.opt.note_zoom = zoom
+      eq(all_checked({ "pianoroll" }, written), "", "at " .. zoom .. " columns a beat, drawn through its buffer")
+      eq(all_checked({ "pianoroll" }, lowered), "", "at " .. zoom .. " columns a beat, its scene is its drawing")
+    end
+    -- Insert mode's drawing, and visual mode's selection over the notes.
+    paw.ui.show("pianoroll")
+    paw.ui.focus("pianoroll")
+    paw.keymap.feed("ill")
+    eq(all_checked({ "pianoroll" }, lowered), "", "drawing a note")
+    paw.keymap.feed("<Esc>vj")
+    eq(all_checked({ "pianoroll" }, lowered), "", "with a selection")
     api.scene_forget(0)
-  end)
-  local t = paw.add_track({ name = "keys" })
-  local u = paw.add_track({ name = "bass" })
-  local a = t:add_clip({ start = 0, length = 8, notes = {
-    { pitch = 60, start = 0, length = 1 }, { pitch = 64, start = 1.25, length = 0.33 }, { pitch = 67, start = 2.1, length = 3 },
-  } })
-  local b = u:add_clip({ start = 2, length = 4, notes = { { pitch = 48, start = 0.5, length = 2 } } })
-  paw.roll_clips.open({ a.id, b.id }, a.id)
-  local roll = paw.ui.views.pianoroll
-  roll.top, roll.scroll, roll.pitch, roll.beat = 70, 0, 64, 1.25
-  paw.frontend.act.select_note(a.id, 3, "only")
-  -- Notes between cells at every zoom: a column a beat, two, five.
-  for _, zoom in ipairs({ 1, 2, 5 }) do
-    paw.opt.note_zoom = zoom
-    eq(all_checked({ "pianoroll" }, written), "", "at " .. zoom .. " columns a beat, drawn through its buffer")
-    eq(all_checked({ "pianoroll" }, lowered), "", "at " .. zoom .. " columns a beat, its scene is its drawing")
+    local patch = scene_of("pianoroll", 120, 40)
+    local notes = 0
+    for _, node in ipairs(patch.set) do
+      if node.role == "note" then notes = notes + 1 end
+    end
+    eq(notes >= 4, true, "its notes are roles in the scene: " .. notes)
   end
-  -- Insert mode's drawing, and visual mode's selection over the notes.
-  paw.ui.show("pianoroll")
-  paw.ui.focus("pianoroll")
-  paw.keymap.feed("ill")
-  eq(all_checked({ "pianoroll" }, lowered), "", "drawing a note")
-  paw.keymap.feed("<Esc>vj")
-  eq(all_checked({ "pianoroll" }, lowered), "", "with a selection")
-  api.scene_forget(0)
-  local patch = scene_of("pianoroll", 120, 40)
-  local notes = 0
-  for _, node in ipairs(patch.set) do
-    if node.role == "note" then notes = notes + 1 end
-  end
-  eq(notes >= 4, true, "its notes are roles in the scene: " .. notes)
-end)
+)
 
-test("the arrange view with clips on its plane, an audio clip, lanes and take lanes as rows and a selection is its drawing in its scene", function()
-  fresh()
-  local saved = paw.opt.zoom
-  T.after(function()
-    paw.opt.zoom = saved
-    paw.keymap.feed("<Esc><Esc>")
+test(
+  "the arrange view with clips on its plane, an audio clip, lanes and take lanes as rows and a selection is its drawing in its scene",
+  function()
+    fresh()
+    local saved = paw.opt.zoom
+    T.after(function()
+      paw.opt.zoom = saved
+      paw.keymap.feed("<Esc><Esc>")
+      api.scene_forget(0)
+    end)
+    local t = paw.add_track({ name = "keys" })
+    local u = paw.add_track({ name = "loop" })
+    t:add_clip({
+      start = 0.5,
+      length = 3.3,
+      notes = { { pitch = 60, start = 0, length = 1 }, { pitch = 67, start = 2, length = 1 } },
+    })
+    t:add_clip({ start = 5, length = 2 })
+    local samples = {}
+    for i = 1, 48000 do
+      samples[i] = 0.5 * math.sin(i / 30)
+    end
+    u:add_clip({ file = T.write_wav(T.scratch .. "/parity-arrange.wav", samples), start = 2.25, length = 2 })
+    paw.frontend.act.lane(t.id, "volume")
+    paw.lanes.toggle(t.id)
+    paw.flush()
+    -- Clips between cells at every zoom: a column a beat, two, three and a half.
+    for _, zoom in ipairs({ 1, 2, 3.5 }) do
+      paw.opt.zoom = zoom
+      eq(all_checked({ "arrange" }, written), "", "at " .. zoom .. " columns a beat, drawn through its buffer")
+      eq(all_checked({ "arrange" }, lowered), "", "at " .. zoom .. " columns a beat, its scene is its drawing")
+    end
+    paw.ui.focus("arrange")
+    paw.keymap.feed("vl")
+    eq(all_checked({ "arrange" }, lowered), "", "with a selection")
+    paw.keymap.feed("<Esc>")
     api.scene_forget(0)
-  end)
-  local t = paw.add_track({ name = "keys" })
-  local u = paw.add_track({ name = "loop" })
-  t:add_clip({ start = 0.5, length = 3.3, notes = { { pitch = 60, start = 0, length = 1 }, { pitch = 67, start = 2, length = 1 } } })
-  t:add_clip({ start = 5, length = 2 })
-  local samples = {}
-  for i = 1, 48000 do samples[i] = 0.5 * math.sin(i / 30) end
-  u:add_clip({ file = T.write_wav(T.scratch .. "/parity-arrange.wav", samples), start = 2.25, length = 2 })
-  paw.frontend.act.lane(t.id, "volume")
-  paw.lanes.toggle(t.id)
-  paw.flush()
-  -- Clips between cells at every zoom: a column a beat, two, three and a half.
-  for _, zoom in ipairs({ 1, 2, 3.5 }) do
-    paw.opt.zoom = zoom
-    eq(all_checked({ "arrange" }, written), "", "at " .. zoom .. " columns a beat, drawn through its buffer")
-    eq(all_checked({ "arrange" }, lowered), "", "at " .. zoom .. " columns a beat, its scene is its drawing")
+    local patch = scene_of("arrange", 150, 45)
+    local clips = 0
+    for _, node in ipairs(patch.set) do
+      if node.role == "clip" then clips = clips + 1 end
+    end
+    eq(clips, 3, "its clips are roles in the scene")
   end
-  paw.ui.focus("arrange")
-  paw.keymap.feed("vl")
-  eq(all_checked({ "arrange" }, lowered), "", "with a selection")
-  paw.keymap.feed("<Esc>")
-  api.scene_forget(0)
-  local patch = scene_of("arrange", 150, 45)
-  local clips = 0
-  for _, node in ipairs(patch.set) do
-    if node.role == "clip" then clips = clips + 1 end
-  end
-  eq(clips, 3, "its clips are roles in the scene")
-end)
+)
 
 -- Once every other test has run, since loading every extension changes
 -- what the tests of the core see.

@@ -112,7 +112,9 @@ test("tempo: a render's notes fall where the map puts them", function()
   -- A short note on every beat of the signature, through the 6/8 and the ramp.
   local lines = paw.tempo.lines(0, 44)
   local notes = {}
-  for i, line in ipairs(lines) do notes[i] = { pitch = 81, start = line.beat, length = 0.05 } end
+  for i, line in ipairs(lines) do
+    notes[i] = { pitch = 81, start = line.beat, length = 0.05 }
+  end
   local track = paw.add_track()
   track:add_device("synth", { attack = 0, release = 0.001 })
   track:add_clip({ start = 0, length = 44, notes = notes })
@@ -141,8 +143,12 @@ test("tempo: audio clips keep their length in time when the tempo changes", func
   fresh()
   -- A file with a click every second.
   local left = {}
-  for i = 1, 48000 * 4 do left[i] = 0 end
-  for k = 0, 3 do left[k * 48000 + 101] = 0.9 end
+  for i = 1, 48000 * 4 do
+    left[i] = 0
+  end
+  for k = 0, 3 do
+    left[k * 48000 + 101] = 0.9
+  end
   local file = T.write_wav(T.scratch .. "/clicks.wav", left)
   local track = paw.add_track()
   local clip = track:add_clip({ file = file, start = 8 })
@@ -154,8 +160,12 @@ test("tempo: audio clips keep their length in time when the tempo changes", func
   -- A ramp under it: its length in beats follows the map.
   api.tempo_set(5, 60, true)
   api.tempo_set(9, 180)
-  near(paw.tempo.beats_to_seconds(clip.start + clip.length) - paw.tempo.beats_to_seconds(clip.start), 4, 1e-9,
-    "still four seconds long")
+  near(
+    paw.tempo.beats_to_seconds(clip.start + clip.length) - paw.tempo.beats_to_seconds(clip.start),
+    4,
+    1e-9,
+    "still four seconds long"
+  )
   -- Every sample at the right time.
   local start_s = paw.tempo.beats_to_seconds(clip.start)
   local s = T.samples(T.render({ start = 0, ["end"] = clip.start + clip.length, tail = 0, bits = 16 }))
@@ -172,8 +182,12 @@ test("tempo: audio clips keep their length in time when the tempo changes", func
   local beat = clip.start
   paw.project.tempo = 100
   near(clip.start, beat, 1e-9, "a clip in beats keeps its beat")
-  near(paw.tempo.beats_to_seconds(clip.start + clip.length) - paw.tempo.beats_to_seconds(clip.start), 4, 1e-9,
-    "and its length in time")
+  near(
+    paw.tempo.beats_to_seconds(clip.start + clip.length) - paw.tempo.beats_to_seconds(clip.start),
+    4,
+    1e-9,
+    "and its length in time"
+  )
   -- A MIDI clip stays on its beats.
   local midi = track:add_clip({ start = 20, length = 4 })
   paw.project.tempo = 140

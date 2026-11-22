@@ -18,21 +18,27 @@ local function layout(t)
     if a.start ~= b.start then return a.start < b.start end
     return a.name < b.name
   end)
-  for i, c in ipairs(list) do list[i] = string.format("%s@%g+%g", c.name, c.start, c.length) end
+  for i, c in ipairs(list) do
+    list[i] = string.format("%s@%g+%g", c.name, c.start, c.length)
+  end
   return table.concat(list, " ")
 end
 
 --- The sections as "Intro@0 Verse@8".
 local function names(S)
   local out = {}
-  for i, s in ipairs(S.list()) do out[i] = s.name .. "@" .. s.start end
+  for i, s in ipairs(S.list()) do
+    out[i] = s.name .. "@" .. s.start
+  end
   return table.concat(out, " ")
 end
 
 --- A lane's points as "0:-60 16:0".
 local function points(lane)
   local out = {}
-  for i, p in ipairs(api.lane_points(lane.id)) do out[i] = string.format("%g:%g", p[1], p[2]) end
+  for i, p in ipairs(api.lane_points(lane.id)) do
+    out[i] = string.format("%g:%g", p[1], p[2])
+  end
   return table.concat(out, " ")
 end
 
@@ -51,11 +57,15 @@ local function song()
     a:add_clip({ name = name, start = (i - 1) * 8, length = 8, notes = { { pitch = 50 + i, start = 0, length = 1 } } })
   end
   local notes = {}
-  for beat = 0, 23 do notes[#notes + 1] = { pitch = 60 + beat, start = beat, length = 1 } end
+  for beat = 0, 23 do
+    notes[#notes + 1] = { pitch = 60 + beat, start = beat, length = 1 }
+  end
   b:add_clip({ name = "pad", start = 4, length = 24, notes = notes })
   local lane = a:automate("volume")
   lane:set_points({ { 0, -60 }, { 16, 0 }, { 24, -6 } })
-  for i, name in ipairs({ "Intro", "Verse", "Chorus", "Outro" }) do S.add(name, (i - 1) * 8) end
+  for i, name in ipairs({ "Intro", "Verse", "Chorus", "Outro" }) do
+    S.add(name, (i - 1) * 8)
+  end
   paw.cursor.set_track(a)
   paw.cursor.set_beat(0)
   paw.opt.grid, paw.opt.ripple = 1, false
@@ -153,7 +163,11 @@ test("sections: is and as with operators and in visual mode", function()
   paw.cursor.set_beat(18)
   paw.keymap.feed("vis")
   local sel = paw.keymap.selection()
-  eq(string.format("%d-%d %g-%g", sel.r0, sel.r1, sel.c0, sel.c1), "1-2 16-24", "vis selects the section on every track")
+  eq(
+    string.format("%d-%d %g-%g", sel.r0, sel.r1, sel.c0, sel.c1),
+    "1-2 16-24",
+    "vis selects the section on every track"
+  )
   paw.keymap.feed("<Esc>")
   paw.cursor.set_beat(2)
   keys("d2is")
@@ -307,7 +321,9 @@ test("sections: a click on a section in the ruler's second row goes to its start
   arrange.scroll = 0
   api.ui_snapshot(100, 30)
   local rect
-  for _, r in ipairs(paw.ui.rects) do if r.name == "arrange" then rect = r end end
+  for _, r in ipairs(paw.ui.rects) do
+    if r.name == "arrange" then rect = r end
+  end
   local g = arrange.geometry
   -- Inside the Chorus, a beat after its start.
   local x = rect.x + g.hw + math.floor(17 * g.zoom)
@@ -324,10 +340,14 @@ test("sections: the list in a window of its own goes to, renames and adds sectio
   local cell = { w = 10, h = 20 }
   local painted = paw.canvas.paint("sections", 600, 200, { cell = cell, fresh = true })
   local text = {}
-  for _, op in ipairs(painted.ops) do if op[1] == "m" then text[#text + 1] = op[6] end end
+  for _, op in ipairs(painted.ops) do
+    if op[1] == "m" then text[#text + 1] = op[6] end
+  end
   text = table.concat(text, " ")
   eq(text:find("Verse", 1, true) ~= nil and text:find("Outro", 1, true) ~= nil, true, "it lists them: " .. text)
-  for _, key in ipairs({ "j", "<CR>" }) do paw.canvas.key("sections", key) end
+  for _, key in ipairs({ "j", "<CR>" }) do
+    paw.canvas.key("sections", key)
+  end
   eq(paw.cursor.beat, 8, "Enter goes to the Verse")
   eq(paw.canvas.open_views.sections ~= nil, true, "and the window stays open")
   -- A click on a row chooses it, a second goes there.
@@ -336,10 +356,14 @@ test("sections: the list in a window of its own goes to, renames and adds sectio
   eq(paw.cursor.beat, 8, "one click chooses the Chorus")
   paw.canvas.pointer("sections", click)
   eq(paw.cursor.beat, 16, "a second goes there")
-  for _, key in ipairs({ "r", "<C-u>", "H", "o", "o", "k", "<CR>" }) do paw.canvas.key("sections", key) end
+  for _, key in ipairs({ "r", "<C-u>", "H", "o", "o", "k", "<CR>" }) do
+    paw.canvas.key("sections", key)
+  end
   eq(names(S), "Intro@0 Verse@8 Hook@16 Outro@24", "r renames the one chosen")
   paw.cursor.set_beat(4)
-  for _, key in ipairs({ "a", "P", "i", "c", "k", "<CR>" }) do paw.canvas.key("sections", key) end
+  for _, key in ipairs({ "a", "P", "i", "c", "k", "<CR>" }) do
+    paw.canvas.key("sections", key)
+  end
   eq(names(S), "Intro@0 Pick@4 Verse@8 Hook@16 Outro@24", "a adds one at the cursor")
   paw.canvas.key("sections", "q")
   eq(paw.canvas.open_views.sections, nil, "q closes the window")

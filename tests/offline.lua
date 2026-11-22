@@ -23,7 +23,9 @@ end
 --- Wait, with the session looked after, until `ready()` is true or `ms` pass.
 local function wait_for(ready, ms)
   local deadline = api.now() + (ms or 10000)
-  while not ready() and api.now() < deadline do paw.wait(20) end
+  while not ready() and api.now() < deadline do
+    paw.wait(20)
+  end
   return ready()
 end
 
@@ -54,7 +56,9 @@ local function saved_states(path)
   local file = api.json_decode(T.read_file(path))
   local out = {}
   for _, track in ipairs(file.project.tracks) do
-    for _, device in ipairs(track.devices) do out[#out + 1] = device.state or false end
+    for _, device in ipairs(track.devices) do
+      out[#out + 1] = device.state or false
+    end
   end
   return out
 end
@@ -111,7 +115,9 @@ test("several plugins are made at the same time", function()
     hang(kind:match("[^:]*$"), 1.5, 20)
     local function running(list)
       return wait_for(function()
-        for _, fx in ipairs(list) do if fx:get().status ~= "running" then return false end end
+        for _, fx in ipairs(list) do
+          if fx:get().status ~= "running" then return false end
+        end
         return true
       end, 20000)
     end
@@ -121,7 +127,9 @@ test("several plugins are made at the same time", function()
     local one = api.now() - started
     started = api.now()
     local list = {}
-    for i = 1, 6 do list[i] = t:add_device(kind) end
+    for i = 1, 6 do
+      list[i] = t:add_device(kind)
+    end
     eq(running(list), true, "all are made")
     -- One after the other would take 6 times as long as one; four at a
     -- time, two rounds, about 2 times.
@@ -190,7 +198,9 @@ local function project_with(name, devices)
   local path = T.scratch .. "/" .. name .. ".json"
   fresh()
   local t = paw.add_track({ name = "Keys" })
-  for _, d in ipairs(devices) do t:add_device(d.kind, d.params) end
+  for _, d in ipairs(devices) do
+    t:add_device(d.kind, d.params)
+  end
   paw.project.save(path)
   return path
 end
@@ -267,7 +277,11 @@ test("a device set offline is not made, is passed over, keeps its state, and com
   eq(d.offline, true, "and says so")
   eq(d.params[gain.key], gain.min, "it keeps its parameter values")
   if pid then
-    eq(os.execute("kill -0 " .. pid .. " 2>/dev/null") ~= 0 and os.execute("kill -0 " .. pid .. " 2>/dev/null") ~= true, true, "its helper is gone")
+    eq(
+      os.execute("kill -0 " .. pid .. " 2>/dev/null") ~= 0 and os.execute("kill -0 " .. pid .. " 2>/dev/null") ~= true,
+      true,
+      "its helper is gone"
+    )
   end
   fails(function() api.device_call(fx.id, "sandbox.pid") end, nil, "no process to ask")
   eq(render({ tail = 0.2 }).peak > quiet * 5, true, "the sound passes it by, in a render too")
@@ -356,15 +370,21 @@ end)
 local function on_test_device(fn)
   api.audio_test_device({ present = true, fail_after = 0, back_after = 0 })
   api.audio_watch({ period = 100 })
-  api.engine_restart({ backend = "test", sample_rate = 44100, buffer_size = 256,
-    test_input = { frequency = 440, level = -12, channels = 2 } })
+  api.engine_restart({
+    backend = "test",
+    sample_rate = 44100,
+    buffer_size = 256,
+    test_input = { frequency = 440, level = -12, channels = 2 },
+  })
   local events = { lost = {}, restored = {} }
   local handlers = {
     paw.on("audio.lost", function(e) events.lost[#events.lost + 1] = e end),
     paw.on("audio.restored", function(e) events.restored[#events.restored + 1] = e end),
   }
   local ok, err = xpcall(fn, debug.traceback, events)
-  for _, h in ipairs(handlers) do paw.off(h) end
+  for _, h in ipairs(handlers) do
+    paw.off(h)
+  end
   paw.opt.audio_reconnect = true
   api.audio_watch({ period = 3000 })
   api.audio_test_device({ present = true, fail_after = 0, back_after = 0 })
@@ -382,7 +402,7 @@ test("a lost audio device stops the transport, keeps the take, and is opened aga
     paw.transport.record()
     paw.wait(300)
     eq(paw.transport.playing, true, "recording")
-    api.audio_test_device({ fail_after = 1 })   -- unplugged at the next block
+    api.audio_test_device({ fail_after = 1 }) -- unplugged at the next block
     eq(wait_for(function() return #events.lost > 0 end, 5000), true, "the loss is told")
     eq(events.lost[1].device:find("test device") ~= nil, true, "naming the device: " .. events.lost[1].device)
     eq(events.lost[1].recording, true, "and that a take was being made")
@@ -404,7 +424,11 @@ test("a lost audio device stops the transport, keeps the take, and is opened aga
     eq(wait_for(function() return #events.restored > 0 end, 5000), true, "found again when it is back")
     e = api.engine_get()
     eq(e.backend .. " " .. e.device, "test test device", "the device is open again")
-    eq(e.sample_rate .. " " .. e.buffer_size .. " " .. e.input_channels, "44100 256 2", "with the same rate, block and input")
+    eq(
+      e.sample_rate .. " " .. e.buffer_size .. " " .. e.input_channels,
+      "44100 256 2",
+      "with the same rate, block and input"
+    )
     eq(e.lost, nil, "nothing is waited for")
     eq(t.input, "1/2", "the track keeps its input")
     paw.transport.play()
@@ -452,7 +476,9 @@ test("a MIDI input that goes away and comes back is told of, and its tracks take
   api.midi_test_ports({ "Pads", "Keys A" })
   T.until_(function() return #seen >= 2 end, "the port's coming back to be told")
   paw.wait(300) -- told once each: no more come
-  for _, h in ipairs(handlers) do paw.off(h) end
+  for _, h in ipairs(handlers) do
+    paw.off(h)
+  end
   eq(table.concat(seen, "; "), "lost Keys A Keys; back Keys A Keys", "the port's going and coming back, with its track")
   eq(t.midi_input.port, "Keys A", "the track still chooses it")
   paw.transport.play()
@@ -469,12 +495,22 @@ end)
 
 test(":audio offers the sample rate and the sound system beside the devices and block sizes", function()
   local groups = {}
-  for _, choice in ipairs(paw.audio.engine_choices()) do groups[choice.group] = (groups[choice.group] or 0) + 1 end
-  eq(groups.rate ~= nil and groups.backend ~= nil and groups.block ~= nil, true, "rate, sound system and block size are offered")
+  for _, choice in ipairs(paw.audio.engine_choices()) do
+    groups[choice.group] = (groups[choice.group] or 0) + 1
+  end
+  eq(
+    groups.rate ~= nil and groups.backend ~= nil and groups.block ~= nil,
+    true,
+    "rate, sound system and block size are offered"
+  )
   local menu = paw.frontend.engine_menu()
   eq(#menu.rate, groups.rate, "the window's menu has the rates")
   eq(#menu.backend, groups.backend, "and the sound systems")
-  fails(function() paw.audio.use({ backend = "no-such-system" }) end, "auto", "an unknown sound system, refused with the list")
+  fails(
+    function() paw.audio.use({ backend = "no-such-system" }) end,
+    "auto",
+    "an unknown sound system, refused with the list"
+  )
   paw.audio.use({ rate = 44100 })
   eq(api.engine_get().sample_rate, 44100, "a rate is chosen")
   local checked

@@ -6,19 +6,23 @@ local command, map = paw.command, paw.keymap.set
 local cursor = paw.cursor
 local keymap = paw.keymap
 local common = require("paw.defaults.common")
-local motion, need_track, read_pan, param_reader, amap = common.motion, common.need_track, common.read_pan, common.param_reader, common.amap
+local motion, need_track, read_pan, param_reader, amap =
+  common.motion, common.need_track, common.read_pan, common.param_reader, common.amap
 
 --- What a new lane's first point starts from: the target's value now.
-local function value_now(lane)
-  return paw.lanes.value_at(lane:get(), cursor.beat)
-end
+local function value_now(lane) return paw.lanes.value_at(lane:get(), cursor.beat) end
 
 local function clamp_to(l, v) return util.clamp(v, l.min, l.max) end
 
 --- The lane the cursor's row is, or a warning.
 local function cursor_lane()
   local id = cursor.lane_id()
-  if not id then paw.notify("the cursor is not on an automation lane: `" .. paw.keymap.human("<leader>aa") .. "` shows the track's lanes", "warn") end
+  if not id then
+    paw.notify(
+      "the cursor is not on an automation lane: `" .. paw.keymap.human("<leader>aa") .. "` shows the track's lanes",
+      "warn"
+    )
+  end
   return id and paw.lane(id)
 end
 
@@ -51,19 +55,21 @@ command("lane.pick", function()
   paw.pick({
     title = "Automate on " .. track.name,
     items = items,
-    format = function(item)
-      return (have[key_of(item)] and "● " or "  ") .. item.name
-    end,
+    format = function(item) return (have[key_of(item)] and "● " or "  ") .. item.name end,
     on_choose = function(item)
       if item.target == "state" then
         local lane = paw.device(item.device):automate_state()
         paw.lanes.open(track)
         cursor.set_track(track.id, lane.id)
         paw.ui.focus("arrange")
-        paw.notify(paw.lanes.name(lane.id) .. " lane: `\\s` keeps the device's state at the cursor, `+` `-` `c` choose a state, `x` removes it")
+        paw.notify(
+          paw.lanes.name(lane.id)
+            .. " lane: `\\s` keeps the device's state at the cursor, `+` `-` `c` choose a state, `x` removes it"
+        )
         return
       end
-      local lane = item.target == "param" and paw.device(item.device):automate(item.param) or track:automate(item.target)
+      local lane = item.target == "param" and paw.device(item.device):automate(item.param)
+        or track:automate(item.target)
       paw.lanes.open(track)
       cursor.set_track(track.id, lane.id)
       paw.ui.focus("arrange")
@@ -71,52 +77,72 @@ command("lane.pick", function()
     end,
   })
 end, { desc = "Choose what to automate on the track (volume, pan, a device's parameter) and show its lane" })
-command("lane.show", function(ctx)
-  local which = ctx.args[1]
-  if which == "all" or which == "none" then
-    for _, id in ipairs(api.track_list()) do
-      if which == "none" or #api.lane_list(id) > 0 then paw.lanes.open(id, which == "all") end
+command(
+  "lane.show",
+  function(ctx)
+    local which = ctx.args[1]
+    if which == "all" or which == "none" then
+      for _, id in ipairs(api.track_list()) do
+        if which == "none" or #api.lane_list(id) > 0 then paw.lanes.open(id, which == "all") end
+      end
+      if which == "none" and cursor.lane_id() == nil then cursor.set_track(cursor.track_id()) end
+      return
     end
-    if which == "none" and cursor.lane_id() == nil then cursor.set_track(cursor.track_id()) end
-    return
-  end
-  local track = need_track()
-  if not track then return end
-  if #api.lane_list(track.id) == 0 then
-    return paw.notify(track.name .. " has no automation yet: `" .. paw.keymap.human("<leader>al") .. "` chooses what to automate", "warn")
-  end
-  local now = paw.lanes.toggle(track)
-  cursor.set_track(track.id)
-  paw.notify(track.name .. (now and ": lanes shown" or ": lanes hidden"))
-end, { desc = "Show the track's automation lanes as rows under it, or hide them: `lane.show`, `lane.show all`, `lane.show none`", complete = function() return { "all", "none" } end })
-command("lane.rows", function()
-  local track = need_track()
-  if not track then return end
-  local now = paw.frontend.act.lane_rows(track.id)
-  paw.notify(track.name .. (now and ": lanes shown as rows" or ": lanes hidden"))
-end, { desc = "Show the track's automation lanes as rows under it, making one for its fader if it has none; or hide them" })
+    local track = need_track()
+    if not track then return end
+    if #api.lane_list(track.id) == 0 then
+      return paw.notify(
+        track.name .. " has no automation yet: `" .. paw.keymap.human("<leader>al") .. "` chooses what to automate",
+        "warn"
+      )
+    end
+    local now = paw.lanes.toggle(track)
+    cursor.set_track(track.id)
+    paw.notify(track.name .. (now and ": lanes shown" or ": lanes hidden"))
+  end,
+  {
+    desc = "Show the track's automation lanes as rows under it, or hide them: `lane.show`, `lane.show all`, `lane.show none`",
+    complete = function() return { "all", "none" } end,
+  }
+)
+command(
+  "lane.rows",
+  function()
+    local track = need_track()
+    if not track then return end
+    local now = paw.frontend.act.lane_rows(track.id)
+    paw.notify(track.name .. (now and ": lanes shown as rows" or ": lanes hidden"))
+  end,
+  { desc = "Show the track's automation lanes as rows under it, making one for its fader if it has none; or hide them" }
+)
 command("lane.point.add", function()
   local lane = cursor_lane()
   if not lane then return end
   local l = lane:get()
   local v = value_now(lane)
   lane:add(cursor.beat, v)
-  paw.notify(string.format("%s: a point at %s, %s", paw.lanes.name(l), paw.time.format(cursor.beat), paw.lanes.format(l, v)))
+  paw.notify(
+    string.format("%s: a point at %s, %s", paw.lanes.name(l), paw.time.format(cursor.beat), paw.lanes.format(l, v))
+  )
 end, { desc = "Add an automation point at the cursor, at the curve's value there", label = "Add a point" })
-command("lane.point.nudge", function(ctx)
-  local lane = cursor_lane()
-  if not lane then return end
-  local l = lane:get()
-  local at = paw.lanes.point_at(l.id, cursor.beat, reach())
-  if not at then return paw.notify("no point under the cursor: `A` adds one", "warn") end
-  local by = (tonumber(ctx.args.by) or 1) * (ctx.count or 1) * paw.lanes.step(l)
-  local v
-  paw.lanes.edit(l.id, function(points)
-    points[at][2] = clamp_to(l, points[at][2] + by)
-    v = points[at][2]
-  end)
-  paw.notify(paw.lanes.name(l) .. " " .. paw.lanes.format(l, v))
-end, { desc = "Raise or lower the automation point under the cursor: `lane.point.nudge by=-1`", label = "Change a point" })
+command(
+  "lane.point.nudge",
+  function(ctx)
+    local lane = cursor_lane()
+    if not lane then return end
+    local l = lane:get()
+    local at = paw.lanes.point_at(l.id, cursor.beat, reach())
+    if not at then return paw.notify("no point under the cursor: `A` adds one", "warn") end
+    local by = (tonumber(ctx.args.by) or 1) * (ctx.count or 1) * paw.lanes.step(l)
+    local v
+    paw.lanes.edit(l.id, function(points)
+      points[at][2] = clamp_to(l, points[at][2] + by)
+      v = points[at][2]
+    end)
+    paw.notify(paw.lanes.name(l) .. " " .. paw.lanes.format(l, v))
+  end,
+  { desc = "Raise or lower the automation point under the cursor: `lane.point.nudge by=-1`", label = "Change a point" }
+)
 command("lane.point.set", function()
   local lane = cursor_lane()
   if not lane then return end
@@ -125,16 +151,24 @@ command("lane.point.set", function()
   local beat = point and point[1] or cursor.beat
   local now = point and point[2] or value_now(lane)
   if l.target == "state" then
-    if #l.states == 0 then return paw.notify("the lane has no states yet: `\\s` keeps the device's state at the cursor", "warn") end
+    if #l.states == 0 then
+      return paw.notify("the lane has no states yet: `\\s` keeps the device's state at the cursor", "warn")
+    end
     local items = {}
-    for i, name in ipairs(l.states) do items[i] = { index = i - 1, name = name } end
+    for i, name in ipairs(l.states) do
+      items[i] = { index = i - 1, name = name }
+    end
     return paw.pick({
       title = paw.lanes.name(l) .. " at " .. paw.time.format(beat),
       items = items,
       format = function(item) return item.name end,
       on_choose = function(item)
         paw.lanes.edit(l.id, function(points)
-          if at then points[at][2] = item.index else points[#points + 1] = { beat, item.index } end
+          if at then
+            points[at][2] = item.index
+          else
+            points[#points + 1] = { beat, item.index }
+          end
         end)
         paw.notify(string.format("%s: %s from %s", paw.lanes.name(l), item.name, paw.time.format(beat)))
       end,
@@ -159,7 +193,11 @@ command("lane.point.set", function()
   paw.ui.ask_value(opts, function(v)
     v = v / scale
     paw.lanes.edit(l.id, function(points)
-      if at then points[at][2] = v else points[#points + 1] = { beat, v } end
+      if at then
+        points[at][2] = v
+      else
+        points[#points + 1] = { beat, v }
+      end
     end)
   end)
 end, { desc = "Type the value of the automation point under the cursor, or of a new one there", label = "Set a point" })
@@ -199,30 +237,47 @@ local function to_point(dir, n)
   end
 end
 
-command("lane.state", function(ctx)
-  local lane = cursor_lane()
-  if not lane then return end
-  local l = lane:get()
-  if l.target ~= "state" then return paw.notify("the cursor is not on a state lane: `" .. paw.keymap.human("<leader>al") .. "` makes one for a device", "warn") end
-  local device = paw.device(l.device)
-  local name = table.concat(ctx.args, " ")
-  if name == "" then
-    local d = device:get()
-    name = (d.meta or {}).preset
-    local taken = {}
-    for _, n in ipairs(l.states) do taken[n] = true end
-    if not name or taken[name] then
-      for c in ("ABCDEFGHIJKLMNOPQRSTUVWXYZ"):gmatch(".") do
-        if not taken[c] then name = c break end
+command(
+  "lane.state",
+  function(ctx)
+    local lane = cursor_lane()
+    if not lane then return end
+    local l = lane:get()
+    if l.target ~= "state" then
+      return paw.notify(
+        "the cursor is not on a state lane: `" .. paw.keymap.human("<leader>al") .. "` makes one for a device",
+        "warn"
+      )
+    end
+    local device = paw.device(l.device)
+    local name = table.concat(ctx.args, " ")
+    if name == "" then
+      local d = device:get()
+      name = (d.meta or {}).preset
+      local taken = {}
+      for _, n in ipairs(l.states) do
+        taken[n] = true
+      end
+      if not name or taken[name] then
+        for c in ("ABCDEFGHIJKLMNOPQRSTUVWXYZ"):gmatch(".") do
+          if not taken[c] then
+            name = c
+            break
+          end
+        end
       end
     end
-  end
-  local ok, state = pcall(device.capture, device, name)
-  if not ok then return paw.notify((tostring(state):gsub("^.-:%d+: ", "")), "error") end
-  local index = lane:add_state(state)
-  lane:add(cursor.beat, index)
-  paw.notify(string.format("%s: %s from %s", paw.lanes.name(l), state.name, paw.time.format(cursor.beat)))
-end, { desc = "Keep the device's state now as a state of its state lane, given from the cursor on: `lane.state crunch`", label = "Keep the state here" })
+    local ok, state = pcall(device.capture, device, name)
+    if not ok then return paw.notify((tostring(state):gsub("^.-:%d+: ", "")), "error") end
+    local index = lane:add_state(state)
+    lane:add(cursor.beat, index)
+    paw.notify(string.format("%s: %s from %s", paw.lanes.name(l), state.name, paw.time.format(cursor.beat)))
+  end,
+  {
+    desc = "Keep the device's state now as a state of its state lane, given from the cursor on: `lane.state crunch`",
+    label = "Keep the state here",
+  }
+)
 
 local function lmap(lhs, rhs, desc, opts) map(lhs, rhs, util.merge({ view = "arrange.lane", desc = desc }, opts)) end
 lmap("<localleader>s", "lane.state", "Keep the device's state now as a state of the lane, from the cursor on")
@@ -234,14 +289,21 @@ lmap("x", "lane.point.remove", "Remove the point under the cursor")
 lmap("w", function(ctx) to_point(1, ctx.count) end, "Next point", motion)
 lmap("b", function(ctx) to_point(-1, ctx.count) end, "Previous point", motion)
 local function lx(lhs, fn, desc)
-  map(lhs, nil, { view = "arrange.lane", mode = "x", desc = desc, operator = function(region, ctx)
-    local id = cursor.lane_id()
-    if id then fn(id, region, ctx) end
-  end })
+  map(lhs, nil, {
+    view = "arrange.lane",
+    mode = "x",
+    desc = desc,
+    operator = function(region, ctx)
+      local id = cursor.lane_id()
+      if id then fn(id, region, ctx) end
+    end,
+  })
 end
 local function remove_points(id, region)
   local gone = {}
-  for _, i in ipairs(points_in(id, region)) do gone[i] = true end
+  for _, i in ipairs(points_in(id, region)) do
+    gone[i] = true
+  end
   paw.lanes.edit(id, function(points)
     for i = #points, 1, -1 do
       if gone[i] then table.remove(points, i) end
@@ -250,44 +312,52 @@ local function remove_points(id, region)
 end
 lx("x", remove_points, "Remove the points selected")
 lx("d", remove_points, "Remove the points selected")
-local function move_points(steps) return function(id, region, ctx)
-  local by = steps * (ctx.count or 1) * paw.opt.grid
-  local chosen = {}
-  for _, i in ipairs(points_in(id, region)) do chosen[i] = true end
-  paw.lanes.edit(id, function(points)
-    local landed = {}
-    for i, p in ipairs(points) do
-      if chosen[i] then
-        p[1] = math.max(0, p[1] + by)
-        landed[#landed + 1] = p[1]
-      end
+local function move_points(steps)
+  return function(id, region, ctx)
+    local by = steps * (ctx.count or 1) * paw.opt.grid
+    local chosen = {}
+    for _, i in ipairs(points_in(id, region)) do
+      chosen[i] = true
     end
-    -- A point moved onto another's beat takes its place.
-    for i = #points, 1, -1 do
-      if not chosen[i] then
-        for _, beat in ipairs(landed) do
-          if math.abs(points[i][1] - beat) < 1e-9 then
-            table.remove(points, i)
-            break
+    paw.lanes.edit(id, function(points)
+      local landed = {}
+      for i, p in ipairs(points) do
+        if chosen[i] then
+          p[1] = math.max(0, p[1] + by)
+          landed[#landed + 1] = p[1]
+        end
+      end
+      -- A point moved onto another's beat takes its place.
+      for i = #points, 1, -1 do
+        if not chosen[i] then
+          for _, beat in ipairs(landed) do
+            if math.abs(points[i][1] - beat) < 1e-9 then
+              table.remove(points, i)
+              break
+            end
           end
         end
       end
-    end
-  end)
-end end
+    end)
+  end
+end
 lx("L", move_points(1), "Move the points selected later")
 lx("H", move_points(-1), "Move the points selected earlier")
-local function nudge_points(sign) return function(id, region, ctx)
-  local l = api.lane_get(id)
-  local by = sign * (ctx.count or 1) * paw.lanes.step(l)
-  local chosen = {}
-  for _, i in ipairs(points_in(id, region)) do chosen[i] = true end
-  paw.lanes.edit(id, function(points)
-    for i, p in ipairs(points) do
-      if chosen[i] then p[2] = clamp_to(l, p[2] + by) end
+local function nudge_points(sign)
+  return function(id, region, ctx)
+    local l = api.lane_get(id)
+    local by = sign * (ctx.count or 1) * paw.lanes.step(l)
+    local chosen = {}
+    for _, i in ipairs(points_in(id, region)) do
+      chosen[i] = true
     end
-  end)
-end end
+    paw.lanes.edit(id, function(points)
+      for i, p in ipairs(points) do
+        if chosen[i] then p[2] = clamp_to(l, p[2] + by) end
+      end
+    end)
+  end
+end
 lx("+", nudge_points(1), "Raise the points selected")
 lx("-", nudge_points(-1), "Lower the points selected")
 lx("<C-a>", nudge_points(1), "Raise the points selected by the count")

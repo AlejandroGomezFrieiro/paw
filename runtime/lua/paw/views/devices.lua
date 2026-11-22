@@ -11,7 +11,9 @@ local util = paw.util
 -- pin: two panels show the devices of two tracks. `row_track` is the track
 -- the row was chosen on.
 local view = {
-  row = 1, scroll = 0, pin = nil,
+  row = 1,
+  scroll = 0,
+  pin = nil,
   window_state = { "row", "scroll", "geometry", "pin", "row_track" },
   window_fresh = { "geometry" },
 }
@@ -51,7 +53,8 @@ local function rows_for(track_id)
     end
     -- The host's wet/dry mix and output gain come last, after the device's own.
     for _, param in ipairs(device.param_info) do
-      rows[#rows + 1] = { device = device, param = param, value = device.params[param.key], host = paw.fx.host_params[param.key] }
+      rows[#rows + 1] =
+        { device = device, param = param, value = device.params[param.key], host = paw.fx.host_params[param.key] }
     end
   end
   cache.tracks[track_id or false] = rows
@@ -66,9 +69,7 @@ end
 
 --- The id of the track whose devices the window shows: its pinned track,
 --- else the cursor's.
-function view:track_id()
-  return pinned(self) or paw.cursor.track_id()
-end
+function view:track_id() return pinned(self) or paw.cursor.track_id() end
 
 --- The track the window shows, as a `paw.Track`, or nil.
 function view:track()
@@ -91,7 +92,9 @@ function view:title_of()
   local track = self:track()
   if not track then return "Devices" end
   local n = #api.track_get(track.id).devices
-  return "Devices · " .. track.name .. (pinned(self) and " (pinned)" or "")
+  return "Devices · "
+    .. track.name
+    .. (pinned(self) and " (pinned)" or "")
     .. (n > 0 and " · " .. n .. (n == 1 and " device" or " devices") or "")
 end
 
@@ -120,7 +123,9 @@ function view:window_target() return pinned(self) end
 function view:set_pin(track)
   self.pin, self.row, self.scroll = track, 1, 0
   if track then
-    paw.notify("the device panel stays on " .. api.track_get(track, "name") .. "; `:devices.pin` again follows the cursor")
+    paw.notify(
+      "the device panel stays on " .. api.track_get(track, "name") .. "; `:devices.pin` again follows the cursor"
+    )
   else
     paw.notify("the device panel follows the cursor track")
   end
@@ -193,9 +198,7 @@ end
 --- Whether it shows what moves on its own beside the bound parameters: an
 --- effect's picture (gain reduction, loudness, a tuner's needle). A
 --- window then gets it drawn again ten times a second while the song plays.
-function view:moving()
-  return self.geometry ~= nil and self.geometry.pictures == true
-end
+function view:moving() return self.geometry ~= nil and self.geometry.pictures == true end
 view.redraw_every = 100
 
 -- Drawing ---------------------------------------------------------------------------------
@@ -209,14 +212,26 @@ function view.layout(w)
   local name_w = math.min(12, math.max(4, w - 24))
   local value_w = 9
   local bar_at = 2 + name_w + 1
-  return { name_w = name_w, bar_at = bar_at, bar = math.max(3, right - bar_at - value_w), value_w = value_w, tools = tools, right = right }
+  return {
+    name_w = name_w,
+    bar_at = bar_at,
+    bar = math.max(3, right - bar_at - value_w),
+    value_w = value_w,
+    tools = tools,
+    right = right,
+  }
 end
 
 --- A button of the heading of a device, `glyph` two columns wide at `x`.
 local function tool(buf, x, y, glyph, icon, hit, enabled, label)
   buf:mark("button", x, y, 2, 1, {
-    text = glyph, style = enabled == false and "Faint" or "DeviceFormat", icon = icon, quiet = true, off = enabled == false,
-    hit = hit, label = label,
+    text = glyph,
+    style = enabled == false and "Faint" or "DeviceFormat",
+    icon = icon,
+    quiet = true,
+    off = enabled == false,
+    hit = hit,
+    label = label,
   })
 end
 
@@ -230,8 +245,12 @@ local function heading(buf, y, w, index, d, devices, chosen)
   local style = d.bypass and "DeviceOff" or "DeviceName"
   buf:text(1, y, g.open .. " ", style)
   buf:mark("label", 3, y, api.str_width(name), 1, {
-    text = name, style = style, font = "title", strike = d.bypass,
-    tone = d.bypass and "text_3" or "text", hit = { kind = "device", index = index, device = d.id },
+    text = name,
+    style = style,
+    font = "title",
+    strike = d.bypass,
+    tone = d.bypass and "text_3" or "text",
+    hit = { kind = "device", index = index, device = d.id },
   })
   local after = 4 + api.str_width(name)
   -- The preset it holds, if one was loaded or saved; a caret when none was.
@@ -241,11 +260,23 @@ local function heading(buf, y, w, index, d, devices, chosen)
   if preset and room > 3 then
     local shown = util.fit(preset, room):gsub("%s+$", "")
     buf:mark("button", after, y, api.str_width(shown), 1, {
-      text = shown, style = "Param", menu = true, quiet = true, tone = "text_2", hit = { kind = "preset", device = d.id },
+      text = shown,
+      style = "Param",
+      menu = true,
+      quiet = true,
+      tone = "text_2",
+      hit = { kind = "preset", device = d.id },
     })
     after = after + api.str_width(shown) + 1
   elseif room > 1 then
-    buf:mark("button", after - 1, y, 2, 1, { text = " " .. g.open, style = "Faint", menu = true, quiet = true, hit = { kind = "preset", device = d.id } })
+    buf:mark(
+      "button",
+      after - 1,
+      y,
+      2,
+      1,
+      { text = " " .. g.open, style = "Faint", menu = true, quiet = true, hit = { kind = "preset", device = d.id } }
+    )
     after = after + 2
   end
   -- What modules mark on the device (`paw.ui.layer("devices", "device", ...)`):
@@ -261,17 +292,35 @@ local function heading(buf, y, w, index, d, devices, chosen)
   if mark then
     at = math.max(2, w - #mark[1] - 1)
     buf:mark("button", at, y, #mark[1], 1, {
-      text = mark[1], style = mark[2], quiet = true, tone = mark[2] == "Error" and "error" or "text_3", icon = mark[4],
+      text = mark[1],
+      style = mark[2],
+      quiet = true,
+      tone = mark[2] == "Error" and "error" or "text_3",
+      icon = mark[4],
       hit = mark[3] and { kind = "status", device = d.id, status = mark[3] } or nil,
     })
   else
     at = w - (d.bypass and 6 or 5)
-    buf:mark("power", at, y, d.bypass and 5 or 4, 1, { on = not d.bypass, hit = { kind = "power", device = d.id }, label = "power of " .. d.name })
+    buf:mark(
+      "power",
+      at,
+      y,
+      d.bypass and 5 or 4,
+      1,
+      { on = not d.bypass, hit = { kind = "power", device = d.id }, label = "power of " .. d.name }
+    )
   end
   if not mark then
     if d.format ~= "builtin" and at - #d.format - 1 > after then
       at = at - #d.format - 1
-      buf:mark("label", at, y, #d.format, 1, { text = d.format, style = "DeviceFormat", font = "sans", tone = "text_3" })
+      buf:mark(
+        "label",
+        at,
+        y,
+        #d.format,
+        1,
+        { text = d.format, style = "DeviceFormat", font = "sans", tone = "text_3" }
+      )
     end
     -- How much of it is heard, when not all of it: `+` `-` here change it.
     local wet = d.params.fx_wet
@@ -287,7 +336,9 @@ local function heading(buf, y, w, index, d, devices, chosen)
     -- either chooses in a menu.
     local further = #(d.ports and d.ports.outputs or {}) - 1
     local routed = 0
-    for _ in pairs(d.outputs or {}) do routed = routed + 1 end
+    for _ in pairs(d.outputs or {}) do
+      routed = routed + 1
+    end
     for _, part in ipairs({
       further > 0 and { string.format("outs %d/%d", routed, further), "outputs" } or false,
       paw.routes.sidechain_text(d) and { "key " .. paw.routes.sidechain_text(d), "sidechain" } or false,
@@ -295,12 +346,30 @@ local function heading(buf, y, w, index, d, devices, chosen)
       local width = part and api.str_width(part[1]) or 0
       if part and at - width - 1 > after then
         at = at - width - 1
-        buf:mark("button", at, y, width, 1, { text = part[1], style = "ParamValue", quiet = true, tone = "text_2", menu = true, hit = { kind = part[2], device = d.id } })
+        buf:mark(
+          "button",
+          at,
+          y,
+          width,
+          1,
+          {
+            text = part[1],
+            style = "ParamValue",
+            quiet = true,
+            tone = "text_2",
+            menu = true,
+            hit = { kind = part[2], device = d.id },
+          }
+        )
       end
     end
   end
   -- Its buttons, with the room left: away, down and up the chain, its window.
-  local list = { { g.remove, "remove", "remove" }, { g.move_down, "down", "down", d.index < devices }, { g.move_up, "up", "up", d.index > 1 } }
+  local list = {
+    { g.remove, "remove", "remove" },
+    { g.move_down, "down", "down", d.index < devices },
+    { g.move_up, "up", "up", d.index > 1 },
+  }
   if d.editor ~= nil and d.format ~= "builtin" then list[#list + 1] = { g.editor, "window", "editor" } end
   for _, b in ipairs(list) do
     if at - 2 <= after then break end
@@ -314,8 +383,12 @@ local function param_row(buf, y, lay, index, row, chosen, lanes, binds)
   local d, p = row.device, row.param
   buf:hit(0, y, lay.right, 1, { kind = "row", index = index })
   buf:mark("label", 2, y, lay.name_w, 1, {
-    text = p.name, style = chosen and "Bright" or row.host and "DeviceFormat" or "Param", font = "sans", capital = true,
-    tone = chosen and "text" or row.host and "text_3" or "text_2", hit = { kind = "row", index = index },
+    text = p.name,
+    style = chosen and "Bright" or row.host and "DeviceFormat" or "Param",
+    font = "sans",
+    capital = true,
+    tone = chosen and "text" or row.host and "text_3" or "text_2",
+    hit = { kind = "row", index = index },
   })
   paw.ui.paint("devices", "param", { buf = buf, x = 1, y = y, width = buf.width, device = d.id, param = p.key })
   local lane = lanes[d.id] and lanes[d.id][p.key]
@@ -323,19 +396,34 @@ local function param_row(buf, y, lay, index, row, chosen, lanes, binds)
   local bind = lane and ("param:" .. d.id .. ":" .. p.key) or nil
   if bind then binds[bind] = { param = p, value = row.value, lane = lane } end
   buf:mark("param", lay.bar_at, y, lay.right - lay.bar_at, 1, {
-    fraction = fraction, text = text, bar = lay.bar, steps = #p.choices > 0 and #p.choices or nil,
-    centred = p.min < 0 and p.max > 0 or nil, dim = d.bypass or nil, bind = bind,
-    style = chosen and "ParamBar" or "ParamBarDim", off_style = "ParamBarOff", value_style = chosen and "Bright" or "ParamValue",
+    fraction = fraction,
+    text = text,
+    bar = lay.bar,
+    steps = #p.choices > 0 and #p.choices or nil,
+    centred = p.min < 0 and p.max > 0 or nil,
+    dim = d.bypass or nil,
+    bind = bind,
+    style = chosen and "ParamBar" or "ParamBarDim",
+    off_style = "ParamBarOff",
+    value_style = chosen and "Bright" or "ParamValue",
     label = p.name .. " of " .. d.name,
     hit = { kind = "param", index = index, device = d.id, key = p.key, bar = lay.bar },
   })
   if lay.tools then
     buf:mark("button", lay.tools, y, 2, 1, {
-      text = "A", style = lane and "ParamBar" or "Faint", icon = "automate", quiet = true, on = lane ~= nil,
+      text = "A",
+      style = lane and "ParamBar" or "Faint",
+      icon = "automate",
+      quiet = true,
+      on = lane ~= nil,
       hit = { kind = "automate", device = d.id, key = p.key },
     })
     buf:mark("button", lay.tools + 2, y, 2, 1, {
-      text = "L", style = "Faint", icon = "learn", quiet = true, hit = { kind = "learn", device = d.id, key = p.key },
+      text = "L",
+      style = "Faint",
+      icon = "learn",
+      quiet = true,
+      hit = { kind = "learn", device = d.id, key = p.key },
     })
   end
 end
@@ -349,30 +437,87 @@ local function footer(buf, y, w, track, draw)
   local n = 1 + (routing and 1 + #routing.sends or 0)
   if not draw then return n end
   buf:mark("button", 1, y, math.min(w - 2, 16), 1, {
-    text = "+ add a device", style = "EmptyKey", icon = "plus", hit = { kind = "add" }, label = "add a device",
+    text = "+ add a device",
+    style = "EmptyKey",
+    icon = "plus",
+    hit = { kind = "add" },
+    label = "add a device",
   })
   if not routing then return n end
   local out = util.fit(g.out .. " " .. routing.output, math.max(1, w - 12)):gsub("%s+$", "")
   buf:mark("button", 1, y + 1, api.str_width(out) + 2, 1, {
-    text = out .. " " .. g.open, style = "TrackInfo", menu = true, hit = { kind = "output", track = track.id }, label = "output",
+    text = out .. " " .. g.open,
+    style = "TrackInfo",
+    menu = true,
+    hit = { kind = "output", track = track.id },
+    label = "output",
   })
   if w >= 20 then
-    buf:mark("button", w - 8, y + 1, 7, 1, { text = "+ send", style = "TrackInfo", icon = "plus", hit = { kind = "send_add", track = track.id } })
+    buf:mark(
+      "button",
+      w - 8,
+      y + 1,
+      7,
+      1,
+      { text = "+ send", style = "TrackInfo", icon = "plus", hit = { kind = "send_add", track = track.id } }
+    )
   end
   -- Each send: the track, its level on a slider, before the fader or not, and away.
   local name_w = math.min(10, math.max(4, w - 26))
   for i, send in ipairs(routing.sends) do
     local sy = y + 1 + i
-    buf:mark("label", 1, sy, name_w, 1, { text = util.fit(g.send .. " " .. send.name, name_w):gsub("%s+$", ""), style = "TrackInfo", font = "sans", tone = "text_2" })
+    buf:mark(
+      "label",
+      1,
+      sy,
+      name_w,
+      1,
+      {
+        text = util.fit(g.send .. " " .. send.name, name_w):gsub("%s+$", ""),
+        style = "TrackInfo",
+        font = "sans",
+        tone = "text_2",
+      }
+    )
     local level = string.format("%.1f dB", send.level)
     local width = math.max(4, w - name_w - 2 - 6 - 1)
     buf:mark("param", name_w + 2, sy, width, 1, {
-      fraction = util.clamp((send.level + 60) / 66, 0, 1), text = level, bar = math.max(3, width - 9),
-      style = "ParamBarDim", off_style = "ParamBarOff", value_style = "ParamValue",
-      hit = { kind = "send", track = track.id, index = i, bar = math.max(3, width - 9) }, label = "send to " .. send.name,
+      fraction = util.clamp((send.level + 60) / 66, 0, 1),
+      text = level,
+      bar = math.max(3, width - 9),
+      style = "ParamBarDim",
+      off_style = "ParamBarOff",
+      value_style = "ParamValue",
+      hit = { kind = "send", track = track.id, index = i, bar = math.max(3, width - 9) },
+      label = "send to " .. send.name,
     })
-    buf:mark("button", w - 5, sy, 3, 1, { text = "pre", style = send.pre and "Bright" or "Faint", on = send.pre, hit = { kind = "send_pre", track = track.id, index = i } })
-    buf:mark("button", w - 2, sy, 2, 1, { text = g.remove, style = "Faint", icon = "remove", quiet = true, hit = { kind = "send_remove", track = track.id, index = i } })
+    buf:mark(
+      "button",
+      w - 5,
+      sy,
+      3,
+      1,
+      {
+        text = "pre",
+        style = send.pre and "Bright" or "Faint",
+        on = send.pre,
+        hit = { kind = "send_pre", track = track.id, index = i },
+      }
+    )
+    buf:mark(
+      "button",
+      w - 2,
+      sy,
+      2,
+      1,
+      {
+        text = g.remove,
+        style = "Faint",
+        icon = "remove",
+        quiet = true,
+        hit = { kind = "send_remove", track = track.id, index = i },
+      }
+    )
   end
   return n
 end
@@ -382,10 +527,14 @@ function view:render(buf, ctx)
   local track = self:track()
   local rows = self:rows()
   local devices = 0
-  for _, row in ipairs(rows) do if not row.param and not row.picture then devices = devices + 1 end end
+  for _, row in ipairs(rows) do
+    if not row.param and not row.picture then devices = devices + 1 end
+  end
   local inner = paw.ui.titlebar(buf, {
-    name = "Devices", context = track and (track.name .. (pinned(self) and " · pinned" or "")) or nil,
-    focused = ctx.focused, right = devices > 0 and tostring(devices) or nil,
+    name = "Devices",
+    context = track and (track.name .. (pinned(self) and " · pinned" or "")) or nil,
+    focused = ctx.focused,
+    right = devices > 0 and tostring(devices) or nil,
   })
   local w, h = inner.width, inner.height
   -- The bound parameters of this window, kept apart from its other windows'.
@@ -462,9 +611,7 @@ function view:adjust(steps)
 end
 
 --- A parameter row's value as it is now.
-function view.value(row)
-  return api.device_get(row.device.id).params[row.param.key]
-end
+function view.value(row) return api.device_get(row.device.id).params[row.param.key] end
 
 function view:selected()
   local row = self:rows()[self.row]

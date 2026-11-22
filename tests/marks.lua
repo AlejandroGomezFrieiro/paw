@@ -7,19 +7,25 @@ local paw = require("paw")
 local function start()
   fresh()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.focus("arrange")
   paw.add_track({ name = "Bass" })
   paw.keymap.delmarks("a-zA-Z")
 end
 
 local function set(names)
-  for name in names:gmatch(".") do paw.keymap.feed("m" .. name) end
+  for name in names:gmatch(".") do
+    paw.keymap.feed("m" .. name)
+  end
 end
 
 local function held()
   local out = {}
-  for name in pairs(paw.keymap.marks("arrange")) do out[#out + 1] = name end
+  for name in pairs(paw.keymap.marks("arrange")) do
+    out[#out + 1] = name
+  end
   table.sort(out)
   return table.concat(out)
 end
@@ -48,7 +54,9 @@ test("marks: :delmarks says what is wrong and completes the marks that exist", f
   eq(paw.keymap.delmarks("z"), 0, "an unset mark is nothing to remove")
   eq(held(), "km", "nothing was removed by those")
   local names = {}
-  for _, c in ipairs(paw.commands.complete("delmarks ")) do names[#names + 1] = c.label end
+  for _, c in ipairs(paw.commands.complete("delmarks ")) do
+    names[#names + 1] = c.label
+  end
   eq(table.concat(names, ","), "k,m", "completion lists the marks that are set")
 end)
 

@@ -39,10 +39,14 @@ function M.bool(v) return v and "\195" or "\194" end
 
 function M.uint(v)
   v = math.floor(v)
-  if v < 128 then return char(v)
-  elseif v < 256 then return "\204" .. char(v)
-  elseif v < 65536 then return "\205" .. be(2, v)
-  elseif v < 4294967296 then return "\206" .. be(4, v)
+  if v < 128 then
+    return char(v)
+  elseif v < 256 then
+    return "\204" .. char(v)
+  elseif v < 65536 then
+    return "\205" .. be(2, v)
+  elseif v < 4294967296 then
+    return "\206" .. be(4, v)
   end
   return "\207" .. be(8, v)
 end
@@ -50,10 +54,14 @@ end
 function M.int(v)
   v = math.floor(v)
   if v >= 0 then return M.uint(v) end
-  if v >= -32 then return char(v + 256)
-  elseif v >= -128 then return "\208" .. char(v + 256)
-  elseif v >= -32768 then return "\209" .. be(2, v + 65536)
-  elseif v >= -2147483648 then return "\210" .. be(4, v + 4294967296)
+  if v >= -32 then
+    return char(v + 256)
+  elseif v >= -128 then
+    return "\208" .. char(v + 256)
+  elseif v >= -32768 then
+    return "\209" .. be(2, v + 65536)
+  elseif v >= -2147483648 then
+    return "\210" .. be(4, v + 4294967296)
   end
   error("integer out of range: " .. v)
 end
@@ -75,32 +83,41 @@ end
 
 function M.str(s)
   local n = #s
-  if n < 32 then return char(160 + n) .. s
-  elseif n < 256 then return "\217" .. char(n) .. s
-  elseif n < 65536 then return "\218" .. be(2, n) .. s
+  if n < 32 then
+    return char(160 + n) .. s
+  elseif n < 256 then
+    return "\217" .. char(n) .. s
+  elseif n < 65536 then
+    return "\218" .. be(2, n) .. s
   end
   return "\219" .. be(4, n) .. s
 end
 
 function M.bin(s)
   local n = #s
-  if n < 256 then return "\196" .. char(n) .. s
-  elseif n < 65536 then return "\197" .. be(2, n) .. s
+  if n < 256 then
+    return "\196" .. char(n) .. s
+  elseif n < 65536 then
+    return "\197" .. be(2, n) .. s
   end
   return "\198" .. be(4, n) .. s
 end
 
 --- Header of an array of `n` items; the items follow.
 function M.array(n)
-  if n < 16 then return char(144 + n)
-  elseif n < 65536 then return "\220" .. be(2, n)
+  if n < 16 then
+    return char(144 + n)
+  elseif n < 65536 then
+    return "\220" .. be(2, n)
   end
   return "\221" .. be(4, n)
 end
 
 function M.map(n)
-  if n < 16 then return char(128 + n)
-  elseif n < 65536 then return "\222" .. be(2, n)
+  if n < 16 then
+    return char(128 + n)
+  elseif n < 65536 then
+    return "\222" .. be(2, n)
   end
   return "\223" .. be(4, n)
 end
@@ -108,7 +125,9 @@ end
 --- An array whose items are written by `each(item)`.
 function M.list(items, each)
   local out = { M.array(#items) }
-  for i, item in ipairs(items) do out[i + 1] = each(item) end
+  for i, item in ipairs(items) do
+    out[i + 1] = each(item)
+  end
   return concat(out)
 end
 
@@ -119,13 +138,17 @@ function M.strs(items) return M.list(items, M.str) end
 
 local function unsigned(s, pos, n)
   local v = 0
-  for i = pos, pos + n - 1 do v = v * 256 + byte(s, i) end
+  for i = pos, pos + n - 1 do
+    v = v * 256 + byte(s, i)
+  end
   return v
 end
 
 local function uint64(s, pos)
   local v = 0ULL
-  for i = pos, pos + 7 do v = v * 256 + byte(s, i) end
+  for i = pos, pos + 7 do
+    v = v * 256 + byte(s, i)
+  end
   if v < 9007199254740992ULL then return tonumber(v) end
   return (tostring(v):gsub("ULL$", ""))
 end
@@ -215,7 +238,9 @@ function M.floats(s)
   if n == 0 then return out end
   local buf = ffi.new("float[?]", n)
   ffi.copy(buf, s, n * 4)
-  for i = 0, n - 1 do out[i + 1] = tonumber(buf[i]) end
+  for i = 0, n - 1 do
+    out[i + 1] = tonumber(buf[i])
+  end
   return out
 end
 

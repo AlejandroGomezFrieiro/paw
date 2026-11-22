@@ -28,9 +28,7 @@ local M = { m2 = m2, maps = maps, toml = require("articulations.toml") }
 -- same way through these three functions.
 
 --- Whether the core keeps a note's attribute itself.
-function M.core()
-  return type(paw.attr) == "table" and type(paw.attr.m2) == "function"
-end
+function M.core() return type(paw.attr) == "table" and type(paw.attr.m2) == "function" end
 
 --- A note's attribute, `{ type, data }`, or nil when it has none.
 function M.attr_of(note)
@@ -88,8 +86,12 @@ function M.map_of(track)
   local info = M.info(track)
   if not info or not info.map then return nil end
   local map, err
-  if info.file then map, err = maps.load(info.file, info.map) end
-  if not map then map, err = maps.find(info.map) end
+  if info.file then
+    map, err = maps.load(info.file, info.map)
+  end
+  if not map then
+    map, err = maps.find(info.map)
+  end
   if map and info.shift and info.shift ~= 0 then
     local moved = maps.shift(map, info.shift)
     if moved then return moved end
@@ -137,7 +139,9 @@ function M.bind(track, which)
   local map, err
   if which == nil or which == "" then
     map = maps.matching(id)[1]
-    if not map then error("no map names a device of this track: name one (`:art.map violin-section`), or `:art.maps`", 0) end
+    if not map then
+      error("no map names a device of this track: name one (`:art.map violin-section`), or `:art.maps`", 0)
+    end
   else
     map, err = maps.find(which)
     if not map then error(err, 0) end
@@ -172,7 +176,9 @@ function M.set_shift(track, shift)
   local info = M.info(id)
   if not info or not info.map then error("the track has no articulation map: :art.map", 0) end
   local map, err = maps.load(info.file or "", info.map)
-  if not map then map, err = maps.find(info.map) end
+  if not map then
+    map, err = maps.find(info.map)
+  end
   if not map then error(err, 0) end
   shift = math.floor(tonumber(shift) or 0)
   local moved, why = maps.shift(map, shift)
@@ -188,7 +194,9 @@ function M.unbind(track)
   local id = track_of(track)
   pcall(api.track_set, id, "attr_map", nil)
   keep(id, function(info)
-    for k in pairs(info) do info[k] = nil end
+    for k in pairs(info) do
+      info[k] = nil
+    end
   end)
   paw.emit("articulations.bound", { track = id })
 end
@@ -262,9 +270,13 @@ function M.lookup(map, text)
       if art.name:lower() == lower then return { attr = art.attr, art = art } end
     end
     local digit = tonumber(text)
-    if digit and map.arts[digit] and digit >= 1 and digit <= 9 then return { attr = map.arts[digit].attr, art = map.arts[digit] } end
+    if digit and map.arts[digit] and digit >= 1 and digit <= 9 then
+      return { attr = map.arts[digit].attr, art = map.arts[digit] }
+    end
     for _, art in ipairs(map.arts) do
-      if art.id:lower():sub(1, #lower) == lower or art.name:lower():sub(1, #lower) == lower then return { attr = art.attr, art = art } end
+      if art.id:lower():sub(1, #lower) == lower or art.name:lower():sub(1, #lower) == lower then
+        return { attr = art.attr, art = art }
+      end
     end
   end
   local attr = m2.parse(text)
@@ -286,7 +298,9 @@ end
 --- A map's articulations in a few words.
 function M.names(map)
   local out = {}
-  for _, art in ipairs(map.arts) do out[#out + 1] = art.id end
+  for _, art in ipairs(map.arts) do
+    out[#out + 1] = art.id
+  end
   return table.concat(out, ", ")
 end
 
@@ -329,7 +343,7 @@ end
 function M.set_track(track, which, art_id)
   keep(track, function(info) info[which] = art_id end)
   if which == "default" then
-    local map = M.map_of(track)  -- with its shift
+    local map = M.map_of(track) -- with its shift
     if map then M.set_attr_map(track, M.compile(map, art_id)) end
   end
 end

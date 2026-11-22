@@ -7,15 +7,19 @@ local api = paw.api
 
 local function screen(w, h) return table.concat(api.ui_snapshot(w or 120, h or 36), "\n") end
 
-test("the key bar only shows keys that are mapped", function()
-  eq(table.concat(paw.ui.keybar.check(), ", "), "", "keys shown with nothing mapped to them")
-end)
+test(
+  "the key bar only shows keys that are mapped",
+  function() eq(table.concat(paw.ui.keybar.check(), ", "), "", "keys shown with nothing mapped to them") end
+)
 
 test("the bottom line shows the keys for the focused view, and gives way to messages", function()
   fresh()
   paw.ui.message = nil
   paw.ui.focus("arrange")
-  local last = function() local lines = api.ui_snapshot(120, 30) return lines[#lines] end
+  local last = function()
+    local lines = api.ui_snapshot(120, 30)
+    return lines[#lines]
+  end
   eq(last():find("Space Space play", 1, true) ~= nil, true, "the arrange view's keys: " .. last())
   eq(last():find("Space mm mixer", 1, true) ~= nil, true, "with the leader shown as it is typed")
   paw.notify("hello")
@@ -59,9 +63,15 @@ end)
 test("clips show their notes, and the piano roll its keyboard and velocities", function()
   fresh()
   local t = paw.add_track({ name = "t" })
-  local clip = t:add_clip({ start = 0, length = 4, name = "riff", notes = {
-    { pitch = 60, start = 0, length = 1, velocity = 120 }, { pitch = 72, start = 2, length = 1, velocity = 40 },
-  } })
+  local clip = t:add_clip({
+    start = 0,
+    length = 4,
+    name = "riff",
+    notes = {
+      { pitch = 60, start = 0, length = 1, velocity = 120 },
+      { pitch = 72, start = 2, length = 1, velocity = 40 },
+    },
+  })
   paw.flush()
   local text = screen()
   eq(text:find("riff", 1, true) ~= nil, true, "the clip's name")
@@ -195,7 +205,11 @@ test("colours fall back to the nearest of the 256 when the terminal has no 24-bi
   eq(draw.nearest256("#101216"), 233, "a near-black grey is a grey")
   eq(draw.nearest256("#8a91a3"), 246, "a cool grey stays grey, not lilac")
   local _, shade = draw.nearest256("#647133")
-  eq(not (shade:sub(2, 3) == shade:sub(4, 5) and shade:sub(4, 5) == shade:sub(6, 7)), true, "a dull olive keeps a hue: " .. shade)
+  eq(
+    not (shade:sub(2, 3) == shade:sub(4, 5) and shade:sub(4, 5) == shade:sub(6, 7)),
+    true,
+    "a dull olive keeps a hue: " .. shade
+  )
   local def = draw.term_def({ fg = "#ff0000", bg = "#101216", bold = true }, false)
   eq(def.fg .. " " .. def.bg .. " " .. tostring(def.bold), "196 233 true", "a group's colours become numbers")
   eq(draw.term_def({ fg = "#ff0000" }, true).fg, "#ff0000", "and stay as they are with 24-bit colour")
@@ -210,10 +224,14 @@ test("tracks fit their height to the screen, and the headers their width", funct
   fresh()
   paw.cmd("view.only")
   local arrange = paw.ui.views.arrange
-  for i = 1, 2 do paw.add_track({ name = "t" .. i }) end
+  for i = 1, 2 do
+    paw.add_track({ name = "t" .. i })
+  end
   paw.flush()
   eq(arrange:layout(120, 34).th, 4, "two tracks on a tall screen get four rows each")
-  for i = 3, 20 do paw.add_track({ name = "t" .. i }) end
+  for i = 3, 20 do
+    paw.add_track({ name = "t" .. i })
+  end
   paw.flush()
   eq(arrange:layout(120, 34).th, 3, "twenty get three, and scroll")
   eq(arrange:layout(120, 34).rows[1].h, 3, "each row as tall")

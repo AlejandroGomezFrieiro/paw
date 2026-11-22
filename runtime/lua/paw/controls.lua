@@ -16,8 +16,12 @@ local M = {}
 -- kept while the clip's moves are what these edits left (as the piano
 -- roll keeps its chosen notes).
 local chosen = { clip = nil, places = {}, stamp = nil }
-paw.seats.keep("controls.chosen", function() return chosen end, function(c) chosen = c end,
-  function() return { clip = nil, places = {}, stamp = nil } end)
+paw.seats.keep(
+  "controls.chosen",
+  function() return chosen end,
+  function(c) chosen = c end,
+  function() return { clip = nil, places = {}, stamp = nil } end
+)
 
 local function stamp_of(clip)
   local ok, data = pcall(api.clip_get, clip)
@@ -28,14 +32,18 @@ end
 function M.chosen(clip)
   if chosen.clip ~= clip or chosen.stamp ~= stamp_of(clip) then return {} end
   local out = {}
-  for place in pairs(chosen.places) do out[#out + 1] = place end
+  for place in pairs(chosen.places) do
+    out[#out + 1] = place
+  end
   table.sort(out)
   return out
 end
 
 local function choose(clip, places)
   local set = {}
-  for _, place in ipairs(places) do set[place] = true end
+  for _, place in ipairs(places) do
+    set[place] = true
+  end
   chosen = { clip = clip, places = set, stamp = stamp_of(clip) }
   api.ui_redraw()
 end
@@ -64,7 +72,9 @@ end
 --- choose those of `marked` (moves of the new list, by identity).
 local function store(clip, list, marked)
   local order = {}
-  for i, control in ipairs(list) do order[i] = { control = control, i = i } end
+  for i, control in ipairs(list) do
+    order[i] = { control = control, i = i }
+  end
   table.sort(order, function(a, b)
     if a.control.start ~= b.control.start then return a.control.start < b.control.start end
     return a.i < b.i
@@ -82,11 +92,19 @@ end
 function M.select(clip, place, mode)
   local set = {}
   if mode == "add" or mode == "toggle" then
-    for _, p in ipairs(M.chosen(clip)) do set[p] = true end
+    for _, p in ipairs(M.chosen(clip)) do
+      set[p] = true
+    end
   end
-  if mode == "toggle" and set[place] then set[place] = nil else set[place] = true end
+  if mode == "toggle" and set[place] then
+    set[place] = nil
+  else
+    set[place] = true
+  end
   local out = {}
-  for p in pairs(set) do out[#out + 1] = p end
+  for p in pairs(set) do
+    out[#out + 1] = p
+  end
   choose(clip, out)
 end
 
@@ -94,29 +112,44 @@ end
 --- to `beat1` and from height `low` to `high`, in any order. `mode` as for
 --- `select`. Returns how many are chosen.
 function M.select_box(clip, kind, number, beat0, low, beat1, high, mode)
-  if beat0 > beat1 then beat0, beat1 = beat1, beat0 end
-  if low > high then low, high = high, low end
+  if beat0 > beat1 then
+    beat0, beat1 = beat1, beat0
+  end
+  if low > high then
+    low, high = high, low
+  end
   local set = {}
   if mode == "add" or mode == "toggle" then
-    for _, p in ipairs(M.chosen(clip)) do set[p] = true end
+    for _, p in ipairs(M.chosen(clip)) do
+      set[p] = true
+    end
   end
   for place, control in ipairs(paw.clip(clip):controls()) do
     local f = M.fraction(kind, control.value)
-    if M.is(control, kind, number) and control.start >= beat0 - 1e-9 and control.start <= beat1 + 1e-9
-      and f >= low - 1e-9 and f <= high + 1e-9 then
-      if mode == "toggle" and set[place] then set[place] = nil else set[place] = true end
+    if
+      M.is(control, kind, number)
+      and control.start >= beat0 - 1e-9
+      and control.start <= beat1 + 1e-9
+      and f >= low - 1e-9
+      and f <= high + 1e-9
+    then
+      if mode == "toggle" and set[place] then
+        set[place] = nil
+      else
+        set[place] = true
+      end
     end
   end
   local out = {}
-  for p in pairs(set) do out[#out + 1] = p end
+  for p in pairs(set) do
+    out[#out + 1] = p
+  end
   choose(clip, out)
   return #out
 end
 
 --- Choose none of the clip's controller moves.
-function M.clear(clip)
-  choose(clip, {})
-end
+function M.clear(clip) choose(clip, {}) end
 
 --- Move the selected moves `dbeat` later and `dfraction` of the height of
 --- the strip up. The first move goes onto the grid unless `free`. The other
@@ -150,7 +183,9 @@ function M.remove(clip)
   local places = M.chosen(clip)
   if #places == 0 then return 0 end
   local gone = {}
-  for _, place in ipairs(places) do gone[place] = true end
+  for _, place in ipairs(places) do
+    gone[place] = true
+  end
   local out = {}
   for place, control in ipairs(paw.clip(clip):controls()) do
     if not gone[place] then out[#out + 1] = control end
@@ -164,7 +199,9 @@ end
 --- between them, with one move on each step of the grid (each 32nd of a
 --- beat when `free`), with the two ends. The new moves are then selected.
 function M.line(clip, kind, number, beat0, f0, beat1, f1, free)
-  if beat0 > beat1 then beat0, f0, beat1, f1 = beat1, f1, beat0, f0 end
+  if beat0 > beat1 then
+    beat0, f0, beat1, f1 = beat1, f1, beat0, f0
+  end
   local c = paw.clip(clip)
   beat0, beat1 = math.max(0, snap(beat0, free)), math.min(c.length - 1e-6, snap(beat1, free))
   if beat1 < beat0 then return 0 end
@@ -179,10 +216,13 @@ function M.line(clip, kind, number, beat0, f0, beat1, f1, free)
   local marked, made = {}, 0
   local function add(beat)
     local t = beat1 > beat0 and (beat - beat0) / (beat1 - beat0) or 1
-    local control = { start = beat, type = kind, number = kind == "cc" and number or nil, value = M.value(kind, f0 + (f1 - f0) * t) }
+    local control =
+      { start = beat, type = kind, number = kind == "cc" and number or nil, value = M.value(kind, f0 + (f1 - f0) * t) }
     out[#out + 1], marked[control], made = control, true, made + 1
   end
-  for i = 0, steps do add(beat0 + i * step) end
+  for i = 0, steps do
+    add(beat0 + i * step)
+  end
   -- The far end, where it falls between steps.
   if beat1 - (beat0 + steps * step) > 1e-6 then add(beat1) end
   store(clip, out, marked)
@@ -203,7 +243,9 @@ function M.rows(clip)
   local length = c.length
   local rows = {}
   for place, n in ipairs(c:notes()) do
-    if n.start >= 0 and n.start < length then rows[#rows + 1] = { kind = "note", place = place, start = n.start, note = n } end
+    if n.start >= 0 and n.start < length then
+      rows[#rows + 1] = { kind = "note", place = place, start = n.start, note = n }
+    end
   end
   for place, control in ipairs(c:controls()) do
     if control.start >= 0 and control.start < length then
@@ -240,7 +282,13 @@ function M.cells(clip, row)
   local time = paw.time.format(c.start + row.start)
   if row.kind == "note" then
     local n = row.note
-    return { time = time, kind = "note", which = music.name(n.pitch), value = tostring(n.velocity), length = trim(n.length) }
+    return {
+      time = time,
+      kind = "note",
+      which = music.name(n.pitch),
+      value = tostring(n.velocity),
+      length = trim(n.length),
+    }
   end
   local m = row.control
   local which = ""
@@ -318,7 +366,11 @@ function M.edit(clip, row, column, text)
   elseif column == "which" then
     -- A note's name first makes it the move of that note.
     local key, rest = text:match("^%s*([A-Ga-g][#b]?%-?%d+)%s*(.-)%s*$")
-    if key then m.key = music.pitch(key) else rest = text end
+    if key then
+      m.key = music.pitch(key)
+    else
+      rest = text
+    end
     if m.type == "cc" then
       local n = tonumber(rest)
       if not n or n < 0 or n > 127 then error("a control change is numbered 0 to 127", 0) end
@@ -347,9 +399,13 @@ end
 function M.add(clip, start, kind, number)
   local c = paw.clip(clip)
   local control = { start = start, type = kind }
-  if kind == "cc" then control.number, control.value = number or 1, 0 end
+  if kind == "cc" then
+    control.number, control.value = number or 1, 0
+  end
   if kind == "bend" or kind == "pressure" then control.value = 0 end
-  if kind == "program" then control.program, control.value = 0, 0 end
+  if kind == "program" then
+    control.program, control.value = 0, 0
+  end
   local list = c:controls()
   list[#list + 1] = control
   c:set_controls(list)

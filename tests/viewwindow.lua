@@ -8,15 +8,21 @@ local api = paw.api
 local function start()
   fresh()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
-  for name in pairs(paw.canvas.open_views) do paw.canvas.close(name) end
+  while paw.ui.float do
+    paw.ui.close()
+  end
+  for name in pairs(paw.canvas.open_views) do
+    paw.canvas.close(name)
+  end
   paw.ui.focus("arrange")
 end
 
 --- A row of runs as the text it shows.
 local function row_text(row)
   local parts = {}
-  for _, run in ipairs(row) do parts[#parts + 1] = run.text end
+  for _, run in ipairs(row) do
+    parts[#parts + 1] = run.text
+  end
   return (table.concat(parts):gsub("%s+$", ""))
 end
 
@@ -34,7 +40,9 @@ local function painted_text(ops, cell)
   for row, runs in pairs(lines) do
     table.sort(runs, function(a, b) return a.col < b.col end)
     local line = ""
-    for _, run in ipairs(runs) do line = line .. string.rep(" ", run.col - api.str_width(line)) .. run.text end
+    for _, run in ipairs(runs) do
+      line = line .. string.rep(" ", run.col - api.str_width(line)) .. run.text
+    end
     out[row] = line:gsub("%s+$", "")
   end
   return out
@@ -62,12 +70,16 @@ test("a view drawn by itself has the text it shows in the terminal", function()
   paw.ui.open("viewwindow_probe", { title = "Probe", width = 30, height = 6 })
   local screen = api.ui_snapshot(80, 24)
   local rect
-  for _, r in ipairs(paw.ui.rects) do if r.name == "viewwindow_probe" then rect = r end end
+  for _, r in ipairs(paw.ui.rects) do
+    if r.name == "viewwindow_probe" then rect = r end
+  end
   local snap = api.ui_view_snapshot("viewwindow_probe", rect.w, rect.h)
   eq(snap.width .. "x" .. snap.height, rect.w .. "x" .. rect.h, "the size asked for")
   for y = 0, rect.h - 1 do
     local chars = {}
-    for ch in screen[rect.y + y + 1]:gmatch("[%z\1-\127\194-\244][\128-\191]*") do chars[#chars + 1] = ch end
+    for ch in screen[rect.y + y + 1]:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+      chars[#chars + 1] = ch
+    end
     local shown = table.concat(chars, "", rect.x + 1, math.min(#chars, rect.x + rect.w)):gsub("%s+$", "")
     eq(row_text(snap.rows[y + 1]), shown, "row " .. y)
   end
@@ -122,7 +134,11 @@ test("a view's window is drawn again only when it has changed", function()
   eq(again.same, nil, "a key the view shows draws it again")
   eq(painted_text(again.ops, opts.cell)[3], "keys z", "what it shows now")
   eq(paw.canvas.paint("viewwindow_probe", 500, 200, opts).same, nil, "and so does another size")
-  eq(paw.canvas.paint("viewwindow_probe", 500, 200, { cell = opts.cell, fresh = true }).same, nil, "and a window that has nothing yet")
+  eq(
+    paw.canvas.paint("viewwindow_probe", 500, 200, { cell = opts.cell, fresh = true }).same,
+    nil,
+    "and a window that has nothing yet"
+  )
 end)
 
 test("keys typed in a view's window reach it with it focused", function()
@@ -151,9 +167,14 @@ test("the pointer in a view's window reaches its on_mouse in cells, as in the te
   paw.canvas.pointer("viewwindow_probe", { kind = "wheel", x = 5, y = 5, dx = 0, dy = -120 })
   paw.canvas.pointer("viewwindow_probe", { kind = "wheel", x = 5, y = 5, dx = 0, dy = 120 })
   local got = {}
-  for _, e in ipairs(seen.mouse) do got[#got + 1] = string.format("%s %s %d,%d %s", e.kind, e.button, e.x, e.y, e.mods) end
-  eq(table.concat(got, "; "), "down right 3,2 S; drag right 5,2 ; up right 5,2 ; scroll_down  0,0 ; scroll_up  0,0 ",
-    "down, drag with the button held, up, and the wheel; the double click comes as a second down and up")
+  for _, e in ipairs(seen.mouse) do
+    got[#got + 1] = string.format("%s %s %d,%d %s", e.kind, e.button, e.x, e.y, e.mods)
+  end
+  eq(
+    table.concat(got, "; "),
+    "down right 3,2 S; drag right 5,2 ; up right 5,2 ; scroll_down  0,0 ; scroll_up  0,0 ",
+    "down, drag with the button held, up, and the wheel; the double click comes as a second down and up"
+  )
   eq(paw.ui.focused, "viewwindow_probe", "a click gives the view the keyboard")
   seen.mouse = {}
   paw.canvas.pointer("viewwindow_probe", { kind = "down", x = 5, y = 195, button = "left" })
@@ -176,7 +197,9 @@ end)
 test("the views that can be opened in a window are those that take the keyboard", function()
   start()
   local names = {}
-  for _, v in ipairs(paw.canvas.openable()) do names[v.name] = v.title end
+  for _, v in ipairs(paw.canvas.openable()) do
+    names[v.name] = v.title
+  end
   eq(names.viewwindow_probe, "Probe", "a view's own title")
   eq(names.mixer, nil, "not the mixer, which the window has of its own")
   eq(names.help, nil, "nor a page that needs something to show")
@@ -202,7 +225,9 @@ test("a view in a window shows a prompt on its last line, and keys answer it", f
   paw.canvas.key("viewwindow_asking", "n")
   local lines = painted_text(paw.canvas.paint("viewwindow_asking", 300, 100, { cell = cell, fresh = true }).ops, cell)
   eq((lines[5] or ""):match("^Name:") ~= nil, true, "the prompt is on the last line: " .. tostring(lines[5]))
-  for _, key in ipairs({ "a", "b", "<CR>" }) do paw.canvas.key("viewwindow_asking", key) end
+  for _, key in ipairs({ "a", "b", "<CR>" }) do
+    paw.canvas.key("viewwindow_asking", key)
+  end
   eq(answer, "ab", "typed in the window")
   paw.canvas.close("viewwindow_asking")
   paw.ui.views.viewwindow_asking = nil
@@ -240,10 +265,16 @@ test("an extension's band is under the ruler, and a click runs what it stands fo
   local ok, err = pcall(function()
     local state = paw.frontend.band_state()
     local mine = {}
-    for _, e in ipairs(state.entries) do if e.band == at then mine[#mine + 1] = e end end
+    for _, e in ipairs(state.entries) do
+      if e.band == at then mine[#mine + 1] = e end
+    end
     eq(#mine, 3, "its entries")
     eq(mine[1].row, state.rows - 1, "a row of its own; the empty band after it takes none")
-    eq(mine[2].color .. " " .. tostring(mine[2].active) .. " " .. tostring(mine[3].active), "#ff0000 true false", "colour, and whether a click does anything")
+    eq(
+      mine[2].color .. " " .. tostring(mine[2].active) .. " " .. tostring(mine[3].active),
+      "#ff0000 true false",
+      "colour, and whether a click does anything"
+    )
     eq(paw.frontend.state(-1).project.bands.rows, state.rows, "the frontend is told them with the project")
     paw.frontend.act.band(at, 2)
     eq(ran, "here", "a click runs its function")

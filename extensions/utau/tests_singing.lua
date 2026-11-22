@@ -1,6 +1,7 @@
 -- Singing tests.
 local T = ...
-local test, eq, near, fresh, render, scratch, read_file = T.test, T.eq, T.near, T.fresh, T.render, T.scratch, T.read_file
+local test, eq, near, fresh, render, scratch, read_file =
+  T.test, T.eq, T.near, T.fresh, T.render, T.scratch, T.read_file
 local channel_peaks = T.channel_peaks
 local paw = require("paw")
 local api = paw.api
@@ -110,7 +111,10 @@ test("vocal tracks keep lyrics, properties and curves through undo and saving", 
   api.undo_checkpoint()
   notes.set_lyric(clip.id, 2, "ら")
   api.undo_checkpoint()
-  notes.change_props(clip.id, function(p) p.vb = { 75, 175, 25, 10, 10, 0, 0, 0 }; return true end, { [1] = true })
+  notes.change_props(clip.id, function(p)
+    p.vb = { 75, 175, 25, 10, 10, 0, 0, 0 }
+    return true
+  end, { [1] = true })
   notes.bend(track.id, device, "pitd", 1.5, 50, 0.25)
   api.undo_checkpoint()
   eq(clip:notes()[2].meta.lyric, "ら", "lyric")
@@ -127,7 +131,9 @@ test("vocal tracks keep lyrics, properties and curves through undo and saving", 
     if c.abbr == "pitd" then pitd = c end
   end
   local peak = 0
-  for _, k in ipairs(pitd.knots) do peak = math.max(peak, k[2]) end
+  for _, k in ipairs(pitd.knots) do
+    peak = math.max(peak, k[2])
+  end
   eq(peak, 50, "and the curve")
   paw.undo()
   eq(notes.lane(track.id, device, "pitd"), nil, "undo takes the curve away")
@@ -164,7 +170,9 @@ test("lyrics are typed note by note, from text, and by batch edits", function()
   paw.keymap.feed("cka<Tab>ki<Tab>ku<Esc>")
   local function lyrics()
     local out = {}
-    for i, n in ipairs(clip:notes()) do out[i] = n.meta and n.meta.lyric or "" end
+    for i, n in ipairs(clip:notes()) do
+      out[i] = n.meta and n.meta.lyric or ""
+    end
     return table.concat(out, " ")
   end
   eq(lyrics(), "ka ki - う - え", "typing replaces the lyric, Tab keeps it and moves on, Esc drops it")
@@ -199,7 +207,9 @@ test("the vocal editor takes operators, and notes keep their lyrics", function()
   local function sung()
     local notes = clip:notes()
     table.sort(notes, function(a, b) return a.start < b.start end)
-    for i, n in ipairs(notes) do notes[i] = string.format("%s:%d@%g", n.meta and n.meta.lyric or "?", n.pitch, n.start) end
+    for i, n in ipairs(notes) do
+      notes[i] = string.format("%s:%d@%g", n.meta and n.meta.lyric or "?", n.pitch, n.start)
+    end
     return table.concat(notes, " ")
   end
   local first = clip:notes()[1].meta.lyric
@@ -228,7 +238,9 @@ test("the vocal editor paints itself in a pane and is worked with the pointer", 
   local gui = require("utau.gui")
   local track, clip = vocal({ 60, 64 })
   -- Where a beat and a pitch are in the window (see utau/gui.lua).
-  local function at(beat, pitch) return 64 + (beat - gui.scroll) * gui.zoom, 38 + 24 + (gui.top - pitch) * gui.row + gui.row / 2 end
+  local function at(beat, pitch)
+    return 64 + (beat - gui.scroll) * gui.zoom, 38 + 24 + (gui.top - pitch) * gui.row + gui.row / 2
+  end
   local function pointer(kind, beat, pitch, extra)
     local x, y = at(beat, pitch)
     paw.canvas.pointer("utau", paw.util.merge({ kind = kind, x = x, y = y, button = "left" }, extra or {}))
@@ -242,7 +254,11 @@ test("the vocal editor paints itself in a pane and is worked with the pointer", 
   end
 
   paw.frontend.act.open_clip(clip.id)
-  eq(#paw.frontend.state(-1).modal.windows, 0, "a double click on a vocal clip opens the vocal editor docked, in no window of its own")
+  eq(
+    #paw.frontend.state(-1).modal.windows,
+    0,
+    "a double click on a vocal clip opens the vocal editor docked, in no window of its own"
+  )
   eq(paw.ui.visible("utau") and paw.ui.focused, "utau", "with the keyboard")
   eq(paw.ui.visible("pianoroll"), false, "and not the piano roll")
   local first = clip:notes()[1].meta.lyric
@@ -275,7 +291,9 @@ test("the vocal editor paints itself in a pane and is worked with the pointer", 
   -- The pitch tool, from its button in the toolbar.
   paw.canvas.paint("utau", 1100, 600)
   for _, b in ipairs(gui.buttons) do
-    if b.label == "Pitch" then paw.canvas.pointer("utau", { kind = "down", x = b.x + 4, y = b.y + 4, button = "left" }) end
+    if b.label == "Pitch" then
+      paw.canvas.pointer("utau", { kind = "down", x = b.x + 4, y = b.y + 4, button = "left" })
+    end
   end
   eq(gui.tool, "pitch", "a click on a toolbar button")
   pointer("down", 0.1, 62.3)
@@ -311,8 +329,13 @@ test("the vocal editor shows notes, lyrics, phonemes, render state and the lyric
   utau.configure(track.id, { singer = "Nobody" })
   editor:edit(clip.id)
   -- What the engine reports, as it would report it.
-  utau.phonemes[clip.id] = { seq = 1, notes = { { { phoneme = "- あC4", alias = "", start = 0, stop = 480, flags = 0 } },
-    { { phoneme = "xyz", alias = "", start = 480, stop = 960, flags = 1 } } } }
+  utau.phonemes[clip.id] = {
+    seq = 1,
+    notes = {
+      { { phoneme = "- あC4", alias = "", start = 0, stop = 480, flags = 0 } },
+      { { phoneme = "xyz", alias = "", start = 480, stop = 960, flags = 1 } },
+    },
+  }
   utau.pitch[clip.id] = { step = 5, ticks = { [0] = 6000, [240] = 6000, [480] = 6390 } }
   paw.ui.show("utau_lyrics")
   local text = table.concat(api.ui_snapshot(120, 40), "\n")
@@ -365,7 +388,9 @@ local function vocal_window(pitches)
   --- Drag from one place to another, in a few steps.
   function win.drag(x0, y0, x1, y1, extra)
     win.press("down", x0, y0, extra)
-    for i = 1, 4 do win.press("move", x0 + (x1 - x0) * i / 4, y0 + (y1 - y0) * i / 4, extra) end
+    for i = 1, 4 do
+      win.press("move", x0 + (x1 - x0) * i / 4, y0 + (y1 - y0) * i / 4, extra)
+    end
     win.press("up", x1, y1, extra)
   end
   function win.button(label)
@@ -403,11 +428,19 @@ test("the vocal editor's window selects several notes, and moves, stretches, cop
   win.note("up", 0.5, 60, { shift = true })
   eq(table.concat(editor:selected(), ","), "1,2,3", "Shift+click adds a note")
   win.paint()
-  eq(win.gui.S.selected[1] and win.gui.S.selected[3] and not win.gui.S.selected[4], true, "selected notes are painted as such")
+  eq(
+    win.gui.S.selected[1] and win.gui.S.selected[3] and not win.gui.S.selected[4],
+    true,
+    "selected notes are painted as such"
+  )
   local xa, ya = win.at(1.5, 62)
   local xb, yb = win.at(1.5, 63)
   win.drag(xa, ya, xb, yb)
-  eq(shape_of(clip), "- あ:61@0+1 - い:63@1+1 - う:65@2+1 - え:65@3+1", "dragging one moves them all, with their lyrics")
+  eq(
+    shape_of(clip),
+    "- あ:61@0+1 - い:63@1+1 - う:65@2+1 - え:65@3+1",
+    "dragging one moves them all, with their lyrics"
+  )
   local xe, ye = win.at(1.98, 63)
   local xf = win.at(1.48, 63)
   win.drag(xe, ye, xf, ye)
@@ -416,7 +449,11 @@ test("the vocal editor's window selects several notes, and moves, stretches, cop
   editor.beat = 5
   paw.keymap.feed("<C-v>")
   eq(#clip:notes(), 7, "Ctrl+C copies them and Ctrl+V pastes them at the cursor")
-  eq(shape_of(clip):find("- あ:61@5+0.5 - い:63@6+0.5 - う:65@7+0.5", 1, true) ~= nil, true, "keeping pitches, lyrics and spacing")
+  eq(
+    shape_of(clip):find("- あ:61@5+0.5 - い:63@6+0.5 - う:65@7+0.5", 1, true) ~= nil,
+    true,
+    "keeping pitches, lyrics and spacing"
+  )
   eq(#editor:selected(), 3, "the pasted notes are selected")
   paw.keymap.feed("x")
   eq(#clip:notes(), 4, "x removes the selection")
@@ -486,8 +523,16 @@ test("the vocal editor draws and erases expression curves under the notes", func
   paw.keymap.feed("3}")
   eq(notes.curve_at(track.id, device, "tenc", clip.start + 2), 15, "} raises it at the cursor")
   local text = table.concat(api.ui_snapshot(120, 40), "\n")
-  eq(text:find("tenc", 1, true) ~= nil and text:find("15", 1, true) ~= nil, true, "the terminal shows the curve and its value at the cursor")
-  eq(text:find("[\240][\159][\172-\175]") ~= nil or text:find("[▌▐█]") ~= nil, true, "drawn in sextants under the notes")
+  eq(
+    text:find("tenc", 1, true) ~= nil and text:find("15", 1, true) ~= nil,
+    true,
+    "the terminal shows the curve and its value at the cursor"
+  )
+  eq(
+    text:find("[\240][\159][\172-\175]") ~= nil or text:find("[▌▐█]") ~= nil,
+    true,
+    "drawn in sextants under the notes"
+  )
   paw.keymap.feed("=in")
   eq(notes.curve_at(track.id, device, "tenc", clip.start + 2), 0, "=in puts it back under the note")
   win.close()
@@ -531,7 +576,12 @@ test("the vocal editor edits transition points and vibrato with the pointer", fu
   local x1 = win.at(0.7, 61)
   win.drag(x0, y0, x1, y0)
   local notes_ = require("utau.notes")
-  near(notes_.curve_at(win.track.id, utau.device_of(win.track.id), "pitd", 0.55), 100, 6, "a line drawn a row above a note bends it up a semitone")
+  near(
+    notes_.curve_at(win.track.id, utau.device_of(win.track.id), "pitd", 0.55),
+    100,
+    6,
+    "a line drawn a row above a note bends it up a semitone"
+  )
   -- Vibrato: Ctrl+click switches it on, its handles change it.
   win.note("down", 2.5, 62, { ctrl = true })
   win.note("up", 2.5, 62, { ctrl = true })
@@ -551,7 +601,11 @@ test("the vocal editor edits transition points and vibrato with the pointer", fu
   win.drag(hx, hy, hx + 20, hy)
   eq(shapes.vb(clip:notes()[3])[2] > before, true, "the period handle the period")
   for _, which in ipairs({ "in", "out", "shift", "drift" }) do
-    eq(handle("vb_handles", function(h) return h.which == which end) ~= nil, true, "and there is a handle for " .. which)
+    eq(
+      handle("vb_handles", function(h) return h.which == which end) ~= nil,
+      true,
+      "and there is a handle for " .. which
+    )
   end
   win.note("down", 2.5, 62, { ctrl = true })
   win.note("up", 2.5, 62, { ctrl = true })
@@ -562,10 +616,16 @@ end)
 test("the vocal editor moves and replaces phonemes, in the window and with keys", function()
   local win = vocal_window({ 60, 62 })
   local editor, clip, gui = win.editor, win.clip, win.gui
-  utau.phonemes[clip.id] = { seq = 1, notes = {
-    { { phoneme = "- あ", alias = "", start = 0, stop = 480, flags = 0 } },
-    { { phoneme = "a", alias = "", start = 400, stop = 480, flags = 0 }, { phoneme = "い", alias = "", start = 480, stop = 960, flags = 1 } },
-  } }
+  utau.phonemes[clip.id] = {
+    seq = 1,
+    notes = {
+      { { phoneme = "- あ", alias = "", start = 0, stop = 480, flags = 0 } },
+      {
+        { phoneme = "a", alias = "", start = 400, stop = 480, flags = 0 },
+        { phoneme = "い", alias = "", start = 480, stop = 960, flags = 1 },
+      },
+    },
+  }
   win.paint()
   local box
   for _, b in ipairs(gui.S.phoneme_boxes) do
@@ -617,7 +677,11 @@ test("the vocal editor's inspector sets properties of every selected note", func
   local fx, fy = field("Tuning")
   win.drag(fx, fy, fx + 20, fy)
   local n = clip:notes()
-  eq((n[1].meta.utau or {}).tu .. " " .. (n[2].meta.utau or {}).tu, "20 20", "a value dragged goes to every selected note")
+  eq(
+    (n[1].meta.utau or {}).tu .. " " .. (n[2].meta.utau or {}).tu,
+    "20 20",
+    "a value dragged goes to every selected note"
+  )
   eq(n[3].meta.utau, nil, "and no other")
   win.press("down", fx, fy)
   win.press("up", fx, fy)
@@ -693,7 +757,11 @@ test("OpenUtau projects import as vocal tracks", function()
   eq(clip.start .. "/" .. clip.length, "2/5", "a clip per part")
   local notes = clip:notes()
   eq(#notes, 3, "notes")
-  eq(notes[2].meta.lyric .. "/" .. notes[2].start .. "/" .. notes[2].length .. "/" .. notes[2].pitch, "- い/1/2/64", "a note")
+  eq(
+    notes[2].meta.lyric .. "/" .. notes[2].start .. "/" .. notes[2].length .. "/" .. notes[2].pitch,
+    "- い/1/2/64",
+    "a note"
+  )
   eq(notes[1].meta.utau.tu, 15, "tuning")
   eq(notes[2].meta.utau.vb[1], 60, "vibrato")
   local n = require("utau.notes")
@@ -747,7 +815,9 @@ test("changing a lyric or a note sings it again", function()
   local function hashes()
     eq(utau.finish(120), true, "the engine finished")
     local out = {}
-    for _, p in ipairs(utau.voices.list(device)) do out[#out + 1] = p.hash end
+    for _, p in ipairs(utau.voices.list(device)) do
+      out[#out + 1] = p.hash
+    end
     table.sort(out)
     return table.concat(out, " ")
   end

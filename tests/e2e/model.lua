@@ -20,14 +20,14 @@ local M = {}
 
 M.ANY = setmetatable({}, { __tostring = function() return "<any>" end })
 
-function M.new()
-  return { tempo = 120, markers = {}, tracks = {} }
-end
+function M.new() return { tempo = 120, markers = {}, tracks = {} } end
 
 local function copy(v)
   if type(v) ~= "table" or v == M.ANY then return v end
   local out = {}
-  for k, x in pairs(v) do out[k] = copy(x) end
+  for k, x in pairs(v) do
+    out[k] = copy(x)
+  end
   return out
 end
 M.copy = copy
@@ -40,8 +40,19 @@ function M.track(state, name)
 end
 
 function M.new_track(name)
-  return { name = name, color = nil, volume = 0, pan = 0, mute = false, solo = false,
-    devices = {}, sends = {}, clips = {}, notes = {}, lanes = {} }
+  return {
+    name = name,
+    color = nil,
+    volume = 0,
+    pan = 0,
+    mute = false,
+    solo = false,
+    devices = {},
+    sends = {},
+    clips = {},
+    notes = {},
+    lanes = {},
+  }
 end
 
 --- Add an automation point `{ beat, value }` to the lane of `target` of a
@@ -89,7 +100,10 @@ function M.marker_order(a, b)
   return a.name < b.name
 end
 
-function M.sort_notes(list) table.sort(list, note_order) return list end
+function M.sort_notes(list)
+  table.sort(list, note_order)
+  return list
+end
 
 -- Comparison ----------------------------------------------------------------
 
@@ -124,18 +138,21 @@ function M.diff(want, got, path, out)
   elseif type(got) ~= "table" then
     out[#out + 1] = string.format("%s: want %s, got %s", path, show(want), show(got))
   elseif #want > 0 or #got > 0 then
-    if #want ~= #got then
-      out[#out + 1] = string.format("%s: want %d items, got %d", path, #want, #got)
-    end
+    if #want ~= #got then out[#out + 1] = string.format("%s: want %d items, got %d", path, #want, #got) end
     for i = 1, math.min(#want, #got) do
-      local label = type(want[i]) == "table" and want[i].name and (path .. "[" .. want[i].name .. "]") or (path .. "[" .. i .. "]")
+      local label = type(want[i]) == "table" and want[i].name and (path .. "[" .. want[i].name .. "]")
+        or (path .. "[" .. i .. "]")
       M.diff(want[i], got[i], label, out)
     end
   else
     local keys = {}
-    for k in pairs(want) do keys[#keys + 1] = k end
+    for k in pairs(want) do
+      keys[#keys + 1] = k
+    end
     table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
-    for _, k in ipairs(keys) do M.diff(want[k], got[k], path .. "." .. tostring(k), out) end
+    for _, k in ipairs(keys) do
+      M.diff(want[k], got[k], path .. "." .. tostring(k), out)
+    end
   end
   return out
 end
@@ -179,7 +196,10 @@ function M.read_midi(path)
     while i < stop do
       tick = tick + varlen()
       local b = s:byte(i)
-      if b >= 0x80 then status = b; i = i + 1 end
+      if b >= 0x80 then
+        status = b
+        i = i + 1
+      end
       if status == 0xFF then
         local kind = s:byte(i)
         i = i + 1
@@ -202,7 +222,8 @@ function M.read_midi(path)
         elseif hi == 0x8 or (hi == 0x9 and d2 == 0) then
           local on = open[key]
           if on then
-            notes[#notes + 1] = { pitch = d1, start = on.tick / ppq, length = (tick - on.tick) / ppq, velocity = on.velocity }
+            notes[#notes + 1] =
+              { pitch = d1, start = on.tick / ppq, length = (tick - on.tick) / ppq, velocity = on.velocity }
             open[key] = nil
           end
         end

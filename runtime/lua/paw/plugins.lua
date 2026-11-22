@@ -42,7 +42,9 @@ function M.add_dir(dir, name)
     added[kind] = true
   end
   M.dirs[dir] = { dir = dir, kinds = found.kinds, ext = by }
-  for _, note in ipairs(found.notes) do api.log("plugin scan: " .. note) end
+  for _, note in ipairs(found.notes) do
+    api.log("plugin scan: " .. note)
+  end
   for _, id in ipairs(api.track_list()) do
     for _, device in ipairs(api.track_get(id).devices) do
       local d = api.device_get(device)
@@ -75,7 +77,9 @@ function M.remove_dir(dir)
   local known = M.dirs[tostring(dir)]
   if not known then return end
   M.dirs[known.dir] = nil
-  for _, kind in ipairs(known.kinds) do M.from[kind] = nil end
+  for _, kind in ipairs(known.kinds) do
+    M.from[kind] = nil
+  end
   api.plugins_remove_dir(known.dir, known.kinds)
 end
 
@@ -85,11 +89,30 @@ local names = {}
 --- `drums` kit on the General MIDI drum notes (crates/paw-engine/src/devices/drums.rs).
 M.builtin_names = {
   drums = {
-    [35] = "Kick 2", [36] = "Kick", [37] = "Rim", [38] = "Snare", [39] = "Clap", [40] = "Snare 2",
-    [41] = "Floor tom", [42] = "Closed hat", [43] = "Floor tom 2", [44] = "Pedal hat", [45] = "Low tom",
-    [46] = "Open hat", [47] = "Mid tom", [48] = "High-mid tom", [49] = "Crash", [50] = "High tom",
-    [51] = "Ride", [52] = "China", [53] = "Ride bell", [54] = "Tambourine", [55] = "Splash",
-    [56] = "Cowbell", [57] = "Crash 2", [59] = "Ride 2",
+    [35] = "Kick 2",
+    [36] = "Kick",
+    [37] = "Rim",
+    [38] = "Snare",
+    [39] = "Clap",
+    [40] = "Snare 2",
+    [41] = "Floor tom",
+    [42] = "Closed hat",
+    [43] = "Floor tom 2",
+    [44] = "Pedal hat",
+    [45] = "Low tom",
+    [46] = "Open hat",
+    [47] = "Mid tom",
+    [48] = "High-mid tom",
+    [49] = "Crash",
+    [50] = "High tom",
+    [51] = "Ride",
+    [52] = "China",
+    [53] = "Ride bell",
+    [54] = "Tambourine",
+    [55] = "Splash",
+    [56] = "Cowbell",
+    [57] = "Crash 2",
+    [59] = "Ride 2",
   },
 }
 
@@ -120,12 +143,18 @@ function M.key_names(track)
   local out = {}
   if not ok then return out end
   for i = #t.devices, 1, -1 do
-    for pitch, name in pairs(M.note_names(t.devices[i])) do out[pitch] = name end
+    for pitch, name in pairs(M.note_names(t.devices[i])) do
+      out[pitch] = name
+    end
   end
   return out
 end
 
-paw.on("device.removed", function(e) if e and e.id then names[e.id] = nil end end)
-paw.on("device.changed", function(e) if e and e.id then names[e.id] = nil end end)
+paw.on("device.removed", function(e)
+  if e and e.id then names[e.id] = nil end
+end)
+paw.on("device.changed", function(e)
+  if e and e.id then names[e.id] = nil end
+end)
 
 return M

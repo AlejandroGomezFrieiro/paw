@@ -16,7 +16,8 @@ function M.set(view, mode, entries)
   paw.api.ui_redraw()
 end
 
-local names = { ["<Space>"] = "Space", ["<CR>"] = "Enter", ["<Esc>"] = "Esc", ["<BS>"] = "Bksp", ["<Tab>"] = "Tab", ["<lt>"] = "<" }
+local names =
+  { ["<Space>"] = "Space", ["<CR>"] = "Enter", ["<Esc>"] = "Esc", ["<BS>"] = "Bksp", ["<Tab>"] = "Tab", ["<lt>"] = "<" }
 
 --- A key as a person reads it: `<leader>mm` is `Space mm`, `<C-w>c` is `Ctrl-w c`.
 function M.show(lhs)
@@ -45,7 +46,9 @@ function M.entries()
   local entries = lines and (lines[mode] or mode ~= "n" and {} or nil) or mode == "n" and M.lines.default.n or {}
   if type(entries) == "function" then entries = entries() end
   local out = {}
-  for i, entry in ipairs(entries or {}) do out[i] = { entry[3] or M.show(entry[1]), entry[2] } end
+  for i, entry in ipairs(entries or {}) do
+    out[i] = { entry[3] or M.show(entry[1]), entry[2] }
+  end
   return out
 end
 
@@ -57,7 +60,9 @@ function M.check()
     for mode, entries in pairs(modes) do
       if type(entries) == "function" then entries = entries() or {} end
       local mapped = {}
-      for _, map in ipairs(paw.keymap.list(mode, view ~= "default" and view or nil)) do mapped[map.lhs] = true end
+      for _, map in ipairs(paw.keymap.list(mode, view ~= "default" and view or nil)) do
+        mapped[map.lhs] = true
+      end
       for _, entry in ipairs(entries) do
         -- Leaving a mode with Escape is not a mapping: it always works.
         local built_in = entry[1] == "<Esc>" and mode ~= "n" or entry[1] == ""
@@ -74,10 +79,25 @@ M.lines.default = {
 }
 M.lines.arrange = {
   n = {
-    { "<leader><Space>", "play" }, { "o", "track" }, { "a", "device" }, { "i", "insert" }, { "<CR>", "open clip" },
-    { "<leader>mm", "mixer" }, { "x", "delete" }, { "u", "undo" }, { "<leader>f:", "commands" }, { "?", "keys" },
+    { "<leader><Space>", "play" },
+    { "o", "track" },
+    { "a", "device" },
+    { "i", "insert" },
+    { "<CR>", "open clip" },
+    { "<leader>mm", "mixer" },
+    { "x", "delete" },
+    { "u", "undo" },
+    { "<leader>f:", "commands" },
+    { "?", "keys" },
   },
-  x = { { "d", "delete" }, { "y", "copy" }, { ">", "later" }, { "<lt>", "earlier" }, { "gl", "loop" }, { "<Esc>", "done" } },
+  x = {
+    { "d", "delete" },
+    { "y", "copy" },
+    { ">", "later" },
+    { "<lt>", "earlier" },
+    { "gl", "loop" },
+    { "<Esc>", "done" },
+  },
   -- Insert mode: the count typed, then the keys that insert (paw/insert.tl).
   i = function()
     local out = {}
@@ -94,17 +114,38 @@ M.lines.arrange = {
 }
 M.lines.pianoroll = {
   n = {
-    { "<CR>", "note" }, { "i", "draw notes" }, { "x", "delete" }, { "+", "up" }, { "<A-l>", "longer" },
-    { "w", "next note" }, { "<leader><Space>", "play" }, { "<C-w>p", "back" }, { "?", "keys" },
+    { "<CR>", "note" },
+    { "i", "draw notes" },
+    { "x", "delete" },
+    { "+", "up" },
+    { "<A-l>", "longer" },
+    { "w", "next note" },
+    { "<leader><Space>", "play" },
+    { "<C-w>p", "back" },
+    { "?", "keys" },
   },
-  x = { { "d", "delete" }, { "y", "copy" }, { ">", "later" }, { "<lt>", "earlier" }, { "<C-a>", "up" }, { "<Esc>", "done" } },
+  x = {
+    { "d", "delete" },
+    { "y", "copy" },
+    { ">", "later" },
+    { "<lt>", "earlier" },
+    { "<C-a>", "up" },
+    { "<Esc>", "done" },
+  },
   -- Insert mode: the note being drawn, then the keys that draw it.
   i = function()
     local now = paw.roll_draw and paw.roll_draw.describe()
     local at_start = paw.roll_draw and paw.roll_draw.edge_now() == "start"
     local out = {
-      { "l", at_start and "shorter" or "longer" }, { "h", at_start and "longer" or "shorter" }, { "o", "other edge" },
-      { "+", "up" }, { "k", "bend" }, { "c", "chord" }, { "<CR>", "next" }, { "<Space>", "rest" }, { "<Esc>", "write" },
+      { "l", at_start and "shorter" or "longer" },
+      { "h", at_start and "longer" or "shorter" },
+      { "o", "other edge" },
+      { "+", "up" },
+      { "k", "bend" },
+      { "c", "chord" },
+      { "<CR>", "next" },
+      { "<Space>", "rest" },
+      { "<Esc>", "write" },
     }
     if now then
       local pitch, length = now:match("^(.-) · (.*)$")
@@ -116,22 +157,40 @@ M.lines.pianoroll = {
 -- Insert mode with the keyboard as a piano (`I`).
 M.lines["pianoroll.keys"] = {
   i = {
-    { "a", "notes, w e t y u between", "a s d f g h j k" }, { "<Space>", "rest" }, { "<BS>", "back" },
-    { "z", "octave down" }, { "x", "octave up" }, { "<Esc>", "done" },
+    { "a", "notes, w e t y u between", "a s d f g h j k" },
+    { "<Space>", "rest" },
+    { "<BS>", "back" },
+    { "z", "octave down" },
+    { "x", "octave up" },
+    { "<Esc>", "done" },
   },
 }
 -- The mixer's first: what the rule changed (`j` `k` move, `+` `-` change).
 M.lines.mixer = {
   n = {
-    { "j", "row" }, { "+", "up" }, { "-", "down" }, { "]", "pan" }, { "l", "strip" }, { "gc", "mute" },
-    { "s", "solo" }, { "x", "clear" }, { "?", "keys" },
+    { "j", "row" },
+    { "+", "up" },
+    { "-", "down" },
+    { "]", "pan" },
+    { "l", "strip" },
+    { "gc", "mute" },
+    { "s", "solo" },
+    { "x", "clear" },
+    { "?", "keys" },
   },
   x = { { "+", "up" }, { "-", "down" }, { "]", "pan" }, { "x", "clear" }, { "<Esc>", "done" } },
 }
 M.lines.devices = {
   n = {
-    { "j", "row" }, { "w", "device" }, { "+", "raise" }, { "-", "lower" }, { "a", "add" }, { "gc", "bypass" },
-    { "<CR>", "curve" }, { "x", "remove" }, { "?", "keys" },
+    { "j", "row" },
+    { "w", "device" },
+    { "+", "raise" },
+    { "-", "lower" },
+    { "a", "add" },
+    { "gc", "bypass" },
+    { "<CR>", "curve" },
+    { "x", "remove" },
+    { "?", "keys" },
   },
 }
 

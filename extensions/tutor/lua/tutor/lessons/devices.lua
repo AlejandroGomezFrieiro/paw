@@ -41,7 +41,12 @@ change a number. `gc` bypasses, as it changes a line to a comment.]],
     drums:add_clip({ name = "beat", start = 0, length = 8, notes = look.drums(look.beat, 2) })
     local lead = paw.add_track({ name = "Lead", volume = -6 })
     lead:add_device("synth", { wave = 1, cutoff = 900, resonance = 0.3, release = 0.15 })
-    lead:add_clip({ name = "line", start = 0, length = 8, notes = look.notes("D4:0:0.5 F4:0.5:0.5 A4:1:1 G4:2:0.5 F4:2.5:0.5 D4:3:1 C4:4:1 D4:5:3") })
+    lead:add_clip({
+      name = "line",
+      start = 0,
+      length = 8,
+      notes = look.notes("D4:0:0.5 F4:0.5:0.5 A4:1:1 G4:2:0.5 F4:2.5:0.5 D4:3:1 C4:4:1 D4:5:3"),
+    })
     paw.transport.loop_start, paw.transport.loop_end, paw.transport.loop_enabled = 0, 8, true
   end,
   at = function() paw.cursor.set_track(paw.track("Lead")) end,
@@ -76,7 +81,9 @@ change a number. `gc` bypasses, as it changes a line to a comment.]],
       say = "Listen while you change the value. Press `<leader><Space>`, then press `-` some times to make the sound darker. Press `<leader><Space>` to stop.",
       keys = { "<leader><Space>", { wait = 200 }, "-", "-", "-", { wait = 200 }, "<leader><Space>" },
       start = function(ctx, look) ctx.cutoff = look.param(look.device("Lead", "synth"), "cutoff") end,
-      check = function(ctx, look) return look.played(ctx) and look.param(look.device("Lead", "synth"), "cutoff") < ctx.cutoff end,
+      check = function(ctx, look)
+        return look.played(ctx) and look.param(look.device("Lead", "synth"), "cutoff") < ctx.cutoff
+      end,
       done = "Parameters change while the song plays.",
     },
     {
@@ -120,7 +127,9 @@ change a number. `gc` bypasses, as it changes a line to a comment.]],
     {
       say = "`<C-w>c` closes the panel, and the arrange view gets the keys again. Press `<C-w>c`.",
       keys = { "<C-w>c" },
-      check = function(ctx, look) return look.became(ctx, "closed", not look.visible("devices") and look.focused() == "arrange") end,
+      check = function(ctx, look)
+        return look.became(ctx, "closed", not look.visible("devices") and look.focused() == "arrange")
+      end,
       done = "The panel is closed. `<leader>dd` shows it again.",
     },
     {

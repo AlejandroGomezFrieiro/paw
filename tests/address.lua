@@ -8,14 +8,19 @@ local A = paw.address
 
 local function ids(clip)
   local out = {}
-  for _, n in ipairs(clip:notes()) do out[#out + 1] = n.pitch .. "#" .. tostring(n.id) end
+  for _, n in ipairs(clip:notes()) do
+    out[#out + 1] = n.pitch .. "#" .. tostring(n.id)
+  end
   return table.concat(out, " ")
 end
 
 test("address: every note has an id that stays with it through moves, and a copy gets its own", function()
   fresh()
-  local clip = paw.add_track({ name = "Keys" }):add_clip({ start = 0, length = 4,
-    notes = { { pitch = 60, start = 0, length = 1 }, { pitch = 64, start = 1, length = 1 } } })
+  local clip = paw.add_track({ name = "Keys" }):add_clip({
+    start = 0,
+    length = 4,
+    notes = { { pitch = 60, start = 0, length = 1 }, { pitch = 64, start = 1, length = 1 } },
+  })
   paw.flush()
   api.undo_checkpoint()
   eq(ids(clip), "60#1 64#2", "named in order")
@@ -65,8 +70,13 @@ test("address: addresses are made, resolved, and walked up and down", function()
   eq(A.within(A.clip(clip.id), A.track(other.id)), false, "not another's")
   eq(A.track_of(param), t.id, "a parameter's track")
   local kids = table.concat(A.children(A.track(t.id)), " ")
-  eq(kids:find("/device/" .. d.id, 1, true) ~= nil and kids:find("/send/" .. other.id, 1, true) ~= nil
-    and kids:find("paw://clip/" .. clip.id, 1, true) ~= nil, true, "a track holds its devices, sends and clips: " .. kids)
+  eq(
+    kids:find("/device/" .. d.id, 1, true) ~= nil
+      and kids:find("/send/" .. other.id, 1, true) ~= nil
+      and kids:find("paw://clip/" .. clip.id, 1, true) ~= nil,
+    true,
+    "a track holds its devices, sends and clips: " .. kids
+  )
   eq(A.children(A.clip(clip.id))[1], A.note(clip.id, 1), "a clip its notes")
   eq(A.parse(A.render("/tmp/a mix.wav")).path, "/tmp/a mix.wav", "a render's path survives the encoding")
   eq(A.matches("paw://track/*", A.track(3)), true, "a pattern of one level")
@@ -78,7 +88,11 @@ test("address: a workspace edit is checked whole and made as one undo step", fun
   fresh()
   local t = paw.add_track({ name = "Lead" })
   local d = t:add_device("synth")
-  local clip = t:add_clip({ start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1 }, { pitch = 62, start = 1, length = 1 } } })
+  local clip = t:add_clip({
+    start = 0,
+    length = 4,
+    notes = { { pitch = 60, start = 0, length = 1 }, { pitch = 62, start = 1, length = 1 } },
+  })
   paw.flush()
   api.undo_checkpoint()
   local before = api.project_get().edits
@@ -90,7 +104,11 @@ test("address: a workspace edit is checked whole and made as one undo step", fun
   eq(ok, nil, "refused")
   eq(why, "paw://track/999 is gone", "with why")
   eq(api.project_get().edits, before, "and nothing was done")
-  eq(select(2, A.edit({ { uri = A.track(t.id), set = { colour = 1 } } })), "paw://track/" .. t.id .. ": cannot set `colour`", "an unknown field is refused")
+  eq(
+    select(2, A.edit({ { uri = A.track(t.id), set = { colour = 1 } } })),
+    "paw://track/" .. t.id .. ": cannot set `colour`",
+    "an unknown field is refused"
+  )
   ok = A.edit({
     { uri = A.track(t.id), set = { volume = -6, pan = 0.25 } },
     { uri = A.note(clip.id, 2), set = { pitch = 61 } },
@@ -118,7 +136,10 @@ test("address: an extension adds a kind of address, and it is edited like the ot
   fresh()
   local words = { [1] = "la", [2] = "lu" }
   A.scheme("lyric", {
-    resolve = function(_, p) local w = words[tonumber(p.segments[2])] return w and { text = w } end,
+    resolve = function(_, p)
+      local w = words[tonumber(p.segments[2])]
+      return w and { text = w }
+    end,
     children = function() return { "paw://lyric/1", "paw://lyric/2" } end,
     edit = function(change, p) words[tonumber(p.segments[2])] = change.set.text end,
   })
@@ -133,7 +154,11 @@ end)
 test("address: changes are told as addresses, and renders are kept by path", function()
   fresh()
   local seen = {}
-  local handler = paw.on("address.changed", function(e) for _, u in ipairs(e.uris) do seen[u] = true end end)
+  local handler = paw.on("address.changed", function(e)
+    for _, u in ipairs(e.uris) do
+      seen[u] = true
+    end
+  end)
   local t = paw.add_track({ name = "Pad" })
   paw.flush()
   t.volume = -3

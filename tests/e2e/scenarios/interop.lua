@@ -20,7 +20,9 @@ local LOSSES = {
 local function carried(E, format)
   local want = E.Model.copy(E.model)
   for _, t in ipairs(want.tracks) do
-    for field in pairs(LOSSES[format]) do t[field] = E.ANY end
+    for field in pairs(LOSSES[format]) do
+      t[field] = E.ANY
+    end
   end
   return want
 end
@@ -35,7 +37,9 @@ local function reopen(E, file, format)
     E:compare("open " .. file .. " again", carried(E, format), got)
   end)
   -- The page of what was not brought across.
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   api.project_unshelve()
   if not ok then error(err, 0) end
 end
@@ -50,8 +54,12 @@ days[3] = function(E)
   E:act({ name = "load the interop extension", keys = { ":ext.load interop<CR>" } })
   for _, format in ipairs({ "rpp", "dawproject" }) do
     local file = E.workdir .. "/song." .. format
-    E:act({ name = "write the song as ." .. format, keys = { "<Esc>", ":w " .. file .. "<CR>" }, slow = true,
-      check = function(self) reopen(self, file, format) end })
+    E:act({
+      name = "write the song as ." .. format,
+      keys = { "<Esc>", ":w " .. file .. "<CR>" },
+      slow = true,
+      check = function(self) reopen(self, file, format) end,
+    })
     E:act({ name = "close the page of what was not written", keys = { "<Esc>" } })
   end
 end

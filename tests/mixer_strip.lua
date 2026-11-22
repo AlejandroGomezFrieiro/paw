@@ -10,9 +10,7 @@ local api = paw.api
 local W, H = 120, 90
 local mixer = paw.ui.views.mixer
 
-local function m(kind, x, y)
-  paw.ui.mouse({ kind = kind, x = x, y = y, button = "left", mods = "" })
-end
+local function m(kind, x, y) paw.ui.mouse({ kind = kind, x = x, y = y, button = "left", mods = "" }) end
 local function click(x, y)
   m("down", x, y)
   m("up", x, y)
@@ -44,14 +42,18 @@ local function shown(track, height)
   node.size = height
   local lines = api.ui_snapshot(W, H)
   local rect
-  for _, r in ipairs(paw.ui.rects) do if r.name == "mixer" then rect = r end end
+  for _, r in ipairs(paw.ui.rects) do
+    if r.name == "mixer" then rect = r end
+  end
   local s = mixer.geometry.strips[1]
   return s, function(x, y) return rect.x + x, rect.y + 1 + y end, table.concat(lines, "\n"), lines
 end
 
 local function done()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   mixer_node().size = size or nil
   paw.ui.hide("mixer")
 end
@@ -83,7 +85,9 @@ end)
 test("a mixer strip names four devices, the last counting those it has no room for, and a click picks one", function()
   fresh()
   local a = paw.add_track({ name = "Alto" })
-  for _ = 1, 6 do a:add_device("gain") end
+  for _ = 1, 6 do
+    a:add_device("gain")
+  end
   local s, at, screen = shown(a, 30)
   eq(s.slots, 4, "four rows for devices")
   eq(screen:find("+3 more", 1, true) ~= nil, true, "the fourth counts the three it has no room for")
@@ -107,7 +111,9 @@ test("a meter at full scale lights the clip light, and a click on the peak or th
   fresh()
   local a = paw.add_track({ name = "Alto" })
   local s, at, _, lines
-  metered(1.0, 0.5, function() s, at, _, lines = shown(a, 30) end)
+  metered(1.0, 0.5, function()
+    s, at, _, lines = shown(a, 30)
+  end)
   local x, y = at(s.x + 1, s.fader)
   eq(lines[y + 1]:find("▀", 1, true) ~= nil, true, "the clip light on top of the meters")
   local _, clipped = select(3, paw.draw.track_peak(a.id))
@@ -135,7 +141,18 @@ test("in a window the clip light goes out at a click on the peak, as in the term
   local s = mixer.geometry.strips[1]
   eq(select(4, paw.draw.track_peak(a.id)), true, "lit")
   local held = {}
-  eq(paw.roles.input(0, "mixer", mixer, nil, { kind = "down", x = s.x + s.w - 1.5, y = 1 + s.fader + s.rows + 0.5, button = "left" }, held), true, "the peak takes the click")
+  eq(
+    paw.roles.input(
+      0,
+      "mixer",
+      mixer,
+      nil,
+      { kind = "down", x = s.x + s.w - 1.5, y = 1 + s.fader + s.rows + 0.5, button = "left" },
+      held
+    ),
+    true,
+    "the peak takes the click"
+  )
   eq(select(4, paw.draw.track_peak(a.id)), false, "and puts out the light")
   api.scene_forget(0)
 end)

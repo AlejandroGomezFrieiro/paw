@@ -40,7 +40,9 @@ local type Location = contracts.Location
 --- How a server is reached: a process, a table in this process, or a
 --- command run once per version of a subject.
 local enum Transport
-  "process" "lua" "oneshot"
+  "process"
+  "lua"
+  "oneshot"
 end
 
 --- A document a server holds: a subject's projection of an address, with
@@ -301,7 +303,9 @@ local record AdapterApi
   document: function(client: Client, uri: string): Doc
   publish: function(client: Client, doc: Doc, list: {DiagnosticModule.Published})
   annotate: function(client: Client, doc: Doc, list: {Annotation})
-  request: function(which: Which, method: string, params?: Payload, cb?: function(err: rpc.RpcError, result?: Payload)): integer
+  request: function(
+    which: Which, method: string, params?: Payload, cb?: function(err: rpc.RpcError, result?: Payload)
+  ): integer
   notify: function(which: Which, method: string, params?: Payload): boolean
   analysis: function(client: Client, doc: Doc, analysis: Analysis)
 end
@@ -321,7 +325,9 @@ local record Adapter
   close: function(client: Client, doc: Doc): string, Payload
   handlers: {string: Handler}
   hover: function(client: Client, doc: Doc, location: Location): string, Payload, function(result: Payload): {string}
-  actions: function(client: Client, doc: Doc, location: Location, lsp: AdapterApi): string, Payload, function(result: Payload): {Action}
+  actions: function(client: Client, doc: Doc, location: Location, lsp: AdapterApi): string, Payload, function(
+    result: Payload
+  ): {Action}
   complete: function(client: Client, doc: Doc, ctx: CompleteContext): {Ask}
 end
 
@@ -447,8 +453,7 @@ end
 
 --- The contents of a hover that are not plain text: markup (`value`),
 --- or a list of texts and markup.
-local record Contents
-  {string | Markup}
+local record Contents is {string | Markup}
   value: string
 end
 
@@ -496,8 +501,7 @@ local record CompletionItem
 end
 
 --- LSP's completion list (or a list of items alone).
-local record CompletionList
-  {CompletionItem}
+local record CompletionList is {CompletionItem}
   items: {CompletionItem}
 end
 
@@ -592,18 +596,26 @@ local record M
   close: function(client: Client, doc: Doc): string, Payload
   handlers: {string: Handler}
   hover: function(client: Client, doc: Doc, location: Location): string, Payload, function(result: Payload): {string}
-  actions: function(client: Client, doc: Doc, location: Location, lsp: AdapterApi): string, Payload, function(result: Payload): {Action}
+  actions: function(client: Client, doc: Doc, location: Location, lsp: AdapterApi): string, Payload, function(
+    result: Payload
+  ): {Action}
   complete: function(client: Client, doc: Doc, ctx: CompleteContext): {Ask}
 end
 M.name = "standard"
 
 local function text_document(client: Client, doc: Doc): TextDocument
-  local td: TextDocument = { uri = doc.uri, languageId = doc.language, version = doc.version }
-  if client.transport == "lua" then td.data = doc.data else td.text = rpc.encode(doc.data) end
+  local td: TextDocument = {uri = doc.uri, languageId = doc.language, version = doc.version}
+  if client.transport == "lua" then
+    td.data = doc.data
+  else
+    td.text = rpc.encode(doc.data)
+  end
   return td
 end
 
-function M.initialize(_: Client, offer: Offer): Offer return offer end
+function M.initialize(_: Client, offer: Offer): Offer
+  return offer
+end
 
 function M.capabilities(_: Client, result: InitializeResult): Capabilities
   local raw = type(result.capabilities) == "table" and result.capabilities or {}
@@ -614,7 +626,7 @@ function M.capabilities(_: Client, result: InitializeResult): Capabilities
     diagnostics = true,
     hover = raw.hoverProvider and true or false,
     actions = raw.codeActionProvider and true or false,
-    completion = completion and { lanes = completion is CompletionOptions and completion.lanes or { "notes" } } or nil,
+    completion = completion and {lanes = completion is CompletionOptions and completion.lanes or {"notes"}} or nil,
     annotations = paw_caps.annotations and true or false,
     analysis = paw_caps.analysis,
     commands = type(raw.executeCommandProvider) == "table" and raw.executeCommandProvider.commands or nil,
@@ -622,27 +634,31 @@ function M.capabilities(_: Client, result: InitializeResult): Capabilities
   }
 end
 
-function M.initialized(_: Client, _: InitializeResult): string, Payload return "initialized", rpc.object() end
+function M.initialized(_: Client, _: InitializeResult): string, Payload
+  return "initialized", rpc.object()
+end
 
 function M.open(client: Client, doc: Doc): string, Payload, boolean
-  local params: DidOpen = { textDocument = text_document(client, doc) }
+  local params: DidOpen = {textDocument = text_document(client, doc)}
   return "textDocument/didOpen", params as Payload
 end
 
 function M.change(client: Client, doc: Doc): string, Payload, boolean
-  local change: ContentChange = client.transport == "lua" and { data = doc.data } or { text = rpc.encode(doc.data) }
-  local params: DidChange = { textDocument = { uri = doc.uri, version = doc.version }, contentChanges = { change } }
+  local change: ContentChange = client.transport == "lua" and {data = doc.data} or {text = rpc.encode(doc.data)}
+  local params: DidChange = {textDocument = {uri = doc.uri, version = doc.version}, contentChanges = {change}}
   return "textDocument/didChange", params as Payload
 end
 
 function M.close(_: Client, doc: Doc): string, Payload
-  local params: DidClose = { textDocument = { uri = doc.uri } }
+  local params: DidClose = {textDocument = {uri = doc.uri}}
   return "textDocument/didClose", params as Payload
 end
 
 local function location_of(doc: Doc, loc: string | Location): Location
-  if loc is string then return { uri = loc } end
-  return loc or { uri = doc.address }
+  if loc is string then
+    return {uri = loc}
+  end
+  return loc or {uri = doc.address}
 end
 
 M.handlers = {}
@@ -650,13 +666,20 @@ M.handlers = {}
 M.handlers["textDocument/publishDiagnostics"] = function(client: Client, payload: Payload, lsp: AdapterApi): Payload
   local params = payload as PublishDiagnostics
   local doc = lsp.document(client, params.uri)
-  if not doc then return end
+  if not doc then
+    return
+  end
   local list: {DiagnosticModule.Published} = {}
   for _, d in ipairs(params.diagnostics or {}) do
     local data: DiagnosticData = type(d.data) == "table" and d.data or {}
     list[#list + 1] = {
-      location = location_of(doc, data.location), severity = d.severity, message = d.message,
-      rule = d.code, source = d.source or client.name, fixes = data.fixes, data = data as DiagnosticModule.Data,
+      location = location_of(doc, data.location),
+      severity = d.severity,
+      message = d.message,
+      rule = d.code,
+      source = d.source or client.name,
+      fixes = data.fixes,
+      data = data as DiagnosticModule.Data,
     }
   end
   lsp.publish(client, doc, list)
@@ -665,10 +688,12 @@ end
 M.handlers["paw/publishAnnotations"] = function(client: Client, payload: Payload, lsp: AdapterApi): Payload
   local params = payload as PublishAnnotations
   local doc = lsp.document(client, params.uri)
-  if not doc then return end
+  if not doc then
+    return
+  end
   local list: {Annotation} = {}
   for _, a in ipairs(params.annotations or {}) do
-    list[#list + 1] = { location = location_of(doc, a.location), label = a.label, kind = a.kind, tooltip = a.tooltip }
+    list[#list + 1] = {location = location_of(doc, a.location), label = a.label, kind = a.kind, tooltip = a.tooltip}
   end
   lsp.annotate(client, doc, list)
 end
@@ -676,74 +701,110 @@ end
 M.handlers["paw/publishAnalysis"] = function(client: Client, payload: Payload, lsp: AdapterApi): Payload
   local params = payload as PublishAnalysis
   local doc = lsp.document(client, params.uri)
-  if doc then lsp.analysis(client, doc, params as Analysis) end
+  if doc then
+    lsp.analysis(client, doc, params as Analysis)
+  end
 end
 
 local function about(doc: Doc, location: Location): PlaceParams
-  return { textDocument = { uri = doc.uri }, position = { line = 0, character = 0 }, paw = { location = location } }
+  return {textDocument = {uri = doc.uri}, position = {line = 0, character = 0}, paw = {location = location}}
 end
 
 function M.hover(_: Client, doc: Doc, location: Location): string, Payload, function(result: Payload): {string}
-  return "textDocument/hover", about(doc, location) as Payload, function(payload: Payload): {string}
-    if type(payload) ~= "table" then return {} end
-    local contents = (payload as Hover).contents
-    local text: string
-    if contents is Contents then
-      if contents.value then
-        text = contents.value
-      else
-        local parts: {string} = {}
-        for _, c in ipairs(contents) do parts[#parts + 1] = c is Markup and c.value or tostring(c) end
-        text = table.concat(parts, "\n")
+  return "textDocument/hover",
+    about(doc, location) as Payload,
+    function(payload: Payload): {string}
+      if type(payload) ~= "table" then
+        return {}
       end
-    else
-      text = contents
+      local contents = (payload as Hover).contents
+      local text: string
+      if contents is Contents then
+        if contents.value then
+          text = contents.value
+        else
+          local parts: {string} = {}
+          for _, c in ipairs(contents) do
+            parts[#parts + 1] = c is Markup and c.value or tostring(c)
+          end
+          text = table.concat(parts, "\n")
+        end
+      else
+        text = contents
+      end
+      local out: {string} = {}
+      for line in (tostring(text or "") .. "\n"):gmatch("([^\n]*)\n") do
+        out[#out + 1] = line
+      end
+      if out[#out] == "" then
+        out[#out] = nil
+      end
+      return out
     end
-    local out: {string} = {}
-    for line in (tostring(text or "") .. "\n"):gmatch("([^\n]*)\n") do out[#out + 1] = line end
-    if out[#out] == "" then out[#out] = nil end
-    return out
-  end
 end
 
-function M.actions(client: Client, doc: Doc, location: Location, lsp: AdapterApi): string, Payload, function(result: Payload): {Action}
+function M.actions(client: Client, doc: Doc, location: Location, lsp: AdapterApi): string, Payload, function(
+  result: Payload
+): {Action}
   local params = about(doc, location)
-  params.range = { start = params.position, ["end"] = params.position }
-  params.context = { diagnostics = {} }
-  return "textDocument/codeAction", params as Payload, function(result: Payload): {Action}
-    local out: {Action} = {}
-    for _, a in ipairs(type(result) == "table" and result as {CodeAction} or {}) do
-      local changes = type(a.edit) == "table" and a.edit.paw
-      local command: LspCommand
-      local given = a.command
-      if given is LspCommand then command = given elseif given then command = { command = given } end
-      if changes or command then
-        out[#out + 1] = { title = a.title, edit = changes or nil, run = command and function()
-          local run: ExecuteCommand = { command = command.command, arguments = command.arguments }
-          lsp.request(client, "workspace/executeCommand", run as Payload)
-        end or nil }
+  params.range = {start = params.position, ["end"] = params.position}
+  params.context = {diagnostics = {}}
+  return "textDocument/codeAction",
+    params as Payload,
+    function(result: Payload): {Action}
+      local out: {Action} = {}
+      for _, a in ipairs(type(result) == "table" and result as {CodeAction} or {}) do
+        local changes = type(a.edit) == "table" and a.edit.paw
+        local command: LspCommand
+        local given = a.command
+        if given is LspCommand then
+          command = given
+        elseif given then
+          command = {command = given}
+        end
+        if changes or command then
+          out[#out + 1] = {
+            title = a.title,
+            edit = changes or nil,
+            run = command
+              and function()
+                local run: ExecuteCommand = {command = command.command, arguments = command.arguments}
+                lsp.request(client, "workspace/executeCommand", run as Payload)
+              end or nil,
+          }
+        end
       end
+      return out
     end
-    return out
-  end
 end
 
 function M.complete(_: Client, doc: Doc, ctx: CompleteContext): {Ask}
   local at = ctx.at or 0
-  local params = about(doc, { uri = A.clip(ctx.clip as integer), selector = { time = { at, at } } })
+  local params = about(doc, {uri = A.clip(ctx.clip as integer), selector = {time = {at, at}}})
   params.paw.at, params.paw.selection = ctx.at, ctx.selection
-  params.context = { triggerKind = ctx.trigger == "auto" and 3 or 1 }
-  return { { method = "textDocument/completion", params = params as Payload, translate = function(result: Payload): {CompleteModule.ItemInput}
-    local list = result as CompletionList
-    local items: {CompletionItem} = type(result) == "table" and (list.items or list as {CompletionItem}) or {}
-    local out: {CompleteModule.ItemInput} = {}
-    for _, item in ipairs(items) do
-      local data: CompletionData = type(item.data) == "table" and item.data or {}
-      out[#out + 1] = { label = item.label, detail = item.detail, notes = data.notes or {}, velocities = data.velocities,
-        controls = data.controls }
-    end
-    return out
-  end } }
+  params.context = {triggerKind = ctx.trigger == "auto" and 3 or 1}
+  return {
+    {
+      method = "textDocument/completion",
+      params = params as Payload,
+      translate = function(result: Payload): {CompleteModule.ItemInput}
+        local list = result as CompletionList
+        local items: {CompletionItem} = type(result) == "table" and (list.items or list as {CompletionItem}) or {}
+        local out: {CompleteModule.ItemInput} = {}
+        for _, item in ipairs(items) do
+          local data: CompletionData = type(item.data) == "table" and item.data or {}
+          out[#out + 1] = {
+            label = item.label,
+            detail = item.detail,
+            notes = data.notes or {},
+            velocities = data.velocities,
+            controls = data.controls,
+          }
+        end
+        return out
+      end,
+    },
+  }
 end
 
 return M

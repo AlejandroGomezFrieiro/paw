@@ -14,7 +14,9 @@ local initial = L.capture()
 local function start()
   fresh()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   L.restore(initial)
   paw.ui.focus("arrange")
   -- Buffers of an earlier test are forgotten, so that each reads afresh.
@@ -29,7 +31,9 @@ local function screen() return table.concat(api.ui_snapshot(W, H), "\n") end
 
 local function lines()
   local out = {}
-  for i, l in ipairs(tb.buf().state.text.lines) do out[i] = l.text end
+  for i, l in ipairs(tb.buf().state.text.lines) do
+    out[i] = l.text
+  end
   return out
 end
 
@@ -37,7 +41,9 @@ local function line(n) return lines()[n] end
 
 local function names()
   local out = {}
-  for i, id in ipairs(api.track_list()) do out[i] = api.track_get(id).name end
+  for i, id in ipairs(api.track_list()) do
+    out[i] = api.track_get(id).name
+  end
   return table.concat(out, " ")
 end
 
@@ -46,7 +52,9 @@ local function write()
   keys(":w<CR>")
   eq(paw.ui.focused, "textbuf.plan", "the plan is shown")
   local shown = {}
-  for _, step in ipairs(paw.ui.views["textbuf.plan"].shown) do shown[#shown + 1] = step.text end
+  for _, step in ipairs(paw.ui.views["textbuf.plan"].shown) do
+    shown[#shown + 1] = step.text
+  end
   keys("y")
   return table.concat(shown, "\n")
 end
@@ -71,7 +79,11 @@ test("a track list reads as aligned lines that read back as the same fields", fu
   eq(tb.buf().name, "paw://tracks", "named by its address")
   local text = lines()
   eq(#text, 3, "a line a track")
-  eq(text[1]:match("^Drums%s+vol %-3%.0  pan C%s+%-%-%-  .*▸ ") ~= nil, true, "name, volume, pan, flags, devices: " .. text[1])
+  eq(
+    text[1]:match("^Drums%s+vol %-3%.0  pan C%s+%-%-%-  .*▸ ") ~= nil,
+    true,
+    "name, volume, pan, flags, devices: " .. text[1]
+  )
   eq(text[2]:match("^Bass%s+vol %-6%.0  pan L10") ~= nil, true, "pan to the left: " .. text[2])
   -- Columns line up.
   eq(text[1]:find("vol", 1, true), text[3]:find("vol", 1, true), "the volumes line up")
@@ -113,7 +125,7 @@ test("cw renames a track, Ctrl-a changes its volume, and :w applies both as one 
   eq(tb.buf().state.text:modified(), true, "modified")
   eq(screen():find("[+]", 1, true) ~= nil, true, "the title says so")
   local plan = write()
-  eq(plan:find('rename Bass → Bassline', 1, true) ~= nil, true, "the plan renames: " .. plan)
+  eq(plan:find("rename Bass → Bassline", 1, true) ~= nil, true, "the plan renames: " .. plan)
   eq(plan:find("volume -6.0 → -3.0 dB", 1, true) ~= nil, true, "and sets the volume")
   eq(bass.name, "Bassline", "renamed")
   eq(bass.volume, -3, "louder")
@@ -134,7 +146,11 @@ test("dd deletes a track, yyp copies one with its devices, and moving lines orde
   keys("cwBeat<Esc>")
   -- Bass to the top.
   keys("Gddggp")
-  eq(table.concat(lines(), "|"):gsub("%s+", " "):match("^Drums.-|Bass.-|Beat") ~= nil, true, "Bass after Drums, then the copy")
+  eq(
+    table.concat(lines(), "|"):gsub("%s+", " "):match("^Drums.-|Bass.-|Beat") ~= nil,
+    true,
+    "Bass after Drums, then the copy"
+  )
   local plan = write()
   eq(plan:find("delete Pad", 1, true) ~= nil, true, "the plan deletes: " .. plan)
   eq(plan:find("copy Drums as Beat (1 device", 1, true) ~= nil, true, "copies with the devices")
@@ -197,19 +213,31 @@ test("visual block and :s edit several lines at once", function()
   band()
   keys(":e paw://tracks<CR>")
   keys(":%s/vol %-?%d+%.%d/vol -9.0/<CR>")
-  eq(line(1):find("vol -9.0", 1, true) ~= nil and line(3):find("vol -9.0", 1, true) ~= nil, true, ":% s changes every line")
+  eq(
+    line(1):find("vol -9.0", 1, true) ~= nil and line(3):find("vol -9.0", 1, true) ~= nil,
+    true,
+    ":% s changes every line"
+  )
   keys("u")
   eq(line(1):find("vol -3.0", 1, true) ~= nil, true, "u takes it back")
   -- Ctrl-v down the flag column and `r` mutes all three.
   local col = line(1):find("---", 1, true) - 1
   keys("gg0" .. col .. "l<C-v>jjrM")
-  eq(line(1):sub(col + 1, col + 1) .. line(2):sub(col + 1, col + 1) .. line(3):sub(col + 1, col + 1), "MMM", "a block of flags replaced")
+  eq(
+    line(1):sub(col + 1, col + 1) .. line(2):sub(col + 1, col + 1) .. line(3):sub(col + 1, col + 1),
+    "MMM",
+    "a block of flags replaced"
+  )
   -- And `I` in a block types on every line.
   keys("gg0<C-v>jjIX<Esc>")
   eq(line(1):sub(1, 1) .. line(2):sub(1, 1) .. line(3):sub(1, 1), "XXX", "typed on every line of the block")
   keys("u")
   local plan = write()
-  eq(plan:find("Drums: mute on", 1, true) ~= nil and plan:find("Pad: mute on", 1, true) ~= nil, true, "the plan mutes all: " .. plan)
+  eq(
+    plan:find("Drums: mute on", 1, true) ~= nil and plan:find("Pad: mute on", 1, true) ~= nil,
+    true,
+    "the plan mutes all: " .. plan
+  )
 end)
 
 test(":sort orders the lines and so the tracks", function()
@@ -397,7 +425,11 @@ end)
 test("cells, alignment and Ctrl-a on numbers", function()
   eq(tb.align({ { "a", "vol 1" }, { "long", "vol 2", "x" } })[1], "a     vol 1", "padded to the widest")
   local cells = tb.cells("Lead Vox  vol -3.0    pan C")
-  eq(#cells .. " " .. cells[1].text .. "|" .. cells[2].text .. "|" .. cells[3].col, "3 Lead Vox|vol -3.0|22", "single spaces stay inside a cell")
+  eq(
+    #cells .. " " .. cells[1].text .. "|" .. cells[2].text .. "|" .. cells[3].col,
+    "3 Lead Vox|vol -3.0|22",
+    "single spaces stay inside a cell"
+  )
   eq(tb.add_number("vol -6.0", 0, 1), "vol -5.0", "the number after the cursor, with its sign and decimals")
   eq(tb.add_number("vol -0.5", 5, 1), "vol 0.5", "across zero")
   eq(tb.add_number("pan L10", 0, 5), "pan L15", "a number in a word")
@@ -464,8 +496,10 @@ test("an extension adds a kind of text buffer of its own", function()
     plan = function(changes)
       local steps = {}
       for _, e in ipairs(changes.changed) do
-        steps[#steps + 1] = { text = "move " .. e.fields.name .. " to " .. e.fields.start,
-          run = function() paw.api.clip_set(e.id, "start", e.fields.start) end }
+        steps[#steps + 1] = {
+          text = "move " .. e.fields.name .. " to " .. e.fields.start,
+          run = function() paw.api.clip_set(e.id, "start", e.fields.start) end,
+        }
       end
       for _, d in ipairs(changes.deleted) do
         steps[#steps + 1] = { text = "delete " .. d.base.name, run = function() paw.api.clip_remove(d.id) end }
@@ -496,7 +530,9 @@ test("a text buffer in a window of its own is drawn and edited with the same key
   local text = {}
   for _, row in ipairs(api.ui_view_snapshot("textbuf", 100, 10).rows) do
     local parts = {}
-    for _, run in ipairs(row) do parts[#parts + 1] = run.text end
+    for _, run in ipairs(row) do
+      parts[#parts + 1] = run.text
+    end
     text[#text + 1] = table.concat(parts)
   end
   local drawn = table.concat(text, "\n")

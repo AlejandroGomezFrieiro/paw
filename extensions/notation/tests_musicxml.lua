@@ -17,7 +17,8 @@ local HEAD = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n'
 
 -- A piano piece: two staves, two voices on the upper, a tie over the
 -- barline, a slur, a hairpin between dynamics, a tempo mark.
-local PIANO = HEAD .. [[
+local PIANO = HEAD
+  .. [[
 <score-partwise version="4.0">
   <work><work-title>Little Piece</work-title></work>
   <identification><creator type="composer">A. Composer</creator></identification>
@@ -75,7 +76,8 @@ local PIANO = HEAD .. [[
 -- A lead sheet in 3/4 with a pickup: chord symbols (with and without the
 -- kind's text, a bass, an offset, N.C.), lyrics in two verses with
 -- hyphens and an extender, a rehearsal mark and text.
-local LEAD = HEAD .. [[
+local LEAD = HEAD
+  .. [[
 <score-partwise version="3.1">
   <part-list><score-part id="P1"><part-name>Voice</part-name></score-part></part-list>
   <part id="P1">
@@ -117,7 +119,8 @@ local LEAD = HEAD .. [[
 -- Key, clef and time signature changes: C (common time), Eb in 3/4, a
 -- bass clef written at the end of the bar before (as MuseScore does), C
 -- minor in 6/8, the guitar's clef in 3+3+2/8.
-local CHANGES = HEAD .. [[
+local CHANGES = HEAD
+  .. [[
 <score-partwise version="4.0">
   <part-list><score-part id="P1"><part-name>Cello</part-name></score-part></part-list>
   <part id="P1">
@@ -150,7 +153,8 @@ local CHANGES = HEAD .. [[
 ]]
 
 -- Repeats with first and second endings, a double and a final barline.
-local REPEATS = HEAD .. [[
+local REPEATS = HEAD
+  .. [[
 <score-partwise version="4.0">
   <part-list><score-part id="P1"><part-name>Flute</part-name></score-part></part-list>
   <part id="P1">
@@ -184,7 +188,8 @@ local REPEATS = HEAD .. [[
 -- Tuplets, grace notes and the marks on chords: a triplet, a quintuplet,
 -- an acciaccatura and an appoggiatura, ornaments, an arpeggio, sfz, p
 -- subito, a diminuendo to nothing; a pedal and a fingering are not kept.
-local TUPLETS = HEAD .. [[
+local TUPLETS = HEAD
+  .. [[
 <score-partwise version="4.0">
   <part-list><score-part id="P1"><part-name>Violin</part-name></score-part></part-list>
   <part id="P1">
@@ -265,24 +270,36 @@ local function describe(sc)
   end
   local function keys(t)
     local list = {}
-    for k in pairs(t or {}) do list[#list + 1] = k end
+    for k in pairs(t or {}) do
+      list[#list + 1] = k
+    end
     table.sort(list)
     return table.concat(list, ",")
   end
   for mi, m in ipairs(sc.measures) do
     local line = { "m" .. mi }
-    if m.meter then line[#line + 1] = "meter " .. m.meter[1] .. "/" .. m.meter[2] .. (m.groups and ("(" .. table.concat(m.groups, "+") .. ")") or "") end
+    if m.meter then
+      line[#line + 1] = "meter "
+        .. m.meter[1]
+        .. "/"
+        .. m.meter[2]
+        .. (m.groups and ("(" .. table.concat(m.groups, "+") .. ")") or "")
+    end
     if m.meter_symbol then line[#line + 1] = m.meter_symbol end
     if m.key then line[#line + 1] = "key " .. m.key.fifths .. " " .. tostring(m.key.name) end
     if m.clef then
-      for id, clef in pairs(m.clef) do line[#line + 1] = "clef " .. index[id] .. "=" .. clef end
+      for id, clef in pairs(m.clef) do
+        line[#line + 1] = "clef " .. index[id] .. "=" .. clef
+      end
     end
     for _, k in ipairs({ "barline", "repeat_start", "volta", "rehearsal" }) do
       if m[k] then line[#line + 1] = k .. " " .. tostring(m[k]) end
     end
     out[#out + 1] = table.concat(line, " ")
     local entries = {}
-    for _, e in ipairs(m.voices) do entries[#entries + 1] = e end
+    for _, e in ipairs(m.voices) do
+      entries[#entries + 1] = e
+    end
     table.sort(entries, function(a, b)
       if index[a.staff] ~= index[b.staff] then return index[a.staff] < index[b.staff] end
       return a.voice < b.voice
@@ -322,8 +339,12 @@ local function describe(sc)
     marks[#marks + 1] = table.concat(parts, " ")
   end
   table.sort(marks)
-  for _, s in ipairs(marks) do out[#out + 1] = "mark " .. s end
-  for _, b in ipairs(sc.layout and sc.layout.breaks or {}) do out[#out + 1] = "break " .. tostring(f.index[b.measure]) .. " " .. b.kind end
+  for _, s in ipairs(marks) do
+    out[#out + 1] = "mark " .. s
+  end
+  for _, b in ipairs(sc.layout and sc.layout.breaks or {}) do
+    out[#out + 1] = "break " .. tostring(f.index[b.measure]) .. " " .. b.kind
+  end
   return table.concat(out, "\n")
 end
 
@@ -333,7 +354,9 @@ local function round(text)
   local mx = load()
   local file = assert(mx.parse(text))
   local parts = {}
-  for i, p in ipairs(file.parts) do parts[i] = { name = p.name, score = p.score, program = p.program, drums = p.drums } end
+  for i, p in ipairs(file.parts) do
+    parts[i] = { name = p.name, score = p.score, program = p.program, drums = p.drums }
+  end
   local out = mx.write(parts, { title = file.title, composer = file.composer })
   local again = assert(mx.parse(out))
   return file.parts[1].score, again.parts[1].score, out, file, again
@@ -358,7 +381,11 @@ test("musicxml: a piano piece reads as two staves, voices, a tie, a slur, a hair
   eq(text:find("m1 meter 4/4 key 2 D major", 1, true) ~= nil, true, "time and key in the first bar")
   eq(text:find("  s1v1: F#5/1:4  E5/1:8  D5/1:8  A5~/1:2", 1, true) ~= nil, true, "the upper voice, tied into bar 2")
   eq(text:find("  s1v2: A4/1:2  B4/1:2", 1, true) ~= nil, true, "the second voice")
-  eq(text:find("  s2v1: D3+A3/1:2  G2/1:4 [staccato]  r/1:4", 1, true) ~= nil, true, "MuseScore's voice 5 is the lower staff's first")
+  eq(
+    text:find("  s2v1: D3+A3/1:2  G2/1:4 [staccato]  r/1:4", 1, true) ~= nil,
+    true,
+    "MuseScore's voice 5 is the lower staff's first"
+  )
   eq(text:find("  s2v1: D2/1:1", 1, true) ~= nil, true, "a whole note in bar 2")
   eq(text:find("m2 barline |.", 1, true) ~= nil, true, "the final barline")
   eq(text:find("mark slur 0 to 20160 staff 1", 1, true) ~= nil, true, "the slur, to the A")
@@ -385,7 +412,11 @@ test("musicxml: a second voice that stops before the end of its bar gets rests t
   </part>
 </score-partwise>]]))
   local text = describe(file.parts[1].score)
-  eq(text:find("  s1v2: E4/1:4  r/1:4  r/1:2", 1, true) ~= nil, true, "the quarter, then rests to the barline:\n" .. text)
+  eq(
+    text:find("  s1v2: E4/1:4  r/1:4  r/1:2", 1, true) ~= nil,
+    true,
+    "the quarter, then rests to the barline:\n" .. text
+  )
 end)
 
 test("musicxml: a lead sheet keeps its pickup, chord symbols, lyrics in verses, rehearsal mark and text", function()
@@ -394,11 +425,26 @@ test("musicxml: a lead sheet keeps its pickup, chord symbols, lyrics in verses, 
   local sc = file.parts[1].score
   local text = describe(sc)
   eq(D.origin(sc), -2 * D.Q, "a pickup of one beat in 3/4: the bar starts two beats before the clip")
-  eq(text:find("  s1v1: r/1:2  G4/1:4 lyric=Oh lyrics=And", 1, true) ~= nil, true, "the pickup's note after the bar's empty start:\n" .. text)
-  eq(text:find("C5/1:4 lyric=hap- lyrics=sing-  B4/1:4 lyric=py lyrics=ing  A4/1:4 lyric=day_ lyrics=now", 1, true) ~= nil, true, "hyphens and an extender, two verses")
+  eq(
+    text:find("  s1v1: r/1:2  G4/1:4 lyric=Oh lyrics=And", 1, true) ~= nil,
+    true,
+    "the pickup's note after the bar's empty start:\n" .. text
+  )
+  eq(
+    text:find("C5/1:4 lyric=hap- lyrics=sing-  B4/1:4 lyric=py lyrics=ing  A4/1:4 lyric=day_ lyrics=now", 1, true)
+      ~= nil,
+    true,
+    "hyphens and an extender, two verses"
+  )
   eq(text:find("m2 rehearsal A", 1, true) ~= nil, true, "the rehearsal mark")
-  for _, want in ipairs({ "mark chord 30240 value=C", "mark chord 50400 value=Am7", "mark chord 60480 value=F/A",
-    "mark chord 80640 value=G7", "mark chord 90720 value=N.C.", "mark text 30240 value=dolce" }) do
+  for _, want in ipairs({
+    "mark chord 30240 value=C",
+    "mark chord 50400 value=Am7",
+    "mark chord 60480 value=F/A",
+    "mark chord 80640 value=G7",
+    "mark chord 90720 value=N.C.",
+    "mark text 30240 value=dolce",
+  }) do
     eq(text:find(want, 1, true) ~= nil, true, want)
   end
 end)
@@ -427,9 +473,25 @@ test("musicxml: tuplets, grace notes, ornaments and dynamics; what cannot be kep
   local mx = load()
   local file = assert(mx.parse(TUPLETS))
   local text = describe(file.parts[1].score)
-  eq(text:find("C5/1:8{3:2#1}  D5/1:8{3:2#1}  E5/1:8{3:2#1}  F5/1:16{5:4#4}", 1, true) ~= nil, true, "a triplet and a quintuplet:\n" .. text)
-  eq(text:find("D5/1:8 gacciaccatura  C5/1:4 orn=trill  B4/1:8 gappoggiatura  A4/1:4 orn=mordent", 1, true) ~= nil, true, "grace notes and ornaments")
-  eq(text:find("C4+E4+G4/1:4 [accent] arpeggio=up  E5/1:4 [tenuto] orn=prall  G5/1:4 [marcato,staccatissimo]  C6/1:4 [fermata_short] orn=turn", 1, true) ~= nil, true, "marks on chords")
+  eq(
+    text:find("C5/1:8{3:2#1}  D5/1:8{3:2#1}  E5/1:8{3:2#1}  F5/1:16{5:4#4}", 1, true) ~= nil,
+    true,
+    "a triplet and a quintuplet:\n" .. text
+  )
+  eq(
+    text:find("D5/1:8 gacciaccatura  C5/1:4 orn=trill  B4/1:8 gappoggiatura  A4/1:4 orn=mordent", 1, true) ~= nil,
+    true,
+    "grace notes and ornaments"
+  )
+  eq(
+    text:find(
+      "C4+E4+G4/1:4 [accent] arpeggio=up  E5/1:4 [tenuto] orn=prall  G5/1:4 [marcato,staccatissimo]  C6/1:4 [fermata_short] orn=turn",
+      1,
+      true
+    ) ~= nil,
+    true,
+    "marks on chords"
+  )
   eq(text:find("mark dynamic 40320 value=sfz", 1, true) ~= nil, true, "sfz")
   eq(text:find("mark dynamic 50400 value=p subito=true", 1, true) ~= nil, true, "p subito")
   eq(text:find("mark hairpin 60480 to 70560 value=dim niente=true", 1, true) ~= nil, true, "a diminuendo to nothing")
@@ -438,7 +500,13 @@ end)
 
 -- Round trips -----------------------------------------------------------------------------------
 
-for name, fixture in pairs({ piano = PIANO, ["lead sheet"] = LEAD, changes = CHANGES, repeats = REPEATS, tuplets = TUPLETS }) do
+for name, fixture in pairs({
+  piano = PIANO,
+  ["lead sheet"] = LEAD,
+  changes = CHANGES,
+  repeats = REPEATS,
+  tuplets = TUPLETS,
+}) do
   test("musicxml: the " .. name .. " written out and read back is the same score", function()
     local mx = load()
     local a, b, out = round(fixture)
@@ -452,8 +520,12 @@ end
 
 test("musicxml: a slur written out ends on a chord of the voice it starts in", function()
   local _, _, out = round(PIANO)
-  local stop = out:match("<note[^>\n]*>[^\n]-slur type=\"stop\"[^\n]-</note>")
-  eq(stop and stop:find("<voice>1</voice>", 1, true) ~= nil and stop:find("<step>A</step>", 1, true) ~= nil, true, tostring(stop))
+  local stop = out:match('<note[^>\n]*>[^\n]-slur type="stop"[^\n]-</note>')
+  eq(
+    stop and stop:find("<voice>1</voice>", 1, true) ~= nil and stop:find("<step>A</step>", 1, true) ~= nil,
+    true,
+    tostring(stop)
+  )
 end)
 
 test("musicxml: a .mxl, zipped as MuseScore writes it (deflated), reads as the score inside", function()
@@ -468,43 +540,50 @@ test("musicxml: a .mxl, zipped as MuseScore writes it (deflated), reads as the s
   path = T.scratch .. "/mx-deflated.mxl"
   write_file(path, bytes)
   local text = describe(assert(mx.read(path)).parts[1].score)
-  eq(text:find("  s1v1: B5/1:2", 1, true) ~= nil and text:find("m14", 1, true) ~= nil, true, "dynamic codes: all fourteen bars, the last a B:\n" .. text)
+  eq(
+    text:find("  s1v1: B5/1:2", 1, true) ~= nil and text:find("m14", 1, true) ~= nil,
+    true,
+    "dynamic codes: all fourteen bars, the last a B:\n" .. text
+  )
 end)
 
 -- The project ----------------------------------------------------------------------------------
 
-test("musicxml: :open makes a project of the file, its tempo, title, key and marker; the score plays what it says", function()
-  fresh()
-  load()
-  local path = T.scratch .. "/mx-piano.musicxml"
-  write_file(path, PIANO)
-  paw.commands.exec("open! " .. path)
-  local tracks = paw.tracks()
-  eq(#tracks, 1, "a track for the part")
-  eq(tracks[1].name, "Piano", "named after it")
-  eq(api.project_get("name"), "mx-piano", "the project is named after the file")
-  eq(api.project_get("path"), nil, "and has no file of its own")
-  eq(api.project_get().meta.title, "Little Piece", "the title for the page")
-  eq(math.floor(paw.tempo.at(0) + 0.5), 72, "the tempo mark's bpm is the song's tempo")
-  local clip = tracks[1]:clips()[1]
-  require("notation")
-  eq((clip:notes()[1].meta or {}).notation ~= nil, true, "a MIDI clip whose notes keep what the score decided")
-  local found
-  for _, n in ipairs(clip:notes()) do
-    if n.pitch == 81 then
-      eq(found, nil, "the tied A is one note")
-      found = n
+test(
+  "musicxml: :open makes a project of the file, its tempo, title, key and marker; the score plays what it says",
+  function()
+    fresh()
+    load()
+    local path = T.scratch .. "/mx-piano.musicxml"
+    write_file(path, PIANO)
+    paw.commands.exec("open! " .. path)
+    local tracks = paw.tracks()
+    eq(#tracks, 1, "a track for the part")
+    eq(tracks[1].name, "Piano", "named after it")
+    eq(api.project_get("name"), "mx-piano", "the project is named after the file")
+    eq(api.project_get("path"), nil, "and has no file of its own")
+    eq(api.project_get().meta.title, "Little Piece", "the title for the page")
+    eq(math.floor(paw.tempo.at(0) + 0.5), 72, "the tempo mark's bpm is the song's tempo")
+    local clip = tracks[1]:clips()[1]
+    require("notation")
+    eq((clip:notes()[1].meta or {}).notation ~= nil, true, "a MIDI clip whose notes keep what the score decided")
+    local found
+    for _, n in ipairs(clip:notes()) do
+      if n.pitch == 81 then
+        eq(found, nil, "the tied A is one note")
+        found = n
+      end
     end
+    eq(found and math.floor(found.start * 1000 + 0.5) / 1000, 2, "it starts on beat 3")
+    eq(found and math.floor(found.length * 1000 + 0.5) / 1000, 3, "and lasts the half and the quarter tied")
+    eq(clip:notes()[1].velocity, 52, "p")
+    local programs = 0
+    for _, k in ipairs(clip:controls()) do
+      if k.type == "program" and k.program == 0 then programs = programs + 1 end
+    end
+    eq(programs, 1, "the part's program as a program change")
   end
-  eq(found and math.floor(found.start * 1000 + 0.5) / 1000, 2, "it starts on beat 3")
-  eq(found and math.floor(found.length * 1000 + 0.5) / 1000, 3, "and lasts the half and the quarter tied")
-  eq(clip:notes()[1].velocity, 52, "p")
-  local programs = 0
-  for _, k in ipairs(clip:controls()) do
-    if k.type == "program" and k.program == 0 then programs = programs + 1 end
-  end
-  eq(programs, 1, "the part's program as a program change")
-end)
+)
 
 test("musicxml: grace notes play before the beat or on it, and a pickup's clip starts at its note", function()
   fresh()
@@ -517,10 +596,21 @@ test("musicxml: grace notes play before the beat or on it, and a pickup's clip s
   local clip = track:clips()[1]
   eq(clip:get().start, 8, "the first bar at the cursor")
   local at = {}
-  for _, n in ipairs(clip:notes()) do at[#at + 1] = string.format("%s@%g+%g", paw.music.name(n.pitch), math.floor(n.start * 1e4 + 0.5) / 1e4, math.floor(n.length * 1e4 + 0.5) / 1e4) end
+  for _, n in ipairs(clip:notes()) do
+    at[#at + 1] = string.format(
+      "%s@%g+%g",
+      paw.music.name(n.pitch),
+      math.floor(n.start * 1e4 + 0.5) / 1e4,
+      math.floor(n.length * 1e4 + 0.5) / 1e4
+    )
+  end
   local text = table.concat(at, " ")
   eq(text:find("D5@1.875+0.125", 1, true) ~= nil, true, "the acciaccatura a 32nd before beat 3: " .. text)
-  eq(text:find("B4@2.875+0.125", 1, true) ~= nil and text:find("A4@3+", 1, true) ~= nil, true, "the appoggiatura a 32nd before beat 4, its note on the beat: " .. text)
+  eq(
+    text:find("B4@2.875+0.125", 1, true) ~= nil and text:find("A4@3+", 1, true) ~= nil,
+    true,
+    "the appoggiatura a 32nd before beat 4, its note on the beat: " .. text
+  )
   eq(text:find("D5@0.3333+", 1, true) ~= nil, true, "the triplet's second note a third of a beat in")
   fresh()
   path = T.scratch .. "/mx-lead.musicxml"
@@ -531,7 +621,9 @@ test("musicxml: grace notes play before the beat or on it, and a pickup's clip s
   eq(clip:get().start, 2, "the pickup's note on beat 3 of the first bar")
   eq(clip:notes()[1].start, 0, "where the clip starts")
   local names = {}
-  for _, m in ipairs(require("paw.markers").list()) do names[#names + 1] = m.name .. "@" .. m.beat end
+  for _, m in ipairs(require("paw.markers").list()) do
+    names[#names + 1] = m.name .. "@" .. m.beat
+  end
   eq(table.concat(names, " "), "A@3", "a marker at the rehearsal mark")
   local num, den = paw.tempo.signature_at(1)
   eq(num .. "/" .. den, "3/4", "the time signature with tempo=yes")
@@ -569,20 +661,44 @@ test("musicxml: LilyPond is written from the score with its changes, endings, tu
     return ly.write({ { name = file.parts[1].name, score = file.parts[1].score } }, { title = "t" })
   end
   local a = lily(CHANGES)
-  for _, want in ipairs({ "\\key es \\major", "\\time 3/4", "\\clef bass", "\\key c \\minor", "\\time 3,3,2 8/8", '\\clef "treble_8"', "\\defaultTimeSignature" }) do
+  for _, want in ipairs({
+    "\\key es \\major",
+    "\\time 3/4",
+    "\\clef bass",
+    "\\key c \\minor",
+    "\\time 3,3,2 8/8",
+    '\\clef "treble_8"',
+    "\\defaultTimeSignature",
+  }) do
     eq(a:find(want, 1, true) ~= nil, true, want .. " in\n" .. a)
   end
   local b = lily(REPEATS)
-  for _, want in ipairs({ '\\bar ".|:"', '\\bar ":|."', "(volta \"1.\")", "(volta \"2.\")", '\\bar "||"', '\\bar "|."' }) do
+  for _, want in ipairs({ '\\bar ".|:"', '\\bar ":|."', '(volta "1.")', '(volta "2.")', '\\bar "||"', '\\bar "|."' }) do
     eq(b:find(want, 1, true) ~= nil, true, want .. " in\n" .. b)
   end
   local c = lily(TUPLETS)
-  for _, want in ipairs({ "\\tuplet 3/2 {", "\\tuplet 5/4 {", "\\acciaccatura { d''8 }", "\\appoggiatura { b'8 }", "\\trill", "\\sfz",
-    "\\arpeggio", "\\shortfermata", "\\>", "\\!" }) do
+  for _, want in ipairs({
+    "\\tuplet 3/2 {",
+    "\\tuplet 5/4 {",
+    "\\acciaccatura { d''8 }",
+    "\\appoggiatura { b'8 }",
+    "\\trill",
+    "\\sfz",
+    "\\arpeggio",
+    "\\shortfermata",
+    "\\>",
+    "\\!",
+  }) do
     eq(c:find(want, 1, true) ~= nil, true, want .. " in\n" .. c)
   end
   local d = lily(LEAD)
-  for _, want in ipairs({ "\\partial 4*1", '\\mark "A"', '\\lyricsto "p1s1v1" { "Oh" "hap" -- "py" "day" __', '"And" "sing" -- "ing" "now"', '^\\markup { "Am7" }' }) do
+  for _, want in ipairs({
+    "\\partial 4*1",
+    '\\mark "A"',
+    '\\lyricsto "p1s1v1" { "Oh" "hap" -- "py" "day" __',
+    '"And" "sing" -- "ing" "now"',
+    '^\\markup { "Am7" }',
+  }) do
     eq(d:find(want, 1, true) ~= nil, true, want .. " in\n" .. d)
   end
   local e = lily(PIANO)

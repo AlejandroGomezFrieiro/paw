@@ -15,50 +15,132 @@ local files = arg or { ... }
 
 -- Unapproved words and phrases, and what to write instead.
 local WORDS = {
-  ["ensure"] = "make sure", ["ensures"] = "makes sure", ["verify"] = "make sure", ["verifies"] = "makes sure",
-  ["utilize"] = "use", ["utilise"] = "use", ["via"] = "through", ["e.g."] = "for example",
-  ["i.e."] = "that is", ["etc."] = "and other ...", ["simply"] = "(remove)", ["basically"] = "(remove)",
-  ["obviously"] = "(remove)", ["approximately"] = "about", ["prior"] = "before", ["subsequently"] = "then",
-  ["thus"] = "so, then", ["hence"] = "so", ["whilst"] = "while", ["amongst"] = "among", ["upon"] = "on",
-  ["whereas"] = "but", ["therefore"] = "so", ["additionally"] = "also", ["furthermore"] = "also",
-  ["moreover"] = "also", ["however"] = "but", ["whether"] = "if", ["regarding"] = "about",
-  ["numerous"] = "many", ["sufficient"] = "enough", ["commence"] = "start", ["terminate"] = "stop",
-  ["attempt"] = "try", ["obtain"] = "get", ["retrieve"] = "get", ["modify"] = "change",
-  ["perform"] = "do", ["performs"] = "does", ["facilitate"] = "help", ["leverage"] = "use",
-  ["handy"] = "useful", ["lots"] = "many", ["gonna"] = "will", ["kinda"] = "(remove)",
+  ["ensure"] = "make sure",
+  ["ensures"] = "makes sure",
+  ["verify"] = "make sure",
+  ["verifies"] = "makes sure",
+  ["utilize"] = "use",
+  ["utilise"] = "use",
+  ["via"] = "through",
+  ["e.g."] = "for example",
+  ["i.e."] = "that is",
+  ["etc."] = "and other ...",
+  ["simply"] = "(remove)",
+  ["basically"] = "(remove)",
+  ["obviously"] = "(remove)",
+  ["approximately"] = "about",
+  ["prior"] = "before",
+  ["subsequently"] = "then",
+  ["thus"] = "so, then",
+  ["hence"] = "so",
+  ["whilst"] = "while",
+  ["amongst"] = "among",
+  ["upon"] = "on",
+  ["whereas"] = "but",
+  ["therefore"] = "so",
+  ["additionally"] = "also",
+  ["furthermore"] = "also",
+  ["moreover"] = "also",
+  ["however"] = "but",
+  ["whether"] = "if",
+  ["regarding"] = "about",
+  ["numerous"] = "many",
+  ["sufficient"] = "enough",
+  ["commence"] = "start",
+  ["terminate"] = "stop",
+  ["attempt"] = "try",
+  ["obtain"] = "get",
+  ["retrieve"] = "get",
+  ["modify"] = "change",
+  ["perform"] = "do",
+  ["performs"] = "does",
+  ["facilitate"] = "help",
+  ["leverage"] = "use",
+  ["handy"] = "useful",
+  ["lots"] = "many",
+  ["gonna"] = "will",
+  ["kinda"] = "(remove)",
 }
 local PHRASES = {
-  { "in order to", "to" }, { "set up", "configure, prepare" }, { "sets up", "configures" },
-  { "look up", "find" }, { "looks up", "finds" }, { "turn on", "enable, start" }, { "turn off", "disable, stop" },
-  { "go back", "return" }, { "goes back", "returns" }, { "carry out", "do" }, { "find out", "find" },
-  { "pick up", "get" }, { "make up", "make" }, { "fill in", "write" }, { "point out", "show" },
-  { "come back", "return" }, { "comes back", "returns" }, { "give up", "stop" }, { "put in", "add" },
-  { "take out", "remove" }, { "out of the box", "(remove)" }, { "under the hood", "inside" },
-  { "a lot of", "many, much" }, { "as well as", "and" }, { "so that", "(two sentences, or: to)" },
-  { "in case", "if" }, { "as soon as", "when" }, { "a number of", "some, many" }, { "no-op", "does nothing" },
+  { "in order to", "to" },
+  { "set up", "configure, prepare" },
+  { "sets up", "configures" },
+  { "look up", "find" },
+  { "looks up", "finds" },
+  { "turn on", "enable, start" },
+  { "turn off", "disable, stop" },
+  { "go back", "return" },
+  { "goes back", "returns" },
+  { "carry out", "do" },
+  { "find out", "find" },
+  { "pick up", "get" },
+  { "make up", "make" },
+  { "fill in", "write" },
+  { "point out", "show" },
+  { "come back", "return" },
+  { "comes back", "returns" },
+  { "give up", "stop" },
+  { "put in", "add" },
+  { "take out", "remove" },
+  { "out of the box", "(remove)" },
+  { "under the hood", "inside" },
+  { "a lot of", "many, much" },
+  { "as well as", "and" },
+  { "so that", "(two sentences, or: to)" },
+  { "in case", "if" },
+  { "as soon as", "when" },
+  { "a number of", "some, many" },
+  { "no-op", "does nothing" },
 }
 local BRITISH = {
-  colour = "color", colours = "colors", coloured = "colored", behaviour = "behavior", behaviours = "behaviors",
-  centre = "center", centres = "centers", licence = "license", licences = "licenses", grey = "gray",
-  favour = "favor", favourite = "favorite", neighbour = "neighbor", neighbours = "neighbors",
-  analyse = "analyze", catalogue = "catalog", dialogue = "dialog", metre = "meter", fibre = "fiber",
-  programme = "program", travelled = "traveled", cancelled = "canceled", labelled = "labeled",
-  modelled = "modeled", signalling = "signaling",
+  colour = "color",
+  colours = "colors",
+  coloured = "colored",
+  behaviour = "behavior",
+  behaviours = "behaviors",
+  centre = "center",
+  centres = "centers",
+  licence = "license",
+  licences = "licenses",
+  grey = "gray",
+  favour = "favor",
+  favourite = "favorite",
+  neighbour = "neighbor",
+  neighbours = "neighbors",
+  analyse = "analyze",
+  catalogue = "catalog",
+  dialogue = "dialog",
+  metre = "meter",
+  fibre = "fiber",
+  programme = "program",
+  travelled = "traveled",
+  cancelled = "canceled",
+  labelled = "labeled",
+  modelled = "modeled",
+  signalling = "signaling",
 }
 -- Words in "-ing" that are not verb forms.
 local ING = {}
-for w in ([[thing things nothing something anything everything string strings during bring brings
+for w in
+  ([[thing things nothing something anything everything string strings during bring brings
   ring rings king spring sing sings swing wing ping pings ceiling ceilings morning evening
   setting settings heading headings recording recordings binding bindings drawing drawings
   mapping mappings meaning meanings warning warnings timing timings rendering ending endings
   beginning padding offset spacing building wiring routing listing listings keyring
-  thinking reading writing rating swing swings ming bling sting sling]]):gmatch("%S+") do ING[w] = true end
+  thinking reading writing rating swing swings ming bling sting sling]]):gmatch("%S+")
+do
+  ING[w] = true
+end
 
 -- Stems of verbs that American spelling writes with -ize.
 local IZE = {}
-for w in ([[organ recogn real normal optim initial serial custom summar priorit synchron
+for w in
+  ([[organ recogn real normal optim initial serial custom summar priorit synchron
   visual minim maxim final standard categor author special util emphas memor quant local
-  random sanit token parameter apolog critic character general special harmon stabil]]):gmatch("%S+") do IZE[w] = true end
+  random sanit token parameter apolog critic character general special harmon stabil]]):gmatch("%S+")
+do
+  IZE[w] = true
+end
 
 local function is_british_ise(w)
   local stem = w:match("^(%a+)is[ei][ds]?$") or w:match("^(%a+)ising$") or w:match("^(%a+)isations?$")
@@ -95,7 +177,9 @@ local function sentences_of(text)
     end
   end
   if text:sub(start):match("%S") then out[#out + 1] = text:sub(start) end
-  for i, s in ipairs(out) do out[i] = s:gsub("\1", "."):match("^%s*(.-)%s*$") end
+  for i, s in ipairs(out) do
+    out[i] = s:gsub("\1", "."):match("^%s*(.-)%s*$")
+  end
   return out
 end
 
@@ -104,25 +188,44 @@ local function check_sentence(path, line, s, limit)
   if #ws > limit then report(path, line, string.format("%d words (at most %d): %s", #ws, limit, s:sub(1, 70))) end
   local plain = (" " .. s:gsub("`[^`]*`", " "):gsub("%b()", " "):lower() .. " ")
   if plain:find(";", 1, true) then report(path, line, "semicolon: write two sentences") end
-  if plain:match("%a+n't") or plain:match("%a+'re%f[%A]") or plain:match("%a+'ve%f[%A]") or plain:match("%a+'ll%f[%A]") or plain:match("%f[%a]i'm%f[%A]") or plain:match("%a+'d%f[%A]") then
+  if
+    plain:match("%a+n't")
+    or plain:match("%a+'re%f[%A]")
+    or plain:match("%a+'ve%f[%A]")
+    or plain:match("%a+'ll%f[%A]")
+    or plain:match("%f[%a]i'm%f[%A]")
+    or plain:match("%a+'d%f[%A]")
+  then
     report(path, line, "contraction: write the words in full")
   end
   for w in plain:gmatch("%a+") do
     if WORDS[w] then report(path, line, string.format("'%s': write %s", w, WORDS[w])) end
     if BRITISH[w] then report(path, line, string.format("'%s': American spelling is '%s'", w, BRITISH[w])) end
     if is_british_ise(w) then report(path, line, string.format("'%s': American spelling ends in -ize", w)) end
-    if w:match("^%a%a%a+ing$") and not ING[w] then report(path, line, string.format("'%s': an -ing form (only in a technical name)", w)) end
+    if w:match("^%a%a%a+ing$") and not ING[w] then
+      report(path, line, string.format("'%s': an -ing form (only in a technical name)", w))
+    end
   end
   for _, abbr in ipairs({ "e.g.", "i.e.", "etc." }) do
     if plain:find(abbr, 1, true) then report(path, line, string.format("'%s': write %s", abbr, WORDS[abbr])) end
   end
   for _, p in ipairs(PHRASES) do
-    if plain:find("%f[%a]" .. p[1]:gsub("%-", "%%-") .. "%f[%A]") then report(path, line, string.format("'%s': write %s", p[1], p[2])) end
+    if plain:find("%f[%a]" .. p[1]:gsub("%-", "%%-") .. "%f[%A]") then
+      report(path, line, string.format("'%s': write %s", p[1], p[2]))
+    end
   end
-  if plain:match("%f[%a]ha[sv]e? been%f[%A]") or plain:match("%f[%a]ha[sv]e? %a+ed%f[%A]") or plain:match("%f[%a]had %a+ed%f[%A]") then
+  if
+    plain:match("%f[%a]ha[sv]e? been%f[%A]")
+    or plain:match("%f[%a]ha[sv]e? %a+ed%f[%A]")
+    or plain:match("%f[%a]had %a+ed%f[%A]")
+  then
     report(path, line, "present perfect: use the simple present or past")
   end
-  if plain:match("%f[%a][ai][rs]e? %a+ed by%f[%A]") or plain:match("%f[%a]w[ae][rs]e? %a+ed by%f[%A]") or plain:match("%f[%a]been %a+ed by%f[%A]") then
+  if
+    plain:match("%f[%a][ai][rs]e? %a+ed by%f[%A]")
+    or plain:match("%f[%a]w[ae][rs]e? %a+ed by%f[%A]")
+    or plain:match("%f[%a]been %a+ed by%f[%A]")
+  then
     report(path, line, "passive with 'by': write it in the active voice")
   end
   if plain:match("%f[%a][ai][rs]e? %a+ing%f[%A]") and not plain:match("[ai][rs]e? %a+ing [%a]") then
@@ -134,7 +237,10 @@ end
 for _, path in ipairs(files) do
   if path:match("reference/api%.md$") or path:match("tutorials/course/") then goto continue end
   local f = io.open(path, "rb")
-  if not f then report(path, 0, "cannot read") goto continue end
+  if not f then
+    report(path, 0, "cannot read")
+    goto continue
+  end
   checked = checked + 1
   local text = f:read("*a")
   f:close()
@@ -145,7 +251,9 @@ for _, path in ipairs(files) do
       local body = table.concat(para, " ")
       local ss = sentences_of(body)
       if #ss > 6 then report(path, para_line, string.format("paragraph of %d sentences (at most 6)", #ss)) end
-      for _, s in ipairs(ss) do check_sentence(path, para_line, s, limit) end
+      for _, s in ipairs(ss) do
+        check_sentence(path, para_line, s, limit)
+      end
     end
     para = {}
   end

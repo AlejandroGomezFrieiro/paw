@@ -11,7 +11,9 @@ local keys = T.keys
 local function start()
   fresh()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   paw.ui.focus("arrange")
 end
 
@@ -60,7 +62,11 @@ test("guide: save, back up and open projects", function()
   eq(paw.project.path, d .. "/second/project.toml", ":e! drops it and opens the other project")
   keys("3-")
   keys(":e!<CR>")
-  eq(paw.project.path .. " " .. tostring(paw.project.unsaved()), d .. "/second/project.toml false", ":e! alone opens the project again as saved")
+  eq(
+    paw.project.path .. " " .. tostring(paw.project.unsaved()),
+    d .. "/second/project.toml false",
+    ":e! alone opens the project again as saved"
+  )
   -- A name alone goes next to the project's folder.
   keys(":w guide-save-test<CR>")
   eq(exists(d .. "/guide-save-test/project.toml"), true, ":w name saves next to the project's folder")
@@ -75,8 +81,16 @@ test("guide: save, back up and open projects", function()
   eq(paw.files.here(), d .. "/guide-save-test", ":cd - returns to the folder before")
   -- A name that ends in .json is a folder too: one JSON file is only paw's own safety copy.
   keys(":w " .. d .. "/third.json<CR>")
-  eq(exists(d .. "/third/project.toml") and not exists(d .. "/third.json"), true, ":w third.json saves the folder third")
-  eq(paw.ui.message.text, "a project is a folder: saved it in third/, not in third.json: " .. d .. "/third/project.toml", "and says where")
+  eq(
+    exists(d .. "/third/project.toml") and not exists(d .. "/third.json"),
+    true,
+    ":w third.json saves the folder third"
+  )
+  eq(
+    paw.ui.message.text,
+    "a project is a folder: saved it in third/, not in third.json: " .. d .. "/third/project.toml",
+    "and says where"
+  )
   keys(":set autosave 30<CR>")
   eq(paw.opt.autosave, 30, ":set autosave 30 makes a safety copy every 30 seconds")
   paw.opt.autosave = 0
@@ -107,15 +121,25 @@ test("guide: a new project is saved in the folder paw started in, as in Neovim",
   keys(":w<CR>")
   local cmdline = require("paw.views.cmdline")
   local state = cmdline.state()
-  eq(state ~= nil and state.prompt:find("Save as (" .. started .. ")", 1, true) ~= nil, true, ":w on a new project asks for a name, in the folder paw started in")
+  eq(
+    state ~= nil and state.prompt:find("Save as (" .. started .. ")", 1, true) ~= nil,
+    true,
+    ":w on a new project asks for a name, in the folder paw started in"
+  )
   eq(state and state.before, "untitled", "the prompt holds the name of the project")
   keys("<CR>")
   eq(exists(started .. "/untitled/project.toml"), true, "the name alone goes to that folder")
   -- Every file list starts there too.
   keys(":import<CR>")
-  eq(table.concat(paw.api.ui_snapshot(140, 30), "\n"):find(started, 1, true) ~= nil, true, ":import lists the folder paw started in")
+  eq(
+    table.concat(paw.api.ui_snapshot(140, 30), "\n"):find(started, 1, true) ~= nil,
+    true,
+    ":import lists the folder paw started in"
+  )
   keys("<Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   -- `..` and `~` go elsewhere.
   paw.project.new()
   T.tone("Lead", 4)
@@ -149,7 +173,11 @@ test("guide: import audio and MIDI files", function()
   keys("5|")
   keys(":clip.import " .. lib .. "/loop.wav<CR>")
   local t2 = paw.tracks()[2]
-  eq(#t2:clips() .. "@" .. t2:clips()[1].start, "1@16", ":clip.import puts it on the track of the cursor, at the cursor")
+  eq(
+    #t2:clips() .. "@" .. t2:clips()[1].start,
+    "1@16",
+    ":clip.import puts it on the track of the cursor, at the cursor"
+  )
   keys(":import " .. lib .. "/riff.mid<CR>")
   eq(#paw.tracks(), 3, ":import adds the tracks of a MIDI file")
   eq(paw.tracks()[3]:clips()[1].kind, "midi", "with their notes")
@@ -167,7 +195,9 @@ test("guide: import audio and MIDI files", function()
   keys(":media.collect<CR>")
   for _, t in ipairs(paw.tracks()) do
     for _, c in ipairs(t:clips()) do
-      if c.kind == "audio" then eq(c:get().file, d .. "/song/media/loop.wav", ":media.collect copies the files into media") end
+      if c.kind == "audio" then
+        eq(c:get().file, d .. "/song/media/loop.wav", ":media.collect copies the files into media")
+      end
     end
   end
 end)

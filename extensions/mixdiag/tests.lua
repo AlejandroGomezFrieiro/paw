@@ -35,8 +35,18 @@ local function wav(name, seconds, fn)
     out[#out + 1] = s16(l) .. s16(r)
   end
   local data = table.concat(out)
-  local header = "RIFF" .. u32(36 + #data) .. "WAVEfmt " .. u32(16) .. u16(1) .. u16(2) .. u32(sr) .. u32(sr * 4)
-    .. u16(4) .. u16(16) .. "data" .. u32(#data)
+  local header = "RIFF"
+    .. u32(36 + #data)
+    .. "WAVEfmt "
+    .. u32(16)
+    .. u16(1)
+    .. u16(2)
+    .. u32(sr)
+    .. u32(sr * 4)
+    .. u16(4)
+    .. u16(16)
+    .. "data"
+    .. u32(#data)
   local path = scratch .. "/" .. name
   T.write_file(path, header .. data)
   return path
@@ -54,8 +64,12 @@ end
 local function synth(name, start, length, opts)
   local t = paw.add_track({ name = name, volume = opts and opts.volume or 0 })
   t:add_device("synth", { wave = opts and opts.wave or 0, attack = 0.005, release = 0.05, sustain = 1 })
-  t:add_clip({ name = name, start = start, length = length,
-    notes = { { pitch = opts and opts.pitch or "A3", start = 0, length = length } } })
+  t:add_clip({
+    name = name,
+    start = start,
+    length = length,
+    notes = { { pitch = opts and opts.pitch or "A3", start = 0, length = length } },
+  })
   return t
 end
 
@@ -75,7 +89,9 @@ end
 
 local function describe(findings)
   local lines = {}
-  for _, f in ipairs(findings) do lines[#lines + 1] = f.severity .. " " .. f.rule .. ": " .. mixdiag.format(f) end
+  for _, f in ipairs(findings) do
+    lines[#lines + 1] = f.severity .. " " .. f.rule .. ": " .. mixdiag.format(f)
+  end
   return table.concat(lines, "\n")
 end
 
@@ -197,7 +213,11 @@ test("mixdiag: the findings are diagnostics on their tracks, fixed from the mixe
   paw.ui.focus("mixer")
   paw.cursor.set_track(hot.id)
   local screen = table.concat(api.ui_snapshot(140, 50), "\n")
-  eq(screen:find(paw.draw.g.warn, 1, true) ~= nil or screen:find(paw.draw.g.error, 1, true) ~= nil, true, "the strip is marked:\n" .. screen)
+  eq(
+    screen:find(paw.draw.g.warn, 1, true) ~= nil or screen:find(paw.draw.g.error, 1, true) ~= nil,
+    true,
+    "the strip is marked:\n" .. screen
+  )
   api.undo_checkpoint()
   paw.keymap.feed("<leader>la")
   local state = paw.pick.state()
@@ -251,17 +271,25 @@ test("mixdiag: DC offset, infrasonic energy and silence at the ends", function()
   load()
   fresh()
   paw.project.tempo = 120
-  audio("Offset", 8, wav("dc.wav", 4, function(t)
-    local x = 0.2 * math.sin(2 * math.pi * 200 * t)
-    return x + 0.05, x
-  end))
-  audio("Rumble", 16, wav("rumble.wav", 4, function(t)
-    local x = 0.5 * math.sin(2 * math.pi * 12 * t)
-    return x, x
-  end))
+  audio(
+    "Offset",
+    8,
+    wav("dc.wav", 4, function(t)
+      local x = 0.2 * math.sin(2 * math.pi * 200 * t)
+      return x + 0.05, x
+    end)
+  )
+  audio(
+    "Rumble",
+    16,
+    wav("rumble.wav", 4, function(t)
+      local x = 0.5 * math.sin(2 * math.pi * 12 * t)
+      return x, x
+    end)
+  )
   local tail = paw.add_track({ name = "Late" })
   tail:add_device("synth")
-  tail:add_clip({ start = 28, length = 8, notes = {} })   -- an empty clip keeps the song going
+  tail:add_clip({ start = 28, length = 8, notes = {} }) -- an empty clip keeps the song going
   local findings = measure()
   local dc = one(findings, "dc", "left side from bar 3 for 4 s")
   eq(mixdiag.format(dc):find("5.00 %%") ~= nil, true, "5 % offset: " .. mixdiag.format(dc))
@@ -293,7 +321,12 @@ test("mixdiag: things that look forgotten", function()
   local findings = measure()
   local forgotten = by_rule(findings, "forgotten")
   local text = describe(forgotten)
-  for _, want in ipairs({ "on Lead is bypassed", "Pad is muted", "Keys has 1 muted clip", "volume automation on Keys is switched off" }) do
+  for _, want in ipairs({
+    "on Lead is bypassed",
+    "Pad is muted",
+    "Keys has 1 muted clip",
+    "volume automation on Keys is switched off",
+  }) do
     eq(text:find(want, 1, true) ~= nil, true, "mentions `" .. want .. "`:\n" .. text)
   end
   -- A bypassed instrument also makes no sound.
@@ -387,10 +420,14 @@ local function findings_at_known_places()
   paw.project.tempo = 120
   paw.opt.mixdiag_target = "none"
   local hot = synth("Hot", 8, 4, { volume = 18, wave = 1 })
-  audio("Wide", 20, wav("flipped2.wav", 3, function(t)
-    local x = 0.5 * math.sin(2 * math.pi * 300 * t)
-    return x, -x
-  end))
+  audio(
+    "Wide",
+    20,
+    wav("flipped2.wav", 3, function(t)
+      local x = 0.5 * math.sin(2 * math.pi * 300 * t)
+      return x, -x
+    end)
+  )
   local keys = synth("Keys", 0, 4, { volume = -20 })
   keys:add_clip({ start = 28, length = 4, notes = { { pitch = 60, start = 0 } } }).muted = true
   measure()
@@ -453,7 +490,9 @@ test("mixdiag: the list of findings, in a picker or in its own view", function()
   for i, item in ipairs(view.items) do
     if item.finding.rule == "phase" then wanted = i end
   end
-  for _ = 1, wanted - 1 do paw.keymap.feed("j") end
+  for _ = 1, wanted - 1 do
+    paw.keymap.feed("j")
+  end
   paw.keymap.feed("<CR>")
   eq(paw.ui.float, nil, "Enter closes it")
   near(paw.cursor.beat, 20, 0.01, "and goes to the finding")
@@ -480,7 +519,9 @@ end)
 local function report_text()
   local painted = paw.canvas.paint("mixdiag", 1200, 400, { cell = { w = 10, h = 20 }, fresh = true })
   local text = {}
-  for _, op in ipairs(painted.ops) do if op[1] == "m" then text[#text + 1] = op[6] end end
+  for _, op in ipairs(painted.ops) do
+    if op[1] == "m" then text[#text + 1] = op[6] end
+  end
   return table.concat(text, " ")
 end
 
@@ -514,7 +555,9 @@ test("mixdiag: the report in a window of its own measures, reads and goes to fin
   local items = mixdiag.items()
   for i, item in ipairs(items) do
     if item.finding.rule == "clip" then
-      for _ = 1, i - 1 do paw.canvas.key("mixdiag", "j") end
+      for _ = 1, i - 1 do
+        paw.canvas.key("mixdiag", "j")
+      end
     end
   end
   paw.canvas.key("mixdiag", "<CR>")
@@ -575,14 +618,18 @@ test("mixdiag: the painted report draws meters, a spectrum and the findings, whi
   paw.ui.focus("arrange")
   paw.keymap.feed("<Esc><Esc>")
   local offered = {}
-  for _, entry in ipairs(paw.canvas.openable()) do offered[entry.name] = true end
+  for _, entry in ipairs(paw.canvas.openable()) do
+    offered[entry.name] = true
+  end
   eq(offered.mixdiag_paint, true, "the window offers the painted report")
   eq(offered.mixdiag, nil, "instead of the terminal's")
   paw.canvas.open("mixdiag_paint")
   local function drawn()
     local ops = paw.canvas.paint("mixdiag_paint", 1000, 560, { fresh = true }).ops
     local texts = {}
-    for _, op in ipairs(ops) do if op[1] == "t" then texts[#texts + 1] = op[4] end end
+    for _, op in ipairs(ops) do
+      if op[1] == "t" then texts[#texts + 1] = op[4] end
+    end
     return ops, table.concat(texts, "\n")
   end
   eq(select(2, drawn()):find("nothing measured yet", 1, true) ~= nil, true, "before a measurement")
@@ -624,33 +671,38 @@ test("mixdiag: the painted report draws meters, a spectrum and the findings, whi
   mixdiag.clear()
 end)
 
-test("mixdiag: <leader>mp opens the painted report in pixels where the terminal shows them, and the report in cells where it does not", function()
-  load()
-  fresh()
-  local function closed()
-    paw.keymap.feed("<Esc><Esc>")
-    while paw.ui.float do paw.ui.close() end
-    paw.ui.hide("mixdiag_paint")
-    paw.ui.focus("arrange")
-  end
-  T.after(function()
-    api.ui_caps_set({ graphics = false, cell = { w = 0, h = 0 } })
-    paw.opt.graphics = true
-    closed()
-  end)
-  for _, on in ipairs({ true, false }) do
-    closed()
-    api.ui_caps_set({ graphics = true, cell = { w = 10, h = 20 }, pixel_mouse = true, fg = "#cdd6f4" })
-    paw.opt.graphics = on
-    paw.keymap.feed("<leader>mp")
-    eq(paw.ui.focused, "mixdiag_paint", "the key opens it, graphics " .. tostring(on))
-    local lines = api.ui_snapshot(100, 30)
-    local surface = (paw.ui.rects.surfaces or {})[1]
-    if on then
-      eq(surface and surface.name, "mixdiag_paint", "pixels: it keeps a surface")
-    else
-      eq(surface, nil, "cells: no surface")
-      eq(table.concat(lines, "\n"):find("nothing measured yet", 1, true) ~= nil, true, "the report is drawn in cells")
+test(
+  "mixdiag: <leader>mp opens the painted report in pixels where the terminal shows them, and the report in cells where it does not",
+  function()
+    load()
+    fresh()
+    local function closed()
+      paw.keymap.feed("<Esc><Esc>")
+      while paw.ui.float do
+        paw.ui.close()
+      end
+      paw.ui.hide("mixdiag_paint")
+      paw.ui.focus("arrange")
+    end
+    T.after(function()
+      api.ui_caps_set({ graphics = false, cell = { w = 0, h = 0 } })
+      paw.opt.graphics = true
+      closed()
+    end)
+    for _, on in ipairs({ true, false }) do
+      closed()
+      api.ui_caps_set({ graphics = true, cell = { w = 10, h = 20 }, pixel_mouse = true, fg = "#cdd6f4" })
+      paw.opt.graphics = on
+      paw.keymap.feed("<leader>mp")
+      eq(paw.ui.focused, "mixdiag_paint", "the key opens it, graphics " .. tostring(on))
+      local lines = api.ui_snapshot(100, 30)
+      local surface = (paw.ui.rects.surfaces or {})[1]
+      if on then
+        eq(surface and surface.name, "mixdiag_paint", "pixels: it keeps a surface")
+      else
+        eq(surface, nil, "cells: no surface")
+        eq(table.concat(lines, "\n"):find("nothing measured yet", 1, true) ~= nil, true, "the report is drawn in cells")
+      end
     end
   end
-end)
+)

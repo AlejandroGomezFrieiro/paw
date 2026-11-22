@@ -58,8 +58,17 @@ end)
 local loaded = #api.track_list()
 os.execute("rm -rf '" .. path .. "'")
 B.emit({
-  workload = "saveload", form = one_file and "json" or "folder", tracks = tracks, clips_per_track = clips,
-  build_ms = build_ms, save_ms = save_ms, resave_ms = resave_ms, load_ms = load_ms, file_bytes = bytes,
-  files = files, loaded_tracks = loaded, rss_kb = B.rss(),
+  workload = "saveload",
+  form = one_file and "json" or "folder",
+  tracks = tracks,
+  clips_per_track = clips,
+  build_ms = build_ms,
+  save_ms = save_ms,
+  resave_ms = resave_ms,
+  load_ms = load_ms,
+  file_bytes = bytes,
+  files = files,
+  loaded_tracks = loaded,
+  rss_kb = B.rss(),
 })
 api.quit(0)

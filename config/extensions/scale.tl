@@ -14,11 +14,15 @@ local function notes(root: string, scale: string): {string}
   return out
 end
 
-paw.command("scale.notes", function(ctx: paw.contracts.CommandContext)
-  local root, scale = tostring(ctx.args[1] or "C4"), tostring(ctx.args[2] or "major")
-  if not paw.music.scales[scale] then
-    paw.notify("no scale `" .. scale .. "`", "error")
-    return
-  end
-  paw.notify(scale .. " from " .. root .. ": " .. table.concat(notes(root, scale), " "))
-end, { desc = "Say the notes of a scale: `scale.notes C4 dorian`" })
+paw.command(
+  "scale.notes",
+  function(ctx: paw.contracts.CommandContext)
+    local root, scale = tostring(ctx.args[1] or "C4"), tostring(ctx.args[2] or "major")
+    if not paw.music.scales[scale] then
+      paw.notify("no scale `" .. scale .. "`", "error")
+      return
+    end
+    paw.notify(scale .. " from " .. root .. ": " .. table.concat(notes(root, scale), " "))
+  end,
+  {desc = "Say the notes of a scale: `scale.notes C4 dorian`"}
+)

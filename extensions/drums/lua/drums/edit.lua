@@ -15,8 +15,13 @@ local E = {}
 
 --- The steps a grid can have, as `{ beats, label }`, coarse to fine.
 E.steps = {
-  { 1, "1/4" }, { 1 / 2, "1/8" }, { 1 / 3, "1/8T" }, { 1 / 4, "1/16" },
-  { 1 / 6, "1/16T" }, { 1 / 8, "1/32" }, { 1 / 12, "1/32T" },
+  { 1, "1/4" },
+  { 1 / 2, "1/8" },
+  { 1 / 3, "1/8T" },
+  { 1 / 4, "1/16" },
+  { 1 / 6, "1/16T" },
+  { 1 / 8, "1/32" },
+  { 1 / 12, "1/32T" },
 }
 
 function E.step_label(step)
@@ -56,9 +61,7 @@ local function clip_of(clip)
 end
 
 --- The cell a beat falls in.
-function E.cell(beat, step)
-  return math.floor(beat / step + EPS)
-end
+function E.cell(beat, step) return math.floor(beat / step + EPS) end
 
 --- The hit of a pitch in the step that starts at `beat`: the note and its
 --- place among the clip's notes.
@@ -71,9 +74,7 @@ function E.hit(clip, pitch, beat, step)
 end
 
 --- A hit's length: a step, but never past the end of the clip.
-local function hit_length(clip, beat, step)
-  return math.max(EPS * 10, math.min(step, clip.length - beat))
-end
+local function hit_length(clip, beat, step) return math.max(EPS * 10, math.min(step, clip.length - beat)) end
 
 --- Put a hit in, or take it out. `on` nil toggles. Returns whether there is
 --- a hit there afterwards.
@@ -83,8 +84,12 @@ function E.set(clip, pitch, beat, step, on, velocity)
   if on == nil then on = not note end
   if on and not note then
     if beat >= clip.length - EPS then return false end
-    clip:add_note({ pitch = pitch, start = beat, length = hit_length(clip, beat, step),
-      velocity = drums.clamp_velocity(velocity or paw.opt.drums_velocity) })
+    clip:add_note({
+      pitch = pitch,
+      start = beat,
+      length = hit_length(clip, beat, step),
+      velocity = drums.clamp_velocity(velocity or paw.opt.drums_velocity),
+    })
   elseif not on and note then
     clip:remove_note(index)
   elseif on and note and velocity and note.velocity ~= velocity then
@@ -107,7 +112,9 @@ end
 --- The pitches of rows `r0` to `r1` of a list of rows.
 local function pitches(rows, r0, r1)
   local set = {}
-  for r = math.max(1, r0), math.min(#rows, r1) do set[rows[r].note] = r end
+  for r = math.max(1, r0), math.min(#rows, r1) do
+    set[rows[r].note] = r
+  end
   return set
 end
 
@@ -157,7 +164,14 @@ function E.each(clip, rows, region, fn)
   local set = {}
   for i, n in ipairs(notes) do
     fn(n)
-    set[i] = { index = places[i], start = n.start, length = n.length, pitch = n.pitch, velocity = n.velocity, meta = n.meta or {} }
+    set[i] = {
+      index = places[i],
+      start = n.start,
+      length = n.length,
+      pitch = n.pitch,
+      velocity = n.velocity,
+      meta = n.meta or {},
+    }
   end
   if #set > 0 then clip:edit_notes({ set = set }) end
   return #set
@@ -176,7 +190,8 @@ function E.paste(clip, rows, value, row, beat, step)
   end
   local add, finish = {}, beat
   for _, n in ipairs(value.notes) do
-    local note = { pitch = n.pitch, start = n.start, length = n.length, velocity = n.velocity, meta = n.meta, attr = n.attr }
+    local note =
+      { pitch = n.pitch, start = n.start, length = n.length, velocity = n.velocity, meta = n.meta, attr = n.attr }
     if value.shape ~= "line" then note.start = beat + n.start end
     if value.kind == "drums" and value.shape ~= "char" and n.row then
       local target = rows[row + n.row]
@@ -189,7 +204,9 @@ function E.paste(clip, rows, value, row, beat, step)
   end
   if value.shape ~= "line" then finish = math.max(finish, beat + (value.length or 0)) end
   local remove, taken = {}, {}
-  for _, new in ipairs(add) do taken[new.pitch .. ":" .. E.cell(new.start, step)] = true end
+  for _, new in ipairs(add) do
+    taken[new.pitch .. ":" .. E.cell(new.start, step)] = true
+  end
   for index, old in ipairs(clip:notes()) do
     if taken[old.pitch .. ":" .. E.cell(old.start, step)] then remove[#remove + 1] = index end
   end
@@ -216,7 +233,9 @@ function E.repeat_bar(clip, beat, times)
     end
   end
   for at = b0 + bar, last - bar + EPS, bar do
-    for _, n in ipairs(source) do add[#add + 1] = util.merge(n, { start = n.start - b0 + at }) end
+    for _, n in ipairs(source) do
+      add[#add + 1] = util.merge(n, { start = n.start - b0 + at })
+    end
   end
   if last > clip.length + EPS then clip.length = last end
   clip:edit_notes({ remove = remove, add = add })

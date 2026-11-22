@@ -10,7 +10,9 @@ local W, H = 140, 44
 local arrange = paw.ui.views.arrange
 local roll = paw.ui.views.pianoroll
 local saved = {}
-for _, name in ipairs({ "zoom", "grid", "track_height", "note_zoom", "note_grid", "mouse", "note_snap" }) do saved[name] = paw.opt[name] end
+for _, name in ipairs({ "zoom", "grid", "track_height", "note_zoom", "note_grid", "mouse", "note_snap" }) do
+  saved[name] = paw.opt[name]
+end
 
 local function shot(height) return api.ui_snapshot(W, height or H) end
 local function screen() return table.concat(shot(), "\n") end
@@ -35,9 +37,13 @@ local function start()
   fresh()
   api.engine_restart({ backend = "null" })
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do paw.ui.close() end
+  while paw.ui.float do
+    paw.ui.close()
+  end
   require("paw.menu").close(0)
-  for _, name in ipairs({ "pianoroll", "mixer", "devices" }) do paw.ui.hide(name) end
+  for _, name in ipairs({ "pianoroll", "mixer", "devices" }) do
+    paw.ui.hide(name)
+  end
   paw.ui.focus("arrange")
   arrange.scroll, arrange.top = 0, 1
   paw.opt.mouse, paw.opt.zoom, paw.opt.grid, paw.opt.track_height = true, 4, 1, 3
@@ -76,7 +82,9 @@ end
 
 local function clips(t)
   local out = {}
-  for _, c in ipairs(api.clip_list(t.id)) do out[#out + 1] = string.format("%s@%g+%g", c.name, c.start, c.length) end
+  for _, c in ipairs(api.clip_list(t.id)) do
+    out[#out + 1] = string.format("%s@%g+%g", c.name, c.start, c.length)
+  end
   return table.concat(out, " ")
 end
 
@@ -256,20 +264,23 @@ test("dragging a track's header down puts the track in another place", function(
   eq(api.track_list()[2], a.id, "A after it")
 end)
 
-test("the ruler: a click moves the playhead, a drag loops what it crosses, a double click turns the loop off", function()
-  two_tracks()
-  click(x_of(6), 0)
-  eq(api.transport_get().position, 6, "the playhead at beat 6")
-  apart()
-  drag(x_of(4), 0, x_of(8) - 1, 0)
-  local t = api.transport_get()
-  eq(t.loop_enabled and t.loop_start .. "-" .. t.loop_end, "4-8", "a loop over the cells dragged across")
-  shot()
-  apart()
-  click(x_of(2), 0)
-  click(x_of(2), 0)
-  eq(api.transport_get().loop_enabled, false, "a double click turns it off")
-end)
+test(
+  "the ruler: a click moves the playhead, a drag loops what it crosses, a double click turns the loop off",
+  function()
+    two_tracks()
+    click(x_of(6), 0)
+    eq(api.transport_get().position, 6, "the playhead at beat 6")
+    apart()
+    drag(x_of(4), 0, x_of(8) - 1, 0)
+    local t = api.transport_get()
+    eq(t.loop_enabled and t.loop_start .. "-" .. t.loop_end, "4-8", "a loop over the cells dragged across")
+    shot()
+    apart()
+    click(x_of(2), 0)
+    click(x_of(2), 0)
+    eq(api.transport_get().loop_enabled, false, "a double click turns it off")
+  end
+)
 
 test("the loop's edges drag on the ruler", function()
   two_tracks()
@@ -416,7 +427,9 @@ local function rolled(notes)
   api.undo_checkpoint()
   shot()
   local rect
-  for _, r in ipairs(paw.ui.rects) do if r.name == "pianoroll" then rect = r end end
+  for _, r in ipairs(paw.ui.rects) do
+    if r.name == "pianoroll" then rect = r end
+  end
   local g = roll.geometry
   local function at(pitch, beat)
     return rect.x + g.keys + math.floor((beat - roll.scroll) * g.zoom + 0.5), rect.y + g.head + (roll.top - pitch)
@@ -426,7 +439,9 @@ end
 
 local function notes_of(clip)
   local out = {}
-  for _, n in ipairs(clip:notes()) do out[#out + 1] = string.format("%d@%g+%g", n.pitch, n.start, n.length) end
+  for _, n in ipairs(clip:notes()) do
+    out[#out + 1] = string.format("%d@%g+%g", n.pitch, n.start, n.length)
+  end
   return table.concat(out, " ")
 end
 
@@ -479,7 +494,11 @@ test("dragging a note's last cell resizes it, and its first cell moves its start
 end)
 
 test("the right button: a box chooses notes, a click removes a note, on empty grid opens the menu", function()
-  local clip, at = rolled({ { pitch = 60, start = 0, length = 1 }, { pitch = 62, start = 2, length = 1 }, { pitch = 70, start = 4, length = 1 } })
+  local clip, at = rolled({
+    { pitch = 60, start = 0, length = 1 },
+    { pitch = 62, start = 2, length = 1 },
+    { pitch = 70, start = 4, length = 1 },
+  })
   local x0, y0 = at(63, 0)
   local x1, y1 = at(59, 3)
   drag(x0, y0, x1, y1, "right")
@@ -496,7 +515,11 @@ test("the right button: a box chooses notes, a click removes a note, on empty gr
 end)
 
 test("a double click on a note removes it, and Alt and a drag erases every note it crosses", function()
-  local clip, at = rolled({ { pitch = 60, start = 0, length = 1 }, { pitch = 62, start = 2, length = 1 }, { pitch = 62, start = 4, length = 1 } })
+  local clip, at = rolled({
+    { pitch = 60, start = 0, length = 1 },
+    { pitch = 62, start = 2, length = 1 },
+    { pitch = 62, start = 4, length = 1 },
+  })
   local x, y = at(60, 0.5)
   click(x, y)
   click(x, y)
@@ -509,7 +532,11 @@ test("a double click on a note removes it, and Alt and a drag erases every note 
 end)
 
 test("the piano roll's keyboard sounds a key, and a right drag down it chooses the notes of those pitches", function()
-  local clip, at, rect = rolled({ { pitch = 60, start = 0, length = 1 }, { pitch = 64, start = 2, length = 1 }, { pitch = 67, start = 4, length = 1 } })
+  local clip, at, rect = rolled({
+    { pitch = 60, start = 0, length = 1 },
+    { pitch = 64, start = 2, length = 1 },
+    { pitch = 67, start = 4, length = 1 },
+  })
   local _, y60 = at(60, 0)
   local _, y64 = at(64, 0)
   click(rect.x + 1, y60)
@@ -532,41 +559,46 @@ test("drawing across the velocity strip sets how hard the notes under the stroke
   eq(clip:notes()[2].velocity < 40 and clip:notes()[1].velocity > 100, true, "a click sets the one under it")
 end)
 
-test("the strip under the piano roll shows a controller chosen by its name, drawn on and its moves chosen and moved", function()
-  local clip, at, rect = rolled()
-  local strip = require("paw.views.pianoroll_strip")
-  local g = roll.geometry
-  local top = rect.y + g.head + g.rows
-  click(rect.x + 1, top + g.vel - 1)
-  local mx, my = find("Modulation")
-  eq(mx ~= nil, true, "a menu of what the strip shows")
-  click(mx, my)
-  eq(strip.shown().number, 1, "it shows modulation")
-  eq(cell(rect.x + 1, top + g.vel - 1), "m", "and says so")
-  local function moves()
-    local out = {}
-    for _, c in ipairs(clip:controls()) do out[#out + 1] = string.format("%g:%.2f", c.start, c.value) end
-    return table.concat(out, " ")
+test(
+  "the strip under the piano roll shows a controller chosen by its name, drawn on and its moves chosen and moved",
+  function()
+    local clip, at, rect = rolled()
+    local strip = require("paw.views.pianoroll_strip")
+    local g = roll.geometry
+    local top = rect.y + g.head + g.rows
+    click(rect.x + 1, top + g.vel - 1)
+    local mx, my = find("Modulation")
+    eq(mx ~= nil, true, "a menu of what the strip shows")
+    click(mx, my)
+    eq(strip.shown().number, 1, "it shows modulation")
+    eq(cell(rect.x + 1, top + g.vel - 1), "m", "and says so")
+    local function moves()
+      local out = {}
+      for _, c in ipairs(clip:controls()) do
+        out[#out + 1] = string.format("%g:%.2f", c.start, c.value)
+      end
+      return table.concat(out, " ")
+    end
+    local x0 = at(60, 0)
+    local x1 = at(60, 1)
+    drag(x0, top, x1, top)
+    eq(#clip:controls() >= 3, true, "drawn with the button held: a move a step the pointer crossed, " .. moves())
+    eq(clip:controls()[1].value > 0.8, true, "near the top")
+    shot()
+    apart()
+    -- The head of the move at beat 0 is the top of its bar.
+    local level = clip:controls()[1].value * g.vel * 8
+    local head = top + g.vel - 1 - math.floor((level - 1) / 8)
+    drag(x0, head, x0 + 8, head)
+    eq(clip:controls()[#clip:controls()].start >= 1, true, "a move's head dragged moves it on: " .. moves())
+    apart()
+    shot()
+    drag(at(60, 4), top + g.vel - 1, at(60, 6), top, "right")
+    local last = clip:controls()[#clip:controls()]
+    eq(last.start >= 5.5 and last.value > 0.6, true, "the right button draws a line up: " .. moves())
+    strip.show(nil)
   end
-  local x0 = at(60, 0)
-  local x1 = at(60, 1)
-  drag(x0, top, x1, top)
-  eq(#clip:controls() >= 3, true, "drawn with the button held: a move a step the pointer crossed, " .. moves())
-  eq(clip:controls()[1].value > 0.8, true, "near the top")
-  shot()
-  apart()
-  -- The head of the move at beat 0 is the top of its bar.
-  local level = clip:controls()[1].value * g.vel * 8
-  local head = top + g.vel - 1 - math.floor((level - 1) / 8)
-  drag(x0, head, x0 + 8, head)
-  eq(clip:controls()[#clip:controls()].start >= 1, true, "a move's head dragged moves it on: " .. moves())
-  apart()
-  shot()
-  drag(at(60, 4), top + g.vel - 1, at(60, 6), top, "right")
-  local last = clip:controls()[#clip:controls()]
-  eq(last.start >= 5.5 and last.value > 0.6, true, "the right button draws a line up: " .. moves())
-  strip.show(nil)
-end)
+)
 
 test("a click on the piano roll's ruler moves the playhead into the clip", function()
   local clip, at = rolled()
@@ -620,33 +652,38 @@ local function mixed()
   api.undo_checkpoint()
   shot(90)
   local rect
-  for _, r in ipairs(paw.ui.rects) do if r.name == "mixer" then rect = r end end
+  for _, r in ipairs(paw.ui.rects) do
+    if r.name == "mixer" then rect = r end
+  end
   local s = paw.ui.views.mixer.geometry.strips[1]
   -- From the strip's own lines (under the title bar) to the screen.
   local function at(x, y) return rect.x + x, rect.y + 1 + y end
   return a, b, s, at
 end
 
-test("a mixer fader drags up and down, its pan follows the pointer, its buttons switch, double clicks put them back", function()
-  local a, _, s, at = mixed()
-  local fx = s.x + math.floor(s.w / 2) + 1
-  local x, y = at(fx, s.fader + s.rows - 2)
-  drag(x, y, x, y - 3)
-  eq(a:get().volume > 0, true, "dragged up, louder")
-  apart()
-  click(x, y)
-  click(x, y)
-  near(a:get().volume, 0, 1e-9, "a double click: 0 dB")
-  local px, py = at(s.x + 1, s.pan)
-  click(px, py)
-  near(a:get().pan, -1, 1e-9, "the pan's left end")
-  apart()
-  drag(px, py, px + s.pan_w - 1, py)
-  near(a:get().pan, 1, 1e-9, "dragged to its right end")
-  local mx, my = at(s.x + 1, s.chips)
-  click(mx, my)
-  eq(a:get().mute, true, "M mutes")
-end)
+test(
+  "a mixer fader drags up and down, its pan follows the pointer, its buttons switch, double clicks put them back",
+  function()
+    local a, _, s, at = mixed()
+    local fx = s.x + math.floor(s.w / 2) + 1
+    local x, y = at(fx, s.fader + s.rows - 2)
+    drag(x, y, x, y - 3)
+    eq(a:get().volume > 0, true, "dragged up, louder")
+    apart()
+    click(x, y)
+    click(x, y)
+    near(a:get().volume, 0, 1e-9, "a double click: 0 dB")
+    local px, py = at(s.x + 1, s.pan)
+    click(px, py)
+    near(a:get().pan, -1, 1e-9, "the pan's left end")
+    apart()
+    drag(px, py, px + s.pan_w - 1, py)
+    near(a:get().pan, 1, 1e-9, "dragged to its right end")
+    local mx, my = at(s.x + 1, s.chips)
+    click(mx, my)
+    eq(a:get().mute, true, "M mutes")
+  end
+)
 
 test("a send in a mixer strip drags sideways, and a click on a device picks it in the device panel", function()
   local a, _, s, at = mixed()
@@ -666,59 +703,73 @@ test("a right click on a mixer strip opens the track's menu", function()
   paw.keymap.feed("<Esc>")
 end)
 
-test("a parameter's slider in the device panel follows the pointer, a double click puts it back, on and off bypass", function()
-  start()
-  local t = paw.add_track({ name = "S" })
-  local d = t:add_device("synth")
-  paw.cursor.set_track(t)
-  paw.ui.show("devices")
-  shot()
-  local rect
-  for _, r in ipairs(paw.ui.rects) do if r.name == "devices" then rect = r end end
-  local panel = paw.ui.views.devices
-  -- The " on " chip at the right of the device's line.
-  local x, y = rect.x + rect.w - 4, rect.y + 1
-  click(x, y)
-  eq(api.device_get(d.id).bypass, true, "the device is bypassed")
-  apart()
-  shot()
-  click(rect.x + rect.w - 5, y)
-  eq(api.device_get(d.id).bypass, false, "and back on")
-  local row
-  for i, entry in ipairs(panel:rows()) do if entry.param and not row then row = i end end
-  local p = panel:rows()[row].param
-  local ly = rect.y + row - panel.scroll
-  local lay = panel.layout(rect.w)
-  local bar_at, bar = lay.bar_at, lay.bar
-  click(rect.x + bar_at + bar - 1, ly)
-  near(paw.params.fraction(p, api.device_get(d.id).params[p.key]), 1 - 0.5 / bar, 0.02, "the last cell of the slider")
-  apart()
-  click(rect.x + bar_at, ly)
-  click(rect.x + bar_at, ly)
-  near(api.device_get(d.id).params[p.key], p.default, 1e-6, "a double click: back to the default")
-end)
+test(
+  "a parameter's slider in the device panel follows the pointer, a double click puts it back, on and off bypass",
+  function()
+    start()
+    local t = paw.add_track({ name = "S" })
+    local d = t:add_device("synth")
+    paw.cursor.set_track(t)
+    paw.ui.show("devices")
+    shot()
+    local rect
+    for _, r in ipairs(paw.ui.rects) do
+      if r.name == "devices" then rect = r end
+    end
+    local panel = paw.ui.views.devices
+    -- The " on " chip at the right of the device's line.
+    local x, y = rect.x + rect.w - 4, rect.y + 1
+    click(x, y)
+    eq(api.device_get(d.id).bypass, true, "the device is bypassed")
+    apart()
+    shot()
+    click(rect.x + rect.w - 5, y)
+    eq(api.device_get(d.id).bypass, false, "and back on")
+    local row
+    for i, entry in ipairs(panel:rows()) do
+      if entry.param and not row then row = i end
+    end
+    local p = panel:rows()[row].param
+    local ly = rect.y + row - panel.scroll
+    local lay = panel.layout(rect.w)
+    local bar_at, bar = lay.bar_at, lay.bar
+    click(rect.x + bar_at + bar - 1, ly)
+    near(paw.params.fraction(p, api.device_get(d.id).params[p.key]), 1 - 0.5 / bar, 0.02, "the last cell of the slider")
+    apart()
+    click(rect.x + bar_at, ly)
+    click(rect.x + bar_at, ly)
+    near(api.device_get(d.id).params[p.key], p.default, 1e-6, "a double click: back to the default")
+  end
+)
 
-test("in the piano roll a note of another clip edited with the active one is chosen and dragged in its own clip", function()
-  start()
-  local t = paw.add_track({ name = "keys" })
-  local first = t:add_clip({ name = "a", start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
-  local second = t:add_clip({ name = "b", start = 4, length = 4, notes = { { pitch = 62, start = 1, length = 1 } } })
-  roll:edit(first)
-  paw.roll_clips.open({ first.id, second.id }, first.id)
-  roll.top, roll.scroll = 72, 0
-  shot()
-  local rect
-  for _, r in ipairs(paw.ui.rects) do if r.name == "pianoroll" then rect = r end end
-  local g = roll.geometry
-  local function at(pitch, beat) return rect.x + g.keys + math.floor(beat * g.zoom + 0.5), rect.y + g.head + (roll.top - pitch) end
-  local x, y = at(62, 5.5)
-  click(x, y)
-  eq(paw.frontend.chosen_notes(second.id)[1], 1, "the second clip's note is chosen")
-  apart()
-  drag(x, y, x + 8, y)
-  eq(notes_of(second), "62@2+1", "and moved a beat on in its own clip")
-  eq(notes_of(first), "60@0+1", "the active clip's notes as they were")
-end)
+test(
+  "in the piano roll a note of another clip edited with the active one is chosen and dragged in its own clip",
+  function()
+    start()
+    local t = paw.add_track({ name = "keys" })
+    local first = t:add_clip({ name = "a", start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
+    local second = t:add_clip({ name = "b", start = 4, length = 4, notes = { { pitch = 62, start = 1, length = 1 } } })
+    roll:edit(first)
+    paw.roll_clips.open({ first.id, second.id }, first.id)
+    roll.top, roll.scroll = 72, 0
+    shot()
+    local rect
+    for _, r in ipairs(paw.ui.rects) do
+      if r.name == "pianoroll" then rect = r end
+    end
+    local g = roll.geometry
+    local function at(pitch, beat)
+      return rect.x + g.keys + math.floor(beat * g.zoom + 0.5), rect.y + g.head + (roll.top - pitch)
+    end
+    local x, y = at(62, 5.5)
+    click(x, y)
+    eq(paw.frontend.chosen_notes(second.id)[1], 1, "the second clip's note is chosen")
+    apart()
+    drag(x, y, x + 8, y)
+    eq(notes_of(second), "62@2+1", "and moved a beat on in its own clip")
+    eq(notes_of(first), "60@0+1", "the active clip's notes as they were")
+  end
+)
 
 test("the command line's list: a click puts a candidate in the line, a second click runs it", function()
   start()
@@ -730,7 +781,10 @@ test("the command line's list: a click puts a candidate in the line, a second cl
   if y == H - 1 then
     for i = #lines - 1, 1, -1 do
       local at = lines[i]:find("tempo.lane", 1, true)
-      if at then x, y = api.str_width(lines[i]:sub(1, at - 1)), i - 1 break end
+      if at then
+        x, y = api.str_width(lines[i]:sub(1, at - 1)), i - 1
+        break
+      end
     end
   end
   click(x, y)
@@ -744,7 +798,11 @@ end)
 test("a picker's row is chosen with two clicks", function()
   start()
   local chosen
-  paw.pick({ title = "Fruit", items = { { text = "apple" }, { text = "banana" }, { text = "cherry" } }, on_choose = function(item) chosen = item.text end })
+  paw.pick({
+    title = "Fruit",
+    items = { { text = "apple" }, { text = "banana" }, { text = "cherry" } },
+    on_choose = function(item) chosen = item.text end,
+  })
   local x, y = find("banana")
   click(x, y)
   click(x, y)
@@ -754,7 +812,9 @@ end)
 test("the pointer's tests leave the options as they found them", function()
   if saved.mixer_size ~= nil then mixer_node().size = saved.mixer_size or nil end
   saved.mixer_size = nil
-  for name, value in pairs(saved) do paw.opt[name] = value end
+  for name, value in pairs(saved) do
+    paw.opt[name] = value
+  end
   paw.ui.hide("mixer")
   paw.ui.hide("devices")
   eq(paw.opt.mouse, true, "the pointer is on")
