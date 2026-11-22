@@ -116,6 +116,15 @@ graphical window) lists all the inputs of a track:
     before. The last time round counts if it reached at least half of the
     loop.
   - With the loop off, a take is one clip.
+- **Audio recorded over a clip.** When you record audio over an audio clip
+  on the same track, the new recording becomes the active take of that
+  clip, and what the clip played before stays as a take that does not
+  play. paw cuts the clip where the recording starts and ends, so the
+  takes line up. A recording round the loop over a clip adds all its takes
+  to the clip. The part of the recording where no clip was stays a clip of
+  its own. Use `[t` and `]t`, or `zt`, to choose a take (see
+  [Takes](takes.md)). The recording and these changes are one undo step.
+  MIDI recorded over a clip follows `paw.opt.midi_record` instead.
 
 ## Count-in
 

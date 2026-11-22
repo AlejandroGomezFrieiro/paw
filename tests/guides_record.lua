@@ -221,3 +221,78 @@ test("guide: record MIDI from a keyboard", function()
   eq(paw.takes.count(looped.id) >= 2, true, "with a take for each time round")
   eq(looped:notes()[1].pitch, 69, "the last take plays")
 end)
+
+--- A track that records the test input's channel 1 (a sine at -12 dB), at
+--- 240 bpm: a beat is a quarter of a second.
+local function mic(name)
+  studio(name)
+  keys("o")
+  keys("Isignal 1<CR>")
+  keys("r")
+  paw.project.tempo = 240
+  return paw.tracks()[1]
+end
+
+--- The peak of what plays from beat `from` to `to`: one take of the sine
+--- alone is at -12 dB.
+local function peak(from, to)
+  return paw.render(T.scratch .. "/takes" .. from .. ".wav", { start = from, ["end"] = to, tail = 0 }).peak
+end
+
+test("guide: sound recorded round a loop again over its clip adds takes to the clip, and one take plays", function()
+  local t = mic("loop_takes")
+  keys("5|")
+  keys("gl1W")
+  keys("R")
+  until_(function() return paw.transport.recording and paw.transport.playing end, "the recording")
+  until_beat(16.8, 2)
+  keys("<Space><Space>")
+  paw.flush()
+  eq(table.concat({ paw.takes.count(t:clips()[1].id) }, " "), "2 2", "a take for each time round")
+  keys("5|")
+  -- Round the loop again: more takes of the same clip.
+  keys("R")
+  until_(function() return paw.transport.recording and paw.transport.playing end, "the recording")
+  until_beat(16.8, 2)
+  keys("<Space><Space>")
+  paw.flush()
+  eq(#t:clips(), 1, "still one clip")
+  eq(
+    table.concat({ paw.takes.count(t:clips()[1].id) }, " "),
+    "4 4",
+    "with the new takes after the old, the last playing"
+  )
+  T.near(peak(16, 20), 10 ^ (-12 / 20), 0.03, "and one take plays")
+end)
+
+test("guide: sound recorded again over a clip becomes its new take, and the old one is kept", function()
+  local t = mic("again_takes")
+  keys("5|")
+  keys("R")
+  until_beat(18)
+  keys("<Space><Space>")
+  paw.flush()
+  local first = t:clips()[1]
+  local file, offset, length = first.file, first.offset, first.length
+  -- Again from the same place, for longer.
+  keys("5|")
+  keys("R")
+  until_beat(19)
+  keys("<Space><Space>")
+  paw.flush()
+  local c = t:clip_at(16)
+  eq(c.start .. "+" .. c.length, "16+" .. length, "the clip keeps its place")
+  eq(table.concat({ paw.takes.count(c.id) }, " "), "2 2", "with the new recording as take 2, which plays")
+  eq(c.file ~= file, true, "take 2 is the new file")
+  eq(#t:clips(), 2, "the rest of the new recording is a clip after it")
+  eq(t:clips()[2].start, 16 + length, "where the first clip ended")
+  T.near(peak(16, 16 + length), 10 ^ (-12 / 20), 0.03, "one take plays, not both together")
+  keys("5|")
+  keys("[t")
+  eq(c:get().file .. " " .. c:get().offset, file .. " " .. offset, "[t plays the first recording again")
+  keys("zt")
+  eq(paw.takes.lane_count(t.id), 2, "zt shows both takes")
+  keys("u")
+  keys("u")
+  eq(#t:clips() .. " " .. paw.takes.count(t:clips()[1].id), "1 1", "u undoes the second recording in one step")
+end)
