@@ -18,9 +18,12 @@
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local A = require("paw.address")
+local derived = require("paw.derived")
+local tree = require("paw.query.tree")
 local commands = require("paw.commands")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
+local type util = require("paw.util")
 local type partial = require("paw.partial")
 local type objects = require("paw.objects")
 local type MarkersModule = require("paw.markers")
@@ -123,68 +126,199 @@ local function str(v: string): string
   return type(v) == "string" and v ~= "" and v or nil
 end
 
+-- The records of the tracks and the clips are kept by `paw.derived` (the
+-- search index of the design `derived.md`, D3): after an edit, a search
+-- makes again the records of the clips that the edit changed, and the job
+-- `derived` does it in slices before. The records are shared from search
+-- to search: a consumer reads them and does not change them.
+
+--- Text on one line, as a record has it.
+local function line(text: string): string
+  return (tostring(text):gsub("[\r\n\t]", " "))
+end
+
+--- The records of a track: its name, its comment and its devices' names.
+local function track_records(ctx: derived.Ctx, id: integer, out: {Found})
+  local t = ctx:track(id, {"name", "meta", "devices"})
+  if not t then
+    return
+  end
+  local loc: contracts.Location = {uri = A.track(id)}
+  local function add(text: string, field: string, location: contracts.Location)
+    if text then
+      out[#out + 1] = {text = line(text), field = field, location = location, where = t.name}
+    end
+  end
+  add(t.name, "track", loc)
+  local m = meta_of(t.meta)
+  add(m and str(m.comment), "comment", loc)
+  for _, d in ipairs(t.devices or {}) do
+    ctx:source("device:" .. d)
+    local device = try(api.device_get, d)
+    if device then
+      add(device.name, "device", {uri = A.device(d)})
+    end
+  end
+end
+
+--- The records of a clip: its name and comment, and what its notes carry
+--- in words (lyrics and articulations).
+local function clip_records(c: types.Clip, track: string, notes: {QueryModule.Node}): {Found}
+  local out: {Found} = {}
+  local function add(text: string, field: string, location: contracts.Location, where: string)
+    if text then
+      out[#out + 1] = {text = line(text), field = field, location = location, where = where}
+    end
+  end
+  local loc: contracts.Location = {uri = A.clip(c.id)}
+  local where = track .. " " .. paw.time.format(c.start)
+  add(c.name, "clip", loc, where)
+  local cm = meta_of(c.meta)
+  add(cm and str(cm.comment), "comment", loc, where)
+  for i = 1, #notes do
+    local node = notes[i]
+    local n = node.data as types.Note
+    local m = meta_of(n.meta)
+    if m and next(m as {string: string}) then
+      local nloc: contracts.Location = n.id and {uri = A.note(c.id, n.id)} or loc
+      local nwhere: string
+      local function at(): string
+        nwhere = nwhere or (c.name .. " " .. paw.time.format(c.start + n.start) .. " " .. paw.music.name(n.pitch))
+        return nwhere
+      end
+      local lyric = str(m.lyric)
+      if lyric then
+        add(lyric, "lyric", nloc, at())
+      end
+      for _, name in ipairs(paw.query.articulations(node)) do
+        add(name, "art", nloc, at())
+      end
+    end
+  end
+  return out
+end
+
+local function same_records(a: {Found}, b: {Found}): boolean
+  if #a ~= #b then
+    return false
+  end
+  for i = 1, #a do
+    local x, y = a[i], b[i]
+    if
+      x.text ~= y.text
+      or x.field ~= y.field
+      or x.where ~= y.where
+      or x.location.uri ~= y.location.uri
+      or not tree.same_data(x.location.selector as util.Data, y.location.selector as util.Data)
+    then
+      return false
+    end
+  end
+  return true
+end
+
+local track_name = api.track_get as function(id: integer, key: string): string
+
+local clip_spec: derived.Spec<integer, {Found}, boolean> = {
+  name = "grep.clip",
+  kind = "family",
+  make = function(ctx: derived.Ctx, id: integer): {Found}
+    local node = ctx:get(tree.clip, id)
+    if not node then
+      return {}
+    end
+    local c = node.data as types.Clip
+    ctx:track(c.track, {"name"})
+    -- The places are written in bars and beats.
+    ctx:tempo()
+    return clip_records(c, track_name(c.track, "name"), ctx:get(tree.notes, id))
+  end,
+  same = same_records,
+  bytes = function(list: {Found}): integer return 64 + 200 * #list end,
+  limit = 8 * 1048576,
+}
+local clip_node = derived.node(clip_spec)
+
+--- The records of a track, and those of its clips, in order.
+local record TrackRecords
+  track: {Found}
+  clips: {Found}
+end
+
+local function same_track(a: TrackRecords, b: TrackRecords): boolean
+  return same_records(a.track, b.track) and tree.same_list(a.clips, b.clips)
+end
+
+local track_spec: derived.Spec<integer, TrackRecords, boolean> = {
+  name = "grep.track",
+  kind = "family",
+  make = function(ctx: derived.Ctx, id: integer): TrackRecords
+    local v: TrackRecords = {track = {}, clips = {}}
+    track_records(ctx, id, v.track)
+    local clips = ctx:get(tree.track, id).clips
+    for i = 1, #clips do
+      local list = ctx:get(clip_node, clips[i].id)
+      for k = 1, #list do
+        v.clips[#v.clips + 1] = list[k]
+      end
+    end
+    return v
+  end,
+  same = same_track,
+}
+local track_node = derived.node(track_spec)
+
+local all_spec: derived.Spec<integer, TrackRecords, boolean> = {
+  name = "grep.all",
+  kind = "join",
+  label = "search",
+  make = function(ctx: derived.Ctx): TrackRecords
+    local v: TrackRecords = {track = {}, clips = {}}
+    local ids = ctx:tracks()
+    for i = 1, #ids do
+      local part = ctx:get(track_node, ids[i])
+      for k = 1, #part.track do
+        v.track[#v.track + 1] = part.track[k]
+      end
+      for k = 1, #part.clips do
+        v.clips[#v.clips + 1] = part.clips[k]
+      end
+      -- The first reading of a large project goes on at the next slice.
+      ctx:pause()
+    end
+    return v
+  end,
+  same = same_track,
+}
+local all_node = derived.node(all_spec)
+
+-- The records of the tracks and the clips, read once for each `collect`.
+local all_now: TrackRecords
+
+local function all_records(): TrackRecords
+  if not all_now then
+    all_node:want(0)
+    all_now = all_node:get(0, true)
+  end
+  return all_now
+end
+
 M.source(
   "tracks",
   function(add: function(Record))
-    for _, id in ipairs(api.track_list()) do
-      local t = api.track_get(id)
-      local loc: contracts.Location = {uri = A.track(id)}
-      add({text = t.name, field = "track", location = loc, where = t.name})
-      local m = meta_of(t.meta)
-      local comment = m and str(m.comment)
-      if comment then
-        add({text = comment, field = "comment", location = loc, where = t.name})
-      end
-      for _, d in ipairs(t.devices or {}) do
-        local device = try(api.device_get, d)
-        if device then
-          add({text = device.name, field = "device", location = {uri = A.device(d)}, where = t.name})
-        end
-      end
+    local list = all_records().track
+    for i = 1, #list do
+      add(list[i] as Record)
     end
   end
 )
 
-local track_name = api.track_get as function(id: integer, key: string): string
-
 M.source(
   "clips",
   function(add: function(Record))
-    for _, id in ipairs(api.track_list()) do
-      local track = track_name(id, "name")
-      for _, c in ipairs(api.clip_list(id)) do
-        local loc: contracts.Location = {uri = A.clip(c.id)}
-        local where = track .. " " .. paw.time.format(c.start)
-        add({text = c.name, field = "clip", location = loc, where = where})
-        local cm = meta_of(c.meta)
-        local comment = cm and str(cm.comment)
-        if comment then
-          add({text = comment, field = "comment", location = loc, where = where})
-        end
-        if c.kind == "midi" then
-          -- What notes carry in words: lyrics and articulations.
-          local notes = api.clip_notes(c.id)
-          for _, n in ipairs(notes) do
-            local m = meta_of(n.meta)
-            if m and next(m as {string: string}) then
-              local nloc: contracts.Location = n.id and {uri = A.note(c.id, n.id)} or loc
-              local nwhere: string
-              local function at(): string
-                nwhere = nwhere
-                  or (c.name .. " " .. paw.time.format(c.start + n.start) .. " " .. paw.music.name(n.pitch))
-                return nwhere
-              end
-              local lyric = str(m.lyric)
-              if lyric then
-                add({text = lyric, field = "lyric", location = nloc, where = at()})
-              end
-              for _, name in ipairs(paw.query.articulations({kind = "note", data = n as contracts.QueryData})) do
-                add({text = name, field = "art", location = nloc, where = at()})
-              end
-            end
-          end
-        end
-      end
+    local list = all_records().clips
+    for i = 1, #list do
+      add(list[i] as Record)
     end
   end
 )
@@ -236,6 +370,7 @@ local function collect(found: function(Found))
       found(r as Found)
     end
   end
+  all_now = nil
   for _, name in ipairs(M.order) do
     local ok, err = pcall(function(): string M.sources[name](add) end)
     if not ok then
@@ -245,7 +380,9 @@ local function collect(found: function(Found))
 end
 
 --- Every record of every source, in the order the sources were added.
---- A source that fails is passed over and logged.
+--- A source that fails is passed over and logged. paw keeps the records of
+--- the tracks and the clips from one search to the next, so read a record
+--- and don't change it.
 function M.records(): {Found}
   local out: {Found} = {}
   collect(function(r: Found) out[#out + 1] = r end)
@@ -260,6 +397,14 @@ function M.reader(): function(ms: number): {Found}, boolean
   local deadline: number = 0
   local job = coroutine.create(
     function()
+      -- The job `derived` reads the records of the tracks and the clips
+      -- in its own slices: wait for it (a second at most).
+      local since = api.now()
+      while not all_node:fresh(0) and api.now() - since < 1000 do
+        all_node:want(0)
+        all_node:get(0)
+        coroutine.yield()
+      end
       collect(
         function(r: Found)
           batch[#batch + 1] = r

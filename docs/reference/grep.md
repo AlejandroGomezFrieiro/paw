@@ -31,7 +31,7 @@ You can then use the list like any quickfix list, with `]q` and `[q`, and `:cope
 | Function | Effect |
 | --- | --- |
 | `paw.grep.search(pattern, opts)` | Gives the records found, `{ text, field, location, where }`. `opts`: `{ mode = "regex", fields = { lyric = true } }`. |
-| `paw.grep.records()` | Gives all records. |
+| `paw.grep.records()` | Gives all records. paw keeps the records of the tracks and the clips from one search to the next, so read a record and don't change it. |
 | `paw.grep.reader()` | Gives a function `read(ms)` that reads the records in steps. Each call gives the records found in about `ms` milliseconds, and true when all are read. |
 | `paw.grep.source(name, fn)` | Adds a source of text. `fn(add)` calls `add` with each record. |
 

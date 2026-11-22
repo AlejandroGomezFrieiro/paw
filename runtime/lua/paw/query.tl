@@ -36,6 +36,7 @@
 local api = require("paw.api")
 local A = require("paw.address")
 local music = require("paw.music")
+local tree = require("paw.query.tree")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
@@ -217,6 +218,13 @@ end
 --- What one run of a query reads once.
 local record Cache
   tracks: Tracks
+  tree: tree.Tree
+end
+
+--- The clips and notes of every track (paw/query/tree.tl), read once a run.
+local function tree_of(cache: Cache): tree.Tree
+  cache.tree = cache.tree or tree.tree()
+  return cache.tree
 end
 
 --- What this module reads of a track's `meta` (paw/groups.tl).
@@ -310,8 +318,11 @@ local function children(cache: Cache, node: Node, wanted: string, out?: {Node}):
       end
     end
     if want("clip") then
-      for _, c in ipairs(api.clip_list(node.id)) do
-        out[#out + 1] = {kind = "clip", id = c.id, data = c as Data, parent = node, track = node.id, clip = c.id}
+      -- The clip nodes are kept from run to run: each run gives them its track.
+      local nodes = tree_of(cache).tracks[node.id]
+      for _, c in ipairs(nodes and nodes.clips or {}) do
+        c.parent = node
+        out[#out + 1] = c
       end
     end
     if want("device") then
@@ -332,11 +343,14 @@ local function children(cache: Cache, node: Node, wanted: string, out?: {Node}):
       return out
     end
     if wanted == "*" or wanted == "note" then
-      local notes = api.clip_notes(node.id)
-      for i, n in ipairs(notes) do
-        out[#out + 1] = {
-          kind = "note", id = n.id, data = n as Data, parent = node, track = node.track, clip = node.id, place = i
-        }
+      local nodes = tree_of(cache).tracks[node.track]
+      local notes = nodes and nodes.notes[node.id] or {}
+      if wanted == "note" and #out == 0 then
+        -- The kept list itself: the callers only read it.
+        return notes
+      end
+      for i = 1, #notes do
+        out[#out + 1] = notes[i]
       end
     end
     if wanted == "*" or wanted == "cc" then
@@ -358,12 +372,25 @@ end
 --- Every node of `wanted` kind inside `node`, in the order of the tree.
 local function descendants(cache: Cache, node: Node, wanted: string, out?: {Node}): {Node}
   out = out or {}
-  for _, child in ipairs(children(cache, node, wanted)) do
-    if wanted == "*" or (child.kind as string) == wanted or (wanted == "track" and child.kind == "group") then
-      out[#out + 1] = child
+  local list = children(cache, node, wanted)
+  local n = #out
+  -- Whether the kind of the child before holds `wanted`: the children are
+  -- mostly of one kind.
+  local kind_before: string
+  local inside: boolean
+  for i = 1, #list do
+    local child = list[i]
+    local kind = child.kind as string
+    if kind ~= kind_before then
+      kind_before, inside = kind, holds(kind, wanted)
     end
-    if holds(child.kind, wanted) then
+    if wanted == "*" or kind == wanted or (wanted == "track" and kind == "group") then
+      n = n + 1
+      out[n] = child
+    end
+    if inside then
       descendants(cache, child, wanted, out)
+      n = #out
     end
   end
   return out
@@ -562,6 +589,8 @@ local function marker(n: Node): Marker
 end
 
 local note_fields: {string: Field} = {
+  -- As `paw.ex` reads it, without the item `paw.ex` reads it from.
+  pitch = function(n: Node): Value return note(n).pitch end,
   vel = function(n: Node): Value return note(n).velocity end,
   len = function(n: Node): Value return note(n).length end,
   ["end"] = function(n: Node): Value return note(n).start + note(n).length end,
@@ -613,13 +642,18 @@ M.field("*", "comment", function(n: Node): Value return meta(n).comment end)
 -- The level `paw.ex` gives its fields.
 local EX_LEVEL: {string: contracts.ExLevel} = {note = "note", clip = "clip", track = "track", group = "track"}
 
--- What `paw.ex` reads of each node, made when first asked for.
-local ex_items: {Node: ExItem} = setmetatable({}, {__mode = "k"})
+-- What `paw.ex` reads of each node, made when first asked for, and kept
+-- in the node: the nodes of clips and notes live from query to query
+-- (paw/query/tree.tl).
+local record Kept
+  ex_item: ExItem
+end
 
 --- What `paw.ex` reads its fields from: `{ kind, track, clip, note, place, at }`.
 local function ex_item(node: Node): ExItem
-  if ex_items[node] then
-    return ex_items[node]
+  local kept = node as Kept
+  if kept.ex_item then
+    return kept.ex_item
   end
   local level = EX_LEVEL[node.kind]
   local item: ExItem = {kind = level, track = node.track}
@@ -630,30 +664,41 @@ local function ex_item(node: Node): ExItem
   else
     item.at = 0
   end
-  ex_items[node] = item
+  kept.ex_item = item
   return item
+end
+
+--- How a field of a kind of node is read: `name` in lower case.
+local function getter(kind: string, name: string): Field
+  local own = M.fields[kind] and M.fields[kind][name] or (kind == "group" and M.fields.track and M.fields.track[name])
+  if own then
+    return own
+  end
+  local ex = paw.ex and paw.ex.fields[name]
+  if ex and ex.level == EX_LEVEL[kind] then
+    local ex_get = ex.get
+    return function(node: Node): Value return ex_get(ex_item(node)) end
+  end
+  if M.fields["*"][name] then
+    return M.fields["*"][name]
+  end
+  return function(node: Node): Value
+    local v = (node.data as {string: Value})[name]
+    if type(v) == "table" then
+      return nil
+    end
+    return v
+  end
+end
+
+--- A node's field, or nil: `name` in lower case.
+local function get(node: Node, name: string): Value
+  return getter(node.kind, name)(node)
 end
 
 --- A node's field, or nil.
 function M.get(node: Node, name: string): Value
-  name = name:lower()
-  local own = M.fields[node.kind] and M.fields[node.kind][name]
-    or (node.kind == "group" and M.fields.track and M.fields.track[name])
-  if own then
-    return own(node)
-  end
-  local ex = paw.ex and paw.ex.fields[name]
-  if ex and ex.level == EX_LEVEL[node.kind] then
-    return ex.get(ex_item(node))
-  end
-  if M.fields["*"][name] then
-    return M.fields["*"][name](node)
-  end
-  local v = (node.data as {string: Value})[name]
-  if type(v) == "table" then
-    return nil
-  end
-  return v
+  return get(node, name:lower())
 end
 
 -- Reading a query -------------------------------------------------------------------
@@ -822,9 +867,10 @@ local function test_of(text: string, whole: string): Test
   end
   -- With `!=` every value must differ; else any one may match.
   local all = op == "!="
+  local lower = name:lower()
   local function one(v: Scalar): boolean
-    for _, t in ipairs(alts) do
-      local ok = t(v)
+    for i = 1, #alts do
+      local ok = alts[i](v)
       if all and not ok then
         return false
       end
@@ -834,8 +880,15 @@ local function test_of(text: string, whole: string): Test
     end
     return all
   end
+  -- How the field is read, found again only for another kind of node: a
+  -- query tests the many notes of a project one after the other.
+  local kind_now: string
+  local read: Field
   return function(node: Node): boolean
-    local v = M.get(node, name)
+    if (node.kind as string) ~= kind_now then
+      kind_now, read = node.kind, getter(node.kind, lower)
+    end
+    local v = read(node)
     if v is {string} then
       if all then
         for _, x in ipairs(v) do
@@ -1088,7 +1141,9 @@ local function passes(cache: Cache, step: Step, node: Node): boolean
   then
     return false
   end
-  for _, t in ipairs(step.tests) do
+  local tests = step.tests
+  for i = 1, #tests do
+    local t = tests[i]
     if t is Has then
       if #run_steps(cache, t.has, {node}, true) == 0 then
         return false
@@ -1108,9 +1163,11 @@ run_steps = function(cache: Cache, steps: {Step}, from: {Node}, first?: boolean)
     -- two of them (a group and its member) would be found twice.
     local out: {Node} = {}
     local seen: {string: boolean} = #set > 1 and {} or nil
-    for _, node in ipairs(set) do
+    for i_node = 1, #set do
+      local node = set[i_node]
       local found = step.comb == ">" and children(cache, node, step.kind) or descendants(cache, node, step.kind)
-      for _, child in ipairs(found) do
+      for i_child = 1, #found do
+        local child = found[i_child]
         local key = seen and key_of(child)
         if not (seen and seen[key]) and passes(cache, step, child) then
           if seen then
@@ -1144,7 +1201,9 @@ local lazy: metatable<Node> = {
 }
 
 --- Every node a query finds, in the order of the tree (each query of a
---- list of them in turn, none twice).
+--- list of them in turn, none twice). paw keeps the nodes of clips and
+--- notes from one query to the next until their clip changes, so read a
+--- node and don't change it.
 ---   for _, n in ipairs(paw.query("note[pitch>=c6]")) do print(n.data.pitch) end
 function M.run(q: Query): {Node}
   local parsed = M.parse(q)

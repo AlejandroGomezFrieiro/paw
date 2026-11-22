@@ -98,7 +98,7 @@ local record M
     get: function<K, V, I>(self: Ctx, node: Node<K, V, I>, key: K): V
     --- Record a source by its name: `track:<id>:<field>`,
     --- `track:<id>:clips`, `tracks`, `tempo`, `option:<name>`,
-    --- `clip:<id>`.
+    --- `clip:<id>`, `device:<id>`.
     source: function(self: Ctx, name: string)
     --- A track, and the fields of it that the entry reads.
     track: function(self: Ctx, id: integer, fields: {string}): types.Track
@@ -1023,6 +1023,9 @@ end
 events.on(kernel.track_moved, function() mark("tracks") end)
 for _, event in ipairs({kernel.clip_added, kernel.clip_changed, kernel.clip_removed}) do
   events.on(event, function(e: kernel.Item) mark("clip:" .. e.id) end)
+end
+for _, event in ipairs({kernel.device_added, kernel.device_changed, kernel.device_removed}) do
+  events.on(event, function(e: kernel.Item) mark("device:" .. e.id) end)
 end
 events.on(
   kernel.project_changed,
