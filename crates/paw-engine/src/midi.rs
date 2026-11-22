@@ -16,7 +16,10 @@ use std::thread::JoinHandle;
 use anyhow::Result;
 use rtrb::Producer;
 
-use crate::event::{Ctl, EventKind, NoteCtl};
+use crate::event::EventKind;
+#[cfg(feature = "midi")]
+use crate::event::{Ctl, NoteCtl};
+#[cfg(feature = "midi")]
 use crate::ump;
 
 /// Where MIDI input goes.
@@ -44,6 +47,8 @@ pub struct PortInfo {
     pub own: bool,
 }
 
+// Without the `midi` feature no thread reads the commands.
+#[cfg_attr(not(feature = "midi"), allow(dead_code))]
 enum Command {
     /// Open only these ports (by id or part of a name), or all with `None`.
     Select(Option<Vec<String>>),
@@ -119,6 +124,7 @@ pub fn port_key(name: &str) -> u32 {
 }
 
 /// Send a message into the engine's queue, if there is one, and to the tap.
+#[cfg(feature = "midi")]
 fn deliver(sink: &MidiSink, port: u32, kind: EventKind) {
     if let Ok(mut guard) = sink.lock() {
         if let Some(tx) = guard.engine.as_mut()
@@ -132,6 +138,7 @@ fn deliver(sink: &MidiSink, port: u32, kind: EventKind) {
     }
 }
 
+#[cfg(feature = "midi")]
 fn wanted(select: &Option<Vec<String>>, port: &PortInfo) -> bool {
     match select {
         None => true,

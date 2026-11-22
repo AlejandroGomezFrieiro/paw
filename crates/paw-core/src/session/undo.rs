@@ -201,7 +201,7 @@ impl Session {
             bail!("the undo history keeps 10 to 1000000 steps, not {steps}");
         }
         if let Some(bytes) = bytes
-            && !(16 << 20..=1 << 40).contains(&bytes)
+            && !(16 << 20..=1u64 << 40).contains(&(bytes as u64))
         {
             bail!("the undo history keeps 16 MB to 1 TB, not {bytes} bytes");
         }

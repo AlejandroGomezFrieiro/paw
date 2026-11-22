@@ -164,7 +164,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // @return string, integer | string
         fn inflate(lua, _sh, (data, format) => (LuaString, String)) {
             Ok(match crate::codec::inflate(&data.as_bytes(), &format) {
-                Ok((bytes, used)) => (LuaValue::String(lua.create_string(&bytes)?), LuaValue::Integer(used as i64)),
+                Ok((bytes, used)) => (LuaValue::String(lua.create_string(&bytes)?), super::lua_integer(used as i64)),
                 Err(err) => (LuaValue::Nil, LuaValue::String(lua.create_string(format!("{err:#}"))?)),
             })
         }

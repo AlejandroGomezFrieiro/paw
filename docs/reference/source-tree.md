@@ -29,6 +29,7 @@ give the rules for a change.
 | `tests/e2e/` | The end-to-end scenarios: the test driver, the reference model, the scenarios and their golden files. See [About the end-to-end scenarios](../explanation/about-the-e2e-tests.md). |
 | `tests/tools/` | The scripts that run the tests: `suite.sh` (the Lua suite), `gui.sh`, `live.sh`, `loaded.sh`, `e2e.sh` (the end-to-end scenarios). |
 | `tools/` | `apidoc.lua` (the API reference and the types), `tlcheck.sh` (`cyan check` on all the Teal files), `fmtcheck.sh` (checks that StyLua and cerulean formatted each file; `fix` formats them), `vale.sh` (Vale on the docs), `vale-hook.sh`, `ste-check.lua`, `sweep.sh` (frees the disk that old builds use), `website/` (builds the manual as a static site with mdBook). |
+| `web/browserpod/` | The pod image: paw in a BrowserPod pod, for a page of the docs. See [paw in a BrowserPod pod](../../web/browserpod/README.md). |
 | `bench/` | The benchmarks and the stress tests. See [bench/README.md](../../bench/README.md). |
 | `.vale/` | The project's Vale styles (STE) and its vocabulary. `.vale.ini` configures Vale. |
 | `.claude/skills/` | The instructions for agents: write an extension, write the docs, prune the tests. |
@@ -43,7 +44,7 @@ crates.
 
 | Crate | What it holds |
 | --- | --- |
-| `paw-engine` | The audio thread: tracks, routing, chains of devices, clip playback, the transport, the metronome. The built-in devices. The cpal and null backends. It has no Lua and no UI. |
+| `paw-engine` | The audio thread: tracks, routing, chains of devices, clip playback, the transport, the metronome. The built-in devices. The cpal and null backends, and the `page` backend of a BrowserPod pod. It has no Lua and no UI. |
 | `paw-core` | The kernel: the project model, undo, the sync that drives the engine from the model, the Lua host and `paw.api`, the grid of cells, the event loop, the control socket. |
 | `paw-plugins` | The hosts of CLAP, LV2 and VST3 plugins: the scan, its cache, and for each format a device for the audio thread and a controller for the main thread. |
 | `paw-luadev` | Devices written in Lua. Each is a script in its own LuaJIT state, in a helper process. Also the folders where paw finds the scripts. |

@@ -40,6 +40,6 @@ for a in "$@"; do
 done
 if [ ${#files[@]} -eq 0 ]; then
   # bench/RESULTS.md is not checked: it is a dated log of measurements.
-  files=(README.md AGENTS.md docs crates/*/README.md extensions/*/README.md extensions/*/doc bench/README.md bench/DAWS.md)
+  files=(README.md AGENTS.md docs crates/*/README.md extensions/*/README.md extensions/*/doc web/*/README.md bench/README.md bench/DAWS.md)
 fi
 "$vale_bin" --config "$root/.vale.ini" "${opts[@]}" "${files[@]}"
