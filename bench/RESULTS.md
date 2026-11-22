@@ -49,13 +49,13 @@ cleared, added and measured the buffers of every track, while every device
 slept.
 
 `bench/profile/run.sh idle --secs 30 --perf 30` on the profile project (64
-synth tracks, 2 000 clips), main at fb9882b against TASK-16, 5 interleaved
+synth tracks, 2 000 clips), main at fb9882b against the engine at rest, 5 interleaved
 pairs. Measured under external load (load average 44 to 83, with the Lua
 suite running on the same machine). The raw numbers are in
 `results/rest-2026-11-22.jsonl`. The thread is the audio thread of the null
 backend.
 
-| Idle for 30 s, audio thread | main: median (range) | TASK-16: median (range) |
+| Idle for 30 s, audio thread | main: median (range) | at rest: median (range) |
 | --- | ---: | ---: |
 | Instructions per second | 38.17 M (38.14 to 38.18 M) | 0.1096 M (0.1096 to 0.1096 M) |
 | Cycles per second | 42.5 M (40.6 to 42.6 M) | 2.76 M (2.62 to 2.86 M) |
