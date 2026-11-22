@@ -133,6 +133,9 @@ pub struct Run {
     /// Open the project with every plugin offline (:plugins.online)
     #[arg(long)]
     pub plugins_offline: bool,
+    /// Write the time of each step of the start to FILE, as Neovim's --startuptime
+    #[arg(long, value_name = "FILE")]
+    pub startuptime: Option<PathBuf>,
 }
 
 impl Run {

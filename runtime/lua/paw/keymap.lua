@@ -365,6 +365,34 @@ end)
 --- The names given to prefixes with `group`: scope -> keys -> name.
 function M.groups() return groups end
 
+-- What `list` sorts each mapping by, made once for each: the status line
+-- lists the mappings on each frame.
+local sort_keys = setmetatable({}, { __mode = "k" })
+local function by_keys(a, b)
+  local ka, kb = sort_keys[a], sort_keys[b]
+  if not ka then
+    ka = a.lhs:lower() .. a.lhs
+    sort_keys[a] = ka
+  end
+  if not kb then
+    kb = b.lhs:lower() .. b.lhs
+    sort_keys[b] = kb
+  end
+  return ka < kb
+end
+
+--- The first mapping of `mode` (in `view`, then global) that `test(map)`
+--- is true for, in the order of `list`, with no list made and sorted.
+function M.first(mode, test, view)
+  for _, scope in ipairs({ view or false, "global" }) do
+    local best
+    for _, map in pairs(scope and maps[mode] and maps[mode][scope] or {}) do
+      if test(map) and (not best or by_keys(map, best)) then best = map end
+    end
+    if best then return best end
+  end
+end
+
 --- Mappings that apply in `mode` for `view`, the view's own first.
 function M.list(mode, view)
   local out = {}
@@ -373,7 +401,7 @@ function M.list(mode, view)
     for _, map in pairs(scope and maps[mode] and maps[mode][scope] or {}) do
       list[#list + 1] = map
     end
-    table.sort(list, function(a, b) return a.lhs:lower() .. a.lhs < b.lhs:lower() .. b.lhs end)
+    table.sort(list, by_keys)
     for _, map in ipairs(list) do
       out[#out + 1] = map
     end
@@ -780,6 +808,49 @@ end
 
 --- The marks of a view: name -> position.
 function M.marks(view) return marks[view or paw.ui.focused] or {} end
+
+--- What belongs to the user, for `paw.shada`: the last search and the
+--- registers (as a table of registers by name).
+function M.shada_user() return { search = M.search_text, registers = registers } end
+
+--- What belongs to a project, for `paw.shada`: the marks, the jump lists
+--- (without where `<C-o>` is) and the places of the edits, each by view.
+function M.shada_project()
+  local out = { marks = marks, jumps = {}, changes = {} }
+  for view, list in pairs(jumps) do
+    out.jumps[view] = { unpack(list) }
+  end
+  for view, list in pairs(changes) do
+    out.changes[view] = { unpack(list) }
+  end
+  return out
+end
+
+--- Put back what `shada_user` gave.
+function M.shada_set_user(data)
+  if type(data.search) == "string" then M.search_text = data.search end
+  for name, value in pairs(data.registers or {}) do
+    if registers[name] == nil then registers[name] = value end
+  end
+end
+
+--- Put back what `shada_project` gave, in place of the marks and places now.
+function M.shada_set_project(data)
+  for _, t in ipairs({ marks, jumps, changes }) do
+    for k in pairs(t) do
+      t[k] = nil
+    end
+  end
+  for view, set in pairs(data.marks or {}) do
+    marks[view] = set
+  end
+  for view, list in pairs(data.jumps or {}) do
+    jumps[view] = list
+  end
+  for view, list in pairs(data.changes or {}) do
+    changes[view] = list
+  end
+end
 
 -- Search ----------------------------------------------------------------------
 

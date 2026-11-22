@@ -1036,6 +1036,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.keymap.every()`: Every mapping in every mode and scope, sorted by scope, mode and keys. What checks the key rules walks (`tests/keys_constitution.lua`).
 - `paw.keymap.expand(lhs)`: Write `<leader>` and `<localleader>` as the keys the options name.
 - `paw.keymap.feed(keys)`: Type keys as if from the keyboard: `paw.keymap.feed("jj<Space>")`.
+- `paw.keymap.first(mode, test, view)`: The first mapping of `mode` (in `view`, then global) that `test(map)` is true for, in the order of `list`, with no list made and sorted.
 - `paw.keymap.getreg(name)`: What a register holds (the unnamed one when `name` is nil).
 - `paw.keymap.goto_mark(name)`: Move to a mark. With `'` or a backtick as the name, return to the start of the last jump. With `.`, go to the place of the last edit.
 - `paw.keymap.group(prefix, name, opts)`: Give a name to a prefix that only leads to more keys. The hints after it then show `+mix`, not the number of keys after it.
@@ -1093,6 +1094,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   Each key with `role` "second+" or "second-" (the `[` and `]` of a view) does so. The same key again is a second press. Another key soon after it that makes a longer mapping (`]g`, `]q`) takes back its change and runs that mapping. On a selection, the selection opens again for that mapping.
 - `paw.keymap.set_mode(mode)`: Change mode. When visual mode stops, the selection closes. `gv` opens it again.
 - `paw.keymap.setreg(value, name, yank)`: Put a value in a register: the unnamed register, and `name` if given. With `yank` and no name, it also goes to `"0`, which a delete never changes. A value is a table with a `kind`. The code that yanks and pastes it decides what else it contains. `"_` discards.
+- `paw.keymap.shada_project()`: What belongs to a project, for `paw.shada`: the marks, the jump lists (without where `<C-o>` is) and the places of the edits, each by view.
+- `paw.keymap.shada_set_project(data)`: Put back what `shada_project` gave, in place of the marks and places now.
+- `paw.keymap.shada_set_user(data)`: Put back what `shada_user` gave.
+- `paw.keymap.shada_user()`: What belongs to the user, for `paw.shada`: the last search and the registers (as a table of registers by name).
 - `paw.keymap.textobject(lhs, fn, opts)`: Define a text object: `fn(ctx)` returns a region, or nil when there is nothing of that kind at the cursor.
 
   ```lua
@@ -1591,6 +1596,13 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.plugins.note_names(device)`: What a device calls its keys, by pitch: a plugin that implements CLAP's `note-name` (a drum kit's drums, a sampler's keyswitches), or a built-in device of `M.builtin_names` (the `drums` kit). Empty for the rest. Asked again after `M.names_ttl`.
 - `paw.plugins.remove_dir(dir)`: Stop to find plugins in `dir`, and stop to offer the devices found there. The devices that exist continue to work.
 
+## Module paw.profile
+
+- `paw.profile.entries(report)`: The functions of a report as entries of the quickfix list: the share of the samples, the name, the file and the line.
+- `paw.profile.running()`: Whether `jit.profile` runs, and the samples it took so far.
+- `paw.profile.start(file)`: Start `jit.profile`, which takes a sample of the Lua code each millisecond. With `file`, `stop` writes the folded stacks there. Fails when it runs already.
+- `paw.profile.stop()`: Stop `jit.profile`. Returns the samples, the seconds and the functions that took the most time. Writes the folded stacks to the file that `start` was given. Fails when it does not run.
+
 ## Module paw.qf
 
 - `paw.qf.cdo(line, opts)`: Run a command line on each entry of the current list of a stack (`:cdo`), all as one undo step. For each entry, the cursor goes to the entry first. The command gets the address as `ctx.target`, and the whole location as `ctx.location`. With `per_track`, it runs one time for each track of the entries (`:cfdo`). Returns how many times it ran.
@@ -1915,6 +1927,12 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.seats.list()`: The seats there are, the instance's first.
 - `paw.seats.open(id, why)`: Give connection `id` its own seat, for a reason (`terminal`, `window`). The seat stays while a reason stays.
 - `paw.seats.within(id, fn, ...)`: Run `fn` in seat `id` (in the seat of the instance, if that seat closed), then return to the current seat.
+
+## Module paw.shada
+
+- `paw.shada.read()`: Read what is kept: yours, and the current project's.
+- `paw.shada.use(file)`: Keep the files in `file` (and the project files where they always are), and keep for all start options, for tests. `use()` sets all back.
+- `paw.shada.write()`: Write what is kept: yours, and the current project's.
 
 ## Module paw.snippet
 
@@ -2267,8 +2285,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   local key = paw.canvas.image(png_bytes)
   buf:image(0, 0, buf.width, buf.height, key)
   ```
+- `paw.ui.Buf.keep(self, key, x, y, w, h)`: Keep the cells drawn in the area `x, y, w, h` as they are now, under `key`, to put back on a later frame with `buf:put_kept` instead of drawing them again. The caller knows when what they show is the same. A change of a highlight group forgets every kept area.
 - `paw.ui.Buf.mark`: the same as `paw.roles.mark`.
 - `paw.ui.Buf.plane`: the same as `paw.roles.plane`.
+- `paw.ui.Buf.put_kept(self, key, x, y, w, h)`: Put back the cells kept under `key` (`buf:keep`), if they were kept from the same place on the screen: true when they were.
 - `paw.ui.Buf.root(width, height)`: The buffer that covers a whole screen of the given size.
 - `paw.ui.Buf.strip(self, x, y, w, h, opts)`: Keep an area for pixels that `opts.draw(g, px)` draws, where the terminal shows images. `g` is a painter of `paw.canvas`. `px` is `{ w, h, cell = { w, h }, fg, bg, view }`: the size of the strip, the cell of the terminal in pixels, and its colors. For a strip that is partly off its window, `view` is the part that shows (x, y, w, h). paw calls it after it draws the screen. `opts.key` names the strip, and paw keeps images by this name. For a view that can be in two windows, put the id of the window in it. The default is the view and its window. With `opts.under`, the cells that the view draws there stay above the picture (its cursor, labels, the playhead). If not, they are blank. False where there are no pixels (`paw.opt.graphics` off, a terminal without images, tmux, or a terminal that cannot put text over an image). Then the view draws cells there:
 
@@ -2364,7 +2384,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.clip_kind_define(name)`: Let `clip_add` make clips of the kind `name`: a lowercase word that is not `midi`, `audio` or another built-in. `paw.clip_kinds.define` calls it.
 - `paw.api.clip_kind_remove(name)`: Stop making clips of the kind `name`. Clips of it that the project has stay.
 - `paw.api.clip_kinds()`: The kinds of clip that extensions defined, by name (sorted).
-- `paw.api.clip_list(track)`: --- clips ---
+- `paw.api.clip_list(track, from, to)`: --- clips --- The clips of a track, in timeline order. With `from` and `to` (beats), only those that overlap that stretch: a view that shows part of the song asks for what it shows.
 - `paw.api.clip_normalize(id, level)`
 - `paw.api.clip_note_add(id, note)`: One note at a time, by its place in the notes of the clip (from 1). The functions that add and change a note return its new place, because the notes stay in the order of their start.
 - `paw.api.clip_note_at(id, pitch, beat)`: The note on `pitch` that sounds at `beat`, and its place in the notes of the clip. Nothing when there is no such note.
@@ -2418,7 +2438,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.engine_midi_filter(name, rules)`: Controls of MIDI input that tracks do not get: they neither sound nor record. Scripts still hear them, as `midi.in` events with `filtered = true`. Each `name` (`"step"`, `"learn"`) keeps its own list beside the others; nil or an empty list removes it.
 - `paw.api.engine_reset_stats()`: Forget the process times that `engine_get().blocks` recorded until now.
 - `paw.api.engine_restart(opts)`
-- `paw.api.engine_set_sleep(sleep)`: With true, devices at rest sleep through silence: a reverb after its tail, a synth with no note that sounds. The sound is the same with false. `engine_get().device_sleeps` counts the blocks that devices slept through.
+- `paw.api.engine_set_sleep(sleep)`: With true, devices at rest sleep through silence: a reverb after its tail, a synth with no note that sounds. When the song is stopped and nothing sounds, the whole engine rests. The sound is the same with false. `engine_get().device_sleeps` counts the blocks that devices slept through, and `engine_get().engine_rests` the blocks that the engine rested.
 - `paw.api.engine_set_threads(threads)`: The number of threads that process tracks, with the audio thread. 0 lets paw select the number. `engine_get().threads` gives the number in use.
 - `paw.api.env()`
 - `paw.api.events_take()`
@@ -2432,12 +2452,14 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.fs_space(path)`: The space of the disk that holds a path: `{ free, total }` in bytes (free: what a program that is not root can use).
 - `paw.api.fs_stat(path)`: `{ kind = "file" | "dir" | "link", dir, size, mtime }`, or nil when nothing is there. A link is looked at, not followed, for its kind, and `dir` is true if it leads to a directory.
 - `paw.api.fs_trash(path)`: Put a file or directory in the freedesktop trash; returns where it is.
-- `paw.api.grid_fill(x, y, w, h, fill, style, cx, cy, cw, ch)`: Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, and overwrite its characters when `fill` is given.
+- `paw.api.grid_fill(x, y, w, h, fill, style, cx, cy, cw, ch)`
 - `paw.api.grid_image(key, x, y, w, h, cx, cy, cw, ch)`: Draw the picture of pixels kept under `key` over the cells `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, two pixels a cell in half blocks (`▀`): what a terminal that shows no images shows of it. False for a key not kept (any more).
+- `paw.api.grid_keep(key, x, y, w, h, cx, cy, cw, ch)`: Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, and overwrite its characters when `fill` is given. Keep the cells of the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, under `key`, to put back on a later frame with `grid_put` when what they were drawn from has not changed.
 - `paw.api.grid_live_begin(x, y, w, h, cx, cy, cw, ch)`: A live part of the screen is drawn over the cells `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`: what is under them is kept, to draw it again by itself (`paw.ui.render_live`). Returns its number for `grid_live_end`, or nil when no part of it is on the screen.
 - `paw.api.grid_live_end(index)`
 - `paw.api.grid_live_restore()`: Take the live parts off the frame drawn last, to draw them again. Returns how many there were.
 - `paw.api.grid_live_seal()`: The frame is drawn: what is over the live parts now stays over them.
+- `paw.api.grid_put(key, x, y, w, h, cx, cy, cw, ch)`: Put the cells kept under `key` back, if they were kept from the same area: true when they were. Nothing is drawn else.
 - `paw.api.grid_surface(key, x, y, w, h, cx, cy, cw, ch, under)`: Keep the cells `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, for pixels under the name `key` (`buf:strip`), over the text or `under` it. Returns the number of the surface for `grid_surface_ops`, or nil when no part of it is on the screen.
 - `paw.api.grid_surface_ops(index, ops)`: The drawing a surface shows: the operations of `paw.canvas.paint`.
 - `paw.api.grid_surfaces_seal()`: The view being drawn is done with the surfaces it kept: what is drawn over them from now on covers them.
@@ -2574,6 +2596,9 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.sock_write(id, data)`
 - `paw.api.sound_envelope(path)`: The levels of a sound file, any format the engine plays: `{ rate, channels, frames, seconds, peaks, peak, onset, blocks }`, levels as linear gain. `peaks` holds the loudest sample of each channel, `peak` the loudest of all. `onset(level, from)` gives the time in seconds of the first frame, at `from` seconds or later, where a channel is louder than `level` (nil when none is). `blocks(from, to, ms)` gives the loudest sample of each block of `ms` milliseconds (default 1) between two times in seconds.
 - `paw.api.sound_write(path, opts, samples)`: Write a WAV file: `opts` is `{ rate, channels (2), bits (16, 24, or 32 for float) }`. `samples` is the interleaved samples as bytes of 32-bit floats in the order of the machine (`ffi.string` of a `float[?]`), or a function `(frame, count)` that gives them one piece at a time and nil at the end. Returns the number of frames.
+- `paw.api.startup_enter()`: Open an item of the start that `paw --startuptime` times: a module, an extension, the configuration. `startup_leave` closes it with its line. Nothing happens when the start is not timed.
+- `paw.api.startup_leave(label)`: Close the item `startup_enter` opened last: its line in the file of `--startuptime` gives its time with and without the items opened in it.
+- `paw.api.startup_timed()`: True while `paw --startuptime` times the start.
 - `paw.api.state_get(key)`
 - `paw.api.state_set(key, value)`
 - `paw.api.str_width(text)`

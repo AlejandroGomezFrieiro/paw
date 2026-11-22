@@ -212,6 +212,9 @@ paw.plot = {}
 ---@class paw.plugins
 paw.plugins = {}
 
+---@class paw.profile
+paw.profile = {}
+
 ---@class paw.qf
 paw.qf = {}
 
@@ -256,6 +259,9 @@ paw.scope = {}
 
 ---@class paw.seats
 paw.seats = {}
+
+---@class paw.shada
+paw.shada = {}
 
 ---@class paw.snippet
 paw.snippet = {}
@@ -4280,6 +4286,13 @@ function paw.keymap.expand(lhs) end
 ---@param keys any
 function paw.keymap.feed(keys) end
 
+--- The first mapping of `mode` (in `view`, then global) that `test(map)`
+--- is true for, in the order of `list`, with no list made and sorted.
+---@param mode any
+---@param test any
+---@param view any
+function paw.keymap.first(mode, test, view) end
+
 --- What a register holds (the unnamed one when `name` is nil).
 ---@param name any
 function paw.keymap.getreg(name) end
@@ -4467,6 +4480,22 @@ function paw.keymap.set_mode(mode) end
 ---@param name any
 ---@param yank any
 function paw.keymap.setreg(value, name, yank) end
+
+--- What belongs to a project, for `paw.shada`: the marks, the jump lists
+--- (without where `<C-o>` is) and the places of the edits, each by view.
+function paw.keymap.shada_project() end
+
+--- Put back what `shada_project` gave, in place of the marks and places now.
+---@param data any
+function paw.keymap.shada_set_project(data) end
+
+--- Put back what `shada_user` gave.
+---@param data any
+function paw.keymap.shada_set_user(data) end
+
+--- What belongs to the user, for `paw.shada`: the last search and the
+--- registers (as a table of registers by name).
+function paw.keymap.shada_user() end
 
 --- Define a text object: `fn(ctx)` returns a region, or nil when there is
 --- nothing of that kind at the cursor.
@@ -6293,6 +6322,25 @@ function paw.plugins.note_names(device) end
 ---@param dir any
 function paw.plugins.remove_dir(dir) end
 
+--- The functions of a report as entries of the quickfix list: the share
+--- of the samples, the name, the file and the line.
+---@param report any
+function paw.profile.entries(report) end
+
+--- Whether `jit.profile` runs, and the samples it took so far.
+function paw.profile.running() end
+
+--- Start `jit.profile`, which takes a sample of the Lua code each
+--- millisecond. With `file`, `stop` writes the folded stacks there. Fails
+--- when it runs already.
+---@param file any
+function paw.profile.start(file) end
+
+--- Stop `jit.profile`. Returns the samples, the seconds and the functions
+--- that took the most time. Writes the folded stacks to the file that
+--- `start` was given. Fails when it does not run.
+function paw.profile.stop() end
+
 --- Run a command line on each entry of the current list of a stack (`:cdo`),
 --- all as one undo step. For each entry, the cursor goes to the entry
 --- first. The command gets the address as `ctx.target`, and the whole
@@ -7471,6 +7519,17 @@ function paw.seats.open(id, why) end
 ---@param id any
 ---@param fn any
 function paw.seats.within(id, fn, ...) end
+
+--- Read what is kept: yours, and the current project's.
+function paw.shada.read() end
+
+--- Keep the files in `file` (and the project files where they always are),
+--- and keep for all start options, for tests. `use()` sets all back.
+---@param file any
+function paw.shada.use(file) end
+
+--- Write what is kept: yours, and the current project's.
+function paw.shada.write() end
 
 --- The active snippet, or nil. A snippet ends when the project changed
 --- other than through it, or the piano roll's cursor left its span.
@@ -8827,9 +8886,31 @@ paw.ui.Buf.hit = paw.roles.hit
 ---@param key any
 function paw.ui.Buf.image(self, x, y, w, h, key) end
 
+--- Keep the cells drawn in the area `x, y, w, h` as they are now, under
+--- `key`, to put back on a later frame with `buf:put_kept` instead of
+--- drawing them again. The caller knows when what they show is the same.
+--- A change of a highlight group forgets every kept area.
+---@param self any
+---@param key any
+---@param x any
+---@param y any
+---@param w any
+---@param h any
+function paw.ui.Buf.keep(self, key, x, y, w, h) end
+
 paw.ui.Buf.mark = paw.roles.mark
 
 paw.ui.Buf.plane = paw.roles.plane
+
+--- Put back the cells kept under `key` (`buf:keep`), if they were kept
+--- from the same place on the screen: true when they were.
+---@param self any
+---@param key any
+---@param x any
+---@param y any
+---@param w any
+---@param h any
+function paw.ui.Buf.put_kept(self, key, x, y, w, h) end
 
 --- The buffer that covers a whole screen of the given size.
 ---@param width any
@@ -9201,8 +9282,13 @@ function paw.api.clip_kind_remove(name) end
 function paw.api.clip_kinds() end
 
 --- --- clips ---
+--- The clips of a track, in timeline order. With `from` and `to`
+--- (beats), only those that overlap that stretch: a view that shows
+--- part of the song asks for what it shows.
 ---@param track integer
-function paw.api.clip_list(track) end
+---@param from number?
+---@param to number?
+function paw.api.clip_list(track, from, to) end
 
 ---@param id integer
 ---@param level number?
@@ -9494,9 +9580,11 @@ function paw.api.engine_reset_stats() end
 function paw.api.engine_restart(opts) end
 
 --- With true, devices at rest sleep through silence: a reverb after
---- its tail, a synth with no note that sounds. The sound is the same
---- with false. `engine_get().device_sleeps` counts the blocks that
---- devices slept through.
+--- its tail, a synth with no note that sounds. When the song is
+--- stopped and nothing sounds, the whole engine rests. The sound is
+--- the same with false. `engine_get().device_sleeps` counts the
+--- blocks that devices slept through, and `engine_get().engine_rests`
+--- the blocks that the engine rested.
 ---@param sleep boolean
 function paw.api.engine_set_sleep(sleep) end
 
@@ -9559,8 +9647,6 @@ function paw.api.fs_stat(path) end
 ---@param path string
 function paw.api.fs_trash(path) end
 
---- Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, and
---- overwrite its characters when `fill` is given.
 ---@param x number
 ---@param y number
 ---@param w number
@@ -9588,6 +9674,22 @@ function paw.api.grid_fill(x, y, w, h, fill, style, cx, cy, cw, ch) end
 ---@param ch number
 function paw.api.grid_image(key, x, y, w, h, cx, cy, cw, ch) end
 
+--- Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, and
+--- overwrite its characters when `fill` is given.
+--- Keep the cells of the area `(x, y, w, h)`, clipped to `(cx, cy,
+--- cw, ch)`, under `key`, to put back on a later frame with
+--- `grid_put` when what they were drawn from has not changed.
+---@param key string
+---@param x number
+---@param y number
+---@param w number
+---@param h number
+---@param cx number
+---@param cy number
+---@param cw number
+---@param ch number
+function paw.api.grid_keep(key, x, y, w, h, cx, cy, cw, ch) end
+
 --- A live part of the screen is drawn over the cells `(x, y, w, h)`,
 --- clipped to `(cx, cy, cw, ch)`: what is under them is kept, to draw
 --- it again by itself (`paw.ui.render_live`). Returns its number for
@@ -9611,6 +9713,19 @@ function paw.api.grid_live_restore() end
 
 --- The frame is drawn: what is over the live parts now stays over them.
 function paw.api.grid_live_seal() end
+
+--- Put the cells kept under `key` back, if they were kept from the
+--- same area: true when they were. Nothing is drawn else.
+---@param key string
+---@param x number
+---@param y number
+---@param w number
+---@param h number
+---@param cx number
+---@param cy number
+---@param cw number
+---@param ch number
+function paw.api.grid_put(key, x, y, w, h, cx, cy, cw, ch) end
 
 --- Keep the cells `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, for pixels
 --- under the name `key` (`buf:strip`), over the text or `under` it.
@@ -10268,6 +10383,19 @@ function paw.api.sound_envelope(path) end
 ---@param opts table
 ---@param samples any
 function paw.api.sound_write(path, opts, samples) end
+
+--- Open an item of the start that `paw --startuptime` times: a module,
+--- an extension, the configuration. `startup_leave` closes it with its
+--- line. Nothing happens when the start is not timed.
+function paw.api.startup_enter() end
+
+--- Close the item `startup_enter` opened last: its line in the file of
+--- `--startuptime` gives its time with and without the items opened in it.
+---@param label string
+function paw.api.startup_leave(label) end
+
+--- True while `paw --startuptime` times the start.
+function paw.api.startup_timed() end
 
 ---@param key string
 function paw.api.state_get(key) end

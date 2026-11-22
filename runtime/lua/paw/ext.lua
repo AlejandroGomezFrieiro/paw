@@ -609,11 +609,7 @@ end
 
 -- Loading and unloading ------------------------------------------------------------
 
---- Load one extension from a directory or a file (`.lua`, or `.tl` or the
---- extension of another language of `paw.lang`). One the program
---- was built with is not loaded again from elsewhere: the configuration
---- that names the source tree's copy gets the packaged one.
-function M.load(path)
+local function load_one(path)
   local name = name_of(path)
   local known = M.loaded[name]
   if known and known.packaged then return known end
@@ -668,6 +664,18 @@ function M.load(path)
     paw.notify("extension " .. name .. " failed: " .. tostring(err), "error")
   end
   paw.emit("ext.loaded", { name = name, ok = entry.ok })
+  return entry
+end
+
+--- Load one extension from a directory or a file (`.lua`, or `.tl` or the
+--- extension of another language of `paw.lang`). One the program
+--- was built with is not loaded again from elsewhere: the configuration
+--- that names the source tree's copy gets the packaged one.
+function M.load(path)
+  -- A line of its own in the file of `paw --startuptime`.
+  api.startup_enter()
+  local entry = load_one(path)
+  api.startup_leave("extension " .. name_of(path))
   return entry
 end
 

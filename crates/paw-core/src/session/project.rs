@@ -145,6 +145,7 @@ impl Session {
         self.seek(0.0);
         self.next_id = self.next_id.max(project.max_id() + 1);
         self.project = project;
+        self.files_there.forget();
         self.undo.checkpoint = self.project.clone();
         if touched.is_none() {
             self.undo.history.reset(self.project.clone(), history::now());

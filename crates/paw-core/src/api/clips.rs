@@ -117,8 +117,14 @@ fn notes_from_lua(lua: &Lua, value: LuaValue) -> mlua::Result<Vec<Note>> {
 pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> {
     define! { lua, api, shared;
         // --- clips ---
+        // The clips of a track, in timeline order. With `from` and `to`
+        // (beats), only those that overlap that stretch: a view that shows
+        // part of the song asks for what it shows.
         // @return {types.Clip}
-        fn clip_list(lua, sh, track => Id) { to_lua(lua, &sh.session.borrow().clip_list(track).lua()?) }
+        fn clip_list(lua, sh, (track, from, to) => (Id, Option<f64>, Option<f64>)) {
+            let span = from.zip(to);
+            to_lua(lua, &sh.session.borrow().clip_list_in(track, span).lua()?)
+        }
         // @return types.Clip
         fn clip_get(lua, sh, id => Id) { to_lua(lua, &sh.session.borrow().clip_view(id).lua()?) }
         // Where new recordings and bounces go: `media` beside the project

@@ -119,3 +119,32 @@ test("frames: a track that listens to its input keeps the meters moving while th
   gtr.monitor = false
   T.until_(function() return not paw.ui.active() end, "the frames to end with no input listened to", 5000)
 end)
+
+test("frames: a row of the timeline the cursor is not on shows each change to its clips and colours", function()
+  -- Such a row puts back the cells it drew last when nothing it is drawn
+  -- from changed (paw/views/arrange.lua): each change must still show.
+  T.fresh()
+  local W, H = 120, 40
+  local one, two = paw.add_track({ name = "one" }), paw.add_track({ name = "two" })
+  one:add_clip({ name = "first", start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
+  two:add_clip({ name = "second", start = 0, length = 4, notes = { { pitch = 64, start = 0, length = 1 } } })
+  paw.flush()
+  paw.keymap.feed("<Esc>gg")
+  local function frame() return api.ui_frame_snapshot(W, H) end
+  --- The screen's row that shows `text`.
+  local function row_with(drawn, text)
+    for i, line in ipairs(drawn.text) do
+      if line:find(text, 1, true) then return i end
+    end
+  end
+  frame()
+  eq(row_with(frame(), "second") ~= nil, true, "the other track's clip is drawn")
+  two:clips()[1].name = "renamed"
+  local drawn = frame()
+  local row = row_with(drawn, "renamed")
+  eq(row ~= nil, true, "a new name shows")
+  local was = paw.opt.termcolors
+  T.after(function() paw.opt.termcolors = was end)
+  paw.opt.termcolors = paw.draw.truecolor() and "256" or "true"
+  eq(frame().cells[row] ~= drawn.cells[row], true, "new colours show")
+end)

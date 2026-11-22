@@ -48,6 +48,25 @@ A device at rest sleeps through silence, which means that the engine does not ru
 - The sound is the same to the bit when devices sleep and when they do not.
 - `paw.opt.device_sleep = false` makes each device run on each block, and the `sleep` option of a render does the same for one render.
 
+## The engine at rest
+
+When the song is stopped and nothing sounds, the whole engine rests. It then writes silence for each block and does no other work: it does not clear the buffers of the tracks, add them up or measure them.
+
+The engine rests after 8 blocks in a row in which all of these are true:
+
+- The transport is stopped, and no count-in runs.
+- No clip of the clip launcher waits to start.
+- No track hears an audio input: no track is monitored or armed with an audio input.
+- No sound file plays on its own (a preview or an audition).
+- Each device sleeps (see [Devices at rest](#devices-at-rest)), and the output is silent. A reverb that still rings, or a device that never sleeps, such as a `compressor` or a CLAP plugin that never says that it can sleep, keeps the engine awake.
+- The meters of the tracks have fallen below -100 dB, and the delay of each path (see [Delay compensation](#delay-compensation)) holds only silence.
+
+A message from the kernel, such as a note that you play, a change of a parameter or the start of the transport, wakes the engine in the same block. A MIDI input event does the same. So the first sound comes in the same block as when the engine does not rest. When the engine starts to rest, it sets the meters of the tracks to zero.
+
+- `paw.api.engine_get().engine_rests` counts the blocks in which the engine rested. In these blocks each device sleeps, so `device_sleeps` counts them too.
+- `paw.opt.device_sleep = false` stops the rest too, because it is one switch for both.
+- A render never rests, so a render is the same to the bit with `sleep` on and off.
+
 ## State of the engine
 
 `paw.api.engine_get()` gives a table, and `paw.frontend.state()` gives the same values to the graphical window and the status line.
@@ -62,6 +81,7 @@ A device at rest sleeps through silence, which means that the engine does not ru
 | `shared_groups` | The groups of tracks that the engine shared between threads, since it started. |
 | `device_sleep` | True when devices at rest sleep (`paw.opt.device_sleep`). |
 | `device_runs`, `device_sleeps` | The blocks that devices ran, and the blocks that devices at rest slept through, since the engine started. |
+| `engine_rests` | The blocks in which the whole engine rested, since it started (see [The engine at rest](#the-engine-at-rest)). |
 | `lost` | The name of a lost device, or nil. |
 | `xruns` | The number of xruns. |
 | `late_blocks` | The number of blocks that plugins did not give in time. |

@@ -360,8 +360,13 @@ pub struct Part {
     /// Where its clip is among the track's clips, from 1: on the same beat,
     /// what a part with a lower order plays comes first.
     pub order: u64,
-    /// Sorted as [`ClipSet::midi`] is.
+    /// Sorted as [`ClipSet::midi`] is, counted from
+    /// [`offset`](Self::offset): copies of a clip at many places share one
+    /// list.
     pub midi: Arc<[MidiEv]>,
+    /// The beat its events are counted from: an event plays on its beat
+    /// plus this.
+    offset: f64,
     /// Sorted by where they start, so that a block finds the few that
     /// sound under it by a search, however many there are (a clip cut into
     /// thousands of slices).
@@ -377,22 +382,66 @@ pub struct Part {
 impl Part {
     /// A part of `midi` and of `audio` in any order.
     pub fn new(id: u64, order: u64, midi: Arc<[MidiEv]>, mut audio: Vec<AudioRegion>) -> Self {
-        let mut from = f64::INFINITY;
-        let mut to = f64::NEG_INFINITY;
-        if let (Some(first), Some(last)) = (midi.first(), midi.last()) {
-            from = first.beat;
-            to = last.beat;
-        }
-        let mut reach = 0.0f64;
-        for region in &audio {
-            from = from.min(region.start);
-            to = to.max(region.end);
-            reach = reach.max(region.end - region.start);
-        }
+        let reach = audio.iter().map(|r| r.end - r.start).fold(0.0, f64::max);
         // Stable: regions on the same beat keep their order, and so the
         // order they are added up in.
         audio.sort_by(|a, b| a.start.total_cmp(&b.start));
-        Self { id, order, midi, audio, reach, from, to }
+        let mut part = Self {
+            id,
+            order,
+            midi,
+            offset: 0.0,
+            audio,
+            reach,
+            from: f64::INFINITY,
+            to: f64::NEG_INFINITY,
+        };
+        part.find_bounds();
+        part
+    }
+
+    /// The part with its events counted from `beats`: each plays on its
+    /// beat plus `beats`, so that copies of a clip share one list of
+    /// events and each plays it from its own start. Its regions stay
+    /// where they are.
+    #[must_use]
+    pub fn with_offset(mut self, beats: f64) -> Self {
+        self.offset = beats;
+        self.find_bounds();
+        self
+    }
+
+    /// Set the first and last beat it has anything on.
+    fn find_bounds(&mut self) {
+        let (mut from, mut to) = (f64::INFINITY, f64::NEG_INFINITY);
+        if let (Some(first), Some(last)) = (self.midi.first(), self.midi.last()) {
+            from = self.placed(first).beat;
+            to = self.placed(last).beat;
+        }
+        for region in &self.audio {
+            from = from.min(region.start);
+            to = to.max(region.end);
+        }
+        (self.from, self.to) = (from, to);
+    }
+
+    /// The beat its events are counted from.
+    pub fn offset(&self) -> f64 {
+        self.offset
+    }
+
+    /// Its events, each on the beat it plays on.
+    pub fn events(&self) -> impl Iterator<Item = MidiEv> + '_ {
+        self.midi.iter().map(|e| self.placed(e))
+    }
+
+    /// One of its events on the beat it plays on.
+    #[inline]
+    fn placed(&self, e: &MidiEv) -> MidiEv {
+        MidiEv {
+            beat: e.beat + self.offset,
+            kind: e.kind,
+        }
     }
 
     /// Its regions, sorted by where they start.
@@ -566,7 +615,7 @@ impl ClipSet {
                 break;
             }
             if part.to >= start && self.sounding.len() < self.sounding.capacity() {
-                let at = part.midi.partition_point(|e| e.beat < start);
+                let at = part.midi.partition_point(|e| part.placed(e).beat < start);
                 self.sounding.push((i as u32, at as u32));
             }
         }
@@ -609,8 +658,9 @@ impl ClipSet {
                 .map(|e| (Stamp::of(e, 0, list), None));
             for (k, &(i, at)) in self.sounding.iter().enumerate() {
                 let part = &self.parts[i as usize];
-                if let Some(e) = part.midi.get(at as usize).filter(|e| e.beat < end) {
-                    let stamp = Stamp::of(e, part.order, at as usize);
+                let next = part.midi.get(at as usize).map(|e| part.placed(e));
+                if let Some(e) = next.filter(|e| e.beat < end) {
+                    let stamp = Stamp::of(&e, part.order, at as usize);
                     if best.as_ref().is_none_or(|(b, _)| b.after(&stamp)) {
                         best = Some((stamp, Some(k)));
                     }
@@ -624,7 +674,8 @@ impl ClipSet {
                 }
                 Some((_, Some(k))) => {
                     let (i, at) = self.sounding[k];
-                    each(&self.parts[i as usize].midi[at as usize]);
+                    let part = &self.parts[i as usize];
+                    each(&part.placed(&part.midi[at as usize]));
                     self.sounding[k].1 += 1;
                 }
             }
@@ -639,8 +690,8 @@ impl ClipSet {
             each(ev, Stamp::of(ev, 0, at));
         }
         for part in self.parts.iter().take_while(|p| p.from < before) {
-            for (at, ev) in part.midi.iter().enumerate().take_while(|(_, e)| e.beat < before) {
-                each(ev, Stamp::of(ev, part.order, at));
+            for (at, ev) in part.events().enumerate().take_while(|(_, e)| e.beat < before) {
+                each(&ev, Stamp::of(&ev, part.order, at));
             }
         }
     }

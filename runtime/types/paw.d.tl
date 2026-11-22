@@ -50,6 +50,7 @@ local type OptionModule = require("paw.options")
 local type PanesModule = require("paw.panes")
 local type PickModule = require("paw.pick")
 local type PlotModule = require("paw.plot")
+local type ProfileModule = require("paw.profile")
 local type QfModule = require("paw.qf")
 local type QueryModule = require("paw.query")
 local type RegexModule = require("paw.regex")
@@ -61,6 +62,7 @@ local type RulerModule = require("paw.ruler")
 local type SceneModule = require("paw.scene")
 local type ScopeModule = require("paw.scope")
 local type SeatsModule = require("paw.seats")
+local type ShadaModule = require("paw.shada")
 local type SnippetModule = require("paw.snippet")
 local type StatuslineModule = require("paw.statusline")
 local type StepModule = require("paw.step")
@@ -169,6 +171,7 @@ global record paw
    pick: PickModule
    plot: PlotModule
    plugins: Untyped
+   profile: ProfileModule
    project: ObjectsModule.Project
    qf: QfModule
    query: QueryModule
@@ -194,6 +197,7 @@ global record paw
    scene: SceneModule
    scope: ScopeModule
    seats: SeatsModule
+   shada: ShadaModule
    snippet: SnippetModule
    state: Untyped
    statusline: StatuslineModule

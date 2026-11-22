@@ -16,8 +16,15 @@
 //! - `expand+sync`: the copies made and synced into an engine that has none;
 //! - `edit plain`: one note of one plain clip changed, synced;
 //! - `edit nest`: one note of the nest track changed: every copy is made
-//!   again and synced, as each nest clip plays the change.
+//!   again and synced, as each nest clip plays the change;
+//! - `edit nest cut`: the same, with each nest clip's window starting 4
+//!   beats into the nest: the notes before the cut are left out and the
+//!   rest are moved to the window's start, one time for all the copies of
+//!   one window;
+//! - `edit nest sync`: as `edit nest`, with the copies made before the time
+//!   measured: what the sync alone costs.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use paw_core::model::{Clip, ClipContent, Project, Track};
@@ -82,32 +89,61 @@ struct Place {
     length: f64,
 }
 
-/// The places of `count` nest clips, end to end on the hosts in turn.
-fn places(count: usize) -> Vec<Vec<Place>> {
+/// The places of `count` nest clips, end to end on the hosts in turn, each
+/// showing the nest from beat `offset`.
+fn places(count: usize, offset: f64) -> Vec<Vec<Place>> {
     let mut out = vec![Vec::new(); HOSTS];
     for k in 0..count {
         let host = k % HOSTS;
         let start = out[host].len() as f64 * LENGTH;
-        out[host].push(Place { start, offset: 0.0, length: LENGTH });
+        out[host].push(Place { start, offset, length: LENGTH - offset });
     }
     out
 }
 
+/// A nest clip cut `by` beats after its start: its notes before the cut
+/// are left out and the others moved to the cut.
+fn cut(clip: &Clip, by: f64) -> Clip {
+    let mut out = clip.clone();
+    if let ClipContent::Midi { notes, .. } = &mut out.content {
+        notes.retain(|n| n.start >= by);
+        for n in notes.iter_mut() {
+            n.start -= by;
+        }
+    }
+    out.start += by;
+    out.length -= by;
+    out
+}
+
 /// Pass-mode expansion: each of the nest track's clips that a nest clip's
-/// window shows, copied to the song's time and cut at the window's end.
-/// (A cut at the window's start would shift the notes: none here.)
-fn expand(nest: &Track, at: &[Place], next_id: &mut u64, out: &mut Vec<Arc<Clip>>) {
+/// window shows, copied to the song's time and cut at the window's ends.
+/// A clip cut at the window's start is cut once in `cuts`, which every
+/// copy of that window shares, as copies of one clip share its notes.
+fn expand(
+    nest: &Track,
+    at: &[Place],
+    cuts: &mut HashMap<(usize, u64), Clip>,
+    next_id: &mut u64,
+    out: &mut Vec<Arc<Clip>>,
+) {
     for p in at {
-        for clip in nest.clips.iter() {
+        for (k, clip) in nest.clips.iter().enumerate() {
             let (from, to) = (clip.start.max(p.offset), (clip.start + clip.length).min(p.offset + p.length));
             if to <= from {
                 continue;
             }
-            let mut copy = Clip::clone(clip);
+            let by = from - clip.start;
+            let shown: &Clip = if by > 0.0 {
+                &*cuts.entry((k, by.to_bits())).or_insert_with(|| cut(clip, by))
+            } else {
+                clip
+            };
+            let mut copy = Clip::clone(shown);
             copy.id = *next_id;
             *next_id += 1;
-            copy.start = p.start + (clip.start - p.offset);
-            copy.length = to - clip.start;
+            copy.start = p.start + (from - p.offset);
+            copy.length = to - from;
             out.push(Arc::new(copy));
         }
     }
@@ -117,9 +153,10 @@ fn expand(nest: &Track, at: &[Place], next_id: &mut u64, out: &mut Vec<Arc<Clip>
 fn expanded(base: &Project, nest: &Track, places: &[Vec<Place>]) -> Project {
     let mut p = base.clone();
     let mut id = 2_000_000;
+    let mut cuts = HashMap::new();
     for (i, at) in places.iter().enumerate() {
         let mut clips = Vec::with_capacity(at.len());
-        expand(nest, at, &mut id, &mut clips);
+        expand(nest, at, &mut cuts, &mut id, &mut clips);
         Arc::make_mut(&mut p.tracks[i]).clips = clips.into();
     }
     p
@@ -182,11 +219,13 @@ fn main() {
     let empty = Project::default();
     let base = song();
     let nest = nest_track(notes);
-    let at = places(count);
+    let at = places(count, 0.0);
+    let at_cut = places(count, 4.0);
     let mut edited_nest = nest.clone();
     bump(&mut edited_nest.clips[0]);
 
-    let mut cases: Vec<(&str, Vec<f64>)> = ["place", "expand", "expand+sync", "edit plain", "edit nest"]
+    let names = ["place", "expand", "expand+sync", "edit plain", "edit nest", "edit nest cut", "edit nest sync"];
+    let mut cases: Vec<(&str, Vec<f64>)> = names
         .iter()
         .map(|n| (*n, Vec::new()))
         .collect();
@@ -222,6 +261,27 @@ fn main() {
         let second = expanded(&base, &edited_nest, &at);
         s.sync(&first, &second, &mut sent);
         cases[4].1.push(cpu_ms() - t);
+        drop(sent);
+
+        let mut s = Syncer::new();
+        let mut sent = Vec::new();
+        s.sync(&empty, &first, &mut sent);
+        sent.clear();
+        let second = expanded(&base, &edited_nest, &at);
+        let t = cpu_ms();
+        s.sync(&first, &second, &mut sent);
+        cases[6].1.push(cpu_ms() - t);
+        drop(sent);
+
+        let mut s = Syncer::new();
+        let mut sent = Vec::new();
+        let first = expanded(&base, &nest, &at_cut);
+        s.sync(&empty, &first, &mut sent);
+        sent.clear();
+        let t = cpu_ms();
+        let second = expanded(&base, &edited_nest, &at_cut);
+        s.sync(&first, &second, &mut sent);
+        cases[5].1.push(cpu_ms() - t);
     }
     for (name, xs) in cases {
         let (median, min, max) = stats(xs);

@@ -12,6 +12,7 @@ mod handle;
 mod msg;
 mod process;
 mod regions;
+mod rest;
 mod schedule;
 mod shared;
 mod stats;
@@ -47,6 +48,7 @@ use click::{CLICK_FRAMES, Click, Count};
 use device_rt::DeviceRt;
 use guarded::Guarded;
 use msg::Garbage;
+use rest::Rest;
 
 /// Largest block handed to devices. Longer callbacks are split.
 pub const MAX_BLOCK: usize = 1024;
@@ -124,8 +126,13 @@ pub struct Engine {
     /// it fades out.
     preview: Option<Box<Preview>>,
     preview_leaving: Option<Box<Preview>>,
-    /// Devices at rest sleep through silent blocks (see [`Msg::SetSleep`]).
+    /// Devices at rest sleep through silent blocks (see [`Msg::SetSleep`]),
+    /// and the engine rests when nothing sounds.
     sleep: bool,
+    /// How near the engine is to rest, or whether it rests.
+    rest: Rest,
+    /// Some track hears an audio input: the engine does not rest.
+    listening: bool,
     /// Rendering to a file, as fast as it goes: work is shared between
     /// threads whenever that is faster. Live, only when one thread could
     /// come near the time a block has.
@@ -184,6 +191,8 @@ impl Engine {
             preview: None,
             preview_leaving: None,
             sleep: true,
+            rest: Rest::default(),
+            listening: false,
             offline: false,
         };
         (
@@ -240,12 +249,22 @@ impl Engine {
 
     /// Apply every queued message. Called at the start of each [`process`](Self::process).
     pub fn pump(&mut self) {
+        self.take_messages();
+    }
+
+    /// Apply every queued message and MIDI input event. True if there
+    /// was one.
+    fn take_messages(&mut self) -> bool {
+        let mut any = false;
         while let Ok(msg) = self.rx.pop() {
             self.apply(msg);
+            any = true;
         }
         while let Ok((port, kind)) = self.midi_rx.pop() {
             self.midi_in(port, kind);
+            any = true;
         }
+        any
     }
 
     /// Move every queued launch to the first boundary from `beat`, where

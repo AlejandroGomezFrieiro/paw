@@ -293,6 +293,21 @@ function M.remember(name, line)
   if line ~= "" and h[#h] ~= line then h[#h + 1] = line end
 end
 
+--- The histories by prompt name, for `paw.shada`.
+function M.histories() return histories end
+
+--- Put lines in a prompt's history, in the list that an open prompt may hold.
+function M.set_history(name, lines)
+  local h = histories[name] or {}
+  histories[name] = h
+  for i = #h, 1, -1 do
+    h[i] = nil
+  end
+  for i, line in ipairs(lines) do
+    h[i] = line
+  end
+end
+
 local MAX_ROWS = 10
 
 --- A description in the list: its first line, without the examples.
@@ -504,9 +519,8 @@ end
 
 --- How to see every message: the key for the messages, and the command.
 function M.messages_hint()
-  for _, map in ipairs(paw.keymap.list("n")) do
-    if map.rhs == "pick.messages" or map.rhs == "messages" then return paw.keymap.human(map.lhs) .. " or :messages" end
-  end
+  local map = paw.keymap.first("n", function(m) return m.rhs == "pick.messages" or m.rhs == "messages" end)
+  if map then return paw.keymap.human(map.lhs) .. " or :messages" end
   return ":messages"
 end
 

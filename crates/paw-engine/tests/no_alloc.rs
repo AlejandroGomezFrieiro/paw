@@ -752,8 +752,8 @@ fn the_audio_thread_never_allocates() {
             hold: Default::default(),
             direction: Default::default(),
         });
-        let midi: Vec<_> = set.midi.iter().map(|e| paw_engine::MidiEv { beat: e.beat + id as f64, kind: e.kind }).collect();
-        paw_engine::Part::new(id, order, midi.into(), audio.collect())
+        // Its events counted from where it plays them, as copies of a clip share them.
+        paw_engine::Part::new(id, order, set.midi.into(), audio.collect()).with_offset(id as f64)
     };
     for &slot in &tracks[..3] {
         let parts = (0..40).map(|id| part(id, (id + 1) * 1000)).collect();
@@ -857,6 +857,7 @@ fn the_audio_thread_never_allocates() {
     the_sampler_never_allocates();
     a_sound_being_made_never_allocates();
     a_file_heard_on_its_own_never_allocates();
+    an_engine_at_rest_never_allocates();
     reversed_slices_never_allocate();
 }
 
@@ -947,6 +948,40 @@ fn a_file_heard_on_its_own_never_allocates() {
     send(&mut handle, Msg::SetPreview(None));
     assert_eq!(run(&mut engine, 4, 512, 0), 0, "a file stopped");
     assert_eq!(handle.shared.preview(), None, "it has stopped");
+    handle.collect_garbage();
+}
+
+/// A stopped engine with synths comes to rest, rests, and wakes for a note
+/// and rests again, without allocating. Run from the test above.
+fn an_engine_at_rest_never_allocates() {
+    let (mut engine, mut handle) = Engine::new(SR);
+    let mut entries = Vec::new();
+    for n in 1..=4 {
+        let slot = TrackSlot(n);
+        let track = TrackRt::new();
+        send(&mut handle, Msg::InsertTrack { slot, track });
+        let (dev, device) = (DeviceSlot(n), device("synth"));
+        send(&mut handle, Msg::InsertDevice { slot: dev, device });
+        let chain = vec![dev].into();
+        send(&mut handle, Msg::SetChain { track: slot, chain });
+        entries.push(SchedEntry::new(slot, TrackSlot::MASTER));
+    }
+    entries.push(SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE));
+    send(&mut handle, Msg::SetSchedule(Box::new(Schedule::new(entries, 0))));
+    assert_eq!(run(&mut engine, 40, 512, 2), 0, "coming to rest, and resting");
+    assert!(handle.shared.engine_rests() > 0, "the engine rests");
+    let on = EventKind::NoteOn {
+        key: 60,
+        vel: 0.8,
+        ch: 0,
+        attr: Attr::NONE,
+    };
+    let off = EventKind::NoteOff { key: 60, ch: 0 };
+    for event in [on, off] {
+        let track = TrackSlot(1);
+        send(&mut handle, Msg::Live { track, event });
+    }
+    assert_eq!(run(&mut engine, 400, 512, 2), 0, "woken by a note, and at rest again");
     handle.collect_garbage();
 }
 
