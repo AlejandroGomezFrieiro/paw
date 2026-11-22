@@ -1,15 +1,17 @@
 # interop: the projects of other programs
 
-Opens the projects of other programs in paw, and writes the projects of
-paw for them, so a song can move in both directions:
+The interop extension opens the projects of other programs in paw, and writes the
+projects of paw for them, so a song can move in both directions. It handles
+two formats:
 
 - REAPER projects (`.rpp`).
 - DAWproject files (`.dawproject`), the open format of Bitwig Studio,
   PreSonus Studio One and Steinberg Cubase.
 
-It is also the example of how to add a format: each format is a module
-that the core's `:import`, `:open`, `:export` and `:write` use through one
-call, `paw.formats.register`. See [How a format is made](#how-a-format-is-made).
+The extension is also the example of how to add a format. Each format is a
+module that the core's `:import`, `:open`, `:export` and `:write` use through
+one call, `paw.formats.register`, and [How a format is
+made](#how-a-format-is-made) describes it.
 
 ```lua
 paw.ext.load("/path/to/paw/extensions/interop")   -- or link it into ~/.config/paw/extensions
@@ -44,7 +46,7 @@ such track gets a `synth`.
 
 ### How to add the tracks of another project to this project
 
-Type `:import song.rpp` or `:import song.dawproject`. The project keeps
+Type `:import song.rpp` or `:import song.dawproject`, and the project keeps
 its own tempo map and its own master.
 
 ### How to write a project for another program
@@ -52,7 +54,7 @@ its own tempo map and its own master.
 Type `:w song.rpp` or `:w song.dawproject`. The page that opens lists what
 paw could not write. A DAWproject file holds the audio files and the
 states of the plugins. To keep the audio files outside the file, type
-`:export song.dawproject embed=false`. Then the file refers to the audio
+`:export song.dawproject embed=false`, and the file then refers to the audio
 files where they are.
 
 ### How to edit a `.rpp` file from a script
@@ -81,10 +83,10 @@ extension or from your `init.lua`:
 | `import(path, opts)` | optional: reads the file. `opts.merge` is true for `:import` (add to the project) and false for `:open` and `:e` (in place of the project). `opts.args` holds the `key=value` words after the path |
 | `export(path, opts)` | optional: writes the project to the file. `opts.args` as above |
 
-`import` and `export` return what to say: text, or `{ said, lost }`, where
-`lost` is the lines of what did not carry over. paw shows them on a page.
-An error that they raise is said as the error. A format with no `export`
-only reads, and one with no `import` only writes.
+`import` and `export` return what to say, as text or as `{ said, lost }`,
+where `lost` is the lines of what did not carry over, and paw shows them on a
+page. paw says an error that they raise as the error. A format with no
+`export` only reads, and a format with no `import` only writes.
 
 This extension registers its two formats in `init.lua`, through
 `interop.register`, which makes the two functions from a module that has
@@ -127,7 +129,7 @@ makes a small format step by step.
 
 ### Commands
 
-The extension has no commands and no keys of its own. The commands of
+The extension has no commands and no keys of its own, and the commands of
 paw take its files:
 
 | Command | Effect |
@@ -139,7 +141,7 @@ paw take its files:
 
 After an import or an export, a page lists what paw could not bring
 across, grouped by kind (plugins, takes, envelopes, and other). The
-message line tells how much came across. paw lists every item that it
+message line tells how much came across, and paw lists every item that it
 drops.
 
 ```lua
@@ -156,7 +158,7 @@ dp.export("out.dawproject", { embed = false })
 
 #### The format
 
-`rpp.parse(text)` gives a tree. `rpp.write(tree)` gives the text back.
+`rpp.parse(text)` gives a tree, and `rpp.write(tree)` gives the text back.
 
 - A tree with no changes writes the same bytes that it came from:
   indentation, quotes, number format, CRLF or LF.
@@ -179,7 +181,7 @@ rpp.save(doc, "song.rpp")
 ```
 
 A node is `{ tokens = { name, args... }, children = {...} }`. Blocks have
-children. Lines do not.
+children, and lines do not.
 
 | Method | Effect |
 | --- | --- |
@@ -193,8 +195,8 @@ children. Lines do not.
 
 `rpp.format.quote` and `rpp.format.number` are the quotes and the number
 format of REAPER. A token has no quotes, unless it is empty, holds a blank
-or starts with a quote. Then it takes the first of `"`, `'` and `` ` `` that
-it does not contain. The format has no escapes.
+or starts with a quote, and then it takes the first of `"`, `'` and `` ` ``
+that it does not contain. The format has no escapes.
 
 #### What comes across
 
@@ -223,7 +225,7 @@ REAPER counts the parameters of a plugin from 0, in the order of the
 plugin. paw lists them in the same order. For a CLAP or VST3 plugin, REAPER
 writes the id of the plugin for the parameter after the place, as a signed
 32-bit number: `<PARMENV 5:-1611133501`. paw writes and reads the same
-form. It finds the parameter by the id first. An envelope then stays on
+form, and it finds the parameter by the id first, so an envelope stays on
 its parameter in a version of the plugin with a different order.
 
 A parameter envelope gives values from its minimum to its maximum, and
@@ -232,9 +234,9 @@ paw scales them to the range of the parameter. See
 
 #### What does not come across
 
-paw lists these after each import or export.
+After each import or export, paw lists the following items.
 
-- **REAPER → paw:**
+- REAPER to paw:
   - tempo envelope points with shapes other than square and linear
   - inactive takes, fade shapes (paw fades on a quarter sine), the play
     rate and pitch shift of MIDI items
@@ -253,7 +255,7 @@ paw lists these after each import or export.
   - empty items, video, subprojects, other sources, media files that paw cannot find
   - LV2 state other than control ports, offline plugins, the volume of
     MIDI items
-- **paw → REAPER:**
+- paw to REAPER:
   - built-in devices (`synth`, `drums`, `gain`, `delay`) and other devices
     that are not plugins, and their automation
   - VST3 plugins added in paw (paw does not know the id of REAPER for them)
@@ -291,7 +293,7 @@ The core reads and writes the archive (`paw.zip`) and the XML
 
 #### What comes across
 
-paw writes times on the arrangement in beats. Audio clips play their
+paw writes times on the arrangement in beats, and audio clips play their
 files in seconds.
 
 | | DAWproject → paw | paw → DAWproject |
@@ -312,9 +314,9 @@ files in seconds.
 
 #### What does not come across
 
-paw lists these after each import or export.
+After each import or export, paw lists the following items.
 
-- **DAWproject → paw:**
+- DAWproject to paw:
   - note-off velocities, per-note expressions, and expressions other than
     MIDI controllers (gain, pan, transpose, timbre, formant)
   - warp points between the first and the last (paw stretches the clip
@@ -325,7 +327,7 @@ paw lists these after each import or export.
   - send pan, sends that are off
   - the clip launcher (scenes and their clips)
   - the master of the file, when merged
-- **paw → DAWproject:**
+- paw to DAWproject:
   - the class id of a VST3 plugin that is not installed here and did not
     come from a DAWproject file (a DAW finds the plugin by its name)
   - the pitch of audio clips, warp markers, the tension of smooth curves
@@ -336,10 +338,10 @@ paw lists these after each import or export.
   - the loop of the transport, record arm, inputs and monitoring
   - clips in the slots of the clip launcher
 
-For a parameter of a CLAP or VST3 plugin, `parameterID` holds the id
-that the plugin itself gives the parameter. The `deviceID` of a VST3
-plugin holds its class id. Ids of 2^31 and more become negative numbers,
-because the schema has a signed 32-bit number there.
+For a parameter of a CLAP or VST3 plugin, `parameterID` holds the id that
+the plugin itself gives the parameter, and the `deviceID` of a VST3 plugin
+holds its class id. Ids of 2^31 and more become negative numbers, because
+the schema has a signed 32-bit number there.
 
 For a device of paw or an LV2 plugin, `parameterID` holds the place of
 the parameter in the device (the first is 0).
@@ -350,8 +352,8 @@ first, then by its name. See
 
 ### Tests
 
-The suite runs `tests_rpp.lua`, with fixtures written by hand in `fixtures/rpp/`.
-The tests cover:
+The suite runs `tests_rpp.lua`, with fixtures written by hand in
+`fixtures/rpp/`. The tests cover the following:
 
 - parse and rewrite
 - an import, checked track by track and clip by clip
@@ -362,16 +364,16 @@ The tests cover:
 - REAPER itself opens an exported project
 - REAPER itself makes and saves a project, and paw imports it
 
-The parser was checked on 24 project files saved by REAPER, up to 2.9 MB.
-It gave the same bytes, and the same tokens after it wrote every line
+The parser was checked on 24 project files saved by REAPER, up to 2.9 MB,
+and it gave the same bytes, and the same tokens after it wrote every line
 again.
 
-The first REAPER test opens an exported project in REAPER. Then it compares
-what REAPER read with the project of paw. It compares the tracks, folders,
-colors and sends. It compares the items with their fades, play rates and
-loops. It also compares the notes, the controller events, the envelope
-shapes, the markers and regions. The REAPER tests run when `PAW_REAPER`
-names the `reaper` program. Otherwise the suite skips them:
+The first REAPER test opens an exported project in REAPER, and then it
+compares what REAPER read with the project of paw. It compares the tracks,
+folders, colors and sends, the items with their fades, play rates and loops,
+and the notes, the controller events, the envelope shapes, the markers and
+regions. The REAPER tests run when `PAW_REAPER` names the `reaper` program,
+and otherwise the suite skips them:
 
 ```sh
 PAW_REAPER=/path/to/reaper nix develop -c tests/tools/suite.sh only "REAPER"
@@ -379,14 +381,14 @@ PAW_REAPER=/path/to/reaper nix develop -c tests/tools/suite.sh only "REAPER"
 
 `tools/reaper-open.sh song.rpp dump.txt` does the same for any project.
 REAPER runs in a sandbox (`bwrap`) on a private X display, with no audio
-device and its own new configuration. It does not touch the configuration
+device and its own new configuration, so it does not touch the configuration
 of a REAPER that you have. The startup script `tools/reaper-dump.lua`
-writes what REAPER read, then REAPER stops.
+writes what REAPER read, and then REAPER stops.
 
 The second REAPER test gives a third argument, `tools/reaper-build.lua`.
-REAPER then runs this script in a new project, which makes a song with the
-API of REAPER. REAPER saves the song as `song.rpp`. paw imports it and
-compares it with what REAPER wrote about it.
+REAPER runs that script in a new project, and the script makes a song with
+the API of REAPER. REAPER saves the song as `song.rpp`, and paw imports it
+and compares it with what REAPER wrote about it.
 
 Some rules come from projects saved by REAPER 7.84, and from REAPER 7.84
 itself, not from documentation:
@@ -397,10 +399,11 @@ itself, not from documentation:
 - A color in the file is red + green × 256 + blue × 65536, plus 0x1000000
   when the color is in use.
 
-The suite runs `tests_dawproject.lua`. The fixture `fixtures/dawproject/studio.dawproject` is a
-song written by hand in the shape that Bitwig Studio writes, made with the
-`zip` program (so its files are compressed). `fixtures/dawproject/studio/` holds its
-files. The tests cover:
+The suite runs `tests_dawproject.lua`. The fixture
+`fixtures/dawproject/studio.dawproject` is a song written by hand in the
+shape that Bitwig Studio writes, made with the `zip` program (so its files
+are compressed), and `fixtures/dawproject/studio/` holds its files. The
+tests cover the following:
 
 - an import of the fixture, checked track by track and clip by clip
 - an export, then an import, of a project made with the API
@@ -411,6 +414,6 @@ files. The tests cover:
 - `:import`, `:e`, `:export` and `:w` on `.rpp` and `.dawproject` files
   (in `tests_rpp.lua`)
 
-Nobody opened the exported files in Bitwig Studio, Studio One or Cubase.
-None of them runs on this computer. The schemas say that the files have
-the correct form.
+Nobody opened the exported files in Bitwig Studio, Studio One or Cubase,
+because none of them runs on this computer. The schemas say that the files
+have the correct form.
