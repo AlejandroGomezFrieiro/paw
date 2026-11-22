@@ -33,6 +33,9 @@ markers are on the first row.
 - `▾` comes before the name of a region with regions inside it. `▏` comes
   before the name of a region with no region inside it. `▼` comes before
   the name of a marker.
+- `▸` comes before the name of a region that is folded into one column
+  (see [Time folds](narrowing.md#time-folds)). The regions and markers
+  inside it do not show.
 - The styles are `RulerRegion1` (the top level), `RulerRegion2` (the
   second level), `RulerRegionDeep` (the third level and deeper) and
   `Marker`.
@@ -43,7 +46,7 @@ The lane is the part `regions` of `paw.ruler` (see
 An extension changes its glyphs and styles:
 
 ```lua
-paw.ruler.set_lane("regions", { styles = { level1 = "Title" }, glyphs = { open = "-" } })
+paw.ruler.set_lane("regions", { styles = { level1 = "Title" }, glyphs = { open = "-", closed = "+" } })
 ```
 
 ## Key changes

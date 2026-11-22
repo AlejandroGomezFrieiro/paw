@@ -79,6 +79,19 @@ pub fn clip(ui: &Ui, painter: &Painter, p: &ClipProps, rect: Rect, (cw, ch): (f3
     if p.take.is_some() {
         return take(ui, painter, p, shape, colour, cw);
     }
+    // Cut by a scope's edge or a time fold: only the part between the cuts
+    // is painted, as the terminal draws it.
+    let cut_painter;
+    let painter = if p.cut_in.is_some() || p.cut_out.is_some() {
+        let per = p.per as f32 * cw;
+        let left = p.cut_in.map_or(f32::NEG_INFINITY, |c| shape.left() + c as f32 * per);
+        let right = p.cut_out.map_or(f32::INFINITY, |c| shape.left() + c as f32 * per);
+        let seen = painter.clip_rect();
+        cut_painter = painter.with_clip_rect(Rect::from_min_max(pos2(left.max(seen.left()), seen.top()), pos2(right.min(seen.right()), seen.bottom())));
+        &cut_painter
+    } else {
+        painter
+    };
     let (muted, current, midi) = (p.muted, p.current, p.midi);
     let face = if muted { t.panel } else { mix(colour, t.lane, if current { 0.40 } else { 0.26 }) };
     painter.rect_filled(shape, CornerRadius::same(2), face);

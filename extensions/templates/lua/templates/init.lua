@@ -70,7 +70,7 @@ local function portable(track, clips)
   unrouted(snap.devices)
   if not clips then snap.clips = {} end
   if snap.meta then
-    snap.meta.group, snap.meta.group_head, snap.meta.group_folded = nil, nil, nil
+    snap.meta.group, snap.meta.group_head = nil, nil
     if next(snap.meta) == nil then snap.meta = nil end
   end
   return snap

@@ -359,21 +359,54 @@ end, {
   end,
 })
 
-command("track.fold", function(ctx)
-  local track = need_track()
-  if not track then return end
-  -- A subproject's return row opens its tracks under it, in place.
-  if not ctx.args[1] and not paw.groups.is_group(track.id) and paw.nest.toggle(track.id) then return end
-  local group = paw.groups.is_group(track.id) and track.id or paw.groups.of(track.id)
-  if not group then return paw.notify("not in a group", "warn") end
-  if ctx.args[1] == "all" or ctx.args[1] == "none" then
-    for _, id in ipairs(api.track_list()) do
-      paw.groups.fold(id, ctx.args[1] == "all")
-    end
-    return
-  end
-  paw.groups.fold(group)
-end, { desc = "Fold the group away, or open it: `track.fold`; `track.fold all`, `track.fold none`" })
+-- Folds (paw/folds.tl): view state of the window, never an undo step.
+local function fold_words(f) return string.format("%s (%s)", paw.folds.name(f), paw.folds.describe(f)) end
+local function fold_command(name, fn, verb, desc)
+  command(name, function()
+    local f, why = fn()
+    if not f then return paw.notify(why, "warn") end
+    paw.notify(verb(f) .. " " .. fold_words(f))
+  end, { desc = desc })
+end
+-- `za`: on a subproject's return row (or a track it shows in place), its
+-- tracks under the row (paw/nest.tl); else the fold at the cursor.
+command("fold.toggle", function()
+  local id = cursor.track_id()
+  if id and id ~= 0 and not paw.groups.is_group(id) and paw.nest.toggle(id) then return end
+  local f, why = paw.folds.toggle()
+  if not f then return paw.notify(why, "warn") end
+  paw.notify((f.closed and "folded " or "opened ") .. fold_words(f))
+end, {
+  desc = "Fold the fold at the cursor (a group, a fold of tracks, a region), or open it; on a return row, its tracks",
+})
+fold_command("fold.close", paw.folds.close, function() return "folded" end, "Fold the fold at the cursor")
+fold_command("fold.open", paw.folds.open, function() return "opened" end, "Open the fold at the cursor")
+fold_command(
+  "fold.delete",
+  paw.folds.delete,
+  function() return "deleted the fold" end,
+  "Delete the fold at the cursor: its tracks stay"
+)
+command("fold.clear", function()
+  local n = paw.folds.clear()
+  paw.notify(string.format("deleted %d fold%s of this window", n, n == 1 and "" or "s"))
+end, { desc = "Delete every fold of this window: the tracks stay" })
+command("fold.more", function(ctx)
+  local level = paw.folds.level(-(ctx.count or 1))
+  paw.notify(level == 0 and "every region folded: `zr` opens a level" or ("regions open to level " .. level))
+end, { desc = "Fold one more level of regions, the deepest first (as Vim's zm)" })
+command("fold.less", function(ctx)
+  local level = paw.folds.level(ctx.count or 1)
+  paw.notify("regions open to level " .. level)
+end, { desc = "Open one more level of regions (as Vim's zr)" })
+command("fold.closeall", function()
+  paw.folds.all(true)
+  paw.notify("folded everything in this window: `zR` opens it all")
+end, { desc = "Fold every group and every fold of this window" })
+command("fold.openall", function()
+  paw.folds.all(false)
+  paw.notify("opened every fold of this window")
+end, { desc = "Open every group and every fold of this window" })
 
 command("group.link", function()
   local track = need_track()

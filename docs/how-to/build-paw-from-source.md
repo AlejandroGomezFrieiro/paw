@@ -23,6 +23,9 @@ libraries.
 
 ## Variations
 
+- If you use `direnv`, run `direnv allow` once in the checkout. The
+  checkout then loads the dev shell by itself, and you can skip
+  `nix develop`. With nix-direnv, the shell loads in well under a second.
 - To use the example configuration, run `cargo run -- --config config`.
   To start without a search for plugins, add `--no-plugins`.
 - To build the demo song and render it to a file without a UI, run

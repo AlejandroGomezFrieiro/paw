@@ -164,7 +164,7 @@ and adds the parts that it does not have in Lua:
     results as Lua 5.3 and Lua 5.2, and LuaJIT compiles them. `bit32` uses
     LuaJIT's `bit`.
 - Functions that behave as in Lua 5.3:
-  - `pairs` uses `__pairs`, and `ipairs` uses `__index`.
+  - `pairs` uses `__pairs`.
   - In the main code, `coroutine.running` gives the main coroutine and
     `true`. In Lua 5.1, it gave `nil`.
   - `file:write` and `io.write` give the file, and `file:read`, `io.read`
@@ -183,6 +183,10 @@ Some parts of compat-5.3 are not in paw:
   `string.gmatch` that accept a zero byte in a pattern. They made a search
   for plain text 250 times slower and a match 2 times slower, so write `%z`
   for a zero byte in a pattern.
+- The `ipairs` that follows `__index`. It is a Lua function, and short loops
+  over it run slowly. `ipairs` stays LuaJIT's own, so it reads only the
+  items that a table holds itself. To walk a table that gets its items from
+  `__index`, count with a `for` loop.
 
 paw keeps `gen_compat = "off"` in `tlconfig.lua`, so a compiled file starts
 with no extra lines. The devices written in Lua run in a Lua state of

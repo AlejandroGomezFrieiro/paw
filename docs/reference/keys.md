@@ -62,6 +62,11 @@ The motion keys only move, in every view. In **M**, `h` `l` are strips, `j` `k` 
 | `M` `s` `r` | mute, solo, arm the track | |
 | `zn` `znn` | `zn` and a motion: enter what the motion covers as a scope, in this window: `znar` the region, `znag` the group, `znit` the track, `Vjjzn` the selected tracks; `znn` the innermost scope at the cursor ([Scopes](narrowing.md)) | |
 | `zw` `zW` | up one level of scope; up to the whole song | |
+| `zf` | `zf` and a motion: fold what the motion covers: `zfar` the region into one column (`Bridge ▸ 8`), `zfag` the group into one row, `Vjjzf` the selected tracks into one row (`Fold 1`) ([Folds](narrowing.md#folds)) | |
+| `za` `zc` | close the fold, group or region at the cursor, or open it; close it | |
+| `zm` `zr` | close one more level of regions, the deepest first; open one level | |
+| `zd` `zE` | delete the fold at the cursor (its tracks and clips stay); delete every fold of the window | |
+| `zM` `zR` | close every group, region and fold of the window; open them all | |
 | `<Space>tv` `<Space>ta` `<Space>tr` `<Space>tx` `<Space>tl` | a new VCA over the selected tracks; put them under a VCA; take them out of their VCAs; take the VCA at the cursor away; link the faders of a group | |
 | `I` `<A-i>` | choose the input (audio, MIDI port and channel), monitor it | |
 | `a` | add a device | enter notes after the note |

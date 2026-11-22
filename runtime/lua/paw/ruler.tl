@@ -22,6 +22,7 @@ local type partial = require("paw.partial")
 local type DrawModule = require("paw.draw")
 local type TempoModule = require("paw.tempo")
 local type objects = require("paw.objects")
+local type FoldsModule = require("paw.folds")
 
 local type Label = contracts.RulerLabel
 local type Context = contracts.RulerContext
@@ -239,14 +240,35 @@ function M.lane_rows(): integer
 end
 
 --- Draw the lanes on `buf`, the rows under the bar numbers, one under the
---- other. `x` is the column of a beat; `scroll` and `span` the beats in sight.
-function M.draw_lanes(buf: contracts.Buf, x: function(beat: number): integer, scroll: number, span: number)
+--- other. `x` is the column of a beat; `scroll` and `span` the beats in
+--- sight; `folds` the view's closed time folds (paw/folds.tl), if any.
+function M.draw_lanes(
+  buf: contracts.Buf, x: function(beat: number): integer, scroll: number, span: number, folds?: {FoldsModule.TimeSpan}
+)
+  folds = folds or {}
+  local function folded(beat: number): boolean
+    for _, s in ipairs(folds) do
+      if beat > s.from + 1e-9 and beat < s.to - 1e-9 then
+        return true
+      end
+    end
+    return false
+  end
+  local function closed(id: integer): boolean
+    for _, s in ipairs(folds) do
+      if s.fold.kind == "region" and s.fold.id == id then
+        return true
+      end
+    end
+    return false
+  end
   local y = 0
   for _, l in ipairs(lanes_in_order()) do
     local ctx = lane_ctx(l)
     local ok, rows = pcall(l.rows, ctx)
     if ok and math.type(rows) == "integer" and rows > 0 then
       ctx.buf, ctx.rows, ctx.x, ctx.scroll, ctx.span = buf:sub(0, y, buf.width, rows), rows, x, scroll, span
+      ctx.folded, ctx.closed = folded, closed
       local drawn, err = pcall(l.render, ctx) as (boolean, string)
       if not drawn then
         buf:text(0, y, tostring(l.name) .. ": " .. tostring(err), "Error")

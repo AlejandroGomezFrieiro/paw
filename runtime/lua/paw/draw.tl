@@ -521,6 +521,24 @@ function M.meter(buf: Buf, x: integer, y: integer, width: integer, peak: number,
   end
 end
 
+--- What `meter` shows for these values in `width` cells, as a text: the
+--- cells lit full and half, and the cell of the peak held (-1: none).
+function M.meter_shown(width: integer, peak: number, hold?: number): string
+  local filled = M.level(peak) * width
+  local full = math.max(0, math.min(width, math.floor(filled - 0.75) + 1))
+  local half = math.max(0, math.min(width, math.floor(filled - 0.25) + 1))
+  local mark = -1
+  if hold and hold > 1e-5 then
+    local at = math.min(width - 1, math.floor(M.level(hold) * width))
+    if at >= math.floor(filled) then
+      -- The mark covers its cell, and the cells after it are off.
+      mark = at
+      full, half = math.min(full, at), math.min(half, at)
+    end
+  end
+  return full .. " " .. half .. " " .. mark
+end
+
 --- A level meter `height` cells tall, lit from the bottom, with the peak
 --- held (`hold`, linear) marked by a line over its cell.
 function M.vmeter(buf: Buf, x: integer, y: integer, height: integer, peak: number, hold?: number)
@@ -573,6 +591,18 @@ function M.stereo_meter(buf: Buf, x: integer, y: integer, width: integer, left: 
   end
 end
 
+--- What `stereo_meter` shows for these values in `width` cells, as a
+--- text: the cells lit on each side.
+function M.stereo_meter_shown(width: integer, left: number, right: number): string
+  if opt.ascii then
+    return M.meter_shown(width, math.max(left, right))
+  end
+  local function lit(level: number): integer
+    return math.max(0, math.min(width, math.floor(M.level(level) * width - 0.5) + 1))
+  end
+  return lit(left) .. " " .. lit(right)
+end
+
 local record Held
   peak: number
   time: number
@@ -609,6 +639,24 @@ function M.track_peak(id: integer): number, number, number, boolean
     clipped[id] = true
   end
   return left, right, M.hold("mix" .. id, loudest), clipped[id] == true
+end
+
+-- The meters' floor: a level below -60 dB lights no part of a meter.
+local floor = 0.001
+
+--- True while a track meter drawn lately (`track_peak`) still shows a
+--- level: it is not at rest yet.
+function M.meters_falling(): boolean
+  for key in pairs(held) do
+    local id = tonumber(key:match("^mix(%d+)$"))
+    if id then
+      local ok, left, right = pcall(api.track_meter, id as integer) as (boolean, number, number)
+      if ok and math.max(left or 0, right or 0) >= floor then
+        return true
+      end
+    end
+  end
+  return false
 end
 
 --- Put out a track's clip light and let its loudest of late fall.

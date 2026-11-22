@@ -1609,6 +1609,21 @@ local record types
     --- The window's scope stack (paw/scope.tl), outermost first: only in
     --- the screen a project keeps.
     scope: {SavedScope}
+    --- The window's folds (paw/folds.tl) and its fold level: only in the
+    --- screen a project keeps.
+    folds: {SavedFold}
+    foldlevel: integer
+  end
+
+  --- A fold of a window as the project's screen keeps it.
+  record SavedFold
+    kind: string
+    id: integer
+    tracks: {integer}
+    from: number
+    to: number
+    name: string
+    closed: boolean
   end
 
   --- A level of a window's scope stack as the project's screen keeps it.

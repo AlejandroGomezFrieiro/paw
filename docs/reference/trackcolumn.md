@@ -172,7 +172,11 @@ order.
 
 `rows` gives the number of rows that the lane needs now, 0 for
 none. `render` draws them on `ctx.buf`. `ctx.x(beat)` is the column of a
-beat. `paw.ruler.remove_lane(name)` removes the lane.
+beat, and it knows the time folds of the window: a beat inside a fold is
+at the column of the fold. `ctx.folded(beat)` is true for a beat inside a
+fold, after its start, and `ctx.closed(id)` is true for a region that is
+folded into its column (see [Time folds](narrowing.md#time-folds)).
+`paw.ruler.remove_lane(name)` removes the lane.
 
 `paw.ruler.set_lane(name, patch)` changes a lane that exists: its
 `order`, `rows`, `render`, `glyphs` and `styles`. It puts a changed copy

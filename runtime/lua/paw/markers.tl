@@ -1289,19 +1289,35 @@ local function render(ctx: contracts.RulerLaneContext)
     table.insert(labels[row], label)
   end
   -- Each region as a band on the row of its level, its name where it starts.
+  -- A region folded into its column (paw/folds.tl) has the `closed` glyph,
+  -- and what is inside it is folded away with it.
+  local closed = ctx.closed or function(_: integer): boolean return false end
+  local folded = ctx.folded or function(_: number): boolean return false end
+  local function hidden(node: Node): boolean
+    local up = node.parent
+    while up do
+      if closed(up.region.id) then
+        return true
+      end
+      up = up.parent
+    end
+    return folded(node.region.beat)
+  end
   for _, node in ipairs(M.walk()) do
     local r = node.region
-    local row = math.min(node.depth, last) - 1
-    local style = node.depth == 1 and s.level1 or node.depth == 2 and s.level2 or s.deep
-    local x0, x1 = math.max(0, ctx.x(r.beat)), math.min(width, ctx.x(r.beat + r.length))
-    if x1 > x0 then
-      buf:fill(x0, row, x1 - x0, 1, " ", style)
+    if not hidden(node) then
+      local row = math.min(node.depth, last) - 1
+      local style = node.depth == 1 and s.level1 or node.depth == 2 and s.level2 or s.deep
+      local x0, x1 = math.max(0, ctx.x(r.beat)), math.min(width, ctx.x(r.beat + r.length))
+      if x1 > x0 then
+        buf:fill(x0, row, x1 - x0, 1, " ", style)
+      end
+      local mark = closed(r.id) and (g.closed or "▸") or #node.children > 0 and g.open or g.start
+      put(row, {x = ctx.x(r.beat), text = (node.depth > last and g.deeper or "") .. mark .. M.label(r), style = style})
     end
-    local mark = #node.children > 0 and g.open or g.start
-    put(row, {x = ctx.x(r.beat), text = (node.depth > last and g.deeper or "") .. mark .. M.label(r), style = style})
   end
   for _, m in ipairs(M.list()) do
-    if not m.length then
+    if not m.length and not folded(m.beat) then
       put(0, {x = ctx.x(m.beat), text = g.marker .. M.label(m), style = s.marker})
     end
   end
@@ -1328,8 +1344,9 @@ local function render(ctx: contracts.RulerLaneContext)
 end
 
 -- Glyphs: `open` before a region with regions inside (as a group's fold in
--- the track column), `start` before one with none, `deeper` before a region
--- deeper than the last row, `marker` before a marker. Styles: `level1`,
+-- the track column), `closed` before one folded into its column, `start`
+-- before one with none, `deeper` before a region deeper than the last row,
+-- `marker` before a marker. Styles: `level1`,
 -- `level2`, `deep` (the third level and deeper), `marker`.
 paw.ruler.add_lane(
   "regions",
@@ -1337,7 +1354,7 @@ paw.ruler.add_lane(
     order = 10,
     rows = lane_rows,
     render = render,
-    glyphs = {open = "▾", start = "▏", deeper = "+", marker = "▼"},
+    glyphs = {open = "▾", closed = "▸", start = "▏", deeper = "+", marker = "▼"},
     styles = {level1 = "RulerRegion1", level2 = "RulerRegion2", deep = "RulerRegionDeep", marker = "Marker"},
   }
 )

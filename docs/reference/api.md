@@ -501,6 +501,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.cursor.master_reachable()`: True if a move of the cursor can go on from the last track to the master: a move of its own in normal mode, in the views that draw the master after the tracks. After an operator or in a selection, only tracks count.
 - `paw.cursor.move_track(delta)`: Move by rows. In normal mode, the rows of open automation lanes count. After an operator or in a selection, only tracks count, as for `dj`. From the last track, a move down goes on to the master, and from the master a move up returns to the tracks.
 - `paw.cursor.on_master()`: True if the cursor is on the master track: the row after the last track in the arrange view, the strip after the last in the mixer.
+- `paw.cursor.over(old, new)`: Where the cursor goes when it moves from beat `old` to `new`: a beat inside a closed time fold is its start, or its end when the cursor moves on from its start, so that a motion takes a fold as one step.
 - `paw.cursor.row()`: 1-based row of the cursor track among the tracks that are drawn: the same as `index` until a group is folded. On the master, the row after the last track.
 - `paw.cursor.set_beat(beat)`: Put the cursor at a beat (not before 0, and in the scope's time).
 - `paw.cursor.set_track(track, lane)`: Put the cursor on a track, or with `lane` on one of its lane rows.
@@ -620,6 +621,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.draw.keys(buf, x, y, entries, width, groups)`: A row of keys and their actions, for a line of hints: `{ { "o", "new track" }, ... }`, with a faint dot between them. `? keys` is always the last when it is in the list. Returns the columns used. The entries that do not fit are not shown.
 - `paw.draw.level(peak)`: How far up a meter a linear peak reaches, from 0 to 1 over 60 dB.
 - `paw.draw.meter(buf, x, y, width, peak, hold)`: A level meter `width` cells wide for a linear peak: a thin rail, lit from the left, green then yellow then red. With `hold` (a linear peak), the loudest of late is marked.
+- `paw.draw.meter_shown(width, peak, hold)`: What `meter` shows for these values in `width` cells, as a text: the cells lit full and half, and the cell of the peak held (-1: none).
+- `paw.draw.meters_falling()`: True while a track meter drawn lately (`track_peak`) still shows a level: it is not at rest yet.
 - `paw.draw.miniroll(notes, width, rows, zoom, from)`: Notes as a small piano roll of `rows` text rows, each `width` columns. A row holds two pitches, drawn with half blocks. `notes` have `start`, `length` and `pitch`. A column covers `1 / zoom` beats from `from`.
 - `paw.draw.mix(a, b, t)`: A color between two colors: `t` 0 gives `a`, 1 gives `b`.
 - `paw.draw.nearest256(hex)`: The nearest of the 256 colors to `#rrggbb`, from the 6x6x6 cube (16 to 231) or the grays (232 to 255). A color with little hue gets a gray. Returns its index and the color that the index shows.
@@ -631,6 +634,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.draw.sextant(bits)`: The character for a set of sextants (U+1FB00 to U+1FB3B, two columns by three rows): bits 1 to 32 are top left, top right, middle left, middle right, bottom left, bottom right. The patterns that are not in that block are a space, the left half, the right half and the full block.
 - `paw.draw.slider(buf, x, y, width, fraction, on, off)`: A slider `width` cells wide with its knob `fraction` of the way along.
 - `paw.draw.stereo_meter(buf, x, y, width, left, right)`: The two sides of a stereo level in one row that is `width` cells wide. The left side is in the upper half of each cell, the right in the lower.
+- `paw.draw.stereo_meter_shown(width, left, right)`: What `stereo_meter` shows for these values in `width` cells, as a text: the cells lit on each side.
 - `paw.draw.term_def(def, truecolor)`: A highlight definition as this terminal can show it. On a terminal without 24-bit color, each `#rrggbb` becomes the nearest of the 256.
 - `paw.draw.trace(width, samples, y, sub, kind)`: A connected line over a grid of cells, for a curve. `y(sx)` gives the row of the line from the top, in `sub` rows for each cell (3 for sextants, 4 for braille). `sx` counts from 0, with two samples for each cell. `y(sx)` gives nil for no line, and there are `samples` of them. The function fills a jump from the last row to this row, to keep the line connected. Returns `{ [row * width + col] = bits }`, the bits as `M.sextant` or `M.braille` take them.
 - `paw.draw.track_colour(track, index)`: The color of a track: its own color if it has one. If not, a color of the theme, by the place of the track in the track list.
@@ -728,6 +732,31 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   ```
 - `paw.files.sound_info(path, stat)`: What a sound file's header says: `{ rate, channels, seconds }`, or nil for a file that is not one that can be read.
 - `paw.files.watch()`: Start to watch the cursor, when a files buffer exists.
+
+## Module paw.folds
+
+- `paw.folds.all(on, win)`: Close every fold of a window, every group too (`zM`), or open them all (`zR`).
+- `paw.folds.at(id, win)`: The fold at a track (the cursor's by default), in a window: the largest closed one, which its row stands for, else the smallest. Nil when the track is in none.
+- `paw.folds.clear(win)`: Delete every fold of a window, as `zE`. Returns how many there were.
+- `paw.folds.close(id, win)`: Close the fold at the cursor, as `zc`; on a closed fold, the one around it. Returns it, or nil and the reason.
+- `paw.folds.collapse(rows, win)`: The rows that a window draws, from the rows of its tracks without its folds of tracks: each closed fold of tracks keeps its first row, which stands for all of it.
+- `paw.folds.count(f)`: How many tracks of a fold are there.
+- `paw.folds.delete(id, win)`: Delete the fold at a track (the cursor's by default), as `zd`: the fold goes, its tracks stay, drawn as before. Returns it, or nil and the reason.
+- `paw.folds.describe(f)`: What a fold holds, in words: `3 tracks`, `8 bars`.
+- `paw.folds.group_closed(group, win)`: True if a group is folded into its row in a window (the one a view shows by default).
+- `paw.folds.level(delta, win)`: Close one more level of regions in a window (`zm`, `delta` -1: the deepest open level first), or open one (`zr`, 1), as the `foldlevel` option of Vim. The regions that `za` or `zf` opened or closed follow the level again. Returns the level: how many levels stay open.
+- `paw.folds.list(win)`: The folds of a window that a view shows (the one being drawn, else the current one). Empty when it has none.
+- `paw.folds.make(spec, win)`: Make a fold of what a scope covers (`zf{motion}`), closed, in a window: a group folds into its row (`zfag`), tracks into one row named `Fold 1` (`Vjjzf`). Returns it, or nil and the reason.
+- `paw.folds.name(f)`: The name a fold shows: its own, else its group's.
+- `paw.folds.open(id, win)`: Open the fold at the cursor (the one its row stands for). Returns it, or nil and the reason.
+- `paw.folds.over`: the same as `paw.cursor.over`.
+- `paw.folds.reveal()`: The cursor does not stay on a track that is folded away: it goes to the row that stands for it.
+- `paw.folds.row(id, win)`: The closed fold of tracks that the row of a track stands for in a window (the one a view shows by default), or nil: the track is the first row of that fold.
+- `paw.folds.set_group(group, on, win)`: Fold a group into its row, or open it, in a window: `on` nil flips it.
+- `paw.folds.time_at(beat, win)`: The closed time fold that a beat is on (`from` up to `to`), in a window.
+- `paw.folds.time_map(zoom, win)`: The map from beats to the places of a view at `zoom` columns a beat, with the closed time folds of a window (the one a view shows by default). Each folded span takes the columns of its label and two more.
+- `paw.folds.time_spans(win)`: The closed time folds of a window (the one a view shows by default), in order of time: the outermost of folds inside each other, and folds that overlap as one. A fold that holds all the time of the window's scope is open there.
+- `paw.folds.toggle(id, win)`: Toggle the fold at a track (the cursor's by default), as `za`. Returns it, or nil and the reason.
 
 ## Module paw.formats
 
@@ -855,8 +884,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.groups.add(track, group)`: Put a track into a group: it then sounds through the group, unless it was sent somewhere of its own.
 - `paw.groups.depth(track)`: How many groups a track is inside.
 - `paw.groups.dissolve(group)`: Undo a group: its members go up a level and the group, if it holds nothing of its own (no clips, no devices), goes away.
-- `paw.groups.fold(group, on)`: Fold a group away, or open it: `on` nil flips it.
-- `paw.groups.folded(group)`: True if the tracks of a group are folded and hidden.
+- `paw.groups.fold(group, on)`: Fold a group away, or open it, in the current window: `on` nil flips it. View state: no undo step (paw/folds.tl).
+- `paw.groups.folded(group)`: True if the tracks of a group are folded and hidden, in the window a view shows (paw/folds.tl).
 - `paw.groups.gather(group)`: Put a group's members right under it, in the order they are in.
 - `paw.groups.hidden(track, top)`: True if a track is hidden: inside a folded group. Inside group `top` (the group of a narrowed tab), only the groups inside it count. `top` itself is open there.
 - `paw.groups.is_group(track)`: True if a track is a group.
@@ -866,7 +895,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.groups.members(group)`: The tracks that belong to a group, in the order of the track list.
 - `paw.groups.of(track)`: The group a track belongs to (its id), or nil.
 - `paw.groups.remove(track, stay)`: Remove a track from its group, up one level. It sounds where the group sounds, and it is in the parent group of the group, if any. It moves out of the rows of the group, unless `stay`.
-- `paw.groups.rows(opts)`: The tracks that are drawn, in order: all but those folded away, and in a narrowed tab only those of its scope (`paw.scope`). Rows of the arrange view and of a graphical frontend are places in this list. With `{ lanes = true }`, every row: `{ track = id }` for a track and `{ track = id, lane = id }` for an automation lane shown under it (see `paw.lanes`).
+- `paw.groups.rows(opts)`: The tracks that are drawn, in order: all but those folded away in the window (`paw.folds`), and in a scope only those of the scope (`paw.scope`). Rows of the arrange view and of a graphical frontend are places in this list. With `{ lanes = true }`, every row: `{ track = id }` for a track and `{ track = id, lane = id }` for an automation lane shown under it (see `paw.lanes`).
 - `paw.groups.under(row)`: The tracks to draw under a row that is open in place, or nil (`paw.groups.rows` asks for each row).
 
 ## Module paw.harmony
@@ -1737,7 +1766,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.roles
 
 - `paw.roles.begin(name, win)`: A view is about to be drawn on the terminal's screen (`win`, the id of its window, if any): its hit regions start afresh.
-- `paw.roles.define(name, spec)`: Define a role. `spec.cells(buf, props, ctx)` draws it in cells. It is necessary, because the terminal comes first. `spec.props` names its props and their contents, for documentation and `paw.ui.roles`. `spec.bound` is the props that a frontend takes from the live value when the mark is bound to one. paw does not send these props.
+- `paw.roles.define(name, spec)`: Define a role. `spec.cells(buf, props, ctx)` draws it in cells. It is necessary, because the terminal comes first. `spec.props` names its props and their contents, for documentation and `paw.ui.roles`. `spec.bound` is the props that a frontend takes from the live value when the mark is bound to one. paw does not send these props. `spec.stamp(buf, props)`, a text of what `cells` shows, lets a bound mark keep its cells between whole frames while it does not change.
 - `paw.roles.finish()`: The view being drawn is done: what it marks after is no hit region.
 - `paw.roles.gesture(view, e)`: An event on a hit region (`e.hit`, `e.rect`) to its view: true when it was taken.
 - `paw.roles.hit(buf, x, y, w, h, action)`: `buf:hit(x, y, w, h, action)`: make an area a hit region. A press, a move or the wheel there goes to the view's gesture for `action.kind`, in either frontend.
@@ -1857,7 +1886,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.ruler.add(name, spec)`: Add a part of the bar labels, or put a new one in place of one of that name. It goes into `paw.opt.barlabel` (unless `hidden`).
 - `paw.ruler.add_lane(name, spec)`: Add a lane of rows under the bar numbers, or put a new one in place of one of that name.
 - `paw.ruler.bars_of(from, to)`: The first and the last bar that a stretch of time (`from` up to `to`, in beats of the song) touches, numbered as the ruler numbers them: in a scope with time, from its own bar 1. The status line and the messages of the loop use it.
-- `paw.ruler.draw_lanes(buf, x, scroll, span)`: Draw the lanes on `buf`, the rows under the bar numbers, one under the other. `x` is the column of a beat; `scroll` and `span` the beats in sight.
+- `paw.ruler.draw_lanes(buf, x, scroll, span, folds)`: Draw the lanes on `buf`, the rows under the bar numbers, one under the other. `x` is the column of a beat; `scroll` and `span` the beats in sight; `folds` the view's closed time folds (paw/folds.tl), if any.
 - `paw.ruler.label(bar, beat, style, cursor_beat, room)`: The pieces of bar `bar`'s label, from the parts in `paw.opt.barlabel` in their order. `bar` is the song's bar: in a scope with time, its label counts from 1 at the scope's start (`paw.scope.bar_offset`). `style` is the style of the bar's number there. `room` is how many columns the label has before the next bar's: each part gets what the parts before it left (`ctx.room`).
 - `paw.ruler.lane_rows()`: How many rows the lanes need now, all together.
 - `paw.ruler.loop_text(from, to, on)`: What a message says of the loop: `bars 5 to 8, on`, `bar 5, off`. `from` and `to` are the loop's edges in beats of the song.
@@ -1883,7 +1912,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.scope
 
 - `paw.scope.apply(s)`: Tell the engine what the rest of the song does for a scope. This is the scope of the tab in front, which the last seat to change tabs (a terminal or a window) selected.
-- `paw.scope.at_cursor()`: The scope that `znn` enters at the cursor: the innermost not entered yet. A subproject's clip at the cursor; in a region scope, the region one level inside it at the cursor; else the group at the cursor (its header or one of its tracks), else the track. Nil when the window shows that track already.
+- `paw.scope.at_cursor()`: The scope that `znn` enters at the cursor: the innermost not entered yet. On a closed time fold (paw/folds.tl), its region or its bars; a subproject's clip at the cursor; in a region scope, the region one level inside it at the cursor; else the closed fold of tracks whose row the cursor is on (paw/folds.tl), else the group at the cursor (its header or one of its tracks), else the track. Nil when the window shows that track already.
 - `paw.scope.bar_offset(s)`: How many bars of the song come before the first bar of a scope (the current one by default) when its bars are numbered from 1: 0 with no time, or with `scopebars=song`. A scope's bars are the song's (its meter map), counted from the bar its time starts in.
 - `paw.scope.breadcrumb(s)`: The path in words: `Song › Bridge › Strings`; a subproject is marked `⧉`: `Song › ⧉Ballad › Strings`.
 - `paw.scope.children(s)`: The scopes one level inside a scope (the current one by default): for a region scope, the regions one level inside its region (paw/markers.tl), in order of time; for a group scope, its members (a group or a track), in order. Each has that scope as its parent. Other kinds have none.
@@ -1896,6 +1925,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.scope.group(s)`: The innermost group of a scope's path (the current scope by default): what a narrowed window's tracks are shown under. Nil when no level is a group.
 - `paw.scope.group_at(track)`: The group of a track when you narrow: the track itself if it is a group. If not, the group that contains it.
 - `paw.scope.held()`: The parts of the rest the engine plays from files now.
+- `paw.scope.holder(win)`: The window whose scope and folds an action changes: the one given, else the current one; its stack's keeper.
 - `paw.scope.limits_tracks(s)`: True if a scope, or one of the levels above it, limits the tracks.
 - `paw.scope.local_bar(song_bar)`: The bar the current scope shows for a bar of the song.
 - `paw.scope.name(name, win)`: Name the current scope, so that the picker and `:narrow` find it again. View state, kept with the project's screen. Returns it.
@@ -1920,6 +1950,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.scope.span(s)`: The time a scope shows (the current one by default): `from, to` in beats, its own time intersected with its parent's. Nil when it shows all of the song's time. `from` is `to` when the times do not meet.
 - `paw.scope.tracks(s)`: The tracks of a scope (the current one by default), in the order of the track list. With no scope, or one that keeps every track, all tracks of the song; in a subproject, its tracks.
 - `paw.scope.widen(top, win)`: Leave the scope of a window (the current one by default): up one level, or with `top` to the song. False when it shows the song.
+- `paw.scope.window(win)`: The window whose scope and folds a view shows: the one given, else the one being drawn, else the current one; for a view that keeps no stack of its own (the mixer), the arrange window of its tab.
 
 ## Module paw.seats
 
@@ -1988,6 +2019,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   which: "status" (default), "winbar", "inactive_winbar" or "tabline"
   ```
 - `paw.statusline.setup(opts)`: Change the line: only what is given changes. `sections` replaces the sections it names, `views` and the other bars likewise.
+- `paw.statusline.stamp(width, which, extra)`: A text of what the line for `width` columns is drawn from, between two whole frames: `moves` (or else `key`) of each component that is not `still`. Nil when a component shown has none of them (it may change at any time). Between whole frames, the screen draws the line again only when this text changes.
 - `paw.statusline.tabline(width)`: What the tab line holds at its right end, as pieces, for `width` columns.
 - `paw.statusline.tabline_always()`: True if the tab line shows with one tab.
 - `paw.statusline.winbar(view, focused)`: What the window with the keys (or another) adds to its title bar: the text of the `winbar` (or `inactive_winbar`), or nil when there is none.
@@ -2230,8 +2262,9 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
   paw does not call the callback when the user cancels the prompt. The options are those of the command line (`paw.views.cmdline.open`): `complete`, `history`, `on_change` (live preview), `anchor` (draw it next to its subject), `on_key`, `still` (the preview asks for a whole frame itself when it changes another view).
 - `paw.ui.layer(view, part, name, order, paint)`: Draw `paint(ctx)` as a layer of a part of a view (`"arrange", "header"`). It replaces a layer with the same name (nil removes it). The view tells what `ctx` contains where it calls `paw.ui.paint`.
-- `paw.ui.live(buf, draw_part)`: Draw a live part on `buf`: `draw(buf)` draws it, now and each time it is drawn again by itself.
+- `paw.ui.live(buf, draw_part, stamp)`: Draw a live part on `buf`: `draw(buf)` draws it, now and each time it is drawn again by itself. With `stamp`, a function that gives a text of the values the part is drawn from (nil: unknown), the part is drawn again only when that text changes; its cells stay as they were drawn.
 - `paw.ui.live_drawing()`: True if a live part drawn now is one of the terminal's screen.
+- `paw.ui.live_stamp(bind)`: A text of the live value `bind` now (`position` or `meter:<id>`), to tell whether a part bound to it changed: nil for any other value.
 - `paw.ui.live_value(bind, props)`: While a live part is drawn again: set the props of a mark bound to `bind` (`position`, `meter:<id>`, or a value that a view's `live_values()` gives) to the values of now.
 - `paw.ui.location(view, win)`: The location under the cursor of the focused view (or `view`). With `win`, the cursor of that window: each window of a view has its own.
 - `paw.ui.locator(view, spec)`: Say how a view places locations (`{ uri, selector }`):
@@ -2458,6 +2491,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.engine_get()`: --- engine ---
 - `paw.api.engine_held()`
 - `paw.api.engine_hold(track, file)`: Play a track from a sound file for now, as if it is frozen, or live again with nil. The project does not change (see `freeze.rs`).
+- `paw.api.engine_load()`: What changes of the engine by itself, as `engine_get` gives it but without a table, for what is read on each frame: `cpu`, `xruns` and `block`.
 - `paw.api.engine_midi_filter(name, rules)`: Controls of MIDI input that tracks do not get: they neither sound nor record. Scripts still hear them, as `midi.in` events with `filtered = true`. Each `name` (`"step"`, `"learn"`) keeps its own list beside the others; nil or an empty list removes it.
 - `paw.api.engine_reset_stats()`: Forget the process times that `engine_get().blocks` recorded until now.
 - `paw.api.engine_restart(opts)`
@@ -2480,8 +2514,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.grid_keep(key, x, y, w, h, cx, cy, cw, ch)`: Keep the cells of the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, under `key`, to put back on a later frame with `grid_put` when what they were drawn from has not changed.
 - `paw.api.grid_live_begin(x, y, w, h, cx, cy, cw, ch)`: A live part of the screen is drawn over the cells `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`: what is under them is kept, to draw it again by itself (`paw.ui.render_live`). Returns its number for `grid_live_end`, or nil when no part of it is on the screen.
 - `paw.api.grid_live_end(index)`
+- `paw.api.grid_live_keep(index)`: While the live parts are drawn again: the part `index` of the frame drawn last did not change, so its cells come back as they were, in place of a `grid_live_begin` and `grid_live_end`. Returns its number, or nil when it must be drawn (a part before it changed what is under it).
 - `paw.api.grid_live_restore()`: Take the live parts off the frame drawn last, to draw them again. Returns how many there were.
 - `paw.api.grid_live_seal()`: The frame is drawn: what is over the live parts now stays over them.
+- `paw.api.grid_live_still()`: In place of drawing the live parts again: none of them changed, so the frame drawn last stays as it is, and nothing is sent.
 - `paw.api.grid_put(key, x, y, w, h, cx, cy, cw, ch)`: Put the cells kept under `key` back, if they were kept from the same area: true when they were. Nothing is drawn else.
 - `paw.api.grid_surface(key, x, y, w, h, cx, cy, cw, ch, under)`: Keep the cells `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, for pixels under the name `key` (`buf:strip`), over the text or `under` it. Returns the number of the surface for `grid_surface_ops`, or nil when no part of it is on the screen.
 - `paw.api.grid_surface_ops(index, ops)`: The drawing a surface shows: the operations of `paw.canvas.paint`.
@@ -2667,6 +2703,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.track_set(id, key, value)`: Change a track: a table of the entries to change, as `track_get` gives them (`{ name = "Bass", volume = -6 }`), or one `key` and its value. Only the key form clears an entry (`track_set(id, "output", nil)`). An entry that is as it was is no change.
 - `paw.api.transport_get()`: --- transport ---
 - `paw.api.transport_play()`
+- `paw.api.transport_playhead()`: What moves of the transport by itself, as `transport_get` gives it but without a table, for what is read on each frame: `playing`, `position`, `counting` and `take` (nil while nothing records).
 - `paw.api.transport_record()`
 - `paw.api.transport_seek(beats)`
 - `paw.api.transport_set(key, value)`: Change the transport: a table of the entries to change, as `transport_get` gives them (`{ loop_enabled = true }`), or one `key` and its value. Only the key form clears an entry (`nil`).

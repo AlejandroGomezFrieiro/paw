@@ -37,6 +37,7 @@ local type Context = contracts.TrackColumnContext
 local type Frame = contracts.TrackColumnFrame
 local type Cells = contracts.ColumnCells
 local type Sign = contracts.TrackSign
+local type FoldsModule = require("paw.folds")
 local type Piece = contracts.Piece
 local type Patch = contracts.ColumnPatch
 
@@ -57,6 +58,7 @@ local record Scope
 end
 local record Paw is partial.Paw
   groups: GroupsModule
+  folds: FoldsModule
   draw: DrawModule
   frontend: Frontend
   scope: Scope
@@ -370,6 +372,7 @@ local record Tree
   chain: {integer: {integer}}
   group: {integer: boolean}
   folded: {integer: boolean}
+  fold: {integer: contracts.Fold}
   last: {integer: integer}
   width: integer
 end
@@ -377,12 +380,14 @@ local tree: Tree
 events.on(kernel.changed, function() tree = nil end)
 
 local function tree_of(rows: {integer}): Tree
-  local key = table.concat(rows as {string}, ",")
+  -- The folds are the window's: its own key.
+  local folds = paw.folds
+  local key = table.concat(rows as {string}, ",") .. "|" .. folds.generation .. "|" .. tostring(folds.list())
   if tree and tree.key == key then
     return tree
   end
   local groups = paw.groups
-  local t: Tree = {key = key, depth = {}, chain = {}, group = {}, folded = {}, last = {}, width = 0}
+  local t: Tree = {key = key, depth = {}, chain = {}, group = {}, folded = {}, fold = {}, last = {}, width = 0}
   for i, id in ipairs(rows) do
     local chain: {integer} = {}
     local at = groups.of(id)
@@ -393,6 +398,11 @@ local function tree_of(rows: {integer}): Tree
     t.chain[id], t.depth[id] = chain, #chain
     if groups.is_group(id) then
       t.group[id], t.folded[id] = true, groups.folded(id)
+    end
+    -- The first row of a fold of tracks stands for all of it.
+    local fold = folds.row(id)
+    if fold then
+      t.group[id], t.folded[id], t.fold[id] = true, true, fold
     end
     for _, g in ipairs(chain) do
       t.last[g] = i
@@ -454,6 +464,12 @@ M.add(
     describe = function(track: integer): string
       local groups = paw.groups
       local words: {string} = {}
+      local fold = paw.folds.row(track)
+      if fold then
+        words[#words + 1] = string.format(
+          "the fold %s of %d tracks, folded (za opens it, zd deletes it)", paw.folds.name(fold), paw.folds.count(fold)
+        )
+      end
       if groups.is_group(track) then
         local n = #groups.members(track)
         words[1] = string.format(

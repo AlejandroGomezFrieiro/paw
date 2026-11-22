@@ -233,6 +233,9 @@ local function build(): Groups
     CursorTail = {bg = "#2a3a50"},
     Visual = {bg = "#3a3352", fg = c.bright},
     ScopeOutside = {fg = c.faint, bg = c.bg},
+    -- A time fold (paw/folds.tl): its column, its name on the ruler and on each track.
+    TimeFold = {fg = c.bright, bg = c.sel, bold = true},
+    TimeFoldBody = {fg = c.faint, bg = c.sel},
     InsertCursor = {bg = c.insert, fg = c.bg},
     RulerInsert = {fg = c.bg, bg = c.insert, bold = true},
     HintKey = {fg = c.accent, bold = true},
