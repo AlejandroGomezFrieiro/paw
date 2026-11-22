@@ -92,7 +92,8 @@ local function before(a: Note, b: Note): boolean
   return a.start < b.start or (a.start == b.start and a.clip < b.clip)
 end
 
---- Two lists of notes in that order made one.
+--- Two lists of notes in that order made one. It can pause after each
+--- 8192 notes.
 local function merge(x: {Note}, y: {Note}): {Note}
   if #y == 0 then
     return x
@@ -109,6 +110,9 @@ local function merge(x: {Note}, y: {Note}): {Note}
     else
       out[#out + 1] = x[i]
       i = i + 1
+    end
+    if #out % 8192 == 0 then
+      pause()
     end
   end
   for k = i, nx do
@@ -309,9 +313,12 @@ local function pass(opts: Options)
       sorted = merge_clips(list)
     else
       local kept: {Note} = {}
-      for _, n in ipairs(sorted) do
+      for i, n in ipairs(sorted) do
         if not ch.gone[n.clip] then
           kept[#kept + 1] = n
+        end
+        if i % 8192 == 0 then
+          pause()
         end
       end
       sorted = merge(kept, merge_clips(ch.came))
@@ -385,11 +392,11 @@ local function pass(opts: Options)
   end
 
   if rewindowed or opts.bar ~= bar_of then
-    chords, bar_of = read.decode(windows, opts.bar), opts.bar
+    chords, bar_of = read.decode(windows, opts.bar, pause), opts.bar
     rebar = true
   end
   if rebar then
-    keys = read.key_path(hist, bars, chords)
+    keys = read.key_path(hist, bars, chords, pause)
     stamp = stamp + 1
   end
 end

@@ -11,7 +11,7 @@ steps, see [How to recover lost work](../how-to/recover-lost-work.md).
 
 ```text
 song/
-├── project.toml            name, tempo, meter, tempo map, key, order of the tracks, transport
+├── project.toml            name, tempo, meter, tempo map, key, order of the tracks, subprojects, transport
 ├── meta.json               the data of extensions (`paw.project.meta`), if there is some
 ├── screen.json             the tabs and windows that the project opens with
 ├── media.json              the hash, size and format of each file that the clips play
@@ -32,8 +32,15 @@ song/
 │       └── clips/verse.lyrics.lrc   the data of a custom clip that is text
 ├── media/take1.wav         sound files
 │   └── derived/            files that a kind of clip makes from other files
+├── nests/
+│   └── Bridge/             one folder for each subproject that the song plays
+│       ├── nest.toml       its id, name, length, tempo, meter and the order of its tracks
+│       ├── meta.json       its markers and the data of extensions, if there is some
+│       ├── master/         its master track, as a track folder
+│       └── tracks/Piano/   its tracks, as track folders
 ├── renders/                the files that a render with no name writes (not saved, never moved)
 └── unused/                 files that the project does not use now
+    └── nests/Bridge/       a subproject that no clip of the song places
 ```
 
 - The project's file is `song/project.toml`. `:e song`, `:open song`
@@ -75,6 +82,35 @@ song/
   (rate, channels and frames of the sound). The hash tells what the file
   is, at any path. See [Media files](media.md#what-a-file-is).
 - `.gitattributes` is written when the folder has none.
+
+## Subprojects
+
+A subproject is a set of tracks with a timeline of its own, which a clip
+places in the song. In commands and in the files, a subproject is a
+"nest". Each subproject that the song plays has a folder in `nests/`.
+
+- `project.toml` lists the folders in `nests` in the order that the
+  subprojects were made.
+- `nest.toml` has the subproject's id, name and length in beats. It also
+  has its tempo and meter (`follow` the song's, or `own`) and the list
+  of its track folders in order.
+- A track folder of a subproject is the same as a track folder of the
+  song. A clip that places a subproject is a line in `track.json`, with
+  the kind `nest`, the subproject's id and what it plays: `"master"` for
+  the mix, or `{ "track": id }` for one track.
+- The folders are all in `nests/`, also for a subproject inside another
+  subproject.
+- At a save, a subproject that no clip of the song places goes to
+  `unused/nests/`. paw does not open it again, and never deletes it. A
+  folder there that has another subproject stays, and the new one gets
+  `-2`.
+- A subproject can be inside another one, at most 8 deep. paw does not
+  open a project where a subproject is inside itself, and the message
+  gives the path, for example `Bridge › Verse › Bridge`.
+- The tracks of a subproject send, output and take side-chains only to
+  and from tracks of the same subproject. Its master has no output and
+  no sends, because it plays into the song through the clips that place
+  the subproject.
 
 ## Save
 

@@ -691,3 +691,21 @@ test("a chain file opens alone, on a track of its own, and :w writes it back", f
   eq(#api.json_decode(T.read_file(chain)), 3, "the file has the new device")
   eq(api.project_get().modified, false, "saved")
 end)
+
+test("a subproject made through the API has its own tracks, and they route only inside it", function()
+  fresh()
+  local reverb = api.track_add({ name = "Reverb" })
+  local bridge = api.nest_add({ name = "Bridge", length = 24 })
+  local keys = api.track_add({ name = "Keys", nest = bridge })
+  local nest = paw.nest.get(bridge)
+  eq(nest.name .. " " .. nest.length .. " " .. #nest.tracks, "Bridge 24 1", "made with its track")
+  eq(api.track_get(keys).nest, bridge, "the track belongs to it")
+  eq(#paw.nest.list(), 1, "listed")
+  T.fails(
+    function() api.track_set(keys, "sends", { { target = reverb, level = 0 } }) end,
+    "of the subproject Bridge cannot send to track " .. reverb .. " %(Reverb%) of the song",
+    "the boundary is closed"
+  )
+  api.nest_set(bridge, { name = "Ballad" })
+  eq(paw.nest.get(bridge).name, "Ballad", "renamed")
+end)

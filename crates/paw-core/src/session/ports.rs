@@ -88,5 +88,5 @@ pub fn check_output(p: &Project, track: Id, pair: u32, to: Id) -> Result<()> {
     if to != MASTER_ID && p.would_cycle(track, to) {
         bail!("output pair {pair} into track {to} would make a loop");
     }
-    Ok(())
+    p.check_route(track, to, crate::model::Route::Pair)
 }

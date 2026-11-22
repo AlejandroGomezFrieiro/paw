@@ -1193,8 +1193,8 @@ local function make(pick: Pick): Sources
       files_walk = start_walk(".", opt.files_limit, opt.files_depth, opt.files_skip)
       return {}
     end,
-    more = function(): {FileLine}, boolean, string
-      local out, done = files_walk.step(8)
+    more = function(ms: number): {FileLine}, boolean, string
+      local out, done = files_walk.step(ms)
       if not done then
         return out, false, "reading…"
       end

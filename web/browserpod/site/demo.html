@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>paw in the browser</title>
+<script src="coi.js"></script>
+<style>
+  :root { color-scheme: light dark; --bg: #fafafa; --fg: #222; --link: #0645ad; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #161616; --fg: #ddd; --link: #8cf; } }
+  body { margin: 0 auto; max-width: 64rem; padding: 1rem; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, sans-serif; }
+  a { color: var(--link); }
+  #paw { background: #000; margin: 1rem 0; overflow: hidden; }
+  #paw:empty { display: none; }
+  button { font: inherit; margin: 0 0.5rem 0.5rem 0; }
+  #status { min-height: 1.5em; }
+  footer { margin-top: 2rem; font-size: 0.9em; }
+</style>
+</head>
+<body>
+<h1>paw in the browser</h1>
+<p>
+  This page runs paw in your browser, in a small Linux system made by BrowserPod.
+  When you press Start, your browser loads BrowserPod (about 6 MB) from
+  browserpod.io, and paw (about 26 MB) from this site. Nothing loads before.
+</p>
+<p>
+  <button id="start">Start</button>
+  <button class="state" data-state='{"project":"demo-song"}' disabled>The demo song</button>
+  <button class="state" data-state='{"project":"demo-song","scope":"Melody"}' disabled>The melody only</button>
+  <button class="state" data-state='{"lesson":1}' disabled>Lesson 1 of the course</button>
+  <button id="play" disabled>Show me: play and stop</button>
+</p>
+<p id="status"></p>
+<div id="paw"></div>
+<footer>
+  Powered by <a href="https://browserpod.io">BrowserPod</a>.
+  The sound plays in your browser; nothing that you type leaves it.
+</footer>
+<script type="module">
+import { PawPod } from "./paw-pod.js";
+
+const status = document.getElementById("status");
+const say = (text) => { status.textContent = text; };
+const buttons = [...document.querySelectorAll("button.state"), document.getElementById("play")];
+
+document.getElementById("start").addEventListener("click", async (event) => {
+  event.target.disabled = true;
+  say("Starting the pod...");
+  try {
+    const pod = await PawPod.boot({ element: document.getElementById("paw") });
+    window.pawPod = pod;
+    // A click is the gesture that lets the page play sound.
+    await pod.audio.start();
+    say("Starting paw...");
+    await pod.open({ project: "demo-song" });
+    say(`paw ${pod.manifest.version} is running. Click the terminal to type in it.`);
+    buttons.forEach((b) => (b.disabled = false));
+  } catch (err) {
+    say(`paw could not start: ${err.message}`);
+    event.target.disabled = false;
+  }
+});
+
+for (const button of document.querySelectorAll("button.state")) {
+  button.addEventListener("click", async () => {
+    say("Opening...");
+    await window.pawPod.open(JSON.parse(button.dataset.state));
+    say(`Showing: ${button.textContent}.`);
+  });
+}
+
+document.getElementById("play").addEventListener("click", async () => {
+  await window.pawPod.sendKeys("<Space><Space>");
+  await new Promise((r) => setTimeout(r, 3000));
+  await window.pawPod.sendKeys("<Space><Space>");
+});
+</script>
+</body>
+</html>

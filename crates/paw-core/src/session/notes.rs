@@ -98,7 +98,7 @@ fn notes_of(project: &Project, id: Id) -> Result<&Notes> {
     {
         ClipContent::Midi { notes, .. } => Ok(notes),
         ClipContent::Audio { .. } => bail!("clip {id} is an audio clip"),
-        ClipContent::Custom(custom) => bail!("clip {id} is a clip of the kind `{}`", custom.kind),
+        other => bail!("clip {id} is a clip of the kind `{}`", other.kind()),
     }
 }
 
@@ -110,7 +110,7 @@ fn notes_mut(project: &mut Project, id: Id) -> Result<&mut Notes> {
     {
         ClipContent::Midi { notes, .. } => Ok(notes),
         ClipContent::Audio { .. } => bail!("clip {id} is an audio clip"),
-        ClipContent::Custom(custom) => bail!("clip {id} is a clip of the kind `{}`", custom.kind),
+        other => bail!("clip {id} is a clip of the kind `{}`", other.kind()),
     }
 }
 

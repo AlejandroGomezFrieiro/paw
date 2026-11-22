@@ -836,6 +836,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.grep.entries(records)`: Records as quickfix entries: `lyric: la`.
 - `paw.grep.fields()`: The fields text can be found in, for completion.
 - `paw.grep.matcher(pattern, mode)`: A test of text: `mode` "regex" (`paw.regex`), "exact" (the words, each anywhere) or "fuzzy" (as the pickers match). Raises an error for a bad regular expression.
+- `paw.grep.reader()`: The records of `records` read in slices, for a picker (`paw.slices`): each call of the function gives the records found in about `ms` milliseconds, and true when all are read.
 - `paw.grep.records()`: Every record of every source, in the order the sources were added. A source that fails is passed over and logged.
 - `paw.grep.search(pattern, opts)`: The records whose text matches `pattern`. `opts.mode` is as `matcher` takes it. `opts.fields` is a set of fields to search (all without it).
 - `paw.grep.source(name, fn)`: Add a source of text, or replace the one of that name.
@@ -889,7 +890,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.harmony.provider()`: The provider the current reading came from.
 - `paw.harmony.range(track)`: The range of a part for a track, `{ low, high, name }`. This is the range of the track (`track.meta.range = { low, high }`). If not, paw guesses it from the words of its name and the names of its devices. If not, it is C3 to C6.
 - `paw.harmony.scale_names()`: Names of the known scales, sorted.
-- `paw.harmony.schedule()`: Some time after the project changes, paw makes the reading again, in slices of a few milliseconds. So `harmony.changed` comes even when nothing asks.
+- `paw.harmony.schedule()`: Some time after the project changes, paw makes the reading again, in slices of a few milliseconds (the job `harmony`). So `harmony.changed` comes even when nothing asks.
 - `paw.harmony.set_key(spec)`: Set the project's key (one edit), or clear it with nil. Returns the key.
 - `paw.harmony.snap(key, pitch, dir)`: The pitch of the key nearest to `pitch`: `dir` "nearest" (the default; halfway between two goes up), "up" or "down". Stays within 0..127.
 - `paw.harmony.step(key, pitch, n)`: Move a pitch by `n` scale degrees. A pitch outside the key keeps its distance from the scale note below it.
@@ -900,10 +901,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.harmony.read.bar_weights(sorted, longest, from, to)`: How long each pitch class sounds from `from` to `to`, of `sorted` (notes sorted by start, the longest `longest` beats).
 - `paw.harmony.read.chords(notes, opts)`: Chords over notes in project beats, from `from` to `to` (the notes' span when nil), in windows of `step` beats (0.5). Each chord: `{ at, length, root, quality, bass, tones }` with pitch classes 0..11.
 - `paw.harmony.read.correlate(h, profile, tonic)`: How well a histogram of pitch classes fits a key's profile from `tonic`, from -1 to 1 (Pearson's correlation).
-- `paw.harmony.read.decode(windows, bar)`: The chords of a run of windows (`window` makes each, one after another with no gap): a chord holds across windows unless the next is better by more than what a change costs. Silence of `bar` beats ends a chord.
+- `paw.harmony.read.decode(windows, bar, pause)`: The chords of a run of windows (`window` makes each, one after another with no gap): a chord holds across windows unless the next is better by more than what a change costs. Silence of `bar` beats ends a chord. `pause`, if given, is called after each 64 windows, so that a reading in slices can stop there (paw/harmony/song.tl).
 - `paw.harmony.read.first(sorted, longest, at)`: The first of `sorted` (notes sorted by start) that can sound at `at`: the ones before it start more than `longest` beats before it.
 - `paw.harmony.read.fit(w, bass, total, root, q)`: How well the chord `root` `quality` fits weights `w` with `bass` and `total`.
-- `paw.harmony.read.key_path(notes_hist, bars, chords)`: The keys from the pitch classes of each bar (`hist`, as `bar_weights` gives them, which it leaves as they are) and the chords, as `keys`.
+- `paw.harmony.read.key_path(notes_hist, bars, chords, pause)`: The keys from the pitch classes of each bar (`hist`, as `bar_weights` gives them, which it leaves as they are) and the chords, as `keys`. `pause`, if given, is called after each 16 bars, as `decode` does.
 - `paw.harmony.read.keys(notes, bars, chords)`: Keys over notes in project beats, bar by bar. `bars` is a list of bar starts, with the end after the last bar. When `chords` (as `chords` gives them) are given, their roots and basses count two times. The harmony tells more about the tonic than the notes of a melody. Each key is `{ at, length, tonic, mode }`, with mode "major" or "minor".
 - `paw.harmony.read.window(sorted, longest, at, length, step)`: One window of the chord reading, from `at`, `length` beats long: `sorted` are the notes sorted by start, `longest` the longest of them, `step` the length of a window.
 
@@ -1241,6 +1242,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.limit.extend(ms)`: Give the current call more time, as `:lua` does: `ms` from now.
 - `paw.limit.guard(name, fn, ...)`: Call `fn(...)` under the time limit for Lua (`paw.opt.lua_limit`). paw stops a call that runs too long, and reports it as `name`. paw reports errors and does not raise them. Returns the results of `fn`.
 - `paw.limit.named(name, fn, ...)`: Name what runs inside the limited call, for the error should it run away: `paw.limit.named("command `x`", fn, ...)`.
+- `paw.limit.timed(name, fn, ...)`: Call `fn(...)` against the budget of a callback (`paw.opt.budget_ms`): if it takes longer, paw names it as `name` once in `:messages`. A nil `name` is a timer, named by where `fn` is in the code. Returns what `fn` returns.
 - `paw.limit.unhurried(fn, ...)`: Run `fn(...)` with its time not counted, for work that is known to be long and to end: `paw.limit.unhurried(synthesise, phrase)`. Callbacks the kernel makes meanwhile (timers during a wait) get a limit of their own.
 - `paw.limit.untrusted(fn)`: Mark a function that the runtime did not write. Where the limit can stop compiled code, this does nothing. Where it cannot, the JIT compiler does not compile the function and each function made inside it. So the limit can stop their loops (unless `paw.opt.lua_limit = 0` disables the limit before paw loads the code).
 - `paw.limit.within(ms, name, fn, ...)`: Call `fn(...)` with at most `ms` milliseconds, as `call` does: its error goes to the caller. Inside a limited call, the shorter of the two limits holds, and the rest of the outer one goes on after. Use it for code of an extension that must be fast, as a kind of clip's `compile` (`paw.opt.clip_kind_limit`).
@@ -1437,6 +1439,11 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.music.name(pitch)`: Name of a MIDI note number: 60 -> "C4".
 - `paw.music.pitch(note)`: MIDI note number for a name such as "C4", "f#3" or "Bb2". Numbers pass through.
 - `paw.music.pitch_word(text)`: A pitch as typed in a query or an Ex range: `{ pitch = 61 }` for `c#4` or `61`, `{ class = 1 }` for `c#` in any octave; nil when it is not one.
+
+## Module paw.nest
+
+- `paw.nest.get(id)`: The subproject `id`, or nil when there is none.
+- `paw.nest.list()`: Every subproject, in the order they were made: { id, name, length, tempo, meter, master, tracks, kind, meta, used }.
 
 ## Module paw.option
 
@@ -1905,6 +1912,13 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.shada.read()`: Read what is kept: yours, and the current project's.
 - `paw.shada.use(file)`: Keep the files in `file` (and the project files where they always are), and keep for all start options, for tests. `use()` sets all back.
 - `paw.shada.write()`: Write what is kept: yours, and the current project's.
+
+## Module paw.slices
+
+- `paw.slices.job(name)`: The job `name` while it runs, or nil.
+- `paw.slices.run(name, step, opts)`: Call `step(ms)` again and again, each time from a timer of its own, until it returns true. The step works for at most `ms` milliseconds (`opts.ms`, 4) and keeps its place for the next call. The keys that wait run between two calls. `opts.after` is the time before the first call (0). A job of the same name stops first. An error in the step shows as a message and ends the job. Returns the job.
+- `paw.slices.running()`: The jobs that run, by name.
+- `paw.slices.stop(name)`: Stop the job `name`. Returns true if it was running.
 
 ## Module paw.snippet
 
@@ -2495,6 +2509,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.midi_send(track, event)`: Send a MIDI message to one track's devices right now, outside the timeline.
 - `paw.api.midi_test_ports(ports)`: The MIDI ports the null backend lists, as if plugged in.
 - `paw.api.midi_ump(event)`: What an event is as a MIDI 2.0 packet: two 32-bit words.
+- `paw.api.nest_add(opts)`: Make a subproject with its master track and no other track, as one undo step, for example `{ name = "Bridge", length = 32 }`. The length is in beats, and 32 when you leave it out. Add its tracks with `track_add({ nest = id })`. Returns its id.
+- `paw.api.nest_get(id)`: A subproject as a table: its fields, `tracks` (its tracks in order, without its master) and `used` (whether the song plays it).
+- `paw.api.nest_list()`: --- nests (subprojects): tracks with a timeline of their own --- The ids of the subprojects, in the order they were made.
+- `paw.api.nest_set(id, key, value)`: Change a subproject: a table of the entries to change (`name`, `length`, `tempo`, `meter`, `kind`, `meta`), as `nest_get` gives them, or one `key` and its value.
 - `paw.api.note_off(track, pitch)`
 - `paw.api.note_on(track, pitch, velocity, attr)`: Play a note on a track, with a MIDI 2.0 attribute if one is given.
 - `paw.api.now()`

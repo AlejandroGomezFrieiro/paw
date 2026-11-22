@@ -16,7 +16,6 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 smallvec.workspace = true
-mlua = { version = "0.12", features = ["luajit", "vendored", "serde"] }
 include_dir = "0.7"
 unicode-width = "0.2"
 base64 = "0.22"
@@ -52,6 +51,17 @@ tokio-rustls.workspace = true
 # The self-signed certificate an instance listening on the network shows.
 rcgen = { version = "0.14", default-features = false, features = ["crypto", "ring"] }
 
+# LuaJIT, and the sound devices and MIDI ports of the machine. Not in a
+# BrowserPod pod (target_vendor "browserpod"): LuaJIT cannot run in
+# WebAssembly, and a pod has no sound device (web/browserpod/README.md).
+[target.'cfg(not(target_vendor = "browserpod"))'.dependencies]
+mlua = { version = "0.12", features = ["luajit", "vendored", "serde"] }
+paw-engine = { workspace = true, features = ["cpal", "midi"] }
+
+# In a pod: PUC Lua 5.2, which has LuaJIT's numbers (runtime/lua/paw/portable.lua).
+[target.'cfg(target_vendor = "browserpod")'.dependencies]
+mlua = { version = "0.12", features = ["lua52", "vendored", "serde"] }
+
 [build-dependencies]
 # Compiles the Lua runtime to bytecode (build.rs), with the LuaJIT the
 # program runs it on.
@@ -63,3 +73,7 @@ tempfile = "3"
 [[bench]]
 name = "nest_expand"
 harness = false
+
+# A BrowserPod pod is the target vendor `browserpod` (web/browserpod/README.md).
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_vendor, values("browserpod"))'] }

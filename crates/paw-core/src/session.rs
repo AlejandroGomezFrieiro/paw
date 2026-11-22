@@ -49,6 +49,8 @@ pub mod cues;
 mod loading;
 pub mod media;
 mod midi_out;
+mod nests;
+pub use nests::NestOpts;
 mod monitor;
 mod statelanes;
 mod stretching;
@@ -238,6 +240,8 @@ pub struct TrackOpts {
     pub pan: Option<f64>,
     pub output: Option<Id>,
     pub color: Option<String>,
+    /// The nest (subproject) the track is made in; the song when absent.
+    pub nest: Option<crate::model::NestId>,
 }
 
 #[derive(Default, Deserialize)]
@@ -1103,7 +1107,7 @@ fn clip_json<'a>(c: &'a Clip, track: Id, files: &file_check::FileCheck) -> ClipV
             v.stretch_mode = Some(c.stretch_mode);
             v.source_tempo = c.source_tempo;
         }
-        ClipContent::Custom(_) => {}
+        ClipContent::Custom(_) | ClipContent::Nest { .. } => {}
     }
     v
 }

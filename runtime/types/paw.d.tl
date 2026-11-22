@@ -44,6 +44,7 @@ local type MediaModule = require("paw.media")
 local type MidifileModule = require("paw.midifile")
 local type MouseModule = require("paw.mouse")
 local type MusicModule = require("paw.music")
+local type NestModule = require("paw.nest")
 local type ObjectsModule = require("paw.objects")
 local type OptionModule = require("paw.options")
 local type PanesModule = require("paw.panes")
@@ -62,6 +63,7 @@ local type SceneModule = require("paw.scene")
 local type ScopeModule = require("paw.scope")
 local type SeatsModule = require("paw.seats")
 local type ShadaModule = require("paw.shada")
+local type SlicesModule = require("paw.slices")
 local type SnippetModule = require("paw.snippet")
 local type StatuslineModule = require("paw.statusline")
 local type StepModule = require("paw.step")
@@ -156,6 +158,7 @@ global record paw
    mixer_rows: Untyped
    mouse: MouseModule
    music: MusicModule
+   nest: NestModule
    notify: function(text: string, level?: string)
    off: function(id: integer)
    on: function<P>(event: EventsModule.Event<P>, fn: function(P, string), opts?: EventsModule.OnOptions): integer
@@ -196,6 +199,7 @@ global record paw
    scope: ScopeModule
    seats: SeatsModule
    shada: ShadaModule
+   slices: SlicesModule
    snippet: SnippetModule
    state: Untyped
    statusline: StatuslineModule

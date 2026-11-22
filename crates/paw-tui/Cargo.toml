@@ -14,7 +14,6 @@ paw-core.workspace = true
 paw-proto.workspace = true
 paw-engine.workspace = true
 paw-luadev.workspace = true
-paw-plugins.workspace = true
 paw-listen.workspace = true
 paw-raster.workspace = true
 anyhow.workspace = true
@@ -28,6 +27,16 @@ rustix = { version = "1", default-features = false, features = ["std", "event", 
 # The SIGTERM and SIGHUP handler that gives the terminal back.
 signal-hook = { version = "0.3", default-features = false }
 
+# Plugins, and the sound devices of the machine. A BrowserPod pod has
+# neither (web/browserpod/README.md).
+[target.'cfg(not(target_vendor = "browserpod"))'.dependencies]
+paw-plugins.workspace = true
+paw-listen = { workspace = true, features = ["device"] }
+
 [dev-dependencies]
 paw-scene.workspace = true
 libc = "0.2"
+
+# A BrowserPod pod is the target vendor `browserpod` (web/browserpod/README.md).
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_vendor, values("browserpod"))'] }

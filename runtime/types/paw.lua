@@ -191,6 +191,9 @@ paw.mouse = {}
 ---@class paw.music
 paw.music = {}
 
+---@class paw.nest
+paw.nest = {}
+
 ---@class paw.option
 paw.option = {}
 
@@ -259,6 +262,9 @@ paw.seats = {}
 
 ---@class paw.shada
 paw.shada = {}
+
+---@class paw.slices
+paw.slices = {}
 
 ---@class paw.snippet
 paw.snippet = {}
@@ -3431,6 +3437,11 @@ function paw.grep.fields() end
 ---@param mode any
 function paw.grep.matcher(pattern, mode) end
 
+--- The records of `records` read in slices, for a picker (`paw.slices`):
+--- each call of the function gives the records found in about `ms`
+--- milliseconds, and true when all are read.
+function paw.grep.reader() end
+
 --- Every record of every source, in the order the sources were added.
 --- A source that fails is passed over and logged.
 function paw.grep.records() end
@@ -3694,8 +3705,8 @@ function paw.harmony.range(track) end
 function paw.harmony.scale_names() end
 
 --- Some time after the project changes, paw makes the reading again, in
---- slices of a few milliseconds. So `harmony.changed` comes even when
---- nothing asks.
+--- slices of a few milliseconds (the job `harmony`). So `harmony.changed`
+--- comes even when nothing asks.
 function paw.harmony.schedule() end
 
 --- Set the project's key (one edit), or clear it with nil. Returns the key.
@@ -3746,9 +3757,12 @@ function paw.harmony.read.correlate(h, profile, tonic) end
 --- The chords of a run of windows (`window` makes each, one after another
 --- with no gap): a chord holds across windows unless the next is better by
 --- more than what a change costs. Silence of `bar` beats ends a chord.
+--- `pause`, if given, is called after each 64 windows, so that a reading
+--- in slices can stop there (paw/harmony/song.tl).
 ---@param windows any
 ---@param bar any
-function paw.harmony.read.decode(windows, bar) end
+---@param pause any
+function paw.harmony.read.decode(windows, bar, pause) end
 
 --- The first of `sorted` (notes sorted by start) that can sound at `at`:
 --- the ones before it start more than `longest` beats before it.
@@ -3767,10 +3781,12 @@ function paw.harmony.read.fit(w, bass, total, root, q) end
 
 --- The keys from the pitch classes of each bar (`hist`, as `bar_weights`
 --- gives them, which it leaves as they are) and the chords, as `keys`.
+--- `pause`, if given, is called after each 16 bars, as `decode` does.
 ---@param notes_hist any
 ---@param bars any
 ---@param chords any
-function paw.harmony.read.key_path(notes_hist, bars, chords) end
+---@param pause any
+function paw.harmony.read.key_path(notes_hist, bars, chords, pause) end
 
 --- Keys over notes in project beats, bar by bar. `bars` is a list of bar
 --- starts, with the end after the last bar. When `chords` (as `chords`
@@ -5055,6 +5071,14 @@ function paw.limit.guard(name, fn, ...) end
 ---@param fn any
 function paw.limit.named(name, fn, ...) end
 
+--- Call `fn(...)` against the budget of a callback (`paw.opt.budget_ms`):
+--- if it takes longer, paw names it as `name` once in `:messages`. A nil
+--- `name` is a timer, named by where `fn` is in the code. Returns what
+--- `fn` returns.
+---@param name any
+---@param fn any
+function paw.limit.timed(name, fn, ...) end
+
 --- Run `fn(...)` with its time not counted, for work that is known to be
 --- long and to end: `paw.limit.unhurried(synthesise, phrase)`. Callbacks
 --- the kernel makes meanwhile (timers during a wait) get a limit of their
@@ -5815,6 +5839,14 @@ function paw.music.pitch(note) end
 --- or `61`, `{ class = 1 }` for `c#` in any octave; nil when it is not one.
 ---@param text any
 function paw.music.pitch_word(text) end
+
+--- The subproject `id`, or nil when there is none.
+---@param id any
+function paw.nest.get(id) end
+
+--- Every subproject, in the order they were made: { id, name, length,
+--- tempo, meter, master, tracks, kind, meta, used }.
+function paw.nest.list() end
 
 --- Tells if option `name` accepts `value`: true, or nil and an error that
 --- tells what it accepts. An option with no default accepts any value.
@@ -7378,6 +7410,28 @@ function paw.shada.use(file) end
 
 --- Write what is kept: yours, and the current project's.
 function paw.shada.write() end
+
+--- The job `name` while it runs, or nil.
+---@param name any
+function paw.slices.job(name) end
+
+--- Call `step(ms)` again and again, each time from a timer of its own,
+--- until it returns true. The step works for at most `ms` milliseconds
+--- (`opts.ms`, 4) and keeps its place for the next call. The keys that
+--- wait run between two calls. `opts.after` is the time before the first
+--- call (0). A job of the same name stops first. An error in the step
+--- shows as a message and ends the job. Returns the job.
+---@param name any
+---@param step any
+---@param opts any
+function paw.slices.run(name, step, opts) end
+
+--- The jobs that run, by name.
+function paw.slices.running() end
+
+--- Stop the job `name`. Returns true if it was running.
+---@param name any
+function paw.slices.stop(name) end
 
 --- The active snippet, or nil. A snippet ends when the project changed
 --- other than through it, or the piano roll's cursor left its span.
@@ -9882,6 +9936,30 @@ function paw.api.midi_test_ports(ports) end
 --- What an event is as a MIDI 2.0 packet: two 32-bit words.
 ---@param event any
 function paw.api.midi_ump(event) end
+
+--- Make a subproject with its master track and no other track, as one
+--- undo step, for example `{ name = "Bridge", length = 32 }`. The length
+--- is in beats, and 32 when you leave it out. Add its tracks with
+--- `track_add({ nest = id })`. Returns its id.
+---@param opts any
+function paw.api.nest_add(opts) end
+
+--- A subproject as a table: its fields, `tracks` (its tracks in order,
+--- without its master) and `used` (whether the song plays it).
+---@param id integer
+function paw.api.nest_get(id) end
+
+--- --- nests (subprojects): tracks with a timeline of their own ---
+--- The ids of the subprojects, in the order they were made.
+function paw.api.nest_list() end
+
+--- Change a subproject: a table of the entries to change (`name`,
+--- `length`, `tempo`, `meter`, `kind`, `meta`), as `nest_get` gives
+--- them, or one `key` and its value.
+---@param id integer
+---@param key any
+---@param value any
+function paw.api.nest_set(id, key, value) end
 
 ---@param track integer
 ---@param pitch integer?

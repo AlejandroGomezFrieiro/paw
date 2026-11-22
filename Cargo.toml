@@ -8,12 +8,14 @@ edition = "2024"
 license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
-paw-engine = { path = "crates/paw-engine" }
+# Without their sound devices: paw-core, paw-tui and the window add them
+# where the machine has them (not in a BrowserPod pod, web/browserpod/README.md).
+paw-engine = { path = "crates/paw-engine", default-features = false }
 paw-core = { path = "crates/paw-core" }
 paw-plugins = { path = "crates/paw-plugins" }
 paw-luadev = { path = "crates/paw-luadev" }
 paw-proto = { path = "crates/paw-proto" }
-paw-listen = { path = "crates/paw-listen" }
+paw-listen = { path = "crates/paw-listen", default-features = false }
 paw-raster = { path = "crates/paw-raster" }
 paw-scene = { path = "crates/paw-scene" }
 anyhow = "1"
