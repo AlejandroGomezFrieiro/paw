@@ -18,6 +18,15 @@ works as it does on GitHub. The script writes the sidebar from
 the groups and its list items are the chapters. A page that the contents
 omit goes under "More pages". Each extension has a part of its own.
 
+The first page of the site is a landing page. It is the file
+`tools/website/landing.md`, and the script copies it over `README.md` in the
+staging folder only, so GitHub still shows the README of the repository.
+The page uses a few lines of CSS from `tools/website/landing.css` and no
+script. Its section "Try it in your browser" is an empty slot for a demo
+that runs in the browser. Facts on the landing page come from the README
+and the manual, and the page follows the plain writing rules like any other
+external page.
+
 Then mdBook builds the pages. After that, a link checker reads the built
 pages. A link or an anchor that reaches nothing fails the build. A link to a
 file that is not a page, such as a source file or the example
@@ -55,7 +64,7 @@ Its costs are these.
 - A bare `<name>` in the text of `docs/reference/api.md` is read as an
   HTML tag. GitHub does the same.
 
-The next tickets of the website (the landing page, the structure of the
+The next tickets of the website (the structure of the
 pages, a paw in the page, publishing) build on this output.
 
 See [How to preview the manual as a website](../how-to/preview-the-manual-as-a-website.md).
