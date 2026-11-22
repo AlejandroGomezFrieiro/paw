@@ -670,6 +670,8 @@ end
 
 --- Sound a pitch on the clip's track.
 function view:audition(pitch)
+  -- A controller plays its own sound.
+  if self.quiet then return end
   local clip = self:clip()
   pitch = pitch or self:cursor_pitch()
   if clip and pitch >= 0 and pitch <= 127 then clip:track():play_note(pitch, paw.opt.velocity, 220) end
@@ -1857,10 +1859,6 @@ local LETTER_STEP = { c = 0, d = 1, e = 2, f = 3, g = 4, a = 5, b = 6 }
 --- Enter a note by its letter at the cursor, in the octave nearest the
 --- note before it, as the key alters it; then step on, or stay for a chord.
 function view:enter(letter, advance)
-  local clip = self:clip()
-  if not clip then return end
-  local fifths = view.key()
-  local continues = self.last ~= nil
   local from = self.last and self.last.step or self.step
   local l = LETTER_STEP[letter]
   local step = math.floor(from / 7) * 7 + l
@@ -1869,7 +1867,18 @@ function view:enter(letter, advance)
   elseif from - step > 3 then
     step = step + 7
   end
-  local pitch = model.key_pitch(step, fifths)
+  self:enter_step(step, model.key_pitch(step, (view.key())), advance)
+end
+
+--- Enter a note of a MIDI controller at the cursor: the pitch played, spelled
+--- as the key of the music spells it. Step on, or stay for a chord.
+function view:enter_pitch(pitch, advance) self:enter_step(model.spell(pitch, (view.key())).step, pitch, advance) end
+
+--- Enter the note at a step of the staff and a pitch (the same note).
+function view:enter_step(step, pitch, advance)
+  local clip = self:clip()
+  if not clip then return end
+  local continues = self.last ~= nil
   -- MIDI ends at G9 and starts at C-1: past them the cursor stays.
   if pitch > 127 or pitch < 0 then
     return paw.notify(

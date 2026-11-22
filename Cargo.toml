@@ -22,6 +22,9 @@ anyhow = "1"
 # Typed errors where a caller tells one failure from another. Already in
 # Cargo.lock through other crates.
 thiserror = "2"
+# Small vectors on the stack (the text that Lua draws, paw-core's
+# api/mod.rs). Already in Cargo.lock through other crates.
+smallvec = "1"
 # Sets of flags as types (faults, sandbox states). Already in Cargo.lock
 # through other crates.
 bitflags = "2"

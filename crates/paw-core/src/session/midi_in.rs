@@ -7,6 +7,33 @@ use paw_engine::midi_filter::{Control as FilterControl, MidiFilter, Rule};
 use crate::events::{KernelEvent as E, Nothing};
 use super::*;
 
+/// The transport as Lua reads it (`paw.api.transport_get`).
+#[derive(Clone, Copy, Debug, Serialize)]
+pub struct TransportView {
+    pub playing: bool,
+    pub position: f64,
+    pub tempo: f64,
+    pub loop_enabled: bool,
+    pub loop_start: f64,
+    pub loop_end: f64,
+    pub metronome: bool,
+    pub recording: bool,
+    pub punch_enabled: bool,
+    pub punch_start: f64,
+    pub punch_end: f64,
+    pub count_in: u32,
+    pub counting: u32,
+    pub pre_roll: u32,
+    pub pre_roll_seconds: f64,
+    pub click_level: f64,
+    pub click_accent: bool,
+    pub click_output: u32,
+    pub record_offset: f64,
+    pub write: bool,
+    /// The number of the take being recorded.
+    pub take: Option<u32>,
+}
+
 /// A control of MIDI input that tracks do not get, as a script names it:
 /// a key (`note`) or a controller (`cc`), from the port of that name (every
 /// port without), on a `channel` from 1 to 16 (every channel without).
@@ -288,20 +315,33 @@ impl Session {
         (self.play.playing, self.position(), self.counting(), self.rec.take.as_ref().map(|t| t.number))
     }
 
-    pub fn transport_view(&self) -> Value {
+    /// The transport as `paw.api.transport_get` gives it: typed, so that
+    /// Lua gets its table with no JSON between (a frame reads it).
+    pub fn transport_view(&self) -> TransportView {
         let t = &self.transport;
-        json!({
-            "playing": self.play.playing, "position": self.position(), "tempo": self.project.tempo,
-            "loop_enabled": t.loop_enabled, "loop_start": t.loop_start, "loop_end": t.loop_end,
-            "metronome": t.metronome, "recording": t.recording,
-            "punch_enabled": t.punch_enabled, "punch_start": t.punch_start, "punch_end": t.punch_end,
-            "count_in": t.count_in, "counting": self.counting(),
-            "pre_roll": t.pre_roll, "pre_roll_seconds": t.pre_roll_seconds,
-            "click_level": t.click_level, "click_accent": t.click_accent, "click_output": t.click_output,
-            "record_offset": self.rec.offset,
-            "write": self.writing.on,
-            "take": self.rec.take.as_ref().map(|t| t.number),
-        })
+        TransportView {
+            playing: self.play.playing,
+            position: self.position(),
+            tempo: self.project.tempo,
+            loop_enabled: t.loop_enabled,
+            loop_start: t.loop_start,
+            loop_end: t.loop_end,
+            metronome: t.metronome,
+            recording: t.recording,
+            punch_enabled: t.punch_enabled,
+            punch_start: t.punch_start,
+            punch_end: t.punch_end,
+            count_in: t.count_in,
+            counting: self.counting(),
+            pre_roll: t.pre_roll,
+            pre_roll_seconds: t.pre_roll_seconds,
+            click_level: t.click_level,
+            click_accent: t.click_accent,
+            click_output: t.click_output,
+            record_offset: self.rec.offset,
+            write: self.writing.on,
+            take: self.rec.take.as_ref().map(|t| t.number),
+        }
     }
 
     pub fn transport_set(&mut self, key: &str, value: Value) -> Result<()> {

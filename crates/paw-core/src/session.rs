@@ -22,7 +22,7 @@ use serde_json::{Map, Value, json};
 
 use crate::history::{self, History};
 use crate::model::{
-    Clip, ClipContent, ClipKindId, Control, CustomContent, DeviceInst, KindData, MediaRef, Signal, Timeline, Id, Lane, LaneState, MASTER_ID, MidiInput, Note, NoteAttr, Notes, Project, Segment,
+    Clip, ClipContent, ClipKindId, Control, CustomContent, DeviceInst, KindData, MediaRef, Signal, Timeline, Id, Lane, LaneState, MASTER_ID, MidiInput, NestPlay, Note, NoteAttr, Notes, Project, Segment,
     Send, Shape, Sound, StretchMode, Target, Timebase, Track, WarpMarker, InputChannels,
 };
 use crate::sync::{AudioCache, Follow, LiveDevices, Mapper, ModelEvent, SyncCtx, sync};
@@ -67,6 +67,7 @@ pub mod tags;
 mod tempo;
 mod undo;
 mod watch;
+pub use watch::Lost;
 mod write;
 use undo::{SWEEP_GAP, new_history};
 
@@ -235,7 +236,8 @@ pub fn project_file_text(value: Value) -> Result<String> {
 #[serde(default, deny_unknown_fields)]
 pub struct TrackOpts {
     pub name: Option<String>,
-    /// Position in the track list, counting from 1. Appended when absent.
+    /// Position among the tracks of its place (the song, or its
+    /// subproject), counting from 1. Appended when absent.
     pub index: Option<usize>,
     pub volume: Option<f64>,
     pub pan: Option<f64>,
@@ -243,6 +245,16 @@ pub struct TrackOpts {
     pub color: Option<String>,
     /// The nest (subproject) the track is made in; the song when absent.
     pub nest: Option<crate::model::NestId>,
+}
+
+/// What `paw.api.track_list` takes: the tracks of the song when empty.
+#[derive(Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct TrackListOpts {
+    /// The tracks of this subproject, without its master.
+    pub nest: Option<crate::model::NestId>,
+    /// Every track: the song's and those of each subproject.
+    pub all: bool,
 }
 
 #[derive(Default, Deserialize)]
@@ -287,6 +299,8 @@ pub struct DeviceOpts {
 pub enum ClipKind {
     Midi,
     Audio,
+    /// A subproject placed here (`nest`, `play`, `offset` of [`ClipOpts`]).
+    Nest,
     Custom(ClipKindId),
 }
 
@@ -309,6 +323,7 @@ impl std::str::FromStr for ClipKind {
         Ok(match word {
             "midi" => Self::Midi,
             "audio" => Self::Audio,
+            "nest" => Self::Nest,
             other => Self::Custom(other.parse::<ClipKindId>()?),
         })
     }
@@ -395,6 +410,10 @@ pub struct ClipOpts {
     pub media: Vec<MediaRef>,
     pub sound: Option<Sound>,
     pub signals: Vec<Signal>,
+    /// A nest clip: the subproject it places, and what it plays of it
+    /// (its mix when absent). `offset` is then beats into the subproject.
+    pub nest: Option<crate::model::NestId>,
+    pub play: Option<crate::model::NestPlay>,
 }
 
 /// What [`Session::clip_set_custom`] gives a custom clip: what its kind
@@ -807,25 +826,37 @@ fn start_engine(opts: &BackendOptions) -> Result<(EngineHandle, Stream)> {
 }
 
 /// Processing times per engine callback, in milliseconds.
+#[derive(Clone, Copy, Debug, Serialize)]
+pub struct BlockTimes {
+    pub count: u64,
+    pub mean: f64,
+    pub max: f64,
+    pub p50: f64,
+    pub p99: f64,
+    pub p999: f64,
+    /// The time one callback of the average size may take in real time.
+    pub budget: f64,
+}
+
+impl BlockTimes {
+    pub fn new(s: &paw_engine::BlockSummary, sample_rate: u32) -> Self {
+        let ms = |ns: f64| ns / 1e6;
+        let per_call = |n: u64| if s.count > 0 { n as f64 / s.count as f64 } else { 0.0 };
+        Self {
+            count: s.count,
+            mean: ms(per_call(s.total_ns)),
+            max: ms(s.max_ns as f64),
+            p50: ms(s.quantile_ns(0.5)),
+            p99: ms(s.quantile_ns(0.99)),
+            p999: ms(s.quantile_ns(0.999)),
+            budget: per_call(s.frames) * 1000.0 / sample_rate.max(1) as f64,
+        }
+    }
+}
+
+/// [`BlockTimes`] as JSON.
 fn block_json(s: &paw_engine::BlockSummary, sample_rate: u32) -> Value {
-    let ms = |ns: f64| ns / 1e6;
-    let mean = if s.count > 0 {
-        s.total_ns as f64 / s.count as f64
-    } else {
-        0.0
-    };
-    let frames = if s.count > 0 {
-        s.frames as f64 / s.count as f64
-    } else {
-        0.0
-    };
-    json!({
-        "count": s.count, "mean": ms(mean), "max": ms(s.max_ns as f64),
-        "p50": ms(s.quantile_ns(0.5)), "p99": ms(s.quantile_ns(0.99)),
-        "p999": ms(s.quantile_ns(0.999)),
-        // The time one callback of the average size may take in real time.
-        "budget": frames * 1000.0 / sample_rate.max(1) as f64,
-    })
+    serde_json::to_value(BlockTimes::new(s, sample_rate)).unwrap_or(Value::Null)
 }
 
 fn param_json(p: &ParamInfo) -> Value {
@@ -1011,6 +1042,11 @@ pub struct ClipView<'a> {
     formants: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     warp: Option<Vec<WarpView>>,
+    // A nest clip's: the subproject it places and what it plays of it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    nest: Option<crate::model::NestId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    play: Option<NestPlay>,
 }
 
 /// A hash of a clip's controller moves, as a number Lua holds exactly.
@@ -1064,6 +1100,8 @@ fn clip_json<'a>(c: &'a Clip, track: Id, files: &file_check::FileCheck) -> ClipV
         bent: None,
         formants: None,
         warp: None,
+        nest: None,
+        play: None,
     };
     match &c.content {
         ClipContent::Midi { notes, controls } => {
@@ -1098,7 +1136,12 @@ fn clip_json<'a>(c: &'a Clip, track: Id, files: &file_check::FileCheck) -> ClipV
             v.stretch_mode = Some(c.stretch_mode);
             v.source_tempo = c.source_tempo;
         }
-        ClipContent::Custom(_) | ClipContent::Nest { .. } => {}
+        ClipContent::Nest { nest, offset, play } => {
+            v.nest = Some(*nest);
+            v.offset = Some(*offset);
+            v.play = Some(*play);
+        }
+        ClipContent::Custom(_) => {}
     }
     v
 }

@@ -611,9 +611,11 @@ local held: {string: Held} = {}
 function M.hold(key: string, peak: number): number
   local now = api.now()
   local h = held[key]
-  if not h or peak >= h.peak or now - h.time > 2000 then
+  if not h then
     h = {peak = peak, time = now}
     held[key] = h
+  elseif peak >= h.peak or now - h.time > 2000 then
+    h.peak, h.time = peak, now
   end
   return h.peak
 end

@@ -136,6 +136,9 @@ impl Session {
             self.undo.last_sweep = Some((key.clone(), Instant::now(), state));
             return;
         }
+        if let Some(name) = self.only_nest_changed() {
+            self.undo.history.label_place(&name);
+        }
         let previous = std::mem::replace(&mut self.undo.checkpoint, self.project.clone());
         self.undo.history.set_current_snapshot(previous);
         let state = self.undo.history.push(self.undo.checkpoint.clone(), history::now());
@@ -148,6 +151,36 @@ impl Session {
         }
         self.undo.last_sweep = moved.map(|key| (key, Instant::now(), state));
         self.trim_audio_now_and_then();
+    }
+
+    /// The name of the subproject whose tracks are all that this step
+    /// changed, for the step's label (one undo tree names where each step
+    /// was made). None when it changed a track of the song, or nothing of a
+    /// track.
+    fn only_nest_changed(&self) -> Option<String> {
+        if self.project.nests.is_empty() {
+            return None;
+        }
+        let before: HashMap<Id, &Arc<Track>> =
+            self.undo.checkpoint.tracks.iter().map(|t| (t.id, t)).collect();
+        let now: HashMap<Id, &Arc<Track>> = self.project.tracks.iter().map(|t| (t.id, t)).collect();
+        // The places of the tracks that came, changed or went.
+        let changed = self
+            .project
+            .tracks
+            .iter()
+            .filter(|t| before.get(&t.id).is_none_or(|b| !Arc::ptr_eq(b, t)))
+            .chain(before.values().copied().filter(|t| !now.contains_key(&t.id)))
+            .map(|t| t.nest);
+        let mut place = None;
+        for nest in changed {
+            if place.is_some_and(|p| p != nest) {
+                return None;
+            }
+            place = Some(nest);
+        }
+        let nest = place.flatten()?;
+        self.project.nest(nest).map(|n| n.name.clone())
     }
 
     /// A clip that refers to a file outside the project and whose notes

@@ -195,10 +195,14 @@ local record Views
 end
 
 --- paw/scope.tl, the part of it that this module reads.
+local record ScopeLevel
+  id: integer
+end
 local record Scope
   tracks: function(): {integer}
   span: function(): number, number
   bar_offset: function(): integer
+  nest: function(): ScopeLevel
 end
 local record RollClips
   ids: function(): {integer}
@@ -862,7 +866,7 @@ function M.items(r: Range, kind: Level): {Item}
     return out
   end
   local order: {integer: integer} = {}
-  for i, id in ipairs(api.track_list()) do
+  for i, id in ipairs(api.track_list({all = true})) do
     order[id] = i
   end
   for _, c in ipairs(scope_clips(r)) do
@@ -1659,11 +1663,14 @@ local function copy_or_move(ctx: Context, move: boolean)
     if not n then
       fail("`%s`: tracks go below a track's number: `:t2 %s 5`, `0` for the top", text, name)
     end
-    -- In a narrowed tab N counts its tracks: below the Nth of them.
+    -- In a narrowed tab N counts its tracks: below the Nth of them. The
+    -- place counts among the tracks of the song, or of the subproject.
+    local nest = paw.scope.nest()
+    local place = api.track_list({nest = nest and nest.id or nil})
     local seen = scoped()
-    if #seen < #api.track_list() and n > 0 then
+    if #seen < #place and n > 0 then
       local id = seen[math.min(n, #seen)]
-      for k, other in ipairs(api.track_list()) do
+      for k, other in ipairs(place) do
         if other == id then
           n = k
         end
@@ -1674,7 +1681,7 @@ local function copy_or_move(ctx: Context, move: boolean)
       snaps[i] = paw.track(id):snapshot()
     end
     if move then
-      local list, below = api.track_list(), 0
+      local list, below = place, 0
       for _, id in ipairs(r.tracks) do
         for k = 1, math.min(n, #list) do
           if list[k] == id then
@@ -2354,6 +2361,7 @@ ex(
       fail("`strength` is from 0 to 100, not `%g`", strength)
     end
     local items = notes_in(ctx)
+    commands.about(plural(#items, "note"))
     local changes: {Changed} = {}
     for i, item in ipairs(items) do
       -- On the song's grid, so that clips that start off it still line up.
@@ -2390,6 +2398,7 @@ ex(
       fail("`transpose` needs semitones: `:5,8transpose 12`, `-3`")
     end
     local items = notes_in(ctx)
+    commands.about(plural(#items, "note"))
     local changes: {Changed} = {}
     for i, item in ipairs(items) do
       changes[i] = {item = item, change = {pitch = math.tointeger(util.clamp(item.note.pitch + by, 0, 127))}}

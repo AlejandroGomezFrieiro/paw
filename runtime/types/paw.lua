@@ -329,7 +329,9 @@ paw.api = {}
 paw.api.version = "1.0.0"
 
 --- A new track, last unless `opts.index` says where: `opts` as `paw.api.track_add`
---- takes them (`name`, `volume`, `output` as a track or an id, ...).
+--- takes them (`name`, `volume`, `output` as a track or an id, ...). In a
+--- window inside a subproject, the track is made in that subproject unless
+--- `opts.nest` says another.
 ---@param opts any
 function paw.add_track(opts) end
 
@@ -1666,6 +1668,12 @@ function paw.clip_kinds.split(clip, at) end
 ---@param to any
 function paw.clip_kinds.trim(clip, from, to) end
 
+--- A command that can be adjusted says the range it changed, as the panel
+--- of `<leader>.` shows it (`Quantize · 48 notes`). Call it from the handler.
+---   paw.commands.about("48 notes")
+---@param text any
+function paw.commands.about(text) end
+
 --- Run the last command that has `adjust` again with other parameters, in
 --- place of its undo step: `paw.commands.adjust({ grid = "1/8" })`, or
 --- positional ones, by the order of its `adjust`. The project goes back to
@@ -1728,6 +1736,11 @@ function paw.commands.main(name) end
 --- The extension that paw loads now, or whose code registers these commands
 --- and keys later. `:help` goes to its page for them, and an unload removes them.
 function paw.commands.owner() end
+
+--- What the panel of `<leader>.` shows: the title, the parameters of the
+--- last command that can be adjusted, and their values now. Nil when there
+--- is no such command.
+function paw.commands.panel() end
 
 --- The parameters of the command that runs: what the user gave, by the
 --- names that its `adjust` lists. A parameter not given is not in the table.
@@ -1956,7 +1969,8 @@ function paw.cursor.bounds() end
 --- The clip under the cursor, if any.
 function paw.cursor.clip() end
 
---- 1-based position of the cursor track in the track list.
+--- 1-based position of the cursor track among the tracks of its place:
+--- the song's, or its subproject's (as `paw.api.track_move` counts).
 function paw.cursor.index() end
 
 --- The automation lane row of the cursor: a lane of the cursor track that
@@ -7031,6 +7045,11 @@ function paw.routes.midi_out_text(t) end
 ---@param device any
 function paw.routes.outputs(device) end
 
+--- The tracks a track may route to: those of its place, the song or its
+--- subproject (the tracks of a subproject route only to each other).
+---@param track any
+function paw.routes.peers(track) end
+
 --- The tracks a track's sound reaches, directly or through others, as a set
 --- of ids: by outputs, sends and side-chains.
 ---@param from any
@@ -7192,9 +7211,10 @@ function paw.scene.watchers() end
 function paw.scope.apply(s) end
 
 --- The scope that `znn` enters at the cursor: the innermost not entered
---- yet. In a region scope, the region one level inside it at the cursor;
---- else the group at the cursor (its header or one of its tracks), else
---- the track. Nil when the window shows that track already.
+--- yet. A subproject's clip at the cursor; in a region scope, the region
+--- one level inside it at the cursor; else the group at the cursor (its
+--- header or one of its tracks), else the track. Nil when the window shows
+--- that track already.
 function paw.scope.at_cursor() end
 
 --- How many bars of the song come before the first bar of a scope (the
@@ -7204,7 +7224,8 @@ function paw.scope.at_cursor() end
 ---@param s any
 function paw.scope.bar_offset(s) end
 
---- The path in words: `Song › Bridge › Strings`.
+--- The path in words: `Song › Bridge › Strings`; a subproject is marked
+--- `⧉`: `Song › ⧉Ballad › Strings`.
 ---@param s any
 function paw.scope.breadcrumb(s) end
 
@@ -7289,10 +7310,21 @@ function paw.scope.names() end
 ---@param which any
 function paw.scope.narrow(which) end
 
+--- The innermost subproject of a scope's path (the current scope by
+--- default), or nil when the path is in the song: its tracks and its
+--- timeline are what the window shows.
+---@param s any
+function paw.scope.nest(s) end
+
 --- Go to the scope `n` places beside the current one (`]z`, `3]z`, `[z`),
 --- in the same parent. A jump. Returns the scope.
 ---@param n any
 function paw.scope.next(n) end
+
+--- The scope of a subproject's clip (`znn` or `<CR>` on it enters it), or
+--- nil when the clip places no subproject.
+---@param id any
+function paw.scope.of_clip(id) end
 
 --- The scope an operator's region covers (`zn{motion}`, `{Visual}zn`):
 --- the region, group or track its text object names (`ar`, `ag`, `it`),
@@ -7344,6 +7376,17 @@ function paw.scope.sibling(n) end
 ---@param local_bar any
 function paw.scope.song_bar(local_bar) end
 
+--- The song's beat of a beat that the current scope shows.
+---@param beat any
+---@param s any
+function paw.scope.song_beat(beat, s) end
+
+--- The beats to add to a beat of the window to get the song's beat: in a
+--- subproject, where the clip it was entered through places its beat 0
+--- (the clip's start less its offset); else 0.
+---@param s any
+function paw.scope.song_offset(s) end
+
 --- The time a scope shows (the current one by default): `from, to` in
 --- beats, its own time intersected with its parent's. Nil when it shows all
 --- of the song's time. `from` is `to` when the times do not meet.
@@ -7351,7 +7394,8 @@ function paw.scope.song_bar(local_bar) end
 function paw.scope.span(s) end
 
 --- The tracks of a scope (the current one by default), in the order of the
---- track list. With no scope, or one that keeps every track, all tracks.
+--- track list. With no scope, or one that keeps every track, all tracks of
+--- the song; in a subproject, its tracks.
 ---@param s any
 function paw.scope.tracks(s) end
 
@@ -8572,12 +8616,10 @@ function paw.ui.layer(view, part, name, order, paint) end
 --- is drawn again by itself. With `stamp`, a function that gives a text of
 --- the values the part is drawn from (nil: unknown), the part is drawn
 --- again only when that text changes; its cells stay as they were drawn.
---- `last` is the text that it is drawn with, when paw draws it again.
 ---@param buf any
 ---@param draw_part any
 ---@param stamp any
----@param last any
-function paw.ui.live(buf, draw_part, stamp, last) end
+function paw.ui.live(buf, draw_part, stamp) end
 
 --- True if a live part drawn now is one of the terminal's screen.
 function paw.ui.live_drawing() end
@@ -8761,6 +8803,11 @@ function paw.ui.titlebar(buf, opts) end
 --- Show the view `name` in its window, or hide it if it shows now.
 ---@param name any
 function paw.ui.toggle(name) end
+
+--- The transport as `paw.api.transport_get` gives it. While a frame is
+--- drawn, the one read first in that frame: the status line, the ruler
+--- and the views read it once between them.
+function paw.ui.transport() end
 
 --- Register a view. It replaces a view with the same name.
 ---   paw.ui.view("clock", { render = function(self, buf) buf:text(0, 0, os.date()) end })
@@ -9597,8 +9644,9 @@ function paw.api.fs_stat(path) end
 ---@param path string
 function paw.api.fs_trash(path) end
 
---- Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, and
---- overwrite its characters when `fill` is given.
+--- Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, in
+--- `style` as `grid_text` takes it, and overwrite its characters when
+--- `fill` is given.
 ---@param x number
 ---@param y number
 ---@param w number
@@ -9714,8 +9762,10 @@ function paw.api.grid_surface_ops(index, ops) end
 --- drawn over them from now on covers them.
 function paw.api.grid_surfaces_seal() end
 
---- Draw text at `(x, y)`, clipped to the rectangle `(cx, cy, cw, ch)`.
---- Returns the number of columns the text takes.
+--- Draw text at `(x, y)`, clipped to the rectangle `(cx, cy, cw, ch)`,
+--- in `style`: the number of a highlight group (`hl_id`), its name,
+--- a table of attributes, or nil. Returns the number of columns the
+--- text takes.
 ---@param x number
 ---@param y number
 ---@param text any
@@ -9725,6 +9775,13 @@ function paw.api.grid_surfaces_seal() end
 ---@param cw number
 ---@param ch number
 function paw.api.grid_text(x, y, text, style, cx, cy, cw, ch) end
+
+--- The number of the highlight group `name`, for the style of
+--- `grid_text` and `grid_fill`: a frame passes numbers, not names.
+--- The number stays the same for as long as paw runs, and follows
+--- the group when it changes. A group not defined yet has one too.
+---@param name any
+function paw.api.hl_id(name) end
 
 ---@param name string
 ---@param def any
@@ -9990,9 +10047,12 @@ function paw.api.midi_ump(event) end
 function paw.api.nest_add(opts) end
 
 --- A subproject as a table: its fields, `tracks` (its tracks in order,
---- without its master) and `used` (whether the song plays it).
+--- without its master) and `used` (whether the song plays it). With
+--- `key`, only that field of its own (`name`, `length`, `master`...):
+--- this is quicker.
 ---@param id integer
-function paw.api.nest_get(id) end
+---@param key string?
+function paw.api.nest_get(id, key) end
 
 --- --- nests (subprojects): tracks with a timeline of their own ---
 --- The ids of the subprojects, in the order they were made.
@@ -10530,7 +10590,13 @@ function paw.api.track_get(id, key) end
 function paw.api.track_import_folder(folder, index) end
 
 --- --- tracks ---
-function paw.api.track_list() end
+--- The ids of the song's tracks, in their order. `{ nest = id }`
+--- gives the tracks of that subproject instead (without its master),
+--- and `{ all = true }` every track: the song's and each
+--- subproject's. Views list the tracks of their scope with
+--- `paw.scope.tracks()`.
+---@param opts any
+function paw.api.track_list(opts) end
 
 ---@param id integer
 function paw.api.track_meter(id) end

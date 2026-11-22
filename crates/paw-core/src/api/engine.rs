@@ -84,7 +84,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
     define! { lua, api, shared;
         // --- engine ---
         // @return types.EngineInfo
-        fn engine_get(lua, sh, () => ()) { to_lua(lua, &sh.session.borrow().engine_info()) }
+        fn engine_get(lua, sh, () => ()) { to_lua(lua, &sh.session.borrow().engine_view()) }
         // What changes of the engine by itself, as `engine_get` gives it but
         // without a table, for what is read on each frame: `cpu`, `xruns`
         // and `block`.

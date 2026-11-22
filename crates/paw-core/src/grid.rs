@@ -167,6 +167,43 @@ pub struct Grid {
     live_before: Vec<Live>,
     /// A live part drawn again drew other cells than before.
     live_changed: bool,
+    /// The buffers of live parts done with, to fill again.
+    spare: Spare,
+}
+
+/// Buffers of live parts done with, to use again: a frame that draws only
+/// its live parts allocates none. They are not part of what a grid shows:
+/// two grids are equal whatever they keep here, and a copy keeps none.
+#[derive(Default)]
+struct Spare {
+    cells: Vec<Vec<Cell>>,
+    over: Vec<Vec<(usize, Cell)>>,
+}
+
+impl Spare {
+    fn take_cells(&mut self) -> Vec<Cell> {
+        self.cells.pop().unwrap_or_default()
+    }
+
+    fn give(&mut self, parts: &mut Vec<Live>) {
+        for part in parts.drain(..) {
+            self.cells.push(part.under);
+            self.cells.push(part.drawn);
+            self.over.push(part.over);
+        }
+    }
+}
+
+impl Clone for Spare {
+    fn clone(&self) -> Self {
+        Self::default()
+    }
+}
+
+impl PartialEq for Spare {
+    fn eq(&self, _: &Self) -> bool {
+        true
+    }
 }
 
 impl Grid {
@@ -180,6 +217,7 @@ impl Grid {
             live: Vec::new(),
             live_before: Vec::new(),
             live_changed: false,
+            spare: Spare::default(),
         }
     }
 
@@ -221,13 +259,20 @@ impl Grid {
 
     /// The cells of `rect`, which is inside the grid, row by row.
     fn cells_of(&self, rect: Rect) -> Vec<Cell> {
-        let mut out = Vec::with_capacity((rect.w * rect.h).max(0) as usize);
+        let mut out = Vec::new();
+        self.cells_into(rect, &mut out);
+        out
+    }
+
+    /// [`Grid::cells_of`] into `out`, in the memory it has.
+    fn cells_into(&self, rect: Rect, out: &mut Vec<Cell>) {
+        out.clear();
+        out.reserve((rect.w * rect.h).max(0) as usize);
         let width = self.width as usize;
         for y in rect.y..rect.y + rect.h {
             let at = y as usize * width + rect.x as usize;
             out.extend_from_slice(&self.cells[at..at + rect.w as usize]);
         }
-        out
     }
 
     /// The cells of `area` as they are now, to put back on a later frame
@@ -260,8 +305,10 @@ impl Grid {
         if rect.w <= 0 || rect.h <= 0 {
             return None;
         }
-        let under = self.cells_of(rect);
-        self.live.push(Live { rect, under, drawn: Vec::new(), over: Vec::new(), kept: false });
+        let mut under = self.spare.take_cells();
+        self.cells_into(rect, &mut under);
+        let (drawn, over) = (self.spare.take_cells(), self.spare.over.pop().unwrap_or_default());
+        self.live.push(Live { rect, under, drawn, over, kept: false });
         Some(self.live.len() - 1)
     }
 
@@ -269,7 +316,8 @@ impl Grid {
     /// the frame before drew over it goes back on top.
     pub fn live_end(&mut self, index: usize) {
         let Some(rect) = self.live.get(index).map(|l| l.rect) else { return };
-        let drawn = self.cells_of(rect);
+        let mut drawn = std::mem::take(&mut self.live[index].drawn);
+        self.cells_into(rect, &mut drawn);
         match self.live_before.get(index) {
             Some(before) if before.rect == rect => {
                 if before.drawn != drawn {
@@ -338,7 +386,8 @@ impl Grid {
                 continue;
             }
             let rect = self.live[index].rect;
-            let mut over = Vec::new();
+            let mut over = std::mem::take(&mut self.live[index].over);
+            over.clear();
             for (i, drawn) in self.live[index].drawn.iter().enumerate() {
                 let (x, y) = (rect.x + (i as i32 % rect.w), rect.y + (i as i32 / rect.w));
                 let at = y as usize * width + x as usize;
@@ -351,16 +400,19 @@ impl Grid {
         if self.live.len() != self.live_before.len() {
             self.live_changed = true;
         }
-        self.live_before.clear();
+        self.spare.give(&mut self.live_before);
     }
 
     /// Take the live parts off the frame, the last drawn first, to draw
     /// them again ([`Grid::live_begin`] in the same order). Returns how
     /// many there were.
     pub fn live_restore(&mut self) -> usize {
-        let live = std::mem::take(&mut self.live);
+        // The parts of the frame before become the ones before; the list
+        // they leave, emptied, takes the new ones.
+        self.spare.give(&mut self.live_before);
+        std::mem::swap(&mut self.live, &mut self.live_before);
         let width = self.width as usize;
-        for part in live.iter().rev() {
+        for part in self.live_before.iter().rev() {
             let r = part.rect;
             for row in 0..r.h {
                 let at = (r.y + row) as usize * width + r.x as usize;
@@ -368,8 +420,7 @@ impl Grid {
                 self.cells[at..at + r.w as usize].copy_from_slice(&part.under[from..from + r.w as usize]);
             }
         }
-        let count = live.len();
-        self.live_before = live;
+        let count = self.live_before.len();
         self.live_changed = false;
         count
     }
@@ -483,7 +534,19 @@ pub struct Highlights {
     full: HashMap<String, Highlight>,
     /// Read the 24-bit forms while set: while a view is drawn for a window.
     pub full_colour: bool,
+    /// The number of each group that a view drew with (`id`), so that a
+    /// frame passes numbers and not names.
+    ids: HashMap<String, StyleId>,
+    /// The style of each number, links followed: for the terminal, then in
+    /// 24-bit colour. Made again when a group changes.
+    resolved: [Vec<Style>; 2],
+    /// The name of each number, to make `resolved` again.
+    names: Vec<String>,
 }
+
+/// The number of a highlight group (`Highlights::id`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct StyleId(pub u32);
 
 pub enum Highlight {
     Style(Style),
@@ -495,19 +558,60 @@ impl Highlights {
     pub fn set(&mut self, name: &str, highlight: Highlight) {
         self.groups.insert(name.to_string(), highlight);
         self.full.remove(name);
+        self.resolve();
     }
 
     /// Set a group's 24-bit form beside the one the terminal is shown.
     pub fn set_full(&mut self, name: &str, highlight: Highlight) {
         self.full.insert(name.to_string(), highlight);
+        self.resolve();
+    }
+
+    /// The number of the group `name`, the same for as long as paw runs. A
+    /// group not set yet has one too: it takes the style the group gets.
+    pub fn id(&mut self, name: &str) -> StyleId {
+        if let Some(&id) = self.ids.get(name) {
+            return id;
+        }
+        let id = StyleId(self.names.len() as u32);
+        self.ids.insert(name.to_string(), id);
+        self.names.push(name.to_string());
+        let [term, full] = &mut self.resolved;
+        term.push(Self::lookup(&self.groups, &self.full, false, name));
+        full.push(Self::lookup(&self.groups, &self.full, true, name));
+        id
+    }
+
+    /// The style of the group numbered `id`, as [`Highlights::get`] gives
+    /// it; none for a number that `id` did not give.
+    #[inline]
+    pub fn style(&self, id: StyleId) -> Option<Style> {
+        self.resolved[usize::from(self.full_colour)].get(id.0 as usize).copied()
+    }
+
+    /// Make the style of each number again, after a change of a group.
+    fn resolve(&mut self) {
+        for (full, styles) in self.resolved.iter_mut().enumerate() {
+            styles.clear();
+            styles.extend(self.names.iter().map(|name| Self::lookup(&self.groups, &self.full, full == 1, name)));
+        }
     }
 
     /// The style of a group, following links. Unknown groups have no effect.
     pub fn get(&self, name: &str) -> Style {
+        Self::lookup(&self.groups, &self.full, self.full_colour, name)
+    }
+
+    fn lookup(
+        groups: &HashMap<String, Highlight>,
+        full_groups: &HashMap<String, Highlight>,
+        full_colour: bool,
+        name: &str,
+    ) -> Style {
         let mut name = name;
         for _ in 0..8 {
-            let full = self.full_colour.then(|| self.full.get(name)).flatten();
-            match full.or_else(|| self.groups.get(name)) {
+            let full = full_colour.then(|| full_groups.get(name)).flatten();
+            match full.or_else(|| groups.get(name)) {
                 Some(Highlight::Style(style)) => return *style,
                 Some(Highlight::Link(target)) => name = target,
                 None => break,

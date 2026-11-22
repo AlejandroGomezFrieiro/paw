@@ -50,6 +50,7 @@ impl Session {
             "color" => json!(t.color),
             "meta" => json!(t.meta),
             "master" => json!(id == MASTER_ID),
+            "nest" => json!(t.nest),
             "input" => json!(t.input),
             "monitor" => json!(t.monitor),
             "midi_input" => json!(t.midi_input),
@@ -91,11 +92,9 @@ impl Session {
             track.pan = pan;
             track.output = opts.output.filter(|o| *o != MASTER_ID);
             track.color = opts.color;
-            let index = opts
-                .index
-                .map_or(usize::MAX, |i| i.saturating_sub(1))
-                .min(p.tracks.len());
-            p.tracks.insert(index, Arc::new(track));
+            let index = opts.index.map_or(usize::MAX, |i| i.saturating_sub(1));
+            let at = p.place_position(opts.nest, index);
+            p.tracks.insert(at, Arc::new(track));
             Ok(id)
         })
     }
@@ -145,6 +144,17 @@ impl Session {
         })
     }
 
+    /// The ids of the tracks of the song, of one subproject (`nest`), or
+    /// of both (`all`), in their order.
+    pub fn track_ids(&self, opts: &TrackListOpts) -> Vec<Id> {
+        if opts.all {
+            return self.project.tracks.iter().map(|t| t.id).collect();
+        }
+        self.project.place_tracks(opts.nest).map(|t| t.id).collect()
+    }
+
+    /// Move a track to `index` (from 0) among the tracks of its place: the
+    /// song, or its subproject.
     pub fn track_move(&mut self, id: Id, index: usize) -> Result<()> {
         self.edit(|p| {
             let from = p
@@ -153,7 +163,8 @@ impl Session {
                 .position(|t| t.id == id)
                 .with_context(|| format!("no track {id}"))?;
             let track = p.tracks.remove(from);
-            p.tracks.insert(index.min(p.tracks.len()), track);
+            let at = p.place_position(track.nest, index);
+            p.tracks.insert(at, track);
             Ok(())
         })
     }

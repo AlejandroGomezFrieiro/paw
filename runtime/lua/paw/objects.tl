@@ -225,7 +225,15 @@ local record Paw
   record Commands
     get: function(name: string): CommandSpec
   end
+  --- paw/scope.tl: the subproject the window is in.
+  record ScopeLevel
+    id: integer
+  end
+  record Scope
+    nest: function(): ScopeLevel
+  end
   ui: Ui
+  scope: Scope
   stretch: Stretch
   routes: Routes
   commands: Commands
@@ -477,6 +485,7 @@ local record M
     pan: number
     output: integer | Track
     color: string
+    nest: integer
   end
 
   --- `paw.project`: the fields of `paw.api.project_get` (each set with
@@ -1588,10 +1597,16 @@ function M.restore_device(snap: DeviceSnapshot, track: integer | Track, index?: 
 end
 
 --- A new track, last unless `opts.index` says where: `opts` as `paw.api.track_add`
---- takes them (`name`, `volume`, `output` as a track or an id, ...).
+--- takes them (`name`, `volume`, `output` as a track or an id, ...). In a
+--- window inside a subproject, the track is made in that subproject unless
+--- `opts.nest` says another.
 function M.add_track(opts?: M.TrackInput): Track
   if opts and opts.output then
     opts = util.merge(opts as {string: Value}, {output = id_of(opts.output) as Value}) as M.TrackInput
+  end
+  local inside = paw.scope and paw.scope.nest()
+  if inside and not (opts and opts.nest) then
+    opts = util.merge((opts or {}) as {string: Value}, {nest = inside.id as Value}) as M.TrackInput
   end
   return wrap(track_mt, api.track_add(opts as types.TrackOptions))
 end

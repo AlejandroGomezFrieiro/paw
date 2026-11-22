@@ -10,7 +10,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw
 
-- `paw.add_track(opts)`: A new track, last unless `opts.index` says where: `opts` as `paw.api.track_add` takes them (`name`, `volume`, `output` as a track or an id, ...).
+- `paw.add_track(opts)`: A new track, last unless `opts.index` says where: `opts` as `paw.api.track_add` takes them (`name`, `volume`, `output` as a track or an id, ...). In a window inside a subproject, the track is made in that subproject unless `opts.nest` says another.
 - `paw.bounce(track, opts)`: Render a track with its devices to audio, as one clip on a new track immediately below it, and mute the original. The new track sends its sound where the original sent it. It uses `paw.render`, so `render.before` runs. `opts.name` is the name of the new track ("<name> (bounced)" by default). `opts.tail` is the seconds rendered after its last clip (2). Returns the new track, or nil when the track has no clips.
 - `paw.buftype(name, def)`: Make a buffer type. See `docs/reference/lua-views.md`.
 
@@ -398,6 +398,11 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.commands
 
+- `paw.commands.about(text)`: A command that can be adjusted says the range it changed, as the panel of `<leader>.` shows it (`Quantize · 48 notes`). Call it from the handler.
+
+  ```lua
+  paw.commands.about("48 notes")
+  ```
 - `paw.commands.adjust(given)`: Run the last command that has `adjust` again with other parameters, in place of its undo step: `paw.commands.adjust({ grid = "1/8" })`, or positional ones, by the order of its `adjust`. The project goes back to before the command, the command runs again with its first parameters and these laid over them, and the undo step is the new result. It works only on the last change: after `undo`, or another change, it says so.
 - `paw.commands.adjusting()`: The line `adjust a=1 b=2` that holds the parameters of the last command that can be adjusted, as they are now; nil when no command ran that can be adjusted. `<leader>.` puts it on the command line.
 - `paw.commands.alias(alias, target)`: Make `alias` another name for `target`.
@@ -419,6 +424,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.commands.list()`: Every command, sorted by name.
 - `paw.commands.main(name)`: What a bare extension name (`:notation`) stands for: its `.open` or `.show` command, where it has one.
 - `paw.commands.owner()`: The extension that paw loads now, or whose code registers these commands and keys later. `:help` goes to its page for them, and an unload removes them.
+- `paw.commands.panel()`: What the panel of `<leader>.` shows: the title, the parameters of the last command that can be adjusted, and their values now. Nil when there is no such command.
 - `paw.commands.params(ctx)`: The parameters of the command that runs: what the user gave, by the names that its `adjust` lists. A parameter not given is not in the table.
 
   ```lua
@@ -488,7 +494,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 - `paw.cursor.bounds()`: The time the cursor stays in: the current scope's.
 - `paw.cursor.clip()`: The clip under the cursor, if any.
-- `paw.cursor.index()`: 1-based position of the cursor track in the track list.
+- `paw.cursor.index()`: 1-based position of the cursor track among the tracks of its place: the song's, or its subproject's (as `paw.api.track_move` counts).
 - `paw.cursor.lane_id()`: The automation lane row of the cursor: a lane of the cursor track that shows as a row (see `paw.lanes`). Nil when the cursor is on the track.
 - `paw.cursor.lens()`: Keys and commands typed in a pinned window act on its track: the track of "the cursor" is the window's while that window has the keyboard, or while paw draws it.
 - `paw.cursor.line()`: 1-based row of the cursor among every row drawn, lanes included.
@@ -1820,6 +1826,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.routes.feeds(from, into)`: True if the sound of `from` goes to `into`.
 - `paw.routes.midi_out_text(t)`: Where a track sends MIDI, as text: `Synth · channel 2 · MPE`, or "no MIDI output".
 - `paw.routes.outputs(device)`: The output pairs of a device: `{ pair, name, target, target_name }` each, the main pair (pair 1, on its own track) first. Empty for a device with one pair.
+- `paw.routes.peers(track)`: The tracks a track may route to: those of its place, the song or its subproject (the tracks of a subproject route only to each other).
 - `paw.routes.reached(from)`: The tracks a track's sound reaches, directly or through others, as a set of ids: by outputs, sends and side-chains.
 - `paw.routes.reaching(into)`: The tracks whose sound reaches a track, as a set of ids.
 - `paw.routes.set_midi_out(track, name, channel, form, members)`: Send the MIDI of a track to the port named `name` (or a part of its name, "none" for none). `channel` is 1 to 16, or nil for the channel of each message. `form` applies where the port does not accept MIDI 2.0 (a key of `M.midi_out_forms`, nil keeps the current form). MPE uses `members` channels (nil for 15).
@@ -1859,9 +1866,9 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.scope
 
 - `paw.scope.apply(s)`: Tell the engine what the rest of the song does for a scope. This is the scope of the tab in front, which the last seat to change tabs (a terminal or a window) selected.
-- `paw.scope.at_cursor()`: The scope that `znn` enters at the cursor: the innermost not entered yet. In a region scope, the region one level inside it at the cursor; else the group at the cursor (its header or one of its tracks), else the track. Nil when the window shows that track already.
+- `paw.scope.at_cursor()`: The scope that `znn` enters at the cursor: the innermost not entered yet. A subproject's clip at the cursor; in a region scope, the region one level inside it at the cursor; else the group at the cursor (its header or one of its tracks), else the track. Nil when the window shows that track already.
 - `paw.scope.bar_offset(s)`: How many bars of the song come before the first bar of a scope (the current one by default) when its bars are numbered from 1: 0 with no time, or with `scopebars=song`. A scope's bars are the song's (its meter map), counted from the bar its time starts in.
-- `paw.scope.breadcrumb(s)`: The path in words: `Song › Bridge › Strings`.
+- `paw.scope.breadcrumb(s)`: The path in words: `Song › Bridge › Strings`; a subproject is marked `⧉`: `Song › ⧉Ballad › Strings`.
 - `paw.scope.children(s)`: The scopes one level inside a scope (the current one by default): for a region scope, the regions one level inside its region (paw/markers.tl), in order of time; for a group scope, its members (a group or a track), in order. Each has that scope as its parent. Other kinds have none.
 - `paw.scope.contains(track, s)`: True if a scope (the current one by default; a group's id is a scope of that group) shows a track: it and every level above it do. With no scope, every track is inside.
 - `paw.scope.current(win)`: The scope a window shows, or nil for the song: the window given, else the window being drawn, else the current one. A level whose group, track or region is gone is left out.
@@ -1878,7 +1885,9 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.scope.named(which)`: A scope by name: a named scope (`:scope.name`), else a group of that name, else a region of that name, else a group or a region whose name starts with it. A number is a group's id.
 - `paw.scope.names()`: The named scopes, the latest last.
 - `paw.scope.narrow(which)`: Narrow to a group or a region, by its id, its track or its name (see `named`): `enter` of that scope in the current window. Returns the scope.
+- `paw.scope.nest(s)`: The innermost subproject of a scope's path (the current scope by default), or nil when the path is in the song: its tracks and its timeline are what the window shows.
 - `paw.scope.next(n)`: Go to the scope `n` places beside the current one (`]z`, `3]z`, `[z`), in the same parent. A jump. Returns the scope.
+- `paw.scope.of_clip(id)`: The scope of a subproject's clip (`znn` or `<CR>` on it enters it), or nil when the clip places no subproject.
 - `paw.scope.of_region(r)`: The scope an operator's region covers (`zn{motion}`, `{Visual}zn`): the region, group or track its text object names (`ar`, `ag`, `it`), else a block of its tracks, with its time when it has some. Nil for the whole of what the window shows (`ie`).
 - `paw.scope.of_tab(tab)`: The scope of a tab: that of its current window.
 - `paw.scope.open(how, spec)`: Open a scope (the one at the cursor by default) in a new window: `how` is "split", "vsplit" or "tab". The new window starts with the scope of the one it comes from, and enters this one inside it.
@@ -1888,8 +1897,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.scope.saved_names()`: The named scopes as the project's screen keeps them (paw/layout.tl).
 - `paw.scope.sibling(n)`: The scope `n` places after the current one (before it, with a negative `n`), beside it in the same parent: the next region, group or track; a block's next stretch of the same length. Nil and the reason when there is none.
 - `paw.scope.song_bar(local_bar)`: The bar of the song for a bar as the current scope shows it.
+- `paw.scope.song_beat(beat, s)`: The song's beat of a beat that the current scope shows.
+- `paw.scope.song_offset(s)`: The beats to add to a beat of the window to get the song's beat: in a subproject, where the clip it was entered through places its beat 0 (the clip's start less its offset); else 0.
 - `paw.scope.span(s)`: The time a scope shows (the current one by default): `from, to` in beats, its own time intersected with its parent's. Nil when it shows all of the song's time. `from` is `to` when the times do not meet.
-- `paw.scope.tracks(s)`: The tracks of a scope (the current one by default), in the order of the track list. With no scope, or one that keeps every track, all tracks.
+- `paw.scope.tracks(s)`: The tracks of a scope (the current one by default), in the order of the track list. With no scope, or one that keeps every track, all tracks of the song; in a subproject, its tracks.
 - `paw.scope.widen(top, win)`: Leave the scope of a window (the current one by default): up one level, or with `top` to the song. False when it shows the song.
 
 ## Module paw.seats
@@ -2201,7 +2212,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
   paw does not call the callback when the user cancels the prompt. The options are those of the command line (`paw.views.cmdline.open`): `complete`, `history`, `on_change` (live preview), `anchor` (draw it next to its subject), `on_key`.
 - `paw.ui.layer(view, part, name, order, paint)`: Draw `paint(ctx)` as a layer of a part of a view (`"arrange", "header"`). It replaces a layer with the same name (nil removes it). The view tells what `ctx` contains where it calls `paw.ui.paint`.
-- `paw.ui.live(buf, draw_part, stamp, last)`: Draw a live part on `buf`: `draw(buf)` draws it, now and each time it is drawn again by itself. With `stamp`, a function that gives a text of the values the part is drawn from (nil: unknown), the part is drawn again only when that text changes; its cells stay as they were drawn. `last` is the text that it is drawn with, when paw draws it again.
+- `paw.ui.live(buf, draw_part, stamp)`: Draw a live part on `buf`: `draw(buf)` draws it, now and each time it is drawn again by itself. With `stamp`, a function that gives a text of the values the part is drawn from (nil: unknown), the part is drawn again only when that text changes; its cells stay as they were drawn.
 - `paw.ui.live_drawing()`: True if a live part drawn now is one of the terminal's screen.
 - `paw.ui.live_stamp(bind)`: A text of the live value `bind` now (`position` or `meter:<id>`), to tell whether a part bound to it changed: nil for any other value.
 - `paw.ui.live_value(bind, props)`: While a live part is drawn again: set the props of a mark bound to `bind` (`position`, `meter:<id>`, or a value that a view's `live_values()` gives) to the values of now.
@@ -2248,6 +2259,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   local body = paw.ui.titlebar(buf, { name = "Mixer", context = "5 tracks", focused = ctx.focused })
   ```
 - `paw.ui.toggle(name)`: Show the view `name` in its window, or hide it if it shows now.
+- `paw.ui.transport()`: The transport as `paw.api.transport_get` gives it. While a frame is drawn, the one read first in that frame: the status line, the ruler and the views read it once between them.
 - `paw.ui.view(name, def)`: Register a view. It replaces a view with the same name.
 
   ```lua
@@ -2447,7 +2459,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.fs_space(path)`: The space of the disk that holds a path: `{ free, total }` in bytes (free: what a program that is not root can use).
 - `paw.api.fs_stat(path)`: `{ kind = "file" | "dir" | "link", dir, size, mtime }`, or nil when nothing is there. A link is looked at, not followed, for its kind, and `dir` is true if it leads to a directory.
 - `paw.api.fs_trash(path)`: Put a file or directory in the freedesktop trash; returns where it is.
-- `paw.api.grid_fill(x, y, w, h, fill, style, cx, cy, cw, ch)`: Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, and overwrite its characters when `fill` is given.
+- `paw.api.grid_fill(x, y, w, h, fill, style, cx, cy, cw, ch)`: Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, in `style` as `grid_text` takes it, and overwrite its characters when `fill` is given.
 - `paw.api.grid_image(key, x, y, w, h, cx, cy, cw, ch)`: Draw the picture of pixels kept under `key` over the cells `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, two pixels a cell in half blocks (`▀`): what a terminal that shows no images shows of it. False for a key not kept (any more).
 - `paw.api.grid_keep(key, x, y, w, h, cx, cy, cw, ch)`: Keep the cells of the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, under `key`, to put back on a later frame with `grid_put` when what they were drawn from has not changed.
 - `paw.api.grid_live_begin(x, y, w, h, cx, cy, cw, ch)`: A live part of the screen is drawn over the cells `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`: what is under them is kept, to draw it again by itself (`paw.ui.render_live`). Returns its number for `grid_live_end`, or nil when no part of it is on the screen.
@@ -2460,7 +2472,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.grid_surface(key, x, y, w, h, cx, cy, cw, ch, under)`: Keep the cells `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, for pixels under the name `key` (`buf:strip`), over the text or `under` it. Returns the number of the surface for `grid_surface_ops`, or nil when no part of it is on the screen.
 - `paw.api.grid_surface_ops(index, ops)`: The drawing a surface shows: the operations of `paw.canvas.paint`.
 - `paw.api.grid_surfaces_seal()`: The view being drawn is done with the surfaces it kept: what is drawn over them from now on covers them.
-- `paw.api.grid_text(x, y, text, style, cx, cy, cw, ch)`: Draw text at `(x, y)`, clipped to the rectangle `(cx, cy, cw, ch)`. Returns the number of columns the text takes.
+- `paw.api.grid_text(x, y, text, style, cx, cy, cw, ch)`: Draw text at `(x, y)`, clipped to the rectangle `(cx, cy, cw, ch)`, in `style`: the number of a highlight group (`hl_id`), its name, a table of attributes, or nil. Returns the number of columns the text takes.
+- `paw.api.hl_id(name)`: The number of the highlight group `name`, for the style of `grid_text` and `grid_fill`: a frame passes numbers, not names. The number stays the same for as long as paw runs, and follows the group when it changes. A group not defined yet has one too.
 - `paw.api.hl_set(name, def, full)`
 - `paw.api.inflate(data, format)`: The bytes `data` holds compressed as `format` says ("raw", "zlib" or "gzip"), and the number of bytes of `data` the compressed stream took (what follows is not part of it). Nil and the reason when they are not compressed so.
 - `paw.api.input_levels()`: The level of each input channel of the device, as linear gain, whatever takes it.
@@ -2519,7 +2532,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.midi_test_ports(ports)`: The MIDI ports the null backend lists, as if plugged in.
 - `paw.api.midi_ump(event)`: What an event is as a MIDI 2.0 packet: two 32-bit words.
 - `paw.api.nest_add(opts)`: Make a subproject with its master track and no other track, as one undo step, for example `{ name = "Bridge", length = 32 }`. The length is in beats, and 32 when you leave it out. Add its tracks with `track_add({ nest = id })`. Returns its id.
-- `paw.api.nest_get(id)`: A subproject as a table: its fields, `tracks` (its tracks in order, without its master) and `used` (whether the song plays it).
+- `paw.api.nest_get(id, key)`: A subproject as a table: its fields, `tracks` (its tracks in order, without its master) and `used` (whether the song plays it). With `key`, only that field of its own (`name`, `length`, `master`...): this is quicker.
 - `paw.api.nest_list()`: --- nests (subprojects): tracks with a timeline of their own --- The ids of the subprojects, in the order they were made.
 - `paw.api.nest_set(id, key, value)`: Change a subproject: a table of the entries to change (`name`, `length`, `tempo`, `meter`, `kind`, `meta`), as `nest_get` gives them, or one `key` and its value.
 - `paw.api.note_off(track, pitch)`
@@ -2632,7 +2645,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.track_collect()`: Make every track read from a folder outside the project, and every chain of devices read from a file outside it, the project's own. Returns how many tracks and how many chains.
 - `paw.api.track_get(id, key)`: A track as a table. With `key`, only that entry of the table: this is quicker, because the table lists each clip of the track.
 - `paw.api.track_import_folder(folder, index)`: Add the track of a track folder outside the project (a folder with a `track.json`) at `index` (from 1; the end when nil). The project refers to the folder until the track's first edit. Returns its id.
-- `paw.api.track_list()`: --- tracks ---
+- `paw.api.track_list(opts)`: --- tracks --- The ids of the song's tracks, in their order. `{ nest = id }` gives the tracks of that subproject instead (without its master), and `{ all = true }` every track: the song's and each subproject's. Views list the tracks of their scope with `paw.scope.tracks()`.
 - `paw.api.track_meter(id)`
 - `paw.api.track_move(id, index)`
 - `paw.api.track_remove(id)`
