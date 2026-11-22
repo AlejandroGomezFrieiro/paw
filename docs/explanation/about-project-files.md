@@ -10,11 +10,10 @@ and [Media files and audio clips](../reference/media.md).
 
 ## A project is a folder of files
 
-Most audio workstations keep a project in one file. For example, REAPER
-writes one text file, Ardour one XML file, and Bitwig one binary file.
-Version control then sees one large file that changes at each save, so two
-people who change two different tracks change the same file, and a merge
-must take that file apart.
+A project kept in one file is hard to merge, because version control sees
+one large file that changes at each save, so two people who change two
+different tracks change the same file, and a merge must take that file
+apart.
 
 paw keeps a project as a folder. The settings that you can edit by hand,
 e.g., the tempo, the meter and the order of the tracks, are in

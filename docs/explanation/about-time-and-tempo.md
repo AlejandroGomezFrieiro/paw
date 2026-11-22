@@ -9,8 +9,8 @@ clock each part of paw keeps, and why. For the commands, see
 ## The tempo map
 
 The tempo map is a list of tempo changes and time signature changes. A
-tempo change holds until the next change, or it ramps to the next change
-like the linear tempo points of REAPER do. The engine follows the map
+tempo change holds until the next change, or it ramps linearly to the next
+change. The engine follows the map
 sample by sample, so the playhead, the loop, the metronome, MIDI and
 automation all agree with the map. Plugins get the same tempo and bar at
 each block.
@@ -28,8 +28,7 @@ An audio clip keeps its length in seconds, because a recording is sound in
 time, and a change of tempo must not make a recording faster or cut it. The
 only question is where the clip starts, and the clip's timebase decides it:
 
-- With `time`, which is the default and works like the audio items of
-  REAPER, the start stays at the same second.
+- With `time`, which is the default, the start stays at the same second.
 - With `beats`, the start stays on its beat.
 - With `stretch`, both the start and the length stay on their beats, and
   paw stretches the sound to fit.

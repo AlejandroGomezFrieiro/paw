@@ -3,8 +3,7 @@
 <!-- tags: one-grammar -->
 
 The [key rule](../reference/key-rule.md) gives each key of paw one meaning
-in every view, so you learn a key one time and it works everywhere. Vim
-works in the same way, where `j` moves a line down in every buffer. paw has
+in every view, so you learn a key one time and it works everywhere. paw has
 many views, e.g., the arrange view, the piano roll, the mixer, the device
 panel, the curve editor and the views of extensions. Before the rule, each
 view chose its own keys, and the same key had different meanings.
@@ -16,14 +15,14 @@ they work after an operator and in visual mode in every view. A view that
 used a motion key for another action broke operators in that view.
 
 For that reason, `b` is only a motion. The bypass in the device panel went
-to `gc`, as `gc` comments a line out in Vim, and the "back to the timeline"
+to `gc`, and the "back to the timeline"
 of the session view went to `B` (`gB` for every track). `e` is only a
 motion too, so the window of a plugin is `ge` in every view. The session
-view opens the notes of a slot with `i`, as `i` enters notes in the piano
-roll.
+view opens the notes of a slot with `i`, the key that enters notes in the
+piano roll.
 
 The rule is for normal and visual mode. In insert mode, the keys are not
-commands, and they insert, as letters insert text in Vim. For example, in
+commands, and they insert. For example, in
 the insert mode of the arrange view, `m` inserts a MIDI clip and `r` a
 region, and only the arrow keys move.
 
@@ -42,10 +41,10 @@ The sections below list each choice.
 
 ### Help, octaves and the pencil
 
-`K` is the key of Vim that finds help for the word under the cursor, so the
+`K` finds help for the thing under the cursor, so the
 side-chain of a device went to `gS` in the panel, because `gK` already
-shows the diagnostics in every view. An octave is `Ctrl-d` `Ctrl-u`, which
-is half a page in Vim, because `J` `K` are not motions. `K` describes, and
+shows the diagnostics in every view. An octave is `Ctrl-d` `Ctrl-u`,
+because `J` `K` are not motions. `K` describes, and
 `J` joins clips. In insert mode, `J` `K` still move the note an octave.
 
 Insert mode in the piano roll is a pencil, and the rule does not cover the
@@ -60,12 +59,12 @@ keys of insert mode. There, the keys keep their meaning as far as they can:
 
 ### Keys that start with `g`
 
-The count-in went from `gC` to `gM`, next to `gm` of the metronome, so `gC`
-opens curves everywhere, and `gc` does not open a curve any more. `gn`
-stays the next edited clip of the piano roll, as `gn` of Vim goes to the
-next match. The wave of the curve editor is `g~`, because it is an operator
-and `~` looks like a wave. Its shapes are `~`, its own window is
-`Ctrl-w f`, and `gw` is only the warp marker.
+The count-in went from `gC` to `gM`, next to `gm` of the metronome, so
+`gC` opens curves everywhere, and `gc` does not open a curve any more.
+`gn` stays the next edited clip of the piano roll. The wave of the curve
+editor is `g~`, because it is an operator and `~` looks like a wave. Its
+shapes are `~`, its own window is `Ctrl-w f`, and `gw` is only the warp
+marker.
 
 `gs` stays the playhead to the start, and it keeps its own meaning in the
 curve editor, the drum grid and the score, so `g0` is the playhead to the
@@ -79,7 +78,7 @@ of a track with `S` (`gS` every clip). The presets of the device panel are
 `c` on a device (choose), `]p` `[p` (step), `<Space>dw` (save, as `:w`
 writes) and `<Space>dW` (the default).
 
-The session view makes a clip with `o`, which opens a line in Vim. It
+The session view makes a clip with `o`. It
 switches the launch mode with `~` and legato with `g~`, so `n`, `m` and
 `gl` keep their meanings.
 
@@ -108,9 +107,9 @@ default.
 
 ### Sections, windows and the local leader
 
-`]]` `[[` go between sections, as between the sections of a text in Vim,
-and `]s` `[s` stay the tracks of a group. `]p` `[p` go through the phonemes
-of the vocal editor, so `(` `)` stay the phrase motions.
+`]]` `[[` go between sections, and `]s` `[s` stay the tracks of a group.
+`]p` `[p` go through the phonemes of the vocal editor, so `(` `)` stay the
+phrase motions.
 
 A view in a window of its own is `Ctrl-w f`, for a curve and for a text
 buffer. The keys of an extension for one view are on the local leader
@@ -119,8 +118,8 @@ view.
 
 ## The space bar is the leader, and plays with two presses
 
-Many Vim users put the leader on the space bar, because the thumb is always
-on it. In other music programs, the space bar plays and stops, and one key
+The leader is on the space bar, because the thumb is always on it. A
+space bar that plays and stops is also usual in music programs, and one key
 cannot do both jobs. If a single Space played, the leader keys would have
 to wait for a pause or play a short part of the song first. The leader is
 therefore Space, and play and stop is `<Space><Space>`. No other key starts
@@ -128,13 +127,12 @@ with `<Space><Space>`, so the second press plays at once, with no wait. A
 single Space waits, and after a moment it lists the keys that can follow
 it.
 
-The comma is free again in normal mode. As in Vim, `;` and `,` do the last
+The comma is free again in normal mode, and `;` and `,` do the last
 `f` or `t` again, in the same direction and in the other direction.
 
 ## After the leader comes a domain and then a key
 
-Many Neovim configurations put a domain after the leader, e.g., `f` finds,
-`g` is git and `l` is the language servers, and paw does the same. After
+paw puts a domain after the leader. After
 `<Space>`, the first key is a domain, e.g., `m` the mix, `d` the devices,
 `t` the tracks or `p` the project. The second key is what to do in that
 domain. You learn one letter for one domain, and it has the same meaning in

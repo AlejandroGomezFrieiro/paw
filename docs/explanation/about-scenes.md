@@ -135,12 +135,11 @@ own, and because a drag of a clip goes across all of them in one domain.
 
 ## Why the window looks as it does
 
-The window looks like a mixing console and not like a web page. The
-surfaces are neutral, and a color always tells a state. Blue is the
-selection, red is record, and the track's own color is only on what belongs
-to the track. When each color has one meaning, you find the state of a
-project fast. The colors are in
-[The graphical window](../reference/window.md#colors-and-fonts).
+The surfaces of the window are neutral, and a color always tells a state.
+Blue is the selection, red is record, and the track's own color is only on
+what belongs to the track. When each color has one meaning, you find the
+state of a project fast. The colors are in [The graphical
+window](../reference/window.md#colors-and-fonts).
 
 The fonts are built into the program, so the window looks the same on all
 machines. The window draws only when something changes, so it costs

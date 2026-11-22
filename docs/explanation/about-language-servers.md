@@ -1,9 +1,8 @@
 # About language servers
 
 paw shows problems in the music and in the mix where they are, and it
-offers fixes, in the same way that a text editor shows problems in code. In
-a text editor, a language server finds the problems and the editor shows
-them, and Neovim does it with `vim.lsp` and `vim.diagnostic`. In paw, a
+offers fixes. A language server finds the problems, and each view of paw
+shows them. For example, a
 server finds a parallel fifth, a fader that clips, or a master that is too
 loud. Each view then shows the problem on the thing that has it.
 

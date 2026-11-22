@@ -5,8 +5,9 @@ their `meta`, and it adds no new kinds of objects for it. A mix of many
 tracks needs structure, e.g., a bus for the drums, one fader for all the
 strings, and a way to work on one part alone. The page explains why paw
 does it with usual tracks. For the commands, see
-[Routing](../reference/routing.md), [Narrowed tabs](../reference/narrowing.md)
-and [Frozen tracks](../reference/freezing.md).
+[Routing](../reference/routing.md), [Narrowed
+tabs](../reference/narrowing.md) and [Frozen
+tracks](../reference/freezing.md).
 
 ## A group is a track
 
@@ -18,9 +19,9 @@ only fold the members into the group and indent them below it.
 ## A VCA is a fader without sound
 
 A group sums the sound of its members, but sometimes you want to control
-the level of tracks that play to different places. A VCA does that, as on
-a mixing console. A VCA is also a usual track with a mark, but it has no
-devices and plays nothing.
+the level of tracks that play to different places. A VCA does that. A VCA
+is also a usual track with a mark, but it has no devices and plays
+nothing.
 
 The engine does not know about VCAs. When paw syncs the project to the
 engine, it adds the fader and the lanes of each VCA into the gain and the
@@ -37,8 +38,8 @@ itself does not move, because it already acts on the sum.
 
 ## Narrowed tabs
 
-REAPER opens a part of a large project as a subproject in a separate file,
-but paw narrows a tab to one group instead. The tab shows only the group,
+To work on a part of a large project, paw narrows a tab to one group. The
+tab shows only the group,
 but it is the same project with one undo tree. An edit in the narrowed tab
 is a usual edit, and you can go between the tabs at any time.
 

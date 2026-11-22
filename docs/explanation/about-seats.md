@@ -52,8 +52,9 @@ The kernel runs one turn at a time, and each turn runs in one seat. A timer
 runs in the seat that started it. `paw.seats.within` runs code in another
 seat and then returns to the current seat.
 
-[Timers, programs and other modules](../reference/lua-other.md#pawseats-the-state-of-each-seat)
-lists the functions.
+[Timers, programs and other
+modules](../reference/lua-other.md#pawseats-the-state-of-each-seat) lists
+the functions.
 
 ## Frontends on one instance
 
@@ -100,7 +101,7 @@ certificate the first time that it listens. No certificate authority signs
 the certificate. Instead, the client trusts the certificate at the first
 connection and remembers its fingerprint in
 `~/.local/state/paw/known_instances`. After that, the client refuses any
-other certificate, in the same way that SSH does.
+other certificate.
 
 A connection must also show that it knows the token of the instance, but
 the token itself never goes over the network. A computer that listens on

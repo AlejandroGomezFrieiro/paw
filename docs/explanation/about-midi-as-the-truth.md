@@ -17,7 +17,7 @@ so the two drift apart and one of them must win.
 
 paw does not use that design. The notes belong to nobody, so any view or
 extension edits them, and nothing asks for permission or refuses. A score
-is a view of the notes, like the notation editor of REAPER. An edit in the
+is a view of the notes. An edit in the
 score is an edit of the MIDI, so a note that you enter is a MIDI note at
 the written place with the written length. A dynamic sets the velocities of
 the notes when you write it.
@@ -59,14 +59,11 @@ articulations extension only gives the numbers names for each instrument.
 See [Project objects in
 Lua](../reference/lua-objects.md#note-attributes-noteattr).
 
-## Compared with REAPER
+## Played music in the score
 
-paw uses the model of REAPER, where MIDI belongs to the item and notation
-shows it. REAPER keeps what MIDI cannot say as notation events, both on the
-notes (letter name, voice, articulation, text) and with the item (dynamics,
-clefs, key signatures). paw keeps the same things in `meta`.
-
-The notation extension differs from REAPER in one way, because it reads
-played music itself, e.g., strums, swing, drift, voices, hands, grace notes
-and tuplets. REAPER quantizes for the display only. The settings of the
+The notation extension keeps what MIDI cannot say in `meta`, both on the
+notes (letter name, voice, articulation, text) and on the clip (dynamics,
+clefs, key signatures). It also reads played music itself, e.g., strums,
+swing, drift, voices, hands, grace notes and tuplets, so the score shows
+played notes without a change to the MIDI. The settings of the
 transcription belong to the clip (`:notation.set`).

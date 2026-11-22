@@ -57,7 +57,7 @@ function. The build and the loader therefore compile as `tl gen` does,
 after a check. The build stops at a type error in the runtime.
 
 A file of an extension or of the configuration with type errors loads all
-the same, as the TypeScript compiler gives its output on an error. paw
+the same. paw
 shows the errors one time, when it compiles the file, and
 `:checkhealth teal` lists them.
 
@@ -93,7 +93,8 @@ Some data has its shape in a Rust type, and `tools/apidoc.lua` makes the
 Teal records from that type. `crates/paw-core/src/events.rs` gives each
 event of the kernel and its payload, and the tool makes
 `paw.events.kernel`, with a record for each payload and a descriptor for
-each event (`paw.on(kernel.project_saved, function(p: kernel.Saved) ... end)`).
+each event (`paw.on(kernel.project_saved, function(p: kernel.Saved) ...
+end)`).
 
 `crates/paw-scene/src/props.rs` gives the props of each role that the
 window paints, and the tool makes `runtime/types/paw/role_props.d.tl`
@@ -124,10 +125,10 @@ gets the kernel's functions with `require("paw.api")`, and the modules in
 Teal with `require`.
 
 For the modules that are still in Lua, a module can take the global as
-`Untyped`, the type in `runtime/types/paw/untyped.d.tl`, with
-`local paw = (_G as {string:Untyped}).paw`. `paw.Untyped` is the same type.
-A better choice is to take the global as `partial.Paw`, which holds the
-parts that the modules in Lua type (`local type partial = require("paw.partial")`).
+`Untyped`, the type in `runtime/types/paw/untyped.d.tl`, with `local paw =
+(_G as {string:Untyped}).paw`. `paw.Untyped` is the same type. A better
+choice is to take the global as `partial.Paw`, which holds the parts that
+the modules in Lua type (`local type partial = require("paw.partial")`).
 The module can then add the parts that it reads of the modules in Teal,
 with `local record Paw is partial.Paw`, and `paw.hooks` and `paw.commands`
 do so.
@@ -267,8 +268,8 @@ makes (`tl gen`).
 
 `teal-language-server` and `lua-language-server` give completion, types
 and errors in an editor. The first reads `tlconfig.lua`, and the second
-reads `.luarc.json`. See
-[How to configure an editor for paw's code](../how-to/configure-an-editor-for-paws-code.md).
+reads `.luarc.json`. See [How to configure an editor for paw's
+code](../how-to/configure-an-editor-for-paws-code.md).
 
 `luacheck` finds names that are not used and global names that are not
 declared in the Lua files. `.luacheckrc` declares the global `paw`, and
