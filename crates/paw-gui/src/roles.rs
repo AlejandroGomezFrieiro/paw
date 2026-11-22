@@ -452,8 +452,8 @@ fn is_black(pitch: i64) -> bool {
     matches!(pitch.rem_euclid(12), 1 | 3 | 6 | 8 | 10)
 }
 
-/// A piano down the left of a roll, a row of `row` points a pitch from
-/// `top` down: white keys and black ones, a line where E meets F and B
+/// A piano down the left of a roll, `per` rows of `row` points a pitch
+/// from `top` down: white keys and black ones, a line where E meets F and B
 /// meets C, each C named; the cursor's key lit and named, the keys sounding
 /// at the cursor dotted, what the instrument or a module calls a key on it.
 fn keyboard(painter: &Painter, rect: Rect, p: &KeyboardProps, row: f32) {
@@ -462,6 +462,8 @@ fn keyboard(painter: &Painter, rect: Rect, p: &KeyboardProps, row: f32) {
     let top = p.top.unwrap_or(127);
     let cursor = p.cursor.unwrap_or(-1);
     let (names, labels, sounding) = (&p.names, &p.labels, &p.sounding);
+    // A key is `per` rows of the grid tall (the roll's vertical zoom).
+    let row = row * p.per.unwrap_or(1).clamp(1, 8) as f32;
     let rows = (rect.height() / row.max(1.0)).round() as i64;
     let size = (row * 0.62).clamp(8.0, T_SMALL);
     for r in 0..rows {

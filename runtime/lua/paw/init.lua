@@ -205,6 +205,8 @@ paw.vca = require("paw.vca")
 paw.groups = require("paw.groups")
 -- The folds of each window: tracks drawn as one row (paw/folds.tl).
 paw.folds = require("paw.folds")
+-- How tall the rows of each window are: the vertical zoom (paw/vzoom.tl).
+paw.vzoom = require("paw.vzoom")
 paw.lanes = require("paw.lanes")
 -- The track column and the ruler's bar labels, which extensions add to.
 paw.trackcolumn = require("paw.trackcolumn")

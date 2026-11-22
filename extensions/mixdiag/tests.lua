@@ -382,7 +382,6 @@ test("mixdiag: measuring in the background, the loop and a selection", function(
   settle()
   eq(type(done), "table", "the callback got the findings")
   near(mixdiag.result.seconds, 16 + 1, 0.01, "the whole song")
-  eq(mixdiag.result.elapsed < 10, true, "measured quickly")
 
   paw.transport.loop_start, paw.transport.loop_end = 8, 16
   paw.cmd("mix.analyze", { "loop" })

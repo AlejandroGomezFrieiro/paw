@@ -21,6 +21,13 @@ The piano roll shows the notes of a MIDI clip, with pitches as rows and time as 
 | `Esc` | Releases the notes chosen with the pointer. The view stays. |
 | `Ctrl-w p` | Returns to the window before (the arrange view). |
 | `Ctrl-s` | Writes a snippet, e.g., the dominant of the next chord, and `Tab` and `Ctrl-n` step through its choices. See [Completion](completion.md). |
+| `Ctrl-=` `Ctrl--` `Ctrl-0`, `z+` `z-` `z=` | Gives each key more rows, fewer rows, one row again. See [Vertical zoom](#vertical-zoom). |
+
+## Vertical zoom
+
+`Ctrl-=` (or `Ctrl-+`) gives each key of the piano roll one more row, up to 3 rows, and `Ctrl--` gives it one row less. `Ctrl-0` gives each key one row again. A note fills all the rows of its key, and `j` and `k` still move the cursor by a key, not by a row. Most terminals don't send `Ctrl` with `=`, `-` or `0` to a program, so `z+`, `z-` and `z=` do the same in every terminal and in the graphical window. `Alt` and the wheel do the same too. The message line says what changed, for example `piano roll: 2 rows per key`.
+
+The zoom belongs to the window of the piano roll. A change of zoom is not an undo step, and the project keeps it in its `screen.json`.
 
 ## What the view shows
 

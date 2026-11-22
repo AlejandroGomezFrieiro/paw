@@ -435,6 +435,10 @@ local record contracts
     modal: boolean
     --- Draws the view in cells.
     render: function(self: View, buf?: Buf, ctx?: RenderContext)
+    --- A text of what `render` reads that no event announces, such as
+    --- the cursor and the scroll of the window. A window without the
+    --- keyboard whose text did not change keeps its cells.
+    stamp: function(self: View, ctx?: RenderContext): string
     --- Gets the keys that have no mapping. True when it took the key.
     on_key: function(self: View, key: string): boolean
     on_mouse: function(self: View, e: MouseEvent): boolean
@@ -587,13 +591,32 @@ local record contracts
     closed: boolean
   end
 
+  --- The rows of one track in a window's vertical zoom.
+  record TrackRows
+    track: integer
+    rows: integer
+  end
+
+  --- A window's vertical zoom (paw/vzoom.tl): the rows of each track in
+  --- the arrange view (`track_rows`; nil: `paw.opt.track_height`), the
+  --- rows of some tracks of their own (`tracks`), the rows of each
+  --- automation lane (`lane_rows`; nil: 2) and the rows of each key in
+  --- the piano roll (`key_rows`; nil: 1). View state: never in the project.
+  record VZoom
+    track_rows: integer
+    tracks: {TrackRows}
+    lane_rows: integer
+    key_rows: integer
+  end
+
   --- A window of the layout (paw/layout.tl): its id, the view or buffer
   --- type it shows, its buffer, its options and its own state. An
   --- interface: a window of the layout is a node of a tab's tree too
   --- (`paw.layout.Node`). `scope` is the part of the song it shows, the
   --- innermost level of its stack (nil: the whole song). `folds` are its
   --- folds (paw/folds.tl), and `foldlevel` how many levels of regions
-  --- stay open (nil: all of them).
+  --- stay open (nil: all of them). `vzoom` is how tall its rows are
+  --- (paw/vzoom.tl; nil: as the options say).
   interface Window
     id: integer
     view: string
@@ -604,6 +627,7 @@ local record contracts
     scope: Scope
     folds: {Fold}
     foldlevel: integer
+    vzoom: VZoom
   end
 
   --- A buffer (paw/layout.tl): its number, its name, its type, the

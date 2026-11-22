@@ -57,7 +57,7 @@ local function draw(self, buf)
   local clip = self:clip()
   if not (shown.kind and clip and g and g.vel and g.vel > 0) then return end
   local eighths = paw.draw.g.eighths
-  local top, rows, keys = g.head + g.rows, g.vel, g.keys
+  local top, rows, keys = g.head + g.lines, g.vel, g.keys
   local tw = buf.width - keys
   -- Its name at the left is the roll's (a button that chooses what it shows).
   buf:fill(keys, top, tw, rows, " ", "VelocityLane")
@@ -175,7 +175,7 @@ end
 --- the rest is drawn on. Returns whether the press was taken here.
 function M.press(self, e, clip)
   local g = self.geometry
-  local top, rows = g.head + g.rows, g.vel
+  local top, rows = g.head + g.lines, g.vel
   local where = { x = math.floor(e.x + (e.view_x or 0)), y = math.floor(e.y + (e.view_y or 0)) }
   if e.x < g.keys then
     if e.button == "left" or e.button == "right" then

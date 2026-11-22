@@ -13,7 +13,7 @@ The arrange view shows the tracks as rows and the time as columns, and it is the
 - A letter before the name of a track of a kind that an extension defines.
 - The master track, pinned at the bottom. Its header is like the others, with the levels of both sides in one row, and the timeline beside it shows its volume automation if it has any. `j` on the last track goes to the master, and `/master` finds it. On the master, `+` `-` `grv` change its volume and `a` adds a device to it. It has no clips, and `dd` does not remove it.
 
-The tracks share the rows of the window, and each track gets three to four rows (`paw.opt.track_height`). The headers are 26, 22, 18 or 12 columns wide, depending on the width of the screen (`paw.opt.header_width`). The track column and the bar numbers of the ruler are described in [The track column](#the-track-column) and [Relative bars](#relative-bars).
+The tracks share the rows of the window, and each track gets three to four rows (`paw.opt.track_height`). `Ctrl-=` and `Ctrl--` make the tracks of the window taller or shorter, and `Ctrl-0` fits them to the window again (see [Vertical zoom](#vertical-zoom)). The headers are 26, 22, 18 or 12 columns wide, depending on the width of the screen (`paw.opt.header_width`). The track column and the bar numbers of the ruler are described in [The track column](#the-track-column) and [Relative bars](#relative-bars).
 
 A clip has a name row and a darker body that shows its notes or waveform in the color of its track. The clip under the cursor shows in the full color, and the track of the cursor has a brighter header and a tinted lane.
 
@@ -73,6 +73,7 @@ A clip has a name row and a darker body that shows its notes or waveform in the 
 | `:tempo.move 9` | Moves the tempo change at the cursor to bar 9. |
 | `]t` `[t` | Selects the next or the previous take of the clip. |
 | `zi` `zo` | Zooms in and out. |
+| `Ctrl-=` `Ctrl--` `Ctrl-0`, `z+` `z-` `z=` | Taller rows, shorter rows, rows that fit the window again. See [Vertical zoom](#vertical-zoom). |
 | `zs` `zz` `ze` | Puts the cursor at the left, in the middle or at the right of the timeline. |
 | `zh` `zl` | Scrolls a bar left or right. |
 | `[g` `]g` | Makes the grid finer or coarser. |
@@ -83,12 +84,23 @@ A clip has a name row and a darker body that shows its notes or waveform in the 
 | `<Space>tx` | Removes the VCA at the cursor. |
 | `<Space>tl` | Links the faders of a group. |
 | `Tab`, `Ctrl-w w` | Goes to the next window. |
-| `Ctrl-w +` `Ctrl-w -` | With the arrange view the only window: taller or shorter tracks. |
-| `Ctrl-w =` | With the arrange view the only window: the height of the tracks is automatic again. |
 | `Ctrl-w <` `Ctrl-w >` | With the arrange view the only window: narrower or wider track headers. |
 | `ZZ` `ZQ` | Saves and quits. Quits. |
 
 For the keys of windows, see [Windows, buffers and tabs](windows.md).
+
+## Vertical zoom
+
+`Ctrl-=` (or `Ctrl-+`) makes the rows of the arrange view a row taller, `Ctrl--` makes them a row shorter, and `Ctrl-0` gives them the height of `paw.opt.track_height` again, which is "auto" and fits the tracks to the window unless your configuration sets a number. Most terminals don't send `Ctrl` with `=`, `-` or `0` to a program, so `z+`, `z-` and `z=` do the same in every terminal and in the graphical window.
+
+| Keys | Effect |
+| --- | --- |
+| `Ctrl-=` `z+` | Makes every track a row taller, up to 12 rows. On a selection of tracks (`Vj`), or with a count (`3z+`), only those tracks. With the cursor on an automation lane, the lanes get a row more, up to 8. |
+| `Ctrl--` `z-` | Makes the rows shorter: a track down to 1 row, a lane down to 2. |
+| `Ctrl-0` `z=` | Gives every track the height of the option again, and the lanes 2 rows. On a selection or with a count, those tracks get the height of the others. |
+| `Alt` and the wheel | The same as `z+` and `z-`. `Ctrl` and the wheel over the track headers does the same, and over the timeline it zooms in time. |
+
+The message line says what changed, for example `track height 5`. The zoom belongs to the window, as its folds do. A split starts with the zoom of the window that it comes from, a change of zoom is not an undo step, and the project keeps the zoom of each window in its `screen.json`. The piano roll has its own vertical zoom (see [The piano roll](piano-roll.md#vertical-zoom)).
 
 ## The track column
 

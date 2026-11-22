@@ -1006,28 +1006,43 @@ end
 
 -- Piano rolls -----------------------------------------------------------------
 
+--- Which parts of a key a row of a keyboard shows, where a key takes
+--- more than one row: its names (`label`) and the line under it (`line`).
+--- Both when not given.
+local record KeyRow
+  label: boolean
+  line: boolean
+end
+
 --- One row of a keyboard on its side, `width` cells wide, for the left edge
 --- of a piano roll. Black keys are short. The Cs have their names, and the
---- pitch of the cursor has its name too.
-function M.piano_key(buf: Buf, row: integer, pitch: integer, cursor: boolean, width: integer, name?: string)
+--- pitch of the cursor has its name too. A key taller than a row shows its
+--- names on its first row and its line on its last (`part`).
+function M.piano_key(
+  buf: Buf, row: integer, pitch: integer, cursor: boolean, width: integer, name?: string, part?: KeyRow
+)
   local music = paw.music
   local step = pitch % 12
+  local label = not part or part.label
+  local line = not part or part.line
   if music.is_black(pitch) then
     buf:fill(0, row, width - 2, 1, " ", "PianoBlack")
     buf:fill(width - 2, row, 2, 1, " ", "PianoWhite")
   else
     -- Two white keys with no black one between them get a line instead.
-    buf:fill(0, row, width, 1, (step == 0 or step == 5) and (opt.ascii and "_" or "▁") or " ", "PianoWhite")
-    if step == 0 and not name then
+    buf:fill(0, row, width, 1, line and (step == 0 or step == 5) and (opt.ascii and "_" or "▁") or " ", "PianoWhite")
+    if label and step == 0 and not name then
       buf:text(1, row, music.name(pitch), "PianoC")
     end
   end
   -- A key the instrument names (a drum, a keyswitch) shows its name.
-  if name then
+  if label and name then
     buf:text(0, row, paw.util.fit(name, width - 1), "PianoC")
   end
   if cursor then
-    buf:text(0, row, paw.util.fit(music.name(pitch), width - 1) .. " ", "PianoCursor")
+    buf:text(
+      0, row, label and (paw.util.fit(music.name(pitch), width - 1) .. " ") or (" "):rep(width - 1), "PianoCursor"
+    )
   end
 end
 

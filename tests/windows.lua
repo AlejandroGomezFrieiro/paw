@@ -281,21 +281,17 @@ test("windows are resized by keys, by :resize and by dragging their border", fun
   reset()
 end)
 
-test("Ctrl-w + resizes a window, and the tracks while the arrange view is alone", function()
+test("Ctrl-w + resizes a window only, never the tracks", function()
   start()
-  local th = paw.opt.track_height
-  paw.opt.track_height = 3
   keys("<C-w>+")
-  eq(paw.opt.track_height, 4, "alone: taller tracks")
+  eq(L.current().vzoom, nil, "alone: no taller tracks (that is Ctrl-=)")
   sized(function()
     keys(":sp mixer<CR>")
     keys("<C-w>k")
     local before = rects().arrange.h
     keys("<C-w>+")
-    eq(paw.opt.track_height, 4, "not alone: not the tracks")
     eq(rects().arrange.h, before + 1, "the window")
   end)
-  paw.opt.track_height = th
   reset()
 end)
 

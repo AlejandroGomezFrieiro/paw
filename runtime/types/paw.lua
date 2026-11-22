@@ -320,6 +320,9 @@ paw.util = {}
 ---@class paw.vca
 paw.vca = {}
 
+---@class paw.vzoom
+paw.vzoom = {}
+
 ---@class paw.xml
 paw.xml = {}
 
@@ -2600,14 +2603,16 @@ function paw.draw.pan_text(pan) end
 
 --- One row of a keyboard on its side, `width` cells wide, for the left edge
 --- of a piano roll. Black keys are short. The Cs have their names, and the
---- pitch of the cursor has its name too.
+--- pitch of the cursor has its name too. A key taller than a row shows its
+--- names on its first row and its line on its last (`part`).
 ---@param buf any
 ---@param row any
 ---@param pitch any
 ---@param cursor any
 ---@param width any
 ---@param name any
-function paw.draw.piano_key(buf, row, pitch, cursor, width, name) end
+---@param part any
+function paw.draw.piano_key(buf, row, pitch, cursor, width, name, part) end
 
 --- Forget the shades made until now. Call it after the palette changes.
 function paw.draw.reset() end
@@ -2723,6 +2728,10 @@ function paw.draw.wave_reach(a) end
 function paw.draw.waveform(peaks, rows) end
 
 paw.events.emit = paw.emit
+
+--- How many events paw has sent since it started. A number that is the
+--- same as before means that no event came in between.
+function paw.events.emitted() end
 
 --- The descriptor of an event whose payload is a `P`: Teal checks the
 --- handlers that `paw.on` is given for it, and what `paw.emit` sends.
@@ -6185,9 +6194,19 @@ function paw.option.list() end
 ---@param text any
 function paw.option.read(name, text) end
 
+--- Give each option the value it had in `snapshot`, and an option set
+--- after it its default again. Each option that changes emits
+--- `option.changed`. Gives the names of the options that changed, sorted.
+---@param snapshot any
+function paw.option.restore(snapshot) end
+
 --- An option's value as text: a list is its items with commas between.
 ---@param value any
 function paw.option.show(value) end
+
+--- The value of each option that was set, to give back later with
+--- `paw.option.restore`. An option that was not set keeps its default.
+function paw.option.snapshot() end
 
 --- What option `name` takes besides its default's type (`min`, `max`,
 --- `integer`, `type`, `values`), or nil.
@@ -6970,8 +6989,9 @@ function paw.roll_clips.active() end
 --- other clips of the active clip's track, and of the clips of the shown
 --- tracks (not the editable clips), that sound in the range of the editable
 --- clips. Each is `{ pitch, start, length, velocity, clip, track, color }`,
---- at most `paw.opt.roll_context_max` of them. paw keeps them until the
---- project, the set of clips or the toggles change.
+--- at most `paw.opt.roll_context_max` of them. paw finds them again only
+--- when those clips, the shown tracks, the edited clips or their span change:
+--- an edit of the notes of an edited clip keeps them.
 function paw.roll_clips.context() end
 
 --- The context note on `pitch` that sounds at roll beat `beat`, if any.
@@ -7046,7 +7066,9 @@ function paw.roll_clips.show_track(id, on) end
 
 --- The pitches that sound at roll beat `beat`, in the editable clips and
 --- the context, lowest first. The second value is the name of the chord
---- that they make, when `paw.harmony` can tell it.
+--- that they make, when `paw.harmony` can tell it. The name comes from
+--- the chords that paw has read so far, so right after an edit it can be
+--- the name from before the edit.
 ---@param beat any
 function paw.roll_clips.sounding(beat) end
 
@@ -9378,6 +9400,45 @@ function paw.vca.of(track) end
 ---@param track any
 ---@param vca any
 function paw.vca.unassign(track, vca) end
+
+--- Whether some tracks of the arrange view's window have rows of their own.
+function paw.vzoom.any_own() end
+
+--- Add the vertical zoom of a view: `zoomer.step(by, opts)` and
+--- `zoomer.fit(opts)`, each returning what it did. nil removes it.
+---   paw.vzoom.define("notation", { step = function(by) ... return "staff size 5" end,
+---     fit = function() ... return "staff size as the option says" end })
+---@param view any
+---@param zoomer any
+function paw.vzoom.define(view, zoomer) end
+
+--- Give back the rows the options say: the focused view's, or `opts.view`'s.
+---@param opts any
+function paw.vzoom.fit(opts) end
+
+--- Rows per key in the piano roll: 1 unzoomed.
+function paw.vzoom.key_rows() end
+
+--- Rows per automation lane shown as a row in the arrange view: 2 unzoomed.
+function paw.vzoom.lane_rows() end
+
+--- The rows of a track of its own in the arrange view's window, or nil.
+---@param id any
+function paw.vzoom.rows_of(id) end
+
+--- Make the rows of a view `by` taller (shorter when negative): the
+--- focused view's, or `opts.view`'s.
+---@param by any
+---@param opts any
+function paw.vzoom.step(by, opts) end
+
+--- Rows per track in the arrange view's window, or nil for the option's.
+function paw.vzoom.track_rows() end
+
+--- The window of `view` whose zoom is meant: the one being drawn, the
+--- focused one, else the one whose state the view has now.
+---@param view any
+function paw.vzoom.window(view) end
 
 --- The first child of an element with a name, or nil.
 ---@param el any

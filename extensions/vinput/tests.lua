@@ -49,6 +49,8 @@ local function load()
   for i = #vinput.inputs, 1, -1 do
     vinput.remove(vinput.inputs[i].name)
   end
+  -- The runner gives the options back after each test.
+  paw.opt.vinput_file = kept
   paw.opt.vinput_run = false
   paw.opt.vinput_gdi2m = fake
   return vinput

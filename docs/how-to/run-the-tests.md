@@ -43,35 +43,93 @@ loads each of the test files, in the order of their names.
   The folder also holds `examples/libstub_clap.so`. A change of Rust
   still needs a build of your checkout.
 
-## Write a test that a loaded machine does not break
+## Run the suite in more than one process
 
-The tests run on a machine that also builds and runs other programs, and a
-loaded machine is slow but not wrong. Follow these rules so that a slow
-machine does not fail a test:
+By default, one paw process runs all the tests, one after the other. To
+use more processor cores, give `-j` and a number from 1 to 4 before the
+other words: `tests/tools/suite.sh -j 2`, or
+`tests/tools/suite.sh -j 2 plugins`. With `-j 2`, each process gets every
+second test file of `tests/`, and every second extension with all of its
+test files. Each process has its own scratch home, plugin and XDG folders under
+`target/test-scratch/shard<N>`. The script puts the outputs together in
+`target/test-scratch/suite.out`, and the last line is the same as with one
+process.
 
-- Wait for the event or the state, not for a time. `T.until_` waits for a
+Run one suite at a time on a machine that other people or programs use.
+Two suites, or a large `-j`, slow down the tests that wait for the audio.
+
+## Read the leak check
+
+A test file must put back what its tests change, so that the next file
+starts in the same state, whatever ran before it. The runner gives back
+the options that paw had when the suite started after each test.
+`T.fresh()` gives a new project, the default layout, normal mode and no
+open float. `T.start()` also types `<Esc><Esc>` and moves the focus to the
+arrange view. `T.screen(w, h)` gives the text of the screen.
+
+The runner checks each file of `tests/`, and the test files of each
+extension together, because a test file of an extension can use what an
+earlier one set up. After the last test of a file or an extension, the
+runner puts back the following things as they were at the start of the
+run:
+
+- the event handlers, timers and key mappings that the test code made
+- the loaded extensions, so it unloads each extension that the tests
+  loaded
+
+If a handler, timer or key mapping of the test code was still there, or
+an extension can't be unloaded, the runner fails a test named
+`tests/<file>.lua leaves no state behind` or
+`extensions/<name>/ leaves no state behind`. The `changed:` line names
+what changed. To fix the failure, put back the change in the test that
+made it, with `T.after(function() ... end)`.
+
+The runner checks a file only when all of its tests ran, so a filter with
+`only` does not fail the check. The file `tests/leaks-allowed.txt` lists
+the leaks that are known, one on each line, for example
+`tests/model.lua hooks` or `extensions/utau/ timers`. Don't add
+lines to the list. When a file no longer leaks, the runner fails until you
+remove its line.
+
+## Write a test that does not depend on time
+
+The tests run on a machine that also builds and runs other programs, so a
+test must give the same result on an idle machine and on a loaded one, in
+a dev build and in a release build, and in any order or filter of the
+tests. Follow these rules when you write a test:
+
+- Check the behavior and never the speed. A test does not compare a time
+  on the clock, a processor time or a count of frames with a number. When
+  the cost is the behavior, count the work, for example the builds of an
+  index or the compiles of a clip. To measure a speed, write a script in
+  `bench/`, for example `bench/heavy.lua`, which reports the processor
+  time with the load of the machine and does not fail.
+- Wait for an event or a state, not for a time. `T.until_` waits for a
   condition, `T.next_block` for the audio blocks, and `T.until_beat` for
-  the playhead. In the window tests, `expect` waits for a condition in the
-  kernel.
-- Set a limit on a wait to the time that the slowest machine needs, not
-  the usual time, which is 30 seconds for a wait in the kernel. A wait
-  that gets to its limit shows a fault.
-- Do not compare two drawings of a value that changes with the time, for
-  example a meter. Hold the value still while the test draws.
-- Measure the speed only when the speed is the behavior, as described
-  below.
+  the playhead. Don't call `api.sleep` or `paw.wait` to let time pass, and
+  don't put a `wait` step in a lesson of the tutor.
+- Don't set a limit of your own on a wait, and don't write a local wait
+  with a deadline. The waits of `T` share one limit, and a wait that gets
+  to it shows a fault.
+- Check that a thing does not happen only after the kernel did its work,
+  for example after `T.next_block`. A check that nothing happened in some
+  milliseconds passes on a slow machine for the wrong reason.
+- Check sound in an offline render with `T.render`, not in a live meter
+  after a wait.
+- Make a plugin or a helper process that the test controls wait for the
+  test, for example with a file that the test removes, and don't compare a
+  delay with a deadline.
+- Make all of the state that the test reads. Start from `T.fresh()`, and
+  put back what the test changes with `T.after`.
 
-When you measure the speed, measure the processor time of the thread with
-`T.cpu_ms()`, not the time on the clock. Then check it with
-`T.quick(ms, limit, what)`. Other programs share the caches and the memory
-of the processor. As a result, the same work takes more processor time on
-a loaded machine, up to four times more.
-
-`T.quick` runs a fixed piece of work three times, and it compares the best
-time with its time on an idle machine. It multiplies the limit by the
-larger of the slowdown and the load average per processor, at most 8
-times and at least 1. The message of a failure shows both numbers. Keep
-the limit a few times the target.
+`tools/testlint.lua` checks the test files for a sleep, a read of the clock
+or a speed check, and the suite and `nix flake check` run it. The file
+`tests/timing-allowed.txt` lists the uses that the tests have today, one
+line `<file> <pattern> <count>` for each. A count that goes up fails, so a
+new test can't add one. A count that goes down also fails until you make
+its line smaller, so the list only gets shorter. Run
+`luajit tools/testlint.lua` to check the tree, and
+`luajit tools/testlint.lua counts` to print the counts of today.
 
 ## Run the Rust tests
 
@@ -170,6 +228,8 @@ Run `nix flake check`, which builds paw and runs the following checks:
 - The checks of the Lua and Teal code, which fail on a problem: the types
   of the Teal files with cyan, `luacheck` on the Lua files, and the format
   of both with StyLua and cerulean.
+- The check against tests that depend on time, `tools/testlint.lua`, which
+  fails on a count over `tests/timing-allowed.txt`.
 
 The Lua suite and the window tests do not run in the build. They need an X
 server, plugins and their own directories, and a build sandbox does not

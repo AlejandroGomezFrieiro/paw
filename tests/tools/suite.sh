@@ -6,22 +6,73 @@
 #   tests/tools/suite.sh plugins "words"  only some tests, with the plugins
 #                                         (PAW_PLUGIN_SANDBOX=0 loads them in-process)
 #   tests/tools/suite.sh only "loop on"   the tests whose name holds the words
+#   tests/tools/suite.sh -j 2 ...         the same in 2 paw processes (4 at most),
+#                                         each with a share of the test files
 #
 # Prints the tests that failed and the last line ("all passed" or "N failed");
 # the whole output is in target/test-scratch/suite.out.
 . "$(dirname "$0")/env.sh"
 cd "$ROOT" || exit 1
+jobs=1
+if [ "$1" = "-j" ]; then
+  jobs=$2
+  shift 2
+fi
+case "$jobs" in
+  1 | 2 | 3 | 4) ;;
+  *)
+    echo "suite.sh: -j takes 1 to 4, not $jobs" >&2
+    exit 2
+    ;;
+esac
 # The stub plugin that some tests load is a cargo example, which a plain
 # `cargo build` does not make: build it here, so that a test never loads a
 # stub that an older checkout left in target/. With PAW_TEST_BIN (a binary
 # that another checkout built, for example a dev build of main), the stub
-# comes from beside that binary, and nothing is built here.
+# comes from beside that binary, and nothing is built here. A shard does not
+# build: the script that started it did.
 if [ -n "$PAW_TEST_BIN" ]; then
   export PAW_TEST_STUB=$BIN/examples/libstub_clap.so
-else
+elif [ -z "$PAW_TEST_SHARD" ]; then
   cargo build --release -q -p paw-plugins --example stub_clap || exit 1
 fi
 out=$SCRATCH/suite.out
+if [ "$jobs" -gt 1 ]; then
+  # Each shard is this script again, with its own scratch folders (and so
+  # its own XDG folders) and every Nth part of the test files (suite.lua).
+  pids=""
+  k=1
+  while [ "$k" -le "$jobs" ]; do
+    PAW_TEST_SHARD=$k/$jobs PAW_TEST_SCRATCH=$SCRATCH/shard$k "$0" "$@" > /dev/null 2>&1 &
+    pids="$pids $!"
+    k=$((k + 1))
+  done
+  code=0
+  for pid in $pids; do
+    wait "$pid" || code=1
+  done
+  failed=0
+  : > "$out"
+  k=1
+  while [ "$k" -le "$jobs" ]; do
+    shard_out=$SCRATCH/shard$k/suite.out
+    cat "$shard_out" >> "$out"
+    n=$(tail -1 "$shard_out" | sed -n 's/^\([0-9]*\) failed$/\1/p')
+    case "$(tail -1 "$shard_out")" in
+      "all passed") ;;
+      *) failed=$((failed + ${n:-1})) ;;
+    esac
+    k=$((k + 1))
+  done
+  grep -A8 "^FAIL" "$out"
+  if [ "$failed" -eq 0 ] && [ "$code" -eq 0 ]; then
+    printf '\nall passed\n' | tee -a "$out" | tail -1
+  else
+    printf '\n%d failed\n' "$failed" | tee -a "$out" | tail -1
+    code=1
+  fi
+  exit $code
+fi
 case "$1" in
   plugins)
     # Plugins that are not in nixpkgs come in by their package's store
