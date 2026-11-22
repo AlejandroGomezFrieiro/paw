@@ -1,14 +1,15 @@
 # notation
 
 Staff notation for a clip, to read and to write. In the terminal, paw
-draws it in text cells. Where there are pixels, paw engraves it with a
-music font (Leland). That is in a window of the graphical frontend, and in
-a terminal that shows images.
+draws it in text cells. Where there are pixels, which means in a window of
+the graphical frontend and in a terminal that shows images, paw engraves it
+with a music font (Leland).
 
-Notation is a view of the MIDI of the clip, as the notation editor of
-REAPER is. The notes are the truth: they play, and every other view edits
-them. An edit in notation is an edit of the MIDI, one undo step, and it
-changes only the notes that it writes. See [About](#about).
+Notation is a view of the MIDI of the clip, in the same way that the
+notation editor of REAPER is. The notes are the truth, because they play and
+every other view edits them. An edit in notation is an edit of the MIDI and
+one undo step, and it changes only the notes that it writes. See
+[About](#about).
 
 ```lua
 paw.ext.load("extensions/notation")   -- or put it in ~/.config/paw/extensions
@@ -130,69 +131,70 @@ option and Lua function of notation. `:help notation-reference` opens it.
 
 ## About
 
-Notation is a view of the MIDI of the clip. The score is those notes,
-written as a musician writes them. The decisions that you make in notation
-(a spelling, a voice, a staccato, a dynamic) stay beside them. A note that
-you enter is a MIDI note at the written place, with the written length. A
-note that you raise, move, lengthen or delete is that MIDI note, changed.
-The reasons are in [About MIDI as the
-truth](../../docs/explanation/about-midi-as-the-truth.md).
+Notation is a view of the MIDI of the clip. The score is the notes of the
+clip, written as a musician writes them, and the decisions that you make in
+notation (a spelling, a voice, a staccato, a dynamic) stay beside them. A
+note that you enter is a MIDI note at the written place, with the written
+length, and a note that you raise, move, lengthen or delete is that MIDI
+note, changed. [About MIDI as the
+truth](../../docs/explanation/about-midi-as-the-truth.md) gives the reasons.
 
 ### Works without the extension
 
 Nothing in the core knows about notation. Without this extension, a clip
-written in notation is a MIDI clip like all other clips. Its notes play,
+written in notation is a MIDI clip like all other clips, so its notes play,
 and the piano roll, Ex, the language servers, MIDI export and every other
 view edit them as they are.
 
 The data that notation keeps goes with the notes. It stays on a note that
 you copy or paste, on a clip that you move or duplicate, and in the saved
 project. When you load the extension again, notation shows the notes as
-they are now. It keeps its data on the notes that are still there. An edit
-in notation changes only the notes that it writes.
+they are now, and it keeps its data on the notes that are still there. An
+edit in notation changes only the notes that it writes.
 
 ### Compared with REAPER
 
 The model is the model of REAPER. The MIDI belongs to the item, and
 notation shows it. The data that notation cannot keep in MIDI stays as
-notation data on the notes (the "notation events" of REAPER: spelling,
-voice, articulation, text). Other data stays with the item (dynamics,
-clefs, key signatures).
+notation data on the notes (the "notation events" of REAPER, which are
+spelling, voice, articulation and text), and other data stays with the item
+(dynamics, clefs, key signatures).
 
-Note entry in notation writes MIDI. When you write
-a dynamic, it sets the velocities of the notes after it, as the dynamic of
-REAPER does when you set it to. The piano roll edits the same notes.
+Note entry in notation writes MIDI. When you write a dynamic, it sets the
+velocities of the notes after it, as the dynamic of REAPER does when you set
+it to, and the piano roll edits the same notes.
 
 One thing is different. The transcription here reads played music itself
-(strums, swing, drift, voices, hands, grace notes, tuplets). It does not
+(strums, swing, drift, voices, hands, grace notes, tuplets), and it does not
 quantize only for display. Its settings belong to the clip
 (`:notation.set`).
 
 ### Compared with Dorico and MuseScore
 
-The popovers are the popovers of Dorico: Shift and a letter there, the
-local leader and a letter here. They use the same words: `mp<f`,
+The popovers are the popovers of Dorico, with Shift and a letter there, and
+the local leader and a letter here. They use the same words: `mp<f`,
 `p subito`, `niente<`, `Allegro q=132`, `rit.`, `a tempo`, `3+3+2/8`,
-`f#m`, `|:`, `1.`, `5:4`. paw has no Write and Play mode. The piano roll
-on the same clip is Play mode, and both views edit the MIDI of the clip. A popover with a selection works on all of it. Its line is an Ex
+`f#m`, `|:`, `1.`, `5:4`. paw has no Write and Play mode, because the piano
+roll on the same clip is Play mode, and both views edit the MIDI of the
+clip. A popover with a selection works on all of it, and its line is an Ex
 command that you can type, repeat and record.
 
 The popovers take the place of the palettes of MuseScore and its
 `Ctrl-E`/`Ctrl-T`/`Ctrl-K`/`Ctrl-L` text entries. Lyrics and chord symbols
 continue with `Space` as in MuseScore, and `-` adds a hyphen.
 
-Note input is the note input of MuseScore in spirit, and of paw in its
-keys. Insert mode (`i`, `a`, or a double click) is the note input of
-MuseScore. A letter enters that note in the nearest octave and steps on,
-and a capital adds it to the chord. `Alt-2` … `Alt-8` add an interval
-above, `t` enters triplets, `~` ties, and `R` repeats the chord. The note
-to enter shows where it would go.
+Note input follows the note input of MuseScore in how it works, and the keys
+are the keys of paw. Insert mode (`i`, `a`, or a double click) is the note
+input of MuseScore. A letter enters that note in the nearest octave and
+steps on, and a capital adds it to the chord. `Alt-2` to `Alt-8` add an
+interval above, `t` enters triplets, `~` ties, and `R` repeats the chord.
+The note to enter shows where it would go.
 
 You choose durations by number as in MuseScore (`5` a quarter, `4` an
-eighth). But paw has no 1 or 9, because its values go from a 32nd to a
+eighth), but paw has no 1 or 9, because its values go from a 32nd to a
 whole note. The keys of the piano roll move pitches (`Ctrl-a` `Ctrl-x` a
 semitone, `Alt-k` `Alt-j` a step of the key, `}` `{` an octave). The arrows
-do not move pitches: they move the cursor, as in all views. In normal mode
-the letters are motions and operators, so you enter notes by letter only in
-insert mode. A click chooses and does not enter, as in MuseScore outside
-note input.
+do not move pitches, and they move the cursor as in all views. In normal
+mode the letters are motions and operators, so you enter notes by letter
+only in insert mode. A click chooses and does not enter, as in MuseScore
+outside note input.

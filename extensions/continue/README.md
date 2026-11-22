@@ -1,9 +1,6 @@
 # continue
 
-A small completion source for the piano roll. It suggests how the phrase
-before the cursor can continue. It knows only the notes and the key. So it
-is fast, and it always gives the same suggestions. It is also an example of
-a source for `paw.complete`.
+A small completion source for the piano roll. It suggests how the phrase before the cursor can continue. It knows only the notes and the key, so it is fast and always gives the same suggestions. It is also an example of a source for `paw.complete`.
 
 ```lua
 paw.ext.load("extensions/continue")   -- or put the directory in ~/.config/paw/extensions
@@ -28,24 +25,24 @@ paw.ext.load("extensions/continue")   -- or put the directory in ~/.config/paw/e
   chord, press `Ctrl-l`.
 - To remove the suggestion, press `Esc`.
 
-[Completion](../../docs/reference/completion.md)
-describes the keys of all sources.
+[Completion](../../docs/reference/completion.md) describes the keys of all
+sources.
 
 ## Reference
 
-The source reads the bar before the start of the suggestion. The start is
-the cursor, or the end of the selected notes.
+The source reads the bar before the start of the suggestion, and the start is
+the cursor or the end of the selected notes.
 
 | Suggestion | What it is |
 | --- | --- |
 | the bar again | the same notes, one bar later |
-| a step higher | the bar one degree higher in the key: a sequence |
+| a step higher | the bar one degree higher in the key (a sequence) |
 | a step lower | the bar one degree lower |
 | the motif, rising | the last half bar two times, one degree higher each time |
 
-- The key is `paw.harmony.key`. If there is no such module, the source
-  guesses the key from the notes of the clip. It takes the major or minor
-  scale that holds most of the time that they sound.
+- The key is `paw.harmony.key`. If that module does not exist, the source
+  guesses the key from the notes of the clip, and it takes the major or minor
+  scale that holds most of the time that the notes sound.
 - A note outside the key keeps its distance from the degree below it.
 
 | File | Contents |

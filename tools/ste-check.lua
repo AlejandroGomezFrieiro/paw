@@ -1,6 +1,8 @@
--- A checker for ASD-STE100 Simplified Technical English in paw's Markdown.
+-- A checker for ASD-STE100 Simplified Technical English in paw's internal
+-- Markdown. (External pages, such as README.md and docs/, use plain-writing:
+-- see .vale.ini.)
 --
---   paw --clean --no-plugins -l tools/ste-check.lua docs/how-to/*.md README.md
+--   paw --clean --no-plugins -l tools/ste-check.lua AGENTS.md bench/README.md
 --
 -- It reports what a program can find: sentences that are too long (20 words
 -- in a procedure, 25 in a description), semicolons, paragraphs of more than

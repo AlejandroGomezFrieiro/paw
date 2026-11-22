@@ -2,20 +2,17 @@
 
 <!-- tags: mixer -->
 
-The mixer shows a strip for each track. `<Space>mm` shows it. It is a grid. `h`
-`l` go from strip to strip. `j` `k` go along the rows of a strip, from the
-top to the bottom. The rows of a strip are its devices (inserts), its
-sends, the fader, the pan, mute, solo, arm and the input monitor.
+The mixer shows a strip for each track, and `<Space>mm` opens it. The strips form a grid, where `h` and `l` go from strip to strip and `j` and `k` go along the rows of a strip, from the top to the bottom. The rows of a strip are its devices (inserts), its sends, the fader, the pan, mute, solo, arm and the input monitor.
 
 ## What the view shows
 
 - A strip has a name plate, meters with the peak held, a fader with 0 dB marked, the pan and the chips. If there is room, it also shows its first devices and sends.
-- The row under the cursor has a mark on the left edge of the strip (a switch is lit), and a color of its own across the strip. The title bar gives its name and value at the right.
-- The scale to the left of the first strip is the scale of the fader, for every strip, from `+6` to `-48`. The fader uses most of its travel for the top twenty decibels.
+- The row under the cursor has a mark on the left edge of the strip (a switch is lit) and a color of its own across the strip, and the title bar shows its name and value at the right.
+- The scale to the left of the first strip is the scale of the fader for every strip, from `+6` to `-48`, and the fader uses most of its travel for the top twenty decibels.
 - The meters next to the fader are linear from -60 to 0 dB. The highest recent level shows in numbers under them.
-- The top row of the meters is the clip light. It goes red when a level reaches full scale, and stays red until you click it (or the peak), or until the transport starts again.
+- The top row of the meters is the clip light, which goes red when a level reaches full scale and stays red until you click it (or the peak) or until the transport starts again.
 - If there is room, the row under the name of a strip gives the track that it plays into (`→ Master`, `→ Drum bus`). A click there, or `:track.output`, chooses it. Four rows name its first devices, and the last row counts the others (`+2 more`). With less room, one row counts the devices and the sends.
-- The Master strip comes last, after a heavier rule. The cursor goes to it with `$` or `l`. Its rows are its devices, the fader and the pan. `a` adds a device to it, for example a limiter.
+- The Master strip comes last, after a heavier rule, and the cursor goes to it with `$` or `l`. Its rows are its devices, the fader and the pan, and `a` adds a device to it, e.g., a limiter.
 - VCAs have strips after the tracks. The arrange view makes them (`<Space>tv` and the other keys of [the arrange view](arrange-view.md)). See [Render](render.md).
 
 ## Keys
@@ -48,6 +45,4 @@ sends, the fader, the pan, mute, solo, arm and the input monitor.
 <!-- tags: session-view -->
 
 The clip launcher extension (`:ext.load launcher`) adds the session view:
-a column of slots under each track, and a scene for each row. `<Space>vs` shows
-it. `Enter` launches a slot, and `L` launches a row as a scene. Its keys
-are in [its README](../../extensions/launcher/README.md).
+a column of slots under each track, and a scene for each row. `<Space>vs` shows the view, `Enter` launches a slot, and `L` launches a row as a scene. The keys of the view are in [the README of the launcher](../../extensions/launcher/README.md).

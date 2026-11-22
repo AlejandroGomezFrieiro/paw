@@ -34,7 +34,7 @@ function M.lesson(n, lesson, lessons)
   local function add(line) out[#out + 1] = line end
   add(
     string.format(
-      "*This lesson takes about ten minutes. To do it in paw, type `:ext.load tutor`, then `:tutor %d`.*",
+      "*The lesson takes about ten minutes. To do it in paw, type `:ext.load tutor`, then `:tutor %d`.*",
       n
     )
   )
@@ -57,7 +57,7 @@ function M.lesson(n, lesson, lessons)
   end
   add("## Steps")
   add("")
-  add("The tutor opens a practice project for this lesson. It checks each step when you do it.")
+  add("The tutor opens a practice project for the lesson, and it checks each step when you do it.")
   add("")
   for i, step in ipairs(lesson.steps) do
     add(string.format("%d. %s", i, step.say))
@@ -81,13 +81,13 @@ function M.lesson(n, lesson, lessons)
   end
   local nav = {}
   if lessons[n - 1] then
-    nav[#nav + 1] = string.format("Previous: [%s](%s)", lessons[n - 1].title, M.file(n - 1, lessons[n - 1]))
+    nav[#nav + 1] = string.format("- Previous: [%s](%s)", lessons[n - 1].title, M.file(n - 1, lessons[n - 1]))
   end
-  nav[#nav + 1] = "[All lessons](README.md)"
   if lessons[n + 1] then
-    nav[#nav + 1] = string.format("Next: [%s](%s)", lessons[n + 1].title, M.file(n + 1, lessons[n + 1]))
+    nav[#nav + 1] = string.format("- Next: [%s](%s)", lessons[n + 1].title, M.file(n + 1, lessons[n + 1]))
   end
-  add(table.concat(nav, " · "))
+  nav[#nav + 1] = "- [All lessons](README.md)"
+  add(table.concat(nav, "\n"))
   return keys(table.concat(out, "\n")) .. "\n"
 end
 
@@ -96,10 +96,10 @@ function M.index(lessons)
   local function add(line) out[#out + 1] = line end
   add(paragraphs([[
 In this course, we use paw to make and change small songs. Each lesson
-takes about ten minutes and opens a small practice project of its own. At the
-end of each lesson, we hear what we made or changed. The same lessons run in
-paw. There, the tutor tells you what to do next and sees when you do it. To
-load the tutor, add this line to your configuration:]]))
+takes about ten minutes and opens a small practice project of its own, and
+at the end of each lesson, we hear what we made or changed. The same lessons
+run in paw, where the tutor tells you what to do next and checks each step
+when you do it. To load the tutor, add this line to your configuration:]]))
   add("")
   add("```lua")
   add(
@@ -109,8 +109,9 @@ load the tutor, add this line to your configuration:]]))
   add("")
   add(paragraphs([[
 Then type `:tutor` in paw. The tutor makes these pages from its lessons, so
-the pages and the tutor give the same steps. [Keys, by idea](../../reference/keys.md)
-is a page of keys to keep near the keyboard.]]))
+the pages and the tutor give the same steps.
+[Keys, by idea](../../reference/keys.md) is a page of keys to keep near the
+keyboard.]]))
   add("")
   add("| | Lesson | What we do |")
   add("| --- | --- | --- |")
@@ -120,16 +121,16 @@ is a page of keys to keep near the keyboard.]]))
   end
   add("")
   add(paragraphs([[
-Lessons 1 to 4 are the base: the screen, the cursor, and how to make tracks
-and notes. Lessons 5 to 8 are the grammar of the keys,
-which all of paw uses. Lessons 9 to 13 are the studio: devices, the mix, loops,
-recordings, and how to save and render. Lessons 14 to 16 help you find keys,
-make paw your own, and use the extensions. Lesson 17 edits by line, as Ex
-does in Vim: ranges of bars and tracks, `:s` and `:g`.]]))
+Lessons 1 to 4 teach the screen, the cursor, and how to make tracks and
+notes. Lessons 5 to 8 teach the grammar of the keys, which all of paw uses.
+Lessons 9 to 13 teach devices, the mix, loops and recordings, and how to
+save and render. Lessons 14 to 16 help you find keys, make paw your own, and
+use the extensions. Lesson 17 edits by line, with ranges
+of bars and tracks, `:s` and `:g`.]]))
   add("")
   add(paragraphs([[
 The five lessons of [Make music with paw](../make-music/README.md) make one
-song, from the first note to an MP3 file. They use the keys of this course.]]))
+song, from the first note to an MP3 file, with the keys of the course.]]))
   return keys(table.concat(out, "\n")) .. "\n"
 end
 

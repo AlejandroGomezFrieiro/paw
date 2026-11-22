@@ -5,30 +5,33 @@ return {
   intro = [[
 In this lesson, we play a short song, change its tempo and quit paw.
 
-You use paw from the keyboard. Each part of the screen is a view. The arrange
-view in the middle has one row for each track, and time goes to the right.
-The status line at the bottom shows the current mode (`NORMAL` now). Below
-it, you type commands and paw shows messages.
+You use paw from the keyboard, and each part of the screen is a view. The
+arrange view in the middle has one row for each track, and time goes to the
+right. The status line at the bottom shows the current mode, which is
+`NORMAL` now. Below the status line, you type commands and paw shows
+messages.
 
-The panel at the bottom is the tutor. It tells you what to do, and it sees
-when you do it.
+The panel at the bottom is the tutor, which tells you what to do and checks
+each step when you do it.
 
-The keys have the names that Vim gives them. `j` is the j key and `J` is
-Shift and j. `<C-r>` is Ctrl and r. `<CR>` is Enter, `<Esc>` is Escape,
-`<Space>` is the space bar and `<BS>` is Backspace. `gs` is g, then s.]],
+The keys have the names that Vim gives them. For example, `j` is the j key,
+`J` is Shift and j, and `<C-r>` is Ctrl and r. Moreover, `<CR>` is Enter,
+`<Esc>` is Escape, `<Space>` is the space bar and `<BS>` is Backspace, and
+`gs` means g and then s.]],
   idea = [[
-You do not need the mouse. Some keys do an action immediately: `x`
-deletes. Other keys start an action that more keys complete. `:` starts a
-command line. `g` starts commands of two keys, for example `gs`. `<leader>`
-starts the keys that work in every view: `<leader><Space>` plays.
+You do not need the mouse in paw. Some keys do an action immediately, e.g.,
+`x` deletes. Other keys start an action that more keys complete. For
+example, `:` starts a command line, and `g` starts commands of two keys,
+such as `gs`. Moreover, `<leader>` starts the keys that work in every view,
+such as `<leader><Space>`, which plays.
 
-If you
-do not know the current state, press `<Esc>` to return to normal mode. `?`
-shows the keys of the current view.]],
+If you do not know which mode you are in, press `<Esc>` to return to normal
+mode. To see the keys of the current view, press `?`.]],
   vim = [[
-`:q`, `ZZ` and `ZQ` do the same as in Vim, and `:w` saves. `:` accepts
-commands by name (`:tempo 120`). It also accepts Ex commands over bars and
-tracks (`:5,8d`, `:%s/c4/d4/g`). Lesson 17 shows them.]],
+`:q`, `ZZ` and `ZQ` do the same as in Vim, and `:w` saves. The command line
+accepts commands by name, e.g., `:tempo 120`. It also accepts Ex commands
+over bars and tracks, e.g., `:5,8d` and `:%s/c4/d4/g`, and lesson 17 shows
+how to use them.]],
   setup = function(look)
     paw.project.tempo = 100
     local drums = paw.add_track({ name = "Drums" })
@@ -52,7 +55,7 @@ tracks (`:5,8d`, `:%s/c4/d4/g`). Lesson 17 shows them.]],
   end,
   steps = {
     {
-      say = "This short song has three tracks: Drums, Bass and Keys. Press `<leader><Space>` to play it.",
+      say = "The song has three tracks, which are Drums, Bass and Keys. Press `<leader><Space>` to play it.",
       keys = { "<leader><Space>" },
       check = function() return paw.transport.playing end,
       done = "The song plays again and again, because the loop is on. The status line shows `loop`.",
@@ -79,10 +82,10 @@ tracks (`:5,8d`, `:%s/c4/d4/g`). Lesson 17 shows them.]],
       hint = "If the cursor is below Keys, press `k` to move it up.",
     },
     {
-      say = "`?` shows each key of the current view. Press `?`. Type `mute` to make the list shorter. Then press `<Esc>` to close it.",
+      say = "`?` shows each key of the current view. Press `?`, and type `mute` to make the list shorter. Then press `<Esc>` to close the list.",
       keys = { "?", "mute", "<Esc>" },
       check = function(ctx, look) return look.ran(ctx, "pick.keys") and not look.float() end,
-      done = "Use this list when you forget a key. `<CR>` (Enter) on a line does the action of its key.",
+      done = "When you forget a key, you can find it in the list. `<CR>` (Enter) on a line does the action of its key.",
       hint = "The text that you type makes the list shorter. `<Esc>` closes the list.",
     },
     {
@@ -96,10 +99,10 @@ tracks (`:5,8d`, `:%s/c4/d4/g`). Lesson 17 shows them.]],
       say = "Press `<leader><Space>` to hear the faster song. Then press `<leader><Space>` to stop it.",
       keys = { "<leader><Space>", { wait = 300 }, "<leader><Space>" },
       check = function(ctx, look) return look.played(ctx) end,
-      done = "The song is faster.",
+      done = "The song plays faster now.",
     },
     {
-      say = "To quit paw, type `:q` and `<CR>`. `ZQ` also quits, and `ZZ` saves before it quits. Quit now. The tutor keeps your place, and `:tutor` starts lesson 2 next time.",
+      say = "To quit paw, type `:q` and `<CR>`. `ZQ` also quits, and `ZZ` saves before it quits. Quit now. The tutor keeps your place, so `:tutor` starts lesson 2 the next time.",
       keys = { { sim = "quit", instead = { ":q", "<CR>" } } },
       on_quit = true,
       done = "paw quits.",

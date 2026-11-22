@@ -34,7 +34,9 @@ export VALE_STYLES_PATH="$root/$styles"
 files=()
 opts=()
 for a in "$@"; do
-  case "$a" in -*) opts+=("$a") ;; *) files+=("$a") ;; esac
+  # .vale.ini chooses the styles by the path relative to the root (README.md,
+  # docs/**), so a path in the repository becomes relative.
+  case "$a" in -*) opts+=("$a") ;; "$root"/*) files+=("${a#"$root"/}") ;; *) files+=("$a") ;; esac
 done
 if [ ${#files[@]} -eq 0 ]; then
   # bench/RESULTS.md is not checked: it is a dated log of measurements.

@@ -18,8 +18,8 @@ With columnplus, the column shows these parts, from the left:
 ▎  5 ≡1 ▌ Keys
 ```
 
-- A strip in the color of each track, down all of its lines.
-- The folds of the groups, at the far left, with arrows.
+- A strip in the color of each track, down all of its lines, and the
+  folds of the groups at the far left, with arrows.
 - The number of the track, as before. The number of the cursor's track
   is in the color of the accent.
 - The signs: `≡` on a track with takes, `∗` on a frozen track and `∘` on
@@ -42,7 +42,7 @@ With columnplus, the column shows these parts, from the left:
 
 ### Keys
 
-In the arrange view.
+The keys work in the arrange view.
 
 | Keys | Effect |
 | --- | --- |
@@ -74,8 +74,8 @@ With `paw.opt.ascii`, the parts use plain ASCII characters.
 | `takes` | sign | priority 15 | `takes` | `takes` |
 | `frozen` | sign | priority 25 | `frozen`, `held` | `frozen` |
 
-You change them as the parts of paw, in your `init.lua` after the
-extension loads:
+You change them the same way as the parts of paw, in your `init.lua` after
+the extension loads:
 
 ```lua
 paw.trackcolumn.set("clips", { styles = { count = "Faint" } })
@@ -87,12 +87,11 @@ To remove a part, take its name out of `paw.opt.trackcolumn`:
 
 ## How it works
 
-The extension calls the functions of `paw.trackcolumn` only. paw records
-each part, sign and change as the extension's. When the extension
-unloads, paw removes its parts and signs and puts back the parts of paw
-that it changed. [The track column and the bar
-labels](../../docs/reference/trackcolumn.md) gives each function.
-[How to personalize the track column and the
-ruler](../../docs/how-to/personalize-the-track-column-and-the-ruler.md)
-shows how to write your own. [rulerplus](../rulerplus/README.md) is the
-example for the ruler.
+The extension calls only the functions of `paw.trackcolumn`, and paw records
+each part, sign and change as the extension's. When the extension unloads,
+paw removes its parts and signs and puts back the parts of paw that it
+changed. [The track column and the bar
+labels](../../docs/reference/trackcolumn.md) describes each function. To
+write your own, read [How to personalize the track column and the
+ruler](../../docs/how-to/personalize-the-track-column-and-the-ruler.md). The
+extension [rulerplus](../rulerplus/README.md) is the example for the ruler.

@@ -1,0 +1,8 @@
+# plain-writing rule 25: do not open with a count of things ("Two cautions.",
+# "Three things to keep in mind."). State the first point directly.
+extends: existence
+message: "Do not announce a count ('%s') (plain-writing 25). State the first point."
+level: warning
+scope: sentence
+raw:
+  - '^(?:There\s+are\s+(?:two|three|four|five|six|seven|eight|nine|ten|several|a\s+few)|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten|Several|A\s+few)\s+(?:\w+\s+)?(?:things?|points?|cautions?|rules?|reasons?|ways?|ideas?|kinds?|options?|questions?|caveats?|warnings?|tips?|facts?|differences?|problems?|issues?|limits?|goals?|lessons?|takeaways?|observations?)\b'
