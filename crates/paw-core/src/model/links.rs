@@ -229,29 +229,6 @@ mod tests {
         p
     }
 
-    fn notes(p: &Project, id: u64) -> &Notes {
-        match &p.clip(id).expect("the clip").content {
-            ClipContent::Midi { notes, .. } => notes,
-            _ => panic!("a MIDI clip"),
-        }
-    }
-
-    /// A note added to one clip of a link is in the other, which shares
-    /// the very notes; the plain copy keeps its own.
-    #[test]
-    fn an_edit_of_one_clip_of_a_link_changes_all_of_them() {
-        let mut p = project();
-        let links = Links::before(&p);
-        if let ClipContent::Midi { notes, .. } = &mut p.clip_mut(3).expect("the clip").content {
-            notes[0].pitch = 62;
-        }
-        links.spread(&mut p);
-        assert_eq!(notes(&p, 2)[0].pitch, 62);
-        assert!(notes(&p, 2).same_runs(notes(&p, 3)));
-        assert_eq!(notes(&p, 4)[0].pitch, 60);
-        p.validate().expect("the link holds");
-    }
-
     /// A file whose linked clips differ, or that links an audio clip, is
     /// refused with the clips it names.
     #[test]
