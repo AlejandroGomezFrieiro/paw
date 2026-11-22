@@ -580,6 +580,7 @@ local record M
     bar_floor: function(beat: number): number
     bar_ceil: function(beat: number): number
     bars: function(from: number, to: number): {BarLine}
+    lines: function(from: number, to: number, limit?: integer): {types.TempoLine}
     format: function(beats: number): string
     seconds: function(beats: number, at?: number): number
     to_seconds: function(beat: number): number
@@ -1887,6 +1888,7 @@ local record Map
   tempo: function(self: Map, beat: number): number
   bbt: function(self: Map, beat: number): integer, integer, number
   seconds: function(self: Map, beat: number): number
+  lines: function(self: Map, from: number, to: number, limit?: integer): {types.TempoLine}
 end
 
 local song_map: Map = {
@@ -1897,6 +1899,9 @@ local song_map: Map = {
   tempo = function(_: Map, beat: number): number return api.tempo_at(beat) end,
   bbt = function(_: Map, beat: number): (integer, integer, number) return api.tempo_bbt(beat) end,
   seconds = function(_: Map, beat: number): number return api.tempo_seconds(beat) end,
+  lines = function(_: Map, from: number, to: number, limit?: integer): {types.TempoLine}
+    return api.tempo_lines(from, to, limit)
+  end,
 }
 
 --- The song's beat of beat 0 of the window's time: where the subproject
@@ -2004,6 +2009,21 @@ function time.bars(from: number, to: number): {BarLine}
     end
     out[#out + 1] = {beat = beat - o, bar = bar + 1}
     bar = bar + 1
+  end
+  return out
+end
+
+--- The bar and beat lines from beat `from` up to `to`, at most `limit`:
+--- { beat, bar, index } each, `index` 0 on a bar line, bars from 1, as
+--- `paw.tempo.lines` gives them for the song. In a subproject with its own
+--- meter, they are its bars.
+function time.lines(from: number, to: number, limit?: integer): {types.TempoLine}
+  local m, o = window_map()
+  local out = m:lines(from + o, to + o, limit)
+  if o ~= 0 then
+    for _, line in ipairs(out) do
+      line.beat = line.beat - o
+    end
   end
   return out
 end

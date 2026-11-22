@@ -41,7 +41,6 @@ local type objects = require("paw.objects")
 local type TextbufModule = require("paw.textbuf")
 local type CursorModule = require("paw.cursor")
 local type DrawModule = require("paw.draw")
-local type TempoModule = require("paw.tempo")
 
 local type Context = contracts.StatusContext
 local type Theme = contracts.StatusContext.Theme
@@ -95,7 +94,6 @@ local record Paw is partial.Paw
   ruler: RulerModule
   scope: Scope
   folds: Folds
-  tempo: TempoModule
   time: objects.Time
 end
 local paw = (_G as {string: Paw}).paw
@@ -483,7 +481,8 @@ spec(
   }
 )
 
--- Tempo and time signature where the playhead is.
+-- Tempo and time signature where the playhead is, in the window's time:
+-- inside a subproject with its own tempo or meter, its own.
 spec(
   "tempo",
   {
@@ -491,9 +490,9 @@ spec(
     min = 70,
     rank = 5,
     fn = function(ctx: Context): StatusText
-      local position = ctx.transport.position
-      local num, den = paw.tempo.signature_at(position)
-      local bpm = math.floor(paw.tempo.at(position) * 10 + 0.5) / 10
+      local position = paw.time.local_beat(ctx.transport.position)
+      local num, den = paw.time.signature_at(position)
+      local bpm = math.floor(paw.time.tempo_at(position) * 10 + 0.5) / 10
       return {{string.format("%g bpm %d/%d", bpm, num, den), "StatusLine"}}
     end,
   }

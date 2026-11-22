@@ -876,6 +876,38 @@ test(":nest.new Ballad 8 6/8 meter=own keeps the song's map; inside it, its bars
   eq(table.concat(said, "\n"):find("nest Ballad · 6/8 · 8 bars", 1, true) ~= nil, true, table.concat(said, "\n"))
 end)
 
+test(
+  "inside a meter=own 6/8 subproject, the ruler, the grid and the status line count 6/8; the song's stay 4/4",
+  function()
+    metal()
+    paw.opt.zoom = 2
+    -- The columns between the bar numbers of the ruler, and between the grid's
+    -- bar lines on the track's row, and the meter in the status line.
+    local function counted()
+      local rows = api.ui_snapshot(W, H)
+      local ruler = rows[1]:match("│(.*)$"):gsub("▏", "'")
+      local lane = rows[3]:match("│(.*)$"):gsub("▏", "|")
+      local function gaps(row, pattern)
+        local at, out = {}, {}
+        for x in row:gmatch("()" .. pattern) do
+          at[#at + 1] = x
+        end
+        for i = 2, math.min(#at, 4) do
+          out[#out + 1] = at[i] - at[i - 1]
+        end
+        return table.concat(out, " ")
+      end
+      local meter = table.concat(rows, "\n"):match("bpm (%d+/%d+)")
+      return gaps(ruler, "%f[%d]%d+") .. " | " .. gaps(lane, "|") .. " | " .. meter
+    end
+    keys("33|")
+    keys(":nest.new Ballad 8 6/8 meter=own<CR>")
+    eq(counted(), "6 6 6 | 6 6 6 | 6/8", "inside: a bar every 3 beats (6 eighths)")
+    keys("zw")
+    eq(counted(), "8 8 8 | 8 8 8 | 4/4", "the song outside: a bar every 4 beats")
+  end
+)
+
 test("inside a subproject with its own tempo, :tempo sets its tempo and the status line says own tempo", function()
   local b = cue()
   paw.cursor.set_track(b.row)

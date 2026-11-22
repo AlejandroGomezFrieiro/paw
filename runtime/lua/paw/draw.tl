@@ -18,7 +18,6 @@ local type partial = require("paw.partial")
 local type objects = require("paw.objects")
 local type GroupsModule = require("paw.groups")
 local type MusicModule = require("paw.music")
-local type TempoModule = require("paw.tempo")
 local type UtilModule = require("paw.util")
 
 -- What this module reads of `paw`, which paw/init.lua makes.
@@ -31,7 +30,6 @@ local record Paw is partial.Paw
   ui: Ui
   groups: GroupsModule
   music: MusicModule
-  tempo: TempoModule
   time: objects.Time
   util: UtilModule
 end
@@ -1044,14 +1042,14 @@ function M.piano_key(
   end
 end
 
---- The bars and beats from `from` for `span` beats, as the project counts
---- them. `{ beat = b, bar = n }` is a bar line (n from 1), and
---- `{ beat = b }` is a beat inside a bar. Bar lines come from
---- `paw.time.bar_start`, so a change of time signature moves them.
+--- The bars and beats from `from` for `span` beats of the window's time, as
+--- the window counts them (`paw.time.lines`): in a subproject with its own
+--- meter, its bars. `{ beat = b, bar = n }` is a bar line (n from 1), and
+--- `{ beat = b }` is a beat inside a bar. A change of time signature moves them.
 function M.bar_lines(from: number, span: number): {BarLine}
-  -- From the tempo map: bars, and the beats of the signature in each.
+  -- From the window's map: bars, and the beats of the signature in each.
   local out: {BarLine} = {}
-  for _, line in ipairs(paw.tempo.lines(from - 1e-9, from + span + 1e-9)) do
+  for _, line in ipairs(paw.time.lines(from - 1e-9, from + span + 1e-9)) do
     out[#out + 1] = line.index == 0 and {beat = line.beat, bar = line.bar} or {beat = line.beat}
   end
   return out

@@ -942,6 +942,7 @@ local record types
     bbt: function(self: NestTime, beat: number): integer, integer, number
     from_bbt: function(self: NestTime, bar: integer, beat: integer, fraction?: number): number
     points: function(self: NestTime): TempoPoints
+    lines: function(self: NestTime, from: number, to: number, limit?: integer): {TempoLine}
   end
 
   --- A tempo point placed in seconds, for `tempo_from_seconds`.
