@@ -39,7 +39,7 @@ Use the helpers of `T`. Do not copy them into a file (a local `start`,
 | `T.screen(w, h)` | The text of the screen, 120 by 40 if no size is given. |
 | `T.after(fn)` | Put back what the test changed. It runs after the test, also after a failure. |
 | `T.keys(text)` | Feed keys through the keymap, as the user types them (`"<Esc>dd"`). |
-| `T.eq(got, want, what)`, `T.near(got, want, tolerance, what)` | Compare a value. `what` tells what the value is. |
+| `T.eq(got, want, what)`, `T.near(got, want, tolerance, what)` | Compare a value. `what` tells what the value is. `T.eq` compares two tables by their values (deep). |
 | `T.fails(fn, pattern, what)` | `fn` gives an error that matches `pattern`. |
 | `T.render(opts)` | Render offline to a file under `T.scratch`. The result does not depend on the machine. |
 | `T.frequency(info, from, to)`, `T.channel_peaks(info, from, to)` | Read a render. |

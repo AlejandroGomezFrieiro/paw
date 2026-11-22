@@ -55,8 +55,15 @@ local function last(name, fn) lasts[#lasts + 1] = { name = name, fn = fn, part =
 local cleanups = {}
 local function after(fn) cleanups[#cleanups + 1] = fn end
 
+-- Two tables are equal when they hold the same values: paw.inspect sorts
+-- the keys, so equal tables give the same text.
+local function same(got, want)
+  if type(got) == "table" and type(want) == "table" then return paw.inspect(got) == paw.inspect(want) end
+  return got == want
+end
+
 local function eq(got, want, what)
-  if got ~= want then
+  if not same(got, want) then
     error(string.format("%s: got %s, want %s", what or "value", paw.inspect(got), paw.inspect(want)), 2)
   end
 end
