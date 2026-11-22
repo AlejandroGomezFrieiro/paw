@@ -1,0 +1,13 @@
+# Flaky tests in quarantine (AGENTS.md, "How to work").
+#
+# One line for each test: the full name of the test, a tab, and the ticket
+# that fixes it, for example:
+#
+#   the vocal editor selects a phrase	TASK-144
+#
+# A test in this list runs and reports "quarantined" when it fails, and the
+# run does not fail. Each line has a ticket. The list only gets shorter: when
+# the ticket is done, remove the line.
+#
+# The runner does not read this file yet. Until it does, a failure of a test
+# in this list still fails the run, and the person who merges reads the list.
