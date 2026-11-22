@@ -148,7 +148,7 @@ function M.folded(group: TrackRef): boolean
 end
 
 --- True if a track is hidden: inside a folded group. Inside group `top`
---- (the group of a narrowed tab), only the groups inside it count. `top`
+--- (the group of a narrowed window), only the groups inside it count. `top`
 --- itself is open there.
 function M.hidden(track: TrackRef, top?: integer): boolean
   if top and id_of(track) == top then

@@ -889,7 +889,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.groups.fold(group, on)`: Fold a group away, or open it, in the current window: `on` nil flips it. View state: no undo step (paw/folds.tl).
 - `paw.groups.folded(group)`: True if the tracks of a group are folded and hidden, in the window a view shows (paw/folds.tl).
 - `paw.groups.gather(group)`: Put a group's members right under it, in the order they are in.
-- `paw.groups.hidden(track, top)`: True if a track is hidden: inside a folded group. Inside group `top` (the group of a narrowed tab), only the groups inside it count. `top` itself is open there.
+- `paw.groups.hidden(track, top)`: True if a track is hidden: inside a folded group. Inside group `top` (the group of a narrowed window), only the groups inside it count. `top` itself is open there.
 - `paw.groups.is_group(track)`: True if a track is a group.
 - `paw.groups.link(group, on)`: Link the faders of a group's members, or let them go: `on` nil flips it.
 - `paw.groups.linked(group)`: True if the faders of the members of a group are linked. When one moves, the others move by the same number of dB. This is separate from the routing, which a group also has.
@@ -1816,7 +1816,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.roll_clips.step_track(n, wrap)`: Make active the track `n` places after the track of the active clip, in the tracks that the roll shows (before it with a negative `n`). Its clip under the cursor gets the new notes. The notes of the old clip show behind. With `wrap`, it goes round. False when the roll shows no other track.
 - `paw.roll_clips.target(beat, parts)`: The editable clip a new note at `beat` goes into: the active one, unless the beat is outside it and inside another. Returns the part.
 - `paw.roll_clips.toggle(id)`: Add a clip to the editable set, or remove it. If you remove the active clip, the next clip becomes active. The last clip stays.
-- `paw.roll_clips.tracks()`: The tracks whose notes can show behind the notes of the roll. These are the tracks with MIDI clips (of the scope, in a narrowed tab), but not the track of the active clip. `{ id, name, color, drums, on }` each. `on` tells if its notes show.
+- `paw.roll_clips.tracks()`: The tracks whose notes can show behind the notes of the roll. These are the tracks with MIDI clips (of the scope, in a narrowed window), but not the track of the active clip. `{ id, name, color, drums, on }` each. `on` tells if its notes show.
 - `paw.roll_clips.visible()`: The tracks whose notes the roll shows, in the order of the track list: the active clip's and those shown behind it.
 
 ## Module paw.roll_draw
@@ -2040,7 +2040,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.stems.command(ctx, opts)`: What `:render stems` and `:render <group>` do with the command's options.
 - `paw.stems.confirm(plan, dir, opts)`: Show a plan and render it on `y`.
 - `paw.stems.names_group(word)`: True if `:render <word>` names a group to render alone, and not a file: the name of a group, with no file ending.
-- `paw.stems.plan(opts)`: What the stems would be: a list of `{ id, name, file, holds }`, in the order of the track list. `opts`: `dir` (where; `stems` in the renders folder by default, see `paw.render.renders_dir`), `format` ("wav", the default, "flac", "mp3", "ogg", "opus"), `tracks` (one per track, not per group), `group` (that group, or track, alone). In a narrowed tab, the parts of its group.
+- `paw.stems.plan(opts)`: What the stems would be: a list of `{ id, name, file, holds }`, in the order of the track list. `opts`: `dir` (where; `stems` in the renders folder by default, see `paw.render.renders_dir`), `format` ("wav", the default, "flac", "mp3", "ogg", "opus"), `tracks` (one per track, not per group), `group` (that group, or track, alone). In a narrowed window, the parts of its scope.
 - `paw.stems.render(plan, opts)`: Write the stems of a plan, with `paw.render`'s options (`background` renders them one after another). Returns the files.
 
 ## Module paw.step
@@ -2412,8 +2412,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
     fit = function() ... return "staff size as the option says" end })
   ```
 - `paw.vzoom.fit(opts)`: Give back the rows the options say: the focused view's, or `opts.view`'s.
-- `paw.vzoom.key_rows()`: Rows per key in the piano roll: 1 unzoomed.
-- `paw.vzoom.lane_rows()`: Rows per automation lane shown as a row in the arrange view: 2 unzoomed.
+- `paw.vzoom.key_rows()`: Rows per key in the piano roll: 1 at no zoom.
+- `paw.vzoom.lane_rows()`: Rows per automation lane shown as a row in the arrange view: 2 at no zoom.
 - `paw.vzoom.rows_of(id)`: The rows of a track of its own in the arrange view's window, or nil.
 - `paw.vzoom.step(by, opts)`: Make the rows of a view `by` taller (shorter when negative): the focused view's, or `opts.view`'s.
 - `paw.vzoom.track_rows()`: Rows per track in the arrange view's window, or nil for the option's.

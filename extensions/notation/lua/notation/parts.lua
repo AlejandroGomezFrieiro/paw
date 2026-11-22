@@ -1032,7 +1032,7 @@ end
 --- or the song changes.
 function P.view_layout(v)
   local shown = v.parts
-  -- A score that follows the scope shows the tracks the tab is narrowed to.
+  -- A score that follows the scope shows the tracks of the scope of the window.
   local tracks = shown.tracks
   local scope = shown.scope and rawget(paw, "scope")
   if scope and scope.limits_tracks() then tracks = scope.tracks() end

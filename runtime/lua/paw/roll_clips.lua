@@ -308,7 +308,7 @@ local function request()
 end
 
 --- The tracks whose notes can show behind the notes of the roll. These are
---- the tracks with MIDI clips (of the scope, in a narrowed tab), but not the
+--- the tracks with MIDI clips (of the scope, in a narrowed window), but not the
 --- track of the active clip. `{ id, name, color, drums, on }` each. `on`
 --- tells if its notes show.
 function M.tracks()

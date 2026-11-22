@@ -1393,6 +1393,82 @@ test("guide: work on one section of a song", function()
   paw.opt.scopebars, paw.opt.scopeloop = "both", true
 end)
 
+test("guide: work on a section in another meter", function()
+  start()
+  local tracks = {}
+  for _, name in ipairs({ "Piano", "Strings", "Drums" }) do
+    tracks[#tracks + 1] = paw.add_track({ name = name })
+    tracks[#tracks]:add_clip({ name = name, start = 0, length = 128 })
+  end
+  -- A second region after the bridge, for ]z: bars 31 and 32 of the song.
+  paw.markers.add(112, "Outro", { length = 8 })
+  paw.cursor.set_track(tracks[1])
+  api.undo_checkpoint()
+  local function said() return paw.ui.message and paw.ui.message.text or "" end
+  local function meter(beat) return table.concat({ paw.tempo.signature_at(beat) }, "/") end
+
+  -- Put the meter in the song.
+  keys(":timesig 6/8 at 17<CR>")
+  eq(said(), "6/8 from bar 17", ":timesig 6/8 at 17")
+  keys(":timesig 4/4 at 25<CR>")
+  eq(meter(64) .. " " .. meter(88), "6/8 4/4", "bars 17 to 24 are in 6/8")
+
+  -- Make a region over the section.
+  keys("17|v8W<Space>rn")
+  keys("Bridge<CR>")
+  local bridge = paw.markers.region("Bridge")
+  eq(bridge and bridge.beat .. "+" .. bridge.length, "64+24", "the region is eight bars of 6/8")
+  eq(said():find("at 17.1.00, 24 beats", 1, true) ~= nil, true, "the message gives its start and length: " .. said())
+
+  -- Work in the section.
+  keys("<Esc>20|znar")
+  eq(
+    said(),
+    "Song › Bridge · bars 1-8 (song 17-24) · 6/8 · 3 tracks · `zw` goes back",
+    "znar enters the bridge and describes it"
+  )
+  shows("Song › Bridge 1.1 (17.1)", "the status line gives both places")
+  shows("1‖6/8", "the ruler counts from 1 in 6/8")
+  local tr = paw.transport
+  eq(tr.loop_enabled and tr.loop_start .. "-" .. tr.loop_end, "64-88", "the loop is the bridge")
+  keys("3|")
+  eq(paw.cursor.beat, 70, "3| is bar 3 of the bridge, bar 19 of the song")
+  keys("@19|")
+  eq(paw.cursor.beat, 70, "@19| is bar 19 of the song")
+  keys("K")
+  shows("bars 1-8 (song 17-24) · 6/8", "K describes the bridge")
+  keys("<Esc>]z")
+  eq(paw.scope.breadcrumb(), "Song › Outro", "]z goes to the next region")
+  keys("[z")
+  eq(paw.scope.breadcrumb(), "Song › Bridge", "[z comes back")
+  keys("zw")
+  eq(paw.scope.current(), nil, "zw returns to the song")
+
+  -- Fold the section away.
+  keys("20|zfar")
+  shows("Bridge ▸ 8", "zfar folds the bridge into one column")
+  keys("znn")
+  eq(paw.scope.breadcrumb(), "Song › Bridge", "znn on the column enters the bridge")
+  keys("zw")
+  shows("Bridge ▸ 8", "zw returns to the column, still folded")
+  keys("za")
+  eq(screen():find("Bridge ▸ 8", 1, true), nil, "za opens the fold")
+
+  -- If some tracks stay in the old meter.
+  start()
+  local piano = paw.add_track({ name = "Piano" })
+  paw.cursor.set_track(piano)
+  api.undo_checkpoint()
+  keys("17|:nest.new Bridge 8 6/8 meter=own<CR>")
+  eq(said():find("(the song's meter stays)", 1, true) ~= nil, true, "the song keeps its meter: " .. said())
+  eq(paw.scope.breadcrumb(), "Song › ⧉Bridge", "the window is inside the subproject")
+  eq(#paw.scope.tracks(), 1, "with one empty track")
+  keys("3|")
+  eq(paw.cursor.beat, 6, "3| is bar 3 of 6/8 inside")
+  keys("zw")
+  eq(meter(64), "4/4", "the song stays in 4/4")
+end)
+
 test("guide: select a chord, a phrase, a voice or a pitch in the piano roll", function()
   start()
   local function N(pitch, s, length) return { pitch = pitch, start = s, length = length, velocity = 100 } end
