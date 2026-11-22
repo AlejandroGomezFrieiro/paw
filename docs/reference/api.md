@@ -874,7 +874,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.grep.fields()`: The fields text can be found in, for completion.
 - `paw.grep.matcher(pattern, mode)`: A test of text: `mode` "regex" (`paw.regex`), "exact" (the words, each anywhere) or "fuzzy" (as the pickers match). Raises an error for a bad regular expression.
 - `paw.grep.reader()`: The records of `records` read in slices, for a picker (`paw.slices`): each call of the function gives the records found in about `ms` milliseconds, and true when all are read.
-- `paw.grep.records()`: Every record of every source, in the order the sources were added. A source that fails is passed over and logged.
+- `paw.grep.records()`: Every record of every source, in the order the sources were added. A source that fails is passed over and logged. paw keeps the records of the tracks and the clips from one search to the next, so read a record and don't change it.
 - `paw.grep.search(pattern, opts)`: The records whose text matches `pattern`. `opts.mode` is as `matcher` takes it. `opts.fields` is a set of fields to search (all without it).
 - `paw.grep.source(name, fn)`: Add a source of text, or replace the one of that name.
 - `paw.grep.vimgrep(line, opts)`: What `:vimgrep` does: search, fill the list, go to the first place found unless the flags hold `j`. `opts.loc` the window's location list, `opts.add` adds to the current list. Returns the records found.
@@ -1689,7 +1689,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.query.get(node, name)`: A node's field, or nil.
 - `paw.query.location(node)`: A node's location, as the quickfix list and `paw.qf.go` take them.
 - `paw.query.parse(q)`: Read a query (text or the table form) once, to run it often. Raises an error that says what is wrong with it.
-- `paw.query.run(q)`: Every node a query finds, in the order of the tree (each query of a list of them in turn, none twice).
+- `paw.query.run(q)`: Every node a query finds, in the order of the tree (each query of a list of them in turn, none twice). paw keeps the nodes of clips and notes from one query to the next until their clip changes, so read a node and don't change it.
 
   ```lua
   for _, n in ipairs(paw.query("note[pitch>=c6]")) do print(n.data.pitch) end

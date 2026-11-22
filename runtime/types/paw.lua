@@ -3634,7 +3634,9 @@ function paw.grep.matcher(pattern, mode) end
 function paw.grep.reader() end
 
 --- Every record of every source, in the order the sources were added.
---- A source that fails is passed over and logged.
+--- A source that fails is passed over and logged. paw keeps the records of
+--- the tracks and the clips from one search to the next, so read a record
+--- and don't change it.
 function paw.grep.records() end
 
 --- The records whose text matches `pattern`. `opts.mode` is as `matcher`
@@ -6719,7 +6721,9 @@ function paw.query.location(node) end
 function paw.query.parse(q) end
 
 --- Every node a query finds, in the order of the tree (each query of a
---- list of them in turn, none twice).
+--- list of them in turn, none twice). paw keeps the nodes of clips and
+--- notes from one query to the next until their clip changes, so read a
+--- node and don't change it.
 ---   for _, n in ipairs(paw.query("note[pitch>=c6]")) do print(n.data.pitch) end
 ---@param q any
 function paw.query.run(q) end
