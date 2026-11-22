@@ -92,8 +92,8 @@ how to put paw in your profile.
 
 ## Try it in your browser
 
-<!-- SLOT: Try it in your browser. TASK-108 builds the pod, and TASK-107
-     builds the course page. Put the embed in the div below. -->
+<!-- SLOT: Try it in your browser. The live paw (a BrowserPod image) goes
+     in the div below when it is ready. -->
 
 <div id="try-in-browser" class="landing-slot">
 

@@ -3110,6 +3110,7 @@ dependencies = [
  "realfft",
  "rtrb",
  "rubato",
+ "rustc-hash",
  "rustix 1.1.6",
  "rustls",
  "serde",

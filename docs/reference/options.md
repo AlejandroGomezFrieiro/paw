@@ -47,6 +47,8 @@ An extension adds options of its own with `paw.option.define(name, default, spec
 | --- | --- | --- |
 | `paw.opt.undo_steps` | `1000` | The number of steps that the undo history keeps, 10 to 1000000. |
 | `paw.opt.undo_memory` | `1024` | About how many megabytes of changes the undo history keeps, from 16. |
+| `paw.opt.shada` | `true` | paw keeps the prompt histories, the last search, the registers and, for each project, the marks and the last cursor across restarts. See [Files that paw keeps](state-files.md#editing-history). |
+| `paw.opt.history` | `200` | The number of lines that each prompt history keeps, 1 to 100000. |
 | `paw.opt.autosave` | `60` | The seconds between safety copies of unsaved work. `0` gives no copies. It is `0` under `--clean`. |
 | `paw.opt.reopen_last` | `false` | A start with no project opens the newest recent project. |
 | `paw.opt.lua_limit` | `2000` | The time in ms after which paw stops Lua code that does not return. `0` gives no limit. |
@@ -69,7 +71,7 @@ When the undo history has more steps than `undo_steps` or more data than `undo_m
 | `paw.opt.play_from` | `"cursor"` | Where play and record start from a stop. `"cursor"` is the cursor of the view that has the keys, wherever the playhead is, and `"playhead"` is the old way, where `<Space><Space>` plays from the playhead and `<S-CR>` from the cursor. |
 | `paw.opt.midi_record` | `"new"` | What a MIDI take over a clip does. `"new"` makes a clip of its own, and `"merge"` joins its notes into the clip under it (overdub). |
 | `paw.opt.threads` | `0` | The threads that process tracks. `0` gives one for each core. |
-| `paw.opt.device_sleep` | `true` | A device at rest sleeps through silence, e.g., a reverb after its tail or a synth with no note that sounds, which saves processor time. The sound is the same with `false`. |
+| `paw.opt.device_sleep` | `true` | A device at rest sleeps through silence, e.g., a reverb after its tail or a synth with no note that sounds, which saves processor time. When the song is stopped and nothing sounds, the whole engine rests (see [The engine at rest](engine.md#the-engine-at-rest)). The sound is the same with `false`. |
 | `paw.opt.audio_reconnect` | `true` | paw opens an audio device again when it returns. |
 | `paw.opt.scope_rest` | `"play"` | What the tracks outside the scope do while a narrowed window is in front: `"play"`, `"mute"` or `"frozen"`. |
 | `paw.opt.scopebars` | `"both"` | The bar numbers in a scope with time: `"local"` (from 1 at its start), `"song"`, or `"both"` (from 1, and the bars of the song on a second row of the ruler). |

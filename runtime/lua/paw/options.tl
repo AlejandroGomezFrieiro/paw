@@ -157,6 +157,10 @@ local defaults: {string: Value} = {
   -- what they changed; past either its oldest steps are let go.
   undo_steps = 1000,
   undo_memory = 1024,
+  -- What paw keeps across restarts (paw/shada.tl): on or off, and how many
+  -- lines each prompt's history holds.
+  shada = true,
+  history = 200,
 }
 
 -- What an option takes besides its default's type (M.Spec).
@@ -193,6 +197,7 @@ local specs: {string: Spec} = {
   autosave = {min = 0},
   undo_steps = {min = 10, max = 1000000, integer = true},
   undo_memory = {min = 16, max = 1048576},
+  history = {min = 1, max = 100000, integer = true},
 }
 
 local function has<T>(list: {T}, value: T): boolean

@@ -1067,6 +1067,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   Each key with `role` "second+" or "second-" (the `[` and `]` of a view) does so. The same key again is a second press. Another key soon after it that makes a longer mapping (`]g`, `]q`) takes back its change and runs that mapping. On a selection, the selection opens again for that mapping.
 - `paw.keymap.set_mode(mode)`: Change mode. When visual mode stops, the selection closes. `gv` opens it again.
 - `paw.keymap.setreg(value, name, yank)`: Put a value in a register: the unnamed register, and `name` if given. With `yank` and no name, it also goes to `"0`, which a delete never changes. A value is a table with a `kind`. The code that yanks and pastes it decides what else it contains. `"_` discards.
+- `paw.keymap.shada_project()`: What belongs to a project, for `paw.shada`: the marks, the jump lists (without where `<C-o>` is) and the places of the edits, each by view.
+- `paw.keymap.shada_set_project(data)`: Put back what `shada_project` gave, in place of the marks and places now.
+- `paw.keymap.shada_set_user(data)`: Put back what `shada_user` gave.
+- `paw.keymap.shada_user()`: What belongs to the user, for `paw.shada`: the last search and the registers (as a table of registers by name).
 - `paw.keymap.textobject(lhs, fn, opts)`: Define a text object: `fn(ctx)` returns a region, or nil when there is nothing of that kind at the cursor.
 
   ```lua
@@ -1888,6 +1892,12 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.seats.open(id, why)`: Give connection `id` its own seat, for a reason (`terminal`, `window`). The seat stays while a reason stays.
 - `paw.seats.within(id, fn, ...)`: Run `fn` in seat `id` (in the seat of the instance, if that seat closed), then return to the current seat.
 
+## Module paw.shada
+
+- `paw.shada.read()`: Read what is kept: yours, and the current project's.
+- `paw.shada.use(file)`: Keep the files in `file` (and the project files where they always are), and keep for all start options, for tests. `use()` sets all back.
+- `paw.shada.write()`: Write what is kept: yours, and the current project's.
+
 ## Module paw.snippet
 
 - `paw.snippet.active()`: The active snippet, or nil. A snippet ends when the project changed other than through it, or the piano roll's cursor left its span.
@@ -2390,7 +2400,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.engine_midi_filter(name, rules)`: Controls of MIDI input that tracks do not get: they neither sound nor record. Scripts still hear them, as `midi.in` events with `filtered = true`. Each `name` (`"step"`, `"learn"`) keeps its own list beside the others; nil or an empty list removes it.
 - `paw.api.engine_reset_stats()`: Forget the process times that `engine_get().blocks` recorded until now.
 - `paw.api.engine_restart(opts)`
-- `paw.api.engine_set_sleep(sleep)`: With true, devices at rest sleep through silence: a reverb after its tail, a synth with no note that sounds. The sound is the same with false. `engine_get().device_sleeps` counts the blocks that devices slept through.
+- `paw.api.engine_set_sleep(sleep)`: With true, devices at rest sleep through silence: a reverb after its tail, a synth with no note that sounds. When the song is stopped and nothing sounds, the whole engine rests. The sound is the same with false. `engine_get().device_sleeps` counts the blocks that devices slept through, and `engine_get().engine_rests` the blocks that the engine rested.
 - `paw.api.engine_set_threads(threads)`: The number of threads that process tracks, with the audio thread. 0 lets paw select the number. `engine_get().threads` gives the number in use.
 - `paw.api.env()`
 - `paw.api.events_take()`
