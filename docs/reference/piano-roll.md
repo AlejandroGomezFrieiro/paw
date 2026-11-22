@@ -165,6 +165,8 @@ The chord replaces the note, and all of its notes are the note that you draw, so
 
 An extension adds keys to the pencil with `paw.roll_draw.key(lhs, spec)`. `paw.roll_draw.articulation(provider)` gives `a` its names and what they set on a note, and the articulations extension uses it. `spec.run(count, char)` changes the notes that `paw.roll_draw.pen()` gives and then calls `paw.roll_draw.shown()`, and `paw.chords.quality(suffix, steps)` adds the name of a chord.
 
+The key bar of the pencil shows the keys of extensions after its own keys, with the start of each `spec.desc`. `spec.order` gives their order: a lower number comes first, and keys with the same number go by their names. The default is 50. `paw.roll_draw.keys` holds them by key, and when an extension unloads, its keys go.
+
 ## Step input
 
 <!-- tags: step-input -->

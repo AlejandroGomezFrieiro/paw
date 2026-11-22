@@ -44,6 +44,7 @@ local record RollDraw
   stepping: function(): boolean
   describe: function(): string
   edge_now: function(): string
+  list: function(): {InsertKind}
 end
 local record Paw is partial.Paw
   ui: Ui
@@ -82,6 +83,14 @@ function M.show(lhs: string): string
   local out = paw.keymap.expand(lhs)
   out = out:gsub("<C%-(.)>(.*)", "Ctrl-%1 %2"):gsub("%s+$", "")
   return names[out] or out
+end
+
+-- A key's `desc` as the key bar shows it: up to its first `;` `:` or
+-- `,`, with no "A" or "An" before, in lower case. "A region; Enter names
+-- it" is "region", "Staccato: half as long" is "staccato".
+local function short_desc(desc: string): string
+  local text = (desc or ""):gsub("^An? ", "")
+  return (text:match("^[^;:,]+") or text):lower()
 end
 
 --- The entries of a line, called if it is a function.
@@ -186,7 +195,7 @@ M.lines.arrange = {
       out[1] = {"", "times", tostring(count)}
     end
     for _, spec in ipairs(paw.insert and paw.insert.list() or {}) do
-      out[#out + 1] = {spec.key, (spec.desc:match("^An? ([^;:,]+)") or spec.desc):lower()}
+      out[#out + 1] = {spec.key, short_desc(spec.desc)}
     end
     for _, entry in ipairs({{"<CR>", "open"}, {"<BS>", "back"}, {"K", "keys"}, {"<Esc>", "done"}}) do
       out[#out + 1] = entry
@@ -237,8 +246,12 @@ M.lines.pianoroll = {
       {"c", "chord"},
       {"<CR>", "next"},
       {"<Space>", "rest"},
-      {"<Esc>", "write"},
     }
+    -- The keys that extensions added (`paw.roll_draw.key`), in their order.
+    for _, spec in ipairs(paw.roll_draw and paw.roll_draw.list() or {}) do
+      out[#out + 1] = {spec.key, short_desc(spec.desc)}
+    end
+    out[#out + 1] = {"<Esc>", "write"}
     if now then
       local pitch, length = now:match("^(.-) · (.*)$")
       table.insert(out, 1, {"", length, pitch})

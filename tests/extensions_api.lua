@@ -261,6 +261,63 @@ test("an extension's language server in this process starts again when the exten
   T.until_(function() return _G.served_starts == 2 end, "the server of the new load to start")
 end)
 
+test("an extension's pencil keys and insert keys work, show in the key bar by order, and go when it unloads", function()
+  T.fresh()
+  T.after(function()
+    paw.keymap.feed("<Esc><Esc>")
+    paw.ui.hide("pianoroll")
+    paw.ui.focus("arrange")
+    paw.ext.unload("pens")
+    _G.pens_ran = nil
+  end)
+  local root = dir("pens")
+  write(root .. "/manifest.lua", 'return { version = "0.1.0", description = "pencil keys" }')
+  write(
+    root .. "/init.lua",
+    [[
+    local function ran(what) _G.pens_ran = (_G.pens_ran or "") .. what end
+    paw.roll_draw.key("gs", { desc = "Staccato: half as long", run = function() ran("s") end })
+    paw.roll_draw.key("gz", { desc = "Zig", order = 5, run = function() ran("z") end })
+    paw.insert.add("Q", { desc = "A cue", order = 15, insert = function() ran("q") return nil, "no cue" end })
+  ]]
+  )
+  eq(table.concat(paw.opt.insertkeys, ","), "m,a,r,',f", "the built-in insert keys")
+  eq(paw.ext.load(root).ok, true, "loads")
+  eq(table.concat(paw.opt.insertkeys, ","), "m,Q,a,r,',f", "its insert key goes in by its order")
+  eq(provided("pens", "pencil"), "gs (pencil) gz (pencil)", "it owns its pencil keys")
+  eq(provided("pens", "insert"), "Q (insert mode)", "and its insert key")
+
+  local track = paw.add_track({ name = "Lead" })
+  local clip = track:add_clip({ name = "tune", start = 0, length = 4 })
+  paw.ui.focus("arrange")
+  T.keys("iQ<Esc>")
+  paw.ui.show("pianoroll")
+  paw.ui.views.pianoroll:edit(clip)
+  T.keys("i")
+  local line = {}
+  for _, entry in ipairs(paw.ui.keybar.entries()) do
+    line[#line + 1] = entry[1] .. " " .. entry[2]
+  end
+  line = table.concat(line, ", ")
+  eq(
+    line:find("Space rest, gz zig, gs staccato, Esc write", 1, true) ~= nil,
+    true,
+    "the key bar lists its keys by order, then by key: " .. line
+  )
+  T.keys("gsgz<Esc>")
+  eq(_G.pens_ran, "qsz", "its keys work")
+
+  eq(paw.ext.unload("pens"), true, "unloads")
+  eq(paw.roll_draw.keys.gs, nil, "its pencil key is gone from paw.roll_draw.keys")
+  eq(paw.roll_draw.keys.gz, nil, "both of them")
+  eq(paw.insert.kinds.Q, nil, "its insert key is gone")
+  eq(table.concat(paw.opt.insertkeys, ","), "m,a,r,',f", "and out of paw.opt.insertkeys")
+  T.keys("igsgz<Esc>")
+  paw.ui.focus("arrange")
+  T.keys("iQ<Esc>")
+  eq(_G.pens_ran, "qsz", "its keys no longer work")
+end)
+
 test(":ext.unload takes a bundled extension away and :ext.load brings it back", function()
   T.fresh()
   local had = paw.ext.loaded.musicops ~= nil
