@@ -217,6 +217,26 @@ goes down.
 - The test files. The runner loads them with `loadfile`. They can move
   later.
 
+## The tools for Teal and Lua
+
+The dev shell of the flake has these tools. Each one uses Teal 0.24.8, the
+version in `runtime/lua/tl.lua`, and LuaJIT, as paw does.
+
+- `cyan check` checks the types of all of the Teal files in one process.
+  `tools/tlcheck.sh` runs it, and so does the `teal` check of the flake.
+  The program `tl check` checks one file at a time, and it checks again
+  each module that the file uses. For the source tree, `cyan` takes 7
+  seconds and `tl check` took 100.
+- `teal-language-server` and `lua-language-server` give completion,
+  types and errors in an editor. The first reads `tlconfig.lua`, and the
+  second reads `.luarc.json`. See
+  [How to configure an editor for paw's code](../how-to/configure-an-editor-for-paws-code.md).
+- `tl` compiles one file, for example to look at the Lua that Teal makes
+  (`tl gen`).
+
+`nix/lua-tools.nix` pins the tools that nixpkgs does not have, or has in
+an old version or with a fault.
+
 ## The plan
 
 The order is from the bottom: a module moves after the modules that it

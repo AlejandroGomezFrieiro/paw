@@ -152,6 +152,7 @@ below link the main ones.
 - [How to write a completion source](how-to/write-a-completion-source.md)
 - [How to write a device in Lua](how-to/write-a-device-in-lua.md)
 - [How to write an extension in Teal](how-to/write-an-extension-in-teal.md): Lua with types, checked before it runs, and other languages
+- [How to configure an editor for paw's code](how-to/configure-an-editor-for-paws-code.md): completion, types and errors for Teal and Lua, with the two language servers
 - [How to write a language server](how-to/write-a-language-server.md)
 - [How to write an importer or exporter](how-to/write-an-importer-or-exporter.md): open and write the files of another program with `:import`, `:open` and `:export`
 - [How to give an extension an editor in the graphical window](how-to/add-an-editor-to-the-window.md)
