@@ -31,6 +31,23 @@ paw.midi.inject_ump({ 0x40903c00, 0xc0000000 })         -- and a packet, as if f
 
 The event `midi.in` comes for each message at a port, and `e.port` names the port.
 
+A script can take controls of a controller for itself with the input
+filter. A key or a controller in the filter does not sound and does not
+record. Scripts still get its `midi.in` event, with `e.filtered = true`.
+
+```lua
+paw.api.engine_midi_filter("step", { { port = "nanoPAD", note = 36 }, { cc = 64 } })
+paw.api.engine_midi_filter("step", nil)   -- removes the list of "step"
+```
+
+- Each rule has a `note` or a `cc` (0 to 127). `port` and `channel` (1 to
+  16) are optional. Without them, the rule applies to all ports and
+  channels.
+- Each name keeps its own list. The filter is all the lists together, not
+  more than 256 rules.
+- The release of a key that a track holds always gets to the track. So no
+  note continues to sound when the filter changes.
+
 - paw records the controller moves with the notes.
 - When playback starts in the middle of a clip, paw sends the last value of each controller before that point (chase).
 - Cut, join, copy and undo keep the moves, and the project file saves them exactly.

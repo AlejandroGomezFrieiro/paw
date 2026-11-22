@@ -8,6 +8,7 @@ use std::cell::Cell;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use paw_engine::midi_filter::{Control, MidiFilter, Rule};
 use paw_engine::record::{AudioCapture, Take, TakeShared};
 use paw_engine::{
     Attr, AudioData, AudioRegion, AutoLane, AutoTarget, Automation, ClipSet, Ctl, Delay,
@@ -553,6 +554,14 @@ fn the_audio_thread_never_allocates() {
         wraps_tx,
     );
     send(&mut handle, Msg::SetTake(Some(Box::new(take))));
+    // Some keys taken by the input filter, swapped in on the audio thread.
+    let rule = |key| Rule {
+        port: 77,
+        channel: 0,
+        control: Control::Note(key),
+    };
+    let filter = MidiFilter::try_from((40..50).map(rule).collect::<Vec<_>>()).unwrap();
+    send(&mut handle, Msg::SetMidiFilter(Box::new(filter)));
     for key in 40..60 {
         send(
             &mut handle,

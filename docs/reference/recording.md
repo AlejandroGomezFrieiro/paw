@@ -78,6 +78,13 @@ graphical window) lists all the inputs of a track:
   track of the cursor plays MIDI input as if its monitor is on, and it
   records nothing. `paw.opt.midi_follows_selection = false` turns the
   behavior off, and the project does not change.
+- **A track that always plays the keyboard.** A script, e.g. step input,
+  can give a track to `paw.api.engine_follow_always`. That track plays MIDI
+  input even while another track is armed, in place of the track of the
+  cursor, and it records nothing. The armed track still plays and records
+  the input.
+- **Filtered controls.** A key or a controller in the input filter doesn't
+  sound on any track and isn't recorded (see [MIDI](midi.md)).
 - **What records.** While `paw.transport.recording` is on and the
   transport plays:
   - each armed track with an audio input records its dry input (before
