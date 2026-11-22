@@ -46,6 +46,10 @@ An extension changes its glyphs and styles:
 paw.ruler.set_lane("regions", { styles = { level1 = "Title" }, glyphs = { open = "-" } })
 ```
 
+## Key changes
+
+A marker named `key D minor` is a key change, and the harmony reading uses it from its beat (see [Harmony](harmony.md)). The pencil's `mk` writes one, and so does `:key D minor at 17`, at bar 17. A region can have a `key` field, as in `paw.markers.add(32, "Verse", { length = 16, key = "E minor" })`, and `paw.markers.set(id, { key = "A minor" })` changes it. The region's key holds over its time.
+
 ## Keys and commands
 
 | Keys, command | Effect |

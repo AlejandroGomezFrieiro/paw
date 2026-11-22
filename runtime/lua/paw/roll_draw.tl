@@ -854,32 +854,12 @@ function M.chord(pitches: {integer}, name?: string)
   place()
 end
 
---- The key a marker names: "key D minor", or nil.
-local function key_of_marker(name: string): HarmonyModule.Key
-  local spec = (name or ""):match("^key:?%s+(.+)$")
-  if not spec then
-    return nil
-  end
-  local ok, key = pcall(paw.harmony.parse_key, spec) as (boolean, HarmonyModule.Key)
-  return ok and key or nil
-end
-
---- The key the pencil's chords are in: of the last key change (`mk`, a
---- marker "key D minor") at or before the pencil, else the project's,
---- else C major, said.
+--- The key the pencil's chords are in: `paw.harmony.key` at the pencil
+--- (a key change of `mk`, else the project's, else the one read); C major,
+--- said, when no key is written anywhere.
 local function key_here(): HarmonyModule.Key
   local beat = session.pen[1].start
-  local found: HarmonyModule.Key
-  for _, m in ipairs(paw.markers.list()) do
-    local k = m.beat <= beat + EPS and key_of_marker(m.name) or nil
-    if k then
-      found = k
-    end
-  end
-  if found then
-    return found
-  end
-  if not paw.harmony.project_key() then
+  if not paw.harmony.marked_key(beat) and not paw.harmony.project_key() then
     paw.notify("no key set: the chords are those of C major (:key sets one, mk a change)")
     return paw.harmony.parse_key("C major")
   end
