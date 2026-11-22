@@ -20,6 +20,14 @@ pub(super) struct EngineLink {
 }
 
 impl Session {
+    /// What changes of the engine by itself, without a table: the share
+    /// of its time that it is busy, the dropouts since it started, and the
+    /// frames of each callback (0 until it has run).
+    pub fn engine_load(&self) -> (f32, u32, u32) {
+        let shared = &self.engine.handle.shared;
+        (shared.cpu(), shared.xruns(), shared.period())
+    }
+
     pub fn engine_info(&self) -> Value {
         let info: &StreamInfo = &self.engine.stream.info;
         json!({

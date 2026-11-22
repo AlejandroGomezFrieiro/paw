@@ -612,6 +612,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.draw.keys(buf, x, y, entries, width, groups)`: A row of keys and their actions, for a line of hints: `{ { "o", "new track" }, ... }`, with a faint dot between them. `? keys` is always the last when it is in the list. Returns the columns used. The entries that do not fit are not shown.
 - `paw.draw.level(peak)`: How far up a meter a linear peak reaches, from 0 to 1 over 60 dB.
 - `paw.draw.meter(buf, x, y, width, peak, hold)`: A level meter `width` cells wide for a linear peak: a thin rail, lit from the left, green then yellow then red. With `hold` (a linear peak), the loudest of late is marked.
+- `paw.draw.meter_shown(width, peak, hold)`: What `meter` shows for these values in `width` cells, as a text: the cells lit full and half, and the cell of the peak held (-1: none).
 - `paw.draw.miniroll(notes, width, rows, zoom, from)`: Notes as a small piano roll of `rows` text rows, each `width` columns. A row holds two pitches, drawn with half blocks. `notes` have `start`, `length` and `pitch`. A column covers `1 / zoom` beats from `from`.
 - `paw.draw.mix(a, b, t)`: A color between two colors: `t` 0 gives `a`, 1 gives `b`.
 - `paw.draw.nearest256(hex)`: The nearest of the 256 colors to `#rrggbb`, from the 6x6x6 cube (16 to 231) or the grays (232 to 255). A color with little hue gets a gray. Returns its index and the color that the index shows.
@@ -623,6 +624,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.draw.sextant(bits)`: The character for a set of sextants (U+1FB00 to U+1FB3B, two columns by three rows): bits 1 to 32 are top left, top right, middle left, middle right, bottom left, bottom right. The patterns that are not in that block are a space, the left half, the right half and the full block.
 - `paw.draw.slider(buf, x, y, width, fraction, on, off)`: A slider `width` cells wide with its knob `fraction` of the way along.
 - `paw.draw.stereo_meter(buf, x, y, width, left, right)`: The two sides of a stereo level in one row that is `width` cells wide. The left side is in the upper half of each cell, the right in the lower.
+- `paw.draw.stereo_meter_shown(width, left, right)`: What `stereo_meter` shows for these values in `width` cells, as a text: the cells lit on each side.
 - `paw.draw.term_def(def, truecolor)`: A highlight definition as this terminal can show it. On a terminal without 24-bit color, each `#rrggbb` becomes the nearest of the 256.
 - `paw.draw.trace(width, samples, y, sub, kind)`: A connected line over a grid of cells, for a curve. `y(sx)` gives the row of the line from the top, in `sub` rows for each cell (3 for sextants, 4 for braille). `sx` counts from 0, with two samples for each cell. `y(sx)` gives nil for no line, and there are `samples` of them. The function fills a jump from the last row to this row, to keep the line connected. Returns `{ [row * width + col] = bits }`, the bits as `M.sextant` or `M.braille` take them.
 - `paw.draw.track_colour(track, index)`: The color of a track: its own color if it has one. If not, a color of the theme, by the place of the track in the track list.
@@ -1714,7 +1716,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.roles
 
 - `paw.roles.begin(name, win)`: A view is about to be drawn on the terminal's screen (`win`, the id of its window, if any): its hit regions start afresh.
-- `paw.roles.define(name, spec)`: Define a role. `spec.cells(buf, props, ctx)` draws it in cells. It is necessary, because the terminal comes first. `spec.props` names its props and their contents, for documentation and `paw.ui.roles`. `spec.bound` is the props that a frontend takes from the live value when the mark is bound to one. paw does not send these props.
+- `paw.roles.define(name, spec)`: Define a role. `spec.cells(buf, props, ctx)` draws it in cells. It is necessary, because the terminal comes first. `spec.props` names its props and their contents, for documentation and `paw.ui.roles`. `spec.bound` is the props that a frontend takes from the live value when the mark is bound to one. paw does not send these props. `spec.stamp(buf, props)`, a text of what `cells` shows, lets a bound mark keep its cells between whole frames while it does not change.
 - `paw.roles.finish()`: The view being drawn is done: what it marks after is no hit region.
 - `paw.roles.gesture(view, e)`: An event on a hit region (`e.hit`, `e.rect`) to its view: true when it was taken.
 - `paw.roles.hit(buf, x, y, w, h, action)`: `buf:hit(x, y, w, h, action)`: make an area a hit region. A press, a move or the wheel there goes to the view's gesture for `action.kind`, in either frontend.
@@ -1957,6 +1959,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   which: "status" (default), "winbar", "inactive_winbar" or "tabline"
   ```
 - `paw.statusline.setup(opts)`: Change the line: only what is given changes. `sections` replaces the sections it names, `views` and the other bars likewise.
+- `paw.statusline.stamp(width, which, extra)`: A text of what the line for `width` columns is drawn from, between two whole frames: `moves` (or else `key`) of each component that is not `still`. Nil when a component shown has none of them (it may change at any time). Between whole frames, the screen draws the line again only when this text changes.
 - `paw.statusline.tabline(width)`: What the tab line holds at its right end, as pieces, for `width` columns.
 - `paw.statusline.tabline_always()`: True if the tab line shows with one tab.
 - `paw.statusline.winbar(view, focused)`: What the window with the keys (or another) adds to its title bar: the text of the `winbar` (or `inactive_winbar`), or nil when there is none.
@@ -2198,8 +2201,9 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
   paw does not call the callback when the user cancels the prompt. The options are those of the command line (`paw.views.cmdline.open`): `complete`, `history`, `on_change` (live preview), `anchor` (draw it next to its subject), `on_key`.
 - `paw.ui.layer(view, part, name, order, paint)`: Draw `paint(ctx)` as a layer of a part of a view (`"arrange", "header"`). It replaces a layer with the same name (nil removes it). The view tells what `ctx` contains where it calls `paw.ui.paint`.
-- `paw.ui.live(buf, draw_part)`: Draw a live part on `buf`: `draw(buf)` draws it, now and each time it is drawn again by itself.
+- `paw.ui.live(buf, draw_part, stamp, last)`: Draw a live part on `buf`: `draw(buf)` draws it, now and each time it is drawn again by itself. With `stamp`, a function that gives a text of the values the part is drawn from (nil: unknown), the part is drawn again only when that text changes; its cells stay as they were drawn. `last` is the text that it is drawn with, when paw draws it again.
 - `paw.ui.live_drawing()`: True if a live part drawn now is one of the terminal's screen.
+- `paw.ui.live_stamp(bind)`: A text of the live value `bind` now (`position` or `meter:<id>`), to tell whether a part bound to it changed: nil for any other value.
 - `paw.ui.live_value(bind, props)`: While a live part is drawn again: set the props of a mark bound to `bind` (`position`, `meter:<id>`, or a value that a view's `live_values()` gives) to the values of now.
 - `paw.ui.location(view, win)`: The location under the cursor of the focused view (or `view`). With `win`, the cursor of that window: each window of a view has its own.
 - `paw.ui.locator(view, spec)`: Say how a view places locations (`{ uri, selector }`):
@@ -2425,6 +2429,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.engine_get()`: --- engine ---
 - `paw.api.engine_held()`
 - `paw.api.engine_hold(track, file)`: Play a track from a sound file for now, as if it is frozen, or live again with nil. The project does not change (see `freeze.rs`).
+- `paw.api.engine_load()`: What changes of the engine by itself, as `engine_get` gives it but without a table, for what is read on each frame: `cpu`, `xruns` and `block`.
 - `paw.api.engine_midi_filter(name, rules)`: Controls of MIDI input that tracks do not get: they neither sound nor record. Scripts still hear them, as `midi.in` events with `filtered = true`. Each `name` (`"step"`, `"learn"`) keeps its own list beside the others; nil or an empty list removes it.
 - `paw.api.engine_reset_stats()`: Forget the process times that `engine_get().blocks` recorded until now.
 - `paw.api.engine_restart(opts)`
@@ -2447,8 +2452,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.grid_keep(key, x, y, w, h, cx, cy, cw, ch)`: Keep the cells of the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, under `key`, to put back on a later frame with `grid_put` when what they were drawn from has not changed.
 - `paw.api.grid_live_begin(x, y, w, h, cx, cy, cw, ch)`: A live part of the screen is drawn over the cells `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`: what is under them is kept, to draw it again by itself (`paw.ui.render_live`). Returns its number for `grid_live_end`, or nil when no part of it is on the screen.
 - `paw.api.grid_live_end(index)`
+- `paw.api.grid_live_keep(index)`: While the live parts are drawn again: the part `index` of the frame drawn last did not change, so its cells come back as they were, in place of a `grid_live_begin` and `grid_live_end`. Returns its number, or nil when it must be drawn (a part before it changed what is under it).
 - `paw.api.grid_live_restore()`: Take the live parts off the frame drawn last, to draw them again. Returns how many there were.
 - `paw.api.grid_live_seal()`: The frame is drawn: what is over the live parts now stays over them.
+- `paw.api.grid_live_still()`: In place of drawing the live parts again: none of them changed, so the frame drawn last stays as it is, and nothing is sent.
 - `paw.api.grid_put(key, x, y, w, h, cx, cy, cw, ch)`: Put the cells kept under `key` back, if they were kept from the same area: true when they were. Nothing is drawn else.
 - `paw.api.grid_surface(key, x, y, w, h, cx, cy, cw, ch, under)`: Keep the cells `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, for pixels under the name `key` (`buf:strip`), over the text or `under` it. Returns the number of the surface for `grid_surface_ops`, or nil when no part of it is on the screen.
 - `paw.api.grid_surface_ops(index, ops)`: The drawing a surface shows: the operations of `paw.canvas.paint`.
@@ -2632,6 +2639,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.track_set(id, key, value)`: Change a track: a table of the entries to change, as `track_get` gives them (`{ name = "Bass", volume = -6 }`), or one `key` and its value. Only the key form clears an entry (`track_set(id, "output", nil)`). An entry that is as it was is no change.
 - `paw.api.transport_get()`: --- transport ---
 - `paw.api.transport_play()`
+- `paw.api.transport_playhead()`: What moves of the transport by itself, as `transport_get` gives it but without a table, for what is read on each frame: `playing`, `position`, `counting` and `take` (nil while nothing records).
 - `paw.api.transport_record()`
 - `paw.api.transport_seek(beats)`
 - `paw.api.transport_set(key, value)`: Change the transport: a table of the entries to change, as `transport_get` gives them (`{ loop_enabled = true }`), or one `key` and its value. Only the key form clears an entry (`nil`).

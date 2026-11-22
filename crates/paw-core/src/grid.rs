@@ -147,6 +147,8 @@ pub struct Live {
     /// The cells that something not live drew over it after (a menu, a
     /// float): their index in the grid and what they show.
     over: Vec<(usize, Cell)>,
+    /// Kept as it was ([`Grid::live_keep`]): what is over it is known.
+    kept: bool,
 }
 
 #[derive(Clone, Default, PartialEq)]
@@ -259,7 +261,7 @@ impl Grid {
             return None;
         }
         let under = self.cells_of(rect);
-        self.live.push(Live { rect, under, drawn: Vec::new(), over: Vec::new() });
+        self.live.push(Live { rect, under, drawn: Vec::new(), over: Vec::new(), kept: false });
         Some(self.live.len() - 1)
     }
 
@@ -282,12 +284,59 @@ impl Grid {
         self.live[index].drawn = drawn;
     }
 
+    /// The live part `index` of the frame drawn last did not change: put
+    /// its cells back as it drew them, with what was drawn over it, and do
+    /// not draw it again. It takes the place of a [`Grid::live_begin`] and
+    /// [`Grid::live_end`] pair. Returns its number, or nothing when the
+    /// part must be drawn: there is no such part, or a part before it
+    /// changed what is under it.
+    pub fn live_keep(&mut self, index: usize) -> Option<usize> {
+        let before = self.live_before.get(index)?;
+        let rect = before.rect;
+        if rect != rect.intersect(&self.rect()) || before.drawn.is_empty() || !self.cells_are(rect, &before.under) {
+            return None;
+        }
+        let before = &mut self.live_before[index];
+        // Only live parts are drawn between whole frames, so what is not
+        // live over this part is what was over it before.
+        let part = Live {
+            rect,
+            under: std::mem::take(&mut before.under),
+            drawn: std::mem::take(&mut before.drawn),
+            over: std::mem::take(&mut before.over),
+            kept: true,
+        };
+        let (width, w) = (self.width as usize, rect.w as usize);
+        for (row, cells) in part.drawn.chunks(w).enumerate() {
+            let at = (rect.y as usize + row) * width + rect.x as usize;
+            self.cells[at..at + w].copy_from_slice(cells);
+        }
+        for &(at, cell) in &part.over {
+            self.cells[at] = cell;
+        }
+        self.live.push(part);
+        Some(self.live.len() - 1)
+    }
+
+    /// Whether the cells of `rect`, which is inside the grid, are `cells`.
+    fn cells_are(&self, rect: Rect, cells: &[Cell]) -> bool {
+        let (width, w) = (self.width as usize, rect.w as usize);
+        cells.len() == w * rect.h.max(0) as usize
+            && cells.chunks(w.max(1)).enumerate().all(|(row, want)| {
+                let at = (rect.y as usize + row) * width + rect.x as usize;
+                self.cells[at..at + w] == *want
+            })
+    }
+
     /// The frame is done: find, for each live part, the cells that
     /// something not live drew over it after it. A cell of a later live
     /// part is that part's own.
     pub fn live_seal(&mut self) {
         let width = self.width as usize;
         for index in 0..self.live.len() {
+            if std::mem::take(&mut self.live[index].kept) {
+                continue;
+            }
             let rect = self.live[index].rect;
             let mut over = Vec::new();
             for (i, drawn) in self.live[index].drawn.iter().enumerate() {
@@ -329,6 +378,12 @@ impl Grid {
     /// changed a cell. The cells of the frame are all as before when not.
     pub fn live_changed(&self) -> bool {
         self.live_changed
+    }
+
+    /// No live part changed since the frame drawn last: the frame stays as
+    /// it is, with its live parts, and there is nothing to send.
+    pub fn live_still(&mut self) {
+        self.live_changed = false;
     }
 
     /// Keep a rectangle of cells for pixels, under the name `key`. Over
@@ -531,6 +586,46 @@ mod tests {
         // A whole frame starts afresh.
         grid.clear();
         assert!(grid.live.is_empty());
+    }
+
+    #[test]
+    fn a_live_part_kept_shows_what_it_drew_under_what_was_over_it_until_a_part_before_changes() {
+        let mut grid = Grid::new(10, 3);
+        let clip = grid.rect();
+        let plain = Style::default();
+        grid.text(clip, 0, 1, "abcdefghij", plain);
+        let line = Rect { x: 0, y: 1, w: 10, h: 1 };
+        let meter = Rect { x: 0, y: 1, w: 3, h: 1 };
+        let row = |g: &Grid| g.cells[10..20].iter().map(|c| c.ch).collect::<String>();
+        // A meter, then a playhead over the same row, then a float.
+        let draw = |grid: &mut Grid, level: &str, keep_playhead: bool| -> bool {
+            let part = grid.live_begin(meter).unwrap();
+            grid.text(clip, 0, 1, level, plain);
+            grid.live_end(part);
+            let kept = keep_playhead && grid.live_keep(1).is_some();
+            if !kept {
+                let part = grid.live_begin(line).unwrap();
+                grid.text(clip, 5, 1, "|", plain);
+                grid.live_end(part);
+            }
+            kept
+        };
+        draw(&mut grid, "==", false);
+        grid.text(clip, 7, 1, "#", plain);
+        grid.live_seal();
+        assert_eq!(row(&grid), "==cde|g#ij");
+        // The meter as it was: the playhead is kept, the float stays over it.
+        grid.live_restore();
+        assert!(draw(&mut grid, "==", true), "kept");
+        grid.live_seal();
+        assert_eq!(row(&grid), "==cde|g#ij");
+        assert!(!grid.live_changed(), "nothing to send");
+        // The meter falls: the playhead over it must be drawn again.
+        grid.live_restore();
+        assert!(!draw(&mut grid, "=", true), "drawn again");
+        grid.live_seal();
+        assert_eq!(row(&grid), "=bcde|g#ij");
+        assert!(grid.live_changed());
     }
 
     #[test]

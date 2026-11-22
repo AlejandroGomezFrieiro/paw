@@ -2500,6 +2500,13 @@ function paw.draw.level(peak) end
 ---@param hold any
 function paw.draw.meter(buf, x, y, width, peak, hold) end
 
+--- What `meter` shows for these values in `width` cells, as a text: the
+--- cells lit full and half, and the cell of the peak held (-1: none).
+---@param width any
+---@param peak any
+---@param hold any
+function paw.draw.meter_shown(width, peak, hold) end
+
 --- Notes as a small piano roll of `rows` text rows, each `width` columns.
 --- A row holds two pitches, drawn with half blocks. `notes` have `start`,
 --- `length` and `pitch`. A column covers `1 / zoom` beats from `from`.
@@ -2582,6 +2589,13 @@ function paw.draw.slider(buf, x, y, width, fraction, on, off) end
 ---@param left any
 ---@param right any
 function paw.draw.stereo_meter(buf, x, y, width, left, right) end
+
+--- What `stereo_meter` shows for these values in `width` cells, as a
+--- text: the cells lit on each side.
+---@param width any
+---@param left any
+---@param right any
+function paw.draw.stereo_meter_shown(width, left, right) end
 
 --- A highlight definition as this terminal can show it. On a terminal
 --- without 24-bit color, each `#rrggbb` becomes the nearest of the 256.
@@ -6578,7 +6592,9 @@ function paw.roles.begin(name, win) end
 --- necessary, because the terminal comes first. `spec.props` names its
 --- props and their contents, for documentation and `paw.ui.roles`.
 --- `spec.bound` is the props that a frontend takes from the live value when
---- the mark is bound to one. paw does not send these props.
+--- the mark is bound to one. paw does not send these props. `spec.stamp(buf,
+--- props)`, a text of what `cells` shows, lets a bound mark keep its cells
+--- between whole frames while it does not change.
 ---@param name any
 ---@param spec any
 function paw.roles.define(name, spec) end
@@ -7583,6 +7599,16 @@ function paw.statusline.segments(width, which, extra) end
 ---@param opts any
 function paw.statusline.setup(opts) end
 
+--- A text of what the line for `width` columns is drawn from, between two
+--- whole frames: `moves` (or else `key`) of each component that is not
+--- `still`. Nil when a component shown has none of them (it may change at
+--- any time). Between whole frames, the screen draws the line again only
+--- when this text changes.
+---@param width any
+---@param which any
+---@param extra any
+function paw.statusline.stamp(width, which, extra) end
+
 --- What the tab line holds at its right end, as pieces, for `width` columns.
 ---@param width any
 function paw.statusline.tabline(width) end
@@ -8543,13 +8569,23 @@ function paw.ui.input(opts, on_submit) end
 function paw.ui.layer(view, part, name, order, paint) end
 
 --- Draw a live part on `buf`: `draw(buf)` draws it, now and each time it
---- is drawn again by itself.
+--- is drawn again by itself. With `stamp`, a function that gives a text of
+--- the values the part is drawn from (nil: unknown), the part is drawn
+--- again only when that text changes; its cells stay as they were drawn.
+--- `last` is the text that it is drawn with, when paw draws it again.
 ---@param buf any
 ---@param draw_part any
-function paw.ui.live(buf, draw_part) end
+---@param stamp any
+---@param last any
+function paw.ui.live(buf, draw_part, stamp, last) end
 
 --- True if a live part drawn now is one of the terminal's screen.
 function paw.ui.live_drawing() end
+
+--- A text of the live value `bind` now (`position` or `meter:<id>`), to
+--- tell whether a part bound to it changed: nil for any other value.
+---@param bind any
+function paw.ui.live_stamp(bind) end
 
 --- While a live part is drawn again: set the props of a mark bound to
 --- `bind` (`position`, `meter:<id>`, or a value that a view's
@@ -9474,6 +9510,11 @@ function paw.api.engine_held() end
 ---@param file string?
 function paw.api.engine_hold(track, file) end
 
+--- What changes of the engine by itself, as `engine_get` gives it but
+--- without a table, for what is read on each frame: `cpu`, `xruns`
+--- and `block`.
+function paw.api.engine_load() end
+
 --- Controls of MIDI input that tracks do not get: they neither sound
 --- nor record. Scripts still hear them, as `midi.in` events with
 --- `filtered = true`. Each `name` (`"step"`, `"learn"`) keeps its own
@@ -9616,12 +9657,24 @@ function paw.api.grid_live_begin(x, y, w, h, cx, cy, cw, ch) end
 ---@param index integer
 function paw.api.grid_live_end(index) end
 
+--- While the live parts are drawn again: the part `index` of the frame
+--- drawn last did not change, so its cells come back as they were, in
+--- place of a `grid_live_begin` and `grid_live_end`. Returns its number,
+--- or nil when it must be drawn (a part before it changed what is
+--- under it).
+---@param index integer
+function paw.api.grid_live_keep(index) end
+
 --- Take the live parts off the frame drawn last, to draw them again.
 --- Returns how many there were.
 function paw.api.grid_live_restore() end
 
 --- The frame is drawn: what is over the live parts now stays over them.
 function paw.api.grid_live_seal() end
+
+--- In place of drawing the live parts again: none of them changed, so
+--- the frame drawn last stays as it is, and nothing is sent.
+function paw.api.grid_live_still() end
 
 --- Put the cells kept under `key` back, if they were kept from the
 --- same area: true when they were. Nothing is drawn else.
@@ -10502,6 +10555,11 @@ function paw.api.track_set(id, key, value) end
 function paw.api.transport_get() end
 
 function paw.api.transport_play() end
+
+--- What moves of the transport by itself, as `transport_get` gives it
+--- but without a table, for what is read on each frame: `playing`,
+--- `position`, `counting` and `take` (nil while nothing records).
+function paw.api.transport_playhead() end
 
 function paw.api.transport_record() end
 

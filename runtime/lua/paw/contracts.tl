@@ -462,6 +462,10 @@ local record contracts
     live_roles: {string}
     still: boolean
     live_part: boolean
+    --- For a `live_part` view: a text of what it is drawn from now, for a
+    --- buffer `width` cells wide. The part is drawn again only when the
+    --- text changes; nil draws it again on each frame of what moves.
+    live_stamp: function(self: View, width: integer): string
     live_values: function(): LiveValues
     moving: function(self: View): boolean
     redraw_every: number
@@ -857,6 +861,13 @@ local record contracts
   --- narrowest screen it shows on, `rank` how late it goes when the line
   --- is too long (0 never). With `key(ctx)`, it runs again only when that
   --- changes. With `shrink`, its text is cut before any component goes.
+  --- Between whole frames, while only what moves is drawn again (the
+  --- meters, the playhead), the line is drawn again only when a component
+  --- may have changed: `still` says it changes only when the screen is
+  --- drawn whole (after a key, an edit or `paw.api.ui_redraw`), and
+  --- `moves(ctx)` gives a text of what it changes with by itself (the
+  --- playhead's position). Without either, its `key` is used, and with
+  --- none of the three the line is drawn again on each such frame.
   record StatusComponent
     name: string
     fn: function(ctx?: StatusContext): StatusText
@@ -864,10 +875,12 @@ local record contracts
     rank: integer
     style: string
     key: function(ctx?: StatusContext): string | number
+    moves: function(ctx?: StatusContext): string | number
     cond: function(ctx?: StatusContext): boolean
     fmt: function(text: string): string
     pill: boolean
     shrink: boolean
+    still: boolean
   end
 
   -- The track column and the ruler's bar labels --------------------------------
@@ -1588,9 +1601,14 @@ local record contracts
   --- cells, as the terminal comes first. `props` names its props and
   --- their contents, for documentation. `bound` is the props that a
   --- frontend takes from the live value of a bound mark. `P` is the
-  --- record of its props.
+  --- record of its props. `stamp(buf, props)` gives a text of what `cells`
+  --- shows for these props in `buf`: a bound mark is drawn again between
+  --- whole frames only when it changes (a meter that falls by less than a
+  --- cell keeps its cells). Without it, any change of the bound value
+  --- draws the mark again.
   record Role<P is MarkProps>
     cells: function(buf: Buf, props: P, ctx?: RoleContext)
+    stamp: function(buf: Buf, props: P): string
     props: {string: string}
     bound: {string}
     ext: string

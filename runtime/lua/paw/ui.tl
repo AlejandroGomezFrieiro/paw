@@ -87,10 +87,16 @@ local record StripOptions
   paint: boolean
 end
 
---- A live part of the screen: its buffer and what draws it.
+--- A live part of the screen: its buffer and what draws it. With a
+--- `stamp`, a text of the values it is drawn from, it is drawn again only
+--- when that changes (`last` is the stamp it was drawn with); a part
+--- without one is drawn again on each frame of what moves.
+local type Stamp = function(): string
 local record LivePart
   buf: Buf
   draw: function(b: Buf)
+  stamp: Stamp
+  last: string
 end
 local record Live
   {LivePart}
@@ -980,9 +986,18 @@ function M.live_drawing(): boolean
 end
 
 --- Draw a live part on `buf`: `draw(buf)` draws it, now and each time it
---- is drawn again by itself.
-function M.live(buf: Buf, draw_part: function(b: Buf))
+--- is drawn again by itself. With `stamp`, a function that gives a text of
+--- the values the part is drawn from (nil: unknown), the part is drawn
+--- again only when that text changes; its cells stay as they were drawn.
+--- `last` is the text that it is drawn with, when paw draws it again.
+function M.live(buf: Buf, draw_part: function(b: Buf), stamp?: Stamp, last?: string)
   if not recording then return draw_part(buf) end
+  if stamp and not refreshing then
+    -- In a whole frame: what it is drawn from, read before it is drawn,
+    -- so that a value that moves on while it is drawn shows next frame.
+    local fine, got = pcall(stamp) as (boolean, string)
+    last = fine and got or nil
+  end
   local index = api.grid_live_begin(buf.x, buf.y, buf.width, buf.height, buf.cx, buf.cy, buf.cw, buf.ch)
   local was = recording
   recording = nil  -- what it draws inside is part of it
@@ -990,7 +1005,7 @@ function M.live(buf: Buf, draw_part: function(b: Buf))
   recording = was
   if index then
     api.grid_live_end(index)
-    recording[#recording + 1] = { buf = buf, draw = draw_part }
+    recording[#recording + 1] = { buf = buf, draw = draw_part, stamp = stamp, last = last }
   end
   if not ok then error(result, 0) end
 end
@@ -1005,6 +1020,25 @@ local function meter_of(values: Refreshing, id: integer): Meter
   return m
 end
 
+--- A text of the live value `bind` now (`position` or `meter:<id>`), to
+--- tell whether a part bound to it changed: nil for any other value.
+function M.live_stamp(bind: string): string
+  if bind == "position" then
+    local values = refreshing
+    local at = values and values.position
+    if not at then
+      local _, now = api.transport_playhead()
+      at = now
+    end
+    if values then values.position = at end
+    return tostring(at)
+  elseif bind:sub(1, 6) == "meter:" then
+    local m = meter_of(refreshing or { meters = {} }, (tonumber(bind:sub(7)) or 0) as integer)
+    return tostring(m.levels[1]) .. " " .. tostring(m.levels[2]) .. " " .. tostring(m.hold) .. (m.clipped and "!" or "")
+  end
+  return nil
+end
+
 --- While a live part is drawn again: set the props of a mark bound to
 --- `bind` (`position`, `meter:<id>`, or a value that a view's
 --- `live_values()` gives) to the values of now.
@@ -1013,7 +1047,10 @@ function M.live_value(bind: string, props: contracts.MarkProps)
   if not values then return end
   local set = props as Bound
   if bind == "position" then
-    values.position = values.position or api.transport_get().position
+    if not values.position then
+      local _, at = api.transport_playhead()
+      values.position = at
+    end
     set.at = values.position
   elseif bind:sub(1, 6) == "meter:" then
     local m = meter_of(values, (tonumber(bind:sub(7)) or 0) as integer)
@@ -1044,27 +1081,45 @@ end
 --- Whether the screen can be drawn by its live parts only: each view on
 --- it says what moves in it (`view.live_roles`) or that nothing does
 --- (`view.still`), and none must be drawn whole now (`view:moving()`).
-local function only_live(): boolean
-  local function fits(name: string, win?: Node): boolean
-    local view = M.views[name]
-    if not view then return true end
-    if not (view.live_roles or view.still or view.live_part) then return false end
-    if view.moving then
-      if win then L.bind(win) end
-      local moving = view:moving()
-      if moving then return false end
+-- Asked on each frame of what moves: the windows bound to another
+-- window's state by `fits`, to put back when there are any.
+local rebound = false
+
+local function fits(name: string, win?: Node): boolean
+  local view = M.views[name]
+  if not view then return true end
+  if not (view.live_roles or view.still or view.live_part) then return false end
+  if view.moving then
+    if win and L.bound(name) ~= win then
+      L.bind(win)
+      rebound = true
     end
-    return true
+    local moving = view:moving()
+    if moving then return false end
   end
-  for _, r in ipairs(M.rects) do
-    if not fits(r.name, r.win and L.find_id(M.layout, r.win)) then
-      L.settle()
-      return false
-    end
-  end
-  L.settle()
-  return not (M.float and not fits(M.float.name))
+  return true
 end
+
+local function only_live(): boolean
+  rebound = false
+  local result = true
+  for _, r in ipairs(M.rects) do
+    local view = M.views[r.name]
+    -- The window is looked for only when its view asks `moving`.
+    local win = r.win and view and view.moving and L.find_id(M.layout, r.win) or nil
+    if not fits(r.name, win) then
+      result = false
+      break
+    end
+  end
+  result = result and not (M.float and not fits(M.float.name))
+  if rebound then L.settle() end
+  return result
+end
+
+-- What each live part is drawn from now, by its place, while the live
+-- parts are drawn again: one table for all frames.
+local live_stamps: {string} = {}
 
 --- Draw the live parts of the screen again, on the frame drawn last.
 --- Called by the kernel (`paw.api.ui_redraw_live`). False when the screen
@@ -1075,10 +1130,39 @@ function M.render_live(buf: Buf): boolean
   M.screen = true
   refreshing = { meters = {} }
   local parts = live
+  -- What each part is drawn from now: when none changed, the frame stays.
+  local stamps = live_stamps
+  local changed = false
+  for i, part in ipairs(parts) do
+    local now: string = nil
+    if part.stamp then
+      local fine, got = pcall(part.stamp) as (boolean, string)
+      now = fine and got or nil
+    end
+    stamps[i] = now
+    changed = changed or now == nil or now ~= part.last
+  end
+  if not changed then
+    refreshing, M.screen = nil, false
+    api.grid_live_still()
+    return true
+  end
   local ok, err = pcall(function()
     api.grid_live_restore()
     recording = {}
-    for _, part in ipairs(parts) do M.live(part.buf, part.draw) end
+    for i, part in ipairs(parts) do
+      -- A part whose values did not change keeps its cells, unless a part
+      -- before it changed what is under it (then the kernel says no).
+      local now = stamps[i]
+      if now ~= nil and now == part.last and api.grid_live_keep(i) then
+        recording[#recording + 1] = part
+      else
+        -- The list of parts stays the one of the whole frame: it keeps
+        -- what each was drawn from last.
+        part.last = now
+        M.live(part.buf, part.draw, part.stamp, now)
+      end
+    end
   end) as (boolean, string)
   -- A part of a view with a state for each window bound that window's.
   L.settle()
@@ -1157,7 +1241,7 @@ function M.render_screen(buf: Buf)
         M.live(area, function(b: Buf)
           if background then b:fill(0, 0, b.width, b.height, " ", background) end
           draw(view, b, ctx)
-        end)
+        end, view.live_stamp and function(): string return view:live_stamp(area.width) end)
       else
         if background then area:fill(0, 0, r.w, r.h, " ", background) end
         draw(view, area, ctx)
@@ -1625,7 +1709,9 @@ end
 --- True if something moves on its own now: the song plays, a track listens
 --- to its input, or a moment after activity (`poke`), while meters fall.
 function M.active(): boolean
-  return api.transport_get().playing or listening or api.now() < active_until
+  -- Asked on each frame: the playing flag alone, without the transport's table.
+  local playing = api.transport_playhead()
+  return playing or listening or api.now() < active_until
 end
 
 local function moving(): boolean

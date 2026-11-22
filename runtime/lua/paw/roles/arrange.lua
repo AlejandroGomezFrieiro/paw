@@ -216,4 +216,11 @@ role("hmeter", {
       draw.meter(buf, 0, 0, buf.width, math.max(l, r), p.hold)
     end
   end,
+  -- What the cells show: as the song stops, a level falls on each frame,
+  -- and a cell changes only now and then.
+  stamp = function(buf, p)
+    local l, r = (p.levels or {})[1] or 0, (p.levels or {})[2] or 0
+    if p.stereo then return draw.stereo_meter_shown(buf.width, l, r) end
+    return draw.meter_shown(buf.width, math.max(l, r), p.hold)
+  end,
 })

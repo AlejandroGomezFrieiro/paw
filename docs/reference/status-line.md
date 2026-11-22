@@ -95,6 +95,12 @@ A component is one of the following:
 | `cond` | A function. The component shows only when it gives `true`. |
 | `fmt` | A function that changes the text. |
 | `key` | A function. paw calls the component again only when the value of `key(ctx)` changes. The `project`, `engine` and `cpu` components use it. |
+| `still` | `true` when the component changes only after a key, an edit or another change that draws the whole screen again. |
+| `moves` | A function that gives a text of what the component changes with by itself, such as the position of the playhead. |
+
+The options `key`, `still` and `moves` go on a component that `paw.statusline.component` adds. While the song plays, and for a moment after paw plays a note, the terminal draws the meters and the playhead again many times a second. It draws the status line again on those frames only when a component may have changed, which means that the `moves` text of a component changed, or else its `key`. A component with none of `still`, `moves` and `key` makes the terminal draw the status line again on each of those frames, which is correct and costs more time.
+
+The `transport`, `clock`, `tempo`, `take`, `render`, `pointer`, `engine` and `cpu` components have `moves`, and the `project` component has a `key`. The other built-in components are `still`.
 
 `ctx` holds the fields below.
 

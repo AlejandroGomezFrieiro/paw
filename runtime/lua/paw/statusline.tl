@@ -387,6 +387,13 @@ function M.grid_text(grid: number): string
   return string.format("%g beats", grid)
 end
 
+--- The position of the playhead, read without the transport's table: what
+--- the components that show it move with (`moves`).
+local function playhead(_: Context): number
+  local _, at = api.transport_playhead()
+  return at
+end
+
 local function spec(name: string, def: Component)
   def.name = name
   def.rank = def.rank or 3
@@ -397,6 +404,7 @@ end
 spec(
   "mode",
   {
+    still = true,
     rank = 0,
     pill = true,
     fn = function(ctx: Context): StatusText
@@ -417,6 +425,7 @@ spec(
 spec(
   "macro",
   {
+    still = true,
     rank = 1,
     fn = function(): StatusText
       local recording = (paw.keymap as Keymap).recording()
@@ -430,6 +439,10 @@ spec(
 spec(
   "transport",
   {
+    moves = function(_: Context): string
+      local playing, at, counting, take = api.transport_playhead()
+      return table.concat({tostring(at), tostring(playing), tostring(take), tostring(counting)}, ":")
+    end,
     rank = 2,
     fn = function(ctx: Context): StatusText
       local t, g = ctx.transport, ctx.g
@@ -449,6 +462,7 @@ spec(
 spec(
   "clock",
   {
+    moves = playhead,
     min = 90,
     rank = 8,
     fn = function(ctx: Context): StatusText return {{paw.time.clock(ctx.transport.position), "StatusDim"}} end,
@@ -459,6 +473,7 @@ spec(
 spec(
   "tempo",
   {
+    moves = playhead,
     min = 70,
     rank = 5,
     fn = function(ctx: Context): StatusText
@@ -474,6 +489,7 @@ spec(
 spec(
   "flags",
   {
+    still = true,
     rank = 4,
     fn = function(ctx: Context): StatusText
       local t, g = ctx.transport, ctx.g
@@ -522,6 +538,10 @@ spec(
 spec(
   "render",
   {
+    moves = function(_: Context): string
+      local job = api.render_status()
+      return job and (tostring(job.stage) .. ":" .. tostring(job.fraction) .. ":" .. tostring(job.path)) or ""
+    end,
     fn = function(ctx: Context): StatusText
       local job = api.render_status()
       if not job then
@@ -540,15 +560,16 @@ spec(
 )
 
 -- How many diagnostics of each kind, for the piano roll's clip or the project.
-spec("diagnostics", {fn = function(): StatusText return paw.diagnostic and paw.diagnostic.status() end})
+spec("diagnostics", {still = true, fn = function(): StatusText return paw.diagnostic and paw.diagnostic.status() end})
 
 -- The quickfix list, while it has entries.
-spec("qf", {fn = function(): StatusText return paw.qf and paw.qf.status() end})
+spec("qf", {still = true, fn = function(): StatusText return paw.qf and paw.qf.status() end})
 
 -- What is under the pointer, or what it would do there, in what room is left.
 spec(
   "pointer",
   {
+    moves = function(ctx: Context): string return tostring((paw.mouse.hint_text())) .. ":" .. ctx.width end,
     fn = function(ctx: Context): StatusText
       local pointer = paw.mouse.hint_text()
       local room = ctx.width - 70
@@ -571,6 +592,7 @@ end
 spec(
   "grid",
   {
+    still = true,
     min = 100,
     rank = 9,
     fn = function(): StatusText
@@ -588,6 +610,7 @@ spec(
 spec(
   "selection",
   {
+    still = true,
     min = 110,
     rank = 10,
     fn = function(ctx: Context): StatusText
@@ -617,6 +640,7 @@ spec(
 spec(
   "view",
   {
+    still = true,
     min = 90,
     rank = 5,
     fn = function(ctx: Context): StatusText
@@ -632,6 +656,7 @@ spec(
 spec(
   "keys",
   {
+    still = true,
     fn = function(): StatusText
       local pending = (paw.keymap as Keymap).pending()
       if pending ~= "" then
@@ -647,6 +672,7 @@ spec(
 spec(
   "scope",
   {
+    still = true,
     rank = 2,
     fn = function(ctx: Context): StatusText
       local scope = paw.scope and paw.scope.current()
@@ -699,6 +725,7 @@ spec(
   {
     min = 120,
     rank = 7,
+    moves = function(_: Context): integer local _, _, block = api.engine_load(); return block end,
     key = function(ctx: Context): string
       local e = ctx.engine
       return table.concat(
@@ -724,6 +751,10 @@ spec(
   {
     min = 90,
     rank = 6,
+    moves = function(_: Context): string
+      local cpu, xruns = api.engine_load()
+      return paw.audio.load(cpu) .. ":" .. xruns
+    end,
     key = function(ctx: Context): string
       local e = ctx.engine
       return paw.audio.load(e.cpu) .. ":" .. (e.xruns or 0)
@@ -749,6 +780,7 @@ spec(
 spec(
   "cursor",
   {
+    still = true,
     min = 100,
     rank = 6,
     fn = function(): StatusText
@@ -767,6 +799,7 @@ spec(
 spec(
   "take",
   {
+    moves = function(_: Context): string local _, _, _, take = api.transport_playhead(); return tostring(take) end,
     rank = 2,
     fn = function(ctx: Context): StatusText
       local take = ctx.transport.take
@@ -781,6 +814,7 @@ spec(
 spec(
   "buffer",
   {
+    still = true,
     rank = 4,
     fn = function(ctx: Context): StatusText
       if paw.ui.focused ~= "textbuf" then
@@ -814,6 +848,7 @@ events.on(
 spec(
   "midi",
   {
+    still = true,
     min = 90,
     rank = 7,
     fn = function(ctx: Context): StatusText
@@ -987,6 +1022,45 @@ function M.segments(width: integer, which?: string, extra?: Extra): Segments
     end
   end
   return out
+end
+
+--- A text of what the line for `width` columns is drawn from, between two
+--- whole frames: `moves` (or else `key`) of each component that is not
+--- `still`. Nil when a component shown has none of them (it may change at
+--- any time). Between whole frames, the screen draws the line again only
+--- when this text changes.
+function M.stamp(width: integer, which?: string, extra?: Extra): string
+  which = which or "status"
+  local ctx = context(width, which, extra)
+  local sections = sections_for(which, ctx.view, ctx.active)
+  local out: {string} = {}
+  for _, letters in ipairs({LEFT, RIGHT}) do
+    for _, letter in ipairs(letters) do
+      for _, entry in ipairs(sections[letter] or {}) do
+        local def: Entry = entry is Entry and entry or {entry as string | ComponentFn}
+        local what = def[1] or def.fn
+        local component = what is string and M.components[what] or nil
+        if not component then
+          return nil
+        end
+        if ctx.width >= (def.min or component.min or 0) then
+          if def.cond then
+            local ok, shown = pcall(def.cond, ctx) as (boolean, boolean)
+            out[#out + 1] = (ok and shown) and "+" or "-"
+          end
+          if not component.still then
+            local by = component.moves or component.key
+            local key = by and by(ctx)
+            if key == nil then
+              return nil
+            end
+            out[#out + 1] = tostring(key)
+          end
+        end
+      end
+    end
+  end
+  return table.concat(out, "|")
 end
 
 -- Drawing ----------------------------------------------------------------------------------

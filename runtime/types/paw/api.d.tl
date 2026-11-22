@@ -92,6 +92,7 @@ local record api
    engine_get: function(): types.EngineInfo
    engine_held: function(): {integer}
    engine_hold: function(track: integer, file?: string)
+   engine_load: function(): number, integer, integer
    engine_midi_filter: function(name: string, rules?: {types.MidiFilterRule})
    engine_reset_stats: function()
    engine_restart: function(opts?: types.EngineOptions)
@@ -114,8 +115,10 @@ local record api
    grid_keep: function(key: string, x: number, y: number, w: number, h: number, cx: number, cy: number, cw: number, ch: number)
    grid_live_begin: function(x: number, y: number, w: number, h: number, cx: number, cy: number, cw: number, ch: number): integer
    grid_live_end: function(index: integer)
+   grid_live_keep: function(index: integer): integer
    grid_live_restore: function(): integer
    grid_live_seal: function()
+   grid_live_still: function()
    grid_put: function(key: string, x: number, y: number, w: number, h: number, cx: number, cy: number, cw: number, ch: number): boolean
    grid_surface: function(key: string, x: number, y: number, w: number, h: number, cx: number, cy: number, cw: number, ch: number, under?: boolean): integer
    grid_surface_ops: function(index: integer, ops: {types.CanvasOp})
@@ -303,6 +306,7 @@ local record api
    track_set: function(id: integer, key: string, value: nil)
    transport_get: function(): types.Transport
    transport_play: function()
+   transport_playhead: function(): boolean, number, integer, integer
    transport_record: function()
    transport_seek: function(beats: number)
    transport_set: function(patch: types.Transport)
