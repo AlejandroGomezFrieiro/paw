@@ -42,6 +42,8 @@ local record Paw is partial.Paw
 end
 local paw = (_G as {string: Paw}).paw
 
+local clip_list = api.clip_list as function(track: integer, from?: number, to?: number): {types.Clip}
+
 --- What `paw.nest.new` takes. Beats are of the window's time.
 local record NewOptions
   --- The subproject's name, and its row's: "Ballad".
@@ -152,6 +154,61 @@ local function write_meter(from: number, to: number, num: integer, den: integer)
   end
 end
 
+--- Move what starts at or after beat `at` of the window by `by` beats: the
+--- clips and the automation of the tracks of the place `place` (the song
+--- when nil, with its master), and in the song its markers, regions and
+--- tempo and meter changes. Part of the caller's undo step.
+local function shift_after(place: ScopeModule.Scope, at: number, by: number)
+  local tracks = api.track_list({nest = place and place.id or nil})
+  if not place then
+    tracks[#tracks + 1] = 0
+  end
+  local function moved(beat: number): number
+    return beat >= at - 1e-9 and math.max(0, beat + by) or beat
+  end
+  for _, id in ipairs(tracks) do
+    -- Later clips first when they move later, so that none lands on one not moved yet.
+    local clips = clip_list(id)
+    for i = 1, #clips do
+      local c = by > 0 and clips[#clips + 1 - i] or clips[i]
+      if c.start >= at - 1e-9 then
+        api.clip_set(c.id, {start = moved(c.start)})
+      end
+    end
+    for _, lane in ipairs(api.lane_list(id)) do
+      local points: {types.LanePoint} = api.lane_points(lane.id)
+      local any = false
+      for _, p in ipairs(points) do
+        if p[1] >= at - 1e-9 then
+          p[1], any = moved(p[1]), true
+        end
+      end
+      if any then
+        api.lane_set_points(lane.id, points)
+      end
+    end
+  end
+  if place then
+    return
+  end
+  local origin = paw.time.origin()
+  for _, m in ipairs(paw.markers.list()) do
+    if m.beat >= at - 1e-9 then
+      paw.markers.set(m.id, {beat = moved(m.beat)})
+    end
+  end
+  local map = api.tempo_points()
+  local tempos: {types.TempoPoint} = {}
+  for _, t in ipairs(map.tempos) do
+    tempos[#tempos + 1] = {beat = moved(t.beat - origin) + origin, bpm = t.bpm, ramp = t.ramp}
+  end
+  local signatures: {types.SigPoint} = {}
+  for _, s in ipairs(map.signatures) do
+    signatures[#signatures + 1] = {beat = moved(s.beat - origin) + origin, num = s.num, den = s.den}
+  end
+  api.tempo_set_points(tempos, signatures)
+end
+
 --- The first track of a new subproject, in the window that is inside it:
 --- `paw.opt.nest_track`.
 local function first_track(): objects.Track
@@ -175,6 +232,7 @@ function M.new(o: NewOptions): Made
   local from = o.from or paw.time.bar_floor(paw.cursor.beat)
   local to = o.to
   local bars = o.bars or 8
+  local ends: number
   if o.num and o.den then
     if not (
       o.num >= 1
@@ -183,7 +241,13 @@ function M.new(o: NewOptions): Made
     ) then
       error(string.format("%d/%d is not a meter", o.num, o.den), 0)
     end
-    to = to or (from + bars * o.num * 4 / o.den)
+    if not to then
+      to = from + bars * o.num * 4 / o.den
+      -- The song after the section keeps its bars: it moves by what the
+      -- section's beats changed (8 bars of 6/8 are 8 beats shorter than
+      -- 8 bars of 4/4).
+      ends = paw.time.bar_start(paw.time.bar_of(from) + bars)
+    end
   else
     to = to or paw.time.bar_start(paw.time.bar_of(from) + bars)
   end
@@ -197,6 +261,10 @@ function M.new(o: NewOptions): Made
   local place = paw.scope.nest()
   local song_from = from + paw.time.origin()
   local meter: types.NestMeter = nil
+  local moved = ends and math.abs(to - ends) > 1e-9 and to - ends or nil
+  if moved then
+    shift_after(place, ends, moved)
+  end
   if o.num then
     meter = {mode = "own", changes = {{beat = 0, num = o.num, den = o.den}}}
     write_meter(song_from, song_from + (to - from), o.num, o.den)
@@ -224,6 +292,15 @@ function M.new(o: NewOptions): Made
     where,
     o.num and string.format(" in %d/%d", o.num, o.den) or ""
   )
+  if moved then
+    message = message
+      .. string.format(
+        "; the rest of the song moved %g beat%s %s",
+        math.abs(moved),
+        math.abs(moved) == 1 and "" or "s",
+        moved < 0 and "earlier" or "later"
+      )
+  end
   return {nest = nest, row = row.id, clip = clip, track = track.id, message = message}
 end
 
@@ -294,7 +371,6 @@ commands.define(
 
 -- Blocks: the clips that place a subproject ----------------------------------------------
 
-local clip_list = api.clip_list as function(track: integer, from?: number, to?: number): {types.Clip}
 local track_nest = api.track_get as function(id: integer, key: string): integer
 local track_name = api.track_get as function(id: integer, key: string): string
 
@@ -815,6 +891,14 @@ function M.promote(clip: integer, deep?: boolean): string
   local where = bars_text(r.from, r.to, true)
   -- Its regions, inside a region named after it.
   local parent = region_over(r.from, r.to, n.name)
+  -- Its key, when it has one of its own (`meta.key`), on that region: the
+  -- region is a key over its time for harmony (paw/harmony.tl).
+  local key = n.meta and n.meta.key
+  local keyed = false
+  if key is string and key ~= "" and key ~= api.project_get().key then
+    paw.markers.set(parent.id, {key = key})
+    keyed = true
+  end
   local regions = 0
   for _, m in ipairs(markers) do
     local at = m.beat + r.zero
@@ -856,6 +940,9 @@ function M.promote(clip: integer, deep?: boolean): string
   end
   if regions > 0 then
     words[#words + 1] = string.format("%d regions inside the region %s", regions, n.name)
+  end
+  if keyed then
+    words[#words + 1] = string.format("the region %s is in %s", n.name, key as string)
   end
   if wrote then
     words[#words + 1] = string.format("%d/%d in the song's map", own.num, own.den)

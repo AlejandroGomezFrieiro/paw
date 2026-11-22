@@ -296,6 +296,22 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             sh.grid.borrow_mut().live_end(index.wrapping_sub(1));
             Ok(())
         }
+        // While the live parts are drawn again: the part `index` of the frame
+        // drawn last did not change, so its cells come back as they were, in
+        // place of a `grid_live_begin` and `grid_live_end`. Returns its number,
+        // or nil when it must be drawn (a part before it changed what is
+        // under it).
+        // @return integer
+        fn grid_live_keep(_, sh, index => usize) {
+            Ok(sh.grid.borrow_mut().live_keep(index.wrapping_sub(1)).map(|i| i + 1))
+        }
+        // In place of drawing the live parts again: none of them changed, so
+        // the frame drawn last stays as it is, and nothing is sent.
+        // @return nil
+        fn grid_live_still(_, sh, () => ()) {
+            sh.grid.borrow_mut().live_still();
+            Ok(())
+        }
         // The frame is drawn: what is over the live parts now stays over them.
         // @return nil
         fn grid_live_seal(_, sh, () => ()) {

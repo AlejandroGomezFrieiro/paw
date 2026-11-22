@@ -344,8 +344,7 @@ The limits page lists what paw does not do, and the known limits of what it does
     is. A meter of its own that the song's map does not have
     (`meter=own`) is not drawn yet.
   - Promote works on a subproject with one block, on a row that holds
-    nothing else. `:nest.promote` does not keep a key of the subproject on
-    its region yet.
+    nothing else.
   - `<Space>zw` and `<Space>zW` refuse a view with an audio clip or a
     looped clip over one of its edges: paw cannot cut those there yet.
   - A view inside a subproject saved as a subproject keeps its markers

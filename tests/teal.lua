@@ -123,6 +123,24 @@ test("teal: the Lua 5.3 library that Teal's code calls works on LuaJIT (compat-5
   )
 end)
 
+-- compat-5.3 puts a Lua ipairs in front of LuaJIT's (it follows __index), which
+-- keeps short loops out of the compiled traces. paw gives the built-in back.
+test("teal: ipairs is LuaJIT's own after compat-5.3 loads, so it does not follow __index", function()
+  local proxy = setmetatable({}, {
+    __index = function(_, i) return i <= 3 and i or nil end,
+  })
+  local seen = 0
+  for _ in ipairs(proxy) do
+    seen = seen + 1
+  end
+  eq(seen, 0, "a proxy table with no array part of its own has no items for ipairs")
+  local sum = 0
+  for _, v in ipairs({ 4, 5, 6 }) do
+    sum = sum + v
+  end
+  eq(sum, 15, "a plain list is walked as before")
+end)
+
 test("teal: a file with a type error loads, and its errors stay known from the cache", function()
   local file = T.scratch .. "/teal/typo.tl"
   write(file, 'local n: integer = "one"\nreturn 1\n')

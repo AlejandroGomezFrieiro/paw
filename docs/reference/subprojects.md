@@ -36,12 +36,22 @@ entering a subproject and moving around in it, see
    bar numbers of the song then count the bars of the section, so that bar
    41 comes 8 bars after bar 33. A meter change inside that time goes away.
    The subproject keeps the meter as its own.
-4. The window goes inside the subproject, with one empty track, and the
+4. When you typed the bars and the meter makes the section shorter or
+   longer in beats, everything in the song after the section moves by the
+   difference, so that the song keeps its bar numbers after it: the
+   clips, the automation, the markers and regions, and the tempo and
+   meter changes. For example, 8 bars of 6/8 at bar 33 of a song in 4/4
+   are 8 beats shorter than 8 bars of 4/4, so the rest of the song moves 8
+   beats earlier, and what started at bar 41 still starts at bar 41. The
+   message says how far it moved: `the rest of the song moved 8 beats
+   earlier`.
+5. The window goes inside the subproject, with one empty track, and the
    cursor on that track at its first bar.
 
 The message says what it did, for example `added the subproject Ballad
 over bars 33-40 in 6/8, on its own row; inside it now`. `u` takes the
-subproject, its row and the meter changes away in one step.
+subproject, its row and the meter changes away, and puts the rest of the
+song back where it was, in one step.
 
 `:nest.new` writes `name=`, `bars=` and `meter=` too, for example
 `:nest.new name=Slow part bars=4 meter=3/4`.
@@ -184,6 +194,10 @@ the subproject was, so that you keep your place:
   that region if there is none.
 - A subproject with its own meter writes the meter into the tempo map of
   the song over the block, and the meter of the song back after it.
+- A subproject with a key of its own, in its `meta.key` (for example
+  `"D minor"`), gives that key to the region named after it, when the key
+  differs from the key of the song. The region is then a key over its
+  time for harmony, as a region with a `key` is, and the message says so.
 - The return row, the master track and the subproject go.
 - The window shows a view of the group's tracks over the time of the
   region, named after the subproject, for example `Song › Ballad`. The
