@@ -820,20 +820,15 @@ end, "Loop")
 pmap("<CR>", function() roll:toggle_note() end, "Add or remove a note")
 pmap("i", function() keymap.set_mode("i") end, "Draw: the note under the cursor at its start, or a new one")
 pmap("a", function()
-  if paw.opt.roll_insert == "keys" then
-    local note = roll:note_at(roll.pitch, roll.beat)
-    if note then roll:set(nil, note.start + note.length) end
-  else
-    -- The pencil takes the note at its end, or starts a step on: past the
-    -- end of the clip if need be, which grows to hold what is drawn.
-    paw.roll_draw.append()
-  end
+  -- The pencil takes the note at its end, or starts a step on: past the
+  -- end of the clip if need be, which grows to hold what is drawn.
+  paw.roll_draw.append()
   keymap.set_mode("i")
 end, "Draw: the note under the cursor at its end, or a new one a step on")
 pmap("I", function()
-  paw.roll_draw.keys_once()
+  paw.roll_draw.step_next()
   keymap.set_mode("i")
-end, "Enter notes from the keyboard, as a piano")
+end, "Step input: notes played on a MIDI keyboard go in at the cursor")
 -- Notes chosen with the pointer (a click, a box) come first for the keys
 -- that would otherwise act on the note under the cursor.
 -- The first of them: its clip's id and its place there.
@@ -897,9 +892,6 @@ command("controls.line", function(ctx)
 end, {
   desc = "Draw a straight line of controller moves over the piano roll's selection, or its whole clip: "
     .. "`controls.line cc 74 0 127`, `controls.line bend 0 8191`, `controls.line pressure 127 0`",
-})
-command("notes.step_input", function() paw.frontend.act.toggle_step_input() end, {
-  desc = "Turn step input on or off: notes from a MIDI keyboard are entered at the piano roll's cursor while stopped",
 })
 pmap("D", function() keymap.normal("d$") end, "Delete to the end of the clip")
 pmap("C", function() keymap.normal("c$") end, "Change to the end of the clip")
@@ -1180,59 +1172,19 @@ drawmap("<C-w>", function() drawing.back() end, "Take back the note kept last, t
 drawmap("<C-u>", function() drawing.back_all() end, "Take back all that this insert drew")
 drawmap("]", function() drawing.velocity(1) end, "Louder notes")
 drawmap("[", function() drawing.velocity(-1) end, "Softer notes")
-drawmap("I", function() drawing.to_keys() end, "Type notes as a piano from here: a s d f … are a scale")
+drawmap("I", function() drawing.toggle_step() end, "Step input on or off: notes played on a MIDI keyboard go in")
 drawmap("<C-o>", function()
-  -- One command of normal mode: what is drawn is written, and insert mode starts again after it.
+  -- One command of normal mode: what is drawn is written, and insert mode
+  -- (step input if it was on) starts again after it.
+  local stepping = drawing.stepping()
   keymap.set_mode("n")
   keymap.after_next(function()
-    if paw.ui.focused == "pianoroll" and keymap.mode == "n" then keymap.set_mode("i") end
+    if paw.ui.focused == "pianoroll" and keymap.mode == "n" then
+      if stepping then drawing.step_next() end
+      keymap.set_mode("i")
+    end
   end)
 end, "One command of normal mode, then draw again")
--- The piano's letters do nothing while drawing: said, not lost in silence.
-for _, lhs in ipairs({ "w", "s", "d", "f", "g", "y", "u", "p", ";" }) do
-  drawmap(
-    lhs,
-    function()
-      paw.notify(
-        "drawing a note: h j k l shape it, Enter keeps it; I types notes as a piano (" .. lhs .. " is a key there)",
-        "warn"
-      )
-    end,
-    "Not a key while drawing: says that I types notes"
-  )
-end
-
--- Piano roll: insert mode the other way (`I`, or `paw.opt.roll_insert =
--- "keys"`). The middle row of the keyboard is the white keys from C and the
--- row above it the black ones, as on a piano. These keys come before the
--- drawing ones while that way is in use.
-roll:key_scope("pianoroll.keys", 90, function() return keymap.mode == "i" and not drawing.active() end)
-local function imap(lhs, rhs, desc) map(lhs, rhs, { view = "pianoroll.keys", mode = "i", desc = desc }) end
-local layout = { "a", "w", "s", "e", "d", "f", "t", "g", "y", "h", "u", "j", "k", "o", "l", "p", ";" }
-for semitone, key in ipairs(layout) do
-  local name = (paw.music.name(60 + semitone - 1):gsub("%d+$", ""))
-  imap(key, function() roll:enter(semitone - 1, true) end, "Enter " .. name .. " and step on")
-  if key:match("%a") then
-    imap(key:upper(), function() roll:enter(semitone - 1, false) end, "Enter " .. name .. " and stay, for a chord")
-  end
-end
-for digit = 1, 9 do
-  imap(
-    tostring(digit),
-    function() roll:set_step(digit * paw.opt.note_grid) end,
-    "Notes " .. digit .. " grid steps long"
-  )
-end
-imap("<Space>", function() roll:step(1) end, "A rest: step on")
-imap("<BS>", function() roll:backspace() end, "Step back, removing what was entered there")
-imap("z", function() roll:set_octave(-1) end, "An octave lower")
-imap("x", function() roll:set_octave(1) end, "An octave higher")
-imap("]", function() paw.opt.velocity = math.min(127, paw.opt.velocity + 10) end, "Louder notes")
-imap("[", function() paw.opt.velocity = math.max(1, paw.opt.velocity - 10) end, "Softer notes")
-imap("<Left>", function() roll:step(-1) end, "Step back")
-imap("<Right>", function() roll:step(1) end, "Step on")
-imap("<Up>", move(0, 1), "Up a semitone")
-imap("<Down>", move(0, -1), "Down a semitone")
 
 -- Piano roll: snippets (runtime/lua/paw/snippet.tl). While one is active its
 -- keys come first; otherwise each key does what it does everywhere else.

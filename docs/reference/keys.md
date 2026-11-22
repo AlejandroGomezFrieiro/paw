@@ -211,20 +211,20 @@ In visual mode, the same text object again takes in one more, so `vic` and then 
 | `<BS>` `<C-w>` | take back the note kept last |
 | `<C-u>` | take back all that this insert drew |
 | `[` `]` | softer, louder |
+| `I` | step input on or off (notes from a MIDI keyboard) |
 | `<C-o>` | one command of normal mode, then draw again |
-| `I` | keep what was drawn and type notes from here as on a piano (a piano's letter while drawing says so) |
 | `<Esc>` | write what was drawn (one undo step; `.` draws it again) and return to normal mode |
 
-## Enter notes as on a piano (`I`, R)
+## Enter notes from a MIDI keyboard (step input, R)
 
 | Keys | |
 | --- | --- |
-| `I` | insert mode with the keyboard as a piano (`:set roll_insert=keys` for `i` too) |
-| `a w s e d f t g y h u j k` | C, C♯, D, … up to the next C; a capital stays, for chords |
-| `1` … `9` | notes that many steps long |
-| `<Space>` `<BS>` | a rest; step back and remove |
-| `z` `x` | octave down, up |
-| `<Esc>` | back to normal mode |
+| `I` | step input from normal mode: keys of a MIDI controller enter notes at the cursor, keys held together a chord |
+| `=` and a value | the step: the length of the notes and rests that follow |
+| `<Space>` | a rest of one step |
+| `<BS>` | take back what was entered last |
+| `I` (in step input) | back to drawing |
+| `<Esc>` | write all the notes (one undo step) |
 
 ## Write from the harmony (snippets, R)
 

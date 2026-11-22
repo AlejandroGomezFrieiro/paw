@@ -97,7 +97,6 @@ local defaults: {string: Value} = {
   -- those a .gitignore at its root names too).
   files_skip = {"target", "node_modules", "result", "build", "dist", "__pycache__", "vendor"},
   device_sleep = true, -- devices at rest sleep through silence; the sound is the same
-  octave = 4, -- where note entry in insert mode starts: `a` is C of this octave
   grid = 1, -- arrange cursor step and snap, in beats
   zoom = 2, -- arrange columns per beat
   track_height = "auto", -- arrange rows per track; "auto" fits the tracks to the screen, 3 to 4
@@ -165,7 +164,6 @@ local specs: {string: Spec} = {
   timeoutlen = {min = 0, max = 10000},
   hint_delay = {min = 0, max = 10000},
   threads = {min = 0, max = 256, integer = true},
-  octave = {min = -1, max = 9, integer = true},
   grid = {min = 1 / 128, max = 64},
   zoom = {min = 0.125, max = 64},
   track_height = {type = {"number", "string"}, min = 1, max = 12, integer = true, values = {"auto"}},

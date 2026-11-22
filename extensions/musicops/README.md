@@ -165,9 +165,7 @@ The scale lock (`musicops_scale_lock`, `gzL`) works as follows while it is
 on:
 
 - Insert mode in the piano roll moves the note being drawn by steps of
-  the scale (`+` `-` and `<C-a>` `<C-x>`, `2+` from C is E in C major). With the keyboard as a piano
-  (`I`), it enters the nearest pitch of the key: in C major, `w` (C#)
-  enters D.
+  the scale (`+` `-` and `<C-a>` `<C-x>`, `2+` from C is E in C major).
 - `<C-a>` and `<C-x>` move notes by steps of the scale, not by semitones
   (`3<C-a>`: three steps). They move the note under the cursor in the
   piano roll, and the selected notes in the piano roll and the vocal
@@ -262,7 +260,7 @@ views, fn)` adds an operator of your own in the same way.
 | `musicops_compress` | 0.5 | `gzc` |
 | `musicops_accent` | 20 | `gze` |
 | `musicops_together` | 1/16 | notes that start this close are one chord |
-| `musicops_snap` | "nearest" | where `gzn` and the scale lock send notes outside the key: "nearest", "up", "down" |
+| `musicops_snap` | "nearest" | where `gzn` sends notes outside the key: "nearest", "up", "down" |
 | `musicops_mirror_chromatic` | false | `gzm` mirrors in semitones |
 | `musicops_scale_lock` | false | the entry and `<C-a>` `<C-x>` stay in the key |
 

@@ -634,7 +634,7 @@ the selection, or what insert mode draws. The tools are, in order, as follows.
 | note length | A menu of note lengths. |
 | snap | Starts or stops the snap to the grid. |
 | quantize | Quantizes the selected notes, or all notes (`:notes.quantize`). |
-| step | Step input (`:notes.step_input`): with the transport stopped, notes played on a MIDI keyboard go in at the cursor, chords together, and the cursor moves on. |
+| step | Step input (`I`): notes played on a MIDI keyboard go in at the cursor. A click starts or stops it. |
 | list | The event list: each note and move of the clip as a row to change in place. See [The event list](midi.md#the-event-list). |
 | Suggest, and other switches of modules | Start and stop the suggestions of a completion source. |
 | tracks | `:roll.tracks`: each track near the roll, to show or hide its notes, and its clips, to edit them together. |

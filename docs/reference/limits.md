@@ -43,7 +43,7 @@ The limits page lists what paw does not do, and the known limits of what it does
     clip.
   - The graphical window does not shade the gaps between the edited clips.
   - A click on a context note always makes its clip active, so a click cannot add a note on top of a context note, but a drag draws it.
-- The drawing of insert mode writes nothing until the mode ends, so notes drawn are not heard when the song plays meanwhile, nor seen by suggestions or language servers, and the window shows them as marks, not as notes to drag. The keyboard as a piano (`I`) still writes as it goes, with a step to undo for each key. Notes drawn have no length shorter than the grid, and a count before `i` does not draw the insert several times.
+- The drawing of insert mode writes nothing until the mode ends, so notes drawn are not heard when the song plays meanwhile, nor seen by suggestions or language servers, and the window shows them as marks, not as notes to drag. Notes drawn have no length shorter than the grid, and a count before `i` does not draw the insert several times.
 - Suggestions:
   - Sources can say that they offer suggestions in the arrange view (whole clips) and the drum view (`views`), but only the piano roll asks for them and shows them.
   - paw writes the controller moves of a suggestion when you accept it, but it does not draw them before.
@@ -375,8 +375,8 @@ The limits page lists what paw does not do, and the known limits of what it does
   - paw sends and imports only sound files from the disk of the client. It
     cannot import a MIDI file from there. Projects open and save on the
     disk of the instance.
-  - Every seat shares the options, for example the zoom, MIDI step input,
-    and the automation lanes and tempo lane that show.
+  - Every seat shares the options, for example the zoom, and the
+    automation lanes and tempo lane that show.
   - The seat of a window does not survive `:reload`.
 - The flake's `flake.lock` names the `nixpkgs` of this machine as a path in
   its Nix store, so the package builds here but not from a URL elsewhere

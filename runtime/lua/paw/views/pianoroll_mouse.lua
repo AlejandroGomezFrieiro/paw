@@ -451,7 +451,7 @@ local function tool(self, e)
   elseif name == "quantize" then
     A.quantize_notes(clip.id)
   elseif name == "step" then
-    A.toggle_step_input()
+    paw.roll_draw.click_step()
   elseif name == "list" then
     A.open_event_list(clip.id)
   elseif name == "tracks" then

@@ -33,9 +33,8 @@ In insert mode, `<CR>` keeps the note and draws the next note at its end,
 and `<Space>` adds a rest first. `c` makes the note a chord. `<BS>` removes
 the last note, and `<Esc>` writes the notes and leaves insert mode.
 
-`I` turns the computer keyboard into a piano keyboard, where `a w s e d f t
-g y h u j k` play C up to the next C. In normal mode, `<Esc>` stays in the
-piano roll, and `<C-w>p` returns to the arrange view.]],
+In normal mode, `<Esc>` stays in the piano roll, and `<C-w>p` returns to
+the arrange view.]],
   vim = [[
 In Vim, `<C-a>` and `<C-x>` add to a number and subtract from it. In paw,
 they change the pitch of a note in the same way as `+` and `-`, because

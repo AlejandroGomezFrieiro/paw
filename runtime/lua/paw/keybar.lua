@@ -134,6 +134,16 @@ M.lines.pianoroll = {
   },
   -- Insert mode: the note being drawn, then the keys that draw it.
   i = function()
+    if paw.roll_draw and paw.roll_draw.stepping() then
+      return {
+        { "=", "value" },
+        { "<Space>", "rest" },
+        { "<BS>", "back" },
+        { "c", "chord" },
+        { "I", "draw" },
+        { "<Esc>", "write" },
+      }
+    end
     local now = paw.roll_draw and paw.roll_draw.describe()
     local at_start = paw.roll_draw and paw.roll_draw.edge_now() == "start"
     local out = {
@@ -153,17 +163,6 @@ M.lines.pianoroll = {
     end
     return out
   end,
-}
--- Insert mode with the keyboard as a piano (`I`).
-M.lines["pianoroll.keys"] = {
-  i = {
-    { "a", "notes, w e t y u between", "a s d f g h j k" },
-    { "<Space>", "rest" },
-    { "<BS>", "back" },
-    { "z", "octave down" },
-    { "x", "octave up" },
-    { "<Esc>", "done" },
-  },
 }
 -- The mixer's first: what the rule changed (`j` `k` move, `+` `-` change).
 M.lines.mixer = {
