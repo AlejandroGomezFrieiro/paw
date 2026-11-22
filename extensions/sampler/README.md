@@ -1,10 +1,10 @@
 # sampler
 
-The sample player of paw. It plays SFZ and Decent Sampler instruments.
+The sampler extension is the sample player of paw, and it plays SFZ and Decent Sampler instruments.
 Each note can choose its articulation by its MIDI 2.0 attribute, so a
-chord can mix sustain and staccato on one channel. It is a CLAP plugin
+chord can mix sustain and staccato on one channel. The player is a CLAP plugin
 (`dev.paw.sampler`) that the extension builds from its own source, in
-Rust. It works in any CLAP host too. It does not contain sfizz or another
+Rust, and it works in any CLAP host too. It does not contain sfizz or another
 player.
 
 ```
@@ -22,26 +22,26 @@ extensions/sampler/
    Put an `.sfz` instrument in `~/.local/share/paw/instruments`.
 2. Type `:ext.load sampler`, then `:sampler.track`. The instrument picker
    opens.
-3. Move the selection to an instrument. Wait a moment. A short phrase
+3. Move the selection to an instrument and wait a moment, and a short phrase
    plays through the instrument.
-4. Press Enter. The new track keeps the instrument.
-5. Type `:sampler.info`. paw shows the range of the instrument and its
+4. Press Enter, and the new track keeps the instrument.
+5. Type `:sampler.info`, and paw shows the range of the instrument and its
    articulations.
 
 ## How to
 
 ### How to build the plugin
 
-- With Nix, the plugin and its command alone:
+- With Nix, build the plugin and its command alone:
 
   ```
   nix build .#paw-sampler        # lib/clap/paw-sampler.clap, bin/paw-sampler
   ```
 
-- paw with the extension: `paw.withExtensions (exts: [ exts.sampler ])`,
+- To get paw with the extension, use `paw.withExtensions (exts: [ exts.sampler ])`,
   or `programs.paw.extensions = [ "sampler" ]` in home-manager.
-- From the source tree, in the dev shell: run
-  `extensions/sampler/native/build.sh`. It builds into `target/sampler`, and
+- From the source tree, in the dev shell, run
+  `extensions/sampler/native/build.sh`, which builds into `target/sampler` and
   puts `clap/paw-sampler.clap` and `bin/paw-sampler` beside this file.
 
 The extension adds the folder of the plugin to the plugin scan
@@ -61,11 +61,11 @@ graphical window, choose "Sampler instrument…" in the menu of the track.
 
 ### How to add a folder of instruments
 
-Add the folder to `paw.opt.sampler_libraries`. Separate folders with `:`.
+Add the folder to `paw.opt.sampler_libraries`, and separate folders with `:`.
 
 ### How to see an instrument from a shell
 
-Run `paw-sampler describe file.sfz`. It prints the description as JSON.
+Run `paw-sampler describe file.sfz`, which prints the description as JSON.
 
 ## Reference
 
@@ -73,29 +73,28 @@ Run `paw-sampler describe file.sfz`. It prints the description as JSON.
 
 | Command | Effect |
 | --- | --- |
-| `:sampler.track [file or words]` | adds a sampler track. With a file, it loads that file. With words, or with nothing, it opens the instrument picker |
+| `:sampler.track [file or words]` | adds a sampler track. With a file, it loads that file, and with words or with nothing it opens the instrument picker |
 | `:sampler.load [file or words]` | chooses the instrument of the sampler track at the cursor |
-| `:sampler.info` | tells what the instrument is: its range, its articulations with their codes and keyswitches, and what in the file does not play |
+| `:sampler.info` | tells you what the instrument is, including its range, its articulations with their codes and keyswitches, and what in the file does not play |
 
 - The picker lists every `.sfz` and `.dspreset` under the folders in
   `paw.opt.sampler_libraries` and under `~/.local/share/paw/instruments`.
   When the selection stays on one, paw loads it for a trial, and a short
-  phrase in its range plays through the track. Enter keeps it (one undo
-  step). Escape restores the instrument that was there.
-- `K` and the track header show "Sampler track · Violins · SFZ · 3
-  articulations".
-- A load is an edit, as the load of a preset is. Undo removes it. The
+  phrase in its range plays through the track. Enter keeps the instrument (one undo
+  step), and Escape restores the instrument that was there.
+- `K` and the track header show `Sampler track · Violins · SFZ · 3
+  articulations`.
+- A load is an edit, as the load of a preset is, and undo removes it. The
   project keeps the state of the plugin, which names the file and the
   parameters.
 - When the file is not found, the project keeps its path, and
   `:sampler.info` tells you.
 
-Parameters:
+The plugin has these parameters:
 
-- gain, polyphony (1 to 256 voices), tune, transpose
-- attack and release scale, velocity sensitivity, release trigger level
-- filter cutoff offset
-- the interpolation (linear, Hermite, sinc).
+- gain, polyphony (1 to 256 voices), tune and transpose
+- attack and release scale, velocity sensitivity, and release trigger level
+- filter cutoff offset and the interpolation (linear, Hermite, sinc).
 
 ### Articulations
 
@@ -107,23 +106,23 @@ The articulations of an instrument come from its keyswitches:
   groups or tags (named after the groups that they enable)
 - the options of a menu of Decent Sampler that does the same
 
-Each gets a code of the MIDI 2.0 orchestral articulation profile (M2-123)
-from its name: `Staccato` is 11.0, `Pizz` 11.A, `Legato` 10.2. If the name
-tells nothing, it gets a custom code (classifications 1A to 1F, in order).
+Each articulation gets a code of the MIDI 2.0 orchestral articulation profile (M2-123)
+from its name, so `Staccato` is 11.0, `Pizz` is 11.A, and `Legato` is 10.2. If the name
+tells nothing, the articulation gets a custom code (classifications 1A to 1F, in order).
 
 - A note whose MIDI 2.0 attribute is an articulation (types 0x10 to 0x1F)
   plays that articulation, for that note only. If the instrument does not
-  have it, the player uses another articulation, as the profile says:
-  another variation, subclass 0, then 10.0.
+  have it, the player uses another articulation, as the profile says, which is
+  another variation, then subclass 0, then 10.0.
 - The reset-round-robin bit of the attribute starts the round robins
   again.
-- A note with no attribute plays what the keyswitches chose. A keyswitch
-  note at the same time, before the note, counts. It stays, as in SFZ.
+- A note with no attribute plays what the keyswitches chose, and a keyswitch
+  note at the same time, before the note, counts. The keyswitch stays, as in SFZ.
 - The plugin gives names to its keyswitch keys through CLAP `note-name`.
 
 ### `describe`
 
-`paw.api.device_call(device, "describe")` answers JSON:
+`paw.api.device_call(device, "describe")` returns JSON:
 
 | Field | Value |
 | --- | --- |
@@ -138,16 +137,15 @@ tells nothing, it gets a custom code (classifications 1A to 1F, in order).
 | `warnings`, `error` | what the player does not play, and errors |
 | `params` | the parameters |
 
-`delay_ms` is how late the attack comes in the samples. For each sample,
-the player measures it one time, at the load. It starts at the start of
-the region (after its `offset`). It ends at the first frame at a tenth
-(-20 dB) of the peak of the sample. For an articulation, it is the median
-over the attack regions that it plays. For the instrument, it is the
+`delay_ms` is how late the attack comes in the samples. The player measures it once for each sample, at the load, from the start of
+the region (after its `offset`) to the first frame at a tenth
+(-20 dB) of the peak of the sample. For an articulation, the value is the median
+over the attack regions that it plays, and for the instrument it is the
 median over all of them (null when there are none).
 
 The articulations
-extension writes it into the `.art.toml` of the instrument as `delay`. So
-paw can play such notes earlier.
+extension writes the value into the `.art.toml` of the instrument as `delay`, so
+that paw can play such notes earlier.
 
 ### What it reads
 
@@ -167,7 +165,7 @@ with opcodes inherited down the chain. `#define`, `#include`, comments.
 | Controllers | `amplitude volume gain pan pitch tune cutoff resonance` with `_onccN` (or `_ccN`) and `_curveccN`. `set_ccN set_hdccN label_ccN label_keyN` |
 | Voices | `group off_by off_mode off_time polyphony note_polyphony` |
 
-Other opcodes go into `warnings`. They are never errors.
+paw puts other opcodes into `warnings`, and they are never errors.
 
 **Decent Sampler.**
 
@@ -181,7 +179,7 @@ Other opcodes go into `warnings`. They are never errors.
 - `<tags>` (`enabled`, `polyphony`)
 - keyswitches as `<midi><note>` bindings of `ENABLED` and `TAG_ENABLED`
   (and `swallowNotes`), and `<ui>` menus whose options do the same
-- `<effects>`, `<modulators>` and `<buses>` go into the report. They do not
+- `<effects>`, `<modulators>` and `<buses>` go into the report, and they do not
   play.
 
 **Sound files**: WAV (8, 16, 24 and 32-bit, float), AIFF, FLAC and Ogg
@@ -189,23 +187,23 @@ Vorbis (the last two through symphonia). Files with more than two channels
 play their first two.
 
 A format is one reader (`native/src/formats/`) that fills the one model in
-`native/src/model.rs`. To add a format, nothing else changes.
+`native/src/model.rs`, so to add a format you change nothing else.
 
 ### How it plays
 
 - The player reads all samples into memory when the instrument loads, on
-  up to eight threads. It keeps 16-bit samples as 16-bit.
-- Voices come from a fixed pool: the polyphony parameter (at most 256),
+  up to eight threads, and it keeps 16-bit samples as 16-bit.
+- Voices come from a fixed pool of the size of the polyphony parameter (at most 256),
   and 32 more for stolen voices to fade. A stolen voice is a released voice
-  first (the quietest), else the oldest. It fades in 6 ms.
-- Nothing on the audio thread allocates, locks or reads a file. A test
-  counts.
+  first (the quietest), else the oldest, and it fades in 6 ms.
+- Nothing on the audio thread allocates, locks or reads a file, and a test
+  counts the allocations.
 - Events are accurate to the sample.
 - Resampling is a windowed sinc (16 taps, Kaiser β 8, 256 phases
   interpolated), with tables for eight speeds up to four times the rate of
-  the sample. So the player filters a note pitched up before it folds.
+  the sample, so the player filters a note pitched up before it folds.
   Hermite and linear cost less.
-- Round robins and random choices start the same at every reset. So
+- Round robins and random choices start the same at every reset, so
   renders repeat exactly.
 
 ### Performance
@@ -214,15 +212,15 @@ Measured with `paw-sampler bench`, the best of five runs, on a machine
 busy with other builds:
 
 - A voice of a stereo sample costs about 20 nanoseconds a frame with sinc, 10 with
-  Hermite, 6 linear. So 64 voices at 48 kHz take 6 % of a core with sinc,
+  Hermite, and 6 with linear, so 64 voices at 48 kHz take 6 % of a core with sinc,
   and 256 voices take 25 %.
 - A library of 1000 stereo 24-bit files (550 MB on disk, 770 MB in
   memory) loads in about 110 ms when the files are in the cache of the
   system.
 
 Through the plugin helper of paw, each instance costs about 8 µs a block
-more than in the process of the program. This cost is the same for
-each block, so it is more with small blocks. `--plugins-in-process` saves
+more than in the process of the program. The cost is the same for
+each block, so it adds up more with small blocks, and `--plugins-in-process` saves
 it.
 
 | Instances, each with a note | Engine load in real time (null backend, 512-frame blocks) | In process | Offline render of 20 s | In process |
@@ -242,15 +240,15 @@ it.
 - `cargo test` in `native/` (in the dev shell):
   - the readers
   - seventeen renders of the fixture instruments, checked by pitch and
-    level. They test the order of round robins, keyswitches, attributes
-    for each note with the fallback, release triggers and the pedal. They
-    also test loops without clicks, envelopes, choke groups, velocity
+    level, which test the order of round robins, keyswitches, attributes
+    for each note with the fallback, release triggers and the pedal, and
+    also loops without clicks, envelopes, choke groups, velocity
     layers, a FLAC sample and polyphony
   - the plugin through its CLAP entry, with MIDI 2.0 note-ons that carry
     attributes
-  - `assert_no_alloc` around all that the audio thread does: it counts each allocation and free
+  - `assert_no_alloc` around all that the audio thread does, which counts each allocation and free
 - `native/test.sh` builds the plugin and runs the tests of the extension in
-  paw (`tests.lua`) with the plugin on the plugin path. The suite alone
+  paw (`tests.lua`) with the plugin on the plugin path, while the suite alone
   runs the tests that need no plugin.
 - `paw-sampler fixtures <dir>` writes the fixture instruments (sines of
-  known pitches), to try things by hand.
+  known pitches), so that you can try things by hand.

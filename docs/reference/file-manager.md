@@ -2,10 +2,7 @@
 
 <!-- tags: files oil fyler -->
 
-paw shows a folder as text, as it shows the [lists edited as text](lists-edited-as-text.md)
-and as oil.nvim shows a directory. It shows a folder as a tree as
-fyler.nvim does. You move files and open sound files with the same keys
-as the rest of paw.
+paw shows a folder as text, in the same way as it shows the [lists edited as text](lists-edited-as-text.md) and as oil.nvim shows a directory, and it shows a folder as a tree as fyler.nvim does. You move files and open sound files with the same keys as the rest of paw.
 
 ## Commands and keys
 
@@ -15,7 +12,7 @@ as the rest of paw.
 | `:Files [folder]`, `:files.tree` | Shows the folder as a tree in a split: `paw://tree/home/me/music`. |
 | `-` | Goes up to the folder above. In the tree, the tree shows that folder. |
 | `Enter` | On a folder, goes into it (in the tree, opens or closes it, as `za` does). On a project, opens it, and asks about unsaved work first. On a sound or MIDI file, puts it at the track and time of the cursor, or on a new track if the project has no tracks. |
-| `go` | Puts a sound or MIDI file on a **new** track. On a selection: one track for each file. |
+| `go` | Puts a sound or MIDI file on a new track. On a selection, it makes one track for each file. |
 | `gh` | Plays the sound file under the cursor (a MIDI file through an instrument). |
 | `gH` | Plays each sound file when the cursor stops on it for `paw.opt.audition_delay` ms (`paw.opt.files_hear`). |
 | `g.` | Shows or hides the files whose names start with a dot (`paw.opt.files_hidden`). |
@@ -24,10 +21,7 @@ as the rest of paw.
 
 ## The lines
 
-A line is a file. A folder ends in `/`. Columns after the name give what is
-known of the file. For a sound file, they give the length, sample rate and
-channels (from its header). For all files, they give the size. In the `media` folder of the project,
-`unused` marks a sound file that no clip plays.
+A line is a file, and a folder ends in `/`. Columns after the name give what is known of the file. For a sound file, they give the length, sample rate and channels (from its header), and for all files, they give the size. In the `media` folder of the project, `unused` marks a sound file that no clip plays.
 
 ```
 samples/
@@ -39,7 +33,7 @@ notes.txt                        5B
 
 ## Edits
 
-The edits are those of text:
+The edits are those of text, as the table below shows.
 
 | Edit | Effect at `:w` |
 | --- | --- |
@@ -54,14 +48,11 @@ The edits are those of text:
 `delete notes.txt (to the trash)`), and `y` does it.
 
 - paw never removes a file. A deleted file goes to the freedesktop trash (`~/.local/share/Trash`), with the record that the desktop needs to restore it.
-- paw refuses a name that a file has already. It does not write over it.
+- paw refuses a name that a file has already, and it does not write over the file.
 - If a plan fails in the middle, paw puts back what it did.
-- An undo in the history of the project does not undo files. Restore a deleted file from the trash.
+- An undo in the history of the project does not undo files, so restore a deleted file from the trash.
 
-To delete the sound files that no clip plays, type `:media.unused`, then
-`dd` on each line and `:w`. A file that a deleted clip played may be
-necessary for `u`. The trash keeps it. `:media.collect` copies files from
-other folders into `media`. See [Media files and audio clips](media.md).
+To delete the sound files that no clip plays, type `:media.unused`, then `dd` on each line and `:w`. A file that a deleted clip played may be necessary for `u`, and the trash keeps it. `:media.collect` copies files from other folders into `media`, and [Media files and audio clips](media.md) describes it.
 
 ## Lua
 
@@ -70,5 +61,4 @@ other folders into `media`. See [Media files and audio clips](media.md).
 | `paw.files.open(folder, { tree = true })` | Shows a folder. |
 | `paw.files.sound_info(path)` | Reads the header of a sound file. |
 
-An extension makes its own kind of list with `paw.textbuf.kind` (see
-[The Lua interface](scripting.md)).
+An extension makes its own kind of list with `paw.textbuf.kind` (see [The Lua interface](scripting.md)).

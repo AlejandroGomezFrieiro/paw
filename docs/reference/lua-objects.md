@@ -1,13 +1,10 @@
 # Project objects in Lua
 
-This page describes the Lua objects of the project: tracks, devices,
-clips, notes, note attributes, the transport, the tempo map and
-automation. Units are in [The Lua interface](scripting.md#units).
+The reference page describes the Lua objects of the project, which are tracks, devices, clips, notes, note attributes, the transport, the tempo map and automation. Units are in [The Lua interface](scripting.md#units).
 
 ## Objects are handles
 
-An object is a handle. When you read a field, Lua asks the kernel. When you
-write a field, Lua tells the kernel.
+An object is a handle, so when you read a field, Lua asks the kernel, and when you write a field, Lua tells the kernel.
 
 ```lua
 paw.project.tempo = 112
@@ -38,8 +35,7 @@ with its devices, clips and automation.
 
 ## Notes
 
-A note has a place among the notes of its clip. The notes of a clip are
-in the order that they start. These functions edit one note at a time:
+A note has a place among the notes of its clip, and the notes of a clip are in the order that they start. The functions below edit one note at a time.
 
 ```lua
 local note, at = clip:note_at("E2", 1.25)       -- the note that sounds there, and its place
@@ -50,29 +46,21 @@ clip:notes({ from = 0, to = 4, low = "C2", high = "C3" })   -- some of the notes
 clip:edit_notes({ set = { { index = 1, start = 0.5 } }, remove = { 2 }, add = {} })  -- one edit
 ```
 
-A note also has an id, `note.id`. The id stays with the note through every
-edit.
+A note also has an id, `note.id`, and the id stays with the note through every edit.
 
-### `meta`: data of an extension
+### `meta` for the data of an extension
 
-`note.meta` and `clip.meta` are tables for data that MIDI cannot hold, for
-example a lyric or the letter name of a pitch. Each extension writes under
-a key of its own (`meta.lyric`, `meta.notation`). The core keeps `meta`
-with the note through moves, copies, undo and project files. The core does
-not read it.
+`note.meta` and `clip.meta` are tables for data that MIDI cannot hold, e.g., a lyric or the letter name of a pitch. Each extension writes under a key of its own (`meta.lyric`, `meta.notation`). The core keeps `meta` with the note through moves, copies, undo and project files, and it does not read the contents.
 
 ```lua
 clip:add_note({ pitch = 60, start = 0, meta = { lyric = "la" } })
 ```
 
-`project.meta` and `track.meta` are saved with the project too. See
-[About MIDI as the truth](../explanation/about-midi-as-the-truth.md).
+The project saves `project.meta` and `track.meta` too. See [About MIDI as the truth](../explanation/about-midi-as-the-truth.md).
 
 ## MIDI files
 
-`paw.midifile.read` gives the contents of a file in ticks, with `ppq`
-ticks to a beat:
-`{ format, ppq, tracks = { { name, notes, controls } }, tempos, signatures, markers, skipped }`.
+`paw.midifile.read` gives the contents of a file in ticks, with `ppq` ticks to a beat, in the form `{ format, ppq, tracks = { { name, notes, controls } }, tempos, signatures, markers, skipped }`.
 
 ```lua
 paw.open("song.mid")                                            -- a new project, as :open does
@@ -83,19 +71,11 @@ local file = paw.midifile.read("song.mid")                      -- parse(bytes) 
 
 ## Note attributes: `note.attr`
 
-`note.attr = { type, data }` is the attribute of a MIDI 2.0 note-on, or nil.
-Usually it is an articulation of the orchestral articulation profile
-(M2-123). Then `type` is the classification (0x10 to 0x1F). The top bits of
-`data` are the subclass and the variation.
+`note.attr = { type, data }` is the attribute of a MIDI 2.0 note-on, or nil. It is usually an articulation of the orchestral articulation profile (M2-123), and then `type` is the classification (0x10 to 0x1F) and the top bits of `data` are the subclass and the variation.
 
-The attribute is MIDI. The core keeps it through edits, copies, undo,
-project files and recordings from MIDI 2.0 input. In a MIDI file, it is a
-sequencer-specific event immediately before the note. Other programs
-ignore that event.
+The attribute is MIDI, and the core keeps it through edits, copies, undo, project files and recordings from MIDI 2.0 input. In a MIDI file, it is a sequencer-specific event immediately before the note, and other programs ignore that event.
 
-The attribute goes to MIDI 2.0 ports, to CLAP plugins that prefer MIDI 2.0
-notes, and to devices in Lua. MIDI 1.0 destinations do not get it. A
-`track.attr_map` can send it to them as keyswitches.
+The attribute goes to MIDI 2.0 ports, to CLAP plugins that prefer MIDI 2.0 notes, and to devices in Lua. MIDI 1.0 destinations do not get it, but a `track.attr_map` can send it to them as keyswitches.
 
 ```lua
 clip:add_note({ pitch = "G4", start = 2, attr = paw.attr.m2("11.A") })   -- pizzicato
@@ -108,17 +88,11 @@ paw.attr.describe(note.attr) -- { code = "11.A", tag = "pz", name = "Pizzicato",
 bass:play_note("C2", 100, 200, paw.attr.m2("11.0"))   -- live, after the events of the map
 ```
 
-The piano roll writes the tag on a note when the note is long enough. The
-graphical window gives the note a chip, and `K` shows the articulation.
-The core keeps only the numbers. The [articulations
-extension](../../extensions/articulations/README.md) gives them names for each
-instrument.
+The piano roll writes the tag on a note when the note is long enough, the graphical window gives the note a chip, and `K` shows the articulation. The core keeps only the numbers, and the [articulations extension](../../extensions/articulations/README.md) gives them names for each instrument.
 
 ## `track.attr_map`
 
-The map of a track changes the attributes of its notes into events for an
-instrument that takes only MIDI 1.0. The map is plain data. The project
-keeps it and plays it with no extension loaded.
+The map of a track changes the attributes of its notes into events for an instrument that takes only MIDI 1.0. The map is plain data, so the project keeps it and plays it with no extension loaded.
 
 ```lua
 track.attr_map = {
@@ -133,7 +107,7 @@ track.attr_map = {
 track.attr_map = nil                 -- no map
 ```
 
-`out` is a list of events, with spaces between them:
+`out` is a list of events with spaces between them, and the table below names the events.
 
 | Event | What it sends |
 | --- | --- |
@@ -145,11 +119,9 @@ track.attr_map = nil                 -- no map
 | `ch=2` | the note and its events go on channel 2 (for a multi-timbral instrument) |
 | `attr` | the note keeps its attribute |
 
-Key names have C4 as 60. An entry may hold other fields beside `out`. paw
-keeps them and does not read them.
+Key names have C4 as 60. An entry may hold other fields beside `out`, and paw keeps them without reading them.
 
-paw finds the entry of a note by its code. If there is no entry, paw
-tries, in this order, as M2-123 says:
+paw finds the entry of a note by its code. If there is no entry, paw tries the following, in this order, as M2-123 says:
 
 1. The subclass without its variation.
 2. The `by_type` entry of the classification.
@@ -157,28 +129,20 @@ tries, in this order, as M2-123 says:
 4. `"10.0"`.
 5. `default`.
 
-The events go on the beat of the note, before the note. A keyswitched
-sampler needs this order. When playback starts, or the loop starts again,
-paw sends the last change before that point first. paw refuses a map that
-it cannot read.
+The events go on the beat of the note, before the note, because a keyswitched sampler needs this order. When playback starts, or the loop starts again, paw sends the last change before that point first. paw refuses a map that it cannot read.
 
 ### Delays
 
-An entry with `delay` moves its notes by that number of milliseconds. A
-negative value moves them earlier:
+An entry with `delay` moves its notes by that number of milliseconds, and a negative value moves them earlier.
 
 ```lua
 arts["11.0"] = { out = "ks=D1", delay = -80 }
 ```
 
-paw moves the start, the end and the keyswitch of each note 80 ms
-earlier. `attr_map.delay` applies to each note whose entry has no `delay`.
+paw moves the start, the end and the keyswitch of each note 80 ms earlier, and `attr_map.delay` applies to each note whose entry has no `delay`.
 
-- The kernel moves the notes when it schedules the events of the track. It
-  uses the tempo map at each note. Playback, an offline render, a bounce
-  and a freeze give the same result. A tempo change moves the notes again.
-- A note that moves before the start of playback (the first beat, a seek,
-  the start of the loop) starts at the start of playback.
+- The kernel moves the notes when it schedules the events of the track, and it uses the tempo map at each note. Playback, an offline render, a bounce and a freeze give the same result, and a tempo change moves the notes again.
+- A note that moves before the start of playback (the first beat, a seek, the start of the loop) starts at the start of playback.
 - Notes played live do not move.
 - `paw.attr.delay_of(track, attr)` gives the delay of a note, for a view.
 
@@ -198,8 +162,7 @@ paw.opt.pre_roll = 2               -- play two bars, and paw.opt.pre_roll_second
 
 ## Tempo
 
-`paw.tempo` reads and sets the tempo map: `at(beat)`, `set(beat, bpm)`,
-`remove(beat)`, `points()`, `signatures()`, `set_signature(bar, num, den)`.
+`paw.tempo` reads and sets the tempo map with `at(beat)`, `set(beat, bpm)`, `remove(beat)`, `points()`, `signatures()` and `set_signature(bar, num, den)`.
 
 `paw.tempolane` is the row under the ruler that shows the tempo map.
 
@@ -213,15 +176,11 @@ paw.opt.pre_roll = 2               -- play two bars, and paw.opt.pre_roll_second
 | `ramp(beat, on)` | make the tempo glide from a point to the next point, or stop it. Without `on`, it toggles |
 | `draw(points, step)` | write the points of a line drawn with the pointer, `step` beats apart |
 
-Each edit is one undo step, and goes through `paw.tempo`.
+Each edit goes through `paw.tempo` and is one undo step.
 
 ## Automation
 
-An automation lane moves the volume or the pan of a track, or one
-parameter of a device on the track. A lane is a list of points
-`{ beat, value }` in the units of its target: dB, -1 to 1, or the range of
-the parameter. Straight lines join the points. Before the first point and
-after the last point, the value does not change.
+An automation lane moves the volume or the pan of a track, or one parameter of a device on the track. A lane is a list of points `{ beat, value }` in the units of its target, which are dB, -1 to 1, or the range of the parameter. Straight lines join the points, and the value does not change before the first point or after the last point.
 
 ```lua
 local fade = bass:automate("volume")            -- or "pan". It gives the lane that exists, if there is one
@@ -231,18 +190,12 @@ fade.enabled = false   fade:clear()   fade:remove()
 fade:points()   fade:value_at(4)   bass:lanes()   bass:value_at("volume", 4)   synth:value_at("cutoff", 4)
 ```
 
-- While the transport plays, an enabled lane sets its target at the start
-  of each block. Offline renders do the same.
-- A lane has priority over the fader and over `device:set`. Those change
-  the value of the track or the device. `track.volume` and `device.params`
-  read that value.
-- When playback stops, the target keeps the last value of the lane. It
-  changes again when you set it, or when playback starts.
+- While the transport plays, an enabled lane sets its target at the start of each block, and offline renders do the same.
+- A lane has priority over the fader and over `device:set`, which change the value of the track or the device, and `track.volume` and `device.params` read that value.
+- When playback stops, the target keeps the last value of the lane, and it changes again when you set it or when playback starts.
 - When you disable or remove a lane, the target gets its own value again.
-- When you remove a device, paw removes its lanes. When you move a device
-  to another track, its lanes move with it.
-- The project saves the lanes. Undo applies to them. They send
-  `lane.added`, `lane.changed` and `lane.removed`.
+- When you remove a device, paw removes its lanes, and when you move a device to another track, its lanes move with it.
+- The project saves the lanes, undo applies to them, and they send `lane.added`, `lane.changed` and `lane.removed`.
 
 ### Lanes in the arrange view
 
@@ -256,8 +209,4 @@ fade:points()   fade:value_at(4)   bass:lanes()   bass:value_at("volume", 4)   s
 | `paw.lanes.format(lane, value)` | a value as text |
 | `paw.lanes.value_at(lane, beat)` | the value at a beat |
 
-`paw.groups.rows({ lanes = true })` gives the same rows as `lines()`.
-`paw.cursor.lane_id()` is the lane row under the cursor.
-`paw.cursor.line()` is the place of the cursor among all the rows. Keys
-mapped with `view = "arrange.lane"` act on a lane row before the keys of
-the arrange view.
+`paw.groups.rows({ lanes = true })` gives the same rows as `lines()`, `paw.cursor.lane_id()` is the lane row under the cursor, and `paw.cursor.line()` is the place of the cursor among all the rows. Keys mapped with `view = "arrange.lane"` act on a lane row before the keys of the arrange view.

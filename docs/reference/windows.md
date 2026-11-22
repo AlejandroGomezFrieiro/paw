@@ -2,36 +2,36 @@
 
 <!-- tags: windows-buffers-and-tabs windows buffers tabs -->
 
-The screen has the layout of Neovim.
+The screen has the same layout as Neovim, built from buffers, windows and tabs.
 
-- A **buffer** is a thing to show and edit. The views are buffers: the arrange view (`arrange`), the piano roll (`roll`), the mixer (`mixer`), the device panel (`devices`). The event list, help and the view of an extension (`notation`, `drums`, `utau`, the session view `session` of the clip launcher and other) are buffers too.
-- A **window** shows one buffer.
-- A **tab** holds windows, split side by side and one above the other.
+- A buffer is a thing to show and edit. The views are buffers, namely the arrange view (`arrange`), the piano roll (`roll`), the mixer (`mixer`) and the device panel (`devices`). The event list, help and the view of an extension (`notation`, `drums`, `utau`, the session view `session` of the clip launcher and more) are buffers too.
+- A window shows one buffer.
+- A tab holds windows, split side by side and one above the other.
 
 The status line and the bottom line stay along the bottom of every tab.
 
 ## The start
 
-At the start there is one tab. The configuration can give a start layout
-(see [Layouts](#layouts)). Without one, the tab shows the arrange view.
+At the start there is one tab, and the configuration can give a start layout
+(see [Layouts](#layouts)). Without a start layout, the tab shows the arrange view.
 The panels open and close in their places (`<Space>mm`, `<Space>dd`, `<Space>vp`, `Enter` on
 a clip).
 
-No view is the home of the screen. Any view can be alone in a
-tab. paw never puts the arrange view in a window that you did not ask
+No view is the home of the screen, so any view can be alone in a
+tab, and paw never puts the arrange view in a window that you did not ask
 for.
 
 - `<Space>vp` with no clip open opens the piano roll on the clip under the cursor. If there is no clip there, it shows a message and changes nothing.
 - A view that is not in the tab docks on its side of the window that has the keyboard, as a split in Neovim does. For example, `<Space>mm` puts the mixer below that window.
 - The last window of a tab does not close. `Ctrl-w c`, `:close`, `<Space>mm` and the other keys that close a panel leave it. It continues to show its view.
 - When a window closes, the keyboard goes to the window that had it before.
-- `:view.focus` of a view that does not show puts it in the current window. So the focus is never on a view that is not visible.
+- `:view.focus` of a view that does not show puts it in the current window, so the focus is never on a view that is not visible.
 - `:help` splits half of the screen, as Vim does for its help.
 
 ## The start page
 
-An empty window shows the start page: `:vnew`, `:tabnew` without a name,
-`Ctrl-w n`. It is a buffer type, `empty`, with a buffer for each window.
+An empty window shows the start page, which you get with `:vnew`, `:tabnew` without a name,
+or `Ctrl-w n`. The start page is a buffer type, `empty`, with a buffer for each window.
 
 - The first line shows the project, the tempo, and where the transport is.
 - The list of recent projects follows. `j` and `k` move in it, and `Enter` or a double click opens the project.
@@ -39,7 +39,7 @@ An empty window shows the start page: `:vnew`, `:tabnew` without a name,
 
 ## Sizes
 
-- A view says what part of the room it keeps where windows share it (`share` in [Lua views](lua-views.md)). Sometimes three or more panels are one above the other. Then the arrange view keeps a third of the rows (as `Ctrl-w =` gives it), and the notation view takes half or less.
+- A view says what part of the room it keeps where windows share it (`share` in [Lua views](lua-views.md)). Sometimes three or more panels are one above the other, and then the arrange view keeps a third of the rows (as `Ctrl-w =` gives it), and the notation view takes half or less.
 - In a column, the arrange view keeps two fifths of the rows. The panels with a size of their own give rows last.
 - In a panel whose height is an option (`mixer_height`), `Ctrl-w +` and `Ctrl-w -` change that option.
 
@@ -51,14 +51,14 @@ takes its own keys, and a clip that you open shows in that window.
 
 - The arrange view, the piano roll, the notation view, the mixer, the device panel and the session view of the clip launcher show in any number of windows. Each window has its own state: the open clip, the cursor, the scroll and the zoom of the view. The edit cursor of the arrange view (the track and the time) is one for all the windows.
 - Each device panel follows the cursor track, or shows the track that it is pinned to (`devices://Bass`, `\p`). See [Two panels on two tracks](device-panel.md#two-panels-on-two-tracks).
-- The views of extensions without a state for each window show in one window at a time. If you show one of them in a different window, it moves there, with a message.
-- A panel window closed with `Ctrl-w c` keeps its place. The panel returns there. A second window of a view closes for good.
+- The views of extensions without a state for each window show in one window at a time, so if you show one of them in a different window, it moves there with a message.
+- A panel window closed with `Ctrl-w c` keeps its place, and the panel returns there. A second window of a view closes for good.
 - New windows go to the right of and below the window that you split. `:set splitright!` and `:set splitbelow!` put them to the left and above.
 
 ## Names of a clip in a view
 
 A view that opens a thing of its own takes a name of the form
-`view://thing`, as Neovim takes `term://`. The name goes after `:e`, `:sp`,
+`view://thing`, in the way that Neovim takes `term://`. The name goes after `:e`, `:sp`,
 `:vs`, `:b` and `:tabnew`, and into a layout.
 
 | Name | Effect |
@@ -115,7 +115,7 @@ button, and a middle click on a tab closes it. A drag of a tab moves it
 
 A click in a window gives it the keyboard (see
 [The mouse](mouse.md)). The rule between two windows side by side is a
-border to drag with the mouse. So is the top row of a window below a
+border to drag with the mouse, and so is the top row of a window below a
 different window, where a press that the window does not use drags the
 border.
 
@@ -123,14 +123,14 @@ border.
 
 `:setlocal timebind` in the arrange view and in the piano roll next to it
 makes them show the same time at the same zoom. The window with the
-keyboard leads, and the other window scrolls with it. While the song plays,
+keyboard leads and the other window scrolls with it, and while the song plays,
 both follow the playhead. `:setlocal notimebind` removes the bind.
 
 ## Layouts
 
 `:layout save edit` writes the tabs and windows to the state directory,
 and `:layout edit` puts them back. A configuration can name its own
-layouts, and start with one:
+layouts, and start with one, as follows.
 
 ```lua
 paw.layouts.edit = {
@@ -140,8 +140,8 @@ paw.layouts.edit = {
 paw.opt.layout = "edit"
 ```
 
-`paw.ui.start_layout` is the layout that paw starts with. It is a view's
-name, a tree of windows, or a list of tabs. A window can name its clip:
+`paw.ui.start_layout` is the layout that paw starts with, given as a view's
+name, a tree of windows, or a list of tabs. A window can name its clip, as follows.
 
 ```lua
 paw.ui.start_layout = "notation"
@@ -149,9 +149,9 @@ paw.ui.start_layout = { dir = "h", "notation://riff", "roll://riff" }
 ```
 
 A project keeps its tabs and windows. When you save it, paw writes the
-tabs and windows of your frontend into the project file, with the clip
-of each window. When you open the project, paw puts them back. This is
-not an edit, and it is not an undo step. `:set noproject_screen`
+tabs and windows of your frontend into the project's `screen.json`, with the clip
+of each window, and when you open the project, paw puts them back. Putting them back is
+not an edit and not an undo step. `:set noproject_screen`
 (`paw.opt.project_screen = false`) keeps the screen as it is when a
 project opens.
 
@@ -164,24 +164,25 @@ project opens.
 
 Each terminal attached with `paw attach`, and each graphical window, is a
 seat: it has its own tabs and windows. The project keeps the tabs and
-windows of each kind of seat (the graphical window and the terminal). It
-also keeps a default: those of the seat that saved it last. When a project opens,
-each seat gets its own. A seat that has none in the project gets the
+windows of each kind of seat (the graphical window and the terminal), and
+also a default, which is the layout of the seat that saved it last. When a project opens,
+each seat gets its own layout, and a seat that has none in the project gets the
 default. A window that attaches to paw after the project opened gets the
 layout of the windows, if the project has one.
 
 ## Scopes of windows
 
 `:narrow Strings` (or `znag`) narrows the window to a group. Each arrange
-window keeps its own scope, as each window of Vim keeps its folds. A split
-starts with the scope of the window that it comes from. The other windows
-of the tab show the scope of its arrange window that had the keyboard last.
-This includes the mixer, the device panel and the session view of the clip
-launcher. It also includes `paw://tracks`, the pickers, `:query`, the
-motions and the Ex ranges. `:widen` (`zw`) goes up one level.
+window keeps its own scope, as each window of Vim keeps its folds, and a
+split starts with the scope of the window that it comes from. The other
+windows of the tab show the scope of its arrange window that had the
+keyboard last. Everything in them sees only the tracks of that group,
+including the mixer, the device panel, the session view of the clip
+launcher, `paw://tracks`, the pickers, `:query`, the motions and the Ex
+ranges. `:widen` (`zw`) goes up one level.
 
-The status line shows `Song › Strings`, and the tab has the name of the
-scope. A split can show the whole song beside the strings.
+The status line shows `Song › Strings`, the tab has the name of the scope,
+and a split can show the whole song beside the strings.
 `paw://tracks` in a narrowed window lists the tracks of the group, and `:w`
 does not change the other tracks. The project keeps the scope of each
 window with its windows. `paw.opt.scope_rest` sets what the other

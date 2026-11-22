@@ -88,9 +88,11 @@ local record api
    device_types: function(): {types.DeviceType}
    engine_audible: function(tracks?: {integer})
    engine_follow: function(track?: integer)
+   engine_follow_always: function(track?: integer)
    engine_get: function(): types.EngineInfo
    engine_held: function(): {integer}
    engine_hold: function(track: integer, file?: string)
+   engine_midi_filter: function(name: string, rules?: {types.MidiFilterRule})
    engine_reset_stats: function()
    engine_restart: function(opts?: types.EngineOptions)
    engine_set_sleep: function(sleep: boolean)

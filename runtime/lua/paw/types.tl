@@ -130,6 +130,20 @@ local record types
     index: integer
     program: integer
     port: string
+    --- In a `midi.in` event: true when tracks do not get it
+    --- (`engine_midi_filter`).
+    filtered: boolean
+  end
+
+  --- A control of MIDI input that tracks do not get
+  --- (`session/midi_in.rs` `FilterRule`): a key (`note`) or a controller
+  --- (`cc`), 0 to 127, from the port of that name (every port when left
+  --- out), on `channel` 1 to 16 (every channel when left out).
+  record MidiFilterRule
+    port: string
+    channel: integer
+    note: integer
+    cc: integer
   end
 
   -- The project and its tracks (session/project.rs, session/tracks.rs) -----

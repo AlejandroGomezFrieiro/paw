@@ -2,50 +2,30 @@
 
 <!-- tags: complete suggestions -->
 
-A suggestion shows notes that you can add to the clip in the piano roll.
-The suggestions come from sources, which extensions register. The module
-is `paw.complete`. Without a source, paw suggests nothing.
+A suggestion shows notes that you can add to the clip in the piano roll. The suggestions come from sources, which extensions register through the module `paw.complete`, and without a source paw suggests nothing.
 
-`extensions/continue` is a small source: it repeats the last bar, or moves
-it one step up or down the key. A language server or a snippet set can be
-a source too. For the steps to write a source, see
-[How to write a completion source](../how-to/write-a-completion-source.md).
+`extensions/continue` is a small source that repeats the last bar, or moves it one step up or down the key. A language server or a snippet set can be a source too. The steps to write a source are in [How to write a completion source](../how-to/write-a-completion-source.md).
 
 ## How a suggestion shows
 
-- A suggestion shows as ghost notes in the color of the track. In the
-  terminal, the ghost notes are dashed. In the graphical window, they are
-  transparent with a bright edge.
-- A badge above the notes shows the alternative, the number of
-  alternatives, and the source: `1/4 continue: the bar again`.
-- paw writes nothing until you accept the suggestion. The accept is one
-  undo step.
-- In the graphical window, a row of chips is above the ghost notes. Each
-  alternative has a numbered chip: a click shows it. One more chip names
-  the alternative that shows: a click accepts it.
+- A suggestion shows as ghost notes in the color of the track. In the terminal the ghost notes are dashed, and in the graphical window they are transparent with a bright edge.
+- A badge above the notes shows the alternative, the number of alternatives and the source, for example `1/4 continue: the bar again`.
+- paw writes nothing until you accept the suggestion, and the accept is one undo step.
+- In the graphical window, a row of chips is above the ghost notes. Each alternative has a numbered chip, and a click shows it. One more chip names the alternative that shows, and a click accepts it.
 
 ## When paw asks the sources
 
-- `<C-Space>` in the piano roll (normal or insert mode) asks all the
-  sources.
-- With `paw.opt.complete_auto` on, paw also asks the sources when nothing
-  changed for `paw.opt.complete_idle_ms` while the piano roll has the
-  keyboard. The toolbar of the graphical window has a Suggest switch for
-  this option.
-- paw does not ask the sources while the transport plays or records. A
-  suggestion that came automatically disappears when the transport starts.
+- `<C-Space>` in the piano roll (normal or insert mode) asks all the sources.
+- With `paw.opt.complete_auto` on, paw also asks the sources when nothing changed for `paw.opt.complete_idle_ms` while the piano roll has the keyboard. The toolbar of the graphical window has a Suggest switch for this option.
+- paw does not ask the sources while the transport plays or records, and a suggestion that came automatically disappears when the transport starts.
 
 ## Where a suggestion starts
 
-A suggestion starts after the selected notes (selected with the pointer,
-or in visual mode). If no notes are selected, it starts at the cursor. In
-insert mode, the cursor is after the notes that you entered, so a pause
-after some notes is enough to get more notes.
+A suggestion starts after the selected notes, which you can select with the pointer or in visual mode. If no notes are selected, it starts at the cursor. In insert mode the cursor is after the notes that you entered, so a pause after some notes is enough to get more notes.
 
 ## Keys
 
-These keys work while a suggestion shows, in normal and insert mode. Else
-they do their usual action.
+While a suggestion shows, the keys below work in normal and insert mode, and at other times they do their usual action.
 
 | Keys | Effect |
 | --- | --- |
@@ -56,8 +36,7 @@ they do their usual action.
 | `<C-e>`, `<Esc>` | dismiss the suggestion. In insert mode, `<Esc>` dismisses first, and leaves insert mode only when no suggestion shows. |
 | `gh` | play the suggestion through the track, from one bar before, with the notes of the clip (normal mode) |
 
-The same keys work in the graphical window when the piano roll has the
-focus.
+The same keys work in the graphical window when the piano roll has the focus.
 
 ## Commands
 
@@ -81,16 +60,10 @@ focus.
 ## Behavior
 
 - An edit of the clip, an undo, or a new request dismisses the suggestion.
-- Each terminal and each graphical window attached to one kernel has its
-  own suggestion. An edit from one of them dismisses the suggestions for
-  that clip in all of them.
-- To play a suggestion does not change the project.
-- A request waits `paw.opt.complete_deadline_ms` for the sources. Then it
-  shows the answers that arrived, with the sources of higher priority
-  first. paw adds the answers that come later at the end. So a slow source
-  does not delay a quick source.
-- paw ignores a source that fails, answers two times, or gives an answer
-  that is not valid. The piano roll continues to work.
+- Each terminal and each graphical window attached to one kernel has its own suggestion, and an edit from one of them dismisses the suggestions for that clip in all of them.
+- Playing a suggestion does not change the project.
+- A request waits `paw.opt.complete_deadline_ms` for the sources. It then shows the answers that arrived, with the sources of higher priority first, and paw adds the answers that come later at the end, so a slow source does not delay a quick source.
+- paw ignores a source that fails, answers two times, or gives an answer that is not valid, and the piano roll continues to work.
 
 ## A source
 
@@ -126,7 +99,7 @@ paw.complete.register({
 | `id` | the id of the request |
 | `key` | the key, when a module gives it (`paw.harmony.key`) |
 
-An item has a `label`, an optional `detail`, and one or more of these:
+An item has a `label`, an optional `detail`, and one or more of the fields below.
 
 | Field of an item | Value |
 | --- | --- |
@@ -135,6 +108,4 @@ An item has a `label`, an optional `detail`, and one or more of these:
 | `velocities` | `{ [place] = velocity }`. |
 | `controls` | Controller moves to add. |
 
-`paw.complete.show(items, { keys = false })` shows items as ghost notes,
-for a preview, without a source. With the keys on, you can accept them as
-any suggestion.
+`paw.complete.show(items, { keys = false })` shows items as ghost notes for a preview, without a source. With the keys on, you can accept them like any suggestion.

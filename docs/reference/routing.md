@@ -2,16 +2,16 @@
 
 <!-- tags: mixing routing groups vca sends side-chain outputs -->
 
-A track plays into the master, or into a different track. It can also send
-its sound to other tracks, and key a device on a different track. An
+A track plays into the master or into a different track, it can send
+its sound to other tracks, and it can key a device on a different track. An
 instrument with several outputs can have a track for each output. For why groups
-and VCAs are usual tracks, see
+and VCAs are ordinary tracks, see
 [About groups and VCAs](../explanation/about-groups-and-vcas.md).
 
 ## Groups
 
 A group is a track that other tracks belong to. The members play into the
-group, so its fader, mute and devices act on all of them. The members show
+group, so its fader, mute and devices act on all of them, and the members show
 below the group, indented one step, in its color.
 
 | Keys, command | Effect |
@@ -24,18 +24,18 @@ below the group, indented one step, in its color.
 | `:group.link`, `<Space>tl` | Link the faders of the members of a group. |
 
 - A group can hold groups.
-- A group is a usual track with a mark in its `meta`. paw saves, copies and
+- A group is an ordinary track with a mark in its `meta`, and paw saves, copies and
   undoes it as any other track.
 - `paw.groups.make({ violins, violas, cellos }, "Strings")` makes a group.
-- `paw.groups.rows()` is the list of the tracks that show: all the tracks
-  but the folded tracks.
+- `paw.groups.rows()` is the list of the tracks that show, which is all the tracks
+  except the folded tracks.
 - For work on one group alone, see [Narrowed tabs](narrowing.md).
 
 ### Linked faders
 
 `:group.link` on a group, routed or not, links the faders of its members.
 When one fader moves, the others move by the same number of dB, so their
-balance stays. A fader stops at its end, and the others continue.
+balance stays. When a fader reaches its end it stops, and the others continue.
 
 - The fader of the group itself does not move.
 - The link is an option of the group, kept in its `meta`
@@ -45,7 +45,7 @@ balance stays. A fader stops at its end, and the others continue.
 ## VCAs
 
 A VCA is a fader, a mute and a solo that control other tracks without
-their sound, as on a console. Nothing is routed: the tracks play where
+carrying their sound. Nothing is routed, so the tracks play where
 they played.
 
 | Keys, command | Effect |
@@ -57,19 +57,19 @@ they played.
 
 - A move of the VCA fader moves each member by that number of dB. The own
   fader of the member does not change.
-- The mute of the VCA mutes the members. Its solo solos them. The own mute
+- The mute of the VCA mutes the members, and its solo solos them, while the own mute
   and solo of the members do not change.
 - A track can be under several VCAs. Their gains add in dB.
 - The VCA fader has automation, as the fader of a track has (`<Space>al` shows
-  a lane, see [Automation](automation.md)). Its lanes add to the lanes of each member, in dB. So the level of
+  a lane, see [Automation](automation.md)). Its lanes add to the lanes of each member, in dB, so the level of
   a member is its fader, plus its lane, plus the fader or lane of each VCA.
-- A VCA is a usual track with a mark in its `meta`, and each member names
+- A VCA is an ordinary track with a mark in its `meta`, and each member names
   its VCAs in its own `meta`. paw saves, copies and undoes it as any other
-  track. It has no devices and plays nothing.
+  track, and it has no devices and plays nothing.
 - `paw.groups.rows()`, the arrange view and the graphical window put the
   VCAs after the other tracks.
 - In the terminal mixer, VCAs have strips after the tracks, with the names
-  of their tracks. The strip of a track names its VCAs. The graphical
+  of their tracks, and the strip of a track names its VCAs. The graphical
   window does the same, and the menus of a track header and of a mixer
   strip make, assign and release VCAs.
 
@@ -89,10 +89,10 @@ paw.vca.assign(room, drums)       -- also `unassign`, `members`, `of`, `dissolve
 | `paw.vca.dissolve(vca)` | Remove a VCA. |
 
 The sync adds the VCAs into each member. A fixed fader goes into the gain
-of the member. Lanes go into one lane for the member: the sum of the
+of the member. Lanes go into one lane for the member, which is the sum of the
 lines in dB, with a point where any of them has a point. The audio
 thread plays that lane sample by sample, so a render sounds the same as
-playback, on any number of threads.
+playback on any number of threads.
 
 ## Outputs and sends
 
@@ -105,20 +105,20 @@ playback, on any number of threads.
 
 - A send with no level is at `paw.opt.send_level` (-12 dB).
 - `:send Reverb -6` on a track that already sends to Reverb sets the level
-  of that send. Without a level, the send does not change, and paw says so.
+  of that send, and without a level the send does not change and paw says so.
 - With a selection of tracks (`V` in the arrange view or in the mixer),
   `:send` acts on each track of the selection.
 - The list of `<Space>ts` shows first the tracks with no instrument (the
   returns).
 - In Lua: `track:send(reverb, -6, { pre = true })`.
 - A send before the fader takes the sound after the devices of the track,
-  and before its fader and pan. So the send keeps its level when the fader
+  and before its fader and pan, so the send keeps its level when the fader
   moves. A mute of the track also silences the send.
 
 ## Side-chains
 
-A device can listen to a different track. Examples are a compressor on
-the bass that ducks under the kick, and a gate on a pad that opens on the
+A device can listen to a different track, for example a compressor on
+the bass that ducks under the kick, or a gate on a pad that opens on the
 hi-hat.
 
 | Way | Effect |
@@ -130,7 +130,7 @@ hi-hat.
 | `gS` in the device panel | Select the key from a list. |
 
 - A track that a solo silences still keys, after its fader, as if it were
-  heard. A mute of the track removes a key taken after the fader.
+  heard, but a mute of the track removes a key taken after the fader.
 - The built-in `compressor` and `gate` key their detector from it
   (`listen` plays it).
 - CLAP, VST3 and LV2 plugins get it on their first side-chain input:
@@ -142,21 +142,20 @@ hi-hat.
 - Lua devices with `sidechain = true` get it in `b.key_left` and
   `b.key_right` (see [Lua devices](lua-devices.md)).
 - paw processes the key track first, as a track that sends.
-- paw aligns the key with the input of the device. It delays the key by
-  the latency of the devices before it, or delays the track of the device
+- paw aligns the key with the input of the device, either by delaying the key by
+  the latency of the devices before it or by delaying the track of the device
   when the key is later.
 - The device panel shows `key Kick` on the line of the device. In the
-  graphical window, a device that can listen has a Key row on its card.
-  The row has a menu of the tracks that the device can hear.
+  graphical window, a device that can listen has a Key row on its card,
+  and the row has a menu of the tracks that the device can hear.
 
 ### Loops and lifetime
 
-- paw refuses a side-chain that makes a loop. The key of a loop is the
-  track of the device, or the master. It can also be a track that the
-  track of the device plays into, sends to or keys, directly or through
-  other tracks. The
-  message gives the reason. paw also refuses outputs and sends that make a
-  loop.
+- paw refuses a side-chain that makes a loop, and the message gives the
+  reason. A loop happens when the key is the track of the device, the master,
+  or a track that the track of the device plays into, sends to or keys,
+  directly or through other tracks. paw also refuses outputs and sends that
+  make a loop.
 - When you remove the key track, the side-chain goes (undo brings it
   back). A copy of a track keeps it. A track restored after its key is gone
   (or where it makes a loop) loses it, with a message. Templates do not
@@ -164,15 +163,13 @@ hi-hat.
 
 ## Instruments with several outputs
 
-A drum plugin with a pair of outputs for each drum, or the scene outputs of
-Surge XT: `device.ports.outputs` names the pairs.
+A drum plugin can have a pair of outputs for each drum, and Surge XT has scene outputs. In both cases `device.ports.outputs` names the pairs.
 
 - The pairs come from the plugin: CLAP audio ports, VST3 output buses (paw
   enables all of them), LV2 output ports two at a time. A port wider than
   two channels is also taken in pairs.
 - The first pair plays on the track of the device.
-- A further pair plays only where it is routed, as in REAPER, where it
-  would be silent on channels 3 and higher.
+- A further pair plays only where it is routed, and it is silent otherwise.
 
 | Keys, command | Effect |
 | --- | --- |
@@ -182,15 +179,15 @@ Surge XT: `device.ports.outputs` names the pairs.
 
 - `paw.routes.spread(kit)` is `:device.spread` in Lua. The track of the
   device cannot be the group itself, because its pairs feed the new tracks.
-- A pair leaves the device before the rest of the chain. The fader, pan
-  and mute of the track of the device do not act on it. Those of the track
-  that it plays into do.
+- A pair leaves the device before the rest of the chain, so the fader, pan
+  and mute of the track of the device do not act on it, while those of the
+  track that it plays into do.
 - The pair goes into that track before its devices, so paw processes that
-  track after the device. paw aligns it with the rest, as any other
+  track after the device and aligns it with the rest, as with any other
   connection.
 - paw refuses loops as for side-chains, and pairs of a device on the
   master.
-- When you remove the track that a pair plays into, the route goes. A copy
+- When you remove the track that a pair plays into, the route goes, and a copy
   of the track plays its pairs nowhere. Templates do not keep the routes.
 - The built-in `drums` has a pair for each family of drums (Kick, Snare,
   Hats, Toms, Cymbals, Percussion). A family whose pair is routed plays

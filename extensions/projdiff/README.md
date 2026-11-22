@@ -1,15 +1,15 @@
 # projdiff
 
-The changes between two versions of a project, and the merge of two
-versions that changed separately. A project is JSON in a stable form. So
-projdiff compares what is in it (tracks, devices, clips, notes, automation,
-the tempo map, markers), not lines.
+The projdiff extension shows the changes between two versions of a project, and it merges two
+versions that changed separately. A project is JSON in a stable form, so
+projdiff compares what the project holds (tracks, devices, clips, notes, automation,
+the tempo map and markers) and not lines of text.
 
 ```lua
 paw.ext.load("extensions/projdiff")   -- or put the directory in ~/.config/paw/extensions
 ```
 
-In the picture, `:Pdiff` lists the changes. `]c` and `za` go through them,
+In the picture, `:Pdiff` lists the changes, `]c` and `za` go through them,
 and `Enter` goes to one:
 
 ![The demo song saved. Then its melody moved, three notes changed, the lead renamed and the bass turned down. A list shows the six changes by track, clip and note](images/tui-projdiff.gif)
@@ -18,7 +18,7 @@ and `Enter` goes to one:
 
 1. Type `:ext.load projdiff`. Open a saved project.
 2. Rename a track, and change the velocity of a note.
-3. Type `:Pdiff`. A window opens over the project with two changes, by
+3. Type `:Pdiff`, and a window opens over the project with two changes, by
    track, clip and note:
 
    ```
@@ -28,8 +28,8 @@ and `Enter` goes to one:
    ...
    ```
 
-4. Press `]c`. The cursor goes to the next change.
-5. Press Enter. The window closes, and the cursor is on the changed note.
+4. Press `]c`, and the cursor goes to the next change.
+5. Press Enter, and the window closes with the cursor on the changed note.
 
 ## How to
 
@@ -51,12 +51,12 @@ Type `:Pdiff`, or press `<Space>gd`.
 
 ### How to go through the changes as a list
 
-Type `:Pdiff.qf`, or press `Q` in the window of `:Pdiff`. Then use
+Type `:Pdiff.qf`, or press `Q` in the window of `:Pdiff`, and then use
 `:copen` and `]q`.
 
 ### How to diff and merge projects with git
 
-1. Type `:Pgit`. paw shows the lines below, with the paths of this
+1. Type `:Pgit`, and paw shows the lines below, with the paths of this
    machine.
 2. Add this line to `.gitattributes`:
 
@@ -75,8 +75,8 @@ Type `:Pdiff.qf`, or press `Q` in the window of `:Pdiff`. Then use
      driver = paw --clean --no-plugins --no-listen --audio null -l /path/to/extensions/projdiff/git.lua merge %O %A %B %L %P
    ```
 
-Then `git diff`, `git log -p` and `git show` print a project as lines. Each
-track, device, clip, note, lane point and marker has a line:
+After that, `git diff`, `git log -p` and `git show` print a project as lines, with one line for each
+track, device, clip, note, lane point and marker:
 
 ```
 -    note id=1 length=1 start=0 velocity=100 pitch=60(C4)
@@ -85,11 +85,11 @@ track, device, clip, note, lane point and marker has a line:
 
 ### How to settle the conflicts of a merge
 
-1. Open the project. paw tells you that it has conflicts.
+1. Open the project, and paw tells you that it has conflicts.
 2. Type `:Pmerge`, or press `<Space>gm`.
 3. For each conflict, press `co` for ours, `ct` for theirs, or `cb` for the
    value before both.
-4. When no conflict is left, type `git add` and the file in a shell.
+4. When no conflict is left, type `git add` and the name of the file in a shell.
 
 ## Reference
 
@@ -102,34 +102,34 @@ track, device, clip, note, lane point and marker has a line:
 | `:Pdiff #7` | | undo state 7 (the numbers of the undo tree) with the project now |
 | `:Pdiff snap:name` | | a snapshot with the project now |
 | `:Pdiff other.json` | | another project file with the project now |
-| `:Pdiff a b` | | the first with the second (any of the above. `now` is the project now) |
+| `:Pdiff a b` | | the first with the second (any of the above, and `now` is the project now) |
 | `:Pdiff.qf …` | | the same, as a quickfix list, one entry for each change |
 | `:Psnapshot name` | `<leader>gs` | keeps the project as it is, to compare later |
 | `:Pmerge [file]` | `<leader>gm` | shows the conflicts of a merge |
 | `:Pgit` | | shows how to configure git, with the paths of this machine |
 
 A snapshot is a checkpoint (see the undotree extension). When the project
-has a file, paw writes the snapshot beside it, and keeps it. Otherwise, it
-keeps the snapshot for the session.
+has a file, paw writes the snapshot beside that file and keeps it, and otherwise it
+keeps the snapshot for the session only.
 
 ### The window of `:Pdiff`
 
 | Keys | Effect |
 | --- | --- |
-| `j` `k` | move. `Ctrl-d` `Ctrl-u` by ten, `gg` `G` to the ends |
-| `za` `zo` `zc` | open and close a fold. Also `Tab`, and a click on its arrow |
+| `j` `k` | move, and `Ctrl-d` `Ctrl-u` move by ten, and `gg` `G` go to the ends |
+| `za` `zo` `zc` | open and close a fold, and so do `Tab` and a click on its arrow |
 | `zR` `zM` | open and close all folds |
 | `]c` `[c` | the next and the previous change |
-| `Enter` | closes the window and puts the cursor on the change: the track, the clip, the note, the parameter, the lane, the marker, the tempo map |
+| `Enter` | closes the window and puts the cursor on the change (the track, the clip, the note, the parameter, the lane, the marker or the tempo map) |
 | `Q`, `gq` | sends every change to the quickfix list |
 | `q` | closes |
 
-A short diff opens with no folds closed. A long diff closes the folds
+A short diff opens with no folds closed, and a long diff closes the folds
 below the tracks and clips.
 
 ### What a diff names
 
-- tracks added, removed, renamed and moved. The fader, pan, routing,
+- tracks added, removed, renamed and moved, and the fader, pan, routing,
   sends and clips off the timeline (the slots of the clip launcher) of a track
 - devices added and removed, their parameters, bypass, offline state,
   side-chain, and the saved state of a plugin
@@ -142,25 +142,25 @@ below the tracks and clips.
 - markers and regions
 - the rest of the `meta` of the project
 
-A field that the model gets later shows as a `field: old -> new` line. The
-extension does not need to know about it.
+A field that the model gets later shows as a `field: old -> new` line, and the
+extension does not need to know about the field.
 
 ### Merges
 
 A merge keeps the changes of both sides when they are to different
-things. Examples are different tracks, different clips, different notes of
-one clip, different parameters of one device, tempo changes at different
+things, for example different tracks, different clips, different notes of
+one clip, different parameters of one device, or tempo changes at different
 beats.
 
 - When both sides added items with the same id (a track, a clip, a note, a
-  marker), the merge keeps both. The second item gets a new number. What
-  points at it (outputs, sends, side-chains, automation) changes with it.
+  marker), the merge keeps both and gives the second item a new number. Whatever
+  points at that item (outputs, sends, side-chains, automation) changes with it.
 - A conflict is the same value changed in two ways, or changed on one side
-  and removed on the other. The merged project holds ours there. It loads
+  and removed on the other. The merged project holds ours there, and it loads
   and plays.
 - `meta.merge_conflicts` lists each conflict: its place, the value before,
   ours and theirs. git reports the file as conflicted, and paw tells you
-  when the project opens.
+  when you open the project.
 
 The window of `:Pmerge`:
 
@@ -173,22 +173,22 @@ The window of `:Pmerge`:
 | `cO` `cT` | take ours or theirs for all |
 | `q` | close |
 
-Each choice writes the file. A project that is open from that file, with
+Each choice writes the file, and a project that is open from that file, with
 no changes after, opens again from it.
 
 ### Values
 
-- "The project now" includes every edit, also the edits that a script made
-  without an undo step. `:Pdiff` closes the open undo step first.
-- A file names media files relative to its folder (`media/a.wav`). projdiff
-  compares the full paths that the open project holds. So a project that
+- "The project now" includes every edit, including the edits that a script made
+  without an undo step, and `:Pdiff` closes the open undo step first.
+- A file names media files relative to its folder (`media/a.wav`), and projdiff
+  compares the full paths that the open project holds, so a project that
   opens again shows no change.
 - Numbers show with four decimals.
-- The project file is the same each time paw writes it (see [Project files](../../docs/reference/project-files.md)). So a file saved again gives an empty
+- The project file is the same each time paw writes it (see [Project files](../../docs/reference/project-files.md)), so a file saved again gives an empty
   diff, and one change gives a small diff.
 - The name of the project comes from the name of the file the first time
-  it is saved. So a copy saved under another name has one different line.
-- The views are cells. The graphical window draws them as the terminal
+  you save it, so a copy saved under another name has one different line.
+- The views are cells, and the graphical window draws them as the terminal
   does (see "Views in the graphical window" in
   [Extensions](../../docs/reference/extensions.md#views-in-the-graphical-window)).
 
@@ -213,7 +213,7 @@ paw.api.project_file_text(merged)                      -- the text of the file, 
 
 ## About
 
-Projects are text, so git keeps them. But a line diff of JSON tells
-little, and a merge of two lines of JSON breaks the file. So the extension
-gives git a script for its two hooks. paw runs the script without a
-window, and compares projects by what they hold.
+Projects are text, so git keeps them, but a line diff of JSON tells
+little, and a merge of two lines of JSON breaks the file. The extension
+gives git a script for its two hooks, and paw runs the script without a
+window and compares projects by what they hold.

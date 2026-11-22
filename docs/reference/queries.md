@@ -2,8 +2,8 @@
 
 <!-- tags: query select :select :query paw.query -->
 
-A query finds things by their place in the project, as a Tree-sitter query
-or a CSS selector finds nodes in a tree.
+A query finds things by their place in the project, in the same way that a
+Tree-sitter query or a CSS selector finds nodes in a tree.
 
 ```
 :select clip[name~=pizz] > note[pitch>=C5]     the high notes of the pizzicato clips
@@ -20,7 +20,7 @@ or a CSS selector finds nodes in a tree.
 | `:query` | Only lists what the query finds in the quickfix list. |
 | `:lquery` | Lists it in the location list of the window. |
 
-Then `:cdo` acts on each thing. See [The quickfix list](quickfix.md).
+After a query, `:cdo` acts on each thing it found (see [The quickfix list](quickfix.md)).
 
 ## The tree
 
@@ -57,14 +57,14 @@ A test is a field, an operator and a value.
 - A field alone holds when it is set (`track[mute]`). `!field` holds when it is not set (`clip[!muted]`).
 - A pitch is `c4`, `c#4`, `60`, or `c` in any octave.
 - A length is in beats or a note value (`note[len<1/8]`).
-- Text compares without case.
+- Text compares without regard to case.
 
 ## Fields
 
 The fields are those that `paw.api` gives for each kind (a note has
 `pitch` `velocity` `start` `length`, a clip `name` `start` `length` `kind`
-`file`, a track `name` `volume` `pan` `mute` `solo`). These fields are
-also available:
+`file`, a track `name` `volume` `pan` `mute` `solo`). The fields below are
+also available.
 
 | Kind | Fields |
 | --- | --- |
@@ -78,7 +78,7 @@ also available:
 
 ## Motions and text objects of the tree
 
-These keys obey the key rule.
+The keys below obey the key rule.
 
 | Keys | View | Effect |
 | --- | --- | --- |
@@ -90,11 +90,11 @@ These keys obey the key rule.
 | `]n` `[n` | piano roll | The next or the previous note of the same pitch. |
 | `]]` `[[` `]s` `[s` `[{` `]}` | notation, in a score | The next or the previous instrument. In its group. The first and the last of the group. See [Scores](../../extensions/notation/doc/reference.md#scores) in the reference of notation. |
 
-They take a count, and they are motions for the operators: `d]c` deletes
+They take a count, and they are motions for the operators, so `d]c` deletes
 up to the next clip of the kind. `]c`, `[c`, `]n`, `[n`, `]]`, `[[`, `[{`
 and `]}` go in the jump list. In the arrange view and the piano roll, `]`
-and `[` change the pan and the velocity at once, so `]]` there is two
-steps of that value. `:g` and `:v` (see [Ex commands](ex.md)) are a different way to act
+and `[` change the pan and the velocity, so `]]` there is two steps of that
+value. `:g` and `:v` (see [Ex commands](ex.md)) are another way to act
 on what a pattern finds.
 
 ## Lua
@@ -105,7 +105,7 @@ on what a pattern finds.
 | `paw.query.select(q)` | Does what `:select` does. |
 | `paw.query.field(kind, name, fn)` | Adds a field of your own. |
 
-A query can also be a table of steps. A step is a string, or a table of the
+A query can also be a table of steps. A step is a string or a table of the
 kind and its tests. `">"` between two steps makes the second step directly
 in the first.
 

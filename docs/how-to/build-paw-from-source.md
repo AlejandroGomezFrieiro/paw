@@ -2,18 +2,20 @@
 
 <!-- tags: running build-from-source -->
 
-This guide shows you how to build paw and run it from a checkout of its
-source. It uses the dev shell of the flake. The dev shell has the Rust
-toolchain and the PipeWire libraries.
+You can build paw and run it from a checkout of its source. The steps use
+the dev shell of the flake, which has the Rust toolchain and the PipeWire
+libraries.
 
 1. In the checkout, run `nix develop`.
-2. To open a demo song in the terminal interface, run this command:
+2. To open a demo song in the terminal interface, run the following
+   command:
 
    ```sh
    cargo run -- -e 'dofile("examples/demo-song.lua")'
    ```
 
-3. To open the graphical window on the same song, run this command:
+3. To open the graphical window on the same song, run the following
+   command:
 
    ```sh
    cargo run -p paw-gui -- -e 'dofile("examples/demo-song.lua")'
@@ -22,16 +24,16 @@ toolchain and the PipeWire libraries.
 ## Variations
 
 - To use the example configuration, run `cargo run -- --config config`.
+  To start without a search for plugins, add `--no-plugins`.
 - To build the demo song and render it to a file without a UI, run
   `cargo run -- -l examples/demo-song.lua song.wav`.
-- To open specified audio devices, give a part of their names:
+- To open specific audio devices, give a part of their names:
   `cargo run -- --output UR22 --input UR22`.
 - To check the audio, the plugins and the environment, run
-  `cargo run -- doctor`. The doctor prints a report.
-- To start without a search for plugins, add `--no-plugins`.
+  `cargo run -- doctor`, and the doctor prints a report.
 
-The first start looks at every installed plugin. This can take several
-seconds, because each bridged Windows plugin starts Wine. The next starts
+The first start looks at every installed plugin, and it can take several
+seconds, because each bridged Windows plugin starts Wine. The later starts
 use the cache in `~/.cache/paw/plugins.json`.
 
 If you are new to paw, type `:tutor` in paw, or read

@@ -2,21 +2,21 @@
 
 <!-- tags: audio-devices -->
 
-This guide shows you how to choose the audio output, the audio input and the
-block size. Until you choose, paw opens the default output and input of the
+You can choose the audio output, the audio input and the block size that
+paw uses. Until you choose, paw opens the default output and input of the
 system.
 
 ## Choose in paw
 
-1. Type `:audio`.
-   A list shows each output, input, block size, sample rate and sound system.
+1. Type `:audio`, and a list shows each output, input, block size, sample
+   rate and sound system.
 2. Select a line and press `Enter`.
 
 In the graphical window, click the engine indicator at the right of the
 transport bar.
 
-To choose one device by name, type a part of its name:
-`:audio.output UR22`, `:audio.input UR22`. To open the default of the
+To choose one device by name, type a part of its name, as in
+`:audio.output UR22` or `:audio.input UR22`. To open the default of the
 system again, type `:audio.output default`.
 
 To change the block size or the sample rate, type `:audio.buffer 128` or
@@ -34,7 +34,7 @@ To start without an audio input, add `--no-input`.
 
 ## Choose in your configuration
 
-Put this line in `~/.config/paw/init.lua`:
+Put the following line in `~/.config/paw/init.lua`:
 
 ```lua
 paw.audio.use({ output = "UR22mkII Stereo", input = "UR22mkII", buffer = 128 })
@@ -42,10 +42,10 @@ paw.audio.use({ output = "UR22mkII Stereo", input = "UR22mkII", buffer = 128 })
 
 ## What paw remembers
 
-A choice that you make in paw belongs to the computer, not to the project.
-paw keeps it in `~/.local/state/paw/audio.json` and opens the same devices
-at the next start. If a remembered device is not connected, paw opens the
-default device and shows a message.
+A choice that you make in paw belongs to the computer and not to the
+project. paw keeps it in `~/.local/state/paw/audio.json` and opens the
+same devices at the next start. If a remembered device is not plugged in,
+paw opens the default device and shows a message.
 
 ## See also
 

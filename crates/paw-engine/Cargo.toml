@@ -11,6 +11,7 @@ midi = ["dep:alsa-sys"]
 
 [dependencies]
 anyhow.workspace = true
+thiserror.workspace = true
 serde.workspace = true
 rtrb = "0.4"
 # Atomic f32 and f64 for meters and positions: plain loads and stores of the

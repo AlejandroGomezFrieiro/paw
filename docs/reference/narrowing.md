@@ -4,9 +4,9 @@
 
 In a large project, you can narrow a window to a part of the song. The
 part is a group of tracks, the time of a region, some tracks, or both
-tracks and time. The window then shows only that part. This is similar to
-a subproject in REAPER, but it is the same project. The part is a scope,
-and the module is `paw.scope`.
+tracks and time. The window then shows only that part. Unlike a
+subproject in REAPER, the narrowed window is the same project. The part is
+a scope, and the Lua module is `paw.scope`.
 
 ## Keys and commands
 

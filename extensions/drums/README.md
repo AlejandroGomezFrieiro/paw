@@ -1,8 +1,8 @@
 # drums
 
 A drum track in one step, and a grid to program it. The rows of the grid
-are the pieces of the kit, by name. The grid is one view, in the terminal
-and in the graphical window.
+are the pieces of the kit, by name, and the grid is one view that looks the
+same in the terminal and in the graphical window.
 
 ```lua
 paw.ext.load("/path/to/paw/extensions/drums")
@@ -20,8 +20,8 @@ paw.ext.load("/path/to/paw/extensions/drums")
    you hear the snare.
 5. Press `&`. The bar repeats to the end of the clip.
 
-`extensions/drums/demo.lua` is a song for more practice:
-`paw -e 'dofile("extensions/drums/demo.lua")'`.
+For more practice, `extensions/drums/demo.lua` is a song that you can open
+with `paw -e 'dofile("extensions/drums/demo.lua")'`.
 
 ## How to
 
@@ -99,14 +99,14 @@ cursor on its row and type `:drums.pad level=-3 pan=0.2`.
 | `mt-powerdrumkit` | the notes of MT-PowerDrumKit 2, from the note names of its vendor: closed, half-open, open and pedal hat (42, 44, 46, 65), three toms, two crashes and a choked crash, splash, china, ride, bell, and a key that stops all cymbals (83) |
 
 - Maps are plain tables in `require("drums").maps`.
-- A track keeps a copy of its rows. So a project opens the same on each
+- A track keeps a copy of its rows, so a project opens the same on each
   machine.
 - A note that the map does not name gets a row at the bottom, named after
-  General MIDI and dimmer. So the grid shows all the notes of a clip.
+  General MIDI and dimmer, so the grid shows all the notes of a clip.
 
 ### The grid
 
-Each piece has a row with its name. Each step has a column. A hit is as
+Each piece has a row with its name, and each step has a column. A hit is as
 tall as its velocity (`▁` to `█`), in the color of the track. Beats have
 shades in turn, and bars have marks. The title gives the piece, the place
 and the step under the cursor, and the velocity of the hit there.
@@ -141,10 +141,10 @@ and the step under the cursor, and the velocity of the hit there.
 
 ### The grid with the pointer
 
-The pointer does the same in the terminal and in the graphical window.
-The graphical window shows the grid in a pane, in its own font, with the
-buttons of the toolbar as buttons. A double click opens the clip of a
-drum track in the grid. It does not open the clips of other tracks.
+The pointer does the same in the terminal and in the graphical window. The
+graphical window shows the grid in a pane, in its own font, with the
+buttons of the toolbar as buttons. A double click opens the clip of a drum
+track in the grid, but it does not open the clips of other tracks.
 
 | Gesture | Effect |
 | --- | --- |
@@ -160,15 +160,15 @@ drum track in the grid. It does not open the clips of other tracks.
 
 The steps and hits are roles (`step`, `hit`), and each part is a hit
 region (see "Roles" in [Views and buffers in
-Lua](../../docs/reference/lua-views.md#roles)). So one drawing works in both
+Lua](../../docs/reference/lua-views.md#roles)), so one drawing works in both
 frontends.
 
 ### Kits
 
 - The built-in `drums` device plays the fifteen pieces of `gm`. It also
   plays the rest of `gm-kit`: a second snare, floor toms, a second crash,
-  china, splash, a second ride. All are synthesized. The closed hat and the pedal
-  hat stop the open hat.
+  china, splash, and a second ride. All are synthesized. The closed hat and
+  the pedal hat stop the open hat.
 - The built-in `sampler` device plays one sound file for each note, each
   with a level, a pan, a tune value and a group. Pads of the same group stop
   each other.
@@ -198,10 +198,10 @@ kit.pads(kit.device(track))       -- { { note, file, level, pan, tune, group }, 
 
 ## About
 
-A drum track is an ordinary track with ordinary MIDI clips. So playback,
+A drum track is an ordinary track with ordinary MIDI clips, so playback,
 renders, the piano roll, undo and the `pattern` extension work on it as on
-all tracks. A **drum map**, kept with the track in the project
+all tracks. A drum map, kept with the track in the project
 (`track.meta.drums`), makes it a drum track. The map tells which notes are
 which pieces, in which order, with which names. The grid shows a clip
-through that map, with any instrument: the built-in kit, a kit of your own
-samples, or a plugin.
+through that map, with any instrument, for example the built-in kit, a kit
+of your own samples, or a plugin.

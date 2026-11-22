@@ -130,7 +130,7 @@ function M.known_words()
 end
 
 --- A few words on a track's kind, for `K` and the track header:
---- "Vocal track · Kitane", "vocal (no extension here defines it)", or nil.
+--- `Vocal track · Kitane`, "vocal (no extension here defines it)", or nil.
 function M.describe(which)
   local name = M.of(which)
   if not name then return nil end

@@ -1,8 +1,8 @@
 # luafx
 
-Devices written in Lua, to use, and to copy as a start for your own
-devices. When the extension loads, the device picker shows them beside the
-built-in devices.
+Devices written in Lua. You can use them as they are, or copy them as a
+start for your own devices. When the extension loads, the device picker
+shows them beside the built-in devices.
 
 ```lua
 paw.ext.load("extensions/luafx")   -- or put the directory in ~/.config/paw/extensions
@@ -20,12 +20,12 @@ paw.ext.load("extensions/luafx")   -- or put the directory in ~/.config/paw/exte
 ## How to change one of the devices
 
 1. Copy the file from `devices/` into `~/.config/paw/devices/`.
-2. Edit the copy. When you save it, paw loads it again. The devices made
+2. Edit the copy. When you save it, paw loads it again, and the devices made
    from it keep their parameters.
 
 A script in `~/.config/paw/devices/` has priority over a script with the
-same name in an extension.
-[How to write a device in Lua](../../docs/how-to/write-a-device-in-lua.md) tells how to write a device.
+same name in an extension. To learn how to write a device, read
+[How to write a device in Lua](../../docs/how-to/write-a-device-in-lua.md).
 
 ## Reference
 

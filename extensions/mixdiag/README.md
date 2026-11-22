@@ -1,9 +1,9 @@
 # mixdiag
 
 Mix diagnostics. paw measures the mix and reports the problems as a list
-of findings, as a language server reports problems in code. Each finding
-has a severity, a message with the number that caused it, and a fix. It
-also has a place (a track and a beat) that `]d` and `[d` go to.
+of findings, in the same way that a language server reports problems in
+code. Each finding has a severity, a message with the number that caused
+it, a fix, and a place (a track and a beat) that `]d` and `[d` go to.
 
 ```lua
 paw.ext.load("extensions/mixdiag")      -- or put it in ~/.config/paw/extensions
@@ -94,7 +94,7 @@ mixdiag.targets.album = { name = "my album", kind = "deliver", integrated = -16,
 - A row above the arrange view marks each finding with `E`, `W`, `I` or `H`
   at its beat. It shows `measuring 40%` during a measurement, and `(old)`
   when the project changed after the measurement.
-- The painted report in the graphical window has these parts:
+- The painted report in the graphical window has the following parts:
   - the loudness, true peak, sample peak and RMS of the mix, as bars with
     the target
   - the peak of each track, as a meter
@@ -131,19 +131,19 @@ change.
 | `dc` | a DC offset over the full render, or in a passage of `seconds` whole seconds whose means are over `limit` on one side of zero | 0.01 (-40 dBFS), 2 s | warn |
 | `silence` | silence at the start of the render, or before its end (not the tail added for releases) | `start` 1 s, `ending` 2 s | info |
 | `infrasonic` | the energy below the 31.5 Hz octave band (22 Hz) is over `limit` of the total | -20 dB (1 %) | info |
-| `forgotten` | a soloed track (the measurement heard only solos), a muted track with clips in the part, muted clips, bypassed devices, disabled automation lanes with points | | warn for solo, else hint |
+| `forgotten` | a soloed track (the measurement heard only solos), a muted track with clips in the part, muted clips, bypassed devices, automation lanes with points that are off | | warn for solo, else hint |
 | `no_sound` | an unmuted track with clips in the part whose output never went above `floor` (no instrument, or a bypassed one) | -100 dBFS | hint |
 
 The rules about delivery (`loudness`, `true_peak`) apply only for the
 chosen target. With the target `none`, the report gives the loudness as
-numbers, not as findings. When paw measures what one track adds, it does
-not apply these rules.
+numbers and not as findings, and when paw measures what one track adds, it
+does not apply these rules.
 
 ### Measurements
 
-The measurement is in Rust, in `crates/paw-core/src/measure/`. Scripts call
-it as `paw.api.measure*` (see below). A private engine renders the
-project, as `paw.render` does, but into memory, on a worker thread. paw
+The measurement is in Rust, in `crates/paw-core/src/measure/`, and scripts
+call it as `paw.api.measure*` (see below). A private engine renders the
+project, as `paw.render` does, but into memory, on a worker thread, and paw
 measures the audio during the render.
 
 | Measurement | Method | Standard |
@@ -163,7 +163,8 @@ measures the audio during the render.
 
 #### Accuracy
 
-Rust tests (`cargo test -p paw-core --lib measure`) make these signals:
+Rust tests (`cargo test -p paw-core --lib measure`) make the following
+signals:
 
 | Signal | Expected | Read |
 | --- | --- | --- |
@@ -192,8 +193,8 @@ through `paw.api.measure`, as -23 LUFS.
 #### Speed
 
 Take a song of 5 minutes, with 9 tracks of built-in synths, drums and delays.
-Its diagnostics take about 3 s in a debug build (the dev profile of the workspace).
-`paw.render` of the same song takes most of that time.
+Its diagnostics take about 3 s in a debug build (the dev profile of the
+workspace), and `paw.render` of the same song takes most of that time.
 
 - The render and the analysis run on two worker threads, a few pieces
   apart.
@@ -223,9 +224,8 @@ mixdiag.list()  mixdiag.clear()  mixdiag.cancel()  mixdiag.stale()
 
 - The `ctx` of a rule has `result`, `range` (`start`, `end`, `label`,
   `track`), `kind` (`mix`, `track` or `file`), `whole` (the full song or
-  file) and `target`.
-- It also has the helpers `beat(seconds)` (through the tempo map),
-  `where(beat, seconds)` and `track_name(id)`.
+  file) and `target`, and the helpers `beat(seconds)` (through the tempo
+  map), `where(beat, seconds)` and `track_name(id)`.
 - paw sends `mixdiag.done` when the findings are ready.
 
 ### `paw.api.measure`
@@ -260,9 +260,9 @@ Times are seconds from the start of the measurement.
 ### Limits
 
 - Tracks give only their peak, not their loudness, correlation or
-  spectrum. To get the numbers of one track, measure what it adds (`<Space>mk`).
-  This is one render for each track.
-- paw measures the mix. So a DC offset, a phase problem or infrasonic
+  spectrum. To get the numbers of one track, measure what it adds
+  (`<Space>mk`), which costs one render for each track.
+- paw measures the mix, so a DC offset, a phase problem or infrasonic
   energy points at a time, not at a track.
 - What a track adds includes its solo path to the master. It does not
   include effect returns that its sends feed.
@@ -270,7 +270,7 @@ Times are seconds from the start of the measurement.
   target curves, on purpose.
 - paw measures the mix as floating point numbers, before dither. It does not
   apply the settings of an integer render.
-- paw reads mono files as two identical channels. So they measure 3 dB
+- paw reads mono files as two identical channels, so they measure 3 dB
   louder than on a meter that knows mono.
 - Fixes are advice only. Nothing in the project changes.
 - paw does not measure again after edits. `(old)` and `mix.summary` tell

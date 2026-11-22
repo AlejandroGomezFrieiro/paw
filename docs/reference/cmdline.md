@@ -2,15 +2,11 @@
 
 <!-- tags: cmdline command-line -->
 
-`:` opens the command line at the bottom of the screen. It runs a command
-by its name: `:q` quits, `:w` saves. For ranges, `:s` and `:g`, see
-[Ex commands](ex.md).
+`:` opens the command line at the bottom of the screen, and it runs a command by its name, for example `:q` to quit and `:w` to save. Ranges, `:s` and `:g` are described in [Ex commands](ex.md).
 
 ## Completion
 
-While you type a command, a list above the command line shows what the
-line can become, with a description of each item. The list shows command
-names first. After the name, it shows the arguments of the command:
+While you type a command, a list above the command line shows what the line can become, with a description of each item. The list shows command names first, and after the name it shows the arguments of the command.
 
 | Command | The list shows |
 | --- | --- |
@@ -27,9 +23,7 @@ names first. After the name, it shows the arguments of the command:
 | `Up`, `Down` | The lines typed before. |
 | `Esc` | Closes the command line. |
 
-A command name that is not complete runs the command of that name with
-`.open`, if an extension has one: `:notation` runs `:notation.open`. Else
-paw shows the commands that the name can mean.
+A command name that is not complete runs the command of that name with `.open`, if an extension has one, so `:notation` runs `:notation.open`. Otherwise paw shows the commands that the name can mean.
 
 ## Options
 
@@ -48,27 +42,17 @@ A name that is not an option gives the error `E518`. See [Options](options.md).
 
 ## Prompts
 
-Some keys open a prompt with the current value in it, for example `grn`
-(rename the track). The value is selected: what you type replaces it. To
-edit the value, press `Left` or `Home` first.
+Some keys open a prompt with the current value in it, for example `grn` (rename the track). The value is selected, so what you type replaces it, and you press `Left` or `Home` first to edit the value instead.
 
-Some prompts ask for a number: `grv`, `grp`, `grt`, and `c` on a parameter
-or on a point of automation. A number is the value, with its sign: `-6` is
--6 dB, and `+3` is +3 dB. To change the value by a step, put `=` after the sign:
-`-=3` is 3 dB lower, and `+=2` is 2 dB higher. The prompt shows this rule.
-The Ex commands `:volume` and `:pan` use the same rule (`:t* volume -=3`).
+Some prompts ask for a number, for example `grv`, `grp`, `grt`, and `c` on a parameter or on a point of automation. A number is the value with its sign, so `-6` is -6 dB and `+3` is +3 dB. To change the value by a step, put `=` after the sign, so `-=3` is 3 dB lower and `+=2` is 2 dB higher. The prompt shows this rule, and the Ex commands `:volume` and `:pan` use the same rule (`:t* volume -=3`).
 
 ## Unsaved work
 
-Work is unsaved when the project has changes. Work is also unsaved in a
-project with no file that is not empty. An example is a project opened
-from a MIDI file or a REAPER project. These commands do not replace a project with unsaved work:
-`:open`, `:edit`, `:new`, `:recent`, `:recover`, `:tutor`
-and `:q`. They show a message and stop.
+Work is unsaved when the project has changes, and also when a project with no file is not empty, for example a project opened from a MIDI file or a REAPER project. The commands `:open`, `:edit`, `:new`, `:recent`, `:recover`, `:tutor` and `:q` do not replace a project with unsaved work. They show a message and stop.
 
 - `:w` saves the work first.
 - The same command with `!` discards the work: `:open! song`, `:new!`, `:q!`.
-- `:e!` alone opens the project again as you saved it last, as in Vim.
+- `:e!` alone opens the project again as you saved it last, the same as in Vim.
 
 The graphical window asks in a dialog box.
 
@@ -77,29 +61,20 @@ The graphical window asks in a dialog box.
 
 ## Relative names
 
-A file name without a folder (`:render mix.wav`, `:import loop.wav`) goes
-into the folder of the project. A project name (`:w take2`) goes beside
-that folder. Before the first save, a name goes into the folder where paw
-started.
+A file name without a folder (`:render mix.wav`, `:import loop.wav`) goes into the folder of the project, and a project name (`:w take2`) goes beside that folder. Before the first save, a name goes into the folder where paw started. `..` goes up, `~` is your home folder, and a name that starts with `/` is a full path.
 
-`..` goes up, `~` is your home folder, and a name that starts
-with `/` is a full path. The lists of files (`:open`, `:import` and the
-others) and the Save as prompt start in this folder too. `:w` with no
-name on a project that has no file asks for the name at a prompt
-(`Save as (folder):`) that starts with the project's name. Tab completes
-names, `..` and `~` too.
+The lists of files (`:open`, `:import` and the others) and the Save as prompt start in this folder too. `:w` with no name on a project that has no file asks for the name at a prompt (`Save as (folder):`) that starts with the project's name, and Tab completes names, `..` and `~` too.
 
 | Command | Effect |
 | --- | --- |
 | `:pwd` | Shows the folder for relative names. |
-| `:cd {folder}` | Sets that folder, as in Vim. A relative folder starts from the folder now. |
+| `:cd {folder}` | Sets that folder, the same as in Vim. A relative folder starts from the folder now. |
 | `:cd -` | Returns to the folder before. |
 | `:cd` | Goes to your home folder. |
 
 ## Errors
 
-A command that fails shows one line that says why. The full error, with
-the place in the code, goes to the log.
+A command that fails shows one line that says why, and the full error with the place in the code goes to the log.
 
 ## Messages
 
@@ -113,14 +88,9 @@ you read it.
 
 ## Keys that are not complete
 
-If you stop in the middle of a key sequence, paw lists the keys that can
-come next. A group of keys shows its name, for example `+automation`.
-`paw.opt.hint_delay` sets the time before the list shows, and
-`paw.opt.hints` turns it off.
+If you stop in the middle of a key sequence, paw lists the keys that can come next, and a group of keys shows its name, for example `+automation`. `paw.opt.hint_delay` sets the time before the list shows, and `paw.opt.hints` turns it off.
 
-A key sequence that has no mapping stops with a message, for example
-`<Space>kn is not mapped`. paw discards the other keys that you typed. It does not run them
-as new commands.
+A key sequence that has no mapping stops with a message, for example `<Space>kn is not mapped`. paw discards the other keys that you typed and does not run them as new commands.
 
 ## Find a key or a command
 

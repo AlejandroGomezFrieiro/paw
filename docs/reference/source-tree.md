@@ -2,9 +2,9 @@
 
 <!-- tags: source-tree crates repository -->
 
-This page lists the folders of paw's repository and what each one holds.
+The source tree page lists the folders of paw's repository and what each one holds.
 [About the architecture](../explanation/about-the-architecture.md) tells
-how the parts connect. [The instructions for agents and contributors](../../AGENTS.md)
+how the parts connect, and [the instructions for agents and contributors](../../AGENTS.md)
 give the rules for a change.
 
 ## Top-level folders
@@ -26,7 +26,7 @@ give the rules for a change.
 | `examples/` | The demo song (`examples/demo-song.lua`) and the files of the tutorial [Make music with paw](../tutorials/make-music/README.md). |
 | `docs/` | The manual. [docs/README.md](../README.md) lists the pages. `docs/images/` holds the pictures, and `docs/images/make/` the scripts that record them again. |
 | `tests/` | The Lua suite: the runner `tests/suite.lua`, the tests of the core in `tests/<area>.lua`, the guides' tests in `tests/guides*.lua`, and files for the tests in `tests/fixtures/`. |
-| `tests/e2e/` | The end-to-end scenarios: the harness, the reference model, the scenarios and their golden files. See [About the end-to-end scenarios](../explanation/about-the-e2e-tests.md). |
+| `tests/e2e/` | The end-to-end scenarios: the test driver, the reference model, the scenarios and their golden files. See [About the end-to-end scenarios](../explanation/about-the-e2e-tests.md). |
 | `tests/tools/` | The scripts that run the tests: `suite.sh` (the Lua suite), `gui.sh`, `live.sh`, `loaded.sh`, `e2e.sh` (the end-to-end scenarios). |
 | `tools/` | `apidoc.lua` (the API reference and the types), `tlcheck.sh` (`cyan check` on all the Teal files), `fmtcheck.sh` (checks that StyLua and cerulean formatted each file; `fix` formats them), `vale.sh` (Vale on the docs), `vale-hook.sh`, `ste-check.lua`, `sweep.sh` (frees the disk that old builds use). |
 | `bench/` | The benchmarks and the stress tests. See [bench/README.md](../../bench/README.md). |
@@ -38,7 +38,7 @@ give the rules for a change.
 ## The crates
 
 Two crates have a README: [paw-gui](../../crates/paw-gui/README.md) and
-[paw-mcp](../../crates/paw-mcp/README.md). This table describes the other
+[paw-mcp](../../crates/paw-mcp/README.md), and the table below describes the other
 crates.
 
 | Crate | What it holds |
@@ -57,7 +57,7 @@ crates.
 
 ## Generated files
 
-Do not edit these files. Make them again from their source.
+Do not edit the files below by hand. Generate them again from their source.
 
 | File | Source | Command |
 | --- | --- | --- |

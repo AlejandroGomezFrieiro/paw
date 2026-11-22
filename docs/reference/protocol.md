@@ -1,10 +1,10 @@
 # The control protocol
 <!-- tags: protocol -->
 
-paw is a server while it runs. Other programs connect to it: the graphical
-window, `paw ctl`, `paw attach`, the MCP server and your scripts. They call
-functions in it, and it tells them what happens. This page describes the
-whole protocol, version 3.
+While paw runs, it is a server that other programs connect to, such as the
+graphical window, `paw ctl`, `paw attach`, the MCP server and your scripts.
+They call functions in it, and it tells them what happens. The protocol page
+describes the whole protocol, version 3.
 
 ## Connections
 
@@ -44,7 +44,7 @@ this page go inside TLS.
 ### Without TLS
 
 `--no-tls`, on paw and on its clients, sends the lines without encryption.
-Use it only on a network that you trust. `eval` runs any Lua. So a person
+Use it only on a network that you trust. `eval` runs any Lua, so a person
 who can change the messages can run any program on the machine of paw.
 
 A client without TLS that connects to a port that takes only TLS gets
@@ -112,11 +112,12 @@ paw.remote.methods["name"] = function(client, ...) return … end
 ### Time limit
 
 Each request that runs Lua has the time limit of a key,
-`paw.opt.lua_limit` (2 seconds). These requests do not run Lua: `hello`,
-`ui.*`, `file.*` and `monitor.*`. paw stops a request that runs longer, and
-replies an error that tells so. paw continues to run. Time that the kernel
-waits (a render, a project that opens) does not count. Code sent with
-`eval` that needs more time asks for it first: `paw.limit.extend(60000)`.
+`paw.opt.lua_limit` (2 seconds), except `hello`, `ui.*`, `file.*` and
+`monitor.*`, which do not run Lua. paw stops a request that runs longer and
+replies with an error that says so, and paw continues to run. Time that the
+kernel waits (a render, a project that opens) does not count, and code sent
+with `eval` that needs more time asks for it first with
+`paw.limit.extend(60000)`.
 
 ### Errors
 
@@ -188,7 +189,7 @@ extensions. Some of them are:
 `track.changed`, `track.removed`, `clip.add`, `clip.set`,
 `device.changed`, `device.stopped`, `transport.play`, `transport.stop`,
 `transport.seek`, `transport.record`, `transport.changed`, `midi.in`,
-`render.progress`, `render.done`, `audio.lost`, `audio.restored` and other.
+`render.progress`, `render.done`, `audio.lost`, `audio.restored` and more.
 paw does not send an event whose payload is not valid JSON.
 
 ### `frontend.watch`
@@ -219,7 +220,7 @@ playhead, the meters, the mode. It is what `paw.frontend.state(known)`
 returns when the project did not change.
 
 - `cpu` is the load of the engine, averaged over about one second, in steps
-  of 2.5% (`paw.audio.load`). So an idle program does not send a new
+  of 2.5% (`paw.audio.load`), so an idle program does not send a new
   value when one block takes a little longer.
 - `levels` and `inputs` are rounded to four decimals.
 - `modal.menu` counts the menus that the kernel opened. The window then
@@ -243,8 +244,8 @@ An idle program sends nothing.
 
 ## Scenes
 
-A graphical frontend shows some windows from their scenes. These are the
-panes of its main area that it does not draw itself, and the views in
+A graphical frontend shows some windows from their scenes, which are the
+panes of its main area that it does not draw itself and the views in
 windows of their own.
 
 A scene (crates/paw-scene) is what a view draws, as nodes in **cell
@@ -447,9 +448,9 @@ A terminal that shows images tells so with a third parameter of
 {"graphics": true, "cell": [10, 20], "pixel_mouse": true, "fg": "#cdd6f4", "bg": "#1e1e2e"}
 ```
 
-These are its cell size in pixels, its colors, and `true` if it reports
-the pointer in pixels. Then it also gets the surfaces that the views keep
-for their pixels:
+The parameters are its cell size in pixels, its colors, and `true` if it
+reports the pointer in pixels. The terminal then also gets the surfaces that
+the views keep for their pixels:
 
 ```json
 "surfaces": [{"name": "notation", "x": 0, "y": 3, "w": 80, "h": 30,
@@ -530,7 +531,7 @@ replies, as any other path:
 ```
 
 - paw keeps only the last part of the name. If the name is used, it adds
-  `-2`, `-3` and other.
+  `-2`, `-3` and so on.
 - The file gets its name only when it is complete. paw deletes a file that
   is not complete when its connection closes.
 - `:upload <path>`, typed in an attached terminal, sends the connection
@@ -553,12 +554,12 @@ replies, as any other path:
 | `channels` | 2: left and right, interleaved. |
 | `pcm` | 20 ms of sound, as 16-bit little-endian samples in base64. |
 
-This is about 770 kbit/s, and about 1 Mbit/s with base64 and JSON. The
-engine makes the copy only while a connection listens.
+The stream is about 770 kbit/s, and about 1 Mbit/s with base64 and JSON, and
+the engine makes the copy only while a connection listens.
 
 `:listen` sends the connection of a terminal or a window
-`{"event": "monitor.toggle"}`. The client then starts or stops to listen.
-`paw attach` and `paw-gui` do this. They play the frames through a jitter
+`{"event": "monitor.toggle"}`, and the client then starts or stops listening.
+`paw attach` and `paw-gui` both do so, and they play the frames through a jitter
 buffer that waits for 200 ms and holds at most one second.
 
 ## Limits

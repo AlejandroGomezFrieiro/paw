@@ -2,7 +2,7 @@
 
 <!-- tags: notation-reference -->
 
-This page describes the view, the keys, the commands, the options and the
+The reference describes the view, the keys, the commands, the options and the
 Lua functions of the [notation](../README.md) extension. The README of the
 extension has the steps to try it and the how-to guides.
 
@@ -60,14 +60,13 @@ Notation names the written notes after their MIDI notes. `n41` writes note
 carries these names as the `id` of each `<note>`.
 
 The data that notation keeps is on the note, so it goes where the note
-goes. A note that you move,
-copy, paste or undo in the piano roll keeps its spelling and its voice. A
-note that you delete takes its data away with it. Marks along the clip
-keep their beats.
+goes. A note that you move, copy, paste or undo in the piano roll keeps its
+spelling and its voice, and a note that you delete takes its data away with
+it. Marks along the clip keep their beats.
 
-**What an edit in notation writes.** Each edit is an ordinary edit of the
-notes of the clip (`paw.api.clip_notes_edit`). It is one undo step, and it
-includes the data that notation keeps:
+Each edit in notation is an ordinary edit of the notes of the clip
+(`paw.api.clip_notes_edit`). It is one undo step, and it includes the data
+that notation keeps:
 
 | In notation | The MIDI |
 | --- | --- |
@@ -81,16 +80,15 @@ includes the data that notation keeps:
 | a staccato, staccatissimo, tenuto, fermata | half, a quarter of its written length, all of it |
 | a tempo mark, a time signature | the song's tempo map, its signature from that bar |
 
-That is all a mark does. It writes the MIDI when you write the mark, and
-after that the MIDI is free. In the piano roll, you can give a note marked
-`f` another velocity, or a staccato note another length. The mark stays,
-as a label.
+A mark writes the MIDI when you write the mark, and after that the MIDI is
+free. In the piano roll, you can give a note marked `f` another velocity, or
+a staccato note another length, and the mark stays as a label.
 
-When you remove a mark, it puts back what it wrote on each note that is
-still as the mark left it. It does not change a note that changed after
-the mark. When you remove a dynamic, its notes get the loudness of the
-dynamic before it again. A slur, text, a repeat sign or a playing
-technique writes nothing.
+When you remove a mark, paw puts back what the mark wrote on each note that
+is still as the mark left it, and it does not change a note that changed
+after the mark. When you remove a dynamic, its notes get the loudness of the
+dynamic before it again. A slur, text, a repeat sign or a playing technique
+writes nothing.
 
 | | |
 | --- | --- |
@@ -98,23 +96,23 @@ technique writes nothing.
 | `:notation.apply-marks`, `g@` | make the notes play as the marks say again, after the piano roll changed them: dynamics and hairpins set the velocity, staccato and tenuto the length |
 | `:notation.retranscribe`, `g=` | forget what notation decided about the notes (spellings, voices, hands, tuplets): written again from how they play |
 
-**Projects from before.** An older version of this extension kept the
-score of a clip written in notation in `clip.meta.score`, and rendered the
-notes from it. Without this extension, the notes of such a clip play and
-edit as they are. With it, the clip shows as that score said. The first
-edit in notation moves what the score said onto the notes and the clip.
-The undo step of that edit takes it back.
+An older version of this extension kept the score of a clip written in
+notation in `clip.meta.score`, and rendered the notes from it. Without this
+extension, the notes of such a clip play and edit as they are. With the
+extension, the clip shows as that score said, and the first edit in
+notation moves what the score said onto the notes and the clip. The undo
+step of that edit takes it back.
 
 ## The piano roll beside it
 
 <!-- tags: notation-piano-roll-beside-it -->
 
 The roll edits the same notes. Nothing asks for permission and nothing
-refuses an edit: the roll is a plain MIDI editor. The roll and the
+refuses an edit, because the roll is a plain MIDI editor. The roll and the
 notation view can be on screen together, on one clip and both with
 `:setlocal timebind`. Then the note under the cursor of one view has an
-outline in the other: `⟦ ⟧` in the roll, a `◉` head in the staff. The views
-find the note by its id.
+outline in the other, which is `⟦ ⟧` in the roll and a `◉` head in the
+staff. The views find the note by its id.
 
 ## What is written of a MIDI clip
 
@@ -122,62 +120,62 @@ find the note by its id.
 
 A transcription (`notation.score`) is between the notes of a clip and the
 page. It transcribes the notes into written chords, and each chord knows
-which played notes it stands for. These chords, with the data that notation
-keeps, are the score (`notation.midi`). The data that the score does not
-show stays in the notes as played. That data is the offset of each note
+which played notes it stands for. The written chords, with the data that
+notation keeps, are the score (`notation.midi`). The data that the score does
+not show stays in the notes as played, and it is the offset of each note
 from its written place, its real length and its velocity.
 
-- **Chords and strums**: onsets within 35 ms are one chord, in any order.
+- Chords and strums: onsets within 35 ms are one chord, in any order.
   A strum or a roll is one chord too, written where it starts. In a strum,
   each string starts up to 70 ms after the last, low to high or high to
   low, while the earlier ones still sound. A strum lasts at most 450 ms. A
   roll slower than 160 ms gets an arpeggio sign with its direction.
-- **Onsets** go on the plainest grid that explains each beat. That grid is
-  the beat, its halves, quarters or eighths, triplets or sixths, or fifths
-  and sevenths. In 6/8 it is the eighths of the beat, or two or four in its
+- Onsets go on the plainest grid that explains each beat. The grid is the
+  beat, its halves, quarters or eighths, triplets or sixths, or fifths and
+  sevenths. In 6/8 it is the eighths of the beat, or two or four in its
   time. The transcription chooses the grid for each beat by how well it
   fits against how complex it is. A tuplet must fit better than the
   straight grid by a large amount, and its notes must not be shorter than
   the `finest` value. A tuplet alone among plain duple beats needs a better
   fit again, so a straight part played loosely does not get tuplets.
-- **Drift**: the transcription follows the distance of the player from the
+- Drift: the transcription follows the distance of the player from the
   grid. First it follows it beat by beat, then by a line fitted through the
-  onsets around each beat. So a part played ahead of the beat, or a part
+  onsets around each beat, so a part played ahead of the beat, or a part
   that slows down (a ritardando against the grid), is still written on the
   beat.
-- **Swing**: the transcription recognizes eighths played long-short and
+- Swing: the transcription recognizes eighths played long-short and
   writes them straight.
-- **Lengths**: a chord lasts to the next onset in its voice when the
-  silence before that onset is short. That silence is articulation, not a
-  rest. A note much shorter than that, within a beat, is a staccato. A note
-  held into the next note is legato, not a tie. Other notes get the value
-  nearest to what was played, by proportion. So a long note released early
-  is still a long note.
-- **Grace notes**: a grace note is a note shorter than 100 ms (and a sixth
+- Lengths: a chord lasts to the next onset in its voice when the
+  silence before that onset is short, because that silence is articulation
+  and not a rest. A note much shorter than that, within a beat, is a
+  staccato. A note held into the next note is legato, not a tie. Other notes
+  get the value nearest to what was played, by proportion, so a long note
+  released early is still a long note.
+- Grace notes: a grace note is a note shorter than 100 ms (and a sixth
   of a beat) immediately before a longer note of another pitch. It ends
   before the longer note sounds, and it is not a step of an even run (the
   last note of a fast tuplet).
-- **Voices**: a note held well past the next onset, under (or over) notes
+- Voices: a note held well past the next onset, under (or over) notes
   that move, is a second voice. It has stems down (or up) and its own rests.
-- **Hands**: on a grand staff, the transcription divides the notes of each
-  chord between the hands by the recent positions of each hand. So a melody
+- Hands: on a grand staff, the transcription divides the notes of each
+  chord between the hands by the recent positions of each hand, so a melody
   that goes below middle C stays in the right hand.
-- **Tuplets** have a bracket with their number. `3` is for triplets, and
+- Tuplets have a bracket with their number. `3` is for triplets, and
   quarter-note triplets over two beats are one bracket. `6` is for a beat
   of sixteenths in sixes. `5` and `7` are for quintuplets and septuplets of
   sixteenths (in the time of four). In 6/8, `2` is a duplet and `4` is four
   eighths in the time of three. A tuplet that you set in notation (`\3`)
   has priority over what the notes suggest. A beat that you set as
   plain has priority too.
-- **Rests** merge as the meter divides the bar.
-- **Notes drawn exactly on the grid** (in the piano roll) are written as
-  they are, because the interpretation is for played music. A played note
-  can land on the grid by chance, because the ticks of a MIDI file allow it
-  now and then. The transcription reads such a note as played. But if the
+- Rests merge as the meter divides the bar.
+- Notes drawn exactly on the grid (in the piano roll) are written as they
+  are, because the interpretation is for played music. A played note can
+  land on the grid by chance, because the ticks of a MIDI file allow it now
+  and then, and the transcription reads such a note as played. But if the
   notes next to it are also drawn, or notation wrote it, it is written as
   it is.
 
-Each of these has a setting. The clip keeps the settings in
+Each of these behaviors has a setting. The clip keeps the settings in
 `clip.meta.notation.settings`:
 
 | `:notation.set` | default | |
@@ -205,23 +203,23 @@ forgets all of them. `:notation.raw` (`gR`) shows or hides the raw view,
 for a check. The raw view shows every note as it is, rounded to the grid.
 It has one chord for each start, and middle C splits the hands.
 
-**What you decide** stays, also after changes in other views (see
+What you decide stays, also after changes in other views (see
 [MIDI is the truth](#midi-is-the-truth)). For a note, that is its voice,
-hand, spelling and articulations, and if it is a grace note. It is also the
-arpeggio sign of a strum, notes that are one chord, and a broken beam. For
-the clip, it is the tuplets, marks and bars.
+hand, spelling and articulations, and if it is a grace note, and it is also
+the arpeggio sign of a strum, notes that are one chord, and a broken beam.
+For the clip, it is the tuplets, marks and bars.
 
 Notes that you enter in notation are drawn exactly on the grid, and are
 written as they are. A note marked staccato keeps its written length while
 it is as short as the mark made it. Notation does not keep a tie. A tied
 note is one note, and notation writes it again as the meter divides it.
 
-Other parts of the page:
+The page has the following other parts:
 
-- **Measures** follow the bars of the song. Where the kernel keeps time
+- Measures follow the bars of the song. Where the kernel keeps time
   signatures along the song (`paw.time.signature_at`), each bar takes its
   own signature. The page shows the new signature where it changes.
-- **Clef**: treble when the notes stay above A3, bass when they stay below
+- Clef: treble when the notes stay above A3, bass when they stay below
   E4, and a grand staff when they need both. `:notation.clef bass` sets the
   clef for the track (`treble`, `treble8` for guitar, `bass`, `bass8`,
   `alto`, `tenor`, `grand`, `auto`), and `track.meta.notation` keeps it. A
@@ -229,8 +227,8 @@ Other parts of the page:
   notes would now choose others. For example, a melody taken a little under
   the treble staff stays on it. A clip also keeps a clef change at a bar
   (`\C`, see [Popovers](#popovers)).
-- **Key**: the key of the project (`paw.harmony.project_key`). Modes and minor keys take the signature of their
-  relative major. `:notation.key Eb major` sets the key, and
+- Key: the key of the project (`paw.harmony.project_key`). Modes and minor
+  keys take the signature of their relative major. `:notation.key Eb major` sets the key, and
   `:notation.key off` clears it. With a clip open in the view, the command
   writes a key signature from the bar of the cursor (`\k`, see
   [Popovers](#popovers)). The key of the first bar is also the key of the
@@ -238,16 +236,16 @@ Other parts of the page:
 
   With no key set, the title names the minor key that the music reads in
   (`A minor`, not `C major`). In a song of more than 2000 notes, this
-  step is slow. So it occurs when the edits pause, and the title changes
-  a moment later.
-- **Spelling**: notes of the key take its letters. The other notes lean the
+  step is slow, so it runs when the edits pause, and the title changes a
+  moment later.
+- Spelling: notes of the key take its letters. The other notes lean the
   way the key does. An accidental stays in force to the end of the bar. A
   tied note keeps its accidental across the barline without a sign. A note
   altered in one bar gets a reminder sign in the next bar.
-- **Stems** go by the note furthest from the middle line, or by the voice.
-  **Beams** join eighths and shorter notes within a beat (four eighths in
+- Stems go by the note furthest from the middle line, or by the voice.
+  Beams join eighths and shorter notes within a beat (four eighths in
   half a 4/4 bar, three in 6/8), and within a tuplet, with part beams.
-- **Tablature**: `:notation.tab guitar` puts a tab staff under the notation
+- Tablature: `:notation.tab guitar` puts a tab staff under the notation
   of the track. The other choices are `bass`, `dropd`, `dadgad`, `7string`
   and `bass5`, or the notes of the strings from the lowest
   (`E2 A2 D3 G3 B3 E4`). `track.meta.notation.tab` keeps the choice. The
@@ -255,9 +253,9 @@ Other parts of the page:
   of each chord go on different strings within the reach of a hand, and the
   hand moves as little as possible. `meta.notation.string` on a note sets
   its string.
-- **Lyrics**: the page writes the `meta.lyric` of a note under it. The vocal
+- Lyrics: the page writes the `meta.lyric` of a note under it. The vocal
   clips of the `utau` extension keep their lyrics there.
-- **Several tracks**: `:notation.tracks` (`zS`) shows a score of every track
+- Several tracks: `:notation.tracks` (`zS`) shows a score of every track
   with MIDI over the stretch of the open clip, a staff for each. You edit
   the staff of the open clip. The same command again returns to the clip
   alone. [The score](#scores) shows every track, the tracks of a group or
@@ -269,8 +267,8 @@ Other parts of the page:
 
 In the notation view, counts, registers, `.`, macros and marks work as
 they do in all views. The operators and text objects work on the written
-score (see [The grammar](#the-grammar)). The rows of the view are pitches.
-So a visual selection, and the single keys of the roll on it, work as in
+score (see [The grammar](#the-grammar)). The rows of the view are pitches,
+so a visual selection, and the single keys of the roll on it, work as in
 the piano roll. Every key that edits writes the MIDI of the clip (see
 [MIDI is the truth](#midi-is-the-truth)), as one undo step.
 
@@ -308,14 +306,15 @@ the piano roll. Every key that edits writes the MIDI of the clip (see
 | `:q` `ZZ` `Ctrl-w c` | close the view |
 | `Esc` | stay: drop a count, an operator or a selection |
 
-**Note entry** (`i`) works as in other notation programs. A letter `c` to
+Note entry (`i`) works as in other notation programs. A letter `c` to
 `b` enters that note at the cursor, with the chosen value, and steps on.
 The note goes in the octave nearest the note before (within a fourth), and
 the key alters it. A capital letter stays, to build a chord (`CEg`).
 
-Notes go into a voice of the staff that the note is written on. That voice is
-the voice of the note under the cursor when you press `i`. Else it is the
-chosen voice: 1, unless `v` or `:notation.voice` sets another.
+Notes go into a voice of the staff that the note is written on. The voice is
+the voice of the note under the cursor when you press `i`, and otherwise it
+is the chosen voice, which is 1 unless `v` or `:notation.voice` sets
+another.
 
 Notes replace what that voice had there. If a note cuts into a chord, the
 chord keeps the part before, and the remainder becomes a rest. A note
@@ -323,8 +322,8 @@ longer than what is left of the bar gets a tie over the barline. Note entry
 does not touch other voices or other staves.
 
 On a single staff, a note more than three ledger lines under or over the
-staff makes a grand staff. The note goes on the new staff, for example a
-bass under a melody. This occurs only for the first note after `i`, from the
+staff makes a grand staff, and the note goes on the new staff, for example a
+bass under a melody. The grand staff appears only for the first note after `i`, from the
 cursor line. The notes that follow it stay on the staff of the note before,
 on ledger lines, and replace what the voice had there. For example, the
 letters `g e a a` on a sketch of C4 D4 E4 F4 replace all four notes.
@@ -373,8 +372,8 @@ A visual selection acts in every staff and voice (a block, in its pitches).
 | slur `l` | the notes under the slur | and the slur |
 | clip `e` | the whole clip | the whole clip |
 
-`ic` is the chord here. In the piano roll, `ic` is the clip. In notation,
-the clip is `ie`, as it is in the piano roll too.
+In notation, `ic` is the chord and the clip is `ie`. In the piano roll, `ie`
+is also the clip.
 
 | Operator | |
 | --- | --- |
@@ -398,19 +397,19 @@ the clip is `ie`, as it is in the piano roll too.
 | `]v` `[v` | the next, previous voice (then the next staff's); note entry goes into it |
 | `Ctrl-j` `Ctrl-k` | the staff below, above |
 
-**Entry modes.** `i` writes over what is there in its voice. MuseScore and
-Dorico do the same by default. `I` pushes later music in the voice along by
-what you enter, over barlines. This is the Insert of Dorico. During entry,
-`Insert` toggles between the two modes.
+`i` writes over what is there in its voice, and MuseScore and Dorico do the
+same by default. `I` pushes later music in the voice along by what you
+enter, over barlines, which is the Insert of Dorico. During entry, `Insert`
+toggles between the two modes.
 
 `r` and a letter change the note under the cursor to the nearest pitch of
 that name, and keep its rhythm. On a chord, they change the top note.
 `3rc` changes three chords.
 
 `R` is re-pitch mode. Each letter makes the next chord of the voice that
-note, and keeps the rhythm. A capital adds a note to the chord. So you can
-copy a rhythm, then press `R` and type the letters. In this view, `R` is
-not record.
+note, and keeps the rhythm, and a capital adds a note to the chord. You can
+copy a rhythm, then press `R` and type the letters. In this view,
+`R` is not record.
 
 The badge of insert mode shows `INS`, `PUSH` or `REPITCH`, and
 a tuplet or grace note that comes next.
@@ -423,13 +422,12 @@ a tuplet or grace note that comes next.
 | `Ctrl-r` and a register | paste it at the cursor and step past it (`Ctrl-r "`) |
 | `Tab` | take the suggestion `paw.complete` shows as ghost notes; in normal mode `3 Tab` takes three notes or chords of it (with none shown, `Tab` is the next view) |
 
-**Ex.** `:s`, `:g` and `:d` over notes change the notes of the clip as they
-do in the piano roll, and the score shows the change. `:%s/c4/db4/g` raises
+The Ex commands `:s`, `:g` and `:d` over notes change the notes of the clip
+as they do in the piano roll, and the score shows the change. `:%s/c4/db4/g` raises
 the C4s a semitone, spelled as the key has it. `:g/e4/d` deletes the E4s.
 
-**Edits of the score.** These keys work on the written chord under the
-cursor. Its notes move and get longer by the written amount, whatever their
-played lengths:
+The following keys work on the written chord under the cursor. Its notes
+move and get longer by the written amount, whatever their played lengths:
 
 | Keys | |
 | --- | --- |
@@ -453,12 +451,12 @@ played lengths:
 `:notation.transpose 2` moves the chord under the cursor up two semitones,
 spelled by the key (`-1 steps` moves it a step of the key down).
 
-**Ranges.** Every `notation.*` command that works on notes or puts marks
-takes a range in front, as in Vim. `:'<,'>` is the last selection (what
+Every `notation.*` command that works on notes or puts marks takes a range
+in front, as in Vim. `:'<,'>` is the last selection (what
 `:` types from visual mode), `:5,8` is bars 5 to 8, and `:5` is bar 5.
 Examples are `:5,8notation.transpose 2`, `:'<,'>notation.slur`,
 `:9notation.dyn p`, `:1,4notation.repeat` (both signs around bars 1 to 4)
-and `:5,8notation.quantize`. These commands take a range: `art`, `dyn`,
+and `:5,8notation.quantize`. The following commands take a range: `art`, `dyn`,
 `cresc`, `dim`, `slur`, `text`, `repeat`, `quantize`, `apply-marks`,
 `retranscribe` and `transpose`. The commands that the popovers run take
 one too: `tempo`, `meter`, `key`, `clef`, `bar`, `rehearsal`, `chord`,
@@ -480,29 +478,28 @@ one too: `tempo`, `meter`, `key`, `clef`, `bar`, `rehearsal`, `chord`,
 | `:notation.tuplet 3` | the beat or the range as a tuplet (`5:4`); on a tuplet, `off` gives plain values; in insert mode, enter in it (`off` plain) |
 | `:part.bars-per-system 4` | in the part shown, that many bars to every system; without a number, as they fit |
 
-**Marks that play.** `:notation.dyn mf` puts a dynamic at the cursor
-(`ppp` to `fff`, `off`). It sets the velocities of the notes from there to
-the next dynamic to its loudness. `:notation.cresc` and `:notation.dim` put
-a hairpin over the selection or range, or to the end of the bar. The
-hairpin ramps the velocities to the next dynamic.
+`:notation.dyn mf` puts a dynamic at the cursor (`ppp` to `fff`, `off`), and
+it sets the velocities of the notes from there to the next dynamic to its
+loudness. `:notation.cresc` and `:notation.dim` put a hairpin over the
+selection or range, or to the end of the bar, and the hairpin ramps the
+velocities to the next dynamic.
 
-`:notation.slur` puts a
-slur over the selection. `:notation.text Allegro` writes text above the
+`:notation.slur` puts a slur over the selection. `:notation.text Allegro` writes text above the
 staff, and `:notation.repeat start` (`end`, `off`) puts a repeat sign at
 the bar of the cursor.
 
 The slur, the text and the repeat sign are only written: the timeline of
 the song plays as it is. A staccato makes a note half its written length,
 and a tenuto all of it. An accent makes a note 20 louder, and a marcato 30.
-Each mark writes the MIDI when you write the mark. After that, the notes
+Each mark writes the MIDI when you write the mark, and after that the notes
 are free to change (see [MIDI is the truth](#midi-is-the-truth)).
 
-**Marks follow notation edits.** A note that you enter, move or paste in
-notation gets the loudness that the marks ask for where it lands. That is
-the dynamic in force, the ramp of a hairpin there, or the push of an
-accent. A note that stays under the same marks keeps its velocity. A note
-that no edit touched never changes. So a notation edit at one place leaves
-a piano roll edit at another place alone.
+A note that you enter, move or paste in notation gets the loudness that the
+marks ask for where it lands, which is the dynamic in force, the ramp of a
+hairpin there, or the push of an accent. A note that stays under the same
+marks keeps its velocity, and a note that no edit touched never changes, so
+a notation edit at one place leaves a piano roll edit at another place
+alone.
 
 To make MIDI agree with the marks again, use `:notation.apply-marks`. With
 a range (`:5,8notation.apply-marks`) or on the selection, it writes what
@@ -526,14 +523,14 @@ caret. In visual mode, the popover is for the selection. In insert mode,
 
 `Tab` completes, and shows the meaning of each choice. `Up` and `Down` go
 through what you typed before in that popover. While you type, the page
-shows what the popover would write, in the ink of the accent color. You
-also hear it, as a trial (`paw.audition`). The line tells what the popover
+shows what the popover would write, in the ink of the accent color, and you
+also hear it as a trial (`paw.audition`). The line tells what the popover
 would do, or why it cannot. `Enter` writes it as one undo step, and `Esc`
 leaves no trace.
 
 Each popover is an Ex command with what you typed after it. If there is a
 selection, the command runs with its range: `\d` `mp<f` on a selection
-runs `:'<,'>notation.dyn mp<f`. So `.` writes it again at the cursor, `@:`
+runs `:'<,'>notation.dyn mp<f`. Then `.` writes it again at the cursor, `@:`
 runs the line again, and a macro records it. `:5,8notation.dyn p` and
 `:9notation.tempo rit.` do the same without the popover. `\.` opens the
 last popover again, with what you typed in it.
@@ -569,11 +566,11 @@ repeats the last popover.
 own that would be on a leader key of the whole program belongs on
 `<localleader>` too. The check of the key rule tells you so.
 
-The prompt shows under the system of the caret: in the terminal, in a
-window, and on the pixel surface of a terminal. So what it previews stays
-in sight. It shows only there, and the status line
-of the window does not repeat it. Before you type, it shows dim examples of
-what to type. `Tab` offers the choices.
+The prompt shows under the system of the caret, in the terminal, in a
+window, and on the pixel surface of a terminal, so what it previews stays
+in sight. It shows only there, and the status line of the window does not
+repeat it. Before you type, it shows dim examples of what to type, and `Tab`
+offers the choices.
 
 ## The staff in cells
 
@@ -603,11 +600,11 @@ popover opens under the row of dynamics, so a dynamic that it previews
 stays in sight.
 
 At the usual zoom, the staff is dense. Each line has a row and each space
-is between two rows. So a staff takes five rows, and a grand staff takes
+is between two rows, so a staff takes five rows, and a grand staff takes
 eighteen, with room for two ledger lines and the stems. A head in a space
 covers the rows on each side (`▄▄` over `▀▀`, an open one `╭╮` over `╰╯`).
 `zi` spreads the staff to a row for every line and space, nine for each
-staff. This is easier to read, and the pointer can reach the spaces.
+staff, which is easier to read, and the pointer can reach the spaces.
 
 `zo` returns to the dense staff. A panel too low for both staves of a grand
 staff shows the staff of the cursor. With `paw.opt.ascii`, the staff is
@@ -616,10 +613,10 @@ treble clef `&`, the bass clef `?:`, a C clef `B`). A clef or key that
 changes inside a system shows at the bar, and the clef is smaller.
 Naturals cancel the old signs of a key.
 
-The accidentals `♯ ♭ ♮` are the one exception to the common set. Fira Code
-and JetBrains Mono do not have all of them. Terminals then take them from
-a font that has them (DejaVu Sans Mono or Noto Sans Mono, which nearly
-every system has). They stay one cell wide.
+The accidentals `♯ ♭ ♮` are the one exception to the common set, because
+Fira Code and JetBrains Mono do not have all of them. Terminals then take
+them from a font that has them (DejaVu Sans Mono or Noto Sans Mono, which
+nearly every system has), and they stay one cell wide.
 
 ## The engraved page
 
@@ -638,7 +635,7 @@ six rows, as in the cell view.
 
 On a terminal, each measure is a whole number of columns wide and each
 system is a whole number of rows high. The drawing tells where the
-barlines are. So paw sends the page to the terminal as images cut at
+barlines are, so paw sends the page to the terminal as images cut at
 barlines, and an edit sends again only the measure that it changed.
 
 Behind Bars (Gould) is the reference for the details. Beams slope by not
@@ -661,14 +658,14 @@ With two voices on a staff, a rest moves out of the way of the notes of the
 other voice. A lyric gets the room that it needs: paw spaces its note so
 that syllables do not touch.
 
-**A placer puts the items outside the staff.** Each staff of a system has
-a skyline (`notation.skyline`). The skyline is the outline of its notes,
-stems, beams, flags, accidentals, ledger lines, articulations, ties and
-tuplets, seen from above and from below. The placer puts items against it,
-nearest first. These items are slurs, the bar number, lyrics, dynamics and
-hairpins, text, and the kinds that other features add (chord symbols,
-rehearsal marks, tempo text). Each item is clear of all the items before
-it, and then becomes part of the outline.
+A placer puts the items outside the staff. Each staff of a system has a
+skyline (`notation.skyline`), which is the outline of its notes, stems,
+beams, flags, accidentals, ledger lines, articulations, ties and tuplets,
+seen from above and from below. The placer puts items against it, nearest
+first. The items are slurs, the bar number, lyrics, dynamics and hairpins,
+text, and the kinds that other features add (chord symbols, rehearsal
+marks, tempo text). Each item is clear of all the items before it, and then
+becomes part of the outline.
 
 The dynamics and hairpins of a system stand on one line along it (the
 magnetic layout of Sibelius). The line is under the staff, or over it on a
@@ -678,8 +675,8 @@ The space between the staves of a system, and the height of each system,
 is what their skylines need, so nothing overlaps. For example, a grand
 staff with dynamics between its hands gets more space only there.
 
-**Slurs bend round the notes.** A slur goes under the heads when every stem
-under it points up, else over them. In two voices, the slur of the upper
+A slur goes under the heads when every stem under it points up, and
+otherwise over them. In two voices, the slur of the upper
 voice is over, and the slur of the lower voice is under. The ends of a slur
 are half a space from the end notes, at the heads or past the stems.
 
@@ -689,12 +686,12 @@ rise, each for what is near it. When one slur is inside another, the placer
 places the inner slur first. A slur over a system break has two parts, and
 the second part starts after the clef and key.
 
-**Systems break balanced.** The breaker divides measures into systems over
-the whole clip at once (`notation.breaks`). It does not fill one system at
-a time, but finds a total fit, as Knuth and Plass describe.
+The breaker divides measures into systems over the whole clip at once
+(`notation.breaks`). It does not fill one system at a time, but finds a
+total fit, as Knuth and Plass describe.
 
-The cost of a system grows with the
-square of how far its bars stretch, so all systems share the stretch. No
+The cost of a system grows with the square of how far its bars stretch, so
+all systems share the stretch. No
 system stretches past twice the own width of its bars while another way
 exists. A bar stands alone on the last system only when all other ways are
 worse. Every system but the last fills the width, and the last does too
@@ -727,7 +724,7 @@ white with black ink, unless the option `notation_paper` is `"theme"`: then
 the page keeps the colors of the theme. The staff space is the largest
 whose page fits the width, unless you zoom.
 
-Over the page, separate from it, paw draws these items:
+Over the page, separate from it, paw draws the following items:
 
 - the selection: a faint band, and its notes in the accent color
 - the suggestions from `paw.complete`: the notes laid out as notation would
@@ -740,7 +737,7 @@ Over the page, separate from it, paw draws these items:
   in the accent color.
 - the playhead.
 
-In the window, the toolbar has these controls:
+In the window, the toolbar has the following controls:
 
 - the value (whole to 32nd), the dot, rests, and the accidental of the
   notes that you enter (flat, natural, sharp, or none for the accidental of
@@ -752,8 +749,8 @@ In the window, the toolbar has these controls:
 
 The line at the bottom shows what is under the cursor. At the right, it
 shows the key, the time signature and the track. On a terminal, the
-toolbar and that line are not there, because the bars of the terminal show
-the same data.
+toolbar and the bottom line are not there, because the bars of the terminal
+show the same data.
 
 | Pointer | |
 | --- | --- |
@@ -776,8 +773,8 @@ mode and the menu of the right click are as above. The wheel scrolls by
 measures.
 
 In the cell view, the cursor off a note shows as the note that you would
-enter (a shadow note). In insert mode, this note follows the pointer. The
-status line shows the note and time under the pointer.
+enter (a shadow note). In insert mode, the shadow note follows the pointer,
+and the status line shows the note and time under the pointer.
 
 ## Scores
 
@@ -785,9 +782,9 @@ status line shows the note and time under the pointer.
 
 You edit a score of several tracks where you read it, as Dorico and
 MuseScore edit theirs. Each staff is a line, and the staff of the cursor is
-the track that every key writes. No other state is necessary. A move
-between staves is a move of the cursor. An edit is an ordinary edit of the
-clip of that track (see [MIDI is the truth](#midi-is-the-truth)).
+the track that every key writes. No other state is necessary, because a move
+between staves is a move of the cursor, and an edit is an ordinary edit of
+the clip of that track (see [MIDI is the truth](#midi-is-the-truth)).
 
 ![The quartet's score in the terminal: `[[` and `]]` go from instrument to instrument, the clarinet's staff marked and the others dimmed; a block over three staves, then gU on each](../images/tui-score.gif)
 
@@ -828,9 +825,9 @@ tells which staff it is: `the full score, staff 4 of 6`. With
 they have the colors of their tracks. Both options work in the cells of the
 terminal, on its pixels and in the window.
 
-**Moves between staves.** `j` and `k` move the pitch of the cursor, as in
-all of the view, and note entry follows them. The structural keys of Vim
-reach the staves, as they reach the nodes of Tree-sitter:
+`j` and `k` move the pitch of the cursor, as in all of the view, and note
+entry follows them. The structural keys of Vim reach the staves, in the same
+way that they reach the nodes of Tree-sitter:
 
 | Keys | |
 | --- | --- |
@@ -849,22 +846,22 @@ its name tells. The brackets of the score show it. On a grand staff,
 `Ctrl-j` goes to the lower hand first. `]v` `[v` reach the voices of the
 hands.
 
-**Every edit goes to the staff of the cursor.** That is true for note entry
-by letter, the operators and text objects, the popovers, `:art`, the marks,
+Every edit goes to the staff of the cursor, including note entry by
+letter, the operators and text objects, the popovers, `:art`, the marks,
 `x`, `p` and undo. A passage yanked on one staff pastes into another
 (`yib`, `]]`, `P`), written as it was.
 
-**A selection over staves** (`Ctrl-v` then `Ctrl-j`, or `V`) is bars by
+A selection over staves (`Ctrl-v` then `Ctrl-j`, or `V`) is bars by
 staves. `x`, `d`, `y`, `gU`, `g+`, `>`, `<`, `g@`, `g'` and the other keys
 act on the clip of each staff over those bars. They act on every pitch of
 each staff, but within one staff a block keeps its pitches. A popover or
 `:` on the selection runs on each staff in turn (`\d` `p` writes a `p` on
 each). All of it is one undo step, for any number of tracks.
 
-**Ex over staves.** In a score, a staff is a clip to Ex. `s4` is the fourth
-staff, `s2,s5` the second to the fifth, `s.` the staff of the cursor and
-`s$` the last. The name of a group or a family (`Strings`, `Woodwinds`) is
-its instruments. These go before or after the bars:
+In a score, a staff is a clip to Ex. `s4` is the fourth staff, `s2,s5` the
+second to the fifth, `s.` the staff of the cursor and `s$` the last. The
+name of a group or a family (`Strings`, `Woodwinds`) is its instruments.
+The words below go before or after the bars:
 
 | | |
 | --- | --- |
@@ -878,22 +875,21 @@ The commands of Ex itself (`d`, `y`, `>`, `<`, `s`, `g`, `transpose`) work
 on the notes of the staves. A command of the view runs on the clip of each
 staff in turn, as if the cursor were there.
 
-**You edit a transposed part as written.** In a part (`:part Clarinet`),
-the letters that you type are the written notes. In a part in B flat, `c`
+You edit a transposed part as written. In a part (`:part Clarinet`), the
+letters that you type are the written notes. In a part in B flat, `c`
 writes a C, and the MIDI of the clip keeps the B flat that it sounds. The
 cursor, a click and the motions follow the written staff. The layout of
 the part (`zs` and `zj` there, `:part.break`, `:part.join`) stays with the
 part.
 
-**A condensed staff is two players** (`:part.condense`). Voice 1 is the
-clip of the first player, and voice 2 is the clip of the second player.
-`]v` `[v`, and `v` in insert mode, go from one to the other.
+A condensed staff (`:part.condense`) is two players. Voice 1 is the clip of
+the first player, and voice 2 is the clip of the second player. `]v` `[v`,
+and `v` in insert mode, go from one to the other.
 
-An edit in
-bars written `a2` applies to both players. `:score.split` writes the two
-players apart there, as two voices, so that an edit is for one player. It
-works on the bar of the cursor, a range or a selection. Again, it joins
-them.
+An edit in bars written `a2` applies to both players. `:score.split` writes
+the two players apart there, as two voices, so that an edit is for one
+player. It works on the bar of the cursor, a range or a selection, and
+running it again joins the players.
 
 From Lua, `require("notation.staves")` has `show(tracks, label)`,
 `split(frame, region)` (a region of the score as each clip has it),
@@ -914,16 +910,16 @@ open), and the motions `staff`, `unit`, `sibling` and `edge`.
 | `:notation.export song.musicxml` | the clip's score as MusicXML; `.mxl` zipped, `.ly` LilyPond |
 | `:notation.export score.mxl all` | every track's first MIDI clip with notes as a part of one score |
 
-**MusicXML in.** paw reads `.musicxml`, `.xml` and `.mxl` (compressed)
-files, as MuseScore, Dorico, Sibelius and Finale write them, partwise or
-timewise (`notation.musicxml`, with its own small XML reader, and `paw.zip`). A
-part becomes a track with one MIDI clip, and the track keeps the clef or
-grand staff of the part. paw reads the file into a score, and writes the
-score into the clip as notation writes it (see
+paw reads `.musicxml`, `.xml` and `.mxl` (compressed) files, as MuseScore,
+Dorico, Sibelius and Finale write them, partwise or timewise
+(`notation.musicxml`, with its own small XML reader, and `paw.zip`). A part
+becomes a track with one MIDI clip, and the track keeps the clef or grand
+staff of the part. paw reads the file into a score, and writes the score
+into the clip as notation writes it (see
 [MIDI is the truth](#midi-is-the-truth)). Its notes become MIDI notes, and
 what MIDI cannot hold becomes notation data.
 
-paw reads these items into the score:
+paw reads the following items into the score:
 
 - the staves and their clefs
 - the voices of each staff (the voices 5 to 8 of MuseScore on a second
@@ -953,7 +949,7 @@ the score cannot hold, and tells you:
 `opened song.mxl: 412 notes on 3 tracks; left out: 12 <fingering>, 2 <pedal>`.
 
 `:open` names the project after the file and gives it no file of its own
-(`:w` asks where to save it). It also takes these items:
+(`:w` asks where to save it). It also takes the following items:
 
 - the title and composer, for the page view
 - the key
@@ -963,33 +959,33 @@ the score cannot hold, and tells you:
 - the drum kit, for a part on channel 10 or in a percussion clef
 - the MIDI program of each part, as a program change in its clip.
 
-**Out.** paw writes MusicXML and LilyPond from the score of the clip, so
-all that the score holds goes out. When paw reads a written file, it gets
-the same score, bar for bar and mark for mark (the tests check each
-feature). A score brought into a clip and written out again is the
-transcription of the clip. So what the transcription writes its own way (a
-tie that the meter does not need) returns as the transcription writes it.
+paw writes MusicXML and LilyPond from the score of the clip, so all that the
+score holds goes out. When paw reads a written file, it gets the same score,
+bar for bar and mark for mark (the tests check each feature). A score
+brought into a clip and written out again is the transcription of the clip,
+so what the transcription writes its own way (a tie that the meter does not
+need) returns as the transcription writes it.
 
 MusicXML also carries the decisions of the page (accidentals, stems,
 beams), and the channel and program of each part. LilyPond has the staves,
 voices, `\partial`, `\tuplet`, grace notes, `\key`, `\clef`, `\time` and
 barlines. It also has `\repeat` endings as volta brackets, `\mark`,
-`\tempo`, dynamics and hairpins, and slurs. It has text and chord symbols
+`\tempo`, dynamics and hairpins, and slurs, and it has text and chord symbols
 as markup, articulations, ornaments, and `\noBeam` for a beam broken by
 hand. The lyrics are under their voice (`--`, `__`).
 
 `:notation.export lead.ly track` writes every MIDI clip of the track on one
 timeline, as the views draw them. Without a path, the file has the name of
 the clip and goes to the working directory. The clip is the clip of the
-notation view when that view has the keyboard. Else it is the clip under
-the arrange cursor on the track of the cursor. The message names it:
+notation view when that view has the keyboard, and otherwise it is the clip
+under the arrange cursor on the track of the cursor. The message names it:
 `wrote 'melody' (Lead) to lead.pdf, 2 pages`.
 
 `:notation.export pdf` (or a path that ends in `.pdf`) writes the engraved
 pages as the page view lays them out, on white paper. The PDF has all the
 pages, and the last page ends under its last system. `svg` writes each page
 as an SVG file (numbered after the first), and `png` writes the first page
-as an image. These files come from the same drawing operations as the
+as an image. The files come from the same drawing operations as the
 screen (`paw.api.canvas_export`, in `crates/paw-raster`). The glyphs of the
 music font and the text are outlines, so the files need no fonts.
 
@@ -1001,7 +997,7 @@ A song of several instruments is a score, and each instrument has a part
 to play from. Every track with MIDI is an instrument, made of every MIDI
 clip of the track on the timeline of the song (see [The score](#scores)).
 Nothing is copied. The score and the parts come from the MIDI of the clips
-each time it changes, with the data that notation keeps on the notes. So a
+each time it changes, with the data that notation keeps on the notes, so a
 part is always current.
 
 ![The quartet's full score in the terminal: flutes, clarinet and cello in orchestral order, a bracket over the woodwinds](../images/tui-parts-score.png)
@@ -1026,7 +1022,7 @@ You edit the score and the parts as you read them: see
 [The score](#scores). Only their pages for a check before export
 (`:score.check`, `zp`) are read-only.
 
-**The full score.** The instruments are in the order of an orchestra:
+In the full score, the instruments are in the order of an orchestra:
 woodwinds, brass, percussion, harp and keyboards, voices, strings. Within
 a family, they are in the order that an orchestra uses (piccolo, flutes,
 oboes, clarinets, bassoons, and horns before trumpets). The family comes
@@ -1041,21 +1037,21 @@ the left of the staves, in full on the first system and short after
 marks once, from the track that has them. The full score is at concert
 pitch.
 
-**Condensed.** With `:part.condense`, two players of one instrument share a
-staff, `Flute 1.2`. They are two tracks with one name and different
-numbers (`Flute 1` and `Flute 2`), on the same clef.
+With `:part.condense`, two players of one instrument share a staff,
+`Flute 1.2`. They are two tracks with one name and different numbers
+(`Flute 1` and `Flute 2`), on the same clef.
 
-Where they play the
-same notes, the staff has the notes once, with `a2` over them. Where one
+Where they play the same notes, the staff has the notes once, with `a2` over
+them. Where one
 player rests, the staff has the notes of the other, with `1.` or `2.`.
 Where they play different notes, the staff has both as two voices, with the
 stems of the first up and of the second down. The label shows where it
 changes.
 
-**A part** is one instrument as its player reads it, with its name at the
-top left of the page:
+A part is one instrument as its player reads it, with its name at the top
+left of the page:
 
-- **Transposed.** A clarinet in B flat reads a major second above how it
+- Transposed: a clarinet in B flat reads a major second above how it
   sounds, in the key two sharps up. `:part.transpose Bb` sets this, and the
   track keeps it in `meta.notation.transpose`. Without it, paw takes a
   track named "Clarinet in Bb" (or `in A`, `in F`, `in Eb`) at its word.
@@ -1069,35 +1065,35 @@ top left of the page:
   tell it). `off` writes the part as it sounds. paw moves each note by the
   interval and spells it in that key. A key that would have more than
   seven sharps or flats takes the enharmonic interval.
-- **Multi-measure rests.** Bars of rest in a row are one bar, with a thick
+- Multi-measure rests: bars of rest in a row are one bar, with a thick
   bar across it and their count over it. The count starts again at a
   rehearsal mark, a tempo mark, a change of key, clef or time, a repeat or
   a double barline. The bars after it keep their numbers.
-- **Rehearsal marks and tempo** of the whole score are in every part, from
-  any track.
-- **Cues.** `:5,8part.cue Oboe` writes the notes of the oboe small in the
+- Rehearsal marks and tempo: those of the whole score are in every part,
+  from any track.
+- Cues: `:5,8part.cue Oboe` writes the notes of the oboe small in the
   bars of rest of this part from 5 to 8. It writes them as this part is
   written (transposed, on its clef), with the short name of the oboe over
   them. The rest of the part stays under them. The track keeps the cue
   (`meta.notation.part.cues`, in beats of the song), and paw makes it again
   from the MIDI of the oboe each time.
-- **Page turns.** Where possible, the systems of a part break after a bar
+- Page turns: where possible, the systems of a part break after a bar
   of rest. The player turns after each odd page. Such a page ends with a
   system that ends in rests, if a system in its second half ends in rests.
   The systems after it go to the next page.
-- **Its own layout.** Breaks (`:part.break`, `:part.join`) and bars to a
+- Its own layout: breaks (`:part.break`, `:part.join`) and bars to a
   system belong to the part (`meta.notation.part`), not to the score. The
   breaks of the score (`zs`) do not move the breaks of the part.
 
-**Export.** `:part.export` writes PDF (or SVG, PNG) pages as the page view
-lays them out. `:part.export parts.pdf all` writes `parts-Flute_1.pdf` and
+`:part.export` writes PDF (or SVG, PNG) pages as the page view lays them
+out. `:part.export parts.pdf all` writes `parts-Flute_1.pdf` and
 one file for each other part. `:part.export score.pdf score` writes the
 full score. With a part shown, `:part.export` alone writes that part, with
 the name of the song.
 
 `:part.export score.musicxml` writes every part in one file. Each part is
-written as it is played, with a `<transpose>` that tells how it sounds. A
-reader brings it back to concert pitch, as this extension does. The
+written as it is played, with a `<transpose>` that tells how it sounds, and
+a reader brings it back to concert pitch, as this extension does. The
 families are part groups with brackets, and the short names are
 abbreviations. MuseScore, Dorico and Sibelius make their own parts from
 the file.
@@ -1140,7 +1136,7 @@ require("notation.layout").layout(sc, { length = 8 })   -- its layout, as model.
 ```
 
 The method `write(fn)` of the view changes a score. It gives `fn` a copy
-of the score of the clip to change. Then it writes what changed as MIDI
+of the score of the clip to change, and then it writes what changed as MIDI
 edits (with the data that notation keeps on the notes and the clip), as one
 undo step: `view:write(function(sc) ... end)`.
 
@@ -1155,15 +1151,15 @@ measures that changed, and touches only the notes that it changes.
 `notation.engrave` turns a layout into drawing operations for `paw.canvas`
 (`engrave.style`, `engrave.systems`, and the ink of each measure and
 system). `notation.smufl.font()` is the metadata of the font as the
-engraver reads it. It comes from the fonts that the kernel embeds
+engraver reads it, and it comes from the fonts that the kernel embeds
 (`paw.api.smufl`): Leland, Bravura and Petaluma, under the SIL Open Font
 License, in `crates/paw-raster/fonts`. `tools/paintbench.lua` times the
-paint. Run it with
+paint, and you run it with
 `paw --clean --no-plugins --no-listen --audio null -l extensions/notation/tools/paintbench.lua 64`.
 
 A feature with marks of its own (chord symbols, rehearsal marks, tempo
-text, lyrics drawn its own way) tells the placer their kind. It puts them
-on the measures of the layout (`m.marks`, from a decorator), or finds them
+text, lyrics drawn its own way) tells the placer their kind. The feature
+puts them on the measures of the layout (`m.marks`, from a decorator), or finds them
 itself with `collect`:
 
 ```lua
@@ -1203,7 +1199,7 @@ is drawn on each staff: notes and rests with their start, value (`base`,
 
 <!-- tags: notation-not-done -->
 
-These are not done yet. Of the score and the parts:
+The following items are not done yet, starting with the score and the parts:
 
 - a score written transposed (the score is at concert pitch)
 - in a transposed part, a key or clef from a popover as written (it is the
@@ -1234,7 +1230,7 @@ These are not done yet. Of the score and the parts:
 - in the cell view, the slash of a grace note and the slope of a beam
   (beams are flat).
 
-On the engraved page:
+On the engraved page, these are not done:
 
 - page breaks of your own (pages fill as systems come)
 - the style as a buffer to edit (staff size, spacing, slur height)
@@ -1247,7 +1243,7 @@ On the engraved page:
   marks on fixed rows)
 - text in a PDF that you can search (the text is outlines).
 
-Of the transcription and playback:
+Of the transcription and playback, these are not done:
 
 - tuplets read from the MIDI other than the tuplets of one beat (and
   quarter-note triplets over two beats). Others, such as nine in a beat or
@@ -1257,7 +1253,7 @@ Of the transcription and playback:
 - a filter that reads and writes MusicXML (the filter reads and writes the
   line text above).
 
-Of what notation keeps:
+Of what notation keeps, these are not done:
 
 - a tie that the meter does not need (a tied note is one note, written as
   the meter divides it)
@@ -1267,7 +1263,7 @@ Of what notation keeps:
   where it does not play.
 
 After each change, notation reads all the notes of a clip again, because
-their chords, swing, drift, hands and voices reach across bars. This takes
+their chords, swing, drift, hands and voices reach across bars. The read takes
 about 6 ms for 64 bars. Then notation keeps what each measure is written
-as, by what the measure comes from. It writes, lays out and engraves again
-only the measures that changed.
+as, by what the measure comes from, and it writes, lays out and engraves
+again only the measures that changed.

@@ -1,6 +1,6 @@
 # The graphical window in Lua
 
-This page describes the Lua tables and functions of the kernel that the
+The reference page describes the Lua tables and functions of the kernel that the
 graphical window uses, and that extensions use to add to it. The window
 itself is described in [The graphical window](window.md). Each function
 also has an entry in the [Lua API reference](api.md).
@@ -8,17 +8,17 @@ also has an entry in the [Lua API reference](api.md).
 ## `paw.frontend.act`
 
 `paw.frontend.act` holds what each gesture of a frontend means. The window
-calls these functions in the kernel. They snap beats to the grid, and the
-suite tests each one. So another frontend gets the same behavior when it
+calls these functions in the kernel, they snap beats to the grid, and the
+suite tests each one, so another frontend gets the same behavior when it
 sends the same gestures.
 
-Some of the functions are:
+The functions include the following.
 
 - clips: `select_clip`, `select_clips_box`, `drag_clips`, `trim_clips`, `set_fade`, `set_clip_gain`, `split_clips`, `glue_clips`, `open_clip`
 - tracks: `move_track`, `set_track_height`, `sweep_flag`
 - time: `select_range`, `set_loop`, `set_loop_edge`, `ruler_click`
 - notes: `add_note`, `drag_notes`, `stretch_notes`, `select_notes_box`, `erase_notes`, `draw_velocities`, `quantize_notes`, `set_velocity`
-- other: `set_param`, `float_pointer`, `drop`, `leave`. The full list is in `runtime/lua/paw/frontend.tl`.
+- other: `set_param`, `float_pointer`, `drop`, `leave`, and the full list is in `runtime/lua/paw/frontend.tl`.
 
 | Function | Effect |
 | --- | --- |
@@ -38,7 +38,7 @@ the mouse menus of the terminal.
 ## `paw.frontend.menus`
 
 `paw.frontend.menus` holds the entries that extensions add to the
-right-click menus of the window. It has three lists:
+right-click menus of the window, in the three lists below.
 
 | List | Menu |
 | --- | --- |
@@ -64,8 +64,8 @@ table.insert(paw.frontend.menus.timeline, { label = "New drum track", run = func
 
 ## `paw.frontend.bands`
 
-`paw.frontend.bands` is a list of functions. Each function returns the
-entries of a band under the markers of the arrange view's ruler, a row in
+`paw.frontend.bands` is a list of functions, and each function returns the
+entries of a band under the markers of the arrange view's ruler, which is a row in
 the terminal and in the window.
 
 | Field | Value |
@@ -78,7 +78,7 @@ the terminal and in the window.
 | `run` | A function for a click, given the entry. |
 | `hint` | What the status line shows over the entry. |
 
-A band with no entries takes no space. The arrange view calls the
+A band with no entries takes no space, and the arrange view calls the
 functions each time that it draws. The findings of the mix are a band.
 
 ```lua
@@ -89,12 +89,12 @@ end)
 
 ## `paw.frontend.openers`
 
-`paw.frontend.openers` is a list of functions. A double-click on a clip
+`paw.frontend.openers` is a list of functions, and a double-click on a clip
 calls each one with the clip, before the piano roll opens. A function that
 opens the clip in an editor of its own returns true. A kind of track with
 an `editor` (see [Everything an extension can
 own](extensions.md#what-the-core-gives-an-extension)) does not need an
-opener: a double-click on its clip opens its editor.
+opener, because a double-click on its clip opens its editor.
 
 ## `paw.panes`
 
@@ -113,14 +113,14 @@ opener: a double-click on its clip opens its editor.
 | `paw.panes.tab(i)` | Goes to tab `i`. |
 
 The kernel sends the scene of a pane when the frontend tells its size in
-cells (`scene.area`). It takes the pointer in cells (`scene.input`). See
+cells (`scene.area`), and it takes the pointer in cells (`scene.input`). See
 [Scenes](protocol.md#scenes).
 
 ## Views that paint
 
 A view with a `paint` function draws in pixels. A frontend shows it in a
-pane, or in a window of its own. So an extension brings its own editor to
-the graphical window, and the window needs no code for it.
+pane or in a window of its own, so an extension can bring its own editor to
+the graphical window and the window needs no code for it.
 
 ```lua
 paw.ui.view("scope", {
@@ -136,7 +136,7 @@ paw.ui.dock("scope", { side = "bottom", hidden = true })
 paw.canvas.open("scope", { title = "Scope", width = 640, height = 360 })
 ```
 
-The painter `g`:
+The painter `g` has the functions below.
 
 | Method | Draws |
 | --- | --- |
@@ -153,7 +153,7 @@ The painter `g`:
 
 Colors are `#rrggbb` or `#rrggbbaa`.
 
-The `ctx` table:
+The `ctx` table has the fields below.
 
 | Field | Value |
 | --- | --- |
@@ -163,7 +163,7 @@ The `ctx` table:
 | `cell` | The terminal's cell size `{ w, h }` in pixels, with `surface`. |
 | `fg`, `bg` | The terminal's colors, with `surface`, or nil. |
 
-The pointer event `e`:
+The pointer event `e` has the fields below.
 
 | Field | Value |
 | --- | --- |
@@ -176,10 +176,10 @@ The pointer event `e`:
 Keys go to the view's key mappings, or to its `on_key`, as in the terminal.
 
 Buttons and the places that the pointer acts on go in a hit list. A
-view that has one in `view.hits` gets the pointer there first. The place
+view that has one in `view.hits` gets the pointer there first, and the place
 that the view painted last gets the event. The view's `pointer` gets the
 events that no place takes. Each button does what a key of the view
-does, so that the terminal has the same action.
+does, so the terminal has the same action.
 
 ```lua
 view.hits = paw.canvas.hit_list()
@@ -212,11 +212,11 @@ end
 
 The kernel paints the view at the size of the pane or the window. The
 frontend makes the rectangles, text, lines and glyphs into one image with
-the rasterizer of the terminal ([crates/paw-raster](../../crates/paw-raster)).
-So the two frontends show the same pixels.
+the rasterizer of the terminal ([crates/paw-raster](../../crates/paw-raster)),
+so the two frontends show the same pixels.
 
 A view that also shows its pixels in the terminal keeps cells for them in
-its `render` with `buf:surface(x, y, w, h)`. It returns false where the
+its `render` with `buf:surface(x, y, w, h)`, which returns false where the
 terminal shows only cells (see [Pictures in the terminal](pictures.md)). A view that draws cells can also keep strips
 for a part of itself, each drawn by a function, with
 `buf:strip(x, y, w, h, { key, draw, under })`. `paw.plot` draws curves over
@@ -224,7 +224,7 @@ time in them (see [Pictures in the
 terminal](pictures.md)).
 
 The vocal editor of [extensions/utau](../../extensions/utau) is a view that
-paints ([gui.lua](../../extensions/utau/lua/utau/gui.lua)). It shows notes
+paints ([gui.lua](../../extensions/utau/lua/utau/gui.lua)), and it shows notes
 with lyrics, the drawn pitch and the sung pitch, and phonemes. Its toolbar
 has the singer, the tools and the grid.
 

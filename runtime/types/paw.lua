@@ -1579,7 +1579,7 @@ function paw.clip_kinds.data(clip) end
 ---@param spec any
 function paw.clip_kinds.define(name, spec) end
 
---- A few words on a clip of a kind, for `K`: "Film clip · intro.mp4", or
+--- A few words on a clip of a kind, for `K`: `Film clip · intro.mp4`, or
 --- "film (no extension here defines it)". Nil for a MIDI or audio clip.
 ---@param clip any
 function paw.clip_kinds.describe(clip) end
@@ -3069,7 +3069,7 @@ function paw.frontend.input_menu(track) end
 ---@param lane any
 function paw.frontend.lane_name(lane) end
 
---- The stretch of a lane's range that is worth drawing it over: a fader's
+--- The stretch of a lane's range that the drawing covers: a fader's
 --- travel for volume, the whole range for anything else.
 ---@param lane any
 function paw.frontend.lane_span(lane) end
@@ -6366,10 +6366,10 @@ function paw.render.default_path() end
 ---               and then, and `render.done` (what is returned below),
 ---               `render.failed` ({ path, error }) or `render.cancelled` at the end;
 ---               a render in the foreground emits `render.finished` with what it returns
---- When it is done, it returns `types.RenderResult`. This has the path,
+--- When it is done, it returns `types.RenderResult`. The result has the path,
 --- the frames, the seconds, the peak, the gain and the loudness. It also has
---- the format, the bits (nil for a lossy format) and the channels. paw emits `render.before` first.
---- Its handlers run before the render starts, so an extension that makes
+--- the format, the bits (nil for a lossy format) and the channels.
+--- paw emits `render.before` first. Its handlers run before the render starts, so an extension that makes
 --- audio of its own can complete it. paw refuses a file that it cannot
 --- write before it renders. When a render fails or stops, no file has the
 --- name that you gave.
@@ -6652,7 +6652,7 @@ function paw.roll_draw.chord(pitches, name) end
 ---@param id any
 function paw.roll_draw.controls_of(id) end
 
---- The note being drawn, in words: "C4 · end · 2 steps · 0.5 beats", or nil.
+--- The note being drawn, in words: `C4 · end · 2 steps · 0.5 beats`, or nil.
 function paw.roll_draw.describe() end
 
 --- A digit of the count for the next key, or of a length after `=`.
@@ -7934,7 +7934,7 @@ function paw.track_kinds.clear(which) end
 function paw.track_kinds.define(name, spec) end
 
 --- A few words on a track's kind, for `K` and the track header:
---- "Vocal track · Kitane", "vocal (no extension here defines it)", or nil.
+--- `Vocal track · Kitane`, "vocal (no extension here defines it)", or nil.
 ---@param which any
 function paw.track_kinds.describe(which) end
 
@@ -9031,6 +9031,13 @@ function paw.api.engine_audible(tracks) end
 ---@param track integer?
 function paw.api.engine_follow(track) end
 
+--- The track that plays MIDI input as if monitored, also while another
+--- track is armed, or none with nil. While set, it takes the place of
+--- `engine_follow`'s track. Step input sets it to the track of the
+--- clip it enters into, so that the controller sounds there.
+---@param track integer?
+function paw.api.engine_follow_always(track) end
+
 --- --- engine ---
 function paw.api.engine_get() end
 
@@ -9041,6 +9048,14 @@ function paw.api.engine_held() end
 ---@param track integer
 ---@param file string?
 function paw.api.engine_hold(track, file) end
+
+--- Controls of MIDI input that tracks do not get: they neither sound
+--- nor record. Scripts still hear them, as `midi.in` events with
+--- `filtered = true`. Each `name` (`"step"`, `"learn"`) keeps its own
+--- list beside the others; nil or an empty list removes it.
+---@param name string
+---@param rules any
+function paw.api.engine_midi_filter(name, rules) end
 
 --- Forget the process times that `engine_get().blocks` recorded until now.
 function paw.api.engine_reset_stats() end

@@ -1,7 +1,48 @@
 //! MIDI input: ports, the track that hears them and live notes.
 
+use std::collections::BTreeSet;
+
+use paw_engine::midi_filter::{Control as FilterControl, MidiFilter, Rule};
+
 use crate::events::{KernelEvent as E, Nothing};
 use super::*;
+
+/// A control of MIDI input that tracks do not get, as a script names it:
+/// a key (`note`) or a controller (`cc`), from the port of that name (every
+/// port without), on a `channel` from 1 to 16 (every channel without).
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FilterRule {
+    pub port: Option<String>,
+    pub channel: Option<u8>,
+    pub note: Option<u8>,
+    pub cc: Option<u8>,
+}
+
+impl TryFrom<FilterRule> for Rule {
+    type Error = anyhow::Error;
+
+    fn try_from(rule: FilterRule) -> Result<Self> {
+        let control = match (rule.note, rule.cc) {
+            (Some(note), None) if note < 128 => FilterControl::Note(note),
+            (None, Some(cc)) if cc < 128 => FilterControl::Cc(cc),
+            (Some(_), Some(_)) | (None, None) => {
+                bail!("a control of the MIDI input filter is a `note` or a `cc`, one of them")
+            }
+            _ => bail!("a `note` or a `cc` is from 0 to 127"),
+        };
+        let channel = match rule.channel {
+            None => 0,
+            Some(ch @ 1..=16) => ch,
+            Some(ch) => bail!("a MIDI channel is from 1 to 16, not {ch}"),
+        };
+        Ok(Rule {
+            port: rule.port.as_deref().map_or(0, paw_engine::midi::port_key),
+            channel,
+            control,
+        })
+    }
+}
 
 /// MIDI ports, in and out, and the track the input is heard on.
 #[derive(Default)]
@@ -22,6 +63,10 @@ pub(super) struct MidiIo {
     /// MIDI ports to list on the null backend, which opens none, so that
     /// scripts and tests can choose among them.
     pub test_ports: Vec<String>,
+    /// The controls of MIDI input that tracks do not get, by who set them
+    /// (step input, learn), and all of them together as the engine has them.
+    pub filters: BTreeMap<String, Vec<Rule>>,
+    pub filter: MidiFilter,
 }
 
 impl Session {
@@ -31,6 +76,10 @@ impl Session {
     pub(super) fn connect_midi(&mut self) {
         if let Ok(mut sink) = self.midi.sink.lock() {
             sink.engine = self.engine.handle.take_midi_input();
+        }
+        // A new engine starts with no filter.
+        if !self.midi.filter.is_empty() {
+            self.engine.handle.send(Msg::SetMidiFilter(Box::new(self.midi.filter.clone())));
         }
         // The `test` backend's pretend device is as silent as the null one.
         if matches!(self.engine.stream.info.backend, BackendChoice::Null | BackendChoice::Test)
@@ -139,6 +188,26 @@ impl Session {
         self.midi.test_ports = ports;
     }
 
+    /// The controls of MIDI input that tracks do not get, kept under `name`
+    /// beside those that other names keep; none removes them. Scripts still
+    /// hear those controls, as `midi.in` events marked `filtered`.
+    pub fn set_midi_filter(&mut self, name: &str, rules: Vec<FilterRule>) -> Result<()> {
+        let rules = rules.into_iter().map(Rule::try_from).collect::<Result<Vec<_>>>()?;
+        let mut filters = self.midi.filters.clone();
+        if rules.is_empty() {
+            filters.remove(name);
+        } else {
+            filters.insert(name.to_string(), rules);
+        }
+        let all: BTreeSet<Rule> = filters.values().flatten().copied().collect();
+        let filter = MidiFilter::try_from(all.into_iter().collect::<Vec<_>>())?;
+        if filter != self.midi.filter {
+            self.engine.handle.send(Msg::SetMidiFilter(Box::new(filter.clone())));
+        }
+        (self.midi.filters, self.midi.filter) = (filters, filter);
+        Ok(())
+    }
+
     /// Deliver a message as if it came from a MIDI input port, the one
     /// named `port` or none in particular.
     pub fn midi_inject(&mut self, kind: EventKind, port: Option<&str>) {
@@ -192,6 +261,9 @@ impl Session {
         });
         if let Some(name) = name {
             payload["port"] = json!(name);
+        }
+        if self.midi.filter.matches(port, &kind) {
+            payload["filtered"] = json!(true);
         }
         self.emit(E::MidiIn(payload));
     }

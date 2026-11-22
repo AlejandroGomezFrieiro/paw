@@ -30,7 +30,8 @@ The manual's contents are `docs/README.md`, by kind (tutorials, how-to,
 reference, explanation): find a page through it.
 `docs/reference/limits.md` says what paw does not do yet:
 take out what your extension adds. An extension's README follows
-`.claude/skills/diataxis-docs/SKILL.md` (sections by kind, in ASD-STE100).
+`.claude/skills/diataxis-docs/SKILL.md` (sections by kind). A README is an external page: write it with
+`.claude/skills/plain-writing`.
 
 ## Rules that are not optional
 
