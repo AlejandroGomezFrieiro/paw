@@ -33,7 +33,8 @@ Every event of paw is listed below, with the payload that its handler gets.
 | `project.saving` | `{ path }` | paw will write a project. A handler can refuse |
 | `project.saved` | `{ path, written, unused, moved }` | paw wrote the project; for a project folder, the files written, moved to `unused/` and moved |
 | `files.changed` | `{ paths }` | files of the project changed outside paw (see [Project files](project-files.md#changes-from-outside-paw)) |
-| `track.added`, `track.changed`, `track.removed` | `{ id }` | a track, by its id |
+| `track.added`, `track.removed` | `{ id }` | a track, by its id |
+| `track.changed` | `{ id, fields }` | a track, by its id, and the names of the fields that changed, as `track_get` names them, e.g., `{ "mute" }` or `{ "clips" }` |
 | `track.moved` | `{ order }` | the order of the tracks changed |
 | `track.frozen`, `track.thawed` | `{ id, file }` | a track is rendered to a file and plays from it, or plays live again |
 | `device.added`, `device.changed`, `device.removed` | `{ id, track }` | a device in the project |
@@ -41,7 +42,7 @@ Every event of paw is listed below, with the payload that its handler gets.
 | `device.ready`, `device.stopped`, `device.invalid` | `{ id, track, name, ... }` | a plugin is ready, stopped (it crashed or went offline), or cannot be used |
 | `preset.loaded` | `{ id, name }` | a preset loaded into a device |
 | `param.touched` | `{ device, param, from }` | a parameter moved in the editor of the plugin |
-| `clip.added`, `clip.changed`, `clip.removed` | `{ id, track }` | a clip |
+| `clip.added`, `clip.changed`, `clip.removed` | `{ id, track, stamp }` | a clip. A MIDI clip has the `stamp` of its notes, as `clip_get` gives it, so a handler can see that the notes did not change |
 | `clip.copied` | `{ clip, name, origin }` | the first edit of a clip from a file outside the project made it the project's own |
 | `track.copied`, `chain.copied` | `{ track, name, origin }` | the first edit of a track from a track folder outside the project, or of a chain from a chain file outside it, made it the project's own |
 | `lane.added`, `lane.changed`, `lane.removed` | `{ id, track }` | an automation lane |

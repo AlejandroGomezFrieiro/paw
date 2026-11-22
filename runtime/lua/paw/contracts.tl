@@ -788,6 +788,8 @@ local record contracts
     loop_in: string
     loop_out: string
     clip_start: string
+    --- Before the name of a block of a subproject.
+    nest: string
     punch_in: string
     punch_out: string
     meter_full: string

@@ -2831,8 +2831,9 @@ function M.time_lead(): Node, {integer: boolean}
   -- Playing, the windows follow the playhead together, whichever leads.
   local t = api.transport_get()
   local left, zoom, span = view:time_axis({win = lead})
-  if t.playing and opt.follow and left and span and (t.position < left or t.position >= left + span) then
-    view:set_time_axis(paw.time.bar_floor(t.position), zoom, {win = lead})
+  local position = t.playing and t.position - paw.time.origin() or 0
+  if t.playing and opt.follow and left and span and (position < left or position >= left + span) then
+    view:set_time_axis(paw.time.bar_floor(position), zoom, {win = lead})
   end
   return lead, followers
 end

@@ -27,7 +27,9 @@ local function column(p, beat) return math.floor((beat - (p.from or 0)) * (p.per
 --- `‹` after the cut at its start, its name beside it, and a `›` before
 --- the cut at its end. `ghost`
 --- is where a drag will put one. With `take` it is that take of the clip
---- in a take lane (`paw.frontend.take_preview`), lit when `active`.
+--- in a take lane (`paw.frontend.take_preview`), lit when `active`. With
+--- `nest` it is a block of a subproject: a frame around it, and in its
+--- body the notes that the subproject plays there.
 role("clip", {
   props = {
     id = "clip id",
@@ -50,6 +52,7 @@ role("clip", {
     cut_out = "beats",
     content = "key of what it shows",
     ghost = "boolean",
+    nest = "boolean",
     take = "number",
     active = "boolean",
     title_style = "highlight group",
@@ -91,6 +94,8 @@ role("clip", {
     end
     -- A hairline where the clip starts, so that clips side by side stay apart.
     buf:fill(0, 0, 1, h, g.clip_start, "ClipEdge")
+    -- A block of a subproject has a frame: a line where it ends too.
+    if p.nest and w > 2 then buf:fill(w - 1, 0, 1, h, g.clip_start, "ClipEdge") end
     -- Where a scope cuts it: `‹` and the name where the scope starts (the
     -- start of the clip is out of sight), `›` where it ends.
     if p.cut_in then

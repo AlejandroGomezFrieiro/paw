@@ -70,7 +70,8 @@ A clip has a name row and a darker body that shows its notes or waveform in the 
 | `:tempo.move 9` | Moves the tempo change at the cursor to bar 9. |
 | `]t` `[t` | Selects the next or the previous take of the clip. |
 | `zi` `zo` | Zooms in and out. |
-| `zz` `zh` `zl` | Puts the cursor in the center. Scrolls left and right. |
+| `zs` `zz` `ze` | Puts the cursor at the left, in the middle or at the right of the timeline. |
+| `zh` `zl` | Scrolls a bar left or right. |
 | `[g` `]g` | Makes the grid finer or coarser. |
 | `zn{motion}` `znn` `zw` `zW` `]z` `[z` | Enter a scope in this window (`znag` the group, `znar` the region, `znn` the innermost at the cursor). Go up one level, up to the song. Go to the scope beside. See [Scopes](narrowing.md). |
 | `<Space>tv` | Makes a VCA over the selected tracks. |

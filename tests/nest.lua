@@ -79,7 +79,7 @@ test(
       true,
       "the status line: its place and the song's\n" .. text
     )
-    eq(paw.ruler.label(1, 0, "RulerBar", 1)[1][1], "1", "its bars count from 1")
+    eq(paw.ruler.label(9, 0, "RulerBar", 1)[1][1], "1", "its bars count from 1: song bar 9 is its bar 1")
     eq(text:find("9%s+10%s+11") ~= nil, true, "a second row has the song's bars")
     keys("zw")
     eq(paw.scope.current(), nil, "zw: the song")
@@ -181,4 +181,332 @@ test("a Lua device in a subproject reads the subproject's bar; on a song track, 
   inside:remove()
   paw.track(b.drums):add_device("lua:nest_bar_level")
   T.near(level(), 0.10, 1e-3, "on a song track: the song's bar 10")
+end)
+
+-- Adding one: <Space>za, :nest.new ----------------------------------------------------------
+
+--- The song's signature changes as "beat:num/den" in order.
+local function signatures()
+  local out = {}
+  for _, s in ipairs(paw.tempo.signatures()) do
+    out[#out + 1] = string.format("%g:%d/%d", s.beat, s.num, s.den)
+  end
+  return table.concat(out, " ")
+end
+
+--- A metal song: 180 bpm in 4/4, a Drums track, the cursor on it.
+local function metal()
+  start()
+  paw.project.tempo = 180
+  local drums = paw.add_track({ name = "Drums" })
+  paw.cursor.set_track(drums.id)
+  paw.flush()
+  api.undo_checkpoint()
+  return drums.id
+end
+
+test(
+  "the 6/8 piano section of nest.md: 33|, <Space>za Ballad 8 6/8, :tempo 60, a piano, zw; it plays in bars 33-40",
+  function()
+    metal()
+    keys("33|")
+    keys("<Space>za")
+    keys("Ballad 8 6/8<CR>")
+    eq(paw.scope.breadcrumb(), "Song › ⧉Ballad", "the window is inside it")
+    eq(paw.ui.message.text:find("Ballad over bars 33-40 in 6/8", 1, true) ~= nil, true, paw.ui.message.text)
+    eq(signatures(), "0:4/4 128:6/8 152:4/4", "the song's map: 6/8 at bar 33, 4/4 at bar 41")
+    local row = api.track_list()[2]
+    eq(names(api.track_list()), "Drums Ballad", "the return row is below the cursor's track")
+    eq(api.clip_list(row)[1].start, 128, "its block starts at bar 33")
+    eq(#paw.scope.tracks(), 1, "one empty track inside")
+    local text = screen()
+    eq(text:find("Song › ⧉Ballad 1.1 (33.1)", 1, true) ~= nil, true, "its bars and the song's\n" .. text)
+    eq(paw.time.bar(0), 3, "its bars are 6/8: three beats")
+    eq(paw.time.bar_start(34) - paw.time.bar_start(33), 3, "bar 2 of it starts 3 beats in")
+    keys(":tempo 60<CR>")
+    eq(paw.ui.message.text, "60 bpm: the song's tempo at bar 33", "the message names the song's bar")
+    keys(":tempo 180 at 9<CR>")
+    eq(paw.ui.message.text, "180 bpm: the song's tempo at bar 41", "bar 9 inside is bar 41")
+    keys("a")
+    keys("synth<CR>")
+    keys("i")
+    keys("<CR>")
+    keys("<Esc>")
+    keys("<CR>")
+    keys("<C-w>p")
+    local piano = paw.scope.tracks()[1]
+    eq(#api.clip_notes(api.clip_list(piano)[1].id), 1, "a clip with a note inside")
+    keys("zw")
+    eq(paw.scope.current(), nil, "zw: the song")
+    eq(paw.cursor.track_id() ~= nil, true, "the cursor in the song")
+    -- From bar 31 to bar 43: 2.67 s of 180 bpm before bar 33.
+    local info = T.render({ tail = 0, bits = 16, start = 120, ["end"] = 160 })
+    eq(T.channel_peaks(info, 0, 2.6) < 1e-3, true, "nothing before bar 33")
+    eq(T.channel_peaks(info, 2.7, 3.5) > 0.01, true, "the piano at bar 33")
+  end
+)
+
+test("<Space>za adds a subproject in one undo step: u takes its row, the subproject and the meter away", function()
+  metal()
+  keys("33|")
+  keys("<Space>za")
+  keys("Ballad 8 6/8<CR>")
+  eq(#api.nest_list(), 1, "one subproject")
+  keys("u")
+  eq(#api.nest_list(), 0, "no subproject")
+  eq(names(api.track_list({ all = true })), "Drums", "no row, no track inside")
+  eq(signatures(), "0:4/4", "the song's meter as it was")
+  eq(paw.scope.current(), nil, "the window shows the song")
+end)
+
+-- The return row: blocks, in place, K, the list, stems ---------------------------------------
+
+test("a block on its return row: a frame, ⧉ and its name, and the notes that the subproject plays", function()
+  start()
+  local b = ballad()
+  local text = screen()
+  eq(text:find("⧉ Ballad", 1, true) ~= nil, true, "the block's name after ⧉\n" .. text)
+  paw.ui.render_scene("arrange", W, H, { w = 8, h = 16 })
+  api.scene_forget(0)
+  api.scene_roles(0, { "clip" })
+  paw.ui.render_scene("arrange", W, H, { w = 8, h = 16 })
+  local patch = api.json_decode(api.scene_end(0, "arr"))
+  local props
+  for _, n in ipairs(patch.set) do
+    if n.role == "clip" and n.props.id == b.clip then props = n.props end
+  end
+  api.scene_forget(0)
+  eq(props.nest and props.midi and props.label, "⧉ Ballad", "in the scene: a block, drawn in a frame")
+  eq(props.content:find("^nest|") ~= nil, true, "with the key of what it plays")
+  local flat = paw.frontend.preview(b.clip)
+  eq(flat[1] .. " " .. flat[3], "0 60", "a window's picture: the piano's note at the block's start")
+end)
+
+test(
+  "za on the return row shows the subproject's tracks under it, in the song's time; an edit there changes it",
+  function()
+    start()
+    local b = ballad()
+    paw.cursor.set_track(b.row)
+    paw.cursor.set_beat(32)
+    keys("za")
+    eq(names(paw.groups.rows()), "Drums Ballad Piano Strings", "its tracks under the row")
+    eq(paw.scope.current(), nil, "the window still shows the song")
+    keys("j")
+    eq(paw.cursor.track_id(), b.piano, "the cursor on the piano, in place")
+    local clip = paw.cursor.clip()
+    eq(clip and clip.id, api.clip_list(b.piano)[1].id, "its clip at bar 9 of the song: its beat 0")
+    keys("~")
+    eq(api.clip_get(clip.id).muted, true, "~ mutes the clip of the subproject")
+    keys("za")
+    eq(names(paw.groups.rows()), "Drums Ballad", "za again: one row")
+    eq(paw.cursor.track_id(), b.row, "the cursor back on the row")
+  end
+)
+
+test("K on a block: its meter, bars, tempo, tracks, instances", function()
+  metal()
+  keys("33|")
+  keys(":nest.new Ballad 8 6/8<CR>")
+  keys(":track.add Strings<CR>")
+  keys("zw")
+  paw.cursor.set_track(api.track_list()[2])
+  paw.cursor.set_beat(129)
+  keys("K")
+  local lines = {}
+  for _, line in ipairs(paw.ui.views.pager.lines) do
+    lines[#lines + 1] = line.text
+  end
+  local text = table.concat(lines, "\n")
+  eq(
+    text:find("nest Ballad · 6/8 · 8 bars · follows the tempo · 2 tracks · 1 instance · live", 1, true) ~= nil,
+    true,
+    text
+  )
+  paw.ui.close()
+end)
+
+test(":nest.list lists the blocks and the unused subprojects; choosing one enters it", function()
+  start()
+  ballad()
+  api.nest_add({ name = "Spare" })
+  keys(":nest.list<CR>")
+  local text = screen()
+  eq(text:find("Ballad · bar 9 on Ballad", 1, true) ~= nil, true, "the block\n" .. text)
+  eq(text:find("Spare · unused", 1, true) ~= nil, true, "the unused one\n" .. text)
+  keys("bar 9<CR>")
+  eq(paw.scope.breadcrumb(), "Song › ⧉Ballad", "entered")
+end)
+
+test(
+  ":nest.outputs stems: a row for each track under the subproject's row, the same sound; master and u give one row",
+  function()
+    start()
+    local b = ballad()
+    api.clip_add(b.strings, { start = 0, length = 4, notes = { { pitch = 67, start = 0, length = 1 } } })
+    paw.track(b.piano):add_device("synth", { attack = 0.001, release = 0.01 })
+    paw.track(b.strings):add_device("synth", { attack = 0.001, release = 0.01 })
+    paw.flush()
+    api.undo_checkpoint()
+    local function level()
+      local info = T.render({ tail = 0, bits = 16, ["end"] = 40 })
+      return { T.channel_peaks(info, 16, 18) }
+    end
+    local before = level()
+    eq(before[1] > 0.01, true, "the stereo return plays")
+    paw.cursor.set_track(b.row)
+    keys(":nest.outputs stems<CR>")
+    eq(names(api.track_list()), "Drums Ballad Piano Strings", "a stem row for each track, under the row")
+    eq(paw.groups.is_group(b.row) and #paw.groups.members(b.row), 2, "the row is the group of the stems")
+    local stems = level()
+    T.near(stems[1], before[1], 2e-3, "the sum of the stems sounds as the return did (left)")
+    T.near(stems[2], before[2], 2e-3, "and right")
+    keys(":nest.outputs master<CR>")
+    eq(names(api.track_list()), "Drums Ballad", "one row again")
+    eq(#api.clip_list(b.row), 1, "with its block")
+    keys("u")
+    eq(names(api.track_list()), "Drums Ballad Piano Strings", "u: the stems again")
+    keys("u")
+    eq(names(api.track_list()), "Drums Ballad", "u: one row")
+    eq(paw.groups.is_group(b.row), false, "not a group")
+  end
+)
+
+-- Promote: <Space>zp ------------------------------------------------------------------------
+
+--- The project as its file says it, for comparing two states.
+local function project_text() return api.json_encode(api.undo_project()) end
+
+--- The 6/8 Ballad of nest.md made with keys at bar 33 of a metal song,
+--- with two tracks (Piano, Strings) that each have a synth and a note, two
+--- regions inside it, a volume lane on its master and one on its row.
+local function ballad_68()
+  metal()
+  keys("33|")
+  keys(":nest.new Ballad 8 6/8<CR>")
+  local nest = paw.scope.nest().id
+  local piano = paw.scope.tracks()[1]
+  api.track_set(piano, { name = "Piano" })
+  local strings = paw.add_track({ name = "Strings" }).id
+  for i, id in ipairs({ piano, strings }) do
+    paw.track(id):add_device("synth", { attack = 0.001, release = 0.01 })
+    api.clip_add(id, { start = 3 * (i - 1), length = 6, notes = { { pitch = 60 + 7 * i, start = 0, length = 2 } } })
+  end
+  local master = api.nest_get(nest, "master")
+  paw.track(master):automate("volume"):set_points({ { 0, -6 }, { 12, 0 } })
+  local meta = api.nest_get(nest).meta
+  meta.markers = {
+    { id = 1, beat = 0, name = "Intro", length = 6 },
+    { id = 2, beat = 12, name = "Theme", length = 12 },
+  }
+  api.nest_set(nest, { meta = meta })
+  keys("zw")
+  local row = api.track_list()[2]
+  paw.track(row):automate("volume"):set_points({ { 128, -3 } })
+  paw.flush()
+  api.undo_checkpoint()
+  return { nest = nest, row = row, piano = piano, strings = strings, master = master }
+end
+
+--- The regions as "name@beat+length", in order.
+local function regions()
+  local out = {}
+  for _, m in ipairs(paw.markers.regions()) do
+    out[#out + 1] = string.format("%s@%g+%g", m.name, m.beat, m.length)
+  end
+  return table.concat(out, " ")
+end
+
+test(
+  "<Space>zp promotes the subproject to a view: its tracks in a group at the row's place, regions, the lane, 6/8; the window is in Song › Ballad",
+  function()
+    local b = ballad_68()
+    -- The song's map without the 6/8, as for a subproject in a meter of its own.
+    api.signature_remove(152)
+    api.signature_remove(128)
+    api.undo_checkpoint()
+    paw.cursor.set_track(b.row)
+    keys("znn")
+    paw.cursor.set_track(b.strings)
+    paw.cursor.set_beat(4)
+    keys("<Space>zp")
+    eq(#api.nest_list(), 0, "no subproject left")
+    eq(names(api.track_list()), "Drums Ballad Piano Strings", "a group Ballad at the row's place, its tracks under it")
+    local group = api.track_list()[2]
+    eq(
+      paw.groups.is_group(group) and table.concat(paw.groups.members(group), " "),
+      b.piano .. " " .. b.strings,
+      "the group"
+    )
+    eq(
+      api.clip_list(b.piano)[1].start .. " " .. api.clip_list(b.strings)[1].start,
+      "128 131",
+      "the clips at song beats"
+    )
+    eq(regions(), "Ballad@128+24 Intro@128+6 Theme@140+12", "the regions inside a region named after it")
+    local lanes = paw.track(group):lanes()
+    local points = {}
+    for _, p in ipairs(lanes[1]:points()) do
+      points[#points + 1] = string.format("%g:%g", p[1], p[2])
+    end
+    eq(
+      #lanes .. " " .. table.concat(points, " "),
+      "1 128:-9 140:-3 152:-3",
+      "the row's lane and the master's, one lane in dB"
+    )
+    eq(signatures(), "0:4/4 128:6/8 152:4/4", "6/8 in the song's map")
+    eq(paw.scope.breadcrumb(), "Song › Ballad", "the window in the view that took its place")
+    eq(paw.cursor.track_id() .. " " .. paw.cursor.beat, b.strings .. " 132", "at the same place")
+    eq(
+      paw.ui.message.text:find("promoted Ballad: 2 tracks in the group Ballad, bars 33-40", 1, true) ~= nil,
+      true,
+      paw.ui.message.text
+    )
+  end
+)
+
+test("promote: the same sound, u gives back the project as it was, and a plugin inside keeps its instance", function()
+  local b = ballad_68()
+  local dir = (function()
+    local built = "target/release/examples/libstub_clap.so"
+    if not io.open(built) then return nil end
+    local d = T.scratch .. "/nest-stub"
+    os.execute("mkdir -p '" .. d .. "' && cp '" .. built .. "' '" .. d .. "/stub.clap'")
+    return d
+  end)()
+  local plugin
+  if dir then
+    paw.plugins.add_dir(dir, "stubs")
+    plugin = paw.track(b.piano):add_device("clap:dev.paw.stub")
+  end
+  paw.flush()
+  api.undo_checkpoint()
+  local before = project_text()
+  local function sound()
+    local info = T.render({ tail = 0, bits = 16, start = 120, ["end"] = 160 })
+    return T.read_file(info.path)
+  end
+  --- The largest difference of two 16-bit renders, in steps of the last bit.
+  local function apart(a, b)
+    if #a ~= #b then return math.huge end
+    local worst = 0
+    for i = 45, #a - 1, 2 do
+      local x, y = a:byte(i) + a:byte(i + 1) * 256, b:byte(i) + b:byte(i + 1) * 256
+      if x >= 32768 then x = x - 65536 end
+      if y >= 32768 then y = y - 65536 end
+      worst = math.max(worst, math.abs(x - y))
+    end
+    return worst
+  end
+  local heard = sound()
+  paw.cursor.set_track(b.row)
+  paw.cursor.set_beat(130)
+  keys(":nest.promote<CR>")
+  eq(apart(sound(), heard) <= 1, true, "a render after promote is the same, to the last bit of rounding")
+  if plugin then
+    local d = api.device_get(plugin.id)
+    eq(d.track .. " " .. d.status, b.piano .. " running", "the plugin on the same track, its instance running")
+  end
+  keys("u")
+  eq(project_text(), before, "u: the project before promote")
 end)

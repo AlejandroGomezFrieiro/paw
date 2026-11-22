@@ -66,6 +66,7 @@ local record M
   lens: function(): integer
   bounds: function(): number, number
   over: function(old: number, new: number): number
+  shift: function(track: integer): number
   master_reachable: function(): boolean
 end
 
@@ -273,10 +274,19 @@ function M.snap(beat: number): number
   return util.round(beat, options.opt.grid)
 end
 
+--- A function that gives, for a track whose clips the window draws later
+--- than their beats, how much later; or nil: paw/nest.tl sets it, for the
+--- tracks of a subproject open in place under its return row.
+M.shift = nil
+
 --- The clip under the cursor, if any.
 function M.clip(): objects.Clip
   local track = M.track()
-  return track and track:clip_at(M.beat) or nil
+  if not track then
+    return nil
+  end
+  local shift = M.shift and M.shift(track.id) or 0
+  return track:clip_at(M.beat - shift)
 end
 
 return M

@@ -49,12 +49,32 @@ pub struct Order {
 }
 
 /// A clip, a lane or a device, and the track it is on (a device that is
-/// gone, and some changes of a device, have no `track`).
+/// gone, and some changes of a device, have no `track`). A MIDI clip also
+/// has the `stamp` of its notes, as `clip_get` gives it: a listener can
+/// tell that the notes did not change without asking for the clip.
 #[derive(Debug, Clone, Serialize)]
 pub struct Item {
     pub id: Id,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub track: Option<Id>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stamp: Option<u64>,
+}
+
+impl Item {
+    /// A device or a lane (no stamp) on `track`.
+    pub fn on(id: Id, track: Option<Id>) -> Item {
+        Item { id, track, stamp: None }
+    }
+}
+
+/// A track that changed, and the names of its fields that changed, as
+/// `track_get` names them (`{ "mute" }`, `{ "clips" }`).
+#[derive(Debug, Clone, Serialize)]
+pub struct TrackChange {
+    pub id: Id,
+    /// @type {string}
+    pub fields: Vec<&'static str>,
 }
 
 /// The track whose queue of clips to launch changed.
@@ -255,7 +275,7 @@ pub enum KernelEvent {
     #[serde(rename = "track.added")]
     TrackAdded(TrackId),
     #[serde(rename = "track.changed")]
-    TrackChanged(TrackId),
+    TrackChanged(TrackChange),
     #[serde(rename = "track.removed")]
     TrackRemoved(TrackId),
     #[serde(rename = "track.moved")]

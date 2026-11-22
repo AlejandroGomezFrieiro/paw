@@ -16,13 +16,13 @@ local view = {
   scroll = 0, -- beat at the left edge
   -- Each window of the roll has its own clip, cursor and scroll: two
   -- windows show two clips, or one clip twice.
-  window_state = { "clip_id", "pitch", "beat", "top", "scroll", "geometry", "length" },
+  window_state = { "clip_id", "pitch", "beat", "top", "scroll", "seen_jump", "geometry", "length" },
   window_fresh = { "geometry" },
 }
 paw.seats.fields(
   "pianoroll",
   view,
-  { "clip_id", "pitch", "beat", "top", "scroll", "geometry", "length" },
+  { "clip_id", "pitch", "beat", "top", "scroll", "seen_jump", "geometry", "length" },
   { pitch = 60, beat = 0, top = 72, scroll = 0 }
 )
 
@@ -527,9 +527,17 @@ function view:render(buf, ctx)
   if self.pitch <= self.top - rows then self.top = self.pitch + rows - 1 end
   self.top = util.clamp(self.top, rows - 1, 127)
   -- Unless another window leads this one's time (`timebind`).
+  local jumped = paw.keymap.jump_serial ~= self.seen_jump
+  self.seen_jump = paw.keymap.jump_serial
   if not ctx.follower then
-    if self.beat < self.scroll then self.scroll = math.floor(self.beat) end
-    if self.beat >= self.scroll + span - grid then self.scroll = math.ceil(self.beat - span + 1) end
+    local to = paw.draw.jump_scroll(self.beat, self.scroll, span, zoom, jumped)
+    if to then
+      self.scroll = math.floor(to)
+    elseif self.beat < self.scroll then
+      self.scroll = math.floor(self.beat)
+    elseif self.beat >= self.scroll + span - grid then
+      self.scroll = math.ceil(self.beat - span + 1)
+    end
   end
   self.scroll = math.max(math.min(0, math.floor(lo)), self.scroll)
   self.geometry = { rows = rows, zoom = zoom, keys = KEYS, head = head, vel = vel, span = span }
@@ -1006,6 +1014,14 @@ function view:describe()
   end
   local key = paw.plugins.key_names(part.track)[note.pitch]
   if key then lines[#lines + 1] = "  the instrument calls this key " .. key end
+  -- The chord the note starts in, as paw.harmony reads it. After an edit,
+  -- the reading is made again in slices: until then, K says so.
+  if not paw.harmony.fresh() then
+    lines[#lines + 1] = "  the chord here: reading"
+  else
+    local chord = paw.harmony.at(part.clip:get().start + own.start, true)
+    if chord then lines[#lines + 1] = "  the chord here: " .. chord.name end
+  end
   for _, line in ipairs(more) do
     lines[#lines + 1] = line
   end

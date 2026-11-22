@@ -28,6 +28,7 @@ local view = {
     "seen_fit",
     "seen_lane",
     "seen_beat",
+    "seen_jump",
     "geometry",
     "comp",
     "tmap",
@@ -43,6 +44,7 @@ paw.seats.fields("arrange", view, {
   "seen_fit",
   "seen_lane",
   "seen_beat",
+  "seen_jump",
   "geometry",
   "comp",
   "tmap",
@@ -695,6 +697,17 @@ local function clip_body(box, p)
         end,
       })
       if not pictured then paw.plot.wave_cells(body, { peaks = function(n) return wave_peaks(clip, n) end }) end
+    elseif clip.kind == "nest" then
+      -- What the block plays, as a small piano roll of the notes of its
+      -- subproject's tracks.
+      local key = paw.nest.content_key(clip) .. ":" .. cw .. ":" .. (height - 1) .. ":" .. zoom
+      local rows = rolls[key]
+      if rows == nil then
+        rows = keep(rolls, key, function() return draw.miniroll(paw.nest.notes(clip), cw, height - 1, zoom) end)
+      end
+      for row, text in ipairs(rows) do
+        box:text(0, row, text)
+      end
     elseif clip.note_count > 0 then
       local rows, runs = preview(clip, cw, height - 1, zoom)
       for row, text in ipairs(rows) do
@@ -736,6 +749,9 @@ function view.clip_props(clip, track, hue, kind, zoom, chosen, from, to, colour)
   -- A clip with takes says which plays: `take 3 ‹2/4›`.
   local badge = paw.takes.badge(clip)
   local label = clip.offline and ("offline · " .. clip.name) or clip.name
+  -- A block of a subproject: its name after `⧉`, in a frame.
+  local block = clip.kind == "nest"
+  if block then label = draw.g.nest .. label end
   -- Stretched, shifted, looped: `×1.5 ↻ drums`.
   local mark = paw.stretch.badge(clip)
   if mark then label = mark .. " " .. label end
@@ -756,6 +772,7 @@ function view.clip_props(clip, track, hue, kind, zoom, chosen, from, to, colour)
     title_style = hue[title_of[kind]],
     body_style = hue[body_of[kind]],
     body = clip_body,
+    nest = block or nil,
   }
   bodies[props] = { clip = clip, colour = colour, kind = kind, zoom = zoom }
   -- What only a frontend that gets scenes reads: the terminal draws the
@@ -764,6 +781,7 @@ function view.clip_props(clip, track, hue, kind, zoom, chosen, from, to, colour)
     props.id = clip.id
     props.color = colour
     props.midi = clip.kind ~= "audio"
+    props.nest = block or nil
     props.muted = clip.muted or nil
     props.current = kind == "_cur" or nil
     props.chosen = chosen or nil
@@ -923,8 +941,21 @@ local function lane(self, buf, row, track, selected, cursor_clip, lanes, hue, ma
   local folds = #(self.tmap or no_folds).spans > 0
   local last = folds and self:beat(w) or scroll + w / zoom
   -- The clips the timeline shows, and a column more each side: the test
-  -- below keeps the ones whose cells are in view.
-  local clips = api.clip_list(track.id, scroll - 1 / zoom, last + 1 / zoom)
+  -- below keeps the ones whose cells are in view. The tracks of a
+  -- subproject open in place under its return row draw their clips where
+  -- the subproject plays them (`paw.nest.shift`).
+  local shift = paw.nest.shift(track.id)
+  local clips = api.clip_list(track.id, scroll - (shift or 0) - 1 / zoom, last - (shift or 0) + 1 / zoom)
+  if shift then
+    for i, clip in ipairs(clips) do
+      local moved = {}
+      for k, v in pairs(clip) do
+        moved[k] = v
+      end
+      moved.start = clip.start + shift
+      clips[i] = moved
+    end
+  end
   -- The clips in view, and the columns each takes: a piece each, with
   -- `v` where the clip would start were its piece's stretch of the view
   -- even, and the beats where it is cut.
@@ -1411,17 +1442,31 @@ function view:render(buf, ctx)
   end
   self.fold_ground = fold_ground
   local function ahead(beat) return tmap.view(beat) - tmap.view(self.scroll) end
+  -- In a subproject, the playhead's beat of the song is `origin` later
+  -- than the window's beat (paw.time).
+  local origin = paw.time.origin()
   if t.playing and opt.follow and not led then
-    if t.position < self.scroll or ahead(t.position) >= span then self.scroll = paw.time.bar_floor(t.position) end
+    local position = t.position - origin
+    if position < self.scroll or ahead(position) >= span then self.scroll = paw.time.bar_floor(position) end
   elseif cursor.beat ~= self.seen_beat and not led then
-    if cursor.beat < self.scroll then
+    -- A jump aligns the cursor in the view's beats, through the folds.
+    local to = draw.jump_scroll(
+      tmap.view(cursor.beat),
+      tmap.view(self.scroll),
+      span,
+      zoom,
+      paw.keymap.jump_serial ~= self.seen_jump
+    )
+    if to then
+      self.scroll = math.max(0, tmap.beat(to))
+    elseif cursor.beat < self.scroll then
       self.scroll = paw.time.bar_floor(cursor.beat)
     elseif ahead(cursor.beat) >= span - 1 / zoom then
       local back = tmap.beat(tmap.view(cursor.beat) - span)
       self.scroll = math.max(0, math.ceil(back / bar + 1) * bar)
     end
   end
-  self.seen_beat = cursor.beat
+  self.seen_beat, self.seen_jump = cursor.beat, paw.keymap.jump_serial
   -- In a scope with time, the view starts no earlier than the bar it starts in.
   local scope_from, scope_to = paw.scope.span()
   self.scroll = math.max(scope_from and paw.time.bar_floor(scope_from) or 0, self.scroll)
@@ -1458,7 +1503,7 @@ function view:render(buf, ctx)
   end
   local loop
   if t.loop_enabled and t.loop_end > t.loop_start then
-    local x0, x1 = math.max(0, col(t.loop_start)), math.min(tw, col(t.loop_end))
+    local x0, x1 = math.max(0, col(t.loop_start - origin)), math.min(tw, col(t.loop_end - origin))
     if x1 > x0 then
       loop = { x0, x1 }
       ruler:fill(x0, 0, x1 - x0, 1, nil, "RulerLoop")
@@ -1502,10 +1547,12 @@ function view:render(buf, ctx)
     end
   end
   if loop then
-    if col(t.loop_start) >= 1 then ruler:text(col(t.loop_start) - 1, 0, g.loop_in, "RulerLoopEdge") end
+    if col(t.loop_start - origin) >= 1 then
+      ruler:text(col(t.loop_start - origin) - 1, 0, g.loop_in, "RulerLoopEdge")
+    end
     -- The end's mark sits in the band's last cell, clear of the next bar's number.
-    if col(t.loop_end) >= 1 and col(t.loop_end) <= tw then
-      ruler:text(col(t.loop_end) - 1, 0, g.loop_out, "RulerLoopEdgeIn")
+    if col(t.loop_end - origin) >= 1 and col(t.loop_end - origin) <= tw then
+      ruler:text(col(t.loop_end - origin) - 1, 0, g.loop_out, "RulerLoopEdgeIn")
     end
   end
   if punch then
@@ -1549,7 +1596,7 @@ function view:render(buf, ctx)
   for i, line in ipairs(lines) do
     marks[i] = { line.v, line.bar and true or false }
   end
-  local loop_beats = loop and { self:v(t.loop_start), self:v(t.loop_end) } or nil
+  local loop_beats = loop and { self:v(t.loop_start - origin), self:v(t.loop_end - origin) } or nil
   -- A take being made: from where the playhead was when it began, or from
   -- the punch-in.
   if t.take then
@@ -1758,17 +1805,18 @@ function view:render(buf, ctx)
   if #tmap.spans > 0 then
     jumps = {}
     for i, s in ipairs(tmap.spans) do
-      jumps[i] = { s.from, s.to, s.width }
+      jumps[i] = { s.from + origin, s.to + origin, s.width }
     end
   end
   buf:mark("playhead", hw, 0, tw, mst.y, {
     at = t.position,
-    from = self:v(self.scroll),
+    -- In the song's beats, as the playhead is: the folds `origin` later.
+    from = self:v(self.scroll) + origin,
     jumps = jumps,
     per = zoom,
     lo = 0,
     hi = 1e12,
-    spans = spans_at(col(t.position)),
+    spans = spans_at(col(t.position - origin)),
     spans_at = spans_at,
     bind = "position",
   })
@@ -1779,7 +1827,18 @@ function view:center()
   local g = self.geometry
   if not g then return end
   local m = self.tmap or no_folds
-  self.scroll = math.max(0, paw.time.bar_floor(math.max(0, m.beat(m.view(paw.cursor.beat) - g.span / 2))))
+  self.scroll = math.max(0, m.beat(m.view(paw.cursor.beat) - g.span / 2))
+  api.ui_redraw()
+end
+
+--- Scroll so that the cursor is at the left margin (`paw.opt.jumpmargin`)
+--- or, with `right`, at the right edge of the timeline.
+function view:place(right)
+  local g = self.geometry
+  if not g then return end
+  local at = right and g.span - 1 / g.zoom or paw.opt.jumpmargin / g.zoom
+  local m = self.tmap or no_folds
+  self.scroll = math.max(0, m.beat(m.view(paw.cursor.beat) - at))
   api.ui_redraw()
 end
 
@@ -1844,7 +1903,8 @@ function view:moving()
   local g = self.geometry
   if not (g and g.span and paw.opt.follow) then return false end
   local t = paw.ui.transport()
-  return t.playing and (t.position < self.scroll or self:x(t.position) >= g.span * g.zoom)
+  local position = t.position - paw.time.origin()
+  return t.playing and (position < self.scroll or self:x(position) >= g.span * g.zoom)
 end
 
 paw.ui.view("arrange", view)

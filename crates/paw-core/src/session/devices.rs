@@ -563,7 +563,7 @@ impl Session {
             if let Some(synced_device) = synced_device {
                 *synced_device = (*device).clone();
             }
-            self.emit(E::DeviceChanged(Item { id, track: None }));
+            self.emit(E::DeviceChanged(Item::on(id, None)));
             self.emit(E::changed());
         }
         Ok(())
@@ -614,7 +614,7 @@ impl Session {
         self.flush();
         // Nothing was added to the project: say only that the device changed.
         self.events.truncate(before);
-        self.emit(E::DeviceChanged(Item { id, track: Some(track) }));
+        self.emit(E::DeviceChanged(Item::on(id, Some(track))));
         if !self.live.contains_key(&id) && !self.loads.loading(id) {
             let why = self
                 .warnings
@@ -762,7 +762,7 @@ impl Session {
                 }
             }
             let track = self.project.find_device(id).map(|(track, _)| track);
-            self.emit(E::DeviceChanged(Item { id, track }));
+            self.emit(E::DeviceChanged(Item::on(id, track)));
         }
         // Nothing here needs sending to the engine: the plugin already has it.
         self.synced = self.project.clone();
@@ -799,7 +799,7 @@ impl Session {
             controller.close_editor();
         }
         let open = controller.editor_open();
-        self.emit(E::DeviceChanged(Item { id, track: None }));
+        self.emit(E::DeviceChanged(Item::on(id, None)));
         self.emit(E::changed());
         Ok(open)
     }

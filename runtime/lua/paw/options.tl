@@ -122,6 +122,8 @@ local defaults: {string: Value} = {
   mouse = true, -- the terminal reports the pointer; false leaves it to the terminal's own selection
   graphics = true, -- views that paint show pixels where the terminal shows images; false keeps cells
   follow = true, -- scroll to keep the playhead in view
+  jumpview = "left", -- where a jump that lands off screen puts its target: "left" (near the left edge) or "center"
+  jumpmargin = 6, -- columns between the left edge and the target of a jump with jumpview "left"
   fps = 60, -- the most frames a second while something moves; frames come only when a cell changes
   clip_length = 4, -- beats, for new MIDI clips
   -- Where play and record start from a stop: "cursor" (the cursor of the
@@ -180,6 +182,8 @@ local specs: {string: Spec} = {
   termcolors = {type = {"string", "number"}},
   curve_glyphs = {values = {"sextant", "braille", "line"}},
   wave_scale = {values = {"linear", "db"}},
+  jumpview = {values = {"left", "center"}},
+  jumpmargin = {min = 0, max = 200, integer = true},
   fps = {min = 1, max = 240},
   clip_length = {min = 1 / 128, max = 100000},
   count_in = {min = 0, max = 16, integer = true},

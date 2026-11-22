@@ -368,12 +368,17 @@ local function fold_command(name, fn, verb, desc)
     paw.notify(verb(f) .. " " .. fold_words(f))
   end, { desc = desc })
 end
-fold_command(
-  "fold.toggle",
-  paw.folds.toggle,
-  function(f) return f.closed and "folded" or "opened" end,
-  "Fold the fold at the cursor (a group, a fold of tracks), or open it"
-)
+-- `za`: on a subproject's return row (or a track it shows in place), its
+-- tracks under the row (paw/nest.tl); else the fold at the cursor.
+command("fold.toggle", function()
+  local id = cursor.track_id()
+  if id and id ~= 0 and not paw.groups.is_group(id) and paw.nest.toggle(id) then return end
+  local f, why = paw.folds.toggle()
+  if not f then return paw.notify(why, "warn") end
+  paw.notify((f.closed and "folded " or "opened ") .. fold_words(f))
+end, {
+  desc = "Fold the fold at the cursor (a group, a fold of tracks, a region), or open it; on a return row, its tracks",
+})
 fold_command("fold.close", paw.folds.close, function() return "folded" end, "Fold the fold at the cursor")
 fold_command("fold.open", paw.folds.open, function() return "opened" end, "Open the fold at the cursor")
 fold_command(

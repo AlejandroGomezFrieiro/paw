@@ -2721,6 +2721,13 @@ end
 --- it changes, and with nil when it closes. Returns a few words for the
 --- command line, and "error" when they say what is wrong.
 function M.preview(text?: string): string, string
+  -- The views change only when a range or a match was on them or is now:
+  -- a command name alone leaves the frame as it is.
+  local function lit(): boolean
+    local s = view_state
+    return s ~= nil and (s.from ~= nil or s.tracks ~= nil or #s.matches > 0)
+  end
+  local had = lit()
   view_state = nil
   if text then
     local ok, words, level = pcall(preview_of, text)
@@ -2735,7 +2742,9 @@ function M.preview(text?: string): string, string
     if level == "error" and text:match("[,;]t?%s*$") then
       words, level = nil, nil
     end
-    api.ui_redraw()
+    if had or lit() then
+      api.ui_redraw()
+    end
     return words, level
   end
   api.ui_redraw()

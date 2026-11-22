@@ -162,7 +162,7 @@ impl Session {
             let track = self.project.find_device(id).map(|(track, _)| track);
             let name = self.device_name(&device.kind);
             self.emit(E::DeviceReady(DeviceReady { id, track, name }));
-            self.emit(E::DeviceChanged(Item { id, track }));
+            self.emit(E::DeviceChanged(Item::on(id, track)));
             self.emit(E::changed());
             // Its latency lines the tracks up again.
             self.dirty = true;
@@ -174,7 +174,7 @@ impl Session {
             let kind = self.project.device(id).map_or("", |d| d.kind.as_str());
             let name = self.device_name(kind);
             self.emit(E::DeviceStopped(DeviceTrouble { device: id, track, name, reason: Some(why), loading: true }));
-            self.emit(E::DeviceChanged(Item { id, track: Some(track) }));
+            self.emit(E::DeviceChanged(Item::on(id, Some(track))));
             self.emit(E::changed());
         }
         self.flush();

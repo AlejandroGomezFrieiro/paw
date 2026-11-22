@@ -186,7 +186,7 @@ local record role_props
    --- dragged; its fades and `gain` (shown with `gain_line`) in beats and dB;
    --- `warps` and `repeats`, the beats of its warp markers and its loops;
    --- `cut_in` and `cut_out`, the beats from its start where the window's
-   --- scope cuts it.
+   --- scope cuts it; `nest` for a block of a subproject, drawn in a frame.
    record ClipProps is Props
       id: integer
       take: integer
@@ -210,6 +210,7 @@ local record role_props
       repeats: {number}
       cut_in: number
       cut_out: number
+      nest: boolean
    end
 
    --- The ground of a row of the timeline, `index` from the top, in columns
