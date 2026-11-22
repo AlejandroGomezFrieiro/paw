@@ -4277,12 +4277,15 @@ function paw.keymap.selection() end
 --- The options are `mode` (one mode or a list, default "n"), `view` and
 --- `desc`. `motion = true` is for a mapping that only moves the cursor.
 --- Such a mapping also works in visual mode and after an operator.
+--- 
 --- `linewise = true` is for a motion across rows. `jump = true` keeps the
 --- position of the cursor for `<C-o>`. With `repeatable = false`, `.` does
 --- not repeat the mapping. `nowait = true` makes a key that also starts
---- longer mappings run at once, without the wait for more keys. Each key
---- with `role` "second+" or "second-" (the `[` and `]` of a view) does so. The same key again is a second press. Another key soon after it
---- that makes a longer mapping (`]g`, `]q`) takes back its change and runs
+--- longer mappings run at once, without the wait for more keys.
+--- 
+--- Each key with `role` "second+" or "second-" (the `[` and `]` of a view)
+--- does so. The same key again is a second press. Another key soon after
+--- it that makes a longer mapping (`]g`, `]q`) takes back its change and runs
 --- that mapping. On a selection, the selection opens again for that mapping.
 ---@param lhs any
 ---@param rhs any
@@ -6364,7 +6367,7 @@ function paw.recent.use(file) end
 --- Try to open again the device that went away. Returns true if it is open.
 function paw.reconnect.reconnect() end
 
---- Make an expression ready to match. If it is not correct, raise an error
+--- Compile an expression so that it is ready to match. If it is not correct, raise an error
 --- that tells the problem. `opts.case` true matches case, and false ignores
 --- case. By default, an expression in lowercase ignores case.
 ---@param text any
@@ -6436,8 +6439,9 @@ function paw.render.default_path() end
 --- When it is done, it returns `types.RenderResult`. The result has the path,
 --- the frames, the seconds, the peak, the gain and the loudness. It also has
 --- the format, the bits (nil for a lossy format) and the channels.
---- paw emits `render.before` first. Its handlers run before the render starts, so an extension that makes
---- audio of its own can complete it. paw refuses a file that it cannot
+--- 
+--- paw emits `render.before` first. Its handlers run before the render
+--- starts, so an extension that makes audio of its own can complete it. paw refuses a file that it cannot
 --- write before it renders. When a render fails or stops, no file has the
 --- name that you gave.
 ---@param path any

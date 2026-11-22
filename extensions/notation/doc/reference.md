@@ -639,7 +639,7 @@ barlines are, so paw sends the page to the terminal as images cut at
 barlines, and an edit sends again only the measure that it changed.
 
 Behind Bars (Gould) is the reference for the details. Beams slope by not
-more than a staff space. They sit on, straddle or hang from a staff line,
+more than a staff space. They sit on, straddle or sit under a staff line,
 and they stand apart by the beam spacing of the font, on whole pixels. Ties
 are flat and near the heads, on the side away from the stem.
 

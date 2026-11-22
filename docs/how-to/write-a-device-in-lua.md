@@ -55,7 +55,7 @@ If the device stops while it plays, the device panel shows the error with
 the file and the line. Correct the file and save it, and the device starts
 again.
 
-To make an instrument, set `category = "instrument"` and add to `b.left`
+For an instrument, set `category = "instrument"` and add to `b.left`
 and `b.right` for the notes in `b.events`.
 
 To ship the device with an extension, put the file in the `devices/`

@@ -254,8 +254,9 @@ end
 --- When it is done, it returns `types.RenderResult`. The result has the path,
 --- the frames, the seconds, the peak, the gain and the loudness. It also has
 --- the format, the bits (nil for a lossy format) and the channels.
---- paw emits `render.before` first. Its handlers run before the render starts, so an extension that makes
---- audio of its own can complete it. paw refuses a file that it cannot
+---
+--- paw emits `render.before` first. Its handlers run before the render
+--- starts, so an extension that makes audio of its own can complete it. paw refuses a file that it cannot
 --- write before it renders. When a render fails or stops, no file has the
 --- name that you gave.
 function M.render(path: string, opts?: Options): types.RenderResult

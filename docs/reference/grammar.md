@@ -4,7 +4,7 @@
 
 The keys of paw work like the keys of Neovim, on a timeline instead of a text. In the arrange view, a track is a line, a beat is a column and a clip is a word, and in the piano roll a pitch is a line and a note is a word. All keys are mappings in `runtime/lua/paw/defaults/`, made with the functions of [your configuration](../how-to/configure-paw.md), and you can change each of them.
 
-The arrange view and the piano roll share the keys on this page. The keys of one view are on its page, which are [the arrange view](arrange-view.md) and [the piano roll](piano-roll.md), and [The key rule](key-rule.md) gives the meaning that a key has in every view.
+The arrange view and the piano roll share the keys below. The keys of one view are on its page, which are [the arrange view](arrange-view.md) and [the piano roll](piano-roll.md), and [The key rule](key-rule.md) gives the meaning that a key has in every view.
 
 ## Motions
 
