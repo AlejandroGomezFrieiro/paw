@@ -8612,7 +8612,9 @@ function paw.textbuf.join(ctx) end
 
 --- Make a kind of text buffer. It shows for the names that its `pattern`
 --- matches (`paw://` and the others). See `docs/reference/lua-views.md`. A kind with
---- `readonly` (the message for a change) cannot change. `gutter = false`
+--- `readonly` (the message for a change) cannot change. A kind with
+--- `scratch` (the message for `:w`) is never written, and `:q` closes it
+--- with its changes. `gutter = false`
 --- removes the line numbers. paw does not read a `static` kind again when
 --- the project changes. `paint(canvas, x, y, text, kind, width, row, buf)`
 --- draws a line in place of the usual colors.

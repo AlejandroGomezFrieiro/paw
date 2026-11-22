@@ -67,11 +67,16 @@ map("?", "pick.keys", { mode = nx, desc = "Show key mappings" })
 map("u", "undo", { desc = "Undo", repeatable = false })
 map("<C-r>", "redo", { desc = "Redo", repeatable = false })
 map(".", function(ctx) keymap.repeat_last(ctx.count) end, { desc = "Repeat the last change", repeatable = false })
-map(
-  "q",
-  function(ctx) keymap.record(ctx.char) end,
-  { mode = nx, char = true, record = true, desc = "Record keys into a register; `q` again stops" }
-)
+map("q", function(ctx)
+  -- `q:` and `q/` open a history to edit, as in Vim (paw/cmdwin.tl).
+  if ctx.char == ":" or ctx.char == "/" then return require("paw.cmdwin").open(ctx.char) end
+  keymap.record(ctx.char)
+end, {
+  mode = nx,
+  char = true,
+  record = true,
+  desc = "Record keys into a register; `q` again stops. `q:` and `q/` edit the history of `:` and `/`",
+})
 --- `@19|`: bar 19 of the song, whatever bar a scope (`paw.scope`) shows
 --- there. The digits after `@` are read until `|`.
 local function song_bar(digits)

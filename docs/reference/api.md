@@ -2167,7 +2167,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.textbuf.increment(n)`: Add `n` to the number at or after the cursor (`Ctrl-a`, `Ctrl-x`).
 - `paw.textbuf.insert(how, opts)`: Start insert mode at the cursor of the current window. `how` is "i" before the cursor, "a" after it, or "I" at the first character that is not a space. It is "A" at the end, "o" on a new line below, or "O" above.
 - `paw.textbuf.join(ctx)`: Join lines (`J`).
-- `paw.textbuf.kind(name, spec)`: Make a kind of text buffer. It shows for the names that its `pattern` matches (`paw://` and the others). See `docs/reference/lua-views.md`. A kind with `readonly` (the message for a change) cannot change. `gutter = false` removes the line numbers. paw does not read a `static` kind again when the project changes. `paint(canvas, x, y, text, kind, width, row, buf)` draws a line in place of the usual colors.
+- `paw.textbuf.kind(name, spec)`: Make a kind of text buffer. It shows for the names that its `pattern` matches (`paw://` and the others). See `docs/reference/lua-views.md`. A kind with `readonly` (the message for a change) cannot change. A kind with `scratch` (the message for `:w`) is never written, and `:q` closes it with its changes. `gutter = false` removes the line numbers. paw does not read a `static` kind again when the project changes. `paint(canvas, x, y, text, kind, width, row, buf)` draws a line in place of the usual colors.
 
   ```lua
   paw.textbuf.kind("clips", { pattern = "^paw://clips$", read = ..., format = ..., parse = ..., plan = ... })

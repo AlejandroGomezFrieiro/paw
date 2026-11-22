@@ -325,6 +325,8 @@ function K.startup()
   paw.insert = require("paw.insert")
   -- Listings edited as text (`:e paw://tracks`), and the kinds built in.
   paw.textbuf = require("paw.textbuf")
+  -- The command-line window: `q:`, `q/`, Ctrl-f in a prompt (paw/cmdwin.tl).
+  require("paw.cmdwin")
   require("paw.views.tracklist")
   paw.files = require("paw.views.files")
   paw.recent = require("paw.recent")
