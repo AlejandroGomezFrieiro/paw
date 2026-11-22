@@ -7,6 +7,28 @@ How to run everything: [README.md](README.md). Raw numbers:
 matrix before it). The processor time of the whole program while it plays,
 against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md).
 
+## 2026-11-22: windows kept by their stamp (TASK-124)
+
+A window without the keyboard keeps its cells while the `stamp` of its
+view and the stamp of the frame do not change (`runtime/lua/paw/ui.tl`).
+The arrange view, the piano roll and the mixer give a stamp. The
+project: `bench/profile/project.lua`. The piano roll is open on the first
+MIDI clip, under the arrange view, with the keys. The scenario is
+`repeat --keys 'j,k' --times 30`. One binary of main (7ae25570) ran with
+the Lua of main (5d520705) and of the branch (`PAW_RUNTIME`), in turns,
+8 pairs, under the measure lock on cores 16 to 23. All values were
+measured under external load (load average 4 to 13).
+
+| `j` then `k` in the piano roll | main | branch |
+| --- | ---: | ---: |
+| Processor time of the kernel thread, for each round | 32.8 ms (25.9 to 40.6) | 29.8 ms (22.7 to 33.8) |
+| Frames that drew the screen for 5 ms or more, in 60 keys | 23 to 29 | 5 to 9 (24 in one run at load 12.6) |
+
+The arrange view above the roll is no longer drawn after each key. The
+processor time falls less than the slow frames. Most of the time of a
+round goes to the meters of the note that `j` and `k` play, in frames of
+the live parts (TASK-113).
+
 ## 2026-11-22: the search index on the graph of derived data
 
 The records of `paw.grep` and the nodes of clips and notes that

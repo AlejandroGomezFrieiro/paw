@@ -1012,8 +1012,8 @@ local record KeptPart
   key: string
 end
 
---- A window as the screen kept it: the text of its stamp, its live parts,
---- and with `paw.opt.check_stamps` the cells that its drawing wrote.
+--- A window as the screen kept it: its key, the text of its stamp, its
+--- live parts, and with `paw.opt.check_stamps` what its drawing wrote.
 local record KeptWindow
   key: string
   stamp: string
@@ -1025,8 +1025,8 @@ end
 local kept_windows: {string:KeptWindow} = {}
 -- The window being drawn to keep, while it is drawn, else nil.
 local keeping: KeptWindow
--- With `paw.opt.check_stamps`, while a kept window is drawn: the cells
--- that its drawing writes, a text each (`checked_buf`). Nil else.
+-- With `paw.opt.check_stamps`, while a kept window is drawn: what its
+-- drawing writes, a text for each call (`checked_text`). Nil else.
 local check_calls: {string}
 seats.keep("ui.live", function(): Live return live end, function(l: Live) live = l end, function(): Live return nil end)
 
@@ -1189,15 +1189,18 @@ local function checked_put_kept(self: Buf, key: string, x: number, y: number, w:
   return buf_put_kept(self, key, x, y, w, h)
 end
 
---- Draw `view` in `area` and list what it writes (`paw.opt.check_stamps`).
-local function draw_checked(view: View, area: Buf, ctx: RenderContext): {string}
+--- With `paw.opt.check_stamps`, around the drawing of a kept window:
+--- from `check_begin` to `check_end`, what the buffers write is listed.
+local function check_begin()
   check_calls = {}
   Buf.text, Buf.fill, Buf.put_kept = checked_text, checked_fill, checked_put_kept
-  local ok, err = pcall(draw, view, area, ctx) as (boolean, string)
+end
+
+--- The list of what the buffers wrote since `check_begin`.
+local function check_end(): {string}
   Buf.text, Buf.fill, Buf.put_kept = buf_text, buf_fill, buf_put_kept
   local calls = check_calls
   check_calls = nil
-  if not ok then error(err, 0) end
   return calls
 end
 
@@ -1235,12 +1238,9 @@ local function draw_window(view: View, area: Buf, ctx: RenderContext, background
   local surfaces = M.rects.surfaces and #M.rects.surfaces or 0
   local now: KeptWindow = {key = key, stamp = stamp, parts = {}}
   keeping = now
-  local ok, err: boolean, string
-  if check then
-    ok, err = pcall(function() now.calls = draw_checked(view, area, ctx) end) as (boolean, string)
-  else
-    ok, err = pcall(draw, view, area, ctx) as (boolean, string)
-  end
+  if check then check_begin() end
+  local ok, err = pcall(draw, view, area, ctx) as (boolean, string)
+  if check then now.calls = check_end() end
   keeping = nil
   if not ok then error(err, 0) end
   -- Pixels are drawn after the cells: a window with some is drawn again.
