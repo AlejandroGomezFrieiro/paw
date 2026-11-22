@@ -2211,7 +2211,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   paw.ui.input({ prompt = "Name: ", text = "Bass" }, function(text) ... end)
   ```
 
-  paw does not call the callback when the user cancels the prompt. The options are those of the command line (`paw.views.cmdline.open`): `complete`, `history`, `on_change` (live preview), `anchor` (draw it next to its subject), `on_key`.
+  paw does not call the callback when the user cancels the prompt. The options are those of the command line (`paw.views.cmdline.open`): `complete`, `history`, `on_change` (live preview), `anchor` (draw it next to its subject), `on_key`, `still` (the preview asks for a whole frame itself when it changes another view).
 - `paw.ui.layer(view, part, name, order, paint)`: Draw `paint(ctx)` as a layer of a part of a view (`"arrange", "header"`). It replaces a layer with the same name (nil removes it). The view tells what `ctx` contains where it calls `paw.ui.paint`.
 - `paw.ui.live(buf, draw_part)`: Draw a live part on `buf`: `draw(buf)` draws it, now and each time it is drawn again by itself.
 - `paw.ui.live_drawing()`: True if a live part drawn now is one of the terminal's screen.
@@ -2664,8 +2664,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.ui_detach(client)`
 - `paw.api.ui_frame_snapshot(width, height, live)`: A frame drawn off screen as a terminal is drawn, for tests: whole, or with `live` only its live parts again on the frame this drew last (nil when the runtime says it must be drawn whole). Each row as its text and as its cells with their styles.
 - `paw.api.ui_frames()`: The frames drawn so far: `{ full, live, unchanged }`: whole frames, frames of the live parts only, and of those the ones that changed no cell, which were not sent.
+- `paw.api.ui_line_redraws()`: How many of the redraws (`ui_redraws`) were `ui_redraw_line`.
 - `paw.api.ui_mouse(on)`: True if the terminal reports the pointer (`paw.opt.mouse`), for the screen that paw draws now.
 - `paw.api.ui_redraw()`: --- screen ---
+- `paw.api.ui_redraw_line()`: The prompt on the command line changed: draw its live parts again (the line and the list), on the frame drawn last, and tell the windows that show state that something moved. Cheaper than `ui_redraw`: the views under it are not drawn again.
 - `paw.api.ui_redraw_live()`: Draw only the live parts of the screen again (the playhead, the meters, the status line), on the frame drawn last; a whole frame when one is asked for too, or the runtime says it is needed.
 - `paw.api.ui_redraws()`
 - `paw.api.ui_seat(seat)`

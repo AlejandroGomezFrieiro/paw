@@ -8608,7 +8608,8 @@ function paw.ui.hl(name, def) end
 --- paw does not call the callback when the user cancels the prompt. The
 --- options are those of the command line (`paw.views.cmdline.open`):
 --- `complete`, `history`, `on_change` (live preview), `anchor` (draw it
---- next to its subject), `on_key`.
+--- next to its subject), `on_key`, `still` (the preview asks for a whole
+--- frame itself when it changes another view).
 ---@param opts any
 ---@param on_submit any
 function paw.ui.input(opts, on_submit) end
@@ -10668,6 +10669,9 @@ function paw.api.ui_frame_snapshot(width, height, live) end
 --- no cell, which were not sent.
 function paw.api.ui_frames() end
 
+--- How many of the redraws (`ui_redraws`) were `ui_redraw_line`.
+function paw.api.ui_line_redraws() end
+
 --- True if the terminal reports the pointer (`paw.opt.mouse`), for the
 --- screen that paw draws now.
 ---@param on boolean
@@ -10675,6 +10679,12 @@ function paw.api.ui_mouse(on) end
 
 --- --- screen ---
 function paw.api.ui_redraw() end
+
+--- The prompt on the command line changed: draw its live parts again
+--- (the line and the list), on the frame drawn last, and tell the
+--- windows that show state that something moved. Cheaper than
+--- `ui_redraw`: the views under it are not drawn again.
+function paw.api.ui_redraw_line() end
 
 --- Draw only the live parts of the screen again (the playhead, the
 --- meters, the status line), on the frame drawn last; a whole frame

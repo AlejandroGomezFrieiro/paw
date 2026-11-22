@@ -320,8 +320,10 @@ local record api
    ui_detach: function(client: integer)
    ui_frame_snapshot: function(width: integer, height: integer, live?: boolean): types.FrameSnapshot
    ui_frames: function(): types.FrameCounts
+   ui_line_redraws: function(): integer
    ui_mouse: function(on: boolean)
    ui_redraw: function()
+   ui_redraw_line: function()
    ui_redraw_live: function()
    ui_redraws: function(): integer
    ui_seat: function(seat: integer)
