@@ -1,0 +1,41 @@
+# plain-writing rule 18: sentence case in headings. Names keep their capitals.
+extends: capitalization
+message: "Write the heading '%s' in sentence case (plain-writing 18)."
+level: warning
+scope: heading
+match: $sentence
+indicators:
+  - ':'
+exceptions:
+  - paw
+  - Lua
+  - Teal
+  - Linux
+  - Neovim
+  - Vim
+  - Nix
+  - NixOS
+  - Rust
+  - Wasm
+  - MIDI
+  - CLAP
+  - LV2
+  - VST3
+  - JACK
+  - PipeWire
+  - ALSA
+  - OpenUtau
+  - UTAU
+  - REAPER
+  - DAWproject
+  - MusicXML
+  - LilyPond
+  - MPE
+  - Ex
+  - API
+  - LSP
+  - TUI
+  - GUI
+  - FAQ
+  - Git
+  - GitHub

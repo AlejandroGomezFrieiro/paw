@@ -1,0 +1,9 @@
+# plain-writing rule 3: no puffery or empty emphasis. State the point, or cut
+# the sentence.
+extends: existence
+message: "'%s' adds emphasis and no information (plain-writing 3). State the point."
+level: warning
+ignorecase: true
+raw:
+  - '\b(?:really|matters|worth|carr(?:y|ies) weight|boasts?|a testament to|pivotal|renowned|quietly)\b'
+  - '|\breal\s+(?!time\b)\w+'
