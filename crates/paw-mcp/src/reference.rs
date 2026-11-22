@@ -252,7 +252,7 @@ mod tests {
         let names: Vec<String> = lua_modules().into_iter().map(|m| m.0).collect();
         assert!(names.iter().any(|n| n == "harmony"));
         let text = lua_module("harmony").unwrap();
-        assert!(text.contains("### `paw.harmony.key(beat)`"), "{text}");
+        assert!(text.contains("### `paw.harmony.key(beat, latest)`"), "{text}");
         assert!(text.contains("The key at `beat`"));
         assert!(lua_module("no-such-module").is_none());
     }
