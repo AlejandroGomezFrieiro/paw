@@ -5,7 +5,9 @@
 -- (an entry) records what it read while it was made: the sources (a
 -- track's fields, a track's clips, the tempo, an option), and the other
 -- entries. An edit marks its sources dirty (the kernel's events say which),
--- and the entries that read them, and those that read these, become stale.
+-- and the entries that read them, and those that read these, become stale:
+-- at the next read, or in the next slice of the job, not in the event
+-- handler.
 -- A job in slices (`derived`, paw.slices) makes again what is stale, the
 -- entries that someone waits for first, and nothing more:
 --
@@ -206,7 +208,7 @@ end
 local cores: {Core} = {}
 local by_source: {string: {Entry: boolean}} = {} -- who read each source
 local queue: {Entry: boolean} = {} -- what the job makes, stale and wanted
-local pending: {string: boolean} = {} -- sources marked while a pass is under way
+local pending: {string: boolean} = {} -- sources marked and not yet applied (`apply_pending`)
 local changed_names: {string: boolean} = {} -- kinds whose values changed
 local current: Entry -- the entry being made, which records what it reads
 local pass: thread -- the pass under way
@@ -358,12 +360,9 @@ local function set_fresh(e: Entry)
   done = done + 1
 end
 
---- Source `name` changed: the entries that read it are stale.
-local function mark(name: string)
-  if pass then
-    pending[name] = true
-    return
-  end
+--- Source `name` changed: the entries that read it are stale, and so are
+--- the entries that read these, at any depth.
+local function stale_source(name: string)
   local set = by_source[name]
   if not set then
     return
@@ -379,11 +378,36 @@ local function mark(name: string)
   end
 end
 
+--- Source `name` changed. The entries that read it become stale later: at
+--- the next read of a value, or in the next slice of the job. An event
+--- handler only notes the name, because one source can have thousands of
+--- entries that read it (the track list: every window of the chord
+--- reading). While a pass is under way, the names wait for its end.
+local function mark(name: string)
+  if by_source[name] then
+    pending[name] = true
+    schedule()
+  end
+end
+
+--- Make stale what the sources marked since the last time read.
 local function apply_pending()
+  if next(pending) == nil then
+    return
+  end
   local names = pending
   pending = {}
   for name in pairs(names) do
-    mark(name)
+    stale_source(name)
+  end
+end
+
+--- Before a value is read as it stands: the sources marked since are
+--- applied, unless a pass is under way (they wait for its end, as in
+--- `M.run`).
+local function before_read()
+  if not pass then
+    apply_pending()
   end
 end
 
@@ -822,7 +846,7 @@ function M.node<K, V, I>(spec: M.Spec<K, V, I>): M.Node<K, V, I>
         -- Edits whose events have not come yet: look at every source again.
         edits_seen = edits
         for name in pairs(by_source) do
-          mark(name)
+          pending[name] = true
         end
       end
       apply_pending()
@@ -836,6 +860,7 @@ function M.node<K, V, I>(spec: M.Spec<K, V, I>): M.Node<K, V, I>
       end
       return e.value as V, true
     end
+    before_read()
     local e = entry_of(core, key as Value)
     if e.state ~= FRESH then
       e.raised = true
@@ -845,6 +870,7 @@ function M.node<K, V, I>(spec: M.Spec<K, V, I>): M.Node<K, V, I>
     return e.value as V, e.state == FRESH
   end
   function node:want(key: K)
+    before_read()
     local e = entry_of(core, key as Value)
     e.wanted = true
     if e.state ~= FRESH then
@@ -854,6 +880,7 @@ function M.node<K, V, I>(spec: M.Spec<K, V, I>): M.Node<K, V, I>
   end
   function node:fresh(key: K): boolean
     local id = spec.id and (spec.id(key) as Value) or key as Value
+    before_read()
     local e = core.entries[id]
     return e ~= nil and e.state == FRESH and not pass
   end

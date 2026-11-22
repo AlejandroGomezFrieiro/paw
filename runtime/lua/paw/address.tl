@@ -137,6 +137,7 @@ end
 --- The payload of the kernel's events of a track, clip, device or lane.
 local record WithId
   id: integer
+  track: integer -- the track of a clip, lane or device, when the event names it
 end
 
 -- What this module reads of `paw`, which paw/init.lua makes.
@@ -868,8 +869,14 @@ events.on(
     if not e.id then
       return
     end
-    local ok, d = pcall(api.device_get, e.id)
-    changed({ok and ("paw://track/" .. d.track .. "/device/" .. e.id) or M.project()})
+    -- The event names the track: a removed device has none to ask, and a
+    -- failed read costs much more than a good one.
+    local track = e.track
+    if not track then
+      local ok, d = pcall(api.device_get, e.id)
+      track = ok and d.track or nil
+    end
+    changed({track and ("paw://track/" .. track .. "/device/" .. e.id) or M.project()})
   end
 )
 events.on(

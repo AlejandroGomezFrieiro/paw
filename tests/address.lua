@@ -154,11 +154,12 @@ end)
 test("address: changes are told as addresses, and renders are kept by path", function()
   fresh()
   local seen = {}
-  local handler = paw.on("address.changed", function(e)
+  local function note(e)
     for _, u in ipairs(e.uris) do
       seen[u] = true
     end
-  end)
+  end
+  local handler = paw.on("address.changed", note)
   local t = paw.add_track({ name = "Pad" })
   paw.flush()
   t.volume = -3
@@ -166,6 +167,16 @@ test("address: changes are told as addresses, and renders are kept by path", fun
   paw.off(handler)
   eq(seen[A.track(t.id)], true, "the track's address")
   eq(seen[A.project()], true, "and the project's")
+  -- A removed device is told by its address under its track, which the
+  -- event names: the device is gone and cannot say it.
+  local gone = t:add_device("delay")
+  paw.flush()
+  seen = {}
+  handler = paw.on("address.changed", note)
+  api.device_remove(gone.id)
+  paw.flush()
+  paw.off(handler)
+  eq(seen["paw://track/" .. t.id .. "/device/" .. gone.id], true, "a removed device's address")
   local path = T.scratch .. "/address.wav"
   t:add_device("synth")
   t:add_clip({ start = 0, length = 1, notes = { { pitch = 60, start = 0, length = 1 } } })
