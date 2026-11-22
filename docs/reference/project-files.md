@@ -63,6 +63,10 @@ song/
   a clip is a plain MIDI clip with the notes of that file. paw refuses a
   project whose linked clips have different notes. See
   [Linked clips](arrange-view.md#linked-clips).
+- A MIDI clip with overrides has them in its entry in `track.json`, for
+  example `"overrides": { "transpose": 3 }`. They change how the clip plays,
+  and its file keeps the notes as they are. See
+  [Overrides of a clip](arrange-view.md#overrides-of-a-clip).
 - A custom clip is a clip of a kind that an extension defines. `track.json`
   keeps its kind, its version, its timeline, its offset, its media and the
   names of its files. Its data is a file of its own:

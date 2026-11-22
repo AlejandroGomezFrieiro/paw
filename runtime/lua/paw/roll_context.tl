@@ -88,6 +88,7 @@ local record Part
   start: number
   length: number
   stamp: integer
+  transpose: integer
 end
 
 --- A MIDI clip of a track, as the node of the track's clips keeps it.
@@ -96,6 +97,7 @@ local record Placed
   start: number
   length: number
   stamp: integer
+  transpose: integer
 end
 
 local record M
@@ -256,7 +258,9 @@ local function same_placed(a: {Placed}, b: {Placed}): boolean
   end
   for i = 1, #a do
     local x, y = a[i], b[i]
-    if x.id ~= y.id or x.start ~= y.start or x.length ~= y.length or x.stamp ~= y.stamp then
+    if
+      x.id ~= y.id or x.start ~= y.start or x.length ~= y.length or x.stamp ~= y.stamp or x.transpose ~= y.transpose
+    then
       return false
     end
   end
@@ -270,7 +274,7 @@ local clips_spec: derived.Spec<integer, {Placed}, boolean> = {
     local out: {Placed} = {}
     for _, c in ipairs(ctx:clips(track)) do
       if c.kind == "midi" then
-        out[#out + 1] = {id = c.id, start = c.start, length = c.length, stamp = c.stamp}
+        out[#out + 1] = {id = c.id, start = c.start, length = c.length, stamp = c.stamp, transpose = c.transpose or 0}
       end
     end
     return out
@@ -296,7 +300,13 @@ local function parts(ctx: derived.Ctx, req: Request): {Part}
       for _, c in ipairs(ctx:get(track_clips, t.id)) do
         if not req.editable[c.id] and c.start < req.to - EPS and c.start + c.length > req.from + EPS then
           out[#out + 1] = {
-            id = c.id, track = t.id, color = t.color, start = c.start, length = c.length, stamp = c.stamp
+            id = c.id,
+            track = t.id,
+            color = t.color,
+            start = c.start,
+            length = c.length,
+            stamp = c.stamp,
+            transpose = c.transpose,
           }
         end
       end
@@ -339,9 +349,11 @@ local function notes(req: Request, list: {Part}): {Note}
       if #out >= max then
         break
       end
-      if n.start >= -EPS and n.start < c.length - EPS then
+      -- At the pitch it plays at: the clip's transpose added.
+      local pitch = n.pitch + c.transpose
+      if n.start >= -EPS and n.start < c.length - EPS and pitch >= 0 and pitch <= 127 then
         out[#out + 1] = {
-          pitch = n.pitch,
+          pitch = pitch,
           start = n.start + shift,
           length = math.min(n.length, c.length - n.start),
           velocity = n.velocity,

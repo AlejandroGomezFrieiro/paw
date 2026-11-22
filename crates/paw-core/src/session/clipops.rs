@@ -286,6 +286,7 @@ impl Session {
             source: None,
             origin: None,
             link: None,
+            overrides: Default::default(),
         });
         let id = glued.id;
         self.edit(|p| {
