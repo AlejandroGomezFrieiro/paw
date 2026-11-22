@@ -14,12 +14,12 @@ If another test already guards the same behavior, prune the copy.
 
 Prune tests that depend on:
 
-**The past:** it asserts that removed code stays gone. Bringing it back would be a decision, not a regression.
+**The past:** it asserts that removed code stays gone. To bring it back is a decision, not a regression.
 
 For example:
 
-- A feature was removed, and tests assert it's gone.
-- A module was moved, and a test asserts it's absent from its old path.
+- A feature was removed, and tests assert that it is gone.
+- A module was moved, and a test asserts that it is absent from its old path.
 
 **Nothing:** no change to the code can make it fail, so it has no reason of its own to change.
 
@@ -29,16 +29,24 @@ For example:
 - It mocks the unit under test, then asserts what the mock returns.
 - It asserts what the type system already guarantees.
 
-**The implementation:** it changes whenever the code does, even when behavior didn't.
+**The implementation:** it changes whenever the code does, also when the behavior did not change.
 
 For example:
 
 - The expected value is derived from the same logic as the code, so a wrong result still passes.
 - It asserts private state, internal call order, or which helper was invoked.
 
+**The machine:** it fails when the machine is slow or loaded, or when another test ran before it.
+
+For example:
+
+- It checks speed: a time, a share of a processor, or a count that changes with speed. Remove the speed check and keep the check of the behavior. If cost is the behavior, count the work. Move the measure to `bench/`, or delete it when a bench already measures it.
+- It sleeps, reads the clock, or checks that nothing happened in a time. Rewrite it to wait for a state or an event, and to check an absence only after a sync point.
+- It reads state that it did not make. Rewrite it to make that state.
+
 **2. Prune**
 
-- Delete every test that isn't anchored to intended behavior.
+- Delete every test that is not anchored to intended behavior.
 - Where one also covers behavior something relies on, rewrite it against that behavior instead.
 - Delete production code that only existed for the tests you removed.
 
