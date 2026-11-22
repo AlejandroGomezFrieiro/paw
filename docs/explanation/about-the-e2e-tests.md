@@ -112,14 +112,15 @@ find a small change of the tone.
 
 ## The other checks of a day
 
-At the end of each day, the test runner also checks that:
+At the end of each day, the test runner also checks that no message of
+the day was an error, and that `:checkhealth` shows no `ERROR`.
 
-- No message of the day was an error, and `:checkhealth` shows no `ERROR`.
-- The slowest key of the day stays under 100 ms of processor time, which
-  is the rule of fast keys. On a loaded machine, the limit grows as
-  `T.quick` says in [How to run the tests](../how-to/run-the-tests.md).
-  The time is the time that the kernel needs for the key, and a command
-  that does long work, e.g., `:import` or `:render`, does not count.
+The report line of each day names the slowest key of the day, with its
+processor time and the load of the machine. The time is the time that the
+kernel needs for the key, and a command that does long work, for example
+`:import` or `:render`, doesn't count. The time is for a person to read
+and doesn't fail the day, because it depends on the machine and its load.
+The rule of fast keys is measured with the scripts in `bench/`.
 
 ## A failure
 

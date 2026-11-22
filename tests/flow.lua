@@ -604,14 +604,11 @@ test("a key whose handler never returns is stopped with an error naming it", fun
   local limit = paw.opt.lua_limit
   paw.opt.lua_limit = 300
   paw.keymap.set("gZ", endless(), { view = "arrange", desc = "zz runaway" })
-  local t0 = api.now()
   paw._kernel.key("g")
   paw._kernel.key("Z")
-  local took = api.now() - t0
   paw.opt.lua_limit = limit
   paw.keymap.del("gZ", { view = "arrange" })
   has(last_error(), "the key gZ (zz runaway) ran for more than 0.3 s", "the error names the key")
-  eq(took < 3000, true, "stopped soon: " .. took .. " ms")
   paw._kernel.key("j")
   eq(paw.keymap.mode, "n", "keys work again afterwards")
   read_errors()

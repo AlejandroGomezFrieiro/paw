@@ -69,8 +69,8 @@ end
 --- Wait until `cond()` gives a value that is not false or nil, and give
 --- that value. Timers fire and events come meanwhile, as between key
 --- presses (`paw.wait`). Fails with `what` after `ms` milliseconds (30
---- seconds if not given): a loaded machine is slow, not wrong, so give the
---- time that the slowest machine needs, not the time that it usually takes.
+--- seconds if not given). The limit shows a fault, not a speed: a test
+--- does not give its own (docs/how-to/run-the-tests.md).
 local function until_(cond, what, ms)
   ms = ms or 30000
   local deadline = api.now() + ms
@@ -81,10 +81,6 @@ local function until_(cond, what, ms)
     paw.wait(5)
   end
 end
-
--- Speed: processor time, and a limit that grows on a loaded machine.
-local speed = dofile("tests/tools/speed.lua")
-local cpu_ms, quick = speed.cpu_ms, speed.quick
 
 --- Wait until the engine has run `n` (1 if not given) whole audio blocks
 --- after this call, so that what was sent to it before is in effect: a
@@ -302,8 +298,6 @@ local T = {
   fresh = fresh,
   render = render,
   tone = tone,
-  cpu_ms = cpu_ms,
-  quick = quick,
   until_ = until_,
   next_block = next_block,
   until_beat = until_beat,

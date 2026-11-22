@@ -6,7 +6,7 @@
 local paw = require("paw")
 local api = paw.api
 local Model = dofile("tests/e2e/model.lua")
-local speed = dofile("tests/tools/speed.lua")
+local bench = dofile("bench/lib.lua")
 
 local E = { Model = Model, ANY = Model.ANY }
 E.__index = E
@@ -155,10 +155,10 @@ local function last_message() return paw.ui.message and paw.ui.message.text or "
 function E:type(list)
   local slowest = 0
   for _, text in ipairs(list) do
-    local t0 = speed.cpu_ms()
+    local t0 = bench.cpu_ms()
     paw.keymap.feed(text)
     paw.flush()
-    slowest = math.max(slowest, speed.cpu_ms() - t0)
+    slowest = math.max(slowest, bench.cpu_ms() - t0)
     -- A key that begins a longer one (`]` and `]g`) waits for the next key
     -- up to `timeoutlen`, as the person does.
     local deadline = api.now() + paw.opt.timeoutlen + 5000
@@ -317,14 +317,16 @@ function E:check_undo(start_state, start_id)
   self:compare("redo every change of the day (" .. n .. " steps)", finish)
 end
 
---- The keys of the day were quick: the slowest under the limit of rule 7.
-function E:check_keys(limit)
+--- The slowest key of the day, for the report line: its processor time
+--- (`ms`), its action (`name`) and the load average (`load`). It is not a
+--- check, because a time depends on the machine and its load; rule 7 is
+--- measured in bench/.
+function E:slowest_key()
   local worst = { ms = 0, name = "none" }
   for _, k in ipairs(self.key_ms) do
     if k.ms > worst.ms then worst = k end
   end
-  local ok, err = pcall(speed.quick, worst.ms, limit or 100, "the slowest key of the day, " .. worst.name)
-  if not ok then self:fail("speed", tostring(err)) end
+  worst.load = bench.load() or "unknown"
   return worst
 end
 
