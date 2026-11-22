@@ -528,6 +528,11 @@ end
 --- starts; else 0. `paw.time` adds it, so that a subproject's bars are the
 --- song's bars at its place.
 function M.origin(): number
+  -- While the layout is being made (a start layout), there is no tab yet.
+  local u = paw.ui
+  if not (u.drawing_win or u.tabs[u.tab]) then
+    return 0
+  end
   local w = window_of()
   local s = w and w.scope
   if not s then

@@ -229,8 +229,8 @@ local function parse(args: contracts.CommandArgs): NewOptions
     local num, den = text:match("^(%d+)/(%d+)$")
     o.num, o.den = math.tointeger(tonumber(num)), math.tointeger(tonumber(den))
   end
-  for _, arg in ipairs(args as {string}) do
-    local word = tostring(arg)
+  for _, given in ipairs(args as {string}) do
+    local word = tostring(given)
     if word:match("^%d+/%d+$") then
       meter(word)
     elseif word:match("^%d+$") and not o.bars then

@@ -1329,7 +1329,8 @@ fn a_block_of_a_subproject_shows_its_name_and_the_notes_it_plays() {
     let setup = "local row = paw.add_track({ name = 'Return' }) \
         local n = paw.api.nest_add({ name = 'Ballad', length = 16 }) \
         local p = paw.api.track_add({ name = 'Piano', nest = n }) \
-        paw.api.clip_add(p, { start = 0, length = 8, notes = { { pitch = 60, start = 0, length = 2 }, { pitch = 72, start = 2, length = 2 } } }) \
+        local notes = {} for i = 0, 15 do notes[#notes + 1] = { pitch = 48 + (i * 5) % 25, start = i * 0.5, length = 0.5 } end \
+        paw.api.clip_add(p, { start = 0, length = 8, notes = notes }) \
         paw.api.clip_add(row.id, { nest = n, start = 0 }) \
         paw.cursor.set_track(row.id) paw.api.undo_checkpoint()";
     let mut w = scene!("nest-block", setup);
