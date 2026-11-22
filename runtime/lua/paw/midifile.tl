@@ -197,9 +197,6 @@ local type Part = M.Part
 local record Cursor
   beat: number
 end
-local record State
-  pick_dir: string
-end
 local record Device
   kind: string
 end
@@ -926,8 +923,6 @@ function M.open(path: string): M.Opened
   -- It opens as a project file does: nothing to undo, nothing changed yet.
   api.undo_reset()
   if tracks[1] then paw.cursor.set_track(tracks[1]) end
-  local state = paw.state as State
-  state.pick_dir = path:match("^(.*)/[^/]*$") or state.pick_dir
   return { tracks = tracks, notes = notes_in(parts), skipped = M.skipped_text(file) }
 end
 

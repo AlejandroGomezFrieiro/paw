@@ -82,6 +82,51 @@ test("guide: save, back up and open projects", function()
   paw.opt.autosave = 0
 end)
 
+-- paw started in a folder, as the shell's PWD says; HOME is a scratch folder.
+local ffi = require("ffi")
+pcall(ffi.cdef, "int setenv(const char *name, const char *value, int overwrite);")
+
+local function started_in(folder, home)
+  local old_pwd, old_home = os.getenv("PWD"), os.getenv("HOME")
+  ffi.C.setenv("PWD", folder, 1)
+  ffi.C.setenv("HOME", home, 1)
+  T.after(function()
+    ffi.C.setenv("PWD", old_pwd or "/", 1)
+    ffi.C.setenv("HOME", old_home or "/", 1)
+  end)
+end
+
+test("guide: a new project is saved in the folder paw started in, as in Neovim", function()
+  start()
+  local started, home = dir("started/here"), dir("started/home")
+  os.execute("mkdir -p '" .. home .. "/sub'")
+  started_in(started, home)
+  T.after(function() paw.files.cd(false) end)
+  paw.frontend.polled = paw.api.now()
+  T.tone("Lead", 4)
+  keys(":w<CR>")
+  local cmdline = require("paw.views.cmdline")
+  local state = cmdline.state()
+  eq(state ~= nil and state.prompt:find("Save as (" .. started .. ")", 1, true) ~= nil, true, ":w on a new project asks for a name, in the folder paw started in")
+  eq(state and state.before, "untitled", "the prompt holds the name of the project")
+  keys("<CR>")
+  eq(exists(started .. "/untitled/project.toml"), true, "the name alone goes to that folder")
+  -- Every file list starts there too.
+  keys(":import<CR>")
+  eq(table.concat(paw.api.ui_snapshot(140, 30), "\n"):find(started, 1, true) ~= nil, true, ":import lists the folder paw started in")
+  keys("<Esc>")
+  while paw.ui.float do paw.ui.close() end
+  -- `..` and `~` go elsewhere.
+  paw.project.new()
+  T.tone("Lead", 4)
+  keys(":w ../other<CR>")
+  eq(exists(dir("started") .. "/other/project.toml"), true, ":w ../other goes to the folder above")
+  keys(":w ~/sub/mine<CR>")
+  eq(exists(home .. "/sub/mine/project.toml"), true, ":w ~/sub/mine goes to the home folder")
+  eq(paw.commands.complete("w ~")[1].text, "w ~/", "Tab completes ~ and ..")
+  eq(paw.commands.complete("w ..")[1].text, "w ../", "and ..")
+end)
+
 test("guide: import audio and MIDI files", function()
   start()
   local lib = dir("library")

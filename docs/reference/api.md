@@ -747,7 +747,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.frontend.closing()`: Tells if paw would lose data if it closes now: { modified, name, path }.
 - `paw.frontend.completions(prompt)`: The candidates of a prompt, as the terminal shows them above the line. These are the candidates in view around the selected one, as `{ label, desc }`. `chosen` is the place of the selected candidate among them (0 for none).
 - `paw.frontend.content_key(clip)`: What changes exactly when what a clip shows inside does: its notes and controller moves (fetch `M.preview` again then), or its waveform (fetch `M.peaks` again then). Nil for a MIDI clip with no notes yet.
-- `paw.frontend.dialog_info()`: The data that the window needs to open the file dialog of the desktop. `native` tells if it must use that dialog (the option). When it is off, the dialogs are those of the kernel. `dir` is the folder to start in. It is the folder of the last selected file, or of the project, or home, as in the list picker. `name` is the file name of the project, for "Save as". `render` is the file endings that a render can write.
+- `paw.frontend.dialog_info()`: The data that the window needs to open the file dialog of the desktop. `native` tells if it must use that dialog (the option). When it is off, the dialogs are those of the kernel. `dir` is the folder to start in: `paw.files.here()`, as in the list picker. `name` is the file name of the project, for "Save as". `render` is the file endings that a render can write.
 - `paw.frontend.engine_menu()`: The menu where the audio devices are chosen: `info` (lines to show), `output`, `input`, `block`, `rate` and `backend`, each a list of `{ label, checked }`. `act.choose_engine` takes one by heading and place.
 - `paw.frontend.float(width, height)`: The float that is open (help, a list, a picker), drawn as text `width` columns wide: its title and its lines. Nil when there is none.
 - `paw.frontend.format_value(param, value)`: A parameter's value as text in its unit (see `paw.params.format`).
@@ -773,7 +773,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   ```
 
   A track cannot play into itself or into a track that plays into it.
-- `paw.frontend.save_as(after)`: Save the project under a new name: choose the directory from a list, then type the file's name. `after` runs once it is saved.
+- `paw.frontend.save_as(after)`: Save the project under a new name: type it at a prompt that starts with the name of the project. A relative name goes where `:w name` puts it (`paw.files.here()`), `..` and `~` go elsewhere, and Tab completes. `after` runs once it is saved.
 - `paw.frontend.send_list(track)`: A track's sends as `{ name, level }`, the level in dB.
 - `paw.frontend.sidechain_menu(device)`: The menu of the side-chain of a device: "None" first, then the tracks that it can listen to. The last item tells if it takes the sound before their fader. Each is `{ label, checked }`. `act.choose_sidechain` takes one by place.
 - `paw.frontend.state(known)`: The data that paw sends to a graphical frontend: transport, tracks, clips, devices and the modal state, as plain data. `known` is a list of the data that the frontend has already.
@@ -1464,7 +1464,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
                   on_choose = function(path) end })
   ```
 
-  Directories come first, and Enter opens them. `..` goes up. The list shows only files with one of `extensions` (all files without it). It starts in `dir`. If not given, it starts where you last selected a file, then next to the project, then in the home directory. With `directory = true`, the first item selects the directory that shows, and `on_choose` gets it.
+  Directories come first, and Enter opens them. `..` goes up. The list shows only files with one of `extensions` (all files without it). It starts in `dir`. If not given, it starts in `paw.files.here()`, the folder that relative names go to (`:cd`, else the project's, else where paw started). With `directory = true`, the first item selects the directory that shows, and `on_choose` gets it.
 - `paw.pick.filter(query, items, format, primary, mode)`: The items that match `query`, best first, each as { item, text, score }. `mode` is as `paw.pick.match` takes it.
 
   ```lua

@@ -372,6 +372,8 @@ local function files(word: string, extensions?: {string:boolean}): {Item}
   local home = os.getenv("HOME") or ""
   local typed_dir, stem = word:match("^(.*/)([^/]*)$")
   typed_dir, stem = typed_dir or "", stem or word
+  -- `..` and `~` are folders to go to: they take a slash.
+  if typed_dir == "" and (stem == ".." or stem == "~") then return { item(stem .. "/", "directory") } end
   -- Relative names are in the folder that `:cd` set, or beside the project.
   local here = paw.files and paw.files.here() or "."
   local dir = typed_dir == "" and here or typed_dir:gsub("^~/", home .. "/")

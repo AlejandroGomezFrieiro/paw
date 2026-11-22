@@ -311,7 +311,8 @@ test("import completes and lists MIDI files beside sound files, and a dropped MI
     if c.text:find("drop.mid", 1, true) then found = true end
   end
   eq(found, true, ":e offers it too")
-  paw.state.pick_dir = dir
+  T.after(function() paw.files.cd(false) end)
+  paw.files.cd(dir)
   T.keys(":import<CR>")
   eq(paw.ui.float ~= nil, true, "the list is open")
   eq(screen():find("drop.mid", 1, true) ~= nil, true, "and shows the MIDI file")

@@ -3035,9 +3035,8 @@ function paw.frontend.content_key(clip) end
 
 --- The data that the window needs to open the file dialog of the desktop.
 --- `native` tells if it must use that dialog (the option). When it is off,
---- the dialogs are those of the kernel. `dir` is the folder to start in. It
---- is the folder of the last selected file, or of the project, or home, as
---- in the list picker. `name` is the file name of the project, for
+--- the dialogs are those of the kernel. `dir` is the folder to start in:
+--- `paw.files.here()`, as in the list picker. `name` is the file name of the project, for
 --- "Save as". `render` is the file endings that a render can write.
 function paw.frontend.dialog_info() end
 
@@ -3137,8 +3136,10 @@ function paw.frontend.render_dialog() end
 ---@param track any
 function paw.frontend.routing(track) end
 
---- Save the project under a new name: choose the directory from a list,
---- then type the file's name. `after` runs once it is saved.
+--- Save the project under a new name: type it at a prompt that starts with
+--- the name of the project. A relative name goes where `:w name` puts it
+--- (`paw.files.here()`), `..` and `~` go elsewhere, and Tab completes.
+--- `after` runs once it is saved.
 ---@param after any
 function paw.frontend.save_as(after) end
 
@@ -5854,8 +5855,9 @@ function paw.params.step(p, value, steps) end
 --- 
 --- Directories come first, and Enter opens them. `..` goes up. The list
 --- shows only files with one of `extensions` (all files without it). It
---- starts in `dir`. If not given, it starts where you last selected a file,
---- then next to the project, then in the home directory. With
+--- starts in `dir`. If not given, it starts in `paw.files.here()`, the folder
+--- that relative names go to (`:cd`, else the project's, else where paw
+--- started). With
 --- `directory = true`, the first item selects the directory that shows,
 --- and `on_choose` gets it.
 ---@param opts any

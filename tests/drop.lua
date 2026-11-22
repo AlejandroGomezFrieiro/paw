@@ -71,7 +71,6 @@ test("a file chosen in the desktop's dialog is imported or saved to as it is, sp
   act.chosen("import", path)
   eq(#paw.tracks(), 3, "a track for the sound file")
   eq(paw.tracks()[paw.cursor.index()]:clips()[1].file, path, "playing that file, on the track the cursor went to")
-  eq(paw.state.pick_dir, T.scratch .. "/some where", "the list picker starts where it was chosen")
   local project = T.scratch .. "/some where/my song"
   act.chosen("saveas", project)
   eq(#T.read_file(project .. "/project.toml") > 10, true, "saved as the folder of that name")
@@ -95,6 +94,5 @@ test("the dialog option and where to start are what the window is told", functio
   paw.opt.native_dialogs = false
   eq(paw.frontend.dialog_info().native, false, "and off when asked")
   paw.opt.native_dialogs = true
-  paw.state.pick_dir = "/tmp"
-  eq(paw.frontend.dialog_info().dir, "/tmp", "starting where a file was last chosen")
+  eq(paw.frontend.dialog_info().dir, paw.files.here(), "starting in the folder for relative names")
 end)
