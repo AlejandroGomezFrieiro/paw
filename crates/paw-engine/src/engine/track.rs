@@ -110,6 +110,11 @@ impl TrackRt {
                 || kind.channel().is_none_or(|ch| ch + 1 == self.midi_channel))
     }
 
+    /// Whether `kind` lets go of a key this track holds from MIDI input.
+    pub(super) fn releases(&self, kind: &EventKind) -> bool {
+        matches!(*kind, EventKind::NoteOff { key, .. } if self.held & (1 << (key & 127)) != 0)
+    }
+
     pub(super) fn target_gains(&self) -> [f32; 2] {
         if self.mute {
             return [0.0, 0.0];

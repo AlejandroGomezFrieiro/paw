@@ -2,9 +2,7 @@
 
 <!-- tags: arrange -->
 
-The arrange view shows the tracks as rows and the time as columns. It is
-the first view at the start. The keys that it shares with the piano roll
-are in [Motions, operators and modes](grammar.md).
+The arrange view shows the tracks as rows and the time as columns, and it is the first view you see when paw starts. The keys that it shares with the piano roll are in [Motions, operators and modes](grammar.md).
 
 ## What the view shows
 
@@ -13,18 +11,11 @@ are in [Motions, operators and modes](grammar.md).
 - A thin amber playhead.
 - The track headers. Each has the chips `M` `S` `R` `I` (mute, solo, arm, monitor). If there are enough rows, a header also shows the level and volume and the pan. It can also show the devices, the output (`→ Bus`), the sends (`↗ Reverb -9`) and the input.
 - A letter before the name of a track of a kind that an extension defines.
-- The master track, pinned at the bottom: a header like the others, with the levels of both sides in one row. Beside it, the timeline shows its volume automation, if it has any. `j` on the last track goes to the master, and `/master` finds it. On the master, `+` `-` `grv` change its volume and `a` adds a device to it. It has no clips, and `dd` does not remove it.
+- The master track, pinned at the bottom. Its header is like the others, with the levels of both sides in one row, and the timeline beside it shows its volume automation if it has any. `j` on the last track goes to the master, and `/master` finds it. On the master, `+` `-` `grv` change its volume and `a` adds a device to it. It has no clips, and `dd` does not remove it.
 
-The tracks share the rows of the window, three to four rows each
-(`paw.opt.track_height`). The headers are 26, 22, 18 or 12 columns wide,
-by the width of the screen (`paw.opt.header_width`).
+The tracks share the rows of the window, and each track gets three to four rows (`paw.opt.track_height`). The headers are 26, 22, 18 or 12 columns wide, depending on the width of the screen (`paw.opt.header_width`). The track column and the bar numbers of the ruler are described in [The track column](#the-track-column) and [Relative bars](#relative-bars).
 
-The track column and the ruler's bar numbers are in
-[The track column](#the-track-column) and [Relative bars](#relative-bars).
-
-A clip has a name row and a darker body that shows its notes or waveform,
-in the color of its track. The clip under the cursor shows in the full
-color. The track of the cursor has a brighter header and a tinted lane.
+A clip has a name row and a darker body that shows its notes or waveform in the color of its track. The clip under the cursor shows in the full color, and the track of the cursor has a brighter header and a tinted lane.
 
 ## Keys
 
@@ -97,23 +88,14 @@ For the keys of windows, see [Windows, buffers and tabs](windows.md).
 
 ## The track column
 
-In paw a track is a line: `5j` goes down five tracks, `5G` goes to track
-5, `dd` deletes a track. So the left edge of the track headers has a
-column, as the number column and the `statuscolumn` of Neovim. It is
-not part of the header width (`paw.opt.header_width`): the headers keep
-their width, and the timeline is narrower by the width of the column. It
-has three parts, from the left:
+In paw a track works like a line of text, so `5j` goes down five tracks, `5G` goes to track 5, and `dd` deletes a track. For this reason the left edge of the track headers has a column that corresponds to the number column and the `statuscolumn` of Neovim. The column is not part of the header width (`paw.opt.header_width`), so the headers keep their width and the timeline is narrower by the width of the column. The column has three parts, from the left:
 
 - `number`: the number of each track. With `:set relativenumber`
   (`:set rnu`), each track shows how many `j` or `k` go to it. The track
   of the cursor shows its own number, or `0` when `:set nonumber`. The
   master has no number.
-- `signs`: one character for each track, when a track has one. The diagnostics of language servers show here: the worst of the track, its devices and its clips.
-- `fold`: the groups as a tree. An open group has `▾` on its row and a
-  line down its members, `╰` on its last member. A folded group has `▸`,
-  and its name tells how many tracks it holds (`Strings +3`). Each level
-  of groups inside groups is one column more. A click on `▾` or `▸`
-  folds the group or opens it, as `za`.
+- `signs`: one character for each track that has one. The diagnostics of language servers show here, and the sign gives the worst diagnostic of the track, its devices and its clips.
+- `fold`: the groups as a tree. An open group has `▾` on its row and a line down its members, with `╰` on its last member. A folded group has `▸`, and its name tells how many tracks it holds (`Strings +3`). Each level of groups inside groups takes one more column. A click on `▾` or `▸` folds or opens the group, like `za`.
 
 ```text
  2   ▌ Drums
@@ -125,11 +107,7 @@ has three parts, from the left:
  4   ▌ Bass
 ```
 
-The numbers count as the motions do. A folded group is one row, as a
-fold in Neovim is one line, so `4j` goes to the track that shows `4`.
-The automation lanes of a track can show as rows (`<Space>aa`). Then `j`
-and `k` go onto the lane rows in normal mode, and the lane rows have
-relative numbers too. In visual mode and after an operator, only tracks count.
+The numbers count the way the motions count. A folded group is one row, like a fold in Neovim, so `4j` goes to the track that shows `4`. The automation lanes of a track can show as rows (`<Space>aa`), and in normal mode `j` and `k` then go onto the lane rows, which have relative numbers too. In visual mode and after an operator, only tracks count.
 
 | Option | Default | Effect |
 | --- | --- | --- |
@@ -137,23 +115,14 @@ relative numbers too. In visual mode and after an operator, only tracks count.
 | `paw.opt.relativenumber` (`rnu`) | `false` | Shows how many `j` or `k` go to each track. |
 | `paw.opt.trackcolumn` | `number,signs,fold` | The parts of the column that show. An extension that adds a part puts its name here. |
 
-An extension adds its own parts and signs with `paw.trackcolumn`: see
-[The track column and the bar labels](trackcolumn.md). The highlight
-groups are `TrackNr`, `TrackNrCursor`, `TrackFold`, `TrackSign`,
+An extension adds its own parts and signs with `paw.trackcolumn`, which [The track column and the bar labels](trackcolumn.md) describes. The highlight groups are `TrackNr`, `TrackNrCursor`, `TrackFold`, `TrackSign`,
 `TrackColumn` and `TrackColumnCursor`.
 
 ## Relative bars
 
-`:set relativebar` (`:set rbar`) shows on the ruler how many `W` or `B`
-go to each bar, as `relativenumber` does for tracks. The bar of the cursor
-keeps its own number, in the accent color. So `4W` goes to the bar that
-shows `4`, and `4B` to the bar behind that shows `4`. From inside a bar,
-the first `B` goes to the start of that bar, so the bars behind count
-from 2. `17|` and `:17` still go to bar 17.
+`:set relativebar` (`:set rbar`) shows on the ruler how many `W` or `B` go to each bar, in the same way that `relativenumber` does for tracks. The bar of the cursor keeps its own number, in the accent color, so `4W` goes to the bar that shows `4`, and `4B` goes to the bar behind it that shows `4`. From inside a bar, the first `B` goes to the start of that bar, so the bars behind it count from 2. `17|` and `:17` still go to bar 17.
 
-It is a separate option from `relativenumber`. Commands such as `17|`
-and `:tempo 96 at 17` take the number of a bar. So you can keep those
-numbers on the ruler while you count tracks.
+The option is separate from `relativenumber`, because commands such as `17|` and `:tempo 96 at 17` take the number of a bar. So you can keep the bar numbers on the ruler while you count tracks.
 
 | Option | Default | Effect |
 | --- | --- | --- |
@@ -164,35 +133,21 @@ The highlight groups are `RulerBarCursor` and `RulerBarRelative`.
 
 ## Audio waveforms
 
-An audio clip draws its sound under its name. Each cell column shows the
-lowest to the highest sample of its part of the clip, around the middle of
-the rows, with eighth blocks. A block that grows from the top shows in
-reverse video. A clip of three rows has about twenty levels in each
-direction.
+An audio clip draws its sound under its name. Each cell column shows the lowest to the highest sample of its part of the clip, around the middle of the rows, with eighth blocks. A block that grows from the top shows in reverse video, and a clip of three rows has about twenty levels in each direction.
 
 - The scale is linear: a kick shows higher than a hat. `paw.opt.wave_scale = "db"` also shows quiet sound, but the hits are less clear.
 - A column that reaches full scale after the gain of the clip shows in red.
 - `zi` and `zo` draw the waveform again from the peaks that the kernel keeps, not from the file.
 
-Waveforms are cells, also in a terminal that shows pictures. A terminal
-that shows images also gets a waveform in pixels: see
-[Pictures in the terminal](pictures.md).
+Waveforms are cells, also in a terminal that shows pictures. A terminal that shows images also gets a waveform in pixels, which [Pictures in the terminal](pictures.md) describes.
 
 ## Automation lanes as rows
 
-`<Space>aa` shows the automation lanes of a track as rows under it, two rows each.
-`<Space>aa` again hides them. (`za`, `zM` and `zR` fold groups, not lanes.)
-`<Space>al` chooses a lane to make or show: volume, pan, or a parameter of a
-device of the track.
+`<Space>aa` shows the automation lanes of a track as rows under it, two rows for each lane, and `<Space>aa` again hides them. (`za`, `zM` and `zR` fold groups, not lanes.) `<Space>al` chooses a lane to make or show, which can be the volume, the pan, or a parameter of a device of the track.
 
-A lane header gives what the lane moves, its value at the cursor, and if
-the lane is read or bypassed. The curve and its points (`◆`) show along the
-timeline. `j` and `k` go onto lane rows as onto tracks.
+A lane header gives what the lane moves, its value at the cursor, and if the lane is read or bypassed. The curve and its points (`◆`) show along the timeline, and `j` and `k` go onto lane rows in the same way as onto tracks.
 
-When the lanes are closed, the track of the cursor draws its volume curve
-in the empty parts of its row, not over clips. It draws the curve in
-sextants (`paw.opt.curve_glyphs`). The other tracks show an `A` in their header and
-draw no curve, to keep the notes clear.
+When the lanes are closed, the track of the cursor draws its volume curve in the empty parts of its row, and not over clips. It draws the curve in sextants (`paw.opt.curve_glyphs`). The other tracks show an `A` in their header and draw no curve, so that the notes stay clear.
 
 | Keys | On a lane row |
 | --- | --- |
@@ -212,9 +167,7 @@ In a selection (`v`) on a lane row, `x` and `d` remove the points in it.
 
 ## The tempo lane
 
-`zT` (or `:tempo.lane`) puts two rows under the ruler. They show the tempo
-map as a curve: level where a tempo holds, a slope where it ramps (`↗`).
-`◆` marks a change that holds. The header gives the tempo at the cursor.
+`zT` (or `:tempo.lane`) puts two rows under the ruler, and they show the tempo map as a curve. The curve is level where a tempo holds and slopes where it ramps (`↗`), and `◆` marks a change that holds. The header gives the tempo at the cursor.
 
 | Command | Effect |
 | --- | --- |
@@ -223,18 +176,14 @@ map as a curve: level where a tempo holds, a slope where it ramps (`↗`).
 | `:tempo.move 9` | Moves the change to bar 9. |
 | `:tempo.remove` | Removes the change. |
 
-Each command is one undo step. You can also draw on the lane with the
-mouse: see [The mouse](mouse.md).
+Each command is one undo step. You can also draw on the lane with the mouse, as [The mouse](mouse.md) describes.
 
 ## Take lanes
 
-`zt` shows the takes of a track as lanes under its clips, one row for each
-take. With the mouse:
+`zt` shows the takes of a track as lanes under its clips, with one row for each take. With the mouse you can do three things:
 
 - A drag across lane k marks the cells from the press to the release. At the release, take k plays over that time. The clips are cut at its ends on the grid (Shift: off the grid). The pieces that then play the same take are joined. It is one undo step.
 - A click without a drag (shorter than a grid step) gives the piece under it take k.
 - A click on the label of a lane (`↳ take 2`) makes that take play everywhere the track has it.
 
-The release can be anywhere on the screen: a drag belongs to the view
-where it started. `:take 2` over a selection does the same from the
-keyboard.
+The release can be anywhere on the screen, because a drag belongs to the view where it started. `:take 2` over a selection does the same from the keyboard.

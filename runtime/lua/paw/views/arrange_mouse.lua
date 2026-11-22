@@ -102,10 +102,13 @@ local function ruler_marks(self)
   return out
 end
 
---- The marker or region whose name (or band) is under column `tx` of the
---- band under the ruler.
-local function marker_at(self, tx)
-  local list = paw.markers and paw.markers.list() or {}
+--- The marker or region whose name (or band) is under column `tx` of row
+--- `row` of the regions' lane (0 the first; paw/markers.tl).
+local function marker_at(self, tx, row)
+  local list = {}
+  for _, m in ipairs(paw.markers and paw.markers.list() or {}) do
+    if paw.markers.lane_row(m.id) == (row or 0) then list[#list + 1] = m end
+  end
   local width = self.geometry.layout.tw
   local band
   for i, m in ipairs(list) do
@@ -150,7 +153,7 @@ local function hit(self, x, y, fine)
   if y < 1 then
     out.area = "ruler"
   elseif y < L.band_y then
-    out.area = "markers"
+    out.area, out.lane_row = "markers", math.floor(y) - 1
   elseif y < tempo_y then
     out.area = "band"
     out.band = band_at(L.bands, math.floor(y - L.band_y), out.tx, function(beat) return col(self, beat) end)
@@ -769,7 +772,7 @@ end
 --- A press in the band of markers: a click goes to one, a drag moves it, a
 --- double click renames it, a right click opens its menu.
 local function press_markers(self, e, h)
-  local m = marker_at(self, h.tx)
+  local m = marker_at(self, h.tx, h.lane_row)
   if not m then
     if e.button == "left" then A.ruler_click(grid_at(self, h.tx)) end
     return
@@ -876,7 +879,7 @@ local function hover(self, h)
       if h.tx >= m.x0 and h.tx < m.x1 then text = hints.flag end
     end
   elseif h.area == "markers" and h.timeline then
-    local m = marker_at(self, h.tx)
+    local m = marker_at(self, h.tx, h.lane_row)
     text = m and (paw.markers.label(m) .. " · " .. hints.markers) or nil
   elseif h.area == "band" and h.timeline then
     text = h.band and h.band.hint or nil

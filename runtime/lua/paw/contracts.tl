@@ -964,6 +964,45 @@ local record contracts
     styles: {string: string}
   end
 
+  --- What a lane of the ruler draws on (`paw.ruler.add_lane`): `buf` its
+  --- rows under the bar numbers (`rows` of them), `x` the column of a beat,
+  --- `scroll` and `span` the beats in sight, `glyphs` and `styles` the
+  --- lane's own.
+  record RulerLaneContext
+    buf: Buf
+    rows: integer
+    x: function(beat: number): integer
+    scroll: number
+    span: number
+    glyphs: {string: string}
+    styles: {string: string}
+  end
+
+  --- A lane of rows under the ruler's bar numbers, as the regions' lane:
+  --- `rows` says how many rows it needs now (0 for none), `render` draws
+  --- them. Lanes stack in their `order`, lower first.
+  record RulerLane
+    name: string
+    order: number
+    rows: function(ctx: RulerLaneContext): integer
+    render: function(ctx: RulerLaneContext)
+    glyphs: {string: string}
+    styles: {string: string}
+    --- The extension whose code added or last changed it, nil for the
+    --- user's (paw/ext.lua: what an extension owns).
+    ext: string
+  end
+
+  --- What `paw.ruler.set_lane` changes of a lane: only the fields given;
+  --- `glyphs` and `styles` are merged into the lane's.
+  record RulerLanePatch
+    order: number
+    rows: function(ctx: RulerLaneContext): integer
+    render: function(ctx: RulerLaneContext)
+    glyphs: {string: string}
+    styles: {string: string}
+  end
+
   --- What `paw.trackcolumn.set` and `paw.trackcolumn.set_sign` change of
   --- a component or a sign: only the fields given; `glyphs` and `styles`
   --- are merged into its own.
@@ -1067,6 +1106,34 @@ local record contracts
     open: function(ctx: InsertContext, item: InsertedItem)
     order: number
     hidden: boolean
+  end
+
+  -- Step input -------------------------------------------------------------------
+
+  --- A key that the controller played for step input (`paw.step.target`):
+  --- its pitch, its velocity (1 to 127, or `paw.opt.step_velocity`), its
+  --- MIDI 2.0 attribute, where it came from, and `chord` when another key
+  --- is still held (the key joins the chord of that key).
+  record StepNote
+    pitch: integer
+    velocity: integer
+    attr: types.NoteAttr
+    channel: integer
+    port: string
+    chord: boolean
+  end
+
+  --- A view that takes step input (`paw.step.target(name, spec)`).
+  --- `active()` is true while it listens. `track()` is the track whose
+  --- MIDI input it listens to, and that plays the controller. `note(e)`
+  --- enters a key, `release()` is told when the last held key is released,
+  --- and `status()` is its title, for example `STEP C4 · 1 beat`.
+  interface StepTarget
+    active: function(): boolean
+    track: function(): integer
+    note: function(e: StepNote)
+    release: function()
+    status: function(): string
   end
 
   -- Pickers ----------------------------------------------------------------------

@@ -24,21 +24,21 @@ the steps, see [How to export a song as WAV, FLAC or MP3](../how-to/export-a-son
 sets the format. With no name, the file is `<project>.wav` in the folder
 `renders` of the project (see [The renders folder](#the-renders-folder)).
 
-- The render runs on a thread of its own. The status line shows
-  `rendering mix.flac 43% · Esc cancels`. A message tells when the render
+- The render runs on a thread of its own, and the status line shows
+  `rendering mix.flac 43% · Esc cancels` while it runs. A message tells when the render
   is complete.
 - `Esc` in normal mode, or `:render.cancel`, stops the render.
-- The render plays a copy of the project made when it starts. An edit
-  during the render changes the project, not the file.
-- paw writes the file as `.mix.flac.part` next to the target, and gives it
-  its name when it is complete. A render that fails or that you cancel
+- The render plays a copy of the project made when it starts, so an edit
+  during the render changes the project and not the file.
+- paw writes the file as `.mix.flac.part` next to the target and gives it
+  its name when it is complete, so a render that fails or that you cancel
   leaves no file with that name.
 
 ### The renders folder
 
 A render with no name goes into `renders` in the folder of the project:
 `song/renders/song.wav`, and the stems in `song/renders/stems`. paw makes
-the folder at the first render. The folder keeps the rendered files apart
+the folder at the first render and keeps the rendered files apart
 from the files of the project, so a save never moves them to `unused`. To
 keep them out of git, add `renders/` to a `.gitignore` file.
 
@@ -49,11 +49,11 @@ keep them out of git, add `renders/` to a `.gitignore` file.
 
 ### Options
 
-The options are words after the file name. `<Tab>` completes them.
+The options are words after the file name, and `<Tab>` completes them.
 
 | Option | Values |
 | --- | --- |
-| `range=` | `song`, `loop`, `selection`, or the name of a region (see [Markers and regions](markers.md)) |
+| `range=` | `song`, `loop`, `selection`, or the name of a region, or its path when names repeat: `Chorus 2/Verse A` (see [Markers and regions](markers.md)) |
 | `start=`, `end=` | the range in beats |
 | `tail=2` | seconds after the end, for reverbs (default: 1) |
 | `rate=44100` | the sample rate |
@@ -72,7 +72,7 @@ The options are words after the file name. `<Tab>` completes them.
 
 `:stems out format=flac master=false` also renders stems.
 
-For normalization, paw renders the song one time into a temporary file,
+For normalization, paw renders the song once into a temporary file,
 measures it, and encodes from there.
 
 ### Formats
@@ -86,33 +86,33 @@ measures it, and encodes from there.
 | Opus | `.opus` | `ffmpeg` |
 
 - paw refuses formats that need an encoder that it does not have (AAC,
-  AIFF, WMA), by name, before it renders anything.
+  AIFF, WMA) by name, before it renders anything.
 - `paw.api.render_formats()` lists the formats that paw can write:
   `{ name, extensions, bits, lossy, available, why }`.
 
 ### MP3, Ogg Vorbis and Opus
 
-paw has no encoder for these formats. It uses `ffmpeg`, if it is
+paw has no encoder for these formats, so it uses `ffmpeg` if it is
 installed.
 
 - paw renders the song to a hidden 32-bit float WAV next to the target (no
   dither, at the requested sample rate). `ffmpeg` encodes it into a `.part`
   file, and paw gives the file its name when it is complete. paw removes
-  the WAV after the encode, also when the encode fails or you cancel it.
+  the WAV after the encode, even when the encode fails or you cancel it.
 - The encode runs on the thread of the render. The status line shows
   `encoding mix.mp3 61%` (the graphical window shows "Encoding"). `Esc` or
   `:render.cancel` also stops `ffmpeg`.
-- Opus holds only 48 kHz and lower usual rates, so `ffmpeg` converts to
-  48 kHz. MP3 above 48 kHz is also converted to 48 kHz.
+- Opus holds only 48 kHz and the lower usual rates, so `ffmpeg` converts to
+  48 kHz, and it also converts MP3 above 48 kHz to 48 kHz.
 - `ffmpeg` is the program on the PATH. `paw.opt.ffmpeg = "/path/to/ffmpeg"`
   names a different program.
 - Without `ffmpeg`, or with an `ffmpeg` without the encoder,
-  `:render mix.mp3` fails before it renders anything. The message says why,
+  `:render mix.mp3` fails before it renders anything, and the message says why
   and names the formats that need nothing (WAV and FLAC).
   `render_formats()` then gives `available = false` and `why`, and the
   render dialog of the graphical window does not offer the format.
 
-| `quality` | MP3 (LAME) | Ogg Vorbis | Opus |
+| `quality` | MP3 (`LAME`) | Ogg Vorbis | Opus |
 |---|---|---|---|
 | `low` | VBR `-q:a 6` (about 115 kbit/s) | `-q:a 3` | 64 kbit/s |
 | `medium` | VBR `-q:a 4` (about 165) | `-q:a 5` | 96 kbit/s |
@@ -139,13 +139,13 @@ it).
   `paw.render_tags({ artist = "Ana" })` sets those fields and keeps the
   others.
 - `:render` accepts the same words (`:render mix.mp3 artist=Bo`), and
-  `paw.render` a `tags` table, for that file only. They replace the tags
-  of the project for that file.
+  `paw.render` accepts a `tags` table, for that file only, and either one
+  replaces the tags of the project for that file.
 - The title of an MP3, Ogg or Opus file is the name of the project, unless
   you give one. The title of a stem in these formats is the name of its
   track.
 - A relative `cover` path starts at the directory of the project. The
-  cover is a PNG or JPEG file of 8 MiB at most. If paw cannot read it, it
+  cover is a PNG or JPEG file of 8 MiB at most, and if paw cannot read it, it
   refuses the render before it renders anything.
 - The render dialog of the graphical window has the tags under Tags. What
   you type there becomes the tags of the project.
@@ -157,8 +157,8 @@ it).
 | MP3 | ID3v2.3, with the cover as an attached picture |
 | Ogg Vorbis, Opus | Vorbis comments, with the cover in `METADATA_BLOCK_PICTURE` |
 
-`ffmpeg` writes the tags of the last three formats. paw gives it the tags
-in a file, not on its command line.
+`ffmpeg` writes the tags of the last three formats, and paw gives it the tags
+in a file and not on its command line.
 
 ## Lua
 
@@ -168,13 +168,13 @@ in a file, not on its command line.
 `dither`, `normalize`, `loudness`, `tracks = { id, ... }`, `master`,
 `threads`, `sleep`, `tags` and `freeze`.
 
-- `sleep = false` makes each device run on each block, also when it is at
-  rest (see [The audio engine](engine.md#devices-at-rest)). The file is
+- `sleep = false` makes each device run on each block, even when it is at
+  rest (see [The audio engine](engine.md#devices-at-rest)), and the file is
   the same to the bit.
 
 - It waits for the file, and returns `{ path, frames, seconds,
   sample_rate, peak, gain, loudness, format, bits, channels, ... }`.
-- With `background = true`, it returns immediately, and events follow.
+- With `background = true`, it returns immediately and events follow.
 
 | Event | Contents |
 | --- | --- |
@@ -199,17 +199,17 @@ The graphical window finds the render in `paw.frontend.state().modal.render`.
 `paw.render_stems(dir, opts)` writes one file for each track. The files add
 up to the mix exactly through sends, returns and buses that only filter,
 delay or mix. A compressor or a limiter on a shared bus hears each stem
-alone. It acts on a stem differently than on the sum, so there the files
-are a little different.
+alone and acts on a stem differently than on the sum, so with those the files
+differ a little from the mix.
 
 `:render stems` writes one file for each group, with the name of the
 group, into `renders/stems`:
 
 - each group at the top level, and each track outside a group that has
-  clips, each with all that its sound goes through. So these files also
+  clips, each with all that its sound goes through, so these files also
   add up to the mix.
-- First, paw shows the plan: each file and its tracks. `y` or `Enter`
-  renders. `n` or `Esc` cancels.
+- First, paw shows the plan, which lists each file and its tracks. `y` or `Enter`
+  renders, and `n` or `Esc` cancels.
 
 | Command | Effect |
 | --- | --- |
@@ -234,18 +234,21 @@ which returns the new track.
 ## Regions
 
 `:render.regions out` writes each region to a file of its own (see
-[Markers and regions](markers.md)).
+[Markers and regions](markers.md)). A region inside another region has
+the path in its file name: `02 Chorus 2 - 01 Verse A.wav`. `level=1`
+renders only the regions at the top level, and `level=leaves` only the
+regions with no region inside.
 
 ## Behavior
 
 - Stems and bounces go through `paw.render`, so the hook `render.before`
   runs for them.
-- paw tells plugins when a render is offline, and gives them a moment to
-  prepare before it starts. Many plugins load the data of a setting in the
-  background, and would still be silent at the end of a fast render.
+- paw tells plugins when a render is offline, and gives them time to
+  prepare before it starts, because many plugins load the data of a setting in the
+  background and would still be silent at the end of a fast render.
 - A render waits for devices with the status `loading` (see
   [Plugins](plugins.md#load-in-the-background)).
-- Language servers can get each render as a subject. A delivery or
-  settings check can then look at each render and show diagnostics with
+- Language servers can get each render as a subject, so a delivery or
+  settings check can look at each render and show diagnostics with
   fixes. A server of the mix gets the fader, pan, sends and devices of each
   track. See [Language servers and diagnostics](language-servers.md).

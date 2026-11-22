@@ -202,8 +202,15 @@ local function marker_source(kind: string): contracts.PickSource<MarkersModule.M
       or "No markers. `" .. keymap.human("<leader>rm") .. "` puts one at the cursor.",
     items = function(): {MarkersModule.Marker}
       local out: {MarkersModule.Marker} = {}
+      if region then
+        -- As a tree: each region, then the regions inside it.
+        for _, node in ipairs(paw.markers.walk()) do
+          out[#out + 1] = node.region
+        end
+        return out
+      end
       for _, m in ipairs(paw.markers.list()) do
-        if (m.length ~= nil) == region then
+        if not m.length then
           out[#out + 1] = m
         end
       end
@@ -211,10 +218,12 @@ local function marker_source(kind: string): contracts.PickSource<MarkersModule.M
     end,
     format = function(m: MarkersModule.Marker): string
       local where = paw.time.format(m.beat)
+      local indent = ""
       if m.length then
         where = where .. " – " .. paw.time.format(m.beat + m.length)
+        indent = string.rep("  ", (paw.markers.depth(m.id) or 1) - 1)
       end
-      return string.format("%-24s %s", paw.markers.label(m), where)
+      return string.format("%-24s %s", indent .. paw.markers.label(m), where)
     end,
     primary = function(m: MarkersModule.Marker): string return paw.markers.label(m) end,
     -- What is typed finds a name, not a number of the time: `Chorus 2`.
@@ -245,6 +254,8 @@ local function marker_source(kind: string): contracts.PickSource<MarkersModule.M
       }
       if m.length then
         lines[#lines + 1] = string.format("to %s, %g beats", paw.time.format(m.beat + m.length), m.length)
+        -- Where it is in the tree of regions: `Song › Chorus 2 › Verse A`.
+        lines[#lines + 1] = "in Song › " .. (paw.markers.pathname(m):gsub("/", " › "))
       end
       -- What plays there: the clips that start within a bar of it.
       lines[#lines + 1] = ""

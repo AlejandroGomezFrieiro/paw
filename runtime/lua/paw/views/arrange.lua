@@ -159,6 +159,8 @@ end
 
 --- Whether the ruler has a second row: when something registered in
 --- `view.ruler2` (by name, a function of the view) has something to show.
+--- The lanes of `paw.ruler` (the regions' rows) add rows of their own, and
+--- a layer draws on the first of them.
 ---   paw.ui.views.arrange.ruler2.marks = function(view) return #my_marks > 0 end
 view.ruler2 = {}
 
@@ -191,7 +193,7 @@ function view:layout(w, h)
   -- the tempo lane's two rows when it is shown.
   local tempo_rows = paw.tempolane.shown() and 2 or 0
   local bands = paw.frontend.band_state()
-  local band_y = wants_ruler2(self) and 2 or 1
+  local band_y = 1 + math.max(paw.ruler.lane_rows(), wants_ruler2(self) and 1 or 0)
   local ruler_rows = band_y + bands.rows + tempo_rows
   local master_rows = 2
   local room = math.max(1, h - ruler_rows - master_rows)
@@ -742,7 +744,7 @@ local function welcome(buf)
     { "o", "add a track" },
     { "a", "put an instrument on it" },
     { "i Enter", "enter notes: a clip opens to draw them (i alone: insert mode)" },
-    { "then I", "type them: a s d f g h j k are a scale" },
+    { "then I", "play them on a MIDI keyboard (step input)" },
     { paw.keymap.human("<leader><Space>"), "play, and stop" },
     { paw.keymap.human("<leader>f:"), "find any command" },
     { "?", "every key that works where you are" },
@@ -1205,8 +1207,9 @@ function view:render(buf, ctx)
   end
   local ruler2
   if L.band_y > 1 then
-    ruler2 = buf:sub(hw, 1, tw, 1)
-    ruler2:fill(0, 0, tw, 1, " ", "Ruler")
+    ruler2 = buf:sub(hw, 1, tw, L.band_y - 1)
+    ruler2:fill(0, 0, tw, L.band_y - 1, " ", "Ruler")
+    paw.ruler.draw_lanes(ruler2, col, self.scroll, span)
   end
   if L.bands.rows > 0 then draw_bands(lanes, L.band_y, L.bands, col) end
   if L.tempo_rows > 0 then self:draw_tempo_row(headers, lanes, L.ruler_rows - L.tempo_rows, lines) end

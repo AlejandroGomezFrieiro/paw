@@ -2,14 +2,9 @@
 
 <!-- tags: devices-panel -->
 
-The device panel shows the devices of a track. `<Space>dd` shows it. It is a grid
-of rows: the heading of a device, then its parameters, then the next
-device. Under the last device are the add line, the track that this track
-plays into, and its sends.
+The device panel shows the devices of a track, and `<Space>dd` shows it. It is a grid of rows, with the heading of a device, then its parameters, then the next device. Under the last device are the add line, the track that this track plays into, and its sends.
 
-The terminal and the graphical window show the same panel, from the same
-Lua view (`runtime/lua/paw/views/devices.lua`). The window paints its parts
-as widgets: sliders, a power button, buttons with icons.
+The terminal and the graphical window show the same panel, from the same Lua view (`runtime/lua/paw/views/devices.lua`), and the window paints its parts as widgets, which are sliders, a power button and buttons with icons.
 
 ## Keys
 
@@ -32,7 +27,7 @@ as widgets: sliders, a power button, buttons with icons.
 | `dd` | Cuts a device. On a parameter, sets it to its default. |
 | `yy` | Copies a device. |
 | `p` `P` | Paste a device after or before the cursor, also on a different track. |
-| `y` over parameters | Copies their settings. Then `p` puts them on the device under the cursor: `yj`, then `p` on a different synth copies two settings. |
+| `y` over parameters | Copies their settings. `p` then puts them on the device under the cursor, so `yj` and then `p` on a different synth copies two settings. |
 | `gcc` | Bypasses the device. |
 | `V` | Selects several devices or parameters, for the keys above. |
 | `.` | Repeats the last change. |
@@ -49,14 +44,11 @@ as widgets: sliders, a power button, buttons with icons.
 
 ## Two panels on two tracks
 
-The device panel shows in any number of windows. Each window has its own
-row, scroll and track. A panel follows the cursor track until you pin it.
-A pinned panel shows its track, wherever the cursor goes. Its title says
-`pinned`.
+The device panel shows in any number of windows, and each window has its own row, scroll and track. A panel follows the cursor track until you pin it, and a pinned panel shows its track wherever the cursor goes. The title of a pinned panel says `pinned`.
 
-- `:vs devices://Bass` puts a second panel beside this window, pinned to the track Bass. A number also names a track: `devices://3`.
+- `:vs devices://Bass` puts a second panel beside this window, pinned to the track Bass, and a number also names a track, as in `devices://3`.
 - `:e devices://Bass` pins the panel in this window.
-- In a pinned panel, the keys and the commands act on its track. For example, `a` adds a device to that track, and `p` pastes there.
+- In a pinned panel, the keys and the commands act on its track, so `a` adds a device to that track and `p` pastes there.
 - A saved layout and the project keep the track of a pinned panel.
 
 ## The parts of a row
@@ -70,14 +62,11 @@ A pinned panel shows its track, wherever the cursor goes. Its title says
 | Output | The track that this track plays into, and `+ send`. The master has no output row. |
 | Send | The track, a slider for the level, the level in dB, `pre` and `×`. |
 
-A parameter that a lane moves shows the value of the lane at the playhead.
-In the graphical window, its slider is amber and moves while the song
-plays.
+A parameter that a lane moves shows the value of the lane at the playhead, and in the graphical window its slider is amber and moves while the song plays.
 
 ## The pointer
 
-The pointer works in the same way in the terminal and in the graphical
-window.
+The pointer works in the same way in the terminal and in the graphical window.
 
 | Gesture | Effect |
 | --- | --- |

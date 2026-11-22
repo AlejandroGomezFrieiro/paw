@@ -1,22 +1,13 @@
 # Keys, by idea
 <!-- tags: course-keys -->
 
-One page to keep next to the keyboard. The keys are written as Vim writes
-them. `<C-r>` is Ctrl and r, `<A-j>` Alt and j, `<CR>` Enter, `<Esc>`
-Escape. `<Space>` (the space bar) is the leader key, and `\` the local leader of a view (the
-notation popovers). **A** is the arrange view, **R** the piano roll, **M**
-the mixer, **D** the device panel.
+The keys page is a list of keys to keep next to the keyboard, and the keys are written as Vim writes them. `<C-r>` is Ctrl and r, `<A-j>` is Alt and j, `<CR>` is Enter, and `<Esc>` is Escape. `<Space>` (the space bar) is the leader key, and `\` is the local leader of a view (the notation popovers). **A** is the arrange view, **R** is the piano roll, **M** is the mixer, and **D** is the device panel.
 
-The tests of the tutor compare every key
-here with the mappings of paw. `?` in paw lists every key of the view that
-you are in.
+The tests of the tutor compare every key here with the mappings of paw, and `?` in paw lists every key of the view that you are in.
 
 ## The sentence
 
-**count** · **operator** · **motion** or **text object**, for example `3>ic`, `d2W`, `yic`,
-`gl4W`. An operator typed twice takes whole rows (tracks in A, pitches in R):
-`dd`, `3yy`. `"a` before it names a register: `"ayic`. `.` repeats the last
-change.
+A command is a count, an operator, and a motion or a text object, e.g., `3>ic`, `d2W`, `yic` and `gl4W`. An operator typed twice takes whole rows (tracks in A, pitches in R), as in `dd` and `3yy`. `"a` before it names a register, as in `"ayic`, and `.` repeats the last change.
 
 ## Move (motions)
 
@@ -32,13 +23,11 @@ change.
 | `5\|` | bar 5 (also `:5`) | |
 | `gP` | cursor to the playhead | |
 | `]'` `['` | next marker or region, the one before | |
+| `]r` `[r` | next region at the same level, the one before | |
 | `)` `(` | | next phrase, start of this phrase or the one before |
 | `zz` `zh` `zl` | center the cursor, scroll a bar | |
 
-These keys only move, in every view. In **M**, `h` `l` are strips. `j` `k`
-are the rows of a strip (devices, sends, fader, pan, mute, solo, arm), `gg`
-`G` its top and bottom, `0` `$` the first and last strip. In **D**, `j` `k`
-are rows, `w` `b` devices, `e` the last parameter of a device.
+The motion keys only move, in every view. In **M**, `h` `l` are strips, `j` `k` are the rows of a strip (devices, sends, fader, pan, mute, solo, arm), `gg` `G` are its top and bottom, and `0` `$` are the first and last strip. In **D**, `j` `k` are rows, `w` `b` are devices, and `e` is the last parameter of a device.
 
 ## Act (operators and single keys)
 
@@ -99,9 +88,7 @@ The same keys mean the same in every view:
 
 The full rule is in [The key rule](key-rule.md).
 
-In **D**, `A` automates the parameter, and `gC` or `<CR>` edits its curve.
-On a lane row, `gC` or `<CR>` edits the curve of the lane, and `gc` turns the
-lane off and on.
+In **D**, `A` automates the parameter, and `gC` or `<CR>` edits its curve. On a lane row, `gC` or `<CR>` edits the curve of the lane, and `gc` turns the lane off and on.
 
 In the **curve editor**:
 
@@ -159,13 +146,12 @@ In the **curve editor**:
 | `iv` `av` | | the voice of the note: the top line, the bass or a line between, with its octave doublings |
 | `i=` `a=` | | every note of the pitch, of the pitch class |
 | `ib` | this bar (`2ib` two) | this bar |
-| `ir` | the region, on this track | the region (`2ir` the region around it) |
+| `ir` | the region, on this track (`2ir` the region around it) | the region (`2ir` the region around it) |
 | `il` | the loop | |
 | `it` | everything on the track | |
 | `ie` | the entire project | every note of the clip |
 
-In visual mode, the same text object again takes in one more: `vic` then
-`ic` selects two chords.
+In visual mode, the same text object again takes in one more, so `vic` and then `ic` selects two chords.
 
 ## Select (visual mode)
 
@@ -183,10 +169,7 @@ In visual mode, the same text object again takes in one more: `vic` then
 
 ## Insert at the cursor (insert mode, A)
 
-`i` starts insert mode in A. Each key inserts one item at the cursor, and
-the cursor steps past it: `mmm` inserts three clips. Letters only insert.
-The arrows move. Insert mode never moves a clip. All from `i` to `<Esc>`
-is one undo step. See [Insert mode](insert-mode.md).
+`i` starts insert mode in A. Each key inserts one item at the cursor, and the cursor steps past the item, so `mmm` inserts three clips. Letters only insert, the arrows move, and insert mode never moves a clip. Everything from `i` to `<Esc>` is one undo step. See [Insert mode](insert-mode.md).
 
 | Keys | |
 | --- | --- |
@@ -228,20 +211,20 @@ is one undo step. See [Insert mode](insert-mode.md).
 | `<BS>` `<C-w>` | take back the note kept last |
 | `<C-u>` | take back all that this insert drew |
 | `[` `]` | softer, louder |
+| `I` | step input on or off (notes from a MIDI keyboard) |
 | `<C-o>` | one command of normal mode, then draw again |
-| `I` | keep what was drawn and type notes from here as on a piano (a piano's letter while drawing says so) |
 | `<Esc>` | write what was drawn (one undo step; `.` draws it again) and return to normal mode |
 
-## Enter notes as on a piano (`I`, R)
+## Enter notes from a MIDI keyboard (step input, R)
 
 | Keys | |
 | --- | --- |
-| `I` | insert mode with the keyboard as a piano (`:set roll_insert=keys` for `i` too) |
-| `a w s e d f t g y h u j k` | C, C♯, D, … up to the next C; a capital stays, for chords |
-| `1` … `9` | notes that many steps long |
-| `<Space>` `<BS>` | a rest; step back and remove |
-| `z` `x` | octave down, up |
-| `<Esc>` | back to normal mode |
+| `I` | step input from normal mode: keys of a MIDI controller enter notes at the cursor, keys held together a chord |
+| `=` and a value | the step: the length of the notes and rests that follow |
+| `<Space>` | a rest of one step |
+| `<BS>` | take back what was entered last |
+| `I` (in step input) | back to drawing |
+| `<Esc>` | write all the notes (one undo step) |
 
 ## Write from the harmony (snippets, R)
 
@@ -282,12 +265,7 @@ See [Snippets](snippets.md) and [Completion](completion.md).
 
 ## The leader keys
 
-After the leader, the first key is a domain, and the next key is what to
-do in it or what to find. `<Space>f` finds, so `<Space>fc` finds a clip and
-`<Space>fr` finds a region. After `<Space>f`, the key is the key of the
-same domain: `c` is the clip in `<Space>cf` and in `<Space>fc`. When you
-stop after the domain, the key hints show its keys. `<Space><Space>` plays
-and stops.
+After the leader, the first key is a domain, and the next key is what to do in it or what to find. `<Space>f` finds, so `<Space>fc` finds a clip and `<Space>fr` finds a region. After `<Space>f`, the key is the key of the same domain, so `c` is the clip in `<Space>cf` and in `<Space>fc`. When you stop after the domain, the key hints show its keys, and `<Space><Space>` plays and stops.
 
 | Domain | Keys |
 | --- | --- |
@@ -307,8 +285,7 @@ and stops.
 | u: utau | `<Space>ut` add a vocal track, `<Space>uv` make the track vocal, `<Space>us` the singer, `<Space>ue` the vocal editor, `<Space>ul` the lyric sheet, `<Space>ur` render again, `<Space>uf` `<Space>uF` freeze, unfreeze, `<Space>uo` OpenUtau, `<Space>ui` the engine |
 | v: views | `<Space>vm` mixer, `<Space>vd` device panel, `<Space>vp` piano roll, `<Space>vs` session view, `<Space>vn` notation, `<Space>vu` undo tree |
 
-`u` and `<C-r>` (undo and redo) have no leader. The keys of one view are on
-the local leader `\`.
+`u` and `<C-r>` (undo and redo) have no leader, and the keys of one view are on the local leader `\`.
 
 ## Play
 
@@ -384,10 +361,7 @@ Stop half way through a sequence and the keys that can follow are listed.
 
 ## Edit lists as text (`:e paw://tracks`)
 
-The tracks, sends, the devices of a track and the markers as lines of text
-(`paw://tracks`, `paw://sends`, `paw://track/2/devices`, `paw://markers`).
-Every motion, operator, count, register, selection and `.` works on the
-text as in Vim. Nothing changes in the project until `:w`.
+The tracks, sends, the devices of a track and the markers show as lines of text (`paw://tracks`, `paw://sends`, `paw://track/2/devices`, `paw://markers`). Every motion, operator, count, register, selection and `.` works on the text as in Vim, and nothing changes in the project until `:w`.
 
 | Keys | |
 | --- | --- |
@@ -407,8 +381,7 @@ text as in Vim. Nothing changes in the project until `:w`.
 
 ## Files (`:e folder`)
 
-A folder as lines to edit, and as a tree (`:Files`). The edits are those of
-text. `:w` shows the plan and `y` does it. Deleted files go to the trash.
+A folder shows as lines to edit, and as a tree (`:Files`). The edits are those of text, `:w` shows the plan and `y` does it, and deleted files go to the trash.
 
 | Keys | |
 | --- | --- |

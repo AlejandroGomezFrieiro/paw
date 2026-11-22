@@ -6,38 +6,41 @@ return {
 In this lesson, we add a line of notes and a chord to a short tune in the
 piano roll.
 
-The piano roll shows the notes of one clip. It has one row for each pitch,
-with the names on the left. Time goes to the right in steps of a sixteenth
-note. In normal mode, you move the cursor and change one note at a time. In
-insert mode, you draw notes with the cursor, and paw writes them when you
-leave insert mode.
+The piano roll shows the notes of one clip, with one row for each pitch and
+the names of the pitches on the left. Time goes to the right in steps of a
+sixteenth note. In normal mode, you move the cursor and change one note at
+a time. In insert mode, you draw notes with the cursor, and paw writes them
+when you leave insert mode.
 
 The clip `tune` has three notes in its second bar.]],
   idea = [[
-To move, use `h` `l` for one step and `j` `k` for one semitone. Use
-`<C-d>` `<C-u>` for one octave and `w` `b` for notes. `0` `$` go to the start
-and the end of the clip.
+To move the cursor, use `h` and `l` for one step and `j` and `k` for one
+semitone. `<C-d>` and `<C-u>` move one octave, and `w` and `b` move by
+notes. `0` and `$` go to the start and the end of the clip.
 
-To change the note under the cursor: `<CR>` adds or removes a note. `+` `-`
-(and `<C-a>` `<C-x>`) change its pitch. `<A-h>` `<A-l>` change its length,
-`H` `L` move it, `[` `]` change the velocity and `gh` plays the pitch.
+In normal mode, `<CR>` adds or removes a note, and `gh` plays the pitch.
+`+` and `-` (or `<C-a>` and `<C-x>`) change the pitch of the note under the
+cursor. `<A-h>` and `<A-l>` change its length, and `H` and `L` move it.
+Moreover, `[` and `]` change its velocity.
 
-Insert mode (`i`, or `a` after the note) is a pencil. It draws a note from
-the cursor, or it takes the note under the cursor. `l` `h` move the edge of
-the note where the cursor is: at its end, `l` makes the note longer. `+` `-`
-change its pitch and `K` `J` the octave. `k` `j` bend it. `<CR>` keeps the
-note and draws the next note at its end. `<Space>` adds a rest first. `c`
-makes the note a chord. `<BS>` removes the last note, and `<Esc>` writes the
-notes and leaves insert mode.
+Insert mode (`i`, or `a` after the note) draws a note from the cursor, or
+takes the note under the cursor. `l` and `h` move the edge of the note
+where the cursor is, so at the end of the note, `l` makes the note longer.
+`+` and `-` change the pitch, and `K` and `J` change the octave. `k` and
+`j` bend the note.
 
-`I` makes the keyboard a piano: `a w s e d f t g y h u j k` are C up to the
-next C. In normal mode, `<Esc>` stays in the piano roll. `<C-w>p` returns to
+In insert mode, `<CR>` keeps the note and draws the next note at its end,
+and `<Space>` adds a rest first. `c` makes the note a chord. `<BS>` removes
+the last note, and `<Esc>` writes the notes and leaves insert mode.
+
+In normal mode, `<Esc>` stays in the piano roll, and `<C-w>p` returns to
 the arrange view.]],
   vim = [[
-In Vim, `<C-a>` and `<C-x>` add to a number and subtract from it. Here they
-change the pitch of a note, as `+` `-` do. The pitch is the main value of a
-note. Insert mode does not insert text. It draws a note, and all
-of it is one undo step. `.` repeats it at the cursor, as Vim repeats an insert.]],
+In Vim, `<C-a>` and `<C-x>` add to a number and subtract from it. In paw,
+they change the pitch of a note in the same way as `+` and `-`, because
+the pitch is the main value of a note. Insert mode draws notes instead of
+text, and one insert is one undo step. `.` repeats the insert at the
+cursor, as Vim repeats an insert.]],
   setup = function(look)
     paw.project.tempo = 90
     local drums = paw.add_track({ name = "Drums", volume = -4 })
@@ -53,26 +56,26 @@ of it is one undo step. `.` repeats it at the cursor, as Vim repeats an insert.]
       say = "The cursor is on the clip `tune`. Press `<CR>` (Enter) to open it in the piano roll.",
       keys = { "<CR>" },
       check = function(_, look) return look.focused() == "pianoroll" end,
-      done = "The piano roll opens. The cursor is on E4 at the start of the clip.",
+      done = "The piano roll opens, and the cursor is on E4 at the start of the clip.",
     },
     {
-      say = "`j` and `k` move one semitone down and up, and you hear each pitch. `<C-d>` `<C-u>` move one octave, half a page as in Vim. Press `k` three times to go to G4.",
+      say = "`j` and `k` move one semitone down and up, and you hear each pitch. `<C-d>` and `<C-u>` move one octave. Press `k` three times to go to G4.",
       keys = { "k", "k", "k" },
       check = function() return paw.ui.views.pianoroll.pitch == 67 end,
-      done = "The cursor is on G4. The title row shows the name, and the name on the left is highlighted.",
-      hint = "Look at the title row of the piano roll. It shows the pitch under the cursor.",
+      done = "The cursor is on G4. The title row shows the name of the pitch, and the name on the left is highlighted.",
+      hint = "Look at the title row of the piano roll, which shows the pitch under the cursor.",
     },
     {
       say = "`<CR>` adds a note at the cursor, or removes the note that is there. Press `<CR>`.",
       keys = { "<CR>" },
       check = function(_, look) return look.melody(look.clip("Piano")):find("67@0+0.25", 1, true) ~= nil end,
-      done = "A short G4 shows. Its length is one step, a sixteenth.",
+      done = "A short G4 shows, with a length of one step, which is a sixteenth note.",
     },
     {
-      say = "`<A-l>` makes the note under the cursor one step longer and `<A-h>` makes it shorter. They do the same to a clip in the arrange view. Press `<A-l>` three times.",
+      say = "`<A-l>` makes the note under the cursor one step longer, and `<A-h>` makes it shorter. In the arrange view, the same keys change the length of a clip. Press `<A-l>` three times.",
       keys = { "<A-l>", "<A-l>", "<A-l>" },
       check = function(_, look) return look.melody(look.clip("Piano")):find("67@0+1", 1, true) ~= nil end,
-      done = "The note is one beat long now.",
+      done = "The note is now one beat long.",
     },
     {
       say = "`<C-a>` (or `+`) moves the note up one semitone and `<C-x>` (or `-`) moves it down. Press `<C-a>` two times.",
@@ -85,21 +88,21 @@ of it is one undo step. `.` repeats it at the cursor, as Vim repeats an insert.]
       say = "Press `4l` to move one beat. Then press `i` to draw a note there.",
       keys = { "4l", "i" },
       check = function() return paw.keymap.mode == "i" and paw.ui.views.pianoroll.beat == 1 end,
-      done = "The mode is INSERT at beat 2. A note starts here, with no length yet. The title row shows its pitch and length.",
+      done = "The mode is INSERT at beat 2, and a note starts there with no length yet. The title row shows the pitch and the length of the note.",
     },
     {
-      say = "In insert mode, `l` makes the note one step longer and `h` makes it shorter. `+` `-` change its pitch. Press `2-` (down to G) and `4l` (one beat long).",
+      say = "In insert mode, `l` makes the note one step longer, and `h` makes it shorter. `+` and `-` change its pitch. Press `2-` (down to G) and `4l` (one beat long).",
       keys = { "2-", "4l" },
       check = function() return select(2, paw.roll_draw.text()) == "67@1+1" end,
-      done = "A green G that is one beat long shows. paw did not write it yet. The cursor is at its end.",
-      hint = "Counts work as in normal mode: `4l` is `l` four times. `h` moves one step back.",
+      done = "A green G that is one beat long shows, and the cursor is at its end. paw has not written the note yet.",
+      hint = "Counts work as in normal mode, so `4l` is `l` four times. `h` moves one step back.",
     },
     {
       say = "`<CR>` keeps the note and starts the next note at its end. Press `<CR>`, `2-` (F), `4l`, `<CR>`, `-` (E) and `4l`.",
       keys = { "<CR>", "2-", "4l", "<CR>", "-", "4l" },
       check = function() return paw.roll_draw.text() == "67@1+1 65@2+1" and select(2, paw.roll_draw.text()) == "64@3+1" end,
-      done = "G and F are kept, and you draw an E now.",
-      hint = "Each new note starts with no length, and `4l` draws it. `<BS>` removes the last note that you kept.",
+      done = "paw keeps G and F, and you now draw an E.",
+      hint = "Each new note starts with no length, and `4l` makes it one beat long. `<BS>` removes the last note that you kept.",
     },
     {
       say = "`<Esc>` writes the notes that you drew and leaves insert mode. Press `<Esc>`.",
@@ -108,19 +111,19 @@ of it is one undo step. `.` repeats it at the cursor, as Vim repeats an insert.]
         return paw.keymap.mode == "n"
           and look.melody(look.clip("Piano")):find("69@0+1 67@1+1 65@2+1 64@3+1 64@4+1", 1, true) ~= nil
       end,
-      done = "The notes A G F E go into the notes E D C that were there before. All of this is one undo step.",
+      done = "paw adds the notes A, G, F and E to the notes E, D and C that were there before, and the whole insert is one undo step.",
     },
     {
       say = "Now we add a chord at the end of the clip. Press `$` (the end), `i`, `4-` (down to C) and `4l`.",
       keys = { "$", "i", "4-", "4l" },
       check = function() return select(2, paw.roll_draw.text()) == "60@8+1" end,
-      done = "A C that is one beat long shows after the end of the clip. The clip becomes longer to hold it.",
+      done = "A C that is one beat long shows after the end of the clip, and the clip becomes longer to hold the note.",
     },
     {
-      say = "`c` makes the note a chord. It shows a list of chords, the chord of the key on C first. Press `c`, then `<CR>` to take that chord.",
+      say = "`c` makes the note a chord, and it shows a list of chords with the chord of the key on C first. Press `c`, then `<CR>` to take the first chord.",
       keys = { "c", "<CR>" },
       check = function() return select(2, paw.roll_draw.text()) == "60@8+1 64@8+1 67@8+1" end,
-      done = "C E G show in green. The keys of the pencil change all of the chord, as one note. Type a symbol, for example `V7` or `Am`, to get another chord.",
+      done = "C, E and G show in green, and the keys of insert mode now change the whole chord as one note. To get another chord, type a symbol, e.g., `V7` or `Am`.",
     },
     {
       say = "`<CR>` keeps the chord and continues after it. `K` and `J` move one octave. Press `<CR>`, `J` (the C below), `4l` and `<Esc>`.",
@@ -131,11 +134,11 @@ of it is one undo step. `.` repeats it at the cursor, as Vim repeats an insert.]
           and m:find("60@8+1 64@8+1 67@8+1", 1, true) ~= nil
           and m:find("48@9+1", 1, true) ~= nil
       end,
-      done = "The clip has a C major chord, then a C3 below it.",
+      done = "The clip has a C major chord, followed by a C3 below it.",
       hint = "`<Space>` adds a rest of one step before the next note.",
     },
     {
-      say = "In normal mode, `<Esc>` stays in the piano roll, as in each view. `<C-w>p` returns to the previous window. Press `<C-w>p`, then `gs` and `<leader><Space>` to listen. `<leader><Space>` stops.",
+      say = "In normal mode, `<Esc>` stays in the piano roll, and the same is true in every view. `<C-w>p` returns to the previous window. Press `<C-w>p`, then `gs` and `<leader><Space>` to listen, and `<leader><Space>` again to stop.",
       keys = { "<C-w>p", "gs", "<leader><Space>", { wait = 300 }, "<leader><Space>" },
       check = function(ctx, look) return look.focused() == "arrange" and look.played(ctx) end,
       done = "Your tune plays over the drums.",

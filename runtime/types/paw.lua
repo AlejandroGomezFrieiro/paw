@@ -263,6 +263,9 @@ paw.statusline = {}
 ---@class paw.stems
 paw.stems = {}
 
+---@class paw.step
+paw.step = {}
+
 ---@class paw.stretch
 paw.stretch = {}
 
@@ -1105,6 +1108,13 @@ paw.audio.levels = paw.api.input_levels
 ---@param cpu any
 function paw.audio.load(cpu) end
 
+--- A picker of the inputs of a track (`I` on a track): monitoring first,
+--- then each choice of `M.choices`. With `groups` (`{ "midi", "channel" }`),
+--- only those choices: the MIDI input, as step input opens it.
+---@param track any
+---@param groups any
+function paw.audio.pick(track, groups) end
+
 --- The name of a device, made short enough for a track header. The name of
 --- the maker goes when a model number follows it, and a number at the end
 --- also goes.
@@ -1579,7 +1589,7 @@ function paw.clip_kinds.data(clip) end
 ---@param spec any
 function paw.clip_kinds.define(name, spec) end
 
---- A few words on a clip of a kind, for `K`: "Film clip · intro.mp4", or
+--- A few words on a clip of a kind, for `K`: `Film clip · intro.mp4`, or
 --- "film (no extension here defines it)". Nil for a MIDI or audio clip.
 ---@param clip any
 function paw.clip_kinds.describe(clip) end
@@ -3069,7 +3079,7 @@ function paw.frontend.input_menu(track) end
 ---@param lane any
 function paw.frontend.lane_name(lane) end
 
---- The stretch of a lane's range that is worth drawing it over: a fader's
+--- The stretch of a lane's range that the drawing covers: a fader's
 --- travel for volume, the whole range for anything else.
 ---@param lane any
 function paw.frontend.lane_span(lane) end
@@ -3159,9 +3169,6 @@ function paw.frontend.sidechain_menu(device) end
 --- the data that the frontend has already.
 ---@param known any
 function paw.frontend.state(known) end
-
---- True if step input (notes from a MIDI keyboard) is on.
-function paw.frontend.step_input() end
 
 --- What take `take` of a clip plays, for the picture in its take lane. For
 --- sound, this is a waveform as `M.peaks` gives it, at `points` points. For
@@ -5302,9 +5309,12 @@ function paw.markdown.width(s) end
 ---@param opts any
 function paw.markers.add(beat, name, opts) end
 
---- The region a beat is in: the shortest of those that hold it, or nil.
+--- The region a beat is in: the innermost of those that hold it, or nil.
+--- With `level` 2, the region around that one, and so on out (the
+--- outermost when there are fewer).
 ---@param beat any
-function paw.markers.around(beat) end
+---@param level any
+function paw.markers.around(beat, level) end
 
 --- The marker or region start nearest a beat within `reach` beats (half a
 --- grid step by default), or the region the beat is inside.
@@ -5312,8 +5322,18 @@ function paw.markers.around(beat) end
 ---@param reach any
 function paw.markers.at(beat, reach) end
 
+--- The regions one level inside a region, in order of time; with no id, the
+--- regions at the top.
+---@param id any
+function paw.markers.children(id) end
+
 --- A name for a new marker that has none: "Marker 3" for the third.
 function paw.markers.default_name() end
+
+--- The level of a region: 1 at the top, 2 inside one region, and so on.
+--- Nil for a marker.
+---@param id any
+function paw.markers.depth(id) end
 
 --- The marker or region of a number (its place in the song), of an id
 --- given as `{ id = n }`, or of a name. Nil if there is none.
@@ -5324,32 +5344,69 @@ function paw.markers.find(which) end
 ---@param marker any
 function paw.markers.label(marker) end
 
+--- The row of the regions' lane that a marker or region is on: 0 for the
+--- first row (the top level, and the markers).
+---@param id any
+function paw.markers.lane_row(id) end
+
 --- Each marker and region, in order of time: { id, beat, name, length, color }.
 --- A region has a `length` in beats. A marker has no length.
 function paw.markers.list() end
+
+--- Move a marker or a region so that it starts at `beat`. A region takes
+--- the regions and the markers inside it along, in one undo step, unless
+--- `alone`. Returns it and how many moved with it.
+---@param id any
+---@param beat any
+---@param alone any
+function paw.markers.move(id, beat, alone) end
 
 --- The first marker after a beat, and the last before it.
 ---@param beat any
 function paw.markers.next(beat) end
 
+--- The node of a region by its id, or nil.
+---@param id any
+function paw.markers.node(id) end
+
+--- The region around a region (the smallest that holds it), or around a
+--- marker (the innermost at its beat). Nil at the top.
+---@param id any
+function paw.markers.parent(id) end
+
+--- The regions around a beat, the outermost first. Where two siblings
+--- overlap, the one that starts later is taken.
+---@param beat any
+function paw.markers.path(beat) end
+
+--- A region's names from the top down, joined by `/`: `Chorus 2/Verse A`.
+--- `:render range=` and `paw.markers.region` take it when names repeat.
+---@param region any
+function paw.markers.pathname(region) end
+
 --- The last marker before a beat, or nil.
 ---@param beat any
 function paw.markers.prev(beat) end
 
---- A region by number, id or name.
+--- A region by number, id, name or path of names (`Chorus 2/Verse A`).
 ---@param which any
 function paw.markers.region(which) end
 
 --- The regions alone.
 function paw.markers.regions() end
 
---- Remove a marker by id.
+--- Remove a marker by id. With `with_inside`, a region's regions inside it
+--- go too (never clips, nor markers); without, they move up one level.
 ---@param id any
-function paw.markers.remove(id) end
+---@param with_inside any
+function paw.markers.remove(id, with_inside) end
 
---- Render every region to a file of its own in `dir`, named after it:
---- `01 Intro.wav`. `opts` is as for `paw.render`, plus `format` ("wav",
---- "flac", "mp3", "ogg" or "opus"). Returns the files.
+--- Render every region to a file of its own in `dir`, named by its path:
+--- `01 Intro.wav`, and inside a region `03 Chorus 2 - 01 Verse A.wav`
+--- (each number is the place among its siblings). `opts` is as for
+--- `paw.render`, plus `format` ("wav", "flac", "mp3", "ogg" or "opus") and
+--- `level`: a number renders the regions of that level only (1 the top),
+--- "leaves" the regions with no region inside. Returns the files.
 ---@param dir any
 ---@param opts any
 function paw.markers.render_regions(dir, opts) end
@@ -5359,6 +5416,16 @@ function paw.markers.render_regions(dir, opts) end
 ---@param id any
 ---@param fields any
 function paw.markers.set(id, fields) end
+
+--- The regions as a tree: the top-level regions, each a node with
+--- `region`, `depth` (1 at the top), `place` (among its siblings),
+--- `parent` and `children`, in order of time. Flat regions are a tree of
+--- depth 1.
+function paw.markers.tree() end
+
+--- Every region's node in the order of the tree: each region, then the
+--- regions inside it.
+function paw.markers.walk() end
 
 --- Take away an audio clip's edit list. Returns how many edits it had.
 ---@param clip any
@@ -6353,10 +6420,10 @@ function paw.render.default_path() end
 ---               and then, and `render.done` (what is returned below),
 ---               `render.failed` ({ path, error }) or `render.cancelled` at the end;
 ---               a render in the foreground emits `render.finished` with what it returns
---- When it is done, it returns `types.RenderResult`. This has the path,
+--- When it is done, it returns `types.RenderResult`. The result has the path,
 --- the frames, the seconds, the peak, the gain and the loudness. It also has
---- the format, the bits (nil for a lossy format) and the channels. paw emits `render.before` first.
---- Its handlers run before the render starts, so an extension that makes
+--- the format, the bits (nil for a lossy format) and the channels.
+--- paw emits `render.before` first. Its handlers run before the render starts, so an extension that makes
 --- audio of its own can complete it. paw refuses a file that it cannot
 --- write before it renders. When a render fails or stops, no file has the
 --- name that you gave.
@@ -6635,11 +6702,14 @@ function paw.roll_draw.bend_of(controls, note) end
 ---@param name any
 function paw.roll_draw.chord(pitches, name) end
 
+--- The Step button of the window: step input on or off, from normal mode too.
+function paw.roll_draw.click_step() end
+
 --- Per-note bends of a clip, read once for each frame that shows it.
 ---@param id any
 function paw.roll_draw.controls_of(id) end
 
---- The note being drawn, in words: "C4 · end · 2 steps · 0.5 beats", or nil.
+--- The note being drawn, in words: `C4 · end · 2 steps · 0.5 beats`, or nil.
 function paw.roll_draw.describe() end
 
 --- A digit of the count for the next key, or of a length after `=`.
@@ -6687,9 +6757,6 @@ function paw.roll_draw.hidden(clip) end
 ---@param spec any
 function paw.roll_draw.key(lhs, spec) end
 
---- Insert mode the piano keys way this once, whatever `roll_insert` says.
-function paw.roll_draw.keys_once() end
-
 --- What the piano roll's title says in insert mode.
 function paw.roll_draw.label() end
 
@@ -6710,7 +6777,7 @@ function paw.roll_draw.mark(kind) end
 function paw.roll_draw.name(letter) end
 
 --- Keep the notes and go on. "legato" starts the next note at the end,
---- "rest" a step (or count steps) after it; a note of the clip that starts
+--- "rest" a step (the note length, or count steps) after it; a note of the clip that starts
 --- there is taken up. "chord" draws another note at the same start and as
 --- long (`chord`'s count stacks).
 ---@param how any
@@ -6744,12 +6811,20 @@ function paw.roll_draw.pitch(semitones, step) end
 --- Show what an extension's key changed in the notes being drawn.
 function paw.roll_draw.shown() end
 
---- Start drawing at the cursor. `how` as `take` has it: "i" or "a".
+--- Start drawing at the cursor. `how` as `take` has it: "i" or "a"; or
+--- "step", step input with a caret (a pen with no length) at the cursor.
 ---@param how any
 function paw.roll_draw.start(how) end
 
 --- What the window says while in insert mode.
 function paw.roll_draw.status() end
+
+--- The next insert mode is step input (`I` in normal mode).
+function paw.roll_draw.step_next() end
+
+--- True while step input is on: insert mode in the piano roll, with the
+--- keys of a MIDI controller entering notes (`I`).
+function paw.roll_draw.stepping() end
 
 --- Show the next (`dir` 1, `<C-n>`) or the previous (-1, `<C-p>`)
 --- suggestion in place of the notes being drawn. Any key that edits takes
@@ -6761,9 +6836,9 @@ function paw.roll_draw.suggest(dir) end
 --- the roll. The second value is the notes that you draw now, "67@1.5+0".
 function paw.roll_draw.text() end
 
---- Change from drawing to the piano keys and stay in insert mode. paw
---- writes the drawn notes, and the letters are notes from now on.
-function paw.roll_draw.to_keys() end
+--- Step input on or off (`I` in insert mode). The pen stays as it is.
+--- Without a MIDI input, paw says why and opens the track's list of inputs.
+function paw.roll_draw.toggle_step() end
 
 --- Put back the notes that were there before the suggestions (`<C-e>`).
 function paw.roll_draw.unsuggest() end
@@ -6851,6 +6926,20 @@ function paw.routes.spread(device) end
 ---@param spec any
 function paw.ruler.add(name, spec) end
 
+--- Add a lane of rows under the bar numbers, or put a new one in place of
+--- one of that name.
+---@param name any
+---@param spec any
+function paw.ruler.add_lane(name, spec) end
+
+--- Draw the lanes on `buf`, the rows under the bar numbers, one under the
+--- other. `x` is the column of a beat; `scroll` and `span` the beats in sight.
+---@param buf any
+---@param x any
+---@param scroll any
+---@param span any
+function paw.ruler.draw_lanes(buf, x, scroll, span) end
+
 --- The pieces of bar `bar`'s label, from the parts in `paw.opt.barlabel`
 --- in their order. `bar` is the song's bar: in a scope with time, its
 --- label counts from 1 at the scope's start (`paw.scope.bar_offset`).
@@ -6864,6 +6953,9 @@ function paw.ruler.add(name, spec) end
 ---@param room any
 function paw.ruler.label(bar, beat, style, cursor_beat, room) end
 
+--- How many rows the lanes need now, all together.
+function paw.ruler.lane_rows() end
+
 --- How many `W` (ahead) or `B` (behind) reach bar `bar` from the cursor
 --- at `beat`: from inside a bar, the first `B` goes to its own start
 --- (paw/defaults/cursor.lua). Nil for the cursor's own bar.
@@ -6875,6 +6967,10 @@ function paw.ruler.relative(bar, beat) end
 ---@param name any
 function paw.ruler.remove(name) end
 
+--- Take a lane away.
+---@param name any
+function paw.ruler.remove_lane(name) end
+
 --- Change a part that is there, the built-in `number` too: its `order`,
 --- `render`, and the `glyphs` and `styles` it draws with (merged into its
 --- own). The part becomes a changed copy, as with `paw.trackcolumn.set`:
@@ -6883,6 +6979,14 @@ function paw.ruler.remove(name) end
 ---@param name any
 ---@param patch any
 function paw.ruler.set(name, patch) end
+
+--- Change a lane that is there, the built-in `regions` too: its `order`,
+--- `rows`, `render`, and the `glyphs` and `styles` it draws with (merged
+--- into its own). The lane becomes a changed copy: `paw.ruler.add_lane(name,
+--- old)` puts back the table it had before.
+---@param name any
+---@param patch any
+function paw.ruler.set_lane(name, patch) end
 
 --- A connection closed or stopped to watch. paw keeps no more data for it.
 ---@param client any
@@ -6928,6 +7032,13 @@ function paw.scope.bar_offset(s) end
 --- The path in words: `Song › Bridge › Strings`.
 ---@param s any
 function paw.scope.breadcrumb(s) end
+
+--- The scopes one level inside a scope (the current one by default): for
+--- a region scope, the regions one level inside its region (paw/markers.tl), in
+--- order of time, each a region scope whose parent is that scope. Other
+--- kinds have none.
+---@param s any
+function paw.scope.children(s) end
 
 --- True if a scope (the current one by default; a group's id is a scope
 --- of that group) shows a track: it and every level above it do. With no
@@ -7272,6 +7383,53 @@ function paw.stems.plan(opts) end
 ---@param plan any
 ---@param opts any
 function paw.stems.render(plan, opts) end
+
+--- The name of the target that listens now, or nil.
+function paw.step.active() end
+
+--- Say that step input has no MIDI input for `track`, and why, and open
+--- the MIDI part of the track's list of inputs. True if it had to.
+---@param track any
+function paw.step.ask_input(track) end
+
+--- The pitches held now on the controller, in the order they were played.
+function paw.step.held() end
+
+--- The pitches held, in words: "C4 E4".
+function paw.step.held_text() end
+
+--- What step input listens to for `track`: its MIDI input's port and
+--- channel, or every port. Nil and why not when paw hears no MIDI: no port
+--- is listed or open, or the track's port is not connected.
+---@param track any
+function paw.step.input(track) end
+
+--- Why the keys only sound now: "playing" or "recording", or nil.
+function paw.step.paused() end
+
+--- Look again at which target listens: its track plays the controller,
+--- and with none the held keys are forgotten. A target calls it when it
+--- starts or stops listening.
+function paw.step.refresh() end
+
+--- The port that step input listens to for `track`, in a few words:
+--- `"Keystation 49"`, `"Keystation 49 · ch 2"`, `"all ports"`, or nil with no input.
+---@param track any
+function paw.step.source(track) end
+
+--- Let a view take step input: `spec` as `paw.contracts.StepTarget` says.
+--- The first target whose `active()` is true listens. A second call with
+--- the same name replaces the target.
+---@param name any
+---@param spec any
+function paw.step.target(name, spec) end
+
+--- Remove the target of a view (its extension unloaded).
+---@param name any
+function paw.step.untarget(name) end
+
+--- The velocity of the notes entered, in words: "key", or a number.
+function paw.step.velocity() end
 
 --- The stretch, shift and loop of a clip in a few characters, for its
 --- label: "×1.5 +3st ↻". `stretching…` shows while paw makes its sound. Nil
@@ -7866,7 +8024,7 @@ function paw.track_kinds.clear(which) end
 function paw.track_kinds.define(name, spec) end
 
 --- A few words on a track's kind, for `K` and the track header:
---- "Vocal track · Kitane", "vocal (no extension here defines it)", or nil.
+--- `Vocal track · Kitane`, "vocal (no extension here defines it)", or nil.
 ---@param which any
 function paw.track_kinds.describe(which) end
 
@@ -8963,6 +9121,13 @@ function paw.api.engine_audible(tracks) end
 ---@param track integer?
 function paw.api.engine_follow(track) end
 
+--- The track that plays MIDI input as if monitored, also while another
+--- track is armed, or none with nil. While set, it takes the place of
+--- `engine_follow`'s track. Step input sets it to the track of the
+--- clip it enters into, so that the controller sounds there.
+---@param track integer?
+function paw.api.engine_follow_always(track) end
+
 --- --- engine ---
 function paw.api.engine_get() end
 
@@ -8973,6 +9138,14 @@ function paw.api.engine_held() end
 ---@param track integer
 ---@param file string?
 function paw.api.engine_hold(track, file) end
+
+--- Controls of MIDI input that tracks do not get: they neither sound
+--- nor record. Scripts still hear them, as `midi.in` events with
+--- `filtered = true`. Each `name` (`"step"`, `"learn"`) keeps its own
+--- list beside the others; nil or an empty list removes it.
+---@param name string
+---@param rules any
+function paw.api.engine_midi_filter(name, rules) end
 
 --- Forget the process times that `engine_get().blocks` recorded until now.
 function paw.api.engine_reset_stats() end

@@ -80,7 +80,7 @@ average of its runs in the results file.
   So the study compares whole programs, not engines. The synthesizers do
   different work for each note.
 - **No audio device.** paw runs with `--audio null`. REAPER, Ardour and
-  LMMS use their dummy audio devices.
+  LMMS use their null audio devices.
 - **The display.** Each run has a private display of its own:
   - "Xvfb" is an X server in memory. A program on Xvfb draws with the
     processor, and the server does almost no work.

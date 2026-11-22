@@ -251,10 +251,10 @@ end
 ---               and then, and `render.done` (what is returned below),
 ---               `render.failed` ({ path, error }) or `render.cancelled` at the end;
 ---               a render in the foreground emits `render.finished` with what it returns
---- When it is done, it returns `types.RenderResult`. This has the path,
+--- When it is done, it returns `types.RenderResult`. The result has the path,
 --- the frames, the seconds, the peak, the gain and the loudness. It also has
---- the format, the bits (nil for a lossy format) and the channels. paw emits `render.before` first.
---- Its handlers run before the render starts, so an extension that makes
+--- the format, the bits (nil for a lossy format) and the channels.
+--- paw emits `render.before` first. Its handlers run before the render starts, so an extension that makes
 --- audio of its own can complete it. paw refuses a file that it cannot
 --- write before it renders. When a render fails or stops, no file has the
 --- name that you gave.

@@ -287,40 +287,6 @@ test("half-typed commands show what can follow, and are counted right", function
   paw.keymap.del("gz", { view = "arrange", mode = "x" })
 end)
 
-test("insert mode the keys way enters notes from the keyboard as from a piano", function()
-  local t = three_clips()
-  paw.opt.octave, paw.opt.velocity = 4, 100
-  -- Insert mode draws notes (tests/drawinsert.lua); `I` while drawing
-  -- makes the keys a piano.
-  paw.cursor.set_beat(16)
-  keys("i<CR>I")
-  eq(paw.ui.focused .. paw.keymap.mode, "pianorolli", "i Enter in the arrange view opens a new clip for typing")
-  local clip = t:clips()[4]
-  eq(clip.start .. "+" .. clip.length, "16+4", "at the cursor")
-  local roll = paw.ui.views.pianoroll
-  roll.length = nil
-  keys("asd")
-  eq(melody(clip), "60@0+0.25 62@0.25+0.25 64@0.5+0.25", "the home row is the white keys")
-  keys("2w")
-  eq(melody(clip):match("%S+$"), "61@0.75+0.5", "a digit sets the step; the row above is the black keys")
-  keys("<Space>xa")
-  eq(melody(clip):match("%S+$"), "72@1.75+0.5", "Space is a rest, x an octave up")
-  keys("zADg")
-  eq(melody(clip):match("60@2.25.*$"), "60@2.25+0.5 64@2.25+0.5 67@2.25+0.5", "capitals stay in place, for chords")
-  keys("<BS>")
-  eq(#clip:notes(), 5, "Backspace steps back and removes what was there")
-  keys("8aa")
-  eq(clip.length, 8, "the clip grows a bar when the notes run past its end")
-  keys("<Esc>")
-  eq(paw.keymap.mode, "n", "Escape returns to normal mode")
-  keys("u")
-  eq(#t:clips(), 3, "undo takes back the whole insert, the clip that i made with it")
-  keys("<Esc>")
-  eq(paw.ui.focused, "pianoroll", "Escape in normal mode stays in the piano roll")
-  keys("<C-w>p")
-  eq(paw.ui.focused, "arrange", "Ctrl-w p goes back to the arrange view")
-end)
-
 test("the piano roll has the same grammar for notes", function()
   local t = three_clips()
   local clip = t:clips()[1]

@@ -1,9 +1,9 @@
 # The graphical window
 <!-- tags: window gui paw-gui -->
 
-`paw-gui` is the graphical frontend of paw. It shows the kernel's views
-for the mouse. These are the transport, the tracks, the clips on a
-timeline, the devices of the selected track, the mixer and the piano roll. This page
+`paw-gui` is the graphical frontend of paw, and it shows the kernel's views
+for the mouse, which are the transport, the tracks, the clips on a
+timeline, the devices of the selected track, the mixer and the piano roll. The window page
 describes its command line, its parts and what each gesture does. For the
 reasons behind its design, see [About scenes](../explanation/about-scenes.md).
 For the Lua functions behind it, see [The graphical window in
@@ -25,7 +25,7 @@ paw-gui --connect <host:port> --token-file <path>
 | `--token` | token | The token for `--connect`. |
 | `--token-file` | path | The file that holds the token for `--connect`. |
 | `PAW_TOKEN` | token | The environment variable that holds the token, when the two options above are absent. |
-| `--accept-certificate` | | Accepts the certificate that the kernel shows, also when a different one is remembered for its address. |
+| `--accept-certificate` | | Accepts the certificate that the kernel shows, even when a different one is remembered for its address. |
 | `--no-tls` | | Connects without TLS, to a kernel started with `--no-tls`. |
 | `--listen-audio` | | Plays the kernel's sound on this machine (about 1 Mbit/s). The engine menu has the same switch. |
 | `--renderer` | `gpu` (default) or `software` | `gpu` draws with OpenGL on the system's driver. `software` asks Mesa for llvmpipe, which draws on the processor. |
@@ -39,9 +39,9 @@ protocol](protocol.md#connections).
 ## The kernel and the window
 
 The window keeps no project state. The kernel sends the state when it
-changes (`frontend.watch`, at most 30 times a second). Each gesture and
-each key returns to the kernel as a call to `paw.frontend.act` or as a key.
-So the window, a terminal and a script can control the same project at
+changes (`frontend.watch`, at most 30 times a second), and each gesture and
+each key returns to the kernel as a call to `paw.frontend.act` or as a key,
+so the window, a terminal and a script can control the same project at
 the same time.
 
 A window that started its kernel shares the kernel's seat. A window
@@ -49,14 +49,14 @@ attached with `--socket` or `--connect` has a seat of its own: its own
 cursor, selection and mode. See [Seats](protocol.md#seats).
 
 The menus of the window are the kernel's menus (`paw.frontend.menu`, in
-`runtime/lua/paw/window_menus.tl`). The window shows them and tells the
+`runtime/lua/paw/window_menus.tl`), and the window shows them and tells the
 kernel which entry the user selected.
 
 ## What the window keeps
 
 The window keeps its layout in `window.json`, in the state directory of the
 kernel's machine (`~/.local/state/paw/window.json`). It writes the file
-when a value is stable for one second, and when it closes. It uses
+when a value is stable for one second and when it closes, using
 `paw.frontend.layout_get()` and `paw.frontend.layout_set(table)`, so a
 window attached to a kernel that runs already also finds the file.
 
@@ -67,27 +67,27 @@ window attached to a kernel that runs already also finds the file.
 
 The zoom and the height of the tracks are the kernel's options
 (`paw.opt.zoom`, `paw.opt.track_height`), the same as in the terminal.
-What the panes show is the kernel's layout. The project keeps it (see
-[Layouts](windows.md#layouts)), not `window.json`.
+What the panes show is the kernel's layout, which the project keeps (see
+[Layouts](windows.md#layouts)) and not `window.json`.
 
-On Wayland, the compositor decides the position of a window. So the
+On Wayland, the compositor decides the position of a window, so the
 window keeps no position there. If no screen shows a saved position, the
 window opens at the top left of the main screen.
 
 ## Graphics
 
 The window is written with [egui](https://github.com/emilk/egui). It draws
-with OpenGL through egui's glow renderer, on the system's driver: the
-driver of the graphics card, or Mesa's llvmpipe on the processor. On NixOS,
+with OpenGL through egui's glow renderer, on the system's driver, which is the
+driver of the graphics card or Mesa's llvmpipe on the processor. On NixOS,
 `hardware.graphics.enable` supplies the driver. If OpenGL cannot start,
-the window shows one line that tells so, and stops.
+the window shows one line that says so and stops.
 
 At start, the window writes the name of the OpenGL renderer to its log
 (`paw-gui: OpenGL renderer: ...`) and tells it to the kernel
 (`paw.frontend.window_renderer`). If the renderer draws on the processor
-(`llvmpipe`, `softpipe` or `swrast`), the kernel shows one warning. The warning
-tells the likely cause and what to do. `:checkhealth window` shows the
-renderer and the advice for all the usual causes:
+(`llvmpipe`, `softpipe` or `swrast`), the kernel shows one warning that
+gives the likely cause and what to do. `:checkhealth window` shows the
+renderer and the advice for all the usual causes, which are in the table below.
 
 | Cause | What to do |
 | --- | --- |
@@ -97,37 +97,37 @@ renderer and the advice for all the usual causes:
 | The X server gives no DRI3 (SSH with X forwarding, VNC, Xvfb) | Start the window on the screen of the computer. |
 | The computer has no graphics card (no render node in `/dev/dri`) | The window can draw only on the processor. |
 
-The window draws a frame only when something changes. At rest, it draws
+The window draws a frame only when something changes, so at rest it draws
 nothing. While the song plays, it draws the playhead, the clock and the
-meters at most `paw.opt.window_fps` times a second. The value `"auto"`
+meters at most `paw.opt.window_fps` times a second, and the value `"auto"`
 (the default) is 30 on a graphics card and 15 on the processor, where
 each frame costs much more. A key, the pointer and an edit show in the
 next frame all the same. The window tells the kernel this rate, and the
-kernel sends the values that move at the same rate, not faster.
+kernel sends the values that move at the same rate and not faster.
 
 The window also draws a frame again only where it changed
-(`paw.opt.window_cache`). It divides the window into squares of 32 by 32
-pixels. A square whose shapes are the same as in the last frame keeps its
+(`paw.opt.window_cache`) by dividing the window into squares of 32 by 32
+pixels, where a square whose shapes are the same as in the last frame keeps its
 pixels. While the song plays, only the squares of the playhead, the clock,
-the meters and the live values change: a few percent of the window. A
+the meters and the live values change, which is a few percent of the window, and a
 frame that changes no square is not drawn and not shown. The window draws
 each changed square from all the shapes in it, so the pixels are the same
 as when it draws the full window. With EGL, the window also tells the
 display server or the compositor which parts changed, so they copy only
 those parts. With the software renderer on X11, the window uses GLX and
 copies only the changed parts to the window
-(`GLX_MESA_copy_sub_buffer`). Once a second it copies all of the window,
+(`GLX_MESA_copy_sub_buffer`), and once a second it copies all of the window,
 so a part that an X server without a compositor lost returns. With
-`paw.opt.window_cache = false`, the window draws each frame in full. A
+`paw.opt.window_cache = false`, the window draws each frame in full, and a
 view in a window of its own always draws in full.
 
-While the song plays, often only the live values change. Then the window
-makes a frame without a pass of its layout. It keeps the shapes of the
-last pass. It paints again only the parts that the live values move: the
+While the song plays, often only the live values change, and then the window
+makes a frame without a pass of its layout, keeping the shapes of the
+last pass and painting again only the parts that the live values move, which are the
 playhead, the meters, the clock and the load of the engine. A key, the
-pointer, a new scene or a change of mode starts a full pass. So a click
+pointer, a new scene or a change of mode starts a full pass, so a click
 always finds what the window shows. A full pass also runs after 30 such
-frames. It also runs when a character of these parts shows for the first
+frames, and when a character of these parts shows for the first
 time at its place.
 
 A view that the kernel paints as a picture (notation) keeps the page of
@@ -135,7 +135,7 @@ the picture as one image. The window makes again only the small images
 of the parts that move over the page, such as the playhead.
 
 The piano roll and the timeline get
-only the notes, lines and points near the visible area. So a clip of
+only the notes, lines and points near the visible area, so a clip of
 thousands of notes opens and scrolls as fast as a short clip.
 
 Measured with the demo song in a 1500x960 window on llvmpipe, without a
@@ -154,7 +154,7 @@ The kernel uses about 5% to 9% more. While the song plays, the window
 draws about 4% of its pixels in each frame. Before the window drew only
 the changed parts, the arrange view used about 37% of a core.
 
-llvmpipe uses as many threads as the processor has free. So the load
+llvmpipe uses as many threads as the processor has free, so the load
 that you measure changes with what else runs. To compare two windows, set
 `LP_NUM_THREADS=4` for both.
 
@@ -162,7 +162,7 @@ On a graphics card, the card fills the pixels.
 
 ## Colors and fonts
 
-The surfaces are neutral grays. A color tells a state:
+The surfaces are neutral grays, and a color marks a state, as in the table below.
 
 | Color | Meaning |
 | --- | --- |
@@ -178,17 +178,17 @@ The surfaces are neutral grays. A color tells a state:
 | --- | --- |
 | Words | Inter, in the program |
 | Numbers that change (the clock, levels, values) | JetBrains Mono, in the program |
-| Japanese, Chinese and Korean (a lyric such as さくら) | The system's font for them, found through fontconfig (Noto Sans CJK, Source Han Sans and other) |
+| Japanese, Chinese and Korean (a lyric such as さくら) | The system's font for them, found through fontconfig (Noto Sans CJK, Source Han Sans and more) |
 | Kana, when the system has no such font | Noto Sans CJK JP, cut to the kana (60 KB, in the program). Kanji and hangul then show as boxes. |
 | Icons | Phosphor |
 
 The fonts in the program are in `crates/paw-gui/fonts`, with their
-licenses: the SIL Open Font License, and MIT for Phosphor. So the window
+licenses, which are the SIL Open Font License and MIT for Phosphor, so the window
 looks the same on all machines.
 
 ## Parts of the window
 
-From top to bottom, the window has:
+From top to bottom, the window has the following parts.
 
 - the transport bar
 - a row of tabs, when there is more than one tab
@@ -196,10 +196,10 @@ From top to bottom, the window has:
 - the status line.
 
 A pane of the arrange view shows the ruler, the track headers and the
-timeline. It is the arrange view of the terminal, drawn from its scene and
+timeline, as the arrange view of the terminal does, drawn from its scene and
 laid out in cells of the window's monospace font. The ruler is its first
 row, a track is three to four rows tall, and the zoom is columns a beat.
-The window paints these parts as widgets, where they are between cells:
+The window paints the following parts as widgets, where they fall between cells.
 
 - the clips
 - the ground of each row, with its bar lines
@@ -207,7 +207,7 @@ The window paints these parts as widgets, where they are between cells:
 - the levels and the switches of the headers
 - the playhead.
 
-The live values move the playhead and the levels, with no new scene. The
+The live values move the playhead and the levels with no new scene, and the
 status line tells what the pointer does at its position.
 
 ## Transport bar
@@ -235,18 +235,18 @@ status line tells what the pointer does at its position.
 | Markers and regions…, MIDI controllers… | Run `:marker.list` and `:learn.list`. |
 | Quit | Closes the window. If there are changes that are not saved, the window asks first. |
 
-The question about changes that are not saved has three answers: save the
-changes, do not save them, or stay. For a project that has no file yet,
-the window then asks where to save it. A click on the close button of the
+The question about changes that are not saved has three answers, which are to save the
+changes, to not save them, or to stay. For a project that has no file yet,
+the window then asks where to save it, and a click on the close button of the
 window asks the same question. In Lua, the question is
 `paw.frontend.act.leave(how, "open:" .. path)`.
 
 Open… with a `.mid` file opens it as a new project. Import, and the import
-entry of the timeline menu, put its tracks below the track of the cursor.
-They start at the cursor, and the tempo map does not change. See
+entry of the timeline menu, put its tracks below the track of the cursor,
+starting at the cursor, and the tempo map does not change. See
 [MIDI](midi.md#midi-files) for what paw makes of a MIDI file.
 
-The render dialog has these fields:
+The render dialog has the fields below.
 
 | Field | Values |
 | --- | --- |
@@ -256,36 +256,36 @@ The render dialog has these fields:
 | Sample size, tail, normalize, dither, mono, a file for each track | As `:render` takes them. |
 | Tags | Title, artist, album, track, year, genre, comment and cover. The project keeps them. |
 
-The render runs in the background. The status line shows its progress and
+The render runs in the background, and the status line shows its progress and
 a Cancel button.
 
 ## File dialogs
 
-When the window started its kernel, the two use the same disk. Then Open…,
+When the window started its kernel, the two use the same disk, and then Open…,
 Save as…, Import and the `…` button of the render dialog show the desktop's
-file dialog. The window asks for it through the XDG desktop portal
+file dialog. The window asks for the dialog through the XDG desktop portal
 (`org.freedesktop.portal.FileChooser` over D-Bus) and links no toolkit.
 
 - The dialog offers projects, MIDI files, sound files and all files.
-- It starts in the directory of the last file selected, else beside the
-  project. The list picker of the kernel starts there too.
+- It starts in the directory of the last file selected, or beside the
+  project if there is none, and the list picker of the kernel starts there too.
 - The window continues to work while the dialog is open.
 
-The window uses the kernel's list picker in these conditions:
+The window uses the kernel's list picker in the following conditions.
 
 - there is no portal (no session bus, a bare window manager)
 - `paw.opt.native_dialogs` is `false`
 - the window is attached with `--socket` or `--connect`.
 
-But an attached window still shows the desktop's dialog for Import. It then
+An attached window still shows the desktop's dialog for Import, and it then
 sends the selected sound file to the kernel.
 
 ## Engine menu
 
 The engine menu starts with the sample rate, the block size and the
-latencies. It lists the output devices, the input devices and the block
+latencies, and it lists the output devices, the input devices and the block
 sizes. On an attached window, "Hear it on this machine" plays the kernel's
-sound on this machine, as `--listen-audio` does. The sound comes 0.25
+sound on this machine, as `--listen-audio` does, and the sound comes 0.25
 seconds late or more.
 
 ## Ruler
@@ -302,15 +302,15 @@ seconds late or more.
 | Right-click a flag | Removes the change. |
 
 The ruler numbers the bars by the tempo map. The punch range is the line
-under the band of the loop: red when punch is on, gray when it is off. The
-timeline menu sets the punch range from the selection or from the loop, and
+under the band of the loop, red when punch is on and gray when it is off, and the
+timeline menu sets the punch range from the selection or from the loop and
 starts and stops punch.
 
 ## Tempo lane
 
 The tempo lane is a row under the ruler that shows the tempo map as a
-curve. A change that holds is level. A ramp slopes. The timeline menu, `zT`
-and `:tempo.lane` show and hide it. Its corner shows its range of tempos.
+curve, where a change that holds is level and a ramp slopes. The timeline menu, `zT`
+and `:tempo.lane` show and hide it, and its corner shows its range of tempos.
 
 | Gesture | Effect |
 | --- | --- |
@@ -323,9 +323,9 @@ and `:tempo.lane` show and hide it. Its corner shows its range of tempos.
 ## Bands under the ruler
 
 Under the markers, each extension that adds a band
-(`paw.frontend.bands`) has a row, in the terminal too: for example, the
-findings of the mix. A click on an entry does what the entry is for. The
-status line tells what the click does. The sections of the song are on the
+(`paw.frontend.bands`) has a row, in the terminal too, for example the
+findings of the mix. A click on an entry does what the entry is for, and the
+status line says what the click does. The sections of the song are on the
 ruler's second row, and a click on one goes to its start.
 
 ## Timeline
@@ -368,14 +368,14 @@ On an audio clip:
 | Right-click the handle of a warp marker | Removes it. |
 
 Each gesture is one undo step. Two or more selected clips are the
-selection of visual mode. So `d`, `x`, `y`, `>`, `gc`, `J` (glue) and the
-other operators act on them. `S` splits them at the cursor. `Esc` clears
+selection of visual mode, so `d`, `x`, `y`, `>`, `gc`, `J` (glue) and the
+other operators act on them, `S` splits them at the cursor, and `Esc` clears
 the selection. One clip selected with a click is the clip under the cursor.
 
 ## Track headers
 
 A track header is the terminal's header, with a stripe in the color of
-the track down its left. It shows, line by line:
+the track down its left, and it shows the following, line by line.
 
 - the number and the name of the track, the letter of its automation mode
   (`A`, `T`, `L`, `W`) and the switches `M`, `S`, `R` and the loudspeaker
@@ -386,12 +386,12 @@ the track down its left. It shows, line by line:
 - a knob for the pan, the devices of the track and the track it plays into
 - the sends, and the input with the level that arrives there.
 
-A shorter row shows less. The shortest row shows only the first line. The
+A shorter row shows less, and the shortest row shows only the first line. The
 master is the last header, with its level on both sides.
 
-The level has these colors: green to −18 dB, then yellow-green, yellow,
-orange, and red from 0 dB. A thin line holds the peak for a short time.
-The clip light comes on when a level reaches 0 dB. It stays on until you
+The level is green to −18 dB, then yellow-green, yellow,
+orange, and red from 0 dB, and a thin line holds the peak for a short time.
+The clip light comes on when a level reaches 0 dB, and it stays on until you
 click the volume in dB.
 
 | Gesture | Effect |
@@ -413,7 +413,7 @@ click the volume in dB.
 The menu of a track has three entries for groups. They are `New group
 with this track…`, `Move into a group…` and `Take out of its group`
 (`Dissolve the group` on a group). The members of
-a group show under it, one step in and in its color. Their sound goes
+a group show under it, one step in and in its color, and their sound goes
 through the group. The triangle beside the name of the group hides and
 shows the members.
 
@@ -450,9 +450,9 @@ With the templates extension:
 | The loudspeaker on a track | Starts and stops input monitoring. |
 
 A track without an audio input records MIDI. The take shows in red on
-each armed track and becomes longer while it records. With punch on, it
+each armed track and grows longer while it records, and with punch on, it
 records only in the punch range. With a count-in, the clock shows `count 4`, `count 3` and
-other, and the button blinks on the beats until the take starts. The
+so on, and the button blinks on the beats until the take starts. The
 timeline menu starts and stops the count-in, and a pre-roll of two bars
 before a punch.
 
@@ -501,7 +501,7 @@ window draws it from its scene, with the gestures of the terminal. See
 
 The mixer is the terminal's mixer, laid out in cells of the window's
 monospace font. Each track has a strip, the VCAs follow the tracks, and the
-master is the last strip. A strip shows:
+master is the last strip, and a strip shows the following.
 
 - the name of the track on a plate in its color
 - the track it plays into
@@ -514,7 +514,7 @@ The window paints the faders, the switches, the meters, the peaks and the
 clip lights as widgets (the roles of [About
 scenes](../explanation/about-scenes.md)). A fader cap can be at any point
 along its travel. The live values move the meters, the peaks and the clip
-lights 30 times a second, with no new scene. The pointer uses the hit
+lights 30 times a second, with no new scene, and the pointer uses the hit
 regions of the terminal, in fractions of a cell, so a fader moves smoothly.
 
 | Gesture | Effect |
@@ -541,9 +541,9 @@ in the terminal.
 ## Device panel
 
 The device panel is the kernel's device panel, drawn from the same scene
-as in the terminal. The window paints its parts as widgets. The heading of
-a device is a band with a power button. A parameter is a slider with its
-value. The buttons have icons.
+as in the terminal, and the window paints its parts as widgets. The heading of
+a device is a band with a power button, a parameter is a slider with its
+value, and the buttons have icons.
 
 The pointer uses the hit regions and gestures of the
 terminal, in fractions of a cell. [The device panel](device-panel.md#the-pointer)
@@ -559,13 +559,13 @@ lists the gestures.
 | Arrows, cross | Move the device along the chain, remove it. |
 | Window button | Opens the plugin's own editor. |
 
-A parameter that a lane moves has an amber slider. The slider moves with
+A parameter that a lane moves has an amber slider, and the slider moves with
 the lane while the song plays, with no new scene from the kernel.
 
 ## Piano roll
 
 The piano roll is the kernel's piano roll, drawn from the same scene as in
-the terminal. Its grid is a plane of beats and pitches. The window paints
+the terminal, and its grid is a plane of beats and pitches. The window paints
 the notes where they are, between cells, in the colors of their tracks.
 The pointer uses the hit regions and gestures of the terminal's mouse, in
 fractions of a cell. The mouse works as in REAPER's MIDI editor.
@@ -624,9 +624,9 @@ modulation, expression, pedal).
 | Right-click | A menu: select all, clear the selection, delete, clear. |
 
 The tools are at the right of the title row of the roll. A roll can be
-narrower than 140 columns and 20 rows tall or more. Then the tools are on
+narrower than 140 columns and 20 rows tall or more, and then the tools are on
 a row of their own under the title, in the terminal too. Before them, the row shows
-the selection, or what insert mode draws. The tools are, in order:
+the selection, or what insert mode draws. The tools are, in order, as follows.
 
 | Tool | Effect |
 | --- | --- |
@@ -634,7 +634,7 @@ the selection, or what insert mode draws. The tools are, in order:
 | note length | A menu of note lengths. |
 | snap | Starts or stops the snap to the grid. |
 | quantize | Quantizes the selected notes, or all notes (`:notes.quantize`). |
-| step | Step input (`:notes.step_input`): with the transport stopped, notes played on a MIDI keyboard go in at the cursor, chords together, and the cursor moves on. |
+| step | Step input (`I`): notes played on a MIDI keyboard go in at the cursor. A click starts or stops it. |
 | list | The event list: each note and move of the clip as a row to change in place. See [The event list](midi.md#the-event-list). |
 | Suggest, and other switches of modules | Start and stop the suggestions of a completion source. |
 | tracks | `:roll.tracks`: each track near the roll, to show or hide its notes, and its clips, to edit them together. |
@@ -643,14 +643,14 @@ the selection, or what insert mode draws. The tools are, in order:
 | x | Closes the roll. |
 
 Above the ruler, a row shows the names of the chords that sound over all
-pitched tracks (`paw.opt.chords`: names, Roman numerals, both, or off). See
+pitched tracks (`paw.opt.chords` sets names, Roman numerals, both, or off). See
 [Harmony](harmony.md). The ruler counts bars
-and beats. A dot on the keyboard shows the keys that sound at the cursor.
-The title shows the name of the chord.
+and beats, a dot on the keyboard shows the keys that sound at the cursor,
+and the title shows the name of the chord.
 
 Notes of the other clips of the track, and of other pitched tracks, show
 behind as dashed lines in their colors. The layers that extensions add
-show as in the terminal. These layers are the articulations, the notes of a
+show as in the terminal, and they include the articulations, the notes of a
 snippet, the ghosts of a suggestion and its badge, and the outline of the
 notation.
 
@@ -664,7 +664,7 @@ Several clips:
 
 With several clips edited, each clip's notes have the color of its track.
 A click, a box, a drag, `Delete`, the velocity strip and the keys reach the
-notes of all of them. Each note stays in its clip. Each edit is one undo
+notes of all of them, each note stays in its clip, and each edit is one undo
 step.
 
 Suggestions, with a completion source loaded (see
@@ -713,8 +713,8 @@ On X11, you can drag files from a file manager into the window:
 | Other files | The status line tells that it did not take them. |
 
 The window does not know the position of the pointer at a drop, because
-winit 0.30 does not tell it. With this version of winit, Wayland sends no
-drops. A window can be attached to a kernel that it did not start. Then
+winit 0.30 does not tell it, and with this version of winit, Wayland sends no
+drops. A window can be attached to a kernel that it did not start, and then
 it first sends the sound files and MIDI files to the kernel, into the
 media folder of its project. It sends no other files.
 
@@ -732,9 +732,9 @@ A picker (commands, files, devices) shows over the window.
 
 ## Keys
 
-All keys go to the key mappings of the kernel. So the window has the
+All keys go to the key mappings of the kernel, so the window has the
 modes, operators, registers and macros of the terminal. The status line
-shows:
+shows the following.
 
 - the mode, and the view that has the keys (`NORMAL·mixer`)
 - the prompt, messages and keys typed so far
@@ -742,12 +742,12 @@ shows:
 - the count of the quickfix list (`qf E1 W2`), in the color of the worst entry.
 
 While you type a command, a list above the status line shows what the
-command can become, with a description of each. `Tab` and `Shift-Tab` move
+command can become, with a description of each, and `Tab` and `Shift-Tab` move
 through it. `Up` and `Down` move through the history. A message stays until
-the next key, a change of mode, or for `paw.opt.message_time`.
+the next key, a change of mode, or the end of `paw.opt.message_time`.
 
 The window shows the selection, the two cursors, the list of the keys that
-can come next, and help and other pages over the window. A page such as
+can come next, and help and other pages over the window, and a page such as
 the list of commands is as wide as the window. `Ctrl-z`, `Ctrl-y`, `Ctrl-s`
 and `Delete` do what they do in the terminal. When the piano roll or the
 mixer opens, it gets the keyboard.
@@ -761,7 +761,7 @@ of help in [Help](help.md).
 The window shows the tabs and windows of the kernel, as the terminal does
 (see [Windows, buffers and tabs](windows.md)).
 Each window of the current tab is a pane of the main area, laid out by
-the same rules. A size in cells is that number of cells of the monospace
+the same rules, where a size in cells is that number of cells of the monospace
 font, in pixels. A pane is never smaller than the window's own drawing of
 its view needs.
 
@@ -778,7 +778,7 @@ articulation of a note, the cursor, the selection) shows over it, as in
 the terminal. A menu that the view opens (a right-click) shows as a menu
 of the window. An idle pane does no work.
 
-So these keys and commands do in the window what they do in the terminal.
+The keys and commands below do in the window what they do in the terminal.
 
 `:vs paw://lane/3`, `Enter` on a lane row, `:copen`, `:sp quickfix`,
 `:e paw://tracks`, `Ctrl-w` and its keys, `:q`, `:only`, `:tabnew mixer`,
@@ -797,33 +797,33 @@ So these keys and commands do in the window what they do in the terminal.
 Two panes of one view (two piano rolls, two mixers, two device panels)
 are two scenes. Each has the state of its window: its clip, cursor and
 scroll. A view moved into a window of its own keeps the state of the pane
-that it left, and then has its own. The other panes of the view stay.
+that it left, and then has its own, while the other panes of the view stay.
 When it returns to the main window, the pane shows what the window showed.
 
-Each attached window has its own tabs and windows. A window shows its
-main area for the first time. Then the kernel shows the device panel if
+Each attached window has its own tabs and windows. When a window shows its
+main area for the first time, the kernel shows the device panel if
 the tab has its closed place, as the default start layout has. A start layout of the
 configuration (`paw.ui.start_layout`) shows as it is.
 
 A tab narrowed to a group (`:narrow Strings`, `zn`, see
 [Narrowed tabs](narrowing.md))
 has the name of the group in the row of tabs. Its panes show only the
-tracks of the group: the timeline, the mixer and the device panel take
+tracks of the group, because the timeline, the mixer and the device panel take
 their rows from `paw.groups.rows()`.
 
 ## Views in windows of their own
 
 A view can move into a window of its own:
 
-- `:view.window undotree`. Without a name, the focused view, or the page over the other views.
+- `:view.window undotree`, which without a name moves the focused view, or the page over the other views.
 - `Ctrl-w f` in a curve and in a text buffer.
 - The button on the title of a pane drawn from its scene.
 - "Open in a window" on a page over the window.
 
-The window opens over the center of the main window. It shows the view
+The window opens over the center of the main window and shows the view
 under a title with a Dock button. Its status line shows the mode, then a
 prompt, a message, or the keys of the view. A view in a pane leaves the
-pane while it is in a window. The window has the keyboard while it is in
+pane while it is in a window, and the window has the keyboard while it is in
 front.
 
 | Action | Result |
@@ -834,7 +834,7 @@ front.
 | A key typed in the main window | The keyboard returns to the main window. |
 
 The kernel draws the view at the size of the window, in cells of
-JetBrains Mono. It uses the theme's colors in 24 bits. The
+JetBrains Mono, with the theme's colors in 24 bits. The
 size of a cell comes from the font, so box-drawing characters join.
 
 Keys go to the view's mappings with the view focused. A prompt that the view
@@ -843,14 +843,14 @@ as from a terminal: down, up, drag, scroll. The kernel draws the view again
 only when a redraw is necessary and the view changed, at most 30 times a
 second.
 
-The font has no braille. So the window draws each braille character
+The font has no braille, so the window draws each braille character
 (U+2800 to U+28FF) as small squares, in two columns and four rows of dots.
-The font has no sextants (U+1FB00 to U+1FB3B, the default for curves).
-So the window draws each one as up to six rectangles, each a half cell
+The font also has no sextants (U+1FB00 to U+1FB3B, the default for curves), so
+the window draws each one as up to six rectangles, each a half cell
 by a third. `paw.opt.curve_glyphs` selects the characters, and
 `paw.opt.braille` off draws lines.
 
-A terminal attached to the same kernel does not change: the view is drawn
+A terminal attached to the same kernel does not change, because the view is drawn
 on a grid of its own (`paw.api.ui_view_snapshot`).
 
 ## Status line
@@ -858,6 +858,6 @@ on a grid of its own (`paw.api.ui_view_snapshot`).
 The status line of the window is its own. It shows the mode, the prompt,
 messages and keys. `paw.statusline.setup` (see
 [The status line](status-line.md)) sets
-`modal.statusline` in `frontend.state`, but the window does not draw it.
-The terminal draws it. The extra sections of the tab line, and
+`modal.statusline` in `frontend.state`, but only the terminal draws it, and the window does not.
+The extra sections of the tab line, and
 `tabline.always`, are also for the terminal only.

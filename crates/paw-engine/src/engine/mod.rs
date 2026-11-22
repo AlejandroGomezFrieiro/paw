@@ -25,6 +25,7 @@ use rtrb::{Consumer, Producer, PushError, RingBuffer};
 
 use crate::automation;
 use crate::event::{Ctl, EventKind};
+use crate::midi_filter::MidiFilter;
 use crate::midi_out::MidiOut;
 use crate::pool::Pool;
 use crate::preview::Preview;
@@ -105,6 +106,8 @@ pub struct Engine {
     input_count: usize,
     take: Option<Box<Take>>,
     midi_rx: Consumer<(u32, EventKind)>,
+    /// The controls of MIDI input that tracks do not get.
+    midi_filter: Box<MidiFilter>,
     /// A count-in under way, or whose last clicks are still to be heard.
     count: Option<Count>,
     /// Where tracks' MIDI output goes, when something sends it on.
@@ -172,6 +175,7 @@ impl Engine {
             input_count: 0,
             take: None,
             midi_rx,
+            midi_filter: Box::default(),
             count: None,
             midi_out: None,
             monitor: None,
@@ -285,8 +289,11 @@ impl Engine {
     }
 
     /// Deliver a note from MIDI input to every track that takes it, and
-    /// capture it for the take when recording.
+    /// capture it for the take when recording. A control of the filter
+    /// reaches no track, except the release of a key that a track still
+    /// holds (the filter changed while it was down), so that no note hangs.
     fn midi_in(&mut self, port: u32, kind: EventKind) {
+        let filtered = self.midi_filter.matches(port, &kind);
         let Some(schedule) = self.schedule.take() else {
             return;
         };
@@ -303,7 +310,7 @@ impl Engine {
             else {
                 continue;
             };
-            if !t.hears(port, &kind) {
+            if !t.hears(port, &kind) || filtered && !t.releases(&kind) {
                 continue;
             }
             match kind {
@@ -457,5 +464,83 @@ pub(crate) fn ctl_at(index: usize) -> Ctl {
         128 => Ctl::Bend,
         129 => Ctl::Pressure,
         number => Ctl::Cc(number as u8),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::event::Attr;
+    use crate::midi_filter::{Control, Rule};
+
+    fn on(key: u8) -> EventKind {
+        EventKind::NoteOn {
+            key,
+            vel: 0.5,
+            ch: 0,
+            attr: Attr::NONE,
+        }
+    }
+
+    /// An engine with one monitored track that takes MIDI input.
+    fn engine() -> (Engine, EngineHandle, TrackSlot) {
+        let (mut engine, mut handle) = Engine::new(48000.0);
+        let slot = TrackSlot(1);
+        for msg in [
+            Msg::InsertTrack {
+                slot,
+                track: TrackRt::new(),
+            },
+            Msg::SetSchedule(Box::new(Schedule::new(
+                vec![
+                    SchedEntry::new(slot, TrackSlot::MASTER),
+                    SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE),
+                ],
+                0,
+            ))),
+            Msg::SetInput {
+                track: slot,
+                first: 0,
+                channels: 0,
+                monitor: true,
+                armed: false,
+            },
+        ] {
+            handle.send_while(msg, &mut engine);
+        }
+        engine.pump();
+        (engine, handle, slot)
+    }
+
+    fn live(engine: &mut Engine, slot: TrackSlot) -> Vec<EventKind> {
+        let track = engine.tracks[slot.index()].get_mut().as_deref_mut().unwrap();
+        track.live.drain(..).collect()
+    }
+
+    #[test]
+    fn a_control_of_the_filter_reaches_no_track_but_a_held_key_is_released() {
+        let (mut engine, mut handle, slot) = engine();
+        engine.midi_in(5, on(60));
+        let pad = Rule {
+            port: 5,
+            channel: 0,
+            control: Control::Note(60),
+        };
+        let filter = MidiFilter::try_from(vec![pad]).unwrap();
+        handle.send_while(Msg::SetMidiFilter(Box::new(filter)), &mut engine);
+        engine.pump();
+        assert_eq!(live(&mut engine, slot), [on(60)]);
+
+        // Held before the filter took it: its release still arrives.
+        engine.midi_in(5, EventKind::NoteOff { key: 60, ch: 0 });
+        assert_eq!(live(&mut engine, slot), [EventKind::NoteOff { key: 60, ch: 0 }]);
+        // Then the key is the filter's: neither its press nor its release.
+        engine.midi_in(5, on(60));
+        engine.midi_in(5, EventKind::NoteOff { key: 60, ch: 0 });
+        assert_eq!(live(&mut engine, slot), []);
+        // Other keys, and the same key from another port, still play.
+        engine.midi_in(5, on(62));
+        engine.midi_in(6, on(60));
+        assert_eq!(live(&mut engine, slot), [on(62), on(60)]);
     }
 }

@@ -1,8 +1,8 @@
 # Lesson 2: Play a synth from a MIDI keyboard
 
-*This lesson takes about 15 minutes. You need a MIDI keyboard.*
+*The lesson takes about 15 minutes. You need a MIDI keyboard.*
 
-In this lesson, we add a lead synth to the song of lesson 1. We play it
+In this lesson, we add a lead synth to the song of lesson 1 and play it
 live from a MIDI keyboard. Then we record a melody over the loop and put
 the notes on the grid.
 
@@ -12,8 +12,8 @@ the notes on the grid.
 2. Start paw in your folder for songs. Type
    `:example make-music/2-midi-keyboard` and press Enter.
 
-   - paw opens the song of lesson 1: Drums, Bass and Keys, with the loop
-     over four bars.
+   - paw opens the song of lesson 1, with the tracks Drums, Bass and Keys
+     and the loop over four bars.
 
 ## Add the lead
 
@@ -25,7 +25,7 @@ the notes on the grid.
 ## Choose the MIDI input
 
 1. Press `I`.
-   - A list of the inputs of the track opens. It has the audio inputs, the
+   - A list of the inputs of the track opens, with the audio inputs, the
      MIDI ports and the MIDI channels.
 2. Type some letters of the name of your keyboard, for example `Keystation`.
    Press Enter.
@@ -51,11 +51,11 @@ If the list has no MIDI port for your keyboard, press `<Esc>`. Then type
 2. Press `R` to record from the cursor. Play a melody over the four bars.
 3. When the playhead returns to bar 1, press `R` to stop the recording.
    Then press `<Space><Space>` to stop the song.
-   - A clip with the name `take 1` shows on the Lead track. It holds the
-     notes that you played.
+   - A clip with the name `take 1` shows on the Lead track, and it holds
+     the notes that you played.
 
 If you continue to play past the middle of bar 2, paw keeps a second
-take. Lesson 3 shows the takes.
+take. Lesson 3 shows how to use takes.
 
 ## Quantize the take
 
@@ -66,12 +66,13 @@ take. Lesson 3 shows the takes.
    - `=` puts notes on the grid, and `ie` is every note of the clip. Each
      note now starts and ends on a sixteenth note.
 3. Press `u`.
-   - The notes return to where you played them. paw says
+   - The notes return to where you played them, and paw says
      `undid Snap notes to the grid`.
 4. Press `<C-r>` (Ctrl and r) to redo.
    - The notes are on the grid again.
 
-`:%quantize 1/8` puts the notes on a grid of eighth notes.
+To put the notes on a grid of eighth notes instead, type
+`:%quantize 1/8`.
 
 ## Listen and save
 
@@ -85,11 +86,12 @@ take. Lesson 3 shows the takes.
 ## What we made
 
 We played a synth from a MIDI keyboard, recorded a melody over the loop,
-and put it on the grid. Undo and redo let us hear the take before and
-after the change.
+and put the melody on the grid. With undo and redo, we heard the take
+before and after the change.
 
-Previous: [Your first song](01-first-song.md) · Next:
-[Record a guitar](03-record-a-guitar.md) · [All lessons](README.md)
+- Previous: [Your first song](01-first-song.md)
+- Next: [Record a guitar](03-record-a-guitar.md)
+- [All lessons](README.md)
 
 For more, see [MIDI](../../reference/midi.md) for the MIDI ports and
 [Recording](../../reference/recording.md) for the inputs and the takes.

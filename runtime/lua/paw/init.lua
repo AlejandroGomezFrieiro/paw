@@ -288,6 +288,8 @@ function K.startup()
   paw.annotation = require("paw.annotation")
   require("paw.locators")
   paw.lsp = require("paw.lsp")
+  -- Step input from a MIDI controller, and the views that take it (paw/step.tl).
+  paw.step = require("paw.step")
   require("paw.defaults")
   paw.layout.setup()
   paw.curves = require("paw.curves")

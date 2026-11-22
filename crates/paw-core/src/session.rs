@@ -25,7 +25,7 @@ use crate::model::{
     Clip, ClipContent, ClipKindId, Control, CustomContent, DeviceInst, KindData, MediaRef, Signal, Timeline, Id, Lane, LaneState, MASTER_ID, MidiInput, Note, NoteAttr, Notes, Project, Segment,
     Send, Shape, Sound, StretchMode, Target, Timebase, Track, WarpMarker, InputChannels,
 };
-use crate::sync::{AudioCache, LiveDevices, Mapper, ModelEvent, SyncCtx, sync};
+use crate::sync::{AudioCache, Follow, LiveDevices, Mapper, ModelEvent, SyncCtx, sync};
 
 mod editing;
 mod project;
@@ -36,6 +36,7 @@ mod clips;
 mod automation;
 mod transport;
 mod midi_in;
+pub use midi_in::FilterRule;
 mod engine;
 mod audition;
 mod clipops;

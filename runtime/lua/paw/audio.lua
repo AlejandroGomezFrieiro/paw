@@ -287,4 +287,54 @@ function M.choose_engine(choice)
   paw.notify(string.format("audio: %s → %s, %s", e.input_device, e.device, M.timing()))
 end
 
+local group_names = {
+  audio = "audio",
+  midi = "MIDI",
+  channel = "MIDI channel",
+  midi_out = "MIDI out",
+  midi_out_channel = "out channel",
+  midi_out_form = "out form",
+}
+
+--- A picker of the inputs of a track (`I` on a track): monitoring first,
+--- then each choice of `M.choices`. With `groups` (`{ "midi", "channel" }`),
+--- only those choices: the MIDI input, as step input opens it.
+function M.pick(track, groups)
+  local only
+  if groups then
+    only = {}
+    for _, g in ipairs(groups) do
+      only[g] = true
+    end
+  end
+  track = type(track) == "table" and track or paw.track(track)
+  local items = {}
+  local t = track:get()
+  if not only then
+    items[1] = { label = (t.monitor and "● " or "○ ") .. "Monitor: hear the input without arming", monitor = true }
+  end
+  for _, choice in ipairs(M.choices(track)) do
+    if not only or only[choice.group] then items[#items + 1] = choice end
+  end
+  paw.pick({
+    title = "Input of " .. t.name,
+    items = items,
+    format = function(item)
+      if item.monitor then return item.label end
+      return string.format("%s %-13s %s", item.checked and "●" or " ", group_names[item.group], item.label)
+    end,
+    on_choose = function(item)
+      if item.monitor then
+        track.monitor = not track.monitor
+        return paw.notify(track.name .. (track.monitor and ": monitoring its input" or ": not monitoring"))
+      end
+      M.choose(track, item)
+      if item.group:find("^midi_out") then
+        return paw.notify(track.name .. " → " .. paw.routes.midi_out_text(track:get()))
+      end
+      paw.notify(track.name .. " ← " .. (M.label(track:get()) or "MIDI from every port"))
+    end,
+  })
+end
+
 return M

@@ -1,6 +1,6 @@
 ---
 name: diataxis-docs
-description: Write, review, restructure or move paw's documentation by the Diátaxis framework (tutorials, how-to guides, reference, explanation), in ASD-STE100 Simplified Technical English. Use whenever a task writes or changes anything under docs/, a README (top level, crates/*, extensions/*), the tutor's lessons, :help pages or docs/reference/api.md's generator, or asks where a piece of documentation belongs, why a page reads badly, or to "document", "write up", "add docs for" a feature — even when it only says "update the README" or "add a section".
+description: Write, review, restructure or move paw's documentation by the Diátaxis framework (tutorials, how-to guides, reference, explanation), in plain-writing for external pages (README, docs/, extension and crate READMEs) and ASD-STE100 Simplified Technical English for internal text. Use whenever a task writes or changes anything under docs/, a README (top level, crates/*, extensions/*), the tutor's lessons, :help pages or docs/reference/api.md's generator, or asks where a piece of documentation belongs, why a page reads badly, or to "document", "write up", "add docs for" a feature — even when it only says "update the README" or "add a section".
 ---
 
 # Documentation with Diátaxis
@@ -159,24 +159,46 @@ Rules specific to paw:
 - **Links**: relative Markdown links; after moving a page, grep the whole
   repo (code comments, manifests, READMEs, tests, flake.nix) for the old
   path and fix every one. Code comments point at reference or explanation, never tutorials.
-- **Style**: ASD-STE100 (next section); terminal first, the graphical
+- **Style**: plain-writing for external pages, STE for internal text
+  (next section); terminal first, the graphical
   window second; no marketing words; no emoji; never name the owner's
   unpublished projects or home paths.
 - **Pictures** belong to tutorials (what you will see) and to landing pages
   (what paw is). Reference may have a screenshot of a view's layout with
   labels. Keep their make scripts (docs/images/make, extensions' images/make).
 
-## Language: ASD-STE100 Simplified Technical English
+## Language: plain-writing outside, STE inside
 
-All of paw's documentation is written in ASD-STE100 Simplified Technical
-English (Issue 9): docs/**, every README, the tutor's lessons (they make
-the course) and the doc comments that tools/apidoc.lua turns into
-docs/reference/api.md. Diátaxis decides *what* a page says and where;
-STE decides *how* each sentence says it. The two agree: an explanation
-still discusses, a tutorial still says "we", but in STE sentences.
+paw has two kinds of text. Each kind has its own style. Diátaxis decides
+*what* a page says and where, for both kinds. The style decides *how* each
+sentence says it.
 
-The rules (Part 1 of the standard, by its sections; the official dictionary
-is not public, so use short, common words with one meaning each):
+| Kind | Text | Style |
+| --- | --- | --- |
+| External | `README.md`, `docs/**`, `extensions/*/README.md`, `extensions/*/doc/**`, `crates/*/README.md`, the tutor's lessons (they make the course), the doc comments that `tools/apidoc.lua` turns into `docs/reference/api.md` | plain-writing |
+| Internal | `AGENTS.md`, `.claude/**` (skills), `bench/**`, Backlog tickets, design documents, other code comments, commit messages, pull request text, replies in chat | ASD-STE100 |
+
+### plain-writing (external pages)
+
+Load the skill in `.claude/skills/plain-writing` (`SKILL.md`), and read
+its `PAW.md`. The main rules are these:
+
+- Everyday words, complete sentences, and long sentences that explain.
+- A topic sentence first in each paragraph. Contractions are allowed.
+- No em dash, no en dash and no middle dot in prose. Straight quotes.
+- Headings in sentence case. No puffery, no analogies, no negative
+  parallelism ("not only X, but Y").
+- No sentence that starts with "This", "That", "These" or "Those". No
+  count at the start ("Two cautions.").
+- A procedure gives its steps in order, in a numbered list or with
+  "First", "Second", "Third".
+
+The paw glossary below and the safety instructions (7.x) apply to
+external pages too. The other STE rules do not.
+
+### ASD-STE100 Simplified Technical English (internal text)
+
+Internal text is in ASD-STE100 Simplified Technical English (Issue 9).
 
 **Words (1.x)**
 - One word, one meaning, one part of speech. Use a word only in its usual
@@ -224,7 +246,7 @@ output routing menu" → "the menu of track outputs").
   clip", not "Select clip").
 - One topic per paragraph, not more than six sentences per paragraph.
 
-**Procedures (5.x)** — tutorials and how-to guides
+**Procedures (5.x)**: steps in internal text (for example in AGENTS.md or a skill)
 - Not more than 20 words in a sentence.
 - One instruction per sentence, unless the actions are simultaneous
   ("Hold `Shift` and click the clip").
@@ -233,7 +255,7 @@ output routing menu" → "the menu of track outputs").
   input, press `I`." "To record a take, press `R`."
 - Notes give information, not instructions.
 
-**Descriptive writing (6.x)** — reference and explanation
+**Descriptive writing (6.x)**: the other internal text
 - Not more than 25 words in a sentence.
 - Give the most important information first. Use paragraphs and headings
   to show the structure. Keep the same words for the same things.
@@ -261,18 +283,30 @@ paw did not write), view (arrange view, piano roll, mixer, ...), window
 command (`:name`), key, option (`paw.opt.name`), extension (not plugin, add-on),
 kernel, frontend (the terminal or the graphical window), buffer, register.
 
-**How to check**: Vale, with the project's styles (`.vale.ini`):
+### How to check
+
+Vale checks the Markdown files with the project's styles. `.vale.ini`
+gives each path its styles: STE for internal files, Plain for external
+pages.
 
 ```sh
 nix develop -c tools/vale.sh                 # every page
 nix develop -c tools/vale.sh docs/how-to/*.md
 ```
 
-- `STE` (.vale/styles/STE): the rules above: sentence and paragraph
-  length (20 words in tutorials and how-tos, 25 elsewhere), semicolons,
-  contractions, tenses, "-ing" forms, the passive with "by", phrasal
-  verbs, unapproved words, American spelling, the glossary.
-- `Readability`: Flesch-Kincaid and Gunning fog grade of each page.
+- `Plain` (.vale/styles/Plain), external pages: the rules of
+  plain-writing that a pattern can find (dashes in number ranges, the
+  middle dot in prose, curly quotes, heading case, overused and puffery
+  words, plain words, "not just X, but Y", openings with a demonstrative
+  or a count). At the level warning until phase B (the task after
+  TASK-73) rewrites the docs. External pages also keep STE.Spelling, STE.Glossary,
+  STE.PassiveBy and STE.Paragraphs.
+- `STE` (.vale/styles/STE), internal files: the rules above: sentence
+  and paragraph length (25 words), semicolons, contractions, tenses,
+  "-ing" forms, the passive with "by", phrasal verbs, unapproved words,
+  American spelling, the glossary.
+- `Readability`, internal files: Flesch-Kincaid and Gunning fog grade of
+  each page.
 - `write-good`: cliches, "There is" openings, repeated words.
 - `alex`: inclusive language (music and Vim words such as master, attack
   and yank are allowed).
@@ -315,6 +349,6 @@ fit to the user's need, anticipating the reader.
 - [ ] How-tos: titled "How to …", goal-first, conditional imperatives, no teaching, links to reference.
 - [ ] Reference: neutral, structured like the machinery, consistent entries, each name described once.
 - [ ] Explanation: "About …", why/context/alternatives, no steps or option tables.
-- [ ] STE: procedure sentences ≤ 20 words, descriptive ≤ 25, active voice, approved verb forms, no semicolons, glossary words; `tools/vale.sh <pages>` has no errors, and each warning left is on purpose.
+- [ ] External pages: plain-writing (.claude/skills/plain-writing); internal text: STE (descriptive sentences ≤ 25 words, active voice, approved verb forms, no semicolons); glossary words in both; `tools/vale.sh <pages>` has no errors, and each warning left is on purpose.
 - [ ] docs/README.md and the README landing pages link the new or moved pages.
 - [ ] No stale path anywhere (`grep -rn "docs/<old>"`), `:help <tag>` still lands, suite green.

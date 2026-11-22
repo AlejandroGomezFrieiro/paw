@@ -1,10 +1,10 @@
 # doctor: a guided check of the real hardware
 
-The doctor checks the real hardware: the audio device, MIDI input,
-recording and plugins. It runs a list of checks. You start, watch or
-listen to each check and answer it ("heard it", "did not", skip), or the
-check measures by itself. At the end, the doctor writes a report in
-Markdown, with the facts of the machine at the top. When an earlier
+The doctor checks the real hardware, which means the audio device, MIDI
+input, recording and plugins. It runs a list of checks, and for each check
+you start it, watch or listen, and answer ("heard it", "did not", skip), or
+the check measures by itself. At the end, the doctor writes a report in
+Markdown, with the facts of the machine at the top, and when an earlier
 report exists, the report also shows what changed.
 
 ```lua
@@ -34,8 +34,8 @@ paw.ext.load("/path/to/paw/extensions/doctor")   -- config/init.lua has this lin
 4. At the end, the doctor writes the report. Type `:doctor report` to see
    its path.
 
-**WARNING:** Turn the volume down before check 4, Round trip latency. Its
-clicks are loud through a microphone and speakers.
+Warning: turn the volume down before check 4, Round trip latency, because
+its clicks are loud through a microphone and speakers.
 
 ### How to run the checks from the shell
 
@@ -43,8 +43,8 @@ clicks are loud through a microphone and speakers.
    prints the report.
 2. To run some checks only, add `--only system,plugins`.
 
-`paw doctor` does not need the extension loaded. It finds the extension
-in the source tree beside the binary, or in `$PAW_HOME`.
+`paw doctor` does not need the extension loaded, because it finds the
+extension in the source tree beside the binary, or in `$PAW_HOME`.
 
 ### How to keep the latency that the doctor measured
 
@@ -60,7 +60,7 @@ The doctor sets the offset only for the session.
    `paw doctor`.
 2. Run check 8, Plugins.
 3. If the plugin is silent, accept the offer to open its editor. Some
-   instruments need this one time before they make sound.
+   instruments need to be opened once before they make sound.
 
 ### How to add a check
 
@@ -106,7 +106,7 @@ The doctor sets the offset only for the session.
 
 <!-- tags: :doctor -->
 
-The page floats over the terminal. In the graphical window, paw paints the
+The page floats over the terminal. In the graphical window, paw draws the
 same page in pixels, with buttons for the keys and a button for each
 answer.
 
@@ -143,9 +143,9 @@ answer.
 
 ### What each check reads
 
-1. **The sound system**: the backend, the output and the input, all the
-   devices found (`paw.audio.devices()`), the sample rate, the block, the
-   latencies (`paw.api.engine_get()`). It warns about these problems:
+1. The sound system reads the backend, the output and the input, all the
+   devices found (`paw.audio.devices()`), the sample rate, the block, and the
+   latencies (`paw.api.engine_get()`). It warns about the following problems:
    - a Bluetooth output (high latency, and headphones that are the
      default of the system get all the sound)
    - an output latency over 80 ms
@@ -154,27 +154,27 @@ answer.
    - a block over 25 ms
    - no open input
    - the null backend
-2. **Output**: a tone made for the check, played from a track of its own.
-3. **Input levels**: `paw.audio.levels()`, sampled every few hundredths of a
-   second. Below -60 dBFS is silent. A channel that reached full scale gets
-   a warning.
-4. **Round trip latency**: a track plays a click, and a muted track armed
+2. Output plays a tone made for the check, from a track of its own.
+3. Input levels reads `paw.audio.levels()`, sampled every few hundredths of a
+   second. Below -60 dBFS is silent, and a channel that reached full scale
+   gets a warning.
+4. Round trip latency plays a click from a track, and a muted track armed
    on the first input records. The doctor finds the click in the take. It
    subtracts what paw already removes from a take (the latency that the
-   audio system reports, plus the offset). It adds the rest to the offset,
-   if you accept. It tells a tone or a noise from before the click, and
+   audio system reports, plus the offset), and if you accept, it adds the
+   rest to the offset. It tells a tone or a noise from before the click, and
    silence, from a loop-back.
-5. **Dropouts**: `xruns`, `late_blocks`, dropped MIDI events and the CPU
+5. Dropouts reads `xruns`, `late_blocks`, dropped MIDI events and the CPU
    load from `paw.api.engine_get()`, with `engine_reset_stats` before each
    run. The long file is a quiet tone, long enough that its decoded sound
    is past `paw.opt.media_stream`. `paw.media.list()` tells if paw read it
    from the disk. The decoded copy stays in `~/.cache/paw/media`, inside
    the limit of the cache.
-6. **MIDI input**: the ports from `paw.midi.inputs()`, and the `midi.in`
+6. MIDI input reads the ports from `paw.midi.inputs()`, and the `midi.in`
    events, which name their port.
-7. **Recording**: the file of the take, read back for its peak on each
+7. Recording reads back the file of the take, for its peak on each
    channel, its length and its format.
-8. **Plugins**: the number of plugins of each format, and the files that
+8. Plugins counts the plugins of each format, and lists the files that
    the scan could not use (the log lines "plugin scan: …"). For each part
    of a name in `paw.opt.doctor_plugins` (`{ "MT-PowerDrumKit", "Ugritone"
    }`), the doctor loads a plugin with that name on a track and sends it
@@ -182,10 +182,9 @@ answer.
    the track tells if sound came out.
 
    You name Windows plugins through yabridge in the same way. The report
-   names a plugin that does not
-   start, is not installed or is silent. Some plugins need their editor
-   opened one time (`ge` on the track).
-9. **The environment**:
+   names a plugin that does not start, is not installed or is silent. Some
+   plugins need their editor opened once (`ge` on the track).
+9. The environment reads the following:
    - `DISPLAY`, `WAYLAND_DISPLAY` and `XAUTHORITY` as paw sees them, after
      it corrects an old display name
    - the sockets and the authority file
@@ -214,7 +213,7 @@ answer.
 
 ### The report
 
-The report is `<state directory>/doctor/<year-month-day-time>.md`.
+The report is `<state directory>/doctor/<year-month-day-time>.md`, and
 `paw.opt.doctor_dir` names another folder. A `.json` file beside it holds
 the same data, for the next report.
 
@@ -276,7 +275,7 @@ check that you cancel or that times out.
 The doctor ran on the null backend only. There, a test input gives two
 channels of tone, and `paw.midi.inject` acts as a controller. The doctor
 also has paths for real hardware (a Bluetooth output, a UR22mkII, the
-latency of PipeWire, a loop-back cable, real plugin windows). These paths
+latency of PipeWire, a loop-back cable, real plugin windows), and those paths
 come from the reports of the program. They did not run against the devices.
 
 ## About
@@ -286,7 +285,7 @@ that a test sends, plugins in a test set. The doctor is for the real
 hardware, where a person must listen.
 
 A check needs tracks, clips and recordings of its own. The doctor does not
-add them to your project and remove them after. That would leave steps in
-the undo history and move things. So it puts your project aside as a
-whole. Autosave is off for the run, because a safety copy of the scratch
-project would replace the copy of your project.
+add them to your project and remove them after, because that would leave
+steps in the undo history and move things. Instead, it puts your project
+aside as a whole. Autosave is off for the run, because a safety copy of the
+scratch project would replace the copy of your project.

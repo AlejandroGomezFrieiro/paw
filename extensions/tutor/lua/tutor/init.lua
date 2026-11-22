@@ -129,7 +129,7 @@ end
 -- Keeping the learner's own project safe -----------------------------------------
 
 --- The options lessons set, so they can be put back afterwards.
-local OPTIONS = { "grid", "note_grid", "octave", "velocity", "ripple", "clip_length" }
+local OPTIONS = { "grid", "note_grid", "velocity", "ripple", "clip_length" }
 
 local function in_practice() return S.active and S.practice ~= nil and paw.project.path == S.practice end
 M.in_practice = in_practice
@@ -345,8 +345,7 @@ function M.start(which, opts)
 
   paw.transport.stop()
   tidy_screen()
-  paw.opt.grid, paw.opt.note_grid, paw.opt.octave, paw.opt.velocity, paw.opt.ripple, paw.opt.clip_length =
-    1, 0.25, 4, 100, false, 4
+  paw.opt.grid, paw.opt.note_grid, paw.opt.velocity, paw.opt.ripple, paw.opt.clip_length = 1, 0.25, 100, false, 4
 
   local path = store.practice(lesson.id)
   local step = 1

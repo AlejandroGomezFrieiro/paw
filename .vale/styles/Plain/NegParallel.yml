@@ -1,0 +1,10 @@
+# plain-writing rule 22: no negative parallelism ("not just X, but Y",
+# "not only X, but Y"). State what the thing is.
+extends: existence
+message: "'%s' is negative parallelism (plain-writing 22). State what the thing is."
+level: error
+ignorecase: true
+raw:
+  - '\bnot\s+(?:just|only|merely)\b[^.!?]{0,80}?\b(?:but|it[''’]?s|it is)\b'
+  - '|\bit[''’]?s\s+not\b[^.!?]{0,60},\s*it[''’]?s\b'
+  - '|\bisn[''’]?t\s+(?:just|only)\b[^.!?]{0,60}\bit[''’]?s\b'

@@ -2,8 +2,8 @@
 
 <!-- tags: find-by-name -->
 
-This guide shows you how to move the cursor to a track, a clip or a
-marker by its name. A part of the name is enough. In a large song, this is faster
+You can move the cursor to a track, a clip or a marker by its name, and a
+part of the name is enough. In a large song, a search by name is faster
 than `j` and `k`.
 
 ## Find with `/`
@@ -26,19 +26,18 @@ press `*`.
 | a marker | `<Space>fm` |
 | a region | `<Space>fr` |
 
-1. Press the keys. A list opens, with a preview on the right.
-2. Type a part of the name. The list shows only the lines that match.
-3. Select the line and press `Enter`. The cursor goes there.
+1. Press the keys, and a list opens with a preview on the right.
+2. Type a part of the name, and the list shows only the lines that match.
+3. Select the line and press `Enter`, and the cursor goes there.
 
 ## Go to a marker
 
 - Press `]'` to go to the next marker, and `['` to go to the marker
-  before.
-- Press `g"` for the list of the markers.
+  before. Press `g"` for the list of the markers.
 - Type `:marker.goto Chorus` to go to a marker by its name, or
-  `:marker.goto 2` by its number.
+  `:marker.goto 2` to go to it by its number.
 
-To put a marker at the cursor, press `g'`. Type its name, for example
+To put a marker at the cursor, press `g'`, type its name, for example
 `Chorus`, and press `Enter`. If you type no name, paw calls it `Marker 1`,
 `Marker 2` and so on. To change the name later, type
 `:marker.rename Chorus`.

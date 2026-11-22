@@ -2,17 +2,9 @@
 
 <!-- tags: terminal grammar -->
 
-The keys of paw work as the keys of Neovim, on a timeline in place of a
-text. In the arrange view, a track is a line, a beat is a column and a
-clip is a word. In the piano roll, a pitch is a line and a note is a word.
-All keys are mappings in `runtime/lua/paw/defaults/`, made with the
-functions of [your configuration](../how-to/configure-paw.md). You can
-change each of them.
+The keys of paw work like the keys of Neovim, on a timeline instead of a text. In the arrange view, a track is a line, a beat is a column and a clip is a word, and in the piano roll a pitch is a line and a note is a word. All keys are mappings in `runtime/lua/paw/defaults/`, made with the functions of [your configuration](../how-to/configure-paw.md), and you can change each of them.
 
-This page gives the keys that the arrange view and the piano roll share.
-The keys of one view are on its page: [the arrange view](arrange-view.md),
-[the piano roll](piano-roll.md). [The key rule](key-rule.md) gives the
-meaning that a key has in every view.
+The arrange view and the piano roll share the keys on this page. The keys of one view are on its page, which are [the arrange view](arrange-view.md) and [the piano roll](piano-roll.md), and [The key rule](key-rule.md) gives the meaning that a key has in every view.
 
 ## Motions
 
@@ -33,16 +25,14 @@ A motion moves the cursor. A count repeats it: `3W` moves three bars.
 | `/name`, `n` `N`, `*` | finds a clip or track by name, the next match, the previous match, the next clip with the name of this clip | finds a note by its pitch name (`/c4`) |
 | `gP` | the playhead | |
 
-To see the counts, `:set relativenumber` shows how many `j` or `k` go to
-each track, and `:set relativebar` how many `W` or `B` go to each bar.
-See [The track column](arrange-view.md#the-track-column).
+To see the counts, `:set relativenumber` shows how many `j` or `k` go to each track, and `:set relativebar` shows how many `W` or `B` go to each bar. [The track column](arrange-view.md#the-track-column) has the details.
 
 ## Marks and jumps
 
 | Keys | Effect |
 | --- | --- |
 | `ma`, `'a`, `''` | Sets mark `a`. Goes to mark `a`. Goes to the place before the last jump. |
-| `:delmarks a b c-e`, `:delmarks!` | Removes marks, as in Vim (`:delm`). `Tab` completes the marks that are set. With `!`, removes every lowercase mark. |
+| `:delmarks a b c-e`, `:delmarks!` | Removes marks, the same as in Vim (`:delm`). `Tab` completes the marks that are set. With `!`, removes every lowercase mark. |
 | `Ctrl-o` `Ctrl-i` | Moves back and forward through the places of the jumps. |
 | `g;` `g,` | Moves back and forward through the places of the edits (`3g;` three edits back). Each view keeps its own list. |
 | `` `. ``, `'.` | Goes to the place of the last edit. |
@@ -51,9 +41,7 @@ See [The track column](arrange-view.md#the-track-column).
 
 ## Operators
 
-An operator acts on what a motion moves over, on a text object, or on a
-selection. An operator typed two times acts on whole lines: `dd` deletes a
-track, `3dd` three tracks.
+An operator acts on what a motion moves over, on a text object, or on a selection. An operator typed two times acts on whole lines, so `dd` deletes a track and `3dd` deletes three tracks.
 
 | Keys | Arrange view | Piano roll |
 | --- | --- | --- |
@@ -75,21 +63,16 @@ A text object names a part of the project.
 | `ac` | the clip and the gap after it | the chord as the harmony reads it |
 | `ib` | this bar (`2ib` two bars) | this bar |
 | `il` | the loop | |
-| `ir` | the region that the cursor is in, on this track | the region that the cursor is in |
-| `ar` | the region that the cursor is in, on every track | the same |
+| `ir` | the innermost region that the cursor is in, on this track (`2ir` the region around it) | the region that the cursor is in |
+| `ar` | the innermost region that the cursor is in, on every track (`2ar` the region around it) | the same |
 | `it` | everything on the track | |
 | `ie` | the entire project | every note of the clip |
 
-In visual mode, the same text object again takes in one more, as `iw` does
-in Vim: `vic` then `ic` selects this chord and the next.
+In visual mode, the same text object again takes in one more, as `iw` does in Vim, so `vic` and then `ic` selects this chord and the next.
 
 ### Objects of the piano roll
 
-In the piano roll, the text objects are the objects of the music. `i`
-names the object, and `a` the object with what is around it. A count
-takes more of the same object. Each operator acts on each object: `div`
-deletes a voice, `>ic` moves a chord later, `yip` copies a phrase, and
-`vi=` then `+` transposes every note of a pitch.
+In the piano roll, the text objects are the objects of the music. `i` names the object, and `a` names the object with what is around it. A count takes more of the same object, and each operator acts on each object, so `div` deletes a voice, `>ic` moves a chord later, `yip` copies a phrase, and `vi=` and then `+` transposes every note of a pitch.
 
 | Keys | `i`: the object | `a`: with what is around it | A count |
 | --- | --- | --- | --- |
@@ -102,21 +85,15 @@ deletes a voice, `>ic` moves a chord later, `yip` copies a phrase, and
 | `ir` `ar` | the region of the song that the cursor is in | the same | `2ir`: the region around it |
 | `ie` `ae` | every note of the clip, or of the clips that the roll edits | the same | |
 
-A note that sounds alone is in the top line and in the bass. Two notes can
-overlap for less than an eighth of a beat. Then they are legato: the
-first note is not a second voice.
+A note that sounds alone is in the top line and in the bass. Two notes can overlap for less than an eighth of a beat, and they are then legato, which means the first note is not a second voice.
 
-A voice, a pitch class or a chord can leave other notes between its
-notes. The object names its notes, and an operator does not touch the
-other notes. In visual mode, such a selection shows on its notes.
+A voice, a pitch class or a chord can leave other notes between its notes. The object names its notes, and an operator does not touch the other notes. In visual mode, such a selection shows on its notes.
 
-`)` and `(` go to the next phrase and to the start of this phrase, as
-Vim's sentences. Extensions add objects with `paw.keymap.textobject`: the
-articulations extension adds `ia` (the notes with the same articulation).
+`)` and `(` go to the next phrase and to the start of this phrase, in the same way as the sentence motions of Vim. Extensions add objects with `paw.keymap.textobject`, and the articulations extension adds `ia` (the notes with the same articulation).
 
 ## Visual mode
 
-Visual mode selects first. Then an operator or a key acts on the selection.
+Visual mode selects first, and an operator or a key then acts on the selection.
 
 | Keys | Arrange view | Piano roll |
 | --- | --- | --- |
@@ -136,8 +113,7 @@ Visual mode selects first. Then an operator or a key acts on the selection.
 | `gv` | Selects the last selection again. |
 | `:` | Types a command for the selection. The line starts with `'<,'>`, the name of the last selection. |
 
-A selection includes the note (or drum hit) under its far end, as the
-selection of Vim includes the character under the cursor.
+A selection includes the note (or drum hit) under its far end, in the same way that the selection of Vim includes the character under the cursor.
 
 ## Registers
 
@@ -171,14 +147,8 @@ a delete closes the gap and a paste moves the music after it.
 | `u` | Undoes the last step, and shows its name: `undid Delete the clip`. |
 | `Ctrl-r` | Redoes the step. |
 
-The key or the command that changed something names a step. A motion
-before it does not. A line typed after `:` names its step. A value set to
-the value that it has makes no step. The undotree extension adds `g-`,
-`g+`, `:earlier 2m` and `:later 5`, to return in time across branches.
-See [Options](options.md#undo-and-safety) for the size of the history.
+The key or the command that changed something names a step, and a motion before it does not. A line typed after `:` names its step, and a value set to the value that it has makes no step. The undotree extension adds `g-`, `g+`, `:earlier 2m` and `:later 5`, to return in time across branches. [Options](options.md#undo-and-safety) gives the size of the history.
 
 ## Ranges
 
-`:` also takes Vim's Ex commands over bars and tracks: `:5,8d`,
-`:%s/c4/d4/g`, `:g/vel<20/d`. A command can also take bars before its
-name: `:5,8notation.transpose 2`. See [Ex commands](ex.md).
+`:` also takes the Ex commands of Vim over bars and tracks, for example `:5,8d`, `:%s/c4/d4/g` and `:g/vel<20/d`. A command can also take bars before its name, as in `:5,8notation.transpose 2`. [Ex commands](ex.md) describes them.

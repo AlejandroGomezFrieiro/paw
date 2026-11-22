@@ -97,9 +97,8 @@ pub struct Mapper {
     /// as if they were soloed; the project is not changed.
     pub audible: Option<HashSet<Id>>,
     /// The track that plays MIDI input as if it were monitored, without
-    /// the project saying so: the selected track, while no track is armed
-    /// (`paw.opt.midi_follows_selection`).
-    pub follow: Option<Id>,
+    /// the project saying so.
+    pub follow: Follow,
     /// What the engine was last told to play of each track that is not live.
     pub(super) played: HashMap<Id, Played>,
     /// The clip in each of a track's cue rows in the engine, so that a
@@ -113,6 +112,25 @@ pub struct Mapper {
     /// device could not prepare for its audio side). The session loads
     /// those as the song plays, and a render stops on their points.
     pub state_main: HashMap<Id, Vec<bool>>,
+}
+
+/// The track that plays MIDI input as if it were monitored, without the
+/// project saying so.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Follow {
+    /// The selected track, while no track is armed
+    /// (`paw.opt.midi_follows_selection`).
+    pub selected: Option<Id>,
+    /// A track that plays it also while another track is armed, in place
+    /// of `selected`: the track of the clip that step input enters into.
+    pub always: Option<Id>,
+}
+
+impl Follow {
+    /// The track that plays MIDI input now, if any.
+    pub fn track(&self, any_armed: bool) -> Option<Id> {
+        self.always.or(self.selected.filter(|_| !any_armed))
+    }
 }
 
 impl Default for Mapper {
@@ -145,7 +163,7 @@ impl Mapper {
             deferred: Vec::new(),
             held_files: HashMap::new(),
             audible: None,
-            follow: None,
+            follow: Follow::default(),
             played: HashMap::new(),
             cue_rows: HashMap::new(),
             cue_events: HashMap::new(),
