@@ -604,13 +604,8 @@ local extensions: contracts.PickSource<ExtLine> = {
 
 local files: {string: {string}} = {}
 
---- The comment right above a function's definition, from its source file.
-local function doc_of(fn: function): {string}, string, integer
-  local info = debug.getinfo(fn, "S")
-  local path = info and info.source and info.source:match("^@(.+)$")
-  if not path or info.linedefined < 1 then
-    return nil
-  end
+--- The lines of a source file, read once; none when it does not open.
+local function lines_of(path: string): {string}
   local lines = files[path]
   if not lines then
     lines = {}
@@ -623,6 +618,24 @@ local function doc_of(fn: function): {string}, string, integer
     end
     files[path] = lines
   end
+  return lines
+end
+
+--- The comment right above a function's definition, from its source file.
+local function doc_of(fn: function): {string}, string, integer
+  local info = debug.getinfo(fn, "S")
+  local path = info and info.source and info.source:match("^@(.+)$")
+  if not path or info.linedefined < 1 then
+    return nil
+  end
+  -- The Lua that Teal makes has no comments, and keeps the lines of the .tl.
+  -- The built runtime gives the .tl as the source. A runtime that
+  -- tools/dev-runtime.sh makes loads the .lua, with the .tl beside it.
+  local teal = path:gsub("%.lua$", ".tl")
+  if teal ~= path and #lines_of(teal) > 0 then
+    path = teal
+  end
+  local lines = lines_of(path)
   local out: {string} = {}
   local row = info.linedefined - 1
   while row >= 1 and lines[row] and lines[row]:match("^%s*%-%-") do
