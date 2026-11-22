@@ -434,7 +434,7 @@ end)
 --- The test plugin built by `cargo test -p paw-plugins`, in a directory of
 --- its own; nil when it has not been built.
 local function stub_plugin()
-  local built = "target/release/examples/libstub_clap.so"
+  local built = os.getenv("PAW_TEST_STUB") or "target/release/examples/libstub_clap.so"
   if not io.open(built) then return nil end
   local dir = T.scratch .. "/stub-plugin"
   os.execute("mkdir -p '" .. dir .. "' && cp '" .. built .. "' '" .. dir .. "/stub.clap'")

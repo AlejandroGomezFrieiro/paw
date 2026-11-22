@@ -1,5 +1,5 @@
 #!/bin/sh
-# Run the Lua end-to-end suite on the release build.
+# Run the Lua end-to-end suite on the release build (or on $PAW_TEST_BIN).
 #
 #   tests/tools/suite.sh                  every test, without plugins
 #   tests/tools/suite.sh plugins          with the dev shell's test plugins
@@ -13,8 +13,14 @@
 cd "$ROOT" || exit 1
 # The stub plugin that some tests load is a cargo example, which a plain
 # `cargo build` does not make: build it here, so that a test never loads a
-# stub that an older checkout left in target/.
-cargo build --release -q -p paw-plugins --example stub_clap || exit 1
+# stub that an older checkout left in target/. With PAW_TEST_BIN (a binary
+# that another checkout built, for example a dev build of main), the stub
+# comes from beside that binary, and nothing is built here.
+if [ -n "$PAW_TEST_BIN" ]; then
+  export PAW_TEST_STUB=$BIN/examples/libstub_clap.so
+else
+  cargo build --release -q -p paw-plugins --example stub_clap || exit 1
+fi
 out=$SCRATCH/suite.out
 case "$1" in
   plugins)
@@ -26,7 +32,12 @@ case "$1" in
     mkdir -p "$SCRATCH/home"
     rm -rf "$SCRATCH/bundles"
     mkdir -p "$SCRATCH/bundles/clap" "$SCRATCH/bundles/vst3" "$SCRATCH/bundles/lv2"
-    PAW_SCRATCH_HOME=$SCRATCH/home PAW_BUNDLES=$SCRATCH/bundles nix develop -c sh -c '
+    # In the dev shell already (direnv, nix develop), the plugins' variables are
+    # set: no second `nix develop`.
+    dev="nix develop -c"
+    [ -n "$IN_NIX_SHELL" ] && dev=""
+    # shellcheck disable=SC2086
+    PAW_SCRATCH_HOME=$SCRATCH/home PAW_BUNDLES=$SCRATCH/bundles $dev sh -c '
       export HOME=$PAW_SCRATCH_HOME
       for pkg in "$PAW_TEST_TONE3000" "$PAW_TEST_SOUNDSHED" "$PAW_TEST_MUSIO" "$PAW_TEST_DRAGONFLY" "$PAW_TEST_ILDAEIL" \
           "$PAW_TEST_NEURALNOTE" "$PAW_TEST_DECENTSAMPLER" "$PAW_TEST_AMPLOCKER" "$PAW_TEST_DRUMLOCKER" "$PAW_TEST_MTPDK" \

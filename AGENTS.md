@@ -58,6 +58,12 @@ thread.
 To write an extension, use the skill in
 [.claude/skills/paw-extension](.claude/skills/paw-extension/SKILL.md).
 
+For each change of code, use the skill in
+[.claude/skills/paw-code](.claude/skills/paw-code/SKILL.md). It gives the
+loop: make it work, prove it with tests, then do three rounds of
+refactor (logic, responsibility, consistency and comments). It also
+gives the rules for style, tests, maintainability, comments and logic.
+
 ## Documentation standards
 
 All documentation follows three standards. The skill in
@@ -131,7 +137,14 @@ Run the commands in the dev shell of the flake. Start your session in
 in a `git worktree` with changes it also copies the files into the
 store.
 
+Use `cargo check` and `cargo clippy` for most checks of Rust: they do
+not link. A dev build (`cargo build`, the default profile) links with
+mold and is incremental, and it is faster to make than a release build.
+A change of Lua or Teal needs no build. Test it with a binary of main
+and `tools/dev-runtime.sh`. The how-to guide on the tests tells how.
+
 ```sh
+nix develop -c cargo check -p <crate>          # most checks of Rust: no link
 nix develop -c cargo build --release -j 8      # the Lua runtime is in the binary: build first
 nix develop -c tests/tools/suite.sh            # the Lua tests
 nix develop -c tests/tools/suite.sh only <words>
@@ -147,6 +160,10 @@ nix flake check                                # all of the checks
 
 - Each change of behavior has a test. A fix of the user experience has a
   test that uses the real keys.
+- No test depends on time or load: no sleep, no deadline as an
+  assertion, no count of frames. Wait for an event or a state. A time in
+  milliseconds goes to `bench/`. A test that fails under load is a bug in
+  the test, and a retry does not fix it.
 - Keep the tests to a minimum. A test guards one behavior that the user or
   a caller relies on, and fails only when that behavior breaks. Before you
   commit, apply the skill in

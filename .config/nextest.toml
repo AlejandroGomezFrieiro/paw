@@ -1,0 +1,33 @@
+# cargo-nextest (https://nexte.st): runs each Rust test in a process of its
+# own, in parallel, and reports each test that fails, with its output.
+#
+#   cargo nextest run -p <crate>                  the edit loop: one crate
+#   cargo nextest run -p <crate> -E 'test(word)'  only some tests
+#   cargo nextest run --workspace --profile gate  before a push
+#
+# Nextest does not run doc tests: `cargo test --doc` runs them.
+
+[profile.default]
+# A test that fails fails: no retry hides a flaky test. A test whose result
+# depends on time or load is a bug in the test (AGENTS.md).
+retries = 0
+fail-fast = false
+# Many agents share the machine: four tests at a time.
+test-threads = 4
+# Name a test that runs long; stop one that hangs.
+slow-timeout = { period = "60s", terminate-after = 5 }
+
+[profile.gate]
+# The check before a push: every test, all the cores the machine gives.
+test-threads = "num-cpus"
+failure-output = "immediate-final"
+
+# Each window test starts an X server, a window and a kernel. In one
+# `cargo test` process a counting gate in window.rs holds them to three;
+# nextest runs each test in its own process, so this group does it.
+[test-groups]
+window = { max-threads = 3 }
+
+[[profile.default.overrides]]
+filter = 'package(paw-gui) & binary(window)'
+test-group = "window"
