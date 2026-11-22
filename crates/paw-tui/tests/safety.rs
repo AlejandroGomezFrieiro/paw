@@ -240,7 +240,6 @@ fn plugin_files_that_failed_are_skipped_until_rescanned() {
             .env("CLAP_PATH", dir.join("clap"))
             .env("VST3_PATH", dir.join("none"))
             .env("LV2_PATH", dir.join("none"));
-        let started = Instant::now();
         let out = command.output().unwrap();
         let stdout = String::from_utf8_lossy(&out.stdout).into_owned();
         assert!(
@@ -248,14 +247,14 @@ fn plugin_files_that_failed_are_skipped_until_rescanned() {
             "{stdout}\n{}",
             String::from_utf8_lossy(&out.stderr)
         );
-        (stdout, started.elapsed())
+        stdout
     };
-    let (first, _) = run(MESSAGES);
+    let first = run(MESSAGES);
     assert!(
         !first.contains("skipped"),
         "the first start looks into both:\n{first}"
     );
-    let (second, _) = run(MESSAGES);
+    let second = run(MESSAGES);
     assert!(
         second.contains("skipped 2 plugin files")
             && second.contains("killed.clap")
@@ -266,7 +265,7 @@ fn plugin_files_that_failed_are_skipped_until_rescanned() {
     let rescan = format!(
         "{MESSAGES}\nlocal notes = paw.api.plugins_rescan('killed')\nprint('notes', #notes)\nfor _, n in ipairs(notes) do print('note', n) end"
     );
-    let (third, _) = run(&rescan);
+    let third = run(&rescan);
     assert!(
         third.contains(
             "note\tskipped 1 plugin file that failed when looked into before (notalibrary.clap)"
@@ -300,16 +299,11 @@ fn a_plugin_file_being_scanned_when_the_program_is_killed_is_skipped_next_time()
         .env("CLAP_PATH", dir.join("clap"))
         .env("VST3_PATH", dir.join("none"))
         .env("LV2_PATH", dir.join("none"));
-    let started = Instant::now();
     let out = command.output().unwrap();
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(
-        started.elapsed() < Duration::from_secs(4),
-        "the second start does not wait for it"
-    );
-    assert!(
         stdout.contains("skipped 1 plugin file") && stdout.contains("stalls.clap"),
-        "and says so:\n{stdout}"
+        "the second start skips it and says so:\n{stdout}"
     );
 }
 

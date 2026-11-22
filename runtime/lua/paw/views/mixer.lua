@@ -391,5 +391,9 @@ function view:render(buf, ctx)
   self.geometry = { sw = sw, shown = shown, strips = strips }
 end
 
+--- What a window of the mixer shows besides what events announce (the
+--- screen keeps the window while it is the same): its scroll.
+function view:stamp() return tostring(self.scroll) end
+
 paw.ui.view("mixer", view)
 return view
