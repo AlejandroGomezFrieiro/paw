@@ -6,7 +6,7 @@
 #
 # The Markdown is not changed. The script copies README.md, docs/ and the
 # Markdown and pictures of extensions/ into a staging folder with the same
-# layout as the repository, writes the sidebar (summary.lua), and runs mdBook.
+# layout as the repository (README.md is the landing page), writes the sidebar (summary.lua), and runs mdBook.
 # `nix build .#website` runs it in a sandbox with no network, and
 # `nix develop -c tools/website/build.sh /tmp/paw-site serve` previews it.
 set -eu
@@ -30,7 +30,10 @@ find extensions \( -name '*.md' -o -name '*.png' -o -name '*.gif' -o -name '*.sv
   -print0 | xargs -0 cp --no-preserve=mode --parents -t "$stage"
 find crates -name README.md -print0 | xargs -0 cp --no-preserve=mode --parents -t "$stage"
 chmod -R u+w "$stage"
-cp "$here/book.toml" "$stage/book.toml"
+cp "$here/book.toml" "$here/landing.css" "$stage/"
+# The site opens on the landing page. It takes the place of README.md in the
+# staged tree only, and the README stays as GitHub shows it.
+cp "$here/landing.md" "$stage/README.md"
 "$lua" "$here/summary.lua" "$stage"
 
 if [ "$mode" = serve ]; then
