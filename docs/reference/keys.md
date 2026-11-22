@@ -20,7 +20,8 @@ A command is a count, an operator, and a motion or a text object, e.g., `3>ic`, 
 | `W` `B` | next, previous bar | next, previous bar |
 | `0` `^` `$` | start of the project, first clip, end of the last clip | start of the clip, first note, end of the clip |
 | `gg` `G` | first, last track (`5G` track 5) | highest, lowest note |
-| `5\|` | bar 5 (also `:5`) | |
+| `5\|` | bar 5 (also `:5`); in a scope with time, its bar 5 | |
+| `@19\|` | bar 19 of the song, also in a scope with its own bars (also `:@19`) | |
 | `gP` | cursor to the playhead | |
 | `]'` `['` | next marker or region, the one before | |
 | `]r` `[r` | next region at the same level, the one before | |
@@ -151,7 +152,7 @@ In the **curve editor**:
 | `ir` | the region, on this track (`2ir` the region around it) | the region (`2ir` the region around it) |
 | `il` | the loop | |
 | `it` | everything on the track | |
-| `ie` | the entire project | every note of the clip |
+| `ie` | the entire project (in a scope, the entire scope) | every note of the clip |
 
 In visual mode, the same text object again takes in one more, so `vic` and then `ic` selects two chords.
 

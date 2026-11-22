@@ -57,9 +57,17 @@ Strings`.
 - Only the tracks of the scope show in these: the arrange view, the
   mixer, the device panel, the session view of the clip launcher,
   `paw://tracks`, the pickers.
+- The track column numbers the tracks of the scope from 1. A `›` on its
+  first row says that the window is in a scope.
 - The track motions (`gg`, `G`, `j`) and the Ex ranges use only these
   tracks. `t1` is the first track of the scope, `t*` and `%` are its
   tracks, and `:g` and `:s` look only in them.
+- The text objects take only what the scope shows. `ie` is the entire
+  scope, and `ar` is the region on the tracks of the scope, cut at the
+  edges of its time. So in `Song › Bridge › Strings`, `dar` deletes only
+  the clips of the strings in the region.
+- The piano roll edits the clips of the tracks of the scope, and it shows
+  the notes of those tracks behind them.
 - The fold of the group is open.
 - A track that you add in the scope of a group goes into the group.
 - The graphical window shows the window as the terminal does.
@@ -79,6 +87,15 @@ A scope of a region, or a block with time, shows that time.
   `Song › Bridge 3.2 (19.2)`.
 - The bars that you type are those of the scope: `3|` and `:3` go to
   bar 3 of the scope, and `:timesig 3/4 at 3` sets the signature there.
+  A bar with `@` before it is a bar of the song: `@19|`, `:@19` and
+  `:tempo 96 at @19` all mean bar 19 of the song.
+- `%` in an Ex range is the time of the scope, so `:%quantize` snaps
+  only the notes inside it.
+- A clip that crosses an edge of the scope is drawn cut, with `‹` or `›`
+  at the cut, and its name after the `‹`. An edit of the clip, for
+  example `x`, is an edit of all of it.
+- The piano roll shows the same time: `0` and `$` stop at the edges of
+  the scope.
 - While the window is in front, the loop is the time of the scope. The
   loop that you had returns when you widen or go to a window of the song.
 
