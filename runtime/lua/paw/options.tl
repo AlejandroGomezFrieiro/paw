@@ -36,6 +36,11 @@ local record Info
   takes: string
 end
 
+--- The options that were set, as `paw.option.snapshot` gives them.
+local record Snapshot
+  values: {string: Value}
+end
+
 --- `paw.opt`: the options the runtime defines, by their types, and any
 --- other by its name. tools/apidoc.lua makes the record from the options
 --- that the runtime defines (`runtime/types/paw/opts.d.tl`).
@@ -57,6 +62,7 @@ local record M
   type Info = Info
   type Opt = Opt
   type Option<T> = Option<T>
+  type Snapshot = Snapshot
   opt: Opt
 end
 
@@ -438,6 +444,76 @@ function M.list(): {Info}
   end
   table.sort(out, function(a: Info, b: Info): boolean return a.name < b.name end)
   return out
+end
+
+--- A copy of a value: a list is copied, so that a later change to the
+--- list does not reach the copy.
+local function copy(value: Value): Value
+  if value is {string | number} then
+    local out: {string | number} = {}
+    for i, v in ipairs(value) do
+      out[i] = v
+    end
+    return out
+  end
+  return value
+end
+
+--- True if two values are the same, a list item by item.
+local function same(a: Value, b: Value): boolean
+  if a is {string | number} and b is {string | number} then
+    if #a ~= #b then
+      return false
+    end
+    for i = 1, #a do
+      if a[i] ~= b[i] then
+        return false
+      end
+    end
+    return true
+  end
+  return a == b
+end
+
+--- The value of each option that was set, to give back later with
+--- `paw.option.restore`. An option that was not set keeps its default.
+function M.snapshot(): Snapshot
+  local out: {string: Value} = {}
+  for name, value in pairs(values) do
+    out[name] = copy(value)
+  end
+  return {values = out}
+end
+
+--- Give each option the value it had in `snapshot`, and an option set
+--- after it its default again. Each option that changes emits
+--- `option.changed`. Gives the names of the options that changed, sorted.
+function M.restore(snapshot: Snapshot): {string}
+  local names: {string} = {}
+  local seen: {string: boolean} = {}
+  for _, list in ipairs({values, snapshot.values}) do
+    for name in pairs(list) do
+      if not seen[name] then
+        seen[name] = true
+        names[#names + 1] = name
+      end
+    end
+  end
+  table.sort(names)
+  local changed: {string} = {}
+  for _, name in ipairs(names) do
+    local want = snapshot.values[name]
+    if not same(values[name], want) then
+      local old = opt[name]
+      values[name] = copy(want)
+      changed[#changed + 1] = name
+      if not same(old, opt[name]) then
+        paw.emit("option.changed", {name = name, value = opt[name], old = old})
+        api.ui_redraw()
+      end
+    end
+  end
+  return changed
 end
 
 M.opt = opt

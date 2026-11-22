@@ -102,6 +102,13 @@ impl Terminal {
         // The pointer in pixels, where views show pixels and it is known
         // how big a cell is.
         probe.pixel_mouse &= graphics.is_some();
+        // The pointer, pasting and focus are asked for; no keyboard
+        // protocol is (neither kitty's flags nor xterm's modifyOtherKeys):
+        // keys come as a terminal sends them by default. So Ctrl with = and
+        // 0 comes as the bare character and Ctrl with - as Ctrl-_, or not
+        // at all, and the vertical zoom has `z+` `z-` `z=` too
+        // (runtime/lua/paw/vzoom.tl). A terminal set to send them anyway
+        // as CSI u gets `<C-=>`, `<C-->` and `<C-0>`.
         execute!(
             stdout(),
             terminal::EnterAlternateScreen,

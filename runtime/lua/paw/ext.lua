@@ -383,6 +383,39 @@ M.registries = {
       paw.formats.unregister(key)
     end
   end, function(key) return key end),
+  -- The language servers it configures (`paw.lsp.config`). Unloaded, its
+  -- server stops: a server in this process keeps the module that started it,
+  -- and the extension loaded again starts a new one.
+  keyed("lsp", "language servers", function() return paw.lsp and paw.lsp.configs end, function(key, value)
+    if value then
+      paw.lsp.configs[key] = value
+    else
+      paw.lsp.enable(key, false)
+      paw.lsp.configs[key] = nil
+    end
+  end, function(key) return key end),
+  -- The bands under the ruler of the window (`paw.frontend.bands`), a list
+  -- of functions: each function is its own key.
+  {
+    kind = "bands",
+    title = "bands under the ruler",
+    snapshot = function()
+      local out = {}
+      for _, band in ipairs(paw.frontend and paw.frontend.bands or {}) do
+        out[band] = band
+      end
+      return out
+    end,
+    put = function(key, value)
+      local bands = paw.frontend.bands
+      for i = #bands, 1, -1 do
+        if bands[i] == key then table.remove(bands, i) end
+      end
+      if value then bands[#bands + 1] = value end
+      api.ui_redraw()
+    end,
+    label = function() return "band" end,
+  },
   {
     kind = "hooks",
     title = "hooks",
