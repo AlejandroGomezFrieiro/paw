@@ -87,6 +87,10 @@ function view:rows()
   return rows_for(id)
 end
 
+-- Another project can have a track with the same id: its cursor starts
+-- again on the first device too.
+paw.on("project.loaded", function() view.row_track = nil end)
+
 --- Its title where a window shows one over it: the track it shows.
 function view:title_of()
   local track = self:track()
