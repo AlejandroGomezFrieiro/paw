@@ -1632,11 +1632,38 @@ local function moving(): boolean
   return api.ui_attached() and M.active()
 end
 
+-- Frames in a row that changed no cell: the ticker slows down after `still_ticks`
+-- of them (a listening track with a silent input), and a poke ends. A poke
+-- and any changed frame start the count again.
+local still_ticks = 20
+local slow_ms = 125
+local still = 0
+local last_frames: types.FrameCounts = nil
+
+-- True if frames were drawn since the last tick and none changed a cell.
+local function frames_unchanged(): boolean
+  local f = api.ui_frames()
+  local before = last_frames
+  last_frames = f
+  if not before then return false end
+  local drawn = f.live - before.live
+  return f.full == before.full and drawn > 0 and f.unchanged - before.unchanged == drawn
+end
+
 local function tick()
   ticker = nil
   if not moving() then return end
+  if frames_unchanged() then still = still + 1 else still = 0 end
+  if still >= still_ticks and not listening and not api.transport_get().playing then
+    -- Only a poke keeps it live, and the meters are at rest.
+    active_until = 0
+    still = 0
+    return
+  end
   api.ui_redraw_live()
-  ticker = paw.defer(tick, M.frame_ms())
+  local wait = M.frame_ms()
+  if still >= still_ticks then wait = math.max(wait, slow_ms) end
+  ticker = paw.defer(tick, wait)
 end
 
 --- Start the frames of what moves, unless they run: nothing happens when
@@ -1649,6 +1676,7 @@ end
 --- Keep the screen animated for some time, for example after paw plays a note.
 function M.poke(ms?: number)
   active_until = math.max(active_until, api.now() + (ms or 1500))
+  still = 0
   M.wake()
   -- And what graphical frontends are sent.
   if paw.scene and paw.scene.wake then paw.scene.wake() end
