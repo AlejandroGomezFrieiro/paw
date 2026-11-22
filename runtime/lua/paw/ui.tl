@@ -1653,7 +1653,7 @@ local field = api.track_get as function(integer, string): any
 
 local function count_listening()
   listening = false
-  for _, id in ipairs(api.track_list()) do
+  for _, id in ipairs(api.track_list({all = true})) do
     local input = field(id, "input") as string
     if input and input ~= "" and (field(id, "armed") as boolean or field(id, "monitor") as boolean) then
       listening = true

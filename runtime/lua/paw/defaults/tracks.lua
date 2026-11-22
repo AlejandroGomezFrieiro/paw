@@ -74,7 +74,7 @@ command("track.remove", function(ctx)
   if not track then return end
   local index = cursor.index()
   track:remove()
-  local list = api.track_list()
+  local list = paw.scope.tracks()
   if #list > 0 then cursor.set_track(list[math.min(index, #list)]) end
 end, { desc = "Remove the track" })
 command("track.rename", function(ctx)
@@ -526,7 +526,7 @@ command("track.move", function(ctx)
   if not track then return end
   -- A count moves it that many places: `3<A-j>`.
   local to = cursor.index() + (ctx.args.by or 1) * (ctx.count or 1)
-  track:move(util.clamp(to, 1, #api.track_list()))
+  track:move(util.clamp(to, 1, #paw.routes.peers(track.id)))
 end, { desc = "Move the track down or up, by the count: `track.move by=-1`" })
 -- What each choice of input means, and the lists, are `paw.audio`'s; here
 -- they are commands.

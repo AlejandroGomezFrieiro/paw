@@ -547,13 +547,17 @@ local record contracts
     "tracks"
     "region"
     "range"
+    "nest"
   end
 
   --- A scope: what a window shows of the song (paw/scope.tl). `id` is the
-  --- group, track or region it is made of; `tracks` a fixed list ("tracks",
-  --- "range"), nil for every track of the parent; `from` and `to` its time
-  --- in beats ("range"), nil for all the time of the parent. `parent` is
-  --- the scope it was entered from (nil: the song): the window's stack.
+  --- group, track, region or subproject ("nest") it is made of; `tracks` a
+  --- fixed list ("tracks", "range"), nil for every track of the parent;
+  --- `from` and `to` its time in beats ("range"), nil for all the time of
+  --- the parent. A subproject has its own tracks and timeline; `clip` is
+  --- the clip of it that the window entered through, which places its
+  --- beats in the song's. `parent` is the scope it was entered from (nil:
+  --- the song): the window's stack.
   record Scope
     kind: ScopeKind
     id: integer
@@ -561,6 +565,7 @@ local record contracts
     from: number
     to: number
     name: string
+    clip: integer
     parent: Scope
   end
 

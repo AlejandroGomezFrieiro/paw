@@ -254,7 +254,7 @@ end
 --- kind is not built in.
 local function custom_clips(): {types.Clip}
   local out: {types.Clip} = {}
-  for _, track in ipairs(api.track_list()) do
+  for _, track in ipairs(api.track_list({all = true})) do
     for _, list in ipairs({api.clip_list(track), api.cue_list(track)}) do
       for _, c in ipairs(list) do
         if not builtin(c.kind) then

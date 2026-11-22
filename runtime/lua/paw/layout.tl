@@ -1164,7 +1164,7 @@ function M.clip_named(target: string | integer): objects.Clip
   if id then
     return pcall(api.clip_get, id as integer) and paw.clip(id as integer) or nil
   end
-  for _, track in ipairs(api.track_list()) do
+  for _, track in ipairs(api.track_list({all = true})) do
     for _, c in ipairs(api.clip_list(track)) do
       if c.name == target then
         return paw.clip(c.id)
@@ -2469,7 +2469,9 @@ end
 function M.scope_levels(s: contracts.Scope): {types.SavedScope}
   local out: {types.SavedScope} = {}
   while s do
-    table.insert(out, 1, {kind = s.kind, id = s.id, tracks = s.tracks, from = s.from, to = s.to, name = s.name})
+    table.insert(
+      out, 1, {kind = s.kind, id = s.id, tracks = s.tracks, from = s.from, to = s.to, name = s.name, clip = s.clip}
+    )
     s = s.parent
   end
   return out
@@ -2487,6 +2489,7 @@ function M.scope_chain(levels: {types.SavedScope}): contracts.Scope
       from = level.from,
       to = level.to,
       name = level.name,
+      clip = level.clip,
       parent = s,
     }
   end

@@ -749,10 +749,19 @@ end, {
 command("clip.edit", function()
   local clip = need_clip()
   if not clip then return end
+  -- A subproject's clip: the window enters the subproject, as `znn` does.
+  local nest = paw.scope.of_clip(clip.id)
+  if nest then
+    local ok, err = pcall(paw.scope.enter, nest)
+    if not ok then return paw.notify(tostring(err), "warn") end
+    return paw.notify(paw.scope.describe() .. " · `zw` goes back")
+  end
   -- An extension with an editor of its own for this clip opens it, as it
   -- does for a double click in a graphical frontend.
   for _, opener in ipairs(paw.frontend.openers) do
     if opener(clip) then return end
   end
   paw.ui.views.pianoroll:edit(clip)
-end, { desc = "Open the clip in its editor: the piano roll, or one an extension has for it" })
+end, {
+  desc = "Open the clip in its editor: the piano roll, or one an extension has for it; a subproject's clip enters the subproject",
+})

@@ -292,6 +292,13 @@ local record types
     nest: integer
   end
 
+  --- What `paw.api.track_list` takes: `nest` lists the tracks of that
+  --- subproject, `all` every track; neither, the song's.
+  record TrackListOptions
+    nest: integer
+    all: boolean
+  end
+
   --- `follow` plays a subproject at the song's tempo where each clip is,
   --- `own` at its own.
   enum NestTempoMode
@@ -584,10 +591,15 @@ local record types
     bent: boolean
     formants: boolean
     warp: {WarpMarker}
+    nest: integer
+    play: string | NestTrack
   end
 
   --- What `paw.api.clip_add` takes (`ClipOpts`): `kind` follows from
-  --- `file` when left out; `cue` keeps it off the timeline.
+  --- `file` when left out; `cue` keeps it off the timeline. A subproject's
+  --- clip (`kind = "nest"`, or `nest` given) places the subproject `nest`
+  --- and plays its mix, or one track with `play = { track = id }`;
+  --- `offset` is then the beat of the subproject where it starts.
   record ClipOptions
     kind: ClipKind
     name: string
@@ -618,6 +630,8 @@ local record types
     media: {MediaRef}
     sound: ClipContentData
     signals: {Signal}
+    nest: integer
+    play: string | NestTrack
   end
 
   enum Timeline
@@ -1592,6 +1606,7 @@ local record types
     from: number
     to: number
     name: string
+    clip: integer
   end
 
   --- A tab as a layout keeps it: its name, its tree, and the place in the
