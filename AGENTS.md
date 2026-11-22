@@ -77,7 +77,7 @@ gives the details. Read it before you write or change a page.
   active voice, the present, past and future tenses only, one word for
   one thing, American English.
   - External: `README.md`, `docs/`, the READMEs and `doc/` pages of the
-    extensions, the READMEs of the crates, the tutor's lessons, and the
+    extensions, the READMEs of the crates and of `web/`, the tutor's lessons, and the
     doc comments that `tools/apidoc.lua` turns into
     `docs/reference/api.md`.
   - Internal: `AGENTS.md`, `.claude/` (the skills), `bench/`, Backlog
@@ -92,7 +92,7 @@ gives the details. Read it before you write or change a page.
 
   | Kind | Files | Rules |
   | --- | --- | --- |
-  | External | `README.md`, `docs/`, READMEs and `doc/` pages of the extensions and the crates | `Plain`, `AiTells`, `alex`, `write-good`, `Vale` (words), and the STE rules that agree with plain writing. Readability is off. |
+  | External | `README.md`, `docs/`, READMEs and `doc/` pages of the extensions and the crates, `web/*/README.md` | `Plain`, `AiTells`, `alex`, `write-good`, `Vale` (words), and the STE rules that agree with plain writing. Readability is off. |
   | Generated | `docs/reference/api.md`, `docs/tutorials/course/` | The external rules. Fix the doc comment or the lesson, and run the generator. |
   | Internal | `AGENTS.md`, `.claude/`, `bench/*.md` | `STE`, with the grade levels. |
   | Not checked | `bench/RESULTS.md` | None: it is a dated log. |

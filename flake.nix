@@ -268,7 +268,7 @@
       docsCheck = pkgs: pkgs.runCommand "paw-docs-vale" {
         src = nixpkgs.lib.fileset.toSource {
           root = ./.;
-          fileset = nixpkgs.lib.fileset.unions ([ ./.vale.ini ./.vale ./README.md ./AGENTS.md ./docs ./extensions ./crates ./bench/README.md ./bench/DAWS.md ]);
+          fileset = nixpkgs.lib.fileset.unions ([ ./.vale.ini ./.vale ./README.md ./AGENTS.md ./docs ./extensions ./crates ./web/browserpod/README.md ./bench/README.md ./bench/DAWS.md ]);
         };
         nativeBuildInputs = [ pkgs.vale ];
       } ''
@@ -276,7 +276,7 @@
         for d in ${valeStyles pkgs}/* $src/.vale/styles/*; do ln -s "$d" styles/; done
         export VALE_STYLES_PATH=$PWD/styles
         cd $src
-        vale --config .vale.ini README.md AGENTS.md docs crates/*/README.md extensions/*/README.md extensions/*/doc bench/README.md bench/DAWS.md
+        vale --config .vale.ini README.md AGENTS.md docs crates/*/README.md extensions/*/README.md extensions/*/doc web/*/README.md bench/README.md bench/DAWS.md
         touch $out
       '';
 
@@ -341,6 +341,20 @@
 
       pawUtau = pkgs: (paw pkgs).withExtensions (exts: [ exts.utau ]);
 
+      # paw in a BrowserPod pod, for the docs (web/browserpod/README.md).
+      # BrowserPod's Rust pack is for x86_64 Linux only.
+      browserpod = pkgs: import ./web/browserpod {
+        inherit pkgs;
+        craneLib = crane.mkLib pkgs;
+        nativePaw = paw pkgs;
+        rev = self.shortRev or self.dirtyShortRev or "unknown";
+      };
+      browserpodPackages = pkgs:
+        nixpkgs.lib.optionalAttrs (pkgs.stdenv.hostPlatform.system == "x86_64-linux") {
+          paw-pod = (browserpod pkgs).image;
+          paw-pod-bin = (browserpod pkgs).bin;
+        };
+
       # The Teal tools that nixpkgs has not, or has old or with a fault.
       luaTools = pkgs: pkgs.callPackage ./nix/lua-tools.nix { };
     in {
@@ -357,7 +371,7 @@
         # extensions/ara's attachment, and the ARA SDK's test plug-in.
         paw-ara = (extensionsFor pkgs).ara.bridge;
         ara-test-plugin = (extensionsFor pkgs).ara.testPlugin;
-      });
+      } // browserpodPackages pkgs);
 
       # `nix flake check`: clippy, rustfmt, the Rust tests a sandbox can run,
       # the program itself, Vale on the docs, `cyan check` on the Teal,
@@ -454,6 +468,13 @@
             perf samply inferno heaptrack valgrind hyperfine
           ]);
         });
+      } // nixpkgs.lib.optionalAttrs (pkgs.stdenv.hostPlatform.system == "x86_64-linux") {
+        # `nix develop .#browserpod`: BrowserPod's cargo, for
+        # web/browserpod/lock.sh.
+        browserpod = pkgs.mkShell {
+          BP_CARGO = "${(browserpod pkgs).pack}/pack/bin/cargo";
+          RUSTC = "${(browserpod pkgs).pack}/pack/bin/rustc";
+        };
       });
     };
 }
