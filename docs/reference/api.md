@@ -649,6 +649,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.events
 
 - `paw.events.emit`: the same as `paw.emit`.
+- `paw.events.emitted()`: How many events paw has sent since it started. A number that is the same as before means that no event came in between.
 - `paw.events.event(name)`: The descriptor of an event whose payload is a `P`: Teal checks the handlers that `paw.on` is given for it, and what `paw.emit` sends.
 
   ```lua

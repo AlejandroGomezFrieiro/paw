@@ -309,6 +309,9 @@ local record M
   drawing_win: Node
   --- True while the terminal's screen is drawn.
   screen: boolean
+  --- With `paw.opt.check_stamps`: each window that drew other cells
+  --- with the same stamp, as a message. The test suite reads it.
+  stamp_misses: {string}
   --- A window of the layout that `render_view` draws, and the strips a
   --- view keeps for a scene while it is drawn (`render_scene`).
   view_win: Node
@@ -350,6 +353,7 @@ local record M
 end
 
 M.views = {}
+M.stamp_misses = {}
 M.messages = {}
 M.rects = {}
 rawset(M as {string:Buf}, "Buf", Buf)
@@ -1197,15 +1201,19 @@ local function draw_checked(view: View, area: Buf, ctx: RenderContext): {string}
   return calls
 end
 
---- Fail when the window of `name` wrote `now` with the stamp that it wrote
---- `before` with: its stamp misses something that its drawing reads.
+--- With `paw.opt.check_stamps`: note when the window of `name` wrote
+--- `now` with the stamp that it wrote `before` with. Its stamp misses
+--- something that its drawing reads.
 local function check_same(name: string, before: {string}, now: {string})
   for i = 1, math.max(#before, #now) do
     if before[i] ~= now[i] then
-      error(string.format(
+      local miss = string.format(
         "paw.opt.check_stamps: the view %s drew other cells with the same stamp: %s, before %s",
         name, now[i] or "nothing", before[i] or "nothing"
-      ), 0)
+      )
+      M.stamp_misses[#M.stamp_misses + 1] = miss
+      api.log(miss)
+      return
     end
   end
 end

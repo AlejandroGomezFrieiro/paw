@@ -350,9 +350,22 @@ end
 -- Run ------------------------------------------------------------------------
 
 local only = ...
+-- Each window that the screen keeps is drawn too, and a test fails when
+-- one drew other cells with the same stamp (paw/ui.tl).
+paw.opt.check_stamps = true
+--- The windows that drew other cells with the same stamp while `fn` ran.
+local function stamps_kept(fn)
+  local misses = paw.ui.stamp_misses
+  for i = #misses, 1, -1 do
+    misses[i] = nil
+  end
+  local skipped = fn()
+  if #misses > 0 then error(table.concat(misses, "\n"), 0) end
+  return skipped
+end
 for _, t in ipairs(tests) do
   if not only or t.name:find(only, 1, true) then
-    local ok, err = xpcall(t.fn, debug.traceback)
+    local ok, err = xpcall(stamps_kept, debug.traceback, t.fn)
     for i = #cleanups, 1, -1 do
       pcall(cleanups[i])
       cleanups[i] = nil
