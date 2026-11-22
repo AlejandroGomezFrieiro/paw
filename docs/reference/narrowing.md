@@ -126,7 +126,7 @@ scope, with `znn` or `<CR>` on its clip, or from `<Space>zz`.
   bars of the song at that clip: over a 6/8 section of the song, bars of
   6/8. With `scopebars=both`, the second row of the ruler shows the bars
   of the song at that clip. See [Subprojects](subprojects.md) for how to
-  add one and for its tempo.
+  add one, how to save a view as one, and for its tempo.
 - The cursor keeps its place in the song when you enter or leave. The
   loop is the time of the clip in the song.
 - `]z` and `[z` go to the next clip of a subproject and to the one before.

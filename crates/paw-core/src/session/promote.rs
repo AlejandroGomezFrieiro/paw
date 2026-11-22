@@ -12,9 +12,11 @@ use crate::model::{ClipContent, Lane, NestId, NestPlay, Target};
 /// What [`Session::nest_promote`] did, for the Lua side and its message.
 #[derive(Debug, Serialize)]
 pub struct Promoted {
-    /// The group track that took the place of the return row.
-    pub group: Id,
-    /// The subproject's tracks, now the song's (or the place's), in order.
+    /// The group track that took the place of the return row; none for a
+    /// subproject saved per track.
+    pub group: Option<Id>,
+    /// The subproject's tracks, now the song's (or the place's), in order;
+    /// per track, the rows its clips went back to.
     pub tracks: Vec<Id>,
     /// The song's beats where the block's window starts and ends.
     pub from: f64,
@@ -24,6 +26,14 @@ pub struct Promoted {
     /// The targets of lanes that the return row and the subproject's
     /// master both had, now one lane of the group track.
     pub combined: Vec<String>,
+}
+
+/// A block of a subproject saved per track: its row, the clip, and the
+/// track of the subproject that it plays.
+struct RowBlock {
+    row: Id,
+    clip: Id,
+    track: Id,
 }
 
 /// The block that a promote starts from, and where it is.
@@ -94,6 +104,9 @@ impl Session {
     /// sends, output, mute and colour, and their lanes (volume lanes added
     /// in dB). The row, the master and the subproject go. One undo step.
     pub fn nest_promote(&mut self, clip: Id) -> Result<Promoted> {
+        if let Some((b, blocks)) = self.per_track_blocks(clip)? {
+            return self.promote_per_track(b, blocks);
+        }
         let b = self.promote_block(clip)?;
         let group_id = self.new_id();
         let p = &self.project;
@@ -177,7 +190,95 @@ impl Session {
             p.nests.remove(&b.nest);
             Ok(())
         })?;
-        Ok(Promoted { group: group_id, tracks, from: b.from, to: b.to, zero: b.zero, combined })
+        Ok(Promoted { group: Some(group_id), tracks, from: b.from, to: b.to, zero: b.zero, combined })
+    }
+
+    /// The blocks of a subproject saved per track (`<Space>zw`), when
+    /// `clip` is one: each row and the track its block plays. None for a
+    /// block of the mix or of a stem row.
+    fn per_track_blocks(&self, clip: Id) -> Result<Option<(Block, Vec<RowBlock>)>> {
+        let p = &self.project;
+        let (row, _) = p.find_clip(clip).with_context(|| format!("no clip {clip}"))?;
+        let c = p.clip(clip).with_context(|| format!("no clip {clip}"))?;
+        let is_stem_row = |row: Id| p.track(row).is_some_and(|t| t.meta.contains_key("nest_stem"));
+        let ClipContent::Nest { nest, offset, play: NestPlay::Track(_) } = &c.content else {
+            return Ok(None);
+        };
+        if is_stem_row(row) {
+            return Ok(None);
+        }
+        let held = p.nest(*nest).context("its subproject is gone")?;
+        let block = Block { nest: *nest, row, zero: c.start - offset, from: c.start, to: c.start + c.length };
+        let mut blocks = Vec::new();
+        for t in p.all_tracks() {
+            for o in t.clips.iter() {
+                let ClipContent::Nest { nest: n, offset: off, play } = &o.content else {
+                    continue;
+                };
+                if n != nest {
+                    continue;
+                }
+                let same = (o.start - c.start).abs() < 1e-9 && (o.length - c.length).abs() < 1e-9 && (off - offset).abs() < 1e-9;
+                match play {
+                    NestPlay::Track(track) if same && !is_stem_row(t.id) => blocks.push(RowBlock { row: t.id, clip: o.id, track: *track }),
+                    _ => {
+                        let bar = p.tempo_map().bar_of(o.start) + 1;
+                        bail!(
+                            "{} plays at bar {bar} on {} too: promote works on a subproject with one place for now",
+                            held.name,
+                            t.name
+                        );
+                    }
+                }
+            }
+        }
+        for t in p.nest_tracks(*nest).filter(|t| t.id != held.master) {
+            if !crate::sync::passes(t) {
+                bail!(
+                    "{} in {} has a sound of its own (devices, fader, pan or lanes): its clips cannot go back to a row as they are",
+                    t.name,
+                    held.name
+                );
+            }
+            if !t.clips.is_empty() && !blocks.iter().any(|b| b.track == t.id) {
+                bail!("{} in {} has clips that no block plays", t.name, held.name);
+            }
+        }
+        Ok(Some((block, blocks)))
+    }
+
+    /// Promote a subproject saved per track: the clips of each of its
+    /// tracks go back to the row of the block that plays it, cut at the
+    /// block; the blocks, the subproject and its tracks go.
+    fn promote_per_track(&mut self, b: Block, blocks: Vec<RowBlock>) -> Result<Promoted> {
+        let mut p = self.project.clone();
+        let gone_clips: HashSet<Id> = blocks.iter().map(|x| x.clip).collect();
+        let mut rows = Vec::new();
+        for RowBlock { row, track, .. } in &blocks {
+            let source = p.track(*track).context("no track")?.clone();
+            let t = p.track_mut(*row).context("no row")?;
+            let mut list: Vec<Arc<crate::model::Clip>> =
+                t.clips.iter().filter(|c| !gone_clips.contains(&c.id)).cloned().collect();
+            list.extend(
+                source
+                    .clips
+                    .iter()
+                    .filter_map(|c| crate::model::nest::placed_clip(c, b.zero, b.from, b.to, c.id).map(Arc::new)),
+            );
+            list.sort_by(|a, b| a.start.total_cmp(&b.start).then(a.id.cmp(&b.id)));
+            t.clips = list.into_iter().collect();
+            if !rows.contains(row) {
+                rows.push(*row);
+            }
+        }
+        p.tracks.retain(|t| t.nest != Some(b.nest));
+        p.nests.remove(&b.nest);
+        p.validate()?;
+        self.edit(|project| {
+            *project = p;
+            Ok(())
+        })?;
+        Ok(Promoted { group: None, tracks: rows, from: b.from, to: b.to, zero: b.zero, combined: Vec::new() })
     }
 }
 

@@ -346,6 +346,12 @@ The limits page lists what paw does not do, and the known limits of what it does
   - Promote works on a subproject with one block, on a row that holds
     nothing else. `:nest.promote` does not keep a key of the subproject on
     its region yet.
+  - `<Space>zw` and `<Space>zW` refuse a view with an audio clip or a
+    looped clip over one of its edges: paw cannot cut those there yet.
+  - A view inside a subproject saved as a subproject keeps its markers
+    where they are.
+  - Promote of a subproject saved per track works when all of its blocks
+    are at one place.
   - The tracks that `za` shows under a return row find their clips at the
     cursor. Keys that work on a time at the cursor (`i`, `p`, `d` with a
     motion) still work in the time of the song there.

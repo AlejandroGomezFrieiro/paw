@@ -284,6 +284,17 @@ map("<leader>za", function()
   local text = keymap.mode == "x" and "'<,'>nest.new " or "nest.new "
   paw.commands.run("cmdline", { text = text }, { mode = keymap.mode })
 end, { mode = nx, desc = "Add a subproject with its own row and tracks: type its name, bars and meter" })
+-- Save the window's view as a subproject: `<leader>zw` per track (`.` saves
+-- the next view beside it), `<leader>zW` with a row of its own.
+map("<leader>zw", function(ctx)
+  paw.commands.run("scope.write")
+  keymap.repeat_as(keymap.parse("]z" .. ctx.keys))
+end, { desc = "Save this view as a subproject: the rows play its clips through their own devices" })
+map(
+  "<leader>zW",
+  "scope.write!",
+  { desc = "Save this view as a subproject with its own row: its tracks and devices go in" }
+)
 map("<leader>zz", "scope.list", { desc = "Enter a scope, or go up to a level, from a list" })
 amap("]z", "scope.next", "The next scope beside this one: region, group, track", { motion = true, mode = "n" })
 amap("[z", "scope.prev", "The scope before this one, beside it", { motion = true, mode = "n" })

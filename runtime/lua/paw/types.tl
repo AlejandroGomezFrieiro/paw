@@ -356,10 +356,43 @@ local record types
     meta: Meta
   end
 
+  --- What `paw.api.nest_save` takes (`session::save::SaveOpts`): the
+  --- subproject's `name`, the view's `tracks` (of one place) and its time
+  --- `from` and `to` in that place's beats, the subproject's `meter`, and
+  --- `own_row` for a row of its own rather than per track.
+  record NestSaveOptions
+    name: string
+    tracks: {integer}
+    from: number
+    to: number
+    meter: NestMeter
+    own_row: boolean
+  end
+
+  --- A row that `paw.api.nest_save` gives a block per track, and the
+  --- track of the subproject that the block plays (`session::save::HostRow`).
+  record NestHostRow
+    row: integer
+    track: integer
+  end
+
+  --- What `paw.api.nest_save` did (`session::save::Saved`): the `nest`,
+  --- per track the `rows` that get a block, with a row of its own the
+  --- return `row`, the subproject's `tracks`, and the routes that changed
+  --- at the boundary, in words (`changes`).
+  record NestSaved
+    nest: integer
+    rows: {NestHostRow}
+    row: integer
+    tracks: {integer}
+    changes: {string}
+  end
+
   --- What `paw.api.nest_promote` did (`session::promote::Promoted`): the
-  --- `group` track, the subproject's `tracks`, the block's window `from`
-  --- and `to` and `zero` (song beats), and the targets of the lanes that
-  --- were made one (`combined`).
+  --- `group` track (nil for a subproject saved per track), the
+  --- subproject's `tracks` (per track: the rows its clips went back to),
+  --- the block's window `from` and `to` and `zero` (song beats), and the
+  --- targets of the lanes that were made one (`combined`).
   record NestPromoted
     group: integer
     tracks: {integer}
