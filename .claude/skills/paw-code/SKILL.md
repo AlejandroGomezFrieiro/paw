@@ -105,6 +105,9 @@ Look for these signals in the code that you change:
   module, or a small change needs edits in files that are not related.
 - **Too many small files.** Do not split a small file that is about one
   thing, or a private flow that only one caller uses.
+- **A reference to a higher layer.** A module of the runtime reads only
+  its own layer and the layers below it. [The layers](layers.md) gives
+  the order, and `tools/layers.lua` checks it.
 
 Ask these questions, and name what moves:
 

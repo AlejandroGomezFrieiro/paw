@@ -1,0 +1,170 @@
+# The layers of the runtime (runtime/lua/paw), from low to high, and the
+# modules in each layer. tools/layers.lua reads this file: a module reads
+# the modules of its own layer and of the layers below it, and a reference
+# to a higher layer must be on tools/layers-allowed.txt.
+#
+# - `[name]` starts a layer.
+# - `paw.x` puts the module paw.x in the layer.
+# - `paw.x.*` puts each module under paw.x in the layer (paw.x.y,
+#   paw.x.y.z). A line for the module itself wins.
+#
+# A new module gets a line here. When a module moves or splits, move or
+# add its line. .claude/skills/paw-code/layers.md tells what each layer
+# holds.
+
+[kernel]
+# The Rust side, the declarations of runtime/types/paw, and what the
+# kernel loads before the other modules.
+paw.api
+paw.compat
+paw.portable
+paw.opts
+paw.partial
+paw.role_props
+paw.untyped
+
+[data]
+# Values and helpers that know nothing of a project or a screen.
+paw.util
+paw.types
+paw.contracts
+paw.music
+paw.bytes
+paw.zip
+paw.xml
+paw.regex
+paw.markdown
+paw.events
+paw.events.*
+paw.options
+paw.limit
+paw.seats
+paw.slices
+paw.derived
+paw.theme
+paw.attr
+paw.startuptime
+paw.dsp
+paw.query.tree
+paw.lsp.rpc
+
+[project]
+# The project and what the user edits in it: tracks, clips, notes, time,
+# devices, files.
+paw.objects
+paw.cursor
+paw.edit
+paw.note_objects
+paw.address
+paw.markers
+paw.locators
+paw.tempo
+paw.tempolane
+paw.scope
+paw.groups
+paw.folds
+paw.vca
+paw.lanes
+paw.takes
+paw.stretch
+paw.routes
+paw.clip_kinds
+paw.track_kinds
+paw.controls
+paw.params
+paw.device_presets
+paw.fx
+paw.midifile
+paw.formats
+paw.harmony
+paw.harmony.*
+paw.chords
+paw.curves
+paw.nest
+paw.render
+paw.stems
+paw.freeze
+paw.audio
+paw.media
+paw.audition
+paw.undofile
+paw.loading
+paw.autosave
+paw.recent
+paw.query
+paw.grep
+paw.structure
+paw.lsp.document
+
+[screen]
+# Cells, windows, tabs, the mouse and the roles of a scene.
+paw.buf
+paw.draw
+paw.canvas
+paw.layout
+paw.panes
+paw.mouse
+paw.roles
+paw.roles.*
+paw.ui
+paw.menu
+paw.plot
+paw.statusline
+paw.ruler
+paw.trackcolumn
+
+[input]
+# Keys, commands, the command line, the quickfix list, completion, help,
+# the language server, and the extensions.
+paw.keymap
+paw.keyrule
+paw.hooks
+paw.commands
+paw.ex
+paw.qf
+paw.complete
+paw.snippet
+paw.step
+paw.insert
+paw.diagnostic
+paw.annotation
+paw.help
+paw.lsp
+paw.lsp.*
+paw.shada
+paw.profile
+paw.external
+paw.learn
+paw.lang
+paw.luadev
+paw.plugins
+paw.health
+paw.ext
+
+[views]
+# What the windows show: the views, the pickers and the menus.
+paw.views.*
+paw.textbuf
+paw.pick
+paw.pick.*
+paw.roll_draw
+paw.roll_clips
+paw.mixer_rows
+paw.device_rows
+paw.keybar
+paw.mouse_menus
+paw.window_menus
+
+[frontends]
+# The terminal and the clients of the control socket.
+paw.frontend
+paw.remote
+paw.reconnect
+paw.scene
+
+[boot]
+# paw/init.lua makes the global `paw` from all the modules. The defaults
+# give the keys, commands and views of a new install.
+paw
+paw.defaults
+paw.defaults.*

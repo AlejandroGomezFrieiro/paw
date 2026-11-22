@@ -339,6 +339,21 @@
         touch $out
       '';
 
+      # tools/layers.lua: no module of the runtime reads a higher layer
+      # (tools/layers.txt) beyond tools/layers-allowed.txt. It reads text only.
+      layersCheck = pkgs: pkgs.runCommand "paw-layers" {
+        src = nixpkgs.lib.fileset.toSource {
+          root = ./.;
+          fileset = nixpkgs.lib.fileset.unions [
+            ./tools/layers.lua ./tools/layers.txt ./tools/layers-allowed.txt ./runtime
+          ];
+        };
+        nativeBuildInputs = [ pkgs.luajit pkgs.findutils ];
+      } ''
+        cd $src && luajit tools/layers.lua
+        touch $out
+      '';
+
       pawUtau = pkgs: (paw pkgs).withExtensions (exts: [ exts.utau ]);
 
       # paw in a BrowserPod pod, for the docs (web/browserpod/README.md).
@@ -375,8 +390,9 @@
 
       # `nix flake check`: clippy, rustfmt, the Rust tests a sandbox can run,
       # the program itself, Vale on the docs, the website with its link check, `cyan check` on the Teal,
-      # luacheck on the Lua, and how much the formatters would change.
-      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; lua = luaCheck pkgs; format = formatCheck pkgs; website = website pkgs; });
+      # luacheck on the Lua, how much the formatters would change, and the
+      # order of layers in the runtime.
+      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; lua = luaCheck pkgs; format = formatCheck pkgs; layers = layersCheck pkgs; website = website pkgs; });
 
       apps = forAll (pkgs:
         nixpkgs.lib.genAttrs [ "paw" "paw-gui" "paw-mcp" ] (name: {
