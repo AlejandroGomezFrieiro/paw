@@ -16,6 +16,7 @@ pub mod freeze;
 pub mod fs_api;
 pub mod grid;
 pub mod history;
+pub mod undofile;
 pub mod io;
 mod io_runtime;
 pub mod kernel;

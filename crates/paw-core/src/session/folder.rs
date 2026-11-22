@@ -509,6 +509,69 @@ pub fn layout(
     screen: Option<&Value>,
     dir: &Path,
 ) -> Result<Layout> {
+    lay_out(project, transport, screen, dir, None)
+}
+
+/// The files of each track laid out alone, kept from one [`layout_cached`]
+/// to the next: states of the undo tree share most of their tracks.
+#[derive(Default)]
+pub struct TrackCache {
+    now: HashMap<(usize, PathBuf), CachedTrack>,
+    before: HashMap<(usize, PathBuf), CachedTrack>,
+}
+
+struct CachedTrack {
+    /// Keeps the track, so that no other track gets its address.
+    _track: Arc<Track>,
+    files: Vec<(PathBuf, Vec<u8>)>,
+}
+
+impl TrackCache {
+    /// Put the files of `track` in `folder` into `w`'s layout: from the
+    /// cache when the last layout had the very same track there.
+    fn track(&mut self, w: &mut Writer<'_>, track: &Arc<Track>, folder: &Path) -> Result<()> {
+        let key = (Arc::as_ptr(track) as usize, folder.to_path_buf());
+        let entry = match self.now.remove(&key).or_else(|| self.before.remove(&key)) {
+            Some(entry) => entry,
+            None => {
+                // Alone: no file is shared with another track, so the files
+                // stay right whatever the other tracks become.
+                let mut alone = Writer { layout: Layout::default(), written: HashMap::new(), dir: w.dir };
+                alone.track(track, folder)?;
+                CachedTrack { _track: Arc::clone(track), files: alone.layout.files.into_iter().collect() }
+            }
+        };
+        for (path, bytes) in &entry.files {
+            w.layout.files.insert(path.clone(), bytes.clone());
+        }
+        w.layout.track_folders.insert(track.id, folder.to_path_buf());
+        self.now.insert(key, entry);
+        Ok(())
+    }
+}
+
+/// The files of a project as [`layout`] gives them, except that no two
+/// tracks share a file and `clip_files` is empty: for the states of the undo
+/// file, which read back as the same project. The tracks that the last call
+/// laid out come from `cache`.
+pub fn layout_cached(
+    project: &Project,
+    transport: &Value,
+    screen: Option<&Value>,
+    dir: &Path,
+    cache: &mut TrackCache,
+) -> Result<Layout> {
+    cache.before = std::mem::take(&mut cache.now);
+    lay_out(project, transport, screen, dir, Some(cache))
+}
+
+fn lay_out(
+    project: &Project,
+    transport: &Value,
+    screen: Option<&Value>,
+    dir: &Path,
+    mut cache: Option<&mut TrackCache>,
+) -> Result<Layout> {
     let mut w = Writer {
         layout: Layout::default(),
         written: HashMap::new(),
@@ -529,10 +592,17 @@ pub fn layout(
             continue;
         }
         let name = unique(&mut folders, &file_name(&track.name), "");
-        w.track(track, &Path::new("tracks").join(&name))?;
+        let folder = Path::new("tracks").join(&name);
+        match cache.as_deref_mut() {
+            Some(cache) => cache.track(&mut w, track, &folder)?,
+            None => w.track(track, &folder)?,
+        }
         order.push(name);
     }
-    w.track(&project.master, Path::new("master"))?;
+    match cache {
+        Some(cache) => cache.track(&mut w, &project.master, Path::new("master"))?,
+        None => w.track(&project.master, Path::new("master"))?,
+    }
     let mut bare = project.clone();
     bare.master = Arc::new(Track::new(0));
     bare.tracks = Vec::new();
@@ -1650,6 +1720,10 @@ impl super::Session {
             let changed = std::mem::take(&mut self.files_watch.changed);
             self.watch_project_files();
             self.files_watch.changed = changed;
+        }
+        if only.is_none() {
+            // The undo file keeps these files as the state saved.
+            self.undo.file.saved_files = Some((self.undo.history.current(), layout.files));
         }
         let saved = Saved {
             path: file.clone(),

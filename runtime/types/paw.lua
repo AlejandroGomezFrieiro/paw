@@ -296,6 +296,9 @@ paw.ui.Buf = {}
 ---@class paw.ui.keybar
 paw.ui.keybar = {}
 
+---@class paw.undofile
+paw.undofile = {}
+
 ---@class paw.util
 paw.util = {}
 
@@ -8757,6 +8760,10 @@ function paw.ui.keybar.set(view, mode, entries) end
 ---@param lhs any
 function paw.ui.keybar.show(lhs) end
 
+--- The undo folder of the project at `path`, or nil when paw keeps none.
+---@param path any
+function paw.undofile.dir(path) end
+
 --- `v`, kept between `lo` and `hi`.
 ---@param v any
 ---@param lo any
@@ -10402,6 +10409,21 @@ function paw.api.undo_current() end
 function paw.api.undo_diff(a, b) end
 
 function paw.api.undo_discard() end
+
+--- Read the undo file in the folder `dir` for the project that just
+--- opened. Gives `states`, the number of states that came back, or
+--- `stale` when the project's files changed after the undo file was written.
+---@param dir string
+function paw.api.undo_file_open(dir) end
+
+--- Wait until the undo file that is being written is complete.
+function paw.api.undo_file_wait() end
+
+--- Write the undo file in the folder `dir` after a save, in about
+--- `bytes` bytes at most. The write runs on a thread of its own.
+---@param dir string
+---@param bytes integer
+function paw.api.undo_file_write(dir, bytes) end
 
 ---@param id integer
 function paw.api.undo_goto(id) end

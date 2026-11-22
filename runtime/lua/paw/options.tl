@@ -157,6 +157,11 @@ local defaults: {string: Value} = {
   -- what they changed; past either its oldest steps are let go.
   undo_steps = 1000,
   undo_memory = 1024,
+  -- Keep the undo tree after a save, in the state directory, so that a
+  -- project opened again can undo past its last save; about how many
+  -- megabytes for one project. Off when started with --clean.
+  undofile = not api.env().clean,
+  undofile_mb = 256,
 }
 
 -- What an option takes besides its default's type (M.Spec).
@@ -193,6 +198,7 @@ local specs: {string: Spec} = {
   autosave = {min = 0},
   undo_steps = {min = 10, max = 1000000, integer = true},
   undo_memory = {min = 16, max = 1048576},
+  undofile_mb = {min = 1, max = 1048576},
 }
 
 local function has<T>(list: {T}, value: T): boolean

@@ -103,6 +103,9 @@ song/
   file (a renamed track).
 - The project is saved when no file is different from the disk. An undo
   back to the saved state makes the files the same again.
+- After a save of the whole project, paw writes the undo history to the
+  undo file in the state directory, not in the folder. See
+  [Files that paw keeps](state-files.md#the-undo-file).
 - `:q` refuses to quit with changes that are not saved. `:q!` quits without
   them.
 
