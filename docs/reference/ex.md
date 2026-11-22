@@ -11,8 +11,9 @@ A bar is a number, and a beat is `bar.beat` (`5.3`), counted from 1 in the beats
 | Range | Covers |
 | --- | --- |
 | `5`, `5,8`, `5.3,6.1` | a bar; bars 5 to 8; from beat 3 of bar 5 to the end of beat 1 of bar 6 |
-| `%` | the whole song, to the end of the bar where its last clip ends |
-| `.`, `$` | the bar of the cursor; the last bar |
+| `@19`, `@19.3` | bar 19 of the song, and its third beat, also in a scope with its own bars |
+| `%` | the whole song, to the end of the bar where its last clip ends. In a scope with time, the time of the scope. |
+| `.`, `$` | the bar of the cursor; the last bar (in a scope with time, its last bar) |
 | `.+4`, `$-1`, `5.3+2` | four bars on; the bar before the last; two beats on (after a beat, offsets count beats) |
 | `'a,'b` | from mark `a` to mark `b`, exactly. `'a` alone is the bar of the mark. |
 | `'<,'>` | the last selection of the focused view: its time, and its tracks in the arrange view, its pitches in the piano roll (a `Ctrl-v` or `V` selection), or the clips chosen with the pointer |
@@ -33,7 +34,8 @@ A range of tracks comes before a range of time.
 - A range of time alone covers every track. In the piano roll and the score, it covers the notes of the clips that the view edits.
 - A range of tracks alone covers whole tracks.
 - Both together cover that time on those tracks, so `:t2 5,8d` empties bars 5 to 8 of track 2.
-- A range with no command goes there: `:$`, `:t3`, `:'a`.
+- A range with no command goes there: `:$`, `:t3`, `:'a`, `:@19`.
+- In a window narrowed to a scope ([Scopes](narrowing.md)), the ranges see only its tracks and its time. The bars that you type are the bars of the scope, from 1 at its start, and `@19` is bar 19 of the song. In `Song › Bridge`, where the bridge starts at bar 17 of the song, `:%quantize` snaps only the notes of the bridge, and `:3` and `:@19` go to the same bar.
 - A number before a command that takes no range is its count: `:3snippet arp`.
 - A command that an extension makes with a range gets one: `:5,8notation.transpose 2`.
 

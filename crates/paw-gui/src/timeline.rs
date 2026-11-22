@@ -87,12 +87,26 @@ pub fn clip(ui: &Ui, painter: &Painter, p: &ClipProps, rect: Rect, (cw, ch): (f3
     let bar = Rect::from_min_size(shape.min, vec2(shape.width(), bar_h));
     let bar_face = if muted { t.text_off } else if current { mix(colour, Color32::WHITE, 0.80) } else { colour };
     painter.rect_filled(bar, CornerRadius { nw: 2, ne: 2, sw: 0, se: 0 }, bar_face);
-    let x = shape.left().max(seen.left()) + 5.0;
-    let shown = widgets::elide(ui, p.label.unwrap_or(""), font.clone(), shape.right() - x - 3.0);
-    painter.text(pos2(x, bar.center().y), Align2::LEFT_CENTER, shown, font, if muted { t.text_3 } else { t.on_hue });
+    let per = p.per as f32 * cw;
+    let at = |beat: f32| shape.left() + beat * per;
+    let ink = if muted { t.text_3 } else { t.on_hue };
+    // Where the window's scope cuts it: `‹` at the cut, its name after it.
+    let mut x = shape.left().max(seen.left()) + 5.0;
+    if let Some(cut) = p.cut_in {
+        let cut = at(cut as f32);
+        painter.text(pos2(cut + 2.0, bar.center().y), Align2::LEFT_CENTER, "‹", font.clone(), ink);
+        x = x.max(cut + 2.0 + cw);
+    }
+    let right = p.cut_out.map_or(shape.right(), |cut| at(cut as f32).min(shape.right()));
+    let mut room = right - x - 3.0;
+    if p.cut_out.is_some() {
+        painter.text(pos2(right - 2.0, bar.center().y), Align2::RIGHT_CENTER, "›", font.clone(), ink);
+        room -= cw;
+    }
+    let shown = widgets::elide(ui, p.label.unwrap_or(""), font.clone(), room);
+    painter.text(pos2(x, bar.center().y), Align2::LEFT_CENTER, shown, font, ink);
     // Its notes or its waveform, white on clear, tinted.
     let body = Rect::from_min_max(pos2(shape.left(), bar.bottom() + 2.0), pos2(shape.right(), shape.bottom() - 2.0));
-    let per = p.per as f32 * cw;
     let length = p.length as f32;
     if body.height() > 3.0 {
         let full = Rect::from_min_size(body.min, vec2((length * per).max(1.0), body.height()));
@@ -105,7 +119,6 @@ pub fn clip(ui: &Ui, painter: &Painter, p: &ClipProps, rect: Rect, (cw, ch): (f3
             }
         }
     }
-    let at = |beat: f32| shape.left() + beat * per;
     if !midi {
         // The fades: the part above each line is faded away.
         let (fade_in, fade_out) = (at(p.fade_in as f32).clamp(shape.left(), shape.right()), (shape.right() - p.fade_out as f32 * per).clamp(shape.left(), shape.right()));

@@ -1714,7 +1714,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.roll_clips.context_at(pitch, beat)`: The context note on `pitch` that sounds at roll beat `beat`, if any.
 - `paw.roll_clips.cycle(n)`: Make the clip `n` places after the active one (before it, with a negative `n`) active, the editable clips taken in the order they start.
 - `paw.roll_clips.editable(id)`: True if a clip is one of the editable clips.
-- `paw.roll_clips.ids()`: The ids of the editable clips, the active one first, then the others in the order they were added.
+- `paw.roll_clips.ids()`: The ids of the editable clips, the active one first, then the others in the order they were added. In a narrowed window, only the clips that its scope shows (the active one always).
 - `paw.roll_clips.note_at(pitch, beat, parts)`: The note of an editable clip on `pitch` that sounds at roll beat `beat`, the active clip first. Returns the note (in the beats of the roll), its place and its part.
 - `paw.roll_clips.notes(range, parts)`: The notes of the editable clips in the roll's beats, in the order they start (lower pitches first in a chord), each with `clip` (its clip's id), `place` (its place among that clip's notes, for `edit_notes`) and `offset`. With one clip they are that clip's notes in its own order. `range` is as for `Clip:notes`, its beats the roll's.
 - `paw.roll_clips.offset(id)`: Where a clip's beats are in the roll: add this to them.
@@ -1725,7 +1725,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.roll_clips.rows()`: Each clip near the roll, as rows for a list. Each shown track is a row (`kind` "track", `on` tells if its notes show). Under it are its MIDI clips in the range of the roll (`kind` "clip", `on` tells if it is editable, `active`). The track of the active clip is first, with its clips.
 - `paw.roll_clips.show_track(id, on)`: Show the notes of a track behind the notes of the roll, or not. nil returns to the value of `paw.opt.roll_context`.
 - `paw.roll_clips.sounding(beat)`: The pitches that sound at roll beat `beat`, in the editable clips and the context, lowest first. The second value is the name of the chord that they make, when `paw.harmony` can tell it.
-- `paw.roll_clips.span()`: The stretch of the roll the editable clips cover: from, to.
+- `paw.roll_clips.span()`: The stretch of the roll the editable clips cover: from, to. In a scope with time, only its time, as the arrange view (`0` and `$` stop there).
 - `paw.roll_clips.step_track(n, wrap)`: Make active the track `n` places after the track of the active clip, in the tracks that the roll shows (before it with a negative `n`). Its clip under the cursor gets the new notes. The notes of the old clip show behind. With `wrap`, it goes round. False when the roll shows no other track.
 - `paw.roll_clips.target(beat, parts)`: The editable clip a new note at `beat` goes into: the active one, unless the beat is outside it and inside another. Returns the part.
 - `paw.roll_clips.toggle(id)`: Add a clip to the editable set, or remove it. If you remove the active clip, the next clip becomes active. The last clip stays.
@@ -1998,7 +1998,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.tempo.label(point)`: What a tempo change reads as on a ruler: "96" or "120>" for a ramp.
 - `paw.tempo.lines(from, to, limit)`: The bar and beat lines from one beat to another: { beat, bar, index }, `index` 0 on a bar line (bars count from 1).
 - `paw.tempo.marks(from, to)`: Tempo and signature changes from one beat to another, for a ruler to mark: { beat, text, kind = "tempo" | "signature" }, the start's left out.
-- `paw.tempo.place(text)`: A place given to a command: a bar (`17`), a bar and beat (`17.3`), or `cursor` / `here`. The beat of the cursor when nothing is given. In a scope with time (`paw.scope`), bars are its own, from 1 at its start.
+- `paw.tempo.place(text)`: A place given to a command: a bar (`17`), a bar and beat (`17.3`), a bar of the song (`@19`), or `cursor` / `here`. The beat of the cursor when nothing is given. In a scope with time (`paw.scope`), bars are its own, from 1 at its start; `@19` is bar 19 of the song all the same.
 - `paw.tempo.point_at(beat)`: The tempo point in effect at a beat.
 - `paw.tempo.points()`: Every tempo point, the start's first: { beat, bpm, ramp }.
 - `paw.tempo.remove(beat)`: Remove the tempo change at `beat`.

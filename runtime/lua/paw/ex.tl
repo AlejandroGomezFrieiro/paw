@@ -197,6 +197,7 @@ end
 --- paw/scope.tl, the part of it that this module reads.
 local record Scope
   tracks: function(): {integer}
+  span: function(): number, number
   bar_offset: function(): integer
 end
 local record RollClips
@@ -378,8 +379,23 @@ local function song_end(): number
   return finish
 end
 
+--- The last bar: of the scope's time in a scope with time (`paw.scope`),
+--- else the last bar with a clip in it.
 local function last_bar(): integer
+  local from, to = paw.scope.span()
+  if from then
+    return paw.time.bar_of(math.max(from, to - NEAR))
+  end
   return math.max(1, paw.time.bar_of(math.max(0, song_end() - NEAR)))
+end
+
+--- `%`: the time of the scope (`paw.scope`), else the whole song.
+local function whole_range(): Range
+  local from, to = paw.scope.span()
+  if from then
+    return {from = from, to = to, whole = true}
+  end
+  return {from = 0, to = paw.time.bar_start(last_bar() + 1), whole = true}
 end
 
 --- Bar `n` as the user types it: in a scope with time, its own bars
@@ -428,10 +444,18 @@ end
 local function address(s: string, i: integer): Span, integer
   local span: Span
   local j: integer
+  -- `@19`, `@19.3`: a bar of the song, whatever bar the scope shows there.
+  local offset = 0
+  if s:sub(i, i) == "@" then
+    if not s:match("^@%d", i) then
+      fail("`@` names a bar of the song: `@19`")
+    end
+    i, offset = i + 1, paw.scope.bar_offset()
+  end
   local bar, beat, e = s:match("^(%d+)%.(%d+)()", i)
   if bar then
     span, j =
-      beat_span(math.tointeger(tonumber(bar)), math.tointeger(tonumber(beat)), s:sub(i, (e as integer) - 1)),
+      beat_span(math.tointeger(tonumber(bar)) - offset, math.tointeger(tonumber(beat)), s:sub(i, (e as integer) - 1)),
       e as integer
   else
     bar, e = s:match("^(%d+)()", i)
@@ -439,7 +463,7 @@ local function address(s: string, i: integer): Span, integer
       if tonumber(bar) < 1 then
         fail("`%s`: bars count from 1", bar)
       end
-      span, j = bar_span(math.tointeger(tonumber(bar))), e as integer
+      span, j = bar_span(math.tointeger(tonumber(bar)) - offset), e as integer
     elseif s:sub(i, i) == "." then
       span, j = bar_span(typed_bar(cursor_beat())), i + 1
     elseif s:sub(i, i) == "$" then
@@ -648,7 +672,7 @@ end
 
 local function time_range(s: string, i: integer): Range, integer
   if s:sub(i, i) == "%" then
-    return {from = 0, to = paw.time.bar_start(last_bar() + 1), whole = true}, i + 1
+    return whole_range(), i + 1
   end
   local sel = s:match("^'<%s*,%s*'>()", i)
   if sel then
@@ -741,7 +765,7 @@ function M.describe(r: Range): string
   local parts: {string} = {}
   if r.from then
     local a, b = r.bars[1], r.bars[2]
-    if math.abs(paw.time.bar_start(a) - r.from) < EPS and math.abs(paw.time.bar_start(b + 1) - r.to) < EPS then
+    if math.abs(bar_span(a).from - r.from) < EPS and math.abs(bar_span(b).to - r.to) < EPS then
       parts[1] = a == b and "bar " .. a or string.format("bars %d–%d", a, b)
     else
       parts[1] = paw.time.format(r.from) .. "–" .. paw.time.format(r.to)
@@ -1459,7 +1483,7 @@ local function range_of(ctx: Context, default: string): Range
   end
   local r: Range
   if default == "%" then
-    r = {from = 0, to = paw.time.bar_start(last_bar() + 1), whole = true}
+    r = whole_range()
   elseif default == "track" then
     local id = cursor_track()
     if not id then

@@ -6578,7 +6578,8 @@ function paw.roll_clips.cycle(n) end
 function paw.roll_clips.editable(id) end
 
 --- The ids of the editable clips, the active one first, then the others in
---- the order they were added.
+--- the order they were added. In a narrowed window, only the clips that its
+--- scope shows (the active one always).
 function paw.roll_clips.ids() end
 
 --- The note of an editable clip on `pitch` that sounds at roll beat `beat`,
@@ -6638,7 +6639,8 @@ function paw.roll_clips.show_track(id, on) end
 ---@param beat any
 function paw.roll_clips.sounding(beat) end
 
---- The stretch of the roll the editable clips cover: from, to.
+--- The stretch of the roll the editable clips cover: from, to. In a scope
+--- with time, only its time, as the arrange view (`0` and `$` stop there).
 function paw.roll_clips.span() end
 
 --- Make active the track `n` places after the track of the active clip, in
@@ -7811,9 +7813,10 @@ function paw.tempo.lines(from, to, limit) end
 ---@param to any
 function paw.tempo.marks(from, to) end
 
---- A place given to a command: a bar (`17`), a bar and beat (`17.3`), or
---- `cursor` / `here`. The beat of the cursor when nothing is given. In a
---- scope with time (`paw.scope`), bars are its own, from 1 at its start.
+--- A place given to a command: a bar (`17`), a bar and beat (`17.3`), a
+--- bar of the song (`@19`), or `cursor` / `here`. The beat of the cursor
+--- when nothing is given. In a scope with time (`paw.scope`), bars are its
+--- own, from 1 at its start; `@19` is bar 19 of the song all the same.
 ---@param text any
 function paw.tempo.place(text) end
 
