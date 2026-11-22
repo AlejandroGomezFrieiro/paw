@@ -45,6 +45,7 @@ A view has the same fields in both frontends, and the graphical window shows a v
 | `title_of(self)` | the title of its pane in the graphical window, for what the view shows now |
 | `window_state` | the names of the fields of the view that each window has for itself (see [A state for each window](#a-state-for-each-window)) |
 | `window_fresh` | the fields of `window_state` that a new window starts without, e.g., caches |
+| `window_instances` | true to give each window its own table of the `window_state` fields (see [A state for each window](#a-state-for-each-window)) |
 | `open_target(self, target)` | opens a thing by name in the window, for `:e view://target`. It returns false and a message when it cannot |
 | `window_target(self)` | the name of what the window shows, for a saved layout. It gives nil when that thing is gone (undone or deleted) |
 | `share` | the part of the room that the view keeps: `column`, `least` and `most`, fractions (see [Windows, buffers and tabs](windows.md#sizes)) |
@@ -70,8 +71,12 @@ paw.ui.view("score", {
 })
 ```
 
+With `window_instances = true`, each window has its own table, which holds the fields of `window_state` and takes the other fields and the functions from the view. The view draws in a window with that table as `self`. The view that `paw.ui.view` returns reads and writes the fields of `window_state` in the window that drew or acted last, as before. The piano roll works this way.
+
 | Function | Effect |
 | --- | --- |
+| `paw.ui.instance(view)` | the table of a view with `window_instances` in its window with the keyboard, else in the window that had it last. With no window, it gives the view |
+| `paw.ui.instance_of(win)` | the table of the window `win`, for a view with `window_instances` |
 | `paw.layout.window_keep(view, get, set, fresh)` | keeps other state of a view for each window, e.g., locals of a module. `get()` gives one value, `set(value)` puts it back, `fresh(value)` gives the value of a new window |
 | `paw.layout.within(win, fn, ...)` | runs `fn` with the state of the window `win` in the table, then puts the state before back |
 | `paw.layout.bound(view)` | the window whose state the table of the view has now |

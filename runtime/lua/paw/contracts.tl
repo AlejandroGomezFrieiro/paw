@@ -475,6 +475,9 @@ local record contracts
     --- The state of each window, by the names of its fields.
     window_state: {string}
     window_fresh: {string}
+    --- Each window has its own table of `window_state` (an instance), not
+    --- the fields swapped into the view's table.
+    window_instances: boolean
     open_target: function(self: View, target: string): boolean, string
     window_target: function(self: View): string
     share: Share
