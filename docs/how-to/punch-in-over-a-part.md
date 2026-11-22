@@ -10,7 +10,9 @@ in [Recording](../reference/recording.md#punch-in-and-out).
 3. Stop the song and press `R`. The song plays from two bars before the
    punch in, and you play along. paw records only between the punch in
    and the punch out.
-4. Stop the song. The new clip covers the range exactly.
+4. Stop the song. The new recording covers the range exactly. Over an
+   audio clip, it becomes the take that plays in the range, and the old
+   recording stays there as a take. Press `[t` to hear the old take again.
 
 To give the range by bar numbers, type `:punch 5 8`.
 
