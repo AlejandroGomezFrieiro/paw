@@ -42,10 +42,13 @@ local function end_at(self, tx, free, fine)
 end
 
 --- The pitch of a row of the view, which may be a fraction of one.
-local function pitch_of(self, y) return util.clamp(self.top - math.floor(y - self.geometry.head), 0, 127) end
+local function pitch_of(self, y)
+  local g = self.geometry
+  return util.clamp(self.top - math.floor((y - g.head) / (g.per or 1)), 0, 127)
+end
 
---- Rows a drag went, as whole pitches.
-local function rows_moved(d) return math.floor(d.dy + 0.5) end
+--- Rows a drag went, as whole pitches: a pitch is `per` rows tall.
+local function rows_moved(d, per) return math.floor(d.dy / (per or 1) + 0.5) end
 
 --- What a press is on, from the hit region it found: `area` "ruler",
 --- "keys", "grid", "velocity" or "tool", the column of the roll, the beat
@@ -130,7 +133,7 @@ local function press_note(self, e, h, clip)
     roll = function(p)
       local d = mouse.gesture().d
       if not (d and d.moved) then return end
-      local dbeat, dpitch = d.dx / zoom, -rows_moved(d)
+      local dbeat, dpitch = d.dx / zoom, -rows_moved(d, self.geometry.per)
       for _, ref in ipairs(grabbed(id, place)) do
         local m = paw.clip(ref[1]):notes()[ref[2]]
         if m then
@@ -153,7 +156,7 @@ local function press_note(self, e, h, clip)
       local shown = part == "start" and { pitch = n.pitch, start = n.start + dbeat, length = n.length - dbeat }
         or part == "end" and { pitch = n.pitch, start = n.start, length = n.length + dbeat }
         or {
-          pitch = util.clamp(n.pitch - rows_moved(d), 0, 127),
+          pitch = util.clamp(n.pitch - rows_moved(d, self.geometry.per), 0, 127),
           start = math.max(0, n.start + dbeat),
           length = n.length,
         }
@@ -306,7 +309,7 @@ end
 --- under the stroke are played (only the chosen, if any are).
 local function press_velocity(self, e, h, clip)
   local g = self.geometry
-  local top = g.head + g.rows
+  local top = g.head + g.lines
   -- A terminal's cell at its middle, a window's pointer where it is.
   local half = e.fine and 0 or 0.5
   local reach = 0.5 / g.zoom
@@ -337,6 +340,9 @@ local function wheel(self, e, h)
     local zoom = util.clamp(paw.opt.note_zoom * (step < 0 and math.sqrt(2) or 1 / math.sqrt(2)), 0.125, 64)
     paw.opt.note_zoom = zoom
     self.scroll = math.max(leftmost(), at - tx / zoom)
+  elseif mouse.has(e, "A") and not sideways then
+    -- Taller or shorter keys: the vertical zoom (paw/vzoom.tl).
+    return paw.vzoom.step(-step, { view = "pianoroll" })
   elseif sideways or mouse.has(e, "S") then
     self.scroll = math.max(leftmost(), self.scroll + step)
   else
@@ -395,7 +401,7 @@ local function pointer(self, e)
     return mouse.grab(e, {
       drag = function(d)
         self.scroll = math.max(leftmost(), scroll - d.dx / zoom)
-        self.top = util.clamp(top + rows_moved(d), self.geometry.rows - 1, 127)
+        self.top = util.clamp(top + rows_moved(d, self.geometry.per), self.geometry.rows - 1, 127)
         self:follow()
       end,
     })
@@ -477,7 +483,7 @@ local function scrollbar(self, e)
   local top = self.top
   mouse.grab(e, {
     drag = function(d)
-      self.top = util.clamp(top - math.floor(d.dy * 128 / g.rows + 0.5), g.rows - 1, 127)
+      self.top = util.clamp(top - math.floor(d.dy * 128 / g.lines + 0.5), g.rows - 1, 127)
       self:follow()
     end,
   })

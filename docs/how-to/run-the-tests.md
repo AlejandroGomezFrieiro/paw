@@ -45,6 +45,54 @@ loads each of the test files, in the order of their names.
   The folder also holds `examples/libstub_clap.so`. A change of Rust
   still needs a build of your checkout.
 
+## Run the suite in more than one process
+
+By default, one paw process runs all the tests, one after the other. To
+use more processor cores, give `-j` and a number from 1 to 4 before the
+other words: `tests/tools/suite.sh -j 2`, or
+`tests/tools/suite.sh -j 2 plugins`. With `-j 2`, each process gets every
+second test file of `tests/`, and every second extension with all of its
+test files. Each process has its own scratch home, plugin and XDG folders under
+`target/test-scratch/shard<N>`. The script puts the outputs together in
+`target/test-scratch/suite.out`, and the last line is the same as with one
+process.
+
+Run one suite at a time on a machine that other people or programs use.
+Two suites, or a large `-j`, slow down the tests that wait for the audio.
+
+## Read the leak check
+
+A test file must put back what its tests change, so that the next file
+starts in the same state, whatever ran before it. The runner gives back
+the options that paw had when the suite started after each test.
+`T.fresh()` gives a new project, the default layout, normal mode and no
+open float. `T.start()` also types `<Esc><Esc>` and moves the focus to the
+arrange view. `T.screen(w, h)` gives the text of the screen.
+
+The runner checks each file of `tests/`, and the test files of each
+extension together, because a test file of an extension can use what an
+earlier one set up. After the last test of a file or an extension, the
+runner puts back the following things as they were at the start of the
+run:
+
+- the event handlers, timers and key mappings that the test code made
+- the loaded extensions, so it unloads each extension that the tests
+  loaded
+
+If a handler, timer or key mapping of the test code was still there, or
+an extension can't be unloaded, the runner fails a test named
+`tests/<file>.lua leaves no state behind` or
+`extensions/<name>/ leaves no state behind`. The `changed:` line names
+what changed. To fix the failure, put back the change in the test that
+made it, with `T.after(function() ... end)`.
+
+The runner checks a file only when all of its tests ran, so a filter with
+`only` does not fail the check. The file `tests/leaks-allowed.txt` lists
+the leaks that are known, one on each line, for example
+`tests/model.lua hooks` or `extensions/utau/ timers`. Don't add
+lines to the list. When a file no longer leaks, the runner fails until you
+remove its line.
+
 ## Write a test that a loaded machine does not break
 
 The tests run on a machine that also builds and runs other programs, and a

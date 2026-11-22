@@ -629,7 +629,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.draw.note_style(hue, velocity)`: The shade of a note by how hard it is played.
 - `paw.draw.pan(buf, x, y, width, pan, style)`: A pan from -1 to 1 as a bar that is `width` cells wide (an odd number is best). It is a rail with a mark at the position of the sound, `───┃───` in the middle.
 - `paw.draw.pan_text(pan)`: Where a pan from -1 to 1 points, in a few cells: `L30`, `C`, `R100`.
-- `paw.draw.piano_key(buf, row, pitch, cursor, width, name)`: One row of a keyboard on its side, `width` cells wide, for the left edge of a piano roll. Black keys are short. The Cs have their names, and the pitch of the cursor has its name too.
+- `paw.draw.piano_key(buf, row, pitch, cursor, width, name, part)`: One row of a keyboard on its side, `width` cells wide, for the left edge of a piano roll. Black keys are short. The Cs have their names, and the pitch of the cursor has its name too. A key taller than a row shows its names on its first row and its line on its last (`part`).
 - `paw.draw.reset()`: Forget the shades made until now. Call it after the palette changes.
 - `paw.draw.sextant(bits)`: The character for a set of sextants (U+1FB00 to U+1FB3B, two columns by three rows): bits 1 to 32 are top left, top right, middle left, middle right, bottom left, bottom right. The patterns that are not in that block are a space, the left half, the right half and the full block.
 - `paw.draw.slider(buf, x, y, width, fraction, on, off)`: A slider `width` cells wide with its knob `fraction` of the way along.
@@ -1515,7 +1515,9 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.option.full(name)`: The full name of option `name`: itself, or what its short name stands for.
 - `paw.option.list()`: Every option that has a default, by name: { name, default }.
 - `paw.option.read(name, text)`: The value typed text stands for in option `name` (`true`, `off`, a number, the text, or a list for an option that takes one: `a,b`), or nil and an error that says what it takes. A value that is not text is checked as it is.
+- `paw.option.restore(snapshot)`: Give each option the value it had in `snapshot`, and an option set after it its default again. Each option that changes emits `option.changed`. Gives the names of the options that changed, sorted.
 - `paw.option.show(value)`: An option's value as text: a list is its items with commas between.
+- `paw.option.snapshot()`: The value of each option that was set, to give back later with `paw.option.restore`. An option that was not set keeps its default.
 - `paw.option.spec(name)`: What option `name` takes besides its default's type (`min`, `max`, `integer`, `type`, `values`), or nil.
 - `paw.option.undefine(name, was)`: Remove the definition of an option and its value (the extension that defined it unloaded). `paw.opt[name]` is nil again. With `was`, the value that `paw.option.definitions` gave before, that definition returns, and the value stays.
 
@@ -2392,6 +2394,23 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.vca.members(vca)`: The tracks in a VCA, in the order of the track list.
 - `paw.vca.of(track)`: The VCAs of a track (their ids), in the order in which paw put the track in them.
 - `paw.vca.unassign(track, vca)`: Take a track out of a VCA, or out of all of them without `vca`.
+
+## Module paw.vzoom
+
+- `paw.vzoom.any_own()`: Whether some tracks of the arrange view's window have rows of their own.
+- `paw.vzoom.define(view, zoomer)`: Add the vertical zoom of a view: `zoomer.step(by, opts)` and `zoomer.fit(opts)`, each returning what it did. nil removes it.
+
+  ```lua
+  paw.vzoom.define("notation", { step = function(by) ... return "staff size 5" end,
+    fit = function() ... return "staff size as the option says" end })
+  ```
+- `paw.vzoom.fit(opts)`: Give back the rows the options say: the focused view's, or `opts.view`'s.
+- `paw.vzoom.key_rows()`: Rows per key in the piano roll: 1 unzoomed.
+- `paw.vzoom.lane_rows()`: Rows per automation lane shown as a row in the arrange view: 2 unzoomed.
+- `paw.vzoom.rows_of(id)`: The rows of a track of its own in the arrange view's window, or nil.
+- `paw.vzoom.step(by, opts)`: Make the rows of a view `by` taller (shorter when negative): the focused view's, or `opts.view`'s.
+- `paw.vzoom.track_rows()`: Rows per track in the arrange view's window, or nil for the option's.
+- `paw.vzoom.window(view)`: The window of `view` whose zoom is meant: the one being drawn, the focused one, else the one whose state the view has now.
 
 ## Module paw.xml
 
