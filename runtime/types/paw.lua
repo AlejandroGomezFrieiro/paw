@@ -7496,6 +7496,13 @@ function paw.scene.live() end
 ---@param ms any
 function paw.scene.set_pace(ms) end
 
+--- Send connection `client` now what it would get after the turn: the
+--- windows whose drawing changed, and the live values when they changed.
+--- A window that moves only with time waits for its next tick.
+--- `frontend.sync` calls it.
+---@param client any
+function paw.scene.sync(client) end
+
 --- Call it after a turn of the kernel. paw pushes now, not at the next
 --- tick, the windows whose drawing can be different.
 function paw.scene.turn() end

@@ -1908,6 +1908,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.scene.closed(client)`: A connection closed or stopped to watch. paw keeps no more data for it.
 - `paw.scene.live()`: The values that move the bound nodes of a frontend (see the `bind` of crates/paw-scene). These are the playhead, the clock and the load of the engine. For each track id, they are the meter, the recent peak, the clip light and the input. paw rounds them to what a frontend can show. So a program that does nothing has no new data to send (the load is as `paw.audio.load` gives it, as `frontend.watch` sends it). Each call gives the current values.
 - `paw.scene.set_pace(ms)`: Tick every `ms` while something moves (`frontend.pace`).
+- `paw.scene.sync(client)`: Send connection `client` now what it would get after the turn: the windows whose drawing changed, and the live values when they changed. A window that moves only with time waits for its next tick. `frontend.sync` calls it.
 - `paw.scene.turn()`: Call it after a turn of the kernel. paw pushes now, not at the next tick, the windows whose drawing can be different.
 - `paw.scene.wake()`: Something started to move (the song, a note played): tick at the pace from now.
 - `paw.scene.watchers()`: The watchers: `{ client, windows }` each. `windows` is the names of the windows whose size it gave.

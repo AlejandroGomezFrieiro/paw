@@ -32,6 +32,9 @@ use crate::watchdog::Watchdog;
 /// drawn from here, so this is also their frame rate.
 const IDLE_PERIOD: Duration = Duration::from_millis(16);
 
+/// The request that ends the turn before it answers (`frontend.sync`).
+const SYNC_METHOD: &str = "frontend.sync";
+
 static RUNTIME: Dir = include_dir!("$CARGO_MANIFEST_DIR/../../runtime/lua");
 
 /// The same modules as bytecode (made by build.rs).
@@ -490,6 +493,13 @@ impl Kernel {
                     let mut session = self.shared.session.borrow_mut();
                     self.monitor.call(client, &method, &mut session)
                 } else {
+                    // The barrier of a frontend (paw/remote.tl): the messages
+                    // taken before it in this turn end their turn first. Their
+                    // events go out, their undo step closes, and what they
+                    // changed is pushed before the answer.
+                    if method == SYNC_METHOD {
+                        self.settle();
+                    }
                     self.enter(client);
                     // A command run over a connection may answer it (`:upload`, `:listen`).
                     self.shared.input_from.set(client);
