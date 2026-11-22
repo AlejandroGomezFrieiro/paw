@@ -2,6 +2,8 @@
 //! audio backend behind it: the handshake, the tool list, a short song built
 //! with typed tools only, a render, undo, and the ways calls go wrong.
 
+mod sealed;
+
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
@@ -57,7 +59,7 @@ impl Client {
     fn start(dir: &tempfile::TempDir, args: &[&str]) -> Self {
         let dir = dir.path();
         let sockets = socket_dir();
-        let mut child = Command::new(env!("CARGO_BIN_EXE_paw-mcp"))
+        let mut child = sealed::seal(&mut Command::new(env!("CARGO_BIN_EXE_paw-mcp")), dir)
             .arg("--root")
             .arg(dir)
             .arg("--paw")
@@ -619,7 +621,7 @@ fn kernel_gone_and_back() {
     let sockets = socket_dir();
     let socket = sockets.path().join("k.sock");
     let kernel = || {
-        let child = Command::new(paw_binary())
+        let child = sealed::seal(&mut Command::new(paw_binary()), dir.path())
             .args(["--headless", "--listen"])
             .arg(&socket)
             .args(KERNEL_ARGS)
