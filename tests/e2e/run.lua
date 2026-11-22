@@ -52,7 +52,7 @@ local function run()
   run.step = run.step + 1
   run:check_undo(start_state, start_id)
   run:check_errors(messages)
-  local worst = run:check_keys(100)
+  local worst = run:slowest_key()
   run:check_health()
   local golden = read_golden()
   local key = "seed " .. seed
@@ -95,13 +95,14 @@ local function run()
   end
   print(
     string.format(
-      "e2e: %s seed %d day %d: %d steps, the slowest key %.1f ms (%s)",
+      "e2e: %s seed %d day %d: %d steps, the slowest key %.1f ms of processor time (%s), load %s",
       scenario_name,
       seed,
       day,
       run.step,
       worst.ms,
-      worst.name
+      worst.name,
+      worst.load
     )
   )
 end

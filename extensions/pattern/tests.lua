@@ -370,16 +370,13 @@ test("pattern: commands and keys on the clip under the cursor", function()
   paw.flush()
   eq(paw.ui.message.text, "pattern: col 4: missing `]` for the bracket at col 4", "the error is shown")
   eq(pattern.get(clip).text, "hh*4", "unchanged")
-  -- Too many notes is an error too, and a quick one.
-  local t0 = T.cpu_ms()
+  -- Too many notes is an error too.
   paw.commands.exec("pattern.set bd*100000")
   eq(paw.ui.message.text, "pattern: col 3: at most 256 repeats in a step", "a repeat past 256")
   paw.commands.exec("pattern.set [bd*256]*256")
   paw.flush()
   eq(paw.ui.message.text:find("more than 20000 notes", 1, true) ~= nil, true, "too many notes: " .. paw.ui.message.text)
   eq(pattern.get(clip).text, "hh*4", "still unchanged")
-  local took = T.cpu_ms() - t0
-  T.quick(took, 2000, "the errors said")
   -- The prompt holds the current text.
   paw.keymap.feed("<localleader>tt")
   local state = require("paw.views.cmdline").state()

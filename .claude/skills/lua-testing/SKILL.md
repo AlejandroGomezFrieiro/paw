@@ -152,8 +152,11 @@ the owner's computer or folders. Mock what it needs.
 - A test checks behavior, not speed. No `T.quick`, no `T.cpu_ms`, no
   `os.clock()`, and no comparison of a time with a number. To guard a
   cost, count the work (compiles, renders, builds). A time goes to
-  `bench/`. TASK-143 removes the speed checks that exist and adds a lint
-  (`tools/testlint.lua`) that refuses new ones.
+  `bench/`, for example `bench/heavy.lua`.
+- The lint `tools/testlint.lua` refuses a new sleep, clock read or speed
+  check. The suite (`tests/testlint.lua`) and `nix flake check` run it.
+  Its allow-list `tests/timing-allowed.txt` holds the uses of today. A
+  count that goes down fails until you make its line smaller.
 - A test does not sleep: no `api.sleep`, no `api.wait(ms)`, no
   `paw.wait(ms)` to let time pass, no `{ wait = N }` in a lesson of the
   tutor. Wait for a state with `T.until_`, for blocks with
