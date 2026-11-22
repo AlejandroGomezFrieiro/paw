@@ -409,10 +409,20 @@ local function header(self, buf, y, height, t, index, selected, lanes, hue)
   local name = t.name
   if not t.master then
     local groups = paw.groups
-    if groups.is_group(t.id) and groups.folded(t.id) then name = name .. " +" .. #groups.members(t.id) end
+    -- The first row of a fold of tracks stands for all of it, by its name.
+    local fold = paw.folds.row(t.id)
+    if fold then
+      name = paw.folds.name(fold) .. " +" .. paw.folds.count(fold)
+    elseif groups.is_group(t.id) and groups.folded(t.id) then
+      name = name .. " +" .. #groups.members(t.id)
+    end
     if not paw.trackcolumn.shows("fold") then
       name = string.rep(" ", groups.depth(t.id)) .. name
-      if groups.is_group(t.id) then name = (groups.folded(t.id) and g.closed or g.open) .. " " .. name end
+      if fold then
+        name = g.closed .. " " .. name
+      elseif groups.is_group(t.id) then
+        name = (groups.folded(t.id) and g.closed or g.open) .. " " .. name
+      end
     end
   end
   local room = math.max(1, before - name_at)
@@ -535,11 +545,73 @@ function view.level_glyph(level)
   return draw.g.eighths[util.clamp(math.floor((db + 60) / 60 * 8) + 1, 1, 8)]
 end
 
---- The columns of the bar and beat lines on a timeline `width` wide.
-local function grid_lines(scroll, zoom, width)
+-- Time folds (paw/folds.tl). A closed region or range of bars is drawn
+-- as one narrow column, so the beats of the timeline are not even: each
+-- render keeps the window's map (`self.tmap`), and every place that turns
+-- a beat into a column goes through `view:x`, `view:col` and `view:beat`.
+-- The timeline's plane counts in the beats of that map (`view:v`), so a
+-- window places the clips on it as the terminal does.
+local no_folds = { spans = {}, view = function(beat) return beat end, beat = function(v) return v end }
+
+--- The place of a beat in the beats of the view (the plane's domain).
+function view:v(beat) return (self.tmap or no_folds).view(beat) end
+
+--- The column of a beat from the timeline's left edge, in fractions of a cell.
+function view:x(beat)
+  local m = self.tmap or no_folds
+  return (m.view(beat) - m.view(self.scroll)) * self.geometry.zoom
+end
+
+--- The column a beat is drawn in, from the timeline's left edge.
+function view:col(beat) return math.floor(self:x(beat) + 0.5) end
+
+--- The beat at a column of the timeline (fractions of a cell): on a folded
+--- column, the start of what it folds.
+function view:beat(x)
+  local m = self.tmap or no_folds
+  return m.beat(m.view(self.scroll) + x / self.geometry.zoom)
+end
+
+--- The folded span drawn at a column of the timeline, or nil.
+function view:fold_at(x)
+  for _, s in ipairs((self.tmap or no_folds).spans) do
+    local x0 = self:x(s.from)
+    if x >= x0 and x < x0 + s.cells then return s end
+  end
+end
+
+--- The stretches of `a` to `b` that are not folded away, as `{ from, to }`.
+function view:unfolded(a, b)
+  local out, at = {}, a
+  for _, s in ipairs((self.tmap or no_folds).spans) do
+    if s.to > at and s.from < b then
+      if s.from > at then out[#out + 1] = { at, s.from } end
+      at = math.max(at, s.to)
+    end
+  end
+  if at < b then out[#out + 1] = { at, b } end
+  return out
+end
+
+--- Whether a beat is inside a folded span, after its start.
+function view:folded(beat)
+  for _, s in ipairs((self.tmap or no_folds).spans) do
+    if beat > s.from + 1e-9 and beat < s.to - 1e-9 then return true end
+  end
+  return false
+end
+
+--- The bar and beat lines on the timeline, `{ x, bar, beat, v }` each:
+--- `x` its column, `v` its place on the plane. None inside a fold.
+local function grid_lines(self, width)
   local out = {}
-  for _, line in ipairs(draw.bar_lines(scroll, width / zoom)) do
-    out[#out + 1] = { x = math.floor((line.beat - scroll) * zoom + 0.5), bar = line.bar, beat = line.beat }
+  local last = self:beat(width)
+  for _, piece in ipairs(self:unfolded(self.scroll, last + 1e-6)) do
+    for _, line in ipairs(draw.bar_lines(piece[1], piece[2] - piece[1])) do
+      if line.beat >= piece[1] - 1e-9 and line.beat < piece[2] - 1e-9 then
+        out[#out + 1] = { x = self:col(line.beat), bar = line.bar, beat = line.beat, v = self:v(line.beat) }
+      end
+    end
   end
   return out
 end
@@ -645,7 +717,7 @@ local function curve(buf, x, y, w, h, value, o)
     values[i + 1] = value and value(i) or false
   end
   for i, p in ipairs(o.points or {}) do
-    marks[i] = { p[1], p[2] }
+    marks[i] = { o.v and o.v(p[1]) or p[1], p[2] }
   end
   buf:mark("curve", x, y, w, h, {
     values = values,
@@ -657,7 +729,7 @@ local function curve(buf, x, y, w, h, value, o)
     draw = function(b)
       if value then draw.curve(b, 0, h, function(i) return values[i + 1] or nil end, o.style) end
       for _, p in ipairs(o.points or {}) do
-        local px = math.floor((p[1] - o.from) * o.per + 0.5)
+        local px = math.floor(((o.v and o.v(p[1]) or p[1]) - o.from) * o.per + 0.5)
         if px >= 0 and px < w then b:text(px, p[2] >= 0.5 and 0 or h - 1, p[3] or "◆", o.style) end
       end
     end,
@@ -669,7 +741,7 @@ end
 local function bar_marks(lines)
   local out = {}
   for _, line in ipairs(lines) do
-    if line.bar then out[#out + 1] = { line.beat, true } end
+    if line.bar then out[#out + 1] = { line.v or line.beat, true } end
   end
   return out
 end
@@ -679,8 +751,9 @@ local function lane(self, buf, row, track, selected, cursor_clip, lanes, hue, ma
   local scroll, zoom = self.scroll, self.geometry.zoom
   local plane = self.plane
   local w = buf.width
-  plane:mark("beats", scroll, y, w / zoom, height, {
-    from = scroll,
+  local vscroll = self:v(scroll)
+  plane:mark("beats", vscroll, y, w / zoom, height, {
+    from = vscroll,
     per = zoom,
     style = selected and hue.lane_sel or "Lane",
     tone = "lane",
@@ -697,36 +770,50 @@ local function lane(self, buf, row, track, selected, cursor_clip, lanes, hue, ma
     chosen[id] = true
   end
   local from, to = paw.scope.span()
+  local folds = #(self.tmap or no_folds).spans > 0
   for _, clip in ipairs(api.clip_list(track.id)) do
-    local x0 = math.floor((clip.start - scroll) * zoom + 0.5)
-    local x1 = math.floor((clip.start + clip.length - scroll) * zoom + 0.5)
-    local cw = math.max(1, x1 - x0)
-    if x0 < w and x0 + cw > 0 then
-      spans[#spans + 1] = { x0, x0 + cw }
-      local kind = clip.muted and "_off" or clip.id == cursor_clip and "_cur" or ""
-      local box = plane:mark(
-        "clip",
-        clip.start,
-        y,
-        clip.length,
-        height,
-        view.clip_props(clip, track, hue, kind, zoom, chosen[clip.id], from, to)
-      )
-      paw.ui.paint("arrange", "clip", { buf = box, width = cw, height = height, clip = clip })
+    local finish = clip.start + clip.length
+    -- Across a time fold a clip is drawn in pieces, each cut at the fold.
+    local pieces = folds and self:unfolded(clip.start, finish) or { { clip.start, finish } }
+    for k, piece in ipairs(pieces) do
+      local x0, x1 = self:col(piece[1]), self:col(piece[2])
+      local cw = math.max(1, x1 - x0)
+      if x0 < w and x0 + cw > 0 then
+        spans[#spans + 1] = { x0, x0 + cw }
+        local kind = clip.muted and "_off" or clip.id == cursor_clip and "_cur" or ""
+        local cut_from, cut_to = from, to
+        if #pieces > 1 or piece[1] > clip.start or piece[2] < finish then
+          cut_from = piece[1] > clip.start and math.max(piece[1], from or piece[1]) or from or -math.huge
+          cut_to = piece[2] < finish and math.min(piece[2], to or piece[2]) or to or math.huge
+        end
+        local props = view.clip_props(clip, track, hue, kind, zoom, chosen[clip.id], cut_from, cut_to)
+        if k > 1 then props.key = props.key .. ":" .. k end
+        -- Where the clip would start, were its piece's stretch of the view even.
+        local box = plane:mark("clip", self:v(piece[1]) - (piece[1] - clip.start), y, clip.length, height, props)
+        paw.ui.paint("arrange", "clip", { buf = box, width = cw, height = height, clip = clip })
+      end
     end
   end
   -- The take being made on an armed track, which a window makes grow with
   -- the playhead.
   local rec = self.rec
   if rec and track.armed then
-    plane:mark("recording", rec.start, y, math.max((rec.to or (scroll + w / zoom)) - rec.start, 1 / zoom), height, {
-      start = rec.start,
-      at = rec.at,
-      to = rec.to,
-      per = zoom,
-      color = draw.track_colour(track),
-      bind = "position",
-    })
+    local v0 = self:v(rec.start)
+    plane:mark(
+      "recording",
+      v0,
+      y,
+      math.max((rec.to and self:v(rec.to) or (vscroll + w / zoom)) - v0, 1 / zoom),
+      height,
+      {
+        start = rec.start,
+        at = rec.at,
+        to = rec.to,
+        per = zoom,
+        color = draw.track_colour(track),
+        bind = "position",
+      }
+    )
   end
   -- The volume curve runs over the empty lane, never over clips, and only
   -- on the track the cursor is on: drawn on every track it ran along the
@@ -743,12 +830,12 @@ local function lane(self, buf, row, track, selected, cursor_clip, lanes, hue, ma
       end
       curve(buf, 0, y + 1, w, height - 1, function(i)
         if over_clip(math.floor(i / 2)) then return nil end
-        return (api.lane_value_at(l.id, scroll + (i + 0.5) / (zoom * 2)) + 60) / 66
+        return (api.lane_value_at(l.id, self:beat((i + 0.5) / 2)) + 60) / 66
       end, {
         style = l.enabled and "Automation" or "Faint",
         color = draw.track_colour(track),
         enabled = l.enabled,
-        from = scroll,
+        from = vscroll,
         per = zoom,
       })
     end
@@ -864,8 +951,10 @@ function view:draw_lane_row(headers, timeline, row, lines)
     util.fit(paw.lanes.format(l, paw.lanes.value_at(l, beat)), math.max(1, hw - #state - 5)),
     "TrackInfo"
   )
-  self.plane:mark("beats", scroll, y, tw / zoom, 2, {
-    from = scroll,
+  local vscroll = self:v(scroll)
+  local function v(b) return self:v(b) end
+  self.plane:mark("beats", vscroll, y, tw / zoom, 2, {
+    from = vscroll,
     per = zoom,
     style = on and hue.lane_sel or "Lane",
     tone = "auto",
@@ -887,14 +976,15 @@ function view:draw_lane_row(headers, timeline, row, lines)
     curve(timeline, 0, y, tw, 2, nil, {
       points = points,
       style = l.enabled and "Automation" or "Faint",
-      from = scroll,
+      from = vscroll,
+      v = v,
       per = zoom,
       color = draw.track_colour(api.track_get(row.id), row.index),
       enabled = l.enabled,
     })
     for i, p in ipairs(list) do
-      local x0 = math.max(0, math.floor((p[1] - scroll) * zoom + 0.5))
-      local x1 = list[i + 1] and math.floor((list[i + 1][1] - scroll) * zoom + 0.5) or tw
+      local x0 = math.max(0, self:col(p[1]))
+      local x1 = list[i + 1] and self:col(list[i + 1][1]) or tw
       x1 = math.min(tw, x1)
       if x1 - x0 >= 2 then
         timeline:text(
@@ -915,12 +1005,12 @@ function view:draw_lane_row(headers, timeline, row, lines)
       y,
       tw,
       2,
-      l.point_count > 0 and function(i) return level(api.lane_value_at(l.id, scroll + (i + 0.5) / (zoom * 2))) end
-        or nil,
+      l.point_count > 0 and function(i) return level(api.lane_value_at(l.id, self:beat((i + 0.5) / 2))) end or nil,
       {
         points = points,
         style = l.enabled and "Automation" or "Faint",
-        from = scroll,
+        from = vscroll,
+        v = v,
         per = zoom,
         color = draw.track_colour(api.track_get(row.id), row.index),
         enabled = l.enabled,
@@ -931,11 +1021,11 @@ function view:draw_lane_row(headers, timeline, row, lines)
   -- A selection on this lane: the stretch of time chosen.
   local selection = paw.keymap.selection()
   if selection then
-    local x0 = math.max(0, math.floor((selection.c0 - scroll) * zoom + 0.5))
-    local x1 = math.min(tw, math.floor((selection.c1 - scroll) * zoom + 0.5))
+    local x0 = math.max(0, self:col(selection.c0))
+    local x1 = math.min(tw, self:col(selection.c1))
     if x1 > x0 then timeline:fill(x0, y, x1 - x0, 2, nil, "Visual") end
   end
-  local x = math.floor((beat - scroll) * zoom + 0.5)
+  local x = self:col(beat)
   local cw = math.max(1, math.floor(paw.opt.grid * zoom))
   timeline:fill(x, y, cw, 1, nil, paw.keymap.mode == "x" and "CursorVisual" or "Cursor")
   timeline:fill(x, y + 1, cw, 1, nil, "CursorTail")
@@ -990,7 +1080,7 @@ end
 --- timeline draws the map as a curve, a step where a change holds and a slope
 --- where it ramps, a mark on each change. `:tempo.lane` or `zT` hides it.
 function view:draw_tempo_row(headers, timeline, y, lines)
-  local zoom, scroll = self.geometry.zoom, self.scroll
+  local zoom = self.geometry.zoom
   local hw, tw = headers.width, timeline.width
   local beat = paw.cursor.beat
   headers:fill(0, y, hw, 2, " ", "TrackHeader")
@@ -1006,16 +1096,15 @@ function view:draw_tempo_row(headers, timeline, y, lines)
   for i, p in ipairs(paw.tempo.points()) do
     points[i] = { p.beat, level(p.bpm), paw.opt.ascii and (p.ramp and ">" or "*") or (p.ramp and "↗" or "◆") }
   end
-  curve(
-    timeline,
-    0,
-    y,
-    tw,
-    2,
-    function(i) return level(paw.tempo.at(scroll + (i + 0.5) / (zoom * 2))) end,
-    { points = points, style = "Automation", from = scroll, per = zoom, color = require("paw.theme").palette.accent }
-  )
-  local x = math.floor((beat - scroll) * zoom + 0.5)
+  curve(timeline, 0, y, tw, 2, function(i) return level(paw.tempo.at(self:beat((i + 0.5) / 2))) end, {
+    points = points,
+    style = "Automation",
+    from = self:v(self.scroll),
+    v = function(b) return self:v(b) end,
+    per = zoom,
+    color = require("paw.theme").palette.accent,
+  })
+  local x = self:col(beat)
   timeline:fill(x, y, math.max(1, math.floor(paw.opt.grid * zoom)), 1, nil, "Cursor")
 end
 
@@ -1027,15 +1116,15 @@ end
 --- for the playhead to keep their letters.
 function view:draw_take_row(headers, timeline, row, lines)
   local y, k = row.y, row.take
-  local zoom, scroll = self.geometry.zoom, self.scroll
+  local zoom, vscroll = self.geometry.zoom, self:v(self.scroll)
   local hw, tw = headers.width, timeline.width
   local hue = draw.track_hue(api.track_get(row.id), row.index)
   local names = {}
   headers:fill(0, y, hw, 1, " ", "TrackHeader")
   headers:text(0, y, "▏", hue.fg)
   headers:text(2, y, util.fit("↳ take " .. k, math.max(1, hw - 3)), "TrackInfo")
-  self.plane:mark("beats", scroll, y, tw / zoom, 1, {
-    from = scroll,
+  self.plane:mark("beats", vscroll, y, tw / zoom, 1, {
+    from = vscroll,
     per = zoom,
     style = "TakeLane",
     tone = "take",
@@ -1045,8 +1134,8 @@ function view:draw_take_row(headers, timeline, row, lines)
     local takes = paw.takes.of(clip)
     local entry = takes and takes.list[k]
     if entry then
-      local x0 = math.floor((clip.start - scroll) * zoom + 0.5)
-      local x1 = math.floor((clip.start + clip.length - scroll) * zoom + 0.5)
+      local x0 = self:col(clip.start)
+      local x1 = self:col(clip.start + clip.length)
       local cw = math.max(1, x1 - x0)
       if x0 < tw and x0 + cw > 0 then
         local on = takes.active == k
@@ -1054,7 +1143,7 @@ function view:draw_take_row(headers, timeline, row, lines)
         -- A clip of its own, which a window paints with the take's notes
         -- or waveform.
         local row_of = paw.frontend.take_rows(clip)
-        self.plane:mark("clip", clip.start, y, clip.length, 1, {
+        self.plane:mark("clip", self:v(clip.start), y, clip.length, 1, {
           key = "take:" .. clip.id .. ":" .. k,
           id = clip.id,
           take = k,
@@ -1112,15 +1201,18 @@ function view:render(buf, ctx)
   -- Keep the playhead in view while playing, and the cursor whenever it
   -- moves; unless another window leads this one's time (`timebind`).
   local led = ctx.follower
+  -- The window's time folds: the map of its beats to its columns.
+  local tmap = paw.folds.time_map(zoom)
+  self.tmap = tmap
+  local function ahead(beat) return tmap.view(beat) - tmap.view(self.scroll) end
   if t.playing and opt.follow and not led then
-    if t.position < self.scroll or t.position >= self.scroll + span then
-      self.scroll = paw.time.bar_floor(t.position)
-    end
+    if t.position < self.scroll or ahead(t.position) >= span then self.scroll = paw.time.bar_floor(t.position) end
   elseif cursor.beat ~= self.seen_beat and not led then
     if cursor.beat < self.scroll then
       self.scroll = paw.time.bar_floor(cursor.beat)
-    elseif cursor.beat >= self.scroll + span - 1 / zoom then
-      self.scroll = math.max(0, math.ceil((cursor.beat - span) / bar + 1) * bar)
+    elseif ahead(cursor.beat) >= span - 1 / zoom then
+      local back = tmap.beat(tmap.view(cursor.beat) - span)
+      self.scroll = math.max(0, math.ceil(back / bar + 1) * bar)
     end
   end
   self.seen_beat = cursor.beat
@@ -1129,7 +1221,9 @@ function view:render(buf, ctx)
   self.scroll = math.max(scope_from and paw.time.bar_floor(scope_from) or 0, self.scroll)
   local th = L.th
   self.geometry = { hw = hw, th = th, rows = #L.rows, zoom = zoom, span = span, layout = L }
-  local function col(beat) return math.floor((beat - self.scroll) * zoom + 0.5) end
+  local function col(beat) return self:col(beat) end
+  -- The beat at the right edge of the timeline.
+  local last = self:beat(tw)
 
   -- All of it takes the pointer, in both frontends (paw/views/arrange_mouse.lua).
   buf:hit(0, 0, w, h, { kind = "arrange" })
@@ -1173,7 +1267,7 @@ function view:render(buf, ctx)
       ruler:fill(x0, 0, x1 - x0, 1, nil, "RulerPunch")
     end
   end
-  local lines = grid_lines(self.scroll, zoom, tw)
+  local lines = grid_lines(self, tw)
   local in_loop = function(x) return loop and x >= loop[1] and x < loop[2] end
   local in_punch = function(x) return punch and x >= punch[1] and x < punch[2] end
   -- Skip bar numbers that would run into each other when zoomed out.
@@ -1217,17 +1311,20 @@ function view:render(buf, ctx)
   end
   -- Tempo and signature changes: a mark and the value, after the bar number.
   local mark_end = -1
-  for _, mark in ipairs(paw.tempo.marks(self.scroll, self.scroll + span)) do
-    local x = col(mark.beat)
-    if paw.tempo.is_bar_line(mark.beat) then x = label_end[x] or (x + #tostring(paw.time.bar_of(mark.beat))) end
-    x = math.max(x, mark_end)
-    mark_end = x + ruler:text(x, 0, (mark.kind == "tempo" and "▾" or "‖") .. mark.text, "RulerTempo") + 1
+  for _, mark in ipairs(paw.tempo.marks(self.scroll, last)) do
+    -- A mark inside a time fold is folded away with it.
+    if not self:folded(mark.beat) then
+      local x = col(mark.beat)
+      if paw.tempo.is_bar_line(mark.beat) then x = label_end[x] or (x + #tostring(paw.time.bar_of(mark.beat))) end
+      x = math.max(x, mark_end)
+      mark_end = x + ruler:text(x, 0, (mark.kind == "tempo" and "▾" or "‖") .. mark.text, "RulerTempo") + 1
+    end
   end
   local ruler2
   if L.band_y > 1 then
     ruler2 = buf:sub(hw, 1, tw, L.band_y - 1)
     ruler2:fill(0, 0, tw, L.band_y - 1, " ", "Ruler")
-    paw.ruler.draw_lanes(ruler2, col, self.scroll, span)
+    paw.ruler.draw_lanes(ruler2, col, self.scroll, last - self.scroll, tmap.spans)
   end
   if L.bands.rows > 0 then draw_bands(lanes, L.band_y, L.bands, col) end
   if L.tempo_rows > 0 then self:draw_tempo_row(headers, lanes, L.ruler_rows - L.tempo_rows, lines) end
@@ -1240,14 +1337,14 @@ function view:render(buf, ctx)
   local mst = L.master
   self.plane = buf:plane(hw, L.ruler_rows, tw, math.max(1, mst.y - L.ruler_rows), {
     key = "timeline",
-    x = { domain = "beat", from = self.scroll, per = zoom },
+    x = { domain = "beat", from = self:v(self.scroll), per = zoom },
     y = { domain = "line", from = L.ruler_rows, per = 1 },
   })
   local marks = {}
   for i, line in ipairs(lines) do
-    marks[i] = { line.beat, line.bar and true or false }
+    marks[i] = { line.v, line.bar and true or false }
   end
-  local loop_beats = loop and { t.loop_start, t.loop_end } or nil
+  local loop_beats = loop and { self:v(t.loop_start), self:v(t.loop_end) } or nil
   -- A take being made: from where the playhead was when it began, or from
   -- the punch-in.
   if t.take then
@@ -1327,6 +1424,28 @@ function view:render(buf, ctx)
     end
   end
 
+  -- Each time fold: one narrow column with its name and its bars, on the
+  -- ruler and down the tracks (paw/folds.tl).
+  for _, s in ipairs(tmap.spans) do
+    local x0 = col(s.from)
+    if x0 < tw and x0 + s.cells > 0 then
+      local label = util.fit(s.label, math.max(1, s.cells - 1))
+      ruler:fill(x0, 0, s.cells, 1, " ", "TimeFold")
+      ruler:text(x0 + 1, 0, label, "TimeFold")
+      lanes:fill(x0, L.ruler_rows, s.cells, mst.y - L.ruler_rows, " ", "TimeFoldBody")
+      for _, row in ipairs(L.rows) do
+        if row.kind == "track" then lanes:text(x0 + 1, row.y, label, "TimeFold") end
+      end
+      if cursor.beat >= s.from - 1e-9 and cursor.beat < s.to - 1e-9 and cursor_track ~= 0 then
+        for _, row in ipairs(L.rows) do
+          if row.kind == "track" and row.id == cursor_track then
+            lanes:fill(x0, row.y, s.cells, 1, nil, paw.keymap.mode == "x" and "CursorVisual" or "Cursor")
+          end
+        end
+      end
+    end
+  end
+
   -- The master track is pinned to the bottom, with its level on both sides.
   if #tracks == 0 then
     welcome(buf:sub(0, L.ruler_rows, w, mst.y - L.ruler_rows))
@@ -1361,12 +1480,12 @@ function view:render(buf, ctx)
         mst.y,
         tw,
         mst.h,
-        function(i) return (api.lane_value_at(l.id, self.scroll + (i + 0.5) / (zoom * 2)) + 60) / 66 end,
+        function(i) return (api.lane_value_at(l.id, self:beat((i + 0.5) / 2)) + 60) / 66 end,
         {
           style = l.enabled and "Automation" or "Faint",
           color = draw.track_colour(master),
           enabled = l.enabled,
-          from = self.scroll,
+          from = self:v(self.scroll),
           per = zoom,
         }
       )
@@ -1384,7 +1503,7 @@ function view:render(buf, ctx)
       ruler = ruler,
       ruler2 = ruler2,
       lanes = buf:sub(hw, L.ruler_rows, tw, mst.y - L.ruler_rows),
-      x = function(beat) return math.floor((beat - scroll) * zoom + 0.5) end,
+      x = function(beat) return self:col(beat) end,
       scroll = scroll,
       zoom = zoom,
       span = span,
@@ -1427,9 +1546,18 @@ function view:render(buf, ctx)
     end
     return spans
   end
+  -- Over a folded span the playhead waits on its column, then goes on after it.
+  local jumps
+  if #tmap.spans > 0 then
+    jumps = {}
+    for i, s in ipairs(tmap.spans) do
+      jumps[i] = { s.from, s.to, s.width }
+    end
+  end
   buf:mark("playhead", hw, 0, tw, mst.y, {
     at = t.position,
-    from = self.scroll,
+    from = self:v(self.scroll),
+    jumps = jumps,
     per = zoom,
     lo = 0,
     hi = 1e12,
@@ -1443,7 +1571,8 @@ end
 function view:center()
   local g = self.geometry
   if not g then return end
-  self.scroll = math.max(0, paw.time.bar_floor(math.max(0, paw.cursor.beat - g.span / 2)))
+  local m = self.tmap or no_folds
+  self.scroll = math.max(0, paw.time.bar_floor(math.max(0, m.beat(m.view(paw.cursor.beat) - g.span / 2))))
   api.ui_redraw()
 end
 
@@ -1504,7 +1633,7 @@ function view:moving()
   local g = self.geometry
   if not (g and g.span and paw.opt.follow) then return false end
   local t = api.transport_get()
-  return t.playing and (t.position < self.scroll or t.position >= self.scroll + g.span)
+  return t.playing and (t.position < self.scroll or self:x(t.position) >= g.span * g.zoom)
 end
 
 paw.ui.view("arrange", view)

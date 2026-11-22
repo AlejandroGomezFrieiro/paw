@@ -25,6 +25,7 @@ local type DrawModule = require("paw.draw")
 local type EditModule = require("paw.edit")
 local type EventsModule = require("paw.events")
 local type ExModule = require("paw.ex")
+local type FoldsModule = require("paw.folds")
 local type FormatsModule = require("paw.formats")
 local type FrontendModule = require("paw.frontend")
 local type GrepModule = require("paw.grep")
@@ -117,6 +118,7 @@ global record paw
    failure: function(err: string): string
    files: Partial.Files
    flush: function()
+   folds: FoldsModule
    formats: FormatsModule
    freeze: Untyped
    frontend: FrontendModule

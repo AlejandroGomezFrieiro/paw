@@ -10,7 +10,8 @@
 --
 -- A group is an ordinary track marked in its `meta`, and each member names
 -- its group in its own, so groups are saved, undone and copied with the
--- tracks. Groups may hold groups.
+-- tracks. Groups may hold groups. Whether a group is folded is view state
+-- of each window (paw/folds.tl), not of the project.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
@@ -23,16 +24,16 @@ local type partial = require("paw.partial")
 local type LanesModule = require("paw.lanes")
 local type VcaModule = require("paw.vca")
 local type objects = require("paw.objects")
+local type FoldsModule = require("paw.folds")
 local type CursorModule = require("paw.cursor")
 
 --- A track: its id, or the track itself (`paw.track`).
 local type TrackRef = integer | contracts.TrackHandle
 
---- What this module keeps in a track's `meta`: on a group `group_head`,
---- `group_folded` and `group_link`; on a member its group's id.
+--- What this module keeps in a track's `meta`: on a group `group_head`
+--- and `group_link`; on a member its group's id.
 local record Marks
   group_head: boolean
-  group_folded: boolean
   group_link: boolean
   group: integer
 end
@@ -54,6 +55,7 @@ local record Paw is partial.Paw
   lanes: LanesModule
   vca: VcaModule
   scope: Scope
+  folds: FoldsModule
   cursor: CursorModule
   add_track: function(opts?: objects.TrackInput): objects.Track
 end
@@ -136,9 +138,10 @@ function M.depth(track: TrackRef): integer
   return depth
 end
 
---- True if the tracks of a group are folded and hidden.
+--- True if the tracks of a group are folded and hidden, in the window a
+--- view shows (paw/folds.tl).
 function M.folded(group: TrackRef): boolean
-  return meta(id_of(group)).group_folded == true
+  return paw.folds ~= nil and paw.folds.group_closed(id_of(group))
 end
 
 --- True if a track is hidden: inside a folded group. Inside group `top`
@@ -158,8 +161,8 @@ function M.hidden(track: TrackRef, top?: integer): boolean
   return false
 end
 
---- The tracks that are drawn, in order: all but those folded away, and in
---- a narrowed tab only those of its scope (`paw.scope`). Rows of the
+--- The tracks that are drawn, in order: all but those folded away in the
+--- window (`paw.folds`), and in a scope only those of the scope (`paw.scope`). Rows of the
 --- arrange view and of a graphical frontend are places in this list.
 --- With `{ lanes = true }`, every row: `{ track = id }` for a track and
 --- `{ track = id, lane = id }` for an automation lane shown under it
@@ -180,7 +183,7 @@ local function rows(opts?: RowOptions): {integer}
   for _, id in ipairs(vcas) do
     out[#out + 1] = id
   end
-  return out
+  return paw.folds and paw.folds.collapse(out) or out
 end
 -- Teal sees the form without options; it calls `paw.lanes.lines()` for the rows with lanes.
 M.rows = rows as function(): {integer}
@@ -322,29 +325,16 @@ function M.dissolve(group: TrackRef): boolean
     api.track_remove(gid)
   else
     local m = meta(gid)
-    m.group_head, m.group_folded = nil, nil
+    m.group_head = nil
     set_meta(gid, m)
   end
   return true
 end
 
---- Fold a group away, or open it: `on` nil flips it.
+--- Fold a group away, or open it, in the current window: `on` nil flips
+--- it. View state: no undo step (paw/folds.tl).
 function M.fold(group: TrackRef, on?: boolean)
-  local gid = id_of(group)
-  if not M.is_group(gid) then
-    return
-  end
-  if on == nil then
-    on = not M.folded(gid)
-  end
-  local m = meta(gid)
-  m.group_folded = on and true or nil
-  set_meta(gid, m)
-  -- The cursor does not stay on a track that is out of sight.
-  local cursor = paw.cursor.track_id()
-  if cursor and M.hidden(cursor) then
-    paw.cursor.set_track(gid)
-  end
+  paw.folds.set_group(id_of(group), on)
 end
 
 --- Note the faders of a group's members: linked faders move by what they

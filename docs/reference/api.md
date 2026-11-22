@@ -495,6 +495,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.cursor.master_reachable()`: True if a move of the cursor can go on from the last track to the master: a move of its own in normal mode, in the views that draw the master after the tracks. After an operator or in a selection, only tracks count.
 - `paw.cursor.move_track(delta)`: Move by rows. In normal mode, the rows of open automation lanes count. After an operator or in a selection, only tracks count, as for `dj`. From the last track, a move down goes on to the master, and from the master a move up returns to the tracks.
 - `paw.cursor.on_master()`: True if the cursor is on the master track: the row after the last track in the arrange view, the strip after the last in the mixer.
+- `paw.cursor.over(old, new)`: Where the cursor goes when it moves from beat `old` to `new`: a beat inside a closed time fold is its start, or its end when the cursor moves on from its start, so that a motion takes a fold as one step.
 - `paw.cursor.row()`: 1-based row of the cursor track among the tracks that are drawn: the same as `index` until a group is folded. On the master, the row after the last track.
 - `paw.cursor.set_beat(beat)`: Put the cursor at a beat (not before 0, and in the scope's time).
 - `paw.cursor.set_track(track, lane)`: Put the cursor on a track, or with `lane` on one of its lane rows.
@@ -721,6 +722,31 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.files.sound_info(path, stat)`: What a sound file's header says: `{ rate, channels, seconds }`, or nil for a file that is not one that can be read.
 - `paw.files.watch()`: Start to watch the cursor, when a files buffer exists.
 
+## Module paw.folds
+
+- `paw.folds.all(on, win)`: Close every fold of a window, every group too (`zM`), or open them all (`zR`).
+- `paw.folds.at(id, win)`: The fold at a track (the cursor's by default), in a window: the largest closed one, which its row stands for, else the smallest. Nil when the track is in none.
+- `paw.folds.clear(win)`: Delete every fold of a window, as `zE`. Returns how many there were.
+- `paw.folds.close(id, win)`: Close the fold at the cursor, as `zc`; on a closed fold, the one around it. Returns it, or nil and the reason.
+- `paw.folds.collapse(rows, win)`: The rows that a window draws, from the rows of its tracks without its folds of tracks: each closed fold of tracks keeps its first row, which stands for all of it.
+- `paw.folds.count(f)`: How many tracks of a fold are there.
+- `paw.folds.delete(id, win)`: Delete the fold at a track (the cursor's by default), as `zd`: the fold goes, its tracks stay, drawn as before. Returns it, or nil and the reason.
+- `paw.folds.describe(f)`: What a fold holds, in words: `3 tracks`, `8 bars`.
+- `paw.folds.group_closed(group, win)`: True if a group is folded into its row in a window (the one a view shows by default).
+- `paw.folds.level(delta, win)`: Close one more level of regions in a window (`zm`, `delta` -1: the deepest open level first), or open one (`zr`, 1), as the `foldlevel` option of Vim. The regions that `za` or `zf` opened or closed follow the level again. Returns the level: how many levels stay open.
+- `paw.folds.list(win)`: The folds of a window that a view shows (the one being drawn, else the current one). Empty when it has none.
+- `paw.folds.make(spec, win)`: Make a fold of what a scope covers (`zf{motion}`), closed, in a window: a group folds into its row (`zfag`), tracks into one row named `Fold 1` (`Vjjzf`). Returns it, or nil and the reason.
+- `paw.folds.name(f)`: The name a fold shows: its own, else its group's.
+- `paw.folds.open(id, win)`: Open the fold at the cursor (the one its row stands for). Returns it, or nil and the reason.
+- `paw.folds.over`: the same as `paw.cursor.over`.
+- `paw.folds.reveal()`: The cursor does not stay on a track that is folded away: it goes to the row that stands for it.
+- `paw.folds.row(id, win)`: The closed fold of tracks that the row of a track stands for in a window (the one a view shows by default), or nil: the track is the first row of that fold.
+- `paw.folds.set_group(group, on, win)`: Fold a group into its row, or open it, in a window: `on` nil flips it.
+- `paw.folds.time_at(beat, win)`: The closed time fold that a beat is on (`from` up to `to`), in a window.
+- `paw.folds.time_map(zoom, win)`: The map from beats to the places of a view at `zoom` columns a beat, with the closed time folds of a window (the one a view shows by default). Each folded span takes the columns of its label and two more.
+- `paw.folds.time_spans(win)`: The closed time folds of a window (the one a view shows by default), in order of time: the outermost of folds inside each other, and folds that overlap as one. A fold that holds all the time of the window's scope is open there.
+- `paw.folds.toggle(id, win)`: Toggle the fold at a track (the cursor's by default), as `za`. Returns it, or nil and the reason.
+
 ## Module paw.formats
 
 - `paw.formats.export(path, opts)`: Write the project with the format of a file. Says what it did.
@@ -846,8 +872,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.groups.add(track, group)`: Put a track into a group: it then sounds through the group, unless it was sent somewhere of its own.
 - `paw.groups.depth(track)`: How many groups a track is inside.
 - `paw.groups.dissolve(group)`: Undo a group: its members go up a level and the group, if it holds nothing of its own (no clips, no devices), goes away.
-- `paw.groups.fold(group, on)`: Fold a group away, or open it: `on` nil flips it.
-- `paw.groups.folded(group)`: True if the tracks of a group are folded and hidden.
+- `paw.groups.fold(group, on)`: Fold a group away, or open it, in the current window: `on` nil flips it. View state: no undo step (paw/folds.tl).
+- `paw.groups.folded(group)`: True if the tracks of a group are folded and hidden, in the window a view shows (paw/folds.tl).
 - `paw.groups.gather(group)`: Put a group's members right under it, in the order they are in.
 - `paw.groups.hidden(track, top)`: True if a track is hidden: inside a folded group. Inside group `top` (the group of a narrowed tab), only the groups inside it count. `top` itself is open there.
 - `paw.groups.is_group(track)`: True if a track is a group.
@@ -857,7 +883,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.groups.members(group)`: The tracks that belong to a group, in the order of the track list.
 - `paw.groups.of(track)`: The group a track belongs to (its id), or nil.
 - `paw.groups.remove(track, stay)`: Remove a track from its group, up one level. It sounds where the group sounds, and it is in the parent group of the group, if any. It moves out of the rows of the group, unless `stay`.
-- `paw.groups.rows(opts)`: The tracks that are drawn, in order: all but those folded away, and in a narrowed tab only those of its scope (`paw.scope`). Rows of the arrange view and of a graphical frontend are places in this list. With `{ lanes = true }`, every row: `{ track = id }` for a track and `{ track = id, lane = id }` for an automation lane shown under it (see `paw.lanes`).
+- `paw.groups.rows(opts)`: The tracks that are drawn, in order: all but those folded away in the window (`paw.folds`), and in a scope only those of the scope (`paw.scope`). Rows of the arrange view and of a graphical frontend are places in this list. With `{ lanes = true }`, every row: `{ track = id }` for a track and `{ track = id, lane = id }` for an automation lane shown under it (see `paw.lanes`).
 
 ## Module paw.harmony
 
@@ -1813,7 +1839,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 - `paw.ruler.add(name, spec)`: Add a part of the bar labels, or put a new one in place of one of that name. It goes into `paw.opt.barlabel` (unless `hidden`).
 - `paw.ruler.add_lane(name, spec)`: Add a lane of rows under the bar numbers, or put a new one in place of one of that name.
-- `paw.ruler.draw_lanes(buf, x, scroll, span)`: Draw the lanes on `buf`, the rows under the bar numbers, one under the other. `x` is the column of a beat; `scroll` and `span` the beats in sight.
+- `paw.ruler.draw_lanes(buf, x, scroll, span, folds)`: Draw the lanes on `buf`, the rows under the bar numbers, one under the other. `x` is the column of a beat; `scroll` and `span` the beats in sight; `folds` the view's closed time folds (paw/folds.tl), if any.
 - `paw.ruler.label(bar, beat, style, cursor_beat, room)`: The pieces of bar `bar`'s label, from the parts in `paw.opt.barlabel` in their order. `bar` is the song's bar: in a scope with time, its label counts from 1 at the scope's start (`paw.scope.bar_offset`). `style` is the style of the bar's number there. `room` is how many columns the label has before the next bar's: each part gets what the parts before it left (`ctx.room`).
 - `paw.ruler.lane_rows()`: How many rows the lanes need now, all together.
 - `paw.ruler.relative(bar, beat)`: How many `W` (ahead) or `B` (behind) reach bar `bar` from the cursor at `beat`: from inside a bar, the first `B` goes to its own start (paw/defaults/cursor.lua). Nil for the cursor's own bar.
@@ -1838,7 +1864,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.scope
 
 - `paw.scope.apply(s)`: Tell the engine what the rest of the song does for a scope. This is the scope of the tab in front, which the last seat to change tabs (a terminal or a window) selected.
-- `paw.scope.at_cursor()`: The scope that `znn` enters at the cursor: the innermost not entered yet. In a region scope, the region one level inside it at the cursor; else the group at the cursor (its header or one of its tracks), else the track. Nil when the window shows that track already.
+- `paw.scope.at_cursor()`: The scope that `znn` enters at the cursor: the innermost not entered yet. On a closed time fold (paw/folds.tl), its region or its bars. In a region scope, the region one level inside it at the cursor; else the closed fold of tracks whose row the cursor is on (paw/folds.tl), else the group at the cursor (its header or one of its tracks), else the track. Nil when the window shows that track already.
 - `paw.scope.bar_offset(s)`: How many bars of the song come before the first bar of a scope (the current one by default) when its bars are numbered from 1: 0 with no time, or with `scopebars=song`. A scope's bars are the song's (its meter map), counted from the bar its time starts in.
 - `paw.scope.breadcrumb(s)`: The path in words: `Song › Bridge › Strings`.
 - `paw.scope.children(s)`: The scopes one level inside a scope (the current one by default): for a region scope, the regions one level inside its region (paw/markers.tl), in order of time; for a group scope, its members (a group or a track), in order. Each has that scope as its parent. Other kinds have none.
@@ -1851,6 +1877,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.scope.group(s)`: The innermost group of a scope's path (the current scope by default): what a narrowed window's tracks are shown under. Nil when no level is a group.
 - `paw.scope.group_at(track)`: The group of a track when you narrow: the track itself if it is a group. If not, the group that contains it.
 - `paw.scope.held()`: The parts of the rest the engine plays from files now.
+- `paw.scope.holder(win)`: The window whose scope and folds an action changes: the one given, else the current one; its stack's keeper.
 - `paw.scope.limits_tracks(s)`: True if a scope, or one of the levels above it, limits the tracks.
 - `paw.scope.local_bar(song_bar)`: The bar the current scope shows for a bar of the song.
 - `paw.scope.name(name, win)`: Name the current scope, so that the picker and `:narrow` find it again. View state, kept with the project's screen. Returns it.
@@ -1870,6 +1897,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.scope.span(s)`: The time a scope shows (the current one by default): `from, to` in beats, its own time intersected with its parent's. Nil when it shows all of the song's time. `from` is `to` when the times do not meet.
 - `paw.scope.tracks(s)`: The tracks of a scope (the current one by default), in the order of the track list. With no scope, or one that keeps every track, all tracks.
 - `paw.scope.widen(top, win)`: Leave the scope of a window (the current one by default): up one level, or with `top` to the song. False when it shows the song.
+- `paw.scope.window(win)`: The window whose scope and folds a view shows: the one given, else the one being drawn, else the current one; for a view that keeps no stack of its own (the mixer), the arrange window of its tab.
 
 ## Module paw.seats
 

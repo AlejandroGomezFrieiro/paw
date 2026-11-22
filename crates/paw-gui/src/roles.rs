@@ -526,7 +526,7 @@ fn playhead(painter: &Painter, rect: Rect, p: &PlayheadProps, bind: Option<&str>
     if at < lo || at > hi {
         return;
     }
-    let x = rect.left() + ((at - p.from) * p.per.unwrap_or(1.0)) as f32 * cw;
+    let x = rect.left() + ((p.view_beat(at) - p.from) * p.per.unwrap_or(1.0)) as f32 * cw;
     if x < rect.left() || x > rect.right() {
         return;
     }

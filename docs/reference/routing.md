@@ -19,8 +19,8 @@ below the group, indented one step, in its color.
 | `:track.group Strings`, `<Space>tg` | Make a group of the selected tracks. |
 | `:track.into Strings` | Put a track into a group. |
 | `:track.ungroup`, `<Space>tG` | Take a track out of its group, or remove a group. |
-| `za` | Fold the members of a group into it, or open them. |
-| `zM`, `zR` | Fold each group, open each group. |
+| `za` | Fold the members of a group into it, or open them, in this window ([Folds](narrowing.md#folds)). |
+| `zM`, `zR` | Fold each group and fold of the window, open them all. |
 | `:group.link`, `<Space>tl` | Link the faders of the members of a group. |
 
 - A group can hold groups.
@@ -29,7 +29,9 @@ below the group, indented one step, in its color.
 - `paw.groups.make({ violins, violas, cellos }, "Strings")` makes a group.
 - `paw.groups.rows()` is the list of the tracks that show, which is all the tracks
   except the folded tracks.
-- For work on one group alone, see [Narrowed tabs](narrowing.md).
+- A fold is part of the window, not of the project. Each window keeps its own
+  folds, and a fold is not an undo step.
+- For work on one group alone, see [Scopes](narrowing.md).
 
 ### Linked faders
 

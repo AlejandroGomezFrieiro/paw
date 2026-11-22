@@ -15,6 +15,14 @@ A group is a track that other tracks play into, with a mark in its
 and save, copy, undo and the views need nothing new for groups. The views
 only fold the members into the group and indent them below it.
 
+Whether a group is folded is part of the window, not of the project, as
+folds are in Vim. Two windows can show the same group folded and open,
+and a fold is not an undo step, so `u` never opens a group that you
+folded. The project still keeps the folds of each window with its
+windows, so they come back when you open it. The same reason makes any
+set of tracks a fold, with `zf`, because a fold is a way to show the
+tracks and not a part of them. See [Folds](../reference/narrowing.md#folds).
+
 ## A VCA is a fader without sound
 
 A group sums the sound of its members, but sometimes you want to control

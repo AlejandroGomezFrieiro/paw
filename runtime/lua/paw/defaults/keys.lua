@@ -234,7 +234,25 @@ amap("zz", function() paw.ui.views.arrange:center() end, "Scroll the cursor to t
 -- Groups of tracks.
 map("<leader>tg", "track.group", { view = "arrange", mode = nx, desc = "Group the selected tracks" })
 amap("<leader>tG", "track.ungroup", "Take the track out of its group; dissolve a group")
-amap("za", "track.fold", "Fold the group away, or open it")
+-- Folds (paw/folds.tl): view state of this window, as Vim's. `zo` stays
+-- zoom out; `za` opens.
+amap("za", "fold.toggle", "Fold the group or fold at the cursor, or open it")
+amap("zc", "fold.close", "Fold the group or fold at the cursor")
+amap("zd", "fold.delete", "Delete the fold at the cursor (its tracks stay)")
+amap("zE", "fold.clear", "Delete every fold of this window")
+keymap.operator("zf", function(region)
+  local f, why = paw.folds.make(paw.scope.of_region(region))
+  if not f then return paw.notify(why, "warn") end
+  paw.notify(
+    string.format("folded %s (%s) · `za` opens it, `zd` deletes it", paw.folds.name(f), paw.folds.describe(f))
+  )
+end, {
+  view = "arrange",
+  repeatable = false,
+  desc = "Fold what a motion covers: zfar the region into a column, zfag the group, Vjjzf three tracks into a row",
+})
+amap("zm", "fold.more", "Fold one more level of regions")
+amap("zr", "fold.less", "Open one more level of regions")
 -- Scopes (paw/scope.tl): `zn` enters what a motion covers in this window,
 -- `znn` the innermost scope at the cursor; `zw` goes up, `zW` to the song,
 -- `]z` `[z` to the scopes beside. The `<leader>z` keys open and name them.
@@ -283,8 +301,8 @@ amap("<leader>tx", "vca.dissolve", "Take the VCA at the cursor away")
 amap("<leader>tl", "group.link", "Link the faders of the group's members")
 amap("<leader>ts", "send", "Send the track's sound to another as well")
 amap("<leader>to", "track.output", "Choose where the track's sound goes")
-amap("zM", "track.fold all", "Fold every group")
-amap("zR", "track.fold none", "Open every group")
+amap("zM", "fold.closeall", "Fold every group and fold of this window")
+amap("zR", "fold.openall", "Open every group and fold of this window")
 amap("zl", function(ctx) paw.ui.views.arrange:scroll_by(ctx.count or 1) end, "Scroll a bar later")
 amap("zh", function(ctx) paw.ui.views.arrange:scroll_by(-(ctx.count or 1)) end, "Scroll a bar earlier")
 
