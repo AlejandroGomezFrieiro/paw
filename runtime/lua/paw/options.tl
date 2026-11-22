@@ -91,6 +91,11 @@ local defaults: {string:Value} = {
   autosave = api.env().clean and 0 or 60,
   reopen_last = false,     -- start with the project that was open last, when none is named
   threads = 0,            -- threads to process tracks on; 0 for one per core
+  files_limit = 20000,     -- the files picker reads at most this many directory entries
+  files_depth = 8,         -- and goes this many folders deep
+  -- Folders the files picker does not enter (it leaves out hidden ones and
+  -- those a .gitignore at its root names too).
+  files_skip = { "target", "node_modules", "result", "build", "dist", "__pycache__", "vendor" },
   device_sleep = true,     -- devices at rest sleep through silence; the sound is the same
   octave = 4,              -- where note entry in insert mode starts: `a` is C of this octave
   grid = 1,                -- arrange cursor step and snap, in beats
@@ -170,6 +175,8 @@ local specs: {string:Spec} = {
   count_in = { min = 0, max = 16, integer = true },
   pre_roll = { min = 0, max = 64, integer = true },
   pre_roll_seconds = { min = 0, max = 60 },
+  files_limit = { min = 100, max = 10000000, integer = true },
+  files_depth = { min = 1, max = 64, integer = true },
   click_level = { min = -60, max = 12 },
   midi_record = { values = { "new", "merge" } },
   click_output = { min = 0, max = 63, integer = true },

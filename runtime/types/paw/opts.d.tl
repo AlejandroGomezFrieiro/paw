@@ -31,8 +31,11 @@ local record Opts
    devices_width: number
    editor_on_add: boolean
    ffmpeg: string
+   files_depth: integer
    files_hear: boolean
    files_hidden: boolean
+   files_limit: integer
+   files_skip: {string | number}
    follow: boolean
    fps: number
    gdefault: boolean

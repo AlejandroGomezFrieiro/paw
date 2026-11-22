@@ -73,7 +73,7 @@ What is left, in order of what the user feels:
    frame.
 3. The live ticker draws 60 frames per second when an armed input changes
    nothing on the screen.
-4. The files picker walks the whole folder tree (up to 10 s).
+4. The files picker walked the whole folder tree (up to 10 s). It now reads in slices of 8 ms, with limits and skipped folders (TASK-12).
 5. About 1 400 allocations per frame while playing, half of them for
    strings passed from Lua.
 

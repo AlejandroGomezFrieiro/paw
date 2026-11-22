@@ -5908,10 +5908,12 @@ function paw.pick.show(where, how) end
 --- under the selection. For tests and for frontends.
 function paw.pick.state() end
 
---- Project and audio files under `root`, walking at most `limit` entries.
+--- Project and audio files under `root`, all at once (a test or a script
+--- wants the whole list): at most `limit` entries, `depth` folders deep.
 ---@param root any
 ---@param limit any
-function paw.pick.walk(root, limit) end
+---@param depth any
+function paw.pick.walk(root, limit, depth) end
 
 --- A color `#rrggbb` at `alpha` (0 to 1), as `#rrggbbaa`.
 ---@param colour any
