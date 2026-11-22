@@ -1,0 +1,26 @@
+[book]
+title = "paw"
+description = "The manual of paw, a personal audio workstation for Linux."
+language = "en"
+src = "."
+
+[build]
+build-dir = "book"
+create-missing = false
+
+[output.html]
+default-theme = "light"
+preferred-dark-theme = "coal"
+smart-punctuation = false
+no-section-label = true
+
+[output.html.search]
+enable = true
+limit-results = 20
+use-boolean-and = true
+boost-title = 2
+boost-hierarchy = 1
+expand = true
+
+[output.html.print]
+enable = false
