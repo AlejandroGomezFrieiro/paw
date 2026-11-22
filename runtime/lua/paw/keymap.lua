@@ -780,6 +780,49 @@ end
 --- The marks of a view: name -> position.
 function M.marks(view) return marks[view or paw.ui.focused] or {} end
 
+--- What belongs to the user, for `paw.shada`: the last search and the
+--- registers (as a table of registers by name).
+function M.shada_user() return { search = M.search_text, registers = registers } end
+
+--- What belongs to a project, for `paw.shada`: the marks, the jump lists
+--- (without where `<C-o>` is) and the places of the edits, each by view.
+function M.shada_project()
+  local out = { marks = marks, jumps = {}, changes = {} }
+  for view, list in pairs(jumps) do
+    out.jumps[view] = { unpack(list) }
+  end
+  for view, list in pairs(changes) do
+    out.changes[view] = { unpack(list) }
+  end
+  return out
+end
+
+--- Put back what `shada_user` gave.
+function M.shada_set_user(data)
+  if type(data.search) == "string" then M.search_text = data.search end
+  for name, value in pairs(data.registers or {}) do
+    if registers[name] == nil then registers[name] = value end
+  end
+end
+
+--- Put back what `shada_project` gave, in place of the marks and places now.
+function M.shada_set_project(data)
+  for _, t in ipairs({ marks, jumps, changes }) do
+    for k in pairs(t) do
+      t[k] = nil
+    end
+  end
+  for view, set in pairs(data.marks or {}) do
+    marks[view] = set
+  end
+  for view, list in pairs(data.jumps or {}) do
+    jumps[view] = list
+  end
+  for view, list in pairs(data.changes or {}) do
+    changes[view] = list
+  end
+end
+
 -- Search ----------------------------------------------------------------------
 
 --- Move to the next (`dir` 1) or previous (-1) thing in the focused view that
