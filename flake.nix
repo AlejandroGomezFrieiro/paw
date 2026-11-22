@@ -344,6 +344,25 @@
         touch $out
       '';
 
+      # tools/testlint.lua: no test sleeps, reads the clock or checks a
+      # speed beyond tests/timing-allowed.txt. It reads text only.
+      testLint = pkgs: pkgs.runCommand "paw-testlint" {
+        src = nixpkgs.lib.fileset.toSource {
+          root = ./.;
+          fileset = nixpkgs.lib.fileset.unions [
+            ./tools/testlint.lua ./tests/timing-allowed.txt
+            (nixpkgs.lib.fileset.fileFilter (file: file.hasExt "lua") ./tests)
+            (nixpkgs.lib.fileset.fileFilter (file: file.hasExt "lua") ./extensions)
+            (nixpkgs.lib.fileset.fileFilter (file: file.hasExt "rs") ./crates)
+            (nixpkgs.lib.fileset.fileFilter (file: file.hasExt "rs") ./extensions)
+          ];
+        };
+        nativeBuildInputs = [ pkgs.luajit ];
+      } ''
+        cd $src && luajit tools/testlint.lua
+        touch $out
+      '';
+
       pawUtau = pkgs: (paw pkgs).withExtensions (exts: [ exts.utau ]);
 
       # paw in a BrowserPod pod, for the docs (web/browserpod/README.md).
@@ -380,8 +399,9 @@
 
       # `nix flake check`: clippy, rustfmt, the Rust tests a sandbox can run,
       # the program itself, Vale on the docs, the website with its link check, `cyan check` on the Teal,
-      # luacheck on the Lua, and how much the formatters would change.
-      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; lua = luaCheck pkgs; format = formatCheck pkgs; website = website pkgs; });
+      # luacheck on the Lua, how much the formatters would change, and the
+      # check against tests that depend on time.
+      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; lua = luaCheck pkgs; format = formatCheck pkgs; testlint = testLint pkgs; website = website pkgs; });
 
       apps = forAll (pkgs:
         nixpkgs.lib.genAttrs [ "paw" "paw-gui" "paw-mcp" ] (name: {

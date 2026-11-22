@@ -41,7 +41,7 @@ For example:
 For example:
 
 - It checks speed: a time, a share of a processor, or a count that changes with speed. Remove the speed check and keep the check of the behavior. If cost is the behavior, count the work. Move the measure to `bench/`, or delete it when a bench already measures it.
-- It sleeps, reads the clock, or checks that nothing happened in a time. Rewrite it to wait for a state or an event, and to check an absence only after a sync point.
+- It sleeps, reads the clock, or checks that nothing happened in a time. Rewrite it to wait for a state or an event, and to check an absence only after a sync point. When you remove a sleep or a clock read, make its line in `tests/timing-allowed.txt` smaller: `tools/testlint.lua` fails until you do.
 - It reads state that it did not make. Rewrite it to make that state.
 
 **2. Prune**

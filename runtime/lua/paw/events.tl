@@ -63,6 +63,9 @@ local paw = (_G as {string: Paw}).paw
 
 local handlers: {string: {Handler}} = {} -- pattern -> list of { id, fn, once }
 local next_id = 0
+-- The events sent since paw started: what the screen keeps windows by
+-- (paw/ui.tl) changes when this does.
+local sent = 0
 
 --- The descriptor of an event whose payload is a `P`: Teal checks the
 --- handlers that `paw.on` is given for it, and what `paw.emit` sends.
@@ -164,6 +167,7 @@ end
 --- returned `false, reason`. So a handler refuses the request of an event
 --- (`edit.before`, `project.saving`, `key.pre`).
 function M.emit<P>(event: string | M.Event<P>, payload?: P): boolean, string
+  sent = sent + 1
   local name = name_of(event)
   local data: Payload = payload as Payload or {}
   local outer, outer_reason = refused, reason
@@ -180,6 +184,12 @@ function M.emit<P>(event: string | M.Event<P>, payload?: P): boolean, string
     return false, why
   end
   return true
+end
+
+--- How many events paw has sent since it started. A number that is the
+--- same as before means that no event came in between.
+function M.emitted(): integer
+  return sent
 end
 
 return M

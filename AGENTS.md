@@ -169,6 +169,9 @@ nix flake check                                # all of the checks
 - No test depends on time or load: no sleep, no deadline as an
   assertion, no count of frames. Wait for an event or a state. A time in
   milliseconds goes to `bench/`. A test checks behavior, not speed.
+- `tools/testlint.lua` refuses a new sleep, clock read or speed check in
+  a test. The suite and `nix flake check` run it. Its allow-list
+  `tests/timing-allowed.txt` only gets shorter.
 - Check that a thing does not happen only after a sync point: first let
   the kernel do its work (a state, a block, a sync request), and go past
   each timer that could make it happen. "Nothing came in 300 ms" is not

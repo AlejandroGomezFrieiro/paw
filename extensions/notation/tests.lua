@@ -1675,11 +1675,6 @@ test(
     clip:set_note(2, { pitch = 65 })
     surface_paint()
     eq(cache.count, made + 1, "an edit in one bar engraves that bar again")
-    local bench = require("notation.bench")
-    local r = bench.run(16, { glyphs = true, surface = true, cell = { w = 13, h = 27 } }, 5, nil, T.cpu_ms)
-    -- Processor time, the targets of 8 and 30 ms as the scale.
-    T.quick(r.cursor, 8, "a cursor move paints quickly")
-    T.quick(r.edit, 30, "an edit paints quickly")
   end
 )
 
