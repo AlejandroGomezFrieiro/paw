@@ -15,7 +15,8 @@ use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use paw_engine::backend::{self, BackendChoice, BackendOptions, find_device};
-use serde_json::{Value, json};
+use serde::Serialize;
+use serde_json::Value;
 
 use super::Session;
 
@@ -54,6 +55,14 @@ struct Gone {
     /// Its name, as told.
     name: String,
     next_try: Instant,
+}
+
+/// The audio device that went away and is waited for (`engine_get().lost`).
+#[derive(Clone, Copy, Debug, Serialize)]
+pub struct Lost<'a> {
+    pub device: &'a str,
+    /// Whether paw goes back to it by itself when it comes back.
+    pub auto: bool,
 }
 
 impl Session {
@@ -203,11 +212,8 @@ impl Session {
     }
 
     /// The device that went away and is being waited for, if one has.
-    pub fn audio_lost(&self) -> Value {
-        match &self.watch.gone {
-            Some(gone) => json!({ "device": gone.name, "auto": self.watch.auto }),
-            None => Value::Null,
-        }
+    pub fn audio_lost(&self) -> Option<Lost<'_>> {
+        self.watch.gone.as_ref().map(|gone| Lost { device: &gone.name, auto: self.watch.auto })
     }
 
     /// Tell of MIDI ports that went away, and of those that came back.

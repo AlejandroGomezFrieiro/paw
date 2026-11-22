@@ -1708,6 +1708,15 @@ local record contracts
     values: {string}
   end
 
+  --- What the panel of `<leader>.` shows (`paw.commands.panel()`): its
+  --- `title`, the `params` of the last command that can be adjusted, and
+  --- their `values` now.
+  record AdjustPanel
+    title: string
+    params: {AdjustParam}
+    values: {string: CommandArg}
+  end
+
   --- What `paw.command` takes besides the name and the function.
   record CommandOptions
     desc: string

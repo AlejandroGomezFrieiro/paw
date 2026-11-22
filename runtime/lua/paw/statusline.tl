@@ -163,6 +163,8 @@ local record Segment is {Piece}
   pill: boolean
   name: boolean
   section: string
+  --- The columns its pieces take, once they are measured.
+  width: integer
 end
 
 --- The segments of a line (`paw.statusline.segments`), and the errors of
@@ -220,6 +222,8 @@ end
 M.components, M.themes, M.stats = {}, {}, {calls = 0, cached = 0}
 
 local LEFT, RIGHT = {"a", "b", "c"}, {"x", "y", "z"}
+local SIDES: {string: {string}} = {left = LEFT, right = RIGHT}
+local NONE: {SectionEntry} = {}
 
 -- What each is called, so that the line does not change shape as the width
 -- changes by a column; see the specs below for the narrowest screens.
@@ -832,7 +836,8 @@ local type Read = function(): Value
 
 -- What a context reads when a component asks for it.
 local lazy: {string: Read} = {
-  transport = api.transport_get as Read,
+  -- The frame's transport, read once for the status line and the views.
+  transport = function(): Value return paw.ui.transport() as Value end,
   project = api.project_get as Read,
   engine = api.engine_get as Read,
 }
@@ -851,20 +856,33 @@ local lazy_meta: metatable<{string: Value}> = {
 --- What a component is called with: the screen's width, the mode, the view
 --- that has the keys, and (read when asked for) the transport, the project
 --- and the engine.
+-- The context of each bar, emptied and filled again for each line: a
+-- frame makes no new one. A context in use (a component that asks for a
+-- line of the same bar) is left as it is, and that line gets a new one.
+local contexts: {string: {string: Value}} = {}
+local in_use: {string: boolean} = {}
+
 local function context(width: integer, which: string, extra: Extra): Context
-  local ctx: Context = {
-    width = width,
-    which = which,
-    mode = paw.keymap.mode,
-    view = paw.ui.focused,
-    g = paw.draw.g,
-    active = not paw.ui.float,
-  }
-  local fields = ctx as {string: Value}
-  for k, v in pairs((extra or {}) as {string: Value}) do
-    fields[k] = v
+  local fields = contexts[which]
+  if fields and not in_use[which] then
+    for k in pairs(fields) do
+      fields[k] = nil
+    end
+  else
+    fields = setmetatable({}, lazy_meta)
+    if not in_use[which] then
+      contexts[which] = fields
+    end
   end
-  return setmetatable(fields, lazy_meta) as Context
+  local ctx = fields as Context
+  ctx.width, ctx.which, ctx.mode, ctx.view = width, which, paw.keymap.mode, paw.ui.focused
+  ctx.g, ctx.active = paw.draw.g, not paw.ui.float
+  if extra then
+    for k, v in pairs(extra as {string: Value}) do
+      fields[k] = v
+    end
+  end
+  return ctx
 end
 
 --- What a component gave last, by the key it gave (`key(ctx)`).
@@ -874,11 +892,45 @@ local record Kept
 end
 local cached: {Component: Kept} = setmetatable({}, {__mode = "k"})
 
+-- The segment each entry of each section gave last, by the letter of the
+-- section: an entry that gives the same text in the same style again gives
+-- the same segment, with its width kept (`width_of`).
+local last_segs: {string: {SectionEntry: Segment}} = {}
+
+-- The entry of a component given by its name or its function alone.
+local plain: Entry = {}
+
+-- The text of `piece` as the entry `def` shows it.
+local function text_of(def: Entry, piece: Piece): string
+  if def.fmt then
+    return tostring(def.fmt(piece[1]))
+  end
+  return tostring(piece[1])
+end
+
+-- True if `seg` holds the pieces of `list` as the entry `def` shows them,
+-- in `style` where a piece has none.
+local function same(seg: Segment, list: {Piece}, def: Entry, style: string): boolean
+  if #seg ~= #list then
+    return false
+  end
+  for i, piece in ipairs(list) do
+    local had = seg[i]
+    if had[1] ~= text_of(def, piece) or had[2] ~= (piece[2] or style) then
+      return false
+    end
+  end
+  return true
+end
+
 --- The pieces a component entry gives now, with its `min`, `rank` and the
 --- rest of what it is: nil when it has nothing to show.
-local function evaluate(entry: SectionEntry, ctx: Context, base: string): Segment, string
-  local def: Entry = entry is Entry and entry or {entry as string | ComponentFn}
+local function evaluate(entry: SectionEntry, ctx: Context, base: string, letter: string): Segment, string
+  local def: Entry = entry is Entry and entry or plain
   local what = def[1] or def.fn
+  if def == plain then
+    what = entry as string | ComponentFn
+  end
   local component: Component
   if what is string then
     component = M.components[what]
@@ -901,7 +953,7 @@ local function evaluate(entry: SectionEntry, ctx: Context, base: string): Segmen
   local key = component.key and component.key(ctx)
   local keep = key ~= nil and cached[component]
   local mark = key ~= nil
-    and table.concat({tostring(key), ctx.width, ctx.which, tostring(ctx.mode), tostring(ctx.view)}, "|")
+    and tostring(key) .. "|" .. ctx.width .. "|" .. ctx.which .. "|" .. tostring(ctx.mode) .. "|" .. tostring(ctx.view)
   if keep and keep.mark == mark then
     M.stats.cached = M.stats.cached + 1
     pieces = keep.pieces
@@ -925,18 +977,32 @@ local function evaluate(entry: SectionEntry, ctx: Context, base: string): Segmen
   else
     list = pieces
   end
-  local style = def.style or component.style or base
-  local seg: Segment = {rank = def.rank or component.rank or 3, pill = component.pill, name = component.shrink}
-  for _, piece in ipairs(list) do
-    local text = piece[1]
-    if def.fmt then
-      text = def.fmt(text)
-    end
-    seg[#seg + 1] = {tostring(text), piece[2] or style}
-  end
-  if #seg == 0 then
+  if #list == 0 then
     return nil
   end
+  local style = def.style or component.style or base
+  local rank = def.rank or component.rank or 3
+  local by_entry = last_segs[letter]
+  if not by_entry then
+    by_entry = setmetatable({}, {__mode = "k"})
+    last_segs[letter] = by_entry
+  end
+  local last = by_entry[entry]
+  if
+    last
+    and last.rank == rank
+    and last.pill == component.pill
+    and last.name == component.shrink
+    and same(last, list, def, style)
+  then
+    return last
+  end
+  local seg: Segment = {rank = rank, pill = component.pill, name = component.shrink}
+  for _, piece in ipairs(list) do
+    -- The line never changes a piece: `fit` copies one that it cuts.
+    seg[#seg + 1] = {text_of(def, piece), piece[2] or style}
+  end
+  by_entry[entry] = seg
   return seg
 end
 
@@ -973,11 +1039,13 @@ function M.segments(width: integer, which?: string, extra?: Extra): Segments
   local sections = sections_for(which, ctx.view, ctx.active)
   local out: Segments = {left = {}, right = {}, errors = {}}
   local styles = theme as {string: string}
-  for side, letters in pairs({left = LEFT, right = RIGHT}) do
+  local was_in_use = in_use[which]
+  in_use[which] = true
+  for side, letters in pairs(SIDES) do
     local into = side == "left" and out.left or out.right
     for _, letter in ipairs(letters) do
-      for _, entry in ipairs(sections[letter] or {}) do
-        local seg, err = evaluate(entry, ctx, styles[letter] or "StatusLine")
+      for _, entry in ipairs(sections[letter] or NONE) do
+        local seg, err = evaluate(entry, ctx, styles[letter] or "StatusLine", letter)
         if seg then
           seg.section = letter
           into[#into + 1] = seg
@@ -987,15 +1055,32 @@ function M.segments(width: integer, which?: string, extra?: Extra): Segments
       end
     end
   end
+  in_use[which] = was_in_use
   return out
 end
 
 -- Drawing ----------------------------------------------------------------------------------
 
 local function width_of(seg: Segment): integer
+  if seg.width then
+    return seg.width
+  end
   local n = 0
   for _, piece in ipairs(seg) do
     n = n + api.str_width(piece[1])
+  end
+  seg.width = n
+  return n
+end
+
+-- The columns of each separator, by its text: there are few.
+local sep_widths: {string: integer} = {}
+
+local function sep_width(text: string): integer
+  local n = sep_widths[text]
+  if not n then
+    n = api.str_width(text)
+    sep_widths[text] = n
   end
   return n
 end
@@ -1021,7 +1106,7 @@ local function total(segs: {Segment}, theme: Theme): integer
   for i, seg in ipairs(segs) do
     n = n + width_of(seg)
     if i > 1 then
-      n = n + api.str_width((between(segs[i - 1], seg, theme)))
+      n = n + sep_width((between(segs[i - 1], seg, theme)))
     end
   end
   return n
@@ -1029,36 +1114,47 @@ end
 
 --- Take segments from a line until both sides fit in `width`: the name
 --- is cut to a few characters first, then the least needed go.
-local function fit(s: Segments, width: integer, theme: Theme): Segments
-  local left, right = s.left, s.right
-  local function need(): integer
-    return total(left, theme) + total(right, theme) + 2
-  end
-  local named: Segment
-  for _, seg in ipairs(right) do
-    if seg.name then
-      named = seg
+local function need(s: Segments, theme: Theme): integer
+  return total(s.left, theme) + total(s.right, theme) + 2
+end
+
+-- The segment of `list` that goes first, after `worst` (its rank) and its
+-- place in `from`: the first of the highest rank that is not 0.
+local function worst_of(list: {Segment}, worst: integer, from: {Segment}, at: integer): integer, {Segment}, integer
+  for i, seg in ipairs(list) do
+    if seg.rank > worst and seg.rank > 0 and not seg.name then
+      worst, from, at = seg.rank, list, i
     end
   end
-  if need() > width and named then
+  return worst, from, at
+end
+
+local function fit(s: Segments, width: integer, theme: Theme): Segments
+  local right = s.right
+  local named_at: integer
+  for i, seg in ipairs(right) do
+    if seg.name then
+      named_at = i
+    end
+  end
+  if need(s, theme) > width and named_at then
+    -- A copy of the segment is cut: a component's segment is kept as it gave it.
+    local named = right[named_at]
     local piece = named[#named]
-    local over = need() - width
+    local over = need(s, theme) - width
     local keep = math.max(8, api.str_width(piece[1]) - over)
     if keep < api.str_width(piece[1]) then
-      piece[1] = util.fit(piece[1], keep)
+      local copy: Segment = {rank = named.rank, pill = named.pill, name = named.name, section = named.section}
+      for i = 1, #named - 1 do
+        copy[i] = named[i]
+      end
+      copy[#named] = {util.fit(piece[1], keep), piece[2]}
+      right[named_at] = copy
     end
   end
-  while need() > width do
-    local worst = -1
-    local worst_list: {Segment}
-    local worst_i: integer
-    for _, list in ipairs({left, right}) do
-      for i, seg in ipairs(list) do
-        if seg.rank > worst and seg.rank > 0 and not seg.name then
-          worst, worst_list, worst_i = seg.rank, list, i
-        end
-      end
-    end
+  while need(s, theme) > width do
+    local worst, worst_list, worst_i = worst_of(s.left, -1, nil, nil)
+    worst, worst_list, worst_i = worst_of(right, worst, worst_list, worst_i)
     if not worst_list then
       break
     end
@@ -1067,26 +1163,44 @@ local function fit(s: Segments, width: integer, theme: Theme): Segments
   return s
 end
 
+-- The piece of each separator, by its text and its style: there are few.
+local sep_pieces: {string: {string: Piece}} = {}
+
+local function sep_piece(text: string, style: string): Piece
+  local by_style = sep_pieces[text]
+  if not by_style then
+    by_style = {}
+    sep_pieces[text] = by_style
+  end
+  local piece = by_style[style]
+  if not piece then
+    piece = {text, style}
+    by_style[style] = piece
+  end
+  return piece
+end
+
+-- The pieces of the segments `segs`, with the separators between them.
+local function pieces_of(segs: {Segment}, theme: Theme): {Piece}
+  local out: {Piece} = {}
+  for i, seg in ipairs(segs) do
+    if i > 1 then
+      out[#out + 1] = sep_piece(between(segs[i - 1], seg, theme))
+    end
+    for _, piece in ipairs(seg) do
+      out[#out + 1] = piece
+    end
+  end
+  return out
+end
+
 --- The line for `width` columns, fitted: `{ left, right }` as `segments`
 --- gives them. `text` is for each side, as `{ text, style }` pieces with the
 --- separators between them, ready to draw or to send to a window.
 function M.line(width: integer, which?: string, extra?: Extra): Line
   local theme = theme_of(M.config().theme)
   local s = fit(M.segments(width, which, extra), width, theme)
-  local function pieces(segs: {Segment}): {Piece}
-    local out: {Piece} = {}
-    for i, seg in ipairs(segs) do
-      if i > 1 then
-        local text, style = between(segs[i - 1], seg, theme)
-        out[#out + 1] = {text, style}
-      end
-      for _, piece in ipairs(seg) do
-        out[#out + 1] = piece
-      end
-    end
-    return out
-  end
-  return {left = pieces(s.left), right = pieces(s.right), errors = s.errors}
+  return {left = pieces_of(s.left, theme), right = pieces_of(s.right, theme), errors = s.errors}
 end
 
 local function pieces_width(list: {Piece}): integer

@@ -2361,6 +2361,7 @@ ex(
       fail("`strength` is from 0 to 100, not `%g`", strength)
     end
     local items = notes_in(ctx)
+    commands.about(plural(#items, "note"))
     local changes: {Changed} = {}
     for i, item in ipairs(items) do
       -- On the song's grid, so that clips that start off it still line up.
@@ -2397,6 +2398,7 @@ ex(
       fail("`transpose` needs semitones: `:5,8transpose 12`, `-3`")
     end
     local items = notes_in(ctx)
+    commands.about(plural(#items, "note"))
     local changes: {Changed} = {}
     for i, item in ipairs(items) do
       changes[i] = {item = item, change = {pitch = math.tointeger(util.clamp(item.note.pitch + by, 0, 127))}}

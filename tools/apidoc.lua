@@ -539,6 +539,7 @@ local RUST_TEAL = {
   Table = "{any:any}",
   Function = "function(...: any): any...",
   LuaString = "string",
+  LuaText = "string",
 }
 
 local function rust_teal(rust)

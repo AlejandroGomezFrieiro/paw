@@ -109,7 +109,7 @@ local record api
    fs_space: function(path: string): types.DiskSpace
    fs_stat: function(path: string): types.FileStat
    fs_trash: function(path: string): string
-   grid_fill: function(x: number, y: number, w: number, h: number, fill?: string, style: string | types.CellStyle, cx: number, cy: number, cw: number, ch: number)
+   grid_fill: function(x: number, y: number, w: number, h: number, fill?: string, style: integer | string | types.CellStyle, cx: number, cy: number, cw: number, ch: number)
    grid_image: function(key: string, x: number, y: number, w: number, h: number, cx: number, cy: number, cw: number, ch: number): boolean
    grid_keep: function(key: string, x: number, y: number, w: number, h: number, cx: number, cy: number, cw: number, ch: number)
    grid_live_begin: function(x: number, y: number, w: number, h: number, cx: number, cy: number, cw: number, ch: number): integer
@@ -120,7 +120,8 @@ local record api
    grid_surface: function(key: string, x: number, y: number, w: number, h: number, cx: number, cy: number, cw: number, ch: number, under?: boolean): integer
    grid_surface_ops: function(index: integer, ops: {types.CanvasOp})
    grid_surfaces_seal: function()
-   grid_text: function(x: number, y: number, text: string, style: string | types.CellStyle, cx: number, cy: number, cw: number, ch: number): integer
+   grid_text: function(x: number, y: number, text: string, style: integer | string | types.CellStyle, cx: number, cy: number, cw: number, ch: number): integer
+   hl_id: function(name: string): integer
    hl_set: function(name: string, def: string | types.CellStyle, full?: string | types.CellStyle)
    inflate: function(data: string, format: string): string, integer | string
    input_levels: function(): {number}

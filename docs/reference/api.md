@@ -398,6 +398,11 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.commands
 
+- `paw.commands.about(text)`: A command that can be adjusted says the range it changed, as the panel of `<leader>.` shows it (`Quantize · 48 notes`). Call it from the handler.
+
+  ```lua
+  paw.commands.about("48 notes")
+  ```
 - `paw.commands.adjust(given)`: Run the last command that has `adjust` again with other parameters, in place of its undo step: `paw.commands.adjust({ grid = "1/8" })`, or positional ones, by the order of its `adjust`. The project goes back to before the command, the command runs again with its first parameters and these laid over them, and the undo step is the new result. It works only on the last change: after `undo`, or another change, it says so.
 - `paw.commands.adjusting()`: The line `adjust a=1 b=2` that holds the parameters of the last command that can be adjusted, as they are now; nil when no command ran that can be adjusted. `<leader>.` puts it on the command line.
 - `paw.commands.alias(alias, target)`: Make `alias` another name for `target`.
@@ -419,6 +424,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.commands.list()`: Every command, sorted by name.
 - `paw.commands.main(name)`: What a bare extension name (`:notation`) stands for: its `.open` or `.show` command, where it has one.
 - `paw.commands.owner()`: The extension that paw loads now, or whose code registers these commands and keys later. `:help` goes to its page for them, and an unload removes them.
+- `paw.commands.panel()`: What the panel of `<leader>.` shows: the title, the parameters of the last command that can be adjusted, and their values now. Nil when there is no such command.
 - `paw.commands.params(ctx)`: The parameters of the command that runs: what the user gave, by the names that its `adjust` lists. A parameter not given is not in the table.
 
   ```lua
@@ -2249,6 +2255,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   local body = paw.ui.titlebar(buf, { name = "Mixer", context = "5 tracks", focused = ctx.focused })
   ```
 - `paw.ui.toggle(name)`: Show the view `name` in its window, or hide it if it shows now.
+- `paw.ui.transport()`: The transport as `paw.api.transport_get` gives it. While a frame is drawn, the one read first in that frame: the status line, the ruler and the views read it once between them.
 - `paw.ui.view(name, def)`: Register a view. It replaces a view with the same name.
 
   ```lua
@@ -2447,7 +2454,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.fs_space(path)`: The space of the disk that holds a path: `{ free, total }` in bytes (free: what a program that is not root can use).
 - `paw.api.fs_stat(path)`: `{ kind = "file" | "dir" | "link", dir, size, mtime }`, or nil when nothing is there. A link is looked at, not followed, for its kind, and `dir` is true if it leads to a directory.
 - `paw.api.fs_trash(path)`: Put a file or directory in the freedesktop trash; returns where it is.
-- `paw.api.grid_fill(x, y, w, h, fill, style, cx, cy, cw, ch)`: Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, and overwrite its characters when `fill` is given.
+- `paw.api.grid_fill(x, y, w, h, fill, style, cx, cy, cw, ch)`: Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, in `style` as `grid_text` takes it, and overwrite its characters when `fill` is given.
 - `paw.api.grid_image(key, x, y, w, h, cx, cy, cw, ch)`: Draw the picture of pixels kept under `key` over the cells `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, two pixels a cell in half blocks (`▀`): what a terminal that shows no images shows of it. False for a key not kept (any more).
 - `paw.api.grid_keep(key, x, y, w, h, cx, cy, cw, ch)`: Keep the cells of the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, under `key`, to put back on a later frame with `grid_put` when what they were drawn from has not changed.
 - `paw.api.grid_live_begin(x, y, w, h, cx, cy, cw, ch)`: A live part of the screen is drawn over the cells `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`: what is under them is kept, to draw it again by itself (`paw.ui.render_live`). Returns its number for `grid_live_end`, or nil when no part of it is on the screen.
@@ -2458,7 +2465,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.grid_surface(key, x, y, w, h, cx, cy, cw, ch, under)`: Keep the cells `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, for pixels under the name `key` (`buf:strip`), over the text or `under` it. Returns the number of the surface for `grid_surface_ops`, or nil when no part of it is on the screen.
 - `paw.api.grid_surface_ops(index, ops)`: The drawing a surface shows: the operations of `paw.canvas.paint`.
 - `paw.api.grid_surfaces_seal()`: The view being drawn is done with the surfaces it kept: what is drawn over them from now on covers them.
-- `paw.api.grid_text(x, y, text, style, cx, cy, cw, ch)`: Draw text at `(x, y)`, clipped to the rectangle `(cx, cy, cw, ch)`. Returns the number of columns the text takes.
+- `paw.api.grid_text(x, y, text, style, cx, cy, cw, ch)`: Draw text at `(x, y)`, clipped to the rectangle `(cx, cy, cw, ch)`, in `style`: the number of a highlight group (`hl_id`), its name, a table of attributes, or nil. Returns the number of columns the text takes.
+- `paw.api.hl_id(name)`: The number of the highlight group `name`, for the style of `grid_text` and `grid_fill`: a frame passes numbers, not names. The number stays the same for as long as paw runs, and follows the group when it changes. A group not defined yet has one too.
 - `paw.api.hl_set(name, def, full)`
 - `paw.api.inflate(data, format)`: The bytes `data` holds compressed as `format` says ("raw", "zlib" or "gzip"), and the number of bytes of `data` the compressed stream took (what follows is not part of it). Nil and the reason when they are not compressed so.
 - `paw.api.input_levels()`: The level of each input channel of the device, as linear gain, whatever takes it.

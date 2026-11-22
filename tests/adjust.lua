@@ -54,7 +54,7 @@ test("adjust: <leader>. changes the grid of :quantize in place of its undo step"
   keys(":%quantize 1/16<CR>")
   near(starts(b)[2], 1.25, 1e-9, "snapped to 1/16")
   eq(states(), before + 1, ":quantize is one step")
-  keys("<Space>.")
+  keys("<Space>.:")
   eq(
     require("paw.views.cmdline").state().before,
     "adjust grid=1/16 strength=100",
@@ -63,7 +63,7 @@ test("adjust: <leader>. changes the grid of :quantize in place of its undo step"
   keys(" grid=1/8<CR>")
   near(starts(b)[2], 1.5, 1e-9, "snapped to 1/8")
   eq(states(), before + 1, "the new state took the place of the old one")
-  keys("u")
+  keys("<Esc>u")
   near(starts(b)[2], 1.3, 1e-9, "u returns to the notes before :quantize")
   eq(starts(b)[1], 0.1, "all of them")
 end)
@@ -105,4 +105,63 @@ test("adjust: it says why when there is nothing to adjust", function()
   keys(":adjust grid=1/8<CR>")
   eq(last_message(), "adjust works on the last change", "after u")
   near(starts(b)[2], 1.3, 1e-9, "nothing changed")
+end)
+
+--- The panel's rows, as text.
+local function panel_rows()
+  local snap = api.ui_view_snapshot("adjust", 56, 6)
+  local out = {}
+  for _, row in ipairs(snap.rows) do
+    local text = ""
+    for _, cell in ipairs(row) do
+      text = text .. cell.text
+    end
+    out[#out + 1] = text
+  end
+  return out
+end
+
+test("adjust panel: j and - change the strength live, in one undo step", function()
+  local _, b = song()
+  local before = states()
+  keys(":%quantize 1/16 strength=100<CR>")
+  keys("<Space>.")
+  eq(paw.ui.focused, "adjust", "the panel is open")
+  eq(paw.ui.float.title, "Quantize · 4 notes", "it says the command and its range")
+  keys("j--")
+  eq(panel_rows()[2]:find("strength%s+90") ~= nil, true, "the panel shows 90 at once: " .. panel_rows()[2])
+  T.until_(function() return paw.commands.adjusting() == "adjust grid=1/16 strength=90" end, "the command to run")
+  near(starts(b)[2], 1.3 + (1.25 - 1.3) * 0.9, 1e-9, "the notes moved 90% of the way")
+  eq(states(), before + 1, "one undo step for all of it")
+  keys("<Esc>")
+  eq(paw.ui.focused ~= "adjust", true, "Esc closes the panel")
+  near(starts(b)[2], 1.255, 1e-9, "and keeps the result")
+  keys("u")
+  near(starts(b)[2], 1.3, 1e-9, "u returns to the notes before :quantize")
+  eq(starts(b)[1], 0.1, "all of them")
+end)
+
+test("adjust panel: a count multiplies the step, and keys that come quickly run the command once", function()
+  song()
+  keys(":%quantize 1/16 strength=100<CR>")
+  local runs = 0
+  local id = paw.on("command.post", function(e)
+    if e.name == "quantize" then runs = runs + 1 end
+  end)
+  keys("<Space>.j-----")
+  keys("2-")
+  eq(runs, 0, "nothing runs while the keys come")
+  T.until_(function() return runs > 0 end, "the command to run after the settle")
+  T.until_(function() return paw.commands.adjusting() == "adjust grid=1/16 strength=65" end, "the last value")
+  eq(runs, 1, "the command ran once")
+  paw.off(id)
+  keys("<Esc>")
+end)
+
+test("adjust panel: Esc at once keeps the change that waits", function()
+  local _, b = song()
+  keys(":%quantize 1/16 strength=100<CR><Space>.j-<Esc>")
+  eq(paw.commands.adjusting(), "adjust grid=1/16 strength=95", "run before the panel closed")
+  keys("u")
+  near(starts(b)[2], 1.3, 1e-9, "u undoes the whole command")
 end)
