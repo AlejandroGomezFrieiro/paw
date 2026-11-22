@@ -1231,7 +1231,10 @@ function M.buffers_list(): {Buffer}
   end
   local out: {Buffer} = {}
   for _, buf in pairs(M.buffers) do
-    if buf.listed then
+    -- A buffer of a view or a type that an extension took away when it
+    -- unloaded cannot be shown: it is not listed.
+    local shown = buf.single and u.views[buf.type] ~= nil or not buf.single and M.types[buf.type] ~= nil
+    if buf.listed and shown then
       out[#out + 1] = buf
     end
   end

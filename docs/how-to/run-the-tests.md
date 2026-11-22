@@ -61,8 +61,11 @@ the options that paw had when the suite started after each test.
 open float. `T.start()` also types `<Esc><Esc>` and moves the focus to the
 arrange view. `T.screen(w, h)` gives the text of the screen.
 
-After the last test of each file, the runner puts back the following
-things as they were at the start of the run:
+The runner checks each file of `tests/`, and the test files of each
+extension together, because a test file of an extension can use what an
+earlier one set up. After the last test of a file or an extension, the
+runner puts back the following things as they were at the start of the
+run:
 
 - the event handlers, timers and key mappings that the test code made
 - the loaded extensions, so it unloads each extension that the tests
@@ -70,9 +73,10 @@ things as they were at the start of the run:
 
 If a handler, timer or key mapping of the test code was still there, or
 an extension can't be unloaded, the runner fails a test named
-`<file> leaves no state behind`. The `changed:` line names what changed.
-To fix the failure, put back the change in the test that made it, with
-`T.after(function() ... end)`.
+`tests/<file>.lua leaves no state behind` or
+`extensions/<name>/ leaves no state behind`. The `changed:` line names
+what changed. To fix the failure, put back the change in the test that
+made it, with `T.after(function() ... end)`.
 
 The runner checks a file only when all of its tests ran, so a filter with
 `only` does not fail the check. The file `tests/leaks-allowed.txt` lists

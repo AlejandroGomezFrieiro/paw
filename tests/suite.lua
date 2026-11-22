@@ -36,13 +36,13 @@ end
 local files_before = checkout_files()
 
 local tests, failed = {}, 0
--- The file whose tests are being collected: each test keeps it, so that the
--- leak check below names the file that leaves state behind.
+-- The part whose tests are being collected (see "Shards" below): each test
+-- keeps it, so that the leak check names the part that leaves state behind.
 local loading
-local function test(name, fn) tests[#tests + 1] = { name = name, fn = fn, file = loading } end
+local function test(name, fn) tests[#tests + 1] = { name = name, fn = fn, part = loading } end
 -- Tests that run after all the others: those that load every extension.
 local lasts = {}
-local function last(name, fn) lasts[#lasts + 1] = { name = name, fn = fn, file = loading } end
+local function last(name, fn) lasts[#lasts + 1] = { name = name, fn = fn, part = loading } end
 -- What a test asks to have undone when it ends, passed or failed, so that
 -- a failure does not leave a setting behind for the tests after it.
 local cleanups = {}
@@ -417,24 +417,24 @@ table.sort(extensions)
 for _, name in ipairs(extensions) do
   lua_files("extensions/" .. name, "^tests[%w_]*%.lua$")
 end
+-- A part is a file of tests/, or all the test files of one extension: a
+-- file of an extension can use what an earlier file of it set up
+-- (tests_tone3000_auth.lua). The leak check runs after each part, and a
+-- shard runs whole parts.
+local function part_of(path) return path:match("^(extensions/[^/]+/)") or path end
 -- Shards: `suite.sh -j N` starts N paw processes, and gives process K
--- (PAW_TEST_SHARD=K/N) every Nth part from the Kth. A part is a file of
--- tests/, or all the test files of one extension: a file of an extension
--- can use what an earlier file of it sets up (tests_tone3000_auth.lua).
+-- (PAW_TEST_SHARD=K/N) every Nth part from the Kth.
 local shard, shards = (os.getenv("PAW_TEST_SHARD") or ""):match("^(%d+)/(%d+)$")
 shard, shards = tonumber(shard), tonumber(shards)
-local parts, part_of = 0, {}
+local parts, number = 0, {}
 for _, path in ipairs(files) do
-  local part = path:match("^extensions/[^/]+/") or path
-  if not part_of[part] then
+  local part = part_of(path)
+  if not number[part] then
     parts = parts + 1
-    part_of[part] = parts
+    number[part] = parts
   end
-end
-for _, path in ipairs(files) do
-  local part = part_of[path:match("^extensions/[^/]+/") or path]
-  if not shards or (part - 1) % shards == shard - 1 then
-    loading = path
+  if not shards or (number[part] - 1) % shards == shard - 1 then
+    loading = part
     assert(loadfile(path))(T)
   end
 end
@@ -445,15 +445,15 @@ end
 
 -- The leak check ---------------------------------------------------------------
 --
--- After the tests of a file ran, the runner compares what a test can leave
+-- After the tests of a part ran, the runner compares what a test can leave
 -- behind with how it was at the start of the run: the event handlers,
 -- timers and key mappings that the code of a test file made, and the loaded
--- extensions. The runner puts each of them back, so that the next file
+-- extensions. The runner puts each of them back, so that the next part
 -- starts as it does in the full suite, whatever ran before it. A handler,
 -- timer or key mapping of test code that is still there, and an extension
--- that the runner cannot unload, fail "<file> leaves no state behind".
+-- that the runner cannot unload, fail "<part> leaves no state behind".
 -- `tests/leaks-allowed.txt` lists the leaks that are known, one
--- "<file> <kind>" on each line: the list only gets shorter.
+-- "<part> <kind>" on each line: the list only gets shorter.
 
 local kinds = { "hooks", "timers", "keys", "extensions" }
 local watched = { hooks = true, timers = true, keys = true }
@@ -565,14 +565,14 @@ local selected, whole = {}, {}
 for _, t in ipairs(tests) do
   if not only or t.name:find(only, 1, true) then
     selected[#selected + 1] = t
-    whole[t.file] = (whole[t.file] or 0) + 1
+    whole[t.part] = (whole[t.part] or 0) + 1
   end
 end
--- Only a file whose every test ran is checked: a filter that leaves out
+-- Only a part whose every test ran is checked: a filter that leaves out
 -- the test that puts a setting back must not fail.
-local in_file = {}
+local in_part = {}
 for _, t in ipairs(tests) do
-  in_file[t.file] = (in_file[t.file] or 0) + 1
+  in_part[t.part] = (in_part[t.part] or 0) + 1
 end
 
 -- The options as the run started. The runner gives them back after each
@@ -581,22 +581,22 @@ end
 local start_options = paw.option.snapshot()
 local base = fingerprint()
 local leaked = {}
-local function check(file)
+local function check(part)
   local now = fingerprint()
   local found = differences(base, now)
   reset(base, now)
   -- The runner unloads the extensions that the tests loaded: only one that
   -- it cannot unload, or one that a test unloaded, is a leak.
   found.extensions = differences(base, fingerprint()).extensions
-  if whole[file] ~= in_file[file] then return end
+  if whole[part] ~= in_part[part] then return end
   local news = {}
   for _, kind in ipairs(kinds) do
     if found[kind] then
-      leaked[file .. " " .. kind] = true
-      if not allowed[file .. " " .. kind] then news[#news + 1] = kind .. " " .. found[kind] end
+      leaked[part .. " " .. kind] = true
+      if not allowed[part .. " " .. kind] then news[#news + 1] = kind .. " " .. found[kind] end
     end
   end
-  local name = file .. " leaves no state behind"
+  local name = part .. " leaves no state behind"
   if #news > 0 then
     failed = failed + 1
     print("FAIL  " .. name .. "\n      changed: " .. table.concat(news, "; "))
@@ -621,14 +621,14 @@ for i, t in ipairs(selected) do
     print("FAIL  " .. t.name .. "\n      " .. tostring(err):gsub("\n", "\n      "))
   end
   local next_test = selected[i + 1]
-  if not next_test or next_test.file ~= t.file then check(t.file) end
+  if not next_test or next_test.part ~= t.part then check(t.part) end
 end
--- An entry of the allow-list whose file ran whole and leaked nothing of
+-- An entry of the allow-list whose part ran whole and leaked nothing of
 -- that kind is out of date: the list only gets shorter.
 local stale = {}
 for entry in pairs(allowed) do
-  local file = entry:match("^(%S+)")
-  if whole[file] and whole[file] == in_file[file] and not leaked[entry] then stale[#stale + 1] = entry end
+  local part = entry:match("^(%S+)")
+  if whole[part] and whole[part] == in_part[part] and not leaked[entry] then stale[#stale + 1] = entry end
 end
 table.sort(stale)
 if #stale > 0 then

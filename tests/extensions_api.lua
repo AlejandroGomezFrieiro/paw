@@ -213,6 +213,22 @@ test("what an extension registers is its own, and unloading it takes all of it a
   _G.owner_heard = nil
 end)
 
+test(":bnext goes past the view of an extension that was unloaded", function()
+  T.start()
+  local root = dir("shown")
+  write(root .. "/init.lua", 'paw.ui.view("shownview", { render = function(_, buf) buf:text(0, 0, "shown") end })')
+  eq(paw.ext.load(root).ok, true, "loads")
+  paw.cmd("buffer", { "shownview" })
+  eq(paw.ui.focused, "shownview", "its view is shown")
+  paw.cmd("buffer", { "arrange" })
+  paw.ext.unload("shown")
+  for _ = 1, #paw.layout.buffers_list() + 1 do
+    paw.keymap.feed(":bnext<CR>")
+    local view = paw.layout.current().view
+    eq(paw.ui.views[view] ~= nil, true, ":bnext shows a view that is there, not " .. view)
+  end
+end)
+
 test(":ext.unload takes a bundled extension away and :ext.load brings it back", function()
   T.fresh()
   local had = paw.ext.loaded.musicops ~= nil
