@@ -50,23 +50,32 @@ dominant, and not at a pivot chord that belongs to both keys.
 
 A song can have many thousands of notes, and to read all of them again
 after each key takes too much time. The reading therefore keeps its work
-in three ways:
+in parts, and after an edit it makes again only the parts that the edit
+changed:
 
 1. It keeps the notes of each clip with the stamp of the clip, and the
-   stamp changes when the notes change.
-2. After an edit, it looks only at the tracks that the edit changed. A
-   change that does not change the notes, e.g., a volume, a device or a
-   selection, starts no reading.
-3. It reads again only the windows and the bars where the notes changed.
-   The choice of chords and keys over the windows is quick, so the reading
-   makes that choice again for the whole song, and the result is the same
-   as a reading of all the notes.
+   stamp changes when the notes change. Copies of a clip with the same
+   notes share one part.
+2. It keeps what each track sounds in each window, and what each track
+   sounds in each bar. A window of the song adds up the parts of the
+   tracks.
+3. After an edit, it looks only at what the edit changed. A note edit
+   reads its clip again and the windows that the clip covers. A mute of a
+   track takes the parts of that track out of the sums, and the parts of
+   the other tracks stay as they are. A change that does not change the
+   notes, e.g., a volume, a device or a selection, reads nothing.
+
+The choice of chords and keys over the windows is quick, so the reading
+makes that choice again for the whole song, and the result is the same as a
+reading of all the notes at once.
 
 The reading starts some milliseconds after the edit, and it works in parts
 of a few milliseconds, so the next key does not wait for it. Until the new
 reading is complete, the chord row of the piano roll and the ruler show the
 reading from before the edit, and they show the new reading when it is
-complete. A Lua function such as `paw.harmony.chords` waits for the new
+complete. `K` on a note in the piano roll names the chord that the note
+starts in, and says `reading` while the new reading is not complete. When
+the reading takes more than a second, the status line shows how far it is. A Lua function such as `paw.harmony.chords` waits for the new
 reading, so a script always gets the reading of the notes as they are.
 
 ## Why a provider can replace the reading

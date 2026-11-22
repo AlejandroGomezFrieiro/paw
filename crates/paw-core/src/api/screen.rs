@@ -173,6 +173,20 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         }
         // @return integer
         fn ui_redraws(_, sh, () => ()) { Ok(sh.redraws.get()) }
+        // The prompt on the command line changed: draw its live parts again
+        // (the line and the list), on the frame drawn last, and tell the
+        // windows that show state that something moved. Cheaper than
+        // `ui_redraw`: the views under it are not drawn again.
+        // @return nil
+        fn ui_redraw_line(_, sh, () => ()) {
+            sh.live_dirty.set(true);
+            sh.redraws.set(sh.redraws.get() + 1);
+            sh.line_redraws.set(sh.line_redraws.get() + 1);
+            Ok(())
+        }
+        // How many of the redraws (`ui_redraws`) were `ui_redraw_line`.
+        // @return integer
+        fn ui_line_redraws(_, sh, () => ()) { Ok(sh.line_redraws.get()) }
         // Draw only the live parts of the screen again (the playhead, the
         // meters, the status line), on the frame drawn last; a whole frame
         // when one is asked for too, or the runtime says it is needed.

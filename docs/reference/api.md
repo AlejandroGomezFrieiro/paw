@@ -908,15 +908,17 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.harmony.read
 
-- `paw.harmony.read.bar_weights(sorted, longest, from, to)`: How long each pitch class sounds from `from` to `to`, of `sorted` (notes sorted by start, the longest `longest` beats).
+- `paw.harmony.read.bar_part(run, offset, from, to, h)`: Add to `h` how long each pitch class of `run`, `offset` beats later, sounds from `from` to `to`.
 - `paw.harmony.read.chords(notes, opts)`: Chords over notes in project beats, from `from` to `to` (the notes' span when nil), in windows of `step` beats (0.5). Each chord: `{ at, length, root, quality, bass, tones }` with pitch classes 0..11.
 - `paw.harmony.read.correlate(h, profile, tonic)`: How well a histogram of pitch classes fits a key's profile from `tonic`, from -1 to 1 (Pearson's correlation).
-- `paw.harmony.read.decode(windows, bar, pause)`: The chords of a run of windows (`window` makes each, one after another with no gap): a chord holds across windows unless the next is better by more than what a change costs. Silence of `bar` beats ends a chord. `pause`, if given, is called after each 64 windows, so that a reading in slices can stop there (paw/harmony/song.tl).
-- `paw.harmony.read.first(sorted, longest, at)`: The first of `sorted` (notes sorted by start) that can sound at `at`: the ones before it start more than `longest` beats before it.
+- `paw.harmony.read.decode(windows, bar, pause, rows)`: The chords of a run of windows (`finish` makes each, one after another with no gap): a chord holds across windows unless the next is better by more than what a change costs. Silence of `bar` beats ends a chord. `pause`, if given, is called after each 64 windows, so that a reading in slices can stop there (paw/harmony/song.tl). `rows`, if given, keeps the work rows for the next call: a caller that decodes often gives its own.
+- `paw.harmony.read.finish(p, at, length, step, beat, old)`: One window of the chord reading from what sounds in it (`p`, a part): from `at`, `length` beats long, with windows of `step` beats. `beat` gives the part of the window's whole beat, when the window needs it. `old`, a window that no one reads any more, gives its lists to the new one.
 - `paw.harmony.read.fit(w, bass, total, root, q)`: How well the chord `root` `quality` fits weights `w` with `bass` and `total`.
-- `paw.harmony.read.key_path(notes_hist, bars, chords, pause)`: The keys from the pitch classes of each bar (`hist`, as `bar_weights` gives them, which it leaves as they are) and the chords, as `keys`. `pause`, if given, is called after each 16 bars, as `decode` does.
+- `paw.harmony.read.key_path(notes_hist, bars, chords, pause)`: The keys from the pitch classes of each bar (`hist`, as `bar_part` gives them, which it leaves as they are) and the chords, as `keys`. `pause`, if given, is called after each 16 bars, as `decode` does.
 - `paw.harmony.read.keys(notes, bars, chords)`: Keys over notes in project beats, bar by bar. `bars` is a list of bar starts, with the end after the last bar. When `chords` (as `chords` gives them) are given, their roots and basses count two times. The harmony tells more about the tonic than the notes of a melody. Each key is `{ at, length, tonic, mode }`, with mode "major" or "minor".
-- `paw.harmony.read.window(sorted, longest, at, length, step)`: One window of the chord reading, from `at`, `length` beats long: `sorted` are the notes sorted by start, `longest` the longest of them, `step` the length of a window.
+- `paw.harmony.read.merge(parts)`: The parts of one stretch of time, or of stretches side by side, as one part: the weights add up, and the lowest pitch over time is the lowest of theirs. One part that sounds gives that part.
+- `paw.harmony.read.part(run, offset, from, to)`: What the notes of `run`, `offset` beats later, sound from `from` to `to` (a `Part`). A note counts for how long it sounds there, a short note off the beat half; the lowest pitch over time is cut where a note starts or ends.
+- `paw.harmony.read.run(notes)`: Notes as a `Run`: `notes` sorted by start, in their order.
 
 ## Module paw.harmony.voice
 
@@ -2213,7 +2215,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   paw.ui.input({ prompt = "Name: ", text = "Bass" }, function(text) ... end)
   ```
 
-  paw does not call the callback when the user cancels the prompt. The options are those of the command line (`paw.views.cmdline.open`): `complete`, `history`, `on_change` (live preview), `anchor` (draw it next to its subject), `on_key`.
+  paw does not call the callback when the user cancels the prompt. The options are those of the command line (`paw.views.cmdline.open`): `complete`, `history`, `on_change` (live preview), `anchor` (draw it next to its subject), `on_key`, `still` (the preview asks for a whole frame itself when it changes another view).
 - `paw.ui.layer(view, part, name, order, paint)`: Draw `paint(ctx)` as a layer of a part of a view (`"arrange", "header"`). It replaces a layer with the same name (nil removes it). The view tells what `ctx` contains where it calls `paw.ui.paint`.
 - `paw.ui.live(buf, draw_part, stamp)`: Draw a live part on `buf`: `draw(buf)` draws it, now and each time it is drawn again by itself. With `stamp`, a function that gives a text of the values the part is drawn from (nil: unknown), the part is drawn again only when that text changes; its cells stay as they were drawn.
 - `paw.ui.live_drawing()`: True if a live part drawn now is one of the terminal's screen.
@@ -2673,8 +2675,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.ui_detach(client)`
 - `paw.api.ui_frame_snapshot(width, height, live)`: A frame drawn off screen as a terminal is drawn, for tests: whole, or with `live` only its live parts again on the frame this drew last (nil when the runtime says it must be drawn whole). Each row as its text and as its cells with their styles.
 - `paw.api.ui_frames()`: The frames drawn so far: `{ full, live, unchanged }`: whole frames, frames of the live parts only, and of those the ones that changed no cell, which were not sent.
+- `paw.api.ui_line_redraws()`: How many of the redraws (`ui_redraws`) were `ui_redraw_line`.
 - `paw.api.ui_mouse(on)`: True if the terminal reports the pointer (`paw.opt.mouse`), for the screen that paw draws now.
 - `paw.api.ui_redraw()`: --- screen ---
+- `paw.api.ui_redraw_line()`: The prompt on the command line changed: draw its live parts again (the line and the list), on the frame drawn last, and tell the windows that show state that something moved. Cheaper than `ui_redraw`: the views under it are not drawn again.
 - `paw.api.ui_redraw_live()`: Draw only the live parts of the screen again (the playhead, the meters, the status line), on the frame drawn last; a whole frame when one is asked for too, or the runtime says it is needed.
 - `paw.api.ui_redraws()`
 - `paw.api.ui_seat(seat)`

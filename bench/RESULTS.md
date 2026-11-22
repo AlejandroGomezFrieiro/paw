@@ -84,6 +84,42 @@ run, also at load 15 and 19 (5.2 to 8.5 ms): 55 % of that frame is the
 arrange view above the roll, which is drawn whole although only the
 roll changed.
 
+## 2026-11-22: the chord reading on the graph of derived data
+
+The chord reading is now nodes of `paw.derived` (backlog design
+`derived.md`, D1): a part for each track and window, groups of 8
+tracks, a mix for each window. A mute takes the parts of one track out
+of the sums. The project: `bench/profile/project.lua` (64 tracks, 2 000
+MIDI clips, 50 000 notes). The scripts (not in the repository) time
+`paw.harmony.builtin(0, math.huge)` after one edit and `paw.flush()`,
+with the processor time of the kernel thread and the instructions in
+user space (`perf_event_open`). `main` at e18bcfc4 and the branch ran in
+turns, 15 rounds each, 3 times, under the measure lock on cores 16 to
+23. All values were measured under external load (load average 28 to
+57).
+
+| Reading after | main | branch |
+| --- | ---: | ---: |
+| a note edit, processor time | 5.9 to 17.9 ms (p50 6.2 to 15.4) | 2.4 to 5.5 ms (p50 2.8 to 5.5) |
+| a note edit and its undo, instructions | 69 to 74 M | 15 to 16 M |
+| a mute, processor time | 29.5 to 73.6 ms (p50 31.5 to 62.8) | 15.9 to 19.1 ms (p50 16.7 to 19.1) |
+| a mute and an unmute, instructions | 476 to 589 M | 71 to 85 M |
+| the whole song from nothing | 343 to 445 ms | 278 to 363 ms |
+| Lua heap of the reading | 15.2 MB | 19.1 MB |
+
+The readings are the same: the hash of the chords of the bench script
+`bench/profile/harmony.lua` is 309891027 for both. Without the
+measure lock and the cores, at load average 44, the branch read a mute
+in 7.1 to 8.6 ms and a note edit in 2.3 to 2.5 ms: the cores 16 to 23
+had other work.
+
+What the instructions of a mute go to now (35 M of a reading): the
+scores of the 256 windows (14 M), the decode of the chords (8 M), the
+groups and the mixes (10 M), the keys (4 M). Two causes of slow LuaJIT
+code were found and avoided in the reading: a short inner loop (each
+exit from its trace costs), and `ipairs` (compat-5.3 replaces it with a
+Lua function, `runtime/lua/compat53/module.lua`, for all of paw).
+
 ## 2026-11-22: a budget for each callback
 
 `paw.opt.budget_ms` names each callback of the kernel thread that takes

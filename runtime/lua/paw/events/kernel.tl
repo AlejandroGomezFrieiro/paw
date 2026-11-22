@@ -31,10 +31,20 @@ local record kernel
    end
 
    --- A clip, a lane or a device, and the track it is on (a device that is
-   --- gone, and some changes of a device, have no `track`).
+   --- gone, and some changes of a device, have no `track`). A MIDI clip also
+   --- has the `stamp` of its notes, as `clip_get` gives it: a listener can
+   --- tell that the notes did not change without asking for the clip.
    record Item is Payload
       id: integer
       track: integer
+      stamp: integer
+   end
+
+   --- A track that changed, and the names of its fields that changed, as
+   --- `track_get` names them (`{ "mute" }`, `{ "clips" }`).
+   record TrackChange is Payload
+      id: integer
+      fields: {string}
    end
 
    --- The track whose queue of clips to launch changed.
@@ -198,7 +208,7 @@ local record kernel
    project_loaded: events.Event<Loaded>
    project_saved: events.Event<Saved>
    track_added: events.Event<TrackId>
-   track_changed: events.Event<TrackId>
+   track_changed: events.Event<TrackChange>
    track_removed: events.Event<TrackId>
    track_moved: events.Event<Order>
    track_copied: events.Event<TrackCopied>

@@ -78,7 +78,7 @@ local record Bass
   lasts: number
 end
 
---- One window of the chord reading (`window`): what sounds in it, and the
+--- One window of the chord reading (`finish`): what sounds in it, and the
 --- score of each chord there. `flat` is a window where too little sounds to
 --- name a chord; `scores` is nil then and in silence. `beat` is true when
 --- the window was weighed with the rest of its beat.
@@ -92,8 +92,37 @@ local record Window
   bass: Bass
 end
 
+--- The notes of one clip as the song's reading keeps them: lists of
+--- their starts, lengths, pitches and velocities, sorted by start, with
+--- the longest note (`run`).
+local record Run
+  start: {number}
+  length: {number}
+  pitch: {integer}
+  velocity: {number}
+  n: integer
+  longest: number
+end
+
+--- What sounds over a stretch of time, before its bass is chosen
+--- (`part`), in one list of numbers: the weights of the twelve pitch
+--- classes (1 to 12), their total (13), the lowest pitch (14, `math.huge`
+--- in silence) and how long it sounds (15), then from 16 the lowest pitch
+--- over time, three numbers for each piece: from, to and the pitch, in
+--- order. The parts of one stretch, or of stretches side by side, merge
+--- into one (`merge`): the song's reading keeps a part for each track and
+--- window, and adds up those of a window.
+local type Part = {number}
+local TOTAL, LOWEST, LASTS, PIECES = 13, 14, 15, 16
+
+--- What `finish` calls for the part of a window's whole beat.
+local type BeatOf = function(): Part
+
 local record M
   type Quality = Quality
+  type Run = Run
+  type Part = Part
+  EMPTY: Part
   type Note = Note
   type Chord = Chord
   type Key = Key
@@ -135,7 +164,8 @@ M.qualities = {
   {name = "m9", steps = {0, 2, 3, 7, 10}, suffix = "m9", roman = "9", minor = true, cost = 0.02},
 }
 M.by_quality = {}
-for _, q in ipairs(M.qualities) do
+for i_q = 1, #M.qualities do
+  local q = M.qualities[i_q]
   M.by_quality[q.name] = q
 end
 
@@ -165,10 +195,10 @@ local function choose(b: Bass, span: number): integer, number
   return bass, most
 end
 
--- The work tables of `weigh`, kept from one call to the next: a reading
--- weighs hundreds of windows of hundreds of notes each, and new tables for
--- each window were most of what the collector had to do. Each call writes
--- what it reads, or clears it first.
+-- The work tables of `part`, kept from one call to the next: a reading
+-- weighs thousands of stretches of a few notes each, and new tables for
+-- each were most of what the collector had to do. Each call writes what
+-- it reads, or clears it first.
 local la: {number} = {}
 local lb: {number} = {}
 local lp: {integer} = {}
@@ -195,55 +225,110 @@ local function untaken(i: integer): integer
   return j
 end
 
---- Weights of the twelve pitch classes between `from` and `to`, the bass's
---- pitch class, the total, and what the bass was read from (nil in
---- silence). `notes` sorted by start; those before `first` have ended
---- before `from`.
-local function weigh(notes: {Note}, from: number, to: number, first?: integer): Weights, integer, number, Bass
-  local w: Weights = {}
-  local total: number = 0
-  for pc = 0, 11 do
-    w[pc] = 0
+--- Notes as a `Run`: `notes` sorted by start, in their order.
+function M.run(notes: {Note}): Run
+  local run: Run = {start = {}, length = {}, pitch = {}, velocity = {}, n = #notes, longest = 0}
+  for i = 1, #notes do
+    local n = notes[i]
+    run.start[i], run.length[i], run.pitch[i], run.velocity[i] = n.start, n.length, n.pitch, n.velocity
+    if n.length > run.longest then
+      run.longest = n.length
+    end
   end
-  -- What sounds in the window, note by note: from `la` to `lb`, pitch `lp`
+  return run
+end
+
+-- A stretch where nothing sounds. It is shared: no one changes a part.
+local EMPTY: Part = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, math.huge, 0}
+
+-- LuaJIT's `table.new`: a list made at its size. A part grown one piece at
+-- a time would take up to twice its room, and the reading keeps thousands.
+local record Globals
+  require: function(string): function(integer, integer): Part
+end
+local new_list = (_G as Globals).require("table.new")
+
+-- Where `part` and `merge` make a part before it is copied at its size.
+local work: Part = {}
+
+local function start_work()
+  for k = 1, 12 do
+    work[k] = 0
+  end
+  work[TOTAL], work[LOWEST], work[LASTS] = 0, math.huge, 0
+end
+
+--- The first `n` numbers of `work` as a part of its own.
+local function copy_work(n: integer): Part
+  local p = new_list(n, 0)
+  for k = 1, n do
+    p[k] = work[k]
+  end
+  return p
+end
+M.EMPTY = EMPTY
+
+--- What the notes of `run`, `offset` beats later, sound from `from` to
+--- `to` (a `Part`). A note counts for how long it sounds there, a short
+--- note off the beat half; the lowest pitch over time is cut where a note
+--- starts or ends.
+function M.part(run: Run, offset: number, from: number, to: number): Part
+  local starts, lengths, pitches = run.start, run.length, run.pitch
+  -- The first note that can sound at `from`.
+  local lo, hi = 1, run.n + 1
+  while lo < hi do
+    local mid = (lo + hi) // 2
+    if offset + starts[mid] + run.longest < from - 1e-9 then
+      lo = mid + 1
+    else
+      hi = mid
+    end
+  end
+  start_work()
+  local p = work
+  local total: number = 0
+  -- What sounds in the stretch, note by note: from `la` to `lb`, pitch `lp`
   -- (the starts in order, as the notes are). `ends` are the ends before `to`.
   local count, stops, low_pitch, high_pitch = 0, 0, math.huge, -math.huge
-  for i = first or 1, #notes do
-    local n = notes[i]
-    if n.start >= to then
+  for i = lo, run.n do
+    local s = offset + starts[i]
+    if s >= to then
       break
     end
-    local a, b = math.max(from, n.start), math.min(to, n.start + n.length)
+    local length = lengths[i]
+    local a, b = math.max(from, s), math.min(to, s + length)
     if b > a then
-      local off_beat = math.abs(n.start - math.floor(n.start + 0.5)) > 1e-6
-      local amount = (b - a) * ((off_beat and n.length < 0.5) and 0.5 or 1)
-      w[n.pitch % 12] = w[n.pitch % 12] + amount
+      local pitch = pitches[i]
+      local off_beat = math.abs(s - math.floor(s + 0.5)) > 1e-6
+      local amount = (b - a) * ((off_beat and length < 0.5) and 0.5 or 1)
+      local pc = pitch % 12 + 1
+      p[pc] = p[pc] + amount
       total = total + amount
       count = count + 1
-      la[count], lb[count], lp[count] = a, b, n.pitch
-      low_pitch, high_pitch = math.min(low_pitch, n.pitch), math.max(high_pitch, n.pitch)
+      la[count], lb[count], lp[count] = a, b, pitch
+      low_pitch, high_pitch = math.min(low_pitch, pitch), math.max(high_pitch, pitch)
       if b < to then
         stops = stops + 1
         ends[stops] = b
       end
     end
   end
-  if total == 0 then
-    return w, nil, 0
+  if count == 0 then
+    return EMPTY
   end
+  p[TOTAL] = total
   -- What the last call left after the ends of this one goes, so that the
   -- sort sees only these.
   for i = stops + 1, ends_used do
     ends[i] = nil
   end
   ends_used = stops
-  -- The bass: of the lowest pitches over time, the class that lasts longest.
   -- Time is cut at each start and end: the starts come in order, so only
   -- the ends are sorted, and the two are merged.
   table.sort(ends)
   local ncuts = 0
   do
-    local i, j, starts = 0, 1, count
+    local i, j = 0, 1
     -- `from`, then the starts; the ends, then `to` for each note that lasts to it.
     local x = from
     while true do
@@ -258,7 +343,7 @@ local function weigh(notes: {Note}, from: number, to: number, first?: integer): 
       else
         cuts[ncuts] = x
         i = i + 1
-        x = i <= starts and la[i] or nil
+        x = i <= count and la[i] or nil
       end
     end
   end
@@ -283,26 +368,26 @@ local function weigh(notes: {Note}, from: number, to: number, first?: integer): 
       -- The first piece with `a <= cuts[i] + 1e-9` and the last with
       -- `b >= cuts[i + 1] - 1e-9`: the tests of a low that covers a piece.
       local a, b = la[k], lb[k]
-      local lo, hi = 1, pieces + 1
-      while lo < hi do
-        local mid = (lo + hi) // 2
+      local lo2, hi2 = 1, pieces + 1
+      while lo2 < hi2 do
+        local mid = (lo2 + hi2) // 2
         if a <= cuts[mid] + 1e-9 then
-          hi = mid
+          hi2 = mid
         else
-          lo = mid + 1
+          lo2 = mid + 1
         end
       end
-      local from_piece = lo
-      lo, hi = 0, pieces
-      while lo < hi do
-        local mid = (lo + hi + 1) // 2
+      local from_piece = lo2
+      lo2, hi2 = 0, pieces
+      while lo2 < hi2 do
+        local mid = (lo2 + hi2 + 1) // 2
         if b >= cuts[mid + 1] - 1e-9 then
-          lo = mid
+          lo2 = mid
         else
-          hi = mid - 1
+          hi2 = mid - 1
         end
       end
-      local to_piece = lo
+      local to_piece = lo2
       local i = untaken(from_piece)
       while i <= to_piece do
         low_of[i] = pitch
@@ -312,12 +397,18 @@ local function weigh(notes: {Note}, from: number, to: number, first?: integer): 
       k = next_of[k]
     end
   end
-  local held: Weights = {}
+  -- The pieces, those side by side with one low made one.
+  local n = PIECES - 1
   for i = 1, pieces do
     local a, b = cuts[i], cuts[i + 1]
     local low = low_of[i]
     if b - a > 1e-9 and low then
-      held[low % 12] = (held[low % 12] or 0) + (b - a)
+      if n >= PIECES and p[n - 1] == a and p[n] == low then
+        p[n - 1] = b
+      else
+        p[n + 1], p[n + 2], p[n + 3] = a, b, low
+        n = n + 3
+      end
     end
   end
   local lowest: integer
@@ -331,8 +422,126 @@ local function weigh(notes: {Note}, from: number, to: number, first?: integer): 
       lasts = lasts + (lb[k] - la[k])
     end
   end
-  local summary: Bass = {held = held, lowest = lowest, lasts = lasts}
-  local bass, most = choose(summary, to - from)
+  p[LOWEST], p[LASTS] = lowest, lasts
+  return copy_work(n)
+end
+
+-- Two lists of pieces made one with the lower pitch where both sound
+-- (`merge`), kept from one call to the next.
+local scratch_a: {number} = {}
+local scratch_b: {number} = {}
+
+--- The pieces of `a` (from `ai`, before `an`) and of `b` (from `bi`,
+--- before `bn`), each in order, as one list in `out` from 1, with the
+--- lower pitch where both sound and pieces side by side with one pitch
+--- made one. Returns how much of `out` it wrote.
+local function lower(
+  a: {number}, ai: integer, an: integer, b: {number}, bi: integer, bn: integer, out: {number}
+): integer
+  local n = 0
+  local t = -math.huge -- the time written so far
+  while ai < an or bi < bn do
+    if ai < an and a[ai + 1] <= t then
+      ai = ai + 3
+    elseif bi < bn and b[bi + 1] <= t then
+      bi = bi + 3
+    else
+      local fa = ai < an and math.max(a[ai], t) or math.huge
+      local fb = bi < bn and math.max(b[bi], t) or math.huge
+      local s = math.min(fa, fb)
+      local e, p: number, number
+      if fa <= s and fb <= s then
+        e, p = math.min(a[ai + 1], b[bi + 1]), math.min(a[ai + 2], b[bi + 2])
+      elseif fa <= s then
+        e, p = math.min(a[ai + 1], fb), a[ai + 2]
+      else
+        e, p = math.min(b[bi + 1], fa), b[bi + 2]
+      end
+      if n > 0 and out[n - 1] == s and out[n] == p then
+        out[n - 1] = e
+      else
+        out[n + 1], out[n + 2], out[n + 3] = s, e, p
+        n = n + 3
+      end
+      t = e
+    end
+  end
+  return n
+end
+
+--- The parts of one stretch of time, or of stretches side by side, as
+--- one part: the weights add up, and the lowest pitch over time is the
+--- lowest of theirs. One part that sounds gives that part.
+function M.merge(parts: {Part}): Part
+  local first: Part
+  local more = false
+  for i_q = 1, #parts do
+    local q = parts[i_q]
+    if q[TOTAL] > 0 then
+      if first then
+        more = true
+        break
+      end
+      first = q
+    end
+  end
+  if not first then
+    return EMPTY
+  end
+  if not more then
+    return first
+  end
+  start_work()
+  local p = work
+  local cur, cur_i, cur_n = first, PIECES, #first + 1
+  local into = scratch_a
+  for i_q = 1, #parts do
+    local q = parts[i_q]
+    if q[TOTAL] > 0 then
+      for k = 1, 12 do
+        p[k] = p[k] + q[k]
+      end
+      p[TOTAL] = p[TOTAL] + q[TOTAL]
+      if q[LOWEST] < p[LOWEST] then
+        p[LOWEST], p[LASTS] = q[LOWEST], q[LASTS]
+      elseif q[LOWEST] == p[LOWEST] then
+        p[LASTS] = p[LASTS] + q[LASTS]
+      end
+      if q ~= first then
+        local n = lower(cur, cur_i, cur_n, q, PIECES, #q + 1, into)
+        cur, cur_i, cur_n = into, 1, n + 1
+        into = into == scratch_a and scratch_b or scratch_a
+      end
+    end
+  end
+  for k = cur_i, cur_n - 1 do
+    p[PIECES + k - cur_i] = cur[k]
+  end
+  return copy_work(PIECES - 1 + cur_n - cur_i)
+end
+
+--- The weights of a part with the bass's share, the bass, the total, and
+--- what the bass was read from (nil in silence). `span` is how long the
+--- stretch is.
+local function weights_of(p: Part, span: number): Weights, integer, number, Bass
+  local w: Weights = {}
+  for pc = 0, 11 do
+    w[pc] = p[pc + 1]
+  end
+  local total = p[TOTAL]
+  if total == 0 then
+    return w, nil, 0
+  end
+  local held: Weights = {}
+  for k = PIECES, #p, 3 do
+    local a, b = p[k], p[k + 1]
+    if b - a > 1e-9 then
+      local pc = math.floor(p[k + 2]) % 12
+      held[pc] = (held[pc] or 0) + (b - a)
+    end
+  end
+  local summary: Bass = {held = held, lowest = math.floor(p[LOWEST]), lasts = p[LASTS]}
+  local bass, most = choose(summary, span)
   if bass then
     w[bass] = w[bass] + most * 0.5
     total = total + most * 0.5
@@ -354,11 +563,13 @@ end
 --- How well the chord `root` `quality` fits weights `w` with `bass` and `total`.
 local function fit(w: Weights, bass: integer, total: number, root: integer, q: Quality): number
   local inside: number = 0
-  for _, s in ipairs(q.steps) do
+  for i_s = 1, #q.steps do
+    local s = q.steps[i_s]
     inside = inside + w[(root + s) % 12]
   end
   local score = (2 * inside - total) / total
-  for _, s in ipairs(q.steps) do
+  for i_s = 1, #q.steps do
+    local s = q.steps[i_s]
     if w[(root + s) % 12] < 0.08 * total then
       -- A triad may lose its fifth; a bigger chord without it is too often
       -- another triad in another inversion (F A D is D minor, not F6).
@@ -381,7 +592,8 @@ local record Label
 end
 local LABELS: {Label} = {}
 for root = 0, 11 do
-  for _, q in ipairs(M.qualities) do
+  for i_q = 1, #M.qualities do
+    local q = M.qualities[i_q]
     LABELS[#LABELS + 1] = {root = root, q = q}
   end
 end
@@ -396,27 +608,72 @@ for l = 1, NL - 1 do
 end
 FLAT[NL], GAP[NL] = 1e-6, 1e-6
 
---- The first of `sorted` (notes sorted by start) that can sound at `at`:
---- the ones before it start more than `longest` beats before it.
-function M.first(sorted: {Note}, longest: number, at: number): integer
-  local lo, hi = 1, #sorted + 1
-  while lo < hi do
-    local mid = (lo + hi) // 2
-    if sorted[mid].start + longest < at then
-      lo = mid + 1
-    else
-      hi = mid
+-- The qualities as `scores_of` reads them, one list for each of five
+-- steps: a step (from the root), and what it costs when it does not
+-- sound. A quality with fewer steps has the step 24, where nothing
+-- weighs, at no cost. So the loop over the labels has no inner loop and
+-- no branch: LuaJIT leaves a short inner loop, and a branch that goes one
+-- way and then the other, at a cost each time.
+local S1, S2, S3, S4, S5: {integer}, {integer}, {integer}, {integer}, {integer} = {}, {}, {}, {}, {}
+local C1, C2, C3, C4, C5: {number}, {number}, {number}, {number}, {number} = {}, {}, {}, {}, {}
+local REST_OF: {number} = {} -- for each quality, what its tones past three and its kind cost
+do
+  local steps_lists, costs_lists = {S1, S2, S3, S4, S5}, {C1, C2, C3, C4, C5}
+  for i = 1, #M.qualities do
+    local q = M.qualities[i]
+    for k = 1, 5 do
+      local s = q.steps[k]
+      steps_lists[k][i] = s or 24
+      costs_lists[k][i] = s and (s == 0 and MISSING_ROOT or (s == 7 and #q.steps == 3) and MISSING_FIFTH or MISSING)
+        or 0
     end
+    REST_OF[i] = math.max(0, #q.steps - 3) * EXTRA + q.cost
   end
-  return lo
+end
+local NQ = #M.qualities
+-- The weights from 1, two octaves of them so that no step wraps, then 0;
+-- and 1 where a weight is too small to count as sounding (0 else).
+local twice: {number} = {}
+local silent: {number} = {}
+for k = 1, 48 do
+  twice[k], silent[k] = 0, 0
 end
 
---- One window of the chord reading, from `at`, `length` beats long:
---- `sorted` are the notes sorted by start, `longest` the longest of them,
---- `step` the length of a window.
-function M.window(sorted: {Note}, longest: number, at: number, length: number, step: number): Window
-  local lo = M.first(sorted, longest, at)
-  local w, bass, total, low = weigh(sorted, at, at + length, lo)
+--- The score of each label (`LABELS`, then no chord) for weights `w` with
+--- `bass` and `total`, times `length`: what `fit` gives each, in one pass.
+--- Into the list `into` when given.
+local function scores_of(w: Weights, bass: integer, total: number, length: number, into?: {number}): {number}
+  local low = 0.08 * total
+  for pc = 0, 11 do
+    local v = w[pc]
+    local off = v < low and 1 or 0
+    twice[pc + 1], twice[pc + 13], silent[pc + 1], silent[pc + 13] = v, v, off, off
+  end
+  for k = 25, 36 do
+    silent[k] = 1
+  end
+  local scores = into or new_list(NL, 0)
+  local l = 0
+  for root = 1, 12 do
+    local in_bass = bass == root - 1 and ROOT_IN_BASS or 0
+    for q = 1, NQ do
+      local i1, i2, i3, i4, i5 = root + S1[q], root + S2[q], root + S3[q], root + S4[q], root + S5[q]
+      local inside = twice[i1] + twice[i2] + twice[i3] + twice[i4] + twice[i5]
+      local missing = silent[i1] * C1[q] + silent[i2] * C2[q] + silent[i3] * C3[q] + silent[i4] * C4[q] + silent[i5] * C5[q]
+      l = l + 1
+      scores[l] = ((2 * inside - total) / total - missing - REST_OF[q] + in_bass) * length
+    end
+  end
+  scores[NL] = NONE * length
+  return scores
+end
+
+--- One window of the chord reading from what sounds in it (`p`, a part):
+--- from `at`, `length` beats long, with windows of `step` beats. `beat`
+--- gives the part of the window's whole beat, when the window needs it.
+--- `old`, a window that no one reads any more, gives its lists to the new one.
+function M.finish(p: Part, at: number, length: number, step: number, beat: BeatOf, old?: Window): Window
+  local w, bass, total, low = weights_of(p, length)
   local win: Window = {at = at, length = length, total = total, bass = low}
   -- One pitch alone is no chord: it is weighed with the rest of its beat
   -- (an arpeggio's notes come one at a time), and if the beat has no
@@ -424,21 +681,13 @@ function M.window(sorted: {Note}, longest: number, at: number, length: number, s
   -- holds over it.
   local ew, ebass, etotal = w, bass, total
   if total > 1e-9 and classes(w, total) < 2 and step < 1 then
-    local beat = math.floor(at + 1e-9)
-    -- From the first note that can sound at `at`, as it always was: so
-    -- this window, alone of all, depends on the longest note.
-    ew, ebass, etotal = weigh(sorted, beat, beat + 1, lo)
+    ew, ebass, etotal = weights_of(beat(), 1)
     win.beat = true
   end
   if total > 1e-9 and classes(ew, etotal) < 2 then
     win.flat = true
   elseif total > 1e-9 then
-    local scores: {number} = {}
-    for l, label in ipairs(LABELS) do
-      scores[l] = fit(ew, ebass, etotal, label.root, label.q) * length
-    end
-    scores[NL] = NONE * length
-    win.scores = scores
+    win.scores = scores_of(ew, ebass, etotal, length, old and old.scores)
   end
   return win
 end
@@ -471,19 +720,29 @@ local function bass_over(windows: {Window}, k: integer, j: integer, span: number
   return (choose({held = held, lowest = lowest, lasts = lasts}, span))
 end
 
---- The chords of a run of windows (`window` makes each, one after another
+--- The chords of a run of windows (`finish` makes each, one after another
 --- with no gap): a chord holds across windows unless the next is better by
 --- more than what a change costs. Silence of `bar` beats ends a chord.
 --- `pause`, if given, is called after each 64 windows, so that a reading
---- in slices can stop there (paw/harmony/song.tl).
-function M.decode(windows: {Window}, bar: number, pause?: function()): {Chord}
-  if #windows == 0 then
+--- in slices can stop there (paw/harmony/song.tl). `rows`, if given, keeps
+--- the work rows for the next call: a caller that decodes often gives its
+--- own.
+function M.decode(windows: {Window}, bar: number, pause?: function(), rows?: {{number}}): {Chord}
+  local n = #windows
+  if n == 0 then
     return {}
   end
+  -- Row `i` is the best score of a path that ends in each label at window
+  -- `i`. A label holds from the row before (`stay`), or changes from the
+  -- best label of that row (`firsts[i]`) for `changes[i]`: the walk back
+  -- tells which from the row before, so the rows need not keep it.
+  rows = rows or {}
+  local firsts: {integer} = {}
+  local changes: {number} = {}
   local prev: {number}
-  local back: {{integer}} = {}
   local quiet: number = 0 -- beats since something last sounded
-  for i, win in ipairs(windows) do
+  for i = 1, n do
+    local win = windows[i]
     local total = win.total
     local scores: {number}
     if total > 1e-9 then
@@ -494,31 +753,36 @@ function M.decode(windows: {Window}, bar: number, pause?: function()): {Chord}
       -- Silence lets the chord before hold over it, unless it lasts a bar.
       scores = quiet >= bar - 1e-9 and GAP or FLAT
     end
-    local cur: {number} = {}
-    local from_l: {integer} = {}
+    local cur = rows[i]
+    if not cur then
+      cur = new_list(NL, 0)
+      rows[i] = cur
+    end
     if not prev then
       for l = 1, NL do
-        cur[l], from_l[l] = scores[l], l
+        cur[l] = scores[l]
       end
     else
-      local best, best_l = -math.huge, 1
+      local best = -math.huge
       for l = 1, NL do
-        if prev[l] > best then
-          best, best_l = prev[l], l
+        best = math.max(best, prev[l])
+      end
+      local best_l = 1
+      for l = 1, NL do
+        if prev[l] == best and best > -math.huge then
+          best_l = l
+          break
         end
       end
+      -- A change costs a little more in silence, so that the chord
+      -- before holds over a rest rather than the next one starting early.
+      local change = best - CHANGE - (total > 1e-9 and 0 or 0.01)
       for l = 1, NL do
-        -- A change costs a little more in silence, so that the chord
-        -- before holds over a rest rather than the next one starting early.
-        local stay, change = prev[l], best - CHANGE - (total > 1e-9 and 0 or 0.01)
-        if stay >= change then
-          cur[l], from_l[l] = stay + scores[l], l
-        else
-          cur[l], from_l[l] = change + scores[l], best_l
-        end
+        cur[l] = math.max(prev[l], change) + scores[l]
       end
+      firsts[i], changes[i] = best_l, change
     end
-    back[i], prev = from_l, cur
+    prev = cur
     if pause and i % 64 == 0 then
       pause()
     end
@@ -532,10 +796,13 @@ function M.decode(windows: {Window}, bar: number, pause?: function()): {Chord}
       best, best_l = prev[l], l
     end
   end
-  for k = #windows, 1, -1 do
+  for k = n, 2, -1 do
     path[k] = best_l
-    best_l = back[k][best_l]
+    if rows[k - 1][best_l] < changes[k] then
+      best_l = firsts[k]
+    end
   end
+  path[1] = best_l
 
   -- Runs of one label are chords. A chord holds over a rest up to the next
   -- chord; with nothing after it, it ends where the last of its notes does.
@@ -560,7 +827,8 @@ function M.decode(windows: {Window}, bar: number, pause?: function()): {Chord}
         -- The bass over the whole chord: what its windows read of it.
         local bass = bass_over(windows, k, j, b - a)
         local tones: {integer} = {}
-        for t, s in ipairs(label.q.steps) do
+        for t = 1, #label.q.steps do
+          local s = label.q.steps[t]
           tones[t] = (label.root + s) % 12
         end
         out[#out + 1] = {
@@ -580,7 +848,8 @@ function M.chords(notes: {Note}, opts?: ChordOptions): {Chord}
   opts = opts or {}
   local step = opts.step or 0.5
   local sorted: {Note} = {}
-  for i, n in ipairs(notes) do
+  for i = 1, #notes do
+    local n = notes[i]
     sorted[i] = n
   end
   table.sort(sorted, function(a: Note, b: Note): boolean return a.start < b.start end)
@@ -588,17 +857,21 @@ function M.chords(notes: {Note}, opts?: ChordOptions): {Chord}
     return {}
   end
   local first, last = math.huge, -math.huge
-  local longest: number = 0
-  for _, n in ipairs(sorted) do
+  for i_n = 1, #sorted do
+    local n = sorted[i_n]
     first, last = math.min(first, n.start), math.max(last, n.start + n.length)
-    longest = math.max(longest, n.length)
   end
+  local run = M.run(sorted)
   local from = math.floor((opts.from or first) / step + 1e-9) * step
   local to = math.min(opts.to or last, last)
   local windows: {Window} = {}
   local at = from
   while at < to - 1e-9 do
-    windows[#windows + 1] = M.window(sorted, longest, at, math.min(step, to - at), step)
+    local beat = math.floor(at + 1e-9)
+    local length = math.min(step, to - at)
+    windows[#windows + 1] = M.finish(
+      M.part(run, 0, at, at + length), at, length, step, function(): Part return M.part(run, 0, beat, beat + 1) end
+    )
     at = at + step
   end
   return M.decode(windows, opts.bar or 4)
@@ -612,7 +885,9 @@ M.MINOR = {6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.1
 local MODULATION = 1 -- what a change of key costs, in correlation: a few bars' worth
 local OUTSIDE = 1.5 -- what a bar loses for the share of it outside the key's scale
 local LEAN = 0.3 -- how much each bar leans to the song's overall key
-local NEAR: {integer: number} = {[-2] = 0.25, [-1] = 0.5, [1] = 0.5, [2] = 0.25} -- neighbouring bars, heard with each
+-- The neighbouring bars, heard with each: how far, and how much.
+local NEAR: {integer} = {-2, -1, 1, 2}
+local NEAR_WEIGHT: {number} = {0.25, 0.5, 0.5, 0.25}
 -- The pitch classes of a major key, and of a minor one with its raised
 -- sixth and seventh (melodic and harmonic minor are still the key).
 local SCALE: {string: {integer: boolean}} = {
@@ -683,33 +958,40 @@ function M.keys(notes: {Note}, bars: {number}, chords?: {Chord}): {Key}
       hist[b][pc] = 0
     end
   end
-  for _, note in ipairs(notes) do
+  for i_note = 1, #notes do
+    local note = notes[i_note]
     add(hist, bars, note.pitch % 12, note.start, note.start + note.length, 1)
   end
   return M.key_path(hist, bars, chords)
 end
 
---- How long each pitch class sounds from `from` to `to`, of `sorted`
---- (notes sorted by start, the longest `longest` beats).
-function M.bar_weights(sorted: {Note}, longest: number, from: number, to: number): Weights
-  local h: Weights = {}
-  for pc = 0, 11 do
-    h[pc] = 0
+--- Add to `h` how long each pitch class of `run`, `offset` beats later,
+--- sounds from `from` to `to`.
+function M.bar_part(run: Run, offset: number, from: number, to: number, h: Weights)
+  local starts, lengths, pitches = run.start, run.length, run.pitch
+  local lo, hi = 1, run.n + 1
+  while lo < hi do
+    local mid = (lo + hi) // 2
+    if offset + starts[mid] + run.longest < from - 1e-9 then
+      lo = mid + 1
+    else
+      hi = mid
+    end
   end
-  for i = M.first(sorted, longest, from), #sorted do
-    local note = sorted[i]
-    if note.start >= to then
+  for i = lo, run.n do
+    local s = offset + starts[i]
+    if s >= to then
       break
     end
-    local a, z = math.max(note.start, from), math.min(note.start + note.length, to)
+    local a, z = math.max(s, from), math.min(s + lengths[i], to)
     if z > a then
-      h[note.pitch % 12] = h[note.pitch % 12] + (z - a)
+      local pc = pitches[i] % 12
+      h[pc] = h[pc] + (z - a)
     end
   end
-  return h
 end
 
---- The keys from the pitch classes of each bar (`hist`, as `bar_weights`
+--- The keys from the pitch classes of each bar (`hist`, as `bar_part`
 --- gives them, which it leaves as they are) and the chords, as `keys`.
 --- `pause`, if given, is called after each 16 bars, as `decode` does.
 function M.key_path(notes_hist: {Weights}, bars: {number}, chords?: {Chord}, pause?: function()): {Key}
@@ -749,7 +1031,8 @@ function M.key_path(notes_hist: {Weights}, bars: {number}, chords?: {Chord}, pau
     end
   end
   local lean: {number} = {}
-  for c, cand in ipairs(candidates) do
+  for c = 1, #candidates do
+    local cand = candidates[c]
     lean[c] = LEAN * correlate(whole, cand.profile, cand.tonic)
   end
   local prev: {number}
@@ -760,8 +1043,11 @@ function M.key_path(notes_hist: {Weights}, bars: {number}, chords?: {Chord}, pau
     local sum: number = 0
     for pc = 0, 11 do
       h[pc] = hist[b][pc]
-      for d, weight in pairs(NEAR) do
-        h[pc] = h[pc] + weight * ((hist[b + d] or {})[pc] or 0)
+      for k = 1, 4 do
+        local near = hist[b + NEAR[k]]
+        if near then
+          h[pc] = h[pc] + NEAR_WEIGHT[k] * near[pc]
+        end
       end
       sum = sum + hist[b][pc]
     end
@@ -780,7 +1066,8 @@ function M.key_path(notes_hist: {Weights}, bars: {number}, chords?: {Chord}, pau
     for pc = 0, 11 do
       total = total + h[pc]
     end
-    for c, cand in ipairs(candidates) do
+    for c = 1, #candidates do
+      local cand = candidates[c]
       local score: number = 0
       if sum > 0 then
         -- How well the profile fits, less what sounds outside the scale.

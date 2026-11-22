@@ -33,6 +33,7 @@ name of the project before it removes a component.
 | `flags` | What is on: `loop 3–5`, `click`, punch, count-in, `rec`, `write`. |
 | `take` | The take that records. |
 | `render` | The progress of a render. |
+| `derived` | When paw takes more than a second to read the chords of the song again after an edit, what it reads and how far it is: `chords 40%`. |
 | `diagnostics` | The count of diagnostics. |
 | `qf` | The entries of the quickfix list: `qf E2 W5`, or `qf 3/7 E2 W5` after you go to one. |
 | `pointer` | What is under the mouse pointer, and what a click there does. |
@@ -100,7 +101,7 @@ A component is one of the following:
 
 The options `key`, `still` and `moves` go on a component that `paw.statusline.component` adds. While the song plays, and for a moment after paw plays a note, the terminal draws the meters and the playhead again many times a second. It draws the status line again on those frames only when a component may have changed, which means that the `moves` text of a component changed, or else its `key`. A component with none of `still`, `moves` and `key` makes the terminal draw the status line again on each of those frames, which is correct and costs more time.
 
-The `transport`, `clock`, `tempo`, `take`, `render`, `pointer`, `engine` and `cpu` components have `moves`, and the `project` component has a `key`. The other built-in components are `still`.
+The `transport`, `clock`, `tempo`, `take`, `render`, `derived`, `pointer`, `engine` and `cpu` components have `moves`, and the `project` component has a `key`. The other built-in components are `still`.
 
 `ctx` holds the fields below.
 

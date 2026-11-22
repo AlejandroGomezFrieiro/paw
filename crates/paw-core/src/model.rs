@@ -360,6 +360,43 @@ impl Track {
         }
     }
 
+    /// The names of the fields (as `track_get` names them) that differ from
+    /// `before`, the same track in an earlier state. The lists of devices,
+    /// clips, cues and lanes compare by identity, as the sync does.
+    pub fn changed_fields(&self, before: &Track) -> Vec<&'static str> {
+        fn same_arcs<T>(a: &[Arc<T>], b: &[Arc<T>]) -> bool {
+            a.len() == b.len() && a.iter().zip(b).all(|(x, y)| Arc::ptr_eq(x, y))
+        }
+        let checks: [(&'static str, bool); 26] = [
+            ("name", self.name == before.name),
+            ("volume", self.volume == before.volume),
+            ("pan", self.pan == before.pan),
+            ("mute", self.mute == before.mute),
+            ("solo", self.solo == before.solo),
+            ("armed", self.armed == before.armed),
+            ("output", self.output == before.output),
+            ("sends", self.sends == before.sends),
+            ("devices", same_arcs(&self.devices, &before.devices)),
+            ("clips", self.clips.same(&before.clips)),
+            ("lanes", same_arcs(&self.lanes, &before.lanes)),
+            ("color", self.color == before.color),
+            ("meta", self.meta == before.meta),
+            ("input", self.input == before.input),
+            ("monitor", self.monitor == before.monitor),
+            ("midi_input", self.midi_input == before.midi_input),
+            ("midi_output", self.midi_output == before.midi_output),
+            ("height", self.height == before.height),
+            ("automation", self.automation == before.automation),
+            ("cues", self.cues.same(&before.cues)),
+            ("attr_map", self.attr_map == before.attr_map),
+            ("source", self.source == before.source),
+            ("origin", self.origin == before.origin),
+            ("chain_source", self.chain_source == before.chain_source),
+            ("chain_origin", self.chain_origin == before.chain_origin),
+            ("nest", self.nest == before.nest),
+        ];
+        checks.into_iter().filter(|(_, same)| !same).map(|(name, _)| name).collect()
+    }
 }
 
 /// An audio input: one channel (`"3"`) or a stereo pair (`"3/4"`), counting
@@ -613,6 +650,14 @@ fn is_auto(mode: &StretchMode) -> bool {
 }
 
 impl Clip {
+    /// The stamp of a MIDI clip's notes ([`Notes::stamp`]); `None` for audio.
+    pub fn stamp(&self) -> Option<u64> {
+        match &self.content {
+            ClipContent::Midi { notes, .. } => Some(notes.stamp()),
+            ClipContent::Audio { .. } | ClipContent::Custom(_) | ClipContent::Nest { .. } => None,
+        }
+    }
+
     /// The beats a looped clip repeats, if it loops.
     pub fn repeat(&self) -> Option<(f64, f64)> {
         let length = self.loop_length.filter(|l| *l > 0.0)?;
@@ -1441,6 +1486,24 @@ impl Project {
     /// The tempo map, for converting between beats, seconds and bars.
     pub fn tempo_map(&self) -> &Arc<TempoMap> {
         &self.map
+    }
+
+    /// A hash of the tempo and signature points: the same points give the
+    /// same stamp, so an undo gives the old stamp back. 53 bits, so that
+    /// Lua holds it exactly.
+    pub fn tempo_stamp(&self) -> u64 {
+        use std::hash::{Hash, Hasher};
+        let mut hash = std::collections::hash_map::DefaultHasher::new();
+        (self.tempo.to_bits(), self.tempo_ramp, self.sig_num, self.sig_den).hash(&mut hash);
+        for c in &self.tempo_changes {
+            (c.beat.to_bits(), c.bpm.to_bits(), c.ramp).hash(&mut hash);
+        }
+        // Between the two lists, so that a tempo point never reads as a signature.
+        u8::MAX.hash(&mut hash);
+        for c in &self.sig_changes {
+            (c.beat.to_bits(), c.num, c.den).hash(&mut hash);
+        }
+        hash.finish() >> 11
     }
 
     /// Every tempo point, the start's first.

@@ -145,6 +145,7 @@ local record InputOptions
   mode: string
   ghost: string
   select: boolean
+  still: boolean
 end
 
 --- What `paw.ui.ask_value` takes (paw/views/cmdline.lua).
@@ -1636,7 +1637,8 @@ end)
 --- paw does not call the callback when the user cancels the prompt. The
 --- options are those of the command line (`paw.views.cmdline.open`):
 --- `complete`, `history`, `on_change` (live preview), `anchor` (draw it
---- next to its subject), `on_key`.
+--- next to its subject), `on_key`, `still` (the preview asks for a whole
+--- frame itself when it changes another view).
 function M.input(opts: InputOptions, on_submit: function(text: string))
   local record Cmdline
     open: function(opts: InputOptions, on_submit: function(text: string))
