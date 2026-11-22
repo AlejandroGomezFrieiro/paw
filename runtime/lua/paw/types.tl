@@ -886,6 +886,7 @@ local record types
     device_sleep: boolean
     device_runs: integer
     device_sleeps: integer
+    engine_rests: integer
     shared_groups: integer
     late_blocks: integer
     midi_dropped: integer
