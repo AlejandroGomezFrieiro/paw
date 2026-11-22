@@ -115,6 +115,9 @@ pub struct Mapper {
     /// device could not prepare for its audio side). The session loads
     /// those as the song plays, and a render stops on their points.
     pub state_main: HashMap<Id, Vec<bool>>,
+    /// The nest tracks as last sent: their clips placed in the song for
+    /// each place of their nest (see `nests.rs`).
+    pub(super) expanded: super::nests::ExpandedTracks,
 }
 
 /// The track that plays MIDI input as if it were monitored, without the
@@ -172,6 +175,7 @@ impl Mapper {
             cue_rows: HashMap::new(),
             cue_events: HashMap::new(),
             state_main: HashMap::new(),
+            expanded: HashMap::new(),
         }
     }
 

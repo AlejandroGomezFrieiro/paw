@@ -23,6 +23,7 @@ mod clips;
 mod devices;
 mod items;
 mod mapper;
+mod nests;
 mod routing;
 #[cfg(test)]
 mod tests;
@@ -93,7 +94,15 @@ pub fn sync(
     events: &mut Vec<ModelEvent>,
 ) {
     let before = events.len();
+    // Nest tracks play their clips placed in the song (`nests.rs`).
+    let placed = nests::Placed::of(new);
+    let old_shown: HashMap<Id, Arc<Track>> =
+        map.expanded.iter().map(|(id, e)| (*id, e.track.clone())).collect();
+    let shown = nests::expand(new, &placed, std::mem::take(&mut map.expanded));
     let mut pass = Pass {
+        shown: &shown,
+        old_shown: &old_shown,
+        placed: &placed,
         old_tracks: old.all_tracks().map(|t| (t.id, t)).collect(),
         old_devices: old
             .all_tracks()
@@ -121,11 +130,12 @@ pub fn sync(
     pass.device_latency();
     pass.routing();
     pass.removed_tracks();
-    let Pass { new, ctx, send, removals, .. } = pass;
+    let Pass { ctx, send, removals, map, .. } = pass;
     // Removals go last, once nothing in the schedule or a chain refers to them.
     removals.into_iter().for_each(&mut *send);
 
     deliver_clips(new, ctx);
+    map.expanded = shown;
 
     if events.len() > before {
         events.push(E::changed().into());
@@ -135,6 +145,11 @@ pub fn sync(
 /// One [`sync`]: the two snapshots, where the messages and events go, and
 /// what the steps tell each other.
 struct Pass<'p, 'm, 'c> {
+    /// The nest tracks as the engine plays them, now and at the last sync.
+    shown: &'p nests::ExpandedTracks,
+    old_shown: &'p HashMap<Id, Arc<Track>>,
+    /// Where each nest plays, and the track its master plays into.
+    placed: &'p nests::Placed,
     old: &'p Project,
     new: &'p Project,
     old_tracks: TrackIndex<'p>,
@@ -209,9 +224,18 @@ impl<'p> Pass<'p, '_, '_> {
         // Frozen tracks play a file, and what feeds them is held.
         let new = self.new;
         let mut played = crate::freeze::played(new, &self.map.held_files);
+        let (shown, old_shown) = (self.shown, self.old_shown);
         for track in new.all_tracks() {
             let plays = played.remove(&track.id);
-            let Some(pass) = self.track_slot(track, plays.clone().unwrap_or(Played::Live), retimed)
+            // A nest track plays a copy of its clips for each place of its nest.
+            let now = shown.get(&track.id).map(|e| &e.track);
+            let was = old_shown.get(&track.id);
+            let moved = match (now, was) {
+                (Some(a), Some(b)) => !Arc::ptr_eq(a, b),
+                (None, None) => false,
+                _ => true,
+            };
+            let Some(pass) = self.track_slot(track, plays.clone().unwrap_or(Played::Live), retimed, moved)
             else {
                 continue;
             };
@@ -229,7 +253,11 @@ impl<'p> Pass<'p, '_, '_> {
                     }
                 }
             }
-            self.track_clips(track, &pass);
+            let prev = match now {
+                Some(_) => pass.prev.and(was).map(|t| &**t),
+                None => pass.prev.map(|t| &**t),
+            };
+            self.track_clips(now.unwrap_or(track), prev, &pass);
             self.track_cues(track, &pass, held);
             match plays {
                 Some(plays) => self.map.played.insert(track.id, plays),
@@ -242,13 +270,19 @@ impl<'p> Pass<'p, '_, '_> {
     /// Whether a track needs looking at, its slot (made now for a new
     /// track) and its events. `None` for a track that did not change, or
     /// that the engine has no room for.
-    fn track_slot(&mut self, track: &'p Arc<Track>, plays: Played, retimed: bool) -> Option<TrackPass<'p>> {
+    fn track_slot(
+        &mut self,
+        track: &'p Arc<Track>,
+        plays: Played,
+        retimed: bool,
+        moved: bool,
+    ) -> Option<TrackPass<'p>> {
         let prev = self.old_tracks.get(&track.id).copied();
         // A track the engine had no room for is built whole once there is room.
         let fresh = !self.map.tracks.contains_key(&track.id);
         let retimed_notes = retimed && track.attr_map.as_ref().is_some_and(|m| m.has_delay());
         let replayed = self.map.played.get(&track.id).unwrap_or(&Played::Live) != &plays;
-        if !fresh && !replayed && !retimed_notes && prev.is_some_and(|p| Arc::ptr_eq(p, track)) {
+        if !fresh && !replayed && !retimed_notes && !moved && prev.is_some_and(|p| Arc::ptr_eq(p, track)) {
             return None;
         }
         if fresh {
@@ -337,12 +371,11 @@ impl<'p> Pass<'p, '_, '_> {
     }
 
     /// A track's clips on the timeline: the parts an edit changed, or all
-    /// of them.
-    fn track_clips(&mut self, track: &Track, pass: &TrackPass) {
+    /// of them. `prev` is what the engine has of them (for a nest track,
+    /// its clips as they were placed).
+    fn track_clips(&mut self, track: &Track, prev: Option<&Track>, pass: &TrackPass) {
         let same_clips = !pass.retimed_notes
-            && pass
-                .prev
-                .is_some_and(|p| p.attr_map == track.attr_map && p.clips.same(&track.clips));
+            && prev.is_some_and(|p| p.attr_map == track.attr_map && p.clips.same(&track.clips));
         if !same_clips {
             self.clips_changed = true;
         }
@@ -351,7 +384,7 @@ impl<'p> Pass<'p, '_, '_> {
         }
         let tempo = self.new.tempo_map();
         // A few clips changed: the engine is sent only theirs.
-        let edit = match (&pass.plays, pass.prev) {
+        let edit = match (&pass.plays, prev) {
             (Played::Live, Some(p))
                 if !pass.replayed && !pass.retimed_notes && p.attr_map == track.attr_map =>
             {
@@ -649,7 +682,7 @@ impl<'p> Pass<'p, '_, '_> {
     fn routing(&mut self) {
         let map = &mut *self.map;
         let send = &mut *self.send;
-        let routing = routing_of(self.new, self.ctx.live, &map.played);
+        let routing = routing_of(self.new, self.ctx.live, &map.played, &self.placed.hosts);
         // Devices that listen to a side-chain get a buffer for it, before the
         // schedule that fills it; those that no longer do give theirs back.
         let keyed: HashSet<Id> = routing

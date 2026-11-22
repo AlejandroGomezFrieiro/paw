@@ -129,6 +129,13 @@ scope, with `znn` or `<CR>` on its clip, or from `<Space>zz`.
   loop is the time of the clip in the song.
 - `]z` and `[z` go to the next clip of a subproject and to the one before.
 - A track that you add in a subproject belongs to the subproject.
+- The subproject plays in the song through the track that holds its
+  clip, its return row. Its tracks play into its master track, and its
+  master plays into the return row, so the fader, pan, sends and devices
+  of the return row act on the whole subproject. Two clips of one
+  subproject on the row play it twice, through the same devices. A muted
+  clip places no notes, and a reverb inside the subproject rings on past
+  the end of a clip.
 - An edit in a subproject is an edit of the project, in the one undo
   tree. The name of the undo step starts with the name of the subproject,
   for example `Ballad: add note`, so that `u` in the song undoes it and

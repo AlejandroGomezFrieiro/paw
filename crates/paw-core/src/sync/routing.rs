@@ -9,7 +9,7 @@ use super::LiveDevices;
 use super::automation::{is_vca, vcas_of};
 use super::mapper::Mapper;
 use crate::freeze::Played;
-use crate::model::{DeviceInst, Id, MASTER_ID, Project, Track};
+use crate::model::{DeviceInst, Id, MASTER_ID, NestId, Project, Track};
 
 /// Where a track's signal goes, and how late it is when it leaves.
 #[derive(Clone, Debug, PartialEq)]
@@ -60,6 +60,9 @@ pub(super) struct Out {
 }
 
 pub(super) type Routing = Vec<Route>;
+
+/// Where the master of a nest that the song does not place plays: nowhere.
+const NOWHERE: Id = Id::MAX;
 
 /// The tracks that count as soloed: those that are, and the members of a
 /// soloed VCA.
@@ -121,7 +124,12 @@ pub(super) fn solo_paths(project: &Project, soloed: &HashSet<Id>) -> HashSet<Id>
     sounding
 }
 
-pub(super) fn routing_of(project: &Project, live: &LiveDevices, played: &HashMap<Id, Played>) -> Routing {
+pub(super) fn routing_of(
+    project: &Project,
+    live: &LiveDevices,
+    played: &HashMap<Id, Played>,
+    hosts: &HashMap<NestId, Id>,
+) -> Routing {
     let ids: HashSet<Id> = project.all_tracks().map(|t| t.id).collect();
     let exists = |id: Id| ids.contains(&id);
     // A device that is bypassed is not run, so it holds nothing back.
@@ -185,10 +193,7 @@ pub(super) fn routing_of(project: &Project, live: &LiveDevices, played: &HashMap
             keys: keys.remove(&t.id).unwrap_or_default(),
             outs: outs_of(t),
             track: t.id,
-            output: t
-                .output
-                .filter(|id| exists(*id) && *id != t.id)
-                .unwrap_or(MASTER_ID),
+            output: output_of(project, t, hosts, &exists),
             sends: t
                 .sends
                 .iter()
@@ -198,6 +203,18 @@ pub(super) fn routing_of(project: &Project, live: &LiveDevices, played: &HashMap
             latency: latency(t),
         })
         .collect()
+}
+
+/// Where a track's output goes. A nest's track plays into the nest's
+/// master unless it routes elsewhere inside the nest, and the nest's master
+/// into the track that holds the nest's clip: its return row.
+fn output_of(project: &Project, t: &Track, hosts: &HashMap<NestId, Id>, exists: &dyn Fn(Id) -> bool) -> Id {
+    let own = t.output.filter(|id| exists(*id) && *id != t.id);
+    match t.nest.and_then(|n| Some((n, project.nest(n)?))) {
+        Some((n, nest)) if nest.master == t.id => hosts.get(&n).copied().filter(|h| exists(*h)).unwrap_or(NOWHERE),
+        Some((_, nest)) => own.unwrap_or(nest.master),
+        None => own.unwrap_or(MASTER_ID),
+    }
 }
 
 /// Order tracks so that each one runs after everything that feeds it, and
@@ -301,14 +318,18 @@ pub(super) fn build_schedule(routing: &Routing, map: &Mapper) -> Schedule {
         .into_iter()
         .filter_map(|index| {
             let route = sources[index];
-            let output = if slot(&route.output).is_some() {
+            let output = if slot(&route.output).is_some() || route.output == NOWHERE {
                 route.output
             } else {
                 MASTER_ID
             };
             Some(SchedEntry {
                 slot: slot(&route.track)?,
-                output: slot(&output).unwrap_or(TrackSlot::MASTER),
+                output: if output == NOWHERE {
+                    TrackSlot::NONE
+                } else {
+                    slot(&output).unwrap_or(TrackSlot::MASTER)
+                },
                 delay: wait(route.track, output),
                 sends: route
                     .sends
