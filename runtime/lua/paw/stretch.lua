@@ -16,7 +16,7 @@
 -- beats when the tempo changes: its stretch follows, from the tempo its
 -- sound is at (`clip.source_tempo`, which recordings know).
 --
--- Any clip can loop (`clip.loop`): it repeats what it plays from
+-- Any clip can loop (`clip.repeat`): it repeats what it plays from
 -- `clip.loop_start` (beats from its start, 0 or less) for
 -- `clip.loop_length` beats, again and again to its end. Trimming its start
 -- turns the loop round rather than running out of it; a cut gives both

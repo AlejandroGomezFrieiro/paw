@@ -18,6 +18,14 @@
 //! A nest clip that plays one track (`NestPlay::Track`, a stem) places
 //! only that track, and the track plays into the clip's row instead of
 //! into the master (`:nest.outputs stems`).
+//!
+//! The pass mode of `nest.md` 4.4: a nest track that has no sound of its
+//! own (no devices, its fader and pan at the middle, no lanes, not muted)
+//! is no engine track for the clips that play it alone. Its clips, placed
+//! and cut as above, become clips of the row that the nest clip is on, and
+//! play through the devices, fader, sends and lanes of that row, as clips
+//! put there would (`<Space>zw` saves a view so, and the song sounds the
+//! same). Through the master, such a track still plays as an engine track.
 
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -41,6 +49,8 @@ pub(crate) struct Instance {
     /// The one track of the nest that this instance plays (a stem), or
     /// None for all of them.
     pub only: Option<Id>,
+    /// The track that holds the nest clip (the song's or a nest's).
+    pub row: Id,
 }
 
 impl Instance {
@@ -90,7 +100,14 @@ impl Placed {
             }
         }
         // From the song down, at most as deep as the model allows.
-        let song = Instance { key: 0, from: f64::NEG_INFINITY, to: f64::INFINITY, zero: 0.0, only: None };
+        let song = Instance {
+            key: 0,
+            from: f64::NEG_INFINITY,
+            to: f64::INFINITY,
+            zero: 0.0,
+            only: None,
+            row: crate::model::MASTER_ID,
+        };
         let mut stack: Vec<(Option<NestId>, Instance, usize)> = vec![(None, song, 0)];
         while let Some((place, outer, depth)) = stack.pop() {
             if depth > crate::model::MAX_DEPTH {
@@ -116,7 +133,7 @@ impl Placed {
                 }
                 let mut hash = FxHasher::default();
                 (outer.key, c.id).hash(&mut hash);
-                let inner = Instance { key: hash.finish(), from, to, zero: start - offset, only };
+                let inner = Instance { key: hash.finish(), from, to, zero: start - offset, only, row: t.id };
                 placed.instances.entry(*nest).or_default().push(inner);
                 stack.push((Some(*nest), inner, depth + 1));
             }
@@ -166,54 +183,106 @@ impl Local {
     }
 }
 
-/// A nest track as the engine plays it, and what it was made from.
+/// Whether a nest track has no sound of its own, so that a clip that plays
+/// it alone places its clips on the row of that clip (the pass mode).
+pub(crate) fn passes(t: &Track) -> bool {
+    t.devices.is_empty() && t.volume == 0.0 && t.pan == 0.0 && t.lanes.is_empty() && !t.mute
+}
+
+/// Clips that a track plays: those of `track` at each of `places`, or, with
+/// no places, as they are (the own clips of a song track).
+struct Source {
+    track: Arc<Track>,
+    places: Option<Vec<Instance>>,
+}
+
+impl Source {
+    fn same(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.track, &other.track) && self.places == other.places
+    }
+}
+
+/// A track as the engine plays it, and what it was made from: a nest track
+/// placed at each place of its nest, and a row with the clips of the
+/// tracks in pass mode that it holds blocks of.
 pub(crate) struct Expanded {
-    source: Arc<Track>,
-    instances: Vec<Instance>,
+    sources: Vec<Source>,
     pub track: Arc<Track>,
     /// Each copy by its id: the clip and the instance it was made from.
     copies: HashMap<Id, (Arc<Clip>, Instance, Arc<Clip>)>,
 }
 
-/// The nest tracks as the engine plays them, by track id. What is the same
-/// as at the last sync is the very same `Arc`, so that the sync sends only
-/// what changed.
+/// The tracks that the engine plays otherwise than the project has them,
+/// by track id. What is the same as at the last sync is the very same
+/// `Arc`, so that the sync sends only what changed.
 pub(crate) type ExpandedTracks = HashMap<Id, Expanded>;
 
-/// Every nest track of `project`, expanded, reusing what `old` has.
+/// Every nest track of `project`, and every row that holds a block of a
+/// track in pass mode, expanded, reusing what `old` has.
 pub(crate) fn expand(project: &Project, placed: &Placed, mut old: ExpandedTracks) -> ExpandedTracks {
     let mut out = HashMap::new();
     if project.nests.is_empty() {
         return out;
     }
     let none = Vec::new();
+    let mut tracks: Vec<(&Arc<Track>, Vec<Source>)> = Vec::new();
+    // The clips of tracks in pass mode, by the row they play on.
+    let mut hosted: HashMap<Id, Vec<Source>> = HashMap::new();
     for t in project.tracks.iter().filter(|t| t.nest.is_some()) {
         let nest = t.nest.expect("a nest track");
-        let instances: Vec<Instance> = placed
-            .instances
-            .get(&nest)
-            .unwrap_or(&none)
-            .iter()
-            .filter(|i| i.plays(t.id))
-            .copied()
-            .collect();
-        let instances = &instances;
+        let pass = passes(t);
+        let mut own = Vec::new();
+        for i in placed.instances.get(&nest).unwrap_or(&none).iter().filter(|i| i.plays(t.id)) {
+            if !(pass && i.only == Some(t.id)) {
+                own.push(*i);
+                continue;
+            }
+            let list = hosted.entry(i.row).or_default();
+            match list.iter_mut().find(|s| Arc::ptr_eq(&s.track, t)) {
+                Some(s) => s.places.get_or_insert_with(Vec::new).push(*i),
+                None => list.push(Source { track: t.clone(), places: Some(vec![*i]) }),
+            }
+        }
+        tracks.push((t, vec![Source { track: t.clone(), places: Some(own) }]));
+    }
+    for (t, list) in &mut tracks {
+        list.extend(hosted.remove(&t.id).unwrap_or_default());
+    }
+    for t in project.tracks.iter().filter(|t| t.nest.is_none()) {
+        if let Some(more) = hosted.remove(&t.id) {
+            let mut list = vec![Source { track: t.clone(), places: None }];
+            list.extend(more);
+            tracks.push((t, list));
+        }
+    }
+    for (t, sources) in tracks {
         let was = match old.remove(&t.id) {
-            Some(w) if Arc::ptr_eq(&w.source, t) && w.instances == *instances => {
+            Some(w) if w.sources.len() == sources.len() && w.sources.iter().zip(&sources).all(|(a, b)| a.same(b)) => {
                 out.insert(t.id, w);
                 continue;
             }
             was => was,
         };
-        let was = was.as_ref();
-        let mut copies = HashMap::new();
-        let mut list: Vec<Arc<Clip>> = Vec::new();
-        for instance in instances {
-            for clip in t.clips.iter() {
+        out.insert(t.id, build(t, sources, was.as_ref()));
+    }
+    out
+}
+
+/// One track as the engine plays it, from its sources (see [`Expanded`]).
+fn build(t: &Arc<Track>, sources: Vec<Source>, was: Option<&Expanded>) -> Expanded {
+    let mut copies = HashMap::new();
+    let mut list: Vec<Arc<Clip>> = Vec::new();
+    for source in &sources {
+        let Some(places) = &source.places else {
+            list.extend(source.track.clips.iter().cloned());
+            continue;
+        };
+        for instance in places {
+            for clip in source.track.clips.iter() {
                 let id = copy_id(instance, clip.id);
                 let reused = was
                     .and_then(|w| w.copies.get(&id))
-                    .filter(|(source, at, _)| Arc::ptr_eq(source, clip) && at == instance)
+                    .filter(|(from, at, _)| Arc::ptr_eq(from, clip) && at == instance)
                     .map(|(_, _, copy)| copy.clone());
                 let Some(copy) = reused.or_else(|| place(clip, instance, id).map(Arc::new)) else {
                     continue;
@@ -222,28 +291,29 @@ pub(crate) fn expand(project: &Project, placed: &Placed, mut old: ExpandedTracks
                 copies.insert(id, (clip.clone(), *instance, copy));
             }
         }
-        list.sort_by(|a, b| a.start.total_cmp(&b.start).then(a.id.cmp(&b.id)));
-        let mut clips = Clips::new();
-        clips.extend(list);
-        // Its lanes play where its clips do, at each place of the nest.
-        let places: Vec<(f64, f64, f64)> = instances.iter().map(|i| (i.zero, i.from, i.to)).collect();
-        let lanes = t
-            .lanes
-            .iter()
-            .map(|l| Arc::new(crate::model::nest::placed_lane(l, &places)))
-            .collect();
-        let track = Arc::new(Track {
-            clips,
-            cues: Clips::new(),
-            lanes,
-            ..(**t).clone()
-        });
-        out.insert(
-            t.id,
-            Expanded { source: t.clone(), instances: instances.clone(), track, copies },
-        );
     }
-    out
+    list.sort_by(|a, b| a.start.total_cmp(&b.start).then(a.id.cmp(&b.id)));
+    let mut clips = Clips::new();
+    clips.extend(list);
+    // A nest track's lanes play where its clips do, at each place of its
+    // nest; a song track's are its own.
+    let lanes = match (&sources[0].places, t.nest) {
+        (Some(own), Some(_)) => {
+            let places: Vec<(f64, f64, f64)> = own.iter().map(|i| (i.zero, i.from, i.to)).collect();
+            t.lanes
+                .iter()
+                .map(|l| Arc::new(crate::model::nest::placed_lane(l, &places)))
+                .collect()
+        }
+        _ => t.lanes.clone(),
+    };
+    let track = Arc::new(Track {
+        clips,
+        cues: Clips::new(),
+        lanes,
+        ..(**t).clone()
+    });
+    Expanded { sources, track, copies }
 }
 
 /// The id of the copy of clip `clip` that an instance plays: apart from

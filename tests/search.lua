@@ -300,6 +300,31 @@ test("search: :vimgrep fills the quickfix list from every kind of text, and :cdo
   eq(paw.qf.current().title, "vimgrep /^Viol/", "nothing found leaves the list")
 end)
 
+test("search: after an edit of one clip, :vimgrep and a query read again that clip only", function()
+  local s = song()
+  local derived = require("paw.derived")
+  local function made(name)
+    for _, st in ipairs(derived.stats()) do
+      if st.name == name then return st.made end
+    end
+  end
+  paw.keymap.feed(":vimgrep /pizz/j<CR>")
+  eq(#paw.query("note[pitch>=c6]"), 1, "the arco clip's C6")
+  local records, notes = made("grep.clip"), made("query.notes")
+  -- `x` in the piano roll deletes the C6 of the arco clip.
+  local roll = paw.ui.views.pianoroll
+  roll:edit(s.p2)
+  paw.ui.focus("pianoroll")
+  roll.pitch, roll.beat = 84, 0
+  paw.keymap.feed("x")
+  paw.flush()
+  eq(#paw.query("note[pitch>=c6]"), 0, "the query sees the edit")
+  paw.keymap.feed("<Esc>:vimgrep /pizz/j<CR>")
+  eq(#paw.qf.current().entries, 4, "the same places")
+  eq(made("grep.clip") - records, 1, "the records of the edited clip only were made again")
+  eq(made("query.notes") - notes, 1, "and its notes")
+end)
+
 test("search: the live grep picker finds any text, and goes there", function()
   local s = song()
   paw.pick("grep")

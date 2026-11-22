@@ -3,6 +3,13 @@
 -- words). Each test drives the public `paw` module and checks what comes
 -- out, including rendered audio.
 local paw = require("paw")
+-- The tests run only in the test environment of tests/tools/env.sh: a scratch
+-- home and no plugin of the machine. A plugin of the machine can be a yabridge
+-- bridge, which starts wine in the owner's prefix.
+if os.getenv("PAW_TEST_ENV") ~= "1" then
+  io.stderr:write("run the suite with tests/tools/suite.sh, or paw by hand with tests/tools/run.sh\n")
+  os.exit(1)
+end
 local api = paw.api
 
 local tmp = os.getenv("TMPDIR") or "/tmp"

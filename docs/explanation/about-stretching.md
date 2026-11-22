@@ -6,7 +6,7 @@ To stretch sound is to change its length without a change of pitch, or its
 pitch without a change of length, and no single method is good for all
 sound. The page explains which methods paw has and why. It also explains
 why paw stretches a file one time and not while it plays. For the commands
-and fields, see [Stretched and looped clips](../reference/stretch.md).
+and fields, see [Stretched and repeating clips](../reference/stretch.md).
 
 ## Two methods
 

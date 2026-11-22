@@ -127,4 +127,4 @@ The edit list has more facts.
 - paw keeps a large version in the bake cache, `$XDG_CACHE_HOME/paw/bakes` (`paw.api.media_store` sets its size). The version comes again from the file and the list, so deleting the cache loses nothing.
 - In a project folder, the edit list is the file of the clip, `tracks/<track>/clips/<clip>.edits.json`, and `track.json` names it as `edits_file`.
 
-For stretch, pitch and loops of clips, see [Stretched and looped clips](stretch.md), and for import, see [Recording](recording.md#import-sound-files).
+For stretch, pitch and loops of clips, see [Stretched and repeating clips](stretch.md), and for import, see [Recording](recording.md#import-sound-files).

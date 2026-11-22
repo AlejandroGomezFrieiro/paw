@@ -297,10 +297,12 @@ pub struct ChipProps<'a> {
 }
 
 /// A clip of the timeline (`id`), or one of its takes (`take`, `active`
-/// when it plays): its `name` or `label`, its track's `color`, `length`
-/// beats in columns `per` cells a beat; `content` the key of its notes or
-/// sound; `midi`; `muted`, `current`, `chosen`, `ghost` while it is
-/// dragged; its fades and `gain` (shown with `gain_line`) in beats and dB;
+/// when it plays): its `name` or `label`, its take `mark` ("2/4", shown
+/// after the label, or before it where both do not fit), its track's
+/// `color`, `length` beats in columns `per` cells a beat; `content` the
+/// key of its notes or sound; `midi`; `muted`, `current`, `chosen`, `ghost`
+/// while it is dragged; its fades and `gain` (shown with `gain_line`) in
+/// beats and dB;
 /// `warps` and `repeats`, the beats of its warp markers and its loops;
 /// `cut_in` and `cut_out`, the beats from its start where the window's
 /// scope cuts it; `nest` for a block of a subproject, drawn in a frame.
@@ -312,6 +314,7 @@ pub struct ClipProps<'a> {
     pub content: Option<&'a str>,
     pub name: Option<&'a str>,
     pub label: Option<&'a str>,
+    pub mark: Option<&'a str>,
     pub color: Option<&'a str>,
     pub length: f64,
     pub per: f64,

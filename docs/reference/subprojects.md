@@ -1,6 +1,6 @@
 # Subprojects
 
-<!-- tags: subproject subprojects nest :nest.new <Space>za nest_track :nest.list :nest.outputs :nest.promote <Space>zp -->
+<!-- tags: subproject subprojects nest :nest.new <Space>za nest_track :nest.list :nest.outputs :nest.promote <Space>zp :scope.write <Space>zw <Space>zW -->
 
 A subproject is a section of the song with tracks of its own and a
 timeline of its own. The song plays it from a row of its own, its return
@@ -110,6 +110,65 @@ the fader, the sends and the devices of each stem row act on one track,
 and those of the return row on their sum. The master track of the
 subproject does not play with stems: its devices and fader are skipped.
 
+## Save a view as a subproject
+
+| Keys or command | Effect |
+| --- | --- |
+| `<Space>zw`, `:scope.write [name]` | Save the view of the window as a subproject, per track. One undo step. `.` then goes to the next view beside it, as `]z` does, and saves that one too. |
+| `<Space>zW`, `:scope.write! [name]` | Save the view of the window as a subproject with its own row. One undo step. |
+
+A view is a part of the song that the window shows, for example the
+region that `znar` enters (see [Narrowing](narrowing.md)). Both commands
+take the clips of the view's tracks in the view's time, cut at its
+edges, and move them into a new subproject. The subproject takes the name
+that you type, else the name of the view or of its region. A name has no
+`/`: paw refuses a word with a slash, such as `~/lib/bridge`, because it
+is a path to a folder.
+
+The subproject keeps the meter of the song over that time as its own,
+so the song's bars stay where they are. The markers and regions inside
+the time move into the subproject. A region over the whole time stays in
+the song. A view with no time takes the song from its start to the end
+of the last clip of its tracks, and the subproject then follows the
+meter of the song.
+
+The message says what moved, for example `nested 2 tracks, bars 5-10, as
+Bridge (6/8)`. `u` gives back the project as it was before.
+
+Per track (`<Space>zw`), each track keeps its devices, fader, sends and
+lanes. The subproject gets a track of the same name for each track that
+had clips in the time, and each track gets a block over the time that
+plays the clips of that track. The clips play through the devices of the
+track, as before, so the song sounds the same to the sample. The window
+stays in the view.
+
+With its own row (`<Space>zW`), the tracks go into the subproject, and a
+new return row plays its mix:
+
+- A track with nothing outside the time moves in as it is, with its
+  devices. A track with clips or lanes outside the time stays in the
+  song with them, and a copy goes in, with copies of its devices and of
+  its lanes over the time.
+- The return row goes at the place of the first track, with the name of
+  the subproject. It plays where the tracks played, or into the master
+  when they played into different tracks.
+- When the view is a group whose tracks all move in, the group track
+  becomes the return row, with its devices, fader, sends and lanes.
+- A group in the view becomes a group inside the subproject.
+- A send to a track that stays out becomes a send of the return row at
+  the same level, and the message names each one, for example `the send
+  of Bass to Verb (-6 dB) is now Bridge's`.
+- A VCA over a track that moves in now moves the return row, and the
+  message says so.
+- A side-chain from a track outside the view is refused, with the route
+  named: `compressor on Bass listens to Kick: take Kick in too, or use
+  <Space>zw`.
+- The window goes inside the subproject, at the same place.
+
+`<Space>zp` on a subproject saved with `<Space>zW` and then `<Space>zW`
+on the view that promote leaves give back the same project, with other
+ids. The same holds for `<Space>zw` and then `<Space>zp`.
+
 ## Promote a subproject to a view
 
 | Keys or command | Effect |
@@ -150,5 +209,13 @@ the subproject was, so that you keep your place:
 `u` gives back the subproject as it was. The render of the song is the same
 before and after.
 
+A subproject saved per track (`<Space>zw`) promotes otherwise: the clips
+of each of its tracks go back to the track of the block that plays it,
+cut at the edges of the blocks, and the blocks, the subproject and its
+tracks go. The window shows a view of those tracks over the time of the
+region.
+
 Promote refuses a subproject that has more than one block, a stem row
 (`:nest.outputs master` first), and a return row that holds other clips.
+Per track, it refuses a subproject with blocks at two places, and a track
+of the subproject that has devices, lanes, or a fader or pan of its own.

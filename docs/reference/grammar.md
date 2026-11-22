@@ -51,7 +51,7 @@ An operator acts on what a motion moves over, on a text object, or on a selectio
 | `>` `<` | moves clips a grid step later or earlier (`>>` all clips of the track) | the same for notes |
 | `=` | snaps clips and their notes to the grid | snaps notes to the grid |
 | `gc` | mutes or unmutes clips, `gcc` the track | |
-| `gl` | loops it: `glic` loops the clip, `gl4W` four bars | the same |
+| `gl` | sets the playback loop to it and turns looping on: `glic` the clip, `gl4W` four bars, `glar` the region | the same |
 
 ## Text objects
 

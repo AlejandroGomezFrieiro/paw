@@ -757,6 +757,83 @@ test("guide: loop a part of the song while you work", function()
   eq(passed, 2, "the playhead returns to the start of the loop")
 end)
 
+--- The styles of the loop's band that the arrange view writes to its ruler
+--- (row 0 of its buffer), by name: what both frontends are sent in the scene.
+local function ruler_styles(width, height)
+  local Buf = paw.ui.Buf
+  local fill = Buf.fill
+  local found = {}
+  Buf.fill = function(self, x, y, w, h, char, style)
+    if type(style) == "string" and style:find("^RulerLoop") then found[style] = true end
+    return fill(self, x, y, w, h, char, style)
+  end
+  local ok, err = pcall(api.ui_view_snapshot, "arrange", width, height)
+  Buf.fill = fill
+  if not ok then error(err, 0) end
+  return found
+end
+
+test("looping: v then gl sets the loop and says so; :loop works; the ruler and the status line show it", function()
+  start()
+  local t = paw.add_track({ name = "Keys" })
+  t:add_clip({ name = "a", start = 16, length = 16 })
+  paw.cursor.set_track(t)
+  paw.opt.grid = 1
+  local tr = paw.transport
+  local function loop() return string.format("%g-%g %s", tr.loop_start, tr.loop_end, tostring(tr.loop_enabled)) end
+  local function said() return paw.ui.messages[#paw.ui.messages].text end
+  -- Bars 5 to 8 are beats 16 to 32.
+  paw.cursor.set_beat(16)
+  keys("v4W")
+  keys("gl")
+  eq(loop(), "16-32 true", "v over bars 5 to 8, gl: the loop is bars 5 to 8 and on")
+  eq(said(), "loop: bars 5 to 8, on", "and the message says so")
+  eq(next(ruler_styles(120, 30)), "RulerLoop", "the ruler draws the band bright")
+  shows("loop 5–8", "the status line shows the bars while it is on")
+  tr.play()
+  eq(ruler_styles(120, 30).RulerLoop, true, "bright while the song plays")
+  tr.stop()
+  keys("gL")
+  eq(said(), "loop: off", "gL says that it is off")
+  local off = ruler_styles(120, 30)
+  eq(off.RulerLoopOff and not off.RulerLoop, true, "the band stays on the ruler, dim")
+  eq(screen():find("loop 5–8", 1, true), nil, "the status line shows no loop while it is off")
+  -- Also while the song plays and records.
+  tr.play()
+  eq(ruler_styles(120, 30).RulerLoopOff, true, "dim while the song plays")
+  tr.stop()
+  t.armed = true
+  tr.recording = true
+  eq(tr.recording, true, "the song records")
+  eq(ruler_styles(120, 30).RulerLoopOff, true, "dim while it records")
+  tr.stop()
+  t.armed = false
+  keys("gL")
+  eq(ruler_styles(120, 30).RulerLoop, true, "bright again when it is back on")
+  -- gl with a motion.
+  paw.cursor.set_beat(20)
+  keys("glic")
+  eq(loop(), "16-32 true", "glic loops the clip")
+  paw.markers.add(40, "Chorus", { length = 8 })
+  paw.cursor.set_beat(42)
+  keys("glar")
+  eq(loop(), "40-48 true", "glar loops the region")
+  -- The command line.
+  keys(":5,9loop<CR>")
+  eq(loop(), "16-36 true", ":5,9loop")
+  eq(said(), "loop: bars 5 to 9, on", "and says so")
+  keys(":loop off<CR>")
+  eq(loop(), "16-36 false", ":loop off")
+  keys(":loop on<CR>")
+  eq(loop(), "16-36 true", ":loop on")
+  paw.cursor.set_beat(8)
+  tr.loop_enabled = false
+  paw.cursor.set_beat(8)
+  keys("v4W<Esc>:'<,'>loop<CR>")
+  eq(loop(), "8-24 true", ":'<,'>loop loops the selection")
+  tr.loop_enabled = false
+end)
+
 test("guide: change the tempo and the time signature", function()
   start()
   local t = paw.add_track({ name = "T" })

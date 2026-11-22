@@ -746,7 +746,8 @@ end
 function view.clip_props(clip, track, hue, kind, zoom, chosen, from, to, colour)
   colour = colour or draw.track_colour(track)
   local cut_in, cut_out = cuts(clip, from, to)
-  -- A clip with takes says which plays: `take 3 ‹2/4›`.
+  -- A clip with takes says which plays: `take 3 ‹2/4›` (the role puts the
+  -- mark first where the label does not fit).
   local badge = paw.takes.badge(clip)
   local label = clip.offline and ("offline · " .. clip.name) or clip.name
   -- A block of a subproject: its name after `⧉`, in a frame.
@@ -763,7 +764,8 @@ function view.clip_props(clip, track, hue, kind, zoom, chosen, from, to, colour)
   local props = {
     key = "clip:" .. clip.id,
     name = clip.name,
-    label = badge and (label .. " ‹" .. badge .. "›") or label,
+    label = label,
+    mark = badge,
     per = zoom,
     repeats = clip.loop and paw.stretch.repeats(clip) or nil,
     warps = warps,
@@ -1501,12 +1503,19 @@ function view:render(buf, ctx)
       buf:text(1, 0, util.fit(pos, hw - 2), "RulerCorner")
     end
   end
-  local loop
-  if t.loop_enabled and t.loop_end > t.loop_start then
+  -- The loop's band: bright while looping is on, dim while it is off (the
+  -- range stays in sight). Only an on loop shades the lanes (`loop`).
+  local loop, loop_off
+  if t.loop_end > t.loop_start then
     local x0, x1 = math.max(0, col(t.loop_start - origin)), math.min(tw, col(t.loop_end - origin))
     if x1 > x0 then
-      loop = { x0, x1 }
-      ruler:fill(x0, 0, x1 - x0, 1, nil, "RulerLoop")
+      if t.loop_enabled then
+        loop = { x0, x1 }
+        ruler:fill(x0, 0, x1 - x0, 1, nil, "RulerLoop")
+      else
+        loop_off = { x0, x1 }
+        ruler:fill(x0, 0, x1 - x0, 1, nil, "RulerLoopOff")
+      end
     end
   end
   -- The punch range, in red over the loop's amber where they meet.
@@ -1527,7 +1536,10 @@ function view:render(buf, ctx)
   for _, line in ipairs(lines) do
     if line.bar then
       if (line.bar - 1) % every == 0 and line.x >= free then
-        local style = within(punch, line.x) and "RulerPunch" or within(loop, line.x) and "RulerLoop" or "RulerBar"
+        local style = within(punch, line.x) and "RulerPunch"
+          or within(loop, line.x) and "RulerLoop"
+          or within(loop_off, line.x) and "RulerLoopOffBar"
+          or "RulerBar"
         -- Its label: the parts of `paw.opt.barlabel` (paw/ruler.tl).
         local x = line.x
         -- Its room: up to a column before the next bar whose label shows.
@@ -1542,17 +1554,20 @@ function view:render(buf, ctx)
         line.x,
         0,
         g.tick,
-        within(punch, line.x) and "RulerPunchTick" or within(loop, line.x) and "RulerLoopTick" or "RulerTick"
+        within(punch, line.x) and "RulerPunchTick"
+          or within(loop, line.x) and "RulerLoopTick"
+          or within(loop_off, line.x) and "RulerLoopOffTick"
+          or "RulerTick"
       )
     end
   end
-  if loop then
+  if loop or loop_off then
     if col(t.loop_start - origin) >= 1 then
-      ruler:text(col(t.loop_start - origin) - 1, 0, g.loop_in, "RulerLoopEdge")
+      ruler:text(col(t.loop_start - origin) - 1, 0, g.loop_in, loop and "RulerLoopEdge" or "RulerLoopOffEdge")
     end
     -- The end's mark sits in the band's last cell, clear of the next bar's number.
     if col(t.loop_end - origin) >= 1 and col(t.loop_end - origin) <= tw then
-      ruler:text(col(t.loop_end - origin) - 1, 0, g.loop_out, "RulerLoopEdgeIn")
+      ruler:text(col(t.loop_end - origin) - 1, 0, g.loop_out, loop and "RulerLoopEdgeIn" or "RulerLoopOffEdge")
     end
   end
   if punch then

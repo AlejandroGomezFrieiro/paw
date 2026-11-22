@@ -93,7 +93,9 @@ local function lua_doc(fn, key)
   local info = debug.getinfo(fn, "S")
   local path = info.source:match("^@.-(runtime/lua/.*)$")
   if not path then return nil end
-  sources[path] = sources[path] or lines_of(path) or {}
+  -- A runtime made by tools/dev-runtime.sh loads the Lua that Teal made, on
+  -- the same lines: the doc comments are in the .tl beside it in the checkout.
+  sources[path] = sources[path] or lines_of(path) or lines_of((path:gsub("%.lua$", ".tl"))) or {}
   local lines = sources[path]
   local at = info.linedefined
   local first = lines[at] or ""

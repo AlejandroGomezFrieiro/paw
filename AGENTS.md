@@ -64,6 +64,11 @@ loop: make it work, prove it with tests, then do three rounds of
 refactor (logic, responsibility, consistency and comments). It also
 gives the rules for style, tests, maintainability, comments and logic.
 
+For each Rust test that you add or change, use the skill in
+[.claude/skills/rust-testing](.claude/skills/rust-testing/SKILL.md).
+For each Lua or Teal test, use the skill in
+[.claude/skills/lua-testing](.claude/skills/lua-testing/SKILL.md).
+
 ## Documentation standards
 
 All documentation follows three standards. The skill in
@@ -162,16 +167,34 @@ nix flake check                                # all of the checks
   test that uses the real keys.
 - No test depends on time or load: no sleep, no deadline as an
   assertion, no count of frames. Wait for an event or a state. A time in
-  milliseconds goes to `bench/`. A test that fails under load is a bug in
-  the test, and a retry does not fix it.
+  milliseconds goes to `bench/`. A test checks behavior, not speed.
+- Check that a thing does not happen only after a sync point: first let
+  the kernel do its work (a state, a block, a sync request), and go past
+  each timer that could make it happen. "Nothing came in 300 ms" is not
+  a check.
+- A test is fully self-contained. It reads nothing of the machine: not
+  the home folder, not the installed plugins, not the user name, the
+  fonts, the desktop bus or the network. `tests/tools/env.sh` (Lua) and
+  `sealed::seal` in `crates/*/tests/sealed/mod.rs` (Rust) give a scratch
+  home and empty plugin folders. Mock what a test needs: the stub CLAP
+  plugin, a fake behind a trait, or a scratch folder. Run paw by hand
+  only through `tests/tools/run.sh`.
+- A flaky test is a bug in the test. No retries. Do not change a time or
+  a tolerance to make it pass. If you cannot fix it now, put it in the
+  quarantine list `tests/quarantine.txt` with a ticket. A quarantined
+  test runs and reports, but does not fail the run. Each entry has a
+  ticket, and the list only gets shorter.
 - Keep the tests to a minimum. A test guards one behavior that the user or
   a caller relies on, and fails only when that behavior breaks. Before you
   commit, apply the skill in
   [.claude/skills/prune-tests](.claude/skills/prune-tests/SKILL.md) to the
   tests that you added or changed. Delete each test that guards no
   behavior, and each test that another test already covers.
-- When you touch the window (`crates/paw-gui`), run its tests too:
-  `cargo test --release -p paw-gui`.
+- The window (`crates/paw-gui`) is paused. The work is on the terminal
+  now. Do not change, build, check or test `paw-gui` until the owner
+  starts the work on the window again. `cargo build`, `cargo check` and
+  `cargo test` at the top of the workspace do not build it. A change of
+  `paw-scene` can stop the build of the window. Write it in your report.
 - Do not run `tests/tools/loaded.sh` unless the owner asks for it. It
   puts a heavy load on the machine.
 - Do not run the end-to-end tests (`tests/tools/e2e.sh`). They are for

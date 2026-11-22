@@ -644,8 +644,8 @@ op("gl", function(clip, region)
   if region.kind == "line" then
     c0, c1 = 0, clip.length
   end
-  paw.transport.loop_start, paw.transport.loop_end, paw.transport.loop_enabled = clip.start + c0, clip.start + c1, true
-end, "Loop")
+  paw.cmd("transport.loop_beats", { clip.start + c0, clip.start + c1 })
+end, "Set the playback loop to this and turn looping on")
 
 -- Single keys.
 local function each_count(fn)

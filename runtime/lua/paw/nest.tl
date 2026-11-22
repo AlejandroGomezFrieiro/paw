@@ -117,11 +117,18 @@ end
 -- Making one ----------------------------------------------------------------------------
 
 --- The bars from one beat of the window to another, as a message names
---- them: "bars 33-40", or "bar 33".
-local function bars_text(from: number, to: number): string
-  local offset = paw.scope.bar_offset()
-  local a = paw.time.bar_of(from) - offset
-  local b = paw.time.bar_of(math.max(from, to - 1e-6)) - offset
+--- them: "bars 33-40", or "bar 33". With `song`, `from` and `to` are
+--- beats of the song, and the bars are the song's even in a view whose
+--- bars count from 1.
+local function bars_text(from: number, to: number, song?: boolean): string
+  local function bar(beat: number): integer
+    if song then
+      return api.tempo_bar_of(beat) + 1
+    end
+    return paw.time.bar_of(beat) - paw.scope.bar_offset()
+  end
+  local a = bar(from)
+  local b = bar(math.max(from, to - 1e-6))
   return a == b and ("bar " .. a) or string.format("bars %d-%d", a, b)
 end
 
@@ -861,6 +868,14 @@ function M.promote(clip: integer, deep?: boolean): string
   local inside = paw.scope.nest()
   local was_inside = inside and inside.id == n.id
   local track, beat = paw.cursor.track_id(), paw.cursor.beat
+  -- Per track: the row that each of its tracks plays on.
+  local row_of: {integer: integer} = {}
+  for _, b in ipairs(M.blocks(n.id)) do
+    local t = stem_of(b.clip)
+    if t then
+      row_of[t] = b.row
+    end
+  end
   local r = api.nest_promote(clip)
   -- Its meter, where the song plays it.
   local own = n.meter and n.meter.mode == "own" and n.meter.changes and n.meter.changes[1]
@@ -873,7 +888,7 @@ function M.promote(clip: integer, deep?: boolean): string
     end
   end
   -- The bars of the message, with its meter in the song's map.
-  local where = bars_text(r.from, r.to)
+  local where = bars_text(r.from, r.to, true)
   -- Its regions, inside a region named after it.
   local parent = region_over(r.from, r.to, n.name)
   -- Its key, when it has one of its own (`meta.key`), on that region: the
@@ -893,7 +908,8 @@ function M.promote(clip: integer, deep?: boolean): string
       regions = regions + 1
     end
   end
-  -- The view that takes its place: the group's tracks over the region's time.
+  -- The view that takes its place: the group's tracks over the region's
+  -- time; per track, the rows.
   local tracks: {integer} = {r.group}
   for _, id in ipairs(r.tracks) do
     tracks[#tracks + 1] = id
@@ -901,18 +917,27 @@ function M.promote(clip: integer, deep?: boolean): string
   paw.scope.widen(true)
   paw.scope.enter({kind = "range", tracks = tracks, from = parent.beat, to = parent.beat + parent.length})
   paw.scope.name(n.name)
+  if was_inside and not r.group then
+    -- Its clips went back to the rows: the cursor on the row of its track.
+    track = row_of[track] or r.tracks[1]
+  end
   if was_inside then
     paw.cursor.set_track(track)
     paw.cursor.set_beat(beat + r.zero)
   else
-    paw.cursor.set_track(r.group)
+    paw.cursor.set_track(tracks[1])
     paw.cursor.set_beat(r.from)
   end
-  local words = {
-    string.format(
+  local words: {string} = {}
+  if r.group then
+    words[1] = string.format(
       "promoted %s: %d track%s in the group %s, %s", n.name, #r.tracks, #r.tracks == 1 and "" or "s", n.name, where
-    ),
-  }
+    )
+  else
+    words[1] = string.format(
+      "promoted %s: its clips back on %d row%s, %s", n.name, #r.tracks, #r.tracks == 1 and "" or "s", where
+    )
+  end
   if regions > 0 then
     words[#words + 1] = string.format("%d regions inside the region %s", regions, n.name)
   end
@@ -953,6 +978,184 @@ for _, bang in ipairs({"", "!"}) do
       label = "Promote the subproject to a view",
       desc = bang == ""
         and "Promote the subproject at the cursor to a view: its tracks come back into the song in a group named after it, and a view of them takes its place" or "Promote the subproject at the cursor to a view, and the subprojects inside it too",
+    }
+  )
+end
+
+-- Save a view: <Space>zw per track, <Space>zW with a row of its own ----------------------
+
+--- The meter of the window's time from `from` to `to` (its beats): the
+--- meter at `from` and its changes inside, from beat 0, as a subproject
+--- keeps it.
+local function meter_over(from: number, to: number): types.NestMeter
+  local origin = paw.time.origin()
+  local a, b = from + origin, to + origin
+  local num, den = api.tempo_signature(a)
+  local changes: {types.SigChange} = {{beat = 0, num = num, den = den}}
+  for _, s in ipairs(api.tempo_points().signatures) do
+    if s.beat > a + 1e-9 and s.beat < b - 1e-9 then
+      changes[#changes + 1] = {beat = s.beat - a, num = s.num, den = s.den}
+    end
+  end
+  return {mode = "own", changes = changes}
+end
+
+--- The name a saved view takes when none is given: the view's, else its
+--- region's, else `Subproject N`.
+local function view_name(s: contracts.Scope): string
+  if s.name and s.name ~= "" then
+    return s.name
+  end
+  if s.kind == "region" and paw.markers then
+    local m = paw.markers.region({id = s.id})
+    if m then
+      return m.name
+    end
+  end
+  return "Subproject " .. (#api.nest_list() + 1)
+end
+
+--- The time of the tracks when a view has none: from 0 to the end of
+--- their last clip.
+local function extent(tracks: {integer}): number
+  local to = 0.0
+  for _, id in ipairs(tracks) do
+    for _, c in ipairs(clip_list(id)) do
+      to = math.max(to, c.start + c.length)
+    end
+  end
+  return to
+end
+
+--- Move the markers and regions strictly inside `from..to` of the
+--- window's time into subproject `nest`, from its beat 0. A region over
+--- the whole time stays. Returns how many moved.
+local function move_markers(nest: integer, from: number, to: number): integer
+  if not paw.markers then
+    return 0
+  end
+  local moved: {MarkersModule.Marker} = {}
+  for _, m in ipairs(paw.markers.list()) do
+    local fits = m.beat >= from - 1e-9 and m.beat < to - 1e-9 and (not m.length or m.beat + m.length <= to + 1e-9)
+    local is_range = m.length and math.abs(m.beat - from) < 1e-9 and math.abs(m.beat + m.length - to) < 1e-9
+    if fits and not is_range then
+      moved[#moved + 1] = m
+    end
+  end
+  if #moved == 0 then
+    return 0
+  end
+  local meta = api.nest_get(nest).meta or {}
+  local list: {MarkersModule.Marker} = {}
+  for i, m in ipairs(moved) do
+    list[i] = {id = i, beat = m.beat - from, name = m.name, length = m.length, color = m.color, key = m.key}
+    paw.markers.remove(m.id)
+  end
+  meta.markers = list
+  api.nest_set(nest, {meta = meta} as types.Nest)
+  return #moved
+end
+
+--- Save the window's view as a subproject, as `:scope.write` does: per
+--- track, or with a row of its own (`own_row`, `:scope.write!`). The
+--- view's clips move into the subproject (`paw.api.nest_save`); the rows
+--- get its blocks; its markers and regions inside move in, and a region
+--- over its time stays. The meter of the time is the subproject's own.
+--- Per track, the window stays in the view; with a row of its own, it is
+--- inside the subproject at the same place. Call it in one undo step.
+--- Returns the message.
+function M.save(name?: string, own_row?: boolean): string
+  local s = paw.scope.current()
+  if not s then
+    error("the window shows the whole song: enter a view first, for example `znar` on a region", 0)
+  end
+  if s.kind == "nest" then
+    error("this is a subproject already: `<Space>zp` makes it a view", 0)
+  end
+  local tracks = paw.scope.tracks()
+  local from, to = paw.scope.span()
+  local meter: types.NestMeter = {mode = "follow"}
+  if from then
+    meter = meter_over(from, to)
+  else
+    from, to = 0, extent(tracks)
+  end
+  if not (to > from) then
+    error("the view has no time to save", 0)
+  end
+  name = name and name:match("^%s*(.-)%s*$") or ""
+  -- A name has no slash; a word with one is a path (a folder, TASK-7.14).
+  if name:find("/", 1, true) then
+    error(string.format("%s is a path: a subproject's name has no `/`", name), 0)
+  end
+  if name == "" then
+    name = view_name(s)
+  end
+  local track, beat = paw.cursor.track_id(), paw.cursor.beat
+  local saved = api.nest_save({name = name, tracks = tracks, from = from, to = to, meter = meter, own_row = own_row})
+  if own_row then
+    api.clip_add(saved.row, {nest = saved.nest, start = from} as types.ClipOptions)
+  else
+    for _, r in ipairs(saved.rows) do
+      api.clip_add(
+        r.row, {nest = saved.nest, start = from, length = to - from, play = {track = r.track}} as types.ClipOptions
+      )
+    end
+  end
+  -- The markers of the song; a view inside a subproject keeps them there.
+  local markers = paw.scope.nest() and 0 or move_markers(saved.nest, from, to)
+  local first = meter.changes and meter.changes[1]
+  local words = {
+    string.format(
+      "nested %d track%s, %s, as %s%s",
+      #saved.tracks,
+      #saved.tracks == 1 and "" or "s",
+      bars_text(from + paw.time.origin(), to + paw.time.origin(), true),
+      name,
+      first and string.format(" (%d/%d)", first.num, first.den) or ""
+    ),
+  }
+  if own_row then
+    words[#words + 1] = "on its own row " .. name_of(saved.row)
+  end
+  if markers > 0 then
+    words[#words + 1] = string.format(
+      "%d marker%s and region%s inside it", markers, markers == 1 and "" or "s", markers == 1 and "" or "s"
+    )
+  end
+  for _, change in ipairs(saved.changes) do
+    words[#words + 1] = change
+  end
+  if own_row then
+    -- The view's tracks went in: the window goes inside, at the same place.
+    local block = block_on(saved.row, saved.nest)
+    paw.scope.widen()
+    paw.scope.enter({kind = "nest", id = saved.nest, clip = block and block.id})
+    local inside = false
+    for _, id in ipairs(saved.tracks) do
+      inside = inside or id == track
+    end
+    paw.cursor.set_track(inside and track or saved.tracks[1])
+    paw.cursor.set_beat(beat - from)
+  end
+  return table.concat(words, "; ")
+end
+
+for _, bang in ipairs({"", "!"}) do
+  commands.define(
+    "scope.write" .. bang,
+    function(ctx: contracts.CommandContext): contracts.CommandResult
+      local words: {string} = {}
+      for _, word in ipairs(ctx.args as {string}) do
+        words[#words + 1] = tostring(word)
+      end
+      paw.notify(M.save(table.concat(words, " "), bang == "!"))
+    end,
+    {
+      label = bang == "" and "Save the view as a subproject, per track"
+        or "Save the view as a subproject with its own row",
+      desc = bang == ""
+        and "Save this window's view as a subproject: its clips move in, and the rows they came from play them through their own devices (`scope.write Bridge`)" or "Save this window's view as a subproject with its own row: its tracks, their devices and lanes go in, and one row plays its mix (`scope.write! Bridge`)",
     }
   )
 end

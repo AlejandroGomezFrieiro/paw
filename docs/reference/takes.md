@@ -9,6 +9,15 @@ does recording audio again over an audio clip (see
 steps, see
 [How to record takes over a loop and comp them](../how-to/record-takes-and-comp.md).
 
+## The take mark
+
+A clip with takes shows a mark after its name, for example
+`take 1 ‹2/3›`. The first number is the take that plays, and the second
+number is how many takes the clip has. When the clip is too short for the
+name and the mark, the mark comes first and the name is cut, for example
+`‹2/3› ta`, so `]t` and `[t` always show a change on the clip. The
+graphical window shows the same text.
+
 ## Keys and commands
 
 | Keys, command | Effect |

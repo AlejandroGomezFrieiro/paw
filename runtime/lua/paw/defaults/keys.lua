@@ -50,7 +50,7 @@ map(
 map("gs", "transport.start", { mode = nx, desc = "Playhead to the start" })
 map("g0", "transport.start", { mode = nx, desc = "Playhead to the start, in every view" })
 map("gp", "transport.to_cursor", { mode = nx, desc = "Playhead to the cursor" })
-map("gL", "transport.loop", { mode = nx, desc = "Toggle looping" })
+map("gL", "transport.loop", { mode = nx, desc = "Turn the playback loop on or off" })
 map("gm", "transport.metronome", { mode = nx, desc = "Toggle the metronome" })
 -- The metronome's: `gC` opens curves in every view.
 map("gM", "countin", { mode = nx, desc = "Count a bar in before recording, or not" })
@@ -137,7 +137,7 @@ map("<leader>rm", "marker.new", { desc = "Put a marker at the cursor: type its n
 map("<leader>rn", "region.new", { mode = nx, desc = "Make a region over the selection or the loop: type its name" })
 map("<leader>rx", "marker.remove", { desc = "Remove the marker at the cursor" })
 map("<leader>rX", "region.remove", { desc = "Remove the region the cursor is in; its clips stay" })
-map("<leader>rl", "region.loop", { desc = "Loop the region the cursor is in" })
+map("<leader>rl", "region.loop", { desc = "Set the playback loop to the region the cursor is in" })
 map("<leader>rR", "render.regions", { desc = "Render every region to a file of its own: type the folder" })
 -- `.` repeats the last change; `<leader>.` adjusts it: a panel shows its parameters (paw/views/adjust.tl).
 -- With no command to adjust, the command line says why.
@@ -304,6 +304,17 @@ map("<leader>za", function()
   local text = keymap.mode == "x" and "'<,'>nest.new " or "nest.new "
   paw.commands.run("cmdline", { text = text }, { mode = keymap.mode })
 end, { mode = nx, desc = "Add a subproject with its own row and tracks: type its name, bars and meter" })
+-- Save the window's view as a subproject: `<leader>zw` per track (`.` saves
+-- the next view beside it), `<leader>zW` with a row of its own.
+map("<leader>zw", function(ctx)
+  paw.commands.run("scope.write")
+  keymap.repeat_as(keymap.parse("]z" .. ctx.keys))
+end, { desc = "Save this view as a subproject: the rows play its clips through their own devices" })
+map(
+  "<leader>zW",
+  "scope.write!",
+  { desc = "Save this view as a subproject with its own row: its tracks and devices go in" }
+)
 map("<leader>zz", "scope.list", { desc = "Enter a scope, or go up to a level, from a list" })
 amap("]z", "scope.next", "The next scope beside this one: region, group, track", { motion = true, mode = "n" })
 amap("[z", "scope.prev", "The scope before this one, beside it", { motion = true, mode = "n" })
@@ -467,8 +478,8 @@ keymap.operator("gc", edit.arrange.mute, { view = "arrange", desc = "Mute or unm
 aop("gl", function(region)
   local c0, c1 = edit.arrange.span(region)
   if c1 <= c0 then return end
-  transport.loop_start, transport.loop_end, transport.loop_enabled = c0, c1, true
-end, "Loop")
+  paw.cmd("transport.loop_beats", { c0, c1 })
+end, "Set the playback loop to this and turn looping on")
 
 -- Arrange: what is done so often that it has a key of its own.
 amap("x", function() keymap.normal("dic") end, "Delete the clip")
@@ -928,8 +939,8 @@ pop("gl", function(_, region)
   if region.kind == "line" then
     c0, c1 = roll:span()
   end
-  transport.loop_start, transport.loop_end, transport.loop_enabled = clip.start + c0, clip.start + c1, true
-end, "Loop")
+  paw.cmd("transport.loop_beats", { clip.start + c0, clip.start + c1 })
+end, "Set the playback loop to this and turn looping on")
 
 -- Piano roll: single keys.
 pmap("<CR>", function() roll:toggle_note() end, "Add or remove a note")

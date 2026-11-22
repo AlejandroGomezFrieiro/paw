@@ -42,7 +42,7 @@ The motion keys only move, in every view. In **M**, `h` `l` are strips, `j` `k` 
 | `>` `<` | move clips later, earlier | move notes |
 | `=` | snap clips and notes to the grid | snap notes |
 | `gc` | mute or unmute clips (`gcc` the track) | |
-| `gl` | loop it | loop it |
+| `gl` | set the playback loop to it, and turn looping on | the same |
 | `x` | delete the clip | delete the note |
 | `D` `C` `Y` | delete, change, yank to the end of the track | to the end of the clip |
 | `p` `P` | paste after the clip (tracks below), at the cursor (tracks above) | after the note, at the cursor |
@@ -309,7 +309,7 @@ After the leader, the first key is a domain, and the next key is what to do in i
 | T: tempo and transport | `<Space>Tt` tap the tempo, `<Space>Tm` the metronome, `<Space>Tc` the count-in |
 | u: utau | `<Space>ut` add a vocal track, `<Space>uv` make the track vocal, `<Space>us` the singer, `<Space>ue` the vocal editor, `<Space>ul` the lyric sheet, `<Space>ur` render again, `<Space>uf` `<Space>uF` freeze, unfreeze, `<Space>uo` OpenUtau, `<Space>ui` the engine |
 | v: views | `<Space>vm` mixer, `<Space>vd` device panel, `<Space>vp` piano roll, `<Space>vs` session view, `<Space>vn` notation, `<Space>vu` undo tree |
-| z: scopes | `<Space>zz` a scope from a list, `<Space>za` add a subproject here, `<Space>zp` promote the subproject at the cursor to a view (see [Subprojects](subprojects.md)), `<Space>zs` `<Space>zv` `<Space>zt` the scope at the cursor (or of the selection) in a new split, vertical split, tab, `<Space>zn` name this window's scope |
+| z: scopes | `<Space>zz` a scope from a list, `<Space>za` add a subproject here, `<Space>zp` promote the subproject at the cursor to a view, `<Space>zw` save this window's view as a subproject per track (`.` saves the next view beside it), `<Space>zW` save it as a subproject with its own row (see [Subprojects](subprojects.md)), `<Space>zs` `<Space>zv` `<Space>zt` the scope at the cursor (or of the selection) in a new split, vertical split, tab, `<Space>zn` name this window's scope |
 
 `u` and `<C-r>` (undo and redo) have no leader, and the keys of one view are on the local leader `\`. `<Space>.` is the one leader key that is not a domain: it adjusts the last change (see [Repeat and remember](#repeat-and-remember)).
 
@@ -320,7 +320,7 @@ After the leader, the first key is a domain, and the next key is what to do in i
 | `<Space><Space>` | play from the cursor, or stop. The cursor never moves by itself; the playhead stays where the song stopped. `play_from` chooses the cursor or the playhead |
 | `<S-CR>` | play from the playhead (the other start; with `play_from=playhead`, from the cursor) |
 | `gs` `gp` | playhead to the start, to the cursor; play starts there until the cursor moves. `g0` is the playhead to the start too, also in the views where `gs` does another thing (curve editor, drum grid, score) |
-| `gL` `gm` | loop on and off, metronome |
+| `gL` `gm` | playback loop on and off, metronome |
 | `gM` | count a bar in before recording, or not |
 | `<Space>Tt` | tap the tempo (the beat): press it on each beat, four times or more |
 | `gI` | punch recording on and off (over a selection: punch there); `:preroll 2` plays two bars before the punch in |

@@ -101,7 +101,7 @@ on what a pattern finds.
 
 | Function | Effect |
 | --- | --- |
-| `paw.query(q)` | Gives the nodes: `{ kind, id, data, parent, track, clip, location }`. `data` is the thing as `paw.api` gives it. |
+| `paw.query(q)` | Gives the nodes: `{ kind, id, data, parent, track, clip, location }`. `data` is the thing as `paw.api` gives it. paw keeps the nodes of clips and notes from one query to the next, so read a node and don't change it. |
 | `paw.query.select(q)` | Does what `:select` does. |
 | `paw.query.field(kind, name, fn)` | Adds a field of your own. |
 

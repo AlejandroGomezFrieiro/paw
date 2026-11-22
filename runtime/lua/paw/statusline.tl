@@ -34,6 +34,7 @@ local type contracts = require("paw.contracts")
 local type types = require("paw.types")
 local type partial = require("paw.partial")
 local type UiModule = require("paw.ui")
+local type RulerModule = require("paw.ruler")
 local type MouseModule = require("paw.mouse")
 local type objects = require("paw.objects")
 local type TextbufModule = require("paw.textbuf")
@@ -97,6 +98,7 @@ local record Paw is partial.Paw
   draw: DrawModule
   mouse: MouseModule
   qf: Lister
+  ruler: RulerModule
   scope: Scope
   folds: Folds
   tempo: TempoModule
@@ -512,12 +514,11 @@ spec(
     fn = function(ctx: Context): StatusText
       local t, g = ctx.transport, ctx.g
       local on: {Piece} = {}
-      if t.loop_enabled then
+      if t.loop_enabled and t.loop_end > t.loop_start then
         -- The bars it touches, as the ruler numbers them (in a scope with time, its own).
-        local offset = paw.scope and paw.scope.bar_offset() or 0
-        local o = paw.time.origin()
-        local from = paw.time.bar_of(t.loop_start - o) - offset
-        local to = math.max(from, paw.time.bar_of(math.max(t.loop_start, t.loop_end - 1e-6) - o) - offset)
+        -- A loop that is off is not shown here: every project has a range, and the
+        -- ruler keeps it in sight in dim colors.
+        local from, to = paw.ruler.bars_of(t.loop_start, t.loop_end)
         on[#on + 1] = {"loop " .. from .. (g.ellipsis == "…" and "–" or "-") .. to, "StatusOn"}
       end
       if t.metronome then
