@@ -50,7 +50,7 @@ use more processor cores, give `-j` and a number from 1 to 4 before the
 other words: `tests/tools/suite.sh -j 2`, or
 `tests/tools/suite.sh -j 2 plugins`. With `-j 2`, each process gets every
 second test file of `tests/`, and every second extension with all of its
-test files. Each process has its own scratch and XDG folders under
+test files. Each process has its own scratch home, plugin and XDG folders under
 `target/test-scratch/shard<N>`. The script puts the outputs together in
 `target/test-scratch/suite.out`, and the last line is the same as with one
 process.
