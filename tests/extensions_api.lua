@@ -233,6 +233,34 @@ test(":bnext goes past the view of an extension that was unloaded", function()
   end
 end)
 
+test("an extension's language server in this process starts again when the extension loads again", function()
+  T.start()
+  local root = dir("served")
+  write(
+    root .. "/init.lua",
+    [[
+    local server = {
+      initialize = function()
+        _G.served_starts = (_G.served_starts or 0) + 1
+        return { serverInfo = { name = "served" }, capabilities = {} }
+      end,
+    }
+    paw.lsp.config("served", { server = server })
+    paw.lsp.enable("served")
+  ]]
+  )
+  T.after(function()
+    paw.ext.unload("served")
+    _G.served_starts = nil
+  end)
+  eq(paw.ext.load(root).ok, true, "loads")
+  T.until_(function() return _G.served_starts == 1 end, "the server to start")
+  paw.ext.unload("served")
+  eq(paw.lsp.configs.served, nil, "unloading takes its server away")
+  eq(paw.ext.load(root).ok, true, "loads again")
+  T.until_(function() return _G.served_starts == 2 end, "the server of the new load to start")
+end)
+
 test(":ext.unload takes a bundled extension away and :ext.load brings it back", function()
   T.fresh()
   local had = paw.ext.loaded.musicops ~= nil

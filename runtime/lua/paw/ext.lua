@@ -383,6 +383,17 @@ M.registries = {
       paw.formats.unregister(key)
     end
   end, function(key) return key end),
+  -- The language servers it configures (`paw.lsp.config`). Unloaded, its
+  -- server stops: a server in this process keeps the module that started it,
+  -- and the extension loaded again starts a new one.
+  keyed("lsp", "language servers", function() return paw.lsp and paw.lsp.configs end, function(key, value)
+    if value then
+      paw.lsp.configs[key] = value
+    else
+      paw.lsp.enable(key, false)
+      paw.lsp.configs[key] = nil
+    end
+  end, function(key) return key end),
   -- The bands under the ruler of the window (`paw.frontend.bands`), a list
   -- of functions: each function is its own key.
   {

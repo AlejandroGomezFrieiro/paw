@@ -87,7 +87,7 @@ paw records all that an extension registers while it loads, which includes the f
 - commands, keys and key groups, the lines of the key bar (`paw.ui.keybar.set`), views, buffer types, kinds of text buffer, and kinds of track
 - picker sources, query fields, fields and views of `:s` and `:g`, completers, status line components, and grep sources
 - the parts and signs of the track column and the parts of the bar labels (`paw.trackcolumn`, `paw.ruler`), the bands under the ruler of the window (`paw.frontend.bands`), the keys of insert mode in the arrange view (`paw.insert`), and the parts and the keys of paw that it changes with `set`
-- curve providers, address schemes, completion sources, layers, health checks, hooks (`paw.on`), options, and timers (`paw.every`, `paw.defer`)
+- curve providers, address schemes, completion sources, layers, language servers (`paw.lsp.config`), health checks, hooks (`paw.on`), options, and timers (`paw.every`, `paw.defer`)
 - its directory of devices written in Lua, and the plugin directories that it adds (`paw.plugins.add_dir`)
 
 paw also records what the extension registers later, from a command, a handler or a timer of its own. An entry belongs to the extension when a function of its files is in the entry, or when its code made the entry, and a key mapped from its code shows this in `map.ext`. A timer that the core starts while an extension loads belongs to the core.
