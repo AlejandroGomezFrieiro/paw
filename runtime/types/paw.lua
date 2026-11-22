@@ -9495,6 +9495,8 @@ function paw.api.fs_stat(path) end
 ---@param path string
 function paw.api.fs_trash(path) end
 
+--- Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, and
+--- overwrite its characters when `fill` is given.
 ---@param x number
 ---@param y number
 ---@param w number
@@ -9522,8 +9524,6 @@ function paw.api.grid_fill(x, y, w, h, fill, style, cx, cy, cw, ch) end
 ---@param ch number
 function paw.api.grid_image(key, x, y, w, h, cx, cy, cw, ch) end
 
---- Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, and
---- overwrite its characters when `fill` is given.
 --- Keep the cells of the area `(x, y, w, h)`, clipped to `(cx, cy,
 --- cw, ch)`, under `key`, to put back on a later frame with
 --- `grid_put` when what they were drawn from has not changed.
