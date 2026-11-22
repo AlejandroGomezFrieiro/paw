@@ -254,6 +254,9 @@ paw.scope = {}
 ---@class paw.seats
 paw.seats = {}
 
+---@class paw.shada
+paw.shada = {}
+
 ---@class paw.snippet
 paw.snippet = {}
 
@@ -4331,6 +4334,22 @@ function paw.keymap.set_mode(mode) end
 ---@param yank any
 function paw.keymap.setreg(value, name, yank) end
 
+--- What belongs to a project, for `paw.shada`: the marks, the jump lists
+--- (without where `<C-o>` is) and the places of the edits, each by view.
+function paw.keymap.shada_project() end
+
+--- Put back what `shada_project` gave, in place of the marks and places now.
+---@param data any
+function paw.keymap.shada_set_project(data) end
+
+--- Put back what `shada_user` gave.
+---@param data any
+function paw.keymap.shada_set_user(data) end
+
+--- What belongs to the user, for `paw.shada`: the last search and the
+--- registers (as a table of registers by name).
+function paw.keymap.shada_user() end
+
 --- Define a text object: `fn(ctx)` returns a region, or nil when there is
 --- nothing of that kind at the cursor.
 ---   paw.keymap.textobject("ic", function() ... end, { view = "arrange", desc = "The clip" })
@@ -7319,6 +7338,17 @@ function paw.seats.open(id, why) end
 ---@param id any
 ---@param fn any
 function paw.seats.within(id, fn, ...) end
+
+--- Read what is kept: yours, and the current project's.
+function paw.shada.read() end
+
+--- Keep the files in `file` (and the project files where they always are),
+--- and keep for all start options, for tests. `use()` sets all back.
+---@param file any
+function paw.shada.use(file) end
+
+--- Write what is kept: yours, and the current project's.
+function paw.shada.write() end
 
 --- The active snippet, or nil. A snippet ends when the project changed
 --- other than through it, or the piano roll's cursor left its span.

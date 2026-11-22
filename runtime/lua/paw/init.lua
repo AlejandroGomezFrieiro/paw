@@ -319,6 +319,7 @@ function K.startup()
   require("paw.views.tracklist")
   paw.files = require("paw.views.files")
   paw.recent = require("paw.recent")
+  paw.shada = require("paw.shada")
   paw.learn = require("paw.learn")
   paw.remote = require("paw.remote")
   -- What graphical frontends are sent of the views they show (paw/scene.tl).
