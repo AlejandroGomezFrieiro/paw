@@ -1,6 +1,6 @@
 # Scopes
 
-<!-- tags: narrowing scope narrow region subproject nest zn znn zw zW -->
+<!-- tags: narrowing scope narrow region subproject nest zn znn zw zW folds fold zf za zc zd zE zM zR zm zr time-folds -->
 
 In a large project, you can narrow a window to a part of the song. The
 part is a group of tracks, the time of a region, some tracks, or both
@@ -69,7 +69,7 @@ Strings`.
   the clips of the strings in the region.
 - The piano roll edits the clips of the tracks of the scope, and it shows
   the notes of those tracks behind them.
-- The fold of the group is open.
+- The fold of the group or of the tracks of the scope is open.
 - A track that you add in the scope of a group goes into the group.
 - The graphical window shows the window as the terminal does.
 
@@ -158,6 +158,70 @@ its time.
 | `mute` | The rest is silent, as with a solo of the scope. The tracks that the sound of the scope goes through still play. The mutes and solos of the project do not change. |
 | `frozen` | paw renders each part of the rest in the background (each full group, and each track outside a group), and plays the files, so that their devices rest. A part that you edit plays live until paw renders it again. paw releases the files when a window of the song is in front. |
 
+## Folds
+
+A fold draws a part of the song in place. A fold of tracks is one row: a
+group is a fold by itself, and `zf` makes a fold of any tracks. A time
+fold is one narrow column: every region is a fold by itself, and `zf`
+makes a fold of any bars. A fold is a scope that the window shows
+closed, so `znn` on a fold enters it.
+
+| Keys, command | Effect |
+| --- | --- |
+| `zf{motion}`, `{Visual}zf` | Make a fold of what the motion or the selection covers, closed. `zfar`: the region at the cursor, in one column. `zfag`: the group at the cursor. `Vjjzf`: the three tracks, in one row named `Fold 1` (then `Fold 2`, and so on). A selection of bars on every track: those bars, in one column. |
+| `za`, `:fold.toggle` | Close the fold at the cursor, or open it. On a time fold, the fold is that one. Else on a track of a group, the fold is the group, and else the region at the cursor. |
+| `zc`, `:fold.close` | Close the fold at the cursor. On a closed fold, close the fold around it. |
+| `zm`, `:fold.more` | Close one more level of regions, the deepest open level first. |
+| `zr`, `:fold.less` | Open one more level of regions. |
+| `:fold.open` | Open the fold at the cursor. (`zo` is zoom out in paw.) |
+| `zd`, `:fold.delete` | Delete the fold at the cursor. The tracks and the clips stay, and they show as before. On a group, the group opens. On a region, the region follows its level again. |
+| `zE`, `:fold.clear` | Delete every fold of the window, and open every level of regions. |
+| `zM`, `:fold.closeall` | Close every group, every region and every fold of the window. |
+| `zR`, `:fold.openall` | Open every group, every region and every fold of the window. |
+
+- Folds belong to the window, as in Vim. Two windows can fold the same
+  group in different ways. A new split starts with the folds of the
+  window that it comes from.
+- A fold changes nothing in the project, and it is not an undo step. `u`
+  undoes the last edit, not a fold.
+- The project keeps the folds of each window with its windows
+  (`screen.json`), so they come back when you open the project.
+- A closed fold of tracks shows as one row with its name and the number
+  of its tracks, for example `Fold 1 +3`. The track column shows `▸` on
+  it. The row is the first track of the fold, so the clips and the
+  buttons on the row are those of that track.
+- `znn` on a closed fold enters it, and the window then shows its tracks.
+  `zw` returns to the fold, closed as it was.
+- The cursor never stays on a track that is folded away. It goes to the
+  row of the fold.
+- The graphical window shows the same folds as the terminal.
+
+### Time folds
+
+A closed region shows as one narrow column on the ruler and down the
+tracks, with its name and its number of bars, for example `Bridge ▸ 8`.
+
+- The bars after the fold move left. The song does not change: it plays
+  through the fold, and a render with the fold is the same as one
+  without it.
+- The motions take the fold as one step, as `j` and `k` take a folded
+  group. From the bar before it, `l` goes onto the column, and `l` again
+  goes past it. On the column, the status line shows its name.
+- A clip that crosses the fold is drawn in two pieces, cut at its edges.
+- The playhead waits on the column while the song plays through the
+  fold, and then goes on after it.
+- A click on the column goes to the start of the fold. A click after it
+  goes to the beat that is drawn there.
+- In the lane of regions, a closed region has `▸`, and the regions and
+  markers inside it are folded away with it (see
+  [Markers and regions](markers.md#the-lane-of-regions)).
+- The regions fold by level, as lines do in Vim with `'foldlevel'`. Each
+  window keeps its level. `zm` closes the deepest level of regions that
+  is open, and `zr` opens the level again. For example, when `Chorus 2`
+  holds `Verse A` and `Verse B`, `zm` closes the two verses, and a
+  second `zm` closes `Chorus 2`. `za` and `zc` on a region change it
+  alone, until the next `zm` or `zr`.
+
 ## Lua
 
 A scope is a table. `kind` is `"group"`, `"track"`, `"tracks"`,
@@ -188,6 +252,17 @@ A window keeps the innermost level in `win.scope`.
 | `paw.scope.contains(track)` | True if the current scope shows the track. |
 | `paw.scope.breadcrumb()` | The path, for example `Song › Bridge › Strings`. |
 | `paw.scope.song_bar(n)` | The bar of the song for bar `n` of the scope. |
+
+A fold is a table like a scope, with `closed`. A window keeps its folds
+in `win.folds`, and its level of regions in `win.foldlevel` (nil when
+every level is open). `paw.folds` has the functions of the keys:
+`paw.folds.make(scope)` (`zf`), `toggle()` (`za`), `close()` (`zc`),
+`open()`, `delete()` (`zd`), `clear()` (`zE`), `all(true)` (`zM`) or
+`all(false)` (`zR`), and `level(-1)` (`zm`) or `level(1)` (`zr`).
+`paw.folds.list(win)` gives the folds of a window, and
+`paw.folds.at(track)` the fold at a track. `paw.folds.time_spans()` gives
+the closed time folds of a window, and `paw.folds.time_map(zoom)` the map
+from beats to the places of a view with them.
 
 `paw.api.track_list()` gives the tracks of the song. `paw.api.track_list({ nest = id })`
 gives the tracks of a subproject, and `paw.api.track_list({ all = true })`

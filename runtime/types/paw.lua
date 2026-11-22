@@ -95,6 +95,9 @@ paw.external = {}
 ---@class paw.files
 paw.files = {}
 
+---@class paw.folds
+paw.folds = {}
+
 ---@class paw.formats
 paw.formats = {}
 
@@ -2002,6 +2005,13 @@ function paw.cursor.move_track(delta) end
 --- track in the arrange view, the strip after the last in the mixer.
 function paw.cursor.on_master() end
 
+--- Where the cursor goes when it moves from beat `old` to `new`: a beat
+--- inside a closed time fold is its start, or its end when the cursor
+--- moves on from its start, so that a motion takes a fold as one step.
+---@param old any
+---@param new any
+function paw.cursor.over(old, new) end
+
 --- 1-based row of the cursor track among the tracks that are drawn: the
 --- same as `index` until a group is folded. On the master, the row after
 --- the last track.
@@ -2535,6 +2545,17 @@ function paw.draw.level(peak) end
 ---@param hold any
 function paw.draw.meter(buf, x, y, width, peak, hold) end
 
+--- What `meter` shows for these values in `width` cells, as a text: the
+--- cells lit full and half, and the cell of the peak held (-1: none).
+---@param width any
+---@param peak any
+---@param hold any
+function paw.draw.meter_shown(width, peak, hold) end
+
+--- True while a track meter drawn lately (`track_peak`) still shows a
+--- level: it is not at rest yet.
+function paw.draw.meters_falling() end
+
 --- Notes as a small piano roll of `rows` text rows, each `width` columns.
 --- A row holds two pitches, drawn with half blocks. `notes` have `start`,
 --- `length` and `pitch`. A column covers `1 / zoom` beats from `from`.
@@ -2617,6 +2638,13 @@ function paw.draw.slider(buf, x, y, width, fraction, on, off) end
 ---@param left any
 ---@param right any
 function paw.draw.stereo_meter(buf, x, y, width, left, right) end
+
+--- What `stereo_meter` shows for these values in `width` cells, as a
+--- text: the cells lit on each side.
+---@param width any
+---@param left any
+---@param right any
+function paw.draw.stereo_meter_shown(width, left, right) end
 
 --- A highlight definition as this terminal can show it. On a terminal
 --- without 24-bit color, each `#rrggbb` becomes the nearest of the 256.
@@ -2984,6 +3012,131 @@ function paw.files.sound_info(path, stat) end
 
 --- Start to watch the cursor, when a files buffer exists.
 function paw.files.watch() end
+
+--- Close every fold of a window, every group too (`zM`), or open them
+--- all (`zR`).
+---@param on any
+---@param win any
+function paw.folds.all(on, win) end
+
+--- The fold at a track (the cursor's by default), in a window: the
+--- largest closed one, which its row stands for, else the smallest. Nil
+--- when the track is in none.
+---@param id any
+---@param win any
+function paw.folds.at(id, win) end
+
+--- Delete every fold of a window, as `zE`. Returns how many there were.
+---@param win any
+function paw.folds.clear(win) end
+
+--- Close the fold at the cursor, as `zc`; on a closed fold, the one
+--- around it. Returns it, or nil and the reason.
+---@param id any
+---@param win any
+function paw.folds.close(id, win) end
+
+--- The rows that a window draws, from the rows of its tracks without
+--- its folds of tracks: each closed fold of tracks keeps its first row,
+--- which stands for all of it.
+---@param rows any
+---@param win any
+function paw.folds.collapse(rows, win) end
+
+--- How many tracks of a fold are there.
+---@param f any
+function paw.folds.count(f) end
+
+--- Delete the fold at a track (the cursor's by default), as `zd`: the
+--- fold goes, its tracks stay, drawn as before. Returns it, or nil and the
+--- reason.
+---@param id any
+---@param win any
+function paw.folds.delete(id, win) end
+
+--- What a fold holds, in words: `3 tracks`, `8 bars`.
+---@param f any
+function paw.folds.describe(f) end
+
+--- True if a group is folded into its row in a window (the one a view
+--- shows by default).
+---@param group any
+---@param win any
+function paw.folds.group_closed(group, win) end
+
+--- Close one more level of regions in a window (`zm`, `delta` -1: the
+--- deepest open level first), or open one (`zr`, 1), as the `foldlevel`
+--- option of Vim. The regions that `za` or `zf` opened or closed follow
+--- the level again. Returns the level: how many levels stay open.
+---@param delta any
+---@param win any
+function paw.folds.level(delta, win) end
+
+--- The folds of a window that a view shows (the one being drawn, else the
+--- current one). Empty when it has none.
+---@param win any
+function paw.folds.list(win) end
+
+--- Make a fold of what a scope covers (`zf{motion}`), closed, in a
+--- window: a group folds into its row (`zfag`), tracks into one row named
+--- `Fold 1` (`Vjjzf`). Returns it, or nil and the reason.
+---@param spec any
+---@param win any
+function paw.folds.make(spec, win) end
+
+--- The name a fold shows: its own, else its group's.
+---@param f any
+function paw.folds.name(f) end
+
+--- Open the fold at the cursor (the one its row stands for). Returns it,
+--- or nil and the reason.
+---@param id any
+---@param win any
+function paw.folds.open(id, win) end
+
+paw.folds.over = paw.cursor.over
+
+--- The cursor does not stay on a track that is folded away: it goes to the
+--- row that stands for it.
+function paw.folds.reveal() end
+
+--- The closed fold of tracks that the row of a track stands for in a
+--- window (the one a view shows by default), or nil: the track is the
+--- first row of that fold.
+---@param id any
+---@param win any
+function paw.folds.row(id, win) end
+
+--- Fold a group into its row, or open it, in a window: `on` nil flips it.
+---@param group any
+---@param on any
+---@param win any
+function paw.folds.set_group(group, on, win) end
+
+--- The closed time fold that a beat is on (`from` up to `to`), in a window.
+---@param beat any
+---@param win any
+function paw.folds.time_at(beat, win) end
+
+--- The map from beats to the places of a view at `zoom` columns a beat,
+--- with the closed time folds of a window (the one a view shows by
+--- default). Each folded span takes the columns of its label and two more.
+---@param zoom any
+---@param win any
+function paw.folds.time_map(zoom, win) end
+
+--- The closed time folds of a window (the one a view shows by default),
+--- in order of time: the outermost of folds inside each other, and folds
+--- that overlap as one. A fold that holds all the time of the window's
+--- scope is open there.
+---@param win any
+function paw.folds.time_spans(win) end
+
+--- Toggle the fold at a track (the cursor's by default), as `za`.
+--- Returns it, or nil and the reason.
+---@param id any
+---@param win any
+function paw.folds.toggle(id, win) end
 
 --- Write the project with the format of a file. Says what it did.
 ---@param path any
@@ -3519,12 +3672,14 @@ function paw.groups.depth(track) end
 ---@param group any
 function paw.groups.dissolve(group) end
 
---- Fold a group away, or open it: `on` nil flips it.
+--- Fold a group away, or open it, in the current window: `on` nil flips
+--- it. View state: no undo step (paw/folds.tl).
 ---@param group any
 ---@param on any
 function paw.groups.fold(group, on) end
 
---- True if the tracks of a group are folded and hidden.
+--- True if the tracks of a group are folded and hidden, in the window a
+--- view shows (paw/folds.tl).
 ---@param group any
 function paw.groups.folded(group) end
 
@@ -3575,8 +3730,8 @@ function paw.groups.of(track) end
 ---@param stay any
 function paw.groups.remove(track, stay) end
 
---- The tracks that are drawn, in order: all but those folded away, and in
---- a narrowed tab only those of its scope (`paw.scope`). Rows of the
+--- The tracks that are drawn, in order: all but those folded away in the
+--- window (`paw.folds`), and in a scope only those of the scope (`paw.scope`). Rows of the
 --- arrange view and of a graphical frontend are places in this list.
 --- With `{ lanes = true }`, every row: `{ track = id }` for a track and
 --- `{ track = id, lane = id }` for an automation lane shown under it
@@ -6711,7 +6866,9 @@ function paw.roles.begin(name, win) end
 --- necessary, because the terminal comes first. `spec.props` names its
 --- props and their contents, for documentation and `paw.ui.roles`.
 --- `spec.bound` is the props that a frontend takes from the live value when
---- the mark is bound to one. paw does not send these props.
+--- the mark is bound to one. paw does not send these props. `spec.stamp(buf,
+--- props)`, a text of what `cells` shows, lets a bound mark keep its cells
+--- between whole frames while it does not change.
 ---@param name any
 ---@param spec any
 function paw.roles.define(name, spec) end
@@ -7224,12 +7381,14 @@ function paw.ruler.add(name, spec) end
 function paw.ruler.add_lane(name, spec) end
 
 --- Draw the lanes on `buf`, the rows under the bar numbers, one under the
---- other. `x` is the column of a beat; `scroll` and `span` the beats in sight.
+--- other. `x` is the column of a beat; `scroll` and `span` the beats in
+--- sight; `folds` the view's closed time folds (paw/folds.tl), if any.
 ---@param buf any
 ---@param x any
 ---@param scroll any
 ---@param span any
-function paw.ruler.draw_lanes(buf, x, scroll, span) end
+---@param folds any
+function paw.ruler.draw_lanes(buf, x, scroll, span, folds) end
 
 --- The pieces of bar `bar`'s label, from the parts in `paw.opt.barlabel`
 --- in their order. `bar` is the song's bar: in a scope with time, its
@@ -7314,8 +7473,10 @@ function paw.scene.watchers() end
 function paw.scope.apply(s) end
 
 --- The scope that `znn` enters at the cursor: the innermost not entered
---- yet. A subproject's clip at the cursor; in a region scope, the region
---- one level inside it at the cursor; else the group at the cursor (its
+--- yet. On a closed time fold (paw/folds.tl), its region or its bars; a
+--- subproject's clip at the cursor; in a region scope, the region one
+--- level inside it at the cursor; else the closed fold of tracks whose row
+--- the cursor is on (paw/folds.tl), else the group at the cursor (its
 --- header or one of its tracks), else the track. Nil when the window shows
 --- that track already.
 function paw.scope.at_cursor() end
@@ -7384,6 +7545,11 @@ function paw.scope.group_at(track) end
 
 --- The parts of the rest the engine plays from files now.
 function paw.scope.held() end
+
+--- The window whose scope and folds an action changes: the one given,
+--- else the current one; its stack's keeper.
+---@param win any
+function paw.scope.holder(win) end
 
 --- True if a scope, or one of the levels above it, limits the tracks.
 ---@param s any
@@ -7513,6 +7679,12 @@ function paw.scope.tracks(s) end
 ---@param top any
 ---@param win any
 function paw.scope.widen(top, win) end
+
+--- The window whose scope and folds a view shows: the one given, else
+--- the one being drawn, else the current one; for a view that keeps no
+--- stack of its own (the mixer), the arrange window of its tab.
+---@param win any
+function paw.scope.window(win) end
 
 --- Let go of a reason for `id`'s seat (or of all of them, with none): the
 --- seat closes with its last one.
@@ -7751,6 +7923,16 @@ function paw.statusline.segments(width, which, extra) end
 --- sections it names, `views` and the other bars likewise.
 ---@param opts any
 function paw.statusline.setup(opts) end
+
+--- A text of what the line for `width` columns is drawn from, between two
+--- whole frames: `moves` (or else `key`) of each component that is not
+--- `still`. Nil when a component shown has none of them (it may change at
+--- any time). Between whole frames, the screen draws the line again only
+--- when this text changes.
+---@param width any
+---@param which any
+---@param extra any
+function paw.statusline.stamp(width, which, extra) end
 
 --- What the tab line holds at its right end, as pieces, for `width` columns.
 ---@param width any
@@ -8726,13 +8908,21 @@ function paw.ui.input(opts, on_submit) end
 function paw.ui.layer(view, part, name, order, paint) end
 
 --- Draw a live part on `buf`: `draw(buf)` draws it, now and each time it
---- is drawn again by itself.
+--- is drawn again by itself. With `stamp`, a function that gives a text of
+--- the values the part is drawn from (nil: unknown), the part is drawn
+--- again only when that text changes; its cells stay as they were drawn.
 ---@param buf any
 ---@param draw_part any
-function paw.ui.live(buf, draw_part) end
+---@param stamp any
+function paw.ui.live(buf, draw_part, stamp) end
 
 --- True if a live part drawn now is one of the terminal's screen.
 function paw.ui.live_drawing() end
+
+--- A text of the live value `bind` now (`position` or `meter:<id>`), to
+--- tell whether a part bound to it changed: nil for any other value.
+---@param bind any
+function paw.ui.live_stamp(bind) end
 
 --- While a live part is drawn again: set the props of a mark bound to
 --- `bind` (`position`, `meter:<id>`, or a value that a view's
@@ -9662,6 +9852,11 @@ function paw.api.engine_held() end
 ---@param file string?
 function paw.api.engine_hold(track, file) end
 
+--- What changes of the engine by itself, as `engine_get` gives it but
+--- without a table, for what is read on each frame: `cpu`, `xruns`
+--- and `block`.
+function paw.api.engine_load() end
+
 --- Controls of MIDI input that tracks do not get: they neither sound
 --- nor record. Scripts still hear them, as `midi.in` events with
 --- `filtered = true`. Each `name` (`"step"`, `"learn"`) keeps its own
@@ -9805,12 +10000,24 @@ function paw.api.grid_live_begin(x, y, w, h, cx, cy, cw, ch) end
 ---@param index integer
 function paw.api.grid_live_end(index) end
 
+--- While the live parts are drawn again: the part `index` of the frame
+--- drawn last did not change, so its cells come back as they were, in
+--- place of a `grid_live_begin` and `grid_live_end`. Returns its number,
+--- or nil when it must be drawn (a part before it changed what is
+--- under it).
+---@param index integer
+function paw.api.grid_live_keep(index) end
+
 --- Take the live parts off the frame drawn last, to draw them again.
 --- Returns how many there were.
 function paw.api.grid_live_restore() end
 
 --- The frame is drawn: what is over the live parts now stays over them.
 function paw.api.grid_live_seal() end
+
+--- In place of drawing the live parts again: none of them changed, so
+--- the frame drawn last stays as it is, and nothing is sent.
+function paw.api.grid_live_still() end
 
 --- Put the cells kept under `key` back, if they were kept from the
 --- same area: true when they were. Nothing is drawn else.
@@ -10722,6 +10929,11 @@ function paw.api.track_set(id, key, value) end
 function paw.api.transport_get() end
 
 function paw.api.transport_play() end
+
+--- What moves of the transport by itself, as `transport_get` gives it
+--- but without a table, for what is read on each frame: `playing`,
+--- `position`, `counting` and `take` (nil while nothing records).
+function paw.api.transport_playhead() end
 
 function paw.api.transport_record() end
 

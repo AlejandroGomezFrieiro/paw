@@ -39,6 +39,74 @@ it reads the field once for each kind of node, the `paw.ex` item of a
 node stays in the node, and the loops over the notes use numbers, not
 `ipairs`.
 
+## 2026-11-22: a move key in the piano roll (TASK-113)
+
+`j` in the piano roll plays the pitch, and the meters then fall for
+1.5 s. paw ticks at `paw.opt.fps` (60) for that time: about 89 live
+frames for each key, of which 32 change a cell. Before the change, each
+tick drew all live parts again: the status line (all components), the
+two playheads (3 000 and 4 600 cells) and the meters. `l` in the roll
+plays nothing and costs 4 to 10 ms.
+
+The change: a live part has a stamp, a text of what it is drawn from
+(the bound value, or what a meter role shows, or the components of the
+status line that move by themselves). A live frame keeps the parts whose
+stamp did not change, and the whole frame when no stamp changed. The
+reads of each frame use `transport_playhead` and `engine_load` (no
+table), and `only_live` binds a window only when that changes. After
+the change, 54 of the 89 ticks keep the frame, and only the meter that
+moved is drawn on the others.
+
+Kernel processor time of one `j` in the roll, the 2 s after the key
+(5 presses a run, median of each run), main (964f160c, with TASK-15)
+and the branch in turns, 5 pairs, load average 29 to 53, measured
+under external load:
+
+| Build | Median of the runs | Smallest | Largest |
+| --- | ---: | ---: | ---: |
+| main | 80.4 ms | 56.2 ms | 104.3 ms |
+| branch | 48.3 ms | 36.1 ms | 54.9 ms |
+
+The branch is lower in each pair (0.46 to 0.69 of main). The `keys`
+scenario against the base before TASK-15 (cf15cd12), 5 pairs, load 10
+to 34: `j in roll` 85.0 ms (68.1 to 117.1) before, 44.2 ms (34.8 to
+51.6) after. Against main with TASK-15, at load 6 to 60, the `keys`
+scenario shows no measurable difference: 54.5 ms (45.2 to 89.8) and
+55.2 ms (30.2 to 61.1).
+
+What was left then, per `j` in the roll (about 45 ms at load 30): about
+89 ticks of about 0.25 ms each (the timer, the kernel loop and its system
+calls, `only_live`, the stamps), and the whole frame after the key.
+
+### Frames until the meters rest, at the full rate
+
+A played note now keeps the live frames going until the meters that it
+lit are at rest (below -60 dB). Before, the frames ended with the poke,
+1.5 s after the note, while the meter still showed a level: the meter
+falls with a time constant of 0.3 s and needs about 2.1 s. The last
+frame then showed a lit cell until the next whole frame.
+
+A rule of 20 frames a second while only meters fall was built and
+measured (`j` in the roll 19.0 ms against 51.6 ms on main), then taken
+out: the owner keeps `paw.opt.fps` as an upper limit only, and a frame
+comes only when something that it shows changed. The cost that is left
+is the falling meters at the full rate, and the owner accepts it.
+
+Kernel processor time of one `j` in the roll, the 2 s after the key
+(5 presses a run, median of each run), main (da45a4a0) and the branch
+in turns, 5 pairs, load average 14 to 23, measured under external load:
+
+| Build | Median of the runs | Smallest | Largest |
+| --- | ---: | ---: | ---: |
+| main | 53.1 ms | 52.5 ms | 86.4 ms |
+| branch | 38.1 ms | 35.9 ms | 48.5 ms |
+
+The branch is lower in each pair. `j` in the arrange view costs 5 to
+12 ms, so `j` in the roll stays at 3 to 7 times its cost, and 'drawing
+the screen' (budget 5 ms, wall time) still names the whole frame after
+`j in roll`: 55 % of that frame is the arrange view above the roll,
+which is drawn whole although only the roll changed.
+
 ## 2026-11-22: the chord reading on the graph of derived data
 
 The chord reading is now nodes of `paw.derived` (backlog design

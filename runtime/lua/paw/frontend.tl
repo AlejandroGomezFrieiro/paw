@@ -21,6 +21,7 @@ local type DrawModule = require("paw.draw")
 local type EditModule = require("paw.edit")
 local type ExModule = require("paw.ex")
 local type GroupsModule = require("paw.groups")
+local type FoldsModule = require("paw.folds")
 local type LanesModule = require("paw.lanes")
 local type MarkersModule = require("paw.markers")
 local type MediaModule = require("paw.media")
@@ -813,6 +814,7 @@ local record Paw
   draw: DrawModule
   edit: EditModule
   groups: GroupsModule
+  folds: FoldsModule
   lanes: LanesModule
   markers: MarkersModule
   media: MediaModule
@@ -3855,9 +3857,10 @@ function A.sweep_flag(row0: integer, row1: integer, flag: string, on: boolean)
   end
 end
 
---- Fold a group away or open it: a click on its triangle.
+--- Fold a group or a fold of tracks away, or open it: a click on its
+--- triangle. View state of the window (paw/folds.tl).
 function A.fold(track: integer)
-  paw.groups.fold(track)
+  paw.folds.toggle(track)
 end
 
 -- Notes, in the clips the piano roll has open. A gesture names a note by

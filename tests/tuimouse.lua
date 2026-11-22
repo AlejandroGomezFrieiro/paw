@@ -115,6 +115,21 @@ test("a click on an empty lane puts the cursor on that track at that beat and le
   eq(paw.ui.focused, "arrange", "the arrange view has the keyboard")
 end)
 
+test("a click two bars after a time fold puts the cursor on the beat drawn there", function()
+  local _, b = two_tracks()
+  T.after(function() paw.folds.clear() end)
+  paw.folds.make({ kind = "range", from = 4, to = 20 })
+  shot()
+  -- The fold's column, then bars 6 and 7 of the song (beats 20 to 28).
+  local after = arrange.geometry.hw + arrange:col(20)
+  eq(after < x_of(20), true, "the bars after the fold are drawn further left")
+  click(after + 8 * arrange.geometry.zoom, row_y(b.id) + 1)
+  eq(paw.cursor.beat, 28, "two bars after the fold: beat 28")
+  apart()
+  click(arrange.geometry.hw + arrange:col(4) + 1, row_y(b.id) + 1)
+  eq(paw.cursor.beat, 4, "a click on the fold's column: its start")
+end)
+
 test("a click on a clip chooses it, Ctrl and a click adds another, Shift takes in those between", function()
   local a = two_tracks()
   a:add_clip({ name = "z", start = 16, length = 4 })

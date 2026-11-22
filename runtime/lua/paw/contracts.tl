@@ -462,6 +462,10 @@ local record contracts
     live_roles: {string}
     still: boolean
     live_part: boolean
+    --- For a `live_part` view: a text of what it is drawn from now, for a
+    --- buffer `width` cells wide. The part is drawn again only when the
+    --- text changes; nil draws it again on each frame of what moves.
+    live_stamp: function(self: View, width: integer): string
     live_values: function(): LiveValues
     moving: function(self: View): boolean
     redraw_every: number
@@ -569,11 +573,27 @@ local record contracts
     parent: Scope
   end
 
+  --- A fold of a window (paw/folds.tl): a scope drawn in place, as one
+  --- row ("group", "tracks") or one column ("region", "range"). `closed`
+  --- says whether it is folded now; nil for a region means that the
+  --- window's `foldlevel` decides. View state: never in the project.
+  record Fold
+    kind: ScopeKind
+    id: integer
+    tracks: {integer}
+    from: number
+    to: number
+    name: string
+    closed: boolean
+  end
+
   --- A window of the layout (paw/layout.tl): its id, the view or buffer
   --- type it shows, its buffer, its options and its own state. An
   --- interface: a window of the layout is a node of a tab's tree too
   --- (`paw.layout.Node`). `scope` is the part of the song it shows, the
-  --- innermost level of its stack (nil: the whole song).
+  --- innermost level of its stack (nil: the whole song). `folds` are its
+  --- folds (paw/folds.tl), and `foldlevel` how many levels of regions
+  --- stay open (nil: all of them).
   interface Window
     id: integer
     view: string
@@ -582,6 +602,8 @@ local record contracts
     opts: {string: string | number | boolean}
     state: {string: string | number | boolean}
     scope: Scope
+    folds: {Fold}
+    foldlevel: integer
   end
 
   --- A buffer (paw/layout.tl): its number, its name, its type, the
@@ -864,6 +886,13 @@ local record contracts
   --- narrowest screen it shows on, `rank` how late it goes when the line
   --- is too long (0 never). With `key(ctx)`, it runs again only when that
   --- changes. With `shrink`, its text is cut before any component goes.
+  --- Between whole frames, while only what moves is drawn again (the
+  --- meters, the playhead), the line is drawn again only when a component
+  --- may have changed: `still` says it changes only when the screen is
+  --- drawn whole (after a key, an edit or `paw.api.ui_redraw`), and
+  --- `moves(ctx)` gives a text of what it changes with by itself (the
+  --- playhead's position). Without either, its `key` is used, and with
+  --- none of the three the line is drawn again on each such frame.
   record StatusComponent
     name: string
     fn: function(ctx?: StatusContext): StatusText
@@ -871,10 +900,12 @@ local record contracts
     rank: integer
     style: string
     key: function(ctx?: StatusContext): string | number
+    moves: function(ctx?: StatusContext): string | number
     cond: function(ctx?: StatusContext): boolean
     fmt: function(text: string): string
     pill: boolean
     shrink: boolean
+    still: boolean
   end
 
   -- The track column and the ruler's bar labels --------------------------------
@@ -1009,13 +1040,17 @@ local record contracts
   --- What a lane of the ruler draws on (`paw.ruler.add_lane`): `buf` its
   --- rows under the bar numbers (`rows` of them), `x` the column of a beat,
   --- `scroll` and `span` the beats in sight, `glyphs` and `styles` the
-  --- lane's own.
+  --- lane's own. With time folds (paw/folds.tl), `folded(beat)` is true for
+  --- a beat inside a folded span, after its start, and `closed(id)` for a
+  --- region that is folded into its column.
   record RulerLaneContext
     buf: Buf
     rows: integer
     x: function(beat: number): integer
     scroll: number
     span: number
+    folded: function(beat: number): boolean
+    closed: function(region: integer): boolean
     glyphs: {string: string}
     styles: {string: string}
   end
@@ -1595,9 +1630,14 @@ local record contracts
   --- cells, as the terminal comes first. `props` names its props and
   --- their contents, for documentation. `bound` is the props that a
   --- frontend takes from the live value of a bound mark. `P` is the
-  --- record of its props.
+  --- record of its props. `stamp(buf, props)` gives a text of what `cells`
+  --- shows for these props in `buf`: a bound mark is drawn again between
+  --- whole frames only when it changes (a meter that falls by less than a
+  --- cell keeps its cells). Without it, any change of the bound value
+  --- draws the mark again.
   record Role<P is MarkProps>
     cells: function(buf: Buf, props: P, ctx?: RoleContext)
+    stamp: function(buf: Buf, props: P): string
     props: {string: string}
     bound: {string}
     ext: string

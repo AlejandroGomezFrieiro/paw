@@ -266,7 +266,7 @@ function M.track(id: integer): {Entry}
     {
       label = groups.folded(id) and "Open the group" or "Fold the group away",
       enabled = is_group or depth > 0,
-      run = run("track.fold"),
+      run = run("fold.toggle"),
     },
     {label = "New VCA with this track…", enabled = not vca.is_vca(id), run = run("vca.make")},
     {label = "Put under a VCA…", enabled = not vca.is_vca(id), run = run("vca.assign")},

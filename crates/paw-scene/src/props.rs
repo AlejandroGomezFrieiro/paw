@@ -136,7 +136,9 @@ pub struct ParamProps<'a> {
 
 /// The playhead at beat `at`: in a view whose columns are `per` cells a
 /// beat from beat `from`, shown from `lo` to `hi`; or along `segments` of
-/// time, `{ from, to, x0, x1, top, bottom }` each, in points.
+/// time, `{ from, to, x0, x1, top, bottom }` each, in points. With
+/// `jumps`, the view has time folds, and `from` is a place in its beats
+/// (see [`PlayheadProps::view_beat`]).
 #[derive(Debug, Default, Deserialize)]
 #[serde(default)]
 pub struct PlayheadProps {
@@ -146,6 +148,34 @@ pub struct PlayheadProps {
     pub lo: Option<f64>,
     pub hi: Option<f64>,
     pub segments: Option<Vec<Vec<f64>>>,
+    /// @type {{number, number, number}}
+    pub jumps: Vec<Jump>,
+}
+
+/// A time fold of a view, `[from, to, width]`: the song's beats `from` to
+/// `to`, drawn as one column `width` beats of the view wide.
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+pub struct Jump(pub f64, pub f64, pub f64);
+
+impl PlayheadProps {
+    /// Where the song's beat `at` is in the beats of the view: each fold
+    /// before it takes only its width, and a beat inside a fold is at the
+    /// start of its column, so the playhead waits there while the song
+    /// plays through it.
+    #[must_use]
+    pub fn view_beat(&self, at: f64) -> f64 {
+        let mut cut = 0.0;
+        for &Jump(from, to, width) in &self.jumps {
+            if at <= from {
+                break;
+            }
+            if at < to {
+                return from - cut;
+            }
+            cut += to - from - width;
+        }
+        at - cut
+    }
 }
 
 /// Level meters, `levels` a linear peak for each column; `hold` the
@@ -365,5 +395,13 @@ mod tests {
         let keys = json!({ "labels": [[60, "kick", "Style"]] });
         let labels = parse::<KeyboardProps>(&keys).labels;
         assert_eq!(labels, vec![KeyName { pitch: 60, name: "kick" }], "the cells' style is left alone");
+    }
+
+    #[test]
+    fn the_playhead_waits_on_a_time_fold_and_goes_on_after_it() {
+        // Beats 8 to 40 folded into a column 2 beats wide.
+        let p: PlayheadProps = parse(&json!({ "jumps": [[8, 40, 2]] }));
+        let at = |beat: f64| p.view_beat(beat);
+        assert_eq!((at(4.0), at(8.0), at(20.0), at(40.0), at(44.0)), (4.0, 8.0, 8.0, 10.0, 14.0));
     }
 }

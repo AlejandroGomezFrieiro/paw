@@ -15,9 +15,14 @@ local menus = require("paw.mouse_menus")
 local view = paw.ui.views.arrange
 local A = paw.frontend.act
 
-local function col(self, beat) return math.floor((beat - self.scroll) * self.geometry.zoom + 0.5) end
-local function beat_at(self, tx) return mouse.beat(tx, self.scroll, self.geometry.zoom) end
-local function grid_at(self, tx) return mouse.on_grid(tx, self.scroll, self.geometry.zoom, paw.opt.grid) end
+-- Columns and beats through the view's map, which has its time folds
+-- (paw/views/arrange.lua `view:col`, `view:beat`).
+local function col(self, beat) return self:col(beat) end
+local function beat_at(self, tx) return self:beat(tx) end
+local function grid_at(self, tx)
+  local grid = paw.opt.grid
+  return math.floor(self:beat(tx) / grid + 1e-6) * grid
+end
 local function cells(self, d) return d / self.geometry.zoom end
 
 --- The beats from a press at column `x0` to the pointer at `x1` of the
@@ -42,10 +47,12 @@ end
 local function clip_at(self, row, tx, dy, fine)
   local zoom = self.geometry.zoom
   local found, part, index
+  -- A time fold's column holds no clip.
+  if self:fold_at(tx) then return nil end
   for _, c in ipairs(api.clip_list(row.id)) do
     local x0, cw
     if fine then
-      x0, cw = (c.start - self.scroll) * zoom, math.max(1, c.length * zoom)
+      x0, cw = self:x(c.start), math.max(1, self:x(c.start + c.length) - self:x(c.start))
     else
       x0 = col(self, c.start)
       cw = math.max(1, col(self, c.start + c.length) - x0)
@@ -91,7 +98,7 @@ end
 --- The tempo and signature flags on the ruler, where they are drawn.
 local function ruler_marks(self)
   local out, mark_end = {}, -1
-  for _, mark in ipairs(paw.tempo.marks(self.scroll, self.scroll + self.geometry.span)) do
+  for _, mark in ipairs(paw.tempo.marks(self.scroll, self:beat(self.geometry.layout.tw))) do
     local x = col(self, mark.beat)
     if paw.tempo.is_bar_line(mark.beat) then x = x + #tostring(paw.time.bar_of(mark.beat)) end
     x = math.max(x, mark_end)
@@ -203,7 +210,7 @@ end
 --- window paints where the pointer is, between cells.
 local function ghost(self, row, start, length, text)
   if not self.plane then return end
-  self.plane:mark("clip", start, row.y, length, row.h, {
+  self.plane:mark("clip", self:v(start), row.y, length, row.h, {
     ghost = true,
     name = text,
     color = paw.draw.track_colour(api.track_get(row.id), row.index),
@@ -249,7 +256,7 @@ local function redrawn(self, row, c, change)
   for k, v in pairs(change) do
     props[k] = v
   end
-  self.plane:mark("clip", c.start, row.y, c.length, row.h, props)
+  self.plane:mark("clip", self:v(c.start), row.y, c.length, row.h, props)
 end
 
 --- An audio clip's fade handle dragged: the fade ends where it is let go.
@@ -622,7 +629,7 @@ local function press_lane(self, e, h, top, rows, o)
   for i, p in ipairs(points) do
     local near
     if fine then
-      local x, y = (p[1] - self.scroll) * self.geometry.zoom, top + (1 - p[2]) * rows
+      local x, y = self:x(p[1]), top + (1 - p[2]) * rows
       near = math.abs(x - tx) <= 0.7 and math.abs(y - e.y) <= 0.6
     else
       local line = p[2] >= 0.5 and top or top + rows - 1
