@@ -109,6 +109,7 @@ local paw = (_G as {string:Paw}).paw
 | Pitfall | Do |
 |---|---|
 | Teal's code calls the Lua 5.3 library (`math.type` for `is integer`, `bit32` for `&` `\|` `~` `<<` `>>`) | it is there: paw loads lua-compat-5.3 at boot (`runtime/lua/paw/compat.tl`), with `math.type`/`tointeger`, `table.unpack`/`pack`/`move`, `utf8`, `bit32`, `__pairs`. Not there: `string.pack` (use `ffi`), a zero byte in a pattern (write `%z`). `os.execute` gives `true`/`nil`, not `0` |
+| `ipairs(proxy)` where `proxy` has the items in `__index` | `ipairs` is LuaJIT's own, so it sees only raw items: use a `for i = 1, n` loop |
 | `ipairs(f())` where `f` returns two values | store the list first: `local list = f()` |
 | A contract method must take every parameter of the contract | declare unused ones; contracts make context parameters optional |
 | `paw.lang.check` reports unused locals as errors (`tl check` does not) | remove or use them |
