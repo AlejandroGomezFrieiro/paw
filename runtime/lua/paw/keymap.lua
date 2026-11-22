@@ -97,6 +97,7 @@ function M.expand(lhs)
 end
 
 --- Split `gg<C-x>` into { "g", "g", "<C-x>" }, and expand `<leader>` and `<localleader>`.
+--- @type function(lhs: string): {string}
 function M.parse(lhs)
   local keys = {}
   local expanded = M.expand(lhs)
@@ -1410,6 +1411,15 @@ function M.repeat_last(n)
   local ok, err = pcall(replay, keys)
   replaying = false
   if not ok then error(err, 0) end
+end
+
+--- Make `.` repeat `keys` (a list of keys), not the keys typed for the
+--- command that runs now. `:adjust` does it, so that `.` does the adjusted
+--- command again.
+--- @type function(keys: {string})
+function M.repeat_as(keys)
+  last_change = keys
+  track.norepeat = true
 end
 
 --- Start recording keys into a register, or stop with no name.

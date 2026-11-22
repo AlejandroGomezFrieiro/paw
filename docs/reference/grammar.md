@@ -68,6 +68,8 @@ A text object names a part of the project.
 | `it` | everything on the track | |
 | `ie` | the entire project | every note of the clip |
 
+In a window narrowed to a scope ([Scopes](narrowing.md)), the text objects take only what the scope shows. `ie` is the entire scope, its tracks in its time. `ar` is the region on the tracks of the scope, cut at the edges of its time, and `ir` and `it` are cut there too. So in `Song › Bridge › Strings`, `dar` deletes the clips of the strings in the region, and the other tracks keep theirs.
+
 In visual mode, the same text object again takes in one more, as `iw` does in Vim, so `vic` and then `ic` selects this chord and the next.
 
 ### Objects of the piano roll

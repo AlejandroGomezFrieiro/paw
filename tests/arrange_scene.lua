@@ -154,6 +154,21 @@ test(
   end
 )
 
+test("in a scope a clip across its edges is in the scene with the cuts, for a window to draw ‹ and ›", function()
+  local a, b, riff = song()
+  T.after(function() paw.scope.widen(true) end)
+  paw.scope.enter({ kind = "range", tracks = { a.id, b.id }, from = 5, to = 7 })
+  local props
+  for _, n in ipairs(nodes_of("clip")) do
+    if n.props.id == riff.id then props = n.props end
+  end
+  eq(
+    props.cut_in .. " " .. props.cut_out .. " " .. props.length,
+    "1 3 4",
+    "cut at beats 1 and 3 of the clip, all of it there"
+  )
+end)
+
 test(
   "in a window a clip dragged by fractions of a cell moves on the grid by the beats it went, and to another track",
   function()
