@@ -1,6 +1,6 @@
 ---
 name: teal
-description: Write, port or review Teal code in paw (Lua with types, compiled to Lua 5.1 for LuaJIT) and keep its conventions: no `any`, typed contracts, generated declarations, the any allow-list, the pitfalls the ports found. Use whenever a task creates or changes a `.tl` file, ports a Lua module of runtime/ or extensions/ to Teal, writes an extension in Teal, touches tools/apidoc.lua's Teal output, runtime/lua/paw/types.tl or contracts.tl, runtime/types/, tlconfig.lua or any-allowed.txt, or meets a Teal type error — even if it only says "port this file", "add types", "why does tl check fail".
+description: 'Write, port or review Teal code in paw (Lua with types, compiled to Lua 5.1 for LuaJIT) and keep its conventions: no `any`, typed contracts, generated declarations, the any allow-list, the pitfalls the ports found. Use whenever a task creates or changes a `.tl` file, ports a Lua module of runtime/ or extensions/ to Teal, writes an extension in Teal, touches tools/apidoc.lua''s Teal output, runtime/lua/paw/types.tl or contracts.tl, runtime/types/, tlconfig.lua or any-allowed.txt, or meets a Teal type error — even if it only says "port this file", "add types", "why does tl check fail".'
 ---
 
 # Teal in paw
