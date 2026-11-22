@@ -96,26 +96,51 @@ fn check(keys: &str, expected: &[Event]) {
   `undo_of_a_split_gives_one_clip`, not `split_2`. The body has three
   parts in this order: arrange, act, assert.
 
-## 5. Golden files with `insta` (planned, TASK-155)
+## 5. Golden files with `insta`
 
 Use a golden file for a text output that is longer than about five
-lines. Examples: a scene, a protocol message, a project folder, a `.midi2` clip,
-the undo file.
+lines. `insta` is a dev-dependency of the workspace (features `json`
+and `filters`). These golden files exist, and a new one follows them:
+
+| Format | Test | Crate |
+| --- | --- | --- |
+| A scene, one node of each kind, as the wire has it | `a_new_window_sends_each_kind_of_node_as_the_golden_file_has_it` | `paw-scene` |
+| The client's side of the control protocol, with a kernel in memory | `the_client_speaks_the_protocol_as_the_golden_file_has_it` | `paw-proto` |
+| A `.midi2` clip: its text and its packets | `a_clip_file_has_the_packets_of_the_golden_file` | `paw-core` (`clipfile.rs`) |
+| A project folder on the disk | `a_project_folder_has_the_files_of_the_golden_file` | `paw-core` (`session/folder.rs`) |
+| The undo folder | `an_undo_folder_has_the_files_of_the_golden_file` | `paw-core` (`undofile.rs`) |
 
 - Use the most specific macro: `assert_snapshot!` for text,
   `assert_debug_snapshot!` for a `Debug` value, `assert_json_snapshot!`
-  for a value that `serde` writes.
+  for a value that `serde` writes. Write a small function that puts
+  one node, packet or message on each line of the text, for the diff.
 - An inline snapshot (`assert_snapshot!(x, @"...")`) is for short
   output. A file in `snapshots/` next to the test is for long output.
-- Hide each value that changes from run to run: ids, paths, times
-  (`insta::with_settings!` with `filters`, or the redact settings of
-  `assert_json_snapshot!`).
-- To accept a change, run `cargo insta review` and read each diff. Name
-  the accepted snapshots in the commit message. A review of the diff is
-  the test. Never accept with `INSTA_FORCE_PASS` or with a blind
+- A folder on the disk: write it under a `TempDir`, and snapshot
+  `crate::golden::folder_text(dir)` (`paw-core`, test builds only). It
+  gives each file with its path in the folder, and a `.midi2` clip as
+  `paw clip cat` shows it.
+- Hide each value that changes from run to run: paths, times, ids from
+  a counter or a random source. Use `insta::Settings` with `add_filter`.
+  `crate::golden::settings(dir)` replaces the path of `dir` with `[dir]`
+  and shortens each BLAKE3 hash to eight digits:
+
+```rust
+crate::golden::settings(dir.path()).bind(|| {
+    insta::assert_snapshot!(crate::golden::folder_text(dir.path()));
+});
+```
+
+- A value that the test gives (a fixed nonce, a fixed time) need not be
+  hidden. Give the code such a value as an argument, and do not read the
+  clock in the test.
+- To make or accept snapshots, run `cargo insta test -p <crate>` and
+  then `cargo insta review`, and read each diff. Name the accepted
+  snapshots in the commit message. A review of the diff is the test.
+  Never accept with `INSTA_FORCE_PASS` or with a blind
   `cargo insta accept`.
-- CI sets `INSTA_UPDATE=no`, so a new or changed snapshot that is not
-  committed fails.
+- The flake's `tests` check sets `INSTA_UPDATE=no`, so a new or changed
+  snapshot that is not committed fails.
 
 ## 6. Property tests with `proptest` (planned, TASK-156)
 
@@ -340,7 +365,8 @@ cargo nextest run -p <crate>                  # the edit loop: one crate
 cargo nextest run -p <crate> -E 'test(word)'  # some tests
 cargo test --doc -p <crate>                   # doc tests
 cargo nextest run --workspace --profile gate  # before a push
-cargo insta review                            # planned: read and accept snapshots
+cargo insta test -p <crate>                   # run the tests, keep new snapshots as .snap.new
+cargo insta review                            # read and accept snapshots
 ```
 
 ## 16. Before you commit

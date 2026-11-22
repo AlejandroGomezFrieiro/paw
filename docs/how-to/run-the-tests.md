@@ -78,6 +78,10 @@ the limit a few times the target.
 1. Run `cargo test`, which also runs the Lua suite once, from
    `crates/paw-tui/tests/suite.rs`.
 2. To test one crate, run `cargo test -p <crate>`.
+3. If a test of a file format fails because its output changed, run
+   `cargo insta review`. It shows the difference from the saved file in
+   a `snapshots/` folder. Accept the change only when the new output is
+   correct, and commit the changed file with the code.
 
 ## Run the end-to-end scenarios
 
@@ -164,7 +168,8 @@ checks that the API reference and the course agree with their sources.
 Run `nix flake check`, which builds paw and runs the following checks:
 
 - The Rust tests that need no display, audio device or Lua suite, with
-  cargo-nextest. They must pass.
+  cargo-nextest. They must pass, and a test fails when its output is not
+  the same as the saved file in a `snapshots/` folder.
 - Clippy and rustfmt, which report what they find and do not fail.
 - Vale on the documentation, which fails on an error.
 - The checks of the Lua and Teal code, which fail on a problem: the types

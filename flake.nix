@@ -149,6 +149,9 @@
                 fileset = lib.fileset.unions [ cargoFiles ./tests/fixtures ./docs ];
               };
               cargoNextestExtraArgs = "--workspace -E 'not (package(paw-gui) | binary(suite) | binary(remote) | binary(safety))'";
+              # A snapshot (insta) that is new or changed and not committed
+              # fails, and the check writes no `.snap.new` file.
+              INSTA_UPDATE = "no";
               doInstallCargoArtifacts = false;
             });
           };
@@ -417,8 +420,9 @@
       devShells = forAll (pkgs: {
         default = pkgs.mkShell {
           # xmllint checks the DAWproject files of extensions/interop against the
-          # format's XML schema.
-          nativeBuildInputs = with pkgs; [ cargo rustc clippy rustfmt rust-analyzer pkg-config rustPlatform.bindgenHook ffmpeg-headless sccache cargo-sweep cargo-nextest (lib.getBin libxml2) ]
+          # format's XML schema. cargo-insta reviews and accepts the Rust
+          # snapshots (the version of insta in Cargo.lock).
+          nativeBuildInputs = with pkgs; [ cargo rustc clippy rustfmt rust-analyzer pkg-config rustPlatform.bindgenHook ffmpeg-headless sccache cargo-sweep cargo-nextest cargo-insta (lib.getBin libxml2) ]
             ++ pkgs.lib.optional pkgs.stdenv.isLinux pkgs.mold-wrapped;
           # Every git worktree has a `target/` of its own, and cargo shares
           # nothing between them: each one compiles the same four hundred

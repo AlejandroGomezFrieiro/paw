@@ -13,6 +13,8 @@ pub mod events;
 pub mod ext_api;
 pub mod audio;
 pub mod freeze;
+#[cfg(test)]
+mod golden;
 pub mod fs_api;
 pub mod grid;
 pub mod history;

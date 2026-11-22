@@ -136,6 +136,12 @@ the owner's computer or folders. Mock what it needs.
   show the behavior.
 - `tests/scene_parity.lua` checks that the window and the terminal draw
   one view the same. Keep a new view in it.
+- The text formats have golden files in Rust (`insta`, see the skill
+  `rust-testing`, part 5): the scene on the wire, the control protocol,
+  the project folder, the `.midi2` clip and the undo folder. A Lua test
+  does not check these formats field by field. When a change of Lua
+  changes one of them, run `cargo insta test -p <crate>` and
+  `cargo insta review`, and commit the accepted files.
 
 ## 8. No time and no speed
 

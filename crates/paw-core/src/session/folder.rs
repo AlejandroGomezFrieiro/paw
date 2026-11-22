@@ -1955,6 +1955,30 @@ mod tests {
         read(dir).err().expect("the data file is not JSON")
     }
 
+    /// The demo song of tests/fixtures.
+    fn demo() -> Project {
+        let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/demo-song.json");
+        let file: Value = serde_json::from_slice(&std::fs::read(fixture).unwrap()).unwrap();
+        serde_json::from_value(file["project"].clone()).unwrap()
+    }
+
+    #[test]
+    fn a_project_folder_has_the_files_of_the_golden_file() {
+        // Two tracks of the demo song: a synth with a clip, a lane of
+        // automation and a send, and the effect track that the send feeds.
+        let mut song = demo();
+        song.tracks.retain(|t| matches!(t.name.as_str(), "Lead" | "Reverb"));
+        song.meta.insert("composer".into(), json!("paw"));
+        let transport = serde_json::to_value(crate::session::Transport::default()).unwrap();
+        let screen = json!({ "tabs": [{ "view": "arrange" }] });
+        let dir = tempfile::tempdir().unwrap();
+        let layout = layout(&song, &transport, Some(&screen), dir.path()).unwrap();
+        commit(dir.path(), &layout, None).unwrap();
+        crate::golden::settings(dir.path()).bind(|| {
+            insta::assert_snapshot!(crate::golden::folder_text(dir.path()));
+        });
+    }
+
     #[test]
     fn a_project_comes_back_from_its_folder() {
         let dir = scratch("round");
@@ -1984,9 +2008,6 @@ mod tests {
     #[test]
     fn a_project_comes_back_from_its_files_in_memory() {
         use crate::session::project_files::MemoryFiles;
-        let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/demo-song.json");
-        let file: Value = serde_json::from_slice(&std::fs::read(fixture).unwrap()).unwrap();
-        let demo: Project = serde_json::from_value(file["project"].clone()).unwrap();
         let mut show = Project::default();
         let mut track = Track::new(1);
         track.clips = vec![custom(
@@ -1999,7 +2020,7 @@ mod tests {
         show.tracks.push(Arc::new(track));
         // Nothing is on the disk: every file comes from the map.
         let dir = scratch("memory");
-        for p in [demo, project(3, 4), show] {
+        for p in [demo(), project(3, 4), show] {
             let layout = layout(&p, &json!({ "tempo": 1 }), Some(&json!({ "tabs": [] })), &dir).unwrap();
             let files = layout.files.into_iter().map(|(k, v)| (k, Arc::from(v))).collect();
             let read = read_from(&MemoryFiles::new(&dir, files), &dir).unwrap();
