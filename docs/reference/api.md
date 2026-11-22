@@ -1770,13 +1770,16 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.roll_draw.pen()`: The notes being drawn now, as `{ pitch, start, length, velocity }` in project beats, the one under the cursor first. An extension's key changes them in place, then calls `paw.roll_draw.shown()`.
 - `paw.roll_draw.pick_chord(strum)`: Choose a chord to draw at the pencil (`c`): the diatonic chord on the pencil's pitch first (`4c` its seventh, `5c` its ninth), the others of the key, then common chords on the pitch. Typing searches them; a symbol typed (`V7/V`, `F#m9/C#`, `C4maj7`) is drawn as typed. The chord takes the note's place, its start and length, and the keys shape it as one note until Enter or Escape.
 - `paw.roll_draw.pitch(semitones, step)`: Move the notes being drawn by `semitones` (times the count), and hear the new pitch. `step(pitch, n)`, if given, says where `n` such moves go instead: by steps of a scale, say.
+- `paw.roll_draw.put_register(name)`: Put the notes of a register at the pencil (`<C-r>` and its name), count times one after another, as `p` pastes them. The pencil goes on where the last one ends. A stretch of time keeps its pitches, and the rest go with their top at the pitch of the pencil. Notes always start from the pencil.
 - `paw.roll_draw.shown()`: Show what an extension's key changed in the notes being drawn.
+- `paw.roll_draw.snippet()`: Choose a snippet to expand at the pencil (`<Tab>`), count times.
 - `paw.roll_draw.start(how)`: Start drawing at the cursor. `how` as `take` has it: "i" or "a"; or "step", step input with a caret (a pen with no length) at the cursor.
 - `paw.roll_draw.status()`: What the window says while in insert mode.
 - `paw.roll_draw.step_next()`: The next insert mode is step input (`I` in normal mode).
 - `paw.roll_draw.stepping()`: True while step input is on: insert mode in the piano roll, with the keys of a MIDI controller entering notes (`I`).
 - `paw.roll_draw.suggest(dir)`: Show the next (`dir` 1, `<C-n>`) or the previous (-1, `<C-p>`) suggestion in place of the notes being drawn. Any key that edits takes it; `<C-e>` puts back what was there.
 - `paw.roll_draw.text()`: The notes that you drew and kept, as "60@1+0.5 64@1+0.5" in the beats of the roll. The second value is the notes that you draw now, "67@1.5+0".
+- `paw.roll_draw.tie()`: Tie the note being drawn to the next note (`~`): its end goes to where the next note of the clips, or the next note kept, starts.
 - `paw.roll_draw.toggle_step()`: Step input on or off (`I` in insert mode). The pen stays as it is. Without a MIDI input, paw says why and opens the track's list of inputs.
 - `paw.roll_draw.unsuggest()`: Put back the notes that were there before the suggestions (`<C-e>`).
 - `paw.roll_draw.velocity(dir)`: The velocity of the notes being drawn and of the next, by `dir` tens.

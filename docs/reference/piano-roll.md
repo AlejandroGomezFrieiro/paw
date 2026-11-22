@@ -80,6 +80,9 @@ The edge of the pencil is the start or the end of its note, and the cursor is on
 | `=` and a value | Sets the length as a note value, so `=4` is a beat, `=8` an eighth, `=8.` a dotted eighth and `=8t` a triplet eighth. |
 | `c` | Makes the note a chord (see [Chords](#chords)). |
 | `C` | Makes the note a strummed chord (see [Chords](#chords)). |
+| `~` | Ties the note to the next note: its end goes to the start of the next note of the clip, or of the next note that you kept. |
+| `Ctrl-r` and a register | Puts the notes of the register at the note, as `p` pastes them. `Ctrl-r a` puts the notes of register `a`, `Ctrl-r "` the last yank, and a count first (`2 Ctrl-r a`) puts them twice. The pencil goes on where the last one ends. A register that holds no notes does nothing and says so. |
+| `Tab` | Opens the picker of snippets, and the snippet that you choose writes its notes at the note (see [Snippets](snippets.md)). While a snippet is active, `Tab` goes to its next choice. |
 | `a` | Gives the note an articulation, by name. The names come from the articulations extension, which uses the map of the track or the usual words. |
 | `e` and a kind | Puts a controller point where the note starts: `em` the modulation wheel, `ee` expression, `eb` breath, `es` the sustain pedal, and `e` and a number any controller. A count first is the value (`100em`), and otherwise paw asks for it. |
 | `Ctrl-n` `Ctrl-p` | Suggest what comes next, in place of the note. After a chord, the suggestions are the chords of the key that often follow it, and after a note, they are the notes of the key near it. The next key that edits takes the suggestion, and `Enter` takes it and stays. |
@@ -132,6 +135,8 @@ paw writes the bend as short steps of the pitch bend of that key in the clip, an
 The key is the key of the last key change (`mk`) before the note, or the key of the project (`:key`) if there is none. With no key, paw tells you and uses C major.
 
 `C` opens the same list and strums the chord, so each note starts a 64th note after the note below it (`paw.opt.strum`, in beats). A count gives the 64ths, as in `2C`, and `:set strum_dir=down` strums from the highest note. The notes of a strum end together.
+
+The picker of `C` also reads words at the end of what you type: `up`, `down` or `updown` for the way of this strum, and `@` and a number for the gap in 64ths. For example, `Cmaj7 down @2` strums C major seventh from the highest note, two 64ths apart. `updown` rises through the first, third and fifth note and so on, and falls through the others. The words and the count of `C` replace `paw.opt.strum_dir` and `paw.opt.strum` for that strum.
 
 The chord replaces the note, and all of its notes are the note that you draw, so `h` `l` `=` `<` `>` `+` `-` `k` `j` change all of them. The title gives the name of the chord. `Enter` keeps the chord and draws a note after it, and `Esc` keeps it and leaves insert mode.
 
