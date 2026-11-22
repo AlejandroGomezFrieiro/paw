@@ -102,6 +102,32 @@ test("the piano roll shows other pitched tracks' notes behind its own, in their 
   paw.ui.hide("pianoroll")
 end)
 
+test("an edit of the roll's own notes keeps the notes behind them, an edit of those notes finds them again", function()
+  local s = song()
+  local derived = require("paw.derived")
+  local function made()
+    for _, st in ipairs(derived.stats()) do
+      if st.name == "roll.context" then return st.made end
+    end
+  end
+  local roll = paw.ui.views.pianoroll
+  roll:edit(s.keys)
+  paw.ui.focus("pianoroll")
+  eq(pitches(rc.context()), "36@2 40@4 43@3 72@0 76@4", "the bass and the pad behind")
+  local before = made()
+  -- `x` on the E of the chords clip.
+  roll.pitch, roll.beat = 64, 1
+  paw.keymap.feed("x")
+  paw.flush()
+  eq(#s.keys:notes(), 2, "the note is gone")
+  eq(pitches(rc.context()), "36@2 40@4 43@3 72@0 76@4", "the same notes behind")
+  eq(made(), before, "and they were not found again")
+  s.bass:add_notes({ { pitch = 48, start = 3, length = 1, velocity = 100 } })
+  paw.flush()
+  eq(pitches(rc.context()), "36@2 40@4 43@3 48@5 72@0 76@4", "a note of the bass shows behind")
+  eq(made(), before + 1, "found again once")
+end)
+
 -- The terminal's piano roll as cells: what is at a beat and pitch of the
 -- roll, with its colours (`#rrggbb`), from the view drawn by itself.
 local function cells(width, height)
