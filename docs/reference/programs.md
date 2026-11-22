@@ -127,5 +127,6 @@ paw ctl --connect studio:7700 --token-file studio.token cmd transport.toggle
 | `PAW_SOCKET` | The control socket for `paw-mcp`. |
 | `PAW_BIN` | The `paw` program for `paw-mcp --spawn`. |
 | `PAW_GUI_RENDERER` | `gpu` or `software`, as `--renderer`. |
+| `PAW_TTIMEOUTLEN` | How long the terminal waits after an Escape key for the rest of a key, in milliseconds. The default is 15. A slow link can send the Escape first and the arrow after it. `0` turns the wait off. |
 | `XDG_RUNTIME_DIR` | The directory of the default control socket, `paw.sock`. |
 | `XDG_CONFIG_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME` | The base directories of [the files that paw keeps](state-files.md). |
