@@ -52,6 +52,7 @@ paw.seats.fields("arrange", view, {
 }, { scroll = 0, top = 1, flags = {} })
 
 local draw = paw.draw
+local derived = require("paw.derived")
 -- An empty list, to walk where there is none.
 local NONE = {}
 
@@ -1506,6 +1507,13 @@ function view:render(buf, ctx)
   local function col(beat) return self:col(beat) end
   -- The beat at the right edge of the timeline.
   local last = self:beat(tw)
+  -- What this window shows, in the song's beats, comes first: the chord
+  -- reading there, and the bakes of the stretched clips there.
+  local shown = { 0 }
+  for _, row in ipairs(L.rows) do
+    if row.kind == "track" then shown[#shown + 1] = row.id end
+  end
+  derived.visible(ctx.win and tostring(ctx.win.id) or "arrange", self.scroll + origin, last + origin, shown)
 
   -- All of it takes the pointer, in both frontends (paw/views/arrange_mouse.lua).
   buf:hit(0, 0, w, h, { kind = "arrange" })

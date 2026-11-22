@@ -11367,6 +11367,16 @@ function paw.api.undo_travel(seconds) end
 --- The undo tree and checkpoints: crate::history, session/undo.rs.
 function paw.api.undo_tree() end
 
+--- The ranges that `view_ranges_set` gave last.
+function paw.api.view_ranges() end
+
+--- Tell paw which part of the song each window shows: a list of ranges of
+--- beats, each with the tracks shown (all tracks when `tracks` is nil). The
+--- stretched clips there bake before the others. paw.derived sends this
+--- after each frame.
+---@param ranges any
+function paw.api.view_ranges_set(ranges) end
+
 --- Let `ms` milliseconds pass. Timers fire and events come, as between the
 --- key presses of a person. `sleep` stops all of that. A script that waits
 --- for the result of a timer uses `wait`.
