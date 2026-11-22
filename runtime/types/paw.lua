@@ -8094,6 +8094,16 @@ function paw.takes.of(clip) end
 ---@param shift any
 function paw.takes.piece(c, from, to, shift) end
 
+--- Make a new audio recording, clip `id`, the newest take of the audio
+--- clips under it on its track, instead of a clip on top of them. paw cuts
+--- those clips where the recording starts and ends. Each piece gets all the
+--- takes of the recording, lined up, and plays the take that the recording
+--- plays. What the piece played before stays as a take. The part of the
+--- recording where no clip was stays a clip. Returns the number of clips
+--- that got takes.
+---@param id any
+function paw.takes.record_over(id) end
+
 --- Discard a take: by default the take that plays. Then the take before it
 --- plays. With one take left, the clip becomes a clip without takes again.
 ---@param id any

@@ -1,8 +1,9 @@
 -- Takes: several versions of what a clip plays, one of them playing.
 --
 -- Recording with the loop on goes round it, and every time round becomes a
--- take of one clip over the loop; the last is the one that plays. Any clip
--- can be given takes by hand as well (`:take.new`).
+-- take of one clip over the loop; the last is the one that plays. Sound
+-- recorded over sound clips becomes their newest take (`M.record_over`).
+-- Any clip can be given takes by hand as well (`:take.new`).
 --
 --   ]t and [t             -- the next take of the clip under the cursor, the one before
 --   :take 2               -- play the second; over a selection, only there (see below)
@@ -799,6 +800,107 @@ function M.choose_at(track: integer, take: number, beat: number): types.Clip
   name_pieces(track)
   M.join_pieces(track, c.start, c.start + c.length)
   return c
+end
+
+-- Recording over clips --------------------------------------------------------------
+
+--- Give clip `c` more takes, `sounds` (sound as `Take` entries, each from
+--- the clip's start), and play the take `playing` of them. What the clip
+--- plays now stays as a take. A clip named after its recording or its take
+--- is named after the take that it plays.
+local function add_sounds(c: types.Clip, sounds: {Take}, playing: integer)
+  local takes = M.of(c)
+  local renamed = takes and M.named_by_take(c, takes) or (not takes and c.name:match("^take %d+$") ~= nil)
+  local list: {Take} = {}
+  if takes then
+    local shift = c.offset - (takes.origin or c.offset)
+    for i, entry in ipairs(takes.list) do
+      if i == takes.active then
+        list[i] = current(c.id, c, entry.name)
+      else
+        list[i] = copy(entry)
+        list[i].offset = (entry.offset or 0) + shift
+      end
+    end
+  else
+    list[1] = current(c.id, c, c.name)
+  end
+  local first = #list
+  for i, sound in ipairs(sounds) do
+    list[first + i] = copy(sound)
+  end
+  local active = first + playing
+  play(c.id, c, list[active], 0)
+  list[active] = {name = list[active].name}
+  write(c.id, c, {active = active, origin = api.clip_get(c.id).offset, list = list})
+  if renamed and list[active].name then
+    api.clip_set(c.id, {name = list[active].name})
+  end
+end
+
+--- Make a new audio recording, clip `id`, the newest take of the audio
+--- clips under it on its track, instead of a clip on top of them. paw cuts
+--- those clips where the recording starts and ends. Each piece gets all the
+--- takes of the recording, lined up, and plays the take that the recording
+--- plays. What the piece played before stays as a take. The part of the
+--- recording where no clip was stays a clip. Returns the number of clips
+--- that got takes.
+function M.record_over(id: integer): integer
+  local r = api.clip_get(id)
+  if r.kind ~= "audio" then
+    return 0
+  end
+  local track, from, to = r.track, r.start, r.start + r.length
+  local function under(): {integer: boolean}, boolean
+    local set: {integer: boolean} = {}
+    local any = false
+    for _, c in ipairs(api.clip_list(track, from, to)) do
+      if c.id ~= id and c.kind == "audio" and c.start < to - EPS and c.start + c.length > from + EPS then
+        set[c.id], any = true, true
+      end
+    end
+    return set, any
+  end
+  local set, any = under()
+  if not any then
+    return 0
+  end
+  -- Each take of the recording, from its start.
+  local takes = M.of(r)
+  local n, playing = M.count(r)
+  local sounds: {Take} = {}
+  for i = 1, n do
+    local content = M.content(r, i)
+    sounds[i] = {
+      name = takes and takes.list[i].name or r.name,
+      file = content.file,
+      offset = content.offset,
+      gain = content.gain,
+    }
+  end
+  paw.edit.arrange.clear(track, from, from, set)
+  set = under()
+  paw.edit.arrange.clear(track, to, to, set)
+  local covered: {{number}} = {}
+  for _, c in ipairs(api.clip_list(track, from, to)) do
+    if c.id ~= id and c.kind == "audio" and c.start >= from - EPS and c.start + c.length <= to + EPS then
+      local by = paw.stretch.file_seconds(r, c.start - from)
+      local lined: {Take} = {}
+      for i, sound in ipairs(sounds) do
+        lined[i] = copy(sound)
+        lined[i].offset = sound.offset + by
+      end
+      add_sounds(c, lined, playing)
+      covered[#covered + 1] = {c.start, c.start + c.length}
+    end
+  end
+  -- The recording keeps only what lies where no clip was: from the last
+  -- stretch back, so that what is left of it before keeps its id.
+  table.sort(covered, function(a: {number}, b: {number}): boolean return a[1] > b[1] end)
+  for _, span in ipairs(covered) do
+    paw.edit.arrange.clear(track, span[1], span[2], {[id] = true})
+  end
+  return #covered
 end
 
 -- Take lanes -----------------------------------------------------------------------

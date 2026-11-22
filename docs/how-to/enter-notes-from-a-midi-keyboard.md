@@ -36,5 +36,6 @@ To bind another action, type `:step.learn` and the name of the action, for examp
 
 ## See also
 
+- [Notation](../../extensions/notation/doc/reference.md#a-midi-controller-in-insert-mode): the keyboard enters notes in every insert mode of the score.
 - [Step input](../reference/piano-roll.md#step-input): the keys, the title, `step_velocity` and the controls.
 - [How to record MIDI from a keyboard](record-midi-from-a-keyboard.md): when you want to play in time.
