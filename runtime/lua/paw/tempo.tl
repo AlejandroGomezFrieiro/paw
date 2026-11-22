@@ -43,7 +43,11 @@ local type Define = function(
 --- paw/scope.tl, the part of it that this module reads: bars typed in a
 --- scope with time are its own, from 1 at its start.
 local record Scope
+  record Level
+    id: integer
+  end
   bar_offset: function(): integer
+  nest: function(): Level
 end
 local record Paw
   scope: Scope
@@ -127,8 +131,18 @@ function M.bar_start(n: integer): number
   return api.tempo_bar_start(n - 1)
 end
 
---- Whether a bar starts at this beat.
-M.is_bar_line = api.tempo_is_bar_line
+--- The song's beat of beat 0 of the window's time (`paw.time.origin`):
+--- where the subproject the window is in starts. The functions below that
+--- take a place in the window (`place`, `marks`, `is_bar_line` and the
+--- commands) add it; the others take beats of the song.
+local function origin(): number
+  return paw.time and paw.time.origin() or 0
+end
+
+--- Whether a bar starts at this beat of the window's time.
+function M.is_bar_line(beat: number): boolean
+  return api.tempo_is_bar_line(beat + origin())
+end
 
 --- The bar and beat lines from one beat to another: { beat, bar, index },
 --- `index` 0 on a bar line (bars count from 1).
@@ -145,14 +159,16 @@ end
 --- mark: { beat, text, kind = "tempo" | "signature" }, the start's left out.
 function M.marks(from: number, to: number): {Mark}
   local p, out: types.TempoPoints, {Mark} = api.tempo_points(), {}
+  -- In the window's time: in a subproject, from its start.
+  local o = origin()
   for i, t in ipairs(p.tempos) do
-    if i > 1 and t.beat >= from and t.beat < to then
-      out[#out + 1] = {beat = t.beat, text = M.label(t), kind = "tempo"}
+    if i > 1 and t.beat - o >= from and t.beat - o < to then
+      out[#out + 1] = {beat = t.beat - o, text = M.label(t), kind = "tempo"}
     end
   end
   for i, s in ipairs(p.signatures) do
-    if i > 1 and s.beat >= from and s.beat < to then
-      out[#out + 1] = {beat = s.beat, text = s.num .. "/" .. s.den, kind = "signature"}
+    if i > 1 and s.beat - o >= from and s.beat - o < to then
+      out[#out + 1] = {beat = s.beat - o, text = s.num .. "/" .. s.den, kind = "signature"}
     end
   end
   table.sort(out, function(a: Mark, b: Mark): boolean return a.beat < b.beat end)
@@ -165,6 +181,7 @@ end
 --- bar of the song (`@19`), or `cursor` / `here`. The beat of the cursor
 --- when nothing is given. In a scope with time (`paw.scope`), bars are its
 --- own, from 1 at its start; `@19` is bar 19 of the song all the same.
+--- The beat is of the window's time (in a subproject, from its start).
 function M.place(text?: commands.Arg): number
   if text == nil or text == "cursor" or text == "here" then
     return paw.cursor.beat
@@ -182,7 +199,7 @@ function M.place(text?: commands.Arg): number
   end
   -- In a scope with time, its own bars.
   local offset = song == "" and paw.scope and paw.scope.bar_offset() or 0
-  return api.tempo_from_bbt(bar - 1 + offset, math.max(0, (tonumber(beat) or 1) - 1) as integer)
+  return api.tempo_from_bbt(bar - 1 + offset, math.max(0, (tonumber(beat) or 1) - 1) as integer) - origin()
 end
 
 --- The tempo point in effect at a beat.
@@ -196,20 +213,54 @@ function M.point_at(beat: number): types.TempoPoint
   return found
 end
 
---- What a position reads as in commands' messages: "bar 9" or "9.2.50".
+--- What a position of the window's time reads as in commands' messages:
+--- "bar 9" or "9.2.50".
 local function where(beat: number): string
   local offset = paw.scope and paw.scope.bar_offset() or 0
-  if api.tempo_is_bar_line(beat) then
-    return "bar " .. (M.bar_of(beat) - offset)
+  if M.is_bar_line(beat) then
+    return "bar " .. (M.bar_of(beat + origin()) - offset)
   end
   return paw.time.format(beat)
+end
+
+local nest_tempo = api.nest_get as function(id: integer, key: string): types.NestTempo
+
+--- The subproject the window is in when it follows the song's tempo, or
+--- nil: there `:tempo` changes the song's map at its place, and says so.
+local function following(): Scope.Level
+  local nest = paw.scope and paw.scope.nest()
+  if not nest then
+    return nil
+  end
+  local ok, tempo = pcall(nest_tempo, nest.id, "tempo") as (boolean, types.NestTempo)
+  if ok and tempo and tempo.mode == "own" then
+    return nil
+  end
+  return nest
+end
+
+--- Where a change at a beat of the window is, for a message: in a
+--- subproject that follows the song's tempo, the song's bar
+--- ("the song's tempo at bar 33").
+local function changed_at(beat: number): string
+  if following() then
+    local song = beat + origin()
+    if api.tempo_is_bar_line(song) then
+      return "the song's tempo at bar " .. M.bar_of(song)
+    end
+    local bar, b = api.tempo_bbt(song)
+    return string.format("the song's tempo at %d.%d", bar + 1, b + 1)
+  end
+  return where(beat)
 end
 
 --- The whole map as text, for example "120 bpm 4/4 at bar 1, 90 bpm from bar 3 with a ramp, ...".
 function M.describe(): {string}
   local parts: {string} = {}
   for _, p in ipairs(M.points()) do
-    parts[#parts + 1] = string.format("%s: %g bpm%s", where(p.beat), p.bpm, p.ramp and ", ramping to the next" or "")
+    parts[#parts + 1] = string.format(
+      "%s: %g bpm%s", where(p.beat - origin()), p.bpm, p.ramp and ", ramping to the next" or ""
+    )
   end
   for _, s in ipairs(M.signatures()) do
     parts[#parts + 1] = string.format("bar %d: %d/%d", s.bar, s.num, s.den)
@@ -259,13 +310,22 @@ function M.commands(command: Define)
         error(string.format("a tempo is from 1 to 999 bpm, not %s", a.by and tostring(bpm) or tostring(a[1])), 0)
       end
       local at = a.at or (a[2] == "at" and (a[3] or "cursor")) or ((a[2] == "here" or a[2] == "cursor") and "cursor")
-      if not at then
+      if not at and following() then
+        -- Inside a subproject that follows the song's tempo, its tempo is
+        -- the song's where it starts: one map for both.
+        api.tempo_set(origin(), bpm)
+        paw.notify(string.format("%g bpm: %s", bpm, changed_at(0)))
+      elseif not at then
         paw.project.tempo = bpm
         paw.notify(string.format("%g bpm", bpm))
       else
         local beat = M.place(at)
-        api.tempo_set(beat, bpm)
-        paw.notify(string.format("%g bpm from %s", bpm, where(beat)))
+        api.tempo_set(beat + origin(), bpm)
+        if following() then
+          paw.notify(string.format("%g bpm: %s", bpm, changed_at(beat)))
+        else
+          paw.notify(string.format("%g bpm from %s", bpm, where(beat)))
+        end
       end
     end,
     {
@@ -285,13 +345,15 @@ function M.commands(command: Define)
     function(ctx: commands.Context): commands.Result
       local a = ctx.args
       local beat = (a[1] or a.at) and M.place(a.at or (a[1] == "at" and a[2] or a[1])) or paw.cursor.beat
-      local p = M.point_at(beat)
+      local p = M.point_at(beat + origin())
       local on = not p.ramp
       if a.off or a[1] == "off" then
         on = false
       end
       api.tempo_set(p.beat, p.bpm, on)
-      paw.notify(string.format("%g bpm at %s %s", p.bpm, where(p.beat), on and "ramps to the next change" or "holds"))
+      paw.notify(
+        string.format("%g bpm at %s %s", p.bpm, where(p.beat - origin()), on and "ramps to the next change" or "holds")
+      )
     end,
     {
       desc = "Make the tempo change before the cursor ramp to the next one, or hold again: `tempo.ramp`, `tempo.ramp 9`",
@@ -305,12 +367,12 @@ function M.commands(command: Define)
     function(ctx: commands.Context): commands.Result
       local a = ctx.args
       local beat = a[1] and M.place(a[1]) or paw.cursor.beat
-      local p = M.point_at(beat)
+      local p = M.point_at(beat + origin())
       if p.beat == 0 then
         error("no tempo change at or before " .. where(beat) .. " but the start's", 0)
       end
       api.tempo_remove(p.beat)
-      paw.notify("removed the tempo change at " .. where(p.beat))
+      paw.notify("removed the tempo change at " .. where(p.beat - origin()))
     end,
     {
       desc = "Remove the tempo change at or before the cursor, or at a bar: `tempo.remove 17`",
@@ -354,9 +416,9 @@ function M.commands(command: Define)
       end
       local bpm = 60000 * (#taps - 1) / (taps[#taps] - taps[1])
       bpm = math.floor(math.max(1, math.min(999, bpm)) * 10 + 0.5) / 10
-      local p = M.point_at(paw.cursor.beat)
+      local p = M.point_at(paw.cursor.beat + origin())
       api.tempo_set(p.beat, bpm)
-      paw.notify(string.format("tapped %g bpm at %s", bpm, where(p.beat)))
+      paw.notify(string.format("tapped %g bpm at %s", bpm, where(p.beat - origin())))
     end,
     {desc = "Tap in time, again and again, to set the tempo in effect at the cursor", label = "Tap the tempo"}
   )
@@ -367,7 +429,7 @@ function M.commands(command: Define)
       local a = ctx.args
       local text = a[1]
       if text == nil then
-        local num, den = M.signature_at(paw.cursor.beat)
+        local num, den = M.signature_at(paw.cursor.beat + origin())
         paw.notify(string.format("%d/%d at %s", num, den, where(paw.cursor.beat)))
         return
       end
@@ -377,7 +439,7 @@ function M.commands(command: Define)
       end
       local at = a.at or (a[2] == "at" and a[3]) or a[2]
       local beat = at and M.place(at) or paw.time.bar_floor(paw.cursor.beat)
-      api.signature_set(beat, tonumber(num) as integer, tonumber(den) as integer)
+      api.signature_set(beat + origin(), tonumber(num) as integer, tonumber(den) as integer)
       paw.notify(string.format("%s/%s from %s", num, den, where(beat)))
     end,
     {
@@ -395,7 +457,7 @@ function M.commands(command: Define)
   command(
     "timesig.remove",
     function(ctx: commands.Context): commands.Result
-      local beat = ctx.args[1] and M.place(ctx.args[1]) or paw.cursor.beat
+      local beat = (ctx.args[1] and M.place(ctx.args[1]) or paw.cursor.beat) + origin()
       local found: types.SigPoint
       for _, s in ipairs(M.signatures()) do
         if s.beat <= beat + 1e-9 then
@@ -403,7 +465,7 @@ function M.commands(command: Define)
         end
       end
       if found.beat == 0 then
-        error("no signature change at or before " .. where(beat) .. " but the start's", 0)
+        error("no signature change at or before " .. where(beat - origin()) .. " but the start's", 0)
       end
       api.signature_remove(found.beat)
       paw.notify("removed the signature change at bar " .. found.bar)

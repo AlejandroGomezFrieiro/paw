@@ -183,6 +183,7 @@ local record api
    nest_add: function(opts?: types.NestOptions): integer
    nest_get: function(id: integer): types.Nest
    nest_list: function(): {integer}
+   nest_promote: function(clip: integer): types.NestPromoted
    nest_set: function(id: integer, patch: types.Nest)
    nest_set: function(id: integer, key: string, value: nil)
    note_off: function(track: integer, pitch?: integer)
@@ -320,8 +321,10 @@ local record api
    ui_detach: function(client: integer)
    ui_frame_snapshot: function(width: integer, height: integer, live?: boolean): types.FrameSnapshot
    ui_frames: function(): types.FrameCounts
+   ui_line_redraws: function(): integer
    ui_mouse: function(on: boolean)
    ui_redraw: function()
+   ui_redraw_line: function()
    ui_redraw_live: function()
    ui_redraws: function(): integer
    ui_seat: function(seat: integer)

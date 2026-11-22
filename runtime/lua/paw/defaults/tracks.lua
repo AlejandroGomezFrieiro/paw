@@ -362,6 +362,8 @@ end, {
 command("track.fold", function(ctx)
   local track = need_track()
   if not track then return end
+  -- A subproject's return row opens its tracks under it, in place.
+  if not ctx.args[1] and not paw.groups.is_group(track.id) and paw.nest.toggle(track.id) then return end
   local group = paw.groups.is_group(track.id) and track.id or paw.groups.of(track.id)
   if not group then return paw.notify("not in a group", "warn") end
   if ctx.args[1] == "all" or ctx.args[1] == "none" then

@@ -264,7 +264,8 @@ impl<'p> Pass<'p, '_, '_> {
                 Some(plays) => self.map.played.insert(track.id, plays),
                 None => self.map.played.remove(&track.id),
             };
-            self.track_lanes(track, &pass, same_chain);
+            // A nest track's lanes play at the places of its nest, as its clips do.
+            self.track_lanes(now.map_or(track, |t| &**t), prev, &pass, same_chain);
         }
     }
 
@@ -450,8 +451,9 @@ impl<'p> Pass<'p, '_, '_> {
     }
 
     /// A track's automation lanes, and what the lanes it lost give back.
-    fn track_lanes(&mut self, track: &Track, pass: &TrackPass, same_chain: bool) {
-        let same_lanes = pass.prev.map_or(track.lanes.is_empty(), |p| {
+    /// `prev` is the track as the engine last had it.
+    fn track_lanes(&mut self, track: &Track, prev: Option<&Track>, pass: &TrackPass, same_chain: bool) {
+        let same_lanes = prev.map_or(track.lanes.is_empty(), |p| {
             p.lanes.len() == track.lanes.len()
                 && p.lanes.iter().zip(&track.lanes).all(|(a, b)| Arc::ptr_eq(a, b))
         });
@@ -464,7 +466,7 @@ impl<'p> Pass<'p, '_, '_> {
                 automation: Box::new(automation),
             });
         }
-        if let Some(prev) = pass.prev.filter(|_| !same_lanes) {
+        if let Some(prev) = prev.filter(|_| !same_lanes) {
             release_targets(prev, track, self.map, self.ctx, self.send);
         }
     }
@@ -686,7 +688,7 @@ impl<'p> Pass<'p, '_, '_> {
     fn routing(&mut self) {
         let map = &mut *self.map;
         let send = &mut *self.send;
-        let routing = routing_of(self.new, self.ctx.live, &map.played, &self.placed.hosts);
+        let routing = routing_of(self.new, self.ctx.live, &map.played, self.placed);
         // Devices that listen to a side-chain get a buffer for it, before the
         // schedule that fills it; those that no longer do give theirs back.
         let keyed: HashSet<Id> = routing
@@ -749,7 +751,7 @@ impl<'p> Pass<'p, '_, '_> {
     fn local_times(&mut self) {
         let mut now: HashMap<Id, nests::Local> = HashMap::new();
         for t in self.new.tracks.iter() {
-            if let Some(local) = t.nest.and_then(|n| nests::Local::of(self.new, n, self.placed)) {
+            if let Some(local) = t.nest.and_then(|n| nests::Local::of(self.new, n, t.id, self.placed)) {
                 now.insert(t.id, local);
             }
         }

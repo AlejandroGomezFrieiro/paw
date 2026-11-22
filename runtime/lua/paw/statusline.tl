@@ -447,7 +447,7 @@ spec(
         -- Counting in: the beats left before the take starts, in place of the time.
         return {state, {" count " .. t.counting, "StatusRec"}}
       end
-      return {state, {" " .. paw.time.format(t.position), "StatusTime"}}
+      return {state, {" " .. paw.time.format(t.position - paw.time.origin()), "StatusTime"}}
     end,
   }
 )
@@ -458,7 +458,9 @@ spec(
   {
     min = 90,
     rank = 8,
-    fn = function(ctx: Context): StatusText return {{paw.time.clock(ctx.transport.position), "StatusDim"}} end,
+    fn = function(ctx: Context): StatusText
+      return {{paw.time.clock(ctx.transport.position - paw.time.origin()), "StatusDim"}}
+    end,
   }
 )
 
@@ -488,8 +490,9 @@ spec(
       if t.loop_enabled then
         -- The bars it touches, as the ruler numbers them (in a scope with time, its own).
         local offset = paw.scope and paw.scope.bar_offset() or 0
-        local from = paw.time.bar_of(t.loop_start) - offset
-        local to = math.max(from, paw.time.bar_of(math.max(t.loop_start, t.loop_end - 1e-6)) - offset)
+        local o = paw.time.origin()
+        local from = paw.time.bar_of(t.loop_start - o) - offset
+        local to = math.max(from, paw.time.bar_of(math.max(t.loop_start, t.loop_end - 1e-6) - o) - offset)
         on[#on + 1] = {"loop " .. from .. (g.ellipsis == "…" and "–" or "-") .. to, "StatusOn"}
       end
       if t.metronome then
@@ -679,7 +682,7 @@ spec(
       if paw.scope.span(scope) then
         local beat = paw.cursor.beat
         local here = paw.scope.format(beat):match("^(%d+%.%d+)")
-        local song = paw.time.format(paw.scope.song_beat(beat)):match("^(%d+%.%d+)")
+        local song = paw.time.format(beat):match("^(%d+%.%d+)")
         out[#out + 1] = {" " .. here .. (here ~= song and (" (" .. song .. ")") or ""), "StatusDim"}
       end
       local rest = opt.scope_rest

@@ -73,6 +73,8 @@ pub struct Shared {
     /// How many times a redraw has been asked for: a window showing one
     /// view draws it again only when this has moved.
     pub redraws: Cell<u64>,
+    /// How many of those were `ui_redraw_line`: only the line and the list.
+    pub line_redraws: Cell<u64>,
     /// A frontend is showing the grid.
     pub attached: Cell<bool>,
     pub cursor: Cell<Option<(u16, u16)>>,

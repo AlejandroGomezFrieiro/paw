@@ -1324,6 +1324,24 @@ fn a_clip_shows_its_name_and_its_notes_or_its_waveform() {
     w.assert_alive("after showing the clips");
 }
 
+#[test]
+fn a_block_of_a_subproject_shows_its_name_and_the_notes_it_plays() {
+    let setup = "local row = paw.add_track({ name = 'Return' }) \
+        local n = paw.api.nest_add({ name = 'Ballad', length = 16 }) \
+        local p = paw.api.track_add({ name = 'Piano', nest = n }) \
+        local notes = {} for i = 0, 15 do notes[#notes + 1] = { pitch = 48 + (i * 5) % 25, start = i * 0.5, length = 0.5 } end \
+        paw.api.clip_add(p, { start = 0, length = 8, notes = notes }) \
+        paw.api.clip_add(row.id, { nest = n, start = 0 }) \
+        paw.cursor.set_track(row.id) paw.api.undo_checkpoint()";
+    let mut w = scene!("nest-block", setup);
+    w.expect("the block", "#paw.api.clip_list(paw.api.track_list()[1]) == 1");
+    // The picture inside the block comes after the frame that asks for it.
+    w.pause(2.0);
+    assert!(drawn_in_body(&w, 1, 0.5, 3.5) > 20, "the notes of the subproject in its block");
+    assert!(w.shows("Ballad", 5), "the block's name: the row is named Return");
+    w.assert_alive("after showing the block");
+}
+
 /// The window's pixels once the song has played a while and stopped:
 /// drawn again only where they changed (`paw.opt.window_cache`), or the
 /// next frame drawn whole.

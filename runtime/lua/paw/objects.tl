@@ -231,6 +231,7 @@ local record Paw
   end
   record Scope
     nest: function(): ScopeLevel
+    origin: function(): number
   end
   ui: Ui
   scope: Scope
@@ -579,6 +580,7 @@ local record M
     to_seconds: function(beat: number): number
     to_beat: function(seconds: number): number
     clock: function(beat: number): string
+    origin: function(): number
   end
 
   points: function(points: {PointInput}): {types.LanePoint}
@@ -1855,52 +1857,71 @@ M.time = time
 
 -- These ask the tempo map (`paw.tempo`): bars follow the signature changes
 -- along the song and seconds follow the tempo changes.
+--
+-- Beats are the beats of the window's time: in a window inside a
+-- subproject, beat 0 is where the subproject's block starts in the song
+-- (`origin`), and bars are the song's bars there, so that a subproject
+-- shows the song's meter at its place. Bar numbers stay the song's;
+-- `paw.scope.bar_offset` counts them from 1 at the scope's start. A beat of
+-- the song (the playhead's) is `beat - time.origin()` in the window's time.
+
+--- The song's beat of beat 0 of the window's time: where the subproject
+--- the window is in starts in the song; 0 in the song.
+function time.origin(): number
+  local scope = paw.scope
+  return scope and scope.origin and scope.origin() or 0
+end
 
 --- Length in beats of the bar at beat `at` (the first bar if left out).
 function time.bar(at?: number): number
-  return api.tempo_bar_length(at or 0)
+  return api.tempo_bar_length((at or 0) + time.origin())
 end
 
 --- Beat where bar `n` (1-based) starts.
 function time.bar_start(n: integer): number
-  return api.tempo_bar_start(n - 1)
+  return api.tempo_bar_start(n - 1) - time.origin()
 end
 
 --- The signature (two numbers) and the tempo at a beat, as `paw.tempo` has them.
 function time.signature_at(beat?: number): integer, integer
-  return api.tempo_signature(beat or 0)
+  return api.tempo_signature((beat or 0) + time.origin())
 end
 function time.tempo_at(beat?: number): number
-  return api.tempo_at(beat or 0)
+  return api.tempo_at((beat or 0) + time.origin())
 end
 
 --- The bar (1-based) a beat is in.
 function time.bar_of(beat: number): integer
-  return api.tempo_bar_of(beat) + 1
+  return api.tempo_bar_of(beat + time.origin()) + 1
 end
 
 --- Where the bar a beat is in starts.
 function time.bar_floor(beat: number): number
-  return api.tempo_bar_start(api.tempo_bar_of(beat))
+  local o = time.origin()
+  return api.tempo_bar_start(api.tempo_bar_of(beat + o)) - o
 end
 
 --- The first bar line at or after a beat.
 function time.bar_ceil(beat: number): number
-  local bar = api.tempo_bar_of(beat)
+  local o = time.origin()
+  local song = beat + o
+  local bar = api.tempo_bar_of(song)
   local start = api.tempo_bar_start(bar)
   -- The bar of a beat a hair before a bar line can be the bar after the
   -- line (the kernel rounds): its start is then the line asked for, not
   -- a bar before the next one.
-  if start >= beat - 1e-12 then
-    return start
+  if start >= song - 1e-12 then
+    return start - o
   end
-  return api.tempo_bar_start(bar + 1)
+  return api.tempo_bar_start(bar + 1) - o
 end
 
 --- The bar lines from beat `from` up to `to`: { beat, bar } each, bars
 --- counting from 1.
 function time.bars(from: number, to: number): {BarLine}
+  local o = time.origin()
   local out: {BarLine} = {}
+  from, to = from + o, to + o
   local bar = api.tempo_bar_of(math.max(0, from))
   if api.tempo_bar_start(bar) < from - 1e-9 then
     bar = bar + 1
@@ -1910,7 +1931,7 @@ function time.bars(from: number, to: number): {BarLine}
     if beat >= to then
       break
     end
-    out[#out + 1] = {beat = beat, bar = bar + 1}
+    out[#out + 1] = {beat = beat - o, bar = bar + 1}
     bar = bar + 1
   end
   return out
@@ -1919,7 +1940,7 @@ end
 --- "bar.beat.hundredths" for a position in beats, counting from 1; beats
 --- are of the signature's unit (an eighth in 6/8).
 function time.format(beats: number): string
-  local bar, beat, frac = api.tempo_bbt(beats)
+  local bar, beat, frac = api.tempo_bbt(beats + time.origin())
   local part = math.floor(frac * 100 + 0.5)
   if part >= 100 then
     part = 99
@@ -1929,21 +1950,21 @@ end
 
 --- Seconds that `beats` beats take from beat `at` (the start if left out).
 function time.seconds(beats: number, at?: number): number
-  at = at or 0
+  at = (at or 0) + time.origin()
   return api.tempo_seconds(at + beats) - api.tempo_seconds(at)
 end
 
 --- Seconds from the start of the song to beat `beat`, and back.
 function time.to_seconds(beat: number): number
-  return api.tempo_seconds(beat)
+  return api.tempo_seconds(beat + time.origin())
 end
 function time.to_beat(seconds: number): number
-  return api.tempo_beat(seconds)
+  return api.tempo_beat(seconds) - time.origin()
 end
 
 --- "m:ss.s" for a beat's time from the start of the song.
 function time.clock(beat: number): string
-  local seconds = api.tempo_seconds(beat)
+  local seconds = api.tempo_seconds(beat + time.origin())
   return string.format("%d:%04.1f", math.floor(seconds / 60), seconds % 60)
 end
 
