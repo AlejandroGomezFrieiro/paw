@@ -176,7 +176,8 @@ nix flake check                                # all of the checks
   the home folder, not the installed plugins, not the user name, the
   fonts, the desktop bus or the network. `tests/tools/env.sh` (Lua) and
   `sealed::seal` in `crates/*/tests/sealed/mod.rs` (Rust) give a scratch
-  home and empty plugin folders. Mock what a test needs: the stub CLAP
+  home, scratch XDG and runtime folders, empty plugin folders and the
+  user name `paw-test`. A Lua test of `~` uses `T.home()`. Mock what a test needs: the stub CLAP
   plugin, a fake behind a trait, or a scratch folder. Run paw by hand
   only through `tests/tools/run.sh`.
 - A flaky test is a bug in the test. No retries. Do not change a time or

@@ -46,6 +46,7 @@ Use the helpers of `T`. Do not copy them into a file (a local `start`,
 | `T.next_block(n, device)` | Wait until the engine ran `n` blocks, so that a change is in effect. |
 | `T.until_beat(beat, rounds)` | Wait for the playhead. |
 | `T.scratch`, `T.read_file`, `T.write_file` | Files of the test. |
+| `T.home(dir)` | Make `HOME` a folder of the test until it ends (part 4). |
 
 Planned helpers:
 
@@ -84,11 +85,23 @@ the owner's computer or folders. Mock what it needs.
   `VST3_PATH`; a yabridge bridge in `~/.vst3` starts wine), not the user
   name, not the system fonts, not the desktop bus, not the network.
 - `tests/tools/env.sh` gives each run a scratch home, scratch `XDG_*`
-  folders, a scratch `WINEPREFIX` and empty plugin folders, and sets
-  `PAW_TEST_ENV`. `tests/suite.lua` does not run without it, so start
-  the suite only through `tests/tools/suite.sh`.
+  folders, a scratch runtime folder (`XDG_RUNTIME_DIR`, where the owner's
+  paw opens its control socket), a scratch `WINEPREFIX`, empty plugin
+  folders, the user name `paw-test`, no system configuration of git and
+  no desktop bus. It sets `PAW_TEST_ENV`. `tests/suite.lua` does not run
+  without it, so start the suite only through `tests/tools/suite.sh`.
+  bench/ sources it too.
 - A path in a test comes from `T.scratch` or from the checkout, never
   from the home folder.
+- A test of `~` or of the home folder calls `T.home()`. It makes `HOME`
+  a new folder under `T.scratch` (or the folder that you give) until the
+  test ends, and gives the folder. Write the expected path as a literal
+  under that folder. Do not read `os.getenv("HOME")` or `USER`, and do
+  not read `/etc/passwd` to find the owner's home: the run always has a
+  scratch home.
+- Code that asks the machine (a font, a program on the `PATH`) gets a
+  field that a test can replace. Example: `paw.health.cjk_font`, which
+  `tests/health.lua` replaces with a fake that gives a font name or nil.
 - A test of the plugin host uses the stub CLAP plugin. `suite.sh plugins`
   gives the known test plugins. Never an installed plugin.
 - Mock what is needed. Give a fake to the code as an argument, or put a
