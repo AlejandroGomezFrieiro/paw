@@ -654,7 +654,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.events.event(name)`: The descriptor of an event whose payload is a `P`: Teal checks the handlers that `paw.on` is given for it, and what `paw.emit` sends. It also declares the name, so `paw.on` with this name as text is not a typo.
 
   ```lua
-  local changed: paw.events.Event<OptionChanged> = paw.events.event("option.changed")
+  local filled: paw.events.Event<Filled> = paw.events.event("fill.done")
   ```
 - `paw.events.handlers()`: Every handler, by its handle: `{ pattern, fn }`.
 - `paw.events.listened(name)`: True if a handler listens for `name` by its name or its family (not `*`). Use it for events that are expensive to make.

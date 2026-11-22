@@ -99,7 +99,7 @@ local checking = false
 --- The descriptor of an event whose payload is a `P`: Teal checks the
 --- handlers that `paw.on` is given for it, and what `paw.emit` sends. It
 --- also declares the name, so `paw.on` with this name as text is not a typo.
----   local changed: paw.events.Event<OptionChanged> = paw.events.event("option.changed")
+---   local filled: paw.events.Event<Filled> = paw.events.event("fill.done")
 function M.event<P>(name: string): M.Event<P>
   declared[name] = true
   return {name = name}

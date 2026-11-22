@@ -65,7 +65,6 @@ local record Paw is partial.Paw
   groups: Groups
   cursor: Cursor
   opt: Opt
-  keymap: KeymapModule
 end
 local paw = (_G as {string: Paw}).paw
 

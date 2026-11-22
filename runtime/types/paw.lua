@@ -2743,7 +2743,7 @@ function paw.events.emitted() end
 --- The descriptor of an event whose payload is a `P`: Teal checks the
 --- handlers that `paw.on` is given for it, and what `paw.emit` sends. It
 --- also declares the name, so `paw.on` with this name as text is not a typo.
----   local changed: paw.events.Event<OptionChanged> = paw.events.event("option.changed")
+---   local filled: paw.events.Event<Filled> = paw.events.event("fill.done")
 ---@param name any
 function paw.events.event(name) end
 
