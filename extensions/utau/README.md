@@ -151,6 +151,7 @@ The keys below work from every view, and they are in the domain `<Space>u` (utau
 | `p` `P` | paste after the note, or at the cursor |
 | `/` | finds a note by its lyric. `n` and `N` continue |
 | `i` `x` | add a note, or remove the note (`x` and `Del` remove the selected notes, if any) |
+| `I` | step input from a MIDI controller: each key adds a note at the cursor, `2 * note_grid` long, with the default lyric, and the cursor goes to its end. A chord enters its highest note, because a voice sings one note at a time. `<Space>` rests one step, `<BS>` takes the last note back, `Esc` ends, and `u` takes back the whole insert. The controls of `:step.learn` work (`rest`, `back`, `dur.8`), and nothing enters while the song plays |
 | `c`, `Enter` | type the lyric of the note. The first key replaces the lyric, `Tab` keeps it and goes to the next note, `S-Tab` goes to the previous note, `Enter` keeps the lyric, and `Esc` drops it. Several pasted words fill the notes from this note on |
 | `+` `-` (`C-a` `C-x` with a count), `A-l` `A-h`, `H` `L` | move the selected notes (or the note under the cursor) up and down a semitone, make them longer and shorter, and move them |
 | `gA`, `ip` `ap` | select every note, and use the phrase as a text object (`yip`, `vap`) |
