@@ -40,7 +40,7 @@ paw itself uses two jobs. The job `harmony` reads the chords and the keys again 
 
 ## The budget of a callback
 
-`paw.opt.budget_ms` finds code that makes keys slow. When it's more than 0, paw times each handler of a key, command, event handler, timer and drawing of the screen. A callback that takes longer than the budget writes one warning to `:messages`, for example `slow: the key gY (zz slow key) 20 ms (budget 5 ms)`. Each name warns once in a session. paw names a timer by the file and line of its function, for example `a timer (paw/harmony.tl:1040)`.
+`paw.opt.budget_ms` finds code that makes keys slow. When it's more than 0, paw times each handler of a key, command, event handler, timer and drawing of the screen. A callback that takes longer than the budget writes one warning to `:messages`, for example `slow: the key gY (zz slow key) 20 ms (budget 5 ms)`. Each name warns once in a session. paw names a timer by the file and line of its function, for example `a timer (paw/help.tl:1123)`.
 
 - When a slow callback runs inside another one, paw names only the inner callback.
 - Time in the kernel doesn't count, for example a render, the read of a project and `paw.wait`, as for `paw.opt.lua_limit`.

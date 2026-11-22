@@ -7,6 +7,82 @@ How to run everything: [README.md](README.md). Raw numbers:
 matrix before it). The processor time of the whole program while it plays,
 against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md).
 
+## 2026-11-22: a budget for each callback (TASK-79)
+
+`paw.opt.budget_ms` names each callback of the kernel thread that takes
+longer than the budget (docs/reference/lua-other.md, "The budget of a
+callback"). `bench/profile/run.sh` sets it to 5 ms, and the `keys`
+scenario writes the slow callbacks of each key in the field `slow`. The
+project: 64 tracks, 2 000 MIDI clips, 50 000 notes. All numbers were
+measured under external load. The budget check uses the wall clock, so
+under a load average of 50 to 100 each callback looks 2 to 3 times
+slower than at a load average of 14.
+
+### The offenders, before the fixes of this branch
+
+`keys`, 4 runs (one at load average 14 to 19, three at 70 to 94). The
+times are wall times of one callback.
+
+| Callback | Where | Time | Result |
+| --- | --- | --- | --- |
+| `the command pick.grep` | `<Space>fg` | 99 ms (load 14), 148 to 315 ms (load 70 to 94) | fixed in this branch: the records come in slices (`paw.grep.reader`, the job `pick`) |
+| `the job harmony` | after the start and each edit | 5 to 44 ms a slice, process time p90 8.6 ms | fixed in this branch: `read.decode`, `read.key_path` and the merges of the notes pause |
+| `drawing the screen` | each key in the arrange view | 26 to 183 ms (load 70 to 94) | TASK-88: the arrange drawing |
+| `drawing the screen` | Enter on a clip, `j` in the piano roll | 370 to 540 ms, 22 to 33 ms | new ticket TASK-113 (kernel time of `j` in the roll: 77 ms at load 14) |
+| `drawing what moves` | `j` in the roll, `dd`, `u` | 5 to 48 ms | TASK-113 for the roll, TASK-88 for the arrange view |
+| `a timer (paw/help.tl:1123)` | the help index at idle, after the start | 6 to 69 ms | new ticket TASK-114 |
+| `the key h`, `e`, `l`, `p` | typing `:help` | 5 to 11 ms | new ticket TASK-115 |
+| `an event handler`, `a handler of clip.added`, `the key d` | `x`, `dd`, `u` | 5 to 12 ms | new ticket TASK-116 |
+| `the job pick` | the files walk | 5 to 9 ms | a read of one folder does not pause; under the noise of the load |
+| `the request eval` | the driver itself | 5 ms | not paw's |
+
+### After the fixes
+
+The slices of the chord reading, headless, 5 edits and their undo
+(remove a clip, undo), process time of each slice (`os.clock`, all
+threads), 3 runs, load average 45 to 100:
+
+| | Slices | Median | p90 | Largest |
+| --- | ---: | ---: | ---: | ---: |
+| Before | 41 to 67 | 2.4 to 3.3 ms | 7.3 to 8.6 ms | 8.6 to 10.3 ms |
+| After | 91 to 106 | 2.0 to 2.6 ms | 3.5 to 3.7 ms | 4.7 to 12.0 ms |
+
+The first reading after the project opens still has slices of 15 to
+19 ms. This branch did not find which part of it does not pause.
+
+The two pickers that read in slices, main against this branch, 5 pairs
+in turns, `repeat` of the picker key and `Esc`, 5 rounds each, load
+average 58 to 88:
+
+| Keys | Measure | main | branch |
+| --- | --- | ---: | ---: |
+| `<Space>fg`, `Esc` | key to first frame (median of each run) | 335 ms (162 to 968) | 35 ms (19 to 77) |
+| `<Space>fg`, `Esc` | kernel time for each round | 263 ms (229 to 272) | 244 ms (90 to 297) |
+| `<Space>ff`, `Esc` | kernel time for each round | 156 ms (139 to 222) | 178 ms (111 to 214) |
+
+The kernel time shows no measurable difference. A first version filtered
+and drew the picker after each slice of 4 ms: the text picker then took
+470 to 1 350 ms of kernel time. The picker now filters and draws at most
+every 100 ms while it reads.
+
+In 3 runs of `keys` after the fixes (load average 50 to 65),
+`the command pick.grep` is gone. `the job harmony` gives 5 to 6 ms a
+slice (wall time). The other offenders of the table above stay, with
+their tickets.
+
+### The cost of the check
+
+- `paw.limit.timed` around an empty function, 5 rounds of 10^6 calls:
+  263 ns (258 to 266) with the budget on, 1 ns with it off. One
+  `paw.api.now()` costs 98 ns (97 to 99).
+- One key `j` or `k` in the arrange view (the key, the end of the turn and
+  a frame) reads the clock 25 times with the budget off and 55 times with
+  it on: 15 callbacks, about 4 µs. The key costs about 7 ms of kernel
+  time: the check is about 0.06 % of a key.
+- `repeat --keys j,k --times 20`, budget 0 and 5 in turns, 5 pairs, load
+  average 40 to 57: 61.5 ms (39.1 to 63.9) and 39.9 ms (22.2 to 72.7)
+  for each round. No measurable difference: the spread is much larger.
+
 ## 2026-11-21: paw in the terminal, profiled
 
 A profile of the kernel and the terminal frontend, with the tools that
