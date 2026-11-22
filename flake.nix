@@ -360,9 +360,9 @@
       });
 
       # `nix flake check`: clippy, rustfmt, the Rust tests a sandbox can run,
-      # the program itself, Vale on the docs, `cyan check` on the Teal,
+      # the program itself, Vale on the docs, the website with its link check, `cyan check` on the Teal,
       # luacheck on the Lua, and how much the formatters would change.
-      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; lua = luaCheck pkgs; format = formatCheck pkgs; });
+      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; lua = luaCheck pkgs; format = formatCheck pkgs; website = website pkgs; });
 
       apps = forAll (pkgs:
         nixpkgs.lib.genAttrs [ "paw" "paw-gui" "paw-mcp" ] (name: {

@@ -30,7 +30,8 @@ find extensions \( -name '*.md' -o -name '*.png' -o -name '*.gif' -o -name '*.sv
   -print0 | xargs -0 cp --no-preserve=mode --parents -t "$stage"
 find crates -name README.md -print0 | xargs -0 cp --no-preserve=mode --parents -t "$stage"
 chmod -R u+w "$stage"
-cp "$here/book.toml" "$here/landing.css" "$stage/"
+sed "s|@REPO_URL@|$REPO_URL|g" "$here/book.toml" > "$stage/book.toml"
+cp "$here/landing.css" "$stage/"
 # The site opens on the landing page. It takes the place of README.md in the
 # staged tree only, and the README stays as GitHub shows it.
 cp "$here/landing.md" "$stage/README.md"
@@ -48,5 +49,11 @@ rm -f "$out/site/book.toml" "$out/site/SUMMARY.md"
 find "$out/site" -name index.html | while read -r f; do
   d=$(dirname "$f")
   if [ -e "$stage${d#"$out/site"}/README.md" ]; then cp "$f" "$d/README.html"; fi
+done
+# mdBook writes "./" in front of the path of an edit link. The landing page
+# comes from tools/website/landing.md, and its edit link says so.
+find "$out/site" -name '*.html' -print0 | xargs -0 sed -i 's|edit/main/\./|edit/main/|'
+for f in "$out/site/index.html" "$out/site/README.html"; do
+  sed -i "s|edit/main/README.md|edit/main/tools/website/landing.md|" "$f"
 done
 "$lua" "$here/linkcheck.lua" "$stage" "$out/site" "$repo" "$REPO_URL"
