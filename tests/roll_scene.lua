@@ -333,3 +333,19 @@ test("the velocity strip's name is a button that opens the menu of what it shows
   eq(items ~= nil and items[2].label, "Pitch wheel", "a menu of what it can show")
   paw.frontend.act.menu_dismiss()
 end)
+
+test("in the roll a jump to a note off screen puts it at the left margin", function()
+  opened({ { pitch = 60, start = 0, length = 1 }, { pitch = 60, start = 6, length = 1 } })
+  local saved = { view = paw.opt.jumpview, margin = paw.opt.jumpmargin }
+  T.after(function()
+    paw.opt.jumpview, paw.opt.jumpmargin = saved.view, saved.margin
+  end)
+  paw.opt.jumpview, paw.opt.jumpmargin = "left", 6
+  paw.opt.note_zoom = 32
+  redraw()
+  eq(roll.scroll, 0, "the note at 6 is off screen")
+  paw.keymap.feed("*")
+  redraw()
+  eq(roll.beat, 6, "the cursor is on the second note")
+  eq(roll.scroll, 5, "the note is a beat from the left edge, not at the right")
+end)

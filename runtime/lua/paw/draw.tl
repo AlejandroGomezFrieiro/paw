@@ -992,15 +992,18 @@ function M.bar_lines(from: number, span: number): {BarLine}
   return out
 end
 
---- Where a view scrolls to for a jump of its cursor to `target`, a beat, or
---- nil when the view keeps its place. The view keeps its place when the
---- target is on screen, and for a step just past an edge (the caller then
---- scrolls just enough). A jump further than that puts the target at the
---- left margin (`paw.opt.jumpview` "left", `paw.opt.jumpmargin` columns) or in the
---- middle ("center"). `span` is the beats shown, `zoom` the columns a beat.
-function M.jump_scroll(target: number, scroll: number, span: number, zoom: number): number
-  local over = target < scroll and scroll - target or target - (scroll + span - 1 / zoom)
-  if over < 0 or over <= math.max(4, span / 8) then
+--- Where a view scrolls to for a move of its cursor to `target`, a beat, or
+--- nil when the move leaves the scroll to the caller. A step (`jumped` is
+--- false) is left to the caller, which scrolls just enough. A jump (it went
+--- into the jump list) to a target that is off screen, or in the last quarter
+--- of the view, puts the target at the left margin (`paw.opt.jumpview` "left",
+--- `paw.opt.jumpmargin` columns) or in the middle ("center"). `span` is the
+--- beats shown, `zoom` the columns a beat.
+function M.jump_scroll(target: number, scroll: number, span: number, zoom: number, jumped: boolean): number
+  if not jumped then
+    return nil
+  end
+  if target >= scroll and target < scroll + span * 0.75 then
     return nil
   end
   local at = opt.jumpview == "center" and span / 2 or (opt.jumpmargin as number) / zoom
