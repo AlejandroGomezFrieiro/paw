@@ -1212,6 +1212,26 @@ impl Lane {
         }
         std::borrow::Cow::Owned(out)
     }
+
+    /// The value the lane plays at a beat: on the curve between two
+    /// points, the nearest point's value before the first and after the
+    /// last. 0 for a lane with no points.
+    pub fn value_at(&self, beat: f64) -> f64 {
+        let played = self.played();
+        let Some(&(first_beat, first)) = played.first() else {
+            return 0.0;
+        };
+        if beat <= first_beat {
+            return first;
+        }
+        for pair in played.windows(2) {
+            let ((b0, v0), (b1, v1)) = (pair[0], pair[1]);
+            if beat <= b1 {
+                return if b1 > b0 { v0 + (v1 - v0) * (beat - b0) / (b1 - b0) } else { v1 };
+            }
+        }
+        played.last().map_or(0.0, |p| p.1)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

@@ -31,7 +31,7 @@ use anyhow::{Result, bail};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{Map, Value};
 
-use super::{ClipContent, Id, MASTER_ID, Project, SigChange, TempoChange, Track};
+use super::{Clip, ClipContent, Control, Id, Lane, MASTER_ID, Note, Notes, Project, SigChange, TempoChange, Track};
 
 /// The most nests inside each other: a song clip places a nest at depth 1.
 pub const MAX_DEPTH: usize = 8;
@@ -142,6 +142,82 @@ impl Route {
             Self::Pair => "play an output pair into",
         }
     }
+}
+
+/// A clip of a nest's timeline placed in the song: its beat `b` is the
+/// song's beat `zero + b`, cut at the window `from..to` of song beats, with
+/// the id `id`. None when nothing of it is inside the window, or when it is
+/// cut at its start and cannot be: a looped clip, an audio clip, a custom
+/// clip's sound. A nest clip cut at its start starts later in its nest.
+pub fn placed_clip(clip: &Clip, zero: f64, from: f64, to: f64, id: Id) -> Option<Clip> {
+    let start = zero + clip.start;
+    let end = (start + clip.length).min(to);
+    let first = start.max(from);
+    if end <= first {
+        return None;
+    }
+    let mut copy = Clip {
+        id,
+        start: first,
+        length: end - first,
+        ..clip.clone()
+    };
+    let cut = first - start;
+    if cut > 1e-9 {
+        if clip.looped {
+            return None;
+        }
+        copy.content = match &clip.content {
+            ClipContent::Midi { notes, controls } => {
+                let notes: Notes = notes
+                    .iter()
+                    .filter(|n| n.start >= cut)
+                    .map(|n| Note { start: n.start - cut, ..n.clone() })
+                    .collect();
+                let controls = controls
+                    .iter()
+                    .filter(|c| c.start >= cut)
+                    .map(|c| Control { start: c.start - cut, ..c.clone() })
+                    .collect();
+                ClipContent::Midi { notes, controls }
+            }
+            ClipContent::Nest { nest, offset, play } => ClipContent::Nest { nest: *nest, offset: offset + cut, play: *play },
+            // The rest of a sound from the cut on: its offset in seconds
+            // would follow the tempo there, which this does not know.
+            _ => return None,
+        };
+    }
+    Some(copy)
+}
+
+/// A lane of a nest's track as the song plays it: for each place of the
+/// nest, `(zero, from, to)` in song beats, the lane's points from `from` to
+/// `to` moved by `zero`, with the value it plays at each edge. The shapes
+/// of the curve inside a place move with it. The lane as it is when the
+/// nest has no place, or the lane no points.
+pub fn placed_lane(lane: &Lane, places: &[(f64, f64, f64)]) -> Lane {
+    if places.is_empty() || lane.points.is_empty() {
+        return lane.clone();
+    }
+    let mut points = Vec::new();
+    let mut shapes = Vec::new();
+    for &(zero, from, to) in places {
+        let (a, b) = (from - zero, to - zero);
+        if from.is_finite() {
+            points.push((from, lane.value_at(a)));
+        }
+        for &(beat, value) in lane.points.iter().filter(|p| p.0 > a && p.0 < b) {
+            points.push((beat + zero, value));
+        }
+        for s in lane.shapes.iter().filter(|s| s.beat > a && s.beat < b) {
+            shapes.push(super::Segment { beat: s.beat + zero, ..s.clone() });
+        }
+        if to.is_finite() {
+            points.push((to, lane.value_at(b)));
+        }
+    }
+    points.sort_by(|x, y| x.0.total_cmp(&y.0));
+    Lane { points, shapes, ..lane.clone() }
 }
 
 /// `Project::nests` as a project file has it: a list in the order of the

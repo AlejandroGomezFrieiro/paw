@@ -273,6 +273,17 @@ for _, how in ipairs({ { "s", "split", "split" }, { "v", "vsplit", "vertical spl
   end, { mode = nx, desc = "The scope at the cursor, or the selection, in a new " .. how[3] })
 end
 map("<leader>zn", "scope.name", { desc = "Name this window's scope: type its name" })
+-- Subprojects (paw/nest.tl): `<leader>za` adds one here, and asks its
+-- name, its bars and its meter on the command line (`Ballad 8 6/8`).
+map(
+  "<leader>zp",
+  "nest.promote",
+  { desc = "Promote the subproject at the cursor to a view: its tracks come back into the song" }
+)
+map("<leader>za", function()
+  local text = keymap.mode == "x" and "'<,'>nest.new " or "nest.new "
+  paw.commands.run("cmdline", { text = text }, { mode = keymap.mode })
+end, { mode = nx, desc = "Add a subproject with its own row and tracks: type its name, bars and meter" })
 map("<leader>zz", "scope.list", { desc = "Enter a scope, or go up to a level, from a list" })
 amap("]z", "scope.next", "The next scope beside this one: region, group, track", { motion = true, mode = "n" })
 amap("[z", "scope.prev", "The scope before this one, beside it", { motion = true, mode = "n" })
