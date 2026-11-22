@@ -249,7 +249,7 @@ keymap.operator("zf", function(region)
 end, {
   view = "arrange",
   repeatable = false,
-  desc = "Fold what a motion covers into one row or column: zfar a region, zfag a group, Vjjzf tracks",
+  desc = "Fold a region (zfar) into a column, a group (zfag) or tracks (Vjjzf) into one line",
 })
 amap("zm", "fold.more", "Fold one more level of regions")
 amap("zr", "fold.less", "Open one more level of regions")

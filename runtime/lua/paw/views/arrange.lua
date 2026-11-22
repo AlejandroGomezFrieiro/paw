@@ -20,13 +20,37 @@ local view = {
   share = { column = 2 / 5, least = 1 / 3 },
   -- Each window of the arrange view scrolls on its own. The edit cursor
   -- (paw/cursor.tl) is one for all of them.
-  window_state = { "scroll", "top", "flags", "seen_index", "seen_fit", "seen_lane", "seen_beat", "geometry", "comp" },
+  window_state = {
+    "scroll",
+    "top",
+    "flags",
+    "seen_index",
+    "seen_fit",
+    "seen_lane",
+    "seen_beat",
+    "geometry",
+    "comp",
+    "tmap",
+    "fold_ground",
+  },
   window_fresh = { "geometry", "flags" },
 }
 paw.seats.fields(
   "arrange",
   view,
-  { "scroll", "top", "flags", "seen_index", "seen_fit", "seen_lane", "seen_beat", "geometry", "comp" },
+  {
+    "scroll",
+    "top",
+    "flags",
+    "seen_index",
+    "seen_fit",
+    "seen_lane",
+    "seen_beat",
+    "geometry",
+    "comp",
+    "tmap",
+    "fold_ground",
+  },
   { scroll = 0, top = 1, flags = {} }
 )
 
@@ -842,6 +866,8 @@ local function row_ground(self, buf, row, hue, marks, loop, colour, scope_from, 
     scope_from or false,
     scope_to or false,
     marks = marks,
+    -- The time folds: where each is, and how wide.
+    folds = self.fold_ground,
   }
 end
 
@@ -900,8 +926,7 @@ local function lane(self, buf, row, track, selected, cursor_clip, lanes, hue, ma
     end
   end
   local keep_key, ground
-  -- A row is kept only without time folds: the map is not part of its ground.
-  if not (folds or paw.ui.scene_drawing or selected or (self.rec and track.armed)) then
+  if not (paw.ui.scene_drawing or selected or (self.rec and track.armed)) then
     keep_key = "arrange:row:" .. track.id .. ":" .. buf.x .. ":" .. buf.y
     -- The layers are painted after the row is kept, each in its clip's
     -- cells: so the clips may not share a column.
@@ -1359,6 +1384,12 @@ function view:render(buf, ctx)
   -- The window's time folds: the map of its beats to its columns.
   local tmap = paw.folds.time_map(zoom)
   self.tmap = tmap
+  -- The folds as plain data, for the rows that the terminal keeps.
+  local fold_ground = {}
+  for i, s in ipairs(tmap.spans) do
+    fold_ground[i] = { s.from, s.to, s.cells }
+  end
+  self.fold_ground = fold_ground
   local function ahead(beat) return tmap.view(beat) - tmap.view(self.scroll) end
   if t.playing and opt.follow and not led then
     if t.position < self.scroll or ahead(t.position) >= span then self.scroll = paw.time.bar_floor(t.position) end
@@ -1739,6 +1770,10 @@ end
 --- Scroll by bars without moving the cursor.
 function view:scroll_by(bars)
   self.scroll = math.max(0, self.scroll + bars * paw.time.bar(self.scroll))
+  -- A time fold is one step: the scroll does not stop inside one.
+  for _, s in ipairs((self.tmap or no_folds).spans) do
+    if self.scroll > s.from and self.scroll < s.to then self.scroll = bars > 0 and s.to or s.from end
+  end
   api.ui_redraw()
 end
 

@@ -190,6 +190,11 @@ test("zfar folds a region into one column 'Bridge ▸ 8'; l takes it as one step
   eq(paw.cursor.beat, 48, "l again: past the fold in one step")
   keys("h")
   eq(paw.cursor.beat, 16, "h: back onto it")
+  paw.cursor.set_beat(60)
+  view.scroll = 12
+  keys("zl")
+  keys("zl")
+  eq(view.scroll, 48, "zl scrolls past the fold in one step")
   eq(api.project_get().edits, edits, "no edit of the project")
   eq(render("folds-closed") == open, true, "a render with the fold is the same, bit for bit")
 end)
