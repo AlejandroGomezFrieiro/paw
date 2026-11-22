@@ -99,6 +99,7 @@ impl Buffers {
     }
 }
 
+/// The audio-thread half of a CLAP plugin, which the engine runs.
 pub(super) struct ClapDevice {
     pub(super) shared: Arc<Shared>,
     /// What the plugin tells in its output events, kept across blocks.

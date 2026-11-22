@@ -310,7 +310,7 @@ fn draft_entry(entry: &PluginEntry) -> Option<PluginEntry> {
     let draft = entry.get_factory::<DraftFactory>()?;
     DRAFT.set(draft.0.as_ptr().cast_const().cast());
     // SAFETY: `DRAFT_ENTRY` is static, its `init` and `deinit` do nothing, and its factory is
-    // the draft factory of `entry`'s file, which is never unloaded (see clap.rs's `Library`).
+    // the draft factory of `entry`'s file, which is never unloaded (see clap/library.rs's `Library`).
     unsafe { PluginEntry::load_from_raw(&DRAFT_ENTRY, c"paw-draft-presets") }.ok()
 }
 

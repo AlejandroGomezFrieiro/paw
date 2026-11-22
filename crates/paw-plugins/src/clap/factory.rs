@@ -32,6 +32,7 @@ use super::shared::{PluginExtensions, Shared};
 use crate::HeldNotes;
 use crate::echo::Echo;
 
+/// A CLAP plugin of a file, which makes instances of it.
 pub(super) struct ClapFactory {
     pub(super) info: DeviceInfo,
     pub(super) id: CString,
