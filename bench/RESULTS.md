@@ -11,8 +11,9 @@ against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md).
 
 A window without the keyboard keeps its cells while the `stamp` of its
 view and the stamp of the frame do not change (`runtime/lua/paw/ui.tl`).
-The arrange view, the piano roll and the mixer give a stamp. The
-project: `bench/profile/project.lua`. The piano roll is open on the first
+The arrange view, the piano roll and the mixer give a stamp.
+
+The project: `bench/profile/project.lua`. The piano roll is open on the first
 MIDI clip, under the arrange view, with the keys. The scenario is
 `repeat --keys 'j,k' --times 30`. One binary of main (7ae25570) ran with
 the Lua of main (5d520705) and of the branch (`PAW_RUNTIME`), in turns,
