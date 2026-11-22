@@ -1349,10 +1349,11 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.lsp.document_module
 
 - `paw.lsp.document_module.beats(ticks)`: Beats from the clip's start for a tick of its document.
-- `paw.lsp.document_module.build(id, hash)`: The document for a clip, as `midi/didOpen` and `midi/didChange` send it, under `hash` (from `key_of`). Nil when the clip is gone.
+- `paw.lsp.document_module.build(id, key)`: The document for a clip, as `midi/didOpen` and `midi/didChange` send it, under `key` (from `key_of`). Nil when the clip is gone.
 - `paw.lsp.document_module.clip_of(uri)`: The clip a URI names, or nil.
 - `paw.lsp.document_module.key(beat)`: The project's key at a beat as `{ root = 0..11, scale = "major" }`, as `paw.harmony.key` gives it.
 - `paw.lsp.document_module.key_of(id)`: A value that changes each time the data that paw would send about a clip changes, and that is fast to make. It contains the notes of the clip, its position, the tracks around it, the tempo map and the key. Nil when the clip does not exist.
+- `paw.lsp.document_module.release(id)`: Stop updating the key of clip `id` after each edit, when no server has its document.
 - `paw.lsp.document_module.tick(beats)`: Beats as ticks of `M.PPQ` a beat, the language server's unit.
 - `paw.lsp.document_module.uri(id)`: The URI that names a clip: `paw://clip/12`.
 

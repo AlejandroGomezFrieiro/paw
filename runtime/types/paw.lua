@@ -5540,10 +5540,10 @@ function paw.lsp.sync() end
 function paw.lsp.document_module.beats(ticks) end
 
 --- The document for a clip, as `midi/didOpen` and `midi/didChange` send it,
---- under `hash` (from `key_of`). Nil when the clip is gone.
+--- under `key` (from `key_of`). Nil when the clip is gone.
 ---@param id any
----@param hash any
-function paw.lsp.document_module.build(id, hash) end
+---@param key any
+function paw.lsp.document_module.build(id, key) end
 
 --- The clip a URI names, or nil.
 ---@param uri any
@@ -5560,6 +5560,11 @@ function paw.lsp.document_module.key(beat) end
 --- the clip does not exist.
 ---@param id any
 function paw.lsp.document_module.key_of(id) end
+
+--- Stop updating the key of clip `id` after each edit, when no server
+--- has its document.
+---@param id any
+function paw.lsp.document_module.release(id) end
 
 --- Beats as ticks of `M.PPQ` a beat, the language server's unit.
 ---@param beats any

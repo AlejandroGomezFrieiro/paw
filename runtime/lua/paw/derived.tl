@@ -159,6 +159,9 @@ local record M
     get: function(self: Node<K, V, I>, key: K, latest?: boolean): V, boolean
     --- Keep the value of `key` fresh: the job makes it after each change.
     want: function(self: Node<K, V, I>, key: K)
+    --- Stop keeping the value of `key` fresh: it goes when the node is past
+    --- its limit and no other value reads it.
+    unwant: function(self: Node<K, V, I>, key: K)
     --- Whether the value of `key` is fresh.
     fresh: function(self: Node<K, V, I>, key: K): boolean
     --- Forget every value of the node: they are made again from nothing.
@@ -850,6 +853,16 @@ function M.node<K, V, I>(spec: M.Spec<K, V, I>): M.Node<K, V, I>
     if e.state ~= FRESH then
       queue[e] = true
       schedule()
+    end
+  end
+  function node:unwant(key: K)
+    local id = spec.id and (spec.id(key) as Value) or key as Value
+    local e = core.entries[id]
+    if e and e.wanted then
+      e.wanted = nil
+      if not held(e) then
+        core.orphans[#core.orphans + 1] = e
+      end
     end
   end
   function node:fresh(key: K): boolean

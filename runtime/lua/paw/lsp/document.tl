@@ -9,8 +9,17 @@
 -- tracks' MIDI clips that overlap it, in this clip's ticks, with their
 -- track's name and devices; and the tempo map, signatures and key over it.
 --
+-- The key of a document (`key_of`) is a node of `paw.derived`: it reads
+-- the clip, its track, the tempo map, and the clips of the other tracks
+-- through one node for each track (`lsp.track`). An edit of a clip that
+-- does not overlap the document leaves its key as it was, and the key
+-- reads no list of clips again.
+--
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
+local derived = require("paw.derived")
+local events = require("paw.events")
+local kernel = require("paw.events.kernel")
 local type types = require("paw.types")
 local type partial = require("paw.partial")
 local type objects = require("paw.objects")
@@ -157,15 +166,18 @@ function M.key(beat: number): Key
   return {root = key.tonic % 12, scale = (tostring(key.mode or "major"):gsub("_", " "))}
 end
 
--- The notes of a clip as the protocol has them, those in `[from, to)` beats
--- of `into` (a clip's start) only, shifted into its ticks.
-local function notes_of(c: types.Clip, into: number, from?: number, to?: number, limit?: integer): {Note}
+-- The notes of clip `id` (at `start`, `length` beats long) as the protocol
+-- has them, those in `[from, to)` beats of `into` (a clip's start) only,
+-- shifted into its ticks.
+local function notes_of(
+  id: integer, start: number, length: number, into: number, from?: number, to?: number, limit?: integer
+): {Note}
   local out: {Note} = {}
-  local notes = api.clip_notes(c.id)
+  local notes = api.clip_notes(id)
   for place, n in ipairs(notes) do
     -- A note trimmed off by the clip's edges is not heard, so not sent.
-    if n.start >= 0 and n.start < c.length then
-      local s, e = c.start + n.start, c.start + math.min(n.start + n.length, c.length)
+    if n.start >= 0 and n.start < length then
+      local s, e = start + n.start, start + math.min(n.start + n.length, length)
       if (not from or e > from) and (not to or s < to) then
         out[#out + 1] = {
           id = n.id or place - 1,
@@ -184,25 +196,207 @@ local function notes_of(c: types.Clip, into: number, from?: number, to?: number,
   return out
 end
 
--- The other tracks' MIDI clips that sound during `c`.
-local function overlapping(c: types.Clip): {types.Clip}
-  local out: {types.Clip} = {}
-  for _, track_id in ipairs(api.track_list()) do
-    if track_id ~= c.track then
-      for _, other in ipairs(api.clip_list(track_id)) do
-        if
-          other.kind == "midi"
-          and not other.muted
-          and other.start < c.start + c.length
-          and other.start + other.length > c.start
-        then
-          out[#out + 1] = other
+-- The key's nodes ------------------------------------------------------------------------
+
+--- A MIDI clip where it is: what a document's key reads of it.
+local record Place
+  id: integer
+  track: integer
+  stamp: integer
+  start: number
+  length: number
+end
+
+--- A track as the documents see it: what is sent of the track itself
+--- (`info`), and its MIDI clips that are not muted.
+local record TrackPlaces
+  info: string
+  clips: {Place}
+end
+
+--- A document's key before the key of the music at its start is added:
+--- the hash so far, where the clip starts, and the clips of the other
+--- tracks that overlap it.
+local record DocKey
+  hash: integer
+  start: number
+  overlapping: {Place}
+end
+
+local function same_place(a: Place, b: Place): boolean
+  return a.id == b.id and a.track == b.track and a.stamp == b.stamp and a.start == b.start and a.length == b.length
+end
+
+-- What is sent of a track besides its notes: its name, how many devices
+-- it has, and whether it plays drums.
+local function track_text(ctx: derived.Ctx, id: integer): string
+  local t = ctx:track(id, {"name", "devices", "meta"})
+  if not t then
+    return ""
+  end
+  return string.format("%s:%d:%s", t.name, #(t.devices or {}), tostring(paw.harmony.is_drums(t)))
+end
+
+local track_spec: derived.Spec<integer, TrackPlaces, boolean> = {
+  name = "lsp.track",
+  kind = "family",
+  make = function(ctx: derived.Ctx, id: integer): TrackPlaces
+    local v: TrackPlaces = {info = track_text(ctx, id), clips = {}}
+    for _, c in ipairs(ctx:clips(id)) do
+      if c.kind == "midi" and not c.muted then
+        v.clips[#v.clips + 1] = {id = c.id, track = id, stamp = c.stamp, start = c.start, length = c.length}
+      end
+    end
+    return v
+  end,
+  same = function(a: TrackPlaces, b: TrackPlaces): boolean
+    if a.info ~= b.info or #a.clips ~= #b.clips then
+      return false
+    end
+    for i = 1, #a.clips do
+      if not same_place(a.clips[i], b.clips[i]) then
+        return false
+      end
+    end
+    return true
+  end,
+  -- Where the clips that came, went, moved or changed are: the documents
+  -- elsewhere keep their keys. A change of the track itself is everywhere.
+  touched = function(a: TrackPlaces, b: TrackPlaces): number, number
+    if a.info ~= b.info then
+      return nil
+    end
+    local from, to = math.huge, -math.huge
+    local function add(list: {Place}, other: {Place})
+      local by_id: {integer: Place} = {}
+      for i_p = 1, #other do
+        local p = other[i_p]
+        by_id[p.id] = p
+      end
+      for i_p = 1, #list do
+        local p = list[i_p]
+        local was = by_id[p.id]
+        if not (was and same_place(p, was)) then
+          from, to = math.min(from, p.start), math.max(to, p.start + p.length)
         end
       end
     end
+    add(a.clips, b.clips)
+    add(b.clips, a.clips)
+    if from > to then
+      return nil
+    end
+    return from, to
+  end,
+  limit = 4096,
+}
+local track_node = derived.node(track_spec)
+
+-- Where the clip of each document is, for its `span`: a change of a
+-- track's clips makes again only the keys of the documents that it
+-- overlaps. Set each time a key is made.
+local spans: {integer: {number}} = {}
+
+-- 32 bits of a hash of `text`, from `h` on (5381 at first).
+local function hash(text: string, h: integer): integer
+  for i = 1, #text do
+    h = (h * 33 + text:byte(i)) % 4294967296
   end
-  return out
+  return h
 end
+
+local doc_spec: derived.Spec<integer, DocKey, boolean> = {
+  name = "lsp.document",
+  kind = "memo",
+  span = function(id: integer): number, number
+    local span = spans[id]
+    if not span then
+      return -math.huge, math.huge
+    end
+    return span[1], span[2]
+  end,
+  make = function(ctx: derived.Ctx, id: integer): DocKey
+    ctx:source("clip:" .. id)
+    local ok, c = pcall(api.clip_get, id) as (boolean, types.Clip)
+    if not ok or c.kind ~= "midi" then
+      spans[id] = nil
+      return nil
+    end
+    local finish = c.start + c.length
+    spans[id] = {c.start, finish}
+    local parts: {string} = {
+      tostring(c.stamp),
+      string.format("%.17g:%.17g", c.start, c.length),
+      track_text(ctx, c.track),
+      tostring(c.control_stamp),
+      tostring(ctx:tempo()),
+    }
+    -- The other tracks' MIDI clips that sound during the clip, and their tracks.
+    local overlapping: {Place} = {}
+    for _, track_id in ipairs(ctx:tracks()) do
+      if track_id ~= c.track then
+        local v = ctx:get(track_node, track_id)
+        local found = false
+        for _, other in ipairs(v.clips) do
+          if other.start < finish and other.start + other.length > c.start then
+            overlapping[#overlapping + 1] = other
+            parts[#parts + 1] = string.format(
+              "%d:%s:%.17g:%.17g", other.id, tostring(other.stamp), other.start, other.length
+            )
+            found = true
+          end
+        end
+        if found then
+          parts[#parts + 1] = v.info
+        end
+      end
+    end
+    return {hash = hash(table.concat(parts, "|"), 5381), start = c.start, overlapping = overlapping}
+  end,
+  same = function(a: DocKey, b: DocKey): boolean
+    return a == b or (a ~= nil and b ~= nil and a.hash == b.hash and a.start == b.start)
+  end,
+  limit = 4096,
+}
+local doc_node = derived.node(doc_spec)
+
+-- The clips whose keys the graph keeps up to date after each edit: those
+-- asked for since the project opened, and not released.
+local kept: {integer: boolean} = {}
+
+--- Stop updating the key of clip `id` after each edit, when no server
+--- has its document.
+function M.release(id: integer)
+  if kept[id] then
+    kept[id] = nil
+    doc_node:unwant(id)
+  end
+end
+
+-- The key of clip `id` without the music's key, with the clips of the
+-- other tracks that overlap it. Nil when it is not a MIDI clip.
+local function doc_key(id: integer): DocKey
+  local v = doc_node:get(id, true)
+  if v == nil then
+    M.release(id)
+  elseif not kept[id] then
+    -- The graph makes the key again in slices after each edit: a server
+    -- gets the changes after a pause, and the key is ready by then.
+    kept[id] = true
+    doc_node:want(id)
+  end
+  return v
+end
+
+events.on(
+  kernel.project_loaded,
+  function()
+    for id in pairs(kept) do
+      M.release(id)
+    end
+    spans = {}
+  end
+)
 
 -- Signature and tempo changes over the clip, in its ticks: the first meter
 -- at the bar line at or before its start, the first tempo at its start, and
@@ -261,39 +455,18 @@ end
 --- its position, the tracks around it, the tempo map and the key. Nil when
 --- the clip does not exist.
 function M.key_of(id: integer): string
-  local ok, c = pcall(api.clip_get, id) as (boolean, types.Clip)
-  if not ok or c.kind ~= "midi" then
+  local v = doc_key(id)
+  if v == nil then
     return nil
   end
-  local track = api.track_get(c.track)
-  local parts: {string | number} = {
-    tostring(c.stamp), c.start, c.length, track.name, #(track.devices or {}), c.control_count or 0
-  }
-  for _, other in ipairs(overlapping(c)) do
-    parts[#parts + 1] = string.format("%d:%s:%.9g:%.9g", other.id, tostring(other.stamp), other.start, other.length)
-  end
-  for _, t in ipairs(paw.tempo.points()) do
-    parts[#parts + 1] = string.format("t%.9g,%.9g,%s", t.beat, t.bpm, tostring(t.ramp))
-  end
-  for _, s in ipairs(paw.tempo.signatures()) do
-    parts[#parts + 1] = string.format("s%.9g,%d/%d", s.beat, s.num, s.den)
-  end
-  local key = M.key(c.start)
-  if key then
-    parts[#parts + 1] = key.root .. key.scale
-  end
-  local text = table.concat(parts as {string}, "|")
-  -- 32 bits of it: short enough to go back and forth with every request.
-  local h = 5381
-  for i = 1, #text do
-    h = (h * 33 + text:byte(i)) % 4294967296
-  end
-  return string.format("%08x", h)
+  local key = M.key(v.start)
+  -- 32 bits: short enough to go back and forth with every request.
+  return string.format("%08x", hash("|" .. key.root .. key.scale, v.hash))
 end
 
 --- The document for a clip, as `midi/didOpen` and `midi/didChange` send it,
---- under `hash` (from `key_of`). Nil when the clip is gone.
-function M.build(id: integer, hash?: string): Document
+--- under `key` (from `key_of`). Nil when the clip is gone.
+function M.build(id: integer, key?: string): Document
   local ok, c = pcall(api.clip_get, id) as (boolean, types.Clip)
   if not ok or c.kind ~= "midi" then
     return nil
@@ -302,11 +475,11 @@ function M.build(id: integer, hash?: string): Document
   local meters, tempi, bar_start, num, den = tempo_map(c)
   local context: {Context} = {}
   local budget = M.MAX_CONTEXT_NOTES
-  for _, other in ipairs(overlapping(c)) do
+  for _, other in ipairs(doc_key(id).overlapping) do
     if budget <= 0 then
       break
     end
-    local notes = notes_of(other, c.start, c.start, c.start + c.length, budget)
+    local notes = notes_of(other.id, other.start, other.length, c.start, c.start, c.start + c.length, budget)
     budget = budget - #notes
     if #notes > 0 then
       context[#context + 1] = {track = track_info(api.track_get(other.track)), notes = notes}
@@ -314,9 +487,9 @@ function M.build(id: integer, hash?: string): Document
   end
   return {
     uri = M.uri(id),
-    hash = hash or M.key_of(id),
+    hash = key or M.key_of(id),
     ppq = M.PPQ,
-    notes = notes_of(c, c.start),
+    notes = notes_of(c.id, c.start, c.length, c.start),
     track = track_info(track),
     timesig = {num = num, denom = den},
     key = M.key(c.start),

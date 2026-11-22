@@ -7,6 +7,39 @@ How to run everything: [README.md](README.md). Raw numbers:
 matrix before it). The processor time of the whole program while it plays,
 against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md).
 
+## 2026-11-22: the key of an LSP document on the graph of derived data
+
+The key of a clip's LSP document (`paw.lsp.document.key_of`) is now a
+node of `paw.derived` (backlog design `derived.md`, D5). It reads the
+clips of the other tracks through one node for each track
+(`lsp.track`), not through `clip_list` of every track. A change of a
+track's clips makes again only the keys of the documents that it
+overlaps. The graph makes the keys of the documents that a server has
+again in slices after an edit, before the LSP sync sends them (250 ms
+after the last edit).
+
+The project: `bench/profile/project.lua` (64 tracks, 2 000 MIDI clips,
+50 000 notes). The script (not in the repository) edits one note of the
+last clip of track 40, then times `key_of` of the first clip of track 1.
+"After a pause": `paw.flush()`, then the chord reading and the jobs of
+`paw.derived` run, as after a pause of the keys. "At once": only
+`paw.flush()`. The times are the processor time of the kernel thread, 15
+rounds in each run. `main` (the shared binary of 7ae25570) and the branch
+ran in turns, 5 pairs, under the measure lock on cores 16 to 23, load
+average 5 to 7, measured under external load.
+
+| `key_of` after an edit elsewhere | main | branch |
+| --- | ---: | ---: |
+| After a pause | 3.5 to 19.0 ms (p50 3.7 to 3.9), 63 `clip_list` calls | 0.09 to 0.43 ms (p50 0.15 to 0.21), 0 `clip_list` calls |
+| At once | 5.0 to 19.0 ms (p50 5.7 to 7.5), 64 `clip_list` calls | 2.0 to 5.6 ms (p50 2.6 to 3.0), 2 `clip_list` calls |
+
+"At once", most of the time on the branch is the chord reading, which
+`key_of` waits for to find the key at the clip's start. The first
+`key_of` of a session makes the 64 track nodes: 7.5 to 8.4 ms on the
+branch, 5.0 to 5.7 ms on main (one run of main took 16.3 ms).
+`build` reads the clips that overlap the document from the same node:
+it does not read `clip_list` of every track again.
+
 ## 2026-11-22: the search index on the graph of derived data
 
 The records of `paw.grep` and the nodes of clips and notes that
