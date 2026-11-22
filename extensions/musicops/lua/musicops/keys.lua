@@ -423,7 +423,21 @@ local function key_command(ctx)
   for _, w in ipairs(ctx.args) do
     words[#words + 1] = tostring(w)
   end
+  -- `:key D minor at 17`: a key change at bar 17, a marker (one undo step).
+  local bar
+  if #words >= 2 and words[#words - 1] == "at" then
+    bar = tonumber(words[#words])
+    if bar and bar % 1 ~= 0 then bar = nil end
+    if not bar or bar < 1 then return paw.notify("key: at needs a bar number, from 1", "error") end
+    words[#words], words[#words - 1] = nil, nil
+  end
   local text = table.concat(words, " ")
+  if bar and text ~= "" then
+    local ok, key = pcall(paw.harmony.parse_key, text)
+    if not ok then return paw.notify(tostring(key):gsub("^.-:%d+: ", ""), "error") end
+    paw.markers.add(paw.time.bar_start(bar), "key " .. paw.harmony.key_name(key))
+    return paw.notify("key: " .. paw.harmony.key_name(key) .. " from bar " .. bar)
+  end
   if text == "" then
     local key = scale.project()
     return paw.notify(key and ("key: " .. scale.name(key)) or ("no key set; working in " .. scale.default))
@@ -437,7 +451,9 @@ local function key_command(ctx)
   scale.set(text)
   paw.notify("key: " .. scale.name(text))
 end
-paw.command("musicops.key", key_command, { desc = "Set the project's key: `key D minor`, `key off`; alone shows it" })
+paw.command("musicops.key", key_command, {
+  desc = "Set the project's key: `key D minor`, `key D minor at 17` (a key change at bar 17), `key off`; alone shows it",
+})
 if not paw.commands.get("key") or paw.commands.get("key").alias_of == "musicops.key" then
   paw.commands.alias("key", "musicops.key")
 end

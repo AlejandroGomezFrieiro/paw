@@ -145,6 +145,7 @@ In the vocal editor, musicops adds the following:
 | Command | Effect |
 | --- | --- |
 | `:key D minor`, `:musicops.key F# dorian` | sets the key. The default scale is major |
+| `:key D minor at 17` | writes a key change at bar 17, a marker named `key D minor`, in one undo step |
 | `:key` | shows the key |
 | `:key off` | clears the key |
 | `:musicops.scales` | lists the scales |

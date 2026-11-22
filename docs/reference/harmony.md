@@ -26,7 +26,13 @@ A melody alone, with one note on each beat, gives no chords, and the chord befor
 
 ## Keys
 
-The reading finds major and minor keys on all twelve tonics. A key changes only where the new key is established, usually at its dominant. A key that you set with `:key D minor` replaces the key that paw reads, in all of paw. The project keeps the key as `key` in its `project.toml` (`key = "D minor"`), and undo applies to it. The `:key` command comes with the musicops extension, and in Lua you use `paw.harmony.set_key`.
+The reading finds major and minor keys on all twelve tonics. A key changes only where the new key is established, usually at its dominant. A key that you set with `:key D minor` replaces the key that paw reads, in all of paw, except where a key change that you wrote applies (see below). The project keeps the key as `key` in its `project.toml` (`key = "D minor"`), and undo applies to it. The `:key` command comes with the musicops extension, and in Lua you use `paw.harmony.set_key`.
+
+## Key changes that you write
+
+A marker named `key D minor` is a key change. The pencil's `mk` writes one, and `:key D minor at 17` writes one at bar 17 in one undo step. A region can have a `key` field too, for example `paw.markers.add(32, "Verse", { length = 16, key = "E minor" })`, and its key holds over its time until a key marker inside it changes the key.
+
+The key at a beat is the last key marker at or before the beat. With no marker, it is the key of the project, and with no key set, it is the key that paw reads from the notes. Chord names and numerals use these keys, so a chord is F# in G major and Bb in F major. The key row of the piano roll and the pencil's chords use them too. When you move or add a key marker, paw does not read the notes again.
 
 ## Names and numerals
 
@@ -53,7 +59,8 @@ paw.harmony.chords(0, 16)   --> { { at = 0, length = 4, root = 9, quality = "min
                             --      tones = { 9, 0, 4 }, name = "Am", roman = "i" }, ... }
 paw.harmony.at(8)  paw.harmony.next(8)  paw.harmony.prev(8)   -- a chord, or nil
 paw.harmony.key(8)          --> { tonic = 9, mode = "minor", name = "A minor", root = 9, scale = "minor", steps = {...} }
-paw.harmony.keys()          --> every key read, { at, length, tonic, mode, name }
+paw.harmony.keys()          --> every key, { at, length, tonic, mode, name }
+paw.harmony.marked_key(8)   -- the key that you wrote for the beat, or nil
 paw.harmony.set_key("D minor")   paw.harmony.project_key()   -- the key set, or nil
 paw.on("harmony.changed", fn)    -- the reading changed
 ```
@@ -62,8 +69,9 @@ paw.on("harmony.changed", fn)    -- the reading changed
 | --- | --- |
 | `paw.harmony.chords(from, to, latest)` | The chords in a range. With `latest`, those of the reading as it stands. |
 | `paw.harmony.at(beat, latest)`, `next(beat)`, `prev(beat)` | The chord at a beat, after it, before it. Nil if there is none. |
-| `paw.harmony.key(beat, latest)` | The key at a beat. |
-| `paw.harmony.keys()` | Each key that paw reads, with `at`, `length`, `tonic`, `mode`, `name`. |
+| `paw.harmony.key(beat, latest)` | The key at a beat: a key marker, else the key of the project, else the key read from the notes. |
+| `paw.harmony.marked_key(beat)` | The key that you wrote for a beat with a key marker or a region, or nil. |
+| `paw.harmony.keys()` | Each key over the song, with `at`, `length`, `tonic`, `mode`, `name`. |
 | `paw.harmony.set_key(name)` | Set the key of the project. |
 | `paw.harmony.project_key()` | The key that is set, or nil. |
 | `paw.harmony.provider()` | The name of the provider whose reading paw uses. |
