@@ -174,7 +174,7 @@ follow `extensions/ara` (`paw.plugins.attach`, docs/reference/attachments.md).
 ```lua
 local T = ...
 T.test("euclid fills 3 in 8", function()
-  T.fresh()                                   -- a clean project
+  T.start()                                   -- a clean project, normal mode, no float
   paw.ext.load("extensions/euclid")
   -- drive real keys where it is UX: T.keys("…") / paw.keymap.feed("…")
   T.eq(#clip:notes(), 3, "three onsets")
@@ -188,6 +188,14 @@ one device) has run `n` whole blocks, so a parameter, note or change sent
 before is in effect. Keep `paw.api.sleep` only where real time is the
 point (a take of one second), with a comment that says so. The runner
 loads every `extensions/*/tests*.lua` itself.
+
+`T.fresh()` gives a new project, the default layout and the options of the
+start of the run. `T.start()` also types `<Esc><Esc>` and focuses the arrange
+view. `T.screen(w, h)` gives the text of the screen. After each test file,
+the runner compares the options, event handlers, timers, key mappings and
+loaded extensions with the start. A difference fails "`<file>` leaves no
+state behind". Put back what a test changes with `T.after(fn)`. Do not add
+lines to `tests/leaks-allowed.txt`.
 
 ```sh
 nix develop -c cargo build --release -j 8      # the runtime Lua is embedded: rebuild first

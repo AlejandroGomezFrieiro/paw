@@ -1513,7 +1513,9 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.option.full(name)`: The full name of option `name`: itself, or what its short name stands for.
 - `paw.option.list()`: Every option that has a default, by name: { name, default }.
 - `paw.option.read(name, text)`: The value typed text stands for in option `name` (`true`, `off`, a number, the text, or a list for an option that takes one: `a,b`), or nil and an error that says what it takes. A value that is not text is checked as it is.
+- `paw.option.restore(snapshot)`: Give each option the value it had in `snapshot`, and an option set after it its default again. Each option that changes emits `option.changed`. Gives the names of the options that changed, sorted.
 - `paw.option.show(value)`: An option's value as text: a list is its items with commas between.
+- `paw.option.snapshot()`: The value of each option that was set, to give back later with `paw.option.restore`. An option that was not set keeps its default.
 - `paw.option.spec(name)`: What option `name` takes besides its default's type (`min`, `max`, `integer`, `type`, `values`), or nil.
 - `paw.option.undefine(name, was)`: Remove the definition of an option and its value (the extension that defined it unloaded). `paw.opt[name]` is nil again. With `was`, the value that `paw.option.definitions` gave before, that definition returns, and the value stays.
 

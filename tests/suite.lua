@@ -6,7 +6,13 @@ local paw = require("paw")
 local api = paw.api
 
 local tmp = os.getenv("TMPDIR") or "/tmp"
-local scratch = tmp .. "/paw-test-" .. os.time() .. "-" .. math.floor(api.now() * 1000)
+-- The shard's number keeps apart the folders of shards that start at once.
+local scratch = tmp
+  .. "/paw-test-"
+  .. os.time()
+  .. "-"
+  .. math.floor(api.now() * 1000)
+  .. (os.getenv("PAW_TEST_SHARD") or ""):gsub("%D", "-")
 os.execute("mkdir -p '" .. scratch .. "'")
 
 -- Every file of the checkout outside `target/` and `.git`: at the end,
@@ -30,10 +36,13 @@ end
 local files_before = checkout_files()
 
 local tests, failed = {}, 0
-local function test(name, fn) tests[#tests + 1] = { name = name, fn = fn } end
+-- The file whose tests are being collected: each test keeps it, so that the
+-- leak check below names the file that leaves state behind.
+local loading
+local function test(name, fn) tests[#tests + 1] = { name = name, fn = fn, file = loading } end
 -- Tests that run after all the others: those that load every extension.
 local lasts = {}
-local function last(name, fn) lasts[#lasts + 1] = { name = name, fn = fn } end
+local function last(name, fn) lasts[#lasts + 1] = { name = name, fn = fn, file = loading } end
 -- What a test asks to have undone when it ends, passed or failed, so that
 -- a failure does not leave a setting behind for the tests after it.
 local cleanups = {}
@@ -125,7 +134,19 @@ local function until_beat(beat, rounds, ms)
   end, string.format("the playhead at beat %g after %d times round the loop", beat, rounds or 0), ms or 30000)
 end
 
+-- The options as the run started, before the first test: `fresh()` and the
+-- leak check give them back.
+local start_options
+
 local function fresh()
+  -- Keys half typed, a selection, insert or command line mode, and the
+  -- floats an earlier test left open would take this test's first keys.
+  local K = paw.keymap
+  if K.mode ~= "n" or K.visual or K.pending() ~= "" then K.feed("<Esc><Esc>") end
+  while paw.ui.float do
+    paw.ui.close()
+  end
+  paw.option.restore(start_options)
   paw.project.new()
   paw.transport.loop_enabled = false
   -- The windows and tabs an earlier test opened would share the screen
@@ -134,10 +155,29 @@ local function fresh()
   if #paw.ui.tabs > 1 or #L.windows(paw.ui.layout) ~= 1 or L.windows(paw.ui.layout)[1].view ~= "arrange" then
     L.restore({ { layout = L.default_tree() } })
   end
+  -- A window narrowed to a group or a region shows the whole song again.
+  for _, w in ipairs(L.windows(paw.ui.layout)) do
+    if w.scope and paw.scope then paw.scope.restore(nil, w) end
+  end
   paw.ui.close()
   paw.ui.focus("arrange")
   paw.flush()
 end
+
+--- `fresh()`, then the keys of normal mode in the arrange view, with no
+--- float open: what most tests that type keys start from.
+local function start()
+  fresh()
+  paw.keymap.feed("<Esc><Esc>")
+  while paw.ui.float do
+    paw.ui.close()
+  end
+  paw.ui.focus("arrange")
+end
+
+--- The text of the screen, `w` columns by `h` rows (120 by 40 if not
+--- given), one line for each row.
+local function screen(w, h) return table.concat(api.ui_snapshot(w or 120, h or 40), "\n") end
 
 local renders = 0
 local function render(opts)
@@ -293,6 +333,8 @@ local T = {
   near = near,
   fails = fails,
   fresh = fresh,
+  start = start,
+  screen = screen,
   render = render,
   tone = tone,
   cpu_ms = cpu_ms,
@@ -333,32 +375,211 @@ table.sort(extensions)
 for _, name in ipairs(extensions) do
   lua_files("extensions/" .. name, "^tests[%w_]*%.lua$")
 end
-for _, path in ipairs(files) do
-  assert(loadfile(path))(T)
+-- Shards: `suite.sh -j N` starts N paw processes, and gives process K
+-- (PAW_TEST_SHARD=K/N) every Nth file from the Kth.
+local shard, shards = (os.getenv("PAW_TEST_SHARD") or ""):match("^(%d+)/(%d+)$")
+shard, shards = tonumber(shard), tonumber(shards)
+for i, path in ipairs(files) do
+  if not shards or (i - 1) % shards == shard - 1 then
+    loading = path
+    assert(loadfile(path))(T)
+  end
 end
+loading = nil
 for _, t in ipairs(lasts) do
   tests[#tests + 1] = t
+end
+
+-- The leak check ---------------------------------------------------------------
+--
+-- After the tests of a file ran, the runner compares what a test can leave
+-- behind with how it was at the start of the run: the options, the event
+-- handlers, timers and key mappings that the code of a test file made, and
+-- the loaded extensions. A difference fails "<file> leaves no state
+-- behind". The runner then puts each of them back, so that the next file
+-- starts as it does in the full suite, whatever ran before it.
+-- `tests/leaks-allowed.txt` lists the leaks that are known, one
+-- "<file> <kind>" on each line: the list only gets shorter.
+
+local kinds = { "options", "hooks", "timers", "keys", "extensions" }
+local watched = { hooks = true, timers = true, keys = true }
+
+-- Whether a function's source is a test file.
+local function of_tests(fn)
+  if type(fn) ~= "function" then return false end
+  local source = debug.getinfo(fn, "S").source
+  return source:match("^@tests/") ~= nil or source:match("^@extensions/[^/]+/tests[%w_]*%.lua$") ~= nil
+end
+
+-- Whether an entry of a registry is a test's: a function of a test file,
+-- or a table with one among its fields (a key mapping, an event handler).
+local function made_by_tests(value)
+  if of_tests(value) then return true end
+  if type(value) ~= "table" then return false end
+  for _, v in pairs(value) do
+    if of_tests(v) then return true end
+  end
+  return false
+end
+
+local registries = {}
+for _, reg in ipairs(paw.ext.registries) do
+  if watched[reg.kind] then registries[reg.kind] = reg end
+end
+
+-- The entries of the watched registries, by kind and key, and the loaded
+-- extensions.
+local function fingerprint()
+  local out = { extensions = {} }
+  for name in pairs(paw.ext.loaded) do
+    out.extensions[name] = true
+  end
+  for kind, reg in pairs(registries) do
+    out[kind] = reg.snapshot()
+  end
+  return out
+end
+
+-- What the tests changed since `base`, by kind, in words.
+local function differences(base, now)
+  local out = {}
+  for kind, reg in pairs(registries) do
+    local words = {}
+    local function label(key, value) return reg.label and reg.label(key, value) or tostring(key) end
+    for key, value in pairs(now[kind]) do
+      if value ~= base[kind][key] and made_by_tests(value) then
+        words[#words + 1] = (base[kind][key] and "~" or "+") .. label(key, value)
+      end
+    end
+    for key, value in pairs(base[kind]) do
+      if now[kind][key] == nil and made_by_tests(value) then words[#words + 1] = "-" .. label(key, value) end
+    end
+    if #words > 0 then
+      table.sort(words)
+      if #words > 6 then words = { table.concat(words, ", ", 1, 6) .. " and " .. (#words - 6) .. " more" } end
+      out[kind] = table.concat(words, ", ")
+    end
+  end
+  local changed = {}
+  for name in pairs(now.extensions) do
+    if not base.extensions[name] then changed[#changed + 1] = "+" .. name end
+  end
+  for name in pairs(base.extensions) do
+    if not now.extensions[name] then changed[#changed + 1] = "-" .. name end
+  end
+  table.sort(changed)
+  if #changed > 0 then out.extensions = table.concat(changed, ", ") end
+  return out
+end
+
+-- Put back what the tests changed since `base`: the entries that test code
+-- made, and the extensions (those loaded since are unloaded).
+local function reset(base, now)
+  for kind, reg in pairs(registries) do
+    for key, value in pairs(now[kind]) do
+      if value ~= base[kind][key] and made_by_tests(value) then pcall(reg.put, key, base[kind][key]) end
+    end
+  end
+  -- An extension that another requires goes after it.
+  local left = true
+  while left do
+    left = false
+    for name in pairs(paw.ext.loaded) do
+      if not base.extensions[name] and pcall(paw.ext.unload, name, { force = true }) and not paw.ext.loaded[name] then
+        left = true
+      end
+    end
+  end
+end
+
+local allowed, allowed_path = {}, "tests/leaks-allowed.txt"
+do
+  local file = io.open(allowed_path)
+  if file then
+    for line in file:lines() do
+      local path, kind = line:match("^([^#%s]%S*)%s+(%S+)")
+      if path then allowed[path .. " " .. kind] = true end
+    end
+    file:close()
+  end
 end
 
 -- Run ------------------------------------------------------------------------
 
 local only = ...
+local selected, whole = {}, {}
 for _, t in ipairs(tests) do
   if not only or t.name:find(only, 1, true) then
-    local ok, err = xpcall(t.fn, debug.traceback)
-    for i = #cleanups, 1, -1 do
-      pcall(cleanups[i])
-      cleanups[i] = nil
-    end
-    if ok and type(err) == "string" then
-      print("skip  " .. t.name .. " (" .. err .. ")")
-    elseif ok then
-      print("ok    " .. t.name)
-    else
-      failed = failed + 1
-      print("FAIL  " .. t.name .. "\n      " .. tostring(err):gsub("\n", "\n      "))
+    selected[#selected + 1] = t
+    whole[t.file] = (whole[t.file] or 0) + 1
+  end
+end
+-- Only a file whose every test ran is checked: a filter that leaves out
+-- the test that puts a setting back must not fail.
+local in_file = {}
+for _, t in ipairs(tests) do
+  in_file[t.file] = (in_file[t.file] or 0) + 1
+end
+
+start_options = paw.option.snapshot()
+local base = fingerprint()
+local leaked = {}
+local function check(file)
+  local now = fingerprint()
+  local found = differences(base, now)
+  reset(base, now)
+  local options = paw.option.restore(start_options)
+  if #options > 0 then found.options = table.concat(options, ", ") end
+  if whole[file] ~= in_file[file] then return end
+  local news = {}
+  for _, kind in ipairs(kinds) do
+    if found[kind] then
+      leaked[file .. " " .. kind] = true
+      if not allowed[file .. " " .. kind] then news[#news + 1] = kind .. " " .. found[kind] end
     end
   end
+  local name = file .. " leaves no state behind"
+  if #news > 0 then
+    failed = failed + 1
+    print("FAIL  " .. name .. "\n      changed: " .. table.concat(news, "; "))
+  else
+    print("ok    " .. name)
+  end
+end
+
+for i, t in ipairs(selected) do
+  local ok, err = xpcall(t.fn, debug.traceback)
+  for j = #cleanups, 1, -1 do
+    pcall(cleanups[j])
+    cleanups[j] = nil
+  end
+  if ok and type(err) == "string" then
+    print("skip  " .. t.name .. " (" .. err .. ")")
+  elseif ok then
+    print("ok    " .. t.name)
+  else
+    failed = failed + 1
+    print("FAIL  " .. t.name .. "\n      " .. tostring(err):gsub("\n", "\n      "))
+  end
+  local next_test = selected[i + 1]
+  if not next_test or next_test.file ~= t.file then check(t.file) end
+end
+-- An entry of the allow-list whose file ran whole and leaked nothing of
+-- that kind is out of date: the list only gets shorter.
+local stale = {}
+for entry in pairs(allowed) do
+  local file = entry:match("^(%S+)")
+  if whole[file] and whole[file] == in_file[file] and not leaked[entry] then stale[#stale + 1] = entry end
+end
+table.sort(stale)
+if #stale > 0 then
+  failed = failed + 1
+  print(
+    "FAIL  the leak allow-list holds no leak that is gone\n      remove from "
+      .. allowed_path
+      .. ": "
+      .. table.concat(stale, ", ")
+  )
 end
 os.execute("rm -rf '" .. scratch .. "'")
 local left = {}
