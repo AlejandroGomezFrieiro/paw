@@ -7,6 +7,54 @@ How to run everything: [README.md](README.md). Raw numbers:
 matrix before it). The processor time of the whole program while it plays,
 against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md).
 
+## 2026-11-22: a move key in the piano roll (TASK-113)
+
+`j` in the piano roll plays the pitch, and the meters then fall for
+1.5 s. paw ticks at `paw.opt.fps` (60) for that time: about 89 live
+frames for each key, of which 32 change a cell. Before the change, each
+tick drew all live parts again: the status line (all components), the
+two playheads (3 000 and 4 600 cells) and the meters. `l` in the roll
+plays nothing and costs 4 to 10 ms.
+
+The change: a live part has a stamp, a text of what it is drawn from
+(the bound value, or what a meter role shows, or the components of the
+status line that move by themselves). A live frame keeps the parts whose
+stamp did not change, and the whole frame when no stamp changed. The
+reads of each frame use `transport_playhead` and `engine_load` (no
+table), and `only_live` binds a window only when that changes. After
+the change, 54 of the 89 ticks keep the frame, and only the meter that
+moved is drawn on the others.
+
+Kernel processor time of one `j` in the roll, the 2 s after the key
+(5 presses a run, median of each run), main (964f160c, with TASK-15)
+and the branch in turns, 5 pairs, load average 29 to 53, measured
+under external load:
+
+| Build | Median of the runs | Smallest | Largest |
+| --- | ---: | ---: | ---: |
+| main | 80.4 ms | 56.2 ms | 104.3 ms |
+| branch | 48.3 ms | 36.1 ms | 54.9 ms |
+
+The branch is lower in each pair (0.46 to 0.69 of main). The `keys`
+scenario against the base before TASK-15 (cf15cd12), 5 pairs, load 10
+to 34: `j in roll` 85.0 ms (68.1 to 117.1) before, 44.2 ms (34.8 to
+51.6) after. Against main with TASK-15, at load 6 to 60, the `keys`
+scenario shows no measurable difference: 54.5 ms (45.2 to 89.8) and
+55.2 ms (30.2 to 61.1).
+
+What is left, per `j` in the roll (about 45 ms at load 30):
+
+- About 89 ticks of about 0.25 ms each: the timer, the kernel loop and
+  its system calls, `only_live`, the stamps. Fewer ticks while only a
+  note was played (not playing, not listening) would cut most of it.
+  That changes how smooth the meters fall, a decision of the owner.
+- The whole frame after the key: about 4 ms of processor time, 55 % of
+  it the arrange view above the roll, which is drawn whole although only
+  the roll changed. 'drawing the screen' (budget 5 ms, wall time) still
+  names it at load average 6 to 60.
+- `j` in the arrange view costs 5 to 11 ms, so the goal of the ticket
+  (within 2 times) is not met.
+
 ## 2026-11-22: a budget for each callback
 
 `paw.opt.budget_ms` names each callback of the kernel thread that takes
