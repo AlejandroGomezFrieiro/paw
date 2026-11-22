@@ -43,6 +43,7 @@ mod clipops;
 mod encode;
 mod files_watch;
 pub mod folder;
+pub mod project_files;
 mod keep;
 pub mod cues;
 mod loading;
