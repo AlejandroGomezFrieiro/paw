@@ -1,0 +1,61 @@
+-- The check against tests that depend on time (tools/testlint.lua) and its
+-- allow-list, tests/timing-allowed.txt. Loaded by tests/suite.lua with its
+-- helpers.
+local T = ...
+local test, eq = T.test, T.eq
+local lint = dofile("tools/testlint.lua")
+
+test(
+  "testlint: no test sleeps, reads the clock or checks a speed beyond the allow-list",
+  function() eq(table.concat(lint.check("."), "\n"), "", "the problems") end
+)
+
+test("testlint: a new api.sleep in a test file fails, and a smaller count asks for a smaller line", function()
+  -- The names are cut in two, so that the check does not count this file.
+  local sleep, wait = "api." .. "sleep(", "paw." .. "wait("
+  local root = T.scratch .. "/testlint"
+  os.execute("mkdir -p '" .. root .. "/tests'")
+  T.write_file(root .. "/tests/timing-allowed.txt", "# a comment\ntests/old.lua " .. wait .. " 2\n")
+  T.write_file(root .. "/tests/old.lua", wait .. "5)\n-- " .. wait .. "5) in a comment\n")
+  T.write_file(root .. "/tests/new.lua", "local api = paw.api\n" .. sleep .. "10)\n")
+  eq(
+    table.concat(lint.check(root), "\n"),
+    table.concat({
+      "tests/new.lua: 1 of `"
+        .. sleep
+        .. "`, 0 allowed. A test does not sleep, read the clock or check a speed:"
+        .. " wait for a state, or measure in bench/ (docs/how-to/run-the-tests.md)",
+      "tests/old.lua: 1 of `"
+        .. wait
+        .. "` now: make the line `tests/old.lua "
+        .. wait
+        .. " 1` in tests/timing-allowed.txt",
+    }, "\n"),
+    "the problems"
+  )
+end)
+
+test(
+  "testlint: a test that reads the home folder or the user name fails, and the allow-list cannot let it pass",
+  function()
+    -- The names are cut in two, so that the check does not count this file.
+    local home, user, var = "os.getenv(" .. '"HOME")', "os.getenv(" .. '"USER")', "var_os(" .. '"HOME")'
+    local root = T.scratch .. "/testlint-machine"
+    os.execute("mkdir -p '" .. root .. "/tests' '" .. root .. "/crates/x/tests'")
+    T.write_file(root .. "/tests/timing-allowed.txt", "tests/a.lua " .. user .. " 1\n")
+    T.write_file(root .. "/tests/a.lua", "local h = " .. home .. "\nlocal p = '/" .. "home/me/x.wav'\n")
+    T.write_file(root .. "/crates/x/tests/b.rs", "let h = std::env::" .. var .. ";\n")
+    local why = ". A test reads nothing of the machine: take a folder from T.scratch or T.home(),"
+      .. " or seal the command (the skills lua-testing and rust-testing, part Self-contained)"
+    eq(
+      table.concat(lint.check(root), "\n"),
+      table.concat({
+        "crates/x/tests/b.rs: 1 of `var(" .. '"HOME")`' .. why,
+        "tests/a.lua: 1 of `/" .. "home/`" .. why,
+        "tests/a.lua: 1 of `" .. home .. "`" .. why,
+        "tests/a.lua: `" .. user .. "` reads the machine and has no place in tests/timing-allowed.txt",
+      }, "\n"),
+      "the problems"
+    )
+  end
+)

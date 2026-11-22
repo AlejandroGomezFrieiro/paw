@@ -193,38 +193,6 @@ test("pick: preview, actions, multi-select and resume", function()
   eq(table.concat(many, ","), "a,c", "Tab marks several")
 end)
 
-test("pick: stays quick with thousands of items", function()
-  start()
-  local words = {
-    "Dragonfly",
-    "Hall",
-    "Reverb",
-    "Plate",
-    "Compressor",
-    "Limiter",
-    "Delay",
-    "Chorus",
-    "EQ",
-    "Gate",
-    "Tape",
-    "Synth",
-  }
-  local items = {}
-  for i = 1, 6000 do
-    items[i] = "clap:vendor." .. words[i % #words + 1] .. " " .. words[(i * 7) % #words + 1] .. " " .. i
-  end
-  local t0 = T.cpu_ms()
-  paw.pick({ items = items, on_choose = function() end })
-  for _, key in ipairs({ "d", "r", "a", "<Space>", "h", "<BS>", "<BS>", "g" }) do
-    paw.keymap.feed(key)
-    api.ui_snapshot(120, 40)
-  end
-  local ms = T.cpu_ms() - t0
-  T.quick(ms, 1000, "eight keys over 6000 items")
-  eq(#pick.state().matches > 0, true, "and found some")
-  paw.keymap.feed("<Esc>")
-end)
-
 -- Sources --------------------------------------------------------------------
 
 test("pick: the letter after <leader>f is the domain's letter: fc clips, fr regions, fm markers, ft tracks", function()

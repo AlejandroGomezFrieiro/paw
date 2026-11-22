@@ -96,25 +96,21 @@ test("guide: save, back up and open projects", function()
   paw.opt.autosave = 0
 end)
 
--- paw started in a folder, as the shell's PWD says; HOME is a scratch folder.
+-- paw started in a folder, as the shell's PWD says.
 local ffi = require("ffi")
 pcall(ffi.cdef, "int setenv(const char *name, const char *value, int overwrite);")
 
-local function started_in(folder, home)
-  local old_pwd, old_home = os.getenv("PWD"), os.getenv("HOME")
+local function started_in(folder)
+  local old_pwd = os.getenv("PWD")
   ffi.C.setenv("PWD", folder, 1)
-  ffi.C.setenv("HOME", home, 1)
-  T.after(function()
-    ffi.C.setenv("PWD", old_pwd or "/", 1)
-    ffi.C.setenv("HOME", old_home or "/", 1)
-  end)
+  T.after(function() ffi.C.setenv("PWD", old_pwd or "/", 1) end)
 end
 
 test("guide: a new project is saved in the folder paw started in, as in Neovim", function()
   start()
-  local started, home = dir("started/here"), dir("started/home")
+  local started, home = dir("started/here"), T.home(dir("started/home"))
   os.execute("mkdir -p '" .. home .. "/sub'")
-  started_in(started, home)
+  started_in(started)
   T.after(function() paw.files.cd(false) end)
   paw.frontend.polled = paw.api.now()
   T.tone("Lead", 4)

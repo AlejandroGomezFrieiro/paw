@@ -1,7 +1,9 @@
-# Sourced by the scripts beside it. Everything a test run writes goes under
-# the checkout's own `target/test-scratch` (or $PAW_TEST_SCRATCH), never into
-# the home directory, and the window is only ever shown on a private display.
-ROOT=$(cd "$(dirname "$0")/../.." && pwd)
+# Sourced by the scripts beside it, and by bench/. Everything a test run
+# writes goes under the checkout's own `target/test-scratch` (or
+# $PAW_TEST_SCRATCH), never into the home directory, and the window is only
+# ever shown on a private display. A script outside tests/tools sets ROOT to
+# the checkout first.
+ROOT=${ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}
 SCRATCH=${PAW_TEST_SCRATCH:-$ROOT/target/test-scratch}
 mkdir -p "$SCRATCH/xdg" "$SCRATCH/shots"
 export XDG_CACHE_HOME=$SCRATCH/xdg/cache XDG_STATE_HOME=$SCRATCH/xdg/state
@@ -16,10 +18,20 @@ mkdir -p "$SCRATCH/home" "$SCRATCH/no-plugins"
 export CARGO_HOME="${CARGO_HOME:-$HOME/.cargo}"
 export HOME=$SCRATCH/home
 export CLAP_PATH=$SCRATCH/no-plugins VST3_PATH=$SCRATCH/no-plugins LV2_PATH=$SCRATCH/no-plugins
-export LADSPA_PATH=$SCRATCH/no-plugins DSSI_PATH=$SCRATCH/no-plugins
+export LADSPA_PATH=$SCRATCH/no-plugins DSSI_PATH=$SCRATCH/no-plugins VST3_PRESET_PATH=$SCRATCH/no-plugins
 export WINEPREFIX=$SCRATCH/wine
+# The user name is not the owner's, so that no test finds the owner's
+# /etc/profiles/per-user folder. git reads no configuration of the system.
+export USER=paw-test LOGNAME=paw-test GIT_CONFIG_NOSYSTEM=1
+# A paw that is not told where to listen opens its control socket in the
+# runtime folder, where the owner's paw listens: the tests get their own.
+# It is short, for a socket path must fit in 108 bytes, and one checkout
+# always gets the same one.
+XDG_RUNTIME_DIR=${TMPDIR:-/tmp}/paw-run-$(printf %s "$SCRATCH" | cksum | cut -d' ' -f1)
+mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
+export XDG_RUNTIME_DIR
 # tests/suite.lua refuses to run without this: only these scripts (and
-# crates/paw-tui/tests/suite.rs) give the environment above.
+# the sealed::seal helper of the Rust tests) give the environment above.
 export PAW_TEST_ENV=1
 # The window asks the desktop for its file dialogs over the session bus:
 # a test must never reach the real desktop's, where a dialog would open

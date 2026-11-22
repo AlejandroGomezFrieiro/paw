@@ -11,6 +11,28 @@ os.execute("mkdir -p '" .. M.tmp .. "'")
 
 M.now = api.now
 
+--- Milliseconds of processor time that this thread has used. A bench of
+--- the kernel's own work reads this and not the clock: on a loaded machine
+--- the clock runs on while other programs have the processor.
+local ffi = require("ffi")
+pcall(ffi.cdef, "struct paw_timespec { long tv_sec; long tv_nsec; }; int clock_gettime(int, struct paw_timespec *);")
+local cpu_now = ffi.new("struct paw_timespec")
+function M.cpu_ms()
+  ffi.C.clock_gettime(3, cpu_now) -- CLOCK_THREAD_CPUTIME_ID
+  return tonumber(cpu_now.tv_sec) * 1000 + tonumber(cpu_now.tv_nsec) / 1e6
+end
+
+--- The load average of the machine (the text of /proc/loadavg up to the
+--- count of tasks), for the result lines: a number measured under load
+--- says so.
+function M.load()
+  local f = io.open("/proc/loadavg")
+  if not f then return nil end
+  local text = f:read("*l")
+  f:close()
+  return text:match("^(%S+ %S+ %S+)")
+end
+
 --- Milliseconds `fn` takes, and what it returns.
 function M.time(fn, ...)
   local t = api.now()
