@@ -812,7 +812,7 @@ events.on(kernel.project_loaded, function() M.renders = {} end)
 -- Change events --------------------------------------------------------------
 
 -- The kernel says what changed by id (`track.changed { id }`, `clip.added
--- { id, track }`, `device.removed { id }`, `lane.*`, `project.*`); these
+-- { id, track }`, `device.removed { id, track }`, `lane.*`, `project.*`); these
 -- become one `address.changed { uris, revision }` for the edit, after the
 -- kernel's own `changed`, so that whoever watches addresses never diffs
 -- snapshots.

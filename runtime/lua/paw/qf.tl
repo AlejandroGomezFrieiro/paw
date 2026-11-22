@@ -1237,6 +1237,9 @@ events.on(
 -- Plugins ------------------------------------------------------------------------------------
 
 local invalid: {integer: boolean} = {} -- devices that put out NaN or infinity, by id
+-- What each device is, kept until an event says it changed: a track deleted
+-- or put back asks about the devices of the others again.
+local known: {integer: types.Device} = {}
 
 M.source(
   "plugins",
@@ -1247,7 +1250,11 @@ M.source(
     for _, track in ipairs(tracks) do
       local ok, t = pcall(api.track_get, track)
       for _, id in ipairs(ok and t.devices or {}) do
-        local okd, d = pcall(api.device_get, id)
+        local okd, d = true, known[id]
+        if not d then
+          okd, d = pcall(api.device_get, id)
+          known[id] = okd and d or nil
+        end
         if okd then
           local uri = "paw://track/" .. track .. "/device/" .. id
           local restart: FixSpec = {
@@ -1282,15 +1289,21 @@ M.source(
     return out
   end
 )
-events.on(kernel.device_invalid, function(e: kernel.DeviceTrouble) invalid[e.device] = true; M.changed("plugins") end)
-events.on(kernel.device_stopped, function() M.changed("plugins") end)
+events.on(
+  kernel.device_invalid,
+  function(e: kernel.DeviceTrouble) invalid[e.device] = true; known = {}; M.changed("plugins") end
+)
+events.on(kernel.device_stopped, function() known = {}; M.changed("plugins") end)
 events.on(kernel.device_added, function() M.changed("plugins") end)
-events.on(kernel.device_removed, function() M.changed("plugins") end)
-events.on(kernel.project_loaded, function() M.changed("plugins") end)
-events.on(kernel.device_ready, function(e: kernel.DeviceReady) invalid[e.id] = nil; M.changed("plugins") end)
+events.on(kernel.device_removed, function(e: kernel.Item) known[e.id] = nil; M.changed("plugins") end)
+events.on(kernel.project_loaded, function() known = {}; M.changed("plugins") end)
+events.on(
+  kernel.device_ready, function(e: kernel.DeviceReady) invalid[e.id] = nil; known = {}; M.changed("plugins") end
+)
 events.on(
   kernel.device_changed,
   function()
+    known = {}
     if feeds.plugins then
       M.changed("plugins")
     end

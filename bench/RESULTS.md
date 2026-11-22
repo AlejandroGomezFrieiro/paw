@@ -69,6 +69,34 @@ What is left, in order of what the user feels:
    sets with 6 random edits each, 2 100 readings in all. The notes of 100
    sets start on sixteenths, and of 200 sets on ticks of 1/960 beat. A
    reading after an edit is the same as a reading of all the notes.
+
+   `dd` and `u` after that (2026-11-22). `dd` on a track deletes the track
+   and its devices. The event `device.removed` named no track. The reading
+   took that as "look at every track", and it listed and hashed all 2 000
+   clips. The event now names the track. After each edit, the arrange view
+   made the small piano roll of each clip again. The problems list asked
+   each device again when one device came or went. Both now keep what did
+   not change. The reading of the bars now pauses as the other parts of a
+   pass do. Measured under external load (load average 10 to 13): the old
+   and the new build in turns, 5 pairs of 10 rounds of `dd` and `u`. The
+   driver waits 300 ms after each key. Kernel time per round, median
+   (range):
+
+   | Part | Before | After |
+   | --- | ---: | ---: |
+   | All | 274 ms (272 to 296) | 192 ms (190 to 198) |
+   | The chord reading | 151 ms (150 to 166) | 93 ms (91 to 94) |
+   | Its longest slice | 18 ms (11 to 29) | 7 ms (7 to 13) |
+   | Full frames | 76 ms (72 to 79) | 58 ms (54 to 63) |
+
+   The time from each key to its first frame, in 5 pairs of `drive.py
+   repeat` (load average 15 to 20): `dd` took 31 ms (24 to 35) before. It
+   took 15 ms (12 to 23) after. `u` took 32 ms (28 to 33) before and 13 ms (11 to 15) after.
+   Each key is now well under 100 ms. What is left is the reading itself.
+   The clips of a track cover the whole song, so a change to the track
+   changes every window. To weigh the notes of each window again costs
+   about 45 ms for each key on this project. It runs in slices after the
+   frame, and a key does not wait for it.
 2. A full frame costs 7 to 12 ms: the clip list is made again as JSON on each
    frame.
 3. The live ticker drew 60 frames per second when an armed input changed

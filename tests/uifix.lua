@@ -185,6 +185,47 @@ test("the arrange view draws a volume curve only on the track the cursor is on",
 end)
 
 test(
+  "dd on a track names it in the removal of its devices, and the clips above draw their notes as they are",
+  function()
+    fresh()
+    local lead = paw.add_track({ name = "Lead" })
+    local pad = paw.add_track({ name = "Pad" })
+    local tune =
+      lead:add_clip({ start = 0, length = 4, name = "tune", notes = { { pitch = 60, start = 0, length = 1 } } })
+    pad:add_device("synth")
+    paw.flush()
+    api.undo_checkpoint()
+    paw.cursor.set_track(lead)
+    paw.ui.focus("arrange")
+    -- The rows under the clip's name: its small piano roll.
+    local function roll()
+      local lines = api.ui_snapshot(160, 48)
+      for i, line in ipairs(lines) do
+        if line:find("tune", 1, true) then return table.concat(lines, "\n", i + 1, i + 2) end
+      end
+    end
+    local before = roll()
+    local tracks = {}
+    local off = paw.on("device.removed", function(e) tracks[#tracks + 1] = e.track end)
+    paw.keymap.feed("<Esc>jdd")
+    paw.flush()
+    paw.off(off)
+    eq(#api.track_list(), 1, "the track the cursor was on is gone")
+    eq(table.concat(tracks, " "), tostring(pad.id), "the device's track is named")
+    paw.keymap.feed("u")
+    paw.flush()
+    eq(roll(), before, "the track back: the roll as it was")
+    -- The clip's notes change: its small roll draws them, not what was kept.
+    api.clip_set_notes(tune.id, { { pitch = 60, start = 2, length = 1 } })
+    paw.flush()
+    eq(roll() ~= before, true, "the moved note is drawn where it is now")
+    paw.keymap.feed("u")
+    paw.flush()
+    eq(roll(), before, "and back")
+  end
+)
+
+test(
   "a picker's pane stops saying it is off the moment hearing is turned on, and marks what plays with a note",
   function()
     fresh()
