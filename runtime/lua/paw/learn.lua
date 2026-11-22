@@ -359,7 +359,7 @@ local function look(id)
 end
 local function look_all()
   seen = {}
-  for _, id in ipairs(api.track_list()) do
+  for _, id in ipairs(api.track_list({ all = true })) do
     look(id)
   end
   look(0)

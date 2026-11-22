@@ -26,9 +26,16 @@ fn attr_map_from_lua(lua: &Lua, value: LuaValue) -> mlua::Result<Value> {
 pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> {
     define! { lua, api, shared;
         // --- tracks ---
+        // The ids of the song's tracks, in their order. `{ nest = id }`
+        // gives the tracks of that subproject instead (without its master),
+        // and `{ all = true }` every track: the song's and each
+        // subproject's. Views list the tracks of their scope with
+        // `paw.scope.tracks()`.
+        // @param opts? types.TrackListOptions
         // @return {integer}
-        fn track_list(_, sh, () => ()) {
-            Ok(sh.session.borrow().project.tracks.iter().map(|t| t.id).collect::<Vec<Id>>())
+        fn track_list(lua, sh, opts => LuaValue) {
+            let opts: crate::session::TrackListOpts = options(lua, opts)?;
+            Ok(sh.session.borrow().track_ids(&opts))
         }
         // A track as a table. With `key`, only that entry of the table: this
         // is quicker, because the table lists each clip of the track.
@@ -85,10 +92,16 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             Ok(sh.session.borrow().nest_list().into_iter().map(|n| n.0).collect::<Vec<u64>>())
         }
         // A subproject as a table: its fields, `tracks` (its tracks in order,
-        // without its master) and `used` (whether the song plays it).
-        // @return types.Nest
-        fn nest_get(lua, sh, id => u64) {
-            to_lua(lua, &sh.session.borrow().nest_view(NestId(id)).lua()?)
+        // without its master) and `used` (whether the song plays it). With
+        // `key`, only that field of its own (`name`, `length`, `master`...):
+        // this is quicker.
+        // @type function(id: integer): types.Nest
+        fn nest_get(lua, sh, (id, key) => (u64, Option<String>)) {
+            let session = sh.session.borrow();
+            match key {
+                Some(key) => to_lua(lua, &session.nest_field(NestId(id), &key).lua()?),
+                None => to_lua(lua, &session.nest_view(NestId(id)).lua()?),
+            }
         }
         // Make a subproject with its master track and no other track, as one
         // undo step, for example `{ name = "Bridge", length = 32 }`. The length

@@ -297,6 +297,14 @@ impl<T: Clone> History<T> {
         }
     }
 
+    /// Name the place the open step changed (a subproject) before its
+    /// label: `Ballad: add note`, or `Ballad: edit` when nothing named it.
+    pub fn label_place(&mut self, place: &str) {
+        let label = self.pending_label.take().unwrap_or_else(|| "edit".into());
+        let prefix = format!("{place}: ");
+        self.pending_label = Some(if label.starts_with(&prefix) { label } else { prefix + &label });
+    }
+
     /// The open step has made an edit: its name can no longer be taken back.
     pub fn edited(&mut self) {
         self.step_edited = true;

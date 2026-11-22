@@ -166,7 +166,7 @@ end
 
 --- Put the cursor on the track now at a row, after tracks came or went.
 local function settle(row)
-  local list = api.track_list()
+  local list = paw.scope.tracks()
   if #list > 0 then cursor.set_track(list[util.clamp(row, 1, #list)]) end
 end
 

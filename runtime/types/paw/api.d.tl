@@ -295,7 +295,7 @@ local record api
    track_collect: function(): integer, integer
    track_get: function(id: integer): types.Track
    track_import_folder: function(folder: string, index?: integer): integer
-   track_list: function(): {integer}
+   track_list: function(opts?: types.TrackListOptions): {integer}
    track_meter: function(id: integer): number, number
    track_move: function(id: integer, index: integer)
    track_remove: function(id: integer)

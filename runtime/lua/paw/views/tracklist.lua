@@ -204,7 +204,7 @@ tb.kind("tracks", {
   parse = parse_track,
   open = function(_, line)
     local index
-    for i, id in ipairs(api.track_list()) do
+    for i, id in ipairs(api.track_list({ all = true })) do
       if id == line.id then index = i end
     end
     if not index then return paw.notify("a new track has no devices yet: `:w` makes it first", "warn") end
@@ -590,7 +590,7 @@ local function chain_track(ctx)
   local which = ctx.args[1]
   if which == "master" then return paw.master.id end
   local n = tonumber(which)
-  local id = n and api.track_list()[n]
+  local id = n and api.track_list({ all = true })[n]
   if not id then
     error("no track " .. tostring(which) .. ": paw://track/N/devices takes the track's place in the list, or master", 0)
   end

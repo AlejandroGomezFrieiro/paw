@@ -22,7 +22,7 @@ use serde_json::{Map, Value, json};
 
 use crate::history::{self, History};
 use crate::model::{
-    Clip, ClipContent, ClipKindId, Control, CustomContent, DeviceInst, KindData, MediaRef, Signal, Timeline, Id, Lane, LaneState, MASTER_ID, MidiInput, Note, NoteAttr, Notes, Project, Segment,
+    Clip, ClipContent, ClipKindId, Control, CustomContent, DeviceInst, KindData, MediaRef, Signal, Timeline, Id, Lane, LaneState, MASTER_ID, MidiInput, NestPlay, Note, NoteAttr, Notes, Project, Segment,
     Send, Shape, Sound, StretchMode, Target, Timebase, Track, WarpMarker, InputChannels,
 };
 use crate::sync::{AudioCache, Follow, LiveDevices, Mapper, ModelEvent, SyncCtx, sync};
@@ -233,7 +233,8 @@ pub fn project_file_text(value: Value) -> Result<String> {
 #[serde(default, deny_unknown_fields)]
 pub struct TrackOpts {
     pub name: Option<String>,
-    /// Position in the track list, counting from 1. Appended when absent.
+    /// Position among the tracks of its place (the song, or its
+    /// subproject), counting from 1. Appended when absent.
     pub index: Option<usize>,
     pub volume: Option<f64>,
     pub pan: Option<f64>,
@@ -241,6 +242,16 @@ pub struct TrackOpts {
     pub color: Option<String>,
     /// The nest (subproject) the track is made in; the song when absent.
     pub nest: Option<crate::model::NestId>,
+}
+
+/// What `paw.api.track_list` takes: the tracks of the song when empty.
+#[derive(Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct TrackListOpts {
+    /// The tracks of this subproject, without its master.
+    pub nest: Option<crate::model::NestId>,
+    /// Every track: the song's and those of each subproject.
+    pub all: bool,
 }
 
 #[derive(Default, Deserialize)]
@@ -285,6 +296,8 @@ pub struct DeviceOpts {
 pub enum ClipKind {
     Midi,
     Audio,
+    /// A subproject placed here (`nest`, `play`, `offset` of [`ClipOpts`]).
+    Nest,
     Custom(ClipKindId),
 }
 
@@ -307,6 +320,7 @@ impl std::str::FromStr for ClipKind {
         Ok(match word {
             "midi" => Self::Midi,
             "audio" => Self::Audio,
+            "nest" => Self::Nest,
             other => Self::Custom(other.parse::<ClipKindId>()?),
         })
     }
@@ -393,6 +407,10 @@ pub struct ClipOpts {
     pub media: Vec<MediaRef>,
     pub sound: Option<Sound>,
     pub signals: Vec<Signal>,
+    /// A nest clip: the subproject it places, and what it plays of it
+    /// (its mix when absent). `offset` is then beats into the subproject.
+    pub nest: Option<crate::model::NestId>,
+    pub play: Option<crate::model::NestPlay>,
 }
 
 /// What [`Session::clip_set_custom`] gives a custom clip: what its kind
@@ -1007,6 +1025,11 @@ pub struct ClipView<'a> {
     formants: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     warp: Option<Vec<WarpView>>,
+    // A nest clip's: the subproject it places and what it plays of it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    nest: Option<crate::model::NestId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    play: Option<NestPlay>,
 }
 
 /// A hash of a clip's controller moves, as a number Lua holds exactly.
@@ -1060,6 +1083,8 @@ fn clip_json<'a>(c: &'a Clip, track: Id, files: &file_check::FileCheck) -> ClipV
         bent: None,
         formants: None,
         warp: None,
+        nest: None,
+        play: None,
     };
     match &c.content {
         ClipContent::Midi { notes, controls } => {
@@ -1094,7 +1119,12 @@ fn clip_json<'a>(c: &'a Clip, track: Id, files: &file_check::FileCheck) -> ClipV
             v.stretch_mode = Some(c.stretch_mode);
             v.source_tempo = c.source_tempo;
         }
-        ClipContent::Custom(_) | ClipContent::Nest { .. } => {}
+        ClipContent::Nest { nest, offset, play } => {
+            v.nest = Some(*nest);
+            v.offset = Some(*offset);
+            v.play = Some(*play);
+        }
+        ClipContent::Custom(_) => {}
     }
     v
 }

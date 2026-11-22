@@ -71,6 +71,7 @@ local record Scope
   span: function(s?: ScopeLevel): number, number
   format: function(beat: number): string
   bar_offset: function(): integer
+  song_beat: function(beat: number): number
 end
 local record Audio
   load: function(cpu?: number): number
@@ -657,7 +658,7 @@ spec(
       if paw.scope.span(scope) then
         local beat = paw.cursor.beat
         local here = paw.scope.format(beat):match("^(%d+%.%d+)")
-        local song = paw.time.format(beat):match("^(%d+%.%d+)")
+        local song = paw.time.format(paw.scope.song_beat(beat)):match("^(%d+%.%d+)")
         out[#out + 1] = {" " .. here .. (here ~= song and (" (" .. song .. ")") or ""), "StatusDim"}
       end
       local rest = opt.scope_rest
