@@ -185,7 +185,7 @@ function M.clip(id: integer, beat: number): {Entry}
     on_audio({label = "Warp markers onto the grid", enabled = #(c.warp or {}) > 0, run = run("clip.warp snap")}),
     on_audio({label = "Remove the warp markers", enabled = #(c.warp or {}) > 0, run = run("clip.warp clear")}),
     "-",
-    {label = c.loop and "Stop looping" or "Loop: repeat when made longer", run = run("clip.loop")},
+    {label = c.loop and "Stop repeating" or "Repeat when made longer", run = run("clip.repeat")},
   }
   local items: {Entry} = {
     {label = midi and "Edit notes" or "Select", run = function() act().open_clip(id) end},
@@ -404,7 +404,7 @@ function M.marker(m: MenuTable): {Entry}
   end
   return {
     {label = "Rename…", run = run("marker.rename")},
-    {label = "Loop this region", enabled = m.length ~= nil, run = run("region.loop")},
+    {label = "Set the loop to this region", enabled = m.length ~= nil, run = run("region.loop")},
     "-",
     {label = "Remove", run = run(m.length and "region.remove" or "marker.remove")},
   }

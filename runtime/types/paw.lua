@@ -7380,6 +7380,14 @@ function paw.ruler.add(name, spec) end
 ---@param spec any
 function paw.ruler.add_lane(name, spec) end
 
+--- The first and the last bar that a stretch of time (`from` up to `to`, in
+--- beats of the song) touches, numbered as the ruler numbers them: in a scope
+--- with time, from its own bar 1. The status line and the messages of the
+--- loop use it.
+---@param from any
+---@param to any
+function paw.ruler.bars_of(from, to) end
+
 --- Draw the lanes on `buf`, the rows under the bar numbers, one under the
 --- other. `x` is the column of a beat; `scroll` and `span` the beats in
 --- sight; `folds` the view's closed time folds (paw/folds.tl), if any.
@@ -7405,6 +7413,13 @@ function paw.ruler.label(bar, beat, style, cursor_beat, room) end
 
 --- How many rows the lanes need now, all together.
 function paw.ruler.lane_rows() end
+
+--- What a message says of the loop: `bars 5 to 8, on`, `bar 5, off`.
+--- `from` and `to` are the loop's edges in beats of the song.
+---@param from any
+---@param to any
+---@param on any
+function paw.ruler.loop_text(from, to, on) end
 
 --- How many `W` (ahead) or `B` (behind) reach bar `bar` from the cursor
 --- at `beat`: from inside a bar, the first `B` goes to its own start

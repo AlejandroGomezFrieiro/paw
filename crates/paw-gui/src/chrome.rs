@@ -89,6 +89,9 @@ impl View {
             if name == "record" {
                 widgets::hint_on(&response, "record: starts a take on the armed tracks (R on a track), or on the selected one if none is armed · again to stop");
             }
+            if name == "loop" {
+                widgets::hint_on(&response, "loop: turns the playback loop on or off (lit while on) · the ruler shows its range, bright when on and dim when off · gl on a selection sets it");
+            }
             if response.clicked() {
                 match name {
                     "start" => self.acts_seek(0.0),

@@ -352,7 +352,7 @@ ruler's second row, and a click on one goes to its start.
 | `Shift` and drag | Moves off the grid. |
 | Drag an edge | Trims the clip, and the same edge of each selected clip. The start moves without a change to what plays: an audio clip starts later in its file, a MIDI clip hides the notes before its new start. When you drag the edge out again, the notes show again. |
 | `Alt` and drag an edge | Slips the contents inside the clip. |
-| `Alt`, `Shift` and drag the right edge of an audio clip | Stretches its sound to end there. See [Stretched and looped clips](stretch.md). |
+| `Alt`, `Shift` and drag the right edge of an audio clip | Stretches its sound to end there. See [Stretched and repeating clips](stretch.md). |
 | Drag the end of a looped clip | Makes it longer, and the loop repeats. |
 | Double-click | Opens the notes of the clip. A selection of several clips opens all of them, with the clicked one active. A clip of a kind of track with an `editor` opens in that editor. |
 | Right-click | A menu: rename, split at the pointer or at the edit cursor, glue the selected clips, repeat, mute, stretch, shift, loop, delete, and the entries of extensions. |
