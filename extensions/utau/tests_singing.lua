@@ -406,6 +406,9 @@ local function vocal_window(pitches)
     paw.ui.hide("utau")
     paw.ui.focus("arrange")
   end
+  -- The pointer finds what is under it from the last paint: paint once
+  -- here, so that the first click does not use the paint of an earlier test.
+  win.paint()
   return win
 end
 

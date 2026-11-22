@@ -123,11 +123,13 @@ test("what an extension registers is its own, and unloading it takes all of it a
     paw.commands.completers.owned = function() return {} end
     paw.curves.provide("owned", function() end)
     paw.ui.layer("arrange", "header", "owned", 99, function() end)
+    table.insert(paw.frontend.bands, function() return {} end)
     paw.on("track.added", function() _G.owner_heard = (_G.owner_heard or 0) + 1 end)
     paw.option.define("owned_option", 7)
   ]]
   )
   local core_info = paw.commands.get("info")
+  local bands = #paw.frontend.bands
   local entry = paw.ext.load(root)
   eq(entry.ok, true, "loads: " .. tostring(entry.error))
   eq(entry.version, "0.3.0", "the manifest's version")
@@ -149,6 +151,7 @@ test("what an extension registers is its own, and unloading it takes all of it a
     "completers",
     "curves",
     "layers",
+    "bands",
   }) do
     eq(provided("owner", kind) ~= "", true, "it owns its " .. kind)
   end
@@ -201,6 +204,7 @@ test("what an extension registers is its own, and unloading it takes all of it a
   for _, layer in ipairs(paw.ui.layers.arrange.header or {}) do
     eq(layer.name ~= "owned", true, "its layer")
   end
+  eq(#paw.frontend.bands, bands, "its band under the ruler")
   eq(package.loaded["owner.lib"], nil, "its modules are forgotten")
   paw.add_track({ name = "unheard" })
   paw.flush()

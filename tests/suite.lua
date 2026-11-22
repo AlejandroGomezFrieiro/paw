@@ -159,15 +159,11 @@ local function fresh()
   paw.flush()
 end
 
---- `fresh()`, then the keys of normal mode in the arrange view, with no
---- float open: what most tests that type keys start from.
+--- `fresh()`, then `<Esc><Esc>` as a person types it in the arrange view:
+--- what most tests that type keys start from.
 local function start()
   fresh()
   paw.keymap.feed("<Esc><Esc>")
-  while paw.ui.float do
-    paw.ui.close()
-  end
-  paw.ui.focus("arrange")
 end
 
 --- The text of the screen, `w` columns by `h` rows (120 by 40 if not

@@ -9,10 +9,6 @@ local api = paw.api
 local W, H = 140, 44
 local arrange = paw.ui.views.arrange
 local roll = paw.ui.views.pianoroll
-local saved = {}
-for _, name in ipairs({ "zoom", "grid", "track_height", "note_zoom", "note_grid", "mouse", "note_snap" }) do
-  saved[name] = paw.opt[name]
-end
 
 local function shot(height) return api.ui_snapshot(W, height or H) end
 local function screen() return table.concat(shot(), "\n") end
@@ -690,10 +686,15 @@ local function mixed()
   api.track_set(a.id, "sends", { { target = b.id, level = -6 } })
   paw.cursor.set_track(a)
   paw.ui.show("mixer")
-  -- Tall enough for the strips to show their devices and sends; the
-  -- layout is put back as it was by the last test.
+  -- Tall enough for the strips to show their devices and sends, until
+  -- the test ends.
   local node = mixer_node()
-  if saved.mixer_size == nil then saved.mixer_size = node.size or false end
+  local size = node.size
+  T.after(function()
+    node.size = size
+    paw.ui.hide("mixer")
+    paw.ui.hide("devices")
+  end)
   node.size = 30
   api.undo_checkpoint()
   shot(90)
@@ -853,15 +854,4 @@ test("a picker's row is chosen with two clicks", function()
   click(x, y)
   click(x, y)
   eq(chosen, "banana", "two clicks choose it")
-end)
-
-test("the pointer's tests leave the options as they found them", function()
-  if saved.mixer_size ~= nil then mixer_node().size = saved.mixer_size or nil end
-  saved.mixer_size = nil
-  for name, value in pairs(saved) do
-    paw.opt[name] = value
-  end
-  paw.ui.hide("mixer")
-  paw.ui.hide("devices")
-  eq(paw.opt.mouse, true, "the pointer is on")
 end)

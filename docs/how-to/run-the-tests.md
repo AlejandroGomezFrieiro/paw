@@ -80,7 +80,8 @@ made it, with `T.after(function() ... end)`.
 
 The runner checks a file only when all of its tests ran, so a filter with
 `only` does not fail the check. The file `tests/leaks-allowed.txt` lists
-the leaks that are known, one `<file> <kind>` on each line. Don't add
+the leaks that are known, one on each line, for example
+`tests/model.lua hooks` or `extensions/utau/ timers`. Don't add
 lines to the list. When a file no longer leaks, the runner fails until you
 remove its line.
 

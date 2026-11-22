@@ -192,10 +192,11 @@ loads every `extensions/*/tests*.lua` itself.
 The runner gives back the options of the start of the run after each test.
 `T.fresh()` gives a new project, the default layout, normal mode and no
 float. `T.start()` also types `<Esc><Esc>` and focuses the arrange view.
-`T.screen(w, h)` gives the text of the screen. After each test file, the
-runner unloads the extensions that the tests loaded, and removes the event
-handlers, timers and key mappings that test code made. A handler, timer or
-key mapping that is still there fails "`<file>` leaves no state behind".
+`T.screen(w, h)` gives the text of the screen. After the test files of an
+extension, the runner unloads the extensions that the tests loaded, and
+removes the event handlers, timers and key mappings that test code made. A
+handler, timer or key mapping that is still there fails
+"`extensions/<name>/` leaves no state behind".
 Remove what a test adds with `T.after(fn)`. Do not add lines to
 `tests/leaks-allowed.txt`.
 
