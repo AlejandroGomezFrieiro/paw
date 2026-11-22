@@ -379,6 +379,10 @@ end
 events.on(
   events.pattern("track.*"),
   function(payload: events.Payload, name: string)
+    -- A removed track has no group to read: the read would only fail.
+    if name == "track.removed" then
+      return
+    end
     local event = payload as kernel.TrackId
     local group = event.id and M.of(event.id)
     if not group or not M.linked(group) then

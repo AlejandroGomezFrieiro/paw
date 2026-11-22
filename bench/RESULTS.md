@@ -7,6 +7,85 @@ How to run everything: [README.md](README.md). Raw numbers:
 matrix before it). The processor time of the whole program while it plays,
 against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md).
 
+## 2026-11-22: the event handlers after an edit (TASK-116)
+
+`bench/profile/handlers.lua` times each event handler where
+`paw.events` calls it, and the parts of the end of a turn around them
+(`events_take`, the whole `K.settle`). The scenario: `run.sh repeat
+--keys x,u,dd,u --times 40` on the project of `project.lua` (64 tracks,
+2 000 MIDI clips, 50 000 notes), the terminal, budget 5 ms. Main is the
+runtime in the binary of 7ae25570; the branch is its runtime from
+`tools/dev-runtime.sh` with the same binary. Wall times, measured under
+external load (load average 8 to 10). "A press" is the mean over the 40
+presses; "longest" is one call. The handlers under 0.05 ms a press are
+not in the table.
+
+| Keys | Event | Handler | Calls a press | main ms a press (longest) | branch ms a press |
+| --- | --- | --- | ---: | ---: | ---: |
+| `x` | `track.changed` | `paw/derived.tl` (mark a track's clips) | 1 | 0.61 (1.24) | < 0.05 |
+| `x` | `track.changed` | `paw/scope.tl` | 1 | 0.06 | 0.06 |
+| `x` | all the handlers | | 32 | 0.77 | 0.24 |
+| `dd` | `track.removed` | `paw/derived.tl` (mark the track list) | 1 | 0.93 (2.87) | < 0.05 |
+| `dd` | `device.removed` | `paw/freeze.lua` (is the track frozen) | 1 | 0.51 (1.27) | < 0.05 |
+| `dd` | `track.removed` | `paw/groups.tl` (the group of the track) | 1 | 0.25 (1.10) | 0 |
+| `dd` | `device.removed` | `paw/address.tl` (the device's address) | 1 | 0.20 | < 0.05 |
+| `dd` | all the handlers | | 37 | 2.05 | 0.17 |
+| `u` after `dd` | `track.added` | `paw/derived.tl` | 1 | 0.94 (2.65) | < 0.05 |
+| `u` after `dd` | `device.added` | `paw/address.tl` | 1 | 0.22 | < 0.05 |
+| `u` after `dd` | `clip.added` | `paw/defaults/transport.lua` (a take over a clip) | 32 | 0.14 | < 0.05 |
+| `u` after `dd` | `clip.added` | `paw/address.tl` | 32 | 0.05 | < 0.05 |
+| `u` after `dd` | all the handlers | | 339 | 1.58 | 0.33 |
+| `u` after `x` | `track.changed` | `paw/derived.tl` | 1 | 0.65 (2.69) | < 0.05 |
+| `u` after `x` | `cursor.changed` | `paw/defaults/transport.lua` (the track that the keyboard plays) | 1 | 0.20 | 0.19 |
+| `u` after `x` | all the handlers | | 51 | 1.07 | 0.42 |
+
+Each handler of `clip.removed` takes less than 0.05 ms a press. A
+`changed` event comes after each edit; its handlers (`paw/address.tl`,
+`paw/remote.tl`) take less than 0.15 ms a press.
+
+The whole end of the turn (`an event handler`: the reading of the events
+from the kernel, the hooks, the handlers), the sum for each press:
+
+| Keys | main | branch |
+| --- | ---: | ---: |
+| `x` | 1.29 ms | 0.88 ms |
+| `dd` | 2.41 ms | 0.54 ms |
+| `u` after `dd` | 2.92 ms | 1.62 ms |
+| `u` after `x` | 1.53 ms | 0.86 ms |
+
+What took the time, and what changed:
+
+- **The graph of derived data** marked its entries stale in the
+  handler. The track list is read by every window of the chord reading:
+  one mark made 4 710 entries stale (0.8 ms). Now the handler only notes
+  the source. The entries become stale at the next read of a value or in
+  the next slice of the job `derived` (`paw/derived.tl`, `before_read`).
+- **A read that fails** costs about 65 µs for a missing track and 107 µs
+  for a missing clip (mlua makes a traceback), against 0.3 µs for a good
+  read of one field. Four handlers read a removed track or device after
+  `dd`: `freeze.lua` twice, `groups.tl` and `address.tl`, 0.27 ms each in
+  the turn. Now `address.tl` takes the track from the event, `groups.tl`
+  stops at `track.removed` (a removed track has no group to read), and
+  `freeze.lua` looks for the track in the track list first.
+- **A take over a clip** (`transport.lua`) read the whole clip, with its
+  notes, for each added clip: 32 clips after `u`. Now it reads the one
+  field `armed` of the track first. This is little time, but it was
+  garbage for the collector.
+
+Without the timing of `handlers.lua`: `repeat --keys x,u,dd,u --times
+20`, budget 5 ms, main and the branch in turns, 10 runs each (80 presses
+a run), load average 4.5 to 14.4. Main named a slow event handler (`an
+event handler` or `a handler of ...`) in 6 runs of 10, 9 times in all
+(5.1 to 9.1 ms). The branch named one in 1 run of 10, once (`an event
+handler` 7.2 ms, load average 13.9). The kernel time for each round
+shows no measurable difference: 148 to 202 ms (main) and 146 to 200 ms
+(branch).
+
+The ends of a turn over 4 ms that are left come from the collector:
+the Lua heap goes down in that turn, and the time is in no handler (once
+in 160 presses, `events_take` 4.6 ms while the heap went from 38 to
+37 MB).
+
 ## 2026-11-22: the search index on the graph of derived data
 
 The records of `paw.grep` and the nodes of clips and notes that
@@ -168,7 +247,7 @@ times are wall times of one callback.
 | `drawing what moves` | `j` in the roll, `dd`, `u` | 5 to 48 ms | open for the roll; the arrange row cache for the arrange view |
 | `a timer (paw/help.tl:1123)` | the help index at idle, after the start | 6 to 69 ms | open: the help index at idle |
 | `the key h`, `e`, `l`, `p` | typing `:help` | 5 to 11 ms | open: typing on the command line |
-| `an event handler`, `a handler of clip.added`, `the key d` | `x`, `dd`, `u` | 5 to 12 ms | open: event handlers after an edit |
+| `an event handler`, `a handler of clip.added`, `the key d` | `x`, `dd`, `u` | 5 to 12 ms | the handlers: TASK-116 (above); `the key d` open |
 | `the job pick` | the files walk | 5 to 9 ms | a read of one folder does not pause; under the noise of the load |
 | `the request eval` | the driver itself | 5 ms | not paw's |
 
