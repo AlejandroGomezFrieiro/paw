@@ -105,8 +105,11 @@ test(":profile start, a Lua loop of 50 ms, :profile stop: the loop's function is
   T.fresh()
   T.after(function()
     if paw.profile.running() then paw.profile.stop() end
-    paw.ui.close()
-    require("paw.layout").restore({ { layout = require("paw.layout").default_tree() } })
+    -- The list made here is not left for the tests after.
+    paw.qf.close()
+    local s = paw.qf.stack()
+    s.lists, s.at = {}, 0
+    paw.layout.only()
   end)
   local function busy_loop()
     local x, t = 0, api.now() + 50
