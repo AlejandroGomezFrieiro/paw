@@ -29,6 +29,7 @@ local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
 local type MusicModule = require("paw.music")
+local type MarkersModule = require("paw.markers")
 local type ReadModule = require("paw.harmony.read")
 local type VoiceModule = require("paw.harmony.voice")
 local type objects = require("paw.objects")
@@ -158,6 +159,7 @@ local record Buf
 end
 local record Paw is partial.Paw
   music: MusicModule
+  markers: MarkersModule
   time: objects.Time
   draw: Draw
 end
@@ -670,6 +672,73 @@ local project_field = api.project_get as function(string): string
 -- whose events have not come yet, so every track is looked at.
 local edits_seen: integer
 
+--- The key changes that the user writes (`mk`, `:key D minor at 17`): the
+--- markers named `key <key>`, and the regions with a `key` field. Only the
+--- markers are read, never the notes, so a change here does not make the
+--- notes be read again.
+local record Written
+  at: number
+  to: number -- the end of a region; nil for a marker
+  key: Key
+end
+
+local record KeyMap
+  edits: integer
+  list: {Written}
+  text: string
+end
+local written: KeyMap = {list = {}, text = ""}
+
+local function written_key(spec: string): Key
+  local ok, key = pcall(M.parse_key, spec) as (boolean, Key)
+  return ok and key or nil
+end
+
+--- The written keys as they stand now, read again only when the project
+--- was edited.
+local function key_map(): KeyMap
+  local edits = project_edits("edits")
+  if written.edits == edits then
+    return written
+  end
+  local list: {Written} = {}
+  local parts: {string} = {}
+  for _, m in ipairs(paw.markers.list()) do
+    local spec: string
+    if m.length == nil then
+      spec = (m.name or ""):match("^key:?%s+(.+)$")
+    else
+      spec = m.key
+    end
+    local key = spec and written_key(spec)
+    if key then
+      list[#list + 1] = {at = m.beat, to = m.length ~= nil and m.beat + m.length or nil, key = key}
+      parts[#parts + 1] = string.format("%.17g:%s:%s", m.beat, tostring(m.length), M.key_name(key))
+    end
+  end
+  written = {edits = edits, list = list, text = table.concat(parts, ",")}
+  return written
+end
+
+--- The written key at `beat`: the last key marker at or before it, but a
+--- region with a key keeps its key over its time until a marker inside it
+--- changes the key. Nil when nothing is written there.
+local function written_at(beat: number): Key
+  local found: Key
+  local from = -math.huge
+  for _, w in ipairs(key_map().list) do
+    if w.at <= beat + 1e-9 and w.to == nil then
+      found, from = w.key, w.at
+    end
+  end
+  for _, w in ipairs(key_map().list) do
+    if w.to and w.at <= beat + 1e-9 and beat < w.to - 1e-9 and w.at >= from then
+      found = w.key
+    end
+  end
+  return found
+end
+
 local function song_options(): song.Options
   return {step = opt.harmony_step, bar = paw.time.bar(0), bar_start = paw.time.bar_start, is_drums = M.is_drums}
 end
@@ -774,7 +843,7 @@ end
 --- the project's key and the providers. Another provider may read
 --- anything, so with one the edit count is part of it too.
 local function signature(): string
-  local parts = {tostring(song.stamp()), tostring(opt.harmony_step), tostring(project_field("key"))}
+  local parts = {tostring(song.stamp()), tostring(opt.harmony_step), tostring(project_field("key")), key_map().text}
   for _, p in ipairs(providers) do
     parts[#parts + 1] = p.name
     if p.name ~= "builtin" then
@@ -791,12 +860,23 @@ function M.fresh(): boolean
   return not song.busy(song_options()) and project_edits("edits") == edits_seen and cache.stamp == signature()
 end
 
---- The key at `beat` in reading `r`.
+--- The key that the user wrote for `beat` (a key marker, or a region's key),
+--- or nil. It is the one that `key` gives before the project's key.
+function M.marked_key(beat: number): Key
+  return written_at(beat)
+end
+
+--- The key at `beat` in reading `r`: the written one (a key marker, or a
+--- region's key), else the project's, else the one read there.
 local function key_in(r: Reading, beat?: number): Key
+  beat = beat or 0
+  local mark = written_at(beat)
+  if mark then
+    return mark
+  end
   if r.set then
     return r.set
   end
-  beat = beat or 0
   local found: Key
   for _, k in ipairs(r.keys or {}) do
     if k.at <= beat + 1e-9 then
@@ -921,24 +1001,54 @@ local function as_it_stands(): Reading
   return cache
 end
 
---- The key at `beat` (the start when nil): the project's when one is set,
---- else the one read there, else C major. `{ tonic, mode, name, ... }`.
+--- The key at `beat` (the start when nil): the last key marker at or before
+--- it (`mk`, `key D minor`), or the key of a region over it, else the
+--- project's when one is set, else the one read there, else C major. `{ tonic, mode, name, ... }`.
 --- With `latest`, the key of the reading as it stands, without waiting
 --- for a new one: what a view that is drawn on each key asks.
 function M.key(beat?: number, latest?: boolean): Key
   return key_in(latest and as_it_stands() or reading(), beat)
 end
 
---- The keys read over the song, `{ at, length, tonic, mode, name }` each.
---- When the project has its own key, that key is over all of the song.
+--- The keys over the song, `{ at, length, tonic, mode, name }` each: the
+--- key markers and the keys of regions, then the key of the project when it
+--- has one (over all of the song), else the keys read from the notes.
 function M.keys(): {Key}
   local r = reading()
-  if r.set then
-    local key = complete_key({tonic = r.set.tonic, mode = r.set.mode})
-    key.at, key.length = 0, math.huge
-    return {key}
+  local marks = key_map().list
+  if #marks == 0 and not r.set then
+    return r.keys
   end
-  return r.keys
+  local cuts: {number: boolean} = {[0] = true}
+  for _, w in ipairs(marks) do
+    cuts[w.at] = true
+    if w.to then
+      cuts[w.to] = true
+    end
+  end
+  if not r.set then
+    for _, k in ipairs(r.keys) do
+      cuts[k.at] = true
+    end
+  end
+  local at: {number} = {}
+  for beat in pairs(cuts) do
+    at[#at + 1] = beat
+  end
+  table.sort(at)
+  local out: {Key} = {}
+  for i, beat in ipairs(at) do
+    local key = key_in(r, beat)
+    local last = out[#out]
+    if last and last.name == key.name then
+      last.length = (at[i + 1] or math.huge) - last.at
+    else
+      local span = complete_key({tonic = key.tonic, mode = key.mode})
+      span.at, span.length = beat, (at[i + 1] or math.huge) - beat
+      out[#out + 1] = span
+    end
+  end
+  return out
 end
 
 --- The chords that sound between `from` and `to` (project beats; all of
@@ -1083,7 +1193,7 @@ events.on(
   kernel.project_loaded,
   function()
     -- Another project: nothing of the old one is drawn.
-    kinds, cache = {}, {stamp = nil}
+    kinds, cache, written = {}, {stamp = nil}, {list = {}, text = ""}
     song.reset()
   end
 )
