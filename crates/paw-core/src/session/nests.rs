@@ -141,20 +141,26 @@ impl Session {
     }
 
     /// Change one field of a nest. A value that is as it was is no change.
+    /// A new tempo keeps the song's blocks of the nest on the beats of the
+    /// nest they play: their length in the song follows it.
     pub fn nest_set(&mut self, id: NestId, key: &str, value: Value) -> Result<()> {
         if holds(&self.nest_view(id), key, &value) {
             return Ok(());
         }
         let field: NestField = key.parse()?;
-        let mut nest = (**self
+        let was = self
             .project
             .nest(id)
-            .with_context(|| format!("no subproject {id}"))?)
-        .clone();
+            .with_context(|| format!("no subproject {id}"))?
+            .clone();
+        let mut nest = (*was).clone();
         field.set(&mut nest, key, value)?;
         crate::model::check_nest(&self.project, id, &nest)?;
         self.edit(|p| {
             p.nests.insert(id, Arc::new(nest));
+            if field == NestField::Tempo {
+                p.fit_blocks(id, &was);
+            }
             Ok(())
         })
     }
