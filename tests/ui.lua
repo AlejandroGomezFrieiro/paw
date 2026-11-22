@@ -45,6 +45,29 @@ test("a new project says how to begin", function()
   expect_screen("one_track", 80, 20)
 end)
 
+test("the welcome page keeps each key apart from what it does, at any width and key length", function()
+  fresh()
+  paw.cmd("view.only")
+  paw.ui.message = nil
+  -- The rows of the page only: the ruler and the master are in "welcome".
+  expect_screen("welcome_60", 60, 20, { rows = { 3, 16 } })
+  expect_screen("welcome_120", 120, 20, { rows = { 3, 16 } })
+  -- A leader of the user's makes the widest key of the page.
+  T.keys(":set leader=<lt>C-A-S-Space><CR>")
+  paw.ui.message = nil
+  local keys = { "o", "a", "i Enter", "Ctrl-Alt-Shift-Space Space", "Ctrl-Alt-Shift-Space f:", ":help" }
+  for _, width in ipairs({ 60, 80, 120 }) do
+    local rows = api.ui_snapshot(width, 24)
+    for _, key in ipairs(keys) do
+      local apart = false
+      for _, row in ipairs(rows) do
+        apart = apart or row:find("^%s+" .. key:gsub("%p", "%%%0") .. "%s%s+%S") ~= nil
+      end
+      eq(apart, true, string.format("at %d columns, two spaces at least after the key %q", width, key))
+    end
+  end
+end)
+
 test("tracks take colours in turn, or the one they are given", function()
   fresh()
   local a, b = paw.add_track({ name = "a" }), paw.add_track({ name = "b" })

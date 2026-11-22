@@ -168,4 +168,21 @@ function M.fit(text: string | number, width: integer): string
   return table.concat(out) .. ellipsis .. string.rep(" ", width - used - 1)
 end
 
+--- Break text into lines of at most `width` columns, at spaces. A word
+--- wider than `width` gets a line of its own. Empty text gives one empty
+--- line.
+function M.wrap(text: string, width: integer): {string}
+  local out: {string} = {}
+  local line = ""
+  for word in text:gmatch("%S+") do
+    if line ~= "" and api.str_width(line .. " " .. word) > width then
+      out[#out + 1], line = line, word
+    else
+      line = line == "" and word or line .. " " .. word
+    end
+  end
+  out[#out + 1] = line
+  return out
+end
+
 return M
