@@ -14,6 +14,7 @@ local record Opts
    barlabel: {string | number}
    bend_step: number
    braille: boolean
+   budget_ms: number
    chords: string | boolean
    click_accent: boolean
    click_level: number

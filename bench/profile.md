@@ -77,6 +77,10 @@ These options add a probe to `idle`, `idle-armed`, `play`, `record` and
   allocations of the steady state, run the scenario twice with different
   `--secs`, and give both files to
   `heaptrack_print -f <long> -d <short>`.
+- `--budget MS`: the value of `paw.opt.budget_ms` (5 when you do not
+  give it, 0 disables it). paw names each callback that takes longer.
+  `keys` writes these callbacks in the field `slow` of the key that ran
+  them. `repeat` writes all of them in `slow` at the end.
 - `--setup LUA`: Lua that the kernel runs after the start. For example,
   `--setup "paw.harmony.provide('builtin', nil)"` stops the chord
   analysis.

@@ -420,12 +420,19 @@ local media: contracts.PickSource<MediaItem> = {
 
 -- Text: a live grep -----------------------------------------------------------------
 
+-- The records come in slices after the picker opens: the notes of every
+-- clip are read for their lyrics and articulations.
+local grep_read: function(ms: number): {GrepModule.Found}, boolean
 local grep: contracts.PickSource<GrepModule.Found> = {
   desc = "Find any text in the project: names, lyrics, articulations, comments",
   title = "Text in the project",
   empty = "The project has no text in it yet.",
   mode = "exact",
-  items = function(): {GrepModule.Found} return paw.grep.records() end,
+  items = function(): {GrepModule.Found} grep_read = paw.grep.reader(); return {} end,
+  more = function(ms: number): {GrepModule.Found}, boolean, string
+    local found, done = grep_read(ms)
+    return found, done, not done and "reading…" or nil
+  end,
   format = function(r: GrepModule.Found): string
     return string.format("%-8s %-28s %s", r.field, util.fit(r.where or "", 28), r.text)
   end,
