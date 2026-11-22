@@ -366,6 +366,23 @@ test(":narrow on a region shows its time: bars from 1 in its meter, the cursor k
   reset()
 end)
 
+test("K in a region scope, with no clip under the cursor: its path, its bars and the song's, its meter", function()
+  start()
+  local o, from = bridge()
+  paw.cursor.set_track(o.violins)
+  paw.cursor.set_beat(from + 1)
+  keys("znar")
+  keys("K")
+  local lines = {}
+  for _, line in ipairs(paw.ui.views.pager.lines) do
+    lines[#lines + 1] = line.text
+  end
+  local text = table.concat(lines, "\n")
+  eq(text:find("Song › Bridge · bars 1-8 (song 17-24) · 6/8 · 7 tracks\n", 1, true) ~= nil, true, text)
+  eq(text:find("Track  Violins", 1, true) ~= nil, true, "then the track")
+  reset()
+end)
+
 test("in a region, znn enters the region inside it at the cursor, and ]z its sibling in the same parent", function()
   start()
   orchestra()

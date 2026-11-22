@@ -535,6 +535,20 @@ function M.at(id?: integer, win?: Window): Fold
   return regions_around(paw.cursor.beat, win)[1]
 end
 
+--- The closed fold at the cursor, in a window: the time fold that the
+--- cursor is in, else the fold that the cursor's row stands for. Nil when
+--- the cursor is on no closed fold.
+function M.closed_at(win?: Window): Fold
+  local s = M.time_at(paw.cursor.beat, win)
+  if s then
+    return s.fold
+  end
+  local f = M.at(nil, win)
+  if f and f.closed and not is_time(f) then
+    return f
+  end
+end
+
 --- Whether a track is drawn in the rows of the current window.
 local function shown(id: integer): boolean
   for _, row in ipairs(paw.groups.rows()) do
