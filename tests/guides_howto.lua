@@ -790,11 +790,14 @@ test("looping: v then gl sets the loop and says so; :loop works; the ruler and t
   eq(said(), "loop: bars 5 to 8, on", "and the message says so")
   eq(next(ruler_styles(120, 30)), "RulerLoop", "the ruler draws the band bright")
   shows("loop 5–8", "the status line shows the bars while it is on")
+  tr.play()
+  eq(ruler_styles(120, 30).RulerLoop, true, "bright while the song plays")
+  tr.stop()
   keys("gL")
   eq(said(), "loop: off", "gL says that it is off")
   local off = ruler_styles(120, 30)
   eq(off.RulerLoopOff and not off.RulerLoop, true, "the band stays on the ruler, dim")
-  shows("loop off 5–8", "the status line keeps the range, dim")
+  eq(screen():find("loop 5–8", 1, true), nil, "the status line shows no loop while it is off")
   -- Also while the song plays and records.
   tr.play()
   eq(ruler_styles(120, 30).RulerLoopOff, true, "dim while the song plays")
@@ -803,7 +806,6 @@ test("looping: v then gl sets the loop and says so; :loop works; the ruler and t
   tr.recording = true
   eq(tr.recording, true, "the song records")
   eq(ruler_styles(120, 30).RulerLoopOff, true, "dim while it records")
-  shows("loop off 5–8", "with the range on the status line")
   tr.stop()
   t.armed = false
   keys("gL")

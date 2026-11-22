@@ -514,16 +514,12 @@ spec(
     fn = function(ctx: Context): StatusText
       local t, g = ctx.transport, ctx.g
       local on: {Piece} = {}
-      if t.loop_end > t.loop_start then
+      if t.loop_enabled and t.loop_end > t.loop_start then
         -- The bars it touches, as the ruler numbers them (in a scope with time, its own).
-        -- A loop that is off stays in dim type, so that its range is not lost.
+        -- A loop that is off is not shown here: every project has a range, and the
+        -- ruler keeps it in sight in dim colors.
         local from, to = paw.ruler.bars_of(t.loop_start, t.loop_end)
-        local range = from .. (g.ellipsis == "…" and "–" or "-") .. to
-        if t.loop_enabled then
-          on[#on + 1] = {"loop " .. range, "StatusOn"}
-        else
-          on[#on + 1] = {"loop off " .. range, "StatusOff"}
-        end
+        on[#on + 1] = {"loop " .. from .. (g.ellipsis == "…" and "–" or "-") .. to, "StatusOn"}
       end
       if t.metronome then
         on[#on + 1] = {"click", "StatusOn"}

@@ -41,7 +41,7 @@ selection, select the bars with `v`, press `<Space>rn` and type its name.
 While looping is on, the ruler shows the loop as a bright band, the lanes
 are shaded in the same range, and the status line shows `loop 5–8`. While
 it is off, the band stays on the ruler in dim colors and the status line
-shows `loop off 5–8`. The graphical window draws the same band, and its loop
+shows no loop. The graphical window draws the same band, and its loop
 button is lit while looping is on. All of this is the same while the song
 plays and while it records.
 
