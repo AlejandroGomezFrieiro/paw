@@ -333,12 +333,12 @@ M.define(
 commands.define(
   "vzoom",
   function(ctx: contracts.CommandContext): contracts.CommandResult
-    local arg = ctx.args[1] and tostring(ctx.args[1])
-    if arg == "fit" then
+    local word = ctx.args[1] and tostring(ctx.args[1])
+    if word == "fit" then
       M.fit({count = ctx.count})
       return
     end
-    local by = math.tointeger(tonumber(arg or "1"))
+    local by = math.tointeger(tonumber(word or "1"))
     if not by then
       error("vzoom takes a number of rows or `fit`: `vzoom 1`, `vzoom -1`, `vzoom fit`", 0)
     end
