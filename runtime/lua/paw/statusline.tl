@@ -29,6 +29,7 @@ local util = require("paw.util")
 local options = require("paw.options")
 local events = require("paw.events")
 local kernel = require("paw.events.kernel")
+local derived = require("paw.derived")
 local type contracts = require("paw.contracts")
 local type types = require("paw.types")
 local type partial = require("paw.partial")
@@ -240,6 +241,7 @@ local default: Config = {
       "tempo",
       "flags",
       "render",
+      "derived",
       "diagnostics",
       "qf",
       "pointer",
@@ -543,6 +545,21 @@ spec(
         or width >= 80 and (verb:sub(1, 6) .. " " .. pct .. " · Esc")
         or (verb:sub(1, 6) .. " " .. pct)
       return {{text, "StatusRec"}}
+    end,
+  }
+)
+
+-- Data that paw derives from the project (the chords of the song) that
+-- takes more than a second to make again after an edit: what, and how far.
+spec(
+  "derived",
+  {
+    fn = function(): StatusText
+      local p = derived.progress()
+      if not p then
+        return nil
+      end
+      return {{string.format("%s %d%%", p.label, math.floor(p.fraction * 100)), "StatusLine"}}
     end,
   }
 )

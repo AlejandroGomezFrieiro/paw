@@ -33,6 +33,7 @@ name of the project before it removes a component.
 | `flags` | What is on: `loop 3–5`, `click`, punch, count-in, `rec`, `write`. |
 | `take` | The take that records. |
 | `render` | The progress of a render. |
+| `derived` | When paw takes more than a second to read the chords of the song again after an edit, what it reads and how far it is: `chords 40%`. |
 | `diagnostics` | The count of diagnostics. |
 | `qf` | The entries of the quickfix list: `qf E2 W5`, or `qf 3/7 E2 W5` after you go to one. |
 | `pointer` | What is under the mouse pointer, and what a click there does. |
