@@ -24,6 +24,7 @@ use rustix::termios::{self, OptionalActions, Termios};
 use signal_hook::consts::{SIGHUP, SIGTERM};
 
 use crate::graphics::{self, Graphics};
+use crate::keys;
 
 pub struct Terminal {
     out: BufWriter<Stdout>,
@@ -121,7 +122,8 @@ impl Terminal {
         let pixels = probe.pixel_mouse;
         let seen = cell.clone();
         std::thread::spawn(move || {
-            while let Ok(event) = event::read() {
+            let mut keys = keys::Joiner::new(keys::Terminal, keys::ttimeout());
+            while let Some(event) = keys.next_event() {
                 let input = match event {
                     Event::Key(key) if key.kind != KeyEventKind::Release => {
                         key_notation(key).map(InputEvent::Key)
