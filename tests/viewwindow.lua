@@ -109,8 +109,8 @@ test("a highlight group's number draws as its name does, and follows the group w
   eq(api.hl_id("ViewWindowNumbered"), id, "a name has one number")
   paw.ui.view("viewwindow_numbered", {
     render = function(_, buf)
-      api.grid_text(buf.x, buf.y, "by name", "ViewWindowNumbered", buf.x, buf.y, buf.width, buf.height)
-      api.grid_text(buf.x, buf.y + 1, "by number", id, buf.x, buf.y, buf.width, buf.height)
+      buf:text(0, 0, "by name", "ViewWindowNumbered")
+      buf:text(0, 1, "by number", id)
     end,
   })
   -- The number was given before the group had a style.
