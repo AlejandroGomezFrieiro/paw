@@ -1239,6 +1239,14 @@ drawmap(
   function() drawing.pick_chord(true) end,
   "A strummed chord here: its notes one after the other (strum, strum_dir)"
 )
+drawmap("~", function() drawing.tie() end, "Tie the note to the next note: it ends where the next one starts")
+drawmap(
+  "<C-r>",
+  function(ctx) drawing.put_register(ctx.char) end,
+  "Put the notes of a register at the note: <C-r> and its name",
+  { char = true }
+)
+drawmap("<Tab>", function() drawing.snippet() end, "Expand a snippet here: choose one")
 drawmap("a", function() drawing.articulate() end, "An articulation on the note (from the articulations extension)")
 drawmap(
   "e",

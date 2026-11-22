@@ -6853,8 +6853,18 @@ function paw.roll_draw.pick_chord(strum) end
 ---@param step any
 function paw.roll_draw.pitch(semitones, step) end
 
+--- Put the notes of a register at the pencil (`<C-r>` and its name), count
+--- times one after another, as `p` pastes them. The pencil goes on where the
+--- last one ends. A stretch of time keeps its pitches, and the rest go with
+--- their top at the pitch of the pencil. Notes always start from the pencil.
+---@param name any
+function paw.roll_draw.put_register(name) end
+
 --- Show what an extension's key changed in the notes being drawn.
 function paw.roll_draw.shown() end
+
+--- Choose a snippet to expand at the pencil (`<Tab>`), count times.
+function paw.roll_draw.snippet() end
 
 --- Start drawing at the cursor. `how` as `take` has it: "i" or "a"; or
 --- "step", step input with a caret (a pen with no length) at the cursor.
@@ -6880,6 +6890,10 @@ function paw.roll_draw.suggest(dir) end
 --- The notes that you drew and kept, as "60@1+0.5 64@1+0.5" in the beats of
 --- the roll. The second value is the notes that you draw now, "67@1.5+0".
 function paw.roll_draw.text() end
+
+--- Tie the note being drawn to the next note (`~`): its end goes to where
+--- the next note of the clips, or the next note kept, starts.
+function paw.roll_draw.tie() end
 
 --- Step input on or off (`I` in insert mode). The pen stays as it is.
 --- Without a MIDI input, paw says why and opens the track's list of inputs.
