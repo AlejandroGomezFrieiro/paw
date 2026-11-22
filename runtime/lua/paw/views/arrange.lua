@@ -579,8 +579,23 @@ local function clip_body(clip, track, kind, zoom)
   end
 end
 
---- A clip on the timeline's plane, as the `clip` role it is.
-function view.clip_props(clip, track, hue, kind, zoom, chosen)
+--- Where the window's scope (`paw.scope`) cuts a clip that crosses one of
+--- its edges, in beats from the clip's start: `cut_in` at its start,
+--- `cut_out` at its end, each nil where it does not cut. Only the drawing
+--- is cut: an edit of the clip is an edit of all of it.
+local function cuts(clip, from, to)
+  if not from then return nil, nil end
+  local finish = clip.start + clip.length
+  local EPS = 1e-9
+  local cut_in = (clip.start < from - EPS and finish > from + EPS) and from - clip.start or nil
+  local cut_out = (clip.start < to - EPS and finish > to + EPS) and to - clip.start or nil
+  return cut_in, cut_out
+end
+
+--- A clip on the timeline's plane, as the `clip` role it is. `from`, `to`:
+--- the time of the window's scope, which cuts it (`cut_in`, `cut_out`).
+function view.clip_props(clip, track, hue, kind, zoom, chosen, from, to)
+  local cut_in, cut_out = cuts(clip, from, to)
   -- A clip with takes says which plays: `take 3 ‹2/4›`.
   local badge = paw.takes.badge(clip)
   local label = clip.offline and ("offline · " .. clip.name) or clip.name
@@ -609,6 +624,8 @@ function view.clip_props(clip, track, hue, kind, zoom, chosen)
     fade_in = clip.fade_in,
     fade_out = clip.fade_out,
     gain = clip.gain,
+    cut_in = cut_in,
+    cut_out = cut_out,
     content = paw.frontend.content_key(clip),
     title_style = hue["title" .. kind],
     body_style = hue["body" .. kind],
@@ -679,6 +696,7 @@ local function lane(self, buf, row, track, selected, cursor_clip, lanes, hue, ma
   for _, id in ipairs(paw.frontend.chosen_clips()) do
     chosen[id] = true
   end
+  local from, to = paw.scope.span()
   for _, clip in ipairs(api.clip_list(track.id)) do
     local x0 = math.floor((clip.start - scroll) * zoom + 0.5)
     local x1 = math.floor((clip.start + clip.length - scroll) * zoom + 0.5)
@@ -692,7 +710,7 @@ local function lane(self, buf, row, track, selected, cursor_clip, lanes, hue, ma
         y,
         clip.length,
         height,
-        view.clip_props(clip, track, hue, kind, zoom, chosen[clip.id])
+        view.clip_props(clip, track, hue, kind, zoom, chosen[clip.id], from, to)
       )
       paw.ui.paint("arrange", "clip", { buf = box, width = cw, height = height, clip = clip })
     end

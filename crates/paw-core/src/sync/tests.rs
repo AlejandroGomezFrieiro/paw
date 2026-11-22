@@ -49,7 +49,7 @@ fn project(clips: usize) -> Project {
 fn compiled(map: &Mapper) -> HashMap<*const MidiEv, usize> {
     let Some(parts) = map.parts.get(&1) else { return HashMap::new() };
     let pieces = parts.clips.values().flat_map(|s| &s.pieces);
-    pieces.map(|p| (p.events.as_ptr(), p.events.len())).collect()
+    pieces.map(|p| (p.as_ptr(), p.len())).collect()
 }
 
 /// An engine brought through each of `states` in turn, as a session
@@ -317,4 +317,150 @@ fn follows(follow: Follow) -> bool {
 fn the_track_that_always_follows_hears_midi_while_another_is_armed() {
     assert!(!follows(Follow { selected: Some(1), always: None }));
     assert!(follows(Follow { selected: None, always: Some(1) }));
+}
+
+/// A clip of `notes` notes over 32 beats, with two controller moves.
+fn source_clip(notes: usize) -> Clip {
+    let list: Vec<Value> = (0..notes)
+        .map(|k| {
+            let start = k as f64 * 32.0 / notes as f64;
+            json!({ "start": start, "length": 0.3, "pitch": 48 + (k * 5) % 24, "velocity": 30 + k % 90 })
+        })
+        .collect();
+    let controls = json!([
+        { "start": 0.0, "type": "cc", "number": 1, "value": 0.25 },
+        { "start": 5.5, "type": "cc", "number": 1, "value": 0.75 },
+    ]);
+    serde_json::from_value(json!({ "id": 7, "name": "", "start": 0.0, "length": 32.0, "muted": false,
+        "content": { "kind": "midi", "notes": list, "controls": controls } }))
+    .unwrap()
+}
+
+/// `source` cut `by` beats after its start, as a window that starts there
+/// shows it: the notes before the cut left out, the others moved to it.
+fn cut(source: &Clip, by: f64) -> Clip {
+    let mut out = source.clone();
+    if let ClipContent::Midi { notes, controls } = &mut out.content {
+        notes.retain(|n| n.start >= by);
+        for n in notes.iter_mut() {
+            n.start -= by;
+        }
+        for c in controls.iter_mut() {
+            c.start -= by;
+        }
+    }
+    out.length -= by;
+    out
+}
+
+/// Track 1 of `base` with `count` copies of `source` end to end, each
+/// sharing its notes as a pasted clip does; every third copy is looped,
+/// every fifth a window cut at its start (one cut, which those copies
+/// share), every seventh cut short.
+fn with_copies(base: &Project, source: &Clip, count: usize) -> Project {
+    let cut = cut(source, 4.5);
+    let mut p = base.clone();
+    let clips: Vec<Arc<Clip>> = (0..count)
+        .map(|k| {
+            let mut copy = if k % 5 == 4 { cut.clone() } else { source.clone() };
+            copy.id = 1000 + k as u64;
+            copy.start = k as f64 * 33.25 + 0.125;
+            if k % 3 == 2 {
+                (copy.looped, copy.loop_start, copy.loop_length) = (true, 1.5, Some(6.25));
+            }
+            if k % 7 == 6 {
+                copy.length = 9.75;
+            }
+            Arc::new(copy)
+        })
+        .collect();
+    p.track_mut(1).unwrap().clips = clips.into();
+    p
+}
+
+/// One note of `clip` a semitone higher.
+fn bumped(clip: &Clip) -> Clip {
+    let mut out = clip.clone();
+    if let ClipContent::Midi { notes, .. } = &mut out.content {
+        notes[100].pitch += 1;
+    }
+    out
+}
+
+/// A mapper brought through `states` in turn, and how many times events
+/// were compiled for the last.
+fn compiles(states: &[&Project]) -> (Mapper, usize) {
+    let registry = Registry::with_builtins();
+    let sources = crate::media::Sources::default();
+    let (mut audio, mut live, mut warnings) = (AudioCache::default(), LiveDevices::new(), Vec::new());
+    let mut map = Mapper::new();
+    let empty = Project::default();
+    let (mut old, mut count) = (&empty, 0);
+    for state in states {
+        let mut ctx = SyncCtx {
+            registry: &registry,
+            sources: &sources,
+            audio: &mut audio,
+            live: &mut live,
+            sample_rate: 48000.0,
+            warnings: &mut warnings,
+            offline: true,
+        };
+        let before = clips::COMPILES.with(|c| c.get());
+        sync(old, state, &mut map, &mut ctx, &mut |_| {}, &mut Vec::new());
+        count = clips::COMPILES.with(|c| c.get()) - before;
+        old = state;
+    }
+    (map, count)
+}
+
+/// Copies of a clip share its compiled events: an edit of the notes they
+/// share compiles them one time, however many copies play them.
+#[test]
+fn an_edit_of_notes_that_copies_share_compiles_them_once() {
+    let base = with_clip(json!({ "kind": "midi", "notes": [] }), true);
+    let copies = |source: &Clip, count: usize| {
+        let mut p = base.clone();
+        let clips: Vec<Arc<Clip>> = (0..count)
+            .map(|k| Arc::new(Clip { id: 1000 + k as u64, start: k as f64 * 32.0, ..source.clone() }))
+            .collect();
+        p.track_mut(1).unwrap().clips = clips.into();
+        p
+    };
+    let source = source_clip(384);
+    let (a, b) = (copies(&source, 100), copies(&bumped(&source), 100));
+    let (map, count) = compiles(&[&a, &b]);
+    assert_eq!(count, 1, "the piece of notes the edit changed, one time");
+    // The engine has one list of each piece for all the copies.
+    assert_eq!(compiled(&map).len(), 2, "the controllers and the notes");
+    // A thousand copies, sent whole: as many lists as for one.
+    let (map, count) = compiles(&[&copies(&source, 1000)]);
+    assert_eq!((count, compiled(&map).len()), (2, 2));
+}
+
+/// The engine plays copies that share their events, looped, cut at the
+/// start of a window or short, as it plays every clip's events compiled
+/// where it is, in one list: the same samples.
+#[test]
+fn copies_that_share_events_play_as_events_compiled_in_place() {
+    let base = with_clip(json!({ "kind": "midi", "notes": [] }), true);
+    let project = with_copies(&base, &source_clip(384), 24);
+    let (mut a, mut ha, _) = engine(&[&project]);
+    let (mut b, mut hb, _) = engine(&[&project]);
+    // In place: as the sync compiled every clip before copies shared them.
+    let mut list = ClipSet::default();
+    for clip in project.track(1).unwrap().clips.iter() {
+        if let Some(ClipContent::Midi { notes, controls }) = clip.playable() {
+            let events = clips::Source::whole(clip, notes, controls).compile(clip.start);
+            list.midi.extend_from_slice(&events);
+        }
+    }
+    list.finish();
+    let slot = paw_engine::TrackSlot(paw_engine::TrackSlot::MASTER.0 + 1);
+    hb.send_while(Msg::SetClips { track: slot, clips: Box::new(list) }, &mut b);
+    for from in [0.0, 37.6, 133.1, 166.0, 402.2] {
+        let (x, y) = (play(&mut a, &mut ha, from), play(&mut b, &mut hb, from));
+        assert!(x.iter().any(|s| *s != 0.0), "something plays from {from}");
+        assert!(x == y, "what plays from {from} differs");
+    }
 }

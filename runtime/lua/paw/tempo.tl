@@ -161,23 +161,27 @@ end
 
 -- Commands ------------------------------------------------------------------
 
---- A place given to a command: a bar (`17`), a bar and beat (`17.3`), or
---- `cursor` / `here`. The beat of the cursor when nothing is given. In a
---- scope with time (`paw.scope`), bars are its own, from 1 at its start.
+--- A place given to a command: a bar (`17`), a bar and beat (`17.3`), a
+--- bar of the song (`@19`), or `cursor` / `here`. The beat of the cursor
+--- when nothing is given. In a scope with time (`paw.scope`), bars are its
+--- own, from 1 at its start; `@19` is bar 19 of the song all the same.
 function M.place(text?: commands.Arg): number
   if text == nil or text == "cursor" or text == "here" then
     return paw.cursor.beat
   end
-  local bar_text, beat = tostring(text):match("^(%d+)%.?(%d*)$")
+  -- `@19`: a bar of the song, whatever bar a scope shows there.
+  local song, bar_text, beat = tostring(text):match("^(@?)(%d+)%.?(%d*)$")
   if not bar_text then
-    error("a place is a bar (17), a bar and beat (17.3) or `cursor`, not " .. tostring(text), 0)
+    error(
+      "a place is a bar (17), a bar and beat (17.3), a bar of the song (@19) or `cursor`, not " .. tostring(text), 0
+    )
   end
   local bar = tonumber(bar_text) as integer
   if bar < 1 then
     error("bars count from 1", 0)
   end
   -- In a scope with time, its own bars.
-  local offset = paw.scope and paw.scope.bar_offset() or 0
+  local offset = song == "" and paw.scope and paw.scope.bar_offset() or 0
   return api.tempo_from_bbt(bar - 1 + offset, math.max(0, (tonumber(beat) or 1) - 1) as integer)
 end
 

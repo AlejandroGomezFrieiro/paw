@@ -197,6 +197,7 @@ end
 --- paw/scope.tl, the part of it that this module reads.
 local record Scope
   tracks: function(): {integer}
+  span: function(): number, number
   bar_offset: function(): integer
 end
 local record RollClips
@@ -378,8 +379,23 @@ local function song_end(): number
   return finish
 end
 
+--- The last bar: of the scope's time in a scope with time (`paw.scope`),
+--- else the last bar with a clip in it.
 local function last_bar(): integer
+  local from, to = paw.scope.span()
+  if from then
+    return paw.time.bar_of(math.max(from, to - NEAR))
+  end
   return math.max(1, paw.time.bar_of(math.max(0, song_end() - NEAR)))
+end
+
+--- `%`: the time of the scope (`paw.scope`), else the whole song.
+local function whole_range(): Range
+  local from, to = paw.scope.span()
+  if from then
+    return {from = from, to = to, whole = true}
+  end
+  return {from = 0, to = paw.time.bar_start(last_bar() + 1), whole = true}
 end
 
 --- Bar `n` as the user types it: in a scope with time, its own bars
@@ -428,10 +444,18 @@ end
 local function address(s: string, i: integer): Span, integer
   local span: Span
   local j: integer
+  -- `@19`, `@19.3`: a bar of the song, whatever bar the scope shows there.
+  local offset = 0
+  if s:sub(i, i) == "@" then
+    if not s:match("^@%d", i) then
+      fail("`@` names a bar of the song: `@19`")
+    end
+    i, offset = i + 1, paw.scope.bar_offset()
+  end
   local bar, beat, e = s:match("^(%d+)%.(%d+)()", i)
   if bar then
     span, j =
-      beat_span(math.tointeger(tonumber(bar)), math.tointeger(tonumber(beat)), s:sub(i, (e as integer) - 1)),
+      beat_span(math.tointeger(tonumber(bar)) - offset, math.tointeger(tonumber(beat)), s:sub(i, (e as integer) - 1)),
       e as integer
   else
     bar, e = s:match("^(%d+)()", i)
@@ -439,7 +463,7 @@ local function address(s: string, i: integer): Span, integer
       if tonumber(bar) < 1 then
         fail("`%s`: bars count from 1", bar)
       end
-      span, j = bar_span(math.tointeger(tonumber(bar))), e as integer
+      span, j = bar_span(math.tointeger(tonumber(bar)) - offset), e as integer
     elseif s:sub(i, i) == "." then
       span, j = bar_span(typed_bar(cursor_beat())), i + 1
     elseif s:sub(i, i) == "$" then
@@ -648,7 +672,7 @@ end
 
 local function time_range(s: string, i: integer): Range, integer
   if s:sub(i, i) == "%" then
-    return {from = 0, to = paw.time.bar_start(last_bar() + 1), whole = true}, i + 1
+    return whole_range(), i + 1
   end
   local sel = s:match("^'<%s*,%s*'>()", i)
   if sel then
@@ -741,7 +765,7 @@ function M.describe(r: Range): string
   local parts: {string} = {}
   if r.from then
     local a, b = r.bars[1], r.bars[2]
-    if math.abs(paw.time.bar_start(a) - r.from) < EPS and math.abs(paw.time.bar_start(b + 1) - r.to) < EPS then
+    if math.abs(bar_span(a).from - r.from) < EPS and math.abs(bar_span(b).to - r.to) < EPS then
       parts[1] = a == b and "bar " .. a or string.format("bars %d–%d", a, b)
     else
       parts[1] = paw.time.format(r.from) .. "–" .. paw.time.format(r.to)
@@ -1459,7 +1483,7 @@ local function range_of(ctx: Context, default: string): Range
   end
   local r: Range
   if default == "%" then
-    r = {from = 0, to = paw.time.bar_start(last_bar() + 1), whole = true}
+    r = whole_range()
   elseif default == "track" then
     local id = cursor_track()
     if not id then
@@ -2178,6 +2202,7 @@ local record ExOptions
   items: boolean
   desc: string
   label: string
+  adjust: {contracts.AdjustParam}
 end
 
 --- Define an Ex command: a command that takes a range, as `:5,8d`.
@@ -2185,7 +2210,7 @@ end
 local function ex(names: {string}, run: function(Context): Result, opts: ExOptions)
   for i, name in ipairs(names) do
     if i == 1 then
-      commands.define(name, run, {desc = opts.desc, label = opts.label, range = true, raw = true})
+      commands.define(name, run, {desc = opts.desc, label = opts.label, range = true, raw = true, adjust = opts.adjust})
     else
       commands.alias(name, names[1])
     end
@@ -2316,23 +2341,51 @@ ex(
 ex(
   {"quantize"},
   function(ctx: Context): Result
-    local grid = grid_arg(arg_text(ctx))
+    local params = commands.params(ctx)
+    local grid = grid_arg(params.grid ~= nil and tostring(params.grid) or "")
+    local given = params.strength
+    local strength: number = 100
+    if given is number then
+      strength = given
+    elseif given ~= nil then
+      fail("`strength` is from 0 to 100, not `%s`", tostring(given))
+    end
+    if strength < 0 or strength > 100 then
+      fail("`strength` is from 0 to 100, not `%g`", strength)
+    end
     local items = notes_in(ctx)
     local changes: {Changed} = {}
     for i, item in ipairs(items) do
       -- On the song's grid, so that clips that start off it still line up.
+      -- A strength under 100 moves each note that part of the way.
       local at = util.round(item.at, grid)
-      changes[i] = {item = item, change = {start = math.max(0, item.note.start + at - item.at)}}
+      changes[i] = {item = item, change = {start = math.max(0, item.note.start + (at - item.at) * strength / 100)}}
     end
     M.apply(changes)
-    paw.notify(string.format("snapped %s to %g beats", plural(#items, "note"), grid))
+    paw.notify(
+      string.format(
+        "snapped %s to %g beats%s",
+        plural(#items, "note"),
+        grid,
+        strength < 100 and string.format(" at %g%%", strength) or ""
+      )
+    )
   end,
-  {items = true, desc = "Snap the notes of a range to the grid: `:%quantize`, `:5,8quantize 1/16`", label = "Quantize"}
+  {
+    items = true,
+    desc = "Snap the notes of a range to the grid: `:%quantize`, `:5,8quantize 1/16`, `:quantize 1/16 strength=50` moves them half way",
+    label = "Quantize",
+    adjust = {
+      {name = "grid", values = {"1/4", "1/8", "1/16", "1/32", "1/12", "1/24"}},
+      {name = "strength", min = 0, max = 100, step = 5, default = 100},
+    },
+  }
 )
 ex(
   {"transpose"},
   function(ctx: Context): Result
-    local by = math.tointeger(tonumber((arg_text(ctx):gsub("^%+", ""))))
+    local given = commands.params(ctx).semitones
+    local by = math.tointeger(tonumber((tostring(given == nil and "" or given):gsub("^%+", ""))))
     if not by then
       fail("`transpose` needs semitones: `:5,8transpose 12`, `-3`")
     end
@@ -2348,6 +2401,7 @@ ex(
     items = true,
     desc = "Move the notes of a range up or down: `:5,8transpose 12`, `:%transpose -3`",
     label = "Transpose",
+    adjust = {{name = "semitones", min = -127, max = 127, step = 1}},
   }
 )
 ex(

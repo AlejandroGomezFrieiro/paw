@@ -35,6 +35,7 @@ local type ChordsModule = require("paw.chords")
 local type MarkersModule = require("paw.markers")
 local type TempoModule = require("paw.tempo")
 local type CommandsModule = require("paw.commands")
+local type SnippetModule = require("paw.snippet")
 
 --- The edge of the note being drawn that the cursor is on.
 local enum Edge
@@ -192,6 +193,7 @@ local record Paw is partial.Paw
   chords: ChordsModule
   markers: MarkersModule
   tempo: TempoModule
+  snippet: SnippetModule
   pick: function(spec: contracts.PickSource<ChordsModule.Voiced>)
   time: objects.Time
   clip: function(id: integer): objects.Clip
@@ -234,8 +236,9 @@ M.keys = {}
 local bend_step = options.define("bend_step", 1 as number)
 -- Beats between the notes of a strum (`C`): a 64th note.
 local strum_step = options.define("strum", 1 / 16 as number)
--- Which way a strum goes: "up" from the lowest note, or "down".
-local strum_dir = options.define("strum_dir", "up", {values = {"up", "down"}})
+-- Which way a strum goes: "up" from the lowest note, "down" from the
+-- highest, or "updown": up through every other note and down through the rest.
+local strum_dir = options.define("strum_dir", "up", {values = {"up", "down", "updown"}})
 
 local EPS = 1e-9
 -- How far a note's own bend reaches each way (MIDI 2.0's default, the engine's NOTE_BEND_RANGE).
@@ -1083,6 +1086,55 @@ function M.mark(kind: string)
   )
 end
 
+--- What a strum's picker reads at the end of what is typed: the words `up`,
+--- `down` or `updown` and `@N`, the gap in 64ths. Gives the rest of the text,
+--- the way (nil when none) and the gap in beats (nil when none).
+local function strum_words(query: string): string, string, number
+  local way: string
+  local gap: number
+  local text = query
+  while true do
+    local rest, word = text:match("^(.-)%s*(%S+)$")
+    if not word then
+      break
+    end
+    local n = word:match("^@(%d+%.?%d*)$")
+    if word == "up" or word == "down" or word == "updown" then
+      way = way or word
+    elseif n then
+      gap = gap or tonumber(n) / 16
+    else
+      break
+    end
+    text = rest
+  end
+  return text, way, gap
+end
+
+--- The order of a strum's notes, as indexes of the notes from the lowest
+--- up: "up", "down", or "updown", which rises through the first, third,
+--- fifth note and so on and falls through the others.
+local function strum_order(count: integer, way: string): {integer}
+  local out: {integer} = {}
+  if way == "down" then
+    for i = count, 1, -1 do
+      out[#out + 1] = i
+    end
+  elseif way == "updown" then
+    for i = 1, count, 2 do
+      out[#out + 1] = i
+    end
+    for i = count - (count % 2 == 0 and 0 or 1), 1, -2 do
+      out[#out + 1] = i
+    end
+  else
+    for i = 1, count do
+      out[i] = i
+    end
+  end
+  return out
+end
+
 --- Choose a chord to draw at the pencil (`c`): the diatonic chord on the
 --- pencil's pitch first (`4c` its seventh, `5c` its ninth), the others of
 --- the key, then common chords on the pitch. Typing searches them; a
@@ -1117,7 +1169,7 @@ function M.pick_chord(strum?: boolean)
   for _, v in ipairs(paw.chords.offer(key, root)) do
     items[#items + 1] = v
   end
-  local function draw(v: ChordsModule.Voiced)
+  local function draw(v: ChordsModule.Voiced, way?: string, gap?: number)
     M.chord(v.pitches, v.name ~= "diatonic" and v.name or nil)
     if not session then
       return
@@ -1126,24 +1178,15 @@ function M.pick_chord(strum?: boolean)
       session.chord = nil
     end
     if strum then
-      -- From the lowest up (or the highest down), each note a lag later.
-      local order: {Drawn} = {}
+      -- Each note a lag after the one before, in the order of the way.
+      local low: {Drawn} = {}
       for i, d in ipairs(session.pen) do
-        order[i] = d
+        low[i] = d
       end
-      local down = strum_dir:get() == "down"
-      table.sort(
-        order,
-        function(a: Drawn, b: Drawn): boolean
-          if down then
-            return a.pitch > b.pitch
-          end
-          return a.pitch < b.pitch
-        end
-      )
+      table.sort(low, function(a: Drawn, b: Drawn): boolean return a.pitch < b.pitch end)
       local base = session.pen[1].start
-      for k, d in ipairs(order) do
-        d.start = base + (k - 1) * lag
+      for k, i in ipairs(strum_order(#low, way or strum_dir:get())) do
+        low[i].start = base + (k - 1) * (gap or lag)
       end
       session.strum = true
       align()
@@ -1160,25 +1203,36 @@ function M.pick_chord(strum?: boolean)
   paw.pick(
     {
       title = strum and "Strum" or "Chord",
-      prompt = (strum and "strum" or "chord") .. " (a symbol, or search) > ",
+      prompt = strum and "strum (a symbol, up down updown, @64ths) > " or "chord (a symbol, or search) > ",
       items = items,
       format = line,
       search = function(v: ChordsModule.Voiced): string
         return v.symbol .. " " .. (v.name or "") .. " " .. (v.roman or "")
       end,
-      on_choose = draw,
+      -- A strum reads its way and its gap at the end of the text typed.
+      rank = strum
+        and function(v: ChordsModule.Voiced, query: string, _: string): number
+          return (
+            require("paw.pick").match(strum_words(query), v.symbol .. " " .. (v.name or "") .. " " .. (v.roman or ""))
+          )
+        end or nil,
+      on_choose = function(v: ChordsModule.Voiced) draw(v) end,
       choose = "draw it",
       actions = {
         -- A symbol typed is drawn as typed; else the line chosen.
         ["<CR>"] = {
           desc = "draw it",
-          fn = function(v: ChordsModule.Voiced, query: string)
+          fn = function(v: ChordsModule.Voiced, typed_query: string)
+            local query, way, gap = typed_query, nil as string, nil as number
+            if strum then
+              query, way, gap = strum_words(typed_query)
+            end
             local typed = query ~= "" and paw.chords.parse(query, key, root)
             if typed then
-              return draw(typed)
+              return draw(typed, way, gap)
             end
             if v then
-              return draw(v)
+              return draw(v, way, gap)
             end
             local _, why = paw.chords.parse(query, key, root)
             paw.notify(why or "no chord", "warn")
@@ -1187,6 +1241,111 @@ function M.pick_chord(strum?: boolean)
       },
     }
   )
+end
+
+--- Tie the note being drawn to the next note (`~`): its end goes to where
+--- the next note of the clips, or the next note kept, starts.
+function M.tie()
+  if not begin() then
+    return
+  end
+  session.count = nil
+  local finish = finish_of(session.pen[1])
+  for _, d in ipairs(session.pen) do
+    finish = math.max(finish, finish_of(d))
+  end
+  local best = math.huge
+  local held = taken()
+  for _, part in ipairs(clips().parts()) do
+    local all = part.clip:notes()
+    for _, n in ipairs(all) do
+      local start = n.start + part.start
+      if start > finish + EPS and start < best and not held[key_of(part.id, n.id)] then
+        best = start
+      end
+    end
+  end
+  for _, n in ipairs(session.notes) do
+    if n.start > finish + EPS and n.start < best then
+      best = n.start
+    end
+  end
+  if best == math.huge then
+    return paw.notify("no later note to tie to", "warn")
+  end
+  for _, d in ipairs(session.pen) do
+    d.length = best - d.start
+  end
+  session.edge = "end"
+  place()
+  paw.notify(string.format("tied to the next note, %g beats on", best - finish))
+end
+
+--- Put the notes of a register at the pencil (`<C-r>` and its name), count
+--- times one after another, as `p` pastes them. The pencil goes on where the
+--- last one ends. A stretch of time keeps its pitches, and the rest go with
+--- their top at the pitch of the pencil. Notes always start from the pencil.
+function M.put_register(name: string)
+  if not begin() then
+    return
+  end
+  local value = paw.keymap.getreg(name) as {string: any}
+  local notes = value and value.kind == "notes" and value.notes as {types.Note}
+  if not notes then
+    return paw.notify(
+      value and ("register " .. name .. " holds " .. tostring(value.kind) .. ", not notes")
+        or "register " .. name .. " is empty",
+      "warn"
+    )
+  end
+  local n = take_count()
+  local shape = value.shape as string
+  local top = value.top as number
+  local length = value.length as number
+  -- Whole pitches have no stretch of their own: they count from their first note.
+  local from: number = 0
+  if shape == "line" then
+    from, length = math.huge, 0
+    for _, note in ipairs(notes) do
+      from = math.min(from, note.start)
+    end
+    for _, note in ipairs(notes) do
+      length = math.max(length, note.start + note.length - from)
+    end
+  end
+  put()
+  local d = session.pen[1]
+  local at, pitch = edge_beat(), d.pitch
+  local list: {Drawn} = {}
+  for _ = 1, n do
+    for _, note in ipairs(notes) do
+      local p = shape == "char" and note.pitch or note.pitch + pitch - top
+      local start = at + note.start - from
+      if p >= 0 and p <= 127 and note.length > EPS then
+        list[#list + 1] = {pitch = p as integer, start = start, length = note.length, velocity = note.velocity}
+      end
+    end
+    at = at + length
+  end
+  if #list == 0 then
+    return paw.notify("nothing to put", "warn")
+  end
+  session.pen = list
+  session.strum, session.chord = nil, nil
+  put()
+  session.last = session.pen
+  take(at, pitch, "next")
+  session.edge = "end"
+  place()
+  paw.notify(string.format("put %d note%s from register %s", #list, #list == 1 and "" or "s", name))
+end
+
+--- Choose a snippet to expand at the pencil (`<Tab>`), count times.
+function M.snippet()
+  if not begin() then
+    return
+  end
+  paw.snippet.pick({count = take_count()})
 end
 
 --- Pitches in words: "C4 E4 G4".
@@ -1482,6 +1641,28 @@ local function length_of(text: string): number
   return beats
 end
 
+--- The notes being drawn `beats` long; in step input, the step too.
+local function set_length(beats: number)
+  -- In step input, a caret (nothing entered yet) keeps no length: the
+  -- value is for the notes that come.
+  local caret = session.step and session.pen[1].length <= EPS and not session.pen[1].source
+  if caret then
+    roll():set_step(beats)
+    changed()
+    return
+  end
+  for _, d in ipairs(session.pen) do
+    d.length = beats
+    fit(d)
+  end
+  if session.step then
+    roll():set_step(beats)
+  end
+  align()
+  session.edge = "end"
+  place()
+end
+
 --- Start typing a length (`=`), or add to it: each key that makes one
 --- sets the notes being drawn that long at once.
 function M.length_key(char?: string): boolean
@@ -1501,23 +1682,8 @@ function M.length_key(char?: string): boolean
   local text = session.reading .. char
   session.reading = text
   local beats = length_of(text)
-  -- In step input, a caret (nothing entered yet) keeps no length: the
-  -- value is for the notes that come.
-  local caret = session.step and session.pen[1].length <= EPS and not session.pen[1].source
-  if beats and caret then
-    roll():set_step(beats)
-    changed()
-  elseif beats then
-    for _, d in ipairs(session.pen) do
-      d.length = beats
-      fit(d)
-    end
-    if session.step then
-      roll():set_step(beats)
-    end
-    align()
-    session.edge = "end"
-    place()
+  if beats then
+    set_length(beats)
   end
   return true
 end
@@ -1860,20 +2026,74 @@ local function step_note(e: contracts.StepNote)
   place()
 end
 
---- The step in words: "1 beat (=4)", "0.5 beats (=8)".
-local function step_text(): string
+--- The step as a note value typed after `=` ("4", "8.", "8t"), or nil.
+local function step_name(): string
   local beats = roll():step_length()
-  local name: string
   for _, whole in ipairs({1, 2, 4, 8, 16, 32, 64}) do
     for _, mark in ipairs({"", ".", "t", "..", ".t"}) do
       local text = tostring(whole) .. mark
-      if not name and math.abs((length_of(text) or -1) - beats) < EPS then
-        name = text
+      if math.abs((length_of(text) or -1) - beats) < EPS then
+        return text
       end
     end
   end
+  return nil
+end
+
+--- The step in words: "1 beat (=4)", "0.5 beats (=8)".
+local function step_text(): string
+  local beats = roll():step_length()
+  local name = step_name()
   local words = string.format("%g beat%s", beats, beats == 1 and "" or "s")
   return name and (words .. " (=" .. name .. ")") or words
+end
+
+--- Make the notes being drawn `count` steps longer (the pedal
+--- pressed while keys are held, in step input).
+function M.extend(count?: integer)
+  if not begin() then
+    return
+  end
+  session.count = nil
+  if session.pen[1].length <= EPS then
+    return paw.notify("nothing to tie yet: play a note first", "warn")
+  end
+  local more = roll():step_length() * (count or 1)
+  for _, d in ipairs(session.pen) do
+    d.length = d.length + more
+    fit(d)
+  end
+  align()
+  session.edge = "end"
+  place()
+end
+
+--- Set the step (and the notes being drawn) to a note value, as `=`
+--- then `value` does: "8", "8.", "8t". `dot` and `triplet` turn the dot
+--- or the triplet of the step on and off.
+function M.value(value: string)
+  if not begin() then
+    return
+  end
+  session.count = nil
+  local text = value
+  if value == "dot" or value == "triplet" then
+    local whole, dots, triplet = (step_name() or ""):match("^(%d+)(%.*)(t?)$")
+    if not whole then
+      return paw.notify("the step is not a note value: set one first (=4)", "warn")
+    end
+    if value == "dot" then
+      dots = dots == "" and "." or ""
+    else
+      triplet = triplet == "" and "t" or ""
+    end
+    text = whole .. dots .. triplet
+  end
+  local beats = length_of(text)
+  if not beats then
+    return paw.notify("not a note value: " .. text, "warn")
+  end
+  set_length(beats)
 end
 
 --- What the title says in step input: "STEP C4 E4 · 1 beat (=4) · vel key
@@ -1893,7 +2113,35 @@ local function step_label(): string
   end
   local pen = session.pen[1].length > EPS and (pitches_text_of(session.pen) .. " · ") or ""
   local count = session.count and (session.count .. " ") or session.reading and ("=" .. session.reading .. " ") or ""
+  -- What a control of the controller did a moment ago: "rest", "back".
+  local said = stepin.said()
+  count = said and (said .. " · " .. count) or count
   return string.format("STEP %s%s%s · vel %s · from %s", count, pen, step_text(), stepin.velocity(), source)
+end
+
+-- What each control of the controller does here: the pencil's own keys.
+local function times(fn: function()): contracts.StepAction
+  return function(count: integer)
+    for _ = 1, math.max(1, count or 1) do
+      fn()
+    end
+  end
+end
+local actions: {string: contracts.StepAction} = {
+  rest = times(function() M.next("rest") end), -- <Space>
+  tie = function(count: integer) M.extend(count) end,
+  back = times(M.back), -- <BS>
+  erase = times(M.erase), -- x
+  again = times(M.again), -- .
+  legato = times(function() M.next("legato") end), -- <CR>
+  dot = function() M.value("dot") end,
+  triplet = function() M.value("triplet") end,
+  ["octave.up"] = times(function() M.pitch(12) end), -- K
+  ["octave.down"] = times(function() M.pitch(-12) end), -- J
+  finish = function() paw.keymap.set_mode("n") end, -- Esc
+}
+for _, whole in ipairs({1, 2, 4, 8, 16, 32}) do
+  actions["dur." .. whole] = function() M.value(tostring(whole)) end -- =N
 end
 
 stepin.target(
@@ -1904,6 +2152,7 @@ stepin.target(
     note = step_note,
     release = function() changed() end,
     status = function(): string return M.stepping() and step_label() or nil end,
+    actions = actions,
   }
 )
 

@@ -5,6 +5,7 @@
 local api = require("paw.api")
 local type contracts = require("paw.contracts")
 local options = require("paw.options")
+local util = require("paw.util")
 
 -- The types that a command's function and options have are contracts
 -- (paw/contracts.tl), so that `paw.command` is typed for the modules in
@@ -49,6 +50,7 @@ local record Spec
   ext: string
   ex: boolean
   items: boolean
+  adjust: {contracts.AdjustParam}
 end
 
 local type Options = contracts.CommandOptions
@@ -132,6 +134,18 @@ local paw = (_G as {string: Paw}).paw
 
 local registry: {string: Spec} = {}
 
+--- The last command that can be adjusted, as it ran: what `adjust` runs
+--- again. `before` is the undo state that it started from.
+local record Adjustable
+  name: string
+  args: Args
+  ctx: Context
+  before: integer
+  line: string
+end
+local last: Adjustable
+local running = 0 -- how many commands run inside each other
+
 --- Define or replace a command.
 ---   paw.command("track.mute", function(ctx) ... end, { desc = "Mute the track" })
 --- The handler gets `ctx` with `ctx.args` (positional and named arguments)
@@ -150,6 +164,7 @@ function M.define<C is Context>(name: string, run: function(C): (Result), opts?:
     complete = opts.complete,
     label = opts.label,
     range = opts.range,
+    adjust = opts.adjust,
     ext = opts.ext or M.owner(),
   }
 end
@@ -188,6 +203,7 @@ function M.alias(alias: string, target: string)
     complete = spec.complete,
     label = spec.label,
     range = spec.range,
+    adjust = spec.adjust,
     alias_of = target,
     ext = spec.ext,
   }
@@ -296,8 +312,24 @@ function M.run<C is Context>(name: string, args?: Args, ctx?: C): Result
   -- `name` is what was typed, which may be an alias; `command` is the
   -- command it stands for, which is what a listener usually cares about.
   local command = spec.alias_of or name
+  -- An outermost command that can be adjusted remembers where it started,
+  -- if nothing else changed the project in this turn before it.
+  local before: integer
+  if running == 0 and spec.adjust and not api.undo_pending() then
+    before = api.undo_current()
+  end
   paw.emit("command.pre", {name = name, command = command, args = c.args})
-  local result = paw.limit.named("the command `" .. name .. "`", spec.run, c)
+  running = running + 1
+  local ok, result = pcall(paw.limit.named, "the command `" .. name .. "`", spec.run, c) as (boolean, Result)
+  running = running - 1
+  if not ok then
+    error(result, 0)
+  end
+  if before and api.undo_pending() then
+    last = {
+      name = name, args = util.merge(c.args as {string: Arg}, {}) as Args, ctx = c, before = before, line = c.line
+    }
+  end
   paw.emit("command.post", {name = name, command = command, args = c.args})
   return result
 end
@@ -373,6 +405,245 @@ function M.parse(line: string): string, Args
     end
   end
   return name, args
+end
+
+-- Adjusting ---------------------------------------------------------------------
+--
+-- A command lists in `adjust` the parameters that the user can change after
+-- it ran (`paw.command("quantize", fn, { adjust = { { name = "grid" } } })`).
+-- `:adjust grid=1/8` then runs the last such command again with them: paw
+-- puts the project back as it was before the command, runs the command with
+-- its first parameters and the new ones, and the result takes the place of
+-- the command's undo step.
+
+--- The parameters that a command's arguments hold: the named ones, and the
+--- positional ones by the order of the command's `adjust`. A command with
+--- `raw` gets its text (`text`), which holds the same words.
+local function read_params(spec: Spec, args: Args, text?: boolean): {string: Arg}
+  local out: {string: Arg} = {}
+  local names = spec.adjust or {}
+  local n = 0
+  local function positional(value: Arg)
+    n = n + 1
+    if names[n] then
+      out[names[n].name] = value
+    end
+  end
+  if text then
+    for word in tostring(args[1] or ""):gmatch("%S+") do
+      local key, value = word:match("^([%a_][%w_]*)=(.*)$")
+      if key then
+        out[key] = convert(value)
+      else
+        positional(convert(word))
+      end
+    end
+  else
+    for i = 1, #args do
+      positional(args[i])
+    end
+    for key, value in pairs(args as {string: Arg}) do
+      if type(key) == "string" then
+        out[key] = value
+      end
+    end
+  end
+  return out
+end
+
+--- The arguments that make `params` again: as `name=value` in the text of
+--- a command with `raw`, else named.
+local function write_params(spec: Spec, params: {string: Arg}): Args
+  local args: Args = {}
+  if spec.raw then
+    local parts: {string} = {}
+    for _, p in ipairs(spec.adjust) do
+      if params[p.name] ~= nil then
+        parts[#parts + 1] = p.name .. "=" .. tostring(params[p.name])
+      end
+    end
+    args[1] = table.concat(parts, " ")
+    return args
+  end
+  for key, value in pairs(params) do
+    args[key] = value
+  end
+  return args
+end
+
+--- The parameters of the command that runs: what the user gave, by the
+--- names that its `adjust` lists. A parameter not given is not in the table.
+---   local p = paw.commands.params(ctx)  -- `:quantize 1/16 strength=50`: { grid = "1/16", strength = 50 }
+function M.params(ctx: Context): {string: Arg}
+  local spec = registry[ctx.name]
+  if not spec then
+    return {}
+  end
+  return read_params(spec, ctx.args, spec.raw)
+end
+
+--- The line that runs a command with arguments, as typed after `:`.
+local function line_of(spec: Spec, name: string, args: Args, prefix: string): string
+  local text: string
+  if spec.raw then
+    text = tostring(args[1] or "")
+  else
+    local parts: {string} = {}
+    for _, p in ipairs(spec.adjust) do
+      if args[p.name] ~= nil then
+        parts[#parts + 1] = p.name .. "=" .. tostring(args[p.name])
+      end
+    end
+    text = table.concat(parts, " ")
+  end
+  return prefix .. name .. (text ~= "" and " " .. text or "")
+end
+
+--- The reason why a value is not one that a parameter takes, or nil.
+local function check_param(command: string, p: contracts.AdjustParam, value: Arg): string
+  if not (p.min or p.max) then
+    return nil
+  end
+  if not (value is number) then
+    return string.format("`%s` of `%s` is a number, not `%s`", p.name, command, tostring(value))
+  end
+  if (p.min and value < p.min) or (p.max and value > p.max) then
+    local limits = p.min and p.max and string.format("%g to %g", p.min, p.max)
+      or (p.min and "at least " .. p.min or "at most " .. p.max)
+    return string.format("`%s` of `%s` is %s, not %s", p.name, command, limits, tostring(value))
+  end
+  return nil
+end
+
+--- The line `adjust a=1 b=2` that holds the parameters of the last
+--- command that can be adjusted, as they are now; nil when no command ran
+--- that can be adjusted. `<leader>.` puts it on the command line.
+function M.adjusting(): string
+  local spec = last and registry[last.name]
+  if not (last and spec and spec.adjust) then
+    return nil
+  end
+  local params = read_params(spec, last.args, spec.raw)
+  local parts: {string} = {}
+  for _, p in ipairs(spec.adjust) do
+    local value = params[p.name]
+    if value == nil then
+      value = p.default
+    end
+    if value ~= nil then
+      parts[#parts + 1] = p.name .. "=" .. tostring(value)
+    end
+  end
+  return "adjust " .. table.concat(parts, " ")
+end
+
+local function names_of(spec: Spec): string
+  local names: {string} = {}
+  for _, p in ipairs(spec.adjust) do
+    names[#names + 1] = p.name
+  end
+  return table.concat(names, ", ")
+end
+
+--- Run the last command that has `adjust` again with other parameters, in
+--- place of its undo step: `paw.commands.adjust({ grid = "1/8" })`, or
+--- positional ones, by the order of its `adjust`. The project goes back to
+--- before the command, the command runs again with its first parameters
+--- and these laid over them, and the undo step is the new result. It
+--- works only on the last change: after `undo`, or another change, it says so.
+function M.adjust(given: Args)
+  local spec = last and registry[last.name]
+  local args: Args
+  local line: string
+  if last and spec and spec.adjust then
+    local params = read_params(spec, last.args, spec.raw)
+    local by_name: {string: contracts.AdjustParam} = {}
+    for _, p in ipairs(spec.adjust) do
+      by_name[p.name] = p
+    end
+    for key, value in pairs(read_params(spec, given, false)) do
+      local p = by_name[key]
+      if not p then
+        error(string.format("`%s` has no parameter `%s`: it has %s", last.name, key, names_of(spec)), 0)
+      end
+      local why = check_param(last.name, p, value)
+      if why then
+        error(why, 0)
+      end
+      params[key] = value
+    end
+    args = write_params(spec, params)
+    -- The range that the line had stays in front of the command.
+    local at = last.line and last.line:find(last.name, 1, true)
+    local prefix = at and last.line:sub(1, at - 1):gsub("^:", "") or ""
+    line = ":" .. line_of(spec, last.name, args, prefix)
+  else
+    last = nil
+  end
+  local start = api.undo_adjust(last and last.before, line)
+  if start.status == "old" then
+    paw.notify("adjust works on the last change", "warn")
+    return
+  elseif start.status == "kept" then
+    paw.notify("the last change was saved or named, so it cannot change: undo it, then run the command again", "warn")
+    return
+  elseif start.status == "other" or not last then
+    if start.label then
+      paw.notify("the last change (" .. start.label:gsub("^:", "") .. ") has nothing to adjust", "warn")
+    else
+      paw.notify("there is no change to adjust", "warn")
+    end
+    return
+  end
+  local ctx = util.merge(last.ctx as {string: util.Data}, {}) as Context
+  local name, before, shown = last.name, last.before, last.line
+  local ok, err = pcall(M.run, name, args, ctx) as (boolean, string)
+  if not ok then
+    api.undo_adjust_cancel()
+    error(err, 0)
+  end
+  -- The adjusted command is the one that `.` repeats and the next `adjust` changes.
+  last = {name = name, args = args, ctx = ctx, before = before, line = shown}
+  local keys: {string} = {":"}
+  for _, key in ipairs(paw.keymap.parse(line:sub(2))) do
+    keys[#keys + 1] = key == "<" and "<lt>" or key
+  end
+  keys[#keys + 1] = "<CR>"
+  paw.keymap.repeat_as(keys)
+end
+
+--- What `:adjust` suggests: the names of the parameters of the last
+--- command, and the values of one.
+local function complete_adjust(_: string, info: Info): {Candidate}
+  local out: {Candidate} = {}
+  local spec = last and registry[last.name]
+  if not (last and spec and spec.adjust) then
+    return out
+  end
+  local params = read_params(spec, last.args, spec.raw)
+  local name = info.word:match("^([%a_][%w_]*)=")
+  for _, p in ipairs(spec.adjust) do
+    local now = params[p.name]
+    if now == nil then
+      now = p.default
+    end
+    if not name then
+      out[#out + 1] = {text = p.name .. "=", desc = now ~= nil and "now " .. tostring(now) or nil}
+    elseif p.name == name then
+      local seen: {string: boolean} = {}
+      local values: {string} = {now ~= nil and tostring(now) or ""}
+      for _, v in ipairs(p.values or {}) do
+        values[#values + 1] = v
+      end
+      for _, v in ipairs(values) do
+        if v ~= "" and not seen[v] then
+          seen[v] = true
+          out[#out + 1] = {text = name .. "=" .. v}
+        end
+      end
+    end
+  end
+  return out
 end
 
 -- Ranges ----------------------------------------------------------------------
@@ -685,5 +956,15 @@ function M.complete(line: string): {Entry}
   end
   return out
 end
+
+M.define(
+  "adjust",
+  function(ctx: Context): Result M.adjust(ctx.args) end,
+  {
+    desc = "Do the last command again with other parameters, in place of its undo step: `:adjust grid=1/8`, `:adjust 7`",
+    label = "Adjust",
+    complete = complete_adjust,
+  }
+)
 
 return M
