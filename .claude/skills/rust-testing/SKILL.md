@@ -280,7 +280,9 @@ sealed::seal(&mut paw, dir.path()).args(["--clean", "--audio", "null"]);
 - Check that a thing does not happen only after a sync point. First
   send a sync request, or step to quiescence, and advance past each
   timer that could make it happen. Then check. "Nothing came in 400 ms"
-  is not a check (the remote barrier is planned, TASK-150).
+  is not a check. In the remote tests, `pushed_by` in `remote.rs` sends
+  `frontend.sync`, then the request, then `frontend.sync` again. The
+  check reads the events between the two answers.
 - A wait for another thread or process is a wait for an event: a
   channel message, an acknowledgment, a handshake. The one limit of
   time is the stall guard of nextest (`slow-timeout` in
