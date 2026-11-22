@@ -36,6 +36,28 @@ test("the playhead over a take lane keeps the letters of the take's name", funct
   end
 end)
 
+test("a short clip with takes shows its take mark before its name, and ]t changes it", function()
+  start()
+  local t = paw.add_track({ name = "Lead" })
+  local clip = t:add_clip({ start = 0, length = 4, name = "take 1", notes = { { pitch = 60, start = 0, length = 1 } } })
+  paw.takes.new(clip.id)
+  paw.takes.new(clip.id)
+  paw.takes.select(clip.id, 1)
+  api.undo_checkpoint()
+  paw.cursor.set_track(t)
+  paw.cursor.set_beat(1)
+  local function line()
+    paw.flush()
+    for _, row in ipairs(api.ui_snapshot(120, 20)) do
+      if row:find("‹", 1, true) then return row end
+    end
+    return ""
+  end
+  eq(line():find("‹1/3›", 1, true) ~= nil, true, "the mark of a one-bar clip at the default zoom: " .. line())
+  T.keys("]t")
+  eq(line():find("‹2/3›", 1, true) ~= nil, true, "]t shows on the clip: " .. line())
+end)
+
 test(":g/pat/p lists the matches in the quickfix list, as :g/pat/ does", function()
   start()
   local t = paw.add_track({ name = "Keys" })

@@ -746,7 +746,8 @@ end
 function view.clip_props(clip, track, hue, kind, zoom, chosen, from, to, colour)
   colour = colour or draw.track_colour(track)
   local cut_in, cut_out = cuts(clip, from, to)
-  -- A clip with takes says which plays: `take 3 ‹2/4›`.
+  -- A clip with takes says which plays: `take 3 ‹2/4›` (the role puts the
+  -- mark first where the label does not fit).
   local badge = paw.takes.badge(clip)
   local label = clip.offline and ("offline · " .. clip.name) or clip.name
   -- A block of a subproject: its name after `⧉`, in a frame.
@@ -763,7 +764,8 @@ function view.clip_props(clip, track, hue, kind, zoom, chosen, from, to, colour)
   local props = {
     key = "clip:" .. clip.id,
     name = clip.name,
-    label = badge and (label .. " ‹" .. badge .. "›") or label,
+    label = label,
+    mark = badge,
     per = zoom,
     repeats = clip.loop and paw.stretch.repeats(clip) or nil,
     warps = warps,

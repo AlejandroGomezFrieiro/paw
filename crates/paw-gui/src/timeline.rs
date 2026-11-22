@@ -55,6 +55,15 @@ thread_local! {
     static PICTURES: RefCell<Pictures> = RefCell::new(Pictures::default());
 }
 
+/// What a clip's bar says in `room` pixels, as the terminal has it: its
+/// label, and its take mark after it, or before it where both do not fit.
+fn title(ui: &Ui, p: &ClipProps, font: &egui::FontId, room: f32) -> String {
+    let label = p.label.unwrap_or("");
+    let Some(mark) = p.mark else { return label.to_owned() };
+    let full = format!("{label} ‹{mark}›");
+    if widgets::text_width(ui, &full, font.clone()) <= room { full } else { format!("‹{mark}› {label}") }
+}
+
 /// A clip: a bar along its top with its name, kept in view while its start
 /// is scrolled away, over its body with its notes or its waveform; its
 /// fades and their handles, the gain line while it is dragged, warp
@@ -116,7 +125,7 @@ pub fn clip(ui: &Ui, painter: &Painter, p: &ClipProps, rect: Rect, (cw, ch): (f3
         painter.text(pos2(right - 2.0, bar.center().y), Align2::RIGHT_CENTER, "›", font.clone(), ink);
         room -= cw;
     }
-    let shown = widgets::elide(ui, p.label.unwrap_or(""), font.clone(), room);
+    let shown = widgets::elide(ui, &title(ui, p, &font, room), font.clone(), room);
     painter.text(pos2(x, bar.center().y), Align2::LEFT_CENTER, shown, font, ink);
     // Its notes or its waveform, white on clear, tinted.
     let body = Rect::from_min_max(pos2(shape.left(), bar.bottom() + 2.0), pos2(shape.right(), shape.bottom() - 2.0));

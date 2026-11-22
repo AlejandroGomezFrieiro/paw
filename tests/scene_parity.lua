@@ -302,11 +302,12 @@ test(
     end)
     local t = paw.add_track({ name = "keys" })
     local u = paw.add_track({ name = "loop" })
-    t:add_clip({
+    local short = t:add_clip({
       start = 0.5,
       length = 3.3,
       notes = { { pitch = 60, start = 0, length = 1 }, { pitch = 67, start = 2, length = 1 } },
     })
+    paw.takes.new(short.id) -- its take mark, too long to follow its name
     t:add_clip({ start = 5, length = 2 })
     local samples = {}
     for i = 1, 48000 do
