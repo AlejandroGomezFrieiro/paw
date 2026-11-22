@@ -16,6 +16,7 @@ impl Session {
         let clip = self.project.clip(id).unwrap();
         let mut view = clip_json(clip, track, &self.files_there);
         self.note_stretching(clip, &mut view);
+        view.link_count = clip.link.as_deref().map(|name| self.project.link_count(name));
         Ok(view)
     }
 
@@ -298,6 +299,7 @@ impl Session {
             meta: opts.meta,
             source,
             origin: None,
+            link: None,
         }
     }
 

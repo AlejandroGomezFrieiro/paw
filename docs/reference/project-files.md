@@ -30,6 +30,7 @@ song/
 │       ├── clips/intro.signals.json the signals of a custom clip, if it has some
 │       ├── clips/intro.sound.midi2  the sound of a custom clip, if it is MIDI
 │       └── clips/verse.lyrics.lrc   the data of a custom clip that is text
+├── linked/riff.midi2       the notes of the linked clips of the link `riff`
 ├── media/take1.wav         sound files
 │   └── derived/            files that a kind of clip makes from other files
 ├── nests/
@@ -55,6 +56,13 @@ song/
   file outside the folder by its full path, or from the home folder as
   `~/…`.
 - Clips with the same notes, controller moves and length share one file.
+- Each clip of a link has `"link": "riff"` in `track.json`, and all the
+  clips of the link name one file, `linked/riff.midi2`, wherever their
+  tracks are. The file holds the notes and the controller moves, and each
+  clip keeps its own start and length in `track.json`. Without its `link`,
+  a clip is a plain MIDI clip with the notes of that file. paw refuses a
+  project whose linked clips have different notes. See
+  [Linked clips](arrange-view.md#linked-clips).
 - A custom clip is a clip of a kind that an extension defines. `track.json`
   keeps its kind, its version, its timeline, its offset, its media and the
   names of its files. Its data is a file of its own:

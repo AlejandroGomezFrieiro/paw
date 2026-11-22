@@ -828,6 +828,8 @@ local record contracts
     clip_start: string
     --- Before the name of a block of a subproject.
     nest: string
+    --- After the name of a linked clip.
+    link: string
     punch_in: string
     punch_out: string
     meter_full: string

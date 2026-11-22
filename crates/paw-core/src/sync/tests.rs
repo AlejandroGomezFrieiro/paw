@@ -438,6 +438,33 @@ fn an_edit_of_notes_that_copies_share_compiles_them_once() {
     assert_eq!((count, compiled(&map).len()), (2, 2));
 }
 
+/// An edit of one clip of a link of 10 reaches the other 9 as the same
+/// notes (`model/links.rs`): the sync compiles them one time.
+#[test]
+fn an_edit_of_a_link_of_ten_clips_compiles_once() {
+    let mut linked = with_clip(json!({ "kind": "midi", "notes": [] }), true);
+    let source = Clip { link: Some("riff".into()), ..source_clip(384) };
+    let clips: Vec<Arc<Clip>> = (0..10)
+        .map(|k| Arc::new(Clip { id: 1000 + k, start: k as f64 * 32.0, ..source.clone() }))
+        .collect();
+    linked.track_mut(1).unwrap().clips = clips.into();
+    let mut edited = linked.clone();
+    let links = crate::model::Links::before(&edited);
+    let fourth = Arc::make_mut(&mut edited.track_mut(1).unwrap().clips[3]);
+    *fourth = bumped(fourth);
+    links.spread(&mut edited);
+    let (map, count) = compiles(&[&linked, &edited]);
+    assert_eq!(count, 1, "the piece of notes the edit changed, one time");
+    // Every clip of the link plays the edit, from one list of events.
+    let pitches: Vec<u8> = edited.track(1).unwrap().clips.iter().map(|clip| match &clip.content {
+        ClipContent::Midi { notes, .. } => notes[100].pitch,
+        _ => 0,
+    }).collect();
+    let bumped_pitch = pitches[3];
+    assert!(pitches.iter().all(|p| *p == bumped_pitch), "{pitches:?}");
+    assert_eq!(compiled(&map).len(), 2, "the controllers and the notes");
+}
+
 /// The engine plays copies that share their events, looped, cut at the
 /// start of a window or short, as it plays every clip's events compiled
 /// where it is, in one list: the same samples.

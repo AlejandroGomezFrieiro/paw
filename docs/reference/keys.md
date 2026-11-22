@@ -295,7 +295,7 @@ After the leader, the first key is a domain, and the next key is what to do in i
 | Domain | Keys |
 | --- | --- |
 | a: automation (A) | `<Space>aa` `<Space>aA` the lanes of the track, of every track; `<Space>al` choose what to automate; `<Space>am` the mode; `<Space>at` off and on; `<Space>aw` write; `<Space>ax` clear |
-| c: clip (A) | `<Space>cf` fade the clip in and out |
+| c: clip (A) | `<Space>cf` fade the clip in and out; `<Space>cl` put a linked copy after the clip; `<Space>cu` take the clip out of its link |
 | d: devices | `<Space>dd` show or hide the device panel; `<Space>da` add a device; in D, `<Space>dw` save a preset and `<Space>dW` make it the default |
 | f: find | `<Space>ff` files, `<Space>fg` any text, `<Space>fk` keys, `<Space>fc` clips, `<Space>fr` regions, `<Space>fm` markers, `<Space>ft` tracks, `<Space>fd` the devices of the track, `<Space>fn` notes, `<Space>fa` audio files, `<Space>f:` commands, and more: [Pickers](pickers.md) |
 | g: versions (projdiff) | `<Space>gd` what changed since the save, `<Space>gm` settle merge conflicts, `<Space>gs` keep a snapshot |
