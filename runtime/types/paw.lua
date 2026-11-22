@@ -5302,9 +5302,12 @@ function paw.markdown.width(s) end
 ---@param opts any
 function paw.markers.add(beat, name, opts) end
 
---- The region a beat is in: the shortest of those that hold it, or nil.
+--- The region a beat is in: the innermost of those that hold it, or nil.
+--- With `level` 2, the region around that one, and so on out (the
+--- outermost when there are fewer).
 ---@param beat any
-function paw.markers.around(beat) end
+---@param level any
+function paw.markers.around(beat, level) end
 
 --- The marker or region start nearest a beat within `reach` beats (half a
 --- grid step by default), or the region the beat is inside.
@@ -5312,8 +5315,18 @@ function paw.markers.around(beat) end
 ---@param reach any
 function paw.markers.at(beat, reach) end
 
+--- The regions one level inside a region, in order of time; with no id, the
+--- regions at the top.
+---@param id any
+function paw.markers.children(id) end
+
 --- A name for a new marker that has none: "Marker 3" for the third.
 function paw.markers.default_name() end
+
+--- The level of a region: 1 at the top, 2 inside one region, and so on.
+--- Nil for a marker.
+---@param id any
+function paw.markers.depth(id) end
 
 --- The marker or region of a number (its place in the song), of an id
 --- given as `{ id = n }`, or of a name. Nil if there is none.
@@ -5328,28 +5341,60 @@ function paw.markers.label(marker) end
 --- A region has a `length` in beats. A marker has no length.
 function paw.markers.list() end
 
+--- Move a marker or a region so that it starts at `beat`. A region takes
+--- the regions and the markers inside it along, in one undo step, unless
+--- `alone`. Returns it and how many moved with it.
+---@param id any
+---@param beat any
+---@param alone any
+function paw.markers.move(id, beat, alone) end
+
 --- The first marker after a beat, and the last before it.
 ---@param beat any
 function paw.markers.next(beat) end
+
+--- The node of a region by its id, or nil.
+---@param id any
+function paw.markers.node(id) end
+
+--- The region around a region (the smallest that holds it), or around a
+--- marker (the innermost at its beat). Nil at the top.
+---@param id any
+function paw.markers.parent(id) end
+
+--- The regions around a beat, the outermost first. Where two siblings
+--- overlap, the one that starts later is taken.
+---@param beat any
+function paw.markers.path(beat) end
+
+--- A region's names from the top down, joined by `/`: `Chorus 2/Verse A`.
+--- `:render range=` and `paw.markers.region` take it when names repeat.
+---@param region any
+function paw.markers.pathname(region) end
 
 --- The last marker before a beat, or nil.
 ---@param beat any
 function paw.markers.prev(beat) end
 
---- A region by number, id or name.
+--- A region by number, id, name or path of names (`Chorus 2/Verse A`).
 ---@param which any
 function paw.markers.region(which) end
 
 --- The regions alone.
 function paw.markers.regions() end
 
---- Remove a marker by id.
+--- Remove a marker by id. With `with_inside`, a region's regions inside it
+--- go too (never clips, nor markers); without, they move up one level.
 ---@param id any
-function paw.markers.remove(id) end
+---@param with_inside any
+function paw.markers.remove(id, with_inside) end
 
---- Render every region to a file of its own in `dir`, named after it:
---- `01 Intro.wav`. `opts` is as for `paw.render`, plus `format` ("wav",
---- "flac", "mp3", "ogg" or "opus"). Returns the files.
+--- Render every region to a file of its own in `dir`, named by its path:
+--- `01 Intro.wav`, and inside a region `03 Chorus 2 - 01 Verse A.wav`
+--- (each number is the place among its siblings). `opts` is as for
+--- `paw.render`, plus `format` ("wav", "flac", "mp3", "ogg" or "opus") and
+--- `level`: a number renders the regions of that level only (1 the top),
+--- "leaves" the regions with no region inside. Returns the files.
 ---@param dir any
 ---@param opts any
 function paw.markers.render_regions(dir, opts) end
@@ -5359,6 +5404,16 @@ function paw.markers.render_regions(dir, opts) end
 ---@param id any
 ---@param fields any
 function paw.markers.set(id, fields) end
+
+--- The regions as a tree: the top-level regions, each a node with
+--- `region`, `depth` (1 at the top), `place` (among its siblings),
+--- `parent` and `children`, in order of time. Flat regions are a tree of
+--- depth 1.
+function paw.markers.tree() end
+
+--- Every region's node in the order of the tree: each region, then the
+--- regions inside it.
+function paw.markers.walk() end
 
 --- Take away an audio clip's edit list. Returns how many edits it had.
 ---@param clip any

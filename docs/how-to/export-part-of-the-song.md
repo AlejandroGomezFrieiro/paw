@@ -30,6 +30,14 @@ To export each region to a file of its own, type
 `:render.regions /home/ana/Music/parts`. paw writes `01 Intro.wav`,
 `02 Verse.wav` and the next files into that folder.
 
+If your regions are inside other regions, choose a level:
+
+- To export only the large sections, add `level=1`.
+- To export only the smallest parts, add `level=leaves`.
+
+A file of a region inside a region has the path in its name, for example
+`02 Chorus 2 - 01 Verse A.wav`.
+
 To export a range of beats, add `start=16 end=32`.
 
 To export each track of the part, see

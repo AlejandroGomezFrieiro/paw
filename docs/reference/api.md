@@ -1313,19 +1313,28 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.markers
 
 - `paw.markers.add(beat, name, opts)`: Add a marker at a beat. With `opts.length`, add a region from there. Returns it.
-- `paw.markers.around(beat)`: The region a beat is in: the shortest of those that hold it, or nil.
+- `paw.markers.around(beat, level)`: The region a beat is in: the innermost of those that hold it, or nil. With `level` 2, the region around that one, and so on out (the outermost when there are fewer).
 - `paw.markers.at(beat, reach)`: The marker or region start nearest a beat within `reach` beats (half a grid step by default), or the region the beat is inside.
+- `paw.markers.children(id)`: The regions one level inside a region, in order of time; with no id, the regions at the top.
 - `paw.markers.default_name()`: A name for a new marker that has none: "Marker 3" for the third.
+- `paw.markers.depth(id)`: The level of a region: 1 at the top, 2 inside one region, and so on. Nil for a marker.
 - `paw.markers.find(which)`: The marker or region of a number (its place in the song), of an id given as `{ id = n }`, or of a name. Nil if there is none.
 - `paw.markers.label(marker)`: What a marker is called on screen: its name, or its number in the song.
 - `paw.markers.list()`: Each marker and region, in order of time: { id, beat, name, length, color }. A region has a `length` in beats. A marker has no length.
+- `paw.markers.move(id, beat, alone)`: Move a marker or a region so that it starts at `beat`. A region takes the regions and the markers inside it along, in one undo step, unless `alone`. Returns it and how many moved with it.
 - `paw.markers.next(beat)`: The first marker after a beat, and the last before it.
+- `paw.markers.node(id)`: The node of a region by its id, or nil.
+- `paw.markers.parent(id)`: The region around a region (the smallest that holds it), or around a marker (the innermost at its beat). Nil at the top.
+- `paw.markers.path(beat)`: The regions around a beat, the outermost first. Where two siblings overlap, the one that starts later is taken.
+- `paw.markers.pathname(region)`: A region's names from the top down, joined by `/`: `Chorus 2/Verse A`. `:render range=` and `paw.markers.region` take it when names repeat.
 - `paw.markers.prev(beat)`: The last marker before a beat, or nil.
-- `paw.markers.region(which)`: A region by number, id or name.
+- `paw.markers.region(which)`: A region by number, id, name or path of names (`Chorus 2/Verse A`).
 - `paw.markers.regions()`: The regions alone.
-- `paw.markers.remove(id)`: Remove a marker by id.
-- `paw.markers.render_regions(dir, opts)`: Render every region to a file of its own in `dir`, named after it: `01 Intro.wav`. `opts` is as for `paw.render`, plus `format` ("wav", "flac", "mp3", "ogg" or "opus"). Returns the files.
+- `paw.markers.remove(id, with_inside)`: Remove a marker by id. With `with_inside`, a region's regions inside it go too (never clips, nor markers); without, they move up one level.
+- `paw.markers.render_regions(dir, opts)`: Render every region to a file of its own in `dir`, named by its path: `01 Intro.wav`, and inside a region `03 Chorus 2 - 01 Verse A.wav` (each number is the place among its siblings). `opts` is as for `paw.render`, plus `format` ("wav", "flac", "mp3", "ogg" or "opus") and `level`: a number renders the regions of that level only (1 the top), "leaves" the regions with no region inside. Returns the files.
 - `paw.markers.set(id, fields)`: Change a marker: `fields` may hold beat, name, length (false makes a region a marker again) and color.
+- `paw.markers.tree()`: The regions as a tree: the top-level regions, each a node with `region`, `depth` (1 at the top), `place` (among its siblings), `parent` and `children`, in order of time. Flat regions are a tree of depth 1.
+- `paw.markers.walk()`: Every region's node in the order of the tree: each region, then the regions inside it.
 
 ## Module paw.media
 

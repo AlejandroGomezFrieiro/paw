@@ -53,7 +53,7 @@ The options are words after the file name. `<Tab>` completes them.
 
 | Option | Values |
 | --- | --- |
-| `range=` | `song`, `loop`, `selection`, or the name of a region (see [Markers and regions](markers.md)) |
+| `range=` | `song`, `loop`, `selection`, or the name of a region, or its path when names repeat: `Chorus 2/Verse A` (see [Markers and regions](markers.md)) |
 | `start=`, `end=` | the range in beats |
 | `tail=2` | seconds after the end, for reverbs (default: 1) |
 | `rate=44100` | the sample rate |
@@ -234,7 +234,10 @@ which returns the new track.
 ## Regions
 
 `:render.regions out` writes each region to a file of its own (see
-[Markers and regions](markers.md)).
+[Markers and regions](markers.md)). A region inside another region has
+the path in its file name: `02 Chorus 2 - 01 Verse A.wav`. `level=1`
+renders only the regions at the top level, and `level=leaves` only the
+regions with no region inside.
 
 ## Behavior
 
