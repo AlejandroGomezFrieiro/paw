@@ -1670,6 +1670,25 @@ local record types
     --- screen a project keeps.
     folds: {SavedFold}
     foldlevel: integer
+    --- The window's vertical zoom (paw/vzoom.tl): only in the screen a
+    --- project keeps.
+    vzoom: SavedVZoom
+  end
+
+  --- A window's vertical zoom as the project's screen keeps it: rows
+  --- per track, `tracks` (`{ track, rows }` each), rows per automation
+  --- lane and rows per key of the piano roll.
+  record SavedVZoom
+    track_rows: integer
+    tracks: {SavedTrackRows}
+    lane_rows: integer
+    key_rows: integer
+  end
+
+  --- The rows of one track in a saved vertical zoom.
+  record SavedTrackRows
+    track: integer
+    rows: integer
   end
 
   --- A fold of a window as the project's screen keeps it.

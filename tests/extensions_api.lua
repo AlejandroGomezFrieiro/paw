@@ -123,11 +123,13 @@ test("what an extension registers is its own, and unloading it takes all of it a
     paw.commands.completers.owned = function() return {} end
     paw.curves.provide("owned", function() end)
     paw.ui.layer("arrange", "header", "owned", 99, function() end)
+    table.insert(paw.frontend.bands, function() return {} end)
     paw.on("track.added", function() _G.owner_heard = (_G.owner_heard or 0) + 1 end)
     paw.option.define("owned_option", 7)
   ]]
   )
   local core_info = paw.commands.get("info")
+  local bands = #paw.frontend.bands
   local entry = paw.ext.load(root)
   eq(entry.ok, true, "loads: " .. tostring(entry.error))
   eq(entry.version, "0.3.0", "the manifest's version")
@@ -149,6 +151,7 @@ test("what an extension registers is its own, and unloading it takes all of it a
     "completers",
     "curves",
     "layers",
+    "bands",
   }) do
     eq(provided("owner", kind) ~= "", true, "it owns its " .. kind)
   end
@@ -201,6 +204,7 @@ test("what an extension registers is its own, and unloading it takes all of it a
   for _, layer in ipairs(paw.ui.layers.arrange.header or {}) do
     eq(layer.name ~= "owned", true, "its layer")
   end
+  eq(#paw.frontend.bands, bands, "its band under the ruler")
   eq(package.loaded["owner.lib"], nil, "its modules are forgotten")
   paw.add_track({ name = "unheard" })
   paw.flush()
@@ -211,6 +215,50 @@ test("what an extension registers is its own, and unloading it takes all of it a
   eq(paw.cmd("owner.go"), "lib", "with its modules")
   paw.ext.unload("owner")
   _G.owner_heard = nil
+end)
+
+test(":bnext goes past the view of an extension that was unloaded", function()
+  T.start()
+  local root = dir("shown")
+  write(root .. "/init.lua", 'paw.ui.view("shownview", { render = function(_, buf) buf:text(0, 0, "shown") end })')
+  eq(paw.ext.load(root).ok, true, "loads")
+  paw.cmd("buffer", { "shownview" })
+  eq(paw.ui.focused, "shownview", "its view is shown")
+  paw.cmd("buffer", { "arrange" })
+  paw.ext.unload("shown")
+  for _ = 1, #paw.layout.buffers_list() + 1 do
+    paw.keymap.feed(":bnext<CR>")
+    local view = paw.layout.current().view
+    eq(paw.ui.views[view] ~= nil, true, ":bnext shows a view that is there, not " .. view)
+  end
+end)
+
+test("an extension's language server in this process starts again when the extension loads again", function()
+  T.start()
+  local root = dir("served")
+  write(
+    root .. "/init.lua",
+    [[
+    local server = {
+      initialize = function()
+        _G.served_starts = (_G.served_starts or 0) + 1
+        return { serverInfo = { name = "served" }, capabilities = {} }
+      end,
+    }
+    paw.lsp.config("served", { server = server })
+    paw.lsp.enable("served")
+  ]]
+  )
+  T.after(function()
+    paw.ext.unload("served")
+    _G.served_starts = nil
+  end)
+  eq(paw.ext.load(root).ok, true, "loads")
+  T.until_(function() return _G.served_starts == 1 end, "the server to start")
+  paw.ext.unload("served")
+  eq(paw.lsp.configs.served, nil, "unloading takes its server away")
+  eq(paw.ext.load(root).ok, true, "loads again")
+  T.until_(function() return _G.served_starts == 2 end, "the server of the new load to start")
 end)
 
 test(":ext.unload takes a bundled extension away and :ext.load brings it back", function()

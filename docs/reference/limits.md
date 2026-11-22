@@ -123,8 +123,8 @@ The limits page lists what paw does not do, and the known limits of what it does
 - The mouse in the terminal:
   - You cannot drag the fades and gain of an audio clip. The keys and the
     commands of the clip set them.
-  - You cannot drag the height of a track. The wheel with Ctrl over the
-    headers changes the height of every track.
+  - You cannot drag the height of a track. The wheel with Alt, or with
+    Ctrl over the headers, changes the height of the tracks.
   - You cannot edit with the pointer the volume curve drawn over the lane
     of a track. You can edit its lane when it shows as a row.
   - Heights in a lane are as fine as its two lines. They are finer only
@@ -166,9 +166,9 @@ The limits page lists what paw does not do, and the known limits of what it does
     over `--connect`.
 - The piano roll of the graphical window is the piano roll of the
   terminal, laid out in cells:
-  - A row is one pitch, at the cell size of the graphical window. Alt and
-    the wheel do not make the rows taller. A taller row would be two cells,
-    in the terminal too, and the roll does not do that yet.
+  - A key is one to three rows, at the cell size of the graphical window,
+    as in the terminal. A key of half a row, with two keys in one row, is
+    not there.
   - The tracks near the roll are in the `:roll.tracks` list, not in a side
     panel beside it.
   - The alternatives of a suggestion show with `Alt-1`…`Alt-9`, not as

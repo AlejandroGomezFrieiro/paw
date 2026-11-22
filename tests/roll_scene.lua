@@ -35,6 +35,8 @@ local function opened(notes)
     paw.ui.hide("pianoroll")
   end)
   paw.opt.note_zoom, paw.opt.note_grid, paw.opt.note_snap = 8, 0.25, true
+  -- The roll keeps the length of a step that an earlier test chose.
+  roll:set_step(nil)
   local t = paw.add_track({ name = "keys" })
   local clip = t:add_clip({ name = "riff", start = 0, length = 8, notes = notes or {} })
   roll:edit(clip)

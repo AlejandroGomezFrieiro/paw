@@ -1,6 +1,6 @@
 ---
 name: paw-extension
-description: Create, extend or debug an extension for paw (the personal audio workstation in this repository): a directory of Lua that adds commands, keys, views, buffer types, kinds of track, Lua devices, picker sources, query fields, status line components, hooks, health checks, and optionally native parts built by Nix. Use whenever a task adds a feature to paw that is not core (see docs/explanation/about-core-and-extensions.md), writes or changes anything under extensions/ or ~/.config/paw/extensions, or asks "how do I make paw do X" where the answer is Lua — even if it only says "add a command", "a new view", "a tracker", "a plugin for paw".
+description: 'Create, extend or debug an extension for paw (the personal audio workstation in this repository): a directory of Lua that adds commands, keys, views, buffer types, kinds of track, Lua devices, picker sources, query fields, status line components, hooks, health checks, and optionally native parts built by Nix. Use whenever a task adds a feature to paw that is not core (see docs/explanation/about-core-and-extensions.md), writes or changes anything under extensions/ or ~/.config/paw/extensions, or asks "how do I make paw do X" where the answer is Lua — even if it only says "add a command", "a new view", "a tracker", "a plugin for paw".'
 ---
 
 # Creating a paw extension
@@ -174,7 +174,7 @@ follow `extensions/ara` (`paw.plugins.attach`, docs/reference/attachments.md).
 ```lua
 local T = ...
 T.test("euclid fills 3 in 8", function()
-  T.fresh()                                   -- a clean project
+  T.start()                                   -- a clean project, normal mode, no float
   paw.ext.load("extensions/euclid")
   -- drive real keys where it is UX: T.keys("…") / paw.keymap.feed("…")
   T.eq(#clip:notes(), 3, "three onsets")
@@ -188,6 +188,17 @@ one device) has run `n` whole blocks, so a parameter, note or change sent
 before is in effect. Keep `paw.api.sleep` only where real time is the
 point (a take of one second), with a comment that says so. The runner
 loads every `extensions/*/tests*.lua` itself.
+
+The runner gives back the options of the start of the run after each test.
+`T.fresh()` gives a new project, the default layout, normal mode and no
+float. `T.start()` also types `<Esc><Esc>` and focuses the arrange view.
+`T.screen(w, h)` gives the text of the screen. After the test files of an
+extension, the runner unloads the extensions that the tests loaded, and
+removes the event handlers, timers and key mappings that test code made. A
+handler, timer or key mapping that is still there fails
+"`extensions/<name>/` leaves no state behind".
+Remove what a test adds with `T.after(fn)`. Do not add lines to
+`tests/leaks-allowed.txt`.
 
 ```sh
 nix develop -c cargo build --release -j 8      # the runtime Lua is embedded: rebuild first
