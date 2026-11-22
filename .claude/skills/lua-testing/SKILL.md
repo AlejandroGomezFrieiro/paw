@@ -1,6 +1,6 @@
 ---
 name: lua-testing
-description: "How to write and change Lua and Teal tests in paw: the runner and its helpers (T.test, T.fresh, T.keys, T.render, T.until_, T.next_block), real keys, the state that a test makes and puts back, sound, the screen, skips, flakes, and what a test must not do. Use it for each change of tests/, extensions/*/tests*.lua or the lessons of the tutor, and for each review of Lua tests."
+description: "How to write and change Lua and Teal tests in paw: the runner and its helpers (T.test, T.fresh, T.keys, T.render, T.until_, T.next_block), real keys, the state that a test makes and puts back, self-contained tests that read nothing of the machine, sound, the screen, skips, flakes, and what a test must not do. Use it for each change of tests/, extensions/*/tests*.lua or the lessons of the tutor, and for each review of Lua tests."
 ---
 
 # Lua tests in paw
@@ -74,7 +74,31 @@ A test makes all the state that it reads.
   the last paint, which an earlier test made.
 - A test passes alone, under each `only` filter, and in any order.
 
-## 4. Real keys for what the user does
+## 4. Self-contained
+
+The owner's rule: a test is fully self-contained. It does not depend on
+the owner's computer or folders. Mock what it needs.
+
+- A test reads nothing of the machine: not the home folder
+  (`os.getenv("HOME")`, `~`), not the installed plugins (`CLAP_PATH`,
+  `VST3_PATH`; a yabridge bridge in `~/.vst3` starts wine), not the user
+  name, not the system fonts, not the desktop bus, not the network.
+- `tests/tools/env.sh` gives each run a scratch home, scratch `XDG_*`
+  folders, a scratch `WINEPREFIX` and empty plugin folders, and sets
+  `PAW_TEST_ENV`. `tests/suite.lua` does not run without it, so start
+  the suite only through `tests/tools/suite.sh`.
+- A path in a test comes from `T.scratch` or from the checkout, never
+  from the home folder.
+- A test of the plugin host uses the stub CLAP plugin. `suite.sh plugins`
+  gives the known test plugins. Never an installed plugin.
+- Mock what is needed. Give a fake to the code as an argument, or put a
+  fake in the field of a module and put the old value back with
+  `T.after`. Other fakes: the stub plugin, the plugin sandbox that the
+  test controls (`sandbox.hang`), a scratch folder.
+- Run paw by hand only through `tests/tools/run.sh`. It uses the same
+  environment as the suite.
+
+## 5. Real keys for what the user does
 
 - A test of a behavior of the user uses `T.keys`, not the function
   behind the key. A fix of the user experience has a test with the real
@@ -83,11 +107,13 @@ A test makes all the state that it reads.
   action is one undo step).
 - A command or a key that can fail has a test of its message, not only
   of the success.
+- Write the expected value as a literal (`T.eq(name, "Bass 2")`). Do not
+  compute it with the code under test.
 - Where the result depends on a combination (mode, selection, view),
   write a small table of the cases that change the result, and test
   each row in one loop.
 
-## 5. Sound
+## 6. Sound
 
 - Check sound with `T.render` (offline). Check the peaks or the
   frequency of the render.
@@ -99,7 +125,7 @@ A test makes all the state that it reads.
 - An extension's project must open and play without the extension.
   Test that too.
 
-## 6. The screen
+## 7. The screen
 
 - `find()` on the screen text checks that one text exists. It does not
   check a layout: a wrong layout that still holds the text passes.
@@ -111,7 +137,7 @@ A test makes all the state that it reads.
 - `tests/scene_parity.lua` checks that the window and the terminal draw
   one view the same. Keep a new view in it.
 
-## 7. No time and no speed
+## 8. No time and no speed
 
 - A test checks behavior, not speed. No `T.quick`, no `T.cpu_ms`, no
   `os.clock()`, and no comparison of a time with a number. To guard a
@@ -137,7 +163,7 @@ A test makes all the state that it reads.
   test (`sandbox.hang`, and the handshakes of TASK-148). Do not compare
   an injected delay with a deadline.
 
-## 8. Skips
+## 9. Skips
 
 - A test that needs a plugin, a tool or a file that the machine does not
   have returns a string: the reason. The runner prints
@@ -145,7 +171,7 @@ A test makes all the state that it reads.
 - Never skip in silence with an `if` that returns nothing.
 - Plugin tests run with `tests/tools/suite.sh plugins`.
 
-## 9. Flakes
+## 10. Flakes
 
 - A test that fails once and passes again is a bug. Do not change a
   time, a tolerance or an order to make it pass.
@@ -156,13 +182,13 @@ A test makes all the state that it reads.
 - If you cannot fix it now, put it in `tests/quarantine.txt` with a
   ticket (TASK-145 adds the runner support). The list only gets shorter.
 
-## 10. Teal
+## 11. Teal
 
 A test of a `.tl` module can be Lua. The module itself passes
 `cyan check`, and the suite runs `tools/tlcheck.sh`. Use the skill
 `teal` for the module.
 
-## 11. Commands
+## 12. Commands
 
 Run them in the dev shell. A change of Lua or Teal needs no build: make a
 runtime from the checkout and use a binary of main.
@@ -180,11 +206,13 @@ tools/fmtcheck.sh                                      # the format (`fix` forma
 
 Do not run `tests/tools/loaded.sh` or `tests/tools/e2e.sh`.
 
-## 12. Before you commit
+## 13. Before you commit
 
 - Apply `prune-tests` to each test that you added or changed.
 - Each new test fails when its behavior breaks, and passes alone and
   under `only`.
 - No test sleeps, reads the clock or checks a time.
+- No test reads the home folder, the installed plugins or another thing
+  of the machine.
 - The guide tests (`tests/guides*.lua`) still match the pages that you
   changed.

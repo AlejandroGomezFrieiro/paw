@@ -1,6 +1,6 @@
 ---
 name: rust-testing
-description: "How to write and change Rust tests in paw: the seam to test at, where a test goes, golden files, property tests, null tests of the engine, the check for no allocation, fakes in place of mocks, and what a test must not do. Use it for each Rust change that adds or changes a test, and for each review of Rust tests."
+description: "How to write and change Rust tests in paw: the seam to test at, where a test goes, golden files, property tests, null tests of the engine, the check for no allocation, test doubles without a mock library, error paths, self-contained tests that read nothing of the machine, and what a test must not do. Use it for each Rust change that adds or changes a test, and for each review of Rust tests."
 ---
 
 # Rust tests in paw
@@ -33,6 +33,13 @@ The engine tests are the model: they make an `Engine`, send messages
 through its `EngineHandle`, and run blocks. No real-time thread runs and
 no real time passes.
 
+- Test the code that paw owns. Do not test the behavior of `std`, of a
+  crate or of LuaJIT. A test of glue code is necessary only when the
+  glue has its own logic.
+- Keep the logic out of the transport. A handler of a protocol message
+  is a function from a request to a reply, and a test calls it with no
+  socket. A test with a socket is for the transport only.
+
 ## 2. Where a test lives
 
 - A unit test is in the module that it tests. It can use private items.
@@ -61,6 +68,15 @@ fn check(keys: &str, expected: &[Event]) {
 }
 ```
 
+- A table of cases is a loop over a `const` array or a `Vec` that
+  calls `check`. paw does not use `rstest` or `test-context`: a function
+  and a loop do the same with no macro.
+- A setup that many tests share is a function that returns a struct of
+  the values. Put a `TempDir` in the struct: its `Drop` cleans up, also
+  after a panic. Do not write a function that cleans up at the end.
+- A value that many tests use (a name, a small project) is a `const` or
+  a function in the helper module of the test binary.
+
 ## 4. Assertions
 
 - Use `assert_eq!`, `assert!` and `assert_ne!`. Add a message that
@@ -73,6 +89,12 @@ fn check(keys: &str, expected: &[Event]) {
   tells the rule, and make it report the first sample that differs.
 - Compare a whole value where you can (`assert_eq!` on a struct or a
   `Vec`), not field by field.
+- Write the expected value as a literal: `assert_eq!(name, "Bass 2")`.
+  Do not compute it with the logic under test. Then a bug in that logic
+  cannot also be in the expected value.
+- The name of a test tells the behavior:
+  `undo_of_a_split_gives_one_clip`, not `split_2`. The body has three
+  parts in this order: arrange, act, assert.
 
 ## 5. Golden files with `insta` (planned, TASK-155)
 
@@ -146,6 +168,51 @@ Rules:
 - Prefer static dispatch (a generic parameter) in hot code, and
   `dyn Trait` where the choice comes at the start of the program.
 
+The kinds of double. Write each one by hand, in the test module or the
+helper module:
+
+| Kind | What it does | Example in paw |
+| --- | --- | --- |
+| Placeholder | Fills an argument that the path under test does not use | A unit struct with empty methods |
+| Stub | Gives a fixed answer | A field `answer` that the method returns |
+| Spy | Records the calls, for the assertions after the act | A `Vec` of the messages that it got |
+| Fake | Does the real work in a short way, in memory | `ManualClock`, the `test` audio backend, the stub plugin |
+
+- Give the double through an argument or a constructor
+  (`fn run(sink: &mut impl Sink)`, `Engine::with_clock(clock)`). Do
+  not swap a type with `#[cfg(test)] use`: the test then checks a build
+  that the user does not run. Do not control a double through a
+  `thread_local!` or a `static`.
+- Lend the double to the code (`&` or `&mut`). Then the test reads the
+  spy after the act. Use `Cell` or `RefCell` only when the method of the
+  trait takes `&self`. Do not put assertions in a `Drop` of a double: a
+  panic in a drop during a panic aborts the test binary.
+- Prefer a check of the result (a fake) to a check of the calls (a spy).
+  A spy is for an effect that has no result to read, for example a
+  message to a plugin.
+- Use a type of `std` before you write a double. `&[u8]` and
+  `Cursor<Vec<u8>>` implement `Read` and `BufRead`. `Vec<u8>` implements
+  `Write`. So a parser takes `impl BufRead` and a writer takes
+  `&mut impl Write`, not a path:
+
+```rust
+#[derive(Default)]
+struct Sent(Vec<Message>);
+impl Sink for Sent {
+    fn send(&mut self, message: Message) { self.0.push(message); }
+}
+
+#[test]
+fn a_stop_sends_all_notes_off() {
+    let mut sent = Sent::default();
+    stop(&mut sent);
+    assert_eq!(sent.0, [Message::AllNotesOff]);
+}
+```
+
+- Code that must use a real folder (a project folder, a rename, a
+  watch) uses a `TempDir`, not a double of the file system.
+
 ## 9. Isolation
 
 Each test acts as if it is the only test that runs.
@@ -161,14 +228,43 @@ Each test acts as if it is the only test that runs.
   `main` and give it to the library.
 - A socket or a server binds port 0 or a path under the test's folder.
   A fixed port forces the tests to run one at a time.
-- Never use the owner's display, audio devices, configuration or home
-  folder. A test that starts paw uses `--audio null` (or `test`),
-  `--clean`, and its own `XDG_*` folders.
 - The window is paused (owner, 2026-11-22). paw-gui is not a default
   workspace member. Do not run `cargo test -p paw-gui` and do not add
   tests to `crates/paw-gui` until the owner starts that work again.
 
-## 10. No time and no speed
+## 10. Self-contained
+
+The owner's rule: a test is fully self-contained. It does not depend on
+the owner's computer or folders. Mock what it needs.
+
+- A test reads nothing of the machine: not the home folder, not the
+  installed plugins (`CLAP_PATH`, `VST3_PATH`, `~/.clap`, `~/.vst3`; a
+  yabridge bridge in `~/.vst3` starts wine), not the user name, not the
+  system fonts, not the desktop bus, not the network. It does not use
+  the owner's display, audio devices or configuration.
+- A test that starts paw seals the command first. The helper
+  `crates/<crate>/tests/sealed/mod.rs` gives a scratch home, a scratch
+  `WINEPREFIX` and empty plugin folders. A test that loads a plugin sets
+  its own folder after the seal. Also give `--audio null` (or `test`)
+  and `--clean`.
+
+```rust
+mod sealed;
+
+let dir = tempfile::tempdir().unwrap();
+let mut paw = Command::new(env!("CARGO_BIN_EXE_paw"));
+sealed::seal(&mut paw, dir.path()).args(["--clean", "--audio", "null"]);
+```
+
+- Library code does not read `HOME`, `USER` or a `*_PATH` variable
+  itself. `main` resolves the folders and gives them as an argument. A
+  unit test then gives a folder under its `TempDir`.
+- Mock what is needed: the stub CLAP plugin (`examples/stub_clap`), a
+  fake behind a trait, or a scratch folder. Never an installed plugin.
+- Run paw by hand only through `tests/tools/run.sh`. It uses the same
+  sealed environment as the tests.
+
+## 11. No time and no speed
 
 - A test checks behavior, not speed. No assertion on a `Duration`, an
   `Instant`, a share of a processor, or a count that changes with speed.
@@ -186,14 +282,31 @@ Each test acts as if it is the only test that runs.
   channel message, an acknowledgment, a handshake. The one limit of
   time is the stall guard of nextest (`slow-timeout` in
   `.config/nextest.toml`).
+- A test of `async` code (`#[tokio::test]`) has the same rules. The code takes
+  paw's `Clock` (TASK-146), not `tokio::time` directly, so the test
+  advances a `ManualClock` and does not sleep.
 
-## 11. Errors
+## 12. Errors
 
 - A fallible input (a file, a message, a plugin) has a test of its
   error: the variant, and the message that the user sees.
 - A fix of a panic has a test that panicked on the old code.
+- Take the error with `let ... else`, and check the variant with
+  `matches!`. Then check the text that the user sees:
 
-## 12. Fuzz targets (planned, TASK-159)
+```rust
+let Err(error) = parse_clip(b"MThd") else { panic!("a short header parsed") };
+assert!(matches!(error, ClipError::Truncated { .. }), "{error:?}");
+assert_eq!(error.to_string(), "the clip ends in its header");
+```
+
+- A test of a success path can return `Result<(), E>` and use `?` for
+  its arrange steps, in place of many `unwrap()` calls.
+- Use `#[should_panic(expected = "...")]` only for a panic that is the
+  contract of a function, for example an index out of range. A failure
+  that a user can cause is an `Err`, not a panic.
+
+## 13. Fuzz targets (planned, TASK-159)
 
 A parser of input from outside paw (MIDI files, `.midi2` clips, project
 JSON, terminal input, the remote protocol) gets a cargo-fuzz target in
@@ -203,7 +316,7 @@ Rust and is not a default member of the workspace. CI builds it, and the
 nightly tier in CI runs it. A crash that the fuzzer finds becomes a
 normal regression test in its crate.
 
-## 13. Flakes
+## 14. Flakes
 
 - nextest has `retries = 0`. Never add a retry.
 - A test that fails once and passes again is a bug. Find the cause:
@@ -214,7 +327,7 @@ normal regression test in its crate.
   only gets shorter (TASK-145 adds the runner support).
 - Any other `#[ignore]` has a reason that names its ticket.
 
-## 14. Commands
+## 15. Commands
 
 Run them in the dev shell. Agents do not build or run tests when the
 orchestrator builds (the rules of the session). Name the tests to run in
@@ -230,10 +343,12 @@ cargo nextest run --workspace --profile gate  # before a push
 cargo insta review                            # planned: read and accept snapshots
 ```
 
-## 15. Before you commit
+## 16. Before you commit
 
 - Apply `prune-tests` to each test that you added or changed.
 - Each new test fails when its behavior breaks. Use mutation as a lens:
   would the test fail if `>` became `>=`?
 - No test reads the clock, sleeps or checks a time.
+- No test reads the home folder, the installed plugins or another thing
+  of the machine.
 - Each snapshot that you accepted is named in the commit message.

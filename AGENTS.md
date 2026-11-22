@@ -172,6 +172,13 @@ nix flake check                                # all of the checks
   the kernel do its work (a state, a block, a sync request), and go past
   each timer that could make it happen. "Nothing came in 300 ms" is not
   a check.
+- A test is fully self-contained. It reads nothing of the machine: not
+  the home folder, not the installed plugins, not the user name, the
+  fonts, the desktop bus or the network. `tests/tools/env.sh` (Lua) and
+  `sealed::seal` in `crates/*/tests/sealed/mod.rs` (Rust) give a scratch
+  home and empty plugin folders. Mock what a test needs: the stub CLAP
+  plugin, a fake behind a trait, or a scratch folder. Run paw by hand
+  only through `tests/tools/run.sh`.
 - A flaky test is a bug in the test. No retries. Do not change a time or
   a tolerance to make it pass. If you cannot fix it now, put it in the
   quarantine list `tests/quarantine.txt` with a ticket. A quarantined
