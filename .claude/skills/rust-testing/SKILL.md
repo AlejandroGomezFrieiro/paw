@@ -116,6 +116,10 @@ the undo file.
   `cargo insta accept`.
 - CI sets `INSTA_UPDATE=no`, so a new or changed snapshot that is not
   committed fails.
+- The terminal screen has golden files on the Lua side:
+  `T.expect_screen` in `tests/screens/`, accepted with
+  `PAW_BLESS=1 tests/tools/suite.sh only "<words>"` (skill `lua-testing`,
+  part 7). Do not test the layout of a view with `insta`.
 
 ## 6. Property tests with `proptest` (planned, TASK-156)
 
@@ -341,6 +345,7 @@ cargo nextest run -p <crate> -E 'test(word)'  # some tests
 cargo test --doc -p <crate>                   # doc tests
 cargo nextest run --workspace --profile gate  # before a push
 cargo insta review                            # planned: read and accept snapshots
+PAW_BLESS=1 tests/tools/suite.sh only "<words>"  # accept the golden screens (Lua)
 ```
 
 ## 16. Before you commit
