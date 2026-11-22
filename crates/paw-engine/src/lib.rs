@@ -51,7 +51,7 @@ pub use pool::Pool;
 pub use preview::Preview;
 pub use samples::{DiskStore, Samples, Sink, store_name};
 pub use slot::{DeviceSlot, TrackSlot};
-pub use tempo::{SigPoint, TempoMap, TempoPoint};
+pub use tempo::{LocalTime, Place, SigPoint, TempoMap, TempoPoint};
 
 /// Convert decibels to linear gain. Anything at or below -120 dB is silence.
 pub fn db_to_gain(db: f64) -> f32 {

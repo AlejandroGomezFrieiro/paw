@@ -42,7 +42,7 @@ The file returns its device, made with `dsp.device { ... }`.
 | `b.frames` | The number of frames. |
 | `b.params` | The parameter values, by key. |
 | `b.sample_rate` | The sample rate. |
-| `b.playing`, `b.tempo`, `b.beat`, `b.seconds`, `b.bar`, `b.bar_start`, `b.sig_num`, `b.sig_den` | The transport. |
+| `b.playing`, `b.tempo`, `b.beat`, `b.seconds`, `b.bar`, `b.bar_start`, `b.sig_num`, `b.sig_den` | The transport. In a subproject, `b.beat`, `b.seconds` and the bars count from the start of the clip of the subproject that plays, and `b.bar` is 0 in its first bar (see [The audio engine](engine.md#the-transport-in-a-subproject)). |
 | `b.key_left`, `b.key_right` | The side-chain, or nil when no track is connected. |
 | `b.events`, `b.nevents` | The MIDI events (see below). |
 

@@ -10,7 +10,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw
 
-- `paw.add_track(opts)`: A new track, last unless `opts.index` says where: `opts` as `paw.api.track_add` takes them (`name`, `volume`, `output` as a track or an id, ...).
+- `paw.add_track(opts)`: A new track, last unless `opts.index` says where: `opts` as `paw.api.track_add` takes them (`name`, `volume`, `output` as a track or an id, ...). In a window inside a subproject, the track is made in that subproject unless `opts.nest` says another.
 - `paw.bounce(track, opts)`: Render a track with its devices to audio, as one clip on a new track immediately below it, and mute the original. The new track sends its sound where the original sent it. It uses `paw.render`, so `render.before` runs. `opts.name` is the name of the new track ("<name> (bounced)" by default). `opts.tail` is the seconds rendered after its last clip (2). Returns the new track, or nil when the track has no clips.
 - `paw.buftype(name, def)`: Make a buffer type. See `docs/reference/lua-views.md`.
 
@@ -494,7 +494,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 - `paw.cursor.bounds()`: The time the cursor stays in: the current scope's.
 - `paw.cursor.clip()`: The clip under the cursor, if any.
-- `paw.cursor.index()`: 1-based position of the cursor track in the track list.
+- `paw.cursor.index()`: 1-based position of the cursor track among the tracks of its place: the song's, or its subproject's (as `paw.api.track_move` counts).
 - `paw.cursor.lane_id()`: The automation lane row of the cursor: a lane of the cursor track that shows as a row (see `paw.lanes`). Nil when the cursor is on the track.
 - `paw.cursor.lens()`: Keys and commands typed in a pinned window act on its track: the track of "the cursor" is the window's while that window has the keyboard, or while paw draws it.
 - `paw.cursor.line()`: 1-based row of the cursor among every row drawn, lanes included.
@@ -1824,6 +1824,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.routes.feeds(from, into)`: True if the sound of `from` goes to `into`.
 - `paw.routes.midi_out_text(t)`: Where a track sends MIDI, as text: `Synth · channel 2 · MPE`, or "no MIDI output".
 - `paw.routes.outputs(device)`: The output pairs of a device: `{ pair, name, target, target_name }` each, the main pair (pair 1, on its own track) first. Empty for a device with one pair.
+- `paw.routes.peers(track)`: The tracks a track may route to: those of its place, the song or its subproject (the tracks of a subproject route only to each other).
 - `paw.routes.reached(from)`: The tracks a track's sound reaches, directly or through others, as a set of ids: by outputs, sends and side-chains.
 - `paw.routes.reaching(into)`: The tracks whose sound reaches a track, as a set of ids.
 - `paw.routes.set_midi_out(track, name, channel, form, members)`: Send the MIDI of a track to the port named `name` (or a part of its name, "none" for none). `channel` is 1 to 16, or nil for the channel of each message. `form` applies where the port does not accept MIDI 2.0 (a key of `M.midi_out_forms`, nil keeps the current form). MPE uses `members` channels (nil for 15).
@@ -1863,9 +1864,9 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.scope
 
 - `paw.scope.apply(s)`: Tell the engine what the rest of the song does for a scope. This is the scope of the tab in front, which the last seat to change tabs (a terminal or a window) selected.
-- `paw.scope.at_cursor()`: The scope that `znn` enters at the cursor: the innermost not entered yet. In a region scope, the region one level inside it at the cursor; else the group at the cursor (its header or one of its tracks), else the track. Nil when the window shows that track already.
+- `paw.scope.at_cursor()`: The scope that `znn` enters at the cursor: the innermost not entered yet. A subproject's clip at the cursor; in a region scope, the region one level inside it at the cursor; else the group at the cursor (its header or one of its tracks), else the track. Nil when the window shows that track already.
 - `paw.scope.bar_offset(s)`: How many bars of the song come before the first bar of a scope (the current one by default) when its bars are numbered from 1: 0 with no time, or with `scopebars=song`. A scope's bars are the song's (its meter map), counted from the bar its time starts in.
-- `paw.scope.breadcrumb(s)`: The path in words: `Song › Bridge › Strings`.
+- `paw.scope.breadcrumb(s)`: The path in words: `Song › Bridge › Strings`; a subproject is marked `⧉`: `Song › ⧉Ballad › Strings`.
 - `paw.scope.children(s)`: The scopes one level inside a scope (the current one by default): for a region scope, the regions one level inside its region (paw/markers.tl), in order of time; for a group scope, its members (a group or a track), in order. Each has that scope as its parent. Other kinds have none.
 - `paw.scope.contains(track, s)`: True if a scope (the current one by default; a group's id is a scope of that group) shows a track: it and every level above it do. With no scope, every track is inside.
 - `paw.scope.current(win)`: The scope a window shows, or nil for the song: the window given, else the window being drawn, else the current one. A level whose group, track or region is gone is left out.
@@ -1882,7 +1883,9 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.scope.named(which)`: A scope by name: a named scope (`:scope.name`), else a group of that name, else a region of that name, else a group or a region whose name starts with it. A number is a group's id.
 - `paw.scope.names()`: The named scopes, the latest last.
 - `paw.scope.narrow(which)`: Narrow to a group or a region, by its id, its track or its name (see `named`): `enter` of that scope in the current window. Returns the scope.
+- `paw.scope.nest(s)`: The innermost subproject of a scope's path (the current scope by default), or nil when the path is in the song: its tracks and its timeline are what the window shows.
 - `paw.scope.next(n)`: Go to the scope `n` places beside the current one (`]z`, `3]z`, `[z`), in the same parent. A jump. Returns the scope.
+- `paw.scope.of_clip(id)`: The scope of a subproject's clip (`znn` or `<CR>` on it enters it), or nil when the clip places no subproject.
 - `paw.scope.of_region(r)`: The scope an operator's region covers (`zn{motion}`, `{Visual}zn`): the region, group or track its text object names (`ar`, `ag`, `it`), else a block of its tracks, with its time when it has some. Nil for the whole of what the window shows (`ie`).
 - `paw.scope.of_tab(tab)`: The scope of a tab: that of its current window.
 - `paw.scope.open(how, spec)`: Open a scope (the one at the cursor by default) in a new window: `how` is "split", "vsplit" or "tab". The new window starts with the scope of the one it comes from, and enters this one inside it.
@@ -1892,8 +1895,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.scope.saved_names()`: The named scopes as the project's screen keeps them (paw/layout.tl).
 - `paw.scope.sibling(n)`: The scope `n` places after the current one (before it, with a negative `n`), beside it in the same parent: the next region, group or track; a block's next stretch of the same length. Nil and the reason when there is none.
 - `paw.scope.song_bar(local_bar)`: The bar of the song for a bar as the current scope shows it.
+- `paw.scope.song_beat(beat, s)`: The song's beat of a beat that the current scope shows.
+- `paw.scope.song_offset(s)`: The beats to add to a beat of the window to get the song's beat: in a subproject, where the clip it was entered through places its beat 0 (the clip's start less its offset); else 0.
 - `paw.scope.span(s)`: The time a scope shows (the current one by default): `from, to` in beats, its own time intersected with its parent's. Nil when it shows all of the song's time. `from` is `to` when the times do not meet.
-- `paw.scope.tracks(s)`: The tracks of a scope (the current one by default), in the order of the track list. With no scope, or one that keeps every track, all tracks.
+- `paw.scope.tracks(s)`: The tracks of a scope (the current one by default), in the order of the track list. With no scope, or one that keeps every track, all tracks of the song; in a subproject, its tracks.
 - `paw.scope.widen(top, win)`: Leave the scope of a window (the current one by default): up one level, or with `top` to the song. False when it shows the song.
 
 ## Module paw.seats
@@ -2520,7 +2525,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.midi_test_ports(ports)`: The MIDI ports the null backend lists, as if plugged in.
 - `paw.api.midi_ump(event)`: What an event is as a MIDI 2.0 packet: two 32-bit words.
 - `paw.api.nest_add(opts)`: Make a subproject with its master track and no other track, as one undo step, for example `{ name = "Bridge", length = 32 }`. The length is in beats, and 32 when you leave it out. Add its tracks with `track_add({ nest = id })`. Returns its id.
-- `paw.api.nest_get(id)`: A subproject as a table: its fields, `tracks` (its tracks in order, without its master) and `used` (whether the song plays it).
+- `paw.api.nest_get(id, key)`: A subproject as a table: its fields, `tracks` (its tracks in order, without its master) and `used` (whether the song plays it). With `key`, only that field of its own (`name`, `length`, `master`...): this is quicker.
 - `paw.api.nest_list()`: --- nests (subprojects): tracks with a timeline of their own --- The ids of the subprojects, in the order they were made.
 - `paw.api.nest_set(id, key, value)`: Change a subproject: a table of the entries to change (`name`, `length`, `tempo`, `meter`, `kind`, `meta`), as `nest_get` gives them, or one `key` and its value.
 - `paw.api.note_off(track, pitch)`
@@ -2633,7 +2638,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.track_collect()`: Make every track read from a folder outside the project, and every chain of devices read from a file outside it, the project's own. Returns how many tracks and how many chains.
 - `paw.api.track_get(id, key)`: A track as a table. With `key`, only that entry of the table: this is quicker, because the table lists each clip of the track.
 - `paw.api.track_import_folder(folder, index)`: Add the track of a track folder outside the project (a folder with a `track.json`) at `index` (from 1; the end when nil). The project refers to the folder until the track's first edit. Returns its id.
-- `paw.api.track_list()`: --- tracks ---
+- `paw.api.track_list(opts)`: --- tracks --- The ids of the song's tracks, in their order. `{ nest = id }` gives the tracks of that subproject instead (without its master), and `{ all = true }` every track: the song's and each subproject's. Views list the tracks of their scope with `paw.scope.tracks()`.
 - `paw.api.track_meter(id)`
 - `paw.api.track_move(id, index)`
 - `paw.api.track_remove(id)`

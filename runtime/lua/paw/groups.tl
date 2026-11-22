@@ -119,7 +119,7 @@ end
 function M.members(group: TrackRef): {integer}
   local gid = id_of(group)
   local out: {integer} = {}
-  for _, id in ipairs(api.track_list()) do
+  for _, id in ipairs(api.track_list({all = true})) do
     if M.of(id) == gid then
       out[#out + 1] = id
     end
@@ -186,7 +186,7 @@ end
 M.rows = rows as function(): {integer}
 
 local function position(id: integer): integer
-  for i, other in ipairs(api.track_list()) do
+  for i, other in ipairs(api.track_list({all = true})) do
     if other == id then
       return i
     end
@@ -416,7 +416,7 @@ events.on(
     if event.restored then
       return
     end
-    for _, id in ipairs(api.track_list()) do
+    for _, id in ipairs(api.track_list({all = true})) do
       local m = meta(id)
       if m.group == event.id then
         m.group = nil

@@ -329,7 +329,9 @@ paw.api = {}
 paw.api.version = "1.0.0"
 
 --- A new track, last unless `opts.index` says where: `opts` as `paw.api.track_add`
---- takes them (`name`, `volume`, `output` as a track or an id, ...).
+--- takes them (`name`, `volume`, `output` as a track or an id, ...). In a
+--- window inside a subproject, the track is made in that subproject unless
+--- `opts.nest` says another.
 ---@param opts any
 function paw.add_track(opts) end
 
@@ -1967,7 +1969,8 @@ function paw.cursor.bounds() end
 --- The clip under the cursor, if any.
 function paw.cursor.clip() end
 
---- 1-based position of the cursor track in the track list.
+--- 1-based position of the cursor track among the tracks of its place:
+--- the song's, or its subproject's (as `paw.api.track_move` counts).
 function paw.cursor.index() end
 
 --- The automation lane row of the cursor: a lane of the cursor track that
@@ -7026,6 +7029,11 @@ function paw.routes.midi_out_text(t) end
 ---@param device any
 function paw.routes.outputs(device) end
 
+--- The tracks a track may route to: those of its place, the song or its
+--- subproject (the tracks of a subproject route only to each other).
+---@param track any
+function paw.routes.peers(track) end
+
 --- The tracks a track's sound reaches, directly or through others, as a set
 --- of ids: by outputs, sends and side-chains.
 ---@param from any
@@ -7187,9 +7195,10 @@ function paw.scene.watchers() end
 function paw.scope.apply(s) end
 
 --- The scope that `znn` enters at the cursor: the innermost not entered
---- yet. In a region scope, the region one level inside it at the cursor;
---- else the group at the cursor (its header or one of its tracks), else
---- the track. Nil when the window shows that track already.
+--- yet. A subproject's clip at the cursor; in a region scope, the region
+--- one level inside it at the cursor; else the group at the cursor (its
+--- header or one of its tracks), else the track. Nil when the window shows
+--- that track already.
 function paw.scope.at_cursor() end
 
 --- How many bars of the song come before the first bar of a scope (the
@@ -7199,7 +7208,8 @@ function paw.scope.at_cursor() end
 ---@param s any
 function paw.scope.bar_offset(s) end
 
---- The path in words: `Song › Bridge › Strings`.
+--- The path in words: `Song › Bridge › Strings`; a subproject is marked
+--- `⧉`: `Song › ⧉Ballad › Strings`.
 ---@param s any
 function paw.scope.breadcrumb(s) end
 
@@ -7284,10 +7294,21 @@ function paw.scope.names() end
 ---@param which any
 function paw.scope.narrow(which) end
 
+--- The innermost subproject of a scope's path (the current scope by
+--- default), or nil when the path is in the song: its tracks and its
+--- timeline are what the window shows.
+---@param s any
+function paw.scope.nest(s) end
+
 --- Go to the scope `n` places beside the current one (`]z`, `3]z`, `[z`),
 --- in the same parent. A jump. Returns the scope.
 ---@param n any
 function paw.scope.next(n) end
+
+--- The scope of a subproject's clip (`znn` or `<CR>` on it enters it), or
+--- nil when the clip places no subproject.
+---@param id any
+function paw.scope.of_clip(id) end
 
 --- The scope an operator's region covers (`zn{motion}`, `{Visual}zn`):
 --- the region, group or track its text object names (`ar`, `ag`, `it`),
@@ -7339,6 +7360,17 @@ function paw.scope.sibling(n) end
 ---@param local_bar any
 function paw.scope.song_bar(local_bar) end
 
+--- The song's beat of a beat that the current scope shows.
+---@param beat any
+---@param s any
+function paw.scope.song_beat(beat, s) end
+
+--- The beats to add to a beat of the window to get the song's beat: in a
+--- subproject, where the clip it was entered through places its beat 0
+--- (the clip's start less its offset); else 0.
+---@param s any
+function paw.scope.song_offset(s) end
+
 --- The time a scope shows (the current one by default): `from, to` in
 --- beats, its own time intersected with its parent's. Nil when it shows all
 --- of the song's time. `from` is `to` when the times do not meet.
@@ -7346,7 +7378,8 @@ function paw.scope.song_bar(local_bar) end
 function paw.scope.span(s) end
 
 --- The tracks of a scope (the current one by default), in the order of the
---- track list. With no scope, or one that keeps every track, all tracks.
+--- track list. With no scope, or one that keeps every track, all tracks of
+--- the song; in a subproject, its tracks.
 ---@param s any
 function paw.scope.tracks(s) end
 
@@ -9963,9 +9996,12 @@ function paw.api.midi_ump(event) end
 function paw.api.nest_add(opts) end
 
 --- A subproject as a table: its fields, `tracks` (its tracks in order,
---- without its master) and `used` (whether the song plays it).
+--- without its master) and `used` (whether the song plays it). With
+--- `key`, only that field of its own (`name`, `length`, `master`...):
+--- this is quicker.
 ---@param id integer
-function paw.api.nest_get(id) end
+---@param key string?
+function paw.api.nest_get(id, key) end
 
 --- --- nests (subprojects): tracks with a timeline of their own ---
 --- The ids of the subprojects, in the order they were made.
@@ -10503,7 +10539,13 @@ function paw.api.track_get(id, key) end
 function paw.api.track_import_folder(folder, index) end
 
 --- --- tracks ---
-function paw.api.track_list() end
+--- The ids of the song's tracks, in their order. `{ nest = id }`
+--- gives the tracks of that subproject instead (without its master),
+--- and `{ all = true }` every track: the song's and each
+--- subproject's. Views list the tracks of their scope with
+--- `paw.scope.tracks()`.
+---@param opts any
+function paw.api.track_list(opts) end
 
 ---@param id integer
 function paw.api.track_meter(id) end

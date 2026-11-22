@@ -246,7 +246,7 @@ function M.orphan_takes()
     if parent .. "/" .. entry.name == path then saved = entry.mtime or 0 end
   end
   local used = {}
-  for _, id in ipairs(api.track_list()) do
+  for _, id in ipairs(api.track_list({ all = true })) do
     for _, clip in ipairs(api.track_get(id).clips) do
       local file = api.clip_get(clip).file
       if file then used[file:match("([^/]+)$")] = true end

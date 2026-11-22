@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::event::EventBuf;
 
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ProcessCtx {
     pub sample_rate: f32,
     pub tempo: f64,
