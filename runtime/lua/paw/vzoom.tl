@@ -24,6 +24,7 @@ local api = require("paw.api")
 local commands = require("paw.commands")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 
 local type Window = contracts.Window
 local type VZoom = contracts.VZoom
@@ -63,6 +64,7 @@ local record Paw is partial.Paw
   groups: Groups
   cursor: Cursor
   opt: Opt
+  keymap: KeymapModule
 end
 local paw = (_G as {string: Paw}).paw
 
