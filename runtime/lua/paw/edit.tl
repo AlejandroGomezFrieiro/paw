@@ -540,13 +540,24 @@ function A.join(track: integer, from: number, to: number, only?: {integer: boole
   local notes, controls = api.clip_notes(first.id), api.clip_controls(first.id)
   for i = 2, #clips do
     local by = clips[i].start - first.start
+    -- The notes of a clip with other overrides (`:clip.override`) than the
+    -- first's keep their sound: the difference goes into them. A note that
+    -- does not play stays out.
+    local up = (clips[i].transpose or 0) - (first.transpose or 0)
+    local louder = (clips[i].velocity or 0) - (first.velocity or 0)
     for _, n in ipairs((api.clip_notes(clips[i].id))) do
-      n.start = n.start + by
-      notes[#notes + 1] = n
+      n.start, n.pitch = n.start + by, n.pitch + up
+      n.velocity = util.clamp(n.velocity + louder, 1, 127) as integer
+      if n.pitch >= 0 and n.pitch <= 127 then
+        notes[#notes + 1] = n
+      end
     end
     for _, move in ipairs(api.clip_controls(clips[i].id)) do
       move.start = move.start + by
-      controls[#controls + 1] = move
+      move.key = move.key and move.key + up
+      if not move.key or (move.key >= 0 and move.key <= 127) then
+        controls[#controls + 1] = move
+      end
     end
     api.clip_remove(clips[i].id)
   end

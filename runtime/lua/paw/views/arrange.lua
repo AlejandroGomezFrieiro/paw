@@ -753,8 +753,10 @@ function view.clip_props(clip, track, hue, kind, zoom, chosen, from, to, colour)
   -- mark first where the label does not fit).
   local badge = paw.takes.badge(clip)
   local label = clip.offline and ("offline · " .. clip.name) or clip.name
-  -- A linked clip: `riff ≡`.
+  -- A linked clip: `riff ≡`; with overrides, `riff ≡ +3 v-10`.
   if clip.link then label = label .. " " .. draw.g.link end
+  if (clip.transpose or 0) ~= 0 then label = label .. string.format(" %+d", clip.transpose) end
+  if (clip.velocity or 0) ~= 0 then label = label .. string.format(" v%+d", clip.velocity) end
   -- A block of a subproject: its name after `⧉`, in a frame.
   local block = clip.kind == "nest"
   if block then label = draw.g.nest .. label end

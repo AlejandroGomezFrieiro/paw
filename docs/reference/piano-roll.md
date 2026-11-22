@@ -33,6 +33,8 @@ The zoom belongs to the window of the piano roll. A change of zoom is not an und
 
 A note can have an articulation (its MIDI 2.0 attribute), and such a note shows a short tag of it (`pz` for pizzicato) in place of its pitch, and `K` names the articulation. The instrument of the track can name a key (a drum of a kit, a keyswitch of a sampler), and such a key shows its name on the keyboard, and `K` gives it.
 
+A clip with a transpose (`:clip.override transpose=3`, see [Overrides of a clip](arrange-view.md#overrides-of-a-clip)) shows each note at the pitch it plays at, 3 semitones above its stored pitch, and a note that you add or move there is stored 3 semitones lower. For example, a note that you add at E4 is stored as C#4, and the clips of its link get C#4 too. The velocity override does not change the notes that the piano roll shows.
+
 A row over the ruler names the chords that sound, read over every pitched track, with the key on the left (`paw.opt.chords`). A dot on the keyboard marks the keys that sound at the cursor, and the title names the chord there.
 
 ### Notes of other tracks

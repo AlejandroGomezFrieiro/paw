@@ -405,6 +405,33 @@ command("clip.unlink", function()
   api.clip_unlink(clip.id)
   paw.notify(string.format("unlinked %s from %s", clip.name, link))
 end, { desc = "Take the clip out of its link: it keeps its notes, and edits of it stay its own" })
+command("clip.override", function(ctx)
+  local clip = need_clip()
+  if not clip then return end
+  if clip.kind ~= "midi" then return paw.notify("only MIDI clips have overrides", "warn") end
+  -- `clear` first, so that `clear transpose=2` keeps the transpose.
+  local patch, given = {}, ctx.args[1] == "clear"
+  if given then
+    patch.transpose, patch.velocity = 0, 0
+  end
+  for key, value in pairs(ctx.args) do
+    if key == 1 and given then
+      -- `clear`, done.
+    elseif key == "transpose" or key == "velocity" then
+      patch[key], given = tonumber(value), true
+      if not patch[key] then error(key .. " is a whole number, not " .. tostring(value), 0) end
+    else
+      error("usage: clip.override transpose=<semitones> velocity=<change>, or clip.override clear", 0)
+    end
+  end
+  -- Both in one edit: one undo step.
+  if given then api.clip_set(clip.id, patch) end
+  local c = clip:get()
+  paw.notify(c.name .. ": " .. (common.overrides_text(c) or "no overrides"))
+end, {
+  desc = "Play the clip transposed or louder without a change of its notes: `clip.override transpose=3`",
+  complete = { "clear", "transpose=", "velocity=" },
+})
 command("clip.mute", function()
   local clip = need_clip()
   if clip then clip.muted = not clip.muted end
@@ -433,7 +460,15 @@ command("clip.split", function()
   -- A linked clip leaves its link first: the cut changes its notes, and
   -- the other clips of the link keep theirs.
   if c.link then api.clip_unlink(clip.id) end
-  local right = { start = cursor.beat, length = c.length - at, name = c.name, kind = c.kind }
+  -- A MIDI clip's right half keeps its overrides (nil for audio).
+  local right = {
+    start = cursor.beat,
+    length = c.length - at,
+    name = c.name,
+    kind = c.kind,
+    transpose = c.transpose,
+    velocity = c.velocity,
+  }
   -- The right half plays as the clip does: stretched, shifted, looped.
   local moved = paw.stretch.carry(c, right, at)
   if c.kind == "midi" and c.loop then

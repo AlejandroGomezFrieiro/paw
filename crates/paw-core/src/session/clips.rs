@@ -1,6 +1,7 @@
 //! Clips: their fields, notes, controls and audio.
 
 use super::*;
+use crate::model::Overrides;
 
 impl Session {
     pub fn clip_view(&self, id: Id) -> Result<ClipView<'_>> {
@@ -249,6 +250,9 @@ impl Session {
         if kind == ClipKind::Midi && (opts.fade_in > 0.0 || opts.fade_out > 0.0) {
             bail!("only audio clips fade");
         }
+        if kind != ClipKind::Midi && (opts.transpose != 0 || opts.velocity != 0) {
+            bail!("only MIDI clips have a transpose and a velocity change");
+        }
         let stretch = opts.stretch.unwrap_or(1.0);
         stretching::check_playing(kind.clone(), stretch, opts.pitch, opts.source_tempo)?;
         stretching::check_warp(kind, &opts.warp)?;
@@ -293,6 +297,7 @@ impl Session {
             source,
             origin: None,
             link: None,
+            overrides: Overrides { transpose: opts.transpose, velocity: opts.velocity },
         }
     }
 
@@ -455,6 +460,12 @@ impl Session {
                 (Some(ClipField::FadeOut), ClipContent::Audio { .. }) => {
                     c.fade_out = check_fade(de(key, value)?)?;
                 }
+                (Some(ClipField::Transpose), ClipContent::Midi { .. }) => {
+                    c.overrides.transpose = override_value(key, value)?;
+                }
+                (Some(ClipField::Velocity), ClipContent::Midi { .. }) => {
+                    c.overrides.velocity = override_value(key, value)?;
+                }
                 _ => bail!("{} clips have no settable field `{key}`", c.content.kind()),
             }
             Ok(())
@@ -616,6 +627,8 @@ enum ClipField {
     Gain,
     FadeIn,
     FadeOut,
+    Transpose,
+    Velocity,
 }
 
 impl ClipField {
@@ -632,9 +645,25 @@ impl ClipField {
             "gain" => Self::Gain,
             "fade_in" => Self::FadeIn,
             "fade_out" => Self::FadeOut,
+            "transpose" => Self::Transpose,
+            "velocity" => Self::Velocity,
             _ => return None,
         })
     }
+}
+
+/// An override of a MIDI clip (`model/overrides.rs`): a whole number from
+/// -127 to 127, nil for 0.
+fn override_value(key: &str, value: Value) -> Result<i8> {
+    if value.is_null() {
+        return Ok(0);
+    }
+    // Lua gives numbers as floats.
+    let amount: f64 = de(key, value)?;
+    if amount.fract() != 0.0 || !(-127.0..=127.0).contains(&amount) {
+        bail!("`{key}` is a whole number from -127 to 127, not {amount}");
+    }
+    Ok(amount as i8)
 }
 
 /// Move clip `id`, on the timeline, to the end of the track that `value` names.

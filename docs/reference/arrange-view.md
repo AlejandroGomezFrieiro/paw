@@ -206,6 +206,19 @@ The clips of a link share their notes and their controller moves, so an edit of 
 - `K` on a linked clip says the link and its number of clips, for example `linked: riff, 3 clips`.
 - The notes of a link are in one file of the project folder, `linked/riff.midi2`. See [Project files](project-files.md#the-project-folder).
 
+### Overrides of a clip
+
+A MIDI clip can play its notes higher or lower, or louder or softer, without a change of its notes. Each clip of a link has its own overrides, so one copy of a riff can play it a third higher while all the copies keep one set of notes.
+
+- `:clip.override transpose=3 velocity=-10` sets the overrides of the clip under the cursor, as one undo step. `transpose` is in semitones, and `velocity` is added to the velocity of each note, which stays in 1 to 127. Each is a whole number from -127 to 127, and you can give one of them alone.
+- `:clip.override clear` removes both overrides, and `:clip.override` alone says them.
+- The overrides change what plays: the sound, `:render`, `:export` to a MIDI file and the chord names. The notes of the clip stay the same.
+- A note that the transpose takes below 0 or above 127 does not play.
+- The label of the clip shows the overrides after its name, as in `riff ≡ +3 v-10`, and `K` says them, for example `plays with transpose +3, velocity -10`.
+- The piano roll shows the notes of the clip at the pitches they play. See [The piano roll](piano-roll.md#what-the-view-shows).
+- `&`, `y`, `p` and `S` keep the overrides in the copy and in each half. `J` keeps the sound of the joined clips, because it moves the notes of a clip with other overrides than the first clip by the difference.
+- The overrides are in the entry of the clip in `track.json`, as `"overrides": { "transpose": 3, "velocity": -10 }`.
+
 ## Take lanes
 
 `zt` shows the takes of a track as lanes under its clips, with one row for each take. With the mouse you can do three things:

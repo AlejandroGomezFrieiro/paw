@@ -621,6 +621,11 @@ local record types
     --- from `clip_get`).
     link: string
     link_count: integer
+    --- A MIDI clip's overrides: semitones up (down below 0), and what is
+    --- added to the velocity of each note. They change what plays, not
+    --- the notes.
+    transpose: integer
+    velocity: integer
     edits: integer
     file: string
     offset: number
@@ -674,6 +679,8 @@ local record types
     loop_length: number
     loop_start: number
     cue: boolean
+    transpose: integer
+    velocity: integer
     version: integer
     timeline: Timeline
     data: KindData

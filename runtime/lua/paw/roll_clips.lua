@@ -12,6 +12,11 @@
 -- Beats here are the roll's: from the start of the active clip. A note at
 -- its own clip's beat `b` is at `b + offset` in the roll, `offset` being how
 -- far its clip starts after the active one.
+--
+-- Pitches here are the roll's too: those that the notes play at. A clip
+-- with a transpose (`:clip.override`) shows each note that much higher than
+-- it is stored, and a pitch written in the roll is stored that much lower:
+-- each part's `clip` is a handle that does this (`Clip:shifted`).
 local api = paw.api
 local context = require("paw.roll_context")
 local EPS = 1e-9
@@ -105,7 +110,8 @@ function M.offset(id)
 end
 
 --- The editable clips, the active one first: `{ id, clip, offset, start,
---- length, track, name }` each, `clip` a handle (`paw.clip`).
+--- length, track, name }` each, `clip` a handle (`paw.clip`) whose pitches
+--- are those that the clip plays (`Clip:shifted`).
 function M.parts()
   local a = midi(M.active())
   if not a then return {} end
@@ -114,7 +120,7 @@ function M.parts()
     local c = midi(id)
     out[#out + 1] = {
       id = id,
-      clip = paw.clip(id),
+      clip = paw.clip(id):shifted(c.transpose or 0),
       offset = c.start - a.start,
       start = c.start,
       length = c.length,

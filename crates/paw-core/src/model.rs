@@ -18,6 +18,7 @@ mod custom;
 mod links;
 pub(crate) mod nest;
 mod notes;
+mod overrides;
 pub use clips::Clips;
 pub use custom::{
     ClipKindId, CustomContent, CustomError, DATA_LIMIT, KindData, KindValue, MediaRef, MediaRole,
@@ -26,6 +27,7 @@ pub use custom::{
 pub use nest::{MAX_DEPTH, Nest, NestId, NestMeter, NestPlay, NestTempo, Route, check_nest};
 pub(crate) use links::Links;
 pub use notes::Notes;
+pub use overrides::Overrides;
 
 pub type Id = u64;
 
@@ -614,6 +616,11 @@ pub struct Clip {
     /// all of them (`model/links.rs`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub link: Option<String>,
+    /// What a MIDI clip changes in its notes as it plays them (a transpose,
+    /// a velocity change), without a change of the notes: each clip of a
+    /// link can play the shared notes in its own way.
+    #[serde(default, skip_serializing_if = "Overrides::is_none")]
+    pub overrides: Overrides,
 }
 
 /// What an audio clip keeps when the tempo changes. Either way it keeps its

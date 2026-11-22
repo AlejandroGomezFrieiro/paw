@@ -404,6 +404,10 @@ pub struct ClipOpts {
     pub looped: bool,
     pub loop_length: Option<f64>,
     pub loop_start: f64,
+    /// A MIDI clip's overrides, as the clip's fields of these names have
+    /// them (`model/overrides.rs`).
+    pub transpose: i8,
+    pub velocity: i8,
     /// Keep it off the timeline, among the track's cues (`session/cues.rs`).
     pub cue: bool,
     /// A clip of a kind that an extension defines: its content (`data` is
@@ -1015,6 +1019,12 @@ pub struct ClipView<'a> {
     link: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     link_count: Option<usize>,
+    /// Its overrides (`model/overrides.rs`): semitones up, and what is added
+    /// to each velocity.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    transpose: Option<i8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    velocity: Option<i8>,
     // An audio clip's.
     #[serde(skip_serializing_if = "Option::is_none")]
     edits: Option<usize>,
@@ -1094,6 +1104,8 @@ fn clip_json<'a>(c: &'a Clip, track: Id, files: &file_check::FileCheck) -> ClipV
         control_stamp: None,
         link: c.link.as_deref(),
         link_count: None,
+        transpose: None,
+        velocity: None,
         edits: None,
         file: None,
         offset: None,
@@ -1127,6 +1139,8 @@ fn clip_json<'a>(c: &'a Clip, track: Id, files: &file_check::FileCheck) -> ClipV
             v.control_count = Some(controls.len());
             v.stamp = Some(notes.stamp());
             v.control_stamp = Some(control_stamp(controls));
+            v.transpose = Some(c.overrides.transpose);
+            v.velocity = Some(c.overrides.velocity);
         }
         ClipContent::Audio { file, offset, gain, edits } => {
             if !edits.is_empty() {
