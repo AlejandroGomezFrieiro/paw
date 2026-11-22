@@ -15,6 +15,11 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // --- transport ---
         // @return types.Transport
         fn transport_get(lua, sh, () => ()) { to_lua(lua, &sh.session.borrow().transport_view()) }
+        // What moves of the transport by itself, as `transport_get` gives it
+        // but without a table, for what is read on each frame: `playing`,
+        // `position`, `counting` and `take` (nil while nothing records).
+        // @return boolean, number, integer, integer
+        fn transport_playhead(_, sh, () => ()) { Ok(sh.session.borrow().playhead()) }
         // Change the transport: a table of the entries to change, as
         // `transport_get` gives them (`{ loop_enabled = true }`), or one `key` and
         // its value. Only the key form clears an entry (`nil`).

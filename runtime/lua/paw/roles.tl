@@ -135,7 +135,9 @@ paw.seats.keep(
 --- necessary, because the terminal comes first. `spec.props` names its
 --- props and their contents, for documentation and `paw.ui.roles`.
 --- `spec.bound` is the props that a frontend takes from the live value when
---- the mark is bound to one. paw does not send these props.
+--- the mark is bound to one. paw does not send these props. `spec.stamp(buf,
+--- props)`, a text of what `cells` shows, lets a bound mark keep its cells
+--- between whole frames while it does not change.
 function M.define<P is contracts.MarkProps>(name: string, spec: contracts.Role<P>)
   if type(name) ~= "string" or name == "" then
     error("a role needs a name", 2)
@@ -257,7 +259,16 @@ local function cells(sub: Buf, role: string, spec: contracts.Role<contracts.Mark
   end
   local u = paw.ui
   if props.bind and spec.bound and u.live_drawing() then
-    return u.live(sub, function(b: Buf) u.live_value(props.bind, props); spec.cells(b, props, ctx) end)
+    -- Drawn again only when what it shows moves (a meter at rest, a
+    -- playhead of a song that is stopped keep their cells).
+    local bind = props.bind
+    local stamp: function(): string
+    if spec.stamp then
+      stamp = function(): string u.live_value(bind, props); return spec.stamp(sub, props) end
+    else
+      stamp = function(): string return u.live_stamp(bind) end
+    end
+    return u.live(sub, function(b: Buf) u.live_value(bind, props); spec.cells(b, props, ctx) end, stamp)
   end
   return spec.cells(sub, props, ctx)
 end
