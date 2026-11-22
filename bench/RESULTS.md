@@ -40,6 +40,31 @@ window share it. The engine keeps one list of events for 1 000 copies (the
 test `an_edit_of_notes_that_copies_share_compiles_them_once`). A render of
 copies, loops and cut clips is the same to the bit before and after.
 
+## 2026-11-22: the engine rests when stopped and silent
+
+When the song is stopped and nothing sounds, the whole engine rests: after
+8 quiet blocks, a callback writes silence and returns (see
+`docs/reference/engine.md`, "The engine at rest"). Before, each block still
+cleared, added and measured the buffers of every track, while every device
+slept.
+
+`bench/profile/run.sh idle --secs 30 --perf 30` on the profile project (64
+synth tracks, 2 000 clips), main at fb9882b against TASK-16, 5 interleaved
+pairs. Measured under external load (load average 44 to 83, with the Lua
+suite running on the same machine). The raw numbers are in
+`results/rest-2026-11-22.jsonl`. The thread is the audio thread of the null
+backend.
+
+| Idle for 30 s, audio thread | main: median (range) | TASK-16: median (range) |
+| --- | ---: | ---: |
+| Instructions per second | 38.17 M (38.14 to 38.18 M) | 0.1096 M (0.1096 to 0.1096 M) |
+| Cycles per second | 42.5 M (40.6 to 42.6 M) | 2.76 M (2.62 to 2.86 M) |
+| Percent of a core | 1.86 (1.81 to 1.90) | 0.38 (0.36 to 0.39) |
+
+The instructions of the audio thread fall by 99.7 %. They do not change
+with the load. The thread of the null backend still wakes for each
+callback, so the processor time falls less than the instructions.
+
 ## 2026-11-21: paw in the terminal, profiled
 
 A profile of the kernel and the terminal frontend, with the tools that

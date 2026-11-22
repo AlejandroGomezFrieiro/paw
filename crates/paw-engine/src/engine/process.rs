@@ -115,26 +115,12 @@ impl Engine {
         right: &mut [f32],
     ) {
         let began = std::time::Instant::now();
-        let callback_ns = crate::midi_out::clock_ns();
         let total = left.len().min(right.len());
-        self.begin_callback(total);
-        let mut done = 0;
-        while done < total {
-            self.start_counted_song();
-            let cut = self.cut_block(total - done);
-            let n = cut.n;
-            self.load_input(input, channels, done, n);
-            self.capture(n, cut.start);
-            self.stamp_midi_out(callback_ns, done);
-            self.click_at = done;
-            self.segment(
-                &mut left[done..done + n],
-                &mut right[done..done + n],
-                cut.start,
-                cut.end,
-            );
-            done += n;
-            self.end_block(&cut);
+        let woken = self.begin_callback(total);
+        if self.rests(woken) {
+            self.rest_callback(input, channels, &mut left[..total], &mut right[..total]);
+        } else {
+            self.run_blocks(input, channels, &mut left[..total], &mut right[..total]);
         }
         self.publish_transport();
         self.play_preview(&mut left[..total], &mut right[..total]);
@@ -144,10 +130,34 @@ impl Engine {
         self.shared.processed.fetch_add(1, Relaxed);
     }
 
+    /// Cut the frames of a callback into blocks, and run each through the
+    /// graph.
+    fn run_blocks(&mut self, input: &[f32], channels: usize, left: &mut [f32], right: &mut [f32]) {
+        let callback_ns = crate::midi_out::clock_ns();
+        let total = left.len();
+        let mut done = 0;
+        while done < total {
+            self.start_counted_song();
+            let cut = self.cut_block(total - done);
+            let n = cut.n;
+            self.load_input(input, channels, done, n);
+            self.capture(n, cut.start);
+            self.stamp_midi_out(callback_ns, done);
+            self.click_at = done;
+            let counts = self.counts();
+            let (out_l, out_r) = (&mut left[done..done + n], &mut right[done..done + n]);
+            self.segment(out_l, out_r, cut.start, cut.end);
+            self.note_quiet(counts, out_l, out_r);
+            done += n;
+            self.end_block(&cut);
+        }
+    }
+
     /// What a callback does before its first block: take the main
-    /// thread's messages, and clear the click's own output.
-    fn begin_callback(&mut self, total: usize) {
-        self.pump();
+    /// thread's messages, and clear the click's own output. True if a
+    /// message or a MIDI input event came.
+    fn begin_callback(&mut self, total: usize) -> bool {
+        let woken = self.take_messages();
         if let Some(pool) = &self.pool {
             // Fewer than it was given, if its workers were refused the
             // priority of this thread.
@@ -158,6 +168,7 @@ impl Engine {
             self.click_buf[0][..room].fill(0.0);
             self.click_buf[1][..room].fill(0.0);
         }
+        woken
     }
 
     /// A count-in that has run its course starts the song on this frame.
