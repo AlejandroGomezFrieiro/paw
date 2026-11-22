@@ -3,9 +3,9 @@
 <!-- tags: markers regions -->
 
 A marker is a named place in the song. A region is a named time range.
-They are on a second row of the ruler (a band of their own in the
-graphical window). They move with the beats when the tempo changes, and
-the project saves them. The module is `paw.markers`.
+They are in the lane of regions, under the bar numbers of the ruler. The
+graphical window shows the same rows. They move with the beats when the
+tempo changes, and the project saves them. The module is `paw.markers`.
 
 ## Regions inside regions
 
@@ -21,6 +21,30 @@ the project files do not change.
 - A marker belongs to the innermost region around it.
 - Regions with no region inside them are a tree of one level. They work
   as before.
+
+## The lane of regions
+
+The lane of regions has a row for each level of regions. A region is on
+the row under the region around it, as a track is under its group. The
+markers are on the first row.
+
+- `paw.opt.regionlevels` (default 3) sets the number of rows. A deeper
+  region is on the last row, with `+` before its name.
+- `▾` comes before the name of a region with regions inside it. `▏` comes
+  before the name of a region with no region inside it. `▼` comes before
+  the name of a marker.
+- The styles are `RulerRegion1` (the top level), `RulerRegion2` (the
+  second level), `RulerRegionDeep` (the third level and deeper) and
+  `Marker`.
+- A click on a row takes the region of that row.
+
+The lane is the part `regions` of `paw.ruler` (see
+[The track column and the bar labels](trackcolumn.md#pawruleradd_lane)).
+An extension changes its glyphs and styles:
+
+```lua
+paw.ruler.set_lane("regions", { styles = { level1 = "Title" }, glyphs = { open = "-" } })
+```
 
 ## Keys and commands
 

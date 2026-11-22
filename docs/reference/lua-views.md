@@ -427,7 +427,8 @@ status line, a winbar and the tab line. See "The status line" in
 
 `paw.trackcolumn` adds, changes and removes the parts of the column at
 the left of the track headers: the numbers, the signs and the folds of
-groups. `paw.ruler` does the same for the label of each bar on the ruler.
+groups. `paw.ruler` does the same for the label of each bar on the ruler, and
+for the lanes of rows under it, as the lane of regions.
 See [The track column and the bar labels](trackcolumn.md).
 
 ## Help

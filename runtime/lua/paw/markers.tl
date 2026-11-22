@@ -32,6 +32,7 @@ local type partial = require("paw.partial")
 local type UiModule = require("paw.ui")
 local type objects = require("paw.objects")
 local type CursorModule = require("paw.cursor")
+local type RulerModule = require("paw.ruler")
 
 --- A marker, or a region when it has a `length` in beats. `id` is its own
 --- for good; `color` is a colour of the theme, or nil.
@@ -84,20 +85,6 @@ local record InputOptions
   label: string
 end
 
---- What a layer of the arrange view gets (paw/views/arrange.lua): the
---- ruler's rows, and the column of a beat.
-local record Layer
-  ruler: contracts.Buf
-  ruler2: contracts.Buf
-  x: function(beat: number): integer
-end
-
---- The arrange view, as far as this module adds to it.
-local record Arrange
-  layers: {string: function(view: Arrange, layer: Layer)}
-  ruler2: {string: function(view: Arrange): boolean}
-end
-
 --- A range that a render can use: where it starts and ends, in beats.
 local type Range = function(): number, number
 
@@ -121,6 +108,7 @@ local record Paw is partial.Paw
   time: objects.Time
   transport: objects.Transport
   render: function(path: string, opts: RenderOptions)
+  ruler: RulerModule
 end
 local paw = (_G as {string: Paw}).paw
 
@@ -1241,50 +1229,107 @@ commands.define(
   }
 )
 
--- On the arrange view's ruler ------------------------------------------------------
+-- The regions' lane on the ruler ----------------------------------------------------
 
-local function draw(_: Arrange, layer: Layer)
-  local list = M.list()
-  if #list == 0 then
-    return
+--
+-- Under the bar numbers, a row for each level of the tree of regions (up to
+-- `regionlevels`): a region is drawn under the region around it, as a
+-- track under its group. Deeper regions share the last row, marked `+`.
+-- Markers are on the first row. The lane is a part of `paw.ruler`, so an
+-- extension changes its look: `paw.ruler.set_lane("regions", { styles = { level1 = "Title" } })`.
+
+options.define(
+  "regionlevels", 3, {}
+) -- rows of the regions' lane on the ruler; deeper regions share the last row, marked `+`
+
+local function levels(): integer
+  return math.max(1, math.tointeger((options.opt as {string: number}).regionlevels) or 3)
+end
+
+--- The row of the regions' lane that a marker or region is on: 0 for the
+--- first row (the top level, and the markers).
+function M.lane_row(id: integer): integer
+  local depth = M.depth(id)
+  return depth and math.min(depth, levels()) - 1 or 0
+end
+
+local record Label
+  x: integer
+  text: string
+  style: string
+end
+
+local function lane_rows(): integer
+  if #M.list() == 0 then
+    return 0
   end
-  local ruler = layer.ruler2 or layer.ruler
-  local width = ruler.width
-  -- Regions first, as bands; then every name where it starts, each given
-  -- the room up to the next one.
-  for _, m in ipairs(list) do
-    if m.length then
-      local x0, x1 = math.max(0, layer.x(m.beat)), math.min(width, layer.x(m.beat + m.length))
-      if x1 > x0 then
-        ruler:fill(x0, 0, x1 - x0, 1, " ", "Region")
-      end
+  local deepest = 1
+  for _, node in ipairs(M.walk()) do
+    deepest = math.max(deepest, node.depth)
+  end
+  return math.min(deepest, levels())
+end
+
+local function render(ctx: contracts.RulerLaneContext)
+  local buf, g, s = ctx.buf, ctx.glyphs, ctx.styles
+  local width, last = buf.width, ctx.rows
+  local labels: {integer: {Label}} = {}
+  local function put(row: integer, label: Label)
+    labels[row] = labels[row] or {}
+    table.insert(labels[row], label)
+  end
+  -- Each region as a band on the row of its level, its name where it starts.
+  for _, node in ipairs(M.walk()) do
+    local r = node.region
+    local row = math.min(node.depth, last) - 1
+    local style = node.depth == 1 and s.level1 or node.depth == 2 and s.level2 or s.deep
+    local x0, x1 = math.max(0, ctx.x(r.beat)), math.min(width, ctx.x(r.beat + r.length))
+    if x1 > x0 then
+      buf:fill(x0, row, x1 - x0, 1, " ", style)
+    end
+    local mark = #node.children > 0 and g.open or g.start
+    put(row, {x = ctx.x(r.beat), text = (node.depth > last and g.deeper or "") .. mark .. M.label(r), style = style})
+  end
+  for _, m in ipairs(M.list()) do
+    if not m.length then
+      put(0, {x = ctx.x(m.beat), text = g.marker .. M.label(m), style = s.marker})
     end
   end
-  for i, m in ipairs(list) do
-    local x = layer.x(m.beat)
-    local stop = width
-    for j = i + 1, #list do
-      local nx = layer.x(list[j].beat)
-      if nx > x then
-        stop = math.min(stop, nx)
-        break
+  -- Each name gets the room up to the next one on its row.
+  for row, list in pairs(labels) do
+    table.sort(list, function(a: Label, b: Label): boolean return a.x < b.x end)
+    for i, l in ipairs(list) do
+      local stop = width
+      for j = i + 1, #list do
+        if list[j].x > l.x then
+          stop = math.min(stop, list[j].x)
+          break
+        end
       end
-    end
-    if x >= 0 and x < width and stop > x then
-      local text = (m.length and "▏" or "▼") .. M.label(m)
-      -- Cut where the next one starts; nothing is padded over a region's band.
-      if api.str_width(text) > stop - x then
-        text = util.fit(text, stop - x)
+      if l.x >= 0 and l.x < width and stop > l.x then
+        local text = l.text
+        if api.str_width(text) > stop - l.x then
+          text = util.fit(text, stop - l.x)
+        end
+        buf:text(l.x, row, text, l.style)
       end
-      ruler:text(x, 0, text, m.length and "RegionName" or "Marker")
     end
   end
 end
 
-local arrange = paw.ui.views.arrange as Arrange
-if arrange and arrange.layers then
-  arrange.layers.timeline_markers = draw
-  arrange.ruler2.timeline_markers = function(): boolean return #M.list() > 0 end
-end
+-- Glyphs: `open` before a region with regions inside (as a group's fold in
+-- the track column), `start` before one with none, `deeper` before a region
+-- deeper than the last row, `marker` before a marker. Styles: `level1`,
+-- `level2`, `deep` (the third level and deeper), `marker`.
+paw.ruler.add_lane(
+  "regions",
+  {
+    order = 10,
+    rows = lane_rows,
+    render = render,
+    glyphs = {open = "▾", start = "▏", deeper = "+", marker = "▼"},
+    styles = {level1 = "RulerRegion1", level2 = "RulerRegion2", deep = "RulerRegionDeep", marker = "Marker"},
+  }
+)
 
 return M

@@ -5337,6 +5337,11 @@ function paw.markers.find(which) end
 ---@param marker any
 function paw.markers.label(marker) end
 
+--- The row of the regions' lane that a marker or region is on: 0 for the
+--- first row (the top level, and the markers).
+---@param id any
+function paw.markers.lane_row(id) end
+
 --- Each marker and region, in order of time: { id, beat, name, length, color }.
 --- A region has a `length` in beats. A marker has no length.
 function paw.markers.list() end
@@ -6906,6 +6911,20 @@ function paw.routes.spread(device) end
 ---@param spec any
 function paw.ruler.add(name, spec) end
 
+--- Add a lane of rows under the bar numbers, or put a new one in place of
+--- one of that name.
+---@param name any
+---@param spec any
+function paw.ruler.add_lane(name, spec) end
+
+--- Draw the lanes on `buf`, the rows under the bar numbers, one under the
+--- other. `x` is the column of a beat; `scroll` and `span` the beats in sight.
+---@param buf any
+---@param x any
+---@param scroll any
+---@param span any
+function paw.ruler.draw_lanes(buf, x, scroll, span) end
+
 --- The pieces of bar `bar`'s label, from the parts in `paw.opt.barlabel`
 --- in their order. `bar` is the song's bar: in a scope with time, its
 --- label counts from 1 at the scope's start (`paw.scope.bar_offset`).
@@ -6919,6 +6938,9 @@ function paw.ruler.add(name, spec) end
 ---@param room any
 function paw.ruler.label(bar, beat, style, cursor_beat, room) end
 
+--- How many rows the lanes need now, all together.
+function paw.ruler.lane_rows() end
+
 --- How many `W` (ahead) or `B` (behind) reach bar `bar` from the cursor
 --- at `beat`: from inside a bar, the first `B` goes to its own start
 --- (paw/defaults/cursor.lua). Nil for the cursor's own bar.
@@ -6930,6 +6952,10 @@ function paw.ruler.relative(bar, beat) end
 ---@param name any
 function paw.ruler.remove(name) end
 
+--- Take a lane away.
+---@param name any
+function paw.ruler.remove_lane(name) end
+
 --- Change a part that is there, the built-in `number` too: its `order`,
 --- `render`, and the `glyphs` and `styles` it draws with (merged into its
 --- own). The part becomes a changed copy, as with `paw.trackcolumn.set`:
@@ -6938,6 +6964,14 @@ function paw.ruler.remove(name) end
 ---@param name any
 ---@param patch any
 function paw.ruler.set(name, patch) end
+
+--- Change a lane that is there, the built-in `regions` too: its `order`,
+--- `rows`, `render`, and the `glyphs` and `styles` it draws with (merged
+--- into its own). The lane becomes a changed copy: `paw.ruler.add_lane(name,
+--- old)` puts back the table it had before.
+---@param name any
+---@param patch any
+function paw.ruler.set_lane(name, patch) end
 
 --- A connection closed or stopped to watch. paw keeps no more data for it.
 ---@param client any
@@ -6983,6 +7017,13 @@ function paw.scope.bar_offset(s) end
 --- The path in words: `Song › Bridge › Strings`.
 ---@param s any
 function paw.scope.breadcrumb(s) end
+
+--- The scopes one level inside a scope (the current one by default): for
+--- a region scope, the regions one level inside its region (paw/markers.tl), in
+--- order of time, each a region scope whose parent is that scope. Other
+--- kinds have none.
+---@param s any
+function paw.scope.children(s) end
 
 --- True if a scope (the current one by default; a group's id is a scope
 --- of that group) shows a track: it and every level above it do. With no

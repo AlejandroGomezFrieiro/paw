@@ -165,10 +165,14 @@ local function build(): Groups
     RulerCornerLabel = {fg = c.faint, bg = alt},
     RulerPlayhead = {fg = c.accent, bg = alt, bold = true},
     Ruler2 = {fg = c.faint, bg = c.bg},
-    -- Markers and regions, on the ruler's second row.
+    -- Markers and regions, under the ruler's bar numbers: a row for each
+    -- level of regions (paw/markers.tl).
     Marker = {fg = c.accent, bg = c.bg, bold = true},
     Region = {fg = c.dim, bg = c.sel},
     RegionName = {fg = c.monitor, bg = c.sel, bold = true},
+    RulerRegion1 = {fg = c.monitor, bg = c.sel, bold = true},
+    RulerRegion2 = {fg = c.fg, bg = c.bg_hl, bold = true},
+    RulerRegionDeep = {fg = c.dim, bg = c.bg_hl},
 
     TrackHeader = {fg = c.fg, bg = alt},
     TrackHeaderSel = {fg = c.bright, bg = c.sel},

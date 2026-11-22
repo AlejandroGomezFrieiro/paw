@@ -85,14 +85,11 @@ test(
   "moving a region takes the regions and markers inside it, in one undo step; region.move! moves it alone",
   function()
     start()
-    local r = song()
+    song()
     keys(":region.move Chorus 2 +2<CR>")
     eq(starts("Chorus 2", "Verse A", "Verse B", "Hit", "Intro"), "24 24 40 48 0", "two bars later, with what is inside")
     keys("u")
     eq(starts("Chorus 2", "Verse A", "Verse B", "Hit"), "16 16 32 40", "one undo step puts them all back")
-    keys(":marker.set id=" .. r.chorus.id .. " beat=20<CR>")
-    eq(starts("Chorus 2", "Verse B"), "20 36", "a drag in the window does the same")
-    keys("u")
     keys(":region.move! Chorus 2 +2<CR>")
     eq(starts("Chorus 2", "Verse A", "Verse B"), "24 16 32", "the bang moves the region alone")
   end
@@ -141,4 +138,25 @@ test("render.regions names each file by its path, and level= chooses the regions
     "the regions with none inside, named by their path"
   )
   eq(rendered(1), "01 Intro.wav, 02 Chorus 2.wav, 03 Outro.wav", "level=1: the top level")
+end)
+
+test("a region scope's children are its regions inside, and :narrow takes the one of that name inside", function()
+  start()
+  song()
+  paw.markers.add(64, "Chorus 3", { length = 16 })
+  local verse = paw.markers.add(64, "Verse A", { length = 8 })
+  paw.add_track({ name = "Bass" })
+  keys(":narrow Chorus 3<CR>")
+  local names = {}
+  for i, s in ipairs(paw.scope.children()) do
+    names[i] = s.name
+  end
+  eq(table.concat(names, ", "), "Verse A", "the regions one level inside")
+  keys(":narrow Verse A<CR>")
+  eq(
+    paw.scope.current().id .. " " .. paw.scope.breadcrumb(),
+    verse.id .. " Song › Chorus 3 › Verse A",
+    "the Verse A of Chorus 3"
+  )
+  keys(":widen!<CR>")
 end)

@@ -1320,6 +1320,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.markers.depth(id)`: The level of a region: 1 at the top, 2 inside one region, and so on. Nil for a marker.
 - `paw.markers.find(which)`: The marker or region of a number (its place in the song), of an id given as `{ id = n }`, or of a name. Nil if there is none.
 - `paw.markers.label(marker)`: What a marker is called on screen: its name, or its number in the song.
+- `paw.markers.lane_row(id)`: The row of the regions' lane that a marker or region is on: 0 for the first row (the top level, and the markers).
 - `paw.markers.list()`: Each marker and region, in order of time: { id, beat, name, length, color }. A region has a `length` in beats. A marker has no length.
 - `paw.markers.move(id, beat, alone)`: Move a marker or a region so that it starts at `beat`. A region takes the regions and the markers inside it along, in one undo step, unless `alone`. Returns it and how many moved with it.
 - `paw.markers.next(beat)`: The first marker after a beat, and the last before it.
@@ -1788,14 +1789,19 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.ruler
 
 - `paw.ruler.add(name, spec)`: Add a part of the bar labels, or put a new one in place of one of that name. It goes into `paw.opt.barlabel` (unless `hidden`).
+- `paw.ruler.add_lane(name, spec)`: Add a lane of rows under the bar numbers, or put a new one in place of one of that name.
+- `paw.ruler.draw_lanes(buf, x, scroll, span)`: Draw the lanes on `buf`, the rows under the bar numbers, one under the other. `x` is the column of a beat; `scroll` and `span` the beats in sight.
 - `paw.ruler.label(bar, beat, style, cursor_beat, room)`: The pieces of bar `bar`'s label, from the parts in `paw.opt.barlabel` in their order. `bar` is the song's bar: in a scope with time, its label counts from 1 at the scope's start (`paw.scope.bar_offset`). `style` is the style of the bar's number there. `room` is how many columns the label has before the next bar's: each part gets what the parts before it left (`ctx.room`).
+- `paw.ruler.lane_rows()`: How many rows the lanes need now, all together.
 - `paw.ruler.relative(bar, beat)`: How many `W` (ahead) or `B` (behind) reach bar `bar` from the cursor at `beat`: from inside a bar, the first `B` goes to its own start (paw/defaults/cursor.lua). Nil for the cursor's own bar.
 - `paw.ruler.remove(name)`: Take a part away, and its name out of `paw.opt.barlabel`.
+- `paw.ruler.remove_lane(name)`: Take a lane away.
 - `paw.ruler.set(name, patch)`: Change a part that is there, the built-in `number` too: its `order`, `render`, and the `glyphs` and `styles` it draws with (merged into its own). The part becomes a changed copy, as with `paw.trackcolumn.set`: `paw.ruler.add(name, old)` puts back the table it had before.
 
   ```lua
   paw.ruler.set("number", { styles = { cursor = "Title" } })
   ```
+- `paw.ruler.set_lane(name, patch)`: Change a lane that is there, the built-in `regions` too: its `order`, `rows`, `render`, and the `glyphs` and `styles` it draws with (merged into its own). The lane becomes a changed copy: `paw.ruler.add_lane(name, old)` puts back the table it had before.
 
 ## Module paw.scene
 
@@ -1811,6 +1817,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.scope.apply(s)`: Tell the engine what the rest of the song does for a scope. This is the scope of the tab in front, which the last seat to change tabs (a terminal or a window) selected.
 - `paw.scope.bar_offset(s)`: How many bars of the song come before the first bar of a scope (the current one by default) when its bars are numbered from 1: 0 with no time, or with `scopebars=song`. A scope's bars are the song's (its meter map), counted from the bar its time starts in.
 - `paw.scope.breadcrumb(s)`: The path in words: `Song › Bridge › Strings`.
+- `paw.scope.children(s)`: The scopes one level inside a scope (the current one by default): for a region scope, the regions one level inside its region (paw/markers.tl), in order of time, each a region scope whose parent is that scope. Other kinds have none.
 - `paw.scope.contains(track, s)`: True if a scope (the current one by default; a group's id is a scope of that group) shows a track: it and every level above it do. With no scope, every track is inside.
 - `paw.scope.current(win)`: The scope a window shows (the current window's by default), or nil for the song. A level whose group, track or region is gone is left out.
 - `paw.scope.enter(spec)`: Enter a scope (`{ kind, id, tracks, from, to, name }`). In a tab that shows a scope, it becomes its child, in the same tab: it shows what both show. In a tab that shows the song, a tab of its own opens after it, or the tab that shows the same scope comes to the front. Changes nothing in the project. Returns the scope.

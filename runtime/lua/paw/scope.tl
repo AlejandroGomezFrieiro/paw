@@ -356,6 +356,21 @@ function M.path(s?: Scope): {Scope}
   return out
 end
 
+--- The scopes one level inside a scope (the current one by default): for
+--- a region scope, the regions one level inside its region (paw/markers.tl), in
+--- order of time, each a region scope whose parent is that scope. Other
+--- kinds have none.
+function M.children(s?: Scope): {Scope}
+  local scope = s or M.current()
+  local out: {Scope} = {}
+  if scope and scope.kind == "region" and paw.markers then
+    for _, m in ipairs(paw.markers.children(scope.id)) do
+      out[#out + 1] = {kind = "region", id = m.id, name = m.name, parent = scope}
+    end
+  end
+  return out
+end
+
 --- The path in words: `Song › Bridge › Strings`.
 function M.breadcrumb(s?: Scope): string
   local names = {"Song"}
@@ -454,7 +469,27 @@ function M.named(which: string | integer): Scope
     return groups().is_group(which) and {kind = "group", id = which, name = name_of(which)} or nil
   end
   local wanted = (which as string):lower()
-  local regions = paw.markers and paw.markers.regions() or {}
+  -- A path of regions, `Chorus 2/Verse A`, when names repeat.
+  if wanted:find("/", 1, true) and paw.markers then
+    local r = paw.markers.region(which as string)
+    if r then
+      return {kind = "region", id = r.id, name = r.name}
+    end
+  end
+  -- Of two regions of one name, the one inside the current scope's time.
+  local regions: {MarkersModule.Marker} = {}
+  local later: {MarkersModule.Marker} = {}
+  local from, to = M.span()
+  for _, m in ipairs(paw.markers and paw.markers.regions() or {}) do
+    if not from or (m.beat >= from - 1e-9 and m.beat + m.length <= to + 1e-9) then
+      regions[#regions + 1] = m
+    else
+      later[#later + 1] = m
+    end
+  end
+  for _, m in ipairs(later) do
+    regions[#regions + 1] = m
+  end
   for _, id in ipairs(api.track_list()) do
     if groups().is_group(id) and name_of(id):lower() == wanted then
       return {kind = "group", id = id, name = name_of(id)}
