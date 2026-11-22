@@ -24,6 +24,7 @@ mod devices;
 mod items;
 mod mapper;
 mod nests;
+pub(crate) use nests::passes;
 mod routing;
 #[cfg(test)]
 mod tests;
@@ -228,7 +229,8 @@ impl<'p> Pass<'p, '_, '_> {
         let (shown, old_shown) = (self.shown, self.old_shown);
         for track in new.all_tracks() {
             let plays = played.remove(&track.id);
-            // A nest track plays a copy of its clips for each place of its nest.
+            // A nest track plays a copy of its clips for each place of its
+            // nest; a row also the clips of the tracks in pass mode it holds.
             let now = shown.get(&track.id).map(|e| &e.track);
             let was = old_shown.get(&track.id);
             let moved = match (now, was) {
@@ -254,9 +256,11 @@ impl<'p> Pass<'p, '_, '_> {
                     }
                 }
             }
-            let prev = match now {
-                Some(_) => pass.prev.and(was).map(|t| &**t),
-                None => pass.prev.map(|t| &**t),
+            // What the engine has: the track as it was played, when it was
+            // expanded then or is now.
+            let prev = match (now, was) {
+                (None, None) => pass.prev.map(|t| &**t),
+                _ => pass.prev.and(was).map(|t| &**t),
             };
             self.track_clips(now.unwrap_or(track), prev, &pass);
             self.track_cues(track, &pass, held);

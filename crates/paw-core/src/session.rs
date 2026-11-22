@@ -53,6 +53,8 @@ pub mod media;
 mod midi_out;
 mod nests;
 mod promote;
+mod save;
+pub use save::SaveOpts;
 pub use nests::NestOpts;
 mod monitor;
 mod statelanes;

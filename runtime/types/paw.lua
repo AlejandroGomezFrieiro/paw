@@ -6127,6 +6127,18 @@ function paw.nest.outputs(nest, row, how) end
 ---@param deep any
 function paw.nest.promote(clip, deep) end
 
+--- Save the window's view as a subproject, as `:scope.write` does: per
+--- track, or with a row of its own (`own_row`, `:scope.write!`). The
+--- view's clips move into the subproject (`paw.api.nest_save`); the rows
+--- get its blocks; its markers and regions inside move in, and a region
+--- over its time stays. The meter of the time is the subproject's own.
+--- Per track, the window stays in the view; with a row of its own, it is
+--- inside the subproject at the same place. Call it in one undo step.
+--- Returns the message.
+---@param name any
+---@param own_row any
+function paw.nest.save(name, own_row) end
+
 paw.nest.shift = paw.cursor.shift
 
 --- `za` on a return row: open its subproject's tracks under it, in the
@@ -10374,12 +10386,26 @@ function paw.api.nest_list() end
 --- the block. The group track gets the master's devices and then the
 --- row's, the sum of their faders in dB, the row's pan and sends, and
 --- their lanes (two volume lanes added in dB). The row, the master
---- and the subproject go. Returns `group`, `tracks`, `from`, `to`,
---- `zero` (the song's beat of the subproject's beat 0) and `combined`
---- (the targets of the lanes made one). `paw.nest.promote` does the
---- rest: regions, the meter, the view.
+--- and the subproject go. A subproject saved per track (`<Space>zw`)
+--- gives its clips back to the rows of its blocks instead, with no
+--- group. Returns `group`, `tracks`, `from`, `to`, `zero` (the song's
+--- beat of the subproject's beat 0) and `combined` (the targets of
+--- the lanes made one). `paw.nest.promote` does the rest: regions,
+--- the meter, the view.
 ---@param clip integer
 function paw.api.nest_promote(clip) end
+
+--- Save a view as a subproject, as one undo step: the clips of
+--- `tracks` from `from` to `to` (beats of their place) move into a
+--- new subproject named `name` with the meter `meter`. Per track,
+--- each row keeps its devices and gets a track of the subproject
+--- with its clips; add a block on the row that plays it. With
+--- `own_row`, the tracks go in (whole, or as copies with copies of
+--- their devices and lanes) and one return row plays the mix; add
+--- its block. `paw.nest.save` does the rest: blocks, regions, the
+--- window. Returns `nest`, `rows`, `row`, `tracks` and `changes`.
+---@param opts any
+function paw.api.nest_save(opts) end
 
 --- Change a subproject: a table of the entries to change (`name`,
 --- `length`, `tempo`, `meter`, `kind`, `meta`), as `nest_get` gives

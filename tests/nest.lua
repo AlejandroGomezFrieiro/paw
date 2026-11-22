@@ -377,10 +377,76 @@ test(
 --- The project as its file says it, for comparing two states.
 local function project_text() return api.json_encode(api.undo_project()) end
 
+--- The keys whose numbers are ids.
+local ID_KEYS = {
+  id = true,
+  nest = true,
+  master = true,
+  output = true,
+  target = true,
+  group = true,
+  track = true,
+  sidechain = true,
+  device = true,
+  vcas = true,
+}
+
+--- The project as its file says it, with each id numbered in the order it
+--- comes: two states that differ only in their ids give the same text.
+local function canonical()
+  local seen, count = {}, 0
+  local function walk(v, key)
+    if type(v) == "number" and ID_KEYS[key] then
+      if not seen[v] then
+        count = count + 1
+        seen[v] = count
+      end
+      return "#" .. seen[v]
+    elseif type(v) ~= "table" then
+      return tostring(v)
+    end
+    local names = {}
+    for k in pairs(v) do
+      names[#names + 1] = k
+    end
+    table.sort(names, function(a, b)
+      if type(a) == type(b) then return a < b end
+      return type(a) == "number"
+    end)
+    local parts = {}
+    for _, k in ipairs(names) do
+      -- The items of a list are of the list's key.
+      parts[#parts + 1] = tostring(k) .. "=" .. walk(v[k], type(k) == "number" and key or k)
+    end
+    return "{" .. table.concat(parts, ",") .. "}"
+  end
+  return walk(api.undo_project())
+end
+
+--- A render of the song from `from` to `to` (beats), as the bytes of its file.
+local function sound(from, to)
+  local info = T.render({ tail = 0, bits = 16, start = from, ["end"] = to })
+  return T.read_file(info.path)
+end
+
+--- The largest difference of two 16-bit renders, in steps of the last bit.
+local function apart(a, b)
+  if #a ~= #b then return math.huge end
+  local worst = 0
+  for i = 45, #a - 1, 2 do
+    local x, y = a:byte(i) + a:byte(i + 1) * 256, b:byte(i) + b:byte(i + 1) * 256
+    if x >= 32768 then x = x - 65536 end
+    if y >= 32768 then y = y - 65536 end
+    worst = math.max(worst, math.abs(x - y))
+  end
+  return worst
+end
+
 --- The 6/8 Ballad of nest.md made with keys at bar 33 of a metal song,
 --- with two tracks (Piano, Strings) that each have a synth and a note, two
---- regions inside it, a volume lane on its master and one on its row.
-local function ballad_68()
+--- regions inside it, a volume lane on its row, and one on its master
+--- unless `plain`.
+local function ballad_68(plain)
   metal()
   keys("33|")
   keys(":nest.new Ballad 8 6/8<CR>")
@@ -393,7 +459,7 @@ local function ballad_68()
     api.clip_add(id, { start = 3 * (i - 1), length = 6, notes = { { pitch = 60 + 7 * i, start = 0, length = 2 } } })
   end
   local master = api.nest_get(nest, "master")
-  paw.track(master):automate("volume"):set_points({ { 0, -6 }, { 12, 0 } })
+  if not plain then paw.track(master):automate("volume"):set_points({ { 0, -6 }, { 12, 0 } }) end
   local meta = api.nest_get(nest).meta
   meta.markers = {
     { id = 1, beat = 0, name = "Intro", length = 6 },
@@ -482,33 +548,192 @@ test("promote: the same sound, u gives back the project as it was, and a plugin 
   paw.flush()
   api.undo_checkpoint()
   local before = project_text()
-  local function sound()
-    local info = T.render({ tail = 0, bits = 16, start = 120, ["end"] = 160 })
-    return T.read_file(info.path)
-  end
-  --- The largest difference of two 16-bit renders, in steps of the last bit.
-  local function apart(a, b)
-    if #a ~= #b then return math.huge end
-    local worst = 0
-    for i = 45, #a - 1, 2 do
-      local x, y = a:byte(i) + a:byte(i + 1) * 256, b:byte(i) + b:byte(i + 1) * 256
-      if x >= 32768 then x = x - 65536 end
-      if y >= 32768 then y = y - 65536 end
-      worst = math.max(worst, math.abs(x - y))
-    end
-    return worst
-  end
-  local heard = sound()
+  local heard = sound(120, 160)
   paw.cursor.set_track(b.row)
   paw.cursor.set_beat(130)
   keys(":nest.promote<CR>")
-  eq(apart(sound(), heard) <= 1, true, "a render after promote is the same, to the last bit of rounding")
+  eq(apart(sound(120, 160), heard) <= 1, true, "a render after promote is the same, to the last bit of rounding")
   if plugin then
     local d = api.device_get(plugin.id)
     eq(d.track .. " " .. d.status, b.piano .. " running", "the plugin on the same track, its instance running")
   end
   keys("u")
   eq(project_text(), before, "u: the project before promote")
+end)
+
+-- Save a view: <Space>zw and <Space>zW --------------------------------------------------
+
+--- A song in 4/4 with Bass and Keys, each with a synth, a clip in the
+--- region Bridge (bars 5-10, in 6/8 in the song's map) and one after it,
+--- and a marker and a region inside Bridge. The cursor on Bass.
+local function bridge()
+  start()
+  local ids = {}
+  for i, name in ipairs({ "Bass", "Keys" }) do
+    local t = paw.add_track({ name = name })
+    t:add_device("synth", { attack = 0.001, release = 0.01 })
+    api.clip_add(t.id, { start = 16 + i, length = 6, notes = { { pitch = 40 + 12 * i, start = 0, length = 2 } } })
+    api.clip_add(t.id, { start = 40, length = 4, notes = { { pitch = 45 + 12 * i, start = 0, length = 1 } } })
+    ids[name] = t.id
+  end
+  api.signature_set(16, 6, 8)
+  api.signature_set(34, 4, 4)
+  paw.markers.add(16, "Bridge", { length = 18 })
+  paw.markers.add(20, "Hit")
+  paw.markers.add(28, "Fill", { length = 4 })
+  paw.cursor.set_track(ids.Bass)
+  paw.flush()
+  api.undo_checkpoint()
+  return ids
+end
+
+--- The markers of a subproject as "name@beat+length", in order.
+local function nest_markers(nest)
+  local out = {}
+  for _, m in ipairs(api.nest_get(nest).meta.markers or {}) do
+    out[#out + 1] = string.format("%s@%g%s", m.name, m.beat, m.length and ("+" .. m.length) or "")
+  end
+  return table.concat(out, " ")
+end
+
+test(
+  "znar in Bridge, <Space>zw: blocks on the rows, the same render to the bit, its meter, the markers inside moved in; u",
+  function()
+    local t = bridge()
+    local before, heard = project_text(), sound(0, 48)
+    keys("6|")
+    keys("znar")
+    keys("<Space>zw")
+    local nest = api.nest_list()[1]
+    local n = api.nest_get(nest)
+    eq(n.name .. " " .. #n.tracks, "Bridge 2", "a subproject Bridge with a track for each row")
+    for _, id in ipairs({ t.Bass, t.Keys }) do
+      local clips = api.clip_list(id)
+      eq(#clips, 2, "the row keeps its clip after Bridge and gets a block")
+      eq(
+        string.format("%g+%g %s", clips[1].start, clips[1].length, clips[1].nest == nest and "block" or "clip"),
+        "16+18 block",
+        "a block over Bridge"
+      )
+      eq(api.track_get(id, "nest") == nil and #api.track_get(id).devices, 1, "the row keeps its synth")
+    end
+    eq(sound(0, 48) == heard, true, "the render is the same to the bit")
+    eq(n.meter.mode .. " " .. n.meter.changes[1].num .. "/" .. n.meter.changes[1].den, "own 6/8", "the meter of Bridge")
+    eq(nest_markers(nest), "Hit@4 Fill@12+4", "the marker and the region inside moved in")
+    eq(regions(), "Bridge@16+18", "the region of the view stayed in the song")
+    eq(
+      paw.ui.message.text:find("nested 2 tracks, bars 5-10, as Bridge (6/8)", 1, true) ~= nil,
+      true,
+      paw.ui.message.text
+    )
+    keys("u")
+    eq(project_text(), before, "u: the project before <Space>zw")
+  end
+)
+
+test("<Space>zw then <Space>zp gives the same project, ids aside", function()
+  local t = bridge()
+  local before = canonical()
+  keys("6|")
+  keys("znar")
+  keys("<Space>zw")
+  paw.cursor.set_track(t.Bass)
+  paw.cursor.set_beat(17)
+  keys("<Space>zp")
+  eq(#api.nest_list(), 0, "no subproject left")
+  eq(canonical(), before, "the project as it was before <Space>zw")
+end)
+
+test(":scope.write takes a name; a word with a slash is a path, and the song does not change", function()
+  bridge()
+  local before = project_text()
+  keys("6|")
+  keys("znar")
+  keys(":scope.write ~/lib/bridge<CR>")
+  eq(paw.ui.message.text:find("~/lib/bridge is a path", 1, true) ~= nil, true, paw.ui.message.text)
+  eq(project_text(), before, "nothing saved")
+  keys(":scope.write Middle eight<CR>")
+  eq(api.nest_get(api.nest_list()[1]).name, "Middle eight", "the name as typed")
+end)
+
+test(". after <Space>zw saves the next view beside it", function()
+  bridge()
+  paw.markers.add(34, "Outro", { length = 12 })
+  api.undo_checkpoint()
+  keys("6|")
+  keys("znar")
+  keys("<Space>zw")
+  keys(".")
+  local made = {}
+  for _, n in ipairs(paw.nest.list()) do
+    made[#made + 1] = n.name
+  end
+  eq(table.concat(made, " "), "Bridge Outro", "a subproject for Bridge, then one for Outro")
+end)
+
+test("<Space>zW on two tracks with devices: one return row, the devices inside, the same render", function()
+  local t = bridge()
+  local heard = sound(0, 48)
+  keys("6|")
+  keys("znar")
+  keys("<Space>zW")
+  eq(names(api.track_list()), "Bridge Bass Keys", "one return row, at the place of the first track")
+  eq(paw.scope.breadcrumb(), "Song › ⧉Bridge", "the window inside it")
+  local inside = paw.scope.tracks()
+  eq(names(inside), "Bass Keys", "a copy of each track inside")
+  for _, id in ipairs(inside) do
+    eq(api.device_get(api.track_get(id).devices[1]).kind, "synth", "with a copy of its synth")
+  end
+  eq(#api.clip_list(t.Bass), 1, "the song's Bass keeps its clip after Bridge")
+  eq(apart(sound(0, 48), heard) <= 1, true, "the same render, to the last bit of rounding")
+end)
+
+test(
+  "<Space>zW: a send to a bus outside becomes the return row's, said; a side-chain from outside is refused",
+  function()
+    local t = bridge()
+    local verb = paw.add_track({ name = "Verb" })
+    local kick = paw.add_track({ name = "Kick" })
+    paw.track(t.Bass):send(verb.id, -6)
+    paw.flush()
+    api.undo_checkpoint()
+    paw.scope.enter({ kind = "range", tracks = { t.Bass }, from = 16, to = 34, name = "Bridge" })
+    keys("<Space>zW")
+    local row = api.track_list()[1]
+    eq(names({ row }), "Bridge", "the return row")
+    local sends = api.track_get(row).sends
+    eq(#sends == 1 and sends[1].target == verb.id and sends[1].level, -6, "the row sends to Verb as Bass did")
+    eq(
+      paw.ui.message.text:find("the send of Bass to Verb (-6 dB) is now Bridge's", 1, true) ~= nil,
+      true,
+      paw.ui.message.text
+    )
+    keys("u")
+    paw.scope.widen(true)
+    local comp = paw.track(t.Bass):add_device("compressor")
+    comp:set_sidechain(kick)
+    paw.flush()
+    api.undo_checkpoint()
+    paw.scope.enter({ kind = "range", tracks = { t.Bass }, from = 16, to = 34, name = "Bridge" })
+    keys("<Space>zW")
+    eq(paw.ui.message.text, "compressor on Bass listens to Kick: take Kick in too, or use <Space>zw", "refused")
+    eq(#api.nest_list(), 0, "nothing saved")
+  end
+)
+
+test("the round trip of nest.md 3.9: <Space>zp then <Space>zW gives the same project, ids aside, and render", function()
+  local b = ballad_68(true)
+  paw.markers.add(128, "Ballad", { length = 24 })
+  paw.flush()
+  api.undo_checkpoint()
+  local before, heard = canonical(), sound(120, 160)
+  paw.cursor.set_track(b.row)
+  paw.cursor.set_beat(130)
+  keys("<Space>zp")
+  eq(paw.scope.breadcrumb(), "Song › Ballad", "in the view that took its place")
+  keys("<Space>zW")
+  eq(canonical(), before, "the subproject as it was")
+  eq(apart(sound(120, 160), heard) <= 1, true, "the same render, to the last bit of rounding")
 end)
 
 test(

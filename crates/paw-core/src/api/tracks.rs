@@ -118,14 +118,31 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // the block. The group track gets the master's devices and then the
         // row's, the sum of their faders in dB, the row's pan and sends, and
         // their lanes (two volume lanes added in dB). The row, the master
-        // and the subproject go. Returns `group`, `tracks`, `from`, `to`,
-        // `zero` (the song's beat of the subproject's beat 0) and `combined`
-        // (the targets of the lanes made one). `paw.nest.promote` does the
-        // rest: regions, the meter, the view.
+        // and the subproject go. A subproject saved per track (`<Space>zw`)
+        // gives its clips back to the rows of its blocks instead, with no
+        // group. Returns `group`, `tracks`, `from`, `to`, `zero` (the song's
+        // beat of the subproject's beat 0) and `combined` (the targets of
+        // the lanes made one). `paw.nest.promote` does the rest: regions,
+        // the meter, the view.
         // @return types.NestPromoted
         fn nest_promote(lua, sh, clip => Id) {
             let promoted = sh.session.borrow_mut().nest_promote(clip).lua()?;
             to_lua(lua, &serde_json::to_value(promoted).map_err(mlua::Error::external)?)
+        }
+        // Save a view as a subproject, as one undo step: the clips of
+        // `tracks` from `from` to `to` (beats of their place) move into a
+        // new subproject named `name` with the meter `meter`. Per track,
+        // each row keeps its devices and gets a track of the subproject
+        // with its clips; add a block on the row that plays it. With
+        // `own_row`, the tracks go in (whole, or as copies with copies of
+        // their devices and lanes) and one return row plays the mix; add
+        // its block. `paw.nest.save` does the rest: blocks, regions, the
+        // window. Returns `nest`, `rows`, `row`, `tracks` and `changes`.
+        // @param opts types.NestSaveOptions
+        // @return types.NestSaved
+        fn nest_save(lua, sh, opts => LuaValue) {
+            let saved = sh.session.borrow_mut().nest_save(options(lua, opts)?).lua()?;
+            to_lua(lua, &serde_json::to_value(saved).map_err(mlua::Error::external)?)
         }
         // Change a subproject: a table of the entries to change (`name`,
         // `length`, `tempo`, `meter`, `kind`, `meta`), as `nest_get` gives
