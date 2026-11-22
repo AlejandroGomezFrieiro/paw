@@ -1,6 +1,6 @@
--- Robustness of the kernel's interface: odd arguments to every `paw.api`
--- function, values out of range, big projects, and what is said when
--- something cannot be done.
+-- Robustness of the kernel's interface: values out of range, big projects,
+-- and what is said when something cannot be done. tests/api_boundary.lua
+-- gives wrong arguments to every `paw.api` function.
 local T = ...
 local eq, fresh = T.eq, T.fresh
 local paw = require("paw")
@@ -20,96 +20,6 @@ local function test(name, fn)
     return fn()
   end)
 end
-
--- Functions that wait, end the program, start processes or sockets, touch
--- devices or write files: the odd arguments below would do that for real.
-local SPARED = {
-  "^quit$",
-  "^reload$",
-  "^sleep$",
-  "^wait$",
-  "^limit_",
-  "^proc_",
-  "^sock_",
-  "^rpc_",
-  "^render",
-  "^engine_restart$",
-  "^engine_set_threads$",
-  "^engine_hold$",
-  "^audio_",
-  "^midi_open",
-  "^midi_close",
-  "^midi_test",
-  "^midi_send$",
-  "^project_load$",
-  "^project_save$",
-  "^project_backup$",
-  "^project_recover$",
-  "^project_shelve$",
-  "^project_unshelve$",
-  "^checkpoint_",
-  "^media_collect$",
-  "^media_store$",
-  "^media_adopt$",
-  "^media_relink$",
-  "^fs_",
-  "^test_",
-  "^device_add$",
-  "^device_editor$",
-  "^device_restart$",
-  "^device_load$",
-  "^plugins_",
-  "^lua_devices_",
-  "^canvas_export$",
-  "^state_set$",
-  "^ui_detach$",
-  "^transport_record$",
-  "^measure",
-  "^midi2_write$",
-  "^chain_write$",
-  "^timer_start$",
-  "^trial_begin$",
-  "^preview_play$",
-  "^log$",
-  "^undo_reset$",
-}
-
-local function spared(name)
-  for _, pattern in ipairs(SPARED) do
-    if name:find(pattern) then return true end
-  end
-  return false
-end
-
-test("no paw.api function ends the program when given odd arguments", function()
-  fresh()
-  local t = paw.add_track({ name = "Odd" })
-  t:add_clip({ start = 0, length = 4 })
-  local odd =
-    { 1, -1, 0, 0 / 0, 1e300, -1e300, "abc", "", true, {}, { 1, 2 }, { x = 1 }, { cell = 1 }, { cell = { w = "a" } } }
-  local names = {}
-  for name, fn in pairs(api) do
-    if type(fn) == "function" and not spared(name) then names[#names + 1] = name end
-  end
-  table.sort(names)
-  local calls = 0
-  for _, name in ipairs(names) do
-    local fn = api[name]
-    for _, a in ipairs(odd) do
-      -- A panic in Rust is not caught by pcall: it would end the suite here.
-      pcall(fn, a)
-      pcall(fn, t.id, a)
-      pcall(fn, a, a)
-      pcall(fn, a, a, a, a)
-      calls = calls + 4
-    end
-    pcall(fn)
-  end
-  eq(#names > 150, true, "most of the functions were tried: " .. #names)
-  eq(calls > 8000, true, "and called many ways")
-  paw.transport.stop()
-  fresh()
-end)
 
 test("ui_caps_set takes a table and says so when it is given something else", function()
   local before = api.ui_caps()

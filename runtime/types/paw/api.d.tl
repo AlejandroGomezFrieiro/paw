@@ -290,7 +290,7 @@ local record api
    tempo_set_points: function(tempos: {types.TempoPoint}, sigs: {types.SigPoint})
    tempo_signature: function(beat: number): integer, integer
    test_devices: function()
-   test_panic: function(why: string)
+   test_panic: function(why: string, inside?: boolean)
    timer_start: function(ms: number, repeat_: boolean, func: function()): integer
    timer_stop: function(id: integer)
    toml_decode: function(text: string): any, string

@@ -336,6 +336,10 @@ impl Session {
     }
 
     pub fn project_save(&mut self, path: Option<&Path>) -> Result<PathBuf> {
+        // An empty path would save into the current folder.
+        if path.is_some_and(|path| path.as_os_str().is_empty()) {
+            bail!("a project needs a path to save to, not an empty one");
+        }
         let path = path
             .map(Path::to_path_buf)
             .or_else(|| self.path.clone())

@@ -2,7 +2,6 @@
 
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::time::Duration;
 
 use paw_engine::backend::{BackendChoice, BackendOptions, TestInput};
 use mlua::{Lua, Table, Value as LuaValue};
@@ -203,7 +202,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // @param opts? types.AudioWatchOptions
         fn audio_watch(lua, sh, opts => LuaValue) {
             let opts: AudioWatchOpts = options(lua, opts)?;
-            let period = opts.period.map(|ms| Duration::from_secs_f64(ms.max(0.0) / 1000.0));
+            let period = opts.period.map(super::millis);
             sh.session.borrow_mut().set_audio_watch(opts.auto, period);
             Ok(())
         }

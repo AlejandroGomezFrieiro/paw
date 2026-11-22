@@ -191,13 +191,19 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             paw_engine::guard::register_test_devices(&mut sh.session.borrow_mut().registry);
             Ok(())
         }
-        // Panic, as a bug in the program does. Tests use it to see what paw keeps.
+        // Panic, as a bug in the program does. Tests use it to see what paw
+        // keeps. The panic ends the program, as a bug outside `paw.api`
+        // does, and paw writes a safety copy. With `inside`, it is a bug in
+        // this function: the call gives an error, and the program goes on.
         // @return nil
-        fn test_panic(_, _sh, why => String) {
-            if !why.is_empty() {
+        fn test_panic(_, _sh, (why, inside) => (String, Option<bool>)) {
+            if why.is_empty() {
+                return Ok(());
+            }
+            if inside == Some(true) {
                 panic!("{why}");
             }
-            Ok(())
+            super::end_program(&why)
         }
         // Make plugins apart from the main loop (true), or wait for each as
         // it is added (false, what scripts start with). Returns what it was.

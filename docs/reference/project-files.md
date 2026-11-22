@@ -291,8 +291,8 @@ and the drivers for version control.
   changes.
 - A copy that a session left after a bad end shows at the next start.
   `:recover` opens it, with the name of the project that it is a copy of.
-- A panic writes a safety copy before paw stops, and says where the copy
-  is (see [The audio engine](engine.md#a-device-that-fails)).
+- A panic that stops paw writes a safety copy first, and paw says where the
+  copy is (see [The audio engine](engine.md#a-device-that-fails)).
 - A take is in the safety copy from its start (see
   [Recording](recording.md#files)).
 

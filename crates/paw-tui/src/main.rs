@@ -408,11 +408,18 @@ fn join_running(args: &args::Run, scripted: bool) -> Result<bool> {
 }
 
 /// A panic anywhere but inside a device (which the engine catches, bypasses
-/// and reports) writes a safety copy of the project before the program ends.
+/// and reports) or a function of `paw.api` (which gives a Lua error) writes a
+/// safety copy of the project before the program ends.
 fn install_safety_copy_hook() {
     let hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         if paw_engine::guard::in_device() {
+            return;
+        }
+        // The program goes on: the message goes to stderr, which is the log
+        // while the terminal shows paw.
+        if paw_core::api::in_call() {
+            hook(info);
             return;
         }
         let copy = paw_core::session::panic::write_copy(&info.to_string());
@@ -437,10 +444,12 @@ fn attach_terminal(kernel: &mut Kernel) -> Result<String> {
         sender.send(paw_core::KernelMsg::Input(event)).is_ok()
     })?;
     // A panic message printed into the alternate screen would be lost.
-    // Only one on the main thread ends the program; a device's is caught.
+    // Only one on the main thread ends the program; a device's and one in a
+    // function of `paw.api` are caught.
     let hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
-        if !paw_engine::guard::in_device() && std::thread::current().name() == Some("main") {
+        let caught = paw_engine::guard::in_device() || paw_core::api::in_call();
+        if !caught && std::thread::current().name() == Some("main") {
             terminal::restore();
             restore_stderr();
         }

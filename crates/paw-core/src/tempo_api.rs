@@ -8,7 +8,7 @@ use paw_engine::{SigPoint, TempoMap, TempoPoint};
 use mlua::{Lua, Table, Value as LuaValue};
 use serde::Deserialize;
 
-use crate::api::{LuaResult, Shared, from_lua};
+use crate::api::{LuaResult, Named, Shared, from_lua, guard, guarded, named};
 
 #[derive(Deserialize)]
 struct TempoIn {
@@ -25,72 +25,81 @@ struct SigIn {
     den: u32,
 }
 
-/// Register a function of the project's map.
-fn reader<A, R>(
+/// Register the function `N` of the project's map, with its guard. Use it
+/// through `reader!`, which makes `N`.
+fn reader<N, A, R>(
     lua: &Lua,
     api: &Table,
     shared: &Rc<Shared>,
-    name: &str,
     f: impl Fn(&Lua, &TempoMap, A) -> mlua::Result<R> + 'static,
 ) -> mlua::Result<()>
 where
-    A: mlua::FromLuaMulti,
+    N: Named + 'static,
+    A: mlua::FromLuaMulti + 'static,
     R: mlua::IntoLuaMulti,
 {
     let sh = shared.clone();
     api.set(
-        name,
-        lua.create_function(move |lua, args: A| {
+        N::NAME.trim_start_matches("paw.api."),
+        lua.create_function(guard::<N, A, R, _>(move |lua, args: A| {
             let session = sh.session.borrow();
             f(lua, session.project.tempo_map(), args)
-        })?,
+        }))?,
     )
+}
+
+/// `reader!(lua, api, shared, "tempo_bbt", |lua, map, beat: f64| ...)`.
+macro_rules! reader {
+    ($lua:expr, $api:expr, $shared:expr, $name:literal, $f:expr $(,)?) => {{
+        named!(Name, $name);
+        reader::<Name, _, _>($lua, $api, $shared, $f)
+    }};
 }
 
 pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> {
     // @return number
-    reader(lua, api, shared, "tempo_seconds", |_, m, beat: f64| {
+    reader!(lua, api, shared, "tempo_seconds", |_, m, beat: f64| {
         Ok(m.seconds(beat))
     })?;
     // @return number
-    reader(lua, api, shared, "tempo_beat", |_, m, seconds: f64| {
+    reader!(lua, api, shared, "tempo_beat", |_, m, seconds: f64| {
         Ok(m.beat(seconds))
     })?;
     // @return number
-    reader(lua, api, shared, "tempo_at", |_, m, beat: f64| {
+    reader!(lua, api, shared, "tempo_at", |_, m, beat: f64| {
         Ok(m.tempo(beat))
     })?;
     // @return integer, integer
-    reader(lua, api, shared, "tempo_signature", |_, m, beat: f64| {
+    reader!(lua, api, shared, "tempo_signature", |_, m, beat: f64| {
         Ok(m.signature(beat))
     })?;
     // Bars count from 0 here; `paw.tempo` and `paw.time` count from 1.
     // @return integer
-    reader(lua, api, shared, "tempo_bar_of", |_, m, beat: f64| {
+    reader!(lua, api, shared, "tempo_bar_of", |_, m, beat: f64| {
         Ok(m.bar_of(beat))
     })?;
     // @return number
-    reader(lua, api, shared, "tempo_bar_start", |_, m, bar: i64| {
+    reader!(lua, api, shared, "tempo_bar_start", |_, m, bar: i64| {
         Ok(m.bar_start(bar))
     })?;
     // @return number
-    reader(lua, api, shared, "tempo_bar_length", |_, m, beat: f64| {
+    reader!(lua, api, shared, "tempo_bar_length", |_, m, beat: f64| {
         Ok(m.bar_length(beat))
     })?;
     // @return integer, integer
-    reader(lua, api, shared, "tempo_bar_signature", |_, m, bar: i64| {
+    reader!(lua, api, shared, "tempo_bar_signature", |_, m, bar: i64| {
         Ok(m.bar_signature(bar))
     })?;
     // @return boolean
-    reader(lua, api, shared, "tempo_is_bar_line", |_, m, beat: f64| {
+    reader!(lua, api, shared, "tempo_is_bar_line", |_, m, beat: f64| {
         Ok(m.is_bar_line(beat))
     })?;
     // @return integer, integer, number
-    reader(lua, api, shared, "tempo_bbt", |_, m, beat: f64| {
+    reader!(lua, api, shared, "tempo_bbt", |_, m, beat: f64| {
         Ok(m.bbt(beat))
     })?;
     // @return number
-    reader(
+    reader!(
         lua,
         api,
         shared,
@@ -102,7 +111,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     // The bar and beat lines from one beat to another: { beat, bar, index }
     // each, `index` 0 on a bar line. At most `limit` of them (default 10000).
     // @return {types.TempoLine}
-    reader(
+    reader!(
         lua,
         api,
         shared,
@@ -131,7 +140,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     )?;
     // Every point: `{ tempos = { { beat, bpm, ramp } }, signatures = { { beat, num, den, bar } } }`.
     // @return types.TempoPoints
-    reader(lua, api, shared, "tempo_points", |lua, m, ()| {
+    reader!(lua, api, shared, "tempo_points", |lua, m, ()| {
         let out = lua.create_table()?;
         let tempos = lua.create_table()?;
         for (i, p) in m.tempos().enumerate() {
@@ -159,31 +168,31 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     // @return nil
     api.set(
         "tempo_set",
-        lua.create_function(move |_, (beat, bpm, ramp): (f64, f64, Option<bool>)| {
+        lua.create_function(guarded!("tempo_set", move |_, (beat, bpm, ramp): (f64, f64, Option<bool>)| {
             sh.session.borrow_mut().tempo_set(beat, bpm, ramp).lua()
-        })?,
+        }))?,
     )?;
     let sh = shared.clone();
     // @return nil
     api.set(
         "tempo_remove",
-        lua.create_function(move |_, beat: f64| sh.session.borrow_mut().tempo_remove(beat).lua())?,
+        lua.create_function(guarded!("tempo_remove", move |_, beat: f64| sh.session.borrow_mut().tempo_remove(beat).lua()))?,
     )?;
     let sh = shared.clone();
     // @return nil
     api.set(
         "signature_set",
-        lua.create_function(move |_, (beat, num, den): (f64, u32, u32)| {
+        lua.create_function(guarded!("signature_set", move |_, (beat, num, den): (f64, u32, u32)| {
             sh.session.borrow_mut().signature_set(beat, num, den).lua()
-        })?,
+        }))?,
     )?;
     let sh = shared.clone();
     // @return nil
     api.set(
         "signature_remove",
-        lua.create_function(move |_, beat: f64| {
+        lua.create_function(guarded!("signature_remove", move |_, beat: f64| {
             sh.session.borrow_mut().signature_remove(beat).lua()
-        })?,
+        }))?,
     )?;
     // Replace the whole map: `tempo_set_points({ { beat, bpm, ramp } }, { { beat, num, den } })`.
     // @param tempos {types.TempoPoint}
@@ -192,7 +201,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     let sh = shared.clone();
     api.set(
         "tempo_set_points",
-        lua.create_function(move |lua, (tempos, sigs): (LuaValue, LuaValue)| {
+        lua.create_function(guarded!("tempo_set_points", move |lua, (tempos, sigs): (LuaValue, LuaValue)| {
             let tempos: Vec<TempoIn> = from_lua(lua, tempos)?;
             let sigs: Vec<SigIn> = from_lua(lua, sigs)?;
             let tempos = tempos
@@ -212,7 +221,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
                 })
                 .collect();
             sh.session.borrow_mut().tempo_set_points(tempos, sigs).lua()
-        })?,
+        }))?,
     )?;
     Ok(())
 }
