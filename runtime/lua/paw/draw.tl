@@ -639,6 +639,24 @@ function M.track_peak(id: integer): number, number, number, boolean
   return left, right, M.hold("mix" .. id, loudest), clipped[id] == true
 end
 
+-- The meters' floor: a level below -60 dB lights no part of a meter.
+local floor = 0.001
+
+--- True while a track meter drawn lately (`track_peak`) still shows a
+--- level: it is not at rest yet.
+function M.meters_falling(): boolean
+  for key in pairs(held) do
+    local id = tonumber(key:match("^mix(%d+)$"))
+    if id then
+      local ok, left, right = pcall(api.track_meter, id as integer) as (boolean, number, number)
+      if ok and math.max(left or 0, right or 0) >= floor then
+        return true
+      end
+    end
+  end
+  return false
+end
+
 --- Put out a track's clip light and let its loudest of late fall.
 function M.clear_peak(id: integer)
   clipped[id] = nil

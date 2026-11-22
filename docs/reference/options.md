@@ -110,7 +110,7 @@ When the undo history has more steps than `undo_steps` or more data than `undo_m
 | `paw.opt.mixer_height` | `12` | The rows of the mixer. |
 | `paw.opt.pianoroll_height` | `0` | The rows of the piano roll. `0` shares the space. |
 | `paw.opt.qf_height` | `10` | The rows of the window that `:copen` opens. |
-| `paw.opt.fps` | `60` | The most frames a second that the terminal draws while something moves, from 1 to 240. paw sends a frame only when a cell changes, and while the song plays it draws only the parts that move, which are the playhead, the meters and the status line. |
+| `paw.opt.fps` | `60` | The most frames a second that the terminal draws while something moves, from 1 to 240. paw sends a frame only when a cell changes, and while the song plays it draws only the parts that move, which are the playhead, the meters and the status line. When only meters fall, because paw played a note with the song stopped and no track listens to its input, paw draws at most 20 frames a second, until the meters are at rest. |
 | `paw.opt.message_time` | `4000` | The time in ms that a message stays on the command line. |
 | `paw.opt.termcolors` | `"auto"` | `"true"` for 24-bit color, `"256"` for 256 colors, or `"auto"`. |
 | `paw.opt.ascii` | `false` | Draws with ASCII characters only, and this has priority over `curve_glyphs` and `braille`. |

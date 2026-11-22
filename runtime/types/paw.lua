@@ -2521,6 +2521,10 @@ function paw.draw.meter(buf, x, y, width, peak, hold) end
 ---@param hold any
 function paw.draw.meter_shown(width, peak, hold) end
 
+--- True while a track meter drawn lately (`track_peak`) still shows a
+--- level: it is not at rest yet.
+function paw.draw.meters_falling() end
+
 --- Notes as a small piano roll of `rows` text rows, each `width` columns.
 --- A row holds two pitches, drawn with half blocks. `notes` have `start`,
 --- `length` and `pitch`. A column covers `1 / zoom` beats from `from`.
@@ -8684,6 +8688,11 @@ function paw.ui.mouse(event) end
 
 paw.ui.notify = paw.notify
 
+--- True if only falling meters move now: the song does not play or count
+--- in, and no track listens to its input. The frames then come at most
+--- 20 times a second, and `paw.opt.fps` is for the rest.
+function paw.ui.only_falling() end
+
 --- Open a view in a float over the other views. It takes the keyboard
 --- until `paw.ui.close()`.
 ---   paw.ui.open("help", { title = "Keys", width = 80, height = 30 })
@@ -8806,6 +8815,10 @@ function paw.ui.surface(buf, x, y, w, h, name) end
 --- Define many highlight groups at once.
 ---@param groups any
 function paw.ui.theme(groups) end
+
+--- How many milliseconds the frames of what moves wait for each other now:
+--- `frame_ms`, or 50 while only falling meters move (`only_falling`).
+function paw.ui.tick_ms() end
 
 --- Draw a title bar of one row along the top of a docked panel, and return
 --- a buffer for the rest of it. `opts`: `name`, `pill` (`{ text, group }`,

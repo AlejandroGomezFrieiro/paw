@@ -619,6 +619,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.draw.level(peak)`: How far up a meter a linear peak reaches, from 0 to 1 over 60 dB.
 - `paw.draw.meter(buf, x, y, width, peak, hold)`: A level meter `width` cells wide for a linear peak: a thin rail, lit from the left, green then yellow then red. With `hold` (a linear peak), the loudest of late is marked.
 - `paw.draw.meter_shown(width, peak, hold)`: What `meter` shows for these values in `width` cells, as a text: the cells lit full and half, and the cell of the peak held (-1: none).
+- `paw.draw.meters_falling()`: True while a track meter drawn lately (`track_peak`) still shows a level: it is not at rest yet.
 - `paw.draw.miniroll(notes, width, rows, zoom, from)`: Notes as a small piano roll of `rows` text rows, each `width` columns. A row holds two pitches, drawn with half blocks. `notes` have `start`, `length` and `pitch`. A column covers `1 / zoom` beats from `from`.
 - `paw.draw.mix(a, b, t)`: A color between two colors: `t` 0 gives `a`, 1 gives `b`.
 - `paw.draw.nearest256(hex)`: The nearest of the 256 colors to `#rrggbb`, from the 6x6x6 cube (16 to 231) or the grays (232 to 255). A color with little hue gets a gray. Returns its index and the color that the index shows.
@@ -2230,6 +2231,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.ui.menu(items, opts)`: Open a menu of `items` at `opts.x`, `opts.y` on the screen. See the top of the file.
 - `paw.ui.mouse(event)`: Send a mouse event to the view under the pointer, with coordinates relative to that view (and `view_x`, `view_y`, `w`, `h`, the position of the view). First, the floats over the views and a gesture in progress get it (`paw.mouse`).
 - `paw.ui.notify`: the same as `paw.notify`.
+- `paw.ui.only_falling()`: True if only falling meters move now: the song does not play or count in, and no track listens to its input. The frames then come at most 20 times a second, and `paw.opt.fps` is for the rest.
 - `paw.ui.open(name, opts)`: Open a view in a float over the other views. It takes the keyboard until `paw.ui.close()`.
 
   ```lua
@@ -2255,6 +2257,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.ui.strip(buf, x, y, w, h, opts)`: Keep an area of a buffer for pixels: see `Buf:strip`. Where it is kept is in `paw.ui.rects.surfaces`: `{ key, name, win, x, y, w, h, cell = { w, h }, under, draw, paint }` each, in cells of the screen (`name` the view that kept it, `win` the id of its window, `paint` for a view's whole drawing, `buf:surface`).
 - `paw.ui.surface(buf, x, y, w, h, name)`: Keep an area of a buffer for a view's pixels: see `Buf:surface`. A strip, kept for the view's window, whose drawing is the view's `paint`.
 - `paw.ui.theme(groups)`: Define many highlight groups at once.
+- `paw.ui.tick_ms()`: How many milliseconds the frames of what moves wait for each other now: `frame_ms`, or 50 while only falling meters move (`only_falling`).
 - `paw.ui.titlebar(buf, opts)`: Draw a title bar of one row along the top of a docked panel, and return a buffer for the rest of it. `opts`: `name`, `pill` (`{ text, group }`, before the name), `context` (after the name), `right` (state, at the right end), `reserve` (columns to keep free at the right end, for the view's own items), `focused`. When the panel has focus, the whole bar is in the accent color, inverted.
 
   ```lua

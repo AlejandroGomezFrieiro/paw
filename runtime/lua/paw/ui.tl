@@ -1763,6 +1763,27 @@ local function moving(): boolean
   return api.ui_attached() and M.active()
 end
 
+-- The most frames a second while only meters fall: a note was played
+-- with the song stopped (`poke`), and nothing else moves.
+local falling_fps = 20
+
+--- True if only falling meters move now: the song does not play or count
+--- in, and no track listens to its input. The frames then come at most
+--- 20 times a second, and `paw.opt.fps` is for the rest.
+function M.only_falling(): boolean
+  local playing, _, counting = api.transport_playhead()
+  return not playing and (counting or 0) == 0 and not listening
+end
+
+--- How many milliseconds the frames of what moves wait for each other now:
+--- `frame_ms`, or 50 while only falling meters move (`only_falling`).
+function M.tick_ms(): number
+  if M.only_falling() then
+    return math.max(M.frame_ms(), 1000 / falling_fps)
+  end
+  return M.frame_ms()
+end
+
 -- Frames in a row that changed no cell: the ticker slows down after `still_ticks`
 -- of them (a listening track with a silent input), and a poke ends. A poke
 -- and any changed frame start the count again.
@@ -1783,16 +1804,22 @@ end
 
 local function tick()
   ticker = nil
+  -- A played note keeps the frames going until the meters it lit are at
+  -- rest, also past the time of its poke.
+  if api.now() + M.tick_ms() >= active_until and api.ui_attached() and M.only_falling() and paw.draw.meters_falling() then
+    active_until = api.now() + 2 * M.tick_ms()
+  end
   if not moving() then return end
   if frames_unchanged() then still = still + 1 else still = 0 end
-  if still >= still_ticks and not listening and not api.transport_get().playing then
+  local falling = M.only_falling()
+  if still >= still_ticks and falling then
     -- Only a poke keeps it live, and the meters are at rest.
     active_until = 0
     still = 0
     return
   end
   api.ui_redraw_live()
-  local wait = M.frame_ms()
+  local wait = M.tick_ms()
   if still >= still_ticks then wait = math.max(wait, slow_ms) end
   ticker = paw.defer(tick, wait)
 end
@@ -1801,7 +1828,7 @@ end
 --- nothing moves.
 function M.wake()
   if ticker or not moving() then return end
-  ticker = paw.defer(tick, M.frame_ms())
+  ticker = paw.defer(tick, M.tick_ms())
 end
 
 --- Keep the screen animated for some time, for example after paw plays a note.

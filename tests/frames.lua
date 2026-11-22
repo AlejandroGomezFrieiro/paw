@@ -154,6 +154,62 @@ test("frames: a meter is drawn again exactly when a cell of it changes", functio
   end
 end)
 
+test("frames: while only meters fall, paw draws at most 20 frames a second; playing keeps paw.opt.fps", function()
+  T.fresh()
+  local was = paw.opt.fps
+  T.after(function()
+    paw.opt.fps = was
+    paw.transport.stop()
+  end)
+  paw.opt.fps = 60
+  eq(paw.ui.only_falling(), true, "the song stopped, no input listened to")
+  eq(paw.ui.tick_ms(), 50, "20 frames a second")
+  paw.transport.play()
+  eq(paw.ui.only_falling(), false, "the song plays")
+  eq(math.floor(paw.ui.tick_ms() + 0.5), 17, "paw.opt.fps while it plays")
+  paw.transport.stop()
+  local gtr = paw.add_track({ name = "Guitar" })
+  gtr.input = "1"
+  gtr.armed = true
+  paw.flush()
+  eq(paw.ui.tick_ms() < 20, true, "and while an input moves the meters")
+end)
+
+test(
+  "frames: an audition with the song stopped draws a third of the frames, and the meter it lit comes to rest",
+  function()
+    -- The terminal's ticker, as when a terminal is attached: each frame of
+    -- what moves is drawn as the terminal draws it.
+    T.fresh()
+    local t = T.tone("Lead", 4)
+    local W, H = 120, 40
+    local was = paw.opt.fps
+    local attached, redraw = api.ui_attached, api.ui_redraw_live
+    local frames, last = 0, nil
+    T.after(function()
+      api.ui_attached, api.ui_redraw_live, paw.opt.fps = attached, redraw, was
+    end)
+    paw.opt.fps = 60
+    api.ui_frame_snapshot(W, H)
+    api.ui_attached = function() return true end
+    api.ui_redraw_live = function()
+      frames = frames + 1
+      last = api.ui_frame_snapshot(W, H, true) or last
+    end
+    local t0 = api.now()
+    t:play_note("A3", 100, 180)
+    T.until_(function() return not paw.ui.active() end, "the frames of the audition to end", 5000)
+    local ms = api.now() - t0
+    local before = ms / (1000 / 60)
+    eq(frames > 0 and frames <= before * 0.4, true, frames .. " frames in " .. ms .. " ms, a third of " .. before)
+    api.ui_attached = attached
+    local whole = api.ui_frame_snapshot(W, H)
+    for row = 1, H do
+      eq(last.cells[row], whole.cells[row], "row " .. row .. ": the last frame is the meter at rest")
+    end
+  end
+)
+
 test("frames: a view that does not say what moves in it is drawn whole", function()
   T.fresh()
   paw.ui.view("frames_moving", { render = function(_, buf) buf:text(0, 0, tostring(paw.transport.position)) end })
