@@ -57,6 +57,11 @@ end
 --- An empty list as the model reads one: a plain empty table is an object.
 local function list() return api.json_decode("[]") end
 
+--- A track id that the kernel has not given to anything in a file saved
+--- before: the kernel never gives an id twice. A literal id could be the id
+--- of a device or a clip of the fixture, as the kernel counts ids across tests.
+local function unused_track_id() return paw.add_track({ name = "unused" }).id end
+
 local function decode(path)
   local doc, err = projdiff.file(path)
   assert(doc, err)
@@ -116,8 +121,9 @@ test(
         break
       end
     end
+    local pad = unused_track_id()
     table.insert(now.project.tracks, {
-      id = 90,
+      id = pad,
       name = "Pad",
       volume = 0,
       pan = 0,
@@ -143,7 +149,7 @@ test(
     has(text, "note 9 C5 at 3", "a note added")
     has(text, "points +1 ~1", "automation")
     has(text, "- track " .. bass.id .. ' "Bass"', "a track removed")
-    has(text, '+ track 90 "Pad"', "a track added")
+    has(text, "+ track " .. pad .. ' "Pad"', "a track added")
     has(text, "tempo at beat 16: 90 bpm", "the tempo map")
     has(text, 'marker 1 "Chorus": beat 8 -> 12', "a marker moved")
     has(text, 'marker 7 "Outro" at beat 20', "a marker added")
@@ -304,9 +310,10 @@ test("projdiff: tracks, notes and markers both sides added keep both, with new n
       monitor = false,
     }
   end
-  table.insert(ours.project.tracks, new_track(50, "Ours", nil))
-  table.insert(theirs.project.tracks, new_track(50, "Theirs", nil))
-  table.insert(theirs.project.tracks, new_track(51, "Feeds", 50))
+  local added, feeds_id = unused_track_id(), unused_track_id()
+  table.insert(ours.project.tracks, new_track(added, "Ours", nil))
+  table.insert(theirs.project.tracks, new_track(added, "Theirs", nil))
+  table.insert(theirs.project.tracks, new_track(feeds_id, "Feeds", added))
   table.insert(
     track(ours, "Lead").clips[1].content.notes,
     { id = 4, pitch = 72, start = 3, length = 1, velocity = 100 }
@@ -321,8 +328,8 @@ test("projdiff: tracks, notes and markers both sides added keep both, with new n
   eq(#conflicts, 0, "no conflicts")
   eq(names(merged), "Lead,Bass,Drums,Theirs,Feeds,Ours", "all the tracks")
   local theirs_id, feeds = track(merged, "Theirs").id, track(merged, "Feeds")
-  eq(track(merged, "Ours").id, 50, "ours keeps its number")
-  eq(theirs_id ~= 50, true, "theirs has another")
+  eq(track(merged, "Ours").id, added, "ours keeps its number")
+  eq(theirs_id ~= added, true, "theirs has another")
   eq(feeds.output, theirs_id, "what pointed at theirs follows it")
   local notes = track(merged, "Lead").clips[1].content.notes
   eq(#notes, 5, "both notes")

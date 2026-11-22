@@ -1,6 +1,7 @@
 # The leaks that the suite knows of (tests/suite.lua, "The leak check"):
 # one "<part> <kind>" on each line, where a part is a file of tests/ or the
-# folder of an extension, and a kind is hooks, timers, keys or extensions.
+# folder of an extension, and a kind is hooks, timers, keys, extensions,
+# engine, midi or step.
 # Do not add a line. Remove a line when its leak is fixed: the suite fails
 # while a line names a leak that is gone.
 # Count: 0

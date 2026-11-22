@@ -161,8 +161,19 @@ local function fresh()
   for _, w in ipairs(L.windows(paw.ui.layout)) do
     if w.scope and paw.scope then paw.scope.restore(nil, w) end
   end
+  -- The views that an earlier test popped out into windows of their own
+  -- (a tuner, a meter) go back: the start layout has no such window.
+  for _, w in ipairs(paw.canvas.windows()) do
+    paw.canvas.close(w.name)
+  end
   paw.ui.close()
   paw.ui.focus("arrange")
+  -- `<C-w>p` goes to the window before: a new test has none.
+  L.tab().prev = nil
+  -- The quickfix lists of an earlier test address its project: a new
+  -- project starts with none.
+  local qf = paw.qf.stack()
+  qf.lists, qf.at = {}, 0
   paw.flush()
 end
 
@@ -455,10 +466,13 @@ end
 -- starts as it does in the full suite, whatever ran before it. A handler,
 -- timer or key mapping of test code that is still there, and an extension
 -- that the runner cannot unload, fail "<part> leaves no state behind".
+-- The runner also compares the state of the kernel that no registry holds
+-- (`kernel` below). Any change of it is a leak, whatever code made it, and
+-- the message names the first test that left it.
 -- `tests/leaks-allowed.txt` lists the leaks that are known, one
 -- "<part> <kind>" on each line: the list only gets shorter.
 
-local kinds = { "hooks", "timers", "keys", "extensions" }
+local kinds = { "hooks", "timers", "keys", "extensions", "engine", "midi", "step" }
 local watched = { hooks = true, timers = true, keys = true }
 
 -- Whether a function's source is a test file.
@@ -484,15 +498,89 @@ for _, reg in ipairs(paw.ext.registries) do
   if watched[reg.kind] then registries[reg.kind] = reg end
 end
 
--- The entries of the watched registries, by kind and key, and the loaded
--- extensions.
+-- State of the kernel that a test can change with the API, outside the
+-- registries. `read` gives a label in words, which the check compares, and
+-- the value that `put` takes to put it back. `put` runs in the order of the
+-- list: an engine restart also empties the MIDI test ports.
+local kernel = {
+  {
+    -- The audio backend and its settings (`api.engine_restart`).
+    kind = "engine",
+    read = function()
+      local e = api.engine_get()
+      local label = string.format("%s %g Hz %d frames", e.backend, e.sample_rate, e.buffer_size)
+      return label .. (e.midi and " with MIDI" or ""), e
+    end,
+    put = function(e)
+      api.engine_restart({
+        backend = e.backend,
+        sample_rate = e.sample_rate,
+        buffer_size = e.buffer_size,
+        midi = e.midi,
+      })
+    end,
+  },
+  {
+    -- The MIDI inputs: the test ports on the null backend
+    -- (`api.midi_test_ports`), and the ports of the program's own
+    -- (`paw.midi.open_port`), which are marked "own".
+    kind = "midi",
+    read = function()
+      local names, tests, own = {}, {}, {}
+      for _, port in ipairs(api.midi_inputs()) do
+        if port.own then
+          own[port.name] = true
+          names[#names + 1] = port.name .. " (own)"
+        else
+          tests[#tests + 1] = port.name
+          names[#names + 1] = port.name
+        end
+      end
+      return "ports {" .. table.concat(names, ", ") .. "}", { tests = tests, own = own }
+    end,
+    put = function(ports)
+      api.midi_test_ports(ports.tests)
+      for _, port in ipairs(api.midi_inputs()) do
+        if port.own and not ports.own[port.name] then api.midi_close_port(port.name) end
+      end
+    end,
+  },
+  {
+    -- The step input controls that Lua bound and no file saved.
+    kind = "step",
+    read = function()
+      local sources = {}
+      for _, b in ipairs(paw.step.bindings()) do
+        if not b.saved then sources[#sources + 1] = paw.step.source_text(b.source) end
+      end
+      table.sort(sources)
+      return "controls {" .. table.concat(sources, ", ") .. "}", sources
+    end,
+    put = function(sources)
+      local keep = {}
+      for _, text in ipairs(sources) do
+        keep[text] = true
+      end
+      for _, b in ipairs(paw.step.bindings()) do
+        if not b.saved and not keep[paw.step.source_text(b.source)] then paw.step.unbind(b.source) end
+      end
+    end,
+  },
+}
+
+-- The entries of the watched registries, by kind and key, the loaded
+-- extensions, and the state of the kernel, by kind.
 local function fingerprint()
-  local out = { extensions = {} }
+  local out = { extensions = {}, kernel = {} }
   for name in pairs(paw.ext.loaded) do
     out.extensions[name] = true
   end
   for kind, reg in pairs(registries) do
     out[kind] = reg.snapshot()
+  end
+  for _, state in ipairs(kernel) do
+    local label, value = state.read()
+    out.kernel[state.kind] = { label = label, value = value }
   end
   return out
 end
@@ -526,12 +614,20 @@ local function differences(base, now)
   end
   table.sort(changed)
   if #changed > 0 then out.extensions = table.concat(changed, ", ") end
+  for _, state in ipairs(kernel) do
+    local was, is = base.kernel[state.kind].label, now.kernel[state.kind].label
+    if was ~= is then out[state.kind] = was .. " -> " .. is end
+  end
   return out
 end
 
 -- Put back what the tests changed since `base`: the entries that test code
--- made, and the extensions (those loaded since are unloaded).
+-- made, the extensions (those loaded since are unloaded), and the state of
+-- the kernel.
 local function reset(base, now)
+  for _, state in ipairs(kernel) do
+    if base.kernel[state.kind].label ~= state.read() then pcall(state.put, base.kernel[state.kind].value) end
+  end
   for kind, reg in pairs(registries) do
     for key, value in pairs(now[kind]) do
       if value ~= base[kind][key] and made_by_tests(value) then pcall(reg.put, key, base[kind][key]) end
@@ -584,9 +680,25 @@ end
 local start_options = paw.option.snapshot()
 local base = fingerprint()
 local leaked = {}
+-- The first test of the part that left each kind of kernel state changed,
+-- by kind. A test that puts the state back clears its entry.
+local left_by = {}
+local function note_kernel(t)
+  for _, state in ipairs(kernel) do
+    if state.read() == base.kernel[state.kind].label then
+      left_by[state.kind] = nil
+    elseif not left_by[state.kind] then
+      left_by[state.kind] = t.name
+    end
+  end
+end
 local function check(part)
   local now = fingerprint()
   local found = differences(base, now)
+  for kind, name in pairs(left_by) do
+    if found[kind] then found[kind] = found[kind] .. ' (test "' .. name .. '")' end
+  end
+  left_by = {}
   reset(base, now)
   -- The runner unloads the extensions that the tests loaded: only one that
   -- it cannot unload, or one that a test unloaded, is a leak.
@@ -615,6 +727,7 @@ for i, t in ipairs(selected) do
     cleanups[j] = nil
   end
   paw.option.restore(start_options)
+  note_kernel(t)
   if ok and type(err) == "string" then
     print("skip  " .. t.name .. " (" .. err .. ")")
   elseif ok then

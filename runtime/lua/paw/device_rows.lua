@@ -12,6 +12,13 @@ local M = {}
 
 local function rows() return panel:rows() end
 
+--- The row of the cursor. `rows()` first: on another track, or in another
+--- project, it starts again on the first device before a key moves it.
+local function here()
+  rows()
+  return panel.row
+end
+
 --- The row a device's heading is on, and the last row of its parameters.
 local function span_of(index)
   local list = rows()
@@ -51,7 +58,7 @@ end
 
 -- Rows are the panel's rows; there are no columns.
 panel.grid = {
-  get = function() return panel.row, 0 end,
+  get = function() return here(), 0 end,
   set = function(row) to(row) end,
   step = function() return 1 end,
   rows = true,
@@ -64,7 +71,7 @@ local lines = { motion = true, linewise = true }
 local far_lines = { motion = true, linewise = true, jump = true }
 local function dmap(lhs, rhs, desc, opts) map(lhs, rhs, util.merge({ view = "devices", desc = desc }, opts)) end
 local function step(n)
-  return function(ctx) to(panel.row + n * (ctx.count or 1)) end
+  return function(ctx) to(here() + n * (ctx.count or 1)) end
 end
 
 dmap("j", step(1), "Next row", lines)
@@ -75,14 +82,14 @@ dmap("gg", function(ctx) to(ctx.count or 1) end, "The first row, or row N", far_
 dmap("G", function(ctx) to(ctx.count or #rows()) end, "The last row, or row N", far_lines)
 dmap("w", function(ctx)
   for _ = 1, ctx.count or 1 do
-    local _, last = span_of(panel.row)
+    local _, last = span_of(here())
     if not last or not rows()[last + 1] then break end
     to(last + 1)
   end
 end, "The next device", lines)
 dmap("b", function(ctx)
   for _ = 1, ctx.count or 1 do
-    local first = span_of(panel.row)
+    local first = span_of(here())
     if not first then break end
     if first < panel.row then
       to(first)
@@ -93,7 +100,7 @@ dmap("b", function(ctx)
 end, "This device's heading, or the device before", lines)
 dmap("e", function(ctx)
   for _ = 1, ctx.count or 1 do
-    local _, last = span_of(panel.row)
+    local _, last = span_of(here())
     if not last then break end
     if last > panel.row then
       to(last)

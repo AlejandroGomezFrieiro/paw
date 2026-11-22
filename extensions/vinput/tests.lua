@@ -46,9 +46,14 @@ local function load()
     vinput, run, panel = require("vinput"), require("vinput.run"), require("vinput.panel")
     run.PERIOD, run.SETTLE, run.GRACE, run.RETRY = 40, 50, 1000, 60
   end
-  for i = #vinput.inputs, 1, -1 do
-    vinput.remove(vinput.inputs[i].name)
+  local function remove_all()
+    for i = #vinput.inputs, 1, -1 do
+      vinput.remove(vinput.inputs[i].name)
+    end
   end
+  -- Each input has a MIDI port of the program's own: none stays after the test.
+  remove_all()
+  T.after(remove_all)
   -- The runner gives the options back after each test.
   paw.opt.vinput_file = kept
   paw.opt.vinput_run = false

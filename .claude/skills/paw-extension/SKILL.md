@@ -197,6 +197,12 @@ extension, the runner unloads the extensions that the tests loaded, and
 removes the event handlers, timers and key mappings that test code made. A
 handler, timer or key mapping that is still there fails
 "`extensions/<name>/` leaves no state behind".
+
+The check also compares the audio engine, the MIDI ports and the step
+input controls. The MIDI ports are the test ports and the ports of the
+program. A change of one of them fails the check. The message names the
+test that made the change.
+
 Remove what a test adds with `T.after(fn)`. Do not add lines to
 `tests/leaks-allowed.txt`.
 
