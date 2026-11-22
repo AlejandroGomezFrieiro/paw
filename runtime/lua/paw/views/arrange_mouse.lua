@@ -843,7 +843,6 @@ end
 
 local function wheel(self, e, h)
   local step, sideways = mouse.wheel(e)
-  local g = self.geometry
   if mouse.has(e, "C") and not sideways and h.timeline then
     -- Zoom in time, keeping the beat under the pointer where it is.
     local zoom = util.clamp(paw.opt.zoom * (step < 0 and math.sqrt(2) or 1 / math.sqrt(2)), 0.125, 64)
@@ -851,9 +850,8 @@ local function wheel(self, e, h)
     paw.opt.zoom = zoom
     self.scroll = math.max(0, at - h.tx / zoom)
   elseif (mouse.has(e, "C") or mouse.has(e, "A")) and not sideways then
-    -- Taller or shorter tracks, from the height they have now.
-    local now = tonumber(paw.opt.track_height) or g.th
-    paw.opt.track_height = util.clamp(now - step, 1, 12)
+    -- The vertical zoom (paw/vzoom.tl): Alt anywhere, Ctrl over the headers.
+    return paw.vzoom.step(-step, { view = "arrange" })
   elseif sideways or mouse.has(e, "S") then
     self.scroll = math.max(0, self.scroll + step * paw.time.bar(self.scroll))
   else

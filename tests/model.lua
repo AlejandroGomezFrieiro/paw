@@ -146,7 +146,8 @@ test("events report what changed", function()
   eq(#seen, 0, "no events after paw.off")
 
   local family = 0
-  paw.on("track.*", function() family = family + 1 end)
+  local id = paw.on("track.*", function() family = family + 1 end)
+  T.after(function() paw.off(id) end)
   paw.emit("track.custom")
   paw.emit("other.custom")
   eq(family, 1, "family pattern")
