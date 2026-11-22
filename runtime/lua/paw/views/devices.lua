@@ -346,21 +346,14 @@ local function heading(buf, y, w, index, d, devices, chosen)
       local width = part and api.str_width(part[1]) or 0
       if part and at - width - 1 > after then
         at = at - width - 1
-        buf:mark(
-          "button",
-          at,
-          y,
-          width,
-          1,
-          {
-            text = part[1],
-            style = "ParamValue",
-            quiet = true,
-            tone = "text_2",
-            menu = true,
-            hit = { kind = part[2], device = d.id },
-          }
-        )
+        buf:mark("button", at, y, width, 1, {
+          text = part[1],
+          style = "ParamValue",
+          quiet = true,
+          tone = "text_2",
+          menu = true,
+          hit = { kind = part[2], device = d.id },
+        })
       end
     end
   end
@@ -466,19 +459,12 @@ local function footer(buf, y, w, track, draw)
   local name_w = math.min(10, math.max(4, w - 26))
   for i, send in ipairs(routing.sends) do
     local sy = y + 1 + i
-    buf:mark(
-      "label",
-      1,
-      sy,
-      name_w,
-      1,
-      {
-        text = util.fit(g.send .. " " .. send.name, name_w):gsub("%s+$", ""),
-        style = "TrackInfo",
-        font = "sans",
-        tone = "text_2",
-      }
-    )
+    buf:mark("label", 1, sy, name_w, 1, {
+      text = util.fit(g.send .. " " .. send.name, name_w):gsub("%s+$", ""),
+      style = "TrackInfo",
+      font = "sans",
+      tone = "text_2",
+    })
     local level = string.format("%.1f dB", send.level)
     local width = math.max(4, w - name_w - 2 - 6 - 1)
     buf:mark("param", name_w + 2, sy, width, 1, {
@@ -491,33 +477,19 @@ local function footer(buf, y, w, track, draw)
       hit = { kind = "send", track = track.id, index = i, bar = math.max(3, width - 9) },
       label = "send to " .. send.name,
     })
-    buf:mark(
-      "button",
-      w - 5,
-      sy,
-      3,
-      1,
-      {
-        text = "pre",
-        style = send.pre and "Bright" or "Faint",
-        on = send.pre,
-        hit = { kind = "send_pre", track = track.id, index = i },
-      }
-    )
-    buf:mark(
-      "button",
-      w - 2,
-      sy,
-      2,
-      1,
-      {
-        text = g.remove,
-        style = "Faint",
-        icon = "remove",
-        quiet = true,
-        hit = { kind = "send_remove", track = track.id, index = i },
-      }
-    )
+    buf:mark("button", w - 5, sy, 3, 1, {
+      text = "pre",
+      style = send.pre and "Bright" or "Faint",
+      on = send.pre,
+      hit = { kind = "send_pre", track = track.id, index = i },
+    })
+    buf:mark("button", w - 2, sy, 2, 1, {
+      text = g.remove,
+      style = "Faint",
+      icon = "remove",
+      quiet = true,
+      hit = { kind = "send_remove", track = track.id, index = i },
+    })
   end
   return n
 end

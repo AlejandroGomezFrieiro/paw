@@ -82,22 +82,18 @@ command("pattern.detach", function()
   end
 end, { desc = "Stop the clip following its pattern, keeping its notes" })
 
-command(
-  "pattern.seed",
-  function(ctx)
-    local clip = M.target(false)
-    if not clip then return end
-    local pm = pattern.get(clip)
-    if not pm then return paw.notify("the clip has no pattern", "warn") end
-    local seed = tonumber(ctx.args[1]) or (pm.seed or 0) + (tonumber(ctx.args.by) or 1) * (ctx.count or 1)
-    local notes, err = pattern.set(clip, pm.text, { seed = seed })
-    if not notes then return report_error(err) end
-    paw.notify(string.format("pattern seed %d: %d notes", seed, #notes))
-  end,
-  {
-    desc = "Set the seed of the clip's random choices: `pattern.seed 7`; with no number, the next one (`by=-1` the previous)",
-  }
-)
+command("pattern.seed", function(ctx)
+  local clip = M.target(false)
+  if not clip then return end
+  local pm = pattern.get(clip)
+  if not pm then return paw.notify("the clip has no pattern", "warn") end
+  local seed = tonumber(ctx.args[1]) or (pm.seed or 0) + (tonumber(ctx.args.by) or 1) * (ctx.count or 1)
+  local notes, err = pattern.set(clip, pm.text, { seed = seed })
+  if not notes then return report_error(err) end
+  paw.notify(string.format("pattern seed %d: %d notes", seed, #notes))
+end, {
+  desc = "Set the seed of the clip's random choices: `pattern.seed 7`; with no number, the next one (`by=-1` the previous)",
+})
 
 command("pattern.cycle", function(ctx)
   local clip = M.target(false)

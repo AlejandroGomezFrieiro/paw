@@ -61,18 +61,14 @@ command("Psnapshot", function(ctx)
   )
 end, { desc = "Keep the project as it is, to compare with later: `Psnapshot before the bridge`", raw = true })
 
-command(
-  "Pmerge",
-  function(ctx)
-    local path = ctx.args[1] or paw.api.project_get("path")
-    if not path then return paw.notify("the project has no file: `:Pmerge file.json`", "warn") end
-    mergeview.open(path)
-  end,
-  {
-    desc = "Settle the conflicts a git merge left in a project (the open one, or `Pmerge file.json`)",
-    complete = { "files" },
-  }
-)
+command("Pmerge", function(ctx)
+  local path = ctx.args[1] or paw.api.project_get("path")
+  if not path then return paw.notify("the project has no file: `:Pmerge file.json`", "warn") end
+  mergeview.open(path)
+end, {
+  desc = "Settle the conflicts a git merge left in a project (the open one, or `Pmerge file.json`)",
+  complete = { "files" },
+})
 
 command("Pgit", function()
   local root = debug.getinfo(1, "S").source:match("^@(.*)/[^/]*$") or "extensions/projdiff"

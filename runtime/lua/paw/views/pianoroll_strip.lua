@@ -80,19 +80,15 @@ local function draw(self, buf)
     key = "pianoroll:strip",
     under = true,
     draw = function(gp, px)
-      M.picture(
-        gp,
-        px,
-        {
-          list = list,
-          chosen = chosen,
-          kind = kind,
-          scroll = scroll,
-          zoom = zoom,
-          length = length,
-          color = paw.draw.track_colour(api.track_get(api.clip_get(clip.id).track)),
-        }
-      )
+      M.picture(gp, px, {
+        list = list,
+        chosen = chosen,
+        kind = kind,
+        scroll = scroll,
+        zoom = zoom,
+        length = length,
+        color = paw.draw.track_colour(api.track_get(api.clip_get(clip.id).track)),
+      })
     end,
   })
   if pictured then return end

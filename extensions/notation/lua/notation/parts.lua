@@ -809,16 +809,13 @@ local function voices(ea, eb)
   for k, list in ipairs({ ea, eb }) do
     local dir = k == 1 and 1 or -1
     for _, ev in ipairs(list) do
-      out[#out + 1] = setmetatable(
-        {
-          voice = k,
-          player = k,
-          stem = ev.stem and dir or nil,
-          beam = ev.beam and (k .. ":" .. tostring(ev.beam)) or nil,
-          shift = ev.kind == "rest" and 2 * dir or nil,
-        },
-        { __index = ev }
-      )
+      out[#out + 1] = setmetatable({
+        voice = k,
+        player = k,
+        stem = ev.stem and dir or nil,
+        beam = ev.beam and (k .. ":" .. tostring(ev.beam)) or nil,
+        shift = ev.kind == "rest" and 2 * dir or nil,
+      }, { __index = ev })
     end
   end
   table.sort(
@@ -934,19 +931,16 @@ function P.score_layout(opts)
     end
   end
   local top = layouts[1]
-  local out = setmetatable(
-    {
-      staves = {},
-      tracks = {},
-      labels = {},
-      brackets = {},
-      braces = {},
-      spans = {},
-      units = {},
-      asked = { breaks = {}, joins = {} },
-    },
-    { __index = top }
-  )
+  local out = setmetatable({
+    staves = {},
+    tracks = {},
+    labels = {},
+    brackets = {},
+    braces = {},
+    spans = {},
+    units = {},
+    asked = { breaks = {}, joins = {} },
+  }, { __index = top })
   out.measures = {}
   for mi, m in ipairs(top.measures) do
     out.measures[mi] = setmetatable({ staves = {}, marks = {}, rehearsal = m.rehearsal }, { __index = m })

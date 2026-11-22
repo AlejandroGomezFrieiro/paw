@@ -195,36 +195,28 @@ end
 
 local plan -- the last measurement: { track, results }
 
-paw.command(
-  "art.measure",
-  function()
-    local track = paw.ui.views.pianoroll:clip() and paw.ui.views.pianoroll:clip():get().track
-      or (paw.cursor.track() and paw.cursor.track().id)
-    if not track then error("no track here", 0) end
-    local results = M.measure(track)
-    plan = { track = track, results = results }
-    paw.ui.page("Articulation delays", M.lines(art.map_of(track), results))
-  end,
-  {
-    desc = "Measure how late each articulation of the track's instrument sounds (one note each, rendered offline), and show the delays to write",
-  }
-)
+paw.command("art.measure", function()
+  local track = paw.ui.views.pianoroll:clip() and paw.ui.views.pianoroll:clip():get().track
+    or (paw.cursor.track() and paw.cursor.track().id)
+  if not track then error("no track here", 0) end
+  local results = M.measure(track)
+  plan = { track = track, results = results }
+  paw.ui.page("Articulation delays", M.lines(art.map_of(track), results))
+end, {
+  desc = "Measure how late each articulation of the track's instrument sounds (one note each, rendered offline), and show the delays to write",
+})
 
-paw.command(
-  "art.measure!",
-  function()
-    local track = paw.ui.views.pianoroll:clip() and paw.ui.views.pianoroll:clip():get().track
-      or (paw.cursor.track() and paw.cursor.track().id)
-    if not track then error("no track here", 0) end
-    local results = plan and plan.track == track and plan.results or M.measure(track)
-    plan = nil
-    local file = M.apply(track, results)
-    paw.notify("delays written into " .. file)
-  end,
-  {
-    label = "Articulation delays",
-    desc = "Write the delays :art.measure found (or measure now) into the instrument's map, and send them",
-  }
-)
+paw.command("art.measure!", function()
+  local track = paw.ui.views.pianoroll:clip() and paw.ui.views.pianoroll:clip():get().track
+    or (paw.cursor.track() and paw.cursor.track().id)
+  if not track then error("no track here", 0) end
+  local results = plan and plan.track == track and plan.results or M.measure(track)
+  plan = nil
+  local file = M.apply(track, results)
+  paw.notify("delays written into " .. file)
+end, {
+  label = "Articulation delays",
+  desc = "Write the delays :art.measure found (or measure now) into the instrument's map, and send them",
+})
 
 return M

@@ -469,20 +469,17 @@ function M.ask_value(opts, set)
   local now = opts.now
   local shown = opts.show and opts.show(now)
     or (string.format("%g", now) .. (opts.unit and opts.unit ~= "" and " " .. opts.unit or ""))
-  M.open(
-    {
-      prompt = string.format("%s %s → (-6 sets, +=2 -=3 step): ", opts.label, shown),
-      history = "value",
-      label = "Set " .. opts.label,
-    },
-    function(text)
-      local value = M.read_value(text, now, opts.parse)
-      if not value then return paw.notify("not a value: `" .. text .. "`", "warn") end
-      if opts.min then value = math.max(opts.min, value) end
-      if opts.max then value = math.min(opts.max, value) end
-      set(value)
-    end
-  )
+  M.open({
+    prompt = string.format("%s %s → (-6 sets, +=2 -=3 step): ", opts.label, shown),
+    history = "value",
+    label = "Set " .. opts.label,
+  }, function(text)
+    local value = M.read_value(text, now, opts.parse)
+    if not value then return paw.notify("not a value: `" .. text .. "`", "warn") end
+    if opts.min then value = math.max(opts.min, value) end
+    if opts.max then value = math.min(opts.max, value) end
+    set(value)
+  end)
 end
 paw.ui.ask_value = M.ask_value
 

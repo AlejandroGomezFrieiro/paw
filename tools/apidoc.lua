@@ -1510,23 +1510,17 @@ if mode == "check" then
   api.quit((#gaps == 0 and #stale == 0 and #loose == 0) and 0 or 1)
 else
   M.write()
-  print(
-    "wrote "
-      .. table.concat(
-        {
-          M.META,
-          M.PAGE,
-          M.TEAL,
-          M.TEAL_API,
-          M.TEAL_UNTYPED,
-          M.TEAL_PARTIAL,
-          M.TEAL_OPTS,
-          M.EVENTS_TL,
-          M.PROPS_TL,
-          M.ANY,
-        },
-        ", "
-      )
-  )
+  print("wrote " .. table.concat({
+    M.META,
+    M.PAGE,
+    M.TEAL,
+    M.TEAL_API,
+    M.TEAL_UNTYPED,
+    M.TEAL_PARTIAL,
+    M.TEAL_OPTS,
+    M.EVENTS_TL,
+    M.PROPS_TL,
+    M.ANY,
+  }, ", "))
   api.quit(0)
 end

@@ -110,17 +110,13 @@ test("midilsp: Problems lists every namespace's diagnostics with their fixes, an
   local clip = paw
     .add_track({ name = "Oboe" })
     :add_clip({ start = 0, length = 4, notes = { { pitch = 100, start = 0, length = 1 } } })
-  paw.diagnostic.set(
-    "lint",
-    clip,
+  paw.diagnostic.set("lint", clip, {
     {
-      {
-        notes = { 1 },
-        message = "too high",
-        fixes = { { title = "Down an octave", edits = { { note = 1, pitch = 88 } } } },
-      },
-    }
-  )
+      notes = { 1 },
+      message = "too high",
+      fixes = { { title = "Down an octave", edits = { { note = 1, pitch = 88 } } } },
+    },
+  })
   paw.cmd("problems")
   local state = paw.pick.state()
   eq(#state.matches, 2, "the diagnostic and its fix")

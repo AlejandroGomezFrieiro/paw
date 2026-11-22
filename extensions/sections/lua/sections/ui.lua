@@ -123,14 +123,11 @@ command(
     end
     if ctx.args[1] then return add(table.concat(ctx.args, " ")) end
     local here = S.at(at)
-    paw.ui.input(
-      {
-        prompt = "Section at bar " .. bar_of(at) .. ": ",
-        complete = complete,
-        text = here and math.abs(here.start - at) < EPS and here.name or nil,
-      },
-      add
-    )
+    paw.ui.input({
+      prompt = "Section at bar " .. bar_of(at) .. ": ",
+      complete = complete,
+      text = here and math.abs(here.start - at) < EPS and here.name or nil,
+    }, add)
   end),
   { desc = "Add a section at the cursor: `section.add Chorus`, `section.add Outro at=64`" }
 )

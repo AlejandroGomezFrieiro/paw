@@ -35,18 +35,14 @@ command("launch", function(ctx)
   local track = track_or_warn()
   if track then launcher.press(track, row_arg(ctx.args[1])) end
 end, { desc = "Launch a slot of the selected track: `launch 2`, or the one under the cursor" })
-command(
-  "launch.stop",
-  function(ctx)
-    if ctx.args[1] == "all" then return launcher.stop() end
-    local track = track_or_warn()
-    if track then launcher.stop(track) end
-  end,
-  {
-    desc = "Stop the selected track's clip on the next boundary: `launch.stop all` stops every one",
-    complete = { "all" },
-  }
-)
+command("launch.stop", function(ctx)
+  if ctx.args[1] == "all" then return launcher.stop() end
+  local track = track_or_warn()
+  if track then launcher.stop(track) end
+end, {
+  desc = "Stop the selected track's clip on the next boundary: `launch.stop all` stops every one",
+  complete = { "all" },
+})
 command(
   "launch.back",
   function(ctx)
@@ -56,18 +52,14 @@ command(
   end,
   { desc = "Have the selected track play its timeline again: `launch.back all` for every track", complete = { "all" } }
 )
-command(
-  "launch.quantize",
-  function(ctx)
-    local q = ctx.args[1]
-    if not q then return paw.notify("launches land on: " .. launcher.quantize()) end
-    if try(launcher.set_quantize, q) then paw.notify("launches land on: " .. q) end
-  end,
-  {
-    desc = "Where launches land: `launch.quantize 1/8` (off 1/16 1/8 1/4 beat bar 2bars 4bars)",
-    complete = launcher.quantizes,
-  }
-)
+command("launch.quantize", function(ctx)
+  local q = ctx.args[1]
+  if not q then return paw.notify("launches land on: " .. launcher.quantize()) end
+  if try(launcher.set_quantize, q) then paw.notify("launches land on: " .. q) end
+end, {
+  desc = "Where launches land: `launch.quantize 1/8` (off 1/16 1/8 1/4 beat bar 2bars 4bars)",
+  complete = launcher.quantizes,
+})
 command("launch.capture", function() launcher.capture() end, {
   desc = "Write what is launched into the timeline when the song stops (again: stop capturing)",
 })
@@ -98,19 +90,15 @@ command("slot.new", function(ctx)
   if launcher.clip(track, launcher.row) then return paw.notify("the slot holds a clip already", "warn") end
   launcher.new_clip(track, launcher.row, tonumber(ctx.args[1]))
 end, { desc = "A new MIDI clip in the slot under the cursor: `slot.new 2` for two bars" })
-command(
-  "slot.record",
-  function(ctx)
-    if launcher.recording then return launcher.finish_recording() end
-    local track = track_or_warn()
-    if not track then return end
-    if launcher.clip(track, launcher.row) then return paw.notify("the slot holds a clip already", "warn") end
-    launcher.record(track, launcher.row, tonumber(ctx.args[1]) or ctx.count)
-  end,
-  {
-    desc = "Record into the empty slot under the cursor from the next boundary: `slot.record 2` for two bars (again: stop now)",
-  }
-)
+command("slot.record", function(ctx)
+  if launcher.recording then return launcher.finish_recording() end
+  local track = track_or_warn()
+  if not track then return end
+  if launcher.clip(track, launcher.row) then return paw.notify("the slot holds a clip already", "warn") end
+  launcher.record(track, launcher.row, tonumber(ctx.args[1]) or ctx.count)
+end, {
+  desc = "Record into the empty slot under the cursor from the next boundary: `slot.record 2` for two bars (again: stop now)",
+})
 command("slot.copy", function()
   local track = track_or_warn()
   local clip = track and cursor.clip()
@@ -125,29 +113,23 @@ command("slot.edit", function()
   local clip = slot_clip()
   if clip and clip.kind == "midi" then paw.ui.views.pianoroll:edit(paw.clip(clip.id)) end
 end, { desc = "Open the notes of the clip in the slot under the cursor" })
-command(
-  "slot.mode",
-  function(ctx)
-    local clip = slot_clip()
-    if not clip then return end
-    local mode = ctx.args[1]
-    if not mode then
-      -- Round the modes.
-      for i, m in ipairs(launcher.modes) do
-        if m == clip.mode then mode = launcher.modes[i % #launcher.modes + 1] end
-      end
+command("slot.mode", function(ctx)
+  local clip = slot_clip()
+  if not clip then return end
+  local mode = ctx.args[1]
+  if not mode then
+    -- Round the modes.
+    for i, m in ipairs(launcher.modes) do
+      if m == clip.mode then mode = launcher.modes[i % #launcher.modes + 1] end
     end
-    if not launcher.contains(launcher.modes, mode) then
-      return paw.notify("a mode is trigger, gate or toggle", "warn")
-    end
-    launcher.set(clip.id, "mode", mode)
-    paw.notify(clip.name .. ": " .. mode)
-  end,
-  {
-    desc = "How the slot's clip launches: `slot.mode gate` (trigger, gate, toggle; none goes round them)",
-    complete = launcher.modes,
-  }
-)
+  end
+  if not launcher.contains(launcher.modes, mode) then return paw.notify("a mode is trigger, gate or toggle", "warn") end
+  launcher.set(clip.id, "mode", mode)
+  paw.notify(clip.name .. ": " .. mode)
+end, {
+  desc = "How the slot's clip launches: `slot.mode gate` (trigger, gate, toggle; none goes round them)",
+  complete = launcher.modes,
+})
 command("slot.legato", function()
   local clip = slot_clip()
   if not clip then return end

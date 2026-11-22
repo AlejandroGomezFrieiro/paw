@@ -296,33 +296,29 @@ dmap("P", paste(0), "Paste devices before this one, or settings onto it")
 
 -- A window of the panel pinned to a track shows that track's devices
 -- wherever the cursor goes: two panels show two tracks.
-paw.command(
-  "devices.pin",
-  function(ctx)
-    local L = paw.layout
-    local cur = L.current()
-    local win = cur and cur.view == "devices" and cur or L.find(paw.ui.layout, "devices", true)
-    if not win then
-      return paw.notify("no device panel on the screen: `" .. paw.keymap.human("<leader>dd") .. "` shows it", "warn")
+paw.command("devices.pin", function(ctx)
+  local L = paw.layout
+  local cur = L.current()
+  local win = cur and cur.view == "devices" and cur or L.find(paw.ui.layout, "devices", true)
+  if not win then
+    return paw.notify("no device panel on the screen: `" .. paw.keymap.human("<leader>dd") .. "` shows it", "warn")
+  end
+  local name = ctx.args[1] and table.concat(ctx.args, " ")
+  L.within(win, function()
+    if name then
+      local id = panel.track_named(name)
+      if not id then return paw.notify("no track `" .. name .. "`", "warn") end
+      return panel:set_pin(id)
     end
-    local name = ctx.args[1] and table.concat(ctx.args, " ")
-    L.within(win, function()
-      if name then
-        local id = panel.track_named(name)
-        if not id then return paw.notify("no track `" .. name .. "`", "warn") end
-        return panel:set_pin(id)
-      end
-      if panel.pin then return panel:set_pin(nil) end
-      local id = panel:track_id()
-      if not id then return paw.notify("no track to pin the panel to", "warn") end
-      panel:set_pin(id)
-    end)
-  end,
-  {
-    desc = "Keep the device panel on a track whatever the cursor is on, or follow the cursor again: `devices.pin`, `devices.pin Bass`",
-    complete = { "tracks" },
-  }
-)
+    if panel.pin then return panel:set_pin(nil) end
+    local id = panel:track_id()
+    if not id then return paw.notify("no track to pin the panel to", "warn") end
+    panel:set_pin(id)
+  end)
+end, {
+  desc = "Keep the device panel on a track whatever the cursor is on, or follow the cursor again: `devices.pin`, `devices.pin Bass`",
+  complete = { "tracks" },
+})
 dmap("<localleader>p", "devices.pin", "Pin the panel to its track, or follow the cursor again")
 
 -- The keys the panel had before the rule (`paw.opt.keys = "classic"`).

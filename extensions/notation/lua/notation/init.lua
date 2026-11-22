@@ -401,27 +401,21 @@ local function make_layout(self)
   local opts = view.layout_opts(c)
   -- Laid out from the score the clip's notes are written as.
   local sc = view.score_of(c)
-  local stamp = table.concat(
-    {
-      tostring(sc),
-      c.length,
-      opts.fifths,
-      paw.opt.notation_grid,
-      tostring(opts.bars[1] and opts.bars[1].number),
-      serial(view.track_meta(c.track)),
-    },
-    ":"
-  )
+  local stamp = table.concat({
+    tostring(sc),
+    c.length,
+    opts.fifths,
+    paw.opt.notation_grid,
+    tostring(opts.bars[1] and opts.bars[1].number),
+    serial(view.track_meta(c.track)),
+  }, ":")
   if self.cache and self.cache.stamp == stamp then return self.cache.layout end
-  local layout = L.layout(
-    sc,
-    {
-      length = c.length,
-      fifths = opts.fifths,
-      grid = paw.opt.notation_grid,
-      number = opts.bars[1] and opts.bars[1].number,
-    }
-  )
+  local layout = L.layout(sc, {
+    length = c.length,
+    fifths = opts.fifths,
+    grid = paw.opt.notation_grid,
+    number = opts.bars[1] and opts.bars[1].number,
+  })
   -- Each written note knows the note that plays it, by its place among the clip's.
   local place = {}
   for i, n in ipairs(view.notes_of(c)) do
@@ -462,23 +456,20 @@ function view.score_of(c)
   local own = view.own(c)
   local old = type(c.meta) == "table" and type(c.meta.score) == "table" and c.meta.score or nil
   local opts = view.layout_opts(c, own)
-  local key = table.concat(
-    {
-      c.id,
-      tostring(c.stamp),
-      tostring(c.note_count),
-      c.length,
-      c.start,
-      opts.fifths,
-      tostring(opts.tempo),
-      tostring(opts.clef),
-      serial(own),
-      view.bars_key(opts.bars) or serial(opts.bars),
-      paw.opt.notation_grid,
-      old and tostring(old.rev) or "",
-    },
-    ":"
-  )
+  local key = table.concat({
+    c.id,
+    tostring(c.stamp),
+    tostring(c.note_count),
+    c.length,
+    c.start,
+    opts.fifths,
+    tostring(opts.tempo),
+    tostring(opts.clef),
+    serial(own),
+    view.bars_key(opts.bars) or serial(opts.bars),
+    paw.opt.notation_grid,
+    old and tostring(old.rev) or "",
+  }, ":")
   local hit = derived[c.id]
   if hit and hit.key == key then return hit.score end
   local notes = api.clip_notes(c.id)
@@ -962,24 +953,15 @@ view.lift = lift
 --- keeping its ids, marks and grace notes; what is there gives way.
 local function drop(sc, was, t, len, staff, voice)
   local mi, at = D.locate(sc, math.max(0, t))
-  local ev = D.put_chord(
-    sc,
-    mi,
-    staff or was.staff,
-    voice or was.voice,
-    at,
-    len,
-    was.notes,
-    {
-      id = was.id,
-      art = was.art,
-      arpeggio = was.arpeggio,
-      beam = was.beam,
-      orn = was.orn,
-      lyric = was.lyric,
-      lyrics = was.lyrics,
-    }
-  )
+  local ev = D.put_chord(sc, mi, staff or was.staff, voice or was.voice, at, len, was.notes, {
+    id = was.id,
+    art = was.art,
+    arpeggio = was.arpeggio,
+    beam = was.beam,
+    orn = was.orn,
+    lyric = was.lyric,
+    lyrics = was.lyrics,
+  })
   if #was.graces > 0 then
     local _, entry, k = D.find(sc, ev.id)
     for g = #was.graces, 1, -1 do
@@ -1488,22 +1470,15 @@ function view:toggle_voice()
         join_chord(sc, target.id, x)
       end
     else
-      drop(
-        sc,
-        {
-          notes = notes,
-          graces = {},
-          staff = staff,
-          voice = to,
-          id = whole and source.id or nil,
-          art = whole and source.art or nil,
-          arpeggio = whole and source.arpeggio or nil,
-        },
-        t,
-        len,
-        staff,
-        to
-      )
+      drop(sc, {
+        notes = notes,
+        graces = {},
+        staff = staff,
+        voice = to,
+        id = whole and source.id or nil,
+        art = whole and source.art or nil,
+        arpeggio = whole and source.arpeggio or nil,
+      }, t, len, staff, to)
     end
   end)
   if moved == false then return nil end

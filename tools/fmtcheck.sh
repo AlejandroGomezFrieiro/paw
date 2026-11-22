@@ -1,24 +1,38 @@
 #!/bin/sh
-# Says how many Lua and Teal files the formatters would change: StyLua with
-# stylua.toml for `.lua`, cerulean (`ceru`) for `.tl`, each as close to
-# paw's style as it goes. It changes no file, and it exits 0: the tree is
-# not formatted with them (docs/explanation/about-teal.md says why). The
-# flake's `format` check runs it.
+# Checks that every Lua file is formatted with StyLua (stylua.toml) and
+# every Teal file with cerulean (`ceru`, the flags below). It changes no
+# file. The flake's `format` check runs it.
 #
-#   tools/fmtcheck.sh            the counts
-#   tools/fmtcheck.sh -v         and the files
+#   tools/fmtcheck.sh            check: exits 1 and names the files to format
+#   tools/fmtcheck.sh fix        format them
+#
+# cerulean's output is not valid Teal for limit.tl, pick.tl and ui.tl: it
+# skips them, and so does this check. Generated files are left out.
 cd "$(dirname "$0")/.." || exit 1
 # cerulean reads its settings from tlconfig.lua, which cyan checks for
 # unknown keys: they are flags here.
 ceru_flags="--indent 2 --line-length 120 --no-sort-requires"
-lua=$(stylua --check --output-format summary . 2>&1 | grep -c '\.lua$')
-# shellcheck disable=SC2086
-tl=$(find runtime config extensions -name '*.tl' ! -path 'runtime/lua/paw/events/kernel.tl' | sort \
-  | xargs ceru --check $ceru_flags 2>&1 | grep -c 'would reformat\|formatting skipped')
-echo "format: StyLua would change $lua Lua files, cerulean $tl Teal files (nothing is changed)"
-if [ "$1" = "-v" ]; then
-  stylua --check --output-format summary . 2>&1
+teal_files() {
+  find runtime config extensions -name '*.tl' ! -path 'runtime/types/*' ! -path 'runtime/lua/paw/events/kernel.tl' \
+    ! -path 'runtime/lua/paw/limit.tl' ! -path 'runtime/lua/paw/pick.tl' ! -path 'runtime/lua/paw/ui.tl' | sort
+}
+if [ "$1" = "fix" ]; then
+  stylua .
   # shellcheck disable=SC2086
-  find runtime config extensions -name '*.tl' ! -path 'runtime/lua/paw/events/kernel.tl' | sort | xargs ceru --check $ceru_flags 2>&1
+  teal_files | xargs ceru $ceru_flags
+  exit 0
 fi
-exit 0
+status=0
+if ! out=$(stylua --check --output-format summary . 2>&1); then
+  echo "$out" | grep '\.lua$' | sed 's/^/not formatted (StyLua): /'
+  status=1
+fi
+# shellcheck disable=SC2086
+out=$(teal_files | xargs ceru --check $ceru_flags 2>&1 | grep 'would reformat')
+if [ -n "$out" ]; then
+  echo "$out" | sed 's/^/not formatted (cerulean): /'
+  status=1
+fi
+[ $status -eq 0 ] && echo "format: every Lua and Teal file is formatted"
+[ $status -eq 1 ] && echo "format: run tools/fmtcheck.sh fix"
+exit $status

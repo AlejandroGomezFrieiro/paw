@@ -1,10 +1,8 @@
 # StyLua's configuration for the Lua files, as close to paw's style as
 # StyLua goes: two spaces, lines up to 120 columns, double quotes, short
 # statements kept on one line, requires in the order they are written.
-# The tree is not formatted with it: StyLua would change most files,
-# because it cannot keep comments aligned after code, or two short
-# statements on one line. The flake's `format` check says how much, and
-# does not fail.
+# Every Lua file is formatted with it: `tools/fmtcheck.sh fix` formats
+# the tree, and the flake's `format` check fails on a file it would change.
 syntax = "All"
 column_width = 120
 line_endings = "Unix"

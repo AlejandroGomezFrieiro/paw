@@ -77,34 +77,30 @@ command("lane.pick", function()
     end,
   })
 end, { desc = "Choose what to automate on the track (volume, pan, a device's parameter) and show its lane" })
-command(
-  "lane.show",
-  function(ctx)
-    local which = ctx.args[1]
-    if which == "all" or which == "none" then
-      for _, id in ipairs(api.track_list()) do
-        if which == "none" or #api.lane_list(id) > 0 then paw.lanes.open(id, which == "all") end
-      end
-      if which == "none" and cursor.lane_id() == nil then cursor.set_track(cursor.track_id()) end
-      return
+command("lane.show", function(ctx)
+  local which = ctx.args[1]
+  if which == "all" or which == "none" then
+    for _, id in ipairs(api.track_list()) do
+      if which == "none" or #api.lane_list(id) > 0 then paw.lanes.open(id, which == "all") end
     end
-    local track = need_track()
-    if not track then return end
-    if #api.lane_list(track.id) == 0 then
-      return paw.notify(
-        track.name .. " has no automation yet: `" .. paw.keymap.human("<leader>al") .. "` chooses what to automate",
-        "warn"
-      )
-    end
-    local now = paw.lanes.toggle(track)
-    cursor.set_track(track.id)
-    paw.notify(track.name .. (now and ": lanes shown" or ": lanes hidden"))
-  end,
-  {
-    desc = "Show the track's automation lanes as rows under it, or hide them: `lane.show`, `lane.show all`, `lane.show none`",
-    complete = function() return { "all", "none" } end,
-  }
-)
+    if which == "none" and cursor.lane_id() == nil then cursor.set_track(cursor.track_id()) end
+    return
+  end
+  local track = need_track()
+  if not track then return end
+  if #api.lane_list(track.id) == 0 then
+    return paw.notify(
+      track.name .. " has no automation yet: `" .. paw.keymap.human("<leader>al") .. "` chooses what to automate",
+      "warn"
+    )
+  end
+  local now = paw.lanes.toggle(track)
+  cursor.set_track(track.id)
+  paw.notify(track.name .. (now and ": lanes shown" or ": lanes hidden"))
+end, {
+  desc = "Show the track's automation lanes as rows under it, or hide them: `lane.show`, `lane.show all`, `lane.show none`",
+  complete = function() return { "all", "none" } end,
+})
 command(
   "lane.rows",
   function()
@@ -237,47 +233,43 @@ local function to_point(dir, n)
   end
 end
 
-command(
-  "lane.state",
-  function(ctx)
-    local lane = cursor_lane()
-    if not lane then return end
-    local l = lane:get()
-    if l.target ~= "state" then
-      return paw.notify(
-        "the cursor is not on a state lane: `" .. paw.keymap.human("<leader>al") .. "` makes one for a device",
-        "warn"
-      )
+command("lane.state", function(ctx)
+  local lane = cursor_lane()
+  if not lane then return end
+  local l = lane:get()
+  if l.target ~= "state" then
+    return paw.notify(
+      "the cursor is not on a state lane: `" .. paw.keymap.human("<leader>al") .. "` makes one for a device",
+      "warn"
+    )
+  end
+  local device = paw.device(l.device)
+  local name = table.concat(ctx.args, " ")
+  if name == "" then
+    local d = device:get()
+    name = (d.meta or {}).preset
+    local taken = {}
+    for _, n in ipairs(l.states) do
+      taken[n] = true
     end
-    local device = paw.device(l.device)
-    local name = table.concat(ctx.args, " ")
-    if name == "" then
-      local d = device:get()
-      name = (d.meta or {}).preset
-      local taken = {}
-      for _, n in ipairs(l.states) do
-        taken[n] = true
-      end
-      if not name or taken[name] then
-        for c in ("ABCDEFGHIJKLMNOPQRSTUVWXYZ"):gmatch(".") do
-          if not taken[c] then
-            name = c
-            break
-          end
+    if not name or taken[name] then
+      for c in ("ABCDEFGHIJKLMNOPQRSTUVWXYZ"):gmatch(".") do
+        if not taken[c] then
+          name = c
+          break
         end
       end
     end
-    local ok, state = pcall(device.capture, device, name)
-    if not ok then return paw.notify((tostring(state):gsub("^.-:%d+: ", "")), "error") end
-    local index = lane:add_state(state)
-    lane:add(cursor.beat, index)
-    paw.notify(string.format("%s: %s from %s", paw.lanes.name(l), state.name, paw.time.format(cursor.beat)))
-  end,
-  {
-    desc = "Keep the device's state now as a state of its state lane, given from the cursor on: `lane.state crunch`",
-    label = "Keep the state here",
-  }
-)
+  end
+  local ok, state = pcall(device.capture, device, name)
+  if not ok then return paw.notify((tostring(state):gsub("^.-:%d+: ", "")), "error") end
+  local index = lane:add_state(state)
+  lane:add(cursor.beat, index)
+  paw.notify(string.format("%s: %s from %s", paw.lanes.name(l), state.name, paw.time.format(cursor.beat)))
+end, {
+  desc = "Keep the device's state now as a state of its state lane, given from the cursor on: `lane.state crunch`",
+  label = "Keep the state here",
+})
 
 local function lmap(lhs, rhs, desc, opts) map(lhs, rhs, util.merge({ view = "arrange.lane", desc = desc }, opts)) end
 lmap("<localleader>s", "lane.state", "Keep the device's state now as a state of the lane, from the cursor on")

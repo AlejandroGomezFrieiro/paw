@@ -71,24 +71,20 @@ map(
   function(ctx) keymap.record(ctx.char) end,
   { mode = nx, char = true, record = true, desc = "Record keys into a register; `q` again stops" }
 )
-map(
-  "@",
-  function(ctx)
-    if ctx.char == ":" then
-      for _ = 1, ctx.count or 1 do
-        paw.commands.exec(paw.state.last_cmdline or "")
-      end
-    else
-      keymap.play(ctx.char, ctx.count)
+map("@", function(ctx)
+  if ctx.char == ":" then
+    for _ = 1, ctx.count or 1 do
+      paw.commands.exec(paw.state.last_cmdline or "")
     end
-  end,
-  {
-    mode = nx,
-    char = true,
-    repeatable = false,
-    desc = "Play the keys in a register; `@@` the last one, `@:` the last command",
-  }
-)
+  else
+    keymap.play(ctx.char, ctx.count)
+  end
+end, {
+  mode = nx,
+  char = true,
+  repeatable = false,
+  desc = "Play the keys in a register; `@@` the last one, `@:` the last command",
+})
 map("m", function(ctx) keymap.mark(ctx.char) end, { char = true, desc = "Set a mark at the cursor" })
 map(
   "'",
@@ -868,60 +864,45 @@ command("notes.quantize", function(ctx)
   paw.notify(string.format("%d note%s on the %g-beat grid", n, n == 1 and "" or "s", paw.opt.note_grid))
 end, { desc = "Quantize the piano roll's chosen notes, or all, to its grid: `notes.quantize [strength%]`" })
 pmap("E", "notes.list", "The clip's notes and controller moves as a list, to change in place")
-command(
-  "notes.list",
-  function()
-    local clip = roll:clip()
-    if not clip then return paw.notify("open a clip in the piano roll first", "warn") end
-    paw.ui.open("eventlist", { title = "Events · " .. clip.name, width = 60, height = 24 })
-  end,
-  {
-    desc = "List the piano roll's notes and controller moves, each cell changed in place (Enter), `x` deletes, `a` adds a move",
-  }
-)
-command(
-  "controls.line",
-  function(ctx)
-    local clip = roll:clip()
-    if not clip then return paw.notify("open a clip in the piano roll first", "warn") end
-    local args = ctx.args
-    local kind, at = args[1], 2
-    local number
-    if kind == "cc" then
-      number, at = tonumber(args[2]), 3
-    end
-    local from, to = tonumber(args[at]), tonumber(args[at + 1])
-    if not (kind == "cc" and number or kind == "bend" or kind == "pressure") or not from or not to then
-      return paw.notify(
-        "controls.line cc 74 0 127, controls.line bend -8192 8191, controls.line pressure 0 127",
-        "warn"
-      )
-    end
-    -- From and to in the units the event list shows: seven-bit steps, or the wheel's -8192 to 8191.
-    local function height(v) return kind == "bend" and (v / 8192 + 1) / 2 or v / 127 end
-    local selection = keymap.selection()
-    local b0, b1 = 0, clip.length
-    if selection and paw.ui.focused == "pianoroll" and selection.kind ~= "line" then
-      b0, b1 = selection.c0, selection.c1
-    end
-    -- The last step of the stretch reaches `to`.
-    b1 = math.max(b0, b1 - paw.opt.note_grid)
-    local made = paw.frontend.act.line_controls(clip.id, kind, number, b0, height(from), b1, height(to), false)
-    keymap.set_mode("n")
-    paw.notify(string.format("%d %s moves in a line", made, kind == "cc" and "CC " .. number or kind))
-  end,
-  {
-    desc = "Draw a straight line of controller moves over the piano roll's selection, or its whole clip: "
-      .. "`controls.line cc 74 0 127`, `controls.line bend 0 8191`, `controls.line pressure 127 0`",
-  }
-)
-command(
-  "notes.step_input",
-  function() paw.frontend.act.toggle_step_input() end,
-  {
-    desc = "Turn step input on or off: notes from a MIDI keyboard are entered at the piano roll's cursor while stopped",
-  }
-)
+command("notes.list", function()
+  local clip = roll:clip()
+  if not clip then return paw.notify("open a clip in the piano roll first", "warn") end
+  paw.ui.open("eventlist", { title = "Events · " .. clip.name, width = 60, height = 24 })
+end, {
+  desc = "List the piano roll's notes and controller moves, each cell changed in place (Enter), `x` deletes, `a` adds a move",
+})
+command("controls.line", function(ctx)
+  local clip = roll:clip()
+  if not clip then return paw.notify("open a clip in the piano roll first", "warn") end
+  local args = ctx.args
+  local kind, at = args[1], 2
+  local number
+  if kind == "cc" then
+    number, at = tonumber(args[2]), 3
+  end
+  local from, to = tonumber(args[at]), tonumber(args[at + 1])
+  if not (kind == "cc" and number or kind == "bend" or kind == "pressure") or not from or not to then
+    return paw.notify("controls.line cc 74 0 127, controls.line bend -8192 8191, controls.line pressure 0 127", "warn")
+  end
+  -- From and to in the units the event list shows: seven-bit steps, or the wheel's -8192 to 8191.
+  local function height(v) return kind == "bend" and (v / 8192 + 1) / 2 or v / 127 end
+  local selection = keymap.selection()
+  local b0, b1 = 0, clip.length
+  if selection and paw.ui.focused == "pianoroll" and selection.kind ~= "line" then
+    b0, b1 = selection.c0, selection.c1
+  end
+  -- The last step of the stretch reaches `to`.
+  b1 = math.max(b0, b1 - paw.opt.note_grid)
+  local made = paw.frontend.act.line_controls(clip.id, kind, number, b0, height(from), b1, height(to), false)
+  keymap.set_mode("n")
+  paw.notify(string.format("%d %s moves in a line", made, kind == "cc" and "CC " .. number or kind))
+end, {
+  desc = "Draw a straight line of controller moves over the piano roll's selection, or its whole clip: "
+    .. "`controls.line cc 74 0 127`, `controls.line bend 0 8191`, `controls.line pressure 127 0`",
+})
+command("notes.step_input", function() paw.frontend.act.toggle_step_input() end, {
+  desc = "Turn step input on or off: notes from a MIDI keyboard are entered at the piano roll's cursor while stopped",
+})
 pmap("D", function() keymap.normal("d$") end, "Delete to the end of the clip")
 pmap("C", function() keymap.normal("c$") end, "Change to the end of the clip")
 pmap("Y", function() keymap.normal("y$") end, "Yank to the end of the clip")
@@ -1057,14 +1038,10 @@ command(
     complete = { "clip" },
   }
 )
-command(
-  "lsp",
-  function(ctx) paw.lsp.command(ctx) end,
-  {
-    desc = "Language servers: `lsp info`, `lsp start|stop|restart [name]`, `lsp log`",
-    complete = function() return paw.lsp.command_complete() end,
-  }
-)
+command("lsp", function(ctx) paw.lsp.command(ctx) end, {
+  desc = "Language servers: `lsp info`, `lsp start|stop|restart [name]`, `lsp log`",
+  complete = function() return paw.lsp.command_complete() end,
+})
 
 -- Piano roll: on a selection.
 local function px(lhs, fn, desc, role)

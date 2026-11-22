@@ -841,17 +841,14 @@ test("utau: a track's voice is saved as a singer preset and given to another tra
   paw.opt.utau_presets_dir = T.scratch .. "/presets"
   local a = vocal("Lead")
   local b = vocal("Harmony")
-  utau.configure(
-    a.id,
-    {
-      singer = "Someone",
-      phonemizer = "Some.Phonemizer",
-      renderer = "CLASSIC",
-      resampler = "moresampler",
-      voice_color = "soft",
-      options = { pitchmode = "manual", unison = "3" },
-    }
-  )
+  utau.configure(a.id, {
+    singer = "Someone",
+    phonemizer = "Some.Phonemizer",
+    renderer = "CLASSIC",
+    resampler = "moresampler",
+    voice_color = "soft",
+    options = { pitchmode = "manual", unison = "3" },
+  })
   local device = utau.device_of(a.id)
   api.device_set_param(device, "brec", 30)
   api.device_set_param(device, "genc", -10)

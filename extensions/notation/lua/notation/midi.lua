@@ -715,23 +715,20 @@ local function note_key(n, keep)
   local own = type(meta) == "table" and type(meta.notation) == "table" and meta.notation or nil
   local lyric = type(meta) == "table" and meta.lyric or nil
   if not own then return (keep[n.index] or "?") .. "," .. n.pitch .. "," .. (lyric and serial(lyric) or "") end
-  return table.concat(
-    {
-      keep[n.index] or "?",
-      n.pitch,
-      lyric and serial(lyric) or "",
-      tostring(own.letter),
-      tostring(own.alter),
-      tostring(own.pitch),
-      tostring(own.beam),
-      tostring(own.orn),
-      tostring(own.stem),
-      tostring(own.grace),
-      own.art ~= nil and serial(own.art) or "",
-      own.lyrics ~= nil and serial(own.lyrics) or "",
-    },
-    ","
-  )
+  return table.concat({
+    keep[n.index] or "?",
+    n.pitch,
+    lyric and serial(lyric) or "",
+    tostring(own.letter),
+    tostring(own.alter),
+    tostring(own.pitch),
+    tostring(own.beam),
+    tostring(own.orn),
+    tostring(own.stem),
+    tostring(own.grace),
+    own.art ~= nil and serial(own.art) or "",
+    own.lyrics ~= nil and serial(own.lyrics) or "",
+  }, ",")
 end
 
 --- A transcribed chord as text, for the keys of the measures it is in;
@@ -797,19 +794,16 @@ local function write_measures(tr, o, keep, next_id, by_id)
     local key = { i, num(m.start), m.meter.num, m.meter.den, head }
     for _, tp in ipairs(o.tuplets or {}) do
       if tp.start < stop + 1e-3 and tp.start + tp.length > m.start - 1e-3 then
-        key[#key + 1] = table.concat(
-          {
-            "t",
-            num(tp.start),
-            num(tp.length),
-            tostring(tp.n),
-            tostring(tp.normal),
-            tostring(tp.staff),
-            tostring(tp.voice),
-            tostring(tp.plain),
-          },
-          ","
-        )
+        key[#key + 1] = table.concat({
+          "t",
+          num(tp.start),
+          num(tp.length),
+          tostring(tp.n),
+          tostring(tp.normal),
+          tostring(tp.staff),
+          tostring(tp.voice),
+          tostring(tp.plain),
+        }, ",")
       end
     end
     for s = 1, #o.staves do

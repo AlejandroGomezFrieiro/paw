@@ -406,15 +406,12 @@ end)
 
 test("ex: an extension adds a pattern field and a command that takes a range", function()
   local t = song()
-  ex.field(
-    "lyric",
-    {
-      level = "note",
-      type = "text",
-      get = function(item) return item.note.meta and item.note.meta.lyric end,
-      set = function(item, value, change) change.meta = paw.util.merge(item.note.meta or {}, { lyric = value }) end,
-    }
-  )
+  ex.field("lyric", {
+    level = "note",
+    type = "text",
+    get = function(item) return item.note.meta and item.note.meta.lyric end,
+    set = function(item, value, change) change.meta = paw.util.merge(item.note.meta or {}, { lyric = value }) end,
+  })
   run("1s/c4/lyric=la/")
   eq(t:clips()[1]:notes()[1].meta.lyric, "la", "a field of its own, set")
   run("g/lyric:la/transpose 1")

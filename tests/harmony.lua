@@ -283,14 +283,11 @@ test(
     paw.flush()
     eq(reading(), "0:C 4:F 16:Am", "read")
     local clip = pad:clips()[1]
-    api.clip_set_notes(
-      clip.id,
-      {
-        { pitch = music.pitch("D3"), start = 16, length = 4, velocity = 90 },
-        { pitch = music.pitch("F3"), start = 16, length = 4, velocity = 90 },
-        { pitch = music.pitch("A3"), start = 16, length = 4, velocity = 90 },
-      }
-    )
+    api.clip_set_notes(clip.id, {
+      { pitch = music.pitch("D3"), start = 16, length = 4, velocity = 90 },
+      { pitch = music.pitch("F3"), start = 16, length = 4, velocity = 90 },
+      { pitch = music.pitch("A3"), start = 16, length = 4, velocity = 90 },
+    })
     paw.flush()
     eq(reading(), "0:C 4:F 16:Dm", "the edited clip is read again, the other kept")
     piano:clips()[1]:add_note({ pitch = music.pitch("Bb3"), start = 0, length = 4 })

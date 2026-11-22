@@ -121,23 +121,19 @@ command("sampler.track", function(ctx)
   paw.cmd("track.add", args)
 end, { desc = "Add a sampler track, with an instrument: a file, words to find one by, or chosen from a list" })
 
-command(
-  "sampler.load",
-  function(ctx)
-    local device, track = cursor_device()
-    if not device then return end
-    local text = ctx.args[1] and (tostring(ctx.args[1]):gsub("^%s+", ""):gsub("%s+$", "")) or ""
-    local path = text:gsub("^~", os.getenv("HOME") or "~")
-    if path ~= "" and exists(path) then return load(device, path) end
-    if file_like(path) then return paw.notify("sampler: no such file: " .. path, "error") end
-    sampler.pick(track, text ~= "" and text or nil)
-  end,
-  {
-    desc = "Choose the sampler's instrument: a file (`sampler.load ~/sfz/Violins.sfz`), or from a list where each is heard (`sampler.load violin`)",
-    raw = true,
-    complete = "files",
-  }
-)
+command("sampler.load", function(ctx)
+  local device, track = cursor_device()
+  if not device then return end
+  local text = ctx.args[1] and (tostring(ctx.args[1]):gsub("^%s+", ""):gsub("%s+$", "")) or ""
+  local path = text:gsub("^~", os.getenv("HOME") or "~")
+  if path ~= "" and exists(path) then return load(device, path) end
+  if file_like(path) then return paw.notify("sampler: no such file: " .. path, "error") end
+  sampler.pick(track, text ~= "" and text or nil)
+end, {
+  desc = "Choose the sampler's instrument: a file (`sampler.load ~/sfz/Violins.sfz`), or from a list where each is heard (`sampler.load violin`)",
+  raw = true,
+  complete = "files",
+})
 
 command("sampler.info", function()
   local device = cursor_device()

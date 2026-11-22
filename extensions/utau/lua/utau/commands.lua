@@ -252,30 +252,26 @@ local function args_tracks(ctx)
   return track and { track } or false
 end
 
-command(
-  "utau.export",
-  function(ctx)
-    local path = ctx.args[1]
-    if not path then return paw.notify("usage: utau.export <file.ustx|.ust|.mid> [all=1] [clip=1]", "warn") end
-    local opts = {}
-    if ctx.args.clip then
-      local clip = paw.cursor.clip()
-      if not clip or not utau.device_of(api.clip_get(clip.id).track) then
-        return paw.notify("no vocal clip under the cursor", "warn")
-      end
-      opts.clip = clip.id
-    else
-      opts.tracks = args_tracks(ctx)
-      if opts.tracks == false then return end
+command("utau.export", function(ctx)
+  local path = ctx.args[1]
+  if not path then return paw.notify("usage: utau.export <file.ustx|.ust|.mid> [all=1] [clip=1]", "warn") end
+  local opts = {}
+  if ctx.args.clip then
+    local clip = paw.cursor.clip()
+    if not clip or not utau.device_of(api.clip_get(clip.id).track) then
+      return paw.notify("no vocal clip under the cursor", "warn")
     end
-    local ok, files = pcall(require("utau.export").write, tostring(path), opts)
-    if not ok then return paw.notify("utau.export: " .. tostring(files), "error") end
-    paw.notify("exported " .. table.concat(files, ", "))
-  end,
-  {
-    desc = "Export the vocal track to OpenUtau (.ustx), UTAU (.ust) or MIDI with lyrics (.mid); `all=1` every vocal track, `clip=1` the clip",
-  }
-)
+    opts.clip = clip.id
+  else
+    opts.tracks = args_tracks(ctx)
+    if opts.tracks == false then return end
+  end
+  local ok, files = pcall(require("utau.export").write, tostring(path), opts)
+  if not ok then return paw.notify("utau.export: " .. tostring(files), "error") end
+  paw.notify("exported " .. table.concat(files, ", "))
+end, {
+  desc = "Export the vocal track to OpenUtau (.ustx), UTAU (.ust) or MIDI with lyrics (.mid); `all=1` every vocal track, `clip=1` the clip",
+})
 
 command("utau.openutau", function()
   local ok, path, argv = pcall(require("utau.export").open)
@@ -387,25 +383,24 @@ end, { desc = "Delete a singer preset" })
 
 local install = require("utau.install")
 
-command(
-  "utau.install",
-  function(ctx)
-    local path = ctx.args[1]
-    if not path then
-      return paw.notify("usage: utau.install <voicebank.zip|.rar|.7z|.uar|.vogeon|.oudep|folder>", "warn")
-    end
-    paw.notify("installing " .. tostring(path) .. " into " .. install.target() .. " ...")
-    api.ui_redraw()
-    local ok, installed = pcall(install.install, tostring(path))
-    if not ok then return paw.notify("utau.install: " .. tostring(installed), "error") end
-    local lines = {}
-    for _, x in ipairs(installed) do
-      lines[#lines + 1] = x.path .. " (" .. x.kind .. ")"
-    end
-    paw.notify("installed " .. table.concat(lines, ", "))
-  end,
-  { desc = "Install a voicebank archive, Vogen singer, dependency package or voicebank folder for OpenUtau", raw = true }
-)
+command("utau.install", function(ctx)
+  local path = ctx.args[1]
+  if not path then
+    return paw.notify("usage: utau.install <voicebank.zip|.rar|.7z|.uar|.vogeon|.oudep|folder>", "warn")
+  end
+  paw.notify("installing " .. tostring(path) .. " into " .. install.target() .. " ...")
+  api.ui_redraw()
+  local ok, installed = pcall(install.install, tostring(path))
+  if not ok then return paw.notify("utau.install: " .. tostring(installed), "error") end
+  local lines = {}
+  for _, x in ipairs(installed) do
+    lines[#lines + 1] = x.path .. " (" .. x.kind .. ")"
+  end
+  paw.notify("installed " .. table.concat(lines, ", "))
+end, {
+  desc = "Install a voicebank archive, Vogen singer, dependency package or voicebank folder for OpenUtau",
+  raw = true,
+})
 
 paw.pick.sources.utau_singers = {
   desc = "The installed singers; choosing one gives it to the vocal track",
@@ -469,24 +464,20 @@ end, {
   end,
 })
 
-command(
-  "utau.double",
-  function(ctx)
-    local track = vocal_track()
-    if not track then return end
-    local ok, made, info = pcall(harmony.create, track, {
-      interval = "double",
-      take = tonumber(ctx.args.take) or 1,
-      preset = ctx.args.preset,
-    })
-    if not ok then return paw.notify("utau.double: " .. tostring(made), "warn") end
-    paw.cursor.set_track(made)
-    paw.notify(string.format("%s: %d notes with their own timing and tuning", made.name, info.notes))
-  end,
-  {
-    desc = "Add a double of the vocal track: the same notes, a little apart in timing and tuning (`take=2` for another)",
-  }
-)
+command("utau.double", function(ctx)
+  local track = vocal_track()
+  if not track then return end
+  local ok, made, info = pcall(harmony.create, track, {
+    interval = "double",
+    take = tonumber(ctx.args.take) or 1,
+    preset = ctx.args.preset,
+  })
+  if not ok then return paw.notify("utau.double: " .. tostring(made), "warn") end
+  paw.cursor.set_track(made)
+  paw.notify(string.format("%s: %d notes with their own timing and tuning", made.name, info.notes))
+end, {
+  desc = "Add a double of the vocal track: the same notes, a little apart in timing and tuning (`take=2` for another)",
+})
 
 -- What depends on the renderer -------------------------------------------------------------
 
@@ -604,24 +595,20 @@ end, {
   end,
 })
 
-command(
-  "utau.unison",
-  function(ctx)
-    local track = vocal_track()
-    if not track then return end
-    local voices = tonumber(ctx.args[1]) or 1
-    renderer.unison(track, voices, {
-      spacing = ctx.args.spacing,
-      pitch = ctx.args.pitch,
-      timing = ctx.args.timing,
-      level = ctx.args.level,
-    })
-    paw.notify(voices >= 2 and ("unison: " .. voices .. " voices") or "unison off")
-  end,
-  {
-    desc = "Sing the vocal track with several voices: `utau.unison 4 spacing=60 pitch=8 timing=20 level=0`, `utau.unison 1` off",
-  }
-)
+command("utau.unison", function(ctx)
+  local track = vocal_track()
+  if not track then return end
+  local voices = tonumber(ctx.args[1]) or 1
+  renderer.unison(track, voices, {
+    spacing = ctx.args.spacing,
+    pitch = ctx.args.pitch,
+    timing = ctx.args.timing,
+    level = ctx.args.level,
+  })
+  paw.notify(voices >= 2 and ("unison: " .. voices .. " voices") or "unison off")
+end, {
+  desc = "Sing the vocal track with several voices: `utau.unison 4 spacing=60 pitch=8 timing=20 level=0`, `utau.unison 1` off",
+})
 
 command(
   "utau.shift",

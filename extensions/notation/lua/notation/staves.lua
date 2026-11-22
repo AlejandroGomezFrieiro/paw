@@ -459,16 +459,13 @@ function S.wrap_maps()
           local region = fn(ctx)
           local F = view:frame()
           if not (region and F and F.multi) then return region end
-          return util.merge(
-            region,
-            {
-              c0 = region.c0 + F.off,
-              c1 = region.c1 + F.off,
-              r0 = row_of(F, F.unit, region.r0),
-              r1 = row_of(F, F.unit, region.r1),
-              unit = F.unit,
-            }
-          )
+          return util.merge(region, {
+            c0 = region.c0 + F.off,
+            c1 = region.c1 + F.off,
+            r0 = row_of(F, F.unit, region.r0),
+            r1 = row_of(F, F.unit, region.r1),
+            unit = F.unit,
+          })
         end
         map.score_wrapped = true
       end
@@ -672,56 +669,52 @@ paw.command("score.check", function()
   paw.notify("the pages as they will be exported, to read: :score.check again (or zp) to edit")
 end, { desc = "Show the score's pages as they will be exported, to check them (read only); again, back to editing" })
 
-paw.command(
-  "score.split",
-  function(ctx)
-    local F = view:frame()
-    local u = F and F.multi and F.layout.units[F.unit]
-    if not (u and u.condensed) then return paw.notify("not on a condensed staff (`:part.condense`)", "warn") end
-    local bars = {}
-    local from, to
-    if ctx.range and ctx.range.from then
-      from, to = ctx.range.from - F.start, ctx.range.to - F.start
+paw.command("score.split", function(ctx)
+  local F = view:frame()
+  local u = F and F.multi and F.layout.units[F.unit]
+  if not (u and u.condensed) then return paw.notify("not on a condensed staff (`:part.condense`)", "warn") end
+  local bars = {}
+  local from, to
+  if ctx.range and ctx.range.from then
+    from, to = ctx.range.from - F.start, ctx.range.to - F.start
+  else
+    local sel = keymap.selection()
+    if sel and sel.view == "notation" then
+      from, to = sel.c0, sel.c1
     else
-      local sel = keymap.selection()
-      if sel and sel.view == "notation" then
-        from, to = sel.c0, sel.c1
-      else
-        local m = view:measure_at(view.beat + F.off, F.layout)
-        from, to = m.start, m.start + m.length
-      end
+      local m = view:measure_at(view.beat + F.off, F.layout)
+      from, to = m.start, m.start + m.length
     end
-    for _, m in ipairs(F.layout.measures) do
-      if m.start < to - EPS and m.start + m.length > from + EPS then bars[#bars + 1] = m.number end
+  end
+  for _, m in ipairs(F.layout.measures) do
+    if m.start < to - EPS and m.start + m.length > from + EPS then bars[#bars + 1] = m.number end
+  end
+  local joined
+  P.keep(u.tracks[1], function(part)
+    local set, kept = {}, {}
+    for _, n in ipairs(part.split or {}) do
+      set[n] = true
     end
-    local joined
-    P.keep(u.tracks[1], function(part)
-      local set, kept = {}, {}
-      for _, n in ipairs(part.split or {}) do
-        set[n] = true
-      end
-      joined = #bars > 0 and set[bars[1]] or false
-      for _, n in ipairs(bars) do
-        set[n] = not joined or nil
-      end
-      for n in pairs(set) do
-        kept[#kept + 1] = n
-      end
-      table.sort(kept)
-      part.split = #kept > 0 and kept or nil
-    end)
-    view.cache = nil
-    api.ui_redraw()
-    paw.notify(
-      joined and "written a2 again where the players play the same; an edit there is made for both"
-        or "the two players written apart there: an edit is the cursor's player's alone"
-    )
-  end,
-  {
-    range = true,
-    desc = "On a condensed staff: write the two players apart in the cursor's bar (or the range, or selection) though they play the same, so that an edit there is one player's; again, together (a2)",
-  }
-)
+    joined = #bars > 0 and set[bars[1]] or false
+    for _, n in ipairs(bars) do
+      set[n] = not joined or nil
+    end
+    for n in pairs(set) do
+      kept[#kept + 1] = n
+    end
+    table.sort(kept)
+    part.split = #kept > 0 and kept or nil
+  end)
+  view.cache = nil
+  api.ui_redraw()
+  paw.notify(
+    joined and "written a2 again where the players play the same; an edit there is made for both"
+      or "the two players written apart there: an edit is the cursor's player's alone"
+  )
+end, {
+  range = true,
+  desc = "On a condensed staff: write the two players apart in the cursor's bar (or the range, or selection) though they play the same, so that an edit there is one player's; again, together (a2)",
+})
 
 -- Ex over staves -------------------------------------------------------------------------------------
 --

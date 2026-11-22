@@ -979,18 +979,14 @@ function P.put_grace(sc, mi, staff, v, at, kind, sp)
   for i, ev in ipairs(entry and entry.events or {}) do
     if x == at and not ev.grace then
       if ev.kind ~= "chord" then return false end
-      table.insert(
-        entry.events,
-        i,
-        {
-          id = D.id(sc, "e"),
-          kind = "chord",
-          grace = kind,
-          dur = { 1, 8 },
-          dots = 0,
-          notes = { { id = D.id(sc, "n"), step = sp.letter, alter = sp.alter, octave = sp.octave } },
-        }
-      )
+      table.insert(entry.events, i, {
+        id = D.id(sc, "e"),
+        kind = "chord",
+        grace = kind,
+        dur = { 1, 8 },
+        dots = 0,
+        notes = { { id = D.id(sc, "n"), step = sp.letter, alter = sp.alter, octave = sp.octave } },
+      })
       D.touch(sc, mi)
       return true
     end

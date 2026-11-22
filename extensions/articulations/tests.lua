@@ -305,15 +305,13 @@ end)
 
 test("articulations: a sampler's describe makes a map", function()
   local gen = (load() and require("articulations.gen"))
-  local spec = assert(
-    gen.describe({
-      name = "Cello KS",
-      format = "sfz",
-      range = { lo = 36, hi = 84 },
-      keyswitches = { { pitch = 24, name = "Sustain" }, { pitch = 25, name = "Pizz" } },
-      articulations = { { name = "Sustain" }, { name = "Pizz", m2 = "11.A" }, { name = "Air" } },
-    })
-  )
+  local spec = assert(gen.describe({
+    name = "Cello KS",
+    format = "sfz",
+    range = { lo = 36, hi = 84 },
+    keyswitches = { { pitch = 24, name = "Sustain" }, { pitch = 25, name = "Pizz" } },
+    articulations = { { name = "Sustain" }, { name = "Pizz", m2 = "11.A" }, { name = "Air" } },
+  }))
   local out = {}
   for i, a in ipairs(spec.arts) do
     out[i] = a.name .. "=" .. a.m2 .. "/" .. a.out

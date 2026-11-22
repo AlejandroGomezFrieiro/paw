@@ -124,39 +124,33 @@ command("drums.kit", function(ctx)
   if grid:clip() and grid:track_id() == track.id then api.ui_redraw() end
 end, { desc = "Play the drum track from a folder of samples, named by what they are: `drums.kit ~/samples/808`" })
 
-command(
-  "drums.pad",
-  function(ctx)
-    local kit = require("drums.kit")
-    local track_id = grid:track_id() or (paw.cursor.track() and paw.cursor.track().id)
-    local device = track_id and kit.device(track_id)
-    if not device then
-      return paw.notify("the track has no kit of samples: `drums.kit <folder>` gives it one", "warn")
-    end
-    local piece = grid:clip() and grid:piece()
-    local note = tonumber(ctx.args.note) or (piece and piece.note)
-    if not note then return paw.notify("open the grid on the row to change, or give `note=`", "warn") end
-    local fields = {}
-    for _, key in ipairs({ "level", "pan", "tune", "group" }) do
-      fields[key] = tonumber(ctx.args[key])
-    end
-    if ctx.args.file then fields.file = tostring(ctx.args.file) end
-    local pad = kit.set_pad(device, note, fields)
-    paw.notify(
-      string.format(
-        "%s: level %g dB, pan %g, tune %g, group %d",
-        drums.piece(track_id, note),
-        pad.level,
-        pad.pan,
-        pad.tune,
-        pad.group
-      )
+command("drums.pad", function(ctx)
+  local kit = require("drums.kit")
+  local track_id = grid:track_id() or (paw.cursor.track() and paw.cursor.track().id)
+  local device = track_id and kit.device(track_id)
+  if not device then return paw.notify("the track has no kit of samples: `drums.kit <folder>` gives it one", "warn") end
+  local piece = grid:clip() and grid:piece()
+  local note = tonumber(ctx.args.note) or (piece and piece.note)
+  if not note then return paw.notify("open the grid on the row to change, or give `note=`", "warn") end
+  local fields = {}
+  for _, key in ipairs({ "level", "pan", "tune", "group" }) do
+    fields[key] = tonumber(ctx.args[key])
+  end
+  if ctx.args.file then fields.file = tostring(ctx.args.file) end
+  local pad = kit.set_pad(device, note, fields)
+  paw.notify(
+    string.format(
+      "%s: level %g dB, pan %g, tune %g, group %d",
+      drums.piece(track_id, note),
+      pad.level,
+      pad.pan,
+      pad.tune,
+      pad.group
     )
-  end,
-  {
-    desc = "Change the sample of the grid's row: `drums.pad level=-3 pan=0.3 tune=-2 group=1`, `drums.pad file=snare2.wav`",
-  }
-)
+  )
+end, {
+  desc = "Change the sample of the grid's row: `drums.pad level=-3 pan=0.3 tune=-2 group=1`, `drums.pad file=snare2.wav`",
+})
 
 command("drums.beat", function(ctx)
   local beats = require("drums.beats")

@@ -10,19 +10,15 @@ local need_track = common.need_track
 -- Every source in `paw.pick.sources` has a command, `:pick <name>`, and the
 -- built-in ones a command of their own and a key under `<leader>f`.
 
-command(
-  "pick",
-  function(ctx)
-    local name = ctx.args[1] and tostring(ctx.args[1]) or "pickers"
-    if name == "resume" then return paw.pick.resume() end
-    if not paw.pick.sources[name] then return paw.notify("no picker `" .. name .. "`; `:pick` lists them", "warn") end
-    paw.pick(name, { query = ctx.args.query and tostring(ctx.args.query) or nil })
-  end,
-  {
-    desc = "Choose from a list: `pick tracks`, `pick devices query=reverb`; with no name, every picker",
-    complete = { "pickers" },
-  }
-)
+command("pick", function(ctx)
+  local name = ctx.args[1] and tostring(ctx.args[1]) or "pickers"
+  if name == "resume" then return paw.pick.resume() end
+  if not paw.pick.sources[name] then return paw.notify("no picker `" .. name .. "`; `:pick` lists them", "warn") end
+  paw.pick(name, { query = ctx.args.query and tostring(ctx.args.query) or nil })
+end, {
+  desc = "Choose from a list: `pick tracks`, `pick devices query=reverb`; with no name, every picker",
+  complete = { "pickers" },
+})
 command("pick.resume", function() paw.pick.resume() end, { desc = "Open the last picker again, with what was typed" })
 
 -- The letter after `f` is the one the same thing has elsewhere on the
@@ -101,28 +97,24 @@ paw.on("device.stopped", function(event)
     "error"
   )
 end)
-command(
-  "plugins.rescan",
-  function(ctx)
-    local name = ctx.args[1] and tostring(ctx.args[1]) or nil
-    local notes = api.plugins_rescan(name)
-    if not notes then return paw.notify("plugins are not loaded in this session", "warn") end
-    for _, note in ipairs(notes) do
-      paw.api.log("plugin scan: " .. note)
-    end
-    paw.emit("plugins.scanned", { notes = notes, name = name })
-    paw.notify(
-      string.format(
-        "looked into %s again%s",
-        name and ("plugin files matching “" .. name .. "”") or "every plugin file",
-        #notes > 0 and (": " .. #notes .. " could not be used (see the log)") or ""
-      )
+command("plugins.rescan", function(ctx)
+  local name = ctx.args[1] and tostring(ctx.args[1]) or nil
+  local notes = api.plugins_rescan(name)
+  if not notes then return paw.notify("plugins are not loaded in this session", "warn") end
+  for _, note in ipairs(notes) do
+    paw.api.log("plugin scan: " .. note)
+  end
+  paw.emit("plugins.scanned", { notes = notes, name = name })
+  paw.notify(
+    string.format(
+      "looked into %s again%s",
+      name and ("plugin files matching “" .. name .. "”") or "every plugin file",
+      #notes > 0 and (": " .. #notes .. " could not be used (see the log)") or ""
     )
-  end,
-  {
-    desc = "Look into plugin files again, including ones skipped because they failed: `plugins.rescan`, `plugins.rescan surge`",
-  }
-)
+  )
+end, {
+  desc = "Look into plugin files again, including ones skipped because they failed: `plugins.rescan`, `plugins.rescan surge`",
+})
 -- A device whose output holds NaN or infinity is silenced where it is, once said.
 paw.on("device.invalid", function(event)
   local track = pcall(api.track_get, event.track) and api.track_get(event.track, "name") or "a track"

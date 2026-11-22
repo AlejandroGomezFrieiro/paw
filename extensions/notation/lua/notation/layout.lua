@@ -234,21 +234,18 @@ function M.layout(score, opts)
       end
     end
     local now = table.concat(in_force, ",")
-    local key = table.concat(
-      {
-        i,
-        tostring(sm and sm.v),
-        tostring(before and before.v),
-        tostring(after and after.v),
-        clefs,
-        starts[i],
-        lengths[i],
-        i == count and "last" or "",
-        fifths,
-        now,
-      },
-      "|"
-    )
+    local key = table.concat({
+      i,
+      tostring(sm and sm.v),
+      tostring(before and before.v),
+      tostring(after and after.v),
+      clefs,
+      starts[i],
+      lengths[i],
+      i == count and "last" or "",
+      fifths,
+      now,
+    }, "|")
     local m = {
       number = (opts.number or 1) + i - 1,
       index = i,

@@ -159,14 +159,11 @@ M.register("plugins", function(h)
   table.sort(parts)
   h.info("devices: " .. table.concat(parts, ", "))
   if plugins == 0 then
-    h.warn(
-      "no plugins found",
-      {
-        "they are looked for where CLAP, LV2 and VST3 plugins are installed, and in CLAP_PATH, LV2_PATH, VST3_PATH",
-        "`--no-plugins` leaves them out",
-        ":plugins.rescan looks again",
-      }
-    )
+    h.warn("no plugins found", {
+      "they are looked for where CLAP, LV2 and VST3 plugins are installed, and in CLAP_PATH, LV2_PATH, VST3_PATH",
+      "`--no-plugins` leaves them out",
+      ":plugins.rescan looks again",
+    })
   else
     h.ok(plugins .. " plugins")
   end
@@ -177,13 +174,10 @@ M.register("ffmpeg", function(h)
   if path then
     h.ok("ffmpeg at " .. path)
   else
-    h.warn(
-      "ffmpeg not found (paw.opt.ffmpeg = " .. tostring(paw.opt.ffmpeg) .. ")",
-      {
-        "renders to MP3, Ogg and Opus need it; WAV and FLAC do not",
-        "install ffmpeg, or set paw.opt.ffmpeg to its path",
-      }
-    )
+    h.warn("ffmpeg not found (paw.opt.ffmpeg = " .. tostring(paw.opt.ffmpeg) .. ")", {
+      "renders to MP3, Ogg and Opus need it; WAV and FLAC do not",
+      "install ffmpeg, or set paw.opt.ffmpeg to its path",
+    })
   end
 end, { desc = "renders to compressed formats" })
 
@@ -214,14 +208,11 @@ M.register("terminal", function(h)
       )
     )
   else
-    h.warn(
-      "this terminal shows no pictures: curves and waveforms are drawn in cells",
-      {
-        "kitty, WezTerm, Ghostty and Konsole show them",
-        "not inside tmux",
-        "paw.opt.graphics turns them off by choice",
-      }
-    )
+    h.warn("this terminal shows no pictures: curves and waveforms are drawn in cells", {
+      "kitty, WezTerm, Ghostty and Konsole show them",
+      "not inside tmux",
+      "paw.opt.graphics turns them off by choice",
+    })
   end
   if paw.opt.graphics == false then h.info("paw.opt.graphics is off") end
 end, { desc = "the terminal interface" })

@@ -85,21 +85,13 @@ local inspector = require("utau.gui_inspector")(gui)
 --- A button: drawn, and remembered for the pointer.
 local function button(g, x, y, label, on, action, opts)
   opts = opts or {}
-  local next_x = paw.canvas.button(
-    g,
-    gui.hits,
-    x,
-    y,
-    label,
-    action,
-    {
-      on = on,
-      color = opts.color,
-      size = opts.size,
-      width = opts.width or (#label * 7 + 18),
-      height = opts.height or 22,
-    }
-  )
+  local next_x = paw.canvas.button(g, gui.hits, x, y, label, action, {
+    on = on,
+    color = opts.color,
+    size = opts.size,
+    width = opts.width or (#label * 7 + 18),
+    height = opts.height or 22,
+  })
   return next_x - 2
 end
 gui.button = button

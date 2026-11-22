@@ -145,14 +145,11 @@ function M.confirm(plan, dir, opts)
     w = math.max(w, api.str_width(line) + 4)
   end
   confirm.plan, confirm.opts, confirm.lines, confirm.scroll = plan, opts, lines, 0
-  paw.ui.open(
-    "render.plan",
-    {
-      title = string.format("Render %d stem%s into %s", #plan, #plan == 1 and "" or "s", dir),
-      width = math.min(w, 110),
-      height = math.min(#lines + 3, 30),
-    }
-  )
+  paw.ui.open("render.plan", {
+    title = string.format("Render %d stem%s into %s", #plan, #plan == 1 and "" or "s", dir),
+    width = math.min(w, 110),
+    height = math.min(#lines + 3, 30),
+  })
 end
 
 --- What `:render stems` and `:render <group>` do with the command's options.

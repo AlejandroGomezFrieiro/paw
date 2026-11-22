@@ -110,7 +110,7 @@ nix develop -c cargo test --release -p <crate> # the Rust tests of a crate
 nix develop -c target/release/paw --clean --no-plugins -l tools/apidoc.lua check
 nix develop -c tools/tlcheck.sh                 # cyan check on all .tl files (the suite does it too)
 nix develop -c luacheck .                       # unused and undefined names in the .lua files
-nix develop -c tools/fmtcheck.sh                # how many files StyLua and cerulean would change
+nix develop -c tools/fmtcheck.sh                # every Lua and Teal file formatted (`fix` formats them)
 nix develop -c tools/vale.sh                   # the docs
 nix flake check                                # all of the checks
 ```

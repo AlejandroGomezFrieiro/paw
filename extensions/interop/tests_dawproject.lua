@@ -397,40 +397,34 @@ local function build(dir)
   local quiet =
     keys:add_clip({ name = "muted", start = 12, length = 3, notes = { { pitch = 72, start = 0, length = 1 } } })
   quiet.muted = true
-  api.clip_add(
-    kick.id,
-    {
-      name = "loop",
-      start = 4,
-      length = 5,
-      notes = {
-        { pitch = 38, start = -0.5, length = 0.25, velocity = 100 },
-        { pitch = 42, start = 0.5, length = 0.25, velocity = 70 },
-      },
-      ["loop"] = true,
-      loop_length = 2,
-      loop_start = -0.5,
-    }
-  )
+  api.clip_add(kick.id, {
+    name = "loop",
+    start = 4,
+    length = 5,
+    notes = {
+      { pitch = 38, start = -0.5, length = 0.25, velocity = 100 },
+      { pitch = 42, start = 0.5, length = 0.25, velocity = 70 },
+    },
+    ["loop"] = true,
+    loop_length = 2,
+    loop_start = -0.5,
+  })
   local wav = dir .. "/media/tone.wav"
   local audio = gtr:add_clip({ name = "tone", start = 1, file = wav, offset = 0.25, gain = 0 })
   audio.length = 2
   api.clip_set(audio.id, "fade_in", 0.25)
   api.clip_set(audio.id, "fade_out", 0.5)
   api.clip_add(gtr.id, { name = "slow", start = 4, file = wav, offset = 0.5, length = 2, stretch = 2 })
-  api.clip_add(
-    gtr.id,
-    {
-      name = "looped",
-      start = 6,
-      file = wav,
-      offset = 0.75,
-      length = 6,
-      ["loop"] = true,
-      loop_length = 2.5,
-      loop_start = -0.4166666666666667,
-    }
-  )
+  api.clip_add(gtr.id, {
+    name = "looped",
+    start = 6,
+    file = wav,
+    offset = 0.75,
+    length = 6,
+    ["loop"] = true,
+    loop_length = 2.5,
+    loop_start = -0.4166666666666667,
+  })
   keys:automate("volume"):set_points({ { 0, -10 }, { 4, 0 }, { 8, -120 } })
   api.lane_set_shapes(keys:lane("volume").id, { { beat = 0, shape = "hold", tension = 0 } })
   gtr:automate("pan"):set_points({ { 0, -1 }, { 6, 0.5 } })

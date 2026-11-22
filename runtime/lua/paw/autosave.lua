@@ -334,60 +334,56 @@ function M.choices()
   return list
 end
 
-paw.command(
-  "recover",
-  function(ctx)
-    local force = paw.project.discarding()
-    local list = M.choices()
-    if #list == 0 then return paw.notify("nothing was left behind to recover") end
-    local which = tonumber(ctx.args[1])
-    if which then
-      if not list[which] then return paw.notify("there are " .. #list .. " to choose from", "warn") end
-      local item = list[which]
-      if item.take then return M.import_take(item.file) end
-      return M.recover(item.file, { as_path = item.as_path, plugins_offline = ctx.args[2] == "offline", force = force })
+paw.command("recover", function(ctx)
+  local force = paw.project.discarding()
+  local list = M.choices()
+  if #list == 0 then return paw.notify("nothing was left behind to recover") end
+  local which = tonumber(ctx.args[1])
+  if which then
+    if not list[which] then return paw.notify("there are " .. #list .. " to choose from", "warn") end
+    local item = list[which]
+    if item.take then return M.import_take(item.file) end
+    return M.recover(item.file, { as_path = item.as_path, plugins_offline = ctx.args[2] == "offline", force = force })
+  end
+  local items = {}
+  for i, item in ipairs(list) do
+    local text = string.format(
+      "%d  %s%s  %s",
+      i,
+      item.time > 0 and (os.date("%Y-%m-%d %H:%M", item.time) .. "  ") or "",
+      item.name,
+      item.path
+          and ((item.path:match("[^/]+$") or item.path) .. "  (" .. (item.path:match("^(.*)/[^/]*$") or ".") .. ")")
+        or "(never saved)"
+    )
+    items[#items + 1] = { text = text, file = item.file, as_path = item.as_path, take = item.take }
+    -- A plugin may be what ended the session: the same, without them.
+    if not item.take then
+      items[#items + 1] =
+        { text = text .. "  (plugins offline)", file = item.file, as_path = item.as_path, offline = true }
     end
-    local items = {}
-    for i, item in ipairs(list) do
-      local text = string.format(
-        "%d  %s%s  %s",
-        i,
-        item.time > 0 and (os.date("%Y-%m-%d %H:%M", item.time) .. "  ") or "",
-        item.name,
-        item.path
-            and ((item.path:match("[^/]+$") or item.path) .. "  (" .. (item.path:match("^(.*)/[^/]*$") or ".") .. ")")
-          or "(never saved)"
-      )
-      items[#items + 1] = { text = text, file = item.file, as_path = item.as_path, take = item.take }
-      -- A plugin may be what ended the session: the same, without them.
-      if not item.take then
-        items[#items + 1] =
-          { text = text .. "  (plugins offline)", file = item.file, as_path = item.as_path, offline = true }
-      end
-    end
-    if paw.pick then
-      return paw.pick({
-        title = "Recover",
-        items = items,
-        on_choose = function(item)
-          if item.take then return M.import_take(item.file) end
-          M.recover(item.file, { as_path = item.as_path, plugins_offline = item.offline or false, force = force })
-        end,
-      })
-    end
-    local lines = {
-      "Unsaved work and takes that can be brought back. `:recover 1` opens the first, `:recover 1 offline` with every plugin offline.",
-      "",
-    }
-    for i, item in ipairs(items) do
-      lines[i + 2] = item.text
-    end
-    paw.ui.page("Recover", lines)
-  end,
-  {
-    desc = "Open a project that a session which ended badly left unsaved: `recover`, `recover 1`, `recover 1 offline` (plugins offline)",
+  end
+  if paw.pick then
+    return paw.pick({
+      title = "Recover",
+      items = items,
+      on_choose = function(item)
+        if item.take then return M.import_take(item.file) end
+        M.recover(item.file, { as_path = item.as_path, plugins_offline = item.offline or false, force = force })
+      end,
+    })
+  end
+  local lines = {
+    "Unsaved work and takes that can be brought back. `:recover 1` opens the first, `:recover 1 offline` with every plugin offline.",
+    "",
   }
-)
+  for i, item in ipairs(items) do
+    lines[i + 2] = item.text
+  end
+  paw.ui.page("Recover", lines)
+end, {
+  desc = "Open a project that a session which ended badly left unsaved: `recover`, `recover 1`, `recover 1 offline` (plugins offline)",
+})
 paw.project.allow_discard("recover")
 
 paw.on("startup", function()

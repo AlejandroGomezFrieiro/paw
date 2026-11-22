@@ -993,19 +993,16 @@ function M.raw(notes, ctx)
     if qe - qs < grid - EPS then qe = qs + grid end
     if n.start >= 0 and qs < finish - EPS and qs >= origin - EPS then
       local s = (two and n.pitch < 60) and 2 or 1
-      table.insert(
-        by_staff[s],
-        {
-          index = index,
-          pitch = n.pitch,
-          meta = n.meta,
-          velocity = n.velocity,
-          s = qs,
-          e = math.min(qe, finish),
-          start = n.start,
-          len = n.length,
-        }
-      )
+      table.insert(by_staff[s], {
+        index = index,
+        pitch = n.pitch,
+        meta = n.meta,
+        velocity = n.velocity,
+        s = qs,
+        e = math.min(qe, finish),
+        start = n.start,
+        len = n.length,
+      })
     end
   end
   local events = {}

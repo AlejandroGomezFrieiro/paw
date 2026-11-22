@@ -681,24 +681,16 @@ local function lane(self, buf, row, track, selected, cursor_clip, lanes, hue, ma
         end
         return false
       end
-      curve(
-        buf,
-        0,
-        y + 1,
-        w,
-        height - 1,
-        function(i)
-          if over_clip(math.floor(i / 2)) then return nil end
-          return (api.lane_value_at(l.id, scroll + (i + 0.5) / (zoom * 2)) + 60) / 66
-        end,
-        {
-          style = l.enabled and "Automation" or "Faint",
-          color = draw.track_colour(track),
-          enabled = l.enabled,
-          from = scroll,
-          per = zoom,
-        }
-      )
+      curve(buf, 0, y + 1, w, height - 1, function(i)
+        if over_clip(math.floor(i / 2)) then return nil end
+        return (api.lane_value_at(l.id, scroll + (i + 0.5) / (zoom * 2)) + 60) / 66
+      end, {
+        style = l.enabled and "Automation" or "Faint",
+        color = draw.track_colour(track),
+        enabled = l.enabled,
+        from = scroll,
+        per = zoom,
+      })
     end
   end
   return spans
@@ -863,8 +855,7 @@ function view:draw_lane_row(headers, timeline, row, lines)
       y,
       tw,
       2,
-      l.point_count > 0
-          and function(i) return level(api.lane_value_at(l.id, scroll + (i + 0.5) / (zoom * 2))) end
+      l.point_count > 0 and function(i) return level(api.lane_value_at(l.id, scroll + (i + 0.5) / (zoom * 2))) end
         or nil,
       {
         points = points,

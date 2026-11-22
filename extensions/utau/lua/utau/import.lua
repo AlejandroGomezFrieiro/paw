@@ -91,15 +91,12 @@ function M.add(project, opts)
           meta = { lyric = n.lyric, utau = next(props) and props or nil },
         }
       end
-      api.clip_add(
-        track,
-        {
-          name = part.name ~= "" and part.name or t.name,
-          start = start,
-          length = math.max(part.dur / resolution, 1 / resolution),
-          notes = notes,
-        }
-      )
+      api.clip_add(track, {
+        name = part.name ~= "" and part.name or t.name,
+        start = start,
+        length = math.max(part.dur / resolution, 1 / resolution),
+        notes = notes,
+      })
       for _, curve in ipairs(part.curves or {}) do
         if CURVES[curve.abbr] then
           local points = lanes[curve.abbr] or {}

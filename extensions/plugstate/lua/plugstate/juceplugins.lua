@@ -239,34 +239,30 @@ function M.edits_of(changes)
   return edits
 end
 
-command(
-  "plugstate.tree",
-  function(ctx)
-    local id = target()
-    if not id then return end
-    local doc = opened(id)
-    if not doc then return end
-    local path = table.concat(ctx.args, " ")
-    local node = path ~= "" and doc:get(path) or doc.root
-    if type(node) ~= "table" or not node.type then return paw.notify(path .. " = " .. tostring(node)) end
-    local lines = {
-      api.device_get(id).name .. " · " .. (doc.title or doc.framework or "JUCE") .. " · " .. table.concat(
-        doc:layer_names(),
-        " › "
-      ),
-    }
-    for _, note in ipairs(doc.notes or {}) do
-      lines[#lines + 1] = "(" .. note .. ")"
-    end
-    for _, l in ipairs(juce.dump(node, { depth = ctx.count or 3, max = 40 })) do
-      lines[#lines + 1] = l
-    end
-    paw.notify(table.concat(lines, "\n"))
-  end,
-  {
-    desc = "Show the saved state of a plugin as a tree, in the form of its framework (JUCE, DPF, iPlug2, LSP, LV2, JSON): `plugstate.tree /PluginState/MusioFile` shows a part (a count: how deep)",
+command("plugstate.tree", function(ctx)
+  local id = target()
+  if not id then return end
+  local doc = opened(id)
+  if not doc then return end
+  local path = table.concat(ctx.args, " ")
+  local node = path ~= "" and doc:get(path) or doc.root
+  if type(node) ~= "table" or not node.type then return paw.notify(path .. " = " .. tostring(node)) end
+  local lines = {
+    api.device_get(id).name .. " · " .. (doc.title or doc.framework or "JUCE") .. " · " .. table.concat(
+      doc:layer_names(),
+      " › "
+    ),
   }
-)
+  for _, note in ipairs(doc.notes or {}) do
+    lines[#lines + 1] = "(" .. note .. ")"
+  end
+  for _, l in ipairs(juce.dump(node, { depth = ctx.count or 3, max = 40 })) do
+    lines[#lines + 1] = l
+  end
+  paw.notify(table.concat(lines, "\n"))
+end, {
+  desc = "Show the saved state of a plugin as a tree, in the form of its framework (JUCE, DPF, iPlug2, LSP, LV2, JSON): `plugstate.tree /PluginState/MusioFile` shows a part (a count: how deep)",
+})
 
 command("plugstate.mark", function()
   local id = target()
@@ -289,73 +285,62 @@ command("plugstate.changes", function()
   paw.notify(table.concat(lines, "\n"))
 end, { desc = "List the paths of the saved state of a plugin that changed since `:plugstate.mark`" })
 
-command(
-  "plugstate.path",
-  function(ctx)
-    local id = target()
-    if not id then return end
-    local doc = opened(id)
-    if not doc then return end
-    local path, value = (ctx.args[1] or ""):match("^%s*(%S+)%s*(.-)%s*$")
-    if not path then
-      return paw.notify("plugstate.path needs a path: `plugstate.path /PluginState@studioReverb off`", "warn")
-    end
-    if value == "" then return paw.notify(path .. " = " .. tostring((doc:get(path)))) end
-    local quoted = value:match('^"(.*)"$')
-    value = quoted or value
-    -- A number stays a number, except in a JUCE state (its XML is text).
-    local now = doc:get(path)
-    local v, kind = value, "string"
-    if
-      not quoted
-      and doc.framework ~= "juce"
-      and doc.framework ~= "hise"
-      and type(now) == "number"
-      and tonumber(value)
-    then
-      v, kind = tonumber(value), nil
-    end
-    local ok, err = pcall(doc.set, doc, path, v, kind, { make = true })
-    if not ok then return paw.notify(api.device_get(id).name .. ": " .. tostring(err), "error") end
-    local fine, why =
-      pcall(api.device_load, id, { name = api.device_get(id).meta.preset, state = doc:write(), params = {} })
-    if not fine then return paw.notify(api.device_get(id).name .. ": " .. tostring(why), "error") end
-    paw.notify(api.device_get(id).name .. ": " .. path .. " = " .. value)
-  end,
-  {
-    raw = true,
-    desc = "Show or set a value in the saved state of a plugin by its path: `plugstate.path /PluginState@studioReverb off`, `plugstate.path /DPF/Parameters@size 30` (one undo step)",
-  }
-)
+command("plugstate.path", function(ctx)
+  local id = target()
+  if not id then return end
+  local doc = opened(id)
+  if not doc then return end
+  local path, value = (ctx.args[1] or ""):match("^%s*(%S+)%s*(.-)%s*$")
+  if not path then
+    return paw.notify("plugstate.path needs a path: `plugstate.path /PluginState@studioReverb off`", "warn")
+  end
+  if value == "" then return paw.notify(path .. " = " .. tostring((doc:get(path)))) end
+  local quoted = value:match('^"(.*)"$')
+  value = quoted or value
+  -- A number stays a number, except in a JUCE state (its XML is text).
+  local now = doc:get(path)
+  local v, kind = value, "string"
+  if
+    not quoted
+    and doc.framework ~= "juce"
+    and doc.framework ~= "hise"
+    and type(now) == "number"
+    and tonumber(value)
+  then
+    v, kind = tonumber(value), nil
+  end
+  local ok, err = pcall(doc.set, doc, path, v, kind, { make = true })
+  if not ok then return paw.notify(api.device_get(id).name .. ": " .. tostring(err), "error") end
+  local fine, why =
+    pcall(api.device_load, id, { name = api.device_get(id).meta.preset, state = doc:write(), params = {} })
+  if not fine then return paw.notify(api.device_get(id).name .. ": " .. tostring(why), "error") end
+  paw.notify(api.device_get(id).name .. ": " .. path .. " = " .. value)
+end, {
+  raw = true,
+  desc = "Show or set a value in the saved state of a plugin by its path: `plugstate.path /PluginState@studioReverb off`, `plugstate.path /DPF/Parameters@size 30` (one undo step)",
+})
 
-command(
-  "plugstate.preset_write",
-  function(ctx)
-    local id = target()
-    if not id then return end
-    local file = ctx.args[1] and tostring(ctx.args[1]):gsub("^~", os.getenv("HOME") or "~")
-    if not file then return paw.notify("plugstate.preset_write needs a file name", "warn") end
-    if not file:match("%.jucepreset$") then file = file .. ".jucepreset" end
-    local changes, why = M.changes(id)
-    if not changes then return paw.notify(why, "warn") end
-    local d = api.device_get(id)
-    local desc = jucestate.plugin_of(d)
-    local doc = M.open(id)
-    jucestate.write_preset(
-      file,
-      {
-        plugin = desc and desc.name,
-        name = plugstate.stem(file):gsub("%.jucepreset$", ""),
-        framework = doc and doc.framework,
-        edits = M.edits_of(changes),
-      }
-    )
-    paw.notify(d.name .. ": " .. #changes .. " changes written to " .. file)
-  end,
-  {
-    desc = "Write the changes since `:plugstate.mark` as a preset (.jucepreset) that `:plugstate.load` loads into the plugin (a JUCE preset into each format of it)",
-    complete = "files",
-  }
-)
+command("plugstate.preset_write", function(ctx)
+  local id = target()
+  if not id then return end
+  local file = ctx.args[1] and tostring(ctx.args[1]):gsub("^~", os.getenv("HOME") or "~")
+  if not file then return paw.notify("plugstate.preset_write needs a file name", "warn") end
+  if not file:match("%.jucepreset$") then file = file .. ".jucepreset" end
+  local changes, why = M.changes(id)
+  if not changes then return paw.notify(why, "warn") end
+  local d = api.device_get(id)
+  local desc = jucestate.plugin_of(d)
+  local doc = M.open(id)
+  jucestate.write_preset(file, {
+    plugin = desc and desc.name,
+    name = plugstate.stem(file):gsub("%.jucepreset$", ""),
+    framework = doc and doc.framework,
+    edits = M.edits_of(changes),
+  })
+  paw.notify(d.name .. ": " .. #changes .. " changes written to " .. file)
+end, {
+  desc = "Write the changes since `:plugstate.mark` as a preset (.jucepreset) that `:plugstate.load` loads into the plugin (a JUCE preset into each format of it)",
+  complete = "files",
+})
 
 return M

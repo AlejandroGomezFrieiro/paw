@@ -713,22 +713,19 @@ local function build(dir)
     keys:add_clip({ name = "muted", start = 12, length = 3, notes = { { pitch = 72, start = 0, length = 1 } } })
   quiet.muted = true
   -- A looped MIDI clip whose repeated stretch begins half a beat before it.
-  api.clip_add(
-    kick.id,
-    {
-      name = "loop",
-      start = 4,
-      length = 5,
-      notes = {
-        { pitch = 38, start = -0.5, length = 0.25, velocity = 100 },
-        { pitch = 42, start = 0.5, length = 0.25, velocity = 70 },
-      },
-      controls = { { start = 0, type = "cc", number = 7, value = 64 / 127 } },
-      ["loop"] = true,
-      loop_length = 2,
-      loop_start = -0.5,
-    }
-  )
+  api.clip_add(kick.id, {
+    name = "loop",
+    start = 4,
+    length = 5,
+    notes = {
+      { pitch = 38, start = -0.5, length = 0.25, velocity = 100 },
+      { pitch = 42, start = 0.5, length = 0.25, velocity = 70 },
+    },
+    controls = { { start = 0, type = "cc", number = 7, value = 64 / 127 } },
+    ["loop"] = true,
+    loop_length = 2,
+    loop_start = -0.5,
+  })
   local wav = dir .. "/media/tone.wav"
   local audio = gtr:add_clip({ start = 1, file = wav, offset = 0.25, gain = -3.5 })
   audio.length = 2
@@ -736,19 +733,16 @@ local function build(dir)
   api.clip_set(audio.id, "fade_out", 0.5)
   -- Faster and higher; and a looped clip of the part of the file after 0.5 s.
   api.clip_add(gtr.id, { name = "fast", start = 4, file = wav, offset = 0, length = 1, stretch = 0.5, pitch = 3 })
-  api.clip_add(
-    gtr.id,
-    {
-      name = "looped",
-      start = 6,
-      file = wav,
-      offset = 0.75,
-      length = 6,
-      ["loop"] = true,
-      loop_length = 2.5,
-      loop_start = -0.4166666666666667,
-    }
-  )
+  api.clip_add(gtr.id, {
+    name = "looped",
+    start = 6,
+    file = wav,
+    offset = 0.75,
+    length = 6,
+    ["loop"] = true,
+    loop_length = 2.5,
+    loop_start = -0.4166666666666667,
+  })
   keys:automate("volume"):set_points({ { 0, -10 }, { 4, 0 }, { 8, -120 } })
   local vol = keys:lane("volume")
   api.lane_set_shapes(

@@ -426,16 +426,13 @@ end)
 
 test("notation layout: other features place marks of their own kind against the skylines", function()
   local skyline = require("notation.skyline")
-  skyline.kind(
-    "test-chord",
-    {
-      order = skyline.ORDER.chord,
-      side = "above",
-      pad = 0.5,
-      row = "test-chords",
-      ink = function(out, st, item) out:text(item.x, 0, item.value, st.ink, 14, true) end,
-    }
-  )
+  skyline.kind("test-chord", {
+    order = skyline.ORDER.chord,
+    side = "above",
+    pad = 0.5,
+    row = "test-chords",
+    ink = function(out, st, item) out:text(item.x, 0, item.value, st.ink, 14, true) end,
+  })
   local view = score({ N(84, 0, 1), N(60, 1, 1), N(88, 2, 2) }, 4)
   local layout = view:layout()
   layout.measures[1].marks = layout.measures[1].marks or {}

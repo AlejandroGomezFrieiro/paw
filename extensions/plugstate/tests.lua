@@ -546,19 +546,16 @@ test("plugstate: the JUCE layer reads and writes back each container, byte for b
 
   -- A preset: edits on a base, in a file, for another format.
   local file = T.scratch .. "/lead.jucepreset"
-  js.write_preset(
-    file,
-    {
-      name = "Lead",
-      base = paw.bytes.base64(binary),
-      format = "clap",
-      edits = {
-        { path = "/Plugin@name", value = "Big" },
-        { param = "gain", value = 0.1 },
-        { path = "/Plugin/New[id=x]@data", value = { binary = "\0\255" }, make = true },
-      },
-    }
-  )
+  js.write_preset(file, {
+    name = "Lead",
+    base = paw.bytes.base64(binary),
+    format = "clap",
+    edits = {
+      { path = "/Plugin@name", value = "Big" },
+      { param = "gain", value = 0.1 },
+      { path = "/Plugin/New[id=x]@data", value = { binary = "\0\255" }, make = true },
+    },
+  })
   local preset = js.read_preset(file)
   local made = js.open(js.generate(preset, "vst3", vst3), "vst3")
   eq(made:get("/Plugin@name"), "Big", "the preset's edit, in VST3")

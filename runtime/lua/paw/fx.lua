@@ -758,31 +758,27 @@ function M.setup()
     with_device(function(device) M.pick_param(device) end),
     { desc = "Find a parameter of the device by name, and show it first on its card" }
   )
-  command(
-    "param.last",
-    function(ctx)
-      local last = M.last_touched
-      if not (last and pcall(api.device_get, last.device)) then
-        return paw.notify("no parameter touched yet: move one in a plugin's window, or here", "warn")
-      end
-      local d = api.device_get(last.device)
-      paw.cursor.set_track(d.track)
-      paw.ui.focus("devices")
-      M.focus_param(last.device, last.param)
-      local what = ctx.args[1]
-      if what == "automate" then
-        paw.device(last.device):automate(last.param)
-        paw.notify("automating " .. d.name .. " · " .. last.param)
-      elseif what == "learn" and M.learn then
-        M.learn(last.device, last.param)
-      elseif what == "show" then
-        M.show_param(last.device, last.param)
-      end
-    end,
-    {
-      desc = "Go to the parameter last touched; `param.last automate`, `param.last learn` or `param.last show` act on it",
-    }
-  )
+  command("param.last", function(ctx)
+    local last = M.last_touched
+    if not (last and pcall(api.device_get, last.device)) then
+      return paw.notify("no parameter touched yet: move one in a plugin's window, or here", "warn")
+    end
+    local d = api.device_get(last.device)
+    paw.cursor.set_track(d.track)
+    paw.ui.focus("devices")
+    M.focus_param(last.device, last.param)
+    local what = ctx.args[1]
+    if what == "automate" then
+      paw.device(last.device):automate(last.param)
+      paw.notify("automating " .. d.name .. " · " .. last.param)
+    elseif what == "learn" and M.learn then
+      M.learn(last.device, last.param)
+    elseif what == "show" then
+      M.show_param(last.device, last.param)
+    end
+  end, {
+    desc = "Go to the parameter last touched; `param.last automate`, `param.last learn` or `param.last show` act on it",
+  })
 
   local function dmap(lhs, rhs, desc) paw.keymap.set(lhs, rhs, { view = "devices", desc = desc }) end
   dmap("f", "param", "Find a parameter by name")

@@ -155,53 +155,49 @@ command(
   function() paw.frontend.save_as() end,
   { desc = "Save the project under a name chosen from a list of directories" }
 )
-command(
-  "edit",
-  function(ctx)
-    -- Alone, as in Vim, it opens the project's own file again: `:e!` goes
-    -- back to the saved project and throws away what changed since.
-    if not ctx.args[1] then
-      local path = api.project_get("path")
-      if not path then
-        return paw.notify("the project has no file yet: `:e song` opens one, `:w song` saves this one", "warn")
-      end
-      if not paw.project.guard("edit") then return end
-      paw.open(path)
-      return paw.notify("opened " .. path .. " again as it was saved")
-    end
-    local how = ctx.args[2] and tostring(ctx.args[2])
-    if how and how ~= "offline" and how ~= "online" then
-      return paw.notify("usage: edit <project> [offline|online]", "warn")
-    end
-    local path = tostring(ctx.args[1])
-    -- A folder is listed as a buffer to edit (`paw.files`), unless it is a project.
-    if plain_folder(path) then return paw.files.open(path, { here = true }) end
-    -- A buffer's name, a view's or an address (`paw://tracks`) shows it here;
-    -- only a file's path asks about the project.
-    local view, buf, target = paw.layout.resolve(path)
-    local win = view and not how and paw.layout.current()
-    if win then return paw.layout.show_in(win, view, buf and not buf.single and buf.id or nil, target) end
-    path = paw.files.path(path)
-    if
-      paw.formats.for_path(path, "import")
-      or paw.midifile.is_clip_file(path)
-      or paw.is_audio_file(path)
-      or paw.is_chain_file(path)
-    then
-      local args = { path }
-      for k, v in pairs(ctx.args) do
-        if type(k) == "string" then args[k] = v end
-      end
-      return paw.commands.run("open", args)
+command("edit", function(ctx)
+  -- Alone, as in Vim, it opens the project's own file again: `:e!` goes
+  -- back to the saved project and throws away what changed since.
+  if not ctx.args[1] then
+    local path = api.project_get("path")
+    if not path then
+      return paw.notify("the project has no file yet: `:e song` opens one, `:w song` saves this one", "warn")
     end
     if not paw.project.guard("edit") then return end
-    paw.open(path, { plugins_offline = how == "offline", all_online = how == "online" })
-  end,
-  {
-    desc = "Open a project: `edit song`; alone, the project's file again (`edit!` goes back to it as saved); `edit song offline` with every plugin offline, `online` with none held back; a MIDI or sound file as `open` does",
-    complete = { "openable", function() return { "offline", "online" } end },
-  }
-)
+    paw.open(path)
+    return paw.notify("opened " .. path .. " again as it was saved")
+  end
+  local how = ctx.args[2] and tostring(ctx.args[2])
+  if how and how ~= "offline" and how ~= "online" then
+    return paw.notify("usage: edit <project> [offline|online]", "warn")
+  end
+  local path = tostring(ctx.args[1])
+  -- A folder is listed as a buffer to edit (`paw.files`), unless it is a project.
+  if plain_folder(path) then return paw.files.open(path, { here = true }) end
+  -- A buffer's name, a view's or an address (`paw://tracks`) shows it here;
+  -- only a file's path asks about the project.
+  local view, buf, target = paw.layout.resolve(path)
+  local win = view and not how and paw.layout.current()
+  if win then return paw.layout.show_in(win, view, buf and not buf.single and buf.id or nil, target) end
+  path = paw.files.path(path)
+  if
+    paw.formats.for_path(path, "import")
+    or paw.midifile.is_clip_file(path)
+    or paw.is_audio_file(path)
+    or paw.is_chain_file(path)
+  then
+    local args = { path }
+    for k, v in pairs(ctx.args) do
+      if type(k) == "string" then args[k] = v end
+    end
+    return paw.commands.run("open", args)
+  end
+  if not paw.project.guard("edit") then return end
+  paw.open(path, { plugins_offline = how == "offline", all_online = how == "online" })
+end, {
+  desc = "Open a project: `edit song`; alone, the project's file again (`edit!` goes back to it as saved); `edit song offline` with every plugin offline, `online` with none held back; a MIDI or sound file as `open` does",
+  complete = { "openable", function() return { "offline", "online" } end },
+})
 command("new", function()
   if paw.project.guard("new") then paw.project.new() end
 end, { desc = "Start an empty project, unless there is unsaved work" })
@@ -332,71 +328,63 @@ end, {
   desc = "How the track treats automation: `automation touch`, `automation read all`; read, touch, latch, write or off",
   complete = function() return paw.lanes.modes end,
 })
-command(
-  "engine",
-  function(ctx)
-    local wanted = ctx.args.threads ~= nil and tonumber(ctx.args.threads) or nil
-    if ctx.args.threads ~= nil and not wanted then
-      return paw.notify("engine: threads=N, a number, or 0 for as many as the machine has", "warn")
+command("engine", function(ctx)
+  local wanted = ctx.args.threads ~= nil and tonumber(ctx.args.threads) or nil
+  if ctx.args.threads ~= nil and not wanted then
+    return paw.notify("engine: threads=N, a number, or 0 for as many as the machine has", "warn")
+  end
+  local before = api.engine_get().threads
+  if wanted then paw.opt.threads = wanted end
+  if ctx.args[1] or ctx.args.rate or ctx.args.buffer then
+    api.engine_restart({
+      backend = ctx.args[1] and tostring(ctx.args[1]),
+      sample_rate = ctx.args.rate,
+      buffer_size = ctx.args.buffer,
+    })
+  end
+  -- The audio thread takes the new threads at its next block: wait for it,
+  -- so that the count said is the one that runs.
+  if wanted and wanted ~= before then
+    local deadline = api.now() + 500
+    while api.engine_get().threads == before and api.now() < deadline do
+      api.sleep(5)
     end
-    local before = api.engine_get().threads
-    if wanted then paw.opt.threads = wanted end
-    if ctx.args[1] or ctx.args.rate or ctx.args.buffer then
-      api.engine_restart({
-        backend = ctx.args[1] and tostring(ctx.args[1]),
-        sample_rate = ctx.args.rate,
-        buffer_size = ctx.args.buffer,
-      })
-    end
-    -- The audio thread takes the new threads at its next block: wait for it,
-    -- so that the count said is the one that runs.
-    if wanted and wanted ~= before then
-      local deadline = api.now() + 500
-      while api.engine_get().threads == before and api.now() < deadline do
-        api.sleep(5)
-      end
-    end
-    local e = api.engine_get()
-    local asked = wanted and wanted > 0 and e.threads ~= wanted and string.format(" (%d asked)", wanted) or ""
-    paw.notify(
-      string.format(
-        "%s: %s, %d Hz, %d %s%s, %d xruns",
-        e.backend,
-        e.device,
-        e.sample_rate,
-        e.threads,
-        e.threads == 1 and "thread" or "threads",
-        asked,
-        e.xruns
-      )
+  end
+  local e = api.engine_get()
+  local asked = wanted and wanted > 0 and e.threads ~= wanted and string.format(" (%d asked)", wanted) or ""
+  paw.notify(
+    string.format(
+      "%s: %s, %d Hz, %d %s%s, %d xruns",
+      e.backend,
+      e.device,
+      e.sample_rate,
+      e.threads,
+      e.threads == 1 and "thread" or "threads",
+      asked,
+      e.xruns
     )
-  end,
-  {
-    desc = "Show the audio engine, restart it, or set its threads: `engine pipewire rate=48000 buffer=256`, `engine threads=4`",
-  }
-)
-command(
-  "engine.status",
-  function()
-    local e = api.engine_get()
-    paw.notify(
-      string.format(
-        "%s %s: cpu %d%%, %d xruns, %d late plugin blocks, %d MIDI events dropped, %d recorded frames lost, %d devices stopped",
-        e.backend,
-        e.device,
-        math.floor((e.cpu or 0) * 100 + 0.5),
-        e.xruns,
-        e.late_blocks,
-        e.midi_dropped,
-        e.record_dropped,
-        e.devices_stopped
-      )
+  )
+end, {
+  desc = "Show the audio engine, restart it, or set its threads: `engine pipewire rate=48000 buffer=256`, `engine threads=4`",
+})
+command("engine.status", function()
+  local e = api.engine_get()
+  paw.notify(
+    string.format(
+      "%s %s: cpu %d%%, %d xruns, %d late plugin blocks, %d MIDI events dropped, %d recorded frames lost, %d devices stopped",
+      e.backend,
+      e.device,
+      math.floor((e.cpu or 0) * 100 + 0.5),
+      e.xruns,
+      e.late_blocks,
+      e.midi_dropped,
+      e.record_dropped,
+      e.devices_stopped
     )
-  end,
-  {
-    desc = "What has gone wrong while playing: xruns, late plugin blocks, dropped MIDI, lost recorded frames, stopped devices",
-  }
-)
+  )
+end, {
+  desc = "What has gone wrong while playing: xruns, late plugin blocks, dropped MIDI, lost recorded frames, stopped devices",
+})
 -- The audio devices: a picker, and a command for each.
 local engine_groups =
   { info = "", output = "output", input = "input", block = "block", rate = "rate", backend = "system" }
@@ -443,17 +431,13 @@ command("audio.rate", function(ctx)
   if not rate then return paw.notify("audio.rate: " .. paw.audio.timing()) end
   paw.audio.choose_engine({ rate = math.floor(rate) })
 end, { desc = "The sample rate in Hz, or 0 for the device's own: `audio.rate 48000`" })
-command(
-  "audio.system",
-  function(ctx)
-    if not ctx.args[1] then return paw.notify("audio.system: " .. api.engine_get().backend) end
-    paw.audio.choose_engine({ backend = tostring(ctx.args[1]) })
-  end,
-  {
-    desc = "The sound system, as `:audio` lists them: `audio.system pipewire`, `audio.system auto`",
-    complete = function() return (paw.audio.devices().backends or {}) end,
-  }
-)
+command("audio.system", function(ctx)
+  if not ctx.args[1] then return paw.notify("audio.system: " .. api.engine_get().backend) end
+  paw.audio.choose_engine({ backend = tostring(ctx.args[1]) })
+end, {
+  desc = "The sound system, as `:audio` lists them: `audio.system pipewire`, `audio.system auto`",
+  complete = function() return (paw.audio.devices().backends or {}) end,
+})
 -- Tracks that do not feed each other are processed side by side.
 paw.on("option.changed", function(e)
   if e.name == "threads" then api.engine_set_threads(e.value) end

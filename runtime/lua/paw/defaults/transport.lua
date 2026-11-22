@@ -167,43 +167,39 @@ local function click_said()
     o.click_output > 0 and string.format("on outputs %d/%d", o.click_output, o.click_output + 1) or "with the song"
   )
 end
-command(
-  "click",
-  function(ctx)
-    local a = ctx.args
-    local level = a.level ~= nil and tonumber(a.level) or nil
-    if a.level ~= nil and not level then return paw.notify("click: level=-6, in dB", "warn") end
-    local words = {
-      on = true,
-      yes = true,
-      ["1"] = true,
-      ["true"] = true,
-      off = false,
-      no = false,
-      ["0"] = false,
-      ["false"] = false,
-    }
-    local accent = a.accent
-    if accent ~= nil and type(accent) ~= "boolean" then accent = words[tostring(accent)] end
-    if a.accent ~= nil and accent == nil then return paw.notify("click: accent=on or accent=off", "warn") end
-    local output = a.output
-    if output == "song" or output == "mix" or output == "main" then output = 0 end
-    if output ~= nil then output = tonumber((tostring(output):match("^(%d+)"))) end
-    if a.output ~= nil and not output then
-      return paw.notify("click: output=3 (outputs 3 and 4), or output=song", "warn")
-    end
-    local ok, err = pcall(function()
-      if level then paw.opt.click_level = level end
-      if accent ~= nil then paw.opt.click_accent = accent end
-      if output then paw.opt.click_output = output end
-    end)
-    if not ok then return paw.notify((tostring(err):gsub("^[^:]*:%d+: ", "")), "warn") end
-    paw.notify(click_said())
-  end,
-  {
-    desc = "The metronome's sound: `click level=-6`, `click accent=off`, `click output=3` (outputs 3 and 4, for headphones), `click output=song`; alone, what it is",
+command("click", function(ctx)
+  local a = ctx.args
+  local level = a.level ~= nil and tonumber(a.level) or nil
+  if a.level ~= nil and not level then return paw.notify("click: level=-6, in dB", "warn") end
+  local words = {
+    on = true,
+    yes = true,
+    ["1"] = true,
+    ["true"] = true,
+    off = false,
+    no = false,
+    ["0"] = false,
+    ["false"] = false,
   }
-)
+  local accent = a.accent
+  if accent ~= nil and type(accent) ~= "boolean" then accent = words[tostring(accent)] end
+  if a.accent ~= nil and accent == nil then return paw.notify("click: accent=on or accent=off", "warn") end
+  local output = a.output
+  if output == "song" or output == "mix" or output == "main" then output = 0 end
+  if output ~= nil then output = tonumber((tostring(output):match("^(%d+)"))) end
+  if a.output ~= nil and not output then
+    return paw.notify("click: output=3 (outputs 3 and 4), or output=song", "warn")
+  end
+  local ok, err = pcall(function()
+    if level then paw.opt.click_level = level end
+    if accent ~= nil then paw.opt.click_accent = accent end
+    if output then paw.opt.click_output = output end
+  end)
+  if not ok then return paw.notify((tostring(err):gsub("^[^:]*:%d+: ", "")), "warn") end
+  paw.notify(click_said())
+end, {
+  desc = "The metronome's sound: `click level=-6`, `click accent=off`, `click output=3` (outputs 3 and 4, for headphones), `click output=song`; alone, what it is",
+})
 -- The selected track plays the MIDI keyboard while no track is armed
 -- (`paw.opt.midi_follows_selection`): the kernel is told which track.
 local function send_follow()
@@ -264,39 +260,35 @@ paw.on("option.changed", function(e)
   if e.name == "pre_roll" or e.name == "pre_roll_seconds" then send_pre_roll() end
 end)
 local last_pre_roll = 2
-command(
-  "preroll",
-  function(ctx)
-    local word = ctx.args[1]
-    local bars, seconds = 0, 0
-    if word == "off" or word == "0" then
-      bars = 0
-    elseif word == nil then
-      local now_bars, now_seconds = pre_roll_values()
-      bars = (now_bars > 0 or now_seconds > 0) and 0 or last_pre_roll
-    elseif tostring(word):match("^%d+%.?%d*s$") then
-      seconds = tonumber(word:sub(1, -2))
-    elseif tonumber(word) then
-      bars = tonumber(word)
-    else
-      return paw.notify("preroll: a number of bars, `3s` for seconds, or `off`", "warn")
-    end
-    if bars > 16 or seconds > 30 then return paw.notify("preroll: up to 16 bars or 30 seconds", "warn") end
-    bars = math.floor(bars)
-    if bars > 0 then last_pre_roll = bars end
-    paw.opt.pre_roll, paw.opt.pre_roll_seconds = bars, seconds
-    if bars > 0 then
-      paw.notify(string.format("pre-roll: %d bar%s before the punch in", bars, bars == 1 and "" or "s"))
-    elseif seconds > 0 then
-      paw.notify(string.format("pre-roll: %g seconds before the punch in", seconds))
-    else
-      paw.notify("pre-roll off")
-    end
-  end,
-  {
-    desc = "Play bars (or `3s` seconds) before the punch in when recording from a stop: `preroll 2`, `preroll 3s`, `preroll off`, or toggle",
-  }
-)
+command("preroll", function(ctx)
+  local word = ctx.args[1]
+  local bars, seconds = 0, 0
+  if word == "off" or word == "0" then
+    bars = 0
+  elseif word == nil then
+    local now_bars, now_seconds = pre_roll_values()
+    bars = (now_bars > 0 or now_seconds > 0) and 0 or last_pre_roll
+  elseif tostring(word):match("^%d+%.?%d*s$") then
+    seconds = tonumber(word:sub(1, -2))
+  elseif tonumber(word) then
+    bars = tonumber(word)
+  else
+    return paw.notify("preroll: a number of bars, `3s` for seconds, or `off`", "warn")
+  end
+  if bars > 16 or seconds > 30 then return paw.notify("preroll: up to 16 bars or 30 seconds", "warn") end
+  bars = math.floor(bars)
+  if bars > 0 then last_pre_roll = bars end
+  paw.opt.pre_roll, paw.opt.pre_roll_seconds = bars, seconds
+  if bars > 0 then
+    paw.notify(string.format("pre-roll: %d bar%s before the punch in", bars, bars == 1 and "" or "s"))
+  elseif seconds > 0 then
+    paw.notify(string.format("pre-roll: %g seconds before the punch in", seconds))
+  else
+    paw.notify("pre-roll off")
+  end
+end, {
+  desc = "Play bars (or `3s` seconds) before the punch in when recording from a stop: `preroll 2`, `preroll 3s`, `preroll off`, or toggle",
+})
 
 --- Punch in and out: record only between two points while the song plays.
 --- The range is kept with the project, as the loop is.

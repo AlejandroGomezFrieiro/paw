@@ -217,46 +217,38 @@ command("plugstate.info", function()
   paw.notify(table.concat(lines, "\n"))
 end, { desc = "What the plugin holds besides its parameters (its files), and its snapshots" })
 
-command(
-  "plugstate.files",
-  function(ctx)
-    local id = target()
-    if not id then return end
-    local key, text = slot_and_words(ctx)
-    local slot = plugstate.slot(id, key)
-    if not slot or slot.kind ~= "file" then return paw.notify(device_name(id) .. ": no file to list", "warn") end
-    local found = plugstate.search(slot, text)
-    local lines =
-      { string.format("%d %s files%s", #found, slot.what or "", text ~= "" and (" with “" .. text .. "”") or "") }
-    for i, f in ipairs(found) do
-      if i > 40 then
-        lines[#lines + 1] = "…"
-        break
-      end
-      lines[#lines + 1] = (f.path == slot.value and "● " or "  ")
-        .. f.name
-        .. (f.folder ~= "" and ("  " .. f.folder) or "")
+command("plugstate.files", function(ctx)
+  local id = target()
+  if not id then return end
+  local key, text = slot_and_words(ctx)
+  local slot = plugstate.slot(id, key)
+  if not slot or slot.kind ~= "file" then return paw.notify(device_name(id) .. ": no file to list", "warn") end
+  local found = plugstate.search(slot, text)
+  local lines =
+    { string.format("%d %s files%s", #found, slot.what or "", text ~= "" and (" with “" .. text .. "”") or "") }
+  for i, f in ipairs(found) do
+    if i > 40 then
+      lines[#lines + 1] = "…"
+      break
     end
-    paw.notify(table.concat(lines, "\n"))
-  end,
-  {
-    desc = "List the files the plugin can load, in the library folders: `plugstate.files clean` lists those with the word",
-  }
-)
+    lines[#lines + 1] = (f.path == slot.value and "● " or "  ")
+      .. f.name
+      .. (f.folder ~= "" and ("  " .. f.folder) or "")
+  end
+  paw.notify(table.concat(lines, "\n"))
+end, {
+  desc = "List the files the plugin can load, in the library folders: `plugstate.files clean` lists those with the word",
+})
 
-command(
-  "plugstate.snapshot",
-  function(ctx)
-    local id = target()
-    if not id then return end
-    local name = table.concat(ctx.args, " ")
-    local kept, replaced = plugstate.snapshot(id, name)
-    paw.notify(string.format("%s: snapshot %s %s", device_name(id), kept, replaced and "replaced" or "kept"))
-  end,
-  {
-    desc = "Keep the plugin's whole state as a named snapshot in the project: `plugstate.snapshot crunch` (none: A, B, C...)",
-  }
-)
+command("plugstate.snapshot", function(ctx)
+  local id = target()
+  if not id then return end
+  local name = table.concat(ctx.args, " ")
+  local kept, replaced = plugstate.snapshot(id, name)
+  paw.notify(string.format("%s: snapshot %s %s", device_name(id), kept, replaced and "replaced" or "kept"))
+end, {
+  desc = "Keep the plugin's whole state as a named snapshot in the project: `plugstate.snapshot crunch` (none: A, B, C...)",
+})
 
 local function recalled(id, snap, err)
   if not snap then return paw.notify(device_name(id) .. ": " .. tostring(err), "warn") end

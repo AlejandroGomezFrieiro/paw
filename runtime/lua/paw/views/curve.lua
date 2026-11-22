@@ -158,15 +158,12 @@ local function render(win, canvas, ctx)
   local inserting = insert and insert.win == win.id
   local mode = ctx.focused and paw.keymap.mode or "n"
   local where = paw.time.format(s.beat) .. "  " .. t.format(s.value)
-  paw.ui.titlebar(
-    canvas,
-    {
-      name = t.name(),
-      context = where,
-      focused = ctx.focused,
-      right = string.format("%d point%s", #points, #points == 1 and "" or "s"),
-    }
-  )
+  paw.ui.titlebar(canvas, {
+    name = t.name(),
+    context = where,
+    focused = ctx.focused,
+    right = string.format("%d point%s", #points, #points == 1 and "" or "s"),
+  })
   if inserting and ctx.focused then
     local text = " INS draw "
     canvas:text(math.max(0, W - api.str_width(text) - 1), 0, text, "RulerInsert")
@@ -568,26 +565,23 @@ function M.type_value()
   if not win then return end
   local at, q = point_at(points, s.beat, s.zoom)
   local now = q and q.value or s.value
-  paw.ui.ask_value(
-    {
-      label = t.name(),
-      now = now * t.scale,
-      min = t.min * t.scale,
-      max = t.max * t.scale,
-      show = function(v) return t.format(v / t.scale) end,
-    },
-    function(v)
-      v = v / t.scale
-      local list = t.points()
-      if at then
-        list[at].value = v
-      else
-        list[#list + 1] = { beat = s.beat, value = v, shape = "linear", tension = 0 }
-      end
-      write(t, list, "Set a point")
-      s.value = v
+  paw.ui.ask_value({
+    label = t.name(),
+    now = now * t.scale,
+    min = t.min * t.scale,
+    max = t.max * t.scale,
+    show = function(v) return t.format(v / t.scale) end,
+  }, function(v)
+    v = v / t.scale
+    local list = t.points()
+    if at then
+      list[at].value = v
+    else
+      list[#list + 1] = { beat = s.beat, value = v, shape = "linear", tension = 0 }
     end
-  )
+    write(t, list, "Set a point")
+    s.value = v
+  end)
 end
 
 local SHAPES = { "linear", "hold", "smooth" }
@@ -1248,21 +1242,17 @@ command("curve.window", function()
   if not uri then return paw.notify("no curve here: `:curve.open` opens one", "warn") end
   M.open(uri, { window = true })
 end, { desc = "Show this curve in a window of its own, in the graphical frontend" })
-command(
-  "param.automate",
-  function(ctx)
-    local device, key = tonumber(ctx.args[1]), ctx.args[2] and tostring(ctx.args[2])
-    if not (device and key) then
-      local _, row = paw.ui.views.devices:selected()
-      if not (row and row.param) then return paw.notify("no parameter under the cursor", "warn") end
-      device, key = row.device.id, row.param.key
-    end
-    M.automate(device, key)
-  end,
-  {
-    desc = "Automate a parameter (the device panel's under the cursor): its lane, a first point at its value at the cursor, shown as a row",
-  }
-)
+command("param.automate", function(ctx)
+  local device, key = tonumber(ctx.args[1]), ctx.args[2] and tostring(ctx.args[2])
+  if not (device and key) then
+    local _, row = paw.ui.views.devices:selected()
+    if not (row and row.param) then return paw.notify("no parameter under the cursor", "warn") end
+    device, key = row.device.id, row.param.key
+  end
+  M.automate(device, key)
+end, {
+  desc = "Automate a parameter (the device panel's under the cursor): its lane, a first point at its value at the cursor, shown as a row",
+})
 command("curve.generate", function(ctx)
   local win, _, s = here()
   if not win then return end

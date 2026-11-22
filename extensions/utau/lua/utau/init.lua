@@ -327,17 +327,14 @@ local function config_key(c)
     options[#options + 1] = k .. "=" .. tostring(v)
   end
   table.sort(options)
-  return table.concat(
-    {
-      c.singer or "",
-      c.phonemizer or "",
-      c.renderer or "",
-      c.resampler or "",
-      c.wavtool or "",
-      table.concat(options, ","),
-    },
-    "\0"
-  )
+  return table.concat({
+    c.singer or "",
+    c.phonemizer or "",
+    c.renderer or "",
+    c.resampler or "",
+    c.wavtool or "",
+    table.concat(options, ","),
+  }, "\0")
 end
 
 local function track_key(t) return table.concat({ t.name, tostring(t.muted), config_key(t.config) }, "\0") end

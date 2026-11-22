@@ -293,17 +293,14 @@ function view:toggle_note()
     table.remove(list, index)
     api.clip_set_notes(clip.id, list)
   else
-    api.clip_add_notes(
-      clip.id,
+    api.clip_add_notes(clip.id, {
       {
-        {
-          pitch = self.pitch,
-          start = self.beat,
-          length = paw.opt.note_grid * 2,
-          velocity = paw.opt.velocity,
-        },
-      }
-    )
+        pitch = self.pitch,
+        start = self.beat,
+        length = paw.opt.note_grid * 2,
+        velocity = paw.opt.velocity,
+      },
+    })
   end
 end
 
@@ -777,19 +774,15 @@ function view:render(buf, ctx)
     key = "utau:roll#" .. win_id,
     under = true,
     draw = function(g, px)
-      strips.roll(
-        g,
-        px,
-        {
-          list = list,
-          clip = clip,
-          scroll = scroll,
-          zoom = zoom,
-          top = top,
-          pitd = pitd_lane and api.lane_points(pitd_lane),
-          sung = utau.pitch[clip.id],
-        }
-      )
+      strips.roll(g, px, {
+        list = list,
+        clip = clip,
+        scroll = scroll,
+        zoom = zoom,
+        top = top,
+        pitd = pitd_lane and api.lane_points(pitd_lane),
+        sung = utau.pitch[clip.id],
+      })
     end,
   })
 

@@ -139,18 +139,14 @@ function M.open(id)
   return require("paw.views.curve").open(M.uri(c.id, entry), { beat = beat })
 end
 
-paw.command(
-  "art.lane",
-  function(ctx)
-    local id = (tostring(ctx.args[1] or ""):match("^%s*(.-)%s*$"))
-    local win, why = M.open(id ~= "" and id or nil)
-    if not win and why then error(why, 0) end
-  end,
-  {
-    raw = true,
-    desc = "Open the clip's linked controllers (dynamics on CC1 and CC11) as one curve: `art.lane dynamics`; alone, the map's first",
-  }
-)
+paw.command("art.lane", function(ctx)
+  local id = (tostring(ctx.args[1] or ""):match("^%s*(.-)%s*$"))
+  local win, why = M.open(id ~= "" and id or nil)
+  if not win and why then error(why, 0) end
+end, {
+  raw = true,
+  desc = "Open the clip's linked controllers (dynamics on CC1 and CC11) as one curve: `art.lane dynamics`; alone, the map's first",
+})
 
 paw.keymap.set(
   "<localleader>c",

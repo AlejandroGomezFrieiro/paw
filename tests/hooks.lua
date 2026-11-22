@@ -249,16 +249,12 @@ test("every event the runtime and the kernel emit is in the table of events", fu
     "lua",
     { 'paw%.emit%("([%w_]+%.[%w_.]+)"', 'events%.emit%("([%w_]+%.[%w_.]+)"', 'paw%.emit, "([%w_]+%.[%w_.]+)"' }
   )
-  scan(
-    "crates/paw-core/src",
-    "rs",
-    {
-      'emit%(%s*"([%w_]+%.[%w_.]+)"',
-      'push%(%(%s*"([%w_]+%.[%w_.]+)"',
-      '%(%s*"([%w_]+%.[%w_.]+)",%s*json!',
-      '%(%s*"([%w_]+%.[%w_.]+)",%s*with_',
-    }
-  )
+  scan("crates/paw-core/src", "rs", {
+    'emit%(%s*"([%w_]+%.[%w_.]+)"',
+    'push%(%(%s*"([%w_]+%.[%w_.]+)"',
+    '%(%s*"([%w_]+%.[%w_.]+)",%s*json!',
+    '%(%s*"([%w_]+%.[%w_.]+)",%s*with_',
+  })
   -- The kinds of thing whose events are made by name: `clip.added`, `lane.removed`.
   for _, kind in ipairs({ "clip", "lane" }) do
     for _, what in ipairs({ "added", "changed", "removed" }) do

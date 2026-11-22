@@ -78,18 +78,15 @@ test("plugstate: DPF and LSP states have the same paths in CLAP, VST3 and LV2, a
   T.fails(function() doc:write_as("lv2") end, "Turtle", "the data of CLAP does not go into LV2")
   -- A preset of path edits goes into each format.
   local file = T.scratch .. "/hall.jucepreset"
-  js.write_preset(
-    file,
-    {
-      name = "Big",
-      framework = "dpf",
-      edits = {
-        { path = "/DPF/Parameters@size", value = 40 },
-        { param = "decay", value = 3 },
-        { path = "/DPF/State@preset", value = "Large Clear Hall", kind = "string" },
-      },
-    }
-  )
+  js.write_preset(file, {
+    name = "Big",
+    framework = "dpf",
+    edits = {
+      { path = "/DPF/Parameters@size", value = 40 },
+      { param = "decay", value = 3 },
+      { path = "/DPF/State@preset", value = "Large Clear Hall", kind = "string" },
+    },
+  })
   local preset = js.read_preset(file)
   for _, s in ipairs({ { clap, "clap" }, { vst3, "vst3" }, { lv2, "lv2" } }) do
     local made = fw.open(fw.generate(preset, s[2], s[1]), s[2])

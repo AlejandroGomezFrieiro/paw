@@ -315,16 +315,12 @@ end)
 test("search: the notation extension's text and dynamics are text to search", function()
   local s = song()
   if not package.loaded["notation.keys"] then paw.ext.load("extensions/notation") end
-  api.clip_set(
-    s.pc.id,
-    "meta",
-    {
-      notation = {
-        version = 1,
-        marks = { { kind = "text", at = 4, value = "Allegro" }, { kind = "dynamic", at = 0, value = "mf" } },
-      },
-    }
-  )
+  api.clip_set(s.pc.id, "meta", {
+    notation = {
+      version = 1,
+      marks = { { kind = "text", at = 4, value = "Allegro" }, { kind = "dynamic", at = 0, value = "mf" } },
+    },
+  })
   paw.commands.exec("vimgrep /allegro|^mf$/j")
   local texts = {}
   for _, e in ipairs(paw.qf.current().entries) do

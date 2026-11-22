@@ -21,24 +21,20 @@ command("clip.add", function(ctx)
   local clip = track:add_clip({ start = cursor.beat, length = length * (ctx.count or 1), name = ctx.args.name })
   return clip
 end, { desc = "Add an empty MIDI clip at the cursor" })
-command(
-  "clip.import",
-  function(ctx)
-    local track = need_track()
-    if not track then return end
-    local file = ctx.args[1]
-    if not file then return paw.notify("usage: clip.import <file.wav>", "warn") end
-    if paw.midifile.is_midi_file(file) then
-      -- A MIDI file is one clip of all its notes, on this track.
-      return paw.midifile.import(tostring(file), { track = track }).clips[1]
-    end
-    return track:add_clip({ start = cursor.beat, file = tostring(file) })
-  end,
-  {
-    desc = "Add an audio or MIDI file at the cursor: `clip.import take.wav`, `clip.import riff.mid`",
-    complete = { "audio_files" },
-  }
-)
+command("clip.import", function(ctx)
+  local track = need_track()
+  if not track then return end
+  local file = ctx.args[1]
+  if not file then return paw.notify("usage: clip.import <file.wav>", "warn") end
+  if paw.midifile.is_midi_file(file) then
+    -- A MIDI file is one clip of all its notes, on this track.
+    return paw.midifile.import(tostring(file), { track = track }).clips[1]
+  end
+  return track:add_clip({ start = cursor.beat, file = tostring(file) })
+end, {
+  desc = "Add an audio or MIDI file at the cursor: `clip.import take.wav`, `clip.import riff.mid`",
+  complete = { "audio_files" },
+})
 -- Sound files this program reads.
 local audio_extensions = { "wav", "wave", "aif", "aiff", "flac", "mp3", "ogg", "oga" }
 
@@ -162,163 +158,149 @@ paw.formats.register({
   end,
 })
 
-command(
-  "import",
-  function(ctx)
-    local args
-    local function bring(path)
-      -- A track folder (one with a track.json): a track that refers to it.
-      local folder = path:gsub("/+$", ""):gsub("/track%.json$", "")
-      if paw.files.is_dir(folder) and io.open(folder .. "/track.json") then
-        local ok, id = pcall(api.track_import_folder, folder, cursor.index() and cursor.index() + 1 or nil)
-        if not ok then
-          return paw.notify("could not import " .. path .. ": " .. tostring(id):gsub("^[^:]*:%d+: ", ""), "error")
-        end
-        local track = paw.track(id)
-        cursor.set_track(track)
-        return paw.notify(
-          string.format(
-            "imported the track “%s” from %s; it refers to the folder until you edit it",
-            track.name,
-            folder
-          )
-        )
+command("import", function(ctx)
+  local args
+  local function bring(path)
+    -- A track folder (one with a track.json): a track that refers to it.
+    local folder = path:gsub("/+$", ""):gsub("/track%.json$", "")
+    if paw.files.is_dir(folder) and io.open(folder .. "/track.json") then
+      local ok, id = pcall(api.track_import_folder, folder, cursor.index() and cursor.index() + 1 or nil)
+      if not ok then
+        return paw.notify("could not import " .. path .. ": " .. tostring(id):gsub("^[^:]*:%d+: ", ""), "error")
       end
-      -- A chain file: the devices of the track at the cursor.
-      if paw.is_chain_file(path) then
-        local track = cursor.track_id() and paw.track(cursor.track_id())
-        if not track then return paw.notify("put the cursor on a track first: the chain goes on it", "warn") end
-        local ok, n = pcall(api.track_chain_file, track.id, path, true)
-        if not ok then
-          return paw.notify("could not import " .. path .. ": " .. tostring(n):gsub("^[^:]*:%d+: ", ""), "error")
-        end
-        return paw.notify(
-          string.format(
-            "the chain of %s (%d device%s) is on track “%s”; it refers to the file until you edit it",
-            path,
-            n,
-            n == 1 and "" or "s",
-            track.name
-          )
-        )
-      end
-      if paw.midifile.is_clip_file(path) then
-        local track = cursor.track_id() and paw.track(cursor.track_id())
-        if not track or track.id == 0 then
-          track = paw.add_track({ name = (path:match("([^/]+)$") or path):gsub("%.[^.]+$", "") })
-        end
-        local ok, clip = pcall(paw.midifile.import_clip, path, track, cursor.beat)
-        if not ok then
-          return paw.notify("could not import " .. path .. ": " .. tostring(clip):gsub("^[^:]*:%d+: ", ""), "error")
-        end
-        return paw.notify(
-          string.format(
-            "imported %s: %d notes on track “%s”; it refers to the file until you edit it",
-            path:match("([^/]+)$") or path,
-            clip.note_count or #clip:notes(),
-            track.name
-          )
-        )
-      end
-      -- A file of another program: its format (paw/formats.tl).
-      if paw.formats.for_path(path, "import") then return paw.formats.import(path, { merge = true, args = args }) end
-      local ok, clip = pcall(paw.import_audio, path, { track = ctx.args.track })
-      if not ok then return paw.notify("could not import " .. path .. ": " .. tostring(clip), "error") end
-      paw.notify(
+      local track = paw.track(id)
+      cursor.set_track(track)
+      return paw.notify(
         string.format(
-          "imported %s: %.1f beats on track “%s”",
-          path:match("([^/]+)$") or path,
-          clip.length,
-          clip:track().name
+          "imported the track “%s” from %s; it refers to the folder until you edit it",
+          track.name,
+          folder
         )
       )
     end
-    -- `tempo=yes` and other `key=value` words at the end of the line, the
-    -- path being the rest.
-    local path
-    path, args = paw.formats.split_args(ctx.args[1])
-    for k, v in pairs(ctx.args) do
-      if type(k) == "string" then args[k] = v end
-    end
-    if path ~= "" then return bring(paw.files.path(path)) end
-    local endings = {}
-    for _, list in ipairs({ audio_extensions, paw.formats.extensions("import") }) do
-      for _, ext in ipairs(list) do
-        endings[#endings + 1] = ext
-      end
-    end
-    paw.pick.file({ title = "Import", extensions = endings, on_choose = bring })
-  end,
-  {
-    desc = "Bring a file in: a sound file on a new track, a MIDI file's tracks at the cursor, a project of another program's tracks (`:help formats`): `import take.mp3`, `import song.mid`, `import song.mid tempo=yes` (its tempo map too); alone, choose it from a list",
-    raw = true,
-    complete = "importable",
-  }
-)
-
-command(
-  "open",
-  function(ctx)
-    local force = paw.project.discarding()
-    local args = {}
-    for k, v in pairs(ctx.args) do
-      if type(k) == "string" then args[k] = v end
-    end
-    local function go(path)
-      if not paw.is_audio_file(path) and not paw.project.guard("open", force) then return end
-      -- A file of another program says itself what it opened (paw/formats.tl).
-      if paw.formats.for_path(path, "import") then return paw.formats.import(path, { merge = false, args = args }) end
-      local ok, err = pcall(paw.open, path)
+    -- A chain file: the devices of the track at the cursor.
+    if paw.is_chain_file(path) then
+      local track = cursor.track_id() and paw.track(cursor.track_id())
+      if not track then return paw.notify("put the cursor on a track first: the chain goes on it", "warn") end
+      local ok, n = pcall(api.track_chain_file, track.id, path, true)
       if not ok then
-        return paw.notify("could not open " .. path .. ": " .. tostring(err):gsub("^[^:]*:%d+: ", ""), "error")
+        return paw.notify("could not import " .. path .. ": " .. tostring(n):gsub("^[^:]*:%d+: ", ""), "error")
       end
-      if paw.midifile.is_clip_file(path) then
-        return paw.notify(
-          "opened "
-            .. (path:match("([^/]+)$") or path)
-            .. " alone: `:w` writes it back, `:w song` saves a project of it"
+      return paw.notify(
+        string.format(
+          "the chain of %s (%d device%s) is on track “%s”; it refers to the file until you edit it",
+          path,
+          n,
+          n == 1 and "" or "s",
+          track.name
         )
-      end
-      if paw.is_chain_file(path) then
-        return paw.notify("opened the chain " .. path .. " alone: `:w` writes it back, `:w song` saves a project of it")
-      end
-      paw.notify("opened " .. path)
+      )
     end
-    local path = ctx.args[1]
-    -- `key=value` words at the end are for the format of the file.
-    if path and path ~= "" and not plain_folder(path) and not paw.files.is_dir(path) then
-      local words
-      path, words = paw.formats.split_args(path)
-      for k, v in pairs(words) do
-        args[k] = v
+    if paw.midifile.is_clip_file(path) then
+      local track = cursor.track_id() and paw.track(cursor.track_id())
+      if not track or track.id == 0 then
+        track = paw.add_track({ name = (path:match("([^/]+)$") or path):gsub("%.[^.]+$", "") })
       end
+      local ok, clip = pcall(paw.midifile.import_clip, path, track, cursor.beat)
+      if not ok then
+        return paw.notify("could not import " .. path .. ": " .. tostring(clip):gsub("^[^:]*:%d+: ", ""), "error")
+      end
+      return paw.notify(
+        string.format(
+          "imported %s: %d notes on track “%s”; it refers to the file until you edit it",
+          path:match("([^/]+)$") or path,
+          clip.note_count or #clip:notes(),
+          track.name
+        )
+      )
     end
-    if plain_folder(path) then return paw.files.open(path, { here = true }) end
-    if path and path ~= "" then return go(paw.files.path(path)) end
-    paw.pick.file({ title = "Open", on_choose = go })
-  end,
-  {
-    desc = "Open a project, a MIDI file or a project of another program as a new project (`:help formats`), or a sound file on a new track: `open song`, `open song.mid`, `open take.wav`; alone, choose it from a list",
-    raw = true,
-    complete = "files",
-  }
-)
+    -- A file of another program: its format (paw/formats.tl).
+    if paw.formats.for_path(path, "import") then return paw.formats.import(path, { merge = true, args = args }) end
+    local ok, clip = pcall(paw.import_audio, path, { track = ctx.args.track })
+    if not ok then return paw.notify("could not import " .. path .. ": " .. tostring(clip), "error") end
+    paw.notify(
+      string.format(
+        "imported %s: %.1f beats on track “%s”",
+        path:match("([^/]+)$") or path,
+        clip.length,
+        clip:track().name
+      )
+    )
+  end
+  -- `tempo=yes` and other `key=value` words at the end of the line, the
+  -- path being the rest.
+  local path
+  path, args = paw.formats.split_args(ctx.args[1])
+  for k, v in pairs(ctx.args) do
+    if type(k) == "string" then args[k] = v end
+  end
+  if path ~= "" then return bring(paw.files.path(path)) end
+  local endings = {}
+  for _, list in ipairs({ audio_extensions, paw.formats.extensions("import") }) do
+    for _, ext in ipairs(list) do
+      endings[#endings + 1] = ext
+    end
+  end
+  paw.pick.file({ title = "Import", extensions = endings, on_choose = bring })
+end, {
+  desc = "Bring a file in: a sound file on a new track, a MIDI file's tracks at the cursor, a project of another program's tracks (`:help formats`): `import take.mp3`, `import song.mid`, `import song.mid tempo=yes` (its tempo map too); alone, choose it from a list",
+  raw = true,
+  complete = "importable",
+})
 
-command(
-  "export",
-  function(ctx)
-    local path = ctx.args[1] and tostring(ctx.args[1])
-    if not path or not paw.formats.for_path(path, "export") then
-      local ends = table.concat(paw.formats.extensions("export"), " .")
-      return paw.notify("usage: export <file> (." .. ends .. "); `:render` makes sound files", "warn")
+command("open", function(ctx)
+  local force = paw.project.discarding()
+  local args = {}
+  for k, v in pairs(ctx.args) do
+    if type(k) == "string" then args[k] = v end
+  end
+  local function go(path)
+    if not paw.is_audio_file(path) and not paw.project.guard("open", force) then return end
+    -- A file of another program says itself what it opened (paw/formats.tl).
+    if paw.formats.for_path(path, "import") then return paw.formats.import(path, { merge = false, args = args }) end
+    local ok, err = pcall(paw.open, path)
+    if not ok then
+      return paw.notify("could not open " .. path .. ": " .. tostring(err):gsub("^[^:]*:%d+: ", ""), "error")
     end
-    return paw.formats.export(paw.files.path(path), { args = ctx.args })
-  end,
-  {
-    desc = "Write the project to a file of another program, its ending choosing the format (`:help formats`): `export song.mid`, `export riff.mid clip`, `export part.mid selection` (a MIDI file of the clip at the cursor, or of the selection's tracks)",
-    complete = { "exportable", function() return { "clip", "selection" } end },
-  }
-)
+    if paw.midifile.is_clip_file(path) then
+      return paw.notify(
+        "opened " .. (path:match("([^/]+)$") or path) .. " alone: `:w` writes it back, `:w song` saves a project of it"
+      )
+    end
+    if paw.is_chain_file(path) then
+      return paw.notify("opened the chain " .. path .. " alone: `:w` writes it back, `:w song` saves a project of it")
+    end
+    paw.notify("opened " .. path)
+  end
+  local path = ctx.args[1]
+  -- `key=value` words at the end are for the format of the file.
+  if path and path ~= "" and not plain_folder(path) and not paw.files.is_dir(path) then
+    local words
+    path, words = paw.formats.split_args(path)
+    for k, v in pairs(words) do
+      args[k] = v
+    end
+  end
+  if plain_folder(path) then return paw.files.open(path, { here = true }) end
+  if path and path ~= "" then return go(paw.files.path(path)) end
+  paw.pick.file({ title = "Open", on_choose = go })
+end, {
+  desc = "Open a project, a MIDI file or a project of another program as a new project (`:help formats`), or a sound file on a new track: `open song`, `open song.mid`, `open take.wav`; alone, choose it from a list",
+  raw = true,
+  complete = "files",
+})
+
+command("export", function(ctx)
+  local path = ctx.args[1] and tostring(ctx.args[1])
+  if not path or not paw.formats.for_path(path, "export") then
+    local ends = table.concat(paw.formats.extensions("export"), " .")
+    return paw.notify("usage: export <file> (." .. ends .. "); `:render` makes sound files", "warn")
+  end
+  return paw.formats.export(paw.files.path(path), { args = ctx.args })
+end, {
+  desc = "Write the project to a file of another program, its ending choosing the format (`:help formats`): `export song.mid`, `export riff.mid clip`, `export part.mid selection` (a MIDI file of the clip at the cursor, or of the selection's tracks)",
+  complete = { "exportable", function() return { "clip", "selection" } end },
+})
 
 command("set", function(ctx)
   local name, value = ctx.args[1], ctx.args[2]
@@ -554,60 +536,52 @@ command("clip.insert", function()
   roll:set(nil, math.floor(at / paw.opt.note_grid + 1e-9) * paw.opt.note_grid)
   keymap.set_mode("i")
 end, { desc = "Enter notes at the cursor from the keyboard, in a new clip if there is none" })
-command(
-  "clip.fade",
-  function(ctx)
-    local clip = need_clip()
-    if not clip then return end
-    if clip.kind ~= "audio" then return paw.notify("only audio clips fade", "warn") end
-    local fade_in, fade_out = tonumber(ctx.args["in"]), tonumber(ctx.args.out)
-    if ctx.args[1] then
-      fade_in, fade_out = tonumber(ctx.args[1]), tonumber(ctx.args[2] or ctx.args[1])
-    end
-    if not fade_in and not fade_out then
-      -- Alone, it asks: one number for both ends, or two.
-      return paw.ui.input({
-        prompt = string.format("Fade %s in and out, in beats (now %g %g): ", clip.name, clip.fade_in, clip.fade_out),
-        label = "Fade the clip",
-      }, function(text)
-        local a, b = text:match("^%s*([%d%.]+)%s*([%d%.]*)%s*$")
-        if not a then return paw.notify("type one length for both ends, or two: `1 2`", "warn") end
-        paw.commands.run("clip.fade", { tonumber(a), tonumber(b) or tonumber(a) })
-      end)
-    end
-    if fade_in then clip.fade_in = math.min(math.max(0, fade_in), clip.length) end
-    if fade_out then clip.fade_out = math.min(math.max(0, fade_out), clip.length) end
-    paw.notify(string.format("%s fades in over %g beats and out over %g", clip.name, clip.fade_in, clip.fade_out))
-  end,
-  {
-    desc = "Fade an audio clip in and out, in beats: `clip.fade in=1 out=2`, `clip.fade 0.5`, `clip.fade 0`; alone, it asks",
-  }
-)
-command(
-  "clip.fade.cursor",
-  function(ctx)
-    local which = tostring(ctx.args[1] or "")
-    if which ~= "in" and which ~= "out" then return paw.notify("usage: clip.fade.cursor in|out", "warn") end
-    local clip = need_clip()
-    if not clip then return end
-    if clip.kind ~= "audio" then return paw.notify("only audio clips fade", "warn") end
-    -- A count is the length in beats; else the fade reaches the cursor.
-    local beats = ctx.count
-    if not beats then beats = which == "in" and cursor.beat - clip.start or clip.start + clip.length - cursor.beat end
-    beats = math.min(math.max(0, beats), clip.length)
-    if which == "in" then
-      clip.fade_in = beats
-    else
-      clip.fade_out = beats
-    end
-    if beats == 0 then return paw.notify(string.format("%s has no fade-%s", clip.name, which)) end
-    paw.notify(string.format("%s fades %s over %g beat%s", clip.name, which, beats, beats == 1 and "" or "s"))
-  end,
-  {
-    desc = "Fade the audio clip in from its start to the cursor (`in`), or out from the cursor to its end (`out`); a count gives the beats",
-    label = "Fade the clip",
-  }
-)
+command("clip.fade", function(ctx)
+  local clip = need_clip()
+  if not clip then return end
+  if clip.kind ~= "audio" then return paw.notify("only audio clips fade", "warn") end
+  local fade_in, fade_out = tonumber(ctx.args["in"]), tonumber(ctx.args.out)
+  if ctx.args[1] then
+    fade_in, fade_out = tonumber(ctx.args[1]), tonumber(ctx.args[2] or ctx.args[1])
+  end
+  if not fade_in and not fade_out then
+    -- Alone, it asks: one number for both ends, or two.
+    return paw.ui.input({
+      prompt = string.format("Fade %s in and out, in beats (now %g %g): ", clip.name, clip.fade_in, clip.fade_out),
+      label = "Fade the clip",
+    }, function(text)
+      local a, b = text:match("^%s*([%d%.]+)%s*([%d%.]*)%s*$")
+      if not a then return paw.notify("type one length for both ends, or two: `1 2`", "warn") end
+      paw.commands.run("clip.fade", { tonumber(a), tonumber(b) or tonumber(a) })
+    end)
+  end
+  if fade_in then clip.fade_in = math.min(math.max(0, fade_in), clip.length) end
+  if fade_out then clip.fade_out = math.min(math.max(0, fade_out), clip.length) end
+  paw.notify(string.format("%s fades in over %g beats and out over %g", clip.name, clip.fade_in, clip.fade_out))
+end, {
+  desc = "Fade an audio clip in and out, in beats: `clip.fade in=1 out=2`, `clip.fade 0.5`, `clip.fade 0`; alone, it asks",
+})
+command("clip.fade.cursor", function(ctx)
+  local which = tostring(ctx.args[1] or "")
+  if which ~= "in" and which ~= "out" then return paw.notify("usage: clip.fade.cursor in|out", "warn") end
+  local clip = need_clip()
+  if not clip then return end
+  if clip.kind ~= "audio" then return paw.notify("only audio clips fade", "warn") end
+  -- A count is the length in beats; else the fade reaches the cursor.
+  local beats = ctx.count
+  if not beats then beats = which == "in" and cursor.beat - clip.start or clip.start + clip.length - cursor.beat end
+  beats = math.min(math.max(0, beats), clip.length)
+  if which == "in" then
+    clip.fade_in = beats
+  else
+    clip.fade_out = beats
+  end
+  if beats == 0 then return paw.notify(string.format("%s has no fade-%s", clip.name, which)) end
+  paw.notify(string.format("%s fades %s over %g beat%s", clip.name, which, beats, beats == 1 and "" or "s"))
+end, {
+  desc = "Fade the audio clip in from its start to the cursor (`in`), or out from the cursor to its end (`out`); a count gives the beats",
+  label = "Fade the clip",
+})
 command("clip.crossfade", function(ctx)
   local clip = need_clip()
   if not clip then return end
@@ -637,166 +611,138 @@ local function stretch_run(f, ...)
   if not ok then paw.notify((tostring(err):gsub("^[^:]*:%d+: ", ""):gsub("^runtime error: ", "")), "warn") end
   return ok
 end
-command(
-  "clip.stretch",
-  function(ctx)
-    local clip = need_clip()
-    if not clip then return end
-    if clip.kind ~= "audio" then return paw.notify("only audio clips are stretched", "warn") end
-    local word, to = ctx.args[1], tonumber(ctx.args.to)
-    local ok
-    if to then
-      ok = stretch_run(paw.stretch.to, clip.id, to)
-    elseif word == "selection" or word == "loop" then
-      local from, finish = require("paw.render").ranges[word]()
-      if not from then return paw.notify(finish, "warn") end
-      ok = stretch_run(paw.stretch.fit, clip.id, from, finish)
-    elseif word == "reset" then
-      ok = stretch_run(paw.stretch.reset, clip.id)
-    elseif tonumber(word) then
-      ok = stretch_run(paw.stretch.set, clip.id, tonumber(word))
-    else
-      return paw.ui.input(
-        { prompt = string.format("Stretch %s to (now ×%g): ", clip.name, clip.stretch), label = "Stretch the clip" },
-        function(text) paw.commands.run("clip.stretch", { tonumber(text) or text }) end
-      )
-    end
-    if ok then paw.notify(string.format("%s plays ×%g as long as its file", clip.name, clip.stretch)) end
-  end,
-  {
-    desc = "Stretch an audio clip, keeping its pitch: `clip.stretch 1.5` (times as long), `clip.stretch to=8` (beats), `clip.stretch selection`, `clip.stretch loop`, `clip.stretch reset`",
-  }
-)
-command(
-  "clip.pitch",
-  function(ctx)
-    local clip = need_clip()
-    if not clip then return end
-    if clip.kind ~= "audio" then
-      return paw.notify("only audio clips are shifted: transpose a MIDI clip's notes", "warn")
-    end
-    local semitones = tonumber(ctx.args[1])
-    if not semitones then
-      return paw.ui.input(
-        { prompt = string.format("Shift %s by semitones (now %+g): ", clip.name, clip.pitch), label = "Shift the pitch" },
-        function(text)
-          if tonumber(text) then paw.commands.run("clip.pitch", { tonumber(text) }) end
-        end
-      )
-    end
-    if stretch_run(paw.stretch.pitch, clip.id, semitones) then
-      paw.notify(string.format("%s plays %+g semitones from its file", clip.name, semitones))
-    end
-  end,
-  {
-    desc = "Shift an audio clip's pitch by semitones, keeping its length: `clip.pitch 3`, `clip.pitch -0.5`, `clip.pitch 0`",
-  }
-)
-command(
-  "clip.tempo",
-  function(ctx)
-    local clip = need_clip()
-    if not clip then return end
-    local word = ctx.args[1]
-    if word == "off" then
-      stretch_run(paw.stretch.follow, clip.id, false)
-      return paw.notify(clip.name .. " keeps its length in seconds")
-    end
-    if stretch_run(paw.stretch.follow, clip.id, tonumber(word)) then
-      paw.notify(string.format("%s follows the tempo; its sound is at %g BPM", clip.name, clip.source_tempo))
-    end
-  end,
-  {
-    desc = "Make an audio clip keep its beats when the tempo changes, stretched to fit: `clip.tempo 120` (its sound's tempo), `clip.tempo` (as it plays now), `clip.tempo off`",
-  }
-)
-command(
-  "clip.stretch_mode",
-  function(ctx)
-    local clip = need_clip()
-    if not clip then return end
-    local mode = ctx.args[1]
-    if mode then stretch_run(function() clip.stretch_mode = mode end) end
-    paw.notify(clip.name .. " is stretched as " .. tostring(clip.stretch_mode))
-  end,
-  {
-    desc = "How an audio clip is stretched: `clip.stretch_mode tonal` (held notes), `percussive` (drums, speech), `auto`",
-    complete = { "auto", "tonal", "percussive" },
-  }
-)
-command(
-  "clip.warp",
-  function(ctx)
-    local clip = need_clip()
-    if not clip then return end
-    if clip.kind ~= "audio" then return paw.notify("only audio clips have warp markers", "warn") end
-    local word, beat = ctx.args[1] or "add", cursor.beat
-    local index = tonumber(ctx.args[2])
-    local function say(i)
-      local m = api.clip_get(clip.id).warp[i]
-      paw.notify(string.format("warp marker %d: %.3f s into the file, at %s", i, m.source, paw.time.format(m.beat)))
-    end
-    local i
-    if word == "add" then
-      if stretch_run(function() i = paw.stretch.warp_add(clip.id, index or beat) end) then say(i) end
-    elseif word == "remove" or word == "move" then
-      index = index or paw.stretch.warp_near(clip, beat)
-      if not index then return paw.notify(clip.name .. " has no warp markers", "warn") end
-      if word == "remove" then
-        if stretch_run(paw.stretch.warp_remove, clip.id, index) then
-          paw.notify("warp marker " .. index .. " taken off")
-        end
-      elseif stretch_run(function() i = paw.stretch.warp_move(clip.id, index, tonumber(ctx.args[3]) or beat) end) then
-        say(i)
+command("clip.stretch", function(ctx)
+  local clip = need_clip()
+  if not clip then return end
+  if clip.kind ~= "audio" then return paw.notify("only audio clips are stretched", "warn") end
+  local word, to = ctx.args[1], tonumber(ctx.args.to)
+  local ok
+  if to then
+    ok = stretch_run(paw.stretch.to, clip.id, to)
+  elseif word == "selection" or word == "loop" then
+    local from, finish = require("paw.render").ranges[word]()
+    if not from then return paw.notify(finish, "warn") end
+    ok = stretch_run(paw.stretch.fit, clip.id, from, finish)
+  elseif word == "reset" then
+    ok = stretch_run(paw.stretch.reset, clip.id)
+  elseif tonumber(word) then
+    ok = stretch_run(paw.stretch.set, clip.id, tonumber(word))
+  else
+    return paw.ui.input(
+      { prompt = string.format("Stretch %s to (now ×%g): ", clip.name, clip.stretch), label = "Stretch the clip" },
+      function(text) paw.commands.run("clip.stretch", { tonumber(text) or text }) end
+    )
+  end
+  if ok then paw.notify(string.format("%s plays ×%g as long as its file", clip.name, clip.stretch)) end
+end, {
+  desc = "Stretch an audio clip, keeping its pitch: `clip.stretch 1.5` (times as long), `clip.stretch to=8` (beats), `clip.stretch selection`, `clip.stretch loop`, `clip.stretch reset`",
+})
+command("clip.pitch", function(ctx)
+  local clip = need_clip()
+  if not clip then return end
+  if clip.kind ~= "audio" then
+    return paw.notify("only audio clips are shifted: transpose a MIDI clip's notes", "warn")
+  end
+  local semitones = tonumber(ctx.args[1])
+  if not semitones then
+    return paw.ui.input(
+      { prompt = string.format("Shift %s by semitones (now %+g): ", clip.name, clip.pitch), label = "Shift the pitch" },
+      function(text)
+        if tonumber(text) then paw.commands.run("clip.pitch", { tonumber(text) }) end
       end
-    elseif word == "snap" then
-      if stretch_run(paw.stretch.warp_snap, clip.id) then paw.notify(clip.name .. "'s warp markers are on the grid") end
-    elseif word == "clear" then
-      if stretch_run(function() clip.warp = {} end) then paw.notify(clip.name .. " has no warp markers now") end
-    else
-      paw.notify("clip.warp add, remove, move, snap or clear", "warn")
+    )
+  end
+  if stretch_run(paw.stretch.pitch, clip.id, semitones) then
+    paw.notify(string.format("%s plays %+g semitones from its file", clip.name, semitones))
+  end
+end, {
+  desc = "Shift an audio clip's pitch by semitones, keeping its length: `clip.pitch 3`, `clip.pitch -0.5`, `clip.pitch 0`",
+})
+command("clip.tempo", function(ctx)
+  local clip = need_clip()
+  if not clip then return end
+  local word = ctx.args[1]
+  if word == "off" then
+    stretch_run(paw.stretch.follow, clip.id, false)
+    return paw.notify(clip.name .. " keeps its length in seconds")
+  end
+  if stretch_run(paw.stretch.follow, clip.id, tonumber(word)) then
+    paw.notify(string.format("%s follows the tempo; its sound is at %g BPM", clip.name, clip.source_tempo))
+  end
+end, {
+  desc = "Make an audio clip keep its beats when the tempo changes, stretched to fit: `clip.tempo 120` (its sound's tempo), `clip.tempo` (as it plays now), `clip.tempo off`",
+})
+command("clip.stretch_mode", function(ctx)
+  local clip = need_clip()
+  if not clip then return end
+  local mode = ctx.args[1]
+  if mode then stretch_run(function() clip.stretch_mode = mode end) end
+  paw.notify(clip.name .. " is stretched as " .. tostring(clip.stretch_mode))
+end, {
+  desc = "How an audio clip is stretched: `clip.stretch_mode tonal` (held notes), `percussive` (drums, speech), `auto`",
+  complete = { "auto", "tonal", "percussive" },
+})
+command("clip.warp", function(ctx)
+  local clip = need_clip()
+  if not clip then return end
+  if clip.kind ~= "audio" then return paw.notify("only audio clips have warp markers", "warn") end
+  local word, beat = ctx.args[1] or "add", cursor.beat
+  local index = tonumber(ctx.args[2])
+  local function say(i)
+    local m = api.clip_get(clip.id).warp[i]
+    paw.notify(string.format("warp marker %d: %.3f s into the file, at %s", i, m.source, paw.time.format(m.beat)))
+  end
+  local i
+  if word == "add" then
+    if stretch_run(function() i = paw.stretch.warp_add(clip.id, index or beat) end) then say(i) end
+  elseif word == "remove" or word == "move" then
+    index = index or paw.stretch.warp_near(clip, beat)
+    if not index then return paw.notify(clip.name .. " has no warp markers", "warn") end
+    if word == "remove" then
+      if stretch_run(paw.stretch.warp_remove, clip.id, index) then
+        paw.notify("warp marker " .. index .. " taken off")
+      end
+    elseif stretch_run(function() i = paw.stretch.warp_move(clip.id, index, tonumber(ctx.args[3]) or beat) end) then
+      say(i)
     end
-  end,
-  {
-    desc = "Warp markers: `clip.warp` pins the sound at the cursor; `clip.warp move` pulls the nearest marker to the cursor (`move 2`: marker 2, `move 2 8.5`: to beat 8.5); `clip.warp remove`, `snap` (all onto the grid), `clear`",
-    complete = { "add", "remove", "move", "snap", "clear" },
-  }
-)
-command(
-  "clip.formants",
-  function(ctx)
-    local clip = need_clip()
-    if not clip then return end
-    if clip.kind ~= "audio" then return paw.notify("only audio clips are shifted", "warn") end
-    local word = ctx.args[1]
-    local on = word == "on" or (word ~= "off" and not clip.formants)
-    if stretch_run(function() clip.formants = on end) then
-      paw.notify(clip.name .. (on and " keeps its formants when shifted" or " shifts its formants with its pitch"))
-    end
-  end,
-  {
-    desc = "Keep an audio clip's formants when its pitch is shifted, so that a voice keeps its size: `clip.formants on`, `off`, or turn it over",
-    complete = { "on", "off" },
-  }
-)
-command(
-  "clip.loop",
-  function(ctx)
-    local clip = need_clip()
-    if not clip then return end
-    local word = ctx.args[1]
-    if word == "off" or (word == nil and clip.loop) then
-      stretch_run(paw.stretch.loop, clip.id, false)
-      return paw.notify(clip.name .. " no longer loops")
-    end
-    if stretch_run(paw.stretch.loop, clip.id, true, tonumber(word)) then
-      paw.notify(string.format("%s loops every %g beats: drag its end out to repeat it", clip.name, clip.loop_length))
-    end
-  end,
-  {
-    desc = "Loop a clip: dragged longer it repeats what it plays. `clip.loop` turns it on or off, `clip.loop 4` repeats 4 beats, `clip.loop off`",
-  }
-)
+  elseif word == "snap" then
+    if stretch_run(paw.stretch.warp_snap, clip.id) then paw.notify(clip.name .. "'s warp markers are on the grid") end
+  elseif word == "clear" then
+    if stretch_run(function() clip.warp = {} end) then paw.notify(clip.name .. " has no warp markers now") end
+  else
+    paw.notify("clip.warp add, remove, move, snap or clear", "warn")
+  end
+end, {
+  desc = "Warp markers: `clip.warp` pins the sound at the cursor; `clip.warp move` pulls the nearest marker to the cursor (`move 2`: marker 2, `move 2 8.5`: to beat 8.5); `clip.warp remove`, `snap` (all onto the grid), `clear`",
+  complete = { "add", "remove", "move", "snap", "clear" },
+})
+command("clip.formants", function(ctx)
+  local clip = need_clip()
+  if not clip then return end
+  if clip.kind ~= "audio" then return paw.notify("only audio clips are shifted", "warn") end
+  local word = ctx.args[1]
+  local on = word == "on" or (word ~= "off" and not clip.formants)
+  if stretch_run(function() clip.formants = on end) then
+    paw.notify(clip.name .. (on and " keeps its formants when shifted" or " shifts its formants with its pitch"))
+  end
+end, {
+  desc = "Keep an audio clip's formants when its pitch is shifted, so that a voice keeps its size: `clip.formants on`, `off`, or turn it over",
+  complete = { "on", "off" },
+})
+command("clip.loop", function(ctx)
+  local clip = need_clip()
+  if not clip then return end
+  local word = ctx.args[1]
+  if word == "off" or (word == nil and clip.loop) then
+    stretch_run(paw.stretch.loop, clip.id, false)
+    return paw.notify(clip.name .. " no longer loops")
+  end
+  if stretch_run(paw.stretch.loop, clip.id, true, tonumber(word)) then
+    paw.notify(string.format("%s loops every %g beats: drag its end out to repeat it", clip.name, clip.loop_length))
+  end
+end, {
+  desc = "Loop a clip: dragged longer it repeats what it plays. `clip.loop` turns it on or off, `clip.loop 4` repeats 4 beats, `clip.loop off`",
+})
 command("clip.edit", function()
   local clip = need_clip()
   if not clip then return end

@@ -310,9 +310,8 @@
         touch $out
       '';
 
-      # How many Lua and Teal files StyLua and cerulean would change
-      # (tools/fmtcheck.sh). The tree is not formatted with them, so this
-      # says the number and does not fail, as the rustfmt check does.
+      # Every Lua and Teal file is formatted with StyLua and cerulean
+      # (tools/fmtcheck.sh): the check fails on a file they would change.
       formatCheck = pkgs: pkgs.runCommand "paw-format" {
         src = nixpkgs.lib.fileset.toSource {
           root = ./.;
@@ -323,7 +322,7 @@
         };
         nativeBuildInputs = [ pkgs.stylua (luaTools pkgs).cerulean ];
       } ''
-        sh $src/tools/fmtcheck.sh
+        cd $src && sh tools/fmtcheck.sh
         touch $out
       '';
 

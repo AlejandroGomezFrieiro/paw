@@ -424,19 +424,16 @@ local function import_item(item, track, track_name, ctx)
     local whole = natural + soffs / rate * api.tempo_at(start_b) / 60
     local at, stop = start_b + natural, start_b + len_b
     while at < stop - 1e-9 and whole > 1e-9 do
-      local piece = api.clip_add(
-        track,
-        {
-          name = name,
-          start = at,
-          file = path,
-          offset = 0,
-          gain = gain,
-          stretch = opts.stretch,
-          pitch = semitones,
-          length = math.min(whole, stop - at),
-        }
-      )
+      local piece = api.clip_add(track, {
+        name = name,
+        start = at,
+        file = path,
+        offset = 0,
+        gain = gain,
+        stretch = opts.stretch,
+        pitch = semitones,
+        length = math.min(whole, stop - at),
+      })
       ids[#ids + 1] = piece
       at = at + whole
     end

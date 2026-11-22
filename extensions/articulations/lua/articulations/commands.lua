@@ -173,48 +173,43 @@ command("art.maps", function()
   paw.ui.page("Articulation maps", lines)
 end, { desc = "List the articulation maps there are, where they are from, and any that does not read" })
 
-command(
-  "art.shift",
-  function(ctx)
-    local track = need_track()
-    local text = words(ctx)
-    local map = art.map_of(track)
-    if not map then fail("the track has no articulation map: :art.map") end
-    local now = (art.info(track) or {}).shift or 0
-    if text == "" then
-      paw.notify(
-        string.format(
-          "%s: keyswitches %s, shifted %+d keys",
-          map.name,
-          map.keyswitches and (paw.music.name(map.keyswitches[1]) .. "-" .. paw.music.name(map.keyswitches[2]))
-            or "none",
-          now
-        )
-      )
-      return
-    end
-    -- `+12`, `-1`, `0`; `+1oct`, `-2oct` in octaves; with `+`/`-` from where it is now only with `rel`.
-    local sign, n, unit = text:match("^([%+%-]?)(%d+)%s*(o?c?t?)$")
-    if not n then fail("`" .. text .. "`: a number of keys (`-12`, `+1`, `0`) or of octaves (`-1oct`)") end
-    local shift = tonumber(n) * (unit == "oct" and 12 or 1) * (sign == "-" and -1 or 1)
-    if unit ~= "" and unit ~= "oct" then fail("`" .. text .. "`: a number of keys (`-12`) or of octaves (`-1oct`)") end
-    local moved = art.set_shift(track, shift)
-    local ks = moved.keyswitches
+command("art.shift", function(ctx)
+  local track = need_track()
+  local text = words(ctx)
+  local map = art.map_of(track)
+  if not map then fail("the track has no articulation map: :art.map") end
+  local now = (art.info(track) or {}).shift or 0
+  if text == "" then
     paw.notify(
       string.format(
-        "%s: keyswitches shifted %+d keys%s",
-        moved.name,
-        shift,
-        ks and (", now " .. paw.music.name(ks[1]) .. "-" .. paw.music.name(ks[2])) or ""
+        "%s: keyswitches %s, shifted %+d keys",
+        map.name,
+        map.keyswitches and (paw.music.name(map.keyswitches[1]) .. "-" .. paw.music.name(map.keyswitches[2])) or "none",
+        now
       )
     )
-  end,
-  {
-    raw = true,
-    label = "Shift keyswitches",
-    desc = "Move the keyswitches of the track's map by keys (`art.shift -12`) or octaves (`art.shift +1oct`), for an instrument whose keyswitch area you moved; `art.shift 0` puts them back; alone, says where they are",
-  }
-)
+    return
+  end
+  -- `+12`, `-1`, `0`; `+1oct`, `-2oct` in octaves; with `+`/`-` from where it is now only with `rel`.
+  local sign, n, unit = text:match("^([%+%-]?)(%d+)%s*(o?c?t?)$")
+  if not n then fail("`" .. text .. "`: a number of keys (`-12`, `+1`, `0`) or of octaves (`-1oct`)") end
+  local shift = tonumber(n) * (unit == "oct" and 12 or 1) * (sign == "-" and -1 or 1)
+  if unit ~= "" and unit ~= "oct" then fail("`" .. text .. "`: a number of keys (`-12`) or of octaves (`-1oct`)") end
+  local moved = art.set_shift(track, shift)
+  local ks = moved.keyswitches
+  paw.notify(
+    string.format(
+      "%s: keyswitches shifted %+d keys%s",
+      moved.name,
+      shift,
+      ks and (", now " .. paw.music.name(ks[1]) .. "-" .. paw.music.name(ks[2])) or ""
+    )
+  )
+end, {
+  raw = true,
+  label = "Shift keyswitches",
+  desc = "Move the keyswitches of the track's map by keys (`art.shift -12`) or octaves (`art.shift +1oct`), for an instrument whose keyswitch area you moved; `art.shift 0` puts them back; alone, says where they are",
+})
 
 -- A plugin put on a track with no map binds the map whose `match` names it.
 paw.option.define("art_auto_map", true)
@@ -294,44 +289,36 @@ local function lookup_one(track, text)
   return choice, map
 end
 
-command(
-  "art.default",
-  function(ctx)
-    local track = need_track()
-    local text = words(ctx)
-    local map = art.map_of(track)
-    if not map then fail("the track has no articulation map: :art.map") end
-    if text == "" then return M.popover({ mode = "default" }) end
-    local choice = lookup_one(track, text)
-    if not choice or not choice.art then fail("the default is one of the map's articulations: " .. art.names(map)) end
-    art.set_track(track, "default", choice.art.id)
-    paw.notify("by default " .. choice.art.name)
-  end,
-  {
-    raw = true,
-    label = "Default articulation",
-    desc = "The articulation the track's notes without one play: `art.default sustain`",
-  }
-)
+command("art.default", function(ctx)
+  local track = need_track()
+  local text = words(ctx)
+  local map = art.map_of(track)
+  if not map then fail("the track has no articulation map: :art.map") end
+  if text == "" then return M.popover({ mode = "default" }) end
+  local choice = lookup_one(track, text)
+  if not choice or not choice.art then fail("the default is one of the map's articulations: " .. art.names(map)) end
+  art.set_track(track, "default", choice.art.id)
+  paw.notify("by default " .. choice.art.name)
+end, {
+  raw = true,
+  label = "Default articulation",
+  desc = "The articulation the track's notes without one play: `art.default sustain`",
+})
 
-command(
-  "art.pen",
-  function(ctx)
-    local track = need_track()
-    local text = words(ctx)
-    if text == "" then return M.popover({ mode = "pen" }) end
-    local choice = lookup_one(track, text)
-    local id = choice and (choice.art and choice.art.id or m2.code(choice.attr)) or nil
-    art.set_track(track, "pen", id)
-    paw.notify(id and ("new notes: " .. (choice.art and choice.art.name or id)) or "new notes: no articulation")
-    api.ui_redraw()
-  end,
-  {
-    raw = true,
-    label = "Articulation pen",
-    desc = "The articulation notes entered from now on get (insert mode, the mouse): `art.pen stc`; `none` for none",
-  }
-)
+command("art.pen", function(ctx)
+  local track = need_track()
+  local text = words(ctx)
+  if text == "" then return M.popover({ mode = "pen" }) end
+  local choice = lookup_one(track, text)
+  local id = choice and (choice.art and choice.art.id or m2.code(choice.attr)) or nil
+  art.set_track(track, "pen", id)
+  paw.notify(id and ("new notes: " .. (choice.art and choice.art.name or id)) or "new notes: no articulation")
+  api.ui_redraw()
+end, {
+  raw = true,
+  label = "Articulation pen",
+  desc = "The articulation notes entered from now on get (insert mode, the mouse): `art.pen stc`; `none` for none",
+})
 
 -- Modifiers ---------------------------------------------------------------------------
 
@@ -354,40 +341,36 @@ local function write_mod(clip_id, mod, from, to)
   clip:set_controls(list)
 end
 
-command(
-  "art.mod",
-  function(ctx)
-    local text = words(ctx)
-    if text == "" then return M.popover({ mode = "mod" }) end
-    local places = places_of(ctx)
-    if #places == 0 then fail("no note here: put the cursor on a note, or give a range") end
-    local map = art.map_of(places[1].track)
-    if not map or #map.mods == 0 then fail("the track's map has no modifiers ([mod] in its file)") end
-    local mod
-    for _, m in ipairs(map.mods) do
-      if m.id == text or m.tag == text or (m.text or ""):lower() == text:lower() or m.id:sub(1, #text) == text then
-        mod = mod or m
-      end
+command("art.mod", function(ctx)
+  local text = words(ctx)
+  if text == "" then return M.popover({ mode = "mod" }) end
+  local places = places_of(ctx)
+  if #places == 0 then fail("no note here: put the cursor on a note, or give a range") end
+  local map = art.map_of(places[1].track)
+  if not map or #map.mods == 0 then fail("the track's map has no modifiers ([mod] in its file)") end
+  local mod
+  for _, m in ipairs(map.mods) do
+    if m.id == text or m.tag == text or (m.text or ""):lower() == text:lower() or m.id:sub(1, #text) == text then
+      mod = mod or m
     end
-    if not mod then fail("`" .. text .. "` is no modifier of " .. map.name) end
-    local spans = {}
-    for _, p in ipairs(places) do
-      local s = spans[p.clip] or { from = math.huge, to = -math.huge }
-      spans[p.clip] = s
-      s.from, s.to = math.min(s.from, p.note.start), math.max(s.to, p.note.start + p.note.length)
-    end
-    for id, s in pairs(spans) do
-      write_mod(id, mod, s.from, s.to)
-    end
-    paw.notify((mod.text or mod.name) .. " over " .. #places .. " note" .. (#places == 1 and "" or "s"))
-  end,
-  {
-    range = true,
-    raw = true,
-    label = "Modifier",
-    desc = "A modifier of the map (con sord., sul pont.) over the notes: its controllers at their start, its `off` at their end: `:'<,'>art.mod con-sord`",
-  }
-)
+  end
+  if not mod then fail("`" .. text .. "` is no modifier of " .. map.name) end
+  local spans = {}
+  for _, p in ipairs(places) do
+    local s = spans[p.clip] or { from = math.huge, to = -math.huge }
+    spans[p.clip] = s
+    s.from, s.to = math.min(s.from, p.note.start), math.max(s.to, p.note.start + p.note.length)
+  end
+  for id, s in pairs(spans) do
+    write_mod(id, mod, s.from, s.to)
+  end
+  paw.notify((mod.text or mod.name) .. " over " .. #places .. " note" .. (#places == 1 and "" or "s"))
+end, {
+  range = true,
+  raw = true,
+  label = "Modifier",
+  desc = "A modifier of the map (con sord., sul pont.) over the notes: its controllers at their start, its `off` at their end: `:'<,'>art.mod con-sord`",
+})
 
 -- The popover --------------------------------------------------------------------------
 
@@ -549,87 +532,79 @@ local function save_generated(spec, track)
   return path
 end
 
-command(
-  "art.generate",
-  function(ctx)
-    local what = words(ctx)
-    local track = current_track()
-    local spec, stats
-    if what == "" or what == "device" then
-      if not track then fail("no track here") end
-      for _, id in ipairs(api.track_get(track).devices or {}) do
-        local ok, answer = pcall(api.device_call, id, "describe")
-        local d = ok and type(answer) == "string" and paw.json.decode(answer)
-        if type(d) == "table" then
-          spec, stats = gen.describe(d)
-          if spec then break end
-        end
+command("art.generate", function(ctx)
+  local what = words(ctx)
+  local track = current_track()
+  local spec, stats
+  if what == "" or what == "device" then
+    if not track then fail("no track here") end
+    for _, id in ipairs(api.track_get(track).devices or {}) do
+      local ok, answer = pcall(api.device_call, id, "describe")
+      local d = ok and type(answer) == "string" and paw.json.decode(answer)
+      if type(d) == "table" then
+        spec, stats = gen.describe(d)
+        if spec then break end
       end
-      if not spec then
-        fail("no device of the track describes its instrument: name a library, `art.generate /libs/Violins.sfz`")
-      end
+    end
+    if not spec then
+      fail("no device of the track describes its instrument: name a library, `art.generate /libs/Violins.sfz`")
+    end
+  else
+    local path = what:gsub("^~", os.getenv("HOME") or "~")
+    local lower = path:lower()
+    if lower:match("%.sfz$") then
+      spec, stats = gen.sfz(path)
+    elseif lower:match("%.dspreset$") or lower:match("%.dslibrary$") then
+      spec, stats = gen.ds(path)
+    elseif #api.read_dir(path) > 0 then
+      spec, stats = gen.folder(path)
     else
-      local path = what:gsub("^~", os.getenv("HOME") or "~")
-      local lower = path:lower()
-      if lower:match("%.sfz$") then
-        spec, stats = gen.sfz(path)
-      elseif lower:match("%.dspreset$") or lower:match("%.dslibrary$") then
-        spec, stats = gen.ds(path)
-      elseif #api.read_dir(path) > 0 then
-        spec, stats = gen.folder(path)
-      else
-        fail("`" .. what .. "`: an .sfz, a .dspreset or .dslibrary, or a folder of samples named by articulation")
-      end
-      if not spec then fail(stats) end
+      fail("`" .. what .. "`: an .sfz, a .dspreset or .dslibrary, or a folder of samples named by articulation")
     end
-    local file = save_generated(spec, track)
-    paw.notify(
-      string.format(
-        "%s: %d articulations, %d named by a code of the profile; written to %s%s",
-        spec.name,
-        stats.articulations,
-        stats.coded,
-        file,
-        track and " and bound to the track" or ""
-      )
+    if not spec then fail(stats) end
+  end
+  local file = save_generated(spec, track)
+  paw.notify(
+    string.format(
+      "%s: %d articulations, %d named by a code of the profile; written to %s%s",
+      spec.name,
+      stats.articulations,
+      stats.coded,
+      file,
+      track and " and bound to the track" or ""
     )
-  end,
-  {
-    raw = true,
-    desc = "Make an articulation map from a library and bind it: `art.generate /libs/Violins.sfz`, a .dspreset, a folder of samples; alone, from a device that describes its instrument",
-    complete = "files",
-  }
-)
+  )
+end, {
+  raw = true,
+  desc = "Make an articulation map from a library and bind it: `art.generate /libs/Violins.sfz`, a .dspreset, a folder of samples; alone, from a device that describes its instrument",
+  complete = "files",
+})
 
-command(
-  "art.import",
-  function(ctx)
-    local path = words(ctx):gsub("^~", os.getenv("HOME") or "~")
-    if path == "" then fail("which .reabank? `art.import ~/Reaticulate.reabank`") end
-    local text = maps.read(path)
-    if not text then fail("cannot read " .. path) end
-    local specs, stats = gen.reabank(text)
-    local dir = api.env().config_dir .. "/articulations/reaticulate"
-    for _, spec in ipairs(specs) do
-      maps.write(dir .. "/" .. spec.file .. maps.SUFFIX, gen.text(spec))
-    end
-    maps.forget()
-    paw.notify(
-      string.format(
-        "%d banks, %d articulations (%d%% named by a code of the profile) into %s",
-        #specs,
-        stats.articulations,
-        stats.articulations > 0 and math.floor(100 * stats.coded / stats.articulations + 0.5) or 0,
-        dir
-      )
+command("art.import", function(ctx)
+  local path = words(ctx):gsub("^~", os.getenv("HOME") or "~")
+  if path == "" then fail("which .reabank? `art.import ~/Reaticulate.reabank`") end
+  local text = maps.read(path)
+  if not text then fail("cannot read " .. path) end
+  local specs, stats = gen.reabank(text)
+  local dir = api.env().config_dir .. "/articulations/reaticulate"
+  for _, spec in ipairs(specs) do
+    maps.write(dir .. "/" .. spec.file .. maps.SUFFIX, gen.text(spec))
+  end
+  maps.forget()
+  paw.notify(
+    string.format(
+      "%d banks, %d articulations (%d%% named by a code of the profile) into %s",
+      #specs,
+      stats.articulations,
+      stats.articulations > 0 and math.floor(100 * stats.coded / stats.articulations + 0.5) or 0,
+      dir
     )
-  end,
-  {
-    raw = true,
-    desc = "Read a Reaticulate .reabank: each bank an articulation map of its own, in <config>/articulations/reaticulate",
-    complete = "files",
-  }
-)
+  )
+end, {
+  raw = true,
+  desc = "Read a Reaticulate .reabank: each bank an articulation map of its own, in <config>/articulations/reaticulate",
+  complete = "files",
+})
 
 command("art.export", function(ctx)
   local args = words(ctx)
@@ -780,58 +755,46 @@ function M.from_keyswitches(clip_id)
   return count, #remove
 end
 
-command(
-  "art.from-keyswitches",
-  function()
-    local clip = roll:clip() or paw.cursor.clip()
-    if not clip then fail("no clip here") end
-    local ids = roll:clip() and paw.roll_clips.ids() or { clip.id }
-    local total, gone = 0, 0
-    for _, id in ipairs(ids) do
-      local n, r = M.from_keyswitches(id)
-      total, gone = total + n, gone + (r or 0)
-    end
-    paw.notify(
-      string.format(
-        "%d notes given the articulation of the keyswitch before them; %d keyswitch notes taken out",
-        total,
-        gone
-      )
+command("art.from-keyswitches", function()
+  local clip = roll:clip() or paw.cursor.clip()
+  if not clip then fail("no clip here") end
+  local ids = roll:clip() and paw.roll_clips.ids() or { clip.id }
+  local total, gone = 0, 0
+  for _, id in ipairs(ids) do
+    local n, r = M.from_keyswitches(id)
+    total, gone = total + n, gone + (r or 0)
+  end
+  paw.notify(
+    string.format(
+      "%d notes given the articulation of the keyswitch before them; %d keyswitch notes taken out",
+      total,
+      gone
     )
-  end,
-  {
-    label = "Keyswitches into articulations",
-    desc = "Turn the keyswitch notes and switching controller moves (CC32, a controller whose values choose articulations) of the clip into the articulations of the notes after them",
-  }
-)
+  )
+end, {
+  label = "Keyswitches into articulations",
+  desc = "Turn the keyswitch notes and switching controller moves (CC32, a controller whose values choose articulations) of the clip into the articulations of the notes after them",
+})
 
 -- Keys ---------------------------------------------------------------------------------
 
-keymap.set(
-  "<localleader>a",
-  function() M.popover() end,
-  {
-    view = "pianoroll",
-    mode = { "n", "x" },
-    desc = "Articulation of the note under the cursor, or of the selection: a list heard as you move",
-    repeatable = false,
-  }
-)
+keymap.set("<localleader>a", function() M.popover() end, {
+  view = "pianoroll",
+  mode = { "n", "x" },
+  desc = "Articulation of the note under the cursor, or of the selection: a list heard as you move",
+  repeatable = false,
+})
 keymap.set(
   "<localleader>a",
   function() M.popover({ mode = "pen" }) end,
   { view = "pianoroll", mode = "i", desc = "The articulation notes are entered with (the pen)" }
 )
-keymap.set(
-  "<localleader>A",
-  function() M.popover({ mode = "mod" }) end,
-  {
-    view = "pianoroll",
-    mode = { "n", "x" },
-    desc = "A modifier of the map (con sord., sul pont.) over the note or the selection",
-    repeatable = false,
-  }
-)
+keymap.set("<localleader>A", function() M.popover({ mode = "mod" }) end, {
+  view = "pianoroll",
+  mode = { "n", "x" },
+  desc = "A modifier of the map (con sord., sul pont.) over the note or the selection",
+  repeatable = false,
+})
 
 --- The run of notes around the cursor that have the articulation of the
 --- note under it, in time, as a region of the roll; with `around`, up to

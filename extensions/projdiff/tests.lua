@@ -116,23 +116,20 @@ test(
         break
       end
     end
-    table.insert(
-      now.project.tracks,
-      {
-        id = 90,
-        name = "Pad",
-        volume = 0,
-        pan = 0,
-        mute = false,
-        solo = false,
-        armed = false,
-        sends = list(),
-        devices = list(),
-        clips = list(),
-        meta = {},
-        monitor = false,
-      }
-    )
+    table.insert(now.project.tracks, {
+      id = 90,
+      name = "Pad",
+      volume = 0,
+      pan = 0,
+      mute = false,
+      solo = false,
+      armed = false,
+      sends = list(),
+      devices = list(),
+      clips = list(),
+      meta = {},
+      monitor = false,
+    })
     now.project.tempo_changes = { { beat = 16, bpm = 90 } }
     now.project.meta.markers[1].beat = 12
     table.insert(now.project.meta.markers, { id = 7, beat = 20, name = "Outro" })
@@ -228,33 +225,27 @@ test("projdiff: changes to different tracks, clips, notes and parameters merge w
   track(ours, "Lead").volume = -3
   track(ours, "Lead").devices[1].params.cutoff = 1500
   track(ours, "Lead").clips[1].content.notes[1].start = 0.5
-  table.insert(
-    track(ours, "Lead").clips,
-    {
-      id = 100,
-      name = "ours",
-      start = 8,
-      length = 4,
-      muted = false,
-      content = { kind = "midi", notes = list() },
-      meta = {},
-    }
-  )
+  table.insert(track(ours, "Lead").clips, {
+    id = 100,
+    name = "ours",
+    start = 8,
+    length = 4,
+    muted = false,
+    content = { kind = "midi", notes = list() },
+    meta = {},
+  })
   track(theirs, "Bass").pan = 0.5
   track(theirs, "Lead").devices[1].params.resonance = 0.4
   track(theirs, "Lead").clips[1].content.notes[2].velocity = 70
-  table.insert(
-    track(theirs, "Bass").clips,
-    {
-      id = 100,
-      name = "theirs",
-      start = 8,
-      length = 4,
-      muted = false,
-      content = { kind = "midi", notes = list() },
-      meta = {},
-    }
-  )
+  table.insert(track(theirs, "Bass").clips, {
+    id = 100,
+    name = "theirs",
+    start = 8,
+    length = 4,
+    muted = false,
+    content = { kind = "midi", notes = list() },
+    meta = {},
+  })
   theirs.project.tempo = 100
   ours.project.tempo_changes = { { beat = 16, bpm = 90 } }
   theirs.project.tempo_changes = { { beat = 32, bpm = 140 } }

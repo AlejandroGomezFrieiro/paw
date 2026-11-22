@@ -336,18 +336,15 @@ function M.context()
   if not a then return {} end
   local lo, hi = M.span()
   local ids = M.ids()
-  local key = table.concat(
-    {
-      api.project_get("edits"),
-      generation,
-      table.concat(ids, ","),
-      tostring(paw.opt.roll_context),
-      paw.opt.roll_context_max,
-      lo,
-      hi,
-    },
-    "|"
-  )
+  local key = table.concat({
+    api.project_get("edits"),
+    generation,
+    table.concat(ids, ","),
+    tostring(paw.opt.roll_context),
+    paw.opt.roll_context_max,
+    lo,
+    hi,
+  }, "|")
   if cache.key == key then return cache.notes end
   local editable, out = {}, {}
   for _, id in ipairs(ids) do

@@ -36,27 +36,19 @@ command("track.pan.set", function()
     paw.notify(track.name .. " panned " .. paw.draw.pan_text(track.pan))
   end)
 end, { desc = "Type the track's pan: L30, R25, C, or -100 to 100; +=10 and -=10 step" })
-command(
-  "tempo.set",
-  function()
-    -- The tempo in force at the cursor: the change at or before it.
-    local point = paw.tempo.point_at(cursor.beat)
-    paw.ui.ask_value({ label = "Tempo", now = point.bpm, unit = "bpm", min = 1, max = 999 }, function(v)
-      api.tempo_set(point.beat, v)
-      paw.notify(
-        string.format(
-          "tempo %g bpm from %s",
-          v,
-          point.beat == 0 and "the start" or "bar " .. paw.time.bar_of(point.beat)
-        )
-      )
-    end)
-  end,
-  {
-    desc = "Type the tempo in force at the cursor (the change at or before it) in bpm: a number, or +=2 and -=3 to step",
-    label = "Set the tempo",
-  }
-)
+command("tempo.set", function()
+  -- The tempo in force at the cursor: the change at or before it.
+  local point = paw.tempo.point_at(cursor.beat)
+  paw.ui.ask_value({ label = "Tempo", now = point.bpm, unit = "bpm", min = 1, max = 999 }, function(v)
+    api.tempo_set(point.beat, v)
+    paw.notify(
+      string.format("tempo %g bpm from %s", v, point.beat == 0 and "the start" or "bar " .. paw.time.bar_of(point.beat))
+    )
+  end)
+end, {
+  desc = "Type the tempo in force at the cursor (the change at or before it) in bpm: a number, or +=2 and -=3 to step",
+  label = "Set the tempo",
+})
 
 command("device.value", function()
   local device, row = paw.ui.views.devices:selected()

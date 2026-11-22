@@ -187,23 +187,19 @@ end, {
   complete = track_names,
 })
 
-paw.command(
-  "unfreeze",
-  function(ctx)
-    local done = {}
-    for _, id in ipairs(chosen(ctx)) do
-      -- A track inside a frozen group thaws that group.
-      local which = M.frozen(id) and id or M.holder(id) or id
-      M.unfreeze(which)
-      done[#done + 1] = api.track_get(which, "name")
-    end
-    paw.notify("unfrozen: " .. table.concat(done, ", "))
-  end,
-  {
-    desc = "Play a frozen track's clips and devices again: `unfreeze`, `unfreeze Strings`",
-    range = true,
-    complete = track_names,
-  }
-)
+paw.command("unfreeze", function(ctx)
+  local done = {}
+  for _, id in ipairs(chosen(ctx)) do
+    -- A track inside a frozen group thaws that group.
+    local which = M.frozen(id) and id or M.holder(id) or id
+    M.unfreeze(which)
+    done[#done + 1] = api.track_get(which, "name")
+  end
+  paw.notify("unfrozen: " .. table.concat(done, ", "))
+end, {
+  desc = "Play a frozen track's clips and devices again: `unfreeze`, `unfreeze Strings`",
+  range = true,
+  complete = track_names,
+})
 
 return M

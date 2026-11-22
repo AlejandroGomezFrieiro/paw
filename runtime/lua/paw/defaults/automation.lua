@@ -27,27 +27,23 @@ local function need_lane(ctx)
   return lane
 end
 
-command(
-  "lane.add",
-  function(ctx)
-    local owner, target = lane_owner(ctx)
-    if not owner then return end
-    local beat = cursor.beat
-    local function add(value) owner:automate(target):add(beat, value) end
-    local current = owner:value_at(target, beat)
-    if tonumber(ctx.args[1]) then return add(tonumber(ctx.args[1])) end
-    if ctx.args.by then return add(current + ctx.args.by * (ctx.count or 1)) end
-    paw.ui.input(
-      { prompt = target .. " at " .. paw.time.format(beat) .. ": ", text = string.format("%g", current) },
-      function(text)
-        if tonumber(text) then add(tonumber(text)) end
-      end
-    )
-  end,
-  {
-    desc = "Add an automation point at the cursor: `lane.add -6`, `lane.add by=1 target=pan`, `lane.add 800 target=cutoff device=synth`",
-  }
-)
+command("lane.add", function(ctx)
+  local owner, target = lane_owner(ctx)
+  if not owner then return end
+  local beat = cursor.beat
+  local function add(value) owner:automate(target):add(beat, value) end
+  local current = owner:value_at(target, beat)
+  if tonumber(ctx.args[1]) then return add(tonumber(ctx.args[1])) end
+  if ctx.args.by then return add(current + ctx.args.by * (ctx.count or 1)) end
+  paw.ui.input(
+    { prompt = target .. " at " .. paw.time.format(beat) .. ": ", text = string.format("%g", current) },
+    function(text)
+      if tonumber(text) then add(tonumber(text)) end
+    end
+  )
+end, {
+  desc = "Add an automation point at the cursor: `lane.add -6`, `lane.add by=1 target=pan`, `lane.add 800 target=cutoff device=synth`",
+})
 command("lane.clear", function(ctx)
   local lane = need_lane(ctx)
   if lane then lane:clear() end

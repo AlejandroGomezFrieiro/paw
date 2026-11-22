@@ -308,19 +308,15 @@ local function path_and_tempo(line)
   return (path:gsub("^~", os.getenv("HOME") or "~")), tempo
 end
 
-paw.command(
-  "notation.import",
-  function(ctx)
-    local path, tempo = path_and_tempo(ctx.args[1])
-    if path == "" then return paw.notify("usage: notation.import <score.musicxml|.mxl> [tempo=yes]", "warn") end
-    return import_command(path, tempo or ctx.args.tempo)
-  end,
-  {
-    raw = true,
-    desc = "Bring a MusicXML score in: a track for each part at the cursor, each a MIDI clip with its notation: `notation.import song.musicxml`, `song.mxl tempo=yes` (its tempo marks and time signatures too)",
-    complete = "files",
-  }
-)
+paw.command("notation.import", function(ctx)
+  local path, tempo = path_and_tempo(ctx.args[1])
+  if path == "" then return paw.notify("usage: notation.import <score.musicxml|.mxl> [tempo=yes]", "warn") end
+  return import_command(path, tempo or ctx.args.tempo)
+end, {
+  raw = true,
+  desc = "Bring a MusicXML score in: a track for each part at the cursor, each a MIDI clip with its notation: `notation.import song.musicxml`, `song.mxl tempo=yes` (its tempo marks and time signatures too)",
+  complete = "files",
+})
 
 -- MusicXML is a format of `paw.formats`: `:import song.musicxml` brings
 -- its parts in at the cursor (`tempo=yes`: its tempo marks too), `:open`

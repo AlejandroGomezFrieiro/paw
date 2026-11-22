@@ -8,55 +8,43 @@ paw.option.define("midilsp_autostart", true) -- start when loaded, if the engine
 
 local midilsp = require("midilsp")
 
-paw.command(
-  "midilsp",
-  function(ctx)
-    local verb = ctx.args[1] or "info"
-    if verb == "start" then
-      midilsp.start(true)
-    elseif verb == "stop" then
-      midilsp.stop()
-    else
-      paw.ui.page("MIDI LSP", midilsp.info_lines())
-    end
-  end,
-  {
-    desc = "MIDI LSP: `midilsp` says where the engine is and how it runs; `midilsp start`, `midilsp stop`",
-    complete = { "info", "start", "stop" },
-  }
-)
+paw.command("midilsp", function(ctx)
+  local verb = ctx.args[1] or "info"
+  if verb == "start" then
+    midilsp.start(true)
+  elseif verb == "stop" then
+    midilsp.stop()
+  else
+    paw.ui.page("MIDI LSP", midilsp.info_lines())
+  end
+end, {
+  desc = "MIDI LSP: `midilsp` says where the engine is and how it runs; `midilsp start`, `midilsp stop`",
+  complete = { "info", "start", "stop" },
+})
 
-paw.command(
-  "midilsp.preset",
-  function(ctx)
-    local name = ctx.args[1]
-    if not name then
-      return paw.notify(
-        "midilsp: preset " .. midilsp.settings().preset .. " (of " .. table.concat(midilsp.presets(), ", ") .. ")"
-      )
-    end
-    local ok, err = pcall(midilsp.set_preset, name)
-    if not ok then paw.notify(tostring(err):gsub("^.-:%d+: ", ""), "error") end
-  end,
-  {
-    desc = "The rules MIDI LSP checks, as a profile: `midilsp.preset strict-counterpoint`",
-    complete = function() return midilsp.presets() end,
-  }
-)
+paw.command("midilsp.preset", function(ctx)
+  local name = ctx.args[1]
+  if not name then
+    return paw.notify(
+      "midilsp: preset " .. midilsp.settings().preset .. " (of " .. table.concat(midilsp.presets(), ", ") .. ")"
+    )
+  end
+  local ok, err = pcall(midilsp.set_preset, name)
+  if not ok then paw.notify(tostring(err):gsub("^.-:%d+: ", ""), "error") end
+end, {
+  desc = "The rules MIDI LSP checks, as a profile: `midilsp.preset strict-counterpoint`",
+  complete = function() return midilsp.presets() end,
+})
 
-paw.command(
-  "midilsp.rule",
-  function(ctx)
-    local id, state = ctx.args[1], ctx.args[2]
-    if not id then return midilsp.pick_rules() end
-    local ok, err = pcall(midilsp.set_rule, id, state == nil and "toggle" or state == "on")
-    if not ok then paw.notify(tostring(err):gsub("^.-:%d+: ", ""), "error") end
-  end,
-  {
-    desc = "Switch a MIDI LSP rule on or off: `midilsp.rule parallel-perfect off`; alone, a list to toggle them in",
-    complete = function() return midilsp.rule_ids() end,
-  }
-)
+paw.command("midilsp.rule", function(ctx)
+  local id, state = ctx.args[1], ctx.args[2]
+  if not id then return midilsp.pick_rules() end
+  local ok, err = pcall(midilsp.set_rule, id, state == nil and "toggle" or state == "on")
+  if not ok then paw.notify(tostring(err):gsub("^.-:%d+: ", ""), "error") end
+end, {
+  desc = "Switch a MIDI LSP rule on or off: `midilsp.rule parallel-perfect off`; alone, a list to toggle them in",
+  complete = function() return midilsp.rule_ids() end,
+})
 
 paw.command(
   "problems",

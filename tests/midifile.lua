@@ -187,18 +187,14 @@ end)
 
 test("a MIDI file written and read again keeps its notes, controls, tempo map and markers", function()
   local f = assert(smf.parse(format0()))
-  local again = assert(
-    smf.parse(
-      smf.encode({
-        format = 1,
-        ppq = f.ppq,
-        tempos = f.tempos,
-        signatures = f.signatures,
-        markers = f.markers,
-        tracks = { {}, f.tracks[1] },
-      })
-    )
-  )
+  local again = assert(smf.parse(smf.encode({
+    format = 1,
+    ppq = f.ppq,
+    tempos = f.tempos,
+    signatures = f.signatures,
+    markers = f.markers,
+    tracks = { {}, f.tracks[1] },
+  })))
   eq(#again.tracks[2].notes, 4, "the notes")
   for i, n in ipairs(f.tracks[1].notes) do
     local m = again.tracks[2].notes[i]

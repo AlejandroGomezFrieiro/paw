@@ -116,16 +116,13 @@ test("lenses: a one-shot server checks each render, and says when it fails", fun
   local t = paw.add_track({ name = "Tone" })
   t:add_device("synth")
   t:add_clip({ start = 0, length = 2, notes = { { pitch = 69, start = 0, length = 2, velocity = 120 } } })
-  paw.lsp.config(
-    "peaks",
-    {
-      kind = "oneshot",
-      cmd = { python(), "tests/fixtures/peak_check.py", "--over", "{over}", "{input}" },
-      attach = { subjects = { "render" } },
-      settings = { over = -40 },
-      timeout_ms = 20000,
-    }
-  )
+  paw.lsp.config("peaks", {
+    kind = "oneshot",
+    cmd = { python(), "tests/fixtures/peak_check.py", "--over", "{over}", "{input}" },
+    attach = { subjects = { "render" } },
+    settings = { over = -40 },
+    timeout_ms = 20000,
+  })
   paw.lsp.enable("peaks")
   eq(paw.lsp.clients()[1].status, "ready", "a one-shot server is ready, with nothing running")
   local path = T.scratch .. "/lenses.wav"
@@ -299,15 +296,12 @@ test(
     paw.roll_clips.open({ a.id, b.id }, a.id)
     -- Shown to a server attached to clips: both, by focus.
     local opened = {}
-    paw.lsp.config(
-      "seen",
-      {
-        server = {
-          initialize = function() return { capabilities = { paw = { subjects = { "clip" } } } } end,
-          ["textDocument/didOpen"] = function(p) opened[#opened + 1] = p.textDocument.uri end,
-        },
-      }
-    )
+    paw.lsp.config("seen", {
+      server = {
+        initialize = function() return { capabilities = { paw = { subjects = { "clip" } } } } end,
+        ["textDocument/didOpen"] = function(p) opened[#opened + 1] = p.textDocument.uri end,
+      },
+    })
     paw.lsp.enable("seen")
     table.sort(opened)
     local want = { A.clip(a.id), A.clip(b.id) }

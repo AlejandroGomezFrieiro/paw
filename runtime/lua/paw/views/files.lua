@@ -648,20 +648,16 @@ local function show(tree)
   end
 end
 
-paw.command(
-  "cd",
-  function(ctx)
-    local arg = ctx.args[1] and tostring(ctx.args[1]) or nil
-    local dir, why = M.cd(arg)
-    if not dir then return paw.notify(why, "warn") end
-    paw.notify("relative names go to " .. dir)
-  end,
-  {
-    desc = "Set the folder that relative names go to, as in Vim: `cd ~/songs`, `cd -` the one before; alone, the home folder",
-    raw = false,
-    complete = { "dirs" },
-  }
-)
+paw.command("cd", function(ctx)
+  local arg = ctx.args[1] and tostring(ctx.args[1]) or nil
+  local dir, why = M.cd(arg)
+  if not dir then return paw.notify(why, "warn") end
+  paw.notify("relative names go to " .. dir)
+end, {
+  desc = "Set the folder that relative names go to, as in Vim: `cd ~/songs`, `cd -` the one before; alone, the home folder",
+  raw = false,
+  complete = { "dirs" },
+})
 paw.command("pwd", function()
   local how = chosen and "set with `:cd`" or api.project_get("path") and "the project's folder" or "where paw started"
   paw.notify(M.here() .. " (" .. how .. ")")

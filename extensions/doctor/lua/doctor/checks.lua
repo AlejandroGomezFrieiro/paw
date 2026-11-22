@@ -242,16 +242,13 @@ return function(M)
       while true do
         ctx:say("playing a tone: left, right, both")
         ctx:play(0, total + 0.3)
-        local answer = ctx:ask(
-          "Did you hear the tone on the left, then the right, then both?",
-          {
-            { "y", "heard it" },
-            { "n", "did not" },
-            { "w", "heard it, in the wrong places" },
-            { "r", "play it again" },
-            { "s", "skip" },
-          }
-        )
+        local answer = ctx:ask("Did you hear the tone on the left, then the right, then both?", {
+          { "y", "heard it" },
+          { "n", "did not" },
+          { "w", "heard it, in the wrong places" },
+          { "r", "play it again" },
+          { "s", "skip" },
+        })
         if answer == "y" then
           ctx:fact("heard", "left, right and both")
           return "ok", "the tone was heard on the left, the right and both"

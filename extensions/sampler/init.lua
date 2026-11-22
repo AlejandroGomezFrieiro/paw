@@ -17,13 +17,10 @@ require("sampler.commands")
 paw.health.register("sampler", function(h)
   local dir = sampler.plugin_dir()
   if not dir then
-    return h.error(
-      "paw-sampler.clap not found",
-      {
-        "it is built with the extension's package: nix build .#paw-sampler",
-        "or set paw.opt.sampler_plugin_dir to where it is",
-      }
-    )
+    return h.error("paw-sampler.clap not found", {
+      "it is built with the extension's package: nix build .#paw-sampler",
+      "or set paw.opt.sampler_plugin_dir to where it is",
+    })
   end
   h.ok("the plugin in " .. dir)
   if sampler.available() then

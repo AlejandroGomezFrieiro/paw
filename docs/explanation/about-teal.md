@@ -235,14 +235,14 @@ version in `runtime/lua/tl.lua`, and LuaJIT, as paw does.
   declared in the Lua files. `.luacheckrc` declares the global `paw`. The
   `lua` check of the flake runs it. It found a function that the import
   of MusicXML called outside the loop that declared it.
-- StyLua formats Lua, and cerulean (`ceru`) formats Teal. paw's code is
-  not formatted with them. Each one puts a comment after code one space
-  from it, and puts each statement on a line of its own. paw aligns its
-  comments and keeps short functions on one line: StyLua would change
-  most of the Lua files, and cerulean all of the Teal files. The
-  `format` check of the flake says how many, and does not fail.
-  `stylua.toml` and `tools/fmtcheck.sh` hold the settings nearest to
-  paw's style.
+- StyLua formats Lua, and cerulean (`ceru`) formats Teal. All of paw's
+  code is formatted with them, with the settings in `stylua.toml` and
+  `tools/fmtcheck.sh`. `tools/fmtcheck.sh fix` formats the tree, and the
+  `format` check of the flake fails when a file is not formatted.
+  cerulean cannot format `limit.tl`, `pick.tl` and `ui.tl`: its output
+  for them is not valid Teal, so the check leaves them out.
+  `.git-blame-ignore-revs` names the commit that formatted the tree, for
+  `git blame --ignore-revs-file`.
 - `tl` compiles one file, for example to look at the Lua that Teal makes
   (`tl gen`).
 

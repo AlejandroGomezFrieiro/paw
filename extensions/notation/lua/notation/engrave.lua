@@ -281,34 +281,29 @@ local function arc(dst, x0, y0, x1, y1, bow, dir, thick_end, thick_mid, colour, 
   local e = thick_end / 2
   local ax, ay = x0 + dx * inset, y0 + dy * inset
   local bx, by = x0 + dx * (1 - inset), y0 + dy * (1 - inset)
-  dst:path(
-    {
-      "M",
-      x0,
-      y0 + dir * e,
-      "C",
-      ax,
-      ay + dir * outer,
-      bx,
-      by + dir * outer,
-      x1,
-      y1 + dir * e,
-      "L",
-      x1,
-      y1 - dir * e,
-      "C",
-      bx,
-      by + dir * inner,
-      ax,
-      ay + dir * inner,
-      x0,
-      y0 - dir * e,
-      "Z",
-    },
-    "",
-    1,
-    colour
-  )
+  dst:path({
+    "M",
+    x0,
+    y0 + dir * e,
+    "C",
+    ax,
+    ay + dir * outer,
+    bx,
+    by + dir * outer,
+    x1,
+    y1 + dir * e,
+    "L",
+    x1,
+    y1 - dir * e,
+    "C",
+    bx,
+    by + dir * inner,
+    ax,
+    ay + dir * inner,
+    x0,
+    y0 - dir * e,
+    "Z",
+  }, "", 1, colour)
 end
 E.arc = arc
 
@@ -608,46 +603,40 @@ local function staff_signature(m, p, k)
   local parts =
     { k, floor(p.width + 0.5), tostring(m.repeat_start), tostring(m.repeat_end), m.start, tostring(m.ghost) }
   for _, ev in ipairs(m.staves[k] or {}) do
-    parts[#parts + 1] = table.concat(
-      {
-        ev.kind,
-        ev.start,
-        ev.length,
-        tostring(ev.base),
-        ev.dots,
-        tostring(ev.stem),
-        tostring(ev.flags),
-        tostring(ev.beam and true),
-        tostring(ev.whole),
-        tostring(ev.shift),
-        ev.voice,
-        tostring(ev.arpeggio),
-        tostring(ev.staccato),
-        tostring(ev.tuplet and ev.tuplet.n),
-        tostring(ev.tuplet and ev.tuplet.s),
-        tostring(ev.cue),
-        tostring(ev.multirest),
-      },
-      ","
-    )
+    parts[#parts + 1] = table.concat({
+      ev.kind,
+      ev.start,
+      ev.length,
+      tostring(ev.base),
+      ev.dots,
+      tostring(ev.stem),
+      tostring(ev.flags),
+      tostring(ev.beam and true),
+      tostring(ev.whole),
+      tostring(ev.shift),
+      ev.voice,
+      tostring(ev.arpeggio),
+      tostring(ev.staccato),
+      tostring(ev.tuplet and ev.tuplet.n),
+      tostring(ev.tuplet and ev.tuplet.s),
+      tostring(ev.cue),
+      tostring(ev.multirest),
+    }, ",")
     if ev.art then
       for _, a in ipairs({ "staccato", "accent", "tenuto", "marcato" }) do
         if ev.art[a] then parts[#parts + 1] = a end
       end
     end
     for _, n in ipairs(ev.notes or {}) do
-      parts[#parts + 1] = table.concat(
-        {
-          n.pos,
-          n.id or n.index,
-          tostring(n.acc),
-          tostring(n.courtesy),
-          tostring(n.tie),
-          tostring(n.tied),
-          tostring(ev.next and ev.next.measure == ev.measure and ev.next.start),
-        },
-        "."
-      )
+      parts[#parts + 1] = table.concat({
+        n.pos,
+        n.id or n.index,
+        tostring(n.acc),
+        tostring(n.courtesy),
+        tostring(n.tie),
+        tostring(n.tied),
+        tostring(ev.next and ev.next.measure == ev.measure and ev.next.start),
+      }, ".")
     end
     for _, n in ipairs(ev.grace or {}) do
       parts[#parts + 1] = "g" .. n.pos .. tostring(n.acc)
@@ -1259,16 +1248,13 @@ skyline.kind(
   { order = skyline.ORDER.dynamics, side = dynamics_side, pad = 0.7, row = "dynamics", ink = hairpin }
 )
 
-skyline.kind(
-  "text",
-  {
-    side = "above",
-    pad = 0.6,
-    ink = function(out, st, item)
-      out:text(round(item.x), 0, tostring(item.value), item.ghost and st.accent or st.ink, round(1.4 * st.sp), true)
-    end,
-  }
-)
+skyline.kind("text", {
+  side = "above",
+  pad = 0.6,
+  ink = function(out, st, item)
+    out:text(round(item.x), 0, tostring(item.value), item.ghost and st.accent or st.ink, round(1.4 * st.sp), true)
+  end,
+})
 
 --- The x of a beat on a system, or nil off it. `ending`: the beat ends
 --- something (a hairpin), so a barline's beat is just before the barline.
@@ -1302,36 +1288,30 @@ local CHANGE_SCALE = 0.75 -- a clef changed inside a system is drawn smaller
 
 local function mark_colour(st, item) return item.ghost and st.accent or st.ink end
 
-skyline.kind(
-  "chord",
-  {
-    side = "above",
-    pad = 0.6,
-    row = "chords",
-    ink = function(out, st, item)
-      out:text(
-        round(item.x - gwidth(st, "noteheadBlack") / 2),
-        -round(1.5 * st.sp),
-        item.value,
-        mark_colour(st, item),
-        round(1.5 * st.sp),
-        true
-      )
-    end,
-  }
-)
+skyline.kind("chord", {
+  side = "above",
+  pad = 0.6,
+  row = "chords",
+  ink = function(out, st, item)
+    out:text(
+      round(item.x - gwidth(st, "noteheadBlack") / 2),
+      -round(1.5 * st.sp),
+      item.value,
+      mark_colour(st, item),
+      round(1.5 * st.sp),
+      true
+    )
+  end,
+})
 
-skyline.kind(
-  "technique",
-  {
-    order = 45,
-    side = "above",
-    pad = 0.5,
-    ink = function(out, st, item)
-      out:text(round(item.x), -round(1.3 * st.sp), item.value, mark_colour(st, item), round(1.3 * st.sp), false)
-    end,
-  }
-)
+skyline.kind("technique", {
+  order = 45,
+  side = "above",
+  pad = 0.5,
+  ink = function(out, st, item)
+    out:text(round(item.x), -round(1.3 * st.sp), item.value, mark_colour(st, item), round(1.3 * st.sp), false)
+  end,
+})
 
 -- Words, then the metronome mark: the note's glyph and its number.
 skyline.kind("tempo", {
@@ -2014,62 +1994,52 @@ local function label_ink(out, st, layout, sys, Y, left)
     local th = round(0.5 * s)
     out:rect(bx, top, th, bottom - top, st.ink)
     -- The hooks at either end, curving out to the right.
-    out:path(
-      {
-        "M",
-        bx,
-        top + th,
-        "L",
-        bx,
-        top,
-        "C",
-        bx + 0.8 * s,
-        top,
-        bx + 1.4 * s,
-        top - 0.2 * s,
-        bx + 1.8 * s,
-        top - 0.7 * s,
-        "C",
-        bx + 1.4 * s,
-        top + 0.1 * s,
-        bx + 0.8 * s,
-        top + th,
-        bx,
-        top + th,
-        "Z",
-      },
-      "",
-      1,
-      st.ink
-    )
-    out:path(
-      {
-        "M",
-        bx,
-        bottom - th,
-        "L",
-        bx,
-        bottom,
-        "C",
-        bx + 0.8 * s,
-        bottom,
-        bx + 1.4 * s,
-        bottom + 0.2 * s,
-        bx + 1.8 * s,
-        bottom + 0.7 * s,
-        "C",
-        bx + 1.4 * s,
-        bottom - 0.1 * s,
-        bx + 0.8 * s,
-        bottom - th,
-        bx,
-        bottom - th,
-        "Z",
-      },
-      "",
-      1,
-      st.ink
-    )
+    out:path({
+      "M",
+      bx,
+      top + th,
+      "L",
+      bx,
+      top,
+      "C",
+      bx + 0.8 * s,
+      top,
+      bx + 1.4 * s,
+      top - 0.2 * s,
+      bx + 1.8 * s,
+      top - 0.7 * s,
+      "C",
+      bx + 1.4 * s,
+      top + 0.1 * s,
+      bx + 0.8 * s,
+      top + th,
+      bx,
+      top + th,
+      "Z",
+    }, "", 1, st.ink)
+    out:path({
+      "M",
+      bx,
+      bottom - th,
+      "L",
+      bx,
+      bottom,
+      "C",
+      bx + 0.8 * s,
+      bottom,
+      bx + 1.4 * s,
+      bottom + 0.2 * s,
+      bx + 1.8 * s,
+      bottom + 0.7 * s,
+      "C",
+      bx + 1.4 * s,
+      bottom - 0.1 * s,
+      bx + 0.8 * s,
+      bottom - th,
+      bx,
+      bottom - th,
+      "Z",
+    }, "", 1, st.ink)
   end
   for _, b in ipairs(layout.braces or {}) do
     local top, bottom = round(Y(b[1], 8) - st.line / 2), round(Y(b[2], 0) + st.line / 2)
