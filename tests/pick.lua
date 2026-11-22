@@ -315,9 +315,11 @@ test("pick: files opens projects and imports audio", function()
   -- The real source walks the working directory, the repository here.
   paw.project.new()
   t = paw.add_track({ name = "Import" })
+  paw.pick("files")
+  while pick.state().note do paw.wait(5) end
   paw.cursor.set_track(t)
   paw.cursor.set_beat(4)
-  choose("files", "fixtures tone-mono-8k.wav")
+  paw.keymap.feed("fixtures tone-mono-8k.wav<CR>")
   local clips = api.clip_list(t.id)
   eq(#clips, 1, "imported at the cursor")
   eq(clips[1].start, 4, "where the cursor is")
@@ -326,6 +328,36 @@ test("pick: files opens projects and imports audio", function()
   paw.project.save(dir .. "/import.json")
   paw.pick.sources.files.on_choose({ path = dir .. "/song.json", kind = "project" })
   eq(paw.tracks()[1].name, "Saved", "a project opens")
+end)
+
+test("pick: files reads in slices, skips build folders and says when it stops", function()
+  start()
+  local dir = T.scratch .. "/pickwalk"
+  os.execute("mkdir -p '" .. dir .. "/target' '" .. dir .. "/ignored' '" .. dir .. "/a/b/c'")
+  for _, f in ipairs({ "target/no.wav", "ignored/no.wav", "a/yes.wav", "a/b/c/deep.wav" }) do
+    os.execute("cp tests/fixtures/tone-mono-8k.wav '" .. dir .. "/" .. f .. "'")
+  end
+  T.write_file(dir .. "/.gitignore", "ignored/\n")
+  local function names(list)
+    local out = {}
+    for i, f in ipairs(list) do out[i] = f.path:sub(#dir + 2) end
+    table.sort(out)
+    return table.concat(out, " ")
+  end
+  eq(names(pick.walk(dir, 1000)), "a/b/c/deep.wav a/yes.wav", "build and ignored folders are left out")
+  eq(names(pick.walk(dir, 1000, 1)), "a/yes.wav", "a depth stops the walk")
+
+  -- The picker opens at once and fills as the walk goes on; at the limit it says so.
+  paw.opt.files_limit = 100
+  paw.keymap.feed(" ff")
+  eq(pick.state() ~= nil, true, "the picker is open before the walk is done")
+  local waited = 0
+  while pick.state().note and not pick.state().note:find("stopped") and waited < 2000 do paw.wait(5) waited = waited + 5 end
+  eq(pick.state().note, "stopped at 100 entries (files_limit)", "the picker says it stopped at the limit")
+  has(screen(), "stopped at 100 entries", "the query line shows it")
+  paw.keymap.feed("<Esc>")
+  eq(pick.state(), nil, "Esc closes it")
+  paw.opt.files_limit = 20000
 end)
 
 test("pick: options switch or ask for a value", function()

@@ -1101,6 +1101,7 @@ local record contracts
       prompt: string
       query: string
       items: {T} | function(): {T}
+      more: function(): {T}, boolean, string
       format: function(item: T): string
       primary: function(item: T): string
       search: function(item: T): string

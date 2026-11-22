@@ -1480,7 +1480,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.pick.resume()`: Open the last picker again, as it was: what was typed, the mode, the line selected. Its items are read again.
 - `paw.pick.show(where, how)`: Show a location: in place (`how` nil), or in a new window to the side ("vsplit"), below ("split") or in a new tab ("tab"). The view that shows it best moves there. Returns true if there was a place to go.
 - `paw.pick.state()`: The open picker, if any: its query, the matches as lines, and the item under the selection. For tests and for frontends.
-- `paw.pick.walk(root, limit)`: Project and audio files under `root`, walking at most `limit` entries.
+- `paw.pick.walk(root, limit, depth)`: Project and audio files under `root`, all at once (a test or a script wants the whole list): at most `limit` entries, `depth` folders deep.
 
 ## Module paw.plot
 

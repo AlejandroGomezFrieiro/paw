@@ -257,7 +257,7 @@ local record M
   type FileLine = FileLine
   --- The project, audio and MIDI files under a directory, walking at
   --- most `limit` entries: what the files picker lists.
-  walk: function(root: string, limit: integer): {FileLine}
+  walk: function(root: string, limit: integer, depth?: integer): {FileLine}
   metamethod __call: function(self: M, pick: Pick): Sources
 end
 
@@ -416,8 +416,6 @@ end
 -- Files --------------------------------------------------------------------------
 
 local audio_ext: {string: boolean} = { wav = true, wave = true, aif = true, aiff = true, flac = true, mp3 = true, ogg = true }
-local skip_dir: {string: boolean} = { target = true, node_modules = true, result = true }
-
 local function is_project(path: string): boolean
   local file = io.open(path, "rb")
   if not file then return false end
@@ -426,31 +424,98 @@ local function is_project(path: string): boolean
   return head:find('"version"', 1, true) ~= nil and head:find('"project"', 1, true) ~= nil
 end
 
---- Project and audio files under `root`, walking at most `limit` entries.
-local function walk(root: string, limit: integer): {FileLine}
-  local out: {FileLine} = {}
-  local seen = 0
-  local function visit(dir: string, prefix: string, depth: integer)
-    for _, entry in ipairs(api.read_dir(dir)) do
-      seen = seen + 1
-      if seen > limit then return end
-      local name = entry.name
-      local path = prefix .. name
-      if entry.is_dir then
-        if depth < 8 and name:sub(1, 1) ~= "." and not skip_dir[name] then visit(dir .. "/" .. name, path .. "/", depth + 1) end
-      else
-        local ext = (name:match("%.([^.]+)$") or ""):lower()
-        if audio_ext[ext] then
-          out[#out + 1] = { path = path, kind = "audio" }
-        elseif paw.midifile.is_midi_file(name) then
-          out[#out + 1] = { path = path, kind = "midi" }
-        elseif ext == "json" and is_project(dir .. "/" .. name) then
-          out[#out + 1] = { path = path, kind = "project" }
+--- Names that `.gitignore` of `root` gives as plain names: `build`, `out/`.
+--- Patterns with a slash in the middle or a wildcard are left out: a cheap
+--- reading, not git's.
+local function ignored_by(root: string): {string: boolean}
+  local out: {string: boolean} = {}
+  local file = io.open(root .. "/.gitignore", "r")
+  if not file then return out end
+  for line in file:lines() do
+    local name = line:match("^/?([^/*?%[!#%s][^/*?%[%s]*)/?%s*$")
+    if name then out[name] = true end
+  end
+  file:close()
+  return out
+end
+
+--- A folder waiting to be read: where it is, the prefix of its files, its depth.
+local record WalkDir
+  dir: string
+  prefix: string
+  depth: integer
+end
+
+--- A walk of the project, audio and MIDI files under `root`, in slices:
+--- `step(ms)` reads directories, level by level, until `ms` pass, and
+--- returns the files found and whether the walk is over. `stopped` is the
+--- option of the limit that stopped it, or nil.
+local record Walk
+  step: function(ms: number): {FileLine}, boolean
+  stopped: string
+  seen: integer
+end
+
+--- Start a walk. `depth` is how many folders deep it goes, `limit` how many
+--- entries it reads, `skip` the folder names it leaves out; it leaves out
+--- the names a `.gitignore` of `root` gives too.
+local function start_walk(root: string, limit: integer, depth: integer, skip: {string | number}): Walk
+  local leave: {string: boolean} = ignored_by(root)
+  for _, name in ipairs(skip) do leave[tostring(name)] = true end
+  local queue: {WalkDir} = { { dir = root, prefix = root == "." and "" or root .. "/", depth = 0 } }
+  local head, tail = 1, 1
+  local w: Walk = { seen = 0 }
+  w.step = function(ms: number): {FileLine}, boolean
+    local out: {FileLine} = {}
+    local deadline = api.now() + ms
+    while head <= tail do
+      local item = queue[head]
+      queue[head] = nil
+      head = head + 1
+      for _, entry in ipairs(api.read_dir(item.dir)) do
+        w.seen = w.seen + 1
+        if w.seen > limit then
+          w.stopped = "files_limit"
+          return out, true
+        end
+        local name = entry.name
+        local path = item.prefix .. name
+        if entry.is_dir then
+          if name:sub(1, 1) ~= "." and not leave[name] then
+            if item.depth < depth then
+              tail = tail + 1
+              queue[tail] = { dir = item.dir .. "/" .. name, prefix = path .. "/", depth = item.depth + 1 }
+            else
+              w.stopped = w.stopped or "files_depth"
+            end
+          end
+        else
+          local ext = (name:match("%.([^.]+)$") or ""):lower()
+          if audio_ext[ext] then
+            out[#out + 1] = { path = path, kind = "audio" }
+          elseif paw.midifile.is_midi_file(name) then
+            out[#out + 1] = { path = path, kind = "midi" }
+          elseif ext == "json" and is_project(item.dir .. "/" .. name) then
+            out[#out + 1] = { path = path, kind = "project" }
+          end
         end
       end
+      if api.now() >= deadline then return out, false end
     end
+    return out, true
   end
-  visit(root, root == "." and "" or root .. "/", 0)
+  return w
+end
+
+--- Project and audio files under `root`, all at once (a test or a script
+--- wants the whole list): at most `limit` entries, `depth` folders deep.
+local function walk(root: string, limit: integer, depth?: integer): {FileLine}
+  local w = start_walk(root, limit, depth or 8, opt.files_skip)
+  local out: {FileLine} = {}
+  repeat
+    local more, done = w.step(1e9)
+    for _, f in ipairs(more) do out[#out + 1] = f end
+  until done
   return out
 end
 
@@ -934,11 +999,28 @@ local function make(pick: Pick): Sources
 
   -- Files --------------------------------------------------------------------------
 
+  local files_walk: Walk
   local files: contracts.PickSource<FileLine> = {
     desc = "Open a project, or import audio or MIDI at the cursor",
     title = "Files",
     empty = "No project, audio or MIDI files under this directory.",
-    items = function(): {FileLine} return walk(".", 50000) end,
+    -- The walk goes on in slices after the picker opens, so that keys stay
+    -- quick in a large folder; the query line says when it stops at a limit.
+    items = function(): {FileLine}
+      files_walk = start_walk(".", opt.files_limit, opt.files_depth, opt.files_skip)
+      return {}
+    end,
+    more = function(): {FileLine}, boolean, string
+      local out, done = files_walk.step(8)
+      if not done then return out, false, "reading…" end
+      local why = files_walk.stopped
+      if why == "files_limit" then
+        return out, true, string.format("stopped at %d entries (files_limit)", opt.files_limit)
+      elseif why == "files_depth" then
+        return out, true, string.format("stopped at depth %d (files_depth)", opt.files_depth)
+      end
+      return out, true, nil
+    end,
     format = function(f: FileLine): string return f.path end,
     on_choose = function(f: FileLine)
       if f.kind == "project" then

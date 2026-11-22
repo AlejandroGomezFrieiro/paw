@@ -166,6 +166,9 @@ The curve glyphs:
 | `paw.opt.audition_delay` | `150` | The time in ms that the selection stays on an item before you hear it. |
 | `paw.opt.audition_level` | `-12` | The level in dB of a sound file heard in a picker. |
 | `paw.opt.files_hidden` | `false` | A files buffer shows the files whose names start with a dot. |
+| `paw.opt.files_limit` | `20000` | The files picker (`<leader>ff`) reads at most this many directory entries, 100 or more. When it stops there, the query line says so. |
+| `paw.opt.files_depth` | `8` | The files picker goes this many folders deep, 1 to 64. When it stops there, the query line says so. |
+| `paw.opt.files_skip` | `{ "target", "node_modules", "result", "build", "dist", "__pycache__", "vendor" }` | The folder names that the files picker does not enter. It also leaves out hidden folders (`.git`, `.direnv`) and the plain names in the `.gitignore` of the working directory. |
 | `paw.opt.files_hear` | `false` | A files buffer plays the sound file under the cursor after the cursor stops on it. |
 | `paw.opt.qf_diagnostics` | `"warning"` | The diagnostics that go into the Problems list: this severity and worse. `"hint"` gives all, `"off"` none. |
 

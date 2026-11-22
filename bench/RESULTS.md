@@ -75,7 +75,10 @@ What is left, in order of what the user feels:
    nothing on the screen. Fixed: after 20 frames in a row that change no
    cell, it slows to 8 per second, and a poke ends. Idle-armed kernel
    thread: 7.2% before, 5.0% after (one reading each, on a loaded machine).
-4. The files picker walks the whole folder tree (up to 10 s).
+4. The files picker walked the whole folder tree (up to 10 s). Fixed: it
+   reads in slices of 8 ms, with limits and skipped folders. A round of
+   `<leader>ff` and `<Esc>` on 9 000 files: 20.5 ms of kernel time
+   before, 3.7 ms after (one reading, on a loaded machine).
 5. About 1 400 allocations per frame while playing, half of them for
    strings passed from Lua.
 

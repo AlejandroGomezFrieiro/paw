@@ -16,7 +16,9 @@
 -- `on_choose_multi(items)`, `width` and `height`, `top = true` to sit at the
 -- top of the screen (leaving what is below in view), `choose` (what Enter does,
 -- for the key line), `empty` (what to say
--- when there is nothing to choose from), and `primary(item)`: the part of
+-- when there is nothing to choose from), `more()` (a picker with many items
+-- reads them in slices: it returns the next items, whether it is done, and a
+-- note for the query line, such as `reading…`), and `primary(item)`: the part of
 -- the line that counts first, so that lines matching there rank above
 -- lines matching only elsewhere. `search(item)` is the whole text that
 -- a query matches, where the line shows only a part of it.
@@ -161,11 +163,13 @@ local record Picker
   last_mode: Mode
   mode: Mode
   footer: string
+  note: string
   rows: integer
   list_y: integer
   history_at: integer
   typed: string
   hear_timer: integer
+  more_timer: integer
   hear_ticker: integer
   hear_item: Item
   heard: Item
@@ -207,6 +211,7 @@ end
 --- The open picker, for tests and frontends (`paw.pick.state()`).
 local record State
   query: string
+  note: string
   matches: {string}
   selected: integer
   item: Item
@@ -864,6 +869,7 @@ end
 
 local function close(p: Picker)
   if active == p then active = nil end
+  if p.more_timer then paw.cancel(p.more_timer) p.more_timer = nil end
   if p.spec.audition then
     hush(p)
     paw.audition.quiet()
@@ -1321,6 +1327,8 @@ function view:render(buf?: contracts.Buf, ctx?: contracts.RenderContext)
   -- The query line: the prompt, what is typed, and how many match.
   local query = table.concat(p.query)
   local count = string.format("%d/%d", #p.matches, #p.entries)
+  -- A picker that reads its items in slices says how far it is.
+  if p.note then count = p.note .. "  " .. count end
   -- A mode other than fuzzy says so beside the count.
   if p.mode ~= "fuzzy" then count = p.mode .. "  " .. count end
   if p.multi and next(p.marked) then
@@ -1437,6 +1445,34 @@ end
 
 local open_spec: function(spec: Source, source_name: string): Picker
 
+--- Read the next slice of a picker that gives its items in slices (`more`),
+--- keep what is typed and the item selected, and ask for the next slice.
+local function read_more(p: Picker)
+  p.more_timer = nil
+  if active ~= p or not p.spec.more then return end
+  local items, done, note = p.spec.more()
+  if items and #items > 0 then
+    local _, chosen = current(p)
+    local added = entries_of(items, p.spec.format, p.spec.primary, p.spec.search)
+    local n = #p.entries
+    for i, e in ipairs(added) do
+      e.index = n + i
+      p.entries[n + i] = e
+    end
+    p.last_query = ""
+    refilter(p)
+    if chosen then
+      for i, e in ipairs(p.matches) do
+        if e == chosen then p.selected = i break end
+      end
+      p.top = max(1, p.selected - 3)
+    end
+  end
+  p.note = note
+  if not done then p.more_timer = paw.defer(function() read_more(p) end, 1) end
+  api.ui_redraw()
+end
+
 -- A copy of a picker with one field more: its source's name, or what is typed.
 local function with_field(spec: Source, key: string, value: string): Source
   local out: {string: util.Data} = {}
@@ -1487,6 +1523,7 @@ open_spec = function(spec: Source, source_name: string): Picker
   p.mode = not spec.rank and (paw.state["pick.mode." .. source_key(p)] or spec.mode) as Mode or "fuzzy"
   p.matches = p.entries
   p.footer = footer_of(p)
+  if spec.more then p.note = "reading…" end
   if #p.query > 0 or spec.rank then refilter(p) end
   active, last_spec = p, { spec = spec, query = spec.query, source = source_name }
   local width, height = api.ui_size()
@@ -1497,6 +1534,7 @@ open_spec = function(spec: Source, source_name: string): Picker
     top = spec.top,
   })
   follow(p)
+  if spec.more then p.more_timer = paw.defer(function() read_more(p) end, 0) end
   return p
 end
 
@@ -1534,7 +1572,7 @@ function M.state(): State
     if p.marked[e] then marked[#marked + 1] = e.item end
   end
   return { query = table.concat(p.query), matches = lines, selected = p.selected, item = (current(p)), title = p.spec.title or "Pick",
-    audition = hearing, mode = p.mode, marked = marked, source = p.source }
+    audition = hearing, mode = p.mode, marked = marked, source = p.source, note = p.note }
 end
 
 local palette = theme.palette
