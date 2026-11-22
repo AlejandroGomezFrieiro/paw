@@ -91,6 +91,99 @@ test("frames: what is drawn over a live part stays over it", function()
   eq(table.concat(moved.text, "\n"):find("####", 1, true) ~= nil, true, "the float shows")
 end)
 
+test("frames: between whole frames the status line is drawn again only when a component may have moved", function()
+  T.fresh()
+  local W, H = 120, 40
+  local calls = { still = 0, plain = 0 }
+  paw.statusline.component("frames_still", {
+    still = true,
+    fn = function()
+      calls.still = calls.still + 1
+      return "S"
+    end,
+  })
+  T.after(function()
+    paw.statusline.reset()
+    paw.statusline.components.frames_still = nil
+  end)
+  paw.statusline.setup({ sections = { a = { "frames_still", "transport" } } })
+  api.ui_frame_snapshot(W, H)
+  local n = calls.still
+  eq(api.ui_frame_snapshot(W, H, true) ~= nil, true, "a frame of what moves")
+  eq(calls.still, n, "nothing moved: the line keeps its cells")
+  paw.transport.position = 3
+  api.ui_frame_snapshot(W, H, true)
+  eq(calls.still, n + 1, "the playhead moved: the line is drawn again")
+  -- A component that says nothing of when it changes runs on each frame.
+  local function plain()
+    calls.plain = calls.plain + 1
+    return "P"
+  end
+  paw.statusline.setup({ sections = { a = { "frames_still", plain } } })
+  api.ui_frame_snapshot(W, H)
+  local p = calls.plain
+  api.ui_frame_snapshot(W, H, true)
+  eq(calls.plain, p + 1, "drawn again with nothing moved")
+end)
+
+test("frames: a meter is drawn again exactly when a cell of it changes", function()
+  -- The terminal keeps a meter's cells while what it shows stays the same
+  -- (paw.draw.meter_shown): a level that falls by less than a cell.
+  local function cells(draw_it)
+    local out = {}
+    draw_it({
+      text = function(_, x, _, s, style)
+        out[x + 1] = s .. "/" .. tostring(style)
+        return 1
+      end,
+    })
+    return table.concat(out, " ")
+  end
+  local draw = paw.draw
+  local width = 16
+  local last_cells, last_shown
+  for step = 0, 400 do
+    local peak = 10 ^ (-step / 400 * 3.2) -- 0 dB down to -64 dB
+    local hold = step % 50 == 0 and 1 or 10 ^ (-step / 800)
+    local now_cells = cells(function(b) draw.meter(b, 0, 0, width, peak, hold) end)
+      .. "|"
+      .. cells(function(b) draw.stereo_meter(b, 0, 0, width, peak, peak * 0.7) end)
+    local now_shown = draw.meter_shown(width, peak, hold) .. "|" .. draw.stereo_meter_shown(width, peak, peak * 0.7)
+    if last_cells then eq(now_shown ~= last_shown, now_cells ~= last_cells, "step " .. step .. ": " .. now_shown) end
+    last_cells, last_shown = now_cells, now_shown
+  end
+end)
+
+test("frames: after an audition with the song stopped, the last frame shows the meter it lit at rest", function()
+  -- The terminal's ticker, as when a terminal is attached: each frame of
+  -- what moves is drawn as the terminal draws it.
+  T.fresh()
+  local t = T.tone("Lead", 4)
+  local W, H = 120, 40
+  local was = paw.opt.fps
+  local attached, redraw = api.ui_attached, api.ui_redraw_live
+  local frames, last = 0, nil
+  T.after(function()
+    api.ui_attached, api.ui_redraw_live, paw.opt.fps = attached, redraw, was
+  end)
+  paw.opt.fps = 60
+  api.ui_frame_snapshot(W, H)
+  api.ui_attached = function() return true end
+  api.ui_redraw_live = function()
+    frames = frames + 1
+    last = api.ui_frame_snapshot(W, H, true) or last
+  end
+  local t0 = api.now()
+  t:play_note("A3", 100, 180)
+  T.until_(function() return not paw.ui.active() end, "the frames of the audition to end", 5000)
+  eq(frames > 0, true, "frames of what moves, for " .. (api.now() - t0) .. " ms")
+  api.ui_attached = attached
+  local whole = api.ui_frame_snapshot(W, H)
+  for row = 1, H do
+    eq(last.cells[row], whole.cells[row], "row " .. row .. ": the last frame is the meter at rest")
+  end
+end)
+
 test("frames: a view that does not say what moves in it is drawn whole", function()
   T.fresh()
   paw.ui.view("frames_moving", { render = function(_, buf) buf:text(0, 0, tostring(paw.transport.position)) end })

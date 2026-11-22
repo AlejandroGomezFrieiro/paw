@@ -222,11 +222,22 @@ end
 
 test("projdiff: changes to different tracks, clips, notes and parameters merge without a conflict", function()
   local base, ours, theirs = sides()
+  -- An id that nothing in the fixture has (tracks, devices, clips and lanes
+  -- share them): the kernel's ids go on across tests.
+  local added = 1
+  local function above(v)
+    if type(v) ~= "table" then return end
+    if type(v.id) == "number" then added = math.max(added, v.id + 1) end
+    for _, x in pairs(v) do
+      above(x)
+    end
+  end
+  above(base.project)
   track(ours, "Lead").volume = -3
   track(ours, "Lead").devices[1].params.cutoff = 1500
   track(ours, "Lead").clips[1].content.notes[1].start = 0.5
   table.insert(track(ours, "Lead").clips, {
-    id = 100,
+    id = added,
     name = "ours",
     start = 8,
     length = 4,
@@ -238,7 +249,7 @@ test("projdiff: changes to different tracks, clips, notes and parameters merge w
   track(theirs, "Lead").devices[1].params.resonance = 0.4
   track(theirs, "Lead").clips[1].content.notes[2].velocity = 70
   table.insert(track(theirs, "Bass").clips, {
-    id = 100,
+    id = added,
     name = "theirs",
     start = 8,
     length = 4,

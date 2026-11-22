@@ -18,7 +18,8 @@
 -- hold a zero byte. That made a search for plain text 250 times slower,
 -- because LuaJIT no longer compiled it, and a match two times slower. This
 -- module gives back LuaJIT's own four functions: write `%z` for a zero byte
--- in a pattern, as Lua 5.1 does.
+-- in a pattern, as Lua 5.1 does. It gives back LuaJIT's own `ipairs` too: the
+-- one of compat-5.3 follows `__index` and keeps short loops out of the traces.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua. It uses no
 -- bitwise operator and no `is integer`, which need what it makes.
@@ -398,7 +399,14 @@ local patterns = {"find", "match", "gsub", "gmatch"}
 for _, name in ipairs(patterns) do
   own[name] = libs.string[name]
 end
+local globals = _G as {string: function}
+local builtin_ipairs = globals.ipairs
 G.require("compat53")
+-- compat-5.3 puts a Lua ipairs in front of the built-in one, so that
+-- ipairs follows `__index` (Lua 5.3). LuaJIT compiles its own ipairs into a
+-- trace, and a Lua function breaks short loops. No paw code walks a proxy
+-- table with ipairs, so the built-in comes back.
+globals.ipairs = builtin_ipairs
 for _, name in ipairs(absent) do
   preload[name] = nil
 end

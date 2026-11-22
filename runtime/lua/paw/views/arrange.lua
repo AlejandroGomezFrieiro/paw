@@ -1904,9 +1904,10 @@ view.live_roles = { "playhead", "hmeter", "recording" }
 function view:moving()
   local g = self.geometry
   if not (g and g.span and paw.opt.follow) then return false end
-  local t = paw.ui.transport()
-  local position = t.position - paw.time.origin()
-  return t.playing and (position < self.scroll or self:x(position) >= g.span * g.zoom)
+  -- Asked on each frame of what moves: the playhead alone, not the transport's table.
+  local playing, at = api.transport_playhead()
+  local position = at - paw.time.origin()
+  return playing and (position < self.scroll or self:x(position) >= g.span * g.zoom)
 end
 
 paw.ui.view("arrange", view)

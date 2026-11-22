@@ -123,6 +123,14 @@ Other rules for documentation:
 
 ## How to work
 
+Run the commands in the dev shell of the flake. Start your session in
+`nix develop`. Or use `direnv` with the file `.envrc`. With
+`nix-direnv`, the shell stays in a cache until `flake.nix` or
+`flake.lock` changes. In the dev shell, do not use the prefix
+`nix develop -c`. Each `nix develop -c` reads the flake again, and
+in a `git worktree` with changes it also copies the files into the
+store.
+
 ```sh
 nix develop -c cargo build --release -j 8      # the Lua runtime is in the binary: build first
 nix develop -c tests/tools/suite.sh            # the Lua tests
