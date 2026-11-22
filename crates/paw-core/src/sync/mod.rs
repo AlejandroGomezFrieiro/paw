@@ -48,7 +48,7 @@ use self::devices::{add_device, update_device};
 use self::items::{TrackIndex, item_events};
 use self::mapper::{InputSent, MidiInSent, MidiOutSent, MixSent};
 use self::routing::{build_schedule, routing_of, solo_paths, soloed_tracks};
-use crate::events::{Cue, Item, KernelEvent as E, Nothing, Order, TrackId};
+use crate::events::{Cue, Item, KernelEvent as E, Nothing, Order, TrackChange, TrackId};
 use crate::freeze::Played;
 use crate::model::{DeviceInst, Id, MASTER_ID, Project, Track};
 
@@ -304,7 +304,10 @@ impl<'p> Pass<'p, '_, '_> {
         }
         match prev {
             None => self.emit(E::TrackAdded(TrackId { id: track.id })),
-            Some(p) if !Arc::ptr_eq(p, track) => self.emit(E::TrackChanged(TrackId { id: track.id })),
+            Some(p) if !Arc::ptr_eq(p, track) => self.emit(E::TrackChanged(TrackChange {
+                id: track.id,
+                fields: track.changed_fields(p),
+            })),
             Some(_) => {}
         }
         Some(TrackPass {
@@ -324,7 +327,7 @@ impl<'p> Pass<'p, '_, '_> {
         // or made, and the chain sent again.
         let mut toggled = false;
         for device in &track.devices {
-            let item = Item { id: device.id, track: Some(track.id) };
+            let item = Item::on(device.id, Some(track.id));
             match self.old_devices.get(&device.id).map(|&(_, d)| d).filter(|_| pass.prev.is_some()) {
                 Some(before) if before.offline != device.offline => {
                     toggled = true;
@@ -488,7 +491,7 @@ impl<'p> Pass<'p, '_, '_> {
             self.map.keyed.remove(&id);
             self.map.outs.remove(&id);
             self.map.free_device(id, &mut self.removals);
-            self.emit(E::DeviceRemoved(Item { id, track: Some(track) }));
+            self.emit(E::DeviceRemoved(Item::on(id, Some(track))));
         }
     }
 
@@ -519,7 +522,7 @@ impl<'p> Pass<'p, '_, '_> {
                     }
                     None => (Vec::new(), t.clips.iter().collect()),
                 },
-                |c| c.id,
+                |c| (c.id, c.stamp()),
                 &mut emit,
             );
         }
@@ -529,7 +532,7 @@ impl<'p> Pass<'p, '_, '_> {
                 (old_tracks, &new_tracks),
                 &touched,
                 |was, t| (was.map_or(Vec::new(), |w| w.lanes.iter().collect()), t.lanes.iter().collect()),
-                |l| l.id,
+                |l| (l.id, None),
                 &mut emit,
             );
         }

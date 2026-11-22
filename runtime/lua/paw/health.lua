@@ -309,6 +309,10 @@ M.register("teal", function(h)
   end
 end, { desc = "the types of the configuration and extensions written in Teal" })
 
+M.register("derived", function(h) require("paw.derived").health(h) end, {
+  desc = "the data paw derives from the project (the chords of the song): values, memory and limits",
+})
+
 paw.command("checkhealth", function(ctx)
   local names = {}
   for _, name in ipairs(ctx.args) do

@@ -191,6 +191,7 @@ Braille in a view of cells, or in `g:mono`, shows as dots in the window. A layer
 | `fonts` | the fonts that the graphical window uses when its own font has no glyph |
 | `extensions` | the extensions, their versions and their requirements |
 | `teal` | the type errors of the configuration and the extensions in Teal |
+| `derived` | the data that paw reads from the project, such as the chords of the song: for each kind, how many values, the memory and its limit, and how many paw made again |
 
 The utau extension checks its engine, and the sampler extension checks its plugin. An extension adds its own check, as in this example.
 
