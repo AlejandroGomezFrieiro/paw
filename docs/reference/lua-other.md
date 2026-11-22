@@ -36,7 +36,7 @@ paw.slices("count", function(ms)
 end)
 ```
 
-paw itself uses two jobs. The job `harmony` reads the chords and the keys again after an edit. The job `pick` reads the items of a picker that has `more`, for example the files picker (`<Space>ff`) and the text of the project (`<Space>fg`).
+paw itself uses three jobs. The job `harmony` reads the chords and the keys again after an edit. The job `pick` reads the items of a picker that has `more`, for example the files picker (`<Space>ff`) and the text of the project (`<Space>fg`). The job `help` makes the index of help a second after paw starts, so that the first `:help` opens at once.
 
 ## The budget of a callback
 

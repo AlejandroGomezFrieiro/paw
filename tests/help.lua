@@ -472,3 +472,19 @@ test("in the graphical frontend help opens as a docked pane, and pops out on req
   eq(paw.canvas.open_views.textbuf ~= nil, true, "Ctrl-w f pops it out to a window of its own")
   paw.canvas.close("textbuf")
 end)
+
+test("help made at idle is the job help of paw.slices, and its tags come sorted by name", function()
+  start()
+  H.dirty = true -- every page made again, as at the start of a session
+  local job = H.prepare()
+  eq(paw.slices.job("help"), job, "the job help runs")
+  eq(H.prepare(), job, "a second prepare joins the job that runs")
+  T.until_(function() return not H.preparing() end, "help to be made at idle")
+  eq(paw.slices.job("help"), nil, "and ends")
+  eq(job.slices > 1, true, "in more than one slice")
+  -- The tags are sorted in pieces (a merge sort that pauses).
+  local list = H.index().list
+  for i = 2, #list do
+    if list[i - 1].name >= list[i].name then eq(list[i].name, "after " .. list[i - 1].name, "the tags in order") end
+  end
+end)

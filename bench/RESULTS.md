@@ -7,6 +7,41 @@ How to run everything: [README.md](README.md). Raw numbers:
 matrix before it). The processor time of the whole program while it plays,
 against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md).
 
+## 2026-11-22: the help index in slices that stop (TASK-114)
+
+The help index that paw makes at idle is now the job `help` of
+`paw.slices`. The build pauses inside the parse of a page (each line and
+each row of a table), inside the render (each block and each row of a
+table), in the tags of the headings, in the contents page, in the tags of
+the code, and in the sort of the tags (a merge sort that pauses). The
+text of a rendered line is joined once, not again for each word.
+
+The measure: each slice (one `coroutine.resume` of the build) is timed,
+with the collector on, 5 runs each, `--clean --no-plugins`, no project.
+"Old" is the runtime of main in the binary, "new" is this branch with
+`PAW_RUNTIME`. Load average 5 to 8, not on reserved processors.
+
+| Binary | Allocator | Old: slices over 5 ms | Old: longest | New: slices over 5 ms | New: longest |
+| --- | --- | --- | --- | --- | --- |
+| dev (7ae25570) | glibc | 34 to 45 of 225 to 272 | 26.5 to 36.9 ms | 9 to 14 of 211 to 279 | 8.6 to 19.4 ms |
+| release (main of 19:31) | glibc | 31 to 51 of 232 to 273 | 17.2 to 35.0 ms | 7 to 19 of 234 to 272 | 9.3 to 15.6 ms |
+| release (main of 19:31) | mimalloc 3.3.2 (`LD_PRELOAD`) | 14 to 18 of 169 to 188 | 16.2 to 20.6 ms | 2 to 3 of 194 to 213 | 5.7 to 6.9 ms |
+
+The slices that are still long are not in the Lua code. `perf record`
+of the samples inside the slices over 6 ms (release, glibc) gives 54 %
+in the allocator: `malloc_consolidate` 21 %, `_int_free_chunk` 17 %,
+`unlink_chunk` 9 %. glibc merges all its small free blocks when a large
+block is asked for, and the collector frees many small blocks. With
+mimalloc, the allocator is gone from these samples. One build allocates
+214 MB (224 MB before the line text is joined once). With
+`GLIBC_TUNABLES=glibc.malloc.mxfast=0`, the new runtime gives 5.8 to
+7.0 ms.
+
+The profile scenario `repeat` of `j` on the large project (dev binary,
+`--budget 5`, 4 runs, load 6 to 9) names `the job help` once in each
+run, at 7.3 to 8.4 ms (old: `a timer (paw/help.tl:1123)` once, 7.1 to
+7.6 ms at load 9 to 11). With mimalloc: 5.5 to 8.4 ms.
+
 ## 2026-11-22: the search index on the graph of derived data
 
 The records of `paw.grep` and the nodes of clips and notes that

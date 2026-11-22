@@ -991,7 +991,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.help.open(topic)`: `:help topic`: go to the best tag for it, or say there is none.
 - `paw.help.owned(index, topic, exact)`: The tag a topic an extension owns goes to: its place in the owner's pages (where `exact` is not already), else the owner's first page.
 - `paw.help.owners(topic)`: The extensions that own what a topic names: the command's (`:name`), or a key's when only extensions map it (a key the core maps is the core's). A list, empty for the core's.
-- `paw.help.prepare()`: Make the index of help at idle, in slices. A page that did not change since the last build is not made again.
+- `paw.help.prepare()`: Make the index of help at idle, in slices (the job `help` of `paw.slices`). A page that did not change since the last build is not made again. Returns the job.
 - `paw.help.preparing()`: True while paw makes the index of help at idle.
 - `paw.help.roots()`: The directories that can be a copy of the source tree, with the manual and the bundled extensions in it. These are `$PAW_HOME` (where an installed program keeps them), the parent of the runtime (`--runtime`), the tree of a loaded extension, and the current directory.
 - `paw.help.show(source, row, col)`: Show a page at a row. It shows in the help window, or in a window split from the current window (as the `:help` of Vim splits). In a graphical frontend, it shows as a docked pane (`gw` moves it to a separate window). Returns the window.
@@ -1367,7 +1367,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.markdown
 
 - `paw.markdown.inline(s, style, link, out)`: The runs of a line of Markdown, each with the style and link given.
-- `paw.markdown.parse(text)`: Markdown as a list of blocks (headings, paragraphs, lists, code, tables) for `render`.
+- `paw.markdown.parse(text, pause)`: Markdown as a list of blocks (headings, paragraphs, lists, code, tables) for `render`. `pause()`, if given, is called for each line, where a long parse may stop for a while (help made at idle, paw/help.tl).
 - `paw.markdown.plain(s)`: The text of runs without their marks: a heading as it reads.
 - `paw.markdown.render(blocks, opts)`: The blocks as lines `opts.width` wide (78 by default). `opts.heading_tag(block)` gives the tag that shows at the right of a heading (as the help of Vim shows `*tag*`). Returns `{ lines, anchors }`. An anchor is `{ row, kind = "heading" | "tags" | "code" | "lead", ... }` ("lead": the bold words at the start of a paragraph).
 - `paw.markdown.width(s)`: How many cells a string takes.
