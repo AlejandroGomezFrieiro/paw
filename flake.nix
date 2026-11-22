@@ -280,6 +280,19 @@
         touch $out
       '';
 
+      # The manual as a static site (tools/website/build.sh): mdBook over the
+      # Markdown of README.md, docs/, extensions/ and crates/, which stays as it
+      # is. The build has no network: mdBook is one program with its search,
+      # themes and highlighter inside. It fails on a broken link or anchor.
+      website = pkgs: pkgs.runCommand "paw-website" {
+        src = nixpkgs.lib.cleanSource ./.;
+        nativeBuildInputs = [ pkgs.mdbook pkgs.luajit ];
+      } ''
+        cd $src
+        tools/website/build.sh $TMPDIR/out
+        mv $TMPDIR/out/site $out
+      '';
+
       # `cyan check` on every Teal file (tools/tlcheck.sh), with the Teal of
       # nixpkgs: the version runtime/lua/tl.lua is (0.24.8).
       tealCheck = pkgs: pkgs.runCommand "paw-teal-check" {
@@ -333,6 +346,7 @@
     in {
       packages = forAll (pkgs: {
         default = paw pkgs;
+        website = website pkgs;
         paw = only pkgs "paw";
         paw-gui = only pkgs "paw-gui";
         paw-mcp = only pkgs "paw-mcp";
@@ -408,7 +422,7 @@
           # the language servers of both, the formatters (`ceru` for Teal,
           # `stylua` for Lua) and `luacheck`; nix/lua-tools.nix has those
           # that nixpkgs has not, or has old.
-          packages = with pkgs; [ xvfb openbox xdotool imagemagick tesseract vale curl luajitPackages.tl ]
+          packages = with pkgs; [ xvfb openbox xdotool imagemagick tesseract vale curl luajitPackages.tl mdbook luajit ]
             ++ (with luaTools pkgs; [ cyan teal-language-server cerulean ])
             ++ [ pkgs.lua-language-server pkgs.stylua pkgs.luajitPackages.luacheck ];
           # The style packages Vale checks the docs with (tools/vale.sh joins

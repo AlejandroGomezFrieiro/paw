@@ -133,6 +133,7 @@ nix develop -c tools/tlcheck.sh                 # cyan check on all .tl files (t
 nix develop -c luacheck .                       # unused and undefined names in the .lua files
 nix develop -c tools/fmtcheck.sh                # every Lua and Teal file formatted (`fix` formats them)
 nix develop -c tools/vale.sh                   # the docs
+nix build .#website                            # the manual as a static site (tools/website/build.sh)
 nix flake check                                # all of the checks
 ```
 

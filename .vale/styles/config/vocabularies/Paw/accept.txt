@@ -274,3 +274,8 @@ cquencer
 ncurses
 Mutopia
 Wikimedia
+mdBook
+Astro
+Starlight
+MkDocs
+Zola
