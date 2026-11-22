@@ -172,6 +172,7 @@ impl Session {
             self.undo.checkpoint = self.project.clone();
             self.dirty = true;
             self.undo.restoring = true;
+            self.files_there.forget();
             self.undo.edits += 1;
         }
         Some(id)
@@ -291,6 +292,7 @@ impl Session {
             return false;
         }
         self.project = self.undo.checkpoint.clone();
+        self.files_there.forget();
         self.undo.touched = false;
         self.dirty = true;
         self.undo.restoring = true;

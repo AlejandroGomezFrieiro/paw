@@ -87,6 +87,25 @@ test("a project folder that is moved opens with every file", function()
   eq(paw.project.modified, false, "and opening it changes nothing")
 end)
 
+test("a clip whose file's folder gets a new name is offline within a second", function()
+  -- inotify sends no event for a folder above the file: the kernel looks
+  -- at the file again after a second (session/file_check.rs).
+  local root = T.scratch .. "/folder-renamed"
+  mkdir(root .. "/takes")
+  fresh()
+  local t = paw.add_track()
+  t:add_clip({ file = steady(root .. "/takes/a.wav", 1, 0.25), start = 0, length = 2 })
+  local id = t:clips()[1].id
+  local function offline() return api.clip_list(t.id)[1].offline end
+  eq(offline(), nil, "the file is there")
+  os.rename(root .. "/takes", root .. "/takes-old")
+  api.sleep(1050)
+  eq(offline(), true, "a second after the folder got a new name, the clip is offline")
+  os.rename(root .. "/takes-old", root .. "/takes")
+  api.sleep(1050)
+  eq(api.clip_get(id).offline, nil, "and online again when it is back")
+end)
+
 test("an old project with full paths opens unchanged", function()
   local dir = T.scratch .. "/old"
   project_in(dir)

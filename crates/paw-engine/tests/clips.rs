@@ -394,15 +394,19 @@ fn as_list(clips: &[ClipSet]) -> ClipSet {
     set
 }
 
-/// Clip `index` of `clips` as a part, `order` among them.
+/// Clip `index` of `clips` as a part, `order` among them, its events
+/// counted from its first, as the sync sends them.
 fn part(clips: &[ClipSet], index: usize, order: u64) -> paw_engine::Part {
     let clip = &clips[index];
+    let offset = clip.midi.first().map_or(0.0, |e| e.beat);
+    let midi = clip.midi.iter().map(|e| paw_engine::MidiEv { beat: e.beat - offset, kind: e.kind });
     paw_engine::Part::new(
         index as u64 + 100,
         order,
-        clip.midi.clone().into(),
+        midi.collect(),
         clip.audio.iter().map(region_copy).collect(),
     )
+    .with_offset(offset)
 }
 
 type Seen = std::sync::Arc<std::sync::Mutex<Vec<String>>>;
@@ -469,6 +473,7 @@ fn play_from(engine: &mut Engine, handle: &mut EngineHandle, from: f64, blocks: 
 
 fn clone_part(p: &paw_engine::Part) -> paw_engine::Part {
     paw_engine::Part::new(p.id, p.order, p.midi.clone(), p.audio().iter().map(region_copy).collect())
+        .with_offset(p.offset())
 }
 
 #[test]

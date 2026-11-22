@@ -45,6 +45,7 @@ local record Opts
    header_width: integer | string
    hint_delay: number
    hints: boolean
+   history: integer
    insertkeys: {string | number}
    keybar: boolean
    keys: string
@@ -88,6 +89,7 @@ local record Opts
    scopebars: string
    scopeloop: boolean
    send_level: number
+   shada: boolean
    splitbelow: boolean
    splitright: boolean
    step_velocity: integer | string

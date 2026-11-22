@@ -124,6 +124,7 @@ Scripts use `paw.controls`: `rows`, `cells`, `edit`, `select_box`, `move`,
 - paw reads MIDI from each ALSA sequencer port, which with PipeWire includes its MIDI devices, and from ports that appear later.
 - A track names its port in `midi_input` by name, so paw finds the port again when you connect the keyboard later, or on a different computer.
 - When a port goes away, paw releases the notes that were held on it, and it tells you when the port goes away and when it returns, with the tracks that use it. The tracks use the port again by its name.
+- Step input enters notes from the keys of a port, one note or chord at a time, in the piano roll (see [Step input](piano-roll.md#step-input)).
 - paw opens the ports only with a real audio device, or with `paw.api.engine_restart({ midi = true })` (see [Audio devices](audio-devices.md#test-backends)).
 
 | Command, function | Effect |

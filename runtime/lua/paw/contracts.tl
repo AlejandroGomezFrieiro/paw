@@ -133,6 +133,8 @@ local record contracts
     hit: function(self: Buf, x: number, y: number, w: number, h: number, action: HitAction)
     plane: function(self: Buf, x: number, y: number, w: number, h: number, opts: PlaneOptions): Plane
     columns: function(self: Buf, widths: {integer | string}, gap?: integer): Buf...
+    keep: function(self: Buf, key: string, x: number, y: number, w: number, h: number)
+    put_kept: function(self: Buf, key: string, x: number, y: number, w: number, h: number): boolean
   end
 
   -- Painting in pixels ---------------------------------------------------------

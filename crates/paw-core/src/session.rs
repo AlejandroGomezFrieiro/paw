@@ -41,6 +41,7 @@ mod engine;
 mod audition;
 mod clipops;
 mod encode;
+mod file_check;
 mod files_watch;
 pub mod folder;
 pub mod project_files;
@@ -556,6 +557,9 @@ pub struct Session {
     watch: watch::Watch,
     /// Changes made outside paw to the open project's files.
     files_watch: files_watch::FileWatch,
+    /// Whether the files that clips read are there, looked at no more than
+    /// once a second for each: see `session/file_check.rs`.
+    files_there: file_check::FileCheck,
     /// When files played from the disk were last read ahead of the playhead.
     read_ahead_at: Instant,
     /// What each of the project's files is: its hash, size and header
@@ -659,6 +663,7 @@ impl Session {
             open_opts: Default::default(),
             watch: Default::default(),
             files_watch: Default::default(),
+            files_there: Default::default(),
             read_ahead_at: Instant::now(),
             sources: Default::default(),
             shelf: None,
@@ -1017,7 +1022,7 @@ fn control_stamp(controls: &[crate::model::Control]) -> u64 {
     hash.finish() >> 11
 }
 
-fn clip_json(c: &Clip, track: Id) -> ClipView<'_> {
+fn clip_json<'a>(c: &'a Clip, track: Id, files: &file_check::FileCheck) -> ClipView<'a> {
     let mut v = ClipView {
         id: c.id,
         name: &c.name,
@@ -1060,7 +1065,7 @@ fn clip_json(c: &Clip, track: Id) -> ClipView<'_> {
         ClipContent::Midi { notes, controls } => {
             if let Some(source) = &c.source {
                 v.source = Some(source);
-                if !source.is_file() {
+                if !files.is_file(source) {
                     v.offline = Some(true);
                 }
             }
@@ -1075,7 +1080,7 @@ fn clip_json(c: &Clip, track: Id) -> ClipView<'_> {
                 v.edits = Some(edits.len());
             }
             // Its file is not there: the clip is silent until it is relinked.
-            if !file.is_file() {
+            if !files.is_file(file) {
                 v.offline = Some(true);
             }
             v.file = Some(file);

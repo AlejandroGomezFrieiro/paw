@@ -10,6 +10,8 @@
 --   buf:hit(x, y, w, h, action)        a region the pointer acts on
 --   buf:plane(x, y, w, h, opts)        an area placing what is marked in it by a domain (beats, pitches)
 --   buf:columns(widths, gap)           buffers side by side, a width each
+--   buf:keep(key, x, y, w, h)          keep the cells drawn there, to put back
+--   buf:put_kept(key, x, y, w, h)      put them back on a later frame
 --   buf.width, buf.height
 --
 -- Coordinates count cells from 0 at the buffer's top-left corner, and
@@ -81,6 +83,20 @@ end
 --- `style`, clipped to the buffer. Returns the number of columns written.
 function Buf:text(x: number, y: number, text: string, style?: contracts.Style): integer
   return grid_text(self.x + x, self.y + y, text, style, self.cx, self.cy, self.cw, self.ch)
+end
+
+--- Keep the cells drawn in the area `x, y, w, h` as they are now, under
+--- `key`, to put back on a later frame with `buf:put_kept` instead of
+--- drawing them again. The caller knows when what they show is the same.
+--- A change of a highlight group forgets every kept area.
+function Buf:keep(key: string, x: number, y: number, w: number, h: number)
+  api.grid_keep(key, self.x + x, self.y + y, w, h, self.cx, self.cy, self.cw, self.ch)
+end
+
+--- Put back the cells kept under `key` (`buf:keep`), if they were kept
+--- from the same place on the screen: true when they were.
+function Buf:put_kept(key: string, x: number, y: number, w: number, h: number): boolean
+  return api.grid_put(key, self.x + x, self.y + y, w, h, self.cx, self.cy, self.cw, self.ch)
 end
 
 --- Fill a `w` by `h` area at `x`, `y` with `char` in `style`, clipped.

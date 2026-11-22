@@ -162,6 +162,10 @@ local defaults: {string: Value} = {
   -- megabytes for one project. Off when started with --clean.
   undofile = not api.env().clean,
   undofile_mb = 256,
+  -- What paw keeps across restarts (paw/shada.tl): on or off, and how many
+  -- lines each prompt's history holds.
+  shada = true,
+  history = 200,
 }
 
 -- What an option takes besides its default's type (M.Spec).
@@ -199,6 +203,7 @@ local specs: {string: Spec} = {
   undo_steps = {min = 10, max = 1000000, integer = true},
   undo_memory = {min = 16, max = 1048576},
   undofile_mb = {min = 1, max = 1048576},
+  history = {min = 1, max = 100000, integer = true},
 }
 
 local function has<T>(list: {T}, value: T): boolean

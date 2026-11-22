@@ -1690,6 +1690,7 @@ impl super::Session {
         self.add_media_file(&mut layout, &dir);
         let done = commit(&dir, &layout, only)?;
         // Its own writes are not changes made outside paw.
+        self.files_there.forget();
         for rel in &done.written {
             let bytes = layout.files.get(rel).map(Vec::as_slice);
             self.files_watch.wrote(dir.join(rel), bytes);

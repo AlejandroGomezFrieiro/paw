@@ -17,6 +17,7 @@ The sound files of a project are its media. The media page describes how a proje
   When `media.json` has the file, paw uses a file that it finds only if the file has the same hash, so paw finds a file with a new name and does not use a different file with the same name. paw tells you about each file that it did not use ("…/take1.wav has the same name but other sound").
 - A file found at a different place marks the project as changed, and a save then keeps the new place.
 - paw reports the files that it cannot find in one message. Their clips stay in the project, silent, with `offline = true` in their state (`paw.clip(id).offline`, and in `paw.frontend.state`), and both frontends write "offline" before their names.
+- A file that goes away while the project is open, or comes back, shows on its clips within a second. This includes a file whose folder, or a folder above it, gets a new name.
 - A save keeps the path of a file that paw cannot find.
 - Old projects with full paths open with no change.
 - The media of a custom clip (the files that its kind names) and the audio file of its sound follow the same rules as sound files, so `paw.media.list` lists them and `relink`, `search` and `collect` change them.

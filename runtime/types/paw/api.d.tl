@@ -39,7 +39,7 @@ local record api
    clip_kind_define: function(name: string)
    clip_kind_remove: function(name: string)
    clip_kinds: function(): {string}
-   clip_list: function(track: integer): {types.Clip}
+   clip_list: function(track: integer, from?: number, to?: number): {types.Clip}
    clip_normalize: function(id: integer, level?: number): number
    clip_note_add: function(id: integer, note: types.Note): integer
    clip_note_at: function(id: integer, pitch: integer, beat: number): types.Note, integer
@@ -111,10 +111,12 @@ local record api
    fs_trash: function(path: string): string
    grid_fill: function(x: number, y: number, w: number, h: number, fill?: string, style: string | types.CellStyle, cx: number, cy: number, cw: number, ch: number)
    grid_image: function(key: string, x: number, y: number, w: number, h: number, cx: number, cy: number, cw: number, ch: number): boolean
+   grid_keep: function(key: string, x: number, y: number, w: number, h: number, cx: number, cy: number, cw: number, ch: number)
    grid_live_begin: function(x: number, y: number, w: number, h: number, cx: number, cy: number, cw: number, ch: number): integer
    grid_live_end: function(index: integer)
    grid_live_restore: function(): integer
    grid_live_seal: function()
+   grid_put: function(key: string, x: number, y: number, w: number, h: number, cx: number, cy: number, cw: number, ch: number): boolean
    grid_surface: function(key: string, x: number, y: number, w: number, h: number, cx: number, cy: number, cw: number, ch: number, under?: boolean): integer
    grid_surface_ops: function(index: integer, ops: {types.CanvasOp})
    grid_surfaces_seal: function()
@@ -253,6 +255,9 @@ local record api
    sock_write: function(id: integer, data: string)
    sound_envelope: function(path: string): types.SoundEnvelope
    sound_write: function(path: string, opts: types.SoundWriteOptions, samples: string | function(frame: integer, count: integer): string): integer
+   startup_enter: function()
+   startup_leave: function(label: string)
+   startup_timed: function(): boolean
    state_get: function(key: string): any
    state_set: function(key: string, value: any)
    str_width: function(text: string): integer
