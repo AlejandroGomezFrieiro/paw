@@ -21,7 +21,9 @@ A motion moves the cursor. A count repeats it: `3W` moves three bars.
 | `gg` `G`, `5G` | the first and the last track, track 5 | the highest and the lowest note |
 | `)` `(` | | the next phrase, the start of this phrase or the one before |
 | `]c` `[c` | | the next chord, the chord before: where two or more notes start together |
-| `9\|`, `:9` | bar 9 | |
+| `9\|`, `:9` | bar 9; in a scope with time, its bar 9 | |
+| `@9\|`, `:@9` | bar 9 of the song, also in a scope with its own bars | |
+| `]z` `[z` | the next scope beside this window's scope, the one before ([Scopes](narrowing.md)) | |
 | `/name`, `n` `N`, `*` | finds a clip or track by name, the next match, the previous match, the next clip with the name of this clip | finds a note by its pitch name (`/c4`) |
 | `gP` | the playhead | |
 
@@ -33,7 +35,7 @@ To see the counts, `:set relativenumber` shows how many `j` or `k` go to each tr
 | --- | --- |
 | `ma`, `'a`, `''` | Sets mark `a`. Goes to mark `a`. Goes to the place before the last jump. |
 | `:delmarks a b c-e`, `:delmarks!` | Removes marks, the same as in Vim (`:delm`). `Tab` completes the marks that are set. With `!`, removes every lowercase mark. |
-| `Ctrl-o` `Ctrl-i` | Moves back and forward through the places of the jumps. |
+| `Ctrl-o` `Ctrl-i` | Moves back and forward through the places of the jumps. To enter a scope, to leave it and `]z` are jumps, and a jump keeps the scope of the window. |
 | `g;` `g,` | Moves back and forward through the places of the edits (`3g;` three edits back). Each view keeps its own list. |
 | `` `. ``, `'.` | Goes to the place of the last edit. |
 | `:changes` | Lists the places of the edits. |
@@ -52,6 +54,8 @@ An operator acts on what a motion moves over, on a text object, or on a selectio
 | `=` | snaps clips and their notes to the grid | snaps notes to the grid |
 | `gc` | mutes or unmutes clips, `gcc` the track | |
 | `gl` | sets the playback loop to it and turns looping on: `glic` the clip, `gl4W` four bars, `glar` the region | the same |
+| `zn` | enters it as a scope, in this window: `znar` the region, `znag` the group, `znit` the track; `znn` the innermost scope at the cursor ([Scopes](narrowing.md)) | |
+| `zf` | folds it: `zfar` the region into one column, `zfag` the group into one row, `Vjjzf` the tracks into one row ([Folds](narrowing.md#folds)) | |
 
 ## Text objects
 

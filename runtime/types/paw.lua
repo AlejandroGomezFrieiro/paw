@@ -3703,7 +3703,7 @@ function paw.groups.folded(group) end
 function paw.groups.gather(group) end
 
 --- True if a track is hidden: inside a folded group. Inside group `top`
---- (the group of a narrowed tab), only the groups inside it count. `top`
+--- (the group of a narrowed window), only the groups inside it count. `top`
 --- itself is open there.
 ---@param track any
 ---@param top any
@@ -7125,7 +7125,7 @@ function paw.roll_clips.target(beat, parts) end
 function paw.roll_clips.toggle(id) end
 
 --- The tracks whose notes can show behind the notes of the roll. These are
---- the tracks with MIDI clips (of the scope, in a narrowed tab), but not the
+--- the tracks with MIDI clips (of the scope, in a narrowed window), but not the
 --- track of the active clip. `{ id, name, color, drums, on }` each. `on`
 --- tells if its notes show.
 function paw.roll_clips.tracks() end
@@ -8071,7 +8071,7 @@ function paw.stems.names_group(word) end
 --- order of the track list. `opts`: `dir` (where; `stems` in the renders
 --- folder by default, see `paw.render.renders_dir`), `format` ("wav", the default, "flac",
 --- "mp3", "ogg", "opus"), `tracks` (one per track, not per group), `group`
---- (that group, or track, alone). In a narrowed tab, the parts of its group.
+--- (that group, or track, alone). In a narrowed window, the parts of its scope.
 ---@param opts any
 function paw.stems.plan(opts) end
 
@@ -9471,10 +9471,10 @@ function paw.vzoom.define(view, zoomer) end
 ---@param opts any
 function paw.vzoom.fit(opts) end
 
---- Rows per key in the piano roll: 1 unzoomed.
+--- Rows per key in the piano roll: 1 at no zoom.
 function paw.vzoom.key_rows() end
 
---- Rows per automation lane shown as a row in the arrange view: 2 unzoomed.
+--- Rows per automation lane shown as a row in the arrange view: 2 at no zoom.
 function paw.vzoom.lane_rows() end
 
 --- The rows of a track of its own in the arrange view's window, or nil.
