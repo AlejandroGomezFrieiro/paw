@@ -69,14 +69,13 @@ gives the details. Read it before you write or change a page.
   `docs/tutorials`, `docs/how-to`, `docs/reference` and
   `docs/explanation`. [docs/README.md](docs/README.md) lists them.
 - **Two styles of language.** External pages are for the users of paw.
-  They use the plain-writing skill in
+  They use the skill `plain-writing` in
   [.claude/skills/plain-writing](.claude/skills/plain-writing/SKILL.md).
   Load it before you write or change an external page, and read its
   `PAW.md`. Internal text is for the people and agents that change paw.
   It uses ASD-STE100 Simplified Technical English: short sentences,
   active voice, the present, past and future tenses only, one word for
-  one thing, American spelling. Both styles use one word for one thing
-  and American spelling.
+  one thing, American spelling.
   - External: `README.md`, `docs/`, the READMEs and `doc/` pages of the
     extensions, the READMEs of the crates, the tutor's lessons, and the
     doc comments that `tools/apidoc.lua` turns into
