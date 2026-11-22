@@ -7,7 +7,7 @@ How to run everything: [README.md](README.md). Raw numbers:
 matrix before it). The processor time of the whole program while it plays,
 against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md).
 
-## 2026-11-22: a budget for each callback (TASK-79)
+## 2026-11-22: a budget for each callback
 
 `paw.opt.budget_ms` names each callback of the kernel thread that takes
 longer than the budget (docs/reference/lua-other.md, "The budget of a
@@ -27,12 +27,12 @@ times are wall times of one callback.
 | --- | --- | --- | --- |
 | `the command pick.grep` | `<Space>fg` | 99 ms (load 14), 148 to 315 ms (load 70 to 94) | fixed in this branch: the records come in slices (`paw.grep.reader`, the job `pick`) |
 | `the job harmony` | after the start and each edit | 5 to 44 ms a slice, process time p90 8.6 ms | fixed in this branch: `read.decode`, `read.key_path` and the merges of the notes pause |
-| `drawing the screen` | each key in the arrange view | 26 to 183 ms (load 70 to 94) | TASK-88: the arrange drawing |
-| `drawing the screen` | Enter on a clip, `j` in the piano roll | 370 to 540 ms, 22 to 33 ms | new ticket TASK-113 (kernel time of `j` in the roll: 77 ms at load 14) |
-| `drawing what moves` | `j` in the roll, `dd`, `u` | 5 to 48 ms | TASK-113 for the roll, TASK-88 for the arrange view |
-| `a timer (paw/help.tl:1123)` | the help index at idle, after the start | 6 to 69 ms | new ticket TASK-114 |
-| `the key h`, `e`, `l`, `p` | typing `:help` | 5 to 11 ms | new ticket TASK-115 |
-| `an event handler`, `a handler of clip.added`, `the key d` | `x`, `dd`, `u` | 5 to 12 ms | new ticket TASK-116 |
+| `drawing the screen` | each key in the arrange view | 26 to 183 ms (load 70 to 94) | the arrange drawing (row cache, merged since) |
+| `drawing the screen` | Enter on a clip, `j` in the piano roll | 370 to 540 ms, 22 to 33 ms | open: kernel time of `j` in the piano roll (77 ms at load 14) |
+| `drawing what moves` | `j` in the roll, `dd`, `u` | 5 to 48 ms | open for the roll; the arrange row cache for the arrange view |
+| `a timer (paw/help.tl:1123)` | the help index at idle, after the start | 6 to 69 ms | open: the help index at idle |
+| `the key h`, `e`, `l`, `p` | typing `:help` | 5 to 11 ms | open: typing on the command line |
+| `an event handler`, `a handler of clip.added`, `the key d` | `x`, `dd`, `u` | 5 to 12 ms | open: event handlers after an edit |
 | `the job pick` | the files walk | 5 to 9 ms | a read of one folder does not pause; under the noise of the load |
 | `the request eval` | the driver itself | 5 ms | not paw's |
 
