@@ -1,9 +1,10 @@
 # paw-mcp
 
-A [Model Context Protocol](https://modelcontextprotocol.io) server for paw.
-An assistant such as Claude can use it to read a project and work in it.
-It can make a song, edit it, mix it and render it. Then it reads the levels
-and the spectrum of the rendered file, because it cannot listen.
+paw-mcp is a [Model Context Protocol](https://modelcontextprotocol.io)
+server for paw, which lets an assistant such as Claude read a project and
+work in it. The assistant can make a song, edit it, mix it and render it.
+It then reads the levels and the spectrum of the rendered file, because it
+cannot listen.
 
 ## Try it
 
@@ -25,8 +26,8 @@ and the spectrum of the rendered file, because it cannot listen.
    claude mcp add paw -- /path/to/paw/target/release/paw-mcp --socket /tmp/paw.sock
    ```
 
-4. Ask Claude: "Add a bass track with a four-bar riff."
-   The answer gives the ids of the new track and clip.
+4. Ask Claude "Add a bass track with a four-bar riff." The answer gives
+   the ids of the new track and clip.
 5. Type `paw ctl --socket /tmp/paw.sock eval 'return #paw.tracks()'`. The
    number includes the new track.
 
@@ -34,13 +35,15 @@ and the spectrum of the rendered file, because it cannot listen.
 
 ### How to connect to paw that is open
 
-Start the server with no `--socket` and no `--spawn`. It connects where
-`paw ctl` connects: `$PAW_SOCKET`, else `$XDG_RUNTIME_DIR/paw.sock`.
+Start the server with no `--socket` and no `--spawn`. It then connects
+where `paw ctl` connects, which is `$PAW_SOCKET`, or else
+`$XDG_RUNTIME_DIR/paw.sock`.
 
 ### How to give the assistant a private session
 
 Start the server with `--spawn`. It starts a headless kernel of its own,
-and stops it when the server stops. Arguments after `--` go to `paw`:
+and it stops the kernel when the server stops. Arguments after `--` go to
+`paw`:
 
 ```sh
 target/release/paw-mcp --spawn song.json -- --audio null
@@ -48,7 +51,8 @@ target/release/paw-mcp --spawn song.json -- --audio null
 
 ### How to add the server to Claude Code
 
-The server does not register itself. Run one of these:
+The server does not register itself, so run one of the following
+commands:
 
 ```sh
 # Connect to paw that is open:
@@ -58,8 +62,8 @@ claude mcp add paw -- /path/to/paw/target/release/paw-mcp
 claude mcp add paw -- /path/to/paw/target/release/paw-mcp --spawn --allow-eval -- --audio null
 ```
 
-To have it in every project, add `--scope user`. Or put the same in the
-`.mcp.json` of a project:
+To have the server in every project, add `--scope user`. You can also put
+the same settings in the `.mcp.json` of a project:
 
 ```json
 {
@@ -72,12 +76,12 @@ To have it in every project, add `--scope user`. Or put the same in the
 }
 ```
 
-Claude Code starts the server in the project directory. Relative paths
+Claude Code starts the server in the project folder, so relative paths
 start there, and the server saves and renders only there (see `--root`).
 
 ### How to add the server to Claude Desktop
 
-1. Open Settings → Developer → Edit Config.
+1. Open Settings, then Developer, then Edit Config.
 2. Add the server to `claude_desktop_config.json`:
 
    ```json
@@ -93,9 +97,9 @@ start there, and the server saves and renders only there (see `--root`).
 
 3. Restart Claude Desktop.
 
-Claude Desktop does not start servers in a directory that you choose. So
-give `--root`. Use the socket path of paw (`echo
-$XDG_RUNTIME_DIR/paw.sock`), or `"--spawn"` in place of `"--socket", ...`.
+Claude Desktop does not start servers in a folder that you choose, so give
+`--root`. Use the socket path of paw (`echo $XDG_RUNTIME_DIR/paw.sock`),
+or `"--spawn"` in place of `"--socket", ...`.
 
 ## Reference
 
@@ -111,25 +115,30 @@ $XDG_RUNTIME_DIR/paw.sock`), or `"--spawn"` in place of `"--socket", ...`.
 | `--allow-any-path` | lets `render` and the save of `project_file` write outside `--root` |
 | `--timeout <secs>` | how long to wait for the kernel for each call (default 600) |
 
-- The server speaks MCP on stdin and stdout, and logs to stderr.
-- It connects when the first tool needs the kernel. If the kernel stops,
-  calls fail with a message. The server connects again when a kernel is
-  back.
-- A kernel started with `--spawn` that stops starts again on the next call.
-  That call tells you that the previous session is lost.
-- With `--spawn`, the `paw` binary is `--paw <path>`, else `$PAW_BIN`, else
-  the binary beside `paw-mcp`, else `paw` on the path. The kernel uses your
-  configuration, your extensions and the default audio device, unless you
-  give `--clean` or `--audio null` after `--`.
+The server speaks MCP on stdin and stdout, and it logs to stderr. It
+connects when the first tool needs the kernel. If the kernel stops, calls
+fail with a message, and the server connects again when a kernel is back.
+A kernel started with `--spawn` that stops starts again on the next call,
+and that call tells you that the previous session is lost.
+
+With `--spawn`, the server looks for the `paw` program in the following
+order:
+
+1. `--paw <path>`, then `$PAW_BIN`.
+2. The program beside `paw-mcp`.
+3. `paw` on the path.
+
+The kernel uses your configuration, your extensions and the default audio
+device, unless you give `--clean` or `--audio null` after `--`.
 
 ### Tools
 
 Positions are beats (quarter notes) from the start, as JSON numbers, or
-strings that count bars and beats from 1: `"5.1"`, `"5:1"`, `"bar 5 beat
-1"`, `"2.3.50"`. Notes can be short strings, `"C4 2.5 1/8 90"` or
-`"C4+E4+G4 1:3 2"` (pitch or chord, start in beats or `bar:beat` in the
-clip, length, velocity), or objects. Middle C is C4. Tracks and markers can
-have names in place of numbers.
+strings that count bars and beats from 1, e.g., `"5.1"`, `"5:1"`,
+`"bar 5 beat 1"` or `"2.3.50"`. Notes can be objects, or short strings such
+as `"C4 2.5 1/8 90"` or `"C4+E4+G4 1:3 2"`, which give the pitch or chord,
+the start in beats or `bar:beat` in the clip, the length and the velocity.
+Middle C is C4. Tracks and markers can have names in place of numbers.
 
 | Tool | Effect |
 | --- | --- |
@@ -162,30 +171,34 @@ have names in place of numbers.
 | `run_command` | runs a `:` command line. Only with `--allow-eval` |
 | `send_keys` | types keys in the notation of Neovim. Only with `--allow-eval` |
 
-- Each result is short text with each id that the next call can need, and
-  the same as JSON in `structuredContent`. Both show the state after the
-  change. So a model does not need to read again.
-- Each failure is a tool error (`isError`), with the message and
-  `{"error": ...}` as its structured content. This includes an unknown tool,
-  and `undo` with nothing to undo. Only a malformed request is a protocol
-  error.
-- Each call that writes is one undo step named `mcp: <tool> <subject>`.
-  `batch` makes any number of them one step.
-- Tool schemas use `anyOf` for values of two kinds, and plain arrays with
-  one `items` schema. Some clients do not read a list of types or
-  `prefixItems` correctly. An automation point is `[position, value]`. A
-  pitch is a name or a number.
-- `lua` and `run_command` are annotated as destructive and open-world, so a
-  client asks before it runs them.
-- Loudness (integrated and short-term LUFS, loudness range, true peak) is
-  the measurement of the kernel (`paw.api.measure`). The other values are
-  plain signal measurements: sample peak, RMS in dBFS, an averaged
-  4096-point FFT summed into octave bands.
+Each result is short text with each id that the next call can need, and
+the same data as JSON in `structuredContent`. Both show the state after the
+change, so a model does not need to read again.
+
+Each failure is a tool error (`isError`), with the message and
+`{"error": ...}` as its structured content, and that includes an unknown
+tool and `undo` with nothing to undo. Only a malformed request is a
+protocol error.
+
+Each call that writes is one undo step named `mcp: <tool> <subject>`, and
+`batch` makes any number of them one step.
+
+Tool schemas use `anyOf` for values of two kinds, and plain arrays with one
+`items` schema, because some clients do not read a list of types or
+`prefixItems` correctly. For example, an automation point is
+`[position, value]`, and a pitch is a name or a number. `lua` and
+`run_command` are annotated as destructive and open-world, so a client asks
+before it runs them.
+
+Loudness (integrated and short-term LUFS, loudness range, true peak) is the
+measurement of the kernel (`paw.api.measure`). The other values are plain
+signal measurements, which are the sample peak, the RMS in dBFS, and an
+averaged 4096-point FFT summed into octave bands.
 
 ### What an assistant can do
 
-**Without flags**, an assistant reads the full session, and changes it only
-through the typed tools.
+Without flags, an assistant reads the full session, and it changes the
+session only through the typed tools:
 
 - It changes tracks, clips, notes, devices and plugins (a plugin loads into
   the kernel process), parameters, routing, automation, tempo and
@@ -193,47 +206,52 @@ through the typed tools.
 - It reads any project file, WAV or audio file that the user of the server
   can read, also by absolute path.
 - It opens or starts a project, which replaces the session and clears
-  undo. It does this only when there are no unsaved changes, or when it
-  gives `discard`.
-- It writes files only under `--root`: renders (which replace a file with
-  the same name) and saved projects (`.json`, with a `media` directory
-  beside it when the project has recordings).
-- It cannot run code, commands or keys, and cannot quit the kernel.
-- The server checks paths after it resolves `..` and symbolic links.
+  undo, but only when there are no unsaved changes, or when it gives
+  `discard`.
+- It writes files only under `--root`, which means renders (which replace a
+  file with the same name) and saved projects (`.json`, with a `media`
+  folder beside it when the project has recordings).
 
-**`--allow-eval`** adds the escape hatches. They are code in the kernel
+It cannot run code, commands or keys, and it cannot quit the kernel. The
+server checks paths after it resolves `..` and symbolic links.
+
+`--allow-eval` adds the escape hatches, which run code in the kernel
 process with the rights of the user. They are Lua with the full `paw`
 interface and the `io`, `os` and `ffi` of LuaJIT, commands (with `:lua`,
 `:w <path>` and `:q`), and keys.
 
-**WARNING:** With `--allow-eval`, an assistant can read and write any file,
-start programs, and quit paw. `--root` does not apply to the escape
+**Warning:** With `--allow-eval`, an assistant can read and write any file,
+start programs, and quit paw, because `--root` does not apply to the escape
 hatches. A failed call is one undo step for what it changed in the
 project, but the server does not roll it back.
 
-**`--allow-any-path`** lets `render` and the save of `project_file` write
+`--allow-any-path` lets `render` and the save of `project_file` write
 anywhere that the user can.
 
 ### Protocol
 
-JSON-RPC 2.0 over stdio, one message on each line, made directly with
-`serde_json`.
+The server speaks JSON-RPC 2.0 over stdio, with one message on each line,
+through `rmcp`.
 
-- `initialize` answers with the revision asked for, when it is one of
-  `2024-11-05`, `2025-03-26`, `2025-06-18`, `2025-11-25`. Else it answers
-  `2025-11-25`.
-- Also `notifications/initialized`, `ping`, `tools/list`, `tools/call`.
-  Batches (an array of messages) are accepted.
-- The `2026-07-28` revision has no handshake. The server answers requests
-  with `_meta["io.modelcontextprotocol/protocolVersion"]` without state,
-  with `resultType: "complete"`. `server/discover` answers. A revision that
-  the server does not support gets error `-32022` with the supported list.
-- Unknown methods get `-32601`, requests without a tool name `-32602`,
-  lines that do not parse `-32700`. An unknown tool is a tool error.
-- Tool definitions have `title` and `annotations` (read-only, destructive,
-  open-world). Results are a text block and `structuredContent`.
-- Resources: `resources/list`, `resources/templates/list`,
-  `resources/read`. The server has no prompts.
+`initialize` answers with the revision asked for, when it is one of
+`2024-11-05`, `2025-03-26`, `2025-06-18` or `2025-11-25`, and otherwise it
+answers `2025-11-25`. The server also answers `notifications/initialized`,
+`ping`, `tools/list` and `tools/call`.
+
+The `2026-07-28` revision has no handshake. The server answers requests
+with `_meta["io.modelcontextprotocol/protocolVersion"]` without state, with
+`resultType: "complete"`, and `server/discover` answers too. A revision
+that the server does not support gets error `-32022` with the supported
+list.
+
+Unknown methods get `-32601`, and requests without a tool name get
+`-32602`. The server passes over a line that is not JSON, and an unknown
+tool is a tool error.
+
+Tool definitions have `title` and `annotations` (read-only, destructive,
+open-world), and results are a text block and `structuredContent`. The
+server answers `resources/list`, `resources/templates/list` and
+`resources/read`, and it has no prompts.
 
 | Resource | Contents |
 | --- | --- |
@@ -246,46 +264,51 @@ The references come from the source that the server was built from.
 ### Tests
 
 `tests/protocol.rs` speaks the protocol to the server, with a headless
-kernel on the null backend. It tests:
+kernel on the null backend. It tests the following:
 
-- the handshake for each revision, and the tool schemas
-- a song made with the typed tools only, read back, rendered and measured
-- undo, a call that rolls back, the argument errors, the escape hatches
-- a kernel that stops and returns
+- The handshake for each revision, and the tool schemas.
+- A song made with the typed tools only, read back, rendered and measured.
+- Undo, a call that rolls back, the argument errors and the escape hatches.
+- A kernel that stops and returns.
 
-Run it with `nix develop -c cargo test -p paw-mcp`. It builds `paw` if it
-is not built.
+Run it with `nix develop -c cargo test -p paw-mcp`, which builds `paw` if
+it is not built.
 
 ### Limits
 
-- Calls run one at a time and to the end. A long render holds `ping`, and
-  the server ignores `notifications/cancelled`. The server sends no progress
-  notifications.
-- Level of each bar, stereo and spectrum are only for WAV files. A FLAC or
-  MP3 render gets the loudness numbers.
-- A `batch` reads `bar.beat` positions with the time signature at its
-  start. Its steps name earlier results by name, not by id.
-- Note names have sharps (`A#4`).
-- The meter of `get_track` is the live peak of the engine: -120 dB when
-  nothing plays. `diagnose` with `measure` finds the tracks that clip.
-- The typed tools have no recording, MIDI input, audio inputs, input
-  monitors, plugin editor windows, cursor, marks or selections. The
-  escape hatches reach those.
-- `unsaved changes` counts from saves through this server, or from its
-  first run in the kernel. The kernel only reports if the project has any
-  history.
-- Only the test client of the server tested it, not Claude Code or Claude
-  Desktop.
+Calls run one at a time and to the end, so a long render holds `ping`.
+The server ignores `notifications/cancelled`, and it sends no progress
+notifications.
+
+The level of each bar, stereo and the spectrum are only for WAV files, and
+a FLAC or MP3 render gets the loudness numbers only. The meter of
+`get_track` is the live peak of the engine, which is -120 dB when nothing
+plays, so use `diagnose` with `measure` to find the tracks that clip.
+
+A `batch` reads `bar.beat` positions with the time signature at its start,
+and its steps name earlier results by name, not by id. Note names have
+sharps (`A#4`).
+
+The typed tools have no recording, MIDI input, audio inputs, input
+monitors, plugin editor windows, cursor, marks or selections, but the
+escape hatches can do those things.
+
+`unsaved changes` counts from saves through this server, or from its first
+run in the kernel, because the kernel only reports whether the project has
+any history.
+
+Only the test client of the server tested it, and nobody tested it with
+Claude Code or Claude Desktop.
 
 ## About
 
 The server is a client of the control socket, as `paw ctl` and the
-graphical frontend are. It adds nothing to the kernel. It sends each tool
-call as one `eval` of [mcp.lua](src/tools/mcp.lua) with the arguments of the
-tool. So a call is one turn of the kernel, every change goes through
-`paw.api`, and a call that writes is exactly one undo step. A call that
-fails part way rolls back.
+graphical frontend are, and it adds nothing to the kernel. It sends each
+tool call as one `eval` of [mcp.lua](src/tools/mcp.lua) with the arguments
+of the tool. A call is therefore one turn of the kernel, every change goes
+through `paw.api`, and a call that writes is exactly one undo step. A call
+that fails part way rolls back.
 
-The server speaks MCP through `rmcp`, the
-official Rust SDK. Each tool is one entry of the table in
-[src/tools](src/tools/mod.rs), with its schema and its code.
+The server speaks MCP through `rmcp`, the official Rust SDK. Each tool is
+one entry of the table in [src/tools](src/tools/mod.rs), with its schema and
+its code.
