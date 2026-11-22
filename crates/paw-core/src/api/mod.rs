@@ -18,7 +18,7 @@ use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 
-use crate::grid::{Caps, Grid, Highlights};
+use crate::grid::{Caps, Grid, Highlights, KeptCells};
 use crate::io::Io;
 use crate::model::NoteAttr;
 use crate::session::Session;
@@ -67,6 +67,9 @@ pub struct Shared {
     pub frames: Cell<[u64; 3]>,
     /// The frame `ui_frame_snapshot` drew last, for tests.
     pub snapshot: RefCell<Option<Grid>>,
+    /// Areas of frames kept by name to be put back on later ones
+    /// (`grid_keep`, `grid_put`). A change of a highlight forgets them.
+    pub kept_cells: RefCell<HashMap<String, KeptCells>>,
     /// How many times a redraw has been asked for: a window showing one
     /// view draws it again only when this has moved.
     pub redraws: Cell<u64>,

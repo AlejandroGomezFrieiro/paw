@@ -26,6 +26,7 @@ impl Session {
         let result = f(&mut self.project);
         if result.is_ok() {
             self.undo.history.edited();
+            self.files_there.forget();
             self.dirty = true;
             self.undo.touched = true;
             self.undo.edits += 1;
