@@ -567,7 +567,7 @@ command("cmdline", function(ctx)
   if from_visual then keymap.set_mode("n") end
   paw.ui.input({
     prompt = ":",
-    text = from_visual and "'<,'>" or nil,
+    text = ctx.args.text or (from_visual and "'<,'>" or nil),
     history = "cmdline",
     -- Command names, then what each command says its arguments are.
     complete = function(text) return paw.commands.complete(text) end,

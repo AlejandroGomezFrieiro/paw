@@ -5,6 +5,7 @@
 
 mod args;
 mod graphics;
+mod keys;
 mod terminal;
 
 use std::path::PathBuf;

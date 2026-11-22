@@ -11,8 +11,9 @@ A bar is a number, and a beat is `bar.beat` (`5.3`), counted from 1 in the beats
 | Range | Covers |
 | --- | --- |
 | `5`, `5,8`, `5.3,6.1` | a bar; bars 5 to 8; from beat 3 of bar 5 to the end of beat 1 of bar 6 |
-| `%` | the whole song, to the end of the bar where its last clip ends |
-| `.`, `$` | the bar of the cursor; the last bar |
+| `@19`, `@19.3` | bar 19 of the song, and its third beat, also in a scope with its own bars |
+| `%` | the whole song, to the end of the bar where its last clip ends. In a scope with time, the time of the scope. |
+| `.`, `$` | the bar of the cursor; the last bar (in a scope with time, its last bar) |
 | `.+4`, `$-1`, `5.3+2` | four bars on; the bar before the last; two beats on (after a beat, offsets count beats) |
 | `'a,'b` | from mark `a` to mark `b`, exactly. `'a` alone is the bar of the mark. |
 | `'<,'>` | the last selection of the focused view: its time, and its tracks in the arrange view, its pitches in the piano roll (a `Ctrl-v` or `V` selection), or the clips chosen with the pointer |
@@ -33,7 +34,8 @@ A range of tracks comes before a range of time.
 - A range of time alone covers every track. In the piano roll and the score, it covers the notes of the clips that the view edits.
 - A range of tracks alone covers whole tracks.
 - Both together cover that time on those tracks, so `:t2 5,8d` empties bars 5 to 8 of track 2.
-- A range with no command goes there: `:$`, `:t3`, `:'a`.
+- A range with no command goes there: `:$`, `:t3`, `:'a`, `:@19`.
+- In a window narrowed to a scope ([Scopes](narrowing.md)), the ranges see only its tracks and its time. The bars that you type are the bars of the scope, from 1 at its start, and `@19` is bar 19 of the song. In `Song › Bridge`, where the bridge starts at bar 17 of the song, `:%quantize` snaps only the notes of the bridge, and `:3` and `:@19` go to the same bar.
 - A number before a command that takes no range is its count: `:3snippet arp`.
 - A command that an extension makes with a range gets one: `:5,8notation.transpose 2`.
 
@@ -49,8 +51,9 @@ Without a range, most commands take the bar of the cursor (`.`), in the same way
 | `:5,8m 17`, `:5,8m! 17` | Moves them. `m!` closes the gap that they leave and makes room where they go. |
 | `:5,8>`, `:5,8>>`, `:5,8< 3` | Moves the clips that start there a grid step later, two steps later, three steps earlier. In the piano roll: the notes, by its grid. |
 | `:5,8j` | Joins the MIDI clips on each track into one. |
-| `:5,8transpose 12` | Moves notes by semitones. |
-| `:%quantize`, `:%quantize 1/16` | Snaps notes to the grid of the piano roll, or to a note value or a count of beats. |
+| `:5,8transpose 12` | Moves notes by semitones. `:adjust` can change the number afterwards. |
+| `:%quantize`, `:%quantize 1/16`, `:%quantize 1/16 strength=50` | Snaps notes to the grid of the piano roll, or to a note value or a count of beats. `strength` is from 0 to 100 (100 is the default) and moves each note that part of the way to the grid. `:adjust` can change both afterwards. |
+| `:adjust grid=1/8`, `:adjust 7` | Does the last command again with other parameters, in place of its undo step. See below. |
 | `:t2,t4 mute`, `:t* unmute`, `:t/Drums/ solo`, `:t* unsolo` | Mutes and solos tracks. `mute!` and `solo!` switch each track. `:5,8 mute` mutes the clips in bars 5 to 8. |
 | `:t* volume -=3`, `:t2 volume -6` | Steps the volume of tracks down 3 dB. Sets it to -6 dB. |
 | `:t2 pan -0.5`, `:t2 pan +=0.1` | Sets the pan, from -1 (left) to 1 (right). Steps it to the right. |
@@ -59,6 +62,20 @@ Without a range, most commands take the bar of the cursor (`.`), in the same way
 | `:&`, `:&&` | Does the last `:s` again on a range, without and with its flags. |
 | `:g/pattern/command` | Runs a command on every match: `:g/vel<20/d`, `:g/name:Verse/mute`, `:g/c4/normal x`. With no command, `:g/vel<20/` puts the matches in the quickfix list, for `]q` and `:cdo`. |
 | `:g!`, `:v` | Runs a command on everything that does not match. |
+
+## Adjusting the last command
+
+`:adjust` changes the parameters of the last command and runs it again. paw puts the project back as it was before the command, runs the command again on the same range with its first parameters and the new ones, and the result takes the place of the command in the undo tree. `u` then returns to the state before the command.
+
+A parameter has a name, and you give it as `name=value` or by position. `:quantize 1/16` followed by `:adjust strength=50` is the same as `:quantize 1/16 strength=50`. `<Space>.` opens the command line with `:adjust` and the current values, and Tab completes the names and the values. After `:adjust`, `.` does the adjusted command again.
+
+| Command | Parameters, in the order of the positional form |
+| --- | --- |
+| `:quantize` | `grid` (a note value or beats), `strength` (0 to 100) |
+| `:transpose` | `semitones` |
+| `:clip.fade` | `in`, `out` (beats) |
+
+`:adjust` works only on the last change. After `u`, it says `adjust works on the last change`. After a change that has no parameters to adjust, it says `the last change (Delete) has nothing to adjust`. A change that you saved or named cannot change, so `:adjust` says so. Undo it and run the command again.
 
 ## Patterns
 

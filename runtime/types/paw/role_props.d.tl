@@ -181,7 +181,9 @@ local record role_props
    --- beats in columns `per` cells a beat; `content` the key of its notes or
    --- sound; `midi`; `muted`, `current`, `chosen`, `ghost` while it is
    --- dragged; its fades and `gain` (shown with `gain_line`) in beats and dB;
-   --- `warps` and `repeats`, the beats of its warp markers and its loops.
+   --- `warps` and `repeats`, the beats of its warp markers and its loops;
+   --- `cut_in` and `cut_out`, the beats from its start where the window's
+   --- scope cuts it.
    record ClipProps is Props
       id: integer
       take: integer
@@ -203,6 +205,8 @@ local record role_props
       gain_line: boolean
       warps: {number}
       repeats: {number}
+      cut_in: number
+      cut_out: number
    end
 
    --- The ground of a row of the timeline, `index` from the top, in columns

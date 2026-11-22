@@ -121,6 +121,20 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             sh.session.borrow_mut().undo_label(text);
             Ok(())
         }
+        // Put the project back as it was before the last step, so that a
+        // command runs again and its edits take the step's place:
+        // `paw.commands.adjust`. `before` is the state the command started
+        // from, and `label` the step's new name.
+        // @return types.UndoAdjust
+        fn undo_adjust(lua, sh, (before, label) => (Option<u64>, Option<String>)) {
+            to_lua(lua, &sh.session.borrow_mut().undo_adjust(before, label))
+        }
+        // Put the step back as it was, when the command run again failed.
+        // @return nil
+        fn undo_adjust_cancel(_, sh, () => ()) {
+            sh.session.borrow_mut().undo_adjust_cancel();
+            Ok(())
+        }
         // The edits of this turn join undo state `id`, the current one, and do
         // not make a step of their own. For example, a snippet changed its choice.
         // @return boolean
