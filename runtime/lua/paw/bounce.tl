@@ -7,11 +7,16 @@
 -- The render goes through `paw.render` with `tap`, so the file holds the
 -- tracks without their groups and the master. The new track goes where the
 -- first track goes, so it plays through them once, as the old tracks did.
+-- A bounce of the whole tracks mutes the tracks. A bounce of a range of
+-- time cuts their clips at its edges and mutes only the parts in it; each
+-- muted part keeps the id of the new track in `meta.bounced`, for `K`.
 -- The `:bounce` command is in paw/defaults/project.lua.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
+local edit = require("paw.edit")
 local objects = require("paw.objects")
+local util = require("paw.util")
 local render = require("paw.render")
 local type types = require("paw.types")
 
@@ -21,7 +26,8 @@ local record Options
   name: string
   --- `"post"` (the default) or `"pre"`.
   tap: types.RenderTap
-  --- The beats to render. Without them, from the first clip to the last.
+  --- The beats to render. Without them, from the first clip to the last,
+  --- and the whole tracks are muted. With them, only the clips in them.
   start: number
   ["end"]: number
   --- Seconds rendered after the end, for reverbs and delays (2).
@@ -109,6 +115,35 @@ local function copy_fader(from: types.Track, to: integer)
   end
 end
 
+--- Cut the clips of `tracks` (a set of ids) at `from` and `to`. Returns
+--- the clips that play between them, and those that play outside them.
+local function cut_at(tracks: {integer: boolean}, from: number, to: number): {integer}, {integer}
+  local inside: {integer} = {}
+  local outside: {integer} = {}
+  for track in pairs(tracks) do
+    edit.arrange.clear(track, from, from)
+    edit.arrange.clear(track, to, to)
+    for _, clip in ipairs(api.clip_list(track)) do
+      local within = clip.start >= from - 1e-9 and clip.start + clip.length <= to + 1e-9
+      if clip.muted then
+        -- A clip muted before is not in the sound, and stays as it is.
+      elseif within then
+        inside[#inside + 1] = clip.id
+      else
+        outside[#outside + 1] = clip.id
+      end
+    end
+  end
+  return inside, outside
+end
+
+--- Set `muted` on each clip of `ids`.
+local function set_muted(ids: {integer}, muted: boolean)
+  for _, id in ipairs(ids) do
+    api.clip_set(id, {muted = muted})
+  end
+end
+
 --- Render the tracks of `ids` to audio, as one clip on a new track below
 --- the last of them, and mute them. The new track plays its sound where the
 --- first track sends its sound. `opts` is as for `paw.bounce.track`, and
@@ -132,6 +167,7 @@ function M.tracks(ids: {integer}, opts?: Options): objects.Track
   end
   local heard = with_feeders(ids)
   local from, to = opts.start, opts["end"]
+  local whole = not from and not to
   if not from or not to then
     local clips_from, clips_to = extent(heard)
     if not clips_from then
@@ -144,7 +180,22 @@ function M.tracks(ids: {integer}, opts?: Options): objects.Track
   end
 
   local path = new_file(first)
-  render.render(path, {tracks = ids, tap = tap, start = from, ["end"] = to, tail = opts.tail or 2, bits = 32})
+  -- A range of time: the clips are cut at its edges. While it renders, the
+  -- clips outside it are muted, so that the tail holds only what rings
+  -- on from the range, and not the clips after it.
+  local inside: {integer} = {}
+  local outside: {integer} = {}
+  if not whole then
+    inside, outside = cut_at(heard, from, to)
+    set_muted(outside, true)
+  end
+  local ok, err = pcall(
+    render.render, path, {tracks = ids, tap = tap, start = from, ["end"] = to, tail = opts.tail or 2, bits = 32}
+  ) as (boolean, string)
+  set_muted(outside, false)
+  if not ok then
+    error(err, 0)
+  end
 
   local name = opts.name or (#ids == 1 and first.name or string.format("%s + %d", first.name, #ids - 1)) .. " (bounced)"
   local id = api.track_add({name = name, index = place_below(first, heard), output = first.output, nest = first.nest})
@@ -152,8 +203,16 @@ function M.tracks(ids: {integer}, opts?: Options): objects.Track
   if tap == "pre" then
     copy_fader(first, id)
   end
-  for _, old in ipairs(ids) do
-    api.track_set(old, {mute = true})
+  if whole then
+    for _, old in ipairs(ids) do
+      api.track_set(old, {mute = true})
+    end
+  end
+  -- Each part of the range is muted, and keeps the new track for `K`. The
+  -- tracks that feed a group are cut and muted too: they play its clips.
+  for _, clip in ipairs(inside) do
+    local meta = api.clip_get(clip).meta or {}
+    api.clip_set(clip, {muted = true, meta = util.merge(meta, {bounced = id})})
   end
   return objects.track(id)
 end
@@ -165,9 +224,11 @@ end
 --- and pan, but not its groups or the master, and the new track's fader
 --- starts at 0 dB. `"pre"` is before the fader: the new track gets the
 --- volume, pan and sends of the old one, and the automation of its volume
---- and pan. `opts.start` and `opts["end"]` are the beats to render (from
---- the first clip to the end of the last by default), and `opts.tail` the
---- seconds after the end (2). `opts.name` names the new track ("<name>
+--- and pan. `opts.start` and `opts["end"]` are the beats to render. Without
+--- them, it renders from the first clip to the end of the last, and mutes
+--- the whole track. With them, it cuts the clips at those beats and mutes
+--- only the parts between them, and `K` on such a part names the new
+--- track. `opts.tail` is the seconds after the end (2). `opts.name` names the new track ("<name>
 --- (bounced)" by default). It uses `paw.render`, so `render.before` runs.
 --- Returns the new track, or nil when there is nothing to render.
 function M.track(track: integer | objects.Track, opts?: Options): objects.Track
@@ -175,6 +236,20 @@ function M.track(track: integer | objects.Track, opts?: Options): objects.Track
     return M.tracks({track}, opts)
   end
   return M.tracks({track.id}, opts)
+end
+
+--- What `K` says of a clip that a bounce muted: the track that plays it
+--- now. Nil for another clip.
+function M.describe(clip: types.Clip): string
+  local bounced = clip.muted and clip.meta and clip.meta.bounced
+  if not bounced then
+    return nil
+  end
+  local track = api.track_get(math.tointeger(bounced as number))
+  if not track then
+    return "muted by a bounce, whose track is gone"
+  end
+  return string.format("muted by a bounce: “%s” plays it", track.name)
 end
 
 return setmetatable(

@@ -814,6 +814,58 @@ test("a bounce takes a range of tracks to one new track, and a range of time to 
   reset()
 end)
 
+test("a bounce of bars mutes only those bars of the clips, which say so, and the rest still sounds", function()
+  start()
+  local lead = paw.add_track({ name = "Lead" })
+  lead:add_device("synth", { attack = 0.001, release = 0.05 })
+  local notes = {}
+  for beat = 0, 46, 2 do
+    notes[#notes + 1] = { pitch = 60 + beat % 12, start = beat, length = 1 }
+  end
+  lead:add_clip({ name = "Lead", start = 0, length = 48, notes = notes })
+  paw.flush()
+  api.undo_checkpoint()
+  local live = render()
+  paw.cursor.set_track(lead)
+  keys(":5,8bounce<CR>")
+  local bounced = paw.cursor.track()
+  local file = bounced:clips()[1].file
+  eq(
+    said(),
+    "bounced bars 5–8 of Lead to “Lead (bounced)”; those bars of Lead muted · u undoes it",
+    "the message names the bars and the new track"
+  )
+  local parts = {}
+  for i, c in ipairs(api.clip_list(lead.id)) do
+    parts[i] = string.format("%g-%g%s", c.start, c.start + c.length, c.muted and " muted" or "")
+  end
+  eq(table.concat(parts, ", "), "0-16, 16-32 muted, 32-48", "bars 5 to 8 cut out and muted, the rest plays")
+  eq(tostring(lead.mute) .. " " .. bounced:clips()[1].start, "false 16", "the track plays, the new clip lines up")
+  -- Outside bars 5 to 8 (beats 16 to 32, 8 to 16 seconds) the song sounds as it did.
+  local x, n = samples(live.path)
+  local y, m = samples(render().path)
+  local worst = 0
+  for i = 0, math.min(n, m) - 1 do
+    local second = i / 2 / live.sample_rate
+    if second < 8 or second >= 16 then worst = math.max(worst, math.abs(x[i] - y[i])) end
+  end
+  eq(m, n, "as long as before")
+  eq(worst < 1e-5, true, "the same sound outside the bars: " .. worst)
+  T.expect_screen("bounce_bars", 100, 16, { rows = { 1, 12 } })
+  paw.cursor.set_beat(20)
+  paw.cursor.set_track(lead)
+  keys("K")
+  eq(screen():find("muted by a bounce: “Lead (bounced)” plays it", 1, true) ~= nil, true, "K names the new track")
+  keys("<Esc>u")
+  parts = {}
+  for i, c in ipairs(api.clip_list(lead.id)) do
+    parts[i] = string.format("%g-%g%s", c.start, c.start + c.length, c.muted and " muted" or "")
+  end
+  eq(table.concat(parts, ", ") .. " " .. #api.track_list(), "0-48 1", "one u puts the clip back whole")
+  os.remove(file)
+  reset()
+end)
+
 test("a bounce before the fader gives the new track the fader, pan and sends of the old one", function()
   start()
   local pad = synth("Pad", 60)

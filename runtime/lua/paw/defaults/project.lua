@@ -301,13 +301,21 @@ command("bounce", function(ctx)
   if not bounced then return paw.notify("nothing on the track to bounce", "warn") end
   if keymap.mode == "x" then keymap.set_mode("n") end
   cursor.set_track(bounced)
-  local muted = #tracks == 1 and api.track_get(tracks[1], "name") or (#tracks .. " tracks")
-  paw.notify(string.format("bounced to “%s”; %s muted · u undoes it", bounced.name, muted))
+  local who = #tracks == 1 and api.track_get(tracks[1], "name") or (#tracks .. " tracks")
+  if not range.from then
+    return paw.notify(string.format("bounced to “%s”; %s muted · u undoes it", bounced.name, who))
+  end
+  -- A range of time: only its clips went quiet, so the message says which.
+  local when = paw.ex.describe({ from = range.from, to = range.to, bars = range.bars })
+  local those = when:match("^bars? ") and (when:match("^bars ") and "those bars" or "that bar") or "that time"
+  paw.notify(
+    string.format("bounced %s of %s to “%s”; %s of %s muted · u undoes it", when, who, bounced.name, those, who)
+  )
 end, {
   range = true,
   label = "Bounce to audio",
   desc = "Render the track, or the tracks of a range or the selection, to a new audio track below, and mute them: "
-    .. "`:bounce`, `:t2,t4bounce`, `:'<,'>bounce` (that time only), `:bounce tap=pre` (the fader stays live)",
+    .. "`:bounce`, `:t2,t4bounce`, `:5,8bounce` (mutes only bars 5 to 8), `:bounce tap=pre` (the fader stays live)",
   complete = function() return { "tap=post", "tap=pre", "tail=" } end,
 })
 command(

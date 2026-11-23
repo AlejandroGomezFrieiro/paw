@@ -1318,6 +1318,11 @@ function paw.autosave.orphan_takes() end
 ---@param opts any
 function paw.autosave.recover(file, opts) end
 
+--- What `K` says of a clip that a bounce muted: the track that plays it
+--- now. Nil for another clip.
+---@param clip any
+function paw.bounce.describe(clip) end
+
 --- Render a track (its id, or the track) to audio, as one clip on a new
 --- track below it, and mute it. `paw.bounce(track, opts)` is the same. The
 --- new track plays its sound where the old one sends it. `opts.tap` is where the
@@ -1325,9 +1330,11 @@ function paw.autosave.recover(file, opts) end
 --- and pan, but not its groups or the master, and the new track's fader
 --- starts at 0 dB. `"pre"` is before the fader: the new track gets the
 --- volume, pan and sends of the old one, and the automation of its volume
---- and pan. `opts.start` and `opts["end"]` are the beats to render (from
---- the first clip to the end of the last by default), and `opts.tail` the
---- seconds after the end (2). `opts.name` names the new track ("<name>
+--- and pan. `opts.start` and `opts["end"]` are the beats to render. Without
+--- them, it renders from the first clip to the end of the last, and mutes
+--- the whole track. With them, it cuts the clips at those beats and mutes
+--- only the parts between them, and `K` on such a part names the new
+--- track. `opts.tail` is the seconds after the end (2). `opts.name` names the new track ("<name>
 --- (bounced)" by default). It uses `paw.render`, so `render.before` runs.
 --- Returns the new track, or nil when there is nothing to render.
 ---@param track any

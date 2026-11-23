@@ -270,11 +270,19 @@ group, into `renders/stems`:
 track below it, and mutes the old track. The new track plays into the same
 track as the old one, and the message names it. One `u` undoes the bounce.
 
+A bounce of a range of time mutes only that time, and the old tracks go on
+playing outside it. paw cuts each clip that crosses an edge of the range,
+and mutes the parts inside the range. The new clip starts where the range
+starts, right below the muted parts, and it holds the tail after the range
+too. A muted clip shows `⊘` before its name and a faint body, and `K` on a
+muted part names the track that now plays it. One `u` puts the clips back
+whole.
+
 | Command | Effect |
 | --- | --- |
 | `:bounce`, `<Space>tb` | Bounce the track at the cursor. In visual mode, `<Space>tb` bounces the selected tracks. |
 | `:t2,t4bounce`, `:t'<,'>bounce` | Bounce those tracks to one new track, and mute each of them. |
-| `:5,8bounce`, `:'<,'>bounce` | Bounce bars 5 to 8, or the time of the selection, and not the rest of the track. |
+| `:5,8bounce`, `:'<,'>bounce` | Bounce bars 5 to 8, or the time of the selection, and mute only those bars of the old track. |
 | `:bounce tap=pre` | Bounce before the fader (see below). |
 | `:bounce tail=4` | Render 4 seconds after the end (default: 2). |
 
@@ -290,7 +298,8 @@ track as the old one, and the message names it. One `u` undoes the bounce.
 
 In Lua, `paw.bounce(track, { tap = "pre", tail = 2, name = "Pad" })`
 bounces one track, and `paw.bounce.tracks({ id, ... }, opts)` bounces
-several, with `start` and `end` in beats. Both return the new track.
+several. With `start` and `end` in beats, they bounce that time only. Both
+return the new track.
 
 ## Regions
 

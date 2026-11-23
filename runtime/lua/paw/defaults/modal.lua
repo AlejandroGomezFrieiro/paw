@@ -146,6 +146,8 @@ command("info", function()
       c.length,
       c.muted and ", muted" or ""
     )
+    local bounced = paw.bounce.describe(c)
+    if bounced then lines[#lines + 1] = "  " .. bounced end
     if c.kind == "nest" then
       -- A block of a subproject, and whether its frozen file is up to
       -- date (paw/freeze_block.tl).
