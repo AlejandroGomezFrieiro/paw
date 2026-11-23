@@ -547,7 +547,12 @@ pub(crate) fn mtime(path: &Path) -> u64 {
 }
 
 /// Every entry under `dirs` whose name ends in `extension`, searching
-/// subdirectories but not inside matches.
+/// subdirectories but not inside matches. The entries come in the order of
+/// `dirs`, and in the order of their paths in each. So the first folder
+/// wins where two plugins share an id or a name, and a folder added later
+/// never changes the kinds of the plugins found before it: a helper process,
+/// which scans all folders at once, gives the kinds that the adds gave. An
+/// entry found two times comes once, at its first place.
 pub(crate) fn find_bundles(dirs: &[PathBuf], extension: &str) -> Vec<PathBuf> {
     fn walk(dir: &Path, extension: &str, depth: u32, out: &mut Vec<PathBuf>) {
         let Ok(entries) = std::fs::read_dir(dir) else {
@@ -563,11 +568,13 @@ pub(crate) fn find_bundles(dirs: &[PathBuf], extension: &str) -> Vec<PathBuf> {
         }
     }
     let mut out = Vec::new();
+    let mut seen = std::collections::HashSet::new();
     for dir in dirs {
-        walk(dir, extension, 0, &mut out);
+        let mut found = Vec::new();
+        walk(dir, extension, 0, &mut found);
+        found.sort();
+        out.extend(found.into_iter().filter(|path| seen.insert(path.clone())));
     }
-    out.sort();
-    out.dedup();
     out
 }
 
