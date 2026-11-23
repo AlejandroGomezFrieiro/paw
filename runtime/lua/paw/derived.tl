@@ -117,7 +117,8 @@ local record M
     get: function<K, V, I>(self: Ctx, node: Node<K, V, I>, key: K): V
     --- Record a source by its name: `track:<id>:<field>`,
     --- `track:<id>:clips`, `tracks`, `tempo`, `option:<name>`,
-    --- `clip:<id>`, `device:<id>`.
+    --- `clip:<id>`, `device:<id>`, `project` (the project's own fields:
+    --- its name, its `meta` and its tempo map).
     source: function(self: Ctx, name: string)
     --- A track, and the fields of it that the entry reads.
     track: function(self: Ctx, id: integer, fields: {string}): types.Track
@@ -1375,6 +1376,7 @@ end
 events.on(
   kernel.project_changed,
   function()
+    mark("project")
     local stamp = project_int("tempo_stamp")
     if stamp ~= tempo_seen then
       tempo_seen = stamp
