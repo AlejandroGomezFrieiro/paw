@@ -1623,19 +1623,6 @@ paw.cursor.bounds = function(): number, number return M.span() end
 
 -- The song's bars on the ruler's second row -------------------------------------------
 
---- What a layer of the arrange view gets (paw/views/arrange.lua).
-local record Layer
-  ruler2: contracts.Buf
-  x: function(beat: number): integer
-  scroll: number
-  span: number
-end
-local record Arrange
-  layers: {string: function(view: Arrange, layer: Layer)}
-  ruler2: {string: function(view: Arrange): boolean}
-  describe: function(view: Arrange): contracts.Description
-end
-
 --- The song's bar lines from beat `from` up to `to` of the window's time:
 --- { beat, bar } each, the song's bars from 1. In a subproject with a time
 --- of its own, its beats are not the song's, so each line is found in the
@@ -1666,13 +1653,13 @@ local function song_row(): boolean
   return opt.scopebars == "both" and M.span() ~= nil and (M.bar_offset() ~= 0 or M.song_offset() ~= 0)
 end
 
-local arrange = paw.ui.views.arrange as Arrange
+local arrange = paw.ui.views.arrange as contracts.ArrangeView
 if arrange and arrange.layers then
   arrange.ruler2.scope_bars = song_row
   -- Under each bar's local number, its number in the song. Layers draw in
   -- the order of their names: this one after the markers' bands, and
   -- clear of the names of markers and regions.
-  arrange.layers.zz_scope_bars = function(_: Arrange, layer: Layer)
+  arrange.layers.zz_scope_bars = function(_: contracts.ArrangeView, layer: contracts.ArrangeLayer)
     if not (song_row() and layer.ruler2) then
       return
     end
@@ -1776,7 +1763,7 @@ local function under_cursor(): contracts.Description
 end
 if arrange then
   -- `K` (the command `info`) puts this before what it says of the track.
-  arrange.describe = function(_: Arrange): contracts.Description return under_cursor() end
+  arrange.describe = function(_: contracts.View): contracts.Description return under_cursor() end
 end
 
 -- The scope picker ---------------------------------------------------------------------

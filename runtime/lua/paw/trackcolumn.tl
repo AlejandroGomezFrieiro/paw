@@ -19,7 +19,7 @@
 --   paw.trackcolumn.sign("todo", { priority = 5, render = function(track) ... end })
 --
 -- The arrange view draws it on each line of each track shown, in cells, so
--- the terminal and the window show the same column (paw/views/arrange.lua).
+-- the terminal and the window show the same column (paw/views/arrange.tl).
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")

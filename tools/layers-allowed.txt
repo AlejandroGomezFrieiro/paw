@@ -192,8 +192,9 @@ paw.ui paw.views.cmdline 1
 paw.undofile paw.ui 1
 paw.util paw.draw 1
 paw.views.adjust paw 2
-paw.views.arrange paw.frontend 4
+paw.views.arrange paw.frontend 3
 paw.views.arrange_mouse paw.frontend 3
+paw.views.arrange_track paw.frontend 1
 paw.views.curve paw 1
 paw.views.curve paw.frontend 2
 paw.views.devices paw.frontend 3

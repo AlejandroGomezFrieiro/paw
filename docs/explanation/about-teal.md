@@ -319,7 +319,8 @@ each other.
 | Done | Scopes | `scope`, when scopes got time ranges and levels: 905 lines of Teal, 1 fewer entry on the allow-list, and no `any` or `paw.Untyped` in this module | 380 | wave 3 |
 | Done | Keys | `keymap` (with `keymap/registers` and `keymap/marks`), `keyrule`, `keybar`: 3,021 lines of Teal, 2 fewer entries on the allow-list, the 14 records that other modules kept of `paw.keymap` and the 4 of `paw.ui.keybar` gone, and no `any` or `paw.Untyped` in these modules | 1,950 | wave 4 |
 | Done | The piano roll | `views/pianoroll`, `views/pianoroll_mouse`, `views/pianoroll_strip`, `roll_clips`: 3,701 lines of Teal, 1 fewer entry on the allow-list, the 10 records that other modules kept of the piano roll gone, and no `any` or `paw.Untyped` in these modules | 2,430 | the keys |
-| 5 | Views | `defaults/`, the other `views/`, `roles/` | 13,000 | the keys |
+| Done | The arrange view | `views/arrange`, `views/arrange_mouse`, `roles/arrange`, and `views/arrange_track`, which the port split from the view: 4,450 lines of Teal, the 6 records that other modules kept of the view gone, and no `any` in these modules | 3,230 | the keys |
+| 5 | Views | the rest of `defaults/`, `views/` and `roles/` | 12,000 | the keys |
 | Done | Extensions: `interop` | the readers and writers of REAPER and DAWproject files: 6,300 lines of Teal, no `any` or `paw.Untyped`, and no function over 100 lines (the longest had 196) | 4,300 | the modules of paw that it uses |
 | 5 | Extensions | one agent for each: `plugstate` (5,700), the others (under 3,200 each). `notation` and `utau` do not move to Teal, because they become native extensions in Rust | 56,000 | the modules of paw that each uses |
 
@@ -888,6 +889,39 @@ gives its own record of a register that is a `Register`, and it casts what
 `paw.edit` kept its own record of a region, and that record did not agree
 with `paw.contracts.Region`, so the frontend could not give a selection of
 the keymap to it. `paw.edit` uses the contract now.
+
+## What the checker found in the arrange view
+
+The checker found no error that changed what the arrange view draws or what
+the pointer does in it, and the tests pass with no change. Most of what it
+found was in the records that other modules kept of the view, and in the
+gestures of the pointer.
+
+Six modules kept their own record of the arrange view, with the few fields
+that each one used. The contracts now give the view as
+`paw.contracts.ArrangeView`, with what a layer of an extension gets
+(`paw.contracts.ArrangeLayer`) and where the view drew its parts
+(`paw.contracts.ArrangeGeometry`). The view is a record that has these
+fields, and it adds its own state for each window.
+
+A gesture of the pointer adds its own fields to what it gives
+`paw.mouse.grab`, for example the function that draws a dragged clip over
+the view. `paw.mouse.Handlers` was a closed record, so it is an interface
+now, and each gesture of the arrange view is a record that extends it. One
+gesture kept a number in the field where the others keep the last event of
+the drag, and it has a field of its own for that number now.
+
+The header of a track set the columns of its buttons on the view while it
+drew them. The header now gives the columns back, and the view keeps them,
+so the drawing of a header changes nothing else. The drawing of a frame was
+one function of 352 lines and the header one of 208 lines. Each is now a
+short function that calls one function for each part, for example the
+ruler, the rows, the selection and the playhead. The header and the clips
+of one track are in `paw/views/arrange_track.tl`.
+
+The widget roles (`label`, `button`, `switch`, `knob` and `playhead`) are
+still defined in Lua, and their props had no record. The contracts give one
+record for each of them, so a view in Teal marks them with typed props.
 
 ## What the checker found in the piano roll
 

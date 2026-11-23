@@ -248,15 +248,9 @@ local record ScrollHit is contracts.HitAction
 end
 
 --- The props of the roles that the roll marks besides its notes
---- (paw/roles/widgets.lua, paw/roles/notes.lua).
-local record ButtonMark is contracts.MarkProps
-  text: string
-  on: boolean
-  menu: boolean
-  style: string
-  on_style: string
-  label: string
-end
+--- (paw/roles/widgets.lua, paw/roles/notes.lua). paw.contracts gives the
+--- ones that other views mark too.
+local type ButtonMark = contracts.ButtonMark
 local record KeyboardMark is contracts.MarkProps
   top: integer
   per: integer
@@ -265,13 +259,7 @@ local record KeyboardMark is contracts.MarkProps
   labels: {{integer | string}}
   sounding: {integer}
 end
-local record PlayheadMark is contracts.MarkProps
-  at: number
-  from: number
-  per: number
-  lo: number
-  hi: number
-end
+local type PlayheadMark = contracts.PlayheadMark
 local record ScrollbarMark is contracts.MarkProps
   axis: string
   from: number
