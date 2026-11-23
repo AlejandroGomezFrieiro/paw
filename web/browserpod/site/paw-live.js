@@ -244,6 +244,8 @@ if (panel) {
   if (sessionStorage.getItem(START_KEY)) {
     // The reader pressed Start before the reload for isolation.
     sessionStorage.removeItem(START_KEY);
+    // The terminal draws only while it shows: bring the panel back into view.
+    panel.scrollIntoView({ block: "start" });
     live.run(() => live.boot());
   }
   if (self.crossOriginIsolated) sessionStorage.removeItem(RELOAD_KEY);
