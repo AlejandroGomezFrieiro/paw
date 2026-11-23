@@ -108,6 +108,9 @@ paw.wait = api.wait
 paw.slices = require("paw.slices")
 -- The cycles of the garbage collector run in slices too (paw/collector.tl).
 local collector = require("paw.collector")
+-- What paw works out from the project (paw/derived.tl): `settle` gives it
+-- the events of the kernel before it sends them.
+local derived = require("paw.derived")
 
 paw.commands = require("paw.commands")
 -- The types of what an extension gives paw (a view, a picker, ...) for an
@@ -490,6 +493,7 @@ local function settle()
   for _ = 1, 64 do
     local events = api.events_take()
     if #events == 0 then return end
+    derived.taken(events)
     for _, event in ipairs(events) do
       if event.name == "changed" then
         warn()

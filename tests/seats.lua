@@ -212,6 +212,33 @@ test("the project keeps a layout for each kind of seat, and a default", function
   K.seat_close(seat, other)
 end)
 
+test("a project that another terminal opens leaves this terminal's float with the keys", function()
+  start()
+  local L = paw.layout
+  local initial = L.capture()
+  T.after(function()
+    if paw.seats.has(23) then K.seat_close(23, "terminal") end
+    as(0, function()
+      while paw.ui.float do
+        paw.ui.close()
+      end
+    end)
+    L.restore(initial)
+    paw.ui.focus("arrange")
+  end)
+  local path = T.scratch .. "/seats-float"
+  keys(0, ":w " .. path .. "<CR>")
+  K.seat_open(23, "terminal")
+  keys(0, ":help all<CR>")
+  keys(23, ":e " .. path .. "<CR>")
+  as(0, function() eq(paw.ui.focused, "help", "the float still has the keys") end)
+  keys(0, "q")
+  as(0, function()
+    eq(paw.ui.float, nil, "q closed it")
+    eq(paw.ui.focused, "arrange", "and the keys went back to the layout the project put under it")
+  end)
+end)
+
 test("with one seat, nothing is put away or brought back", function()
   start()
   local stowed = 0

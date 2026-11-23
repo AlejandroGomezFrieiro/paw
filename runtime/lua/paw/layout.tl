@@ -2891,7 +2891,15 @@ function M.restore(saved: SpecNode): boolean
   for _, t in ipairs(tabs) do
     open_pending(t.layout)
   end
+  -- An open float keeps the keyboard: a layout put back under it (a project
+  -- that another seat opened, for example) becomes where the float goes
+  -- back to when it closes.
+  local float = u.float
   M.tab_go(go)
+  if float and u.float == float and u.focused ~= float.name then
+    float.back = u.focused
+    u.focused = float.name
+  end
   return true
 end
 

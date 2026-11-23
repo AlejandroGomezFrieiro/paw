@@ -159,6 +159,10 @@ end)
 test("a group's scope works out its tracks again after a change of the group, not after an edit of a note", function()
   start()
   local o = orchestra()
+  -- The list of tracks as text, open in no window: it reads its lines again
+  -- in the events of each edit.
+  keys(":vs paw://tracks<CR>:q<CR>")
+  T.after(function() keys(":bd paw://tracks<CR>") end)
   paw.scope.narrow("Strings")
   eq(names(paw.scope.tracks()), "Strings Violins Cellos", "the strings")
   local function made()
