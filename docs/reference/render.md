@@ -278,6 +278,11 @@ too. A muted clip shows `⊘` before its name and a faint body, and `K` on a
 muted part names the track that now plays it. One `u` puts the clips back
 whole.
 
+Notes that cross an edge of the range play whole in the new clip, so the
+song sounds the same. A note that starts in the range rings on to its end.
+A note that starts before the range and is still held at its start moves
+to the new clip, which then starts where that note starts.
+
 | Command | Effect |
 | --- | --- |
 | `:bounce`, `<Space>tb` | Bounce the track at the cursor. In visual mode, `<Space>tb` bounces the selected tracks. |

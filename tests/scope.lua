@@ -805,8 +805,9 @@ test("a bounce takes a range of tracks to one new track, and a range of time to 
   local selection, clip = paw.keymap.last_selection(), t:clips()[1]
   eq(t.name, "A (bounced)", "the track of the selection")
   near(clip.start, selection.c0, 1e-9, "the clip starts where the selection starts")
-  -- At 120 bpm the tail of 2 seconds is 4 beats.
-  near(clip.length, selection.c1 - selection.c0 + 4, 1e-3, "and holds its time and the tail")
+  -- The last note that starts in it plays to beat 4. At 120 bpm the tail of
+  -- 2 seconds is 4 beats.
+  near(clip.length, math.max(selection.c1, 4) - selection.c0 + 4, 1e-3, "and holds its notes whole and the tail")
   keys("u")
   for _, file in ipairs(files) do
     os.remove(file)
@@ -814,7 +815,7 @@ test("a bounce takes a range of tracks to one new track, and a range of time to 
   reset()
 end)
 
-test("a bounce of bars mutes only those bars of the clips, which say so, and the rest still sounds", function()
+test("a bounce of bars mutes only those bars of the clips, which say so, and the song sounds the same", function()
   start()
   local lead = paw.add_track({ name = "Lead" })
   lead:add_device("synth", { attack = 0.001, release = 0.05 })
@@ -822,6 +823,9 @@ test("a bounce of bars mutes only those bars of the clips, which say so, and the
   for beat = 0, 46, 2 do
     notes[#notes + 1] = { pitch = 60 + beat % 12, start = beat, length = 1 }
   end
+  -- One note is held into bar 5, and one rings on past bar 8.
+  notes[#notes + 1] = { pitch = 48, start = 14, length = 4 }
+  notes[#notes + 1] = { pitch = 50, start = 30, length = 4 }
   lead:add_clip({ name = "Lead", start = 0, length = 48, notes = notes })
   paw.flush()
   api.undo_checkpoint()
@@ -840,17 +844,15 @@ test("a bounce of bars mutes only those bars of the clips, which say so, and the
     parts[i] = string.format("%g-%g%s", c.start, c.start + c.length, c.muted and " muted" or "")
   end
   eq(table.concat(parts, ", "), "0-16, 16-32 muted, 32-48", "bars 5 to 8 cut out and muted, the rest plays")
-  eq(tostring(lead.mute) .. " " .. bounced:clips()[1].start, "false 16", "the track plays, the new clip lines up")
-  -- Outside bars 5 to 8 (beats 16 to 32, 8 to 16 seconds) the song sounds as it did.
-  local x, n = samples(live.path)
-  local y, m = samples(render().path)
-  local worst = 0
-  for i = 0, math.min(n, m) - 1 do
-    local second = i / 2 / live.sample_rate
-    if second < 8 or second >= 16 then worst = math.max(worst, math.abs(x[i] - y[i])) end
-  end
+  eq(
+    tostring(lead.mute) .. " " .. bounced:clips()[1].start,
+    "false 14",
+    "the track plays, and the new clip starts with the note held into the bars"
+  )
+  local worst, peak, n, m = difference(live, render())
   eq(m, n, "as long as before")
-  eq(worst < 1e-5, true, "the same sound outside the bars: " .. worst)
+  eq(peak > 0.05, true, "it sounds")
+  eq(worst < 1e-5, true, "the same sound, with the notes across the edges whole: " .. worst)
   T.expect_screen("bounce_bars", 100, 16, { rows = { 1, 12 } })
   paw.cursor.set_beat(20)
   paw.cursor.set_track(lead)
@@ -861,7 +863,12 @@ test("a bounce of bars mutes only those bars of the clips, which say so, and the
   for i, c in ipairs(api.clip_list(lead.id)) do
     parts[i] = string.format("%g-%g%s", c.start, c.start + c.length, c.muted and " muted" or "")
   end
-  eq(table.concat(parts, ", ") .. " " .. #api.track_list(), "0-48 1", "one u puts the clip back whole")
+  local kept = #api.clip_notes(api.clip_list(lead.id)[1].id)
+  eq(
+    table.concat(parts, ", ") .. " " .. #api.track_list() .. " " .. kept,
+    "0-48 1 26",
+    "one u puts the clip back whole"
+  )
   os.remove(file)
   reset()
 end)

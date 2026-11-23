@@ -10,6 +10,7 @@
 -- A bounce of the whole tracks mutes the tracks. A bounce of a range of
 -- time cuts their clips at its edges and mutes only the parts in it; each
 -- muted part keeps the id of the new track in `meta.bounced`, for `K`.
+-- The notes across its edges play whole in the new clip (see `sounding`).
 -- The `:bounce` command is in paw/defaults/project.lua.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
@@ -137,11 +138,113 @@ local function cut_at(tracks: {integer: boolean}, from: number, to: number): {in
   return inside, outside
 end
 
+local EPS = 1e-9
+
+--- A copy of a note at another place and length.
+local function with_note(n: types.Note, start: number, length: number): types.Note
+  return {start = start, length = length, pitch = n.pitch, velocity = n.velocity, meta = n.meta, attr = n.attr}
+end
+
 --- Set `muted` on each clip of `ids`.
 local function set_muted(ids: {integer}, muted: boolean)
   for _, id in ipairs(ids) do
     api.clip_set(id, {muted = muted})
   end
+end
+
+--- Whether a clip plays its notes as they are: a MIDI clip that does not
+--- loop and is not a block. A bounce keeps the notes of such a clip whole.
+local function plain(clip: types.Clip): boolean
+  return clip.kind == "midi" and not clip.loop and not clip.nest
+end
+
+--- The notes of one clip that sound in a range, in beats of the song, as
+--- the clip plays them: the end of a clip stops its notes.
+local record Sounding
+  clip: types.Clip
+  notes: {types.Note}
+  start: number
+  stop: number
+  --- The notes that start before the range and are held at its start.
+  held: {types.Note}
+end
+
+--- The notes that sound in the range from the plain clips of `tracks` that
+--- play: those that start in it, and those held at its start. A cut stops
+--- a note at its edge, but the bounce must play these whole, as live.
+local function sounding(tracks: {integer: boolean}, from: number, to: number): {Sounding}
+  local out: {Sounding} = {}
+  for track in pairs(tracks) do
+    for _, clip in ipairs(api.clip_list(track)) do
+      local finish = clip.start + clip.length
+      if plain(clip) and not clip.muted and clip.start < to - EPS and finish > from + EPS then
+        local s: Sounding = {clip = clip, notes = {}, held = {}, start = from, stop = to}
+        for _, n in ipairs((api.clip_notes(clip.id))) do
+          local start = clip.start + n.start
+          local stop = math.min(start + n.length, finish)
+          local held = start < from - EPS and stop > from + EPS
+          if held or (start >= from - EPS and start < to - EPS) then
+            s.notes[#s.notes + 1] = with_note(n, start, stop - start)
+            s.start, s.stop = math.min(s.start, start), math.max(s.stop, stop)
+            if held then
+              s.held[#s.held + 1] = n
+            end
+          end
+        end
+        if #s.notes > 0 then
+          out[#out + 1] = s
+        end
+      end
+    end
+  end
+  return out
+end
+
+--- Take the held notes out of what is left of their clips before the
+--- range: the bounce plays them now, from where they start.
+local function take_held(list: {Sounding})
+  local function key(n: types.Note): string
+    return string.format("%.9f/%d", n.start, n.pitch)
+  end
+  for _, s in ipairs(list) do
+    if #s.held > 0 then
+      local gone: {string: boolean} = {}
+      for _, n in ipairs(s.held) do
+        gone[key(n)] = true
+      end
+      local keep: {types.Note} = {}
+      for _, n in ipairs((api.clip_notes(s.clip.id))) do
+        if not gone[key(n)] then
+          keep[#keep + 1] = n
+        end
+      end
+      api.clip_set_notes(s.clip.id, keep)
+    end
+  end
+end
+
+--- For the render: a clip for each of `list` that plays its notes whole.
+--- Returns their ids, to remove after the render.
+local function play_whole(list: {Sounding}): {integer}
+  local ids: {integer} = {}
+  for _, s in ipairs(list) do
+    local notes: {types.Note} = {}
+    for i, n in ipairs(s.notes) do
+      notes[i] = with_note(n, n.start - s.start, n.length)
+    end
+    ids[#ids + 1] = api.clip_add(
+      s.clip.track,
+      {
+        kind = "midi",
+        start = s.start,
+        length = s.stop - s.start,
+        notes = notes,
+        transpose = s.clip.transpose,
+        velocity = s.clip.velocity,
+      }
+    )
+  end
+  return ids
 end
 
 --- Render the tracks of `ids` to audio, as one clip on a new track below
@@ -180,18 +283,37 @@ function M.tracks(ids: {integer}, opts?: Options): objects.Track
   end
 
   local path = new_file(first)
-  -- A range of time: the clips are cut at its edges. While it renders, the
-  -- clips outside it are muted, so that the tail holds only what rings
-  -- on from the range, and not the clips after it.
+  -- A range of time: the clips are cut at its edges, and only the parts
+  -- in it sound in the render. A cut stops a note at an edge, so the
+  -- render plays the notes of the range whole from other clips: those
+  -- that start in it, to their end, and those held at its start, from
+  -- where they start. The parts before the range lose the held notes. So
+  -- each note sounds in one place, and the song sounds as before.
   local inside: {integer} = {}
   local outside: {integer} = {}
+  local whole_notes: {integer} = {}
+  local start, finish = from, to
   if not whole then
+    local list = sounding(heard, from, to)
     inside, outside = cut_at(heard, from, to)
+    take_held(list)
+    whole_notes = play_whole(list)
+    for _, s in ipairs(list) do
+      start, finish = math.min(start, s.start), math.max(finish, s.stop)
+    end
     set_muted(outside, true)
+    for _, clip in ipairs(inside) do
+      if plain(api.clip_get(clip)) then
+        api.clip_set(clip, {muted = true})
+      end
+    end
   end
   local ok, err = pcall(
-    render.render, path, {tracks = ids, tap = tap, start = from, ["end"] = to, tail = opts.tail or 2, bits = 32}
+    render.render, path, {tracks = ids, tap = tap, start = start, ["end"] = finish, tail = opts.tail or 2, bits = 32}
   ) as (boolean, string)
+  for _, clip in ipairs(whole_notes) do
+    api.clip_remove(clip)
+  end
   set_muted(outside, false)
   if not ok then
     error(err, 0)
@@ -199,7 +321,7 @@ function M.tracks(ids: {integer}, opts?: Options): objects.Track
 
   local name = opts.name or (#ids == 1 and first.name or string.format("%s + %d", first.name, #ids - 1)) .. " (bounced)"
   local id = api.track_add({name = name, index = place_below(first, heard), output = first.output, nest = first.nest})
-  api.clip_add(id, {file = path, start = from, name = first.name})
+  api.clip_add(id, {file = path, start = start, name = first.name})
   if tap == "pre" then
     copy_fader(first, id)
   end
