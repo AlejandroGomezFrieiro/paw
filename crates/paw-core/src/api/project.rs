@@ -1,9 +1,11 @@
 //! `paw.api`: the project: open, save, its files and its entries.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::sync::Arc;
 
-use mlua::{Lua, Table, Value as LuaValue};
+use mlua::{BString, Lua, Table, Value as LuaValue};
 use serde_json::Value;
 
 use crate::model::Id;
@@ -100,6 +102,28 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         fn project_files(lua, sh, () => ()) {
             to_lua(lua, &sh.session.borrow_mut().project_files().lua()?)
         }
+        // Read a project folder (`song` or `song/project.toml`) without
+        // opening it, in the form that `undo_project` gives. `files` holds
+        // the files that paw writes in the folder, by their path in it, for
+        // a version that is not on the disk, such as a revision of git. paw
+        // reads the media from the disk. See extensions/projdiff.
+        // @param files? {string:string}
+        // @return types.ProjectData
+        fn project_read(lua, sh, (path, files) => (String, Option<HashMap<String, BString>>)) {
+            let files = files.map(|files| {
+                files
+                    .into_iter()
+                    .map(|(rel, bytes)| (PathBuf::from(rel), Arc::from(Vec::from(bytes))))
+                    .collect()
+            });
+            to_lua(lua, &sh.session.borrow().project_read(Path::new(&path), files).lua()?)
+        }
+        // Whether `rel`, a path in a project folder, is one of the files that
+        // paw writes there (`project_read` takes these from `files`).
+        // @return boolean
+        fn project_file_managed(_, _sh, rel => String) {
+            Ok(crate::session::folder::is_managed(Path::new(&rel)))
+        }
         // Save only these files of a project kept in a folder, by their path
         // in it. Returns the paths written.
         // @return {string}
@@ -118,7 +142,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // Returns how many tracks and how many chains.
         // @return integer, integer
         fn track_collect(_, sh, () => ()) {
-            Ok(sh.session.borrow_mut().track_collect())
+            Ok(sh.session.borrow_mut().doc.track_collect())
         }
         // Add the track of a track folder outside the project (a folder with
         // a `track.json`) at `index` (from 1; the end when nil). The project

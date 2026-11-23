@@ -17,6 +17,7 @@
 local api = require("paw.api")
 local options = require("paw.options")
 local commands = require("paw.commands")
+local util = require("paw.util")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
@@ -1292,8 +1293,8 @@ local function meter_over(from: number, to: number): types.NestMeter
 end
 
 --- The name a saved view takes when none is given: the view's, else its
---- region's, else `Subproject N`.
-local function view_name(s: contracts.Scope): string
+--- region's, else `fallback`, else `Subproject N`.
+local function view_name(s: contracts.Scope, fallback?: string): string
   if s.name and s.name ~= "" then
     return s.name
   end
@@ -1303,7 +1304,7 @@ local function view_name(s: contracts.Scope): string
       return m.name
     end
   end
-  return "Subproject " .. (#api.nest_list() + 1)
+  return fallback or ("Subproject " .. (#api.nest_list() + 1))
 end
 
 --- The time of the tracks when a view has none: from 0 to the end of
@@ -1432,6 +1433,94 @@ function M.save(name?: string, own_row?: boolean): string
   return table.concat(words, "; ")
 end
 
+-- Out of the song: a project folder of its own --------------------------------------------
+
+--- The message of an export to `folder` (as typed) of `what`.
+local function exported_words(what: string, folder: string, made: types.NestExported): string
+  local words = {
+    string.format(
+      "wrote %s to %s: %d track%s%s",
+      what,
+      folder,
+      made.tracks,
+      made.tracks == 1 and "" or "s",
+      made.media > 0 and string.format(", %d media file%s", made.media, made.media == 1 and "" or "s") or ""
+    ),
+  }
+  for _, change in ipairs(made.changes) do
+    words[#words + 1] = change
+  end
+  if #made.missing > 0 then
+    words[#words + 1] = string.format(
+      "%d media file%s missing: %s offline there too",
+      #made.missing,
+      #made.missing == 1 and " is" or "s are",
+      #made.missing == 1 and "its clips are" or "their clips are"
+    )
+  end
+  words[#words + 1] = "the song did not change"
+  return table.concat(words, "; ")
+end
+
+--- Write subproject `nest` as a project folder of its own at `folder`
+--- (`~/` is the home folder), as `:nest.export` does: its tracks, its
+--- master, its markers and regions, its tempo and meter as its first
+--- block plays them, and its media copied in (`paw.api.nest_export`). The
+--- song does not change. Returns the message.
+function M.export(nest: integer, folder: string): string
+  local n = M.get(nest)
+  if not n then
+    error("no subproject " .. tostring(nest), 0)
+  end
+  local made = api.nest_export(nest, util.expand_path(folder))
+  return exported_words("the subproject " .. n.name, folder, made)
+end
+
+--- Write the window's view as a project folder of its own at `folder`
+--- (`~/` is the home folder), as `:scope.write <folder>` does: copies of
+--- its tracks with their devices, their clips and lanes in its time, the
+--- markers and regions inside, the tempo and meter of its time, and the
+--- media copied in (`paw.api.scope_export`). Inside a subproject, the
+--- subproject, as `paw.nest.export` writes it. The song does not change. Returns
+--- the message.
+function M.write(folder: string): string
+  local s = paw.scope.current()
+  if not s then
+    error("the window shows the whole song: `:w " .. folder .. "` writes all of it", 0)
+  end
+  if s.kind == "nest" then
+    return M.export(s.id as integer, folder)
+  end
+  local tracks = paw.scope.tracks()
+  local from, to = paw.scope.span()
+  if not from then
+    from, to = 0, extent(tracks)
+  end
+  local name = view_name(s, (folder:gsub("/+$", "")):match("([^/]+)$"))
+  local made = api.scope_export({name = name, tracks = tracks, from = from, to = to}, util.expand_path(folder))
+  return exported_words("the view " .. name, folder, made)
+end
+
+commands.define(
+  "nest.export",
+  function(ctx: contracts.CommandContext): contracts.CommandResult
+    local words: {string} = {}
+    for _, word in ipairs(ctx.args as {string}) do
+      words[#words + 1] = tostring(word)
+    end
+    local folder = table.concat(words, " ")
+    if folder == "" then
+      error("nest.export needs a folder: `nest.export ~/lib/Ballad`", 0)
+    end
+    paw.notify(M.export(nest_here(), folder))
+  end,
+  {
+    label = "Write the subproject as a project of its own",
+    desc = "Write the subproject at the cursor as a project folder of its own, with its media: `nest.export ~/lib/Ballad`. The song does not change",
+    complete = "files",
+  }
+)
+
 for _, bang in ipairs({"", "!"}) do
   commands.define(
     "scope.write" .. bang,
@@ -1440,13 +1529,19 @@ for _, bang in ipairs({"", "!"}) do
       for _, word in ipairs(ctx.args as {string}) do
         words[#words + 1] = tostring(word)
       end
-      paw.notify(M.save(table.concat(words, " "), bang == "!"))
+      local text = table.concat(words, " ")
+      -- A name has no slash; a word with one is a folder to write to.
+      if bang == "" and text:find("/", 1, true) then
+        paw.notify(M.write(text))
+        return
+      end
+      paw.notify(M.save(text, bang == "!"))
     end,
     {
       label = bang == "" and "Save the view as a subproject, per track"
         or "Save the view as a subproject with its own row",
       desc = bang == ""
-        and "Save this window's view as a subproject: its clips move in, and the rows they came from play them through their own devices (`scope.write Bridge`)" or "Save this window's view as a subproject with its own row: its tracks, their devices and lanes go in, and one row plays its mix (`scope.write! Bridge`)",
+        and "Save this window's view as a subproject: its clips move in, and the rows they came from play them through their own devices (`scope.write Bridge`); with a path, write it as a project folder of its own and change nothing (`scope.write ~/lib/bridge`)" or "Save this window's view as a subproject with its own row: its tracks, their devices and lanes go in, and one row plays its mix (`scope.write! Bridge`)",
     }
   )
 end

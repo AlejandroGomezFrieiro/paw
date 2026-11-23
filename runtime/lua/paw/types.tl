@@ -48,7 +48,7 @@ local record types
     attr: NoteAttr
   end
 
-  --- What to change about a note (`session/notes.rs` `NoteChange`): what is
+  --- What to change about a note (`session/document/notes.rs` `NoteChange`): what is
   --- left out stays. `attr = false` takes the attribute away. `index` only in
   --- `NotesEdit.set`.
   record NoteChange
@@ -70,7 +70,7 @@ local record types
   end
 
   --- New values for many notes of many clips, as one edit
-  --- (`session/notes.rs` `NoteColumns`, `notes_set`): lists of the same
+  --- (`session/document/notes.rs` `NoteColumns`, `notes_set`): lists of the same
   --- length, entry i about the note at place `place[i]` (from 1, before
   --- the call) of clip `clip[i]`. A list left out keeps that value.
   record NoteColumns
@@ -159,7 +159,7 @@ local record types
     cc: integer
   end
 
-  -- The project and its tracks (session/project.rs, session/tracks.rs) -----
+  -- The project and its tracks (session/document/project.rs and tracks.rs)
 
   --- A tempo change of the project file (`model::TempoChange`).
   record TempoChange
@@ -175,7 +175,7 @@ local record types
     den: integer
   end
 
-  --- `paw.api.project_get()` (`Session::project_view`). `edits` goes up
+  --- `paw.api.project_get()` (`Document::project_view`). `edits` goes up
   --- with each change; `length` is the end of the last clip, in beats;
   --- `tempo_stamp` is a hash of the tempo and signature points, the same
   --- for the same points (after an undo too).
@@ -258,7 +258,7 @@ local record types
     delay: number
   end
 
-  --- `paw.api.track_get(id)` (`Session::track_view`). `volume` in dB, `pan`
+  --- `paw.api.track_get(id)` (`Document::track_view`). `volume` in dB, `pan`
   --- -1 to 1, `output` the track it feeds (nil for the master), `index`
   --- from 1. `devices` and `clips` are ids.
   record Track
@@ -341,7 +341,7 @@ local record types
     changes: {SigChange}
   end
 
-  --- A subproject (`Session::nest_view`): `length` in beats, `master` its
+  --- A subproject (`Document::nest_view`): `length` in beats, `master` its
   --- master track, `tracks` its other tracks in order, `used` whether the
   --- song plays it.
   record Nest
@@ -401,6 +401,28 @@ local record types
     changes: {string}
   end
 
+  --- What `paw.api.scope_export` takes (`session::export::ExportOpts`):
+  --- the project's `name`, the view's `tracks` (of one place) and its
+  --- time `from` and `to` in that place's beats.
+  record ScopeExportOptions
+    name: string
+    tracks: {integer}
+    from: number
+    to: number
+  end
+
+  --- What `paw.api.nest_export` and `paw.api.scope_export` wrote
+  --- (`session::export::Exported`): the new `project.toml` (`path`), how
+  --- many `tracks` and `media` files, the media files that are `missing`,
+  --- and the routes cut at the edge of a view, in words (`changes`).
+  record NestExported
+    path: string
+    tracks: integer
+    media: integer
+    missing: {string}
+    changes: {string}
+  end
+
   --- What `paw.api.nest_promote` did (`session::promote::Promoted`): the
   --- `group` track (nil for a subproject saved per track), the
   --- subproject's `tracks` (per track: the rows its clips went back to),
@@ -438,7 +460,7 @@ local record types
     as_path: string
   end
 
-  -- Devices (session/devices.rs) ---------------------------------------------
+  -- Devices (session/devices.rs, session/document/devices.rs) ----
 
   enum ParamKind
     "boolean"
@@ -584,7 +606,7 @@ local record types
     notes: {string}
   end
 
-  -- Clips (session/clips.rs, session.rs clip_json) ---------------------------
+  -- Clips (session/document/clips.rs, session.rs clip_json) ------------------
 
   --- `midi`, `audio`, or the name of a kind that an extension defines.
   type ClipKind = string
@@ -854,7 +876,7 @@ local record types
     at: number
   end
 
-  -- Automation (session/automation.rs) ---------------------------------------
+  -- Automation (session/document/automation.rs) ------------------------------
 
   enum LaneTarget
     "volume"
@@ -864,7 +886,7 @@ local record types
   end
 
   --- `paw.api.lane_get(id)` and each entry of `lane_list`
-  --- (`Session::lane_json`), without the points. `states` (names) only for
+  --- (`lane_json` in `session/document/automation.rs`), without the points. `states` (names) only for
   --- a state lane.
   record Lane
     id: integer
@@ -1193,7 +1215,7 @@ local record types
     outline: {number}
   end
 
-  -- Undo (session/undo.rs) -------------------------------------------------------
+  -- Undo (session/undo.rs, session/document/undo_tree.rs) ------------------------
 
   --- One state of the undo tree.
   record UndoState
@@ -1210,7 +1232,7 @@ local record types
     saved: boolean
   end
 
-  --- `paw.api.undo_tree()` (`Session::undo_tree`).
+  --- `paw.api.undo_tree()` (`Document::undo_tree`).
   record UndoTree
     current: integer
     root: integer

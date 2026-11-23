@@ -27,7 +27,7 @@ pub use custom::{
     ClipKindId, CustomContent, CustomError, DATA_LIMIT, KindData, KindValue, MediaRef, MediaRole,
     OscAddress, OscArg, PortName, RESERVED, Signal, SignalTo, Sound, Timeline, Word,
 };
-pub use nest::{MAX_DEPTH, Nest, NestId, NestMeter, NestPlay, NestTempo, Route, check_nest};
+pub use nest::{MAX_DEPTH, Nest, NestId, NestMeter, NestPlay, NestTempo, Route, Standalone, check_nest};
 pub(crate) use links::Links;
 pub use notes::Notes;
 pub use overrides::Overrides;

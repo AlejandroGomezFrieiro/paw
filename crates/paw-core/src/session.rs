@@ -21,13 +21,13 @@ use serde_json::{Map, Value, json};
 
 use crate::history::{self, History};
 use crate::model::{
-    check_clip_beat, check_notes, Clip, ClipContent, ClipKindId, Control, CustomContent, DeviceInst, KindData, MediaRef, Signal, Timeline, Id, Lane, LaneState, MASTER_ID, MidiInput, NestPlay, Note, NoteAttr, Notes, Project, Segment,
-    Send, Shape, Sound, StretchMode, Target, Timebase, Track, WarpMarker, InputChannels,
+    Clip, ClipContent, ClipKindId, Control, DeviceInst, KindData, MediaRef, Signal, Timeline, Id, Lane, LaneState, MASTER_ID, NestPlay, Note, NoteAttr, Project,
+    Sound, StretchMode, Target, Timebase, Track, WarpMarker,
 };
 use crate::sync::{AudioCache, Follow, LiveDevices, Mapper, SyncCtx, sync};
 
 mod document;
-pub use document::Document;
+pub use document::{ControlMove, Document, ParamRange, notes};
 mod editing;
 mod project;
 mod tracks;
@@ -43,7 +43,6 @@ pub use midi_in::FilterRule;
 mod engine;
 mod audition;
 mod clipops;
-mod links;
 mod encode;
 mod file_check;
 mod files_watch;
@@ -55,25 +54,24 @@ pub mod cues;
 mod loading;
 pub mod media;
 mod midi_out;
-mod nests;
 mod promote;
 mod save;
+mod export;
 mod schedule;
 pub use schedule::Work;
 pub use save::SaveOpts;
-pub use nests::NestOpts;
+pub use document::NestOpts;
+pub use export::ExportOpts;
 mod monitor;
 mod statelanes;
 mod stretching;
 pub use loading::OpenOpts;
-pub mod notes;
 pub mod offline;
 pub mod panic;
 mod ports;
 mod posts;
 pub mod render;
 pub mod tags;
-mod tempo;
 mod undo;
 mod watch;
 pub use watch::Lost;
@@ -231,7 +229,7 @@ pub struct DeviceOpts {
 /// What a new clip holds: `midi`, `audio` or the name of a kind that an
 /// extension defines, in Lua. A word that is no name fails with the text of
 /// [`FromStr`](std::str::FromStr); whether an extension defined it is known
-/// where the clip is added (`Session::clip_kinds`).
+/// where the clip is added (`Document::clip_kinds`).
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 #[serde(try_from = "String")]
 pub enum ClipKind {
@@ -358,7 +356,7 @@ pub struct ClipOpts {
     pub play: Option<crate::model::NestPlay>,
 }
 
-/// What [`Session::clip_set_custom`] gives a custom clip: what its kind
+/// What [`Document::clip_set_custom`] gives a custom clip: what its kind
 /// compiled, replacing data, media, sound and signals together, so that it
 /// is one edit. `version`, `timeline` and `offset` stay as they are when
 /// absent.

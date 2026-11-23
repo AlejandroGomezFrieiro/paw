@@ -278,7 +278,7 @@ impl Session {
         let Some(lane) = self.latch_lane(latch)? else {
             return Ok(());
         };
-        let mut points = self.lane_points(lane)?.to_vec();
+        let mut points = self.doc.lane_points(lane)?.to_vec();
         if latch.original.is_none() {
             latch.original = Some(points.clone());
         }
@@ -332,7 +332,7 @@ impl Session {
             .as_deref()
             .and_then(|points| value_at(points, back))
             .unwrap_or(latch.before);
-        let mut points = self.lane_points(lane)?.to_vec();
+        let mut points = self.doc.lane_points(lane)?.to_vec();
         points.retain(|(beat, _)| !(*beat > from && *beat <= back));
         points.push((now, latch.value));
         points.push((back, to));

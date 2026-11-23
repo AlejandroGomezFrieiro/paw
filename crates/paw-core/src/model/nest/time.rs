@@ -82,7 +82,7 @@ impl Nest {
 }
 
 /// The song's tempo points from `zero` on, moved so that `zero` is beat 0.
-fn song_tempos_from(song: &TempoMap, zero: f64) -> Vec<TempoPoint> {
+pub(super) fn song_tempos_from(song: &TempoMap, zero: f64) -> Vec<TempoPoint> {
     let ramp = song.tempos().take_while(|p| p.beat <= zero).last().is_some_and(|p| p.ramp);
     let mut out = vec![TempoPoint { beat: 0.0, bpm: song.tempo(zero), ramp }];
     out.extend(

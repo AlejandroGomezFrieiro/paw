@@ -27,6 +27,7 @@ local api = require("paw.api")
 local util = require("paw.util")
 local options = require("paw.options")
 local commands = require("paw.commands")
+local derived = require("paw.derived")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
 local type KeymapModule = require("paw.keymap")
@@ -220,20 +221,25 @@ local function in_order(a: Node, b: Node): boolean
   return x.id < y.id
 end
 
-local cached_key: string
-local cached: Tree
+--- The regions that the tree is made of, with a text of all their fields:
+--- the same text gives the same tree. The regions are in the project's
+--- `meta`, so the tree reads the source `project`.
+local record Regions
+  text: string
+  list: {Marker}
+end
 
--- The tree of the regions as they are now, made again when one changes.
-local function tree(): Tree
-  local regions = M.regions()
+local function read_regions(ctx: derived.Ctx): Regions
+  ctx:source("project")
+  local list = M.regions()
   local parts: {string} = {}
-  for i, r in ipairs(regions) do
+  for i, r in ipairs(list) do
     parts[i] = string.format("%d:%.17g:%.17g:%s:%s", r.id, r.beat, r.length, r.name, r.color or "")
   end
-  local key = table.concat(parts, "\n")
-  if cached and key == cached_key then
-    return cached
-  end
+  return {text = table.concat(parts, "\n"), list = list}
+end
+
+local function make_tree(regions: {Marker}): Tree
   local t: Tree = {roots = {}, order = {}, by_id = {}}
   for _, r in ipairs(regions) do
     t.by_id[r.id] = {region = r, children = {}}
@@ -269,8 +275,29 @@ local function tree(): Tree
     end
   end
   walk(t.roots, 1)
-  cached_key, cached = key, t
   return t
+end
+
+-- The tree is a value of `paw.derived`. It reads only the source
+-- `project`: an edit of a note, a clip or a track does not make it stale,
+-- and a read after one is a look-up. A change of the name, the tempo
+-- or another part of `meta` reads the regions again, and the same regions
+-- keep the same tree. An undo gives back the tree of before without a make.
+local tree_spec: derived.Spec<boolean, Tree, Regions> = {
+  name = "markers.tree",
+  kind = "memo",
+  inputs = read_regions,
+  same_inputs = function(a: Regions, b: Regions): boolean return a.text == b.text end,
+  make = function(_: derived.Ctx, _: boolean, _: Tree, regions: Regions): Tree return make_tree(regions.list) end,
+  undo = true,
+  limit = 1,
+}
+local tree_node = derived.node(tree_spec)
+
+-- The tree of the regions as they are now: the graph makes it again only
+-- after a change of the project's own fields.
+local function tree(): Tree
+  return (tree_node:get(true, true))
 end
 
 --- The regions as a tree: the top-level regions, each a node with

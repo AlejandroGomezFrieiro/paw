@@ -38,7 +38,7 @@ command("Pdiff", function(ctx)
   if tree.count == 0 then return paw.notify(title .. " (nothing differs)") end
   view.open(tree, title)
 end, {
-  desc = "What changed in the project: `Pdiff` since it was saved, `Pdiff HEAD~2` (git), `Pdiff #7` (undo state), `Pdiff snap:name`, `Pdiff other.json`, `Pdiff a b`",
+  desc = "What changed in the project: `Pdiff` since it was saved, `Pdiff HEAD~2` (git), `Pdiff #7` (undo state), `Pdiff snap:name`, `Pdiff other` (another project folder), `Pdiff a b`",
   complete = versions_complete,
 })
 

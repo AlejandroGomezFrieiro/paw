@@ -183,7 +183,7 @@ impl Session {
                 }
             }
         };
-        self.edit(|p| {
+        self.doc.edit(|p| {
             let c = p.clip_mut(id).expect("the clip was found");
             match key {
                 "stretch" => {
@@ -310,7 +310,7 @@ impl Session {
         )
         .forward(source);
         let index = clip.warp.partition_point(|m| m.source < source);
-        self.edit(|p| {
+        self.doc.edit(|p| {
             let c = p.clip_mut(id).expect("the clip was found");
             c.warp.insert(index, WarpMarker { source, target });
             Ok(())
@@ -366,7 +366,7 @@ impl Session {
         let (lo, hi) = warp::target_range(&markers, index, clip.stretch);
         let target = warp::target_for(&pinned, &map, beat).clamp(lo, hi);
         markers[index].target = target;
-        self.edit(|p| {
+        self.doc.edit(|p| {
             p.clip_mut(id).expect("the clip was found").warp = markers;
             Ok(())
         })?;
@@ -380,7 +380,7 @@ impl Session {
         if index >= clip.warp.len() {
             bail!("clip {id} has no warp marker {}", index + 1);
         }
-        self.edit(|p| {
+        self.doc.edit(|p| {
             p.clip_mut(id).expect("the clip was found").warp.remove(index);
             Ok(())
         })

@@ -3068,10 +3068,22 @@ function paw.folds.all(on, win) end
 
 --- The fold at a track (the cursor's by default), in a window: the
 --- largest closed one, which its row stands for, else the smallest. Nil
---- when the track is in none.
+--- when the track is in none. At the cursor, a closed time fold or a
+--- block that the cursor is in comes first.
 ---@param id any
 ---@param win any
 function paw.folds.at(id, win) end
+
+--- The closed block fold at the cursor in a window, or nil.
+---@param win any
+function paw.folds.block_at_cursor(win) end
+
+--- The closed block folds that a window draws (the one a view shows by
+--- default), in the order they were made: each draws one cell over the
+--- rows of its tracks and its time. A block that holds all of the scope
+--- the window shows is open there.
+---@param win any
+function paw.folds.blocks(win) end
 
 --- Delete every fold of a window, as `zE`. Returns how many there were.
 ---@param win any
@@ -3084,8 +3096,8 @@ function paw.folds.clear(win) end
 function paw.folds.close(id, win) end
 
 --- The closed fold at the cursor, in a window: the time fold that the
---- cursor is in, else the fold that the cursor's row stands for. Nil when
---- the cursor is on no closed fold.
+--- cursor is in, else the closed block that it is in, else the fold that
+--- the cursor's row stands for. Nil when the cursor is on no closed fold.
 ---@param win any
 function paw.folds.closed_at(win) end
 
@@ -3107,7 +3119,7 @@ function paw.folds.count(f) end
 ---@param win any
 function paw.folds.delete(id, win) end
 
---- What a fold holds, in words: `3 tracks`, `8 bars`.
+--- What a fold holds, in words: `3 tracks`, `8 bars`, `2 tracks, 4 bars`.
 ---@param f any
 function paw.folds.describe(f) end
 
@@ -3132,7 +3144,9 @@ function paw.folds.list(win) end
 
 --- Make a fold of what a scope covers (`zf{motion}`), closed, in a
 --- window: a group folds into its row (`zfag`), tracks into one row named
---- `Fold 1` (`Vjjzf`). Returns it, or nil and the reason.
+--- `Fold 1` (`Vjjzf`), a region or bars on every track into a column
+--- (`zfar`), and some tracks for some bars into one cell (a visual block,
+--- then `zf`). Returns it, or nil and the reason.
 ---@param spec any
 ---@param win any
 function paw.folds.make(spec, win) end
@@ -6208,6 +6222,15 @@ function paw.nest.content_key(c) end
 ---@param c any
 function paw.nest.describe(c) end
 
+--- Write subproject `nest` as a project folder of its own at `folder`
+--- (`~/` is the home folder), as `:nest.export` does: its tracks, its
+--- master, its markers and regions, its tempo and meter as its first
+--- block plays them, and its media copied in (`paw.api.nest_export`). The
+--- song does not change. Returns the message.
+---@param nest any
+---@param folder any
+function paw.nest.export(nest, folder) end
+
 --- The subproject `id`, or nil when there is none.
 ---@param id any
 function paw.nest.get(id) end
@@ -6298,6 +6321,16 @@ paw.nest.under = paw.groups.under
 --- copy. Call it in one undo step. Returns the message.
 ---@param clip any
 function paw.nest.unique(clip) end
+
+--- Write the window's view as a project folder of its own at `folder`
+--- (`~/` is the home folder), as `:scope.write <folder>` does: copies of
+--- its tracks with their devices, their clips and lanes in its time, the
+--- markers and regions inside, the tempo and meter of its time, and the
+--- media copied in (`paw.api.scope_export`). Inside a subproject, the
+--- subproject, as `paw.nest.export` writes it. The song does not change. Returns
+--- the message.
+---@param folder any
+function paw.nest.write(folder) end
 
 --- Snap the starts of the notes to a grid. `opts.strength` says how far a
 --- note moves, `opts.swing` moves every second grid line later, and
@@ -7721,11 +7754,12 @@ function paw.scene.watchers() end
 function paw.scope.apply(s) end
 
 --- The scope that `znn` enters at the cursor: the innermost not entered
---- yet. On a closed time fold (paw/folds.tl), its region or its bars; a
---- subproject's clip at the cursor; in a region scope, the region one
---- level inside it at the cursor; else the closed fold of tracks whose row
---- the cursor is on (paw/folds.tl), else the group at the cursor (its
---- header or one of its tracks), else the track. Nil when the window shows
+--- yet. On a closed time fold (paw/folds.tl), its region or its bars; on
+--- a closed block fold, its tracks in its bars; a subproject's clip at
+--- the cursor; in a region scope, the region one level inside it at the
+--- cursor; else the closed fold of tracks whose row the cursor is on
+--- (paw/folds.tl), else the group at the cursor (its header or one of its
+--- tracks), else the track. Nil when the window shows
 --- that track already.
 function paw.scope.at_cursor() end
 
@@ -10754,6 +10788,17 @@ function paw.api.nest_add(opts) end
 ---@param beat number
 function paw.api.nest_beat(clip, beat) end
 
+--- Write a subproject as a project folder of its own at `dir`, a new
+--- or empty folder. Its tracks become the project's tracks and its
+--- master the master. A subproject that follows the song's tempo or
+--- meter gets the song's from its first block. Its media are copied
+--- into `media/`. The song does not change. Returns `path` (the
+--- new `project.toml`), `tracks`, `media` (the files copied),
+--- `missing` and `changes`.
+---@param id integer
+---@param dir string
+function paw.api.nest_export(id, dir) end
+
 --- A subproject as a table: its fields, `tracks` (its tracks in order,
 --- without its master) and `used` (whether the song plays it). With
 --- `key`, only that field of its own (`name`, `length`, `master`...):
@@ -10978,6 +11023,11 @@ function paw.api.project_backup(path, note) end
 --- acted on yet: paths in its folder, or full paths outside it.
 function paw.api.project_changed_files() end
 
+--- Whether `rel`, a path in a project folder, is one of the files that
+--- paw writes there (`project_read` takes these from `files`).
+---@param rel string
+function paw.api.project_file_managed(rel) end
+
 ---@param value any
 function paw.api.project_file_text(value) end
 
@@ -11007,6 +11057,15 @@ function paw.api.project_load(path, opts) end
 function paw.api.project_mark_saved() end
 
 function paw.api.project_new() end
+
+--- Read a project folder (`song` or `song/project.toml`) without
+--- opening it, in the form that `undo_project` gives. `files` holds
+--- the files that paw writes in the folder, by their path in it, for
+--- a version that is not on the disk, such as a revision of git. paw
+--- reads the media from the disk. See extensions/projdiff.
+---@param path string
+---@param files any?
+function paw.api.project_read(path, files) end
 
 --- Open a file written by `project_backup` as the project it was a
 --- copy of: under that project's own file name, and as changed.
@@ -11188,6 +11247,17 @@ function paw.api.scene_picture(rect, opts) end
 ---@param client integer
 ---@param roles string[]
 function paw.api.scene_roles(client, roles) end
+
+--- Write a view as a project folder of its own at `dir`, a new or
+--- empty folder: copies of `tracks` with their devices, their clips
+--- and lanes from `from` to `to` (beats of their place) from beat
+--- 0, the markers and regions inside, and the tempo and meter of the
+--- time. A route to a track outside the view is cut, and `changes`
+--- tells each cut. The song does not change. Returns what
+--- `nest_export` returns.
+---@param opts any
+---@param dir string
+function paw.api.scope_export(opts, dir) end
 
 ---@param beat number
 function paw.api.signature_remove(beat) end

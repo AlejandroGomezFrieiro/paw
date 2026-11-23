@@ -184,13 +184,14 @@ its time.
 A fold draws a part of the song in place. A fold of tracks is one row: a
 group is a fold by itself, and `zf` makes a fold of any tracks. A time
 fold is one narrow column: every region is a fold by itself, and `zf`
-makes a fold of any bars. A fold is a scope that the window shows
+makes a fold of any bars. A block fold is one cell over some tracks for
+some bars, and `zf` on a visual block makes one. A fold is a scope that the window shows
 closed, so `znn` on a fold enters it.
 
 | Keys, command | Effect |
 | --- | --- |
-| `zf{motion}`, `{Visual}zf` | Make a fold of what the motion or the selection covers, closed. `zfar`: the region at the cursor, in one column. `zfag`: the group at the cursor. `Vjjzf`: the three tracks, in one row named `Fold 1` (then `Fold 2`, and so on). A selection of bars on every track: those bars, in one column. |
-| `za`, `:fold.toggle` | Close the fold at the cursor, or open it. On a time fold, the fold is that one. Else on a track of a group, the fold is the group, and else the region at the cursor. |
+| `zf{motion}`, `{Visual}zf` | Make a fold of what the motion or the selection covers, closed. `zfar`: the region at the cursor, in one column. `zfag`: the group at the cursor. `Vjjzf`: the three tracks, in one row named `Fold 1` (then `Fold 2`, and so on). A selection of bars on every track: those bars, in one column. A visual block on some of the tracks: one cell over those tracks and bars, named `Fold 1`. |
+| `za`, `:fold.toggle` | Close the fold at the cursor, or open it. On a time fold, the fold is that one. Else on a block fold, the block. Else on a track of a group, the fold is the group, and else the region at the cursor. |
 | `zc`, `:fold.close` | Close the fold at the cursor. On a closed fold, close the fold around it. |
 | `zm`, `:fold.more` | Close one more level of regions, the deepest open level first. |
 | `zr`, `:fold.less` | Open one more level of regions. |
@@ -242,6 +243,22 @@ tracks, with its name and its number of bars, for example `Bridge ▸ 8`.
   holds `Verse A` and `Verse B`, `zm` closes the two verses, and a
   second `zm` closes `Chorus 2`. `za` and `zc` on a region change it
   alone, until the next `zm` or `zr`.
+
+### Block folds
+
+A visual block over some of the tracks, then `zf`, makes a block fold.
+The block shows as one cell over the rows of its tracks and over its
+bars, with its name on its first row, for example `Fold 1`.
+
+- The other tracks show that time as usual, and the bars do not move.
+- The song does not change. A render with the block is the same as one
+  without it.
+- `za` opens the block and closes it again, and `zd` deletes it. The
+  clips under it then show as before.
+- `znn` on a closed block enters it, and the window shows those tracks
+  in those bars. `zw` returns to the block, closed as it was.
+- The scene of the arrange view carries the cell, so the graphical
+  window gets the same cell as the terminal.
 
 ## Lua
 

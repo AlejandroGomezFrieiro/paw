@@ -5,6 +5,12 @@
 //! compares the project with what the engine last saw and sends the
 //! difference: only `sync` tells the engine. A test of an edit or an undo
 //! makes a [`Document`] and needs no engine.
+//!
+//! The submodules hold the methods of each area (tracks, clips, notes,
+//! lanes, nests, devices, tempo, the project's fields, the undo tree). Where
+//! a method needs what only the session has (a file, a plugin's parameter
+//! range), it takes it as an argument: `sound_seconds`, `is_file`,
+//! [`ParamRange`], `path`.
 
 use std::collections::{BTreeSet, HashMap};
 use std::sync::Arc;
@@ -18,6 +24,25 @@ use crate::events::{ClipCopied, KernelEvent as E, TrackCopied};
 use crate::history::{self, History, StateId};
 use crate::model::{Clip, ClipContent, ClipKindId, DeviceInst, Id, Links, MASTER_ID, Project, Track};
 use crate::sync::ModelEvent;
+
+// The model's part of each area: what reads or changes only the project.
+// A method that also reads a file, asks a plugin or tells the engine stays
+// on Session, in the file of the same name one folder up, and calls these.
+mod automation;
+mod clips;
+mod devices;
+mod links;
+mod nests;
+pub mod notes;
+mod project;
+mod tempo;
+mod tracks;
+mod undo_tree;
+pub use automation::ParamRange;
+pub(super) use automation::{check_lane_state, clean_points};
+pub(super) use clips::{ClipField, check_clip_track};
+pub use nests::NestOpts;
+pub use tracks::ControlMove;
 
 /// The project, its undo tree, and what its edits report.
 pub struct Document {
@@ -111,6 +136,13 @@ impl Document {
             Some(known) if *known != key => self.undo.sweep.mixed = true,
             Some(_) => {}
         }
+    }
+
+    /// Counts every change to the project, undo and redo included: a
+    /// cache of what the project names (the files that clips read) is
+    /// stale when the count moved.
+    pub fn changes(&self) -> u64 {
+        self.undo.edits
     }
 
     pub(super) fn new_id(&mut self) -> Id {

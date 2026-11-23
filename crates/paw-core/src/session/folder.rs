@@ -40,7 +40,7 @@ use serde_json::{Map, Value, json};
 
 use super::BASE64;
 use super::media::MEDIA_FILE;
-use super::project_files::{DiskFiles, ProjectFiles};
+use super::project_files::{DiskFiles, MemoryFiles, ProjectFiles};
 use crate::clipfile;
 use crate::model::{Clip, ClipContent, Control, KindData, Notes, Project, Target, Track};
 
@@ -1644,6 +1644,27 @@ impl super::Session {
         Ok(())
     }
 
+    /// Read the project kept in a folder (`song`, or `song/project.toml`)
+    /// without opening it, to compare it with the project that is open.
+    /// `files` gives the folder's own files by their path in it, for a
+    /// version that is not on the disk (a revision of git). Without
+    /// `files`, the reader takes them from the disk. The other files (the
+    /// media, and the track folders outside the project) always come from
+    /// the disk.
+    pub fn project_read(
+        &self,
+        path: &Path,
+        files: Option<BTreeMap<PathBuf, Arc<[u8]>>>,
+    ) -> Result<Project> {
+        let file = std::path::absolute(project_file(path))?;
+        let dir = file.parent().map(Path::to_path_buf).unwrap_or_default();
+        let read = match files {
+            Some(files) => read_from(&MemoryFiles::new(&dir, files), &self.home, &dir)?,
+            None => read(&self.home, &dir)?,
+        };
+        Ok(read.project)
+    }
+
     /// Every id the project gives out now, and the next one it will, so that
     /// parts from outside get ids of their own.
     fn used_ids(&self) -> BTreeSet<u64> {
@@ -1702,7 +1723,7 @@ impl super::Session {
             clip.source = Some(path.clone());
         }
         let id = track.id;
-        self.edit(|p| {
+        self.doc.edit(|p| {
             let at = index.map_or(usize::MAX, |i| i.saturating_sub(1)).min(p.tracks.len());
             p.tracks.insert(at, Arc::new(track));
             Ok(())
@@ -1730,7 +1751,7 @@ impl super::Session {
         let devices: Vec<Arc<crate::model::DeviceInst>> =
             serde_json::from_value(value["devices"].take()).with_context(|| format!("reading {}", file.display()))?;
         let count = devices.len();
-        self.edit(|p| {
+        self.doc.edit(|p| {
             let t = p.track_mut(track).with_context(|| format!("no track {track}"))?;
             t.devices = devices;
             // Lanes of the devices that went go with them.

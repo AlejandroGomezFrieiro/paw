@@ -713,7 +713,7 @@ impl Session {
         {
             bail!("{}", other_sound(from, &to));
         }
-        let clips = self.edit(|p| Ok(map_files(p, |f| (f == from).then(|| to.clone()))))?;
+        let clips = self.doc.edit(|p| Ok(map_files(p, |f| (f == from).then(|| to.clone()))))?;
         let dir = to.parent().map(Path::to_path_buf).unwrap_or_default();
         let mut result = self.media_search(&dir)?;
         result["clips"] = json!(clips);
@@ -736,7 +736,7 @@ impl Session {
         self.report_refused(&found);
         if !found.moved.is_empty() {
             let moved: HashMap<PathBuf, PathBuf> = found.moved.iter().cloned().collect();
-            self.edit(|p| Ok(map_files(p, |f| moved.get(f).cloned())))?;
+            self.doc.edit(|p| Ok(map_files(p, |f| moved.get(f).cloned())))?;
         }
         Ok(json!({
             "found": found.moved.len(),
@@ -788,9 +788,45 @@ impl Session {
             copies.insert(file.clone(), copy);
         }
         if !copies.is_empty() {
-            self.edit(|p| Ok(map_files(p, |f| copies.get(f).cloned())))?;
+            self.doc.edit(|p| Ok(map_files(p, |f| copies.get(f).cloned())))?;
         }
         Ok(json!({ "copied": copies.len() - same, "same": same, "missing": missing, "dir": media }))
+    }
+
+    /// Copy every file that `project` (not the session's) plays into
+    /// `media` of the new project folder `dir`, and point its clips at the
+    /// copies by their path in `dir`. Files with the same bytes are copied
+    /// once. A file that is not there keeps its path. Returns the
+    /// `media.json` of the folder and the files that are missing.
+    pub(super) fn media_gather(&mut self, project: &mut Project, dir: &Path) -> Result<(MediaTable, Vec<PathBuf>)> {
+        let media = dir.join("media");
+        let mut copies: HashMap<PathBuf, PathBuf> = HashMap::new();
+        let mut by_hash: HashMap<SourceHash, PathBuf> = HashMap::new();
+        let mut missing = Vec::new();
+        for file in sources_of(project) {
+            if !file.is_file() {
+                missing.push(file);
+                continue;
+            }
+            let hash = self
+                .sources
+                .hash_now(&file)
+                .with_context(|| format!("reading {}", file.display()))?;
+            let copy = match by_hash.get(&hash) {
+                Some(copy) => copy.clone(),
+                None => copy_into(&file, &media, &mut self.sources)?,
+            };
+            by_hash.insert(hash, copy.clone());
+            copies.insert(file, copy);
+        }
+        map_files(project, |f| copies.get(f).map(|c| c.strip_prefix(dir).unwrap_or(c).to_path_buf()));
+        // The copies were hashed as they were written: the table names them.
+        let copied: HashSet<&PathBuf> = copies.values().collect();
+        let table = self
+            .sources
+            .table()
+            .renamed(|path| copied.contains(&path.to_path_buf()).then(|| path.strip_prefix(dir).unwrap_or(path).to_path_buf()));
+        Ok((table, missing))
     }
 
     /// Copy a file into `media` beside the project, for importing with

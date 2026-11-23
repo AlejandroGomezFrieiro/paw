@@ -41,6 +41,7 @@ local events = require("paw.events")
 local kernel = require("paw.events.kernel")
 local options = require("paw.options")
 local commands = require("paw.commands")
+local derived = require("paw.derived")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
@@ -195,25 +196,28 @@ local function nest_exists(id: integer): boolean
   return false
 end
 
--- The regions by id, read again only when the project or an event changed
--- since the last read. `span` asks for its region for each lane and each
--- bar of the ruler in a frame, and one read of the markers asks the kernel
--- for the whole project. The key is `paw.events.stamp()`, as for the kept
--- windows of the screen and the marks of paw/groups.tl.
-local regions_read: {integer: MarkersModule.Marker} = {}
+-- The regions asked for by id, kept until the project or an event changes.
+-- `span` asks for its region for each lane and each bar of the ruler in a
+-- frame. The tree of regions (`paw.markers.node`) is a value of
+-- `paw.derived` that an edit of a note does not make stale, but each read
+-- of it asks the kernel whether the project changed. The key is
+-- `paw.events.stamp()`, as for the kept windows of the screen and the
+-- marks of paw/groups.tl. `false`: no region has that id.
+local regions_read: {integer: MarkersModule.Marker | boolean} = {}
 local regions_stamp = -1
 
 local function region(id: integer): MarkersModule.Marker
   local now = events.stamp()
   if now ~= regions_stamp then
     regions_read, regions_stamp = {}, now
-    for _, m in ipairs(paw.markers and paw.markers.list() or {}) do
-      if m.length then
-        regions_read[m.id] = m
-      end
-    end
   end
-  return regions_read[id]
+  local kept = regions_read[id]
+  if kept == nil then
+    local node = paw.markers and paw.markers.node(id)
+    kept = node and node.region or false
+    regions_read[id] = kept
+  end
+  return kept ~= false and kept as MarkersModule.Marker or nil
 end
 
 --- Whether the source of one level is still there.
@@ -419,11 +423,8 @@ local function limits_inside(scope: Scope): boolean
   return false
 end
 
---- The tracks of a scope (the current one by default), in the order of the
---- track list. With no scope, or one that keeps every track, all tracks of
---- the song; in a subproject, its tracks.
-function M.tracks(s?: Scope | integer): {integer}
-  local scope = resolve(s)
+--- The tracks of a scope, worked out from the kernel's lists each time.
+local function tracks_of(scope: Scope): {integer}
   local nest = M.nest(scope)
   local list = nest and api.track_list({nest = nest.id}) or api.track_list()
   if not (scope and limits_inside(scope)) then
@@ -434,6 +435,100 @@ function M.tracks(s?: Scope | integer): {integer}
     if M.contains(id, scope) then
       out[#out + 1] = id
     end
+  end
+  return out
+end
+
+--- Whether a level of a scope is of a kind.
+local function has_level(scope: Scope, kind: Kind): boolean
+  while scope do
+    if scope.kind == kind then
+      return true
+    end
+    scope = scope.parent
+  end
+  return false
+end
+
+--- A text of every level of a scope: two scopes with the same text show
+--- the same tracks.
+local function scope_text(scope: Scope): string
+  local parts: {string} = {}
+  while scope do
+    parts[#parts + 1] = string.format(
+      "%s:%s:%s:%s:%s",
+      scope.kind,
+      tostring(scope.id),
+      tostring(scope.from),
+      tostring(scope.to),
+      scope.tracks and table.concat(scope.tracks, ",") or ""
+    )
+    scope = scope.parent
+  end
+  return #parts > 0 and table.concat(parts, "/") or "song"
+end
+
+--- The levels of a scope, with the fields that choose its tracks.
+local function copy_levels(scope: Scope): Scope
+  if not scope then
+    return nil
+  end
+  local tracks: {integer}
+  if scope.tracks then
+    tracks = {}
+    for i, id in ipairs(scope.tracks) do
+      tracks[i] = id
+    end
+  end
+  return {
+    kind = scope.kind,
+    id = scope.id,
+    tracks = tracks,
+    from = scope.from,
+    to = scope.to,
+    parent = copy_levels(scope.parent),
+  }
+end
+
+-- The tracks of a scope of the song are a value of `paw.derived`, one for
+-- each scope (`scope_text`). They read the track list, and for a scope
+-- with a group, the `meta` of each track: the marks of the groups.
+-- An edit of a note or a clip does not make them stale. A region gives no
+-- source: it limits the time, never the tracks. A scope in a subproject is
+-- not kept: the kernel tells no event when the tracks of a subproject
+-- change their order.
+local tracks_spec: derived.Spec<Scope, {integer}, boolean> = {
+  name = "scope.tracks",
+  kind = "memo",
+  id = scope_text,
+  make = function(ctx: derived.Ctx, scope: Scope): {integer}
+    ctx:tracks()
+    if has_level(scope, "group") then
+      for _, id in ipairs(api.track_list()) do
+        ctx:source("track:" .. id .. ":meta")
+      end
+    end
+    return tracks_of(scope)
+  end,
+  limit = 64,
+}
+local tracks_node = derived.node(tracks_spec)
+
+--- The tracks of a scope (the current one by default), in the order of the
+--- track list. With no scope, or one that keeps every track, all tracks of
+--- the song; in a subproject, its tracks.
+function M.tracks(s?: Scope | integer): {integer}
+  local scope = resolve(s)
+  if has_level(scope, "nest") then
+    return tracks_of(scope)
+  end
+  -- The graph keeps a copy of the scope: `enter` sets the parent of a
+  -- scope after it asked for its tracks. The caller gets a copy of the
+  -- list: it may change it.
+  local kept = tracks_node:get(copy_levels(scope), true)
+  local out: {integer} = {}
+  for i = 1, #kept do
+    out[i] = kept[i]
   end
   return out
 end
@@ -855,11 +950,12 @@ function M.of_fold(f: contracts.Fold): Scope
 end
 
 --- The scope that `znn` enters at the cursor: the innermost not entered
---- yet. On a closed time fold (paw/folds.tl), its region or its bars; a
---- subproject's clip at the cursor; in a region scope, the region one
---- level inside it at the cursor; else the closed fold of tracks whose row
---- the cursor is on (paw/folds.tl), else the group at the cursor (its
---- header or one of its tracks), else the track. Nil when the window shows
+--- yet. On a closed time fold (paw/folds.tl), its region or its bars; on
+--- a closed block fold, its tracks in its bars; a subproject's clip at
+--- the cursor; in a region scope, the region one level inside it at the
+--- cursor; else the closed fold of tracks whose row the cursor is on
+--- (paw/folds.tl), else the group at the cursor (its header or one of its
+--- tracks), else the track. Nil when the window shows
 --- that track already.
 function M.at_cursor(): Scope
   -- A closed time fold at the cursor: its region, or its range of bars.
@@ -870,6 +966,11 @@ function M.at_cursor(): Scope
       return {kind = "region", id = f.id}
     end
     return {kind = "range", from = span.from, to = span.to, name = f.name}
+  end
+  -- A closed block fold at the cursor: its tracks in its bars.
+  local block = paw.folds.block_at_cursor()
+  if block then
+    return M.of_fold(block)
   end
   local clip = paw.cursor.clip()
   local nest = clip and M.of_clip(clip.id)

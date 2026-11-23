@@ -202,21 +202,21 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     api.set(
         "tempo_set",
         lua.create_function(guarded!("tempo_set", move |_, (beat, bpm, ramp): (f64, f64, Option<bool>)| {
-            sh.session.borrow_mut().tempo_set(beat, bpm, ramp).lua()
+            sh.session.borrow_mut().doc.tempo_set(beat, bpm, ramp).lua()
         }))?,
     )?;
     let sh = shared.clone();
     // @return nil
     api.set(
         "tempo_remove",
-        lua.create_function(guarded!("tempo_remove", move |_, beat: f64| sh.session.borrow_mut().tempo_remove(beat).lua()))?,
+        lua.create_function(guarded!("tempo_remove", move |_, beat: f64| sh.session.borrow_mut().doc.tempo_remove(beat).lua()))?,
     )?;
     let sh = shared.clone();
     // @return nil
     api.set(
         "signature_set",
         lua.create_function(guarded!("signature_set", move |_, (beat, num, den): (f64, u32, u32)| {
-            sh.session.borrow_mut().signature_set(beat, num, den).lua()
+            sh.session.borrow_mut().doc.signature_set(beat, num, den).lua()
         }))?,
     )?;
     let sh = shared.clone();
@@ -224,7 +224,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     api.set(
         "signature_remove",
         lua.create_function(guarded!("signature_remove", move |_, beat: f64| {
-            sh.session.borrow_mut().signature_remove(beat).lua()
+            sh.session.borrow_mut().doc.signature_remove(beat).lua()
         }))?,
     )?;
     // Replace the whole map: `tempo_set_points({ { beat, bpm, ramp } }, { { beat, num, den } })`.
@@ -253,7 +253,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
                     den: p.den,
                 })
                 .collect();
-            sh.session.borrow_mut().tempo_set_points(tempos, sigs).lua()
+            sh.session.borrow_mut().doc.tempo_set_points(tempos, sigs).lua()
         }))?,
     )?;
     Ok(())

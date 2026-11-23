@@ -741,18 +741,20 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.folds
 
 - `paw.folds.all(on, win)`: Close every fold of a window, every group too (`zM`), or open them all (`zR`).
-- `paw.folds.at(id, win)`: The fold at a track (the cursor's by default), in a window: the largest closed one, which its row stands for, else the smallest. Nil when the track is in none.
+- `paw.folds.at(id, win)`: The fold at a track (the cursor's by default), in a window: the largest closed one, which its row stands for, else the smallest. Nil when the track is in none. At the cursor, a closed time fold or a block that the cursor is in comes first.
+- `paw.folds.block_at_cursor(win)`: The closed block fold at the cursor in a window, or nil.
+- `paw.folds.blocks(win)`: The closed block folds that a window draws (the one a view shows by default), in the order they were made: each draws one cell over the rows of its tracks and its time. A block that holds all of the scope the window shows is open there.
 - `paw.folds.clear(win)`: Delete every fold of a window, as `zE`. Returns how many there were.
 - `paw.folds.close(id, win)`: Close the fold at the cursor, as `zc`; on a closed fold, the one around it. Returns it, or nil and the reason.
-- `paw.folds.closed_at(win)`: The closed fold at the cursor, in a window: the time fold that the cursor is in, else the fold that the cursor's row stands for. Nil when the cursor is on no closed fold.
+- `paw.folds.closed_at(win)`: The closed fold at the cursor, in a window: the time fold that the cursor is in, else the closed block that it is in, else the fold that the cursor's row stands for. Nil when the cursor is on no closed fold.
 - `paw.folds.collapse(rows, win)`: The rows that a window draws, from the rows of its tracks without its folds of tracks: each closed fold of tracks keeps its first row, which stands for all of it.
 - `paw.folds.count(f)`: How many tracks of a fold are there.
 - `paw.folds.delete(id, win)`: Delete the fold at a track (the cursor's by default), as `zd`: the fold goes, its tracks stay, drawn as before. Returns it, or nil and the reason.
-- `paw.folds.describe(f)`: What a fold holds, in words: `3 tracks`, `8 bars`.
+- `paw.folds.describe(f)`: What a fold holds, in words: `3 tracks`, `8 bars`, `2 tracks, 4 bars`.
 - `paw.folds.group_closed(group, win)`: True if a group is folded into its row in a window (the one a view shows by default).
 - `paw.folds.level(delta, win)`: Close one more level of regions in a window (`zm`, `delta` -1: the deepest open level first), or open one (`zr`, 1), as the `foldlevel` option of Vim. The regions that `za` or `zf` opened or closed follow the level again. Returns the level: how many levels stay open.
 - `paw.folds.list(win)`: The folds of a window that a view shows (the one being drawn, else the current one). Empty when it has none.
-- `paw.folds.make(spec, win)`: Make a fold of what a scope covers (`zf{motion}`), closed, in a window: a group folds into its row (`zfag`), tracks into one row named `Fold 1` (`Vjjzf`). Returns it, or nil and the reason.
+- `paw.folds.make(spec, win)`: Make a fold of what a scope covers (`zf{motion}`), closed, in a window: a group folds into its row (`zfag`), tracks into one row named `Fold 1` (`Vjjzf`), a region or bars on every track into a column (`zfar`), and some tracks for some bars into one cell (a visual block, then `zf`). Returns it, or nil and the reason.
 - `paw.folds.name(f)`: The name a fold shows: its own, else its group's.
 - `paw.folds.open(id, win)`: Open the fold at the cursor (the one its row stands for). Returns it, or nil and the reason.
 - `paw.folds.over`: the same as `paw.cursor.over`.
@@ -1507,6 +1509,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.nest.blocks(nest)`: Every clip that places subproject `nest`, in order of time.
 - `paw.nest.content_key(c)`: A key that changes when what a block plays changes: the stamps of the clips of its subproject, and the block's own place in it.
 - `paw.nest.describe(c)`: `K` on a block: `nest Ballad · 6/8 · 8 bars · follows the tempo · 2 tracks · 1 instance · live`, or `frozen` at the end for a frozen block. `c` is the clip, in the window's time.
+- `paw.nest.export(nest, folder)`: Write subproject `nest` as a project folder of its own at `folder` (`~/` is the home folder), as `:nest.export` does: its tracks, its master, its markers and regions, its tempo and meter as its first block plays them, and its media copied in (`paw.api.nest_export`). The song does not change. Returns the message.
 - `paw.nest.get(id)`: The subproject `id`, or nil when there is none.
 - `paw.nest.is_open(row)`: Whether a row is open in place.
 - `paw.nest.list()`: Every subproject, in the order they were made: { id, name, length, tempo, meter, master, tracks, kind, meta, used }.
@@ -1521,6 +1524,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.nest.toggle(track)`: `za` on a return row: open its subproject's tracks under it, in the song's time, or close them. On a track shown in place: close its row. False when the track is neither.
 - `paw.nest.under`: the same as `paw.groups.under`.
 - `paw.nest.unique(clip)`: Make the block `clip` a subproject of its own, as `:nest.unique` does: a copy of its subproject that only this block plays; the others keep the subproject. A window inside it through this block goes inside the copy. Call it in one undo step. Returns the message.
+- `paw.nest.write(folder)`: Write the window's view as a project folder of its own at `folder` (`~/` is the home folder), as `:scope.write <folder>` does: copies of its tracks with their devices, their clips and lanes in its time, the markers and regions inside, the tempo and meter of its time, and the media copied in (`paw.api.scope_export`). Inside a subproject, the subproject, as `paw.nest.export` writes it. The song does not change. Returns the message.
 
 ## Module paw.notes
 
@@ -1956,7 +1960,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.scope
 
 - `paw.scope.apply(s)`: Tell the engine what the rest of the song does for a scope. This is the scope of the tab in front, which the last seat to change tabs (a terminal or a window) selected.
-- `paw.scope.at_cursor()`: The scope that `znn` enters at the cursor: the innermost not entered yet. On a closed time fold (paw/folds.tl), its region or its bars; a subproject's clip at the cursor; in a region scope, the region one level inside it at the cursor; else the closed fold of tracks whose row the cursor is on (paw/folds.tl), else the group at the cursor (its header or one of its tracks), else the track. Nil when the window shows that track already.
+- `paw.scope.at_cursor()`: The scope that `znn` enters at the cursor: the innermost not entered yet. On a closed time fold (paw/folds.tl), its region or its bars; on a closed block fold, its tracks in its bars; a subproject's clip at the cursor; in a region scope, the region one level inside it at the cursor; else the closed fold of tracks whose row the cursor is on (paw/folds.tl), else the group at the cursor (its header or one of its tracks), else the track. Nil when the window shows that track already.
 - `paw.scope.bar_offset(s)`: How many bars of the song come before the first bar of a scope (the current one by default) when its bars are numbered from 1: 0 with no time, or with `scopebars=song`. A scope's bars are the song's (its meter map), counted from the bar its time starts in.
 - `paw.scope.breadcrumb(s)`: The path in words: `Song › Bridge › Strings`; a subproject is marked `⧉`: `Song › ⧉Ballad › Strings`.
 - `paw.scope.children(s)`: The scopes one level inside a scope (the current one by default): for a region scope, the regions one level inside its region (paw/markers.tl), in order of time; for a group scope, its members (a group or a track), in order. Each has that scope as its parent. Other kinds have none.
@@ -2663,6 +2667,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.midi_ump(event)`: What an event is as a MIDI 2.0 packet: two 32-bit words.
 - `paw.api.nest_add(opts)`: Make a subproject with its master track and no other track, as one undo step, for example `{ name = "Bridge", length = 32 }`. The length is in beats, and 32 when you leave it out. Add its tracks with `track_add({ nest = id })`. Returns its id.
 - `paw.api.nest_beat(clip, beat)`: The subproject's beat of the song's beat `beat`, for block `clip`.
+- `paw.api.nest_export(id, dir)`: Write a subproject as a project folder of its own at `dir`, a new or empty folder. Its tracks become the project's tracks and its master the master. A subproject that follows the song's tempo or meter gets the song's from its first block. Its media are copied into `media/`. The song does not change. Returns `path` (the new `project.toml`), `tracks`, `media` (the files copied), `missing` and `changes`.
 - `paw.api.nest_get(id, key)`: A subproject as a table: its fields, `tracks` (its tracks in order, without its master) and `used` (whether the song plays it). With `key`, only that field of its own (`name`, `length`, `master`...): this is quicker.
 - `paw.api.nest_list()`: --- nests (subprojects): tracks with a timeline of their own --- The ids of the subprojects, in the order they were made.
 - `paw.api.nest_own_tempo(clip)`: Whether the subproject that block `clip` places counts its own time: true with its own tempo, false with only its own meter, nil when it follows the song's tempo and meter (the song's map from the block's start is its time then). The `nest_tempo_*` functions give its map.
@@ -2704,6 +2709,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.proc_write(id, data)`
 - `paw.api.project_backup(path, note)`: Write the project as it is now to a different file. The path of the project and its modified flag do not change. The file keeps `note` under `recovery`.
 - `paw.api.project_changed_files()`: The files of the open project that changed outside paw and are not acted on yet: paths in its folder, or full paths outside it.
+- `paw.api.project_file_managed(rel)`: Whether `rel`, a path in a project folder, is one of the files that paw writes there (`project_read` takes these from `files`).
 - `paw.api.project_file_text(value)`
 - `paw.api.project_files()`: The files of a project kept in a folder, with what each holds and if it differs from the disk (see `:ls`).
 - `paw.api.project_get(key)`: --- project --- The project as a table. With `key`, only that entry of the table: this is quicker (`edits`, which goes up with each change, is asked for on each key and each edit).
@@ -2711,6 +2717,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.project_load(path, opts)`: `opts.plugins_offline` opens it with all plugins offline. `opts.offline` is a list of devices (by id) to open offline.
 - `paw.api.project_mark_saved()`: Count the project as it is now as saved, for a script that wrote what it holds somewhere itself (a clip opened alone, written back to its file).
 - `paw.api.project_new()`
+- `paw.api.project_read(path, files)`: Read a project folder (`song` or `song/project.toml`) without opening it, in the form that `undo_project` gives. `files` holds the files that paw writes in the folder, by their path in it, for a version that is not on the disk, such as a revision of git. paw reads the media from the disk. See extensions/projdiff.
 - `paw.api.project_recover(path, opts)`: Open a file written by `project_backup` as the project it was a copy of: under that project's own file name, and as changed. `opts`: `as_path` opens it under that file name instead (for a `.bak`, which has no note), and what `project_load` takes.
 - `paw.api.project_reload()`: Read a project kept in a folder again, as one undo step.
 - `paw.api.project_save(path)`
@@ -2747,6 +2754,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.scene_open(rect, opts)`: While a view is drawn for a scene: a node over a rectangle of it, in units of the scene, that what is written until `scene_close` goes into. `opts`: `role` (a group without), `props`, `hit` (a press on it is on that), `bind` (`meter:4`), `key` (its name; the role and where it is without), `clip` (the part that shows). With `plane` (`{ x = axis, y = axis }`, each `{ domain, from, per }`, see `paw_scene::Axis`) it is a plane, whose kids are placed in its domain; with `into` (the key a plane was made with) it goes into that plane, `rect` in the plane's domain. False when paw draws no scene now, or there is no such plane, with nothing to close.
 - `paw.api.scene_picture(rect, opts)`: A drawing (`paw.canvas` operations) over a rectangle of the scene: `opts` `ops`, `px` (`{ w, h }` it was drawn at), `under` (the cells drawn there go over it), `clip` (the part that shows).
 - `paw.api.scene_roles(client, roles)`: The roles `client` draws itself: in what it is sent from now on, such a role goes without the cells that draw it for a terminal.
+- `paw.api.scope_export(opts, dir)`: Write a view as a project folder of its own at `dir`, a new or empty folder: copies of `tracks` with their devices, their clips and lanes from `from` to `to` (beats of their place) from beat 0, the markers and regions inside, and the tempo and meter of the time. A route to a track outside the view is cut, and `changes` tells each cut. The song does not change. Returns what `nest_export` returns.
 - `paw.api.signature_remove(beat)`
 - `paw.api.signature_set(beat, num, den)`
 - `paw.api.sleep(ms)`

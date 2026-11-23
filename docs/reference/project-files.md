@@ -123,6 +123,12 @@ places in the song. In commands and in the files, a subproject is a
   and from tracks of the same subproject. Its master has no output and
   no sends, because it plays into the song through the clips that place
   the subproject.
+- `:nest.export <folder>` writes a subproject as a project folder of its
+  own, and `:scope.write <folder>` writes a view as one. The new folder
+  has a `project.toml`, a folder for each track and its own `media/`
+  with copies of the sound files, and its `nests/` has the subprojects
+  inside what it writes. See
+  [Write a subproject or a view as a project](subprojects.md#write-a-subproject-or-a-view-as-a-project).
 
 ## Save
 
@@ -290,8 +296,10 @@ one change gives a small diff.
 | --- | --- |
 | `paw.api.project_file_text(file)` | The text of a project given as data, written the same way. It refuses a project that would not open. |
 | `paw.api.undo_project(id)` | A state of the undo tree, as a project file holds it. |
+| `paw.api.project_read(path, files)` | A project folder in the same form, without opening it. `files` gives the files that paw writes in the folder by their path in it, for a version that is not on the disk. |
+| `paw.api.project_file_managed(path)` | Whether a path in a project folder is one of the files that paw writes there. |
 
-`extensions/projdiff` uses both: a diff and a three-way merge of projects,
+`extensions/projdiff` uses them: a diff and a three-way merge of projects,
 and the drivers for version control.
 
 ## Safety copies

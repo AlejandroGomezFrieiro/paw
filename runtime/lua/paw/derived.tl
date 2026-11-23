@@ -117,7 +117,8 @@ local record M
     get: function<K, V, I>(self: Ctx, node: Node<K, V, I>, key: K): V
     --- Record a source by its name: `track:<id>:<field>`,
     --- `track:<id>:clips`, `tracks`, `tempo`, `option:<name>`,
-    --- `clip:<id>`, `device:<id>`.
+    --- `clip:<id>`, `device:<id>`, `project` (the project's own fields:
+    --- its name, its `meta` and its tempo map).
     source: function(self: Ctx, name: string)
     --- A track, and the fields of it that the entry reads.
     track: function(self: Ctx, id: integer, fields: {string}): types.Track
@@ -1353,37 +1354,61 @@ M.changed = events.event("derived.changed") as events.Event<Changed>
 
 -- What the kernel says changed: the sources ----------------------------------------------
 
-events.on(
-  kernel.track_changed,
-  function(e: kernel.TrackChange)
-    for i_f = 1, #e.fields do
-      local f = e.fields[i_f]
-      mark("track:" .. e.id .. ":" .. f)
+-- The sources that an event of the kernel marks, by the name of the event.
+local function track_fields(p: kernel.Payload)
+  local e = p as kernel.TrackChange
+  for i_f = 1, #e.fields do
+    mark("track:" .. e.id .. ":" .. e.fields[i_f])
+  end
+end
+local function track_list(_: kernel.Payload)
+  mark("tracks")
+end
+local function clip(p: kernel.Payload)
+  mark("clip:" .. (p as kernel.Item).id)
+end
+local function device(p: kernel.Payload)
+  mark("device:" .. (p as kernel.Item).id)
+end
+local function project(_: kernel.Payload)
+  mark("project")
+  local stamp = project_int("tempo_stamp")
+  if stamp ~= tempo_seen then
+    tempo_seen = stamp
+    mark("tempo")
+  end
+end
+local marks: {string: function(kernel.Payload)} = {
+  [kernel.track_changed.name] = track_fields,
+  [kernel.track_added.name] = track_list,
+  [kernel.track_removed.name] = track_list,
+  [kernel.track_moved.name] = track_list,
+  [kernel.clip_added.name] = clip,
+  [kernel.clip_changed.name] = clip,
+  [kernel.clip_removed.name] = clip,
+  [kernel.device_added.name] = device,
+  [kernel.device_changed.name] = device,
+  [kernel.device_removed.name] = device,
+  [kernel.project_changed.name] = project,
+}
+
+--- The kernel gave the events of the edits made until now (paw/init.lua
+--- calls this before it sends them). Their sources are marked at once: a
+--- handler of the first event that reads a value (a text buffer that reads
+--- its lines again, for example) then gets it made from all of the edits,
+--- and the edits are not taken for edits whose events did not come yet,
+--- which makes every value again (`node:get` with `latest`).
+function M.taken(list: {kernel.KernelEvent})
+  for i_e = 1, #list do
+    local fn = marks[list[i_e].name]
+    if fn then
+      fn(list[i_e].payload)
     end
   end
-)
-for _, event in ipairs({kernel.track_added, kernel.track_removed}) do
-  events.on(event, function(_: kernel.TrackId) mark("tracks") end)
+  edits_seen = project_int("edits")
 end
-events.on(kernel.track_moved, function() mark("tracks") end)
-for _, event in ipairs({kernel.clip_added, kernel.clip_changed, kernel.clip_removed}) do
-  events.on(event, function(e: kernel.Item) mark("clip:" .. e.id) end)
-end
-for _, event in ipairs({kernel.device_added, kernel.device_changed, kernel.device_removed}) do
-  events.on(event, function(e: kernel.Item) mark("device:" .. e.id) end)
-end
-events.on(
-  kernel.project_changed,
-  function()
-    local stamp = project_int("tempo_stamp")
-    if stamp ~= tempo_seen then
-      tempo_seen = stamp
-      mark("tempo")
-    end
-  end
-)
+
 events.on(options.changed, function(e: options.Changed) mark("option:" .. e.name) end)
-events.on(kernel.changed, function() edits_seen = project_int("edits") end)
 events.on(kernel.project_loaded, function() M.reset() end)
 
 return M

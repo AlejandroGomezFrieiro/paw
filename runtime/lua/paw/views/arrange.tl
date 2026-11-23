@@ -1781,6 +1781,38 @@ local function draw_time_folds(self: Arrange, F: Frame)
   end
 end
 
+--- Each block fold: one cell over the rows of its tracks and its time,
+--- with its name on its first row (paw/folds.tl). The other tracks show
+--- that time as usual. The cursor on it marks its row.
+local function draw_block_folds(self: Arrange, F: Frame)
+  local L, cursor = F.L, paw.cursor
+  for _, f in ipairs(paw.folds.blocks()) do
+    local x0 = math.max(0, self:col(f.from))
+    local x1 = math.min(L.tw, self:col(f.to))
+    if x1 > x0 then
+      local member: {integer: boolean} = {}
+      for _, id in ipairs(f.tracks) do
+        member[id] = true
+      end
+      local label = util.fit(paw.folds.name(f), math.max(1, x1 - x0 - 1))
+      local first = true
+      for _, row in ipairs(L.rows) do
+        if member[row.id] then
+          F.lanes:fill(x0, row.y, x1 - x0, row.h, " ", "TimeFoldBody")
+          if first then
+            F.lanes:text(x0 + 1, row.y, label, "TimeFold")
+            first = false
+          end
+          local here = cursor.beat >= f.from - 1e-9 and cursor.beat < f.to - 1e-9
+          if here and row.kind == "track" and row.id == F.cursor_track then
+            F.lanes:fill(x0, row.y, x1 - x0, 1, nil, paw.keymap.mode == "x" and "CursorVisual" or "Cursor")
+          end
+        end
+      end
+    end
+  end
+end
+
 --- Under the last track: the welcome of a new project, or, with room left,
 --- how to add a track (a button in a window, which a click opens the kinds
 --- of track from).
@@ -2010,6 +2042,7 @@ function view:render(buf: Buf, ctx: contracts.RenderContext)
   draw_selection(self, F)
   draw_scope_outside(self, F, scope_from, scope_to)
   draw_time_folds(self, F)
+  draw_block_folds(self, F)
   draw_below(F)
   draw_master(self, F)
   draw_layers(self, F)

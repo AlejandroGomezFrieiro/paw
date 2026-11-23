@@ -156,6 +156,35 @@ test("narrowing to a group shows its tracks alone in this window, and widening c
   reset()
 end)
 
+test("a group's scope works out its tracks again after a change of the group, not after an edit of a note", function()
+  start()
+  local o = orchestra()
+  -- The list of tracks as text, open in no window: it reads its lines again
+  -- in the events of each edit.
+  keys(":vs paw://tracks<CR>:q<CR>")
+  T.after(function() keys(":bd paw://tracks<CR>") end)
+  paw.scope.narrow("Strings")
+  eq(names(paw.scope.tracks()), "Strings Violins Cellos", "the strings")
+  local function made()
+    for _, s in ipairs(require("paw.derived").stats()) do
+      if s.name == "scope.tracks" then return s.made end
+    end
+  end
+  local before = made()
+  o.violins:clips()[1]:add_note({ pitch = 79, start = 3, length = 1 })
+  api.undo_checkpoint()
+  -- The events of the edit come, as at the end of a key.
+  paw.flush()
+  eq(names(paw.scope.tracks()), "Strings Violins Cellos", "the same tracks after a note edit")
+  eq(made(), before, "a note edit does not work them out again")
+  -- Out of the group in place: only the marks of the track change.
+  paw.groups.remove(o.cellos, true)
+  api.undo_checkpoint()
+  paw.flush()
+  eq(names(paw.scope.tracks()), "Strings Violins", "a track taken out of the group is outside")
+  reset()
+end)
+
 test("zn takes a motion: znag, znn, ]z [z beside, zw up, zW to the song, <C-o> back into a scope", function()
   start()
   local o = orchestra()

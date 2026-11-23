@@ -188,6 +188,7 @@ local record api
    midi_ump: function(event: types.MidiEvent): {integer}
    nest_add: function(opts?: types.NestOptions): integer
    nest_beat: function(clip: integer, beat: number): number
+   nest_export: function(id: integer, dir: string): types.NestExported
    nest_get: function(id: integer): types.Nest
    nest_list: function(): {integer}
    nest_own_tempo: function(clip: integer): boolean
@@ -230,6 +231,7 @@ local record api
    proc_write: function(id: integer, data: string)
    project_backup: function(path: string, note: any)
    project_changed_files: function(): {string}
+   project_file_managed: function(rel: string): boolean
    project_file_text: function(value: types.ProjectData): string
    project_files: function(): {types.ProjectFile}
    project_get: function(): types.Project
@@ -237,6 +239,7 @@ local record api
    project_load: function(path: string, opts?: types.OpenOptions)
    project_mark_saved: function()
    project_new: function()
+   project_read: function(path: string, files?: {string:string}): types.ProjectData
    project_recover: function(path: string, opts?: types.OpenOptions): any
    project_reload: function()
    project_save: function(path?: string): string
@@ -274,6 +277,7 @@ local record api
    scene_open: function(rect: types.Rect, opts?: types.SceneOpenOptions): boolean
    scene_picture: function(rect: types.Rect, opts: types.ScenePictureOptions)
    scene_roles: function(client: integer, roles: {string})
+   scope_export: function(opts: types.ScopeExportOptions, dir: string): types.NestExported
    signature_remove: function(beat: number)
    signature_set: function(beat: number, num: integer, den: integer)
    sleep: function(ms: number)
