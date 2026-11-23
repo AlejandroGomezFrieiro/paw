@@ -1,13 +1,13 @@
 -- Versions of a project to compare: a project folder (which the kernel
 -- reads), a project in one JSON file, a revision in git, a state of the
--- undo tree or a snapshot, as decoded project files; and what to do with
--- the difference (the view, quickfix).
+-- undo tree or a snapshot, as decoded project files; the three versions of
+-- a git merge that stopped on conflicts; and what to do with the
+-- difference (the view, quickfix).
 local data = require("projdiff.data")
 local diff = require("projdiff.diff")
 local merge = require("projdiff.merge")
-local text = require("projdiff.text")
 
-local M = { data = data, diff = diff, merge = merge, text = text }
+local M = { data = data, diff = diff, merge = merge }
 
 -- Snapshots of a project that has no file yet, by name: as checkpoints are,
 -- but kept in this session.
@@ -97,13 +97,30 @@ local function output(command)
   return out
 end
 
+--- The bytes of git objects, in the order of `objects`, read in one run
+--- of git in the folder `dir`. Nil when git gives fewer.
+local function git_objects(dir, objects)
+  -- `cat-file --batch` gives each object in the order asked, as
+  -- `<object> blob <size>\n`, the bytes and `\n`.
+  local out =
+    output("cd " .. quote(dir) .. " && printf '%s\\n' " .. table.concat(objects, " ") .. " | git cat-file --batch")
+  local list, at = {}, 1
+  for i = 1, #objects do
+    local head_end = out:find("\n", at, true)
+    local size = head_end and tonumber(out:sub(at, head_end - 1):match(" (%d+)$"))
+    if not size then return nil end
+    list[i] = out:sub(head_end + 1, head_end + size)
+    at = head_end + size + 2
+  end
+  return list
+end
+
 --- The files that paw writes in the project folder `dir`, as the revision
 --- `rev` of git holds them: path in the folder -> bytes. git reads them
 --- from its store in two runs (the list, then the contents), so the
 --- working tree does not change. Nil when the revision has no project there.
 local function git_files(rev, dir)
-  local cd = "cd " .. quote(dir) .. " && "
-  local listed = output(cd .. "git ls-tree -r -z " .. quote(rev) .. " -- . 2>/dev/null")
+  local listed = output("cd " .. quote(dir) .. " && git ls-tree -r -z " .. quote(rev) .. " -- . 2>/dev/null")
   local paths, objects = {}, {}
   -- Each entry is `<mode> <type> <object>\t<path>` and a zero byte; the
   -- paths are relative to `dir`.
@@ -114,19 +131,61 @@ local function git_files(rev, dir)
     end
   end
   if #paths == 0 then return nil end
-  -- `cat-file --batch` gives each object in the order asked, as
-  -- `<object> blob <size>\n`, the bytes and `\n`.
-  local out = output(cd .. "printf '%s\\n' " .. table.concat(objects, " ") .. " | git cat-file --batch")
-  local files, at = {}, 1
-  for _, path in ipairs(paths) do
-    local head_end = out:find("\n", at, true)
-    local size = head_end and tonumber(out:sub(at, head_end - 1):match(" (%d+)$"))
-    if not size then return nil end
-    files[path] = out:sub(head_end + 1, head_end + size)
-    at = head_end + size + 2
+  local bytes = git_objects(dir, objects)
+  if not bytes then return nil end
+  local files = {}
+  for i, path in ipairs(paths) do
+    files[path] = bytes[i]
   end
   if not files["project.toml"] then return nil end
   return files
+end
+
+-- The side of a merge that each stage of git's index holds. A file that
+-- git merged has one entry, stage 0, which is the same on each side. A
+-- file in conflict has an entry for each side that has it.
+local SIDE_OF_STAGE = { ["1"] = "base", ["2"] = "ours", ["3"] = "theirs" }
+
+--- The three versions of the project folder `path` (the folder, or its
+--- `project.toml`) in a git merge that stopped on conflicts, as decoded
+--- files: `{ base, ours, theirs }`, read from git's index. `base` is nil
+--- when both sides added the project. Nil and why when no file of the
+--- project is in conflict, or a side does not read as a project.
+function M.git_merge(path)
+  local dir = folder_of(path)
+  local name = dir:match("[^/]*$")
+  local listed = output("cd " .. quote(dir) .. " && git ls-files -s -z -- . 2>/dev/null")
+  local entries, objects, conflicted = {}, {}, false
+  -- Each entry is `<mode> <object> <stage>\t<path>` and a zero byte.
+  for object, stage, file in listed:gmatch("%d+ (%x+) (%d)\t([^%z]+)%z") do
+    if paw.api.project_file_managed(file) then
+      entries[#entries + 1] = { path = file, side = SIDE_OF_STAGE[stage] }
+      objects[#objects + 1] = object
+      conflicted = conflicted or stage ~= "0"
+    end
+  end
+  if not conflicted then return nil, "git has no merge conflict in " .. name end
+  local bytes = git_objects(dir, objects)
+  if not bytes then return nil, "git cannot read the files of " .. name end
+  local files = { base = {}, ours = {}, theirs = {} }
+  for i, e in ipairs(entries) do
+    if e.side then
+      files[e.side][e.path] = bytes[i]
+    else
+      files.base[e.path], files.ours[e.path], files.theirs[e.path] = bytes[i], bytes[i], bytes[i]
+    end
+  end
+  local sides = {}
+  for _, side in ipairs({ "base", "ours", "theirs" }) do
+    if files[side]["project.toml"] then
+      local doc, err = M.folder(dir, files[side])
+      if not doc then return nil, side .. " of " .. name .. ": " .. err end
+      sides[side] = doc
+    elseif side ~= "base" then
+      return nil, "git has no project.toml of " .. name .. " in " .. side
+    end
+  end
+  return sides
 end
 
 --- What a revision of git holds of the project at `path`, decoded: the
@@ -259,6 +318,62 @@ function M.compare(args)
   if not b then return nil, err_b end
   if not second and first == project.path then label_a = "saved" end
   return { from = a, to = b, from_label = label_a, to_label = label_b }
+end
+
+--- The full path of the project folder that `path` names, to tell whether
+--- two paths name one folder.
+local function full_folder(path)
+  local dir = folder_of(path)
+  if dir:sub(1, 1) == "/" then return dir end
+  return (os.getenv("PWD") or ".") .. (dir == "." and "" or "/" .. dir)
+end
+
+local function first_line(err) return (tostring(err):match("[^\n]*"):gsub("^runtime error: ", "")) end
+
+--- Open the merged file `merged` as the project folder `dir`, not yet
+--- saved: the folder on the disk can hold the marks of git's conflicts,
+--- so paw cannot open it as it is.
+local function open_merged(merged, dir)
+  local ok, text = pcall(paw.api.project_file_text, merged)
+  if not ok then return nil, "the merge is not a project that opens: " .. first_line(text) end
+  local copy = os.tmpname()
+  local file = assert(io.open(copy, "wb"))
+  file:write(text)
+  file:close()
+  local opened, why = pcall(paw.api.project_recover, copy, { as_path = dir .. "/project.toml" })
+  os.remove(copy)
+  if not opened then return nil, first_line(why) end
+  return true
+end
+
+--- Merge the three versions of the project folder `path` that git's index
+--- holds after a merge stopped on conflicts (`git_merge`), and make the
+--- result the open project. When the folder is the open project, the
+--- result takes its place as one undo step. Otherwise paw opens the folder
+--- with the result in it, not yet saved. Where both sides changed one
+--- thing, the result holds ours, and its `meta.merge_conflicts` lists the
+--- conflict (`merge.files`). Returns the number of conflicts, or nil and why.
+function M.merge_git(path)
+  local sides, err = M.git_merge(path)
+  if not sides then return nil, err end
+  local merged = merge.files(sides.base, sides.ours, sides.theirs)
+  local open = paw.api.project_get("path")
+  local dir = full_folder(path)
+  if open and is_folder(open) and full_folder(open) == dir then
+    local ok, why = pcall(paw.api.project_replace, merged.project)
+    if not ok then return nil, "the merge is not a project that opens: " .. first_line(why) end
+    -- The merge holds what git changed in the files: a save writes it over them.
+    paw.api.project_keep_changes()
+    paw.api.undo_label("merge")
+    paw.api.undo_checkpoint()
+  else
+    if paw.api.project_get("modified") then
+      return nil, "the open project has changes that are not saved: `:w` saves them"
+    end
+    local ok, why = open_merged(merged, dir)
+    if not ok then return nil, why end
+  end
+  return #merge.conflicts(merged)
 end
 
 --- Send the changes to the quickfix list, one entry each.
