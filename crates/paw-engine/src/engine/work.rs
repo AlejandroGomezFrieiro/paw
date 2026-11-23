@@ -10,6 +10,7 @@ use crate::launch;
 use crate::slot::{DeviceSlot, TrackSlot};
 use crate::tempo::TempoMap;
 
+use super::clock::Clock;
 use super::device_rt::DeviceRt;
 use super::guarded::{Claim, Guarded};
 use super::regions::mix_audio;
@@ -24,9 +25,9 @@ pub(super) struct Block<'a> {
     pub(super) start: f64,
     pub(super) end: f64,
     pub(super) map: &'a TempoMap,
-    /// Beats per frame when the map has one tempo throughout: positions are
-    /// then worked out exactly as they were before there were tempo maps.
-    pub(super) bpf: Option<f64>,
+    /// The frames of the block's beats: the frame each event and each
+    /// frame of an audio region plays on.
+    pub(super) clock: Clock<'a>,
     pub(super) flush: bool,
     pub(super) chase: bool,
     pub(super) reapply: bool,
@@ -226,19 +227,17 @@ impl Work<'_> {
             start,
             end,
             map,
-            bpf,
+            ref clock,
             ..
         } = *self.block;
-        let sr = ctx.sample_rate as f64;
         t.clips.find_sounding(start, end);
         let events = &mut t.events;
         t.clips.events(start, end, |ev| {
-            let frame = match bpf {
-                Some(bpf) => ((ev.beat - start) / bpf) as usize,
-                None => ((map.seconds(ev.beat) - ctx.seconds) * sr) as usize,
-            };
+            // The block's beats and frames come from one clock, so an event
+            // in its beats is on one of its frames; at the loop's end, the
+            // last frame holds what is after it.
             events.push(Event {
-                frame: frame.min(n - 1) as u32,
+                frame: clock.frame_in_block(ev.beat).min(n - 1) as u32,
                 kind: ev.kind,
             });
         });
@@ -249,7 +248,7 @@ impl Work<'_> {
             &mut right[..n],
             (start, end),
             map,
-            bpf,
+            clock,
             ctx,
         );
     }
