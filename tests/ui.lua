@@ -5,6 +5,14 @@ local test, eq, fresh, expect_screen = T.test, T.eq, T.fresh, T.expect_screen
 local paw = require("paw")
 local api = paw.api
 
+--- The tutor loaded for this test: the welcome page names `:tutor` when it
+--- is. Whether a test before loaded it depends on the order of the tests.
+local function with_tutor()
+  if paw.ext.loaded.tutor then return end
+  paw.ext.load_bundled("tutor")
+  T.after(function() paw.ext.unload("tutor") end)
+end
+
 local function screen(w, h) return table.concat(api.ui_snapshot(w or 120, h or 36), "\n") end
 
 test(
@@ -37,6 +45,7 @@ end)
 
 test("a new project says how to begin", function()
   fresh()
+  with_tutor()
   paw.cmd("view.only")
   paw.ui.message = nil
   expect_screen("welcome", 80, 20)
@@ -47,6 +56,7 @@ end)
 
 test("the welcome page keeps each key apart from what it does, at any width and key length", function()
   fresh()
+  with_tutor()
   paw.cmd("view.only")
   paw.ui.message = nil
   -- The rows of the page only: the ruler and the master are in "welcome".
