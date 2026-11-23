@@ -7,6 +7,79 @@ How to run everything: [README.md](README.md). Raw numbers:
 matrix before it). The processor time of the whole program while it plays,
 against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md).
 
+## 2026-11-23: the first scope keys after TASK-184 (TASK-190)
+
+TASK-184 found that `znn`, `]z` and `znag` cost more in the scenario
+`scope` with its branch (22 -> 40 ms, 30 -> 68 ms, 26 -> 40 ms), and that
+the `repeat` scenario showed no difference. The cause is the garbage
+collector of LuaJIT. TASK-184 does not add work: it moves the steps of the
+incremental collector from some keys to other keys.
+
+Setup: one binary of main (c386d3a4), with three Lua runtimes in turns,
+under the measure lock on cores 16 to 23. "before" is f1b087ae with
+`groups.tl` and `trackcolumn.tl` of the parent of the TASK-184 merge.
+"after" is f1b087ae (TASK-184 merged). "stamp" is this branch
+(`paw.events.stamp()`). All values were measured under external load (load
+average 4.1 to 22). A key is the processor time of the kernel thread from
+the key until the screen is quiet for 250 ms: the median of the runs, then
+the smallest and largest run. `bench/profile/drive.py` now gives, for each
+key of `scope`, the full cycles of the collector (`gc_cycles`) and the Lua
+heap, and with `--luaprof` a `jit.profile` of each key alone.
+
+With `--luaprof`, 5 pairs (the samples of the 5 runs added):
+
+| Key | Before | After | Collector samples (before, after) | Full cycles (before, after) |
+| --- | ---: | ---: | ---: | ---: |
+| `znn` | 34.5 ms (29.6 to 36.9) | 39.7 ms (38.1 to 113) | 0, 73 | 0, 2 |
+| `]z` | 51.9 ms (46.8 to 57.7) | 61.1 ms (52.3 to 98.2) | 3, 52 | 0, 2 |
+| `znag` | 39.2 ms (36.8 to 66.2) | 45.7 ms (43.1 to 106) | 0, 83 | 0, 2 |
+| `:%quantize 1/4` | 135 ms (125 to 195) | 130 ms (121 to 198) | 97, 38 | 1, 1 |
+| `u` | 102 ms (83.8 to 138) | 84.9 ms (78.5 to 86.0) | 92, 5 | 2, 0 |
+| open the piano roll | 41.7 ms (37.2 to 94.6) | 38.1 ms (28.7 to 44.8) | 84, 10 | 1, 0 |
+| all 21 keys of a run | 868 ms (852 to 944) | 866 ms (841 to 1005) | 337, 423 | 5, 8 |
+
+The keys that change the scope get the collector's work in "after", and
+`:%quantize`, `u` and the piano roll get it in "before". The whole
+scenario costs the same.
+
+The heap is smaller in "after" when the keys
+start (53.6 MB against 61.1 MB after `znar`): the frames of TASK-184 make
+less garbage, so the cycle that ends before the scope keys in "before" is
+still running there in "after". A run of `repeat` sees no difference,
+because each round goes through all phases of the collector.
+
+With `--collect` (a full cycle before each key, outside the measurement), 5
+rounds of the three runtimes, no collector work fell in a key:
+
+| Key | Before | After | Stamp |
+| --- | ---: | ---: | ---: |
+| `znn` | 24.6 ms (23.1 to 32.0) | 30.7 ms (21.5 to 37.9) | 28.4 ms (23.5 to 33.6) |
+| `]z` | 33.8 ms (29.8 to 38.9) | 39.8 ms (30.2 to 47.5) | 35.1 ms (33.6 to 45.1) |
+| `znag` | 31.6 ms (28.6 to 42.4) | 32.2 ms (31.4 to 48.3) | 28.6 ms (28.2 to 61.5) |
+
+No fix is necessary: the differences of the medians are less than the
+spread.
+
+The larger cost of the first time of a key is the trace compiler of
+LuaJIT (the state J), with about 45 percent of the samples of each key in
+both branches. That cost is not in the scope of this ticket.
+
+Without probes and without `--collect`, 4 rounds of the three runtimes.
+Of the 5 values over 70 ms, 3 are in a key where a full cycle of the
+collector ended. The other 2 (`znn` and `]z` of "after") are in one run,
+at load 8.7, with the heap near its largest (69 MB and 73 MB).
+
+| Key | Before | After | Stamp | Full cycles (before, after, stamp) |
+| --- | ---: | ---: | ---: | ---: |
+| `znn` | 28.1 ms (24.2 to 56.1) | 23.2 ms (22.7 to 80.7) | 27.7 ms (22.2 to 33.7) | 1, 0, 0 |
+| `]z` | 30.7 ms (25.9 to 38.8) | 58.6 ms (36.1 to 82.2) | 34.2 ms (32.5 to 85.5) | 0, 1, 1 |
+| `znag` | 36.9 ms (30.5 to 74.5) | 35.5 ms (26.7 to 36.8) | 30.5 ms (29.3 to 39.6) | 2, 0, 0 |
+| all 21 keys of a run | 676 ms (632 to 736) | 653 ms (605 to 1529) | 699 ms (601 to 730) | 7, 5, 4 |
+
+`paw.events.stamp()` (part 1 of the ticket) puts the two counts in one
+number. It does not change the cost of a frame or of a key in a way that
+these runs can show.
+
 ## 2026-11-23: the group tree and the marks of groups in a frame (TASK-184)
 
 The scenario `scope` of `bench/profile/drive.py`, with the Lua of the

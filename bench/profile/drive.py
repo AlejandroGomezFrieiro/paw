@@ -45,7 +45,11 @@ Options (all optional):
   --record SECS    while playing or idle, also `perf record` it (dwarf call
                    graphs) for SECS seconds and write a flamegraph SVG
   --luaprof        while playing or idle, also run LuaJIT's profiler in the
-                   kernel and write a flamegraph of the Lua functions
+                   kernel and write a flamegraph of the Lua functions; in
+                   scope, profile the first time of each key by itself
+  --collect        scope: a full cycle of the garbage collector before each
+                   key, outside the measurement, so that no key pays for
+                   the garbage of the keys before it
   --label TEXT     a label for the results and file names
   --reps N         repetitions of startup and of each moving key (default 5)
   --keys K1,K2     repeat: the keys, comma-separated, with Python escapes
@@ -673,14 +677,59 @@ def frame_cost(opts, paw, where, rounds=40):
                 "rounds": rounds, "scope": paw.eval("return paw.scope.breadcrumb()")})
 
 
+# The garbage collector's full cycles since this ran: a proxy whose
+# finalizer counts one cycle and makes the next proxy (TASK-190).
+GC_CYCLES_LUA = r"""
+local cycles = 0
+local function arm()
+  getmetatable(newproxy(true)).__gc = function() cycles = cycles + 1; arm() end
+end
+arm()
+_G.__paw_gc_cycles = function() return cycles end
+"""
+
+
+def key_probed(opts, paw, name, data):
+    """measure_key, with the garbage collector's full cycles and the Lua
+    heap after the key, and with --luaprof the profile of this key alone:
+    its folded stacks in a file, and the share of the samples in each
+    state of the VM (N compiled, I interpreted, C in C, G the garbage
+    collector, J the trace compiler)."""
+    if opts.collect:
+        paw.eval("collectgarbage()")
+    gc0 = paw.eval("return __paw_gc_cycles()")
+    if opts.luaprof:
+        paw.eval(LUAPROF_START)
+    rec = measure_key(paw, name, data)
+    if opts.luaprof:
+        folded = paw.eval(LUAPROF_STOP) or ""
+        path = os.path.join(opts.out, f"{opts.label}-scope-{len(os.listdir(opts.out))}.lua.folded")
+        with open(path, "w") as f:
+            f.write(folded + "\n")
+        states, total = {}, 0
+        for line in folded.split("\n"):
+            if line:
+                stack, n = line.rsplit(" ", 1)
+                state = stack[stack.rfind("[") + 1:-1]
+                states[state] = states.get(state, 0) + int(n)
+                total += int(n)
+        rec["lua_samples"] = total
+        rec["lua_states"] = states
+        rec["lua_folded"] = path
+    rec["gc_cycles"] = paw.eval("return __paw_gc_cycles()") - gc0
+    rec["lua_kb"] = round(paw.lua_kb())
+    return rec
+
+
 def scenario_scope(opts, project):
     paw, first = start(opts, project)
     paw.eval(SCOPE_SETUP)
+    paw.eval(GC_CYCLES_LUA)
     paw.screen.wait_quiet(500, 30)
     frame_cost(opts, paw, "song")
     named = slow_counts(paw)
     for name, data, repeated in SCOPE_KEYS:
-        recs = [measure_key(paw, name, data)]
+        recs = [key_probed(opts, paw, name, data)]
         for _ in range(opts.reps - 1 if repeated else 0):
             recs.append(measure_key(paw, name, data))
         rec = recs[0]
@@ -851,6 +900,7 @@ def parse(argv):
     o.perf = 0
     o.record = 0
     o.luaprof = False
+    o.collect = False
     o.label = None
     o.reps = 5
     o.keys = "j,k"
@@ -871,6 +921,7 @@ def parse(argv):
         elif a == "--perf": o.perf = float(v); i += 1
         elif a == "--record": o.record = float(v); i += 1
         elif a == "--luaprof": o.luaprof = True
+        elif a == "--collect": o.collect = True
         elif a == "--label": o.label = v; i += 1
         elif a == "--reps": o.reps = int(v); i += 1
         elif a == "--keys": o.keys = v; i += 1

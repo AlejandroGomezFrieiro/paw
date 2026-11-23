@@ -77,8 +77,15 @@ These options add a probe to `idle`, `idle-armed`, `play`, `record` and
   kernel. It gives the Lua functions that cost the most, as a flame graph
   (`<label>-<scenario>.lua.svg`). A stack that ends in `[C]` is time in
   Rust, `[N]` in compiled Lua, `[I]` in the interpreter, `[G]` in the
-  garbage collector. LuaJIT counts time in Rust at the next Lua line
-  that runs, so use `--record` for the Rust side.
+  garbage collector, `[J]` in the trace compiler. LuaJIT counts time in
+  Rust at the next Lua line that runs, so use `--record` for the Rust
+  side. In `scope`, the probe runs for the first time of each key
+  alone. The key gets the samples of each state (`lua_states`) and the
+  file of its folded stacks (`lua_folded`).
+- `scope` always gives the full cycles of the garbage collector during
+  each key (`gc_cycles`) and the Lua heap after it (`lua_kb`). With
+  `--collect`, a full cycle runs before each key, outside the
+  measurement. Then no key pays for the garbage of the keys before it.
 - `--wrap "heaptrack -o <file>"`: runs paw under `heaptrack`. To get the
   allocations of the steady state, run the scenario twice with different
   `--secs`, and give both files to

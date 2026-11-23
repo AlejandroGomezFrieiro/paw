@@ -1106,14 +1106,13 @@ end
 -- Kept windows: the stamps -------------------------------------------------
 
 --- What every window's drawing can read, read once for a whole frame: the
---- events sent so far (an edit, an option, the mode, the cursor of the
---- arrange view, a chord read again), the edits of the project, and the
---- transport.
+--- project and the events sent so far (`paw.events.stamp()`: an edit, an
+--- option, the mode, the cursor of the arrange view, a chord read again),
+--- and the transport.
 local function frame_stamp(): string
   local t = M.transport()
   return table.concat({
-    events.emitted(),
-    (api.project_get as function(string): integer)("edits"),
+    events.stamp(),
     tostring(t.playing),
     tostring(t.recording),
     t.take or "",

@@ -69,9 +69,11 @@ local type Try = function(Named, string, Listener, Payload, string): boolean, bo
 local record Limit
   named: Named
 end
--- `paw.api.log`: paw/api.d.tl requires this module, so it cannot be required here.
+-- `paw.api.log` and `paw.api.project_get("edits")`: paw/api.d.tl requires
+-- this module, so it cannot be required here.
 local record Api
   log: function(string)
+  project_get: function(string): integer
 end
 local record Paw
   try: Try
@@ -82,9 +84,11 @@ local paw = (_G as {string: Paw}).paw
 
 local handlers: {string: {Handler}} = {} -- pattern -> list of { id, fn, once }
 local next_id = 0
--- The events sent since paw started: what the screen keeps windows by
--- (paw/ui.tl) changes when this does.
+-- The events sent since paw started. `M.stamp` changes when this does.
 local sent = 0
+-- `M.stamp`: the number that it gives, and the edits of the project and the
+-- events sent when that number last changed. The number only goes up.
+local stamp, stamp_edits, stamp_sent = 0, -1, -1
 
 -- The names of the events that a descriptor declared (`M.event`, and the
 -- kernel's descriptors in paw/events/kernel.tl). A name is never removed.
@@ -302,6 +306,18 @@ end
 --- same as before means that no event came in between.
 function M.emitted(): integer
   return sent
+end
+
+--- A number that changes when the project changes or paw sends an event.
+--- A value that is read from the project, or that an event can change, can
+--- be kept while this number is the same. An edit counts at once, before
+--- its event is sent at the end of the turn.
+function M.stamp(): integer
+  local edits = paw.api.project_get("edits")
+  if edits ~= stamp_edits or sent ~= stamp_sent then
+    stamp, stamp_edits, stamp_sent = stamp + 1, edits, sent
+  end
+  return stamp
 end
 
 return M
