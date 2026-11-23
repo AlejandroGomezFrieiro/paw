@@ -669,7 +669,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.ex
 
 - `paw.ex.address_of(item)`: The address of an item, for the quickfix list and for going to it.
-- `paw.ex.apply(changes, remove)`: Make the changes `{ item, change }` and remove the items in `remove`, as one edit per clip.
+- `paw.ex.apply(changes, remove)`: Make the changes `{ item, change }` and remove the items in `remove`. The changes of notes go to the kernel in one call, as columns: no table for each note. A clip whose notes go, or get data or an attribute, gets one edit of its own.
 - `paw.ex.change(item, sets, pattern)`: What a replacement makes of one item: the fields that change, as `paw.api` keeps them.
 - `paw.ex.complete_pattern(line)`: Field names as they are typed in a pattern: `:%s/ve` offers `vel`.
 - `paw.ex.complete_range(line)`: What could finish a range being typed: marks after `'`, tracks after `t/`. Nil when the line is not in the middle of one.
@@ -2605,7 +2605,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.lane_shapes(id)`: The shapes of the stretches that are not straight, `{ beat, shape, tension }` each by the beat of the point they leave: "hold" or "smooth".
 - `paw.api.lane_states(id)`: The states of a state lane, whole: `{ name, state, params, call = { method, data }, program, bank }` each. A point's value is the index of one, from 0.
 - `paw.api.lane_value_at(id, beat)`
-- `paw.api.limit_hook(func)`: The time limit on Lua (`paw.limit`). The arguments are the function to call when a callback runs too long, and the time when the current callback must return (on the clock of `now`, nil when it returned). `limit_async` tells if paw finds an overrun inside compiled code too.
+- `paw.api.limit_hook(func)`: The time limit on Lua (`paw.limit`). The arguments are the function to call when a callback runs too long, and the time when the current callback must return (on the clock of `real_ms`, nil when it returned). `limit_async` tells if paw finds an overrun inside compiled code too.
 - `paw.api.limit_watch(deadline)`
 - `paw.api.load_apart(on)`: Make plugins apart from the main loop (true), or wait for each as it is added (false, what scripts start with). Returns what it was.
 - `paw.api.log(line)`
@@ -2665,7 +2665,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.note_off(track, pitch)`
 - `paw.api.note_on(track, pitch, velocity, attr)`: Play a note on a track, with a MIDI 2.0 attribute if one is given.
 - `paw.api.notes_set(columns)`: Many notes of many clips at once, as one edit, given as lists of the same length: `{ clip = { 4, 4, 7 }, place = { 1, 2, 1 }, start = { 0, 0.5, 2 } }`. Entry i is about the note at place `place[i]` of clip `clip[i]`, its place before the call. A list left out of `start`, `length`, `pitch` and `velocity` keeps that value of each note.
-- `paw.api.now()`
+- `paw.api.now()`: The schedule time in milliseconds since paw started: the time that timers, delays and throttles wait for. In a test that runs with `paw --clock manual`, it moves only when the test waits. To measure how long work takes, use `real_ms`.
+- `paw.api.pending()`: The work that is not done yet, by kind: timers due now and all the timers, the time until the next timer or delay is due (`next_ms`), bakes, plugins being loaded, renders, changed files, MIDI that came in, and helper processes. A test waits until nothing is in flight.
 - `paw.api.plugins_add_dir(dir)`: Find CLAP and VST3 plugins in one more directory from now on (the directory of an extension), and register the plugins in it. Returns `{ kinds, notes }`: the device kinds found there and the files that paw cannot use. Returns nil where paw cannot find plugins.
 - `paw.api.plugins_attach(path)`: Load an attachment: a native library that an extension ships, which paw offers each CLAP plugin that it makes from now on (see `crates/paw-plugins/include/paw_attach.h`). Returns the name of the attachment.
 - `paw.api.plugins_dirs()`: The folders where paw looks for plugins, for each format, in the order that paw looks in them: `{ clap = {...}, lv2 = {...}, vst3 = {...} }`. They include the folders that `plugins_add_dir` added. Returns nil where paw cannot find plugins.
@@ -2703,6 +2704,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.project_unshelve()`
 - `paw.api.quit(code)`: --- kernel ---
 - `paw.api.read_dir(path)`
+- `paw.api.real_ms()`: The time on the wall in milliseconds since paw started, for a budget of work or a deadline for another process. It moves also in a test. For a delay or a throttle, use `now`.
 - `paw.api.redo()`
 - `paw.api.reload()`
 - `paw.api.render(path, opts)`
@@ -2744,6 +2746,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.startup_timed()`: True while `paw --startuptime` times the start.
 - `paw.api.state_get(key)`
 - `paw.api.state_set(key, value)`
+- `paw.api.step()`: Do one turn of the loop and return at once: fire the timers that are due, look after the plugins, take in MIDI and the output of helper processes, and close the undo step. No time passes.
 - `paw.api.str_width(text)`
 - `paw.api.tempo_at(beat)`
 - `paw.api.tempo_bar_length(beat)`
@@ -2832,7 +2835,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.undo_tree()`: The undo tree and checkpoints: crate::history, session/undo.rs.
 - `paw.api.view_ranges()`: The ranges that `view_ranges_set` gave last.
 - `paw.api.view_ranges_set(ranges)`: Tell paw which part of the song each window shows: a list of ranges of beats, each with the tracks shown (all tracks when `tracks` is nil). The stretched clips there bake before the others. paw.derived sends this after each frame.
-- `paw.api.wait(ms)`: Let `ms` milliseconds pass. Timers fire and events come, as between the key presses of a person. `sleep` stops all of that. A script that waits for the result of a timer uses `wait`.
+- `paw.api.wait(ms)`: Let `ms` milliseconds pass. Timers fire and events come, as between the key presses of a person. `sleep` stops all of that. A script that waits for the result of a timer uses `wait`. With `paw --clock manual`, the time passes at once: each timer fires in its order, at its own time.
 - `paw.api.warnings()`
 - `paw.api.which(program)`: Where a program is on `PATH`, as `command -v` says; nil when it is not there. A name with a `/` is checked as it is.
 - `paw.api.xml_decode(text, opts)`: The root element of an XML text, or nil and what is wrong (with the byte). An element is `{ name, attr, order, children, text }`: `attr` maps each attribute to its text, `order` lists them as written, `children` holds the child elements, `text` the text and CDATA directly in it (nil when there is none). References are read; an entity a DTD defines is kept as it is written. UTF-16 with a byte order mark is read too. `opts.spans` gives each element `span = { from, open, close, to, lead, tail }`, the bytes it takes in the text, so that `xml_encode` can write what is not changed byte for byte. `opts.meta` is set as the metatable of each element.

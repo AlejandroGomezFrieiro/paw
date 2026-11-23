@@ -2793,8 +2793,10 @@ function paw.events.undeclared() end
 ---@param item any
 function paw.ex.address_of(item) end
 
---- Make the changes `{ item, change }` and remove the items in `remove`, as
---- one edit per clip.
+--- Make the changes `{ item, change }` and remove the items in `remove`.
+--- The changes of notes go to the kernel in one call, as columns: no
+--- table for each note. A clip whose notes go, or get data or an
+--- attribute, gets one edit of its own.
 ---@param changes any
 ---@param remove any
 function paw.ex.apply(changes, remove) end
@@ -10510,7 +10512,7 @@ function paw.api.lane_value_at(id, beat) end
 
 --- The time limit on Lua (`paw.limit`). The arguments are the function to
 --- call when a callback runs too long, and the time when the current
---- callback must return (on the clock of `now`, nil when it returned).
+--- callback must return (on the clock of `real_ms`, nil when it returned).
 --- `limit_async` tells if paw finds an overrun inside compiled code too.
 ---@param func function
 function paw.api.limit_hook(func) end
@@ -10808,7 +10810,17 @@ function paw.api.note_on(track, pitch, velocity, attr) end
 ---@param columns table
 function paw.api.notes_set(columns) end
 
+--- The schedule time in milliseconds since paw started: the time
+--- that timers, delays and throttles wait for. In a test that runs
+--- with `paw --clock manual`, it moves only when the test waits. To
+--- measure how long work takes, use `real_ms`.
 function paw.api.now() end
+
+--- The work that is not done yet, by kind: timers due now and all the
+--- timers, the time until the next timer or delay is due (`next_ms`),
+--- bakes, plugins being loaded, renders, changed files, MIDI that came
+--- in, and helper processes. A test waits until nothing is in flight.
+function paw.api.pending() end
 
 --- Find CLAP and VST3 plugins in one more directory from now on (the
 --- directory of an extension), and register the plugins in it. Returns
@@ -10973,6 +10985,11 @@ function paw.api.quit(code) end
 
 ---@param path string
 function paw.api.read_dir(path) end
+
+--- The time on the wall in milliseconds since paw started, for a
+--- budget of work or a deadline for another process. It moves also
+--- in a test. For a delay or a throttle, use `now`.
+function paw.api.real_ms() end
 
 function paw.api.redo() end
 
@@ -11186,6 +11203,11 @@ function paw.api.state_get(key) end
 ---@param key string
 ---@param value any
 function paw.api.state_set(key, value) end
+
+--- Do one turn of the loop and return at once: fire the timers that are
+--- due, look after the plugins, take in MIDI and the output of helper
+--- processes, and close the undo step. No time passes.
+function paw.api.step() end
 
 ---@param text any
 function paw.api.str_width(text) end
@@ -11573,7 +11595,8 @@ function paw.api.view_ranges_set(ranges) end
 
 --- Let `ms` milliseconds pass. Timers fire and events come, as between the
 --- key presses of a person. `sleep` stops all of that. A script that waits
---- for the result of a timer uses `wait`.
+--- for the result of a timer uses `wait`. With `paw --clock manual`, the
+--- time passes at once: each timer fires in its order, at its own time.
 ---@param ms number
 function paw.api.wait(ms) end
 
