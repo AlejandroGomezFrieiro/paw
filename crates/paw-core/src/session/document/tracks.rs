@@ -242,6 +242,18 @@ impl Document {
         }
         (tracks, chains)
     }
+
+    /// The milliseconds a note with `attr` is moved by the track's attribute map.
+    pub fn attr_delay(&self, track: Id, attr: paw_engine::Attr) -> Result<f64> {
+        let track = self
+            .project
+            .track(track)
+            .with_context(|| format!("no track {track}"))?;
+        Ok(match &track.attr_map {
+            Some(map) => map.plan()?.delay_of(attr),
+            None => 0.0,
+        })
+    }
 }
 
 /// A field of a track that [`Document::track_set`] changes: the key that Lua

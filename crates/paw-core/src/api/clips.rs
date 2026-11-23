@@ -341,7 +341,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // Copy a clip, with its `meta`, off the timeline of a track. Returns the copy's id.
         // @return integer
         fn clip_to_cues(_, sh, (id, track) => (Id, Id)) {
-            sh.session.borrow_mut().clip_to_cues(id, track).lua()
+            sh.session.borrow_mut().doc.clip_to_cues(id, track).lua()
         }
         // `{ { track =, clip = id }, { track =, stop = true },
         // { track =, timeline = true }, ... }`, each with `quantize` (`bar`

@@ -82,7 +82,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // @return number
         fn track_attr_delay(lua, sh, (id, attr) => (Id, LuaValue)) {
             let attr = attr_from_lua(lua, attr)?.map_or(paw_engine::Attr::NONE, Into::into);
-            sh.session.borrow().attr_delay(id, attr).lua()
+            sh.session.borrow().doc.attr_delay(id, attr).lua()
         }
 
         // --- nests (subprojects): tracks with a timeline of their own ---

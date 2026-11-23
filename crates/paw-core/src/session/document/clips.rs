@@ -14,7 +14,7 @@ use crate::model::{
     check_clip_beat, check_notes,
 };
 use crate::session::{
-    ClipKind, ClipOpts, CustomSet, check_controls, check_fade, cues, de, de_meta, finite, sorted, stretching,
+    ClipKind, ClipOpts, CustomSet, check_controls, check_fade, de, de_meta, finite, sorted, stretching,
 };
 
 impl Document {
@@ -332,7 +332,7 @@ impl Document {
             match field {
                 Some(ClipField::Start) if cue => bail!("a clip off the timeline starts at 0"),
                 Some(ClipField::Track) if cue => {
-                    cues::move_cue(p, id, de(key, value)?)?;
+                    move_cue(p, id, de(key, value)?)?;
                     return Ok(());
                 }
                 Some(ClipField::Track) => return move_clip(p, id, value),
@@ -405,6 +405,27 @@ impl Document {
             self.dirty = true;
         }
         ids.len()
+    }
+
+    /// Copy a clip, from the timeline or from the cues, into a track's cues,
+    /// with its `meta`. Returns the copy's id.
+    pub fn clip_to_cues(&mut self, id: Id, track: Id) -> Result<Id> {
+        let clip = self
+            .project
+            .clip(id)
+            .with_context(|| format!("no clip {id}"))?;
+        let mut copy = (**clip).clone();
+        copy.start = 0.0;
+        copy.id = self.new_id();
+        let copy_id = copy.id;
+        self.edit(|p| {
+            check_clip_track(track)?;
+            let t = p
+                .track_mut(track)
+                .with_context(|| format!("no track {track}"))?;
+            t.cues.push(Arc::new(copy));
+            Ok(copy_id)
+        })
     }
 }
 
@@ -553,9 +574,7 @@ fn override_value(key: &str, value: Value) -> Result<i8> {
 fn move_clip(p: &mut Project, id: Id, value: Value) -> Result<()> {
     let (from, index) = p.find_clip(id).with_context(|| format!("no clip {id}"))?;
     let to: Id = de("track", value)?;
-    if to == MASTER_ID {
-        bail!("the master track has no clips: put them on a track");
-    }
+    check_clip_track(to)?;
     if p.track(to).is_none() {
         bail!("no track {to}");
     }
@@ -569,4 +588,18 @@ fn move_clip(p: &mut Project, id: Id, value: Value) -> Result<()> {
     let at = clips.len() - 1;
     p.found_clip(id, to, at);
     Ok(())
+}
+
+/// Move a cue clip to another track's cues: false when `id` is not one.
+fn move_cue(p: &mut Project, id: Id, to: Id) -> Result<bool> {
+    let Some((from, index)) = p.find_cue_clip(id) else {
+        return Ok(false);
+    };
+    check_clip_track(to)?;
+    if p.track(to).is_none() {
+        bail!("no track {to}");
+    }
+    let clip = p.track_mut(from).unwrap().cues.remove(index);
+    p.track_mut(to).unwrap().cues.push(clip);
+    Ok(true)
 }

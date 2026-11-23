@@ -18,8 +18,6 @@
 //! and the project's `meta`, and cues them. Live looping, cue points or a
 //! step sequencer can use the same calls.
 
-use std::sync::Arc;
-
 use anyhow::{Context, Result, bail};
 use paw_engine::Msg;
 use paw_engine::launch::{Launch, Target};
@@ -27,7 +25,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::Session;
-use crate::model::{Id, MASTER_ID, Project, Quantize};
+use crate::model::{Id, Quantize};
 
 /// One track's cue, from a script: `{ track =, clip = }` plays a clip of
 /// the track's cues, `{ track =, stop = true }` has the track play nothing,
@@ -53,22 +51,6 @@ pub struct CueOpts {
     pub from: Option<f64>,
 }
 
-/// Move a cue clip to another track's cues: false when `id` is not one.
-pub(super) fn move_cue(p: &mut Project, id: Id, to: Id) -> Result<bool> {
-    let Some((from, index)) = p.find_cue_clip(id) else {
-        return Ok(false);
-    };
-    if to == MASTER_ID {
-        bail!("the master track has no clips: put them on a track");
-    }
-    if p.track(to).is_none() {
-        bail!("no track {to}");
-    }
-    let clip = p.track_mut(from).unwrap().cues.remove(index);
-    p.track_mut(to).unwrap().cues.push(clip);
-    Ok(true)
-}
-
 impl Session {
     /// A track's clips off the timeline, without their notes.
     pub fn cue_list(&self, track: Id) -> Result<Vec<super::ClipView<'_>>> {
@@ -86,28 +68,6 @@ impl Session {
             .collect())
     }
 
-    /// Copy a clip, from the timeline or from the cues, into a track's cues,
-    /// with its `meta`. Returns the copy's id.
-    pub fn clip_to_cues(&mut self, id: Id, track: Id) -> Result<Id> {
-        let clip = self
-            .doc.project
-            .clip(id)
-            .with_context(|| format!("no clip {id}"))?;
-        let mut copy = (**clip).clone();
-        copy.start = 0.0;
-        copy.id = self.doc.new_id();
-        let copy_id = copy.id;
-        self.doc.edit(|p| {
-            if track == MASTER_ID {
-                bail!("the master track has no clips: put them on a track");
-            }
-            let t = p
-                .track_mut(track)
-                .with_context(|| format!("no track {track}"))?;
-            t.cues.push(Arc::new(copy));
-            Ok(copy_id)
-        })
-    }
 
     /// Cue clips, stop tracks or send them back to their timelines: every
     /// track asked for on the boundary of its quantize, all timed together.
