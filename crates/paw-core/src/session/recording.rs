@@ -266,13 +266,13 @@ impl Session {
         let dir = self.media_dir();
         let mut audio = Vec::new();
         let mut captures = Vec::new();
-        for track in self.project.tracks.iter().filter(|t| t.armed) {
+        for track in self.doc.project.tracks.iter().filter(|t| t.armed) {
             let Some(input) = track.input else {
                 continue;
             };
             let (first, channels) = (usize::from(input.first), usize::from(input.count));
             if first + channels > inputs {
-                self.warnings.push(format!(
+                self.doc.warnings.push(format!(
                     "{} records input {input} but the audio device has {inputs} input channels",
                     track.name
                 ));
@@ -291,7 +291,7 @@ impl Session {
                     audio.push(TakeFile { track: track.id, path, writer });
                     captures.push(AudioCapture { first, channels, ring });
                 }
-                Err(err) => self.warnings.push(format!("cannot record {}: {err:#}", track.name)),
+                Err(err) => self.doc.warnings.push(format!("cannot record {}: {err:#}", track.name)),
             }
         }
         let channels: usize = captures.iter().map(|c| c.channels).sum();
@@ -304,12 +304,12 @@ impl Session {
         if let Some((from, to)) = punch {
             // What is played at the punch out arrives as late as the
             // recording is behind the song: capture that much past it.
-            let map = self.project.tempo_map();
+            let map = self.doc.project.tempo_map();
             capture.punch = Some((from, map.beat(map.seconds(to) + self.record_latency(true))));
             let at = self.position();
             let comes_round = looped.is_some_and(|(start, end)| at < end && start < to);
             if at >= to - 1e-9 && !comes_round {
-                self.warnings.push(format!(
+                self.doc.warnings.push(format!(
                     "the playhead is past the punch out (bar {}): nothing will be recorded",
                     map.bar_of(to) + 1
                 ));
@@ -340,7 +340,7 @@ impl Session {
             bytes_per_second: channels * 4 * sample_rate as usize,
             files,
         };
-        self.emit(E::TransportRecord(record));
+        self.doc.emit(E::TransportRecord(record));
     }
 
     /// Collect the notes the engine has captured for the take so far.
@@ -406,7 +406,7 @@ impl Session {
         let (start, end) = (shared.start(), shared.end());
         take.end_held(end);
         let rate = self.engine.handle.sample_rate;
-        let map = self.project.tempo_map().clone();
+        let map = self.doc.project.tempo_map().clone();
         // A take that never played captured nothing.
         let (passes, looped) = start.map_or((Vec::new(), None), |start| take.passes(start, end, &map, rate));
 
@@ -418,7 +418,7 @@ impl Session {
             let frames = match writer.join() {
                 Ok(written) => {
                     if let Some(err) = written.error {
-                        self.warnings.push(format!(
+                        self.doc.warnings.push(format!(
                             "recording stopped: writing {} failed ({err}); the {:.1} s before that are kept",
                             path.display(),
                             written.frames as f64 / rate
@@ -433,7 +433,7 @@ impl Session {
                 continue;
             }
             if let Err(err) = self.add_recorded_audio(track, &path, &name, &passes, looped, take.punch.is_some()) {
-                self.warnings
+                self.doc.warnings
                     .push(format!("recorded {} but could not add it: {err:#}", path.display()));
             }
         }
@@ -444,17 +444,17 @@ impl Session {
                 take.notes.keys().chain(take.controls.keys()).map(|(track, _)| *track).collect();
             for track in tracks {
                 if let Err(err) = self.add_recorded_notes(track, &mut take, &name, &passes, looped, late) {
-                    self.warnings.push(format!("could not add the recorded notes: {err:#}"));
+                    self.doc.warnings.push(format!("could not add the recorded notes: {err:#}"));
                 }
             }
         }
         if shared.dropped() > 0 {
-            self.warnings.push(format!(
+            self.doc.warnings.push(format!(
                 "the disk fell behind: {} frames of {name} were lost",
                 shared.dropped()
             ));
         }
-        self.emit(E::TransportRecorded(Recorded { take: take.number }));
+        self.doc.emit(E::TransportRecorded(Recorded { take: take.number }));
         self.checkpoint();
     }
 
@@ -502,11 +502,11 @@ impl Session {
                 start,
                 file: Some(path),
                 offset: take["offset"].as_f64().unwrap_or(0.0),
-                source_tempo: Some(self.project.tempo_map().tempo(start)),
+                source_tempo: Some(self.doc.project.tempo_map().tempo(start)),
                 ..ClipOpts::default()
             };
             if let Err(err) = self.clip_add(track as Id, opts) {
-                self.warnings
+                self.doc.warnings
                     .push(format!("the take in {file} could not be put back: {err:#}"));
             }
         }
@@ -539,12 +539,12 @@ impl Session {
                 length: punched.then_some(pass.end - pass.start),
                 file: Some(path.to_path_buf()),
                 offset: latency + pass.seconds,
-                source_tempo: Some(self.project.tempo_map().tempo(pass.start)),
+                source_tempo: Some(self.doc.project.tempo_map().tempo(pass.start)),
                 ..ClipOpts::default()
             };
             return self.clip_add(track, opts).map(|_| ());
         };
-        let map = self.project.tempo_map().clone();
+        let map = self.doc.project.tempo_map().clone();
         let first = &passes[0];
         let last = &passes[passes.len() - 1];
         let whole = loop_end - loop_start;
@@ -590,7 +590,7 @@ impl Session {
                 };
                 self.clip_add(track, opts)?;
             } else {
-                self.warnings.push(format!(
+                self.doc.warnings.push(format!(
                     "{name}: the first time round began in the middle of the loop and is left out; its sound is the first {:.1} s of {}",
                     map.seconds_between(first.start, loop_end),
                     path.display()
@@ -777,7 +777,7 @@ impl Session {
         let scratch = scratch_media_dir(&self.dirs);
         let media = std::path::absolute(path)?.with_file_name("media");
         let mut moved: HashMap<PathBuf, PathBuf> = HashMap::new();
-        for file in media::files(&self.project) {
+        for file in media::files(&self.doc.project) {
             if !file.starts_with(&scratch) || moved.contains_key(&file) {
                 continue;
             }
@@ -792,10 +792,10 @@ impl Session {
         if moved.is_empty() {
             return Ok(());
         }
-        for project in [&mut self.project, &mut self.undo.checkpoint] {
+        for project in [&mut self.doc.project, &mut self.doc.undo.checkpoint] {
             media::map_files(project, |file| moved.get(file).cloned());
         }
-        self.dirty = true;
+        self.doc.dirty = true;
         Ok(())
     }
 }

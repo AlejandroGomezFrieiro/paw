@@ -94,7 +94,7 @@ impl Session {
         let mut infos = Vec::new();
         // The parameters a lane of the track moves.
         let automated: Vec<&str> = self
-            .project
+            .doc.project
             .track(track)
             .unwrap()
             .lanes
@@ -133,10 +133,10 @@ impl Session {
 
     pub fn device_view(&self, id: Id) -> Result<Value> {
         let (track, index) = self
-            .project
+            .doc.project
             .find_device(id)
             .with_context(|| format!("no device {id}"))?;
-        let d = &self.project.track(track).unwrap().devices[index];
+        let d = &self.doc.project.track(track).unwrap().devices[index];
         let info = self.registry.get(&d.kind).map(|f| f.info());
         let live = self.live.get(&id);
         let (mut params, infos) = self.device_params(id, track, d, live);
@@ -204,7 +204,7 @@ impl Session {
         if self.registry.get(kind).is_none() {
             bail!("no device kind `{kind}`");
         }
-        let id = self.new_id();
+        let id = self.doc.new_id();
         // A plugin's name, for when it is not installed.
         let name = self
             .registry
@@ -241,7 +241,7 @@ impl Session {
         })?;
         // Create it now: a plugin's parameters are only known once it exists,
         // and a plugin that fails to load should fail here, not later.
-        let before = self.warnings.len();
+        let before = self.doc.warnings.len();
         self.flush();
         let outcome = if self.live.contains_key(&id) || self.loads.loading(id) {
             opts.params
@@ -249,7 +249,7 @@ impl Session {
                 .try_for_each(|(name, value)| self.device_set_param(id, name, *value))
         } else {
             Err(anyhow!(
-                self.warnings
+                self.doc.warnings
                     .drain(before..)
                     .next_back()
                     .unwrap_or_else(|| format!("could not load `{kind}`"))
@@ -316,7 +316,7 @@ impl Session {
     /// A parameter of a loaded device, by key or by its display name.
     pub(super) fn param_info(&mut self, id: Id, name: &str) -> Result<ParamInfo> {
         let kind = self
-            .project
+            .doc.project
             .device(id)
             .with_context(|| format!("no device {id}"))?
             .kind
@@ -386,9 +386,9 @@ impl Session {
         let key = param.key.clone();
         let value = (value as f32).clamp(param.min, param.max) as f64;
         let touched = ParamTouched { device: id, param: key.clone(), id: param.stable_id().to_string(), from: "host".into(), value: None };
-        self.emit(E::ParamTouched(touched));
+        self.doc.emit(E::ParamTouched(touched));
         if self.play.playing
-            && let Some((track, _)) = self.project.find_device(id)
+            && let Some((track, _)) = self.doc.project.find_device(id)
             && self.auto_mode(track).writes()
         {
             let before = self.device_view(id)?["params"][&key].as_f64();
@@ -403,7 +403,7 @@ impl Session {
             p.device_mut(id).unwrap().params.insert(key, value);
             Ok(())
         })?;
-        self.swept(name);
+        self.doc.swept(name);
         Ok(())
     }
 
@@ -417,7 +417,7 @@ impl Session {
         self.flush();
         let mut captured = Vec::new();
         let mut kept = Vec::new();
-        let driven = statelanes::driven(&self.project);
+        let driven = statelanes::driven(&self.doc.project);
         for (id, live) in &mut self.live {
             // A device that stopped working has no state to give: the
             // project keeps the one it had, and its stop was told already.
@@ -432,7 +432,7 @@ impl Session {
                 Ok(Some(bytes)) => captured.push((*id, BASE64.encode(bytes))),
                 Ok(None) => {}
                 Err(err) => self
-                    .warnings
+                    .doc.warnings
                     .push(format!("could not save plugin state: {err:#}")),
             }
             // The files it keeps beside its state (an ARA archive).
@@ -449,30 +449,30 @@ impl Session {
                             .collect::<BTreeMap<_, _>>(),
                     )),
                     Err(err) => self
-                        .warnings
+                        .doc.warnings
                         .push(format!("could not save the files of a plugin: {err:#}")),
                 }
             }
         }
         for (id, state) in captured {
-            if let Some(device) = self.project.device_mut(id) {
+            if let Some(device) = self.doc.project.device_mut(id) {
                 device.state = Some(state);
             }
         }
         for (id, files) in kept {
-            if let Some(device) = self.project.device_mut(id) {
+            if let Some(device) = self.doc.project.device_mut(id) {
                 device.files = files;
             }
         }
         // This is bookkeeping, not an edit: nothing for the engine to do.
-        self.synced = self.project.clone();
+        self.synced = self.doc.project.clone();
     }
 
     /// A plugin's state as it is now, base64 encoded, for making a copy of
     /// the device with [`DeviceOpts::state`]. None for devices that keep no
     /// state beyond their parameters.
     pub fn device_state(&mut self, id: Id) -> Result<Option<String>> {
-        self.project
+        self.doc.project
             .find_device(id)
             .with_context(|| format!("no device {id}"))?;
         self.flush();
@@ -489,7 +489,7 @@ impl Session {
     /// With `factory`, the plugin first loads one of its own presets by that
     /// id, and the state it has then is what is kept.
     pub fn device_load(&mut self, id: Id, load: PresetLoad) -> Result<()> {
-        self.project
+        self.doc.project
             .find_device(id)
             .with_context(|| format!("no device {id}"))?;
         self.flush();
@@ -502,7 +502,7 @@ impl Session {
         if let Some(controller) = controller {
             if let Some(bytes) = first.then(|| controller.save_state()).and_then(|s| s.ok().flatten()) {
                 let now = BASE64.encode(bytes);
-                for snapshot in [&mut self.project, &mut self.undo.checkpoint, &mut self.synced] {
+                for snapshot in [&mut self.doc.project, &mut self.doc.undo.checkpoint, &mut self.synced] {
                     if let Some(device) = snapshot.device_mut(id) {
                         device.state = Some(now.clone());
                     }
@@ -558,13 +558,13 @@ impl Session {
             Ok(())
         })?;
         // Loading the state it gave back into it again would only cost time.
-        if already && let Some(device) = self.project.device(id).cloned() {
+        if already && let Some(device) = self.doc.project.device(id).cloned() {
             let synced_device = self.synced.device_mut(id);
             if let Some(synced_device) = synced_device {
                 *synced_device = (*device).clone();
             }
-            self.emit(E::DeviceChanged(Item::on(id, None)));
-            self.emit(E::changed());
+            self.doc.emit(E::DeviceChanged(Item::on(id, None)));
+            self.doc.emit(E::changed());
         }
         Ok(())
     }
@@ -574,15 +574,15 @@ impl Session {
     /// parameters set in the project. The project itself does not change.
     pub fn device_restart(&mut self, id: Id) -> Result<()> {
         let (track, _) = self
-            .project
+            .doc.project
             .find_device(id)
             .with_context(|| format!("no device {id}"))?;
-        if self.project.device(id).is_some_and(|d| d.offline) {
+        if self.doc.project.device(id).is_some_and(|d| d.offline) {
             bail!("the device is offline: set it online to start it");
         }
         self.flush();
         // Take it out of the engine and put it back, behind the project's back.
-        let mut without = self.project.clone();
+        let mut without = self.doc.project.clone();
         if let Some(track) = without.track_mut(track) {
             track.devices.retain(|d| d.id != id);
         }
@@ -594,7 +594,7 @@ impl Session {
                 audio: &mut self.audio,
                 live: &mut self.live,
                 sample_rate: self.engine.handle.sample_rate as f32,
-                warnings: &mut self.warnings,
+                warnings: &mut self.doc.warnings,
                 offline: false,
                 waker: self.engine.handle.waker(),
             };
@@ -610,15 +610,15 @@ impl Session {
             );
         }
         self.synced = without;
-        self.dirty = true;
-        let before = self.events.len();
+        self.doc.dirty = true;
+        let before = self.doc.events.len();
         self.flush();
         // Nothing was added to the project: say only that the device changed.
-        self.events.truncate(before);
-        self.emit(E::DeviceChanged(Item::on(id, Some(track))));
+        self.doc.events.truncate(before);
+        self.doc.emit(E::DeviceChanged(Item::on(id, Some(track))));
         if !self.live.contains_key(&id) && !self.loads.loading(id) {
             let why = self
-                .warnings
+                .doc.warnings
                 .pop()
                 .unwrap_or_else(|| "it could not be started".into());
             bail!("{why}");
@@ -711,32 +711,32 @@ impl Session {
             // The parameter last moved in a plugin's own window, for
             // `:param.last` and for the frontends to show.
             let touched = ParamTouched { device, param: param.clone(), id: stable, from: "editor".into(), value: Some(value) };
-            self.emit(E::ParamTouched(touched));
-            if let Some((track, _)) = self.project.find_device(device) {
+            self.doc.emit(E::ParamTouched(touched));
+            if let Some((track, _)) = self.doc.project.find_device(device) {
                 self.touch(track, Target::Param { device, param }, value, value);
             }
         }
         for (device, why) in stopped {
-            let Some((track, _)) = self.project.find_device(device) else {
+            let Some((track, _)) = self.doc.project.find_device(device) else {
                 continue;
             };
-            let kind = self.project.device(device).map_or("", |d| d.kind.as_str());
+            let kind = self.doc.project.device(device).map_or("", |d| d.kind.as_str());
             let name = self
                 .registry
                 .get(kind)
                 .map_or(kind.to_string(), |f| f.info().name.clone());
-            self.emit(E::DeviceStopped(DeviceTrouble { device, track, name, reason: Some(why), loading: false }));
+            self.doc.emit(E::DeviceStopped(DeviceTrouble { device, track, name, reason: Some(why), loading: false }));
         }
         for device in invalid {
-            let Some((track, _)) = self.project.find_device(device) else {
+            let Some((track, _)) = self.doc.project.find_device(device) else {
                 continue;
             };
-            let kind = self.project.device(device).map_or("", |d| d.kind.as_str());
+            let kind = self.doc.project.device(device).map_or("", |d| d.kind.as_str());
             let name = self
                 .registry
                 .get(kind)
                 .map_or(kind.to_string(), |f| f.info().name.clone());
-            self.emit(E::DeviceInvalid(DeviceTrouble { device, track, name, reason: None, loading: false }));
+            self.doc.emit(E::DeviceInvalid(DeviceTrouble { device, track, name, reason: None, loading: false }));
         }
     }
 
@@ -745,7 +745,7 @@ impl Session {
     fn apply_device_scan(&mut self, scan: DeviceScan) {
         if scan.latency_changed {
             // The tracks have to be lined up again.
-            self.dirty = true;
+            self.doc.dirty = true;
             self.flush();
         }
         if scan.changed.is_empty() {
@@ -755,7 +755,7 @@ impl Session {
         for (id, keys) in scan.changed {
             // The plugin now holds a value the project did not set. Stop
             // overriding it: the plugin's own state is what carries it from here.
-            for snapshot in [&mut self.project, &mut self.undo.checkpoint] {
+            for snapshot in [&mut self.doc.project, &mut self.doc.undo.checkpoint] {
                 let overridden = snapshot
                     .device(id)
                     .is_some_and(|d| keys.iter().any(|key| d.params.contains_key(key)));
@@ -763,12 +763,12 @@ impl Session {
                     device.params.retain(|key, _| !keys.contains(key));
                 }
             }
-            let track = self.project.find_device(id).map(|(track, _)| track);
-            self.emit(E::DeviceChanged(Item::on(id, track)));
+            let track = self.doc.project.find_device(id).map(|(track, _)| track);
+            self.doc.emit(E::DeviceChanged(Item::on(id, track)));
         }
         // Nothing here needs sending to the engine: the plugin already has it.
-        self.synced = self.project.clone();
-        self.emit(E::changed());
+        self.synced = self.doc.project.clone();
+        self.doc.emit(E::changed());
     }
 
     /// Show or hide a plugin's own window. Returns whether it is open afterwards.
@@ -776,16 +776,16 @@ impl Session {
         self.flush();
         self.await_device(id);
         let (track, _) = self
-            .project
+            .doc.project
             .find_device(id)
             .with_context(|| format!("no device {id}"))?;
         let track = self
-            .project
+            .doc.project
             .track(track)
             .map(|t| t.name.clone())
             .unwrap_or_default();
         let name = self
-            .project
+            .doc.project
             .device(id)
             .and_then(|d| self.registry.get(&d.kind))
             .map(|f| f.info().name.clone());
@@ -801,8 +801,8 @@ impl Session {
             controller.close_editor();
         }
         let open = controller.editor_open();
-        self.emit(E::DeviceChanged(Item::on(id, None)));
-        self.emit(E::changed());
+        self.doc.emit(E::DeviceChanged(Item::on(id, None)));
+        self.doc.emit(E::changed());
         Ok(open)
     }
 
@@ -812,7 +812,7 @@ impl Session {
     /// or is not made yet. Asked as views are drawn, so it waits for nothing.
     pub fn device_note_names(&mut self, id: Id) -> BTreeMap<u8, String> {
         let clap = self
-            .project
+            .doc.project
             .device(id)
             .is_some_and(|d| d.kind.starts_with("clap:"));
         let Some(controller) = self
@@ -838,7 +838,7 @@ impl Session {
         self.flush();
         self.await_device(id);
         let kind = &self
-            .project
+            .doc.project
             .device(id)
             .with_context(|| format!("no device {id}"))?
             .kind;

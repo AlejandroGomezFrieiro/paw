@@ -34,7 +34,7 @@ impl Session {
     /// The file, offset and gain of an audio clip.
     fn audio_clip(&self, id: Id) -> Result<(Arc<Clip>, PathBuf, f64, f64)> {
         let clip = self
-            .project
+            .doc.project
             .clip(id)
             .with_context(|| format!("no clip {id}"))?
             .clone();
@@ -48,7 +48,7 @@ impl Session {
     /// How many seconds of its sound an audio clip plays, from `offset`.
     fn played_seconds(&self, clip: &Clip, offset: f64) -> f64 {
         // Its real extent in time, by the tempo map, in seconds of the file.
-        let map = self.project.tempo_map();
+        let map = self.doc.project.tempo_map();
         let warp = crate::warp::of(clip, map).unwrap_or_else(|| crate::warp::Warp::even(1.0));
         let played = map.seconds_between(clip.start, clip.start + clip.length);
         warp.inverse(warp.forward(offset) + played) - offset
@@ -219,11 +219,11 @@ impl Session {
     pub fn clip_glue(&mut self, ids: &[Id]) -> Result<Value> {
         let first = *ids.first().context("no clips to glue")?;
         let (track, _) = self
-            .project
+            .doc.project
             .find_clip(first)
             .with_context(|| format!("no clip {first}"))?;
         let clips: Vec<Arc<Clip>> = self
-            .project
+            .doc.project
             .track(track)
             .context("no such track")?
             .clips
@@ -269,7 +269,7 @@ impl Session {
             looped: false,
             loop_length: None,
             loop_start: 0.0,
-            id: self.new_id(),
+            id: self.doc.new_id(),
             name: first_clip.name.clone(),
             start,
             length: end - start,
@@ -309,7 +309,7 @@ impl Session {
     /// bare master.
     fn glue_project(&mut self, track: Id, chosen: &[Id]) -> Result<crate::model::Project> {
         self.capture_states();
-        let mut project = self.project.clone();
+        let mut project = self.doc.project.clone();
         project.tracks.retain(|t| t.id == track);
         if track == MASTER_ID {
             bail!("clips on the master track cannot be glued");

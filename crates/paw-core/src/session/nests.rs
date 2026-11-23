@@ -65,11 +65,11 @@ impl NestField {
 impl Session {
     /// Make a nest with its master track and no other track. Returns its id.
     pub fn nest_add(&mut self, opts: NestOpts) -> Result<NestId> {
-        let id = NestId(self.new_id());
-        let master = self.new_id();
+        let id = NestId(self.doc.new_id());
+        let master = self.doc.new_id();
         let name = match opts.name.as_deref().map(str::trim) {
             Some(name) if !name.is_empty() => name.to_string(),
-            _ => format!("Nest {}", self.project.nests.len() + 1),
+            _ => format!("Nest {}", self.doc.project.nests.len() + 1),
         };
         let nest = Nest {
             id,
@@ -86,7 +86,7 @@ impl Session {
         let mut track = Track::new(master);
         track.name = "Master".into();
         track.nest = Some(id);
-        let mut candidate = self.project.clone();
+        let mut candidate = self.doc.project.clone();
         candidate.tracks.push(Arc::new(track));
         candidate.nests.insert(id, Arc::new(nest));
         crate::model::check_nest(&candidate, id, &candidate.nests[&id])?;
@@ -100,11 +100,11 @@ impl Session {
     /// the master) and `used` (whether the song plays it).
     pub fn nest_view(&self, id: NestId) -> Result<Value> {
         let nest = self
-            .project
+            .doc.project
             .nest(id)
             .with_context(|| format!("no subproject {id}"))?;
         let tracks: Vec<Id> = self
-            .project
+            .doc.project
             .nest_tracks(id)
             .map(|t| t.id)
             .filter(|t| *t != nest.master)
@@ -112,7 +112,7 @@ impl Session {
         let mut view = serde_json::to_value(&**nest)?;
         let map = view.as_object_mut().context("a subproject")?;
         map.insert("tracks".into(), json!(tracks));
-        map.insert("used".into(), json!(self.project.nests_in_use().contains(&id)));
+        map.insert("used".into(), json!(self.doc.project.nests_in_use().contains(&id)));
         map.entry("meta").or_insert_with(|| json!({}));
         Ok(view)
     }
@@ -121,7 +121,7 @@ impl Session {
     /// [`Session::nest_view`], which looks at every clip.
     pub fn nest_field(&self, id: NestId, key: &str) -> Result<Value> {
         let nest = self
-            .project
+            .doc.project
             .nest(id)
             .with_context(|| format!("no subproject {id}"))?;
         Ok(match key {
@@ -137,7 +137,7 @@ impl Session {
 
     /// The ids of the nests, in the order they were made.
     pub fn nest_list(&self) -> Vec<NestId> {
-        self.project.nests.keys().copied().collect()
+        self.doc.project.nests.keys().copied().collect()
     }
 
     /// Change one field of a nest. A value that is as it was is no change.
@@ -149,13 +149,13 @@ impl Session {
         }
         let field: NestField = key.parse()?;
         let was = self
-            .project
+            .doc.project
             .nest(id)
             .with_context(|| format!("no subproject {id}"))?
             .clone();
         let mut nest = (*was).clone();
         field.set(&mut nest, key, value)?;
-        crate::model::check_nest(&self.project, id, &nest)?;
+        crate::model::check_nest(&self.doc.project, id, &nest)?;
         self.edit(|p| {
             p.nests.insert(id, Arc::new(nest));
             if field == NestField::Tempo {
@@ -184,7 +184,7 @@ impl Session {
     /// the same instance, then place the copy. One undo step. Returns the
     /// copy's id.
     pub fn nest_unique(&mut self, clip: Id) -> Result<NestId> {
-        let p = &self.project;
+        let p = &self.doc.project;
         let block = p.clip(clip).with_context(|| format!("no clip {clip}"))?.clone();
         let ClipContent::Nest { nest: old, .. } = &block.content else {
             bail!("not a block of a subproject: put the cursor on one");
@@ -214,11 +214,11 @@ impl Session {
             .find(|n| !names.contains(n.as_str()))
             .expect("a free name");
         // New ids for the tracks first: their routes point at each other.
-        let id = NestId(self.new_id());
-        let sources: Vec<Arc<Track>> = self.project.nest_tracks(old).cloned().collect();
+        let id = NestId(self.doc.new_id());
+        let sources: Vec<Arc<Track>> = self.doc.project.nest_tracks(old).cloned().collect();
         let mut ids: HashMap<Id, Id> = HashMap::new();
         for t in &sources {
-            let made = self.new_id();
+            let made = self.doc.new_id();
             ids.insert(t.id, made);
         }
         let copies: Vec<Arc<Track>> = sources.iter().map(|t| Arc::new(self.copy_track(t, id, &ids))).collect();
@@ -230,7 +230,7 @@ impl Session {
             origin: held.source.clone().or_else(|| held.origin.clone()),
             ..(*held).clone()
         };
-        let mut candidate = self.project.clone();
+        let mut candidate = self.doc.project.clone();
         candidate.tracks.extend(copies);
         candidate.nests.insert(id, Arc::new(nest));
         for t in candidate.tracks.iter_mut() {
@@ -265,7 +265,7 @@ impl Session {
             .iter()
             .map(|d| {
                 let made = DeviceInst {
-                    id: self.new_id(),
+                    id: self.doc.new_id(),
                     sidechain: d.sidechain.map(track),
                     outputs: d.outputs.iter().map(|(k, o)| (*k, track(*o))).collect(),
                     ..(**d).clone()
@@ -284,7 +284,7 @@ impl Session {
                     Target::State { device: d } => Target::State { device: device(*d) },
                     other => other.clone(),
                 };
-                Arc::new(Lane { id: self.new_id(), target, ..(**l).clone() })
+                Arc::new(Lane { id: self.doc.new_id(), target, ..(**l).clone() })
             })
             .collect();
         (devices, lanes)
@@ -303,8 +303,8 @@ impl Session {
             s.target = map(s.target);
         }
         (copy.devices, copy.lanes) = self.copy_devices_and_lanes(t, ids);
-        copy.clips = t.clips.iter().map(|c| Arc::new(Clip { id: self.new_id(), ..(**c).clone() })).collect();
-        copy.cues = t.cues.iter().map(|c| Arc::new(Clip { id: self.new_id(), ..(**c).clone() })).collect();
+        copy.clips = t.clips.iter().map(|c| Arc::new(Clip { id: self.doc.new_id(), ..(**c).clone() })).collect();
+        copy.cues = t.cues.iter().map(|c| Arc::new(Clip { id: self.doc.new_id(), ..(**c).clone() })).collect();
         if let Some(group) = t.meta.get("group").and_then(Value::as_u64) {
             copy.meta.insert("group".into(), json!(map(group)));
         }

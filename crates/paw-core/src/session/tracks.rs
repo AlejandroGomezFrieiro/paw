@@ -5,10 +5,10 @@ use super::*;
 impl Session {
     pub fn track_view(&self, id: Id) -> Result<Value> {
         let t = self
-            .project
+            .doc.project
             .track(id)
             .with_context(|| format!("no track {id}"))?;
-        let index = self.project.tracks.iter().position(|x| x.id == id);
+        let index = self.doc.project.tracks.iter().position(|x| x.id == id);
         Ok(json!({
             "id": t.id, "name": t.name, "volume": t.volume, "pan": t.pan, "mute": t.mute,
             "solo": t.solo, "armed": t.armed, "output": t.output, "sends": t.sends,
@@ -35,7 +35,7 @@ impl Session {
     /// view lists every clip of the track.
     pub fn track_field(&self, id: Id, key: &str) -> Result<Value> {
         let t = self
-            .project
+            .doc.project
             .track(id)
             .with_context(|| format!("no track {id}"))?;
         Ok(match key {
@@ -63,7 +63,7 @@ impl Session {
     pub fn track_add(&mut self, opts: TrackOpts) -> Result<Id> {
         let volume = finite("volume", opts.volume.unwrap_or(0.0))?.clamp(-120.0, 24.0);
         let pan = finite("pan", opts.pan.unwrap_or(0.0))?.clamp(-1.0, 1.0);
-        let id = self.new_id();
+        let id = self.doc.new_id();
         self.edit(|p| {
             if let Some(nest) = opts.nest
                 && p.nest(nest).is_none()
@@ -148,9 +148,9 @@ impl Session {
     /// of both (`all`), in their order.
     pub fn track_ids(&self, opts: &TrackListOpts) -> Vec<Id> {
         if opts.all {
-            return self.project.tracks.iter().map(|t| t.id).collect();
+            return self.doc.project.tracks.iter().map(|t| t.id).collect();
         }
-        self.project.place_tracks(opts.nest).map(|t| t.id).collect()
+        self.doc.project.place_tracks(opts.nest).map(|t| t.id).collect()
     }
 
     /// Move a track to `index` (from 0) among the tracks of its place: the
@@ -176,7 +176,7 @@ impl Session {
         // An unknown key fails inside the edit, after a missing track does.
         let field = key.parse::<TrackField>();
         let moved = matches!(field, Ok(TrackField::Volume | TrackField::Pan));
-        if let (true, Some(track), Some(to)) = (moved, self.project.track(id), value.as_f64()) {
+        if let (true, Some(track), Some(to)) = (moved, self.doc.project.track(id), value.as_f64()) {
             let (target, before) = match field {
                 Ok(TrackField::Volume) => (Target::Volume, track.volume),
                 _ => (Target::Pan, track.pan),
@@ -190,7 +190,7 @@ impl Session {
             field?.set(p, id, key, value)
         })?;
         if moved {
-            self.swept(format!("track {id} {key}"));
+            self.doc.swept(format!("track {id} {key}"));
         }
         Ok(())
     }

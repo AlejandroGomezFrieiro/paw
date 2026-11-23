@@ -1,7 +1,8 @@
 //! The session: the project, its undo history and the running engine.
 //!
-//! Every edit changes [`Session::project`] and marks it dirty. [`Session::flush`]
-//! then diffs it against what the engine last saw and sends the difference.
+//! Every edit changes the project of [`Session::doc`] (a [`Document`]) and
+//! marks it dirty. [`Session::flush`] then diffs it against what the engine
+//! last saw and sends the difference.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
@@ -23,8 +24,10 @@ use crate::model::{
     check_clip_beat, check_notes, Clip, ClipContent, ClipKindId, Control, CustomContent, DeviceInst, KindData, MediaRef, Signal, Timeline, Id, Lane, LaneState, MASTER_ID, MidiInput, NestPlay, Note, NoteAttr, Notes, Project, Segment,
     Send, Shape, Sound, StretchMode, Target, Timebase, Track, WarpMarker, InputChannels,
 };
-use crate::sync::{AudioCache, Follow, LiveDevices, Mapper, ModelEvent, SyncCtx, sync};
+use crate::sync::{AudioCache, Follow, LiveDevices, Mapper, SyncCtx, sync};
 
+mod document;
+pub use document::Document;
 mod editing;
 mod project;
 mod tracks;
@@ -75,7 +78,7 @@ mod undo;
 mod watch;
 pub use watch::Lost;
 mod write;
-use undo::{SWEEP_GAP, new_history};
+use undo::new_history;
 
 const FILE_VERSION: u32 = 1;
 /// More points than any screen has columns.
@@ -461,25 +464,14 @@ impl Default for RenderOpts {
 }
 
 pub struct Session {
-    pub project: Project,
+    /// The project, its edits and its undo tree: see `session/document.rs`.
+    pub doc: Document,
     /// The project as the engine last saw it.
     synced: Project,
-    /// The tracks (and the master) as the last edit left them, its notes
-    /// named: the next edit looks for notes to name only where it differs.
-    named: (Vec<Arc<Track>>, Arc<Track>),
-    /// The project differs from what the engine last saw: the next
-    /// [`flush`](Self::flush) sends the difference.
-    dirty: bool,
-    /// The undo tree and the open step: see `session/undo.rs`.
-    undo: undo::Undo,
-    next_id: Id,
 
     /// The running engine and how it was started: see `session/engine.rs`.
     engine: engine::EngineLink,
     pub registry: Registry,
-    /// The kinds of clip that extensions defined (`paw.clip_kinds.define`):
-    /// a clip of another custom kind is not added. Not part of the project.
-    clip_kinds: BTreeSet<ClipKindId>,
     audio: AudioCache,
     /// Checkpoints counted for [`Session::trim_audio_now_and_then`].
     trims: u32,
@@ -493,9 +485,6 @@ pub struct Session {
     pub path: Option<PathBuf>,
     /// The screen the project file keeps (`ProjectFile::screen`).
     pub screen: Option<Value>,
-    /// Change notifications waiting to be delivered to Lua.
-    pub events: Vec<ModelEvent>,
-    pub warnings: Vec<String>,
 
     /// The take being recorded: see `session/transport.rs`.
     rec: Recorder,
@@ -596,24 +585,14 @@ fn de<T: DeserializeOwned>(key: &str, value: Value) -> Result<T> {
 }
 
 impl Session {
-    /// Report an event to Lua at the end of the turn (`events_take`).
-    pub fn emit(&mut self, event: crate::events::KernelEvent) {
-        self.events.push(event.into());
-    }
-
     pub fn new(opts: &BackendOptions, registry: Registry) -> Result<Self> {
         let (handle, stream) = start_engine(opts)?;
-        let project = Project::default();
+        let doc = Document::default();
         let mut session = Self {
-            synced: project.clone(),
-            named: (project.tracks.clone(), project.master.clone()),
-            undo: undo::Undo::new(&project),
-            project,
-            dirty: false,
-            next_id: MASTER_ID + 1,
+            synced: doc.project.clone(),
+            doc,
             engine: engine::EngineLink { handle, map: Mapper::new(), stream, threads: 0, sleep: true, backend: opts.clone() },
             registry,
-            clip_kinds: BTreeSet::new(),
             audio: AudioCache::default(),
             trims: 0,
             live: LiveDevices::new(),
@@ -621,8 +600,6 @@ impl Session {
             play: Default::default(),
             path: None,
             screen: None,
-            events: Vec::new(),
-            warnings: Vec::new(),
             rec: Recorder::default(),
             midi: Default::default(),
             writing: write::Writing::default(),
@@ -641,7 +618,7 @@ impl Session {
             shelf: None,
             audition: Default::default(),
         };
-        session.warnings.extend(session.engine.stream.info.warning.clone());
+        session.doc.warnings.extend(session.engine.stream.info.warning.clone());
         session.send_pool();
         session.send_transport();
         session.connect_midi();

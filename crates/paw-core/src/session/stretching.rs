@@ -151,7 +151,7 @@ impl Session {
 
     fn set_playing(&mut self, id: Id, key: &str, value: Value) -> Result<()> {
         let clip = self
-            .project
+            .doc.project
             .clip(id)
             .with_context(|| format!("no clip {id}"))?
             .clone();
@@ -159,7 +159,7 @@ impl Session {
         if !audio && !key.starts_with("loop") {
             return Err(not_audio(&clip, &format!("have `{key}`")));
         }
-        let tempo = self.project.tempo_map().tempo(clip.start);
+        let tempo = self.doc.project.tempo_map().tempo(clip.start);
         // What a loop turned on repeats unless it was given a length: a
         // MIDI clip what it holds now, an audio clip its file from where
         // it starts playing it.
@@ -250,7 +250,7 @@ impl Session {
     /// (and plays a rough `preview` until its bake starts), and where its
     /// warp markers are, as beats of the song.
     pub(super) fn note_stretching(&self, clip: &Clip, view: &mut super::ClipView<'_>) {
-        let map = self.project.tempo_map();
+        let map = self.doc.project.tempo_map();
         let key = Key::of(clip, self.engine.handle.sample_rate as u32, map, &self.sources);
         if let Some(key) = key.as_ref() {
             // A file with no hash yet waits for it, as a bake waits to start.
@@ -295,7 +295,7 @@ impl Session {
         if !beat.is_finite() || beat < clip.start - 1e-9 || beat > clip.start + clip.length + 1e-9 {
             bail!("a warp marker goes inside its clip");
         }
-        let map = self.project.tempo_map().clone();
+        let map = self.doc.project.tempo_map().clone();
         let source = warp::source_at(&clip, &map, beat);
         if source < 0.0 {
             bail!("the clip plays nothing of its file there");
@@ -332,7 +332,7 @@ impl Session {
         if !beat.is_finite() {
             bail!("a beat is a number");
         }
-        let map = self.project.tempo_map().clone();
+        let map = self.doc.project.tempo_map().clone();
         let Some(&ClipContent::Audio { offset, .. }) = clip.playable() else {
             unreachable!("an audio clip")
         };
@@ -388,7 +388,7 @@ impl Session {
 
     fn audio_clip_ref(&self, id: Id) -> Result<Arc<Clip>> {
         let clip = self
-            .project
+            .doc.project
             .clip(id)
             .with_context(|| format!("no clip {id}"))?;
         if !matches!(clip.playable(), Some(ClipContent::Audio { .. })) {
@@ -414,7 +414,7 @@ impl Session {
     /// waits for, then the rest.
     fn bake_wants(&self) -> HashMap<Key, Priority> {
         let rate = self.engine.handle.sample_rate as u32;
-        let map = self.project.tempo_map();
+        let map = self.doc.project.tempo_map();
         let from = self.position();
         let to = map.beat(map.seconds(from) + AHEAD);
         let mut wants: HashMap<Key, Priority> = HashMap::new();
@@ -423,7 +423,7 @@ impl Session {
             *was = (*was).max(priority);
         };
         let views = &self.audio.upkeep.views;
-        for track in self.project.all_tracks() {
+        for track in self.doc.project.all_tracks() {
             for clip in &track.clips {
                 if let Some(key) = Key::of(clip, rate, map, &self.sources) {
                     let end = clip.start + clip.length;
@@ -452,8 +452,8 @@ impl Session {
     /// project as it is, of the last undo states, and of a running render.
     pub(crate) fn bake_pins(&self) -> HashSet<String> {
         let rate = self.engine.handle.sample_rate as u32;
-        let mut keys = wanted(&self.project, rate, &self.sources);
-        let mut states: Vec<_> = self.undo.history.states().collect();
+        let mut keys = wanted(&self.doc.project, rate, &self.sources);
+        let mut states: Vec<_> = self.doc.undo.history.states().collect();
         states.sort_by_key(|s| std::cmp::Reverse(s.id));
         for state in states.into_iter().take(UNDO_PINS) {
             keys.extend(wanted(&state.snapshot, rate, &self.sources));
@@ -500,7 +500,7 @@ impl Session {
         if tidied.over(limit) && !self.audio.upkeep.told_over {
             self.audio.upkeep.told_over = true;
             let gb = |bytes: u64| bytes as f64 / 1_073_741_824.0;
-            self.warnings.push(format!(
+            self.doc.warnings.push(format!(
                 "the bakes this project needs now take {:.1} GB, more than the cache's limit of {:.1} GB: \
                  none of them is removed. Raise paw.opt.media_cache to make room",
                 gb(tidied.pinned),
@@ -527,7 +527,7 @@ impl Session {
         }
         upkeep.reported = Some((Instant::now(), busy));
         let Busy { running, waiting, fraction } = busy;
-        self.emit(E::BakeProgress(BakeProgress { running, waiting, fraction }));
+        self.doc.emit(E::BakeProgress(BakeProgress { running, waiting, fraction }));
     }
 
     /// Take in the bakes that ended or started, start those that have
@@ -552,7 +552,7 @@ impl Session {
         let rate = self.engine.handle.sample_rate as u32;
         let wants = self.bake_wants();
         self.audio.renders.poll(&wants, SETTLE);
-        self.warnings.append(&mut self.audio.renders.failures);
+        self.doc.warnings.append(&mut self.audio.renders.failures);
         self.report_bakes();
         let finished: HashSet<Key> = self.audio.renders.finished.drain(..).collect();
         if finished.is_empty() && hashed.is_empty() {
@@ -565,7 +565,7 @@ impl Session {
         // one it last saw: those clips are made to differ. Built again on
         // this thread and sent as any edit is, the clip's new regions take
         // the place of its old ones (the preview's, say) at a block boundary.
-        let map = self.project.tempo_map().clone();
+        let map = self.doc.project.tempo_map().clone();
         let sources = &self.sources;
         let touched = |c: &Arc<Clip>| {
             Key::of(c, rate, &map, sources).is_some_and(|k| finished.contains(&k) || hashed.contains(&k.file))
@@ -588,7 +588,7 @@ impl Session {
                 }
             }
         }
-        self.dirty = true;
+        self.doc.dirty = true;
         self.flush();
     }
 
@@ -620,7 +620,7 @@ impl Session {
             return Ok(());
         }
         for key in &keys {
-            self.audio.stretched(key, &mut self.warnings);
+            self.audio.stretched(key, &mut self.doc.warnings);
         }
         self.audio.upkeep.exporting.extend(keys.iter().cloned());
         let deadline = Instant::now() + limit;
@@ -632,7 +632,7 @@ impl Session {
             self.audio.renders.poll(&wants, Duration::ZERO);
             std::thread::sleep(Duration::from_millis(5));
         }
-        self.warnings.append(&mut self.audio.renders.failures);
+        self.doc.warnings.append(&mut self.audio.renders.failures);
         Ok(())
     }
 
@@ -644,7 +644,7 @@ impl Session {
         let Some(ClipContent::Audio { file, offset, .. }) = clip.playable() else {
             return Err(not_audio(clip, "have a waveform"));
         };
-        let map = self.project.tempo_map().clone();
+        let map = self.doc.project.tempo_map().clone();
         let seconds = map.seconds_between(clip.start, clip.start + clip.length);
         let key = Key::of(clip, self.engine.handle.sample_rate as u32, &map, &self.sources);
         let warp = warp::of(clip, &map).unwrap_or_else(|| warp::Warp::even(1.0));

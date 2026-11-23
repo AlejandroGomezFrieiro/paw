@@ -129,7 +129,7 @@ impl Session {
             ..BackendOptions::default()
         };
         if let Err(err) = self.engine_restart(&null) {
-            self.warnings
+            self.doc.warnings
                 .push(format!("could not go on without the device: {err:#}"));
         }
         // The engine it runs on now is not the one the program was told to use.
@@ -140,7 +140,7 @@ impl Session {
             next_try: Instant::now() + self.watch.period,
         });
         let auto = self.watch.auto;
-        self.emit(E::AudioLost(AudioLost { device: name, reason: why, recording, auto }));
+        self.doc.emit(E::AudioLost(AudioLost { device: name, reason: why, recording, auto }));
     }
 
     /// Whether the device that went is there again.
@@ -175,7 +175,7 @@ impl Session {
             {
                 self.watch.gone = None;
                 let engine = self.engine_info();
-                self.emit(E::AudioRestored(AudioRestored { device: name, engine }));
+                self.doc.emit(E::AudioRestored(AudioRestored { device: name, engine }));
                 Ok(true)
             }
             outcome => {
@@ -238,7 +238,7 @@ impl Session {
         let tracks = |session: &Session, port: &str| -> Vec<String> {
             let key = paw_engine::midi::port_key(port);
             session
-                .project
+                .doc.project
                 .tracks
                 .iter()
                 .filter(|t| {
@@ -253,7 +253,7 @@ impl Session {
         for port in before.difference(&now) {
             self.watch.ports_gone.insert(port.clone());
             let tracks = tracks(self, port);
-            self.emit(E::MidiLost(MidiPort { port: port.clone(), tracks }));
+            self.doc.emit(E::MidiLost(MidiPort { port: port.clone(), tracks }));
         }
         let back: Vec<String> = now
             .iter()
@@ -263,7 +263,7 @@ impl Session {
         for port in back {
             self.watch.ports_gone.remove(&port);
             let tracks = tracks(self, &port);
-            self.emit(E::MidiReturned(MidiPort { port, tracks }));
+            self.doc.emit(E::MidiReturned(MidiPort { port, tracks }));
         }
     }
 }

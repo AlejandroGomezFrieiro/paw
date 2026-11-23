@@ -73,7 +73,7 @@ impl Session {
     /// A track's clips off the timeline, without their notes.
     pub fn cue_list(&self, track: Id) -> Result<Vec<super::ClipView<'_>>> {
         let t = self
-            .project
+            .doc.project
             .track(track)
             .with_context(|| format!("no track {track}"))?;
         Ok(t.cues
@@ -90,12 +90,12 @@ impl Session {
     /// with its `meta`. Returns the copy's id.
     pub fn clip_to_cues(&mut self, id: Id, track: Id) -> Result<Id> {
         let clip = self
-            .project
+            .doc.project
             .clip(id)
             .with_context(|| format!("no clip {id}"))?;
         let mut copy = (**clip).clone();
         copy.start = 0.0;
-        copy.id = self.new_id();
+        copy.id = self.doc.new_id();
         let copy_id = copy.id;
         self.edit(|p| {
             if track == MASTER_ID {
@@ -116,7 +116,7 @@ impl Session {
         self.flush();
         let mut launches = Vec::with_capacity(asked.len());
         for opts in asked {
-            if self.project.track(opts.track).is_none() {
+            if self.doc.project.track(opts.track).is_none() {
                 bail!("no track {}", opts.track);
             }
             let Some(&slot) = self.engine.map.tracks.get(&opts.track) else {
@@ -125,7 +125,7 @@ impl Session {
             let target = match (opts.clip, opts.stop, opts.timeline) {
                 (Some(clip), false, false) => {
                     let row = self.engine.map.cue_row(opts.track, clip).with_context(|| {
-                        if self.project.find_cue_clip(clip).is_some() {
+                        if self.doc.project.find_cue_clip(clip).is_some() {
                             format!("clip {clip} is off the timeline of another track")
                         } else {
                             format!("clip {clip} is not off the timeline of track {}", opts.track)
@@ -155,7 +155,7 @@ impl Session {
     /// a project just opened, whose tracks may sit where another's were.
     pub(super) fn cue_reset(&mut self) {
         let launches: Vec<Launch> = self
-            .project
+            .doc.project
             .tracks
             .iter()
             .filter_map(|t| self.engine.map.tracks.get(&t.id))
@@ -179,7 +179,7 @@ impl Session {
     /// `"timeline"`) with the beat it happens on (`at`).
     pub fn cue_state(&self) -> Value {
         let mut out = Vec::new();
-        for track in &self.project.tracks {
+        for track in &self.doc.project.tracks {
             let Some(state) = self
                 .engine.map
                 .tracks

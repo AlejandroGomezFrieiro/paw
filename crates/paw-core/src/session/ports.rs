@@ -21,7 +21,7 @@ impl Session {
         match &live.controller {
             Some(controller) => controller.ports(),
             None => self
-                .project
+                .doc.project
                 .device(id)
                 .and_then(|d| self.registry.get(&d.kind))
                 .map(|factory| factory.ports())

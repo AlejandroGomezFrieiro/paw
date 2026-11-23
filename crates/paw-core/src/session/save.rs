@@ -104,7 +104,7 @@ fn shifted_lane(lane: &crate::model::Lane, from: f64) -> crate::model::Lane {
 impl Session {
     /// The place of the tracks of a view: one for all, none a master.
     fn save_place(&self, tracks: &[Id]) -> Result<Option<NestId>> {
-        let p = &self.project;
+        let p = &self.doc.project;
         let mut place = None;
         for (i, id) in tracks.iter().enumerate() {
             let t = p.track(*id).with_context(|| format!("no track {id}"))?;
@@ -122,8 +122,8 @@ impl Session {
     /// An error for the first clip that crosses an edge of the time and
     /// cannot be cut there.
     fn check_cuts(&self, tracks: &[Id], from: f64, to: f64) -> Result<()> {
-        let tempo = self.project.tempo_map();
-        for t in tracks.iter().filter_map(|id| self.project.track(*id)) {
+        let tempo = self.doc.project.tempo_map();
+        for t in tracks.iter().filter_map(|id| self.doc.project.track(*id)) {
             for c in t.clips.iter().filter(|c| overlaps(c, from, to)) {
                 let crosses = c.start < from - EPS || c.start + c.length > to + EPS;
                 let cuttable = !c.looped && matches!(c.content, ClipContent::Midi { .. } | ClipContent::Nest { .. });
@@ -151,10 +151,10 @@ impl Session {
         if head {
             kept.extend(placed_clip(c, 0.0, f64::NEG_INFINITY, from, c.id).map(Arc::new));
         }
-        let id = if head { self.new_id() } else { c.id };
+        let id = if head { self.doc.new_id() } else { c.id };
         let inner = placed_clip(c, -from, 0.0, to - from, id).map(Arc::new);
         if tail {
-            let id = self.new_id();
+            let id = self.doc.new_id();
             kept.extend(placed_clip(c, 0.0, to, f64::INFINITY, id).map(Arc::new));
         }
         (kept, inner)
@@ -175,8 +175,8 @@ impl Session {
         }
         let place = self.save_place(&opts.tracks)?;
         self.check_cuts(&opts.tracks, from, to)?;
-        let id = NestId(self.new_id());
-        let mut master = Track::new(self.new_id());
+        let id = NestId(self.doc.new_id());
+        let mut master = Track::new(self.doc.new_id());
         master.name = "Master".into();
         master.nest = Some(id);
         let nest = Nest {
@@ -205,11 +205,11 @@ impl Session {
         let mut kept: Vec<(Id, Clips)> = Vec::new();
         let mut made = vec![Arc::new(master)];
         for &row in &opts.tracks {
-            let t = self.project.track(row).context("no track")?.clone();
+            let t = self.doc.project.track(row).context("no track")?.clone();
             if !t.clips.iter().any(|c| overlaps(c, from, to)) {
                 continue;
             }
-            let mut inner = Track::new(self.new_id());
+            let mut inner = Track::new(self.doc.new_id());
             inner.name = t.name.clone();
             inner.color = t.color.clone();
             inner.nest = Some(nest.id);
@@ -235,7 +235,7 @@ impl Session {
         }
         let tracks = made.iter().skip(1).map(|t| t.id).collect();
         let id = nest.id;
-        let mut p = self.project.clone();
+        let mut p = self.doc.project.clone();
         for (row, clips) in kept {
             p.track_mut(row).context("no row")?.clips = clips;
         }
@@ -252,7 +252,7 @@ impl Session {
     /// `<Space>zW`: a row of its own (see the module).
     fn save_own_row(&mut self, opts: &SaveOpts, nest: Nest, master: Track, place: Option<NestId>) -> Result<Saved> {
         let (from, to) = (opts.from, opts.to);
-        let p = &self.project;
+        let p = &self.doc.project;
         let selected: Vec<Arc<Track>> = opts
             .tracks
             .iter()
@@ -316,10 +316,10 @@ impl Session {
         // moves whole, a new one for a copy.
         let mut ids: HashMap<Id, Id> = HashMap::new();
         for t in &order {
-            let id = if whole.contains(&t.id) { t.id } else { self.new_id() };
+            let id = if whole.contains(&t.id) { t.id } else { self.doc.new_id() };
             ids.insert(t.id, id);
         }
-        let p = &self.project;
+        let p = &self.doc.project;
         let moved: HashSet<Id> = order.iter().filter(|t| whole.contains(&t.id)).map(|t| t.id).collect();
         // A side-chain or an output pair across the new boundary is refused.
         for t in p.all_tracks() {
@@ -362,7 +362,7 @@ impl Session {
                 row
             }
             None => {
-                let mut row = Track::new(self.new_id());
+                let mut row = Track::new(self.doc.new_id());
                 row.name = nest.name.clone();
                 row.nest = place;
                 // The common output of the tracks that leave, else the master.
@@ -387,7 +387,7 @@ impl Session {
         });
         let order_ids: Vec<Id> = order.iter().map(|t| t.id).collect();
         for song_id in order_ids {
-            let t = self.project.track(song_id).context("no track")?.clone();
+            let t = self.doc.project.track(song_id).context("no track")?.clone();
             let mut inner = (*t).clone();
             inner.id = ids[&song_id];
             inner.nest = Some(nest.id);
@@ -426,7 +426,7 @@ impl Session {
                     .devices
                     .iter()
                     .map(|d| {
-                        let copy = DeviceInst { id: self.new_id(), ..(**d).clone() };
+                        let copy = DeviceInst { id: self.doc.new_id(), ..(**d).clone() };
                         devices.insert(d.id, copy.id);
                         Arc::new(copy)
                     })
@@ -437,7 +437,7 @@ impl Session {
                     .iter()
                     .map(|l| {
                         let mut lane = placed_lane(l, &place);
-                        lane.id = self.new_id();
+                        lane.id = self.doc.new_id();
                         lane.target = match &lane.target {
                             Target::Param { device, param } => Target::Param {
                                 device: devices.get(device).copied().unwrap_or(*device),
@@ -450,7 +450,7 @@ impl Session {
                     })
                     .collect();
             }
-            let p = &self.project;
+            let p = &self.doc.project;
             let name_of = |id: Id| p.track(id).map_or_else(|| id.to_string(), |t| t.name.clone());
             // Where it plays: inside, or into the master.
             inner.output = t.output.and_then(|o| ids.get(&o).copied());
@@ -508,7 +508,7 @@ impl Session {
         let first = order.first().map(|t| t.id).context("nothing to save")?;
         let id = nest.id;
         let fresh_row = head.is_none();
-        let mut p = self.project.clone();
+        let mut p = self.doc.project.clone();
         for (song_id, clips) in stay {
             p.track_mut(song_id).context("no track")?.clips = clips;
         }

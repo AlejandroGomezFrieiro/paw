@@ -132,7 +132,7 @@ impl Shared {
         let arrived = self.io.borrow_mut().arrived();
         let mut session = self.session.borrow_mut();
         for id in arrived {
-            session.emit(crate::events::KernelEvent::ProcOutput(crate::events::ProcOutput { id }));
+            session.doc.emit(crate::events::KernelEvent::ProcOutput(crate::events::ProcOutput { id }));
         }
     }
 

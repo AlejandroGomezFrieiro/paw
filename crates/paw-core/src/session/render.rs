@@ -360,7 +360,7 @@ impl Session {
         for (id, mut device) in live.into_iter().flatten() {
             if let Some(why) = device.controller.as_mut().and_then(|c| c.health()) {
                 let name = self
-                    .project
+                    .doc.project
                     .device(id)
                     .map_or("a device", |d| d.kind.as_str());
                 out.push(format!(
@@ -380,7 +380,7 @@ impl Session {
         // refuse, naming it, one that did not load.
         self.await_loads(Duration::from_secs(60))?;
         self.capture_states();
-        let project = self.project.clone();
+        let project = self.doc.project.clone();
         // The file's tags are the project's, over which the render's own
         // go. A lossy file's title is the project's name unless one is
         // given; a WAV or FLAC is only tagged with what was asked for, so
@@ -581,7 +581,7 @@ impl Session {
             audio: &mut self.audio,
             live: &mut live,
             sample_rate: sample_rate as f32,
-            warnings: &mut self.warnings,
+            warnings: &mut self.doc.warnings,
             offline: true,
             waker,
         };
@@ -642,7 +642,7 @@ impl Session {
                     }
                 }
                 Err(err) => self
-                    .warnings
+                    .doc.warnings
                     .push(format!("state `{}` of a lane: {err:#}", state.name)),
             }
         }
@@ -717,7 +717,7 @@ impl Session {
                 job.reported = (fraction, Instant::now());
                 let progress = RenderProgress { path: job.path.clone(), fraction,
                     stage: job.progress.stage().to_string(), seconds: job.started.elapsed().as_secs_f64() };
-                self.emit(E::RenderProgress(progress));
+                self.doc.emit(E::RenderProgress(progress));
             }
             return;
         }
@@ -734,7 +734,7 @@ impl Session {
             Err(_) if job.progress.cancelled() => E::RenderCancelled(RenderEnd { path: job.path, error: None }),
             Err(err) => E::RenderFailed(RenderEnd { path: job.path, error: Some(format!("{err:#}")) }),
         };
-        self.emit(event);
+        self.doc.emit(event);
     }
 }
 

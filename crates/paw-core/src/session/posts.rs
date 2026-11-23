@@ -32,7 +32,7 @@ impl Session {
                 continue;
             };
             if self
-                .project
+                .doc.project
                 .device(*id)
                 .is_some_and(|d| self.registry.resolve(&d.kind) == kind)
                 && let Err(err) = controller.call(topic, &data)

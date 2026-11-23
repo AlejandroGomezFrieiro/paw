@@ -34,7 +34,7 @@ impl Session {
     /// what it feeds on the way to the master, as when it is soloed.
     pub fn offline(&mut self, opts: &RenderOpts, solo: Option<Id>) -> Result<Offline> {
         self.capture_states();
-        let mut project = self.project.clone();
+        let mut project = self.doc.project.clone();
         if let Some(id) = solo.filter(|id| *id != MASTER_ID) {
             if project.track(id).is_none() {
                 bail!("no track with id {id}");
@@ -83,7 +83,7 @@ impl Session {
                 audio: &mut self.audio,
                 live: &mut live,
                 sample_rate: sample_rate as f32,
-                warnings: &mut self.warnings,
+                warnings: &mut self.doc.warnings,
                 offline: true,
                 waker,
             };

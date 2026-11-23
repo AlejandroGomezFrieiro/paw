@@ -5,19 +5,19 @@ use crate::model::Overrides;
 
 impl Session {
     pub fn clip_view(&self, id: Id) -> Result<ClipView<'_>> {
-        if let Some((track, index)) = self.project.find_cue_clip(id) {
-            let mut view = clip_json(&self.project.track(track).unwrap().cues[index], track, &self.files_there);
+        if let Some((track, index)) = self.doc.project.find_cue_clip(id) {
+            let mut view = clip_json(&self.doc.project.track(track).unwrap().cues[index], track, &self.files_there);
             view.cue = Some(true);
             return Ok(view);
         }
         let (track, _) = self
-            .project
+            .doc.project
             .find_clip(id)
             .with_context(|| format!("no clip {id}"))?;
-        let clip = self.project.clip(id).unwrap();
+        let clip = self.doc.project.clip(id).unwrap();
         let mut view = clip_json(clip, track, &self.files_there);
         self.note_stretching(clip, &mut view);
-        view.link_count = clip.link.as_deref().map(|name| self.project.link_count(name));
+        view.link_count = clip.link.as_deref().map(|name| self.doc.project.link_count(name));
         Ok(view)
     }
 
@@ -30,7 +30,7 @@ impl Session {
     /// of them with `None`), in timeline order, without their notes.
     pub fn clip_list_in(&self, track: Id, span: Option<(f64, f64)>) -> Result<Vec<ClipView<'_>>> {
         let t = self
-            .project
+            .doc.project
             .track(track)
             .with_context(|| format!("no track {track}"))?;
         let mut clips: Vec<&Arc<Clip>> = t
@@ -70,7 +70,7 @@ impl Session {
         let (content, natural, default_name) = self.clip_content(track, &kind, &mut opts)?;
         let length = opts.length.unwrap_or(natural);
         Self::check_clip_opts(playing.clone(), &opts, length)?;
-        let id = self.new_id();
+        let id = self.doc.new_id();
         let cue = opts.cue;
         self.edit(|p| {
             let t = p
@@ -129,7 +129,7 @@ impl Session {
         kind: &ClipKind,
         opts: &mut ClipOpts,
     ) -> Result<(ClipContent, f64, String)> {
-        let tempo = self.project.tempo_map().clone();
+        let tempo = self.doc.project.tempo_map().clone();
         match kind {
             ClipKind::Midi => {
                 check_notes(&opts.notes)?;
@@ -172,7 +172,7 @@ impl Session {
             }
             ClipKind::Nest => self.nest_clip_content(track, opts),
             ClipKind::Custom(id) => {
-                if !self.clip_kinds.contains(id) {
+                if !self.doc.clip_kinds.contains(id) {
                     bail!(
                         "no clip kind `{id}` is defined: an extension defines it with `paw.clip_kinds.define`"
                     );
@@ -217,7 +217,7 @@ impl Session {
     fn nest_clip_content(&self, track: Id, opts: &mut ClipOpts) -> Result<(ClipContent, f64, String)> {
         let nest = opts.nest.take().context("a subproject's clip needs `nest`, the subproject's id")?;
         let held = self
-            .project
+            .doc.project
             .nest(nest)
             .with_context(|| format!("no subproject {nest}"))?;
         if !opts.offset.is_finite() || opts.offset < 0.0 {
@@ -232,14 +232,14 @@ impl Session {
             play: opts.play.take().unwrap_or(NestPlay::Master),
         };
         let host = self
-            .project
+            .doc.project
             .track(track)
             .with_context(|| format!("no track {track}"))?
             .nest;
-        self.project.check_place(nest, host)?;
+        self.doc.project.check_place(nest, host)?;
         // A subproject with a tempo of its own lasts its seconds in the song.
         let length = if host.is_none() && held.has_own_tempo() {
-            let timing = held.timing(self.project.tempo_map(), None, opts.start, opts.offset);
+            let timing = held.timing(self.doc.project.tempo_map(), None, opts.start, opts.offset);
             timing.song_beat(held.length) - opts.start
         } else {
             held.length - opts.offset
@@ -317,7 +317,7 @@ impl Session {
             bail!("a waveform has at most {MAX_PEAKS} points, not {n}");
         }
         let clip = self
-            .project
+            .doc.project
             .clip(id)
             .with_context(|| format!("no clip {id}"))?
             .clone();
@@ -360,14 +360,14 @@ impl Session {
     /// clip starts playing it: as long as the clip can be made.
     pub fn clip_source_length(&mut self, id: Id) -> Result<f64> {
         let clip = self
-            .project
+            .doc.project
             .clip(id)
             .with_context(|| format!("no clip {id}"))?;
         let ClipContent::Audio { file, offset, .. } = &clip.content else {
             bail!("clip {id} is not an audio clip");
         };
         let (file, offset, start) = (file.clone(), *offset, clip.start);
-        let map = self.project.tempo_map().clone();
+        let map = self.doc.project.tempo_map().clone();
         let warp = crate::warp::of(clip, &map).unwrap_or_else(|| crate::warp::Warp::even(1.0));
         let data = self.audio.load(&file)?;
         let seconds = (warp.forward(data.seconds()) - warp.forward(offset)).max(0.0);
@@ -396,8 +396,8 @@ impl Session {
         );
         let quick = plain
             .then(|| {
-                let (track, index) = self.project.find_clip(id)?;
-                self.project.track(track)?.clips.get(index)
+                let (track, index) = self.doc.project.find_clip(id)?;
+                self.doc.project.track(track)?.clips.get(index)
             })
             .flatten();
         let held = match quick {
@@ -483,26 +483,26 @@ impl Session {
 
     /// The kinds of clip that extensions defined, by name.
     pub fn clip_kinds(&self) -> Vec<String> {
-        self.clip_kinds.iter().map(ToString::to_string).collect()
+        self.doc.clip_kinds.iter().map(ToString::to_string).collect()
     }
 
     /// Let clips of the kind `name` be added (`paw.clip_kinds.define`). The
     /// project keeps no list of kinds: its clips name theirs.
     pub fn clip_kind_define(&mut self, name: &str) -> Result<()> {
-        self.clip_kinds.insert(name.parse()?);
+        self.doc.clip_kinds.insert(name.parse()?);
         Ok(())
     }
 
     /// Stop adding clips of the kind `name`. Clips of it that the project
     /// has stay as they are, data and all.
     pub fn clip_kind_remove(&mut self, name: &str) -> Result<()> {
-        self.clip_kinds.remove(&name.parse()?);
+        self.doc.clip_kinds.remove(&name.parse()?);
         Ok(())
     }
 
     /// The content of a custom clip, as it is saved.
     pub fn clip_custom(&self, id: Id) -> Result<Value> {
-        let clip = self.project.clip(id).with_context(|| format!("no clip {id}"))?;
+        let clip = self.doc.project.clip(id).with_context(|| format!("no clip {id}"))?;
         match &clip.content {
             ClipContent::Custom(custom) => Ok(serde_json::to_value(custom)?),
             other => bail!("clip {id} is a {} clip, not a custom one", other.kind()),
@@ -537,7 +537,7 @@ impl Session {
 
     pub fn clip_notes(&self, id: Id) -> Result<&Notes> {
         match &self
-            .project
+            .doc.project
             .clip(id)
             .with_context(|| format!("no clip {id}"))?
             .content
@@ -551,7 +551,7 @@ impl Session {
     /// The controller, pitch wheel and pressure moves of a MIDI clip.
     pub fn clip_controls(&self, id: Id) -> Result<&[Control]> {
         match &self
-            .project
+            .doc.project
             .clip(id)
             .with_context(|| format!("no clip {id}"))?
             .content
