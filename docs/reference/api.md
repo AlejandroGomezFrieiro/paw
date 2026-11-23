@@ -2411,7 +2411,6 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.util.inspect`: the same as `paw.inspect`.
 - `paw.util.merge(base, extra)`: Shallow copy with the fields of `extra` laid over it.
 - `paw.util.round(v, step)`: `v` rounded to the nearest multiple of `step` (1).
-- `paw.util.wrap(text, width)`: Break text into lines of at most `width` columns, at spaces. A word wider than `width` gets a line of its own. Empty text gives one empty line.
 
 ## Module paw.vca
 

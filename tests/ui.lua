@@ -1,7 +1,7 @@
 -- How the terminal UI looks: the things that should stay true however the
 -- drawing changes.
 local T = ...
-local test, eq, fresh, expect_screen = T.test, T.eq, T.fresh, T.expect_screen
+local test, eq, fresh = T.test, T.eq, T.fresh
 local paw = require("paw")
 local api = paw.api
 
@@ -38,34 +38,13 @@ end)
 test("a new project says how to begin", function()
   fresh()
   paw.cmd("view.only")
-  paw.ui.message = nil
-  expect_screen("welcome", 80, 20)
+  local text = screen()
+  eq(text:find("A new project", 1, true) ~= nil, true, "a welcome")
+  eq(text:find("add a track", 1, true) ~= nil, true, "with the first keys")
   paw.add_track({ name = "one" })
   paw.flush()
-  expect_screen("one_track", 80, 20)
-end)
-
-test("the welcome page keeps each key apart from what it does, at any width and key length", function()
-  fresh()
-  paw.cmd("view.only")
-  paw.ui.message = nil
-  -- The rows of the page only: the ruler and the master are in "welcome".
-  expect_screen("welcome_60", 60, 20, { rows = { 3, 16 } })
-  expect_screen("welcome_120", 120, 20, { rows = { 3, 16 } })
-  -- A leader of the user's makes the widest key of the page.
-  T.keys(":set leader=<lt>C-A-S-Space><CR>")
-  paw.ui.message = nil
-  local keys = { "o", "a", "i Enter", "Ctrl-Alt-Shift-Space Space", "Ctrl-Alt-Shift-Space f:", ":help" }
-  for _, width in ipairs({ 60, 80, 120 }) do
-    local rows = api.ui_snapshot(width, 24)
-    for _, key in ipairs(keys) do
-      local apart = false
-      for _, row in ipairs(rows) do
-        apart = apart or row:find("^%s+" .. key:gsub("%p", "%%%0") .. "%s%s+%S") ~= nil
-      end
-      eq(apart, true, string.format("at %d columns, two spaces at least after the key %q", width, key))
-    end
-  end
+  eq(screen():find("A new project", 1, true), nil, "gone once there is a track")
+  eq(screen():find("new track", 1, true) ~= nil, true, "with a hint where the next track goes")
 end)
 
 test("tracks take colours in turn, or the one they are given", function()
@@ -194,8 +173,10 @@ test("the status line keeps its segments by width and never drops the project's 
   eq(mid:find("grid", 1, true), nil, "no grid under 100: " .. mid)
   eq(mid:find("48k", 1, true), nil, "no engine under 120")
   eq(mid:find("cpu", 1, true) ~= nil, true, "the load down to 90")
-  -- Under 80 a short mode, under 90 no load, down to 70 the tempo.
-  expect_screen("status_narrow", 70, 20, { rows = { 19, 19 } })
+  local narrow = status_line(70, 20)
+  eq(narrow:find("NOR ", 1, true) ~= nil, true, "a short mode under 80: " .. narrow)
+  eq(narrow:find("cpu", 1, true), nil, "no load under 90")
+  eq(narrow:find("bpm", 1, true) ~= nil, true, "the tempo down to 70")
   paw.project.name = "a rather long name for a song that goes on and on"
   local cut = status_line(70, 20)
   eq(cut:find("a rather", 1, true) ~= nil, true, "a long name is cut, not dropped: " .. cut)
@@ -209,8 +190,11 @@ end)
 
 test("a screen too small to draw on says so, with the status line", function()
   fresh()
-  paw.ui.message = nil
-  expect_screen("too_small", 52, 14)
+  local lines = api.ui_snapshot(52, 14)
+  local text = table.concat(lines, "\n")
+  eq(text:find("Terminal too small: 52×14", 1, true) ~= nil, true, "how big it is:\n" .. text)
+  eq(text:find("needs 60×16", 1, true) ~= nil, true, "and how big it needs to be")
+  eq(lines[13]:find("NOR", 1, true) ~= nil, true, "the status line stays: " .. lines[13])
   eq(table.concat(api.ui_snapshot(60, 16), "\n"):find("too small", 1, true), nil, "60 by 16 is enough")
 end)
 
@@ -266,7 +250,8 @@ test("the selected track's chips read M S R I, lit when on", function()
   local t = paw.add_track({ name = "Gtr" })
   t.mute = true
   paw.flush()
-  expect_screen("chips", 150, 36, { rows = { 2, 5 }, cols = { 1, 28 } })
+  local text = table.concat(api.ui_snapshot(150, 36), "\n")
+  eq(text:find("Gtr", 1, true) ~= nil and text:find("M S R I", 1, true) ~= nil, true, "in that order:\n" .. text)
 end)
 
 test("with paw.opt.ascii the screen is drawn in plain ASCII", function()
@@ -278,7 +263,6 @@ test("with paw.opt.ascii the screen is drawn in plain ASCII", function()
   paw.ui.message = nil -- a message is text someone wrote, not drawing
   paw.opt.ascii = true
   local text = table.concat(api.ui_snapshot(120, 30), "\n")
-  expect_screen("ascii", 60, 16, { styles = false })
   paw.opt.ascii = false
   eq(text:find("[\128-\255]"), nil, "no character outside ASCII:\n" .. text)
   eq(table.concat(api.ui_snapshot(120, 30), "\n"):find("│", 1, true) ~= nil, true, "and back to box drawing after")

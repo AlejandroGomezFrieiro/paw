@@ -1796,6 +1796,21 @@ function M.for_map(map: Map): contracts.Window
   return help_for(names, human)
 end
 
+--- A line cut into pieces of at most `width` columns at spaces.
+local function wrapped(text: string, width: integer): {string}
+  local out: {string} = {}
+  local line = ""
+  for word in text:gmatch("%S+") do
+    if line ~= "" and api.str_width(line .. " " .. word) > width then
+      out[#out + 1], line = line, word
+    else
+      line = line == "" and word or line .. " " .. word
+    end
+  end
+  out[#out + 1] = line
+  return out
+end
+
 --- The section of help that `for_map` would go to, as at most `rows` lines
 --- `{ text, style }` wrapped to `width`. It is for a pane next to a list of keys.
 --- The name of the page comes first. Nil when there is no help for the key.
@@ -1812,7 +1827,7 @@ function M.excerpt_for_map(map: Map, width: integer, rows: integer): {contracts.
     if blank == 2 then
       break
     end
-    for _, part in ipairs(util.wrap(text, width)) do
+    for _, part in ipairs(wrapped(text, width)) do
       if #out >= rows then
         return out
       end

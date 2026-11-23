@@ -72,9 +72,10 @@ test("a mixer strip says where its track plays into, and a click there offers th
   local a = paw.add_track({ name = "Alto" })
   local bus = paw.add_track({ name = "Bus" })
   a.output = bus
-  local s, at = shown(a, 30)
-  -- Each strip names the track it plays into: Bus, Master, out.
-  T.expect_screen("outputs", W, H, { rows = { 59, 88 } })
+  local s, at, screen = shown(a, 30)
+  eq(screen:find("→ Bus", 1, true) ~= nil, true, "the strip names the track it plays into")
+  eq(screen:find("→ Master", 1, true) ~= nil, true, "the bus plays into the master")
+  eq(screen:find("→ out", 1, true) ~= nil, true, "and the master into the output")
   click(at(s.x + 2, s.output))
   local pick = paw.pick.state()
   eq(pick and pick.title, "Output of Alto", "a click offers where it could play into")

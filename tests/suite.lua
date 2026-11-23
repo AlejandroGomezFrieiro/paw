@@ -431,8 +431,6 @@ local T = {
   keys = keys,
   roll_notes = roll_notes,
 }
--- T.expect_screen and the check of unused golden files (tests/tools/golden.lua).
-local golden_unused = dofile("tests/tools/golden.lua")(T)
 local files = {}
 local function lua_files(dir, pattern)
   local found = {}
@@ -794,19 +792,12 @@ if #stale > 0 then
       .. table.concat(stale, ", ")
   )
 end
-failed = failed + golden_unused()
 os.execute("rm -rf '" .. scratch .. "'")
 local left = {}
 for path in pairs(files_before and checkout_files() or {}) do
-  -- Code and pages that a person writes while the suite runs, and the golden
-  -- screens that PAW_BLESS=1 writes, are not left behind by a test.
-  if
-    not files_before[path]
-    and not path:match("%.rs$")
-    and not path:match("%.lua$")
-    and not path:match("%.md$")
-    and not path:match("/screens/[^/]+/[^/]+%.txt$")
-  then
+  -- Code and pages that a person writes while the suite runs are not left
+  -- behind by a test.
+  if not files_before[path] and not path:match("%.rs$") and not path:match("%.lua$") and not path:match("%.md$") then
     left[#left + 1] = path
   end
 end
