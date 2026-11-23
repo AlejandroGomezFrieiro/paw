@@ -42,7 +42,9 @@ command("tutor.try", function(ctx)
   end
   if paw.ext.loaded[name] and paw.ext.loaded[name].ok then return paw.notify(name .. " is loaded already") end
   local path = here:gsub("/tutor$", "") .. "/" .. name
-  if not require("tutor.store").exists(path .. "/init.lua") then
+  -- An extension starts at init.lua, or at init.tl when it is written in Teal.
+  local exists = require("tutor.store").exists
+  if not (exists(path .. "/init.lua") or exists(path .. "/init.tl")) then
     return paw.notify("no bundled extension `" .. name .. "` in " .. path, "warn")
   end
   local entry = paw.ext.load(path)

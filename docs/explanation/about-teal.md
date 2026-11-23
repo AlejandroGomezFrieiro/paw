@@ -319,7 +319,8 @@ each other.
 | Done | Scopes | `scope`, when scopes got time ranges and levels: 905 lines of Teal, 1 fewer entry on the allow-list, and no `any` or `paw.Untyped` in this module | 380 | wave 3 |
 | Done | Keys | `keymap` (with `keymap/registers` and `keymap/marks`), `keyrule`, `keybar`: 3,021 lines of Teal, 2 fewer entries on the allow-list, the 14 records that other modules kept of `paw.keymap` and the 4 of `paw.ui.keybar` gone, and no `any` or `paw.Untyped` in these modules | 1,950 | wave 4 |
 | 5 | Views | `defaults/`, `views/`, `roles/` | 13,000 | the keys |
-| 5 | Extensions | one agent for each: `notation` (20,000), `utau` (8,000), `plugstate` (5,700), `interop` (4,000), the others (under 3,200 each) | 60,000 | the modules of paw that each uses |
+| Done | Extensions: `interop` | the readers and writers of REAPER and DAWproject files: 6,300 lines of Teal, no `any` or `paw.Untyped`, and no function over 100 lines (the longest had 196) | 4,300 | the modules of paw that it uses |
+| 5 | Extensions | one agent for each: `plugstate` (5,700), the others (under 3,200 each). `notation` and `utau` do not move to Teal, because they become native extensions in Rust | 56,000 | the modules of paw that each uses |
 
 The spike moved 1,100 lines in a part of a day, with the checker. An area
 of wave 1 or 2 is about one day of work for one agent, and an area of wave
@@ -886,3 +887,36 @@ gives its own record of a register that is a `Register`, and it casts what
 `paw.edit` kept its own record of a region, and that record did not agree
 with `paw.contracts.Region`, so the frontend could not give a selection of
 the keymap to it. `paw.edit` uses the contract now.
+
+## What the checker found in interop
+
+The checker found no error that changed what an import or an export does,
+and the tests of the extension pass with no change. It found the following
+smaller problems.
+
+`interop.register` copied each field of the table that it got to the format,
+also `module`, and it gave `import = false` to `paw.formats` as it was. It
+gives the fields of a format now (`paw.formats.Format`).
+
+`interop.device_types()` kept `false` for a kind of device that is not
+installed, so a caller got a device type or `false`. It gives nil now, and it
+keeps the kinds that are not installed in a set of its own, so each kind is
+still looked up once.
+
+A document of `interop.rpp.format` found its `project` with a function on its
+metatable, so the field had no type. The document now keeps `project` as a
+field, and it sets the field again when its children change.
+
+A token of a line can be a number that a script set. The data lines of a block
+and the name of a node took each token as text, so a number there stopped the
+code. They turn a number into text first, as REAPER writes it.
+
+`interop.db` used `paw.dsp`, which is Lua for the audio thread and has no
+types. It now does the same arithmetic itself, so it gives the same numbers.
+
+A merge kept the master of the file as `false` in the table of the tracks by
+their id. It is in a set of its own now, and the table holds track ids only.
+
+The strict check of the test suite did not find the other modules of an
+extension, because only `tools/tlcheck.sh` put the `lua/` folder of each
+extension on the path. The test gives these folders to `paw.lang.check` now.
