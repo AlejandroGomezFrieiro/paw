@@ -220,6 +220,46 @@ paw.trackcolumn = require("paw.trackcolumn")
 paw.ruler = require("paw.ruler")
 paw.tempolane = require("paw.tempolane")
 paw.frontend = require("paw.frontend")
+-- What an extension owns in the modules above paw.ext in the layers
+-- (.claude/skills/paw-code/layers.md): paw.ext takes it away when the
+-- extension unloads.
+table.insert(paw.ext.registries, {
+  -- The keys of the pencil: the "keys" registry takes their mappings away,
+  -- this one their entries, which the key bar lists.
+  kind = "pencil",
+  title = "keys of the pencil",
+  snapshot = function()
+    local out = {}
+    for key, entry in pairs(paw.roll_draw and paw.roll_draw.keys or {}) do
+      out[key] = entry
+    end
+    return out
+  end,
+  put = function(key, value) paw.roll_draw.keys[key] = value end,
+  label = function(key) return key .. " (pencil)" end,
+})
+table.insert(paw.ext.registries, {
+  -- The bands under the ruler of the window (`paw.frontend.bands`), a list
+  -- of functions: each function is its own key.
+  kind = "bands",
+  title = "bands under the ruler",
+  snapshot = function()
+    local out = {}
+    for _, band in ipairs(paw.frontend.bands) do
+      out[band] = band
+    end
+    return out
+  end,
+  put = function(key, value)
+    local bands = paw.frontend.bands
+    for i = #bands, 1, -1 do
+      if bands[i] == key then table.remove(bands, i) end
+    end
+    if value then bands[#bands + 1] = value end
+    api.ui_redraw()
+  end,
+  label = function() return "band" end,
+})
 paw.audition = require("paw.audition")
 paw.regex = require("paw.regex")
 paw.pick = require("paw.pick")

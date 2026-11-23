@@ -176,6 +176,10 @@ end
 
 local function split(key) return key:match("^(%S+) (.*)$") end
 
+-- The registries of the modules below this one in the layers of the runtime
+-- (.claude/skills/paw-code/layers.md). paw/init.lua adds the registries of
+-- the higher modules (the bands of the frontend, the keys of the pencil)
+-- after it loads them, before an extension loads.
 M.registries = {
   {
     kind = "commands",
@@ -342,15 +346,6 @@ M.registries = {
       paw.insert.remove(key)
     end
   end, function(key) return key .. " (insert mode)" end),
-  -- The keys of the pencil: the "keys" registry takes their mappings away,
-  -- this one their entries, which the key bar lists.
-  keyed(
-    "pencil",
-    "keys of the pencil",
-    function() return paw.roll_draw and paw.roll_draw.keys end,
-    nil,
-    function(key) return key .. " (pencil)" end
-  ),
   keyed("grep", "grep sources", function() return paw.grep and paw.grep.sources end, function(key, value)
     local g = paw.grep
     if value and not g.sources[key] then g.order[#g.order + 1] = key end
@@ -404,28 +399,6 @@ M.registries = {
       paw.lsp.configs[key] = nil
     end
   end, function(key) return key end),
-  -- The bands under the ruler of the window (`paw.frontend.bands`), a list
-  -- of functions: each function is its own key.
-  {
-    kind = "bands",
-    title = "bands under the ruler",
-    snapshot = function()
-      local out = {}
-      for _, band in ipairs(paw.frontend and paw.frontend.bands or {}) do
-        out[band] = band
-      end
-      return out
-    end,
-    put = function(key, value)
-      local bands = paw.frontend.bands
-      for i = #bands, 1, -1 do
-        if bands[i] == key then table.remove(bands, i) end
-      end
-      if value then bands[#bands + 1] = value end
-      api.ui_redraw()
-    end,
-    label = function() return "band" end,
-  },
   {
     kind = "hooks",
     title = "hooks",

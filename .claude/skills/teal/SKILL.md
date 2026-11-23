@@ -136,7 +136,7 @@ local paw = (_G as {string:Paw}).paw
 | `pcall`/`xpcall` of a function with no results gives no second value | `pcall(f, x) as (boolean, string)` |
 | A field of a module record with a local alias in its type is copied as it is into paw.d.tl when another module holds the value (`paw.ui.roles`) | qualify the types of exported fields and functions (`contracts.X`) |
 | `paw.limit.named(name, fn, a, b)` with arguments of two types | a closure: `paw.limit.named(name, function(): boolean return fn(a, b) end)` |
-| Two modules cannot name each other's types (`local type` requires in a cycle: "unknown type") | the lower module owns the shared records; the other declares only the part it calls (qf.tl and diagnostic.tl) |
+| Two modules cannot name each other's types (`local type` requires in a cycle: "unknown type") | the lower module owns the shared records; the other declares only the part it calls (qf.tl and diagnostic.tl). `tools/layers.txt` gives which module is lower ([the layers](../paw-code/layers.md)) |
 | A record does not fit a contract's interface without `is` (records are nominal) | cast where the value goes in: `data = clip as contracts.QueryData` |
 | A field typed `{A \| B}` given a table literal that mixes a text and records (`items = { "-", { label = ... } }`) is not inferred | put the list in a local of that type first (`local items: {contracts.MenuEntry} = { ... }`) |
 | A record with an array part that also implements an interface | the array goes in the `is` list: `record Node is {Node}, contracts.Window` |
