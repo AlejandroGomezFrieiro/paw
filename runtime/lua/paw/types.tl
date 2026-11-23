@@ -617,6 +617,15 @@ local record types
     control_count: integer
     stamp: integer
     control_stamp: integer
+    --- A linked clip's link, and how many clips it has (`link_count` only
+    --- from `clip_get`).
+    link: string
+    link_count: integer
+    --- A MIDI clip's overrides: semitones up (down below 0), and what is
+    --- added to the velocity of each note. They change what plays, not
+    --- the notes.
+    transpose: integer
+    velocity: integer
     edits: integer
     file: string
     offset: number
@@ -670,6 +679,8 @@ local record types
     loop_length: number
     loop_start: number
     cue: boolean
+    transpose: integer
+    velocity: integer
     version: integer
     timeline: Timeline
     data: KindData
@@ -993,6 +1004,14 @@ local record types
     record_offset: number
     write: boolean
     take: integer
+  end
+
+  --- What a window shows of the song (`ViewRange`, stretched.rs): the
+  --- beats from `from` up to `to`, and the tracks shown (all when nil).
+  record ViewRange
+    from: number
+    to: number
+    tracks: {integer}
   end
 
   --- The process times of the audio blocks, in milliseconds (`BlockTimes`).

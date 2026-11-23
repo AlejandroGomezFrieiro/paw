@@ -122,6 +122,8 @@ local record ClipSnapshot
   formants: boolean
   meta: types.Meta
   cue: boolean
+  transpose: integer
+  velocity: integer
   notes: {types.Note}
   controls: {types.Control}
   --- A block: the subproject it places (the copy places it too) and what
@@ -403,12 +405,18 @@ local record M
     bent: boolean
     formants: boolean
     warp: {types.WarpMarker}
+    transpose: integer
+    velocity: integer
+    --- On a handle from `Clip:shifted`, the semitones that the pitches it
+    --- reads and takes are above the clip's stored pitches.
+    shift: integer
     get: function(self: Clip): types.Clip
     exists: function(self: Clip): boolean
     remove: function(self: Clip)
     track: function(self: Clip): Track
     notes: function(self: Clip, range?: NoteRangeInput): {types.Note}, {integer}
     note_at: function(self: Clip, pitch: Pitch, beat: number): types.Note, integer
+    shifted: function(self: Clip, semitones: integer): Clip
     set_note: function(self: Clip, index: integer, fields: NoteChangeInput): integer
     remove_note: function(self: Clip, index: integer)
     edit_notes: function(self: Clip, edit: NotesEditInput)
@@ -1241,6 +1249,12 @@ class(
   end
 )
 
+-- The semitones a handle from `Clip:shifted` adds to the stored pitches; 0
+-- for a plain handle. Read raw: any other field is the kernel's.
+local function shift_of(clip: Clip): integer
+  return rawget(clip as {string: integer}, "shift") or 0
+end
+
 --- Everything about the clip as plain data (`paw.api.clip_get`).
 function Clip:get(): types.Clip
   return api.clip_get(self.id)
@@ -1270,29 +1284,79 @@ end
 --- the place of each note in the whole list, for `set_note` and `remove_note`:
 ---   local notes, at = clip:notes({ from = 4, to = 8, low = "C3", high = "C5" })
 function Clip:notes(range?: NoteRangeInput): {types.Note}, {integer}
+  local shift = shift_of(self)
   if range and (range.low or range.high) then
     range = util.merge(
       range as {string: Value},
-      {low = range.low and music.pitch(range.low) as Value, high = range.high and music.pitch(range.high) as Value}
+      {
+        low = range.low and (music.pitch(range.low) - shift) as Value,
+        high = range.high and (music.pitch(range.high) - shift) as Value,
+      }
     ) as NoteRangeInput
   end
-  return api.clip_notes(self.id, range as types.NoteRange)
+  local notes, places = api.clip_notes(self.id, range as types.NoteRange)
+  if shift == 0 then
+    return notes, places
+  end
+  -- The notes at the pitches they play. A note that the shift takes out of
+  -- the MIDI range does not play, and is left out.
+  local shown: {types.Note} = {}
+  local at: {integer} = {}
+  for i, n in ipairs(notes) do
+    local pitch = n.pitch + shift
+    if pitch >= 0 and pitch <= 127 then
+      n.pitch = pitch
+      shown[#shown + 1] = n
+      at[#at + 1] = places and places[i] or i
+    end
+  end
+  return shown, at
 end
 
 --- The note on a pitch that sounds at a beat of the clip, and its place in
 --- the notes of the clip. Nothing when there is no such note.
 function Clip:note_at(pitch: Pitch, beat: number): types.Note, integer
-  return api.clip_note_at(self.id, music.pitch(pitch), beat)
+  local shift = shift_of(self)
+  local note, place = api.clip_note_at(self.id, music.pitch(pitch) - shift, beat)
+  if note then
+    note.pitch = note.pitch + shift
+  end
+  return note, place
 end
 
--- A change of a note with its `pitch` as a MIDI number. A number passes as
--- it is (`music.pitch`): only a name makes a copy.
-local function note_change(change: NoteChangeInput): types.NoteChange
+--- A handle on the same clip whose pitches are `semitones` above the
+--- stored ones. The notes that it reads, and the notes and pitches that it
+--- takes, are at those pitches. The piano roll edits a clip with a
+--- transpose through such a handle, so that it shows each note at the pitch
+--- it plays at.
+function Clip:shifted(semitones: integer): Clip
+  if semitones == 0 then
+    return self
+  end
+  return setmetatable({id = self.id, shift = semitones} as Clip, getmetatable(self))
+end
+
+-- A change of a note with its `pitch` as a stored MIDI number. A number
+-- with no shift passes as it is (`music.pitch`): only a name or a shift
+-- makes a copy.
+local function note_change(change: NoteChangeInput, shift: integer): types.NoteChange
   local pitch = change.pitch
-  if pitch is string then
-    return util.merge(change as {string: Value}, {pitch = music.pitch(pitch) as Value}) as types.NoteChange
+  if pitch is string or (pitch and shift ~= 0) then
+    return util.merge(change as {string: Value}, {pitch = (music.pitch(pitch) - shift) as Value}) as types.NoteChange
   end
   return change as types.NoteChange
+end
+
+-- Notes as `add_note` takes each, normalized, at their stored pitches.
+local function stored_notes(clip: Clip, notes: {NoteInput}): {types.Note}
+  local out = M.notes(notes)
+  local shift = shift_of(clip)
+  if shift ~= 0 then
+    for _, n in ipairs(out) do
+      n.pitch = n.pitch - shift
+    end
+  end
+  return out
 end
 
 --- Change one note, by its place in the notes of the clip (from 1). The
@@ -1300,7 +1364,7 @@ end
 --- the new place of the note, because notes stay in the order of their
 --- start. `attr = false` removes its attribute.
 function Clip:set_note(index: integer, fields: NoteChangeInput): integer
-  return api.clip_note_set(self.id, index, note_change(fields))
+  return api.clip_note_set(self.id, index, note_change(fields, shift_of(self)))
 end
 
 --- Remove the note at a place among the clip's notes (from 1).
@@ -1313,10 +1377,11 @@ end
 ---   clip:edit_notes({ set = { { index = 3, start = 1 } }, remove = { 5, 6 }, add = { note } })
 function Clip:edit_notes(edit: NotesEditInput)
   local set: {types.NoteChange} = {}
+  local shift = shift_of(self)
   for i, change in ipairs(edit.set or {}) do
-    set[i] = note_change(change)
+    set[i] = note_change(change, shift)
   end
-  api.clip_notes_edit(self.id, {set = set, remove = edit.remove or {}, add = M.notes(edit.add or {})})
+  api.clip_notes_edit(self.id, {set = set, remove = edit.remove or {}, add = stored_notes(self, edit.add or {})})
 end
 
 --- The waveform of an audio clip: `n` { min, max, rms } entries. Each entry
@@ -1329,7 +1394,7 @@ end
 
 --- Replace every note of the clip with `notes` (as `add_note` takes each).
 function Clip:set_notes(notes: {NoteInput})
-  api.clip_set_notes(self.id, M.notes(notes))
+  api.clip_set_notes(self.id, stored_notes(self, notes))
 end
 
 --- The events of the clip that are not notes: controller moves, the pitch
@@ -1341,7 +1406,17 @@ end
 --- for the note on that key only, as in MIDI 2.0: its own bend, pressure
 --- or controller.
 function Clip:controls(): {types.Control}
-  return api.clip_controls(self.id)
+  local controls = api.clip_controls(self.id)
+  local shift = shift_of(self)
+  if shift ~= 0 then
+    -- A move of one key follows its note.
+    for _, c in ipairs(controls) do
+      if c.key then
+        c.key = c.key + shift
+      end
+    end
+  end
+  return controls
 end
 
 ---   clip:set_controls({ { start = 0, type = "cc", number = 64, value = 1 },
@@ -1349,22 +1424,23 @@ end
 function Clip:set_controls(controls: {ControlInput})
   local out: {types.Control} = {}
   for i, c in ipairs(controls) do
-    out[i] = c.key and util.merge(c as {string: Value}, {key = music.pitch(c.key) as Value}) as types.Control
-      or c as types.Control
+    out[i] = c.key
+      and util.merge(c as {string: Value}, {key = (music.pitch(c.key) - shift_of(self)) as Value}) as types.Control or c
+      as types.Control
   end
   api.clip_set_controls(self.id, out)
 end
 
 --- Add several notes as one edit (as `add_note` takes each).
 function Clip:add_notes(notes: {NoteInput})
-  api.clip_add_notes(self.id, M.notes(notes))
+  api.clip_add_notes(self.id, stored_notes(self, notes))
 end
 
 ---   clip:add_note({ pitch = "E4", start = 1, length = 0.5, velocity = 90 })
 ---   clip:add_note({ pitch = "G4", start = 2, attr = paw.attr.m2("11.A") })   -- pizzicato
 --- Returns the note's place among the clip's notes.
 function Clip:add_note(note: NoteInput): integer
-  return api.clip_note_add(self.id, M.notes({note})[1])
+  return api.clip_note_add(self.id, stored_notes(self, {note})[1])
 end
 
 --- The clip as plain data, for `paw.restore_clip`.
@@ -1396,11 +1472,16 @@ function Clip:snapshot(): ClipSnapshot
     meta = next(c.meta) and c.meta or nil,
     -- A clip off the timeline, played only when cued.
     cue = c.cue or nil,
+    -- A MIDI clip's overrides: the copy plays as the clip does.
+    transpose = c.transpose ~= 0 and c.transpose or nil,
+    velocity = c.velocity ~= 0 and c.velocity or nil,
   }
   if c.kind == "midi" then
-    snap.notes = self:notes()
+    -- The stored notes, also through a shifted handle: the copy has the
+    -- same transpose.
+    snap.notes = api.clip_notes(self.id)
     if c.control_count > 0 then
-      snap.controls = self:controls()
+      snap.controls = api.clip_controls(self.id)
     end
   end
   return snap

@@ -7,7 +7,7 @@
 -- other readers), with the types that they read.
 --
 -- Types only: the module is an empty table at run time. It requires only
--- paw.types, so a module of the runtime in Teal can require it, and the
+-- the types of paw.types, paw.objects and paw.util, so a module of the runtime in Teal can require it, and the
 -- functions of the modules in Lua that take a contract name it in their
 -- `@type` lines (tools/apidoc.lua). In an extension in Teal they are
 -- `paw.contracts.View`, `paw.contracts.PickSource<T>` and the others:
@@ -24,6 +24,8 @@ local type types = require("paw.types")
 -- The objects of tracks and devices (paw/objects.tl), which a kind of
 -- track gets. Only their types come in: paw/objects.tl requires no contract.
 local type objects = require("paw.objects")
+-- `util.Ordered`, the key and the place of an entry (`OwnedEntry`).
+local type util = require("paw.util")
 
 local record contracts
   -- Drawing in cells ----------------------------------------------------------
@@ -828,6 +830,8 @@ local record contracts
     clip_start: string
     --- Before the name of a block of a subproject.
     nest: string
+    --- After the name of a linked clip.
+    link: string
     punch_in: string
     punch_out: string
     meter_full: string
@@ -1170,6 +1174,16 @@ local record contracts
     remove: function()
   end
 
+  --- An entry that an extension adds to a list of keys (an insert kind,
+  --- a key of the pencil): its key, what it does in a few words, its
+  --- place in the lists (lower first, then by key; 50 when not given),
+  --- and the extension that added it (nil for the user's).
+  --- `paw.ext.unload` takes away the entries of an extension.
+  interface OwnedEntry is util.Ordered
+    desc: string
+    ext: string
+  end
+
   --- A key of the arrange view's insert mode (`paw.insert.add`): what it
   --- inserts at the cursor. `kind` is `midi`, `audio` (a file, asked
   --- for), `region`, `marker`, `automation` (a point of the lane), or the
@@ -1180,12 +1194,10 @@ local record contracts
   --- of track it goes on (`track` for a track of no kind; nil for every
   --- one), and `per_track` changes it on a kind of track. `open(ctx,
   --- item)` is what `<CR>` does after it: open the item in its editor.
-  --- `order` places it in the hints; `hidden` keeps it out of
-  --- `paw.opt.insertkeys`.
-  record InsertKind
-    key: string
+  --- `order` places it in `paw.opt.insertkeys` when it is added;
+  --- `hidden` keeps it out of `paw.opt.insertkeys`.
+  record InsertKind is OwnedEntry
     kind: string
-    desc: string
     length: InsertLength
     name: string
     notes: {objects.NoteInput}
@@ -1194,11 +1206,7 @@ local record contracts
     per_track: {string: InsertPatch}
     insert: function(ctx: InsertContext): InsertedItem, string
     open: function(ctx: InsertContext, item: InsertedItem)
-    order: number
     hidden: boolean
-    --- The extension whose code added or last changed it, nil for the
-    --- user's (paw/ext.lua: what an extension owns).
-    ext: string
   end
 
   --- What `paw.insert.set` changes of a key: only the fields given. `key`
@@ -1215,7 +1223,7 @@ local record contracts
     per_track: {string: InsertPatch}
     insert: function(ctx: InsertContext): InsertedItem, string
     open: function(ctx: InsertContext, item: InsertedItem)
-    order: number
+    order: integer
     hidden: boolean
   end
 

@@ -537,6 +537,14 @@ local function close_doc(client: Client, uri: string)
     if M.analysis[id] and M.analysis[id].client == client.name then
       M.analysis[id] = nil
     end
+    -- The last server with the clip's document: its key need not be
+    -- kept up to date after each edit.
+    for _, other in pairs(clients) do
+      if other.docs[uri] then
+        return
+      end
+    end
+    document.release(id)
   end
 end
 

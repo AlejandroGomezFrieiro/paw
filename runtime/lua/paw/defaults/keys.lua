@@ -497,6 +497,8 @@ amap(
   "Paste at the cursor, or tracks above"
 )
 amap("&", "clip.duplicate", "Repeat the clip after itself")
+amap("<leader>cl", "clip.link", "Put a linked copy after the clip: an edit of one changes all")
+amap("<leader>cu", "clip.unlink", "Take the clip out of its link")
 amap("~", "clip.mute", "Mute or unmute the clip")
 amap("S", "clip.split", "Split the clip at the cursor")
 amap("J", "clip.join", "Join the clip with those over it, or with the next one")

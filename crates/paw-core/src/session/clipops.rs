@@ -285,6 +285,8 @@ impl Session {
             meta: first_clip.meta.clone(),
             source: None,
             origin: None,
+            link: None,
+            overrides: Default::default(),
         });
         let id = glued.id;
         self.edit(|p| {

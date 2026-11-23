@@ -6,8 +6,9 @@
 //! settle), so a value dragged through many values bakes the last one
 //! only. A key that is no longer wanted stops waiting, or, when it is
 //! being made, is told to stop. Bakes run in two lanes ([`Lane`]), each of
-//! a few at a time; a bake for what is about to play takes the place of
-//! the oldest background bake when its lane is full.
+//! a few at a time; a bake for what is about to play or what a window
+//! shows takes the place of the oldest background bake when its lane is
+//! full.
 //!
 //! The kernel never waits: a bake ends by a message that the next poll
 //! takes in, and the keys whose state changed are in
@@ -456,7 +457,8 @@ impl<K: Clone + Eq + Hash> Scheduler<K> {
 
     /// Start the bakes that have waited `settle`, the most wanted and then
     /// the oldest first, as many as their lanes allow. A bake for what is
-    /// about to play takes the place of the oldest background bake.
+    /// about to play or what a window shows takes the place of the oldest
+    /// background bake.
     fn start_due(&mut self, settle: Duration) {
         let now = Instant::now();
         let mut due: Vec<(Priority, Instant, K)> = self
@@ -475,7 +477,7 @@ impl<K: Clone + Eq + Hash> Scheduler<K> {
                 continue;
             };
             if self.running(lane) >= self.lanes[lane.index()]
-                && !(priority == Priority::Playing && self.preempt(lane))
+                && !(priority >= Priority::Visible && self.preempt(lane))
             {
                 continue;
             }
@@ -638,12 +640,33 @@ mod tests {
         bakes.poll(&wants, Duration::ZERO);
         assert_eq!(bakes.status(&2), Status::Running, "the playing one runs");
         assert_eq!(bakes.status(&1), Status::Waiting, "the background one waits again");
-        // A visible one does not preempt: it waits its turn.
+        // An export does not preempt: it waits its turn.
         bakes.ask(&3, hold);
         let mut wants = wants;
-        wants.insert(3, Priority::Visible);
+        wants.insert(3, Priority::Export);
         bakes.poll(&wants, Duration::ZERO);
         assert_eq!(bakes.status(&3), Status::Waiting);
+    }
+
+    #[test]
+    fn a_visible_bake_starts_at_the_next_poll_before_twenty_background_bakes() {
+        let mut bakes: Scheduler<u32> = Scheduler::new(2, 1);
+        let mut wants = HashMap::new();
+        for key in 0..19 {
+            bakes.ask(&key, hold);
+            wants.insert(key, Priority::Background);
+        }
+        bakes.poll(&wants, Duration::ZERO);
+        bakes.ask(&19, hold);
+        wants.insert(19, Priority::Background);
+        bakes.poll(&wants, Duration::ZERO);
+        assert_eq!(bakes.status(&19), Status::Waiting, "the lane is full of background bakes");
+        // A window scrolls to the clip of bake 19.
+        wants.insert(19, Priority::Visible);
+        bakes.poll(&wants, Duration::ZERO);
+        assert_eq!(bakes.status(&19), Status::Running, "the visible one runs");
+        let busy = bakes.summary();
+        assert_eq!((busy.running, busy.waiting), (2, 18), "one background bake gave it its place");
     }
 
     #[test]

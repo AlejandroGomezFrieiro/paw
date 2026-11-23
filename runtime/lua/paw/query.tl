@@ -238,8 +238,8 @@ local function group_meta(t: types.Track): GroupMeta
 end
 
 --- The tracks of the project as a tree: the ones in no group, and each
---- group's members, in the order of the track list. In a tab narrowed to a
---- group, that group's tracks, as Ex ranges see them.
+--- group's members, in the order of the track list. In a narrowed
+--- window, the tracks of its scope, as Ex ranges see them.
 local function track_tree(cache: Cache): Tracks
   if cache.tracks then
     return cache.tracks

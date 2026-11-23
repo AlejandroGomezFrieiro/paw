@@ -48,7 +48,7 @@ paw.insert.add("M", {
 })
 ```
 
-`add` puts the key in `paw.opt.insertkeys`, so the key works at once, and `hidden = true` adds it without that. A key that exists gets the new kind. `paw.insert.remove("M")` removes the key. When an extension unloads, its keys go, and a key that it changed is again as it was.
+`add` puts the key in `paw.opt.insertkeys` at the place of its `order`, so the key works at once, and `hidden = true` adds it without that. A key that exists gets the new kind. `paw.insert.remove("M")` removes the key. When an extension unloads, its keys go, and a key that it changed is again as it was.
 
 | Field | Meaning |
 | --- | --- |
@@ -62,7 +62,7 @@ paw.insert.add("M", {
 | `per_track` | Changes for a kind of track: `{ vocal = { name = "Vocal %d" } }`. |
 | `insert(ctx)` | Inserts the item itself, in place of what `kind` does. It returns the item, or nil and why not. |
 | `open(ctx, item)` | What `Enter` does after the item: open it in its editor. |
-| `order` | The place in the box. |
+| `order` | The place of the key in `paw.opt.insertkeys`, and so in the box and the key bar, when `add` puts it there. A lower number comes first, and keys with the same number go by their names. The default is 50. The built-in keys have 10 (`m`), 20 (`a`), 30 (`r`), 40 (`'`) and 50 (`f`). |
 
 `ctx` tells about the place, with the fields below.
 
