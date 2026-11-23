@@ -117,25 +117,33 @@ Inside a subproject with its own tempo, the ruler counts its own bars at
 its own tempo, and with `scopebars=both` the row under it shows the
 song's bars where they fall. `:tempo` then changes the tempo of the
 subproject and not the song's, and the message says so, for example
-`90 bpm: the subproject's own tempo`. `:tempo.ramp`, `:tempo.remove`,
-`:tempo.tap`, `:timesig` with a meter and `:timesig.remove` change the
-song's map, so inside a subproject with its own tempo they refuse and say
-why. The tempo lane (`zT`) shows the tempo of the subproject, and a
-change that you make on the lane with the mouse, with `grt` or with
-`:tempo.move` goes into the tempo of the subproject. The song's tempo
-stays as it was. The status line shows `own tempo`,
+`90 bpm: the subproject's own tempo`. The status line shows `own tempo`,
 and `K` on a block says `own tempo` where it otherwise says `follows the
 tempo`.
+
+The tempo lane (`zT`) shows the tempo of the subproject. A tempo change
+that you make inside it goes into the tempo of the subproject at its own
+beat, and the song's tempo stays as it was. You can make the change with
+`:tempo.ramp`, `:tempo.remove`, `:tempo.tap` or `:tempo.move`, on the
+lane with the mouse or `grt`, with a tempo flag on the ruler, or in the
+curve editor of `paw://tempo`. A signature change (`:timesig`,
+`:timesig.remove`, or a signature flag on the ruler) goes into the meter
+of the subproject. If the subproject counted the song's meter, it gets a
+meter of its own, the meter that it showed, with the change in it.
 
 Inside a subproject that follows the song's tempo, the tempo lane shows
 the song's tempo from the start of the block. A change that you make on
 the lane goes into the song's tempo at the same place in the song. For
 example, in 4/4 with the block at bar 5, a change at bar 3 of the
-subproject is a change at bar 7 of the song.
+subproject is a change at bar 7 of the song. The tempo flags and the
+signature flags on the ruler, and the curve editor of `paw://tempo`, work
+the same way.
 
 A subproject with its own meter and no tempo of its own counts its own
 bars from the start of its block, in its meter, while the song keeps its
-bars.
+bars. Inside it, `:timesig`, `:timesig.remove` and the signature flags on
+the ruler change its own meter, and a tempo change goes into the song's
+tempo at the same place in the song.
 
 ## The return row and its blocks
 

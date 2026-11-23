@@ -5,6 +5,9 @@
 -- follow the lane, and undo takes it back. Beats are of the window's time:
 -- inside a subproject with its own tempo, the lane shows and edits its own
 -- map; inside one that follows the song, the song's map at its place.
+-- The other edits of the window's time (the flags on the ruler, `:tempo`,
+-- `:timesig`, the curve editor of paw://tempo) go through it too, signature
+-- changes included.
 --
 --   paw.tempolane.toggle()            -- show or hide the row
 --   paw.tempolane.range()             -- the tempo at its bottom and its top
@@ -12,6 +15,9 @@
 --   paw.tempolane.move(17, 20, 100)   -- the change at beat 17 to beat 20, at 100 bpm
 --   paw.tempolane.remove(20)
 --   paw.tempolane.draw({ { 8, 120 }, { 9, 118 }, ... })  -- a stroke of the pencil
+--   paw.tempolane.set_points({ { beat = 0, bpm = 120 }, ... })  -- every change
+--   paw.tempolane.signature_set(16, 6, 8)    -- 6/8 from beat 16
+--   paw.tempolane.signature_move(16, 24)  paw.tempolane.signature_remove(24)
 --
 -- Whether the row is shown is kept for the session (it survives `:reload`),
 -- not in the project, as for the automation lanes.
@@ -112,13 +118,23 @@ local function clamp_bpm(bpm: number): number
   return math.max(1, math.min(999, bpm))
 end
 
--- The map the lane edits is the window's, as the one it draws
--- (`paw.time.tempo_points`). Beats given to the lane are beats of the
--- window's time. In the song, or in a subproject that follows the song's
--- tempo, the lane edits the song's map at the song's beat of each one
--- (`paw.time.song_beat`). In a subproject with its own tempo, it edits that
--- own map, whose beats are the window's. Each edit writes the map once: one
--- undo step.
+-- The maps that an edit of the window's time changes. The lane, the flags
+-- on the ruler, `:tempo`, `:tempo.*`, `:timesig` and the curve editor of
+-- paw://tempo edit through them: this is the one place of the rule. The
+-- beats given to them are beats of the window's time.
+--
+-- Tempo: in the song, or in a subproject that follows the song's tempo,
+-- the song's map at the song's beat of each one (`paw.time.song_beat`). In
+-- a subproject with its own tempo, that own map, whose beats are the
+-- window's.
+--
+-- Meter: in a subproject with its own meter, that own meter. In a
+-- subproject with its own tempo that follows the song's meter, the meter
+-- that it shows (the song's at its start) becomes its own meter with the
+-- edit: its beats do not line up with the song's, so a change of the
+-- song's map does not show there. Else the song's map at the song's beat.
+--
+-- Each edit writes the map once: one undo step.
 local record EditMap
   -- Its tempo points, the start's first, in its own beats.
   tempos: {types.TempoPoint}
@@ -126,6 +142,14 @@ local record EditMap
   beat: function(window_beat: number): number
   -- Replace its tempo points.
   write: function(tempos: {types.TempoPoint})
+end
+
+--- The signature map that an edit changes, as `EditMap` is for the tempo.
+local record MeterMap
+  -- Its signature points, the start's first, in its own beats.
+  signatures: {types.SigPoint}
+  beat: function(window_beat: number): number
+  write: function(signatures: {types.SigPoint})
 end
 
 local function same_beat(a: number, b: number): boolean
@@ -136,14 +160,19 @@ local function by_beat(a: types.TempoPoint, b: types.TempoPoint): boolean
   return a.beat < b.beat
 end
 
---- The map that an edit on the lane changes, read now.
+--- The beat of an own map of a beat of the window's time: the same.
+local function same(beat: number): number
+  return beat
+end
+
+--- The map that a tempo edit changes, read now.
 local function edit_map(): EditMap
   local own = paw.time.own()
   if own and own.own_tempo then
     local nest = api.clip_get(own.clip).nest
     return {
       tempos = api.nest_get(nest).tempo.points as {types.TempoPoint},
-      beat = function(beat: number): number return beat end,
+      beat = same,
       write = function(tempos: {types.TempoPoint})
         local tempo: types.NestTempo = {mode = "own", points = tempos as {types.TempoChange}}
         api.nest_set(nest, {tempo = tempo} as types.Nest)
@@ -155,6 +184,42 @@ local function edit_map(): EditMap
     tempos = map.tempos,
     beat = paw.time.song_beat,
     write = function(tempos: {types.TempoPoint}) api.tempo_set_points(tempos, map.signatures) end,
+  }
+end
+
+--- The signatures of a list, without the bars that `tempo_points` adds.
+local function plain_signatures(list: {types.SigPoint}): {types.SigPoint}
+  local out: {types.SigPoint} = {}
+  for i, s in ipairs(list) do
+    out[i] = {beat = s.beat, num = s.num, den = s.den}
+  end
+  return out
+end
+
+--- The map that a signature edit changes, read now.
+local function meter_map(): MeterMap
+  local own = paw.time.own()
+  if own then
+    local nest = api.clip_get(own.clip).nest
+    local meter = api.nest_get(nest).meter
+    -- Its own meter, or the meter that its own tempo shows.
+    local signatures = plain_signatures(
+      meter.mode == "own" and meter.changes as {types.SigPoint} or own:points().signatures
+    )
+    return {
+      signatures = signatures,
+      beat = same,
+      write = function(list: {types.SigPoint})
+        local meter_out: types.NestMeter = {mode = "own", changes = plain_signatures(list) as {types.SigChange}}
+        api.nest_set(nest, {meter = meter_out} as types.Nest)
+      end,
+    }
+  end
+  local map = api.tempo_points()
+  return {
+    signatures = plain_signatures(map.signatures),
+    beat = paw.time.song_beat,
+    write = function(signatures: {types.SigPoint}) api.tempo_set_points(map.tempos, signatures) end,
   }
 end
 
@@ -299,6 +364,92 @@ function M.draw(points: {StrokePoint}, step?: number)
   end
   table.sort(out, by_beat)
   map.write(out)
+end
+
+--- Replace every tempo point of the window's time with `points`, beats of
+--- the window, as the curve editor of paw://tempo writes them. The map
+--- starts with a change at its start: when no point is there, one with the
+--- first point's tempo holds until it.
+function M.set_points(points: {types.TempoPoint})
+  if #points == 0 then
+    return
+  end
+  local map = edit_map()
+  local out: {types.TempoPoint} = {}
+  for i, p in ipairs(points) do
+    out[i] = {beat = math.max(0, map.beat(p.beat)), bpm = p.bpm, ramp = p.ramp}
+  end
+  table.sort(out, by_beat)
+  if out[1].beat > 1e-9 then
+    table.insert(out, 1, {beat = 0, bpm = out[1].bpm, ramp = false})
+  end
+  out[1].beat = 0
+  map.write(out)
+end
+
+-- Signature changes ---------------------------------------------------------------------
+
+--- The index in `signatures` of the change at `beat`, or nil.
+local function signature_index(signatures: {types.SigPoint}, beat: number): integer
+  for i, s in ipairs(signatures) do
+    if same_beat(s.beat, beat) then
+      return i
+    end
+  end
+end
+
+local function by_signature_beat(a: types.SigPoint, b: types.SigPoint): boolean
+  return a.beat < b.beat
+end
+
+--- Start a bar of `num`/`den` at a beat of the window's time, or change
+--- the signature that starts there.
+function M.signature_set(beat: number, num: integer, den: integer)
+  local map = meter_map()
+  local at = math.max(0, map.beat(beat))
+  local i = signature_index(map.signatures, at)
+  if i then
+    map.signatures[i].num, map.signatures[i].den = num, den
+  else
+    map.signatures[#map.signatures + 1] = {beat = at, num = num, den = den}
+    table.sort(map.signatures, by_signature_beat)
+  end
+  map.write(map.signatures)
+end
+
+--- Remove the signature change at a beat of the window's time. You cannot
+--- remove the one at the start.
+function M.signature_remove(beat: number): boolean
+  local map = meter_map()
+  local index = signature_index(map.signatures, map.beat(beat))
+  if not index or index == 1 then
+    return false
+  end
+  table.remove(map.signatures, index)
+  map.write(map.signatures)
+  return true
+end
+
+--- Move the signature change at `beat` to beat `to`, both of the window's
+--- time; a change there goes. The one at the start does not move, and
+--- none moves onto it.
+function M.signature_move(beat: number, to: number): boolean
+  local map = meter_map()
+  local index = signature_index(map.signatures, map.beat(beat))
+  local target = map.beat(to)
+  if not index or index == 1 or same_beat(target, map.signatures[1].beat) or target < 0 then
+    return false
+  end
+  local point = table.remove(map.signatures, index)
+  point.beat = target
+  local there = signature_index(map.signatures, point.beat)
+  if there then
+    table.remove(map.signatures, there)
+  end
+  map.signatures[#map.signatures + 1] = point
+  table.sort(map.signatures, by_signature_beat)
+  map.write(map.signatures)
+  return true
 end
 
 --- Define the tempo lane's commands with `command`.

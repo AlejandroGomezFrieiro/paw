@@ -2174,8 +2174,12 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.tempolane.ramp(beat, on)`: Make the change at `beat` ramp to the next, or hold again.
 - `paw.tempolane.range()`: The tempo at the bottom and at the top of the row. The range keeps a small space around the slowest and the fastest tempo of the map, in tens of beats a minute. The range is at least 80 and centered. So a steady song does not show as a wall. The map is the window's: inside a subproject with its own tempo, its own.
 - `paw.tempolane.remove(beat)`: Remove the change at `beat`. You cannot remove the change at the start.
+- `paw.tempolane.set_points(points)`: Replace every tempo point of the window's time with `points`, beats of the window, as the curve editor of paw://tempo writes them. The map starts with a change at its start: when no point is there, one with the first point's tempo holds until it.
 - `paw.tempolane.show(on)`: Show the row, or hide it (`on` false).
 - `paw.tempolane.shown()`: True if the row shows.
+- `paw.tempolane.signature_move(beat, to)`: Move the signature change at `beat` to beat `to`, both of the window's time; a change there goes. The one at the start does not move, and none moves onto it.
+- `paw.tempolane.signature_remove(beat)`: Remove the signature change at a beat of the window's time. You cannot remove the one at the start.
+- `paw.tempolane.signature_set(beat, num, den)`: Start a bar of `num`/`den` at a beat of the window's time, or change the signature that starts there.
 - `paw.tempolane.toggle()`: Show the tempo lane, or hide it. Returns true if it shows.
 
 ## Module paw.textbuf
