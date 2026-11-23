@@ -25,8 +25,7 @@ local type Range = function(): number, number | string
 
 --- The options of `paw.render` (see `M.render`): what the kernel takes
 --- (`types.RenderOptions`), and what only Lua knows: `range`, `rate`,
---- `channels` as a word, `background`, and `format` for stems (false
---- takes it out).
+--- `background`, and `format` for stems (false takes it out).
 local record Options
   range: string
   start: number
@@ -35,7 +34,7 @@ local record Options
   sample_rate: integer
   rate: integer
   bits: integer
-  channels: integer | string
+  channels: types.RenderChannels
   dither: boolean
   quality: string
   bitrate: integer | string
@@ -168,11 +167,6 @@ local function kernel_opts(opts: Options): types.RenderOptions
   local out = copy(opts or {})
   local range = out.range
   out.range, out.background, out.format = nil, nil, nil
-  if out.channels == "mono" then
-    out.channels = 1
-  elseif out.channels == "stereo" then
-    out.channels = 2
-  end
   if out.rate then
     out.sample_rate, out.rate = out.rate, nil
   end
@@ -241,7 +235,8 @@ end
 ---   tail        seconds after the end, for reverbs and delays to ring out (1)
 ---   sample_rate (or rate) Hz; the engine's by default
 ---   bits        16, 24 or 32 (float; WAV only); 24 by default
----   channels    2 (or "stereo") or 1 (or "mono")
+---   channels    "stereo" (the default), "mono" (one channel: (left + right) / 2) or
+---               "auto" (one channel when the two sides are equal to the bit, else two)
 ---   dither      true to add dither when writing 16 or 24 bits
 ---   quality     for MP3, Ogg Vorbis and Opus: "low", "medium", "high" (the
 ---               default) or "best"; `bitrate` (kbit/s) instead of it for a number
@@ -474,7 +469,7 @@ M.options = {
   {"bits=", {"16", "24", "32"}, "sample size; 32 is float"},
   {"quality=", {"low", "medium", "high", "best"}, "of an MP3, Ogg or Opus file"},
   {"bitrate=", {"128", "192", "256", "320"}, "kbit/s of an MP3, Ogg or Opus file"},
-  {"channels=", {"stereo", "mono"}, ""},
+  {"channels=", {"stereo", "mono", "auto"}, "auto: mono when both sides are equal"},
   {"dither=", {"true"}, "dither at 16 or 24 bits"},
   {"normalize=", {"-1", "-0.3"}, "peak level in dB"},
   {"loudness=", {"-14", "-16", "-23"}, "integrated loudness in LUFS"},
@@ -552,7 +547,7 @@ commands.define(
       quality = a.quality and tostring(a.quality) or nil,
       bitrate = tonumber(a.bitrate) as integer,
       dither = a.dither == true or nil,
-      channels = a.channels == "mono" and 1 or a.channels == "stereo" and 2 or tonumber(a.channels) as integer,
+      channels = a.channels and tostring(a.channels) as types.RenderChannels or nil,
       normalize = tonumber(a.normalize),
       loudness = tonumber(a.loudness),
       master = a.master ~= false and nil or false,
