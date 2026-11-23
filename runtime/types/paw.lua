@@ -2025,7 +2025,8 @@ function paw.cursor.master_reachable() end
 --- Move by rows. In normal mode, the rows of open automation lanes count.
 --- After an operator or in a selection, only tracks count, as for `dj`.
 --- From the last track, a move down goes on to the master, and from the
---- master a move up returns to the tracks.
+--- master a move up returns to the tracks. A closed block fold at the
+--- cursor's beat is one row (`paw.cursor.stop`).
 ---@param delta any
 function paw.cursor.move_track(delta) end
 
@@ -2035,7 +2036,8 @@ function paw.cursor.on_master() end
 
 --- Where the cursor goes when it moves from beat `old` to `new`: a beat
 --- inside a closed time fold is its start, or its end when the cursor
---- moves on from its start, so that a motion takes a fold as one step.
+--- moves on from its start, so that a motion takes a fold as one step. A
+--- closed block fold on the cursor's track is one step in the same way.
 ---@param old any
 ---@param new any
 function paw.cursor.over(old, new) end
@@ -2064,6 +2066,14 @@ function paw.cursor.shift(track) end
 --- Round a position to the arrange grid.
 ---@param beat any
 function paw.cursor.snap(beat) end
+
+--- The row that stands for a track at a beat when the cursor moves by
+--- rows: the first row of the closed block fold that holds the track
+--- there, or nil when no closed block holds it. A closed block is one row
+--- for `j` and `k`, as a closed fold is one line in Vim.
+---@param id any
+---@param beat any
+function paw.cursor.stop(id, beat) end
 
 --- The track the cursor is on, as a `paw.Track`, or nil.
 function paw.cursor.track() end
@@ -3087,12 +3097,16 @@ function paw.folds.all(on, win) end
 ---@param win any
 function paw.folds.at(id, win) end
 
+--- How many bars a block or a time fold covers (0 when its region is gone).
+---@param f any
+function paw.folds.bars(f) end
+
 --- The closed block fold at the cursor in a window, or nil.
 ---@param win any
 function paw.folds.block_at_cursor(win) end
 
 --- The closed block folds that a window draws (the one a view shows by
---- default), in the order they were made: each draws one cell over the
+--- default), in the order they were made: each draws one frame over the
 --- rows of its tracks and its time. A block that holds all of the scope
 --- the window shows is open there.
 ---@param win any
@@ -3158,7 +3172,7 @@ function paw.folds.list(win) end
 --- Make a fold of what a scope covers (`zf{motion}`), closed, in a
 --- window: a group folds into its row (`zfag`), tracks into one row named
 --- `Fold 1` (`Vjjzf`), a region or bars on every track into a column
---- (`zfar`), and some tracks for some bars into one cell (a visual block,
+--- (`zfar`), and some tracks for some bars into one frame (a visual block,
 --- then `zf`). Returns it, or nil and the reason.
 ---@param spec any
 ---@param win any
@@ -3186,6 +3200,8 @@ function paw.folds.reveal() end
 ---@param id any
 ---@param win any
 function paw.folds.row(id, win) end
+
+paw.folds.row_stop = paw.cursor.stop
 
 --- Fold a group into its row, or open it, in a window: `on` nil flips it.
 ---@param group any
@@ -3217,6 +3233,11 @@ function paw.folds.time_spans(win) end
 ---@param id any
 ---@param win any
 function paw.folds.toggle(id, win) end
+
+--- The names of the tracks of a block fold: `Piano, Pad`, or with more
+--- than three, the first and how many more: `Piano +4`.
+---@param f any
+function paw.folds.track_names(f) end
 
 --- Write the project with the format of a file. Says what it did.
 ---@param path any

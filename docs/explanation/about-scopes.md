@@ -36,7 +36,7 @@ same scope:
 - Folded: the window shows the scope in place, closed. A group folds
   into one row, and a region folds into one narrow column with its name
   and its bars, for example `Bridge ▸ 8`. A block of some tracks in some
-  bars folds into one cell over them.
+  bars folds into one frame over them, with its name and its bars.
 - Open: the window shows the scope in place, as usual.
 
 Because a fold and a scope are the same thing, you can go from one form

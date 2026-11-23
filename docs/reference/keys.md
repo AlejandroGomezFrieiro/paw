@@ -62,7 +62,7 @@ The motion keys only move, in every view. In **M**, `h` `l` are strips, `j` `k` 
 | `M` `s` `r` | mute, solo, arm the track | |
 | `zn` `znn` | `zn` and a motion: enter what the motion covers as a scope, in this window: `znar` the region, `znag` the group, `znit` the track, `Vjjzn` the selected tracks; `znn` the innermost scope at the cursor ([Scopes](narrowing.md)) | |
 | `zw` `zW` | up one level of scope; up to the whole song | |
-| `zf` | `zf` and a motion: fold what the motion covers: `zfar` the region into one column (`Bridge ▸ 8`), `zfag` the group into one row, `Vjjzf` the selected tracks into one row (`Fold 1`), a visual block into one cell over its tracks and bars ([Folds](narrowing.md#folds)) | |
+| `zf` | `zf` and a motion: fold what the motion covers: `zfar` the region into one column (`Bridge ▸ 8`), `zfag` the group into one row, `Vjjzf` the selected tracks into one row (`Fold 1`), a visual block into one frame over its tracks and bars (`Piano, Pad 9-24`) ([Folds](narrowing.md#folds)) | |
 | `za` `zc` | close the fold, group or region at the cursor, or open it; close it | |
 | `zm` `zr` | close one more level of regions, the deepest first; open one level | |
 | `zd` `zE` | delete the fold at the cursor (its tracks and clips stay); delete every fold of the window | |

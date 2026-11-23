@@ -68,6 +68,7 @@ local record M
   lens: function(): integer
   bounds: function(): number, number
   over: function(old: number, new: number): number
+  stop: function(track: integer, beat: number): integer
   shift: function(track: integer): number
   master_reachable: function(): boolean
 end
@@ -213,33 +214,82 @@ function M.set_track(track: integer | objects.Track, lane?: integer)
   save()
 end
 
+--- A function that gives the row that stands for a track at a beat for a
+--- move by rows, or nil when the track is its own row: paw/folds.tl sets
+--- it, so that a closed block fold is one row for `j` and `k`.
+M.stop = nil
+
+--- The row that stands for a track in a move by rows (`M.stop`), or nil
+--- when the track and its lane rows are rows of their own. After an
+--- operator, every track is its own row, as an operator acts on tracks.
+local function stop_of(track: integer): integer
+  if not M.stop or paw.keymap.motion_for then
+    return nil
+  end
+  return M.stop(track, M.beat)
+end
+
+--- The rows a move by rows stops on: a row that stands for others once,
+--- in place of them and of their lane rows.
+local function stops(lines: {Row}): {Row}
+  local out: {Row} = {}
+  for _, line in ipairs(lines) do
+    local stop = stop_of(line.track)
+    local last = out[#out]
+    if not stop then
+      out[#out + 1] = line
+    elseif not (last and last.track == stop and last.lane == nil) then
+      out[#out + 1] = {track = stop}
+    end
+  end
+  return out
+end
+
 --- Move by rows. In normal mode, the rows of open automation lanes count.
 --- After an operator or in a selection, only tracks count, as for `dj`.
 --- From the last track, a move down goes on to the master, and from the
---- master a move up returns to the tracks.
+--- master a move up returns to the tracks. A closed block fold at the
+--- cursor's beat is one row (`paw.cursor.stop`).
 function M.move_track(delta: integer)
   local reach = master_reachable()
-  if paw.lanes.any_open() and paw.keymap.mode == "n" then
-    local lines = paw.groups.rows({lanes = true})
-    if #lines == 0 then
-      return
+  local lanes = paw.lanes.any_open() and paw.keymap.mode == "n"
+  local lines: {Row}
+  if lanes then
+    lines = paw.groups.rows({lanes = true})
+  else
+    lines = {}
+    for i, id in ipairs(paw.groups.rows()) do
+      lines[i] = {track = id}
     end
-    local at = M.on_master() and #lines + 1 or (M.line() or 1)
-    if reach and at + delta > #lines then
-      return M.set_track(0)
-    end
-    local to = lines[util.clamp(at + delta, 1, #lines) as integer]
-    return M.set_track(to.track, to.lane)
   end
-  local list = paw.groups.rows()
-  if #list == 0 then
+  lines = stops(lines)
+  if #lines == 0 then
     return
   end
-  local at = M.row() or 1
-  if reach and at + delta > #list then
+  -- Where the cursor is among the stops: on the master after the last,
+  -- on the row that stands for its own.
+  local id, lane = M.track_id(), lanes and M.lane_id() or nil
+  local stop = stop_of(id)
+  if stop then
+    id, lane = stop, nil
+  end
+  local at: integer
+  if M.on_master() then
+    at = #lines + 1
+  else
+    for i, line in ipairs(lines) do
+      if line.track == id and line.lane == lane then
+        at = i
+        break
+      end
+    end
+  end
+  at = at or 1
+  if reach and at + delta > #lines then
     return M.set_track(0)
   end
-  M.set_track(list[util.clamp(at + delta, 1, #list) as integer])
+  local to = lines[util.clamp(at + delta, 1, #lines) as integer]
+  M.set_track(to.track, to.lane)
 end
 
 --- A function that gives the time the cursor stays in, `from, to` in beats,
