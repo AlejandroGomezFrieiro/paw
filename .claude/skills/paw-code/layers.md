@@ -4,7 +4,7 @@ The runtime (`runtime/lua/paw`) has an order of layers, from low to
 high. A module reads the modules of its own layer and of the layers
 below it. `tools/layers.lua` checks this order, and the suite runs the
 check (`tests/layers.lua`). The item L7 of the review of the Lua and
-Teal code gave the order (TASK-131).
+Teal code gave the order.
 
 ## Why the order exists
 
@@ -19,7 +19,7 @@ These cycles have a cost:
 - Teal needs stand-in records (a local `record Ui` in a lower module)
   and `require as function` casts to load the modules in an order.
 - The teal skill lists five pitfalls that come from these cycles.
-- Lazy extensions (TASK-3) and a runtime without LuaJIT (TASK-29) need
+- Lazy extensions and a runtime without LuaJIT need
   a known order of load.
 
 ## The layers
@@ -119,7 +119,7 @@ difference before the commit.
 `<kinds>` gives the references of each kind, for example
 `paw=3,require=1`. The kinds are `require`, `type` and `paw`. `<file>:<line>`
 is the first reference of `<from>` to `<to>`. The architecture map of
-TASK-26 can read this text in place of its own scan of `require` calls.
+the architecture map can read this text in place of its own scan of `require` calls.
 
 ## The upward references of today
 
@@ -135,7 +135,7 @@ get the most upward references:
 | `paw.commands` | 16 | `paw.commands.exec`, the command registry |
 
 The timers and the error helpers of `paw/init.lua` belong in a module of
-the `data` layer. The parts of `paw.frontend` (TASK-128) are in the
+the `data` layer. The parts of `paw.frontend` are in the
 `frontends` layer, and the reads of them can move to events or
 callbacks. `paw.ui` and `paw.help` import the types of `paw.keybar`
 (`views` layer). `paw.keybar` can go to the `screen` layer when

@@ -10,7 +10,7 @@ use super::{Shared, from_lua, to_lua};
 
 // What `paw.api.build()` gives, so that the loader of extensions refuses one
 // whose `needs` this build does not have (runtime/lua/paw/ext.lua). The Lua
-// follows the mlua feature of Cargo.toml. TASK-99 puts processes and network
+// follows the mlua feature of Cargo.toml. A planned split of the kernel puts processes and network
 // behind the cargo feature `native`; its gates go here too.
 #[cfg(not(target_vendor = "browserpod"))]
 const BUILD_VM: &str = "luajit";

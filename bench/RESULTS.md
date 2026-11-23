@@ -7,18 +7,18 @@ How to run everything: [README.md](README.md). Raw numbers:
 matrix before it). The processor time of the whole program while it plays,
 against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md).
 
-## 2026-11-23: the first scope keys after TASK-184 (TASK-190)
+## 2026-11-23: the first scope keys after the group tree change
 
-TASK-184 found that `znn`, `]z` and `znag` cost more in the scenario
+The group tree change found that `znn`, `]z` and `znag` cost more in the scenario
 `scope` with its branch (22 -> 40 ms, 30 -> 68 ms, 26 -> 40 ms), and that
 the `repeat` scenario showed no difference. The cause is the garbage
-collector of LuaJIT. TASK-184 does not add work: it moves the steps of the
+collector of LuaJIT. The group tree change does not add work: it moves the steps of the
 incremental collector from some keys to other keys.
 
 Setup: one binary of main (c386d3a4), with three Lua runtimes in turns,
 under the measure lock on cores 16 to 23. "before" is f1b087ae with
-`groups.tl` and `trackcolumn.tl` of the parent of the TASK-184 merge.
-"after" is f1b087ae (TASK-184 merged). "stamp" is this branch
+`groups.tl` and `trackcolumn.tl` of the parent of the group tree change merge.
+"after" is f1b087ae (the group tree change merged). "stamp" is this branch
 (`paw.events.stamp()`). All values were measured under external load (load
 average 4.1 to 22). A key is the processor time of the kernel thread from
 the key until the screen is quiet for 250 ms: the median of the runs, then
@@ -43,7 +43,7 @@ The keys that change the scope get the collector's work in "after", and
 scenario costs the same.
 
 The heap is smaller in "after" when the keys
-start (53.6 MB against 61.1 MB after `znar`): the frames of TASK-184 make
+start (53.6 MB against 61.1 MB after `znar`): the frames of the group tree change make
 less garbage, so the cycle that ends before the scope keys in "before" is
 still running there in "after". A run of `repeat` sees no difference,
 because each round goes through all phases of the collector.
@@ -80,12 +80,12 @@ at load 8.7, with the heap near its largest (69 MB and 73 MB).
 number. It does not change the cost of a frame or of a key in a way that
 these runs can show.
 
-## 2026-11-23: :%quantize writes its notes with paw.api.notes_set (TASK-198)
+## 2026-11-23: :%quantize writes its notes with paw.api.notes_set
 
 The key `:%quantize 1/4` (grid 1 beat) in the region Verse B of the
 scenario `scope`: 6 300 notes move, on 63 tracks, with `u` after each key.
 One binary (2b340c1f, dev profile) ran with the Lua of 3acafc09 ("before",
-TASK-192) and of 2b340c1f ("after", TASK-198), as dev runtimes, in turns:
+the first change of :%quantize) and of 2b340c1f ("after", the bulk note call), as dev runtimes, in turns:
 5 pairs, each run under the measure lock on cores 16 to 23. All values were
 measured under external load (load average 12 to 26).
 
@@ -114,7 +114,7 @@ not depend on the load changed:
 What is left of the key is mostly the read of the notes (`paw.ex.items`,
 a table for each note from `paw.api.clip_notes`) and the redraw.
 
-## 2026-11-23: what :%quantize costs after TASK-183 and TASK-184 (TASK-192)
+## 2026-11-23: what :%quantize costs after the scope change of :%quantize and the group tree change
 
 The key `:%quantize 1/4` in the region Verse B of the scenario `scope`
 (about 6 400 notes on 63 tracks), with `u` after each key. One binary of
@@ -157,7 +157,7 @@ LuaJIT profile of 10 keys after the change (taking the samples adds about 5 %:
 | --- | --- | --- |
 | The chord reading (the job `derived`) | 46 | 63 tracks changed in 32 windows: 2 142 track windows, 256 groups, 32 mixes, the chords and the keys of the whole song again. About 15 ms of it is the work of `paw.derived` itself (`settle`, `ensure`, `get`, `link`, `push_over`), the rest is `paw.harmony.read` and `paw.harmony.song`. |
 | The command | 32 | `ex.items` 17 ms (the kernel gives each note as a table, 4 ms; the items and their sort), `ex.apply` 12 ms (the kernel takes the 6 400 changes, 7 ms). |
-| One full frame of the arrange view | 27 | `views/arrange.lua` (TASK-127 ports it to Teal). |
+| One full frame of the arrange view | 27 | `views/arrange.lua` (since ported to Teal). |
 | The typing and the events | 27 | The preview of the range after each character (2 ms, mostly `paw.scope`), the completion (1.5 ms), the event handlers of `paw.scope`, `paw.ui` and `paw.freeze` (5 ms), the status line. |
 | Of all the above, the garbage collector | 11.5 | 11.4 MB a key: 5 MB the command, 1.9 MB the chord reading, the rest the frame and the typing. |
 
@@ -166,13 +166,13 @@ a change of many notes in one call that does not go through a Lua table
 for each note (the command), a chord reading that does not decode the whole
 song after each edit, and the frame of the arrange view.
 
-## 2026-11-23: the chord reading after :%quantize in Verse B (TASK-199)
+## 2026-11-23: the chord reading after :%quantize in Verse B
 
-## 2026-11-23: a walk of paw.derived without recursion (TASK-200)
+## 2026-11-23: a walk of paw.derived without recursion
 
-The same key and probe as TASK-199 below: `:%quantize 1/4` in Verse B of
+The same key and probe as the chord reading change below: `:%quantize 1/4` in Verse B of
 the scenario `scope`, with `u` after each key. One binary of main
-(b48920a4) ran with the Lua of the TASK-199 branch ("before") and of this
+(b48920a4) ran with the Lua of the chord reading change branch ("before") and of this
 branch ("after"), in turns, under the measure lock. All values were
 measured under external load (load average 3.8 to 14.0).
 
@@ -253,14 +253,14 @@ rest is `read.part` for the 2 048 windows and the 64 tracks made again.
 A decode that starts at the first changed window would save less than
 0.5 ms, so the branch does not do it.
 
-## 2026-11-23: the key d, the collector between keys, and `events_take` after u of dd (TASK-163)
+## 2026-11-23: the key d, the collector between keys, and `events_take` after u of dd
 
 Setup: the shared binary of b48920a4 (dev profile), with the Lua of
 b404646a ("main") and of this branch in turns (`PAW_RUNTIME`), under the
 measure lock on cores 16 to 23. The project of `bench/profile/project.lua`
 (64 tracks, 2 000 clips, 50 000 notes). A key is the processor time of the
 kernel thread from the key until the screen is quiet for 300 ms. The script
-and its probes are not in the repository: they use `drive.py` of TASK-190
+and its probes are not in the repository: they use `drive.py` of the cache key change
 (`measure_key`, the `paw.limit.slow` list, `handlers.lua`). All values were
 measured under external load.
 
@@ -270,7 +270,7 @@ The key `d` (an operator before its motion) draws one whole frame, and that
 frame is the cost. `jit.profile` of 15 presses of `d` (main, load 7.1):
 74 % of the samples are in the arrange view (`arrange.lua:render`, its
 `lane` 39 %), 6.5 % in the status line, 57 % in the state J (the trace
-compiler: TASK-195). The keymap itself takes 0.2 ms.
+compiler). The keymap itself takes 0.2 ms.
 
 Now a key that only waits for the next key (an operator, a count, a
 register, a prefix, Escape out of them) draws only the status line and the
@@ -350,14 +350,14 @@ each, load 3.5 to 4.5) timed each call:
 In the terminal it is called on each turn, about 27 times a press. The
 sum for a press was 0.76 to 1.22 ms in main and 0.78 to 0.88 ms in the
 branch, and the largest call 0.54 to 3.87 ms in main and 0.55 to 0.99 ms
-in the branch. The large calls of main (TASK-116: up to 4.6 ms) are steps
+in the branch. The large calls of main (up to 4.6 ms) are steps
 of the collector that its allocations ran: the heap fell in that call. In
 the branch they come in the job.
 
-## 2026-11-23: the group tree and the marks of groups in a frame (TASK-184)
+## 2026-11-23: the group tree and the marks of groups in a frame
 
 The scenario `scope` of `bench/profile/drive.py`, with the Lua of the
-TASK-6.7 branch (c210bbc2, "before") and of this branch ("after") in turns
+the scope keys branch (c210bbc2, "before") and of this branch ("after") in turns
 on the shared binary of main, 6 pairs, under the measure lock on cores 16
 to 23. The binary changed from 07a06cd3 to bc16df6d during the first 3
 pairs; the last 3 pairs ran on bc16df6d. All values were measured under
@@ -365,7 +365,7 @@ external load (load average 2.9 to 18.8). A frame is the processor time of
 `paw.api.ui_snapshot` (40 frames after `j` or `k` in each run): the median
 of the 6 run medians, then the smallest and largest frame of all runs. A key
 is the processor time of the kernel thread from the key until the screen is
-quiet for 250 ms, as in TASK-6.7.
+quiet for 250 ms, as in the scope keys.
 
 In `jit.profile` samples of 40 rounds of `j` and `k` in the song,
 `trackcolumn.tree_of` took 40 % and `groups.meta` 31 % of the samples
@@ -412,11 +412,11 @@ made `zm` cost 42 ms (41.9 to 50.5) against 27 ms: in a window with folds,
 `paw.folds.row` looks at each fold for each track. The kept tree removed
 that cost.
 
-## 2026-11-23: :%quantize in a scope (TASK-183)
+## 2026-11-23: :%quantize in a scope
 
 The key `:%quantize 1/4` and then `u`, in the scope `Song › Verse B` of the
-scenario `scope` (TASK-6.7), with `--budget 10`. One binary of main
-(bc16df6d) ran with the Lua of main with TASK-6.7 merged ("before") and of
+scenario `scope`, with `--budget 10`. One binary of main
+(bc16df6d) ran with the Lua of main with the scope keys merged ("before") and of
 the branch ("after"), in turns, 3 pairs of 5 keys each, under the measure
 lock on cores 16 to 23. All values were measured under external load (load
 average 3.3 to 4.8). Each value is the processor time of the kernel thread
@@ -461,14 +461,14 @@ is under 100 ms. `:%quantize` is not: what is left, by the LuaJIT profile
 (about 60 % of its time):
 
 - Two frames of the screen, 20 to 35 ms each. Part of each is the group tree
-  of the track column (`trackcolumn.tree_of`, TASK-184).
+  of the track column (`trackcolumn.tree_of`, the group tree change).
 - The typing of the command: completion sorts `commands.list` after each
   character, and the preview parses the range (about 10 ms).
 - `ex.items`: the kernel gives each note as a table (about 9 ms), and the
   sort of the items (about 5 ms).
 - The kernel's events and the garbage collector.
 
-## 2026-11-23: keys in a scope (TASK-6.7)
+## 2026-11-23: keys in a scope
 
 The scenario `scope` of `bench/profile/drive.py` ([profile.md](profile.md)).
 The project: `bench/profile/project.lua`, with five regions and a group of 16
@@ -527,13 +527,13 @@ Each key is under 100 ms but two. `:%quantize 1/4` and the `u` after it are
 over the limit. Their first frame comes after 76 and 31 ms. The rest is work
 after the frame: the chord reading runs one slice of 61 to 103 ms (the job
 `derived`), and the command itself costs 45 to 58 ms. The same edit on the
-whole song costs more, so it is not a cost of the scope. TASK-183 (m-3) is
+whole song costs more, so it is not a cost of the scope. The scope change of :%quantize is
 for it.
 
 `j` in the piano roll costs 35 to 60 ms because the note that it plays
-moves the meters (TASK-113).
+moves the meters.
 
-## 2026-11-23: each request of a connection ends its own turn (TASK-174)
+## 2026-11-23: each request of a connection ends its own turn
 
 A request over the control socket (`eval`, `cmd`) now ends its turn
 before its reply: the kernel's `settle` and the undo step. Before, a
@@ -553,7 +553,7 @@ A read pays about 5 microseconds more. An edit pays the end of its
 own turn, which it paid before only when the client paused. Keys of a
 terminal still share one turn when they come fast.
 
-## 2026-11-22: windows kept by their stamp (TASK-124)
+## 2026-11-22: windows kept by their stamp
 
 A window without the keyboard keeps its cells while the `stamp` of its
 view and the stamp of the frame do not change (`runtime/lua/paw/ui.tl`).
@@ -574,9 +574,9 @@ measured under external load (load average 4 to 13).
 The arrange view above the roll is no longer drawn after each key. The
 processor time falls less than the slow frames. Most of the time of a
 round goes to the meters of the note that `j` and `k` play, in frames of
-the live parts (TASK-113).
+the live parts.
 
-## 2026-11-22: the event handlers after an edit (TASK-116)
+## 2026-11-22: the event handlers after an edit
 
 `bench/profile/handlers.lua` times each event handler where
 `paw.events` calls it, and the parts of the end of a turn around them
@@ -688,7 +688,7 @@ branch, 5.0 to 5.7 ms on main (one run of main took 16.3 ms).
 `build` reads the clips that overlap the document from the same node:
 it does not read `clip_list` of every track again.
 
-## 2026-11-22: the help index in slices that stop (TASK-114)
+## 2026-11-22: the help index in slices that stop
 
 The help index that paw makes at idle is now the job `help` of
 `paw.slices`. The build pauses inside the parse of a page (each line and
@@ -755,7 +755,7 @@ it reads the field once for each kind of node, the `paw.ex` item of a
 node stays in the node, and the loops over the notes use numbers, not
 `ipairs`.
 
-## 2026-11-22: a move key in the piano roll (TASK-113)
+## 2026-11-22: a move key in the piano roll
 
 `j` in the piano roll plays the pitch, and the meters then fall for
 1.5 s. paw ticks at `paw.opt.fps` (60) for that time: about 89 live
@@ -774,7 +774,7 @@ the change, 54 of the 89 ticks keep the frame, and only the meter that
 moved is drawn on the others.
 
 Kernel processor time of one `j` in the roll, the 2 s after the key
-(5 presses a run, median of each run), main (964f160c, with TASK-15)
+(5 presses a run, median of each run), main (964f160c, with the frame budget)
 and the branch in turns, 5 pairs, load average 29 to 53, measured
 under external load:
 
@@ -784,9 +784,9 @@ under external load:
 | branch | 48.3 ms | 36.1 ms | 54.9 ms |
 
 The branch is lower in each pair (0.46 to 0.69 of main). The `keys`
-scenario against the base before TASK-15 (cf15cd12), 5 pairs, load 10
+scenario against the base before the frame budget (cf15cd12), 5 pairs, load 10
 to 34: `j in roll` 85.0 ms (68.1 to 117.1) before, 44.2 ms (34.8 to
-51.6) after. Against main with TASK-15, at load 6 to 60, the `keys`
+51.6) after. Against main with the frame budget, at load 6 to 60, the `keys`
 scenario shows no measurable difference: 54.5 ms (45.2 to 89.8) and
 55.2 ms (30.2 to 61.1).
 
@@ -884,7 +884,7 @@ times are wall times of one callback.
 | `drawing what moves` | `j` in the roll, `dd`, `u` | 5 to 48 ms | open for the roll; the arrange row cache for the arrange view |
 | `a timer (paw/help.tl:1123)` | the help index at idle, after the start | 6 to 69 ms | open: the help index at idle |
 | `the key h`, `e`, `l`, `p` | typing `:help` | 5 to 11 ms | open: typing on the command line |
-| `an event handler`, `a handler of clip.added`, `the key d` | `x`, `dd`, `u` | 5 to 12 ms | the handlers: TASK-116 (above); `the key d` open |
+| `an event handler`, `a handler of clip.added`, `the key d` | `x`, `dd`, `u` | 5 to 12 ms | the handlers: the handler work (above); `the key d` open |
 | `the job pick` | the files walk | 5 to 9 ms | a read of one folder does not pause; under the noise of the load |
 | `the request eval` | the driver itself | 5 ms | not paw's |
 

@@ -90,5 +90,5 @@ impl ProjectFiles for Files {
 }
 
 fuzz_target!(|bytes: &[u8]| {
-    let _ = folder::read_from(&Files::parse(bytes), Path::new(DIR));
+    let _ = folder::read_from(&Files::parse(bytes), &folder::Home::default(), Path::new(DIR));
 });

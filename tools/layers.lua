@@ -349,7 +349,7 @@ local function index_of(layers, module)
 end
 
 --- The graph as text, one edge on each line, sorted, for other tools (the
---- architecture map of TASK-26 reads it):
+--- architecture map of the architecture map reads it):
 ---
 ---   <from> <to> <count> <kinds> <from layer> <to layer> <up|down|same> <file>:<line>
 ---

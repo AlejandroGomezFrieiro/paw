@@ -10,10 +10,11 @@ Use this skill for each change of `tests/*.lua`,
 of `paw-code`. The skill `prune-tests` tells which tests to delete. For
 the Rust tests, use `rust-testing`.
 
-Two designs in `backlog/docs/designs/` are the source of this skill.
-One is the review of the test suite (the rules for time). The other is
-the research on the practices of other projects. The milestone m-12
-builds the parts that are marked "planned" here. Do not use a planned helper before its ticket is done.
+Two designs are the source of this skill. One is a review of the test
+suite (the rules for time). The other is research on the practices of
+other projects.
+Some parts here are marked "planned". Do not use a planned helper before
+it exists.
 
 ## 1. The runner
 
@@ -55,10 +56,10 @@ Use the helpers of `T`. Do not copy them into a file (a local `start`,
 Planned helpers:
 
 - `T.settle()`, `T.advance(ms)`, `T.advance_until(cond, what, ms)` and a
-  `T.until_` that fails at quiescence (TASK-146). Then `paw.wait(ms)`
+  `T.until_` that fails at quiescence. Then `paw.wait(ms)`
   advances a virtual clock.
-- `T.next_block(n)` on a stepped audio backend (TASK-147).
-- `T.check_keys(fixture, keys, expected)` (TASK-158).
+- `T.next_block(n)` on a stepped audio backend.
+- `T.check_keys(fixture, keys, expected)`.
 
 ## 3. Start clean and put back
 
@@ -150,7 +151,7 @@ the owner's computer or folders. Mock what it needs.
 - Prefer a null test (two renders that must be the same) to a level with
   a tolerance.
 - Do not read a live meter (`:meter()`) after a wait. The level depends
-  on how many blocks ran in real time. After TASK-147, play on the
+  on how many blocks ran in real time. With a stepped audio backend, play on the
   stepped backend and read the meter after `T.next_block(n)`.
 - An extension's project must open and play without the extension.
   Test that too.
@@ -177,7 +178,7 @@ the owner's computer or folders. Mock what it needs.
   rows that differ and the command to bless. A golden file that no test
   uses fails the run (`every golden screen has a test`). A run with
   `PAW_BLESS=1` removes it.
-- Before TASK-146 (`T.settle`), use a golden file only for a view that
+- Before the manual clock (`T.settle`), use a golden file only for a view that
   draws at once.
 - `tests/scene_parity.lua` checks that the window and the terminal draw
   one view the same. Keep a new view in it.
@@ -205,7 +206,7 @@ the owner's computer or folders. Mock what it needs.
   `paw.wait(ms)` to let time pass, no `{ wait = N }` in a lesson of the
   tutor. Wait for a state with `T.until_`, for blocks with
   `T.next_block`, or for the playhead with `T.until_beat`. After
-  TASK-146, advance the clock with `T.advance(ms)`.
+  the manual clock, advance the clock with `T.advance(ms)`.
 - Do not use `api.now()` for a deadline in a test. The waits of `T`
   have one limit, the same for all tests.
 - Do not write a local `wait_for` with its own deadline. A wait that
@@ -213,11 +214,11 @@ the owner's computer or folders. Mock what it needs.
   wrong message.
 - Check that a thing does not happen only after a sync point. First
   wait until the kernel did its work (`T.next_block`, a state, or
-  `T.settle()` after TASK-146), and advance past each timer that could
+  `T.settle()` after the manual clock), and advance past each timer that could
   make it happen. Then check. "Nothing happened in 300 ms" is not a
   check.
 - A plugin or a helper process that the test controls waits for the
-  test (`sandbox.hang`, and the handshakes of TASK-148). Do not compare
+  test (`sandbox.hang`, and the plugin handshakes). Do not compare
   an injected delay with a deadline.
 
 ## 9. Skips
@@ -235,9 +236,9 @@ the owner's computer or folders. Mock what it needs.
 - Find the cause: time, an order of tests, state that an earlier test
   left. Run the test alone, and under `only` filters that run it after
   other files. `suite.sh repeat N only "<words>"` and `--shuffle <seed>`
-  are planned (TASK-151).
+  are planned.
 - If you cannot fix it now, put it in `tests/quarantine.txt` with a
-  ticket (TASK-145 adds the runner support). The list only gets shorter.
+  ticket. The list only gets shorter.
 
 ## 11. Teal
 

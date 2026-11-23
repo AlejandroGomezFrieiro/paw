@@ -852,11 +852,11 @@ mod tests {
         bytes
     }
 
-    // Found while writing the fuzz target `clip_file` (TASK-159): ticks
+    // Found while writing the fuzz target `clip_file`: ticks
     // past the largest number overflowed, and a dev build panicked.
     #[test]
     fn an_origin_or_a_length_past_the_largest_tick_reads_without_a_panic() {
-        // Past the range a clip holds (TASK-173): refused with a message.
+        // Past the range a clip holds: refused with a message.
         let far_origin = file_with(&format!("paw:{{\"origin\":{}}}", i64::MAX), &[utility(0x4, 1)]);
         assert!(decode(&far_origin).is_err());
 
@@ -867,6 +867,6 @@ mod tests {
     }
 }
 
-// The range of times a clip holds (TASK-173).
+// The range of times a clip holds.
 #[cfg(test)]
 mod far_times;

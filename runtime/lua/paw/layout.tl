@@ -687,7 +687,7 @@ end
 
 -- Views with an instance for each window -----------------------------------------
 --
--- The spike of TASK-130: a view that says `window_instances` gets one table
+-- The spike of the view instance spike: a view that says `window_instances` gets one table
 -- for each window, an instance. The instance holds the fields of
 -- `window_state`, and takes the rest (the methods, the shared fields) from
 -- the view's table through `__index`. `bind` sets a pointer and copies no

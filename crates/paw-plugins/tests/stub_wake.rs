@@ -1,6 +1,6 @@
 //! A CLAP plugin that asks the host for something from outside a block
 //! while the engine rests: stopped, with nothing that sounds, the engine
-//! runs no device until something wakes it (TASK-201). The stub plugin
+//! runs no device until something wakes it. The stub plugin
 //! (examples/stub_clap.rs) asks for a block on `stub.tell`, and for a
 //! restart on `stub.restart`.
 //!
