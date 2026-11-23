@@ -83,9 +83,19 @@ The decision:
 - The `chorus` and the `compressor` cost little. Edit quality does not
   change them.
 
-16 saturations at 4x with `full` and with `edit`: not measured yet. The
-shared binary did not have the change. Run
-`bench/quality.lua 16 3 5` with a build of the branch.
+16 saturations at 4x with `full` and with `edit`, measured after the
+change: binary of main at cd367da1 (dev profile, optimized), `bench/quality.lua
+16 3 5`, five interleaved rounds of 3 s, under `flock` and
+`taskset -c 16-23`. Measured under external load (load average 12 to
+14). The raw numbers are added to the same file.
+
+| Quality | Audio thread, % of a core: median (range) | Mean time per block, ms: median | p99 per block, ms: worst |
+| --- | ---: | ---: | ---: |
+| `full` | 36.19 (34.72 to 37.48) | 1.93 | 2.53 |
+| `edit` | 4.45 (4.04 to 5.05) | 0.23 | 0.43 |
+
+Edit quality cuts the audio thread time of this project by a factor of
+about 8. The ranges do not overlap.
 
 ## 2026-11-23: the trace compiler in the first press of a key
 
