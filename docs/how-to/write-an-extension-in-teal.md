@@ -240,7 +240,7 @@ field, so a wrong name is an error before the extension runs.
      format = function(f: Fruit): string return f.name end,
      on_choose = function(f: Fruit) paw.notify(f.name) end,
    }
-   paw.pick.sources.fruit = fruit
+   paw.pick.sources:put("fruit", fruit)
    ```
 
 3. Check the types. A field with a wrong name, for example

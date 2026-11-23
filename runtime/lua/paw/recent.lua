@@ -132,7 +132,7 @@ paw.command("recent", function(ctx)
 end, { desc = "Open a recent project: `recent` chooses from a list, `recent 2` opens the second" })
 
 -- The picker of them: `Alt-d` forgets one.
-paw.pick.sources.recent = {
+paw.pick.sources:put("recent", {
   desc = "Open a recent project",
   title = "Recent projects",
   empty = "No project has been opened yet.",
@@ -158,7 +158,7 @@ paw.pick.sources.recent = {
     end
     write(kept)
   end,
-}
+})
 paw.project.allow_discard("recent")
 
 paw.command("recent.clear", function()

@@ -13,7 +13,7 @@ local need_track = common.need_track
 command("pick", function(ctx)
   local name = ctx.args[1] and tostring(ctx.args[1]) or "pickers"
   if name == "resume" then return paw.pick.resume() end
-  if not paw.pick.sources[name] then return paw.notify("no picker `" .. name .. "`; `:pick` lists them", "warn") end
+  if not paw.pick.sources:get(name) then return paw.notify("no picker `" .. name .. "`; `:pick` lists them", "warn") end
   paw.pick(name, { query = ctx.args.query and tostring(ctx.args.query) or nil })
 end, {
   desc = "Choose from a list: `pick tracks`, `pick devices query=reverb`; with no name, every picker",

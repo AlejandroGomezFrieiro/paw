@@ -28,6 +28,7 @@
 --     needs = { "processes" },                       -- what the build must have
 --   }
 local api = paw.api
+local registry = require("paw.registry")
 local M = {}
 --- The extensions that paw loaded, or tried to, by name.
 --- @type {string:contracts.ExtEntry}
@@ -141,10 +142,27 @@ end
 
 -- What extensions own --------------------------------------------------------------
 --
--- Each registry an extension can add to is read before and after it loads;
--- what differs is the extension's, kept with what was there before, so that
--- unloading it puts that back. `put(key, value)` sets an entry, nil removes
--- it; `label` says what the entry is in a few words.
+-- A module that takes entries from extensions keeps them in a registry of
+-- paw.registry, which records the owner of each entry as it goes in. The
+-- owner is the extension whose code calls `put`. An entry put over the
+-- entry of another extension goes in `overrides`, which `:checkhealth
+-- extensions` reads. paw.ext reads the owners at an unload and in
+-- `provides`, and makes no copies.
+registry.owner = M.caller
+--- Records that the extension `owner` put an entry over an entry of the
+--- extension `previous`. `:checkhealth extensions` gives a warning for it.
+function registry.replaced(reg, what, owner, previous)
+  local entry = M.loaded[owner]
+  if not entry then return end
+  entry.overrides = entry.overrides or {}
+  entry.overrides[#entry.overrides + 1] = { kind = reg.title, what = what, of = previous }
+end
+
+-- The other registries (`M.registries`) are not a paw.registry yet. paw.ext
+-- reads each one before and after an extension loads. What differs is the
+-- extension's, kept with what was there before, so that unloading it puts
+-- that back. `put(key, value)` sets an entry, nil removes it. `label` says
+-- what the entry is in a few words.
 
 local function keyed(kind, title, get, put, label)
   return {
@@ -280,7 +298,6 @@ M.registries = {
     paw.roles.version = paw.roles.version + 1
     api.ui_redraw()
   end),
-  keyed("pickers", "picker sources", function() return paw.pick.sources end),
   {
     kind = "query_fields",
     title = "query fields",
@@ -294,15 +311,6 @@ M.registries = {
   keyed("ex_fields", "fields of :s and :g", function() return paw.ex and paw.ex.fields end),
   keyed("ex_views", "views of ranges", function() return paw.ex and paw.ex.views end),
   keyed("completers", "completers", function() return paw.commands.completers end),
-  keyed(
-    "statusline",
-    "status line components",
-    function() return paw.statusline and paw.statusline.components end,
-    function(key, value)
-      paw.statusline.components[key] = value
-      api.ui_redraw()
-    end
-  ),
   -- The parts of the track column, its signs and the parts of the bar
   -- labels: `set` puts a changed copy in, so unloading puts back the part
   -- that was there (a built-in one too), and takes away a new one with its
@@ -532,7 +540,8 @@ local function adopt(entry)
 end
 
 --- What a loaded extension registered: a list of `{ kind, title, items }`,
---- each item a short label, in the order of `paw.ext.registries`.
+--- each item a short label, in the order of `paw.ext.registries`, then of
+--- the registries of `paw.registry`.
 function M.provides(name)
   local entry = M.loaded[name]
   if entry then adopt(entry) end
@@ -548,6 +557,10 @@ function M.provides(name)
       end
       if #items > 0 then out[#out + 1] = { kind = reg.kind, title = reg.title, items = items } end
     end
+  end
+  for _, reg in ipairs(registry.all()) do
+    local items = entry and reg:labels(name) or {}
+    if #items > 0 then out[#out + 1] = { kind = reg.kind, title = reg.title, items = items } end
   end
   return out
 end
@@ -800,17 +813,18 @@ function M.unload(name, opts)
   paw.emit("ext.unloading", { name = name })
   -- Its hooks and timers go first, so that none of its code runs on what
   -- the rest of the unload changes (an option that goes emits
-  -- `option.changed`); then the others, the last registered first.
-  local order = {}
+  -- `option.changed`). Then the registries of paw.registry, and then the
+  -- others, the last registered first.
+  local first, rest = {}, {}
   for i = #M.registries, 1, -1 do
-    local kind = M.registries[i].kind
-    if kind == "hooks" or kind == "timers" then
-      table.insert(order, 1, M.registries[i])
+    local reg = M.registries[i]
+    if reg.kind == "hooks" or reg.kind == "timers" then
+      table.insert(first, 1, reg)
     else
-      order[#order + 1] = M.registries[i]
+      rest[#rest + 1] = reg
     end
   end
-  for _, reg in ipairs(order) do
+  local function take_away(reg)
     local list = entry.owned and entry.owned[reg.kind] or {}
     local now = reg.snapshot()
     for j = #list, 1, -1 do
@@ -819,6 +833,15 @@ function M.unload(name, opts)
       if now[item.key] == item.value then pcall(reg.put, item.key, item.old) end
       claimed[reg.kind .. "\0" .. tostring(item.key)] = nil
     end
+  end
+  for _, reg in ipairs(first) do
+    take_away(reg)
+  end
+  for _, reg in ipairs(registry.all()) do
+    pcall(reg.unload, reg, name)
+  end
+  for _, reg in ipairs(rest) do
+    take_away(reg)
   end
   if entry.lua_path then
     local prefix = entry.path .. "/lua/"

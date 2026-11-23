@@ -207,6 +207,8 @@ paw.cursor = require("paw.cursor")
 paw.edit = require("paw.edit")
 -- Files in languages that compile to Lua (Teal, ...): paw/lang.tl.
 paw.lang = require("paw.lang")
+-- Entries by key with the extension that put each one (paw/registry.tl).
+paw.registry = require("paw.registry")
 paw.ext = require("paw.ext")
 paw.vca = require("paw.vca")
 paw.groups = require("paw.groups")
@@ -368,12 +370,12 @@ function K.startup()
   -- Freezing tracks, and the scope of each window: a part of the song.
   paw.freeze = require("paw.freeze")
   paw.scope = require("paw.scope")
-  paw.pick.sources.scopes = paw.scope.source
+  paw.pick.sources:put("scopes", paw.scope.source)
   paw.stems = require("paw.stems")
   paw.markers = require("paw.markers")
   -- Subprojects: tracks with a timeline of their own (paw/nest.tl).
   paw.nest = require("paw.nest")
-  paw.pick.sources.nests = paw.nest.source
+  paw.pick.sources:put("nests", paw.nest.source)
   -- Insert mode in the arrange view, and what its keys insert (paw/insert.tl).
   paw.insert = require("paw.insert")
   -- Listings edited as text (`:e paw://tracks`), and the kinds built in.

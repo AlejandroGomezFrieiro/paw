@@ -236,6 +236,9 @@ paw.reconnect = {}
 ---@class paw.regex
 paw.regex = {}
 
+---@class paw.registry
+paw.registry = {}
+
 ---@class paw.remote
 paw.remote = {}
 
@@ -2958,7 +2961,8 @@ function paw.ext.manifest(path, name) end
 function paw.ext.parse_version(text) end
 
 --- What a loaded extension registered: a list of `{ kind, title, items }`,
---- each item a short label, in the order of `paw.ext.registries`.
+--- each item a short label, in the order of `paw.ext.registries`, then of
+--- the registries of `paw.registry`.
 ---@param name any
 function paw.ext.provides(name) end
 
@@ -6908,6 +6912,30 @@ function paw.regex.compile(text, opts) end
 ---@param text any
 ---@param opts any
 function paw.regex.try(text, opts) end
+
+--- The registries made so far, in the order they were made.
+function paw.registry.all() end
+
+--- A new registry: entries by key, each with the extension that put it
+--- there. `kind` names it in `paw.ext.provides` and `title` in
+--- `:extensions`. Its functions are `put(key, value)`, `get(key)`,
+--- `remove(key)`, `entries()` and `owned_by(name)`. `paw.ext.unload` takes
+--- away the entries of an extension, and an entry that one of them
+--- replaced comes back.
+---@param kind any
+---@param title any
+---@param options any
+function paw.registry.new(kind, title, options) end
+
+paw.registry.owner = paw.ext.caller
+
+--- Records that the extension `owner` put an entry over an entry of the
+--- extension `previous`. `:checkhealth extensions` gives a warning for it.
+---@param reg any
+---@param what any
+---@param owner any
+---@param previous any
+function paw.registry.replaced(reg, what, owner, previous) end
 
 --- A connection closed: nothing more is sent to it.
 ---@param client any

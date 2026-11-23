@@ -58,6 +58,7 @@ local type ProfileModule = require("paw.profile")
 local type QfModule = require("paw.qf")
 local type QueryModule = require("paw.query")
 local type RegexModule = require("paw.regex")
+local type RegistryModule = require("paw.registry")
 local type RemoteModule = require("paw.remote")
 local type RenderModule = require("paw.render")
 local type RolesModule = require("paw.roles")
@@ -189,6 +190,7 @@ global record paw
    reconnect: Untyped
    redo: function(): boolean
    regex: RegexModule
+   registry: RegistryModule
    remote: RemoteModule
    render: RenderModule
    render_cancel: function(): boolean

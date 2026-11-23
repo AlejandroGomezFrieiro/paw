@@ -74,7 +74,7 @@ test(":recover and picking a project from the file list are guarded", function()
   eq(#paw.tracks(), 1, "with force it opens the copy")
   os.remove(file)
   imported()
-  paw.pick.sources.files.on_choose({ kind = "project", path = file })
+  paw.pick.sources:get("files").on_choose({ kind = "project", path = file })
   kept("the file picker left it")
 end)
 

@@ -156,7 +156,7 @@ test("what an extension registers is its own, and unloading it takes all of it a
     paw.buftype("ownerbuf", { create = function() return {} end, render = function() end })
     paw.textbuf.kind("owned", { pattern = "^paw://owned$", read = function() return {} end, format = function() return {} end })
     paw.track_kinds.define("ownedkind", { title = "Owned track" })
-    paw.pick.sources.owned = { items = function() return {} end }
+    paw.pick.sources:put("owned", { items = function() return {} end })
     paw.query.field("track", "ownedness", function() return 1 end)
     paw.statusline.component("owned", function() return "O" end)
     paw.grep.source("owned", function(add) end)
@@ -232,9 +232,9 @@ test("what an extension registers is its own, and unloading it takes all of it a
   for _, item in ipairs(paw.frontend.menus.timeline) do
     if item.track_kind == "ownedkind" then error("its kind is still in the menu") end
   end
-  eq(paw.pick.sources.owned, nil, "its picker source")
+  eq(paw.pick.sources:get("owned"), nil, "its picker source")
   eq(paw.query.fields.track.ownedness, nil, "its query field")
-  eq(paw.statusline.components.owned, nil, "its status line component")
+  eq(paw.statusline.components:get("owned"), nil, "its status line component")
   eq(paw.grep.sources.owned, nil, "its grep source")
   for _, name in ipairs(paw.grep.order) do
     eq(name ~= "owned", true, "and its place in the order")
@@ -531,6 +531,59 @@ paw.luadev.watch()
     eq(after, timers, "the core's watch, started again while it loaded, is not taken away")
   end
 )
+
+-- One row for each registry of paw.registry: `put` is the code of an
+-- extension that puts an entry at `%q`, and `core` an entry of the core.
+local registries = {
+  { reg = paw.pick.sources, core = "tracks", put = "paw.pick.sources:put(%q, { desc = 'mine', items = {} })" },
+  {
+    reg = paw.statusline.components,
+    core = "mode",
+    put = "paw.statusline.component(%q, function() return 'mine' end)",
+  },
+}
+
+test(
+  "load, unload and load again leave no entry of an extension in a registry, and the entry it replaced comes back",
+  function()
+    for _, row in ipairs(registries) do
+      local reg, name = row.reg, "registry_" .. row.reg.kind
+      local was = reg:get(row.core)
+      local root = dir(name)
+      write(root .. "/init.lua", row.put:format("aa_regtest") .. "\n" .. row.put:format(row.core))
+      for round = 1, 2 do
+        local what = reg.kind .. ", round " .. round .. ": "
+        eq(paw.ext.load(root).ok, true, what .. "loads")
+        eq(table.concat(reg:owned_by(name), " "), "aa_regtest " .. row.core, what .. "its entries")
+        eq(reg:get(row.core) ~= was, true, what .. "its entry is on top of the core's")
+        eq(paw.ext.unload(name), true, what .. "unloads")
+        eq(#reg:owned_by(name), 0, what .. "no entry of it is left")
+        eq(reg:get("aa_regtest"), nil, what .. "its own entry is gone")
+        eq(reg:get(row.core), was, what .. "the core's entry is back")
+      end
+    end
+  end
+)
+
+test("an entry over another extension's stays when the other unloads, and checkhealth says so", function()
+  write(dir("under") .. "/init.lua", "paw.pick.sources:put('regtest_shared', { desc = 'under', items = {} })")
+  write(dir("over") .. "/init.lua", "paw.pick.sources:put('regtest_shared', { desc = 'over', items = {} })")
+  paw.ext.load(dir("under"))
+  paw.ext.load(dir("over"))
+  T.after(function()
+    paw.ext.unload("over")
+    paw.ext.unload("under")
+  end)
+  local said
+  for _, item in ipairs(paw.health.run("extensions").items) do
+    if item.text == "over replaces the picker sources regtest_shared of under" then said = item end
+  end
+  eq(said and said.level, "warn", "checkhealth extensions warns of it")
+  paw.ext.unload("under")
+  eq(paw.pick.sources:get("regtest_shared").desc, "over", "the entry on top stays")
+  paw.ext.unload("over")
+  eq(paw.pick.sources:get("regtest_shared"), nil, "and goes with its extension")
+end)
 
 test("an extension that maps a key another one mapped wins, and checkhealth says so", function()
   write(

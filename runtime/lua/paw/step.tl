@@ -895,7 +895,7 @@ local controls: contracts.PickSource<ControlLine> = {
     filter(filtering)
   end,
 }
-paw.pick.sources["step.controls"] = controls
+paw.pick.sources:put("step.controls", controls)
 
 commands.define(
   "step.controls",

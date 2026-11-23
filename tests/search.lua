@@ -234,7 +234,7 @@ end)
 
 test("search: every picker opens and draws", function()
   song()
-  for name in pairs(pick.sources) do
+  for name in pairs(pick.sources:entries()) do
     if name ~= "presets" and not name:match("^_") then
       pick(name)
       eq(pick.state() ~= nil, true, name .. " opens")

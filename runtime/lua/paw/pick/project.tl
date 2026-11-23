@@ -24,15 +24,16 @@ local type MusicModule = require("paw.music")
 local type CursorModule = require("paw.cursor")
 local type AuditionModule = require("paw.audition")
 local type CommandsModule = require("paw.commands")
+local type registry = require("paw.registry")
 
 --- What these pickers call of `paw.pick` (paw/pick.tl, which requires this
 --- module): its sources, and hearing a file.
 local interface Pick
-  sources: {string: contracts.PickEntry}
+  sources: registry.Registry<contracts.PickEntry>
   hear_file: function(path: string): string
 end
 
---- The pickers by name, as `paw.pick.sources` holds them.
+--- The built-in pickers by name, which paw/pick.tl puts in `paw.pick.sources`.
 local type Sources = {string: contracts.PickEntry}
 
 --- What `paw.layout.split` takes.

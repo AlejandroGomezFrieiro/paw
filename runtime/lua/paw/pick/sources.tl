@@ -1,6 +1,6 @@
 -- The pickers that come with the runtime. Each is a table of the fields
 -- `paw.pick` takes, with a `desc`, or a function that returns one; add your
--- own to `paw.pick.sources` the same way.
+-- own with `paw.pick.sources:put(name, source)`.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua. paw/pick.tl
 -- calls this module with itself: `require("paw.pick.sources")(pick)`.
@@ -33,7 +33,7 @@ local interface Pick is project.Pick
   metamethod __call: function(self: Pick, name: string, extra?: contracts.PickExtra)
 end
 
---- The pickers by name, as `paw.pick.sources` holds them.
+--- The built-in pickers by name, which paw/pick.tl puts in `paw.pick.sources`.
 local type Sources = project.Sources
 
 --- A key mapping (paw/keymap.tl).
@@ -566,7 +566,7 @@ local function make(pick: Pick): Sources
     title = "Pickers",
     items = function(): {PickerLine}
       local out: {PickerLine} = {}
-      for name, source in pairs(pick.sources) do
+      for name, source in pairs(pick.sources:entries()) do
         if name ~= "pickers" and not name:match("^_") then
           local desc = ""
           if source is contracts.PickInfo then

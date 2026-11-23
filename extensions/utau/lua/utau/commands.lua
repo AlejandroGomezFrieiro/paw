@@ -336,7 +336,7 @@ local function preset_line(p)
   }
 end
 
-paw.pick.sources.utau_presets = {
+paw.pick.sources:put("utau_presets", {
   desc = "Give the vocal track a saved singer preset",
   title = "Singer presets",
   items = function() return presets.list() end,
@@ -350,7 +350,7 @@ paw.pick.sources.utau_presets = {
       paw.notify("voice: " .. p.name)
     end
   end,
-}
+})
 
 command("utau.singer_preset", function(ctx)
   local track = vocal_track()
@@ -402,7 +402,7 @@ end, {
   raw = true,
 })
 
-paw.pick.sources.utau_singers = {
+paw.pick.sources:put("utau_singers", {
   desc = "The installed singers; choosing one gives it to the vocal track",
   title = "Installed singers",
   items = function()
@@ -421,7 +421,7 @@ paw.pick.sources.utau_singers = {
       paw.notify("singer: " .. s.name)
     end
   end,
-}
+})
 
 command(
   "utau.singers",

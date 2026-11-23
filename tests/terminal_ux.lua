@@ -133,7 +133,7 @@ test("empty windows are numbered among those there are, from none", function()
 end)
 
 local function ranked(source, query)
-  local src = paw.pick.sources[source]
+  local src = paw.pick.sources:get(source)
   src = type(src) == "function" and src() or src
   local out = {}
   for _, r in ipairs(paw.pick.filter(query, src.items(), src.format, src.primary)) do

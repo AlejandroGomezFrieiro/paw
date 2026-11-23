@@ -106,7 +106,7 @@ test(
     eq(names(api.track_list({ nest = b.nest })), "Piano Strings", "nest = id: the subproject's")
     eq(names(paw.scope.tracks()), "Drums Ballad", "paw.scope.tracks of the song")
     eq(#paw.ex.range("t* mute").tracks, 2, "t*: the song's tracks")
-    eq(#paw.pick.sources.tracks.items(), 2, "the track picker")
+    eq(#paw.pick.sources:get("tracks").items(), 2, "the track picker")
     paw.ui.show("mixer")
     eq(screen():find("Piano", 1, true), nil, "the mixer")
     paw.ui.hide("mixer")
