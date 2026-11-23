@@ -89,17 +89,6 @@ pub fn on_channel(kind: EventKind, ch: Option<u8>) -> EventKind {
     }
 }
 
-/// When a message stamped `at` on [`clock_ns`] leaves: nanoseconds from
-/// `started`, when the sequencer queue started, while the stamp is still
-/// to come at `now`; `None` for at once, when it has no stamp or its time
-/// has come.
-// Without the `midi` feature no sequencer queue takes the time.
-#[cfg_attr(not(feature = "midi"), allow(dead_code))]
-fn queue_time(at: Option<u64>, now: u64, started: u64) -> Option<u64> {
-    at.filter(|at| *at > now)
-        .map(|at| at.saturating_sub(started))
-}
-
 // Without the `midi` feature no thread reads the commands.
 #[cfg_attr(not(feature = "midi"), allow(dead_code))]
 enum Command {
@@ -457,8 +446,9 @@ mod imp {
                     ev.data = data;
                 }
             }
-            let (flags, queue, time) = match queue_time(at, clock_ns(), self.started) {
-                Some(from_start) => {
+            let (flags, queue, time) = match at.filter(|at| *at > clock_ns()) {
+                Some(at) => {
+                    let from_start = at.saturating_sub(self.started);
                     let time = snd_seq_timestamp_t {
                         time: snd_seq_real_time_t {
                             tv_sec: (from_start / 1_000_000_000) as u32,
@@ -666,26 +656,5 @@ mod imp {
         _rx: Receiver<Command>,
     ) -> Result<JoinHandle<()>> {
         anyhow::bail!("built without MIDI support")
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// The stamp `at` at `now`, on a queue that started at 1 000 ns.
-    fn check(at: Option<u64>, now: u64, expected: Option<u64>) {
-        assert_eq!(queue_time(at, now, 1_000), expected, "stamp {at:?} at {now}");
-    }
-
-    #[test]
-    fn a_message_is_queued_for_its_stamp_or_sent_at_once() {
-        // Still to come: queued for its stamp, from the queue's start.
-        check(Some(5_000), 4_000, Some(4_000));
-        check(Some(4_001), 4_000, Some(3_001));
-        // Its time has come or gone, or it has no stamp: at once.
-        check(Some(4_000), 4_000, None);
-        check(Some(2_000), 4_000, None);
-        check(None, 4_000, None);
     }
 }
