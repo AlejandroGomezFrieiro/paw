@@ -32,11 +32,11 @@ if mode == "bigclip" then
   local rss_before = B.rss()
   local times = {}
   for i = 1, steps do
-    local t = api.now()
+    local t = api.real_ms()
     api.clip_note_set(clip, 1 + (i * 7919) % count, { velocity = 1 + i % 126 })
     paw.flush()
     api.undo_checkpoint()
-    times[i] = api.now() - t
+    times[i] = api.real_ms() - t
   end
   collectgarbage()
   local tree = api.undo_tree()

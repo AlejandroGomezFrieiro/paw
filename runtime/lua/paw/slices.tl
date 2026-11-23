@@ -1,13 +1,13 @@
 -- Long work in slices between keys: `paw.slices(name, step, opts)` calls
 -- `step(ms)` again and again, each time from a timer of its own, until it
 -- returns true. A step does at most `ms` milliseconds of work (it looks at
--- `paw.api.now()`), and keeps where it stopped for the next call. The
+-- `paw.api.real_ms()`), and keeps where it stopped for the next call. The
 -- kernel takes the keys that wait before it fires a timer, so a key comes
 -- in between two slices and the work does not hold it up.
 --
 --   paw.slices("count", function(ms)
---     local deadline = paw.api.now() + ms
---     while i <= #list and paw.api.now() < deadline do ... i = i + 1 end
+--     local deadline = paw.api.real_ms() + ms
+--     while i <= #list and paw.api.real_ms() < deadline do ... i = i + 1 end
 --     return i > #list
 --   end)
 --
@@ -64,9 +64,9 @@ local named = limit.named as Named
 local function slice(r: Running)
   r.timer = nil
   local job = r.job
-  local t0 = api.now()
+  local t0 = api.real_ms()
   local ok, done = paw.try(named, "the job " .. job.name, r.step, r.ms)
-  local took = api.now() - t0
+  local took = api.real_ms() - t0
   job.slices = job.slices + 1
   job.ms = job.ms + took
   if took > job.longest then

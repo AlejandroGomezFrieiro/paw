@@ -185,6 +185,12 @@ impl Io {
         ids
     }
 
+    /// How many piped processes have not closed their output: work in
+    /// flight in other processes (`paw.api.pending`).
+    pub fn open_pipes(&self) -> usize {
+        self.pipes.values().filter(|pipe| !pipe.output.lock().unwrap().closed).count()
+    }
+
     /// Up to `max` bytes a piped process has written: empty when nothing is
     /// waiting, `None` once it has closed its output and all of it was read.
     pub fn read_output(&mut self, id: u64, max: usize) -> Result<Option<Vec<u8>>> {

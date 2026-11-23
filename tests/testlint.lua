@@ -59,3 +59,35 @@ test(
     )
   end
 )
+
+test(
+  "testlint: the wall clock in a product file outside the list fails, and so does the schedule clock in a budget reader",
+  function()
+    -- The names are cut in two, so that the check does not count this file.
+    local now, real = "api." .. "now()", "api." .. "real_ms()"
+    local root = T.scratch .. "/testlint-clocks"
+    os.execute("mkdir -p '" .. root .. "/tests' '" .. root .. "/runtime/lua/paw'")
+    T.write_file(root .. "/tests/timing-allowed.txt", "")
+    T.write_file(root .. "/runtime/lua/paw/mouse.tl", "local t = " .. real .. "\nlocal u = " .. now .. "\n")
+    T.write_file(root .. "/runtime/lua/paw/limit.tl", "local d = " .. now .. " + 5\nlocal e = " .. real .. "\n")
+    T.write_file(root .. "/runtime/lua/paw/help.tl", "local d = " .. now .. "\nlocal e = " .. real .. "\n")
+    eq(
+      table.concat(lint.check(root), "\n"),
+      table.concat({
+        "runtime/lua/paw/limit.tl: 1 of `"
+          .. now
+          .. "` in a budget reader. A budget of work reads `"
+          .. real
+          .. "`:"
+          .. " the schedule clock does not move in a test",
+        "runtime/lua/paw/mouse.tl: 1 of `"
+          .. real
+          .. "`, the wall clock. A delay or a throttle reads `"
+          .. now
+          .. "`;"
+          .. " a budget of work goes in the list `real_time` of tools/testlint.lua",
+      }, "\n"),
+      "the problems"
+    )
+  end
+)

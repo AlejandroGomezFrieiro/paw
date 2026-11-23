@@ -15,11 +15,11 @@ n = tonumber(n) or 1000
 nosync = nosync == "nosync"
 
 local function turn(fn, ...)
-  local t = api.now()
+  local t = api.real_ms()
   fn(...)
   if not nosync then paw.flush() end
   api.undo_checkpoint()
-  return api.now() - t
+  return api.real_ms() - t
 end
 
 --- Total time, and the mean per op of the first and last tenth: a ratio well
@@ -158,14 +158,14 @@ elseif mode == "scale" then
     vol[i] = turn(api.track_set, id, "volume", -(i % 12))
     local clip = api.clip_list(id)[1].id
     clipmove[i] = turn(api.clip_set, clip, "start", i % 4)
-    local t = api.now()
+    local t = api.real_ms()
     api.undo()
     paw.flush()
-    undo[i] = api.now() - t
-    t = api.now()
+    undo[i] = api.real_ms() - t
+    t = api.real_ms()
     api.redo()
     paw.flush()
-    redo[i] = api.now() - t
+    redo[i] = api.real_ms() - t
   end
   local add_track = turn(api.track_add, { name = "one more" })
   local sv, sc, su, sr = B.stats(vol), B.stats(clipmove), B.stats(undo), B.stats(redo)
@@ -197,13 +197,13 @@ elseif mode == "turn" then
   finish()
   local empty, edited = {}, {}
   for i = 1, 200 do
-    local t = api.now()
+    local t = api.real_ms()
     finish()
-    empty[i] = api.now() - t
+    empty[i] = api.real_ms() - t
     api.track_set(ids[(i * 7) % #ids + 1], "volume", -(i % 12))
-    t = api.now()
+    t = api.real_ms()
     finish()
-    edited[i] = api.now() - t
+    edited[i] = api.real_ms() - t
   end
   local se, sd = B.stats(empty), B.stats(edited)
   B.emit({

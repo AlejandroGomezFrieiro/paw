@@ -22,7 +22,7 @@
 -- The budget (`paw.opt.budget_ms`, 0: off) is a far shorter time that a
 -- callback should take: a key handler, an event handler, a timer, a
 -- command, drawing. A callback over it is named once in `:messages`
--- (`slow: the key j 12 ms (budget 5 ms)`). It costs two looks at the clock
+-- (`slow: the key j 12 ms (budget 5 ms)`). It costs two looks at the wall clock (`paw.api.real_ms`)
 -- for each callback, and nothing when it is off. A slow callback inside
 -- another is named, not the one around it. Time spent waiting in the kernel
 -- (`unhurried`) does not count.
@@ -136,7 +136,7 @@ end
 
 --- The end of a call timed against the budget: what it returned, passed on.
 local function finish<R>(name: string, fn: function, saved: boolean, t0: number, p0: number, ...: R): R...
-  local ms = api.now() - t0 - (paused - p0)
+  local ms = api.real_ms() - t0 - (paused - p0)
   local slow = slow_ms > 0 and ms > slow_ms
   if slow and not inner_slow then
     report(name, fn, ms)
@@ -147,7 +147,7 @@ end
 
 --- Time spent waiting in the kernel, which the budget does not count.
 local function resume<R>(before: number, ...: R): R...
-  paused = paused + (api.now() - before)
+  paused = paused + (api.real_ms() - before)
   return ...
 end
 
@@ -159,12 +159,12 @@ end
 
 local function hook()
   if not deadline then return end
-  if api.now() > deadline then
+  if api.real_ms() > deadline then
     local name = what[#what] or "a callback"
     local ms = budget or opt.lua_limit or 2000
     -- Another full stretch for whatever runs after the error, such as the
     -- handler that reports it.
-    set(api.now() + ms)
+    set(api.real_ms() + ms)
     error(string.format("%s ran for more than %g s without returning, and was stopped", name, ms / 1000), 2)
   end
   -- Called early (the limit moved after the kernel's thread looked): the
@@ -177,7 +177,7 @@ if async then api.limit_hook(hook) end
 --- time limit. The kernel's ways into Lua go through here. Inside a call
 --- that is limited already, it is `paw.try`.
 local function limited<A>(name: string, call: Call<A>, fn: Body<A>, ...: A): Results
-  set(api.now() + opt.lua_limit)
+  set(api.real_ms() + opt.lua_limit)
   what = { name }
   if not async then debug.sethook(hook, "", CHECK_EVERY) end
   local result = { call(fn, ...) }
@@ -197,7 +197,7 @@ function M.timed<A, R>(name: string, fn: function(A...): (R...), ...: A): R...
   end
   local saved = inner_slow
   inner_slow = false
-  return finish(name, fn as function, saved, api.now(), paused, fn(...))
+  return finish(name, fn as function, saved, api.real_ms(), paused, fn(...))
 end
 
 local function guarded<A, R>(name: string, fn: function(A...): (R...), ...: A): boolean, R...
@@ -214,7 +214,7 @@ function M.guard<A, R>(name: string, fn: function(A...): (R...), ...: A): boolea
   end
   local saved = inner_slow
   inner_slow = false
-  local t0, p0 = api.now(), paused
+  local t0, p0 = api.real_ms(), paused
   return (finish as function(string, function, boolean, number, number, boolean, R...): (boolean, R...))(
     name, fn as function, saved, t0, p0, guarded(name, fn, ...))
 end
@@ -248,7 +248,7 @@ end
 function M.within<A, R>(ms: number, name: string, fn: function(A...): (R...), ...: A): R...
   if (opt.lua_limit or 0) <= 0 or ms <= 0 then return fn(...) end
   local outer, was, depth = deadline, budget, #what
-  local mine = api.now() + ms
+  local mine = api.real_ms() + ms
   if outer and outer <= mine then return M.named(name, fn, ...) end
   budget = ms
   what[depth + 1] = name
@@ -265,7 +265,7 @@ end
 
 --- Give the current call more time, as `:lua` does: `ms` from now.
 function M.extend(ms: number)
-  if deadline then set(math.max(deadline, api.now() + ms)) end
+  if deadline then set(math.max(deadline, api.real_ms() + ms)) end
 end
 
 --- Mark a function that the runtime did not write. Where the limit can stop
@@ -287,14 +287,14 @@ end
 function M.unhurried<A, R>(fn: function(A...): (R...), ...: A): R...
   if not deadline then
     if slow_ms <= 0 then return fn(...) end
-    return resume(api.now(), fn(...))
+    return resume(api.real_ms(), fn(...))
   end
-  local was, names, before = deadline, what, api.now()
+  local was, names, before = deadline, what, api.real_ms()
   set(nil)
   what = {}
   local result = { (pcall as Call<A>)(fn as Body<A>, ...) }
   what = names
-  local waited = api.now() - before
+  local waited = api.real_ms() - before
   paused = paused + waited
   set(was + waited)
   if not async then debug.sethook(hook, "", CHECK_EVERY) end

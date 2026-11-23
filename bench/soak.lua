@@ -23,11 +23,11 @@ local function rand(n)
   return seed % n + 1
 end
 
-local deadline = api.now() + minutes * 60000
+local deadline = api.real_ms() + minutes * 60000
 local edits, samples = 0, {}
 local rss_start = B.rss()
-local next_sample = api.now() + 10000
-while api.now() < deadline do
+local next_sample = api.real_ms() + 10000
+while api.real_ms() < deadline do
   local id = ids[rand(#ids)]
   local what = rand(8)
   if what == 1 then
@@ -70,9 +70,9 @@ while api.now() < deadline do
   -- Undo may have brought back removed tracks, or taken away new ones.
   if what == 5 or what == 6 then ids = api.track_list() end
   edits = edits + 1
-  if api.now() > next_sample then
+  if api.real_ms() > next_sample then
     samples[#samples + 1] = B.rss()
-    next_sample = api.now() + 10000
+    next_sample = api.real_ms() + 10000
   end
   api.sleep(10)
 end

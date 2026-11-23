@@ -1366,9 +1366,9 @@ end
 --- and each one-shot run is complete. Stop after `ms` (10 s by default).
 --- Returns true if all of this happened.
 function M.settle(ms?: number): boolean
-  local deadline = api.now() + (ms or 10000)
+  local deadline = api.real_ms() + (ms or 10000)
   M.sync()
-  while api.now() < deadline do
+  while api.real_ms() < deadline do
     local busy = false
     for _, client in pairs(clients) do
       busy = busy

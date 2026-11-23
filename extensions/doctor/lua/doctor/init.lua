@@ -270,7 +270,7 @@ local function run_check(run, check)
   run.current, run.say, run.prompt = check, nil, nil
   local limit = type(check.limit) == "function" and check.limit(run.settings) or check.limit or 120
   run.deadline = api.now() + limit * 1000
-  local started = api.now()
+  local started = api.real_ms()
   local ctx = setmetatable({ run = run, check = check, result = result, cleanups = {}, settings = run.settings }, Ctx)
   local ok, status, summary = xpcall(check.run, function(err)
     if type(err) == "table" then return err end
@@ -293,7 +293,7 @@ local function run_check(run, check)
     result.status, result.summary = "fail", "raised an error: " .. tostring(status):match("^[^\n]*")
     result.lines[#result.lines + 1] = tostring(status)
   end
-  result.seconds = (api.now() - started) / 1000
+  result.seconds = (api.real_ms() - started) / 1000
   run.current, run.say, run.prompt = nil, nil, nil
   return result
 end
@@ -326,7 +326,7 @@ local function finish(run)
   if run.timer then paw.cancel(run.timer) end
   run.timer = nil
   run.running = false
-  run.finished = api.now()
+  run.finished = api.real_ms()
   local wrote, path = pcall(M.write_report, run)
   if wrote then
     run.report = path
@@ -403,7 +403,7 @@ function M.start(opts)
     settings = M.settings(opts),
     list = select_checks(opts),
     done = {},
-    started = api.now(),
+    started = api.real_ms(),
     autosave = paw.opt.autosave,
   }
   if #run.list == 0 then error("no check to run", 2) end

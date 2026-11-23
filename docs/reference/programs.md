@@ -31,6 +31,7 @@ server for AI assistants), and `--help` on each program prints its options.
 | `--output <name>` | The output device, by its name or a part of it (see `:audio`). |
 | `--input <name>` | The input device, by its name or a part of it. |
 | `--no-input` | Does not open the input of the audio device. |
+| `--clock <clock>` | The clock that timers and delays wait for. `wall` (the default) is the time on the wall. With `manual`, the time moves only when a script waits with `paw.wait`, so a test steps the timers in order. The tests use it. |
 | `--listen <path>` | The path of the control socket. The default is `$XDG_RUNTIME_DIR/paw.sock`. |
 | `--no-listen` | Does not open a control socket. paw stops with an error if you also give `--listen`. The graphical window always gives `--listen`, so `paw-gui --no-listen` stops at once with this error. |
 | `--listen-tcp <address>` | Also accepts connections from the network, on `host:port`, in TLS. `127.0.0.1:7700` accepts only this computer, `0.0.0.0:7700` any computer that knows the token. |

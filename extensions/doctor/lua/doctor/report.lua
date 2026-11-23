@@ -161,7 +161,7 @@ return function(M, util)
       string.format(
         "%s run, %s. Written by `:doctor` or `paw doctor`.",
         run.attended and "An attended" or "An unattended",
-        seconds(((run.finished or api.now()) - run.started) / 1000)
+        seconds(((run.finished or api.real_ms()) - run.started) / 1000)
       )
     )
     add()
@@ -228,7 +228,7 @@ return function(M, util)
 
   --- Write the report (and its JSON) into the doctor's directory. Returns the path.
   function M.write_report(run)
-    run.started_at = os.time() - math.floor((api.now() - run.started) / 1000)
+    run.started_at = os.time() - math.floor((api.real_ms() - run.started) / 1000)
     run.machine = M.machine()
     run.before, run.before_name = previous(run)
     util.mkdir(M.dir())

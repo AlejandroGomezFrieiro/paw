@@ -251,8 +251,8 @@ function R.stop(name)
     return
   end
   pcall(api.proc_stop, job.proc)
-  local deadline = api.now() + R.GRACE
-  while api.now() < deadline and api.proc_status(job.proc).running do
+  local deadline = api.real_ms() + R.GRACE
+  while api.real_ms() < deadline and api.proc_status(job.proc).running do
     api.sleep(10)
   end
   api.proc_kill(job.proc)
@@ -346,9 +346,9 @@ paw.on("exit", function()
   for _, job in pairs(R.jobs) do
     if job.proc then pcall(api.proc_stop, job.proc) end
   end
-  local deadline = api.now() + 500
+  local deadline = api.real_ms() + 500
   for _, job in pairs(R.jobs) do
-    while job.proc and api.now() < deadline and api.proc_status(job.proc).running do
+    while job.proc and api.real_ms() < deadline and api.proc_status(job.proc).running do
       api.sleep(10)
     end
     if job.proc then api.proc_kill(job.proc) end

@@ -23,8 +23,8 @@ paw.flush()
 api.sleep(200)
 api.engine_reset_stats()
 local edits = 0
-local deadline = api.now() + seconds * 1000
-while api.now() < deadline do
+local deadline = api.real_ms() + seconds * 1000
+while api.real_ms() < deadline do
   if edit == "edit" then
     local id = ids[edits % #ids + 1]
     local clip = api.clip_list(id)[1]

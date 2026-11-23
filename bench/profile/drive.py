@@ -662,9 +662,9 @@ local w, h, n = ...
 local api, times = paw.api, {}
 for i = 1, n do
   paw.keymap.feed(i % 2 == 1 and "j" or "k")
-  local t = api.now()
+  local t = api.real_ms()
   api.ui_snapshot(w, h)
-  times[i] = api.now() - t
+  times[i] = api.real_ms() - t
 end
 table.sort(times)
 return string.format("%.2f %.2f %.2f", times[math.ceil(n / 2)], times[1], times[n])

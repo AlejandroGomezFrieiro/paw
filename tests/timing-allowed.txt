@@ -5,7 +5,6 @@
 # this list only gets shorter (TASK-149 empties it). Comments do not count.
 crates/paw-core/src/bake/helper.rs Instant::now 2
 crates/paw-core/src/bake/helper.rs thread::sleep 1
-crates/paw-core/src/bake/scheduler.rs thread::sleep 3
 crates/paw-core/src/io.rs Instant::now 6
 crates/paw-core/src/io.rs thread::sleep 3
 crates/paw-core/src/session/file_check.rs Instant::now 1

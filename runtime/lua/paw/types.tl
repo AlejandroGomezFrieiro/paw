@@ -992,6 +992,23 @@ local record types
     seconds: function(beat: number): number
   end
 
+  -- The loop of the kernel (api/timers.rs) -----------------------------------
+
+  --- `paw.api.pending()` (`Pending`): the work not done yet, by kind.
+  --- `next_ms` is nil when nothing waits for the schedule clock.
+  record Pending
+    timers_due: integer
+    timers: integer
+    next_ms: number
+    bakes_running: integer
+    bakes_waiting: integer
+    plugin_loads: integer
+    renders: integer
+    files: integer
+    midi: integer
+    helpers: integer
+  end
+
   -- The transport and the engine (session/midi_in.rs, session/engine.rs) ------
 
   --- `paw.api.transport_get()` (`TransportView`): `position` in

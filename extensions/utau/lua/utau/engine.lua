@@ -52,7 +52,7 @@ function M.log_path() return cache_dir() .. "/utau-engine.log" end
 local function socket_path()
   local dir = os.getenv("XDG_RUNTIME_DIR")
   if not dir or dir == "" then dir = (os.getenv("TMPDIR") or "/tmp") end
-  return string.format("%s/paw-utau/engine-%d-%d.sock", dir, os.time(), math.floor(api.now() * 1000) % 1000000)
+  return string.format("%s/paw-utau/engine-%d-%d.sock", dir, os.time(), math.floor(api.real_ms() * 1000) % 1000000)
 end
 
 local function save()
@@ -82,8 +82,8 @@ function M.stop()
   if link.listener then api.sock_close(link.listener) end
   if link.proc then
     -- It exits on its own after Shutdown; give it a moment, then insist.
-    local deadline = api.now() + 2000
-    while api.now() < deadline and api.proc_status(link.proc).running do
+    local deadline = api.real_ms() + 2000
+    while api.real_ms() < deadline and api.proc_status(link.proc).running do
       api.sleep(20)
     end
     api.proc_kill(link.proc)
@@ -187,9 +187,9 @@ function M.tool(args, seconds)
   end
   local out = M.tmp(".log")
   local proc = api.proc_spawn(argv, { log = out })
-  local deadline = api.now() + (seconds or 120) * 1000
+  local deadline = api.real_ms() + (seconds or 120) * 1000
   while api.proc_status(proc).running do
-    if api.now() > deadline then
+    if api.real_ms() > deadline then
       api.proc_kill(proc)
       os.remove(out)
       error("paw-utau-engine took too long", 0)

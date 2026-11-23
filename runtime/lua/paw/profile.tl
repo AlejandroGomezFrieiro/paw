@@ -95,7 +95,7 @@ function M.start(file?: string)
   if running then
     error("the profiler runs already: `:profile stop` stops it", 0)
   end
-  local run: Run = {started = api.now(), file = file, samples = 0, hot = {}, folded = {}}
+  local run: Run = {started = api.real_ms(), file = file, samples = 0, hot = {}, folded = {}}
   local prof = profiler()
   prof.start(
     "fi1",
@@ -164,7 +164,7 @@ function M.stop(): Report
     end
     f:close()
   end
-  return {samples = run.samples, seconds = (api.now() - run.started) / 1000, top = top}
+  return {samples = run.samples, seconds = (api.real_ms() - run.started) / 1000, top = top}
 end
 
 -- The address of a place in a Lua file, for the quickfix list:
