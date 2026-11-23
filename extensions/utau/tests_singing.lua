@@ -373,6 +373,9 @@ local function vocal_window(pitches)
   -- Popped out into a window of its own, where Ctrl+V pastes.
   paw.canvas.open("utau", { window = true })
   gui.tool, gui.curves, gui.inspector = "notes", true, true
+  -- The zoom and the scroll of an earlier test would move the notes that
+  -- win.at finds under the inspector or out of the window.
+  gui.zoom, gui.scroll = 96, 0
   local win = { editor = editor, gui = gui, track = track, clip = clip }
   function win.paint() return paw.canvas.paint("utau", 1180, 620) end
   function win.at(beat, pitch)
