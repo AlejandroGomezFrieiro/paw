@@ -88,9 +88,12 @@ some tracks, and `V` selects whole tracks, as Vim selects whole lines.]],
     {
       say = "`V` selects whole tracks. Press `V`, and press `j` to select Drums and Bass. Then press `y` to yank (copy) them.",
       keys = { "V", "j", "y" },
-      check = function()
+      -- The register can hold two tracks from before the lesson: only a
+      -- new yank does the step.
+      start = function(ctx) ctx.before = paw.keymap.getreg() end,
+      check = function(ctx)
         local r = paw.keymap.getreg()
-        return r and r.kind == "tracks" and #r.tracks == 2 and paw.keymap.mode == "n"
+        return r and r ~= ctx.before and r.kind == "tracks" and #r.tracks == 2 and paw.keymap.mode == "n"
       end,
       done = "The register contains two tracks.",
       hint = "If the selection is wrong, press `<Esc>` to leave visual mode, and then press `gg` and start again.",

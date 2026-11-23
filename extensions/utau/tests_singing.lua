@@ -74,6 +74,15 @@ local function vocal(pitches)
   return track, clip
 end
 
+--- Put the vocal editor's window as it is when paw starts: the tool, the
+--- panels, the zoom and the scroll outlive the test that changed them.
+local function gui_as_new()
+  local gui = require("utau.gui")
+  gui.tool, gui.curves, gui.inspector, gui.singers = "notes", true, true, false
+  gui.zoom, gui.scroll, gui.top, gui.drag, gui.popup = 96, 0, 76, nil, nil
+  return gui
+end
+
 --- Skip unless the engine runs and has the test voicebank.
 local function need_singer()
   load_utau()
@@ -235,7 +244,7 @@ test("the vocal editor paints itself in a pane and is worked with the pointer", 
   fresh()
   load_utau()
   local editor = require("utau.editor").editor
-  local gui = require("utau.gui")
+  local gui = gui_as_new()
   local track, clip = vocal({ 60, 64 })
   -- Where a beat and a pitch are in the window (see utau/gui.lua).
   local function at(beat, pitch)
@@ -372,10 +381,9 @@ local function vocal_window(pitches)
   paw.frontend.act.open_clip(clip.id)
   -- Popped out into a window of its own, where Ctrl+V pastes.
   paw.canvas.open("utau", { window = true })
-  gui.tool, gui.curves, gui.inspector = "notes", true, true
   -- The zoom and the scroll of an earlier test would move the notes that
   -- win.at finds under the inspector or out of the window.
-  gui.zoom, gui.scroll = 96, 0
+  gui_as_new()
   local win = { editor = editor, gui = gui, track = track, clip = clip }
   function win.paint() return paw.canvas.paint("utau", 1180, 620) end
   function win.at(beat, pitch)

@@ -9,6 +9,9 @@ local function load()
     paw.ext.load("extensions/templates")
     templates = require("templates")
   end
+  -- Each test starts with no templates: the folder outlives the test that
+  -- saved into it.
+  os.execute("rm -rf '" .. T.scratch .. "/templates'")
   paw.opt.templates_dir = T.scratch .. "/templates"
   return templates
 end

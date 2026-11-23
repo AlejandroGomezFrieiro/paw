@@ -27,6 +27,11 @@ local function song(notes, length)
   paw.keymap.set_mode("n")
   view:edit(clip)
   view.value, view.dot, view.voice, view.triplets, view.tuplet = 1, false, 1, false, nil
+  -- The popovers' histories outlive a test: each test starts with them empty.
+  local cmdline = require("paw.views.cmdline")
+  for name in pairs(cmdline.histories()) do
+    if name:find("^notation%.") then cmdline.set_history(name, {}) end
+  end
   api.undo_checkpoint()
   return view, clip, track
 end
