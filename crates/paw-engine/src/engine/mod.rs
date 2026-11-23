@@ -6,6 +6,7 @@
 
 mod apply;
 mod click;
+mod clock;
 mod device_rt;
 mod guarded;
 mod handle;
@@ -33,6 +34,8 @@ use crate::preview::Preview;
 use crate::record::{MidiCapture, Take};
 use crate::slot::{DeviceSlot, TrackSlot};
 use crate::tempo::TempoMap;
+
+use clock::PlayHead;
 
 pub use device_rt::{KeyBuf, OutBufs, key_buf, out_bufs};
 pub use handle::EngineHandle;
@@ -75,7 +78,9 @@ pub struct Engine {
     /// it while the engine is borrowed; always there between blocks.
     map: Option<Box<TempoMap>>,
     playing: bool,
-    position: f64,
+    /// Where the song plays: a frame count from an anchor beat (see
+    /// [`PlayHead`]).
+    head: PlayHead,
     loop_enabled: bool,
     loop_start: f64,
     loop_end: f64,
@@ -160,7 +165,7 @@ impl Engine {
             shared: shared.clone(),
             map: Some(Box::new(TempoMap::default())),
             playing: false,
-            position: 0.0,
+            head: PlayHead::default(),
             loop_enabled: false,
             loop_start: 0.0,
             loop_end: 4.0,
@@ -316,7 +321,7 @@ impl Engine {
         let Some(schedule) = self.schedule.take() else {
             return;
         };
-        let position = self.position;
+        let position = self.head.beat();
         let mut capture = self
             .take
             .as_deref_mut()
@@ -344,10 +349,10 @@ impl Engine {
             // A track that is only monitored plays what comes in, but
             // records nothing.
             if let Some(take) = capture.as_deref_mut().filter(|_| t.armed) {
-                take.shared.begin(self.position);
+                take.shared.begin(self.head.beat());
                 let _ = take.midi.push(MidiCapture {
                     slot: entry.slot,
-                    beat: self.position,
+                    beat: self.head.beat(),
                     kind,
                     pass: take.pass,
                 });
