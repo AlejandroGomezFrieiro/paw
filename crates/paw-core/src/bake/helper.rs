@@ -170,6 +170,7 @@ async fn stop(child: &mut tokio::process::Child, pid: u32) {
 }
 
 #[cfg(test)]
+#[expect(clippy::disallowed_methods, reason = "a stall guard of the tests: the wall time that a helper process may take")]
 mod tests {
     use std::collections::HashMap;
     use std::time::Instant;
@@ -200,7 +201,7 @@ mod tests {
         let deadline = Instant::now() + Duration::from_secs(10);
         while !until(bakes) {
             assert!(Instant::now() < deadline, "timed out");
-            bakes.poll(wants, Duration::ZERO);
+            bakes.poll(wants, Duration::ZERO, crate::clock::ScheduleTime::ZERO);
             std::thread::sleep(Duration::from_millis(5));
         }
     }
@@ -211,7 +212,7 @@ mod tests {
         let store = Store::new(dir.path().join("bakes"), u64::MAX);
         let mut bakes: Scheduler<u32> = Scheduler::new(1, 1);
         // It ignores SIGTERM: only the kill ends it.
-        bakes.ask(&1, || Some(helper(&store, "trap '' TERM; echo $$ > {out}/pid; echo done=50; sleep 30")));
+        bakes.ask(&1, crate::clock::ScheduleTime::ZERO, || Some(helper(&store, "trap '' TERM; echo $$ > {out}/pid; echo done=50; sleep 30")));
         let wants = HashMap::from([(1, Priority::Playing)]);
         poll_until(&mut bakes, &wants, |b| b.progress(&1) > 0.4);
         let pid_file = std::fs::read_dir(dir.path().join("bakes/tmp"))
@@ -226,7 +227,7 @@ mod tests {
         assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists(), "the helper is gone");
         assert!(bakes.failures.is_empty(), "a cancel is not a failure: {:?}", bakes.failures);
         // A helper that fails is told with what it said.
-        bakes.ask(&2, || Some(helper(&store, "echo no room >&2; exit 3")));
+        bakes.ask(&2, crate::clock::ScheduleTime::ZERO, || Some(helper(&store, "echo no room >&2; exit 3")));
         let wants = HashMap::from([(2, Priority::Background)]);
         poll_until(&mut bakes, &wants, |b| b.status(&2) == Status::Failed);
         assert!(bakes.failures[0].contains("no room"), "{:?}", bakes.failures);

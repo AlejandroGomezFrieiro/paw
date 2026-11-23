@@ -12,7 +12,6 @@ local api = paw.api
 local function start()
   fresh()
   api.engine_restart({
-    backend = "null",
     test_input = { frequency = 440, level = -12, channels = 2 },
     test_midi = { "Keystation 49" },
   })
@@ -21,7 +20,7 @@ local function start()
     paw.ui.close()
   end
   paw.ui.focus("arrange")
-  T.after(function() api.engine_restart({ backend = "null" }) end)
+  T.after(function() api.engine_restart({}) end)
 end
 
 --- Type keys as one undo step, and let what they started finish.

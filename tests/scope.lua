@@ -24,7 +24,7 @@ end
 
 local function start()
   fresh()
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   reset()
 end
 

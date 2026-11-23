@@ -20,15 +20,15 @@ local function load()
   return doctor
 end
 
---- The null backend with a test input and the MIDI port "Keys A", until
+--- The engine with no device (the null backend, or the stepped one of the
+--- suite) with a test input and the MIDI port "Keys A", until
 --- the test ends.
 local function null_backend()
   api.engine_restart({
-    backend = "null",
     test_input = { frequency = 440, level = -12, channels = 2 },
     test_midi = { "Keys A" },
   })
-  T.after(function() api.engine_restart({ backend = "null" }) end)
+  T.after(function() api.engine_restart({}) end)
 end
 
 --- Short runs: a quarter-second tone, a second of dropouts, and so on.
@@ -123,7 +123,7 @@ test("the doctor's sound system check reads the engine and warns about the null 
   local r = run({ only = { "system" }, unattended = true })
   local c = result(r, "system")
   eq(c.status, "warn", "the null backend is a warning")
-  eq(c.facts.backend, "null", "the backend")
+  eq(c.facts.backend, api.engine_get().backend, "the backend")
   eq(c.facts.sample_rate, 48000, "the rate")
   local joined = table.concat(c.lines, "\n")
   eq(joined:find("null backend", 1, true) ~= nil, true, "the warning says why")

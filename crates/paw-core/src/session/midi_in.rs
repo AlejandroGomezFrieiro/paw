@@ -112,7 +112,7 @@ impl Session {
             self.engine.handle.send(Msg::SetMidiFilter(Box::new(self.midi.filter.clone())));
         }
         // The `test` backend's pretend device is as silent as the null one.
-        if matches!(self.engine.stream.info.backend, BackendChoice::Null | BackendChoice::Test)
+        if matches!(self.engine.stream.info.backend, BackendChoice::Null | BackendChoice::Step | BackendChoice::Test)
             && !self.midi.without_audio
         {
             self.midi.inputs = None;

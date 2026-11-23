@@ -349,8 +349,9 @@ end)
 -- The audio device going away ---------------------------------------------------
 
 --- Run `fn` on the `test` backend, whose device can be unplugged, and put
---- the null backend back afterwards.
+--- the backend that ran before back afterwards.
 local function on_test_device(fn)
+  local backend = api.engine_get().backend
   api.audio_test_device({ present = true, fail_after = 0, back_after = 0 })
   api.audio_watch({ period = 100 })
   api.engine_restart({
@@ -371,7 +372,7 @@ local function on_test_device(fn)
   paw.opt.audio_reconnect = true
   api.audio_watch({ period = 3000 })
   api.audio_test_device({ present = true, fail_after = 0, back_after = 0 })
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({ backend = backend })
   if not ok then error(err, 0) end
   return err
 end

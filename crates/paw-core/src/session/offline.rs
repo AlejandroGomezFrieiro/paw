@@ -86,6 +86,7 @@ impl Session {
                 warnings: &mut self.doc.warnings,
                 offline: true,
                 waker,
+                now: self.now,
             };
             sync(
                 &Project::default(),

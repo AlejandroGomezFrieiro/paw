@@ -290,6 +290,7 @@ const NOISE: Duration = Duration::from_millis(20);
 const FIXED: Duration = Duration::from_millis(500);
 
 impl Settle {
+    #[expect(clippy::disallowed_methods, reason = "a budget of wall time for plugins to settle before a render")]
     pub fn new(limit: Duration) -> Self {
         Self {
             began: Instant::now(),
@@ -308,6 +309,7 @@ impl Settle {
         }
     }
 
+    #[expect(clippy::disallowed_methods, reason = "a budget of wall time for plugins to settle before a render")]
     /// Whether the devices `ids` (all of `live` when None) are ready.
     pub fn ready(&mut self, live: &mut LiveDevices, ids: Option<&[Id]>) -> bool {
         let now = Instant::now();

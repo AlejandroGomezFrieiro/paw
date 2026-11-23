@@ -1,0 +1,7 @@
+# A "when" (a timer, a delay, a pause between edits) reads the schedule
+# clock (`crate::clock::ScheduleTime`), so that a test moves it. Only a
+# budget (how long a piece of work may take on the wall) reads Instant, with
+# `#[expect(clippy::disallowed_methods, reason = "...")]` at that place.
+disallowed-methods = [
+    { path = "std::time::Instant::now", reason = "a 'when' reads ScheduleTime (crate::clock); only a budget reads Instant" },
+]

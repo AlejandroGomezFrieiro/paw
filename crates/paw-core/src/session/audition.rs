@@ -13,7 +13,9 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, TryRecvError};
-use std::time::{Duration, Instant};
+use std::time::Duration;
+
+use crate::clock::ScheduleTime;
 
 use anyhow::{Result, bail};
 use paw_engine::{AudioData, Msg, Preview};
@@ -70,7 +72,7 @@ enum Stage {
         outline: Vec<f32>,
         /// When it was sent, and whether the engine has been seen playing
         /// it: until then it is starting, not over.
-        since: Instant,
+        since: ScheduleTime,
         heard: bool,
     },
     Failed(String),
@@ -214,7 +216,7 @@ impl Session {
         Stage::Playing {
             outline: outline(&data, OUTLINE),
             data,
-            since: Instant::now(),
+            since: self.now,
             heard: false,
         }
     }
@@ -299,7 +301,7 @@ impl Session {
                 // rather than over (unless it has had time to play whole).
                 let starting = now.is_none()
                     && !*heard
-                    && since.elapsed() < Duration::from_secs_f64(data.seconds() + 1.0);
+                    && self.now - *since < Duration::from_secs_f64(data.seconds() + 1.0);
                 view["state"] = if now.is_some() || starting { "playing" } else { "ended" }.into();
                 view["position"] = match now {
                     Some((_, at)) => at,

@@ -16,6 +16,7 @@
 //! A sourced item (a module that `require` loads, an extension, the user's
 //! `init.lua`) is opened with [`enter`] and closed with [`leave`]: its
 //! `self` time is its whole time less that of the items opened inside it.
+#![expect(clippy::disallowed_methods, reason = "the time of the start is a measure of work")]
 
 use std::fmt::Write as _;
 use std::io::Write as _;

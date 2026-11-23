@@ -301,7 +301,7 @@ end)
 
 test("recording keeps controller moves, and can be moved earlier to line up", function()
   fresh()
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   local keys = paw.add_track({ name = "keys" })
   keys:add_device("synth")
   keys.armed = true
@@ -652,7 +652,7 @@ end)
 
 test("moving a fader while the song plays writes automation", function()
   fresh()
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   local t = T.tone("tone", 32)
   paw.transport.write = true
   eq(paw.transport.write, true, "write mode reads back")
@@ -701,7 +701,7 @@ end)
 
 test("a track is bounced to audio, and takes MIDI messages by hand", function()
   fresh()
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   local t = sine_track()
   t:add_clip({ start = 0, length = 4, notes = { { pitch = "A3", start = 0, length = 4 } } })
   local before = render({ tail = 0 }).peak
@@ -941,9 +941,9 @@ end)
 local test_level = 10 ^ (-12 / 20) -- the test input's peak
 
 local function with_test_input(fn, midi)
-  api.engine_restart({ backend = "null", test_input = { frequency = 440, level = -12, channels = 2 }, test_midi = midi })
+  api.engine_restart({ test_input = { frequency = 440, level = -12, channels = 2 }, test_midi = midi })
   local ok, err = xpcall(fn, debug.traceback)
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   if not ok then error(err, 0) end
 end
 

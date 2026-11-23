@@ -163,7 +163,7 @@ local function screen() return table.concat(api.ui_snapshot(W, H), "\n") end
 --- track. A column a beat, the grid a beat.
 local function song()
   start()
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   local saved = { zoom = paw.opt.zoom, grid = paw.opt.grid }
   T.after(function()
     paw.opt.zoom, paw.opt.grid = saved.zoom, saved.grid

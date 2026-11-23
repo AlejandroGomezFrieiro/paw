@@ -370,7 +370,6 @@ command("engine", function(ctx)
   if ctx.args.threads ~= nil and not wanted then
     return paw.notify("engine: threads=N, a number, or 0 for as many as the machine has", "warn")
   end
-  local before = api.engine_get().threads
   if wanted then paw.opt.threads = wanted end
   if ctx.args[1] or ctx.args.rate or ctx.args.buffer then
     api.engine_restart({
@@ -379,14 +378,9 @@ command("engine", function(ctx)
       buffer_size = ctx.args.buffer,
     })
   end
-  -- The audio thread takes the new threads at its next block: wait for it,
-  -- so that the count said is the one that runs.
-  if wanted and wanted ~= before then
-    local deadline = api.real_ms() + 500
-    while api.engine_get().threads == before and api.real_ms() < deadline do
-      api.sleep(5)
-    end
-  end
+  -- The audio thread takes the new threads at its next block, and the main
+  -- loop does not wait for it: until then the count asked is said beside
+  -- the count that runs.
   local e = api.engine_get()
   local asked = wanted and wanted > 0 and e.threads ~= wanted and string.format(" (%d asked)", wanted) or ""
   paw.notify(

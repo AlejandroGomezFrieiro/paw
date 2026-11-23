@@ -7,7 +7,9 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+
+use crate::clock::ScheduleTime;
 
 use anyhow::{Context, Result, anyhow, bail};
 use base64::Engine as _;
@@ -541,7 +543,9 @@ pub struct Session {
     /// once a second for each: see `session/file_check.rs`.
     files_there: file_check::FileCheck,
     /// When files played from the disk were last read ahead of the playhead.
-    read_ahead_at: Instant,
+    read_ahead_at: ScheduleTime,
+    /// The schedule time of the turn that runs (`Session::set_now`).
+    now: ScheduleTime,
     /// What each of the project's files is: its hash, size and header
     /// (`media.json`), learned in the background (session/media.rs).
     pub(crate) sources: crate::media::Sources,
@@ -620,7 +624,6 @@ impl Session {
                 sleep: true,
                 quality: Quality::Full,
                 backend: opts.clone(),
-                null_steps: opts.backend == BackendChoice::Step,
             },
             steps: Default::default(),
             registry,
@@ -644,7 +647,8 @@ impl Session {
             watch: Default::default(),
             files_watch: Default::default(),
             files_there: Default::default(),
-            read_ahead_at: Instant::now(),
+            read_ahead_at: ScheduleTime::ZERO,
+            now: ScheduleTime::ZERO,
             sources: Default::default(),
             shelf: None,
             audition: Default::default(),

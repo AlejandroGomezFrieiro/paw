@@ -119,6 +119,9 @@ pub struct SyncCtx<'a> {
     /// ([`Controller::set_waker`](paw_engine::Controller::set_waker)), and
     /// a state given to a device wakes it.
     pub waker: paw_engine::Waker,
+    /// The schedule time of the turn: a bake asked for waits its settle
+    /// from it.
+    pub now: crate::clock::ScheduleTime,
 }
 
 /// Bring the engine from `old` to `new`.

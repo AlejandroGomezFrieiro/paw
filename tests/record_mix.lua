@@ -91,11 +91,10 @@ end)
 test("R records from the cursor, as <Space><Space> plays from it", function()
   start()
   api.engine_restart({
-    backend = "null",
     test_input = { frequency = 440, level = -12, channels = 2 },
     test_midi = { "Keys A" },
   })
-  T.after(function() api.engine_restart({ backend = "null" }) end)
+  T.after(function() api.engine_restart({}) end)
   T.after(function() paw.opt.count_in = 0 end)
   paw.opt.count_in = 0
   paw.project.save(T.scratch .. "/rfromcursor.json")
@@ -122,8 +121,8 @@ end)
 
 test("the stop key ends a take at once; its clip comes after, and one u removes it", function()
   start()
-  api.engine_restart({ backend = "null", test_input = { frequency = 440, level = -12, channels = 2 } })
-  T.after(function() api.engine_restart({ backend = "null" }) end)
+  api.engine_restart({ test_input = { frequency = 440, level = -12, channels = 2 } })
+  T.after(function() api.engine_restart({}) end)
   T.after(function() paw.opt.count_in = 0 end)
   paw.opt.count_in = 0
   local gtr = paw.add_track({ name = "Guitar" })
@@ -298,13 +297,20 @@ test("K on a MIDI track with no instrument says it has none, and how to add one"
   eq(text:find("no instrument", 1, true), nil, "with a synth it says nothing of the kind")
 end)
 
-test(":engine threads=2 reports the new count", function()
+test(":engine threads=2 reports the count asked, and the engine takes it at its next block", function()
   start()
   local before = paw.opt.threads
   T.after(function() paw.opt.threads = before end)
+  -- The count that runs is said at once only once the engine has it: the
+  -- command does not wait for the audio thread.
   keys(":engine threads=1<CR>")
+  T.next_block()
+  keys(":engine<CR>")
   eq(said():find("1 thread,", 1, true) ~= nil, true, "one thread: " .. said())
   keys(":engine threads=2<CR>")
+  eq(said():find("(2 asked)", 1, true) ~= nil, true, "two threads asked, not yet taken: " .. said())
+  T.next_block()
+  keys(":engine<CR>")
   eq(said():find("2 threads", 1, true) ~= nil, true, "two threads: " .. said())
   keys(":engine threads=many<CR>")
   eq(said():find("a number", 1, true) ~= nil, true, "a word that is no number is refused: " .. said())
@@ -312,8 +318,8 @@ end)
 
 --- A null engine with a MIDI port `Keys A`, put back when the test ends.
 local function keyboard()
-  api.engine_restart({ backend = "null", test_midi = { "Keys A" } })
-  T.after(function() api.engine_restart({ backend = "null" }) end)
+  api.engine_restart({ test_midi = { "Keys A" } })
+  T.after(function() api.engine_restart({}) end)
 end
 
 --- Whether the track sounds when a key is played on the keyboard.

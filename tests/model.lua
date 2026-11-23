@@ -420,8 +420,8 @@ test("renders and engines refuse sizes and rates they cannot do", function()
   fails(function() render({ tail = 1 / 0 }) end, "finite", "an infinite tail")
   fails(function() render({ sample_rate = 0 }) end, "sample rate", "0 Hz")
   fails(function() render({ sample_rate = 4000000000 }) end, "sample rate", "4 GHz")
-  fails(function() api.engine_restart({ backend = "null", sample_rate = 0 }) end, "sample rate", "engine at 0 Hz")
-  fails(function() api.engine_restart({ backend = "null", buffer_size = 1000000000 }) end, "buffer", "a huge buffer")
+  fails(function() api.engine_restart({ sample_rate = 0 }) end, "sample rate", "engine at 0 Hz")
+  fails(function() api.engine_restart({ buffer_size = 1000000000 }) end, "buffer", "a huge buffer")
   eq(render({ ["end"] = 2, tail = 0 }).peak > 0.01, true, "still renders")
 end)
 
@@ -432,7 +432,7 @@ test("a track the engine had no room for sounds once there is room", function()
     tracks[i] = api.track_add({ name = "t" .. i })
   end
   -- Sync without handing the warnings to the notifier, to read them here.
-  api.events_take()
+  api.flush()
   local warnings = api.warnings()
   eq(#warnings > 0 and warnings[1]:find("too many tracks") ~= nil, true, "a warning for the tracks over the limit")
   for i = 1, 20 do

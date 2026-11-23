@@ -168,7 +168,7 @@ end)
 
 test("a recorded MIDI 2.0 note-on keeps its attribute", function()
   fresh()
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   local keys = paw.add_track({ name = "keys" })
   keys.armed = true
   paw.flush()

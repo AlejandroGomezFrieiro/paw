@@ -38,8 +38,8 @@ pub enum BackendChoice {
     Null,
     /// The null backend with no thread: the owner of the stream runs each
     /// block on its own thread ([`Stream::run_to`]), so that a test knows
-    /// how many blocks ran. It opens as the null backend
-    /// ([`StreamInfo::backend`] is `Null`), and the stream
+    /// how many blocks ran. It opens no device ([`is_null`](Self::is_null)),
+    /// [`StreamInfo::backend`] says `Step`, and the stream
     /// [`is_stepped`](Stream::is_stepped).
     Step,
     /// The null backend with the [`test_device`] to play to.
@@ -314,8 +314,6 @@ pub struct StreamInfo {
 pub struct Opened {
     pub info: StreamInfo,
     test_input: Option<TestInput>,
-    /// The null backend with no thread ([`BackendChoice::Step`]).
-    stepped: bool,
     cpal: Option<cpal::Devices>,
 }
 
@@ -373,9 +371,13 @@ pub fn open(opts: &BackendOptions) -> Result<Opened> {
             warning,
         },
         test_input: opts.test_input.clone(),
-        stepped: opts.backend == BackendChoice::Step,
         cpal: None,
     };
+    if opts.backend == BackendChoice::Step {
+        let mut opened = null(None);
+        opened.info.backend = BackendChoice::Step;
+        return Ok(opened);
+    }
     if opts.backend.is_null() {
         return Ok(null(None));
     }
@@ -479,7 +481,7 @@ impl Opened {
         }
         let frames = self.info.buffer_size.max(64) as usize;
         let blocks = NullBlocks::new(engine, frames, self.test_input);
-        let (thread, stepped) = if self.stepped {
+        let (thread, stepped) = if self.info.backend == BackendChoice::Step {
             (None, Some(Stepped { blocks, ran: 0 }))
         } else {
             let device = (self.info.backend == BackendChoice::Test).then(|| lost.clone());
@@ -858,7 +860,7 @@ mod tests {
         let (engine, handle) = Engine::new(f64::from(opened.sample_rate()));
         let mut stream = opened.start(engine).unwrap();
         assert!(stream.is_stepped(), "the stream is stepped");
-        assert_eq!(stream.info.backend, BackendChoice::Null, "it opens as the null backend");
+        assert_eq!(stream.info.backend, BackendChoice::Step, "it says that it is the stepped backend");
 
         let three = stream.end_of(3).unwrap();
         assert_eq!(stream.run_to(three - Duration::from_nanos(1)), 2, "before the end of the third block");

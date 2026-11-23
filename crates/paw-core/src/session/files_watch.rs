@@ -25,7 +25,7 @@ use anyhow::{Context, Result, bail};
 use rustix::fs::inotify;
 
 use super::folder::{self, PROJECT_FILE};
-use crate::clock::{Clock, WallClock};
+use crate::clock::ScheduleTime;
 use crate::model::{ClipContent, Project, Track};
 
 /// Changes that come closer together than this are one burst.
@@ -56,10 +56,8 @@ pub(super) struct FileWatch {
     /// What paw itself last wrote to or moved away from a path.
     written: HashMap<PathBuf, u64>,
     pending: BTreeSet<PathBuf>,
-    /// When the last of `pending` changed, on `clock`.
-    last: Duration,
-    /// The schedule clock that the settle waits on.
-    pub(super) clock: Arc<dyn Clock>,
+    /// When the last of `pending` changed, on the schedule clock.
+    last: ScheduleTime,
     /// Files changed outside paw that are not acted on yet.
     pub changed: BTreeSet<PathBuf>,
 }
@@ -74,8 +72,7 @@ impl Default for FileWatch {
             outside: BTreeSet::new(),
             written: HashMap::new(),
             pending: BTreeSet::new(),
-            last: Duration::ZERO,
-            clock: Arc::new(WallClock::new()),
+            last: ScheduleTime::ZERO,
             changed: BTreeSet::new(),
         }
     }
@@ -84,7 +81,7 @@ impl Default for FileWatch {
 impl FileWatch {
     /// When the changes seen so far have settled and are acted on, on the
     /// schedule clock; None when no change waits.
-    pub(super) fn next_due(&self) -> Option<Duration> {
+    pub(super) fn next_due(&self) -> Option<ScheduleTime> {
         (!self.pending.is_empty()).then(|| self.last + SETTLE)
     }
 
@@ -166,9 +163,9 @@ impl FileWatch {
         self.written.insert(path, hash_of(bytes));
     }
 
-    /// Read what happened. Returns the files changed outside paw, once a
-    /// burst of changes has settled.
-    pub fn poll(&mut self) -> Option<Vec<PathBuf>> {
+    /// Read what happened by `now`. Returns the files changed outside paw,
+    /// once a burst of changes has settled.
+    pub fn poll(&mut self, now: ScheduleTime) -> Option<Vec<PathBuf>> {
         let fd = self.fd.as_ref()?;
         let mut buf = [MaybeUninit::<u8>::uninit(); 8192];
         let mut events = inotify::Reader::new(fd, &mut buf);
@@ -186,10 +183,10 @@ impl FileWatch {
             let path = dir.join(OsStr::from_bytes(name));
             if self.counts(&path) {
                 self.pending.insert(path);
-                self.last = self.clock.now();
+                self.last = now;
             }
         }
-        if self.next_due().is_none_or(|due| self.clock.now() < due) {
+        if self.next_due().is_none_or(|due| now < due) {
             return None;
         }
         let mut changed = Vec::new();
@@ -335,7 +332,7 @@ impl super::Session {
 
     /// Look for changes made outside paw: called from `idle`.
     pub(super) fn poll_file_changes(&mut self) {
-        if let Some(paths) = self.files_watch.poll() {
+        if let Some(paths) = self.files_watch.poll(self.now) {
             self.files_there.forget();
             let root = self.files_watch.root.clone();
             let names: Vec<PathBuf> = paths

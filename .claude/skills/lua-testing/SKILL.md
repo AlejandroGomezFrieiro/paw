@@ -181,7 +181,7 @@ T.check_keys(
 - Prefer a null test (two renders that must be the same) to a level with
   a tolerance.
 - The suite runs the engine on the stepped audio backend
-  (`--audio step`, which the runner selects on the manual clock). The
+  (`paw --clock manual --audio step`, from `tests/tools/suite.sh`). The
   engine plays a block only when the clock gets to its end, so a meter
   is the same in each run, to the bit. Play with `T.next_block(n)`,
   `T.advance(ms)` or `T.until_beat`, then read the meter with
@@ -189,9 +189,13 @@ T.check_keys(
   `T.until_`. The lint counts each `:meter(` in a test: a live test only
   reads one. To check that a device sounds, or does not sound, use
   `T.wakes`: it reads no meter.
-- A test that starts the engine again on `null` stays stepped. The
-  `test` backend (the device that a test unplugs) plays on the wall
-  clock: read no meter there.
+- A test that starts the engine again names no backend:
+  `api.engine_restart({ test_input = ... })` keeps the backend that runs
+  (`step` in the suite, `null` in the live pass). A test that names a
+  backend puts back the one that ran before (`api.engine_get().backend`).
+  The `test` backend (the device that a test unplugs) plays on the wall
+  clock: read no meter there. `api.wait_blocks` on a backend that is not
+  stepped is an error.
 - A live test that must read the clock goes in a file of live tests
   (`tests/live_<area>.lua`, for example `tests/live_limits.lua`).
 - An extension's project must open and play without the extension.

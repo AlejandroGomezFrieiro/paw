@@ -271,12 +271,13 @@ tests. Follow these rules when you write a test:
 
 ### Step the clock of the tests
 
-The suite runs paw with `--clock manual`. On that clock, the time that
-timers and delays wait for (`paw.api.now()`) moves only when a test moves
-it, so a test of a delay always gives the same result. The audio engine
-plays on the `step` backend: it plays a block of sound only when the clock
-gets to the end of that block. So a meter after some blocks has the same
-value in each run. Work on other threads still takes its own time, for
+The suite runs paw with `--clock manual --audio step`. On the manual
+clock, the time that timers and delays wait for (`paw.api.now()`) moves
+only when a test moves it, so a test of a delay always gives the same
+result. On the `step` backend, the audio engine plays a block of sound only
+when the clock gets to the end of that block, so a meter after some blocks
+has the same value in each run. A test that starts the engine again with
+`paw.api.engine_restart` names no backend, and the engine stays on `step`. Work on other threads still takes its own time, for
 example a bake, the loading of a plugin or a render.
 
 | Helper | What it does |

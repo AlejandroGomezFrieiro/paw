@@ -195,6 +195,7 @@ impl Syncer {
             warnings: &mut self.warnings,
             offline: true,
             waker: Default::default(),
+            now: paw_core::clock::ScheduleTime::ZERO,
         };
         sync(old, new, &mut self.map, &mut ctx, &mut |m| sent.push(m), &mut Vec::new());
     }

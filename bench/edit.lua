@@ -186,12 +186,12 @@ elseif mode == "scale" then
   })
 elseif mode == "turn" then
   -- The end of a turn alone, in a project of n synth tracks: the kernel's
-  -- `settle` (events, hooks, scenes, the frontend state) and the undo step.
+  -- `close_turn` (events, hooks, scenes, the frontend state) and the undo step.
   -- A request of a connection pays it once, with nothing changed
   -- (a read) or after its edit.
   local _, ids = B.time(B.build, { tracks = n, kind = "midi", fx = true, bars = 16 })
   local function finish()
-    paw._kernel.settle()
+    paw._kernel.close_turn()
     api.undo_checkpoint()
   end
   finish()

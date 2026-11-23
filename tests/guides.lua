@@ -137,8 +137,8 @@ test("make music 1: the first song has drums, bass and keys in a loop of four ba
 end)
 
 test("make music 2: a lead played on a MIDI keyboard is recorded over the loop and quantized", function()
-  api.engine_restart({ backend = "null", test_midi = { "Keystation 49" } })
-  T.after(function() api.engine_restart({ backend = "null" }) end)
+  api.engine_restart({ test_midi = { "Keystation 49" } })
+  T.after(function() api.engine_restart({}) end)
   open("2-midi-keyboard.lua")
   step("G", "o", "grn", "<C-u>", "Lead<CR>", "a", "synth", "<CR>")
   step("I", "Keystation", "<CR>")
@@ -189,8 +189,8 @@ test("make music 2: a lead played on a MIDI keyboard is recorded over the loop a
 end)
 
 test("make music 3: a guitar through an amp chain is recorded in two takes and comped, with a fade", function()
-  api.engine_restart({ backend = "null", test_input = { frequency = 220, level = -12, channels = 2 } })
-  T.after(function() api.engine_restart({ backend = "null" }) end)
+  api.engine_restart({ test_input = { frequency = 220, level = -12, channels = 2 } })
+  T.after(function() api.engine_restart({}) end)
   open("3-guitar.lua")
   step("G", "o", "grn", "<C-u>", "Guitar<CR>")
   step("I", "· 1", "<CR>")

@@ -9,7 +9,7 @@ local api = paw.api
 
 local function start()
   fresh()
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   paw.keymap.feed("<Esc><Esc>")
   while paw.ui.float do
     paw.ui.close()

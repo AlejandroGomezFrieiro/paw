@@ -3,7 +3,9 @@
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::time::{Duration, Instant};
+use std::time::Duration;
+
+use crate::clock::ScheduleTime;
 
 use super::index::{LocalIndex, Stamp};
 use super::table::{MediaRecord, MediaTable, Probe, SourceHash};
@@ -29,7 +31,7 @@ pub struct Sources {
     /// Files given to the worker by [`notice`](Self::notice), once each.
     noticed: HashSet<PathBuf>,
     /// When [`due`](Self::due) last said yes.
-    looked: Option<Instant>,
+    looked: Option<ScheduleTime>,
 }
 
 /// How often the project is looked through for files that are new.
@@ -54,10 +56,10 @@ impl Sources {
         self.pending.contains(path)
     }
 
-    /// Whether it is time to look for new files again (twice a second).
-    pub fn due(&mut self) -> bool {
-        let now = Instant::now();
-        let due = self.looked.is_none_or(|at| now.duration_since(at) >= LOOK_EVERY);
+    /// Whether it is time at `now` to look for new files again (twice a
+    /// second of schedule time).
+    pub fn due(&mut self, now: ScheduleTime) -> bool {
+        let due = self.looked.is_none_or(|at| now - at >= LOOK_EVERY);
         if due {
             self.looked = Some(now);
         }

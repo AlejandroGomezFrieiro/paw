@@ -5,6 +5,10 @@ local dsp = require("paw.dsp")
 
 local SILENT = 1e-3 -- about -60 dBFS: below that nothing was played
 
+--- Whether the engine runs with no sound device: the null backend, or the
+--- stepped backend of the tests.
+local function no_device(e) return e.backend == "null" or e.backend == "step" end
+
 local function db(level) return string.format("%.1f dBFS", math.max(-120, dsp.db(level))) end
 
 --- Write a 16-bit WAV of `frames` frames. `sample(frame, channel)` gives each
@@ -113,7 +117,7 @@ return function(M)
         string.format(
           "output: %s%s; input: %s",
           e.device,
-          (e.device_id == "" and e.backend ~= "null") and " (the system's default)" or "",
+          (e.device_id == "" and not no_device(e)) and " (the system's default)" or "",
           e.input_device
         )
       )
@@ -141,7 +145,7 @@ return function(M)
         )
       end
       if e.lost then return "fail", "the audio device was lost: " .. tostring(e.lost.device) end
-      if e.backend == "null" then
+      if no_device(e) then
         ctx:warn("the null backend is running: there is no sound device, nothing can be heard or recorded")
       else
         local chosen = entry(list.outputs, list.output) or {}
@@ -235,7 +239,7 @@ return function(M)
       local total = paw.limit.unhurried(M.tone_file, path, e.sample_rate, ctx.settings.tone)
       local track = ctx:track({ name = "doctor tone" })
       track:add_clip({ start = 0, file = path })
-      if e.backend == "null" then
+      if no_device(e) then
         ctx:play(0, 0.3)
         return "skip", "the null backend makes no sound to listen to"
       end
@@ -749,7 +753,7 @@ return function(M)
         ctx:warn("the take has sound in it, but nothing was heard at the track's meter on playback")
       end
       local heard
-      if ctx:attended() and e.backend ~= "null" and longest >= SILENT then
+      if ctx:attended() and not no_device(e) and longest >= SILENT then
         heard = ctx:ask("Did you hear the recording played back?")
         ctx:log("heard on playback: " .. (heard == "y" and "yes" or heard == "n" and "no" or "not answered"))
         if heard == "n" then return "fail", "the take has sound, but it was not heard on playback: check the output" end

@@ -29,7 +29,7 @@ local function with_loop(fn)
   -- The sequencer is shared by every process of the machine: open no port
   -- of others, so that only what our tracks send to our port arrives.
   api.midi_select({})
-  api.engine_restart({ backend = "null", midi = true })
+  api.engine_restart({ midi = true })
   paw.midi.open_port(LOOP)
   local heard = {}
   local handler = paw.on("midi.in", function(event)
@@ -43,7 +43,7 @@ local function with_loop(fn)
   end
   paw.off(handler)
   paw.midi.close_port(LOOP)
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   api.midi_select(nil)
   if not ok then error(err, 0) end
   return err
