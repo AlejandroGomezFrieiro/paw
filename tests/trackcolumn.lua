@@ -105,7 +105,7 @@ test("track column: an extension's part shows in its order, and set moves a buil
       if ctx.line == 0 then return { { "E", "TrackSign" } } end
     end,
   })
-  local fold = paw.trackcolumn.components.fold
+  local fold = paw.trackcolumn.components:get("fold")
   after(function()
     paw.trackcolumn.remove("ext")
     paw.trackcolumn.add("fold", fold)
@@ -127,7 +127,7 @@ test("relative bars: 4W lands on the bar marked 4, 4B on the one behind marked 4
     for ch in lines()[1]:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
       cells[#cells + 1] = ch
     end
-    local view = paw.ui.views.arrange
+    local view = paw.ui.views:get("arrange")
     local x = view.geometry.hw + math.floor((paw.time.bar_start(bar) - view.scroll) * view.geometry.zoom + 0.5)
     local digits = ""
     while cells[x + 1] and cells[x + 1]:match("^%d$") do

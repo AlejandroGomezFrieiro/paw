@@ -39,7 +39,7 @@ end
 
 local function pager_text()
   local out = {}
-  for _, line in ipairs(paw.ui.views.pager.lines) do
+  for _, line in ipairs(paw.ui.views:get("pager").lines) do
     out[#out + 1] = line.text
   end
   return table.concat(out, "\n")
@@ -86,8 +86,8 @@ end
 
 local function forget_tally()
   reset()
-  paw.ui.views.tally = nil
-  L.types.tally = nil
+  paw.ui.views:remove("tally")
+  L.types:remove("tally")
   for id, buf in pairs(L.buffers) do
     if buf.type == "tally" then L.buffers[id] = nil end
   end
@@ -152,7 +152,7 @@ test("a kind of text buffer has keys, K and a status of its own, before the text
   })
   T.after(function()
     reset()
-    paw.textbuf.kinds.shout = nil
+    paw.textbuf.kinds:remove("shout")
     paw.keymap.put("n", "textbuf.shout", table.concat(paw.keymap.parse("<localleader>s")), nil)
   end)
   keys(":e paw://shout<CR>")

@@ -31,7 +31,7 @@ local function song()
     while #paw.ui.tabs > 1 do
       paw.layout.tab_close()
     end
-    paw.ui.views.pianoroll.clip_id = nil
+    paw.ui.views:get("pianoroll").clip_id = nil
     paw.ui.hide("pianoroll")
     paw.ui.focus("arrange")
   end)
@@ -178,7 +178,7 @@ test("search: Ctrl-v, Ctrl-x and Ctrl-t open what is chosen beside, below, in a 
   paw.pick("clips")
   paw.keymap.feed("arco<C-v>")
   eq(paw.ui.focused, "pianoroll", "a MIDI clip opens in the piano roll")
-  eq(paw.ui.views.pianoroll.clip_id, s.p2.id, "on that clip")
+  eq(paw.ui.views:get("pianoroll").clip_id, s.p2.id, "on that clip")
   eq(#paw.layout.windows() > windows, true, "in a new window")
   paw.layout.only()
   local tabs = #paw.ui.tabs
@@ -256,7 +256,7 @@ test("search: notes by lyric and articulation, drawn in a small piano roll", fun
   has(screen(), "▓", "the note chosen apart")
   paw.keymap.feed("<CR>")
   eq(paw.ui.focused, "pianoroll", "Enter goes to it")
-  eq(paw.ui.views.pianoroll.clip_id, s.pc.id, "in its clip")
+  eq(paw.ui.views:get("pianoroll").clip_id, s.pc.id, "in its clip")
 end)
 
 test("search: regions, help tags, the Lua API and the undo history as pickers", function()
@@ -312,7 +312,7 @@ test("search: after an edit of one clip, :vimgrep and a query read again that cl
   eq(#paw.query("note[pitch>=c6]"), 1, "the arco clip's C6")
   local records, notes = made("grep.clip"), made("query.notes")
   -- `x` in the piano roll deletes the C6 of the arco clip.
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   roll:edit(s.p2)
   paw.ui.focus("pianoroll")
   roll.pitch, roll.beat = 84, 0
@@ -336,7 +336,7 @@ test("search: the live grep picker finds any text, and goes there", function()
   eq(#lines, 1, "one text holds lo")
   has(lines[1], "lyric", "a lyric")
   paw.keymap.feed("<CR>")
-  eq(paw.ui.views.pianoroll.clip_id, s.pc.id, "Enter goes to the note")
+  eq(paw.ui.views:get("pianoroll").clip_id, s.pc.id, "Enter goes to the note")
 end)
 
 test("search: the notation extension's text and dynamics are text to search", function()
@@ -439,7 +439,7 @@ test("search: ]n and [n in the piano roll go to the notes of the same pitch", fu
   local t = paw.add_track({ name = "T" })
   local c =
     t:add_clip({ start = 0, length = 8, notes = { { "C4", 0, 1 }, { "D4", 1, 1 }, { "C4", 3, 1 }, { "C4", 6, 1 } } })
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   roll:edit(c)
   T.after(function()
     roll.clip_id = nil

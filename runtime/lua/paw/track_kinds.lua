@@ -21,7 +21,33 @@
 -- extension, the track is an ordinary one, and `K` says which kind it was.
 local api = paw.api
 
-local M = { kinds = {}, order = {} }
+local M = { order = {} }
+
+--- Offer the kind `name` in `M.order` and in the menu that makes a track,
+--- or take it away when `spec` is nil.
+local function offer(name, spec)
+  local at
+  for i, other in ipairs(M.order) do
+    if other == name then at = i end
+  end
+  if spec and not at then
+    M.order[#M.order + 1] = name
+  elseif not spec and at then
+    table.remove(M.order, at)
+  end
+  local menu = paw.frontend.menus.timeline
+  for i = #menu, 1, -1 do
+    if menu[i].track_kind == name then table.remove(menu, i) end
+  end
+  if spec then
+    local label = "New " .. spec.title:sub(1, 1):lower() .. spec.title:sub(2)
+    table.insert(menu, { label = label, command = "track.add kind=" .. name, track_kind = name })
+  end
+end
+
+--- The kinds by name, with the extension that defined each one. `define`
+--- puts one, `remove` takes it away.
+M.kinds = require("paw.registry").new("track_kinds", "kinds of track", { changed = offer })
 
 local function track_of(which)
   if type(which) == "table" then return which end
@@ -37,35 +63,19 @@ function M.define(name, spec)
   spec.name = name
   spec.title = spec.title or (name:sub(1, 1):upper() .. name:sub(2) .. " track")
   spec.letter = spec.letter or name:sub(1, 1):upper()
-  if not M.kinds[name] then M.order[#M.order + 1] = name end
-  M.kinds[name] = spec
-  local label = "New " .. spec.title:sub(1, 1):lower() .. spec.title:sub(2)
-  local menu = paw.frontend.menus.timeline
-  for i = #menu, 1, -1 do
-    if menu[i].track_kind == name then table.remove(menu, i) end
-  end
-  table.insert(menu, { label = label, command = "track.add kind=" .. name, track_kind = name })
+  M.kinds:put(name, spec)
   return spec
 end
 
 --- Forget a kind: no longer offered, nor in the menus. Tracks that keep
 --- it are ordinary tracks again until something defines it.
-function M.remove(name)
-  M.kinds[name] = nil
-  for i = #M.order, 1, -1 do
-    if M.order[i] == name then table.remove(M.order, i) end
-  end
-  local menu = paw.frontend.menus.timeline
-  for i = #menu, 1, -1 do
-    if menu[i].track_kind == name then table.remove(menu, i) end
-  end
-end
+function M.remove(name) M.kinds:remove(name) end
 
 --- The defined kinds, in the order they were defined.
 function M.list()
   local out = {}
   for i, name in ipairs(M.order) do
-    out[i] = M.kinds[name]
+    out[i] = M.kinds:get(name)
   end
   return out
 end
@@ -89,7 +99,7 @@ function M.of(which)
   meta = type(meta) == "table" and meta or {}
   if type(meta.kind) == "string" then return meta.kind end
   for _, name in ipairs(M.order) do
-    local spec = M.kinds[name]
+    local spec = M.kinds:get(name)
     if spec.is and spec.is(id) then return name end
   end
 end
@@ -98,13 +108,13 @@ end
 --- loaded extension defines).
 function M.spec(which)
   local name = M.of(which)
-  return name and M.kinds[name]
+  return name and M.kinds:get(name)
 end
 
 --- Make a track of `name`'s kind: keep the kind on it, then let the kind
 --- make it what it is. `args` go to `create`.
 function M.set(which, name, args)
-  local spec = M.kinds[name]
+  local spec = M.kinds:get(name)
   if not spec then error("no kind of track `" .. tostring(name) .. "`" .. M.known_words(), 2) end
   local track = track_of(which)
   local meta = track.meta or {}
@@ -119,7 +129,7 @@ end
 --- other options go to `create`.
 function M.add(name, opts)
   opts = opts or {}
-  local spec = M.kinds[name]
+  local spec = M.kinds:get(name)
   if not spec then error("no kind of track `" .. tostring(name) .. "`" .. M.known_words(), 2) end
   local track = paw.add_track({
     name = opts.name or spec.title:gsub("%s*[Tt]rack$", ""),
@@ -145,7 +155,7 @@ end
 function M.describe(which)
   local name = M.of(which)
   if not name then return nil end
-  local spec = M.kinds[name]
+  local spec = M.kinds:get(name)
   if not spec then return name .. " (no extension here defines it)" end
   local words = spec.describe and spec.describe(track_of(which).id)
   if words and words ~= "" then return spec.title .. " · " .. words end

@@ -28,19 +28,17 @@ local type KeymapModule = require("paw.keymap")
 
 local type Window = contracts.Window
 local type VZoom = contracts.VZoom
+local type registry = require("paw.registry")
 
 -- The parts of the modules that this one reads.
 local record Layout
   current: function(): Window
   bound: function(name: string): Window
 end
-local record Views
-  arrange: contracts.ArrangeView
-end
 local record Ui
   focused: string
   drawing_win: Window
-  views: Views
+  views: registry.Registry<contracts.View>
 end
 local record Groups
   rows: function(): {integer}
@@ -226,7 +224,7 @@ end
 local function track_rows_now(): integer
   local now = M.track_rows() or math.tointeger(paw.opt.track_height)
   if not now then
-    local g = paw.ui.views.arrange.geometry
+    local g = (paw.ui.views:get("arrange") as contracts.ArrangeView).geometry
     now = g and g.th or 3
   end
   return now

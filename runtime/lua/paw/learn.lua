@@ -403,7 +403,7 @@ end
 function M.under_cursor()
   local ui = paw.ui
   if ui.focused == "devices" then
-    local panel = ui.views.devices
+    local panel = ui.views:get("devices")
     local row = panel:rows()[panel.row]
     if row and row.param then
       return {

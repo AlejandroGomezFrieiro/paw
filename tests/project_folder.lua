@@ -214,7 +214,7 @@ test(
     api.clip_note_set(riff, 1, { velocity = 50 })
     api.track_set(bass, "volume", -10)
     api.undo_checkpoint()
-    paw.ui.views.pianoroll:edit(paw.clip(riff))
+    paw.ui.views:get("pianoroll"):edit(paw.clip(riff))
     paw.flush()
     T.keys(":ls<CR>")
     local files = {}
@@ -333,7 +333,7 @@ test("a clip file opens alone in the piano roll, plays on a track of its own, an
   eq(paw.ui.message.text, "opened riff.midi2 alone: `:w` writes it back, `:w song` saves a project of it", "said")
   eq(#paw.tracks(), 1, "one track")
   eq(paw.tracks()[1]:devices()[1].kind, "synth", "the default instrument")
-  eq(paw.ui.views.pianoroll:clip().name, "riff", "the piano roll shows it")
+  eq(paw.ui.views:get("pianoroll"):clip().name, "riff", "the piano roll shows it")
   eq(api.project_get().modified, false, "nothing changed yet")
   local clip = paw.tracks()[1]:clips()[1]
   api.clip_note_set(clip.id, 1, { pitch = 72 })

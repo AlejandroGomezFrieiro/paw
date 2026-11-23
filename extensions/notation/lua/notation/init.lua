@@ -2120,7 +2120,7 @@ end
 function view.target()
   local focused = paw.ui.focused
   if focused == "pianoroll" then
-    local c = paw.ui.views.pianoroll:clip()
+    local c = paw.ui.views:get("pianoroll"):clip()
     if c then return c end
   end
   if focused == "notation" and view:clip() then return view:clip() end

@@ -30,7 +30,7 @@ local type Grab = Roll.Grab
 
 -- The declaration of `paw` (paw.d.tl) does not name the types of this
 -- module, so the typed global `paw` is in scope here.
-local view = paw.ui.views.pianoroll as PianoRoll
+local view = paw.ui.views:get("pianoroll") as PianoRoll
 local A = paw.frontend.act
 
 --- A controller move shown on the strip, and its place among the clip's.

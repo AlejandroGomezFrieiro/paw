@@ -106,7 +106,7 @@ end)
 
 test("sampler: a sampler track is a kind of track, S in the header", function()
   load()
-  local kind = paw.track_kinds.kinds.sampler
+  local kind = paw.track_kinds.kinds:get("sampler")
   eq(kind and kind.letter, "S", "the letter")
   eq(kind.title, "Sampler track", "the title")
 end)

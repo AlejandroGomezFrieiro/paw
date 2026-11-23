@@ -196,7 +196,7 @@ end
 local plan -- the last measurement: { track, results }
 
 paw.command("art.measure", function()
-  local track = paw.ui.views.pianoroll:clip() and paw.ui.views.pianoroll:clip():get().track
+  local track = paw.ui.views:get("pianoroll"):clip() and paw.ui.views:get("pianoroll"):clip():get().track
     or (paw.cursor.track() and paw.cursor.track().id)
   if not track then error("no track here", 0) end
   local results = M.measure(track)
@@ -207,7 +207,7 @@ end, {
 })
 
 paw.command("art.measure!", function()
-  local track = paw.ui.views.pianoroll:clip() and paw.ui.views.pianoroll:clip():get().track
+  local track = paw.ui.views:get("pianoroll"):clip() and paw.ui.views:get("pianoroll"):clip():get().track
     or (paw.cursor.track() and paw.cursor.track().id)
   if not track then error("no track here", 0) end
   local results = plan and plan.track == track and plan.results or M.measure(track)

@@ -49,7 +49,7 @@ local function windows()
 end
 
 test("the pager breaks a word longer than its width instead of hanging", function()
-  local wrap = paw.ui.views.pager.wrap
+  local wrap = paw.ui.views:get("pager").wrap
   local long = "saved " .. string.rep("a/", 40) .. "song.json"
   local rows = wrap(long, 20)
   for _, row in ipairs(rows) do

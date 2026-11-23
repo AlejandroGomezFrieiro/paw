@@ -7,7 +7,7 @@
 -- `V` over rows and any of these does it to them all, and `.` again.
 local api, util = paw.api, paw.util
 local keymap = paw.keymap
-local panel = paw.ui.views.devices
+local panel = paw.ui.views:get("devices")
 local M = {}
 
 local function rows() return panel:rows() end

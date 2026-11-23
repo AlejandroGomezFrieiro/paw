@@ -266,7 +266,7 @@ test("pick: devices adds to the track, and device.add asks with it", function()
   paw.ui.focus("arrange")
   choose("track_devices", "synth")
   eq(paw.ui.focused, "devices", "the device panel")
-  eq(paw.ui.views.devices:selected().kind, "synth", "on the device chosen")
+  eq(paw.ui.views:get("devices"):selected().kind, "synth", "on the device chosen")
   paw.ui.focus("arrange")
 end)
 

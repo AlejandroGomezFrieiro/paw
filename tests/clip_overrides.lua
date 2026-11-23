@@ -14,7 +14,7 @@ local function linked()
   paw.ui.focus("arrange")
   T.after(function()
     paw.keymap.feed("<Esc><Esc>")
-    paw.ui.views.pianoroll.clip_id = nil
+    paw.ui.views:get("pianoroll").clip_id = nil
     paw.ui.hide("pianoroll")
     paw.ui.focus("arrange")
   end)
@@ -69,7 +69,7 @@ test("in the piano roll of a transposed copy, a note added at E4 is C#4 in the s
   local _, riff, copy = linked()
   keys(":clip.override transpose=3<CR>")
   keys("<CR>")
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   eq(roll.clip_id, copy.id, "the roll is open on the copy")
   roll.pitch, roll.beat = paw.music.pitch("E4"), 0.5
   keys("<CR>")
@@ -96,7 +96,7 @@ test(":clip.override clear and u put the overrides back; :w and a reopen keep th
   keys("<C-r>")
   keys("K")
   local said = {}
-  for _, line in ipairs(paw.ui.views.pager.lines) do
+  for _, line in ipairs(paw.ui.views:get("pager").lines) do
     said[#said + 1] = line.text
   end
   said = table.concat(said, "\n")

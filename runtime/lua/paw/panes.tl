@@ -177,7 +177,7 @@ end
 
 --- How a pane is drawn: by the frontend itself, painted, or in cells.
 local function kind_of(name: string): Kind
-  local view = paw.ui.views[name]
+  local view = paw.ui.views:get(name)
   if M.native[name] then
     return "native"
   end
@@ -251,7 +251,7 @@ function M.state(): State
   for _, r in ipairs(rects) do
     local win = r.win and L.find_id(u.layout, r.win)
     if win then
-      local view = paw.ui.views[win.view]
+      local view = paw.ui.views:get(win.view)
       out.panes[#out.panes + 1] = {
         win = win.id,
         view = win.view,
@@ -291,7 +291,7 @@ function M.focus(id: integer)
   if not win or paw.ui.float then
     return
   end
-  local view = paw.ui.views[win.view]
+  local view = paw.ui.views:get(win.view)
   if not view or view.focusable == false then
     return
   end
@@ -349,7 +349,7 @@ function M.pointer(id: integer, event: PointerEvent, drawn?: CanvasModule.OpenVi
   if event.kind == "down" then
     M.focus(id)
   end
-  local view = paw.ui.views[win.view]
+  local view = paw.ui.views:get(win.view)
   if not view then
     return
   end

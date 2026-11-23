@@ -28,7 +28,7 @@ paw.command("mood", fn, { complete = function(text, info) return { "calm", "loud
 The completers are `commands`, `tracks`, `devices`, `track_devices`,
 `options`, `views`, `pickers`, `files`, `audio_files` (sound and MIDI
 files), `projects` and `openable` (projects, MIDI files and sound files).
-You can add more to `paw.commands.completers`, and `paw.commands.complete(line)` lists the completions of a line.
+You can add more with `paw.commands.completers:put(name, fn)`, and `paw.commands.complete(line)` lists the completions of a line.
 
 ### Adjustable parameters
 

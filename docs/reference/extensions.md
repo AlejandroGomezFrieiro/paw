@@ -100,11 +100,35 @@ An extension can also map a key of the core again. When the new mapping has a di
 
 ### Registries
 
-A registry holds entries by name and records which extension put each entry there. `paw.pick.sources` is a registry. A module or an extension that takes entries from other extensions can make its own registry, and then `:extensions`, `paw.ext.provides` and `paw.ext.unload` work with it without any other change.
+A registry holds entries by name and records which extension put each entry there. The functions that make an entry, such as `paw.command` and `paw.ui.view`, put it in its registry, and you read an entry with `get`, for example `paw.ui.views:get("pianoroll")`. paw has the following registries.
+
+| Registry | Entries |
+| --- | --- |
+| `paw.commands.specs` | commands, by name |
+| `paw.commands.completers` | completers of command arguments |
+| `paw.ui.views` | views |
+| `paw.layout.types` | buffer types |
+| `paw.textbuf.kinds` | kinds of text buffer |
+| `paw.track_kinds.kinds` | kinds of track |
+| `paw.clip_kinds.kinds` | kinds of clip |
+| `paw.ui.roles` | roles |
+| `paw.pick.sources` | picker sources |
+| `paw.statusline.components` | status line components |
+| `paw.query.fields` | query fields, by kind and name (`"note pitch"`) |
+| `paw.ex.fields` | fields of `:s` and `:g` |
+| `paw.ex.views` | views of ranges |
+| `paw.trackcolumn.components` | parts of the track column |
+| `paw.trackcolumn.signs` | signs of the track column |
+| `paw.ruler.labels` | parts of the bar labels |
+| `paw.insert.kinds` | keys of insert mode in the arrange view |
+| `paw.grep.sources` | grep sources |
+| `paw.curves.providers` | curve providers |
+
+A module or an extension that takes entries from other extensions can make its own registry, and then `:extensions`, `paw.ext.provides` and `paw.ext.unload` work with it without any other change.
 
 | Name | Effect |
 | --- | --- |
-| `paw.registry.new(kind, title, options)` | makes a registry. `kind` is its name in `paw.ext.provides`, and `title` is its name in `:extensions`. `options.label(key, value)` gives the words for an entry, and `options.changed(key, value)` runs after the entry at a key changes or goes away |
+| `paw.registry.new(kind, title, options)` | makes a registry. `kind` is its name in `paw.ext.provides`, and `title` is its name in `:extensions`. `options.label(key, value)` gives the words for an entry, or nil to leave it out of `:extensions`, and `options.changed(key, value)` runs after the entry at a key changes or goes away |
 | `reg:put(key, value)` | puts an entry at `key`. Its owner is the extension whose code calls `put`, or no extension for the core and your configuration |
 | `reg:get(key)` | gives the entry at `key`, or nil |
 | `reg:remove(key)` | takes away the entry at `key` and gives it. The entry that it replaced comes back |

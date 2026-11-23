@@ -66,7 +66,7 @@ cursor, as Vim repeats an insert.]],
       keys = { "k", "k", "k" },
       -- The view keeps its pitch while it is closed: an earlier session
       -- can have left it on G4.
-      check = function(_, look) return look.focused() == "pianoroll" and paw.ui.views.pianoroll.pitch == 67 end,
+      check = function(_, look) return look.focused() == "pianoroll" and paw.ui.views:get("pianoroll").pitch == 67 end,
       done = "The cursor is on G4. The title row shows the name of the pitch, and the name on the left is highlighted.",
       hint = "Look at the title row of the piano roll, which shows the pitch under the cursor.",
     },
@@ -92,7 +92,7 @@ cursor, as Vim repeats an insert.]],
     {
       say = "Press `4l` to move one beat. Then press `i` to draw a note there.",
       keys = { "4l", "i" },
-      check = function() return paw.keymap.mode == "i" and paw.ui.views.pianoroll.beat == 1 end,
+      check = function() return paw.keymap.mode == "i" and paw.ui.views:get("pianoroll").beat == 1 end,
       done = "The mode is INSERT at beat 2, and a note starts there with no length yet. The title row shows the pitch and the length of the note.",
     },
     {

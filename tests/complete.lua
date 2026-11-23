@@ -7,7 +7,7 @@ local T = ...
 local eq = T.eq
 local api = paw.api
 local complete = paw.complete
-local roll = paw.ui.views.pianoroll
+local roll = paw.ui.views:get("pianoroll")
 
 local log = {}
 
@@ -450,7 +450,7 @@ test(
   function()
     local _, clip = start()
     with({ fixed("fixed", next_bar) }, {}, function()
-      local tools = paw.ui.views.pianoroll:toolbar()
+      local tools = paw.ui.views:get("pianoroll"):toolbar()
       eq(tools[1] and tools[1].label, "Suggest", "the switch for automatic suggestions")
       eq(tools[1].on, false, "off here")
       paw.frontend.act[tools[1].act](clip.id)

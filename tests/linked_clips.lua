@@ -13,7 +13,7 @@ local function song()
   paw.ui.focus("arrange")
   T.after(function()
     paw.keymap.feed("<Esc><Esc>")
-    paw.ui.views.pianoroll.clip_id = nil
+    paw.ui.views:get("pianoroll").clip_id = nil
     paw.ui.hide("pianoroll")
     paw.ui.focus("arrange")
   end)
@@ -58,8 +58,8 @@ test(
     local copy = api.clip_list(t.id)[2].id
     eq(paw.cursor.beat, 4, "the cursor on the copy")
     keys("<CR>")
-    eq(paw.ui.views.pianoroll.clip_id, copy, "the roll is open on the copy")
-    local roll = paw.ui.views.pianoroll
+    eq(paw.ui.views:get("pianoroll").clip_id, copy, "the roll is open on the copy")
+    local roll = paw.ui.views:get("pianoroll")
     roll.pitch, roll.beat = 72, 2
     keys("<CR>")
     eq(counts(copy, riff.id), "5 5", "the note is in the copy and in the clip")
@@ -108,7 +108,7 @@ test("K on a linked clip names the link and its clips, and the arrange view mark
   keys("<Space>cl")
   keys("K")
   local said = {}
-  for _, line in ipairs(paw.ui.views.pager.lines) do
+  for _, line in ipairs(paw.ui.views:get("pager").lines) do
     said[#said + 1] = line.text
   end
   said = table.concat(said, "\n")

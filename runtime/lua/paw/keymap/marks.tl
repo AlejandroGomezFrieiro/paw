@@ -9,6 +9,7 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local type contracts = require("paw.contracts")
+local type registry = require("paw.registry")
 local type partial = require("paw.partial")
 local type SeatsModule = require("paw.seats")
 local type UtilModule = require("paw.util")
@@ -39,7 +40,7 @@ end
 -- module declares only the parts of them that it reads.
 local record Ui
   focused: string
-  views: {string: contracts.View}
+  views: registry.Registry<contracts.View>
 end
 local record Scope
   current: function(): contracts.Scope
@@ -77,7 +78,7 @@ paw.seats.keep(
 
 --- The grid of the focused view: the cursor that keys move, if the view has one.
 function M.grid(): contracts.Grid
-  local view = paw.ui.views[paw.ui.focused]
+  local view = paw.ui.views:get(paw.ui.focused)
   return view and view.grid
 end
 

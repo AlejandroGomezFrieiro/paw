@@ -127,7 +127,7 @@ test("zooming draws the waveform again from the peaks, and the hit stays at its 
   local function column_of_hit(zoom)
     paw.opt.zoom = zoom
     local lines = api.ui_snapshot(100, 30)
-    local hw = paw.ui.views.arrange.geometry.hw
+    local hw = paw.ui.views:get("arrange").geometry.hw
     for y, line in ipairs(lines) do
       if line:find("burst", 1, true) or (line:find("hits", 1, true) and line:find("▏", 1, true)) then
         local rows = { lines[y + 1], lines[y + 2], lines[y + 3] }

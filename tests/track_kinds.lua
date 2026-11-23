@@ -85,8 +85,7 @@ test("a kind of track is saved with the track, and without its extension the tra
   track = paw.tracks()[1]
   eq(paw.track_kinds.of(track.id), "bleep", "the kind comes back with the project")
   -- As if the extension that defines it were not loaded.
-  local spec = paw.track_kinds.kinds.bleep
-  paw.track_kinds.kinds.bleep = nil
+  local spec = paw.track_kinds.kinds:remove("bleep")
   eq(paw.track_kinds.describe(track.id), "bleep (no extension here defines it)", "K says what it was")
   paw.cursor.set_track(track)
   paw.cursor.set_beat(1)
@@ -94,7 +93,7 @@ test("a kind of track is saved with the track, and without its extension the tra
   paw.cmd("clip.edit")
   eq(paw.ui.focused, "pianoroll", "its clips open in the piano roll")
   eq(#opened, 0, "not in the kind's editor")
-  paw.track_kinds.kinds.bleep = spec
+  paw.track_kinds.kinds:put("bleep", spec)
   paw.ui.focus("arrange")
   paw.track_kinds.clear(track)
   eq(paw.track_kinds.of(track.id), nil, "a track made ordinary again")

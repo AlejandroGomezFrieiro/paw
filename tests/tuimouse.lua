@@ -7,8 +7,8 @@ local test, eq, near, fresh = T.test, T.eq, T.near, T.fresh
 local api = paw.api
 
 local W, H = 140, 44
-local arrange = paw.ui.views.arrange
-local roll = paw.ui.views.pianoroll
+local arrange = paw.ui.views:get("arrange")
+local roll = paw.ui.views:get("pianoroll")
 
 local function shot(height) return api.ui_snapshot(W, height or H) end
 local function screen() return table.concat(shot(), "\n") end
@@ -628,7 +628,7 @@ test("a click on empty grid draws a note of the roll's length, and a drag draws 
   m("drag", x + 7, y)
   m("up", x + 7, y)
   eq(notes_of(clip), "64@1+0.25 67@2+1", "dragged across eight cells, a beat long")
-  paw.ui.views.pianoroll:set_step(nil)
+  paw.ui.views:get("pianoroll"):set_step(nil)
 end)
 
 test("a click on a note chooses it, a drag moves it, and Ctrl leaves a copy behind", function()
@@ -841,7 +841,7 @@ local function mixed()
   for _, r in ipairs(paw.ui.rects) do
     if r.name == "mixer" then rect = r end
   end
-  local s = paw.ui.views.mixer.geometry.strips[1]
+  local s = paw.ui.views:get("mixer").geometry.strips[1]
   -- From the strip's own lines (under the title bar) to the screen.
   local function at(x, y) return rect.x + x, rect.y + 1 + y end
   return a, b, s, at
@@ -902,7 +902,7 @@ test(
     for _, r in ipairs(paw.ui.rects) do
       if r.name == "devices" then rect = r end
     end
-    local panel = paw.ui.views.devices
+    local panel = paw.ui.views:get("devices")
     -- The " on " chip at the right of the device's line.
     local x, y = rect.x + rect.w - 4, rect.y + 1
     click(x, y)

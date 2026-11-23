@@ -5,7 +5,7 @@ local util = paw.util
 local command, map = paw.command, paw.keymap.set
 local cursor, transport = paw.cursor, paw.transport
 local keymap, edit = paw.keymap, paw.edit
-local roll = paw.ui.views.pianoroll
+local roll = paw.ui.views:get("pianoroll")
 local common = require("paw.defaults.common")
 local motion, need_track, amap = common.motion, common.need_track, common.amap
 
@@ -236,9 +236,9 @@ amap("*", function()
   local clip = cursor.clip()
   if clip then keymap.search(clip.name, 1) end
 end, "Next clip with this one's name", far)
-amap("zz", function() paw.ui.views.arrange:center() end, "Scroll the cursor to the middle")
-amap("zs", function() paw.ui.views.arrange:place(false) end, "Scroll the cursor to the left")
-amap("ze", function() paw.ui.views.arrange:place(true) end, "Scroll the cursor to the right")
+amap("zz", function() paw.ui.views:get("arrange"):center() end, "Scroll the cursor to the middle")
+amap("zs", function() paw.ui.views:get("arrange"):place(false) end, "Scroll the cursor to the left")
+amap("ze", function() paw.ui.views:get("arrange"):place(true) end, "Scroll the cursor to the right")
 -- Groups of tracks.
 map("<leader>tg", "track.group", { view = "arrange", mode = nx, desc = "Group the selected tracks" })
 amap("<leader>tG", "track.ungroup", "Take the track out of its group; dissolve a group")
@@ -333,8 +333,8 @@ amap("<leader>ts", "send", "Send the track's sound to another as well")
 amap("<leader>to", "track.output", "Choose where the track's sound goes")
 amap("zM", "fold.closeall", "Fold every group and fold of this window")
 amap("zR", "fold.openall", "Open every group and fold of this window")
-amap("zl", function(ctx) paw.ui.views.arrange:scroll_by(ctx.count or 1) end, "Scroll a bar later")
-amap("zh", function(ctx) paw.ui.views.arrange:scroll_by(-(ctx.count or 1)) end, "Scroll a bar earlier")
+amap("zl", function(ctx) paw.ui.views:get("arrange"):scroll_by(ctx.count or 1) end, "Scroll a bar later")
+amap("zh", function(ctx) paw.ui.views:get("arrange"):scroll_by(-(ctx.count or 1)) end, "Scroll a bar earlier")
 
 -- Arrange: text objects.
 local function aobject(lhs, fn, desc) keymap.textobject(lhs, fn, { view = "arrange", desc = desc }) end
@@ -1155,7 +1155,7 @@ end
 map("<leader>li", "lsp info", { desc = "The language servers and what they can do" })
 command(
   "diagnostics",
-  function(ctx) paw.diagnostic.list(ctx.args[1] == "clip" and paw.ui.views.pianoroll.clip_id or nil) end,
+  function(ctx) paw.diagnostic.list(ctx.args[1] == "clip" and paw.ui.views:get("pianoroll").clip_id or nil) end,
   {
     desc = "List the diagnostics, grouped by what they are about, or (`diagnostics clip`) the piano roll's; Enter goes to one",
     complete = { "clip" },

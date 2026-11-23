@@ -27,10 +27,11 @@ local type CursorModule = require("paw.cursor")
 local type MarkersModule = require("paw.markers")
 local type ScopeModule = require("paw.scope")
 local type GroupsModule = require("paw.groups")
+local type registry = require("paw.registry")
 
 --- `paw.track_kinds` (paw/track_kinds.lua), the part this module calls.
 local record TrackKinds
-  kinds: {string: contracts.TrackKind}
+  kinds: registry.Registry<contracts.TrackKind>
   add: function(name: string, opts: {string: string}): objects.Track
 end
 
@@ -467,7 +468,7 @@ local function first_track(): objects.Track
   local kind = opt.nest_track as string
   local kinds = (paw.track_kinds as TrackKinds)
   if kind and kind ~= "" and kind ~= "track" then
-    if not kinds.kinds[kind] then
+    if not kinds.kinds:get(kind) then
       error("nest_track is `" .. kind .. "`, which is no kind of track here", 0)
     end
     return kinds.add(kind, {})

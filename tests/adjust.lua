@@ -11,7 +11,7 @@ local function song()
   local t = T.three_clips()
   T.after(function()
     paw.keymap.feed("<Esc><Esc>")
-    paw.ui.views.pianoroll.clip_id = nil
+    paw.ui.views:get("pianoroll").clip_id = nil
     paw.ui.hide("pianoroll")
     paw.ui.focus("arrange")
   end)

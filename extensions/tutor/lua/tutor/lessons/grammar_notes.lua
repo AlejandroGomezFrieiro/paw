@@ -47,14 +47,14 @@ pitch. `/d4` finds a pitch by its name, and `n` goes to the next match.]],
   at = function(look)
     local lead = paw.track("Lead")
     paw.cursor.set_track(lead)
-    paw.ui.views.pianoroll:edit(look.clip(lead, "riff"))
+    paw.ui.views:get("pianoroll"):edit(look.clip(lead, "riff"))
   end,
   steps = {
     {
       say = "The cursor is on the first note. `w` goes to the next note, at any pitch. Press `w` two times.",
       keys = { "w", "w" },
       check = function()
-        local roll = paw.ui.views.pianoroll
+        local roll = paw.ui.views:get("pianoroll")
         return roll.beat == 2 and roll.pitch == 64
       end,
       done = "The cursor is on E4, which is the third note.",

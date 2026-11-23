@@ -100,7 +100,7 @@ test("guide: add an effect and change its settings", function()
   eq(paw.ui.focused, "devices", "Space dd shows the device panel")
   keys("w")
   local function row()
-    local device, r = paw.ui.views.devices:selected()
+    local device, r = paw.ui.views:get("devices"):selected()
     return (r and r.param and r.param.key) or (r and r.device and "device " .. r.device.kind) or tostring(device)
   end
   eq(row(), "device compressor", "w goes to the next device")

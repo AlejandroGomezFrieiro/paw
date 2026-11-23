@@ -163,6 +163,17 @@ end
 -- extension's, kept with what was there before, so that unloading it puts
 -- that back. `put(key, value)` sets an entry, nil removes it. `label` says
 -- what the entry is in a few words.
+--
+-- Why each one stays here:
+-- - hooks, timers and keys: the leak check of tests/suite.lua reads them,
+--   and the work on the manual clock of the tests changes that check.
+--   key_groups and keybar go with keys.
+-- - options: an option goes with its value, and `undefine` puts back the
+--   definition of the core. A registry needs a `changed` that does this.
+-- - device_dirs and plugin_dirs: `devices_in_use` below reads their items.
+-- - addresses, complete, triggers, layers, languages, health, formats and
+--   lsp: not moved yet. Each one is a table of one module, as the moved
+--   ones were, and a later change moves them.
 
 local function keyed(kind, title, get, put, label)
   return {
@@ -200,19 +211,6 @@ local function split(key) return key:match("^(%S+) (.*)$") end
 -- after it loads them, before an extension loads.
 M.registries = {
   {
-    kind = "commands",
-    title = "commands",
-    snapshot = function()
-      local out = {}
-      for _, spec in ipairs(paw.commands.list()) do
-        out[spec.name] = spec
-      end
-      return out
-    end,
-    put = function(key, value) paw.commands.put(key, value) end,
-    label = function(key) return ":" .. key end,
-  },
-  {
     kind = "keys",
     title = "keys",
     snapshot = function()
@@ -239,22 +237,6 @@ M.registries = {
       groups[scope][keys] = value
     end,
   },
-  {
-    kind = "views",
-    title = "views",
-    snapshot = function()
-      local out = {}
-      -- A buffer type's view is the buffer type's, listed as that.
-      for name, view in pairs(paw.ui.views) do
-        if not view.buftype then out[name] = view end
-      end
-      return out
-    end,
-    put = function(key, value)
-      paw.ui.views[key] = value
-      api.ui_redraw()
-    end,
-  },
   -- The line of keys at the bottom that a view of its shows, by view and mode.
   {
     kind = "keybar",
@@ -269,102 +251,6 @@ M.registries = {
       api.ui_redraw()
     end,
   },
-  keyed("buftypes", "buffer types", function() return paw.layout.types end, function(key, value)
-    paw.layout.types[key] = value
-    if value then
-      paw.layout.buftype(key, value)
-    else
-      paw.ui.views[key] = nil
-    end
-  end),
-  keyed("textbuf_kinds", "text buffer kinds", function() return paw.textbuf and paw.textbuf.kinds end),
-  keyed("track_kinds", "kinds of track", function() return paw.track_kinds.kinds end, function(key, value)
-    if value then
-      paw.track_kinds.define(key, value)
-    else
-      paw.track_kinds.remove(key)
-    end
-  end),
-  keyed("clip_kinds", "kinds of clip", function() return paw.clip_kinds.kinds end, function(key, value)
-    if value then
-      paw.clip_kinds.define(key, value)
-    else
-      paw.clip_kinds.remove(key)
-    end
-  end),
-  keyed("roles", "roles", function() return paw.roles and paw.roles.registry end, function(key, value)
-    paw.roles.registry[key] = value
-    -- Frontends that paint roles learn the set changed.
-    paw.roles.version = paw.roles.version + 1
-    api.ui_redraw()
-  end),
-  {
-    kind = "query_fields",
-    title = "query fields",
-    snapshot = two_level(function() return paw.query and paw.query.fields end),
-    put = function(key, value)
-      local kind, name = split(key)
-      paw.query.fields[kind] = paw.query.fields[kind] or {}
-      paw.query.fields[kind][name] = value
-    end,
-  },
-  keyed("ex_fields", "fields of :s and :g", function() return paw.ex and paw.ex.fields end),
-  keyed("ex_views", "views of ranges", function() return paw.ex and paw.ex.views end),
-  keyed("completers", "completers", function() return paw.commands.completers end),
-  -- The parts of the track column, its signs and the parts of the bar
-  -- labels: `set` puts a changed copy in, so unloading puts back the part
-  -- that was there (a built-in one too), and takes away a new one with its
-  -- name in `paw.opt.trackcolumn` or `paw.opt.barlabel`.
-  keyed(
-    "trackcolumn",
-    "parts of the track column",
-    function() return paw.trackcolumn and paw.trackcolumn.components end,
-    function(key, value)
-      if value then
-        paw.trackcolumn.add(key, value)
-      else
-        paw.trackcolumn.remove(key)
-      end
-    end
-  ),
-  keyed(
-    "trackcolumn_signs",
-    "signs of the track column",
-    function() return paw.trackcolumn and paw.trackcolumn.signs end,
-    function(key, value) paw.trackcolumn.sign(key, value) end
-  ),
-  keyed(
-    "barlabel",
-    "parts of the bar labels",
-    function() return paw.ruler and paw.ruler.labels end,
-    function(key, value)
-      if value then
-        paw.ruler.add(key, value)
-      else
-        paw.ruler.remove(key)
-      end
-    end
-  ),
-  -- The keys of the arrange view's insert mode: `set` puts a changed copy
-  -- in, so unloading puts back the kind that was on the key.
-  keyed("insert", "keys of insert mode", function() return paw.insert and paw.insert.kinds end, function(key, value)
-    if value then
-      paw.insert.add(key, value)
-    else
-      paw.insert.remove(key)
-    end
-  end, function(key) return key .. " (insert mode)" end),
-  keyed("grep", "grep sources", function() return paw.grep and paw.grep.sources end, function(key, value)
-    local g = paw.grep
-    if value and not g.sources[key] then g.order[#g.order + 1] = key end
-    g.sources[key] = value
-    if not value then
-      for i = #g.order, 1, -1 do
-        if g.order[i] == key then table.remove(g.order, i) end
-      end
-    end
-  end),
-  keyed("curves", "curve providers", function() return paw.curves and paw.curves.providers end),
   keyed("addresses", "address schemes", function() return paw.address and paw.address.schemes end),
   keyed("complete", "completion sources", function() return paw.complete and paw.complete.sources end),
   keyed("triggers", "controller buttons", function() return paw.learn and paw.learn.triggers end),
