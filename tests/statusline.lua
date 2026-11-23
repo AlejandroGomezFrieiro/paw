@@ -152,7 +152,7 @@ test("statusline: an extension adds a component and a script that fails is said,
   eq(#l.errors, 2, "two things said: " .. paw.inspect(l.errors))
   eq(l.errors[1]:find("broken on purpose", 1, true) ~= nil, true, "what went wrong")
   eq(l.errors[2]:find("nothing named so", 1, true) ~= nil, true, "and what was not found")
-  paw.statusline.components.pulse = nil
+  paw.statusline.components:remove("pulse")
 end)
 
 test("statusline: a component with a key is called again only when its key changes", function()
@@ -173,7 +173,7 @@ test("statusline: a component with a key is called again only when its key chang
   key = "two"
   line()
   eq(calls, 2, "again when the key changed")
-  paw.statusline.components.counted = nil
+  paw.statusline.components:remove("counted")
 end)
 
 test("statusline: the project's name is cut before anything is dropped", function()

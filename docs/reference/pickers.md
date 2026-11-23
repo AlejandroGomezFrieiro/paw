@@ -164,7 +164,7 @@ paw.pick({
 
 | Function | Effect |
 | --- | --- |
-| `paw.pick.sources` | The pickers by name. A source has the fields above and a `desc`, or is a function that gives them. See [How to add a picker](../how-to/add-a-picker.md). |
+| `paw.pick.sources` | The pickers by name, in a registry (see [Extensions](extensions.md#registries)). `paw.pick.sources:put(name, source)` adds one, `:get(name)` gives one and `:remove(name)` takes one away. A source has the fields above and a `desc`, or is a function that gives them. See [How to add a picker](../how-to/add-a-picker.md). |
 | `paw.pick.show(location, how)` | Opens a location next to, below or in a tab, as `Ctrl-v` does. |
 | `paw.pick.match(query, line, true, mode)` | Gives the score and the positions that match. |
 | `paw.pick.filter(query, items, format, primary, mode)` | Gives the items that match, best first. |

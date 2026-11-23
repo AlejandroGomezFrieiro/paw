@@ -3,24 +3,24 @@
 You can add a picker of your own in your `init.lua` or in an extension.
 The example on the page lets you choose a tempo from a list.
 
-1. Add a source to `paw.pick.sources`, with a `desc`, a `title`, the
+1. Put a source in `paw.pick.sources`, with a `desc`, a `title`, the
    `items` and `on_choose`:
 
    ```lua
-   paw.pick.sources.tempo = {
+   paw.pick.sources:put("tempo", {
      desc = "Set the tempo from a list",
      title = "Tempo",
      items = function()
        return { { bpm = 90, text = "90 hip hop" }, { bpm = 124, text = "124 house" }, { bpm = 174, text = "174 drum and bass" } }
      end,
      on_choose = function(item) paw.project.tempo = item.bpm end,
-   }
+   })
    ```
 
 2. If you want to show more about the selected line, add a `preview`:
 
    ```lua
-   paw.pick.sources.tempo.preview = function(item)
+   paw.pick.sources:get("tempo").preview = function(item)
      return { "now " .. paw.project.tempo .. " bpm", "then " .. item.bpm .. " bpm" }
    end
    ```

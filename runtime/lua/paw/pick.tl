@@ -48,8 +48,9 @@
 -- `audition_delay(item, ms)` may return a longer rest for an item that is
 -- slow to make ready.
 --
--- `paw.pick("tracks")` opens a source by name. `paw.pick.sources` holds them:
--- add a table of the same fields with a `desc`, or a function returning one.
+-- `paw.pick("tracks")` opens a source by name. `paw.pick.sources` holds them
+-- (a paw.registry): `paw.pick.sources:put(name, source)` adds a table of the
+-- same fields with a `desc`, or a function returning one.
 -- The picker of pickers (`paw.pick("pickers")`) lists every source.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua. A picker's
@@ -73,6 +74,7 @@ local type CommandsModule = require("paw.commands")
 local type RegexModule = require("paw.regex")
 local type MidifileModule = require("paw.midifile")
 local sources = require("paw.pick.sources")
+local registry = require("paw.registry")
 local type SourcesModule = require("paw.pick.sources")
 
 --- An item of a picker that is a table, as this module reads one that the
@@ -310,8 +312,8 @@ local record M
   type FileOptions = FileOptions
   type FileItem = FileItem
   --- The pickers by name, for `paw.pick(name)`: a picker, or a function
-  --- that makes one.
-  sources: {string: contracts.PickEntry}
+  --- that makes one. `paw.pick.sources:put(name, source)` adds one.
+  sources: registry.Registry<contracts.PickEntry>
   --- The ways a query is read.
   MODES: {Mode}
   --- The keys every picker has, by key.
@@ -322,7 +324,7 @@ local record M
   open: function<T>(spec: string | contracts.PickSource<T>, extra?: contracts.PickExtra): Picker
   metamethod __call: function<T>(self: M, spec: string | contracts.PickSource<T>, extra?: contracts.PickExtra): Picker
 end
-M.sources = {}
+M.sources = registry.new("pickers", "picker sources")
 
 local byte, lower, sub = string.byte, string.lower, string.sub
 local floor, max, min = math.floor, math.max, math.min
@@ -1518,7 +1520,7 @@ function M.open<T>(given: string | contracts.PickSource<T>, extra?: contracts.Pi
   if given is string then
     local name = given
     source_name = name
-    local source = M.sources[name]
+    local source = M.sources:get(name)
     if not source then error("no picker `" .. name .. "`", 2) end
     local made: contracts.PickInfo
     if source is contracts.PickInfo then made = source else made = (source as PickFn)(extra or {}) end
@@ -1635,7 +1637,9 @@ function M.hear_file(path: string): string
   return nil
 end
 
-M.sources = sources(M as SourcesModule.Pick)
+for name, source in pairs(sources(M as SourcesModule.Pick)) do
+  M.sources:put(name, source)
+end
 M.walk = sources.walk
 
 --- Select a file from a tree of directories:

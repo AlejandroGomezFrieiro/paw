@@ -26,6 +26,7 @@ paw.untyped
 [data]
 # Values and helpers that know nothing of a project or a screen.
 paw.util
+paw.registry
 paw.types
 paw.contracts
 paw.music

@@ -436,7 +436,7 @@ declares. A method of a view in Teal therefore has each parameter of
 a table can have fewer parameters, so the contracts make such parameters
 optional.
 
-`paw.pick.sources` holds pickers of items of different types. The map holds
+`paw.pick.sources` holds pickers of items of different types. The registry holds
 `paw.contracts.PickInfo`, which has the fields that each picker has, and a
 picker of an extension is a `PickSource` of its own items.
 

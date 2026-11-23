@@ -30,6 +30,7 @@ local options = require("paw.options")
 local events = require("paw.events")
 local kernel = require("paw.events.kernel")
 local derived = require("paw.derived")
+local registry = require("paw.registry")
 local type contracts = require("paw.contracts")
 local type types = require("paw.types")
 local type partial = require("paw.partial")
@@ -214,7 +215,8 @@ local record M
   type Line = Line
   type Extra = Extra
   type Stats = Stats
-  components: {string: Component}
+  --- The components by name. `paw.statusline.component` puts one.
+  components: registry.Registry<Component>
   themes: {string: Theme}
   stats: Stats
   --- True after `setup`.
@@ -223,7 +225,9 @@ local record M
   --- A component's spec, or its function.
   component: function(name: string, spec: Component | ComponentFn): Component
 end
-M.components, M.themes, M.stats = {}, {}, {calls = 0, cached = 0}
+-- A change of a component draws the line again.
+M.components = registry.new("statusline", "status line components", {changed = function() api.ui_redraw() end})
+M.themes, M.stats = {}, {calls = 0, cached = 0}
 
 local LEFT, RIGHT = {"a", "b", "c"}, {"x", "y", "z"}
 local SIDES: {string: {string}} = {left = LEFT, right = RIGHT}
@@ -342,8 +346,7 @@ function M.component(name: string, spec: Component | ComponentFn): Component
     "usage: paw.statusline.component(name, function(ctx) ... end)"
   )
   c.name = name
-  M.components[name] = c
-  api.ui_redraw()
+  M.components:put(name, c)
   return c
 end
 
@@ -408,7 +411,7 @@ local function spec(name: string, def: Component)
   def.name = name
   def.rank = def.rank or 3
   def.min = def.min or 0
-  M.components[name] = def
+  M.components:put(name, def)
 end
 
 spec(
@@ -1008,7 +1011,7 @@ local function evaluate(entry: SectionEntry, ctx: Context, base: string, letter:
   end
   local component: Component
   if what is string then
-    component = M.components[what]
+    component = M.components:get(what)
     if not component then
       return nil, "no status line component `" .. what .. "`"
     end
@@ -1149,7 +1152,7 @@ function M.stamp(width: integer, which?: string, extra?: Extra): string
       for _, entry in ipairs(sections[letter] or {}) do
         local def: Entry = entry is Entry and entry or {entry as string | ComponentFn}
         local what = def[1] or def.fn
-        local component = what is string and M.components[what] or nil
+        local component = what is string and M.components:get(what) or nil
         if not component then
           return nil
         end

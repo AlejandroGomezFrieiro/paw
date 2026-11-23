@@ -143,7 +143,29 @@ paw.query.field("note", "onset", function(note) end)  -- :select / :query fields
 paw.grep.source("euclid", function(add) end)           -- :vimgrep text
 paw.health.register("euclid", function(h) h.ok("ready") end, { desc = "Euclid" })
 paw.option.define("euclid_density", 0.5, { min = 0, max = 1 })  -- typed, bounded
+paw.pick.sources:put("euclid", { desc = "Rhythms", items = … })  -- a picker: a registry (below)
 ```
+
+### Registries
+
+A module that takes entries from extensions keeps them in a registry
+(`paw.registry`, runtime/lua/paw/registry.tl). `paw.pick.sources` is the
+first one. The other kinds above are still tables that `paw.ext` copies
+before and after a load (`paw.ext.registries`).
+
+- To add a registry to a module, make it once with
+  `registry.new(kind, title, options)`. In Teal, give the type of the
+  entries: `local styles: registry.Registry<Style> = registry.new("styles", "note styles")`.
+  `options.label` gives the words for `:extensions`, and
+  `options.changed` runs after an entry changes (for example, to redraw).
+- Use `reg:put(key, value)`, `reg:get(key)`, `reg:remove(key)` and
+  `reg:entries()`. Do not keep a second table of the same entries.
+- `put` records the owner from the code that calls it (`paw.ext.caller`).
+  `paw.ext.unload` removes the entries of the owner, and the entry below
+  each one returns. Do not add a line to `paw.ext.registries`.
+- Add a row for the new registry to the table `registries` in
+  `tests/extensions_api.lua`.
+- The page "Extensions" of the reference (section "Registries") gives the full reference.
 
 Check exact signatures in docs/reference/lua-*.md / `:help` before using one; the
 lines above are a map, not the contract. For devices see

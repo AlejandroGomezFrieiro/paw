@@ -1221,7 +1221,7 @@ test("guide: write an extension in Teal, with the contracts and an option", func
   eq(paw.opt.euclid_steps, 32, "the option's handle set it")
   keys(":e tally<CR>")
   eq(paw.ui.focused, "tally", "the view shows")
-  eq(paw.pick.sources.fruit.desc, "Fruit", "the picker is a source")
+  eq(paw.pick.sources:get("fruit").desc, "Fruit", "the picker is a source")
   -- A field with a wrong name is an error.
   T.write_file(file, option .. view:gsub('title = "Tally"', 'title = "Tally", on_keys = 1') .. picker)
   local found = paw.lang.check({ file })

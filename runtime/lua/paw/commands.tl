@@ -93,6 +93,7 @@ local type KeymapModule = require("paw.keymap")
 local type LimitModule = require("paw.limit")
 local type FormatsModule = require("paw.formats")
 local type CursorModule = require("paw.cursor")
+local type Registries = require("paw.registry")
 local record State
   command_uses: {string: integer}
 end
@@ -121,7 +122,7 @@ end
 --- `paw.pick` (paw/pick.tl, which requires this module): the pickers
 --- by name, which `:pick` completes.
 local record Pick
-  sources: {string: contracts.PickEntry}
+  sources: Registries.Registry<contracts.PickEntry>
 end
 
 local record Paw is partial.Paw
@@ -865,7 +866,7 @@ M.completers = {
   end,
   pickers = function(): {Item}
     local out: {Item} = {}
-    for name, source in pairs(paw.pick.sources) do
+    for name, source in pairs(paw.pick.sources:entries()) do
       out[#out + 1] = item(name, source is contracts.PickInfo and source.desc or nil)
     end
     return by_text(out)

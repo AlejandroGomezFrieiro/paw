@@ -98,11 +98,11 @@ test("the device picker lists instruments first on a track without one, effects 
   library.favourites, library.recent = {}, {}
   local t = paw.add_track({ name = "Empty" })
   paw.cursor.set_track(t)
-  local items = paw.pick.sources.devices.items()
+  local items = paw.pick.sources:get("devices").items()
   eq(items[1].category, "instrument", "a track with nothing in it is offered instruments first")
   eq(paw.fx.preferred(t.id), "instrument", "that is what `preferred` says")
   t:add_device("synth")
-  items = paw.pick.sources.devices.items()
+  items = paw.pick.sources:get("devices").items()
   eq(items[1].category, "effect", "once it has one, effects come first")
   eq(paw.fx.preferred(0), "effect", "and the master wants effects")
   library.favourites, library.recent = kept[1], kept[2]

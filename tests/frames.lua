@@ -104,7 +104,7 @@ test("frames: between whole frames the status line is drawn again only when a co
   })
   T.after(function()
     paw.statusline.reset()
-    paw.statusline.components.frames_still = nil
+    paw.statusline.components:remove("frames_still")
   end)
   paw.statusline.setup({ sections = { a = { "frames_still", "transport" } } })
   api.ui_frame_snapshot(W, H)

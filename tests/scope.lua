@@ -133,7 +133,7 @@ test("narrowing to a group shows its tracks alone in this window, and widening c
   )
   eq(text:find("Song › Strings", 1, true) ~= nil, true, "the status line says so")
   -- The rest of the program sees the scope too.
-  local items = paw.pick.sources.tracks.items()
+  local items = paw.pick.sources:get("tracks").items()
   eq(#items, 3, "the track picker lists its tracks")
   eq(names(paw.scope.tracks()), "Strings Violins Cellos", "paw.scope.tracks")
   paw.ui.show("mixer")

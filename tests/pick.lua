@@ -337,7 +337,7 @@ test("pick: files opens projects and imports audio", function()
   eq(clips[1].kind, "audio", "as audio")
 
   paw.project.save(dir .. "/import.json")
-  paw.pick.sources.files.on_choose({ path = dir .. "/song.json", kind = "project" })
+  paw.pick.sources:get("files").on_choose({ path = dir .. "/song.json", kind = "project" })
   eq(paw.tracks()[1].name, "Saved", "a project opens")
 end)
 
@@ -392,19 +392,25 @@ end)
 test("pick: sources can be added, and the picker of pickers lists them", function()
   start()
   local got
-  paw.pick.sources.zz_test = { desc = "a test source", items = { "x", "y" }, on_choose = function(item) got = item end }
+  paw.pick.sources:put(
+    "zz_test",
+    { desc = "a test source", items = { "x", "y" }, on_choose = function(item) got = item end }
+  )
+  T.after(function()
+    paw.pick.sources:remove("zz_test")
+    paw.pick.sources:remove("zz_fn")
+  end)
   paw.cmd("pick")
   eq(pick.state().title, "Pickers", ":pick with no name")
   paw.keymap.feed("zz_test<CR>")
   eq(pick.state() and pick.state().title, "zz_test", "opens the chosen source")
   paw.keymap.feed("y<CR>")
   eq(got, "y", "which works")
-  paw.pick.sources.zz_fn = function()
+  paw.pick.sources:put("zz_fn", function()
     return { title = "Made", items = { "z" }, on_choose = function(item) got = item end }
-  end
+  end)
   paw.commands.exec("pick zz_fn")
   eq(pick.state().title, "Made", "a source can be a function")
   paw.keymap.feed("<CR>")
   eq(got, "z", "chosen")
-  paw.pick.sources.zz_test, paw.pick.sources.zz_fn = nil, nil
 end)

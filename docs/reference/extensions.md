@@ -98,6 +98,30 @@ Two extensions can map the same key in the same view, or define the same command
 
 An extension can also map a key of the core again. When the new mapping has a different description, `:checkhealth extensions` gives a warning, because a key has the same meaning in every view. A mapping that keeps the description gives no warning, for example when it adds to the action of the core, such as Enter on a vocal track.
 
+### Registries
+
+A registry holds entries by name and records which extension put each entry there. `paw.pick.sources` is a registry. A module or an extension that takes entries from other extensions can make its own registry, and then `:extensions`, `paw.ext.provides` and `paw.ext.unload` work with it without any other change.
+
+| Name | Effect |
+| --- | --- |
+| `paw.registry.new(kind, title, options)` | makes a registry. `kind` is its name in `paw.ext.provides`, and `title` is its name in `:extensions`. `options.label(key, value)` gives the words for an entry, and `options.changed(key, value)` runs after the entry at a key changes or goes away |
+| `reg:put(key, value)` | puts an entry at `key`. Its owner is the extension whose code calls `put`, or no extension for the core and your configuration |
+| `reg:get(key)` | gives the entry at `key`, or nil |
+| `reg:remove(key)` | takes away the entry at `key` and gives it. The entry that it replaced comes back |
+| `reg:entries()` | gives all of the entries by key, in a new table |
+| `reg:owned_by(name)` | gives the keys of the entries that the extension `name` put, sorted |
+| `paw.registry.all()` | gives each registry, in the order they were made |
+
+An entry that one extension puts over the entry of another extension or of the core does not delete the old entry. When the new entry goes, with `remove` or when its extension unloads, the old entry comes back. When the extension of the old entry unloads first, only its own entry goes, and the new entry stays. `:checkhealth extensions` gives a warning when an extension puts an entry over the entry of another extension.
+
+In Teal, a registry has the type of its entries:
+
+```lua
+local registry = require("paw.registry")
+local styles: registry.Registry<Style> = registry.new("styles", "note styles")
+styles:put("swing", { amount = 0.6 })
+```
+
 ### Unload
 
 `paw.ext.unload(name)` removes all that the extension owns, in the following order.
