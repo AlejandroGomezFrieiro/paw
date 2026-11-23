@@ -1505,6 +1505,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.nest.under`: the same as `paw.groups.under`.
 - `paw.nest.unique(clip)`: Make the block `clip` a subproject of its own, as `:nest.unique` does: a copy of its subproject that only this block plays; the others keep the subproject. A window inside it through this block goes inside the copy. Call it in one undo step. Returns the message.
 
+## Module paw.notes
+
+- `paw.notes.quantize(notes, opts)`: Snap the starts of the notes to a grid. `opts.strength` says how far a note moves, `opts.swing` moves every second grid line later, and `opts.lengths` snaps the lengths too. With `opts.within`, a note stays inside a clip of that length. No start goes below 0.
+
 ## Module paw.option
 
 - `paw.option.check(name, value)`: Tells if option `name` accepts `value`: true, or nil and an error that tells what it accepts. An option with no default accepts any value.

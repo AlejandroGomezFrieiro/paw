@@ -32,6 +32,7 @@ local util = require("paw.util")
 local commands = require("paw.commands")
 local options = require("paw.options")
 local music = require("paw.music")
+local transform = require("paw.notes")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
@@ -2347,8 +2348,10 @@ ex(
     for i, item in ipairs(items) do
       -- On the song's grid, so that clips that start off it still line up.
       -- A strength under 100 moves each note that part of the way.
-      local at = util.round(item.at, grid)
-      changes[i] = {item = item, change = {start = math.max(0, item.note.start + (at - item.at) * strength / 100)}}
+      local moved = transform.quantize(
+        {item.note}, {grid = grid, strength = strength / 100, offset = item.at - item.note.start}
+      )
+      changes[i] = {item = item, change = {start = moved[1].start}}
     end
     M.apply(changes)
     paw.notify(

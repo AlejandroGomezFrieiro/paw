@@ -18,7 +18,7 @@ The functions include the following.
 - tracks: `move_track`, `set_track_height`, `sweep_flag`
 - time: `select_range`, `set_loop`, `set_loop_edge`, `ruler_click`
 - notes: `add_note`, `drag_notes`, `stretch_notes`, `select_notes_box`, `erase_notes`, `draw_velocities`, `quantize_notes`, `set_velocity`
-- other: `set_param`, `float_pointer`, `drop`, `leave`, and the full list is in `runtime/lua/paw/frontend.tl`.
+- other: `set_param`, `float_pointer`, `drop`, `leave`, and the full list is the record `Act` in `runtime/lua/paw/frontend/core.tl`.
 
 | Function | Effect |
 | --- | --- |

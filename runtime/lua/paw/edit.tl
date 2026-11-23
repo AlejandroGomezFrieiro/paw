@@ -24,6 +24,7 @@
 local api = require("paw.api")
 local util = require("paw.util")
 local options = require("paw.options")
+local transform = require("paw.notes")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type KeymapModule = require("paw.keymap")
@@ -465,11 +466,7 @@ function A.quantize(region: Region)
       api.clip_set(c.id, {start = util.round(c.start, grid)})
       api.clip_set(c.id, {length = math.max(grid, util.round(c.length, grid))})
       if c.kind == "midi" then
-        local notes = api.clip_notes(c.id)
-        for _, n in ipairs(notes) do
-          n.start = util.round(n.start, note_grid)
-        end
-        api.clip_set_notes(c.id, notes)
+        api.clip_set_notes(c.id, transform.quantize(api.clip_notes(c.id), {grid = note_grid}))
       end
     end
   end

@@ -197,6 +197,9 @@ paw.music = {}
 ---@class paw.nest
 paw.nest = {}
 
+---@class paw.notes
+paw.notes = {}
+
 ---@class paw.option
 paw.option = {}
 
@@ -6200,6 +6203,14 @@ paw.nest.under = paw.groups.under
 --- copy. Call it in one undo step. Returns the message.
 ---@param clip any
 function paw.nest.unique(clip) end
+
+--- Snap the starts of the notes to a grid. `opts.strength` says how far a
+--- note moves, `opts.swing` moves every second grid line later, and
+--- `opts.lengths` snaps the lengths too. With `opts.within`, a note stays
+--- inside a clip of that length. No start goes below 0.
+---@param notes any
+---@param opts any
+function paw.notes.quantize(notes, opts) end
 
 --- Tells if option `name` accepts `value`: true, or nil and an error that
 --- tells what it accepts. An option with no default accepts any value.
