@@ -416,6 +416,9 @@ The limits page lists what paw does not do, and the known limits of what it does
     tracks, devices, clips and lanes, with what points at them in the own
     fields of the model only. It does not follow what an extension keeps in
     `meta` and points at ids with.
+  - The diff shows the changes inside subprojects, but the merge does not
+    renumber subprojects. When both sides add a subproject, or a track to a
+    subproject, with the same id, the merged project can fail to load.
 
 ## Extensions and Lua
 

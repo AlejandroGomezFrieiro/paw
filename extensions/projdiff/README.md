@@ -140,7 +140,26 @@ below the tracks and clips.
 - controllers, automation lanes and their points
 - the tempo and the time signature, and their changes
 - markers and regions
+- subprojects added, removed and renamed, their length, tempo, meter and
+  `meta`, and the changes to their tracks
 - the rest of the `meta` of the project
+
+A change inside a subproject shows under the name of the subproject, with
+its tracks, clips and notes below that name, as the changes of the song do. A
+subproject that another subproject places shows under the name of that
+subproject, so a change two levels down shows under both names:
+
+```
+~ subproject 12 "Bridge"
+  ~ subproject 14 "Verse"
+    ~ track 17 "Strings"
+      ~ clip 19 "pad"
+        ~ notes +1
+```
+
+A subproject that the song places shows at the top level, also when another
+subproject places it too. The master track of a subproject shows as `master`
+under its name.
 
 A field that the model gets later shows as a `field: old -> new` line, and the
 extension does not need to know about the field.
