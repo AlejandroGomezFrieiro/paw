@@ -1,80 +1,27 @@
-//! The project's own fields, opening, saving and the project file.
+//! Opening and saving the project, and the project file. The project's
+//! own fields are in `session/document/project.rs`.
 
 use crate::events::{KernelEvent as E, Loaded, Saved};
 use super::*;
 
 impl Session {
+    /// The project's fields as a table ([`Document::project_view`]).
     pub fn project_view(&self) -> Value {
-        let p = &self.doc.project;
-        json!({
-            "name": p.name, "tempo": p.tempo, "sig_num": p.sig_num, "sig_den": p.sig_den,
-            "tempo_ramp": p.tempo_ramp, "tempo_changes": p.tempo_changes, "sig_changes": p.sig_changes,
-            "key": p.key, "path": self.path, "length": p.end(), "meta": p.meta,
-            "modified": self.doc.undo.touched || !self.doc.undo.history.at_saved(),
-            // Goes up with every change: compare two readings to see whether
-            // something in between edited the project.
-            "edits": self.doc.undo.edits,
-            // The same tempo and signature points give the same stamp.
-            "tempo_stamp": p.tempo_stamp(),
-        })
+        self.doc.project_view(self.path.as_deref())
     }
 
-    /// One entry of [`project_view`](Self::project_view), made alone: its
-    /// `length` looks at every clip, and its `meta` can be large.
+    /// One entry of [`project_view`](Self::project_view)
+    /// ([`Document::project_field`]).
     pub fn project_field(&self, key: &str) -> Value {
-        let p = &self.doc.project;
-        match key {
-            "edits" => json!(self.doc.undo.edits),
-            "tempo_stamp" => json!(p.tempo_stamp()),
-            "name" => json!(p.name),
-            "tempo" => json!(p.tempo),
-            "sig_num" => json!(p.sig_num),
-            "sig_den" => json!(p.sig_den),
-            "key" => json!(p.key),
-            "path" => json!(self.path),
-            "modified" => json!(self.doc.undo.touched || !self.doc.undo.history.at_saved()),
-            _ => self.project_view().get(key).cloned().unwrap_or(Value::Null),
-        }
+        self.doc.project_field(key, self.path.as_deref())
     }
 
     pub fn project_set(&mut self, key: &str, value: Value) -> Result<()> {
-        if holds(&Ok(self.project_view()), key, &value) {
-            return Ok(());
-        }
-        let field: ProjectField = key.parse()?;
-        self.doc.edit(|p| {
-            match field {
-                ProjectField::Name => p.name = de(key, value)?,
-                ProjectField::Tempo => {
-                    let tempo: f64 = de(key, value)?;
-                    if !(1.0..=999.0).contains(&tempo) {
-                        bail!("tempo must be between 1 and 999");
-                    }
-                    let mut map = (**p.tempo_map()).clone();
-                    map.set_first_tempo(tempo);
-                    p.retime(map);
-                }
-                ProjectField::SigNum | ProjectField::SigDen => {
-                    let n = de::<u32>(key, value)?.clamp(1, 64);
-                    // A beat is a whole note halved some times: 3/3 has no note to count.
-                    if field == ProjectField::SigDen && !n.is_power_of_two() {
-                        bail!("a time signature's lower number is 1, 2, 4, 8, 16, 32 or 64, not {n}");
-                    }
-                    let (num, den) = if field == ProjectField::SigNum {
-                        (n, p.sig_den)
-                    } else {
-                        (p.sig_num, n)
-                    };
-                    let mut map = (**p.tempo_map()).clone();
-                    map.set_first_signature(num, den);
-                    p.set_tempo_map(map);
-                }
-                ProjectField::Key => p.key = de(key, value)?,
-                ProjectField::Meta => p.meta = de_meta(key, value)?,
-            }
-            Ok(())
-        })
+        self.doc.project_set(key, value, self.path.as_deref())
     }
+
+
+
 
     /// Put the open project aside, history and all, and open an empty
     /// scratch project in its place, for something that needs tracks and
@@ -396,33 +343,5 @@ impl Session {
         let saved = Saved { path: path.clone(), written: None, unused: None, moved: None };
         self.doc.emit(E::ProjectSaved(saved));
         Ok(path)
-    }
-}
-
-/// A field of the project that [`Session::project_set`] changes: the key
-/// that Lua gives, parsed once.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum ProjectField {
-    Name,
-    Tempo,
-    SigNum,
-    SigDen,
-    Key,
-    Meta,
-}
-
-impl std::str::FromStr for ProjectField {
-    type Err = anyhow::Error;
-
-    fn from_str(key: &str) -> Result<Self> {
-        Ok(match key {
-            "name" => Self::Name,
-            "tempo" => Self::Tempo,
-            "sig_num" => Self::SigNum,
-            "sig_den" => Self::SigDen,
-            "key" => Self::Key,
-            "meta" => Self::Meta,
-            _ => bail!("project has no settable field `{key}`"),
-        })
     }
 }

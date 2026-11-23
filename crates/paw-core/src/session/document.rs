@@ -29,6 +29,7 @@ mod links;
 mod nests;
 pub use nests::NestOpts;
 pub mod notes;
+mod project;
 mod tempo;
 mod tracks;
 mod undo_tree;
