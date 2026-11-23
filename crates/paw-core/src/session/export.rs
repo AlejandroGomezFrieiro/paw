@@ -131,7 +131,7 @@ impl Session {
         let mut candidate = self.doc.project.clone();
         candidate.adopt(read.project, id, &name, &dir);
         candidate.validate()?;
-        self.edit(|p| {
+        self.doc.edit(|p| {
             *p = candidate;
             Ok(())
         })?;
@@ -150,7 +150,7 @@ impl Session {
             bail!("{name} is the song's own already: it refers to no folder");
         };
         let source = p.nest(top).and_then(|n| n.source.clone()).unwrap_or_default();
-        self.edit(|p| {
+        self.doc.edit(|p| {
             p.own_reference(&group);
             Ok(())
         })?;

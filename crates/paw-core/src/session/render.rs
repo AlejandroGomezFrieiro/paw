@@ -26,12 +26,14 @@ use anyhow::{Context, Result, anyhow, bail};
 use paw_engine::backend;
 use paw_engine::{Engine, Msg, wav};
 use paw_measure::Analyzer;
+use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::encode::{self, Lossy, Quality};
 use super::tags::{self, Cover, Tags};
 use super::statelanes::{self, Settle, Stop};
 use super::{Dither, RenderOpts, Session, block_json, check_sample_rate, settle_plugins};
+use crate::freeze::Fader;
 use crate::model::{Id, MASTER_ID, Project};
 use crate::sync::{LiveDevices, Mapper, SyncCtx, sync};
 
@@ -49,32 +51,99 @@ struct BuiltEngine {
     mapper_devices: std::collections::HashMap<Id, paw_engine::DeviceSlot>,
 }
 
-/// Only these tracks of a render, with what they pass through on the way
-/// to the master: as when they are soloed. A frozen track or block alone,
-/// or none.
+/// The point in the signal where a render listens (`tap=`). Each point
+/// holds all the points before it:
+///
+/// ```text
+/// clips -> devices -> [pre] -> fader, pan, mute -> [post] -> groups, returns -> [groups] -> master -> [master]
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Tap {
+    /// The tracks' clips and devices, and the tracks that feed them.
+    Pre,
+    /// `Pre`, and the tracks' faders, pans and mutes.
+    Post,
+    /// The tracks as when they are soloed: through their groups, with the
+    /// returns that their sends reach. The stems at this point add up to
+    /// the mix before the master.
+    Groups,
+    /// `Groups`, and the master's devices, fader and pan. The stems at this
+    /// point add up to the mix.
+    Master,
+}
+
+impl Tap {
+    fn name(self) -> &'static str {
+        match self {
+            Tap::Pre => "pre",
+            Tap::Post => "post",
+            Tap::Groups => "groups",
+            Tap::Master => "master",
+        }
+    }
+}
+
+impl RenderOpts {
+    /// Where the render listens: `tap`, else `groups` for the older word
+    /// `master = false`.
+    fn listen_at(&self) -> Result<Tap> {
+        match (self.tap, self.master) {
+            (Some(Tap::Master), false) => {
+                bail!("tap=master and master=false disagree: give tap= alone")
+            }
+            (Some(tap), _) => Ok(tap),
+            (None, true) => Ok(Tap::Master),
+            (None, false) => Ok(Tap::Groups),
+        }
+    }
+}
+
+/// Turn a copy of the project into what a render hears: a frozen track
+/// alone, a frozen block alone, or the tracks of `opts.tracks` (all of them
+/// when it is empty) at the point of the signal that `opts.tap` names.
 fn select_render_tracks(project: &mut Project, opts: &RenderOpts) -> Result<()> {
     let alone = [opts.freeze.is_some(), opts.block.is_some(), !opts.tracks.is_empty()];
     if alone.iter().filter(|a| **a).count() > 1 {
         bail!("a render is of a frozen track, of a frozen block or of a list of tracks: one of them");
     }
-    if let Some(id) = opts.freeze {
-        crate::freeze::alone(project, id)?;
-    }
-    if let Some(clip) = opts.block {
-        crate::freeze::block_alone(project, clip, &opts.through)?;
-    }
-    if !opts.tracks.is_empty() {
-        if let Some(id) = opts.tracks.iter().find(|id| project.track(**id).is_none()) {
-            bail!("no track {id} to render");
+    // A freeze plays in place of the track or the block, so its file
+    // holds no master.
+    if opts.freeze.is_some() || opts.block.is_some() {
+        if opts.tap.is_some() {
+            bail!("a freeze renders before the fader: it takes no tap=");
         }
-        for track in project.tracks.iter_mut() {
-            let wanted = opts.tracks.contains(&track.id);
-            if track.solo != wanted {
-                Arc::make_mut(track).solo = wanted;
+        if let Some(id) = opts.freeze {
+            crate::freeze::alone(project, id)?;
+        }
+        if let Some(clip) = opts.block {
+            crate::freeze::block_alone(project, clip, &opts.through)?;
+        }
+        bypass_master(project);
+        return Ok(());
+    }
+    let tap = opts.listen_at()?;
+    match tap {
+        Tap::Pre | Tap::Post if opts.tracks.is_empty() => {
+            bail!("tap={} is a point on a track: name the tracks with tracks=", tap.name())
+        }
+        Tap::Pre => crate::freeze::tracks_alone(project, &opts.tracks, Fader::Out)?,
+        Tap::Post => crate::freeze::tracks_alone(project, &opts.tracks, Fader::In)?,
+        Tap::Groups | Tap::Master if opts.tracks.is_empty() => {}
+        // As when they are soloed.
+        Tap::Groups | Tap::Master => {
+            if let Some(id) = opts.tracks.iter().find(|id| project.track(**id).is_none()) {
+                bail!("no track {id} to render");
+            }
+            for track in project.tracks.iter_mut() {
+                let wanted = opts.tracks.contains(&track.id);
+                if track.solo != wanted {
+                    Arc::make_mut(track).solo = wanted;
+                }
             }
         }
     }
-    if !opts.master {
+    if tap != Tap::Master {
         bypass_master(project);
     }
     Ok(())

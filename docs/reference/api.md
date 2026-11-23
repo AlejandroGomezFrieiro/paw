@@ -1795,7 +1795,15 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   loudness    bring the integrated loudness to this level in LUFS, such as -14;
               with `normalize` too, the peak level is a ceiling
   tracks      { id, ... }: only these, with what they pass through (a stem)
-  master      false to leave out the master track's devices, fader and pan
+  tap         where in the sound of the tracks the render listens:
+              "pre"     their clips and devices, without the fader, pan or mute
+              "post"    with the fader, pan and mute, without the groups, sends or master
+              "groups"  as when they are soloed, through their groups and the
+                        returns of their sends, without the master
+              "master"  through the master as well (the default)
+              "pre" and "post" need `tracks`. The files of "groups" and
+              "master" add up to the mix.
+  master      false is the same as tap = "groups"
   freeze      a track id: that track alone, before its fader, as a freeze renders it
   block       a clip id of a block of a subproject: what the block plays into its row,
               and nothing else, as a freeze of the block renders it

@@ -397,7 +397,7 @@ pub struct RenderOpts {
     pub sample_rate: Option<u32>,
     /// 16 or 24 for integer PCM, 32 for float.
     pub bits: u16,
-    /// Only these tracks, as if they were soloed: a stem. All when empty.
+    /// Only these tracks, heard at `tap`: a stem. All when empty.
     pub tracks: Vec<Id>,
     /// This track and what feeds it, before its fader, and nothing else:
     /// what freezing it plays (see [`crate::freeze::alone`]).
@@ -419,8 +419,11 @@ pub struct RenderOpts {
     pub loudness: Option<f64>,
     /// 1 for mono (both sides mixed at half level each), 2 for stereo.
     pub channels: u16,
-    /// Through the master track's devices, fader and pan; false for the
-    /// tracks as they reach it.
+    /// Where in the signal the render listens: see [`render::Tap`]. `master`
+    /// when not given.
+    pub tap: Option<render::Tap>,
+    /// The older word for `tap`: false is `tap = groups`. It goes when the
+    /// `:export` command takes the place of `:render`.
     pub master: bool,
     /// Threads to render on, when not as many as the session uses. The file
     /// is the same whatever the number.
@@ -459,6 +462,7 @@ impl Default for RenderOpts {
             normalize: None,
             loudness: None,
             channels: 2,
+            tap: None,
             master: true,
             threads: None,
             sleep: None,
