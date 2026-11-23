@@ -294,7 +294,11 @@ end)
 
 T.test("a panic in a paw.api function fails the walk with the name of the function", function()
   local problem = check("test_panic", { "a bug for the test", true }, 2)
-  T.eq(problem, "panicked: runtime error: paw.api.test_panic stopped on a bug in paw: a bug for the test", "the problem")
+  T.eq(
+    problem,
+    "panicked: runtime error: paw.api.test_panic stopped on a bug in paw: a bug for the test",
+    "the problem"
+  )
 end)
 
 T.test("saving the project to an empty path is refused, and writes nothing in the current folder", function()

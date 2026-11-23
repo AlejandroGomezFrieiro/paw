@@ -69,6 +69,19 @@ local record types
     add: {Note}
   end
 
+  --- New values for many notes of many clips, as one edit
+  --- (`session/notes.rs` `NoteColumns`, `notes_set`): lists of the same
+  --- length, entry i about the note at place `place[i]` (from 1, before
+  --- the call) of clip `clip[i]`. A list left out keeps that value.
+  record NoteColumns
+    clip: {integer}
+    place: {integer}
+    start: {number}
+    length: {number}
+    pitch: {integer}
+    velocity: {integer}
+  end
+
   --- Which notes `clip_notes` gives (`NoteRange`): beats in the clip and
   --- pitches, both ends included; what is left out is open.
   record NoteRange

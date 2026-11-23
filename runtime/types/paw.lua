@@ -10794,6 +10794,14 @@ function paw.api.note_off(track, pitch) end
 ---@param attr any
 function paw.api.note_on(track, pitch, velocity, attr) end
 
+--- Many notes of many clips at once, as one edit, given as lists of the
+--- same length: `{ clip = { 4, 4, 7 }, place = { 1, 2, 1 }, start = { 0, 0.5, 2 } }`.
+--- Entry i is about the note at place `place[i]` of clip `clip[i]`,
+--- its place before the call. A list left out of `start`, `length`,
+--- `pitch` and `velocity` keeps that value of each note.
+---@param columns table
+function paw.api.notes_set(columns) end
+
 function paw.api.now() end
 
 --- Find CLAP and VST3 plugins in one more directory from now on (the

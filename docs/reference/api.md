@@ -2663,6 +2663,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.nest_unique(clip)`: Make the block `clip` a subproject of its own, as one undo step: a copy of its subproject (tracks, devices, lanes and clips) named `Ballad 2`, which the block and the stems of the same block then play. The other blocks keep the subproject. Returns the copy's id.
 - `paw.api.note_off(track, pitch)`
 - `paw.api.note_on(track, pitch, velocity, attr)`: Play a note on a track, with a MIDI 2.0 attribute if one is given.
+- `paw.api.notes_set(columns)`: Many notes of many clips at once, as one edit, given as lists of the same length: `{ clip = { 4, 4, 7 }, place = { 1, 2, 1 }, start = { 0, 0.5, 2 } }`. Entry i is about the note at place `place[i]` of clip `clip[i]`, its place before the call. A list left out of `start`, `length`, `pitch` and `velocity` keeps that value of each note.
 - `paw.api.now()`
 - `paw.api.plugins_add_dir(dir)`: Find CLAP and VST3 plugins in one more directory from now on (the directory of an extension), and register the plugins in it. Returns `{ kinds, notes }`: the device kinds found there and the files that paw cannot use. Returns nil where paw cannot find plugins.
 - `paw.api.plugins_attach(path)`: Load an attachment: a native library that an extension ships, which paw offers each CLAP plugin that it makes from now on (see `crates/paw-plugins/include/paw_attach.h`). Returns the name of the attachment.
