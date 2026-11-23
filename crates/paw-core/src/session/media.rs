@@ -489,7 +489,7 @@ impl Session {
         }
         const AHEAD: f64 = 8.0;
         let rate = self.engine.handle.sample_rate as u32;
-        let map = self.project.tempo_map();
+        let map = self.doc.project.tempo_map();
         let now = map.seconds(beat);
         let mut windows = vec![(now, now + AHEAD)];
         let t = &self.transport;
@@ -497,7 +497,7 @@ impl Session {
             let start = map.seconds(t.loop_start);
             windows.push((start, start + AHEAD));
         }
-        for clip in self.project.all_tracks().flat_map(|t| &t.clips) {
+        for clip in self.doc.project.all_tracks().flat_map(|t| &t.clips) {
             let ClipContent::Audio { file, offset, .. } = &clip.content else {
                 continue;
             };
@@ -560,7 +560,7 @@ impl Session {
         match MediaTable::from_json(&bytes) {
             Ok(table) => table.renamed(|p| Some(self.home.resolve(p, &dir))),
             Err(e) => {
-                self.warnings.push(format!(
+                self.doc.warnings.push(format!(
                     "{}: {e}; paw learns what each file is again",
                     file.display()
                 ));
@@ -573,7 +573,7 @@ impl Session {
     /// recorded: its clips play the new file.
     pub(super) fn tell_changed(&mut self, changed: Vec<Changed>) {
         for Changed(path) in changed {
-            self.warnings.push(format!(
+            self.doc.warnings.push(format!(
                 "{} changed since the project was saved: its clips play the new file",
                 some_names(std::slice::from_ref(&path))
             ));
@@ -586,11 +586,11 @@ impl Session {
     pub fn poll_media(&mut self) {
         let changed = self.sources.poll();
         if self.sources.due() {
-            let used = sources_of(&self.project);
+            let used = sources_of(&self.doc.project);
             self.sources.notice(used.iter().map(PathBuf::as_path));
         }
         if !changed.is_empty() {
-            self.undo.touched = true;
+            self.doc.undo.touched = true;
             self.tell_changed(changed);
         }
     }
@@ -600,10 +600,10 @@ impl Session {
     /// the folder. A file with no record yet is hashed now: a save names
     /// every file that is there by its hash.
     pub(super) fn media_for_folder(&mut self, dir: &Path) -> MediaTable {
-        let used = sources_of(&self.project);
+        let used = sources_of(&self.doc.project);
         let changed = self.sources.complete(used.iter().map(PathBuf::as_path));
         if !changed.is_empty() {
-            self.undo.touched = true;
+            self.doc.undo.touched = true;
             self.tell_changed(changed);
         }
         let dir = tidy(dir);
@@ -622,7 +622,7 @@ impl Session {
     fn report_media(&mut self, found: &Found) {
         if !found.moved.is_empty() {
             let files: Vec<PathBuf> = found.moved.iter().map(|m| m.0.clone()).collect();
-            self.warnings.push(format!(
+            self.doc.warnings.push(format!(
                 "found {} moved media file{} ({}); save to keep the new place",
                 files.len(),
                 if files.len() == 1 { "" } else { "s" },
@@ -631,7 +631,7 @@ impl Session {
         }
         self.report_refused(found);
         if !found.missing.is_empty() {
-            self.warnings.push(format!(
+            self.doc.warnings.push(format!(
                 "{} media file{} missing ({}): {} clips are offline; :media.relink finds them",
                 found.missing.len(),
                 if found.missing.len() == 1 {
@@ -649,7 +649,7 @@ impl Session {
         }
         if !found.missing.is_empty() || !found.moved.is_empty() {
             let missing = MediaMissing { files: found.missing.clone(), found: found.moved.len() };
-            self.emit(E::MediaMissing(missing));
+            self.doc.emit(E::MediaMissing(missing));
         }
     }
 
@@ -657,14 +657,14 @@ impl Session {
     /// holds other bytes than the missing file did.
     fn report_refused(&mut self, found: &Found) {
         for (missing, other) in &found.refused {
-            self.warnings.push(other_sound(missing, other));
+            self.doc.warnings.push(other_sound(missing, other));
         }
     }
 
     /// Files the project's clips play that are not there, once each.
     pub fn media_missing(&self) -> Vec<PathBuf> {
-        let derived = derived_files(&self.project);
-        files(&self.project)
+        let derived = derived_files(&self.doc.project);
+        files(&self.doc.project)
             .into_iter()
             .filter(|f| !f.is_file() && !derived.contains(f))
             .collect()
@@ -676,7 +676,7 @@ impl Session {
     pub fn media_list(&self) -> Value {
         let dir = self.path.as_deref().map(|p| tidy(&project_dir(p)));
         Value::Array(
-            files(&self.project)
+            files(&self.doc.project)
                 .into_iter()
                 .map(|f| {
                     let inside = dir.as_ref().is_some_and(|d| tidy(&f).starts_with(d));
@@ -704,7 +704,7 @@ impl Session {
             bail!("{} is not a file", to.display());
         }
         paw_engine::AudioData::load(&to)?;
-        if !files(&self.project).contains(from) {
+        if !files(&self.doc.project).contains(from) {
             bail!("no clip plays {}", from.display());
         }
         if !anyway
@@ -731,7 +731,7 @@ impl Session {
             dirs: vec![dir.clone()],
             ..Default::default()
         };
-        let mut project = self.project.clone();
+        let mut project = self.doc.project.clone();
         let found = finder.relink(&mut project, &[dir], &mut self.sources);
         self.report_refused(&found);
         if !found.moved.is_empty() {
@@ -758,7 +758,7 @@ impl Session {
         let media = dir.join("media");
         let mut copies: HashMap<PathBuf, PathBuf> = HashMap::new();
         let mut missing = Vec::new();
-        let used = sources_of(&self.project);
+        let used = sources_of(&self.doc.project);
         let (inside, outside): (Vec<&PathBuf>, Vec<&PathBuf>) =
             used.iter().partition(|f| tidy(f).starts_with(&dir));
         // The project's own files, by their bytes.

@@ -54,10 +54,10 @@ impl Session {
                 keep.extend(crate::freeze::frozen_file(track));
             }
         };
-        add(&self.project);
-        add(&self.undo.checkpoint);
+        add(&self.doc.project);
+        add(&self.doc.undo.checkpoint);
         add(&self.synced);
-        for state in self.undo.history.states() {
+        for state in self.doc.undo.history.states() {
             add(&state.snapshot);
         }
         if let Some(shelf) = &self.shelf {

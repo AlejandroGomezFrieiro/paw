@@ -11,3 +11,4 @@
 #
 # The runner does not read this file yet. Until it does, a failure of a test
 # in this list still fails the run, and the person who merges reads the list.
+a clip plays a rough preview until its stretch is made, then the stretch	the stretch preview holds its bake

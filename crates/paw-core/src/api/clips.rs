@@ -242,7 +242,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // @return {types.AudioEdit}
         fn clip_edits(lua, sh, id => Id) {
             let session = sh.session.borrow();
-            let clip = session.project.clip(id).ok_or_else(|| mlua::Error::runtime(format!("no clip {id}")))?;
+            let clip = session.doc.project.clip(id).ok_or_else(|| mlua::Error::runtime(format!("no clip {id}")))?;
             let edits = match &clip.content {
                 ClipContent::Audio { edits, .. } => edits.clone(),
                 _ => Vec::new(),

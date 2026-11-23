@@ -128,7 +128,7 @@ impl Session {
                     }
                     self.midi.inputs = Some(midi);
                 }
-                Err(err) => self.warnings.push(format!("no MIDI input: {err:#}")),
+                Err(err) => self.doc.warnings.push(format!("no MIDI input: {err:#}")),
             }
         }
     }
@@ -292,7 +292,7 @@ impl Session {
         if self.midi.filter.matches(port, &kind) {
             payload["filtered"] = json!(true);
         }
-        self.emit(E::MidiIn(payload));
+        self.doc.emit(E::MidiIn(payload));
     }
 
     pub fn playing(&self) -> bool {
@@ -322,7 +322,7 @@ impl Session {
         TransportView {
             playing: self.play.playing,
             position: self.position(),
-            tempo: self.project.tempo,
+            tempo: self.doc.project.tempo,
             loop_enabled: t.loop_enabled,
             loop_start: t.loop_start,
             loop_end: t.loop_end,
@@ -350,7 +350,7 @@ impl Session {
         match field {
             TransportField::Write => {
                 self.writing.on = de(key, value)?;
-                self.emit(E::TransportChanged(Nothing {}));
+                self.doc.emit(E::TransportChanged(Nothing {}));
                 return Ok(());
             }
             TransportField::RecordOffset => {
@@ -372,7 +372,7 @@ impl Session {
             }
         }
         self.send_transport();
-        self.emit(E::TransportChanged(Nothing {}));
+        self.doc.emit(E::TransportChanged(Nothing {}));
         Ok(())
     }
 
@@ -392,7 +392,7 @@ impl Session {
     /// attribute map sends for it goes first.
     pub fn live_note(&mut self, track: Id, key: u8, vel: f32, attr: paw_engine::Attr) -> Result<()> {
         let plan = self
-            .project
+            .doc.project
             .track(track)
             .and_then(|t| t.attr_map.as_ref())
             .and_then(|m| m.plan().ok());
@@ -411,7 +411,7 @@ impl Session {
     /// The milliseconds a note with `attr` is moved by the track's attribute map.
     pub fn attr_delay(&self, track: Id, attr: paw_engine::Attr) -> Result<f64> {
         let track = self
-            .project
+            .doc.project
             .track(track)
             .with_context(|| format!("no track {track}"))?;
         Ok(match &track.attr_map {
@@ -424,7 +424,7 @@ impl Session {
     /// channel the track's attribute map may have sent it to.
     pub fn live_note_off(&mut self, track: Id, key: u8) -> Result<()> {
         let channels = self
-            .project
+            .doc.project
             .track(track)
             .and_then(|t| t.attr_map.as_ref())
             .and_then(|m| m.plan().ok())

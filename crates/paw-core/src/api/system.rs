@@ -82,7 +82,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // @return boolean
         fn fs_exists(_, _sh, path => String) { Ok(Path::new(&path).exists()) }
         // @return {string}
-        fn warnings(_, sh, () => ()) { Ok(std::mem::take(&mut sh.session.borrow_mut().warnings)) }
+        fn warnings(_, sh, () => ()) { Ok(std::mem::take(&mut sh.session.borrow_mut().doc.warnings)) }
         // Open an item of the start that `paw --startuptime` times: a module,
         // an extension, the configuration. `startup_leave` closes it with its
         // line. Nothing happens when the start is not timed.

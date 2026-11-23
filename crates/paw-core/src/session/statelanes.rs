@@ -175,11 +175,11 @@ impl Session {
         }
         let beat = self.position();
         let mut todo = Vec::new();
-        for lane in main_lanes(&self.project, &self.engine.map) {
+        for lane in main_lanes(&self.doc.project, &self.engine.map) {
             let Some(index) = index_at(lane.lane, beat) else {
                 continue;
             };
-            let loaded = self.project.device(lane.device).map_or(0, |d| d.loaded);
+            let loaded = self.doc.project.device(lane.device).map_or(0, |d| d.loaded);
             let key = (Arc::as_ptr(lane.lane) as usize, loaded, index);
             if self.state_given.get(&lane.lane.id) == Some(&key) {
                 continue;
@@ -208,7 +208,7 @@ impl Session {
                     }
                 }
                 Err(err) => self
-                    .warnings
+                    .doc.warnings
                     .push(format!("state `{}` of a lane: {err:#}", state.name)),
             }
         }

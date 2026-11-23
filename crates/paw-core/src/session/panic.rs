@@ -30,10 +30,10 @@ impl Session {
         // Never wait: a panic hook may hold the lock on this very thread.
         if let Ok(mut latest) = LATEST.try_lock() {
             *latest = Some(Latest {
-                project: self.project.clone(),
+                project: self.doc.project.clone(),
                 transport: self.transport.clone(),
                 path: self.path.clone(),
-                modified: self.undo.touched || !self.undo.history.at_saved(),
+                modified: self.doc.undo.touched || !self.doc.undo.history.at_saved(),
                 recovery: self.dirs.paw_state().join("recovery"),
             });
         }

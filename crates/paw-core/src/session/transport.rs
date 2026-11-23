@@ -47,7 +47,7 @@ impl Session {
         if at > t.punch_start + 1e-9 {
             return None;
         }
-        let map = self.project.tempo_map();
+        let map = self.doc.project.tempo_map();
         let bar = (map.bar_of(t.punch_start) - t.pre_roll as i64).max(0);
         let from = map.bar_start(bar);
         let from = map.beat((map.seconds(from) - t.pre_roll_seconds).max(0.0));
@@ -80,7 +80,7 @@ impl Session {
         self.play.count_sent = beats;
         self.play.playing = true;
         let position = self.position();
-        self.emit(E::TransportPlay(Play { position, count_in: beats as f64 }));
+        self.doc.emit(E::TransportPlay(Play { position, count_in: beats as f64 }));
     }
 
     /// The count-in before playing from where the playhead is: as many bars
@@ -88,7 +88,7 @@ impl Session {
     /// for every beat of the signature. The message for the engine, and how
     /// many beats it counts.
     pub(super) fn count_in(&self) -> Option<(Msg, u32)> {
-        let map = self.project.tempo_map();
+        let map = self.doc.project.tempo_map();
         let at = self.position();
         let (num, den) = map.signature(at);
         let every = 60.0 / map.tempo(at) * 4.0 / den as f64 * self.engine.handle.sample_rate;
@@ -136,12 +136,12 @@ impl Session {
         self.play.seeks = self.play.seeks.wrapping_add(1);
         self.play.seek_target = position;
         self.play.playing = false;
-        self.emit(E::TransportStop(Position { position }));
+        self.doc.emit(E::TransportStop(Position { position }));
         // Stopping ends the take and, with it, record mode: the next
         // play is a play, not another take over the one just made.
         if self.rec.take.is_some() {
             self.transport.recording = false;
-            self.emit(E::TransportChanged(Nothing {}));
+            self.doc.emit(E::TransportChanged(Nothing {}));
         }
         self.close_take();
     }
@@ -155,7 +155,7 @@ impl Session {
         self.play.seeks = self.play.seeks.wrapping_add(1);
         self.play.seek_target = beats;
         self.read_ahead_from(beats);
-        self.emit(E::TransportSeek(Position { position: beats }));
+        self.doc.emit(E::TransportSeek(Position { position: beats }));
         if recording && self.play.playing {
             self.start_take();
         }

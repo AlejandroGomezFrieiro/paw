@@ -294,7 +294,7 @@ impl super::Session {
         // Clip files and sound files outside the folder.
         let mut outside = BTreeSet::new();
         // Track folders and chain files outside the folder.
-        for track in self.project.all_tracks() {
+        for track in self.doc.project.all_tracks() {
             if let Some(folder) = &track.source {
                 dirs.insert(folder.clone());
                 outside.insert(folder.join("track.json"));
@@ -305,7 +305,7 @@ impl super::Session {
                 outside.insert(chain.clone());
             }
         }
-        for track in self.project.all_tracks() {
+        for track in self.doc.project.all_tracks() {
             for clip in track.clips.iter().chain(&track.cues) {
                 let file = match (&clip.source, clip.playable()) {
                     (Some(source), _) => Some(source.clone()),
@@ -342,7 +342,7 @@ impl super::Session {
                 .iter()
                 .map(|p| root.as_ref().and_then(|r| p.strip_prefix(r).ok()).unwrap_or(p).to_path_buf())
                 .collect();
-            self.emit(E::FilesChanged(FilesChanged { paths: names }));
+            self.doc.emit(E::FilesChanged(FilesChanged { paths: names }));
         }
     }
 
@@ -386,8 +386,8 @@ impl super::Session {
             .with_context(|| format!("{} cannot be loaded", dir.display()))?;
         self.find_media(&mut project, &file);
         project.refresh_tempo();
-        keep_same(&self.project, &mut project);
-        self.next_id = self.next_id.max(project.max_id() + 1);
+        keep_same(&self.doc.project, &mut project);
+        self.doc.next_id = self.doc.next_id.max(project.max_id() + 1);
         if let Ok(transport) = serde_json::from_value::<super::Transport>(read.transport) {
             let keep = self.transport.clone();
             self.transport = super::Transport {
@@ -409,7 +409,7 @@ impl super::Session {
         self.files_watch.changed.clear();
         self.checkpoint();
         // What is on the disk now is what paw has: saved.
-        self.undo.history.mark_saved(false);
+        self.doc.undo.history.mark_saved(false);
         Ok(())
     }
 }

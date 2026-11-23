@@ -7,6 +7,8 @@ How to run everything: [README.md](README.md). Raw numbers:
 matrix before it). The processor time of the whole program while it plays,
 against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md).
 
+## 2026-11-23: the first scope keys after the group tree change
+
 ## 2026-11-23: the check of a frozen track after an edit
 
 A frozen track keeps the key of what its file was made from
@@ -47,7 +49,6 @@ made again: `clip_list` of the track (0.04 ms), `device_get` (0.07 ms),
 and the hash of the text. The largest values (up to 9 ms) come when
 the read waits for the chord reading of the same job to end.
 
-## 2026-11-23: the first scope keys after the group tree change
 
 The group tree change found that `znn`, `]z` and `znag` cost more in the scenario
 `scope` with its branch (22 -> 40 ms, 30 -> 68 ms, 26 -> 40 ms), and that
@@ -208,6 +209,47 @@ song after each edit, and the frame of the arrange view.
 
 ## 2026-11-23: the chord reading after :%quantize in Verse B
 
+## 2026-11-23: paw.derived finds the entries over a change by their spans
+
+The same key and probe as the scope change below: `:%quantize 1/4` in Verse B of
+the scenario `scope`, with `u` after each key. One binary of main
+(d5127487) ran with the Lua of main ("before") and of this branch
+("after"), in turns, under the measure lock. All values were measured
+under external load (load average 2.5 to 6.4).
+
+| What | Before | After |
+| --- | --- | --- |
+| Spans compared with a change of a track, in one reading | 17 984 (64 × 281) | 2 368 (64 × 37) |
+| Entries made again | 2 048 track windows, 256 bars of tracks, 256 groups, 32 mixes | the same |
+| Allocation of one reading (medians of 5 runs) | 1.49 to 1.62 MB | 1.51 to 1.54 MB |
+| Allocation of the first reading after the start (the largest) | 2.4 MB | 2.9 to 3.4 MB: the 64 indexes are made once |
+
+The count "before" comes from a counter in `overlaps` of main's Lua (a
+copy of the runtime, only for this probe).
+
+The time of one reading (wall clock, 40 keys, 10 pairs): medians 15.2,
+21.9, 15.6, 19.1, 16.2, 24.2, 22.1, 22.2, 23.2, 21.5 ms before (11.1 to
+63.8) and 13.9, 12.5, 14.8, 15.4, 13.7, 22.1, 20.2, 18.1, 21.0, 20.1 ms
+after (9.8 to 55.6). The median after is lower in each of the 10 pairs, by
+0.8 to 9.4 ms (about 10 %), but the spreads overlap. The whole key
+(`drive.py scope-keys --keys ':%quantize 1/4\r,u' --times 8`, cores 16 to
+23, 3 pairs): medians 106, 106, 102 ms before (70 to 162) and 115, 111,
+125 ms after (65 to 159). That difference is inside the spread: no
+measurable difference. The reading is a small part of the key.
+
+What changed: an entry whose value tells where it changed (`touched`, the
+tracks) keeps the entries that read it in an index by their spans: by
+start, with the latest end up to each one, as `over` in
+`paw/harmony/song.tl` keeps the places of a track. `push_over` starts at
+the last span that starts before the end of the change, and goes back
+while a span can end after its start. A change of the 4 bars of Verse B
+compares 37 spans of each track (32 windows, 4 bars and the length of the
+song, which has no span), not all 281. The index is made at the first
+change, and again only after a new or a lost user, a new span, or a pass
+that stopped at an error. `tests/derived.lua` counts the spans compared
+after `:3quantize` on 2 tracks: 20 for a song of 8 bars and for one of 32
+bars, and more for `:3,6quantize`.
+
 ## 2026-11-23: a walk of paw.derived without recursion
 
 The same key and probe as the chord reading change below: `:%quantize 1/4` in Verse B of
@@ -242,6 +284,8 @@ number of entries that it touches: about 2 950 entries go stale, and
 64 tracks (about 18 000 checks of a span). A walk that touches fewer
 entries, for example the entries that read a track kept in the order of
 their spans, can make it smaller; the form of the walk does not.
+
+## 2026-11-23: the chord reading after :%quantize in Verse B
 
 The key `:%quantize 1/4` in the region Verse B of the scenario `scope`
 (64 tracks, 4 one-bar clips of each track in the region), with `u` after

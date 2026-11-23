@@ -275,7 +275,7 @@ impl Session {
                 rate: opts.sample_rate,
             };
             if let Err(err) = crate::audio::save(path, &remembered) {
-                self.warnings
+                self.doc.warnings
                     .push(format!("the devices could not be remembered: {err:#}"));
             }
         }
@@ -311,13 +311,13 @@ impl Session {
     /// track that is gone can be let go too.
     pub fn hold(&mut self, track: Id, file: Option<PathBuf>) -> Result<()> {
         match file {
-            Some(_) if track == MASTER_ID || self.project.track(track).is_none() => {
+            Some(_) if track == MASTER_ID || self.doc.project.track(track).is_none() => {
                 bail!("no track {track} to hold");
             }
             Some(file) => self.engine.map.held_files.insert(track, file),
             None => self.engine.map.held_files.remove(&track),
         };
-        self.dirty = true;
+        self.doc.dirty = true;
         self.flush();
         Ok(())
     }
@@ -347,7 +347,7 @@ impl Session {
             return;
         }
         self.engine.map.follow = follow;
-        self.dirty = true;
+        self.doc.dirty = true;
         self.flush();
     }
 
@@ -356,7 +356,7 @@ impl Session {
     /// track again with `None`.
     pub fn set_audible(&mut self, tracks: Option<Vec<Id>>) {
         self.engine.map.audible = tracks.map(|ids| ids.into_iter().collect());
-        self.dirty = true;
+        self.doc.dirty = true;
         self.flush();
     }
 
@@ -385,20 +385,20 @@ impl Session {
         (self.engine.map.held_files, self.engine.map.audible) = (held, audible);
         self.loads.devices.clear();
         self.synced = Project::default();
-        self.dirty = true;
-        self.warnings.extend(self.engine.stream.info.warning.clone());
+        self.doc.dirty = true;
+        self.doc.warnings.extend(self.engine.stream.info.warning.clone());
         self.connect_midi();
-        self.engine.handle.send(Msg::SetTempo(self.project.tempo));
+        self.engine.handle.send(Msg::SetTempo(self.doc.project.tempo));
         self.send_transport();
-        let events = std::mem::take(&mut self.events);
+        let events = std::mem::take(&mut self.doc.events);
         self.flush();
-        self.events = events;
+        self.doc.events = events;
         self.seek(position);
         if was_playing {
             self.play();
         }
         let info = self.engine_info();
-        self.emit(E::EngineStarted(info));
+        self.doc.emit(E::EngineStarted(info));
         Ok(())
     }
 }
