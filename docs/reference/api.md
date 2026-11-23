@@ -2632,6 +2632,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.canvas_export(path, format, pages, scale)`: Write drawings (the operations of `paw.canvas.paint`) to a file: `format` "pdf" (one page for each drawing), "svg" or "png" (the first). Each page is `{ ops, width, height }` in pixels. `scale` is the points for one pixel in a PDF (0.75: 96 pixels to the inch).
 - `paw.api.canvas_image(bytes, w, h, format)`: Keep a picture of pixels for drawings to name (`paw.canvas.image`): `bytes` a PNG file, or straight RGBA `w` by `h` pixels row by row; `format` `"png"` or `"rgba"` (a PNG file is known without it). Returns its content key, its width and its height.
 - `paw.api.canvas_pixels(key)`: A picture of pixels kept under `key`, as a window is sent it: its size and its pixels as straight RGBA in base64. Nil for a key not kept (any more).
+- `paw.api.chain_schema()`: paw's schema of the chain language, as JSON text: each kind of device that paw has now (with the plugins and the Lua devices of the extensions), and each kind of split and modulator. It is what `paw chain schema` prints, for a language server or another tool.
 - `paw.api.chain_write(track, file)`: Write a track's devices as a chain file: `file` (a `devices.json`) and the `.state` files of the plugins beside it. Returns the files.
 - `paw.api.checkpoint_delete(file)`
 - `paw.api.checkpoint_dir()`

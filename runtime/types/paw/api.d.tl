@@ -24,6 +24,7 @@ local record api
    canvas_export: function(path: string, format: string, pages: {types.CanvasPage}, scale?: number)
    canvas_image: function(bytes: string, w?: integer, h?: integer, format?: string): string, integer, integer
    canvas_pixels: function(key: string): types.PictureBlob
+   chain_schema: function(): string
    chain_write: function(track: integer, file: string): {string}
    checkpoint_delete: function(file: string)
    checkpoint_dir: function(): string

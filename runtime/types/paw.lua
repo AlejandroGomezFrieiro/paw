@@ -10500,6 +10500,12 @@ function paw.api.canvas_image(bytes, w, h, format) end
 ---@param key string
 function paw.api.canvas_pixels(key) end
 
+--- paw's schema of the chain language, as JSON text: each kind of
+--- device that paw has now (with the plugins and the Lua devices of
+--- the extensions), and each kind of split and modulator. It is what
+--- `paw chain schema` prints, for a language server or another tool.
+function paw.api.chain_schema() end
+
 --- Write a track's devices as a chain file: `file` (a `devices.json`)
 --- and the `.state` files of the plugins beside it. Returns the files.
 ---@param track integer
