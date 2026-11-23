@@ -190,9 +190,13 @@ nix flake check                                # all of the checks
   only through `tests/tools/run.sh`.
 - A flaky test is a bug in the test. No retries. Do not change a time or
   a tolerance to make it pass. If you cannot fix it now, put it in the
-  quarantine list `tests/quarantine.txt` with a ticket. A quarantined
-  test runs and reports, but does not fail the run. Each entry has a
-  ticket, and the list only gets shorter.
+  quarantine list `tests/quarantine.txt` with the fix that it waits for.
+  A quarantined test runs and reports, but does not fail the run. Each
+  entry names its fix, and the list only gets shorter.
+- Each check has a tier: the edit loop, before a commit, before a push,
+  nightly (CI only) and release. The skill
+  [.claude/skills/paw-code](.claude/skills/paw-code/SKILL.md), part 7,
+  lists the commands of each tier and the CI matrix.
 - Keep the tests to a minimum. A test guards one behavior that the user or
   a caller relies on, and fails only when that behavior breaks. Before you
   commit, apply the skill in

@@ -16,6 +16,8 @@
 -- allow-list: each one fails. It also checks the clocks of the product code:
 -- only the files of `M.real_time` read the wall clock (`api.real_ms()`), and
 -- a budget reader there does not read the schedule clock (`api.now()`).
+-- And each quarantined Rust test (`#[ignore = "quarantine: <the fix>"]`)
+-- has its line in tests/quarantine.txt, and each Rust line there its ignore.
 -- The window (crates/paw-gui) is
 -- paused: the check skips it until that work starts again.
 local M = {}
@@ -293,6 +295,55 @@ function M.check_clocks(root)
   return problems
 end
 
+-- Quarantined Rust tests ------------------------------------------------------------
+
+M.QUARANTINE = "tests/quarantine.txt"
+
+--- The problems of the quarantined Rust tests at `root`: a test with
+--- `#[ignore = "quarantine: <the fix>"]` has a line in tests/quarantine.txt,
+--- and a Rust line there (`<binary id> <test name>`, as nextest prints it,
+--- a tab, the fix) names a test with such an ignore. The Lua runner reads
+--- the Lua lines.
+function M.check_quarantine(root)
+  local listed = {}
+  for line in (read(root .. "/" .. M.QUARANTINE) or ""):gmatch("[^\n]+") do
+    local test = line:match("^paw[%w_-]*[%w_:-]* ([%w_:]+)\t")
+    if test then listed[test:match("([%w_]+)$")] = test end
+  end
+  local _, rust = M.files(root)
+  local ignored, problems = {}, {}
+  for _, file in ipairs(rust) do
+    local text = read(root .. "/" .. file) or ""
+    for fix, rest in text:gmatch('#%[ignore%s*=%s*"quarantine:%s*(.-)"%]([^\n]*\n[^\n]*\n[^\n]*)') do
+      local name = rest:match("fn%s+([%w_]+)")
+      if name then
+        ignored[name] = true
+        if fix == "" then
+          problems[#problems + 1] = string.format("%s: the quarantined test %s names no fix in its ignore", file, name)
+        end
+        if not listed[name] then
+          problems[#problems + 1] = string.format(
+            "%s: the quarantined test %s has no line in %s (its binary id and name, a tab, the fix)",
+            file,
+            name,
+            M.QUARANTINE
+          )
+        end
+      end
+    end
+  end
+  for name, test in pairs(listed) do
+    if not ignored[name] then
+      problems[#problems + 1] = string.format(
+        '%s: the Rust test %s has no #[ignore = "quarantine: <the fix>"]: give it one, or remove its line',
+        M.QUARANTINE,
+        test
+      )
+    end
+  end
+  return problems
+end
+
 --- The problems of the tree at `root` (default "."): a list of lines, empty
 --- when the counts and the allow-list agree.
 function M.check(root)
@@ -358,6 +409,9 @@ function M.check(root)
     end
   end
   for _, problem in ipairs(M.check_clocks(root)) do
+    problems[#problems + 1] = problem
+  end
+  for _, problem in ipairs(M.check_quarantine(root)) do
     problems[#problems + 1] = problem
   end
   table.sort(problems)

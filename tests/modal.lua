@@ -375,55 +375,55 @@ test("half-typed commands show what can follow, and are counted right", function
   paw.keymap.del("gz", { view = "arrange", mode = "x" })
 end)
 
+-- A clip in the piano roll as a fixture (tests/suite.lua): six notes, and
+-- the roll's cursor at `cursor` ("@0" is the arrange view's). Each change is a
+-- note that goes ("-60 0+0.5") or comes ("+64 1+0.5").
+local RIFF = { "60 0+0.5", "64 0.5+0.5", "67 1+1", "72 1+1", "60 2+0.5", "62 3.1+0.3" }
+local function riff(cursor, changes, length)
+  local gone, lines = {}, {}
+  for _, change in ipairs(changes or {}) do
+    if change:sub(1, 1) == "-" then gone[change:sub(2)] = true end
+  end
+  for _, note in ipairs(RIFF) do
+    if not gone[note] then lines[#lines + 1] = note end
+  end
+  for _, change in ipairs(changes or {}) do
+    if change:sub(1, 1) == "+" then lines[#lines + 1] = change:sub(2) end
+  end
+  return string.format("track T\n clip a 0+%g\n %s\n cursor %s", length or 4, table.concat(lines, "\n "), cursor)
+end
+
 test("the piano roll has the same grammar for notes", function()
-  local t = three_clips()
-  local clip = t:clips()[1]
-  clip:set_notes({
-    { pitch = 60, start = 0, length = 0.5 },
-    { pitch = 64, start = 0.5, length = 0.5 },
-    { pitch = 67, start = 1, length = 1 },
-    { pitch = 72, start = 1, length = 1 },
-    { pitch = 60, start = 2, length = 0.5 },
-    { pitch = 62, start = 3.1, length = 0.3 },
-  })
-  api.undo_checkpoint()
-  keys("<CR>")
-  local roll = paw.ui.views:get("pianoroll")
-  eq(roll.pitch .. "@" .. roll.beat, "60@0", "the roll opens on the first note")
-  keys("w")
-  eq(roll.pitch .. "@" .. roll.beat, "64@0.5", "w goes to the next note, whatever its pitch")
-  keys("e")
-  eq(roll.beat, 1, "e to where it ends")
-  keys("b")
-  eq(roll.pitch .. "@" .. roll.beat, "64@0.5", "b back to where it starts")
-  keys("0dw")
-  eq(melody(clip), "64@0.5+0.5 67@1+1 72@1+1 60@2+0.5 62@3.1+0.3", "dw deletes up to the next note")
-  keys("u0d4l")
-  eq(melody(clip), "67@1+1 72@1+1 60@2+0.5 62@3.1+0.3", "a stretch of time takes every pitch in it")
-  keys("u")
-  keys("wyinp")
-  eq(melody(clip):match("64@1%S+"), "64@1+0.5", "yin and p repeat the note after itself")
-  keys("u")
-  eq(roll.pitch, 64, "the cursor is on the note that was repeated")
-  keys("0<C-v>4kWd")
-  eq(melody(clip), "60@0+0.5 72@1+1 60@2+0.5 62@3.1+0.3", "a block takes only the pitches it spans, E4 to G#4 here")
-  keys("u")
-  roll:set(60, 0)
-  keys("Vd")
-  eq(melody(clip), "64@0.5+0.5 67@1+1 72@1+1 62@3.1+0.3", "V and dd take whole pitches")
-  keys("u")
-  keys("$")
-  eq(roll.beat, 4, "$ is the end of the clip")
-  keys("0=ie")
-  eq(melody(clip):match("%S+$"), "62@3+0.25", "= snaps notes to the grid")
-  keys("0yibWP")
-  eq(#clip:notes() .. " " .. melody(clip):match("60@4%S+"), "12 60@4+0.5", "a bar pasted at the next bar")
-  eq(clip.length, 8, "and the clip grew to hold it")
-  keys("0ggvee")
-  keys("<C-a>")
-  eq(melody(clip):sub(1, 21), "61@0+0.5 65@0.5+0.5 6", "<C-a> transposes the selected notes")
-  keys("/c5<CR>")
-  eq(roll.pitch .. "@" .. roll.beat, "72@1", "/ finds a note by its name")
+  paw.opt.grid, paw.opt.note_grid, paw.opt.ripple = 1, 0.25, false
+  T.check_keys(riff("@0"), "<CR>", riff("60@0"), "<CR> opens the roll on the first note")
+  local bar_later = { "+60 4+0.5", "+64 4.5+0.5", "+67 5+1", "+72 5+1", "+60 6+0.5", "+62 7.1+0.3" }
+  for _, case in ipairs({
+    { "60@0", "w", riff("64@0.5"), "w goes to the next note, whatever its pitch" },
+    { "64@0.5", "e", riff("64@1"), "e to where it ends" },
+    { "64@1", "b", riff("64@0.5"), "b back to where it starts" },
+    { "64@0", "dw", riff("64@0", { "-60 0+0.5" }), "dw deletes up to the next note" },
+    { "64@0", "dwu", riff("64@0"), "u undoes it in one step" },
+    { "60@0", "d4l", riff("60@0", { "-60 0+0.5", "-64 0.5+0.5" }), "a stretch of time takes every pitch in it" },
+    { "64@0.5", "yinp", riff("64@1", { "+64 1+0.5" }), "yin and p repeat the note after itself" },
+    { "64@0.5", "yinpu", riff("64@1"), "the cursor stays on the note that was repeated" },
+    { "64@0", "<C-v>4kWd", riff("68@0", { "-64 0.5+0.5", "-67 1+1" }), "a block takes the pitches it spans" },
+    { "60@0", "Vd", riff("60@0", { "-60 0+0.5", "-60 2+0.5" }), "V and d take whole pitches" },
+    { "60@0", "$", riff("60@4"), "$ is the end of the clip" },
+    { "60@0", "=ie", riff("60@0", { "-62 3.1+0.3", "+62 3+0.25" }), "= snaps notes to the grid" },
+    { "60@0", "yibWP", riff("60@4", bar_later, 8), "a bar pasted at the next bar, in a clip that grew" },
+    { "60@0", "ggvee<C-a>", riff("72@0", { "-60 0+0.5", "-64 0.5+0.5", "+61 0+0.5", "+65 0.5+0.5" }), "<C-a>" },
+    { "60@0", "/c5<CR>", riff("72@1"), "/ finds a note by its name" },
+  }) do
+    T.check_keys(riff(case[1]), case[2], case[3], case[4])
+  end
+  local chord, chosen = { "-67 1+1", "-72 1+1" }, { "-67 1+1", "-72 1+1", "+67 1+1 *", "+72 1+1 *" }
+  T.check_keys(riff("60@0", chosen), "x", riff("60@0", chord), "x deletes the chosen notes, not the note at the cursor")
+  local all = {}
+  for _, note in ipairs(RIFF) do
+    all[#all + 1] = "-" .. note
+    all[#all + 1] = "+" .. note .. " *"
+  end
+  T.check_keys(riff("60@0"), "gA", riff("60@0", all), "gA chooses every note")
   keys("glib")
   eq(paw.transport.loop_start .. "-" .. paw.transport.loop_end, "0-4", "gl loops the bar")
   paw.transport.loop_enabled = false

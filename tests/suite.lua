@@ -12,6 +12,108 @@ if os.getenv("PAW_TEST_ENV") ~= "1" then
 end
 local api = paw.api
 
+-- The settings of the run --------------------------------------------------
+--
+-- tests/tools/suite.sh gives them in the environment:
+--
+--   PAW_TEST_OUT      the folder for the files of the run: times.txt (the
+--                     wall time of each test file) and tap.lines (each
+--                     result, for the TAP file of CI). Not set: no files.
+--   PAW_TEST_REPEAT   run the tests N times, and stop after the first run
+--                     that fails (to find a flaky test).
+--   PAW_TEST_SHUFFLE  a seed: run the parts, and the tests in each part, in
+--                     an order that the seed gives. The same seed gives the
+--                     same order.
+--   PAW_TEST_FIXTURE  a folder that holds test files in place of the
+--                     checkout's (for the tests of this runner, in
+--                     tests/runner.lua): its `*.lua` files, its own
+--                     `quarantine.txt`, and `declarations.txt` in place of
+--                     runtime/types/paw.lua.
+local out_dir = os.getenv("PAW_TEST_OUT")
+local rounds = tonumber(os.getenv("PAW_TEST_REPEAT") or "") or 1
+local shuffle_seed = tonumber(os.getenv("PAW_TEST_SHUFFLE") or "")
+local fixture = os.getenv("PAW_TEST_FIXTURE")
+
+-- A fault of the run itself: the run stops before the first test, and
+-- tests/tools/suite.sh shows the line that starts with FAIL.
+local function refuse(name, why)
+  print("FAIL  " .. name .. "\n      " .. why:gsub("\n", "\n      ") .. "\n\n1 failed")
+  api.quit(1)
+end
+
+-- The binary against the runtime --------------------------------------------
+--
+-- With PAW_TEST_BIN, the binary can come from an older commit than the
+-- runtime. Then the runtime calls functions of the kernel that the binary
+-- does not have, and the tests fail with Lua errors far from the cause. The
+-- stamp of the kernel API is the list of its functions in
+-- runtime/types/paw.lua, which tools/apidoc.lua writes from a binary of the
+-- same commit (and its check fails when the list is out of date). Each
+-- function that the list declares must be in the binary. A newer binary
+-- with more functions passes: the runtime does not call them.
+local function missing_api(path)
+  local file = io.open(path)
+  if not file then return {} end
+  local missing = {}
+  for line in file:lines() do
+    local name = line:match("^function paw%.api%.([%w_]+)%(")
+    if name and api[name] == nil then missing[#missing + 1] = name end
+  end
+  file:close()
+  return missing
+end
+
+local missing = missing_api(fixture and (fixture .. "/declarations.txt") or "runtime/types/paw.lua")
+if #missing > 0 then
+  refuse(
+    "the binary has the kernel API of the runtime",
+    string.format(
+      "the paw binary is older than the runtime: it has no paw.api.%s%s.\n"
+        .. "Build paw from this commit, or give PAW_TEST_BIN a binary of this commit.",
+      table.concat(missing, ", paw.api.", 1, math.min(#missing, 5)),
+      #missing > 5 and string.format(" (%d functions in all)", #missing) or ""
+    )
+  )
+  return
+end
+
+-- The quarantine list ----------------------------------------------------------
+--
+-- tests/quarantine.txt: one line for each flaky test, the full name of the
+-- test, a tab, and the fix that it waits for. A failure of a listed test is
+-- reported as "quarantined" and does not fail the run. A listed test that
+-- passes is reported too, so that its line can go when the fix is merged.
+-- A Rust test in the list is ignored in its source; the Lua runner only
+-- reads its line.
+local quarantine_path = fixture and (fixture .. "/quarantine.txt") or "tests/quarantine.txt"
+
+--- The quarantined tests, by name, with the fix that each waits for. Nil
+--- and a message for a line with no fix.
+local function read_quarantine(path)
+  local file = io.open(path)
+  if not file then return {} end
+  local list, number = {}, 0
+  for line in file:lines() do
+    number = number + 1
+    if line:match("%S") and not line:match("^#") then
+      local name, fix = line:match("^([^\t]+)\t%s*(.-)%s*$")
+      if not name or fix == "" then
+        file:close()
+        return nil, string.format("%s:%d has no tab and fix after the name of the test: %s", path, number, line)
+      end
+      list[name] = fix
+    end
+  end
+  file:close()
+  return list
+end
+
+local quarantined, quarantine_error = read_quarantine(quarantine_path)
+if not quarantined then
+  refuse("each quarantined test names its fix", quarantine_error)
+  return
+end
+
 local tmp = os.getenv("TMPDIR") or "/tmp"
 -- The shard's number keeps apart the folders of shards that start at once.
 local scratch = tmp
@@ -43,18 +145,20 @@ end
 local files_before = checkout_files()
 
 local tests, failed = {}, 0
--- The part whose tests are being collected (see "Shards" below): each test
--- keeps it, so that the leak check names the part that leaves state behind.
-local loading
+-- The part and the file whose tests are being collected (see "Shards"
+-- below): each test keeps them, so that the leak check names the part that
+-- leaves state behind, and times.txt gives the time of each file.
+local loading, loading_file
 -- `opts.live` marks a test that needs real time, and says why: it runs in a
 -- second paw on the wall clock (see "Time in the tests").
 local function test(name, fn, opts)
-  tests[#tests + 1] = { name = name, fn = fn, part = loading, live = opts and opts.live }
+  tests[#tests + 1] = { name = name, fn = fn, part = loading, file = loading_file, live = opts and opts.live }
 end
 -- Tests that run after all the others: those that load every extension.
 local lasts = {}
 local function last(name, fn, opts)
-  lasts[#lasts + 1] = { name = name, fn = fn, part = loading, live = opts and opts.live }
+  lasts[#lasts + 1] =
+    { name = name, fn = fn, part = loading, file = loading_file, live = opts and opts.live, last = true }
 end
 -- What a test asks to have undone when it ends, passed or failed, so that
 -- a failure does not leave a setting behind for the tests after it.
@@ -172,9 +276,9 @@ local MANUAL = api.now() == 0
 local STALL_MS = 30000
 
 -- The engine plays on the stepped backend from the start: each later start
--- on the null backend is stepped too. A kernel without it (`api.wait_blocks`)
--- keeps the null backend, whose clock thread plays on the wall clock.
-if MANUAL and api.wait_blocks then api.engine_restart({ backend = "step" }) end
+-- on the null backend is stepped too. (The check of the binary above makes
+-- sure that the kernel has it: `api.wait_blocks`.)
+if MANUAL then api.engine_restart({ backend = "step" }) end
 
 --- Whether the engine plays only as the clock moves. A test can start it
 --- on another backend (the `test` device), which plays on the wall clock.
@@ -459,7 +563,7 @@ end
 --- with `T.next_block(n)`, `T.advance(ms)` or `T.until_beat`, then read it.
 --- A live test reads it on the wall clock.
 local function meter(thing)
-  if MANUAL and api.wait_blocks and not stepped() then
+  if MANUAL and not stepped() then
     error("a meter is read on the stepped backend (or in a live test), not on " .. api.engine_get().backend, 2)
   end
   return thing:meter()
@@ -820,6 +924,32 @@ local T = {
 }
 -- T.expect_screen and the check of unused golden files (tests/tools/golden.lua).
 local golden_unused = dofile("tests/tools/golden.lua")(T)
+
+-- Text fixtures ------------------------------------------------------------------
+--
+-- `T.check_keys(fixture, keys, expected, what)` makes the project of
+-- `fixture` after `T.start()`, types `keys` with `T.keys`, and compares the
+-- project with `expected`. A failure prints the project as a fixture, ready
+-- to paste. `T.fixture(text)` only makes the project (and gives its tracks
+-- by name), and `T.fixture_text()` gives the project as a fixture.
+-- tests/tools/fixture.lua holds them.
+--
+-- A fixture is a small project in a Lua string, one item on each line.
+-- The indent is for the eye; `--` starts a comment:
+--
+--   track Lead            -- a track (with a synth), named Lead
+--     clip a 0+4          -- a MIDI clip named a, at beat 0, 4 beats long
+--       60 0+0.5          -- a note: pitch 60, at beat 0 of the clip, half a beat
+--       64 0.5+0.5 *      -- `*`: the note is chosen (selected)
+--       cursor 64@0.5     -- the piano roll is open on this clip, with its
+--                         -- cursor at pitch 64, beat 0.5 of the roll
+--     cursor @2           -- or: the arrange view, its cursor on this track at beat 2
+--   mode x v              -- the mode, when it is not normal (expected side only)
+--
+-- The project that a check prints has its clips and notes in the order they
+-- start (the lower pitch first), the cursor of the view that has the focus,
+-- and `*` on the notes that the pointer or a selection of visual mode chose.
+dofile("tests/tools/fixture.lua")(T)
 local files = {}
 local function lua_files(dir, pattern)
   local found = {}
@@ -833,14 +963,18 @@ local function lua_files(dir, pattern)
     files[#files + 1] = path
   end
 end
-lua_files("tests", "%.lua$")
-local extensions = {}
-for _, entry in ipairs(api.read_dir("extensions")) do
-  if entry.is_dir then extensions[#extensions + 1] = entry.name end
-end
-table.sort(extensions)
-for _, name in ipairs(extensions) do
-  lua_files("extensions/" .. name, "^tests[%w_]*%.lua$")
+if fixture then
+  lua_files(fixture, "%.lua$")
+else
+  lua_files("tests", "%.lua$")
+  local extensions = {}
+  for _, entry in ipairs(api.read_dir("extensions")) do
+    if entry.is_dir then extensions[#extensions + 1] = entry.name end
+  end
+  table.sort(extensions)
+  for _, name in ipairs(extensions) do
+    lua_files("extensions/" .. name, "^tests[%w_]*%.lua$")
+  end
 end
 -- A part is a file of tests/, or all the test files of one extension: a
 -- file of an extension can use what an earlier file of it set up
@@ -859,11 +993,11 @@ for _, path in ipairs(files) do
     number[part] = parts
   end
   if not shards or (number[part] - 1) % shards == shard - 1 then
-    loading = part
+    loading, loading_file = part, path
     assert(loadfile(path))(T)
   end
 end
-loading = nil
+loading, loading_file = nil, nil
 for _, t in ipairs(lasts) do
   tests[#tests + 1] = t
 end
@@ -1152,6 +1286,56 @@ for _, t in ipairs(tests) do
     whole[t.part] = (whole[t.part] or 0) + 1
   end
 end
+
+-- The order of a shuffled run. The parts move as wholes, so that the leak
+-- check after each part stays true, and the tests of each part move inside
+-- it. The tests of `T.last` stay after all the others. The random numbers
+-- come from the seed only (the "minimal standard" generator of Park and
+-- Miller, exact in the doubles of LuaJIT), so a seed gives the same order
+-- with each binary.
+local function shuffled(list, seed)
+  local state = seed % 2147483646 + 1
+  local function below(n)
+    state = state * 16807 % 2147483647
+    return state % n + 1
+  end
+  local groups, group_of, lasts_run = {}, {}, {}
+  for _, t in ipairs(list) do
+    if t.last then
+      lasts_run[#lasts_run + 1] = t
+    else
+      if not group_of[t.part] then
+        group_of[t.part] = {}
+        groups[#groups + 1] = group_of[t.part]
+      end
+      table.insert(group_of[t.part], t)
+    end
+  end
+  local function shuffle(items)
+    for i = #items, 2, -1 do
+      local j = below(i)
+      items[i], items[j] = items[j], items[i]
+    end
+  end
+  shuffle(groups)
+  local out = {}
+  for _, group in ipairs(groups) do
+    shuffle(group)
+    for _, t in ipairs(group) do
+      out[#out + 1] = t
+    end
+  end
+  shuffle(lasts_run)
+  for _, t in ipairs(lasts_run) do
+    out[#out + 1] = t
+  end
+  return out
+end
+if shuffle_seed then
+  print("shuffle seed " .. shuffle_seed)
+  selected = shuffled(selected, shuffle_seed)
+end
+
 -- Only a part whose every test ran is checked: a filter that leaves out
 -- the test that puts a setting back must not fail.
 local in_part = {}
@@ -1183,6 +1367,40 @@ local function note_kernel(t)
     end
   end
 end
+-- The results ------------------------------------------------------------------
+--
+-- Each result is a line of the output, which tests/tools/suite.sh reads:
+-- "ok", "skip", "FAIL" or "quarantined", then the name of the test, and the
+-- error on the lines after it. With PAW_TEST_OUT, it is also a line of TAP in
+-- tap.lines, which suite.sh makes into suite.tap for CI: a skip is
+-- "# SKIP <reason>", and a quarantined failure is "not ok" with
+-- "# TODO quarantined", which TAP does not count as a failure.
+local tap = out_dir and io.open(out_dir .. "/tap.lines", "a")
+
+local function report(status, name, detail)
+  local indented = detail and ("\n      " .. tostring(detail):gsub("\n", "\n      ")) or ""
+  local tap_name = name:gsub("#", "\\#")
+  local line
+  if status == "ok" then
+    print("ok    " .. name .. (detail and (" (" .. detail .. ")") or ""))
+    line = "ok - " .. tap_name
+  elseif status == "skip" then
+    print("skip  " .. name .. " (" .. detail .. ")")
+    line = "ok - " .. tap_name .. " # SKIP " .. detail:gsub("#", "\\#")
+  elseif status == "quarantined" then
+    print("quarantined  " .. name .. " (waits for: " .. quarantined[name] .. ")" .. indented)
+    line = "not ok - " .. tap_name .. " # TODO quarantined, waits for: " .. quarantined[name]:gsub("#", "\\#")
+  else
+    failed = failed + 1
+    print("FAIL  " .. name .. indented)
+    line = "not ok - " .. tap_name .. (detail and ("\n# " .. tostring(detail):gsub("\n", "\n# ")) or "")
+  end
+  if tap then
+    tap:write(line, "\n")
+    tap:flush()
+  end
+end
+
 local function check(part)
   local now = fingerprint()
   local found = differences(base, now)
@@ -1204,10 +1422,9 @@ local function check(part)
   end
   local name = part .. " leaves no state behind"
   if #news > 0 then
-    failed = failed + 1
-    print("FAIL  " .. name .. "\n      changed: " .. table.concat(news, "; "))
+    report("FAIL", name, "changed: " .. table.concat(news, "; "))
   else
-    print("ok    " .. name)
+    report("ok", name)
   end
 end
 
@@ -1221,7 +1438,9 @@ local function stamps_kept(fn)
   if #misses > 0 then error(table.concat(misses, "\n"), 0) end
   return skipped
 end
-for i, t in ipairs(selected) do
+
+-- Run one test, and report its result.
+local function run(t)
   -- An error that came between two tests is of no test.
   reported, expected = {}, {}
   local ok, err = xpcall(stamps_kept, debug.traceback, t.fn)
@@ -1240,16 +1459,64 @@ for i, t in ipairs(selected) do
     err = tostring(err) .. "\n" .. errors
   end
   if ok and type(err) == "string" then
-    print("skip  " .. t.name .. " (" .. err .. ")")
+    report("skip", t.name, err)
+  elseif ok and quarantined[t.name] then
+    report("ok", t.name, "quarantined, and it passed: its line can go when the fix is merged")
   elseif ok then
-    print("ok    " .. t.name)
+    report("ok", t.name)
+  elseif quarantined[t.name] then
+    report("quarantined", t.name, err)
   else
-    failed = failed + 1
-    print("FAIL  " .. t.name .. "\n      " .. tostring(err):gsub("\n", "\n      "))
+    report("FAIL", t.name, err)
   end
-  local next_test = selected[i + 1]
-  if not next_test or next_test.part ~= t.part then check(t.part) end
 end
+
+-- The wall time of each test file, in milliseconds. It is information for
+-- a person who looks for a slow file, never a reason to fail.
+local spent = {}
+for round = 1, rounds do
+  local failed_before = failed
+  for i, t in ipairs(selected) do
+    local started = api.real_ms()
+    run(t)
+    spent[t.file] = (spent[t.file] or 0) + api.real_ms() - started
+    local next_test = selected[i + 1]
+    if not next_test or next_test.part ~= t.part then check(t.part) end
+  end
+  if rounds > 1 and failed > failed_before then
+    print(string.format("\nrepeat: run %d of %d failed", round, rounds))
+    break
+  end
+end
+if tap then tap:close() end
+
+-- times.txt: one line for each test file, "<ms><tab><file>", the slowest
+-- first. The live pass adds its times to those of the pass before it.
+if out_dir then
+  local path = out_dir .. "/times.txt"
+  local file = io.open(path)
+  if file then
+    for line in file:lines() do
+      local ms, name = line:match("^(%d+)\t(.+)$")
+      if ms then spent[name] = (spent[name] or 0) + tonumber(ms) end
+    end
+    file:close()
+  end
+  local names = {}
+  for name in pairs(spent) do
+    names[#names + 1] = name
+  end
+  table.sort(names, function(a, b)
+    if spent[a] ~= spent[b] then return spent[a] > spent[b] end
+    return a < b
+  end)
+  file = assert(io.open(path, "w"))
+  for _, name in ipairs(names) do
+    file:write(string.format("%d\t%s\n", spent[name], name))
+  end
+  file:close()
+end
+
 -- An entry of the allow-list whose part ran whole, its live tests too, and
 -- leaked nothing of that kind is out of date: the list only gets shorter.
 local has_live = {}
@@ -1265,12 +1532,10 @@ for entry in pairs(allowed) do
 end
 table.sort(stale)
 if #stale > 0 then
-  failed = failed + 1
-  print(
-    "FAIL  the leak allow-list holds no leak that is gone\n      remove from "
-      .. allowed_path
-      .. ": "
-      .. table.concat(stale, ", ")
+  report(
+    "FAIL",
+    "the leak allow-list holds no leak that is gone",
+    "remove from " .. allowed_path .. ": " .. table.concat(stale, ", ")
   )
 end
 failed = failed + golden_unused()
@@ -1291,8 +1556,7 @@ for path in pairs(files_before and checkout_files() or {}) do
 end
 table.sort(left)
 if #left > 0 then
-  failed = failed + 1
-  print("FAIL  the tests leave no new files in the checkout\n      left: " .. table.concat(left, ", "))
+  report("FAIL", "the tests leave no new files in the checkout", "left: " .. table.concat(left, ", "))
 end
 print(failed == 0 and "\nall passed" or ("\n" .. failed .. " failed"))
 api.quit(failed == 0 and 0 or 1)

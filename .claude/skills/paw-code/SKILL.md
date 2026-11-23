@@ -162,7 +162,48 @@ These are lenses for a review, not numbers to report.
   code and the docs. Put it in one place when that removes a risk of
   disagreement.
 
-## 7. Not in force yet
+## 7. The tiers of checks
+
+Each check runs in one tier. A tier runs its own checks and the checks
+of the tiers above it in this list. Run the commands in the dev shell.
+When the orchestrator builds, an agent runs only the checks that need no
+build, and names the other checks in its report.
+
+| Tier | When | Commands |
+| --- | --- | --- |
+| Edit loop | After each change, on one area | `cargo check -p <crate>`, `cargo clippy -p <crate> --tests`, `cargo nextest run -p <crate>` (one crate only), `tests/tools/suite.sh only "<words>"` |
+| Before a commit | The tests of the change, and the lints | `tests/tools/suite.sh only "<words>"` for each area that the change touches, `cargo nextest run -p <crate>` for each crate that it touches, `tools/tlcheck.sh`, `luacheck .`, `tools/fmtcheck.sh`, `luajit tools/testlint.lua`, `luajit tools/layers.lua`, `tools/vale.sh <pages>`, `paw --clean --no-plugins -l tools/apidoc.lua check` |
+| Before a push | All the tests | `tests/tools/suite.sh` (the full suite), `nix flake check`, `cargo nextest run --workspace --profile gate`, `tests/tools/quarantine.sh` (it runs and reports the quarantined Rust tests, and does not fail) |
+| Nightly | Each night, in CI only (not on the local machine) | `tools/fuzz.sh` (each fuzz target), the property tests with `PROPTEST_CASES=10000` and a new `PROPTEST_RNG_SEED`, `bench/fuzz.lua` with the seeds 1 to 50 (`paw --clean --no-plugins -l bench/fuzz.lua <seed> 1000` through `tests/tools/run.sh`), `cargo mutants --in-diff <the diff of the day>`, a coverage report (information only), `tests/tools/e2e.sh --seeds 1-3` |
+| Release | Before a tagged version | `tests/tools/e2e.sh` (all the days), `tests/tools/suite.sh plugins`, the build and tests on each platform |
+
+The CI matrix runs the full suite in four ways:
+
+| Build | Suite |
+| --- | --- |
+| Release (`cargo build --release`) | `tests/tools/suite.sh -j 1` |
+| Release | `tests/tools/suite.sh -j 4 --shuffle` (a new seed each run, printed on the first line) |
+| Dev (`cargo build`) | `PAW_TEST_BIN=target/debug tests/tools/suite.sh -j 1` |
+| Dev | `PAW_TEST_BIN=target/debug tests/tools/suite.sh -j 4 --shuffle` |
+
+CI keeps `target/test-scratch/suite.tap` (each test, its result and the
+reason of a skip) and `target/test-scratch/times.txt` (the wall time of
+each test file) of each run. A shuffled run that fails gives its seed.
+Run `tests/tools/suite.sh --shuffle <seed>` to get the same order again.
+
+The flake policy:
+
+- No retries anywhere. nextest keeps `retries = 0`.
+- A flaky test goes into quarantine: a line in `tests/quarantine.txt`,
+  with the full name of the test, a tab, and the fix that it waits for.
+  Write the fix in words, not as a ticket id. A Rust test also gets
+  `#[ignore = "quarantine: <the fix>"]`.
+- A quarantined test runs and reports. Its failure does not fail the run.
+- The list only gets shorter. When the fix is merged, remove the line.
+- To find a flaky test, use `tests/tools/suite.sh repeat 20 only
+  "<words>"` and `--shuffle <seed>` (skill `lua-testing`, part 10).
+
+## 8. Not in force yet
 
 - Coverage floors (70 % of lines for each crate that changes). paw has no
   coverage tool for Lua and Teal yet. Measure Rust coverage only when a
