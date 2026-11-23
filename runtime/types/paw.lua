@@ -11364,6 +11364,8 @@ function paw.api.transport_seek(beats) end
 ---@param value any
 function paw.api.transport_set(key, value) end
 
+--- Stop the song. A take that records ends at once, and its clips
+--- come a moment later, with the event `transport.recorded`.
 function paw.api.transport_stop() end
 
 function paw.api.trial_active() end

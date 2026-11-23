@@ -150,6 +150,8 @@ impl Session {
         // Another project: a trial of this one's is over with it.
         self.audition.trial = None;
         self.stop();
+        // A take that closes belongs to this project, not the next one.
+        self.finish_takes_now();
         self.seek(0.0);
         self.next_id = self.next_id.max(project.max_id() + 1);
         self.project = project;

@@ -982,7 +982,8 @@ local record types
   -- The transport and the engine (session/midi_in.rs, session/engine.rs) ------
 
   --- `paw.api.transport_get()` (`TransportView`): `position` in
-  --- beats, `take` the number of the take being recorded.
+  --- beats, `take` the number of the take being recorded, `closing` the
+  --- takes that stopped and are not clips yet.
   record Transport
     playing: boolean
     position: number
@@ -1005,6 +1006,7 @@ local record types
     record_offset: number
     write: boolean
     take: integer
+    closing: integer
   end
 
   --- What a window shows of the song (`ViewRange`, stretched.rs): the

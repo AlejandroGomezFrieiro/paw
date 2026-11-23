@@ -295,7 +295,7 @@ test("the record button arms the selected track, and stopping ends record mode",
   eq(#b:clips(), 1, "leaving the take as a clip")
   paw.transport.record()
   paw.wait(200)
-  paw.transport.stop()
+  T.stop()
   eq(paw.transport.recording, false, "stopping any take ends record mode")
   paw.flush()
   api.engine_restart({ backend = "null" })

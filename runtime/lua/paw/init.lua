@@ -482,8 +482,9 @@ local function settle()
       if event.name == "changed" then
         warn()
         api.ui_redraw()
-      elseif event.name == "transport.record" then
-        -- What starting a take has to say (a punch range already passed).
+      elseif event.name == "transport.record" or event.name == "transport.recorded" then
+        -- What starting a take has to say (a punch range already passed),
+        -- and what making its clips had to say (the disk fell behind).
         warn()
       end
       paw.hooks.note(event.name, event.payload)

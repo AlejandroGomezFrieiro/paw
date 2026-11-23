@@ -422,7 +422,7 @@ test("a lost audio device stops the transport, keeps the take, and is opened aga
     paw.transport.play()
     paw.wait(200)
     eq(paw.transport.position > 0, true, "and it plays")
-    paw.transport.stop()
+    T.stop()
   end)
 end)
 
@@ -474,7 +474,7 @@ test("a MIDI input that goes away and comes back is told of, and its tracks take
   paw.wait(200)
   eq(select(1, t:meter()) > 0.01, true, "and plays what comes from it")
   paw.midi.inject({ type = "note_off", pitch = 60, port = "Keys A" })
-  paw.transport.stop()
+  T.stop()
   api.midi_test_ports({})
   paw.wait(250)
 end)

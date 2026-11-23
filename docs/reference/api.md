@@ -2783,7 +2783,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.transport_record()`
 - `paw.api.transport_seek(beats)`
 - `paw.api.transport_set(key, value)`: Change the transport: a table of the entries to change, as `transport_get` gives them (`{ loop_enabled = true }`), or one `key` and its value. Only the key form clears an entry (`nil`).
-- `paw.api.transport_stop()`
+- `paw.api.transport_stop()`: Stop the song. A take that records ends at once, and its clips come a moment later, with the event `transport.recorded`.
 - `paw.api.trial_active()`
 - `paw.api.trial_begin()`: --- audition (session/audition.rs) --- `trial_end(false)` discards the edits made after `trial_begin`. The project is then as it was and the undo history does not change. `trial_end(true)` keeps the edits as one step.
 - `paw.api.trial_end(keep)`

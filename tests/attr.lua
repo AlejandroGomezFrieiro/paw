@@ -180,7 +180,7 @@ test("a recorded MIDI 2.0 note-on keeps its attribute", function()
   T.until_beat(0.6)
   paw.midi.inject_ump({ 0x40803c00, 0 })
   T.next_block(3)
-  paw.transport.stop()
+  T.stop()
   local notes = keys:clips()[1]:notes()
   same(notes[1].attr, PIZZ, "on the note recorded")
 end)
@@ -395,7 +395,7 @@ test("a delayed note plays as early live as it renders", function()
     if pos > 1.2 and t:meter() > 0.2 then heard = pos end
     paw.wait(2)
   end
-  paw.transport.stop()
+  T.stop()
   eq(heard ~= nil, true, "heard")
   eq(heard >= 1.75 and heard < 1.97, true, "heard before its beat, from about 1.8: " .. tostring(heard))
   -- Going round a loop, every time.
@@ -413,7 +413,7 @@ test("a delayed note plays as early live as it renders", function()
     was = on
     paw.wait(2)
   end
-  paw.transport.stop()
+  T.stop()
   eq(#onsets, 3, "heard three times round")
   for i, pos in ipairs(onsets) do
     eq(pos >= 1.75 and pos < 1.97, true, "round " .. i .. " before its beat: " .. tostring(pos))

@@ -632,6 +632,7 @@ impl Session {
         if self.rec.take.as_ref().is_some_and(|t| t.shared.failed()) {
             self.stop();
         }
+        self.poll_takes();
         self.render_poll();
         self.play_states();
         self.poll_preview();
@@ -853,6 +854,7 @@ impl Session {
             || self.loads.busy()
             || self.watching()
             || self.rendering()
+            || !self.rec.closing.is_empty()
     }
 
     pub fn device_set(&mut self, id: Id, key: &str, value: Value) -> Result<()> {

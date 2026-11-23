@@ -102,6 +102,11 @@ local record kernel
       files: {string}
    end
 
+   --- A take that is done: its clips are in the project.
+   record Recorded is Payload
+      take: integer
+   end
+
    --- The audio device that went away, why, whether a take was being
    --- recorded, and whether paw tries to open it again by itself.
    record AudioLost is Payload
@@ -233,6 +238,7 @@ local record kernel
    transport_stop: events.Event<Position>
    transport_seek: events.Event<Position>
    transport_record: events.Event<Record>
+   transport_recorded: events.Event<Recorded>
    midi_in: events.Event<types.MidiEvent>
    midi_lost: events.Event<MidiPort>
    midi_returned: events.Event<MidiPort>
@@ -279,6 +285,7 @@ kernel.transport_play = events.event("transport.play")
 kernel.transport_stop = events.event("transport.stop")
 kernel.transport_seek = events.event("transport.seek")
 kernel.transport_record = events.event("transport.record")
+kernel.transport_recorded = events.event("transport.recorded")
 kernel.midi_in = events.event("midi.in")
 kernel.midi_lost = events.event("midi.lost")
 kernel.midi_returned = events.event("midi.returned")

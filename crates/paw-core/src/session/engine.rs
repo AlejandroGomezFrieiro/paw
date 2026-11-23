@@ -371,6 +371,7 @@ impl Session {
         // Assigning drops the old stream, which stops the old engine.
         self.engine.stream = stream;
         self.engine.handle = handle;
+        self.takes_let_go(position);
         self.send_pool();
         self.live.clear();
         self.play.seeks = 0;

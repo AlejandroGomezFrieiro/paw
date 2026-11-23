@@ -192,7 +192,8 @@ extensions. Some of them are:
 `changed`, `project.loaded`, `project.saved`, `track.added`,
 `track.changed`, `track.removed`, `clip.add`, `clip.set`,
 `device.changed`, `device.stopped`, `transport.play`, `transport.stop`,
-`transport.seek`, `transport.record`, `transport.changed`, `midi.in`,
+`transport.seek`, `transport.record`, `transport.recorded`,
+`transport.changed`, `midi.in`,
 `render.progress`, `render.done`, `audio.lost`, `audio.restored` and more.
 paw does not send an event whose payload is not valid JSON.
 

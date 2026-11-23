@@ -144,6 +144,12 @@ pub struct Record {
     pub files: Vec<PathBuf>,
 }
 
+/// A take that is done: its clips are in the project.
+#[derive(Debug, Clone, Serialize)]
+pub struct Recorded {
+    pub take: u32,
+}
+
 /// The audio device that went away, why, whether a take was being
 /// recorded, and whether paw tries to open it again by itself.
 #[derive(Debug, Clone, Serialize)]
@@ -324,6 +330,8 @@ pub enum KernelEvent {
     TransportSeek(Position),
     #[serde(rename = "transport.record")]
     TransportRecord(Record),
+    #[serde(rename = "transport.recorded")]
+    TransportRecorded(Recorded),
     /// @type types.MidiEvent
     #[serde(rename = "midi.in")]
     MidiIn(Value),

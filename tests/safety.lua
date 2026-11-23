@@ -178,7 +178,7 @@ test("a take's file is a valid WAV while it is recorded, and is in the safety co
     local size, length = wav_sizes(files[1])
     eq(size > 48000 * 4, true, "the header counts what was written a moment ago: " .. size)
     eq(size <= length - 44, true, "and no more than is in the file")
-    paw.transport.stop()
+    T.stop()
     eq(#mic:clips(), 1, "stopping makes the clip")
     paw.project.new()
     api.project_recover(copy)
@@ -200,7 +200,7 @@ test("starting to record with little room on the disk says how many minutes are 
     paw.transport.record()
     paw.flush()
     paw.opt.record_warn_minutes = nil
-    paw.transport.stop()
+    T.stop()
     local found
     for _, m in ipairs(paw.ui.messages) do
       if m.text:find("minutes? of recording") then found = m.text end
@@ -286,7 +286,7 @@ test("a device that panics is bypassed and reported, and the rest plays on", fun
   local left, right = paw.master:meter()
   eq(left == left and right == right and left < 10, true, "the master is finite")
   eq(select(1, other:meter()) > 0.01, true, "and its own track plays on, through it")
-  paw.transport.stop()
+  T.stop()
   bad:set("fail", 0)
   bad:restart()
   eq(api.device_get(bad.id).stopped, nil, "restarted, it works again")
@@ -307,7 +307,7 @@ test("a device that puts out NaN is silenced at its output and reported once", f
   local handle = paw.on("device.invalid", function() said = said + 1 end)
   paw.transport.play()
   paw.wait(500)
-  paw.transport.stop()
+  T.stop()
   paw.off(handle)
   eq(said, 1, "said once, not every block")
   local left = paw.master:meter()
@@ -344,7 +344,7 @@ test(
       eq(paw.transport.playing and paw.transport.position > 1, true, "the transport kept running")
       eq(select(1, steady:meter()) > 0.01, true, "the other track sounds")
       eq(select(1, other:meter()) > 0.01, true, "its own track plays on, the effect passed through")
-      paw.transport.stop()
+      T.stop()
 
       -- A render makes instances of its own, which hang too: it goes on without them.
       local began = api.now()
@@ -359,14 +359,14 @@ test(
       eq(said, true, "the render says what it left out")
     end, debug.traceback)
     paw.off(handler)
-    paw.transport.stop()
+    T.stop()
     pcall(api.device_call, helper.id, "sandbox.hang", "0")
     if not ok then error(err, 0) end
     fx:restart()
     eq(api.device_get(fx.id).stopped, nil, "restarted, it works again")
     paw.transport.play()
     paw.wait(600)
-    paw.transport.stop()
+    T.stop()
     eq(api.device_get(fx.id).stopped, nil, "and keeps answering")
   end
 )
@@ -443,7 +443,7 @@ test("takes of a project whose folder moved are not offered when the project use
     mic.input, mic.armed = "1", true
     paw.transport.record()
     paw.wait(600)
-    paw.transport.stop()
+    T.stop()
     paw.project.save()
     paw.project.new()
     os.execute("mv '" .. dir .. "' '" .. dir .. "-moved'")

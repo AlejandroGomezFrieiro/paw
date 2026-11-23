@@ -19,7 +19,7 @@ gtr.input = "1/2"            -- or "1", "3", nil for none
 gtr.monitor = true           -- hear it without arming
 gtr.armed = true             -- record it
 paw.transport.record()       -- recording on, and play
-paw.transport.stop()         -- the take becomes a clip at the position recording began
+paw.transport.stop()         -- the take becomes a clip where recording began, a moment later
 paw.transport.recording = false
 
 local keys = paw.add_track({ name = "Keys" })
@@ -106,6 +106,13 @@ graphical window) lists all the inputs of a track:
 - **The end of a take.** A stop, or recording off, ends the take, and a seek
   starts a new take. paw adds the clips of a take, audio and MIDI, as one
   undo step, and it cuts notes that are held at the end.
+- **When the clips come.** The stop key returns at once and doesn't wait
+  for the audio engine. The clips of the take come a moment later, when the
+  engine has let go of the take and its files are complete. paw then sends
+  the event `transport.recorded` with the number of the take, and
+  `paw.api.transport_get().closing` counts the takes that stopped and have
+  no clips yet. A script that reads the clips after `paw.transport.stop()`
+  waits for that event.
 - **A recording round the loop.** With the loop on, recording continues
   round the loop, and each time round becomes a take of one clip over the
   loop (see [Takes](takes.md)). The last take plays, and the name of the

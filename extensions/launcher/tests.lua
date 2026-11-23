@@ -137,7 +137,7 @@ test("launcher: a launch lands on the next bar and the timeline falls silent mea
   eq(state(t.id).since % 4, 0, "on a bar")
   launcher.back(t.id)
   until_(function() return launcher.playing(t.id) == "arrangement" end, "the timeline again", 10000)
-  paw.transport.stop()
+  T.stop()
   local _ = id
 end)
 
@@ -149,7 +149,7 @@ test("launcher: launching while stopped starts the song and the clip at once, an
   eq(paw.transport.playing, true, "the song plays")
   until_(function() return state(t.id).slot == 1 end, "the clip to start", 5000)
   near(state(t.id).since, 2, 1e-9, "where the playhead was")
-  paw.transport.stop()
+  T.stop()
   until_(function() return launcher.playing(t.id) == "arrangement" end, "the timeline again", 5000)
 end)
 
@@ -172,7 +172,7 @@ test("launcher: a scene launches its row together and stops tracks with nothing 
   until_(function() return state(a.id).stopped and state(c.id).stopped end, "every clip to stop", 10000)
   launcher.back()
   until_(function() return next(launcher.state()) == nil end, "every track back", 10000)
-  paw.transport.stop()
+  T.stop()
 end)
 
 test("launcher: a toggle clip stops when pressed again and a gate clip when let go", function()
@@ -189,7 +189,7 @@ test("launcher: a toggle clip stops when pressed again and a gate clip when let 
   until_(function() return state(t.id).slot == 0 end, "the gate to start", 5000)
   launcher.release(t.id, 0)
   until_(function() return state(t.id).stopped end, "the gate to stop", 5000)
-  paw.transport.stop()
+  T.stop()
 end)
 
 test("launcher: a slot's quantize wins over the project's and a launch's over both", function()
@@ -206,7 +206,7 @@ test("launcher: a slot's quantize wins over the project's and a launch's over bo
   launcher.launch(t.id, 0, { quantize = "bar" })
   until_(function() return state(t.id).since ~= since end, "the clip to start again", 10000)
   eq(state(t.id).since % 4, 0, "on a bar")
-  paw.transport.stop()
+  T.stop()
 end)
 
 -- Rendering and capturing ------------------------------------------------------
@@ -219,7 +219,7 @@ test("launcher: a render plays the timeline, not what is launched", function()
   local info = render({ start = 0, ["end"] = 4, tail = 0, bits = 16 })
   local left = T.channel_peaks(info)
   eq(left, 0, "the track has nothing on its timeline")
-  paw.transport.stop()
+  T.stop()
 end)
 
 test("launcher: a captured performance is written into the timeline on its boundaries and renders there", function()
@@ -235,7 +235,7 @@ test("launcher: a captured performance is written into the timeline on its bound
   until_(function() return state(t.id).slot == 0 end, "the clip to start", 10000)
   launcher.stop(b.id)
   until_(function() return paw.transport.position > 9 end, "two bars of it", 20000)
-  paw.transport.stop()
+  T.stop()
   launcher.capture(false)
   local clips = api.clip_list(t.id)
   eq(#clips, 1, "one clip for the stretch it played")
@@ -267,7 +267,8 @@ test("launcher: recording into an empty slot keeps a bar from the boundary and p
     launcher.record(t.id, 2)
     eq(launcher.recording ~= nil, true, "recording")
     eq(launcher.recording.from, 4, "from the next bar")
-    until_(function() return launcher.recording == nil end, "the bar to be recorded", 30000)
+    until_(function() return launcher.clip(t.id, 2) ~= nil end, "the bar to be recorded", 30000)
+    eq(launcher.recording, nil, "and the recording is over")
     local slot = launcher.clip(t.id, 2)
     eq(slot ~= nil and slot.kind, "audio", "the slot holds the recording")
     near(slot.length, 4, 1e-9, "a bar of it")
@@ -277,7 +278,7 @@ test("launcher: recording into an empty slot keeps a bar from the boundary and p
     local s, position = state(t.id), paw.transport.position
     local off = math.abs((s.phase - (position - 4) + 2) % 4 - 2)
     near(off, 0, 0.2, "where it is in its loop, beats off")
-    paw.transport.stop()
+    T.stop()
     api.undo()
     eq(launcher.clip(t.id, 2), nil, "undone")
   end, debug.traceback)
@@ -322,7 +323,7 @@ test(
     note(50)
     eq(paw.learn.learning ~= nil, true, "a key is not learned for a fader")
     paw.learn.cancel()
-    paw.transport.stop()
+    T.stop()
     paw.ui.hide("session")
   end
 )
@@ -362,7 +363,7 @@ test("launcher: the session view shows the slots and scenes, and its keys launch
   paw.keymap.feed("r")
   eq(api.track_get(t.id).armed, true, "r arms the track, as in every view")
   eq(#paw.ui.keybar.check(), 0, "every key the key bar shows is mapped")
-  paw.transport.stop()
+  T.stop()
   paw.ui.hide("session")
 end)
 
@@ -416,7 +417,7 @@ test(
     launcher.stop(nil)
     launcher.back(nil)
     until_(function() return next(launcher.state()) == nil end, "all back", 10000)
-    paw.transport.stop()
+    T.stop()
     paw.ui.hide("session")
   end
 )
@@ -525,7 +526,7 @@ test(
     end
     eq(launched(), true, "the play mark launches the clip")
     launcher.stop(nil)
-    paw.transport.stop()
+    T.stop()
     apart()
     local _, y3 = slot(3)
     drag(x + 4, y, x + 4, y3)
@@ -643,7 +644,7 @@ test(
     paw.cursor.set_track(t.id)
     launcher.launch(t.id, 0, { quantize = "off" })
     until_(function() return (launcher.state()[t.id] or {}).slot == 0 end, "the clip to start", 5000)
-    paw.transport.stop()
+    T.stop()
     local W, H = 120, 40
     -- The drawings come one after the other, and a meter falls and a held
     -- peak lets go in between (a loaded machine): the meters stand still.
@@ -697,7 +698,7 @@ test(
     end, "the slot to fill three cells", 8000)
     eq(type(last), "string", "a key")
     eq(changes < samples / 2, true, "the same key for many ticks: " .. changes .. " changes in " .. samples)
-    paw.transport.stop()
+    T.stop()
     paw.ui.hide("session")
   end
 )

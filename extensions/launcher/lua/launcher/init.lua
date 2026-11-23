@@ -350,12 +350,13 @@ end
 --
 -- An empty slot of a track records `bars` bars from the next boundary. The
 -- take is made by the transport's recording, as any take is; when the bars
--- are done the part of it between the two boundaries becomes the slot's
--- clip, the take leaves the timeline, and the clip plays on in step, as if
--- it had been playing since the first boundary.
+-- are done the take ends. When it is clips (`transport.recorded`), the part
+-- of it between the two boundaries becomes the slot's clip, the take leaves
+-- the timeline, and the clip plays on in step, as if it had been playing
+-- since the first boundary.
 
 -- The slot being recorded: { track, row, from, to, before = clip ids on the
--- track before }, or nil.
+-- track before, take = the number of the take }, or nil.
 M.recording = nil
 local rec_timer
 
@@ -405,17 +406,26 @@ local function piece(c, from, to)
   return opts
 end
 
---- End the clip being recorded into a slot.
+--- End the take that records into a slot. Its part in the slot's bars
+--- becomes the slot's clip when the take is clips (`take_into_slot`).
 local function finish_recording()
   local r = M.recording
   if not r then return end
   M.recording = nil
   if rec_timer then paw.cancel(rec_timer) end
   rec_timer = nil
-  local stopped_at = paw.transport.position
+  r.stopped_at = paw.transport.position
   -- Ending the take puts it on the timeline, as any take.
   paw.transport.recording = false
   if r.punch then api.transport_set("punch_enabled", true) end
+end
+
+--- Make the slot's clip from the take that recorded into it, now that the
+--- take is clips on the timeline.
+local function take_into_slot(r)
+  -- The song stopped before the timer saw it: end the recording here.
+  if M.recording == r then finish_recording() end
+  local stopped_at = r.stopped_at
   local made
   for _, c in ipairs(api.clip_list(r.track)) do
     if not r.before[c.id] then
@@ -466,11 +476,19 @@ function M.record(track, row, bars)
     to = from + (bars or 1) * paw.time.bar(from),
     before = before,
     punch = punch,
+    take = api.transport_get().take,
   }
+  local r = M.recording
+  local listener
+  listener = paw.on("transport.recorded", function(e)
+    if e.take ~= r.take then return end
+    paw.off(listener)
+    take_into_slot(r)
+  end)
   api.cue({ { track = track, stop = true, quantize = M.quantize() } })
   rec_timer = paw.every(10, function()
-    local r = M.recording
-    if r and (not paw.transport.playing or paw.transport.position >= r.to) then finish_recording() end
+    local current = M.recording
+    if current and (not paw.transport.playing or paw.transport.position >= current.to) then finish_recording() end
   end)
   paw.notify("recording into slot " .. (row + 1) .. " from beat " .. paw.time.format(from))
   api.ui_redraw()

@@ -207,6 +207,20 @@ local function until_beat(beat, rounds, ms)
   end, string.format("the playhead at beat %g after %d times round the loop", beat, rounds or 0), ms or 30000)
 end
 
+--- Wait until each take that stopped is clips in the project, and the
+--- handlers of their events have run. A stop ends a take at once, and its
+--- clips come when the engine has let go of it (`transport.recorded`).
+local function until_recorded()
+  until_(function() return (api.transport_get().closing or 0) == 0 end, "the takes that stopped to become clips")
+  paw.flush()
+end
+
+--- Stop the song, and wait until the take that it ends is clips.
+local function stop()
+  paw.transport.stop()
+  until_recorded()
+end
+
 local function fresh()
   -- Keys half typed, a selection, insert or command line mode, and the
   -- floats an earlier test left open would take this test's first keys.
@@ -484,6 +498,8 @@ local T = {
   until_ = until_,
   next_block = next_block,
   until_beat = until_beat,
+  until_recorded = until_recorded,
+  stop = stop,
   scratch = scratch,
   home = home,
   read_file = read_file,

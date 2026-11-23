@@ -37,6 +37,8 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             sh.session.borrow_mut().play();
             Ok(())
         }
+        // Stop the song. A take that records ends at once, and its clips
+        // come a moment later, with the event `transport.recorded`.
         // @return nil
         fn transport_stop(_, sh, () => ()) {
             sh.session.borrow_mut().stop();
