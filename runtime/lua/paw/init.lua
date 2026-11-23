@@ -16,44 +16,11 @@ paw.inspect = paw.util.inspect
 -- Pure transforms of lists of notes (paw/notes.tl).
 paw.notes = require("paw.notes")
 
---- What a user sees of an error: one line, without the list of calls.
---- The place in the code (`paw/x.lua:12:`) moves to the end, where it does
---- not hide what went wrong. The whole error goes to the log.
---- @type function(err: string): string
-function paw.failure(err)
-  local text = tostring(err)
-  local short = text:match("^(.-)\n*stack traceback:") or text
-  short = short:gsub("%s+$", "")
-  -- A module in Lua or in Teal (`paw/x.tl:12:`).
-  local file, line, rest = short:match("^[^\n]-([%w_%-]+%.lua):(%d+): (.*)$")
-  if not file then
-    file, line, rest = short:match("^[^\n]-([%w_%-]+%.tl):(%d+): (.*)$")
-  end
-  if file then
-    -- An error raised by the code itself (`attempt to index a nil value`)
-    -- says where; one raised on purpose says what to do, and that is enough.
-    local internal = rest:match("^attempt to ")
-      or rest:match("^bad argument")
-      or rest:match("^stack overflow")
-      or rest:match("^table index is ")
-    short = internal and string.format("%s (%s:%s)", rest, file, line) or rest
-  end
-  return short
-end
-
---- Call a function. If it fails, show the error as a message and do not
---- raise it. Returns true and the results of the function, or false and the error.
---- The message is the first lines of the error (`paw.failure`). The log
---- keeps the list of calls.
-function paw.try(fn, ...)
-  local result = { xpcall(fn, debug.traceback, ...) }
-  if not result[1] then
-    local short = paw.failure(result[2])
-    if short ~= tostring(result[2]) then api.log("[error] " .. tostring(result[2])) end
-    paw.notify(short, "error")
-  end
-  return unpack(result)
-end
+-- Messages (paw/messages.tl): `paw.notify` keeps a message, and
+-- paw/ui.tl shows it. `paw.try` calls a function and gives its error as a
+-- message.
+local messages = require("paw.messages")
+paw.notify, paw.failure, paw.try = messages.notify, messages.failure, messages.try
 
 local events = require("paw.events")
 paw.on, paw.once, paw.off, paw.emit = events.on, events.once, events.off, events.emit
@@ -70,43 +37,11 @@ paw.hooks = require("paw.hooks")
 -- Before anything that keeps state of its own for each terminal and window.
 paw.seats = require("paw.seats")
 
---- The timers waiting, by handle: the function each runs. An extension's
---- go when it is unloaded (paw/ext.lua).
---- @type {integer:function()}
-paw.timers = {}
-
---- Run `fn` once, after `ms` milliseconds (or when the current turn ends).
---- @type function(fn: function(), ms?: number): integer
-function paw.defer(fn, ms)
-  local handle
-  handle = api.timer_start(ms or 0, false, function(...)
-    paw.timers[handle] = nil
-    return paw.limit.timed(nil, fn, ...)
-  end)
-  paw.timers[handle] = fn
-  return handle
-end
-
---- Run `fn` every `ms` milliseconds. Returns a handle for `paw.cancel`.
---- @type function(ms: number, fn: function()): integer
-function paw.every(ms, fn)
-  local handle = api.timer_start(ms, true, function(...) return paw.limit.timed(nil, fn, ...) end)
-  paw.timers[handle] = fn
-  return handle
-end
-
---- Stop a timer: `handle` is what `paw.defer` or `paw.every` returned.
---- @type function(handle: integer)
-function paw.cancel(handle)
-  if handle == nil then return end
-  paw.timers[handle] = nil
-  return api.timer_stop(handle)
-end
-
---- Let `ms` milliseconds pass while timers fire and events are delivered, as
---- they do between key presses. A script run with `-l` is one long turn in
---- which neither happens unless it waits like this.
-paw.wait = api.wait
+-- Timers (paw/timers.tl): `paw.defer`, `paw.every`, `paw.cancel`, and
+-- `paw.timers.waiting`, which an extension's unload reads.
+local timers = require("paw.timers")
+paw.timers = timers
+paw.defer, paw.every, paw.cancel, paw.wait = timers.defer, timers.every, timers.cancel, timers.wait
 
 -- Long work in slices between keys (paw/slices.tl): `paw.slices(name, step)`.
 paw.slices = require("paw.slices")
@@ -116,16 +51,14 @@ local collector = require("paw.collector")
 -- the events of the kernel before it sends them.
 local derived = require("paw.derived")
 
+-- The command registry (paw/command.tl): `paw.command(name, fn, opts)`
+-- defines a command, and `paw.command.alias(alias, target)` gives it
+-- another name. paw/commands.tl runs them.
+paw.command = require("paw.command")
 paw.commands = require("paw.commands")
 -- The types of what an extension gives paw (a view, a picker, ...) for an
 -- extension in Teal: `paw.contracts.View`. An empty table here.
 paw.contracts = require("paw.contracts")
---- Define a command: `paw.command(name, fn, opts)` (paw.commands.define),
---- and `paw.command.alias(alias, target)`.
---- @type contracts.Command
-paw.command = setmetatable({ alias = paw.commands.alias }, {
-  __call = function(_, ...) return paw.commands.define(...) end,
-})
 paw.cmd = paw.commands.run
 
 paw.music = require("paw.music")
@@ -150,7 +83,6 @@ require("paw.menu")
 paw.canvas = require("paw.canvas")
 -- The tabs and windows as panes of a graphical frontend (paw/panes.tl).
 paw.panes = require("paw.panes")
-paw.notify = paw.ui.notify
 paw.keymap = require("paw.keymap")
 paw.keyrule = require("paw.keyrule")
 
@@ -201,46 +133,6 @@ paw.trackcolumn = require("paw.trackcolumn")
 paw.ruler = require("paw.ruler")
 paw.tempolane = require("paw.tempolane")
 paw.frontend = require("paw.frontend")
--- What an extension owns in the modules above paw.ext in the layers
--- (.claude/skills/paw-code/layers.md): paw.ext takes it away when the
--- extension unloads.
-table.insert(paw.ext.registries, {
-  -- The keys of the pencil: the "keys" registry takes their mappings away,
-  -- this one their entries, which the key bar lists.
-  kind = "pencil",
-  title = "keys of the pencil",
-  snapshot = function()
-    local out = {}
-    for key, entry in pairs(paw.roll_draw and paw.roll_draw.keys or {}) do
-      out[key] = entry
-    end
-    return out
-  end,
-  put = function(key, value) paw.roll_draw.keys[key] = value end,
-  label = function(key) return key .. " (pencil)" end,
-})
-table.insert(paw.ext.registries, {
-  -- The bands under the ruler of the window (`paw.frontend.bands`), a list
-  -- of functions: each function is its own key.
-  kind = "bands",
-  title = "bands under the ruler",
-  snapshot = function()
-    local out = {}
-    for _, band in ipairs(paw.frontend.bands) do
-      out[band] = band
-    end
-    return out
-  end,
-  put = function(key, value)
-    local bands = paw.frontend.bands
-    for i = #bands, 1, -1 do
-      if bands[i] == key then table.remove(bands, i) end
-    end
-    if value then bands[#bands + 1] = value end
-    api.ui_redraw()
-  end,
-  label = function() return "band" end,
-})
 paw.audition = require("paw.audition")
 paw.regex = require("paw.regex")
 paw.pick = require("paw.pick")

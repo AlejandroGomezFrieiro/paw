@@ -26,7 +26,7 @@
 local api = require("paw.api")
 local util = require("paw.util")
 local options = require("paw.options")
-local commands = require("paw.commands")
+local command = require("paw.command")
 local derived = require("paw.derived")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
@@ -683,7 +683,7 @@ local function names(): {string}
 end
 
 -- The words of a command as one text.
-local function words(args: commands.Args): string
+local function words(args: command.Args): string
   return table.concat(args as {string}, " ")
 end
 
@@ -691,7 +691,7 @@ end
 --- frontend's menus do), or the one at the cursor. `kind` keeps to points
 --- ("marker") or to ranges ("region"); a region at the cursor is the one
 --- the cursor is in.
-local function wanted(ctx: commands.Context, kind?: string): Marker
+local function wanted(ctx: command.Context, kind?: string): Marker
   local what = kind or "marker"
   local function fits(m: Marker): boolean
     return m ~= nil and (kind == nil or (kind == "region") == (m.length ~= nil))
@@ -761,14 +761,14 @@ function M.default_name(): string
   return "Marker " .. n
 end
 
-local type Context = commands.Context
-local type Result = commands.Result
+local type Context = command.Context
+local type Result = command.Result
 -- Ask for a line of text (`paw.ui.input`, looked up when it asks).
 local function input(opts: InputOptions, on_submit: function(text: string))
   (paw.ui.input as function(InputOptions, function(string)))(opts, on_submit)
 end
 
-commands.define(
+command.define(
   "marker",
   function(ctx: Context): Result
     local name = words(ctx.args):match("^%s*(.-)%s*$")
@@ -783,19 +783,19 @@ commands.define(
   }
 )
 
-commands.define(
+command.define(
   "marker.new",
   function(): Result
     local beat = paw.cursor.beat
     input(
       {prompt = "Marker name: ", text = M.default_name(), label = "Put a marker"},
-      function(name: string) local args: commands.Args = {name}; args.at = beat; commands.run("marker", args) end
+      function(name: string) local args: command.Args = {name}; args.at = beat; command.run("marker", args) end
     )
   end,
   {desc = "Put a marker at the cursor, asking for its name (Marker 1, Marker 2... if none is typed)"}
 )
 
-commands.define(
+command.define(
   "marker.remove",
   function(ctx: Context): Result
     -- From a menu (`id=`), whichever it is; typed, markers only.
@@ -812,7 +812,7 @@ commands.define(
   }
 )
 
-commands.define(
+command.define(
   "marker.rename",
   function(ctx: Context): Result
     local m = ctx.args.id and M.find({id = tonumber(ctx.args.id) as integer}) or M.at(paw.cursor.beat)
@@ -832,7 +832,7 @@ commands.define(
 )
 
 -- For a frontend, where a marker is dragged: `marker.set id=3 beat=17.5`.
-commands.define(
+command.define(
   "marker.set",
   function(ctx: Context): Result
     local id = tonumber(ctx.args.id) as integer
@@ -881,7 +881,7 @@ local function moved(m: Marker, along: integer, alone: boolean): string
   return text
 end
 
-commands.define(
+command.define(
   "marker.move",
   function(): Result
     local m = M.at(paw.cursor.beat, math.huge)
@@ -897,7 +897,7 @@ commands.define(
   }
 )
 
-commands.define(
+command.define(
   "marker.next",
   function(ctx: Context): Result
     local beat = paw.cursor.beat
@@ -913,7 +913,7 @@ commands.define(
   {desc = "Go to the next marker or region start"}
 )
 
-commands.define(
+command.define(
   "marker.prev",
   function(ctx: Context): Result
     local beat = paw.cursor.beat
@@ -929,7 +929,7 @@ commands.define(
   {desc = "Go to the marker or region start before the cursor"}
 )
 
-commands.define(
+command.define(
   "marker.goto",
   function(ctx: Context): Result
     local m = wanted(ctx)
@@ -940,7 +940,7 @@ commands.define(
   {desc = "Go to a marker or region by number or name: `marker.goto 3`, `marker.goto Chorus`", complete = names}
 )
 
-commands.define(
+command.define(
   "marker.list",
   function(): Result
     local list = M.list()
@@ -996,7 +996,7 @@ local function add_region(from: number, to: number, name: string)
   paw.notify(describe(m) .. ", " .. string.format("%g", to - from) .. " beats")
 end
 
-commands.define(
+command.define(
   "region",
   function(ctx: Context): Result
     local from, to = region_span()
@@ -1007,7 +1007,7 @@ commands.define(
   {desc = "Make a region over the selection, or over the loop: `region Verse`"}
 )
 
-commands.define(
+command.define(
   "region.new",
   function(): Result
     local from, to = region_span()
@@ -1042,7 +1042,7 @@ local function remove_region(ctx: Context, with_inside: boolean)
   paw.notify(text .. "; its clips stay")
 end
 
-commands.define(
+command.define(
   "region.remove",
   function(ctx: Context): Result remove_region(ctx, false) end,
   {
@@ -1051,7 +1051,7 @@ commands.define(
   }
 )
 
-commands.define(
+command.define(
   "region.remove!",
   function(ctx: Context): Result remove_region(ctx, true) end,
   {
@@ -1094,7 +1094,7 @@ local function move_region(ctx: Context, alone: boolean)
   paw.notify(moved(M.find({id = m.id}), along, alone))
 end
 
-commands.define(
+command.define(
   "region.move",
   function(ctx: Context): Result move_region(ctx, false) end,
   {
@@ -1104,7 +1104,7 @@ commands.define(
   }
 )
 
-commands.define(
+command.define(
   "region.move!",
   function(ctx: Context): Result move_region(ctx, true) end,
   {
@@ -1150,19 +1150,19 @@ local function step_region(ctx: Context, dir: integer)
   paw.cursor.set_beat(found.beat)
 end
 
-commands.define(
+command.define(
   "region.next",
   function(ctx: Context): Result step_region(ctx, 1) end,
   {desc = "Go to the next region at the level of the one the cursor is in (`]r`)"}
 )
 
-commands.define(
+command.define(
   "region.prev",
   function(ctx: Context): Result step_region(ctx, -1) end,
   {desc = "Go to the region before, at the level of the one the cursor is in (`[r`)"}
 )
 
-commands.define(
+command.define(
   "region.loop",
   function(ctx: Context): Result
     local m = wanted(ctx, "region")

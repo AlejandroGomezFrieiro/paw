@@ -4,6 +4,7 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local events = require("paw.events")
+local type registry = require("paw.registry")
 local type types = require("paw.types")
 local type objects = require("paw.objects")
 local type CanvasModule = require("paw.canvas")
@@ -671,8 +672,9 @@ local record M
   --- What extensions add to the frontend's right-click menus, by kind:
   --- `clip`, `track` and `timeline`.
   menus: {string: {MenuEntry}}
-  --- Bands of extensions under the ruler.
-  bands: {Band}
+  --- Bands of extensions under the ruler, by name, with the extension
+  --- that put each one.
+  bands: registry.Registry<Band>
   --- The pointer's gestures.
   act: Act
   -- The functions, by the part that defines them.

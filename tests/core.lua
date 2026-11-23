@@ -504,7 +504,7 @@ test("edits in a script that never waits leave no timers behind", function()
   api.undo_checkpoint()
   local function count()
     local n = 0
-    for _ in pairs(paw.timers) do
+    for _ in pairs(paw.timers.waiting:entries()) do
       n = n + 1
     end
     return n

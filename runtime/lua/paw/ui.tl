@@ -22,6 +22,7 @@ local options = require("paw.options")
 local seats = require("paw.seats")
 local util = require("paw.util")
 local registry = require("paw.registry")
+local messages = require("paw.messages")
 local Buf = require("paw.buf")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
@@ -30,7 +31,7 @@ local type KeymapModule = require("paw.keymap")
 local type KeybarModule = require("paw.keybar")
 local type role_props = require("paw.role_props")
 local type MouseModule = require("paw.mouse")
-local type commands = require("paw.commands")
+local type command = require("paw.command")
 local type DrawModule = require("paw.draw")
 
 local type View = contracts.View
@@ -50,12 +51,8 @@ local record Bar
   hidden: boolean
 end
 
---- A message on the command line (`paw.ui.notify`).
-local record Message
-  text: string
-  level: string
-  time: number
-end
+--- A message on the command line (`paw.notify`).
+local type Message = messages.Message
 
 --- What `paw.ui.titlebar` takes.
 local record TitlebarOptions
@@ -130,6 +127,8 @@ end
 --- A layer of a part of a view (`paw.ui.layer`).
 local type Paint<C> = function(ctx: C)
 local record Layer
+  view: string
+  part: string
   name: string
   order: number
   paint: function(ctx: Bound)
@@ -141,7 +140,7 @@ local record InputOptions
   text: string
   history: string
   label: string
-  complete: function(text: string): {string | commands.Entry}
+  complete: function(text: string): {string | command.Entry}
   preview: function(text: string): string, string
   on_change: function(text: string): string, string
   anchor: function(): types.Point
@@ -276,6 +275,8 @@ local record M
   messages: {Message}
   --- The one on the command line now.
   message: Message
+  --- Give a message: the same as `paw.notify` (paw/messages.tl).
+  notify: function(text: string, level?: string)
   --- A function that takes every key while set (prompts).
   grabber: function(key: string, pasted?: boolean)
   --- The floating view, if one is open.
@@ -315,8 +316,12 @@ local record M
   view_win: Node
   pictures: {Picture}
   scene_drawing: boolean
-  --- The layers of each part of each view: view -> part -> layers.
+  --- The layers of each part of each view: view -> part -> layers, in
+  --- their order. Made from `layer_registry`.
   layers: {string:{string:{Layer}}}
+  --- The layers by `"<view> <part> <name>"`, with the extension that put
+  --- each one. `paw.ui.layer` puts one.
+  layer_registry: registry.Registry<Layer>
   --- The locator of each view, by the view's name (`paw.ui.locator`).
   locators: {string:contracts.Locator}
   --- Whether the terminal has the keyboard focus of the desktop.
@@ -357,7 +362,7 @@ M.views = registry.new("views", "views", {
   changed = function() api.ui_redraw() end,
 })
 M.stamp_misses = {}
-M.messages = {}
+M.messages = messages.list
 M.rects = {}
 rawset(M as {string:Buf}, "Buf", Buf)
 
@@ -1866,22 +1871,15 @@ local function clear_later(ms: number)
   end, ms)
 end
 
---- Show a message. `level` is "info" (default), "warn" or "error".
-function M.notify(text: string, level?: string)
-  -- What the kernel refused, as it said it, without the prefix its errors
-  -- carry through Lua.
-  text, level = (tostring(text):gsub("runtime error: ", "")), level or "info"
-  local message: Message = { text = text, level = level, time = api.now() }
-  M.messages[#M.messages + 1] = message
-  if #M.messages > 500 then table.remove(M.messages, 1) end
-  api.log(string.format("[%s] %s", level, text))
-  -- Without a terminal the message also goes to stderr; a graphical
-  -- frontend shows `M.message` like the command line does.
-  if not api.ui_attached() then io.stderr:write(text, "\n") end
+-- A message that came (paw/messages.tl) goes on the command line, until
+-- `paw.opt.message_time` passed. A graphical frontend shows `M.message`
+-- as the command line does.
+messages.show = function(message: Message)
   M.message = message
   if not clearing then clear_later(opt.message_time) end
   api.ui_redraw()
 end
+M.notify = messages.notify
 
 -- Every group as it was defined, so that the colours can be made again for
 -- a terminal that shows fewer of them (`paw.opt.termcolors`).
@@ -1950,21 +1948,41 @@ M.redraw = api.ui_redraw
 -- things with an address are (paw/address.tl). The piano roll has layers
 -- of its own (`paw.ui.views:get("pianoroll").layer`).
 
-M.layers = {}  -- view -> part -> { { name, order, paint } }
+M.layers = {}
+
+-- Make the list of the layers of a part of a view again, in their order,
+-- after a layer of it changed.
+local function list_layers(view: string, part: string)
+  local list: {Layer} = {}
+  for _, layer in pairs(M.layer_registry:entries()) do
+    if layer.view == view and layer.part == part then list[#list + 1] = layer end
+  end
+  table.sort(list, function(a: Layer, b: Layer): boolean
+    if a.order ~= b.order then return a.order < b.order end
+    return a.name < b.name
+  end)
+  M.layers[view] = M.layers[view] or {}
+  M.layers[view][part] = list
+  api.ui_redraw()
+end
+
+M.layer_registry = registry.new("layers", "layers", {
+  changed = function(_: string, layer: Layer, old: Layer)
+    local which = layer or old
+    list_layers(which.view, which.part)
+  end,
+})
 
 --- Draw `paint(ctx)` as a layer of a part of a view (`"arrange", "header"`).
 --- It replaces a layer with the same name (nil removes it). The view tells
 --- what `ctx` contains where it calls `paw.ui.paint`.
 function M.layer<C>(view: string, part: string, name: string, order: number, paint?: Paint<C>)
-  M.layers[view] = M.layers[view] or {}
-  local list = M.layers[view][part] or {}
-  for i = #list, 1, -1 do
-    if list[i].name == name then table.remove(list, i) end
+  local key = view .. " " .. part .. " " .. name
+  if paint then
+    M.layer_registry:put(key, { view = view, part = part, name = name, order = order, paint = paint as function(ctx: Bound) })
+  else
+    M.layer_registry:remove(key)
   end
-  if paint then list[#list + 1] = { name = name, order = order, paint = paint as function(ctx: Bound) } end
-  table.sort(list, function(a: Layer, b: Layer): boolean return a.order < b.order end)
-  M.layers[view][part] = list
-  api.ui_redraw()
 end
 
 --- Draw the layers of a part of a view: views call this where the part is drawn.

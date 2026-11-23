@@ -31,7 +31,7 @@ local events = require("paw.events")
 local kernel = require("paw.events.kernel")
 local options = require("paw.options")
 local seats = require("paw.seats")
-local commands = require("paw.commands")
+local command_registry = require("paw.command")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
@@ -44,8 +44,8 @@ local type Buffer = contracts.LayoutBuffer
 local type KeyContext = contracts.KeyContext
 local type Region = contracts.Region
 local type RenderContext = contracts.RenderContext
-local type Context = commands.Context
-local type Result = commands.Result
+local type Context = command_registry.Context
+local type Result = command_registry.Result
 local opt = options.opt
 
 --- Which way a split stacks its children: `v` in rows, `h` in columns.
@@ -1435,8 +1435,8 @@ end
 
 --- Names to complete after `:b`, `:e`, `:sp`, `:vs`: every buffer's and
 --- every view's that can be shown.
-function M.buffer_names(): {commands.Item}
-  local out: {commands.Item} = {}
+function M.buffer_names(): {command_registry.Item}
+  local out: {command_registry.Item} = {}
   local seen: {string: boolean} = {}
   local function add(name: string, desc: string)
     if not seen[name] then
@@ -1452,7 +1452,7 @@ function M.buffer_names(): {commands.Item}
       add(view.bufname or M.names[name] or name, view.title)
     end
   end
-  table.sort(out, function(a: commands.Item, b: commands.Item): boolean return a.text < b.text end)
+  table.sort(out, function(a: command_registry.Item, b: command_registry.Item): boolean return a.text < b.text end)
   return out
 end
 
@@ -3158,7 +3158,7 @@ local type Ctx = Context
 --- Make the empty buffer type, the commands and the keys. Run once the
 --- default commands are there, as some of these take over their short names.
 function M.setup()
-  local command, alias = commands.define, commands.alias
+  local command, alias = command_registry.define, command_registry.alias
   local map = paw.keymap.set
 
   -- An empty window shows the start page: what `:vnew` and `:tabnew` open.
@@ -3168,8 +3168,8 @@ function M.setup()
   options.define("splitbelow", true)
   options.define("layout", "")
 
-  local names = function(_: string, _: commands.Info): {string | commands.Candidate}
-    return M.buffer_names() as {string | commands.Candidate}
+  local names = function(_: string, _: command_registry.Info): {string | command_registry.Candidate}
+    return M.buffer_names() as {string | command_registry.Candidate}
   end
 
   -- What a split without a name shows, as Vim shows the same buffer: a
@@ -3254,7 +3254,7 @@ function M.setup()
   -- A view's own name goes to it: `:arrange`, `:mixer`, `:roll`.
   for _, view in ipairs({"arrange", "mixer", "pianoroll"}) do
     local word = M.names[view] or view
-    if ui().views:get(view) and not commands.get(word) then
+    if ui().views:get(view) and not command_registry.get(word) then
       command(word, function(): Result paw.ui.focus(view) end, {desc = "Show " .. M.titles[view] .. " and go to it"})
     end
   end
@@ -3264,7 +3264,7 @@ function M.setup()
     "q",
     function(): Result
       if not close_window() then
-        commands.run("quit")
+        command_registry.run("quit")
       end
     end,
     {desc = "Close the window; in the last one, quit unless there are unsaved changes"}
@@ -3273,7 +3273,7 @@ function M.setup()
     "q!",
     function(): Result
       if not close_window() then
-        commands.run("quit!")
+        command_registry.run("quit!")
       end
     end,
     {desc = "Close the window; in the last one, quit without saving"}
@@ -3281,16 +3281,16 @@ function M.setup()
   -- `:e roll` shows a buffer here; `:e song` opens a project.
   command(
     "e",
-    function(ctx: Ctx): Result return commands.run("edit", ctx.args, ctx) end,
+    function(ctx: Ctx): Result return command_registry.run("edit", ctx.args, ctx) end,
     {
       desc = "Show a buffer in this window: `e roll`; or open a file as `open` does: `e song`, `e song.mid`, `e take.wav`",
-      complete = function(text: string, info: commands.Info): {string | commands.Candidate}
+      complete = function(text: string, info: command_registry.Info): {string | command_registry.Candidate}
         if info.index > 1 then
           return {}
         end
-        local out = M.buffer_names() as {string | commands.Candidate}
-        for _, c in ipairs(commands.completers:get("openable")(text)) do
-          out[#out + 1] = c as commands.Candidate
+        local out = M.buffer_names() as {string | command_registry.Candidate}
+        for _, c in ipairs(command_registry.completers:get("openable")(text)) do
+          out[#out + 1] = c as command_registry.Candidate
         end
         return out
       end,
@@ -3582,7 +3582,7 @@ function M.setup()
     end,
     {
       desc = "Set an option of this window: `setlocal timebind` scrolls and zooms it with the other time bound windows",
-      complete = function(): {string | commands.Candidate} return {"timebind", "notimebind", "timebind!"} end,
+      complete = function(): {string | command_registry.Candidate} return {"timebind", "notimebind", "timebind!"} end,
     }
   )
   alias("setl", "setlocal")
@@ -3615,14 +3615,16 @@ function M.setup()
     end,
     {
       desc = "Put back a layout of tabs and windows: `layout edit`; `layout save edit` keeps the one now",
-      complete = function(_: string, info: commands.Info): {string | commands.Candidate}
+      complete = function(_: string, info: command_registry.Info): {string | command_registry.Candidate}
         if info.index == 2 and info.words[1] == "save" then
-          return M.layout_names() as {string | commands.Candidate}
+          return M.layout_names() as {string | command_registry.Candidate}
         end
         if info.index > 1 then
           return {}
         end
-        local out: {string | commands.Candidate} = {{text = "save", desc = "keep the tabs and windows as they are"}}
+        local out: {string | command_registry.Candidate} = {
+          {text = "save", desc = "keep the tabs and windows as they are"}
+        }
         for _, name in ipairs(M.layout_names()) do
           out[#out + 1] = name
         end
@@ -3635,8 +3637,8 @@ function M.setup()
     s = function() split(false)({args = {}}) end,
     v = function() split(true)({args = {}}) end,
     n = function() split(false, true)({args = {}}) end,
-    c = function() commands.run("close") end,
-    q = function() commands.run("q") end,
+    c = function() command_registry.run("close") end,
+    q = function() command_registry.run("q") end,
     o = function() M.only() end,
     x = function(ctx: Ctx) M.exchange(ctx.count) end,
     r = function() M.rotate(false) end,

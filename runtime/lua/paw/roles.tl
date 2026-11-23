@@ -42,7 +42,7 @@ local type PanesModule = require("paw.panes")
 local type role_props = require("paw.role_props")
 local Buf = require("paw.buf")
 local type CanvasModule = require("paw.canvas")
-local type CommandsModule = require("paw.commands")
+local command = require("paw.command")
 local type LimitModule = require("paw.limit")
 local type SeatsModule = require("paw.seats")
 local type UtilModule = require("paw.util")
@@ -59,7 +59,6 @@ local record Paw is partial.Paw
   keymap: KeymapModule
   ui: UiModule
   canvas: CanvasModule
-  commands: CommandsModule
   limit: LimitModule
   mouse: MouseModule
   panes: PanesModule
@@ -472,7 +471,7 @@ function M.gesture(view: View, e: MouseEvent): boolean
   if h.keys then
     paw.keymap.feed(h.keys)
   elseif h.cmd then
-    paw.commands.exec(h.cmd)
+    command.exec(h.cmd)
   else
     return false
   end

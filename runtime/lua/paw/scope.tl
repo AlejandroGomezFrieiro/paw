@@ -40,7 +40,7 @@ local api = require("paw.api")
 local events = require("paw.events")
 local kernel = require("paw.events.kernel")
 local options = require("paw.options")
-local commands = require("paw.commands")
+local command = require("paw.command")
 local derived = require("paw.derived")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
@@ -2019,7 +2019,7 @@ local function say(fn: Step, hint?: string)
   paw.notify(M.describe() .. (hint or ""))
 end
 
-commands.define(
+command.define(
   "narrow",
   function(ctx: contracts.CommandContext): contracts.CommandResult
     local which = ctx.args[1]
@@ -2053,10 +2053,10 @@ local function widen(top: boolean)
   local s = M.current()
   paw.notify(s and M.breadcrumb(s) or "the whole song")
 end
-commands.define(
+command.define(
   "widen", function(): contracts.CommandResult widen(false) end, {desc = "Up one level of scope in this window"}
 )
-commands.define(
+command.define(
   "widen!",
   function(): contracts.CommandResult widen(true) end,
   {desc = "Leave every level of scope: this window shows the whole song"}
@@ -2069,7 +2069,7 @@ for _, dir in ipairs(
   }
 ) do
   local name, sign, desc = dir[1] as string, dir[2] as integer, dir[3] as string
-  commands.define(
+  command.define(
     name,
     function(ctx: contracts.CommandContext): contracts.CommandResult
       local n = (ctx.count or math.tointeger(tonumber(ctx.args[1])) or 1) * sign
@@ -2080,7 +2080,7 @@ for _, dir in ipairs(
 end
 
 for _, how in ipairs({{"split", "split"}, {"vsplit", "vertical split"}, {"tab", "tab"}}) do
-  commands.define(
+  command.define(
     "scope." .. how[1],
     function(ctx: contracts.CommandContext): contracts.CommandResult
       local spec: Scope
@@ -2109,7 +2109,7 @@ local function name_it(name: string)
   end
   paw.notify("named " .. M.breadcrumb() .. " · `:scope.list` finds it")
 end
-commands.define(
+command.define(
   "scope.name",
   function(ctx: contracts.CommandContext): contracts.CommandResult
     local name = table.concat(ctx.args as {string}, " "):match("^%s*(.-)%s*$")
@@ -2135,9 +2135,9 @@ commands.define(
     desc = "Name the scope of this window, so that the picker and `:narrow` find it: `scope.name Strings in bridge`; alone, it asks",
   }
 )
-commands.define(
+command.define(
   "scope.list",
-  function(): contracts.CommandResult commands.run("pick", {"scopes"}) end,
+  function(): contracts.CommandResult command.run("pick", {"scopes"}) end,
   {desc = "Choose a scope to enter, or a level to go up to, in a picker"}
 )
 

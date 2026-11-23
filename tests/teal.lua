@@ -180,7 +180,7 @@ test("teal: any language with a compiler joins the registry; require finds its m
   local dir = T.scratch .. "/teal/lib"
   -- A language whose compiler is a command: here `cat`, as its files are Lua.
   paw.lang.add("lul", { name = "lul", command = "cat %s" })
-  T.after(function() paw.lang.compilers.lul = nil end)
+  T.after(function() paw.lang.compilers:remove("lul") end)
   write(dir .. "/tealtest/twice.lul", "return { twice = function(n) return 2 * n end }\n")
   write(
     dir .. "/tealtest/half.tl",

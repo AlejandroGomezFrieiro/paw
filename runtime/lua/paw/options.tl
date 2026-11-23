@@ -9,6 +9,7 @@
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local events = require("paw.events")
+local registry = require("paw.registry")
 
 --- What an option holds: text, a number, true or false, or a list.
 local type Value = string | number | boolean | {string | number}
@@ -77,6 +78,11 @@ local record M
   opt: Opt
   --- The event `option.changed`: an option got a different value.
   changed: events.Event<Changed>
+  --- What `define` was given, by the name of the option, with the
+  --- extension that defined it. A definition over another one keeps it:
+  --- when the extension unloads, the definition below comes back, and the
+  --- value stays. With none below, the option goes with its value.
+  defined: registry.Registry<Definition>
 end
 
 M.changed = events.event("option.changed")
@@ -362,8 +368,6 @@ function M.full(name: string): string
 end
 
 local values: {string: Value} = {}
--- What `M.define` was given, by name.
-local definitions: {string: Definition} = {}
 
 local opt: Opt = setmetatable(
   {} as Opt,
@@ -392,6 +396,25 @@ local opt: Opt = setmetatable(
   }
 )
 
+M.defined = registry.new(
+  "options",
+  "options",
+  {
+    changed = function(name: string, d: Definition)
+      if d then
+        defaults[name], specs[name] = d.default, d.spec
+        return
+      end
+      local old = opt[name]
+      defaults[name], specs[name], values[name] = nil, nil, nil
+      if old ~= nil then
+        events.emit(M.changed, {name = name, old = old})
+        api.ui_redraw()
+      end
+    end,
+  }
+)
+
 --- Give an option a default, for extensions that add their own options. The
 --- option then accepts values of the type of the default. `spec` adds more rules:
 ---   paw.option.define("lanes", 4, { min = 1, max = 16, integer = true })
@@ -399,9 +422,7 @@ local opt: Opt = setmetatable(
 ---   paw.option.define("size", "auto", { type = { "number", "string" }, min = 1, values = { "auto" } })
 --- It gives a handle with the type of the default: `get()` and `set(value)`.
 function M.define<T>(name: string, default: T, spec?: Spec): Option<T>
-  defaults[name] = default as Value
-  specs[name] = spec or specs[name]
-  definitions[name] = {default = default as Value, spec = specs[name]}
+  M.defined:put(name, {default = default as Value, spec = spec or specs[name]})
   return {
     name = name,
     get = function(_: Option<T>): T return opt[name] as T end,
@@ -412,28 +433,7 @@ end
 --- Each option given a default by `paw.option.define`, by name: what it
 --- was given, `{ default, spec }`, the same table until defined again.
 function M.definitions(): {string: Definition}
-  local out: {string: Definition} = {}
-  for name, d in pairs(definitions) do
-    out[name] = d
-  end
-  return out
-end
-
---- Remove the definition of an option and its value (the extension that
---- defined it unloaded). `paw.opt[name]` is nil again. With `was`, the
---- value that `paw.option.definitions` gave before, that definition
---- returns, and the value stays.
-function M.undefine(name: string, was?: Definition)
-  if was then
-    defaults[name], specs[name], definitions[name] = was.default, was.spec, was
-    return
-  end
-  local old = opt[name]
-  defaults[name], specs[name], definitions[name], values[name] = nil, nil, nil, nil
-  if old ~= nil then
-    events.emit(M.changed, {name = name, old = old})
-    api.ui_redraw()
-  end
+  return M.defined:entries()
 end
 
 --- What option `name` takes besides its default's type (`min`, `max`,

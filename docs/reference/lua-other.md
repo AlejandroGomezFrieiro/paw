@@ -9,7 +9,7 @@ The reference page describes the timers, the helper programs, the state of each 
 | `paw.defer(fn, ms)` | runs `fn` one time, after `ms` milliseconds |
 | `paw.every(ms, fn)` | runs `fn` each `ms` milliseconds |
 | `paw.cancel(handle)` | stops a timer |
-| `paw.timers` | the timers that wait, by handle |
+| `paw.timers.waiting` | the timers that wait: a registry, by handle (see [Registries](extensions.md#registries)) |
 | `paw.state.key = value` | a value that stays through `:reload` |
 | `project.meta`, `track.meta` | tables saved with the project, for the data of extensions |
 

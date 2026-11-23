@@ -31,7 +31,7 @@ local type types = require("paw.types")
 local type TempoModule = require("paw.tempo")
 local type objects = require("paw.objects")
 local type CursorModule = require("paw.cursor")
-local type commands = require("paw.commands")
+local type CommandModule = require("paw.command")
 
 --- A point of a stroke of the pencil: `{ beat, bpm }`.
 local type StrokePoint = {number}
@@ -456,7 +456,7 @@ end
 function M.commands(command: TempoModule.Define)
   command(
     "tempo.lane",
-    function(ctx: commands.Context): commands.Result
+    function(ctx: CommandModule.Context): CommandModule.Result
       local word = ctx.args[1]
       if word == "on" or word == "off" then
         M.show(word == "on")
@@ -477,7 +477,7 @@ function M.commands(command: TempoModule.Define)
 
   command(
     "tempo.move",
-    function(ctx: commands.Context): commands.Result
+    function(ctx: CommandModule.Context): CommandModule.Result
       local a = ctx.args
       local to = a[1]
       if not to then

@@ -10,7 +10,7 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
-local type registry = require("paw.registry")
+local registry = require("paw.registry")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
 local type KeymapModule = require("paw.keymap")
@@ -61,15 +61,43 @@ local record M
   type Line = Line
   type Shown = Shown
   --- The lines by view (or a part of a view, or "default"), then by mode.
+  --- Made from `registry`.
   lines: {string: {string: Line}}
+  --- The lines by `"<view> <mode>"`, with the extension that set each one.
+  registry: registry.Registry<Line>
 end
 M.lines = {}
+M.registry = registry.new(
+  "keybar",
+  "key bar lines",
+  {
+    changed = function(key: string, line: Line)
+      local view, mode = key:match("^(%S+) (.*)$")
+      M.lines[view] = M.lines[view] or {}
+      M.lines[view][mode] = line
+      if next(M.lines[view]) == nil then
+        M.lines[view] = nil
+      end
+      api.ui_redraw()
+    end,
+  }
+)
 
---- Set the keys shown for a view in a mode ("n", "x", "i").
+--- Set the keys shown for a view in a mode ("n", "x", "i"). Nil takes the
+--- line away.
 function M.set(view: string, mode: string, entries: Line)
-  M.lines[view] = M.lines[view] or {}
-  M.lines[view][mode] = entries
-  api.ui_redraw()
+  if entries then
+    M.registry:put(view .. " " .. mode, entries)
+  else
+    M.registry:remove(view .. " " .. mode)
+  end
+end
+
+--- Set the line of each mode of a view: `modes` is mode -> line.
+local function set_all(view: string, modes: {string: Line})
+  for mode, line in pairs(modes) do
+    M.set(view, mode, line)
+  end
 end
 
 local names: {string: string} = {
@@ -164,129 +192,144 @@ function M.check(): {string}
   return wrong
 end
 
-M.lines.default = {
-  n = {{"<Tab>", "next panel"}, {"<leader>f:", "commands"}, {"?", "keys"}},
-}
-M.lines.arrange = {
-  n = {
-    {"<leader><Space>", "play"},
-    {"o", "track"},
-    {"a", "device"},
-    {"i", "insert"},
-    {"<CR>", "open clip"},
-    {"<leader>mm", "mixer"},
-    {"x", "delete"},
-    {"u", "undo"},
-    {"<leader>f:", "commands"},
-    {"?", "keys"},
-  },
-  x = {
-    {"d", "delete"},
-    {"y", "copy"},
-    {">", "later"},
-    {"<lt>", "earlier"},
-    {"gl", "loop"},
-    {"<Esc>", "done"},
-  },
-  -- Insert mode: the count typed, then the keys that insert (paw/insert.tl).
-  i = function(): {Entry}
-    local out: {Entry} = {}
-    local count = paw.insert and paw.insert.count()
-    if count then
-      out[1] = {"", "times", tostring(count)}
-    end
-    for _, spec in ipairs(paw.insert and paw.insert.list() or {}) do
-      out[#out + 1] = {spec.key, short_desc(spec.desc)}
-    end
-    for _, entry in ipairs({{"<CR>", "open"}, {"<BS>", "back"}, {"K", "keys"}, {"<Esc>", "done"}}) do
-      out[#out + 1] = entry
-    end
-    return out
-  end,
-}
-M.lines.pianoroll = {
-  n = {
-    {"<CR>", "note"},
-    {"i", "draw notes"},
-    {"x", "delete"},
-    {"+", "up"},
-    {"<A-l>", "longer"},
-    {"w", "next note"},
-    {"<leader><Space>", "play"},
-    {"<C-w>p", "back"},
-    {"?", "keys"},
-  },
-  x = {
-    {"d", "delete"},
-    {"y", "copy"},
-    {">", "later"},
-    {"<lt>", "earlier"},
-    {"<C-a>", "up"},
-    {"<Esc>", "done"},
-  },
-  -- Insert mode: the note being drawn, then the keys that draw it.
-  i = function(): {Entry}
-    if paw.roll_draw and paw.roll_draw.stepping() then
-      return {
-        {"=", "value"},
-        {"<Space>", "rest"},
-        {"<BS>", "back"},
-        {"c", "chord"},
-        {"I", "draw"},
-        {"<Esc>", "write"},
-      }
-    end
-    local now = paw.roll_draw and paw.roll_draw.describe()
-    local at_start = paw.roll_draw and paw.roll_draw.edge_now() == "start"
-    local out: {Entry} = {
-      {"l", at_start and "shorter" or "longer"},
-      {"h", at_start and "longer" or "shorter"},
-      {"o", "other edge"},
+set_all(
+  "default",
+  {
+    n = {{"<Tab>", "next panel"}, {"<leader>f:", "commands"}, {"?", "keys"}},
+  }
+)
+set_all(
+  "arrange",
+  {
+    n = {
+      {"<leader><Space>", "play"},
+      {"o", "track"},
+      {"a", "device"},
+      {"i", "insert"},
+      {"<CR>", "open clip"},
+      {"<leader>mm", "mixer"},
+      {"x", "delete"},
+      {"u", "undo"},
+      {"<leader>f:", "commands"},
+      {"?", "keys"},
+    },
+    x = {
+      {"d", "delete"},
+      {"y", "copy"},
+      {">", "later"},
+      {"<lt>", "earlier"},
+      {"gl", "loop"},
+      {"<Esc>", "done"},
+    },
+    -- Insert mode: the count typed, then the keys that insert (paw/insert.tl).
+    i = function(): {Entry}
+      local out: {Entry} = {}
+      local count = paw.insert and paw.insert.count()
+      if count then
+        out[1] = {"", "times", tostring(count)}
+      end
+      for _, spec in ipairs(paw.insert and paw.insert.list() or {}) do
+        out[#out + 1] = {spec.key, short_desc(spec.desc)}
+      end
+      for _, entry in ipairs({{"<CR>", "open"}, {"<BS>", "back"}, {"K", "keys"}, {"<Esc>", "done"}}) do
+        out[#out + 1] = entry
+      end
+      return out
+    end,
+  }
+)
+set_all(
+  "pianoroll",
+  {
+    n = {
+      {"<CR>", "note"},
+      {"i", "draw notes"},
+      {"x", "delete"},
       {"+", "up"},
-      {"k", "bend"},
-      {"c", "chord"},
-      {"<CR>", "next"},
-      {"<Space>", "rest"},
-    }
-    -- The keys that extensions added (`paw.roll_draw.key`), in their order.
-    for _, spec in ipairs(paw.roll_draw and paw.roll_draw.list() or {}) do
-      out[#out + 1] = {spec.key, short_desc(spec.desc)}
-    end
-    out[#out + 1] = {"<Esc>", "write"}
-    if now then
-      local pitch, length = now:match("^(.-) · (.*)$")
-      table.insert(out, 1, {"", length, pitch})
-    end
-    return out
-  end,
-}
+      {"<A-l>", "longer"},
+      {"w", "next note"},
+      {"<leader><Space>", "play"},
+      {"<C-w>p", "back"},
+      {"?", "keys"},
+    },
+    x = {
+      {"d", "delete"},
+      {"y", "copy"},
+      {">", "later"},
+      {"<lt>", "earlier"},
+      {"<C-a>", "up"},
+      {"<Esc>", "done"},
+    },
+    -- Insert mode: the note being drawn, then the keys that draw it.
+    i = function(): {Entry}
+      if paw.roll_draw and paw.roll_draw.stepping() then
+        return {
+          {"=", "value"},
+          {"<Space>", "rest"},
+          {"<BS>", "back"},
+          {"c", "chord"},
+          {"I", "draw"},
+          {"<Esc>", "write"},
+        }
+      end
+      local now = paw.roll_draw and paw.roll_draw.describe()
+      local at_start = paw.roll_draw and paw.roll_draw.edge_now() == "start"
+      local out: {Entry} = {
+        {"l", at_start and "shorter" or "longer"},
+        {"h", at_start and "longer" or "shorter"},
+        {"o", "other edge"},
+        {"+", "up"},
+        {"k", "bend"},
+        {"c", "chord"},
+        {"<CR>", "next"},
+        {"<Space>", "rest"},
+      }
+      -- The keys that extensions added (`paw.roll_draw.key`), in their order.
+      for _, spec in ipairs(paw.roll_draw and paw.roll_draw.list() or {}) do
+        out[#out + 1] = {spec.key, short_desc(spec.desc)}
+      end
+      out[#out + 1] = {"<Esc>", "write"}
+      if now then
+        local pitch, length = now:match("^(.-) · (.*)$")
+        table.insert(out, 1, {"", length, pitch})
+      end
+      return out
+    end,
+  }
+)
 -- The mixer's first: what the rule changed (`j` `k` move, `+` `-` change).
-M.lines.mixer = {
-  n = {
-    {"j", "row"},
-    {"+", "up"},
-    {"-", "down"},
-    {"]", "pan"},
-    {"l", "strip"},
-    {"gc", "mute"},
-    {"s", "solo"},
-    {"x", "clear"},
-    {"?", "keys"},
-  },
-  x = {{"+", "up"}, {"-", "down"}, {"]", "pan"}, {"x", "clear"}, {"<Esc>", "done"}},
-}
-M.lines.devices = {
-  n = {
-    {"j", "row"},
-    {"w", "device"},
-    {"+", "raise"},
-    {"-", "lower"},
-    {"a", "add"},
-    {"gc", "bypass"},
-    {"<CR>", "curve"},
-    {"x", "remove"},
-    {"?", "keys"},
-  },
-}
+set_all(
+  "mixer",
+  {
+    n = {
+      {"j", "row"},
+      {"+", "up"},
+      {"-", "down"},
+      {"]", "pan"},
+      {"l", "strip"},
+      {"gc", "mute"},
+      {"s", "solo"},
+      {"x", "clear"},
+      {"?", "keys"},
+    },
+    x = {{"+", "up"}, {"-", "down"}, {"]", "pan"}, {"x", "clear"}, {"<Esc>", "done"}},
+  }
+)
+set_all(
+  "devices",
+  {
+    n = {
+      {"j", "row"},
+      {"w", "device"},
+      {"+", "raise"},
+      {"-", "lower"},
+      {"a", "add"},
+      {"gc", "bypass"},
+      {"<CR>", "curve"},
+      {"x", "remove"},
+      {"?", "keys"},
+    },
+  }
+)
 
 return M

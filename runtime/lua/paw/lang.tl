@@ -19,6 +19,7 @@
 -- does not need itself to load.
 local api = require("paw.api")
 local limit = require("paw.limit")
+local registry = require("paw.registry")
 
 --- A language: `compile(source, path)` gives the Lua of a file's text, or
 --- nil and an error; and a list of problems that do not stop the file
@@ -73,14 +74,15 @@ local record M
   type CheckOptions = CheckOptions
   type Config = Config
 
-  compilers: {string: Spec}
+  compilers: registry.Registry<Spec>
   stats: Stats
   problems: {string: {string}}
 end
 
 --- The languages by the extension of their files, without the dot: each
---- `{ name, version, compile, command }`. `paw.lang.add` adds one.
-M.compilers = {}
+--- `{ name, version, compile, command }`, with the extension that added
+--- each one. `paw.lang.add` adds one.
+M.compilers = registry.new("languages", "languages")
 
 --- Add a language whose files end in `.<ext>`. `spec.compile(source, path)`
 --- returns the Lua for the text of a file, or nil and an error. Or
@@ -95,20 +97,20 @@ function M.add(ext: string, spec: Spec)
     "paw.lang.add: an extension such as \"tl\", without the dot"
   )
   assert(spec is Spec and (spec.compile ~= nil or spec.command ~= nil), "paw.lang.add: give compile or command")
-  M.compilers[ext] = spec
+  M.compilers:put(ext, spec)
 end
 
 --- The extension of `path` when a registered language has it, else nil.
 function M.of(path: string): string
   local ext = tostring(path):match("%.([%w_]+)$")
-  return ext and M.compilers[ext] and ext or nil
+  return ext and M.compilers:get(ext) and ext or nil
 end
 
 --- The extensions a source file may have: "lua" first, then each
 --- registered one, sorted.
 function M.extensions(): {string}
   local out: {string} = {}
-  for ext in pairs(M.compilers) do
+  for ext in pairs(M.compilers:entries()) do
     out[#out + 1] = ext
   end
   table.sort(out)
@@ -185,7 +187,7 @@ function M.compile(path: string, source?: string): string, string
   if not ext then
     return nil, path .. ": no language for this kind of file"
   end
-  local spec = M.compilers[ext]
+  local spec = M.compilers:get(ext)
   source = source or read(path)
   if not source then
     return nil, "cannot open " .. path
@@ -286,7 +288,7 @@ function M.searchpath(name: string, path?: string): string, string
   local slashed = name:gsub("%.", "/")
   for template in (path or package.path):gmatch("[^;]+") do
     if template:match("%.lua$") then
-      for ext in pairs(M.compilers) do
+      for ext in pairs(M.compilers:entries()) do
         local file = template:gsub("%.lua$", "." .. ext):gsub("%?", slashed)
         local f = io.open(file, "r")
         if f then

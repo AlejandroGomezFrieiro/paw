@@ -16,7 +16,7 @@
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local options = require("paw.options")
-local commands = require("paw.commands")
+local command = require("paw.command")
 local events = require("paw.events")
 local kernel = require("paw.events.kernel")
 local util = require("paw.util")
@@ -694,7 +694,7 @@ local function parse(args: contracts.CommandArgs): NewOptions
   return o
 end
 
-commands.define(
+command.define(
   "nest.new",
   function(ctx: contracts.CommandContext): contracts.CommandResult
     local o = parse(ctx.args)
@@ -1254,9 +1254,9 @@ M.source = {
   on_choose = choose,
 } as contracts.PickSource<Item>
 
-commands.define(
+command.define(
   "nest.list",
-  function(): contracts.CommandResult commands.run("pick", {"nests"}) end,
+  function(): contracts.CommandResult command.run("pick", {"nests"}) end,
   {desc = "List the subprojects, their blocks and the unused ones; choose one to enter it"}
 )
 
@@ -1405,7 +1405,7 @@ function M.outputs(nest: integer, row: integer, how: string): string
   error("nest.outputs takes stems or master, not " .. tostring(how), 0)
 end
 
-commands.define(
+command.define(
   "nest.outputs",
   function(ctx: contracts.CommandContext): contracts.CommandResult
     local how = tostring(ctx.args[1] or "")
@@ -1647,7 +1647,7 @@ function M.promote(clip: integer, deep?: boolean): string
 end
 
 for _, bang in ipairs({"", "!"}) do
-  commands.define(
+  command.define(
     "nest.promote" .. bang,
     function(): contracts.CommandResult
       local c = block_at_cursor()
@@ -1753,7 +1753,7 @@ local function nest_here(): integer
   return c.nest
 end
 
-commands.define(
+command.define(
   "nest.time",
   function(ctx: contracts.CommandContext): contracts.CommandResult
     local how = tostring(ctx.args[1] or "")
@@ -1770,7 +1770,7 @@ commands.define(
   }
 )
 
-commands.define(
+command.define(
   "nest.meter",
   function(ctx: contracts.CommandContext): contracts.CommandResult
     paw.notify(M.set_meter(nest_here(), tostring(ctx.args[1] or "")))
@@ -1809,7 +1809,7 @@ function M.unique(clip: integer): string
   )
 end
 
-commands.define(
+command.define(
   "nest.unique",
   function(): contracts.CommandResult
     local c = block_at_cursor()
@@ -2138,7 +2138,7 @@ function M.write(folder: string): string
 end
 
 for _, bang in ipairs({"", "!"}) do
-  commands.define(
+  command.define(
     "scope.write" .. bang,
     function(ctx: contracts.CommandContext): contracts.CommandResult
       local words: {string} = {}
@@ -2212,7 +2212,7 @@ function M.own(nest: integer): string
   return string.format("the subproject %s is now the song's own copy (was %s)", n.name, tilde(folder))
 end
 
-commands.define(
+command.define(
   "nest.own",
   function(): contracts.CommandResult paw.notify(M.own(nest_here())) end,
   {

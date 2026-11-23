@@ -178,7 +178,7 @@ test("checkhealth: an extension's check is its own, and a check that fails is an
   eq(owned, "broken healthy", "the extension owns its checks")
   eq(paw.health.run("extensions").items[1] ~= nil, true, "the extensions check runs")
   paw.ext.unload("healthy")
-  eq(paw.health.checks.healthy, nil, "and they go with it")
+  eq(paw.health.checks:get("healthy"), nil, "and they go with it")
 end)
 
 test("checkhealth: the extensions check lists versions and requirements, and a failed one is an error", function()
@@ -194,7 +194,7 @@ test("checkhealth: the extensions check lists versions and requirements, and a f
   eq(found.text:find("cannot start", 1, true) ~= nil, true, "with its error")
   paw.ext.unload("health-bad")
   for _, name in ipairs({ "utau", "sampler" }) do
-    if paw.health.checks[name] then eq(#paw.health.run(name).items > 0, true, name .. "'s own check reports") end
+    if paw.health.checks:get(name) then eq(#paw.health.run(name).items > 0, true, name .. "'s own check reports") end
   end
 end)
 

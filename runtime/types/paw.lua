@@ -50,6 +50,9 @@ paw.chords = {}
 ---@class paw.clip_kinds
 paw.clip_kinds = {}
 
+---@class paw.command
+paw.command = {}
+
 ---@class paw.commands
 paw.commands = {}
 
@@ -308,6 +311,9 @@ paw.tempolane = {}
 ---@class paw.textbuf
 paw.textbuf = {}
 
+---@class paw.timers
+paw.timers = {}
+
 ---@class paw.track_kinds
 paw.track_kinds = {}
 
@@ -459,7 +465,7 @@ function paw.is_chain_file(path) end
 ---@param id any
 function paw.lane(id) end
 
---- Show a message. `level` is "info" (default), "warn" or "error".
+--- Give a message. `level` is "info" (the default), "warn" or "error".
 ---@param text any
 ---@param level any
 function paw.notify(text, level) end
@@ -1718,6 +1724,41 @@ function paw.clip_kinds.split(clip, at) end
 ---@param to any
 function paw.clip_kinds.trim(clip, from, to) end
 
+--- Make `alias` another name for `target`.
+---@param alias any
+---@param target any
+function paw.command.alias(alias, target) end
+
+--- Define or replace a command.
+---   paw.command("track.mute", function(ctx) ... end, { desc = "Mute the track" })
+--- The handler gets `ctx` with `ctx.args` (positional and named arguments)
+--- and `ctx.count` (the number typed before a key mapping, or nil). With
+--- `opts.raw`, the command line gives its text as one string in
+--- `ctx.args[1]`. With `opts.range`, it accepts a range of bars before it
+--- (`:5,8name`) as `ctx.range`. See Ranges below.
+---@param name any
+---@param run any
+---@param opts any
+function paw.command.define(name, run, opts) end
+
+--- Run a command line, as typed after `:`, with a range in front if it has one.
+---@param line any
+---@param ctx any
+function paw.command.exec(line, ctx) end
+
+--- The command of a name: `{ name, run, desc, ... }` as `paw.command` made it, or nil.
+---@param name any
+function paw.command.get(name) end
+
+--- Every command, sorted by name.
+function paw.command.list() end
+
+--- The extension that paw loads now, or whose code registers these commands
+--- and keys later. `:help` goes to its page for them, and an unload removes them.
+function paw.command.owner() end
+
+paw.command.run = paw.cmd
+
 --- A command that can be adjusted says the range it changed, as the panel
 --- of `<leader>.` shows it (`Quantize · 48 notes`). Call it from the handler.
 ---   paw.commands.about("48 notes")
@@ -1738,10 +1779,7 @@ function paw.commands.adjust(given) end
 --- that can be adjusted. `<leader>.` puts it on the command line.
 function paw.commands.adjusting() end
 
---- Make `alias` another name for `target`.
----@param alias any
----@param target any
-function paw.commands.alias(alias, target) end
+paw.commands.alias = paw.command.alias
 
 --- What could finish a command line: a list of `{ text, label, desc }` with
 --- `text` the whole line it would become and `label` the part shown.
@@ -1749,43 +1787,25 @@ function paw.commands.alias(alias, target) end
 ---@param line any
 function paw.commands.complete(line) end
 
---- Define or replace a command.
----   paw.command("track.mute", function(ctx) ... end, { desc = "Mute the track" })
---- The handler gets `ctx` with `ctx.args` (positional and named arguments)
---- and `ctx.count` (the number typed before a key mapping, or nil). With
---- `opts.raw`, the command line gives its text as one string in
---- `ctx.args[1]`. With `opts.range`, it accepts a range of bars before it
---- (`:5,8name`) as `ctx.range`. See Ranges below.
----@param name any
----@param run any
----@param opts any
-function paw.commands.define(name, run, opts) end
+paw.commands.define = paw.command.define
 
---- Run a command line, as typed after `:`, with a range in front if it has one.
----@param line any
----@param ctx any
-function paw.commands.exec(line, ctx) end
+paw.commands.exec = paw.command.exec
 
---- The command of a name: `{ name, run, desc, ... }` as `paw.command` made it, or nil.
----@param name any
-function paw.commands.get(name) end
+paw.commands.get = paw.command.get
 
 --- What an undo step made by a command is called: its `label`, or the
 --- start of its description, before any example or alternative.
 ---@param spec any
 function paw.commands.label(spec) end
 
---- Every command, sorted by name.
-function paw.commands.list() end
+paw.commands.list = paw.command.list
 
 --- What a bare extension name (`:notation`) stands for: its `.open` or
 --- `.show` command, where it has one.
 ---@param name any
 function paw.commands.main(name) end
 
---- The extension that paw loads now, or whose code registers these commands
---- and keys later. `:help` goes to its page for them, and an unload removes them.
-function paw.commands.owner() end
+paw.commands.owner = paw.command.owner
 
 --- What the panel of `<leader>.` shows: the title, the parameters of the
 --- last command that can be adjusted, and their values now. Nil when there
@@ -2795,9 +2815,6 @@ function paw.events.emitted() end
 ---@param name any
 function paw.events.event(name) end
 
---- Every handler, by its handle: `{ pattern, fn }`.
-function paw.events.handlers() end
-
 --- True if a handler listens for `name` by its name or its family (not
 --- `*`). Use it for events that are expensive to make.
 ---@param name any
@@ -3075,8 +3092,8 @@ function paw.ext.manifest(path, name) end
 function paw.ext.parse_version(text) end
 
 --- What a loaded extension registered: a list of `{ kind, title, items }`,
---- each item a short label, in the order of `paw.ext.registries`, then of
---- the registries of `paw.registry`.
+--- each item a short label, in the order of the registries of
+--- `paw.registry`.
 ---@param name any
 function paw.ext.provides(name) end
 
@@ -6649,14 +6666,6 @@ function paw.option.snapshot() end
 ---@param name any
 function paw.option.spec(name) end
 
---- Remove the definition of an option and its value (the extension that
---- defined it unloaded). `paw.opt[name]` is nil again. With `was`, the
---- value that `paw.option.definitions` gave before, that definition
---- returns, and the value stays.
----@param name any
----@param was any
-function paw.option.undefine(name, was) end
-
 --- The size of the main area in pixels, from the frontend: at the start
 --- and each time that it changes. The first time that the window of a seat
 --- gives it, paw shows the device panel when the tab has its place, closed,
@@ -7247,10 +7256,16 @@ function paw.regex.try(text, opts) end
 --- The registries made so far, in the order they were made.
 function paw.registry.all() end
 
+--- The loaded extension whose files made `value`: the owner of an entry
+--- of a registry made with `made` (the timers).
+---@param value any
+function paw.registry.maker(value) end
+
 --- A new registry: entries by key, each with the extension that put it
 --- there. `kind` names it in `paw.ext.provides` and `title` in
 --- `:extensions`. Its functions are `put(key, value)`, `get(key)`,
---- `remove(key)`, `entries()` and `owned_by(name)`. `paw.ext.unload` takes
+--- `remove(key)`, `entries()`, `owned_by(name)`, `put_by(key, name)` and
+--- `label(key, value)`. `paw.ext.unload` takes
 --- away the entries of an extension, and an entry that one of them
 --- replaced comes back.
 ---@param kind any
@@ -7258,7 +7273,9 @@ function paw.registry.all() end
 ---@param options any
 function paw.registry.new(kind, title, options) end
 
-paw.registry.owner = paw.ext.caller
+--- The extension that loads now, or whose code calls: the owner of an
+--- entry that it puts. paw/command.tl reads it for the commands too.
+function paw.registry.owner() end
 
 --- Records that the extension `owner` put an entry over an entry of the
 --- extension `previous`. `:checkhealth extensions` gives a warning for it.
@@ -9292,6 +9309,14 @@ function paw.textbuf.width(s) end
 ---@param force any
 function paw.textbuf.write(buf, force) end
 
+paw.timers.cancel = paw.cancel
+
+paw.timers.defer = paw.defer
+
+paw.timers.every = paw.every
+
+paw.timers.wait = paw.api.wait
+
 --- A new track of the kind `name`. `opts.name` is its name (if not given,
 --- the title of the kind without "track"), and `opts.index` its place. The
 --- other options go to `create`.
@@ -9925,7 +9950,8 @@ function paw.ui.keybar.check() end
 --- The entries for what has the keyboard now, as `{ shown key, text }`.
 function paw.ui.keybar.entries() end
 
---- Set the keys shown for a view in a mode ("n", "x", "i").
+--- Set the keys shown for a view in a mode ("n", "x", "i"). Nil takes the
+--- line away.
 ---@param view any
 ---@param mode any
 ---@param entries any

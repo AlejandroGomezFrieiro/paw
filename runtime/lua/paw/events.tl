@@ -23,6 +23,7 @@
 -- export.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
+local registry = require("paw.registry")
 
 --- What an event carries: a table that this module passes on and never reads.
 local record Payload
@@ -57,6 +58,9 @@ local record M
   startup: Event<Payload>
   --- The event `exit`: the program will stop.
   exit: Event<Payload>
+  --- Every handler by its handle (as text), with the extension that added
+  --- it. `paw.on` puts one, and `paw.off` removes it.
+  hooks: registry.Registry<Handler>
 end
 
 local type Named = function(string, Listener, Payload, string): boolean, string
@@ -82,7 +86,30 @@ local record Paw
 end
 local paw = (_G as {string: Paw}).paw
 
-local handlers: {string: {Handler}} = {} -- pattern -> list of { id, fn, once }
+-- The handlers of `M.hooks` by pattern, in the order they came: what
+-- `M.emit` reads.
+local handlers: {string: {Handler}} = {}
+M.hooks = registry.new(
+  "hooks",
+  "hooks",
+  {
+    label = function(_: string, h: Handler): string return h.pattern end,
+    changed = function(_: string, h: Handler, old: Handler)
+      if old then
+        local list = handlers[old.pattern] or {}
+        for i = #list, 1, -1 do
+          if list[i] == old then
+            table.remove(list, i)
+          end
+        end
+      end
+      if h then
+        handlers[h.pattern] = handlers[h.pattern] or {}
+        table.insert(handlers[h.pattern], h)
+      end
+    end,
+  }
+)
 local next_id = 0
 -- The events sent since paw started. `M.stamp` changes when this does.
 local sent = 0
@@ -210,9 +237,8 @@ function M.on<P>(event: M.Event<P>, fn: function(P, string), opts?: OnOptions): 
     end
   end
   next_id = next_id + 1
-  handlers[pattern] = handlers[pattern] or {}
-  table.insert(
-    handlers[pattern],
+  M.hooks:put(
+    tostring(next_id),
     {id = next_id, fn = fn as function(Payload, string), once = opts and opts.once, pattern = pattern}
   )
   return next_id
@@ -225,24 +251,9 @@ end
 
 --- Stop a listener: `id` is the value that `paw.on` or `paw.once` returned.
 function M.off(id: integer)
-  for _, list in pairs(handlers) do
-    for i = #list, 1, -1 do
-      if list[i].id == id then
-        table.remove(list, i)
-      end
-    end
+  if id ~= nil then
+    M.hooks:remove(tostring(id))
   end
-end
-
---- Every handler, by its handle: `{ pattern, fn }`.
-function M.handlers(): {integer: Handler}
-  local out: {integer: Handler} = {}
-  for _, list in pairs(handlers) do
-    for _, h in ipairs(list) do
-      out[h.id] = h
-    end
-  end
-  return out
 end
 
 --- True if a handler listens for `name` by its name or its family (not

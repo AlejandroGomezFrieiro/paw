@@ -148,7 +148,7 @@ test("address: an extension adds a kind of address, and it is edited like the ot
   eq(#A.children("paw://lyric"), 2, "its children")
   eq(A.edit({ { uri = "paw://lyric/1", set = { text = "lo" } } }), true, "edited")
   eq(words[1], "lo", "by the extension")
-  A.schemes.lyric = nil
+  A.schemes:remove("lyric")
 end)
 
 test("address: changes are told as addresses, and renders are kept by path", function()

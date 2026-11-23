@@ -54,9 +54,6 @@ end
 --- (`paw.frontend.bands`), by the band's place in the list and the entry's
 --- in what it returns: its command runs, in the arrange view.
 function A.band(band: integer, index: integer)
-  if not M.bands[band] then
-    return
-  end
   local entry = band_entries(band)[index]
   if not entry then
     return

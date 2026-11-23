@@ -23,6 +23,7 @@ local options = require("paw.options")
 local seats = require("paw.seats")
 local stepin = require("paw.step")
 local util = require("paw.util")
+local registry = require("paw.registry")
 local music = require("paw.music")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
@@ -184,14 +185,21 @@ local record M
   type Bend = Bend
   type PencilKey = PencilKey
   type Edge = Edge
-  --- The keys extensions added, by their keys (`M.key`). paw/ext.lua
-  --- takes an extension's keys away when it unloads.
-  keys: {string: PencilKey}
+  --- The keys extensions added, by their keys (`M.key`), with the
+  --- extension that added each one: its unload takes them away (the
+  --- registry of the keys takes their mappings away).
+  keys: registry.Registry<PencilKey>
   --- A clip's controller moves, none read when it has none. The keys of a
   --- note's own moves are at the pitches that the handle gives.
   controls_of: function(clip: objects.Clip): {types.Control}
 end
-M.keys = {}
+M.keys = registry.new(
+  "pencil",
+  "keys of the pencil",
+  {
+    label = function(key: string): string return key .. " (pencil)" end,
+  }
+)
 
 -- Semitones each `j` `k` bends the note being drawn.
 local bend_step = options.define("bend_step", 1 as number)
@@ -2112,7 +2120,7 @@ function M.key(lhs: string, spec: PencilKey)
   spec.key = lhs
   spec.order = spec.order or 50
   spec.ext = spec.ext or paw.ext.caller()
-  M.keys[lhs] = spec
+  M.keys:put(lhs, spec)
   paw.keymap.set(
     lhs,
     function(ctx: contracts.KeyContext)
@@ -2128,7 +2136,7 @@ end
 --- The keys that extensions added to the pencil, by `order`, then by key.
 function M.list(): {PencilKey}
   local out: {PencilKey} = {}
-  for _, spec in pairs(M.keys) do
+  for _, spec in pairs(M.keys:entries()) do
     out[#out + 1] = spec
   end
   table.sort(out, util.by_order)

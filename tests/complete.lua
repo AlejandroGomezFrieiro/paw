@@ -17,7 +17,7 @@ local log = {}
 local function test(name, fn)
   T.test(name, function()
     local others = {}
-    for source_name, spec in pairs(complete.sources) do
+    for source_name, spec in pairs(complete.sources:entries()) do
       others[source_name] = spec
     end
     for source_name in pairs(others) do
@@ -538,7 +538,7 @@ T.test(
           if c.name == "midi-lsp-suggest" and c.status == "running" then return paw.lsp.settle() end
         end
       end, "the engine's suggestion role to run", 30000)
-      eq(complete.sources.lsp ~= nil, true, "paw.lsp is a completion source")
+      eq(complete.sources:get("lsp") ~= nil, true, "paw.lsp is a completion source")
       paw.opt.complete_deadline_ms = 3000
       paw.keymap.feed("<C-Space>")
       T.advance_until(function() return complete.current() ~= nil end, "the engine to answer", 30000)

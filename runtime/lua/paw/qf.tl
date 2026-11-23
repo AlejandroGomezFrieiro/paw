@@ -619,7 +619,7 @@ function M.where(e: Entry): string
   end
   local p = A.parse(loc.uri)
   local t = loc.selector and loc.selector.time
-  local scheme = p and A.schemes[p.kind]
+  local scheme = p and A.schemes:get(p.kind)
   if scheme and scheme.where then
     return scheme.where(loc, p)
   end
@@ -700,7 +700,7 @@ function M.go(e: Located): boolean
     return false
   end
   -- An address of an extension's own kind goes where the kind says.
-  local scheme = A.schemes[p.kind]
+  local scheme = A.schemes:get(p.kind)
   if scheme and scheme.go then
     return scheme.go(loc, p) ~= false
   end

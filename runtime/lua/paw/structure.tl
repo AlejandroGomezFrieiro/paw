@@ -12,7 +12,7 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
-local commands = require("paw.commands")
+local command = require("paw.command")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type QueryModule = require("paw.query")
@@ -20,7 +20,7 @@ local type KeymapModule = require("paw.keymap")
 local type RollClipsModule = require("paw.roll_clips")
 local type Roll = require("paw.views.pianoroll")
 
-local type Context = commands.Context
+local type Context = command.Context
 
 --- The piano roll, which its motions read (paw/views/pianoroll.tl).
 local type PianoRoll = Roll.PianoRoll
@@ -347,27 +347,27 @@ local function complete_query(text: string): {string}
   return out
 end
 
-commands.define(
+command.define(
   "select",
-  function(ctx: Context): commands.Result run(ctx, {}) end,
+  function(ctx: Context): command.Result run(ctx, {}) end,
   {
     raw = true,
     complete = complete_query,
     desc = "Choose what a query finds (its clips, or its notes in the piano roll) and list it in the quickfix list: `select clip[name~=pizz] > note[pitch>=c5]`",
   }
 )
-commands.define(
+command.define(
   "query",
-  function(ctx: Context): commands.Result run(ctx, {choose = false, title = "query"}) end,
+  function(ctx: Context): command.Result run(ctx, {choose = false, title = "query"}) end,
   {
     raw = true,
     complete = complete_query,
     desc = "List what a query finds in the quickfix list: `query note[lyric=la]`, `query group[name=Strings] clip`",
   }
 )
-commands.define(
+command.define(
   "lquery",
-  function(ctx: Context): commands.Result run(ctx, {choose = false, title = "query", loc = true}) end,
+  function(ctx: Context): command.Result run(ctx, {choose = false, title = "query", loc = true}) end,
   {raw = true, complete = complete_query, desc = "As `query`, into the window's location list"}
 )
 

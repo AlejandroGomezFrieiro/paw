@@ -29,6 +29,7 @@ local events = require("paw.events")
 local render = require("paw.render")
 local kernel = require("paw.events.kernel")
 local util = require("paw.util")
+local registry = require("paw.registry")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type objects = require("paw.objects")
@@ -158,15 +159,16 @@ local record M
   type Rendered = Rendered
   type RenderOptions = RenderOptions
   type Changed = Changed
-  --- The kinds of address of extensions, by name.
-  schemes: {string: Scheme}
+  --- The kinds of address of extensions, by name, with the extension that
+  --- added each one. `paw.address.scheme` puts one.
+  schemes: registry.Registry<Scheme>
   --- The event `address.changed`: things with addresses changed.
   changed: events.Event<Changed>
   --- What was rendered, by path.
   renders: {string: Rendered}
 end
 
-M.schemes = {}
+M.schemes = registry.new("addresses", "address schemes")
 M.changed = events.event("address.changed")
 
 local function decode(s: string): string
@@ -222,7 +224,7 @@ function M.parse(uri: string): Parts
     out.marker, out.kind = int(seg[2]), "marker"
   elseif head == "render" then
     out.path, out.kind = decode(body:sub(#"render/" + 1)), "render"
-  elseif head and M.schemes[head] then
+  elseif head and M.schemes:get(head) then
     out.kind = head
   else
     return nil
@@ -330,7 +332,7 @@ function M.of(object: string | Thing): string, string
   if t.sends and t.devices and t.id then
     return M.track(t.id)
   end
-  for name, scheme in pairs(M.schemes) do
+  for name, scheme in pairs(M.schemes:entries()) do
     local uri = scheme.of and scheme.of(object)
     if uri then
       return uri, name
@@ -447,7 +449,7 @@ function M.resolve(uri: string): Thing
   if p.kind == "render" then
     return M.renders[p.path] or (io.open(p.path) and {path = p.path} as Rendered) or nil
   end
-  local scheme = M.schemes[p.kind]
+  local scheme = M.schemes:get(p.kind)
   return scheme and scheme.resolve(uri, p)
 end
 
@@ -477,7 +479,7 @@ function M.parent(uri: string): string
   if p.kind == "project" then
     return nil
   end
-  local scheme = M.schemes[p.kind]
+  local scheme = M.schemes:get(p.kind)
   if scheme and scheme.parent then
     return scheme.parent(uri, p)
   end
@@ -519,8 +521,8 @@ function M.children(uri: string): {string}
         out[#out + 1] = M.note(p.clip, n.id)
       end
     end
-  elseif M.schemes[p.kind] and M.schemes[p.kind].children then
-    out = M.schemes[p.kind].children(uri, p)
+  elseif M.schemes:get(p.kind) and M.schemes:get(p.kind).children then
+    out = M.schemes:get(p.kind).children(uri, p)
   end
   return out
 end
@@ -569,7 +571,7 @@ end
 --- through `paw.api`, so the edits join the undo step.
 function M.scheme(name: string, spec: Scheme)
   assert(spec is Scheme and spec.resolve, "usage: paw.address.scheme(name, { resolve = fn, ... })")
-  M.schemes[name] = spec
+  M.schemes:put(name, spec)
 end
 
 -- Workspace edits ------------------------------------------------------------
@@ -649,8 +651,8 @@ local function plan(change: Change): Parts, string
     if what ~= "set" then
       return nil, "a render is rendered again with `set`"
     end
-  elseif M.schemes[p.kind] then
-    if not M.schemes[p.kind].edit then
+  elseif M.schemes:get(p.kind) then
+    if not M.schemes:get(p.kind).edit then
       return nil, p.kind .. " addresses cannot be edited"
     end
   else
@@ -758,7 +760,7 @@ function M.edit(changes: {Change}, label?: string): boolean, string
     elseif p.kind == "render" then
       renders[#renders + 1] = {path = p.path, opts = change.set as RenderOptions}
     else
-      M.schemes[p.kind].edit(change, p)
+      M.schemes:get(p.kind).edit(change, p)
     end
   end
   for id, e in pairs(by_clip) do

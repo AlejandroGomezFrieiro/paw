@@ -28,6 +28,11 @@ paw.untyped
 # Values and helpers that know nothing of a project or a screen.
 paw.util
 paw.registry
+# What `paw.notify` says, the timers, and the command registry: every
+# layer above gives messages, starts timers and defines commands.
+paw.messages
+paw.timers
+paw.command
 paw.types
 paw.contracts
 paw.music

@@ -24,6 +24,7 @@ local A = require("paw.address")
 local events = require("paw.events")
 local kernel = require("paw.events.kernel")
 local util = require("paw.util")
+local registry = require("paw.registry")
 local rpc = require("paw.lsp.rpc")
 local document = require("paw.lsp.document")
 local subjects = require("paw.lsp.subjects")
@@ -197,8 +198,10 @@ local record M
   type StatusChanged = StatusChanged
   type Analysed = Analysed
   type Line = Line
-  --- The configs, by name.
-  configs: {string: Config}
+  --- The configs, by name, with the extension that configured each one.
+  configs: registry.Registry<Config>
+  --- Start a configured server (`on` false stops it).
+  enable: function(name: string, on?: boolean): Client
   --- What a server sends, in any dialect, by method: the answer, for a request.
   handlers: {string: function(client: Client, params: Payload, message?: Message): Payload}
   --- The dialects, by name.
@@ -225,7 +228,20 @@ local record M
   analysed: events.Event<Analysed>
   log_path: function(name: string): string
 end
-M.configs = {}
+-- A server whose config goes (the extension that configured it unloads)
+-- stops. A server in this process keeps the module that started it, and
+-- the extension loaded again starts a new one.
+M.configs = registry.new(
+  "lsp",
+  "language servers",
+  {
+    changed = function(name: string, config: Config)
+      if not config then
+        M.enable(name, false)
+      end
+    end,
+  }
+)
 M.handlers = {}
 M.adapters = {standard = standard as Adapter}
 M.analysis = {}
@@ -1262,22 +1278,25 @@ end
 ---   restart      { max = 3, within_s = 60 }: restarts after it dies (none by default)
 ---   env, cwd     for the process
 function M.config(name: string, config?: Config): Config
-  local old: Config = M.configs[name] or {}
-  -- The fields given replace the old ones; the others stay.
-  local fields = old as {string: util.Data}
-  for k, v in pairs((config or {}) as {string: util.Data}) do
-    fields[k] = v
+  -- The fields given replace the old ones; the others stay. A new table,
+  -- so that the config below it stays as it was when this one goes.
+  local fields: {string: util.Data} = {}
+  for _, given in ipairs({(M.configs:get(name) or {}) as {string: util.Data}, (config or {}) as {string: util.Data}}) do
+    for k, v in pairs(given) do
+      fields[k] = v
+    end
   end
-  M.configs[name] = old
+  local merged = fields as Config
+  M.configs:put(name, merged)
   local client = clients[name]
   if client then
-    client.config = old
+    client.config = merged
     if config and config.settings and client.status == "running" then
-      local params: standard.DidChangeConfiguration = {settings = object(old.settings)}
+      local params: standard.DidChangeConfiguration = {settings = object(merged.settings)}
       M.notify(client, "workspace/didChangeConfiguration", params as Payload)
     end
   end
-  return old
+  return merged
 end
 
 --- Start a configured server (`on` false stops it).
@@ -1290,7 +1309,7 @@ function M.enable(name: string, on?: boolean): Client
     end
     return
   end
-  local config = M.configs[name]
+  local config = M.configs:get(name)
   if not config then
     error("no server `" .. tostring(name) .. "`: paw.lsp.config it first", 2)
   end
@@ -1764,7 +1783,7 @@ events.on(events.exit, function() M.stop() end)
 function M.info_lines(): {Line}
   local lines: {Line} = {}
   local names: {string} = {}
-  for name in pairs(M.configs) do
+  for name in pairs(M.configs:entries()) do
     names[#names + 1] = name
   end
   table.sort(names)
@@ -1774,7 +1793,7 @@ function M.info_lines(): {Line}
     }
   end
   for _, name in ipairs(names) do
-    local client, config = clients[name], M.configs[name]
+    local client, config = clients[name], M.configs:get(name)
     lines[#lines + 1] = {text = name .. "  " .. (client and client.status or "off"), style = "Title"}
     local transport = config.server and "in-process Lua" or config.kind == "oneshot" and "one-shot command" or "process"
     local adapter = config.adapter
@@ -1834,7 +1853,7 @@ function M.command(ctx: contracts.CommandContext)
     if name then
       names[1] = name
     else
-      for n in pairs(M.configs) do
+      for n in pairs(M.configs:entries()) do
         names[#names + 1] = n
       end
     end
@@ -1852,7 +1871,7 @@ end
 --- What `:lsp` completes to: its words and the configured servers.
 function M.command_complete(): {string}
   local out = {"info", "log", "start", "stop", "restart"}
-  for name in pairs(M.configs) do
+  for name in pairs(M.configs:entries()) do
     out[#out + 1] = name
   end
   return out

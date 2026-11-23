@@ -16,6 +16,7 @@ local type BytesModule = require("paw.bytes")
 local type CanvasModule = require("paw.canvas")
 local type ChordsModule = require("paw.chords")
 local type ClipKindsModule = require("paw.clip_kinds")
+local type CommandModule = require("paw.command")
 local type CommandsModule = require("paw.commands")
 local type CompleteModule = require("paw.complete")
 local type ContractsModule = require("paw.contracts")
@@ -80,6 +81,7 @@ local type TakesModule = require("paw.takes")
 local type TempoModule = require("paw.tempo")
 local type TempolaneModule = require("paw.tempolane")
 local type TextbufModule = require("paw.textbuf")
+local type TimersModule = require("paw.timers")
 local type TrackcolumnModule = require("paw.trackcolumn")
 local type UiModule = require("paw.ui")
 local type UndofileModule = require("paw.undofile")
@@ -109,8 +111,8 @@ global record paw
    chords: ChordsModule
    clip: function(id: integer): ObjectsModule.Clip
    clip_kinds: ClipKindsModule
-   cmd: function<C is CommandsModule.Context>(name: string, args?: CommandsModule.Args, ctx?: C): CommandsModule.Result
-   command: contracts.Command
+   cmd: function(name: string, args?: CommandModule.Args, ctx?: CommandModule.Context): CommandModule.Result
+   command: CommandModule
    commands: CommandsModule
    complete: CompleteModule
    contracts: ContractsModule
@@ -227,14 +229,14 @@ global record paw
    tempolane: TempolaneModule
    textbuf: TextbufModule
    time: ObjectsModule.Time
-   timers: {integer:function()}
+   timers: TimersModule
    toml: Untyped
    track: function(which: number | string): ObjectsModule.Track
    track_kinds: Partial.TrackKinds
    trackcolumn: TrackcolumnModule
    tracks: function(): {ObjectsModule.Track}
    transport: ObjectsModule.Transport
-   try: Untyped
+   try: function<A, R>(fn: function(...: A): (R...), ...: A): boolean, R...
    type Clip = ObjectsModule.Clip
    type Device = ObjectsModule.Device
    type Lane = ObjectsModule.Lane

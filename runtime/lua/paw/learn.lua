@@ -54,7 +54,7 @@ end
 -- extensions add with `paw.learn.trigger` (the clip launcher adds `launch`,
 -- `scene` and `stop`). A binding to a kind that no loaded extension adds
 -- stays in the project and does nothing.
-M.triggers = {}
+M.triggers = require("paw.registry").new("triggers", "controller buttons")
 
 --- Add a kind of target that a button or a pad presses: `spec` has
 --- `press(binding, down)` (down is false when it is let go), `name(target)`
@@ -68,15 +68,15 @@ function M.trigger(name, spec)
     type(name) == "string" and type(spec) == "table" and type(spec.press) == "function",
     "paw.learn.trigger(name, { press = function(binding, down) ... end, name = ... })"
   )
-  M.triggers[name] = spec
+  M.triggers:put(name, spec)
 end
 
 --- True if you press a target, and do not move it.
-function M.is_trigger(target) return M.triggers[target.target] ~= nil end
+function M.is_trigger(target) return M.triggers:get(target.target) ~= nil end
 
 --- What a binding moves, as text: "Lead › volume", "Lead › Filter › Cutoff".
 function M.target_name(t)
-  local trigger = M.triggers[t.target]
+  local trigger = M.triggers:get(t.target)
   if trigger then
     local ok, text = pcall(trigger.name, t)
     return ok and tostring(text) or "(" .. t.target .. ": " .. tostring(text) .. ")"
@@ -129,7 +129,7 @@ local function check(target)
   assert(type(target) == "table", "a target is a table")
   if M.is_trigger(target) then
     if target.track then api.track_get(target.track) end
-    local trigger = M.triggers[target.target]
+    local trigger = M.triggers:get(target.target)
     if trigger.check then trigger.check(target) end
     return
   end
@@ -145,7 +145,7 @@ local function check(target)
     assert(found, "the device has no parameter `" .. tostring(target.param) .. "`")
   elseif target.target ~= "volume" and target.target ~= "pan" then
     local names = {}
-    for name in pairs(M.triggers) do
+    for name in pairs(M.triggers:entries()) do
       names[#names + 1] = "`" .. name .. "`"
     end
     table.sort(names)
@@ -285,7 +285,7 @@ local function press(b, f)
   local down = f >= 0.5
   if down == (state.down or false) then return end
   state.down = down
-  M.triggers[b.target].press(b, down)
+  M.triggers:get(b.target).press(b, down)
 end
 
 --- Wait for the next controller move and bind it to `target` (or to what
@@ -382,7 +382,7 @@ function M.target_for(word)
   local track = paw.cursor.track_id()
   word = tostring(word):lower()
   -- Buttons that extensions add.
-  for _, trigger in pairs(M.triggers) do
+  for _, trigger in pairs(M.triggers:entries()) do
     local target = trigger.target_for and trigger.target_for(word, track)
     if target then return target end
   end
@@ -417,7 +417,7 @@ function M.under_cursor()
     local track = paw.cursor.track_id()
     if track then return { track = track, target = "volume" } end
   end
-  for _, trigger in pairs(M.triggers) do
+  for _, trigger in pairs(M.triggers:entries()) do
     local target = trigger.under_cursor and trigger.under_cursor(ui.focused)
     if target then return target end
   end
@@ -430,7 +430,7 @@ end, {
   desc = "Bind a MIDI controller: `learn` for what was moved last, `learn volume`, `learn pan`, `learn cutoff`, then move the controller or press the pad",
   complete = function()
     local words = { "volume", "pan" }
-    for _, trigger in pairs(M.triggers) do
+    for _, trigger in pairs(M.triggers:entries()) do
       for _, word in ipairs(trigger.words or {}) do
         words[#words + 1] = word
       end

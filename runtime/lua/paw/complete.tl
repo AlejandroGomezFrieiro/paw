@@ -37,6 +37,7 @@ local options = require("paw.options")
 local seats = require("paw.seats")
 local limit = require("paw.limit")
 local util = require("paw.util")
+local registry = require("paw.registry")
 local music = require("paw.music")
 local type types = require("paw.types")
 local type partial = require("paw.partial")
@@ -221,8 +222,8 @@ local record M
   type ShowOptions = ShowOptions
   type Tool = Tool
   type Changed = Changed
-  --- The sources, by name.
-  sources: {string: Source}
+  --- The sources, by name, with the extension that registered each one.
+  sources: registry.Registry<Source>
   --- The event `complete.changed`: suggestions appeared or disappeared.
   changed: events.Event<Changed>
   cancel: function()
@@ -237,7 +238,7 @@ options.define("complete_audition", false) -- play each alternative shown throug
 
 local EPS = 1e-6
 
-local sources: {string: Source} = {} -- name -> spec
+local sources: registry.Registry<Source> = registry.new("complete", "completion sources")
 local request: Request -- the request being answered
 local shown: Shown -- what shows
 local next_id = 0
@@ -301,18 +302,18 @@ function M.register(spec: Source)
   source.priority = spec.priority or 0
   source.views = spec.views or {"pianoroll"}
   source.auto = spec.auto ~= false
-  sources[spec.name] = source
+  sources:put(spec.name, source)
 end
 
 --- Remove the source of a name.
 function M.unregister(name: string)
-  sources[name] = nil
+  sources:remove(name)
 end
 
 --- The sources, highest priority first.
 function M.list(): {Source}
   local out: {Source} = {}
-  for _, s in pairs(sources) do
+  for _, s in pairs(sources:entries()) do
     out[#out + 1] = s
   end
   table.sort(
@@ -581,7 +582,7 @@ function M.cancel()
     paw.cancel(r.timer)
   end
   for name in pairs(r.waiting) do
-    local source = sources[name]
+    local source = sources:get(name)
     if source and source.cancel then
       local ok, err = pcall(function(): string source.cancel(r.ctx) end)
       if not ok then
@@ -953,7 +954,7 @@ function M.poke()
     paw.cancel(idle_timer)
   end
   idle_timer = nil
-  if opt.complete_auto and next(sources) then
+  if opt.complete_auto and next(sources:entries()) then
     idle_timer = paw.defer(idle_ask, opt.complete_idle_ms)
   end
 end
@@ -1124,7 +1125,7 @@ act.toggle_complete_auto = function() opt.complete_auto = not opt.complete_auto 
 
 --- What the window's piano roll toolbar shows of completion: nil without sources.
 function M.tool(): Tool
-  if not next(sources) then
+  if not next(sources:entries()) then
     return nil
   end
   return {

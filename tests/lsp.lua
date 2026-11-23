@@ -39,8 +39,8 @@ local until_ = T.until_
 local function start()
   fresh()
   paw.lsp.stop()
-  for name in pairs(paw.lsp.configs) do
-    paw.lsp.configs[name] = nil
+  for name in pairs(paw.lsp.configs:entries()) do
+    paw.lsp.configs:remove(name)
   end
   paw.keymap.feed("<Esc><Esc>")
   while paw.ui.float do

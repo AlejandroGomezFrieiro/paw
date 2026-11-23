@@ -12,7 +12,9 @@
 -- advice)`; advice is a line or a list of them. A check that fails is
 -- reported as an error of its own, and the others go on.
 local api = paw.api
-local M = { checks = {} }
+local M = {}
+--- The checks by name, with the extension that registered each one.
+M.checks = require("paw.registry").new("health", "health checks")
 
 local LEVELS = { ok = "OK", info = "INFO", warn = "WARN", error = "ERROR" }
 local STYLES = { ok = "DiffAdd", info = "Normal", warn = "Warn", error = "Error" }
@@ -22,13 +24,13 @@ local STYLES = { ok = "DiffAdd", info = "Normal", warn = "Warn", error = "Error"
 --- @type function(name: string, fn: contracts.HealthCheck, opts?: contracts.HealthOptions)
 function M.register(name, fn, opts)
   assert(type(name) == "string" and type(fn) == "function", "usage: paw.health.register(name, function(h) ... end)")
-  M.checks[name] = { name = name, fn = fn, desc = opts and opts.desc, ext = paw.commands.owner() }
+  M.checks:put(name, { name = name, fn = fn, desc = opts and opts.desc, ext = paw.commands.owner() })
 end
 
 --- The names of the checks, sorted.
 function M.names()
   local out = {}
-  for name in pairs(M.checks) do
+  for name in pairs(M.checks:entries()) do
     out[#out + 1] = name
   end
   table.sort(out)
@@ -37,7 +39,7 @@ end
 
 --- Run one check: `{ name, desc, items }`, each item `{ level, text, advice }`.
 function M.run(name)
-  local check = M.checks[name]
+  local check = M.checks:get(name)
   local result = { name = name, desc = check and check.desc, items = {} }
   local function add(level)
     return function(text, advice)
@@ -301,8 +303,8 @@ M.register("extensions", function(h)
       end
       -- A key of the core given another meaning. A wrap that keeps what the
       -- key does (and so its description) is not.
-      for _, item in ipairs(e.owned and e.owned.keys or {}) do
-        local old, new = item.old, item.value
+      for _, key in ipairs(paw.keymap.mappings:owned_by(e.name)) do
+        local new, old = paw.keymap.mappings:put_by(key, e.name)
         if old and new and not old.ext and old.desc ~= new.desc then
           h.warn(
             string.format(
