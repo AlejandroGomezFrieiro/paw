@@ -12,8 +12,8 @@ the changes.
 
 ```
 extensions/plugstate/
-  init.lua, lua/plugstate/   the adapters, the library, snapshots, commands, the
-                             readers of the state of each framework
+  init.tl, lua/plugstate/    the adapters, the library, snapshots, commands, the
+                             readers of the state of each framework (in Teal)
   tests.lua                  tests with real plugins (Neural Amp Modeler, LSP, sfizz,
                              TONE3000, Soundshed Guitar, Surge XT, Musio)
   tests_frameworks.lua       tests of the readers, with states in tests_states/

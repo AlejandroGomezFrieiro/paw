@@ -5,36 +5,72 @@
 -- changed is written back byte for byte, through where each element was
 -- in the text; a changed or new element is written on one line, as JUCE
 -- writes it.
+--
+-- Written in Teal (paw/lang.tl): paw compiles it as it loads.
 local juce = require("plugstate.juce")
+local type xml = require("paw.xml")
 
-local M = {}
+local type Tree = juce.Tree
+
+local record M
+  --- An XML text as a tree, and what is around the root element:
+  --- `before` (the declaration and what else is before it), `after`, and
+  --- the whole text as read (`source`).
+  record Doc
+    root: Tree
+    before: string
+    after: string
+    source: string
+  end
+end
 
 --- A number as JUCE writes a double in text (`serialiseDouble`): a whole
 --- number with ".0", else the shortest text that reads back the same.
-function M.number(v)
-  if v ~= v then return "nan" end
-  if v == math.huge then return "inf" end
-  if v == -math.huge then return "-inf" end
+function M.number(v: number): string
+  if v ~= v then
+    return "nan"
+  end
+  if v == math.huge then
+    return "inf"
+  end
+  if v == -math.huge then
+    return "-inf"
+  end
   local a = math.abs(v)
-  if a < 1e6 and a > 1e-5 and v == math.floor(v) then return string.format("%.1f", v) end
-  if v == 0 then return "0.0" end
+  if a < 1e6 and a > 1e-5 and v == math.floor(v) then
+    return string.format("%.1f", v)
+  end
+  if v == 0 then
+    return "0.0"
+  end
   for digits = 1, 17 do
     local text = string.format("%." .. digits .. "g", v)
-    if tonumber(text) == v then return text end
+    if tonumber(text) == v then
+      return text
+    end
   end
   return string.format("%.17g", v)
 end
 
 --- The text of a stored var, as `var::toString` gives it.
-function M.text_of(raw)
+function M.text_of(raw: string): string
   local v = juce.value(raw)
   local kind = juce.kind(raw)
-  if v == nil then return "" end
-  if type(v) == "boolean" then return v and "1" or "0" end
-  if kind == "double" then return M.number(v) end
-  if type(v) == "number" then return string.format("%d", v) end
-  if type(v) == "table" and v.binary then return juce.encode64(v.binary) end
-  if type(v) == "table" then return "" end
+  if v == nil then
+    return ""
+  end
+  if v is boolean then
+    return v and "1" or "0"
+  end
+  if v is number then
+    if kind == "double" then
+      return M.number(v)
+    end
+    return string.format("%d", math.floor(v))
+  end
+  if v is juce.Blob then
+    return v.binary and juce.encode64(v.binary) or ""
+  end
   return v
 end
 
@@ -43,31 +79,35 @@ end
 --- A node of `plugstate.juce` from an element of `paw.xml`: attributes as
 --- string properties; `_span` and `_text` keep where it was and its text as
 --- read, so that what does not change is written back as it was.
-local function node_of(el)
-  local node = { type = el.name, props = {}, children = {}, xml = true, _span = el.span, _text = el.text }
+local function node_of(el: xml.Element): Tree
+  local node: Tree = {type = el.name, props = {}, children = {}, xml = true, _span = el.span, _text = el.text}
   for _, k in ipairs(el.order) do
-    node.props[#node.props + 1] = { k, juce.raw(el.attr[k], "string") }
+    node.props[#node.props + 1] = {k, juce.raw(el.attr[k], "string")}
   end
   for i, c in ipairs(el.children) do
     node.children[i] = node_of(c)
   end
   -- Text that is only the layout between children is none.
-  if el.text and el.text:find("%S") then node.text = el.text end
+  if el.text and el.text:find("%S") then
+    node.text = el.text
+  end
   node._text0 = node.text
   return node
 end
 
 --- The tree of an XML text, and what is around it: `{ root, before, after }`
 --- (`before`: the declaration and what else is before the root element).
-function M.parse(s)
-  local el, why = paw.xml.decode(s, { spans = true })
-  if not el then error(why, 0) end
+function M.parse(s: string): M.Doc
+  local el, why = paw.xml.decode(s, {spans = true})
+  if not el then
+    error(why, 0)
+  end
   local root = node_of(el)
-  return { root = root, before = s:sub(1, el.span.from - 1), after = s:sub(el.span.to + 1), source = s }
+  return {root = root, before = s:sub(1, el.span.from - 1), after = s:sub(el.span.to + 1), source = s}
 end
 
-local function element_of(node)
-  local el = { name = node.type, attr = {}, order = {}, children = {}, span = node._span }
+local function element_of(node: Tree): xml.Element
+  local el: xml.Element = {name = node.type, attr = {}, order = {}, children = {}, span = node._span}
   for i, p in ipairs(node.props) do
     el.order[i] = p[1]
     el.attr[p[1]] = M.text_of(p[2])
@@ -84,20 +124,20 @@ local function element_of(node)
   return el
 end
 
---- The text of a tree, with what was around it (`doc` from `parse`, or a
---- tree alone: then with JUCE's declaration, as `copyXmlToBinary` writes).
+--- The text of a document from `parse`, with what was around its root.
 --- What did not change is written as it was read, byte for byte; what
 --- changed, on one line.
-function M.write(doc)
-  if doc.type then doc = { root = doc, before = '<?xml version="1.0" encoding="UTF-8"?> ', after = "" } end
+function M.write(doc: M.Doc): string
   local el = element_of(doc.root)
-  if doc.source and el.span then return paw.xml.encode(el, { source = doc.source }) end
-  return (doc.before or "") .. paw.xml.encode(el, { source = doc.source }) .. (doc.after or "")
+  if doc.source and el.span then
+    return paw.xml.encode(el, {source = doc.source})
+  end
+  return (doc.before or "") .. paw.xml.encode(el, {source = doc.source}) .. (doc.after or "")
 end
 
 --- A new element (a tree with `xml` set, so its numbers are written as
 --- text): `props` is `{ { name, value }, ... }`.
-function M.tree(kind, props, children)
+function M.tree(kind: string, props?: {juce.PropSpec}, children?: {Tree}): Tree
   local node = juce.tree(kind, nil, children)
   node.xml = true
   for _, p in ipairs(props or {}) do

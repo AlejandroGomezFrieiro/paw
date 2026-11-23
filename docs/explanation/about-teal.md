@@ -322,7 +322,8 @@ each other.
 | Done | The arrange view | `views/arrange`, `views/arrange_mouse`, `roles/arrange`, and `views/arrange_track`, which the port split from the view: 4,450 lines of Teal, the 6 records that other modules kept of the view gone, and no `any` in these modules | 3,230 | the keys |
 | 5 | Views | the rest of `defaults/`, `views/` and `roles/` | 12,000 | the keys |
 | Done | Extensions: `interop` | the readers and writers of REAPER and DAWproject files: 6,300 lines of Teal, no `any` or `paw.Untyped`, and no function over 100 lines (the longest had 196) | 4,300 | the modules of paw that it uses |
-| 5 | Extensions | one agent for each: `plugstate` (5,700), the others (under 3,200 each). `notation` and `utau` do not move to Teal, because they become native extensions in Rust | 56,000 | the modules of paw that each uses |
+| Done | Extensions: `plugstate` | the adapters, the library, the snapshots, the readers of the state of each framework and the client of TONE3000: 9,550 lines of Teal, no `any` or `paw.Untyped`, and no function over 50 lines | 6,400 | the modules of paw that it uses |
+| 5 | Extensions | one agent for each: the others (under 3,200 each). `notation` and `utau` do not move to Teal, because they become native extensions in Rust | 56,000 | the modules of paw that each uses |
 
 The spike moved 1,100 lines in a part of a day, with the checker. An area
 of wave 1 or 2 is about one day of work for one agent, and an area of wave
@@ -999,3 +1000,33 @@ their id. It is in a set of its own now, and the table holds track ids only.
 The strict check of the test suite did not find the other modules of an
 extension, because only `tools/tlcheck.sh` put the `lua/` folder of each
 extension on the path. The test gives these folders to `paw.lang.check` now.
+
+## What the checker found in plugstate
+
+The checker found one error that lost data. A preset that inserts a node
+with nodes in it (`.jucepreset`, written by `:plugstate.preset_write`) kept
+each child node in a tag, and the reader of presets did not take the tag
+off. So the inserted node came back without its children. A preset now
+keeps the children as they are, and the reader still takes the old form.
+The tests of the extension pass with no change. The checker also found the
+following smaller problems.
+
+`juce.value` read a 32-bit or 64-bit number past the end of a value that was
+too short, and gave a number from the bytes after it. It gives nil now.
+
+The edits of a preset, the arguments of `jucestate.convert` and the result of
+`doc:diff` each took two forms, a table with names or a list in order, and a
+tree or a document. Each takes one form now: an edit has names
+(`{ path, value, kind }`), `convert` takes `{ plugin, desc, uri }`, and
+`doc:diff` takes a document. No caller used the other forms.
+
+`plugstate.frameworks` kept `false` in its cache for a binary with no marker
+strings, so a caller got a name or `false`. The cache keeps nil now.
+
+A sign-in to TONE3000 is nil before paw reads it, `false` when there is none,
+or the tokens. The type says so (`Session | boolean`), and each reader of it
+checks which one it is.
+
+The options of the client of TONE3000 were read through `paw.opt`, which
+gives a value of any type. The client keeps the handles that
+`paw.option.define` gives, and the other modules ask the client.
