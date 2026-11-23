@@ -135,7 +135,7 @@ tests/midi_out.lua paw.wait( 1
 tests/model.lua :meter( 1
 tests/offline.lua :meter( 1
 tests/offline.lua api.now() 2
-tests/offline.lua paw.wait( 10
+tests/offline.lua paw.wait( 9
 tests/pick.lua paw.wait( 2
 tests/plugin_state.lua api.now() 2
 tests/plugin_state.lua api.sleep( 2
