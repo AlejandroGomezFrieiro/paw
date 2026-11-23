@@ -4,7 +4,7 @@ local api = paw.api
 local command = paw.command
 local cursor, transport = paw.cursor, paw.transport
 local keymap = paw.keymap
-local roll = paw.ui.views.pianoroll
+local roll = paw.ui.views:get("pianoroll")
 local common = require("paw.defaults.common")
 local need_track, plain_folder = common.need_track, common.plain_folder
 

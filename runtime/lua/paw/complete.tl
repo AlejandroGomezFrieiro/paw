@@ -261,7 +261,7 @@ seats.keep(
 )
 
 local function roll(): PianoRoll
-  return paw.ui.views.pianoroll as PianoRoll
+  return paw.ui.views:get("pianoroll") as PianoRoll
 end
 local function frontend(): Frontend
   return paw.frontend

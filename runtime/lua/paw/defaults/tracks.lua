@@ -11,7 +11,7 @@ local need_track = common.need_track
 command("track.add", function(ctx)
   local index = cursor.index()
   -- A kind of track an extension defines: `track.add vocal`, `kind=vocal`.
-  local kind = ctx.args.kind or paw.track_kinds.kinds[ctx.args[1] or ""] and ctx.args[1]
+  local kind = ctx.args.kind or paw.track_kinds.kinds:get(ctx.args[1] or "") and ctx.args[1]
   if kind then
     -- The kind's own words follow it (`track.add vocal Kitane`: a singer).
     local opts, words = {}, {}

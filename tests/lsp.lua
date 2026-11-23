@@ -14,7 +14,7 @@ local function test(name, fn)
     while paw.ui.float do
       paw.ui.close()
     end
-    paw.ui.views.pianoroll.clip_id = nil
+    paw.ui.views:get("pianoroll").clip_id = nil
     paw.ui.hide("pianoroll")
     paw.ui.focus("arrange")
     if not result[1] then error(result[2], 0) end
@@ -57,7 +57,7 @@ local function flute()
     length = 4,
     notes = { { pitch = 60, start = 0, length = 1 }, { pitch = 96, start = 1, length = 1 } },
   })
-  paw.ui.views.pianoroll:edit(clip)
+  paw.ui.views:get("pianoroll"):edit(clip)
   return clip
 end
 
@@ -225,7 +225,7 @@ test("lsp: the fixes are offered at the cursor with <leader>la, and Enter applie
   local clip = flute()
   range()
   until_(function() return #paw.diagnostic.get(clip.id) == 1 end, "the range diagnostic")
-  paw.ui.views.pianoroll:set(96, 1)
+  paw.ui.views:get("pianoroll"):set(96, 1)
   paw.keymap.feed("<leader>la")
   eq(paw.pick.state().matches[1]:find("Move C7 to C6", 1, true) ~= nil, true, "the fix is offered")
   paw.keymap.feed("<CR>")
@@ -254,7 +254,7 @@ test("lsp: hover shows what the server says about the note", function()
   until_(function() return got end, "the hover")
   eq(got[1].client, "range", "from the server")
   eq(got[1].lines[1], "C7 in range-lint's eyes", "what it said")
-  paw.ui.views.pianoroll:set(96, 1)
+  paw.ui.views:get("pianoroll"):set(96, 1)
   paw.ui.focus("pianoroll")
   paw.keymap.feed("gK")
   until_(function() return paw.ui.float and paw.ui.float.name == "pager" end, "the float")

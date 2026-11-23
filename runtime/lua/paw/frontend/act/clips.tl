@@ -668,11 +668,11 @@ function A.open_clip(id: integer)
   if #together > 1 then
     paw.roll_clips.open(together, id)
   else
-    paw.ui.views.pianoroll:edit(clip)
+    host.roll():edit(clip)
   end
   -- Opened by the pointer, the roll shows the clips whole where it can, at
   -- its next paint.
-  paw.ui.views.pianoroll.fit_next = true
+  host.roll().fit_next = true
 end
 
 --- Run a command on a clip or a track that was not under the cursor: what

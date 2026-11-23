@@ -129,7 +129,7 @@ command.alias("delm!", "delmarks!")
 command("info", function()
   -- A view says what is under its own cursor first (`view:describe()`);
   -- with `only` set, that is all there is to say.
-  local view = paw.ui.views[paw.ui.focused]
+  local view = paw.ui.views:get(paw.ui.focused)
   local first = view and view.describe and view:describe() or nil
   if first and first.only then return paw.ui.page(first.title or "Under the cursor", first) end
   local track = need_track()

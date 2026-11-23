@@ -37,6 +37,7 @@ local api = require("paw.api")
 local A = require("paw.address")
 local music = require("paw.music")
 local tree = require("paw.query.tree")
+local registry = require("paw.registry")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
@@ -157,8 +158,9 @@ local record M
   type SelectOptions = SelectOptions
   --- The kinds of node.
   KINDS: {contracts.QueryKind}
-  --- The fields that `paw.query.field` added, by kind (`*`: of every kind), then by name.
-  fields: {string: {string: Field}}
+  --- The fields that `paw.query.field` added, by `kind name` (kind `*`:
+  --- of every kind), with the extension that added each one.
+  fields: registry.Registry<Field>
   metamethod __call: function(M, q: Query): {Node}
 end
 
@@ -522,15 +524,14 @@ end
 
 -- Fields ----------------------------------------------------------------------------
 
-M.fields = {}
+M.fields = registry.new("query_fields", "query fields")
 
 --- Add a field to a kind of node: `get(node)` returns its value (a number,
 --- text, a boolean, or a list of texts any of which may match).
 ---   paw.query.field("note", "channel", function(node) return node.data.meta.channel end)
 function M.field(kind: string, name: string, get: Field)
   assert(KIND[kind] or kind == "*", "no kind of node `" .. tostring(kind) .. "`")
-  M.fields[kind] = M.fields[kind] or {}
-  M.fields[kind][name:lower()] = get
+  M.fields:put(kind .. " " .. name:lower(), get)
 end
 
 local function meta(node: Node): NoteMeta
@@ -670,17 +671,18 @@ end
 
 --- How a field of a kind of node is read: `name` in lower case.
 local function getter(kind: string, name: string): Field
-  local own = M.fields[kind] and M.fields[kind][name] or (kind == "group" and M.fields.track and M.fields.track[name])
+  local own = M.fields:get(kind .. " " .. name) or (kind == "group" and M.fields:get("track " .. name))
   if own then
     return own
   end
-  local ex = paw.ex and paw.ex.fields[name]
+  local ex = paw.ex and paw.ex.fields:get(name)
   if ex and ex.level == EX_LEVEL[kind] then
     local ex_get = ex.get
     return function(node: Node): Value return ex_get(ex_item(node)) end
   end
-  if M.fields["*"][name] then
-    return M.fields["*"][name]
+  local any_kind = M.fields:get("* " .. name)
+  if any_kind then
+    return any_kind
   end
   return function(node: Node): Value
     local v = (node.data as {string: Value})[name]

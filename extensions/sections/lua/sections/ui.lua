@@ -420,7 +420,7 @@ function M.draw(_, layer)
   end
 end
 
-local arrange = paw.ui.views.arrange
+local arrange = paw.ui.views:get("arrange")
 if arrange and arrange.layers then
   arrange.layers.sections = M.draw
   -- The ruler has a row for them while there are any.

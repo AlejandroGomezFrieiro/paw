@@ -97,7 +97,7 @@ local OWN =
 --- Every view there is, but this file's own, by name.
 local function views()
   local out = {}
-  for name in pairs(paw.ui.views) do
+  for name in pairs(paw.ui.views:entries()) do
     if not OWN[name] then out[#out + 1] = name end
   end
   table.sort(out)
@@ -124,7 +124,7 @@ end
 --- Where a view's scene lowered to cells is not what a window that draws
 --- its cells shows (the strips under them kept as pictures), or nil.
 local function lowered(name, width, height)
-  local view = paw.ui.views[name]
+  local view = paw.ui.views:get(name)
   -- A view that paints is a picture, with no cells to compare.
   if view.paint then return nil end
   -- The two drawings are made one after the other, and a meter falls and
@@ -245,7 +245,7 @@ test(
     local saved = paw.opt.note_zoom
     T.after(function()
       paw.opt.note_zoom = saved
-      paw.ui.views.pianoroll:set_step(nil)
+      paw.ui.views:get("pianoroll"):set_step(nil)
       paw.keymap.feed("<Esc><Esc>")
       paw.roll_clips.only()
       paw.ui.hide("pianoroll")
@@ -264,7 +264,7 @@ test(
     })
     local b = u:add_clip({ start = 2, length = 4, notes = { { pitch = 48, start = 0.5, length = 2 } } })
     paw.roll_clips.open({ a.id, b.id }, a.id)
-    local roll = paw.ui.views.pianoroll
+    local roll = paw.ui.views:get("pianoroll")
     roll.top, roll.scroll, roll.pitch, roll.beat = 70, 0, 64, 1.25
     paw.frontend.act.select_note(a.id, 3, "only")
     -- Notes between cells at every zoom: a column a beat, two, five.
@@ -344,7 +344,11 @@ T.last("every bundled extension's view draws only through its buffer, and its sc
   for _, entry in ipairs(api.read_dir("extensions")) do
     if entry.is_dir then paw.ext.load("extensions/" .. entry.name) end
   end
-  eq(paw.ui.views.notation ~= nil and paw.ui.views.undotree ~= nil, true, "the extensions' views are among them")
+  eq(
+    paw.ui.views:get("notation") ~= nil and paw.ui.views:get("undotree") ~= nil,
+    true,
+    "the extensions' views are among them"
+  )
   eq(all_checked(views(), written), "", "views whose drawing is not what they wrote")
   eq(all_checked(views(), lowered), "", "views whose scene is not their drawing")
   api.scene_forget(0)

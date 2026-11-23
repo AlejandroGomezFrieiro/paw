@@ -140,9 +140,9 @@ not a column or a line.]],
     {
       say = "In the piano roll, the rows are pitches, so `k` moves up one semitone instead of one track. Press `k` two times, and you hear each pitch.",
       keys = { "k", "k" },
-      start = function(ctx) ctx.pitch = paw.ui.views.pianoroll.pitch end,
+      start = function(ctx) ctx.pitch = paw.ui.views:get("pianoroll").pitch end,
       check = function(ctx, look)
-        return look.focused() == "pianoroll" and paw.ui.views.pianoroll.pitch == ctx.pitch + 2
+        return look.focused() == "pianoroll" and paw.ui.views:get("pianoroll").pitch == ctx.pitch + 2
       end,
       done = "The key is the same as in the arrange view, and it still moves up, but in the piano roll it moves by pitch.",
     },

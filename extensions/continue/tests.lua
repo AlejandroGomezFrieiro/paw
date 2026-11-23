@@ -2,7 +2,7 @@
 local T = ...
 local test, eq = T.test, T.eq
 local api = paw.api
-local roll = paw.ui.views.pianoroll
+local roll = paw.ui.views:get("pianoroll")
 
 local function ext()
   paw.ext.load("extensions/continue")

@@ -33,7 +33,7 @@ local function song()
     },
   })
   api.undo_checkpoint()
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   roll:edit(clip)
   paw.ui.focus("pianoroll")
   return clip, roll

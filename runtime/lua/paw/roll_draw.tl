@@ -219,7 +219,7 @@ seats.keep(
 )
 
 local function roll(): PianoRoll
-  return paw.ui.views.pianoroll as PianoRoll
+  return paw.ui.views:get("pianoroll") as PianoRoll
 end
 local function clips(): RollClipsModule
   return paw.roll_clips

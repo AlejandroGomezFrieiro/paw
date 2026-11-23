@@ -277,7 +277,7 @@ test("controller moves in the strip are chosen with a click or a box, moved, and
   eq(#clip:controls(), 6, "undo brings them back")
   eq(#paw.controls.chosen(id), 0, "and an edit made otherwise lets go of the chosen")
   -- The piano roll's x takes chosen moves away too.
-  paw.ui.views.pianoroll:edit(clip)
+  paw.ui.views:get("pianoroll"):edit(clip)
   A.select_all_controls(id, "bend")
   eq(#paw.controls.chosen(id), 1, "every move of the strip's kind")
   paw.keymap.feed("x")
@@ -304,7 +304,7 @@ test("a line of controller moves replaces those between its ends, a move to each
   eq(#bends, 33, "off the grid, a move to each 32nd of a beat")
   near(bends[1].value, 0, 1e-9, "from rest")
   near(bends[#bends].value, 1, 1e-9, "to the top")
-  paw.ui.views.pianoroll:edit(clip)
+  paw.ui.views:get("pianoroll"):edit(clip)
   paw.commands.exec("controls.line cc 7 0 127")
   local volume = {}
   for _, m in ipairs(clip:controls()) do
@@ -374,10 +374,10 @@ test("the event list floats over the terminal, its keys change a cell, and the w
   local clip =
     t:add_clip({ start = 0, length = 4, notes = { { pitch = "C4", start = 0, length = 1, velocity = 100 } } })
   clip:set_controls({ { start = 1, type = "cc", number = 1, value = 0 } })
-  paw.ui.views.pianoroll:edit(clip)
+  paw.ui.views:get("pianoroll"):edit(clip)
   paw.keymap.feed("E")
   eq(paw.ui.float and paw.ui.float.name, "eventlist", "E in the piano roll lists its clip's events")
-  local list = paw.ui.views.eventlist
+  local list = paw.ui.views:get("eventlist")
   list.row, list.column = 1, 4
   paw.keymap.feed("j<CR><C-u>64<CR>")
   near(clip:controls()[1].value, 64 / 127, 1e-9, "Enter asks for the cell's text, and sets it")

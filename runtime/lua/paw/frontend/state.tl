@@ -334,7 +334,7 @@ local function modal(): Modal
   if ui.focused == "devices" then
     -- The row the keyboard is on, as a device of the track and one of its
     -- parameters (0 for the device's own line).
-    local panel = ui.views.devices
+    local panel = host.devices()
     local rows = panel:rows()
     panel.row = util.clamp(panel.row, 1, math.max(1, #rows)) as integer
     local row = rows[panel.row]

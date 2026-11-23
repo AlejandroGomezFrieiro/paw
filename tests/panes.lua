@@ -208,7 +208,7 @@ test(
     local _, now = panes()
     eq(now.view, "arrange", "the keyboard is back where it was")
     paw.ui.hide("panes_probe")
-    paw.ui.views.panes_probe = nil
+    paw.ui.views:remove("panes_probe")
   end
 )
 
@@ -270,13 +270,13 @@ test("panes: every kind of buffer paints in a pane without failing", function()
     "tutor",
     "tracklist",
   }) do
-    if paw.ui.views[name] then names[#names + 1] = name end
+    if paw.ui.views:get(name) then names[#names + 1] = name end
   end
   table.sort(names)
   for _, name in ipairs(names) do
     L.restore(initial)
     paw.ui.focus("arrange")
-    if name == "eventlist" then paw.ui.views.pianoroll:edit(clip) end
+    if name == "eventlist" then paw.ui.views:get("pianoroll"):edit(clip) end
     local view, buf = L.resolve(name)
     local made = view and L.split({ view = view, buf = buf and not buf.single and buf.id or nil })
     if made then
@@ -310,7 +310,7 @@ end)
 
 test("panes: the piano roll with no clip open is drawn in cells, as the terminal draws it", function()
   start()
-  paw.ui.views.pianoroll.clip_id = nil
+  paw.ui.views:get("pianoroll").clip_id = nil
   paw.ui.focus("pianoroll")
   local by, focused = panes()
   eq(by.pianoroll and by.pianoroll.kind, "cells", "the kernel draws it")

@@ -169,7 +169,7 @@ end
 --- row, and where beat `beat` is.
 local function lanes_view(t)
   api.ui_view_snapshot("arrange", 120, 30)
-  local arrange = paw.ui.views.arrange
+  local arrange = paw.ui.views:get("arrange")
   paw.ui.rects =
     { { name = "arrange", x = 0, y = 0, w = 120, h = 29 }, { name = "status", x = 0, y = 29, w = 120, h = 1 } }
   local rows = {}
@@ -197,7 +197,7 @@ test("dragging across a take lane with the mouse in the terminal comps that stre
   local function mouse(kind, x, y) paw.ui.mouse({ kind = kind, x = x, y = y, button = "left", mods = "" }) end
   mouse("down", x_of(2), rows[1])
   mouse("drag", x_of(4) - 1, rows[1])
-  eq(paw.ui.views.arrange.comp ~= nil, true, "the stretch is marked while the button is down")
+  eq(paw.ui.views:get("arrange").comp ~= nil, true, "the stretch is marked while the button is down")
   mouse("up", x_of(6) - 1, rows[1])
   api.undo_checkpoint()
   eq(plays(t), "0+2:3 2+4:1 6+2:3", "take 1 plays over the dragged stretch, the clip cut at its ends")

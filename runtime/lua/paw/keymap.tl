@@ -28,6 +28,7 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
+local type registry = require("paw.registry")
 local events = require("paw.events")
 local options = require("paw.options")
 local registers = require("paw.keymap.registers")
@@ -254,7 +255,7 @@ end
 -- declares only the parts of them that it reads.
 local record Ui
   focused: string
-  views: {string: contracts.View}
+  views: registry.Registry<contracts.View>
   grabber: function(key: string)
   rects: {contracts.ScreenRect}
 end
@@ -853,7 +854,7 @@ end
 --- then all views.
 function M.scopes(): {string}
   local name = paw.ui.focused
-  local view = name and paw.ui.views[name]
+  local view = name and paw.ui.views:get(name)
   local out: {string} = {}
   if view and view.subscope then
     local ok, sub = pcall(view.subscope, view) as (boolean, string | {string})
@@ -970,7 +971,7 @@ local function lines_show_waiting(mode_before: Mode, hint_up: boolean): boolean
   end
   if M.mode ~= mode_before then
     for _, r in ipairs(paw.ui.rects or {}) do
-      local view = paw.ui.views[r.name]
+      local view = paw.ui.views:get(r.name)
       if view and view.operator_shown and view:operator_shown() then
         return false
       end
@@ -1033,7 +1034,7 @@ local function change_mode(mode: Mode): boolean
       insert_undo = left_insert.undo
     end
     -- A view whose insert mode is a choice of keys lists them after a moment.
-    local view = paw.ui.views[paw.ui.focused]
+    local view = paw.ui.views:get(paw.ui.focused)
     if view and view.insert_hints then
       insert_hint_at = api.now() + opt.hint_delay
       paw.defer(api.ui_redraw, opt.hint_delay + 1)
@@ -1749,7 +1750,7 @@ end
 local function unmapped(key: string)
   local mode = M.mode
   reset()
-  local view = paw.ui.views[paw.ui.focused]
+  local view = paw.ui.views:get(paw.ui.focused)
   if mode == "i" and view and view.insert_hints and key ~= "<Esc>" then
     return paw.notify(M.human({key}) .. " inserts nothing here: K lists the keys, <Esc> ends insert mode", "warn")
   end
@@ -1769,7 +1770,7 @@ handle = function(key: string)
   if paw.ui.grabber then
     return paw.ui.grabber(key)
   end
-  local focused = paw.ui.views[paw.ui.focused]
+  local focused = paw.ui.views:get(paw.ui.focused)
   if focused and focused.modal then
     acted()
     focused:on_key(key)
@@ -2006,7 +2007,7 @@ end
 --- In insert mode of a view that sets `insert_hints` (the arrange view),
 --- its keys of insert mode, after a moment: what each key inserts.
 local function insert_hints(): {Hint}, string
-  local view = paw.ui.views[paw.ui.focused]
+  local view = paw.ui.views:get(paw.ui.focused)
   if not (view and view.insert_hints and insert_hint_at and api.now() >= insert_hint_at) then
     return nil
   end

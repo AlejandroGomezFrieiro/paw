@@ -161,7 +161,7 @@ test("what an extension registers is its own, and unloading it takes all of it a
     paw.statusline.component("owned", function() return "O" end)
     paw.grep.source("owned", function(add) end)
     paw.ex.field("owned", { level = "note", type = "number", get = function() return 1 end })
-    paw.commands.completers.owned = function() return {} end
+    paw.commands.completers:put("owned", function() return {} end)
     paw.curves.provide("owned", function() end)
     paw.ui.layer("arrange", "header", "owned", 99, function() end)
     table.insert(paw.frontend.bands, function() return {} end)
@@ -199,7 +199,7 @@ test("what an extension registers is its own, and unloading it takes all of it a
   eq(paw.commands.get("owner.go").ext, "owner", "a command says whose it is")
   paw.cmd("extensions")
   local shown = {}
-  for _, line in ipairs(paw.ui.views.pager.lines) do
+  for _, line in ipairs(paw.ui.views:get("pager").lines) do
     shown[#shown + 1] = line.text
   end
   paw.ui.close()
@@ -224,24 +224,24 @@ test("what an extension registers is its own, and unloading it takes all of it a
   for _, map in ipairs(paw.keymap.every()) do
     if map.lhs == "<leader>Zo" then error("its key is still mapped") end
   end
-  eq(paw.ui.views.ownerview, nil, "its view")
-  eq(paw.ui.views.ownerbuf, nil, "its buffer type's view")
-  eq(paw.layout.types.ownerbuf, nil, "its buffer type")
-  eq(paw.textbuf.kinds.owned, nil, "its text buffer kind")
-  eq(paw.track_kinds.kinds.ownedkind, nil, "its kind of track")
+  eq(paw.ui.views:get("ownerview"), nil, "its view")
+  eq(paw.ui.views:get("ownerbuf"), nil, "its buffer type's view")
+  eq(paw.layout.types:get("ownerbuf"), nil, "its buffer type")
+  eq(paw.textbuf.kinds:get("owned"), nil, "its text buffer kind")
+  eq(paw.track_kinds.kinds:get("ownedkind"), nil, "its kind of track")
   for _, item in ipairs(paw.frontend.menus.timeline) do
     if item.track_kind == "ownedkind" then error("its kind is still in the menu") end
   end
   eq(paw.pick.sources:get("owned"), nil, "its picker source")
-  eq(paw.query.fields.track.ownedness, nil, "its query field")
+  eq(paw.query.fields:get("track ownedness"), nil, "its query field")
   eq(paw.statusline.components:get("owned"), nil, "its status line component")
-  eq(paw.grep.sources.owned, nil, "its grep source")
+  eq(paw.grep.sources:get("owned"), nil, "its grep source")
   for _, name in ipairs(paw.grep.order) do
     eq(name ~= "owned", true, "and its place in the order")
   end
-  eq(paw.ex.fields.owned, nil, "its field")
-  eq(paw.commands.completers.owned, nil, "its completer")
-  eq(paw.curves.providers.owned, nil, "its curve provider")
+  eq(paw.ex.fields:get("owned"), nil, "its field")
+  eq(paw.commands.completers:get("owned"), nil, "its completer")
+  eq(paw.curves.providers:get("owned"), nil, "its curve provider")
   for _, layer in ipairs(paw.ui.layers.arrange.header or {}) do
     eq(layer.name ~= "owned", true, "its layer")
   end
@@ -270,7 +270,7 @@ test(":bnext goes past the view of an extension that was unloaded", function()
   for _ = 1, #paw.layout.buffers_list() + 1 do
     paw.keymap.feed(":bnext<CR>")
     local view = paw.layout.current().view
-    eq(paw.ui.views[view] ~= nil, true, ":bnext shows a view that is there, not " .. view)
+    eq(paw.ui.views:get(view) ~= nil, true, ":bnext shows a view that is there, not " .. view)
   end
 end)
 
@@ -333,7 +333,7 @@ test("an extension's pencil keys and insert keys work, show in the key bar by or
   paw.ui.focus("arrange")
   T.keys("iQ<Esc>")
   paw.ui.show("pianoroll")
-  paw.ui.views.pianoroll:edit(clip)
+  paw.ui.views:get("pianoroll"):edit(clip)
   T.keys("i")
   local line = {}
   for _, entry in ipairs(paw.ui.keybar.entries()) do
@@ -351,7 +351,7 @@ test("an extension's pencil keys and insert keys work, show in the key bar by or
   eq(paw.ext.unload("pens"), true, "unloads")
   eq(paw.roll_draw.keys.gs, nil, "its pencil key is gone from paw.roll_draw.keys")
   eq(paw.roll_draw.keys.gz, nil, "both of them")
-  eq(paw.insert.kinds.Q, nil, "its insert key is gone")
+  eq(paw.insert.get("Q"), nil, "its insert key is gone")
   eq(table.concat(paw.opt.insertkeys, ","), "m,a,r,',f", "and out of paw.opt.insertkeys")
   T.keys("igsgz<Esc>")
   paw.ui.focus("arrange")
@@ -405,11 +405,11 @@ paw.ui.role("roley.dot", { cells = function(buf) buf:text(0, 0, "o", "Normal") e
 ]]
   )
   paw.ext.load(dir("roley"))
-  eq(paw.roles.registry["roley.dot"] ~= nil, true, "the role is defined")
+  eq(paw.roles.registry:get("roley.dot") ~= nil, true, "the role is defined")
   eq(provided("roley", "roles"), "roley.dot", "and listed as the extension's")
   local before = paw.roles.version
   paw.ext.unload("roley")
-  eq(paw.roles.registry["roley.dot"], nil, "unloading takes it away")
+  eq(paw.roles.registry:get("roley.dot"), nil, "unloading takes it away")
   eq(paw.roles.version > before, true, "and frontends are told the roles changed")
 end)
 
@@ -533,7 +533,9 @@ paw.luadev.watch()
 )
 
 -- One row for each registry of paw.registry: `put` is the code of an
--- extension that puts an entry at `%q`, and `core` an entry of the core.
+-- extension that puts an entry at `%q`, and `core` an entry of the core
+-- (nil where the core has none). The registry keeps the entry at `prefix`
+-- and the name.
 local registries = {
   { reg = paw.pick.sources, core = "tracks", put = "paw.pick.sources:put(%q, { desc = 'mine', items = {} })" },
   {
@@ -541,6 +543,39 @@ local registries = {
     core = "mode",
     put = "paw.statusline.component(%q, function() return 'mine' end)",
   },
+  { reg = paw.commands.specs, core = "info", put = "paw.command(%q, function() end, { desc = 'Mine' })" },
+  { reg = paw.ui.views, core = "pager", put = "paw.ui.view(%q, { render = function() end })" },
+  {
+    reg = paw.layout.types,
+    core = "empty",
+    put = "paw.buftype(%q, { create = function() return {} end, render = function() end })",
+  },
+  { reg = paw.textbuf.kinds, core = "history", put = "paw.textbuf.kind(%q, { read = function() return {} end })" },
+  { reg = paw.track_kinds.kinds, put = "paw.track_kinds.define(%q, { title = 'Mine' })" },
+  {
+    reg = paw.clip_kinds.kinds,
+    put = "paw.clip_kinds.define(%q, { serialize = function(d) return d end, deserialize = function(d) return d end })",
+  },
+  { reg = paw.roles.registry, core = "chip", put = "paw.ui.role(%q, { cells = function() end })" },
+  {
+    reg = paw.query.fields,
+    prefix = "note ",
+    core = "pitch",
+    put = "paw.query.field('note', %q, function() return 1 end)",
+  },
+  {
+    reg = paw.ex.fields,
+    core = "pitch",
+    put = "paw.ex.field(%q, { level = 'note', type = 'number', get = function() return 1 end })",
+  },
+  { reg = paw.ex.views, put = "paw.ex.view(%q, { song = function(col) return col end })" },
+  { reg = paw.commands.completers, core = "tracks", put = "paw.commands.completers:put(%q, function() return {} end)" },
+  { reg = paw.trackcolumn.components, core = "fold", put = "paw.trackcolumn.add(%q, { render = function() end })" },
+  { reg = paw.trackcolumn.signs, core = "diagnostics", put = "paw.trackcolumn.sign(%q, { render = function() end })" },
+  { reg = paw.ruler.labels, core = "number", put = "paw.ruler.add(%q, { render = function() end })" },
+  { reg = paw.insert.kinds, core = "m", put = "paw.insert.add(%q, { kind = 'midi', desc = 'Mine' })" },
+  { reg = paw.grep.sources, put = "paw.grep.source(%q, function() end)" },
+  { reg = paw.curves.providers, core = "lsp", put = "paw.curves.provide(%q, function() end)" },
 }
 
 test(
@@ -548,22 +583,40 @@ test(
   function()
     for _, row in ipairs(registries) do
       local reg, name = row.reg, "registry_" .. row.reg.kind
-      local was = reg:get(row.core)
+      local core = row.core or "aa_regtest"
+      local prefix = row.prefix or ""
+      local was = reg:get(prefix .. core)
       local root = dir(name)
-      write(root .. "/init.lua", row.put:format("aa_regtest") .. "\n" .. row.put:format(row.core))
+      write(root .. "/init.lua", row.put:format("aa_regtest") .. "\n" .. row.put:format(core))
       for round = 1, 2 do
         local what = reg.kind .. ", round " .. round .. ": "
+        local owned = row.core and { prefix .. "aa_regtest", prefix .. core } or { prefix .. core }
+        table.sort(owned)
         eq(paw.ext.load(root).ok, true, what .. "loads")
-        eq(table.concat(reg:owned_by(name), " "), "aa_regtest " .. row.core, what .. "its entries")
-        eq(reg:get(row.core) ~= was, true, what .. "its entry is on top of the core's")
+        eq(table.concat(reg:owned_by(name), " "), table.concat(owned, " "), what .. "its entries")
+        eq(reg:get(prefix .. core) ~= was, true, what .. "its entry is on top of the core's")
         eq(paw.ext.unload(name), true, what .. "unloads")
         eq(#reg:owned_by(name), 0, what .. "no entry of it is left")
-        eq(reg:get("aa_regtest"), nil, what .. "its own entry is gone")
-        eq(reg:get(row.core), was, what .. "the core's entry is back")
+        eq(reg:get(prefix .. "aa_regtest"), nil, what .. "its own entry is gone")
+        eq(reg:get(prefix .. core), was, what .. "the core's entry is back")
       end
     end
   end
 )
+
+test("an extension that moves an insert key to another key gives the old key back when it unloads", function()
+  write(dir("mover") .. "/init.lua", "paw.insert.set('m', { key = 'Z' })")
+  local m = paw.insert.get("m")
+  T.after(function() paw.ext.unload("mover") end)
+  eq(table.concat(paw.opt.insertkeys, ","), "m,a,r,',f", "the built-in insert keys")
+  paw.ext.load(dir("mover"))
+  eq(table.concat(paw.opt.insertkeys, ","), "Z,a,r,',f", "Z in place of m")
+  eq(paw.insert.get("Z").kind, m.kind, "Z inserts what m did")
+  paw.ext.unload("mover")
+  eq(table.concat(paw.opt.insertkeys, ","), "m,a,r,',f", "m is back in its place")
+  eq(paw.insert.get("m"), m, "with its kind")
+  eq(paw.insert.get("Z"), nil, "and Z is gone")
+end)
 
 test("an entry over another extension's stays when the other unloads, and checkhealth says so", function()
   write(dir("under") .. "/init.lua", "paw.pick.sources:put('regtest_shared', { desc = 'under', items = {} })")

@@ -674,7 +674,7 @@ test("mixdiag: the painted report draws meters, a spectrum and the findings, whi
   for i, item in ipairs(mixdiag.items()) do
     if item.finding.rule == "clip" then wanted = i end
   end
-  local paint = paw.ui.views.mixdiag_paint
+  local paint = paw.ui.views:get("mixdiag_paint")
   local function row_y() return paint.findings_top + paint.top + (wanted - 1 - paint.first) * 22 + 11 end
   paw.cursor.set_beat(0)
   paw.canvas.pointer("mixdiag_paint", { kind = "down", x = paint.right_x + 20, y = row_y(), button = "left" })

@@ -171,7 +171,7 @@ local looks: {string: {string: string}} = {
 
 -- The folds as they were before this extension changed them: each change
 -- starts from them, so that "paw" gives them back.
-local found: Component = paw.trackcolumn.components.fold
+local found: Component = paw.trackcolumn.components:get("fold")
 
 local function apply()
   if not found then

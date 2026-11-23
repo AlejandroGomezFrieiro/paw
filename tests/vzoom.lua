@@ -7,7 +7,7 @@ local test, eq, fresh = T.test, T.eq, T.fresh
 local api = paw.api
 local L = paw.layout
 local keys = T.keys
-local roll = paw.ui.views.pianoroll
+local roll = paw.ui.views:get("pianoroll")
 
 local W, H = 120, 40
 local initial = L.capture()
@@ -37,7 +37,7 @@ end
 local function heights()
   api.ui_snapshot(W, H)
   local out = {}
-  for _, row in ipairs(paw.ui.views.arrange.geometry.layout.rows) do
+  for _, row in ipairs(paw.ui.views:get("arrange").geometry.layout.rows) do
     if row.kind == "track" then out[row.id] = row.h end
   end
   return out

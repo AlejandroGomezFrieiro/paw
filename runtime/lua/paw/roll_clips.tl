@@ -146,7 +146,7 @@ end
 M.changed = events.event("roll_clips.changed")
 
 local function roll(): Window
-  return paw.ui.views.pianoroll as Window
+  return paw.ui.views:get("pianoroll") as Window
 end
 
 -- Each window of the roll edits clips of its own: the state is in the

@@ -4,7 +4,7 @@ local T = ...
 local eq, fresh, melody = T.eq, T.fresh, T.melody
 local api = paw.api
 local draw = paw.roll_draw
-local roll = paw.ui.views.pianoroll
+local roll = paw.ui.views:get("pianoroll")
 
 -- Each test leaves the piano roll as it found it: closed, the keyboard in
 -- the arrange view, in normal mode.

@@ -236,7 +236,7 @@ end
 
 --- The device on the row of the device panel, or nil.
 function M.panel_device(): integer
-  local panel = paw.ui.views.devices as DevicePanel
+  local panel = paw.ui.views:get("devices") as DevicePanel
   local selected = panel and panel.selected and panel:selected()
   return selected and selected.id or nil
 end

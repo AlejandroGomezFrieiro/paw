@@ -31,6 +31,7 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
+local registry = require("paw.registry")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
@@ -111,15 +112,24 @@ local record M
     at: function(self: Plane, cx: number, cy: number): types.Point
     region: function(self: Plane): PlaceIn
   end
-  --- Every role, by name.
-  registry: {string: contracts.Role<contracts.MarkProps>}
+  --- Every role by name, with the extension that defined it. `define`
+  --- puts one.
+  registry: registry.Registry<contracts.Role<contracts.MarkProps>>
   --- The version of the roles a frontend may know (`scene.watch`'s `roles`).
   version: integer
   gesture: function(view: View, e: MouseEvent): boolean
 end
 local Plane = M.Plane
-M.registry = {}
 M.version = 1
+-- A change of a role tells the frontends that paint roles that the set
+-- changed, and draws again.
+M.registry = registry.new(
+  "roles",
+  "roles",
+  {
+    changed = function() M.version = M.version + 1; api.ui_redraw() end,
+  }
+)
 
 -- The hit regions each window of the terminal's screen drew last, by the
 -- view's name and its window: `{ x, y, w, h, hit }` each, in screen cells.
@@ -147,7 +157,7 @@ function M.define<P is contracts.MarkProps>(name: string, spec: contracts.Role<P
   if type(spec) ~= "table" or type(spec.cells) ~= "function" then
     error("role " .. name .. ": cells(buf, props, ctx) draws it", 2)
   end
-  M.registry[name] = spec as contracts.Role<contracts.MarkProps>
+  M.registry:put(name, spec as contracts.Role<contracts.MarkProps>)
 end
 
 --- What of a role's props goes to a frontend: data only, and not what it
@@ -243,7 +253,7 @@ end
 local contexts: {string: contracts.RoleContext} = {}
 
 local function spec_of(role: string): contracts.Role<contracts.MarkProps>
-  local spec = M.registry[role]
+  local spec = M.registry:get(role)
   if not spec then
     error("no role " .. tostring(role), 3)
   end

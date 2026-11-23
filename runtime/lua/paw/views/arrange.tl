@@ -179,7 +179,7 @@ local view = Arrange
 view.scroll, view.top, view.flags = 0, 1, {}
 -- What extensions draw on the timeline, by name, in name order, once the
 -- ruler and the tracks are drawn and before the playhead:
---   paw.ui.views.arrange.layers.marks = function(view, layer) ... end
+--   paw.ui.views:get("arrange").layers.marks = function(view, layer) ... end
 -- See `contracts.ArrangeLayer` for what `layer` holds.
 view.layers = {}
 -- Tracks need rows: two fifths of a column's height, and a third of the
@@ -244,7 +244,7 @@ end
 --- `view.ruler2` (by name, a function of the view) has something to show.
 --- The lanes of `paw.ruler` (the regions' rows) add rows of their own, and
 --- a layer draws on the first of them.
----   paw.ui.views.arrange.ruler2.marks = function(view) return #my_marks > 0 end
+---   paw.ui.views:get("arrange").ruler2.marks = function(view) return #my_marks > 0 end
 view.ruler2 = {}
 
 local function wants_ruler2(self: Arrange): boolean
@@ -742,8 +742,8 @@ local function row_ground(
       scope_to or false,
     },
     glyphs = draw.g,
-    clip_role = paw.roles.registry.clip,
-    beats_role = paw.roles.registry.beats,
+    clip_role = paw.roles.registry:get("clip"),
+    beats_role = paw.roles.registry:get("beats"),
     marks = marks,
     folds = self.fold_ground,
   }

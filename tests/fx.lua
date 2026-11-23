@@ -147,7 +147,7 @@ test("presets: the commands and keys act on the device in the panel", function()
   local synth = track:add_device("synth")
   paw.flush()
   paw.ui.focus("devices")
-  paw.ui.views.devices.row = 1
+  paw.ui.views:get("devices").row = 1
   paw.commands.exec("preset Sub bass")
   eq(synth.params.cutoff, 400, ":preset <name> loads it")
   T.keys("]p")
@@ -392,10 +392,10 @@ test("wet/dry: the mix is a parameter like any other: automated, shown, kept", f
   for _, p in ipairs(card.params) do
     eq(paw.fx.host_params[p.key], nil, "not among the parameters: " .. p.key)
   end
-  local rows = paw.ui.views.devices:rows()
+  local rows = paw.ui.views:get("devices"):rows()
   eq(rows[#rows - 1].param.key, "fx_wet", "the terminal lists it after the device's own parameters")
-  paw.ui.views.devices.row = 1
-  paw.ui.views.devices:adjust(-10)
+  paw.ui.views:get("devices").row = 1
+  paw.ui.views:get("devices"):adjust(-10)
   eq(delay.params.fx_wet, 30, "h and l on the device's line change it")
   local path = paw.project.save(T.scratch .. "/wet.json")
   fresh()
@@ -412,11 +412,11 @@ test("params: one chosen by name is shown first on the card, and kept with the d
   t:add_device("synth")
   paw.flush()
   paw.ui.focus("devices")
-  paw.ui.views.devices.row = 1
+  paw.ui.views:get("devices").row = 1
   T.keys("f")
   eq(paw.pick.state().title, "Parameters · Synth", "f opens the parameter picker")
   T.keys("reso<CR>")
-  local row = paw.ui.views.devices:rows()[paw.ui.views.devices.row]
+  local row = paw.ui.views:get("devices"):rows()[paw.ui.views:get("devices").row]
   eq(row.param.key, "resonance", "Enter chooses it in the panel")
   eq(paw.frontend.state(-1).devices[1].params[1].key, "resonance", "and the card shows it first")
   local path = paw.project.save(T.scratch .. "/shown.json")
@@ -439,7 +439,7 @@ test("params: the one last touched shows itself, and :param.last goes to it and 
   paw.cursor.set_track(other.id)
   paw.commands.exec("param.last automate")
   eq(paw.cursor.track().id, t.id, ":param.last goes to its track")
-  local row = paw.ui.views.devices:rows()[paw.ui.views.devices.row]
+  local row = paw.ui.views:get("devices"):rows()[paw.ui.views:get("devices").row]
   eq(row.param.key, "release", "and to it in the panel")
   eq(synth:lane("release") ~= nil, true, "`automate` makes its lane")
   synth:set("cutoff", 500)
@@ -484,7 +484,7 @@ test("copy: V selects several devices in the panel; y and p copy them, d cuts th
   paw.cursor.set_track(a.id)
   paw.flush()
   paw.ui.focus("devices")
-  paw.ui.views.devices.row = 1
+  paw.ui.views:get("devices").row = 1
   T.keys("V4jy")
   paw.cursor.set_track(b.id)
   paw.flush()
@@ -493,7 +493,7 @@ test("copy: V selects several devices in the panel; y and p copy them, d cuts th
   eq(b:devices()[2].params.time, 200, "with their settings")
   paw.cursor.set_track(a.id)
   paw.flush()
-  paw.ui.views.devices.row = 1
+  paw.ui.views:get("devices").row = 1
   T.keys("Vjd")
   eq(kinds_on(a), "delay", "d cuts the selected device")
 end)
@@ -505,7 +505,7 @@ test("copy: :device.copy_to and :device.move_to take the device to another track
   a:add_device("delay", { time = 321 })
   paw.cursor.set_track(a.id)
   paw.flush()
-  paw.ui.views.devices.row = 1
+  paw.ui.views:get("devices").row = 1
   paw.commands.exec("device.copy_to Bass")
   eq(kinds_on(b), "delay", "a copy is on Bass")
   eq(b:devices()[1].params.time, 321, "with its settings")
