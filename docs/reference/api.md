@@ -1411,6 +1411,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.markers.parent(id)`: The region around a region (the smallest that holds it), or around a marker (the innermost at its beat). Nil at the top.
 - `paw.markers.path(beat)`: The regions around a beat, the outermost first. Where two siblings overlap, the one that starts later is taken.
 - `paw.markers.pathname(region)`: A region's names from the top down, joined by `/`: `Chorus 2/Verse A`. `:render range=` and `paw.markers.region` take it when names repeat.
+- `paw.markers.placed(m)`: Where a marker or region shows in the window now, as the regions' lane draws it: its start and end in the window's beats, nil when it does not show.
 - `paw.markers.prev(beat)`: The last marker before a beat, or nil.
 - `paw.markers.region(which)`: A region by number, id, name or path of names (`Chorus 2/Verse A`).
 - `paw.markers.regions()`: The regions alone.
@@ -1932,6 +1933,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.ruler.draw_lanes(buf, x, scroll, span, folds)`: Draw the lanes on `buf`, the rows under the bar numbers, one under the other. `x` is the column of a beat; `scroll` and `span` the beats in sight; `folds` the view's closed time folds (paw/folds.tl), if any.
 - `paw.ruler.label(bar, beat, style, cursor_beat, room)`: The pieces of bar `bar`'s label, from the parts in `paw.opt.barlabel` in their order. `bar` is the song's bar: in a scope with time, its label counts from 1 at the scope's start (`paw.scope.bar_offset`). `style` is the style of the bar's number there. `room` is how many columns the label has before the next bar's: each part gets what the parts before it left (`ctx.room`).
 - `paw.ruler.lane_rows()`: How many rows the lanes need now, all together.
+- `paw.ruler.lane_time()`: A context of a lane with only its fields of time: `here`, the beat of the window's time for a beat of the song, and `from` and `to`, the time of the window's scope. The regions' lane places the song's regions and markers with these fields, and the mouse finds them with the same fields.
 - `paw.ruler.loop_text(from, to, on)`: What a message says of the loop: `bars 5 to 8, on`, `bar 5, off`. `from` and `to` are the loop's edges in beats of the song.
 - `paw.ruler.relative(bar, beat)`: How many `W` (ahead) or `B` (behind) reach bar `bar` from the cursor at `beat`: from inside a bar, the first `B` goes to its own start (paw/defaults/cursor.lua). Nil for the cursor's own bar.
 - `paw.ruler.remove(name)`: Take a part away, and its name out of `paw.opt.barlabel`. The part that it replaced, if any, comes back.
@@ -1994,7 +1996,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.scope.sibling(n)`: The scope `n` places after the current one (before it, with a negative `n`), beside it in the same parent: the next region, group or track; a block's next stretch of the same length. Nil and the reason when there is none.
 - `paw.scope.song_bar(local_bar)`: The bar of the song for a bar as the current scope shows it.
 - `paw.scope.song_beat(beat, s)`: The song's beat of a beat that the current scope shows.
-- `paw.scope.song_offset(s)`: The beats to add to a beat of the window to get the song's beat: in a subproject, where the clip it was entered through places its beat 0 (the clip's start less its offset); else 0.
+- `paw.scope.song_offset(s)`: The beats to add to a beat of the window to get the song's beat: in a subproject, where the clip it was entered through places its beat 0 (the clip's start less its offset), and for a subproject inside another, that clip's place in the song too; else 0.
 - `paw.scope.span(s)`: The time a scope shows (the current one by default): `from, to` in beats, its own time intersected with its parent's. Nil when it shows all of the song's time. `from` is `to` when the times do not meet.
 - `paw.scope.tracks(s)`: The tracks of a scope (the current one by default), in the order of the track list. With no scope, or one that keeps every track, all tracks of the song; in a subproject, its tracks.
 - `paw.scope.widen(top, win)`: Leave the scope of a window (the current one by default): up one level, or with `top` to the song. False when it shows the song.

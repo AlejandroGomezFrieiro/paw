@@ -450,6 +450,28 @@ spec(
   }
 )
 
+--- The playhead's place (`bar.beat.hundredths`), numbered as the ruler
+--- numbers it. In a scope with time it is in the scope's bars while the
+--- playhead is inside that time. Outside it, the scope has no bar there,
+--- and the place is the song's with `@` before it, as a bar typed with `@`
+--- is the song's (`@1.1.00`).
+local function playhead_place(position: number): string
+  local here = paw.time.local_beat(position)
+  local from: number
+  local to: number
+  if paw.scope then
+    from, to = paw.scope.span()
+  end
+  if not from then
+    return paw.time.format(here)
+  end
+  if here >= from - 1e-9 and here < to - 1e-9 then
+    return paw.scope.format(here)
+  end
+  local bar, beat, frac = api.tempo_bbt(position)
+  return string.format("@%d.%d.%02d", bar + 1, beat + 1, math.min(99, math.floor(frac * 100 + 0.5)))
+end
+
 spec(
   "transport",
   {
@@ -467,7 +489,7 @@ spec(
         -- Counting in: the beats left before the take starts, in place of the time.
         return {state, {" count " .. t.counting, "StatusRec"}}
       end
-      return {state, {" " .. paw.time.format(paw.time.local_beat(t.position)), "StatusTime"}}
+      return {state, {" " .. playhead_place(t.position), "StatusTime"}}
     end,
   }
 )

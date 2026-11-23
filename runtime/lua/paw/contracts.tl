@@ -1212,11 +1212,18 @@ local record contracts
   --- `scroll` and `span` the beats in sight, `glyphs` and `styles` the
   --- lane's own. With time folds (paw/folds.tl), `folded(beat)` is true for
   --- a beat inside a folded span, after its start, and `closed(id)` for a
-  --- region that is folded into its column.
+  --- region that is folded into its column. `here(beat)` is the beat of
+  --- the window's time for a beat of the song (they differ inside a
+  --- subproject), and `from` and `to` the time of the window's scope, in
+  --- the window's beats (nil when it shows all of the song's time). The
+  --- fields of time are there for `rows` too.
   record RulerLaneContext
     buf: Buf
     rows: integer
     x: function(beat: number): integer
+    here: function(song_beat: number): number
+    from: number
+    to: number
     scroll: number
     span: number
     folded: function(beat: number): boolean

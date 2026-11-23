@@ -5832,6 +5832,12 @@ function paw.markers.path(beat) end
 ---@param region any
 function paw.markers.pathname(region) end
 
+--- Where a marker or region shows in the window now, as the regions' lane
+--- draws it: its start and end in the window's beats, nil when it does
+--- not show.
+---@param m any
+function paw.markers.placed(m) end
+
 --- The last marker before a beat, or nil.
 ---@param beat any
 function paw.markers.prev(beat) end
@@ -7639,6 +7645,13 @@ function paw.ruler.label(bar, beat, style, cursor_beat, room) end
 --- How many rows the lanes need now, all together.
 function paw.ruler.lane_rows() end
 
+--- A context of a lane with only its fields of time: `here`, the beat of
+--- the window's time for a beat of the song, and `from` and `to`, the
+--- time of the window's scope. The regions' lane places the song's regions
+--- and markers with these fields, and the mouse finds them with the same
+--- fields.
+function paw.ruler.lane_time() end
+
 --- What a message says of the loop: `bars 5 to 8, on`, `bar 5, off`.
 --- `from` and `to` are the loop's edges in beats of the song.
 ---@param from any
@@ -7932,7 +7945,8 @@ function paw.scope.song_beat(beat, s) end
 
 --- The beats to add to a beat of the window to get the song's beat: in a
 --- subproject, where the clip it was entered through places its beat 0
---- (the clip's start less its offset); else 0.
+--- (the clip's start less its offset), and for a subproject inside
+--- another, that clip's place in the song too; else 0.
 ---@param s any
 function paw.scope.song_offset(s) end
 

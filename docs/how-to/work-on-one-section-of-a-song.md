@@ -19,7 +19,7 @@ bridge, in a narrowed window. The section is a region, and the rules are in
    - The cursor stays in the time of the section. `0` goes to its start,
      and `$` to its end.
    - The bars count from 1 at the start of the section, in the meter of
-     the song, and a second row of the ruler shows the bars of the song.
+     the song, and the status line shows the bar of the song in brackets.
      The bars that you type are the bars of the section, so `3|` and `:3`
      go to bar 3 of the section.
    - Press `<Space><Space>`, and the playhead loops over the section while
@@ -44,8 +44,8 @@ in the time of the bridge. The status line then shows
 ## Change the bar numbers and the loop
 
 - To see the bars of the song on the ruler in place of the bars of the
-  section, type `:set scopebars=song`. `local` gives only the bars of the
-  section, and `both` is the default.
+  section, type `:set scopebars=song`. `:set scopebars=local` gives the
+  bars of the section again.
 - To keep the loop that you had, type `:set noscopeloop`.
 
 ## See also

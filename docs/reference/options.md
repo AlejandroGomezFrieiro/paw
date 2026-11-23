@@ -80,7 +80,7 @@ When the undo history has more steps than `undo_steps` or more data than `undo_m
 | `paw.opt.device_sleep` | `true` | A device at rest sleeps through silence, e.g., a reverb after its tail or a synth with no note that sounds, which saves processor time. When the song is stopped and nothing sounds, the whole engine rests (see [The engine at rest](engine.md#the-engine-at-rest)). The sound is the same with `false`. |
 | `paw.opt.audio_reconnect` | `true` | paw opens an audio device again when it returns. |
 | `paw.opt.scope_rest` | `"play"` | What the tracks outside the scope do while a narrowed window is in front: `"play"`, `"mute"` or `"frozen"`. |
-| `paw.opt.scopebars` | `"both"` | The bar numbers in a scope with time: `"local"` (from 1 at its start), `"song"`, or `"both"` (from 1, and the bars of the song on a second row of the ruler). |
+| `paw.opt.scopebars` | `"local"` | The bar numbers in a scope with time: `"local"` (from 1 at its start) or `"song"`. |
 | `paw.opt.scopeloop` | `true` | Loops the time of a scope while its window is in front. |
 
 ## Media and render

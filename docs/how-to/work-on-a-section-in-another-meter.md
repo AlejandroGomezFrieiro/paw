@@ -34,10 +34,10 @@ eight bars of 6/8 and not eight bars of 4/4.
    Song › Bridge · bars 1-8 (song 17-24) · 6/8 · 3 tracks · `zw` goes back
    ```
 
-   The ruler counts the bars of the bridge from 1 in 6/8, and a second
-   row shows the bars of the song, 17 to 24. The status line shows the
-   place of the cursor in both, for example `Song › Bridge 1.1 (17.1)`,
-   and the loop is the bridge.
+   The ruler counts the bars of the bridge from 1 in 6/8. The status line
+   shows the place of the cursor in the bars of the bridge and in the bars
+   of the song, for example `Song › Bridge 1.1 (17.1)`, and the loop is
+   the bridge.
 2. Edit as usual. The bars that you type are the bars of the bridge, so
    `3|` goes to bar 3 of the bridge, which is bar 19 of the song. To name
    a bar of the song, put `@` before it, for example `@19|`.

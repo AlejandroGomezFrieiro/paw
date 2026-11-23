@@ -1271,13 +1271,54 @@ local record Label
   style: string
 end
 
-local function lane_rows(): integer
-  if #M.list() == 0 then
-    return 0
+--- Where a region (with `length`) or a marker shows in the window: its
+--- start and end in the window's time (`ctx.here`), cut at the edges of
+--- the time of the window's scope (`ctx.from`, `ctx.to`). Nil when it is
+--- outside that time: inside a subproject, the song's regions that its
+--- block covers show at their place in it, and no others.
+local function placed(ctx: contracts.RulerLaneContext, beat: number, length?: number): number, number
+  local a = ctx.here(beat)
+  local b = length and ctx.here(beat + length) or a
+  if not ctx.from then
+    return a, b
   end
-  local deepest = 1
+  local from, to = ctx.from, ctx.to
+  if length then
+    if b <= from + 1e-9 or a >= to - 1e-9 then
+      return nil
+    end
+    return math.max(a, from), math.min(b, to)
+  end
+  -- A marker at the end of the scope's time marks what comes after it.
+  if a < from - 1e-9 or a >= to - 1e-9 then
+    return nil
+  end
+  return a, b
+end
+
+--- Where a marker or region shows in the window now, as the regions' lane
+--- draws it: its start and end in the window's beats, nil when it does
+--- not show.
+function M.placed(m: Marker): number, number
+  return placed(paw.ruler.lane_time(), m.beat, m.length)
+end
+
+--- The rows of the lane: one for each level of the regions that show, at
+--- most `levels()`; one for markers alone; none when nothing shows.
+local function lane_rows(ctx: contracts.RulerLaneContext): integer
+  local deepest = 0
   for _, node in ipairs(M.walk()) do
-    deepest = math.max(deepest, node.depth)
+    if placed(ctx, node.region.beat, node.region.length) then
+      deepest = math.max(deepest, node.depth)
+    end
+  end
+  if deepest == 0 then
+    for _, m in ipairs(M.list()) do
+      if not m.length and placed(ctx, m.beat) then
+        return 1
+      end
+    end
+    return 0
   end
   return math.min(deepest, levels())
 end
@@ -1295,7 +1336,7 @@ local function render(ctx: contracts.RulerLaneContext)
   -- and what is inside it is folded away with it.
   local closed = ctx.closed or function(_: integer): boolean return false end
   local folded = ctx.folded or function(_: number): boolean return false end
-  local function hidden(node: Node): boolean
+  local function hidden(node: Node, start: number): boolean
     local up = node.parent
     while up do
       if closed(up.region.id) then
@@ -1303,24 +1344,29 @@ local function render(ctx: contracts.RulerLaneContext)
       end
       up = up.parent
     end
-    return folded(node.region.beat)
+    return folded(start)
   end
   for _, node in ipairs(M.walk()) do
     local r = node.region
-    if not hidden(node) then
+    local start, stop = placed(ctx, r.beat, r.length)
+    if start and not hidden(node, start) then
       local row = math.min(node.depth, last) - 1
       local style = node.depth == 1 and s.level1 or node.depth == 2 and s.level2 or s.deep
-      local x0, x1 = math.max(0, ctx.x(r.beat)), math.min(width, ctx.x(r.beat + r.length))
+      local x0, x1 = math.max(0, ctx.x(start)), math.min(width, ctx.x(stop))
       if x1 > x0 then
         buf:fill(x0, row, x1 - x0, 1, " ", style)
       end
       local mark = closed(r.id) and (g.closed or "▸") or #node.children > 0 and g.open or g.start
-      put(row, {x = ctx.x(r.beat), text = (node.depth > last and g.deeper or "") .. mark .. M.label(r), style = style})
+      put(row, {x = ctx.x(start), text = (node.depth > last and g.deeper or "") .. mark .. M.label(r), style = style})
     end
   end
   for _, m in ipairs(M.list()) do
-    if not m.length and not folded(m.beat) then
-      put(0, {x = ctx.x(m.beat), text = g.marker .. M.label(m), style = s.marker})
+    local at: number
+    if not m.length then
+      at = placed(ctx, m.beat)
+    end
+    if at and not folded(at) then
+      put(0, {x = ctx.x(at), text = g.marker .. M.label(m), style = s.marker})
     end
   end
   -- Each name gets the room up to the next one on its row.
