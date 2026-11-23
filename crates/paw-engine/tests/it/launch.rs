@@ -9,14 +9,11 @@ use paw_engine::{
     TempoPoint, TrackSlot,
 };
 
-const SR: f64 = 48000.0;
+use crate::common::{SR, send};
+
 /// Frames in a beat at 120 BPM.
 const BEAT: usize = 24000;
 const TRACK: TrackSlot = TrackSlot(1);
-
-fn send(handle: &mut EngineHandle, msg: Msg) {
-    assert!(handle.try_send(msg).is_ok(), "message queue full");
-}
 
 /// Sound that is `level` throughout, for ten seconds.
 fn steady(level: f32) -> Arc<AudioData> {

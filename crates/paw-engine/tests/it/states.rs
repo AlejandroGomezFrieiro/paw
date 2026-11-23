@@ -8,7 +8,7 @@ use paw_engine::{
     SchedEntry, Schedule, StateChange, StateLane, TrackRt, TrackSlot,
 };
 
-const SR: f64 = 48000.0;
+use crate::common::SR;
 
 /// What a device heard, by the song's frame: a parameter, a program, a
 /// message (its first byte).

@@ -4,15 +4,11 @@
 use std::sync::Arc;
 
 use paw_engine::{
-    AudioData, AudioRegion, ClipSet, Engine, EngineHandle, Msg, SchedEntry, Schedule, SigPoint,
-    TempoMap, TempoPoint, TrackRt, TrackSlot,
+    AudioData, AudioRegion, ClipSet, Engine, Msg, SchedEntry, Schedule, SigPoint, TempoMap,
+    TempoPoint, TrackRt, TrackSlot,
 };
 
-const SR: f64 = 48000.0;
-
-fn send(handle: &mut EngineHandle, msg: Msg) {
-    assert!(handle.try_send(msg).is_ok());
-}
+use crate::common::{SR, send};
 
 /// 4/4 at 120 for eight bars, then 6/8, with a ramp from 120 to 90 over
 /// bars 3 and 4.

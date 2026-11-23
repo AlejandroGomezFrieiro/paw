@@ -5,13 +5,10 @@ use std::sync::Arc;
 use paw_engine::record::{AudioCapture, Take, TakeShared};
 use paw_engine::{Engine, EngineHandle, Msg};
 
-const SR: f64 = 48000.0;
+use crate::common::{SR, send};
+
 /// Frames in a beat at the map's first tempo, 120 BPM.
 const BEAT: usize = 24000;
-
-fn send(handle: &mut EngineHandle, msg: Msg) {
-    assert!(handle.try_send(msg).is_ok(), "message queue full");
-}
 
 /// Run `frames` frames in blocks of `block`, with one input channel of a
 /// steady level, and return the left output.

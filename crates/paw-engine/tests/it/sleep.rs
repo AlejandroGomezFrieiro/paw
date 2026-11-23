@@ -9,7 +9,7 @@ use paw_engine::{
     SchedEntry, Schedule, SendRt, TrackRt, TrackSlot,
 };
 
-const SR: f64 = 48000.0;
+use crate::common::SR;
 
 fn send(handle: &mut EngineHandle, engine: &mut Engine, msg: Msg) {
     handle.send_while(msg, engine);

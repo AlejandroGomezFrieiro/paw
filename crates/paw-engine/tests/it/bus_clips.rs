@@ -4,16 +4,12 @@
 //! which has clips of its own: it depends on this.)
 
 use paw_engine::{
-    ClipSet, DeviceSlot, Engine, EngineHandle, MAX_BLOCK, Msg, Registry, SchedEntry, Schedule,
-    TrackRt, TrackSlot,
+    ClipSet, DeviceSlot, Engine, MAX_BLOCK, Msg, Registry, SchedEntry, Schedule, TrackRt, TrackSlot,
 };
 
-const SR: f64 = 48000.0;
-const BLOCKS: usize = 200;
+use crate::common::{SR, send};
 
-fn send(handle: &mut EngineHandle, msg: Msg) {
-    assert!(handle.try_send(msg).is_ok());
-}
+const BLOCKS: usize = 200;
 
 /// Track 1 (a synth) goes into track 2, and track 2 (a synth, then a
 /// utility at `gain` dB) into the master. Each track holds one note when

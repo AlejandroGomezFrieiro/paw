@@ -24,7 +24,7 @@ shows the behavior:
 | The change | The test |
 | --- | --- |
 | A pure function or a model type | A unit test in a `#[cfg(test)] mod tests` of the module |
-| The engine (devices, clips, the mix) | An integration test in `crates/paw-engine/tests` that makes an `Engine` and calls `engine.process()` block by block |
+| The engine (devices, clips, the mix) | An integration test in `crates/paw-engine/tests/it` that makes an `Engine` and calls `engine.process()` block by block |
 | The kernel through Lua (commands, keys, views) | A Lua test, not Rust (`lua-testing`) |
 | The remote protocol | `crates/paw-tui/tests/remote.rs` or `crates/paw-mcp/tests/protocol.rs` |
 | The terminal input (escape sequences) | The unit tests of `crates/paw-tui/src/keys.rs`, with `keys::Scripted` |
@@ -48,11 +48,15 @@ no real time passes.
   a separate binary that links the crate again. Put a new test in a
   file of its area that is there already. Do not add a file for one test.
 - One integration-test binary for each crate is the goal
-  (`tests/it/main.rs` with a module for each area). `paw-engine` moves
-  first (planned). Keep `no_alloc.rs` as its own binary: it
-  sets a global allocator for its process.
+  (`tests/it/main.rs` with a module for each area). `paw-engine` has
+  it: put a new engine test in a module of `crates/paw-engine/tests/it`,
+  and add a new area to `it/main.rs`. Its `no_alloc.rs` stays a binary
+  of its own: it sets a global allocator for its process. The name of
+  a test in the binary starts with its module, for example
+  `clips::a_test_name`.
 - A helper that two files use is a module of the test binary, not a
-  copy in each file.
+  copy in each file. In `paw-engine`, `it/common.rs` holds them (the
+  sample rate `SR` and `send`).
 - Doc tests are for the examples of a public item. `cargo nextest` does
   not run them: run `cargo test --doc -p <crate>`.
 

@@ -957,7 +957,7 @@ fn null_render(states: &[Project], way: Way) -> Rendered {
 ///
 /// The threads case does not show that the work was shared between the
 /// threads: that depends on how long the tracks took.
-/// `crates/paw-engine/tests/threads.rs` shows it on a larger project.
+/// `crates/paw-engine/tests/it/threads.rs` shows it on a larger project.
 #[test]
 fn one_project_rendered_two_ways_nulls() {
     type States = fn() -> Vec<Project>;
