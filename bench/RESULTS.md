@@ -7,8 +7,6 @@ How to run everything: [README.md](README.md). Raw numbers:
 matrix before it). The processor time of the whole program while it plays,
 against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md).
 
-## 2026-11-23: the first scope keys after the group tree change
-
 ## 2026-11-23: the check of a frozen track after an edit
 
 A frozen track keeps the key of what its file was made from
@@ -49,6 +47,8 @@ made again: `clip_list` of the track (0.04 ms), `device_get` (0.07 ms),
 and the hash of the text. The largest values (up to 9 ms) come when
 the read waits for the chord reading of the same job to end.
 
+
+## 2026-11-23: the first scope keys after the group tree change
 
 The group tree change found that `znn`, `]z` and `znag` cost more in the scenario
 `scope` with its branch (22 -> 40 ms, 30 -> 68 ms, 26 -> 40 ms), and that

@@ -27,6 +27,7 @@ local type EventsModule = require("paw.events")
 local type ExModule = require("paw.ex")
 local type FoldsModule = require("paw.folds")
 local type FormatsModule = require("paw.formats")
+local type FreezeBlockModule = require("paw.freeze_block")
 local type FrontendModule = require("paw.frontend")
 local type GrepModule = require("paw.grep")
 local type GroupsModule = require("paw.groups")
@@ -132,6 +133,7 @@ global record paw
    folds: FoldsModule
    formats: FormatsModule
    freeze: Untyped
+   freeze_block: FreezeBlockModule
    frontend: FrontendModule
    fx: Untyped
    grep: GrepModule

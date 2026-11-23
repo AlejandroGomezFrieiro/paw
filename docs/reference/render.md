@@ -252,3 +252,20 @@ regions with no region inside.
   settings check can look at each render and show diagnostics with
   fixes. A server of the mix gets the fader, pan, sends and devices of each
   track. See [Language servers and diagnostics](language-servers.md).
+
+### Plugins in a render
+
+A render, an export, stems and a freeze each make their own copy of every
+plugin, and paw tells each copy that the render is offline before the copy
+plays its first block. A plugin that has its own quality setting for renders
+can then use that setting. The plugins that play live are not told, so they
+stay in their live mode.
+
+| Format | What paw tells a plugin in a render |
+| --- | --- |
+| CLAP | paw sets the `clap.render` extension to offline. A plugin without the extension gets no call. |
+| VST3 | paw calls `setupProcessing` with the process mode `kOffline`, and stops the plugin for the call and starts it again after. |
+| LV2 | LV2 has no call for the render mode. paw sets the plugin's free-wheeling port to 1 if the plugin has one, and after each block it waits for the jobs that the plugin runs in the background. |
+
+A plugin in a helper process (see [Processes](plugins.md#processes)) gets
+the same call in that process.

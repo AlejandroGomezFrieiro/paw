@@ -1502,6 +1502,7 @@ local record types
     bits: integer
     tracks: {integer}
     freeze: integer
+    block: integer
     dither: boolean
     normalize: number
     loudness: number
