@@ -960,6 +960,21 @@ test("inside a subproject with its own tempo, the tempo lane shows its tempo, no
   eq(lo .. " " .. hi, "50 130", "the lane's range round 90")
 end)
 
+test("inside a subproject with its own tempo, grt types its tempo, not the song's, and u takes it back", function()
+  local b = cue()
+  paw.cursor.set_track(b.row)
+  paw.cursor.set_beat(17)
+  keys(":nest.time own<CR>")
+  keys("znn")
+  api.undo_checkpoint()
+  keys("grt96<CR>")
+  local function tempos() return api.nest_get(b.nest).tempo.points[1].bpm .. " " .. paw.project.tempo end
+  eq(tempos(), "96 120", "its tempo, not the song's")
+  api.undo_checkpoint()
+  keys("u")
+  eq(tempos(), "120 120", "one step back")
+end)
+
 test(
   "<Space>zp of a subproject with its own tempo writes its tempo into the song's map: the same render, and the message says so",
   function()

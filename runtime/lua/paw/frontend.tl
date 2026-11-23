@@ -1724,11 +1724,11 @@ function M.state(known: integer): State
   -- Bar and beat lines from the tempo map, well past the end and the last
   -- change, and the tempo and signature changes to flag on the ruler.
   project.marks = paw.tempo.marks(0, math.huge)
-  -- The tempo lane under the ruler, when it is shown: the whole map, and the
-  -- tempos at the bottom and the top of the row.
+  -- The tempo lane under the ruler, when it is shown: the window's map, and
+  -- the tempos at the bottom and the top of the row.
   if paw.tempolane.shown() then
     local lo, hi = paw.tempolane.range()
-    project.tempo_lane = {lo = lo, hi = hi, points = paw.tempo.points()}
+    project.tempo_lane = {lo = lo, hi = hi, points = paw.tempolane.points()}
   end
   -- Markers and regions (`paw.markers`): { id, beat, name, length } each.
   project.markers = {}

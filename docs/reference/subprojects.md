@@ -120,10 +120,18 @@ subproject and not the song's, and the message says so, for example
 `90 bpm: the subproject's own tempo`. `:tempo.ramp`, `:tempo.remove`,
 `:tempo.tap`, `:timesig` with a meter and `:timesig.remove` change the
 song's map, so inside a subproject with its own tempo they refuse and say
-why. The tempo lane (`zT`) shows the tempo of the subproject. The
-status line shows `own tempo`,
+why. The tempo lane (`zT`) shows the tempo of the subproject, and a
+change that you make on the lane with the mouse, with `grt` or with
+`:tempo.move` goes into the tempo of the subproject. The song's tempo
+stays as it was. The status line shows `own tempo`,
 and `K` on a block says `own tempo` where it otherwise says `follows the
 tempo`.
+
+Inside a subproject that follows the song's tempo, the tempo lane shows
+the song's tempo from the start of the block. A change that you make on
+the lane goes into the song's tempo at the same place in the song. For
+example, in 4/4 with the block at bar 5, a change at bar 3 of the
+subproject is a change at bar 7 of the song.
 
 A subproject with its own meter and no tempo of its own counts its own
 bars from the start of its block, in its meter, while the song keeps its

@@ -8596,6 +8596,15 @@ function paw.tempolane.fraction(bpm) end
 ---@param bpm any
 function paw.tempolane.move(beat, to, bpm) end
 
+--- The point of the lane in effect at a beat of the window's time (the
+--- last one at or before it, else the first), and its index.
+---@param beat any
+function paw.tempolane.point_at(beat) end
+
+--- The tempo points the lane shows and edits, the start's first, in beats
+--- of the window's time: `paw.time.tempo_points`.
+function paw.tempolane.points() end
+
 --- Make the change at `beat` ramp to the next, or hold again.
 ---@param beat any
 ---@param on any

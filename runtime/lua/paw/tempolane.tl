@@ -1,8 +1,10 @@
 -- The tempo lane: the tempo map drawn as a curve in a row under the ruler, in
 -- steps where a change holds and in slopes where it ramps. It is a way to
--- look at the map and to edit it with the pointer; every edit is one made to
--- `paw.tempo`, so the grid, the ruler and the clips that follow the tempo
--- follow the lane, and undo takes it back.
+-- look at the map and to edit it with the pointer; every edit changes the
+-- tempo map, so the grid, the ruler and the clips that follow the tempo
+-- follow the lane, and undo takes it back. Beats are of the window's time:
+-- inside a subproject with its own tempo, the lane shows and edits its own
+-- map; inside one that follows the song, the song's map at its place.
 --
 --   paw.tempolane.toggle()            -- show or hide the row
 --   paw.tempolane.range()             -- the tempo at its bottom and its top
@@ -110,21 +112,99 @@ local function clamp_bpm(bpm: number): number
   return math.max(1, math.min(999, bpm))
 end
 
+-- The map the lane edits is the window's, as the one it draws
+-- (`paw.time.tempo_points`). Beats given to the lane are beats of the
+-- window's time. In the song, or in a subproject that follows the song's
+-- tempo, the lane edits the song's map at the song's beat of each one
+-- (`paw.time.song_beat`). In a subproject with its own tempo, it edits that
+-- own map, whose beats are the window's. Each edit writes the map once: one
+-- undo step.
+local record EditMap
+  -- Its tempo points, the start's first, in its own beats.
+  tempos: {types.TempoPoint}
+  -- The beat of this map of a beat of the window's time.
+  beat: function(window_beat: number): number
+  -- Replace its tempo points.
+  write: function(tempos: {types.TempoPoint})
+end
+
+local function same_beat(a: number, b: number): boolean
+  return math.abs(a - b) < 1e-6
+end
+
+local function by_beat(a: types.TempoPoint, b: types.TempoPoint): boolean
+  return a.beat < b.beat
+end
+
+--- The map that an edit on the lane changes, read now.
+local function edit_map(): EditMap
+  local own = paw.time.own()
+  if own and own.own_tempo then
+    local nest = api.clip_get(own.clip).nest
+    return {
+      tempos = api.nest_get(nest).tempo.points as {types.TempoPoint},
+      beat = function(beat: number): number return beat end,
+      write = function(tempos: {types.TempoPoint})
+        local tempo: types.NestTempo = {mode = "own", points = tempos as {types.TempoChange}}
+        api.nest_set(nest, {tempo = tempo} as types.Nest)
+      end,
+    }
+  end
+  local map = api.tempo_points()
+  return {
+    tempos = map.tempos,
+    beat = paw.time.song_beat,
+    write = function(tempos: {types.TempoPoint}) api.tempo_set_points(tempos, map.signatures) end,
+  }
+end
+
+--- The index in `tempos` of the point at `beat`, or nil.
+local function index_at(tempos: {types.TempoPoint}, beat: number): integer
+  for i, p in ipairs(tempos) do
+    if same_beat(p.beat, beat) then
+      return i
+    end
+  end
+end
+
+--- The tempo points the lane shows and edits, the start's first, in beats
+--- of the window's time: `paw.time.tempo_points`.
+function M.points(): {types.TempoPoint}
+  return paw.time.tempo_points()
+end
+
+--- The point of the lane in effect at a beat of the window's time (the
+--- last one at or before it, else the first), and its index.
+function M.point_at(beat: number): types.TempoPoint, integer
+  local points = M.points()
+  local found, index = points[1], 1
+  for i, p in ipairs(points) do
+    if p.beat <= beat + 1e-9 then
+      found, index = p, i
+    end
+  end
+  return found, index
+end
+
 --- A tempo change at a beat, which holds. If a change is there, it gets the tempo.
 function M.add(beat: number, bpm: number)
-  api.tempo_set(math.max(0, beat), clamp_bpm(bpm))
+  local map = edit_map()
+  local at = math.max(0, map.beat(beat))
+  local i = index_at(map.tempos, at)
+  if i then
+    map.tempos[i].bpm = clamp_bpm(bpm)
+  else
+    map.tempos[#map.tempos + 1] = {beat = at, bpm = clamp_bpm(bpm), ramp = false}
+    table.sort(map.tempos, by_beat)
+  end
+  map.write(map.tempos)
 end
 
 --- The change at `beat` to another beat and tempo. The start's change
 --- keeps its beat and changes its tempo.
 function M.move(beat: number, to?: number, bpm?: number): boolean
-  local map = api.tempo_points()
-  local index: integer
-  for i, p in ipairs(map.tempos) do
-    if math.abs(p.beat - beat) < 1e-6 then
-      index = i
-    end
-  end
+  local map = edit_map()
+  local index = index_at(map.tempos, map.beat(beat))
   if not index then
     return false
   end
@@ -133,42 +213,46 @@ function M.move(beat: number, to?: number, bpm?: number): boolean
   if index > 1 then
     table.remove(map.tempos, index)
     -- Not onto another change, and never to the start.
-    local target = math.max(options.opt.grid, to or point.beat)
-    for i = #map.tempos, 1, -1 do
-      if math.abs(map.tempos[i].beat - target) < 1e-6 then
-        table.remove(map.tempos, i)
-      end
+    local target = math.max(options.opt.grid, to and map.beat(to) or point.beat)
+    local there = index_at(map.tempos, target)
+    while there do
+      table.remove(map.tempos, there)
+      there = index_at(map.tempos, target)
     end
     point.beat = target
     map.tempos[#map.tempos + 1] = point
-    table.sort(map.tempos, function(a: types.TempoPoint, b: types.TempoPoint): boolean return a.beat < b.beat end)
+    table.sort(map.tempos, by_beat)
   end
-  api.tempo_set_points(map.tempos, map.signatures)
+  map.write(map.tempos)
   return true
 end
 
 --- Remove the change at `beat`. You cannot remove the change at the start.
 function M.remove(beat: number): boolean
-  for i, p in ipairs(paw.tempo.points()) do
-    if i > 1 and math.abs(p.beat - beat) < 1e-6 then
-      api.tempo_remove(p.beat)
-      return true
-    end
+  local map = edit_map()
+  local index = index_at(map.tempos, map.beat(beat))
+  if not index or index == 1 then
+    return false
   end
-  return false
+  table.remove(map.tempos, index)
+  map.write(map.tempos)
+  return true
 end
 
 --- Make the change at `beat` ramp to the next, or hold again.
 function M.ramp(beat: number, on?: boolean): boolean
-  for _, p in ipairs(paw.tempo.points()) do
-    if math.abs(p.beat - beat) < 1e-6 then
-      if on == nil then
-        on = not p.ramp
-      end
-      api.tempo_set(p.beat, p.bpm, on)
-      return on
-    end
+  local map = edit_map()
+  local index = index_at(map.tempos, map.beat(beat))
+  if not index then
+    return nil
   end
+  local point = map.tempos[index]
+  if on == nil then
+    on = not point.ramp
+  end
+  point.ramp = on
+  map.write(map.tempos)
+  return on
 end
 
 --- A stroke of the pencil: `points` are `{ beat, bpm }` as they were drawn.
@@ -179,10 +263,14 @@ function M.draw(points: {StrokePoint}, step?: number)
   if #points == 0 then
     return
   end
-  table.sort(points, function(a: StrokePoint, b: StrokePoint): boolean return a[1] < b[1] end)
+  local map = edit_map()
+  local stroke: {StrokePoint} = {}
+  for i, p in ipairs(points) do
+    stroke[i] = {math.max(0, map.beat(p[1])), p[2]}
+  end
+  table.sort(stroke, function(a: StrokePoint, b: StrokePoint): boolean return a[1] < b[1] end)
   step = step or math.max(0.5, options.opt.grid)
-  local from, to = math.max(0, points[1][1]), math.max(0, points[#points][1])
-  local map = api.tempo_points()
+  local from, to = stroke[1][1], stroke[#stroke][1]
   local out: {types.TempoPoint} = {}
   for i, p in ipairs(map.tempos) do
     if i == 1 or p.beat < from - 1e-9 or p.beat > to + 1e-9 then
@@ -190,34 +278,27 @@ function M.draw(points: {StrokePoint}, step?: number)
     end
   end
   local last: number
-  for i, p in ipairs(points) do
-    local beat = math.max(0, p[1])
-    if not last or beat - last >= step - 1e-9 or i == #points then
+  for i, p in ipairs(stroke) do
+    local beat = p[1]
+    if not last or beat - last >= step - 1e-9 or i == #stroke then
       local bpm = clamp_bpm(p[2])
-      local at: integer
-      for j, q in ipairs(out) do
-        if math.abs(q.beat - beat) < 1e-6 then
-          at = j
-        end
-      end
-      if at == 1 then
-        out[1].bpm = bpm
-      elseif at then
+      local at = index_at(out, beat)
+      if at then
         out[at].bpm = bpm
       else
-        out[#out + 1] = {beat = beat, bpm = bpm, ramp = i < #points}
+        out[#out + 1] = {beat = beat, bpm = bpm, ramp = i < #stroke}
       end
       last = beat
     end
   end
   -- The stroke's last change holds: what comes after it was not drawn.
   for _, p in ipairs(out) do
-    if math.abs(p.beat - last) < 1e-6 and p.beat > 0 then
+    if same_beat(p.beat, last) and p.beat > 0 then
       p.ramp = false
     end
   end
-  table.sort(out, function(a: types.TempoPoint, b: types.TempoPoint): boolean return a.beat < b.beat end)
-  api.tempo_set_points(out, map.signatures)
+  table.sort(out, by_beat)
+  map.write(out)
 end
 
 --- Define the tempo lane's commands with `command`.
@@ -251,8 +332,8 @@ function M.commands(command: TempoModule.Define)
       if not to then
         error("tempo.move: say where to, a bar (17) or a bar and beat (17.3)", 0)
       end
-      local from = paw.tempo.point_at(a[2] and paw.tempo.place(a[2]) or paw.cursor.beat)
-      if from.beat == 0 then
+      local from, index = M.point_at(a[2] and paw.tempo.place(a[2]) or paw.cursor.beat)
+      if index == 1 then
         error("the start's tempo does not move", 0)
       end
       local target = paw.tempo.place(to)
