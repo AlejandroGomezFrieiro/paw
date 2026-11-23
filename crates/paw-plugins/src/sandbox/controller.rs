@@ -193,8 +193,9 @@ impl Controller for RemoteController {
 
     fn load_state(&mut self, state: &[u8]) -> Result<()> {
         self.ask(&Request::LoadState(state), STATE_LIMIT)?;
-        self.wake();
+        // The mark comes first: a block that the wake starts counts.
         self.reread_after_next_block();
+        self.wake();
         self.refresh_values();
         Ok(())
     }
@@ -350,8 +351,8 @@ impl Controller for RemoteController {
             data,
         };
         let answer = self.ask(&request, STATE_LIMIT)?;
-        self.wake();
         self.reread_after_next_block();
+        self.wake();
         // A preset sets the plugin's parameters anew.
         if method == paw_engine::device::method::PRESET_LOAD {
             self.refresh_values();
