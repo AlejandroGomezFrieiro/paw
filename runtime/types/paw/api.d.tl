@@ -237,6 +237,7 @@ local record api
    project_get: function(): types.Project
    project_keep_changes: function()
    project_load: function(path: string, opts?: types.OpenOptions)
+   project_mark_changed: function()
    project_mark_saved: function()
    project_new: function()
    project_read: function(path: string, files?: {string:string}): types.ProjectData

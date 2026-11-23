@@ -60,6 +60,14 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             sh.session.borrow_mut().mark_saved();
             Ok(())
         }
+        // Count the project as changed, so that it asks to be saved, with
+        // no undo step: for data that the next save writes and undo does
+        // not keep (`:workspace.save!` in the project's screen).
+        // @return nil
+        fn project_mark_changed(_, sh, () => ()) {
+            sh.session.borrow_mut().mark_changed();
+            Ok(())
+        }
         // `opts.plugins_offline` opens it with all plugins offline.
         // `opts.offline` is a list of devices (by id) to open offline.
         // @param opts? types.OpenOptions

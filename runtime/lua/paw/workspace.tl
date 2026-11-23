@@ -21,6 +21,7 @@ local options = require("paw.options")
 local commands = require("paw.commands")
 local seats = require("paw.seats")
 local layout = require("paw.layout")
+local cursor = require("paw.cursor")
 local statusline = require("paw.statusline")
 local pick = require("paw.pick")
 local type types = require("paw.types")
@@ -62,6 +63,11 @@ end
 
 local record M
   source: contracts.PickSource<Item>
+  --- What going to a workspace does after its windows show, by the name
+  --- of the workspace: a function that gives a text for the message, or
+  --- nil. `paw.workspace.on_enter.record` puts the cursor on the first
+  --- armed track.
+  on_enter: {string: function(): string}
 end
 
 --- The name of the workspace on the screen, or nil.
@@ -115,28 +121,46 @@ local function spec_of(name: string): SpecNode, string
 end
 
 --- Go to workspace `name`. The tabs and windows of the workspace that you
---- leave stay in memory. Returns false and the reason when `name` names
---- no workspace or none of its windows can show.
+--- leave stay in memory. Then `on_enter` of the workspace runs. Returns
+--- true and the text of `on_enter`, or false and the reason when `name`
+--- names no workspace or none of its windows can show.
 function M.go(name: string): boolean, string
-  if name == state.current then
-    return true
+  -- In the workspace already: its windows stay, and its `on_enter` runs
+  -- again (`<Space>wr` finds the armed track again).
+  if name ~= state.current then
+    local spec, why = spec_of(name)
+    if not spec then
+      return false, why
+    end
+    -- Capture before the restore replaces the windows.
+    local leaving = state.current and layout.capture(true)
+    if not layout.restore(spec) then
+      return false, "workspace `" .. name .. "` has no window that paw can show: is the extension of its view loaded?"
+    end
+    if leaving then
+      state.kept[state.current] = leaving
+    end
+    state.kept[name] = nil
+    state.current = name
   end
-  local spec, why = spec_of(name)
-  if not spec then
-    return false, why
-  end
-  -- Capture before the restore replaces the windows.
-  local leaving = state.current and layout.capture(true)
-  if not layout.restore(spec) then
-    return false, "workspace `" .. name .. "` has no window that paw can show: is the extension of its view loaded?"
-  end
-  if leaving then
-    state.kept[state.current] = leaving
-  end
-  state.kept[name] = nil
-  state.current = name
-  return true
+  local enter = M.on_enter[name]
+  return true, enter and enter()
 end
+
+-- The record workspace: the cursor on the first armed track of the song,
+-- so that `R` records there.
+M.on_enter = {
+  record = function(): string
+    for _, id in ipairs(api.track_list()) do
+      local track = api.track_get(id)
+      if track.armed then
+        cursor.set_track(id)
+        return "the cursor on " .. track.name .. ", the first armed track"
+      end
+    end
+    return "no track is armed: the cursor stays, and `r` arms the track at the cursor"
+  end,
+}
 
 --- Keep the tabs and windows as workspace `name` in the layouts folder.
 --- When `project` is true, keep them in the project's screen instead, so
@@ -149,6 +173,8 @@ function M.save(name: string, project?: boolean): boolean, string
     screen.workspaces[name] = layout.capture(true)
     screen.workspace = name
     api.project_screen_set(screen)
+    -- The next save writes it: the project asks to be saved.
+    api.project_mark_changed()
   else
     local ok, where = layout.save(name)
     if not ok then
@@ -164,8 +190,12 @@ end
 -- The picker: `<Space>ww`, `:workspace` ------------------------------------------------
 
 local function choose(item: Item)
-  local ok, why = M.go(item.name)
-  paw.notify(ok and "workspace " .. item.name or why, ok and "info" or "warn")
+  local ok, text = M.go(item.name)
+  if not ok then
+    paw.notify(text, "warn")
+    return
+  end
+  paw.notify("workspace " .. item.name .. (text and ", " .. text or ""))
 end
 
 M.source = {

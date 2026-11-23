@@ -2476,7 +2476,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.workspace
 
 - `paw.workspace.current()`: The name of the workspace on the screen, or nil.
-- `paw.workspace.go(name)`: Go to workspace `name`. The tabs and windows of the workspace that you leave stay in memory. Returns false and the reason when `name` names no workspace or none of its windows can show.
+- `paw.workspace.go(name)`: Go to workspace `name`. The tabs and windows of the workspace that you leave stay in memory. Then `on_enter` of the workspace runs. Returns true and the text of `on_enter`, or false and the reason when `name` names no workspace or none of its windows can show.
 - `paw.workspace.names()`: The names of the workspaces there are: the defaults, the configuration's, those saved, the project's and those kept in memory.
 - `paw.workspace.save(name, project)`: Keep the tabs and windows as workspace `name` in the layouts folder. When `project` is true, keep them in the project's screen instead, so that the project opens in that workspace. The screen is now that workspace.
 
@@ -2723,6 +2723,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.project_get(key)`: --- project --- The project as a table. With `key`, only that entry of the table: this is quicker (`edits`, which goes up with each change, is asked for on each key and each edit).
 - `paw.api.project_keep_changes()`: Keep the project as paw has it: forget the changes made outside.
 - `paw.api.project_load(path, opts)`: `opts.plugins_offline` opens it with all plugins offline. `opts.offline` is a list of devices (by id) to open offline.
+- `paw.api.project_mark_changed()`: Count the project as changed, so that it asks to be saved, with no undo step: for data that the next save writes and undo does not keep (`:workspace.save!` in the project's screen).
 - `paw.api.project_mark_saved()`: Count the project as it is now as saved, for a script that wrote what it holds somewhere itself (a clip opened alone, written back to its file).
 - `paw.api.project_new()`
 - `paw.api.project_read(path, files)`: Read a project folder (`song` or `song/project.toml`) without opening it, in the form that `undo_project` gives. `files` holds the files that paw writes in the folder, by their path in it, for a version that is not on the disk, such as a revision of git. paw reads the media from the disk. See extensions/projdiff.

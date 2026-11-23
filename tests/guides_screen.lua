@@ -172,6 +172,24 @@ test(
   end
 )
 
+test("guide: arrange your screen: Space wr puts the cursor on the first armed track, or says that none is", function()
+  sized()
+  local first = paw.add_track({ name = "Drums" })
+  local vox = paw.add_track({ name = "Vox" })
+  paw.cursor.set_track(first)
+  local function said() return paw.ui.messages[#paw.ui.messages].text end
+  keys("<Space>wr")
+  eq(paw.cursor.track_id(), first.id, "with no track armed, the cursor stays")
+  eq(said():find("no track is armed", 1, true) ~= nil, true, "and the message says so: " .. said())
+  keys("<Space>we")
+  keys("j")
+  keys("r")
+  eq(api.track_get(vox.id).armed, true, "r arms Vox")
+  keys("k")
+  keys("<Space>wr")
+  eq(paw.cursor.track_id(), vox.id, "Space wr: the cursor on Vox, the armed track")
+end)
+
 test("guide: arrange your screen: Space ws saves the screen as a workspace, and Space ww lists it", function()
   sized()
   local file = api.env().state_dir .. "/layouts/guide_desk.json"
@@ -188,7 +206,9 @@ end)
 test("guide: arrange your screen: :workspace.save! keeps a workspace in the project, which opens in it", function()
   sized()
   keys("<Space>wm")
+  eq(api.project_get("modified"), false, "going to a workspace changes nothing in the project")
   keys(":workspace.save! guide_desk<CR>")
+  eq(api.project_get("modified"), true, "the project has a change to save")
   keys("<Space>we")
   local path = T.scratch .. "/guide-workspace"
   keys(":w " .. path .. "<CR>")

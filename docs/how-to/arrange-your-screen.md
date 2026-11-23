@@ -112,7 +112,7 @@ it again, type `:layout write`.
 A workspace is a screen for one task, and you go from one workspace to
 another with `<Space>w` and a letter. paw has four workspaces:
 
-- `<Space>wr` goes to the record workspace, with the arrange view and the mixer.
+- `<Space>wr` goes to the record workspace, with the arrange view and the mixer. The cursor goes to the first armed track, so `R` records there.
 - `<Space>we` goes to the edit workspace, with the arrange view and the piano roll.
 - `<Space>wm` goes to the mix workspace, with the mixer and the device panel.
 - `<Space>wn` goes to the score workspace, with the notation view. It needs the notation extension.
@@ -126,8 +126,8 @@ second tab in the edit workspace, press `<Space>wm` to mix, and press
 To keep the screen that you have now as a workspace of your own, press
 `<Space>ws` and type its name. `<Space>ww` lists every workspace, and you
 choose one with `Enter`. To keep a workspace in the project instead,
-type `:workspace.save! tracking`. The project then opens in that
-workspace, from the next time that you save it.
+type `:workspace.save! tracking`. The project then has a change to save,
+and after you save it, the project opens in that workspace.
 
 ## In the graphical window
 

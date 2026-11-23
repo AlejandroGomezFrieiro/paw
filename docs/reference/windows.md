@@ -183,7 +183,7 @@ screen of a workspace is as you left it when you come back.
 
 | Key | Workspace | Windows |
 | --- | --- | --- |
-| `<Space>wr` | record | The arrange view and the mixer. |
+| `<Space>wr` | record | The arrange view and the mixer. The cursor goes to the first armed track, and when no track is armed, the cursor stays and the message says so. |
 | `<Space>we` | edit | The arrange view and the piano roll. |
 | `<Space>wm` | mix | The mixer and the device panel. |
 | `<Space>wn` | score | The notation view, from the notation extension. |
@@ -198,6 +198,10 @@ paw.layouts.mix = { dir = "h", "mixer", "devices" }
 paw.layouts.drums = { dir = "v", "arrange", "roll" }
 ```
 
+`paw.workspace.on_enter` holds, by the name of a workspace, a function that
+runs each time you go to that workspace. The text that it returns goes
+into the message. The record workspace uses it to move the cursor.
+
 When you go to a workspace, paw looks for it in this order:
 
 1. The tabs and windows that you left in it.
@@ -207,8 +211,8 @@ When you go to a workspace, paw looks for it in this order:
 
 `:workspace.save! tracking` keeps the workspace in the project's
 `screen.json`, under `workspaces`, and names it as the workspace that the
-project opens in (`workspace`). The project file gets it when you save
-the project. When the project opens, paw puts back its tabs and windows,
+project opens in (`workspace`). It is a change to the project but not an
+undo step, and the project file gets it when you save the project. When the project opens, paw puts back its tabs and windows,
 and then goes to that workspace. With `:set noproject_screen`, the
 project opens with the screen as it is.
 

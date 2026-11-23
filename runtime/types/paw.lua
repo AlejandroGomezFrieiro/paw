@@ -9784,8 +9784,9 @@ function paw.vzoom.window(view) end
 function paw.workspace.current() end
 
 --- Go to workspace `name`. The tabs and windows of the workspace that you
---- leave stay in memory. Returns false and the reason when `name` names
---- no workspace or none of its windows can show.
+--- leave stay in memory. Then `on_enter` of the workspace runs. Returns
+--- true and the text of `on_enter`, or false and the reason when `name`
+--- names no workspace or none of its windows can show.
 ---@param name any
 function paw.workspace.go(name) end
 
@@ -11080,6 +11081,11 @@ function paw.api.project_keep_changes() end
 ---@param path string
 ---@param opts any
 function paw.api.project_load(path, opts) end
+
+--- Count the project as changed, so that it asks to be saved, with
+--- no undo step: for data that the next save writes and undo does
+--- not keep (`:workspace.save!` in the project's screen).
+function paw.api.project_mark_changed() end
 
 --- Count the project as it is now as saved, for a script that wrote
 --- what it holds somewhere itself (a clip opened alone, written
