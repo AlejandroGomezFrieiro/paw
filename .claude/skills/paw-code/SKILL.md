@@ -18,7 +18,9 @@ them to paw.
    ticket. Find the owner of the feature: the module that a person
    opens first to change it. Write down what must change and what must
    stay the same: the order of effects, the errors, the undo step, the
-   message to the user. Keep the changes of other people.
+   message to the user. Keep the changes of other people. If the
+   change alters a contract (a trait, a saved type, a file format, a
+   `paw.*` function, a layer), use the skill `architecture` first.
 2. **Make it work with little code.** Write the smallest clear code
    that gives the behavior. Do not add a layer, a trait or a registry for a
    future need. Write the comments while you write the code. Refactor

@@ -71,6 +71,28 @@ For each Rust test that you add or change, use the skill in
 For each Lua or Teal test, use the skill in
 [.claude/skills/lua-testing](.claude/skills/lua-testing/SKILL.md).
 
+## Architecture
+
+The architecture documentation is the source of truth for the target
+design of paw. It has arc42 sections, one decision record (ADR) for
+each decision, and a roadmap. Each section tells what paw is now and
+what paw is built to be.
+
+The folder `architecture/` is at the top of the owner's checkout. It
+is local to that machine, and git does not keep it. In a clone it is
+absent. Then the pages in `docs/explanation` give the design.
+
+Use the skill in
+[.claude/skills/architecture](.claude/skills/architecture/SKILL.md)
+before you write a design, start a large change, or change a
+contract. A contract is a trait, a saved type, a file format, a
+`paw.*` function, a message of the protocol, or a layer.
+
+- Do not change the design without an ADR. Agents propose an ADR, and
+  the owner accepts it.
+- A change of a contract updates the architecture documentation in the
+  same work.
+
 ## Documentation standards
 
 All documentation follows three standards. The skill in
@@ -94,8 +116,9 @@ gives the details. Read it before you write or change a page.
     doc comments that `tools/apidoc.lua` turns into
     `docs/reference/api.md`.
   - Internal: `AGENTS.md`, `.claude/` (the skills), `bench/`, Backlog
-    tickets, design documents, the other code comments, commit messages,
-    pull request text and replies in chat.
+    tickets, design documents, the architecture documentation, the
+    other code comments, commit messages, pull request text and replies
+    in chat.
 - **Vale.** Vale checks every Markdown file with the project's styles.
   `.vale.ini` gives each kind of file its rules, and each rule is an
   error or off: there is no warning level. Run
@@ -107,7 +130,7 @@ gives the details. Read it before you write or change a page.
   | --- | --- | --- |
   | External | `README.md`, `docs/`, READMEs and `doc/` pages of the extensions and the crates, `web/*/README.md` | `Plain`, `AiTells`, `alex`, `write-good`, `Vale` (words), and the STE rules that agree with plain writing. Readability is off. |
   | Generated | `docs/reference/api.md`, `docs/tutorials/course/` | The external rules. Fix the doc comment or the lesson, and run the generator. |
-  | Internal | `AGENTS.md`, `.claude/`, `bench/*.md` | `STE`, with the grade levels. |
+  | Internal | `AGENTS.md`, `.claude/`, `bench/*.md`, `architecture/` (local) | `STE`, with the grade levels. |
   | Not checked | `bench/RESULTS.md` | None: it is a dated log. |
 
 Other rules for documentation:

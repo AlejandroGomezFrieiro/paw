@@ -12,6 +12,8 @@ the source of truth; this page is the map):
 
 - `docs/explanation/about-core-and-extensions.md` — what belongs in the core
   vs an extension, and why.
+- The skill `architecture` — the target design (kinds, templates,
+  modifiers). Use it before an extension needs a new part of the core.
 - `docs/reference/extensions.md` — layout, manifests and versions, what an
   extension owns and `:ext.unload`, views in the graphical window, health
   checks, what the core gives an extension (devices, track kinds, native
