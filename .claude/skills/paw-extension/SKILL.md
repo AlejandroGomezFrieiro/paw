@@ -165,6 +165,7 @@ follow `extensions/ara` (`paw.plugins.attach`, docs/reference/attachments.md).
 | per-note data, roll layers, popovers | `extensions/articulations` |
 | a native engine / CLAP plugin built by Nix | `extensions/sampler`, `extensions/utau` |
 | parts and signs of the track column, bar labels, in Teal | `extensions/columnplus`, `extensions/rulerplus` |
+| an extension in Teal with many modules (`lua/<name>/*.tl`), formats of other programs | `extensions/interop` |
 | a buffer type (e.g. a tracker, time top→down) | docs/reference/lua-views.md `paw.buftype` example ("tally") |
 
 ## Tests and checks (do these before calling it done)
