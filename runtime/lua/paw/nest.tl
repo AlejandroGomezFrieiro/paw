@@ -27,7 +27,6 @@ local type CursorModule = require("paw.cursor")
 local type MarkersModule = require("paw.markers")
 local type ScopeModule = require("paw.scope")
 local type GroupsModule = require("paw.groups")
-local type registry = require("paw.registry")
 
 --- `paw.track_kinds` (paw/track_kinds.lua), the part this module calls.
 local record TrackKinds
@@ -259,7 +258,7 @@ end
 -- The subprojects that each window is inside, outermost first, by the
 -- window's id: the levels of its scope of kind `nest`. `scope.changed`
 -- changes it. A window that closes keeps its entry.
-local inside: {integer: {contracts.Scope}} = {}
+local windows_inside: {integer: {contracts.Scope}} = {}
 
 --- The levels of kind `nest` from the song to `level`, outermost first.
 local function nest_levels(level: contracts.Scope): {contracts.Scope}
@@ -291,10 +290,11 @@ end
 -- A move between two blocks of one subproject is no leave. The kind of the
 -- innermost subproject that it entered opens its view.
 events.on(
-  paw.scope.changed, function(e: ScopeModule.Changed)
-    local was = inside[e.win] or {}
+  paw.scope.changed,
+  function(e: ScopeModule.Changed)
+    local was = windows_inside[e.win] or {}
     local now = nest_levels(e.level)
-    inside[e.win] = #now > 0 and now or nil
+    windows_inside[e.win] = #now > 0 and now or nil
     local kept = 0
     while kept < #was and kept < #now and was[kept + 1].id == now[kept + 1].id do
       kept = kept + 1
@@ -345,7 +345,8 @@ end
 -- order of its first change. Only while something listens to it: the work
 -- reads each change's track.
 events.on(
-  edit_after, function(e: EditDone)
+  edit_after,
+  function(e: EditDone)
     if not events.listened(M.changed.name) then
       return
     end
@@ -670,7 +671,6 @@ commands.define(
     if not ok then
       if clean and api.undo_pending() then
         api.undo_discard()
-        paw.flush()
       end
       error(made, 0)
     end

@@ -133,8 +133,10 @@ local record M
   type Item = Item
   type Changed = Changed
   source: contracts.PickSource<Item>
-  --- The event `scope.changed`: a window shows a different scope, or the
-  --- whole song.
+  --- The event `scope.changed`: a window shows a different scope
+  --- (`paw.scope`), or the whole song. `scope` is the innermost group of
+  --- the scope, if any, and `level` is the scope that the window shows
+  --- now, or nil for the song.
   changed: events.Event<Changed>
 end
 
