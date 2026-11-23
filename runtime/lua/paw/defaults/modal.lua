@@ -173,6 +173,9 @@ command("info", function()
   if t.chain_origin then lines[#lines + 1] = "  devices copied from " .. t.chain_origin end
   local kind = paw.track_kinds.describe(track.id)
   if kind then lines[#lines + 1] = "  kind    " .. kind end
+  -- A frozen track: whether its file is up to date (paw/freeze.lua).
+  local frozen = paw.freeze.describe(track.id)
+  if frozen then lines[#lines + 1] = "  " .. frozen end
   -- What the parts of the track column say of it (paw/trackcolumn.tl).
   for _, line in ipairs(paw.trackcolumn.describe(track.id)) do
     lines[#lines + 1] = "  " .. line

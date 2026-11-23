@@ -3243,6 +3243,12 @@ function paw.formats.split_args(line) end
 ---@param name any
 function paw.formats.unregister(name) end
 
+--- What `K` says of a frozen track, or of a track held in one: "frozen, up
+--- to date", "frozen, stale: Drums changed since: devices", "held in
+--- Drums, which is frozen, up to date". Nil for a track that plays live.
+---@param track any
+function paw.freeze.describe(track) end
+
 --- Freeze a track or a group: render it, and play the file from now on.
 --- `opts.tail` is the seconds rendered after the song's end (2). One undo
 --- step. Returns the file.
@@ -3250,7 +3256,8 @@ function paw.formats.unregister(name) end
 ---@param opts any
 function paw.freeze.freeze(track, opts) end
 
---- What a frozen track was frozen to, `{ file }`, or nil.
+--- What a frozen track was frozen to, `{ file, key }`, or nil. The `key`
+--- says what the file was made from.
 ---@param track any
 function paw.freeze.frozen(track) end
 

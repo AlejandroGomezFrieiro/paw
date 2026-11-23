@@ -724,6 +724,97 @@ test(":freeze and :unfreeze, and an edit to a frozen track asks to unfreeze it",
   reset()
 end)
 
+-- What `K` says, as one text; the page closes again.
+local function info()
+  keys("K")
+  local said = {}
+  for _, line in ipairs(paw.ui.views.pager.lines) do
+    said[#said + 1] = line.text
+  end
+  paw.ui.close()
+  return table.concat(said, "\n")
+end
+
+test("an edit inside a frozen track makes it stale with the reason, K says so, and u makes it up to date", function()
+  start()
+  local t = synth("Drums", 36)
+  paw.cursor.set_track(t)
+  paw.flush()
+  keys(":freeze<CR>")
+  local said = info()
+  eq(said:find("frozen, up to date", 1, true) ~= nil, true, "K after :freeze: " .. said)
+  keys("<Space>dd")
+  keys("j+")
+  T.until_(
+    function() return screen():find("Drums is frozen: unfreeze it", 1, true) ~= nil end,
+    "the question to unfreeze"
+  )
+  keys("n<CR>")
+  keys("<Space>dd")
+  eq(paw.ui.focused, "arrange", "back in the arrange view")
+  said = info()
+  eq(
+    said:find("frozen, stale: Drums changed since: devices", 1, true) ~= nil,
+    true,
+    "K after + on a parameter: " .. said
+  )
+  keys("u")
+  said = info()
+  eq(said:find("frozen, up to date", 1, true) ~= nil, true, "K after u: " .. said)
+  reset()
+end)
+
+test("a frozen group is stale after an edit of what its file plays, and only then", function()
+  -- Each edit, and what `K` says of the group after it.
+  local cases = {
+    {
+      "a note of a member",
+      function(o) o.violins:clips()[1]:set_notes({ { pitch = 70, start = 0, length = 1 } }) end,
+      "stale: Strings changed since: clips",
+    },
+    { "a member's fader", function(o) o.violins.volume = -6 end, "stale: Strings changed since: mix" },
+    {
+      "a lane of the group",
+      function(o) api.lane_add(o.strings.id, { target = "volume" }) end,
+      "stale: Strings changed since: automation",
+    },
+    { "the tempo", function() api.tempo_set(0, 97) end, "stale: Strings changed since: tempo" },
+    { "the group's own fader", function(o) o.strings.volume = -6 end, "up to date" },
+  }
+  for _, case in ipairs(cases) do
+    start()
+    local o = orchestra()
+    paw.freeze.freeze(o.strings)
+    case[2](o)
+    paw.flush()
+    eq(paw.freeze.describe(o.strings), "frozen, " .. case[3], case[1])
+    eq(paw.freeze.describe(o.violins), "held in Strings, which is frozen, " .. case[3], case[1] .. ", of a member")
+    reset()
+  end
+end)
+
+test("after an edit of a track that a freeze does not play, K makes no key again", function()
+  start()
+  local o = orchestra()
+  paw.freeze.freeze(o.strings)
+  local function made()
+    for _, s in ipairs(require("paw.derived").stats()) do
+      if s.name == "freeze.key" then return s.made end
+    end
+  end
+  paw.freeze.describe(o.strings)
+  local before = made()
+  o.drums:clips()[1]:set_notes({ { pitch = 40, start = 0, length = 1 } })
+  paw.flush()
+  eq(paw.freeze.describe(o.strings), "frozen, up to date", "still up to date")
+  eq(made(), before, "the key was not made again")
+  o.violins:clips()[1]:set_notes({ { pitch = 70, start = 0, length = 1 } })
+  paw.flush()
+  paw.freeze.describe(o.strings)
+  eq(made(), before + 1, "an edit of a member makes it again, once")
+  reset()
+end)
+
 test("a frozen track's heavy Lua device rests: the engine works far less", function()
   start()
   local dir = T.scratch .. "/heavy-devices"

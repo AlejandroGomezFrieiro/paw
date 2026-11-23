@@ -9,15 +9,20 @@
 -- The file is what comes out of the track before its fader: its clips, its
 -- devices, and every track that sounds through it (a group's members). The
 -- fader, pan, mute and sends stay live, so the mix can still be changed. A
--- frozen track's meta holds `frozen = { file }`, so a freeze is saved with
--- the project and undone like any edit; the clips, notes and devices are
--- not touched. The engine holds the devices of a frozen track and of the
--- tracks inside it (bypassed there, not in the project) and plays nothing
--- of those tracks: crates/paw-core/src/freeze.rs.
+-- frozen track's meta holds `frozen = { file, key }`, so a freeze is saved
+-- with the project and undone like any edit; the clips, notes and devices
+-- are not touched. The `key` says what the file was made from
+-- (paw/bake_state.tl): `K` compares it with the track as it is now, and
+-- says whether the file is up to date or stale, and why. The engine holds
+-- the devices of a frozen track and of the tracks inside it (bypassed
+-- there, not in the project) and plays nothing of those tracks:
+-- crates/paw-core/src/freeze.rs.
 --
 -- Editing what a frozen track plays asks whether to unfreeze it: the edit
 -- is not heard until it is.
 local api = paw.api
+local bake_state = require("paw.bake_state")
+local derived = require("paw.derived")
 local M = {}
 
 local function id_of(track) return type(track) == "table" and track.id or track end
@@ -27,7 +32,8 @@ local function meta(id)
   return ok and m or {}
 end
 
---- What a frozen track was frozen to, `{ file }`, or nil.
+--- What a frozen track was frozen to, `{ file, key }`, or nil. The `key`
+--- says what the file was made from.
 function M.frozen(track)
   local f = meta(id_of(track)).frozen
   if type(f) == "table" and f.file then return f end
@@ -50,6 +56,73 @@ function M.state(track)
   track = id_of(track)
   if M.holder(track) then return "held" end
   if M.frozen(track) then return "frozen" end
+end
+
+--- The tracks a freeze of `track` plays: the track, and each track whose
+--- outputs lead into it. With `ctx` (a node of paw.derived), the routing
+--- that it reads is recorded.
+local function members(track, ctx)
+  if ctx then ctx:source("tracks") end
+  local ids = api.track_list({ all = true })
+  local output = {}
+  for _, id in ipairs(ids) do
+    if ctx then ctx:source("track:" .. id .. ":output") end
+    output[id] = api.track_get(id, "output")
+  end
+  local list = { track }
+  for _, id in ipairs(ids) do
+    -- Routing has no loops (the kernel refuses them); the bound is a guard.
+    local at, steps = output[id], 0
+    while at and at ~= 0 and at ~= track and steps < 64 do
+      at, steps = output[at], steps + 1
+    end
+    if at == track and id ~= track then list[#list + 1] = id end
+  end
+  return list
+end
+
+local function same_list(a, b)
+  if #a ~= #b then return false end
+  for i = 1, #a do
+    if a[i] ~= b[i] then return false end
+  end
+  return true
+end
+
+-- The tracks that each frozen track plays. A change of the routing makes
+-- it again; when the list stays the same, the key stays fresh.
+local members_node = derived.node({
+  name = "freeze.members",
+  kind = "memo",
+  make = function(ctx, track) return members(track, ctx) end,
+  same = same_list,
+  limit = 64,
+})
+
+-- The key of what a freeze of each frozen track plays now. An edit of a
+-- track that the freeze does not play leaves it fresh: then the check is a
+-- compare of the key.
+local key_node = derived.node({
+  name = "freeze.key",
+  kind = "memo",
+  make = function(ctx, track) return bake_state.make({ tracks = ctx:get(members_node, track), own = track }, ctx) end,
+  limit = 64,
+})
+
+--- What `K` says of a frozen track, or of a track held in one: "frozen, up
+--- to date", "frozen, stale: Drums changed since: devices", "held in
+--- Drums, which is frozen, up to date". Nil for a track that plays live.
+function M.describe(track)
+  track = id_of(track)
+  local holder = M.holder(track)
+  local frozen = holder or (M.frozen(track) and track)
+  if not frozen then return end
+  local name = api.track_get(frozen, "name")
+  local saved = M.frozen(frozen).key
+  -- A freeze made before paw kept its key: nothing to compare.
+  local state = saved and bake_state.describe(name, saved, key_node:get(frozen, true))
+  local text = holder and string.format("held in %s, which is frozen", name) or "frozen"
+  return state and text .. ", " .. state or text
 end
 
 --- The file a freeze of `track` is rendered to: in the project's media
@@ -87,7 +160,7 @@ function M.freeze(track, opts)
   local path = file_for(track)
   paw.render(path, M.render_opts(track, opts))
   local m = meta(track)
-  m.frozen = { file = path }
+  m.frozen = { file = path, key = bake_state.make({ tracks = members(track), own = track }) }
   api.track_set(track, "meta", m)
   paw.emit("track.frozen", { id = track, file = path })
   return path
