@@ -776,6 +776,9 @@ local record contracts
     name: string
     pattern: string
     readonly: string
+    --- The lines are to edit and use, not to write: `:w` gives this
+    --- message, and `:q` closes the window with the changes.
+    scratch: string
     gutter: boolean
     static: boolean
     hint: string

@@ -339,6 +339,7 @@ Other fields of a kind:
 | Field | Effect |
 | --- | --- |
 | `readonly` | the message when you try a change, and the text cannot change, as in help |
+| `scratch` | the message of `:w`. paw never writes the lines, and `:q` closes the window with its changes, as in the command-line window |
 | `gutter = false` | no line numbers |
 | `static` | paw does not read it again when the project changes |
 | `paint(canvas, x, y, text, kind, width, row, buf)` | draws a line |

@@ -267,6 +267,7 @@ See [Snippets](snippets.md) and [Completion](completion.md).
 | `<Space>.` | adjust the last change: a panel shows the parameters of the last command (`:quantize`, `:transpose`, `:clip.fade`), and the result changes while you change them (see [The adjust panel](#the-adjust-panel)) |
 | `"a` | the register for the next command; `"0` last yank, `"_` nowhere |
 | `qa` … `q` | record keys into register a |
+| `q:` `q/` | edit the history of `:` or `/` in the [command-line window](cmdline.md#the-command-line-window), and `Enter` runs a line |
 | `@a` `@@` `@:` | play them, the last macro again, the last command line |
 | `ma` `'a` `''` | set mark a, go to it, back to before the jump |
 | `:delmarks a-d` `:delmarks!` | remove marks (letters, ranges); all lowercase ones |
