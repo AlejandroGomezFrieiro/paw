@@ -124,7 +124,13 @@
             # The default members and the fuzz targets, which keep
             # compiling on stable here (cargo-fuzz runs them on nightly, in
             # CI: tools/fuzz.sh). The window is paused.
+            # --all-targets builds the tests, and chain-lsp's guide test
+            # reads its how-to page.
             clippy = craneLib.cargoClippy (withDeps // {
+              src = lib.fileset.toSource {
+                root = ./.;
+                fileset = lib.fileset.unions [ cargoFiles ./docs/how-to/check-chain-files-in-another-editor.md ];
+              };
               cargoClippyExtraArgs = "--workspace --exclude paw-gui --all-targets";
               doInstallCargoArtifacts = false;
             });
