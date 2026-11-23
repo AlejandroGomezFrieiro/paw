@@ -3068,10 +3068,22 @@ function paw.folds.all(on, win) end
 
 --- The fold at a track (the cursor's by default), in a window: the
 --- largest closed one, which its row stands for, else the smallest. Nil
---- when the track is in none.
+--- when the track is in none. At the cursor, a closed time fold or a
+--- block that the cursor is in comes first.
 ---@param id any
 ---@param win any
 function paw.folds.at(id, win) end
+
+--- The closed block fold at the cursor in a window, or nil.
+---@param win any
+function paw.folds.block_at_cursor(win) end
+
+--- The closed block folds that a window draws (the one a view shows by
+--- default), in the order they were made: each draws one cell over the
+--- rows of its tracks and its time. A block that holds all of the scope
+--- the window shows is open there.
+---@param win any
+function paw.folds.blocks(win) end
 
 --- Delete every fold of a window, as `zE`. Returns how many there were.
 ---@param win any
@@ -3084,8 +3096,8 @@ function paw.folds.clear(win) end
 function paw.folds.close(id, win) end
 
 --- The closed fold at the cursor, in a window: the time fold that the
---- cursor is in, else the fold that the cursor's row stands for. Nil when
---- the cursor is on no closed fold.
+--- cursor is in, else the closed block that it is in, else the fold that
+--- the cursor's row stands for. Nil when the cursor is on no closed fold.
 ---@param win any
 function paw.folds.closed_at(win) end
 
@@ -3107,7 +3119,7 @@ function paw.folds.count(f) end
 ---@param win any
 function paw.folds.delete(id, win) end
 
---- What a fold holds, in words: `3 tracks`, `8 bars`.
+--- What a fold holds, in words: `3 tracks`, `8 bars`, `2 tracks, 4 bars`.
 ---@param f any
 function paw.folds.describe(f) end
 
@@ -3132,7 +3144,9 @@ function paw.folds.list(win) end
 
 --- Make a fold of what a scope covers (`zf{motion}`), closed, in a
 --- window: a group folds into its row (`zfag`), tracks into one row named
---- `Fold 1` (`Vjjzf`). Returns it, or nil and the reason.
+--- `Fold 1` (`Vjjzf`), a region or bars on every track into a column
+--- (`zfar`), and some tracks for some bars into one cell (a visual block,
+--- then `zf`). Returns it, or nil and the reason.
 ---@param spec any
 ---@param win any
 function paw.folds.make(spec, win) end
@@ -7740,11 +7754,12 @@ function paw.scene.watchers() end
 function paw.scope.apply(s) end
 
 --- The scope that `znn` enters at the cursor: the innermost not entered
---- yet. On a closed time fold (paw/folds.tl), its region or its bars; a
---- subproject's clip at the cursor; in a region scope, the region one
---- level inside it at the cursor; else the closed fold of tracks whose row
---- the cursor is on (paw/folds.tl), else the group at the cursor (its
---- header or one of its tracks), else the track. Nil when the window shows
+--- yet. On a closed time fold (paw/folds.tl), its region or its bars; on
+--- a closed block fold, its tracks in its bars; a subproject's clip at
+--- the cursor; in a region scope, the region one level inside it at the
+--- cursor; else the closed fold of tracks whose row the cursor is on
+--- (paw/folds.tl), else the group at the cursor (its header or one of its
+--- tracks), else the track. Nil when the window shows
 --- that track already.
 function paw.scope.at_cursor() end
 

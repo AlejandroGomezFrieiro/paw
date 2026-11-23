@@ -267,3 +267,56 @@ test("znn on a folded column enters the region; zw comes back with it closed", f
   keys("zd")
   eq(#paw.folds.time_spans(), 0, "zd deletes it")
 end)
+
+-- Block folds ------------------------------------------------------------------------------
+
+--- Keys, Bass and Pad with a clip of 16 bars each (as `song`, without a
+--- region), and the cursor on Keys at bar 5.
+local function trio()
+  song()
+  paw.markers.remove(paw.markers.find("Bridge"))
+  local pad = paw.add_track({ name = "Pad" })
+  pad:add_device("synth", { attack = 0.001, release = 0.05 })
+  pad:add_clip({ name = "Pad part", start = 0, length = 64, notes = { { pitch = 60, start = 0, length = 64 } } })
+  paw.flush()
+  api.undo_checkpoint()
+  paw.cursor.set_beat(16)
+end
+
+--- The lines of the screen that a track's rows take: from its header to
+--- the next track's header, or to the master.
+local function rows_of(text, name, next_name)
+  local from = text:find("\n[^\n]*" .. name)
+  local to = text:find("\n[^\n]*" .. (next_name or "master"), from + 1)
+  return text:sub(from, to)
+end
+
+test("a visual block over two tracks and four bars, then zf, draws one cell; the other track shows its clip", function()
+  trio()
+  local open = render("block-open")
+  local edits = api.project_get().edits
+  local before = screen()
+  keys("<C-v>j16lzf")
+  local f = paw.folds.list()[1]
+  eq({ f.kind, #f.tracks, f.from, f.to, f.closed }, { "range", 2, 16, 32, true }, "a closed block of two tracks")
+  local text = screen()
+  local keys_rows = rows_of(text, "Keys", "Bass")
+  eq(keys_rows:find("Fold 1", 1, true) ~= nil, true, "one cell with the name:\n" .. keys_rows)
+  eq(rows_of(text, "Pad", "new track"), rows_of(before, "Pad", "new track"), "Pad shows its clip there as before")
+  eq(scene(L.current()):find("Fold 1", 1, true) ~= nil, true, "the scene of the window carries the cell")
+  eq(#paw.folds.time_spans(), 0, "no column: the time of the other tracks stays")
+  eq(render("block-closed") == open, true, "a render with the fold is the same, bit for bit")
+  eq(api.project_get().edits, edits, "no edit of the project")
+
+  keys("za")
+  eq(rows_of(screen(), "Keys", "Bass"), rows_of(before, "Keys", "Bass"), "za opens it: the clips again")
+  keys("za")
+  keys("znn")
+  eq(paw.scope.breadcrumb(), "Song › Fold 1", "znn enters it")
+  eq(#paw.folds.blocks(), 0, "open inside it")
+  keys("zw")
+  eq(rows_of(screen(), "Keys", "Bass"):find("Fold 1", 1, true) ~= nil, true, "zw: back, closed as it was")
+  keys("zd")
+  eq(#paw.folds.list(), 0, "zd deletes it")
+  eq(rows_of(screen(), "Keys", "Bass"), rows_of(before, "Keys", "Bass"), "the clips are drawn as before")
+end)

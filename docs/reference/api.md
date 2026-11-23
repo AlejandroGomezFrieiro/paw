@@ -741,18 +741,20 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.folds
 
 - `paw.folds.all(on, win)`: Close every fold of a window, every group too (`zM`), or open them all (`zR`).
-- `paw.folds.at(id, win)`: The fold at a track (the cursor's by default), in a window: the largest closed one, which its row stands for, else the smallest. Nil when the track is in none.
+- `paw.folds.at(id, win)`: The fold at a track (the cursor's by default), in a window: the largest closed one, which its row stands for, else the smallest. Nil when the track is in none. At the cursor, a closed time fold or a block that the cursor is in comes first.
+- `paw.folds.block_at_cursor(win)`: The closed block fold at the cursor in a window, or nil.
+- `paw.folds.blocks(win)`: The closed block folds that a window draws (the one a view shows by default), in the order they were made: each draws one cell over the rows of its tracks and its time. A block that holds all of the scope the window shows is open there.
 - `paw.folds.clear(win)`: Delete every fold of a window, as `zE`. Returns how many there were.
 - `paw.folds.close(id, win)`: Close the fold at the cursor, as `zc`; on a closed fold, the one around it. Returns it, or nil and the reason.
-- `paw.folds.closed_at(win)`: The closed fold at the cursor, in a window: the time fold that the cursor is in, else the fold that the cursor's row stands for. Nil when the cursor is on no closed fold.
+- `paw.folds.closed_at(win)`: The closed fold at the cursor, in a window: the time fold that the cursor is in, else the closed block that it is in, else the fold that the cursor's row stands for. Nil when the cursor is on no closed fold.
 - `paw.folds.collapse(rows, win)`: The rows that a window draws, from the rows of its tracks without its folds of tracks: each closed fold of tracks keeps its first row, which stands for all of it.
 - `paw.folds.count(f)`: How many tracks of a fold are there.
 - `paw.folds.delete(id, win)`: Delete the fold at a track (the cursor's by default), as `zd`: the fold goes, its tracks stay, drawn as before. Returns it, or nil and the reason.
-- `paw.folds.describe(f)`: What a fold holds, in words: `3 tracks`, `8 bars`.
+- `paw.folds.describe(f)`: What a fold holds, in words: `3 tracks`, `8 bars`, `2 tracks, 4 bars`.
 - `paw.folds.group_closed(group, win)`: True if a group is folded into its row in a window (the one a view shows by default).
 - `paw.folds.level(delta, win)`: Close one more level of regions in a window (`zm`, `delta` -1: the deepest open level first), or open one (`zr`, 1), as the `foldlevel` option of Vim. The regions that `za` or `zf` opened or closed follow the level again. Returns the level: how many levels stay open.
 - `paw.folds.list(win)`: The folds of a window that a view shows (the one being drawn, else the current one). Empty when it has none.
-- `paw.folds.make(spec, win)`: Make a fold of what a scope covers (`zf{motion}`), closed, in a window: a group folds into its row (`zfag`), tracks into one row named `Fold 1` (`Vjjzf`). Returns it, or nil and the reason.
+- `paw.folds.make(spec, win)`: Make a fold of what a scope covers (`zf{motion}`), closed, in a window: a group folds into its row (`zfag`), tracks into one row named `Fold 1` (`Vjjzf`), a region or bars on every track into a column (`zfar`), and some tracks for some bars into one cell (a visual block, then `zf`). Returns it, or nil and the reason.
 - `paw.folds.name(f)`: The name a fold shows: its own, else its group's.
 - `paw.folds.open(id, win)`: Open the fold at the cursor (the one its row stands for). Returns it, or nil and the reason.
 - `paw.folds.over`: the same as `paw.cursor.over`.
@@ -1956,7 +1958,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.scope
 
 - `paw.scope.apply(s)`: Tell the engine what the rest of the song does for a scope. This is the scope of the tab in front, which the last seat to change tabs (a terminal or a window) selected.
-- `paw.scope.at_cursor()`: The scope that `znn` enters at the cursor: the innermost not entered yet. On a closed time fold (paw/folds.tl), its region or its bars; a subproject's clip at the cursor; in a region scope, the region one level inside it at the cursor; else the closed fold of tracks whose row the cursor is on (paw/folds.tl), else the group at the cursor (its header or one of its tracks), else the track. Nil when the window shows that track already.
+- `paw.scope.at_cursor()`: The scope that `znn` enters at the cursor: the innermost not entered yet. On a closed time fold (paw/folds.tl), its region or its bars; on a closed block fold, its tracks in its bars; a subproject's clip at the cursor; in a region scope, the region one level inside it at the cursor; else the closed fold of tracks whose row the cursor is on (paw/folds.tl), else the group at the cursor (its header or one of its tracks), else the track. Nil when the window shows that track already.
 - `paw.scope.bar_offset(s)`: How many bars of the song come before the first bar of a scope (the current one by default) when its bars are numbered from 1: 0 with no time, or with `scopebars=song`. A scope's bars are the song's (its meter map), counted from the bar its time starts in.
 - `paw.scope.breadcrumb(s)`: The path in words: `Song › Bridge › Strings`; a subproject is marked `⧉`: `Song › ⧉Ballad › Strings`.
 - `paw.scope.children(s)`: The scopes one level inside a scope (the current one by default): for a region scope, the regions one level inside its region (paw/markers.tl), in order of time; for a group scope, its members (a group or a track), in order. Each has that scope as its parent. Other kinds have none.

@@ -950,11 +950,12 @@ function M.of_fold(f: contracts.Fold): Scope
 end
 
 --- The scope that `znn` enters at the cursor: the innermost not entered
---- yet. On a closed time fold (paw/folds.tl), its region or its bars; a
---- subproject's clip at the cursor; in a region scope, the region one
---- level inside it at the cursor; else the closed fold of tracks whose row
---- the cursor is on (paw/folds.tl), else the group at the cursor (its
---- header or one of its tracks), else the track. Nil when the window shows
+--- yet. On a closed time fold (paw/folds.tl), its region or its bars; on
+--- a closed block fold, its tracks in its bars; a subproject's clip at
+--- the cursor; in a region scope, the region one level inside it at the
+--- cursor; else the closed fold of tracks whose row the cursor is on
+--- (paw/folds.tl), else the group at the cursor (its header or one of its
+--- tracks), else the track. Nil when the window shows
 --- that track already.
 function M.at_cursor(): Scope
   -- A closed time fold at the cursor: its region, or its range of bars.
@@ -965,6 +966,11 @@ function M.at_cursor(): Scope
       return {kind = "region", id = f.id}
     end
     return {kind = "range", from = span.from, to = span.to, name = f.name}
+  end
+  -- A closed block fold at the cursor: its tracks in its bars.
+  local block = paw.folds.block_at_cursor()
+  if block then
+    return M.of_fold(block)
   end
   local clip = paw.cursor.clip()
   local nest = clip and M.of_clip(clip.id)
