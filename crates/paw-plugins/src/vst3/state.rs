@@ -228,7 +228,7 @@ impl Vst3Controller {
         // Some plugins only queue the state here and take it on in their
         // next block: a processor that sleeps would never take it.
         self.shared.host.wake.store(true, Ordering::Relaxed);
-        self.reread = Some(self.shared.host.blocks.load(Ordering::Acquire));
+        self.reread = Some(self.shared.host.blocks.mark());
         Ok(())
     }
 }

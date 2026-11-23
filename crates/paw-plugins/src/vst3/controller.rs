@@ -28,8 +28,8 @@ pub(super) struct Vst3Controller {
     pub(super) known: Vec<f64>,
     /// Tells the echo of a state from an edit.
     pub(super) echo: Echo,
-    /// When it was last given a state, how many blocks the processor had
-    /// run: the controller reads the state again once it has run another.
+    /// When it was last given a state, the mark of its blocks: the
+    /// controller reads the state again once a block after it is done.
     pub(super) reread: Option<u64>,
     /// Values a state gave the controller, to report as its echo.
     pub(super) reported: Vec<Change>,
@@ -136,8 +136,8 @@ impl Controller for Vst3Controller {
         // it there) has its new values only then: the controller, which
         // read them from it as it was given the state, reads them again.
         // What changed is the echo of the state: the processor has it.
-        if let Some(blocks) = self.reread
-            && self.shared.host.blocks.load(Ordering::Acquire) != blocks
+        if let Some(mark) = self.reread
+            && self.shared.host.blocks.after(mark)
         {
             self.reread = None;
             if let Some(controller) = &self.shared.controller {

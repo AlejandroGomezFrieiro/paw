@@ -19,6 +19,7 @@ use clack_host::prelude::{
 };
 use clap_sys::id::clap_id;
 
+use crate::echo::Blocks;
 use crate::is_main_thread;
 use crate::window::Watches;
 
@@ -34,7 +35,7 @@ pub(super) struct HostFlags {
     pub(super) rescan: AtomicBool,
     /// Blocks the plugin has processed, to tell when it has taken on a
     /// state.
-    pub(super) blocks: AtomicU64,
+    pub(super) blocks: Blocks,
     /// States the plugin was given: the first block after a new one is
     /// the block in which a plugin that takes a state on in its next block
     /// takes it on.
@@ -55,7 +56,7 @@ impl HostFlags {
             restart: AtomicBool::new(false),
             wake: AtomicBool::new(false),
             rescan: AtomicBool::new(false),
-            blocks: AtomicU64::new(0),
+            blocks: Blocks::default(),
             loads: AtomicU64::new(0),
             closed: AtomicBool::new(false),
             resize: Mutex::new(None),

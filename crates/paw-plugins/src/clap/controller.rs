@@ -31,8 +31,8 @@ pub(super) struct ClapController {
     pub(super) changes: rtrb::Consumer<(clap_id, f64, bool, bool)>,
     /// Tells the echo of a state from an edit.
     pub(super) echo: Echo,
-    /// When it was last given a state, how many blocks it had processed:
-    /// its values are read again once it has processed another.
+    /// When it was last given a state, the mark of its blocks: its values
+    /// are read again once a block after it is done.
     pub(super) reread: Option<u64>,
     /// The last value seen for each parameter, to tell what a rescan changed.
     pub(super) known: Vec<f64>,
@@ -51,7 +51,7 @@ impl ClapController {
     pub(super) fn given_state(&mut self) {
         let values: Vec<Option<f64>> = (0..self.known.len()).map(|i| self.value(i)).collect();
         self.echo.given(values);
-        self.reread = Some(self.shared.flags.blocks.load(Ordering::Acquire));
+        self.reread = Some(self.shared.flags.blocks.mark());
         self.shared.flags.loads.fetch_add(1, Ordering::Release);
     }
 }
@@ -118,8 +118,8 @@ impl Controller for ClapController {
         let mut out = Vec::new();
         // A plugin that takes a state on only in its next block has its
         // new values only then: read them back, as the echo they are.
-        if let Some(blocks) = self.reread
-            && self.shared.flags.blocks.load(Ordering::Acquire) != blocks
+        if let Some(mark) = self.reread
+            && self.shared.flags.blocks.after(mark)
         {
             self.reread = None;
             let values: Vec<Option<f64>> = (0..self.known.len()).map(|i| self.value(i)).collect();

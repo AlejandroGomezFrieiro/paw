@@ -62,13 +62,11 @@ local function octave(d)
 end
 
 --- Wait until the plugin's own state (not the project's) holds `want` as
---- the octave, or two seconds go by.
+--- the octave. A plugin that takes a state on in its next block (Surge
+--- XT) tells its new values only after that block.
 local function holds(d, want)
   paw.flush()
-  for _ = 1, 100 do
-    if octave(d) == want then return end
-    api.wait(20)
-  end
+  T.until_(function() return octave(d) == want end, "the octave " .. want .. " in the plugin")
 end
 
 --- Wait until the plugin sleeps (its note ended and its tail went by), so

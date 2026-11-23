@@ -193,20 +193,19 @@ impl Device for ClapDevice {
         };
         let steady_time = self.steady_time;
         self.steady_time += n as u64;
-        let status = processor.process(
-            &inputs,
-            &mut outputs,
-            &InputEvents::from_buffer(&self.events),
-            &mut OutputEvents::from_buffer(&mut self.out),
-            Some(steady_time),
-            Some(&transport(ctx)),
-        );
+        let status = self.shared.flags.blocks.run(|| {
+            processor.process(
+                &inputs,
+                &mut outputs,
+                &InputEvents::from_buffer(&self.events),
+                &mut OutputEvents::from_buffer(&mut self.out),
+                Some(steady_time),
+                Some(&transport(ctx)),
+            )
+        });
         if let Err(PluginInstanceError::NullProcessFunction) = status {
             return;
         }
-        // Counted once the block is done: a state taken on in it, and
-        // the plugin's words of it, are there before the count is.
-        self.shared.flags.blocks.fetch_add(1, Ordering::Release);
         // The plugin failed the block (`CLAP_PROCESS_ERROR`).
         let Ok(status) = status else {
             return;

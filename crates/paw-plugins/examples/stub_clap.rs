@@ -10,9 +10,14 @@
 //! with no gesture (its echo, as Surge XT does). In its next block, the
 //! call `stub.move` makes it tell of a value inside a gesture (a person
 //! moves the parameter in its window), and `stub.tell` with no gesture.
+//! `stub.quiet 1` makes it tell nothing of a state it takes on: the host
+//! reads its value back. `stub.hold 1` makes its next block wait, after it
+//! looked for a state to take on, until `stub_clap_release`
+//! (`stub_clap_held` says that it waits): a state given then comes while
+//! a block is under way.
 
 use std::ffi::{CStr, c_char, c_void};
-use std::sync::atomic::{AtomicPtr, AtomicU32, Ordering::Relaxed};
+use std::sync::atomic::{AtomicPtr, AtomicU32, Ordering::Relaxed, Ordering::SeqCst};
 
 use clap_sys::events::{
     CLAP_CORE_EVENT_SPACE_ID, CLAP_EVENT_PARAM_GESTURE_BEGIN, CLAP_EVENT_PARAM_GESTURE_END,
@@ -56,6 +61,10 @@ static LOADED: AtomicU32 = AtomicU32::new(u32::MAX);
 /// tells with no gesture then.
 static MOVE: AtomicU32 = AtomicU32::new(u32::MAX);
 static TELL: AtomicU32 = AtomicU32::new(u32::MAX);
+/// Tell nothing of a state taken on (1), or tell it (0).
+static QUIET: AtomicU32 = AtomicU32::new(0);
+/// The next block waits (1), a block waits now (2), or none waits (0).
+static HOLD: AtomicU32 = AtomicU32::new(0);
 /// The host, to ask it for a block.
 static HOST: AtomicPtr<clap_host> = AtomicPtr::new(std::ptr::null_mut());
 
@@ -183,12 +192,28 @@ unsafe extern "C" fn paw_call(
     } else if method == c"stub.tell" {
         TELL.store(value, Relaxed);
         wake();
+    } else if method == c"stub.quiet" {
+        QUIET.store(value, Relaxed);
+    } else if method == c"stub.hold" {
+        HOLD.store(value, SeqCst);
     } else {
         return false;
     }
     true
 }
 static PAW_CALL: PawCall = PawCall { call: paw_call };
+
+/// For tests: whether a block waits for `stub_clap_release`.
+#[unsafe(no_mangle)]
+pub extern "C" fn stub_clap_held() -> bool {
+    HOLD.load(SeqCst) == 2
+}
+
+/// For tests: let the block that waits go on.
+#[unsafe(no_mangle)]
+pub extern "C" fn stub_clap_release() {
+    HOLD.store(0, SeqCst);
+}
 
 /// For tests: the state the plugin plays with.
 #[unsafe(no_mangle)]
@@ -266,7 +291,16 @@ unsafe extern "C" fn process(_: *const clap_plugin, p: *const clap_process) -> c
         let loaded = LOADED.swap(u32::MAX, Relaxed);
         if loaded != u32::MAX {
             STATE.store(loaded, Relaxed);
-            tell(p.out_events, loaded, false);
+            if QUIET.load(Relaxed) == 0 {
+                tell(p.out_events, loaded, false);
+            }
+        }
+        // Held after it looked for a state: one given now waits for the
+        // next block.
+        if HOLD.compare_exchange(1, 2, SeqCst, SeqCst).is_ok() {
+            while HOLD.load(SeqCst) == 2 {
+                std::hint::spin_loop();
+            }
         }
         let moved = MOVE.swap(u32::MAX, Relaxed);
         if moved != u32::MAX {

@@ -16,6 +16,8 @@
 //!   a state since the parameter's last edit gave: a value that matches the
 //!   state is the state, however late it comes. Another value is an edit.
 
+use std::sync::atomic::{AtomicU64, Ordering};
+
 use paw_engine::device::Change;
 
 /// The values a parameter keeps, from the states given since its last
@@ -81,6 +83,44 @@ impl Echo {
             value,
             edit: !echo,
         }
+    }
+}
+
+/// The blocks a plugin has run, to tell when it has taken on a state that
+/// it takes on only at the start of a block (Surge XT). The audio thread
+/// counts each block; the main thread marks when it gives a state, and
+/// reads the plugin's values back once a block that began after the mark
+/// is done. The block under way at the mark began before the state came,
+/// and may not have taken it on.
+#[derive(Default)]
+pub(crate) struct Blocks {
+    /// Blocks begun: counted before the plugin runs one.
+    begun: AtomicU64,
+    /// Blocks done: counted after. Never more than `begun`.
+    done: AtomicU64,
+}
+
+impl Blocks {
+    /// Run one block of the plugin (on the audio thread), counted.
+    pub(crate) fn run<R>(&self, block: impl FnOnce() -> R) -> R {
+        // SeqCst pairs with `mark`: a block counted after the mark sees
+        // what the main thread gave the plugin before it.
+        self.begun.fetch_add(1, Ordering::SeqCst);
+        let out = block();
+        // Counted once the block is done: a state taken on in it, and the
+        // plugin's words of it, are there before the count is.
+        self.done.fetch_add(1, Ordering::Release);
+        out
+    }
+
+    /// After a state is given (on the main thread): the mark for `after`.
+    pub(crate) fn mark(&self) -> u64 {
+        self.begun.load(Ordering::SeqCst)
+    }
+
+    /// Whether a block that began after `mark` is done.
+    pub(crate) fn after(&self, mark: u64) -> bool {
+        self.done.load(Ordering::Acquire) > mark
     }
 }
 

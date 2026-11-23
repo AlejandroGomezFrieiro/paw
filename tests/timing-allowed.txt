@@ -144,7 +144,7 @@ tests/offline.lua paw.wait( 10
 tests/pick.lua paw.wait( 2
 tests/plugin_state.lua api.now() 2
 tests/plugin_state.lua api.sleep( 2
-tests/plugin_state.lua api.wait( 6
+tests/plugin_state.lua api.wait( 5
 tests/plugin_state.lua paw.wait( 1
 tests/plugins.lua :meter( 1
 tests/plugins.lua paw.wait( 1

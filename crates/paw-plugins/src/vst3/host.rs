@@ -6,7 +6,7 @@ use std::cell::{Cell, RefCell};
 use std::ffi::c_void;
 use std::ptr;
 use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, AtomicU64};
+use std::sync::atomic::AtomicBool;
 
 use vst3::Steinberg::Linux::*;
 use vst3::Steinberg::Vst::*;
@@ -14,6 +14,7 @@ use vst3::Steinberg::*;
 use vst3::{Class, ComPtr, ComRef, Interface};
 
 use super::{FALSE, NO_INTERFACE, OK};
+use crate::echo::Blocks;
 use crate::window::Watches;
 
 bitflags::bitflags! {
@@ -40,7 +41,7 @@ pub(super) struct Host {
     /// take on in their next block.
     pub(super) wake: AtomicBool,
     /// Blocks the processor has run, to tell when it has taken on a state.
-    pub(super) blocks: AtomicU64,
+    pub(super) blocks: Blocks,
     pub(super) watches: RunLoop,
 }
 

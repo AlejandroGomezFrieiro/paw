@@ -235,10 +235,11 @@ impl Device for Vst3Device {
                 .as_ptr();
             data.inputEvents = self.events.as_com_ref::<IEventList>().unwrap().as_ptr();
             data.processContext = &mut context;
-            let processed = self.shared.processor.process(&mut data);
-            // Counted once the block is done: a state taken on in it is
-            // there before the count is.
-            self.shared.host.blocks.fetch_add(1, Ordering::Release);
+            let processed = self
+                .shared
+                .host
+                .blocks
+                .run(|| self.shared.processor.process(&mut data));
             if processed != OK {
                 return;
             }
