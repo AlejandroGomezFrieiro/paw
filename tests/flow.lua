@@ -769,5 +769,24 @@ test("a long job runs in slices of at most its time, and a key comes in between"
   end
   eq(slices >= 10, true, "in slices: " .. slices)
   eq(seen ~= nil and seen.slices >= 1, true, "the key ran while the job ran, after a slice")
-  eq(#paw.slices.running(), 0, "the job is gone when it is over")
+  for _, job in ipairs(paw.slices.running()) do
+    eq(job.name ~= "zz job", true, "the job is gone when it is over")
+  end
 end)
+
+test(
+  "the garbage collector ends its cycles in the job collector between keys, and rests while the heap stays",
+  function()
+    start()
+    local collector = require("paw.collector")
+    local grow, cycles = collector.grow, collector.cycles
+    T.after(function() collector.grow = grow end)
+    -- Any heap is past this at the end of a turn.
+    collector.grow = 0
+    T.until_(function() return collector.cycles > cycles end, "a cycle that the job ended")
+    collector.grow = grow
+    T.until_(function() return paw.slices.job("collector") == nil end, "the job to end")
+    T.next_block(2)
+    eq(paw.slices.job("collector"), nil, "turns that make little garbage start no job")
+  end
+)

@@ -28,6 +28,7 @@ A view has the same fields in both frontends, and the graphical window shows a v
 | --- | --- |
 | `render(self, buf, ctx)` | draws the view in cells |
 | `stamp(self, ctx)` | a text of what `render` reads that no event tells, so that a window without the keyboard keeps its cells while the text stays the same (see [A stamp for each window](#a-stamp-for-each-window)) |
+| `operator_shown(self)` | true when the view draws something else while an operator such as `d` waits for its motion. Without it, paw draws only the status line and the command line after the operator key. |
 | `on_key(self, key)` | gets the keys that have no mapping |
 | `on_mouse(self, event)` | gets the pointer (see [The pointer](#the-pointer)) |
 | `gestures` | functions for the hit regions of roles (see [Roles](#roles)) |

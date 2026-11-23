@@ -612,6 +612,59 @@ local function draw_line(buf, ctx)
   api.ui_cursor(ctx.x + used + api.str_width(before), ctx.y)
 end
 
+--- The line when no prompt is on it: the keys that wait, the last message
+--- or the keys worth knowing here.
+local function draw_rest(buf)
+  local pending = paw.keymap.pending()
+  if pending ~= "" then buf:text(buf.width - #pending - 2, 0, pending, "Accent") end
+  local message = paw.ui.message
+  if message and paw.keymap.mode == "i" and paw.opt.keybar and #paw.ui.keybar.entries() > 0 then
+    -- While typing, the keys are what is needed: the message goes at the
+    -- right end, cut to its share, and the keys keep the rest.
+    local first = message.text:match("^[^\n]*")
+    local share = math.floor(buf.width * 0.4)
+    local shown = api.str_width(first) > share and paw.util.fit(first, share) or first
+    local w = api.str_width(shown)
+    buf:text(buf.width - w - 1, 0, shown, levels[message.level] or "Info")
+    paw.draw.keys(buf, 1, 0, paw.ui.keybar.entries(), buf.width - w - 4)
+  elseif message then
+    local first = message.text:match("^[^\n]*")
+    local how = M.messages_hint()
+    local more = (message.text:find("\n") or message.level == "error") and ("  " .. how .. " shows it all") or ""
+    local room = math.max(10, buf.width - api.str_width(more) - 1)
+    local used = buf:text(
+      0,
+      0,
+      api.str_width(first) > room and paw.util.fit(first, room) or first,
+      levels[message.level] or "Info"
+    )
+    if more ~= "" then buf:text(used, 0, more, "Dim") end
+  elseif paw.opt.keybar and pending == "" then
+    -- With nothing to say, the line shows the keys worth knowing here,
+    -- and a word on how to read an error that has gone by unread.
+    -- The note goes at the right end, the keys keep their places.
+    local room = buf.width - 2
+    if M.unread_error() then
+      -- Short, so that the keys keep their room: the key, and what it shows.
+      local key = M.messages_hint():match("^(.-) or ") or ":messages"
+      local w = api.str_width(key) + 12
+      local x = buf.width - w
+      x = x + buf:text(x, 0, key, "KeyBarKey") + 1
+      buf:text(x, 0, "last error", "Error")
+      room = buf.width - w - 3
+    else
+      -- Else the topic of help for the view, where there is room for it.
+      local topic = paw.help and paw.help.topic_of(paw.ui.focused)
+      local hint = topic and ":help " .. topic
+      if hint and api.str_width(hint) + 40 < room then
+        buf:text(buf.width - api.str_width(hint) - 1, 0, hint, "KeyBarText")
+        room = room - api.str_width(hint) - 3
+      end
+    end
+    paw.draw.keys(buf, 1, 0, paw.ui.keybar.entries(), room)
+  end
+end
+
 paw.ui.view("cmdline", {
   focusable = false,
   -- Nothing in it moves on its own as the song plays (paw/ui.tl).
@@ -623,54 +676,10 @@ paw.ui.view("cmdline", {
         if active then draw_line(line, ctx) end
       end)
     end
-    local pending = paw.keymap.pending()
-    if pending ~= "" then buf:text(buf.width - #pending - 2, 0, pending, "Accent") end
-    local message = paw.ui.message
-    if message and paw.keymap.mode == "i" and paw.opt.keybar and #paw.ui.keybar.entries() > 0 then
-      -- While typing, the keys are what is needed: the message goes at the
-      -- right end, cut to its share, and the keys keep the rest.
-      local first = message.text:match("^[^\n]*")
-      local share = math.floor(buf.width * 0.4)
-      local shown = api.str_width(first) > share and paw.util.fit(first, share) or first
-      local w = api.str_width(shown)
-      buf:text(buf.width - w - 1, 0, shown, levels[message.level] or "Info")
-      paw.draw.keys(buf, 1, 0, paw.ui.keybar.entries(), buf.width - w - 4)
-    elseif message then
-      local first = message.text:match("^[^\n]*")
-      local how = M.messages_hint()
-      local more = (message.text:find("\n") or message.level == "error") and ("  " .. how .. " shows it all") or ""
-      local room = math.max(10, buf.width - api.str_width(more) - 1)
-      local used = buf:text(
-        0,
-        0,
-        api.str_width(first) > room and paw.util.fit(first, room) or first,
-        levels[message.level] or "Info"
-      )
-      if more ~= "" then buf:text(used, 0, more, "Dim") end
-    elseif paw.opt.keybar and pending == "" then
-      -- With nothing to say, the line shows the keys worth knowing here,
-      -- and a word on how to read an error that has gone by unread.
-      -- The note goes at the right end, the keys keep their places.
-      local room = buf.width - 2
-      if M.unread_error() then
-        -- Short, so that the keys keep their room: the key, and what it shows.
-        local key = M.messages_hint():match("^(.-) or ") or ":messages"
-        local w = api.str_width(key) + 12
-        local x = buf.width - w
-        x = x + buf:text(x, 0, key, "KeyBarKey") + 1
-        buf:text(x, 0, "last error", "Error")
-        room = buf.width - w - 3
-      else
-        -- Else the topic of help for the view, where there is room for it.
-        local topic = paw.help and paw.help.topic_of(paw.ui.focused)
-        local hint = topic and ":help " .. topic
-        if hint and api.str_width(hint) + 40 < room then
-          buf:text(buf.width - api.str_width(hint) - 1, 0, hint, "KeyBarText")
-          room = room - api.str_width(hint) - 3
-        end
-      end
-      paw.draw.keys(buf, 1, 0, paw.ui.keybar.entries(), room)
-    end
+    -- A live part too: a key that only waits (`d` before its motion, a
+    -- count) draws the status line and this line, not the views
+    -- (paw/keymap.tl). What such a key changes is the mode and the keys.
+    return paw.ui.live(buf, draw_rest, function() return paw.keymap.mode .. " " .. paw.keymap.pending() end)
   end,
 })
 

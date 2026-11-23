@@ -267,6 +267,9 @@ impl Kernel {
     /// A terminal's keys, pointer and size, in its own seat.
     fn input(&mut self, client: ClientId, event: InputEvent) {
         self.enter(client);
+        // A key asks for its own frame (`K.key` in paw/init.lua): the whole
+        // screen, or only the lines when it only waits for the next key.
+        let key = matches!(event, InputEvent::Key(_));
         let result = match event {
             InputEvent::Key(key) => self.call::<()>("key", key),
             InputEvent::Paste(text) => self.call::<()>("paste", text),
@@ -303,10 +306,13 @@ impl Kernel {
             }
             InputEvent::Focus(on) => self.call::<()>("focus", on),
         };
+        // A key whose Lua failed asked for nothing: the whole screen then.
+        if !key || result.is_err() {
+            self.shared.dirty.set(true);
+        }
         if let Err(err) = result {
             self.report("input", err);
         }
-        self.shared.dirty.set(true);
     }
 
     /// The connections open on the control socket, to serve them with and

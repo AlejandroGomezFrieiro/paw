@@ -1487,6 +1487,10 @@ function view:stamp(ctx)
   }, " ")
 end
 
+--- With lanes open, the counts at the left count lane rows in normal mode
+--- and tracks after an operator (`counted_lines`).
+function view:operator_shown() return paw.lanes.any_open() end
+
 function view:render(buf, ctx)
   local g = draw.g
   local w, h = buf.width, buf.height

@@ -447,6 +447,11 @@ local record contracts
     --- the cursor and the scroll of the window. A window without the
     --- keyboard whose text did not change keeps its cells.
     stamp: function(self: View, ctx?: RenderContext): string
+    --- True when the view now draws something else while an operator
+    --- waits for its motion (mode "o") than in normal mode. Then the key
+    --- of an operator draws the whole screen, not only the status line
+    --- and the command line.
+    operator_shown: function(self: View): boolean
     --- Gets the keys that have no mapping. True when it took the key.
     on_key: function(self: View, key: string): boolean
     on_mouse: function(self: View, e: MouseEvent): boolean

@@ -8116,10 +8116,11 @@ function paw.statusline.segments(width, which, extra) end
 function paw.statusline.setup(opts) end
 
 --- A text of what the line for `width` columns is drawn from, between two
---- whole frames: `moves` (or else `key`) of each component that is not
---- `still`. Nil when a component shown has none of them (it may change at
---- any time). Between whole frames, the screen draws the line again only
---- when this text changes.
+--- whole frames: the mode, the keys typed so far, and `moves` (or else
+--- `key`) of each component that is not `still`. A key that only waits for
+--- the next key, such as `d`, draws no whole frame. Nil when a component shown has
+--- none of them (it may change at any time). Between whole frames, the
+--- screen draws the line again only when this text changes.
 ---@param width any
 ---@param which any
 ---@param extra any
@@ -11417,10 +11418,11 @@ function paw.api.ui_mouse(on) end
 --- --- screen ---
 function paw.api.ui_redraw() end
 
---- The prompt on the command line changed: draw its live parts again
---- (the line and the list), on the frame drawn last, and tell the
---- windows that show state that something moved. Cheaper than
---- `ui_redraw`: the views under it are not drawn again.
+--- The prompt on the command line changed, or a key only waits for the
+--- next one: draw the live parts again (the status line, the command
+--- line and its list), on the frame drawn last, and tell the windows
+--- that show state that something moved. Cheaper than `ui_redraw`:
+--- the views under it are not drawn again.
 function paw.api.ui_redraw_line() end
 
 --- Draw only the live parts of the screen again (the playhead, the

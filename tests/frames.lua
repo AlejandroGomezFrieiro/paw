@@ -264,6 +264,63 @@ local function roll_between_others()
   T.until_(function() return not paw.ui.active() end, "nothing that moves")
 end
 
+test("frames: a key that only waits for the next draws the status and command lines, not the views", function()
+  T.start()
+  T.tone("Lead", 8)
+  local W, H = 120, 40
+  local function whole() return api.ui_redraws() - api.ui_line_redraws() end
+  -- Each row: the keys, then whether the views stay as they were.
+  local rows = {
+    { "d", true, "an operator before its motion" },
+    { "<Esc>", true, "Escape after it" },
+    { "3", true, "a count" },
+    { '"a', true, "a register" },
+    { "<Esc>l", false, "a motion" },
+    { "dd", false, "an operator with its motion" },
+  }
+  for _, row in ipairs(rows) do
+    local keys, lines_only, what = row[1], row[2], row[3]
+    api.ui_frame_snapshot(W, H)
+    paw.flush()
+    local before = whole()
+    T.keys(keys)
+    eq(whole() == before, lines_only, what .. ": no whole frame")
+    if lines_only then
+      local live = api.ui_frame_snapshot(W, H, true)
+      local drawn = api.ui_frame_snapshot(W, H)
+      for y = 1, H do
+        eq(live.cells[y], drawn.cells[y], what .. ", row " .. y .. ":\n" .. live.text[y] .. "\n" .. drawn.text[y])
+      end
+    end
+  end
+  T.keys("u")
+  -- A key of the terminal comes in through the kernel's `key`, which asks
+  -- for the whole screen unless the keymap drew only the lines.
+  paw.flush()
+  local before = whole()
+  paw._kernel.key("d")
+  eq(whole(), before, "a key of the terminal that only waits")
+  paw._kernel.key("<Esc>")
+  paw._kernel.key("l")
+  eq(whole() > before, true, "a key of the terminal that moves")
+  -- The counts at the left of open lanes count tracks after an operator,
+  -- and the list of the keys that can follow goes away with Escape.
+  local id = paw.tracks()[1].id
+  T.after(function() paw.lanes.open(id, false) end)
+  paw.lanes.open(id)
+  paw.flush()
+  before = whole()
+  T.keys("d")
+  eq(whole() > before, true, "with lanes open, an operator draws the views")
+  T.keys("<Esc>")
+  paw.lanes.open(id, false)
+  paw.opt.hint_delay = 0
+  T.keys("d")
+  before = whole()
+  T.keys("<Esc>")
+  eq(whole() > before, true, "Escape takes the list of keys off the views")
+end)
+
 test("frames: a move key in the piano roll does not draw the windows around it again", function()
   roll_between_others()
   local W, H = 120, 40
