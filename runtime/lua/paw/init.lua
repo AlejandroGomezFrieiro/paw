@@ -9,6 +9,8 @@ package.loaded["paw"] = paw
 
 paw.util = require("paw.util")
 paw.inspect = paw.util.inspect
+-- Pure transforms of lists of notes (paw/notes.tl).
+paw.notes = require("paw.notes")
 
 --- What a user sees of an error: one line, without the list of calls.
 --- The place in the code (`paw/x.lua:12:`) moves to the end, where it does

@@ -50,7 +50,9 @@ function M.modules()
   local loaded = {}
   for name, value in pairs(package.loaded) do
     if type(value) == "table" and (name == "paw" or name:match("^paw%.")) and name ~= "paw.api" and ours(name) then
-      loaded[value] = name
+      -- A table under two names (paw.frontend is paw.frontend.core) takes
+      -- the shorter, whatever the order of `pairs`.
+      if not loaded[value] or #name < #loaded[value] then loaded[value] = name end
     end
   end
   local found, out = {}, {}
