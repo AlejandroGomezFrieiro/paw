@@ -1,0 +1,6 @@
+ cur 1.1.00             │▼ ▏ ▏
+ 1 █ Drums     0.0 MSRI │▏
+ 2 ▌ Violins   0.0 MSRI │▏
+ 3 ▌ Cellos    0.0 MSRI │▏
+ 4 ▌ Violas    0.0 MSRI │▏
+ 5 ▌ Bass      0.0 MSRI │▏

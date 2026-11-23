@@ -1139,6 +1139,11 @@ local record contracts
     styles: {string: string}
     --- Added, but not put in `paw.opt.trackcolumn`.
     hidden: boolean
+    --- True: its columns come out of the track headers, not out of the
+    --- timeline, so the timeline stays in place when it comes and goes.
+    --- For a part whose width follows the project (signs, the tree of
+    --- groups), not the options.
+    from_header: boolean
     --- The extension whose code added or last changed it, nil for the
     --- user's (paw/ext.lua: what an extension owns).
     ext: string

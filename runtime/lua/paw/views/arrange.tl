@@ -216,12 +216,15 @@ view.meter = draw.meter
 view.level_glyph = track_parts.level_glyph
 view.clip_props = track_parts.clip_props
 
+-- The headers' width with "auto" on the narrowest screens.
+local NARROW_HEADER = 12
+
 --- Columns for the track headers on a screen `w` wide, the rule on their
 --- right included: `paw.opt.header_width`, or by the width with "auto".
 function view.header_width(w: integer): integer
   local want = math.tointeger(tonumber(paw.opt.header_width))
   if not want then
-    want = w >= 120 and 26 or w >= 100 and 22 or w >= 80 and 18 or 12
+    want = w >= 120 and 26 or w >= 100 and 22 or w >= 80 and 18 or NARROW_HEADER
   end
   return math.max(4, math.min(want, w - 4))
 end
@@ -345,18 +348,25 @@ end
 --- here, so that rows of other kinds can be added in one place.
 function view:layout(w: integer, h: integer): Layout
   local tracks = paw.groups.rows()
-  local hw = view.header_width(w)
+  local header = view.header_width(w)
   -- The track column (paw/trackcolumn.tl) at the left of the headers takes
-  -- its columns from the timeline, as Neovim's number column takes them
-  -- from the text: the headers keep their width. `count` is how far the
-  -- counts of `j` and `k` go: over lane rows too, in normal mode, when
-  -- lanes are open.
+  -- the columns of the parts that the options set (the numbers) from the
+  -- timeline, as Neovim's number column takes them from the text. The
+  -- parts that come and go with the project (signs, the tree of groups)
+  -- take theirs from the headers, so that the timeline starts in the same
+  -- column with and without groups or a scope. The headers give the
+  -- columns that they have beyond the narrowest width (`NARROW_HEADER`),
+  -- so a name stays readable in a narrow window; there the rest comes from
+  -- the timeline. `count` is how far the counts of `j` and `k` go: over
+  -- lane rows too, in normal mode, when lanes are open.
   local count = #tracks
   if paw.lanes.any_open() and paw.keymap.mode == "n" then
     count = #paw.lanes.lines()
   end
-  local column = paw.trackcolumn.layout({rows = tracks, count = count}, math.max(0, w - hw - 8))
-  hw = hw + column.width
+  local column = paw.trackcolumn.layout(
+    {rows = tracks, count = count}, math.max(0, w - header - 8), math.max(0, header - NARROW_HEADER)
+  )
+  local hw = header + column.width - column.from_header
   -- The ruler, its second row if something asks for one, a row for each
   -- band of an extension's (`paw.frontend.bands`) that has entries, and
   -- the tempo lane's two rows when it is shown.

@@ -66,6 +66,23 @@ test("checkhealth fonts: names the font for Japanese and Chinese text, or warns 
   eq(none.level .. " " .. none.text, "warn no font for Japanese or Chinese text found by fontconfig", "no font")
 end)
 
+test("checkhealth terminal: shows the characters of curves, and how to choose others", function()
+  T.start()
+  local first = paw.health.run("terminal").items[1]
+  eq(first.text, "automation lanes draw curves with sextant characters: 🬭🬋🬂", "the default, shown")
+  eq(first.advice[2]:find(":set curve_glyphs=braille", 1, true) ~= nil, true, "the way to braille")
+  T.keys(":set curve_glyphs=braille<CR>")
+  eq(
+    paw.health.run("terminal").items[1].text,
+    "automation lanes draw curves with braille characters: ⣀⠤⠉",
+    "braille"
+  )
+  T.keys(":set ascii<CR>")
+  local plain = paw.health.run("terminal").items[1]
+  eq(plain.text, "automation lanes draw curves with line characters: _-'", "ASCII lines")
+  eq(plain.advice, nil, "lines need no advice")
+end)
+
 test("checkhealth: the command shows every check, or the ones named", function()
   cjk_font(nil)
   paw.cmd("checkhealth")

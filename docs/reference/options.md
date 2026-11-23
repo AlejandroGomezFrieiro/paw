@@ -118,7 +118,7 @@ When the undo history has more steps than `undo_steps` or more data than `undo_m
 | `paw.opt.message_time` | `4000` | The time in ms that a message stays on the command line. |
 | `paw.opt.termcolors` | `"auto"` | `"true"` for 24-bit color, `"256"` for 256 colors, or `"auto"`. |
 | `paw.opt.ascii` | `false` | Draws with ASCII characters only, and this has priority over `curve_glyphs` and `braille`. |
-| `paw.opt.curve_glyphs` | `"sextant"` | How curves show in cells: `"sextant"`, `"braille"` or `"line"`. |
+| `paw.opt.curve_glyphs` | `"sextant"` | How curves show in cells: `"sextant"`, `"braille"` or `"line"`. Some terminal fonts have no sextants. `:checkhealth terminal` shows the characters, so you can see if your font draws them. |
 | `paw.opt.braille` | `true` | When `false`, curves show as `"line"`, whatever `curve_glyphs` is. |
 | `paw.opt.wave_scale` | `"linear"` | The scale of audio waveforms in cells. `"linear"` shows hits, and `"db"` shows quiet sound too. |
 | `paw.opt.graphics` | `true` | Views that paint show pixels where the terminal can show images. When `false`, they use cells. |

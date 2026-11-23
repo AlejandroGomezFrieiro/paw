@@ -74,10 +74,12 @@ local record Part
 end
 
 --- The column for one draw (`paw.trackcolumn.layout`): its parts, its
---- width, and the frame they were measured on.
+--- width, how many of its columns the headers give (its parts with
+--- `from_header`), and the frame they were measured on.
 local record Layout
   parts: {Part}
   width: integer
+  from_header: integer
   frame: Frame
 end
 
@@ -351,6 +353,7 @@ M.add(
   "signs",
   {
     order = 20,
+    from_header = true,
     width = signs_width,
     render = function(track: integer, ctx: Context): Cells
       if ctx.line ~= 0 or ctx.kind ~= "track" then
@@ -473,6 +476,7 @@ M.add(
   "fold",
   {
     order = 30,
+    from_header = true,
     -- Glyphs, by name: `open` and `closed` on a group, `guide` down its
     -- members, `last` on its last member; paw's own (`paw.draw.g`, ASCII
     -- with `paw.opt.ascii`) when not set.
@@ -551,10 +555,14 @@ local function by_order(a: Component, b: Component): boolean
   return a.name < b.name
 end
 
---- The column for one draw over the tracks of `frame`, at most `room`
---- columns wide: the components named in `paw.opt.trackcolumn`, in their
---- order, each as wide as it says. A component that fails takes no room.
-function M.layout(frame: Frame, room: integer): Layout
+--- The column for one draw over the tracks of `frame`: the components
+--- named in `paw.opt.trackcolumn`, in their order, each as wide as it
+--- says. Each component with `from_header` takes its columns from the
+--- headers, up to `header_room` columns in all. The other components, and
+--- a component that does not fit in the headers, take their columns from
+--- the timeline, up to `room` columns. A component that fails, or that has
+--- no room left, takes no columns.
+function M.layout(frame: Frame, room: integer, header_room: integer): Layout
   local list: {Component} = {}
   for _, name in ipairs(opt.trackcolumn as {string}) do
     local c = M.components:get(name)
@@ -563,7 +571,7 @@ function M.layout(frame: Frame, room: integer): Layout
     end
   end
   table.sort(list, by_order)
-  local out: Layout = {parts = {}, width = 0, frame = frame}
+  local out: Layout = {parts = {}, width = 0, from_header = 0, frame = frame}
   frame_rows = frame.rows
   for _, c in ipairs(list) do
     local w: integer
@@ -574,9 +582,15 @@ function M.layout(frame: Frame, room: integer): Layout
       local ok, n = pcall(spec as contracts.TrackColumnWidth, frame)
       w = ok and math.floor(tonumber(n) or 0) or 0
     end
-    if w > 0 and out.width + w <= room then
+    -- A component takes all its columns from one side: the headers if it
+    -- asks for them and they have room, else the timeline.
+    local of_header = c.from_header and out.from_header + w <= (header_room or 0)
+    if w > 0 and (of_header or out.width - out.from_header + w <= room) then
       out.parts[#out.parts + 1] = {component = c, x = out.width, width = w}
       out.width = out.width + w
+      if of_header then
+        out.from_header = out.from_header + w
+      end
     end
   end
   return out

@@ -9174,12 +9174,17 @@ function paw.trackcolumn.describe(track) end
 ---@param ctx any
 function paw.trackcolumn.draw(buf, L, y, track, ctx) end
 
---- The column for one draw over the tracks of `frame`, at most `room`
---- columns wide: the components named in `paw.opt.trackcolumn`, in their
---- order, each as wide as it says. A component that fails takes no room.
+--- The column for one draw over the tracks of `frame`: the components
+--- named in `paw.opt.trackcolumn`, in their order, each as wide as it
+--- says. Each component with `from_header` takes its columns from the
+--- headers, up to `header_room` columns in all. The other components, and
+--- a component that does not fit in the headers, take their columns from
+--- the timeline, up to `room` columns. A component that fails, or that has
+--- no room left, takes no columns.
 ---@param frame any
 ---@param room any
-function paw.trackcolumn.layout(frame, room) end
+---@param header_room any
+function paw.trackcolumn.layout(frame, room, header_room) end
 
 --- Take a component away, and its name out of `paw.opt.trackcolumn`.
 --- The component that it replaced, if any, comes back.

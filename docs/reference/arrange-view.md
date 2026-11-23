@@ -104,7 +104,7 @@ The message line says what changed, for example `track height 5`. The zoom belon
 
 ## The track column
 
-In paw a track works like a line of text, so `5j` goes down five tracks, `5G` goes to track 5, and `dd` deletes a track. For this reason the left edge of the track headers has a column that corresponds to the number column and the `statuscolumn` of Neovim. The column is not part of the header width (`paw.opt.header_width`), so the headers keep their width and the timeline is narrower by the width of the column. The column has three parts, from the left:
+In paw a track works like a line of text, so `5j` goes down five tracks, `5G` goes to track 5, and `dd` deletes a track. For this reason the left edge of the track headers has a column that corresponds to the number column and the `statuscolumn` of Neovim. The numbers are not part of the header width (`paw.opt.header_width`), so the timeline is narrower by their width. The signs and the tree of groups come and go with the project, so they take their columns from the track headers, and the timeline starts in the same column with and without groups. In a narrow window, where the headers are 12 columns wide, they take their columns from the timeline. The column has three parts, from the left:
 
 - `number`: the number of each track. With `:set relativenumber`
   (`:set rnu`), each track shows how many `j` or `k` go to it. The track
@@ -163,7 +163,7 @@ Waveforms are cells, also in a terminal that shows pictures. A terminal that sho
 
 A lane header gives what the lane moves, its value at the cursor, and if the lane is read or bypassed. The curve and its points (`◆`) show along the timeline, and `j` and `k` go onto lane rows in the same way as onto tracks.
 
-When the lanes are closed, the track of the cursor draws its volume curve in the empty parts of its row, and not over clips. It draws the curve in sextants (`paw.opt.curve_glyphs`). The other tracks show an `A` in their header and draw no curve, so that the notes stay clear.
+When the lanes are closed, the track of the cursor draws its volume curve in the empty parts of its row, and not over clips. It draws the curve in sextants (`paw.opt.curve_glyphs`). If your terminal font has no sextants, `:checkhealth terminal` shows it, and `:set curve_glyphs=braille` draws the curves in braille dots. The other tracks show an `A` in their header and draw no curve, so that the notes stay clear.
 
 | Keys | On a lane row |
 | --- | --- |

@@ -196,7 +196,28 @@ M.register("git", function(h)
   end
 end, { desc = "project folders in version control" })
 
+-- A few characters of each way to draw a curve in cells (paw.draw.curve_glyphs).
+local CURVE_SAMPLES = {
+  sextant = function() return paw.draw.sextant(48) .. paw.draw.sextant(12) .. paw.draw.sextant(3) end,
+  braille = function() return paw.draw.braille(0xC0) .. paw.draw.braille(0x24) .. paw.draw.braille(0x09) end,
+  line = function() return paw.opt.ascii and "_-'" or "▁─▔" end,
+}
+
+--- Whether the characters of curves show depends on the font of the
+--- terminal, which paw cannot read: the check shows them, and the person
+--- sees whether they are drawn.
+local function curve_glyphs(h)
+  local kind = paw.draw.curve_glyphs()
+  local advice = {
+    "a box, a question mark or a gap means that the font of the terminal does not have them",
+    "then `:set curve_glyphs=braille` or `:set curve_glyphs=line` (`:set ascii` for plain ASCII)",
+  }
+  if kind == "line" then advice = nil end
+  h.info(string.format("automation lanes draw curves with %s characters: %s", kind, CURVE_SAMPLES[kind]()), advice)
+end
+
 M.register("terminal", function(h)
+  curve_glyphs(h)
   if not api.ui_attached() then return h.info("no terminal attached (headless, or a script)") end
   local caps = api.ui_caps()
   if caps.graphics then
