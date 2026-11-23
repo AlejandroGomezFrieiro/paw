@@ -180,6 +180,15 @@ impl RackDef {
         values_of(&self.split, &self.devices, &|id| Some(id))
     }
 
+    /// Whether `key` is `<device>.params.<key>` of a device of the rack. A
+    /// device keeps only the parameters that the project sets, so a
+    /// parameter at its default is not among `values` and is still a value
+    /// of the rack.
+    fn has_param_key(&self, key: &str) -> bool {
+        let Some((device, param)) = key.split_once(".params.") else { return false };
+        !param.is_empty() && self.devices.iter().any(|d| d.id.to_string() == device)
+    }
+
     /// The definition's devices, as copies to change.
     fn device_copies(&self) -> Vec<DeviceInst> {
         self.devices.iter().map(|d| (**d).clone()).collect()
@@ -412,7 +421,7 @@ impl Project {
     /// this file), and spread the change to each instance.
     pub fn rack_set(&mut self, rack: Id, key: &str, value: Value, new_id: &mut dyn FnMut() -> Id) -> Result<()> {
         let old = self.rack(rack).with_context(|| format!("no rack definition {rack}"))?.clone();
-        if !old.values().contains_key(key) {
+        if !old.values().contains_key(key) && !old.has_param_key(key) {
             bail!("the rack {} has no value `{key}`", old.name);
         }
         let mut def = (*old).clone();

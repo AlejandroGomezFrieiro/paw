@@ -38,8 +38,11 @@ impl Keyed {
     /// The value of each key after the definition changed from `old` to
     /// `new`, for an instance whose values are `here`. The instance keeps
     /// the value of a key that it overrides, or whose value differs from
-    /// `old` (it changed here since the last change). Else it takes the
-    /// value of `new`. The keys that it keeps become its overrides.
+    /// `old` (it changed here since the last change). A key that `old` did
+    /// not have, and the instance has, also changed here: a parameter that
+    /// the definition left at its default, and the instance set. Else it
+    /// takes the value of `new`. The keys that it keeps become its
+    /// overrides.
     pub fn follow<V: PartialEq + Clone>(
         &mut self,
         old: Option<&BTreeMap<String, V>>,
@@ -50,7 +53,10 @@ impl Keyed {
         let mut kept = BTreeSet::new();
         for (key, value) in new {
             let mine = here.get(key);
-            let changed_here = matches!((old.and_then(|o| o.get(key)), mine), (Some(was), Some(now)) if was != now);
+            let changed_here = match (old, mine) {
+                (Some(old), Some(now)) => old.get(key) != Some(now),
+                _ => false,
+            };
             match mine {
                 Some(mine) if self.0.contains(key) || changed_here => {
                     kept.insert(key.clone());
@@ -89,5 +95,16 @@ mod tests {
         let out = overrides.follow(Some(&new), &newer, &out);
         assert_eq!(out["b"], 9);
         assert!(overrides.0.contains("b"));
+    }
+
+    #[test]
+    fn a_value_that_only_the_instance_had_is_its_own() {
+        let mut overrides = Keyed::default();
+        let old = values(&[("a", 1)]);
+        let new = values(&[("a", 1), ("b", 2), ("c", 3)]);
+        let here = values(&[("a", 1), ("b", 9)]);
+        let out = overrides.follow(Some(&old), &new, &here);
+        assert_eq!(out, values(&[("a", 1), ("b", 9), ("c", 3)]));
+        assert_eq!(overrides, Keyed(BTreeSet::from(["b".to_owned()])));
     }
 }
