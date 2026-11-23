@@ -61,7 +61,7 @@ export function parseKeys(keys) {
     if (m) {
       const name = m[1].toLowerCase();
       const ctrl = /^c-(.)$/.exec(name);
-      const alt = /^[am]-(.+)$/.exec(m[1]);
+      const alt = /^[am]-(.+)$/i.exec(m[1]);
       if (NAMED[name] !== undefined) out.push(NAMED[name]);
       else if (ctrl) out.push(String.fromCharCode(ctrl[1].toUpperCase().charCodeAt(0) & 0x1f));
       else if (alt) out.push("\x1b" + (NAMED[alt[1].toLowerCase()] ?? alt[1]));

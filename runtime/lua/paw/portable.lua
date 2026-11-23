@@ -71,3 +71,5 @@ if not bit and bit32 then
     tobit = s,
   }
 end
+-- LuaJIT has `bit` as a module too: `require("bit")`.
+package.preload.bit = package.preload.bit or function() return bit end
