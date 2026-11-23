@@ -22,7 +22,7 @@ use serde_json::{Map, Value, json};
 
 use crate::history::{self, History};
 use crate::model::{
-    Clip, ClipContent, ClipKindId, Control, CustomContent, DeviceInst, KindData, MediaRef, Signal, Timeline, Id, Lane, LaneState, MASTER_ID, MidiInput, NestPlay, Note, NoteAttr, Notes, Project, Segment,
+    check_clip_beat, check_notes, Clip, ClipContent, ClipKindId, Control, CustomContent, DeviceInst, KindData, MediaRef, Signal, Timeline, Id, Lane, LaneState, MASTER_ID, MidiInput, NestPlay, Note, NoteAttr, Notes, Project, Segment,
     Send, Shape, Sound, StretchMode, Target, Timebase, Track, WarpMarker, InputChannels,
 };
 use crate::sync::{AudioCache, Follow, LiveDevices, Mapper, ModelEvent, SyncCtx, sync};
@@ -901,28 +901,6 @@ fn finite(what: &str, value: f64) -> Result<f64> {
     } else {
         bail!("{what} must be a finite number, not {value}")
     }
-}
-
-/// Notes the engine can play: a finite start, a length above 0, a pitch and
-/// a velocity of at most 127.
-fn check_notes(notes: &[Note]) -> Result<()> {
-    for n in notes {
-        if !n.start.is_finite() || !n.length.is_finite() || n.length <= 0.0 {
-            bail!(
-                "a note needs a finite start and a length above 0, not start {} length {}",
-                n.start,
-                n.length
-            );
-        }
-        if n.pitch > 127 || n.velocity > 127 {
-            bail!(
-                "a note's pitch and velocity go up to 127, not pitch {} velocity {}",
-                n.pitch,
-                n.velocity
-            );
-        }
-    }
-    Ok(())
 }
 
 fn sorted(mut notes: Vec<Note>) -> Vec<Note> {

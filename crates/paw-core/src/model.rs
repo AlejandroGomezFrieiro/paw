@@ -802,6 +802,9 @@ impl Control {
         if !self.start.is_finite() {
             return Some("it needs a start that is a finite number");
         }
+        if !in_clip_range(self.start) {
+            return Some("a clip holds times up to a million beats from its start");
+        }
         if !range.contains(&self.value) {
             return Some("its value is out of range: 0 to 1, or -1 to 1 for pitch bend");
         }
@@ -992,6 +995,55 @@ fn default_velocity() -> u8 {
 
 fn unnamed(id: &u64) -> bool {
     *id == 0
+}
+
+/// The furthest from a clip's start, either way, that its notes and
+/// controller moves go, and the longest a clip is, in beats: about 139 hours
+/// at 120 BPM. A clip file writes a gap as one 4-byte Delta Clockstamp for
+/// each 17 beats, so in this range the file of a clip holds at most about
+/// 120 000 clockstamps, and its ticks are far from an overflow (TASK-173).
+pub const MAX_BEATS: f64 = 1e6;
+
+/// Whether `beat` is a time that a clip holds: a number within
+/// [`MAX_BEATS`] of the clip's start, either way. NaN is in no range.
+fn in_clip_range(beat: f64) -> bool {
+    (-MAX_BEATS..=MAX_BEATS).contains(&beat)
+}
+
+/// An error unless `beat` is a time that a clip holds (see
+/// [`MAX_BEATS`]). `what` names the time in the message.
+pub fn check_clip_beat(what: &str, beat: f64) -> anyhow::Result<()> {
+    if !in_clip_range(beat) {
+        anyhow::bail!(
+            "{what} is at beat {beat}, too far for a clip: a clip holds times up to a million beats from its start"
+        );
+    }
+    Ok(())
+}
+
+/// Notes that the engine plays and a clip file holds: a finite start, a
+/// length above 0, a start and an end within [`MAX_BEATS`] of the clip's
+/// start, and a pitch and a velocity of at most 127.
+pub fn check_notes<'a>(notes: impl IntoIterator<Item = &'a Note>) -> anyhow::Result<()> {
+    for n in notes {
+        if !n.start.is_finite() || !n.length.is_finite() || n.length <= 0.0 {
+            anyhow::bail!(
+                "a note needs a finite start and a length above 0, not start {} length {}",
+                n.start,
+                n.length
+            );
+        }
+        check_clip_beat("a note", n.start)?;
+        check_clip_beat("the end of a note", n.start + n.length)?;
+        if n.pitch > 127 || n.velocity > 127 {
+            anyhow::bail!(
+                "a note's pitch and velocity go up to 127, not pitch {} velocity {}",
+                n.pitch,
+                n.velocity
+            );
+        }
+    }
+    Ok(())
 }
 
 impl Clip {
@@ -1855,7 +1907,7 @@ fn check_track(t: &Track, tracks: &std::collections::HashMap<Id, &Track>) -> any
 
 /// One clip: its place, its content and its loop.
 fn check_clip(c: &Clip) -> anyhow::Result<()> {
-    use anyhow::bail;
+    use anyhow::{Context, bail};
     if !c.start.is_finite() || c.start < 0.0 || !c.length.is_finite() || c.length <= 0.0 {
         bail!(
             "clip {} starts at {} and is {} long: it needs a start of at least 0 and a length above 0",
@@ -1864,6 +1916,7 @@ fn check_clip(c: &Clip) -> anyhow::Result<()> {
             c.length
         );
     }
+    check_clip_beat(&format!("the end of clip {}", c.id), c.length)?;
     match &c.content {
         ClipContent::Midi { notes, controls } => {
             if let Some((control, problem)) = controls
@@ -1875,15 +1928,7 @@ fn check_clip(c: &Clip) -> anyhow::Result<()> {
                     c.id
                 );
             }
-            if let Some(n) = notes.iter().find(|n| {
-                !n.start.is_finite()
-                    || !n.length.is_finite()
-                    || n.length <= 0.0
-                    || n.pitch > 127
-                    || n.velocity > 127
-            }) {
-                bail!("clip {} holds a note that cannot be played: {n:?}", c.id);
-            }
+            check_notes(notes.iter()).with_context(|| format!("clip {}", c.id))?;
         }
         ClipContent::Audio { offset, gain, .. } => {
             if !offset.is_finite() || *offset < 0.0 {

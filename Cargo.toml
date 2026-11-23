@@ -1,9 +1,11 @@
 [workspace]
 resolver = "2"
-members = ["crates/*"]
+members = ["crates/*", "fuzz"]
 # The window (paw-gui) is paused while the work is on the terminal: a plain
 # `cargo build`, `cargo check` or `cargo test` at the top does not build it.
-# `-p paw-gui` still builds it.
+# `-p paw-gui` still builds it. Nor does it build the fuzz targets
+# (`fuzz/`, cargo-fuzz on nightly Rust): `cargo check -p paw-fuzz` checks
+# them on stable, and tools/fuzz.sh runs them.
 default-members = [
   "crates/paw-core",
   "crates/paw-engine",

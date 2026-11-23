@@ -124,7 +124,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
                 length: f64,
             }
             let given: Given = from_lua(lua, clip)?;
-            let bytes = crate::clipfile::encode(&given.notes, &given.controls, given.length);
+            let bytes = crate::clipfile::encode(&given.notes, &given.controls, given.length).lua()?;
             crate::safe::write_file(Path::new(&path), &bytes, false).lua()
         }
         // A MIDI 2.0 clip file as text, one note or controller move to a line,

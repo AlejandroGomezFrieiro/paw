@@ -91,7 +91,7 @@ proptest! {
             .collect();
         let length = end as f64 / BEAT as f64;
 
-        let clip = decode(&encode(&notes, &[], length)).expect("paw reads the clip that it wrote");
+        let clip = decode(&encode(&notes, &[], length).expect("paw writes the clip")).expect("paw reads the clip that it wrote");
 
         prop_assert_eq!(clip, Clip { notes, controls: Vec::new(), length, skipped: Vec::new() });
     }
@@ -106,11 +106,11 @@ proptest! {
         length in 0.0..72.0f64,
     ) {
         notes.sort_by(|a, b| a.start.total_cmp(&b.start));
-        let bytes = encode(&notes, &controls, length);
+        let bytes = encode(&notes, &controls, length).expect("paw writes the clip");
 
         let clip = decode(&bytes).expect("paw reads the clip that it wrote");
 
-        prop_assert_eq!(encode(&clip.notes, &clip.controls, clip.length), bytes);
+        prop_assert_eq!(encode(&clip.notes, &clip.controls, clip.length).expect("paw writes the clip again"), bytes);
     }
 }
 
@@ -122,7 +122,7 @@ fn a_lyric_that_is_not_ascii_comes_back() {
     meta.insert("lyric".into(), json!("さくら ñ"));
     let note = Note { start: 0.0, length: 1.0, pitch: 60, velocity: 100, meta, id: 1, attr: None };
 
-    let clip = decode(&encode([&note], &[], 1.0)).expect("paw reads the clip that it wrote");
+    let clip = decode(&encode([&note], &[], 1.0).expect("paw writes the clip")).expect("paw reads the clip that it wrote");
 
     assert_eq!(clip.notes[0].meta["lyric"], "さくら ñ");
 }

@@ -353,7 +353,8 @@ impl Writer<'_> {
         if let Some(link) = &clip.link {
             return self.linked_clip(clip, link, notes, controls);
         }
-        let bytes = clipfile::encode(notes.iter(), controls, clip.length);
+        let bytes = clipfile::encode(notes.iter(), controls, clip.length)
+            .with_context(|| format!("writing clip {}", clip.id))?;
         let path = match self.written.get(&bytes) {
             Some(path) => path.clone(),
             None => {
@@ -383,7 +384,8 @@ impl Writer<'_> {
     fn linked_clip(&mut self, clip: &Clip, link: &str, notes: &Notes, controls: &[Control]) -> Result<Value> {
         let path = Path::new(LINKED_DIR).join(format!("{link}.midi2"));
         if !self.layout.files.contains_key(&path) {
-            let bytes = clipfile::encode(notes.iter(), controls, 0.0);
+            let bytes = clipfile::encode(notes.iter(), controls, 0.0)
+                .with_context(|| format!("writing the linked clip {link}"))?;
             self.layout.files.insert(path.clone(), bytes);
         }
         self.layout.clip_files.insert(clip.id, path.clone());
@@ -510,7 +512,8 @@ impl Writer<'_> {
             content.insert("signals_file".into(), json!(path));
         }
         if let Some(ClipContent::Midi { notes, controls }) = custom.sound.as_ref().map(|s| s.content()) {
-            let bytes = clipfile::encode(notes.iter(), controls, clip.length);
+            let bytes = clipfile::encode(notes.iter(), controls, clip.length)
+            .with_context(|| format!("writing clip {}", clip.id))?;
             let path = self.clip_file(folder, taken, &stem, ".sound", "midi2", bytes);
             content.insert("sound".into(), json!({ "kind": "midi", "file": path }));
         }

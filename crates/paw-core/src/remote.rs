@@ -125,13 +125,17 @@ pub fn runs(grid: &Grid, shown: Option<&Grid>) -> Vec<Value> {
     out
 }
 
+/// The largest width or height, in cells, of a screen or a surface that
+/// arrives.
+const MAX_CELLS: i32 = 1000;
+
 /// Put a `ui.grid` event into the grid kept on the receiving side. Returns
 /// where the cursor is.
 pub fn apply(grid: &mut Grid, payload: &Value) -> Result<Option<(u16, u16)>> {
     let (Some(width), Some(height)) = (payload["w"].as_u64(), payload["h"].as_u64()) else {
         bail!("a screen without a size");
     };
-    let (width, height) = (width.min(1000) as u16, height.min(1000) as u16);
+    let (width, height) = (width.min(MAX_CELLS as u64) as u16, height.min(MAX_CELLS as u64) as u16);
     if payload["full"].as_bool().unwrap_or(false) || (grid.width, grid.height) != (width, height) {
         *grid = Grid::new(width, height);
     }
@@ -154,7 +158,12 @@ pub fn apply(grid: &mut Grid, payload: &Value) -> Result<Option<(u16, u16)>> {
     let before = std::mem::take(&mut grid.surfaces);
     for s in payload["surfaces"].as_array().into_iter().flatten() {
         let number = |v: &Value| v.as_i64().unwrap_or(0) as i32;
-        let rect = Rect { x: number(&s["x"]), y: number(&s["y"]), w: number(&s["w"]).max(0), h: number(&s["h"]).max(0) };
+        // The far side can send any number. A place stays where its sums
+        // cannot overflow, and a size within the largest screen, so that
+        // `covered` is not billions of cells.
+        let place = |v: &Value| number(v).clamp(-MAX_CELLS, MAX_CELLS);
+        let extent = |v: &Value| number(v).clamp(0, MAX_CELLS);
+        let rect = Rect { x: place(&s["x"]), y: place(&s["y"]), w: extent(&s["w"]), h: extent(&s["h"]) };
         let key = s["key"].as_str().unwrap_or("").to_string();
         let ops = match s.get("ops") {
             Some(ops) => Arc::new(ops.clone()),
@@ -164,7 +173,10 @@ pub fn apply(grid: &mut Grid, payload: &Value) -> Result<Option<(u16, u16)>> {
         let mut covered = vec![false; (rect.w * rect.h) as usize];
         for run in s["covered"].as_array().into_iter().flatten() {
             let (col, row, cols) = (number(&run[0]), number(&run[1]), number(&run[2]));
-            for c in col.max(0)..(col + cols).min(rect.w) {
+            if !(0..rect.h).contains(&row) {
+                continue;
+            }
+            for c in col.max(0)..col.saturating_add(cols).min(rect.w) {
                 if let Some(cell) = covered.get_mut((row * rect.w + c) as usize) {
                     *cell = true;
                 }
@@ -272,8 +284,8 @@ pub fn input_of(value: &Value) -> Option<InputEvent> {
     if let (Some(width), Some(height)) = (value["resize"][0].as_u64(), value["resize"][1].as_u64())
     {
         return Some(InputEvent::Resize(
-            width.clamp(1, 1000) as u16,
-            height.clamp(1, 1000) as u16,
+            width.clamp(1, MAX_CELLS as u64) as u16,
+            height.clamp(1, MAX_CELLS as u64) as u16,
         ));
     }
     if let Some(on) = value["focus"].as_bool() {
@@ -417,6 +429,25 @@ mod tests {
         assert_eq!(far.surfaces[1].ops, near.surfaces[1].ops, "each by its key");
         apply(&mut far, &json!({ "w": 12, "h": 3, "runs": [] })).unwrap();
         assert!(far.surfaces.is_empty(), "gone when not sent");
+    }
+
+    // Found while writing the fuzz target `remote` (TASK-159): a size of
+    // billions of cells, or sums past the largest i32, panicked or ran out
+    // of memory.
+    #[test]
+    fn a_surface_with_numbers_out_of_range_is_kept_within_the_screen() {
+        let big = i64::from(i32::MAX);
+        let surface = json!({
+            "key": "far", "x": big, "y": -big, "w": big, "h": big,
+            "covered": [[big, 0, big], [0, big, 1], [-5, 1, big]],
+        });
+        let mut far = Grid::new(12, 3);
+        apply(&mut far, &json!({ "w": 12, "h": 3, "surfaces": [surface] })).unwrap();
+        let s = &far.surfaces[0];
+        assert_eq!(s.rect, Rect { x: 1000, y: -1000, w: 1000, h: 1000 });
+        assert_eq!(s.covered_runs(), vec![[0, 1, 1000]], "the one row in range, cut to the width");
+        // A second screen draws text with the surface still there.
+        apply(&mut far, &json!({ "w": 12, "h": 3, "runs": [[0, 0, "ok", null, null, 0]] })).unwrap();
     }
 
     #[test]

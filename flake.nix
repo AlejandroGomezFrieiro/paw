@@ -47,7 +47,9 @@
           # Only what cargo reads, so that a change to the manual, an
           # extension or an example does not rebuild the program. The
           # runtime's Lua is compiled into the binary (`include_dir!`).
-          cargoFiles = lib.fileset.unions [ ./Cargo.toml ./Cargo.lock ./.cargo ./crates ./runtime ];
+          # The fuzz crate is a workspace member: its manifest and targets,
+          # not its seeds.
+          cargoFiles = lib.fileset.unions [ ./Cargo.toml ./Cargo.lock ./.cargo ./crates ./runtime ./fuzz/Cargo.toml ./fuzz/fuzz_targets ];
           src = lib.fileset.toSource { root = ./.; fileset = cargoFiles; };
           # The crates as cargo downloads them, each a store path, so every
           # file in them is read-only. LuaJIT's build copies its source tree
@@ -115,8 +117,11 @@
           # dev shell (`tests/tools/suite.sh`, `cargo test -p paw-gui`).
           # Nothing is built on top of a check, so none keeps its `target`.
           checks = {
+            # The default members and the fuzz targets, which keep
+            # compiling on stable here (cargo-fuzz runs them on nightly, in
+            # CI: tools/fuzz.sh). The window is paused.
             clippy = craneLib.cargoClippy (withDeps // {
-              cargoClippyExtraArgs = "--all-targets";
+              cargoClippyExtraArgs = "--workspace --exclude paw-gui --all-targets";
               doInstallCargoArtifacts = false;
             });
             # The tree has never been run through rustfmt as a whole, and
