@@ -543,6 +543,7 @@ test("promote: the same sound, u gives back the project as it was, and a plugin 
   local plugin
   if dir then
     paw.plugins.add_dir(dir, "stubs")
+    T.after(function() paw.plugins.remove_dir(dir) end)
     plugin = paw.track(b.piano):add_device("clap:dev.paw.stub")
   end
   paw.flush()

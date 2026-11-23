@@ -454,6 +454,7 @@ test("a plugin an extension ships is found once its directory is added, plays at
   local kind = "clap:dev.paw.stub"
   eq(has_kind(kind), nil, "not found before")
   local found = paw.plugins.add_dir(dir, "stubs")
+  T.after(function() paw.plugins.remove_dir(dir) end)
   eq(found.kinds[1], kind, "found in the directory")
   eq(has_kind(kind).from, "stubs", "listed as the extension's")
   paw.project.tempo = 120

@@ -2549,7 +2549,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.engine_follow_always(track)`: The track that plays MIDI input as if monitored, also while another track is armed, or none with nil. While set, it takes the place of `engine_follow`'s track. Step input sets it to the track of the clip it enters into, so that the controller sounds there.
 - `paw.api.engine_get()`: --- engine ---
 - `paw.api.engine_held()`
-- `paw.api.engine_hold(track, file)`: Play a track from a sound file for now, as if it is frozen, or live again with nil. The project does not change (see `freeze.rs`).
+- `paw.api.engine_hold(track, file)`: Play a track from a sound file for now, as if it is frozen, or live again with nil. Nil also works for a track that is gone. Another project plays all its tracks live. The project does not change (see `freeze.rs`).
 - `paw.api.engine_load()`: What changes of the engine by itself, as `engine_get` gives it but without a table, for what is read on each frame: `cpu`, `xruns` and `block`.
 - `paw.api.engine_midi_filter(name, rules)`: Controls of MIDI input that tracks do not get: they neither sound nor record. Scripts still hear them, as `midi.in` events with `filtered = true`. Each `name` (`"step"`, `"learn"`) keeps its own list beside the others; nil or an empty list removes it.
 - `paw.api.engine_reset_stats()`: Forget the process times that `engine_get().blocks` recorded until now.

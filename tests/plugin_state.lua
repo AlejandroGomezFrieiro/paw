@@ -245,6 +245,7 @@ test("a state given while the engine rests reaches a plugin that takes it on in 
   local dir = T.scratch .. "/stub-rest"
   os.execute("mkdir -p '" .. dir .. "' && cp '" .. built .. "' '" .. dir .. "/stub.clap'")
   paw.plugins.add_dir(dir, "stubs")
+  T.after(function() paw.plugins.remove_dir(dir) end)
   local d = paw.add_track({ name = "Stub" }):add_device("clap:dev.paw.stub")
   paw.flush()
   api.undo_checkpoint()
@@ -263,6 +264,7 @@ test("a move in a plugin's window right after a state is an edit, and the echo o
   local dir = T.scratch .. "/stub-echo"
   os.execute("mkdir -p '" .. dir .. "' && cp '" .. built .. "' '" .. dir .. "/stub.clap'")
   paw.plugins.add_dir(dir, "stubs")
+  T.after(function() paw.plugins.remove_dir(dir) end)
   local d = paw.add_track({ name = "Stub" }):add_device("clap:dev.paw.stub")
   paw.flush()
   api.undo_checkpoint()

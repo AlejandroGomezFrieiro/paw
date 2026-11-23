@@ -825,6 +825,12 @@ impl Registry {
         self.factories.remove(kind).is_some()
     }
 
+    /// Make no more devices of each kind whose descriptor `drop` picks;
+    /// devices already made go on.
+    pub fn unregister_where(&mut self, mut drop: impl FnMut(&DeviceInfo) -> bool) {
+        self.factories.retain(|_, factory| !drop(factory.info()));
+    }
+
     /// Say how to stop looking in a directory added with [`Registry::add_dir`].
     pub fn set_remove_dir(&mut self, remove_dir: RemoveDir) {
         self.remove_dir = Some(remove_dir);

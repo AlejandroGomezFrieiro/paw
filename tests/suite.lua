@@ -563,7 +563,7 @@ end
 -- `tests/leaks-allowed.txt` lists the leaks that are known, one
 -- "<part> <kind>" on each line: the list only gets shorter.
 
-local kinds = { "hooks", "timers", "keys", "extensions", "engine", "midi", "step" }
+local kinds = { "hooks", "timers", "keys", "extensions", "engine", "midi", "step", "held", "plugins" }
 local watched = { hooks = true, timers = true, keys = true }
 
 -- Whether a function's source is a test file.
@@ -589,10 +589,23 @@ for _, reg in ipairs(paw.ext.registries) do
   if watched[reg.kind] then registries[reg.kind] = reg end
 end
 
+local plugin_formats = { clap = true, lv2 = true, vst3 = true }
+
+-- The kinds of plugin devices, as a set.
+local function plugin_kinds()
+  local out = {}
+  for _, info in ipairs(api.device_types()) do
+    if plugin_formats[info.format] then out[info.kind] = true end
+  end
+  return out
+end
+
 -- State of the kernel that a test can change with the API, outside the
 -- registries. `read` gives a label in words, which the check compares, and
 -- the value that `put` takes to put it back. `put` runs in the order of the
--- list: an engine restart also empties the MIDI test ports.
+-- list: an engine restart also empties the MIDI test ports. A state with
+-- `each_part` is read only at the end of each part, because the read is
+-- slow: then the message names no test.
 local kernel = {
   {
     -- The audio backend and its settings (`api.engine_restart`).
@@ -655,6 +668,57 @@ local kernel = {
       for _, b in ipairs(paw.step.bindings()) do
         if not b.saved and not keep[paw.step.source_text(b.source)] then paw.step.unbind(b.source) end
       end
+    end,
+  },
+  {
+    -- The tracks that the engine plays from a file (`api.engine_hold`).
+    kind = "held",
+    read = function()
+      local ids = api.engine_held()
+      return "tracks {" .. table.concat(ids, ", ") .. "}", ids
+    end,
+    put = function(ids)
+      local keep = {}
+      for _, id in ipairs(ids) do
+        keep[id] = true
+      end
+      for _, id in ipairs(api.engine_held()) do
+        if not keep[id] then pcall(api.engine_hold, id, nil) end
+      end
+    end,
+  },
+  {
+    -- The plugin folders that Lua added (`api.plugins_add_dir`) and the
+    -- plugin kinds. The list of all kinds is slow with many plugins.
+    kind = "plugins",
+    each_part = true,
+    read = function()
+      local dirs = api.plugins_dirs()
+      if not dirs then return "no plugins", nil end
+      local kinds, count = plugin_kinds(), 0
+      for _ in pairs(kinds) do
+        count = count + 1
+      end
+      return string.format("%d kinds, %d folders", count, #dirs.clap), { kinds = kinds, folders = dirs.clap }
+    end,
+    put = function(was)
+      if not was then return end
+      local known = {}
+      for _, dir in ipairs(was.folders) do
+        known[dir] = true
+      end
+      for _, dir in ipairs(api.plugins_dirs().clap) do
+        if not known[dir] then
+          paw.plugins.remove_dir(dir)
+          api.plugins_remove_dir(dir, {})
+        end
+      end
+      local added = {}
+      for kind in pairs(plugin_kinds()) do
+        if not was.kinds[kind] then added[#added + 1] = kind end
+      end
+      -- No folder holds them: only the kinds go.
+      if #added > 0 then api.plugins_remove_dir("", added) end
     end,
   },
 }
@@ -780,10 +844,12 @@ local leaked = {}
 local left_by = {}
 local function note_kernel(t)
   for _, state in ipairs(kernel) do
-    if state.read() == base.kernel[state.kind].label then
-      left_by[state.kind] = nil
-    elseif not left_by[state.kind] then
-      left_by[state.kind] = t.name
+    if not state.each_part then
+      if state.read() == base.kernel[state.kind].label then
+        left_by[state.kind] = nil
+      elseif not left_by[state.kind] then
+        left_by[state.kind] = t.name
+      end
     end
   end
 end

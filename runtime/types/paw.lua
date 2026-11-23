@@ -10167,7 +10167,9 @@ function paw.api.engine_get() end
 function paw.api.engine_held() end
 
 --- Play a track from a sound file for now, as if it is frozen, or live
---- again with nil. The project does not change (see `freeze.rs`).
+--- again with nil. Nil also works for a track that is gone. Another
+--- project plays all its tracks live. The project does not change
+--- (see `freeze.rs`).
 ---@param track integer
 ---@param file string?
 function paw.api.engine_hold(track, file) end

@@ -621,6 +621,19 @@ test("scope_rest=frozen plays the rest from files rendered in the background", f
   reset()
 end)
 
+test("the engine lets go of a held track that is gone, and another project holds none", function()
+  fresh()
+  local file = T.scratch .. "/held.wav"
+  local gone = paw.add_track({ name = "Gone" })
+  api.engine_hold(gone.id, file)
+  api.track_remove(gone.id)
+  api.engine_hold(gone.id, nil)
+  eq(#api.engine_held(), 0, "a track that is gone is let go")
+  api.engine_hold(paw.add_track({ name = "Kept" }).id, file)
+  fresh()
+  eq(#api.engine_held(), 0, "another project plays all its tracks live")
+end)
+
 -- Freezing -----------------------------------------------------------------------------
 
 test("a frozen track renders as it did live, and its fader stays live", function()
