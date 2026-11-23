@@ -1956,7 +1956,7 @@ end
 --- The other tracks show that time as usual. The cursor on the block
 --- marks its top edge: the block is one row and one step for the cursor.
 local function draw_block_folds(self: Arrange, F: Frame)
-  local L, cursor, g = F.L, paw.cursor, draw.g
+  local L, g = F.L, draw.g
   for _, f in ipairs(paw.folds.blocks()) do
     local x0 = math.max(0, self:col(f.from))
     local x1 = math.min(L.tw, self:col(f.to))
@@ -2000,7 +2000,8 @@ local function draw_block_folds(self: Arrange, F: Frame)
           local edge = g.bl .. g.h .. hint
           F.lanes:text(x0, bottom, edge .. g.h:rep(math.max(0, x1 - x0 - api.str_width(edge))), "TimeFold")
         end
-        local here = cursor.beat >= f.from - 1e-9 and cursor.beat < f.to - 1e-9
+        local beat = F.cursor_beat
+        local here = beat and beat >= f.from - 1e-9 and beat < f.to - 1e-9
         if here and member[F.cursor_track] then
           F.lanes:fill(x0, top, x1 - x0, 1, nil, paw.keymap.mode == "x" and "CursorVisual" or "Cursor")
         end
