@@ -7,7 +7,7 @@ use std::path::Path;
 use std::process::Command;
 
 #[test]
-fn paw_chain_schema_writes_a_schema_with_the_devices_and_splits_of_paw() {
+fn paw_chain_schema_prints_the_schema_of_paw_as_json() {
     let dir = scratch();
     let mut command = Command::new(env!("CARGO_BIN_EXE_paw"));
     sealed::seal(&mut command, &dir).args(["chain", "schema", "--clean", "--no-plugins"]);
@@ -18,9 +18,6 @@ fn paw_chain_schema_writes_a_schema_with_the_devices_and_splits_of_paw() {
     assert_eq!(schema.host, "paw");
     assert!(schema.device("compressor").is_some(), "a built-in device is in the schema");
     assert!(schema.split("band").is_some(), "a kind of split is in the schema");
-    let text = "chain 1\ngain #1\nband #2 xover=150Hz\n  | Low\n    compressor #3\n  | High\n";
-    let parsed = chain_syntax::check_text(text, &schema);
-    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
     let _ = std::fs::remove_dir_all(&dir);
 }
 

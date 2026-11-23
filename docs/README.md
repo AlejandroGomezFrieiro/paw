@@ -228,6 +228,8 @@ groups below link the main ones.
 - [Devices](reference/devices.md): the built-in devices, wet/dry and output gain, presets
 - [Device parameters](reference/device-parameters.md): the fields of each parameter, the ids of plugins, values as text
 - [Plugins](reference/plugins.md): formats, scan, editors, processes, status, offline devices
+- [The chain language](reference/chain-language.md): the text form of a chain of devices, its grammar, values, units and diagnostics
+- [The schema of the chain language](reference/chain-schema.md): the JSON that tells the checks the kinds of device, split and modulator of a host
 - [The saved state of plugins](reference/plugin-state.md): the readers of each framework, their forms and trees, hints from the binary
 - [The state of JUCE plugins](reference/juce-plugin-state.md): the layers of a state, paths, parameters, differences, presets
 - [Attachments](reference/attachments.md): native libraries that take a plugin, the clips and files they get (`paw_attach.h`)

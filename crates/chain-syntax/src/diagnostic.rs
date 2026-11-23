@@ -78,6 +78,32 @@ pub enum Code {
 }
 
 impl Code {
+    /// Each code, in the order of the reference page.
+    pub const ALL: [Code; 22] = [
+        Self::MissingHeader,
+        Self::Version,
+        Self::Tab,
+        Self::OddIndent,
+        Self::TooDeep,
+        Self::Token,
+        Self::Unit,
+        Self::Quote,
+        Self::Place,
+        Self::UnknownKind,
+        Self::UnknownParameter,
+        Self::Type,
+        Self::WrongUnit,
+        Self::Range,
+        Self::DuplicateId,
+        Self::DuplicateParameter,
+        Self::Branches,
+        Self::NotSplit,
+        Self::Reference,
+        Self::Link,
+        Self::List,
+        Self::UnknownPlugin,
+    ];
+
     /// The code as the diagnostics and the reference page write it.
     pub const fn as_str(self) -> &'static str {
         match self {

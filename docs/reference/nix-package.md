@@ -47,6 +47,7 @@ The package loads each extension of `withExtensions` at the start, before the co
 | `fmt` | Runs `cargo fmt --check`. It reports how many places would change and does not fail. |
 | `tests` | Runs the Rust tests that need no display, audio device or Lua suite, with cargo-nextest. These must pass. A test fails when its output is not the same as the saved file in a `snapshots/` folder, and the check writes no new file. |
 | `docs` | Runs Vale on `README.md`, `AGENTS.md`, `docs/`, the READMEs of the crates and extensions, the `doc/` pages of the extensions, `bench/README.md` and `bench/DAWS.md`. It fails on an error. |
+| `chaindeps` | Fails if a crate of the chain language (`crates/chain-*`) depends on a crate of paw. |
 | `paw` | Builds the program. |
 
 The build does not run tests. See [How to run the tests](../how-to/run-the-tests.md).

@@ -8,7 +8,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::diagnostic::{Code, Diagnostic, Span, did_you_mean};
 use crate::print::value_text;
-use crate::schema::{Count, Param, ParamValue, Schema};
+use crate::schema::{Count, Param, ParamValue, Schema, SplitKind};
 use crate::tree::{Body, Content, Document, Field, Mods, Node};
 use crate::value::{Dimension, Number, Reference, Unit, Value};
 
@@ -60,7 +60,7 @@ impl<'s> Checker<'s> {
 
     /// The nodes of a body and their modulators. `split` is the kind of the
     /// split that holds the body, for the fields of its branches.
-    fn body(&mut self, body: &'s Body, split: Option<&'s crate::schema::SplitKind>) {
+    fn body(&mut self, body: &'s Body, split: Option<&'s SplitKind>) {
         match &body.content {
             Content::Nodes(nodes) => nodes.iter().for_each(|node| self.node(node)),
             Content::Branches(branches) => {
@@ -126,7 +126,7 @@ impl<'s> Checker<'s> {
         self.error(Code::UnknownKind, span, message);
     }
 
-    fn mods(&mut self, mods: &'s Mods, body: &'s Body, split: Option<&'s crate::schema::SplitKind>) {
+    fn mods(&mut self, mods: &'s Mods, body: &'s Body, split: Option<&'s SplitKind>) {
         let schema = self.schema;
         // The targets that a link may name: the nodes and branches in the container.
         let mut targets: HashMap<&str, Params<'s>> = HashMap::new();
@@ -217,6 +217,9 @@ impl<'s> Checker<'s> {
         }
     }
 
+    /// The fields of a line that is not a node: a branch or a modulator.
+    /// Its place in signal order is before the next node, so a reference
+    /// reaches each node that comes before that place.
     fn fields(&mut self, fields: &[Field], params: Params<'_>, line: Span) {
         let position = self.position;
         self.fields_at(fields, params, line, position);

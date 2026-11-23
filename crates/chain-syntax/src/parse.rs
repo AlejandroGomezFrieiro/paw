@@ -31,7 +31,7 @@ impl Parsed {
 pub fn parse(text: &str) -> Parsed {
     let mut diagnostics = Vec::new();
     let (items, end) = items(text, &mut diagnostics);
-    let mut parser = Parser { items, at: 0, diagnostics };
+    let mut parser = Parser { items: items.into_iter().peekable(), diagnostics };
     let mut document = Document { header: parser.header(), end, ..Document::default() };
     document.root = parser.body(0, Place::Top, &mut document.checks);
     let mut diagnostics = parser.diagnostics;
@@ -100,14 +100,14 @@ enum Place {
 }
 
 struct Parser {
-    items: Vec<Item>,
-    at: usize,
+    /// The lines that are not read yet.
+    items: std::iter::Peekable<std::vec::IntoIter<Item>>,
     diagnostics: Vec<Diagnostic>,
 }
 
 impl Parser {
-    fn peek(&self) -> Option<&Item> {
-        self.items.get(self.at)
+    fn peek(&mut self) -> Option<&Item> {
+        self.items.peek()
     }
 
     fn error(&mut self, code: Code, span: Span, message: impl Into<String>) {
@@ -116,20 +116,13 @@ impl Parser {
 
     /// Takes the next item, which the caller has seen with `peek`.
     fn take(&mut self) -> Item {
-        let item = std::mem::replace(
-            &mut self.items[self.at],
-            Item { line: Line { level: 0, tokens: Vec::new(), comment: None, span: Span::default() }, trivia: Trivia::default() },
-        );
-        self.at += 1;
-        item
+        self.items.next().expect("the caller has seen the item with `peek`")
     }
 
     /// Leaves out the lines deeper than `level`, after a line that has an
     /// error: the lines under a bad line cannot be placed.
     fn skip_under(&mut self, level: usize) {
-        while self.peek().is_some_and(|item| item.line.level > level) {
-            self.at += 1;
-        }
+        while self.items.next_if(|item| item.line.level > level).is_some() {}
     }
 
     /// The header, `chain 1`, when the first line is one. Else the default
@@ -183,7 +176,7 @@ impl Parser {
             }
             if line_level > level {
                 self.error(Code::TooDeep, span, "this line is more than one step deeper than the line above it");
-                self.at += 1;
+                self.take();
                 self.skip_under(line_level);
                 continue;
             }
@@ -222,7 +215,7 @@ impl Parser {
                 }
                 LineKind::Header => {
                     self.error(Code::Place, span, "the header `chain 1` comes once, on the first line");
-                    self.at += 1;
+                    self.take();
                     self.skip_under(level);
                 }
                 LineKind::Node => {
@@ -240,6 +233,9 @@ impl Parser {
         Body { content, mods }
     }
 
+    /// A node and the lines under it. A line with no kind gives `None`: its
+    /// diagnostic is in place, and the lines under it are read and dropped
+    /// with it, so that they give no second error.
     fn node(&mut self, level: usize) -> Option<Node> {
         let item = self.take();
         let mut tokens = Cursor::new(&item.line.tokens, item.line.span);
