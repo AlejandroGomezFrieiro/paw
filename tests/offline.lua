@@ -395,6 +395,7 @@ test("a lost audio device stops the transport, keeps the take, and is opened aga
     eq(events.lost[1].device:find("test device") ~= nil, true, "naming the device: " .. events.lost[1].device)
     eq(events.lost[1].recording, true, "and that a take was being made")
     eq(paw.transport.playing, false, "the transport has stopped")
+    T.until_recorded()
     eq(#t:clips(), 1, "the take is kept")
     eq(t:clips()[1].length > 0, true, "with what was recorded")
     local e = api.engine_get()

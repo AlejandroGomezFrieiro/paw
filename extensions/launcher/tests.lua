@@ -645,6 +645,9 @@ test(
     launcher.launch(t.id, 0, { quantize = "off" })
     until_(function() return (launcher.state()[t.id] or {}).slot == 0 end, "the clip to start", 5000)
     T.stop()
+    -- The stop returns before the engine stops: wait until the engine has
+    -- sent the track back to its timeline, so both drawings see it stopped.
+    until_(function() return (launcher.state()[t.id] or {}).slot == nil end, "the stop to send the track back")
     local W, H = 120, 40
     -- The drawings come one after the other, and a meter falls and a held
     -- peak lets go in between (a loaded machine): the meters stand still.
