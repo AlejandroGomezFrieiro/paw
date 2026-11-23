@@ -6354,14 +6354,19 @@ function paw.nest.promote(clip, deep) end
 --- Save the window's view as a subproject, as `:scope.write` does: per
 --- track, or with a row of its own (`own_row`, `:scope.write!`). The
 --- view's clips move into the subproject (`paw.api.nest_save`); the rows
---- get its blocks; its markers and regions inside move in, and a region
---- over its time stays. The meter of the time is the subproject's own.
---- Per track, the window stays in the view; with a row of its own, it is
---- inside the subproject at the same place. Call it in one undo step.
---- Returns the message.
+--- get its blocks. In a view with time, its markers and regions inside
+--- move in, and a region over its time stays; a view with no time takes
+--- none of them. The meter of the time is the subproject's own. With a
+--- row of its own, no route of the song changes: the row plays where the
+--- tracks played, in their group; when they played into several buses, it
+--- plays into the master, and `stems` gives a stem row for each track,
+--- into its bus. Per track, the window stays in the view; with a row of
+--- its own, it is inside the subproject at the same place. Call it in one
+--- undo step. Returns the message.
 ---@param name any
 ---@param own_row any
-function paw.nest.save(name, own_row) end
+---@param stems any
+function paw.nest.save(name, own_row, stems) end
 
 --- Store the data of subproject `nest`'s kind, as one undo step.
 ---@param nest any
@@ -7898,6 +7903,15 @@ function paw.scope.contains(track, s) end
 --- track or region is gone is left out.
 ---@param win any
 function paw.scope.current(win) end
+
+--- The cursor's beat in the time of window `win` (the one being drawn,
+--- else the current one). The cursor counts in the time of the current
+--- window, so another window that shows another timeline (a split with
+--- one window inside a subproject) has it at the same place of the song,
+--- in its own beats. Nil when that place is outside the time the window
+--- shows: such a window keeps its place.
+---@param win any
+function paw.scope.cursor_beat(win) end
 
 --- What a scope (the current one by default) shows, in words: its path,
 --- its bars (its own, and the song's), its meter, its tracks, and whether
@@ -11002,7 +11016,9 @@ function paw.api.nest_promote(clip) end
 --- `own_row`, the tracks go in (whole, or as copies with copies of
 --- their devices and lanes) and one return row plays the mix; add
 --- its block. `paw.nest.save` does the rest: blocks, regions, the
---- window. Returns `nest`, `rows`, `row`, `tracks` and `changes`.
+--- window. Returns `nest`, `rows`, `row`, `tracks`, `changes`, and with
+--- a row of its own the song's `group` it is in or the `buses` that no
+--- longer get the time.
 ---@param opts any
 function paw.api.nest_save(opts) end
 
