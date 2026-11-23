@@ -7,6 +7,58 @@ How to run everything: [README.md](README.md). Raw numbers:
 matrix before it). The processor time of the whole program while it plays,
 against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md).
 
+## 2026-11-23: what :%quantize costs after TASK-183 and TASK-184 (TASK-192)
+
+The key `:%quantize 1/4` in the region Verse B of the scenario `scope`
+(about 6 400 notes on 63 tracks), with `u` after each key. One binary of
+main (b48920a4) ran with the Lua of main ("before") and of the branch
+("after"), in turns, under the measure lock on cores 16 to 23. All values
+were measured under external load (load average 2.2 to 3.1). Each value is
+the processor time of the kernel thread from the key until the screen is
+quiet.
+
+| Series | Before | After |
+| --- | --- | --- |
+| a driver of the ticket, 3 pairs of 8 keys | 140 ms (95 to 206) | 109 ms (80 to 186) |
+| `drive.py scope-keys --keys ':%quantize 1/4\r,u' --times 8`, 3 pairs (medians of each run) | 121, 128, 123 ms (93 to 233) | 132, 142, 111 ms (76 to 174) |
+| instructions of the kernel thread (`perf stat`), 8 keys | 650 to 1 919 million | 857 to 1 334 million |
+
+The two series of time do not agree, and each difference is inside the
+spread: there is no measurable difference of the whole key. The values
+that do not depend on the load changed:
+
+- Allocation of one key, with the garbage collector stopped: 15.3 MB before
+  (15.3 to 15.6), 11.4 MB after (11.0 to 11.7).
+- The garbage collector in the LuaJIT profile: 19.4 ms of samples a key
+  before, 11.5 ms after.
+
+What changed:
+
+- `:quantize` snaps each start with `paw.notes.snap` (new). Before, it
+  copied each note and made two tables for each note (1.1 MB a key).
+- `paw.ex.items` sorts with a merge sort in Lua. `table.sort` calls the
+  Lua comparator from C, and LuaJIT cannot compile that call: 4.8 ms of
+  samples a key before, 3.4 ms after.
+- `paw.commands.list` keeps its sorted list until a command comes or goes.
+  Completion asked for the list after each typed character (2 ms a key).
+
+The criterion "under 100 ms" is not met. The parts that are left, from the
+LuaJIT profile of 10 keys after the change (taking the samples adds about 5 %:
+131 ms of samples a key against a median of 127 ms):
+
+| Part | ms a key | What it is |
+| --- | --- | --- |
+| The chord reading (the job `derived`) | 46 | 63 tracks changed in 32 windows: 2 142 track windows, 256 groups, 32 mixes, the chords and the keys of the whole song again. About 15 ms of it is the work of `paw.derived` itself (`settle`, `ensure`, `get`, `link`, `push_over`), the rest is `paw.harmony.read` and `paw.harmony.song`. |
+| The command | 32 | `ex.items` 17 ms (the kernel gives each note as a table, 4 ms; the items and their sort), `ex.apply` 12 ms (the kernel takes the 6 400 changes, 7 ms). |
+| One full frame of the arrange view | 27 | `views/arrange.lua` (TASK-127 ports it to Teal). |
+| The typing and the events | 27 | The preview of the range after each character (2 ms, mostly `paw.scope`), the completion (1.5 ms), the event handlers of `paw.scope`, `paw.ui` and `paw.freeze` (5 ms), the status line. |
+| Of all the above, the garbage collector | 11.5 | 11.4 MB a key: 5 MB the command, 1.9 MB the chord reading, the rest the frame and the typing. |
+
+To go under 100 ms, the next steps are in the kernel or in other tickets:
+a change of many notes in one call that does not go through a Lua table
+for each note (the command), a chord reading that does not decode the whole
+song after each edit, and the frame of the arrange view.
+
 ## 2026-11-23: the group tree and the marks of groups in a frame (TASK-184)
 
 The scenario `scope` of `bench/profile/drive.py`, with the Lua of the
