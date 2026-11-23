@@ -456,7 +456,7 @@ function M.notes(range?: Range, parts?: {Part}): {Note}
     local found, places = part.clip:notes(mine)
     for i, found_note in ipairs(found) do
       local n = found_note as Note
-      n.start, n.clip, n.place, n.offset = n.start + part.offset, part.id, places and places[i] or i, part.offset
+      n.start, n.clip, n.place, n.offset = n.start + part.offset, part.id, places[i], part.offset
       out[#out + 1] = n
     end
   end

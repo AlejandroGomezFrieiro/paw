@@ -140,3 +140,51 @@ test(":export of a transposed copy writes the pitches it plays", function()
   eq(table.concat(got, " "), "63/90 65/90 67/90 68/90", "the notes of the copy, as it plays them")
   eq(pitches(copy), "60 62 64 65", "the copy's own notes stay the same")
 end)
+
+--- The roll on a transposed copy (3 up), its cursor on the note of
+--- `beat` that plays `pitch`.
+local function roll_on(copy, pitch, beat)
+  keys(":clip.override transpose=3<CR>")
+  keys("<CR>")
+  local roll = paw.ui.views:get("pianoroll")
+  eq(roll.clip_id, copy.id, "the roll is open on the copy")
+  roll.pitch, roll.beat = paw.music.pitch(pitch), beat
+end
+
+test("in the piano roll of a transposed copy, the pencil bends a note on the pitch it plays", function()
+  local _, _, copy = linked()
+  roll_on(copy, "G4", 2)
+  keys("ikk<Esc>")
+  eq(pitches(copy), "60 62 64 65", "the note keeps its stored pitch, E4")
+  local keyed = {}
+  for _, c in ipairs(api.clip_controls(copy.id)) do
+    if c.type == "bend" then keyed[c.key] = true end
+  end
+  eq(keyed, { [64] = true }, "its own bend is on the key it has, E4")
+  local bent = {}
+  for _, n in ipairs(T.roll_notes()) do
+    if n.props.bend then bent[#bent + 1] = n.props.label .. " " .. n.props.bend end
+  end
+  eq(table.concat(bent, ", "), "G4 2", "the roll shows the bend on the note that plays G4")
+end)
+
+test("a move of a note of a transposed copy (act.move_note) starts from the pitch it plays", function()
+  local _, riff, copy = linked()
+  roll_on(copy, "G4", 2)
+  -- The third note, E4, plays G4: up a tone to A4 is F#4 in the shared notes.
+  paw.frontend.act.move_note(copy.id, 3, 2, paw.music.pitch("A4"))
+  eq(pitches(riff), "60 62 66 65", "the shared notes")
+end)
+
+test("in a transposed copy, a note the transpose takes above 127 leaves the places of the others", function()
+  local _, riff, copy = linked()
+  riff:add_note({ pitch = 126, start = 0.5, length = 0.25, velocity = 100 })
+  api.undo_checkpoint()
+  roll_on(copy, "G4", 2)
+  keys("]")
+  local velocities = {}
+  for i, n in ipairs(api.clip_notes(copy.id)) do
+    velocities[i] = n.pitch .. "/" .. n.velocity
+  end
+  eq(table.concat(velocities, " "), "60/100 126/100 62/100 64/110 65/100", "] makes the note under the cursor louder")
+end)

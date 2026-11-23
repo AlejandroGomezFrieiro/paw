@@ -723,12 +723,13 @@ end
 --- way, growing it to reach `finish` (its own beats).
 local function put(clip: objects.Clip, add: {YankedNote}, finish: number)
   local remove: {integer} = {}
-  for index, old in ipairs((clip:notes())) do
+  local olds, places = clip:notes()
+  for k, old in ipairs(olds) do
     for _, new in ipairs(add) do
       if
         old.pitch == new.pitch and old.start < new.start + new.length - EPS and old.start + old.length > new.start + EPS
       then
-        remove[#remove + 1] = index
+        remove[#remove + 1] = places[k]
         break
       end
     end

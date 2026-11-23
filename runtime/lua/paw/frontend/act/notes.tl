@@ -78,6 +78,26 @@ function M.chosen_notes(clip: integer): {integer}
   return out
 end
 
+--- A handle on a clip at the pitches that it plays: its notes shifted by
+--- its transpose (`:clip.override`), as the roll shows them.
+local function played(clip: integer): objects.Clip
+  local c = paw.clip(clip)
+  return c:shifted(c.transpose or 0)
+end
+
+--- The notes of a clip by their places in it, and the places in order. A
+--- note that the transpose takes out of 0 to 127 does not play: the handle
+--- leaves it out, and it has no place here. The places of the other notes
+--- do not change, so a gesture names each note by its place in the clip.
+local function by_place(clip: objects.Clip): {integer: types.Note}, {integer}
+  local notes, places = clip:notes()
+  local out: {integer: types.Note} = {}
+  for k, n in ipairs(notes) do
+    out[places[k]] = n
+  end
+  return out, places
+end
+
 --- The clips a gesture on `clip` reaches, with how far each starts after
 --- it (`offset`): every clip the roll edits when it is one of them, else
 --- that clip alone.
@@ -94,7 +114,7 @@ local function parts_for(clip: integer): {Part}
     return parts
   end
   local c = api.clip_get(clip)
-  return {{id = clip, clip = paw.clip(clip), offset = 0, start = c.start, length = c.length}}
+  return {{id = clip, clip = played(clip), offset = 0, start = c.start, length = c.length}}
 end
 
 --- The chosen notes of the clips a gesture on `clip` reaches: clip id ->
@@ -186,11 +206,12 @@ end
 --- Where notes are now, given what they are: `wanted` is a list of
 --- `{ start, pitch }`.
 local function places_of(clip: integer, wanted: {Wanted}): {integer}
-  local notes = paw.clip(clip):notes()
+  local notes, order = by_place(played(clip))
   local out: {integer} = {}
   local used: {integer: boolean} = {}
   for _, want in ipairs(wanted) do
-    for place, n in ipairs(notes) do
+    for _, place in ipairs(order) do
+      local n = notes[place]
       if not used[place] and n.pitch == want.pitch and math.abs(n.start - want.start) < 1e-6 then
         out[#out + 1], used[place] = place, true
         break
@@ -322,8 +343,9 @@ function A.select_notes_box(
     for _, place in ipairs(map[part.id] or {}) do
       set[place] = true
     end
-    local notes = part.clip:notes()
-    for place, n in ipairs(notes) do
+    local notes, order = by_place(part.clip)
+    for _, place in ipairs(order) do
+      local n = notes[place]
       local start = n.start + part.offset
       if n.start >= 0 and n.pitch >= pitch0 and n.pitch <= pitch1 and start < beat1 and start + n.length > beat0 then
         if mode == "toggle" and set[place] then
@@ -347,8 +369,9 @@ function A.select_all_notes(clip: integer)
   local map: {integer: {integer}} = {}
   for _, part in ipairs(parts_for(clip)) do
     local out: {integer} = {}
-    local notes = part.clip:notes()
-    for place, n in ipairs(notes) do
+    local notes, order = by_place(part.clip)
+    for _, place in ipairs(order) do
+      local n = notes[place]
       -- Not those hidden by a trim of the clip's edges.
       if n.start >= 0 and n.start < part.length then
         out[#out + 1] = place
@@ -384,7 +407,7 @@ local function grabbed_parts(clip: integer, map: {integer: {integer}}): {Part}
   local out: {Part} = {}
   for _, part in ipairs(parts_for(clip)) do
     if map[part.id] then
-      part.notes, part.places = part.clip:notes(), map[part.id]
+      part.notes, part.places = by_place(part.clip), map[part.id]
       out[#out + 1] = part
     end
   end
@@ -406,7 +429,7 @@ end
 --- unless `free`; the rest keep their distance from it. With `copy` the
 --- notes stay and copies are dropped. Each note stays in its own clip.
 function A.drag_notes(clip: integer, index: integer, dbeat: number, dpitch?: number, copy?: boolean, free?: boolean)
-  local held = paw.clip(clip):notes()[index]
+  local held = played(clip):note(index)
   if not held then
     return
   end
@@ -456,7 +479,7 @@ end
 --- Drag an end of the note at `index`, and the same end of the notes chosen
 --- with it: `dstart` moves their starts (the ends stay), `dlength` their ends.
 function A.stretch_notes(clip: integer, index: integer, dstart?: number, dlength?: number, free?: boolean): boolean
-  local held = paw.clip(clip):notes()[index]
+  local held = played(clip):note(index)
   if not held then
     return
   end
@@ -513,11 +536,13 @@ function A.remove_chosen_notes(clip: integer): boolean
   return true
 end
 
--- One note at a time, as scripts and older frontends ask for it.
+-- One note at a time, as scripts and older frontends ask for it. The
+-- pitch is one that the clip plays: on a transposed copy, the note moves
+-- from the pitch that the roll shows.
 function A.move_note(clip: integer, index: integer, start: number, pitch: integer): integer
   pitch = util.clamp(pitch, 0, 127) as integer
-  local c = paw.clip(clip)
-  local before = c:notes()[index]
+  local c = played(clip)
+  local before = c:note(index)
   local at = c:set_note(index, {start = note_snap(start), pitch = pitch})
   if before and before.pitch ~= pitch then
     c:track():play_note(pitch, before.velocity, 120)
@@ -582,8 +607,9 @@ function A.erase_notes(clip: integer, points: {Point}): integer
   local count = 0
   for _, part in ipairs(parts_for(clip)) do
     local hit: {integer} = {}
-    local notes = part.clip:notes()
-    for place, n in ipairs(notes) do
+    local notes, order = by_place(part.clip)
+    for _, place in ipairs(order) do
+      local n = notes[place]
       -- Notes hidden by a trim of the clip's start are not there to cross.
       local seen: Seen = {start = n.start + part.offset, length = n.length, pitch = n.pitch, hidden = n.start < 0}
       for i = 1, #points do
@@ -646,8 +672,9 @@ function A.draw_velocities(clip: integer, points: {Point}, reach?: number): inte
       only[place] = true
     end
     local set: {objects.NoteChangeInput} = {}
-    local notes = part.clip:notes()
-    for place, n in ipairs(notes) do
+    local notes, order = by_place(part.clip)
+    for _, place in ipairs(order) do
+      local n = notes[place]
       local start = n.start + part.offset
       if (chosen_count == 0 or only[place]) and n.start >= 0 and start >= from - 1e-9 and start <= to + 1e-9 then
         set[#set + 1] = {index = place, velocity = util.clamp(math.floor(height(start) * 127 + 0.5), 1, 127) as integer}
@@ -687,12 +714,11 @@ function A.quantize_notes(clip: integer, strength?: number): integer
   local count = 0
   local after: {integer: {Wanted}} = {}
   for _, part in ipairs(parts_for(clip)) do
-    local notes = part.clip:notes()
+    local notes, order = by_place(part.clip)
+    -- The chosen notes, or every note with none chosen.
     local places = map[part.id] or {}
     if not some then
-      for place in ipairs(notes) do
-        places[place] = place
-      end
+      places = order
     end
     local set: {objects.NoteChangeInput} = {}
     local wanted: {Wanted} = {}
