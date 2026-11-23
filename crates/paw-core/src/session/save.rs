@@ -20,7 +20,7 @@ use super::*;
 use std::collections::HashSet;
 
 use crate::model::nest::{placed_clip, placed_lane};
-use crate::model::{Clip, ClipContent, Clips, Nest, NestId, NestMeter, NestTempo, Send, Target};
+use crate::model::{Clip, Clips, Nest, NestId, NestMeter, NestTempo, Send, Target};
 
 /// Two beats closer than this are one.
 const EPS: f64 = 1e-9;
@@ -102,45 +102,6 @@ fn shifted_lane(lane: &crate::model::Lane, from: f64) -> crate::model::Lane {
 }
 
 impl Session {
-    /// The place of the tracks of a view: one for all, none a master.
-    fn save_place(&self, tracks: &[Id]) -> Result<Option<NestId>> {
-        let p = &self.doc.project;
-        let mut place = None;
-        for (i, id) in tracks.iter().enumerate() {
-            let t = p.track(*id).with_context(|| format!("no track {id}"))?;
-            if *id == MASTER_ID || t.nest.and_then(|n| p.nest(n)).is_some_and(|n| n.master == *id) {
-                bail!("{} is a master track: it cannot go into a subproject", t.name);
-            }
-            if i > 0 && t.nest != place {
-                bail!("the tracks of the view are of two places: save a view of one");
-            }
-            place = t.nest;
-        }
-        Ok(place)
-    }
-
-    /// An error for the first clip that crosses an edge of the time and
-    /// cannot be cut there.
-    fn check_cuts(&self, tracks: &[Id], from: f64, to: f64) -> Result<()> {
-        let tempo = self.doc.project.tempo_map();
-        for t in tracks.iter().filter_map(|id| self.doc.project.track(*id)) {
-            for c in t.clips.iter().filter(|c| overlaps(c, from, to)) {
-                let crosses = c.start < from - EPS || c.start + c.length > to + EPS;
-                let cuttable = !c.looped && matches!(c.content, ClipContent::Midi { .. } | ClipContent::Nest { .. });
-                if crosses && !cuttable {
-                    let at = if c.start < from - EPS { from } else { to };
-                    bail!(
-                        "the clip {} on {} goes over the edge at bar {}: an audio or looped clip cannot be cut there yet; cut it or move it first",
-                        if c.name.is_empty() { "with no name" } else { &c.name },
-                        t.name,
-                        tempo.bar_of(at) + 1
-                    );
-                }
-            }
-        }
-        Ok(())
-    }
-
     /// A clip cut at `from` and `to`: the parts that stay (before and
     /// after), and the part inside, in beats from `from`. The part that
     /// starts where the clip starts keeps its id.
@@ -173,8 +134,8 @@ impl Session {
         if opts.tracks.is_empty() {
             bail!("the view has no tracks to save");
         }
-        let place = self.save_place(&opts.tracks)?;
-        self.check_cuts(&opts.tracks, from, to)?;
+        let place = self.doc.project.view_place(&opts.tracks)?;
+        self.doc.project.check_cuts(&opts.tracks, from, to)?;
         let id = NestId(self.doc.new_id());
         let mut master = Track::new(self.doc.new_id());
         master.name = "Master".into();

@@ -34,7 +34,9 @@ use serde_json::{Map, Value};
 
 use super::{Clip, ClipContent, Control, Id, Lane, MASTER_ID, Note, Notes, Project, SigChange, TempoChange, Track};
 
+mod standalone;
 mod time;
+pub use standalone::Standalone;
 pub use time::{Timing, timed_lane};
 
 /// The most nests inside each other: a song clip places a nest at depth 1.

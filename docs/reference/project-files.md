@@ -123,6 +123,12 @@ places in the song. In commands and in the files, a subproject is a
   and from tracks of the same subproject. Its master has no output and
   no sends, because it plays into the song through the clips that place
   the subproject.
+- `:nest.export <folder>` writes a subproject as a project folder of its
+  own, and `:scope.write <folder>` writes a view as one. The new folder
+  has a `project.toml`, a folder for each track and its own `media/`
+  with copies of the sound files, and its `nests/` has the subprojects
+  inside what it writes. See
+  [Write a subproject or a view as a project](subprojects.md#write-a-subproject-or-a-view-as-a-project).
 
 ## Save
 

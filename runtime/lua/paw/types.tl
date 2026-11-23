@@ -401,6 +401,28 @@ local record types
     changes: {string}
   end
 
+  --- What `paw.api.scope_export` takes (`session::export::ExportOpts`):
+  --- the project's `name`, the view's `tracks` (of one place) and its
+  --- time `from` and `to` in that place's beats.
+  record ScopeExportOptions
+    name: string
+    tracks: {integer}
+    from: number
+    to: number
+  end
+
+  --- What `paw.api.nest_export` and `paw.api.scope_export` wrote
+  --- (`session::export::Exported`): the new `project.toml` (`path`), how
+  --- many `tracks` and `media` files, the media files that are `missing`,
+  --- and the routes cut at the edge of a view, in words (`changes`).
+  record NestExported
+    path: string
+    tracks: integer
+    media: integer
+    missing: {string}
+    changes: {string}
+  end
+
   --- What `paw.api.nest_promote` did (`session::promote::Promoted`): the
   --- `group` track (nil for a subproject saved per track), the
   --- subproject's `tracks` (per track: the rows its clips went back to),
