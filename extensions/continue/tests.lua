@@ -23,6 +23,14 @@ end
 --- it; the source is taken away again when `fn` ends.
 local function with_bar(fn)
   local continue = ext()
+  -- Only this source suggests: the snippets of an earlier test are a
+  -- source too.
+  for _, source in ipairs(paw.complete.list()) do
+    if source.name ~= "continue" then
+      paw.complete.unregister(source.name)
+      T.after(function() paw.complete.register(source) end)
+    end
+  end
   T.fresh()
   paw.keymap.feed("<Esc><Esc>")
   while paw.ui.float do

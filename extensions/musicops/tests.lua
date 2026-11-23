@@ -9,7 +9,7 @@ local function load()
     -- As config/init.lua does: utau first, so that musicops' keys in the
     -- vocal editor (`ip`, `+` `-`) wrap the editor's own. Another test may
     -- have loaded musicops before utau: load it again after.
-    if not package.loaded["utau"] then paw.ext.load("extensions/utau") end
+    if not paw.ext.loaded.utau then paw.ext.load("extensions/utau") end
     if paw.ext.loaded.musicops then paw.ext.unload("musicops") end
     paw.ext.load("extensions/musicops")
     assert(paw.ext.loaded.musicops.ok, paw.ext.loaded.musicops.error)
@@ -488,7 +488,7 @@ test("musicops: operators and text objects in the vocal editor", function()
   T.fresh()
   paw.keymap.feed("<Esc><Esc>")
   paw.ui.focus("arrange")
-  if not package.loaded["utau"] then paw.ext.load("extensions/utau") end
+  if not paw.ext.loaded.utau then paw.ext.load("extensions/utau") end
   local editor = require("utau.editor").editor
   local track = paw.add_track({ name = "Vocal" })
   track:add_device(require("utau").DEVICE)
