@@ -58,10 +58,10 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             sh.session.borrow_mut().device_add(track, &kind, options(lua, opts)?).lua()
         }
         // @return nil
-        fn device_remove(_, sh, id => Id) { sh.session.borrow_mut().device_remove(id).lua() }
+        fn device_remove(_, sh, id => Id) { sh.session.borrow_mut().doc.device_remove(id).lua() }
         // @return nil
         fn device_move(_, sh, (id, track, index) => (Id, Id, usize)) {
-            sh.session.borrow_mut().device_move(id, track, index.saturating_sub(1)).lua()
+            sh.session.borrow_mut().doc.device_move(id, track, index.saturating_sub(1)).lua()
         }
         // Change a device: a table of the entries to change, as `device_get`
         // gives them, or one `key` and its value. Only the key form clears
@@ -71,7 +71,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         fn device_set(lua, sh, (id, key, value) => (Id, LuaValue, LuaValue)) {
             let mut session = sh.session.borrow_mut();
             for (key, value) in changes(lua, key, value)? {
-                session.device_set(id, &key, from_lua(lua, value)?).lua()?;
+                session.doc.device_set(id, &key, from_lua(lua, value)?).lua()?;
             }
             Ok(())
         }

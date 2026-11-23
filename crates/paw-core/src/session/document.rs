@@ -23,6 +23,7 @@ mod automation;
 pub use automation::ParamRange;
 pub(super) use automation::{check_lane_state, clean_points};
 mod clips;
+mod devices;
 pub(super) use clips::{ClipField, check_clip_track};
 mod links;
 mod nests;
