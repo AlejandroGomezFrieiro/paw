@@ -103,6 +103,10 @@ local defaults: {string: Value} = {
   -- those a .gitignore at its root names too).
   files_skip = {"target", "node_modules", "result", "build", "dist", "__pycache__", "vendor"},
   device_sleep = true, -- devices at rest sleep through silence; the sound is the same
+  -- "edit" lowers the costly settings of the built-in devices while paw
+  -- plays live, such as the oversampling of a saturation. Renders, exports,
+  -- stems, freezes and bounces always play at "full".
+  quality = "full",
   grid = 1, -- arrange cursor step and snap, in beats
   zoom = 2, -- arrange columns per beat
   track_height = "auto", -- arrange rows per track; "auto" fits the tracks to the screen, 3 to 4
@@ -189,6 +193,7 @@ local specs: {string: Spec} = {
   termcolors = {type = {"string", "number"}},
   curve_glyphs = {values = {"sextant", "braille", "line"}},
   wave_scale = {values = {"linear", "db"}},
+  quality = {values = {"full", "edit"}},
   jumpview = {values = {"left", "center"}},
   jumpmargin = {min = 0, max = 200, integer = true},
   fps = {min = 1, max = 240},

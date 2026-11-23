@@ -364,6 +364,17 @@ test("wet/dry: at 0 % a device is not heard at all, at 100 % it is all that is h
   )
 end)
 
+test("quality: a render while paw plays in edit quality is the same, bit for bit, as at full quality", function()
+  fresh()
+  local t = T.tone("tone", 2, "A5")
+  -- Driven hard at 4x: without the oversampling, its harmonics fold back.
+  t:add_device("saturation", { drive = 30, oversample = 1 })
+  local full = T.render({ bits = 32, tail = 0.1 })
+  paw.opt.quality = "edit"
+  local edit = T.render({ bits = 32, tail = 0.1 })
+  eq(samples(edit) == samples(full), true, "the render plays at full quality")
+end)
+
 test("wet/dry: the dry signal is held back by the device's latency", function()
   fresh()
   local t = T.tone("tone", 2)

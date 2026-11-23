@@ -10242,6 +10242,14 @@ function paw.api.engine_reset_stats() end
 ---@param opts any
 function paw.api.engine_restart(opts) end
 
+--- The quality that the built-in devices play at live: `"full"`, or
+--- `"edit"` to lower their costly settings while you edit, such as the
+--- oversampling of `saturation`. A render, an export, stems, a
+--- freeze and a bounce always play at full quality. `paw.opt.quality`
+--- calls it.
+---@param quality string
+function paw.api.engine_set_quality(quality) end
+
 --- With true, devices at rest sleep through silence: a reverb after
 --- its tail, a synth with no note that sounds. When the song is
 --- stopped and nothing sounds, the whole engine rests. The sound is

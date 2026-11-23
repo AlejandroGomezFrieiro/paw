@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
 use paw_engine::device::{Controller, Device, Instance, Io, ParamInfo};
-use paw_engine::{MAX_PAIRS, ProcessCtx, Registry, Waker};
+use paw_engine::{MAX_PAIRS, ProcessCtx, Quality, Registry, Waker};
 use super::*;
 use super::shm::*;
 use super::wire::*;
@@ -109,6 +109,8 @@ fn process_ctx(head: &BlockContext) -> ProcessCtx {
         seconds: head.seconds,
         bar: head.bar,
         bar_start: head.bar_start,
+        // Only plugins run here, and they do not read it.
+        quality: Quality::Full,
     }
 }
 

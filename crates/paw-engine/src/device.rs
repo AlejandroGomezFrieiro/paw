@@ -27,6 +27,34 @@ pub struct ProcessCtx {
     /// in beats.
     pub bar: i64,
     pub bar_start: f64,
+    /// How much work the built-in devices put into their costly settings.
+    pub quality: Quality,
+}
+
+/// The quality the built-in devices play at. A device with a costly
+/// setting, such as the oversampling of `saturation`, lowers it in
+/// [`Quality::Edit`]. Live playback takes the quality from
+/// [`Msg::SetQuality`](crate::Msg::SetQuality); an engine made for a render,
+/// an export, a freeze or a bounce stays at [`Quality::Full`].
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Quality {
+    /// The sound of a render: each device at its own settings.
+    #[default]
+    Full,
+    /// Cheaper while the user edits: the sound is close, not final.
+    Edit,
+}
+
+impl FromStr for Quality {
+    type Err = anyhow::Error;
+
+    fn from_str(word: &str) -> Result<Self> {
+        match word {
+            "full" => Ok(Self::Full),
+            "edit" => Ok(Self::Edit),
+            _ => anyhow::bail!("quality is \"full\" or \"edit\", not `{word}`"),
+        }
+    }
 }
 
 impl ProcessCtx {
@@ -42,6 +70,7 @@ impl ProcessCtx {
             seconds: 0.0,
             bar: 0,
             bar_start: 0.0,
+            quality: Quality::Full,
         }
     }
 }

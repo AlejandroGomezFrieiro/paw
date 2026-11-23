@@ -14,7 +14,7 @@ use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use paw_engine::backend::{self, BackendChoice, BackendOptions, Stream, StreamInfo};
 use paw_engine::midi::{MidiInputs, MidiSink};
-use paw_engine::{Engine, EngineHandle, EventKind, Msg, ParamInfo, Pool, Registry};
+use paw_engine::{Engine, EngineHandle, EventKind, Msg, ParamInfo, Pool, Quality, Registry};
 use paw_proto::dirs::Dirs;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Map, Value, json};
@@ -591,7 +591,7 @@ impl Session {
         let mut session = Self {
             synced: doc.project.clone(),
             doc,
-            engine: engine::EngineLink { handle, map: Mapper::new(), stream, threads: 0, sleep: true, backend: opts.clone() },
+            engine: engine::EngineLink { handle, map: Mapper::new(), stream, threads: 0, sleep: true, quality: Quality::Full, backend: opts.clone() },
             registry,
             audio: AudioCache::default(),
             trims: 0,
@@ -619,7 +619,7 @@ impl Session {
             audition: Default::default(),
         };
         session.doc.warnings.extend(session.engine.stream.info.warning.clone());
-        session.send_pool();
+        session.send_settings();
         session.send_transport();
         session.connect_midi();
         Ok(session)

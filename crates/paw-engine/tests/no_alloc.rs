@@ -13,7 +13,8 @@ use paw_engine::record::{AudioCapture, Take, TakeShared};
 use paw_engine::{
     Attr, AudioData, AudioRegion, AutoLane, AutoTarget, Automation, ClipSet, Ctl, Delay,
     DeviceSlot, Engine, EngineHandle, EventKind, KeyRt, MAX_BLOCK, Msg, NoteCtl, OutRt, Pool,
-    Registry, SchedEntry, Schedule, SendRt, StateChange, StateLane, Switch, TrackRt, TrackSlot,
+    Quality, Registry, SchedEntry, Schedule, SendRt, StateChange, StateLane, Switch, TrackRt,
+    TrackSlot,
 };
 
 // Not `assert_no_alloc`: it forbids only inside a closure and counts on the
@@ -192,7 +193,14 @@ fn clips(audio: &Arc<AudioData>, notes: usize) -> Box<ClipSet> {
 }
 
 /// The device of each track that listens to a side-chain: its last.
-const KINDS: [&str; 5] = ["synth", "drums", "gain", "delay", "compressor"];
+const KINDS: [&str; 6] = [
+    "synth",
+    "drums",
+    "gain",
+    "saturation",
+    "delay",
+    "compressor",
+];
 fn keyed_device(track: usize) -> DeviceSlot {
     DeviceSlot((track * KINDS.len() + KINDS.len() - 1) as u32)
 }
@@ -324,6 +332,16 @@ fn the_audio_thread_never_allocates() {
             .map(|k| DeviceSlot((i * kinds.len() + k) as u32))
             .collect();
         send(&mut handle, Msg::SetChain { track: slot, chain });
+        // The saturation at 4x (its parameter 2), which edit quality plays
+        // without oversampling.
+        send(
+            &mut handle,
+            Msg::SetParam {
+                device: DeviceSlot((i * kinds.len() + 3) as u32),
+                param: 2,
+                value: 1.0,
+            },
+        );
         // Every other track has a time of its own, as a subproject's track
         // does: its devices see its bars.
         if i % 2 == 1 {
@@ -469,6 +487,10 @@ fn the_audio_thread_never_allocates() {
     send(&mut handle, Msg::SetMetronome(true));
     send(&mut handle, Msg::Play);
     assert_eq!(run(&mut engine, 200, 512, 4), 0, "set-up and playback");
+    send(&mut handle, Msg::SetQuality(Quality::Edit));
+    assert_eq!(run(&mut engine, 20, 512, 4), 0, "playback in edit quality");
+    send(&mut handle, Msg::SetQuality(Quality::Full));
+    assert_eq!(run(&mut engine, 20, 512, 4), 0, "back to full quality");
 
     // The rest on several threads. The workers count as audio threads too:
     // every one of them is marked before the engine is given the pool.

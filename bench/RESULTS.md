@@ -7,6 +7,43 @@ How to run everything: [README.md](README.md). Raw numbers:
 matrix before it). The processor time of the whole program while it plays,
 against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md).
 
+## 2026-11-23: what the built-in effects cost live, for edit quality
+
+`paw.opt.quality = "edit"` lowers the costly settings of the built-in
+devices while paw plays live. To choose the devices, `bench/quality.lua`
+measured each effect live: 16 audio tracks with one effect each, on the
+null backend at 256 frames and 48 kHz, on one thread. Binary of main at
+7f02e829. Five interleaved rounds of 3 s for each device, under
+`flock` and `taskset -c 16-23`. Measured under external load (load
+average 10 to 14). Raw numbers: `results/quality-2026-11-23.jsonl`.
+
+The processor time is that of the audio thread, from its `schedstat`.
+"One instance" is (device - none) / 16.
+
+| Device on 16 tracks | Audio thread, % of a core: median (range) | One instance, % of a core | Mean time per block, ms (budget 5.33) |
+| --- | ---: | ---: | ---: |
+| none | 2.25 (2.12 to 2.30) | | 0.095 |
+| `saturation` at 4x, drive 12 dB | 38.30 (37.61 to 38.55) | 2.25 | 2.03 |
+| `reverb` | 27.38 (26.73 to 28.93) | 1.57 | 1.45 |
+| `chorus` | 15.59 (14.38 to 17.38) | 0.83 | 0.82 |
+| `compressor` (threshold -30 dB, look-ahead 2 ms) | 6.76 (6.27 to 7.27) | 0.28 | 0.34 |
+
+The decision:
+
+- The `saturation` at 4x costs the most. Edit quality turns its
+  oversampling off.
+- The `reverb` costs 70 % of a `saturation` at 4x. Its cost is in its
+  eight delay lines and their drift. Edit quality does not change it,
+  because a reverb without the drift rings with a metallic sound, and
+  the mix decisions of the user then rest on a wrong sound. A project
+  usually has few reverbs, on buses.
+- The `chorus` and the `compressor` cost little. Edit quality does not
+  change them.
+
+16 saturations at 4x with `full` and with `edit`: not measured yet. The
+shared binary did not have the change. Run
+`bench/quality.lua 16 3 5` with a build of the branch.
+
 ## 2026-11-23: the first scope keys after the group tree change
 
 ## 2026-11-23: the check of a frozen track after an edit

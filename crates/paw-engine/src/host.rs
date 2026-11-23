@@ -282,6 +282,7 @@ mod tests {
             seconds: 0.0,
             bar: 0,
             bar_start: 0.0,
+            quality: crate::device::Quality::Full,
         }
     }
 

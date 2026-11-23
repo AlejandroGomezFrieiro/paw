@@ -210,6 +210,10 @@ pub enum Msg {
     /// Whether devices at rest are left asleep through silent blocks (see
     /// [`Device::resting`]). The sound is the same either way.
     SetSleep(bool),
+    /// The quality the built-in devices play at, from the next block on
+    /// (see [`Quality`](crate::Quality)). Only the live engine takes it: an
+    /// engine made for a render stays at full quality.
+    SetQuality(crate::Quality),
 }
 
 pub(super) enum Garbage {

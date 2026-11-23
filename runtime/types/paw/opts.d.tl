@@ -82,6 +82,7 @@ local record Opts
    project_screen: boolean
    qf_diagnostics: string
    qf_height: number
+   quality: string
    regionlevels: number
    relativebar: boolean
    relativenumber: boolean
