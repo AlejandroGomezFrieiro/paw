@@ -41,6 +41,7 @@ Use the helpers of `T`. Do not copy them into a file (a local `start`,
 | `T.keys(text)` | Feed keys through the keymap, as the user types them (`"<Esc>dd"`). |
 | `T.eq(got, want, what)`, `T.near(got, want, tolerance, what)` | Compare a value. `what` tells what the value is. `T.eq` compares two tables by their values (deep). |
 | `T.fails(fn, pattern, what)` | `fn` gives an error that matches `pattern`. |
+| `T.expect_error(pattern)` | The test gives an error on the message line that matches `pattern`. Without it, such an error fails the test. |
 | `T.render(opts)` | Render offline to a file under `T.scratch`. The result does not depend on the machine. |
 | `T.frequency(info, from, to)`, `T.channel_peaks(info, from, to)` | Read a render. |
 | `T.tone`, `T.three_clips`, `T.melody`, `T.layout`, `T.roll_notes` | Fixtures. |
@@ -130,6 +131,9 @@ the owner's computer or folders. Mock what it needs.
   action is one undo step).
 - A command or a key that can fail has a test of its message, not only
   of the success.
+- The runner fails a test when an error of `paw.try` (an event handler, a
+  timer, a key) comes and the test does not expect it. Before a test
+  checks an error message, it calls `T.expect_error(pattern)`.
 - Write the expected value as a literal (`T.eq(name, "Bass 2")`). Do not
   compute it with the code under test.
 - Where the result depends on a combination (mode, selection, view),

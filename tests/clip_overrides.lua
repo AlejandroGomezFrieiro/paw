@@ -118,6 +118,8 @@ end)
 test(":clip.override refuses what is not a whole number from -127 to 127", function()
   local _, _, copy = linked()
   local function said() return paw.ui.messages[#paw.ui.messages].text end
+  T.expect_error("from %-127 to 127")
+  T.expect_error("^usage: clip.override")
   keys(":clip.override transpose=200<CR>")
   eq(said():find("from -127 to 127", 1, true) ~= nil, true, "out of range: " .. said())
   keys(":clip.override pitch=3<CR>")
