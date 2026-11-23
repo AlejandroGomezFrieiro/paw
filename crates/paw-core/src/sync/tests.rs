@@ -755,11 +755,11 @@ fn null_moved() -> Project {
 
 /// The mix, saved to a project folder and read back.
 fn null_saved_and_loaded() -> Project {
-    use crate::session::folder::{commit, layout, read};
+    use crate::session::folder::{Home, commit, layout, read};
     let dir = tempfile::tempdir().unwrap();
-    let files = layout(&null_mix(), &Value::Null, None, dir.path()).unwrap();
+    let files = layout(&null_mix(), &Value::Null, None, dir.path(), &Home::default()).unwrap();
     commit(dir.path(), &files, None).unwrap();
-    read(dir.path()).unwrap().project
+    read(&Home::default(), dir.path()).unwrap().project
 }
 
 /// The mix with the delay of Keys bypassed.

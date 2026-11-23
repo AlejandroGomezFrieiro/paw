@@ -2,13 +2,13 @@
 //! directory added while the program runs, given notes with attributes as
 //! MIDI 2.0, and asked what it calls its keys.
 
-use std::path::PathBuf;
-
 use paw_engine::{Attr, Event, EventBuf, EventKind, Io, ProcessCtx, Registry};
+use paw_plugins::PluginDirs;
+use tempfile::TempDir;
 
 /// A directory holding the stub, as `stub.clap`. `cargo test` builds the
 /// examples beside the tests.
-fn stub_dir() -> PathBuf {
+fn stub_dir() -> TempDir {
     let exe = std::env::current_exe().unwrap();
     let built = exe
         .parent()
@@ -20,9 +20,8 @@ fn stub_dir() -> PathBuf {
         "{} is built by `cargo test`",
         built.display()
     );
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("stub-plugin");
-    std::fs::create_dir_all(&dir).unwrap();
-    std::fs::copy(&built, dir.join("stub.clap")).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::copy(&built, dir.path().join("stub.clap")).unwrap();
     dir
 }
 
@@ -32,7 +31,9 @@ fn a_plugin_in_an_added_directory_takes_the_attribute_and_names_its_keys() {
     let mut registry = Registry::default();
     let kind = "clap:dev.paw.stub";
     assert!(registry.get(kind).is_none());
-    let (kinds, notes) = paw_plugins::add_dir(&mut registry, None, &dir);
+    // No usual folders: only the added one is searched.
+    let mut dirs = PluginDirs::default();
+    let (kinds, notes) = paw_plugins::add_dir(&mut registry, None, &mut dirs, dir.path());
     assert_eq!(
         kinds,
         [kind],
@@ -69,7 +70,7 @@ fn a_plugin_in_an_added_directory_takes_the_attribute_and_names_its_keys() {
     );
     // The plugin prefers MIDI 2.0: the note-on came as a packet with the
     // attribute's type in its first word and its data in its second.
-    let lib = unsafe { libloading::Library::new(dir.join("stub.clap")).unwrap() };
+    let lib = unsafe { libloading::Library::new(dir.path().join("stub.clap")).unwrap() };
     let last: libloading::Symbol<unsafe extern "C" fn(*mut u32) -> u32> =
         unsafe { lib.get(b"stub_clap_last\0").unwrap() };
     let mut words = [0u32; 2];

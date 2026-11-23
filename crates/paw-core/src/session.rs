@@ -16,6 +16,7 @@ use paw_engine::backend::{self, BackendChoice, BackendOptions, Stream, StreamInf
 use paw_engine::midi::{MidiInputs, MidiSink};
 use paw_engine::record::{self, AudioCapture, MidiCapture, Take, TakeShared};
 use paw_engine::{Engine, EngineHandle, EventKind, Msg, ParamInfo, Pool, Registry};
+use paw_proto::dirs::Dirs;
 use rtrb::RingBuffer;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Map, Value, json};
@@ -575,6 +576,14 @@ pub struct Session {
     /// Where the devices chosen with [`audio_use`](Self::audio_use) are
     /// remembered, or `None` not to remember them.
     pub device_file: Option<PathBuf>,
+    /// The home folder that `~/` names in the project's files. The kernel
+    /// sets it once from `KernelOpts::home`; none until then.
+    pub(crate) home: folder::Home,
+    /// The user's base directories: where the recordings of a project with
+    /// no file, the safety copy of a panic and the caches go. The kernel sets
+    /// them once from `KernelOpts::dirs`; none until then (the temporary
+    /// directory).
+    pub(crate) dirs: Dirs,
     /// The render running on a thread of its own: session/render.rs.
     render_job: Option<render::Job>,
     /// The state each state lane last gave its device from the main
@@ -688,6 +697,8 @@ impl Session {
             midi: Default::default(),
             writing: write::Writing::default(),
             device_file: None,
+            home: folder::Home::default(),
+            dirs: Dirs::default(),
             render_job: None,
             state_given: Default::default(),
             loads: Default::default(),
@@ -756,9 +767,8 @@ impl Drop for Session {
 }
 
 /// Where recordings go while the project has no file.
-fn scratch_media_dir() -> PathBuf {
-    let base = paw_proto::dirs::data().unwrap_or_else(std::env::temp_dir);
-    base.join("paw").join("recordings")
+fn scratch_media_dir(dirs: &Dirs) -> PathBuf {
+    dirs.paw_data().join("recordings")
 }
 
 /// A name made of letters, digits, `-` and `_`, for use in a file name.

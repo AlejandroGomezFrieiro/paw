@@ -6,7 +6,7 @@ use std::ffi::{CStr, CString, c_void};
 use std::path::PathBuf;
 use std::ptr;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering::Relaxed};
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 
 use paw_engine::ParamInfo;
 use lilv_sys::*;
@@ -78,6 +78,8 @@ pub(super) struct UiInfo {
     pub(super) binary: PathBuf,
     pub(super) bundle: CString,
     pub(super) kind: UiKind,
+    /// Where the libraries that the editor needs are looked for.
+    pub(super) libraries: Arc<[PathBuf]>,
 }
 
 /// The ways an LV2 editor can get on screen, best first.

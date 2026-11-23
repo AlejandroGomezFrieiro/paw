@@ -8,6 +8,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use mlua::{Lua, Table};
+use paw_proto::dirs::Dirs;
 use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
 
 fn fail(what: String) -> mlua::Error {
@@ -61,9 +62,8 @@ fn copy_tree(from: &Path, to: &Path) -> io::Result<()> {
 }
 
 /// The user's trash directory (freedesktop.org Trash specification).
-fn trash_dir() -> Option<PathBuf> {
-    let base = paw_proto::dirs::data()?;
-    Some(base.join("Trash"))
+fn trash_dir(dirs: &Dirs) -> Option<PathBuf> {
+    Some(dirs.data.as_ref()?.join("Trash"))
 }
 
 /// A name in `dir` that is free, from `name`: `a.wav`, `a.2.wav`, `a.3.wav`.
@@ -117,15 +117,16 @@ fn deletion_date() -> String {
 }
 
 /// Put a file in the trash, with the record of where it came from that
-/// lets a file manager put it back. Returns where it is now.
-fn trash(path: &Path) -> Result<PathBuf, String> {
+/// lets a file manager put it back, in the trash directory `root`. Returns
+/// where it is now.
+fn trash(path: &Path, root: Option<&Path>) -> Result<PathBuf, String> {
     path.symlink_metadata()
         .map_err(|e| format!("{}: {e}", path.display()))?;
     let name = path.file_name().ok_or("there is no name to trash")?;
     let abs = fs::canonicalize(path.parent().filter(|p| !p.as_os_str().is_empty()).unwrap_or(Path::new(".")))
         .map_err(|e| format!("{}: {e}", path.display()))?
         .join(name);
-    let Some(root) = trash_dir() else {
+    let Some(root) = root else {
         return Err("there is no trash: no home directory".into());
     };
     let (files, info) = (root.join("files"), root.join("info"));
@@ -157,7 +158,8 @@ fn trash(path: &Path) -> Result<PathBuf, String> {
     }
 }
 
-pub fn install(lua: &Lua, api: &Table) -> mlua::Result<()> {
+pub fn install(lua: &Lua, api: &Table, dirs: &Dirs) -> mlua::Result<()> {
+    let trash_root = trash_dir(dirs);
     // `{ kind = "file" | "dir" | "link", dir, size, mtime }`, or nil when
     // nothing is there. A link is looked at, not followed, for its kind,
     // and `dir` is true if it leads to a directory.
@@ -239,8 +241,8 @@ pub fn install(lua: &Lua, api: &Table) -> mlua::Result<()> {
     // @return string
     api.set(
         "fs_trash",
-        lua.create_function(|_, path: String| {
-            trash(Path::new(&path))
+        lua.create_function(move |_, path: String| {
+            trash(Path::new(&path), trash_root.as_deref())
                 .map(|p| p.to_string_lossy().into_owned())
                 .map_err(fail)
         })?,

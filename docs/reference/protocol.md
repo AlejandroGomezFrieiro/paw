@@ -585,8 +585,9 @@ runtime.
 | Name | Effect |
 | --- | --- |
 | `Connection::unix(path)` | Connects to a Unix socket. |
-| `Connection::tcp(address, token)` | Connects over TLS. It remembers the certificate in the state directory. |
+| `Connection::tcp_with(address, token, &Wire::tls(&dirs))` | Connects over TLS. It remembers the certificate in the state directory of `dirs`. |
 | `Connection::tcp_with(address, token, &Wire::…)` | Connects with TLS and a different file of known certificates, or without TLS. |
+| `dirs::Dirs::from_vars(\|name\| std::env::var_os(name))` | Finds the folders of the user from `XDG_*` and `HOME`. The program does this once when it starts, and gives the folders to the functions that need them. |
 | `call(method, params)` | Sends a request and waits for its reply. |
 | `notify(method, params)` | Sends a request without a reply. |
 | `events` | The channel of events. |

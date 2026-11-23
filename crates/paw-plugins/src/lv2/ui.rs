@@ -6,9 +6,10 @@ use std::path::PathBuf;
 use std::ptr;
 use std::sync::Arc;
 
+use anyhow::{Context, Result, anyhow};
 use lilv_sys::*;
 
-use crate::window::{GtkWindow, HostWindow};
+use crate::window::{GtkWindow, HostWindow, ui_scale};
 use super::*;
 use super::urid::*;
 use super::world::*;
@@ -127,7 +128,12 @@ pub(super) const IDLE_INTERFACE: &CStr = c"http://lv2plug.in/ns/extensions/ui#id
 /// their own, which is what `ui:showInterface` and the older "external UI"
 /// are for: the toolkit then runs inside the editor's library and this host
 /// links none of them. A bare Gtk widget is put in a Gtk window here.
-pub(super) unsafe fn find_ui(plugin: *const LilvPlugin) -> Option<UiInfo> {
+///
+/// The editor's library looks for what it needs in `libraries`.
+pub(super) unsafe fn find_ui(
+    plugin: *const LilvPlugin,
+    libraries: &Arc<[PathBuf]>,
+) -> Option<UiInfo> {
     let w = world();
     // For trying a particular kind: `PAW_LV2_UI=x11|shows|external|gtk`.
     let only = std::env::var("PAW_LV2_UI").ok();
@@ -190,6 +196,7 @@ pub(super) unsafe fn find_ui(plugin: *const LilvPlugin) -> Option<UiInfo> {
                         binary: PathBuf::from(binary.to_string_lossy().into_owned()),
                         bundle: bundle.clone(),
                         kind,
+                        libraries: libraries.clone(),
                     });
                 }
             }
@@ -254,15 +261,258 @@ pub(super) struct Ui {
     pub(super) surface: Surface,
     /// The last value shown for each control port, to send only what changed.
     pub(super) shown: Vec<f32>,
-    // What the editor was handed at instantiation and may still point to.
-    pub(super) _features: Vec<Feature>,
-    pub(super) _feature_list: Vec<*const Feature>,
-    pub(super) _resize: Box<UiResize>,
-    pub(super) _port_map: Box<UiPortMap>,
-    pub(super) _external: Box<ExternalHost>,
-    pub(super) _data_access: Option<Box<DataAccess>>,
-    pub(super) _options: Vec<OptionsOption>,
-    pub(super) _scale: Box<f32>,
-    pub(super) _title: CString,
+    /// What the editor was handed at instantiation and may still point to.
+    pub(super) _features: UiFeatures,
+}
+
+/// The host features an editor is handed at instantiation. Each pointer in
+/// them leads into a box, a vector's buffer or a string of this struct, so
+/// they stay good when it moves; it lives as long as the editor.
+pub(super) struct UiFeatures {
+    _features: Vec<Feature>,
+    /// Pointers to `features`, ended by a null pointer.
+    feature_list: Vec<*const Feature>,
+    _resize: Box<UiResize>,
+    _port_map: Box<UiPortMap>,
+    _external: Box<ExternalHost>,
+    _data_access: Option<Box<DataAccess>>,
+    _options: Vec<OptionsOption>,
+    _scale: Box<f32>,
+    /// The editor's window title.
+    pub(super) title: CString,
+}
+
+impl UiFeatures {
+    /// The features for an editor of `shared`'s plugin: `link` is the
+    /// controller's `UiLink`, and `window` the window to embed the editor in,
+    /// if any.
+    ///
+    /// # Safety
+    ///
+    /// `shared.instance` is a live instance, and `link` points to a `UiLink`
+    /// that lives as long as the editor. Main thread.
+    pub(super) unsafe fn new(
+        shared: &Shared,
+        link: *mut c_void,
+        title: CString,
+        window: Option<&HostWindow>,
+    ) -> Self {
+        let mut resize = Box::new(UiResize {
+            handle: link,
+            ui_resize,
+        });
+        let mut port_map = Box::new(UiPortMap {
+            handle: link,
+            port_index: ui_port_index,
+        });
+        let mut external = Box::new(ExternalHost {
+            ui_closed,
+            plugin_human_id: title.as_ptr(),
+        });
+        let host = &shared.host;
+        // The plugin's options, plus how much to magnify the editor.
+        let scale = Box::new(ui_scale() as f32);
+        let u = urids();
+        let mut options: Vec<OptionsOption> = host.options[..3]
+            .iter()
+            .map(|o| OptionsOption {
+                context: 0,
+                subject: 0,
+                key: o.key,
+                size: o.size,
+                type_: o.type_,
+                value: o.value,
+            })
+            .collect();
+        options.push(OptionsOption {
+            context: 0,
+            subject: 0,
+            key: u.scale_factor,
+            size: 4,
+            type_: u.float,
+            value: (&*scale as *const f32).cast(),
+        });
+        // For editors that make their own window.
+        options.push(OptionsOption {
+            context: 0,
+            subject: 0,
+            key: u.window_title,
+            size: title.as_bytes_with_nul().len() as u32,
+            type_: u.string,
+            value: title.as_ptr().cast(),
+        });
+        options.push(OptionsOption {
+            context: 0,
+            subject: 0,
+            key: 0,
+            size: 0,
+            type_: 0,
+            value: ptr::null(),
+        });
+
+        let feature = |uri: &'static CStr, data: *mut c_void| Feature {
+            uri: uri.as_ptr(),
+            data,
+        };
+        // SAFETY: `shared.instance` is live (see `# Safety`), and so is its descriptor; the
+        // transmute only marks the plugin's own `extension_data` function as unsafe to call.
+        let (handle, mut data_access) = unsafe {
+            (
+                lilv_instance_get_handle(shared.instance),
+                (*(*shared.instance).lv2_descriptor).extension_data.map(|get| {
+                    Box::new(DataAccess {
+                        data_access: std::mem::transmute::<
+                            extern "C" fn(*const c_char) -> *const c_void,
+                            unsafe extern "C" fn(*const c_char) -> *const c_void,
+                        >(get),
+                    })
+                }),
+            )
+        };
+        let mut features = vec![
+            feature(URID_MAP, &host.map as *const UridMap as *mut c_void),
+            feature(URID_UNMAP, &host.unmap as *const UridUnmap as *mut c_void),
+            feature(OPTIONS, options.as_mut_ptr() as *mut c_void),
+            feature(
+                c"http://lv2plug.in/ns/extensions/ui#resize",
+                &mut *resize as *mut UiResize as *mut c_void,
+            ),
+            feature(
+                c"http://lv2plug.in/ns/extensions/ui#portMap",
+                &mut *port_map as *mut UiPortMap as *mut c_void,
+            ),
+            feature(IDLE_INTERFACE, ptr::null_mut()),
+            feature(c"http://lv2plug.in/ns/ext/instance-access", handle.cast()),
+            feature(
+                EXTERNAL_HOST,
+                &mut *external as *mut ExternalHost as *mut c_void,
+            ),
+        ];
+        if let Some(window) = window {
+            features.push(feature(
+                c"http://lv2plug.in/ns/extensions/ui#parent",
+                window.id() as usize as *mut c_void,
+            ));
+        }
+        // Some editors read the plugin's extension data directly.
+        if let Some(access) = data_access.as_mut() {
+            features.push(feature(
+                c"http://lv2plug.in/ns/ext/data-access",
+                &mut **access as *mut DataAccess as *mut c_void,
+            ));
+        }
+        let mut feature_list: Vec<*const Feature> =
+            features.iter().map(|f| f as *const Feature).collect();
+        feature_list.push(ptr::null());
+        Self {
+            _features: features,
+            feature_list,
+            _resize: resize,
+            _port_map: port_map,
+            _external: external,
+            _data_access: data_access,
+            _options: options,
+            _scale: scale,
+            title,
+        }
+    }
+
+    /// The null-terminated list of the features, as `instantiate` takes it.
+    pub(super) fn list(&self) -> *const *const Feature {
+        self.feature_list.as_ptr()
+    }
+}
+
+/// Load the editor's library, and find the editor in it.
+///
+/// # Safety
+///
+/// `info` names an LV2 editor library. Main thread.
+pub(super) unsafe fn ui_descriptor(info: &UiInfo) -> Result<*const UiDescriptor> {
+    // SAFETY: The editor library is opened by `open_library` and never unloaded, so the descriptor
+    // and everything it points to stay valid; `lv2ui_descriptor` has the signature given by the
+    // LV2 UI spec.
+    unsafe {
+        // Never unloaded, like the plugins themselves.
+        let lib = std::mem::ManuallyDrop::new(libloading::Library::from(
+            crate::libs::open_library(&info.binary, &info.libraries)
+                .with_context(|| format!("loading {}", info.binary.display()))?,
+        ));
+        let get = lib
+            .get::<unsafe extern "C" fn(u32) -> *const UiDescriptor>(b"lv2ui_descriptor\0")
+            .context("not an LV2 editor")?;
+        (0..)
+            .map(|index| get(index))
+            .take_while(|d| !d.is_null())
+            .find(|d| CStr::from_ptr((**d).uri) == info.uri.as_c_str())
+            .context("the editor is not in its library")
+    }
+}
+
+/// The editor's extension data with this URI, or null.
+///
+/// # Safety
+///
+/// `descriptor` is a live editor descriptor.
+pub(super) unsafe fn ui_extension(descriptor: *const UiDescriptor, uri: &CStr) -> *const c_void {
+    // SAFETY: `descriptor` is live (see `# Safety`), and its `extension_data` takes a URI.
+    unsafe {
+        (*descriptor)
+            .extension_data
+            .map_or(ptr::null(), |data| data(uri.as_ptr()))
+    }
+}
+
+/// Put an editor that was just made on screen, the way its kind shows:
+/// in `window`, fit to its size (`resize` holds the size it asked for), or
+/// in a window of its own.
+///
+/// # Safety
+///
+/// `descriptor`, `handle` and `widget` are those of an editor just made
+/// by `instantiate`, and not cleaned up. Main thread.
+pub(super) unsafe fn show_editor(
+    kind: UiKind,
+    window: Option<HostWindow>,
+    descriptor: *const UiDescriptor,
+    handle: *mut c_void,
+    widget: *mut c_void,
+    resize: &Cell<Option<(u32, u32)>>,
+    title: &CStr,
+) -> Result<Surface> {
+    // SAFETY: The editor's pointers are live (see `# Safety`); an external widget is the
+    // `ExternalWidget` that the editor made, and a show interface is the one it gives.
+    unsafe {
+        match (kind, window) {
+            (UiKind::X11, Some(mut window)) => {
+                // Fit the window to the editor: what it asked for, else what it made.
+                if let Some((width, height)) =
+                    resize.take().or_else(|| window.child_size(widget as usize as u32))
+                {
+                    window.resize(width, height);
+                }
+                // LV2 editors size themselves; the host has no way to ask
+                // them to follow a window.
+                window.set_fixed(true);
+                Ok(Surface::Embedded(window))
+            }
+            (UiKind::External, _) if !widget.is_null() => {
+                let widget = widget as *mut ExternalWidget;
+                ((*widget).show)(widget);
+                Ok(Surface::External(widget))
+            }
+            (UiKind::Shows, _) => {
+                match (ui_extension(descriptor, SHOW_INTERFACE) as *const ShowInterface).as_ref() {
+                    Some(show) => {
+                        (show.show)(handle);
+                        Ok(Surface::Own(show))
+                    }
+                    None => Err(anyhow!("the editor does not say how to show itself")),
+                }
+            }
+            (UiKind::Gtk, _) => GtkWindow::wrap(widget, title).map(Surface::Gtk),
+            _ => Err(anyhow!("the editor gave back no window")),
+        }
+    }
 }
 

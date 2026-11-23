@@ -21,6 +21,7 @@ use tokio::time::timeout;
 use tokio_rustls::TlsConnector;
 use tokio_rustls::client::TlsStream;
 
+use crate::dirs::Dirs;
 use crate::{HELLO_TIME, hex, sha256};
 
 /// The cryptography everything here uses: ring's, which is pure Rust and
@@ -39,8 +40,15 @@ pub fn fingerprint(der: &[u8]) -> String {
 
 /// What the client knows of the instances it has connected to: one line
 /// each, the address as it was given and its certificate's fingerprint.
+pub fn known_file(dirs: &Dirs) -> PathBuf {
+    dirs.paw_state().join("known_instances")
+}
+
+/// [`known_file`] for the directories in the environment now. Only the
+/// window (`paw-gui`, paused) calls it; a new caller uses [`known_file`]
+/// with the directories of its program's start.
 pub fn known_path() -> PathBuf {
-    crate::state_dir().join("known_instances")
+    known_file(&Dirs::from_vars(|name| std::env::var_os(name)))
 }
 
 /// The fingerprint remembered for `address` in `file`.
@@ -81,10 +89,12 @@ pub enum Wire {
     Plain,
 }
 
-impl Default for Wire {
-    fn default() -> Self {
+impl Wire {
+    /// In TLS, holding each instance to the certificate remembered in the
+    /// state directory of `dirs`.
+    pub fn tls(dirs: &Dirs) -> Self {
         Wire::Tls {
-            known: known_path(),
+            known: known_file(dirs),
             accept_new: false,
         }
     }

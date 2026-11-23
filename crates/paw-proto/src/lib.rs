@@ -15,7 +15,7 @@ pub mod tls;
 
 use std::io::Read;
 use std::net::{SocketAddr, ToSocketAddrs};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::time::Duration;
 
@@ -36,12 +36,6 @@ const HELLO_TIME: Duration = Duration::from_secs(10);
 /// subscriptions, the screen for remote terminals, and TCP; 3 put TCP inside
 /// TLS and gave every attached terminal and window a seat of its own.
 pub const VERSION: u32 = 3;
-
-/// Where this program keeps what it learns on this machine:
-/// `$XDG_STATE_HOME/paw`, by default `~/.local/state/paw`.
-pub fn state_dir() -> PathBuf {
-    dirs::state().unwrap_or_else(std::env::temp_dir).join("paw")
-}
 
 /// A connection, as the kernel names it. 0 is no connection at all: the
 /// program's own terminal, or a call made from inside.
@@ -88,13 +82,6 @@ impl Connection {
             .with_context(|| format!("no running instance at {}", path.display()))?;
         let (reader, writer) = stream.into_split();
         Self::start(reader, Box::new(writer), None)
-    }
-
-    /// Connect to a kernel listening on the network, in TLS, holding it to
-    /// the certificate this machine remembers for `address`, and show the
-    /// token.
-    pub fn tcp(address: &str, token: &str) -> Result<Self> {
-        Self::tcp_with(address, token, &Wire::default())
     }
 
     /// Connect to a kernel listening on the network, the way `wire` says.

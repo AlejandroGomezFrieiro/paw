@@ -14,8 +14,8 @@ use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 pub use paw_proto::tls::fingerprint;
 
 /// Where the certificate and its key are kept: `$XDG_STATE_HOME/paw/tls`.
-pub fn default_dir() -> PathBuf {
-    paw_proto::state_dir().join("tls")
+pub fn default_dir(dirs: &paw_proto::dirs::Dirs) -> PathBuf {
+    dirs.paw_state().join("tls")
 }
 
 /// The instance's certificate and private key, from `dir`, made and written
