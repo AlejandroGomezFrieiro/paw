@@ -360,6 +360,19 @@ local function until_(cond, what, ms)
   end
 end
 
+--- Wait until no meter of the engine shows a level: the master's and each
+--- track's are under the meters' floor (-60 dB). The engine lets a meter
+--- fall in its own blocks, which run on the wall clock, so the sound of a
+--- test before can still fall when the next test draws a meter.
+local function until_meters_at_rest()
+  until_(function()
+    for _, id in ipairs(api.track_list({ all = true })) do
+      if math.max(api.track_meter(id)) >= 0.001 then return false end
+    end
+    return math.max(api.track_meter(0)) < 0.001
+  end, "the meters of the engine at rest")
+end
+
 --- Let schedule time pass, from one due timer or delay to the next, until
 --- `cond()` gives a value that is not false or nil, and give that value.
 --- With no timer due, or while a helper process or the engine that plays
@@ -702,6 +715,7 @@ local T = {
   settle = settle,
   advance = advance,
   advance_until = advance_until,
+  until_meters_at_rest = until_meters_at_rest,
   manual = MANUAL,
   next_block = next_block,
   until_beat = until_beat,

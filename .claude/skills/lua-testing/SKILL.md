@@ -52,6 +52,7 @@ Use the helpers of `T`. Do not copy them into a file (a local `start`,
 | `T.advance(ms)` | Move the clock `ms`: each timer and settle delay fires in its order, then the kernel settles. The engine first runs one block, or the blocks of `ms` while it plays. |
 | `T.advance_until(cond, what, ms)` | Move the clock from one due time to the next until `cond` holds. With no timer, or while a helper or the engine is active, a step is one audio block. Fails after `ms` of schedule time. |
 | `T.next_block(n, device)` | Wait until the engine ran `n` blocks, so that a change is in effect. |
+| `T.until_meters_at_rest()` | Wait until no meter of the engine shows a level. The engine lets a meter fall in its own blocks on the wall clock: the sound of a test before can still show. Use it before a test draws or compares a meter. |
 | `T.until_beat(beat, rounds)` | Wait for the playhead. |
 | `T.scratch`, `T.read_file`, `T.write_file` | Files of the test. |
 | `T.home(dir)` | Make `HOME` a folder of the test until it ends (part 4). |

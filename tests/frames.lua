@@ -244,15 +244,6 @@ end)
 --- The arrange view above a piano roll on a clip of a track with a tone,
 --- the mixer below, and the roll with the keys. The windows are kept and
 --- put back, not checked.
---- True when no meter of the engine shows a level: the master's and each
---- track's are under the floor of the meters (-60 dB).
-local function meters_at_rest()
-  for _, id in ipairs(api.track_list({ all = true })) do
-    if math.max(api.track_meter(id)) >= 0.001 then return false end
-  end
-  return math.max(api.track_meter(0)) < 0.001
-end
-
 local function roll_between_others()
   T.fresh()
   local was = paw.opt.check_stamps
@@ -272,7 +263,7 @@ local function roll_between_others()
   -- audition of a test before (a move in the piano roll) leaves the
   -- master's meter falling in the engine's blocks, which run on the wall
   -- clock: wait for the blocks first, then let the screen's hold fall.
-  T.until_(meters_at_rest, "the meters of the engine at rest")
+  T.until_meters_at_rest()
   T.advance_until(function() return not paw.ui.active() end, "nothing that moves", 5000)
 end
 

@@ -227,6 +227,7 @@ plugin or a render. The audio engine also still plays in real time.
 | `T.advance(ms)` | Moves the clock by `ms` milliseconds. Each timer and delay that comes due in that time runs in its order, and then the kernel settles. First the audio engine plays one block. While the song plays or records, it plays the blocks of all of `ms`, so the clock doesn't get ahead of the sound. |
 | `T.until_(cond, what)` | Settles, and then checks `cond`. When nothing is left to do and `cond` is still false, it fails with `nothing is left to do, and <what> is false`. A timer that waits for the clock isn't work that is left. Before it fails, the audio engine plays about two seconds of blocks, so a meter can fall. The clock doesn't move, but while the song plays it keeps step with the sound. |
 | `T.advance_until(cond, what, ms)` | Moves the clock from one timer or delay to the next until `cond` holds. When no timer waits, or while a helper program works or the song plays, the clock moves by one audio block at a time. It fails when `ms` milliseconds have passed on the clock. |
+| `T.until_meters_at_rest()` | Waits until no meter of the audio engine shows a level. The engine lets a meter fall in its own blocks, in real time, so the sound of an earlier test can still show. Use it before a test draws or compares a meter. |
 
 For example, a test of a delay of 150 ms checks the state after
 `T.advance(149)` and again after `T.advance(1)`. On this clock,

@@ -72,6 +72,8 @@ test("a mixer strip says where its track plays into, and a click there offers th
   local a = paw.add_track({ name = "Alto" })
   local bus = paw.add_track({ name = "Bus" })
   a.output = bus
+  -- The meters show silence: the sound of a test before has fallen.
+  T.until_meters_at_rest()
   local s, at = shown(a, 30)
   -- Each strip names the track it plays into: Bus, Master, out.
   T.expect_screen("outputs", W, H, { rows = { 59, 88 } })
