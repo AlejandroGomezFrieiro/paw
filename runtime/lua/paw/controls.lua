@@ -68,7 +68,7 @@ end
 --- ticks a beat.
 local function snap(beat, free)
   if free or not paw.opt.note_snap then return math.floor(beat * 960 + 0.5) / 960 end
-  return util.round(beat, paw.opt.note_grid)
+  return util.round(beat, paw.timegrid.step("note"))
 end
 
 --- Put a clip's moves back, sorted by time as the core keeps them, and
@@ -214,7 +214,7 @@ function M.line(clip, kind, number, beat0, f0, beat1, f1, free)
       out[#out + 1] = control
     end
   end
-  local step = (free or not paw.opt.note_snap) and 1 / 32 or paw.opt.note_grid
+  local step = (free or not paw.opt.note_snap) and 1 / 32 or paw.timegrid.step("note")
   local steps = math.max(0, math.floor((beat1 - beat0) / step + 1e-6))
   local marked, made = {}, 0
   local function add(beat)

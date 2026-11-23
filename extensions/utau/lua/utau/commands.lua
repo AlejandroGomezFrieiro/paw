@@ -687,7 +687,7 @@ local function emap(lhs, rhs, desc, opts) map(lhs, rhs, paw.util.merge({ view = 
 local function move(dbeat, dpitch)
   return function(ctx)
     local n = ctx.count or 1
-    editor:move(dbeat * n * paw.opt.note_grid, dpitch * n)
+    editor:move(dbeat * n * paw.timegrid.step("note"), dpitch * n)
   end
 end
 local function steps(dir)
@@ -786,7 +786,7 @@ eop("y", function(clip, region, ctx)
   paw.notify(#value.notes == 1 and "yanked 1 note" or "yanked " .. #value.notes .. " notes")
 end, "Yank")
 local function shift(clip, region, by)
-  by = math.max(by * paw.opt.note_grid, region.kind == "line" and -math.huge or -region.c0)
+  by = math.max(by * paw.timegrid.step("note"), region.kind == "line" and -math.huge or -region.c0)
   edit.roll.each(clip, region, function(n) n.start = math.max(0, n.start + by) end)
   if region.kind ~= "line" then editor:move(by, 0) end
 end
@@ -866,10 +866,12 @@ end, "Type the lyric of the note, or add a note")
 -- A note's main value is its pitch, as in the piano roll; its length is
 -- `Alt-h` `Alt-l`, as a clip's is in the arrange view.
 local function lengthen()
-  editor:change_targets(function(n) n.length = n.length + paw.opt.note_grid end)
+  editor:change_targets(function(n) n.length = n.length + paw.timegrid.step("note") end)
 end
 local function shorten()
-  editor:change_targets(function(n) n.length = math.max(paw.opt.note_grid, n.length - paw.opt.note_grid) end)
+  editor:change_targets(
+    function(n) n.length = math.max(paw.timegrid.step("note"), n.length - paw.timegrid.step("note")) end
+  )
 end
 local function transpose(sign)
   return function(ctx)
@@ -887,11 +889,11 @@ emap("<A-h>", shorten, "Shorten the notes")
 paw.keymap.classic("+", lengthen, { view = "utau", desc = "Lengthen the notes" })
 paw.keymap.classic("-", shorten, { view = "utau", desc = "Shorten the notes" })
 emap("L", function()
-  editor:change_targets(function(n) n.start = n.start + paw.opt.note_grid end)
+  editor:change_targets(function(n) n.start = n.start + paw.timegrid.step("note") end)
 end, "Move the notes right")
 emap("H", function()
   local indices, list = editor:targets()
-  local step = paw.opt.note_grid
+  local step = paw.timegrid.step("note")
   for _, i in ipairs(indices) do
     step = math.min(step, list[i].start)
   end

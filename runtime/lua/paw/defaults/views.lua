@@ -79,14 +79,29 @@ command("zoom", function(ctx)
   end
 end, { desc = "Set columns per beat, or scale them, or show the whole song: `zoom 4`, `zoom by=2`, `zoom fit`" })
 command("grid", function(ctx)
-  local name = paw.ui.focused == "pianoroll" and "note_grid" or "grid"
+  local note = paw.ui.focused == "pianoroll"
+  local name = note and "note_grid" or "grid"
+  local which = note and "note" or nil
+  local text = ctx.args[1]
   if ctx.args.by then
-    paw.opt[name] = util.clamp(paw.opt[name] * ctx.args.by, 1 / 32, 16)
-  elseif tonumber(ctx.args[1]) then
-    paw.opt[name] = tonumber(ctx.args[1])
+    -- A note value stays one (`1/8t` by 2 is `1/4t`); else the step in beats.
+    local d, t = tostring(paw.opt[name]):match("^1/(%d+)(t?)$")
+    local den = d and tonumber(d) / ctx.args.by
+    if den and den >= 1 and den % 1 == 0 then
+      paw.opt[name] = "1/" .. den .. t
+    else
+      paw.opt[name] = util.clamp(paw.timegrid.step(which) * ctx.args.by, 1 / 32, 16)
+    end
+  elseif text then
+    local value = tonumber(text) or text
+    local ok, why = paw.option.check(name, value)
+    if not ok then return paw.notify(why, "error") end
+    paw.opt[name] = value
   end
-  paw.notify(string.format("grid %g beats", paw.opt[name]))
-end, { desc = "Set the grid in beats, or scale it: `grid 0.5`, `grid by=2`" })
+  paw.notify("grid " .. paw.timegrid.label(which))
+end, {
+  desc = "Set the grid: beats, a note value, bar, auto, frame or a time, or scale it: `grid 1/8t`, `grid bar`, `grid by=2`",
+})
 
 -- The default workspaces (paw/workspace.tl): a layout for each task, which
 -- `<Space>w` and a letter go to. `init.lua` can change them or add more

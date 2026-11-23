@@ -5,7 +5,6 @@
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local events = require("paw.events")
-local options = require("paw.options")
 local seats = require("paw.seats")
 local util = require("paw.util")
 local commands = require("paw.commands")
@@ -14,9 +13,9 @@ local type KeymapModule = require("paw.keymap")
 local type objects = require("paw.objects")
 local M = require("paw.frontend.core")
 local host = require("paw.frontend.host")
+local timegrid = require("paw.timegrid")
 
 local paw = host.paw
-local opt = options.opt
 local A = M.act
 local snap = host.snap
 local to_arrange = host.to_arrange
@@ -360,7 +359,7 @@ end
 --- the tracks. One undo step, as one call. Returns the ids of what moved.
 function A.drag_clips(id: integer, dbeat: number, drows?: number, copy?: boolean, free?: boolean): {integer}
   local ids = grabbed_clips(id)
-  local by = free and dbeat or util.round(dbeat, opt.grid)
+  local by = free and dbeat or util.round(dbeat, timegrid.step())
   local rows_by = math.floor((drows or 0) + 0.5)
   local rows, list = row_index(), paw.groups.rows()
   local clips: {types.Clip} = {}
@@ -447,7 +446,7 @@ function A.trim_clips(id: integer, edge: string, dbeat: number, free?: boolean, 
   end
   local ids = grabbed_clips(id)
   local held = api.clip_get(id)
-  local least = free and 1 / 64 or opt.grid
+  local least = free and 1 / 64 or timegrid.step()
   if slip then
     for _, cid in ipairs(ids) do
       local c = api.clip_get(cid)
@@ -520,7 +519,7 @@ function A.stretch_clips(id: integer, dbeat: number): {integer}
   for _, cid in ipairs(ids) do
     local c = api.clip_get(cid)
     if c.kind == "audio" then
-      local ok, err = pcall(paw.stretch.to, cid, math.max(opt.grid, c.length + by)) as (boolean, string)
+      local ok, err = pcall(paw.stretch.to, cid, math.max(timegrid.step(), c.length + by)) as (boolean, string)
       if not ok then
         paw.notify((tostring(err):gsub("^[^:]*:%d+: ", "")), "warn")
       end
@@ -620,7 +619,7 @@ end
 
 --- Drag a clip's right edge to a new length, never shorter than a grid step.
 function A.resize_clip(id: integer, length: number)
-  api.clip_set(id, {length = math.max(opt.grid, paw.cursor.snap(length))})
+  api.clip_set(id, {length = math.max(timegrid.step(), paw.cursor.snap(length))})
 end
 
 --- A double click on an empty lane: a clip of one bar in the bar clicked.

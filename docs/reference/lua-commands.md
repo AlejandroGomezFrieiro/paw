@@ -157,7 +157,11 @@ A view of an extension can have a grid, which says where its cursor is and how t
 view.grid = { get = function() return row, beat end, set = function(row, beat) end, step = function() return 1 end }
 -- Optional: where the thing under the cursor ends (a note). A selection then includes it.
 view.grid.extent = function(row, beat) return beat + 1 end
+-- Optional: the grid as the status line shows it, when it is not a note value.
+view.grid.label = function() return "1/8t" end
 ```
+
+The grid of time is in `paw.timegrid`. `paw.timegrid.step()` gives the step of the grid of the arrange view in beats, and `paw.timegrid.step("note")` the step of the grid of the piano roll. `paw.timegrid.window()` gives the lines of the grid as whole ticks, 61440 to a beat: `g:next(t)`, `g:prev(t)` and `g:lines(from, to)`.
 
 ## Options
 

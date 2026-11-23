@@ -83,7 +83,13 @@ local record M
   --- when the extension unloads, the definition below comes back, and the
   --- value stays. With none below, the option goes with its value.
   defined: registry.Registry<Definition>
+  --- Checks of a value beyond its spec, by the name of the option: what
+  --- the option takes, in words, when it does not take the value, else
+  --- nil. A module above sets one: paw/timegrid.tl, for the grid settings.
+  checks: {string: function(value: Value): string}
 end
+
+M.checks = {}
 
 M.changed = events.event("option.changed")
 
@@ -113,7 +119,9 @@ local defaults: {string: Value} = {
   -- plays live, such as the oversampling of a saturation. Renders, exports,
   -- stems, freezes and bounces always play at "full".
   quality = "full",
-  grid = 1, -- arrange cursor step and snap, in beats
+  -- The grid of the time views and of the note editors: a number of
+  -- beats, or text such as "1/8t", "bar" or "500ms" (paw/timegrid.tl).
+  grid = 1,
   zoom = 2, -- arrange columns per beat
   track_height = "auto", -- arrange rows per track; "auto" fits the tracks to the screen, 1 to 3
   header_width = "auto", -- arrange columns for the track headers; "auto" by the screen's width
@@ -160,7 +168,8 @@ local defaults: {string: Value} = {
   -- The selected track plays the MIDI keyboard while no track is armed, as
   -- if its input were monitored; false: only an armed or monitored track.
   midi_follows_selection = true,
-  note_grid = 0.25, -- piano roll step and snap, in beats
+  note_grid = 0.25, -- the grid of the note editors, as grid
+  swing = 50, -- percent: each second line of a bar of the grid moves later, from 50 (none) to 75
   note_snap = true, -- the pointer's notes land on the piano roll's grid
   note_zoom = 8, -- piano roll columns per beat
   phrase_rest = 0.5, -- beats: a longer rest ends a phrase (`ip`, `(` `)` in the piano roll)
@@ -192,7 +201,7 @@ local specs: {string: Spec} = {
   timeoutlen = {min = 0, max = 10000},
   hint_delay = {min = 0, max = 10000},
   threads = {min = 0, max = 256, integer = true},
-  grid = {min = 1 / 128, max = 64},
+  grid = {type = {"number", "string"}, min = 1 / 128, max = 64},
   zoom = {min = 0.125, max = 64},
   track_height = {type = {"number", "string"}, min = 1, max = 12, integer = true, values = {"auto"}},
   header_width = {type = {"number", "string"}, min = 8, max = 60, integer = true, values = {"auto"}},
@@ -215,7 +224,8 @@ local specs: {string: Spec} = {
   click_output = {min = 0, max = 63, integer = true},
   velocity = {min = 1, max = 127, integer = true},
   send_level = {min = -150, max = 24},
-  note_grid = {min = 1 / 128, max = 64},
+  note_grid = {type = {"number", "string"}, min = 1 / 128, max = 64},
+  swing = {min = 50, max = 75},
   note_zoom = {min = 0.125, max = 64},
   phrase_rest = {min = 0, max = 64},
   message_time = {min = 0, max = 600000},
@@ -295,10 +305,12 @@ function M.check(name: string, value: Value): boolean, string
   elseif ok and spec.values and (value is string or value is boolean) then
     ok = has(spec.values, value as string | boolean)
   end
-  if ok then
+  local check = M.checks[name]
+  local why = ok and check and check(value)
+  if ok and not why then
     return true
   end
-  return nil, string.format("%s takes %s, not %s", name, takes(name), show(value))
+  return nil, string.format("%s takes %s, not %s", name, why or takes(name), show(value))
 end
 
 --- A list typed as text: `Surge, Vital` is { "Surge", "Vital" }, and a

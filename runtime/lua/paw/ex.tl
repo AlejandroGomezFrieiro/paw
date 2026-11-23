@@ -34,6 +34,7 @@ local commands = require("paw.commands")
 local options = require("paw.options")
 local music = require("paw.music")
 local transform = require("paw.notes")
+local timegrid = require("paw.timegrid")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
@@ -1869,9 +1870,9 @@ local function shift(ctx: Context, dir: integer)
   local changes: {Changed} = {}
   for i, item in ipairs(items) do
     if item.kind == "note" then
-      changes[i] = {item = item, change = {start = math.max(0, item.note.start + steps * opt.note_grid)}}
+      changes[i] = {item = item, change = {start = math.max(0, item.note.start + steps * timegrid.step("note"))}}
     else
-      changes[i] = {item = item, change = {start = math.max(0, item.clip.start + steps * opt.grid)}}
+      changes[i] = {item = item, change = {start = math.max(0, item.clip.start + steps * timegrid.step())}}
     end
   end
   M.apply(changes)
@@ -2008,7 +2009,7 @@ end
 
 local function grid_arg(text: string): number
   if text == "" then
-    return opt.note_grid
+    return timegrid.step("note")
   end
   local a, b = text:match("^(%d+)/(%d+)$")
   local n = a and 4 * tonumber(a) / tonumber(b) or tonumber(text)

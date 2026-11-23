@@ -39,6 +39,7 @@ local limit = require("paw.limit")
 local util = require("paw.util")
 local registry = require("paw.registry")
 local music = require("paw.music")
+local timegrid = require("paw.timegrid")
 local type types = require("paw.types")
 local type partial = require("paw.partial")
 local type KeymapModule = require("paw.keymap")
@@ -405,7 +406,7 @@ function M.context(trigger?: Trigger): Context
     pitch = r.pitch,
     notes = notes,
     selection = selection,
-    grid = opt.note_grid,
+    grid = timegrid.step("note"),
     view = "pianoroll",
     trigger = trigger or "manual",
     key = key,

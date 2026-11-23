@@ -11,6 +11,7 @@ local registry = require("paw.registry")
 local type types = require("paw.types")
 local M = require("paw.frontend.core")
 local host = require("paw.frontend.host")
+local timegrid = require("paw.timegrid")
 
 local paw = host.paw
 local opt = options.opt
@@ -688,8 +689,8 @@ function M.state(known: integer): State
     count_in = t.count_in,
     pre_roll = t.pre_roll,
     pre_roll_seconds = t.pre_roll_seconds,
-    grid = opt.grid,
-    note_grid = opt.note_grid,
+    grid = timegrid.step(),
+    note_grid = timegrid.step("note"),
     threads = e.threads,
     xruns = e.xruns,
     -- The engine in a few words: backend, output device, sample rate.

@@ -28,6 +28,7 @@ local util = require("paw.util")
 local options = require("paw.options")
 local command = require("paw.command")
 local derived = require("paw.derived")
+local timegrid = require("paw.timegrid")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
 local type KeymapModule = require("paw.keymap")
@@ -592,7 +593,7 @@ end
 --- The marker or region start nearest a beat within `reach` beats (half a
 --- grid step by default), or the region the beat is inside.
 function M.at(beat: number, reach?: number): Marker
-  reach = reach or options.opt.grid / 2
+  reach = reach or timegrid.step() / 2
   local best, far: Marker, number
   for _, m in ipairs(M.list()) do
     local d = math.abs(m.beat - beat)
@@ -730,7 +731,7 @@ local function wanted(ctx: command.Context, kind?: string): Marker
     if kind == "region" then
       m = M.around(beat)
     elseif kind == "marker" then
-      local reach = options.opt.grid / 2
+      local reach = timegrid.step() / 2
       local far: number
       for _, x in ipairs(M.list()) do
         local d = math.abs(x.beat - beat)

@@ -519,7 +519,7 @@ end, "Change: empty it and enter notes")
 --- Move a region's clips by grid steps, and the cursor with them so that
 --- `.` finds them again.
 local function shift(region, steps)
-  local by = math.max(steps * paw.opt.grid, -region.c0)
+  local by = math.max(steps * paw.timegrid.step(), -region.c0)
   edit.arrange.shift(region, by)
   if region.kind ~= "line" then cursor.set_beat(cursor.beat + by) end
 end
@@ -674,7 +674,7 @@ end
 local function move(dbeat, dpitch)
   return function(ctx)
     local n = ctx.count or 1
-    roll:move(dbeat * n * paw.opt.note_grid, dpitch * n)
+    roll:move(dbeat * n * paw.timegrid.step("note"), dpitch * n)
   end
 end
 pmap("h", move(-1, 0), "Left one step", motion)
@@ -967,7 +967,7 @@ pop("c", function(clip, region, ctx)
   keymap.set_mode("i")
 end, "Change: delete and enter notes")
 local function shift_notes(clip, region, steps)
-  local by = math.max(steps * paw.opt.note_grid, region.kind == "line" and -math.huge or -region.c0)
+  local by = math.max(steps * paw.timegrid.step("note"), region.kind == "line" and -math.huge or -region.c0)
   edit.roll.each(clip, region, function(n) n.start = math.max(0, n.start + by) end)
   if region.kind ~= "line" then roll:set(nil, roll.beat + by) end
 end
@@ -982,7 +982,7 @@ pop(
   "Move notes earlier"
 )
 pop("=", function(clip, region)
-  local grid = paw.opt.note_grid
+  local grid = paw.timegrid.step("note")
   edit.roll.each(clip, region, function(n)
     n.start, n.length = util.round(n.start, grid), math.max(grid, util.round(n.length, grid))
   end)
@@ -1034,7 +1034,7 @@ command("notes.quantize", function(ctx)
   local clip = roll:clip()
   if not clip then return paw.notify("open a clip in the piano roll first", "warn") end
   local n = paw.frontend.act.quantize_notes(clip.id, tonumber(ctx.args[1]) and tonumber(ctx.args[1]) / 100 or 1)
-  paw.notify(string.format("%d note%s on the %g-beat grid", n, n == 1 and "" or "s", paw.opt.note_grid))
+  paw.notify(string.format("%d note%s on the %g-beat grid", n, n == 1 and "" or "s", paw.timegrid.step("note")))
 end, { desc = "Quantize the piano roll's chosen notes, or all, to its grid: `notes.quantize [strength%]`" })
 pmap("E", "notes.list", "The clip's notes and controller moves as a list, to change in place")
 command("notes.list", function()
@@ -1065,7 +1065,7 @@ command("controls.line", function(ctx)
     b0, b1 = selection.c0, selection.c1
   end
   -- The last step of the stretch reaches `to`.
-  b1 = math.max(b0, b1 - paw.opt.note_grid)
+  b1 = math.max(b0, b1 - paw.timegrid.step("note"))
   local made = paw.frontend.act.line_controls(clip.id, kind, number, b0, height(from), b1, height(to), false)
   keymap.set_mode("n")
   paw.notify(string.format("%d %s moves in a line", made, kind == "cc" and "CC " .. number or kind))
@@ -1081,20 +1081,22 @@ pmap("P", function(ctx) roll:paste(keymap.getreg(ctx.register), true, ctx.count)
 -- A note's length is `Alt-h` `Alt-l`, as a clip's is in the arrange view;
 -- `+` `-` are its pitch, its main value.
 local function lengthen()
-  roll:change(function(n) n.length = n.length + paw.opt.note_grid end)
+  roll:change(function(n) n.length = n.length + paw.timegrid.step("note") end)
 end
 local function shorten()
-  roll:change(function(n) n.length = math.max(paw.opt.note_grid, n.length - paw.opt.note_grid) end)
+  roll:change(function(n) n.length = math.max(paw.timegrid.step("note"), n.length - paw.timegrid.step("note")) end)
 end
 pmap("<A-l>", lengthen, "Lengthen the note")
 pmap("<A-h>", shorten, "Shorten the note")
 keymap.classic("+", lengthen, { view = "pianoroll", desc = "Lengthen the note" })
 keymap.classic("-", shorten, { view = "pianoroll", desc = "Shorten the note" })
 pmap("L", function()
-  if roll:change(function(n) n.start = n.start + paw.opt.note_grid end) then roll:move(paw.opt.note_grid, 0) end
+  if roll:change(function(n) n.start = n.start + paw.timegrid.step("note") end) then
+    roll:move(paw.timegrid.step("note"), 0)
+  end
 end, "Move the note right")
 pmap("H", function()
-  local step = math.min(paw.opt.note_grid, roll.beat)
+  local step = math.min(paw.timegrid.step("note"), roll.beat)
   if roll:change(function(n) n.start = math.max(0, n.start - step) end) then roll:move(-step, 0) end
 end, "Move the note left")
 local function transpose(sign)
@@ -1248,10 +1250,14 @@ px("[", function(clip, region)
   edit.roll.each(clip, region, function(n) n.velocity = math.max(1, n.velocity - 10) end)
 end, "Softer", "second-")
 local function lengthen_region(clip, region)
-  edit.roll.each(clip, region, function(n) n.length = n.length + paw.opt.note_grid end)
+  edit.roll.each(clip, region, function(n) n.length = n.length + paw.timegrid.step("note") end)
 end
 local function shorten_region(clip, region)
-  edit.roll.each(clip, region, function(n) n.length = math.max(paw.opt.note_grid, n.length - paw.opt.note_grid) end)
+  edit.roll.each(
+    clip,
+    region,
+    function(n) n.length = math.max(paw.timegrid.step("note"), n.length - paw.timegrid.step("note")) end
+  )
 end
 px("<A-l>", lengthen_region, "Lengthen")
 px("<A-h>", shorten_region, "Shorten")

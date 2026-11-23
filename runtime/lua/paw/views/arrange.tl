@@ -14,6 +14,7 @@ local kernel = require("paw.events.kernel")
 local derived = require("paw.derived")
 local axis = require("paw.axis")
 local track_parts = require("paw.views.arrange_track")
+local timegrid = require("paw.timegrid")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type util_t = require("paw.util")
@@ -538,7 +539,7 @@ end
 --- The cursor's cells at `beat`: its first column and how many, a step of
 --- the grid wide.
 local function cursor_cells(ax: Axis, beat: number): integer, integer
-  local x0, x1 = ax:range(beat, beat + paw.opt.grid)
+  local x0, x1 = ax:range(beat, beat + timegrid.step())
   return x0, x1 - x0
 end
 
@@ -2515,7 +2516,8 @@ view.grid = {
     end
     paw.cursor.set_beat(col)
   end,
-  step = function(): number return paw.opt.grid end,
+  step = function(): number return timegrid.step() end,
+  label = function(): string return timegrid.label() end,
   -- A mark stays with its track when tracks are moved around.
   mark = function(): contracts.GridMark return {track = paw.cursor.track_id(), beat = paw.cursor.beat} end,
   jump = function(pos: contracts.GridMark)

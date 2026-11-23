@@ -58,7 +58,7 @@ end
 local function state(win, t)
   local s = win.state
   s.zoom = s.zoom or paw.opt.zoom
-  s.grid = s.grid or paw.opt.grid
+  s.grid = s.grid or paw.timegrid.step()
   s.beat = s.beat or paw.cursor.beat
   s.left = s.left or math.max(0, s.beat - 2)
   if not s.value and t then
@@ -370,7 +370,7 @@ view.grid = {
   end,
   step = function()
     local win = M.current()
-    return win and state(win).grid or paw.opt.grid
+    return win and state(win).grid or paw.timegrid.step()
   end,
 }
 

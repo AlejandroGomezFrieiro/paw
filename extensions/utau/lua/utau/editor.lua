@@ -256,7 +256,7 @@ view.grid = {
     view.pitch, view.beat = util.clamp(row, 0, 127), util.clamp(col, 0, clip.length)
     api.ui_redraw()
   end,
-  step = function() return paw.opt.note_grid end,
+  step = function() return paw.timegrid.step("note") end,
   -- Notes by what they sing: `/ka` finds the next note with "ka" in its lyric.
   search = function(text)
     local wanted, hits = text:lower(), {}
@@ -297,7 +297,7 @@ function view:toggle_note()
       {
         pitch = self.pitch,
         start = self.beat,
-        length = paw.opt.note_grid * 2,
+        length = paw.timegrid.step("note") * 2,
         velocity = paw.opt.velocity,
       },
     })
@@ -470,7 +470,7 @@ function view:raise_curve(amount, abbr)
   if not clip or not device then return end
   abbr = abbr or self.curve
   local at = clip.start + self.beat
-  local value = notes.bend(clip.track, device, abbr, at, amount, paw.opt.note_grid)
+  local value = notes.bend(clip.track, device, abbr, at, amount, paw.timegrid.step("note"))
   local info = self:curve_info(abbr)
   paw.notify(
     string.format(
@@ -668,7 +668,7 @@ function view:render(buf, ctx)
     return
   end
   local device = utau.device_of(clip.track)
-  local zoom, grid = paw.opt.note_zoom, paw.opt.note_grid
+  local zoom, grid = paw.opt.note_zoom, paw.timegrid.step("note")
   -- The chosen curve gets a few rows under the notes when there is room.
   local curve_rows = (device and h >= 16) and 4 or 0
   local rows, tw = math.max(1, h - 4 - curve_rows), w - KEYS
@@ -984,7 +984,7 @@ function view:on_mouse(event)
   if event.kind == "scroll_up" then self.top = math.min(127, self.top + 2) end
   if event.kind == "scroll_down" then self.top = math.max(g.rows - 1, self.top - 2) end
   if event.kind == "down" and event.y >= 2 and event.y < 2 + g.rows and event.x >= KEYS then
-    local grid = paw.opt.note_grid
+    local grid = paw.timegrid.step("note")
     self.pitch = self.top - (event.y - 2)
     local at = paw.axis.new(self.scroll, g.zoom):beat_of(event.x - KEYS)
     self.beat = math.max(0, math.floor(at / grid + 1e-6) * grid)

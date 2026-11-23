@@ -1,12 +1,17 @@
--- The edit cursor: a track and a position in beats. Commands act on it and
--- views draw it. It survives a reload.
+-- The edit cursor: a track and a position. Commands act on it and views
+-- draw it. It survives a reload.
+--
+-- The position is a whole number of ticks (paw/timegrid.tl): `tick`, and
+-- `want`, the tick that the last move of time asked for, which a bound
+-- (the scope, a fold) can keep the cursor from. `beat` is the tick in
+-- beats, for the API: a beat set from outside becomes a tick once, here.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local events = require("paw.events")
 local kernel = require("paw.events.kernel")
 local util = require("paw.util")
-local options = require("paw.options")
+local timegrid = require("paw.timegrid")
 local type objects = require("paw.objects")
 local type partial = require("paw.partial")
 local type KeymapModule = require("paw.keymap")
@@ -63,44 +68,81 @@ local record M
   type Place = Place
   --- The event `cursor.changed`: the cursor moved, or another seat's did.
   changed: events.Event<Place>
-  --- The beat of the cursor.
+  --- The beat of the cursor: its tick in beats. A beat set here becomes
+  --- the nearest tick.
   beat: number
+  --- The position of the cursor in ticks (read only: `set_tick` sets it).
+  tick: integer
+  --- The tick that the last move of time asked for: a move by rows keeps
+  --- it when a bound kept the cursor from it.
+  want: integer
   lens: function(): integer
-  bounds: function(): number, number
   over: function(old: number, new: number): number
   stop: function(track: integer, beat: number): integer
   shift: function(track: integer, beat: number): number
   master_reachable: function(): boolean
 end
 
-M.beat = 0
 M.changed = events.event("cursor.changed")
 
 local track_id: integer
 local lane_id: integer -- the automation lane row the cursor is on, if any
+local tick, want = 0, 0
+
+-- `beat`, `tick` and `want` are read through the module's metatable, so
+-- that the tick is the one truth. A write of `beat` (a test, an old
+-- caller) puts the cursor at the nearest tick, as `set_beat` does, but
+-- with no bound and no event.
+setmetatable(
+  M,
+  {
+    __index = function(_: M, key: string): number
+      if key == "beat" then
+        return timegrid.beat(tick)
+      elseif key == "tick" then
+        return tick
+      elseif key == "want" then
+        return want
+      end
+    end,
+    __newindex = function(self: M, key: string, value: number)
+      if key == "beat" then
+        tick = timegrid.tick(value)
+        want = tick
+      else
+        rawset(self as {string: number}, key, value)
+      end
+    end,
+  } as metatable<M>
+)
+
 do
   local saved = api.state_get("cursor") as Place
   if saved then
-    track_id, M.beat, lane_id = saved.track, saved.beat or 0, saved.lane
+    track_id, tick, lane_id = saved.track, timegrid.tick(saved.beat or 0), saved.lane
+    want = tick
   end
 end
 
 -- Each seat has a cursor of its own, starting where the instance's is.
 paw.seats.keep(
   "cursor",
-  function(): number... return track_id, M.beat, lane_id end,
-  function(track: number, beat: number, lane: number)
-    track_id, M.beat, lane_id = track as integer, beat, lane as integer
+  function(): number... return track_id, tick, lane_id, want end,
+  function(track: number, at: number, lane: number, wanted: number)
+    track_id, tick, lane_id, want = track as integer, at as integer, lane as integer, (wanted or at) as integer
   end,
-  function(track: number, beat: number, lane: number): number... return track, beat or 0, lane end
+  function(track: number, at: number, lane: number, wanted: number): number...
+    return track, at or 0, lane, wanted or at or 0
+  end
 )
 
 local function save()
+  local beat = timegrid.beat(tick)
   -- The instance's own is the one that outlives a reload.
   if paw.seats.current == 0 then
-    api.state_set("cursor", {track = track_id, beat = M.beat, lane = lane_id} as Place)
+    api.state_set("cursor", {track = track_id, beat = beat, lane = lane_id} as Place)
   end
-  events.emit(M.changed, {track = track_id, beat = M.beat, lane = lane_id})
+  events.emit(M.changed, {track = track_id, beat = beat, lane = lane_id})
   api.ui_redraw()
 end
 
@@ -292,66 +334,55 @@ function M.move_track(delta: integer)
   M.set_track(to.track, to.lane)
 end
 
---- A function that gives the time the cursor stays in, `from, to` in beats,
---- or nil for all of it: paw/scope.tl sets it, for the scope shown.
-M.bounds = nil
-
 --- A function that gives where the cursor goes when it moves from one
 --- beat to another: paw/folds.tl sets it, so that the cursor takes a
 --- folded span as one step and stays on its column.
 M.over = nil
 
---- Put the cursor at a beat (not before 0, and in the scope's time).
-function M.set_beat(beat: number)
-  beat = math.max(0, beat)
+--- Put the cursor at a tick: not before 0, in the scope's time
+--- (`paw.timegrid.bounds`), and over a fold as one step (`over`). `want`
+--- becomes the tick asked for. A tick with a fraction is an error in the
+--- tests, and is rounded else.
+function M.set_tick(at: integer)
+  at = timegrid.checked(at, "cursor.set_tick")
+  want = at
+  at = math.max(0, at)
   local from, to: number, number
-  if M.bounds then
-    from, to = M.bounds()
+  if timegrid.bounds then
+    from, to = timegrid.bounds()
   end
   if from then
-    beat = math.min(math.max(beat, from), to)
+    at = math.min(math.max(at, timegrid.tick(from)), timegrid.tick(to))
   end
   if M.over then
-    beat = M.over(M.beat, beat)
+    at = timegrid.tick(M.over(timegrid.beat(tick), timegrid.beat(at)))
   end
-  M.beat = beat
+  tick = at
   save()
 end
 
+--- Put the cursor at a beat: the nearest tick, as `set_tick`.
+function M.set_beat(beat: number)
+  M.set_tick(timegrid.tick(beat))
+end
+
 -- Another project starts at its start, on its first track.
-events.on(kernel.project_loaded, function() track_id, lane_id, M.beat = nil, nil, 0; save() end)
+events.on(kernel.project_loaded, function() track_id, lane_id, tick, want = nil, nil, 0, 0; save() end)
 
---- Round a position to the arrange grid.
+--- A position at the nearest line of the arrange grid.
 function M.snap(beat: number): number
-  return util.round(beat, options.opt.grid)
+  local g = timegrid.window({bare = true})
+  return timegrid.beat(g:nearest(timegrid.tick(beat)))
 end
 
---- The `k`th line of a grid of `grid` beats, as exact as a float can be:
---- with a whole number of lines a beat (a quarter, a triplet, a tenth),
---- `k` divided by that number, which is the nearest float to the line.
-local function grid_line(k: integer, grid: number): number
-  local per = 1 / grid
-  local whole = math.floor(per + 0.5)
-  if math.abs(per - whole) < 1e-9 then
-    return k / whole
-  end
-  return k * grid
-end
-
---- `beat` moved by `n` steps of a grid of `grid` beats (the arrange grid
---- when nil). paw counts the new place as a whole number of steps from 0,
---- plus how far `beat` is after the grid line before it. So a long run of
---- steps gives the exact beat, and a beat on a grid line stays on one. A
---- place between two lines (the end of a take) keeps its distance from
---- the line.
+--- `beat` moved by `n` lines of the arrange grid (of a grid of `grid`
+--- beats, when given), with the same offset after its line
+--- (`paw.timegrid` `steps`). A beat on a line stays on one, a long run of
+--- steps gives the exact beat, and a place between two lines (the end of
+--- a take) keeps its distance from the line.
 function M.step(beat: number, n: integer, grid?: number): number
-  grid = grid or options.opt.grid
-  local line = math.floor(beat / grid + 1e-6)
-  local offset = beat - grid_line(line, grid)
-  if math.abs(offset) < grid * 1e-6 then
-    offset = 0
-  end
-  return grid_line(line + n, grid) + offset
+  local g = timegrid.window({setting = grid, bare = true})
+  return timegrid.beat(g:steps(timegrid.tick(beat), n))
 end
 
 --- A function that gives, for a track whose clips the window draws later

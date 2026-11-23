@@ -42,6 +42,7 @@ local kernel = require("paw.events.kernel")
 local options = require("paw.options")
 local command = require("paw.command")
 local derived = require("paw.derived")
+local timegrid = require("paw.timegrid")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
@@ -1797,8 +1798,8 @@ events.on(
   end
 )
 
---- The time the cursor stays in: the current scope's.
-paw.cursor.bounds = function(): number, number return M.span() end
+--- The time the cursor and the grid stay in: the current scope's.
+timegrid.bounds = function(): number, number return M.span() end
 
 -- Describing a scope ------------------------------------------------------------------
 

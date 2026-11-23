@@ -73,7 +73,7 @@ local function pitch_at(y) return gui.top - y / gui.row end
 gui.x_of, gui.y_of, gui.beat_at, gui.pitch_at = x_of, y_of, beat_at, pitch_at
 
 local function snap(beat)
-  local grid = paw.opt.note_grid
+  local grid = paw.timegrid.step("note")
   return math.max(0, math.floor(beat / grid + 0.5) * grid)
 end
 gui.snap = snap
@@ -148,7 +148,7 @@ function view:paint(g, ctx)
   local hue = paw.draw.track_colour(track)
   local config = utau.config(clip.track)
   local list = notes.list(clip.id)
-  local grid = paw.opt.note_grid
+  local grid = paw.timegrid.step("note")
   -- Vibratos and pitch points are in milliseconds: at the tempo where the clip is.
   local tempo = paw.tempo.at(clip.start)
   local transport = api.transport_get()
@@ -596,7 +596,7 @@ local function finish_drag(self, clip, drag)
       if index then hear(clip, index) end
     end
   elseif drag.mode == "stretch" and math.abs(drag.dlen) > 1e-9 then
-    local grid = paw.opt.note_grid
+    local grid = paw.timegrid.step("note")
     self:change_targets(function(n) n.length = math.max(grid, n.length + drag.dlen) end)
   end
 end
@@ -698,7 +698,7 @@ function view:pointer(e)
     if gui.tool == "pitch" and pitch_panel.pointer(self, e, clip, list, x, y) then return end
     local note, index, edge = note_at(list, x, y)
     self.pitch = util.clamp(math.floor(pitch_at(y) + 1), 0, 127)
-    self.beat = util.clamp(note and note.start or snap(beat_at(x) - paw.opt.note_grid / 2), 0, clip.length)
+    self.beat = util.clamp(note and note.start or snap(beat_at(x) - paw.timegrid.step("note") / 2), 0, clip.length)
     if e.button == "right" then
       if not note then return end
       if gui.tool == "pitch" and device then
@@ -740,7 +740,7 @@ function view:pointer(e)
       gui.drag = { mode = "box", x0 = x, y0 = y, x1 = x, y1 = y, add = e.shift }
     else
       self:clear_selection()
-      gui.drag = { mode = "new", pitch = self.pitch, start = self.beat, length = paw.opt.note_grid * 2 }
+      gui.drag = { mode = "new", pitch = self.pitch, start = self.beat, length = paw.timegrid.step("note") * 2 }
     end
     return
   end
@@ -749,7 +749,7 @@ function view:pointer(e)
   if not drag then return end
   if drag.panel then return drag.panel(self, e, clip, x, y) end
   if e.kind == "move" then
-    local grid = paw.opt.note_grid
+    local grid = paw.timegrid.step("note")
     if drag.mode == "move" then
       local start = snap(drag.from.start + beat_at(x) - drag.from.beat)
       drag.dbeat = math.max(-drag.min_start, start - drag.from.start)
