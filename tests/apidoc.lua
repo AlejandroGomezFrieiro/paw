@@ -56,7 +56,7 @@ test("apidoc: the reference is a page of help, and its names are tags", function
     true,
     "a kernel function with its parameter's type"
   )
-  eq(#apidoc.functions() > 500, true, "it finds the functions")
+  eq(#apidoc.model().functions > 500, true, "it finds the functions")
   local tag = paw.help.lookup("paw.ext.unload")
   eq(tag ~= nil, true, ":help paw.ext.unload finds it")
 end)

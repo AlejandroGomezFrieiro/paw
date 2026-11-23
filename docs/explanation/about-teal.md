@@ -257,18 +257,27 @@ Some code stays in Lua, each part for its own reason:
   files of `runtime/types`.
 - The test files. The runner loads them with `loadfile`, and they can move
   later.
+- `tools/apidoc.lua` and `tools/tlcheck.lua`, because `paw -l` runs a Lua
+  file. Each one is short. The generator of the reference and the types is
+  Teal, in `tools/apidoc/`.
 
 ## The tools for Teal and Lua
 
 The dev shell of the flake has the tools below. Each one uses Teal 0.24.8,
 which is the version in `runtime/lua/tl.lua`, and LuaJIT, as paw does.
 
-`cyan check` checks the types of all of the Teal files in one process, and
-`tools/tlcheck.sh` and the `teal` check of the flake run it. The program
-`tl check` checks one file at a time, and it checks again each module that
-the file uses. For the source tree, `cyan` takes 7 seconds and `tl check`
-took 100. `tl` also compiles one file, e.g., to look at the Lua that Teal
-makes (`tl gen`).
+`tools/tlcheck.sh` checks the types of all of the Teal files with
+`paw.lang.check`, the compiler in the program. It runs paw on
+`tools/tlcheck.lua`. The test suite and the `teal` check of the flake run
+the same check, so the three agree: each error and each warning fails,
+for example a local that is not used or a name declared again. For the
+source tree, it takes 4 seconds.
+
+Before, `tools/tlcheck.sh` ran `cyan check`, which took 13 seconds and let
+a warning pass that the suite refused. `cyan` still makes the Lua of
+`tools/dev-runtime.sh` (`cyan gen`). The program `tl check` checks one file at a time, and it checks again each
+module that the file uses. `tl` also compiles one file, e.g., to look at
+the Lua that Teal makes (`tl gen`).
 
 `teal-language-server` and `lua-language-server` give completion, types
 and errors in an editor. The first reads `tlconfig.lua`, and the second
@@ -323,6 +332,7 @@ each other.
 | 5 | Views | the rest of `defaults/`, `views/` and `roles/` | 12,000 | the keys |
 | Done | Extensions: `interop` | the readers and writers of REAPER and DAWproject files: 6,300 lines of Teal, no `any` or `paw.Untyped`, and no function over 100 lines (the longest had 196) | 4,300 | the modules of paw that it uses |
 | Done | Extensions: `plugstate` | the adapters, the library, the snapshots, the readers of the state of each framework and the client of TONE3000: 9,550 lines of Teal, no `any` or `paw.Untyped`, and no function over 50 lines | 6,400 | the modules of paw that it uses |
+| Done | Tools: the generator | `tools/apidoc.lua` as readers that fill one model and one writer for each file it makes, in `tools/apidoc/`: 2,330 lines of Teal, files the same to the byte, and `apidoc check` in `nix flake check` | 1,660 | none |
 | 5 | Extensions | one agent for each: the others (under 3,200 each). `notation` and `utau` do not move to Teal, because they become native extensions in Rust | 56,000 | the modules of paw that each uses |
 
 The spike moved 1,100 lines in a part of a day, with the checker. An area
@@ -1031,3 +1041,20 @@ checks which one it is.
 The options of the client of TONE3000 were read through `paw.opt`, which
 gives a value of any type. The client keeps the handles that
 `paw.option.define` gives, and the other modules ask the client.
+
+## What the checker found in the generator
+
+The port of `tools/apidoc.lua` to Teal changed no file that it makes. Its
+files are the same to the byte as before. The generator ran before and
+after the port with the same binary on the same tree, and the outputs
+matched.
+
+The model gives each type of the kernel's functions and records as the
+Rust source spells it: an `Option`, a list, a tuple or a named type. Each
+writer writes the type in its own notation, so `LuaString` is `string` in
+Teal and `any` for LuaLS, as before. A reader of a description that Rust
+makes can fill the same model later.
+
+Two checks of the Teal files had different rules. `tools/tlcheck.sh` ran
+`cyan check` and let a warning pass, such as a local that is not used. The
+check of the suite failed on it. Now the two run the same check.

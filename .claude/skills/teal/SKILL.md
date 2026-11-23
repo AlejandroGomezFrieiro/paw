@@ -5,14 +5,17 @@ description: 'Write, port or review Teal code in paw (Lua with types, compiled t
 
 # Teal in paw
 
-paw's new code is Teal (AGENTS.md rule 8). The owner's two rules come first:
-**Teal source is the truth** (a module becomes typed by being ported to `.tl`,
-never by a declaration layer over Lua) and **no `any` where a value has a
-shape** ("an anti-pattern; we want well-defined typing"). Read
-[about-teal.md](../../../docs/explanation/about-teal.md) (the why, the
-migration plan and what each port found) and
-[write-an-extension-in-teal.md](../../../docs/how-to/write-an-extension-in-teal.md)
-before writing; this page is the checklist.
+paw's new code is Teal (rule 8 of the instructions for agents). The owner's
+two rules come first. **Teal source is the truth**: a module gets types when
+it moves to `.tl`, not from a declaration layer over Lua. **No `any` where a
+value has a shape**. The owner calls `any` there an anti-pattern and wants
+well-defined types.
+
+Before you write, read
+[About Teal in paw](../../../docs/explanation/about-teal.md): the why, the
+migration plan and what each port found. Then read
+[How to write an extension in Teal](../../../docs/how-to/write-an-extension-in-teal.md).
+The list below is the checklist.
 
 ## Where things are
 
@@ -20,19 +23,20 @@ before writing; this page is the checklist.
 |---|---|---|
 | Runtime modules in Teal | `runtime/lua/paw/**/*.tl` | yes |
 | Kernel records (what crosses `paw.api`) | `runtime/lua/paw/types.tl` | yes, from the Rust that builds each table |
-| Contracts extensions implement (View, Buftype, TrackKind, Role, PickSource<T>, StatusComponent, QueryField, HealthCheck, Manifest…) | `runtime/lua/paw/contracts.tl` (`paw.contracts`) | yes |
+| Contracts extensions implement (`View`, `Buftype`, `TrackKind`, Role, PickSource<T>, StatusComponent, QueryField, HealthCheck, Manifest…) | `runtime/lua/paw/contracts.tl` (`paw.contracts`) | yes |
 | Kernel event descriptors | `runtime/lua/paw/events/kernel.tl` | **no**: generated |
 | `paw` global, `paw.api`, Lua modules' records, options, role props | `runtime/types/paw.d.tl`, `paw/api.d.tl`, `paw/partial.d.tl`, `paw/opts.d.tl`, `paw/role_props.d.tl`, `paw/untyped.d.tl` | **no**: `tools/apidoc.lua` makes them |
+| The generator of the files above | `tools/apidoc/` (Teal): `read/` fills `model.tl`, one module in `write/` for each file; `tools/apidoc.lua` is the entry | yes: a new file is one writer, a new source is one reader |
 | The counted escapes | `runtime/types/any-allowed.txt` | only to remove entries, or add one by hand with a reason |
 | Compiler settings | `tlconfig.lua` (`gen_target = "5.1"`, `gen_compat = "off"`) | rarely |
-| The vendored compiler | `runtime/lua/tl.lua` (Teal 0.24.8) | no |
-| The Lua 5.3 library on LuaJIT | `runtime/lua/compat53/` (lua-compat-5.3 0.14.4, vendored), loaded by `runtime/lua/paw/compat.tl` | compat53: no; compat.tl: yes |
+| The compiler, a copy in the tree | `runtime/lua/tl.lua` (Teal 0.24.8) | no |
+| The Lua 5.3 library on LuaJIT | `runtime/lua/compat53/` (lua-compat-5.3 0.14.4, a copy), loaded by `runtime/lua/paw/compat.tl` | compat53: no; compat.tl: yes |
 
 Kernel types come from Rust doc lines: `// @param`, `// @return`, `// @type`
-over each function in `crates/paw-core/src/api/*.rs` and the `*_api.rs` files;
-serde structs (`#[derive(Serialize/Deserialize)]`) become records. A Lua
+over each function in `crates/paw-core/src/api/*.rs` and the `*_api.rs` files.
+Serde structs (`#[derive(Serialize/Deserialize)]`) become records. A Lua
 module still in Lua gets signatures through `--- @type function(...)` lines.
-After changing any of these, regenerate:
+After a change of one of these, make the files again:
 
 ```sh
 nix develop -c cargo build --release -j 8
@@ -44,6 +48,35 @@ nix develop -c tools/tlcheck.sh
 The build type-checks every runtime `.tl` and stops on a type error. The
 extension loader checks too: an extension with type errors still loads, warns
 once, and lists the errors under `:checkhealth teal`.
+
+## One set of rules for the check
+
+The Teal files have one check: `tools/tlcheck.lua`, which runs
+`paw.lang.check` (the compiler in the program, with `tlconfig.lua`) on every
+`.tl` file of `runtime`, `config`, `extensions` and `tools`. Three places run
+it, and they give the same result:
+
+- `tools/tlcheck.sh` (with `$PAW_TEST_BIN/paw` or `target/release/paw`; any
+  binary checks the files of the checkout, so a change of Teal needs no build),
+- the test suite (`tests/teal.lua`),
+- `nix flake check` (the `teal` check, with the binary of the commit).
+
+The rules:
+
+- Each error fails, and each warning fails: an unused local, a shadowed
+  local, an unused type alias. Do not put a warning on a list: fix it.
+- `local paw = (_G as ...).paw` in a module that `paw.d.tl` names is not
+  reported (the module is checked when the declarations load, before the
+  global exists). In a module that `paw.d.tl` does not name, it is a shadowed
+  `paw`: use the typed global there (see the pitfalls).
+- The build (`crates/paw-core/build.rs`) stops on errors only, and `cyan gen`
+  in `tools/dev-runtime.sh` makes the Lua only. Neither is the check.
+- The files that cerulean cannot format are listed once, with the reason, in
+  `tools/fmtcheck.sh`.
+
+`nix flake check` also runs `tools/apidoc.lua check` (the `apidoc` check): a
+declaration that is out of date with the source fails there, not only in
+the suite.
 
 ## The head of a runtime module
 
@@ -72,12 +105,12 @@ local paw = (_G as {string:Paw}).paw
 
 ## Types: what to write
 
-- **Records** for tables with fields; **enums** for string choices;
+- **Records** for tables with fields; **`enum` types** for string choices;
   **function types** for callbacks; **generics** where one type flows through
   (`PickSource<T>`, `option.define<T>` → `Option<T>`).
 - **Unions** of primitive types are fine and narrowed with `is`
   (`number | string` for "an id or a name"). But prefer one type per
-  parameter in new APIs (two functions beat a union). Two table types in a
+  parameter in a new API (two functions beat a union). Two table types in a
   union need records with a `where` discriminator; `string | MyEnum` is not
   allowed.
 - **Interfaces** for specs that carry extra fields (view specs, providers), and
@@ -100,7 +133,7 @@ local paw = (_G as {string:Paw}).paw
 - **Options:** `paw.opt.x` is typed; an extension's own option:
   `local o = paw.option.define<number>(…)` then `o:get()`.
 - **`Untyped`** (the escape for Lua not yet ported): cast once at the
-  boundary (`x as types.Track`), never pass it on.
+  boundary (`x as types.Track`). Do not pass it on.
 
 ## No `any`
 
@@ -108,7 +141,7 @@ local paw = (_G as {string:Paw}).paw
   the count only goes down. Remove the entries your port makes unneeded.
 - A loose doc comment is fixed at its source (Rust `// @return`, Lua `--- @type`),
   not papered over with `any` in a generator.
-- Legitimate remaining `any`: truly free data (JSON/TOML values, an
+- The `any` that can stay: truly free data (JSON/TOML values, an
   extension's own `meta`), values whose type depends on a key in Lua-only
   forms. Each has a reason on the allow-list.
 
@@ -126,9 +159,9 @@ local paw = (_G as {string:Paw}).paw
 | `setmetatable` needs a typed metatable | a separate metatable record, not the class table |
 | `integer` vs `number` inference in sums | annotate `: number` |
 | `paw.Track` is a type in Teal, not a value | `getmetatable(x) == …` checks stay in Lua |
-| A one-field kernel read (`track_get(id, "meta")`) is faster but untyped | keep it through one cast of the function when it is on a hot path |
+| A one-field kernel read (`track_get(id, "meta")`) is faster but has no type | keep it through one cast of the function when it is on a hot path |
 | `commands.define` handlers must return `commands.Result` | annotate the handler's return |
-| Two modules that require each other's types get two copies of a type that do not agree ("Buf is not a Buf") | one side requires the other; the other puts its functions on it (paw/roles.tl sets `Buf.mark`) |
+| Two modules that require each other's types get two copies of a type that do not agree ("`Buf` is not a `Buf`") | one side requires the other; the other puts its functions on it (paw/roles.tl sets `Buf.mark`) |
 | `f: function(x: A): R, y: B` in a parameter list reads `y` as a second result | a named function type (`local type Height = function(i: integer): number`) |
 | `local a, b: A, B = ...` does not type `b`; `local x: T = nil` makes `x` nil until it is set | one `local` for each; `local x: T` with no value |
 | An alias of a generic instance (`local type R = contracts.Role<P>`) is not that instance | write `contracts.Role<contracts.MarkProps>` |
@@ -140,7 +173,7 @@ local paw = (_G as {string:Paw}).paw
 | A record does not fit a contract's interface without `is` (records are nominal) | cast where the value goes in: `data = clip as contracts.QueryData` |
 | A field typed `{A \| B}` given a table literal that mixes a text and records (`items = { "-", { label = ... } }`) is not inferred | put the list in a local of that type first (`local items: {contracts.MenuEntry} = { ... }`) |
 | A record with an array part that also implements an interface | the array goes in the `is` list: `record Node is {Node}, contracts.Window` |
-| A module that requires another (as a value) loads it then, earlier than the Lua that read `paw.x` when it ran | keep reading `paw.x` at run time, typed by `local type X = require(...)` (paw/ui.tl and `paw.draw`) |
+| A module that requires another (as a value) loads it then, earlier than the Lua that read `paw.x` when it ran | read `paw.x` at run time, typed by `local type X = require(...)` (paw/ui.tl and `paw.draw`) |
 | A module many others require (`paw.buf`, `paw.draw`, `paw.cursor`, `paw.commands`) and a module that names its types (`paw.ui`) | the lower one declares the small part of the higher it reads (`record Ui focused: string end`) |
 | `{T} \| function(): {T}` tested with `x is Fn`: the `else` branch is not narrowed | test the table: `if x is {T} then ... elseif x then (x as Fn)() end` |
 | A generic function type in a parameter list (`format?: function(item: T): string, mode?: M`) does not parse | a generic alias: `local type TextOf<T> = function(item: T): string` |
@@ -149,7 +182,7 @@ local paw = (_G as {string:Paw}).paw
 | JSON whose shape depends on the method (`params`, `result` of JSON-RPC) | an empty record (`rpc.Payload`) cast once by each handler to its method's record; user JSON values are `util.Data` |
 | A cast to a function type in an argument list (`xpcall(f, g as function(string): string, key)`) reads `, key` as a second result | put the type in parentheses: `g as (function(string): string)` |
 | Two aliases of the same tuple (`{string, string}`) in two modules do not agree | one module names it, the other uses that name (`DrawModule.KeyHint`) |
-| `<` on two values of an enum | cast each value to `string` first |
+| `<` on two values of an `enum` type | cast each value to `string` first |
 | A record of another module that adds fields with `is` (`record ProjectFile is KeymapModule.ProjectPlaces`) | the base must be an `interface`, not a record |
 | A value that each caller fills with its own fields (a register) | an interface with the common field (`KeymapModule.Register`); each caller has `record X is KeymapModule.Register` and casts what it reads back |
 | A part split out of a module needs a function of the module that requires it (`registers.replay`, `marks.on_jump`) | a function field of the part, which the module sets after it requires the part |
@@ -167,7 +200,7 @@ local paw = (_G as {string:Paw}).paw
 
 ## What stays Lua
 
-LuaJIT FFI code on the audio thread (`dsp.lua`, Lua devices), the vendored
+LuaJIT FFI code on the audio thread (`dsp.lua`, Lua devices), the copies of
 `tl.lua` and `compat53/`, generated files, extension `manifest.lua` files (checked against
 `contracts.Manifest`), and tests for now. Each needs a written reason.
 
@@ -176,8 +209,9 @@ LuaJIT FFI code on the audio thread (`dsp.lua`, Lua devices), the vendored
 1. Read the module and everything that requires it; list the shapes it takes and gives.
 2. Write `name.tl` next to `name.lua`, delete the `.lua` (`git mv` keeps history).
 3. Types from the real readers and writers; contracts and `types.tl` records first.
-4. Build (type-checks the runtime), `tools/apidoc.lua`, `apidoc check`, `tools/tlcheck.sh`.
-5. The existing tests pass unchanged; a test that changes means a real bug: say so.
-6. Search the docs and READMEs for the old `.lua` path (AGENTS.md); update the
-   migration table and "What the checker found" in about-teal.md.
+4. Build (type-checks the runtime), `tools/apidoc.lua`, `apidoc check`, `tools/tlcheck.sh` (the one check, above).
+5. The tests that are there pass with no change; a test that changes means a real bug: say so.
+6. Search the docs and READMEs for the old `.lua` path (the instructions for
+   agents). Update the migration table and "What the checker found" in About
+   Teal in paw.
 7. Report: lines, `any`/`Untyped` counts before and after, what the checker found.

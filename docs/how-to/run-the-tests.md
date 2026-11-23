@@ -442,8 +442,12 @@ Run `nix flake check`, which builds paw and runs the following checks:
 - Clippy and rustfmt, which report what they find and do not fail.
 - Vale on the documentation, which fails on an error.
 - The checks of the Lua and Teal code, which fail on a problem: the types
-  of the Teal files with cyan, `luacheck` on the Lua files, and the format
-  of both with StyLua and cerulean.
+  of the Teal files (`tools/tlcheck.sh`), `luacheck` on the Lua files, and
+  the format of both with StyLua and cerulean.
+- The check of the API reference and the Teal declarations
+  (`tools/apidoc.lua check`), which fails when a file that it makes is out
+  of date, when a public function has no doc comment, or when an `any` is
+  not on its allow-list.
 - The check against tests that depend on time or on your computer,
   `tools/testlint.lua`, which fails on a count over
   `tests/timing-allowed.txt` and on any read of the home folder or the

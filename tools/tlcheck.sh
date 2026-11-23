@@ -1,29 +1,16 @@
 #!/bin/sh
-# Type-checks every Teal file of the source tree with tlconfig.lua: the
-# runtime's modules, runtime/types, the example configuration and the
-# extensions. One `cyan check` does all of them in one process (`tl check`
-# once for each file checked the modules that a file requires again for
-# each file: fifteen times slower). The flake's `teal` check and the dev
-# shell run it with the cyan of nix/lua-tools.nix, on the Teal of nixpkgs
-# (the version the program contains, runtime/lua/tl.lua); the test suite
-# runs the same check with the compiler in the program (`paw.lang.check`).
+# Type-checks every Teal file of the source tree with the strict check of
+# tools/tlcheck.lua: `paw.lang.check`, the compiler in the program, with
+# tlconfig.lua. Every error and every warning fails. The test suite and the
+# flake's `teal` check run the same check, so the three agree. A change of
+# Teal needs no build: any binary checks the files of this checkout.
 #
-#   tools/tlcheck.sh [cyan]     the `cyan` program to run (default: on the PATH)
+#   tools/tlcheck.sh            with $PAW_TEST_BIN/paw or target/release/paw, in the test environment
+#   tools/tlcheck.sh <paw>      with that binary, in the environment it is given (the flake)
 #
-# Exits 1 when a file has an error, and prints each error and warning.
-cyan=${1:-cyan}
+# Exits 1 when a file has a problem, and prints each one.
 cd "$(dirname "$0")/.." || exit 1
-# A module of an extension finds the extension's other modules: each
-# extension's `lua/` is on the path (their modules are named after the
-# extension, so they do not collide).
-includes=$(find extensions -mindepth 2 -maxdepth 2 -type d -name lua | sort | sed 's/^/-I /')
-# Each module takes the `paw` global through `local paw = (_G as ...).paw`
-# (the teal skill), which Teal warns of as a redeclaration in sixty files:
-# that warning is off here. The suite's strict check (`paw.lang.check`)
-# still reports a shadowed local.
-# shellcheck disable=SC2046,SC2086
-if ! out=$("$cyan" --quiet --color never --wdisable redeclaration $includes check $(find runtime config extensions -name '*.tl' | sort) 2>&1); then
-  echo "$out"
-  exit 1
+if [ -n "$1" ]; then
+  exec "$1" --clean --no-plugins -l tools/tlcheck.lua
 fi
-echo "tl check: no errors"
+exec tests/tools/run.sh --clean --no-plugins -l tools/tlcheck.lua

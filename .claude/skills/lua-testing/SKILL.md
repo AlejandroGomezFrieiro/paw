@@ -326,7 +326,7 @@ T.check_keys(
 ## 11. Teal
 
 A test of a `.tl` module can be Lua. The module itself passes
-`cyan check`, and the suite runs `tools/tlcheck.sh`. Use the skill
+`tools/tlcheck.sh`, and the suite runs the same check. Use the skill
 `teal` for the module.
 
 ## 12. Commands

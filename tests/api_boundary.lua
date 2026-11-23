@@ -276,12 +276,13 @@ local function walk(name, entry, problems)
   local ids = fixture()
   local n = #entry.params
   local base = {}
+  -- Each argument by its name and the text of its Rust type (tools/apidoc/model.tl).
   for i, param in ipairs(entry.params) do
-    base[i] = good(name, param, entry.types[i], ids)
+    base[i] = good(name, param.name, param.type and param.type.text, ids)
   end
   local calls = { {} }
   for i, param in ipairs(entry.params) do
-    for _, value in ipairs(wrong(name, param, entry.types[i], ids)) do
+    for _, value in ipairs(wrong(name, param.name, param.type and param.type.text, ids)) do
       local args = { unpack(base, 1, n) }
       args[i] = value
       calls[#calls + 1] = args
@@ -323,7 +324,7 @@ T.test("each paw.api function given wrong arguments gives an error that names it
   for _, name in ipairs(names) do
     -- A function that the source does not show (one that the runtime adds
     -- in Lua) gets three arguments of any type.
-    local entry = kernel[name] or { params = { "a", "b", "c" }, types = {} }
+    local entry = kernel[name] or { params = { { name = "a" }, { name = "b" }, { name = "c" } } }
     calls = calls + walk(name, entry, problems)
   end
   T.eq(#names > 300, true, "the walk finds the functions: " .. #names)
