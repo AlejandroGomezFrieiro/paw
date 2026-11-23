@@ -746,6 +746,66 @@ function M.blocks(nest: integer): {Block}
   return out
 end
 
+--- The levels of scope from the song in that show subproject `id`: one
+--- for each subproject on the way, each entered through its first block.
+--- The way goes through the song's block of a subproject when it has one.
+--- Nil when the project has no such subproject.
+local function way_into(id: integer): {contracts.Scope}
+  local way: {contracts.Scope} = {}
+  local seen: {integer: boolean} = {}
+  while id and not seen[id] do
+    if not M.get(id) then
+      return nil
+    end
+    seen[id] = true
+    local through: Block
+    local holder: integer
+    for _, block in ipairs(M.blocks(id)) do
+      local inside = nest_of(block.row)
+      if not through or (holder and not inside) then
+        through, holder = block, inside
+      end
+    end
+    table.insert(way, 1, {kind = "nest", id = id, clip = through and through.clip.id})
+    id = holder
+  end
+  return way
+end
+
+--- Put the window in front inside subproject `id`, as if you entered it
+--- from the song through each subproject that holds it. It does nothing
+--- when the window shows that subproject already. With no `id`, the
+--- window goes back to the song. Returns false and why when the project
+--- has no such subproject.
+function M.show(id?: integer): boolean, string
+  if not id then
+    if paw.scope.nest() then
+      paw.scope.widen(true)
+    end
+    return true
+  end
+  local way = way_into(id)
+  if not way then
+    return false, "the project has no subproject " .. tostring(id)
+  end
+  local path = paw.scope.path()
+  local same = #path == #way
+  for i, level in ipairs(path) do
+    same = same and level.kind == "nest" and level.id == way[i].id
+  end
+  if same then
+    return true
+  end
+  paw.scope.widen(true)
+  for _, level in ipairs(way) do
+    local ok, err = pcall(paw.scope.enter, level) as (boolean, string)
+    if not ok then
+      return false, err
+    end
+  end
+  return true
+end
+
 --- What tells one instance of a subproject from another: the stems of
 --- one block start at the same beat, from the same beat of it.
 local function instance_key(c: types.Clip): string

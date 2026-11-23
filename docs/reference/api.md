@@ -1535,6 +1535,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.nest.set_meter(nest, meter)`: Give subproject `nest` a meter of its own (`6/8`), with the song's map as it is (polymeter), or the song's meter again (`follow`), as `:nest.meter` does. Returns the message.
 - `paw.nest.set_time(nest, how, bpm)`: Give subproject `nest` a tempo of its own (`own`: the song's over its first block, or `bpm` throughout) or the song's again (`follow`), as `:nest.time` does. Its blocks keep their start; their length in the song follows. Call it in one undo step. Returns the message.
 - `paw.nest.shift`: the same as `paw.cursor.shift`.
+- `paw.nest.show(id)`: Put the window in front inside subproject `id`, as if you entered it from the song through each subproject that holds it. It does nothing when the window shows that subproject already. With no `id`, the window goes back to the song. Returns false and why when the project has no such subproject.
 - `paw.nest.song_of(path)`: The song and the subproject that a path inside a song names (`song/nests/Bridge`, or its `nest.toml`): the song's folder and the subproject's id. Nil for any other path.
 - `paw.nest.toggle(track)`: `za` on a return row: open its subproject's tracks under it, in the song's time, or close them. On a track shown in place: close its row. False when the track is neither.
 - `paw.nest.under`: the same as `paw.groups.under`.
@@ -1707,7 +1708,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.qf.fix_title(e)`: The title of an entry's fix, or nil.
 - `paw.qf.format(e, list)`: An entry in one line, as said when going to it: `(2 of 7) error: …`.
 - `paw.qf.from_diagnostics(target, filter)`: Diagnostics as entries (as `paw.diagnostic.get` takes `target` and `filter`).
-- `paw.qf.go(e)`: Put the cursor on the address of an entry, in the view that shows it best, and focus that view. A note goes to the piano roll, and a device or a parameter to the device panel. A clip, a track, a lane or a range of time goes to the arrange view. Returns true if there was a place to go.
+- `paw.qf.go(e)`: Put the cursor on the address of an entry, in the view that shows it best, and focus that view. A thing inside a subproject goes inside that subproject first. A note goes to the piano roll, and a device or a parameter to the device panel. A clip, a track, a lane or a range of time goes to the arrange view. Returns true if there was a place to go.
 - `paw.qf.jump(n, stack)`: Make entry `n` of a stack's current list the current entry and go to it.
 - `paw.qf.last(stack)`: Go to the list's last entry.
 - `paw.qf.loc_stack(win, make)`: The location lists of a window (of the current window without `win`), made when you ask with `make`. A window that shows a location list uses the list that it shows, as in Neovim.

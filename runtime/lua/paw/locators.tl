@@ -31,12 +31,17 @@ end
 -- No module requires this one, so it sees the global `paw` with its types.
 local A = paw.address
 
+--- The row of each track that the window in front shows, by id: the
+--- tracks of the song, or of the subproject that the window is inside.
+--- The master (of the song, or of the subproject) is the row after the last.
 local function rows(): {integer: integer}
+  local inside = paw.scope.nest()
+  local list = api.track_list(inside and {nest = inside.id} or nil)
   local out: {integer: integer} = {}
-  for i, id in ipairs(api.track_list()) do
+  for i, id in ipairs(list) do
     out[id] = i
   end
-  out[0] = #api.track_list() + 1
+  out[inside and api.nest_get(inside.id).master or 0] = #list + 1
   return out
 end
 

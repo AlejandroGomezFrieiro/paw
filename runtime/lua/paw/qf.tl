@@ -3,12 +3,13 @@
 -- to go to, and maybe a fix. docs/reference/quickfix.md says how it is used,
 -- docs/reference/lua-addresses.md how to fill it.
 --
--- An entry is `{ address, selector?, text, level?, source, fix? }`:
+-- An entry is `{ address, selector?, text, level?, source, fix?, nest? }`:
 -- `address` a `paw://` address (or a location, `{ uri, selector }`),
 -- `level` "error", "warning", "info" or "hint" (or 1 to 4; none for a
 -- plain match), `fix` `{ title, edit = { workspace changes } }`,
 -- `{ title, apply = function(entry) end }` or a command line run with the
--- cursor on the entry.
+-- cursor on the entry, `nest` the subproject of an entry whose address
+-- names no track in it.
 --
 -- Lists are kept in a history of ten (`:colder`, `:cnewer`); each has a
 -- title. The quickfix lists are shared; every window has location lists of
@@ -37,6 +38,8 @@ local type DiagnosticModule = require("paw.diagnostic")
 local type LanesModule = require("paw.lanes")
 local type CursorModule = require("paw.cursor")
 local type Roll = require("paw.views.pianoroll")
+local type NestModule = require("paw.nest")
+local type ScopeModule = require("paw.scope")
 
 local type Level = DiagnosticModule.Level
 local type Diagnostic = DiagnosticModule.Diagnostic
@@ -59,7 +62,7 @@ local type Fix = string | FixSpec
 --- An entry as `paw.qf.set` and `paw.qf.feed` take it: an `address` (or a
 --- location) or a `location`, with a `selector`; the `text` (or
 --- `message`), the `level` (or `severity`), the `source`, a `fix` (or the
---- first of `fixes`) and the source's own `data`.
+--- first of `fixes`), the source's own `data` and the `nest` (`Located`).
 local record Item
   address: string | contracts.Location
   location: contracts.Location
@@ -72,11 +75,15 @@ local record Item
   fix: Fix
   fixes: {Fix}
   data: Data
+  nest: integer
 end
 
---- What `paw.qf.go` takes: an entry, or anything with a location.
+--- What `paw.qf.go` takes: an entry, or anything with a location. `nest`
+--- is the subproject that the entry is about when the address does not
+--- name a thing in it (`paw://project` for the name of a subproject).
 local interface Located
   location: contracts.Location
+  nest: integer
 end
 
 --- An entry as the list keeps it: the severity 1 to 4 and its word, or
@@ -232,6 +239,8 @@ local record Paw is partial.Paw
   cursor: CursorModule
   time: objects.Time
   diagnostic: DiagnosticModule
+  nest: NestModule
+  scope: ScopeModule
   render: function(path: string, opts: RenderOptions)
 end
 local paw = (_G as {string: Paw}).paw
@@ -356,6 +365,7 @@ function M.entry(e: Item, source?: string): Entry
     source = e.source or source,
     fix = fix,
     data = e.data,
+    nest = e.nest,
   }
 end
 
@@ -645,8 +655,32 @@ local GONE: {string: boolean} = {
   clip = true, note = true, control = true, track = true, device = true, param = true, send = true, lane = true
 }
 
+local track_nest = api.track_get as function(id: integer, key: string): integer
+
+--- Put the window in the subproject of an entry (its `nest`, else the
+--- subproject of the track of its address), or in the song for a thing
+--- of the song. An address with no track and no `nest` leaves the window
+--- where it is. False, with a message, when the subproject is gone.
+local function show_nest_of(e: Located, uri: string): boolean
+  local inside = e.nest
+  if not inside then
+    local track = A.track_of(uri)
+    if not track then
+      return true
+    end
+    local ok, nest = pcall(track_nest, track, "nest") as (boolean, integer)
+    inside = ok and nest or nil
+  end
+  local ok, why = paw.nest.show(inside)
+  if not ok then
+    paw.notify(why, "warn")
+  end
+  return ok
+end
+
 --- Put the cursor on the address of an entry, in the view that shows it
---- best, and focus that view. A note goes to the piano roll, and a device
+--- best, and focus that view. A thing inside a subproject goes inside
+--- that subproject first. A note goes to the piano roll, and a device
 --- or a parameter to the device panel. A clip, a track, a lane or a range
 --- of time goes to the arrange view. Returns true if there was a place to go.
 function M.go(e: Located): boolean
@@ -660,6 +694,9 @@ function M.go(e: Located): boolean
   end
   if GONE[p.kind] and not A.resolve(loc.uri) then
     paw.notify("what this entry is about is gone", "warn")
+    return false
+  end
+  if not show_nest_of(e, loc.uri) then
     return false
   end
   -- An address of an extension's own kind goes where the kind says.

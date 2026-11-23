@@ -26,7 +26,7 @@ the mix report and the messages. Extensions add entries (see
 
 | Keys or command | Effect |
 | --- | --- |
-| `]q` `[q` | Go to the next and the previous entry. A count goes further. The first `]q` goes to the first entry. The view that shows the entry gets the keyboard, and the cursor goes there. |
+| `]q` `[q` | Go to the next and the previous entry. A count goes further. The first `]q` goes to the first entry. The view that shows the entry gets the keyboard, and the cursor goes there. For an entry inside a subproject, the window goes inside that subproject first, and for an entry of a song track, back to the song. |
 | `]Q` `[Q` | Go to the last and the first entry. |
 | `:cnext` `:cprev` `:cfirst` `:clast` | The same as the keys. |
 | `:cc 3` | Goes to entry 3. `:cc` alone goes to the current entry. |

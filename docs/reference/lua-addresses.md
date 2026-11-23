@@ -84,11 +84,12 @@ The events are `lsp.status` and `lsp.analysis`.
 
 ## `paw.qf` and the quickfix list
 
-`paw.qf` is the quickfix list and the location lists of Neovim, but it uses addresses. An entry is `{ address, selector, text, level, source, fix }`, with these rules:
+`paw.qf` is the quickfix list and the location lists of Neovim, but it uses addresses. An entry is `{ address, selector, text, level, source, fix, nest }`, with these rules:
 
 - `address` is a `paw://` address, or a location.
 - `level` is `"error"`, `"warning"`, `"info"`, `"hint"` or nil.
 - `fix` is `{ title, edit = { changes } }`, `{ title, apply = function(entry) end }`, or a command line that runs with the cursor on the entry.
+- `nest` is the id of the subproject that the entry is about, for an address that names no track in it, such as `paw://project` for the name of a subproject. Without it, the subproject is the one of the track of the address.
 
 ```lua
 paw.qf.feed("tuning", { { address = "paw://clip/4", text = "out of tune", level = "warning",

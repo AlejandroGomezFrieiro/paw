@@ -250,38 +250,9 @@ function merge(base, ours, theirs, path, ctx)
   return conflict(ctx, path, base, ours, theirs)
 end
 
--- Ids that are the project's, one number for each track, device, clip and
--- lane, so that two sides adding different things may have used the same one.
-
-local function each_thing(project, fn)
-  local function track(t)
-    fn(t)
-    for _, d in ipairs(t.devices or {}) do
-      fn(d)
-    end
-    for _, c in ipairs(t.clips or {}) do
-      fn(c)
-    end
-    for _, l in ipairs(t.lanes or {}) do
-      fn(l)
-    end
-    for _, c in ipairs(t.cues or {}) do
-      fn(c)
-    end
-  end
-  if project.master then track(project.master) end
-  for _, t in ipairs(project.tracks or {}) do
-    track(t)
-  end
-end
-
-local function things(project)
-  local by = {}
-  each_thing(project or {}, function(x)
-    if type(x.id) == "number" then by[x.id] = x end
-  end)
-  return by
-end
+-- Ids that are the project's, one number for each subproject, track,
+-- device, clip and lane, so that two sides adding different things may have
+-- used the same one.
 
 local function copy(v)
   if type(v) ~= "table" then return v end
@@ -293,55 +264,168 @@ local function copy(v)
   return out
 end
 
+-- Changing ids in place: each function changes the ids of the thing that it
+-- takes, and what in it points at other things, by `map` (old id -> new id).
+
+local function remap(holder, field, map)
+  if type(holder[field]) == "number" and map[holder[field]] then holder[field] = map[holder[field]] end
+end
+
+local function remap_device(d, map)
+  remap(d, "id", map)
+  remap(d, "sidechain", map)
+  for pair, id in pairs(d.outputs or {}) do
+    if map[id] then d.outputs[pair] = map[id] end
+  end
+end
+
+--- A clip, and the subproject that it places with the track that it plays.
+local function remap_clip(c, map)
+  remap(c, "id", map)
+  local content = c.content
+  if type(content) == "table" and content.kind == "nest" then
+    remap(content, "nest", map)
+    if type(content.play) == "table" then remap(content.play, "track", map) end
+  end
+end
+
+local function remap_lane(l, map)
+  remap(l, "id", map)
+  if l.target then remap(l.target, "device", map) end
+end
+
+local function remap_track(t, map)
+  remap(t, "id", map)
+  remap(t, "nest", map)
+  remap(t, "output", map)
+  for _, s in ipairs(t.sends or {}) do
+    remap(s, "target", map)
+  end
+  for _, d in ipairs(t.devices or {}) do
+    remap_device(d, map)
+  end
+  for _, c in ipairs(t.clips or {}) do
+    remap_clip(c, map)
+  end
+  for _, l in ipairs(t.lanes or {}) do
+    remap_lane(l, map)
+  end
+  for _, c in ipairs(t.cues or {}) do
+    remap_clip(c, map)
+  end
+end
+
+local function remap_nest(n, map)
+  remap(n, "id", map)
+  remap(n, "master", map)
+end
+
+--- Each thing of a project with an id, by id: `{ holder, whole, remap }`.
+--- `holder` is the id of what holds it (the track of a device, the
+--- subproject of a track), `whole` is what tells it from another thing (the
+--- thing, or a subproject with its tracks), and `remap(whole, map)` changes
+--- the ids in a copy of `whole`.
+local function things(project)
+  local by = {}
+  local function add(item, holder, remap_fn, whole)
+    if type(item.id) == "number" then by[item.id] = { holder = holder, whole = whole or item, remap = remap_fn } end
+  end
+  local function track(t)
+    add(t, t.nest, remap_track)
+    for _, d in ipairs(t.devices or {}) do
+      add(d, t.id, remap_device)
+    end
+    for _, c in ipairs(t.clips or {}) do
+      add(c, t.id, remap_clip)
+    end
+    for _, l in ipairs(t.lanes or {}) do
+      add(l, t.id, remap_lane)
+    end
+    for _, c in ipairs(t.cues or {}) do
+      add(c, t.id, remap_clip)
+    end
+  end
+  project = project or {}
+  if project.master then track(project.master) end
+  for _, t in ipairs(project.tracks or {}) do
+    track(t)
+  end
+  -- Two subprojects are the same only when their tracks are the same too.
+  for _, n in ipairs(project.nests or {}) do
+    local tracks = {}
+    for _, t in ipairs(project.tracks or {}) do
+      if t.nest == n.id then tracks[#tracks + 1] = t end
+    end
+    add(n, nil, function(whole, map)
+      remap_nest(whole.nest, map)
+      for _, t in ipairs(whole.tracks) do
+        remap_track(t, map)
+      end
+    end, { nest = n, tracks = tracks })
+  end
+  return by
+end
+
+--- The ids of theirs that ours also made, for another thing: by id, a
+--- stand-in for the new id. A thing of theirs is another thing when it differs from ours with the
+--- ids found so far changed, or when what holds it got another id. So a
+--- subproject that gets another id gives its tracks, their devices and
+--- clips, and the clips that place it other ids too.
+local function clashes(B, O, T)
+  -- A stand-in for a new id while the ids are found: no thing has it.
+  local NEW = -1
+  local map = {}
+  local changed = true
+  while changed do
+    changed = false
+    for id, x in pairs(T) do
+      if map[id] == nil and B[id] == nil and O[id] ~= nil then
+        local moved = x.holder ~= nil and map[x.holder] ~= nil
+        if not moved then
+          local whole = copy(x.whole)
+          x.remap(whole, map)
+          moved = not data.equal(O[id].whole, whole)
+        end
+        if moved then
+          map[id], changed = NEW, true
+        end
+      end
+    end
+  end
+  return map
+end
+
 --- Theirs, with the ids that it and ours both made for different things
 --- changed to ones nothing else has, and what points at them with them.
 local function renumber(base, ours, theirs)
   local B, O, T = things(base), things(ours), things(theirs.project)
-  local map, top = {}, 0
+  local found = clashes(B, O, T)
+  if next(found) == nil then return theirs end
+  local top = 0
   for _, set in ipairs({ B, O, T }) do
     for id in pairs(set) do
       top = math.max(top, id)
     end
   end
-  for id, x in pairs(T) do
-    if B[id] == nil and O[id] ~= nil and not data.equal(O[id], x) then
-      top = top + 1
-      map[id] = top
-    end
+  -- New ids in the order of the old ones, so that a merge gives the same file each time.
+  local ids = {}
+  for id in pairs(found) do
+    ids[#ids + 1] = id
   end
-  if next(map) == nil then return theirs end
+  table.sort(ids)
+  local map = {}
+  for _, id in ipairs(ids) do
+    top = top + 1
+    map[id] = top
+  end
   local out = copy(theirs)
   local project = out.project
-  local function remap(holder, field)
-    if type(holder[field]) == "number" and map[holder[field]] then holder[field] = map[holder[field]] end
-  end
-  local function track(t)
-    remap(t, "id")
-    remap(t, "output")
-    for _, s in ipairs(t.sends or {}) do
-      remap(s, "target")
-    end
-    for _, d in ipairs(t.devices or {}) do
-      remap(d, "id")
-      remap(d, "sidechain")
-      for pair, id in pairs(d.outputs or {}) do
-        if map[id] then d.outputs[pair] = map[id] end
-      end
-    end
-    for _, c in ipairs(t.clips or {}) do
-      remap(c, "id")
-    end
-    for _, l in ipairs(t.lanes or {}) do
-      remap(l, "id")
-      if l.target then remap(l.target, "device") end
-    end
-    for _, c in ipairs(t.cues or {}) do
-      remap(c, "id")
-    end
-  end
-  if project.master then track(project.master) end
+  if project.master then remap_track(project.master, map) end
   for _, t in ipairs(project.tracks or {}) do
-    track(t)
+    remap_track(t, map)
+  end
+  for _, n in ipairs(project.nests or {}) do
+    remap_nest(n, map)
   end
   return out
 end

@@ -780,12 +780,14 @@ function M.lines(root)
 end
 
 --- The changes that are changes themselves, for a quickfix list:
---- `{ address, text }` where the text names the way there.
+--- `{ address, text, sign, nest }` where the text names the way there, and
+--- `nest` is the subproject that holds the change, if any.
 function M.entries(root)
   local out = {}
   local function walk(n)
     if n.change then
-      out[#out + 1] = { address = n.address, text = (n.trail or "") .. ": " .. n.sign .. " " .. n.text, sign = n.sign }
+      out[#out + 1] =
+        { address = n.address, text = (n.trail or "") .. ": " .. n.sign .. " " .. n.text, sign = n.sign, nest = n.nest }
     end
     for _, child in ipairs(n.children) do
       walk(child)
