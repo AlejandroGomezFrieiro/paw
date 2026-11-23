@@ -87,7 +87,7 @@ paw.controls
 paw.params
 paw.device_presets
 paw.fx
-paw.graph
+paw.chain
 paw.midifile
 paw.formats
 paw.harmony

@@ -1,0 +1,22 @@
+[
+  {
+    "bypass": false,
+    "id": 121,
+    "kind": "gain",
+    "meta": {},
+    "params": {
+      "gain": -4.0,
+      "pan": 0.5
+    }
+  },
+  {
+    "bypass": false,
+    "id": 21,
+    "kind": "gain",
+    "meta": {},
+    "params": {
+      "gain": -2.0,
+      "pan": 0.0
+    }
+  }
+]

@@ -1,24 +1,43 @@
-//! The kinds of split: a word for each, the built-in kinds of the core, and
-//! the kinds that extensions add.
+//! The kinds of split: the built-in kinds of the core, the kinds that
+//! extensions add, and their registry.
 //!
-//! A split names its kind with a word (`"band"`), and keeps the values of
-//! its kind in `Split::values` (the crossovers of a band split). The core
-//! knows the built-in kinds and checks their values. An extension adds a
-//! kind with the number of branches it takes, and its values are its own.
+//! A split names its kind (`"band"`) and keeps the values of its kind in
+//! `Split::values` (the crossovers of a band split). The registry is a
+//! [`Kinds`] of the split family: the built-in kinds are entries of owner
+//! `paw.chain`, and an extension adds a kind with the number of branches
+//! it takes. The core checks the values of a built-in kind; an extension's
+//! values are its own.
 
-use std::collections::BTreeMap;
 use std::ops::RangeInclusive;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
-use super::{GraphError, MAX_BRANCHES, Split};
-use crate::model::Word;
+use super::{ChainError, MAX_BRANCHES, Split};
+use crate::model::kinds::{KindId, Kinds, Owner, SplitFamily};
+
+/// The name of a kind of split.
+pub type SplitKind = KindId<SplitFamily>;
+
+/// The registry of the kinds of split. Not part of the project.
+pub type SplitKinds = Kinds<SplitFamily, SplitImpl>;
+
+/// The owner of the built-in kinds.
+const PAW: Owner = Owner::Paw("paw.chain");
+
+/// What paw keeps for a kind of split.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SplitImpl {
+    /// A kind of the core, which paw checks and plays.
+    Builtin(BuiltinSplit),
+    /// A kind that an extension defined: the branches it takes.
+    Declared(KindSpec),
+}
 
 /// The built-in kinds of split.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Builtin {
-    /// One branch in series: a rack, and the root of each graph.
+pub enum BuiltinSplit {
+    /// One branch in series: a rack, and the root of each chain.
     Chain,
     /// A copy of the input into each branch, summed.
     Layer,
@@ -43,13 +62,9 @@ pub enum Builtin {
 /// The modes of a `select` split.
 const SELECT_MODES: [&str; 4] = ["manual", "round-robin", "keyswitch", "cc"];
 
-impl Builtin {
-    const ALL: [Builtin; 9] =
+impl BuiltinSplit {
+    pub const ALL: [BuiltinSplit; 9] =
         [Self::Chain, Self::Layer, Self::Band, Self::Ms, Self::Lr, Self::Key, Self::Vel, Self::Select, Self::Outs];
-
-    pub fn of(word: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|kind| kind.word() == word)
-    }
 
     pub fn word(self) -> &'static str {
         match self {
@@ -65,7 +80,12 @@ impl Builtin {
         }
     }
 
-    fn spec(self) -> KindSpec {
+    /// The kind's name.
+    pub fn kind(self) -> SplitKind {
+        self.word().parse().expect("a built-in kind is a kind name")
+    }
+
+    pub fn spec(self) -> KindSpec {
         let (min, max) = match self {
             Self::Chain => (1, 1),
             Self::Band => (2, 6),
@@ -96,7 +116,7 @@ impl Builtin {
     }
 
     /// Check the values of a split of the kind.
-    fn check(self, split: &Split) -> Result<(), GraphError> {
+    fn check(self, split: &Split) -> Result<(), ChainError> {
         let count = split.branches.len();
         match self {
             Self::Band => {
@@ -106,13 +126,13 @@ impl Builtin {
             Self::Select => {
                 let index: usize = value(split, "index", "a branch from 0")?.unwrap_or(0);
                 if index >= count {
-                    return Err(GraphError::SelectIndex { index, count });
+                    return Err(ChainError::SelectIndex { index, count });
                 }
                 let fade: f64 = value(split, "fade", "a time in ms")?.unwrap_or(0.0);
                 super::in_range("the fade", fade, 0.0..=10_000.0)?;
                 let mode: String = value(split, "mode", "a mode")?.unwrap_or_else(|| "manual".into());
                 if !SELECT_MODES.contains(&mode.as_str()) {
-                    return Err(GraphError::Value { key: "mode", want: "manual, round-robin, keyswitch or cc" });
+                    return Err(ChainError::Value { key: "mode", want: "manual, round-robin, keyswitch or cc" });
                 }
                 Ok(())
             }
@@ -126,23 +146,23 @@ fn value<T: serde::de::DeserializeOwned>(
     split: &Split,
     key: &'static str,
     want: &'static str,
-) -> Result<Option<T>, GraphError> {
+) -> Result<Option<T>, ChainError> {
     split
         .values
         .get(key)
-        .map(|v| serde_json::from_value(v.clone()).map_err(|_| GraphError::Value { key, want }))
+        .map(|v| serde_json::from_value(v.clone()).map_err(|_| ChainError::Value { key, want }))
         .transpose()
 }
 
-fn check_crossovers(xover: &[f64], bands: usize) -> Result<(), GraphError> {
+fn check_crossovers(xover: &[f64], bands: usize) -> Result<(), ChainError> {
     if xover.len() + 1 != bands {
-        return Err(GraphError::CrossoverCount { bands, count: xover.len() });
+        return Err(ChainError::CrossoverCount { bands, count: xover.len() });
     }
     if let Some(bad) = xover.iter().find(|f| !f.is_finite() || **f <= 0.0) {
-        return Err(GraphError::CrossoverValue(*bad));
+        return Err(ChainError::CrossoverValue(*bad));
     }
     match xover.windows(2).find(|pair| pair[1] <= pair[0]) {
-        Some(pair) => Err(GraphError::CrossoverOrder { before: pair[0], next: pair[1] }),
+        Some(pair) => Err(ChainError::CrossoverOrder { before: pair[0], next: pair[1] }),
         None => Ok(()),
     }
 }
@@ -179,63 +199,81 @@ impl KindSpec {
     }
 }
 
-/// The kinds of split that the project can have: the built-in kinds, and
-/// those extensions defined. Not part of the project.
-#[derive(Clone, Debug, Default)]
-pub struct SplitKinds {
-    added: BTreeMap<Word, KindSpec>,
+impl SplitImpl {
+    pub fn spec(self) -> KindSpec {
+        match self {
+            Self::Builtin(builtin) => builtin.spec(),
+            Self::Declared(spec) => spec,
+        }
+    }
 }
 
-impl SplitKinds {
-    /// Add a kind (an extension's). A built-in kind cannot change.
-    pub fn define(&mut self, word: Word, spec: KindSpec) -> Result<(), GraphError> {
-        if Builtin::of(word.as_str()).is_some() {
-            return Err(GraphError::BuiltinKind(word.to_string()));
+impl Kinds<SplitFamily, SplitImpl> {
+    /// The registry with the built-in kinds, of owner `paw.chain`.
+    pub fn builtin() -> Self {
+        let mut kinds = Self::default();
+        for builtin in BuiltinSplit::ALL {
+            kinds.put(builtin.kind(), SplitImpl::Builtin(builtin), PAW);
+        }
+        kinds
+    }
+
+    /// Add a kind of `owner` (an extension's). A built-in kind cannot
+    /// change.
+    pub fn define(&mut self, kind: SplitKind, spec: KindSpec, owner: Owner) -> Result<(), ChainError> {
+        if self.owner(&kind) == Some(&PAW) {
+            return Err(ChainError::BuiltinKind(kind.to_string()));
         }
         if spec.min == 0 || spec.min > spec.max || spec.max > MAX_BRANCHES || !spec.branches().contains(&spec.first) {
-            return Err(GraphError::KindBranches(word.to_string()));
+            return Err(ChainError::KindBranches(kind.to_string()));
         }
-        self.added.insert(word, spec);
+        self.put(kind, SplitImpl::Declared(spec), owner);
         Ok(())
     }
 
-    /// What the kind `word` takes; `None` for a kind that no one defined.
-    pub fn spec(&self, word: &str) -> Option<KindSpec> {
-        Builtin::of(word)
-            .map(Builtin::spec)
-            .or_else(|| self.added.iter().find(|(w, _)| w.as_str() == word).map(|(_, spec)| *spec))
+    /// The defined kind that `word` names, as a user typed it.
+    fn known(&self, word: &str) -> Result<(SplitKind, SplitImpl), ChainError> {
+        let unknown = || ChainError::UnknownKind(word.to_owned());
+        let kind: SplitKind = word.parse().map_err(|_| unknown())?;
+        let found = *self.get(&kind).ok_or_else(unknown)?;
+        Ok((kind, found))
     }
 
-    /// The word of a known kind, and the values of a new split of it with
+    /// The kind `word` names, and the values of a new split of it with
     /// `branches` branches.
-    pub fn new_split_kind(&self, word: &str, branches: usize) -> Result<(Word, Map<String, Value>), GraphError> {
-        if self.spec(word).is_none() {
-            return Err(GraphError::UnknownKind(word.to_owned()));
-        }
-        let parsed: Word = word.parse().map_err(|_| GraphError::UnknownKind(word.to_owned()))?;
-        let values = Builtin::of(word).map(|b| b.first_values(branches)).unwrap_or_default();
-        Ok((parsed, values))
+    pub fn new_split_kind(&self, word: &str, branches: usize) -> Result<(SplitKind, Map<String, Value>), ChainError> {
+        let (kind, found) = self.known(word)?;
+        let values = match found {
+            SplitImpl::Builtin(builtin) => builtin.first_values(branches),
+            SplitImpl::Declared(_) => Map::new(),
+        };
+        Ok((kind, values))
     }
 
     /// How many branches a new split of `word` gets.
-    pub fn first_branches(&self, word: &str) -> Result<usize, GraphError> {
-        self.spec(word).map(|s| s.first).ok_or_else(|| GraphError::UnknownKind(word.to_owned()))
+    pub fn first_branches(&self, word: &str) -> Result<usize, ChainError> {
+        self.known(word).map(|(_, found)| found.spec().first)
     }
 
     /// Check one split against its kind: the number of branches, and the
-    /// values of a built-in kind.
-    pub fn check(&self, split: &Split) -> Result<(), GraphError> {
-        let word = split.kind.as_str();
-        let spec = self.spec(word).ok_or_else(|| GraphError::UnknownKind(word.to_owned()))?;
+    /// values of a built-in kind. A kind that no one has defined passes.
+    pub fn check(&self, split: &Split) -> Result<(), ChainError> {
+        let Some(found) = self.get(&split.kind) else { return Ok(()) };
+        let spec = found.spec();
         let count = split.branches.len();
         if !spec.branches().contains(&count) {
-            return Err(GraphError::Branches { kind: word.to_owned(), range: spec.branches(), count });
+            return Err(ChainError::Branches { kind: split.kind.clone(), range: spec.branches(), count });
         }
-        Builtin::of(word).map_or(Ok(()), |b| b.check(split))
+        match found {
+            SplitImpl::Builtin(builtin) => builtin.check(split),
+            SplitImpl::Declared(_) => Ok(()),
+        }
     }
 
-    /// Every kind's word: the built-in kinds first.
+    /// Every kind's name: the built-in kinds first, in their order.
     pub fn words(&self) -> Vec<String> {
-        Builtin::ALL.iter().map(|b| b.word().to_owned()).chain(self.added.keys().map(Word::to_string)).collect()
+        let builtin = BuiltinSplit::ALL.iter().map(|b| b.word().to_owned());
+        let added = self.iter().filter(|(_, found)| matches!(found, SplitImpl::Declared(_))).map(|(k, _)| k.to_string());
+        builtin.chain(added).collect()
     }
 }

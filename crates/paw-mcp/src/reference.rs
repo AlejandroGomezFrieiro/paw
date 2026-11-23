@@ -15,7 +15,7 @@ const API: [(&str, &str); 17] = [
     ("project.rs", include_str!("../../paw-core/src/api/project.rs")),
     ("tracks.rs", include_str!("../../paw-core/src/api/tracks.rs")),
     ("devices.rs", include_str!("../../paw-core/src/api/devices.rs")),
-    ("graph.rs", include_str!("../../paw-core/src/api/graph.rs")),
+    ("chain.rs", include_str!("../../paw-core/src/api/chain.rs")),
     ("clips.rs", include_str!("../../paw-core/src/api/clips.rs")),
     ("automation.rs", include_str!("../../paw-core/src/api/automation.rs")),
     ("transport.rs", include_str!("../../paw-core/src/api/transport.rs")),

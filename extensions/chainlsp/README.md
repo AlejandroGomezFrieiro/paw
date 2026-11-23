@@ -40,4 +40,4 @@ paw.ext.load("/path/to/paw/extensions/chainlsp")
 ## What it does not do yet
 
 - paw has no buffer for a chain file, so you edit the files in another editor, and paw shows no completion or hover for them.
-- paw keeps the devices of a track in the project, not in a chain file, so the server does not check them. The devices graph moves them into `devices.chain`, and then the server checks them too.
+- paw keeps the devices of a track in the project, not in a chain file, so the server does not check them. A later version of paw moves them into `devices.chain`, and then the server checks them too.
