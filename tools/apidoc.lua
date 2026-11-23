@@ -1136,6 +1136,16 @@ function M.teal()
   emit(tree, 1, "paw", paw)
   out[#out + 1] = "end"
   out[#out + 1] = ""
+  -- A hidden module whose values `paw` holds with types written out in
+  -- full (`paw.notify` of paw.messages) names no type of its alias: the
+  -- strict check counts an unused alias, so it goes.
+  local text = table.concat(out, "\n")
+  for i = #out, 1, -1 do
+    local alias = out[i]:match("^local type ([%w_]+Module) = require")
+    if alias and not text:find("%f[%w_]" .. alias .. "%.") and not text:find(": " .. alias .. "%f[^%w_]") then
+      table.remove(out, i)
+    end
+  end
   return table.concat(out, "\n"),
     table.concat(kout, "\n"),
     anys,

@@ -144,13 +144,24 @@ end
 --
 -- A module that takes entries from extensions keeps them in a registry of
 -- paw.registry, which records the owner of each entry as it goes in. The
--- owner is the extension whose code calls `put`. An entry put over the
--- entry of another extension goes in `overrides`, which `:checkhealth
--- extensions` reads. paw.ext reads the owners at an unload and in
--- `provides`, and makes no copies.
+-- owner is the extension whose code calls `put`, or for a registry made
+-- with `made` (the timers), the extension whose files made the entry. An
+-- entry put over the entry of another extension goes in `overrides`,
+-- which `:checkhealth extensions` reads. paw.ext reads the owners at an
+-- unload and in `provides`, and makes no copies.
+
 --- The extension that loads now, or whose code calls: the owner of an
 --- entry that it puts. paw/command.tl reads it for the commands too.
 function registry.owner() return M.current and M.current.name or M.caller() end
+
+--- The loaded extension whose files made `value`: the owner of an entry
+--- of a registry made with `made` (the timers).
+function registry.maker(value)
+  for name, entry in pairs(M.loaded) do
+    if made_by(entry, value) then return name end
+  end
+end
+
 --- Records that the extension `owner` put an entry over an entry of the
 --- extension `previous`. `:checkhealth extensions` gives a warning for it.
 function registry.replaced(reg, what, owner, previous)
@@ -160,294 +171,34 @@ function registry.replaced(reg, what, owner, previous)
   entry.overrides[#entry.overrides + 1] = { kind = reg.title, what = what, of = previous }
 end
 
--- The other registries (`M.registries`) are not a paw.registry yet. paw.ext
--- reads each one before and after an extension loads. What differs is the
--- extension's, kept with what was there before, so that unloading it puts
--- that back. `put(key, value)` sets an entry, nil removes it. `label` says
--- what the entry is in a few words.
---
--- Why each one stays here:
--- - hooks, timers and keys: the leak check of tests/suite.lua reads them,
---   and the work on the manual clock of the tests changes that check.
---   key_groups and keybar go with keys.
--- - options: an option goes with its value, and `undefine` puts back the
---   definition of the core. A registry needs a `changed` that does this.
--- - device_dirs and plugin_dirs: `devices_in_use` below reads their items.
--- - addresses, complete, triggers, layers, languages, health, formats and
---   lsp: not moved yet. Each one is a table of one module, as the moved
---   ones were, and a later change moves them.
-
-local function keyed(kind, title, get, put, label)
-  return {
-    kind = kind,
-    title = title,
-    snapshot = function()
-      local out = {}
-      for k, v in pairs(get() or {}) do
-        out[k] = v
-      end
-      return out
+-- The registries made before this module, each as a table that the leak
+-- check of tests/suite.lua reads: `snapshot()` gives the entries by key,
+-- `put(key, value)` puts one back (nil removes it), and `label(key,
+-- value)` names it. Not one registry of its own: a view of paw.registry,
+-- for that check only. The work on the runner of the tests reads
+-- `paw.registry.all()` in place of it.
+M.registries = {}
+for _, reg in ipairs(registry.all()) do
+  M.registries[#M.registries + 1] = {
+    kind = reg.kind,
+    title = reg.title,
+    snapshot = function() return reg:entries() end,
+    put = function(key, value)
+      reg:remove(key)
+      if value ~= nil and reg:get(key) ~= value then reg:put(key, value) end
     end,
-    put = put or function(key, value) get()[key] = value end,
-    label = label,
+    label = function(key, value) return reg:label(key, value) end,
   }
 end
 
-local function two_level(get)
-  return function()
-    local out = {}
-    for a, inner in pairs(get() or {}) do
-      for b, v in pairs(inner) do
-        out[a .. " " .. b] = v
-      end
-    end
-    return out
-  end
-end
-
-local function split(key) return key:match("^(%S+) (.*)$") end
-
--- The registries of the modules below this one in the layers of the runtime
--- (.claude/skills/paw-code/layers.md). paw/init.lua adds the registries of
--- the higher modules (the bands of the frontend, the keys of the pencil)
--- after it loads them, before an extension loads.
-M.registries = {
-  {
-    kind = "keys",
-    title = "keys",
-    snapshot = function()
-      local out = {}
-      paw.keymap.each(function(map, mode, scope, keys) out[mode .. " " .. scope .. " " .. keys] = map end)
-      return out
-    end,
-    put = function(key, value)
-      local mode, scope, keys = key:match("^(%S+) (%S+) (.*)$")
-      paw.keymap.put(mode, scope, keys, value)
-    end,
-    label = function(_, map)
-      return map.lhs .. " (" .. map.mode .. (map.scope ~= "global" and ", " .. map.scope or "") .. ")"
-    end,
-  },
-  {
-    kind = "key_groups",
-    title = "key groups",
-    snapshot = two_level(function() return paw.keymap.groups() end),
-    put = function(key, value)
-      local scope, keys = split(key)
-      local groups = paw.keymap.groups()
-      groups[scope] = groups[scope] or {}
-      groups[scope][keys] = value
-    end,
-  },
-  -- The line of keys at the bottom that a view of its shows, by view and mode.
-  {
-    kind = "keybar",
-    title = "key bar lines",
-    snapshot = two_level(function() return paw.ui.keybar and paw.ui.keybar.lines end),
-    put = function(key, value)
-      local view, mode = split(key)
-      local lines = paw.ui.keybar.lines
-      lines[view] = lines[view] or {}
-      lines[view][mode] = value
-      if next(lines[view]) == nil then lines[view] = nil end
-      api.ui_redraw()
-    end,
-  },
-  keyed("addresses", "address schemes", function() return paw.address and paw.address.schemes end),
-  keyed("complete", "completion sources", function() return paw.complete and paw.complete.sources end),
-  keyed("triggers", "controller buttons", function() return paw.learn and paw.learn.triggers end),
-  {
-    kind = "layers",
-    title = "layers",
-    snapshot = function()
-      local out = {}
-      for view, parts in pairs(paw.ui.layers) do
-        for part, list in pairs(parts) do
-          for _, layer in ipairs(list) do
-            out[view .. " " .. part .. " " .. layer.name] = layer
-          end
-        end
-      end
-      return out
-    end,
-    put = function(key, value)
-      local view, part, name = key:match("^(%S+) (%S+) (.*)$")
-      paw.ui.layer(view, part, name, value and value.order, value and value.paint)
-    end,
-  },
-  keyed("languages", "languages", function() return paw.lang and paw.lang.compilers end),
-  keyed("health", "health checks", function() return paw.health and paw.health.checks end),
-  keyed("formats", "file formats", function() return paw.formats and paw.formats.registry end, function(key, value)
-    if value then
-      paw.formats.register(value)
-    else
-      paw.formats.unregister(key)
-    end
-  end, function(key) return key end),
-  -- The language servers it configures (`paw.lsp.config`). Unloaded, its
-  -- server stops: a server in this process keeps the module that started it,
-  -- and the extension loaded again starts a new one.
-  keyed("lsp", "language servers", function() return paw.lsp and paw.lsp.configs end, function(key, value)
-    if value then
-      paw.lsp.configs[key] = value
-    else
-      paw.lsp.enable(key, false)
-      paw.lsp.configs[key] = nil
-    end
-  end, function(key) return key end),
-  {
-    kind = "hooks",
-    title = "hooks",
-    snapshot = function()
-      local out = {}
-      for id, h in pairs(require("paw.events").handlers()) do
-        out[id] = h
-      end
-      return out
-    end,
-    put = function(key, value)
-      if not value then paw.off(key) end
-    end,
-    label = function(_, h) return h.pattern end,
-  },
-  -- An option goes with its definition, and the value set for it.
-  {
-    kind = "options",
-    title = "options",
-    snapshot = function() return paw.option.definitions() end,
-    put = function(key, value) paw.option.undefine(key, value) end,
-  },
-  -- Only its own timers: the core's started while it loaded (a watch the
-  -- core starts again) are not.
-  keyed("timers", "timers", function() return paw.timers.waiting end, function(key, value)
-    if not value then paw.cancel(key) end
-  end, function() return "timer" end),
-  keyed(
-    "device_dirs",
-    "devices written in Lua",
-    function() return paw.luadev and paw.luadev.dirs end,
-    function(key, value)
-      if not value then paw.luadev.remove_dir(key) end
-    end
-  ),
-  keyed(
-    "plugin_dirs",
-    "plugin directories",
-    function() return paw.plugins and paw.plugins.dirs end,
-    function(key, value)
-      if not value then paw.plugins.remove_dir(key) end
-    end
-  ),
-}
-for _, reg in ipairs(M.registries) do
-  reg.strict = reg.kind == "timers" or nil
-end
-
-local function snapshot()
-  local out = {}
-  for _, reg in ipairs(M.registries) do
-    local ok, got = pcall(reg.snapshot)
-    out[reg.kind] = ok and got or {}
-  end
-  return out
-end
-
--- Which extension each entry is, by kind and key: an extension that loads
--- another while it loads does not take the other's entries for its own.
-local claimed = {}
-
---- Record what `entry` added since `before` was taken.
-local function claim(entry, before)
-  local after = snapshot()
-  entry.owned = entry.owned or {}
-  for _, reg in ipairs(M.registries) do
-    local was, now = before[reg.kind] or {}, after[reg.kind] or {}
-    local list = entry.owned[reg.kind] or {}
-    local function own(key, old)
-      local id = reg.kind .. "\0" .. tostring(key)
-      local holder = claimed[id]
-      if holder and holder.value == now[key] and holder.name ~= entry.name then return end
-      -- Another extension's entry replaced: the one loaded last wins, which
-      -- `:checkhealth extensions` says.
-      if holder and holder.name ~= entry.name and holder.value == old and old ~= nil then
-        entry.overrides = entry.overrides or {}
-        local what = reg.label and reg.label(key, now[key] or old) or tostring(key)
-        entry.overrides[#entry.overrides + 1] = { kind = reg.title, what = what, of = holder.name }
-      end
-      claimed[id] = { name = entry.name, value = now[key] }
-      list[#list + 1] = { key = key, value = now[key], old = old }
-    end
-    for key, value in pairs(now) do
-      if was[key] ~= value and (not reg.strict or made_by(entry, value)) then own(key, was[key]) end
-    end
-    for key, value in pairs(was) do
-      if now[key] == nil and not reg.strict then own(key, value) end
-    end
-    if #list > 0 then
-      table.sort(list, function(a, b) return tostring(a.key) < tostring(b.key) end)
-      entry.owned[reg.kind] = list
-    end
-  end
-  entry.settled = after
-end
-
---- Take for `entry`'s own what it registered after it loaded: entries new
---- or changed since then that its files made.
-local function adopt(entry)
-  if not entry.settled then return end
-  local now = snapshot()
-  for _, reg in ipairs(M.registries) do
-    local settled, list = entry.settled[reg.kind] or {}, entry.owned[reg.kind] or {}
-    local mine = {}
-    for _, item in ipairs(list) do
-      mine[item.key] = item
-    end
-    for key, value in pairs(now[reg.kind] or {}) do
-      local id = reg.kind .. "\0" .. tostring(key)
-      local holder = claimed[id]
-      if
-        value ~= settled[key]
-        and not (holder and holder.name ~= entry.name and holder.value == value)
-        and made_by(entry, value)
-      then
-        if mine[key] then
-          mine[key].value = value
-        else
-          list[#list + 1] = { key = key, value = value, old = settled[key] }
-        end
-        claimed[id] = { name = entry.name, value = value }
-        settled[key] = value
-      end
-    end
-    entry.settled[reg.kind] = settled
-    if #list > 0 then
-      table.sort(list, function(a, b) return tostring(a.key) < tostring(b.key) end)
-      entry.owned[reg.kind] = list
-    end
-  end
-end
-
 --- What a loaded extension registered: a list of `{ kind, title, items }`,
---- each item a short label, in the order of `paw.ext.registries`, then of
---- the registries of `paw.registry`.
+--- each item a short label, in the order of the registries of
+--- `paw.registry`.
 function M.provides(name)
-  local entry = M.loaded[name]
-  if entry then adopt(entry) end
   local out = {}
-  for _, reg in ipairs(M.registries) do
-    local list = entry and entry.owned and entry.owned[reg.kind]
-    if list then
-      local items = {}
-      for _, item in ipairs(list) do
-        if item.value ~= nil then
-          items[#items + 1] = reg.label and reg.label(item.key, item.value) or tostring(item.key)
-        end
-      end
-      if #items > 0 then out[#out + 1] = { kind = reg.kind, title = reg.title, items = items } end
-    end
-  end
+  if not M.loaded[name] then return out end
   for _, reg in ipairs(registry.all()) do
-    local items = entry and reg:labels(name) or {}
+    local items = reg:labels(name)
     if #items > 0 then out[#out + 1] = { kind = reg.kind, title = reg.title, items = items } end
   end
   return out
@@ -571,7 +322,6 @@ local function load_one(path)
     paw.notify("extension " .. name .. " failed: " .. tostring(err), "error")
     return entry
   end
-  local before = snapshot()
   local outer = M.current
   M.current = entry
   local init = path
@@ -587,7 +337,6 @@ local function load_one(path)
     init = paw.lang.find(path .. "/init")
     if not init then
       paw.snippet.load_dir(path .. "/snippets", "extension")
-      claim(entry, before)
       M.current = outer
       paw.emit("ext.loaded", { name = name, ok = true })
       return entry
@@ -604,7 +353,6 @@ local function load_one(path)
   end
   -- Its snippets, one file per set; the user's own of the same name win.
   if entry.ok and not one_file(path) then paw.snippet.load_dir(path .. "/snippets", "extension") end
-  claim(entry, before)
   M.current = outer
   if not entry.ok then
     entry.error = err
@@ -631,13 +379,14 @@ end
 --- names: `{ used = { kinds }, tracks = { names } }`.
 local function devices_in_use(entry)
   local kinds, any = {}, false
-  for _, item in ipairs(entry.owned and entry.owned.device_dirs or {}) do
-    for _, kind in ipairs(paw.luadev.kinds_in(item.key)) do
+  for _, dir in ipairs(paw.luadev.dirs:owned_by(entry.name)) do
+    for _, kind in ipairs(paw.luadev.kinds_in(dir)) do
       kinds[kind], any = true, true
     end
   end
-  for _, item in ipairs(entry.owned and entry.owned.plugin_dirs or {}) do
-    for _, kind in ipairs(item.value and item.value.kinds or {}) do
+  for _, dir in ipairs(paw.plugins.dirs:owned_by(entry.name)) do
+    local added = paw.plugins.dirs:get(dir)
+    for _, kind in ipairs(added and added.kinds or {}) do
       kinds[kind], any = true, true
     end
   end
@@ -680,7 +429,6 @@ function M.unload(name, opts)
     local requires = other ~= entry and other.ok and other.manifest and other.manifest.requires
     if requires and requires[name] ~= nil then return nil, other.name .. " requires " .. name .. ": unload it first" end
   end
-  adopt(entry)
   local devices = devices_in_use(entry)
   local left
   if #devices.tracks > 0 then
@@ -701,35 +449,17 @@ function M.unload(name, opts)
   paw.emit("ext.unloading", { name = name })
   -- Its hooks and timers go first, so that none of its code runs on what
   -- the rest of the unload changes (an option that goes emits
-  -- `option.changed`). Then the registries of paw.registry, and then the
-  -- others, the last registered first.
+  -- `option.changed`). Then the other registries, in the order they were
+  -- made.
   local first, rest = {}, {}
-  for i = #M.registries, 1, -1 do
-    local reg = M.registries[i]
-    if reg.kind == "hooks" or reg.kind == "timers" then
-      table.insert(first, 1, reg)
-    else
-      rest[#rest + 1] = reg
-    end
-  end
-  local function take_away(reg)
-    local list = entry.owned and entry.owned[reg.kind] or {}
-    local now = reg.snapshot()
-    for j = #list, 1, -1 do
-      local item = list[j]
-      -- Something registered over it since is left alone.
-      if now[item.key] == item.value then pcall(reg.put, item.key, item.old) end
-      claimed[reg.kind .. "\0" .. tostring(item.key)] = nil
-    end
-  end
-  for _, reg in ipairs(first) do
-    take_away(reg)
-  end
   for _, reg in ipairs(registry.all()) do
-    pcall(reg.unload, reg, name)
+    local list = (reg.kind == "hooks" or reg.kind == "timers") and first or rest
+    list[#list + 1] = reg
   end
-  for _, reg in ipairs(rest) do
-    take_away(reg)
+  for _, list in ipairs({ first, rest }) do
+    for _, reg in ipairs(list) do
+      pcall(reg.unload, reg, name)
+    end
   end
   if entry.lua_path then
     local prefix = entry.path .. "/lua/"

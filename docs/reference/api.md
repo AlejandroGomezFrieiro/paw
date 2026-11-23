@@ -674,7 +674,6 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   ```lua
   local filled: paw.events.Event<Filled> = paw.events.event("fill.done")
   ```
-- `paw.events.handlers()`: Every handler, by its handle: `{ pattern, fn }`.
 - `paw.events.listened(name)`: True if a handler listens for `name` by its name or its family (not `*`). Use it for events that are expensive to make.
 - `paw.events.off`: the same as `paw.off`.
 - `paw.events.on`: the same as `paw.on`.
@@ -736,7 +735,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.ext.load_packaged(dirs)`: Load the extensions the program was built with: `dirs` is a list of their directories separated by `:` (`$PAW_EXTENSIONS`, which the flake's `paw.withExtensions` sets).
 - `paw.ext.manifest(path, name)`: An extension's manifest: `manifest.lua` in its directory. A one-file extension has none. Returns the table (with `name` filled in), or nil and what is wrong with it.
 - `paw.ext.parse_version(text)`: The numbers of a version: "1.2.3" gives { 1, 2, 3 }. A part that is not there is 0. Nil for text that is not a version.
-- `paw.ext.provides(name)`: What a loaded extension registered: a list of `{ kind, title, items }`, each item a short label, in the order of `paw.ext.registries`, then of the registries of `paw.registry`.
+- `paw.ext.provides(name)`: What a loaded extension registered: a list of `{ kind, title, items }`, each item a short label, in the order of the registries of `paw.registry`.
 - `paw.ext.satisfies(version, want)`: True if `version` agrees with `want`. `want` is comparisons with spaces or commas between them. Each is `>=1.2`, `>1`, `<=2`, `<2.0`, `=1.2.3`, `^1.2` (the same first number, at least 1.2), `~1.2` (the same first two numbers) or a version alone, which means `^`. `*` or nothing is any version.
 - `paw.ext.unload(name, opts)`: Unload an extension. paw removes all that it registered (while it loaded, and later from its handlers and timers). paw puts back what it replaced (a command or key of the core that it mapped again). Its options go with their values, and its timers stop. paw stops to offer the devices written in Lua and the plugin directories that it added. paw forgets its modules, so a new load runs them again.
 
@@ -1603,7 +1602,6 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.option.show(value)`: An option's value as text: a list is its items with commas between.
 - `paw.option.snapshot()`: The value of each option that was set, to give back later with `paw.option.restore`. An option that was not set keeps its default.
 - `paw.option.spec(name)`: What option `name` takes besides its default's type (`min`, `max`, `integer`, `type`, `values`), or nil.
-- `paw.option.undefine(name, was)`: Remove the definition of an option and its value (the extension that defined it unloaded). `paw.opt[name]` is nil again. With `was`, the value that `paw.option.definitions` gave before, that definition returns, and the value stays.
 
 ## Module paw.panes
 
@@ -1805,7 +1803,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.registry
 
 - `paw.registry.all()`: The registries made so far, in the order they were made.
-- `paw.registry.new(kind, title, options)`: A new registry: entries by key, each with the extension that put it there. `kind` names it in `paw.ext.provides` and `title` in `:extensions`. Its functions are `put(key, value)`, `get(key)`, `remove(key)`, `entries()` and `owned_by(name)`. `paw.ext.unload` takes away the entries of an extension, and an entry that one of them replaced comes back.
+- `paw.registry.maker(value)`: The loaded extension whose files made `value`: the owner of an entry of a registry made with `made` (the timers).
+- `paw.registry.new(kind, title, options)`: A new registry: entries by key, each with the extension that put it there. `kind` names it in `paw.ext.provides` and `title` in `:extensions`. Its functions are `put(key, value)`, `get(key)`, `remove(key)`, `entries()`, `owned_by(name)`, `put_by(key, name)` and `label(key, value)`. `paw.ext.unload` takes away the entries of an extension, and an entry that one of them replaced comes back.
 - `paw.registry.owner()`: The extension that loads now, or whose code calls: the owner of an entry that it puts. paw/command.tl reads it for the commands too.
 - `paw.registry.replaced(reg, what, owner, previous)`: Records that the extension `owner` put an entry over an entry of the extension `previous`. `:checkhealth extensions` gives a warning for it.
 
@@ -2499,7 +2498,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 - `paw.ui.keybar.check()`: The keys shown that nothing is mapped to, as `view mode key` strings: empty when every line tells the truth.
 - `paw.ui.keybar.entries()`: The entries for what has the keyboard now, as `{ shown key, text }`.
-- `paw.ui.keybar.set(view, mode, entries)`: Set the keys shown for a view in a mode ("n", "x", "i").
+- `paw.ui.keybar.set(view, mode, entries)`: Set the keys shown for a view in a mode ("n", "x", "i"). Nil takes the line away.
 - `paw.ui.keybar.show(lhs)`: A key as a person reads it: `<leader>mm` is `Space mm`, `<C-w>c` is `Ctrl-w c`.
 
 ## Module paw.undofile

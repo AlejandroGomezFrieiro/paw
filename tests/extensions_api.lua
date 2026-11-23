@@ -164,13 +164,12 @@ test("what an extension registers is its own, and unloading it takes all of it a
     paw.commands.completers:put("owned", function() return {} end)
     paw.curves.provide("owned", function() end)
     paw.ui.layer("arrange", "header", "owned", 99, function() end)
-    table.insert(paw.frontend.bands, function() return {} end)
+    paw.frontend.bands:put("owned", function() return {} end)
     paw.on("track.added", function() _G.owner_heard = (_G.owner_heard or 0) + 1 end)
     paw.option.define("owned_option", 7)
   ]]
   )
   local core_info = paw.commands.get("info")
-  local bands = #paw.frontend.bands
   local entry = paw.ext.load(root)
   eq(entry.ok, true, "loads: " .. tostring(entry.error))
   eq(entry.version, "0.3.0", "the manifest's version")
@@ -245,7 +244,7 @@ test("what an extension registers is its own, and unloading it takes all of it a
   for _, layer in ipairs(paw.ui.layers.arrange.header or {}) do
     eq(layer.name ~= "owned", true, "its layer")
   end
-  eq(#paw.frontend.bands, bands, "its band under the ruler")
+  eq(paw.frontend.bands:get("owned"), nil, "its band under the ruler")
   eq(package.loaded["owner.lib"], nil, "its modules are forgotten")
   paw.add_track({ name = "unheard" })
   paw.flush()
@@ -297,7 +296,7 @@ test("an extension's language server in this process starts again when the exten
   eq(paw.ext.load(root).ok, true, "loads")
   T.until_(function() return _G.served_starts == 1 end, "the server to start")
   paw.ext.unload("served")
-  eq(paw.lsp.configs.served, nil, "unloading takes its server away")
+  eq(paw.lsp.configs:get("served"), nil, "unloading takes its server away")
   eq(paw.ext.load(root).ok, true, "loads again")
   T.until_(function() return _G.served_starts == 2 end, "the server of the new load to start")
 end)
@@ -349,8 +348,8 @@ test("an extension's pencil keys and insert keys work, show in the key bar by or
   eq(_G.pens_ran, "qsz", "its keys work")
 
   eq(paw.ext.unload("pens"), true, "unloads")
-  eq(paw.roll_draw.keys.gs, nil, "its pencil key is gone from paw.roll_draw.keys")
-  eq(paw.roll_draw.keys.gz, nil, "both of them")
+  eq(paw.roll_draw.keys:get("gs"), nil, "its pencil key is gone from paw.roll_draw.keys")
+  eq(paw.roll_draw.keys:get("gz"), nil, "both of them")
   eq(paw.insert.get("Q"), nil, "its insert key is gone")
   eq(table.concat(paw.opt.insertkeys, ","), "m,a,r,',f", "and out of paw.opt.insertkeys")
   T.keys("igsgz<Esc>")
@@ -486,7 +485,7 @@ end)
     end
     paw.emit("later.ping")
     eq(_G.later_heard, nil, "the hook added later no longer runs")
-    eq(paw.timers.waiting[_G.later_timer], nil, "its timer waiting is cancelled")
+    eq(paw.timers.waiting:get(tostring(_G.later_timer)), nil, "its timer waiting is cancelled")
     local ticks = _G.later_ticks
     paw.wait(60)
     eq(_G.later_ticks, ticks, "the repeating one stopped")
@@ -515,8 +514,10 @@ paw.luadev.watch()
 ]]
     )
     local before = paw.option.definitions().lua_devices_watch
+    -- The core's watch runs before the load, as an earlier test can leave it.
+    paw.luadev.watch()
     local timers = 0
-    for _ in pairs(paw.timers.waiting) do
+    for _ in pairs(paw.timers.waiting:entries()) do
       timers = timers + 1
     end
     eq(paw.ext.load(dir("redef")).ok, true, "loads")
@@ -525,7 +526,7 @@ paw.luadev.watch()
     eq(paw.option.definitions().lua_devices_watch, before, "the core's definition is back")
     eq(paw.opt.lua_devices_watch, before.default, "with its default")
     local after = 0
-    for _ in pairs(paw.timers.waiting) do
+    for _ in pairs(paw.timers.waiting:entries()) do
       after = after + 1
     end
     eq(after, timers, "the core's watch, started again while it loaded, is not taken away")
@@ -535,7 +536,7 @@ paw.luadev.watch()
 -- One row for each registry of paw.registry: `put` is the code of an
 -- extension that puts an entry at `%q`, and `core` an entry of the core
 -- (nil where the core has none). The registry keeps the entry at `prefix`
--- and the name.
+-- and the name, then `suffix`.
 local registries = {
   { reg = paw.pick.sources, core = "tracks", put = "paw.pick.sources:put(%q, { desc = 'mine', items = {} })" },
   {
@@ -577,6 +578,33 @@ local registries = {
   { reg = paw.insert.kinds, core = "m", put = "paw.insert.add(%q, { kind = 'midi', desc = 'Mine' })" },
   { reg = paw.grep.sources, put = "paw.grep.source(%q, function() end)" },
   { reg = paw.curves.providers, core = "lsp", put = "paw.curves.provide(%q, function() end)" },
+  { reg = paw.keymap.mappings, prefix = "n global ", put = "paw.keymap.set(%q, function() end, { desc = 'Mine' })" },
+  { reg = paw.keymap.group_registry, prefix = "global ", put = "paw.keymap.group(%q, 'mine')" },
+  { reg = paw.option.defined, core = "lua_devices_watch", put = "paw.option.define(%q, 1)" },
+  { reg = paw.lsp.configs, put = "paw.lsp.config(%q, { cmd = { 'mine' } })" },
+  {
+    reg = paw.formats.registry,
+    put = "paw.formats.register({ name = %q, extensions = { 'mine' }, import = function() end })",
+  },
+  { reg = paw.health.checks, core = "extensions", put = "paw.health.register(%q, function() end)" },
+  { reg = paw.lang.compilers, put = "paw.lang.add(%q, { command = 'mine %%s' })" },
+  {
+    reg = paw.complete.sources,
+    put = "paw.complete.register({ name = %q, complete = function() end })",
+  },
+  { reg = paw.address.schemes, put = "paw.address.scheme(%q, { resolve = function() end })" },
+  {
+    reg = paw.learn.triggers,
+    put = "paw.learn.trigger(%q, { press = function() end, name = function() return 'mine' end })",
+  },
+  {
+    reg = paw.ui.layer_registry,
+    prefix = "arrange header ",
+    put = "paw.ui.layer('arrange', 'header', %q, 99, function() end)",
+  },
+  { reg = paw.ui.keybar.registry, suffix = " n", core = "arrange", put = "paw.ui.keybar.set(%q, 'n', {})" },
+  { reg = paw.roll_draw.keys, put = "paw.roll_draw.key(%q, { desc = 'Mine', run = function() end })" },
+  { reg = paw.frontend.bands, put = "paw.frontend.bands:put(%q, function() return {} end)" },
 }
 
 test(
@@ -585,21 +613,22 @@ test(
     for _, row in ipairs(registries) do
       local reg, name = row.reg, "registry_" .. row.reg.kind
       local core = row.core or "aa_regtest"
-      local prefix = row.prefix or ""
-      local was = reg:get(prefix .. core)
+      local prefix, suffix = row.prefix or "", row.suffix or ""
+      local function key(name) return prefix .. name .. suffix end
+      local was = reg:get(key(core))
       local root = dir(name)
       write(root .. "/init.lua", row.put:format("aa_regtest") .. "\n" .. row.put:format(core))
       for round = 1, 2 do
         local what = reg.kind .. ", round " .. round .. ": "
-        local owned = row.core and { prefix .. "aa_regtest", prefix .. core } or { prefix .. core }
+        local owned = row.core and { key("aa_regtest"), key(core) } or { key(core) }
         table.sort(owned)
         eq(paw.ext.load(root).ok, true, what .. "loads")
         eq(table.concat(reg:owned_by(name), " "), table.concat(owned, " "), what .. "its entries")
-        eq(reg:get(prefix .. core) ~= was, true, what .. "its entry is on top of the core's")
+        eq(reg:get(key(core)) ~= was, true, what .. "its entry is on top of the core's")
         eq(paw.ext.unload(name), true, what .. "unloads")
         eq(#reg:owned_by(name), 0, what .. "no entry of it is left")
-        eq(reg:get(prefix .. "aa_regtest"), nil, what .. "its own entry is gone")
-        eq(reg:get(prefix .. core), was, what .. "the core's entry is back")
+        eq(reg:get(key("aa_regtest")), nil, what .. "its own entry is gone")
+        eq(reg:get(key(core)), was, what .. "the core's entry is back")
       end
     end
   end

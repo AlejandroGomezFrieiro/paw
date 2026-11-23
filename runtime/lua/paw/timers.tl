@@ -9,27 +9,43 @@
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local limit = require("paw.limit")
+local registry = require("paw.registry")
 
 local record M
-  --- The timers that wait, by handle: the function that each runs. An
-  --- extension's timers stop when it is unloaded (paw/ext.lua).
-  waiting: {integer: function()}
+  --- The timers that wait, by handle (as text): the function that each
+  --- runs, with the extension whose files made the function. A timer that
+  --- goes from it stops, so the timers of an extension stop when it is
+  --- unloaded.
+  waiting: registry.Registry<function()>
   wait: function(ms: number)
 end
-M.waiting = {}
+
+M.waiting = registry.new(
+  "timers",
+  "timers",
+  {
+    label = function(): string return "timer" end,
+    made = true,
+    changed = function(handle: string, fn: function())
+      if not fn then
+        api.timer_stop(math.tointeger(tonumber(handle)))
+      end
+    end,
+  }
+)
 
 --- Run `fn` once, after `ms` milliseconds (or when the current turn ends).
 function M.defer(fn: function(), ms?: number): integer
   local handle: integer
-  handle = api.timer_start(ms or 0, false, function() M.waiting[handle] = nil; limit.timed(nil, fn) end)
-  M.waiting[handle] = fn
+  handle = api.timer_start(ms or 0, false, function() M.waiting:remove(tostring(handle)); limit.timed(nil, fn) end)
+  M.waiting:put(tostring(handle), fn)
   return handle
 end
 
 --- Run `fn` every `ms` milliseconds. Returns a handle for `paw.cancel`.
 function M.every(ms: number, fn: function()): integer
   local handle = api.timer_start(ms, true, function() limit.timed(nil, fn) end)
-  M.waiting[handle] = fn
+  M.waiting:put(tostring(handle), fn)
   return handle
 end
 
@@ -38,8 +54,11 @@ function M.cancel(handle: integer)
   if handle == nil then
     return
   end
-  M.waiting[handle] = nil
-  api.timer_stop(handle)
+  -- A timer that waits stops as it goes from `waiting`. One that
+  -- `paw.api.timer_start` started stops here.
+  if not M.waiting:remove(tostring(handle)) then
+    api.timer_stop(handle)
+  end
 end
 
 --- Let `ms` milliseconds pass while timers fire and events are delivered, as

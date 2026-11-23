@@ -124,17 +124,37 @@ A registry holds entries by name and records which extension put each entry ther
 | `paw.insert.kinds` | keys of insert mode in the arrange view |
 | `paw.grep.sources` | grep sources |
 | `paw.curves.providers` | curve providers |
+| `paw.keymap.mappings` | keys, by mode, view and key (`"n arrange <localleader>e"`), where the view is `global` for a key of every view |
+| `paw.keymap.group_registry` | names of key groups, by view and prefix (`"global <leader>m"`) |
+| `paw.events.hooks` | hooks of `paw.on`, by their handle |
+| `paw.timers.waiting` | timers of `paw.every` and `paw.defer`, by their handle. A timer belongs to the extension whose files made its function |
+| `paw.option.defined` | options that `paw.option.define` defined, by name. When an extension unloads, the definition that it replaced comes back, or the option goes with its value |
+| `paw.lsp.configs` | language servers, by name |
+| `paw.formats.registry` | file formats, by name |
+| `paw.health.checks` | health checks, by name |
+| `paw.lang.compilers` | languages, by the end of their file names |
+| `paw.complete.sources` | completion sources |
+| `paw.address.schemes` | address schemes |
+| `paw.learn.triggers` | kinds of controller button for `:learn` |
+| `paw.ui.layer_registry` | layers of views, by view, part and name (`"arrange header mine"`) |
+| `paw.ui.keybar.registry` | lines of the key bar, by view and mode (`"arrange n"`) |
+| `paw.roll_draw.keys` | keys of the pencil |
+| `paw.frontend.bands` | bands under the ruler of the window |
+| `paw.plugins.dirs` | plugin directories |
+| `paw.luadev.dirs` | directories of devices written in Lua |
 
 A module or an extension that takes entries from other extensions can make its own registry, and then `:extensions`, `paw.ext.provides` and `paw.ext.unload` work with it without any other change.
 
 | Name | Effect |
 | --- | --- |
-| `paw.registry.new(kind, title, options)` | makes a registry. `kind` is its name in `paw.ext.provides`, and `title` is its name in `:extensions`. `options.label(key, value)` gives the words for an entry, or nil to leave it out of `:extensions`, and `options.changed(key, value)` runs after the entry at a key changes or goes away |
+| `paw.registry.new(kind, title, options)` | makes a registry. `kind` is its name in `paw.ext.provides`, and `title` is its name in `:extensions`. `options.label(key, value)` gives the words for an entry, or nil to leave it out of `:extensions`, and `options.changed(key, value, old)` runs after the entry at a key changes or goes away, with the entry that was there before |
 | `reg:put(key, value)` | puts an entry at `key`. Its owner is the extension whose code calls `put`, or no extension for the core and your configuration |
 | `reg:get(key)` | gives the entry at `key`, or nil |
 | `reg:remove(key)` | takes away the entry at `key` and gives it. The entry that it replaced comes back |
 | `reg:entries()` | gives all of the entries by key, in a new table |
 | `reg:owned_by(name)` | gives the keys of the entries that the extension `name` put, sorted |
+| `reg:put_by(key, name)` | gives the entry that the extension `name` put at `key`, and the entry that it replaced |
+| `reg:label(key, value)` | gives the words for an entry, as `:extensions` shows them |
 | `paw.registry.all()` | gives each registry, in the order they were made |
 
 An entry that one extension puts over the entry of another extension or of the core does not delete the old entry. When the new entry goes, with `remove` or when its extension unloads, the old entry comes back. When the extension of the old entry unloads first, only its own entry goes, and the new entry stays. `:checkhealth extensions` gives a warning when an extension puts an entry over the entry of another extension.

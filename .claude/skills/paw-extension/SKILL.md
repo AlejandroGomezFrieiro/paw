@@ -153,8 +153,9 @@ A module that takes entries from extensions keeps them in a registry
 (`paw.registry`, runtime/lua/paw/registry.tl). The page "Extensions" of
 the reference lists the registries of paw. Commands, views, buffer types
 and kinds of track are registries, for example. Read an entry with `get`:
-`paw.ui.views:get("pianoroll")`. The other kinds above are still tables
-that `paw.ext` copies before and after a load (`paw.ext.registries`).
+`paw.ui.views:get("pianoroll")`. Each kind above is a registry: keys
+(`paw.keymap.mappings`), hooks (`paw.events.hooks`), timers
+(`paw.timers.waiting`) and options (`paw.option.defined`) too.
 
 - To add a registry to a module, make it once with
   `registry.new(kind, title, options)`. In Teal, give the type of the
@@ -165,7 +166,9 @@ that `paw.ext` copies before and after a load (`paw.ext.registries`).
   `reg:entries()`. Do not keep a second table of the same entries.
 - `put` records the owner from the code that calls it (`paw.ext.caller`).
   `paw.ext.unload` removes the entries of the owner, and the entry below
-  each one returns. Do not add a line to `paw.ext.registries`.
+  each one returns. A registry made with `made = true` takes the owner
+  from the files that made the value (`paw.registry.maker`), as the
+  timers do.
 - Add a row for the new registry to the table `registries` in
   `tests/extensions_api.lua`.
 - The page "Extensions" of the reference (section "Registries") gives the full reference.

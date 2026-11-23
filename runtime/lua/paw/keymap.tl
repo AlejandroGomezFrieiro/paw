@@ -28,7 +28,7 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
-local type registry = require("paw.registry")
+local registry = require("paw.registry")
 local events = require("paw.events")
 local options = require("paw.options")
 local registers = require("paw.keymap.registers")
@@ -318,6 +318,14 @@ local record M
   screen_kept: boolean
   --- The registers by name.
   registers: {string: registers.Register}
+  --- Every mapping by `"<mode> <scope> <lhs>"`, with the extension that
+  --- made it. `set`, `operator` and `textobject` put one, and `del`
+  --- removes it. The keys go to a table of each mode and scope, which the
+  --- keymap reads at each key.
+  mappings: registry.Registry<Map>
+  --- The names of the prefixes (`group`) by `"<scope> <prefix>"`, with
+  --- the extension that gave each one.
+  group_registry: registry.Registry<LeaderGroup>
 
   setreg: function(value: registers.Register, name?: string, yank?: boolean)
   getreg: function(name?: string): registers.Register
@@ -357,8 +365,9 @@ M.shada_project, M.shada_set_project = marks.shada_project, marks.shada_set_proj
 
 local opt = options.opt
 local maps: {Mode: {string: MapTable}} = {} -- mode -> scope -> the mappings
-local groups: {string: {string: string}} = {} -- scope -> keys -> name of a prefix that only leads to more keys
-local group_lhs: {LeaderGroup} = {} -- the groups on a leader
+-- scope -> keys -> name of a prefix that only leads to more keys: what
+-- the hints read, made from `M.group_registry`.
+local groups: {string: {string: string}} = {}
 
 -- Each seat's own: two people can be half way through two commands, in
 -- two modes. (The registers and the marks keep theirs in their modules.)
@@ -558,6 +567,59 @@ local function each_map(fn: EachMap)
   end
 end
 
+--- The key of a mapping in `M.mappings`.
+local function key_of(map: Map): string
+  return (map.mode as string) .. " " .. map.scope .. " " .. map.lhs
+end
+
+-- A mapping on top in `M.mappings` is in the table of its mode and scope.
+-- A mapping that goes takes its keys with it, and the one below it (if
+-- any) comes back.
+M.mappings = registry.new(
+  "keys",
+  "keys",
+  {
+    label = function(_: string, map: Map): string
+      return map.lhs .. " (" .. (map.mode as string) .. (map.scope ~= "global" and ", " .. map.scope or "") .. ")"
+    end,
+    changed = function(_: string, map: Map, old: Map)
+      if old then
+        local keys = table.concat(old.keys)
+        if mapped(old.mode, old.scope, keys) == old then
+          store(old.mode, old.scope, keys, nil)
+        end
+      end
+      if map then
+        -- A mapping that comes back from below another one kept the keys
+        -- of the leader of then.
+        if old and map.lhs:lower():find("leader>", 1, true) then
+          map.keys = M.parse(map.lhs)
+        end
+        store(map.mode, map.scope, table.concat(map.keys), map)
+      end
+    end,
+  }
+)
+
+-- A name of a prefix on top in `M.group_registry` is in `groups`.
+M.group_registry = registry.new(
+  "key_groups",
+  "key groups",
+  {
+    label = function(_: string, g: LeaderGroup): string return g.prefix end,
+    changed = function(_: string, g: LeaderGroup, old: LeaderGroup)
+      if old and groups[old.scope] and groups[old.scope][old.keys] == old.name then
+        groups[old.scope][old.keys] = nil
+      end
+      if g then
+        g.keys = table.concat(M.parse(g.prefix))
+        groups[g.scope] = groups[g.scope] or {}
+        groups[g.scope][g.keys] = g.name
+      end
+    end,
+  }
+)
+
 --- The modes a mapping goes in: `opts.mode` (one or a list), else `default`.
 --- "v" is "x".
 local function modes_of(opts: MapOptions, default: {Mode}): {Mode}
@@ -581,12 +643,9 @@ end
 local function define(lhs: string, rhs: Rhs, opts: MapOptions, modes: {Mode}, operator: Operator, object: TextObject)
   local scope = opts.view or "global"
   local keys = M.parse(lhs)
-  local joined = table.concat(keys)
   for _, mode in ipairs(modes) do
-    store(
-      mode,
-      scope,
-      joined,
+    M.mappings:put(
+      (mode as string) .. " " .. scope .. " " .. lhs,
       {
         lhs = lhs,
         keys = keys,
@@ -646,12 +705,7 @@ end
 --- With `opts.view`, the name applies only while that view has focus.
 function M.group(prefix: string, name: string, opts?: MapOptions)
   local scope = opts and opts.view or "global"
-  groups[scope] = groups[scope] or {}
-  local keys = table.concat(M.parse(prefix))
-  groups[scope][keys] = name
-  if prefix:lower():find("leader>", 1, true) then
-    group_lhs[#group_lhs + 1] = {scope = scope, prefix = prefix, name = name, keys = keys}
-  end
+  M.group_registry:put(scope .. " " .. prefix, {scope = scope, prefix = prefix, name = name})
 end
 
 --- Define an operator: `fn(region, ctx)` acts on a region of the focused
@@ -678,9 +732,9 @@ end
 function M.del(lhs: string, opts?: MapOptions)
   opts = opts or {}
   local mode = (opts.mode or "n") as Mode
-  local scope = opts.view or "global"
-  if table_of(mode, scope) then
-    store(mode, scope, table.concat(M.parse(lhs)), nil)
+  local map = mapped(mode, opts.view or "global", table.concat(M.parse(lhs)))
+  if map then
+    M.mappings:remove(key_of(map))
   end
 end
 
@@ -695,7 +749,14 @@ end
 --- (`table.concat(map.keys)`). An extension that unloads does this with
 --- the keys that it mapped.
 function M.put(mode: Mode, scope: string, keys: string, map: Map)
-  store(mode, scope, keys, map)
+  if map then
+    M.mappings:put(key_of(map), map)
+    return
+  end
+  local was = mapped(mode, scope, keys)
+  if was then
+    M.mappings:remove(key_of(was))
+  end
 end
 
 -- The keys as they were before every view kept to one rule (docs/reference/key-rule.md,
@@ -711,7 +772,7 @@ local function apply(entry: Classic)
   for _, mode in ipairs(entry.modes) do
     entry.covered[mode] = mapped(mode, scope, keys)
     if rhs == false and entry.covered[mode] then
-      store(mode, scope, keys, nil)
+      M.put(mode, scope, keys, nil)
     end
   end
   if rhs ~= false then
@@ -723,7 +784,10 @@ end
 local function revert(entry: Classic)
   local scope, keys = entry.opts.view or "global", table.concat(M.parse(entry.lhs))
   for _, mode in ipairs(entry.modes or {}) do
-    store(mode, scope, keys, entry.covered[mode])
+    M.put(mode, scope, keys, nil)
+    if entry.covered[mode] then
+      M.put(mode, scope, keys, entry.covered[mode])
+    end
   end
   entry.modes, entry.covered = nil, nil
 end
@@ -2128,12 +2192,16 @@ events.on(
       m.map.keys = M.parse(m.map.lhs)
       store(m.map.mode, m.map.scope, table.concat(m.map.keys), m.map)
     end
-    for _, g in ipairs(group_lhs) do
-      if groups[g.scope][g.keys] == g.name then
-        groups[g.scope][g.keys] = nil
+    local leader_groups: {LeaderGroup} = {}
+    for _, g in pairs(M.group_registry:entries()) do
+      if g.prefix:lower():find("leader>", 1, true) then
+        leader_groups[#leader_groups + 1] = g
+        if groups[g.scope][g.keys] == g.name then
+          groups[g.scope][g.keys] = nil
+        end
       end
     end
-    for _, g in ipairs(group_lhs) do
+    for _, g in ipairs(leader_groups) do
       g.keys = table.concat(M.parse(g.prefix))
       groups[g.scope][g.keys] = g.name
     end

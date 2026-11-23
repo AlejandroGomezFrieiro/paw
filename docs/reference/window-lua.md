@@ -64,9 +64,10 @@ table.insert(paw.frontend.menus.timeline, { label = "New drum track", run = func
 
 ## `paw.frontend.bands`
 
-`paw.frontend.bands` is a list of functions, and each function returns the
-entries of a band under the markers of the arrange view's ruler, which is a row in
-the terminal and in the window.
+`paw.frontend.bands` is a registry of functions by name, and each function
+returns the entries of a band under the markers of the arrange view's ruler,
+which is a row in the terminal and in the window. The bands go in the order
+of their names.
 
 | Field | Value |
 | --- | --- |
@@ -82,7 +83,7 @@ A band with no entries takes no space, and the arrange view calls the
 functions each time that it draws. The findings of the mix are a band.
 
 ```lua
-table.insert(paw.frontend.bands, function()
+paw.frontend.bands:put("sections", function()
   return { { beat = 0, length = 16, name = "Intro", command = "section.goto 1", hint = "click goes there" } }
 end)
 ```
