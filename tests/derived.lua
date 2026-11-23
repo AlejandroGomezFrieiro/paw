@@ -233,6 +233,35 @@ test("derived: after :quantize of one bar, the job reads only that bar's windows
   eq(got, want, "and the reading is the one of all the notes")
 end)
 
+test("derived: after :quantize, the spans compared grow with the bars changed, not with the song", function()
+  --- The spans of the windows and bars compared with the change of the
+  --- tracks, after `:<range>quantize` on two tracks of one-bar clips.
+  local function checked(bars, range)
+    fresh()
+    for t = 1, 2 do
+      local track = paw.add_track({ name = "Part " .. t })
+      for bar = 0, bars - 1 do
+        local notes = {}
+        for beat = 0, 3 do
+          notes[#notes + 1] = { pitch = 50 + t * 4 + bar % 12, start = beat + 0.1, length = 0.5, velocity = 90 }
+        end
+        track:add_clip({ start = bar * 4, length = 4, notes = notes })
+      end
+    end
+    paw.flush()
+    song.update()
+    local before = song.stats("harmony.track").checked
+    T.keys(":" .. range .. "quantize 1/4<CR>")
+    paw.flush()
+    song.update()
+    return song.stats("harmony.track").checked - before
+  end
+  local short, long = checked(8, "3"), checked(32, "3")
+  eq(short > 0, true, "the change of bar 3 was compared with the spans that read it")
+  eq(long, short, "a song four times as long compares as many spans")
+  eq(checked(32, "3,6") > long, true, "four bars compare more spans than one")
+end)
+
 test("derived: an error deep in the job leaves no value half made: the next reading is right", function()
   fresh()
   local clips = {}

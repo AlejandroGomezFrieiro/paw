@@ -82,6 +82,9 @@ local record Stats
   made: integer
   hits: integer
   dropped: integer
+  --- How many times the span of an entry that reads one of the node's
+  --- values was compared with a change of that value (`touched`).
+  checked: integer
 end
 
 --- What `derived.changed` says: the kinds whose values changed.
@@ -210,6 +213,19 @@ local record Core
   made: integer
   hits: integer
   dropped: integer
+  checked: integer
+end
+
+--- The entries that read an entry, by their spans: `push_over` finds those
+--- over a change without a look at each. An index is true for the users and
+--- the spans as they were when `index_users` made it. A change of either
+--- removes it (`link`, `unlink`, `remake`), and so does a pass that stops
+--- before its end (`epoch`).
+local record SpanIndex
+  epoch: integer -- `users_epoch` when it was made
+  wide: {Entry} -- the users with no span or an endless one: each is compared
+  by_from: {Entry} -- the others, by the start of their spans
+  reach: {number} -- reach[i]: the latest end of the spans of by_from[1] to by_from[i]
 end
 
 --- One value of a node, with what it was made from.
@@ -229,9 +245,10 @@ local record Entry
   wanted: boolean -- kept fresh (`node:want`)
   raised: boolean -- read while stale: it is wanted soon
   -- Where in the song the value is (`spec.span`), as of its last make:
-  -- `push_over` reads it for each entry that reads a changed one.
+  -- `push_over` finds the users over a change by it (`SpanIndex`).
   from: number
   to: number
+  index: SpanIndex -- its users by span, made by the first `push_over` that needs it
 end
 
 local cores: {Core} = {}
@@ -245,6 +262,10 @@ local pending: {string: boolean} = {} -- sources marked and not yet applied (`ap
 local changed_names: {string: boolean} = {} -- kinds whose values changed
 local current: Entry -- the entry being made, which records what it reads
 local pass: thread -- the pass under way
+-- Goes up when a pass stops before its end (`stop_pass`): the entries that
+-- it made lost the list of what they read before, so the indexes of their
+-- users (`SpanIndex`) can be wrong, and are made again.
+local users_epoch = 0
 local until_ms: number -- when the slice under way ends (nil: never)
 local edits_seen: integer
 local tempo_seen: integer
@@ -274,6 +295,7 @@ end
 --- `u` reads `d`.
 local function link(d: Entry, u: Entry)
   if d.user ~= u and not (d.users and d.users[u]) then
+    d.index = nil
     if not d.user then
       d.user = u
     else
@@ -288,6 +310,7 @@ local function link(d: Entry, u: Entry)
 end
 
 local function unlink(d: Entry, u: Entry)
+  d.index = nil
   if d.user == u then
     d.user = nil
   elseif d.users then
@@ -552,20 +575,86 @@ local function overlaps(u: Entry, from: number, to: number): boolean
   return a == nil or (a < to and u.to > from)
 end
 
---- Push the entries that read `e` and whose span overlaps `from` to
---- `to`, and those that have none.
-local function push_over(e: Entry, from: number, to: number)
-  local u = e.user
-  if u and overlaps(u, from, to) then
-    push(u)
+local function by_from(a: Entry, b: Entry): boolean
+  return a.from < b.from
+end
+
+local function add_user(index: SpanIndex, u: Entry)
+  local from, to = u.from, u.to
+  -- An endless span would make the reach of all the spans after it endless.
+  if from == nil or from == -math.huge or to == math.huge then
+    index.wide[#index.wide + 1] = u
+  else
+    index.by_from[#index.by_from + 1] = u
+  end
+end
+
+--- The users of `e` by their spans, as they are now.
+local function index_users(e: Entry): SpanIndex
+  local index: SpanIndex = {epoch = users_epoch, wide = {}, by_from = {}, reach = {}}
+  if e.user then
+    add_user(index, e.user)
   end
   if e.users then
-    for v in pairs(e.users) do
-      if overlaps(v, from, to) then
-        push(v)
-      end
+    for u in pairs(e.users) do
+      add_user(index, u)
     end
   end
+  local list, reach = index.by_from, index.reach
+  table.sort(list, by_from)
+  local last = -math.huge
+  for i = 1, #list do
+    last = math.max(last, list[i].to)
+    reach[i] = last
+  end
+  return index
+end
+
+--- The index in `list` (by the start of their spans) of the last span
+--- that starts before `to`, or 0.
+local function last_before(list: {Entry}, to: number): integer
+  local lo, hi = 0, #list
+  while lo < hi do
+    local mid = (lo + hi + 1) // 2
+    if list[mid].from < to then
+      lo = mid
+    else
+      hi = mid - 1
+    end
+  end
+  return lo
+end
+
+--- Push the entries that read `e` and whose span overlaps `from` to
+--- `to`, and those that have none. The comparisons are about as many as
+--- the users over the change, not as all the users.
+local function push_over(e: Entry, from: number, to: number)
+  local index = e.index
+  if not index or index.epoch ~= users_epoch then
+    index = index_users(e)
+    e.index = index
+  end
+  -- `push` changes states only, not users or spans: the index stays true.
+  local wide = index.wide
+  for i = 1, #wide do
+    local u = wide[i]
+    if overlaps(u, from, to) then
+      push(u)
+    end
+  end
+  -- From the last span that starts before `to`, back while a span at or
+  -- before it can end after `from`.
+  local list, reach = index.by_from, index.reach
+  local last = last_before(list, to)
+  local k = last
+  while k >= 1 and reach[k] > from do
+    local u = list[k]
+    if u.to > from then
+      push(u)
+    end
+    k = k - 1
+  end
+  e.core.checked = e.core.checked + #wide + (last - k)
 end
 
 --- Make `e` again: compare its inputs first, then make it.
@@ -577,7 +666,14 @@ local function remake(e: Entry)
   local core = e.core
   local spec = core.spec
   if spec.span then
-    e.from, e.to = spec.span(e.key)
+    local from, to = spec.span(e.key)
+    if from ~= e.from or to ~= e.to then
+      -- A new span: the indexes of the entries that it read put it at the old one.
+      e.from, e.to = from, to
+      for i = 1, #e.deps do
+        e.deps[i].index = nil
+      end
+    end
   end
   local saved = current
   local deps, sources = e.deps, e.sources
@@ -843,6 +939,13 @@ local function make_eager()
   end
 end
 
+--- The pass under way goes before its end (an error, a reset): the entries
+--- that it was making lost what they read before.
+local function stop_pass()
+  pass, current = nil, nil
+  users_epoch = users_epoch + 1
+end
+
 --- Make what is stale and wanted, for about `budget` milliseconds (all of
 --- it when nil). True when nothing waits.
 function M.run(budget?: number): boolean
@@ -859,7 +962,8 @@ function M.run(budget?: number): boolean
     end
     local ok, err = coroutine.resume(pass)
     if not ok then
-      pass, current, until_ms = nil, nil, outer
+      stop_pass()
+      until_ms = outer
       error(tostring(err), 0)
     end
     if coroutine.status(pass) ~= "dead" then
@@ -992,6 +1096,7 @@ function M.node<K, V, I>(spec: M.Spec<K, V, I>): M.Node<K, V, I>
     made = 0,
     hits = 0,
     dropped = 0,
+    checked = 0,
   }
   cores[#cores + 1] = core
   local node: M.Node<K, V, I> = {spec = spec}
@@ -1063,7 +1168,7 @@ function M.node<K, V, I>(spec: M.Spec<K, V, I>): M.Node<K, V, I>
   end
   function node:reset()
     if pass then
-      pass, current = nil, nil
+      stop_pass()
     end
     local wanted: {Value} = {}
     for _, e in pairs(core.entries) do
@@ -1095,6 +1200,7 @@ function M.node<K, V, I>(spec: M.Spec<K, V, I>): M.Node<K, V, I>
       made = core.made,
       hits = core.hits,
       dropped = core.dropped,
+      checked = core.checked,
     }
   end
   return node
@@ -1115,6 +1221,7 @@ function M.stats(): {Stats}
       made = core.made,
       hits = core.hits,
       dropped = core.dropped,
+      checked = core.checked,
     }
   end
   table.sort(out, function(a: Stats, b: Stats): boolean return a.name < b.name end)
@@ -1123,7 +1230,7 @@ end
 
 --- Forget every value: the wanted ones are made again from nothing.
 function M.reset()
-  pass, current = nil, nil
+  stop_pass()
   slices.stop("derived")
   by_source, queue, pending, changed_names, eager = {}, {}, {}, {}, {}
   started, label, done, todo = nil, nil, 0, 0
