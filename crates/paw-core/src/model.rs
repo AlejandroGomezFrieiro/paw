@@ -15,15 +15,22 @@ use serde_json::{Map, Value};
 
 mod clips;
 mod custom;
+mod links;
 pub(crate) mod nest;
 mod notes;
+mod overrides;
+
+#[cfg(test)]
+mod props;
 pub use clips::Clips;
 pub use custom::{
     ClipKindId, CustomContent, CustomError, DATA_LIMIT, KindData, KindValue, MediaRef, MediaRole,
     OscAddress, OscArg, PortName, RESERVED, Signal, SignalTo, Sound, Timeline, Word,
 };
 pub use nest::{MAX_DEPTH, Nest, NestId, NestMeter, NestPlay, NestTempo, Route, check_nest};
+pub(crate) use links::Links;
 pub use notes::Notes;
+pub use overrides::Overrides;
 
 pub type Id = u64;
 
@@ -607,6 +614,16 @@ pub struct Clip {
     /// The file outside the project that the notes were copied from.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin: Option<PathBuf>,
+    /// The name of the link of a linked MIDI clip: every clip of one link
+    /// has the same notes and controller moves, and an edit of one changes
+    /// all of them (`model/links.rs`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub link: Option<String>,
+    /// What a MIDI clip changes in its notes as it plays them (a transpose,
+    /// a velocity change), without a change of the notes: each clip of a
+    /// link can play the shared notes in its own way.
+    #[serde(default, skip_serializing_if = "Overrides::is_none")]
+    pub overrides: Overrides,
 }
 
 /// What an audio clip keeps when the tempo changes. Either way it keeps its
@@ -784,6 +801,9 @@ impl Control {
         // trim of the clip's start, and is not played.
         if !self.start.is_finite() {
             return Some("it needs a start that is a finite number");
+        }
+        if !in_clip_range(self.start) {
+            return Some("a clip holds times up to a million beats from its start");
         }
         if !range.contains(&self.value) {
             return Some("its value is out of range: 0 to 1, or -1 to 1 for pitch bend");
@@ -975,6 +995,55 @@ fn default_velocity() -> u8 {
 
 fn unnamed(id: &u64) -> bool {
     *id == 0
+}
+
+/// The furthest from a clip's start, either way, that its notes and
+/// controller moves go, and the longest a clip is, in beats: about 139 hours
+/// at 120 BPM. A clip file writes a gap as one 4-byte Delta Clockstamp for
+/// each 17 beats, so in this range the file of a clip holds at most about
+/// 120 000 clockstamps, and its ticks are far from an overflow (TASK-173).
+pub const MAX_BEATS: f64 = 1e6;
+
+/// Whether `beat` is a time that a clip holds: a number within
+/// [`MAX_BEATS`] of the clip's start, either way. NaN is in no range.
+fn in_clip_range(beat: f64) -> bool {
+    (-MAX_BEATS..=MAX_BEATS).contains(&beat)
+}
+
+/// An error unless `beat` is a time that a clip holds (see
+/// [`MAX_BEATS`]). `what` names the time in the message.
+pub fn check_clip_beat(what: &str, beat: f64) -> anyhow::Result<()> {
+    if !in_clip_range(beat) {
+        anyhow::bail!(
+            "{what} is at beat {beat}, too far for a clip: a clip holds times up to a million beats from its start"
+        );
+    }
+    Ok(())
+}
+
+/// Notes that the engine plays and a clip file holds: a finite start, a
+/// length above 0, a start and an end within [`MAX_BEATS`] of the clip's
+/// start, and a pitch and a velocity of at most 127.
+pub fn check_notes<'a>(notes: impl IntoIterator<Item = &'a Note>) -> anyhow::Result<()> {
+    for n in notes {
+        if !n.start.is_finite() || !n.length.is_finite() || n.length <= 0.0 {
+            anyhow::bail!(
+                "a note needs a finite start and a length above 0, not start {} length {}",
+                n.start,
+                n.length
+            );
+        }
+        check_clip_beat("a note", n.start)?;
+        check_clip_beat("the end of a note", n.start + n.length)?;
+        if n.pitch > 127 || n.velocity > 127 {
+            anyhow::bail!(
+                "a note's pitch and velocity go up to 127, not pitch {} velocity {}",
+                n.pitch,
+                n.velocity
+            );
+        }
+    }
+    Ok(())
 }
 
 impl Clip {
@@ -1594,8 +1663,11 @@ impl Project {
     /// Change to a new tempo map, moving audio clips as their timebase
     /// says: each keeps its length (and fades) in seconds, and its start in
     /// seconds or in beats. MIDI clips and automation stay on their beats.
+    /// A block of a subproject with a tempo of its own keeps its start on
+    /// its beat and its length in seconds.
     pub fn retime(&mut self, map: TempoMap) {
         let old = self.map.clone();
+        self.fit_own_tempo_blocks(&old, &map);
         let tracks = std::iter::once(&mut self.master).chain(self.tracks.iter_mut());
         for track in tracks {
             let audio = |c: &Arc<Clip>| matches!(c.content, ClipContent::Audio { .. });
@@ -1688,6 +1760,7 @@ impl Project {
             check_track(t, &tracks)?;
         }
         self.check_routing_loops(&tracks)?;
+        self.check_links()?;
         nest::check(self)
     }
 
@@ -1834,7 +1907,7 @@ fn check_track(t: &Track, tracks: &std::collections::HashMap<Id, &Track>) -> any
 
 /// One clip: its place, its content and its loop.
 fn check_clip(c: &Clip) -> anyhow::Result<()> {
-    use anyhow::bail;
+    use anyhow::{Context, bail};
     if !c.start.is_finite() || c.start < 0.0 || !c.length.is_finite() || c.length <= 0.0 {
         bail!(
             "clip {} starts at {} and is {} long: it needs a start of at least 0 and a length above 0",
@@ -1843,6 +1916,7 @@ fn check_clip(c: &Clip) -> anyhow::Result<()> {
             c.length
         );
     }
+    check_clip_beat(&format!("the end of clip {}", c.id), c.length)?;
     match &c.content {
         ClipContent::Midi { notes, controls } => {
             if let Some((control, problem)) = controls
@@ -1854,15 +1928,7 @@ fn check_clip(c: &Clip) -> anyhow::Result<()> {
                     c.id
                 );
             }
-            if let Some(n) = notes.iter().find(|n| {
-                !n.start.is_finite()
-                    || !n.length.is_finite()
-                    || n.length <= 0.0
-                    || n.pitch > 127
-                    || n.velocity > 127
-            }) {
-                bail!("clip {} holds a note that cannot be played: {n:?}", c.id);
-            }
+            check_notes(notes.iter()).with_context(|| format!("clip {}", c.id))?;
         }
         ClipContent::Audio { offset, gain, .. } => {
             if !offset.is_finite() || *offset < 0.0 {

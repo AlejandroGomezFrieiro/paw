@@ -166,6 +166,9 @@ impl Device for Modulated {
         let feedback = (self.p[M_FEEDBACK] * 0.01).clamp(-0.95, 0.95);
         let max = (self.lines[0].capacity() - 4) as f32;
         for (l, r) in io.left.iter_mut().zip(io.right.iter_mut()) {
+            if self.rest.holds(*l, *r) {
+                continue;
+            }
             let phase = self.lfo.tick(step);
             let base = self.base.step();
             let depth = self.depth.step();
@@ -297,6 +300,9 @@ impl Device for Phaser {
         let spread = (p[P_SPREAD].clamp(0.0, 180.0) / 360.0) as f64;
         let nyquist = self.sr * 0.45;
         for (l, r) in io.left.iter_mut().zip(io.right.iter_mut()) {
+            if self.rest.holds(*l, *r) {
+                continue;
+            }
             let phase = self.lfo.tick(step);
             let mix = self.mix.step();
             let (dry_l, dry_r) = (*l, *r);
@@ -423,6 +429,9 @@ impl Device for Tremolo {
         let shape = p[T_SHAPE].round().clamp(0.0, 2.0) as usize;
         let pan = p[T_MODE] >= 0.5;
         for (l, r) in io.left.iter_mut().zip(io.right.iter_mut()) {
+            if self.rest.holds(*l, *r) {
+                continue;
+            }
             let w = wave(shape, self.lfo.tick(step));
             let depth = self.depth.step();
             // It holds nothing: silence in is silence out.

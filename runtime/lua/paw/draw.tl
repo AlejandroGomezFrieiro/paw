@@ -18,7 +18,6 @@ local type partial = require("paw.partial")
 local type objects = require("paw.objects")
 local type GroupsModule = require("paw.groups")
 local type MusicModule = require("paw.music")
-local type TempoModule = require("paw.tempo")
 local type UtilModule = require("paw.util")
 
 -- What this module reads of `paw`, which paw/init.lua makes.
@@ -31,7 +30,6 @@ local record Paw is partial.Paw
   ui: Ui
   groups: GroupsModule
   music: MusicModule
-  tempo: TempoModule
   time: objects.Time
   util: UtilModule
 end
@@ -258,6 +256,7 @@ local unicode: Glyphs = {
   loop_out = "▕",
   clip_start = "▏",
   nest = "⧉ ",
+  link = "≡",
   punch_in = "▕",
   punch_out = "▕",
   meter_full = "━",
@@ -322,6 +321,7 @@ local ascii: Glyphs = {
   loop_out = "]",
   clip_start = "|",
   nest = "& ",
+  link = "=",
   punch_in = "{",
   punch_out = "}",
   meter_full = "=",
@@ -1004,39 +1004,54 @@ end
 
 -- Piano rolls -----------------------------------------------------------------
 
+--- Which parts of a key a row of a keyboard shows, where a key takes
+--- more than one row: its names (`label`) and the line under it (`line`).
+--- Both when not given.
+local record KeyRow
+  label: boolean
+  line: boolean
+end
+
 --- One row of a keyboard on its side, `width` cells wide, for the left edge
 --- of a piano roll. Black keys are short. The Cs have their names, and the
---- pitch of the cursor has its name too.
-function M.piano_key(buf: Buf, row: integer, pitch: integer, cursor: boolean, width: integer, name?: string)
+--- pitch of the cursor has its name too. A key taller than a row shows its
+--- names on its first row and its line on its last (`part`).
+function M.piano_key(
+  buf: Buf, row: integer, pitch: integer, cursor: boolean, width: integer, name?: string, part?: KeyRow
+)
   local music = paw.music
   local step = pitch % 12
+  local label = not part or part.label
+  local line = not part or part.line
   if music.is_black(pitch) then
     buf:fill(0, row, width - 2, 1, " ", "PianoBlack")
     buf:fill(width - 2, row, 2, 1, " ", "PianoWhite")
   else
     -- Two white keys with no black one between them get a line instead.
-    buf:fill(0, row, width, 1, (step == 0 or step == 5) and (opt.ascii and "_" or "▁") or " ", "PianoWhite")
-    if step == 0 and not name then
+    buf:fill(0, row, width, 1, line and (step == 0 or step == 5) and (opt.ascii and "_" or "▁") or " ", "PianoWhite")
+    if label and step == 0 and not name then
       buf:text(1, row, music.name(pitch), "PianoC")
     end
   end
   -- A key the instrument names (a drum, a keyswitch) shows its name.
-  if name then
+  if label and name then
     buf:text(0, row, paw.util.fit(name, width - 1), "PianoC")
   end
   if cursor then
-    buf:text(0, row, paw.util.fit(music.name(pitch), width - 1) .. " ", "PianoCursor")
+    buf:text(
+      0, row, label and (paw.util.fit(music.name(pitch), width - 1) .. " ") or (" "):rep(width - 1), "PianoCursor"
+    )
   end
 end
 
---- The bars and beats from `from` for `span` beats, as the project counts
---- them. `{ beat = b, bar = n }` is a bar line (n from 1), and
---- `{ beat = b }` is a beat inside a bar. Bar lines come from
---- `paw.time.bar_start`, so a change of time signature moves them.
+--- The bars and beats from `from` for `span` beats of the window's time, as
+--- the window counts them (`paw.time.lines`): in a subproject with its own
+--- meter, its bars. `{ beat = b, bar = n }` is a bar line (n from 1), and
+--- `{ beat = b }` is a beat inside a bar. A change of time signature moves them.
 function M.bar_lines(from: number, span: number): {BarLine}
-  -- From the tempo map: bars, and the beats of the signature in each.
+  -- From the window's map: bars, and the beats of the signature in each.
   local out: {BarLine} = {}
-  for _, line in ipairs(paw.tempo.lines(from - 1e-9, from + span + 1e-9)) do
+  for _, line in ipairs(paw.time.lines(from - 1e-9, from + span + 1e-9)) do
     out[#out + 1] = line.index == 0 and {beat = line.beat, bar = line.bar} or {beat = line.beat}
   end
   return out

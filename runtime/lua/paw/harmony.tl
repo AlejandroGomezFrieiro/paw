@@ -189,7 +189,7 @@ local record M
   --- Words in a track's name, or its devices', and the range a part for it is written in.
   ranges: {Range}
   default_range: Range
-  --- The event that says the reading changed.
+  --- The event `harmony.changed`: the chords that paw hears changed.
   changed: events.Event<Changed>
   parse_key: function(spec: KeyArg): Key
   key_name: function(key: KeyArg): string

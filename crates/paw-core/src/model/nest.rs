@@ -28,10 +28,14 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::{Result, bail};
+use paw_engine::TempoMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{Map, Value};
 
 use super::{Clip, ClipContent, Control, Id, Lane, MASTER_ID, Note, Notes, Project, SigChange, TempoChange, Track};
+
+mod time;
+pub use time::{Timing, timed_lane};
 
 /// The most nests inside each other: a song clip places a nest at depth 1.
 pub const MAX_DEPTH: usize = 8;
@@ -360,6 +364,58 @@ impl Project {
             }
         }
         Ok(())
+    }
+
+    /// Keep the seconds of the song's blocks of nests with a tempo of their
+    /// own as the song's map changes from `old` to `new`: each keeps its
+    /// start on its beat, and its length follows its seconds. Blocks inside
+    /// nests stay as they are: their place has the same beats as before.
+    pub(super) fn fit_own_tempo_blocks(&mut self, old: &TempoMap, new: &TempoMap) {
+        let own: BTreeSet<NestId> = self.nests.values().filter(|n| n.has_own_tempo()).map(|n| n.id).collect();
+        if own.is_empty() {
+            return;
+        }
+        let is_own = |c: &Clip| matches!(&c.content, ClipContent::Nest { nest, .. } if own.contains(nest));
+        for track in self.tracks.iter_mut().filter(|t| t.nest.is_none()) {
+            if !track.clips.iter().any(|c| is_own(c)) {
+                continue;
+            }
+            for clip in Arc::make_mut(track).clips.iter_mut().filter(|c| is_own(c)) {
+                let seconds = old.seconds_between(clip.start, clip.start + clip.length);
+                let length = new.beat(new.seconds(clip.start) + seconds) - clip.start;
+                if (length - clip.length).abs() > 1e-12 {
+                    Arc::make_mut(clip).length = length;
+                }
+            }
+        }
+    }
+
+    /// Give the song's blocks of nest `id` the length in song beats that
+    /// their part of the nest takes, after the nest's tempo changed from
+    /// `was`: each keeps its start and the beats of the nest it plays.
+    pub fn fit_blocks(&mut self, id: NestId, was: &Nest) {
+        let Some(now) = self.nests.get(&id).cloned() else {
+            return;
+        };
+        let song = self.map.clone();
+        for track in self.tracks.iter_mut().filter(|t| t.nest.is_none()) {
+            let ours = |c: &Clip| matches!(&c.content, ClipContent::Nest { nest, .. } if *nest == id);
+            if !track.clips.iter().any(|c| ours(c)) {
+                continue;
+            }
+            for clip in Arc::make_mut(track).clips.iter_mut().filter(|c| ours(c)) {
+                let ClipContent::Nest { offset, .. } = clip.content else {
+                    continue;
+                };
+                let before = was.timing(&song, None, clip.start, offset);
+                let after = now.timing(&song, None, clip.start, offset);
+                let end = before.nest_beat(clip.start + clip.length);
+                let length = after.song_beat(end) - clip.start;
+                if (length - clip.length).abs() > 1e-9 {
+                    Arc::make_mut(clip).length = length;
+                }
+            }
+        }
     }
 
     /// The nests the song plays: those its clips place, and those their

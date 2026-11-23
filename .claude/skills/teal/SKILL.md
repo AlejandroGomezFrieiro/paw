@@ -1,6 +1,6 @@
 ---
 name: teal
-description: Write, port or review Teal code in paw (Lua with types, compiled to Lua 5.1 for LuaJIT) and keep its conventions: no `any`, typed contracts, generated declarations, the any allow-list, the pitfalls the ports found. Use whenever a task creates or changes a `.tl` file, ports a Lua module of runtime/ or extensions/ to Teal, writes an extension in Teal, touches tools/apidoc.lua's Teal output, runtime/lua/paw/types.tl or contracts.tl, runtime/types/, tlconfig.lua or any-allowed.txt, or meets a Teal type error — even if it only says "port this file", "add types", "why does tl check fail".
+description: 'Write, port or review Teal code in paw (Lua with types, compiled to Lua 5.1 for LuaJIT) and keep its conventions: no `any`, typed contracts, generated declarations, the any allow-list, the pitfalls the ports found. Use whenever a task creates or changes a `.tl` file, ports a Lua module of runtime/ or extensions/ to Teal, writes an extension in Teal, touches tools/apidoc.lua''s Teal output, runtime/lua/paw/types.tl or contracts.tl, runtime/types/, tlconfig.lua or any-allowed.txt, or meets a Teal type error — even if it only says "port this file", "add types", "why does tl check fail".'
 ---
 
 # Teal in paw
@@ -86,6 +86,14 @@ local paw = (_G as {string:Paw}).paw
 - **Events:** in Teal, `paw.on` takes a descriptor, not a string:
   `paw.on(kernel.project_saved, function(p: kernel.Saved) … end)`. A module
   that emits its own events exports `paw.events.event<P>(name)` descriptors.
+  Each event has one owner: the module that sends it exports the descriptor
+  and the payload record (`options.changed`, `options.Changed`), and the
+  other modules use them. Do not make a second descriptor or record of an
+  event. Put `--- The event `name`: when it comes.` over the field of the
+  descriptor: `tools/apidoc.lua` writes the rows of
+  `docs/reference/events.md` from it. `paw.events.event` also declares the
+  name. paw logs a `paw.on` by text with a name that no module declares
+  (`:checkhealth events`).
 - **Kernel setters** take a typed patch, one undo step:
   `api.track_set(id, { name = "Bass", volume = -6 })`. A patch cannot carry
   `nil`: to clear a field, keep the key form `api.track_set(id, "output", nil)`.
@@ -139,6 +147,14 @@ local paw = (_G as {string:Paw}).paw
 | `a or b` of two function types, or of a flag and a record | compare: `(spec.preview ~= nil or spec.audition ~= nil)` |
 | A module that stores values of many item types (`paw.pick`'s open picker) | erase the type once where the value goes in (`spec as PickSource<Item>`), and give it back to the owner's own functions |
 | JSON whose shape depends on the method (`params`, `result` of JSON-RPC) | an empty record (`rpc.Payload`) cast once by each handler to its method's record; user JSON values are `util.Data` |
+| A cast to a function type in an argument list (`xpcall(f, g as function(string): string, key)`) reads `, key` as a second result | put the type in parentheses: `g as (function(string): string)` |
+| Two aliases of the same tuple (`{string, string}`) in two modules do not agree | one module names it, the other uses that name (`DrawModule.KeyHint`) |
+| `<` on two values of an enum | cast each value to `string` first |
+| A record of another module that adds fields with `is` (`record ProjectFile is KeymapModule.ProjectPlaces`) | the base must be an `interface`, not a record |
+| A value that each caller fills with its own fields (a register) | an interface with the common field (`KeymapModule.Register`); each caller has `record X is KeymapModule.Register` and casts what it reads back |
+| A part split out of a module needs a function of the module that requires it (`registers.replay`, `marks.on_jump`) | a function field of the part, which the module sets after it requires the part |
+| Callers read and change a field of a module as a live table (`paw.keymap.registers`), and each seat has its own | keep one table; the `keep` of the seat copies the contents out and in |
+| A module keeps its own copy of a contract record (`paw.edit` had its own `Region`) | use the contract: two copies give "Region is not a Region" |
 
 ## What stays Lua
 

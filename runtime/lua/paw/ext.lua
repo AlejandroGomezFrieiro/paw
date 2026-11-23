@@ -25,6 +25,7 @@
 --     description = "Euclidean rhythms as clips",
 --     requires = { paw = ">=1.0", sections = "^1" },  -- the API, and other extensions
 --     provides = { "rhythms" },                      -- names others may require it by
+--     needs = { "processes" },                       -- what the build must have
 --   }
 local api = paw.api
 local M = {}
@@ -175,6 +176,10 @@ end
 
 local function split(key) return key:match("^(%S+) (.*)$") end
 
+-- The registries of the modules below this one in the layers of the runtime
+-- (.claude/skills/paw-code/layers.md). paw/init.lua adds the registries of
+-- the higher modules (the bands of the frontend, the keys of the pencil)
+-- after it loads them, before an extension loads.
 M.registries = {
   {
     kind = "commands",
@@ -383,6 +388,17 @@ M.registries = {
       paw.formats.unregister(key)
     end
   end, function(key) return key end),
+  -- The language servers it configures (`paw.lsp.config`). Unloaded, its
+  -- server stops: a server in this process keeps the module that started it,
+  -- and the extension loaded again starts a new one.
+  keyed("lsp", "language servers", function() return paw.lsp and paw.lsp.configs end, function(key, value)
+    if value then
+      paw.lsp.configs[key] = value
+    else
+      paw.lsp.enable(key, false)
+      paw.lsp.configs[key] = nil
+    end
+  end, function(key) return key end),
   {
     kind = "hooks",
     title = "hooks",
@@ -551,6 +567,9 @@ function M.manifest(path, name)
   if not ok then return nil, got end
   if type(got) ~= "table" then return nil, "manifest.lua returns no table" end
   if got.name and got.name ~= name then return nil, "manifest.lua names it " .. tostring(got.name) end
+  if got.needs ~= nil and type(got.needs) ~= "table" then
+    return nil, 'manifest.lua: needs is a list of names, such as { "processes" }'
+  end
   got.name = name
   return got
 end
@@ -563,6 +582,30 @@ local function holder(name)
       if other == name then return entry end
     end
   end
+end
+
+--- True if this build of paw has `feature`, one of the names of
+--- `paw.api.build().features` such as `"processes"`. An extension that
+--- works without a feature, but has one part that uses it, checks it here.
+--- @param feature string
+--- @return boolean
+function M.build_has(feature)
+  for _, have in ipairs(api.build().features) do
+    if have == feature then return true end
+  end
+  return false
+end
+
+--- What the extension's `needs` names that this build does not have:
+--- nil, or the reason it does not load. A name that no build knows is
+--- missing too, so that a typo is said.
+local function missing_needs(entry)
+  local missing = {}
+  for _, need in ipairs(entry.manifest.needs or {}) do
+    if not M.build_has(need) then missing[#missing + 1] = tostring(need) end
+  end
+  if #missing == 0 then return end
+  return "needs " .. table.concat(missing, " and ") .. ", which this build of paw does not have"
 end
 
 --- Load what an extension requires and check the versions. Returns nil,
@@ -618,9 +661,12 @@ local function load_one(path)
   local manifest, merr = M.manifest(path, name)
   entry.manifest = manifest or { name = name }
   entry.version = entry.manifest.version
-  local err = merr or require_all(entry)
+  -- The build first: an extension that cannot run here loads none of its
+  -- requirements. A manifest that does not read has no needs.
+  local missing = missing_needs(entry)
+  local err = merr or missing or require_all(entry)
   if err then
-    entry.ok, entry.error = false, err
+    entry.ok, entry.error, entry.needs_unmet = false, err, missing ~= nil
     paw.notify("extension " .. name .. " failed: " .. tostring(err), "error")
     return entry
   end

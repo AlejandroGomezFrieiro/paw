@@ -25,7 +25,7 @@ give the rules for a change.
 | `config/` | The example configuration: an `init.lua` that loads the bundled extensions, and three small extensions in `config/extensions/`. |
 | `examples/` | The demo song (`examples/demo-song.lua`) and the files of the tutorial [Make music with paw](../tutorials/make-music/README.md). |
 | `docs/` | The manual. [docs/README.md](../README.md) lists the pages. `docs/images/` holds the pictures, and `docs/images/make/` the scripts that record them again. |
-| `tests/` | The Lua suite: the runner `tests/suite.lua`, the tests of the core in `tests/<area>.lua`, the guides' tests in `tests/guides*.lua`, and files for the tests in `tests/fixtures/`. |
+| `tests/` | The Lua suite: the runner `tests/suite.lua`, the tests of the core in `tests/<area>.lua`, the guides' tests in `tests/guides*.lua`, the known leaks of state in `tests/leaks-allowed.txt`, and files for the tests in `tests/fixtures/`. |
 | `tests/e2e/` | The end-to-end scenarios: the test driver, the reference model, the scenarios and their golden files. See [About the end-to-end scenarios](../explanation/about-the-e2e-tests.md). |
 | `tests/tools/` | The scripts that run the tests: `suite.sh` (the Lua suite), `gui.sh`, `live.sh`, `loaded.sh`, `e2e.sh` (the end-to-end scenarios). |
 | `tools/` | `apidoc.lua` (the API reference and the types), `tlcheck.sh` (`cyan check` on all the Teal files), `fmtcheck.sh` (checks that StyLua and cerulean formatted each file; `fix` formats them), `layers.lua` with `layers.txt` and `layers-allowed.txt` (checks that no module of the runtime reads a module of a higher layer), `vale.sh` (Vale on the docs), `vale-hook.sh`, `ste-check.lua`, `sweep.sh` (frees the disk that old builds use), `website/` (builds the manual as a static site with mdBook). |
@@ -51,6 +51,7 @@ crates.
 | `paw-scene` | What all frontends share of a view: the cells and their styles, and the scene. A scene is the drawing of a view as nodes in cell units. It has no Lua and no UI. |
 | `paw-raster` | Changes the drawings of views (the operations of `paw.canvas`) into pixels, with music fonts. Also the kitty graphics protocol that shows them in a terminal. |
 | `paw-proto` | The client side of the control protocol, with TLS. A program that only talks to a kernel does not need the kernel to build. |
+| `paw-measure` | Measures a sound: loudness, true peak, levels, stereo and the spectrum in octave bands. The kernel (`paw.api.measure`, and so `:mix`) and `paw-mcp` both use it, so they give the same numbers. |
 | `paw-listen` | Plays the sound of an instance on the computer where a terminal or a graphical window is attached. |
 | `paw-tui` | The terminal frontend and the `paw` binary. |
 | `paw-gui` | The graphical frontend, written with egui. It is a client of the control socket. Its tests drive the window on a private X display. |

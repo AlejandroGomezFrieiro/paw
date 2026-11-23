@@ -78,7 +78,7 @@ The motion keys only move, in every view. In **M**, `h` `l` are strips, `j` `k` 
 | `g'` `g"` | put a marker at the cursor; go to one from a list | |
 | `gx` | remove the marker at the cursor; a right click on its name under the ruler has "Remove" | |
 | `gX` | remove the region that the cursor is in; its clips stay | |
-| `K` | describe what is under the cursor | the note |
+| `K` | describe what is under the cursor; on a closed fold or in a scope, the fold or the scope first ([Scopes](narrowing.md#what-k-says-of-a-scope)) | the note |
 | `u` `<C-r>` | undo, redo (`3u`) | the same |
 
 The same keys mean the same in every view:
@@ -267,6 +267,7 @@ See [Snippets](snippets.md) and [Completion](completion.md).
 | `<Space>.` | adjust the last change: a panel shows the parameters of the last command (`:quantize`, `:transpose`, `:clip.fade`), and the result changes while you change them (see [The adjust panel](#the-adjust-panel)) |
 | `"a` | the register for the next command; `"0` last yank, `"_` nowhere |
 | `qa` … `q` | record keys into register a |
+| `q:` `q/` | edit the history of `:` or `/` in the [command-line window](cmdline.md#the-command-line-window), and `Enter` runs a line |
 | `@a` `@@` `@:` | play them, the last macro again, the last command line |
 | `ma` `'a` `''` | set mark a, go to it, back to before the jump |
 | `:delmarks a-d` `:delmarks!` | remove marks (letters, ranges); all lowercase ones |
@@ -295,7 +296,7 @@ After the leader, the first key is a domain, and the next key is what to do in i
 | Domain | Keys |
 | --- | --- |
 | a: automation (A) | `<Space>aa` `<Space>aA` the lanes of the track, of every track; `<Space>al` choose what to automate; `<Space>am` the mode; `<Space>at` off and on; `<Space>aw` write; `<Space>ax` clear |
-| c: clip (A) | `<Space>cf` fade the clip in and out |
+| c: clip (A) | `<Space>cf` fade the clip in and out; `<Space>cl` put a linked copy after the clip; `<Space>cu` take the clip out of its link |
 | d: devices | `<Space>dd` show or hide the device panel; `<Space>da` add a device; in D, `<Space>dw` save a preset and `<Space>dW` make it the default |
 | f: find | `<Space>ff` files, `<Space>fg` any text, `<Space>fk` keys, `<Space>fc` clips, `<Space>fr` regions, `<Space>fm` markers, `<Space>ft` tracks, `<Space>fd` the devices of the track, `<Space>fn` notes, `<Space>fa` audio files, `<Space>f:` commands, and more: [Pickers](pickers.md) |
 | g: versions (projdiff) | `<Space>gd` what changed since the save, `<Space>gm` settle merge conflicts, `<Space>gs` keep a snapshot |
@@ -383,6 +384,7 @@ Stop half way through a sequence and the keys that can follow are listed.
 | `gt` `gT` | next tab, previous tab (`:tabnew` makes one) |
 | `ge` | the track's plugin window |
 | `zi` `zo` `[g` `]g` | zoom in, out; finer, coarser grid |
+| `<C-=>` `<C-->` `<C-0>`, `z+` `z-` `z=` | taller rows, shorter rows, rows as tall as the options say: tracks in the arrange view (on a selection or with a count, those tracks), the lane at the cursor, keys in the piano roll. Most terminals don't send `Ctrl` with `=` `-` `0`: `z+` `z-` `z=` work in each one |
 | `<C-s>` `:w` | save |
 | `ZZ` `ZQ` `:q` | save and quit, quit, close the window (quit in the last one) |
 

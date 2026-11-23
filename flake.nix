@@ -47,7 +47,9 @@
           # Only what cargo reads, so that a change to the manual, an
           # extension or an example does not rebuild the program. The
           # runtime's Lua is compiled into the binary (`include_dir!`).
-          cargoFiles = lib.fileset.unions [ ./Cargo.toml ./Cargo.lock ./.cargo ./crates ./runtime ];
+          # The fuzz crate is a workspace member: its manifest and targets,
+          # not its seeds.
+          cargoFiles = lib.fileset.unions [ ./Cargo.toml ./Cargo.lock ./.cargo ./crates ./runtime ./fuzz/Cargo.toml ./fuzz/fuzz_targets ];
           src = lib.fileset.toSource { root = ./.; fileset = cargoFiles; };
           # The crates as cargo downloads them, each a store path, so every
           # file in them is read-only. LuaJIT's build copies its source tree
@@ -115,8 +117,11 @@
           # dev shell (`tests/tools/suite.sh`, `cargo test -p paw-gui`).
           # Nothing is built on top of a check, so none keeps its `target`.
           checks = {
+            # The default members and the fuzz targets, which keep
+            # compiling on stable here (cargo-fuzz runs them on nightly, in
+            # CI: tools/fuzz.sh). The window is paused.
             clippy = craneLib.cargoClippy (withDeps // {
-              cargoClippyExtraArgs = "--all-targets";
+              cargoClippyExtraArgs = "--workspace --exclude paw-gui --all-targets";
               doInstallCargoArtifacts = false;
             });
             # The tree has never been run through rustfmt as a whole, and
@@ -149,6 +154,9 @@
                 fileset = lib.fileset.unions [ cargoFiles ./tests/fixtures ./docs ];
               };
               cargoNextestExtraArgs = "--workspace -E 'not (package(paw-gui) | binary(suite) | binary(remote) | binary(safety))'";
+              # A snapshot (insta) that is new or changed and not committed
+              # fails, and the check writes no `.snap.new` file.
+              INSTA_UPDATE = "no";
               doInstallCargoArtifacts = false;
             });
           };
@@ -354,6 +362,25 @@
         touch $out
       '';
 
+      # tools/testlint.lua: no test sleeps, reads the clock or checks a
+      # speed beyond tests/timing-allowed.txt. It reads text only.
+      testLint = pkgs: pkgs.runCommand "paw-testlint" {
+        src = nixpkgs.lib.fileset.toSource {
+          root = ./.;
+          fileset = nixpkgs.lib.fileset.unions [
+            ./tools/testlint.lua ./tests/timing-allowed.txt
+            (nixpkgs.lib.fileset.fileFilter (file: file.hasExt "lua") ./tests)
+            (nixpkgs.lib.fileset.fileFilter (file: file.hasExt "lua") ./extensions)
+            (nixpkgs.lib.fileset.fileFilter (file: file.hasExt "rs") ./crates)
+            (nixpkgs.lib.fileset.fileFilter (file: file.hasExt "rs") ./extensions)
+          ];
+        };
+        nativeBuildInputs = [ pkgs.luajit ];
+      } ''
+        cd $src && luajit tools/testlint.lua
+        touch $out
+      '';
+
       pawUtau = pkgs: (paw pkgs).withExtensions (exts: [ exts.utau ]);
 
       # paw in a BrowserPod pod, for the docs (web/browserpod/README.md).
@@ -391,8 +418,9 @@
       # `nix flake check`: clippy, rustfmt, the Rust tests a sandbox can run,
       # the program itself, Vale on the docs, the website with its link check, `cyan check` on the Teal,
       # luacheck on the Lua, how much the formatters would change, and the
-      # order of layers in the runtime.
-      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; lua = luaCheck pkgs; format = formatCheck pkgs; layers = layersCheck pkgs; website = website pkgs; });
+      # check against tests that depend on time, and the order of layers in
+      # the runtime.
+      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; lua = luaCheck pkgs; format = formatCheck pkgs; testlint = testLint pkgs; layers = layersCheck pkgs; website = website pkgs; });
 
       apps = forAll (pkgs:
         nixpkgs.lib.genAttrs [ "paw" "paw-gui" "paw-mcp" ] (name: {
@@ -433,8 +461,9 @@
       devShells = forAll (pkgs: {
         default = pkgs.mkShell {
           # xmllint checks the DAWproject files of extensions/interop against the
-          # format's XML schema.
-          nativeBuildInputs = with pkgs; [ cargo rustc clippy rustfmt rust-analyzer pkg-config rustPlatform.bindgenHook ffmpeg-headless sccache cargo-sweep cargo-nextest (lib.getBin libxml2) ]
+          # format's XML schema. cargo-insta reviews and accepts the Rust
+          # snapshots (the version of insta in Cargo.lock).
+          nativeBuildInputs = with pkgs; [ cargo rustc clippy rustfmt rust-analyzer pkg-config rustPlatform.bindgenHook ffmpeg-headless sccache cargo-sweep cargo-nextest cargo-insta (lib.getBin libxml2) ]
             ++ pkgs.lib.optional pkgs.stdenv.isLinux pkgs.mold-wrapped;
           # Every git worktree has a `target/` of its own, and cargo shares
           # nothing between them: each one compiles the same four hundred

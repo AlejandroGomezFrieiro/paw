@@ -25,7 +25,7 @@ use serde_json::json;
 use crate::bake::scheduler::{Bake, Made, Scheduler, Task};
 use crate::bake::{BakeJob, EntryKey, Input, Output, Store, Stream, Write};
 use crate::media::{SourceHash, Sources};
-use crate::model::{Clip, ClipContent};
+use crate::model::{Clip, ClipContent, Id};
 use crate::stretch::{self, Mode, Params};
 use crate::warp::{self, Warp};
 
@@ -51,6 +51,29 @@ pub struct Upkeep {
     pub tidy_again: bool,
     /// The pinned bakes alone were over the cache's limit, and that was told.
     pub told_over: bool,
+    /// What the windows on screen show, as the views told it last
+    /// (`api.view_ranges_set`): the bakes of the clips there come before
+    /// the rest. Empty when no window shows the timeline.
+    pub views: Vec<ViewRange>,
+}
+
+/// A part of the song that a window shows.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct ViewRange {
+    /// The first beat shown.
+    pub from: f64,
+    /// The beat after the last one shown.
+    pub to: f64,
+    /// The tracks shown; all of them when there is no list.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tracks: Option<Vec<Id>>,
+}
+
+impl ViewRange {
+    /// Whether the window shows the beats `from` to `to` of `track`.
+    pub fn shows(&self, track: Id, from: f64, to: f64) -> bool {
+        from < self.to && to > self.from && self.tracks.as_ref().is_none_or(|tracks| tracks.contains(&track))
+    }
 }
 
 /// Who makes a stretch: a new version of the stretch is a new entry.
@@ -310,5 +333,28 @@ pub fn preview(
         && let Some(r) = out.last_mut()
     {
         r.fade_out = clip.fade_out.min(r.end - r.start);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ViewRange;
+
+    #[test]
+    fn a_view_shows_the_clips_that_overlap_its_beats_on_its_tracks() {
+        let all = ViewRange { from: 8.0, to: 16.0, tracks: None };
+        let some = ViewRange { tracks: Some(vec![2, 3]), ..all.clone() };
+        // (view, track, clip from, clip to, shown)
+        let cases = [
+            (&all, 1, 4.0, 9.0, true),
+            (&all, 1, 15.0, 20.0, true),
+            (&all, 1, 4.0, 8.0, false),
+            (&all, 1, 16.0, 20.0, false),
+            (&some, 3, 10.0, 12.0, true),
+            (&some, 1, 10.0, 12.0, false),
+        ];
+        for (view, track, from, to, shown) in cases {
+            assert_eq!(view.shows(track, from, to), shown, "track {track}, beats {from} to {to}");
+        }
     }
 }

@@ -281,21 +281,17 @@ test("windows are resized by keys, by :resize and by dragging their border", fun
   reset()
 end)
 
-test("Ctrl-w + resizes a window, and the tracks while the arrange view is alone", function()
+test("Ctrl-w + resizes a window only, never the tracks", function()
   start()
-  local th = paw.opt.track_height
-  paw.opt.track_height = 3
   keys("<C-w>+")
-  eq(paw.opt.track_height, 4, "alone: taller tracks")
+  eq(L.current().vzoom, nil, "alone: no taller tracks (that is Ctrl-=)")
   sized(function()
     keys(":sp mixer<CR>")
     keys("<C-w>k")
     local before = rects().arrange.h
     keys("<C-w>+")
-    eq(paw.opt.track_height, 4, "not alone: not the tracks")
     eq(rects().arrange.h, before + 1, "the window")
   end)
-  paw.opt.track_height = th
   reset()
 end)
 
@@ -482,6 +478,28 @@ test("layouts are saved and put back, and a configuration names its own", functi
   paw.ui.toggle("mixer")
   eq(windows(), "arrange mixer pianoroll", "a panel not in a layout docks below the window with the keyboard")
   reset()
+end)
+
+test("a layout put back forgets the empty windows it closes", function()
+  start()
+  paw.layouts.probe_plain = { { layout = "arrange" } }
+  T.after(function()
+    paw.layouts.probe_plain = nil
+    reset()
+  end)
+  local function empties()
+    local n = 0
+    for _, buf in pairs(L.buffers) do
+      if buf.type == "empty" then n = n + 1 end
+    end
+    return n
+  end
+  local before = empties()
+  keys(":vnew<CR>")
+  eq(empties(), before + 1, ":vnew makes an empty buffer")
+  keys(":layout probe_plain<CR>")
+  eq(windows(), "arrange", "the layout")
+  eq(empties(), before, "the empty window's buffer goes with it")
 end)
 
 test("every seat has tabs and windows of its own", function()

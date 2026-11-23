@@ -438,6 +438,60 @@ fn an_edit_of_notes_that_copies_share_compiles_them_once() {
     assert_eq!((count, compiled(&map).len()), (2, 2));
 }
 
+/// An edit of one clip of a link of 10 reaches the other 9 as the same
+/// notes (`model/links.rs`): the sync compiles them one time.
+#[test]
+fn an_edit_of_a_link_of_ten_clips_compiles_once() {
+    let mut linked = with_clip(json!({ "kind": "midi", "notes": [] }), true);
+    let source = Clip { link: Some("riff".into()), ..source_clip(384) };
+    let clips: Vec<Arc<Clip>> = (0..10)
+        .map(|k| Arc::new(Clip { id: 1000 + k, start: k as f64 * 32.0, ..source.clone() }))
+        .collect();
+    linked.track_mut(1).unwrap().clips = clips.into();
+    let mut edited = linked.clone();
+    let links = crate::model::Links::before(&edited);
+    let fourth = Arc::make_mut(&mut edited.track_mut(1).unwrap().clips[3]);
+    *fourth = bumped(fourth);
+    links.spread(&mut edited);
+    let (map, count) = compiles(&[&linked, &edited]);
+    assert_eq!(count, 1, "the piece of notes the edit changed, one time");
+    // Every clip of the link plays the edit, from one list of events.
+    let pitches: Vec<u8> = edited.track(1).unwrap().clips.iter().map(|clip| match &clip.content {
+        ClipContent::Midi { notes, .. } => notes[100].pitch,
+        _ => 0,
+    }).collect();
+    let bumped_pitch = pitches[3];
+    assert!(pitches.iter().all(|p| *p == bumped_pitch), "{pitches:?}");
+    assert_eq!(compiled(&map).len(), 2, "the controllers and the notes");
+}
+
+/// A copy with overrides (`model/overrides.rs`) plays its notes transposed
+/// and with the velocity change, as a copy whose notes were changed that
+/// way does, while the first copy, which shares the same notes, plays
+/// them as they are. A note that the transpose takes above 127 is silent.
+#[test]
+fn a_copy_with_overrides_plays_its_notes_changed() {
+    let note = |pitch: u64, velocity: u64| json!({ "start": 0.0, "length": 1.0, "pitch": pitch, "velocity": velocity });
+    let two_copies = |second: Value, overrides: Value| {
+        let mut p = with_clip(json!({ "kind": "midi", "notes": [note(60, 100), note(126, 100)] }), true);
+        let first = p.track(1).unwrap().clips[0].clone();
+        let mut copy: Clip = serde_json::from_value(json!({ "id": 8, "name": "", "start": 2.0, "length": 4.0,
+            "muted": false, "content": { "kind": "midi", "notes": second }, "overrides": overrides }))
+        .unwrap();
+        // The copy with overrides shares the first copy's notes, as a link does.
+        if overrides != json!({}) {
+            copy.content = first.content.clone();
+        }
+        p.track_mut(1).unwrap().clips = vec![first, Arc::new(copy)].into();
+        p
+    };
+    let notes = json!([note(60, 100), note(126, 100)]);
+    let overridden = played(&two_copies(notes, json!({ "transpose": 3, "velocity": -10 })));
+    let changed = played(&two_copies(json!([note(63, 90)]), json!({})));
+    assert!(overridden.iter().any(|s| *s != 0.0), "the copies sound");
+    assert!(overridden == changed, "the copy plays its notes as changed notes play");
+}
+
 /// The engine plays copies that share their events, looped, cut at the
 /// start of a window or short, as it plays every clip's events compiled
 /// where it is, in one list: the same samples.
@@ -621,4 +675,241 @@ fn an_edit_inside_a_subproject_compiles_once() {
     assert_eq!(count, 1, "the piece of notes the edit changed, one time");
     let (_, _, (sent, _)) = engine(&[&a, &b]);
     assert!(sent.contains(&"edit"), "the engine gets the parts that changed: {sent:?}");
+}
+
+// Null tests ---------------------------------------------------------------------------
+
+/// A tempo where a frame is 2^-15 of a beat, exactly in `f64`: the beat of
+/// each frame has no rounding error. The rows at 120 BPM and on a ramp,
+/// where it has, show that the frame of a note does not depend on where the
+/// blocks fall.
+const EXACT_TEMPO: f64 = 87.890625;
+
+/// Frames in one beat at [`EXACT_TEMPO`].
+const FRAMES_PER_BEAT: usize = 32768;
+
+/// The length of each render: 16 beats, a whole number of blocks of each
+/// size in the table.
+const RENDER_FRAMES: usize = 16 * FRAMES_PER_BEAT;
+
+/// Ticks of the clip files in one beat.
+const TICKS: usize = crate::clipfile::TPQ as usize;
+
+/// A MIDI clip of `count` notes, `step` ticks apart, from key `low` up.
+///
+/// Each note starts on a tick, so a save and a load keep it exactly. Each
+/// `step` used here is a whole number of blocks of 512 frames, and each
+/// note is 0, 119 or 239 ticks after its step: on frame 0, 63 or 127 of a
+/// block of 512. In blocks of 64 or 128 frames, frame 63 or 127 is the
+/// last frame of a block, so an error at the end of a block shows.
+fn null_clip(id: u64, start: f64, count: usize, step: usize, low: usize) -> Value {
+    let notes: Vec<Value> = (0..count)
+        .map(|k| {
+            let at = (k * step + [0, 119, 239][k % 3]) as f64 / TICKS as f64;
+            json!({ "start": at, "length": 0.375, "pitch": low + (k * 5) % 19, "velocity": 70 + k % 50 })
+        })
+        .collect();
+    let length = (count * step) as f64 / TICKS as f64 + 1.0;
+    json!({ "id": id, "name": "", "start": start, "length": length, "muted": false,
+        "content": { "kind": "midi", "notes": notes } })
+}
+
+/// A small mix at [`EXACT_TEMPO`]. Keys has a synth and a delay that is
+/// half wet. Bass has a synth, its fader and pan off the middle, and a send
+/// to Room. Room has a reverb. Keys and Bass play for about 4 beats, stop
+/// until each device comes to rest, and play again from beat 12.
+fn null_mix() -> Project {
+    null_mix_at(EXACT_TEMPO)
+}
+
+/// The mix at 120 BPM. A beat is 24000 frames, and a tick is not a whole
+/// number of frames, so the notes fall on frames and between them.
+fn null_mix_120() -> Project {
+    null_mix_at(120.0)
+}
+
+/// The mix on a ramp from 120 BPM down to 60 BPM at beat 16. Of the ramps
+/// that a simulation of the engine's old arithmetic tried, this one put a
+/// note of the mix one frame off between blocks of 64 and of 512.
+fn null_mix_on_a_ramp() -> Project {
+    let mut p = null_mix_at(120.0);
+    p.tempo_ramp = true;
+    p.tempo_changes = vec![crate::model::TempoChange { beat: 16.0, bpm: 60.0, ramp: false }];
+    p
+}
+
+/// The mix of [`null_mix`] at `tempo`.
+fn null_mix_at(tempo: f64) -> Project {
+    let keys = json!([
+        { "id": 2, "kind": "synth", "bypass": false, "params": { "wave": 1.0, "release": 0.05 } },
+        { "id": 3, "kind": "delay", "bypass": false,
+          "params": { "time": 123.0, "feedback": 0.2, "fx_wet": 50.0 } },
+    ]);
+    let bass = json!([{ "id": 5, "kind": "synth", "bypass": false, "params": { "wave": 2.0 } }]);
+    let room = json!([{ "id": 6, "kind": "reverb", "bypass": false, "params": { "decay": 0.5 } }]);
+    let (quarter, half) = (TICKS / 4, TICKS / 2);
+    let keys_clips = json!([null_clip(10, 0.0, 12, 5 * TICKS / 16, 60), null_clip(11, 12.0, 6, quarter, 60)]);
+    let bass_clips = json!([null_clip(21, 0.5, 7, half, 36), null_clip(22, 12.0, 4, half, 36)]);
+    let mut bass_track = track_json(20, "Bass", None, bass, bass_clips);
+    bass_track["volume"] = json!(-6.0);
+    bass_track["pan"] = json!(-0.25);
+    bass_track["sends"] = json!([{ "target": 30, "level": -3.0 }]);
+    serde_json::from_value(json!({
+        "name": "t", "tempo": tempo, "sig_num": 4, "sig_den": 4,
+        "master": track_json(0, "Master", None, json!([]), json!([])),
+        "tracks": [
+            track_json(1, "Keys", None, keys, keys_clips),
+            bass_track,
+            track_json(30, "Room", None, room, json!([])),
+        ],
+    }))
+    .unwrap()
+}
+
+/// The mix with the first clip of Keys three beats later.
+fn null_moved() -> Project {
+    let mut p = null_mix();
+    Arc::make_mut(&mut p.track_mut(1).unwrap().clips[0]).start += 3.0;
+    p
+}
+
+/// The mix, saved to a project folder and read back.
+fn null_saved_and_loaded() -> Project {
+    use crate::session::folder::{Home, commit, layout, read};
+    let dir = tempfile::tempdir().unwrap();
+    let files = layout(&null_mix(), &Value::Null, None, dir.path(), &Home::default()).unwrap();
+    commit(dir.path(), &files, None).unwrap();
+    read(&Home::default(), dir.path()).unwrap().project
+}
+
+/// The mix with the delay of Keys bypassed.
+fn null_bypassed() -> Project {
+    let mut p = null_mix();
+    Arc::make_mut(&mut p.track_mut(1).unwrap().devices[1]).bypass = true;
+    p
+}
+
+/// The mix with no delay on Keys.
+fn null_without_delay() -> Project {
+    let mut p = null_mix();
+    p.track_mut(1).unwrap().devices.remove(1);
+    p
+}
+
+/// The mix with the first clip of Keys in a subproject (nest 40). The
+/// track of the clip (42) has no devices, and a block on Keys plays that
+/// track only. This is the pass mode of `nest.md` 4.4: the song sounds as
+/// if the clip was on Keys.
+fn null_in_subproject() -> Project {
+    let mut p = null_mix();
+    let keys = p.track_mut(1).unwrap();
+    let clip = keys.clips.remove(0);
+    let length = clip.length;
+    let block: Clip = serde_json::from_value(json!({ "id": 43, "name": "", "start": 0.0, "length": length,
+        "muted": false, "content": { "kind": "nest", "nest": 40, "play": { "track": 42 } } }))
+    .unwrap();
+    keys.clips.insert(0, Arc::new(block));
+    let track = |id, name| -> crate::model::Track {
+        serde_json::from_value(track_json(id, name, Some(40), json!([]), json!([]))).unwrap()
+    };
+    let mut inside = track(42, "Keys");
+    inside.clips.push(clip);
+    p.tracks.push(Arc::new(inside));
+    p.tracks.push(Arc::new(track(41, "Master")));
+    let nest = json!({ "id": 40, "name": "Verse", "length": length, "master": 41 });
+    p.nests.insert(crate::model::NestId(40), Arc::new(serde_json::from_value(nest).unwrap()));
+    p
+}
+
+/// How a case renders: the size of the blocks, the threads, and whether
+/// devices at rest sleep.
+#[derive(Clone, Copy)]
+struct Way {
+    block: usize,
+    threads: usize,
+    sleep: bool,
+}
+
+/// As a render to a file does it.
+const PLAIN: Way = Way { block: 512, threads: 1, sleep: true };
+
+/// The left and right samples of a render, and how many blocks devices
+/// slept through.
+struct Rendered {
+    left: Vec<f32>,
+    right: Vec<f32>,
+    slept: u64,
+}
+
+impl Rendered {
+    /// The first frame where `self` and `other` differ, or None when they
+    /// null. The comparison is `==` on each sample: bit for bit, but -0.0
+    /// and 0.0 are the same.
+    fn first_difference(&self, other: &Rendered) -> Option<usize> {
+        let frames = |r: &Rendered| r.left.iter().zip(&r.right).map(|(l, r)| (*l, *r)).collect::<Vec<_>>();
+        frames(self).into_iter().zip(frames(other)).position(|(a, b)| a != b)
+    }
+}
+
+/// [`RENDER_FRAMES`] from the start of the last of `states`, by an engine
+/// that the sync took through each of `states` in turn.
+fn null_render(states: &[Project], way: Way) -> Rendered {
+    let path: Vec<&Project> = states.iter().collect();
+    let (mut engine, mut handle, _) = engine(&path);
+    engine.set_offline(true);
+    engine.set_sleep(way.sleep);
+    if way.threads > 1 {
+        engine.set_pool(Some(Box::new(paw_engine::Pool::new(way.threads))));
+    }
+    handle.send_while(Msg::Play, &mut engine);
+    let (mut l, mut r) = (vec![0.0; way.block], vec![0.0; way.block]);
+    let mut out = Rendered { left: Vec::new(), right: Vec::new(), slept: 0 };
+    for _ in 0..RENDER_FRAMES / way.block {
+        engine.process(&mut l, &mut r);
+        out.left.extend_from_slice(&l);
+        out.right.extend_from_slice(&r);
+    }
+    handle.collect_garbage();
+    out.slept = engine.shared().device_blocks().1;
+    out
+}
+
+/// One project rendered two ways that must sound the same nulls: the
+/// difference of the two renders is silence, sample by sample. The code is
+/// certain in each case, so no case has a limit in dB.
+///
+/// The threads case does not show that the work was shared between the
+/// threads: that depends on how long the tracks took.
+/// `crates/paw-engine/tests/threads.rs` shows it on a larger project.
+#[test]
+fn one_project_rendered_two_ways_nulls() {
+    type States = fn() -> Vec<Project>;
+    let mix: States = || vec![null_mix()];
+    let at_120: States = || vec![null_mix_120()];
+    let ramp: States = || vec![null_mix_on_a_ramp()];
+    let blocks = |block| Way { block, ..PLAIN };
+    #[rustfmt::skip]
+    let cases: [(&str, States, Way, States, Way); 12] = [
+        ("blocks of 64 and of 512 frames", mix, blocks(64), mix, PLAIN),
+        ("blocks of 128 and of 512 frames", mix, blocks(128), mix, PLAIN),
+        ("blocks of 64 and of 512 frames at 120 BPM", at_120, blocks(64), at_120, PLAIN),
+        ("blocks of 128 and of 512 frames at 120 BPM", at_120, blocks(128), at_120, PLAIN),
+        ("blocks of 64 and of 512 frames on a tempo ramp", ramp, blocks(64), ramp, PLAIN),
+        ("blocks of 128 and of 512 frames on a tempo ramp", ramp, blocks(128), ramp, PLAIN),
+        ("one thread and four", mix, PLAIN, mix, Way { threads: 4, ..PLAIN }),
+        ("a clip moved and moved back", || vec![null_mix(), null_moved(), null_mix()], PLAIN, mix, PLAIN),
+        ("render, save, load, render", mix, PLAIN, || vec![null_saved_and_loaded()], PLAIN),
+        ("a bypassed device and no device", || vec![null_bypassed()], PLAIN, || vec![null_without_delay()], PLAIN),
+        ("devices that sleep and devices awake", mix, PLAIN, mix, Way { sleep: false, ..PLAIN }),
+        ("a subproject's track and its clip on the row", || vec![null_in_subproject()], PLAIN, mix, PLAIN),
+    ];
+    for (name, a_states, a_way, b_states, b_way) in cases {
+        let a = null_render(&a_states(), a_way);
+        let b = null_render(&b_states(), b_way);
+        assert!(a.left.iter().any(|s| s.abs() > 0.01), "{name}: something sounds");
+        // The devices sleep through the rest in the middle, and wake
+        // again at beat 12.
+        assert!(!a_way.sleep || a.slept > 0, "{name}: devices sleep through the rest");
+        assert_eq!(a.first_difference(&b), None, "{name}: the first frame that differs");
+    }
 }

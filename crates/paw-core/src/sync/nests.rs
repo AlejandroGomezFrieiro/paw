@@ -5,7 +5,9 @@
 //! plays each nest track as one engine track whose clips are placed in the
 //! song: for each instance of the nest (a nest clip, and through it every
 //! nest clip inside), a copy of each clip at `instance start + clip start -
-//! instance offset`, cut at the instance's window. The copies share their
+//! instance offset`, cut at the instance's window (a nest with a tempo of
+//! its own places each note through seconds instead: `model/nest/time.rs`).
+//! The copies share their
 //! notes with the clip, so an edit inside the nest compiles once however
 //! many instances play it (the cache of `clips.rs`). A muted instance places
 //! nothing; what the nest's devices already play rings on.
@@ -33,19 +35,20 @@ use std::sync::Arc;
 
 use rustc_hash::FxHasher;
 
+use crate::model::nest::{Timing, timed_lane};
 use crate::model::{Clip, ClipContent, Clips, Id, NestId, NestPlay, Project, Track};
 
 /// Where a nest plays in the song: one nest clip (or a chain of them, for a
 /// nest inside a nest), as song beats.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Instance {
     /// Tells the instance apart: the clip, and the instances it is in.
     pub key: u64,
     /// The song's beat where the window starts and ends.
     pub from: f64,
     pub to: f64,
-    /// The song's beat of the nest's beat 0.
-    pub zero: f64,
+    /// Where the nest's beats are in the song.
+    pub timing: Timing,
     /// The one track of the nest that this instance plays (a stem), or
     /// None for all of them.
     pub only: Option<Id>,
@@ -56,7 +59,12 @@ pub(crate) struct Instance {
 impl Instance {
     /// The song's beat of a beat of the nest.
     pub fn song_beat(&self, beat: f64) -> f64 {
-        self.zero + beat
+        self.timing.song_beat(beat)
+    }
+
+    /// The song's beat of the nest's beat 0.
+    pub fn zero(&self) -> f64 {
+        self.timing.zero()
     }
 
     /// Whether this instance plays track `track` of its nest.
@@ -104,7 +112,7 @@ impl Placed {
             key: 0,
             from: f64::NEG_INFINITY,
             to: f64::INFINITY,
-            zero: 0.0,
+            timing: Timing::Shift(0.0),
             only: None,
             row: crate::model::MASTER_ID,
         };
@@ -125,16 +133,20 @@ impl Placed {
                     NestPlay::Track(stem) => Some(*stem),
                     NestPlay::Master => None,
                 };
+                let Some(held) = project.nest(*nest) else {
+                    continue;
+                };
+                let timing = held.timing(project.tempo_map(), place.map(|_| &outer.timing), c.start, *offset);
                 let start = outer.song_beat(c.start);
                 let from = start.max(outer.from);
-                let to = (start + c.length).min(outer.to);
+                let to = outer.song_beat(c.start + c.length).min(outer.to);
                 if to <= from {
                     continue;
                 }
                 let mut hash = FxHasher::default();
                 (outer.key, c.id).hash(&mut hash);
-                let inner = Instance { key: hash.finish(), from, to, zero: start - offset, only, row: t.id };
-                placed.instances.entry(*nest).or_default().push(inner);
+                let inner = Instance { key: hash.finish(), from, to, timing, only, row: t.id };
+                placed.instances.entry(*nest).or_default().push(inner.clone());
                 stack.push((Some(*nest), inner, depth + 1));
             }
         }
@@ -146,12 +158,13 @@ impl Placed {
 }
 
 /// The time the devices of a nest's track see: where each block of the
-/// nest that plays the track is, and the nest's own meter (empty: the
-/// song's).
+/// nest that plays the track is, the nest's own meter (empty: the song's),
+/// and its own tempo (empty: the song's).
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Local {
     places: Vec<paw_engine::Place>,
     meter: Vec<paw_engine::SigPoint>,
+    tempo: Vec<paw_engine::TempoPoint>,
 }
 
 impl Local {
@@ -159,27 +172,28 @@ impl Local {
     /// not there.
     pub fn of(project: &Project, nest: NestId, track: Id, placed: &Placed) -> Option<Self> {
         let held = project.nest(nest)?;
-        let places = placed
+        let places: Vec<paw_engine::Place> = placed
             .instances
             .get(&nest)
             .into_iter()
             .flatten()
             .filter(|i| i.plays(track))
-            .map(|i| paw_engine::Place { from: i.from, to: i.to, zero: i.zero })
+            .map(|i| paw_engine::Place { from: i.from, to: i.to, zero: i.zero() })
             .collect();
-        let meter = match &held.meter {
-            crate::model::NestMeter::Own { changes } => changes
-                .iter()
-                .map(|c| paw_engine::SigPoint { beat: c.beat, num: c.num, den: c.den })
-                .collect(),
-            crate::model::NestMeter::Follow => Vec::new(),
+        // Its own meter; with its own tempo, also the song's meter where it
+        // starts, as its beats do not line up with the song's.
+        let first = places.first().map_or(0.0, |p| p.zero);
+        let meter = match (&held.meter, held.own_map(project.tempo_map(), first)) {
+            (crate::model::NestMeter::Follow, _) if !held.has_own_tempo() => Vec::new(),
+            (_, Some(map)) => map.signatures().collect(),
+            (_, None) => Vec::new(),
         };
-        Some(Self { places, meter })
+        Some(Self { places, meter, tempo: held.own_tempos() })
     }
 
     /// As the engine takes it.
     pub fn time(&self) -> paw_engine::LocalTime {
-        paw_engine::LocalTime::new(self.places.clone(), &self.meter)
+        paw_engine::LocalTime::new(self.places.clone(), &self.meter).with_tempo(&self.tempo)
     }
 }
 
@@ -234,13 +248,13 @@ pub(crate) fn expand(project: &Project, placed: &Placed, mut old: ExpandedTracks
         let mut own = Vec::new();
         for i in placed.instances.get(&nest).unwrap_or(&none).iter().filter(|i| i.plays(t.id)) {
             if !(pass && i.only == Some(t.id)) {
-                own.push(*i);
+                own.push(i.clone());
                 continue;
             }
             let list = hosted.entry(i.row).or_default();
             match list.iter_mut().find(|s| Arc::ptr_eq(&s.track, t)) {
-                Some(s) => s.places.get_or_insert_with(Vec::new).push(*i),
-                None => list.push(Source { track: t.clone(), places: Some(vec![*i]) }),
+                Some(s) => s.places.get_or_insert_with(Vec::new).push(i.clone()),
+                None => list.push(Source { track: t.clone(), places: Some(vec![i.clone()]) }),
             }
         }
         tracks.push((t, vec![Source { track: t.clone(), places: Some(own) }]));
@@ -288,7 +302,7 @@ fn build(t: &Arc<Track>, sources: Vec<Source>, was: Option<&Expanded>) -> Expand
                     continue;
                 };
                 list.push(copy.clone());
-                copies.insert(id, (clip.clone(), *instance, copy));
+                copies.insert(id, (clip.clone(), instance.clone(), copy));
             }
         }
     }
@@ -299,11 +313,8 @@ fn build(t: &Arc<Track>, sources: Vec<Source>, was: Option<&Expanded>) -> Expand
     // nest; a song track's are its own.
     let lanes = match (&sources[0].places, t.nest) {
         (Some(own), Some(_)) => {
-            let places: Vec<(f64, f64, f64)> = own.iter().map(|i| (i.zero, i.from, i.to)).collect();
-            t.lanes
-                .iter()
-                .map(|l| Arc::new(crate::model::nest::placed_lane(l, &places)))
-                .collect()
+            let places: Vec<(Timing, f64, f64)> = own.iter().map(|i| (i.timing.clone(), i.from, i.to)).collect();
+            t.lanes.iter().map(|l| Arc::new(timed_lane(l, &places))).collect()
         }
         _ => t.lanes.clone(),
     };
@@ -330,5 +341,5 @@ fn place(clip: &Clip, instance: &Instance, id: Id) -> Option<Clip> {
     if matches!(clip.content, ClipContent::Nest { .. }) {
         return None;
     }
-    crate::model::nest::placed_clip(clip, instance.zero, instance.from, instance.to, id)
+    instance.timing.place_clip(clip, instance.from, instance.to, id)
 }

@@ -91,6 +91,8 @@ struct Job {
     file: PathBuf,
     transport: Value,
     screen: Option<Value>,
+    /// The home folder that `~/` names: the session's.
+    home: folder::Home,
     root: StateId,
     saved: StateId,
     states: Vec<(StateEntry, Source)>,
@@ -108,7 +110,7 @@ impl Job {
                 Source::Project(project) => {
                     let project = media::for_file(&project, &self.file);
                     let layout =
-                        folder::layout_cached(&project, &self.transport, self.screen.as_ref(), &dir, &mut book.tracks)?;
+                        folder::layout_cached(&project, &self.transport, self.screen.as_ref(), &dir, &self.home, &mut book.tracks)?;
                     book.store.put_files(&layout.files)?
                 }
             };
@@ -298,6 +300,7 @@ impl Session {
             file,
             transport: serde_json::to_value(&self.transport).unwrap_or_default(),
             screen: self.screen.clone(),
+            home: self.home.clone(),
             root: h.root(),
             saved,
             states,
@@ -330,7 +333,7 @@ impl Session {
         let file = self.folder_file().context("the project is not a folder")?;
         let dir = file.parent().map(Path::to_path_buf).unwrap_or_default();
         let files = Store::new(&self.undo.file.lazy.dir).read_files(top)?;
-        let read = folder::read_from(&MemoryFiles::new(&dir, files), &dir)?;
+        let read = folder::read_from(&MemoryFiles::new(&dir, files), &self.home, &dir)?;
         let mut project = read.project;
         project.validate()?;
         project.name_notes(&Project::default());
@@ -413,7 +416,7 @@ mod tests {
                     notes[0].pitch = (notes[0].pitch + 1) % 128;
                 }
             }
-            let layout = folder::layout_cached(&project, &json!({}), None, &dir, &mut tracks).unwrap();
+            let layout = folder::layout_cached(&project, &json!({}), None, &dir, &folder::Home::default(), &mut tracks).unwrap();
             tops.push(store.put_files(&layout.files).unwrap());
         }
         let (a, b) = (store.files(tops[1]).unwrap(), store.files(tops[2]).unwrap());

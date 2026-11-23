@@ -16,13 +16,14 @@ use paw_engine::backend::{self, BackendChoice, BackendOptions, Stream, StreamInf
 use paw_engine::midi::{MidiInputs, MidiSink};
 use paw_engine::record::{self, AudioCapture, MidiCapture, Take, TakeShared};
 use paw_engine::{Engine, EngineHandle, EventKind, Msg, ParamInfo, Pool, Registry};
+use paw_proto::dirs::Dirs;
 use rtrb::RingBuffer;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Map, Value, json};
 
 use crate::history::{self, History};
 use crate::model::{
-    Clip, ClipContent, ClipKindId, Control, CustomContent, DeviceInst, KindData, MediaRef, Signal, Timeline, Id, Lane, LaneState, MASTER_ID, MidiInput, NestPlay, Note, NoteAttr, Notes, Project, Segment,
+    check_clip_beat, check_notes, Clip, ClipContent, ClipKindId, Control, CustomContent, DeviceInst, KindData, MediaRef, Signal, Timeline, Id, Lane, LaneState, MASTER_ID, MidiInput, NestPlay, Note, NoteAttr, Notes, Project, Segment,
     Send, Shape, Sound, StretchMode, Target, Timebase, Track, WarpMarker, InputChannels,
 };
 use crate::sync::{AudioCache, Follow, LiveDevices, Mapper, ModelEvent, SyncCtx, sync};
@@ -40,6 +41,7 @@ pub use midi_in::FilterRule;
 mod engine;
 mod audition;
 mod clipops;
+mod links;
 mod encode;
 mod file_check;
 mod files_watch;
@@ -403,6 +405,10 @@ pub struct ClipOpts {
     pub looped: bool,
     pub loop_length: Option<f64>,
     pub loop_start: f64,
+    /// A MIDI clip's overrides, as the clip's fields of these names have
+    /// them (`model/overrides.rs`).
+    pub transpose: i8,
+    pub velocity: i8,
     /// Keep it off the timeline, among the track's cues (`session/cues.rs`).
     pub cue: bool,
     /// A clip of a kind that an extension defines: its content (`data` is
@@ -570,6 +576,14 @@ pub struct Session {
     /// Where the devices chosen with [`audio_use`](Self::audio_use) are
     /// remembered, or `None` not to remember them.
     pub device_file: Option<PathBuf>,
+    /// The home folder that `~/` names in the project's files. The kernel
+    /// sets it once from `KernelOpts::home`; none until then.
+    pub(crate) home: folder::Home,
+    /// The user's base directories: where the recordings of a project with
+    /// no file, the safety copy of a panic and the caches go. The kernel sets
+    /// them once from `KernelOpts::dirs`; none until then (the temporary
+    /// directory).
+    pub(crate) dirs: Dirs,
     /// The render running on a thread of its own: session/render.rs.
     render_job: Option<render::Job>,
     /// The state each state lane last gave its device from the main
@@ -683,6 +697,8 @@ impl Session {
             midi: Default::default(),
             writing: write::Writing::default(),
             device_file: None,
+            home: folder::Home::default(),
+            dirs: Dirs::default(),
             render_job: None,
             state_given: Default::default(),
             loads: Default::default(),
@@ -751,9 +767,8 @@ impl Drop for Session {
 }
 
 /// Where recordings go while the project has no file.
-fn scratch_media_dir() -> PathBuf {
-    let base = paw_proto::dirs::data().unwrap_or_else(std::env::temp_dir);
-    base.join("paw").join("recordings")
+fn scratch_media_dir(dirs: &Dirs) -> PathBuf {
+    dirs.paw_data().join("recordings")
 }
 
 /// A name made of letters, digits, `-` and `_`, for use in a file name.
@@ -898,28 +913,6 @@ fn finite(what: &str, value: f64) -> Result<f64> {
     }
 }
 
-/// Notes the engine can play: a finite start, a length above 0, a pitch and
-/// a velocity of at most 127.
-fn check_notes(notes: &[Note]) -> Result<()> {
-    for n in notes {
-        if !n.start.is_finite() || !n.length.is_finite() || n.length <= 0.0 {
-            bail!(
-                "a note needs a finite start and a length above 0, not start {} length {}",
-                n.start,
-                n.length
-            );
-        }
-        if n.pitch > 127 || n.velocity > 127 {
-            bail!(
-                "a note's pitch and velocity go up to 127, not pitch {} velocity {}",
-                n.pitch,
-                n.velocity
-            );
-        }
-    }
-    Ok(())
-}
-
 fn sorted(mut notes: Vec<Note>) -> Vec<Note> {
     notes.sort_by(|a, b| a.start.total_cmp(&b.start).then(a.pitch.cmp(&b.pitch)));
     notes
@@ -1009,6 +1002,17 @@ pub struct ClipView<'a> {
     /// The same for the controller moves.
     #[serde(skip_serializing_if = "Option::is_none")]
     control_stamp: Option<u64>,
+    /// A linked clip's link (`model/links.rs`), and how many clips it has.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    link: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    link_count: Option<usize>,
+    /// Its overrides (`model/overrides.rs`): semitones up, and what is added
+    /// to each velocity.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    transpose: Option<i8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    velocity: Option<i8>,
     // An audio clip's.
     #[serde(skip_serializing_if = "Option::is_none")]
     edits: Option<usize>,
@@ -1086,6 +1090,10 @@ fn clip_json<'a>(c: &'a Clip, track: Id, files: &file_check::FileCheck) -> ClipV
         control_count: None,
         stamp: None,
         control_stamp: None,
+        link: c.link.as_deref(),
+        link_count: None,
+        transpose: None,
+        velocity: None,
         edits: None,
         file: None,
         offset: None,
@@ -1119,6 +1127,8 @@ fn clip_json<'a>(c: &'a Clip, track: Id, files: &file_check::FileCheck) -> ClipV
             v.control_count = Some(controls.len());
             v.stamp = Some(notes.stamp());
             v.control_stamp = Some(control_stamp(controls));
+            v.transpose = Some(c.overrides.transpose);
+            v.velocity = Some(c.overrides.velocity);
         }
         ClipContent::Audio { file, offset, gain, edits } => {
             if !edits.is_empty() {

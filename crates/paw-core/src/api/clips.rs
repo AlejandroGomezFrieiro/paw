@@ -144,7 +144,8 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         fn media_store(_, sh, (megabytes, keep) => (Option<f64>, Option<f64>)) {
             let mut session = sh.session.borrow_mut();
             if let Some(megabytes) = megabytes {
-                session.set_media_store(Some(crate::peaks::media_dir()), megabytes);
+                let dir = crate::peaks::media_dir(&session.dirs);
+                session.set_media_store(Some(dir), megabytes);
                 if let (Some(keep), Some((dir, megabytes))) = (keep, session.media_store()) {
                     // Tidied apart: a big cache takes a while to look through.
                     let store = paw_engine::DiskStore { dir, limit: (megabytes * 1_048_576.0) as u64 };
@@ -291,6 +292,17 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         }
         // @return nil
         fn clip_remove(_, sh, id => Id) { sh.session.borrow_mut().clip_remove(id).lua() }
+        // Put a linked copy of a MIDI clip right after it, and return the
+        // id of the copy. The clips of a link share their notes and
+        // controller moves: an edit of one changes all of them. A clip that
+        // has no link yet starts one, named after the clip. `clip_get`
+        // gives a linked clip's `link` and `link_count`.
+        // @return integer
+        fn clip_link(_, sh, id => Id) { sh.session.borrow_mut().clip_link(id).lua() }
+        // Take a clip out of its link. It keeps its notes, and edits of it no
+        // longer change the other clips.
+        // @return nil
+        fn clip_unlink(_, sh, id => Id) { sh.session.borrow_mut().clip_unlink(id).lua() }
 
         // --- cues (session/cues.rs) ---
         // A clip goes off the timeline with `clip_add(track, { cue = true, ... })`:

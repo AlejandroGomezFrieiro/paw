@@ -13,7 +13,7 @@ The arrange view shows the tracks as rows and the time as columns, and it is the
 - A letter before the name of a track of a kind that an extension defines.
 - The master track, pinned at the bottom. Its header is like the others, with the levels of both sides in one row, and the timeline beside it shows its volume automation if it has any. `j` on the last track goes to the master, and `/master` finds it. On the master, `+` `-` `grv` change its volume and `a` adds a device to it. It has no clips, and `dd` does not remove it.
 
-The tracks share the rows of the window, and each track gets three to four rows (`paw.opt.track_height`). The headers are 26, 22, 18 or 12 columns wide, depending on the width of the screen (`paw.opt.header_width`). The track column and the bar numbers of the ruler are described in [The track column](#the-track-column) and [Relative bars](#relative-bars).
+The tracks share the rows of the window, and each track gets three to four rows (`paw.opt.track_height`). `Ctrl-=` and `Ctrl--` make the tracks of the window taller or shorter, and `Ctrl-0` fits them to the window again (see [Vertical zoom](#vertical-zoom)). The headers are 26, 22, 18 or 12 columns wide, depending on the width of the screen (`paw.opt.header_width`). The track column and the bar numbers of the ruler are described in [The track column](#the-track-column) and [Relative bars](#relative-bars).
 
 A clip has a name row and a darker body that shows its notes or waveform in the color of its track. The clip under the cursor shows in the full color, and the track of the cursor has a brighter header and a tinted lane.
 
@@ -42,6 +42,8 @@ A clip has a name row and a darker body that shows its notes or waveform in the 
 | `Alt-h` `Alt-l` | Shortens and lengthens the clip. |
 | `vic` `Ctrl-a` | Transposes the clip. On a selection, `Ctrl-a` `Ctrl-x` change the pitch of the clips. |
 | `gw` `gW` | Puts a warp marker on the audio clip at the cursor. Removes the warp marker nearest to the cursor. |
+| `<Space>cl` | Puts a linked copy after the MIDI clip, as `&` puts a plain copy. See [Linked clips](#linked-clips). |
+| `<Space>cu` | Takes the clip out of its link, so that it is a plain copy again. |
 | `<Space>cf`, `\ff` | Types the fade in and fade out of the audio clip, in beats (`1 2`, or one length for both). |
 | `\fi` `\fo` | Fades the audio clip in from its start to the cursor. Fades it out from the cursor to its end. A count gives the beats: `2\fo`. |
 | `\fx` | Crossfades the audio clip into the next clip, over a grid step. A count gives the beats. |
@@ -71,6 +73,7 @@ A clip has a name row and a darker body that shows its notes or waveform in the 
 | `:tempo.move 9` | Moves the tempo change at the cursor to bar 9. |
 | `]t` `[t` | Selects the next or the previous take of the clip. |
 | `zi` `zo` | Zooms in and out. |
+| `Ctrl-=` `Ctrl--` `Ctrl-0`, `z+` `z-` `z=` | Taller rows, shorter rows, rows that fit the window again. See [Vertical zoom](#vertical-zoom). |
 | `zs` `zz` `ze` | Puts the cursor at the left, in the middle or at the right of the timeline. |
 | `zh` `zl` | Scrolls a bar left or right. |
 | `[g` `]g` | Makes the grid finer or coarser. |
@@ -81,12 +84,23 @@ A clip has a name row and a darker body that shows its notes or waveform in the 
 | `<Space>tx` | Removes the VCA at the cursor. |
 | `<Space>tl` | Links the faders of a group. |
 | `Tab`, `Ctrl-w w` | Goes to the next window. |
-| `Ctrl-w +` `Ctrl-w -` | With the arrange view the only window: taller or shorter tracks. |
-| `Ctrl-w =` | With the arrange view the only window: the height of the tracks is automatic again. |
 | `Ctrl-w <` `Ctrl-w >` | With the arrange view the only window: narrower or wider track headers. |
 | `ZZ` `ZQ` | Saves and quits. Quits. |
 
 For the keys of windows, see [Windows, buffers and tabs](windows.md).
+
+## Vertical zoom
+
+`Ctrl-=` (or `Ctrl-+`) makes the rows of the arrange view a row taller, `Ctrl--` makes them a row shorter, and `Ctrl-0` gives them the height of `paw.opt.track_height` again, which is "auto" and fits the tracks to the window unless your configuration sets a number. Most terminals don't send `Ctrl` with `=`, `-` or `0` to a program, so `z+`, `z-` and `z=` do the same in every terminal and in the graphical window.
+
+| Keys | Effect |
+| --- | --- |
+| `Ctrl-=` `z+` | Makes every track a row taller, up to 12 rows. On a selection of tracks (`Vj`), or with a count (`3z+`), only those tracks. With the cursor on an automation lane, the lanes get a row more, up to 8. |
+| `Ctrl--` `z-` | Makes the rows shorter: a track down to 1 row, a lane down to 2. |
+| `Ctrl-0` `z=` | Gives every track the height of the option again, and the lanes 2 rows. On a selection or with a count, those tracks get the height of the others. |
+| `Alt` and the wheel | The same as `z+` and `z-`. `Ctrl` and the wheel over the track headers does the same, and over the timeline it zooms in time. |
+
+The message line says what changed, for example `track height 5`. The zoom belongs to the window, as its folds do. A split starts with the zoom of the window that it comes from, a change of zoom is not an undo step, and the project keeps the zoom of each window in its `screen.json`. The piano roll has its own vertical zoom (see [The piano roll](piano-roll.md#vertical-zoom)).
 
 ## The track column
 
@@ -169,7 +183,7 @@ In a selection (`v`) on a lane row, `x` and `d` remove the points in it.
 
 ## The tempo lane
 
-`zT` (or `:tempo.lane`) puts two rows under the ruler, and they show the tempo map as a curve. The curve is level where a tempo holds and slopes where it ramps (`↗`), and `◆` marks a change that holds. The header gives the tempo at the cursor.
+`zT` (or `:tempo.lane`) puts two rows under the ruler, and they show the tempo map as a curve. The curve is level where a tempo holds and slopes where it ramps (`↗`), and `◆` marks a change that holds. The header gives the tempo at the cursor. Inside a subproject with a tempo of its own, the lane shows that tempo, and a change that you make on the lane goes into that tempo. Inside a subproject that follows the song's tempo, a change goes into the song's tempo at the same place in the song.
 
 | Command | Effect |
 | --- | --- |
@@ -179,6 +193,31 @@ In a selection (`v`) on a lane row, `x` and `d` remove the points in it.
 | `:tempo.remove` | Removes the change. |
 
 Each command is one undo step. You can also draw on the lane with the mouse, as [The mouse](mouse.md) describes.
+
+## Linked clips
+
+The clips of a link share their notes and their controller moves, so an edit of the notes of one clip changes every clip of the link, as one undo step. Each clip keeps its own start, length, loop and mute.
+
+- `<Space>cl` (`:clip.link`) puts a linked copy after the clip under the cursor, and moves the cursor to it. A clip that has no link yet starts one with the name of the clip, for example `riff`. The message says the link and its number of clips.
+- `<Space>cu` (`:clip.unlink`) takes the clip under the cursor out of its link. The clip keeps its notes, and later edits of it change only that clip.
+- `&`, `y` and `p` make plain copies, also of a linked clip.
+- `S` on a linked clip takes it out of its link, then splits it, so the other clips of the link keep their notes.
+- The arrange view shows `≡` after the name of a linked clip (`=` with `paw.opt.ascii`), as in `riff ≡`.
+- `K` on a linked clip says the link and its number of clips, for example `linked: riff, 3 clips`.
+- The notes of a link are in one file of the project folder, `linked/riff.midi2`. See [Project files](project-files.md#the-project-folder).
+
+### Overrides of a clip
+
+A MIDI clip can play its notes higher or lower, or louder or softer, without a change of its notes. Each clip of a link has its own overrides, so one copy of a riff can play it a third higher while all the copies keep one set of notes.
+
+- `:clip.override transpose=3 velocity=-10` sets the overrides of the clip under the cursor, as one undo step. `transpose` is in semitones, and `velocity` is added to the velocity of each note, which stays in 1 to 127. Each is a whole number from -127 to 127, and you can give one of them alone.
+- `:clip.override clear` removes both overrides, and `:clip.override` alone says them.
+- The overrides change what plays: the sound, `:render`, `:export` to a MIDI file and the chord names. The notes of the clip stay the same.
+- A note that the transpose takes below 0 or above 127 does not play.
+- The label of the clip shows the overrides after its name, as in `riff ≡ +3 v-10`, and `K` says them, for example `plays with transpose +3, velocity -10`.
+- The piano roll shows the notes of the clip at the pitches they play. See [The piano roll](piano-roll.md#what-the-view-shows).
+- `&`, `y`, `p` and `S` keep the overrides in the copy and in each half. `J` keeps the sound of the joined clips, because it moves the notes of a clip with other overrides than the first clip by the difference.
+- The overrides are in the entry of the clip in `track.json`, as `"overrides": { "transpose": 3, "velocity": -10 }`.
 
 ## Take lanes
 

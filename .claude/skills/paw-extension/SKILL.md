@@ -1,6 +1,6 @@
 ---
 name: paw-extension
-description: Create, extend or debug an extension for paw (the personal audio workstation in this repository): a directory of Lua that adds commands, keys, views, buffer types, kinds of track, Lua devices, picker sources, query fields, status line components, hooks, health checks, and optionally native parts built by Nix. Use whenever a task adds a feature to paw that is not core (see docs/explanation/about-core-and-extensions.md), writes or changes anything under extensions/ or ~/.config/paw/extensions, or asks "how do I make paw do X" where the answer is Lua — even if it only says "add a command", "a new view", "a tracker", "a plugin for paw".
+description: 'Create, extend or debug an extension for paw (the personal audio workstation in this repository): a directory of Lua that adds commands, keys, views, buffer types, kinds of track, Lua devices, picker sources, query fields, status line components, hooks, health checks, and optionally native parts built by Nix. Use whenever a task adds a feature to paw that is not core (see docs/explanation/about-core-and-extensions.md), writes or changes anything under extensions/ or ~/.config/paw/extensions, or asks "how do I make paw do X" where the answer is Lua — even if it only says "add a command", "a new view", "a tracker", "a plugin for paw".'
 ---
 
 # Creating a paw extension
@@ -23,7 +23,7 @@ the source of truth; this page is the map):
   `runtime/types/paw.lua` is the LuaLS meta file: point LuaLS's
   `workspace.library` at `runtime/types` to get completion while writing.
 - `docs/reference/key-rule.md`, `docs/reference/grammar.md` and `docs/reference/keys.md` — the keys a user expects;
-  `runtime/lua/paw/keyrule.lua` — the key rule your keys must follow.
+  `runtime/lua/paw/keyrule.tl` — the key rule your keys must follow.
 - A bundled extension close to what you want, as a model (below).
 
 The manual's contents are `docs/README.md`, by kind (tutorials, how-to,
@@ -107,7 +107,7 @@ with the Lua cached in `~/.cache/paw/lang`. No build step. Read
 
 ```
 extensions/<name>/
-  manifest.lua      return { name, version, description, requires = { paw = "^1.0" } }
+  manifest.lua      return { name, version, description, requires = { paw = "^1.0" }, needs = {} }
   init.tl           runs at load (or init.lua): require your modules, register things
   lua/<name>/…      your modules (on the require path), .tl or .lua
   devices/*.lua     Lua devices (JSFX-style DSP), optional
@@ -165,6 +165,7 @@ follow `extensions/ara` (`paw.plugins.attach`, docs/reference/attachments.md).
 | per-note data, roll layers, popovers | `extensions/articulations` |
 | a native engine / CLAP plugin built by Nix | `extensions/sampler`, `extensions/utau` |
 | parts and signs of the track column, bar labels, in Teal | `extensions/columnplus`, `extensions/rulerplus` |
+| an extension in Teal with many modules (`lua/<name>/*.tl`), formats of other programs | `extensions/interop` |
 | a buffer type (e.g. a tracker, time top→down) | docs/reference/lua-views.md `paw.buftype` example ("tally") |
 
 ## Tests and checks (do these before calling it done)
@@ -174,7 +175,7 @@ follow `extensions/ara` (`paw.plugins.attach`, docs/reference/attachments.md).
 ```lua
 local T = ...
 T.test("euclid fills 3 in 8", function()
-  T.fresh()                                   -- a clean project
+  T.start()                                   -- a clean project, normal mode, no float
   paw.ext.load("extensions/euclid")
   -- drive real keys where it is UX: T.keys("…") / paw.keymap.feed("…")
   T.eq(#clip:notes(), 3, "three onsets")
@@ -188,6 +189,23 @@ one device) has run `n` whole blocks, so a parameter, note or change sent
 before is in effect. Keep `paw.api.sleep` only where real time is the
 point (a take of one second), with a comment that says so. The runner
 loads every `extensions/*/tests*.lua` itself.
+
+The runner gives back the options of the start of the run after each test.
+`T.fresh()` gives a new project, the default layout, normal mode and no
+float. `T.start()` also types `<Esc><Esc>` and focuses the arrange view.
+`T.screen(w, h)` gives the text of the screen. After the test files of an
+extension, the runner unloads the extensions that the tests loaded, and
+removes the event handlers, timers and key mappings that test code made. A
+handler, timer or key mapping that is still there fails
+"`extensions/<name>/` leaves no state behind".
+
+The check also compares the audio engine, the MIDI ports and the step
+input controls. The MIDI ports are the test ports and the ports of the
+program. A change of one of them fails the check. The message names the
+test that made the change.
+
+Remove what a test adds with `T.after(fn)`. Do not add lines to
+`tests/leaks-allowed.txt`.
 
 ```sh
 nix develop -c cargo build --release -j 8      # the runtime Lua is embedded: rebuild first

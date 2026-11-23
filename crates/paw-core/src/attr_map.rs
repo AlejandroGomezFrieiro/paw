@@ -660,6 +660,8 @@ pub fn parse(value: serde_json::Value) -> Result<Option<AttrMap>> {
 }
 
 #[cfg(test)]
+mod props;
+#[cfg(test)]
 mod tests {
     use super::*;
 

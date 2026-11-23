@@ -9,6 +9,8 @@ package.loaded["paw"] = paw
 
 paw.util = require("paw.util")
 paw.inspect = paw.util.inspect
+-- Pure transforms of lists of notes (paw/notes.tl).
+paw.notes = require("paw.notes")
 
 --- What a user sees of an error: one line, without the list of calls.
 --- The place in the code (`paw/x.lua:12:`) moves to the end, where it does
@@ -26,7 +28,10 @@ function paw.failure(err)
   if file then
     -- An error raised by the code itself (`attempt to index a nil value`)
     -- says where; one raised on purpose says what to do, and that is enough.
-    local internal = rest:match("^attempt to ") or rest:match("^bad argument") or rest:match("^stack overflow")
+    local internal = rest:match("^attempt to ")
+      or rest:match("^bad argument")
+      or rest:match("^stack overflow")
+      or rest:match("^table index is ")
     short = internal and string.format("%s (%s:%s)", rest, file, line) or rest
   end
   return short
@@ -49,6 +54,8 @@ end
 local events = require("paw.events")
 paw.on, paw.once, paw.off, paw.emit = events.on, events.once, events.off, events.emit
 paw.events = events
+-- The descriptors of the kernel's events declare their names.
+require("paw.events.kernel")
 
 local options = require("paw.options")
 paw.opt, paw.option = options.opt, options
@@ -205,12 +212,54 @@ paw.vca = require("paw.vca")
 paw.groups = require("paw.groups")
 -- The folds of each window: tracks drawn as one row (paw/folds.tl).
 paw.folds = require("paw.folds")
+-- How tall the rows of each window are: the vertical zoom (paw/vzoom.tl).
+paw.vzoom = require("paw.vzoom")
 paw.lanes = require("paw.lanes")
 -- The track column and the ruler's bar labels, which extensions add to.
 paw.trackcolumn = require("paw.trackcolumn")
 paw.ruler = require("paw.ruler")
 paw.tempolane = require("paw.tempolane")
 paw.frontend = require("paw.frontend")
+-- What an extension owns in the modules above paw.ext in the layers
+-- (.claude/skills/paw-code/layers.md): paw.ext takes it away when the
+-- extension unloads.
+table.insert(paw.ext.registries, {
+  -- The keys of the pencil: the "keys" registry takes their mappings away,
+  -- this one their entries, which the key bar lists.
+  kind = "pencil",
+  title = "keys of the pencil",
+  snapshot = function()
+    local out = {}
+    for key, entry in pairs(paw.roll_draw and paw.roll_draw.keys or {}) do
+      out[key] = entry
+    end
+    return out
+  end,
+  put = function(key, value) paw.roll_draw.keys[key] = value end,
+  label = function(key) return key .. " (pencil)" end,
+})
+table.insert(paw.ext.registries, {
+  -- The bands under the ruler of the window (`paw.frontend.bands`), a list
+  -- of functions: each function is its own key.
+  kind = "bands",
+  title = "bands under the ruler",
+  snapshot = function()
+    local out = {}
+    for _, band in ipairs(paw.frontend.bands) do
+      out[band] = band
+    end
+    return out
+  end,
+  put = function(key, value)
+    local bands = paw.frontend.bands
+    for i = #bands, 1, -1 do
+      if bands[i] == key then table.remove(bands, i) end
+    end
+    if value then bands[#bands + 1] = value end
+    api.ui_redraw()
+  end,
+  label = function() return "band" end,
+})
 paw.audition = require("paw.audition")
 paw.regex = require("paw.regex")
 paw.pick = require("paw.pick")
@@ -325,6 +374,8 @@ function K.startup()
   paw.insert = require("paw.insert")
   -- Listings edited as text (`:e paw://tracks`), and the kinds built in.
   paw.textbuf = require("paw.textbuf")
+  -- The command-line window: `q:`, `q/`, Ctrl-f in a prompt (paw/cmdwin.tl).
+  require("paw.cmdwin")
   require("paw.views.tracklist")
   paw.files = require("paw.views.files")
   paw.recent = require("paw.recent")
@@ -376,11 +427,14 @@ function K.startup()
     paw.snippet.load_dir(env.config_dir .. "/snippets", "config")
   end
   warn()
-  paw.emit("startup", {})
+  -- All modules, extensions and the configuration declared their events
+  -- now: check the names that subscriptions gave as text (paw/events.tl).
+  events.check_names()
+  paw.emit(events.startup, {})
 end
 
 --- The program is about to end.
-function K.exit() paw.emit("exit", {}) end
+function K.exit() paw.emit(events.exit, {}) end
 
 function K.key(key)
   if paw.remote and paw.remote.touch then paw.remote.touch() end

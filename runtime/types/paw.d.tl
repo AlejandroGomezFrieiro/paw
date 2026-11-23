@@ -34,6 +34,8 @@ local type HarmonyModule = require("paw.harmony")
 local type HelpModule = require("paw.help")
 local type HooksModule = require("paw.hooks")
 local type InsertModule = require("paw.insert")
+local type KeymapModule = require("paw.keymap")
+local type KeyruleModule = require("paw.keyrule")
 local type LanesModule = require("paw.lanes")
 local type LangModule = require("paw.lang")
 local type LayoutModule = require("paw.layout")
@@ -46,6 +48,7 @@ local type MidifileModule = require("paw.midifile")
 local type MouseModule = require("paw.mouse")
 local type MusicModule = require("paw.music")
 local type NestModule = require("paw.nest")
+local type NotesModule = require("paw.notes")
 local type ObjectsModule = require("paw.objects")
 local type OptionModule = require("paw.options")
 local type PanesModule = require("paw.panes")
@@ -77,6 +80,7 @@ local type UiModule = require("paw.ui")
 local type UndofileModule = require("paw.undofile")
 local type UtilModule = require("paw.util")
 local type VcaModule = require("paw.vca")
+local type VzoomModule = require("paw.vzoom")
 local type XmlModule = require("paw.xml")
 local type ZipModule = require("paw.zip")
 
@@ -140,8 +144,8 @@ global record paw
    is_audio_file: Untyped
    is_chain_file: Untyped
    json: Untyped
-   keymap: Partial.Keymap
-   keyrule: Untyped
+   keymap: KeymapModule
+   keyrule: KeyruleModule
    lane: function(id: integer): ObjectsModule.Lane
    lanes: LanesModule
    lang: LangModule
@@ -162,6 +166,7 @@ global record paw
    mouse: MouseModule
    music: MusicModule
    nest: NestModule
+   notes: NotesModule
    notify: function(text: string, level?: string)
    off: function(id: integer)
    on: function<P>(event: EventsModule.Event<P>, fn: function(P, string), opts?: EventsModule.OnOptions): integer
@@ -233,6 +238,7 @@ global record paw
    util: UtilModule
    vca: VcaModule
    version: Untyped
+   vzoom: VzoomModule
    wait: function(ms: number)
    win: LayoutModule.Wins
    xml: XmlModule

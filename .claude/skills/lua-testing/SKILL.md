@@ -34,11 +34,14 @@ Use the helpers of `T`. Do not copy them into a file (a local `start`,
 
 | Helper | Use |
 | --- | --- |
-| `T.fresh()` | A new project and the start layout. Call it first in each test that needs a project. |
+| `T.fresh()` | A new project, the start layout with no popped-out view and no window history, normal mode, no float and no quickfix list. Call it first in each test that needs a project. |
+| `T.start()` | `T.fresh()`, then `<Esc><Esc>`: the start of a test that types keys. |
+| `T.screen(w, h)` | The text of the screen, 120 by 40 if no size is given. |
 | `T.after(fn)` | Put back what the test changed. It runs after the test, also after a failure. |
 | `T.keys(text)` | Feed keys through the keymap, as the user types them (`"<Esc>dd"`). |
-| `T.eq(got, want, what)`, `T.near(got, want, tolerance, what)` | Compare a value. `what` tells what the value is. |
+| `T.eq(got, want, what)`, `T.near(got, want, tolerance, what)` | Compare a value. `what` tells what the value is. `T.eq` compares two tables by their values (deep). |
 | `T.fails(fn, pattern, what)` | `fn` gives an error that matches `pattern`. |
+| `T.expect_error(pattern)` | The test gives an error on the message line that matches `pattern`. Without it, such an error fails the test. |
 | `T.render(opts)` | Render offline to a file under `T.scratch`. The result does not depend on the machine. |
 | `T.frequency(info, from, to)`, `T.channel_peaks(info, from, to)` | Read a render. |
 | `T.tone`, `T.three_clips`, `T.melody`, `T.layout`, `T.roll_notes` | Fixtures. |
@@ -46,16 +49,15 @@ Use the helpers of `T`. Do not copy them into a file (a local `start`,
 | `T.next_block(n, device)` | Wait until the engine ran `n` blocks, so that a change is in effect. |
 | `T.until_beat(beat, rounds)` | Wait for the playhead. |
 | `T.scratch`, `T.read_file`, `T.write_file` | Files of the test. |
+| `T.home(dir)` | Make `HOME` a folder of the test until it ends (part 4). |
+| `T.expect_screen(name, w, h, opts)` | Compare the screen with a golden file (part 7). |
 
 Planned helpers:
 
-- `T.start()` and `T.screen(w, h)`, and the leak check after each file
-  (TASK-121).
 - `T.settle()`, `T.advance(ms)`, `T.advance_until(cond, what, ms)` and a
   `T.until_` that fails at quiescence (TASK-146). Then `paw.wait(ms)`
   advances a virtual clock.
 - `T.next_block(n)` on a stepped audio backend (TASK-147).
-- `T.expect_screen(name, w, h)` with golden files (TASK-152).
 - `T.check_keys(fixture, keys, expected)` (TASK-158).
 
 ## 3. Start clean and put back
@@ -63,7 +65,17 @@ Planned helpers:
 A test makes all the state that it reads.
 
 - Start from `T.fresh()`. Set each option that the test needs. Do not
-  rely on an option, a window or a mode that an earlier test left.
+  rely on an option, a window or a mode that an earlier test left. The
+  runner gives back the options of the start of the run after each test.
+  `T.fresh()` does not change the options: an option that the test set
+  before it stays until the test ends.
+- After each file of `tests/`, and after the files of each extension, the
+  runner unloads the extensions that the tests loaded and removes the
+  hooks, timers and key mappings that test code made. It also puts back
+  the audio engine, the MIDI test ports and the step input controls that
+  Lua bound, and the leak check names the first test that changed them. A test file that
+  leaves one fails "`<part>` leaves no state behind". Do not add a line to
+  `tests/leaks-allowed.txt`.
 - Take ids from the kernel (the value that a call returns). Never write
   a literal id of a track, a device, a clip or a lane.
 - Write files under `T.scratch`. Never write in the checkout or in the
@@ -84,11 +96,23 @@ the owner's computer or folders. Mock what it needs.
   `VST3_PATH`; a yabridge bridge in `~/.vst3` starts wine), not the user
   name, not the system fonts, not the desktop bus, not the network.
 - `tests/tools/env.sh` gives each run a scratch home, scratch `XDG_*`
-  folders, a scratch `WINEPREFIX` and empty plugin folders, and sets
-  `PAW_TEST_ENV`. `tests/suite.lua` does not run without it, so start
-  the suite only through `tests/tools/suite.sh`.
+  folders, a scratch runtime folder (`XDG_RUNTIME_DIR`, where the owner's
+  paw opens its control socket), a scratch `WINEPREFIX`, empty plugin
+  folders, the user name `paw-test`, no system configuration of git and
+  no desktop bus. It sets `PAW_TEST_ENV`. `tests/suite.lua` does not run
+  without it, so start the suite only through `tests/tools/suite.sh`.
+  bench/ sources it too.
 - A path in a test comes from `T.scratch` or from the checkout, never
   from the home folder.
+- A test of `~` or of the home folder calls `T.home()`. It makes `HOME`
+  a new folder under `T.scratch` (or the folder that you give) until the
+  test ends, and gives the folder. Write the expected path as a literal
+  under that folder. Do not read `os.getenv("HOME")` or `USER`, and do
+  not read `/etc/passwd` to find the owner's home: the run always has a
+  scratch home.
+- Code that asks the machine (a font, a program on the `PATH`) gets a
+  field that a test can replace. Example: `paw.health.cjk_font`, which
+  `tests/health.lua` replaces with a fake that gives a font name or nil.
 - A test of the plugin host uses the stub CLAP plugin. `suite.sh plugins`
   gives the known test plugins. Never an installed plugin.
 - Mock what is needed. Give a fake to the code as an argument, or put a
@@ -107,6 +131,9 @@ the owner's computer or folders. Mock what it needs.
   action is one undo step).
 - A command or a key that can fail has a test of its message, not only
   of the success.
+- The runner fails a test when an error of `paw.try` (an event handler, a
+  timer, a key) comes and the test does not expect it. Before a test
+  checks an error message, it calls `T.expect_error(pattern)`.
 - Write the expected value as a literal (`T.eq(name, "Bass 2")`). Do not
   compute it with the code under test.
 - Where the result depends on a combination (mode, selection, view),
@@ -129,21 +156,48 @@ the owner's computer or folders. Mock what it needs.
 
 - `find()` on the screen text checks that one text exists. It does not
   check a layout: a wrong layout that still holds the text passes.
-- For a layout, use a golden file (planned, TASK-152):
-  `T.expect_screen(name, w, h)` against `tests/screens/<file>/<name>.txt`.
-  Bless with `PAW_BLESS=1`, read the diff, and name the blessed files in
-  the commit. Keep each grid small: the smallest size and region that
-  show the behavior.
+- For a layout, use a golden file: `T.expect_screen(name, w, h, opts)`
+  compares the screen with `tests/screens/<file>/<name>.txt`. For an
+  extension, the folder is `extensions/<ext>/screens/<file>/`.
+  `tests/tools/golden.lua` holds the helper.
+- Keep each grid small: the smallest size and region that show the
+  behavior. `opts.rows = { first, last }` and `opts.cols = { first, last }`
+  keep a region. `opts.styles = false` keeps the text only.
+- A golden file holds no value that changes from run to run or from
+  machine to machine: a time, a path, the user name, the processor load,
+  a list of plugins. Choose a size and a region without them. For example,
+  the status line shows `cpu` only from 90 columns.
+- To write or accept a golden file, run the test with `PAW_BLESS=1`:
+  `PAW_BLESS=1 tests/tools/suite.sh only "<words>"`. Read each file and
+  its diff, and name the blessed files in the commit.
+- If the file is not there or is different, the test fails. The message gives the
+  rows that differ and the command to bless. A golden file that no test
+  uses fails the run (`every golden screen has a test`). A run with
+  `PAW_BLESS=1` removes it.
+- Before TASK-146 (`T.settle`), use a golden file only for a view that
+  draws at once.
 - `tests/scene_parity.lua` checks that the window and the terminal draw
   one view the same. Keep a new view in it.
+- The text formats have golden files in Rust (`insta`, see the skill
+  `rust-testing`, part 5): the scene on the wire, the control protocol,
+  the project folder, the `.midi2` clip and the undo folder. A Lua test
+  does not check these formats field by field. When a change of Lua
+  changes one of them, run `cargo insta test -p <crate>` and
+  `cargo insta review`, and commit the accepted files.
 
 ## 8. No time and no speed
 
 - A test checks behavior, not speed. No `T.quick`, no `T.cpu_ms`, no
   `os.clock()`, and no comparison of a time with a number. To guard a
   cost, count the work (compiles, renders, builds). A time goes to
-  `bench/`. TASK-143 removes the speed checks that exist and adds a lint
-  (`tools/testlint.lua`) that refuses new ones.
+  `bench/`, for example `bench/heavy.lua`.
+- The lint `tools/testlint.lua` refuses a new sleep, clock read or speed
+  check. The suite (`tests/testlint.lua`) and `nix flake check` run it.
+  It also fails on each `os.getenv("HOME")`, `os.getenv("USER")`,
+  `/etc/passwd` or `'/home/` path in a test file. These have no
+  allow-list: use `T.home()` or `T.scratch`.
+  Its allow-list `tests/timing-allowed.txt` holds the uses of today. A
+  count that goes down fails until you make its line smaller.
 - A test does not sleep: no `api.sleep`, no `api.wait(ms)`, no
   `paw.wait(ms)` to let time pass, no `{ wait = N }` in a lesson of the
   tutor. Wait for a state with `T.until_`, for blocks with
@@ -198,13 +252,36 @@ tools/dev-runtime.sh                                   # target/dev-runtime
 PAW_TEST_BIN=<dir of paw> PAW_RUNTIME=$PWD/target/dev-runtime \
   tests/tools/suite.sh only "<words>"                  # some tests
 tests/tools/suite.sh                                   # all tests (the orchestrator, before a push)
+tests/tools/suite.sh -j 2                              # the same in 2 processes (4 at most)
 tests/tools/suite.sh plugins "<words>"                 # with the test plugins
+PAW_BLESS=1 tests/tools/suite.sh only "<words>"        # write the golden screens
 tools/tlcheck.sh                                       # Teal types
 luacheck .                                             # unused and undefined names
 tools/fmtcheck.sh                                      # the format (`fix` formats)
 ```
 
 Do not run `tests/tools/loaded.sh` or `tests/tools/e2e.sh`.
+
+The Lua runner has no property tests. Some rules are true for each input
+of a file format or of the model, for example a round trip or an undo.
+Each of these rules is a Rust property test in `paw-core` or
+`paw-engine`. It uses `proptest` and the helper
+`crate::props::config()`. The skill `rust-testing` (part 6) gives the
+modules and the rules. Run them with:
+
+```sh
+cargo nextest run -p paw-core -p paw-engine -E 'test(/::props::/)'
+```
+
+A Lua test checks the same format through the API only where the API
+adds behavior of its own, for example `paw.xml` with `opts.source`.
+
+The fuzz targets of `fuzz/` (`tools/fuzz.sh`, the nightly tier in CI)
+are Rust only. The readers in Teal (`midifile.tl`, the DAWproject and
+RPP readers) have no fuzz target. A test of such a reader gives it bytes
+that are cut short or wrong, and checks the message. `tests/midifile.lua`
+and `tests/robust.lua` are examples. The skill `rust-testing`, part 13,
+lists the targets.
 
 ## 13. Before you commit
 

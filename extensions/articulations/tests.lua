@@ -359,6 +359,23 @@ test("articulations: notes out of range and on keyswitch rows are diagnosed, wit
   eq(codes(clip), "55:- 72:11.0", "the keyswitch D1 became the staccato of the note after it")
 end)
 
+test("articulations: the diagnostics follow u and <C-r>", function()
+  local _, clip = strings({ { pitch = 43, start = 0, length = 1 }, { pitch = 72, start = 1, length = 1 } })
+  local diags = require("articulations.diagnostics")
+  diags.check()
+  local function said() return #paw.diagnostic.get({ clip = clip.id }, { namespace = "articulations" }) end
+  eq(said(), 1, "the G2 under the range is diagnosed")
+  local d = paw.diagnostic.get({ clip = clip.id }, { namespace = "articulations" })[1]
+  paw.diagnostic.apply(d, d.fixes[1])
+  api.undo_checkpoint()
+  T.until_(function() return said() == 0 end, "nothing is wrong after the fix")
+  paw.ui.focus("pianoroll")
+  keys("u")
+  T.until_(function() return said() == 1 end, "the G2 is diagnosed again after u")
+  keys("<C-r>")
+  T.until_(function() return said() == 0 end, "nothing is wrong again after <C-r>")
+end)
+
 -- Making maps ---------------------------------------------------------------------------
 
 test("articulations: an SFZ's keyswitches make a map, through #define and #include", function()

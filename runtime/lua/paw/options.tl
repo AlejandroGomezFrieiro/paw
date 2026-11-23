@@ -8,6 +8,7 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
+local events = require("paw.events")
 
 --- What an option holds: text, a number, true or false, or a list.
 local type Value = string | number | boolean | {string | number}
@@ -36,6 +37,11 @@ local record Info
   takes: string
 end
 
+--- The options that were set, as `paw.option.snapshot` gives them.
+local record Snapshot
+  values: {string: Value}
+end
+
 --- `paw.opt`: the options the runtime defines, by their types, and any
 --- other by its name. tools/apidoc.lua makes the record from the options
 --- that the runtime defines (`runtime/types/paw/opts.d.tl`).
@@ -50,6 +56,15 @@ local record Option<T>
   set: function(self: Option<T>, value: T)
 end
 
+--- The payload of `option.changed`: the name of the option, its value and
+--- the value before. `value` is nil when an extension that defined the
+--- option unloaded.
+local record Changed
+  name: string
+  value: Value
+  old: Value
+end
+
 local record M
   type Value = Value
   type Spec = Spec
@@ -57,23 +72,14 @@ local record M
   type Info = Info
   type Opt = Opt
   type Option<T> = Option<T>
+  type Snapshot = Snapshot
+  type Changed = Changed
   opt: Opt
+  --- The event `option.changed`: an option got a different value.
+  changed: events.Event<Changed>
 end
 
---- The payload of `option.changed`.
-local record Changed
-  name: string
-  value: Value
-  old: Value
-end
-
--- What this module reads of `paw`, which paw/init.lua makes. A module of the
--- runtime in Teal does not see the global `paw`: runtime/types/paw.d.tl
--- declares it from these modules.
-local record Paw
-  emit: function(string, Changed)
-end
-local paw = (_G as {string: Paw}).paw
+M.changed = events.event("option.changed")
 
 local defaults: {string: Value} = {
   leader = " ", -- what `<leader>` means in key mappings: Space
@@ -125,6 +131,7 @@ local defaults: {string: Value} = {
   jumpview = "left", -- where a jump that lands off screen puts its target: "left" (near the left edge) or "center"
   jumpmargin = 6, -- columns between the left edge and the target of a jump with jumpview "left"
   fps = 60, -- the most frames a second while something moves; frames come only when a cell changes
+  check_stamps = false, -- draw the windows that the screen keeps (a view's `stamp`), and fail when they differ
   clip_length = 4, -- beats, for new MIDI clips
   -- Where play and record start from a stop: "cursor" (the cursor of the
   -- view with the keys, the playhead goes there) or "playhead" (the old way).
@@ -373,7 +380,7 @@ local opt: Opt = setmetatable(
       local old = self[name]
       values[name] = value
       if old ~= value then
-        paw.emit("option.changed", {name = name, value = value, old = old})
+        events.emit(M.changed, {name = name, value = value, old = old})
         api.ui_redraw()
       end
     end,
@@ -419,7 +426,7 @@ function M.undefine(name: string, was?: Definition)
   local old = opt[name]
   defaults[name], specs[name], definitions[name], values[name] = nil, nil, nil, nil
   if old ~= nil then
-    paw.emit("option.changed", {name = name, old = old})
+    events.emit(M.changed, {name = name, old = old})
     api.ui_redraw()
   end
 end
@@ -438,6 +445,76 @@ function M.list(): {Info}
   end
   table.sort(out, function(a: Info, b: Info): boolean return a.name < b.name end)
   return out
+end
+
+--- A copy of a value: a list is copied, so that a later change to the
+--- list does not reach the copy.
+local function copy(value: Value): Value
+  if value is {string | number} then
+    local out: {string | number} = {}
+    for i, v in ipairs(value) do
+      out[i] = v
+    end
+    return out
+  end
+  return value
+end
+
+--- True if two values are the same, a list item by item.
+local function same(a: Value, b: Value): boolean
+  if a is {string | number} and b is {string | number} then
+    if #a ~= #b then
+      return false
+    end
+    for i = 1, #a do
+      if a[i] ~= b[i] then
+        return false
+      end
+    end
+    return true
+  end
+  return a == b
+end
+
+--- The value of each option that was set, to give back later with
+--- `paw.option.restore`. An option that was not set keeps its default.
+function M.snapshot(): Snapshot
+  local out: {string: Value} = {}
+  for name, value in pairs(values) do
+    out[name] = copy(value)
+  end
+  return {values = out}
+end
+
+--- Give each option the value it had in `snapshot`, and an option set
+--- after it its default again. Each option that changes emits
+--- `option.changed`. Gives the names of the options that changed, sorted.
+function M.restore(snapshot: Snapshot): {string}
+  local names: {string} = {}
+  local seen: {string: boolean} = {}
+  for _, list in ipairs({values, snapshot.values}) do
+    for name in pairs(list) do
+      if not seen[name] then
+        seen[name] = true
+        names[#names + 1] = name
+      end
+    end
+  end
+  table.sort(names)
+  local changed: {string} = {}
+  for _, name in ipairs(names) do
+    local want = snapshot.values[name]
+    if not same(values[name], want) then
+      local old = opt[name]
+      values[name] = copy(want)
+      changed[#changed + 1] = name
+      if not same(old, opt[name]) then
+        events.emit(M.changed, {name = name, value = opt[name], old = old})
+        api.ui_redraw()
+      end
+    end
+  end
+  return changed
 end
 
 M.opt = opt

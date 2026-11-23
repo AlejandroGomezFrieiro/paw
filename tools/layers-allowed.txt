@@ -1,7 +1,8 @@
 # The upward references of the runtime that tools/layers.lua lets pass:
 # one line `<from> <to> <count>`. <from> is in a lower layer than <to>
 # (tools/layers.txt), and <count> is the number of distinct names that
-# <from> reads of <to>, such as `paw.ui.notify` (a `require` is one name).
+# <from> reads of <to>, such as `paw.ui.notify` (a `require` counts only
+# when it is the only name).
 # A count that goes up fails: give the lower module what it needs through
 # an event or a callback. A count that goes down fails until its line is
 # made smaller, so this list only gets shorter.
@@ -24,7 +25,7 @@ paw.complete paw 2
 paw.complete paw.frontend 1
 paw.complete paw.views.pianoroll 1
 paw.contracts paw.objects 1
-paw.cursor paw.keymap 2
+paw.cursor paw.keymap 1
 paw.cursor paw.ui 1
 paw.curves paw.frontend 1
 paw.device_rows paw 1
@@ -39,34 +40,36 @@ paw.ex paw.roll_clips 1
 paw.ex paw.views.cmdline 1
 paw.ext paw 2
 paw.ext paw.pick.sources 1
-paw.ext paw.textbuf 2
+paw.ext paw.textbuf 1
 paw.external paw.views.cmdline 1
 paw.formats paw.help 1
 paw.formats paw.ui 2
 paw.freeze paw 1
 paw.freeze paw.ui 2
-paw.frontend paw.defaults.clips 2
+paw.frontend.act.window paw.defaults.clips 2
 paw.fx paw 4
 paw.fx paw.commands 1
 paw.fx paw.frontend 3
 paw.fx paw.keymap 1
-paw.fx paw.pick 2
+paw.fx paw.pick 1
 paw.fx paw.ui 3
 paw.fx paw.views.devices 1
 paw.grep paw.commands 1
 paw.grep paw.pick 1
-paw.grep paw.qf 6
+paw.grep paw.qf 5
 paw.grep paw.ui 1
 paw.harmony paw.draw 1
 paw.harmony paw.ui 1
 paw.health paw 1
 paw.health paw.frontend 2
 paw.help paw 1
-paw.help paw.textbuf 2
+paw.help paw.keybar 1
+paw.help paw.textbuf 1
 paw.hooks paw 1
-paw.hooks paw.frontend 3
+paw.hooks paw.frontend 2
 paw.insert paw.views.arrange 2
 paw.keymap paw 2
+paw.keymap.registers paw.ui 1
 paw.lanes paw.draw 1
 paw.lanes paw.frontend 1
 paw.layout paw 1
@@ -82,20 +85,20 @@ paw.loading paw.ui 1
 paw.loading paw.views.devices 1
 paw.locators paw.ui 3
 paw.lsp paw 3
-paw.lsp paw.frontend 2
+paw.lsp paw.frontend 1
 paw.lsp paw.pick 1
-paw.lsp.subjects paw.roll_clips 2
+paw.lsp.subjects paw.roll_clips 1
 paw.lsp.subjects paw.views.pianoroll 1
 paw.luadev paw 3
 paw.luadev paw.views.devices 1
 paw.markers paw.commands 1
 paw.markers paw.keymap 1
 paw.markers paw.pick 1
-paw.markers paw.ruler 3
-paw.markers paw.ui 3
+paw.markers paw.ruler 2
+paw.markers paw.ui 2
 paw.media paw.commands 1
 paw.media paw.pick 2
-paw.media paw.ui 3
+paw.media paw.ui 2
 paw.midifile paw.views.pianoroll 2
 paw.mixer_rows paw.frontend 1
 paw.mouse_menus paw.frontend 1
@@ -108,11 +111,11 @@ paw.panes paw.keymap 1
 paw.pick paw 4
 paw.pick.sources paw 1
 paw.pick.sources paw.defaults.clips 1
-paw.pick.sources paw.frontend 2
+paw.pick.sources paw.frontend 1
 paw.qf paw.views.pianoroll 1
-paw.query paw.ex 2
+paw.query paw.ex 1
 paw.query paw.frontend 2
-paw.query paw.qf 3
+paw.query paw.qf 2
 paw.recent paw 1
 paw.recent paw.defaults.clips 1
 paw.recent paw.pick 1
@@ -122,12 +125,12 @@ paw.reconnect paw 1
 paw.remote paw 2
 paw.render paw.commands 1
 paw.render paw.keymap 1
-paw.render paw.ui 3
+paw.render paw.ui 2
 paw.render paw.views.files 1
-paw.roles paw.commands 2
+paw.roles paw.commands 1
 paw.roles paw.keymap 1
-paw.roll_clips paw.frontend 2
-paw.roll_draw paw.frontend 2
+paw.roll_clips paw.frontend 1
+paw.roll_draw paw.frontend 1
 paw.routes paw 1
 paw.routes paw.commands 1
 paw.routes paw.keymap 1
@@ -139,18 +142,18 @@ paw.scope paw.commands 1
 paw.scope paw.frontend 1
 paw.scope paw.keymap 1
 paw.scope paw.layout 1
-paw.scope paw.textbuf 2
-paw.scope paw.ui 5
+paw.scope paw.textbuf 1
+paw.scope paw.ui 4
 paw.scope paw.views.arrange 1
 paw.shada paw.views.cmdline 1
 paw.slices paw 3
 paw.snippet paw.pick 2
 paw.snippet paw.views.pianoroll 1
 paw.statusline paw 1
-paw.statusline paw.diagnostic 2
-paw.statusline paw.keymap 3
-paw.statusline paw.qf 2
-paw.statusline paw.textbuf 2
+paw.statusline paw.diagnostic 1
+paw.statusline paw.keymap 4
+paw.statusline paw.qf 1
+paw.statusline paw.textbuf 1
 paw.stems paw.ui 4
 paw.stems paw.views.files 1
 paw.step paw 1
@@ -176,12 +179,13 @@ paw.trackcolumn paw.ext 1
 paw.trackcolumn paw.frontend 1
 paw.ui paw 1
 paw.ui paw.commands 1
+paw.ui paw.keybar 1
 paw.ui paw.keymap 1
-paw.ui paw.remote 2
-paw.ui paw.scene 2
+paw.ui paw.remote 1
+paw.ui paw.scene 1
 paw.ui paw.views.cmdline 1
 paw.undofile paw.ui 1
-paw.util paw.draw 2
+paw.util paw.draw 1
 paw.views.adjust paw 2
 paw.views.arrange paw.frontend 4
 paw.views.arrange_mouse paw.frontend 3

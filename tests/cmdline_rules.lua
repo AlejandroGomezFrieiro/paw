@@ -26,6 +26,9 @@ end
 
 test("an unknown or failing Ex command says so in one line, never with a stack traceback", function()
   start()
+  T.expect_error("^no command `nosuchcommand`")
+  T.expect_error("^attempt to index local 't'")
+  T.expect_error("^the clip is too short$")
   keys(":nosuchcommand<CR>")
   no_trace("an unknown command")
   eq(message():find("no command `nosuchcommand`", 1, true) ~= nil, true, "names it: " .. message())

@@ -322,7 +322,7 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
     crate::measure::install(lua, &api, shared)?;
     crate::tempo_api::install(lua, &api, shared)?;
     crate::luadev_api::install(lua, &api, shared)?;
-    crate::fs_api::install(lua, &api)?;
+    crate::fs_api::install(lua, &api, &shared.session.borrow().dirs)?;
     crate::scene::install(lua, &api, shared)?;
 
     let loaded: Table = lua.globals().get::<Table>("package")?.get("loaded")?;

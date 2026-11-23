@@ -241,3 +241,102 @@ test("frames: a row of the timeline the cursor is not on shows each change to it
   paw.opt.termcolors = paw.draw.truecolor() and "256" or "true"
   eq(frame().cells[row] ~= drawn.cells[row], true, "new colours show")
 end)
+
+--- The arrange view above a piano roll on a clip of a track with a tone,
+--- the mixer below, and the roll with the keys. The windows are kept and
+--- put back, not checked.
+local function roll_between_others()
+  T.fresh()
+  local was = paw.opt.check_stamps
+  T.after(function() paw.opt.check_stamps = was end)
+  paw.opt.check_stamps = false
+  local track = T.tone("Lead", 8)
+  paw.ui.toggle("mixer")
+  T.after(function()
+    local L = require("paw.layout")
+    L.restore({ { layout = L.default_tree() } })
+  end)
+  paw.keymap.set_mode("n")
+  paw.ui.views.pianoroll:edit(track:clips()[1])
+  paw.ui.focus("pianoroll")
+  paw.flush()
+  -- The meters of a test before are at rest: frames are the same.
+  T.until_(function() return not paw.ui.active() end, "nothing that moves")
+end
+
+test("frames: a move key in the piano roll does not draw the windows around it again", function()
+  roll_between_others()
+  local W, H = 120, 40
+  api.ui_frame_snapshot(W, H)
+  api.ui_frame_snapshot(W, H)
+  local calls, renders = {}, {}
+  for _, name in ipairs({ "arrange", "pianoroll", "mixer" }) do
+    local view = paw.ui.views[name]
+    -- Not `rawget`: the piano roll's view is a proxy (`window_instances`).
+    renders[name] = view.render
+    calls[name] = 0
+    view.render = function(...)
+      calls[name] = calls[name] + 1
+      return renders[name](...)
+    end
+  end
+  T.after(function()
+    for name, render in pairs(renders) do
+      paw.ui.views[name].render = render
+    end
+  end)
+  T.keys("j")
+  api.ui_frame_snapshot(W, H)
+  eq(calls.pianoroll, 1, "the roll is drawn")
+  eq(calls.arrange .. " " .. calls.mixer, "0 0", "the arrange view and the mixer keep their cells")
+end)
+
+test("frames: a kept window and its playhead show what a frame drawn whole shows", function()
+  roll_between_others()
+  local W, H = 120, 40
+  paw.transport.position = 1
+  api.ui_frame_snapshot(W, H)
+  api.ui_frame_snapshot(W, H)
+  T.keys("l")
+  local kept = api.ui_frame_snapshot(W, H)
+  -- The playheads of the kept windows move in a live frame, over the
+  -- cells that were under them.
+  paw.transport.position = 5
+  local moved = api.ui_frame_snapshot(W, H, true)
+  eq(moved ~= nil, true, "drawn by its live parts only")
+  -- Frames drawn whole: the check draws each window.
+  paw.opt.check_stamps = true
+  local whole = api.ui_frame_snapshot(W, H)
+  paw.transport.position = 1
+  local whole_before = api.ui_frame_snapshot(W, H)
+  for row = 1, H do
+    eq(
+      kept.cells[row],
+      whole_before.cells[row],
+      "kept, row " .. row .. ":\n" .. kept.text[row] .. "\n" .. whole_before.text[row]
+    )
+    eq(moved.cells[row], whole.cells[row], "moved, row " .. row .. ":\n" .. moved.text[row] .. "\n" .. whole.text[row])
+  end
+end)
+
+test("frames: paw.opt.check_stamps fails when a stamp misses what its view draws", function()
+  roll_between_others()
+  paw.opt.check_stamps = true
+  local arrange = paw.ui.views.arrange
+  local render = rawget(arrange, "render")
+  local label = "before"
+  arrange.render = function(self, buf, ctx)
+    render(self, buf, ctx)
+    buf:text(0, 1, label)
+  end
+  T.after(function() arrange.render = render end)
+  api.ui_frame_snapshot(120, 40)
+  api.ui_frame_snapshot(120, 40)
+  label = "after"
+  api.ui_frame_snapshot(120, 40)
+  local misses = paw.ui.stamp_misses
+  eq(#misses, 1, "one window drew another label with the same stamp")
+  eq(misses[1]:find("the view arrange drew other cells with the same stamp", 1, true) ~= nil, true, misses[1])
+  -- The miss is this test's purpose: the runner does not fail it.
+  misses[1] = nil
+end)

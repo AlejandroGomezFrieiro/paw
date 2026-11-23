@@ -41,6 +41,7 @@ local music = require("paw.music")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 local type UiModule = require("paw.ui")
 local type objects = require("paw.objects")
 local type HarmonyModule = require("paw.harmony")
@@ -174,12 +175,6 @@ local record Changed
   shown: boolean
 end
 
---- The payload of `option.changed`, as far as this module reads it.
-local record OptionChanged
-  name: string
-  value: options.Value
-end
-
 --- What each seat has of its own.
 local record SeatState
   shown: Shown
@@ -234,6 +229,7 @@ local record Frontend
 end
 
 local record Paw is partial.Paw
+  keymap: KeymapModule
   ui: UiModule
   frontend: Frontend
   harmony: HarmonyModule
@@ -258,7 +254,7 @@ local record M
   type Changed = Changed
   --- The sources, by name.
   sources: {string: Source}
-  --- The event `complete.changed`.
+  --- The event `complete.changed`: suggestions appeared or disappeared.
   changed: events.Event<Changed>
   cancel: function()
   audition: function()
@@ -1018,10 +1014,9 @@ events.on(
   end
 )
 
-local option_changed: events.Event<OptionChanged> = events.event("option.changed")
 events.on(
-  option_changed,
-  function(e: OptionChanged)
+  options.changed,
+  function(e: options.Changed)
     if e.name == "complete_auto" then
       if e.value then
         M.poke()

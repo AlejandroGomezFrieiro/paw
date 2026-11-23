@@ -47,6 +47,7 @@ paw.startuptime
 paw.dsp
 paw.query.tree
 paw.lsp.rpc
+paw.notes
 
 [project]
 # The project and what the user edits in it: tracks, clips, notes, time,
@@ -54,6 +55,8 @@ paw.lsp.rpc
 paw.objects
 paw.cursor
 paw.edit
+# The registers hold what a yank took: paw.edit's records are registers.
+paw.keymap.registers
 paw.note_objects
 paw.address
 paw.markers
@@ -117,6 +120,7 @@ paw.trackcolumn
 # Keys, commands, the command line, the quickfix list, completion, help,
 # the language server, and the extensions.
 paw.keymap
+paw.keymap.*
 paw.keyrule
 paw.hooks
 paw.commands
@@ -144,6 +148,9 @@ paw.ext
 [views]
 # What the windows show: the views, the pickers and the menus.
 paw.views.*
+paw.cmdwin
+paw.vzoom
+paw.roll_context
 paw.textbuf
 paw.pick
 paw.pick.*
@@ -158,6 +165,7 @@ paw.window_menus
 [frontends]
 # The terminal and the clients of the control socket.
 paw.frontend
+paw.frontend.*
 paw.remote
 paw.reconnect
 paw.scene

@@ -16,6 +16,7 @@ local api = require("paw.api")
 local events = require("paw.events")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 local type UiModule = require("paw.ui")
 
 --- The payload of a change event, as far as this module reads it.
@@ -29,7 +30,7 @@ local record Edit
   payload: Change
 end
 
---- A region of a view that visual mode selects (paw/keymap.lua).
+--- A region of a view that visual mode selects (paw/keymap.tl).
 local type Region = contracts.Region
 
 --- What is selected now: the payload of `selection.changed`.
@@ -60,6 +61,7 @@ local type KernelFn = function(...: Value): Value
 -- cannot be named here, as it requires this module).
 local type FrontendModule = require("paw.frontend")
 local record Paw is partial.Paw
+  keymap: KeymapModule
   ui: UiModule
   frontend: FrontendModule
 end
@@ -95,6 +97,25 @@ for _, name in ipairs(
   }
 ) do
   EDITS[name] = true
+end
+
+-- The events that this module sends by their names. Each is declared, so
+-- that a subscription by text to one of them is not taken for a typo
+-- (paw/events.tl).
+for _, name in ipairs(
+  {
+    "edit.before",
+    "edit.after",
+    "selection.changed",
+    "view.opened",
+    "view.closed",
+    "key.pre",
+    "undo",
+    "redo",
+    "project.saving",
+  }
+) do
+  events.event(name)
 end
 
 local changes: {Edit} = {} -- what this turn has edited so far: { name, payload }

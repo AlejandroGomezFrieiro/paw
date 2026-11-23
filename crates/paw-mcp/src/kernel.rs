@@ -13,8 +13,10 @@
 use std::os::fd::AsFd;
 use std::path::PathBuf;
 use std::process::Stdio;
+use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
+use paw_proto::dirs::Dirs;
 use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
@@ -64,9 +66,17 @@ pub struct Kernel {
     pub notice: Option<String>,
 }
 
-/// Where `paw` listens unless told otherwise, as `paw ctl` finds it.
+/// The user's base directories, read from the environment once. This is a
+/// program, so it reads them itself.
+fn dirs() -> &'static Dirs {
+    static DIRS: OnceLock<Dirs> = OnceLock::new();
+    DIRS.get_or_init(|| Dirs::from_vars(|name| std::env::var_os(name)))
+}
+
+/// Where `paw` listens unless told otherwise, as its clients find it:
+/// `$PAW_SOCKET`, else `$XDG_RUNTIME_DIR/paw.sock`.
 pub fn default_socket() -> PathBuf {
-    paw_proto::dirs::default_socket()
+    std::env::var_os("PAW_SOCKET").map_or_else(|| dirs().listen_socket(), PathBuf::from)
 }
 
 /// The `paw` binary: `$PAW_BIN`, the one beside this program, or `paw` on the path.
@@ -97,7 +107,7 @@ impl Kernel {
     pub fn spawned(opts: SpawnOpts, timeout: Duration, runtime: Handle) -> Self {
         let name = format!("paw-mcp-{}.sock", std::process::id());
         let socket = [
-            paw_proto::dirs::runtime(),
+            dirs().runtime.clone(),
             Some(std::env::temp_dir()),
             Some(PathBuf::from("/tmp")),
         ]

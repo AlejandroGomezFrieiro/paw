@@ -9,10 +9,6 @@ local api = paw.api
 local W, H = 140, 44
 local arrange = paw.ui.views.arrange
 local roll = paw.ui.views.pianoroll
-local saved = {}
-for _, name in ipairs({ "zoom", "grid", "track_height", "note_zoom", "note_grid", "mouse", "note_snap" }) do
-  saved[name] = paw.opt[name]
-end
 
 local function shot(height) return api.ui_snapshot(W, height or H) end
 local function screen() return table.concat(shot(), "\n") end
@@ -348,6 +344,74 @@ test("the tempo lane: a click adds a change, a drag on one moves it, a right cli
   paw.tempolane.show(false)
 end)
 
+--- Tempo points as text: "120@0 90@8".
+local function tempo_text(points)
+  local out = {}
+  for i, p in ipairs(points) do
+    out[i] = string.format("%g@%g", p.bpm, p.beat)
+  end
+  return table.concat(out, " ")
+end
+
+--- A row Cue with a block at bar 5 (beat 16) of a subproject Cue of 16
+--- beats, entered with znn, its tempo `time` ("own" or "follow"), the
+--- tempo lane shown and painted from the subproject's start.
+local function in_cue(time)
+  start()
+  local row = paw.add_track({ name = "Cue" })
+  local nest = api.nest_add({ name = "Cue", length = 16 })
+  api.track_add({ name = "Synth", nest = nest })
+  api.clip_add(row.id, { nest = nest, start = 16 })
+  paw.flush()
+  api.undo_checkpoint()
+  paw.cursor.set_track(row.id)
+  paw.cursor.set_beat(17)
+  paw.keymap.feed(":nest.time " .. time .. "<CR>")
+  paw.keymap.feed("znn")
+  paw.tempolane.show(true)
+  T.after(function() paw.tempolane.show(false) end)
+  arrange.scroll = 0
+  shot()
+  api.undo_checkpoint()
+  return nest
+end
+
+test(
+  "the tempo lane inside a subproject with its own tempo: a click makes a change in its map, not the song's",
+  function()
+    local nest = in_cue("own")
+    -- The lower row of the lane is the slower half: below 120.
+    click(x_of(8), arrange.geometry.layout.ruler_rows - 1)
+    local own = api.nest_get(nest).tempo.points
+    eq(#own .. " " .. own[2].beat, "2 8", "a change at its beat 8")
+    eq(own[2].bpm < 120, true, "slower, as the row clicked")
+    eq(tempo_text(api.tempo_points().tempos), "120@0", "the song's map as it was")
+    api.undo_checkpoint()
+    paw.keymap.feed("u")
+    eq(tempo_text(api.nest_get(nest).tempo.points), "120@0", "u takes it back in one step")
+  end
+)
+
+test("the tempo lane inside a subproject that follows the song: a click makes a change at the song's beat", function()
+  in_cue("follow")
+  click(x_of(8), arrange.geometry.layout.ruler_rows - 1)
+  local song = api.tempo_points().tempos
+  eq(#song .. " " .. song[2].beat, "2 24", "its beat 8 is the song's beat 24")
+  api.undo_checkpoint()
+  apart()
+  shot()
+  -- The change shows at its beat 8 in the window: a drag moves it from there.
+  local line = paw.tempolane.fraction(song[2].bpm) >= 0.5 and arrange.geometry.layout.ruler_rows - 2
+    or arrange.geometry.layout.ruler_rows - 1
+  drag(x_of(8), line, x_of(10), line)
+  eq(api.tempo_points().tempos[2].beat, 26, "dragged two beats on, in the song's beats")
+  api.undo_checkpoint()
+  paw.keymap.feed("u")
+  eq(api.tempo_points().tempos[2].beat, 24, "u takes the drag back in one step")
+  paw.keymap.feed("u")
+  eq(tempo_text(api.tempo_points().tempos), "120@0", "and the click in another")
+end)
+
 test("a marker drags in its band under the ruler, and a click on it goes there", function()
   two_tracks()
   local mk = paw.markers.add(8, "Chorus")
@@ -528,6 +592,17 @@ test("a click on a note chooses it, a drag moves it, and Ctrl leaves a copy behi
   eq(notes_of(clip), "60@0+1 62@2+1 60@4+1", "a copy four beats on")
 end)
 
+test("a clip opened by keys after one the pointer opened keeps the zoom", function()
+  start()
+  local t = paw.add_track({ name = "keys" })
+  local short = t:add_clip({ name = "short", start = 0, length = 1, notes = {} })
+  t:add_clip({ name = "long", start = 4, length = 8, notes = {} })
+  paw.frontend.act.open_clip(short.id)
+  paw.keymap.feed(":e roll://long<CR>")
+  shot()
+  eq(roll:clip().name .. " " .. paw.opt.note_zoom, "long 8", "the zoom to fit the short clip is not used")
+end)
+
 test("dragging a note's last cell resizes it, and its first cell moves its start", function()
   local clip, at = rolled({ { pitch = 60, start = 1, length = 1 } })
   local x, y = at(60, 2)
@@ -690,10 +765,15 @@ local function mixed()
   api.track_set(a.id, "sends", { { target = b.id, level = -6 } })
   paw.cursor.set_track(a)
   paw.ui.show("mixer")
-  -- Tall enough for the strips to show their devices and sends; the
-  -- layout is put back as it was by the last test.
+  -- Tall enough for the strips to show their devices and sends, until
+  -- the test ends.
   local node = mixer_node()
-  if saved.mixer_size == nil then saved.mixer_size = node.size or false end
+  local size = node.size
+  T.after(function()
+    node.size = size
+    paw.ui.hide("mixer")
+    paw.ui.hide("devices")
+  end)
   node.size = 30
   api.undo_checkpoint()
   shot(90)
@@ -853,15 +933,4 @@ test("a picker's row is chosen with two clicks", function()
   click(x, y)
   click(x, y)
   eq(chosen, "banana", "two clicks choose it")
-end)
-
-test("the pointer's tests leave the options as they found them", function()
-  if saved.mixer_size ~= nil then mixer_node().size = saved.mixer_size or nil end
-  saved.mixer_size = nil
-  for name, value in pairs(saved) do
-    paw.opt[name] = value
-  end
-  paw.ui.hide("mixer")
-  paw.ui.hide("devices")
-  eq(paw.opt.mouse, true, "the pointer is on")
 end)

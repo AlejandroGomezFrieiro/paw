@@ -28,7 +28,8 @@ use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result, bail};
-pub use paw_proto::tls::known_path;
+pub use paw_proto::dirs::Dirs;
+pub use paw_proto::tls::known_file;
 pub use paw_proto::{ClientId, Connection, VERSION, Wire, proof, sha256};
 use paw_proto::hex;
 use serde_json::{Value, json};
@@ -136,8 +137,8 @@ impl Drop for Server {
 }
 
 /// Where the control socket lives unless told otherwise.
-pub fn default_path() -> PathBuf {
-    paw_proto::dirs::listen_socket()
+pub fn default_path(dirs: &Dirs) -> PathBuf {
+    dirs.listen_socket()
 }
 
 /// Listen on `path` and forward calls to the kernel.
@@ -266,8 +267,8 @@ async fn refuse_plain(mut stream: TcpStream) {
 
 /// Where the token for network connections is kept on this machine:
 /// `$XDG_STATE_HOME/paw/token`.
-pub fn token_path() -> PathBuf {
-    paw_proto::state_dir().join("token")
+pub fn token_path(dirs: &Dirs) -> PathBuf {
+    dirs.paw_state().join("token")
 }
 
 /// The token in `path`, made and written there (readable by its owner

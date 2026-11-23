@@ -17,12 +17,6 @@ local type CursorModule = require("paw.cursor")
 --- A clip: its id, or the clip (`paw.clip`, `paw.cursor.clip`).
 local type ClipRef = integer | objects.Clip
 
---- The payload of `option.changed`, as far as this module reads it.
-local record OptionChanged
-  name: string
-  value: options.Value
-end
-
 -- What this module reads of `paw`, which paw/init.lua makes, and of the
 -- modules in Lua that it calls: their parts that it uses.
 --- What `paw.pick.file` takes (paw/pick.tl).
@@ -57,10 +51,9 @@ options.define("copy_imports", false) -- importing copies the file into `media` 
 -- Long files are played from the disk, not held in memory: see the
 -- options `media_stream` and `media_cache`.
 api.media_store(tonumber(options.opt.media_stream) or 0, tonumber(options.opt.media_cache) or 16)
-local option_changed: events.Event<OptionChanged> = events.event("option.changed")
 events.on(
-  option_changed,
-  function(e: OptionChanged)
+  options.changed,
+  function(e: options.Changed)
     if e.name == "media_stream" then
       api.media_store(tonumber(e.value) or 0)
     end

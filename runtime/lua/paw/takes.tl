@@ -45,6 +45,7 @@ local kernel = require("paw.events.kernel")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 local type LanesModule = require("paw.lanes")
 local type objects = require("paw.objects")
 local type CursorModule = require("paw.cursor")
@@ -119,6 +120,7 @@ local record Pick
 end
 
 local record Paw is partial.Paw
+  keymap: KeymapModule
   pick: Pick
   lanes: LanesModule
   stretch: Stretch

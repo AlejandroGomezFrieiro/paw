@@ -295,23 +295,21 @@ test(":help opens the contents in a window split off, which cannot be changed", 
   eq(at:find("gU", 1, true) ~= nil, true, "on the key: " .. at)
 end)
 
-test("help is made at idle in short slices, and the first :help after it is quick", function()
+test("help is made at idle, and the first :help after it reads no page again", function()
   start()
   H.dirty = true -- every page made again, as at the start of a session
   H.prepare()
   eq(H.preparing(), true, "made at idle")
-  local longest = 0
-  for _ = 1, 5000 do
-    if not H.preparing() then break end
-    local t0 = T.cpu_ms()
-    paw.wait(1)
-    longest = math.max(longest, T.cpu_ms() - t0)
+  T.until_(function() return not H.preparing() end, "help to be made at idle")
+  -- Count the pages that are read: the index made at idle has them all.
+  local parse, parsed = md.parse, 0
+  md.parse = function(...)
+    parsed = parsed + 1
+    return parse(...)
   end
-  eq(H.preparing(), false, "and done")
-  T.quick(longest, 40, "the longest slice, which a key waits for")
-  local t0 = T.cpu_ms()
+  T.after(function() md.parse = parse end)
   T.keys(":help gU<CR>")
-  T.quick(T.cpu_ms() - t0, 100, "the first :help after help was made at idle")
+  eq(parsed, 0, "the first :help reads no page again")
   eq((here() or ""):match("^help://") ~= nil, true, "it opens the page")
 end)
 
@@ -471,4 +469,20 @@ test("in the graphical frontend help opens as a docked pane, and pops out on req
   T.keys("<C-w>f")
   eq(paw.canvas.open_views.textbuf ~= nil, true, "Ctrl-w f pops it out to a window of its own")
   paw.canvas.close("textbuf")
+end)
+
+test("help made at idle is the job help of paw.slices, and its tags come sorted by name", function()
+  start()
+  H.dirty = true -- every page made again, as at the start of a session
+  local job = H.prepare()
+  eq(paw.slices.job("help"), job, "the job help runs")
+  eq(H.prepare(), job, "a second prepare joins the job that runs")
+  T.until_(function() return not H.preparing() end, "help to be made at idle")
+  eq(paw.slices.job("help"), nil, "and ends")
+  eq(job.slices > 1, true, "in more than one slice")
+  -- The tags are sorted in pieces (a merge sort that pauses).
+  local list = H.index().list
+  for i = 2, #list do
+    if list[i - 1].name >= list[i].name then eq(list[i].name, "after " .. list[i - 1].name, "the tags in order") end
+  end
 end)

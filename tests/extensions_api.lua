@@ -59,6 +59,47 @@ test("the API has a version, and requirements are checked against it", function(
   paw.ext.unload("future")
 end)
 
+test("an extension that needs what the build lacks does not load, and :extensions says why", function()
+  T.start()
+  local build = api.build()
+  eq(build.vm, "luajit", "this build runs LuaJIT")
+  eq(names(build.features), "ffi processes network native", "and has every feature")
+  -- A build of the web, as the pod has it: no ffi and no native parts.
+  local real = api.build
+  api.build = function() return { vm = "lua52", features = { "processes", "network" } } end
+  T.after(function()
+    api.build = real
+    paw.ext.unload("wanting")
+    paw.ext.unload("modest")
+    paw.ext.unload("loose")
+    read_errors()
+  end)
+  write(dir("wanting") .. "/manifest.lua", 'return { needs = { "ffi", "processes", "native" } }')
+  write(dir("wanting") .. "/init.lua", "paw.command('wanting.hi', function() end)")
+  write(dir("modest") .. "/manifest.lua", 'return { needs = { "processes" } }')
+  write(dir("modest") .. "/init.lua", "")
+  local wanting = paw.ext.load(dir("wanting"))
+  eq(wanting.ok, false, "it does not load")
+  eq(wanting.error, "needs ffi and native, which this build of paw does not have", "and says what is missing")
+  eq(paw.commands.get("wanting.hi"), nil, "nothing of it ran")
+  eq(paw.ext.load(dir("modest")).ok, true, "an extension whose needs the build has loads")
+  write(dir("loose") .. "/manifest.lua", 'return { needs = "ffi" }')
+  write(dir("loose") .. "/init.lua", "")
+  eq(
+    paw.ext.load(dir("loose")).error,
+    'manifest.lua: needs is a list of names, such as { "processes" }',
+    "a needs that is no list is said"
+  )
+  T.keys(":extensions<CR>")
+  eq(T.screen():find("wanting%s+FAILED: needs ffi and native") ~= nil, true, ":extensions says why")
+  paw.ui.close()
+  local said
+  for _, item in ipairs(paw.health.run("extensions").items) do
+    if item.text:find("wanting: needs ffi and native", 1, true) then said = item end
+  end
+  eq(said and said.advice[1], "a build of paw with these features loads it (`paw.api.build()`)", "so does checkhealth")
+end)
+
 test("an extension's requirements are loaded before it, and their versions checked", function()
   T.after(read_errors)
   write(
@@ -123,11 +164,13 @@ test("what an extension registers is its own, and unloading it takes all of it a
     paw.commands.completers.owned = function() return {} end
     paw.curves.provide("owned", function() end)
     paw.ui.layer("arrange", "header", "owned", 99, function() end)
+    table.insert(paw.frontend.bands, function() return {} end)
     paw.on("track.added", function() _G.owner_heard = (_G.owner_heard or 0) + 1 end)
     paw.option.define("owned_option", 7)
   ]]
   )
   local core_info = paw.commands.get("info")
+  local bands = #paw.frontend.bands
   local entry = paw.ext.load(root)
   eq(entry.ok, true, "loads: " .. tostring(entry.error))
   eq(entry.version, "0.3.0", "the manifest's version")
@@ -149,6 +192,7 @@ test("what an extension registers is its own, and unloading it takes all of it a
     "completers",
     "curves",
     "layers",
+    "bands",
   }) do
     eq(provided("owner", kind) ~= "", true, "it owns its " .. kind)
   end
@@ -201,6 +245,7 @@ test("what an extension registers is its own, and unloading it takes all of it a
   for _, layer in ipairs(paw.ui.layers.arrange.header or {}) do
     eq(layer.name ~= "owned", true, "its layer")
   end
+  eq(#paw.frontend.bands, bands, "its band under the ruler")
   eq(package.loaded["owner.lib"], nil, "its modules are forgotten")
   paw.add_track({ name = "unheard" })
   paw.flush()
@@ -211,6 +256,107 @@ test("what an extension registers is its own, and unloading it takes all of it a
   eq(paw.cmd("owner.go"), "lib", "with its modules")
   paw.ext.unload("owner")
   _G.owner_heard = nil
+end)
+
+test(":bnext goes past the view of an extension that was unloaded", function()
+  T.start()
+  local root = dir("shown")
+  write(root .. "/init.lua", 'paw.ui.view("shownview", { render = function(_, buf) buf:text(0, 0, "shown") end })')
+  eq(paw.ext.load(root).ok, true, "loads")
+  paw.cmd("buffer", { "shownview" })
+  eq(paw.ui.focused, "shownview", "its view is shown")
+  paw.cmd("buffer", { "arrange" })
+  paw.ext.unload("shown")
+  for _ = 1, #paw.layout.buffers_list() + 1 do
+    paw.keymap.feed(":bnext<CR>")
+    local view = paw.layout.current().view
+    eq(paw.ui.views[view] ~= nil, true, ":bnext shows a view that is there, not " .. view)
+  end
+end)
+
+test("an extension's language server in this process starts again when the extension loads again", function()
+  T.start()
+  local root = dir("served")
+  write(
+    root .. "/init.lua",
+    [[
+    local server = {
+      initialize = function()
+        _G.served_starts = (_G.served_starts or 0) + 1
+        return { serverInfo = { name = "served" }, capabilities = {} }
+      end,
+    }
+    paw.lsp.config("served", { server = server })
+    paw.lsp.enable("served")
+  ]]
+  )
+  T.after(function()
+    paw.ext.unload("served")
+    _G.served_starts = nil
+  end)
+  eq(paw.ext.load(root).ok, true, "loads")
+  T.until_(function() return _G.served_starts == 1 end, "the server to start")
+  paw.ext.unload("served")
+  eq(paw.lsp.configs.served, nil, "unloading takes its server away")
+  eq(paw.ext.load(root).ok, true, "loads again")
+  T.until_(function() return _G.served_starts == 2 end, "the server of the new load to start")
+end)
+
+test("an extension's pencil keys and insert keys work, show in the key bar by order, and go when it unloads", function()
+  T.fresh()
+  T.after(function()
+    paw.keymap.feed("<Esc><Esc>")
+    paw.ui.hide("pianoroll")
+    paw.ui.focus("arrange")
+    paw.ext.unload("pens")
+    _G.pens_ran = nil
+  end)
+  local root = dir("pens")
+  write(root .. "/manifest.lua", 'return { version = "0.1.0", description = "pencil keys" }')
+  write(
+    root .. "/init.lua",
+    [[
+    local function ran(what) _G.pens_ran = (_G.pens_ran or "") .. what end
+    paw.roll_draw.key("gs", { desc = "Staccato: half as long", run = function() ran("s") end })
+    paw.roll_draw.key("gz", { desc = "Zig", order = 5, run = function() ran("z") end })
+    paw.insert.add("Q", { desc = "A cue", order = 15, insert = function() ran("q") return nil, "no cue" end })
+  ]]
+  )
+  eq(table.concat(paw.opt.insertkeys, ","), "m,a,r,',f", "the built-in insert keys")
+  eq(paw.ext.load(root).ok, true, "loads")
+  eq(table.concat(paw.opt.insertkeys, ","), "m,Q,a,r,',f", "its insert key goes in by its order")
+  eq(provided("pens", "pencil"), "gs (pencil) gz (pencil)", "it owns its pencil keys")
+  eq(provided("pens", "insert"), "Q (insert mode)", "and its insert key")
+
+  local track = paw.add_track({ name = "Lead" })
+  local clip = track:add_clip({ name = "tune", start = 0, length = 4 })
+  paw.ui.focus("arrange")
+  T.keys("iQ<Esc>")
+  paw.ui.show("pianoroll")
+  paw.ui.views.pianoroll:edit(clip)
+  T.keys("i")
+  local line = {}
+  for _, entry in ipairs(paw.ui.keybar.entries()) do
+    line[#line + 1] = entry[1] .. " " .. entry[2]
+  end
+  line = table.concat(line, ", ")
+  eq(
+    line:find("Space rest, gz zig, gs staccato, Esc write", 1, true) ~= nil,
+    true,
+    "the key bar lists its keys by order, then by key: " .. line
+  )
+  T.keys("gsgz<Esc>")
+  eq(_G.pens_ran, "qsz", "its keys work")
+
+  eq(paw.ext.unload("pens"), true, "unloads")
+  eq(paw.roll_draw.keys.gs, nil, "its pencil key is gone from paw.roll_draw.keys")
+  eq(paw.roll_draw.keys.gz, nil, "both of them")
+  eq(paw.insert.kinds.Q, nil, "its insert key is gone")
+  eq(table.concat(paw.opt.insertkeys, ","), "m,a,r,',f", "and out of paw.opt.insertkeys")
+  T.keys("igsgz<Esc>")
+  paw.ui.focus("arrange")
+  T.keys("iQ<Esc>")
+  eq(_G.pens_ran, "qsz", "its keys no longer work")
 end)
 
 test(":ext.unload takes a bundled extension away and :ext.load brings it back", function()
@@ -231,12 +377,22 @@ test(":ext.unload takes a bundled extension away and :ext.load brings it back", 
 end)
 
 test("every bundled extension has a manifest that names it and asks for this API", function()
+  local page = T.read_file("docs/reference/extensions.md")
   for _, name in ipairs(paw.ext.bundled()) do
     local m, err = paw.ext.manifest(paw.ext.bundled_dir() .. "/" .. name, name)
     eq(err, nil, name .. "'s manifest reads")
     eq(type(m.version), "string", name .. " has a version")
     eq(type(m.description), "string", name .. " has a description")
     eq(paw.ext.satisfies(api.version, m.requires and m.requires.paw), true, name .. " asks for this API")
+    eq(type(m.needs), "table", name .. " says what it needs of the build")
+    -- The last column of its row in the table of bundled extensions.
+    local row = page:match("\n| %[`" .. name .. "`%][^\n]*") or ""
+    local listed = {}
+    for _, need in ipairs(m.needs) do
+      listed[#listed + 1] = "`" .. need .. "`"
+    end
+    local cell = #listed > 0 and table.concat(listed, ", ") or "none"
+    eq(row:sub(-#cell - 3), " " .. cell .. " |", name .. "'s needs in docs/reference/extensions.md")
   end
 end)
 

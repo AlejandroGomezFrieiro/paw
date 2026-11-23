@@ -46,7 +46,6 @@ Every event of paw is listed below, with the payload that its handler gets.
 | `clip.copied` | `{ clip, name, origin }` | the first edit of a clip from a file outside the project made it the project's own |
 | `track.copied`, `chain.copied` | `{ track, name, origin }` | the first edit of a track from a track folder outside the project, or of a chain from a chain file outside it, made it the project's own |
 | `lane.added`, `lane.changed`, `lane.removed` | `{ id, track }` | an automation lane |
-| `lanes.changed` | `{}` | the shown lanes changed |
 | `cue.changed` | `{ track }` | the clips off the timeline of a track, which cues play ([About cues](../explanation/about-cues.md)) |
 | `edit.before` | `{ changes }` | a turn edited the project, and the edit will become an undo step. `changes` is a list of `{ name, payload }`: the events above that make the edit. A handler can refuse: paw then puts the project back as the turn found it. Edits of a handler join the step |
 | `edit.after` | `{ changes, state }` | paw made the step. `state` is its id in the undo tree. Edits made here are a separate edit |
@@ -62,17 +61,12 @@ Every event of paw is listed below, with the payload that its handler gets.
 | `bake.progress` | `{ running, waiting, fraction }` | paw makes sound for clips (stretches) in the background: at most 4 times each second, and one time when all are done |
 | `media.missing` | `{ files, found }` | the sound files of a project are not at their paths |
 | `proc.output` | `{ id }` | a helper process wrote output (see [Timers, programs and other modules](lua-other.md#helper-programs)) |
-| `render.before` | `{ path, opts }` | a render will start |
 | `render.progress` | `{ path, fraction, ... }` | a render in the background moved forward |
 | `render.done`, `render.failed`, `render.cancelled` | `{ path, ... }` | a render in the background stopped |
-| `render.finished` | render info | `paw.render` returned |
-| `mode.changed` | `{ mode, old }` | the mode of the keymap changed |
 | `key.pre` | `{ key, mode, view }` | a key, before the keymap gets it. A handler can refuse: then the key does nothing more |
 | `escape` | `{}` | Escape had nothing to cancel |
-| `cursor.changed` | `{ track, beat, lane }` | the cursor moved. In Teal, its descriptor is `paw.cursor.changed` |
 | `selection.changed` | `{ view, kind, region, clips, notes }` | the selection changed. `kind` is `region` (visual mode, `region` as an operator gets it), `clips` (ids, selected with the pointer), `notes` (notes of the clips that the piano roll edits, `{ clip, place }`) or nil |
 | `command.pre`, `command.post` | `{ name, command, args }` | before and after a command |
-| `option.changed` | `{ name, value, old }` | an option got a different value |
 | `view.focused` | `{ view, old }` | another view gets the keys |
 | `view.opened`, `view.closed` | `{ name }` | a view came on the screen, or went off the screen |
 | `pianoroll.opened` | `{ clip }` | the piano roll opened a clip |
@@ -86,17 +80,54 @@ Every event of paw is listed below, with the payload that its handler gets.
 | `ui.focus` | `{ focused }` | the terminal (mode 1004) or the window got the focus of the desktop, or lost it |
 | `scope.changed` | `{ scope }` | the tab shows a different scope (`paw.scope`), or the whole song. `scope` is the innermost group of the scope, if any |
 | `seat.opened`, `seat.closing` | `{ seat }` | a terminal or a graphical window attached, or will go |
-| `address.changed` | `{ uris, revision }` | things with addresses changed (`paw/address.tl`). In Teal, its descriptor is `paw.address.changed` |
-| `annotation.changed`, `diagnostic.changed` | `{ namespace, document, ... }` | annotations or diagnostics changed. In Teal, the descriptor of `diagnostic.changed` is `paw.diagnostic.changed` |
-| `qf.changed` | `{ title, win }` | the quickfix list or a location list changed. In Teal, its descriptor is `paw.qf.event`: `paw.qf.changed` is a function |
-| `lsp.status` | `{ client, status, document }` | a language server started, failed or stopped. In Teal, its descriptor is `paw.lsp.status_changed` |
-| `lsp.analysis` | `{ clip, client }` | the analysis of a clip arrived from a language server. In Teal, its descriptor is `paw.lsp.analysed` |
-| `harmony.changed` | `{ provider }` | the chords that paw hears changed |
-| `complete.changed` | `{ shown }` | suggestions appeared or disappeared. In Teal, its descriptor is `paw.complete.changed` |
-| `snippet.expanded`, `snippet.finished` | `{ name, clip }` | a snippet. In Teal, the descriptors are `paw.snippet.expanded` and `paw.snippet.finished` |
+| `annotation.changed` | `{ namespace, document, ... }` | annotations changed |
 | `plugins.scanned` | `{ notes, ... }` | a scan for plugins ended |
 | `luadev.checked` | the results | paw checked the devices in Lua again |
 | `ext.loaded` | `{ name, ok }` | an extension loaded, or failed to load |
 | `ext.unloading`, `ext.unloaded` | `{ name }` | paw will unload an extension, and unloaded it |
-| `startup` | `{}` | the runtime, the extensions and the configuration loaded |
-| `exit` | `{}` | the program will stop |
+
+## Events with a descriptor
+
+The module of paw that sends one of these events also gives its descriptor.
+In Teal, `paw.on` takes the descriptor in place of the name, so that the
+handler gets the type of the payload:
+
+```lua
+local options = require("paw.options")
+paw.on(options.changed, function(e: options.Changed) print(e.name) end)
+```
+
+<!-- The rows below come from tools/apidoc.lua: change the descriptors, not the rows. -->
+
+| Event | Payload | When | In Teal |
+| --- | --- | --- | --- |
+| `address.changed` | `{ uris, revision, rendered }` | things with addresses changed | `paw.address.changed` |
+| `complete.changed` | `{ shown }` | suggestions appeared or disappeared | `paw.complete.changed` |
+| `cursor.changed` | `{ track, beat, lane }` | the cursor moved, or another seat's did | `paw.cursor.changed` |
+| `derived.changed` | `{ names }` | a slice of the work that paw derives from the project ended, and the values of these kinds of node changed | `require("paw.derived").changed` |
+| `diagnostic.changed` | `{ namespace, document, clip }` | the diagnostics of a document changed | `paw.diagnostic.changed` |
+| `exit` | `{}` | the program will stop | `paw.events.exit` |
+| `harmony.changed` | `{ provider }` | the chords that paw hears changed | `paw.harmony.changed` |
+| `lanes.changed` | `{}` | the lanes shown (automation or takes) changed | `paw.lanes.changed` |
+| `lsp.analysis` | `{ clip, client }` | the analysis of a clip arrived from a language server | `paw.lsp.analysed` |
+| `lsp.status` | `{ client, status, document }` | a language server started, failed or stopped | `paw.lsp.status_changed` |
+| `mode.changed` | `{ mode, old }` | the mode of the keymap changed | `paw.keymap.mode_changed` |
+| `option.changed` | `{ name, value, old }` | an option got a different value | `paw.option.changed` |
+| `qf.changed` | `{ title, win }` | the quickfix list or a location list changed | `paw.qf.event` |
+| `render.before` | `{ path, opts, measure }` | a render will start | `paw.render.before` |
+| `render.finished` | `{ path, frames, seconds, sample_rate, peak, format, bits, channels, gain, loudness, nonfinite, elapsed, processing, blocks, threads, device_runs, device_sleeps, left_out }` | what a render in the foreground wrote | `paw.render.finished` |
+| `snippet.expanded` | `{ name, clip }` | a snippet went into a clip | `paw.snippet.expanded` |
+| `snippet.finished` | `{ name }` | a snippet stopped, and the notes that it wrote stay | `paw.snippet.finished` |
+| `startup` | `{}` | the runtime, the extensions and the configuration loaded | `paw.events.startup` |
+
+<!-- The end of the rows from tools/apidoc.lua. -->
+
+## A name that no part of paw sends
+
+paw writes a line in the log when a handler waits for an event by a name
+that no part of paw and no extension declares, for example
+`paw.on("projet.saved", fn)`. The same goes for a family that holds no
+declared event, for example `paw.on("undo.*", fn)`: the events of undo are
+`undo` and `redo`, so no event starts with `undo.`. Such a handler never
+runs. `:checkhealth events` lists these names. An extension declares the events that it sends with
+`paw.events.event("name")`.

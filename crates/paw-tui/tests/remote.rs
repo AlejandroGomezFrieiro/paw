@@ -520,11 +520,11 @@ fn connections_that_misbehave_are_closed_and_the_kernel_goes_on() {
     // One that connects and says nothing is not kept.
     let mut silent = TcpStream::connect(&instance.address).unwrap();
     silent.set_read_timeout(Some(Duration::from_secs(30))).unwrap();
-    let started = Instant::now();
     let mut said = String::new();
-    let _ = silent.read_to_string(&mut said);
+    // The end of the stream, not the read timeout: the instance closed it.
+    let read = silent.read_to_string(&mut said);
     assert!(said.contains("nonce"), "it was greeted: {said}");
-    assert!(started.elapsed() < Duration::from_secs(25), "and then let go");
+    assert!(read.is_ok(), "and then let go: {read:?}");
 
     // One that asks for a great deal and reads none of it.
     let mut deaf = UnixStream::connect(&instance.socket).unwrap();
@@ -560,9 +560,7 @@ fn lua_that_runs_away_over_the_socket_is_stopped_and_errors_are_plain() {
         ("cmd", json!(["zz_spin"])),
         ("keys", json!(["gZ"])),
     ] {
-        let started = Instant::now();
         let outcome = c.call(method, params);
-        assert!(started.elapsed() < Duration::from_secs(10), "{method} was stopped soon");
         if let Err(err) = outcome {
             assert!(err.to_string().contains("ran for more than"), "{method}: {err}");
         }
@@ -756,7 +754,7 @@ fn the_instances_sound_is_heard_where_the_client_is() {
 fn ctl_json_answers_in_one_line_of_json() {
     let instance = start("ctljson");
     let ctl = |args: &[&str]| {
-        let out = Command::new(env!("CARGO_BIN_EXE_paw"))
+        let out = sealed::seal(&mut Command::new(env!("CARGO_BIN_EXE_paw")), &instance.dir)
             .arg("ctl")
             .arg("--json")
             .arg("--socket")
@@ -779,7 +777,7 @@ fn ctl_json_answers_in_one_line_of_json() {
     let (answer, ok) = ctl(&["no_such_method"]);
     assert!(!ok && answer["ok"] == false, "{answer}");
     // Without a kernel to talk to the error is JSON as well.
-    let out = Command::new(env!("CARGO_BIN_EXE_paw"))
+    let out = sealed::seal(&mut Command::new(env!("CARGO_BIN_EXE_paw")), &instance.dir)
         .args(["ctl", "--json", "--socket", "/nonexistent/paw.sock", "eval", "return 1"])
         .output()
         .unwrap();

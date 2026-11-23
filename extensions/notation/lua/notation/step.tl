@@ -4,15 +4,9 @@
 -- controls (paw/step.tl); this file only says what each of them does here.
 --
 -- Written in Teal (paw/lang.tl): paw compiles it as it loads.
-local events = require("paw.events")
 
 local type StepNote = paw.contracts.StepNote
 local type StepAction = paw.contracts.StepAction
-
-local record ModeChanged
-  mode: string
-  old: string
-end
 
 --- The part of the notation view that step input calls.
 local record View
@@ -147,8 +141,8 @@ paw.step.target(
 
 -- The insert modes start and stop listening: its track plays the controller.
 paw.on(
-  events.event("mode.changed") as events.Event<ModeChanged>,
-  function(e: ModeChanged)
+  paw.keymap.mode_changed,
+  function(e: paw.keymap.ModeChanged)
     if e.mode == "i" and e.old ~= "i" then
       began = paw.api.undo_current()
     end

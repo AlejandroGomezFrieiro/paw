@@ -16,10 +16,11 @@ test("layers: a new upward reference fails, and a smaller count asks for a small
   T.write_file(root .. "/tools/layers.txt", "[low]\npaw.low\npaw.old\n[high]\npaw.high\n")
   T.write_file(root .. "/tools/layers-allowed.txt", "# a comment\npaw.old paw.high 2\n")
   T.write_file(root .. "/runtime/lua/paw/high.tl", "local M = {}\nreturn M\n")
-  -- Two names of paw.high, and none in a comment or a string.
+  -- Two names of paw.high (one through a cast), none in a comment or a
+  -- string, and the type's `require` adds none.
   T.write_file(
     root .. "/runtime/lua/paw/low.tl",
-    'local x = 1\npaw.high.open()\n-- paw.high.close()\nlocal s = "paw.high.draw"\npaw.high.open(paw.high.mode)\n'
+    'local type H = require("paw.high")\npaw.high.open()\n-- paw.high.close()\nlocal s = "paw.high.draw"\npaw.high.open((paw.high as H).mode)\n'
   )
   -- One name of the two allowed.
   T.write_file(root .. "/runtime/lua/paw/old.lua", 'local high = require("paw.high")\n')
@@ -27,7 +28,7 @@ test("layers: a new upward reference fails, and a smaller count asks for a small
   eq(
     table.concat((layers.check(root)), "\n"),
     table.concat({
-      "runtime/lua/paw/low.tl:2: paw.low (layer low, tools/layers.txt:2) reads 2 names of paw.high"
+      "runtime/lua/paw/low.tl:1: paw.low (layer low, tools/layers.txt:2) reads 2 names of paw.high"
         .. " (layer high, tools/layers.txt:5), 0 allowed: paw.high.mode, paw.high.open."
         .. " Give paw.low what it needs through an event or a callback."
         .. " If paw.low belongs higher, move tools/layers.txt:2."
@@ -43,7 +44,7 @@ test("layers: a new upward reference fails, and a smaller count asks for a small
   local list = layers.read_layers(root .. "/tools/layers.txt")
   eq(
     layers.format_graph(layers.graph(root), list),
-    "paw.low paw.high 2 paw=3 low high up runtime/lua/paw/low.tl:2\n"
+    "paw.low paw.high 2 paw=3,type=1 low high up runtime/lua/paw/low.tl:1\n"
       .. "paw.old paw.high 1 require=1 low high up runtime/lua/paw/old.lua:1\n",
     "the graph"
   )

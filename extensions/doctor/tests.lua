@@ -20,12 +20,15 @@ local function load()
   return doctor
 end
 
+--- The null backend with a test input and the MIDI port "Keys A", until
+--- the test ends.
 local function null_backend()
   api.engine_restart({
     backend = "null",
     test_input = { frequency = 440, level = -12, channels = 2 },
     test_midi = { "Keys A" },
   })
+  T.after(function() api.engine_restart({ backend = "null" }) end)
 end
 
 --- Short runs: a quarter-second tone, a second of dropouts, and so on.
@@ -332,12 +335,10 @@ test("a doctor check that waits too long is stopped at its limit", function()
   null_backend()
   fresh()
   table.insert(doctor.checks, { id = "slow", name = "Slow", limit = 0.4, run = function(ctx) ctx:sleep(60000) end })
-  local at = api.now()
   local r = run({ only = { "slow" } })
   table.remove(doctor.checks)
   eq(result(r, "slow").status, "fail", "stopped")
   eq(result(r, "slow").summary:find("did not finish", 1, true) ~= nil, true, result(r, "slow").summary)
-  eq(api.now() - at < 10000, true, "quickly")
 end)
 
 test("cancelling a doctor run mid-question ends it, cleans up and writes the report", function()

@@ -125,8 +125,8 @@ end
 --- The references of a file's text: a list of `{ name, line, kind }`.
 --- `kind` is `require` for `require("paw.x")` (also through a cast:
 --- `(require as function(string): X)("paw.x")`), `type` for `local type X =
---- require("paw.x")`, and `paw` for a `paw.x.y` in the code, which the
---- caller resolves to a module.
+--- require("paw.x")`, and `paw` for a `paw.x.y` in the code (also through a
+--- cast: `(paw.x as T).y`), which the caller resolves to a module.
 function M.references(text)
   local code, strings = M.strip(text)
   local refs = {}
@@ -148,9 +148,12 @@ function M.references(text)
       at = e + 1
     end
     -- `paw.x.y`, not `t.paw.x` and not `require("paw.x")` (a string).
-    for start, name in row:gmatch("()(paw%.[%a_][%w_%.]*)") do
+    -- A Teal cast, `(paw.x as T).y`, reads `paw.x.y`.
+    for start, name, stop in row:gmatch("()(paw%.[%a_][%w_%.]*)()") do
       if start == 1 or not row:sub(start - 1, start - 1):match("[%w_%.:]") then
-        refs[#refs + 1] = { name = (name:gsub("%.$", "")), line = line, kind = "paw" }
+        local field = row:match("^%s+as%s+[^()]-%)%.([%a_][%w_]*)", stop)
+        name = name:gsub("%.$", "") .. (field and "." .. field or "")
+        refs[#refs + 1] = { name = name, line = line, kind = "paw" }
       end
     end
   end
@@ -291,12 +294,18 @@ end
 
 --- The graph of the runtime at `root`: `{ modules, edges }`. `edges[from][to]`
 --- is `{ count, names = { [name] = true }, kinds = { [kind] = count }, line }`.
---- `count` is the number of distinct names that `from` reads of `to`: the
---- prefix that names `to` and one more part (`paw.ui.notify`,
---- `paw.ui.views.pianoroll.state`; a `require` is the name of the module).
---- So one more use of a name that `from` reads already does not change it. `line` is the first line in `from`'s file that reads `to`. A
---- module that reads itself is no edge. A declaration (`.d.tl`) is not
---- read.
+---
+--- `names` holds the distinct names that `from` reads of `to`: the prefix
+--- that names `to` and one more part (`paw.ui.notify`,
+--- `paw.ui.views.pianoroll.state`). A `require` gives the name of the module.
+--- The name of the module stays only when it is the only one: a `local type
+--- X = require("paw.x")` next to reads of `paw.x.y` adds no name, so a type
+--- that replaces a stand-in record costs nothing. `count` is the number of
+--- names, so one more use of a name that `from` reads already does not
+--- change it.
+---
+--- `line` is the first line in `from`'s file that reads `to`. A module that
+--- reads itself is no edge. A declaration (`.d.tl`) is not read.
 function M.graph(root)
   local modules = M.modules(root)
   local names = M.names(root, modules)
@@ -314,12 +323,16 @@ function M.graph(root)
           edge = { count = 0, names = {}, kinds = {}, line = ref.line }
           edges[from][to] = edge
         end
-        if not edge.names[name] then
-          edge.names[name] = true
-          edge.count = edge.count + 1
-        end
+        edge.names[name] = true
         edge.kinds[ref.kind] = (edge.kinds[ref.kind] or 0) + 1
       end
+    end
+  end
+  -- The name of the module goes when other names are there.
+  for _, targets in pairs(edges) do
+    for to, edge in pairs(targets) do
+      if next(edge.names, next(edge.names)) then edge.names[to] = nil end
+      edge.count = #sorted_keys(edge.names)
     end
   end
   return { modules = modules, edges = edges }

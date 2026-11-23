@@ -63,7 +63,6 @@ events.on(
 )
 
 -- The program ends after the undo file being written is whole.
-local exit: events.Event<kernel.Nothing> = events.event("exit")
-events.on(exit, function() api.undo_file_wait() end)
+events.on(events.exit, function() api.undo_file_wait() end)
 
 return M

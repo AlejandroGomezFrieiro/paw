@@ -59,13 +59,16 @@ code.
 - A `paw.x.y` in the code is a reference to the module that owns
   `paw.x.y`. The owner is the longest prefix that is a module, or the
   module that sets the name in `paw` (`paw.notify = paw.ui.notify`
-  belongs to `paw.ui`).
+  belongs to `paw.ui`). A Teal cast, `(paw.x as T).y`, reads `paw.x.y`.
 - `paw.ui.views.<name>` is a reference to the module `paw.views.<name>`.
 - Comments and strings do not count.
 - The count of a pair of modules is the number of distinct names that
   one reads of the other. The name is the prefix of the owner and one more
   part, for example `paw.ui.notify`. So one more call of `paw.ui.notify`
   does not change the count.
+- The name of the module itself (from a `require`) counts only when it is
+  the only name. So a type import that replaces a stand-in record does not
+  change the count.
 
 ## What to do when the check fails
 
@@ -80,6 +83,15 @@ Each message names the file and the line to change.
 - **A count goes up.** The module reads a new name of a higher layer.
   Give the module what it needs through an event or a callback. If the
   module belongs in a higher layer, move its line in `tools/layers.txt`.
+  If a record that a lower module needs is in a higher module, move the
+  record down, or give its module a lower layer. For example,
+  `paw.keymap.registers` is in the `project` layer because `paw.edit`
+  makes registers.
+- **A registry of a higher module.** `paw.ext` takes away what an
+  extension added to a registry. `paw/init.lua` adds the registries of
+  the modules above `paw.ext` (the bands of the frontend, the keys of the
+  pencil) to `paw.ext.registries`. Do the same for a new registry above
+  `paw.ext`.
 - **A count goes down.** Make the line of `tools/layers-allowed.txt`
   smaller, as the message says. The list only gets shorter.
 
@@ -110,18 +122,22 @@ TASK-26 can read this text in place of its own scan of `require` calls.
 
 ## The upward references of today
 
-On 2026-11-22, the allow-list held 303 names on 195 lines. These modules
+On 2026-11-23, the allow-list held 281 names on 198 lines. These modules
 get the most upward references:
 
 | Module | Names | What the lower modules read |
 | --- | ---: | --- |
 | `paw` (`paw/init.lua`) | 67 | `paw.defer`, `paw.cancel`, `paw.every`, `paw.try`, `paw.command`, `paw.state` |
-| `paw.frontend` | 53 | `paw.frontend.act`, `paw.frontend.format_value`, the chosen clips and notes |
-| `paw.ui` | 48 | `paw.ui.notify`, `paw.ui.focused`, the views |
+| `paw.frontend` | 48 | `paw.frontend.act`, `paw.frontend.format_value`, the chosen clips and notes |
+| `paw.ui` | 45 | `paw.ui.notify`, `paw.ui.focused`, the views |
 | `paw.keymap` | 20 | the mode, the selection |
-| `paw.commands` | 17 | `paw.commands.exec`, the command registry |
+| `paw.commands` | 16 | `paw.commands.exec`, the command registry |
 
 The timers and the error helpers of `paw/init.lua` belong in a module of
-the `data` layer. The split of `paw.frontend` (TASK-128) can remove the
-references to it. Remove the others one at a time, when a module changes
+the `data` layer. The parts of `paw.frontend` (TASK-128) are in the
+`frontends` layer, and the reads of them can move to events or
+callbacks. `paw.ui` and `paw.help` import the types of `paw.keybar`
+(`views` layer). `paw.keybar` can go to the `screen` layer when
+`paw.insert` and `paw.roll_draw` give their lines through
+`paw.ui.keybar.set`, so that `paw.keybar` does not read them. Remove the others one at a time, when a module changes
 for other reasons.

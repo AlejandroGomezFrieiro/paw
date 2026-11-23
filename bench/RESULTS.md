@@ -7,6 +7,355 @@ How to run everything: [README.md](README.md). Raw numbers:
 matrix before it). The processor time of the whole program while it plays,
 against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md).
 
+## 2026-11-23: the group tree and the marks of groups in a frame (TASK-184)
+
+The scenario `scope` of `bench/profile/drive.py`, with the Lua of the
+TASK-6.7 branch (c210bbc2, "before") and of this branch ("after") in turns
+on the shared binary of main, 6 pairs, under the measure lock on cores 16
+to 23. The binary changed from 07a06cd3 to bc16df6d during the first 3
+pairs; the last 3 pairs ran on bc16df6d. All values were measured under
+external load (load average 2.9 to 18.8). A frame is the processor time of
+`paw.api.ui_snapshot` (40 frames after `j` or `k` in each run): the median
+of the 6 run medians, then the smallest and largest frame of all runs. A key
+is the processor time of the kernel thread from the key until the screen is
+quiet for 250 ms, as in TASK-6.7.
+
+In `jit.profile` samples of 40 rounds of `j` and `k` in the song,
+`trackcolumn.tree_of` took 40 % and `groups.meta` 31 % of the samples
+before, and 0.9 % and 1.9 % after. Two causes:
+
+- The fold part of the track column worked out the tree of groups again for
+  most lines of each frame. Its key held `paw.folds.list()`, which is a new
+  table for each call in a window with no folds. Now the tree is kept while
+  the tracks drawn, the window, the change count of the folds and the edits
+  of the project are the same (`runtime/lua/paw/trackcolumn.tl`).
+- Each question to `paw.groups` (`of`, `is_group`, `hidden`, `rows`) read
+  the track's `meta` from the kernel. Now the marks and the group of each
+  track are kept until the project or an event changes, with the key of
+  `paw.scope`'s regions (`runtime/lua/paw/groups.tl`).
+
+| Measurement | before | after |
+| --- | ---: | ---: |
+| A frame of the song | 11.1 ms (7.6 to 139) | 5.5 ms (3.4 to 29) |
+| A frame in the region | 11.7 ms (7.8 to 111) | 5.9 ms (3.5 to 41) |
+| A frame in the group (16 tracks) | 7.8 ms (5.6 to 66) | 7.6 ms (5.4 to 86) |
+| `j` in the region | 10.2 ms (8.7 to 21) | 6.2 ms (5.0 to 8.6) |
+| `k` in the region | 11.8 ms (9.1 to 27) | 6.2 ms (4.7 to 9.6) |
+| `w` in the region | 15.4 ms (11.4 to 72) | 5.8 ms (4.8 to 16) |
+| `b` in the region | 11.5 ms (9.3 to 56) | 7.1 ms (4.9 to 12) |
+| `zm` | 27.3 ms (21.5 to 56) | 31.4 ms (23.2 to 60) |
+| `znn` | 21.8 ms (18.5 to 25) | 40.5 ms (23.9 to 60) |
+| `]z` | 30.3 ms (25.8 to 40) | 67.7 ms (31.4 to 90) |
+| `znag` | 26.4 ms (24.4 to 29) | 40.4 ms (32.9 to 104) |
+| `j` in the group | 11.6 ms (9.0 to 42) | 9.7 ms (8.1 to 60) |
+
+A frame of the song or of a region costs half of what it cost. A frame in
+the group costs the same: it draws 16 tracks, not 64.
+
+The keys that change the scope (`znn`, `]z`, `znag`) cost more in the
+scenario, where each runs once. The time is before the first frame, not in
+the drawing. With the `repeat` scenario and the same keys in the same order
+(`znar,zfar,zm,zr,znn,zw,]z,zW`, 8 rounds, under `jit.profile`), the two
+branches cost the same: 167 against 172 ms for each round, and the median
+first frame of `]z` is 9.2 against 7.7 ms. The cause of the difference in
+the scenario is not known.
+
+The first version of this change worked out the tree in each layout. That
+made `zm` cost 42 ms (41.9 to 50.5) against 27 ms: in a window with folds,
+`paw.folds.row` looks at each fold for each track. The kept tree removed
+that cost.
+
+## 2026-11-23: :%quantize in a scope (TASK-183)
+
+The key `:%quantize 1/4` and then `u`, in the scope `Song › Verse B` of the
+scenario `scope` (TASK-6.7), with `--budget 10`. One binary of main
+(bc16df6d) ran with the Lua of main with TASK-6.7 merged ("before") and of
+the branch ("after"), in turns, 3 pairs of 5 keys each, under the measure
+lock on cores 16 to 23. All values were measured under external load (load
+average 3.3 to 4.8). Each value is the processor time of the kernel thread
+from the key until the screen is quiet: the median of the 15 keys, then the
+smallest and the largest.
+
+| Key | Before | After |
+| --- | --- | --- |
+| `:%quantize 1/4` | 217 ms (152 to 257) | 135 ms (85 to 190) |
+| `u` | 101 ms (68 to 140) | 74 ms (52 to 125) |
+
+The callbacks over 10 ms, in the 15 keys of each:
+
+| Callback | Before | After |
+| --- | --- | --- |
+| the job `derived` after `:%quantize` | 15 times, at most 53.5 ms | 2 times, at most 13.8 ms |
+| the job `derived` after `u` | 15 times, at most 55.3 ms | 0 times |
+| the job `harmony` | 15 and 15 times, at most 69.0 ms | 0 times |
+| the command `quantize` | 15 times, at most 123.8 ms | 15 times, at most 37.7 ms |
+| drawing the screen | 17 and 15 times, at most 79.2 ms | 16 and 15 times, at most 35.4 ms |
+
+What changed:
+
+- A note edit marked every window of its track stale (256 windows a track
+  in this project), and the job looked at all 16 640 windows of the song
+  again. Now the track, the track list, the span, the step and the bars
+  are `eager` nodes of `paw.derived`: the job makes them first, and marks
+  the windows only over the time that changed.
+- The job stopped only where a sliced node asked. One window could make
+  hundreds of entries in one slice. Now a slice stops before each entry
+  that it makes, at any depth.
+- The track read `clip_list` (each clip with all its fields) and asked
+  `is_drums` after each edit. Now `harmony.place` reads one clip by its id,
+  and `harmony.drums` reads the track's name, meta and devices only.
+- `:%quantize` read the notes of every clip of the scope's tracks. Now it
+  asks only for the clips that meet the range's time, it sends only the
+  notes that move, and each with only its changed fields.
+
+Criteria of the ticket: the job `derived` is under 10 ms in all but 2 of
+25 keys (a slice of 4 ms and the garbage collector, by the profile). `u`
+is under 100 ms. `:%quantize` is not: what is left, by the LuaJIT profile
+(about 60 % of its time):
+
+- Two frames of the screen, 20 to 35 ms each. Part of each is the group tree
+  of the track column (`trackcolumn.tree_of`, TASK-184).
+- The typing of the command: completion sorts `commands.list` after each
+  character, and the preview parses the range (about 10 ms).
+- `ex.items`: the kernel gives each note as a table (about 9 ms), and the
+  sort of the items (about 5 ms).
+- The kernel's events and the garbage collector.
+
+## 2026-11-23: keys in a scope (TASK-6.7)
+
+The scenario `scope` of `bench/profile/drive.py` ([profile.md](profile.md)).
+The project: `bench/profile/project.lua`, with five regions and a group of 16
+tracks that the scenario adds. One binary of main (07a06cd3) ran with the Lua
+of main and of the branch (`PAW_RUNTIME`), in turns, 3 pairs, under the
+measure lock on cores 16 to 23. All values were measured under external load
+(load average 3.3 to 6.7). Each value is the processor time of the kernel
+thread from the key until the screen is quiet for 250 ms: the median of the
+3 runs, then the smallest and largest value of all runs (a move runs 5 times
+in each run). "First frame" is the median time from the key to its first
+frame on the branch.
+
+Two causes were over the limit or made a scope slower than the song:
+
+- Each frame asked for the region of the scope again, for each lane and for
+  each bar of the ruler. Each time, `paw.markers.list()` read the whole
+  project from the kernel. Now `paw.scope` keeps the regions until the
+  project or an event changes (`runtime/lua/paw/scope.tl`).
+- `:%quantize` in a region read every note of every clip of the scope's
+  tracks, and then kept the notes in the region's time. Now the kernel gives
+  only the notes that sound in the time (`runtime/lua/paw/ex.tl`).
+
+| Key, in the order of the scenario | main | branch | first frame |
+| --- | ---: | ---: | ---: |
+| A frame of the song | 11 ms (8 to 48) | 11 ms (8 to 51) | |
+| `znar` (into Verse A) | 39 ms (35 to 39) | 38 ms (34 to 38) | 33 ms |
+| A frame in the region | 13 ms (11 to 60) | 11 ms (8 to 57) | |
+| `j` | 16 ms (12 to 57) | 11 ms (9 to 18) | 11 ms |
+| `k` | 14 ms (12 to 45) | 10 ms (9 to 14) | 10 ms |
+| `w` | 17 ms (11 to 31) | 19 ms (11 to 45) | 12 ms |
+| `b` | 15 ms (13 to 51) | 12 ms (10 to 54) | 12 ms |
+| `zfar` | 12 ms (11 to 13) | 7.0 ms (6.9 to 8.4) | 7 ms |
+| `zm` | 40 ms (34 to 101) | 25 ms (24 to 26) | 16 ms |
+| `zr` | 14 ms (13 to 42) | 7.3 ms (6.8 to 13.2) | 7 ms |
+| `znn` (into Strings in Verse A) | 28 ms (27 to 115) | 20 ms (19 to 21) | 12 ms |
+| `zw` | 17 ms (16 to 30) | 4.8 ms (4.5 to 14.9) | 5 ms |
+| `]z` (Verse B) | 32 ms (29 to 36) | 27 ms (26 to 30) | 11 ms |
+| `:%quantize 1/4` (about 6 400 notes) | 270 ms (245 to 301) | 253 ms (225 to 262) | 76 ms |
+| `u` | 111 ms (84 to 133) | 92 ms (81 to 114) | 31 ms |
+| Open the piano roll (`<CR>`) | 36 ms (33 to 44) | 32 ms (29 to 37) | 25 ms |
+| `j` in the piano roll | 40 ms (31 to 74) | 42 ms (35 to 60) | 5 ms |
+| `:q` | 21 ms (19 to 23) | 19 ms (16 to 21) | 19 ms |
+| `zW` | 17 ms (14 to 20) | 19 ms (13 to 21) | 19 ms |
+| `znag` (into Strings) | 24 ms (22 to 26) | 28 ms (24 to 36) | 19 ms |
+| A frame in the group | 7.2 ms (5.8 to 48) | 7.2 ms (5.7 to 37) | |
+| `j` in the group | 11 ms (10 to 47) | 11 ms (10 to 46) | 11 ms |
+| `k` in the group | 9.5 ms (8.8 to 50) | 11 ms (9 to 46) | 11 ms |
+| `zw` out of the group | 6.6 ms (6.6 to 6.9) | 7.1 ms (6.5 to 7.4) | 7 ms |
+
+A frame in the region now costs the same as a frame of the song, and a frame
+in the group costs less. Before, a frame in the region cost 13 to 14 ms
+against 11 ms for the song. In the samples of `jit.profile`, `markers.list`
+was 21 % of the region's frames before and 1.5 % after.
+
+Each key is under 100 ms but two. `:%quantize 1/4` and the `u` after it are
+over the limit. Their first frame comes after 76 and 31 ms. The rest is work
+after the frame: the chord reading runs one slice of 61 to 103 ms (the job
+`derived`), and the command itself costs 45 to 58 ms. The same edit on the
+whole song costs more, so it is not a cost of the scope. TASK-183 (m-3) is
+for it.
+
+`j` in the piano roll costs 35 to 60 ms because the note that it plays
+moves the meters (TASK-113).
+
+## 2026-11-22: windows kept by their stamp (TASK-124)
+
+A window without the keyboard keeps its cells while the `stamp` of its
+view and the stamp of the frame do not change (`runtime/lua/paw/ui.tl`).
+The arrange view, the piano roll and the mixer give a stamp.
+
+The project: `bench/profile/project.lua`. The piano roll is open on the first
+MIDI clip, under the arrange view, with the keys. The scenario is
+`repeat --keys 'j,k' --times 30`. One binary of main (7ae25570) ran with
+the Lua of main (5d520705) and of the branch (`PAW_RUNTIME`), in turns,
+8 pairs, under the measure lock on cores 16 to 23. All values were
+measured under external load (load average 4 to 13).
+
+| `j` then `k` in the piano roll | main | branch |
+| --- | ---: | ---: |
+| Processor time of the kernel thread, for each round | 32.8 ms (25.9 to 40.6) | 29.8 ms (22.7 to 33.8) |
+| Frames that drew the screen for 5 ms or more, in 60 keys | 23 to 29 | 5 to 9 (24 in one run at load 12.6) |
+
+The arrange view above the roll is no longer drawn after each key. The
+processor time falls less than the slow frames. Most of the time of a
+round goes to the meters of the note that `j` and `k` play, in frames of
+the live parts (TASK-113).
+
+## 2026-11-22: the event handlers after an edit (TASK-116)
+
+`bench/profile/handlers.lua` times each event handler where
+`paw.events` calls it, and the parts of the end of a turn around them
+(`events_take`, the whole `K.settle`). The scenario: `run.sh repeat
+--keys x,u,dd,u --times 40` on the project of `project.lua` (64 tracks,
+2 000 MIDI clips, 50 000 notes), the terminal, budget 5 ms. Main is the
+runtime in the binary of 7ae25570; the branch is its runtime from
+`tools/dev-runtime.sh` with the same binary. Wall times, measured under
+external load (load average 8 to 10). "A press" is the mean over the 40
+presses; "longest" is one call. The handlers under 0.05 ms a press are
+not in the table.
+
+| Keys | Event | Handler | Calls a press | main ms a press (longest) | branch ms a press |
+| --- | --- | --- | ---: | ---: | ---: |
+| `x` | `track.changed` | `paw/derived.tl` (mark a track's clips) | 1 | 0.61 (1.24) | < 0.05 |
+| `x` | `track.changed` | `paw/scope.tl` | 1 | 0.06 | 0.06 |
+| `x` | all the handlers | | 32 | 0.77 | 0.24 |
+| `dd` | `track.removed` | `paw/derived.tl` (mark the track list) | 1 | 0.93 (2.87) | < 0.05 |
+| `dd` | `device.removed` | `paw/freeze.lua` (is the track frozen) | 1 | 0.51 (1.27) | < 0.05 |
+| `dd` | `track.removed` | `paw/groups.tl` (the group of the track) | 1 | 0.25 (1.10) | 0 |
+| `dd` | `device.removed` | `paw/address.tl` (the device's address) | 1 | 0.20 | < 0.05 |
+| `dd` | all the handlers | | 37 | 2.05 | 0.17 |
+| `u` after `dd` | `track.added` | `paw/derived.tl` | 1 | 0.94 (2.65) | < 0.05 |
+| `u` after `dd` | `device.added` | `paw/address.tl` | 1 | 0.22 | < 0.05 |
+| `u` after `dd` | `clip.added` | `paw/defaults/transport.lua` (a take over a clip) | 32 | 0.14 | < 0.05 |
+| `u` after `dd` | `clip.added` | `paw/address.tl` | 32 | 0.05 | < 0.05 |
+| `u` after `dd` | all the handlers | | 339 | 1.58 | 0.33 |
+| `u` after `x` | `track.changed` | `paw/derived.tl` | 1 | 0.65 (2.69) | < 0.05 |
+| `u` after `x` | `cursor.changed` | `paw/defaults/transport.lua` (the track that the keyboard plays) | 1 | 0.20 | 0.19 |
+| `u` after `x` | all the handlers | | 51 | 1.07 | 0.42 |
+
+Each handler of `clip.removed` takes less than 0.05 ms a press. A
+`changed` event comes after each edit; its handlers (`paw/address.tl`,
+`paw/remote.tl`) take less than 0.15 ms a press.
+
+The whole end of the turn (`an event handler`: the reading of the events
+from the kernel, the hooks, the handlers), the sum for each press:
+
+| Keys | main | branch |
+| --- | ---: | ---: |
+| `x` | 1.29 ms | 0.88 ms |
+| `dd` | 2.41 ms | 0.54 ms |
+| `u` after `dd` | 2.92 ms | 1.62 ms |
+| `u` after `x` | 1.53 ms | 0.86 ms |
+
+What took the time, and what changed:
+
+- **The graph of derived data** marked its entries stale in the
+  handler. The track list is read by every window of the chord reading:
+  one mark made 4 710 entries stale (0.8 ms). Now the handler only notes
+  the source. The entries become stale at the next read of a value or in
+  the next slice of the job `derived` (`paw/derived.tl`, `before_read`).
+- **A read that fails** costs about 65 µs for a missing track and 107 µs
+  for a missing clip (mlua makes a traceback), against 0.3 µs for a good
+  read of one field. Four handlers read a removed track or device after
+  `dd`: `freeze.lua` twice, `groups.tl` and `address.tl`, 0.27 ms each in
+  the turn. Now `address.tl` takes the track from the event, `groups.tl`
+  stops at `track.removed` (a removed track has no group to read), and
+  `freeze.lua` looks for the track in the track list first.
+- **A take over a clip** (`transport.lua`) read the whole clip, with its
+  notes, for each added clip: 32 clips after `u`. Now it reads the one
+  field `armed` of the track first. This is little time, but it was
+  garbage for the collector.
+
+Without the timing of `handlers.lua`: `repeat --keys x,u,dd,u --times
+20`, budget 5 ms, main and the branch in turns, 10 runs each (80 presses
+a run), load average 4.5 to 14.4. Main named a slow event handler (`an
+event handler` or `a handler of ...`) in 6 runs of 10, 9 times in all
+(5.1 to 9.1 ms). The branch named one in 1 run of 10, once (`an event
+handler` 7.2 ms, load average 13.9). The kernel time for each round
+shows no measurable difference: 148 to 202 ms (main) and 146 to 200 ms
+(branch).
+
+The ends of a turn over 4 ms that are left come from the collector:
+the Lua heap goes down in that turn, and the time is in no handler (once
+in 160 presses, `events_take` 4.6 ms while the heap went from 38 to
+37 MB).
+
+## 2026-11-22: the key of an LSP document on the graph of derived data
+
+The key of a clip's LSP document (`paw.lsp.document.key_of`) is now a
+node of `paw.derived` (backlog design `derived.md`, D5). It reads the
+clips of the other tracks through one node for each track
+(`lsp.track`), not through `clip_list` of every track. A change of a
+track's clips makes again only the keys of the documents that it
+overlaps. The graph makes the keys of the documents that a server has
+again in slices after an edit, before the LSP sync sends them (250 ms
+after the last edit).
+
+The project: `bench/profile/project.lua` (64 tracks, 2 000 MIDI clips,
+50 000 notes). The script (not in the repository) edits one note of the
+last clip of track 40, then times `key_of` of the first clip of track 1.
+"After a pause": `paw.flush()`, then the chord reading and the jobs of
+`paw.derived` run, as after a pause of the keys. "At once": only
+`paw.flush()`. The times are the processor time of the kernel thread, 15
+rounds in each run. `main` (the shared binary of 7ae25570) and the branch
+ran in turns, 5 pairs, under the measure lock on cores 16 to 23, load
+average 5 to 7, measured under external load.
+
+| `key_of` after an edit elsewhere | main | branch |
+| --- | ---: | ---: |
+| After a pause | 3.5 to 19.0 ms (p50 3.7 to 3.9), 63 `clip_list` calls | 0.09 to 0.43 ms (p50 0.15 to 0.21), 0 `clip_list` calls |
+| At once | 5.0 to 19.0 ms (p50 5.7 to 7.5), 64 `clip_list` calls | 2.0 to 5.6 ms (p50 2.6 to 3.0), 2 `clip_list` calls |
+
+"At once", most of the time on the branch is the chord reading, which
+`key_of` waits for to find the key at the clip's start. The first
+`key_of` of a session makes the 64 track nodes: 7.5 to 8.4 ms on the
+branch, 5.0 to 5.7 ms on main (one run of main took 16.3 ms).
+`build` reads the clips that overlap the document from the same node:
+it does not read `clip_list` of every track again.
+
+## 2026-11-22: the help index in slices that stop (TASK-114)
+
+The help index that paw makes at idle is now the job `help` of
+`paw.slices`. The build pauses inside the parse of a page (each line and
+each row of a table), inside the render (each block and each row of a
+table), in the tags of the headings, in the contents page, in the tags of
+the code, and in the sort of the tags (a merge sort that pauses). The
+text of a rendered line is joined once, not again for each word.
+
+The measure: each slice (one `coroutine.resume` of the build) is timed,
+with the collector on, 5 runs each, `--clean --no-plugins`, no project.
+"Old" is the runtime of main in the binary, "new" is this branch with
+`PAW_RUNTIME`. Load average 5 to 8, not on reserved processors.
+
+| Binary | Allocator | Old: slices over 5 ms | Old: longest | New: slices over 5 ms | New: longest |
+| --- | --- | --- | --- | --- | --- |
+| dev (7ae25570) | glibc | 34 to 45 of 225 to 272 | 26.5 to 36.9 ms | 9 to 14 of 211 to 279 | 8.6 to 19.4 ms |
+| release (main of 19:31) | glibc | 31 to 51 of 232 to 273 | 17.2 to 35.0 ms | 7 to 19 of 234 to 272 | 9.3 to 15.6 ms |
+| release (main of 19:31) | mimalloc 3.3.2 (`LD_PRELOAD`) | 14 to 18 of 169 to 188 | 16.2 to 20.6 ms | 2 to 3 of 194 to 213 | 5.7 to 6.9 ms |
+
+The slices that are still long are not in the Lua code. `perf record`
+of the samples inside the slices over 6 ms (release, glibc) gives 54 %
+in the allocator: `malloc_consolidate` 21 %, `_int_free_chunk` 17 %,
+`unlink_chunk` 9 %. glibc merges all its small free blocks when a large
+block is asked for, and the collector frees many small blocks. With
+mimalloc, the allocator is gone from these samples. One build allocates
+214 MB (224 MB before the line text is joined once). With
+`GLIBC_TUNABLES=glibc.malloc.mxfast=0`, the new runtime gives 5.8 to
+7.0 ms.
+
+The profile scenario `repeat` of `j` on the large project (dev binary,
+`--budget 5`, 4 runs, load 6 to 9) names `the job help` once in each
+run, at 7.3 to 8.4 ms (old: `a timer (paw/help.tl:1123)` once, 7.1 to
+7.6 ms at load 9 to 11). With mimalloc: 5.5 to 8.4 ms.
+
 ## 2026-11-22: the search index on the graph of derived data
 
 The records of `paw.grep` and the nodes of clips and notes that
@@ -168,7 +517,7 @@ times are wall times of one callback.
 | `drawing what moves` | `j` in the roll, `dd`, `u` | 5 to 48 ms | open for the roll; the arrange row cache for the arrange view |
 | `a timer (paw/help.tl:1123)` | the help index at idle, after the start | 6 to 69 ms | open: the help index at idle |
 | `the key h`, `e`, `l`, `p` | typing `:help` | 5 to 11 ms | open: typing on the command line |
-| `an event handler`, `a handler of clip.added`, `the key d` | `x`, `dd`, `u` | 5 to 12 ms | open: event handlers after an edit |
+| `an event handler`, `a handler of clip.added`, `the key d` | `x`, `dd`, `u` | 5 to 12 ms | the handlers: TASK-116 (above); `the key d` open |
 | `the job pick` | the files walk | 5 to 9 ms | a read of one folder does not pause; under the noise of the load |
 | `the request eval` | the driver itself | 5 ms | not paw's |
 
@@ -218,6 +567,7 @@ their tickets.
 - `repeat --keys j,k --times 20`, budget 0 and 5 in turns, 5 pairs, load
   average 40 to 57: 61.5 ms (39.1 to 63.9) and 39.9 ms (22.2 to 72.7)
   for each round. No measurable difference: the spread is much larger.
+
 ## 2026-11-22: copies of a clip share their compiled events
 
 The sync now compiles the events of a MIDI clip from the clip's start and
@@ -598,6 +948,7 @@ synth tracks at 128 frames, it went from 0.43 ms to 0.26 ms. For 10 synth
 tracks at 128 frames, it went from 0.18 ms to 0.26 ms, with a budget of
 2.67 ms. These tracks now play on one thread. This uses less processor
 time, but each block takes longer.
+
 ## 2026-11-19: edits, memory and startup again
 
 A new run of the matrix (`results/remeasure-2026-11-19.jsonl`) showed a faster engine but slower work around it. 1000 clip moves

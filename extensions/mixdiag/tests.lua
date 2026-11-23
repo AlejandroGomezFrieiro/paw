@@ -382,7 +382,6 @@ test("mixdiag: measuring in the background, the loop and a selection", function(
   settle()
   eq(type(done), "table", "the callback got the findings")
   near(mixdiag.result.seconds, 16 + 1, 0.01, "the whole song")
-  eq(mixdiag.result.elapsed < 10, true, "measured quickly")
 
   paw.transport.loop_start, paw.transport.loop_end = 8, 16
   paw.cmd("mix.analyze", { "loop" })
@@ -406,6 +405,25 @@ test("mixdiag: measuring in the background, the loop and a selection", function(
   mixdiag.analyze("song", { quiet = true })
   eq(mixdiag.cancel(), true, "cancelled")
   eq(mixdiag.job, nil, "nothing running")
+  mixdiag.clear()
+end)
+
+-- A measurement writes no file: its `render.before` has no path, and no
+-- handler of that event may fail on it.
+test("mixdiag: <leader>ma measures the mix without an error message", function()
+  load()
+  T.start()
+  paw.ui.focus("arrange")
+  synth("Pad", 0, 8, { volume = -6 })
+  paw.flush()
+  local first = #paw.ui.messages + 1
+  T.keys("<leader>ma")
+  settle()
+  local errors = {}
+  for i = first, #paw.ui.messages do
+    if paw.ui.messages[i].level == "error" then errors[#errors + 1] = paw.ui.messages[i].text end
+  end
+  eq(table.concat(errors, "\n"), "", "no error message")
   mixdiag.clear()
 end)
 

@@ -21,10 +21,19 @@ The piano roll shows the notes of a MIDI clip, with pitches as rows and time as 
 | `Esc` | Releases the notes chosen with the pointer. The view stays. |
 | `Ctrl-w p` | Returns to the window before (the arrange view). |
 | `Ctrl-s` | Writes a snippet, e.g., the dominant of the next chord, and `Tab` and `Ctrl-n` step through its choices. See [Completion](completion.md). |
+| `Ctrl-=` `Ctrl--` `Ctrl-0`, `z+` `z-` `z=` | Gives each key more rows, fewer rows, one row again. See [Vertical zoom](#vertical-zoom). |
+
+## Vertical zoom
+
+`Ctrl-=` (or `Ctrl-+`) gives each key of the piano roll one more row, up to 3 rows, and `Ctrl--` gives it one row less. `Ctrl-0` gives each key one row again. A note fills all the rows of its key, and `j` and `k` still move the cursor by a key, not by a row. Most terminals don't send `Ctrl` with `=`, `-` or `0` to a program, so `z+`, `z-` and `z=` do the same in every terminal and in the graphical window. `Alt` and the wheel do the same too. The message line says what changed, for example `piano roll: 2 rows per key`.
+
+The zoom belongs to the window of the piano roll. A change of zoom is not an undo step, and the project keeps it in its `screen.json`.
 
 ## What the view shows
 
 A note can have an articulation (its MIDI 2.0 attribute), and such a note shows a short tag of it (`pz` for pizzicato) in place of its pitch, and `K` names the articulation. The instrument of the track can name a key (a drum of a kit, a keyswitch of a sampler), and such a key shows its name on the keyboard, and `K` gives it.
+
+A clip with a transpose (`:clip.override transpose=3`, see [Overrides of a clip](arrange-view.md#overrides-of-a-clip)) shows each note at the pitch it plays at, 3 semitones above its stored pitch, and a note that you add or move there is stored 3 semitones lower. For example, a note that you add at E4 is stored as C#4, and the clips of its link get C#4 too. The velocity override does not change the notes that the piano roll shows.
 
 A row over the ruler names the chords that sound, read over every pitched track, with the key on the left (`paw.opt.chords`). A dot on the keyboard marks the keys that sound at the cursor, and the title names the chord there.
 
@@ -155,6 +164,8 @@ The chord replaces the note, and all of its notes are the note that you draw, so
 ### Keys of extensions
 
 An extension adds keys to the pencil with `paw.roll_draw.key(lhs, spec)`. `paw.roll_draw.articulation(provider)` gives `a` its names and what they set on a note, and the articulations extension uses it. `spec.run(count, char)` changes the notes that `paw.roll_draw.pen()` gives and then calls `paw.roll_draw.shown()`, and `paw.chords.quality(suffix, steps)` adds the name of a chord.
+
+The key bar of the pencil shows the keys of extensions after its own keys, with the start of each `spec.desc`. `spec.order` gives their order: a lower number comes first, and keys with the same number go by their names. The default is 50. `paw.roll_draw.keys` holds them by key, and when an extension unloads, its keys go.
 
 ## Step input
 

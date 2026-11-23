@@ -406,6 +406,9 @@ local function vocal_window(pitches)
     paw.ui.hide("utau")
     paw.ui.focus("arrange")
   end
+  -- The pointer finds what is under it from the last paint: paint once
+  -- here, so that the first click does not use the paint of an earlier test.
+  win.paint()
   return win
 end
 
@@ -491,6 +494,8 @@ test("the vocal editor draws and erases expression curves under the notes", func
   local editor, track, clip = win.editor, win.track, win.clip
   local notes = require("utau.notes")
   local device = utau.device_of(track.id)
+  local was = editor.curve
+  T.after(function() editor.curve = was end)
   win.paint()
   eq(win.gui.S.curve.info.key, "pitd", "the panel starts on the pitch")
   win.button("Dynamics")

@@ -32,9 +32,11 @@ local util = require("paw.util")
 local commands = require("paw.commands")
 local options = require("paw.options")
 local music = require("paw.music")
+local transform = require("paw.notes")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 local type objects = require("paw.objects")
 local type CursorModule = require("paw.cursor")
 local type AddressModule = require("paw.address")
@@ -54,7 +56,6 @@ local type Field = contracts.ExField
 local type Change = contracts.ExChange
 local type ExValue = contracts.ExValue
 local type ExView = contracts.ExView
-local type Region = contracts.Region
 local type Result = contracts.CommandResult
 local type PitchWord = music.PitchWord
 local type Yanked = EditModule.Yanked
@@ -126,26 +127,6 @@ local type FieldSpec = Field
 
 -- What this module reads of the modules that are still in Lua.
 
---- A place that a mark keeps (paw/keymap.lua): its row and column, or its beat.
-local type GridMark = contracts.GridMark
-
---- paw/keymap.lua, as far as this module calls it.
-local record Keymap
-  marks: function(view?: string): {string: GridMark}
-  last_selection: function(): Region
-  setreg: function(value: Yanked, name: string, yank: boolean)
-  set_mode: function(mode: string)
-  normal: function(keys: string)
-  push_jump: function()
-  with_selection: function(
-    region: Region,
-    fn: function(string, contracts.CommandArgs, Context): Result,
-    name: string,
-    args: contracts.CommandArgs,
-    ctx: Context
-  ): Result
-end
-
 --- What the piano roll's layers get (paw/views/pianoroll.lua): the ruler
 --- and the roll to draw in, the beat at a column and the row of a pitch,
 --- and the clips it shows, each by how many beats after the first it starts.
@@ -215,6 +196,7 @@ local record Cmdline
 end
 
 local record Paw is partial.Paw
+  keymap: KeymapModule
   ui: UiModule
   cursor: CursorModule
   address: AddressModule
@@ -233,8 +215,8 @@ end
 local paw = (_G as {string: Paw}).paw
 local opt = options.opt
 
-local function keymap(): Keymap
-  return paw.keymap as Keymap
+local function keymap(): KeymapModule
+  return paw.keymap
 end
 local function ui(): UiModule
   return paw.ui
@@ -356,8 +338,8 @@ local function view_clips(r?: Range): {integer}
   return a.clips and a.clips() or nil
 end
 
---- The tracks a range can name: those of the narrowed tab's group, in a
---- tab narrowed to one (`paw.scope`); `t1` is the first of them.
+--- The tracks a range can name: those of the scope of a narrowed window
+--- (`paw.scope`); `t1` is the first of them.
 local function scoped(): {integer}
   return paw.scope.tracks()
 end
@@ -798,8 +780,11 @@ local LEVEL: {Level: integer} = {track = 1, clip = 2, note = 3}
 
 local function scope_clips(r: Range): {types.Clip}
   local out: {types.Clip} = {}
+  -- A range of time asks the kernel only for the clips that meet it.
+  local from: number = r.from and r.from - EPS
+  local to: number = r.to
   local function add_track(id: integer)
-    for _, c in ipairs(api.clip_list(id)) do
+    for _, c in ipairs(api.clip_list(id, from, to)) do
       out[#out + 1] = c
     end
   end
@@ -833,6 +818,26 @@ end
 
 local function inside(r: Range, at: number): boolean
   return not r.from or (at >= r.from - EPS and at < r.to - EPS)
+end
+
+--- Whether clip `c` plays in the time of range `r`. A note that sounds
+--- starts inside its clip, so a clip outside the time has no note that
+--- starts in it: only a note that a trim of the clip hides.
+local function meets(r: Range, c: types.Clip): boolean
+  return not r.from or (c.start < r.to and c.start + c.length > r.from - EPS)
+end
+
+--- The notes of a MIDI clip that can start in the range `r`, and the place
+--- of each in the clip (nil: the places are the indices). The kernel gives
+--- only the notes that sound in the range, so a scope of a few bars does not
+--- read every note of the song. Each note that starts in the range sounds
+--- in it, so the caller keeps those with `inside`.
+local function notes_near(c: types.Clip, r: Range): {types.Note}, {integer}
+  if not r.from then
+    return api.clip_notes(c.id), nil
+  end
+  local range: types.NoteRange = {from = r.from - c.start - EPS, to = r.to - c.start}
+  return api.clip_notes(c.id, range)
 end
 
 local function by_place(a: Item, b: Item): boolean
@@ -874,14 +879,20 @@ function M.items(r: Range, kind: Level): {Item}
       if inside(r, c.start) then
         out[#out + 1] = {kind = "clip", track = c.track, clip = c, at = c.start, order = order[c.track]}
       end
-    elseif c.kind == "midi" then
-      local notes = api.clip_notes(c.id)
-      for place, n in ipairs(notes) do
+    elseif c.kind == "midi" and c.note_count > 0 and meets(r, c) then
+      local notes, places = notes_near(c, r)
+      for i, n in ipairs(notes) do
         local at = c.start + n.start
         local pitch_ok = not r.pitches or (n.pitch >= r.pitches[1] and n.pitch <= r.pitches[2])
         if pitch_ok and inside(r, at) then
           out[#out + 1] = {
-            kind = "note", track = c.track, clip = c, note = n, place = place, at = at, order = order[c.track]
+            kind = "note",
+            track = c.track,
+            clip = c,
+            note = n,
+            place = places and places[i] or i,
+            at = at,
+            order = order[c.track],
           }
         end
       end
@@ -1379,17 +1390,14 @@ function M.apply(changes?: {Changed}, remove?: {Item})
   for _, c in ipairs(changes or {}) do
     local item, ch = c.item, c.change
     if item.kind == "note" then
-      local n = item.note
+      -- Only the fields that change: the kernel keeps the others. They are
+      -- set one by one, so that the table holds only those (thousands of
+      -- notes are thousands of tables).
+      local set: objects.NoteChangeInput = {index = item.place}
+      set.start, set.length, set.pitch, set.velocity = ch.start, ch.length, ch.pitch, ch.velocity
+      set.meta, set.attr = ch.meta or item.note.meta, ch.attr
       local e = clip_edit(item)
-      e.set[#e.set + 1] = {
-        index = item.place,
-        start = ch.start or n.start,
-        length = ch.length or n.length,
-        pitch = ch.pitch or n.pitch,
-        velocity = ch.velocity or n.velocity,
-        meta = ch.meta or n.meta or {},
-        attr = ch.attr,
-      }
+      e.set[#e.set + 1] = set
     elseif item.kind == "clip" then
       api.clip_set(item.clip.id, {name = ch.name, start = ch.start, muted = ch.muted})
     else
@@ -1663,7 +1671,7 @@ local function copy_or_move(ctx: Context, move: boolean)
     if not n then
       fail("`%s`: tracks go below a track's number: `:t2 %s 5`, `0` for the top", text, name)
     end
-    -- In a narrowed tab N counts its tracks: below the Nth of them. The
+    -- In a narrowed window N counts its tracks: below the Nth of them. The
     -- place counts among the tracks of the song, or of the subproject.
     local nest = paw.scope.nest()
     local place = api.track_list({nest = nest and nest.id or nil})
@@ -2363,11 +2371,19 @@ ex(
     local items = notes_in(ctx)
     commands.about(plural(#items, "note"))
     local changes: {Changed} = {}
-    for i, item in ipairs(items) do
+    for _, item in ipairs(items) do
       -- On the song's grid, so that clips that start off it still line up.
-      -- A strength under 100 moves each note that part of the way.
-      local at = util.round(item.at, grid)
-      changes[i] = {item = item, change = {start = math.max(0, item.note.start + (at - item.at) * strength / 100)}}
+      -- A strength under 100 moves each note that part of the way. A note
+      -- on the grid already is not sent.
+      local moved = transform.quantize(
+        {item.note}, {grid = grid, strength = strength / 100, offset = item.at - item.note.start}
+      )
+      if moved[1].start ~= item.note.start then
+        changes[#changes + 1] = {item = item, change = {start = moved[1].start}}
+      end
+    end
+    if #changes == 0 then
+      return paw.notify(string.format("%s on the grid of %g beats already", plural(#items, "note"), grid))
     end
     M.apply(changes)
     paw.notify(
@@ -2549,7 +2565,7 @@ function M.exec(line: string, ctx?: Context): Result
     local function run(r: Range): Result
       local c = with(ctx, {range = r})
       if r.selection then
-        return keymap().with_selection(r.region, commands.run, name, parsed, c)
+        return keymap().with_selection(r.region, function(): Result return commands.run(name, parsed, c) end)
       end
       return commands.run(name, parsed, c)
     end
@@ -2562,7 +2578,7 @@ function M.exec(line: string, ctx?: Context): Result
   end
 
   if range.selection and not range.track_range then
-    return keymap().with_selection(range.region, commands.run, name, parsed, ctx)
+    return keymap().with_selection(range.region, function(): Result return commands.run(name, parsed, ctx) end)
   end
   if whole_tracks(range) then
     -- Any command at each track, the cursor on it, as `:g` runs one at each match.
