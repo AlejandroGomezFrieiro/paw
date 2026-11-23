@@ -18,7 +18,9 @@
 //! restart (`request_restart`), and `stub.activations` answers how many
 //! times this instance was activated. `stub.move` and `stub.tell` ask the
 //! host for a block (`request_process`), as a plugin that changes by
-//! itself does.
+//! itself does. It takes the render mode (`clap.render`), and
+//! `stub.render` answers the mode of its first block and the mode it has
+//! now, each `none` (never set), `realtime` or `offline`, or `no-block`.
 
 use std::ffi::{CStr, c_char, c_void};
 use std::sync::atomic::{AtomicU32, Ordering::Relaxed, Ordering::SeqCst};
@@ -31,6 +33,10 @@ use clap_sys::ext::params::{
     CLAP_EXT_PARAMS, CLAP_PARAM_IS_AUTOMATABLE, clap_param_info, clap_plugin_params,
 };
 
+use clap_sys::ext::render::{
+    CLAP_EXT_RENDER, CLAP_RENDER_OFFLINE, CLAP_RENDER_REALTIME, clap_plugin_render,
+    clap_plugin_render_mode,
+};
 use clap_sys::ext::state::{CLAP_EXT_STATE, clap_plugin_state};
 use clap_sys::stream::{clap_istream, clap_ostream};
 
@@ -69,12 +75,31 @@ static TELL: AtomicU32 = AtomicU32::new(u32::MAX);
 static QUIET: AtomicU32 = AtomicU32::new(0);
 /// The next block waits (1), a block waits now (2), or none waits (0).
 static HOLD: AtomicU32 = AtomicU32::new(0);
+/// A render mode that the host never set.
+const MODE_NONE: u32 = 2;
+/// The mode of the first block before the first block.
+const MODE_NO_BLOCK: u32 = 3;
+
 /// What each instance keeps of its own, in its `plugin_data`: the host
-/// that made it, to ask it for a block or a restart, and how many times it
-/// was activated.
+/// that made it, to ask it for a block or a restart, how many times it
+/// was activated, the render mode that the host set last, and the mode
+/// that its first block had. A mode is a `clap_plugin_render_mode`,
+/// [`MODE_NONE`] or [`MODE_NO_BLOCK`].
 struct Instance {
     host: *const clap_host,
     activations: AtomicU32,
+    mode: AtomicU32,
+    first_block_mode: AtomicU32,
+}
+
+/// The word that `stub.render` gives for a mode.
+fn mode_word(mode: u32) -> &'static str {
+    match mode {
+        MODE_NONE => "none",
+        MODE_NO_BLOCK => "no-block",
+        m if m == CLAP_RENDER_OFFLINE as u32 => "offline",
+        _ => "realtime",
+    }
 }
 
 /// The instance's own data.
@@ -209,6 +234,16 @@ unsafe extern "C" fn paw_call(
         unsafe { write.unwrap()(out, count.as_ptr(), count.len()) };
         return true;
     }
+    if method == c"stub.render" {
+        let instance = unsafe { instance(plugin) };
+        let modes = format!(
+            "{} {}",
+            mode_word(instance.first_block_mode.load(SeqCst)),
+            mode_word(instance.mode.load(SeqCst))
+        );
+        unsafe { write.unwrap()(out, modes.as_ptr(), modes.len()) };
+        return true;
+    }
     let value = std::str::from_utf8(data)
         .ok()
         .and_then(|t| t.trim().parse().ok());
@@ -268,6 +303,21 @@ static STATE_EXT: clap_plugin_state = clap_plugin_state {
     load: Some(state_load),
 };
 
+unsafe extern "C" fn render_hard_realtime(_: *const clap_plugin) -> bool {
+    false
+}
+unsafe extern "C" fn render_set(plugin: *const clap_plugin, mode: clap_plugin_render_mode) -> bool {
+    if mode != CLAP_RENDER_REALTIME && mode != CLAP_RENDER_OFFLINE {
+        return false;
+    }
+    unsafe { instance(plugin) }.mode.store(mode as u32, SeqCst);
+    true
+}
+static RENDER: clap_plugin_render = clap_plugin_render {
+    has_hard_realtime_requirement: Some(render_hard_realtime),
+    set: Some(render_set),
+};
+
 /// For tests: the words of the last note-on into `out`; how many came.
 ///
 /// # Safety
@@ -318,7 +368,18 @@ unsafe extern "C" fn start(_: *const clap_plugin) -> bool {
     true
 }
 
-unsafe extern "C" fn process(_: *const clap_plugin, p: *const clap_process) -> clap_process_status {
+unsafe extern "C" fn process(
+    plugin: *const clap_plugin,
+    p: *const clap_process,
+) -> clap_process_status {
+    // The first block keeps the render mode that it had.
+    let instance = unsafe { instance(plugin) };
+    let _ = instance.first_block_mode.compare_exchange(
+        MODE_NO_BLOCK,
+        instance.mode.load(SeqCst),
+        SeqCst,
+        SeqCst,
+    );
     unsafe {
         let p = &*p;
         let loaded = LOADED.swap(u32::MAX, Relaxed);
@@ -479,6 +540,8 @@ unsafe extern "C" fn get_extension(_: *const clap_plugin, id: *const c_char) -> 
         &STATE_EXT as *const _ as *const c_void
     } else if id == CLAP_EXT_PARAMS {
         &PARAMS as *const _ as *const c_void
+    } else if id == CLAP_EXT_RENDER {
+        &RENDER as *const _ as *const c_void
     } else if id == c"dev.paw.call/1" {
         &PAW_CALL as *const _ as *const c_void
     } else {
@@ -510,6 +573,8 @@ unsafe extern "C" fn create_plugin(
     let instance = Instance {
         host,
         activations: AtomicU32::new(0),
+        mode: AtomicU32::new(MODE_NONE),
+        first_block_mode: AtomicU32::new(MODE_NO_BLOCK),
     };
     Box::into_raw(Box::new(clap_plugin {
         desc: &DESC.0,
