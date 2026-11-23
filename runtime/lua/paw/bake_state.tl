@@ -15,7 +15,7 @@
 -- clips, devices and lanes. paw never hashes the notes here. Not in a key:
 -- a plugin's saved state (its parameters are), and the list of edits of an
 -- audio clip (their count is). This is the provenance that the media design
--- gives each kept bake (`input_key`, backlog/docs/designs/media.md 2.8),
+-- gives each kept bake (`input_key`, in the planned media design),
 -- made in Lua until the kernel has it.
 --
 -- With a `derived.Ctx`, `M.make` records what it reads: a node of

@@ -9,7 +9,7 @@ against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md).
 
 ## 2026-11-23: the first scope keys after the group tree change
 
-## 2026-11-23: the check of a frozen track after an edit (TASK-77.9)
+## 2026-11-23: the check of a frozen track after an edit
 
 A frozen track keeps the key of what its file was made from
 (`paw/bake_state.tl`). Two nodes of `paw.derived` make the key again
@@ -209,9 +209,9 @@ song after each edit, and the frame of the arrange view.
 
 ## 2026-11-23: the chord reading after :%quantize in Verse B
 
-## 2026-11-23: paw.derived finds the entries over a change by their spans (TASK-203)
+## 2026-11-23: paw.derived finds the entries over a change by their spans
 
-The same key and probe as TASK-200 below: `:%quantize 1/4` in Verse B of
+The same key and probe as the scope change below: `:%quantize 1/4` in Verse B of
 the scenario `scope`, with `u` after each key. One binary of main
 (d5127487) ran with the Lua of main ("before") and of this branch
 ("after"), in turns, under the measure lock. All values were measured
@@ -285,7 +285,7 @@ number of entries that it touches: about 2 950 entries go stale, and
 entries, for example the entries that read a track kept in the order of
 their spans, can make it smaller; the form of the walk does not.
 
-## 2026-11-23: the chord reading after :%quantize in Verse B (TASK-199)
+## 2026-11-23: the chord reading after :%quantize in Verse B
 
 The key `:%quantize 1/4` in the region Verse B of the scenario `scope`
 (64 tracks, 4 one-bar clips of each track in the region), with `u` after
