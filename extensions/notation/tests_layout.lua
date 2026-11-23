@@ -251,6 +251,7 @@ test("notation layout: a slur bends over the notes under it, clear of them", fun
 end)
 
 test("notation layout: systems break balanced: none stretched past the bound, no bar alone at the end", function()
+  load()
   local breaks = require("notation.breaks")
   local function pre() return 10 end
   -- Filled one at a time these make three bars and one; balanced, two and two.
