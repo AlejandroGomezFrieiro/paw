@@ -66,10 +66,13 @@ pub struct MidiInputs {
 }
 
 impl MidiInputs {
-    pub fn start(sink: MidiSink) -> Result<Self> {
+    /// Start the thread, open to the ports matching `select` from the first
+    /// moment, as [`select`](Self::select) takes it: `None` for every port,
+    /// and an empty list for none but those of our own.
+    pub fn start(sink: MidiSink, select: Option<Vec<String>>) -> Result<Self> {
         let ports = Arc::new(Mutex::new(Vec::new()));
         let (commands, rx) = channel();
-        let thread = imp::start(sink, ports.clone(), rx)?;
+        let thread = imp::start(sink, select, ports.clone(), rx)?;
         Ok(Self {
             ports,
             commands,
@@ -212,6 +215,7 @@ mod imp {
 
     pub fn start(
         sink: MidiSink,
+        select: Option<Vec<String>>,
         ports: Arc<Mutex<Vec<PortInfo>>>,
         rx: Receiver<Command>,
     ) -> Result<JoinHandle<()>> {
@@ -257,7 +261,7 @@ mod imp {
             me,
             sink,
             ports,
-            select: None,
+            select,
             open: Vec::new(),
             own: Vec::new(),
             held: Held::new(),
@@ -711,6 +715,7 @@ mod imp {
 
     pub fn start(
         _sink: MidiSink,
+        _select: Option<Vec<String>>,
         _ports: Arc<Mutex<Vec<PortInfo>>>,
         _rx: Receiver<Command>,
     ) -> Result<JoinHandle<()>> {

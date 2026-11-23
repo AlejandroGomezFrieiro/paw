@@ -1,12 +1,13 @@
 //! MIDI output: what an engine's tracks send is stamped with when it is
 //! heard, on their port and channel, and a track that stops ends its notes.
-//! With the `midi` feature, a route's messages leave through the sequencer
-//! to a port of our own MIDI input that the test listens to.
 //!
-//! No test here compares a time with the clock: when a stamped message
-//! leaves is the sequencer's work, and the unit test of `queue_time` in
-//! `src/midi_out.rs` checks what paw asks it for. How early or late the
-//! messages arrive is measured by `benches/midi_lateness.rs`.
+//! No test here opens the ALSA sequencer: it is shared by every process of
+//! the machine, and a test that listens there hears the notes of others.
+//! The unit tests in `src/midi_out.rs` check where a route's messages go
+//! and in which form, with a spy in place of the sequencer, and what paw
+//! asks the sequencer for (`queue_time`). The round trip through the
+//! sequencer is `tests/midi_out.lua` and `tests/midi2.lua`. How early or
+//! late the messages arrive is measured by `benches/midi_lateness.rs`.
 
 use paw_engine::midi::port_key;
 use paw_engine::midi_form::Form;
@@ -99,112 +100,4 @@ fn an_engine_stamps_what_a_track_plays_and_ends_it_when_stopped() {
     // Stopped: the held notes end, and the pedal and the wheel go back.
     let kinds: Vec<EventKind> = stopped.iter().map(|m| m.kind).collect();
     assert_eq!(kinds, RESET, "the notes ended when the track stopped");
-}
-
-/// Through the sequencer, to a port of our own MIDI input.
-#[cfg(feature = "midi")]
-mod sequencer {
-    use std::sync::mpsc::{Receiver, channel};
-    use std::sync::{Arc, Mutex};
-    use std::time::{Duration, Instant};
-
-    use paw_engine::NoteCtl;
-    use paw_engine::midi::{MidiInputs, MidiTarget};
-    use paw_engine::midi_out::{MidiOutputs, clock_ns};
-
-    use super::*;
-
-    /// The inputs with a port of ours, `name`, and what arrives there.
-    /// `None` where there is no sequencer, as on a build machine.
-    fn listen(name: &str) -> Option<(MidiInputs, Receiver<EventKind>)> {
-        let (tx, rx) = channel();
-        let sink = Arc::new(Mutex::new(MidiTarget {
-            engine: None,
-            tap: Some(Box::new(move |_, kind| {
-                let _ = tx.send(kind);
-            })),
-        }));
-        let inputs = MidiInputs::start(sink).ok()?;
-        inputs.open_port(name);
-        Some((inputs, rx))
-    }
-
-    /// The outputs, once they list the port of our inputs.
-    fn outputs(name: &str) -> Option<MidiOutputs> {
-        let outputs = MidiOutputs::start().ok()?;
-        let deadline = Instant::now() + Duration::from_secs(4);
-        while Instant::now() < deadline {
-            if outputs.ports().iter().any(|p| p.name == format!("paw: {name}")) {
-                return Some(outputs);
-            }
-            std::thread::sleep(Duration::from_millis(20));
-        }
-        panic!("the outputs never listed our port");
-    }
-
-    /// Messages as they arrive, until `count` of them or a while.
-    fn collect(rx: &Receiver<EventKind>, count: usize) -> Vec<EventKind> {
-        let mut got = Vec::new();
-        let deadline = Instant::now() + Duration::from_secs(5);
-        while got.len() < count {
-            let left = deadline.saturating_duration_since(Instant::now());
-            match rx.recv_timeout(left) {
-                Ok(message) => got.push(message),
-                Err(_) => break,
-            }
-        }
-        got
-    }
-
-    #[test]
-    fn a_route_in_mpe_gives_each_note_a_channel_and_its_bend_there() {
-        let Some((_inputs, rx)) = listen("Loop C") else {
-            eprintln!("skipped: no ALSA sequencer");
-            return;
-        };
-        let outputs = outputs("Loop C").unwrap();
-        let (mut tx, queue) = rtrb::RingBuffer::<MidiOut>::new(64);
-        outputs.set_queue(queue);
-        let port = port_key("paw: Loop C");
-        let at = clock_ns() + 50_000_000;
-        let form = Form::Mpe(3);
-        // A chord on one channel, and the middle note bent a semitone up.
-        for kind in [
-            EventKind::NoteOn { key: 60, vel: 0.8, ch: 0, attr: Attr::NONE },
-            EventKind::NoteOn { key: 64, vel: 0.8, ch: 0, attr: Attr::NONE },
-            EventKind::NoteOn { key: 67, vel: 0.8, ch: 0, attr: Attr::NONE },
-            EventKind::NoteControl { key: 64, ctl: NoteCtl::Bend, value: 1.0 / 48.0, ch: 0 },
-            EventKind::AllNotesOff,
-        ] {
-            tx.push(MidiOut { at, port, form, kind }).unwrap();
-        }
-        // The zone's announcement (24 control changes), three notes and a
-        // bend, then three note-offs, three All Notes Off and the bend put back.
-        let got = collect(&rx, 35);
-        let ons: Vec<(u8, u8)> = got
-            .iter()
-            .filter_map(|kind| match kind {
-                EventKind::NoteOn { key, ch, .. } => Some((*key, *ch)),
-                _ => None,
-            })
-            .collect();
-        assert_eq!(ons, [(60, 1), (64, 2), (67, 3)], "each note on a member channel of its own");
-        let bend = got.iter().find_map(|kind| match kind {
-            EventKind::Control { ctl: Ctl::Bend, value, ch: 2 } if *value != 0.0 => Some(*value),
-            _ => None,
-        });
-        let bend = bend.expect("the bent note's channel was bent");
-        assert!((bend * 48.0 - 1.0).abs() < 0.01, "a semitone of 48: {bend}");
-        // The zone was announced on the manager channel: registered parameter
-        // 6, three member channels.
-        assert!(
-            got.iter().any(|kind| matches!(
-                kind,
-                EventKind::Control { ctl: Ctl::Cc(6), ch: 0, value } if (*value - paw_engine::ump::unit7(3)).abs() < 1e-9
-            )),
-            "the MPE configuration message"
-        );
-        let offs = got.iter().filter(|kind| matches!(kind, EventKind::NoteOff { .. })).count();
-        assert_eq!(offs, 3, "all notes off ends each where it was sent");
-    }
 }

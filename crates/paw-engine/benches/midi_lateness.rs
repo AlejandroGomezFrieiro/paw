@@ -32,7 +32,8 @@ fn listen() -> (MidiInputs, Receiver<u64>) {
             }
         })),
     }));
-    let inputs = MidiInputs::start(sink).expect("the ALSA sequencer");
+    // No port but our own: the notes of other programs are not timed.
+    let inputs = MidiInputs::start(sink, Some(Vec::new())).expect("the ALSA sequencer");
     inputs.open_port(PORT);
     (inputs, rx)
 }

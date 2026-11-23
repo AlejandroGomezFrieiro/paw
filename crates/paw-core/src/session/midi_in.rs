@@ -121,11 +121,8 @@ impl Session {
         }
         self.connect_midi_out();
         if self.midi.inputs.is_none() {
-            match MidiInputs::start(self.midi.sink.clone()) {
+            match MidiInputs::start(self.midi.sink.clone(), self.midi.select.clone()) {
                 Ok(midi) => {
-                    if self.midi.select.is_some() {
-                        midi.select(self.midi.select.clone());
-                    }
                     for name in &self.midi.own {
                         midi.open_port(name);
                     }
