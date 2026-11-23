@@ -1,6 +1,6 @@
 # Subprojects
 
-<!-- tags: subproject subprojects nest :nest.new <Space>za nest_track :nest.list :nest.outputs :nest.promote <Space>zp :scope.write <Space>zw <Space>zW :nest.time :nest.meter :nest.unique -->
+<!-- tags: subproject subprojects nest :nest.new <Space>za nest_track :nest.list :nest.outputs :nest.promote <Space>zp :scope.write <Space>zw <Space>zW :nest.time :nest.meter :nest.unique kind= -->
 
 A subproject is a section of the song with tracks of its own and a
 timeline of its own. The song plays it from a row of its own, its return
@@ -46,7 +46,8 @@ entering a subproject and moving around in it, see
    message says how far it moved: `the rest of the song moved 8 beats
    earlier`.
 5. The window goes inside the subproject, with one empty track, and the
-   cursor on that track at its first bar.
+   cursor on that track at its first bar. A kind of subproject adds its
+   own tracks in place of the empty track.
 
 The message says what it did, for example `added the subproject Ballad
 over bars 33-40 in 6/8, on its own row; inside it now`. `u` takes the
@@ -67,6 +68,14 @@ Two more words change what `:nest.new` does with the time of the song:
 - `tempo=own` gives the subproject a tempo of its own from the start, at
   the tempo of the song where the block starts. The message ends with
   `its own tempo, 120 bpm`, with the tempo it took.
+- `kind=` makes a kind of subproject that an extension defines, for
+  example `:nest.new Groove 2 kind=drums.pattern`. The kind adds the
+  tracks and clips, and it can open a view of its own when the window goes
+  inside, such as a step grid. The message names the kind, for example
+  `added the subproject Groove (Drum pattern) over bars 3-4`. Without the
+  extension, the subproject is a plain one: it plays, and the arrange view
+  edits its tracks. See
+  [Kinds of subproject](extensions.md#kinds-of-subproject).
 
 | Option | Default | Effect |
 | --- | --- | --- |
@@ -149,13 +158,14 @@ tempo at the same place in the song.
 
 The arrange view draws each block of a subproject on its return row in a
 frame, with `⧉` and the name of the subproject, and under the name a small
-piano roll of the notes that the subproject plays there. The graphical
+piano roll of the notes that the subproject plays there. A kind of
+subproject puts its letter after `⧉`, for example `⧉D Groove`. The graphical
 window draws the same blocks.
 
 | Keys or command | Effect |
 | --- | --- |
 | `za` on a return row | Show the tracks of the subproject under the row, in the time of the song, or hide them again. On one of those tracks, `za` hides them and puts the cursor on the row. |
-| `K` on a block | Describe the subproject, for example `nest Ballad · 6/8 · 8 bars · follows the tempo · 2 tracks · 1 instance · live`. The count of instances is the number of places where the song plays the subproject. |
+| `K` on a block | Describe the subproject, for example `nest Ballad · 6/8 · 8 bars · follows the tempo · 2 tracks · 1 instance · live`. The count of instances is the number of places where the song plays the subproject. A kind of subproject adds its name and its own words after the name, for example `nest Groove (Drum pattern: 16 steps)`. |
 | `:nest.list` | Choose a subproject from a list of its blocks, with the subprojects that no block plays (`unused`), and go inside it. |
 | `:nest.outputs stems` | On the return row of a subproject, give the subproject a row for each of its tracks, named after the track, in a group under the return row. One undo step. |
 | `:nest.outputs master` | On the return row or a stem row, go back to one return row. One undo step. |

@@ -200,12 +200,13 @@ test("nest.enter and nest.leave come once for each enter and leave; nest.changed
   paw.cursor.set_beat(0)
   edit("x")
   edit("o")
+  edit(":track.remove<CR>")
   keys("zw")
   edit("o")
   keys("<C-o>")
   eq(
     table.concat(seen, ", "),
-    "nest.enter Ballad, nest.changed Ballad, nest.changed Ballad, nest.leave Ballad, nest.enter Ballad",
-    "znn, x and o inside, zw, o in the song, <C-o>"
+    "nest.enter Ballad, nest.changed Ballad, nest.changed Ballad, nest.changed Ballad, nest.leave Ballad, nest.enter Ballad",
+    "znn, x, o and :track.remove inside, zw, o in the song, <C-o>"
   )
 end)

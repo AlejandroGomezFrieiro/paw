@@ -156,7 +156,7 @@ function M.get(id: integer): types.Nest
   return nil
 end
 
--- Kinds of subproject, and its events -------------------------------------------------
+-- Kinds of subproject, and the events of subprojects -----------------------------------
 
 M.kinds = registry.new("nest_kinds", "kinds of subproject")
 M.entered = events.event("nest.enter")
@@ -306,7 +306,11 @@ events.on(
       events.emit(M.entered, {nest = now[i].id, win = e.win, clip = now[i].clip})
     end
     if #now > kept then
-      remember_tracks()
+      -- The edits inside come next: `nest.changed` finds the tracks that
+      -- they remove.
+      if events.listened(M.changed.name) then
+        remember_tracks()
+      end
       enter_kind(now[#now].id)
     end
   end
@@ -343,7 +347,8 @@ end
 
 -- `nest.changed` once for each subproject that an edit changed, in the
 -- order of its first change. Only while something listens to it: the work
--- reads each change's track.
+-- reads each change's track. This handler makes paw/hooks.tl send
+-- `edit.after` for each edit, which costs a few calls of the kernel.
 events.on(
   edit_after,
   function(e: EditDone)
