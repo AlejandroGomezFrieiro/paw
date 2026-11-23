@@ -12,11 +12,11 @@ Every event of paw is listed below, with the payload that its handler gets.
 | `paw.on("family.*", fn)` | listens to a family of events, for example `clip.*` |
 | `paw.on("*", fn)` | listens to all events |
 | `paw.emit(name, payload)` | sends an event of your own |
-| `paw.flush()` | delivers the change events now |
+| `paw.flush()` | sends the edits to the engine and delivers their change events now |
 
 ## When events arrive
 
-- Change events come from the kernel. paw delivers them when the current command or callback returns, or at `paw.flush()`, and the other events arrive when they occur.
+- Change events come from the kernel. paw delivers them at the end of the turn (see [The order of a turn](the-order-of-a-turn.md)), or at `paw.flush()`, and the other events arrive when they occur.
 - A command or a key press is one undo step. A handler can answer an edit with edits of its own, and those edits join the same undo step.
 - Events from undo, redo, the undo tree or `project.loaded` have `restored = true`, because that state already holds the answers of the handlers.
 - Some events ask a question, namely `edit.before`, `project.saving` and `key.pre`. A handler that returns `false, "why"` refuses the action, and `paw.emit` then returns `false, "why"` to the code that sent the event.

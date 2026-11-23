@@ -391,6 +391,7 @@ impl Io {
 
 /// Write all of `data` to something that does not block, waiting for room
 /// for at most `WRITE_TIMEOUT`.
+#[expect(clippy::disallowed_methods, reason = "a budget of wall time for a write to a peer that does not read")]
 fn write_all(to: &mut (impl Write + AsFd), data: &[u8], name: impl Fn() -> String) -> Result<()> {
     let deadline = Instant::now() + WRITE_TIMEOUT;
     let mut rest = data;
@@ -454,6 +455,7 @@ async fn reader(mut from: impl AsyncRead + Unpin, to: Arc<Mutex<Output>>, wake: 
 }
 
 impl Drop for Io {
+    #[expect(clippy::disallowed_methods, reason = "a budget of wall time for the helpers to finish at the end")]
     fn drop(&mut self) {
         let ids: Vec<u64> = self.listeners.keys().copied().collect();
         for id in ids {
@@ -482,6 +484,7 @@ impl Drop for Io {
 }
 
 #[cfg(test)]
+#[expect(clippy::disallowed_methods, reason = "a stall guard of the tests: the wall time that a process may take")]
 mod tests {
     use super::*;
     use std::sync::atomic::{AtomicUsize, Ordering};

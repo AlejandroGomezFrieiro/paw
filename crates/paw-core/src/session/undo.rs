@@ -19,13 +19,14 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use super::{FILE_VERSION, Session};
+use crate::clock::ScheduleTime;
 use crate::history::{self, History, StateId};
 use crate::model::{Clip, ClipContent, CustomContent, DeviceInst, Id, Lane, Note, Notes, Project, Target, Track};
 
@@ -55,7 +56,8 @@ pub(super) struct Sweep {
     pub mixed: bool,
 }
 
-/// Moves of one control closer together than this are one undo step.
+/// Moves of one control closer together than this, in schedule time, are
+/// one undo step.
 pub(super) const SWEEP_GAP: Duration = Duration::from_millis(1000);
 
 /// The undo tree and the step being made: what the project was at the last
@@ -73,8 +75,9 @@ pub(super) struct Undo {
     /// (a fader dragged, a knob turned on a controller) from other edits:
     /// its moves become one undo step, not one each.
     pub sweep: Sweep,
-    /// The control the last undo step moved, when it did nothing else.
-    pub last_sweep: Option<(String, Instant, StateId)>,
+    /// The control the last undo step moved, when it did nothing else, and
+    /// the schedule time of that step.
+    pub last_sweep: Option<(String, ScheduleTime, StateId)>,
     /// The next flush reports a state put back (undo, redo, a file opened)
     /// rather than an edit: its events carry `restored = true`.
     pub restoring: bool,

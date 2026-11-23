@@ -63,10 +63,8 @@ instead of starting replace mode.]],
   -- The tests' audio engine plays a test tone as its input, the way the suite
   -- tests recording.
   test = {
-    before = function()
-      api.engine_restart({ backend = "null", test_input = { frequency = 440, level = -12, channels = 2 } })
-    end,
-    after = function() api.engine_restart({ backend = "null" }) end,
+    before = function() api.engine_restart({ test_input = { frequency = 440, level = -12, channels = 2 } }) end,
+    after = function() api.engine_restart({}) end,
   },
   steps = {
     {

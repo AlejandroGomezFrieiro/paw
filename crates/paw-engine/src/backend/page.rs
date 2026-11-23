@@ -104,7 +104,6 @@ pub fn open(opts: &BackendOptions) -> Result<Opened> {
     Ok(Opened {
         info,
         test_input: None,
-        stepped: false,
         cpal: Some(devices),
     })
 }

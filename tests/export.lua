@@ -47,7 +47,7 @@ end
 test("a render to MP3, Ogg Vorbis and Opus has the length asked for and leaves nothing else", function()
   if missing() then return missing() end
   fresh()
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   T.tone("Synth", 4)
   paw.project.tempo = 120
   local dir = fresh_dir("formats")
@@ -76,7 +76,7 @@ end)
 test("quality and bitrate change the size of a lossy file", function()
   if missing() then return missing() end
   fresh()
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   T.tone("Synth", 8)
   local dir = fresh_dir("quality")
   local sizes = {}
@@ -99,7 +99,7 @@ end)
 test("a background render to MP3 reports the final file once", function()
   if missing() then return missing() end
   fresh()
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   T.tone("Synth", 4)
   local dir = fresh_dir("background")
   local events = {}
@@ -125,7 +125,7 @@ end)
 test("cancelling during the encode stops it and leaves nothing", function()
   if missing() then return missing() end
   fresh()
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   local dir = fresh_dir("cancel")
   -- A long file to play, made by ffmpeg, so that the encode takes a while.
   local src = dir .. "/src.wav"
@@ -171,7 +171,7 @@ end, { live = "it watches the render while it runs, and a settle waits for its e
 
 test("without ffmpeg a lossy format is refused before anything is rendered, and the formats say why", function()
   fresh()
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   T.tone("Synth", 2)
   local dir = fresh_dir("missing")
   local was = paw.opt.ffmpeg
@@ -207,7 +207,7 @@ end)
 test("stems and regions are rendered to a lossy format too", function()
   if missing() then return missing() end
   fresh()
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   T.tone("Lead", 4)
   paw.project.tempo = 120
   paw.markers.add(0, "Intro", { length = 2 })

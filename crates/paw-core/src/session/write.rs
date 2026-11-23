@@ -14,7 +14,9 @@
 //! - `write` holds everything the track's lanes move from where playback
 //!   began, moved or not.
 
-use std::time::{Duration, Instant};
+use std::time::Duration;
+
+use crate::clock::ScheduleTime;
 
 use anyhow::Result;
 use paw_engine::automation::value_at;
@@ -44,7 +46,7 @@ pub(super) struct Latch {
     /// and moves on with the playhead.
     moving: bool,
     /// When it was last moved, and whether something still holds it.
-    touched: Instant,
+    touched: ScheduleTime,
     held: bool,
     /// Let go by hand: it stops at the next turn, however lately it moved.
     let_go: bool,
@@ -90,7 +92,7 @@ impl Session {
         {
             Some(latch) => {
                 latch.value = value;
-                latch.touched = Instant::now();
+                latch.touched = self.now;
                 latch.let_go = false;
             }
             None => self.writing.latched.push(Latch {
@@ -100,7 +102,7 @@ impl Session {
                 before,
                 last: None,
                 moving: false,
-                touched: Instant::now(),
+                touched: self.now,
                 held: false,
                 let_go: false,
                 original: None,
@@ -127,8 +129,6 @@ impl Session {
             latch.held = on;
             if !on {
                 // Let go: as if its moment had passed.
-                let now = Instant::now();
-                latch.touched = now.checked_sub(TOUCH_RELEASE).unwrap_or(now);
                 latch.held = false;
                 latch.let_go = true;
             }
@@ -215,7 +215,7 @@ impl Session {
             }
             let let_go = mode == AutoMode::Touch
                 && !latch.held
-                && (latch.let_go || latch.touched.elapsed() >= TOUCH_RELEASE);
+                && (latch.let_go || self.now - latch.touched >= TOUCH_RELEASE);
             let written = if let_go {
                 self.release_latch(latch, now)
             } else {
@@ -337,5 +337,45 @@ impl Session {
         points.push((now, latch.value));
         points.push((back, to));
         self.lane_set_points(lane, points, false)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use paw_engine::Registry;
+    use paw_engine::backend::{BackendChoice, BackendOptions};
+    use serde_json::json;
+
+    use super::*;
+    use crate::session::TrackOpts;
+
+    /// A session on the null backend, playing, with one track in touch mode.
+    fn touching() -> (Session, Id) {
+        let backend = BackendOptions { backend: BackendChoice::Null, ..Default::default() };
+        let mut session = Session::new(&backend, Registry::with_builtins()).unwrap();
+        let track = session.doc.track_add(TrackOpts::default()).unwrap();
+        session.track_set(track, "automation", json!("touch")).unwrap();
+        session.play.playing = true;
+        (session, track)
+    }
+
+    #[test]
+    fn a_control_in_touch_mode_is_let_go_after_a_pause_on_the_schedule_clock() {
+        let (mut session, track) = touching();
+        let at = |ms| ScheduleTime::from_start(Duration::from_millis(ms));
+        session.set_now(at(0));
+        session.track_set(track, "volume", json!(-6.0)).unwrap();
+        session.write_automation();
+        assert_eq!(session.writing.latched.len(), 1, "a move holds the control");
+
+        session.set_now(at(400));
+        session.track_set(track, "volume", json!(-3.0)).unwrap();
+        session.set_now(at(400) + (TOUCH_RELEASE - Duration::from_millis(1)));
+        session.write_automation();
+        assert_eq!(session.writing.latched.len(), 1, "the pause counts from the last move");
+
+        session.set_now(at(400) + TOUCH_RELEASE);
+        session.write_automation();
+        assert!(session.writing.latched.is_empty(), "a pause of {TOUCH_RELEASE:?} lets it go");
     }
 }

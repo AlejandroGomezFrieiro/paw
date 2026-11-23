@@ -179,12 +179,16 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             sh.session.borrow_mut().set_quality(quality);
             Ok(())
         }
+        // Start the engine again with these options. With no `backend`, it
+        // keeps the one that runs: `null`, `step`, `test` or the sound system
+        // that opened.
         // @param opts? types.EngineOptions
         // @return nil
         fn engine_restart(lua, sh, opts => LuaValue) {
             let opts: EngineOpts = options(lua, opts)?;
+            let running = sh.session.borrow().backend().clone();
             let backend = BackendOptions {
-                backend: opts.backend.as_deref().map_or(BackendChoice::Auto, BackendChoice::from),
+                backend: opts.backend.as_deref().map_or(running, BackendChoice::from),
                 sample_rate: opts.sample_rate,
                 buffer_size: opts.buffer_size,
                 input: opts.input.unwrap_or(true),

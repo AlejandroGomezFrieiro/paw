@@ -11,7 +11,7 @@ local function start()
   if not paw.ext.loaded.launcher then paw.ext.load("extensions/launcher") end
   launcher = require("launcher")
   fresh()
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   paw.keymap.feed("<Esc><Esc>")
   while paw.ui.float do
     paw.ui.close()
@@ -259,7 +259,7 @@ end)
 
 test("launcher: recording into an empty slot keeps a bar from the boundary and plays it on in step", function()
   start()
-  api.engine_restart({ backend = "null", test_input = { frequency = 440, level = -12, channels = 2 } })
+  api.engine_restart({ test_input = { frequency = 440, level = -12, channels = 2 } })
   local ok, err = xpcall(function()
     local t = paw.add_track({ name = "Voice" })
     t.input = "1/2"
@@ -282,7 +282,7 @@ test("launcher: recording into an empty slot keeps a bar from the boundary and p
     api.undo()
     eq(launcher.clip(t.id, 2), nil, "undone")
   end, debug.traceback)
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   if not ok then error(err, 0) end
 end)
 

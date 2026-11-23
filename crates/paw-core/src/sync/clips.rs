@@ -630,7 +630,7 @@ fn clip_audio(
         }
         return;
     };
-    if let Some(data) = ctx.audio.stretched(&key, ctx.warnings) {
+    if let Some(data) = ctx.audio.stretched(&key, ctx.now, ctx.warnings) {
         audio_regions(clip, data, offset, gain, tempo, out);
     } else if !ctx.offline
         && ctx.audio.renders.status(&key) != crate::bake::scheduler::Status::Failed

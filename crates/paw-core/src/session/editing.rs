@@ -5,6 +5,16 @@ use super::*;
 
 impl Session {
     /// Send pending edits to the engine and queue their change events.
+    /// Step 4a of a turn, also `paw.api.flush`: write the automation being
+    /// held, push the edits to the engine, read files ahead of the
+    /// playhead, and take what the hashing of the media learned.
+    pub(crate) fn push_edits(&mut self) {
+        self.write_automation();
+        self.flush();
+        self.read_ahead();
+        self.poll_media();
+    }
+
     pub(crate) fn flush(&mut self) {
         self.engine.handle.collect_garbage();
         self.collect_take();
@@ -23,6 +33,7 @@ impl Session {
             warnings: &mut self.doc.warnings,
             offline: false,
             waker: self.engine.handle.waker(),
+            now: self.now,
         };
         let handle = &mut self.engine.handle;
         let mut send = |msg| handle.send(msg);
@@ -54,7 +65,7 @@ impl Session {
         if self.audition.trial.is_some() {
             return;
         }
-        if self.doc.checkpoint() {
+        if self.doc.checkpoint(self.now) {
             self.trim_audio_now_and_then();
         }
     }

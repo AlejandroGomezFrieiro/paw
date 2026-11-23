@@ -227,10 +227,15 @@ Rules:
   keep.
 - At a boundary with the outside (a process, a socket, a device, a
   clock), make a small trait with two adapters: the real one and a fake
-  that the test controls. Examples: the `Clock` trait
-  (`crates/paw-core/src/clock.rs`) with `WallClock` and `ManualClock`,
-  given to the bake scheduler with `set_clock`, the `test`, `null` and
-  `step` audio backends, the stub plugin `examples/stub_clap`.
+  that the test controls. Examples: the `test`, `null` and `step` audio
+  backends, the stub plugin `examples/stub_clap`.
+- Time is a value, not a fake. The kernel reads its `Clock`
+  (`crates/paw-core/src/clock.rs`, `Clock::Wall` or `Clock::Manual`) once
+  at the start of each turn, and gives the `ScheduleTime` to the code as
+  `now` (`Session::set_now`, `Scheduler::poll(.., now)`). A test gives
+  the times that it needs. Only a budget reads `Instant::now`: Clippy
+  refuses it in `paw-core` (`clippy.toml`) unless the place has
+  `#[expect(clippy::disallowed_methods, reason = "...")]`.
 - One adapter is a seam on paper. Add the trait only when the fake is
   the second adapter.
 - Prefer static dispatch (a generic parameter) in hot code, and
@@ -244,7 +249,7 @@ helper module:
 | Placeholder | Fills an argument that the path under test does not use | A unit struct with empty methods |
 | Stub | Gives a fixed answer | A field `answer` that the method returns |
 | Spy | Records the calls, for the assertions after the act | A `Vec` of the messages that it got |
-| Fake | Does the real work in a short way, in memory | `ManualClock`, the `test` audio backend, the stub plugin |
+| Fake | Does the real work in a short way, in memory | `Clock::manual()`, the `test` audio backend, the stub plugin |
 
 - Give the double through an argument or a constructor
   (`fn run(sink: &mut impl Sink)`, `Engine::with_clock(clock)`). Do
@@ -354,7 +359,8 @@ sealed::seal(&mut paw, dir.path()).args(["--clean", "--audio", "null"]);
 - A test does not sleep: no `std::thread::sleep`, no busy loop, no
   `recv_timeout` as the condition of a pass. Step the code: call
   `engine.process()`, call the `poll` of a scheduler with a time that
-  the test gives, or advance a `ManualClock` (`advance_to`).
+  the test gives (`ScheduleTime`), or give a `Kernel` the
+  `Clock::manual()`.
 - A test that starts paw gives `--clock manual` when it steps timers or
   settle delays. Then `paw.api.wait(ms)` moves the clock, `paw.api.step()`
   does one turn of the loop, and `paw.api.pending()` gives the work that is
@@ -374,8 +380,8 @@ sealed::seal(&mut paw, dir.path()).args(["--clean", "--audio", "null"]);
   time is the stall guard of nextest (`slow-timeout` in
   `.config/nextest.toml`).
 - A test of `async` code (`#[tokio::test]`) has the same rules. The code takes
-  paw's `Clock`, not `tokio::time` directly, so the test
-  advances a `ManualClock` and does not sleep.
+  a `ScheduleTime` from paw's `Clock`, not `tokio::time` directly, so the
+  test gives the time and does not sleep.
 
 ## 12. Errors
 

@@ -1,13 +1,11 @@
-//! The session on the schedule clock: the clock that its settle delays
-//! and the watch of the devices wait on, the blocks of the stepped audio
-//! backend, which keep step with it, and the work that it has in flight or
-//! waiting for that clock (`paw.api.pending`).
-
-use std::sync::Arc;
-use std::time::Duration;
+//! The session on the schedule clock: the time of the turn that runs,
+//! which its debounce delays and the watch of the devices wait on, the
+//! blocks of the stepped audio backend, which keep step with it, and the
+//! work that it has in flight or waiting for that clock
+//! (`paw.api.pending`).
 
 use super::Session;
-use crate::clock::{Clock, WallClock};
+use crate::clock::ScheduleTime;
 use crate::stretched::SETTLE;
 
 /// The work of the session that is not done yet. A test waits until no
@@ -29,44 +27,30 @@ pub(crate) struct Work {
     /// Files changed outside paw that wait for their settle.
     pub files: usize,
     /// The first time on the schedule clock when waiting work is due.
-    pub next_due: Option<Duration>,
+    pub next_due: Option<ScheduleTime>,
 }
 
 /// The stepped audio backend on the schedule clock.
+#[derive(Default)]
 pub(super) struct Steps {
-    /// The schedule clock (`Session::set_clock`).
-    clock: Arc<dyn Clock>,
-    /// The time on `clock` when the engine started: its blocks count from
+    /// The schedule time when the engine started: its blocks count from
     /// it. Set at each start of the engine.
-    since: Duration,
-}
-
-impl Default for Steps {
-    fn default() -> Self {
-        Self { clock: Arc::new(WallClock::new()), since: Duration::ZERO }
-    }
+    since: ScheduleTime,
 }
 
 impl Session {
-    /// Wait the settle delays on `clock` from now on: the bakes, the file
-    /// watch, the check of missing files and the watch of the devices.
-    /// The blocks of the stepped audio
-    /// backend keep step with it. The kernel gives its clock once, before
-    /// any work.
-    pub(crate) fn set_clock(&mut self, clock: &Arc<dyn Clock>) {
-        self.audio.renders.set_clock(clock.clone());
-        self.files_watch.clock = clock.clone();
-        self.watch.clock = clock.clone();
-        self.files_there.clock = clock.clone();
-        self.steps.since = clock.now();
-        self.steps.clock = clock.clone();
+    /// The schedule time of the turn that runs. The kernel sets it at the
+    /// start of each turn, before any work of the turn: each "when" of the
+    /// session reads it, and the session reads no clock.
+    pub(crate) fn set_now(&mut self, now: ScheduleTime) {
+        self.now = now;
     }
 
     /// Run the blocks of the stepped audio backend up to the time of the
-    /// schedule clock: the audio and the clock are one time. Gives the
-    /// blocks run. An engine on another backend runs on its own.
+    /// turn: the audio and the clock are one time. Gives the blocks run.
+    /// An engine on another backend runs on its own.
     pub(super) fn run_stepped_audio(&mut self) -> u64 {
-        let at = self.steps.clock.now().saturating_sub(self.steps.since);
+        let at = self.now - self.steps.since;
         self.engine.stream.run_to(at)
     }
 
@@ -79,13 +63,13 @@ impl Session {
     /// The time on the schedule clock at which `blocks` more blocks of the
     /// stepped audio backend have ended, or None when the engine runs on
     /// its own.
-    pub(crate) fn stepped_end_of(&self, blocks: u64) -> Option<Duration> {
+    pub(crate) fn stepped_end_of(&self, blocks: u64) -> Option<ScheduleTime> {
         self.engine.stream.end_of(blocks).map(|end| self.steps.since + end)
     }
 
-    /// The engine restarted: its blocks count from now.
+    /// The engine restarted: its blocks count from the time of the turn.
     pub(super) fn steps_restart(&mut self) {
-        self.steps.since = self.steps.clock.now();
+        self.steps.since = self.now;
     }
 
     /// The work in flight or waiting for the schedule clock.

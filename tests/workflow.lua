@@ -10,7 +10,7 @@ local until_, until_beat, next_block = T.until_, T.until_beat, T.next_block
 
 local function start()
   fresh()
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   paw.keymap.feed("<Esc><Esc>")
   while paw.ui.float do
     paw.ui.close()
@@ -19,9 +19,9 @@ local function start()
 end
 
 local function with_input(fn)
-  api.engine_restart({ backend = "null", test_input = { frequency = 440, level = -12, channels = 2 } })
+  api.engine_restart({ test_input = { frequency = 440, level = -12, channels = 2 } })
   local ok, err = xpcall(fn, debug.traceback)
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   if not ok then error(err, 0) end
 end
 
@@ -773,7 +773,7 @@ end)
 
 test("a track's automation mode says what moving a control writes", function()
   fresh()
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   local t = T.tone("tone", 64)
   eq(t.automation, "read", "tracks read to begin with")
   fails(function() t.automation = "sideways" end, "automation", "a mode that is not one")
@@ -875,7 +875,7 @@ end, { live = "a control in touch mode is let go 600 ms of real time after its l
 
 test("a long file is played from the disk, sample for sample as from memory", function()
   fresh()
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   -- Twelve seconds of a tone: more than a megabyte decoded.
   T.tone("source", 24)
   paw.project.tempo = 120
@@ -917,13 +917,13 @@ test("a long file is played from the disk, sample for sample as from memory", fu
   song()
   eq(api.media_list()[1].on_disk, true, "and is found there again")
   -- At another rate than the engine's, the converted sound is kept the same way.
-  api.engine_restart({ backend = "null", sample_rate = 44100 })
+  api.engine_restart({ sample_rate = 44100 })
   local _, other = song()
   eq(api.media_list()[1].on_disk, true, "still from the disk at another rate")
   local c = render({ tail = 0, bits = 16 })
   near(c.peak, a.peak, 0.01, "and as loud")
   near(other.length, length, 0.01, "and as long")
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   api.media_store(was)
 end)
 
@@ -974,7 +974,7 @@ end)
 
 test("the window's render dialog renders a region, and leaving saves first when asked", function()
   fresh()
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   T.tone("tone", 16)
   paw.project.tempo = 120
   local region = paw.markers.add(4, "Hook", { length = 4 })

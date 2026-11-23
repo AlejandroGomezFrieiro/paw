@@ -16,7 +16,7 @@ local SCREEN = { rows = { 1, 28 }, styles = false }
 --- 8 bars each; a clip of 24 bars on each track. Seven tracks.
 local function song()
   T.start()
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   paw.opt.zoom, paw.opt.grid = 1, 4
   local tracks = {}
   for i, name in ipairs({ "Kick", "Snare", "Piano", "Pad", "Bass" }) do

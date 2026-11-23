@@ -281,7 +281,7 @@ end)
 
 test("the record button arms the selected track, and stopping ends record mode", function()
   local _, b = song()
-  api.engine_restart({ backend = "null", test_input = { frequency = 440, level = -12, channels = 2 } })
+  api.engine_restart({ test_input = { frequency = 440, level = -12, channels = 2 } })
   act.select(b.id, 0)
   b.input = "1"
   act.record()
@@ -299,7 +299,7 @@ test("the record button arms the selected track, and stopping ends record mode",
   T.stop()
   eq(paw.transport.recording, false, "stopping any take ends record mode")
   paw.flush()
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
 end)
 
 test("a view paints in pixels for a graphical frontend, and gets the pointer", function()
@@ -425,12 +425,11 @@ end)
 
 local function with_test_input(fn)
   api.engine_restart({
-    backend = "null",
     test_input = { frequency = 440, level = -12, channels = 2 },
     test_midi = { "Keys A" },
   })
   local ok, err = xpcall(fn, debug.traceback)
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   if not ok then error(err, 0) end
 end
 

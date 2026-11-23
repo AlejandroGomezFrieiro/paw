@@ -170,18 +170,19 @@ case "$1" in
       export CLAP_PATH=$(echo $PAW_TEST_PLUGINS | sed "s#:#/clap:#g")/clap
       export LV2_PATH=$(echo $PAW_TEST_PLUGINS | sed "s#:#/lv2:#g")/lv2
       export VST3_PATH=$(echo $PAW_TEST_PLUGINS | sed "s#:#/vst3:#g")/vst3
-      "$0" --clean --clock manual -l tests/suite.lua ${1+"$1"}
+      "$0" --clean --clock manual --audio step -l tests/suite.lua ${1+"$1"}
       manual=$?
       PAW_TEST_LIVE=1 "$0" --clean -l tests/suite.lua ${1+"$1"}
       live=$?
       [ "$manual" -eq 0 ] && [ "$live" -eq 0 ]' "$BIN/paw" ${2:+"$2"} > "$out" 2>&1 ;;
   *)
-    # The tests run on the manual clock (`T.advance` moves it). Then the
+    # The tests run on the manual clock (`T.advance` moves it) and the
+    # stepped audio backend (the engine plays as the clock moves). Then the
     # live tests, which need real time, run in a second paw on the wall
     # clock (`opts.live` in tests/suite.lua).
     words=""
     [ "$1" = only ] && words=$2
-    "$BIN/paw" --clean --no-plugins --clock manual -l tests/suite.lua ${words:+"$words"} > "$out" 2>&1
+    "$BIN/paw" --clean --no-plugins --clock manual --audio step -l tests/suite.lua ${words:+"$words"} > "$out" 2>&1
     manual=$?
     PAW_TEST_LIVE=1 "$BIN/paw" --clean --no-plugins -l tests/suite.lua ${words:+"$words"} >> "$out" 2>&1
     live=$?

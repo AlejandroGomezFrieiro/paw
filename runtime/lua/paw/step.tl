@@ -508,7 +508,8 @@ function M.input(track: integer): Listen, string
   local listen: Listen = {track = track, port = midi and midi.port, channel = midi and midi.channel}
   local ports = api.midi_inputs()
   if #ports == 0 then
-    if api.engine_get().backend == "null" then
+    local backend = api.engine_get().backend
+    if backend == "null" or backend == "step" then
       return nil, "no MIDI port is open: the engine runs without an audio device"
     end
     return nil, "no MIDI port is connected"

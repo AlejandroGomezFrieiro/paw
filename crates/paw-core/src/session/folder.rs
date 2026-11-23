@@ -1953,6 +1953,7 @@ impl super::Session {
 }
 
 #[cfg(test)]
+#[expect(clippy::disallowed_methods, reason = "a measure of work in a test that prints times and asserts none")]
 mod tests {
     use super::*;
     use crate::model::{Clip, ClipContent, Note, Project, Track};

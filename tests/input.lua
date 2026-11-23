@@ -9,9 +9,9 @@ local api = paw.api
 -- given frequency.
 
 local function with_input(fn)
-  api.engine_restart({ backend = "null", test_input = { frequency = 440, level = -12, channels = 2 } })
+  api.engine_restart({ test_input = { frequency = 440, level = -12, channels = 2 } })
   local ok, err = xpcall(fn, debug.traceback)
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   if not ok then error(err, 0) end
 end
 

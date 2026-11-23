@@ -3,68 +3,37 @@
 //!
 //! Almost everything a user sees is Lua. The kernel only calls a handful of
 //! entry points in `paw._kernel` (`key`, `mouse`, `settle`, `render`, `rpc`, …)
-//! and exposes `paw.api` for Lua to call back into.
+//! and exposes `paw.api` for Lua to call back into. One turn of its loop
+//! is [`reactor::Reactor::turn`].
+
+mod reactor;
+#[cfg(test)]
+mod turn_tests;
+
+pub(crate) use reactor::{Desk, Reactor};
 
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, channel};
+use std::sync::mpsc::{Sender, channel};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, anyhow};
 use paw_engine::backend::BackendOptions;
 use paw_engine::Registry;
 use include_dir::{Dir, include_dir};
-use mlua::{FromLuaMulti, Function, IntoLuaMulti, Lua, LuaSerdeExt, Table, Value as LuaValue};
+use mlua::{Function, Lua, Table, Value as LuaValue};
 use serde_json::Value;
 
 use crate::api::{self, Env, Shared};
-use crate::clock::Clock;
-use crate::grid::{Caps, Color, Grid, Highlights, Style};
-use crate::remote::{self, RemoteFrontend};
+use crate::clock::{Agenda, Clock, ScheduleTime};
+use crate::grid::{Caps, Grid, Highlights};
 use crate::rpc::{ClientId, Clients};
 use crate::session::Session;
 use crate::startuptime;
 use crate::watchdog::Watchdog;
-
-/// How often plugins get their turn on the main thread. Their editors are
-/// drawn from here, so this is also their frame rate.
-const IDLE_PERIOD: Duration = Duration::from_millis(16);
-
-/// The next message, if one comes within `wait`.
-#[cfg(not(target_vendor = "browserpod"))]
-fn recv_timeout<T>(rx: &Receiver<T>, wait: Duration) -> Result<T, RecvTimeoutError> {
-    rx.recv_timeout(wait)
-}
-
-/// The next message, if one comes within `wait`. In a BrowserPod pod a
-/// wait with a timeout does not end at its time, only when a message comes,
-/// so the timers would fire only after a key. A short sleep does end: the
-/// loop asks the channel again after each one.
-#[cfg(target_vendor = "browserpod")]
-fn recv_timeout<T>(rx: &Receiver<T>, wait: Duration) -> Result<T, RecvTimeoutError> {
-    use std::sync::mpsc::TryRecvError;
-    const STEP: Duration = Duration::from_millis(5);
-    let end = Instant::now() + wait;
-    loop {
-        match rx.try_recv() {
-            Ok(msg) => return Ok(msg),
-            Err(TryRecvError::Disconnected) => return Err(RecvTimeoutError::Disconnected),
-            Err(TryRecvError::Empty) => {}
-        }
-        let left = end.saturating_duration_since(Instant::now());
-        if left.is_zero() {
-            return Err(RecvTimeoutError::Timeout);
-        }
-        std::thread::sleep(left.min(STEP));
-    }
-}
-
-/// The request that first ends the turn of the terminal keys before it
-/// (`frontend.sync`).
-const SYNC_METHOD: &str = "frontend.sync";
 
 static RUNTIME: Dir = include_dir!("$CARGO_MANIFEST_DIR/../../runtime/lua");
 
@@ -154,32 +123,13 @@ pub struct KernelOpts {
     pub scripted: bool,
     pub argv: Vec<String>,
     /// The schedule clock of the process (`paw --clock`).
-    pub clock: Arc<dyn Clock>,
+    pub clock: Clock,
 }
 
 pub struct Kernel {
     shared: Rc<Shared>,
     lua: Lua,
     tx: Sender<KernelMsg>,
-    rx: Receiver<KernelMsg>,
-    /// Everything showing the grid: the program's own terminal (as
-    /// connection 0) and the terminals attached over connections, each
-    /// drawn from its own seat at its own size.
-    frontends: Vec<(ClientId, Box<dyn Frontend>)>,
-    /// Files being sent over connections (`file.*`).
-    uploads: crate::upload::Uploads,
-    /// What is played, sent to connections that listen (`monitor.*`).
-    monitor: crate::monitor::Monitor,
-    /// The frame each terminal was shown last, by connection (0 for the
-    /// program's own), for drawing only its live parts again.
-    kept: HashMap<ClientId, Kept>,
-}
-
-/// A terminal's last frame and where its cursor was.
-#[derive(Default)]
-struct Kept {
-    grid: Grid,
-    cursor: Option<(u16, u16)>,
 }
 
 impl Drop for Kernel {
@@ -201,8 +151,9 @@ impl Kernel {
         session.set_bakes(Some(crate::bake::Store::user(&opts.dirs)));
         session.sources.keep_index_in(crate::media::index::LocalIndex::default_file(&opts.dirs));
         session.dirs = opts.dirs;
-        session.set_clock(&opts.clock);
+        session.set_now(opts.clock.now());
         let (tx, rx) = channel();
+        let clients = Clients::default();
         // MIDI input goes straight to the engine; scripts hear of it here.
         // It waits in a queue of its own, which a script that waits empties
         // too (`paw.wait`): the message only wakes the loop.
@@ -213,6 +164,7 @@ impl Kernel {
             heard.lock().unwrap().push_back((port, kind));
             let _ = midi_tx.send(KernelMsg::Midi);
         }));
+        #[expect(clippy::disallowed_methods, reason = "paw.api.real_ms and the time limit of Lua measure work from the start")]
         let started = Instant::now();
         let shared = Rc::new(Shared {
             session: RefCell::new(session),
@@ -239,7 +191,11 @@ impl Kernel {
             io: RefCell::new(Default::default()),
             started,
             clock: opts.clock,
-            clients: Clients::default(),
+            rx,
+            inbox: RefCell::new(VecDeque::new()),
+            turning: Cell::new(false),
+            desk: RefCell::new(reactor::Desk::new(clients.clone())),
+            clients,
             midi_in,
             input_from: Cell::new(0),
             detach: RefCell::new(Vec::new()),
@@ -259,17 +215,7 @@ impl Kernel {
         shared.io.borrow_mut().on_output(Arc::new(move || {
             let _ = output_tx.lock().unwrap().send(KernelMsg::Output);
         }));
-        let monitor = crate::monitor::Monitor::new(shared.clients.clone());
-        Ok(Self {
-            shared,
-            lua: Lua::new(),
-            tx,
-            rx,
-            frontends: Vec::new(),
-            uploads: Default::default(),
-            monitor,
-            kept: HashMap::new(),
-        })
+        Ok(Self { shared, lua: Lua::new(), tx })
     }
 
     /// A handle for other threads to send input and RPC calls to the kernel.
@@ -282,7 +228,7 @@ impl Kernel {
         self.shared.grid.borrow_mut().resize(width, height);
         self.shared.sizes.borrow_mut().insert(0, (width, height));
         self.shared.attached.set(true);
-        self.frontends.push((0, frontend));
+        self.shared.desk.borrow_mut().frontends.push((0, frontend));
     }
 
     /// Say what the program's own terminal can show besides cells.
@@ -290,128 +236,10 @@ impl Kernel {
         self.shared.caps.borrow_mut().insert(0, caps);
     }
 
-    /// Make it `client`'s turn: what happens next happens in its seat (the
-    /// instance's when it has none of its own).
-    fn enter(&self, client: ClientId) {
-        self.shared.seat.set(client);
-        if let Err(err) = self.call::<()>("seat", client) {
-            self.report("seat", err);
-        }
-    }
-
-    /// A terminal's keys, pointer and size, in its own seat.
-    fn input(&mut self, client: ClientId, event: InputEvent) {
-        self.enter(client);
-        // A key asks for its own frame (`K.key` in paw/init.lua): the whole
-        // screen, or only the lines when it only waits for the next key.
-        let key = matches!(event, InputEvent::Key(_));
-        let result = match event {
-            InputEvent::Key(key) => self.call::<()>("key", key),
-            InputEvent::Paste(text) => self.call::<()>("paste", text),
-            InputEvent::Mouse {
-                kind,
-                button,
-                x,
-                y,
-                mods,
-                pixel,
-            } => (|| {
-                let event = self.lua.create_table()?;
-                event.set("kind", kind)?;
-                event.set("button", button)?;
-                event.set("x", x)?;
-                event.set("y", y)?;
-                event.set("mods", mods)?;
-                if let Some((px, py)) = pixel {
-                    event.set("px", px)?;
-                    event.set("py", py)?;
-                }
-                self.call::<()>("mouse", event)
-            })(),
-            InputEvent::Resize(width, height) => {
-                self.shared.sizes.borrow_mut().insert(client, (width, height));
-                self.shared.grid.borrow_mut().resize(width, height);
-                self.call::<()>("resize", (width, height))
-            }
-            InputEvent::CellSize(width, height) => {
-                if let Some(caps) = self.shared.caps.borrow_mut().get_mut(&client) {
-                    caps.cell = (width, height);
-                }
-                Ok(())
-            }
-            InputEvent::Focus(on) => self.call::<()>("focus", on),
-        };
-        // A key whose Lua failed asked for nothing: the whole screen then.
-        if !key || result.is_err() {
-            self.shared.dirty.set(true);
-        }
-        if let Err(err) = result {
-            self.report("input", err);
-        }
-    }
-
     /// The connections open on the control socket, to serve them with and
     /// to push events to.
     pub fn clients(&self) -> Clients {
         self.shared.clients.clone()
-    }
-
-    /// The calls that are the kernel's own business rather than Lua's: a
-    /// connection becoming a terminal, typing into it, and leaving.
-    fn remote_ui(&mut self, client: ClientId, method: &str, params: &Value) -> Result<Value> {
-        match method {
-            "ui.attach" => {
-                let size = |v: &Value, default| v.as_u64().map_or(default, |n| n.clamp(1, 1000) as u16);
-                let (width, height) = (size(&params[0], 80), size(&params[1], 24));
-                self.frontends.retain(|(id, _)| *id != client);
-                let frontend = RemoteFrontend::new(client, self.shared.clients.clone());
-                // What its terminal can show: without a word, cells only.
-                self.shared.caps.borrow_mut().insert(client, Caps::from_json(&params[2]));
-                self.frontends.push((client, Box::new(frontend)));
-                self.shared.attached.set(true);
-                // A seat of its own: its own cursor, mode and selection.
-                if let Err(err) = self.call::<()>("seat_open", (client, "terminal")) {
-                    self.report("seat_open", err);
-                }
-                self.input(client, InputEvent::Resize(width, height));
-                Ok(Value::Bool(true))
-            }
-            "ui.input" => {
-                if !self.frontends.iter().any(|(id, _)| *id == client) {
-                    bail!("`ui.attach` first");
-                }
-                let event = remote::input_of(&params[0]).context("not an input event")?;
-                // Lua may ask which terminal a key came from (`:detach`).
-                self.shared.input_from.set(client);
-                self.input(client, event);
-                self.shared.input_from.set(0);
-                Ok(Value::Null)
-            }
-            "ui.detach" => {
-                self.detach(client);
-                Ok(Value::Bool(true))
-            }
-            _ => bail!("no method `{method}`"),
-        }
-    }
-
-    /// Stop showing the screen to a connection.
-    fn detach(&mut self, client: ClientId) {
-        let before = self.frontends.len();
-        self.frontends.retain(|(id, _)| *id != client);
-        self.kept.remove(&client);
-        if self.frontends.len() != before {
-            self.shared.clients.push(client, "ui.detached", &Value::Null);
-            self.shared.sizes.borrow_mut().remove(&client);
-            self.shared.caps.borrow_mut().remove(&client);
-            self.enter(0);
-            if let Err(err) = self.call::<()>("seat_close", (client, "terminal")) {
-                self.report("seat_close", err);
-            }
-        }
-        if self.frontends.is_empty() {
-            self.shared.attached.set(false);
-        }
     }
 
     /// Start a fresh Lua state and run the runtime, the user's configuration
@@ -456,15 +284,16 @@ impl Kernel {
             .set_name("=boot")
             .exec()
             .map_err(lua_error)?;
-        self.call::<()>("startup", ()).map_err(lua_error)?;
+        self.reactor().call::<()>("startup", ()).map_err(lua_error)?;
         startuptime::event("startup: views, extensions, configuration");
         // A reload keeps the terminals attached, each in a seat of its own.
-        for (client, _) in &self.frontends {
-            if *client != 0 {
-                self.call::<()>("seat_open", (*client, "terminal")).map_err(lua_error)?;
+        let clients: Vec<ClientId> = self.shared.desk.borrow().frontends.iter().map(|(id, _)| *id).collect();
+        for client in clients {
+            if client != 0 {
+                self.reactor().call::<()>("seat_open", (client, "terminal")).map_err(lua_error)?;
             }
         }
-        self.settle();
+        self.close_turn();
         self.shared.dirty.set(true);
         startuptime::event("runtime ready");
         // Loading the runtime frees many megabytes that the C library keeps
@@ -475,21 +304,6 @@ impl Kernel {
             libc::malloc_trim(0);
         }
         Ok(())
-    }
-
-    /// Call one of the entry points the Lua runtime registers in `paw._kernel`.
-    fn call<R: FromLuaMulti>(&self, name: &str, args: impl IntoLuaMulti) -> mlua::Result<R> {
-        let paw: Table = self.lua.globals().get("paw")?;
-        let kernel: Table = paw.get("_kernel")?;
-        kernel.get::<Function>(name)?.call(args)
-    }
-
-    fn report(&self, what: &str, err: mlua::Error) {
-        let line = format!("{what}: {err}");
-        if !self.shared.attached.get() {
-            eprintln!("{line}");
-        }
-        self.shared.log(line);
     }
 
     /// paw's schema of the chain language, as JSON: each kind of device
@@ -515,241 +329,51 @@ impl Kernel {
             self.lua.globals().set("arg", arg)
         };
         set_arg().map_err(lua_error)?;
+        self.reactor().begin(self.shared.clock.now());
         let result = self
             .lua
             .load(code)
             .set_name(name)
             .call::<()>(mlua::Variadic::from_iter(args));
-        self.settle();
+        self.close_turn();
         result.map_err(lua_error)
     }
 
-    /// Finish a turn: push edits to the engine, deliver the events they
-    /// caused, and close the undo step.
-    fn settle(&mut self) {
-        if let Err(err) = self.call::<()>("settle", ()) {
-            self.report("settle", err);
-        }
-        self.shared.session.borrow_mut().checkpoint();
+    /// The kernel's state and Lua state, for one piece of work.
+    fn reactor(&self) -> Reactor<'_> {
+        Reactor::new(&self.shared, &self.lua)
     }
 
-    /// A request of a connection to the Lua runtime (`eval`, `cmd`, the
-    /// methods of paw/remote.tl), in the seat of `client`. It is one action,
-    /// so it is a turn of its own: the turn closes before the answer goes.
-    fn request(&mut self, client: ClientId, method: String, params: &Value) -> Result<Value> {
-        // The barrier of a frontend (paw/remote.tl): the terminal keys taken
-        // before it in this turn end their turn first. Their events go out,
-        // their undo step closes, and what they changed is pushed before the
-        // answer.
-        if method == SYNC_METHOD {
-            self.settle();
-        }
-        self.enter(client);
-        // A command run over a connection may answer it (`:upload`, `:listen`).
-        self.shared.input_from.set(client);
-        let result = (|| {
-            let params = api::to_lua(&self.lua, params)?;
-            let value: LuaValue = self.call("rpc", (method, params, client))?;
-            self.lua.from_value::<Value>(value)
-        })()
-        .map_err(|err| anyhow!(told(&err)));
-        self.shared.input_from.set(0);
-        // The end of the turn, in the instance's seat as at the end of each
-        // turn of `run`. A client that sends its next request at once gets
-        // it in the same batch of messages, so without this its requests
-        // shared one turn: one undo step, and no events until it paused.
-        // The events are queued before the answer, so the client reads them
-        // first.
-        self.enter(0);
-        self.settle();
-        result
+    /// One turn of the loop at `now` ([`Reactor::turn`]): the one turn that
+    /// `run`, `paw.api.step` and `paw.api.wait` take.
+    pub fn turn(&mut self, now: ScheduleTime) -> Agenda {
+        self.reactor().turn(now)
     }
 
-    fn handle(&mut self, msg: KernelMsg) {
-        match msg {
-            KernelMsg::Input(event) => self.input(0, event),
-            KernelMsg::Midi => self.shared.hear_midi(),
-            KernelMsg::Output => self.shared.hear_output(),
-            KernelMsg::Rpc {
-                client,
-                method,
-                params,
-                reply,
-            } => {
-                let result = if method.starts_with("ui.") {
-                    self.remote_ui(client, &method, &params)
-                } else if method.starts_with("file.") {
-                    let dir = self.shared.session.borrow().media_dir();
-                    self.uploads.call(client, &method, &params, &dir)
-                } else if method.starts_with("monitor.") {
-                    let mut session = self.shared.session.borrow_mut();
-                    self.monitor.call(client, &method, &mut session)
-                } else {
-                    self.request(client, method, &params)
-                };
-                // The one place an error becomes the text a client sees.
-                let _ = reply.send(result.map_err(|err| format!("{err:#}")));
-            }
-            KernelMsg::Gone(client) => {
-                self.detach(client);
-                self.uploads.closed(client);
-                self.monitor.closed(client, &mut self.shared.session.borrow_mut());
-                if let Err(err) = self.call::<()>("rpc_closed", client) {
-                    self.report("rpc_closed", err);
-                }
-            }
-        }
-        self.enter(0);
-        // A terminal that asked to leave (`:detach`) is let go.
-        let leaving: Vec<ClientId> = self.shared.detach.borrow_mut().drain(..).collect();
-        for client in leaving {
-            self.detach(client);
-        }
-    }
-
-    fn fire_timers(&mut self) {
-        for key in api::due_timers(&self.shared) {
-            let func = self.lua.registry_value::<mlua::Function>(&key);
-            if let Err(err) = func.and_then(|func| self.call::<()>("timer", func)) {
-                self.report("timer", err);
-            }
-        }
-    }
-
-    fn render(&mut self) {
-        // Only the live parts, unless something else asked for a frame.
-        let live_only = !self.shared.dirty.get();
-        self.shared.dirty.set(false);
-        self.shared.live_dirty.set(false);
-        if self.frontends.is_empty() {
-            return;
-        }
-        let mut gone = Vec::new();
-        for index in 0..self.frontends.len() {
-            let client = self.frontends[index].0;
-            // Each terminal keeps the frame it was shown last, and is drawn
-            // from its own seat, at its own size.
-            let (width, height) = self.shared.sizes.borrow().get(&client).copied().unwrap_or_else(|| {
-                let grid = self.shared.grid.borrow();
-                (grid.width, grid.height)
-            });
-            let mut kept = self.kept.remove(&client).unwrap_or_else(|| Kept { grid: Grid::new(width, height), cursor: None });
-            if (kept.grid.width, kept.grid.height) != (width, height) {
-                kept.grid.resize(width, height);
-            }
-            std::mem::swap(&mut *self.shared.grid.borrow_mut(), &mut kept.grid);
-            self.enter(client);
-            let mut changed = true;
-            let mut drawn_live = false;
-            let can_live = {
-                let grid = self.shared.grid.borrow();
-                live_only && !grid.live.is_empty() && grid.surfaces.is_empty()
-            };
-            if can_live {
-                self.shared.cursor.set(kept.cursor);
-                match api::render_live(&self.lua, &self.shared) {
-                    Ok(done) => drawn_live = done,
-                    Err(err) => self.report("render_live", err),
-                }
-                if drawn_live {
-                    changed = self.shared.grid.borrow().live_changed();
-                }
-            }
-            let mut frames = self.shared.frames.get();
-            if drawn_live {
-                frames[if changed { 1 } else { 2 }] += 1;
-            } else {
-                frames[0] += 1;
-                self.shared.grid.borrow_mut().clear();
-                self.shared.cursor.set(None);
-                let result = api::render(&self.lua, &self.shared);
-                if let Err(err) = result {
-                    // The Lua UI is broken, so the kernel draws the reason itself.
-                    let mut grid = self.shared.grid.borrow_mut();
-                    grid.live.clear();
-                    let style = Style {
-                        fg: Some(Color::Indexed(9)),
-                        ..Style::default()
-                    };
-                    let clip = grid.rect();
-                    for (row, line) in format!("render failed: {err}").lines().enumerate() {
-                        grid.text(clip, 0, row as i32, line, style);
-                    }
-                }
-            }
-            self.shared.frames.set(frames);
-            if changed {
-                let shared = self.shared.clone();
-                let (grid, cursor) = (shared.grid.borrow(), shared.cursor.get());
-                if let Err(err) = self.frontends[index].1.present(&grid, cursor) {
-                    self.shared.log(format!("frontend: {err:#}"));
-                    // A terminal at the end of a connection that has closed.
-                    if client != 0 {
-                        gone.push(client);
-                    }
-                }
-            }
-            kept.cursor = self.shared.cursor.get();
-            std::mem::swap(&mut *self.shared.grid.borrow_mut(), &mut kept.grid);
-            self.kept.insert(client, kept);
-        }
-        self.enter(0);
-        for client in gone {
-            self.detach(client);
-        }
+    /// Finish a turn that ran Lua outside the loop (the start, `-e`, a
+    /// script): push the edits, deliver the events, close the undo step.
+    fn close_turn(&mut self) {
+        self.reactor().close_turn();
     }
 
     /// Take turns until something asks to quit. Returns the exit code.
     pub fn run(&mut self) -> Result<i32> {
-        let mut last_idle = Instant::now();
         // What the start made (the runtime, the project opened, the
         // expressions run) is shown now, not after the first message or
         // timer, which can be a second away.
         if self.shared.dirty.get() {
-            self.render();
+            self.reactor().render();
         }
-        let shown = if self.frontends.is_empty() { "ready, no screen" } else { "first frame" };
+        let shown = if self.shared.desk.borrow().frontends.is_empty() { "ready, no screen" } else { "first frame" };
         self.startup_done(shown);
+        let mut agenda = self.reactor().agenda(self.shared.clock.now());
         loop {
-            // The timers wait on the schedule clock. A manual clock moves
-            // only in a script's wait: here a timer in its future comes
-            // back to this loop with nothing due, which costs one turn.
-            let now = self.shared.clock.now();
-            let next_timer = self.shared.timers.borrow().iter().map(|t| t.due.saturating_sub(now)).min();
-            // Hosted plugins need regular attention on this thread.
-            let next_idle = self
-                .shared
-                .session
-                .borrow()
-                .needs_idle()
-                .then(|| (last_idle + IDLE_PERIOD).saturating_duration_since(Instant::now()));
-            let msg = match next_timer.into_iter().chain(next_idle).min() {
-                Some(wait) => match recv_timeout(&self.rx, wait) {
-                    Ok(msg) => Some(msg),
-                    Err(RecvTimeoutError::Timeout) => None,
-                    Err(RecvTimeoutError::Disconnected) => {
-                        return Err(anyhow!("kernel channel closed"));
-                    }
-                },
-                None => Some(self.rx.recv()?),
-            };
-            if let Some(msg) = msg {
-                self.handle(msg);
-                // Take whatever else is already waiting before drawing: keys
-                // typed fast share one turn and one frame. A request of a
-                // connection ends its own turn (`request`).
-                while let Ok(msg) = self.rx.try_recv() {
-                    self.handle(msg);
-                }
-            }
-            self.fire_timers();
-            if last_idle.elapsed() >= IDLE_PERIOD {
-                self.shared.session.borrow_mut().idle();
-                last_idle = Instant::now();
-            }
-            self.settle();
-            self.monitor.keep_fed(&mut self.shared.session.borrow_mut());
-
+            // Sleep until a message, a due time or the tick of the upkeep.
+            // A manual clock moves only in a script's wait: here a timer in
+            // its future comes back to this loop with nothing due, which
+            // costs one turn.
+            self.reactor().wait(&agenda, self.shared.clock.now(), None)?;
+            agenda = self.turn(self.shared.clock.now());
             if self.shared.reload.replace(false)
                 && let Err(err) = self.boot()
             {
@@ -760,13 +384,13 @@ impl Kernel {
             }
             if let Some(code) = self.shared.quit.get() {
                 // Scripts get to tidy up: an `exit` event.
-                if let Err(err) = self.call::<()>("exit", ()) {
-                    self.report("exit", err);
+                if let Err(err) = self.reactor().call::<()>("exit", ()) {
+                    self.reactor().report("exit", err);
                 }
                 return Ok(code);
             }
             if self.shared.dirty.get() || self.shared.live_dirty.get() {
-                self.render();
+                self.reactor().render();
             }
         }
     }
@@ -780,7 +404,7 @@ impl Kernel {
             Ok(true) => {
                 let unwrap = self.lua.load("require('paw.startuptime').unwrap()").set_name("=startuptime").exec();
                 if let Err(err) = unwrap {
-                    self.report("startuptime", err);
+                    self.reactor().report("startuptime", err);
                 }
             }
             Err(err) => {
@@ -796,8 +420,9 @@ impl Kernel {
     /// Run Lua code with `...` set to `args`, as its own turn.
     pub fn eval(&mut self, code: &str, args: &[&str]) -> Result<()> {
         let args = mlua::Variadic::from_iter(args.iter().map(|a| a.to_string()));
+        self.reactor().begin(self.shared.clock.now());
         let result = self.lua.load(code).set_name("=eval").call::<()>(args);
-        self.settle();
+        self.close_turn();
         result.map_err(lua_error)
     }
 

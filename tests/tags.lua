@@ -88,7 +88,7 @@ end
 
 local function setup(name)
   fresh()
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   T.tone("Synth", 2)
   paw.project.tempo = 120
   return fresh_dir(name)

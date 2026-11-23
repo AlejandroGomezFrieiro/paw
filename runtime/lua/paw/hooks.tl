@@ -248,7 +248,7 @@ local function views_change()
 end
 
 --- The end of a turn, after its events are delivered: the kernel's
---- `settle`.
+--- `close_turn`.
 function M.turn()
   for _ = 1, 8 do
     if not finish_edit() then

@@ -121,7 +121,7 @@ end, { desc = "the program and its Lua" })
 
 M.register("audio", function(h)
   local e = api.engine_get()
-  if e.backend == "null" then
+  if e.backend == "null" or e.backend == "step" then
     h.warn("the null audio backend: nothing is heard", { "start without --audio null", ":audio picks a device" })
   else
     h.ok(

@@ -6,7 +6,7 @@ use document::ClipField;
 impl Session {
     pub(crate) fn clip_view(&self, id: Id) -> Result<ClipView<'_>> {
         if let Some((track, index)) = self.doc.project.find_cue_clip(id) {
-            let mut view = clip_json(&self.doc.project.track(track).unwrap().cues[index], track, self.files_there.after(self.doc.changes()));
+            let mut view = clip_json(&self.doc.project.track(track).unwrap().cues[index], track, self.files_there.after(self.doc.changes(), self.now));
             view.cue = Some(true);
             return Ok(view);
         }
@@ -15,7 +15,7 @@ impl Session {
             .find_clip(id)
             .with_context(|| format!("no clip {id}"))?;
         let clip = self.doc.project.clip(id).unwrap();
-        let mut view = clip_json(clip, track, self.files_there.after(self.doc.changes()));
+        let mut view = clip_json(clip, track, self.files_there.after(self.doc.changes(), self.now));
         self.note_stretching(clip, &mut view);
         view.link_count = clip.link.as_deref().map(|name| self.doc.project.link_count(name));
         Ok(view)
@@ -37,7 +37,7 @@ impl Session {
         Ok(clips
             .into_iter()
             .map(|c| {
-                let mut view = clip_json(c, track, self.files_there.after(self.doc.changes()));
+                let mut view = clip_json(c, track, self.files_there.after(self.doc.changes(), self.now));
                 self.note_stretching(c, &mut view);
                 view
             })

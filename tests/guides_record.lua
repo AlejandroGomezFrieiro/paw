@@ -12,11 +12,10 @@ local keys, until_, until_beat = T.keys, T.until_, T.until_beat
 local function studio(name)
   fresh()
   api.engine_restart({
-    backend = "null",
     test_input = { frequency = 440, level = -12, channels = 2 },
     test_midi = { "Keys A" },
   })
-  T.after(function() api.engine_restart({ backend = "null" }) end)
+  T.after(function() api.engine_restart({}) end)
   paw.keymap.feed("<Esc><Esc>")
   while paw.ui.float do
     paw.ui.close()

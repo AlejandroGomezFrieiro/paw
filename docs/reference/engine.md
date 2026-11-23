@@ -145,7 +145,7 @@ paw releases decoded audio that the project and the undo steps do not use, when 
 
 | Function | Effect |
 | --- | --- |
-| `paw.api.engine_restart(spec)` | Restart the engine (see [Audio devices](audio-devices.md#test-backends)). |
+| `paw.api.engine_restart(spec)` | Restart the engine. With no `backend` in `spec`, the engine keeps the backend that runs (see [Audio devices](audio-devices.md#test-backends)). |
 | `paw.api.engine_audible(ids)` | Play only these tracks, and what their sound goes through. `scope_rest=mute` uses it (see [Scopes](narrowing.md)). |
 | `paw.api.engine_hold(track, file)` | Play a file instead of a track. `scope_rest=frozen` uses it. |
 | `paw.wait(ms)` | Let time pass, with timers and events. `paw.api.sleep` does not run timers or events. A script run with `-l` is otherwise one long turn. |

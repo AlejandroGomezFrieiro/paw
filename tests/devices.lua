@@ -119,7 +119,7 @@ end)
 
 test("devices: a compressor's meters and curve are read from scripts", function()
   fresh()
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   local s = {}
   for i = 1, 96000 do
     s[i] = (i % 100 < 50) and 0.5 or -0.5
@@ -144,7 +144,7 @@ end)
 
 test("devices: the meter and the tuner are read while the song plays", function()
   fresh()
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   local s = {}
   -- An A at 110 Hz, at -20 dBFS on both sides.
   for i = 1, 48000 * 4 do

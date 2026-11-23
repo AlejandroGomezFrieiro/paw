@@ -237,7 +237,7 @@ test("a project folder records the hash of each file in media.json, the same on 
 end)
 
 test("a project with recordings, moved with its folder, plays them", function()
-  api.engine_restart({ backend = "null", test_input = { frequency = 440, level = -12, channels = 2 } })
+  api.engine_restart({ test_input = { frequency = 440, level = -12, channels = 2 } })
   local ok, err = xpcall(function()
     for _, saved_first in ipairs({ true, false }) do
       fresh()
@@ -268,7 +268,7 @@ test("a project with recordings, moved with its folder, plays them", function()
       T.near(info.peak, 10 ^ (-12 / 20), 0.02, "and plays")
     end
   end, debug.traceback)
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   if not ok then error(err, 0) end
 end)
 

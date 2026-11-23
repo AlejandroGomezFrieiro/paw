@@ -15,21 +15,22 @@
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::time::Duration;
 
-use crate::clock::{Clock, WallClock};
+use crate::clock::ScheduleTime;
 
 /// How long an answer is kept: the longest that a file can be gone, or
 /// back, before a clip says so.
 pub(super) const FRESH: Duration = Duration::from_secs(1);
 
 /// The answers, by path. The session is used from one thread.
+#[derive(Default)]
 pub(super) struct FileCheck {
-    /// The schedule clock that the answers age on (`Session::set_clock`).
-    pub(super) clock: Arc<dyn Clock>,
-    /// Each path's answer, and when it was taken on `clock`.
-    seen: RefCell<HashMap<PathBuf, (Duration, bool)>>,
+    /// The schedule time of the questions: the time of the turn, given
+    /// with [`after`](Self::after).
+    now: Cell<ScheduleTime>,
+    /// Each path's answer, and when it was taken.
+    seen: RefCell<HashMap<PathBuf, (ScheduleTime, bool)>>,
     /// The document's count of changes ([`Document::changes`]) when the
     /// answers in `seen` were taken.
     ///
@@ -37,22 +38,13 @@ pub(super) struct FileCheck {
     changes: Cell<u64>,
 }
 
-impl Default for FileCheck {
-    fn default() -> Self {
-        Self {
-            clock: Arc::new(WallClock::new()),
-            seen: RefCell::default(),
-            changes: Cell::default(),
-        }
-    }
-}
-
 impl FileCheck {
-    /// The check, its answers forgotten first when the document changed
-    /// since they were taken. `changes` is [`Document::changes`].
+    /// The check at `now`, its answers forgotten first when the document
+    /// changed since they were taken. `changes` is [`Document::changes`].
     ///
     /// [`Document::changes`]: super::Document::changes
-    pub(super) fn after(&self, changes: u64) -> &Self {
+    pub(super) fn after(&self, changes: u64, now: ScheduleTime) -> &Self {
+        self.now.set(now);
         if self.changes.replace(changes) != changes {
             self.forget();
         }
@@ -61,12 +53,12 @@ impl FileCheck {
 
     /// Whether `path` is a file, as it was at most [`FRESH`] ago.
     pub(super) fn is_file(&self, path: &Path) -> bool {
-        self.is_file_at(path, self.clock.now())
+        self.is_file_at(path, self.now.get())
     }
 
-    fn is_file_at(&self, path: &Path, now: Duration) -> bool {
+    fn is_file_at(&self, path: &Path, now: ScheduleTime) -> bool {
         if let Some(&(at, there)) = self.seen.borrow().get(path)
-            && now.saturating_sub(at) < FRESH
+            && now - at < FRESH
         {
             return there;
         }
@@ -92,7 +84,7 @@ mod tests {
         std::fs::create_dir(dir.path().join("media")).unwrap();
         std::fs::write(&file, b"RIFF").unwrap();
         let check = FileCheck::default();
-        let t0 = Duration::from_secs(5);
+        let t0 = ScheduleTime::from_start(Duration::from_secs(5));
         assert!(check.is_file_at(&file, t0));
         std::fs::rename(dir.path().join("media"), dir.path().join("moved")).unwrap();
         assert!(
@@ -100,7 +92,7 @@ mod tests {
             "asked again soon: the answer kept, the disk not looked at"
         );
         assert!(!check.is_file_at(&file, t0 + FRESH), "after FRESH the file is looked at again: missing");
-        check.after(1);
+        check.after(1, t0);
         std::fs::rename(dir.path().join("moved"), dir.path().join("media")).unwrap();
         assert!(check.is_file_at(&file, t0 + FRESH), "a change paw made forgets the answers at once");
     }

@@ -44,7 +44,7 @@ pub(crate) struct Upkeep {
     /// The keys of a running render, pinned in the cache while it runs.
     pub exporting: std::collections::HashSet<Key>,
     /// When `bake.progress` was last sent, and what it said.
-    pub reported: Option<(std::time::Instant, crate::bake::scheduler::Busy)>,
+    pub reported: Option<(crate::clock::ScheduleTime, crate::bake::scheduler::Busy)>,
     /// A tidy of the cache running on a thread of its own.
     pub tidying: Option<std::sync::mpsc::Receiver<crate::bake::Tidied>>,
     /// A bake ended while the cache was being tidied: tidy again after.

@@ -548,6 +548,7 @@ impl Session {
                 warnings: &mut self.doc.warnings,
                 offline: false,
                 waker: self.engine.handle.waker(),
+                now: self.now,
             };
             let handle = &mut self.engine.handle;
             let mut send = |msg| handle.send(msg);
@@ -577,11 +578,14 @@ impl Session {
         Ok(())
     }
 
-    /// Housekeeping for plugins: runs their editors and picks up what they
-    /// changed by themselves. Call regularly from the main thread.
+    /// The upkeep of a turn: the stepped engine, takes, renders, the
+    /// transport, plugins (their editors run here, and what they changed
+    /// by themselves is picked up), bakes, devices and watched files. The
+    /// kernel calls it once each turn, at the time of the turn
+    /// ([`set_now`](Self::set_now)).
     pub(crate) fn idle(&mut self) {
-        // The stepped engine plays up to the clock first: what it played is
-        // then heard of below.
+        // The stepped engine plays up to the time of the turn first: what it
+        // played is then heard of below.
         self.run_stepped_audio();
         // A take whose file could not be written stops; what it has is kept.
         if self.rec.take.as_ref().is_some_and(|t| t.shared.failed()) {

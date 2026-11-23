@@ -140,6 +140,7 @@ impl Drop for RunningToken {
     }
 }
 
+#[expect(clippy::disallowed_methods, reason = "the seconds that a measure took are a measure of work")]
 fn start(shared: &Shared, opts: MeasureOpts) -> Result<Job> {
     let done = Arc::new(AtomicU64::new(0));
     let cancel = Arc::new(AtomicBool::new(false));

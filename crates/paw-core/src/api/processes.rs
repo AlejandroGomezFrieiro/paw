@@ -97,17 +97,19 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
 
         // @return {string}
         fn log_get(_, sh, () => ()) { Ok(sh.log.borrow().iter().cloned().collect::<Vec<_>>()) }
+        // Push the edits made until now to the engine: automation that is
+        // held is written, and files are read ahead of the playhead. The kernel
+        // does this at the end of each turn; `paw.flush` does it at once.
+        // @return nil
+        fn flush(_, sh, () => ()) {
+            sh.session.borrow_mut().push_edits();
+            Ok(())
+        }
+        // The change events of the edits pushed until now (`flush`), taken
+        // out of the queue.
         // @return {kernel_events.KernelEvent}
         fn events_take(lua, sh, () => ()) {
-            // Push pending edits to the engine and hand back the change events.
-            let events = {
-                let mut session = sh.session.borrow_mut();
-                session.write_automation();
-                session.flush();
-                session.read_ahead();
-                session.poll_media();
-                std::mem::take(&mut session.doc.events)
-            };
+            let events = std::mem::take(&mut sh.session.borrow_mut().doc.events);
             let list = lua.create_table_with_capacity(events.len(), 0)?;
             for ModelEvent { event, restored } in events {
                 // `{ name, payload }`, as `KernelEvent` is tagged.

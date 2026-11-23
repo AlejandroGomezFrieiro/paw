@@ -14,12 +14,12 @@
 
 use std::collections::{BTreeSet, HashMap};
 use std::sync::Arc;
-use std::time::Instant;
 
 use anyhow::Result;
 use serde_json::Value;
 
 use super::undo::{self, SWEEP_GAP};
+use crate::clock::ScheduleTime;
 use crate::events::{ClipCopied, KernelEvent as E, NestCopied, TrackCopied};
 use crate::history::{self, History, StateId};
 use crate::model::{Clip, ClipContent, ClipKindId, DeviceInst, Id, Links, MASTER_ID, Project, Track};
@@ -156,10 +156,10 @@ impl Document {
         id
     }
 
-    /// Close the current undo step, if anything changed since the last one.
-    /// True when it made a new step; false when nothing changed, or when the
-    /// open step joined the step before it.
-    pub(crate) fn checkpoint(&mut self) -> bool {
+    /// Close the current undo step at `now`, if anything changed since the
+    /// last one. True when it made a new step; false when nothing changed,
+    /// or when the open step joined the step before it.
+    pub(crate) fn checkpoint(&mut self, now: ScheduleTime) -> bool {
         let sweep = std::mem::take(&mut self.undo.sweep);
         let join = self.undo.join.take();
         self.undo.adjusting = None;
@@ -186,7 +186,7 @@ impl Document {
             .filter(|_| sweep.moves == sweep.edits && !sweep.mixed);
         if let (Some(key), Some((last, at, state))) = (&moved, &self.undo.last_sweep)
             && key == last
-            && at.elapsed() < SWEEP_GAP
+            && now - *at < SWEEP_GAP
             && *state == self.undo.history.current()
             && self.undo.history.can_amend()
         {
@@ -194,7 +194,7 @@ impl Document {
             let state = *state;
             self.undo.checkpoint = self.project.clone();
             self.undo.history.amend(self.undo.checkpoint.clone(), history::now());
-            self.undo.last_sweep = Some((key.clone(), Instant::now(), state));
+            self.undo.last_sweep = Some((key.clone(), now, state));
             return false;
         }
         if let Some(name) = self.only_nest_changed() {
@@ -210,7 +210,7 @@ impl Document {
                 self.undo.history.byte_limit() >> 20
             ));
         }
-        self.undo.last_sweep = moved.map(|key| (key, Instant::now(), state));
+        self.undo.last_sweep = moved.map(|key| (key, now, state));
         true
     }
 
@@ -234,7 +234,10 @@ impl Document {
     /// moved to. None, and nothing changes, when there is nowhere to go.
     #[cfg(test)]
     fn move_in_history(&mut self, go: impl FnOnce(&mut History<Project>) -> Option<StateId>) -> Option<StateId> {
-        self.checkpoint();
+        // A move in the tree ends a sweep: the open step joins no step
+        // before it, so the time does not matter.
+        self.undo.last_sweep = None;
+        self.checkpoint(ScheduleTime::ZERO);
         let (from, id) = self.history_move(go)?;
         if id != from {
             self.take_current_state();
@@ -512,7 +515,7 @@ mod tests {
             Ok(())
         })
         .unwrap();
-        assert!(doc.checkpoint(), "the edit makes an undo step");
+        assert!(doc.checkpoint(ScheduleTime::ZERO), "the edit makes an undo step");
 
         assert!(doc.undo(), "the step is undone");
         assert!(doc.project.tracks.is_empty(), "the undo takes the track away");
@@ -539,7 +542,7 @@ mod tests {
             Ok(())
         })
         .unwrap();
-        doc.checkpoint();
+        doc.checkpoint(ScheduleTime::ZERO);
         let source = |doc: &Document| doc.project.nest(NestId(10)).and_then(|n| n.source.clone());
         let copied = |doc: &Document| {
             doc.events.iter().filter(|e| matches!(e.event, E::NestCopied(_))).count()
@@ -550,7 +553,7 @@ mod tests {
                 Ok(())
             })
             .unwrap();
-            doc.checkpoint();
+            doc.checkpoint(ScheduleTime::ZERO);
         };
         rename(&mut doc, 2, "Lead");
         assert!(source(&doc).is_some(), "an edit of the song leaves the reference");
@@ -573,7 +576,39 @@ mod tests {
             anyhow::bail!("{} tracks: no change", project.tracks.len())
         });
         assert!(failed.is_err());
-        assert!(!doc.checkpoint(), "no step for an edit that failed");
+        assert!(!doc.checkpoint(ScheduleTime::ZERO), "no step for an edit that failed");
         assert!(!doc.undo(), "nothing to undo");
+    }
+
+    /// Moves of one control are one undo step while each comes less than
+    /// `SWEEP_GAP` of schedule time after the step before; a pause as long
+    /// as the gap starts a new step.
+    #[test]
+    fn moves_of_one_control_join_one_step_until_a_pause_on_the_schedule_clock() {
+        let at = |ms: u64| ScheduleTime::from_start(std::time::Duration::from_millis(ms));
+        let mut doc = Document::default();
+        let id = doc.new_id();
+        doc.edit(|p| {
+            p.tracks.push(Arc::new(Track::new(id)));
+            Ok(())
+        })
+        .unwrap();
+        doc.checkpoint(at(0));
+        let drag = |doc: &mut Document, gain: f64, now: ScheduleTime| {
+            doc.edit(|p| {
+                p.track_mut(id).unwrap().volume = gain;
+                Ok(())
+            })
+            .unwrap();
+            doc.swept(format!("volume {id}"));
+            doc.checkpoint(now)
+        };
+        assert!(drag(&mut doc, -1.0, at(100)), "the first move makes a step");
+        assert!(!drag(&mut doc, -2.0, at(100) + SWEEP_GAP / 2), "a move within the gap joins it");
+        assert!(drag(&mut doc, -3.0, at(100) + SWEEP_GAP / 2 + SWEEP_GAP), "a move after a pause makes a new step");
+        doc.undo();
+        assert_eq!(doc.project.track(id).unwrap().volume, -2.0, "one undo takes back the last step");
+        doc.undo();
+        assert_eq!(doc.project.track(id).unwrap().volume, Track::new(id).volume, "the next takes back the joined moves");
     }
 }

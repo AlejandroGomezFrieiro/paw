@@ -74,7 +74,7 @@ end
 --- on C4 at its start.
 local function open(start)
   fresh()
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   paw.keymap.feed("<Esc><Esc>")
   while paw.ui.float do
     paw.ui.close()

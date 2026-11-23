@@ -7,7 +7,7 @@ local api = paw.api
 
 local function start()
   fresh()
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   paw.keymap.feed("<Esc><Esc>")
   while paw.ui.float do
     paw.ui.close()
@@ -226,7 +226,7 @@ end)
 
 test("a recording knows the tempo it was made at", function()
   start()
-  api.engine_restart({ backend = "null", test_input = { frequency = 440, level = -12, channels = 2 } })
+  api.engine_restart({ test_input = { frequency = 440, level = -12, channels = 2 } })
   paw.project.tempo = 96
   paw.project.save(T.scratch .. "/recorded.json")
   local t = paw.add_track({ name = "Voice" })
@@ -237,7 +237,7 @@ test("a recording knows the tempo it was made at", function()
   T.stop()
   paw.flush()
   local clip = t:clips()[1]
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   eq(clip ~= nil, true, "a take")
   eq(clip.source_tempo, 96, "its tempo")
 end)

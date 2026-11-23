@@ -257,13 +257,13 @@ end
 
 -- Time in the tests ------------------------------------------------------------
 --
--- The suite runs paw with `--clock manual` (tests/tools/suite.sh): schedule
--- time (`api.now()`, the timers, the settle delays) moves only when a test
--- lets it pass with `T.advance`, so a test steps each timer in its order
--- and does not race it. The manual clock reads 0 until something waits,
--- so the runner knows it at its start. The audio engine runs on the
--- stepped backend then: it plays a block only when the clock gets to its
--- end, so the sound, the meters and the playhead are one time with the
+-- The suite runs paw with `--clock manual --audio step`
+-- (tests/tools/suite.sh): schedule time (`api.now()`, the timers, the
+-- settle delays) moves only when a test lets it pass with `T.advance`, so a
+-- test steps each timer in its order and does not race it. The manual clock
+-- reads 0 until something waits, so the runner knows it at its start. The
+-- audio engine runs on the stepped backend: it plays a block only when the
+-- clock gets to its end, so the sound, the meters and the playhead are one time with the
 -- clock, and a test that reads a meter after `T.next_block(n)` reads the
 -- same value in each run. Work on other threads and in other processes
 -- (bakes, plugin loads, renders) still takes wall time: a wait for it is
@@ -275,14 +275,9 @@ local MANUAL = api.now() == 0
 -- not a speed.
 local STALL_MS = 30000
 
--- The engine plays on the stepped backend from the start: each later start
--- on the null backend is stepped too. (The check of the binary above makes
--- sure that the kernel has it: `api.wait_blocks`.)
-if MANUAL then api.engine_restart({ backend = "step" }) end
-
 --- Whether the engine plays only as the clock moves. A test can start it
 --- on another backend (the `test` device), which plays on the wall clock.
-local function stepped() return MANUAL and api.engine_get().stepped == true end
+local function stepped() return MANUAL and api.engine_get().backend == "step" end
 
 -- Work that a turn or another thread does now: a settle waits for it. The
 -- job `collector` (paw.collector) is idle work that each turn can start

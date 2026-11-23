@@ -121,10 +121,12 @@ impl AudioCache {
     }
 
     /// What a stretched or shifted clip plays, if its bake has started (as
-    /// far as it is made); if not, it is asked for (see `stretched.rs`).
+    /// far as it is made); if not, it is asked for at `now` (see
+    /// `stretched.rs`).
     pub(crate) fn stretched(
         &mut self,
         key: &crate::stretched::Key,
+        now: crate::clock::ScheduleTime,
         warnings: &mut Vec<String>,
     ) -> Option<Arc<AudioData>> {
         if key.source.is_none() {
@@ -135,7 +137,7 @@ impl AudioCache {
         if !self.renders.known(key) {
             let source = self.get(&key.file, key.rate, warnings);
             let (bakes, disk) = (self.bakes.clone(), self.store.clone());
-            self.renders.ask(key, || Some(crate::stretched::bake(key.clone(), source?, bakes, disk)));
+            self.renders.ask(key, now, || Some(crate::stretched::bake(key.clone(), source?, bakes, disk)));
         }
         self.renders.sound(key)
     }

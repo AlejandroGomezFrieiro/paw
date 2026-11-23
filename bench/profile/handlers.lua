@@ -92,6 +92,8 @@ paw.limit.guard = function(name, fn, ...)
 end
 local take = api.events_take
 api.events_take = function() return timed("(settle)", "paw.api.events_take", take) end
+local flush = api.flush
+api.flush = function() return timed("(settle)", "paw.api.flush", flush) end
 local note = paw.hooks.note
 paw.hooks.note = function(...) return timed("(settle)", "paw.hooks.note", note, ...) end
 

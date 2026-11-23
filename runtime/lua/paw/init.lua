@@ -368,13 +368,15 @@ end
 
 function K.resize(width, height) paw.emit("ui.resized", { width = width, height = height }) end
 
---- Send the change events for the edits made until now. The kernel does
---- this at the end of each turn. Call `paw.flush()` to make handlers run sooner.
+--- Deliver the change events of the edits pushed to the engine until now.
 --- @type function()
-local function settle()
+local function deliver()
   -- Handlers may edit the project and cause more events, so go round until
   -- it is quiet, with a limit in case two handlers keep triggering each other.
-  for _ = 1, 64 do
+  -- The kernel pushed the edits of the turn before the first round; the
+  -- edits of the handlers are pushed before each round after it.
+  for round = 1, 64 do
+    if round > 1 then api.flush() end
     local events = api.events_take()
     if #events == 0 then return end
     derived.taken(events)
@@ -394,12 +396,19 @@ local function settle()
   paw.notify("event handlers keep triggering each other; stopped delivering events for this turn", "error")
 end
 
-paw.flush = settle
+--- Push the edits made until now to the engine, and send their change
+--- events. The kernel does this at the end of each turn. Call `paw.flush()`
+--- to make handlers run sooner.
+function paw.flush()
+  api.flush()
+  deliver()
+end
 
---- The kernel's own call at the end of a turn: with the time limit on the
---- handlers it runs.
-function K.settle()
-  paw.limit.guard("an event handler", settle)
+--- The kernel's own call at the end of a turn, after it pushed the edits to
+--- the engine (docs/reference/the-order-of-a-turn.md): with the time limit
+--- on the handlers it runs.
+function K.close_turn()
+  paw.limit.guard("an event handler", deliver)
   -- Hooks first: `edit.before` may take the turn back, and the scenes
   -- sent after it must show what stayed.
   paw.limit.guard("the end of a turn", paw.hooks.turn)

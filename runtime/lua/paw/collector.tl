@@ -80,7 +80,7 @@ local function step(ms: number): boolean
   return false
 end
 
---- The end of a turn (the kernel's `settle`): start the job when the heap
+--- The end of a turn (the kernel's `close_turn`): start the job when the heap
 --- grew to `grow` times `base`. It reads only the size of the heap.
 function M.turn()
   if slices.job("collector") then

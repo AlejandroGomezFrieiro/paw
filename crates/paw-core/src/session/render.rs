@@ -22,6 +22,8 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
+use crate::clock::ScheduleTime;
+
 use anyhow::{Context, Result, anyhow, bail};
 use paw_engine::backend;
 use paw_engine::{Engine, Msg, wav};
@@ -376,7 +378,7 @@ pub(crate) struct Job {
     /// engine, on the render's thread, is gone.
     live: Option<LiveDevices>,
     /// The fraction last reported in a `render.progress` event, and when.
-    reported: (f64, Instant),
+    reported: (f64, ScheduleTime),
     /// Where the render stops for a state lane's state that the main
     /// thread gives (see `statelanes.rs`): the render's thread asks by the
     /// stop's number, and is answered once the plugin is ready.
@@ -568,14 +570,15 @@ impl Session {
                 run(engine, plan)
             })
             .context("starting the render's thread")?;
-        let now = Instant::now();
+        #[expect(clippy::disallowed_methods, reason = "the seconds that a render took are a measure of work")]
+        let started = Instant::now();
         self.render_job = Some(Job {
             path: path.to_path_buf(),
-            started: now,
+            started,
             progress,
             thread: Some(thread),
             live: Some(live),
-            reported: (0.0, now),
+            reported: (0.0, self.now),
             stops,
             asks,
             answers,
@@ -690,6 +693,7 @@ impl Session {
             warnings: &mut self.doc.warnings,
             offline: true,
             waker,
+            now: self.now,
         };
         let mut mapper = Mapper::new();
         sync(
@@ -819,8 +823,9 @@ impl Session {
         let finished = job.thread.as_ref().is_none_or(|t| t.is_finished());
         if !finished {
             let fraction = job.progress.get();
-            if fraction != job.reported.0 && job.reported.1.elapsed() >= Duration::from_millis(100) {
-                job.reported = (fraction, Instant::now());
+            // At most ten times a second of schedule time.
+            if fraction != job.reported.0 && self.now - job.reported.1 >= Duration::from_millis(100) {
+                job.reported = (fraction, self.now);
                 let progress = RenderProgress { path: job.path.clone(), fraction,
                     stage: job.progress.stage().to_string(), seconds: job.started.elapsed().as_secs_f64() };
                 self.doc.emit(E::RenderProgress(progress));
@@ -982,6 +987,7 @@ struct Pass {
 
 /// Play the engine through, handing every frame of output (mono or stereo
 /// as the plan says) to `sink`. Progress goes from `from` to `to`.
+#[expect(clippy::disallowed_methods, reason = "the processor time of a render is a measure of work")]
 fn play(
     mut engine: Engine,
     plan: &Plan,

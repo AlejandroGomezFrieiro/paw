@@ -261,6 +261,7 @@ groups below link the main ones.
 - [The graphical window in Lua](reference/window-lua.md): `paw.frontend.act`, menus, bands, panes, views that paint
 - [Lua devices](reference/lua-devices.md): the fields of a device in Lua, the block, MIDI, helpers, reload
 - [Events](reference/events.md): every event and its payload
+- [The order of a turn](reference/the-order-of-a-turn.md): the steps that paw runs for each key, timer and request, and what an extension sees
 - [Extensions](reference/extensions.md): the bundled extensions, files, manifests, what an extension owns, health checks
 - [Lua API reference](reference/api.md): each function, made from the code
 

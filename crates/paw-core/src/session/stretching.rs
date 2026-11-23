@@ -514,20 +514,20 @@ impl Session {
         }
     }
 
-    /// Send `bake.progress` when it changed: at most 4 times a second, and
-    /// at once when the bakes start or all end.
+    /// Send `bake.progress` when it changed: at most 4 times a second of
+    /// schedule time, and at once when the bakes start or all end.
     fn report_bakes(&mut self) {
         let busy = self.audio.renders.summary();
         let idle = |b: &Busy| b.running + b.waiting == 0;
         let upkeep = &mut self.audio.upkeep;
         let due = match &upkeep.reported {
             None => !idle(&busy),
-            Some((at, was)) => *was != busy && (idle(was) != idle(&busy) || at.elapsed() >= REPORT),
+            Some((at, was)) => *was != busy && (idle(was) != idle(&busy) || self.now - *at >= REPORT),
         };
         if !due {
             return;
         }
-        upkeep.reported = Some((Instant::now(), busy));
+        upkeep.reported = Some((self.now, busy));
         let Busy { running, waiting, fraction } = busy;
         self.doc.emit(E::BakeProgress(BakeProgress { running, waiting, fraction }));
     }
@@ -553,7 +553,7 @@ impl Session {
         }
         let rate = self.engine.handle.sample_rate as u32;
         let wants = self.bake_wants();
-        self.audio.renders.poll(&wants, SETTLE);
+        self.audio.renders.poll(&wants, SETTLE, self.now);
         self.doc.warnings.append(&mut self.audio.renders.failures);
         self.report_bakes();
         let finished: HashSet<Key> = self.audio.renders.finished.drain(..).collect();
@@ -622,16 +622,20 @@ impl Session {
             return Ok(());
         }
         for key in &keys {
-            self.audio.stretched(key, &mut self.doc.warnings);
+            self.audio.stretched(key, self.now, &mut self.doc.warnings);
         }
         self.audio.upkeep.exporting.extend(keys.iter().cloned());
+        // A wait for other threads and processes: a budget of wall time.
+        #[expect(clippy::disallowed_methods, reason = "a budget of wall time for the bakes of an export")]
         let deadline = Instant::now() + limit;
         while self.audio.renders.making(keys.iter()) {
-            if Instant::now() > deadline {
+            #[expect(clippy::disallowed_methods, reason = "a budget of wall time for the bakes of an export")]
+            let late = Instant::now() > deadline;
+            if late {
                 bail!("the stretched clips are still being made");
             }
             let wants = self.bake_wants();
-            self.audio.renders.poll(&wants, Duration::ZERO);
+            self.audio.renders.poll(&wants, Duration::ZERO, self.now);
             std::thread::sleep(Duration::from_millis(5));
         }
         self.doc.warnings.append(&mut self.audio.renders.failures);

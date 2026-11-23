@@ -13,7 +13,7 @@ local keymap = paw.keymap
 
 local function start()
   fresh()
-  api.engine_restart({ backend = "null" })
+  api.engine_restart({})
   keymap.feed("<Esc><Esc>")
   while paw.ui.float do
     paw.ui.close()

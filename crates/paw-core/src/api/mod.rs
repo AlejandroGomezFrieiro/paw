@@ -20,7 +20,7 @@ use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 
-use crate::clock::Clock;
+use crate::clock::{Clock, ScheduleTime};
 use crate::grid::{Caps, Grid, Highlights, KeptCells};
 use crate::io::Io;
 use crate::model::NoteAttr;
@@ -40,7 +40,7 @@ pub(crate) struct Env {
 pub(crate) struct Timer {
     pub id: u64,
     /// When it fires, on the schedule clock (`Shared::clock`).
-    pub due: Duration,
+    pub due: ScheduleTime,
     pub repeat: Option<Duration>,
     /// In the registry, not held as a `Function`: each Lua value that Rust
     /// holds takes a slot of a stack that has room for about 8000, and a
@@ -94,9 +94,23 @@ pub(crate) struct Shared {
     /// When the kernel started, on the wall: `paw.api.real_ms` and the time
     /// limit of Lua (`watchdog`) measure from it.
     pub started: Instant,
-    /// The schedule clock of the process (`paw --clock`): the timers,
-    /// `paw.api.now` and the settle delays of the session read it.
-    pub clock: Arc<dyn Clock>,
+    /// The schedule clock of the process (`paw --clock`): each turn reads
+    /// it and gives its time to the session; the timers and `paw.api.now`
+    /// read it.
+    pub clock: Clock,
+    /// The kernel's messages: input, requests, MIDI and helper output.
+    pub rx: std::sync::mpsc::Receiver<crate::kernel::KernelMsg>,
+    /// Messages taken from `rx` and not handled yet, in the order they
+    /// came: the one wait of the loop puts the message that woke it here,
+    /// and a nested turn leaves the input and the requests here for the
+    /// turn around it.
+    pub inbox: RefCell<VecDeque<crate::kernel::KernelMsg>>,
+    /// A turn runs: a turn that starts now is nested in it (a handler that
+    /// waits).
+    pub turning: Cell<bool>,
+    /// The terminals that show the screen, and what the connections
+    /// upload and listen to.
+    pub(crate) desk: RefCell<crate::kernel::Desk>,
     /// The connections on the control socket, for pushing events to them.
     pub clients: crate::rpc::Clients,
     /// The connection whose terminal the input being handled came from, or

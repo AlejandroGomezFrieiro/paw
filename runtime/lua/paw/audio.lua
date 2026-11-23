@@ -10,6 +10,9 @@
 -- the window offer the same and mean the same by it.
 local api = paw.api
 local M = {}
+--- Whether the engine (or a list of its devices) has no sound device: the
+--- null backend, or the stepped backend of the tests.
+local function no_device(e) return e.backend == "null" or e.backend == "step" end
 
 --- Every device the system offers: `outputs` and `inputs`, each a list of
 --- `{ name, id, channels, sample_rate, min_block, max_block }`, and the
@@ -217,7 +220,7 @@ function M.summary()
   if e.lost then return "lost: " .. (M.short(e.lost.device) or e.lost.device) .. " · no sound" end
   local parts = { e.backend }
   local out = M.short(e.device)
-  if e.backend ~= "null" and out then parts[#parts + 1] = out end
+  if not no_device(e) and out then parts[#parts + 1] = out end
   parts[#parts + 1] = string.format("%g kHz", e.sample_rate / 1000)
   return table.concat(parts, " · ")
 end
@@ -228,7 +231,7 @@ function M.timing()
   local block = e.block > 0 and e.block or e.buffer_size
   local parts = { string.format("%g kHz", e.sample_rate / 1000) }
   parts[#parts + 1] = block > 0 and (block .. " frames") or "block set by the device"
-  if e.backend ~= "null" then
+  if not no_device(e) then
     parts[#parts + 1] = string.format("in %.1f ms", e.input_latency)
     parts[#parts + 1] = string.format("out %.1f ms", e.output_latency)
   end
@@ -246,7 +249,7 @@ function M.engine_choices()
     out[#out + 1] = { group = group, label = label, value = value, checked = checked and true or false }
   end
   add("info", list.backend .. " · " .. M.timing())
-  add("output", "System default", { output = "default" }, list.output_id == "" and list.backend ~= "null")
+  add("output", "System default", { output = "default" }, list.output_id == "" and not no_device(list))
   for _, d in ipairs(list.outputs) do
     add(
       "output",
@@ -255,7 +258,7 @@ function M.engine_choices()
       d.name == list.output and list.output_id ~= ""
     )
   end
-  add("input", "System default", { input = "default" }, list.input_id == "" and list.backend ~= "null")
+  add("input", "System default", { input = "default" }, list.input_id == "" and not no_device(list))
   for _, d in ipairs(list.inputs) do
     add("input", string.format("%s  (%d ch)", d.name, d.channels), { input = d.name }, d.name == list.input)
   end

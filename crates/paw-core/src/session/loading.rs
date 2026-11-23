@@ -231,6 +231,7 @@ impl Session {
                     warnings: &mut self.doc.warnings,
                     offline: false,
                     waker: self.engine.handle.waker(),
+                    now: self.now,
                 };
                 let handle = &mut self.engine.handle;
                 let mut send = |msg| handle.send(msg);
@@ -291,6 +292,7 @@ impl Session {
 
     /// Wait for one device to be made, if it is being made: for what needs
     /// the plugin itself (its parameters, its state, its window).
+    #[expect(clippy::disallowed_methods, reason = "a budget of wall time for a plugin load on another thread")]
     pub(super) fn await_device(&mut self, id: Id) {
         let deadline = Instant::now() + LONGEST;
         while self.loads.loading(id) && Instant::now() < deadline {
@@ -305,6 +307,7 @@ impl Session {
     }
 
     /// Wait up to `limit` for every device being made; then say which is
+    #[expect(clippy::disallowed_methods, reason = "a budget of wall time for the plugin loads on other threads")]
     /// not ready, if one is not. For rendering, which needs them all.
     pub(crate) fn await_loads(&mut self, limit: Duration) -> Result<()> {
         self.flush();

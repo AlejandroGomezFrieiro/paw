@@ -42,7 +42,7 @@ test("a song played on stepped blocks gives the same meter each time, to the bit
   if not T.stepped() then return "the engine is not on the stepped backend" end
   local function play()
     -- A new engine, which counts its blocks from the start.
-    api.engine_restart({ backend = "null" })
+    api.engine_restart({})
     fresh()
     local t = tone("held", 8)
     paw.transport.seek(0)

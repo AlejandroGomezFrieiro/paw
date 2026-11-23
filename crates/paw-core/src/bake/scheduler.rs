@@ -26,7 +26,7 @@ use anyhow::Result;
 use paw_engine::AudioData;
 
 use super::store::Entry;
-use crate::clock::{Clock, WallClock};
+use crate::clock::ScheduleTime;
 use crate::peaks::Summary;
 
 /// How long a key must be wanted before it is made.
@@ -191,17 +191,18 @@ impl Ready {
     }
 }
 
-/// The times are schedule times (`Scheduler::clock`).
+/// The times are schedule times, as the session gives them to `ask` and
+/// `poll`.
 enum State {
     /// Wanted since then.
-    Waiting(Duration),
+    Waiting(ScheduleTime),
     /// Being made; `told` once its partial sound was noted in `finished`.
     Running {
         shared: Arc<Shared>,
         serial: u64,
         /// Wanted since then; started then.
-        since: Duration,
-        started: Duration,
+        since: ScheduleTime,
+        started: ScheduleTime,
         told: bool,
     },
     Done(Ready),
@@ -255,8 +256,6 @@ pub(crate) struct Scheduler<K> {
     pub finished: Vec<K>,
     /// Bakes started, ever: for tests and `:checkhealth`.
     pub started: usize,
-    /// The schedule clock that the settle waits on.
-    clock: Arc<dyn Clock>,
 }
 
 impl<K> Default for Scheduler<K> {
@@ -279,22 +278,14 @@ impl<K> Scheduler<K> {
             failures: Vec::new(),
             finished: Vec::new(),
             started: 0,
-            clock: Arc::new(WallClock::new()),
         }
     }
 }
 
 impl<K: Clone + Eq + Hash> Scheduler<K> {
-    /// Wait the settle on `clock` from now on. Give it before the first
-    /// [`ask`](Self::ask): the times of the bakes that wait are on the old
-    /// clock.
-    pub(crate) fn set_clock(&mut self, clock: Arc<dyn Clock>) {
-        self.clock = clock;
-    }
-
-    /// Ask for `key`; when it is not known, it waits, to be made by the bake
-    /// `make` gives (none: nothing to make it from).
-    pub(crate) fn ask(&mut self, key: &K, make: impl FnOnce() -> Option<Arc<dyn Bake>>) {
+    /// Ask for `key` at `now`; when it is not known, it waits, to be made
+    /// by the bake `make` gives (none: nothing to make it from).
+    pub(crate) fn ask(&mut self, key: &K, now: ScheduleTime, make: impl FnOnce() -> Option<Arc<dyn Bake>>) {
         if self.jobs.contains_key(key) {
             return;
         }
@@ -302,7 +293,7 @@ impl<K: Clone + Eq + Hash> Scheduler<K> {
             let job = Job {
                 bake: Some(bake),
                 priority: Priority::Background,
-                state: State::Waiting(self.clock.now()),
+                state: State::Waiting(now),
             };
             self.jobs.insert(key.clone(), job);
         }
@@ -351,7 +342,7 @@ impl<K: Clone + Eq + Hash> Scheduler<K> {
 
     /// When the first bake that waits has waited `settle`, on the schedule
     /// clock: the next poll after it starts that bake.
-    pub(crate) fn next_due(&self, settle: Duration) -> Option<Duration> {
+    pub(crate) fn next_due(&self, settle: Duration) -> Option<ScheduleTime> {
         self.jobs
             .values()
             .filter_map(|job| match job.state {
@@ -400,12 +391,13 @@ impl<K: Clone + Eq + Hash> Scheduler<K> {
     }
 
     /// Take in the bakes that ended, drop what `wants` lacks, start what has
-    /// waited `settle`, the most wanted first, and drop spare bakes.
-    pub(crate) fn poll(&mut self, wants: &HashMap<K, Priority>, settle: Duration) {
+    /// waited `settle` at `now`, the most wanted first, and drop spare
+    /// bakes.
+    pub(crate) fn poll(&mut self, wants: &HashMap<K, Priority>, settle: Duration, now: ScheduleTime) {
         self.take_ended(wants);
         self.drop_unwanted(wants);
         self.tell_partials();
-        self.start_due(settle);
+        self.start_due(settle, now);
         self.drop_spare(wants);
     }
 
@@ -484,13 +476,12 @@ impl<K: Clone + Eq + Hash> Scheduler<K> {
     /// the oldest first, as many as their lanes allow. A bake for what is
     /// about to play or what a window shows takes the place of the oldest
     /// background bake.
-    fn start_due(&mut self, settle: Duration) {
-        let now = self.clock.now();
-        let mut due: Vec<(Priority, Duration, K)> = self
+    fn start_due(&mut self, settle: Duration, now: ScheduleTime) {
+        let mut due: Vec<(Priority, ScheduleTime, K)> = self
             .jobs
             .iter()
             .filter_map(|(key, job)| match job.state {
-                State::Waiting(since) if now.saturating_sub(since) >= settle => {
+                State::Waiting(since) if now - since >= settle => {
                     Some((job.priority, since, key.clone()))
                 }
                 _ => None,
@@ -506,7 +497,7 @@ impl<K: Clone + Eq + Hash> Scheduler<K> {
             {
                 continue;
             }
-            self.start(&key);
+            self.start(&key, now);
         }
     }
 
@@ -553,7 +544,7 @@ impl<K: Clone + Eq + Hash> Scheduler<K> {
         true
     }
 
-    fn start(&mut self, key: &K) {
+    fn start(&mut self, key: &K, now: ScheduleTime) {
         let job = self.jobs.get_mut(key).expect("a due key");
         let bake = job.bake.clone().expect("a waiting bake has its bake");
         self.serial += 1;
@@ -564,7 +555,7 @@ impl<K: Clone + Eq + Hash> Scheduler<K> {
         match bake.start(task) {
             Ok(()) => {
                 self.started += 1;
-                job.state = State::Running { shared, serial: self.serial, since, started: self.clock.now(), told: false };
+                job.state = State::Running { shared, serial: self.serial, since, started: now, told: false };
             }
             Err(err) => {
                 self.failures.push(format!("{what}: {err:#}"));
@@ -627,7 +618,6 @@ mod tests {
 
     use std::sync::Mutex;
 
-    use crate::clock::ManualClock;
 
     /// A bake that runs until the test ends: it keeps its task and never
     /// ends it, so no thread runs and nothing waits.
@@ -654,19 +644,19 @@ mod tests {
     #[test]
     fn playing_takes_the_place_of_the_oldest_background_bake() {
         let mut bakes: Scheduler<u32> = Scheduler::new(1, 1);
-        bakes.ask(&1, hold);
-        bakes.poll(&HashMap::from([(1, Priority::Background)]), Duration::ZERO);
+        bakes.ask(&1, ScheduleTime::ZERO, hold);
+        bakes.poll(&HashMap::from([(1, Priority::Background)]), Duration::ZERO, ScheduleTime::ZERO);
         assert_eq!(bakes.status(&1), Status::Running);
-        bakes.ask(&2, hold);
+        bakes.ask(&2, ScheduleTime::ZERO, hold);
         let wants = HashMap::from([(1, Priority::Background), (2, Priority::Playing)]);
-        bakes.poll(&wants, Duration::ZERO);
+        bakes.poll(&wants, Duration::ZERO, ScheduleTime::ZERO);
         assert_eq!(bakes.status(&2), Status::Running, "the playing one runs");
         assert_eq!(bakes.status(&1), Status::Waiting, "the background one waits again");
         // An export does not preempt: it waits its turn.
-        bakes.ask(&3, hold);
+        bakes.ask(&3, ScheduleTime::ZERO, hold);
         let mut wants = wants;
         wants.insert(3, Priority::Export);
-        bakes.poll(&wants, Duration::ZERO);
+        bakes.poll(&wants, Duration::ZERO, ScheduleTime::ZERO);
         assert_eq!(bakes.status(&3), Status::Waiting);
     }
 
@@ -675,17 +665,17 @@ mod tests {
         let mut bakes: Scheduler<u32> = Scheduler::new(2, 1);
         let mut wants = HashMap::new();
         for key in 0..19 {
-            bakes.ask(&key, hold);
+            bakes.ask(&key, ScheduleTime::ZERO, hold);
             wants.insert(key, Priority::Background);
         }
-        bakes.poll(&wants, Duration::ZERO);
-        bakes.ask(&19, hold);
+        bakes.poll(&wants, Duration::ZERO, ScheduleTime::ZERO);
+        bakes.ask(&19, ScheduleTime::ZERO, hold);
         wants.insert(19, Priority::Background);
-        bakes.poll(&wants, Duration::ZERO);
+        bakes.poll(&wants, Duration::ZERO, ScheduleTime::ZERO);
         assert_eq!(bakes.status(&19), Status::Waiting, "the lane is full of background bakes");
         // A window scrolls to the clip of bake 19.
         wants.insert(19, Priority::Visible);
-        bakes.poll(&wants, Duration::ZERO);
+        bakes.poll(&wants, Duration::ZERO, ScheduleTime::ZERO);
         assert_eq!(bakes.status(&19), Status::Running, "the visible one runs");
         let busy = bakes.summary();
         assert_eq!((busy.running, busy.waiting), (2, 18), "one background bake gave it its place");
@@ -693,19 +683,17 @@ mod tests {
 
     #[test]
     fn a_value_dragged_through_many_bakes_the_last_only() {
-        let clock = Arc::new(ManualClock::default());
+        let at = |ms: u64| ScheduleTime::from_start(Duration::from_millis(ms));
         let mut bakes: Scheduler<u32> = Scheduler::new(4, 1);
-        bakes.set_clock(clock.clone());
         // A ratio dragged: a new key each 5 ms, each wanted alone.
         for ratio in 0..20 {
-            bakes.ask(&ratio, hold);
-            bakes.poll(&HashMap::from([(ratio, Priority::Playing)]), SETTLE);
-            clock.advance_to(clock.now() + Duration::from_millis(5));
+            let now = at(u64::from(ratio) * 5);
+            bakes.ask(&ratio, now, hold);
+            bakes.poll(&HashMap::from([(ratio, Priority::Playing)]), SETTLE, now);
         }
         assert_eq!(bakes.started, 0, "no bake before the last one waited the settle");
-        assert_eq!(bakes.next_due(SETTLE), Some(Duration::from_millis(95) + SETTLE), "the last one is due a settle after it was asked for");
-        clock.advance_to(Duration::from_millis(95) + SETTLE);
-        bakes.poll(&HashMap::from([(19, Priority::Playing)]), SETTLE);
+        assert_eq!(bakes.next_due(SETTLE), Some(at(95) + SETTLE), "the last one is due a settle after it was asked for");
+        bakes.poll(&HashMap::from([(19, Priority::Playing)]), SETTLE, at(95) + SETTLE);
         assert_eq!(bakes.started, 1, "one bake");
         assert_eq!(bakes.status(&19), Status::Running);
     }

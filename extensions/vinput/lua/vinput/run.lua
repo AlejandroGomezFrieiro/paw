@@ -20,13 +20,14 @@ local R = {
   TRIES = 4, -- starts in a row that may fail before giving up
 }
 
---- Whether programs are run at all: not on the null backend, where the
+--- Whether programs are run at all: not on the null or stepped backend, where the
 --- MIDI ports are not open for a program to send to (`paw.opt.vinput_run`
 --- says otherwise for tests).
 function R.enabled()
   local want = paw.opt.vinput_run
   if want == true or want == false then return want end
-  return api.engine_get().backend ~= "null"
+  local backend = api.engine_get().backend
+  return backend ~= "null" and backend ~= "step"
 end
 
 --- Where the programs' output is written: beside the file the inputs are
