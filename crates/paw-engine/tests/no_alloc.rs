@@ -10,6 +10,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use paw_engine::midi_filter::{Control, MidiFilter, Rule};
 use paw_engine::record::{AudioCapture, Take, TakeShared};
+use paw_engine::GraphPlan;
 use paw_engine::{
     Attr, AudioData, AudioRegion, AutoLane, AutoTarget, Automation, ClipSet, Ctl, Delay,
     DeviceSlot, Engine, EngineHandle, EventKind, KeyRt, MAX_BLOCK, Msg, NoteCtl, OutRt, Pool,
@@ -331,7 +332,7 @@ fn the_audio_thread_never_allocates() {
         let chain: Box<[DeviceSlot]> = (0..kinds.len())
             .map(|k| DeviceSlot((i * kinds.len() + k) as u32))
             .collect();
-        send(&mut handle, Msg::SetChain { track: slot, chain });
+        send(&mut handle, Msg::SetGraph { slot: slot.into(), plan: GraphPlan::serial(&chain) });
         // The saturation at 4x (its parameter 2), which edit quality plays
         // without oversampling.
         send(
@@ -736,7 +737,7 @@ fn the_audio_thread_never_allocates() {
                 .rev()
                 .map(|k| DeviceSlot((i * kinds.len() + k) as u32))
                 .collect();
-            send(&mut handle, Msg::SetChain { track: slot, chain });
+            send(&mut handle, Msg::SetGraph { slot: slot.into(), plan: GraphPlan::serial(&chain) });
             // Side-chains and output pairs taken away and given again.
             if i == 4 {
                 send(
@@ -844,10 +845,7 @@ fn the_audio_thread_never_allocates() {
     );
     send(
         &mut handle,
-        Msg::SetChain {
-            track: TrackSlot(999),
-            chain: Box::new([DeviceSlot(1), DeviceSlot(2)]),
-        },
+        Msg::SetGraph { slot: TrackSlot(999).into(), plan: GraphPlan::serial(&[DeviceSlot(1), DeviceSlot(2)]) },
     );
     send(
         &mut handle,
@@ -891,6 +889,7 @@ fn the_audio_thread_never_allocates() {
     a_sound_being_made_never_allocates();
     a_file_heard_on_its_own_never_allocates();
     an_engine_at_rest_never_allocates();
+    plans_with_splits_never_allocate();
     reversed_slices_never_allocate();
     a_stepped_stream_never_allocates();
 }
@@ -1008,6 +1007,61 @@ fn a_file_heard_on_its_own_never_allocates() {
     handle.collect_garbage();
 }
 
+/// A plan with each kind of split, a late branch and a dry mix: played,
+/// given values of the same shape, and swapped for a plan of another shape
+/// with a fade, without allocating. Run from the test above.
+fn plans_with_splits_never_allocate() {
+    use paw_engine::plan::{Branch, Node, Split, Splitter, Tree, compile};
+    let (mut engine, mut handle) = Engine::new(SR);
+    let slot = TrackSlot(1);
+    send(&mut handle, Msg::InsertTrack { slot, track: TrackRt::new() });
+    for (n, kind) in KINDS.into_iter().enumerate() {
+        send(&mut handle, Msg::InsertDevice { slot: DeviceSlot(n as u32), device: device(kind) });
+    }
+    let tone: paw_engine::Samples = vec![0.1f32; 4096].into();
+    let audio = Arc::new(AudioData { sample_rate: SR as u32, channels: [tone.clone(), tone] });
+    send(&mut handle, Msg::SetClips { track: slot, clips: clips(&audio, 200) });
+    let entries = vec![SchedEntry::new(slot, TrackSlot::MASTER), SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE)];
+    send(&mut handle, Msg::SetSchedule(Box::new(Schedule::new(entries, 0))));
+    let dev = |n: u32, latency| Node::Device { slot: DeviceSlot(n), latency };
+    let branch = |tag, nodes, zone| Branch { tag, nodes, gain: 0.8, pan: 0.3, mute: false, solo: false, zone };
+    let split = |tag, splitter, branches, mix| Node::Split(Box::new(Split { tag, splitter, branches, mix, gain: 0.9 }));
+    let tree = |gain: f32, last: u32| {
+        let band = split(
+            2,
+            Splitter::Band(vec![200.0 * gain, 3000.0]),
+            vec![branch(3, vec![dev(1, 0)], None), branch(4, vec![dev(2, 0)], None), branch(5, vec![], None)],
+            1.0,
+        );
+        let ms = split(6, Splitter::MidSide, vec![branch(7, vec![dev(3, 0)], None), branch(8, vec![], None)], 0.5);
+        let lr = split(9, Splitter::LeftRight, vec![branch(10, vec![dev(4, 32)], None), branch(11, vec![], None)], 0.7);
+        Tree {
+            nodes: vec![
+                split(
+                    1,
+                    Splitter::Keys,
+                    vec![branch(12, vec![dev(0, 0), band], Some((0, 60))), branch(13, vec![ms], Some((61, 127)))],
+                    1.0,
+                ),
+                split(14, Splitter::Velocities, vec![branch(15, vec![lr], Some((0, 90)))], 0.6),
+                dev(last, 0),
+            ],
+        }
+    };
+    send(&mut handle, Msg::SetGraph { slot: slot.into(), plan: compile(&tree(1.0, 5), SR as f32) });
+    send(&mut handle, Msg::Play);
+    assert_eq!(run(&mut engine, 50, 512, 2), 0, "a plan with splits plays");
+    send(&mut handle, Msg::SetGraph { slot: slot.into(), plan: compile(&tree(1.5, 5), SR as f32) });
+    assert_eq!(run(&mut engine, 20, 512, 2), 0, "a plan of the same shape goes on from the old one");
+    send(&mut handle, Msg::SetGraph { slot: slot.into(), plan: compile(&tree(1.0, 0), SR as f32) });
+    assert_eq!(run(&mut engine, 2, 64, 2), 0, "a plan of another shape waits for a fade");
+    send(&mut handle, Msg::SetGraph { slot: slot.into(), plan: compile(&tree(1.0, 3), SR as f32) });
+    assert_eq!(run(&mut engine, 20, 512, 2), 0, "a newer plan waits instead, and takes over");
+    send(&mut handle, Msg::SetGraph { slot: slot.into(), plan: GraphPlan::serial(&[DeviceSlot(0)]) });
+    assert_eq!(run(&mut engine, 20, 512, 2), 0, "the plan before goes back to be freed");
+    handle.collect_garbage();
+}
+
 /// A stopped engine with synths comes to rest, rests, and wakes for a note
 /// and rests again, without allocating. Run from the test above.
 fn an_engine_at_rest_never_allocates() {
@@ -1019,8 +1073,7 @@ fn an_engine_at_rest_never_allocates() {
         send(&mut handle, Msg::InsertTrack { slot, track });
         let (dev, device) = (DeviceSlot(n), device("synth"));
         send(&mut handle, Msg::InsertDevice { slot: dev, device });
-        let chain = vec![dev].into();
-        send(&mut handle, Msg::SetChain { track: slot, chain });
+        send(&mut handle, Msg::SetGraph { slot: slot.into(), plan: GraphPlan::serial(&[dev]) });
         entries.push(SchedEntry::new(slot, TrackSlot::MASTER));
     }
     entries.push(SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE));

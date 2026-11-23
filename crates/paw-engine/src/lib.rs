@@ -24,6 +24,7 @@ pub mod midi_form;
 pub mod midi_out;
 pub mod pool;
 pub mod preview;
+pub mod plan;
 pub mod probe;
 pub mod record;
 pub mod samples;
@@ -48,7 +49,8 @@ pub use event::{Attr, Ctl, Event, EventBuf, EventKind, NOTE_BEND_RANGE, NoteCtl}
 pub use pool::Pool;
 pub use preview::Preview;
 pub use samples::{DiskStore, Samples, Sink, store_name};
-pub use slot::{DeviceSlot, TrackSlot};
+pub use plan::GraphPlan;
+pub use slot::{DeviceSlot, ProcessorSlot, TrackSlot};
 pub use tempo::{LocalTime, Place, SigPoint, TempoMap, TempoPoint};
 
 /// Convert decibels to linear gain. Anything at or below -120 dB is silence.

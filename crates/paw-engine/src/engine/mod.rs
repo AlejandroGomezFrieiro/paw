@@ -8,6 +8,7 @@ mod apply;
 mod click;
 mod clock;
 mod device_rt;
+mod graph;
 mod guarded;
 mod handle;
 mod msg;
@@ -65,6 +66,8 @@ const MSG_CAPACITY: usize = 16384;
 const GARBAGE_CAPACITY: usize = 16384;
 const MIDI_IN_CAPACITY: usize = 4096;
 const METER_FALL_SECONDS: f32 = 0.3;
+/// How long a plan of another shape fades out, and the new one in.
+const PLAN_FADE_SECONDS: f64 = 0.005;
 
 pub struct Engine {
     sample_rate: f64,
@@ -603,7 +606,7 @@ mod tests {
         // The saturation's parameters 0 and 2: the drive in dB and the
         // oversampling (1 is 4x).
         for msg in [
-            Msg::SetChain { track: slot, chain: chain.into() },
+            Msg::SetGraph { slot: slot.into(), plan: crate::GraphPlan::serial(&chain) },
             Msg::SetParam { device: DeviceSlot(1), param: 0, value: 24.0 },
             Msg::SetParam { device: DeviceSlot(1), param: 2, value: 1.0 },
             Msg::SetClips { track: slot, clips: Box::new(clips) },

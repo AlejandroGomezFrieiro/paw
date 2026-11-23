@@ -232,6 +232,7 @@ impl Session {
                     offline: false,
                     waker: self.engine.handle.waker(),
                     now: self.now,
+                    kinds: &self.doc.split_kinds,
                 };
                 let handle = &mut self.engine.handle;
                 let mut send = |msg| handle.send(msg);

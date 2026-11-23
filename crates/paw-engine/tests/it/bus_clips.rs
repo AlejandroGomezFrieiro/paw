@@ -3,6 +3,7 @@
 //! (A nest's "chain mode" places a nest track's sound into its host track,
 //! which has clips of its own: it depends on this.)
 
+use paw_engine::GraphPlan;
 use paw_engine::{
     ClipSet, DeviceSlot, Engine, MAX_BLOCK, Msg, Registry, SchedEntry, Schedule, TrackRt, TrackSlot,
 };
@@ -42,8 +43,8 @@ fn render(feed_note: bool, host_note: bool, gain: f32) -> Vec<f32> {
         Msg::InsertDevice { slot: DeviceSlot(1), device: make("synth") },
         Msg::InsertDevice { slot: DeviceSlot(2), device: make("utility") },
         Msg::SetParam { device: DeviceSlot(2), param: 0, value: gain },
-        Msg::SetChain { track: TrackSlot(1), chain: Box::new([DeviceSlot(0)]) },
-        Msg::SetChain { track: TrackSlot(2), chain: Box::new([DeviceSlot(1), DeviceSlot(2)]) },
+        Msg::SetGraph { slot: TrackSlot(1).into(), plan: GraphPlan::serial(&[DeviceSlot(0)]) },
+        Msg::SetGraph { slot: TrackSlot(2).into(), plan: GraphPlan::serial(&[DeviceSlot(1), DeviceSlot(2)]) },
         Msg::SetClips { track: TrackSlot(1), clips: feed },
         Msg::SetClips { track: TrackSlot(2), clips: host },
         Msg::SetSchedule(Box::new(Schedule::new(

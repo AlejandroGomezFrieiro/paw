@@ -19,15 +19,16 @@ use crate::midi_form::Form;
 use crate::midi_out::MidiOut;
 use crate::preview::Preview;
 use crate::record::Take;
-use crate::slot::{DeviceSlot, TrackSlot};
+use crate::plan::GraphPlan;
+use crate::slot::{DeviceSlot, ProcessorSlot, TrackSlot};
 use crate::tempo::TempoMap;
 
-use super::Engine;
+use super::{Engine, PLAN_FADE_SECONDS};
 use super::click::Count;
 use super::device_rt::{DeviceRt, KeyBuf, OutBufs};
 use super::msg::{Garbage, Msg};
 use super::schedule::Schedule;
-use super::track::{TrackRt, release_held};
+use super::track::{Swap, TrackRt, release_held};
 
 impl Engine {
     pub(super) fn apply(&mut self, msg: Msg) {
@@ -42,7 +43,7 @@ impl Engine {
                 mute,
                 quiet,
             } => self.set_mix(slot, gain, pan, mute, quiet),
-            Msg::SetChain { track, chain } => self.set_chain(track, chain),
+            Msg::SetGraph { slot, plan } => self.set_graph(slot, plan),
             Msg::SetLocalTime { track, time } => self.set_local_time(track, time),
             Msg::InsertDevice { slot, device } => self.insert_device(slot, device),
             Msg::RemoveDevice { slot } => self.remove_device(slot),
@@ -185,13 +186,37 @@ impl Engine {
         }
     }
 
-    fn set_chain(&mut self, track: TrackSlot, chain: Box<[DeviceSlot]>) {
-        match self.track_mut(track) {
-            Some(t) => {
-                let old = std::mem::replace(&mut t.chain, chain);
-                self.discard(Garbage::Chain(old));
-            }
-            None => self.discard(Garbage::Chain(chain)),
+    /// A new plan for a processor. One of the same shape goes on from the
+    /// state of the old one at once. One of another shape waits while the
+    /// old one fades out, if the song plays and the slot has sounded;
+    /// else it takes over at once.
+    fn set_graph(&mut self, slot: ProcessorSlot, mut plan: Box<GraphPlan>) {
+        let fade = ((self.sample_rate * PLAN_FADE_SECONDS) as u32).max(1);
+        let playing = self.playing;
+        let Some(t) = self.tracks.get_mut(slot.index()).and_then(|t| t.get_mut().as_deref_mut()) else {
+            self.discard(Garbage::Plan(plan));
+            return;
+        };
+        let mut freed = [t.spent.take(), None];
+        if t.next.is_some() {
+            // The old plan is fading out already: the newest waits instead.
+            freed[1] = t.next.replace(plan);
+        } else if plan.same_shape(&t.plan) {
+            plan.adopt(&mut t.plan);
+            freed[1] = Some(std::mem::replace(&mut t.plan, plan));
+        } else if playing && t.started {
+            t.next = Some(plan);
+            t.swap = match t.swap {
+                // Fading in: fade out from where it is.
+                Swap::In { left, len } => Swap::Out { left: len - left, len },
+                _ => Swap::Out { left: fade, len: fade },
+            };
+        } else {
+            freed[1] = Some(std::mem::replace(&mut t.plan, plan));
+            t.swap = Swap::Steady;
+        }
+        for old in freed.into_iter().flatten() {
+            self.discard(Garbage::Plan(old));
         }
     }
 }

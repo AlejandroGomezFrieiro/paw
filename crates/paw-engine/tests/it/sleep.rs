@@ -4,6 +4,7 @@
 
 use paw_engine::host::HostPath;
 use paw_engine::launch::{Launch, Quantize, Target};
+use paw_engine::GraphPlan;
 use paw_engine::{
     Attr, ClipSet, DeviceSlot, Engine, EngineHandle, EventKind, MAX_BLOCK, Msg, Registry,
     SchedEntry, Schedule, SendRt, TrackRt, TrackSlot,
@@ -78,10 +79,7 @@ fn project(sleep: bool) -> (Engine, EngineHandle) {
         send(
             &mut handle,
             &mut engine,
-            Msg::SetChain {
-                track: slot,
-                chain: chain.into(),
-            },
+            Msg::SetGraph { slot: slot.into(), plan: GraphPlan::serial(&chain) },
         );
         if n < 5 {
             let mut clips = ClipSet::default();
@@ -195,8 +193,7 @@ fn stopped(sleep: bool, chains: &[&[&str]]) -> (Engine, EngineHandle) {
             send(&mut handle, &mut engine, Msg::InsertDevice { slot: dev, device });
             chain.push(dev);
         }
-        let chain = chain.into();
-        send(&mut handle, &mut engine, Msg::SetChain { track: slot, chain });
+        send(&mut handle, &mut engine, Msg::SetGraph { slot: slot.into(), plan: GraphPlan::serial(&chain) });
         list.push(SchedEntry::new(slot, TrackSlot::MASTER));
     }
     list.push(SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE));

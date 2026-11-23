@@ -87,6 +87,7 @@ impl Session {
                 offline: true,
                 waker,
                 now: self.now,
+                kinds: &self.doc.split_kinds,
             };
             sync(
                 &Project::default(),

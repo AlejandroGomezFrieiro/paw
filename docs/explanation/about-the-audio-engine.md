@@ -36,6 +36,23 @@ through buses, sends, side-chains and output pairs, so all the sound
 arrives together. A render removes the total delay from the start of the
 file.
 
+The branches of a split in a chain of devices line up in the same way.
+paw delays each shorter branch to the longest one, and also the dry part
+of the split, so all the branches meet at the merge. A track is then as
+late as the slowest path through its chain.
+
+## A change to a chain
+
+The main thread turns the chain of a track into a plan: a list of steps
+that the audio thread runs in order. The plan holds all the memory that
+its splits need, so the audio thread does not allocate when it runs one.
+
+If you add, move or remove a device or a split while the song plays, the
+old chain fades out over 5 ms and the new chain fades in, so the change
+does not click. A change of a value, such as the gain of a branch or the
+frequency of a crossover, keeps the plan and takes effect at once, with a
+smooth move to the new value.
+
 ## A device that fails
 
 A device can panic, or it can output NaN or infinity. One bad sample can

@@ -1,6 +1,7 @@
 //! Tracks processed on several threads: the output is the same, bit for
 //! bit, as on one, and a schedule that is wrong does no harm.
 
+use paw_engine::GraphPlan;
 use paw_engine::{
     AutoLane, AutoTarget, Automation, ClipSet, Delay, DeviceSlot, Engine, EngineHandle, MAX_BLOCK,
     Msg, Pool, Registry, SchedEntry, Schedule, SendRt, TrackRt, TrackSlot,
@@ -62,7 +63,7 @@ fn project(entries: impl FnOnce(Vec<SchedEntry>) -> Vec<SchedEntry>) -> (Engine,
         send(
             &mut handle,
             &mut engine,
-            Msg::SetChain { track: slot, chain },
+            Msg::SetGraph { slot: slot.into(), plan: GraphPlan::serial(&chain) },
         );
         let i = slot.index();
         if !bus {
@@ -201,7 +202,7 @@ fn a_schedule_that_names_a_track_twice_or_shares_a_device_does_no_harm() {
         send(
             &mut handle,
             &mut engine,
-            Msg::SetChain { track: TrackSlot(slot), chain },
+            Msg::SetGraph { slot: TrackSlot(slot).into(), plan: GraphPlan::serial(&chain) },
         );
     }
     engine.set_pool(Some(Box::new(Pool::new(8))));

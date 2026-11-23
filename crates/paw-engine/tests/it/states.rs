@@ -3,6 +3,7 @@
 
 use std::sync::{Arc, Mutex};
 
+use paw_engine::GraphPlan;
 use paw_engine::{
     Automation, Device, DeviceSlot, Engine, EngineHandle, EventKind, Io, Msg, ProcessCtx,
     SchedEntry, Schedule, StateChange, StateLane, TrackRt, TrackSlot,
@@ -96,10 +97,7 @@ fn engine(
     send(
         &mut handle,
         &mut engine,
-        Msg::SetChain {
-            track,
-            chain: Box::new([DeviceSlot(0)]),
-        },
+        Msg::SetGraph { slot: track.into(), plan: GraphPlan::serial(&[DeviceSlot(0)]) },
     );
     let entries = vec![
         SchedEntry::new(track, TrackSlot::MASTER),

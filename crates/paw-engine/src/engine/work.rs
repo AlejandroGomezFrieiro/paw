@@ -3,9 +3,8 @@
 use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
 
 use crate::automation::{self, AutoTarget};
-use crate::device::{Io, ProcessCtx};
+use crate::device::ProcessCtx;
 use crate::event::{Ctl, Event, EventKind};
-use crate::guard;
 use crate::launch;
 use crate::slot::{DeviceSlot, TrackSlot};
 use crate::tempo::TempoMap;
@@ -56,7 +55,7 @@ pub(super) struct Work<'a> {
 
 /// The program changes a block's state lanes give, each for one device: a
 /// few, on the stack.
-struct Programs {
+pub(super) struct Programs {
     list: [(DeviceSlot, u8, Option<u16>); 4],
     count: usize,
 }
@@ -79,7 +78,7 @@ impl Programs {
         }
     }
 
-    fn as_slice(&self) -> &[(DeviceSlot, u8, Option<u16>)] {
+    pub(super) fn as_slice(&self) -> &[(DeviceSlot, u8, Option<u16>)] {
         &self.list[..self.count]
     }
 }
@@ -118,7 +117,8 @@ impl Work<'_> {
             self.automate(t);
             self.give_states(t, slack, &mut programs);
         }
-        self.run_chain(t, &programs);
+        self.run_plan(t, &programs);
+        t.fade(n);
         if let Some(state) = self.shared.launch.get(entry.slot.index()) {
             t.launcher.publish(state);
         }
@@ -280,7 +280,7 @@ impl Work<'_> {
 
     /// While playing, the state lanes give their devices the state at the
     /// block's start; the program changes among them are kept in
-    /// `programs`, for [`run_chain`](Self::run_chain) to hand each to its
+    /// `programs`, for [`run_device`](Self::run_device) to hand each to its
     /// device only.
     ///
     /// Blocks end on the lanes' points, so a new state is given on the
@@ -333,105 +333,6 @@ impl Work<'_> {
             {
                 lane.sent_early = Some(after);
             }
-        }
-    }
-
-    /// Run the block through the track's devices in order, letting those
-    /// at rest sleep through silence, and passing over or silencing those
-    /// that fail.
-    fn run_chain(&self, t: &mut TrackRt, programs: &Programs) {
-        let Block { ref ctx, n, map, .. } = *self.block;
-        // A track with a time of its own (a subproject's) gives its devices
-        // its bars: a copy of the block's context, on the stack.
-        let local = t.local.as_deref().map(|l| l.context(ctx, map));
-        let ctx = local.as_ref().unwrap_or(ctx);
-        let [left, right] = &mut t.buf;
-        // Whether the block is silent with no events, as far as it is known:
-        // looked at when a device at rest asks, and true still after a
-        // device that slept through it.
-        let mut quiet = None;
-        let (mut runs, mut sleeps) = (0, 0);
-        for &slot in t.chain.iter() {
-            if let Some(mut dev) = self.device(slot)
-                && let Some(dev) = dev.as_mut()
-                && !dev.failed
-            {
-                // A state lane's program change, for this device only:
-                // the devices before it in the chain do not hear it.
-                for &(to, program, bank) in programs.as_slice() {
-                    if to == slot {
-                        let kind = EventKind::Program {
-                            program,
-                            bank,
-                            ch: 0,
-                        };
-                        t.events.push_front(Event { frame: 0, kind });
-                        quiet = None;
-                    }
-                }
-                if self.block.sleep && dev.rests() {
-                    let keyed = dev.key.as_deref().is_some_and(|[l, r]| {
-                        !crate::device::silent(&l[..n]) || !crate::device::silent(&r[..n])
-                    });
-                    let silent = !keyed
-                        && *quiet.get_or_insert_with(|| {
-                            t.events.is_empty()
-                                && crate::device::silent(&left[..n])
-                                && crate::device::silent(&right[..n])
-                        });
-                    if silent {
-                        dev.skip(n);
-                        sleeps += 1;
-                        continue;
-                    }
-                }
-                quiet = None;
-                runs += 1;
-                if let Some(ran) = self.shared.device_ran.get(slot.index()) {
-                    // One writer per slot: a load and a store, no locked add.
-                    ran.store(ran.load(Relaxed) + 1, Relaxed);
-                }
-                // Taken out of the slot while the device runs on it.
-                let key = dev.key.take();
-                let mut outs = dev.outs.take();
-                let mut io = Io {
-                    left: &mut left[..n],
-                    right: &mut right[..n],
-                    events: &mut t.events,
-                    sidechain: key.as_deref().map(|[l, r]| [&l[..n], &r[..n]]),
-                    outputs: match outs.as_deref_mut() {
-                        Some(outs) => outs.as_mut_slice(),
-                        None => &mut [],
-                    },
-                };
-                // A device that panics is passed over from then on (an
-                // instrument falls silent, an effect lets its input through),
-                // and one that puts out NaN or infinity is silenced for the
-                // block: neither reaches the fader, the meters or the master.
-                // The host's wet/dry mix and bypass fade go around it.
-                let ok = dev.process(ctx, &mut io);
-                dev.key = key;
-                dev.outs = outs;
-                if !ok {
-                    dev.failed = true;
-                    left[..n].fill(0.0);
-                    right[..n].fill(0.0);
-                    self.shared.set_fault(slot, guard::Fault::PANICKED);
-                } else if !guard::finite(&left[..n]) || !guard::finite(&right[..n]) {
-                    left[..n].fill(0.0);
-                    right[..n].fill(0.0);
-                    if !dev.flagged {
-                        dev.flagged = true;
-                        self.shared.set_fault(slot, guard::Fault::NOT_FINITE);
-                    }
-                }
-            }
-        }
-        if runs > 0 {
-            self.shared.device_runs.fetch_add(runs, Relaxed);
-        }
-        if sleeps > 0 {
-            self.shared.device_sleeps.fetch_add(sleeps, Relaxed);
         }
     }
 
