@@ -311,8 +311,8 @@ local function tokens(text: string): {Token}
 end
 
 --- Split a command line into a name and arguments:
----   `track.add Bass volume=-6` -> "track.add", { "Bass", volume = -6 }
---- Quotes keep spaces together: `track.add "Lead Guitar"`, `name="Lead Guitar"`.
+---   `part.add Bass volume=-6` -> "part.add", { "Bass", volume = -6 }
+--- Quotes keep spaces together: `part.add "Lead Guitar"`, `name="Lead Guitar"`.
 function M.parse(line: string): string, Args
   local name, rest = line:match("^%s*(%S+)%s*(.-)%s*$")
   if not name then
@@ -612,12 +612,12 @@ end
 -- Ranges ----------------------------------------------------------------------
 --
 -- A command line may start with a range, as in Vim: of time (`:5,8`, `%`,
--- `.`, `$`, `'a,'b`, `'<,'>`) and of tracks (`:t2,t4`, `t*`, `t/Drums/`).
+-- `.`, `$`, `'a,'b`, `'<,'>`) and of parts (`:t2,t4`, `t*`, `t/Drums/`).
 -- `paw.ex` (runtime/lua/paw/ex.tl) reads them, runs its own commands on
 -- them (`:5,8d`, `:%s/c4/d4/`, `:g/vel<20/d`), and gives the range to a
 -- command defined with `range = true` as `ctx.range`: `{ bars = { first,
 -- last }, from, to }` for time, `from` and `to` in beats of the song, the
--- end not included; `tracks` (ids) for tracks; `{ selection = true, region
+-- end not included; `parts` (ids) for parts; `{ selection = true, region
 -- }` for `'<,'>`, while `paw.keymap.selection()` returns that region. A
 -- number right before a command without a range is its count: `:3snippet arp`.
 
@@ -647,8 +647,8 @@ end
 --
 -- A command says what its arguments are with `complete` in its options:
 --
---   complete = "tracks"                      -- every argument is a track's name
---   complete = { "tracks", "devices" }       -- the first a track, the second a device
+--   complete = "parts"                      -- every argument is a part's name
+--   complete = { "parts", "devices" }       -- the first a part, the second a device
 --   complete = function(text, info) return { "on", "off" } end
 --
 -- A name is one of `paw.commands.completers` (a registry) below; a function gets the
@@ -728,12 +728,12 @@ local builtin: {string: Completer} = {
     end
     return out
   end,
-  tracks = function(): {Item}
+  parts = function(): {Item}
     local out: {Item} = {}
-    for _, id in ipairs(api.track_list()) do
-      out[#out + 1] = item(api.track_get(id).name, "track")
+    for _, id in ipairs(api.part_list()) do
+      out[#out + 1] = item(api.part_get(id).name, "part")
     end
-    out[#out + 1] = item("master", "the master track")
+    out[#out + 1] = item("master", "the master part")
     return out
   end,
   devices = function(): {Item}
@@ -743,10 +743,10 @@ local builtin: {string: Completer} = {
     end
     return by_text(out)
   end,
-  track_devices = function(): {Item}
+  part_devices = function(): {Item}
     local out: {Item} = {}
-    local track = paw.cursor.track()
-    for _, device in ipairs(track and track:devices() or {}) do
+    local part = paw.cursor.part()
+    for _, device in ipairs(part and part:devices() or {}) do
       local d = device:get()
       out[#out + 1] = item(d.kind, d.name)
     end
@@ -848,9 +848,9 @@ end
 
 --- What could finish a command line: a list of `{ text, label, desc }` with
 --- `text` the whole line it would become and `label` the part shown.
----   paw.commands.complete("track.co")   --> { { text = "track.color", label = "track.color", desc = ... } }
+---   paw.commands.complete("part.co")   --> { { text = "part.color", label = "part.color", desc = ... } }
 function M.complete(line: string): {Entry}
-  -- Marks after `'`, tracks after `t/`, fields in a pattern.
+  -- Marks after `'`, parts after `t/`, fields in a pattern.
   local special = paw.ex.complete_range(line) or paw.ex.complete_pattern(line)
   if special then
     return special

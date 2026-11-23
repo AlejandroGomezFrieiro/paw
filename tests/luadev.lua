@@ -114,7 +114,7 @@ test("the luafx devices: gain and pan, drive, chords and sine", function()
     return dev
   ]],
   })
-  local c = paw.add_track({ name = "chords" })
+  local c = paw.add_part({ name = "chords" })
   c:add_device("lua:chords", { chord = 1 })
   c:add_device("lua:count_notes")
   c:add_clip({ start = 0, length = 4, notes = { { pitch = "C4", start = 0, length = 2 } } })
@@ -123,7 +123,7 @@ test("the luafx devices: gain and pan, drive, chords and sine", function()
   near((channel_peaks(info, 0.2, 0.8)), 0.3, 1e-3, "chords: three notes held for one")
   eq((channel_peaks(info, 1.2, 1.8)) < 1e-3, true, "and all three let go")
 
-  local s = paw.add_track({ name = "sine" })
+  local s = paw.add_part({ name = "sine" })
   s:add_device("lua:sine")
   s:add_clip({ start = 0, length = 4, notes = { { pitch = "A4", start = 0, length = 2, velocity = 127 } } })
   c.mute = true
@@ -159,7 +159,7 @@ test("a Lua device's parameters automate, are learnt and are saved", function()
   fx:set("gain", -9)
   paw.project.save(path)
   paw.project.load(path)
-  local again = paw.tracks()[1]:devices()[2]
+  local again = paw.parts()[1]:devices()[2]
   eq(again.kind, "lua:auto_gain", "the device comes back")
   eq(again.params.gain, -9, "with its value")
 end)
@@ -195,7 +195,7 @@ test("a script that fails is shown as stopped with its error, and starts again",
   eq(fx:get().stopped ~= nil, true, "the device says it has stopped")
   eq(#t:devices(), 2, "and is still in the project")
   local dry = render({ tail = 0 }).peak
-  eq(dry > 0.05, true, "the track plays on, the effect passed over")
+  eq(dry > 0.05, true, "the part plays on, the effect passed over")
 
   fx:set("fail", 0)
   fx:restart()
@@ -245,7 +245,7 @@ test("a note played while the device is late still sounds, and its note-off stil
     return dev
   ]],
   })
-  local t = paw.add_track({ name = "late" })
+  local t = paw.add_part({ name = "late" })
   local dev = t:add_device("lua:late_once")
   local function late() return tonumber(api.device_call(dev.id, "sandbox.late")) end
   -- The key is played once the engine has given up a block on the helper.
@@ -287,7 +287,7 @@ test("a script that does not load says why, and nothing else is hurt", function(
   eq(why["lua:never_ready"]:find("did not get ready within", 1, true) ~= nil, true, "a loop that never ends")
   eq(found.added[1], "lua:good_one", "the others load")
   fails(
-    function() paw.add_track({ name = "x" }):add_device("lua:broken_syntax") end,
+    function() paw.add_part({ name = "x" }):add_device("lua:broken_syntax") end,
     nil,
     "a script that did not load cannot be added"
   )
@@ -328,7 +328,7 @@ test("a script changed on the disk is loaded again, and its devices keep their v
   -- By command, with the file as it is.
   T.write_file(dir .. "/reload_gain.lua", gain_script(1))
   paw.ui.focus("arrange")
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.cmd("device.reload")
   eq(api.device_call(fx.id, "sandbox.pid") ~= pid, true, ":device.reload starts it again")
   near(render({ tail = 0, bits = 32 }).peak / dry, 0.5, 1e-4, "from the file as it is now")
@@ -373,14 +373,14 @@ test("scripts call a Lua device, and what is posted to its kind reaches every on
     return dev
   ]],
   })
-  local a = paw.add_track({ name = "a" })
+  local a = paw.add_part({ name = "a" })
   local first = a:add_device("lua:posted_level")
   a:add_clip({ start = 0, length = 4 })
   eq(api.device_call(first.id, "get"), "0", "a call answers")
   eq(#api.device_post("lua:posted_level", "level", "0.25"), 0, "taken by every device")
   eq(api.device_call(first.id, "get"), "0.25", "the device there is told at once")
   near(render({ tail = 0, bits = 32, ["end"] = 2 }).peak, 0.25, 1e-6, "and so is the render's own")
-  local later = paw.add_track({ name = "b" }):add_device("lua:posted_level")
+  local later = paw.add_part({ name = "b" }):add_device("lua:posted_level")
   eq(api.device_call(later.id, "get"), "0.25", "a device made later is given what was posted")
   -- Large data goes as a file, which the device maps.
   local ffi = require("ffi")
@@ -389,7 +389,7 @@ test("scripts call a Lua device, and what is posted to its kind reaches every on
   api.device_post("lua:posted_level", "map", path)
   eq(api.device_call(later.id, "get"), "0.125", "a file of floats is read by mapping it")
   api.device_post("lua:posted_level", "map", nil)
-  local c = paw.add_track({ name = "c" }):add_device("lua:posted_level")
+  local c = paw.add_part({ name = "c" }):add_device("lua:posted_level")
   eq(api.device_call(c.id, "get"), "0.25", "a topic posted nil is forgotten")
   api.device_post("lua:posted_level", "level", nil)
 end)

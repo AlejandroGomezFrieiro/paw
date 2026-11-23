@@ -5,10 +5,10 @@
 //! ├── project.toml            `nests = ["Bridge"]`: the nests the song plays
 //! ├── nests/
 //! │   └── Bridge/
-//! │       ├── nest.toml       id, name, length, tempo, meter, kind, the order of its tracks
+//! │       ├── nest.toml       id, name, length, tempo, meter, kind, the order of its parts
 //! │       ├── meta.json       its markers and the data of extensions, if any
-//! │       ├── master/         its mix track, as a track folder
-//! │       └── tracks/<name>/  its tracks, as track folders
+//! │       ├── master/         its mix part, as a part folder
+//! │       └── parts/<name>/  its parts, as part folders
 //! └── unused/nests/<name>/    a nest that no clip places, as at save
 //! ```
 //!
@@ -82,22 +82,22 @@ impl Writer<'_> {
         Ok(())
     }
 
-    /// One nest's folder: `nest.toml`, `meta.json`, `master/`, `tracks/`.
+    /// One nest's folder: `nest.toml`, `meta.json`, `master/`, `parts/`.
     fn nest(&mut self, project: &Project, nest: &Nest, root: &Path) -> Result<()> {
-        let tracks = project
-            .nest_tracks(nest.id)
+        let parts = project
+            .nest_parts(nest.id)
             .filter(|t| t.id != nest.master);
-        let order = self.tracks(tracks, root, None)?;
+        let order = self.parts(parts, root, None)?;
         let master = project
-            .track(nest.master)
-            .with_context(|| format!("the master track of the subproject {}", nest.name))?;
-        self.track(master, &root.join("master"))?;
+            .part(nest.master)
+            .with_context(|| format!("the master part of the subproject {}", nest.name))?;
+        self.part(master, &root.join("master"))?;
         let mut head = serde_json::to_value(nest)?;
         let map = head.as_object_mut().context("a subproject")?;
-        // The master is the track in `master/`; the meta is `meta.json`.
+        // The master is the part in `master/`; the meta is `meta.json`.
         map.remove("master");
         map.remove("meta");
-        map.insert("tracks".into(), json!(order));
+        map.insert("parts".into(), json!(order));
         let head = to_toml(&head).context("a subproject")?;
         let mut text = toml::to_string_pretty(&head).context("writing nest.toml")?;
         if !text.ends_with('\n') {
@@ -157,13 +157,13 @@ pub(super) struct Reference {
 
 /// Read the `nest.toml` and `meta.json` of each nest that `project.toml`
 /// lists, as the project's JSON has a nest, and add the entries of its
-/// tracks, then of its master, to `entries`. A nest that refers to a
+/// parts, then of its master, to `entries`. A nest that refers to a
 /// project folder goes to `references`.
 pub(super) fn read_heads(
     fs: &dyn ProjectFiles,
     dir: &Path,
     names: &[String],
-    entries: &mut Vec<TrackEntry>,
+    entries: &mut Vec<PartEntry>,
     references: &mut Vec<Reference>,
 ) -> Result<Vec<Value>> {
     let mut out = Vec::new();
@@ -187,9 +187,9 @@ pub(super) fn read_heads(
             references.push(Reference { id: NestId(id), name: name.to_string(), source: source.into() });
             continue;
         }
-        let order: Vec<String> = match map.remove("tracks") {
+        let order: Vec<String> = match map.remove("parts") {
             Some(v) => serde_json::from_value(v)
-                .with_context(|| format!("{}: tracks is a list of folder names", path.display()))?,
+                .with_context(|| format!("{}: parts is a list of folder names", path.display()))?,
             None => Vec::new(),
         };
         let meta_file = dir.join(&root).join("meta.json");
@@ -199,8 +199,8 @@ pub(super) fn read_heads(
             json!({})
         };
         map.insert("meta".into(), meta);
-        entries.extend(order.iter().map(|t| TrackEntry::of(t, &root, Some(id))));
-        entries.push(TrackEntry {
+        entries.extend(order.iter().map(|t| PartEntry::of(t, &root, Some(id))));
+        entries.push(PartEntry {
             folder: root.join("master"),
             outside: false,
             nest: Some(id),
@@ -258,20 +258,20 @@ pub(super) fn adopt_references(
     Ok(())
 }
 
-/// Tag each track read for a nest with it, and give each nest the id of
-/// the track read from its `master/`.
-pub(super) fn tag_tracks(nests: &mut [Value], entries: &[TrackEntry], tracks: &mut [Value]) -> Result<()> {
-    for (entry, track) in entries.iter().zip(tracks.iter_mut()) {
+/// Tag each part read for a nest with it, and give each nest the id of
+/// the part read from its `master/`.
+pub(super) fn tag_parts(nests: &mut [Value], entries: &[PartEntry], parts: &mut [Value]) -> Result<()> {
+    for (entry, part) in entries.iter().zip(parts.iter_mut()) {
         let Some(nest) = entry.nest else {
             continue;
         };
-        track["nest"] = json!(nest);
+        part["nest"] = json!(nest);
         if entry.master {
             let head = nests
                 .iter_mut()
                 .find(|n| n.get("id").and_then(Value::as_u64) == Some(nest))
                 .context("a subproject's master without its subproject")?;
-            head["master"] = track.get("id").cloned().unwrap_or(Value::Null);
+            head["master"] = part.get("id").cloned().unwrap_or(Value::Null);
         }
     }
     Ok(())
@@ -311,11 +311,11 @@ mod tests {
         }))
         .expect("a clip");
         riff.content = ClipContent::Midi { notes: Notes::from(notes), controls: Vec::new() };
-        p.track_mut(12).expect("Keys").clips.push(Arc::new(riff));
-        let mut strings = Track::new(31);
+        p.part_mut(12).expect("Keys").clips.push(Arc::new(riff));
+        let mut strings = Part::new(31);
         strings.name = "Strings".into();
         strings.nest = Some(NestId(10));
-        p.tracks.push(Arc::new(strings));
+        p.parts.push(Arc::new(strings));
         let bridge = p.nest_mut(NestId(10)).expect("Bridge");
         bridge.meter = serde_json::from_value(json!({ "mode": "own", "changes": [{ "beat": 0.0, "num": 6, "den": 8 }] }))
             .expect("a meter");
@@ -331,10 +331,10 @@ mod tests {
         for file in [
             "nests/Bridge/nest.toml",
             "nests/Bridge/meta.json",
-            "nests/Bridge/master/track.json",
-            "nests/Bridge/tracks/Keys/track.json",
-            "nests/Bridge/tracks/Keys/clips/riff.midi2",
-            "nests/Bridge/tracks/Strings/track.json",
+            "nests/Bridge/master/part.json",
+            "nests/Bridge/parts/Keys/part.json",
+            "nests/Bridge/parts/Keys/clips/riff.midi2",
+            "nests/Bridge/parts/Strings/part.json",
         ] {
             assert!(dir.join(file).is_file(), "{file} is written");
         }
@@ -351,18 +351,18 @@ mod tests {
         let mut p = ballad();
         save(&p, &dir);
         // The song's clip goes: Bridge is not played any more.
-        p.track_mut(1).expect("Ballad").clips = Default::default();
+        p.part_mut(1).expect("Ballad").clips = Default::default();
         save(&p, &dir);
         assert!(!dir.join("nests/Bridge").exists());
         assert!(dir.join("unused/nests/Bridge/nest.toml").is_file());
-        assert!(dir.join("unused/nests/Bridge/tracks/Keys/clips/riff.midi2").is_file());
+        assert!(dir.join("unused/nests/Bridge/parts/Keys/clips/riff.midi2").is_file());
         assert!(!read(&Home::default(), &dir).expect("read").project.nests.contains_key(&NestId(10)));
         // Another unused nest of the same name keeps the first where it is.
         let mut other = song(40);
-        other.track_mut(1).expect("Ballad").clips = Default::default();
+        other.part_mut(1).expect("Ballad").clips = Default::default();
         add_nest(&mut other, 40, "Bridge", Vec::new());
         save(&other, &dir);
-        assert!(dir.join("unused/nests/Bridge/tracks/Keys/clips/riff.midi2").is_file());
+        assert!(dir.join("unused/nests/Bridge/parts/Keys/clips/riff.midi2").is_file());
         assert_eq!(id_in(&dir.join("unused/nests/Bridge")), Some(10));
         assert_eq!(id_in(&dir.join("unused/nests/Bridge-2")), Some(40));
         let _ = std::fs::remove_dir_all(&dir);
@@ -397,13 +397,13 @@ mod tests {
         let back = read(&Home::default(), &dir).expect("read back").project;
         back.validate().expect("valid when read back");
         assert_eq!(layout(&back, &Value::Null, None, &dir, &Home::default()).expect("a layout").files, first.files);
-        assert_eq!(back.track(113).map(|t| (t.name.as_str(), t.nest)), Some(("Keys", Some(NestId(111)))), "with the folder's ids from its own");
+        assert_eq!(back.part(113).map(|t| (t.name.as_str(), t.nest)), Some(("Keys", Some(NestId(111)))), "with the folder's ids from its own");
         // The folder changes: the song plays what it has now.
         let mut changed = ballad();
-        changed.track_mut(12).expect("Keys").name = "Piano".into();
+        changed.part_mut(12).expect("Keys").name = "Piano".into();
         save(&changed, &lib);
         let again = read(&Home::default(), &dir).expect("read again").project;
-        assert_eq!(again.track(113).map(|t| t.name.as_str()), Some("Piano"));
+        assert_eq!(again.part(113).map(|t| t.name.as_str()), Some("Piano"));
         for d in [lib, dir] {
             let _ = std::fs::remove_dir_all(&d);
         }

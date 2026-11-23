@@ -67,12 +67,12 @@ local record ArtFields
 end
 
 --- Where the pencil's articulations come from (`M.articulation`): an
---- extension that knows the instrument of a track. `names(track)` for
---- completion, `apply(track, text, note)` the fields for a note, or nil
+--- extension that knows the instrument of a part. `names(part)` for
+--- completion, `apply(part, text, note)` the fields for a note, or nil
 --- and why not.
 local record ArtProvider
-  names: function(track: integer): {string}
-  apply: function(track: integer, text: string, note: types.Note): ArtFields, string
+  names: function(part: integer): {string}
+  apply: function(part: integer, text: string, note: types.Note): ArtFields, string
 end
 
 --- Candidates that `<C-n>` `<C-p>` step through in place: their pitches,
@@ -618,7 +618,7 @@ local function audition()
   local at = origin()
   local portion = at and clips().target(session.pen[1].start - at)
   if portion then
-    portion.clip:track():play_note(session.pen[1].pitch, opt.velocity, 180)
+    portion.clip:part():play_note(session.pen[1].pitch, opt.velocity, 180)
   end
 end
 
@@ -1308,20 +1308,20 @@ local function pitches_text_of(list: {Drawn}): string
   return table.concat(names, " ")
 end
 
---- The track the pencil draws for: the active clip's.
-local function track_here(): integer
+--- The part the pencil draws for: the active clip's.
+local function part_here(): integer
   local clip = roll():clip()
-  return clip and api.clip_get(clip.id).track
+  return clip and api.clip_get(clip.id).part
 end
 
 --- Set where `a` takes articulations from (the articulations extension
---- does): `names(track)` and `apply(track, text, note)`.
+--- does): `names(part)` and `apply(part, text, note)`.
 function M.articulation(provider: ArtProvider)
   M.articulations = provider
 end
 
 --- Give the notes being drawn an articulation (`a`): asked by name, with
---- the names of the track's instrument to complete.
+--- the names of the part's instrument to complete.
 function M.articulate()
   if not begin() then
     return
@@ -1331,8 +1331,8 @@ function M.articulate()
   if not provider then
     return paw.notify("no articulations: `:ext.load articulations` gives the pencil its names", "warn")
   end
-  local track = track_here()
-  local names = provider.names(track) or {}
+  local part = part_here()
+  local names = provider.names(part) or {}
   local complete = function(typed: string): {string | CommandsModule.Entry}
     local out: {string | CommandsModule.Entry} = {}
     for _, k in ipairs(names) do
@@ -1350,7 +1350,7 @@ function M.articulate()
       end
       for _, d in ipairs(session.pen) do
         local fields, why = provider.apply(
-          track, text, {pitch = d.pitch, start = d.start, length = d.length, velocity = d.velocity}
+          part, text, {pitch = d.pitch, start = d.start, length = d.length, velocity = d.velocity}
         )
         if not fields then
           return paw.notify(why or ("no articulation " .. text), "warn")
@@ -1910,7 +1910,7 @@ function M.step_next()
 end
 
 --- Step input on or off (`I` in insert mode). The pen stays as it is.
---- Without a MIDI input, paw says why and opens the track's list of inputs.
+--- Without a MIDI input, paw says why and opens the part's list of inputs.
 function M.toggle_step()
   if not begin() then
     return
@@ -1919,7 +1919,7 @@ function M.toggle_step()
   session.step = not session.step or nil
   stepin.refresh()
   if session.step then
-    if not stepin.ask_input(track_here()) then
+    if not stepin.ask_input(part_here()) then
       paw.notify("step input: play notes on the MIDI keyboard, Esc writes them")
     end
   else
@@ -2063,7 +2063,7 @@ local function step_label(): string
   if holding ~= "" then
     return "STEP holding " .. holding
   end
-  local source = stepin.source(track_here())
+  local source = stepin.source(part_here())
   if not source then
     return "STEP · no MIDI input"
   end
@@ -2104,7 +2104,7 @@ stepin.target(
   "pianoroll",
   {
     active = M.stepping,
-    track = function(): integer return M.stepping() and track_here() or nil end,
+    part = function(): integer return M.stepping() and part_here() or nil end,
     note = step_note,
     release = function() changed() end,
     status = function(): string return M.stepping() and step_label() or nil end,
@@ -2188,7 +2188,7 @@ events.on(
       M.start(how)
       if session and session.step then
         stepin.refresh()
-        stepin.ask_input(track_here())
+        stepin.ask_input(part_here())
       end
     end
   end
@@ -2314,7 +2314,7 @@ roll().layer(
     sync()
     local at = L.data.start
     local insert = (require("paw.theme") as Theme).palette.insert
-    local colour = paw.draw.track_colour(api.track_get(L.data.track))
+    local colour = paw.draw.part_colour(api.part_get(L.data.part))
     for i, n in ipairs(drawn()) do
       local row = L.row(n.pitch)
       local x0, x1 = L.x(n.start - at), L.x(n.start + n.length - at)

@@ -1,4 +1,4 @@
-//! What a track plays back: note events and audio regions, laid out in beats.
+//! What a part plays back: note events and audio regions, laid out in beats.
 
 use std::fmt::Display;
 use std::fs::File;
@@ -115,17 +115,17 @@ fn decode(path: &Path, file: File, mut sink: Sink) -> Result<AudioData> {
         }
         Err(err) => bail!("{name} cannot be read: {err}"),
     };
-    let Some(track) = format.default_track(TrackType::Audio) else {
+    let Some(stream) = format.default_track(TrackType::Audio) else {
         bail!("{name} holds no audio");
     };
-    let Some(params) = track.codec_params.as_ref().and_then(|p| p.audio()) else {
+    let Some(params) = stream.codec_params.as_ref().and_then(|p| p.audio()) else {
         bail!("{name} holds no audio");
     };
     // An MPEG audio length without a LAME header is guessed from the bitrate,
     // too roughly to show that the file is cut short.
     let mpeg = [CODEC_ID_MP1, CODEC_ID_MP2, CODEC_ID_MP3].contains(&params.codec);
-    let expected = track.num_frames.filter(|_| !mpeg || track.delay.is_some());
-    let track_id = track.id;
+    let expected = stream.num_frames.filter(|_| !mpeg || stream.delay.is_some());
+    let stream_id = stream.id;
     let mut decoder = match symphonia::default::get_codecs()
         .make_audio_decoder(params, &AudioDecoderOptions::default())
     {
@@ -153,7 +153,7 @@ fn decode(path: &Path, file: File, mut sink: Sink) -> Result<AudioData> {
             }
             Err(err) => bail!("{name} is damaged: {err}"),
         };
-        if packet.track_id != track_id {
+        if packet.track_id != stream_id {
             continue;
         }
         let buffer = match decoder.decode(&packet) {
@@ -323,7 +323,7 @@ impl Hold {
     }
 }
 
-/// Everything one track plays. Built on the main thread and handed to the
+/// Everything one part plays. Built on the main thread and handed to the
 /// engine whole; the audio thread changes it only by the [`PieceEdit`]s it
 /// is sent, without allocating.
 ///
@@ -336,7 +336,7 @@ pub struct ClipSet {
     /// Sorted by beat, with note-offs before note-ons on the same beat.
     pub midi: Vec<MidiEv>,
     pub audio: Vec<AudioRegion>,
-    /// Where what the track's instrument is told to play changes (the
+    /// Where what the part's instrument is told to play changes (the
     /// keyswitches and controllers its notes' attributes are turned into),
     /// by beat: what playing from a place after it sends again first.
     pub switches: Vec<Switch>,
@@ -353,11 +353,11 @@ pub struct ClipSet {
     sounding: Vec<(u32, u32)>,
 }
 
-/// One clip's share of what a track plays.
+/// One clip's share of what a part plays.
 pub struct Piece {
     /// The clip's id: what an edit names the piece by.
     pub id: u64,
-    /// Where its clip is among the track's clips, from 1: on the same beat,
+    /// Where its clip is among the part's clips, from 1: on the same beat,
     /// what a piece with a lower order plays comes first.
     pub order: u64,
     /// Sorted as [`ClipSet::midi`] is, counted from
@@ -489,7 +489,7 @@ fn rank(e: &MidiEv) -> u8 {
     }
 }
 
-/// Where an event is in the order a track plays its events in: by beat,
+/// Where an event is in the order a part plays its events in: by beat,
 /// rank, the order of its piece (0 for the list) and its place there.
 #[derive(Clone, Copy)]
 pub(crate) struct Stamp(f64, u8, u64, usize);
@@ -555,7 +555,7 @@ impl ClipSet {
             .sort_by(|a, b| a.beat.total_cmp(&b.beat).then(rank(a).cmp(&rank(b))));
     }
 
-    /// The pieces of a track's clips, in any order, with room for `room`
+    /// The pieces of a part's clips, in any order, with room for `room`
     /// pieces in all before an edit has to send the set whole again.
     pub fn with_pieces(mut self, pieces: Vec<Piece>, room: usize) -> Self {
         let room = room.max(pieces.len());
@@ -683,7 +683,7 @@ impl ClipSet {
     }
 
     /// Every event before `before`, of the list and of every piece, each
-    /// with where it is in the order the track plays them: for what a
+    /// with where it is in the order the part plays them: for what a
     /// chase looks at, which is the last of them for each key and controller.
     pub(crate) fn each_before(&self, before: f64, mut each: impl FnMut(&MidiEv, Stamp)) {
         for (at, ev) in self.midi.iter().enumerate().take_while(|(_, e)| e.beat < before) {

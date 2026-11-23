@@ -49,10 +49,10 @@ local function start()
   paw.ui.focus("arrange")
 end
 
---- A clip on a flute track: middle C, then a C two octaves above the
+--- A clip on a flute part: middle C, then a C two octaves above the
 --- server's range; opened in the piano roll.
 local function flute()
-  local t = paw.add_track({ name = "Flute" })
+  local t = paw.add_part({ name = "Flute" })
   local clip = t:add_clip({
     start = 4,
     length = 4,
@@ -103,14 +103,14 @@ test("lsp: a clip becomes MIDI LSP's document, with what sounds with it", functi
   start()
   paw.tempo.set(0, 100)
   local clip = flute()
-  local bass = paw.add_track({ name = "Bass" })
+  local bass = paw.add_part({ name = "Bass" })
   bass:add_clip({
     start = 2,
     length = 8,
     notes = { { pitch = 36, start = 3, length = 2 }, { pitch = 40, start = 7, length = 1 } },
   })
   paw
-    .add_track({ name = "Drums" })
+    .add_part({ name = "Drums" })
     :add_clip({ start = 4, length = 4, notes = { { pitch = 36, start = 0, length = 0.25 } } })
   paw.harmony.set_key("D harmonic minor")
   paw.flush()
@@ -131,18 +131,18 @@ test("lsp: a clip becomes MIDI LSP's document, with what sounds with it", functi
     clip:notes()[2].id .. " 96 960 1920 100",
     "the second note: its own id, ticks from the clip's start"
   )
-  eq(doc.track.name, "Flute", "the track")
+  eq(doc.part.name, "Flute", "the part")
   eq(doc.key.root .. " " .. doc.key.scale, "2 harmonic minor", "the project's key")
   eq(doc.tempi[1].bpm, 100, "the tempo")
   eq(doc.barStart, 0, "it starts on a bar line")
-  eq(#doc.context, 2, "two other tracks sound with it")
+  eq(#doc.context, 2, "two other parts sound with it")
   local by = {}
   for _, c in ipairs(doc.context) do
-    by[c.track.name] = c
+    by[c.part.name] = c
   end
   eq(#by.Bass.notes, 1, "the bass note that overlaps it")
   eq(by.Bass.notes[1].start, 960, "in this clip's ticks")
-  eq(by.Drums.track.tag, "drums", "drums say so")
+  eq(by.Drums.part.tag, "drums", "drums say so")
   local before = doc.hash
   clip:set_note(1, { pitch = 62 })
   paw.flush()
@@ -153,7 +153,7 @@ end)
 test("lsp: an edit of a clip that does not overlap the document keeps its key, and lists no clips", function()
   start()
   local clip = flute()
-  local bass = paw.add_track({ name = "Bass" })
+  local bass = paw.add_part({ name = "Bass" })
   local under = bass:add_clip({ start = 2, length = 8, notes = { { pitch = 36, start = 3, length = 2 } } })
   local far = bass:add_clip({ start = 32, length = 4, notes = { { pitch = 40, start = 0, length = 1 } } })
   paw.flush()
@@ -297,7 +297,7 @@ test("lsp: attach filters which clips a server is sent", function()
   if not python() then return "no python3" end
   start()
   local clip = flute()
-  range({ attach = { tracks = { "Violin*" } } })
+  range({ attach = { parts = { "Violin*" } } })
   until_(function() return status("range") == "running" end, "the server")
   eq(paw.lsp.settle(), true, "settled")
   eq(#paw.lsp.clients()[1].documents, 0, "a flute is not sent to a server for violins")

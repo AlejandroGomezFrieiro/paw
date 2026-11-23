@@ -1,6 +1,6 @@
 //! A safety copy written when the program panics.
 //!
-//! The session keeps the latest state of the project here (cheap: tracks
+//! The session keeps the latest state of the project here (cheap: parts
 //! are shared, not copied) whenever it changes. A panic hook calls
 //! [`write_copy`], which writes it where `:recover` looks, so a bug in the
 //! program loses no more than a crash of a plugin does.

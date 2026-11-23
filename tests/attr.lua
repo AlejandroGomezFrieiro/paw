@@ -1,5 +1,5 @@
 -- A note's MIDI 2.0 attribute (an articulation) from the model to what
--- plays it, the track's attr_map that turns it into keyswitches for an
+-- plays it, the part's attr_map that turns it into keyswitches for an
 -- instrument that does not take it, plugins an extension adds, and the
 -- names a plugin gives its keys. Loaded by tests/suite.lua with its helpers.
 local T = ...
@@ -77,7 +77,7 @@ return dev
 
 test("a note's attribute survives edits, undo, copies, pastes and a save and load", function()
   fresh()
-  local t = paw.add_track({ name = "Strings" })
+  local t = paw.add_part({ name = "Strings" })
   local clip = t:add_clip({ start = 0, length = 4, notes = { { pitch = "C4", start = 0, length = 1 } } })
   local at = clip:add_note({ pitch = "E4", start = 1, length = 1, attr = PIZZ })
   same(clip:notes()[at].attr, PIZZ, "added with it")
@@ -116,7 +116,7 @@ test("a note's attribute survives edits, undo, copies, pastes and a save and loa
   local path = T.scratch .. "/attr.json"
   paw.project.save(path)
   paw.project.load(path)
-  local back = paw.track("Strings"):clips()[1]:notes()
+  local back = paw.part("Strings"):clips()[1]:notes()
   same(back[2].attr, PIZZ, "saved and loaded")
   eq(back[1].attr, nil, "a note saved with none loads with none")
 end)
@@ -145,7 +145,7 @@ end)
 
 test("a MIDI file keeps a note's attribute in an event other programs pass over", function()
   fresh()
-  local t = paw.add_track({ name = "Violin" })
+  local t = paw.add_part({ name = "Violin" })
   t:add_clip({
     start = 0,
     length = 4,
@@ -163,13 +163,13 @@ test("a MIDI file keeps a note's attribute in an event other programs pass over"
   eq(next(file.skipped), nil, "nothing passed over")
   fresh()
   paw.midifile.import(path, { start = 0 })
-  same(paw.tracks()[1]:clips()[1]:notes()[1].attr, PIZZ, "imported onto the note")
+  same(paw.parts()[1]:clips()[1]:notes()[1].attr, PIZZ, "imported onto the note")
 end)
 
 test("a recorded MIDI 2.0 note-on keeps its attribute", function()
   fresh()
   api.engine_restart({})
-  local keys = paw.add_track({ name = "keys" })
+  local keys = paw.add_part({ name = "keys" })
   keys.armed = true
   paw.flush()
   paw.transport.record_offset = 0
@@ -189,7 +189,7 @@ test("a Lua device is given each note's attribute", function()
   fresh()
   local kind = lua_device("shows_attr", SHOWS_ATTR)
   paw.project.tempo = 120
-  local t = paw.add_track({ name = "shows" })
+  local t = paw.add_part({ name = "shows" })
   t:add_device(kind)
   t:add_clip({
     start = 0,
@@ -207,13 +207,13 @@ test("a Lua device is given each note's attribute", function()
   near(l, 0, 1e-4, "a note with none has none")
 end)
 
---- A track playing the keyswitched instrument a clip of notes with
+--- A part playing the keyswitched instrument a clip of notes with
 --- articulations, its attribute map set to `map`.
 local function keyswitched(map)
   fresh()
   local kind = lua_device("keyswitched", KEYSWITCHED)
   paw.project.tempo = 120
-  local t = paw.add_track({ name = "Violins" })
+  local t = paw.add_part({ name = "Violins" })
   t:add_device(kind)
   t:add_clip({
     start = 0,
@@ -294,7 +294,7 @@ test(
   end
 )
 
-test("an attribute map is checked, undone, saved and copied with its track", function()
+test("an attribute map is checked, undone, saved and copied with its part", function()
   local t = keyswitched(MAP)
   fails(function() t.attr_map = { arts = { ["11.0"] = "ks=H9" } } end, "no such key", "a key there is not")
   fails(function() t.attr_map = { arts = { ["99.0"] = "ks=D1" } } end, "code", "a code there is not")
@@ -310,8 +310,8 @@ test("an attribute map is checked, undone, saved and copied with its track", fun
   local path = T.scratch .. "/attr-map.json"
   paw.project.save(path)
   paw.project.load(path)
-  eq(paw.track("Violins").attr_map.by_type["17"].out, "hold=D1 cc32=40", "saved and loaded")
-  eq(paw.track("Violins"):duplicate().attr_map ~= nil, true, "a copy of the track keeps it")
+  eq(paw.part("Violins").attr_map.by_type["17"].out, "hold=D1 cc32=40", "saved and loaded")
+  eq(paw.part("Violins"):duplicate().attr_map ~= nil, true, "a copy of the part keeps it")
 end)
 
 --- The first time from `from` seconds on at which the left side of a
@@ -337,7 +337,7 @@ local function delayed()
   fresh()
   local kind = lua_device("keyswitched", KEYSWITCHED)
   paw.project.tempo = 120
-  local t = paw.add_track({ name = "Violins" })
+  local t = paw.add_part({ name = "Violins" })
   t:add_device(kind)
   t:add_clip({
     start = 0,
@@ -455,7 +455,7 @@ test("a plugin an extension ships is found once its directory is added, plays at
   eq(found.kinds[1], kind, "found in the directory")
   eq(has_kind(kind).from, "stubs", "listed as the extension's")
   paw.project.tempo = 120
-  local t = paw.add_track({ name = "Stub" })
+  local t = paw.add_part({ name = "Stub" })
   t:add_device(kind)
   local clip = t:add_clip({
     start = 0,
@@ -493,7 +493,7 @@ end)
 
 test("the piano roll writes a note's articulation on it, and K names it", function()
   fresh()
-  local t = paw.add_track({ name = "Strings" })
+  local t = paw.add_part({ name = "Strings" })
   local clip = t:add_clip({ start = 0, length = 4, notes = { { pitch = "C4", start = 0, length = 2, attr = PIZZ } } })
   paw.ui.views:get("pianoroll"):edit(clip)
   local roll = paw.ui.views:get("pianoroll")
@@ -517,7 +517,7 @@ end)
 
 test("Ex matches and sets a note's articulation by its code", function()
   fresh()
-  local t = paw.add_track({ name = "Strings" })
+  local t = paw.add_part({ name = "Strings" })
   local clip = t:add_clip({
     start = 0,
     length = 4,
@@ -526,7 +526,7 @@ test("Ex matches and sets a note's articulation by its code", function()
       { pitch = 62, start = 1, length = 1, attr = PIZZ },
     },
   })
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.commands.exec("%s/attr=11.A/attr=11.0/g")
   eq(paw.attr.m2(clip:notes()[2].attr), "11.0", "the pizzicato made staccato")
   paw.commands.exec("%s/attr=none/attr=10.2/g")
@@ -551,12 +551,12 @@ test("sampler: a note's attribute chooses the articulation, with no keyswitch an
   end
   fresh()
   paw.project.tempo = 120
-  local track = paw.add_track({ name = "Strings" })
-  paw.track_kinds.set(track, "sampler", { path = dir .. "/ks.sfz", ask = false })
-  local device = s.device_of(track.id)
+  local part = paw.add_part({ name = "Strings" })
+  paw.part_kinds.set(part, "sampler", { path = dir .. "/ks.sfz", ask = false })
+  local device = s.device_of(part.id)
   T.until_(function() return api.device_get(device).status == "running" end, "the sampler to run")
-  eq(track.attr_map, nil, "no keyswitches are sent for it")
-  track:add_clip({
+  eq(part.attr_map, nil, "no keyswitches are sent for it")
+  part:add_clip({
     start = 0,
     length = 8,
     notes = {

@@ -2,7 +2,7 @@
 -- then `paw.flush()` (sync to the engine, deliver events), then an undo step.
 --   paw --clean --no-plugins -l bench/edit.lua clips <n>     add, move, delete n clips; undo and redo all
 --   paw --clean --no-plugins -l bench/edit.lua notes <n>     add, move, delete n notes in one clip
---   paw --clean --no-plugins -l bench/edit.lua scale <tracks> one small edit, undo and redo in a big project
+--   paw --clean --no-plugins -l bench/edit.lua scale <parts> one small edit, undo and redo in a big project
 local paw = require("paw")
 local api = paw.api
 local B = dofile(debug.getinfo(1, "S").source:sub(2):match("(.*)/") .. "/lib.lua")
@@ -37,12 +37,12 @@ local function summary(times)
 end
 
 if mode == "clips" then
-  local track = api.track_add({ name = "T" })
+  local part = api.part_add({ name = "T" })
   paw.flush()
   api.undo_checkpoint()
   local ids, add, move, del = {}, {}, {}, {}
   for i = 1, n do
-    add[i] = turn(function() ids[i] = api.clip_add(track, { start = (i - 1) * 4, length = 4 }) end)
+    add[i] = turn(function() ids[i] = api.clip_add(part, { start = (i - 1) * 4, length = 4 }) end)
   end
   for i = 1, n do
     move[i] = turn(api.clip_set, ids[i], "start", (i - 1) * 4 + 2)
@@ -61,7 +61,7 @@ if mode == "clips" then
     end
     return k
   end)
-  local ok, list = pcall(api.clip_list, track)
+  local ok, list = pcall(api.clip_list, part)
   local after = ok and #list or nil
   local redo_ms, redone = B.time(function()
     local k = 0
@@ -94,8 +94,8 @@ if mode == "clips" then
     rss_kb = B.rss(),
   })
 elseif mode == "notes" then
-  local track = api.track_add({ name = "T" })
-  local clip = api.clip_add(track, { start = 0, length = n + 4 })
+  local part = api.part_add({ name = "T" })
+  local clip = api.clip_add(part, { start = 0, length = n + 4 })
   paw.flush()
   api.undo_checkpoint()
   local add, move, del = {}, {}, {}
@@ -150,12 +150,12 @@ elseif mode == "notes" then
     rss_kb = B.rss(),
   })
 elseif mode == "scale" then
-  -- n tracks, each a synth and a delay playing one 16-bar clip.
-  local build_ms, ids = B.time(B.build, { tracks = n, kind = "midi", fx = true, bars = 16 })
+  -- n parts, each a synth and a delay playing one 16-bar clip.
+  local build_ms, ids = B.time(B.build, { parts = n, kind = "midi", fx = true, bars = 16 })
   local vol, clipmove, undo, redo = {}, {}, {}, {}
   for i = 1, 50 do
     local id = ids[(i * 7) % #ids + 1]
-    vol[i] = turn(api.track_set, id, "volume", -(i % 12))
+    vol[i] = turn(api.part_set, id, "volume", -(i % 12))
     local clip = api.clip_list(id)[1].id
     clipmove[i] = turn(api.clip_set, clip, "start", i % 4)
     local t = api.real_ms()
@@ -167,11 +167,11 @@ elseif mode == "scale" then
     paw.flush()
     redo[i] = api.real_ms() - t
   end
-  local add_track = turn(api.track_add, { name = "one more" })
+  local add_part = turn(api.part_add, { name = "one more" })
   local sv, sc, su, sr = B.stats(vol), B.stats(clipmove), B.stats(undo), B.stats(redo)
   B.emit({
     workload = "scale",
-    tracks = n,
+    parts = n,
     build_ms = build_ms,
     volume_ms = sv.p50,
     volume_max_ms = sv.max,
@@ -181,15 +181,15 @@ elseif mode == "scale" then
     undo_max_ms = su.max,
     redo_ms = sr.p50,
     redo_max_ms = sr.max,
-    track_add_ms = add_track,
+    part_add_ms = add_part,
     rss_kb = B.rss(),
   })
 elseif mode == "turn" then
-  -- The end of a turn alone, in a project of n synth tracks: the kernel's
+  -- The end of a turn alone, in a project of n synth parts: the kernel's
   -- `close_turn` (events, hooks, scenes, the frontend state) and the undo step.
   -- A request of a connection pays it once, with nothing changed
   -- (a read) or after its edit.
-  local _, ids = B.time(B.build, { tracks = n, kind = "midi", fx = true, bars = 16 })
+  local _, ids = B.time(B.build, { parts = n, kind = "midi", fx = true, bars = 16 })
   local function finish()
     paw._kernel.close_turn()
     api.undo_checkpoint()
@@ -200,7 +200,7 @@ elseif mode == "turn" then
     local t = api.real_ms()
     finish()
     empty[i] = api.real_ms() - t
-    api.track_set(ids[(i * 7) % #ids + 1], "volume", -(i % 12))
+    api.part_set(ids[(i * 7) % #ids + 1], "volume", -(i % 12))
     t = api.real_ms()
     finish()
     edited[i] = api.real_ms() - t
@@ -208,7 +208,7 @@ elseif mode == "turn" then
   local se, sd = B.stats(empty), B.stats(edited)
   B.emit({
     workload = "turn",
-    tracks = n,
+    parts = n,
     empty_ms = se.p50,
     empty_max_ms = se.max,
     edited_ms = sd.p50,

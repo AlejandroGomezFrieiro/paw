@@ -84,7 +84,7 @@ impl Buffers {
     }
 
     /// Give the block's sound from the output ports: the main port on the
-    /// track's pair, added for an instrument, and the other pairs where
+    /// part's pair, added for an instrument, and the other pairs where
     /// they go.
     fn write_output(&self, io: &mut Io, pairs: &[crate::OutPair], instrument: bool, n: usize) {
         if let Some(port) = self.channels.first() {

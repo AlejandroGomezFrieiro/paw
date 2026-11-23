@@ -2,7 +2,7 @@
 //!
 //! [`Engine::apply`] is the one place that tells the messages apart. Each
 //! message that does more than set a field has a method of its own, kept
-//! here by what it acts on: tracks, devices, what tracks play, the
+//! here by what it acts on: parts, devices, what parts play, the
 //! transport, and MIDI and the other ways in and out.
 
 use std::sync::atomic::Ordering::Relaxed;
@@ -19,20 +19,20 @@ use crate::midi_out::MidiOut;
 use crate::preview::Preview;
 use crate::record::Take;
 use crate::plan::GraphPlan;
-use crate::slot::{DeviceSlot, ProcessorSlot, TrackSlot};
+use crate::slot::{DeviceSlot, ProcessorSlot, PartSlot};
 
 use super::{Engine, PLAN_FADE_SECONDS};
 use super::click::Count;
 use super::device_rt::{DeviceRt, KeyBuf, OutBufs};
 use super::msg::{Garbage, Msg};
 use super::schedule::Schedule;
-use super::track::{Swap, TrackRt, release_held};
+use super::part::{Swap, PartRt, release_held};
 
 impl Engine {
     pub(super) fn apply(&mut self, msg: Msg) {
         match msg {
-            Msg::InsertTrack { slot, track } => self.insert_track(slot, track),
-            Msg::RemoveTrack { slot } => self.remove_track(slot),
+            Msg::InsertPart { slot, part } => self.insert_part(slot, part),
+            Msg::RemovePart { slot } => self.remove_part(slot),
             Msg::SetSchedule(schedule) => self.set_schedule(schedule),
             Msg::SetMix {
                 slot,
@@ -42,7 +42,7 @@ impl Engine {
                 quiet,
             } => self.set_mix(slot, gain, pan, mute, quiet),
             Msg::SetGraph { slot, plan } => self.set_graph(slot, plan),
-            Msg::SetLocalTime { track, time } => self.set_local_time(track, time),
+            Msg::SetLocalTime { part, time } => self.set_local_time(part, time),
             Msg::InsertDevice { slot, device } => self.insert_device(slot, device),
             Msg::RemoveDevice { slot } => self.remove_device(slot),
             Msg::SetKey { device, key } => self.set_key(device, key),
@@ -55,11 +55,11 @@ impl Engine {
                 value,
             } => self.set_param(device, param, value),
             Msg::SetBypass { device, bypass } => self.set_bypass(device, bypass),
-            Msg::SetClips { track, clips } => self.set_clips(track, clips),
-            Msg::EditClips { track, edit } => self.edit_clips(track, edit),
-            Msg::SetAutomation { track, automation } => self.set_automation(track, automation),
+            Msg::SetClips { part, clips } => self.set_clips(part, clips),
+            Msg::EditClips { part, edit } => self.edit_clips(part, edit),
+            Msg::SetAutomation { part, automation } => self.set_automation(part, automation),
             Msg::StatesHeld => self.states_held(),
-            Msg::SetSlots { track, slots } => self.set_slots(track, slots),
+            Msg::SetSlots { part, slots } => self.set_slots(part, slots),
             Msg::Launch(launches) => self.launch(launches),
             Msg::SetTempoMap(map) => self.set_tempo_map(map),
             Msg::SetTempo(tempo) => self.set_tempo(tempo),
@@ -84,27 +84,27 @@ impl Engine {
             } => self.count_in(frames, every, clicks, per_bar),
             Msg::Stop => self.stop(),
             Msg::Seek(position) => self.seek(position),
-            Msg::Live { track, event } => self.play_live(track, event),
+            Msg::Live { part, event } => self.play_live(part, event),
             Msg::SetInput {
-                track,
+                part,
                 first,
                 channels,
                 monitor,
                 armed,
-            } => self.set_input(track, first, channels, monitor, armed),
+            } => self.set_input(part, first, channels, monitor, armed),
             Msg::SetTake(take) => self.set_take(take),
             Msg::SetMidiInput {
-                track,
+                part,
                 port,
                 channel,
-            } => self.set_midi_input(track, port, channel),
+            } => self.set_midi_input(part, port, channel),
             Msg::MidiIn { port, kind } => self.midi_in(port, kind),
             Msg::SetMidiOutput {
-                track,
+                part,
                 port,
                 channel,
                 form,
-            } => self.set_midi_output(track, port, channel, form),
+            } => self.set_midi_output(part, port, channel, form),
             Msg::SetMidiOut(out) => self.set_midi_out(out),
             Msg::SetMidiFilter(filter) => {
                 let old = std::mem::replace(&mut self.midi_filter, filter);
@@ -124,29 +124,29 @@ impl Engine {
     }
 }
 
-/// Tracks, their mix and the order they are processed in.
+/// Parts, their mix and the order they are processed in.
 impl Engine {
-    fn insert_track(&mut self, slot: TrackSlot, track: Box<TrackRt>) {
-        if let Some(entry) = self.tracks.get_mut(slot.index()) {
-            if let Some(old) = entry.get_mut().replace(track) {
-                self.discard(Garbage::Track(old));
+    fn insert_part(&mut self, slot: PartSlot, part: Box<PartRt>) {
+        if let Some(entry) = self.parts.get_mut(slot.index()) {
+            if let Some(old) = entry.get_mut().replace(part) {
+                self.discard(Garbage::Part(old));
             }
         } else {
-            self.discard(Garbage::Track(track));
+            self.discard(Garbage::Part(part));
         }
-        // A new track hears no input: the one it replaced may have.
+        // A new part hears no input: the one it replaced may have.
         if self.listening {
             self.note_listening();
         }
     }
 
-    fn remove_track(&mut self, slot: TrackSlot) {
+    fn remove_part(&mut self, slot: PartSlot) {
         if let Some(old) = self
-            .tracks
+            .parts
             .get_mut(slot.index())
             .and_then(|t| t.get_mut().take())
         {
-            self.discard(Garbage::Track(old));
+            self.discard(Garbage::Part(old));
         }
         self.note_states();
         if self.listening {
@@ -161,21 +161,21 @@ impl Engine {
         }
     }
 
-    fn set_mix(&mut self, slot: TrackSlot, gain: f32, pan: f32, mute: bool, quiet: bool) {
-        if let Some(track) = self.track_mut(slot) {
-            track.gain = gain;
-            track.pan = pan;
-            track.mute = mute;
-            track.quiet = quiet;
-            if !track.started {
-                track.applied = track.target_gains();
-                track.applied_heard = if quiet { 0.0 } else { 1.0 };
+    fn set_mix(&mut self, slot: PartSlot, gain: f32, pan: f32, mute: bool, quiet: bool) {
+        if let Some(part) = self.part_mut(slot) {
+            part.gain = gain;
+            part.pan = pan;
+            part.mute = mute;
+            part.quiet = quiet;
+            if !part.started {
+                part.applied = part.target_gains();
+                part.applied_heard = if quiet { 0.0 } else { 1.0 };
             }
         }
     }
 
-    fn set_local_time(&mut self, track: TrackSlot, time: Option<Box<crate::LocalTime>>) {
-        let old = match self.track_mut(track) {
+    fn set_local_time(&mut self, part: PartSlot, time: Option<Box<crate::LocalTime>>) {
+        let old = match self.part_mut(part) {
             Some(t) => std::mem::replace(&mut t.local, time),
             None => time,
         };
@@ -191,7 +191,7 @@ impl Engine {
     fn set_graph(&mut self, slot: ProcessorSlot, mut plan: Box<GraphPlan>) {
         let fade = ((self.sample_rate * PLAN_FADE_SECONDS) as u32).max(1);
         let playing = self.playing;
-        let Some(t) = self.tracks.get_mut(slot.index()).and_then(|t| t.get_mut().as_deref_mut()) else {
+        let Some(t) = self.parts.get_mut(slot.index()).and_then(|t| t.get_mut().as_deref_mut()) else {
             self.discard(Garbage::Plan(plan));
             return;
         };
@@ -317,10 +317,10 @@ impl Engine {
     }
 }
 
-/// What tracks play: their clips, lanes and launcher slots.
+/// What parts play: their clips, lanes and launcher slots.
 impl Engine {
-    fn set_clips(&mut self, track: TrackSlot, clips: Box<ClipSet>) {
-        match self.track_mut(track) {
+    fn set_clips(&mut self, part: PartSlot, clips: Box<ClipSet>) {
+        match self.part_mut(part) {
             Some(t) => {
                 let old = std::mem::replace(&mut t.clips, clips);
                 // Notes that were sounding may no longer have a note-off.
@@ -332,8 +332,8 @@ impl Engine {
         }
     }
 
-    fn edit_clips(&mut self, track: TrackSlot, mut edit: Box<PieceEdit>) {
-        if let Some(t) = self.track_mut(track) {
+    fn edit_clips(&mut self, part: PartSlot, mut edit: Box<PieceEdit>) {
+        if let Some(t) = self.part_mut(part) {
             // The main thread keeps count of the room there is, so
             // an edit always fits.
             if t.clips.edit(&mut edit) {
@@ -345,8 +345,8 @@ impl Engine {
         self.discard(Garbage::PieceEdit(edit));
     }
 
-    fn set_automation(&mut self, track: TrackSlot, automation: Box<Automation>) {
-        match self.track_mut(track) {
+    fn set_automation(&mut self, part: PartSlot, automation: Box<Automation>) {
+        match self.part_mut(part) {
             Some(t) => {
                 let old = std::mem::replace(&mut t.automation, automation);
                 self.discard(Garbage::Automation(old));
@@ -359,7 +359,7 @@ impl Engine {
     /// See [`Msg::StatesHeld`].
     fn states_held(&mut self) {
         let beat = self.head.beat();
-        for t in self.tracks.iter_mut() {
+        for t in self.parts.iter_mut() {
             if let Some(t) = t.get_mut().as_deref_mut() {
                 for lane in t.automation.states.iter_mut() {
                     let at = state_at(&lane.points, beat + 1e-9);
@@ -376,8 +376,8 @@ impl Engine {
         self.states_held = true;
     }
 
-    fn set_slots(&mut self, track: TrackSlot, slots: Box<Slots>) {
-        match self.track_mut(track) {
+    fn set_slots(&mut self, part: PartSlot, slots: Box<Slots>) {
+        match self.part_mut(part) {
             Some(t) => {
                 let old = t.launcher.set_slots(slots);
                 if !t.launcher.follows_arrangement() {
@@ -402,7 +402,7 @@ impl Engine {
                 } else {
                     position
                 };
-                if let Some(t) = self.track_mut(launch.track) {
+                if let Some(t) = self.part_mut(launch.part) {
                     t.launcher.queue(launch, at);
                     self.launching = true;
                 }
@@ -474,9 +474,9 @@ impl Engine {
         self.playing = false;
         self.flush_notes = true;
         self.count = None;
-        // A performance ends with the song: every track plays its
+        // A performance ends with the song: every part plays its
         // clips on the timeline again.
-        for t in self.tracks.iter_mut() {
+        for t in self.parts.iter_mut() {
             if let Some(t) = t.get_mut().as_deref_mut() {
                 t.launcher.reset();
             }
@@ -499,13 +499,13 @@ impl Engine {
 impl Engine {
     fn set_input(
         &mut self,
-        track: TrackSlot,
+        part: PartSlot,
         first: usize,
         channels: usize,
         monitor: bool,
         armed: bool,
     ) {
-        if let Some(t) = self.track_mut(track) {
+        if let Some(t) = self.part_mut(part) {
             t.input_first = first;
             t.input_channels = channels;
             t.monitor = monitor;
@@ -514,7 +514,7 @@ impl Engine {
                 release_held(t);
             }
         }
-        if channels > 0 && (monitor || armed) && self.track_mut(track).is_some() {
+        if channels > 0 && (monitor || armed) && self.part_mut(part).is_some() {
             self.listening = true;
         } else if self.listening {
             self.note_listening();
@@ -528,8 +528,8 @@ impl Engine {
         }
     }
 
-    fn set_midi_input(&mut self, track: TrackSlot, port: u32, channel: u8) {
-        if let Some(t) = self.track_mut(track) {
+    fn set_midi_input(&mut self, part: PartSlot, port: u32, channel: u8) {
+        if let Some(t) = self.part_mut(part) {
             if (t.midi_port, t.midi_channel) != (port, channel) {
                 release_held(t);
             }
@@ -538,8 +538,8 @@ impl Engine {
         }
     }
 
-    fn set_midi_output(&mut self, track: TrackSlot, port: u32, channel: u8, form: Form) {
-        let Some(t) = self.track_mut(track) else {
+    fn set_midi_output(&mut self, part: PartSlot, port: u32, channel: u8, form: Form) {
+        let Some(t) = self.part_mut(part) else {
             return;
         };
         let old = std::mem::replace(&mut t.midi_out, port);
@@ -586,10 +586,10 @@ impl Engine {
         }
     }
 
-    /// What was played live goes into the track's next block, as far as
+    /// What was played live goes into the part's next block, as far as
     /// there is room.
-    fn play_live(&mut self, track: TrackSlot, event: EventKind) {
-        if let Some(t) = self.track_mut(track)
+    fn play_live(&mut self, part: PartSlot, event: EventKind) {
+        if let Some(t) = self.part_mut(part)
             && t.live.len() < t.live.capacity()
         {
             t.live.push(event);

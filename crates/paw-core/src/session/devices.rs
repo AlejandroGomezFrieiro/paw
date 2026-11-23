@@ -1,4 +1,4 @@
-//! Devices on tracks: adding, removing, parameters, states, presets and calls.
+//! Devices on parts: adding, removing, parameters, states, presets and calls.
 
 use crate::events::{DeviceTrouble, Item, KernelEvent as E, ParamTouched, StateApplied};
 use paw_engine::DeviceFormat;
@@ -84,7 +84,7 @@ impl Session {
     fn device_params(
         &self,
         id: Id,
-        track: Id,
+        part: Id,
         d: &crate::model::DeviceInst,
         live: Option<&crate::sync::LiveDevice>,
     ) -> (serde_json::Map<String, Value>, Vec<Value>) {
@@ -92,10 +92,10 @@ impl Session {
         // else what the plugin reports (from its own state), else the default.
         let mut params = serde_json::Map::new();
         let mut infos = Vec::new();
-        // The parameters a lane of the track moves.
+        // The parameters a lane of the part moves.
         let automated: Vec<&str> = self
             .doc.project
-            .track(track)
+            .part(part)
             .unwrap()
             .lanes
             .iter()
@@ -132,14 +132,14 @@ impl Session {
     }
 
     pub(crate) fn device_view(&self, id: Id) -> Result<Value> {
-        let (track, index) = self
+        let (part, index) = self
             .doc.project
             .find_device(id)
             .with_context(|| format!("no device {id}"))?;
-        let d = &self.doc.project.track(track).unwrap().devices[index];
+        let d = &self.doc.project.part(part).unwrap().devices[index];
         let info = self.registry.get(&d.kind).map(|f| f.info());
         let live = self.live.get(&id);
-        let (mut params, infos) = self.device_params(id, track, d, live);
+        let (mut params, infos) = self.device_params(id, part, d, live);
         // `running`, `loading` (being made apart: see session/loading.rs),
         // `stopped`, `offline` (set so: not made at all) or `missing` (not
         // installed).
@@ -182,7 +182,7 @@ impl Session {
             "plugin": plugin,
             "id": d.id, "kind": d.kind, "name": name, "offline": d.offline,
             "format": info.map_or("", |i| i.format.as_str()),
-            "track": track, "index": index + 1, "bypass": d.bypass, "params": params,
+            "part": part, "index": index + 1, "bypass": d.bypass, "params": params,
             // The parameters the project sets, over what the plugin's state says.
             "overrides": d.params,
             "param_info": infos, "meta": d.meta, "editor": editor,
@@ -192,7 +192,7 @@ impl Session {
             // hung, or could not be made.
             "stopped": stopped,
             "status": status,
-            // The track it listens to, and whether it can listen at all.
+            // The part it listens to, and whether it can listen at all.
             "sidechain": d.sidechain, "sidechain_pre": d.sidechain_pre,
             // Where its further output pairs play, by pair number.
             "outputs": d.outputs,
@@ -200,7 +200,7 @@ impl Session {
         }))
     }
 
-    pub(crate) fn device_add(&mut self, track: Id, kind: &str, opts: DeviceOpts) -> Result<Id> {
+    pub(crate) fn device_add(&mut self, part: Id, kind: &str, opts: DeviceOpts) -> Result<Id> {
         if self.registry.get(kind).is_none() {
             bail!("no device kind `{kind}`");
         }
@@ -214,8 +214,8 @@ impl Session {
             .map(|info| info.name.clone());
         self.doc.edit(|p| {
             let t = p
-                .track_mut(track)
-                .with_context(|| format!("no track {track}"))?;
+                .part_mut(part)
+                .with_context(|| format!("no part {part}"))?;
             let device = DeviceInst {
                 id,
                 kind: kind.into(),
@@ -339,15 +339,15 @@ impl Session {
         let touched = ParamTouched { device: id, param: key.clone(), id: param.stable_id().to_string(), from: "host".into(), value: None };
         self.doc.emit(E::ParamTouched(touched));
         if self.play.playing
-            && let Some((track, _)) = self.doc.project.find_device(id)
-            && self.auto_mode(track).writes()
+            && let Some((part, _)) = self.doc.project.find_device(id)
+            && self.auto_mode(part).writes()
         {
             let before = self.device_view(id)?["params"][&key].as_f64();
             let target = Target::Param {
                 device: id,
                 param: key.clone(),
             };
-            self.touch(track, target, before.unwrap_or(value), value);
+            self.touch(part, target, before.unwrap_or(value), value);
         }
         let name = format!("param {id} {key}");
         self.doc.edit(|p| {
@@ -524,7 +524,7 @@ impl Session {
     /// a new instance, with the state the project last had of it and the
     /// parameters set in the project. The project itself does not change.
     pub(crate) fn device_restart(&mut self, id: Id) -> Result<()> {
-        let (track, _) = self
+        let (part, _) = self
             .doc.project
             .find_device(id)
             .with_context(|| format!("no device {id}"))?;
@@ -534,8 +534,8 @@ impl Session {
         self.flush();
         // Take it out of the engine and put it back, behind the project's back.
         let mut without = self.doc.project.clone();
-        if let Some(track) = without.track_mut(track) {
-            track.devices.retain(|d| d.id != id);
+        if let Some(part) = without.part_mut(part) {
+            part.devices.retain(|d| d.id != id);
         }
         let mut quiet = Vec::new();
         {
@@ -569,7 +569,7 @@ impl Session {
         self.flush();
         // Nothing was added to the project: say only that the device changed.
         self.doc.events.truncate(before);
-        self.doc.emit(E::DeviceChanged(Item::on(id, Some(track))));
+        self.doc.emit(E::DeviceChanged(Item::on(id, Some(part))));
         if !self.live.contains_key(&id) && !self.loads.loading(id) {
             let why = self
                 .doc.warnings
@@ -655,12 +655,12 @@ impl Session {
             // `:param.last` and for the frontends to show.
             let touched = ParamTouched { device, param: param.clone(), id: stable, from: "editor".into(), value: Some(value) };
             self.doc.emit(E::ParamTouched(touched));
-            if let Some((track, _)) = self.doc.project.find_device(device) {
-                self.touch(track, Target::Param { device, param }, value, value);
+            if let Some((part, _)) = self.doc.project.find_device(device) {
+                self.touch(part, Target::Param { device, param }, value, value);
             }
         }
         for (device, why) in stopped {
-            let Some((track, _)) = self.doc.project.find_device(device) else {
+            let Some((part, _)) = self.doc.project.find_device(device) else {
                 continue;
             };
             let kind = self.doc.project.device(device).map_or("", |d| d.kind.as_str());
@@ -668,10 +668,10 @@ impl Session {
                 .registry
                 .get(kind)
                 .map_or(kind.to_string(), |f| f.info().name.clone());
-            self.doc.emit(E::DeviceStopped(DeviceTrouble { device, track, name, reason: Some(why), loading: false }));
+            self.doc.emit(E::DeviceStopped(DeviceTrouble { device, part, name, reason: Some(why), loading: false }));
         }
         for device in invalid {
-            let Some((track, _)) = self.doc.project.find_device(device) else {
+            let Some((part, _)) = self.doc.project.find_device(device) else {
                 continue;
             };
             let kind = self.doc.project.device(device).map_or("", |d| d.kind.as_str());
@@ -679,23 +679,23 @@ impl Session {
                 .registry
                 .get(kind)
                 .map_or(kind.to_string(), |f| f.info().name.clone());
-            self.doc.emit(E::DeviceInvalid(DeviceTrouble { device, track, name, reason: None, loading: false }));
+            self.doc.emit(E::DeviceInvalid(DeviceTrouble { device, part, name, reason: None, loading: false }));
         }
         for (device, seq) in applied {
-            let Some((track, _)) = self.doc.project.find_device(device) else {
+            let Some((part, _)) = self.doc.project.find_device(device) else {
                 continue;
             };
             let kind = self.doc.project.device(device).map_or("", |d| d.kind.as_str());
             let name = self.device_name(kind);
-            self.doc.emit(E::DeviceStateApplied(StateApplied { device, track, name, seq }));
+            self.doc.emit(E::DeviceStateApplied(StateApplied { device, part, name, seq }));
         }
     }
 
-    /// The plugin's own changes: lining up the tracks again for a new latency,
+    /// The plugin's own changes: lining up the parts again for a new latency,
     /// and dropping the project's overrides of values the plugin now holds.
     pub(super) fn apply_device_scan(&mut self, scan: DeviceScan) {
         if scan.latency_changed {
-            // The tracks have to be lined up again.
+            // The parts have to be lined up again.
             self.doc.dirty = true;
             self.flush();
         }
@@ -714,8 +714,8 @@ impl Session {
                     device.params.retain(|key, _| !keys.contains(key));
                 }
             }
-            let track = self.doc.project.find_device(id).map(|(track, _)| track);
-            self.doc.emit(E::DeviceChanged(Item::on(id, track)));
+            let part = self.doc.project.find_device(id).map(|(part, _)| part);
+            self.doc.emit(E::DeviceChanged(Item::on(id, part)));
         }
         // Nothing here needs sending to the engine: the plugin already has it.
         self.synced = self.doc.project.clone();
@@ -726,13 +726,13 @@ impl Session {
     pub(crate) fn device_editor(&mut self, id: Id, open: Option<bool>) -> Result<bool> {
         self.flush();
         self.await_device(id);
-        let (track, _) = self
+        let (part, _) = self
             .doc.project
             .find_device(id)
             .with_context(|| format!("no device {id}"))?;
-        let track = self
+        let part = self
             .doc.project
-            .track(track)
+            .part(part)
             .map(|t| t.name.clone())
             .unwrap_or_default();
         let name = self
@@ -747,7 +747,7 @@ impl Session {
             .filter(|controller| controller.has_editor())
             .context("this device has no editor window")?;
         if open.unwrap_or(!controller.editor_open()) {
-            controller.open_editor(&format!("{} · {track}", name.unwrap_or_default()))?;
+            controller.open_editor(&format!("{} · {part}", name.unwrap_or_default()))?;
         } else {
             controller.close_editor();
         }

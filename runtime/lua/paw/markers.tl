@@ -273,7 +273,7 @@ local function make_tree(regions: {Marker}): Tree
 end
 
 -- The tree is a value of `paw.derived`. It reads only the source
--- `project`: an edit of a note, a clip or a track does not make it stale,
+-- `project`: an edit of a note, a clip or a part does not make it stale,
 -- and a read after one is a look-up. A change of the name, the tempo
 -- or another part of `meta` reads the regions again, and the same regions
 -- keep the same tree. An undo gives back the tree of before without a make.
@@ -1185,7 +1185,7 @@ command.define(
 --
 -- Under the bar numbers, a row for each level of the tree of regions (up to
 -- `regionlevels`): a region is drawn under the region around it, as a
--- track under its group. Deeper regions share the last row, marked `+`.
+-- part under its group. Deeper regions share the last row, marked `+`.
 -- Markers are on the first row. The lane is a part of `paw.ruler`, so an
 -- extension changes its look: `paw.ruler.set_lane("regions", { styles = { level1 = "Title" } })`.
 
@@ -1371,7 +1371,7 @@ local function render(ctx: contracts.RulerLaneContext)
 end
 
 -- Glyphs: `open` before a region with regions inside (as a group's fold in
--- the track column), `closed` before one folded into its column, `start`
+-- the part column), `closed` before one folded into its column, `start`
 -- before one with none, `deeper` before a region deeper than the last row,
 -- `marker` before a marker. Styles: `level1`,
 -- `level2`, `deep` (the third level and deeper), `marker`.

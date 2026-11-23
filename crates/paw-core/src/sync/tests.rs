@@ -12,7 +12,7 @@ use super::*;
 use crate::model::{Clip, ClipContent, Project};
 
 
-/// A track with a synth and `clips` short clips that overlap, the same
+/// A part with a synth and `clips` short clips that overlap, the same
 /// keys in each, and one long clip of 1000 notes and some controllers.
 fn project(clips: usize) -> Project {
     let note = |start: f64, pitch: u64| {
@@ -35,7 +35,7 @@ fn project(clips: usize) -> Project {
         "id": 99, "name": "long", "start": 0.5, "length": 130.0, "muted": false,
         "content": { "kind": "midi", "notes": notes, "controls": controls },
     }));
-    let track = |id: u64, name: &str, devices: Value, clips: Value| {
+    let part = |id: u64, name: &str, devices: Value, clips: Value| {
         json!({ "id": id, "name": name, "volume": 0.0, "pan": 0.0, "mute": false, "solo": false,
             "armed": false, "output": null, "sends": [], "color": null,
             "devices": devices, "clips": clips })
@@ -43,13 +43,13 @@ fn project(clips: usize) -> Project {
     let synth = json!([{ "id": 2, "kind": "synth", "bypass": false, "params": {} }]);
     let project = json!({
         "name": "t", "tempo": 120.0, "sig_num": 4, "sig_den": 4,
-        "master": track(0, "Master", json!([]), json!([])),
-        "tracks": [track(1, "T", synth, Value::Array(list))],
+        "master": part(0, "Master", json!([]), json!([])),
+        "parts": [part(1, "T", synth, Value::Array(list))],
     });
     serde_json::from_value(project).unwrap()
 }
 
-/// The events compiled for track 1, by where they are kept.
+/// The events compiled for part 1, by where they are kept.
 fn compiled(map: &Mapper) -> HashMap<*const MidiEv, usize> {
     let Some(sent) = map.pieces.get(&1) else { return HashMap::new() };
     let pieces = sent.clips.values().flat_map(|s| &s.pieces);
@@ -121,7 +121,7 @@ fn play(engine: &mut Engine, handle: &mut EngineHandle, from: f64) -> Vec<f32> {
 type Edit = Box<dyn Fn(&mut Project)>;
 
 fn long(p: &mut Project) -> &mut Clip {
-    let clips = &mut p.track_mut(1).unwrap().clips;
+    let clips = &mut p.part_mut(1).unwrap().clips;
     let last = clips.len() - 1;
     Arc::make_mut(&mut clips[last])
 }
@@ -131,17 +131,17 @@ fn long(p: &mut Project) -> &mut Clip {
 #[test]
 fn edits_sent_as_parts_play_as_the_project_sent_whole() {
     let edits: Vec<Edit> = vec![
-        Box::new(|p| Arc::make_mut(&mut p.track_mut(1).unwrap().clips[150]).start = 2.0),
+        Box::new(|p| Arc::make_mut(&mut p.part_mut(1).unwrap().clips[150]).start = 2.0),
         Box::new(|p| {
-            p.track_mut(1).unwrap().clips.remove(10);
+            p.part_mut(1).unwrap().clips.remove(10);
         }),
         Box::new(|p| {
-            let mut clip = (*p.track(1).unwrap().clips[20]).clone();
+            let mut clip = (*p.part(1).unwrap().clips[20]).clone();
             clip.id = 9000;
             clip.start = 1.0;
-            p.track_mut(1).unwrap().clips.insert(30, Arc::new(clip));
+            p.part_mut(1).unwrap().clips.insert(30, Arc::new(clip));
         }),
-        Box::new(|p| Arc::make_mut(&mut p.track_mut(1).unwrap().clips[70]).muted = true),
+        Box::new(|p| Arc::make_mut(&mut p.part_mut(1).unwrap().clips[70]).muted = true),
         // Two notes of the long clip: one run of its notes changes.
         Box::new(|p| {
             if let ClipContent::Midi { notes, .. } = &mut long(p).content {
@@ -207,14 +207,14 @@ fn parameters_keep_the_keys_the_project_knows_them_by() {
     assert_eq!(params[0].key, "distortion");
 }
 
-/// A project of one track, with a synth when it has MIDI, and one clip.
+/// A project of one part, with a synth when it has MIDI, and one clip.
 fn with_clip(content: Value, synth: bool) -> Project {
     let devices = if synth {
         json!([{ "id": 2, "kind": "synth", "bypass": false, "params": {} }])
     } else {
         json!([])
     };
-    let track = |id: u64, devices: Value, clips: Value| {
+    let part = |id: u64, devices: Value, clips: Value| {
         json!({ "id": id, "name": "T", "volume": 0.0, "pan": 0.0, "mute": false, "solo": false,
             "armed": false, "output": null, "sends": [], "color": null,
             "devices": devices, "clips": clips })
@@ -223,8 +223,8 @@ fn with_clip(content: Value, synth: bool) -> Project {
         "content": content });
     serde_json::from_value(json!({
         "name": "t", "tempo": 120.0, "sig_num": 4, "sig_den": 4,
-        "master": track(0, json!([]), json!([])),
-        "tracks": [track(1, devices, json!([clip]))],
+        "master": part(0, json!([]), json!([])),
+        "parts": [part(1, devices, json!([clip]))],
     }))
     .unwrap()
 }
@@ -240,7 +240,7 @@ fn played(project: &Project) -> Vec<f32> {
 }
 
 /// A custom clip plays its sound as the clip of that sound does: MIDI to
-/// the track's instrument.
+/// the part's instrument.
 #[test]
 fn a_custom_clip_plays_its_midi_sound() {
     let midi = json!({ "kind": "midi", "notes": [
@@ -295,16 +295,16 @@ fn a_custom_clip_plays_its_audio_sound() {
     assert!(own == wrapped, "the custom clip sounds the same");
 }
 
-/// Whether track 1 hears MIDI input after a sync with `follow`, while
-/// track 2 is armed.
+/// Whether part 1 hears MIDI input after a sync with `follow`, while
+/// part 2 is armed.
 fn follows(follow: Follow) -> bool {
-    let track = |id: u64, armed: bool| {
+    let part = |id: u64, armed: bool| {
         json!({ "id": id, "name": "", "volume": 0.0, "pan": 0.0, "mute": false, "solo": false,
             "armed": armed, "output": null, "sends": [], "color": null, "devices": [], "clips": [] })
     };
     let project: Project = serde_json::from_value(json!({
         "name": "t", "tempo": 120.0, "sig_num": 4, "sig_den": 4,
-        "master": track(0, false), "tracks": [track(1, false), track(2, true)],
+        "master": part(0, false), "parts": [part(1, false), part(2, true)],
     }))
     .unwrap();
     let registry = Registry::with_builtins();
@@ -327,13 +327,13 @@ fn follows(follow: Follow) -> bool {
     map.follow = follow;
     let mut sent = Vec::new();
     sync(&Project::default(), &project, &mut map, &mut ctx, &mut |msg| sent.push(msg), &mut Vec::new());
-    let slot = map.tracks[&1];
-    sent.iter().any(|m| matches!(m, Msg::SetInput { track, monitor: true, .. } if *track == slot))
+    let slot = map.parts[&1];
+    sent.iter().any(|m| matches!(m, Msg::SetInput { part, monitor: true, .. } if *part == slot))
 }
 
-/// The selected track yields to an armed one; step input's track does not.
+/// The selected part yields to an armed one; step input's part does not.
 #[test]
-fn the_track_that_always_follows_hears_midi_while_another_is_armed() {
+fn the_part_that_always_follows_hears_midi_while_another_is_armed() {
     assert!(!follows(Follow { selected: Some(1), always: None }));
     assert!(follows(Follow { selected: None, always: Some(1) }));
 }
@@ -372,7 +372,7 @@ fn cut(source: &Clip, by: f64) -> Clip {
     out
 }
 
-/// Track 1 of `base` with `count` copies of `source` end to end, each
+/// Part 1 of `base` with `count` copies of `source` end to end, each
 /// sharing its notes as a pasted clip does; every third copy is looped,
 /// every fifth a window cut at its start (one cut, which those copies
 /// share), every seventh cut short.
@@ -393,7 +393,7 @@ fn with_copies(base: &Project, source: &Clip, count: usize) -> Project {
             Arc::new(copy)
         })
         .collect();
-    p.track_mut(1).unwrap().clips = clips.into();
+    p.part_mut(1).unwrap().clips = clips.into();
     p
 }
 
@@ -447,7 +447,7 @@ fn an_edit_of_notes_that_copies_share_compiles_them_once() {
         let clips: Vec<Arc<Clip>> = (0..count)
             .map(|k| Arc::new(Clip { id: 1000 + k as u64, start: k as f64 * 32.0, ..source.clone() }))
             .collect();
-        p.track_mut(1).unwrap().clips = clips.into();
+        p.part_mut(1).unwrap().clips = clips.into();
         p
     };
     let source = source_clip(384);
@@ -470,16 +470,16 @@ fn an_edit_of_a_link_of_ten_clips_compiles_once() {
     let clips: Vec<Arc<Clip>> = (0..10)
         .map(|k| Arc::new(Clip { id: 1000 + k, start: k as f64 * 32.0, ..source.clone() }))
         .collect();
-    linked.track_mut(1).unwrap().clips = clips.into();
+    linked.part_mut(1).unwrap().clips = clips.into();
     let mut edited = linked.clone();
     let links = crate::model::Links::before(&edited);
-    let fourth = Arc::make_mut(&mut edited.track_mut(1).unwrap().clips[3]);
+    let fourth = Arc::make_mut(&mut edited.part_mut(1).unwrap().clips[3]);
     *fourth = bumped(fourth);
     links.spread(&mut edited);
     let (map, count) = compiles(&[&linked, &edited]);
     assert_eq!(count, 1, "the piece of notes the edit changed, one time");
     // Every clip of the link plays the edit, from one list of events.
-    let pitches: Vec<u8> = edited.track(1).unwrap().clips.iter().map(|clip| match &clip.content {
+    let pitches: Vec<u8> = edited.part(1).unwrap().clips.iter().map(|clip| match &clip.content {
         ClipContent::Midi { notes, .. } => notes[100].pitch,
         _ => 0,
     }).collect();
@@ -497,7 +497,7 @@ fn a_copy_with_overrides_plays_its_notes_changed() {
     let note = |pitch: u64, velocity: u64| json!({ "start": 0.0, "length": 1.0, "pitch": pitch, "velocity": velocity });
     let two_copies = |second: Value, overrides: Value| {
         let mut p = with_clip(json!({ "kind": "midi", "notes": [note(60, 100), note(126, 100)] }), true);
-        let first = p.track(1).unwrap().clips[0].clone();
+        let first = p.part(1).unwrap().clips[0].clone();
         let mut copy: Clip = serde_json::from_value(json!({ "id": 8, "name": "", "start": 2.0, "length": 4.0,
             "muted": false, "content": { "kind": "midi", "notes": second }, "overrides": overrides }))
         .unwrap();
@@ -505,7 +505,7 @@ fn a_copy_with_overrides_plays_its_notes_changed() {
         if overrides != json!({}) {
             copy.content = first.content.clone();
         }
-        p.track_mut(1).unwrap().clips = vec![first, Arc::new(copy)].into();
+        p.part_mut(1).unwrap().clips = vec![first, Arc::new(copy)].into();
         p
     };
     let notes = json!([note(60, 100), note(126, 100)]);
@@ -526,15 +526,15 @@ fn copies_that_share_events_play_as_events_compiled_in_place() {
     let (mut b, mut hb, _) = engine(&[&project]);
     // In place: as the sync compiled every clip before copies shared them.
     let mut list = ClipSet::default();
-    for clip in project.track(1).unwrap().clips.iter() {
+    for clip in project.part(1).unwrap().clips.iter() {
         if let Some(ClipContent::Midi { notes, controls }) = clip.playable() {
             let events = clips::Source::whole(clip, notes, controls).compile(clip.start);
             list.midi.extend_from_slice(&events);
         }
     }
     list.finish();
-    let slot = paw_engine::TrackSlot(paw_engine::TrackSlot::MASTER.0 + 1);
-    hb.send_while(Msg::SetClips { track: slot, clips: Box::new(list) }, &mut b);
+    let slot = paw_engine::PartSlot(paw_engine::PartSlot::MASTER.0 + 1);
+    hb.send_while(Msg::SetClips { part: slot, clips: Box::new(list) }, &mut b);
     for from in [0.0, 37.6, 133.1, 166.0, 402.2] {
         let (x, y) = (play(&mut a, &mut ha, from), play(&mut b, &mut hb, from));
         assert!(x.iter().any(|s| *s != 0.0), "something plays from {from}");
@@ -544,8 +544,8 @@ fn copies_that_share_events_play_as_events_compiled_in_place() {
 
 // Subprojects (nests) -------------------------------------------------------------------
 
-/// A track as a project file has it.
-fn track_json(id: u64, name: &str, nest: Option<u64>, devices: Value, clips: Value) -> Value {
+/// A part as a project file has it.
+fn part_json(id: u64, name: &str, nest: Option<u64>, devices: Value, clips: Value) -> Value {
     json!({ "id": id, "name": name, "volume": 0.0, "pan": 0.0, "mute": false, "solo": false,
         "armed": false, "output": null, "sends": [], "color": null, "nest": nest,
         "devices": devices, "clips": clips })
@@ -560,23 +560,23 @@ fn instrument(reverb: bool) -> Value {
     Value::Array(list)
 }
 
-/// A project: song tracks, and nest 10 (`Ballad`, `length` beats) whose
-/// master is track 11 and whose track 12 (`Keys`) holds `keys` with its
+/// A project: song parts, and nest 10 (`Ballad`, `length` beats) whose
+/// master is part 11 and whose part 12 (`Keys`) holds `keys` with its
 /// instrument.
 fn with_nest(song: Vec<Value>, length: f64, keys: &Clip, instrument: Value) -> Project {
-    let mut tracks = song;
-    tracks.push(track_json(11, "Master", Some(10), json!([]), json!([])));
-    tracks.push(track_json(12, "Keys", Some(10), instrument, json!([keys])));
+    let mut parts = song;
+    parts.push(part_json(11, "Master", Some(10), json!([]), json!([])));
+    parts.push(part_json(12, "Keys", Some(10), instrument, json!([keys])));
     serde_json::from_value(json!({
         "name": "t", "tempo": 120.0, "sig_num": 4, "sig_den": 4,
-        "master": track_json(0, "Master", None, json!([]), json!([])),
-        "tracks": tracks,
+        "master": part_json(0, "Master", None, json!([]), json!([])),
+        "parts": parts,
         "nests": [{ "id": 10, "name": "Ballad", "length": length, "master": 11 }],
     }))
     .unwrap()
 }
 
-/// The return row (track 1) with blocks of nest 10 that play its mix, at
+/// The return row (part 1) with blocks of nest 10 that play its mix, at
 /// `starts`, `length` long.
 fn row(starts: &[f64], length: f64, muted: bool) -> Value {
     let blocks: Vec<Value> = starts
@@ -587,7 +587,7 @@ fn row(starts: &[f64], length: f64, muted: bool) -> Value {
                 "content": { "kind": "nest", "nest": 10, "play": "master" } })
         })
         .collect();
-    track_json(1, "Ballad", None, json!([]), Value::Array(blocks))
+    part_json(1, "Ballad", None, json!([]), Value::Array(blocks))
 }
 
 /// A short clip of three notes.
@@ -600,7 +600,7 @@ fn phrase() -> Clip {
     .unwrap()
 }
 
-/// The same phrase on one song track with the same synth, at `starts`.
+/// The same phrase on one song part with the same synth, at `starts`.
 fn plain(starts: &[f64]) -> Project {
     let clips: Vec<Clip> = starts
         .iter()
@@ -609,8 +609,8 @@ fn plain(starts: &[f64]) -> Project {
         .collect();
     serde_json::from_value(json!({
         "name": "t", "tempo": 120.0, "sig_num": 4, "sig_den": 4,
-        "master": track_json(0, "Master", None, json!([]), json!([])),
-        "tracks": [track_json(1, "Keys", None, instrument(false), json!(clips))],
+        "master": part_json(0, "Master", None, json!([]), json!([])),
+        "parts": [part_json(1, "Keys", None, instrument(false), json!(clips))],
     }))
     .unwrap()
 }
@@ -625,20 +625,20 @@ fn peak(samples: &[f32]) -> f32 {
 }
 
 /// A synth in a subproject plays into its return row as the same synth and
-/// notes play on a song track at the same place, below -120 dB of the peak:
+/// notes play on a song part at the same place, below -120 dB of the peak:
 /// the sound goes through two more faders (the subproject's master and the
 /// row), and a fader's centre gain (`SQRT_2 * cos(PI / 4)` in `f32`) is 1
 /// only to within a unit of the last place. Two blocks of the subproject
 /// on the row play it twice.
 #[test]
-fn a_subproject_plays_as_its_notes_on_a_song_track() {
+fn a_subproject_plays_as_its_notes_on_a_song_part() {
     let nest = with_nest(vec![row(&[32.0, 48.0], 8.0, false)], 8.0, &phrase(), instrument(false));
     let song = plain(&[32.0, 48.0]);
     for from in [31.5, 47.5] {
         let (a, b) = (played_from(&nest, from), played_from(&song, from));
         assert!(a.iter().any(|s| *s != 0.0), "the block at {} plays", from + 0.5);
         let worst = a.iter().zip(&b).fold(0.0f32, |m, (x, y)| m.max((x - y).abs()));
-        assert!(worst < peak(&b) * 1e-6, "from {from} the subproject plays as the song track does: {worst}");
+        assert!(worst < peak(&b) * 1e-6, "from {from} the subproject plays as the song part does: {worst}");
     }
 }
 
@@ -671,15 +671,15 @@ fn a_muted_block_is_silent_and_a_tail_rings_past_the_end() {
 fn a_frozen_block_plays_its_file_and_its_subproject_rests() {
     let (dir, file) = tone_wav("frozen-block");
     let mut frozen = with_nest(vec![row(&[32.0], 4.0, false)], 4.0, &phrase(), instrument(false));
-    let block = frozen.tracks.iter_mut().find(|t| t.id == 1).unwrap();
+    let block = frozen.parts.iter_mut().find(|t| t.id == 1).unwrap();
     let block = Arc::make_mut(Arc::make_mut(block).clips.get_mut(0).unwrap());
     block.meta.insert("frozen".into(), json!({ "file": file, "length": 4.0 }));
     let audio = json!({ "id": 100, "name": "", "start": 32.0, "length": 4.0, "muted": false,
         "timebase": "beats", "content": { "kind": "audio", "file": file, "offset": 0.0, "gain": 0.0 } });
     let file_alone: Project = serde_json::from_value(json!({
         "name": "t", "tempo": 120.0, "sig_num": 4, "sig_den": 4,
-        "master": track_json(0, "Master", None, json!([]), json!([])),
-        "tracks": [track_json(1, "Ballad", None, json!([]), json!([audio]))],
+        "master": part_json(0, "Master", None, json!([]), json!([])),
+        "parts": [part_json(1, "Ballad", None, json!([]), json!([audio]))],
     }))
     .unwrap();
     let (a, b) = (played_from(&frozen, 31.5), played_from(&file_alone, 31.5));
@@ -692,8 +692,8 @@ fn a_frozen_block_plays_its_file_and_its_subproject_rests() {
 }
 
 /// A subproject that only a frozen subproject places rests with it, and
-/// plays again when the block is unfrozen: Ballad's track Keys holds a block
-/// of Verse, whose track has the synth.
+/// plays again when the block is unfrozen: Ballad's part Keys holds a block
+/// of Verse, whose part has the synth.
 #[test]
 fn a_subproject_inside_a_frozen_block_rests_and_plays_again_when_unfrozen() {
     let (dir, file) = tone_wav("frozen-inside");
@@ -706,13 +706,13 @@ fn a_subproject_inside_a_frozen_block_rests_and_plays_again_when_unfrozen() {
         }
         serde_json::from_value(json!({
             "name": "t", "tempo": 120.0, "sig_num": 4, "sig_den": 4,
-            "master": track_json(0, "Master", None, json!([]), json!([])),
-            "tracks": [
+            "master": part_json(0, "Master", None, json!([]), json!([])),
+            "parts": [
                 song,
-                track_json(11, "Master", Some(10), json!([]), json!([])),
-                track_json(12, "Keys", Some(10), json!([]), json!([verse])),
-                track_json(21, "Master", Some(20), json!([]), json!([])),
-                track_json(22, "Synth", Some(20), instrument(false), json!([phrase()])),
+                part_json(11, "Master", Some(10), json!([]), json!([])),
+                part_json(12, "Keys", Some(10), json!([]), json!([verse])),
+                part_json(21, "Master", Some(20), json!([]), json!([])),
+                part_json(22, "Synth", Some(20), instrument(false), json!([phrase()])),
             ],
             "nests": [{ "id": 10, "name": "Ballad", "length": 4.0, "master": 11 },
                 { "id": 20, "name": "Verse", "length": 4.0, "master": 21 }],
@@ -723,9 +723,9 @@ fn a_subproject_inside_a_frozen_block_rests_and_plays_again_when_unfrozen() {
     let (map, _) = compiles(&[&frozen]);
     let (unfrozen, _) = compiles(&[&frozen, &live]);
     std::fs::remove_dir_all(&dir).unwrap();
-    for track in [11, 12, 21, 22] {
-        assert_eq!(map.played.get(&track), Some(&Played::Held), "track {track} rests while the block is frozen");
-        assert_eq!(unfrozen.played.get(&track), None, "track {track} plays again when it is unfrozen");
+    for part in [11, 12, 21, 22] {
+        assert_eq!(map.played.get(&part), Some(&Played::Held), "part {part} rests while the block is frozen");
+        assert_eq!(unfrozen.played.get(&part), None, "part {part} plays again when it is unfrozen");
     }
 }
 
@@ -735,17 +735,17 @@ fn the_return_row_mixes_the_subproject() {
     let loud = with_nest(vec![row(&[32.0], 8.0, false)], 8.0, &phrase(), instrument(false));
     let full = played_from(&loud, 31.5);
     let mut half = loud.clone();
-    Arc::make_mut(half.tracks.iter_mut().find(|t| t.id == 1).unwrap()).volume = 20.0 * 0.5f64.log10();
+    Arc::make_mut(half.parts.iter_mut().find(|t| t.id == 1).unwrap()).volume = 20.0 * 0.5f64.log10();
     let quiet = played_from(&half, 31.5);
     assert!((peak(&quiet) / peak(&full) - 0.5).abs() < 1e-3, "-6 dB on the row halves it");
-    // A send of the row to a song track with a reverb.
+    // A send of the row to a song part with a reverb.
     let reverb = json!([{ "id": 30, "kind": "reverb", "bypass": false, "params": {} }]);
-    let verb: crate::model::Track = serde_json::from_value(track_json(3, "Verb", None, reverb, json!([]))).unwrap();
+    let verb: crate::model::Part = serde_json::from_value(part_json(3, "Verb", None, reverb, json!([]))).unwrap();
     let mut sent = loud.clone();
-    sent.tracks.push(Arc::new(verb));
+    sent.parts.push(Arc::new(verb));
     assert!(played_from(&sent, 31.5) == full, "a song reverb with no send changes nothing");
     let send = crate::model::Send { target: 3, level: 0.0, pre: false };
-    Arc::make_mut(sent.tracks.iter_mut().find(|t| t.id == 1).unwrap()).sends.push(send);
+    Arc::make_mut(sent.parts.iter_mut().find(|t| t.id == 1).unwrap()).sends.push(send);
     let wet = played_from(&sent, 31.5);
     assert!(wet != full, "the send reaches the song's reverb");
 }
@@ -837,17 +837,17 @@ fn null_mix_at(tempo: f64) -> Project {
     let (quarter, half) = (TICKS / 4, TICKS / 2);
     let keys_clips = json!([null_clip(10, 0.0, 12, 5 * TICKS / 16, 60), null_clip(11, 12.0, 6, quarter, 60)]);
     let bass_clips = json!([null_clip(21, 0.5, 7, half, 36), null_clip(22, 12.0, 4, half, 36)]);
-    let mut bass_track = track_json(20, "Bass", None, bass, bass_clips);
-    bass_track["volume"] = json!(-6.0);
-    bass_track["pan"] = json!(-0.25);
-    bass_track["sends"] = json!([{ "target": 30, "level": -3.0 }]);
+    let mut bass_part = part_json(20, "Bass", None, bass, bass_clips);
+    bass_part["volume"] = json!(-6.0);
+    bass_part["pan"] = json!(-0.25);
+    bass_part["sends"] = json!([{ "target": 30, "level": -3.0 }]);
     serde_json::from_value(json!({
         "name": "t", "tempo": tempo, "sig_num": 4, "sig_den": 4,
-        "master": track_json(0, "Master", None, json!([]), json!([])),
-        "tracks": [
-            track_json(1, "Keys", None, keys, keys_clips),
-            bass_track,
-            track_json(30, "Room", None, room, json!([])),
+        "master": part_json(0, "Master", None, json!([]), json!([])),
+        "parts": [
+            part_json(1, "Keys", None, keys, keys_clips),
+            bass_part,
+            part_json(30, "Room", None, room, json!([])),
         ],
     }))
     .unwrap()
@@ -856,7 +856,7 @@ fn null_mix_at(tempo: f64) -> Project {
 /// The mix with the first clip of Keys three beats later.
 fn null_moved() -> Project {
     let mut p = null_mix();
-    Arc::make_mut(&mut p.track_mut(1).unwrap().clips[0]).start += 3.0;
+    Arc::make_mut(&mut p.part_mut(1).unwrap().clips[0]).start += 3.0;
     p
 }
 
@@ -872,37 +872,37 @@ fn null_saved_and_loaded() -> Project {
 /// The mix with the delay of Keys bypassed.
 fn null_bypassed() -> Project {
     let mut p = null_mix();
-    Arc::make_mut(&mut p.track_mut(1).unwrap().devices[1]).bypass = true;
+    Arc::make_mut(&mut p.part_mut(1).unwrap().devices[1]).bypass = true;
     p
 }
 
 /// The mix with no delay on Keys.
 fn null_without_delay() -> Project {
     let mut p = null_mix();
-    p.track_mut(1).unwrap().devices.remove(1);
+    p.part_mut(1).unwrap().devices.remove(1);
     p
 }
 
 /// The mix with the first clip of Keys in a subproject (nest 40). The
-/// track of the clip (42) has no devices, and a block on Keys plays that
-/// track only. This is the pass mode of `nest.md` 4.4: the song sounds as
+/// part of the clip (42) has no devices, and a block on Keys plays that
+/// part only. This is the pass mode of `nest.md` 4.4: the song sounds as
 /// if the clip was on Keys.
 fn null_in_subproject() -> Project {
     let mut p = null_mix();
-    let keys = p.track_mut(1).unwrap();
+    let keys = p.part_mut(1).unwrap();
     let clip = keys.clips.remove(0);
     let length = clip.length;
     let block: Clip = serde_json::from_value(json!({ "id": 43, "name": "", "start": 0.0, "length": length,
-        "muted": false, "content": { "kind": "nest", "nest": 40, "play": { "track": 42 } } }))
+        "muted": false, "content": { "kind": "nest", "nest": 40, "play": { "part": 42 } } }))
     .unwrap();
     keys.clips.insert(0, Arc::new(block));
-    let track = |id, name| -> crate::model::Track {
-        serde_json::from_value(track_json(id, name, Some(40), json!([]), json!([]))).unwrap()
+    let part = |id, name| -> crate::model::Part {
+        serde_json::from_value(part_json(id, name, Some(40), json!([]), json!([]))).unwrap()
     };
-    let mut inside = track(42, "Keys");
+    let mut inside = part(42, "Keys");
     inside.clips.push(clip);
-    p.tracks.push(Arc::new(inside));
-    p.tracks.push(Arc::new(track(41, "Master")));
+    p.parts.push(Arc::new(inside));
+    p.parts.push(Arc::new(part(41, "Master")));
     let nest = json!({ "id": 40, "name": "Verse", "length": length, "master": 41 });
     p.nests.insert(crate::model::NestId(40), Arc::new(serde_json::from_value(nest).unwrap()));
     p
@@ -918,7 +918,7 @@ fn null_chained(kind: &str, rest: usize) -> Project {
         { "device": 2 },
         { "split": { "id": 52, "kind": kind, "name": "Inner", "branches": branches } },
     ] }] } });
-    p.track_mut(1).unwrap().chain = Some(Arc::new(serde_json::from_value(chain).unwrap()));
+    p.part_mut(1).unwrap().chain = Some(Arc::new(serde_json::from_value(chain).unwrap()));
     p
 }
 
@@ -991,7 +991,7 @@ fn null_render(states: &[Project], way: Way) -> Rendered {
 /// certain in each case, so no case has a limit in dB.
 ///
 /// The threads case does not show that the work was shared between the
-/// threads: that depends on how long the tracks took.
+/// threads: that depends on how long the parts took.
 /// `crates/paw-engine/tests/it/threads.rs` shows it on a larger project.
 #[test]
 fn one_project_rendered_two_ways_nulls() {
@@ -1013,7 +1013,7 @@ fn one_project_rendered_two_ways_nulls() {
         ("render, save, load, render", mix, PLAIN, || vec![null_saved_and_loaded()], PLAIN),
         ("a bypassed device and no device", || vec![null_bypassed()], PLAIN, || vec![null_without_delay()], PLAIN),
         ("devices that sleep and devices awake", mix, PLAIN, mix, Way { sleep: false, ..PLAIN }),
-        ("a subproject's track and its clip on the row", || vec![null_in_subproject()], PLAIN, mix, PLAIN),
+        ("a subproject's part and its clip on the row", || vec![null_in_subproject()], PLAIN, mix, PLAIN),
         ("the delay in a rack and in series", || vec![null_racked()], PLAIN, mix, PLAIN),
         ("a split of an absent kind and its first branch", || vec![null_absent_kind()], PLAIN, mix, PLAIN),
     ];
@@ -1028,18 +1028,18 @@ fn one_project_rendered_two_ways_nulls() {
     }
 }
 
-/// The branches of a split play side by side: a track is as late as the
+/// The branches of a split play side by side: a part is as late as the
 /// slowest path through its chain, not the sum of its devices.
 #[test]
-fn a_track_is_as_late_as_the_slowest_path_of_its_chain() {
+fn a_part_is_as_late_as_the_slowest_path_of_its_chain() {
     let limiters = json!([
         { "id": 2, "kind": "limiter", "bypass": false, "params": {} },
         { "id": 3, "kind": "limiter", "bypass": false, "params": {} },
     ]);
     let series: Project = serde_json::from_value(json!({
         "name": "t", "tempo": 120.0, "sig_num": 4, "sig_den": 4,
-        "master": track_json(0, "Master", None, json!([]), json!([])),
-        "tracks": [track_json(1, "Keys", None, limiters, json!([]))],
+        "master": part_json(0, "Master", None, json!([]), json!([])),
+        "parts": [part_json(1, "Keys", None, limiters, json!([]))],
     }))
     .unwrap();
     let mut layered = series.clone();
@@ -1049,7 +1049,7 @@ fn a_track_is_as_late_as_the_slowest_path_of_its_chain() {
             { "id": 54, "nodes": [{ "device": 3 }] },
         ] } },
     ] }] } });
-    layered.track_mut(1).unwrap().chain = Some(Arc::new(serde_json::from_value(chain).unwrap()));
+    layered.part_mut(1).unwrap().chain = Some(Arc::new(serde_json::from_value(chain).unwrap()));
     let one = compiles(&[&series]).0.latency / 2;
     assert!(one > 0, "a limiter looks ahead");
     assert_eq!(compiles(&[&layered]).0.latency, one, "two limiters side by side");
@@ -1107,7 +1107,7 @@ impl DeviceFactory for Spy {
     }
 }
 
-/// What a plugin on a track hears up to the end of its first block, when
+/// What a plugin on a part hears up to the end of its first block, when
 /// the sync makes it for a render (`offline`) or to play live.
 fn heard_to_the_first_block(offline: bool) -> Vec<&'static str> {
     let heard = Heard::default();
@@ -1117,8 +1117,8 @@ fn heard_to_the_first_block(offline: bool) -> Vec<&'static str> {
     let spy = json!([{ "id": 2, "kind": "spy", "bypass": false, "params": {} }]);
     let project: Project = serde_json::from_value(json!({
         "name": "t", "tempo": 120.0, "sig_num": 4, "sig_den": 4,
-        "master": track_json(0, "Master", None, json!([]), json!([])),
-        "tracks": [track_json(1, "T", None, spy, json!([]))],
+        "master": part_json(0, "Master", None, json!([]), json!([])),
+        "parts": [part_json(1, "T", None, spy, json!([]))],
     }))
     .unwrap();
     let (mut engine, mut handle) = Engine::new(48000.0);

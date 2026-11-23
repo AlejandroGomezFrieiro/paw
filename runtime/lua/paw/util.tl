@@ -124,7 +124,7 @@ M.FADER_MIN, M.FADER_MAX = -60, 6
 
 --- The level a fader goes to from `now` when it is moved to `want`: in its
 --- travel (`lo` to `hi`, the fader's when not given), but never back past
---- where it is. A track at +10 dB that is turned down goes to +9, not to
+--- where it is. A part at +10 dB that is turned down goes to +9, not to
 --- the top of the travel.
 function M.fader_db(now: number, want: number, lo?: number, hi?: number): number
   lo, hi = lo or M.FADER_MIN, hi or M.FADER_MAX

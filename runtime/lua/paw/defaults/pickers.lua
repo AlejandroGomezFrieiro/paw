@@ -3,7 +3,7 @@
 local api = paw.api
 local command, map = paw.command, paw.keymap.set
 local common = require("paw.defaults.common")
-local need_track = common.need_track
+local need_part = common.need_part
 
 --
 -- `paw.pick` chooses from a list by typing a few letters of what is wanted.
@@ -16,14 +16,14 @@ command("pick", function(ctx)
   if not paw.pick.sources:get(name) then return paw.notify("no picker `" .. name .. "`; `:pick` lists them", "warn") end
   paw.pick(name, { query = ctx.args.query and tostring(ctx.args.query) or nil })
 end, {
-  desc = "Choose from a list: `pick tracks`, `pick devices query=reverb`; with no name, every picker",
+  desc = "Choose from a list: `pick parts`, `pick devices query=reverb`; with no name, every picker",
   complete = { "pickers" },
 })
 command("pick.resume", function() paw.pick.resume() end, { desc = "Open the last picker again, with what was typed" })
 
 -- The letter after `f` is the one the same thing has elsewhere on the
--- leader where it has one: `fc` clips (`<leader>c`), `fd` the track's devices
--- (`<leader>d`), `fr` regions (`<leader>r`), `ft` tracks (`<leader>t`).
+-- leader where it has one: `fc` clips (`<leader>c`), `fd` the part's devices
+-- (`<leader>d`), `fr` regions (`<leader>r`), `ft` parts (`<leader>t`).
 local pick_keys = {
   { "files", "f", "Open a project or import audio from here" },
   { "grep", "g", "Find any text in the project" },
@@ -33,8 +33,8 @@ local pick_keys = {
   { "scopes", "z", "Enter a scope, or go up to a level" },
   { "markers", "m", "Go to a marker" },
   { "marks", "'", "Go to a mark" },
-  { "tracks", "t", "Go to a track" },
-  { "track_devices", "d", "Show a device of the track" },
+  { "parts", "t", "Go to a part" },
+  { "part_devices", "d", "Show a device of the part" },
   { "notes", "n", "Find a note by pitch, lyric or articulation" },
   { "help", "h", "Go to a help tag" },
   { "options", "o", "Set an option" },
@@ -48,7 +48,7 @@ local pick_keys = {
   { "commands", ":", "Run a command" },
   { "messages", "l", "Earlier messages: the log" },
   { "pickers", "p", "Every picker" },
-  { "devices", nil, "Add a device or plugin to the track" },
+  { "devices", nil, "Add a device or plugin to the part" },
 }
 for _, entry in ipairs(pick_keys) do
   local name, key, desc = entry[1], entry[2], entry[3]
@@ -61,7 +61,7 @@ for _, entry in ipairs(pick_keys) do
 end
 map("<leader>f.", "pick.resume", { desc = "The last picker again" })
 -- Adding a device is the devices' (`<leader>d`); opening a recent project the project's (`<leader>p`).
-map("<leader>da", "pick.devices", { desc = "Add a device or plugin to the track" })
+map("<leader>da", "pick.devices", { desc = "Add a device or plugin to the part" })
 map("<leader>pr", "recent", { desc = "Open a recent project" })
 
 -- With no argument, `device.add` chooses from every device in a picker.
@@ -69,20 +69,20 @@ do
   local add_by_name = paw.commands.get("device.add")
   command("device.add", function(ctx)
     if ctx.args[1] then return add_by_name.run(ctx) end
-    if need_track() then paw.pick("devices") end
+    if need_part() then paw.pick("devices") end
   end, { desc = add_by_name.desc .. "; with no name, choose in a picker", complete = add_by_name.complete })
 end
 
 -- A plugin runs in a process of its own; when that stops, the session goes
 -- on without it and says so.
 paw.on("device.stopped", function(event)
-  local track = pcall(api.track_get, event.track) and api.track_get(event.track, "name") or "a track"
+  local part = pcall(api.part_get, event.part) and api.part_get(event.part, "name") or "a part"
   if event.loading then
     return paw.notify(
       string.format(
         "%s on %s could not be loaded: %s. It is passed over and keeps its saved state; `:device.restart` tries again.",
         event.name,
-        track,
+        part,
         event.reason
       ),
       "error"
@@ -90,9 +90,9 @@ paw.on("device.stopped", function(event)
   end
   paw.notify(
     string.format(
-      "%s on %s stopped working: %s. The track plays on without it; `:device.restart` starts it again.",
+      "%s on %s stopped working: %s. The part plays on without it; `:device.restart` starts it again.",
       event.name,
-      track,
+      part,
       event.reason
     ),
     "error"
@@ -118,12 +118,12 @@ end, {
 })
 -- A device whose output holds NaN or infinity is silenced where it is, once said.
 paw.on("device.invalid", function(event)
-  local track = pcall(api.track_get, event.track) and api.track_get(event.track, "name") or "a track"
+  local part = pcall(api.part_get, event.part) and api.part_get(event.part, "name") or "a part"
   paw.notify(
     string.format(
       "%s on %s put out invalid numbers (NaN or infinity); its output is replaced by silence",
       event.name,
-      track
+      part
     ),
     "error"
   )

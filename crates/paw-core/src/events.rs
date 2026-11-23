@@ -36,59 +36,59 @@ impl From<KernelEvent> for ModelEvent {
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct Nothing {}
 
-/// A track, by its id.
+/// A part, by its id.
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct TrackId {
+pub(crate) struct PartId {
     pub id: Id,
 }
 
-/// The tracks in their new order, by id.
+/// The parts in their new order, by id.
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct Order {
     pub order: Vec<Id>,
 }
 
-/// A clip, a lane or a device, and the track it is on (a device that is
-/// gone, and some changes of a device, have no `track`). A MIDI clip also
+/// A clip, a lane or a device, and the part it is on (a device that is
+/// gone, and some changes of a device, have no `part`). A MIDI clip also
 /// has the `stamp` of its notes, as `clip_get` gives it: a listener can
 /// tell that the notes did not change without asking for the clip.
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct Item {
     pub id: Id,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub track: Option<Id>,
+    pub part: Option<Id>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stamp: Option<u64>,
 }
 
 impl Item {
-    /// A device or a lane (no stamp) on `track`.
-    pub(crate) fn on(id: Id, track: Option<Id>) -> Item {
-        Item { id, track, stamp: None }
+    /// A device or a lane (no stamp) on `part`.
+    pub(crate) fn on(id: Id, part: Option<Id>) -> Item {
+        Item { id, part, stamp: None }
     }
 }
 
-/// A track that changed, and the names of its fields that changed, as
-/// `track_get` names them (`{ "mute" }`, `{ "clips" }`).
+/// A part that changed, and the names of its fields that changed, as
+/// `part_get` names them (`{ "mute" }`, `{ "clips" }`).
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct TrackChange {
+pub(crate) struct PartChange {
     pub id: Id,
     /// @type {string}
     pub fields: Vec<&'static str>,
 }
 
-/// The track whose queue of clips to launch changed.
+/// The part whose queue of clips to launch changed.
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct Cue {
-    pub track: Id,
+    pub part: Id,
 }
 
-/// A device that finished loading, its track and its name.
+/// A device that finished loading, its part and its name.
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct DeviceReady {
     pub id: Id,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub track: Option<Id>,
+    pub part: Option<Id>,
     pub name: String,
 }
 
@@ -97,7 +97,7 @@ pub(crate) struct DeviceReady {
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct DeviceTrouble {
     pub device: Id,
-    pub track: Id,
+    pub part: Id,
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
@@ -106,12 +106,12 @@ pub(crate) struct DeviceTrouble {
 }
 
 /// A running device that took on a state given to it (a snapshot, a
-/// preset, an undo step, a state lane), its track, its name, and the
+/// preset, an undo step, a state lane), its part, its name, and the
 /// number of that state among those given to it since it was made.
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct StateApplied {
     pub device: Id,
-    pub track: Id,
+    pub part: Id,
     pub name: String,
     pub seq: u64,
 }
@@ -179,19 +179,19 @@ pub(crate) struct AudioRestored {
     pub engine: Value,
 }
 
-/// A MIDI port that went away or came back, and the tracks (by name) that
+/// A MIDI port that went away or came back, and the parts (by name) that
 /// take their MIDI from it.
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct MidiPort {
     pub port: String,
-    pub tracks: Vec<String>,
+    pub parts: Vec<String>,
 }
 
-/// A track or a track's chain whose files were copied into the project
+/// A part or a part's chain whose files were copied into the project
 /// (`origin`, where they were).
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct TrackCopied {
-    pub track: Id,
+pub(crate) struct PartCopied {
+    pub part: Id,
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub origin: Option<PathBuf>,
@@ -299,18 +299,18 @@ pub(crate) enum KernelEvent {
     ProjectLoaded(Loaded),
     #[serde(rename = "project.saved")]
     ProjectSaved(Saved),
-    #[serde(rename = "track.added")]
-    TrackAdded(TrackId),
-    #[serde(rename = "track.changed")]
-    TrackChanged(TrackChange),
-    #[serde(rename = "track.removed")]
-    TrackRemoved(TrackId),
-    #[serde(rename = "track.moved")]
-    TrackMoved(Order),
-    #[serde(rename = "track.copied")]
-    TrackCopied(TrackCopied),
+    #[serde(rename = "part.added")]
+    PartAdded(PartId),
+    #[serde(rename = "part.changed")]
+    PartChanged(PartChange),
+    #[serde(rename = "part.removed")]
+    PartRemoved(PartId),
+    #[serde(rename = "part.moved")]
+    PartMoved(Order),
+    #[serde(rename = "part.copied")]
+    PartCopied(PartCopied),
     #[serde(rename = "chain.copied")]
-    ChainCopied(TrackCopied),
+    ChainCopied(PartCopied),
     #[serde(rename = "clip.added")]
     ClipAdded(Item),
     #[serde(rename = "clip.changed")]

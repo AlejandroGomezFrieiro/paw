@@ -4,10 +4,10 @@
 -- What is content stays neutral: names, numbers, the grid. Colour is spent
 -- on what matters now: amber for focus, the playhead and keys to press; the
 -- mode's colour in the mode pill and the cursor; red for recording and
--- errors; a track's own colour for what belongs to that track.
+-- errors; a part's own colour for what belongs to that part.
 --
--- Tracks take their colour from `hues` in turn (or from `track.color`), and
--- everything that belongs to a track is drawn in shades of it: its clips,
+-- Parts take their colour from `hues` in turn (or from `part.color`), and
+-- everything that belongs to a part is drawn in shades of it: its clips,
 -- its notes in the piano roll, its strip in the mixer. Those shades are made
 -- on demand by `paw.draw.hue`. The window uses the same twelve hues.
 --
@@ -99,7 +99,7 @@ local c: Palette = {
   magenta = "#ac93e6",
 }
 
--- One per track, in turn: the same twelve as the window's.
+-- One per part, in turn: the same twelve as the window's.
 local hues: {string} = {
   "#e0605a",
   "#e58a45",
@@ -114,7 +114,7 @@ local hues: {string} = {
   "#e06b9a",
   "#b39c7d",
 }
--- Their names, for `:track.color`.
+-- Their names, for `:part.color`.
 local hue_names: {string} = {
   "coral", "orange", "gold", "lime", "green", "teal", "sky", "blue", "violet", "purple", "pink", "sand"
 }
@@ -183,21 +183,21 @@ local function build(): Groups
     RulerRegion2 = {fg = c.fg, bg = c.bg_hl, bold = true},
     RulerRegionDeep = {fg = c.dim, bg = c.bg_hl},
 
-    TrackHeader = {fg = c.fg, bg = alt},
-    TrackHeaderSel = {fg = c.bright, bg = c.sel},
-    TrackName = {fg = c.fg, bg = alt},
-    TrackNameSel = {fg = c.bright, bg = c.sel, bold = true},
-    TrackIndex = {fg = c.faint},
-    -- The track column (paw/trackcolumn.tl), as Neovim's LineNr,
+    PartHeader = {fg = c.fg, bg = alt},
+    PartHeaderSel = {fg = c.bright, bg = c.sel},
+    PartName = {fg = c.fg, bg = alt},
+    PartNameSel = {fg = c.bright, bg = c.sel, bold = true},
+    PartIndex = {fg = c.faint},
+    -- The part column (paw/partcolumn.tl), as Neovim's LineNr,
     -- CursorLineNr, FoldColumn and SignColumn.
-    TrackColumn = {fg = c.faint, bg = alt},
-    TrackColumnCursor = {fg = c.dim, bg = c.sel},
-    TrackNr = {fg = c.faint},
-    TrackNrCursor = {fg = c.accent, bold = true},
-    TrackFold = {fg = c.line_hi},
-    TrackSign = {fg = c.dim},
-    TrackInfo = {fg = c.dim},
-    TrackRoute = {fg = c.faint},
+    PartColumn = {fg = c.faint, bg = alt},
+    PartColumnCursor = {fg = c.dim, bg = c.sel},
+    PartNr = {fg = c.faint},
+    PartNrCursor = {fg = c.accent, bold = true},
+    PartFold = {fg = c.line_hi},
+    PartSign = {fg = c.dim},
+    PartInfo = {fg = c.dim},
+    PartRoute = {fg = c.faint},
     FlagOff = {fg = c.faint, bg = c.bg_hl},
     Mute = {fg = c.bg, bg = c.mute, bold = true},
     Solo = {fg = c.bg, bg = c.solo, bold = true},
@@ -238,10 +238,10 @@ local function build(): Groups
     -- The end of a scope's time (`┃`), and what the ruler says after it.
     ScopeEnd = {fg = c.dim, bg = c.bg, bold = true},
     ScopeEndText = {fg = c.dim, bg = c.bg},
-    -- The tracks of a subproject shown under its return row: the dotted
+    -- The parts of a subproject shown under its return row: the dotted
     -- edges of its blocks down them, and their closing line.
     NestGuide = {fg = c.line_hi},
-    -- A time fold (paw/folds.tl): its column, its name on the ruler and on each track.
+    -- A time fold (paw/folds.tl): its column, its name on the ruler and on each part.
     TimeFold = {fg = c.bright, bg = c.sel, bold = true},
     TimeFoldBody = {fg = c.faint, bg = c.sel},
     InsertCursor = {bg = c.insert, fg = c.bg},
@@ -262,7 +262,7 @@ local function build(): Groups
     Fader = {fg = c.fg, bold = true},
     FaderSel = {fg = c.accent, bold = true},
     FaderZero = {fg = c.dim},
-    FaderTrack = {fg = c.line_hi},
+    FaderPart = {fg = c.line_hi},
 
     StatusLine = {fg = c.fg, bg = alt},
     StatusDim = {fg = c.dim, bg = alt},
@@ -391,7 +391,7 @@ local record M
   type Groups = Groups
   --- The colours by name: change one, then `paw.ui.theme(theme.build())`.
   palette: Palette
-  --- A colour for each track in turn, and the names of those colours.
+  --- A colour for each part in turn, and the names of those colours.
   hues: {string}
   hue_names: {string}
   build: function(): Groups

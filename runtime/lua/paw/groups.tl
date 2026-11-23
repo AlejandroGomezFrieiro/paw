@@ -1,4 +1,4 @@
--- Groups of tracks: a track that others belong to, as the strings of an
+-- Groups of parts: a part that others belong to, as the strings of an
 -- orchestra belong to "Strings". The members sound through the group (their
 -- output is the group, so its fader, mute and devices act on all of them),
 -- are drawn under it, a step in, and can be folded away into it.
@@ -8,9 +8,9 @@
 --   paw.groups.add(basses, strings)
 --   paw.groups.remove(violas)
 --
--- A group is an ordinary track marked in its `meta`, and each member names
+-- A group is an ordinary part marked in its `meta`, and each member names
 -- its group in its own, so groups are saved, undone and copied with the
--- tracks. Groups may hold groups. Whether a group is folded is view state
+-- parts. Groups may hold groups. Whether a group is folded is view state
 -- of each window (paw/folds.tl), not of the project.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
@@ -27,10 +27,10 @@ local type objects = require("paw.objects")
 local type FoldsModule = require("paw.folds")
 local type CursorModule = require("paw.cursor")
 
---- A track: its id, or the track itself (`paw.track`).
-local type TrackRef = integer | contracts.TrackHandle
+--- A part: its id, or the part itself (`paw.part`).
+local type PartRef = integer | contracts.PartHandle
 
---- What this module keeps in a track's `meta`: on a group `group_head`
+--- What this module keeps in a part's `meta`: on a group `group_head`
 --- and `group_link`; on a member its group's id.
 local record Marks
   group_head: boolean
@@ -49,7 +49,7 @@ end
 -- part of it that it reads.
 local record Scope
   group: function(): integer
-  tracks: function(): {integer}
+  parts: function(): {integer}
 end
 local record Paw is partial.Paw
   lanes: LanesModule
@@ -57,47 +57,47 @@ local record Paw is partial.Paw
   scope: Scope
   folds: FoldsModule
   cursor: CursorModule
-  add_track: function(opts?: objects.TrackInput): objects.Track
+  add_part: function(opts?: objects.PartInput): objects.Part
 end
 local paw = (_G as {string: Paw}).paw
 
 local record M
-  type TrackRef = TrackRef
+  type PartRef = PartRef
   rows: function(): {integer}
   gather: function(group: integer)
-  --- The tracks to draw under a row besides its group's members, or nil:
+  --- The parts to draw under a row besides its group's members, or nil:
   --- paw/nest.tl sets it, for a return row whose subproject is open in place.
   under: function(row: integer): {integer}
 end
 
 local volumes: {integer: number} = {}
 
-local function id_of(track: TrackRef): integer
-  if track is contracts.TrackHandle then
-    return track.id
+local function id_of(part: PartRef): integer
+  if part is contracts.PartHandle then
+    return part.id
   end
-  return track
+  return part
 end
 
--- One entry of a track: quicker than the whole track, which lists its clips (api.rs).
-local track_meta = api.track_get as function(integer, string): types.Meta
-local track_integer = api.track_get as function(integer, string): integer
-local track_number = api.track_get as function(integer, string): number
+-- One entry of a part: quicker than the whole part, which lists its clips (api.rs).
+local part_meta = api.part_get as function(integer, string): types.Meta
+local part_integer = api.part_get as function(integer, string): integer
+local part_number = api.part_get as function(integer, string): number
 
--- What the kernel says of a track's marks: an empty table for a track
+-- What the kernel says of a part's marks: an empty table for a part
 -- that is not there.
 local function read_marks(id: integer): Marks
-  local ok, m = pcall(track_meta, id, "meta")
+  local ok, m = pcall(part_meta, id, "meta")
   return ok and m as Marks or {}
 end
 
--- The marks and the group of each track that was asked for, kept until the
+-- The marks and the group of each part that was asked for, kept until the
 -- project or an event changes. A frame asks for them many times for each
--- track drawn (the rows, the headers, the tree of the track column), and
+-- part drawn (the rows, the headers, the tree of the part column), and
 -- each read is a call into the kernel. The key is `paw.events.stamp()`,
 -- as for the kept windows of the screen and the regions of paw/scope.tl.
 -- The tables are only read: a change starts from `read_marks`.
--- In `kept_group`, a track in no group: no track has a negative id.
+-- In `kept_group`, a part in no group: no part has a negative id.
 local NO_GROUP = -1
 local kept_marks: {integer: Marks} = {}
 local kept_group: {integer: integer} = {}
@@ -121,37 +121,37 @@ local function meta(id: integer): Marks
 end
 
 local function set_meta(id: integer, m: Marks)
-  api.track_set(id, {meta = m as types.Meta})
+  api.part_set(id, {meta = m as types.Meta})
 end
 
--- Where a track sounds: a table of changes cannot say "the master" (nil),
+-- Where a part sounds: a table of changes cannot say "the master" (nil),
 -- the key form can.
 local function set_output(id: integer, output: integer)
   if output == nil then
-    api.track_set(id, "output", nil)
+    api.part_set(id, "output", nil)
   else
-    api.track_set(id, {output = output})
+    api.part_set(id, {output = output})
   end
 end
 
--- `track_get(id, "id")`: one field, which fails when the track is gone,
--- without the list of clips that the whole track has.
-local track_id_of = api.track_get as function(integer, string): integer
+-- `part_get(id, "id")`: one field, which fails when the part is gone,
+-- without the list of clips that the whole part has.
+local part_id_of = api.part_get as function(integer, string): integer
 
---- True if a track is a group.
-function M.is_group(track: TrackRef): boolean
-  return meta(id_of(track)).group_head == true
+--- True if a part is a group.
+function M.is_group(part: PartRef): boolean
+  return meta(id_of(part)).group_head == true
 end
 
---- The group a track belongs to (its id), or nil.
-function M.of(track: TrackRef): integer
-  local id = id_of(track)
+--- The group a part belongs to (its id), or nil.
+function M.of(part: PartRef): integer
+  local id = id_of(part)
   keep_current()
   local kept = kept_group[id]
   if kept == nil then
     local group = meta(id).group
     -- A member keeps the id of a group that is gone, or no longer a group.
-    if group and pcall(track_id_of, group, "id") and M.is_group(group) then
+    if group and pcall(part_id_of, group, "id") and M.is_group(group) then
       kept = group
     else
       kept = NO_GROUP
@@ -163,11 +163,11 @@ function M.of(track: TrackRef): integer
   end
 end
 
---- The tracks that belong to a group, in the order of the track list.
-function M.members(group: TrackRef): {integer}
+--- The parts that belong to a group, in the order of the part list.
+function M.members(group: PartRef): {integer}
   local gid = id_of(group)
   local out: {integer} = {}
-  for _, id in ipairs(api.track_list({all = true})) do
+  for _, id in ipairs(api.part_list({all = true})) do
     if M.of(id) == gid then
       out[#out + 1] = id
     end
@@ -175,34 +175,34 @@ function M.members(group: TrackRef): {integer}
   return out
 end
 
---- How many groups a track is inside.
-function M.depth(track: TrackRef): integer
-  local depth, at = 0, M.of(track)
+--- How many groups a part is inside.
+function M.depth(part: PartRef): integer
+  local depth, at = 0, M.of(part)
   while at and depth < 16 do
     depth, at = depth + 1, M.of(at)
   end
   return depth
 end
 
---- True if the tracks of a group are folded and hidden, in the window a
+--- True if the parts of a group are folded and hidden, in the window a
 --- view shows (paw/folds.tl).
-function M.folded(group: TrackRef): boolean
+function M.folded(group: PartRef): boolean
   return paw.folds ~= nil and paw.folds.group_closed(id_of(group))
 end
 
---- The subproject a track is in, or nil for a track of the song.
-local track_nest = api.track_get as function(integer, string): integer
+--- The subproject a part is in, or nil for a part of the song.
+local part_nest = api.part_get as function(integer, string): integer
 local function place_of(id: integer): integer
-  local ok, nest = pcall(track_nest, id, "nest") as (boolean, integer)
+  local ok, nest = pcall(part_nest, id, "nest") as (boolean, integer)
   return ok and nest or nil
 end
 
---- The group that a new track goes into when it is added next to `track`
+--- The group that a new part goes into when it is added next to `part`
 --- (`o`, `O`, `:nest.new`): below an open group's own row, that group;
---- else the group of `track`. Nil at the top level, and for a group in
---- another place (a subproject) than `track`.
-function M.home(track: TrackRef, above?: boolean): integer
-  local id = id_of(track)
+--- else the group of `part`. Nil at the top level, and for a group in
+--- another place (a subproject) than `part`.
+function M.home(part: PartRef, above?: boolean): integer
+  local id = id_of(part)
   local group = M.of(id)
   if not above and M.is_group(id) and not M.folded(id) then
     group = id
@@ -212,14 +212,14 @@ function M.home(track: TrackRef, above?: boolean): integer
   end
 end
 
---- True if a track is hidden: inside a folded group. Inside group `top`
+--- True if a part is hidden: inside a folded group. Inside group `top`
 --- (the group of a narrowed window), only the groups inside it count. `top`
 --- itself is open there.
-function M.hidden(track: TrackRef, top?: integer): boolean
-  if top and id_of(track) == top then
+function M.hidden(part: PartRef, top?: integer): boolean
+  if top and id_of(part) == top then
     return false
   end
-  local at, steps = M.of(track), 0
+  local at, steps = M.of(part), 0
   while at and at ~= top and steps < 16 do
     if M.folded(at) then
       return true
@@ -229,11 +229,11 @@ function M.hidden(track: TrackRef, top?: integer): boolean
   return false
 end
 
---- The tracks that are drawn, in order: all but those folded away in the
+--- The parts that are drawn, in order: all but those folded away in the
 --- window (`paw.folds`), and in a scope only those of the scope (`paw.scope`). Rows of the
 --- arrange view and of a graphical frontend are places in this list.
---- With `{ lanes = true }`, every row: `{ track = id }` for a track and
---- `{ track = id, lane = id }` for an automation lane shown under it
+--- With `{ lanes = true }`, every row: `{ part = id }` for a part and
+--- `{ part = id, lane = id }` for an automation lane shown under it
 --- (see `paw.lanes`).
 local function rows(opts?: RowOptions): {integer}
   if opts and opts.lanes then
@@ -241,9 +241,9 @@ local function rows(opts?: RowOptions): {integer}
   end
   local out, vcas: {integer}, {integer} = {}, {}
   local scope = paw.scope and paw.scope.group()
-  for _, id in ipairs(paw.scope and paw.scope.tracks() or api.track_list()) do
+  for _, id in ipairs(paw.scope and paw.scope.parts() or api.part_list()) do
     if not M.hidden(id, scope) then
-      -- VCAs come after the tracks they move.
+      -- VCAs come after the parts they move.
       local list = paw.vca.is_vca(id) and vcas or out
       list[#list + 1] = id
       local extra = M.under and M.under(id)
@@ -263,7 +263,7 @@ end
 M.rows = rows as function(): {integer}
 
 local function position(id: integer): integer
-  for i, other in ipairs(api.track_list({all = true})) do
+  for i, other in ipairs(api.part_list({all = true})) do
     if other == id then
       return i
     end
@@ -275,13 +275,13 @@ local function gather(group: integer)
   local at = position(group)
   for _, id in ipairs(M.members(group)) do
     local from = position(id)
-    -- Moving a track from above the group shifts the group up by one.
+    -- Moving a part from above the group shifts the group up by one.
     if from < at then
-      api.track_move(id, at)
+      api.part_move(id, at)
     else
       at = at + 1
       if from ~= at then
-        api.track_move(id, at)
+        api.part_move(id, at)
       end
     end
     -- A member that is a group brings its own members along.
@@ -295,10 +295,10 @@ local function gather(group: integer)
 end
 M.gather = gather
 
---- Put a track into a group: it then sounds through the group, unless it
+--- Put a part into a group: it then sounds through the group, unless it
 --- was sent somewhere of its own.
-function M.add(track: TrackRef, group: TrackRef)
-  local tid, gid = id_of(track), id_of(group)
+function M.add(part: PartRef, group: PartRef)
+  local tid, gid = id_of(part), id_of(group)
   if tid == gid or not M.is_group(gid) then
     error("not a group", 2)
   end
@@ -310,7 +310,7 @@ function M.add(track: TrackRef, group: TrackRef)
     end
     at = M.of(at)
   end
-  local t = api.track_get(tid)
+  local t = api.part_get(tid)
   local old = M.of(tid)
   if t.output == nil or t.output == old then
     set_output(tid, gid)
@@ -321,17 +321,17 @@ function M.add(track: TrackRef, group: TrackRef)
   gather(gid)
 end
 
---- Remove a track from its group, up one level. It sounds where the group
+--- Remove a part from its group, up one level. It sounds where the group
 --- sounds, and it is in the parent group of the group, if any. It moves out
 --- of the rows of the group, unless `stay`.
-function M.remove(track: TrackRef, stay?: boolean): boolean
-  local tid = id_of(track)
+function M.remove(part: PartRef, stay?: boolean): boolean
+  local tid = id_of(part)
   local group = M.of(tid)
   if not group then
     return false
   end
-  if track_integer(tid, "output") == group then
-    set_output(tid, track_integer(group, "output"))
+  if part_integer(tid, "output") == group then
+    set_output(tid, part_integer(group, "output"))
   end
   local m = read_marks(tid)
   m.group = M.of(group)
@@ -340,17 +340,17 @@ function M.remove(track: TrackRef, stay?: boolean): boolean
   local members = M.members(group)
   local last = position(members[#members] or group)
   if not stay and position(tid) < last then
-    api.track_move(tid, last)
+    api.part_move(tid, last)
   end
   return true
 end
 
---- A new group that contains `tracks` (ids or tracks), above the first of
---- them. Returns the track of the group.
-function M.make(tracks?: {TrackRef}, name?: string): contracts.TrackHandle
+--- A new group that contains `parts` (ids or parts), above the first of
+--- them. Returns the part of the group.
+function M.make(parts?: {PartRef}, name?: string): contracts.PartHandle
   local ids: {integer} = {}
-  for i, track in ipairs(tracks or {}) do
-    ids[i] = id_of(track)
+  for i, part in ipairs(parts or {}) do
+    ids[i] = id_of(part)
   end
   local first: integer
   for _, id in ipairs(ids) do
@@ -359,11 +359,11 @@ function M.make(tracks?: {TrackRef}, name?: string): contracts.TrackHandle
       first = at
     end
   end
-  local group = paw.add_track({name = name or "Group", index = first})
+  local group = paw.add_part({name = name or "Group", index = first})
   local gm = read_marks(group.id)
   gm.group_head = true
   set_meta(group.id, gm)
-  -- Tracks that were together in a group stay in it, one level down.
+  -- Parts that were together in a group stay in it, one level down.
   local outer = ids[1] and M.of(ids[1])
   local same = outer ~= nil
   for _, id in ipairs(ids) do
@@ -380,23 +380,23 @@ end
 
 --- Undo a group: its members go up a level and the group, if it holds
 --- nothing of its own (no clips, no devices), goes away.
-function M.dissolve(group: TrackRef): boolean
+function M.dissolve(group: PartRef): boolean
   local gid = id_of(group)
   if not M.is_group(gid) then
     return false
   end
   local outer = M.of(gid)
   for _, id in ipairs(M.members(gid)) do
-    if track_integer(id, "output") == gid then
-      set_output(id, track_integer(gid, "output"))
+    if part_integer(id, "output") == gid then
+      set_output(id, part_integer(gid, "output"))
     end
     local m = read_marks(id)
     m.group = outer
     set_meta(id, m)
   end
-  local t = api.track_get(gid)
+  local t = api.part_get(gid)
   if #t.clips == 0 and #t.devices == 0 then
-    api.track_remove(gid)
+    api.part_remove(gid)
   else
     local m = read_marks(gid)
     m.group_head = nil
@@ -407,7 +407,7 @@ end
 
 --- Fold a group away, or open it, in the current window: `on` nil flips
 --- it. View state: no undo step (paw/folds.tl).
-function M.fold(group: TrackRef, on?: boolean)
+function M.fold(group: PartRef, on?: boolean)
   paw.folds.set_group(id_of(group), on)
 end
 
@@ -415,19 +415,19 @@ end
 --- have moved since.
 local function note(group: integer)
   for _, id in ipairs(M.members(group)) do
-    volumes[id] = track_number(id, "volume")
+    volumes[id] = part_number(id, "volume")
   end
 end
 
 --- True if the faders of the members of a group are linked. When one moves,
 --- the others move by the same number of dB. This is separate from the
 --- routing, which a group also has.
-function M.linked(group: TrackRef): boolean
+function M.linked(group: PartRef): boolean
   return meta(id_of(group)).group_link == true
 end
 
 --- Link the faders of a group's members, or let them go: `on` nil flips it.
-function M.link(group: TrackRef, on?: boolean)
+function M.link(group: PartRef, on?: boolean)
   local gid = id_of(group)
   if not M.is_group(gid) then
     error("not a group", 2)
@@ -442,25 +442,25 @@ function M.link(group: TrackRef, on?: boolean)
 end
 
 events.on(
-  events.pattern("track.*"),
+  events.pattern("part.*"),
   function(payload: events.Payload, name: string)
-    -- A removed track has no group to read: the read would only fail.
-    if name == "track.removed" then
+    -- A removed part has no group to read: the read would only fail.
+    if name == "part.removed" then
       return
     end
-    local event = payload as kernel.TrackId
+    local event = payload as kernel.PartId
     local group = event.id and M.of(event.id)
     if not group or not M.linked(group) then
       return
     end
     -- Undo, redo and opening a project restore every fader themselves.
-    if event.restored or name == "track.added" then
+    if event.restored or name == "part.added" then
       return note(group)
     end
-    if name ~= "track.changed" then
+    if name ~= "part.changed" then
       return
     end
-    local now = track_number(event.id, "volume")
+    local now = part_number(event.id, "volume")
     local before = volumes[event.id]
     volumes[event.id] = now
     if before == nil or before == now then
@@ -468,9 +468,9 @@ events.on(
     end
     for _, id in ipairs(M.members(group)) do
       if id ~= event.id then
-        local was = volumes[id] or track_number(id, "volume")
+        local was = volumes[id] or part_number(id, "volume")
         volumes[id] = util.clamp(was + now - before, -120, 24)
-        api.track_set(id, {volume = volumes[id]})
+        api.part_set(id, {volume = volumes[id]})
       end
     end
   end
@@ -479,12 +479,12 @@ events.on(
 -- A group that is removed lets its members go: they keep sounding, on the
 -- master, and stand at the top level.
 events.on(
-  kernel.track_removed,
-  function(event: kernel.TrackId)
+  kernel.part_removed,
+  function(event: kernel.PartId)
     if event.restored then
       return
     end
-    for _, id in ipairs(api.track_list({all = true})) do
+    for _, id in ipairs(api.part_list({all = true})) do
       if meta(id).group == event.id then
         local m = read_marks(id)
         m.group = nil

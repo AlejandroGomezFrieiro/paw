@@ -261,7 +261,7 @@ impl Connection {
     }
 
     /// Send a sound file to the instance and bring it into the project on
-    /// a new track, as `:import` does there. Returns its path there.
+    /// a new part, as `:import` does there. Returns its path there.
     pub fn send_and_import(&mut self, path: &Path) -> Result<String> {
         let there = self.send_file(path)?;
         self.call("eval", json!(["paw.commands.run('import', { ... })", there]))?;

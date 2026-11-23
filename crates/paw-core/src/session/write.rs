@@ -1,7 +1,7 @@
 //! Writing automation by moving things while the song plays.
 //!
-//! Each track has a mode (`Track::automation`). In `touch`, `latch` and
-//! `write`, and on every track while the transport's `write` switch is on
+//! Each part has a mode (`Part::automation`). In `touch`, `latch` and
+//! `write`, and on every part while the transport's `write` switch is on
 //! (which latches), a fader, pan or parameter that is moved (from a script,
 //! a frontend, a controller, or a plugin's own window) is held: every turn
 //! its value is written into its lane at the playhead, over whatever the
@@ -11,7 +11,7 @@
 //! - `touch` holds while the control is held ([`Session::automation_hold`])
 //!   or for a moment after it was last moved, then lets the lane take over
 //!   again: the lane is joined back to what it held before.
-//! - `write` holds everything the track's lanes move from where playback
+//! - `write` holds everything the part's lanes move from where playback
 //!   began, moved or not.
 
 use std::time::Duration;
@@ -28,14 +28,14 @@ use crate::model::{AutoMode, Id, Target};
 /// and the values being written.
 #[derive(Default)]
 pub(super) struct Writing {
-    /// The transport's `write` switch: every track latches.
+    /// The transport's `write` switch: every part latches.
     pub on: bool,
     pub latched: Vec<Latch>,
 }
 
 /// A value being written into a lane as the song plays.
 pub(super) struct Latch {
-    track: Id,
+    part: Id,
     target: Target,
     value: f64,
     /// What it was before it was first moved, for the start of a new lane.
@@ -65,13 +65,13 @@ const TOUCH_RELEASE: Duration = Duration::from_millis(600);
 const RETURN: f64 = 1.0 / 8.0;
 
 impl Session {
-    /// How moves on a track are treated right now.
-    pub(super) fn auto_mode(&self, track: Id) -> AutoMode {
+    /// How moves on a part are treated right now.
+    pub(super) fn auto_mode(&self, part: Id) -> AutoMode {
         let mode = self
             .doc.project
-            .track(track)
+            .part(part)
             .map_or(AutoMode::Read, |t| t.automation);
-        // The transport's switch latches every track that does not write
+        // The transport's switch latches every part that does not write
         // in a way of its own.
         if self.writing.on && !mode.writes() {
             return AutoMode::Latch;
@@ -80,15 +80,15 @@ impl Session {
     }
 
     /// Note that something was moved from `before` to `value`.
-    pub(super) fn touch(&mut self, track: Id, target: Target, before: f64, value: f64) {
-        if !self.play.playing || !self.auto_mode(track).writes() {
+    pub(super) fn touch(&mut self, part: Id, target: Target, before: f64, value: f64) {
+        if !self.play.playing || !self.auto_mode(part).writes() {
             return;
         }
         match self
             .writing
             .latched
             .iter_mut()
-            .find(|l| l.track == track && l.target == target)
+            .find(|l| l.part == part && l.target == target)
         {
             Some(latch) => {
                 latch.value = value;
@@ -96,7 +96,7 @@ impl Session {
                 latch.let_go = false;
             }
             None => self.writing.latched.push(Latch {
-                track,
+                part,
                 target,
                 value,
                 before,
@@ -113,18 +113,18 @@ impl Session {
     /// Say that a control is being held (a fader under the pointer), or has
     /// been let go. In touch mode it writes for as long as it is held, moved
     /// or not, and stops when it is let go.
-    pub(crate) fn automation_hold(&mut self, track: Id, target: Target, on: bool) {
+    pub(crate) fn automation_hold(&mut self, part: Id, target: Target, on: bool) {
         if on {
-            let Some(value) = self.target_value(track, &target) else {
+            let Some(value) = self.target_value(part, &target) else {
                 return;
             };
-            self.touch(track, target.clone(), value, value);
+            self.touch(part, target.clone(), value, value);
         }
         if let Some(latch) = self
             .writing
             .latched
             .iter_mut()
-            .find(|l| l.track == track && l.target == target)
+            .find(|l| l.part == part && l.target == target)
         {
             latch.held = on;
             if !on {
@@ -140,7 +140,7 @@ impl Session {
     /// and parameter.
     pub(crate) fn automation_hold_named(
         &mut self,
-        track: Id,
+        part: Id,
         target: &str,
         device: Option<Id>,
         param: Option<String>,
@@ -153,16 +153,16 @@ impl Session {
             ("param", _, _) => anyhow::bail!("a parameter is named by its device and its key"),
             (other, _, _) => anyhow::bail!("`{other}` is not something automation moves"),
         };
-        if self.doc.project.track(track).is_none() {
-            anyhow::bail!("no track {track}");
+        if self.doc.project.part(part).is_none() {
+            anyhow::bail!("no part {part}");
         }
-        self.automation_hold(track, target, on);
+        self.automation_hold(part, target, on);
         Ok(())
     }
 
     /// What a fader, pan or parameter is set to in the project.
-    fn target_value(&self, track: Id, target: &Target) -> Option<f64> {
-        let t = self.doc.project.track(track)?;
+    fn target_value(&self, part: Id, target: &Target) -> Option<f64> {
+        let t = self.doc.project.part(part)?;
         match target {
             Target::Volume => Some(t.volume),
             Target::Pan => Some(t.pan),
@@ -173,26 +173,26 @@ impl Session {
         }
     }
 
-    /// In write mode everything a track's lanes move is held from the start.
-    fn hold_written_tracks(&mut self) {
+    /// In write mode everything a part's lanes move is held from the start.
+    fn hold_written_parts(&mut self) {
         let mut wanted = Vec::new();
-        for track in self.doc.project.all_tracks() {
-            if track.automation != AutoMode::Write {
+        for part in self.doc.project.all_parts() {
+            if part.automation != AutoMode::Write {
                 continue;
             }
-            for lane in &track.lanes {
+            for lane in &part.lanes {
                 let known = self
                     .writing
                     .latched
                     .iter()
-                    .any(|l| l.track == track.id && l.target == lane.target);
-                if !known && let Some(value) = self.target_value(track.id, &lane.target) {
-                    wanted.push((track.id, lane.target.clone(), value));
+                    .any(|l| l.part == part.id && l.target == lane.target);
+                if !known && let Some(value) = self.target_value(part.id, &lane.target) {
+                    wanted.push((part.id, lane.target.clone(), value));
                 }
             }
         }
-        for (track, target, value) in wanted {
-            self.touch(track, target, value, value);
+        for (part, target, value) in wanted {
+            self.touch(part, target, value, value);
         }
     }
 
@@ -202,14 +202,14 @@ impl Session {
             self.writing.latched.clear();
             return;
         }
-        self.hold_written_tracks();
+        self.hold_written_parts();
         if self.writing.latched.is_empty() {
             return;
         }
         let now = self.position();
         let mut latched = std::mem::take(&mut self.writing.latched);
         latched.retain_mut(|latch| {
-            let mode = self.auto_mode(latch.track);
+            let mode = self.auto_mode(latch.part);
             if !mode.writes() {
                 return false;
             }
@@ -234,10 +234,10 @@ impl Session {
 
     /// The lane a latch writes into, made if the target has none yet.
     fn latch_lane(&mut self, latch: &Latch) -> Result<Option<Id>> {
-        let Some(track) = self.doc.project.track(latch.track) else {
+        let Some(part) = self.doc.project.part(latch.part) else {
             return Ok(None);
         };
-        if let Some(lane) = track.lanes.iter().find(|l| l.target == latch.target) {
+        if let Some(lane) = part.lanes.iter().find(|l| l.target == latch.target) {
             return Ok(Some(lane.id));
         }
         let (target, device, param) = match &latch.target {
@@ -248,7 +248,7 @@ impl Session {
             Target::State { .. } => return Ok(None),
         };
         self.lane_add(
-            latch.track,
+            latch.part,
             LaneOpts {
                 target: Some(target),
                 device,
@@ -347,29 +347,29 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::session::document::TrackOpts;
+    use crate::session::document::PartOpts;
 
-    /// A session on the null backend, playing, with one track in touch mode.
+    /// A session on the null backend, playing, with one part in touch mode.
     fn touching() -> (Session, Id) {
         let backend = BackendOptions { backend: BackendChoice::Null, ..Default::default() };
         let mut session = Session::new(&backend, Registry::with_builtins()).unwrap();
-        let track = session.doc.track_add(TrackOpts::default()).unwrap();
-        session.track_set(track, "automation", json!("touch")).unwrap();
+        let part = session.doc.part_add(PartOpts::default()).unwrap();
+        session.part_set(part, "automation", json!("touch")).unwrap();
         session.play.playing = true;
-        (session, track)
+        (session, part)
     }
 
     #[test]
     fn a_control_in_touch_mode_is_let_go_after_a_pause_on_the_schedule_clock() {
-        let (mut session, track) = touching();
+        let (mut session, part) = touching();
         let at = |ms| ScheduleTime::from_start(Duration::from_millis(ms));
         session.set_now(at(0));
-        session.track_set(track, "volume", json!(-6.0)).unwrap();
+        session.part_set(part, "volume", json!(-6.0)).unwrap();
         session.write_automation();
         assert_eq!(session.writing.latched.len(), 1, "a move holds the control");
 
         session.set_now(at(400));
-        session.track_set(track, "volume", json!(-3.0)).unwrap();
+        session.part_set(part, "volume", json!(-3.0)).unwrap();
         session.set_now(at(400) + (TOUCH_RELEASE - Duration::from_millis(1)));
         session.write_automation();
         assert_eq!(session.writing.latched.len(), 1, "the pause counts from the last move");

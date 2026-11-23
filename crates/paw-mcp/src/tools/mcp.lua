@@ -3,7 +3,7 @@
 -- `...`), so it needs nothing installed in the kernel and survives `:reload`.
 --
 -- Arguments arrive normalized by the server: positions and lengths in beats,
--- pitches as MIDI numbers, paths absolute and checked. Tracks may still be
+-- pitches as MIDI numbers, paths absolute and checked. Parts may still be
 -- named. Everything is done through `paw.api`, so every change is undoable,
 -- and each tool call that writes is exactly one undo step, named `mcp: ...`:
 -- a failed call is rolled back.
@@ -21,20 +21,20 @@ local function fail(msg) error(msg, 0) end
 
 local function exists(get, id) return id ~= nil and (pcall(get, id)) end
 
--- Tracks, by id, by name, or "master" ------------------------------------------
+-- Parts, by id, by name, or "master" ------------------------------------------
 
-local function track_id(ref)
-  if ref == nil then fail("which track? give its id or its name") end
+local function part_id(ref)
+  if ref == nil then fail("which part? give its id or its name") end
   if type(ref) == "number" then
-    if not exists(api.track_get, ref) then fail("no track " .. ref .. " (get_project lists the tracks)") end
+    if not exists(api.part_get, ref) then fail("no part " .. ref .. " (get_project lists the parts)") end
     return ref
   end
   local text = tostring(ref)
   if text:lower() == "master" then return 0 end
-  if tonumber(text) then return track_id(tonumber(text)) end
+  if tonumber(text) then return part_id(tonumber(text)) end
   local wanted, partial = text:lower(), {}
-  for _, id in ipairs(api.track_list()) do
-    local name = api.track_get(id).name
+  for _, id in ipairs(api.part_list()) do
+    local name = api.part_get(id).name
     if name:lower() == wanted then return id end
     if name:lower():find(wanted, 1, true) then partial[#partial + 1] = { id = id, name = name } end
   end
@@ -44,9 +44,9 @@ local function track_id(ref)
     for i, t in ipairs(partial) do
       names[i] = string.format("%q (id %d)", t.name, t.id)
     end
-    fail("`" .. text .. "` matches several tracks: " .. table.concat(names, ", ") .. "; use an id")
+    fail("`" .. text .. "` matches several parts: " .. table.concat(names, ", ") .. "; use an id")
   end
-  fail("no track named `" .. text .. "` (get_project lists the tracks)")
+  fail("no part named `" .. text .. "` (get_project lists the parts)")
 end
 
 local function need(get, id, what)
@@ -176,7 +176,7 @@ local function device_view(id, full)
     format = d.format,
     bypass = d.bypass,
     index = d.index,
-    track = d.track,
+    part = d.part,
     missing = d.missing,
     param_count = #d.param_info,
   }
@@ -218,7 +218,7 @@ local function clip_view(c, notes, filter)
   local v = {
     id = c.id,
     name = c.name,
-    track = c.track,
+    part = c.part,
     start = c.start,
     length = c.length,
     kind = c.kind,
@@ -266,8 +266,8 @@ local function db(linear)
   return 20 * math.log10(linear)
 end
 
-local function track_view(id, detail)
-  local t = api.track_get(id)
+local function part_view(id, detail)
+  local t = api.part_get(id)
   local v = {
     id = id,
     index = t.index,
@@ -287,12 +287,12 @@ local function track_view(id, detail)
     clips = {},
     lanes = {},
   }
-  if t.output then v.output_name = api.track_get(t.output).name end
+  if t.output then v.output_name = api.part_get(t.output).name end
   for i, s in ipairs(t.sends or {}) do
     v.sends[i] = {
       target = s.target,
       level = s.level,
-      name = exists(api.track_get, s.target) and api.track_get(s.target).name or "?",
+      name = exists(api.part_get, s.target) and api.part_get(s.target).name or "?",
     }
   end
   for i, d in ipairs(t.devices) do
@@ -306,8 +306,8 @@ local function track_view(id, detail)
   end
   if detail then
     -- What the engine's meter holds now: the level while playing, and the
-    -- last peak it kept otherwise; a render measures every track's peak.
-    local left, right = api.track_meter(id)
+    -- last peak it kept otherwise; a render measures every part's peak.
+    local left, right = api.part_meter(id)
     v.meter = { left = db(left), right = db(right) }
   end
   return v
@@ -340,17 +340,17 @@ local function project_view()
     sig_den = p.sig_den,
     length = p.length,
     transport = t,
-    tracks = {},
+    parts = {},
     key = project_key(),
     tempo_ramp = p.tempo_ramp,
     tempo_changes = p.tempo_changes,
     sig_changes = p.sig_changes,
     markers = markers_view(),
   }
-  for i, id in ipairs(api.track_list()) do
-    v.tracks[i] = track_view(id, false)
+  for i, id in ipairs(api.part_list()) do
+    v.parts[i] = part_view(id, false)
   end
-  v.master = track_view(0, false)
+  v.master = part_view(0, false)
   return v
 end
 
@@ -400,21 +400,21 @@ local function set_params(id, params)
   end
 end
 
-local function add_device(track, spec)
+local function add_device(part, spec)
   if type(spec) == "string" then spec = { kind = spec } end
   local kind = find_kind(spec.kind or fail("a device needs a `kind`"))
-  local id = api.device_add(track, kind, { index = spec.index })
+  local id = api.device_add(part, kind, { index = spec.index })
   set_params(id, spec.params)
   if spec.bypass ~= nil then api.device_set(id, "bypass", spec.bypass) end
   return id
 end
 
-local function add_clip(track, spec)
+local function add_clip(part, spec)
   local opts = { name = spec.name, start = spec.start or 0, length = spec.length, notes = spec.notes }
   if spec.file then
     opts.kind, opts.file, opts.offset, opts.gain, opts.notes = "audio", spec.file, spec.offset or 0, spec.gain or 0, nil
   end
-  local id = api.clip_add(track, opts)
+  local id = api.clip_add(part, opts)
   if spec.muted then api.clip_set(id, "muted", true) end
   return id
 end
@@ -422,15 +422,15 @@ end
 local function set_sends(id, sends)
   local list = {}
   for i, s in ipairs(sends) do
-    list[i] = { target = track_id(s.target), level = s.level or 0 }
+    list[i] = { target = part_id(s.target), level = s.level or 0 }
   end
-  api.track_set(id, "sends", list)
+  api.part_set(id, "sends", list)
 end
 
-function T.add_track(a)
-  local output = a.output ~= nil and track_id(a.output) or nil
+function T.add_part(a)
+  local output = a.output ~= nil and part_id(a.output) or nil
   local id =
-    api.track_add({ name = a.name, index = a.index, volume = a.volume, pan = a.pan, output = output, color = a.color })
+    api.part_add({ name = a.name, index = a.index, volume = a.volume, pan = a.pan, output = output, color = a.color })
   for _, d in ipairs(a.devices or {}) do
     add_device(id, d)
   end
@@ -438,22 +438,22 @@ function T.add_track(a)
     add_clip(id, c)
   end
   if a.sends then set_sends(id, a.sends) end
-  return { track = track_view(id, false) }
+  return { part = part_view(id, false) }
 end
 
-function T.set_track(a)
-  local id = track_id(a.track)
+function T.set_part(a)
+  local id = part_id(a.part)
   for _, key in ipairs({ "name", "volume", "pan", "mute", "solo", "color" }) do
-    if a[key] ~= nil then api.track_set(id, key, a[key]) end
+    if a[key] ~= nil then api.part_set(id, key, a[key]) end
   end
   if a.output ~= nil then
     local out = a.output
     if out == false or out == "" then out = 0 end
-    api.track_set(id, "output", track_id(out))
+    api.part_set(id, "output", part_id(out))
   end
   if a.sends then set_sends(id, a.sends) end
-  if a.index then api.track_move(id, a.index) end
-  return { track = track_view(id, false) }
+  if a.index then api.part_move(id, a.index) end
+  return { part = part_view(id, false) }
 end
 
 function T.remove(a)
@@ -474,11 +474,11 @@ function T.remove(a)
     api.device_remove(id)
     removed[#removed + 1] = string.format("device %d %s", id, d.name)
   end
-  for _, ref in ipairs(a.tracks or {}) do
-    local id = track_id(ref)
-    local name = api.track_get(id).name
-    api.track_remove(id)
-    removed[#removed + 1] = string.format("track %d %q", id, name)
+  for _, ref in ipairs(a.parts or {}) do
+    local id = part_id(ref)
+    local name = api.part_get(id).name
+    api.part_remove(id)
+    removed[#removed + 1] = string.format("part %d %q", id, name)
   end
   for _, ref in ipairs(a.markers or {}) do
     local m = marker_ref(ref)
@@ -489,8 +489,8 @@ function T.remove(a)
 end
 
 function T.add_clip(a)
-  local track = track_id(a.track)
-  local id = add_clip(track, a)
+  local part = part_id(a.part)
+  local id = add_clip(part, a)
   return { clip = clip_view(api.clip_get(id), #(a.notes or {}) <= 64) }
 end
 
@@ -602,7 +602,7 @@ function T.edit_clip(a)
   for _, key in ipairs({ "name", "start", "length", "muted", "gain", "offset" }) do
     if a[key] ~= nil then api.clip_set(id, key, a[key]) end
   end
-  if a.track ~= nil then api.clip_set(id, "track", track_id(a.track)) end
+  if a.part ~= nil then api.clip_set(id, "part", part_id(a.part)) end
   local touches_notes = a.remove_notes
     or a.edit_notes
     or a.transpose
@@ -631,11 +631,11 @@ end
 function T.duplicate_clip(a)
   local id = need(api.clip_get, a.clip, "clip")
   local c = api.clip_get(id)
-  local track = a.track ~= nil and track_id(a.track) or c.track
+  local part = a.part ~= nil and part_id(a.part) or c.part
   local at = a.at or c.start + c.length
   local made = {}
   for i = 1, a.times or 1 do
-    made[i] = copy_of(c, { start = at + (i - 1) * (a.gap and c.length + a.gap or c.length), track = track })
+    made[i] = copy_of(c, { start = at + (i - 1) * (a.gap and c.length + a.gap or c.length), part = part })
   end
   local clips = {}
   for i, copy in ipairs(made) do
@@ -648,16 +648,16 @@ function T.repeat_bars(a)
   local from, to = a.from, a.to
   if not (to > from) then fail("`to` must be after `from`") end
   local length = to - from
-  local tracks
-  if a.tracks then
-    tracks = {}
-    for _, ref in ipairs(a.tracks) do
-      tracks[track_id(ref)] = true
+  local parts
+  if a.parts then
+    parts = {}
+    for _, ref in ipairs(a.parts) do
+      parts[part_id(ref)] = true
     end
   end
   local source, skipped = {}, {}
-  for _, id in ipairs(api.track_list()) do
-    if not tracks or tracks[id] then
+  for _, id in ipairs(api.part_list()) do
+    if not parts or parts[id] then
       for _, c in ipairs(api.clip_list(id)) do
         if c.start + 1e-9 >= from and c.start + c.length <= to + 1e-9 then
           source[#source + 1] = c
@@ -683,7 +683,7 @@ function T.repeat_bars(a)
 end
 
 function T.add_device(a)
-  local id = add_device(track_id(a.track), a)
+  local id = add_device(part_id(a.part), a)
   return { device = device_view(id, true) }
 end
 
@@ -691,10 +691,10 @@ function T.set_device(a)
   local id = need(api.device_get, a.device, "device")
   set_params(id, a.params)
   if a.bypass ~= nil then api.device_set(id, "bypass", a.bypass) end
-  if a.track ~= nil or a.index ~= nil then
+  if a.part ~= nil or a.index ~= nil then
     local d = api.device_get(id)
-    local track = a.track ~= nil and track_id(a.track) or d.track
-    api.device_move(id, track, a.index or #api.track_get(track).devices + (track == d.track and 0 or 1))
+    local part = a.part ~= nil and part_id(a.part) or d.part
+    api.device_move(id, part, a.index or #api.part_get(part).devices + (part == d.part and 0 or 1))
   end
   local v = device_view(id, true)
   if a.params and #v.params > 24 then
@@ -712,27 +712,27 @@ function T.set_device(a)
 end
 
 function T.automate(a)
-  local track, target, device = a.track, a.target or "volume", a.device
+  local part, target, device = a.part, a.target or "volume", a.device
   if device then
     local d = api.device_get(need(api.device_get, device, "device"))
-    track = track ~= nil and track_id(track) or d.track
+    part = part ~= nil and part_id(part) or d.part
     target = "param"
     if not a.param then fail("automating a device needs `param`, the parameter's key or name") end
   else
-    track = track_id(track)
+    part = part_id(part)
     if target ~= "volume" and target ~= "pan" then
       fail("target is `volume` or `pan`; for a device parameter give `device` and `param`")
     end
   end
   local lane
-  for _, l in ipairs(api.lane_list(track)) do
+  for _, l in ipairs(api.lane_list(part)) do
     if l.target == target and (target ~= "param" or (l.device == device and (l.param == a.param))) then lane = l end
   end
   if not lane and target == "param" then
     -- The parameter may have been named by its display name.
     for _, p in ipairs(api.device_get(device).param_info) do
       if p.name:lower() == a.param:lower() then
-        for _, l in ipairs(api.lane_list(track)) do
+        for _, l in ipairs(api.lane_list(part)) do
           if l.target == "param" and l.device == device and l.param == p.key then lane = l end
         end
       end
@@ -745,7 +745,7 @@ function T.automate(a)
   end
   local created = false
   if not lane then
-    local id = api.lane_add(track, { target = target, device = device, param = a.param, points = {} })
+    local id = api.lane_add(part, { target = target, device = device, param = a.param, points = {} })
     lane, created = api.lane_get(id), true
   end
   if a.clear then api.lane_set_points(lane.id, {}) end
@@ -760,8 +760,8 @@ function T.automate(a)
   end
   if a.enabled ~= nil then api.lane_set(lane.id, "enabled", a.enabled) end
   local v = lane_view(api.lane_get(lane.id), true)
-  v.created, v.track = created, track
-  v.track_name = api.track_get(track).name
+  v.created, v.part = created, part
+  v.part_name = api.part_get(part).name
   if target == "param" then v.device_name = api.device_get(device).name end
   return { lane = v }
 end
@@ -917,31 +917,31 @@ local function loudness_of(path)
   return out
 end
 
---- Each track on its own into the folder `dir`, one file for each track named
+--- Each part on its own into the folder `dir`, one file for each part named
 --- after it, in the foreground so that the answer can measure the files. A
---- track plays through what it passes through to the master, as when it is
---- soloed, so the stems add up to the mix. Without `ids`, the tracks that are
+--- part plays through what it passes through to the master, as when it is
+--- soloed, so the stems add up to the mix. Without `ids`, the parts that are
 --- not muted and have clips.
 local function render_stems(dir, ids, opts, format)
   dir = paw.util.expand_path(dir)
   pcall(api.fs_mkdir, dir)
   if not ids then
     ids = {}
-    for _, track in ipairs(paw.tracks()) do
-      if not track.mute and #track:clips() > 0 then ids[#ids + 1] = track.id end
+    for _, part in ipairs(paw.parts()) do
+      if not part.mute and #part:clips() > 0 then ids[#ids + 1] = part.id end
     end
   end
   local ext = format or "wav"
   local files, used = {}, {}
   for _, id in ipairs(ids) do
-    local name = api.track_get(id).name:gsub("[^%w%-_ ]", "_")
-    -- Two tracks of one name get a number each.
+    local name = api.part_get(id).name:gsub("[^%w%-_ ]", "_")
+    -- Two parts of one name get a number each.
     used[name] = (used[name] or 0) + 1
     if used[name] > 1 then name = name .. " " .. used[name] end
     local path = string.format("%s/%s.%s", dir, name, ext)
-    -- A lossy stem is titled after its track.
+    -- A lossy stem is titled after its part.
     local lossy = ext ~= "wav" and ext ~= "flac"
-    paw.render(path, paw.util.merge(opts, { tracks = { id }, tags = lossy and { title = name } or nil }))
+    paw.render(path, paw.util.merge(opts, { parts = { id }, tags = lossy and { title = name } or nil }))
     files[#files + 1] = path
   end
   return files
@@ -965,10 +965,10 @@ function T.render(a)
     opts.start, opts["end"] = from, to
   end
   local ids
-  if a.tracks then
+  if a.parts then
     ids = {}
-    for i, ref in ipairs(a.tracks) do
-      ids[i] = track_id(ref)
+    for i, ref in ipairs(a.parts) do
+      ids[i] = part_id(ref)
     end
   end
   local start, finish = opts.start or 0, opts["end"] or p.length
@@ -985,7 +985,7 @@ function T.render(a)
       },
     }
   end
-  opts.tracks = ids
+  opts.parts = ids
   local info = paw.render(a.path, opts)
   info.start, info["end"] = start, finish
   info.tempo, info.sig_num, info.sig_den = p.tempo, p.sig_num, p.sig_den
@@ -999,11 +999,11 @@ function T.analyze(a) return { loudness = loudness_of(a.path) } end
 
 function T.project() return { project = project_view() } end
 
-function T.track(a) return { track = track_view(track_id(a.track), true) } end
+function T.part(a) return { part = part_view(part_id(a.part), true) } end
 
 function T.clip(a)
   local v = clip_view(api.clip_get(need(api.clip_get, a.clip, "clip")), true, a.filter)
-  v.track_name = api.track_get(v.track).name
+  v.part_name = api.part_get(v.part).name
   return { clip = v }
 end
 
@@ -1016,7 +1016,7 @@ function T.device(a)
     end
     v.params, v.filtered = keep, true
   end
-  v.track_name = api.track_get(v.track).name
+  v.part_name = api.part_get(v.part).name
   return { device = v }
 end
 
@@ -1077,7 +1077,7 @@ function T.find(a)
       id = n.id or d.id,
       clip = n.clip,
       text = paw.query.describe(n),
-      track = n.kind == "clip" and d.track or (n.track and (type(n.track) == "table" and n.track.id or n.track)) or nil,
+      part = n.kind == "clip" and d.part or (n.part and (type(n.part) == "table" and n.part.id or n.part)) or nil,
       beat = n.kind == "note" and d.start or d.start or d.beat,
     }
   end
@@ -1106,30 +1106,30 @@ function T.diagnose(a)
     end
     findings[#findings + 1] = f
   end
-  local ids = api.track_list()
-  if a.track ~= nil then ids = { track_id(a.track) } end
+  local ids = api.part_list()
+  if a.part ~= nil then ids = { part_id(a.part) } end
   local length = api.project_get().length
   local instruments = instrument_kinds()
   local fed = {}
-  for _, id in ipairs(api.track_list()) do
-    local t = api.track_get(id)
+  for _, id in ipairs(api.part_list()) do
+    local t = api.part_get(id)
     if t.output and t.output ~= 0 then fed[t.output] = true end
     for _, s in ipairs(t.sends or {}) do
       fed[s.target] = true
     end
   end
   local soloed
-  for _, id in ipairs(api.track_list()) do
-    if api.track_get(id).solo then soloed = true end
+  for _, id in ipairs(api.part_list()) do
+    if api.part_get(id).solo then soloed = true end
   end
-  if soloed then add("info", "solo", "some track is soloed: every other track is silent until it is not") end
-  local function check_track(id)
-    local t = api.track_get(id)
-    local where = { track = id }
+  if soloed then add("info", "solo", "some part is soloed: every other part is silent until it is not") end
+  local function check_part(id)
+    local t = api.part_get(id)
+    local where = { part = id }
     local clips = api.clip_list(id)
-    local label = string.format("track %q [id %d]", t.name, id)
+    local label = string.format("part %q [id %d]", t.name, id)
     if #clips == 0 and #t.devices == 0 and not fed[id] then
-      add("warning", "empty_track", label .. " is empty: no clips and no devices", where)
+      add("warning", "empty_part", label .. " is empty: no clips and no devices", where)
     elseif #clips == 0 and #t.devices > 0 and not fed[id] then
       local instrument
       for _, d in ipairs(t.devices) do
@@ -1145,7 +1145,7 @@ function T.diagnose(a)
             "info",
             "empty_clip",
             string.format("clip %d %q on %s has no notes", c.id, c.name, label),
-            { track = id, clip = c.id }
+            { part = id, clip = c.id }
           )
         else
           sounding = sounding + c.note_count
@@ -1164,7 +1164,7 @@ function T.diagnose(a)
                 beyond,
                 beyond == 1 and "" or "s"
               ),
-              { track = id, clip = c.id }
+              { part = id, clip = c.id }
             )
           end
         end
@@ -1177,7 +1177,7 @@ function T.diagnose(a)
           "error",
           "missing_device",
           string.format("device %d %s on %s is not loaded (plugin not found)", d, dev.name, label),
-          { track = id, device = d }
+          { part = id, device = d }
         )
       end
       if instruments[dev.kind] then
@@ -1191,7 +1191,7 @@ function T.diagnose(a)
     if sounding > 0 and not has_instrument and id ~= 0 then
       add(
         "error",
-        "silent_midi_track",
+        "silent_midi_part",
         label
           .. " has MIDI notes but "
           .. (bypassed and "its instrument is bypassed" or "no instrument device")
@@ -1200,30 +1200,30 @@ function T.diagnose(a)
       )
     end
     if id == 0 and #clips > 0 then
-      add("warning", "clip_on_master", "the master track holds clips, which nothing plays", where)
+      add("warning", "clip_on_master", "the master part holds clips, which nothing plays", where)
     end
     local out = t.output
-    if out and out ~= 0 and exists(api.track_get, out) and api.track_get(out).mute then
+    if out and out ~= 0 and exists(api.part_get, out) and api.part_get(out).mute then
       add(
         "warning",
         "muted_destination",
-        label .. " plays into the muted track " .. string.format("%q", api.track_get(out).name),
+        label .. " plays into the muted part " .. string.format("%q", api.part_get(out).name),
         where
       )
     end
     for _, s in ipairs(t.sends or {}) do
-      if not exists(api.track_get, s.target) then
+      if not exists(api.part_get, s.target) then
         add(
           "error",
           "orphan_send",
-          label .. " has a send to a track that no longer exists (id " .. s.target .. ")",
+          label .. " has a send to a part that no longer exists (id " .. s.target .. ")",
           where
         )
-      elseif api.track_get(s.target).mute then
+      elseif api.part_get(s.target).mute then
         add(
           "warning",
           "muted_destination",
-          label .. " sends to the muted track " .. string.format("%q", api.track_get(s.target).name),
+          label .. " sends to the muted part " .. string.format("%q", api.part_get(s.target).name),
           where
         )
       end
@@ -1246,15 +1246,15 @@ function T.diagnose(a)
             l.min,
             l.max
           ),
-          { track = id }
+          { part = id }
         )
       end
     end
   end
   for _, id in ipairs(ids) do
-    check_track(id)
+    check_part(id)
   end
-  if a.track == nil then check_track(0) end
+  if a.part == nil then check_part(0) end
 
   local summary
   if a.measure then
@@ -1291,13 +1291,13 @@ function T.diagnose(a)
           string.format("the true peak is %.1f dBTP, over the -1 dBTP streaming services ask for", m.true_peak)
         )
       end
-      for _, tp in ipairs(m.tracks or {}) do
-        if tp.over_at and exists(api.track_get, tp.id) then
+      for _, tp in ipairs(m.parts or {}) do
+        if tp.over_at and exists(api.part_get, tp.id) then
           add(
             "warning",
-            "track_clipping",
-            string.format("track %q goes over full scale at %.1f s", api.track_get(tp.id).name, tp.over_at),
-            { track = tp.id }
+            "part_clipping",
+            string.format("part %q goes over full scale at %.1f s", api.part_get(tp.id).name, tp.over_at),
+            { part = tp.id }
           )
         end
       end
@@ -1380,8 +1380,8 @@ end
 -- Entry ------------------------------------------------------------------------
 
 local writes = {
-  add_track = true,
-  set_track = true,
+  add_part = true,
+  set_part = true,
   remove = true,
   add_clip = true,
   edit_clip = true,

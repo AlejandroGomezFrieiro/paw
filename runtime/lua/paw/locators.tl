@@ -31,12 +31,12 @@ end
 -- No module requires this one, so it sees the global `paw` with its types.
 local A = paw.address
 
---- The row of each track that the window in front shows, by id: the
---- tracks of the song, or of the subproject that the window is inside.
+--- The row of each part that the window in front shows, by id: the
+--- parts of the song, or of the subproject that the window is inside.
 --- The master (of the song, or of the subproject) is the row after the last.
 local function rows(): {integer: integer}
   local inside = paw.scope.nest()
-  local list = api.track_list(inside and {nest = inside.id} or nil)
+  local list = api.part_list(inside and {nest = inside.id} or nil)
   local out: {integer: integer} = {}
   for i, id in ipairs(list) do
     out[id] = i
@@ -103,7 +103,7 @@ paw.ui.locator(
   }
 )
 
--- The arrange view: clips, tracks and what is on them, stretches of time.
+-- The arrange view: clips, parts and what is on them, stretches of time.
 local function arrange_place(location: Location): {number}
   local p = A.parse(location.uri)
   if not p or p.kind == "render" or (p.kind == "project" and not time_of(location)) then
@@ -118,11 +118,11 @@ local function arrange_place(location: Location): {number}
     if not ok then
       return nil
     end
-    return {c.start + (time_of(location) or 0), row[c.track] or 0}
+    return {c.start + (time_of(location) or 0), row[c.part] or 0}
   end
-  local track = A.track_of(location.uri)
-  if track and row[track] then
-    return {time_of(location) or 0, row[track]}
+  local part = A.part_of(location.uri)
+  if part and row[part] then
+    return {time_of(location) or 0, row[part]}
   end
   return nil
 end
@@ -135,25 +135,25 @@ paw.ui.locator(
       if clip then
         return A.location(A.clip(clip.id), {time = {paw.cursor.beat - clip.start, paw.cursor.beat - clip.start}})
       end
-      local id = paw.cursor.track_id()
-      return id and A.location(A.track(id), {time = {paw.cursor.beat, paw.cursor.beat}}) or nil
+      local id = paw.cursor.part_id()
+      return id and A.location(A.part(id), {time = {paw.cursor.beat, paw.cursor.beat}}) or nil
     end,
-    position = function(): {number} return {paw.cursor.beat, rows()[paw.cursor.track_id() or 0] or 0} end,
+    position = function(): {number} return {paw.cursor.beat, rows()[paw.cursor.part_id() or 0] or 0} end,
     place = arrange_place,
     go = function(location: Location)
       local at = arrange_place(location)
-      local track = A.track_of(location.uri)
-      if not track then
+      local part = A.part_of(location.uri)
+      if not part then
         local p = A.parse(location.uri)
         local ok, c: boolean, types.Clip
         if p and p.clip then
           ok, c = pcall(api.clip_get, p.clip)
         end
-        track = ok and c.track or nil
+        part = ok and c.part or nil
       end
-      -- The master has no row: the cursor keeps its track.
-      if track and track ~= 0 then
-        paw.cursor.set_track(track)
+      -- The master has no row: the cursor keeps its part.
+      if part and part ~= 0 then
+        paw.cursor.set_part(part)
       end
       if at then
         paw.cursor.set_beat(math.max(0, at[1]))
@@ -162,27 +162,27 @@ paw.ui.locator(
   }
 )
 
--- The mixer: a strip for each track.
+-- The mixer: a strip for each part.
 paw.ui.locator(
   "mixer",
   {
-    at = function(): Location local id = paw.cursor.track_id(); return id and A.location(A.track(id)) or nil end,
-    position = function(): {number} return {rows()[paw.cursor.track_id() or 0] or 0} end,
+    at = function(): Location local id = paw.cursor.part_id(); return id and A.location(A.part(id)) or nil end,
+    position = function(): {number} return {rows()[paw.cursor.part_id() or 0] or 0} end,
     place = function(location: Location): {number}
-      local track = A.track_of(location.uri)
-      local row = track and rows()[track]
+      local part = A.part_of(location.uri)
+      local row = part and rows()[part]
       return row and {row} or nil
     end,
     go = function(location: Location)
-      local track = A.track_of(location.uri)
-      if track then
-        paw.cursor.set_track(track)
+      local part = A.part_of(location.uri)
+      if part then
+        paw.cursor.set_part(part)
       end
     end,
   }
 )
 
--- The device panel: the devices of the cursor's track and their parameters.
+-- The device panel: the devices of the cursor's part and their parameters.
 local devices = paw.ui.views:get("devices") as Devices
 local function device_row(device: integer, param: string): integer
   for i, row in ipairs(devices:rows()) do
@@ -201,8 +201,8 @@ paw.ui.locator(
     at = function(): Location
       local row = devices:rows()[devices.row or 1]
       if not row then
-        local id = paw.cursor.track_id()
-        return id and A.location(A.track(id)) or nil
+        local id = paw.cursor.part_id()
+        return id and A.location(A.part(id)) or nil
       end
       if row.param then
         return A.location(A.param(row.device.id, row.param.key))
@@ -218,7 +218,7 @@ paw.ui.locator(
       if anywhere then
         return {0}
       end
-      if p.track ~= paw.cursor.track_id() then
+      if p.part ~= paw.cursor.part_id() then
         return nil
       end
       local i = device_row(p.device, p.param)
@@ -226,8 +226,8 @@ paw.ui.locator(
     end,
     go = function(location: Location)
       local p = A.parse(location.uri)
-      if p.track ~= paw.cursor.track_id() then
-        paw.cursor.set_track(p.track)
+      if p.part ~= paw.cursor.part_id() then
+        paw.cursor.set_part(p.part)
       end
       devices.row = device_row(p.device, p.param) or devices.row
       api.ui_redraw()

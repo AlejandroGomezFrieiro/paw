@@ -20,7 +20,7 @@ end
 --- `beats` at 120 BPM.
 local function sound_file(beats, notes)
   start()
-  local t = paw.add_track({ name = "source" })
+  local t = paw.add_part({ name = "source" })
   t:add_device("synth", { attack = 0.001, release = 0.01 })
   t:add_clip({ start = 0, length = beats, notes = notes })
   local info = render({ tail = 0, bits = 16 })
@@ -62,7 +62,7 @@ end
 --- more.
 local function settled()
   T.advance_until(function()
-    for _, t in ipairs(paw.tracks()) do
+    for _, t in ipairs(paw.parts()) do
       for _, c in ipairs(api.clip_list(t.id)) do
         if c.stretching then return false end
       end
@@ -76,7 +76,7 @@ end
 test("a long stretched clip is heard at once, while its sound is still being made", function()
   -- Two minutes of tone, stretched to four.
   local file = sound_file(240, { { pitch = "A3", start = 0, length = 240 } })
-  local t = paw.add_track({ name = "audio" })
+  local t = paw.add_part({ name = "audio" })
   local clip = t:add_clip({ file = file, start = 0 })
   paw.stretch.set(clip.id, 2)
   paw.transport.seek(0)
@@ -103,7 +103,7 @@ test("a render made while a stretch is being made waits for it, and is the same 
     { pitch = "E4", start = 4, length = 6 },
     { pitch = "C4", start = 11, length = 4 },
   })
-  local t = paw.add_track({ name = "audio" })
+  local t = paw.add_part({ name = "audio" })
   local clip = t:add_clip({ file = file, start = 0 })
   paw.stretch.set(clip.id, 1.3)
   clip.pitch = 2
@@ -134,7 +134,7 @@ end
 
 test("a warp marker pins a moment of the file, and moved stretches the sound on either side", function()
   local file = two_tone_file()
-  local t = paw.add_track({ name = "audio" })
+  local t = paw.add_part({ name = "audio" })
   local clip = t:add_clip({ file = file, start = 0 })
   clip.stretch_mode = "tonal"
   api.undo_checkpoint()
@@ -179,21 +179,21 @@ end)
 
 test("warp markers are saved, copied with the clip, and kept by a cut", function()
   local file = two_tone_file()
-  local t = paw.add_track({ name = "audio" })
+  local t = paw.add_part({ name = "audio" })
   local clip = t:add_clip({ file = file, start = 0 })
   paw.stretch.warp_move(clip.id, paw.stretch.warp_add(clip.id, 2), 3)
   local path = T.scratch .. "/warped.json"
   paw.project.save(path)
   paw.project.load(path)
-  clip = paw.tracks()[1]:clips()[1]
+  clip = paw.parts()[1]:clips()[1]
   eq(#clip.warp, 3, "three markers, the clip's ends pinned")
   near(clip.warp[2].beat, 3, 1e-9, "where it was moved")
   local copy = clip:duplicate()
   near(copy.warp[2].beat, copy.start + 3, 1e-9, "the copy's, where they are in it")
-  paw.cursor.set_track(paw.tracks()[1])
+  paw.cursor.set_part(paw.parts()[1])
   paw.cursor.set_beat(5)
   paw.commands.exec("clip.split")
-  local left, right = paw.tracks()[1]:clips()[1], paw.tracks()[1]:clips()[2]
+  local left, right = paw.parts()[1]:clips()[1], paw.parts()[1]:clips()[2]
   near(left.warp[2].beat, 3, 1e-9, "the left piece's marker stays put")
   near(right.start, 5, 1e-9, "the right piece")
   local info = render({ tail = 0, bits = 16 })
@@ -203,9 +203,9 @@ end)
 
 test("the warp commands and keys put, move, snap and take off markers", function()
   local file = two_tone_file()
-  local t = paw.add_track({ name = "audio" })
+  local t = paw.add_part({ name = "audio" })
   local clip = t:add_clip({ file = file, start = 0 })
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.cursor.set_beat(2)
   paw.keymap.feed("gw")
   eq(#clip.warp, 1, "gw puts one at the cursor")
@@ -243,7 +243,7 @@ test(
   "in the window a double click on an audio clip's top band puts a warp marker, its handle drags, its menu takes it off",
   function()
     local file = two_tone_file()
-    local t = paw.add_track({ name = "audio" })
+    local t = paw.add_part({ name = "audio" })
     local clip = t:add_clip({ file = file, start = 0 })
     local function shown()
       for _, c in ipairs(paw.frontend.state(-1).clips) do
@@ -277,7 +277,7 @@ test("a clip following the tempo is bent along a ramp inside it, each beat on it
     notes[#notes + 1] = { pitch = "A4", start = k, length = 0.1 }
   end
   local file = sound_file(8, notes)
-  local t = paw.add_track({ name = "audio" })
+  local t = paw.add_part({ name = "audio" })
   local clip = t:add_clip({ file = file, start = 0 })
   clip.stretch_mode = "percussive"
   paw.stretch.follow(clip.id)
@@ -306,9 +306,9 @@ end)
 
 test("a shift can keep the formants, saved with the clip", function()
   local file = sound_file(4, { { pitch = "A3", start = 0, length = 4 } })
-  local t = paw.add_track({ name = "audio" })
+  local t = paw.add_part({ name = "audio" })
   local clip = t:add_clip({ file = file, start = 0 })
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.cursor.set_beat(1)
   clip.pitch = 5
   paw.commands.exec("clip.formants on")
@@ -318,8 +318,8 @@ test("a shift can keep the formants, saved with the clip", function()
   local path = T.scratch .. "/formants.json"
   paw.project.save(path)
   paw.project.load(path)
-  eq(paw.tracks()[1]:clips()[1].formants, true, "saved")
-  paw.cursor.set_track(paw.tracks()[1])
+  eq(paw.parts()[1]:clips()[1].formants, true, "saved")
+  paw.cursor.set_part(paw.parts()[1])
   paw.commands.exec("clip.formants")
-  eq(paw.tracks()[1]:clips()[1].formants, nil, "turned over")
+  eq(paw.parts()[1]:clips()[1].formants, nil, "turned over")
 end)

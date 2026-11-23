@@ -14,18 +14,18 @@ pub(super) fn tools() -> Vec<Tool> {
         Tool {
             name: "get_project",
             title: "Read the project",
-            description: "The whole session in one call: name, file, tempo, time signature, key, length, transport, markers and regions, and every track with its id, volume, pan, routing and sends, devices (id, kind), clips (id, position, length, note count and range) and automation lanes. Start here; ids it shows are what the other tools take. The result is also given as structured JSON. Reads only.".into(),
+            description: "The whole session in one call: name, file, tempo, time signature, key, length, transport, markers and regions, and every part with its id, volume, pan, routing and sends, devices (id, kind), clips (id, position, length, note count and range) and automation lanes. Start here; ids it shows are what the other tools take. The result is also given as structured JSON. Reads only.".into(),
             schema: obj(json!({}), &[]),
             effect: Effect::Reads,
             run: Run::Call(Tools::get_project),
         },
         Tool {
-            name: "get_track",
-            title: "Read a track in detail",
-            description: "One track in full: settings, routing, sends, every device with its parameters' current values, every clip, automation lanes with their points, and the engine's live meter for the track (-120 dB when nothing is playing: use render to measure a track's level). Reads only.".into(),
-            schema: obj(json!({"track": track_ref("The track")}), &["track"]),
+            name: "get_part",
+            title: "Read a part in detail",
+            description: "One part in full: settings, routing, sends, every device with its parameters' current values, every clip, automation lanes with their points, and the engine's live meter for the part (-120 dB when nothing is playing: use render to measure a part's level). Reads only.".into(),
+            schema: obj(json!({"part": part_ref("The part")}), &["part"]),
             effect: Effect::Reads,
-            run: Run::Call(Tools::get_track),
+            run: Run::Call(Tools::get_part),
         },
         Tool {
             name: "get_clip",
@@ -53,7 +53,7 @@ pub(super) fn tools() -> Vec<Tool> {
         Tool {
             name: "find_devices",
             title: "Search addable devices",
-            description: "Search the devices and plugins (CLAP, LV2, VST3) that can be added to a track: every word must appear in the kind, name, vendor, category or format. Built-in devices come first: synth (subtractive synth), drums (General MIDI drum kit: 36 kick, 38 snare, 39 clap, 40 snare 2, 42 closed hat, 44 pedal hat, 46 open hat), gain, delay. Use it before add_device when you want a particular plugin. Reads only.".into(),
+            description: "Search the devices and plugins (CLAP, LV2, VST3) that can be added to a part: every word must appear in the kind, name, vendor, category or format. Built-in devices come first: synth (subtractive synth), drums (General MIDI drum kit: 36 kick, 38 snare, 39 clap, 40 snare 2, 42 closed hat, 44 pedal hat, 46 open hat), gain, delay. Use it before add_device when you want a particular plugin. Reads only.".into(),
             schema: obj(json!({
                 "query": {"type": "string", "description": "Words to look for, such as \"reverb\", \"eq\", \"surge\". Empty lists everything"},
                 "format": {"type": "string", "enum": ["builtin", "clap", "lv2", "vst3"], "description": "Only this format"},
@@ -73,8 +73,8 @@ pub(super) fn tools() -> Vec<Tool> {
         },
         Tool {
             name: "find",
-            title: "Find tracks, clips, notes by a query",
-            description: "Find things in the project with paw's query language, a CSS selector over the project tree. Kinds: track, group, clip, note, cc, device, lane, point, marker, region. Tests in brackets: `[name~=pizz]` (regex), `=`, `!=`, `<`, `>=`, `^=` (starts with), `$=`, `*=`; pitches as c4, c#4 or 60; `a > b` is a b right inside an a, `a b` one anywhere inside it, `,` joins queries. Examples: `note[pitch>=c5]`, `clip[name~=riff] > note[vel>100]`, `track:has(device[kind=synth])`, `clip:has(note[pitch=c#5])`, `track[mute]`. Returns each match's kind, id, track, clip and a one-line description. Reads only.".into(),
+            title: "Find parts, clips, notes by a query",
+            description: "Find things in the project with paw's query language, a CSS selector over the project tree. Kinds: part, group, clip, note, cc, device, lane, point, marker, region. Tests in brackets: `[name~=pizz]` (regex), `=`, `!=`, `<`, `>=`, `^=` (starts with), `$=`, `*=`; pitches as c4, c#4 or 60; `a > b` is a b right inside an a, `a b` one anywhere inside it, `,` joins queries. Examples: `note[pitch>=c5]`, `clip[name~=riff] > note[vel>100]`, `part:has(device[kind=synth])`, `clip:has(note[pitch=c#5])`, `part[mute]`. Returns each match's kind, id, part, clip and a one-line description. Reads only.".into(),
             schema: obj(json!({
                 "query": {"type": "string", "description": "The query, such as `clip[name~=riff] > note[pitch>=c5]`"},
                 "limit": {"type": "integer", "minimum": 1, "maximum": 500, "description": "At most this many matches (default 50)"}
@@ -85,9 +85,9 @@ pub(super) fn tools() -> Vec<Tool> {
         Tool {
             name: "diagnose",
             title: "Check the project for problems",
-            description: "Look for what makes a project not sound as meant: empty tracks, MIDI tracks with no (or a bypassed) instrument, which are silent, empty clips, notes that start after their clip ends, plugins that did not load, sends and outputs to tracks that are gone or muted, automation outside its range, clips on the master, a soloed track; and what other tools in paw have reported. With `measure` it also renders the song and flags a silent mix, clipping, an over-hot true peak and tracks that clip, and gives the loudness. Returns findings with a severity (error, warning, info), a rule name and the track, clip or device concerned. Reads only (the render is not written).".into(),
+            description: "Look for what makes a project not sound as meant: empty parts, MIDI parts with no (or a bypassed) instrument, which are silent, empty clips, notes that start after their clip ends, plugins that did not load, sends and outputs to parts that are gone or muted, automation outside its range, clips on the master, a soloed part; and what other tools in paw have reported. With `measure` it also renders the song and flags a silent mix, clipping, an over-hot true peak and parts that clip, and gives the loudness. Returns findings with a severity (error, warning, info), a rule name and the part, clip or device concerned. Reads only (the render is not written).".into(),
             schema: obj(json!({
-                "track": track_ref("Only this track (default every track and the master)"),
+                "part": part_ref("Only this part (default every part and the master)"),
                 "measure": {"type": "boolean", "description": "Also render and measure the whole song for clipping, silence and loudness (takes as long as a render; default false)"}
             }), &[]),
             effect: Effect::Reads,
@@ -103,11 +103,11 @@ impl Tools {
         Ok(Self::reply(format::project(&r["project"]), &r, &meter))
     }
 
-    fn get_track(&mut self, a: &Map<String, Value>) -> Outcome {
+    fn get_part(&mut self, a: &Map<String, Value>) -> Outcome {
         let meter = self.meter()?;
-        let r = self.lua("track", json!({ "track": a["track"] }))?;
+        let r = self.lua("part", json!({ "part": a["part"] }))?;
         let mut out = String::new();
-        format::track(&mut out, &r["track"], &meter, true);
+        format::part(&mut out, &r["part"], &meter, true);
         Ok(Self::reply(out, &r, &meter))
     }
 
@@ -137,8 +137,8 @@ impl Tools {
         let mut out = String::new();
         let d = &r["device"];
         format::device(&mut out, d, "", usize::MAX);
-        if let Some(track) = d["track_name"].as_str() {
-            let _ = writeln!(out, "on track \"{track}\"");
+        if let Some(part) = d["part_name"].as_str() {
+            let _ = writeln!(out, "on part \"{part}\"");
         }
         Ok(Self::reply(out, &r, &Meter::default()))
     }

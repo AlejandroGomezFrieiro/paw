@@ -4,7 +4,7 @@
 //! Two things make that up. A trial is a stretch of edits that are made
 //! and heard as any others, then either thrown away, the project put back
 //! exactly as it was, or kept as one undo step: a preset tried on a device,
-//! an instrument tried on a track. The preview is a sound file heard on
+//! an instrument tried on a part. The preview is a sound file heard on
 //! its own over everything else ([`paw_engine::preview`]), at a level of
 //! its own, decoded on a thread of its own so that a long file holds
 //! nothing up.
@@ -134,12 +134,12 @@ impl Session {
         let mut back = self.doc.undo.checkpoint.clone();
         let before: std::collections::HashMap<Id, &Option<String>> = self
             .doc.undo.checkpoint
-            .all_tracks()
+            .all_parts()
             .flat_map(|t| &t.devices)
             .map(|d| (d.id, &d.state))
             .collect();
-        for track in self.doc.project.all_tracks() {
-            for device in &track.devices {
+        for part in self.doc.project.all_parts() {
+            for device in &part.devices {
                 // Only what differs is copied, so that what did not change
                 // is the same to the engine and left alone.
                 if !trial.loaded.contains(&device.id)

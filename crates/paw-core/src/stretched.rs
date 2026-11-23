@@ -65,15 +65,15 @@ pub(crate) struct ViewRange {
     pub from: f64,
     /// The beat after the last one shown.
     pub to: f64,
-    /// The tracks shown; all of them when there is no list.
+    /// The parts shown; all of them when there is no list.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub tracks: Option<Vec<Id>>,
+    pub parts: Option<Vec<Id>>,
 }
 
 impl ViewRange {
-    /// Whether the window shows the beats `from` to `to` of `track`.
-    pub(crate) fn shows(&self, track: Id, from: f64, to: f64) -> bool {
-        from < self.to && to > self.from && self.tracks.as_ref().is_none_or(|tracks| tracks.contains(&track))
+    /// Whether the window shows the beats `from` to `to` of `part`.
+    pub(crate) fn shows(&self, part: Id, from: f64, to: f64) -> bool {
+        from < self.to && to > self.from && self.parts.as_ref().is_none_or(|parts| parts.contains(&part))
     }
 }
 
@@ -342,10 +342,10 @@ mod tests {
     use super::ViewRange;
 
     #[test]
-    fn a_view_shows_the_clips_that_overlap_its_beats_on_its_tracks() {
-        let all = ViewRange { from: 8.0, to: 16.0, tracks: None };
-        let some = ViewRange { tracks: Some(vec![2, 3]), ..all.clone() };
-        // (view, track, clip from, clip to, shown)
+    fn a_view_shows_the_clips_that_overlap_its_beats_on_its_parts() {
+        let all = ViewRange { from: 8.0, to: 16.0, parts: None };
+        let some = ViewRange { parts: Some(vec![2, 3]), ..all.clone() };
+        // (view, part, clip from, clip to, shown)
         let cases = [
             (&all, 1, 4.0, 9.0, true),
             (&all, 1, 15.0, 20.0, true),
@@ -354,8 +354,8 @@ mod tests {
             (&some, 3, 10.0, 12.0, true),
             (&some, 1, 10.0, 12.0, false),
         ];
-        for (view, track, from, to, shown) in cases {
-            assert_eq!(view.shows(track, from, to), shown, "track {track}, beats {from} to {to}");
+        for (view, part, from, to, shown) in cases {
+            assert_eq!(view.shows(part, from, to), shown, "part {part}, beats {from} to {to}");
         }
     }
 }

@@ -1,13 +1,13 @@
--- Automation lanes as rows of the arrange view: under a track whose lanes are
+-- Automation lanes as rows of the arrange view: under a part whose lanes are
 -- open, each of its lanes (volume, pan, a device's parameter) is a row of its
 -- own, two lines high, that the cursor can stand on.
 --
---   paw.lanes.open(track)             -- show the track's lanes as rows
---   paw.lanes.toggle(track)
---   paw.lanes.lines()                 -- every row: { track = id } or { track = id, lane = id }
+--   paw.lanes.open(part)             -- show the part's lanes as rows
+--   paw.lanes.toggle(part)
+--   paw.lanes.lines()                 -- every row: { part = id } or { part = id, lane = id }
 --   paw.lanes.name(lane), paw.lanes.format(lane, value)
 --
--- Which tracks have their lanes open is kept for the session (it survives
+-- Which parts have their lanes open is kept for the session (it survives
 -- `:reload`), not in the project: opening lanes is not an edit to undo.
 -- `paw.groups.rows({ lanes = true })` is `lines()`; the cursor is on a lane
 -- when `paw.cursor.lane_id()` says so.
@@ -20,15 +20,15 @@ local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
 
---- A track: its id, or the track itself (`paw.track`).
-local type TrackRef = integer | contracts.TrackHandle
+--- A part: its id, or the part itself (`paw.part`).
+local type PartRef = integer | contracts.PartHandle
 
 --- A lane: its id, or the lane as `paw.api.lane_get` gives it.
 local type LaneRef = integer | types.Lane
 
---- A row of the arrange view: a track, or a lane shown under it.
+--- A row of the arrange view: a part, or a lane shown under it.
 local record Row
-  track: integer
+  part: integer
   lane: integer
 end
 
@@ -59,7 +59,7 @@ local record M
   type Row = Row
   type LaneRef = LaneRef
   type Changed = Changed
-  --- The automation modes a track can be in (`track.automation`), in the
+  --- The automation modes a part can be in (`part.automation`), in the
   --- order `:automation` steps through them, and what each does.
   modes: {types.AutoMode}
   mode_text: {types.AutoMode: string}
@@ -96,11 +96,11 @@ local function save()
   events.emit(M.changed, {})
 end
 
-local function id_of(track: TrackRef): integer
-  if track is contracts.TrackHandle then
-    return track.id
+local function id_of(part: PartRef): integer
+  if part is contracts.PartHandle then
+    return part.id
   end
-  return track
+  return part
 end
 
 local function lane_of(lane: LaneRef): types.Lane
@@ -111,32 +111,32 @@ local function lane_of(lane: LaneRef): types.Lane
   return api.lane_get(lane)
 end
 
---- True if the lanes of a track show as rows.
-function M.is_open(track: TrackRef): boolean
-  return open[id_of(track)] == true
+--- True if the lanes of a part show as rows.
+function M.is_open(part: PartRef): boolean
+  return open[id_of(part)] == true
 end
 
---- Show a track's lanes as rows, or hide them (`on` false).
-function M.open(track: TrackRef, on?: boolean)
-  local id = id_of(track)
+--- Show a part's lanes as rows, or hide them (`on` false).
+function M.open(part: PartRef, on?: boolean)
+  local id = id_of(part)
   open[id] = on ~= false or nil
   save()
 end
 
---- Show the automation lanes of a track, or hide them. Returns true if they show.
-function M.toggle(track: TrackRef): boolean
-  M.open(track, not M.is_open(track))
-  return M.is_open(track)
+--- Show the automation lanes of a part, or hide them. Returns true if they show.
+function M.toggle(part: PartRef): boolean
+  M.open(part, not M.is_open(part))
+  return M.is_open(part)
 end
 
---- True if a track has its lanes open.
+--- True if a part has its lanes open.
 function M.any_open(): boolean
   return next(open) ~= nil
 end
 
---- The lanes shown under a track: none when they are closed.
-function M.shown(track: TrackRef): {types.Lane}
-  local id = id_of(track)
+--- The lanes shown under a part: none when they are closed.
+function M.shown(part: PartRef): {types.Lane}
+  local id = id_of(part)
   if not open[id] then
     return {}
   end
@@ -144,14 +144,14 @@ function M.shown(track: TrackRef): {types.Lane}
   return ok and list or {}
 end
 
---- Every row of the arrange view in order: each track drawn, then its lanes
+--- Every row of the arrange view in order: each part drawn, then its lanes
 --- when they are open.
 function M.lines(): {Row}
   local out: {Row} = {}
   for _, id in ipairs(paw.groups.rows()) do
-    out[#out + 1] = {track = id}
+    out[#out + 1] = {part = id}
     for _, lane in ipairs(M.shown(id)) do
-      out[#out + 1] = {track = id, lane = lane.id}
+      out[#out + 1] = {part = id, lane = lane.id}
     end
   end
   return out
@@ -240,8 +240,8 @@ end
 --- The parameter's description, for reading typed values.
 M.param_of = param_of
 
--- One entry of a track: quicker than the whole track, which lists its clips (api.rs).
-local track_number = api.track_get as function(integer, string): number
+-- One entry of a part: quicker than the whole part, which lists its clips (api.rs).
+local part_number = api.part_get as function(integer, string): number
 
 --- What a lane's target is at a beat: the curve's value, or with no points
 --- yet the target's own value.
@@ -252,7 +252,7 @@ function M.value_at(lane: LaneRef, beat: number): number
     return v
   end
   if l.target == "volume" or l.target == "pan" then
-    return track_number(l.track, l.target)
+    return part_number(l.part, l.target)
   end
   if l.target == "state" then
     return 0
@@ -283,10 +283,10 @@ function M.edit(lane_id: integer, fn: function({types.LanePoint}))
   api.lane_set_points(lane_id, points)
 end
 
--- A track that goes away takes its open lanes with it.
+-- A part that goes away takes its open lanes with it.
 events.on(
-  kernel.track_removed,
-  function(event: kernel.TrackId)
+  kernel.part_removed,
+  function(event: kernel.PartId)
     if open[event.id] then
       open[event.id] = nil
       save()

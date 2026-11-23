@@ -82,7 +82,7 @@ role("fader", {
     local g, rows = draw.g, buf.height
     local row = function(f) return math.floor(util.clamp(f or 0, 0, 1) * (rows - 1) + 0.5) end
     local mid = math.floor(buf.width / 2)
-    buf:fill(mid, 0, 1, rows, g.fader_rail, "FaderTrack")
+    buf:fill(mid, 0, 1, rows, g.fader_rail, "FaderPart")
     if p.zero then buf:text(mid, rows - 1 - row(p.zero), g.zero, "FaderZero") end
     buf:text(0, rows - 1 - row(p.at), string.rep(g.fader, buf.width), p.selected and "FaderSel" or "Fader")
   end,
@@ -90,7 +90,7 @@ role("fader", {
 
 --- Level meters, a column each, lit from the bottom: `levels` (linear,
 --- one a column), `hold`, the loudest of late, and `clipped`, the clip
---- light on top, lit once a level reached full scale. Bound to a track's
+--- light on top, lit once a level reached full scale. Bound to a part's
 --- meter (`bind = "meter:<id>"`), a window moves all three with
 --- `scene.live`, and they are not sent in the scene.
 role("meter", {
@@ -106,7 +106,7 @@ role("meter", {
 })
 
 --- The loudest of late in dB, at the right of its rectangle: `hold`
---- (linear), red with `clipped`. Bound to a track's meter (`bind =
+--- (linear), red with `clipped`. Bound to a part's meter (`bind =
 --- "meter:<id>"`), a window takes both from `scene.live`.
 role("peak", {
   props = { hold = "number", clipped = "boolean" },
@@ -114,12 +114,12 @@ role("peak", {
   cells = function(buf, p)
     local db = 20 * math.log10(math.max(p.hold or 0, 1e-6))
     local text = db < -60 and "-inf" or string.format("%.1f", db)
-    local style = p.clipped and "MeterClip" or db > -0.1 and "MeterHigh" or "TrackIndex"
+    local style = p.clipped and "MeterClip" or db > -0.1 and "MeterHigh" or "PartIndex"
     buf:text(buf.width - #text, 0, text, style)
   end,
 })
 
---- A name on a plate of a colour (a strip's track): `style` is the plate's
+--- A name on a plate of a colour (a strip's part): `style` is the plate's
 --- highlight group, `color` its colour for a window.
 role("chip", {
   props = { text = "string", style = "highlight group", color = "#rrggbb", selected = "boolean" },

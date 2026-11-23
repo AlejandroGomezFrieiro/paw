@@ -1,11 +1,11 @@
-//! Which engine slot each track and device lives in, and what the engine
+//! Which engine slot each part and device lives in, and what the engine
 //! was last sent of each, so that a sync sends only what changed.
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use paw_engine::{DeviceSlot, MAX_DEVICES, MAX_TRACKS, MidiEv, TrackSlot};
+use paw_engine::{DeviceSlot, MAX_DEVICES, MAX_PARTS, MidiEv, PartSlot};
 use paw_types::midi_form::Form;
 
 use super::clips::{Compiled, Pieces};
@@ -13,7 +13,7 @@ use super::routing::Routing;
 use crate::freeze::Played;
 use crate::model::{Clip, Id, MASTER_ID};
 
-/// A track's fader as last sent ([`paw_engine::Msg::SetMix`]).
+/// A part's fader as last sent ([`paw_engine::Msg::SetMix`]).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(super) struct MixSent {
     pub gain: f32,
@@ -23,7 +23,7 @@ pub(super) struct MixSent {
     pub quiet: bool,
 }
 
-/// A track's audio input as last sent ([`paw_engine::Msg::SetInput`]).
+/// A part's audio input as last sent ([`paw_engine::Msg::SetInput`]).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) struct InputSent {
     pub first: usize,
@@ -32,7 +32,7 @@ pub(super) struct InputSent {
     pub armed: bool,
 }
 
-/// The MIDI port's key and channel a track takes, as last sent; port 0 for
+/// The MIDI port's key and channel a part takes, as last sent; port 0 for
 /// none.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(super) struct MidiInSent {
@@ -40,7 +40,7 @@ pub(super) struct MidiInSent {
     pub channel: u8,
 }
 
-/// The MIDI port a track sends to, as last sent; port 0 for none.
+/// The MIDI port a part sends to, as last sent; port 0 for none.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(super) struct MidiOutSent {
     pub port: u32,
@@ -54,16 +54,16 @@ pub(super) struct CueEvents {
     pub events: Arc<[MidiEv]>,
 }
 
-/// Which engine slot each track and device lives in.
+/// Which engine slot each part and device lives in.
 pub struct Mapper {
-    pub tracks: HashMap<Id, TrackSlot>,
+    pub parts: HashMap<Id, PartSlot>,
     pub devices: HashMap<Id, DeviceSlot>,
-    pub(super) free_tracks: Vec<TrackSlot>,
+    pub(super) free_parts: Vec<PartSlot>,
     pub(super) free_devices: Vec<DeviceSlot>,
-    next_track: u32,
+    next_part: u32,
     next_device: u32,
     pub(super) mix: HashMap<Id, MixSent>,
-    /// The fader lane each track has because of the VCAs it is in, as last
+    /// The fader lane each part has because of the VCAs it is in, as last
     /// sent: see [`vca_volume_lane`](super::automation::vca_volume_lane).
     pub(super) vca_lanes: HashMap<Id, Vec<(f64, f64)>>,
     pub(super) inputs: HashMap<Id, InputSent>,
@@ -76,9 +76,9 @@ pub struct Mapper {
     pub(super) outs: HashMap<Id, Vec<usize>>,
     /// Frames by which the output is behind the transport, as last scheduled.
     pub latency: u32,
-    /// What the engine was sent of each track's clips, one piece for each
+    /// What the engine was sent of each part's clips, one piece for each
     /// (see [`Pieces`]), so that an edit compiles and sends only the clips
-    /// it changed. Tracks whose clips are sent as one list have none.
+    /// it changed. Parts whose clips are sent as one list have none.
     pub(super) pieces: HashMap<Id, Pieces>,
     /// The events of every MIDI clip sent, by what they are compiled from:
     /// copies of a clip anywhere share them (see [`Compiled`]).
@@ -93,21 +93,21 @@ pub struct Mapper {
     pub defer: bool,
     /// Devices given a stand-in since the session last looked.
     pub deferred: Vec<Id>,
-    /// Tracks the session plays from a file for now, as if they were
+    /// Parts the session plays from a file for now, as if they were
     /// frozen, without the project saying so (see [`crate::freeze`]).
     pub held_files: HashMap<Id, PathBuf>,
-    /// When set, only these tracks are heard, with what they pass through,
+    /// When set, only these parts are heard, with what they pass through,
     /// as if they were soloed; the project is not changed.
     pub audible: Option<HashSet<Id>>,
-    /// The track that plays MIDI input as if it were monitored, without
+    /// The part that plays MIDI input as if it were monitored, without
     /// the project saying so.
     pub(crate) follow: Follow,
-    /// What the engine was last told to play of each track that is not live.
+    /// What the engine was last told to play of each part that is not live.
     pub(super) played: HashMap<Id, Played>,
-    /// The clip in each of a track's cue rows in the engine, so that a
+    /// The clip in each of a part's cue rows in the engine, so that a
     /// clip keeps its row (and goes on playing) while others come and go.
     pub cue_rows: HashMap<Id, Vec<Option<Id>>>,
-    /// Each track's MIDI clips off the timeline as engine events, so that
+    /// Each part's MIDI clips off the timeline as engine events, so that
     /// a change of one compiles only that one.
     pub(super) cue_events: HashMap<Id, HashMap<Id, CueEvents>>,
     /// For each state lane the engine has, by the lane's id: which of its
@@ -115,32 +115,32 @@ pub struct Mapper {
     /// device could not prepare for its audio side). The session loads
     /// those as the song plays, and a render stops on their points.
     pub state_main: HashMap<Id, Vec<bool>>,
-    /// The nest tracks as last sent: their clips placed in the song for
+    /// The nest parts as last sent: their clips placed in the song for
     /// each place of their nest (see `nests.rs`).
-    pub(super) expanded: super::nests::ExpandedTracks,
-    /// The time each nest track's devices were last told (see `nests.rs`).
+    pub(super) expanded: super::nests::ExpandedParts,
+    /// The time each nest part's devices were last told (see `nests.rs`).
     pub(super) local: HashMap<Id, super::nests::Local>,
-    /// The tree of each track's chain as last compiled and sent.
+    /// The tree of each part's chain as last compiled and sent.
     pub(super) trees: HashMap<Id, paw_engine::plan::Tree>,
-    /// The meters of the splits and branches of each track's plan.
+    /// The meters of the splits and branches of each part's plan.
     pub(super) meters: HashMap<Id, Arc<paw_engine::plan::PlanMeters>>,
 }
 
-/// The track that plays MIDI input as if it were monitored, without the
+/// The part that plays MIDI input as if it were monitored, without the
 /// project saying so.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Follow {
-    /// The selected track, while no track is armed
+    /// The selected part, while no part is armed
     /// (`paw.opt.midi_follows_selection`).
     pub selected: Option<Id>,
-    /// A track that plays it also while another track is armed, in place
-    /// of `selected`: the track of the clip that step input enters into.
+    /// A part that plays it also while another part is armed, in place
+    /// of `selected`: the part of the clip that step input enters into.
     pub always: Option<Id>,
 }
 
 impl Follow {
-    /// The track that plays MIDI input now, if any.
-    pub(crate) fn track(&self, any_armed: bool) -> Option<Id> {
+    /// The part that plays MIDI input now, if any.
+    pub(crate) fn part(&self, any_armed: bool) -> Option<Id> {
         self.always.or(self.selected.filter(|_| !any_armed))
     }
 }
@@ -154,11 +154,11 @@ impl Default for Mapper {
 impl Mapper {
     pub fn new() -> Self {
         Self {
-            tracks: HashMap::from([(MASTER_ID, TrackSlot::MASTER)]),
+            parts: HashMap::from([(MASTER_ID, PartSlot::MASTER)]),
             devices: HashMap::new(),
-            free_tracks: Vec::new(),
+            free_parts: Vec::new(),
             free_devices: Vec::new(),
-            next_track: TrackSlot::MASTER.0 + 1,
+            next_part: PartSlot::MASTER.0 + 1,
             next_device: 0,
             mix: HashMap::new(),
             vca_lanes: HashMap::new(),
@@ -189,32 +189,32 @@ impl Mapper {
     }
 
     /// The peak `(left, right)` of the split or branch `node` of the chain
-    /// of `track`, as the engine measured it last.
-    pub fn chain_peak(&self, track: Id, node: u64) -> Option<(f32, f32)> {
-        self.meters.get(&track)?.peak(node)
+    /// of `part`, as the engine measured it last.
+    pub fn chain_peak(&self, part: Id, node: u64) -> Option<(f32, f32)> {
+        self.meters.get(&part)?.peak(node)
     }
 
-    /// The latency of the chain of `track`, in frames, as last compiled.
-    pub(super) fn chain_latency(&self, track: Id) -> Option<u32> {
-        self.trees.get(&track).map(paw_engine::plan::Tree::latency)
+    /// The latency of the chain of `part`, in frames, as last compiled.
+    pub(super) fn chain_latency(&self, part: Id) -> Option<u32> {
+        self.trees.get(&part).map(paw_engine::plan::Tree::latency)
     }
 
     /// The engine's row of a clip off the timeline, if the engine has it.
-    pub(crate) fn cue_row(&self, track: Id, clip: Id) -> Option<u32> {
-        let rows = self.cue_rows.get(&track)?;
+    pub(crate) fn cue_row(&self, part: Id, clip: Id) -> Option<u32> {
+        let rows = self.cue_rows.get(&part)?;
         rows.iter().position(|c| *c == Some(clip)).map(|r| r as u32)
     }
 
-    /// The clip in a track's cue row in the engine.
-    pub(crate) fn cue_clip(&self, track: Id, row: u32) -> Option<Id> {
-        *self.cue_rows.get(&track)?.get(row as usize)?
+    /// The clip in a part's cue row in the engine.
+    pub(crate) fn cue_clip(&self, part: Id, row: u32) -> Option<Id> {
+        *self.cue_rows.get(&part)?.get(row as usize)?
     }
 
-    pub(super) fn alloc_track(&mut self) -> Option<TrackSlot> {
-        self.free_tracks.pop().or_else(|| {
-            let slot = TrackSlot(self.next_track);
-            (slot.index() < MAX_TRACKS).then(|| {
-                self.next_track += 1;
+    pub(super) fn alloc_part(&mut self) -> Option<PartSlot> {
+        self.free_parts.pop().or_else(|| {
+            let slot = PartSlot(self.next_part);
+            (slot.index() < MAX_PARTS).then(|| {
+                self.next_part += 1;
                 slot
             })
         })

@@ -53,7 +53,7 @@ local function notation()
 end
 
 local function riff()
-  local t = paw.add_track({ name = "Keys" })
+  local t = paw.add_part({ name = "Keys" })
   local clip = t:add_clip({
     start = 0,
     length = 8,
@@ -61,7 +61,7 @@ local function riff()
     notes = { { pitch = 60, start = 0, length = 1 }, { pitch = 64, start = 1, length = 1 } },
   })
   local other = t:add_clip({ start = 8, length = 8, name = "hook", notes = { { pitch = 72, start = 0, length = 2 } } })
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   return t, clip, other
 end
 
@@ -116,7 +116,7 @@ end)
 test("window state: each piano roll edits its own set of clips", function()
   start()
   riff()
-  local bass = paw.add_track({ name = "Bass" })
+  local bass = paw.add_part({ name = "Bass" })
   bass:add_clip({ start = 0, length = 8, name = "line", notes = { { pitch = 40, start = 0, length = 1 } } })
   sized(function()
     keys(":e roll://riff<CR>")
@@ -176,9 +176,9 @@ end)
 test("window state: the mixer twice, each window with its own row and scroll", function()
   start()
   for i = 1, 12 do
-    paw.add_track({ name = "T" .. i })
+    paw.add_part({ name = "T" .. i })
   end
-  paw.cursor.set_track(paw.tracks()[1])
+  paw.cursor.set_part(paw.parts()[1])
   sized(function()
     keys(":e mixer<CR>")
     keys("<C-w>v")
@@ -216,46 +216,46 @@ test("window state: the session view of an extension twice", function()
   eq(screen():find("traceback", 1, true), nil, "both drawn")
 end)
 
-test("window state: two device panels on two tracks", function()
+test("window state: two device panels on two parts", function()
   start()
-  local a = paw.add_track({ name = "Lead" })
-  local b = paw.add_track({ name = "Bass" })
+  local a = paw.add_part({ name = "Lead" })
+  local b = paw.add_part({ name = "Bass" })
   a:add_device("delay")
   b:add_device("gain")
-  paw.cursor.set_track(a)
+  paw.cursor.set_part(a)
   sized(function()
     keys(":e devices<CR>")
     keys(":vs devices://Bass<CR>")
   end)
   eq(windows(), "devices devices", "two device panels")
-  local tracks = each("devices", function(v) return v:track_id() end)
-  eq(tracks[1] == a.id and tracks[2] == b.id, true, "the left follows the cursor, the right is pinned to Bass")
+  local parts = each("devices", function(v) return v:part_id() end)
+  eq(parts[1] == a.id and parts[2] == b.id, true, "the left follows the cursor, the right is pinned to Bass")
   local text = screen()
-  eq(text:find("Delay", 1, true) ~= nil and text:find("Gain", 1, true) ~= nil, true, "each draws its track's devices")
+  eq(text:find("Delay", 1, true) ~= nil and text:find("Gain", 1, true) ~= nil, true, "each draws its part's devices")
   eq(text:find("Bass · pinned", 1, true) ~= nil, true, "the pinned one says so")
   eq(text:find("traceback", 1, true), nil, "neither failed")
-  -- Keys in the pinned panel act on its track, not on the cursor's.
+  -- Keys in the pinned panel act on its part, not on the cursor's.
   keys(":device.add delay<CR>")
   paw.flush()
-  eq(#api.track_get(b.id).devices, 2, "a device added in the pinned panel goes on Bass")
-  eq(#api.track_get(a.id).devices, 1, "and not on the cursor track")
-  eq(paw.cursor.track_id(), b.id, "the track of the keys is the pinned one")
+  eq(#api.part_get(b.id).devices, 2, "a device added in the pinned panel goes on Bass")
+  eq(#api.part_get(a.id).devices, 1, "and not on the cursor part")
+  eq(paw.cursor.part_id(), b.id, "the part of the keys is the pinned one")
   keys("<C-w>h")
-  eq(paw.cursor.track_id(), a.id, "and the cursor's again in the other panel")
+  eq(paw.cursor.part_id(), a.id, "and the cursor's again in the other panel")
   -- The cursor moves: the pinned panel stays, the other follows.
-  paw.cursor.set_track(b)
-  tracks = each("devices", function(v) return v:track_id() end)
-  eq(tracks[1] .. " " .. tracks[2], b.id .. " " .. b.id, "the left follows the cursor to Bass")
-  paw.cursor.set_track(a)
-  -- \p pins the left panel to the track it shows, and again follows the cursor.
+  paw.cursor.set_part(b)
+  parts = each("devices", function(v) return v:part_id() end)
+  eq(parts[1] .. " " .. parts[2], b.id .. " " .. b.id, "the left follows the cursor to Bass")
+  paw.cursor.set_part(a)
+  -- \p pins the left panel to the part it shows, and again follows the cursor.
   keys("\\p")
   eq(paw.ui.views:get("devices").pin, a.id, "\\p pins the panel to Lead")
   eq(paw.ui.message ~= nil and tostring(paw.ui.message.text):find("Lead", 1, true) ~= nil, true, "it says what it did")
-  paw.cursor.set_track(b)
-  eq(each("devices", function(v) return v:track_id() end)[1], a.id, "the pinned panel stays on Lead")
+  paw.cursor.set_part(b)
+  eq(each("devices", function(v) return v:part_id() end)[1], a.id, "the pinned panel stays on Lead")
   keys("\\p")
   eq(paw.ui.views:get("devices").pin, nil, "\\p again: it follows the cursor")
-  -- A saved layout keeps the pinned track.
+  -- A saved layout keeps the pinned part.
   local found = false
   local function walk(node)
     if node.view == "devices" and node.target == b.id then found = true end
@@ -266,7 +266,7 @@ test("window state: two device panels on two tracks", function()
   for _, t in ipairs(L.capture().tabs) do
     walk(t.layout)
   end
-  eq(found, true, "a saved layout keeps the pinned track")
+  eq(found, true, "a saved layout keeps the pinned part")
 end)
 
 --- The text a view in a window of its own draws, as one string.

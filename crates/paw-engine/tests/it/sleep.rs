@@ -7,7 +7,7 @@ use paw_engine::GraphPlan;
 use paw_engine::launch::{Launch, Target};
 use paw_engine::{
     ClipSet, DeviceSlot, Engine, EngineHandle, MAX_BLOCK, Msg, Registry, SchedEntry, Schedule,
-    SendRt, TrackRt, TrackSlot,
+    SendRt, PartRt, PartSlot,
 };
 use paw_types::{Attr, EventKind, Quantize};
 
@@ -17,7 +17,7 @@ fn send(handle: &mut EngineHandle, engine: &mut Engine, msg: Msg) {
     handle.send_while(msg, engine);
 }
 
-/// Instruments and effects on four tracks and a bus, playing two bars,
+/// Instruments and effects on four parts and a bus, playing two bars,
 /// then nothing for long enough that every tail dies away, then two bars
 /// again. Around some devices the host mixes wet and dry with a latency,
 /// and one is bypassed.
@@ -35,13 +35,13 @@ fn project(sleep: bool) -> (Engine, EngineHandle) {
     let mut next = 0;
     let mut list = Vec::new();
     for (n, kinds) in chains {
-        let slot = TrackSlot(n);
+        let slot = PartSlot(n);
         send(
             &mut handle,
             &mut engine,
-            Msg::InsertTrack {
+            Msg::InsertPart {
                 slot,
-                track: TrackRt::new(),
+                part: PartRt::new(),
             },
         );
         let mut chain = Vec::new();
@@ -93,15 +93,15 @@ fn project(sleep: bool) -> (Engine, EngineHandle) {
             }
             clips.finish();
             let clips = Box::new(clips);
-            send(&mut handle, &mut engine, Msg::SetClips { track: slot, clips });
+            send(&mut handle, &mut engine, Msg::SetClips { part: slot, clips });
         }
-        let mut entry = SchedEntry::new(slot, if n < 5 { TrackSlot(5) } else { TrackSlot::MASTER });
+        let mut entry = SchedEntry::new(slot, if n < 5 { PartSlot(5) } else { PartSlot::MASTER });
         if n == 1 {
-            entry.sends.push(SendRt::new(TrackSlot::MASTER, 0.5));
+            entry.sends.push(SendRt::new(PartSlot::MASTER, 0.5));
         }
         list.push(entry);
     }
-    list.push(SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE));
+    list.push(SchedEntry::new(PartSlot::MASTER, PartSlot::NONE));
     let schedule = Box::new(Schedule::new(list, 0));
     send(&mut handle, &mut engine, Msg::SetSchedule(schedule));
     send(&mut handle, &mut engine, Msg::SetTempo(120.0));
@@ -110,7 +110,7 @@ fn project(sleep: bool) -> (Engine, EngineHandle) {
 }
 
 /// Seventy-two beats (36 seconds) of output, in blocks of uneven sizes,
-/// and the meters of every track after each block.
+/// and the meters of every part after each block.
 fn play(engine: &mut Engine) -> Vec<u32> {
     let mut out = Vec::new();
     let (mut left, mut right) = (vec![0.0f32; 700], vec![0.0f32; 700]);
@@ -123,7 +123,7 @@ fn play(engine: &mut Engine) -> Vec<u32> {
             out.push(r.to_bits());
         }
         for slot in 0..6 {
-            let (l, r) = engine.shared().meter(TrackSlot(slot));
+            let (l, r) = engine.shared().meter(PartSlot(slot));
             out.push(l.to_bits());
             out.push(r.to_bits());
         }
@@ -174,7 +174,7 @@ fn sleep_can_be_turned_off_and_on_while_playing() {
     }
 }
 
-/// A stopped engine with a track for each chain, each into the master.
+/// A stopped engine with a part for each chain, each into the master.
 fn stopped(sleep: bool, chains: &[&[&str]]) -> (Engine, EngineHandle) {
     let (mut engine, mut handle) = Engine::new(SR);
     engine.set_sleep(sleep);
@@ -182,9 +182,9 @@ fn stopped(sleep: bool, chains: &[&[&str]]) -> (Engine, EngineHandle) {
     let mut list = Vec::new();
     let mut next = 0;
     for (n, kinds) in chains.iter().enumerate() {
-        let slot = TrackSlot(n as u32 + 1);
-        let track = TrackRt::new();
-        send(&mut handle, &mut engine, Msg::InsertTrack { slot, track });
+        let slot = PartSlot(n as u32 + 1);
+        let part = PartRt::new();
+        send(&mut handle, &mut engine, Msg::InsertPart { slot, part });
         let mut chain = Vec::new();
         for kind in kinds.iter() {
             let factory = registry.get(kind).unwrap();
@@ -195,9 +195,9 @@ fn stopped(sleep: bool, chains: &[&[&str]]) -> (Engine, EngineHandle) {
             chain.push(dev);
         }
         send(&mut handle, &mut engine, Msg::SetGraph { slot: slot.into(), plan: GraphPlan::serial(&chain) });
-        list.push(SchedEntry::new(slot, TrackSlot::MASTER));
+        list.push(SchedEntry::new(slot, PartSlot::MASTER));
     }
-    list.push(SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE));
+    list.push(SchedEntry::new(PartSlot::MASTER, PartSlot::NONE));
     let schedule = Box::new(Schedule::new(list, 0));
     send(&mut handle, &mut engine, Msg::SetSchedule(schedule));
     (engine, handle)
@@ -233,7 +233,7 @@ fn a_stopped_engine_with_nothing_to_sound_rests() {
     // A launch while stopped happens at once: it does not keep the engine
     // awake after that.
     let launch = Launch {
-        track: TrackSlot(1),
+        part: PartSlot(1),
         target: Target::Arrangement,
         quantize: Quantize::Off,
         legato: false,
@@ -262,7 +262,7 @@ fn a_note_that_comes_while_the_engine_rests_sounds_in_the_same_block() {
     }
     assert!(rested.shared().engine_rests() > 0, "the engine rests");
     let live = || Msg::Live {
-        track: TrackSlot(1),
+        part: PartSlot(1),
         event: note(true),
     };
     send(&mut a, &mut awake, live());
@@ -298,12 +298,12 @@ fn a_ringing_reverb_keeps_the_engine_awake() {
     let (mut engine, mut h) = stopped(true, &[&["synth", "reverb"]]);
     let (mut awake, mut a) = stopped(false, &[&["synth", "reverb"]]);
     for (engine, h) in [(&mut engine, &mut h), (&mut awake, &mut a)] {
-        let track = TrackSlot(1);
-        send(h, engine, Msg::Live { track, event: note(true) });
+        let part = PartSlot(1);
+        send(h, engine, Msg::Live { part, event: note(true) });
         for _ in 0..20 {
             block(engine);
         }
-        send(h, engine, Msg::Live { track, event: note(false) });
+        send(h, engine, Msg::Live { part, event: note(false) });
     }
     let shared = engine.shared().clone();
     let (mut last_run, mut first_rest) = (0, None);
@@ -332,7 +332,7 @@ fn a_monitored_input_keeps_the_engine_awake() {
     let silent = [0.0f32; 512];
     let engine = sounds_in_full(&[&[]], 100, &silent, |engine, h| {
         let input = Msg::SetInput {
-            track: TrackSlot(1),
+            part: PartSlot(1),
             first: 0,
             channels: 1,
             monitor: true,

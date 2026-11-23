@@ -42,7 +42,7 @@ end
 
 --- What `M.picture` draws: the moves shown, the places chosen, the kind of
 --- controller, the roll's scroll and zoom, the clip's length and the
---- track's colour.
+--- part's colour.
 local record Picture
   list: {Shown}
   chosen: {integer: boolean}
@@ -99,7 +99,7 @@ end
 
 --- The strip's picture: `o.list` the moves shown (`{ c, place }` each),
 --- `o.chosen` the places chosen, `o.kind` "bend" or "cc", `o.scroll` and
---- `o.zoom` the roll's, `o.length` the clip's, `o.color` the track's.
+--- `o.zoom` the roll's, `o.length` the clip's, `o.color` the part's.
 function M.picture(g: contracts.Painter, px: contracts.StripPixels, o: Picture)
   local P = theme.palette
   local ppb = o.zoom * px.cell.w
@@ -158,8 +158,8 @@ local function draw(self: PianoRoll, buf: Buf)
   -- Its name at the left is the roll's (a button that chooses what it shows).
   buf:fill(keys, top, tw, rows, " ", "VelocityLane")
   local lane = buf:sub(keys, top, tw, rows)
-  local track = api.track_get(api.clip_get(clip.id).track)
-  local hue = paw.draw.track_hue(track)
+  local part = api.part_get(api.clip_get(clip.id).part)
+  local hue = paw.draw.part_hue(part)
   local list: {Shown} = {}
   local chosen: {integer: boolean} = {}
   for _, place in ipairs(paw.controls.chosen(clip.id)) do
@@ -194,7 +194,7 @@ local function draw(self: PianoRoll, buf: Buf)
             scroll = scroll,
             zoom = zoom,
             length = length,
-            color = paw.draw.track_colour(track),
+            color = paw.draw.part_colour(part),
           }
         )
       end,

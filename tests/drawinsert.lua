@@ -28,7 +28,7 @@ local function typed(text)
   end
 end
 
---- A track with an empty clip four beats long, open in the piano roll with
+--- A part with an empty clip four beats long, open in the piano roll with
 --- the cursor on C4 at its start.
 local function empty()
   fresh()
@@ -38,14 +38,14 @@ local function empty()
   end
   paw.ui.focus("arrange")
   paw.opt.note_grid, paw.opt.velocity, paw.opt.note_zoom = 0.25, 100, 8
-  local track = paw.add_track({ name = "Lead" })
-  track:add_device("synth")
-  local clip = track:add_clip({ name = "tune", start = 0, length = 4 })
+  local part = paw.add_part({ name = "Lead" })
+  part:add_device("synth")
+  local clip = part:add_clip({ name = "tune", start = 0, length = 4 })
   api.undo_checkpoint()
   paw.ui.show("pianoroll")
   roll:edit(clip)
   roll:set(60, 0)
-  return clip, track
+  return clip, part
 end
 
 local function at() return roll.pitch .. "@" .. roll.beat end
@@ -239,18 +239,18 @@ test("one insert is one undo step, the clip's growth with it", function()
 end)
 
 test("i m Enter in the arrange view: the clip that m makes and the notes drawn into it are one undo step", function()
-  local _, track = empty()
+  local _, part = empty()
   paw.ui.focus("arrange")
-  paw.cursor.set_track(track)
+  paw.cursor.set_part(part)
   paw.cursor.set_beat(8)
   typed("im<CR>4l<Esc>")
-  local clips = track:clips()
+  local clips = part:clips()
   eq(#clips, 2, "m made a clip")
   eq(melody(clips[2]), "60@0+1", "with the note drawn")
   typed("u")
-  eq(#track:clips(), 1, "one u takes back the clip with its notes")
+  eq(#part:clips(), 1, "one u takes back the clip with its notes")
   typed("<C-r>")
-  eq(melody(track:clips()[2]), "60@0+1", "Ctrl-r puts both back")
+  eq(melody(part:clips()[2]), "60@0+1", "Ctrl-r puts both back")
 end)
 
 test("dot draws the last insert again at the cursor, moved to its pitch", function()
@@ -277,8 +277,8 @@ test("with several clips edited, what is drawn goes into the active one", functi
   paw.keymap.feed("<Esc><Esc>")
   paw.ui.focus("arrange")
   paw.opt.note_grid = 0.25
-  local a = paw.add_track({ name = "A" }):add_clip({ name = "a", start = 0, length = 4 })
-  local b = paw.add_track({ name = "B" }):add_clip({ name = "b", start = 0, length = 4 })
+  local a = paw.add_part({ name = "A" }):add_clip({ name = "a", start = 0, length = 4 })
+  local b = paw.add_part({ name = "B" }):add_clip({ name = "b", start = 0, length = 4 })
   api.undo_checkpoint()
   paw.ui.show("pianoroll")
   roll:edit(a)

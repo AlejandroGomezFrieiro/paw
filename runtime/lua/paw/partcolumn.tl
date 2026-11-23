@@ -1,24 +1,24 @@
--- The track column: a narrow gutter at the left of the arrange view's track
--- headers, as Neovim's 'statuscolumn'. In paw a track is a line (`5j`,
+-- The part column: a narrow gutter at the left of the arrange view's part
+-- headers, as Neovim's 'statuscolumn'. In paw a part is a line (`5j`,
 -- `5G`, `dd`), so the column shows what Neovim's shows for lines: each
--- track's number, or how many `j` or `k` reach it (`paw.opt.number`,
--- `paw.opt.relativenumber`), signs, and the folds of track groups as a tree.
+-- part's number, or how many `j` or `k` reach it (`paw.opt.number`,
+-- `paw.opt.relativenumber`), signs, and the folds of part groups as a tree.
 --
 -- It is made of components, in their `order` from the left; those named in
--- `paw.opt.trackcolumn` show. An extension adds one:
+-- `paw.opt.partcolumn` show. An extension adds one:
 --
---   paw.trackcolumn.add("rec", {
+--   paw.partcolumn.add("rec", {
 --     order = 25, width = 1,
---     render = function(track, ctx)
---       if ctx.line == 0 and paw.track(track).armed then return { { "●", "TrackSign" } } end
+--     render = function(part, ctx)
+--       if ctx.line == 0 and paw.part(part).armed then return { { "●", "PartSign" } } end
 --     end,
 --   })
 --
 -- or a sign in the `signs` component, one column for all of them:
 --
---   paw.trackcolumn.sign("todo", { priority = 5, render = function(track) ... end })
+--   paw.partcolumn.sign("todo", { priority = 5, render = function(part) ... end })
 --
--- The arrange view draws it on each line of each track shown, in cells, so
+-- The arrange view draws it on each line of each part shown, in cells, so
 -- the terminal and the window show the same column (paw/views/arrange.tl).
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
@@ -31,11 +31,11 @@ local type partial = require("paw.partial")
 local type GroupsModule = require("paw.groups")
 local type DrawModule = require("paw.draw")
 
-local type Component = contracts.TrackColumnComponent
-local type Context = contracts.TrackColumnContext
-local type Frame = contracts.TrackColumnFrame
+local type Component = contracts.PartColumnComponent
+local type Context = contracts.PartColumnContext
+local type Frame = contracts.PartColumnFrame
 local type Cells = contracts.ColumnCells
-local type Sign = contracts.TrackSign
+local type Sign = contracts.PartSign
 local type FoldsModule = require("paw.folds")
 local type Piece = contracts.Piece
 local type Patch = contracts.ColumnPatch
@@ -46,7 +46,7 @@ end
 
 -- What this module reads of `paw`, which paw/init.lua makes.
 local record Act
-  fold: function(track: integer)
+  fold: function(part: integer)
 end
 local record Frontend
   act: Act
@@ -59,10 +59,10 @@ end
 --- paw/nest.tl, the part of it that this module reads: the rows of a
 --- subproject shown under its return row (`za`).
 local record Nest
-  shown_under: function(track: integer): integer
+  shown_under: function(part: integer): integer
   returns: function(row: integer): integer
   is_open: function(row: integer): boolean
-  toggle: function(track: integer): boolean
+  toggle: function(part: integer): boolean
 end
 local record Paw is partial.Paw
   nest: Nest
@@ -82,7 +82,7 @@ local record Portion
   width: integer
 end
 
---- The column for one draw (`paw.trackcolumn.layout`): its parts, its
+--- The column for one draw (`paw.partcolumn.layout`): its components, its
 --- width, how many of its columns the headers give (its parts with
 --- `from_header`), and the frame they were measured on.
 local record Layout
@@ -107,23 +107,23 @@ local record M
 end
 M.tree_builds = 0
 
---- Take the name of a component that went out of `paw.opt.trackcolumn`.
+--- Take the name of a component that went out of `paw.opt.partcolumn`.
 local function unshow(name: string)
   local list: {string} = {}
-  for _, n in ipairs(opt.trackcolumn as {string}) do
+  for _, n in ipairs(opt.partcolumn as {string}) do
     if n ~= name then
       list[#list + 1] = n
     end
   end
-  opt.trackcolumn = list
+  opt.partcolumn = list
 end
 
 -- A change draws the column again. A component that goes with no component
--- below it leaves `paw.opt.trackcolumn`, and a component that an extension
+-- below it leaves `paw.opt.partcolumn`, and a component that an extension
 -- changed with `set` comes back as it was.
 M.components = registry.new(
-  "trackcolumn",
-  "parts of the track column",
+  "partcolumn",
+  "components of the part column",
   {
     changed = function(name: string, spec: Component)
       if not spec then
@@ -133,7 +133,7 @@ M.components = registry.new(
     end,
   }
 )
-M.signs = registry.new("trackcolumn_signs", "signs of the track column", {changed = function() api.ui_redraw() end})
+M.signs = registry.new("partcolumn_signs", "signs of the part column", {changed = function() api.ui_redraw() end})
 
 local function has<T>(list: {T}, value: T): boolean
   for _, v in ipairs(list) do
@@ -145,29 +145,29 @@ local function has<T>(list: {T}, value: T): boolean
 end
 
 --- Add a component, or put a new one in place of one of that name. It
---- goes into `paw.opt.trackcolumn` (unless `hidden`), so it shows at once.
+--- goes into `paw.opt.partcolumn` (unless `hidden`), so it shows at once.
 function M.add(name: string, spec: Component): Component
   assert(
     type(name) == "string" and type(spec) == "table" and type(spec.render) == "function",
-    "usage: paw.trackcolumn.add(name, { order = 50, width = 1, render = function(track, ctx) ... end })"
+    "usage: paw.partcolumn.add(name, { order = 50, width = 1, render = function(part, ctx) ... end })"
   )
   spec.name = name
   spec.order = spec.order or 50
   spec.width = spec.width or 1
   M.components:put(name, spec)
-  local shown = opt.trackcolumn as {string}
+  local shown = opt.partcolumn as {string}
   if not spec.hidden and not has(shown, name) then
     local list: {string} = {}
     for i, n in ipairs(shown) do
       list[i] = n
     end
     list[#list + 1] = name
-    opt.trackcolumn = list
+    opt.partcolumn = list
   end
   return spec
 end
 
---- Take a component away, and its name out of `paw.opt.trackcolumn`.
+--- Take a component away, and its name out of `paw.opt.partcolumn`.
 --- The component that it replaced, if any, comes back.
 function M.remove(name: string)
   if not M.components:remove(name) then
@@ -175,14 +175,14 @@ function M.remove(name: string)
   end
 end
 
---- Add a sign to the `signs` component: `render(track, ctx)` gives one
+--- Add a sign to the `signs` component: `render(part, ctx)` gives one
 --- character, or nothing. Where several give one, the highest `priority`
 --- shows. `nil` for `spec` takes the sign away.
 function M.sign(name: string, spec: Sign)
   if spec then
     assert(
       type(spec.render) == "function",
-      "usage: paw.trackcolumn.sign(name, { priority = 10, render = function(track, ctx) ... end })"
+      "usage: paw.partcolumn.sign(name, { priority = 10, render = function(part, ctx) ... end })"
     )
     spec.name = name
     spec.priority = spec.priority or 10
@@ -223,15 +223,15 @@ end
 --- Change a component that is there, the built-in ones too: its `order`
 --- (to put it elsewhere), `width`, `render`, `click`, `describe`, and the
 --- `glyphs` and `styles` it draws with (merged into its own). The
---- component becomes a changed copy: `paw.trackcolumn.add(name, old)`
+--- component becomes a changed copy: `paw.partcolumn.add(name, old)`
 --- with the table it had before puts that back. The change of an
 --- extension goes when the extension unloads.
----   paw.trackcolumn.set("fold", { order = 5, glyphs = { open = "-", closed = "+" } })
----   paw.trackcolumn.set("number", { width = 4, styles = { cursor = "Title" } })
+---   paw.partcolumn.set("fold", { order = 5, glyphs = { open = "-", closed = "+" } })
+---   paw.partcolumn.set("number", { width = 4, styles = { cursor = "Title" } })
 function M.set(name: string, patch: Patch): Component
   local c = M.components:get(name)
   if not c then
-    error("no track column component `" .. tostring(name) .. "`", 2)
+    error("no part column component `" .. tostring(name) .. "`", 2)
   end
   local copy = patched(c as Patch, patch) as Component
   M.components:put(name, copy)
@@ -240,11 +240,11 @@ end
 
 --- Change a sign that is there, as `set` changes a component: its
 --- `priority`, `render`, `describe`, `glyphs` and `styles`.
----   paw.trackcolumn.set_sign("diagnostics", { glyphs = { error = "E", warn = "W" } })
+---   paw.partcolumn.set_sign("diagnostics", { glyphs = { error = "E", warn = "W" } })
 function M.set_sign(name: string, patch: Patch): Sign
   local s = M.signs:get(name)
   if not s then
-    error("no track column sign `" .. tostring(name) .. "`", 2)
+    error("no part column sign `" .. tostring(name) .. "`", 2)
   end
   local copy = patched(s as Patch, patch) as Sign
   M.signs:put(name, copy)
@@ -274,12 +274,12 @@ end
 -- The folds of groups, as a tree: an open group has `▾` on its line and a
 -- guide down its members, `╰` on the last; a folded one has `▸`. Each
 -- level of nesting is a column. A subproject's return row (paw/nest.tl)
--- is a fold too: `za` shows the subproject's tracks under it, with the
+-- is a fold too: `za` shows the subproject's parts under it, with the
 -- dotted guide `┆` down them in its column and their own groups to the
 -- right of it, and a closing line (`kind` `end`) that has `╰` there.
--- Worked out at most once for each layout, from the tracks that it draws
+-- Worked out at most once for each layout, from the parts that it draws
 -- (`width`), and read by `render` for each line and by `click`. It is kept
--- while its key is the same: the tracks drawn, the window and the change
+-- while its key is the same: the parts drawn, the window and the change
 -- count of its folds, and the edits of the project (the groups).
 local record Tree
   key: string
@@ -292,8 +292,8 @@ local record Tree
   --- The return rows in the tree: their guide is dotted, and their last
   --- row has the closing line under it, not `╰`.
   returns: {integer: boolean}
-  --- Each song track's number: its place among the song's tracks drawn.
-  --- The tracks of a subproject shown in place have none.
+  --- Each song part's number: its place among the song's parts drawn.
+  --- The parts of a subproject shown in place have none.
   number: {integer: integer}
   width: integer
 end
@@ -311,7 +311,7 @@ local function tree_key(rows: {integer}): string
     .. project_field("edits")
 end
 
---- The groups a track is in, the outermost first.
+--- The groups a part is in, the outermost first.
 local function groups_of(groups: GroupsModule, id: integer): {integer}
   local chain: {integer} = {}
   local at = groups.of(id)
@@ -339,7 +339,7 @@ local function tree_of(rows: {integer}, key: string): Tree
   }
   local songs = 0
   for i, id in ipairs(rows) do
-    -- A track of a subproject shown in place: under the chain of its
+    -- A part of a subproject shown in place: under the chain of its
     -- return row and the row itself, then its own groups.
     local under = nest.shown_under(id)
     local chain: {integer}
@@ -367,7 +367,7 @@ local function tree_of(rows: {integer}, key: string): Tree
     elseif not under and nest.returns(id) then
       t.group[id], t.folded[id], t.returns[id] = true, not nest.is_open(id), true
     end
-    -- The first row of a fold of tracks stands for all of it.
+    -- The first row of a fold of parts stands for all of it.
     local fold = folds.row(id)
     if fold then
       t.group[id], t.folded[id], t.fold[id] = true, true, fold
@@ -380,9 +380,9 @@ local function tree_of(rows: {integer}, key: string): Tree
   return t
 end
 
--- The tracks of the last layout, for a part that needs them all.
+-- The parts of the last layout, for a part that needs them all.
 local frame_rows: {integer} = {}
--- The tree of the last layout's tracks.
+-- The tree of the last layout's parts.
 local tree: Tree
 
 -- The tree of `rows`: the kept one while its key is the same.
@@ -399,10 +399,10 @@ local function current_tree(): Tree
   return tree or tree_for(frame_rows)
 end
 
---- A track's number among the song's tracks drawn, or nil for a track of
+--- A part's number among the song's parts drawn, or nil for a part of
 --- a subproject shown under its return row.
-local function song_number(track: integer): integer
-  return current_tree().number[track]
+local function song_number(part: integer): integer
+  return current_tree().number[part]
 end
 
 -- The components that come with paw ---------------------------------------------
@@ -422,20 +422,20 @@ M.add(
   {
     order = 10,
     width = number_width,
-    render = function(track: integer, ctx: Context): Cells
+    render = function(part: integer, ctx: Context): Cells
       if ctx.line ~= 0 then
         return nil
       end
       local text: string
-      local group = style(ctx, "number", "TrackNr")
-      -- A track's number is its place among the song's tracks (what `5G`
+      local group = style(ctx, "number", "PartNr")
+      -- A part's number is its place among the song's parts (what `5G`
       -- takes): the rows of a subproject shown under its return row have
-      -- none, and the song's tracks after them keep theirs.
-      local number = ctx.kind == "track" and song_number(track) or nil
+      -- none, and the song's parts after them keep theirs.
+      local number = ctx.kind == "part" and song_number(part) or nil
       if ctx.cursor then
-        -- The cursor's track: its number (with 'number'), else 0, as Neovim.
+        -- The cursor's part: its number (with 'number'), else 0, as Neovim.
         text = opt.number and number and tostring(number) or (opt.relativenumber and "0" or nil)
-        group = style(ctx, "cursor", "TrackNrCursor")
+        group = style(ctx, "cursor", "PartNrCursor")
       elseif opt.relativenumber and ctx.relative then
         text = tostring(ctx.relative)
         group = style(ctx, "relative", group)
@@ -451,9 +451,9 @@ M.add(
   }
 )
 
--- The signs: the one of the highest priority, on a track's first line.
--- Worked out once a draw for every track, so the component's width can
--- say whether any track has one.
+-- The signs: the one of the highest priority, on a part's first line.
+-- Worked out once a draw for every part, so the component's width can
+-- say whether any part has one.
 local shown_signs: {integer: Piece} = {}
 local signs_sorted: {Sign} = {}
 
@@ -480,10 +480,10 @@ local function signs_width(frame: Frame): integer
   table.sort(signs_sorted, by_priority)
   local any = false
   -- One context for every sign of every row, filled again for each.
-  local ctx: Context = {line = 0, kind = "track", width = 1}
+  local ctx: Context = {line = 0, kind = "part", width = 1}
   for i, id in ipairs(frame.rows) do
     for _, s in ipairs(signs_sorted) do
-      ctx.row, ctx.line, ctx.kind, ctx.width, ctx.g = i, 0, "track", 1, paw.draw.g
+      ctx.row, ctx.line, ctx.kind, ctx.width, ctx.g = i, 0, "part", 1, paw.draw.g
       ctx.glyphs, ctx.styles = s.glyphs or NONE_GLYPHS, s.styles or NONE_STYLES
       local ok, cells = pcall(s.render, id, ctx)
       local text, group = first(ok and cells as Cells or nil)
@@ -502,20 +502,20 @@ M.add(
     order = 20,
     from_header = true,
     width = signs_width,
-    render = function(track: integer, ctx: Context): Cells
-      if ctx.line ~= 0 or ctx.kind ~= "track" then
+    render = function(part: integer, ctx: Context): Cells
+      if ctx.line ~= 0 or ctx.kind ~= "part" then
         return nil
       end
-      local piece = shown_signs[track]
-      return piece and {{piece[1], piece[2] or style(ctx, "sign", "TrackSign")}} or nil
+      local piece = shown_signs[part]
+      return piece and {{piece[1], piece[2] or style(ctx, "sign", "PartSign")}} or nil
     end,
-    -- What each sign says of the track, for `K`.
-    describe = function(track: integer, ctx: Context): string
+    -- What each sign says of the part, for `K`.
+    describe = function(part: integer, ctx: Context): string
       local out: {string} = {}
       for _, s in ipairs(signs_sorted) do
         if s.describe then
           ctx.glyphs, ctx.styles = s.glyphs or {}, s.styles or {}
-          local ok, text = pcall(s.describe, track, ctx)
+          local ok, text = pcall(s.describe, part, ctx)
           if ok and text then
             out[#out + 1] = text
           end
@@ -536,16 +536,16 @@ M.add(
     -- with `paw.opt.ascii`) when not set.
     glyphs = {},
     width = function(frame: Frame): integer return tree_for(frame.rows).width end,
-    render = function(track: integer, ctx: Context): Cells
+    render = function(part: integer, ctx: Context): Cells
       local t = current_tree()
-      if not t.chain[track] then
+      if not t.chain[part] then
         return nil
       end
       local guide, last_mark = glyph(ctx, "guide") or ctx.g.v, glyph(ctx, "last") or ctx.g.bl
       local dotted = glyph(ctx, "nest_guide") or ctx.g.nest_guide
-      local first_line = ctx.line == 0 and ctx.kind == "track"
+      local first_line = ctx.line == 0 and ctx.kind == "part"
       local out: {string} = {}
-      for d, group in ipairs(t.chain[track]) do
+      for d, group in ipairs(t.chain[part]) do
         local last = t.last[group] == ctx.row
         if t.returns[group] then
           -- Down the rows of a subproject: the closing line ends them.
@@ -561,58 +561,58 @@ M.add(
         end
       end
       if ctx.kind == "end" then
-        -- The line that closes the rows of a return row (`track`): `╰` in
+        -- The line that closes the rows of a return row (`part`): `╰` in
         -- its column, then the dotted line to the headers.
         out[#out + 1] = last_mark
         while #out < ctx.width do
           out[#out + 1] = glyph(ctx, "nest_close") or ctx.g.nest_close
         end
-      elseif t.group[track] then
+      elseif t.group[part] then
         if first_line then
-          out[#out + 1] = t.folded[track] and glyph(ctx, "closed") or glyph(ctx, "open")
-        elseif not t.folded[track] and t.last[track] then
-          out[#out + 1] = t.returns[track] and dotted or guide
+          out[#out + 1] = t.folded[part] and glyph(ctx, "closed") or glyph(ctx, "open")
+        elseif not t.folded[part] and t.last[part] then
+          out[#out + 1] = t.returns[part] and dotted or guide
         end
       end
       if #out == 0 then
         return nil
       end
-      return {{table.concat(out), style(ctx, "fold", "TrackFold")}}
+      return {{table.concat(out), style(ctx, "fold", "PartFold")}}
     end,
     -- A click on the mark of a group folds it away or opens it, as `za`;
-    -- on a return row's, it shows or hides the subproject's tracks.
-    click = function(track: integer, ctx: Context)
+    -- on a return row's, it shows or hides the subproject's parts.
+    click = function(part: integer, ctx: Context)
       local t = current_tree()
-      if t.group[track] and ctx.line == 0 and ctx.kind == "track" and ctx.x == t.depth[track] then
-        if t.returns[track] then
-          paw.nest.toggle(track)
+      if t.group[part] and ctx.line == 0 and ctx.kind == "part" and ctx.x == t.depth[part] then
+        if t.returns[part] then
+          paw.nest.toggle(part)
         else
-          paw.frontend.act.fold(track)
+          paw.frontend.act.fold(part)
         end
       end
     end,
-    -- What `K` says: the group a track is in, and of a group what it holds.
-    describe = function(track: integer): string
+    -- What `K` says: the group a part is in, and of a group what it holds.
+    describe = function(part: integer): string
       local groups = paw.groups
       local words: {string} = {}
-      local fold = paw.folds.row(track)
+      local fold = paw.folds.row(part)
       if fold then
         words[#words + 1] = string.format(
-          "the fold %s of %d tracks, folded (za opens it, zd deletes it)", paw.folds.name(fold), paw.folds.count(fold)
+          "the fold %s of %d parts, folded (za opens it, zd deletes it)", paw.folds.name(fold), paw.folds.count(fold)
         )
       end
-      if groups.is_group(track) then
-        local n = #groups.members(track)
+      if groups.is_group(part) then
+        local n = #groups.members(part)
         words[1] = string.format(
-          "a group of %d track%s, %s",
+          "a group of %d part%s, %s",
           n,
           n == 1 and "" or "s",
-          groups.folded(track) and "folded (za opens it)" or "open (za folds it)"
+          groups.folded(part) and "folded (za opens it)" or "open (za folds it)"
         )
       end
-      local of = groups.of(track)
+      local of = groups.of(part)
       if of then
-        words[#words + 1] = "in the group " .. tostring(api.track_get(of).name)
+        words[#words + 1] = "in the group " .. tostring(api.part_get(of).name)
       end
       return #words > 0 and table.concat(words, "; ") or nil
     end,
@@ -629,8 +629,8 @@ local function by_order(a: Component, b: Component): boolean
   return a.name < b.name
 end
 
---- The column for one draw over the tracks of `frame`: the components
---- named in `paw.opt.trackcolumn`, in their order, each as wide as it
+--- The column for one draw over the parts of `frame`: the components
+--- named in `paw.opt.partcolumn`, in their order, each as wide as it
 --- says. Each component with `from_header` takes its columns from the
 --- headers, up to `header_room` columns in all. The other components, and
 --- a component that does not fit in the headers, take their columns from
@@ -638,7 +638,7 @@ end
 --- no room left, takes no columns.
 function M.layout(frame: Frame, room: integer, header_room: integer): Layout
   local list: {Component} = {}
-  for _, name in ipairs(opt.trackcolumn as {string}) do
+  for _, name in ipairs(opt.partcolumn as {string}) do
     local c = M.components:get(name)
     if c and not has(list, c) then
       list[#list + 1] = c
@@ -657,7 +657,7 @@ function M.layout(frame: Frame, room: integer, header_room: integer): Layout
     if spec is integer then
       w = spec
     else
-      local ok, n = pcall(spec as contracts.TrackColumnWidth, frame)
+      local ok, n = pcall(spec as contracts.PartColumnWidth, frame)
       w = ok and math.floor(tonumber(n) or 0) or 0
     end
     -- A component takes all its columns from one side: the headers if it
@@ -674,18 +674,18 @@ function M.layout(frame: Frame, room: integer, header_room: integer): Layout
   return out
 end
 
---- Draw one line of the column for `track` at line `y` of `buf` (the
+--- Draw one line of the column for `part` at line `y` of `buf` (the
 --- column's own part of the view), with what `ctx` says of the line.
-function M.draw(buf: contracts.Buf, L: Layout, y: integer, track: integer, ctx: Context)
+function M.draw(buf: contracts.Buf, L: Layout, y: integer, part: integer, ctx: Context)
   if L.width == 0 then
     return
   end
-  buf:fill(0, y, L.width, 1, " ", ctx.cursor and "TrackColumnCursor" or "TrackColumn")
+  buf:fill(0, y, L.width, 1, " ", ctx.cursor and "PartColumnCursor" or "PartColumn")
   ctx.g = paw.draw.g
   for _, portion in ipairs(L.portions) do
     ctx.width = portion.width
     ctx.glyphs, ctx.styles = portion.component.glyphs or NONE_GLYPHS, portion.component.styles or NONE_STYLES
-    local ok, cells = pcall(portion.component.render, track, ctx)
+    local ok, cells = pcall(portion.component.render, part, ctx)
     if not ok then
       buf:text(portion.x, y, "!", "Error")
     elseif cells is string then
@@ -704,25 +704,25 @@ function M.draw(buf: contracts.Buf, L: Layout, y: integer, track: integer, ctx: 
   end
 end
 
---- A click at column `x` of the column on a line of `track`: the
+--- A click at column `x` of the column on a line of `part`: the
 --- component there does what its `click` says. True if one had a `click`.
-function M.click(L: Layout, x: integer, track: integer, ctx: Context): boolean
+function M.click(L: Layout, x: integer, part: integer, ctx: Context): boolean
   for _, portion in ipairs(L.portions) do
     if x >= portion.x and x < portion.x + portion.width and portion.component.click then
       ctx.width, ctx.x, ctx.g = portion.width, x - portion.x, paw.draw.g
       ctx.glyphs, ctx.styles = portion.component.glyphs or {}, portion.component.styles or {}
-      portion.component.click(track, ctx)
+      portion.component.click(part, ctx)
       return true
     end
   end
   return false
 end
 
---- What the components shown say of `track` for `K` (their `describe`),
+--- What the components shown say of `part` for `K` (their `describe`),
 --- a line each, in their order.
-function M.describe(track: integer): {string}
+function M.describe(part: integer): {string}
   local list: {Component} = {}
-  for _, name in ipairs(opt.trackcolumn as {string}) do
+  for _, name in ipairs(opt.partcolumn as {string}) do
     local c = M.components:get(name)
     if c and c.describe and not has(list, c) then
       list[#list + 1] = c
@@ -731,8 +731,8 @@ function M.describe(track: integer): {string}
   table.sort(list, function(a: Component, b: Component): boolean return a.order < b.order end)
   local out: {string} = {}
   for _, c in ipairs(list) do
-    local ctx: Context = {line = 0, kind = "track", g = paw.draw.g, glyphs = c.glyphs or {}, styles = c.styles or {}}
-    local ok, text = pcall(c.describe, track, ctx)
+    local ctx: Context = {line = 0, kind = "part", g = paw.draw.g, glyphs = c.glyphs or {}, styles = c.styles or {}}
+    local ok, text = pcall(c.describe, part, ctx)
     if ok and text and text ~= "" then
       out[#out + 1] = text
     end
@@ -740,9 +740,9 @@ function M.describe(track: integer): {string}
   return out
 end
 
---- True if component `name` is shown: added and named in `paw.opt.trackcolumn`.
+--- True if component `name` is shown: added and named in `paw.opt.partcolumn`.
 function M.shows(name: string): boolean
-  return M.components:get(name) ~= nil and has(opt.trackcolumn as {string}, name)
+  return M.components:get(name) ~= nil and has(opt.partcolumn as {string}, name)
 end
 
 return M

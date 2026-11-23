@@ -39,7 +39,7 @@ local domains = {
   n = "notation",
   p = "project",
   r = "markers and regions",
-  t = "tracks",
+  t = "parts",
   T = "tempo and transport",
   u = "utau",
   v = "views",
@@ -80,11 +80,11 @@ for _, map in ipairs(paw.keymap.every()) do
 end
 
 -- Escape cancels and stays.
-local t = paw.add_track({ name = "Keys" })
+local t = paw.add_part({ name = "Keys" })
 t:add_device("synth")
 t:add_clip({ name = "c", start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
 api.undo_checkpoint()
-paw.cursor.set_track(t)
+paw.cursor.set_part(t)
 paw.cursor.set_beat(0)
 local function stays(name, open)
   paw.ui.focus("arrange")
@@ -98,13 +98,13 @@ local function stays(name, open)
   end
 end
 stays("drums", function()
-  local beat = require("drums").make_track({ name = "Beat" })
+  local beat = require("drums").make_part({ name = "Beat" })
   beat:add_clip({ start = 0, length = 4 })
-  paw.cursor.set_track(beat)
+  paw.cursor.set_part(beat)
   paw.keymap.feed("<CR>")
 end)
 stays("notation", function()
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.cursor.set_beat(0)
   paw.keymap.feed("<localleader>n")
 end)

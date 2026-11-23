@@ -1,4 +1,4 @@
--- What the arrange view (paw/views/arrange.tl) draws of one track: its
+-- What the arrange view (paw/views/arrange.tl) draws of one part: its
 -- header (the name, the chips, the meter, the route, the sends and the
 -- input), and the props of its clips with what is drawn in their bodies
 -- (a small piano roll, a waveform, the notes of a subproject's block).
@@ -16,7 +16,7 @@ local type contracts = require("paw.contracts")
 local type DrawModule = require("paw.draw")
 local type roles = require("paw.roles.arrange")
 local type Buf = contracts.Buf
-local type Track = types.Track
+local type Part = types.Part
 local type Clip = types.Clip
 local type Hue = DrawModule.Hue
 local type Axis = axis.Axis
@@ -34,7 +34,7 @@ local record M
     buf: Buf,
     y: integer,
     height: integer,
-    t: Track,
+    t: Part,
     index: integer,
     selected: boolean,
     lanes: {types.Lane},
@@ -46,7 +46,7 @@ local record M
   cuts: function(clip: Clip, from: number, to: number): number, number
   clip_props: function(
     clip: Clip,
-    track: Track,
+    part: Part,
     hue: Hue,
     kind: string,
     ax: Axis,
@@ -64,10 +64,10 @@ end
 -- What is kept between frames -------------------------------------------------------
 
 -- Small piano rolls and waveforms drawn inside clips, and what a header says
--- about its track's devices. A waveform is kept until the project changes.
+-- about its part's devices. A waveform is kept until the project changes.
 -- A piano roll is kept by what it is drawn from (the stamp of the clip's
--- notes, its length and its loop), and a header by its track's devices: an
--- edit elsewhere (a track deleted and put back, a fader) draws them again
+-- notes, its length and its loop), and a header by its part's devices: an
+-- edit elsewhere (a part deleted and put back, a fader) draws them again
 -- from what is kept. They are forgotten when there are too many.
 local KEEP = 4096
 
@@ -119,7 +119,7 @@ local rolls: Kept<{string}> = kept_store()
 local chains: Kept<string> = kept_store()
 
 paw.on(kernel.changed, function() previews, waves = {}, {} end)
--- A device's name can change without a change to the track's list of devices.
+-- A device's name can change without a change to the part's list of devices.
 local function forget_chains()
   chains = kept_store()
 end
@@ -129,8 +129,8 @@ paw.on(kernel.project_loaded, forget_chains)
 
 -- The header ----------------------------------------------------------------------
 
---- What a track's sound goes through, in a few words: `synth › delay`.
-local function chain(t: Track): string
+--- What a part's sound goes through, in a few words: `synth › delay`.
+local function chain(t: Part): string
   local key = t.id .. ":" .. table.concat(t.devices or {}, ",") .. (paw.opt.ascii and "a" or "")
   -- A row draws its chain each frame: the closure only when it is not kept.
   local kept = chains.values[key]
@@ -153,11 +153,11 @@ local function chain(t: Track): string
   )
 end
 
---- What a track sends, in a few words: `↗ Reverb -9  ↗ Delay -12`.
-local function sends_text(t: Track): string
+--- What a part sends, in a few words: `↗ Reverb -9  ↗ Delay -12`.
+local function sends_text(t: Part): string
   local out: {string} = {}
   for _, send in ipairs(t.sends or {}) do
-    local ok, to = pcall(api.track_get, send.target)
+    local ok, to = pcall(api.part_get, send.target)
     if ok then
       out[#out + 1] = draw.g.send
         .. " "
@@ -179,7 +179,7 @@ local record Chip
 end
 
 --- The chips of a header, in order: mute, solo, arm, monitor.
-local function chips(t: Track): {Chip}
+local function chips(t: Part): {Chip}
   return {
     {letter = "M", on = t.mute, style = "Mute", flag = "mute"},
     {letter = "S", on = t.solo, style = "Solo", flag = "solo"},
@@ -234,7 +234,7 @@ end
 --- less, only those that are on in less still. Each a switch, which a
 --- window paints as a button. Gives the columns of the chips, by their
 --- flag, in the view's columns (none when narrow).
-local function draw_chips(buf: Buf, y: integer, t: Track, at: Place, column_width: integer): Flags
+local function draw_chips(buf: Buf, y: integer, t: Part, at: Place, column_width: integer): Flags
   local list = chips(t)
   if at.narrow then
     local lit: {Chip} = {}
@@ -268,11 +268,11 @@ local function draw_chips(buf: Buf, y: integer, t: Track, at: Place, column_widt
   return flags
 end
 
---- In front of the chips: an `A` when the track has automation, and the
+--- In front of the chips: an `A` when the part has automation, and the
 --- letter of its automation mode when that is not the usual one (Touch,
---- Latch, Write, or `-` for off); an `F` on a frozen track, an `f` on one
+--- Latch, Write, or `-` for off); an `F` on a frozen part, an `f` on one
 --- held inside a frozen group; with one row, the volume.
-local function draw_states(buf: Buf, y: integer, height: integer, t: Track, lanes: {types.Lane}, at: Place)
+local function draw_states(buf: Buf, y: integer, height: integer, t: Part, lanes: {types.Lane}, at: Place)
   local mode = t.automation or "read"
   if #lanes > 0 or mode ~= "read" then
     local on = false
@@ -280,19 +280,19 @@ local function draw_states(buf: Buf, y: integer, height: integer, t: Track, lane
       on = on or lane.enabled and lane.point_count > 0
     end
     local writes = mode == "touch" or mode == "latch" or mode == "write"
-    local style = writes and "Armed" or (on and mode ~= "off") and "Automation" or "TrackIndex"
+    local style = writes and "Armed" or (on and mode ~= "off") and "Automation" or "PartIndex"
     buf:text(at.before - 1, y, mode_letters[mode as string] or "A", style)
     at.before = at.before - 2
   end
   local frozen = not t.master and paw.freeze and paw.freeze.state(t.id) as string
   if frozen then
-    buf:text(at.before - 1, y, frozen == "frozen" and "F" or "f", "TrackInfo")
+    buf:text(at.before - 1, y, frozen == "frozen" and "F" or "f", "PartInfo")
     at.before = at.before - 2
   end
   if height == 1 and not at.narrow then
     local vol = draw.db_text(t.volume)
     if at.before - #vol - 1 > at.name_at + 4 then
-      buf:text(at.before - #vol, y, vol, "TrackInfo")
+      buf:text(at.before - #vol, y, vol, "PartInfo")
       at.before = at.before - #vol - 1
     end
   end
@@ -305,18 +305,18 @@ local function places_text(nest: integer): string
   return n > 1 and (" " .. draw.g.places .. n) or ""
 end
 
---- The name a header shows. A folded group says how many tracks it holds,
+--- The name a header shows. A folded group says how many parts it holds,
 --- and a group with linked faders has `≡` after its name.
---- The track column's `fold` shows the groups as a tree; without it, a
+--- The part column's `fold` shows the groups as a tree; without it, a
 --- member stands a step in under its group, and a group has a mark that
 --- says whether it is open.
-local function name_text(t: Track): string
+local function name_text(t: Part): string
   local name = t.name
   if t.master then
     return name
   end
   local g, groups = draw.g, paw.groups
-  -- The first row of a fold of tracks stands for all of it, by its name.
+  -- The first row of a fold of parts stands for all of it, by its name.
   local fold = paw.folds.row(t.id)
   local returned = not fold and paw.nest.returns(t.id)
   if fold then
@@ -332,7 +332,7 @@ local function name_text(t: Track): string
   if groups.is_group(t.id) and groups.linked(t.id) then
     name = name .. " " .. g.link
   end
-  if not paw.trackcolumn.shows("fold") then
+  if not paw.partcolumn.shows("fold") then
     name = string.rep(" ", groups.depth(t.id)) .. name
     if fold then
       name = g.closed .. " " .. name
@@ -346,9 +346,9 @@ end
 --- The second row: the meter with the fader's place, which a window moves
 --- with the live values, the volume on it, the clip light at its end
 --- (both sides on the master's), and the input's button, which a click
---- chooses from: lit when the track has one.
-local function draw_meter_row(buf: Buf, y: integer, t: Track, selected: boolean, at: Place)
-  local left, right, hold, clipped = draw.track_peak(t.id)
+--- chooses from: lit when the part has one.
+local function draw_meter_row(buf: Buf, y: integer, t: Part, selected: boolean, at: Place)
+  local left, right, hold, clipped = draw.part_peak(t.id)
   local vol = draw.db_text(t.volume)
   local vol_at = at.right - #vol
   if vol_at - 1 > at.body_at then
@@ -362,14 +362,14 @@ local function draw_meter_row(buf: Buf, y: integer, t: Track, selected: boolean,
     }
     buf:mark("hmeter", at.body_at, y + 1, vol_at - 1 - at.body_at, 1, meter)
   end
-  buf:text(vol_at, y + 1, vol, selected and "Bright" or "TrackInfo")
+  buf:text(vol_at, y + 1, vol, selected and "Bright" or "PartInfo")
   if not at.narrow and not t.master then
     local input: contracts.ButtonMark = {
       text = "in",
       icon = "mic",
       on = t.input ~= nil,
       on_style = "Input",
-      style = "TrackIndex",
+      style = "PartIndex",
       quiet = true,
       label = "input",
     }
@@ -378,8 +378,8 @@ local function draw_meter_row(buf: Buf, y: integer, t: Track, selected: boolean,
 end
 
 --- A row under the meter: the pan as a knob (a window turns it), the
---- devices the sound goes through, and the track it goes out to.
-local function draw_route(buf: Buf, row: integer, t: Track, at: Place)
+--- devices the sound goes through, and the part it goes out to.
+local function draw_route(buf: Buf, row: integer, t: Part, at: Place)
   local g, right = draw.g, at.right
   local x = at.body_at
   local pan = draw.pan_text(t.pan or 0)
@@ -387,7 +387,7 @@ local function draw_route(buf: Buf, row: integer, t: Track, at: Place)
     local knob: contracts.KnobMark = {
       value = t.pan or 0,
       text = pan,
-      style = pan == "C" and "TrackIndex" or "TrackInfo",
+      style = pan == "C" and "PartIndex" or "PartInfo",
       round = true,
       label = "pan",
     }
@@ -396,7 +396,7 @@ local function draw_route(buf: Buf, row: integer, t: Track, at: Place)
   end
   local out = ""
   if t.output and t.output ~= 0 then
-    local ok, to = pcall(api.track_get, t.output)
+    local ok, to = pcall(api.part_get, t.output)
     if ok then
       out = g.out .. " " .. to.name
     end
@@ -409,21 +409,21 @@ local function draw_route(buf: Buf, row: integer, t: Track, at: Place)
       out = util.fit(out, math.max(1, room_left - 2))
       out_w = api.str_width(out)
     end
-    words(buf, right - out_w, row, out, "TrackInfo", "text_3")
+    words(buf, right - out_w, row, out, "PartInfo", "text_3")
     room_left = room_left - out_w - 1
   end
   if devices ~= "" and room_left > 2 then
     if api.str_width(devices) > room_left then
       devices = util.fit(devices, room_left)
     end
-    words(buf, x, row, devices, "TrackRoute", "text_2")
+    words(buf, x, row, devices, "PartRoute", "text_2")
   end
 end
 
---- A row of what the track takes in, with the level arriving there
+--- A row of what the part takes in, with the level arriving there
 --- whether or not it is heard, so that a guitar can be seen before
 --- anything is armed.
-local function draw_input(buf: Buf, row: integer, t: Track, at: Place)
+local function draw_input(buf: Buf, row: integer, t: Part, at: Place)
   local label = paw.audio.label(t) as string
   if not label then
     return
@@ -432,16 +432,16 @@ local function draw_input(buf: Buf, row: integer, t: Track, at: Place)
   local heard = t.input and (t.monitor or t.armed)
   if t.input then
     local level = paw.audio.level(t) as number
-    buf:text(x, row, M.level_glyph(level), level > 0.001 and "Input" or "TrackIndex")
+    buf:text(x, row, M.level_glyph(level), level > 0.001 and "Input" or "PartIndex")
     x = x + 2
   end
   label = util.fit(label, math.max(1, at.right - x))
-  words(buf, x, row, label, heard and "Input" or "TrackInfo", heard and "select" or "text_3")
+  words(buf, x, row, label, heard and "Input" or "PartInfo", heard and "select" or "text_3")
 end
 
 --- The rows under the meter, in order, as many as the header has room
 --- for: route, sends, input.
-local function draw_lines(buf: Buf, y: integer, height: integer, t: Track, at: Place)
+local function draw_lines(buf: Buf, y: integer, height: integer, t: Part, at: Place)
   local lines: {string} = {}
   if height >= 3 then
     lines[#lines + 1] = "route"
@@ -465,23 +465,23 @@ local function draw_lines(buf: Buf, y: integer, height: integer, t: Track, at: P
       if api.str_width(text) > width then
         text = util.fit(text, width)
       end
-      words(buf, at.body_at, row, text, "TrackInfo", "text_3")
+      words(buf, at.body_at, row, text, "PartInfo", "text_3")
     else
       draw_input(buf, row, t, at)
     end
   end
 end
 
---- A track's header from line `y`, `height` lines: its ground with a
---- stripe in the track's colour, the chips, the name, the meter and the
---- lines under it. `column_width` is the track column's left of `buf`.
+--- A part's header from line `y`, `height` lines: its ground with a
+--- stripe in the part's colour, the chips, the name, the meter and the
+--- lines under it. `column_width` is the part column's left of `buf`.
 --- Gives the chips' columns, for the pointer: nil for the master's, which
---- has none, so the tracks' stay where they are.
+--- has none, so the parts' stay where they are.
 function M.header(
   buf: Buf,
   y: integer,
   height: integer,
-  t: Track,
+  t: Part,
   index: integer,
   selected: boolean,
   lanes: {types.Lane},
@@ -490,20 +490,20 @@ function M.header(
 ): Flags
   local g = draw.g
   local w = buf.width
-  local trackhead: roles.TrackheadProps = {
-    style = selected and "TrackHeaderSel" or "TrackHeader",
+  local parthead: roles.PartheadProps = {
+    style = selected and "PartHeaderSel" or "PartHeader",
     stripe = selected and g.stripe_sel or g.stripe,
     stripe_style = hue.fg,
-    color = draw.track_colour(t, index),
+    color = draw.part_colour(t, index),
     selected = selected or nil,
   }
-  buf:mark("trackhead", 0, y, w, height, trackhead)
+  buf:mark("parthead", 0, y, w, height, parthead)
   local narrow = w < 16
-  -- The track's number is in the track column (paw/trackcolumn.tl), at
+  -- The part's number is in the part column (paw/partcolumn.tl), at
   -- the left of the header; the lines under the name start further in.
-  -- A kind of track's letter stands clear of the stripe and of the name.
+  -- A kind of part's letter stands clear of the stripe and of the name.
   local at: Place = {w = w, narrow = narrow, body_at = narrow and 2 or 4, name_at = 2, mark_at = 1, right = w - 1}
-  if not narrow and not t.master and paw.track_kinds.spec(t.id) then
+  if not narrow and not t.master and paw.part_kinds.spec(t.id) then
     at.mark_at, at.name_at = 2, 4
   end
   local flags: Flags
@@ -521,14 +521,14 @@ function M.header(
   -- In words, in a window.
   local label: contracts.LabelMark = {
     text = name,
-    style = selected and "TrackNameSel" or "TrackName",
+    style = selected and "PartNameSel" or "PartName",
     font = "title",
     tone = "text",
   }
   buf:mark("label", at.name_at, y, room, 1, label)
   -- What modules mark on the header (`paw.ui.layer("arrange", "header", ...)`):
   -- `x` is the free column before the name.
-  paw.ui.paint("arrange", "header", {buf = buf, x = at.mark_at, y = y, width = w, height = height, track = t.id})
+  paw.ui.paint("arrange", "header", {buf = buf, x = at.mark_at, y = y, width = w, height = height, part = t.id})
   if height >= 2 then
     draw_meter_row(buf, y, t, selected, at)
   end
@@ -673,7 +673,7 @@ local function preview(
 end
 
 --- A clip's notes in one line `width` cells wide (its waveform for an
---- audio clip), as its body draws them, for an overview of its track
+--- audio clip), as its body draws them, for an overview of its part
 --- (a member of a folded group): on the axis `ax`, the clip at place `at`
 --- (`ax:view` of its start). Nil for a clip with nothing to draw in one
 --- line: no notes, or a block of a subproject.
@@ -688,7 +688,7 @@ end
 local wave_style: {string: string} = {flip = "ClipWaveFlip", clip = "ClipWaveClip", clipflip = "ClipWaveClipFlip"}
 
 --- What each clip's props (`clip_props`) draw in its body: the clip, its
---- track's colour, its kind, the axis and how far into its first cell the
+--- part's colour, its kind, the axis and how far into its first cell the
 --- clip begins. Kept beside the props, not in them, as they are not data
 --- for a frontend; and not in a closure made for each clip on each frame,
 --- which LuaJIT does not compile.
@@ -746,7 +746,7 @@ local function audio_body(box: Buf, of: Body)
 end
 
 --- A block of a subproject: what it plays, as a small piano roll of the
---- notes of its subproject's tracks.
+--- notes of its subproject's parts.
 local function nest_body(box: Buf, of: Body)
   local cw, height = box.width, box.height
   local key = string.format("%s:%d:%d:%.17g:%.17g", paw.nest.content_key(of.clip), cw, height - 1, of.ax.zoom, of.phase)
@@ -844,7 +844,7 @@ end
 
 --- Give a take lane's clip (`props`, take `take` of `clip`) the take's
 --- waveform or notes in its body. `key` is what the take plays
---- (`paw.frontend.take_rows`), `colour` its track's, and the take is faint
+--- (`paw.frontend.take_rows`), `colour` its part's, and the take is faint
 --- where it does not play (not `active`).
 function M.take_body(
   props: roles.ClipProps, clip: Clip, take: integer, key: string, colour: string, active: boolean, ax: Axis
@@ -982,11 +982,11 @@ end
 --- "" or "_cur" (the cursor's) or "_off" (muted). `ax` is the view's axis
 --- and `at` the place on the plane where the clip's box begins (`ax:view`
 --- of its start). `from`, `to`: the time of the window's scope, which cuts
---- it (`cut_in`, `cut_out`). `colour` is its track's
---- (`paw.draw.track_colour`), when the caller has it.
+--- it (`cut_in`, `cut_out`). `colour` is its part's
+--- (`paw.draw.part_colour`), when the caller has it.
 function M.clip_props(
   clip: Clip,
-  track: Track,
+  part: Part,
   hue: Hue,
   kind: string,
   ax: Axis,
@@ -996,7 +996,7 @@ function M.clip_props(
   to?: number,
   colour?: string
 ): roles.ClipProps
-  colour = colour or draw.track_colour(track)
+  colour = colour or draw.part_colour(part)
   local cut_in, cut_out = M.cuts(clip, from, to)
   local block = clip.kind == "nest"
   local warps: {number}

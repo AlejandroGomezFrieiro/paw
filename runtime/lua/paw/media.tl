@@ -250,21 +250,21 @@ command.define(
     if not api.project_get().path then
       return paw.notify("the project has no folder yet: `:w song` saves it first", "warn")
     end
-    local tracks, chains = api.track_collect()
+    local parts, chains = api.part_collect()
     local clips = api.clip_collect()
     local result = api.media_collect()
     local n = #result.missing
-    local parts: {string} = {}
-    if tracks > 0 then
-      parts[#parts + 1] = string.format("%d track%s, ", tracks, tracks == 1 and "" or "s")
+    local said: {string} = {}
+    if parts > 0 then
+      said[#said + 1] = string.format("%d part%s, ", parts, parts == 1 and "" or "s")
     end
     if chains > 0 then
-      parts[#parts + 1] = string.format("%d chain%s, ", chains, chains == 1 and "" or "s")
+      said[#said + 1] = string.format("%d chain%s, ", chains, chains == 1 and "" or "s")
     end
     paw.notify(
       string.format(
         "%s%d clip%s and %d sound file%s are now the project's own%s; `:w` writes them into its folder",
-        table.concat(parts),
+        table.concat(said),
         clips,
         clips == 1 and "" or "s",
         result.copied,
@@ -274,7 +274,7 @@ command.define(
     )
   end,
   {
-    desc = "Copy every file from outside the project's folder into it: tracks, chains of devices, MIDI clip files and sound files",
+    desc = "Copy every file from outside the project's folder into it: parts, chains of devices, MIDI clip files and sound files",
   }
 )
 
@@ -287,16 +287,16 @@ events.on(
     paw.notify(string.format("%s is now this project's own copy (was %s)", e.name, tilde(tostring(e.origin))))
   end
 )
--- The first edit of a track or a chain from outside the project.
+-- The first edit of a part or a chain from outside the project.
 events.on(
-  kernel.track_copied,
-  function(e: kernel.TrackCopied)
-    paw.notify(string.format("the track %s is now this project's own copy (was %s)", e.name, tilde(tostring(e.origin))))
+  kernel.part_copied,
+  function(e: kernel.PartCopied)
+    paw.notify(string.format("the part %s is now this project's own copy (was %s)", e.name, tilde(tostring(e.origin))))
   end
 )
 events.on(
   kernel.chain_copied,
-  function(e: kernel.TrackCopied)
+  function(e: kernel.PartCopied)
     paw.notify(
       string.format("the devices of %s are now this project's own copy (was %s)", e.name, tilde(tostring(e.origin)))
     )
@@ -376,7 +376,7 @@ function M.normalize(clip: ClipRef, level?: number): number
   return api.clip_normalize(id_of(clip), level)
 end
 
---- Join audio clips of one track into one clip that plays a new file: the
+--- Join audio clips of one part into one clip that plays a new file: the
 --- clips of the list, by id or as clips. A list of one clip joins it and
 --- each audio clip that touches or overlaps it. Lua can also give one clip
 --- without a list. Returns { id, file, glued }.

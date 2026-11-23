@@ -1,8 +1,8 @@
 //! Subprojects (nests) as the engine plays them: the chain mode of
 //! `nest.md` 4.4.
 //!
-//! A nest's tracks keep their clips in the nest's own beats. The engine
-//! plays each nest track as one engine track whose clips are placed in the
+//! A nest's parts keep their clips in the nest's own beats. The engine
+//! plays each nest part as one engine part whose clips are placed in the
 //! song: for each instance of the nest (a nest clip, and through it every
 //! nest clip inside), a copy of each clip at `instance start + clip start -
 //! instance offset`, cut at the instance's window (a nest with a tempo of
@@ -12,27 +12,27 @@
 //! many instances play it (the cache of `clips.rs`). A muted instance places
 //! nothing; what the nest's devices already play rings on.
 //!
-//! The nest's tracks play into its master (or where they route inside the
-//! nest), and its master plays into the track that holds its clips: the
+//! The nest's parts play into its master (or where they route inside the
+//! nest), and its master plays into the part that holds its clips: the
 //! return row (`routing.rs`). A nest placed on two rows plays into the
 //! first; its devices run once.
 //!
-//! A nest clip that plays one track (`NestPlay::Track`, a stem) places
-//! only that track, and the track plays into the clip's row instead of
+//! A nest clip that plays one part (`NestPlay::Part`, a stem) places
+//! only that part, and the part plays into the clip's row instead of
 //! into the master (`:nest.outputs stems`).
 //!
-//! The pass mode of `nest.md` 4.4: a nest track that has no sound of its
+//! The pass mode of `nest.md` 4.4: a nest part that has no sound of its
 //! own (no devices, its fader and pan at the middle, no lanes, not muted)
-//! is no engine track for the clips that play it alone. Its clips, placed
+//! is no engine part for the clips that play it alone. Its clips, placed
 //! and cut as above, become clips of the row that the nest clip is on, and
 //! play through the devices, fader, sends and lanes of that row, as clips
 //! put there would (`<Space>zw` saves a view so, and the song sounds the
-//! same). Through the master, such a track still plays as an engine track.
+//! same). Through the master, such a part still plays as an engine part.
 //!
 //! A frozen block (`crate::freeze`) places nothing of its nest: its row
 //! plays the block's file as an audio clip in its place. A nest that only
-//! frozen blocks place rests: the sync holds its tracks, as it holds the
-//! tracks inside a frozen group. So does each nest that a resting nest
+//! frozen blocks place rests: the sync holds its parts, as it holds the
+//! parts inside a frozen group. So does each nest that a resting nest
 //! places, at any depth, where no live block places it.
 
 use std::collections::{HashMap, HashSet};
@@ -42,7 +42,7 @@ use std::sync::Arc;
 use rustc_hash::FxHasher;
 
 use crate::model::nest::{Timing, timed_lane};
-use crate::model::{Clip, ClipContent, Clips, Id, NestId, NestPlay, Project, Track};
+use crate::model::{Clip, ClipContent, Clips, Id, NestId, NestPlay, Project, Part};
 
 /// Where a nest plays in the song: one nest clip (or a chain of them, for a
 /// nest inside a nest), as song beats.
@@ -55,10 +55,10 @@ pub(crate) struct Instance {
     pub to: f64,
     /// Where the nest's beats are in the song.
     pub timing: Timing,
-    /// The one track of the nest that this instance plays (a stem), or
+    /// The one part of the nest that this instance plays (a stem), or
     /// None for all of them.
     pub only: Option<Id>,
-    /// The track that holds the nest clip (the song's or a nest's).
+    /// The part that holds the nest clip (the song's or a nest's).
     pub row: Id,
 }
 
@@ -73,16 +73,16 @@ impl Instance {
         self.timing.zero()
     }
 
-    /// Whether this instance plays track `track` of its nest.
-    pub(super) fn plays(&self, track: Id) -> bool {
-        self.only.is_none_or(|only| only == track)
+    /// Whether this instance plays part `part` of its nest.
+    pub(super) fn plays(&self, part: Id) -> bool {
+        self.only.is_none_or(|only| only == part)
     }
 }
 
 /// The instances of every nest the song plays, by nest, in the order of
-/// their places; the track each nest's master plays into: the track of its
-/// first clip that plays its mix; the row each stem plays into: the track
-/// of the first clip that plays that one track; and the nests that frozen
+/// their places; the part each nest's master plays into: the part of its
+/// first clip that plays its mix; the row each stem plays into: the part
+/// of the first clip that plays that one part; and the nests that frozen
 /// blocks would have played, with the nests inside them.
 #[derive(Default)]
 pub(crate) struct Placed {
@@ -99,8 +99,8 @@ impl Placed {
             return placed;
         }
         // The clips of each place: the song's (None) or a nest's.
-        let mut clips: HashMap<Option<NestId>, Vec<(&Track, &Arc<Clip>)>> = HashMap::new();
-        for t in project.all_tracks() {
+        let mut clips: HashMap<Option<NestId>, Vec<(&Part, &Arc<Clip>)>> = HashMap::new();
+        for t in project.all_parts() {
             for c in t.clips.iter() {
                 if let ClipContent::Nest { nest, play, .. } = &c.content {
                     clips.entry(t.nest).or_default().push((t, c));
@@ -108,7 +108,7 @@ impl Placed {
                         NestPlay::Master => {
                             placed.hosts.entry(*nest).or_insert(t.id);
                         }
-                        NestPlay::Track(stem) => {
+                        NestPlay::Part(stem) => {
                             placed.stems.entry(*stem).or_insert(t.id);
                         }
                     }
@@ -125,7 +125,7 @@ impl Placed {
             row: crate::model::MASTER_ID,
         };
         let mut stack: Vec<(Option<NestId>, Instance, usize)> = vec![(None, song, 0)];
-        // The nests that a frozen block places, with the one track of each
+        // The nests that a frozen block places, with the one part of each
         // that it plays (None: all), and their depth.
         let mut resting: Vec<(NestId, Option<Id>, usize)> = Vec::new();
         while let Some((place, outer, depth)) = stack.pop() {
@@ -136,7 +136,7 @@ impl Placed {
                 let ClipContent::Nest { nest, offset, play } = &c.content else {
                     continue;
                 };
-                // A stem of the outer nest plays the nests of that track only.
+                // A stem of the outer nest plays the nests of that part only.
                 if c.muted || !outer.plays(t.id) {
                     continue;
                 }
@@ -194,8 +194,8 @@ impl Placed {
     }
 }
 
-/// The time the devices of a nest's track see: where each block of the
-/// nest that plays the track is, the nest's own meter (empty: the song's),
+/// The time the devices of a nest's part see: where each block of the
+/// nest that plays the part is, the nest's own meter (empty: the song's),
 /// and its own tempo (empty: the song's).
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Local {
@@ -205,16 +205,16 @@ pub(crate) struct Local {
 }
 
 impl Local {
-    /// The time of track `track` of nest `nest`, or None when the nest is
+    /// The time of part `part` of nest `nest`, or None when the nest is
     /// not there.
-    pub(super) fn of(project: &Project, nest: NestId, track: Id, placed: &Placed) -> Option<Self> {
+    pub(super) fn of(project: &Project, nest: NestId, part: Id, placed: &Placed) -> Option<Self> {
         let held = project.nest(nest)?;
         let places: Vec<paw_engine::Place> = placed
             .instances
             .get(&nest)
             .into_iter()
             .flatten()
-            .filter(|i| i.plays(track))
+            .filter(|i| i.plays(part))
             .map(|i| paw_engine::Place { from: i.from, to: i.to, zero: i.zero() })
             .collect();
         // Its own meter; with its own tempo, also the song's meter where it
@@ -234,61 +234,61 @@ impl Local {
     }
 }
 
-/// The one track of its nest that a block plays (a stem), or None for all.
+/// The one part of its nest that a block plays (a stem), or None for all.
 fn stem_of(play: NestPlay) -> Option<Id> {
     match play {
-        NestPlay::Track(stem) => Some(stem),
+        NestPlay::Part(stem) => Some(stem),
         NestPlay::Master => None,
     }
 }
 
-/// Whether a nest track has no sound of its own, so that a clip that plays
+/// Whether a nest part has no sound of its own, so that a clip that plays
 /// it alone places its clips on the row of that clip (the pass mode).
-pub(crate) fn passes(t: &Track) -> bool {
+pub(crate) fn passes(t: &Part) -> bool {
     t.devices.is_empty() && t.volume == 0.0 && t.pan == 0.0 && t.lanes.is_empty() && !t.mute
 }
 
-/// Clips that a track plays: those of `track` at each of `places`, or, with
-/// no places, as they are (the own clips of a song track).
+/// Clips that a part plays: those of `part` at each of `places`, or, with
+/// no places, as they are (the own clips of a song part).
 struct Source {
-    track: Arc<Track>,
+    part: Arc<Part>,
     places: Option<Vec<Instance>>,
 }
 
 impl Source {
     fn same(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.track, &other.track) && self.places == other.places
+        Arc::ptr_eq(&self.part, &other.part) && self.places == other.places
     }
 }
 
-/// A track as the engine plays it, and what it was made from: a nest track
+/// A part as the engine plays it, and what it was made from: a nest part
 /// placed at each place of its nest, and a row with the clips of the
-/// tracks in pass mode that it holds blocks of.
+/// parts in pass mode that it holds blocks of.
 pub(crate) struct Expanded {
     sources: Vec<Source>,
-    pub track: Arc<Track>,
+    pub part: Arc<Part>,
     /// Each copy by its id: the clip and the instance it was made from.
     copies: HashMap<Id, (Arc<Clip>, Instance, Arc<Clip>)>,
 }
 
-/// The tracks that the engine plays otherwise than the project has them,
-/// by track id. What is the same as at the last sync is the very same
+/// The parts that the engine plays otherwise than the project has them,
+/// by part id. What is the same as at the last sync is the very same
 /// `Arc`, so that the sync sends only what changed.
-pub(crate) type ExpandedTracks = HashMap<Id, Expanded>;
+pub(crate) type ExpandedParts = HashMap<Id, Expanded>;
 
-/// Every nest track of `project`, and every row that holds a block of a
-/// track in pass mode, expanded, reusing what `old` has.
-pub(crate) fn expand(project: &Project, placed: &Placed, mut old: ExpandedTracks) -> ExpandedTracks {
+/// Every nest part of `project`, and every row that holds a block of a
+/// part in pass mode, expanded, reusing what `old` has.
+pub(crate) fn expand(project: &Project, placed: &Placed, mut old: ExpandedParts) -> ExpandedParts {
     let mut out = HashMap::new();
     if project.nests.is_empty() {
         return out;
     }
     let none = Vec::new();
-    let mut tracks: Vec<(&Arc<Track>, Vec<Source>)> = Vec::new();
-    // The clips of tracks in pass mode, by the row they play on.
+    let mut parts: Vec<(&Arc<Part>, Vec<Source>)> = Vec::new();
+    // The clips of parts in pass mode, by the row they play on.
     let mut hosted: HashMap<Id, Vec<Source>> = HashMap::new();
-    for t in project.tracks.iter().filter(|t| t.nest.is_some()) {
-        let nest = t.nest.expect("a nest track");
+    for t in project.parts.iter().filter(|t| t.nest.is_some()) {
+        let nest = t.nest.expect("a nest part");
         let pass = passes(t);
         let mut own = Vec::new();
         for i in placed.instances.get(&nest).unwrap_or(&none).iter().filter(|i| i.plays(t.id)) {
@@ -297,27 +297,27 @@ pub(crate) fn expand(project: &Project, placed: &Placed, mut old: ExpandedTracks
                 continue;
             }
             let list = hosted.entry(i.row).or_default();
-            match list.iter_mut().find(|s| Arc::ptr_eq(&s.track, t)) {
+            match list.iter_mut().find(|s| Arc::ptr_eq(&s.part, t)) {
                 Some(s) => s.places.get_or_insert_with(Vec::new).push(i.clone()),
-                None => list.push(Source { track: t.clone(), places: Some(vec![i.clone()]) }),
+                None => list.push(Source { part: t.clone(), places: Some(vec![i.clone()]) }),
             }
         }
-        tracks.push((t, vec![Source { track: t.clone(), places: Some(own) }]));
+        parts.push((t, vec![Source { part: t.clone(), places: Some(own) }]));
     }
-    for (t, list) in &mut tracks {
+    for (t, list) in &mut parts {
         list.extend(hosted.remove(&t.id).unwrap_or_default());
     }
-    // A song track plays otherwise than it is when it holds the clips of
-    // tracks in pass mode, or a frozen block.
-    for t in project.tracks.iter().filter(|t| t.nest.is_none()) {
+    // A song part plays otherwise than it is when it holds the clips of
+    // parts in pass mode, or a frozen block.
+    for t in project.parts.iter().filter(|t| t.nest.is_none()) {
         let more = hosted.remove(&t.id);
         if more.is_some() || t.clips.iter().any(|c| crate::freeze::block_file(c).is_some()) {
-            let mut list = vec![Source { track: t.clone(), places: None }];
+            let mut list = vec![Source { part: t.clone(), places: None }];
             list.extend(more.unwrap_or_default());
-            tracks.push((t, list));
+            parts.push((t, list));
         }
     }
-    for (t, sources) in tracks {
+    for (t, sources) in parts {
         let was = match old.remove(&t.id) {
             Some(w) if w.sources.len() == sources.len() && w.sources.iter().zip(&sources).all(|(a, b)| a.same(b)) => {
                 out.insert(t.id, w);
@@ -330,21 +330,21 @@ pub(crate) fn expand(project: &Project, placed: &Placed, mut old: ExpandedTracks
     out
 }
 
-/// One track as the engine plays it, from its sources (see [`Expanded`]).
-fn build(t: &Arc<Track>, sources: Vec<Source>, was: Option<&Expanded>) -> Expanded {
+/// One part as the engine plays it, from its sources (see [`Expanded`]).
+fn build(t: &Arc<Part>, sources: Vec<Source>, was: Option<&Expanded>) -> Expanded {
     let mut copies = HashMap::new();
     let mut list: Vec<Arc<Clip>> = Vec::new();
     for source in &sources {
         let Some(places) = &source.places else {
-            // A song track's own clips; a frozen block as its sound.
-            list.extend(source.track.clips.iter().map(|c| match crate::freeze::block_sound(c) {
+            // A song part's own clips; a frozen block as its sound.
+            list.extend(source.part.clips.iter().map(|c| match crate::freeze::block_sound(c) {
                 Some(sound) => Arc::new(sound),
                 None => c.clone(),
             }));
             continue;
         };
         for instance in places {
-            for clip in source.track.clips.iter() {
+            for clip in source.part.clips.iter() {
                 let id = copy_id(instance, clip.id);
                 let reused = was
                     .and_then(|w| w.copies.get(&id))
@@ -361,8 +361,8 @@ fn build(t: &Arc<Track>, sources: Vec<Source>, was: Option<&Expanded>) -> Expand
     list.sort_by(|a, b| a.start.total_cmp(&b.start).then(a.id.cmp(&b.id)));
     let mut clips = Clips::new();
     clips.extend(list);
-    // A nest track's lanes play where its clips do, at each place of its
-    // nest; a song track's are its own.
+    // A nest part's lanes play where its clips do, at each place of its
+    // nest; a song part's are its own.
     let lanes = match (&sources[0].places, t.nest) {
         (Some(own), Some(_)) => {
             let places: Vec<(Timing, f64, f64)> = own.iter().map(|i| (i.timing.clone(), i.from, i.to)).collect();
@@ -370,13 +370,13 @@ fn build(t: &Arc<Track>, sources: Vec<Source>, was: Option<&Expanded>) -> Expand
         }
         _ => t.lanes.clone(),
     };
-    let track = Arc::new(Track {
+    let part = Arc::new(Part {
         clips,
         cues: Clips::new(),
         lanes,
         ..(**t).clone()
     });
-    Expanded { sources, track, copies }
+    Expanded { sources, part, copies }
 }
 
 /// The id of the copy of clip `clip` that an instance plays: apart from
@@ -387,7 +387,7 @@ fn copy_id(instance: &Instance, clip: Id) -> Id {
     hash.finish() | (1 << 63)
 }
 
-/// A clip of a nest track placed in the song for one instance, cut at its
+/// A clip of a nest part placed in the song for one instance, cut at its
 /// window (see [`crate::model::nest::placed_clip`]). A block of a nest
 /// inside places its nest's clips itself; a frozen one is placed as its
 /// sound.

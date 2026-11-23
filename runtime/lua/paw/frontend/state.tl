@@ -23,7 +23,7 @@ function M.format_value(param: types.ParamInfo, value: number): string
   return paw.params.format(param, value)
 end
 local format_value = M.format_value
-local track_text = host.track_text
+local part_text = host.part_text
 local type BandEntry = M.BandEntry
 local type BandState = M.BandState
 local type Bands = M.Bands
@@ -43,7 +43,7 @@ local type Rect = host.Rect
 local type Send = M.Send
 local type State = M.State
 local type TakeRow = M.TakeRow
-local type TrackState = M.TrackState
+local type PartState = M.PartState
 
 local function device_state(id: integer): DeviceState
   local d = api.device_get(id)
@@ -85,7 +85,7 @@ local function device_state(id: integer): DeviceState
     preset = type(d.meta) == "table" and meta.preset or "",
     -- "running", "loading", "stopped", "offline" or "missing".
     status = d.status or "running",
-    -- Whether it can listen to a side-chain, and the track it listens to
+    -- Whether it can listen to a side-chain, and the part it listens to
     -- ("" for its own input); `sidechain_menu` lists the choices.
     keyed = (d.ports and d.ports.sidechain) or d.sidechain ~= nil,
     sidechain = paw.routes.sidechain_text(d) or "",
@@ -105,15 +105,15 @@ local function device_state(id: integer): DeviceState
 end
 
 --- What extensions add to the frontend's right-click menus: on a clip, on a
---- track's header, on an empty stretch of the timeline.
+--- part's header, on an empty stretch of the timeline.
 ---
 ---   table.insert(paw.frontend.menus.clip, { label = "Open as notation", command = "notation.open", only = "midi" })
----   table.insert(paw.frontend.menus.timeline, { label = "New drum track", run = function(track, beat) ... end })
+---   table.insert(paw.frontend.menus.timeline, { label = "New drum part", run = function(part, beat) ... end })
 ---
---- `command` is a command line and `run` a function given the clip or track
+--- `command` is a command line and `run` a function given the clip or part
 --- and the beat that was clicked; either runs with the cursor put there
 --- first. `only` keeps a clip's entry to "midi" or "audio" clips.
-M.menus = {clip = {}, track = {}, timeline = {}}
+M.menus = {clip = {}, part = {}, timeline = {}}
 
 local function menus(): {string: {MenuLabel}}
   local out: {string: {MenuLabel}} = {}
@@ -227,12 +227,12 @@ function M.completions(prompt: Prompt): Completions
   return list
 end
 
---- A track's sends as `{ name, level }`, the level in dB.
-function M.send_list(track: types.Track): {Send}
+--- A part's sends as `{ name, level }`, the level in dB.
+function M.send_list(part: types.Part): {Send}
   local out: {Send} = {}
-  for i, send in ipairs(track.sends or {}) do
-    local ok, to = pcall(api.track_get, send.target)
-    out[i] = {name = ok and (to as types.Track).name or "?", level = send.level}
+  for i, send in ipairs(part.sends or {}) do
+    local ok, to = pcall(api.part_get, send.target)
+    out[i] = {name = ok and (to as types.Part).name or "?", level = send.level}
   end
   return out
 end
@@ -295,18 +295,18 @@ local function modal(): Modal
     end
   end
   -- What an Ex line being typed would act on: the stretch of time, the
-  -- tracks, and the clips that match with how many matches each holds.
+  -- parts, and the clips that match with how many matches each holds.
   local shown = paw.ex and paw.ex.shown()
   if shown then
     out.ex = {
       from = shown.from,
       to = shown.to,
-      tracks = {},
+      parts = {},
       clips = {},
       current = shown.current and shown.current.clip and shown.current.clip.id,
     }
-    for id in pairs(shown.tracks or {}) do
-      out.ex.tracks[#out.ex.tracks + 1] = id
+    for id in pairs(shown.parts or {}) do
+      out.ex.parts[#out.ex.parts + 1] = id
     end
     for id, n in pairs(shown.clips or {}) do
       out.ex.clips[#out.ex.clips + 1] = {id = id, count = n, notes = shown.notes[id] ~= nil}
@@ -316,7 +316,7 @@ local function modal(): Modal
   if out.mixer and ui.focused == "mixer" then
     local row, id = ((require as function(string): MixerRows)("paw.mixer_rows")).current()
     if row then
-      out.mixer_row = {track = id, kind = row.kind, index = row.index or 0, field = row.field or ""}
+      out.mixer_row = {part = id, kind = row.kind, index = row.index or 0, field = row.field or ""}
     end
   end
   -- The status line when it was set up (`paw.statusline.setup`): the
@@ -350,7 +350,7 @@ local function modal(): Modal
   out.views = paw.canvas.openable()
   out.menus = menus()
   if ui.focused == "devices" then
-    -- The row the keyboard is on, as a device of the track and one of its
+    -- The row the keyboard is on, as a device of the part and one of its
     -- parameters (0 for the device's own line).
     local panel = host.devices()
     local rows = panel:rows()
@@ -569,13 +569,13 @@ function M.preview(id: integer): {number}
   return flat
 end
 
---- What a track is in VCA terms, for a strip: a VCA's members by name, a
+--- What a part is in VCA terms, for a strip: a VCA's members by name, a
 --- member's VCAs by name, joined by commas.
 function M.vca_words(id: integer): string
   local names: {string} = {}
   local list = paw.vca.is_vca(id) and paw.vca.members(id) or paw.vca.of(id)
   for i, other in ipairs(list) do
-    names[i] = track_text(other, "name")
+    names[i] = part_text(other, "name")
   end
   return table.concat(names, ", ")
 end
@@ -588,7 +588,7 @@ local record Kept
 end
 
 -- What the state's parts that only a turn with input, an edit or a redraw
--- can change were made for (`still_key`), by seat: the drawn tracks and
+-- can change were made for (`still_key`), by seat: the drawn parts and
 -- the modal state. While the song plays and nobody types, they are kept.
 local kept: {integer: Kept} = {}
 
@@ -607,7 +607,7 @@ local function still_key(): string
   )
 end
 
---- The data that paw sends to a graphical frontend: transport, tracks,
+--- The data that paw sends to a graphical frontend: transport, parts,
 --- clips, devices and the modal state, as plain data. `known` is a list of
 --- the data that the frontend has already.
 function M.state(known: integer): State
@@ -616,22 +616,22 @@ function M.state(known: integer): State
   local key = still_key()
   local seat = seats.current
   local same = key and kept[seat] and kept[seat].key == key and kept[seat]
-  -- The tracks that are drawn: those folded away into a group are left out.
+  -- The parts that are drawn: those folded away into a group are left out.
   local ids = same and same.ids
   if not ids then
     ids = paw.groups.rows()
-    ids[#ids + 1] = 0 -- the master track goes last
+    ids[#ids + 1] = 0 -- the master part goes last
   end
-  -- Both sides of every track's meter, one after the other.
+  -- Both sides of every part's meter, one after the other.
   local levels: {number} = {}
   for i, id in ipairs(ids) do
-    levels[2 * i - 1], levels[2 * i] = api.track_meter(id)
+    levels[2 * i - 1], levels[2 * i] = api.part_meter(id)
   end
-  -- What arrives at each track's audio input, armed or not: 0 without one.
+  -- What arrives at each part's audio input, armed or not: 0 without one.
   local inputs: {number} = {}
   local device_levels = paw.audio.levels()
   for i, id in ipairs(ids) do
-    inputs[i] = id ~= 0 and paw.audio.level({input = track_text(id, "input")}, device_levels) or 0
+    inputs[i] = id ~= 0 and paw.audio.level({input = part_text(id, "input")}, device_levels) or 0
   end
   local num, den = paw.tempo.signature_at(t.position)
   local out: State = {
@@ -732,67 +732,67 @@ function M.state(known: integer): State
       place = line.bar .. "." .. (line.index + 1),
     }
   end
-  out.selected = paw.cursor.track_id() or -1
+  out.selected = paw.cursor.part_id() or -1
   out.cursor = paw.cursor.beat
-  out.tracks, out.clips, out.devices = {}, {}, {}
+  out.parts, out.clips, out.devices = {}, {}, {}
   local chosen_set: {integer: boolean} = {}
   for _, id in ipairs(M.chosen_clips()) do
     chosen_set[id] = true
   end
   for i, id in ipairs(ids) do
-    local track = api.track_get(id)
-    -- What the track's sound goes through, in a few words.
+    local part = api.part_get(id)
+    -- What the part's sound goes through, in a few words.
     local chain: {string} = {}
-    for j, device in ipairs(track.devices or {}) do
+    for j, device in ipairs(part.devices or {}) do
       chain[j] = api.device_get(device).name
     end
-    local to: types.Track
-    if track.output then
-      local ok, got = pcall(api.track_get, track.output)
-      to = ok and got as types.Track or nil
+    local to: types.Part
+    if part.output then
+      local ok, got = pcall(api.part_get, part.output)
+      to = ok and got as types.Part or nil
     end
-    local row: TrackState = {
+    local row: PartState = {
       id = id,
-      name = track.name,
-      volume = track.volume,
-      pan = track.pan,
-      mute = track.mute,
-      solo = track.solo,
-      armed = track.armed,
-      master = track.master,
+      name = part.name,
+      volume = part.volume,
+      pan = part.pan,
+      mute = part.mute,
+      solo = part.solo,
+      armed = part.armed,
+      master = part.master,
       lanes = {},
-      input = track.input,
-      monitor = track.monitor,
-      -- What the track takes in, in words (`UR22mkII · 1/2`), or nil.
-      input_label = not track.master and paw.audio.label(track) or nil,
-      -- The colour everything of the track's is drawn in, as in the terminal.
-      color = paw.draw.track_colour(track, i),
+      input = part.input,
+      monitor = part.monitor,
+      -- What the part takes in, in words (`UR22mkII · 1/2`), or nil.
+      input_label = not part.master and paw.audio.label(part) or nil,
+      -- The colour everything of the part's is drawn in, as in the terminal.
+      color = paw.draw.part_colour(part, i),
       chain = table.concat(chain, " › "),
-      -- Its kind, in a few words ("Vocal track · Kitane"), or nil.
-      kind = id ~= 0 and paw.track_kinds.describe(id) or nil,
+      -- Its kind, in a few words ("Vocal part · Kitane"), or nil.
+      kind = id ~= 0 and paw.part_kinds.describe(id) or nil,
       output = to and to.name or nil,
       -- Its sends, for the mixer's strip: `{ name, level }` in dB each.
-      sends = M.send_list(track),
-      -- Groups: how many groups the track is inside, whether it is one,
-      -- whether it is folded, and how many tracks it holds.
+      sends = M.send_list(part),
+      -- Groups: how many groups the part is inside, whether it is one,
+      -- whether it is folded, and how many parts it holds.
       depth = id ~= 0 and paw.groups.depth(id) or 0,
       group = id ~= 0 and paw.groups.is_group(id) or false,
       folded = id ~= 0 and paw.groups.folded(id) or false,
       members = id ~= 0 and #paw.groups.members(id) or 0,
-      -- VCAs: whether it is one, and the names of the tracks under it, or
-      -- of the VCAs a track is under, in a few words.
+      -- VCAs: whether it is one, and the names of the parts under it, or
+      -- of the VCAs a part is under, in a few words.
       vca = id ~= 0 and paw.vca.is_vca(id) or false,
       vcas = id ~= 0 and M.vca_words(id) or "",
       -- How tall it is drawn, as a share of the zoom's height.
-      height = track.height or 1,
+      height = part.height or 1,
       -- "read", "touch", "latch", "write" or "off".
-      automation = track.automation or "read",
-      -- The lanes shown as rows of their own under the track, by id.
+      automation = part.automation or "read",
+      -- The lanes shown as rows of their own under the part, by id.
       lane_rows = {},
       -- How many take lanes it shows under its clips, above those rows.
       take_rows = id ~= 0 and paw.takes.lane_count(id) or 0,
     }
-    out.tracks[i] = row
+    out.parts[i] = row
     for j, lane in ipairs(id ~= 0 and paw.lanes.shown(id) or {}) do
       row.lane_rows[j] = lane.id
     end
@@ -832,7 +832,7 @@ function M.state(known: integer): State
         -- its picture does (fetch `M.take_preview` again then).
         take_rows = take_lanes and M.take_rows(clip) or nil,
         id = clip.id,
-        track = i - 1,
+        part = i - 1,
         start = clip.start,
         length = clip.length,
         name = (clip.offline and "offline · " or "") .. (mark and mark .. " · " or "") .. clip.name,
@@ -862,7 +862,7 @@ function M.state(known: integer): State
     end
   end
   if out.selected >= 0 then
-    for i, id in ipairs(api.track_get(out.selected).devices) do
+    for i, id in ipairs(api.part_get(out.selected).devices) do
       out.devices[i] = device_state(id)
     end
     out.routing = M.routing(out.selected)

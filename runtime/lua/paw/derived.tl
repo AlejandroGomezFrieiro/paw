@@ -3,7 +3,7 @@
 --
 -- A node kind (`M.node(spec)`) makes values from the project. Each value
 -- (an entry) records what it read while it was made: the sources (a
--- track's fields, a track's clips, the tempo, an option), and the other
+-- part's fields, a part's clips, the tempo, an option), and the other
 -- entries. An edit marks its sources dirty (the kernel's events say which),
 -- and the entries that read them, and those that read these, become stale:
 -- at the next read, or in the next slice of the job, not in the event
@@ -16,7 +16,7 @@
 --    value (an early cutoff on the key);
 --  - a value made again that is the `same` as before tells no one (an
 --    early cutoff on the value);
---  - an `eager` entry (a track, the track list) is made again before the
+--  - an `eager` entry (a part, the part list) is made again before the
 --    entries that read it learn of the change: they are marked stale only
 --    when its value changed, and with `touched` only over that time.
 --
@@ -47,7 +47,7 @@ local type types = require("paw.types")
 --- `:checkhealth derived` what to expect.
 ---  - memo: one call, short (about 1 ms at most), when it is read stale.
 ---  - sliced: one call that can stop between slices (`ctx:pause()`).
----  - family: one entry for each key of many (each track and window).
+---  - family: one entry for each key of many (each part and window).
 ---  - join: an entry that adds up a family's entries.
 local enum Kind
   "memo"
@@ -115,17 +115,17 @@ local record M
   record Ctx
     --- The value of another node's entry, made first if it is stale.
     get: function<K, V, I>(self: Ctx, node: Node<K, V, I>, key: K): V
-    --- Record a source by its name: `track:<id>:<field>`,
-    --- `track:<id>:clips`, `tracks`, `tempo`, `option:<name>`,
+    --- Record a source by its name: `part:<id>:<field>`,
+    --- `part:<id>:clips`, `parts`, `tempo`, `option:<name>`,
     --- `clip:<id>`, `device:<id>`, `project` (the project's own fields:
     --- its name, its `meta` and its tempo map).
     source: function(self: Ctx, name: string)
-    --- A track, and the fields of it that the entry reads.
-    track: function(self: Ctx, id: integer, fields: {string}): types.Track
-    --- The clips of a track (any change of one, or of their list).
-    clips: function(self: Ctx, track: integer): {types.Clip}
-    --- The tracks, in order.
-    tracks: function(self: Ctx): {integer}
+    --- A part, and the fields of it that the entry reads.
+    part: function(self: Ctx, id: integer, fields: {string}): types.Part
+    --- The clips of a part (any change of one, or of their list).
+    clips: function(self: Ctx, part: integer): {types.Clip}
+    --- The parts, in order.
+    parts: function(self: Ctx): {integer}
     --- The tempo map's stamp (`project_get("tempo_stamp")`).
     tempo: function(self: Ctx): integer
     --- An option that the entry reads (it reads the value from `paw.opt`).
@@ -169,7 +169,7 @@ local record M
     --- Make a stale entry again first, before the entries that read it
     --- know: they are marked stale only when its value changed (and with
     --- `touched`, only those over the time that changed). For a node that
-    --- is quick to make and that many entries read: a change of a track
+    --- is quick to make and that many entries read: a change of a part
     --- does not mark every window of the song.
     eager: boolean
     --- About how many bytes a value takes.
@@ -506,7 +506,7 @@ end
 --- Source `name` changed. The entries that read it become stale later: at
 --- the next read of a value, or in the next slice of the job. An event
 --- handler only notes the name, because one source can have thousands of
---- entries that read it (the track list: every window of the chord
+--- entries that read it (the part list: every window of the chord
 --- reading). While a pass is under way, the names wait for its end.
 local function mark(name: string)
   if by_source[name] then
@@ -831,24 +831,24 @@ function ctx:source(name: string)
   list[#list + 1] = name
 end
 
-function ctx:track(id: integer, fields: {string}): types.Track
+function ctx:part(id: integer, fields: {string}): types.Part
   for i_f = 1, #fields do
     local f = fields[i_f]
-    self:source("track:" .. id .. ":" .. f)
+    self:source("part:" .. id .. ":" .. f)
   end
-  local ok, t = pcall(api.track_get, id)
+  local ok, t = pcall(api.part_get, id)
   return ok and t or nil
 end
 
-function ctx:clips(track: integer): {types.Clip}
-  self:source("track:" .. track .. ":clips")
-  local ok, list = pcall(api.clip_list, track)
+function ctx:clips(part: integer): {types.Clip}
+  self:source("part:" .. part .. ":clips")
+  local ok, list = pcall(api.clip_list, part)
   return ok and list or {}
 end
 
-function ctx:tracks(): {integer}
-  self:source("tracks")
-  return api.track_list()
+function ctx:parts(): {integer}
+  self:source("parts")
+  return api.part_list()
 end
 
 local project_int = api.project_get as function(string): integer
@@ -1259,11 +1259,11 @@ function M.reset()
   end
 end
 
---- A window shows the song from `from` to `to` (beats), on `tracks`
+--- A window shows the song from `from` to `to` (beats), on `parts`
 --- (all when nil): what is there comes before the rest, here and in the
 --- bakes. A view tells it each time it draws; nil `from` forgets the window.
-function M.visible(window: string, from?: number, to?: number, tracks?: {integer})
-  ranges[window] = from and {from = from, to = to, tracks = tracks} or nil
+function M.visible(window: string, from?: number, to?: number, parts?: {integer})
+  ranges[window] = from and {from = from, to = to, parts = parts} or nil
 end
 
 --- A frame starts: the windows that tell their range while it is drawn
@@ -1273,7 +1273,7 @@ function M.frame_start()
 end
 
 local function range_text(r: types.ViewRange): string
-  return string.format("%.17g:%.17g:%s", r.from, r.to, r.tracks and table.concat(r.tracks, ",") or "*")
+  return string.format("%.17g:%.17g:%s", r.from, r.to, r.parts and table.concat(r.parts, ",") or "*")
 end
 
 --- A frame ends: the kernel gets what the windows show when it changed,
@@ -1316,8 +1316,8 @@ function M.health(h: contracts.Health)
   end
   -- What the bakes take as shown, as the kernel has it.
   for _, r in ipairs(api.view_ranges()) do
-    local tracks = r.tracks and (#r.tracks .. " tracks") or "all tracks"
-    h.info(string.format("a window shows beats %.0f to %.0f, %s: what is there comes first", r.from, r.to, tracks))
+    local parts = r.parts and (#r.parts .. " parts") or "all parts"
+    h.info(string.format("a window shows beats %.0f to %.0f, %s: what is there comes first", r.from, r.to, parts))
   end
   for _, s in ipairs(M.stats()) do
     local amount: string
@@ -1355,14 +1355,14 @@ M.changed = events.event("derived.changed") as events.Event<Changed>
 -- What the kernel says changed: the sources ----------------------------------------------
 
 -- The sources that an event of the kernel marks, by the name of the event.
-local function track_fields(p: kernel.Payload)
-  local e = p as kernel.TrackChange
+local function part_fields(p: kernel.Payload)
+  local e = p as kernel.PartChange
   for i_f = 1, #e.fields do
-    mark("track:" .. e.id .. ":" .. e.fields[i_f])
+    mark("part:" .. e.id .. ":" .. e.fields[i_f])
   end
 end
-local function track_list(_: kernel.Payload)
-  mark("tracks")
+local function part_list(_: kernel.Payload)
+  mark("parts")
 end
 local function clip(p: kernel.Payload)
   mark("clip:" .. (p as kernel.Item).id)
@@ -1379,10 +1379,10 @@ local function project(_: kernel.Payload)
   end
 end
 local marks: {string: function(kernel.Payload)} = {
-  [kernel.track_changed.name] = track_fields,
-  [kernel.track_added.name] = track_list,
-  [kernel.track_removed.name] = track_list,
-  [kernel.track_moved.name] = track_list,
+  [kernel.part_changed.name] = part_fields,
+  [kernel.part_added.name] = part_list,
+  [kernel.part_removed.name] = part_list,
+  [kernel.part_moved.name] = part_list,
   [kernel.clip_added.name] = clip,
   [kernel.clip_changed.name] = clip,
   [kernel.clip_removed.name] = clip,

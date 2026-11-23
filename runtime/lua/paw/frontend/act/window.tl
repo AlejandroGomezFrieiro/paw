@@ -24,9 +24,9 @@ local type Dropped = M.Dropped
 local type RenderRequest = M.RenderRequest
 
 --- An entry an extension added to a menu (`paw.frontend.menus`), by its
---- place in the list: `target` is the clip or the track that was clicked.
+--- place in the list: `target` is the clip or the part that was clicked.
 --- The timeline's entries are also offered by the buttons that make a
---- track, which have no place to give: no track, or a beat below 0, leaves
+--- part, which have no place to give: no part, or a beat below 0, leaves
 --- the cursor where it is.
 function A.menu(kind: string, index: integer, target?: integer, beat?: number)
   local entry = (M.menus[kind] or {})[index]
@@ -141,7 +141,7 @@ function A.leave(how: string, what: string)
 end
 
 --- A file chosen in the desktop's dialog, for what `kind` says: "import"
---- (a sound file on a new track, a MIDI file's tracks at the cursor) or
+--- (a sound file on a new part, a MIDI file's parts at the cursor) or
 --- "saveas" (the project's new file).
 function A.chosen(kind: string, path: string)
   if kind == "saveas" then
@@ -155,11 +155,11 @@ end
 --- Files dropped on the window: sound files, MIDI files and projects. A
 --- project (the first of them, when there are several) is not opened here,
 --- for the window asks about unsaved changes first: its path is returned as
---- `open`. A MIDI file's tracks come in below the cursor's at `beat`, or
---- the edit cursor. Sound files go on the track at `row` (a place in the list of
---- drawn tracks, from 1) at `beat`, snapped, one after another; with no
---- track there (below the last, or where the window cannot tell) each gets
---- a track of its own, at `beat` or the edit cursor. Anything else is said
+--- `open`. A MIDI file's parts come in below the cursor's at `beat`, or
+--- the edit cursor. Sound files go on the part at `row` (a place in the list of
+--- drawn parts, from 1) at `beat`, snapped, one after another; with no
+--- part there (below the last, or where the window cannot tell) each gets
+--- a part of its own, at `beat` or the edit cursor. Anything else is said
 --- to be refused. Returns `{ open, clips, refused }`.
 function A.drop(paths: {string}, row?: integer, beat?: number): Dropped
   local out: Dropped = {clips = {}, refused = 0}
@@ -183,7 +183,7 @@ function A.drop(paths: {string}, row?: integer, beat?: number): Dropped
     return out
   end
   local rows = paw.groups.rows()
-  local track = row and rows[row]
+  local part = row and rows[row]
   local start = beat and snap(beat)
   for _, path in ipairs(midis) do
     local ok, got = pcall(paw.midifile.import, path, {start = start})
@@ -193,7 +193,7 @@ function A.drop(paths: {string}, row?: integer, beat?: number): Dropped
         out.clips[#out.clips + 1] = (clip as objects.Clip).id
       end
       paw.notify(
-        string.format("dropped %s: %d notes on %d tracks", path:match("([^/]+)$") or path, done.notes, #done.tracks)
+        string.format("dropped %s: %d notes on %d parts", path:match("([^/]+)$") or path, done.notes, #done.parts)
       )
     else
       out.refused = out.refused + 1
@@ -201,16 +201,16 @@ function A.drop(paths: {string}, row?: integer, beat?: number): Dropped
     end
   end
   for _, path in ipairs(sounds) do
-    local ok, got = pcall(paw.import_audio, path, {track = track, start = start})
+    local ok, got = pcall(paw.import_audio, path, {part = part, start = start})
     if ok then
       local clip = got as objects.Clip
       out.clips[#out.clips + 1] = clip.id
-      if track then
+      if part then
         start = clip.start + clip.length
       end
       paw.notify(
         string.format(
-          "dropped %s: %.1f beats on track “%s”", path:match("([^/]+)$") or path, clip.length, clip:track().name
+          "dropped %s: %.1f beats on part “%s”", path:match("([^/]+)$") or path, clip.length, clip:part().name
         )
       )
     else
@@ -227,7 +227,7 @@ local lossy_formats: {string: string} = {flac = "flac", mp3 = "mp3", ogg = "ogg"
 --- `render_dialog`), `o.format` ("wav", "flac", "mp3", "ogg" or "opus"), `o.quality` (for those
 --- three: "low" to "best"), `o.bits`, `o.tail`
 --- seconds, `o.normalize` dB or nil, `o.dither`, `o.mono`, and `o.stems`
---- for a file per track in a directory named after the path. `o.tags`
+--- for a file per part in a directory named after the path. `o.tags`
 --- (`title`, `artist`, ... as `paw.render.tags` has them, an empty one
 --- taking it out) becomes the project's tags, which the files carry. It
 --- runs in the background: the state's `modal.render` says how far it is.
@@ -270,10 +270,10 @@ function A.render(o: RenderRequest)
     "%.[Oo][Gg][Gg]$", ""
   ):gsub("%.[Oo][Pp][Uu][Ss]$", "")
   if o.stems then
-    -- One file for each track, through the master, as `:export` writes them.
+    -- One file for each part, through the master, as `:export` writes them.
     local export = require("paw.export")
     local args: commands.Args = {stem .. " stems/"}
-    args.each, args["in"], args.format = "track", opts.range, format
+    args.each, args["in"], args.format = "part", opts.range, format
     args.tail, args.bits, args.dither, args.normalize = opts.tail, opts.bits, opts.dither, opts.normalize
     args.quality, args.channels = opts.quality, o.mono and "mono" or "stereo"
     local plan = export.plan_args(args)

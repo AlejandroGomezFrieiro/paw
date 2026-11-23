@@ -10,7 +10,7 @@
 //! seconds.
 //!
 //! [`Timing`] is the one place that converts. The sync places the clips,
-//! the lanes and the transport of a nest's tracks with it; the window
+//! the lanes and the transport of a nest's parts with it; the window
 //! inside a nest reads [`Nest::own_map`] for its ruler.
 
 use std::sync::Arc;
@@ -230,7 +230,7 @@ fn played_notes<'a>(clip: &'a Clip, notes: &'a Notes) -> Box<dyn Iterator<Item =
     )
 }
 
-/// A lane of a nest's track as the song plays it: for each place of the
+/// A lane of a nest's part as the song plays it: for each place of the
 /// nest, its timing and its window `from..to` in song beats, the lane's
 /// points inside the window at their song beats, with the value it plays
 /// at each edge. The shapes of the curve inside a place move with it. The

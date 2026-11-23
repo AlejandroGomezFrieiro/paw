@@ -34,12 +34,12 @@ test("edit.before and edit.after hear what a turn changed, once, as one undo ste
   turn()
   local before = hear("edit.before")
   local after = hear("edit.after")
-  local t = paw.add_track({ name = "Heard" })
+  local t = paw.add_part({ name = "Heard" })
   t.volume = -6
   turn()
   eq(#before, 1, "edit.before once")
   eq(
-    names(before[1].changes):find("track.added", 1, true) ~= nil,
+    names(before[1].changes):find("part.added", 1, true) ~= nil,
     true,
     "with what changed: " .. names(before[1].changes)
   )
@@ -50,7 +50,7 @@ test("edit.before and edit.after hear what a turn changed, once, as one undo ste
   paw.undo()
   turn()
   eq(#before, 1, "nor is undoing")
-  eq(paw.track("Heard"), nil, "the edit was one step")
+  eq(paw.part("Heard"), nil, "the edit was one step")
 end)
 
 -- What paw.groups, paw.scope and the kept windows of the screen keep their
@@ -61,7 +61,7 @@ test("paw.events.stamp changes with an edit at once and with each event, and not
   local stamp = paw.events.stamp
   local quiet = stamp()
   eq(stamp(), quiet, "no edit and no event")
-  paw.add_track({ name = "Stamped" })
+  paw.add_part({ name = "Stamped" })
   local edited = stamp()
   eq(edited ~= quiet, true, "an edit, before its event at the end of the turn")
   paw.events.emit("test.stamp")
@@ -70,24 +70,24 @@ end)
 
 test("edit.before refuses an edit, and the project is as the turn found it", function()
   T.fresh()
-  local keep = paw.add_track({ name = "Keep" })
+  local keep = paw.add_part({ name = "Keep" })
   turn()
   local state = api.undo_current()
   hear("edit.before", function(e)
     for _, c in ipairs(e.changes) do
-      if c.name == "track.removed" then return false, "tracks stay" end
+      if c.name == "part.removed" then return false, "parts stay" end
     end
   end)
   local after = hear("edit.after")
   keep:remove()
   turn()
-  eq(paw.track("Keep") ~= nil, true, "the track is back")
+  eq(paw.part("Keep") ~= nil, true, "the part is back")
   eq(api.undo_current(), state, "and no undo step was made")
   eq(#after, 0, "edit.after did not hear of it")
-  eq(paw.ui.messages[#paw.ui.messages].text, "not done: tracks stay", "the reason is shown")
-  paw.track("Keep").name = "Renamed"
+  eq(paw.ui.messages[#paw.ui.messages].text, "not done: parts stay", "the reason is shown")
+  paw.part("Keep").name = "Renamed"
   turn()
-  eq(paw.track("Renamed") ~= nil, true, "other edits go on")
+  eq(paw.part("Renamed") ~= nil, true, "other edits go on")
 end)
 
 test("an edit.before handler's own edits join the step", function()
@@ -95,17 +95,17 @@ test("an edit.before handler's own edits join the step", function()
   turn()
   hear("edit.before", function(e)
     for _, c in ipairs(e.changes) do
-      if c.name == "track.added" then
-        local t = paw.track(c.payload.id)
+      if c.name == "part.added" then
+        local t = paw.part(c.payload.id)
         if t and t.name == "raw" then t.name = "cooked" end
       end
     end
   end)
-  paw.add_track({ name = "raw" })
+  paw.add_part({ name = "raw" })
   turn()
-  eq(paw.track("cooked") ~= nil, true, "the handler's answer")
+  eq(paw.part("cooked") ~= nil, true, "the handler's answer")
   paw.undo()
-  eq(#paw.tracks(), 0, "one undo takes both away")
+  eq(#paw.parts(), 0, "one undo takes both away")
 end)
 
 test("undo and redo are heard of, with the states and the step's label", function()
@@ -113,7 +113,7 @@ test("undo and redo are heard of, with the states and the step's label", functio
   turn()
   local undos, redos = hear("undo"), hear("redo")
   api.undo_label("my step")
-  paw.add_track({ name = "U" })
+  paw.add_part({ name = "U" })
   turn()
   local made = api.undo_current()
   paw.undo()
@@ -151,10 +151,10 @@ end)
 
 test("key.pre sees each key first and may take it from the keymap", function()
   T.fresh()
-  paw.add_track({ name = "A" })
-  paw.add_track({ name = "B" })
+  paw.add_part({ name = "A" })
+  paw.add_part({ name = "B" })
   paw.flush()
-  paw.cursor.set_track(paw.track("A"))
+  paw.cursor.set_part(paw.part("A"))
   local seen = hear("key.pre", function(e)
     if e.key == "j" then return false end
   end)
@@ -168,14 +168,14 @@ end)
 test("selection.changed hears visual mode, its moves and its end", function()
   T.fresh()
   paw.keymap.feed("<Esc><Esc>")
-  paw.add_track({ name = "A" })
-  paw.add_track({ name = "B" })
+  paw.add_part({ name = "A" })
+  paw.add_part({ name = "B" })
   paw.flush()
-  paw.cursor.set_track(paw.track("A"))
+  paw.cursor.set_part(paw.part("A"))
   turn()
   local heard = hear("selection.changed")
   -- The piano roll's clip gone from under it is no selection, and no error.
-  local gone = paw.track("A"):add_clip({ start = 0, length = 4 })
+  local gone = paw.part("A"):add_clip({ start = 0, length = 4 })
   paw.roll_clips.open({ gone.id }, gone.id)
   gone:remove()
   paw.ui.focus("arrange")

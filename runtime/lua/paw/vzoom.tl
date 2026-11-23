@@ -4,19 +4,19 @@
 -- the options say.
 --
 --   paw.vzoom.step(1)                 -- taller: the focused view's rows
---   paw.vzoom.step(-1, { count = 2 }) -- in the arrange view: two tracks only
+--   paw.vzoom.step(-1, { count = 2 }) -- in the arrange view: two parts only
 --   paw.vzoom.fit()                   -- as the options say
 --   paw.vzoom.key_rows()              -- the piano roll's rows per key
 --
--- What changes by view: the arrange view, the rows of every track (on a
--- selection or with a count, of those tracks only), or of the automation
+-- What changes by view: the arrange view, the rows of every part (on a
+-- selection or with a count, of those parts only), or of the automation
 -- lanes when the cursor is on one; the piano roll, the rows of each key
 -- (1 to 3). An extension's view adds its own with `paw.vzoom.define`.
 --
 -- The zoom is view state, as the folds are (paw/folds.tl): each window
 -- keeps its own (`win.vzoom`), a split starts with that of the window it
 -- comes from, a change is never an undo step, and the project's screen
--- (`screen.json`) keeps it. `paw.opt.track_height` stays the height of a
+-- (`screen.json`) keeps it. `paw.opt.part_height` stays the height of a
 -- window that was not zoomed.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
@@ -48,7 +48,7 @@ local record Cursor
   lane_id: function(): integer
 end
 local record Opt
-  track_height: integer | string
+  part_height: integer | string
 end
 local record Paw is partial.Paw
   keymap: KeymapModule
@@ -61,7 +61,7 @@ end
 local paw = (_G as {string: Paw}).paw
 
 --- How a step is asked for: the `count` typed before the key (in the
---- arrange view, the tracks from the cursor that change) and the `view`
+--- arrange view, the parts from the cursor that change) and the `view`
 --- (by default the focused one).
 local record StepOptions
   count: integer
@@ -79,12 +79,12 @@ end
 local record M
   type Zoomer = Zoomer
   type StepOptions = StepOptions
-  --- The most rows of a track, of a lane and of a key.
-  max_track: integer
+  --- The most rows of a part, of a lane and of a key.
+  max_part: integer
   max_lane: integer
   max_key: integer
 end
-M.max_track, M.max_lane, M.max_key = 12, 8, 3
+M.max_part, M.max_lane, M.max_key = 12, 8, 3
 
 local zoomers: {string: Zoomer} = {}
 
@@ -123,23 +123,23 @@ local function own(view: string): VZoom
   return w.vzoom
 end
 
---- Rows per track in the arrange view's window, or nil for the option's.
-function M.track_rows(): integer
-  return of("arrange").track_rows
+--- Rows per part in the arrange view's window, or nil for the option's.
+function M.part_rows(): integer
+  return of("arrange").part_rows
 end
 
---- The rows of a track of its own in the arrange view's window, or nil.
+--- The rows of a part of its own in the arrange view's window, or nil.
 function M.rows_of(id: integer): integer
-  for _, t in ipairs(of("arrange").tracks or {}) do
-    if t.track == id then
+  for _, t in ipairs(of("arrange").parts or {}) do
+    if t.part == id then
       return t.rows
     end
   end
 end
 
---- Whether some tracks of the arrange view's window have rows of their own.
+--- Whether some parts of the arrange view's window have rows of their own.
 function M.any_own(): boolean
-  local list = of("arrange").tracks
+  local list = of("arrange").parts
   return list ~= nil and #list > 0
 end
 
@@ -194,9 +194,9 @@ end
 
 -- The arrange view -------------------------------------------------------------------------
 
---- The tracks a step in the arrange view changes on their own: those of
+--- The parts a step in the arrange view changes on their own: those of
 --- the selection (it ends), or `count` from the cursor's; nil for all.
-local function chosen_tracks(opts: StepOptions): {integer}
+local function chosen_parts(opts: StepOptions): {integer}
   local rows = paw.groups.rows()
   local first, last: integer, integer
   if paw.keymap.mode == "x" then
@@ -219,10 +219,10 @@ local function chosen_tracks(opts: StepOptions): {integer}
   return out
 end
 
---- Rows per track now in the arrange view: the window's, the option's,
+--- Rows per part now in the arrange view: the window's, the option's,
 --- else what "auto" gave the last time it was drawn.
-local function track_rows_now(): integer
-  local now = M.track_rows() or math.tointeger(paw.opt.track_height)
+local function part_rows_now(): integer
+  local now = M.part_rows() or math.tointeger(paw.opt.part_height)
   if not now then
     local g = (paw.ui.views:get("arrange") as contracts.ArrangeView).geometry
     now = g and g.th or 3
@@ -231,14 +231,14 @@ local function track_rows_now(): integer
 end
 
 local function set_own(z: VZoom, id: integer, rows: integer)
-  z.tracks = z.tracks or {}
-  for _, t in ipairs(z.tracks) do
-    if t.track == id then
+  z.parts = z.parts or {}
+  for _, t in ipairs(z.parts) do
+    if t.part == id then
       t.rows = rows
       return
     end
   end
-  z.tracks[#z.tracks + 1] = {track = id, rows = rows}
+  z.parts[#z.parts + 1] = {part = id, rows = rows}
 end
 
 local function drop_own(z: VZoom, ids: {integer})
@@ -246,17 +246,17 @@ local function drop_own(z: VZoom, ids: {integer})
   for _, id in ipairs(ids) do
     gone[id] = true
   end
-  local kept: {contracts.TrackRows} = {}
-  for _, t in ipairs(z.tracks or {}) do
-    if not gone[t.track] then
+  local kept: {contracts.PartRows} = {}
+  for _, t in ipairs(z.parts or {}) do
+    if not gone[t.part] then
       kept[#kept + 1] = t
     end
   end
-  z.tracks = #kept > 0 and kept or nil
+  z.parts = #kept > 0 and kept or nil
 end
 
-local function tracks_word(n: integer): string
-  return n == 1 and "1 track" or (n .. " tracks")
+local function parts_word(n: integer): string
+  return n == 1 and "1 part" or (n .. " parts")
 end
 
 M.define(
@@ -264,41 +264,41 @@ M.define(
   {
     step = function(by: integer, opts: StepOptions): string
       local z = own("arrange")
-      local ids = chosen_tracks(opts)
+      local ids = chosen_parts(opts)
       if not ids and paw.cursor.lane_id() then
         z.lane_rows = clamp((z.lane_rows or 2) + by, 2, M.max_lane)
         return "lane height " .. z.lane_rows
       end
-      local base = track_rows_now()
+      local base = part_rows_now()
       if ids then
         local rows = base
         for _, id in ipairs(ids) do
-          rows = clamp((M.rows_of(id) or base) + by, 1, M.max_track)
+          rows = clamp((M.rows_of(id) or base) + by, 1, M.max_part)
           set_own(z, id, rows)
         end
-        return string.format("track height %d: %s", rows, tracks_word(#ids))
+        return string.format("part height %d: %s", rows, parts_word(#ids))
       end
-      z.track_rows = clamp(base + by, 1, M.max_track)
-      -- Tracks of their own height grow and shrink with the others.
-      for _, t in ipairs(z.tracks or {}) do
-        t.rows = clamp(t.rows + by, 1, M.max_track)
+      z.part_rows = clamp(base + by, 1, M.max_part)
+      -- Parts of their own height grow and shrink with the others.
+      for _, t in ipairs(z.parts or {}) do
+        t.rows = clamp(t.rows + by, 1, M.max_part)
       end
-      return "track height " .. z.track_rows
+      return "part height " .. z.part_rows
     end,
     fit = function(opts: StepOptions): string
       local z = own("arrange")
-      local ids = chosen_tracks(opts)
+      local ids = chosen_parts(opts)
       if ids then
         drop_own(z, ids)
-        return "track height as the others: " .. tracks_word(#ids)
+        return "part height as the others: " .. parts_word(#ids)
       end
       if paw.cursor.lane_id() and z.lane_rows then
         z.lane_rows = nil
         return "lane height 2"
       end
-      z.track_rows, z.tracks, z.lane_rows = nil, nil, nil
-      local auto = math.tointeger(paw.opt.track_height)
-      return auto and ("track height " .. auto) or "track height fits the tracks to the window"
+      z.part_rows, z.parts, z.lane_rows = nil, nil, nil
+      local auto = math.tointeger(paw.opt.part_height)
+      return auto and ("part height " .. auto) or "part height fits the parts to the window"
     end,
   }
 )
@@ -340,7 +340,7 @@ commands.define(
   end,
   {
     label = "Vertical zoom",
-    desc = "Taller or shorter rows in the focused view (tracks, lanes, piano roll keys), or back to the options' height: `vzoom 1`, `vzoom -1`, `vzoom fit`",
+    desc = "Taller or shorter rows in the focused view (parts, lanes, piano roll keys), or back to the options' height: `vzoom 1`, `vzoom -1`, `vzoom fit`",
   }
 )
 

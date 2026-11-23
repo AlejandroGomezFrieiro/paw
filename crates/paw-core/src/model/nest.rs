@@ -1,22 +1,22 @@
-//! Nests (subprojects, as the user calls them): tracks with a timeline of
+//! Nests (subprojects, as the user calls them): parts with a timeline of
 //! their own, placed in the song by nest clips.
 //!
-//! A nest's tracks live in the project's one track list, tagged with the
-//! nest ([`Track::nest`]): every function that works on tracks works on
+//! A nest's parts live in the project's one part list, tagged with the
+//! nest ([`Part::nest`]): every function that works on parts works on
 //! them, and their order in the list is their order in the nest. A
-//! [`Nest`] keeps what the tracks do not: its name, its length, its tempo
-//! and meter, and which of its tracks is its master. A nest clip
-//! ([`ClipContent::Nest`]) places a nest on a track of the song or of
+//! [`Nest`] keeps what the parts do not: its name, its length, its tempo
+//! and meter, and which of its parts is its master. A nest clip
+//! ([`ClipContent::Nest`]) places a nest on a part of the song or of
 //! another nest.
 //!
 //! The rules ([`check`], part of [`Project::validate`]):
 //!
 //! - the nest graph (a nest holds the nests of its clips) has no cycle and
 //!   is at most [`MAX_DEPTH`] deep;
-//! - a nest clip that plays one track names a track of its nest;
+//! - a nest clip that plays one part names a part of its nest;
 //! - the boundary is closed: the output, the sends, the side-chains and
-//!   the output pairs of a nest's track stay inside its nest, and no song
-//!   track routes into a nest. The nest's master plays into the song only
+//!   the output pairs of a nest's part stay inside its nest, and no song
+//!   part routes into a nest. The nest's master plays into the song only
 //!   through the nest's clips: it has no output and no sends.
 //!
 //! Everything about nests in the model is in this module, so that it can
@@ -32,7 +32,7 @@ use paw_types::TempoMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{Map, Value};
 
-use super::{Clip, ClipContent, Control, Id, Lane, MASTER_ID, Note, Notes, Project, SigChange, TempoChange, Track};
+use super::{Clip, ClipContent, Control, Id, Lane, MASTER_ID, Note, Notes, Project, SigChange, TempoChange, Part};
 
 mod adopt;
 mod standalone;
@@ -44,7 +44,7 @@ pub(crate) use time::{Timing, timed_lane};
 pub(crate) const MAX_DEPTH: usize = 8;
 
 /// A nest's own id, never reused in the project. Nests take their ids from
-/// the same counter as tracks and clips.
+/// the same counter as parts and clips.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct NestId(pub u64);
@@ -55,7 +55,7 @@ impl fmt::Display for NestId {
     }
 }
 
-/// A set of tracks with a timeline of its own.
+/// A set of parts with a timeline of its own.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub(crate) struct Nest {
     pub id: NestId,
@@ -66,7 +66,7 @@ pub(crate) struct Nest {
     pub tempo: NestTempo,
     #[serde(default)]
     pub meter: NestMeter,
-    /// The track of the nest's mix: its devices and fader. A usual track
+    /// The part of the nest's mix: its devices and fader. A usual part
     /// of the project's list, tagged with the nest.
     pub master: Id,
     /// An extension's kind of nest (`drums.pattern`); `None` for a plain
@@ -78,7 +78,7 @@ pub(crate) struct Nest {
     #[serde(default, skip_serializing_if = "Map::is_empty")]
     pub meta: Map<String, Value>,
     /// A nest folder outside the project that the nest is read from, as
-    /// [`Track::source`] is for a track.
+    /// [`Part::source`] is for a part.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<PathBuf>,
     /// The nest folder outside the project that the nest was copied from.
@@ -121,22 +121,22 @@ pub(crate) enum NestMeter {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum NestPlay {
-    /// The events of one track of the nest, through the devices of the
-    /// track the clip is on.
-    Track(Id),
+    /// The events of one part of the nest, through the devices of the
+    /// part the clip is on.
+    Part(Id),
     /// The nest's mix: what its master plays.
     Master,
 }
 
-/// How audio goes from one track to another, for the messages of the
+/// How audio goes from one part to another, for the messages of the
 /// closed boundary.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Route {
     Output,
     Send,
-    /// A device on the second track listens to the first.
+    /// A device on the second part listens to the first.
     SideChain,
-    /// An output pair of a device on the first track plays into the second.
+    /// An output pair of a device on the first part plays into the second.
     Pair,
 }
 
@@ -197,7 +197,7 @@ pub(crate) fn placed_clip(clip: &Clip, zero: f64, from: f64, to: f64, id: Id) ->
     Some(copy)
 }
 
-/// A lane of a nest's track as the song plays it: for each place of the
+/// A lane of a nest's part as the song plays it: for each place of the
 /// nest, `(zero, from, to)` in song beats, the lane's points from `from` to
 /// `to` moved by `zero`, with the value it plays at each edge. The shapes
 /// of the curve inside a place move with it. The lane as it is when the
@@ -262,30 +262,30 @@ impl Project {
         self.nests.get_mut(&id).map(Arc::make_mut)
     }
 
-    /// The tracks of a nest, its master included, in their order.
-    pub(crate) fn nest_tracks(&self, id: NestId) -> impl Iterator<Item = &Arc<Track>> {
-        self.tracks.iter().filter(move |t| t.nest == Some(id))
+    /// The parts of a nest, its master included, in their order.
+    pub(crate) fn nest_parts(&self, id: NestId) -> impl Iterator<Item = &Arc<Part>> {
+        self.parts.iter().filter(move |t| t.nest == Some(id))
     }
 
-    /// The song's own tracks (no nest's), in their order, without the
+    /// The song's own parts (no nest's), in their order, without the
     /// master.
-    pub(crate) fn song_tracks(&self) -> impl Iterator<Item = &Arc<Track>> {
-        self.tracks.iter().filter(|t| t.nest.is_none())
+    pub(crate) fn song_parts(&self) -> impl Iterator<Item = &Arc<Part>> {
+        self.parts.iter().filter(|t| t.nest.is_none())
     }
 
-    /// How a message names where a track is: "the song" or "the subproject
+    /// How a message names where a part is: "the song" or "the subproject
     /// Bridge".
-    fn place_of(&self, track: &Track) -> String {
-        match track.nest.and_then(|n| self.nests.get(&n)) {
+    fn place_of(&self, part: &Part) -> String {
+        match part.nest.and_then(|n| self.nests.get(&n)) {
             Some(nest) => format!("the subproject {}", nest.name),
             None => "the song".into(),
         }
     }
 
-    /// Whether audio may go from track `from` to track `to` by `route`
+    /// Whether audio may go from part `from` to part `to` by `route`
     /// across the boundary of a nest: an error that says why not.
     pub(crate) fn check_route(&self, from: Id, to: Id, route: Route) -> Result<()> {
-        let (Some(a), Some(b)) = (self.track(from), self.track(to)) else {
+        let (Some(a), Some(b)) = (self.part(from), self.part(to)) else {
             return Ok(());
         };
         if let Some(nest) = a.nest.and_then(|n| self.nests.get(&n))
@@ -293,14 +293,14 @@ impl Project {
             && matches!(route, Route::Output | Route::Send)
         {
             bail!(
-                "track {from} ({}) is the master of the subproject {}: it plays into the song through the subproject's clips, and has no output or sends",
+                "part {from} ({}) is the master of the subproject {}: it plays into the song through the subproject's clips, and has no output or sends",
                 a.name,
                 nest.name
             );
         }
         if a.nest != b.nest {
             bail!(
-                "track {from} ({}) of {} cannot {} track {to} ({}) of {}: the tracks of a subproject route only to each other",
+                "part {from} ({}) of {} cannot {} part {to} ({}) of {}: the parts of a subproject route only to each other",
                 a.name,
                 self.place_of(a),
                 route.verb(),
@@ -311,23 +311,23 @@ impl Project {
         Ok(())
     }
 
-    /// The tracks of a place: the song's (`None`) or a nest's, without the
+    /// The parts of a place: the song's (`None`) or a nest's, without the
     /// nest's master, in their order.
-    pub(crate) fn place_tracks(&self, place: Option<NestId>) -> impl Iterator<Item = &Arc<Track>> {
+    pub(crate) fn place_parts(&self, place: Option<NestId>) -> impl Iterator<Item = &Arc<Part>> {
         let master = place.and_then(|n| self.nests.get(&n)).map(|n| n.master);
-        self.tracks
+        self.parts
             .iter()
             .filter(move |t| t.nest == place && Some(t.id) != master)
     }
 
-    /// Where in the track list the track at `index` (from 0) among the
-    /// tracks of a place goes: before the one there now, else after the
-    /// place's last track, else at the end.
+    /// Where in the part list the part at `index` (from 0) among the
+    /// parts of a place goes: before the one there now, else after the
+    /// place's last part, else at the end.
     pub(crate) fn place_position(&self, place: Option<NestId>, index: usize) -> usize {
         let master = place.and_then(|n| self.nests.get(&n)).map(|n| n.master);
         let mut last = None;
         let mut count = 0;
-        for (at, t) in self.tracks.iter().enumerate() {
+        for (at, t) in self.parts.iter().enumerate() {
             if t.nest != place || Some(t.id) == master {
                 continue;
             }
@@ -337,10 +337,10 @@ impl Project {
             count += 1;
             last = Some(at);
         }
-        last.map_or(self.tracks.len(), |at| at + 1)
+        last.map_or(self.parts.len(), |at| at + 1)
     }
 
-    /// Whether nest `nest` may be placed by a clip on a track of `host`
+    /// Whether nest `nest` may be placed by a clip on a part of `host`
     /// (the song when `None`): an error with the path when it would hold
     /// itself, or be more than [`MAX_DEPTH`] deep.
     pub(crate) fn check_place(&self, nest: NestId, host: Option<NestId>) -> Result<()> {
@@ -379,11 +379,11 @@ impl Project {
             return;
         }
         let is_own = |c: &Clip| matches!(&c.content, ClipContent::Nest { nest, .. } if own.contains(nest));
-        for track in self.tracks.iter_mut().filter(|t| t.nest.is_none()) {
-            if !track.clips.iter().any(|c| is_own(c)) {
+        for part in self.parts.iter_mut().filter(|t| t.nest.is_none()) {
+            if !part.clips.iter().any(|c| is_own(c)) {
                 continue;
             }
-            for clip in Arc::make_mut(track).clips.iter_mut().filter(|c| is_own(c)) {
+            for clip in Arc::make_mut(part).clips.iter_mut().filter(|c| is_own(c)) {
                 let seconds = old.seconds_between(clip.start, clip.start + clip.length);
                 let length = new.beat(new.seconds(clip.start) + seconds) - clip.start;
                 if (length - clip.length).abs() > 1e-12 {
@@ -401,12 +401,12 @@ impl Project {
             return;
         };
         let song = self.map.clone();
-        for track in self.tracks.iter_mut().filter(|t| t.nest.is_none()) {
+        for part in self.parts.iter_mut().filter(|t| t.nest.is_none()) {
             let ours = |c: &Clip| matches!(&c.content, ClipContent::Nest { nest, .. } if *nest == id);
-            if !track.clips.iter().any(|c| ours(c)) {
+            if !part.clips.iter().any(|c| ours(c)) {
                 continue;
             }
-            for clip in Arc::make_mut(track).clips.iter_mut().filter(|c| ours(c)) {
+            for clip in Arc::make_mut(part).clips.iter_mut().filter(|c| ours(c)) {
                 let ClipContent::Nest { offset, .. } = clip.content else {
                     continue;
                 };
@@ -439,7 +439,7 @@ impl Project {
     /// nest.
     fn nests_held(&self) -> HashMap<Option<NestId>, BTreeSet<NestId>> {
         let mut held: HashMap<Option<NestId>, BTreeSet<NestId>> = HashMap::new();
-        for t in self.all_tracks() {
+        for t in self.all_parts() {
             for c in t.clips.iter().chain(&t.cues) {
                 if let ClipContent::Nest { nest, .. } = &c.content {
                     held.entry(t.nest).or_default().insert(*nest);
@@ -455,7 +455,7 @@ pub(super) fn check(p: &Project) -> Result<()> {
     for (id, nest) in &p.nests {
         check_nest(p, *id, nest)?;
     }
-    check_tracks_and_clips(p)?;
+    check_parts_and_clips(p)?;
     check_graph(p)?;
     check_boundary(p)
 }
@@ -494,24 +494,24 @@ pub(crate) fn check_nest(p: &Project, id: NestId, nest: &Nest) -> Result<()> {
             bail!("{name} has its own meter: it needs meters of 1 to 64 over 1 to 64, the first at beat 0");
         }
     }
-    let master = p.track(nest.master);
+    let master = p.part(nest.master);
     if nest.master == MASTER_ID || master.is_none_or(|t| t.nest != Some(id)) {
-        bail!("{name} has no master track of its own (track {})", nest.master);
+        bail!("{name} has no master part of its own (part {})", nest.master);
     }
     Ok(())
 }
 
-/// Each tagged track names a nest, and each nest clip a nest and, when it
-/// plays one track, a track of that nest.
-fn check_tracks_and_clips(p: &Project) -> Result<()> {
+/// Each tagged part names a nest, and each nest clip a nest and, when it
+/// plays one part, a part of that nest.
+fn check_parts_and_clips(p: &Project) -> Result<()> {
     if p.master.nest.is_some() {
-        bail!("the song's master track belongs to the song");
+        bail!("the song's master part belongs to the song");
     }
-    for t in p.all_tracks() {
+    for t in p.all_parts() {
         if let Some(n) = t.nest
             && !p.nests.contains_key(&n)
         {
-            bail!("track {} ({}) belongs to subproject {n}, which is not there", t.id, t.name);
+            bail!("part {} ({}) belongs to subproject {n}, which is not there", t.id, t.name);
         }
         for c in t.clips.iter().chain(&t.cues) {
             let ClipContent::Nest { nest, play, .. } = &c.content else {
@@ -520,11 +520,11 @@ fn check_tracks_and_clips(p: &Project) -> Result<()> {
             let Some(held) = p.nests.get(nest) else {
                 bail!("clip {} places subproject {nest}, which is not there", c.id);
             };
-            if let NestPlay::Track(track) = play
-                && p.track(*track).is_none_or(|x| x.nest != Some(*nest))
+            if let NestPlay::Part(part) = play
+                && p.part(*part).is_none_or(|x| x.nest != Some(*nest))
             {
                 bail!(
-                    "clip {} plays track {track} of the subproject {}, which has no such track",
+                    "clip {} plays part {part} of the subproject {}, which has no such part",
                     c.id,
                     held.name
                 );
@@ -583,13 +583,13 @@ fn check_graph(p: &Project) -> Result<()> {
     Ok(())
 }
 
-/// The closed boundary: what each track routes to, and what its devices
+/// The closed boundary: what each part routes to, and what its devices
 /// listen to, is in its own nest.
 fn check_boundary(p: &Project) -> Result<()> {
     if p.nests.is_empty() {
         return Ok(());
     }
-    for t in p.all_tracks() {
+    for t in p.all_parts() {
         if let Some(to) = t.output {
             p.check_route(t.id, to, Route::Output)?;
         }
@@ -623,21 +623,21 @@ pub(crate) mod tests {
         Arc::new(serde_json::from_value(clip).expect("a nest clip"))
     }
 
-    /// Add nest `id` named `name` to `p`, with its master (track `id + 1`)
-    /// and one more track (`id + 2`, `Keys`) that holds `clips`.
+    /// Add nest `id` named `name` to `p`, with its master (part `id + 1`)
+    /// and one more part (`id + 2`, `Keys`) that holds `clips`.
     pub(crate) fn add_nest(p: &mut Project, id: u64, name: &str, clips: Vec<Arc<Clip>>) {
         let nest = NestId(id);
-        let mut master = Track::new(id + 1);
+        let mut master = Part::new(id + 1);
         master.name = "Master".into();
         master.nest = Some(nest);
-        let mut keys = Track::new(id + 2);
+        let mut keys = Part::new(id + 2);
         keys.name = "Keys".into();
         keys.nest = Some(nest);
         for clip in clips {
             keys.clips.push(clip);
         }
-        p.tracks.push(Arc::new(keys));
-        p.tracks.push(Arc::new(master));
+        p.parts.push(Arc::new(keys));
+        p.parts.push(Arc::new(master));
         p.nests.insert(
             nest,
             Arc::new(Nest {
@@ -655,13 +655,13 @@ pub(crate) mod tests {
         );
     }
 
-    /// A song with one track (id 1) that places nest `first` with its mix.
+    /// A song with one part (id 1) that places nest `first` with its mix.
     pub(crate) fn song(first: u64) -> Project {
         let mut p = Project::default();
-        let mut row = Track::new(1);
+        let mut row = Part::new(1);
         row.name = "Ballad".into();
         row.clips.push(nest_clip(2, first, 0.0, json!("master")));
-        p.tracks.push(Arc::new(row));
+        p.parts.push(Arc::new(row));
         p
     }
 
@@ -695,31 +695,31 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn a_nest_track_that_sends_to_a_song_bus_is_refused() {
+    fn a_nest_part_that_sends_to_a_song_bus_is_refused() {
         let mut p = song(10);
-        let mut reverb = Track::new(3);
+        let mut reverb = Part::new(3);
         reverb.name = "Reverb".into();
-        p.tracks.push(Arc::new(reverb));
+        p.parts.push(Arc::new(reverb));
         add_nest(&mut p, 10, "Bridge", Vec::new());
         p.validate().expect("the nest stays inside");
-        let keys = p.track_mut(12).expect("Keys");
+        let keys = p.part_mut(12).expect("Keys");
         keys.sends.push(Send { target: 3, level: 0.0, pre: false });
         assert_eq!(
             refused(&p),
-            "track 12 (Keys) of the subproject Bridge cannot send to track 3 (Reverb) of the song: \
-             the tracks of a subproject route only to each other"
+            "part 12 (Keys) of the subproject Bridge cannot send to part 3 (Reverb) of the song: \
+             the parts of a subproject route only to each other"
         );
     }
 
     #[test]
-    fn a_clip_that_plays_a_track_of_another_nest_is_refused() {
+    fn a_clip_that_plays_a_part_of_another_nest_is_refused() {
         let mut p = song(10);
         add_nest(&mut p, 10, "Bridge", Vec::new());
-        p.track_mut(1)
+        p.part_mut(1)
             .expect("Ballad")
             .clips
-            .push(nest_clip(4, 10, 32.0, json!({ "track": 1 })));
+            .push(nest_clip(4, 10, 32.0, json!({ "part": 1 })));
         let text = refused(&p);
-        assert!(text.contains("has no such track"), "{text}");
+        assert!(text.contains("has no such part"), "{text}");
     }
 }

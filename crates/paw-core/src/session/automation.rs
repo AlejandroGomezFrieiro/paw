@@ -5,9 +5,9 @@
 use super::*;
 
 impl Session {
-    pub(crate) fn lane_add(&mut self, track: Id, opts: LaneOpts) -> Result<Id> {
-        if self.doc.project.track(track).is_none() {
-            bail!("no track {track}");
+    pub(crate) fn lane_add(&mut self, part: Id, opts: LaneOpts) -> Result<Id> {
+        if self.doc.project.part(part).is_none() {
+            bail!("no part {part}");
         }
         let kind = match opts.target {
             Some(kind) => kind,
@@ -22,8 +22,8 @@ impl Session {
                     .param
                     .as_deref()
                     .context("parameter lanes need a `param`")?;
-                if self.doc.project.find_device(device).map(|(t, _)| t) != Some(track) {
-                    bail!("device {device} is not on track {track}");
+                if self.doc.project.find_device(device).map(|(t, _)| t) != Some(part) {
+                    bail!("device {device} is not on part {part}");
                 }
                 Target::Param {
                     device,
@@ -32,8 +32,8 @@ impl Session {
             }
             LaneKind::State => {
                 let device = opts.device.context("state lanes need a `device`")?;
-                if self.doc.project.find_device(device).map(|(t, _)| t) != Some(track) {
-                    bail!("device {device} is not on track {track}");
+                if self.doc.project.find_device(device).map(|(t, _)| t) != Some(part) {
+                    bail!("device {device} is not on part {part}");
                 }
                 Target::State { device }
             }
@@ -48,13 +48,13 @@ impl Session {
         }
         if self
             .doc.project
-            .track(track)
+            .part(part)
             .unwrap()
             .lanes
             .iter()
             .any(|l| l.target == target)
         {
-            bail!("track {track} already has a lane for that");
+            bail!("part {part} already has a lane for that");
         }
         if let Target::Param { device, param } = &target
             && !self
@@ -77,7 +77,7 @@ impl Session {
         let points = document::clean_points(&target, states.len(), opts.points, &param_range(&self.live))?;
         let id = self.doc.new_id();
         self.doc.edit(|p| {
-            p.track_mut(track).unwrap().lanes.push(Arc::new(Lane {
+            p.part_mut(part).unwrap().lanes.push(Arc::new(Lane {
                 id,
                 target,
                 enabled: opts.enabled.unwrap_or(true),
@@ -93,9 +93,9 @@ impl Session {
         self.doc.lane_view(id, &param_range(&self.live))
     }
 
-    /// The automation lanes of a track, without their points.
-    pub(crate) fn lane_list(&self, track: Id) -> Result<Value> {
-        self.doc.lane_list(track, &param_range(&self.live))
+    /// The automation lanes of a part, without their points.
+    pub(crate) fn lane_list(&self, part: Id) -> Result<Value> {
+        self.doc.lane_list(part, &param_range(&self.live))
     }
 
     pub(crate) fn lane_set(&mut self, id: Id, key: &str, value: Value) -> Result<()> {

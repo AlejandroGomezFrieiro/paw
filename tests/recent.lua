@@ -112,7 +112,7 @@ test("recent: the window's Open recent asks about unsaved changes like Open does
   keeping(function()
     local a = save("leave-a")
     save("leave-b")
-    paw.add_track({ name = "unsaved" })
+    paw.add_part({ name = "unsaved" })
     paw.flush()
     eq(paw.frontend.closing().modified, true, "there are changes to save")
     paw.frontend.act.leave("discard", "open:" .. a)

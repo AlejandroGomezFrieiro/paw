@@ -155,7 +155,7 @@ test("a kind of text buffer has keys, K and a status of its own, before the text
   eq(T.hover_text():find("a list of paw://shout", 1, true) ~= nil, true, "K: " .. T.hover_text())
   paw.ui.close()
   eq(status_text():find("shouting", 1, true) ~= nil, true, "its status: " .. status_text())
-  keys(":e paw://tracks<CR>")
+  keys(":e paw://parts<CR>")
   heard = {}
   keys("<localleader>s")
   eq(#heard, 0, "its keys hold in its own buffers only")

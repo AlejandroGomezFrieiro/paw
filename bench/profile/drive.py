@@ -6,7 +6,7 @@ bench/profile.md.
 
 Scenarios: startup, idle, idle-armed, keys, play, record, long, repeat
 (the keys of --keys, --times times, under the probes: to profile one key),
-scope (the keys in a region and in a group of tracks, and the cost of a
+scope (the keys in a region and in a group of parts, and the cost of a
 frame there against a frame of the song), and scope-keys (the keys of --keys
 in the region Verse B of scope, --times rounds, each key on its own).
 
@@ -34,7 +34,7 @@ Options (all optional):
   --out DIR        where results and scratch go (default
                    $BENCH_TMP/profile, BENCH_TMP default /tmp/paw-bench)
   --project DIR    the project to open (default: made by project.lua in
-                   <out>/project, 64 tracks, 2 000 clips, 50 000 notes)
+                   <out>/project, 64 parts, 2 000 clips, 50 000 notes)
   --empty          open no project
   --size COLSxROWS the terminal (default 187x56)
   --secs N         the length of idle, play, record (default 60) and long
@@ -591,7 +591,7 @@ def measure_key(paw, name, data, quiet_ms=250):
 def scenario_keys(opts, project):
     paw, first = start(opts, project)
     paw.screen.wait_quiet(500, 30)
-    # The cursor on the second track, at the start.
+    # The cursor on the second part, at the start.
     results = []
     reps = opts.reps
     named = slow_counts(paw)
@@ -624,7 +624,7 @@ def scenario_keys(opts, project):
 
 # --- the keys in a scope ---
 # Regions over the 32 bars of the large project, one inside another, and a
-# group of the first 16 tracks. Made after the start, so the project file
+# group of the first 16 parts. Made after the start, so the project file
 # and the other scenarios stay as they are.
 SCOPE_SETUP = r"""
 local m = paw.markers
@@ -634,13 +634,13 @@ m.add(32, "Verse A", { length = 16 })
 m.add(48, "Verse B", { length = 16 })
 m.add(64, "Chorus", { length = 32 })
 m.add(96, "End", { length = 32 })
-local tracks = paw.api.track_list()
+local parts = paw.api.part_list()
 local members = {}
-for i = 1, 16 do members[i] = tracks[i] end
+for i = 1, 16 do members[i] = parts[i] end
 paw.groups.make(members, "Strings")
 paw.flush()
 paw.api.undo_checkpoint()
-paw.cursor.set_track(tracks[3])
+paw.cursor.set_part(parts[3])
 paw.cursor.set_beat(33)
 """
 
@@ -897,9 +897,9 @@ def scenario_startup(opts, project):
 def scenario_idle(opts, project, armed=False):
     paw, first = start(opts, project)
     if armed:
-        # A track armed on the null backend's test input: meters move with it.
+        # A part armed on the null backend's test input: meters move with it.
         paw.eval("paw.api.engine_restart({ backend = 'null', test_input = { frequency = 440, level = -12, channels = 2 } })")
-        paw.eval("local id = paw.api.track_list()[1]; paw.api.track_set(id, { input = '1', armed = true })")
+        paw.eval("local id = paw.api.part_list()[1]; paw.api.part_set(id, { input = '1', armed = true })")
     paw.screen.wait_quiet(2000, 10)
     mem0 = paw.memory()
     res = with_probes(opts, paw, opts.secs, "idle-armed" if armed else "idle")
@@ -915,7 +915,7 @@ def scenario_play(opts, project, record=False):
     what = "record" if record else "play"
     if record:
         paw.eval("paw.api.engine_restart({ backend = 'null', test_input = { frequency = 440, level = -12, channels = 2 } })")
-        paw.eval("local id = paw.api.track_add({ name = 'Take' }); paw.api.track_set(id, { input = '1', armed = true }); paw.flush()")
+        paw.eval("local id = paw.api.part_add({ name = 'Take' }); paw.api.part_set(id, { input = '1', armed = true }); paw.flush()")
         paw.eval("paw.api.transport_set('loop_enabled', false)")
         paw.eval("paw.commands.exec('transport.record')")
     else:

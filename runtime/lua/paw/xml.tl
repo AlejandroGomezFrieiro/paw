@@ -3,8 +3,8 @@
 -- `{ name, attr, order, children, text }`, with the methods below.
 --
 --   local root = assert(paw.xml.decode(text))
---   root:child("Transport"), root:all("Track"), root:text_of("title")
---   local el = paw.xml.element("Track", { id = "t1" }, { "id" })
+--   root:child("Transport"), root:all("Part"), root:text_of("title")
+--   local el = paw.xml.element("Part", { id = "t1" }, { "id" })
 --   el:add("Note", { time = 0 })
 --   paw.xml.encode(root, { declaration = true, indent = "  " })
 --
@@ -54,7 +54,7 @@ local type Element = M.Element
 
 local metatable_of_element: metatable<Element> = {__index = M.Element}
 
---- A new element: `paw.xml.element("Track", { id = "t1", name = "Bass" })`.
+--- A new element: `paw.xml.element("Part", { id = "t1", name = "Bass" })`.
 --- Its attributes are written in the order of `order`, then the others by
 --- name.
 function M.element(name: string, attr?: {string: M.Value}, order?: {string}): Element

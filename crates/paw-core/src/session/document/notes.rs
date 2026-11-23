@@ -146,7 +146,7 @@ impl NoteColumns {
     /// changes nothing: a wrong entry stops the change before it starts.
     fn changes(&self, project: &Project) -> Result<Vec<ClipChanges>> {
         self.check_lengths()?;
-        // Each clip once, with its notes: a look for a clip walks the tracks.
+        // Each clip once, with its notes: a look for a clip walks the parts.
         let mut clips: Vec<(ClipChanges, &Notes)> = Vec::new();
         let mut slot_of: HashMap<Id, usize> = HashMap::new();
         for (entry, (&id, &place)) in self.clip.iter().zip(&self.place).enumerate() {
@@ -391,7 +391,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::model::{Clip, Track};
+    use crate::model::{Clip, Part};
 
     /// A project with clip 3: C4, D4 and E4 a beat apart, named 1 to 3.
     fn project() -> Project {
@@ -404,10 +404,10 @@ mod tests {
             ] },
         }))
         .unwrap();
-        let mut track = Track::new(1);
-        track.clips.push(Arc::new(clip));
+        let mut part = Part::new(1);
+        part.clips.push(Arc::new(clip));
         let mut project = Project::default();
-        project.tracks.push(Arc::new(track));
+        project.parts.push(Arc::new(part));
         project
     }
 

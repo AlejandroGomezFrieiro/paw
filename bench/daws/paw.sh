@@ -52,7 +52,7 @@ song="dofile('$REPO/examples/demo-song.lua')"
 case $mode in gui-*) song="$song; paw.frontend.layout_set({width=$W,height=$H})" ;; esac
 play="$song; paw.api.transport_set('loop_enabled', true)"
 [ -z "$STILL" ] && play="$play; paw.api.transport_play()"
-keys="local keys; for _, tr in ipairs(paw.tracks()) do if tr.name == 'Keys' then keys = tr end end"
+keys="local keys; for _, p in ipairs(paw.parts()) do if p.name == 'Keys' then keys = p end end"
 roll="$keys; paw.commands.exec('e roll://' .. keys:clips()[1].id)"
 case $view in
   arrange) setup="$play" ;;

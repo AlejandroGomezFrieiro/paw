@@ -180,12 +180,12 @@ pub(crate) fn project(p: &Value) -> String {
     let meter = Meter::from_project(p);
     let mut out = project_header(p, &meter);
     let _ = writeln!(out, "\nTransport: {}", transport(&p["transport"], &meter));
-    let tracks = items(&p["tracks"]);
-    let _ = writeln!(out, "Tracks ({}):", tracks.len());
-    for t in tracks {
-        track(&mut out, t, &meter, false);
+    let parts = items(&p["parts"]);
+    let _ = writeln!(out, "Parts ({}):", parts.len());
+    for t in parts {
+        part(&mut out, t, &meter, false);
     }
-    track(&mut out, &p["master"], &meter, false);
+    part(&mut out, &p["master"], &meter, false);
     let markers = items(&p["markers"]);
     if !markers.is_empty() {
         let _ = writeln!(out, "Markers and regions ({}):", markers.len());
@@ -221,7 +221,7 @@ pub(crate) fn marker_line(m: &Value, meter: &Meter) -> String {
     line
 }
 
-fn track_line(t: &Value, meter: &Meter) -> String {
+fn part_line(t: &Value, meter: &Meter) -> String {
     let _ = meter;
     let mut line = if t["master"].as_bool() == Some(true) {
         "Master [id 0]".to_string()
@@ -258,8 +258,8 @@ fn track_line(t: &Value, meter: &Meter) -> String {
     line
 }
 
-pub(crate) fn track(out: &mut String, t: &Value, meter: &Meter, detail: bool) {
-    let _ = writeln!(out, "{}", track_line(t, meter));
+pub(crate) fn part(out: &mut String, t: &Value, meter: &Meter, detail: bool) {
+    let _ = writeln!(out, "{}", part_line(t, meter));
     let sends = items(&t["sends"]);
     if !sends.is_empty() {
         let list: Vec<String> = sends
@@ -297,7 +297,7 @@ pub(crate) fn track(out: &mut String, t: &Value, meter: &Meter, detail: bool) {
         if clips.len() > limit {
             let _ = writeln!(
                 out,
-                "     ... and {} more (get_track lists them all)",
+                "     ... and {} more (get_part lists them all)",
                 clips.len() - limit
             );
         }
@@ -366,8 +366,8 @@ pub(crate) fn clip_line(c: &Value, meter: &Meter) -> String {
 /// A clip, and its notes when they are there.
 pub(crate) fn clip(out: &mut String, c: &Value, meter: &Meter) {
     let _ = writeln!(out, "{}", clip_line(c, meter));
-    if let Some(track) = c["track_name"].as_str() {
-        let _ = writeln!(out, "on track \"{track}\" [id {}]", f(&c["track"]));
+    if let Some(part) = c["part_name"].as_str() {
+        let _ = writeln!(out, "on part \"{part}\" [id {}]", f(&c["part"]));
     }
     let notes = items(&c["notes"]);
     if c["filtered"].as_bool() == Some(true) {
@@ -430,11 +430,11 @@ fn param_value(p: &Value) -> String {
 pub(crate) fn device(out: &mut String, d: &Value, indent: &str, limit: usize) {
     let _ = writeln!(
         out,
-        "{indent}{} · {} format · position {} in the chain of track [id {}]",
+        "{indent}{} · {} format · position {} in the chain of part [id {}]",
         device_short(d),
         s(&d["format"]),
         f(&d["index"]),
-        f(&d["track"])
+        f(&d["part"])
     );
     let params = items(&d["params"]);
     let total = d["param_count"].as_u64().unwrap_or(params.len() as u64) as usize;

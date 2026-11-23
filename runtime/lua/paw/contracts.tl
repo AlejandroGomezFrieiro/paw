@@ -1,6 +1,6 @@
 -- The contracts: the tables that an extension gives to paw and that paw
 -- gives back to it. A view, a buffer type, a kind of text buffer, a kind of
--- track, a kind of clip, a role, a picker, a status line component, a query field, a
+-- part, a kind of clip, a role, a picker, a status line component, a query field, a
 -- source of grep, a health check and a manifest. Each record has the
 -- fields that the runtime reads (paw/ui.tl, paw/layout.tl, paw/keymap.tl,
 -- paw/mouse.tl, paw/scene.tl, paw/canvas.tl, paw/statusline.tl and the
@@ -21,8 +21,8 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local type types = require("paw.types")
--- The objects of tracks and devices (paw/objects.tl), which a kind of
--- track gets. Only their types come in: paw/objects.tl requires no contract.
+-- The objects of parts and devices (paw/objects.tl), which a kind of
+-- part gets. Only their types come in: paw/objects.tl requires no contract.
 local type objects = require("paw.objects")
 -- `util.Ordered`, the key and the place of an entry (`OwnedEntry`).
 local type util = require("paw.util")
@@ -46,7 +46,7 @@ local record contracts
     style: string
   end
 
-  --- The action of a hit region, as data: `{ kind = "fader", track = 4 }`.
+  --- The action of a hit region, as data: `{ kind = "fader", part = 4 }`.
   --- A press, a move or the wheel on it goes to the view's gesture for its
   --- kind. Without one, `keys` are typed, or `cmd` runs as an Ex command.
   --- `hint` is what the status line says of it under the pointer.
@@ -55,7 +55,7 @@ local record contracts
     keys: string
     cmd: string
     hint: string
-    track: integer
+    part: integer
     clip: integer
     device: integer
     lane: integer
@@ -387,7 +387,7 @@ local record contracts
     clips: {integer: boolean}
     notes: {integer: {integer: boolean}}
     --- What a text object covers as a scope (`zn{motion}`): `ar` the
-    --- region, `ag` the group, `it` the track. Nil for a block.
+    --- region, `ag` the group, `it` the part. Nil for a block.
     scope: Scope
     --- True for the whole of what the view shows (`ie`): `znie` enters nothing.
     entire: boolean
@@ -441,11 +441,11 @@ local record contracts
 
   --- A place that a view's `grid.mark` keeps and `grid.jump` goes back
   --- to: the row and the column, and what else the view needs to find it
-  --- again (a text buffer's name), or the arrange view's `track` and `beat`.
+  --- again (a text buffer's name), or the arrange view's `part` and `beat`.
   --- A place on the jump list also has the scope of the window (`scope`,
   --- and `scoped` true; nil `scope` is the song).
   record GridMark is {number | string}
-    track: integer
+    part: integer
     beat: number
     scoped: boolean
     scope: Scope
@@ -590,12 +590,12 @@ local record contracts
   --- What each layer of the arrange view gets (`paw.ui.views:get("arrange").layers`):
   --- `ruler`, the timeline's part of the ruler row; `ruler2`, its second
   --- row when `ruler2` asks for one (else nil); `lanes`, the timeline
-  --- below, down to the master track; `x(beat)`, the column of a beat in
+  --- below, down to the master part; `x(beat)`, the column of a beat in
   --- any of them, and `axis`, the view's time axis (paw/axis.tl), which
   --- gives it and the cells of a stretch (`axis:range(a, b)`); `scroll` the
   --- beat at the left edge, `zoom` columns a beat, `span` the beats shown;
-  --- `top`, `rows` and `th`, the first track shown, how many rows, and rows
-  --- a track.
+  --- `top`, `rows` and `th`, the first part shown, how many rows, and rows
+  --- a part.
   record ArrangeLayer
     ruler: Buf
     ruler2: Buf
@@ -611,7 +611,7 @@ local record contracts
   end
 
   --- Where the arrange view drew its parts last: the columns of the
-  --- headers with the rule (`hw`), rows a track (`th`), how many rows,
+  --- headers with the rule (`hw`), rows a part (`th`), how many rows,
   --- columns a beat (`zoom`), the beats the timeline shows (`span`) and
   --- the time axis that placed them (`axis`, paw/axis.tl).
   interface ArrangeGeometry
@@ -712,29 +712,29 @@ local record contracts
   -- Buffer types -----------------------------------------------------------------
 
   --- What a scope is made from (paw/scope.tl). A group or a region scope
-  --- follows its source: a track added to the group, or the region moved,
+  --- follows its source: a part added to the group, or the region moved,
   --- changes the scope.
   enum ScopeKind
     "group"
-    "track"
-    "tracks"
+    "part"
+    "parts"
     "region"
     "range"
     "nest"
   end
 
   --- A scope: what a window shows of the song (paw/scope.tl). `id` is the
-  --- group, track, region or subproject ("nest") it is made of; `tracks` a
-  --- fixed list ("tracks", "range"), nil for every track of the parent;
+  --- group, part, region or subproject ("nest") it is made of; `parts` a
+  --- fixed list ("parts", "range"), nil for every part of the parent;
   --- `from` and `to` its time in beats ("range"), nil for all the time of
-  --- the parent. A subproject has its own tracks and timeline; `clip` is
+  --- the parent. A subproject has its own parts and timeline; `clip` is
   --- the clip of it that the window entered through, which places its
   --- beats in the song's. `parent` is the scope it was entered from (nil:
   --- the song): the window's stack.
   record Scope
     kind: ScopeKind
     id: integer
-    tracks: {integer}
+    parts: {integer}
     from: number
     to: number
     name: string
@@ -743,33 +743,33 @@ local record contracts
   end
 
   --- A fold of a window (paw/folds.tl): a scope drawn in place, as one
-  --- row ("group", "tracks") or one column ("region", "range"). `closed`
+  --- row ("group", "parts") or one column ("region", "range"). `closed`
   --- says whether it is folded now; nil for a region means that the
   --- window's `foldlevel` decides. View state: never in the project.
   record Fold
     kind: ScopeKind
     id: integer
-    tracks: {integer}
+    parts: {integer}
     from: number
     to: number
     name: string
     closed: boolean
   end
 
-  --- The rows of one track in a window's vertical zoom.
-  record TrackRows
-    track: integer
+  --- The rows of one part in a window's vertical zoom.
+  record PartRows
+    part: integer
     rows: integer
   end
 
-  --- A window's vertical zoom (paw/vzoom.tl): the rows of each track in
-  --- the arrange view (`track_rows`; nil: `paw.opt.track_height`), the
-  --- rows of some tracks of their own (`tracks`), the rows of each
+  --- A window's vertical zoom (paw/vzoom.tl): the rows of each part in
+  --- the arrange view (`part_rows`; nil: `paw.opt.part_height`), the
+  --- rows of some parts of their own (`parts`), the rows of each
   --- automation lane (`lane_rows`; nil: 2) and the rows of each key in
   --- the piano roll (`key_rows`; nil: 1). View state: never in the project.
   record VZoom
-    track_rows: integer
-    tracks: {TrackRows}
+    part_rows: integer
+    parts: {PartRows}
     lane_rows: integer
     key_rows: integer
   end
@@ -1050,7 +1050,7 @@ local record contracts
     nest_close: string
     --- After the name of a subproject that the song plays in more places: `×2`.
     places: string
-    --- Where a track that a row stands for has clips: on a group's row,
+    --- Where a part that a row stands for has clips: on a group's row,
     --- a folded group's, and in a closed block fold.
     overview: string
     --- A cell filled from the bottom, one eighth to eight.
@@ -1117,34 +1117,34 @@ local record contracts
     still: boolean
   end
 
-  -- The track column and the ruler's bar labels --------------------------------
+  -- The part column and the ruler's bar labels --------------------------------
 
-  --- What a part of the track column or a bar label gives: nothing,
-  --- text, or pieces (`{ { "3", "TrackNr" } }`).
+  --- What a component of the part column or a bar label gives: nothing,
+  --- text, or pieces (`{ { "3", "PartNr" } }`).
   type ColumnCells = string | {Piece}
 
-  --- What the track column knows of all the tracks drawn, once a draw:
+  --- What the part column knows of all the parts drawn, once a draw:
   --- what a component's `width` function gets. `rows` are the ids of the
-  --- tracks drawn, in order (`paw.groups.rows()`); `count` how many lines
-  --- the counts of `j` and `k` go over (tracks, and lanes in normal mode
+  --- parts drawn, in order (`paw.groups.rows()`); `count` how many lines
+  --- the counts of `j` and `k` go over (parts, and lanes in normal mode
   --- when lanes are open).
-  record TrackColumnFrame
+  record PartColumnFrame
     rows: {integer}
     count: integer
   end
 
-  --- What a component of the track column draws one line from. `row` is
-  --- the track's number (its place among the tracks drawn, what `5G`
-  --- takes); `line` 0 for the first line of the track's row, then 1, 2,
-  --- for the lines under it; `kind` `track`, or `lane` (an automation
+  --- What a component of the part column draws one line from. `row` is
+  --- the part's number (its place among the parts drawn, what `5G`
+  --- takes); `line` 0 for the first line of the part's row, then 1, 2,
+  --- for the lines under it; `kind` `part`, or `lane` (an automation
   --- lane shown as a row, `lane` its id) or `take` (a take lane), or
-  --- `end` (the line that closes the tracks of a subproject shown under
-  --- its return row, which is the track given);
+  --- `end` (the line that closes the parts of a subproject shown under
+  --- its return row, which is the part given);
   --- `relative` how many `j` or `k` reach the line, nil for a line the
   --- counts skip; `cursor` true on the cursor's line; `width` the
   --- component's columns; `x` the column clicked, for `click` only;
   --- `glyphs` and `styles` the component's own (what `set` gave it).
-  record TrackColumnContext
+  record PartColumnContext
     row: integer
     line: integer
     kind: string
@@ -1160,27 +1160,27 @@ local record contracts
 
   --- How wide a component is: a number of columns, or a function of the
   --- frame that gives it (0 hides the component for this draw).
-  type TrackColumnWidth = function(frame: TrackColumnFrame): integer
+  type PartColumnWidth = function(frame: PartColumnFrame): integer
 
-  --- A component of the track column (`paw.trackcolumn.add`), as Neovim's
+  --- A component of the part column (`paw.partcolumn.add`), as Neovim's
   --- 'statuscolumn': its place among the others (`order`, lower to the
-  --- left), its `width`, what it draws on each line of a track
+  --- left), its `width`, what it draws on each line of a part
   --- (`render`), what a click on it does (`click`), and what `K` says of
-  --- the cursor's track (`describe`, a line or nothing). `glyphs` and
+  --- the cursor's part (`describe`, a line or nothing). `glyphs` and
   --- `styles` are the characters and highlight groups it draws with, by
-  --- name, which a user changes with `paw.trackcolumn.set`.
-  record TrackColumnComponent
+  --- name, which a user changes with `paw.partcolumn.set`.
+  record PartColumnComponent
     name: string
     order: number
-    width: integer | TrackColumnWidth
-    render: function(track: integer, ctx: TrackColumnContext): ColumnCells
-    click: function(track: integer, ctx: TrackColumnContext)
-    describe: function(track: integer, ctx: TrackColumnContext): string
+    width: integer | PartColumnWidth
+    render: function(part: integer, ctx: PartColumnContext): ColumnCells
+    click: function(part: integer, ctx: PartColumnContext)
+    describe: function(part: integer, ctx: PartColumnContext): string
     glyphs: {string: string}
     styles: {string: string}
-    --- Added, but not put in `paw.opt.trackcolumn`.
+    --- Added, but not put in `paw.opt.partcolumn`.
     hidden: boolean
-    --- True: its columns come out of the track headers, not out of the
+    --- True: its columns come out of the part headers, not out of the
     --- timeline, so the timeline stays in place when it comes and goes.
     --- For a part whose width follows the project (signs, the tree of
     --- groups), not the options.
@@ -1190,15 +1190,15 @@ local record contracts
     ext: string
   end
 
-  --- A sign of the `signs` component (`paw.trackcolumn.sign`): one
-  --- character for a track, or nothing. Where several have one, the
+  --- A sign of the `signs` component (`paw.partcolumn.sign`): one
+  --- character for a part, or nothing. Where several have one, the
   --- highest `priority` shows. `glyphs` and `styles` as a component's;
-  --- `describe` what `K` says of the track.
-  record TrackSign
+  --- `describe` what `K` says of the part.
+  record PartSign
     name: string
     priority: integer
-    render: function(track: integer, ctx: TrackColumnContext): ColumnCells
-    describe: function(track: integer, ctx: TrackColumnContext): string
+    render: function(part: integer, ctx: PartColumnContext): ColumnCells
+    describe: function(part: integer, ctx: PartColumnContext): string
     glyphs: {string: string}
     styles: {string: string}
     --- The extension whose code added or last changed it, nil for the
@@ -1303,16 +1303,16 @@ local record contracts
     styles: {string: string}
   end
 
-  --- What `paw.trackcolumn.set` and `paw.trackcolumn.set_sign` change of
+  --- What `paw.partcolumn.set` and `paw.partcolumn.set_sign` change of
   --- a component or a sign: only the fields given; `glyphs` and `styles`
   --- are merged into its own.
   record ColumnPatch
     order: number
-    width: integer | TrackColumnWidth
+    width: integer | PartColumnWidth
     priority: integer
-    render: function(track: integer, ctx: TrackColumnContext): ColumnCells
-    click: function(track: integer, ctx: TrackColumnContext)
-    describe: function(track: integer, ctx: TrackColumnContext): string
+    render: function(part: integer, ctx: PartColumnContext): ColumnCells
+    click: function(part: integer, ctx: PartColumnContext)
+    describe: function(part: integer, ctx: PartColumnContext): string
     glyphs: {string: string}
     styles: {string: string}
   end
@@ -1325,18 +1325,18 @@ local record contracts
   type InsertLength = number | string
 
   --- What an insert key gets (`paw.insert`): the key and the kind as it is
-  --- for the cursor's track (`per_track` applied), the cursor's track
-  --- (nil when the cursor is on no track, 0 on the master track) and lane
+  --- for the cursor's part (`per_part` applied), the cursor's part
+  --- (nil when the cursor is on no part, 0 on the master part) and lane
   --- (the automation lane row it is on, or nil), the beat, the length in
   --- beats (from the kind's `length`), and `index` of `count` (`3m` makes
   --- three: 1, 2, 3). `name` is the kind's `name`, with `%d` made a number:
-  --- the number of the clip on its track, of the marker or of the region.
+  --- the number of the clip on its part, of the marker or of the region.
   --- `placed(item)` is for a kind that asks first (a file): it gives the
   --- item when it is made, as `insert` returns it otherwise.
   record InsertContext
     key: string
     spec: InsertKind
-    track: integer
+    part: integer
     lane: integer
     beat: number
     length: number
@@ -1375,9 +1375,9 @@ local record contracts
   --- name of a kind of clip (`paw.clip_kinds`); `insert(ctx)` in place of
   --- what the kind does gives full control. The data of what it inserts:
   --- `length`, `name` (`"Verse %d"`), `notes` that a MIDI clip starts
-  --- with, `args` for a kind of clip's `create`. `tracks` lists the kinds
-  --- of track it goes on (`track` for a track of no kind; nil for every
-  --- one), and `per_track` changes it on a kind of track. `open(ctx,
+  --- with, `args` for a kind of clip's `create`. `parts` lists the kinds
+  --- of part it goes on (`part` for a part of no kind; nil for every
+  --- one), and `per_part` changes it on a kind of part. `open(ctx,
   --- item)` is what `<CR>` does after it: open the item in its editor.
   --- `order` places it in `paw.opt.insertkeys` when it is added;
   --- `hidden` keeps it out of `paw.opt.insertkeys`.
@@ -1387,8 +1387,8 @@ local record contracts
     name: string
     notes: {objects.NoteInput}
     args: {string}
-    tracks: {string}
-    per_track: {string: InsertPatch}
+    parts: {string}
+    per_part: {string: InsertPatch}
     insert: function(ctx: InsertContext): InsertedItem, string
     open: function(ctx: InsertContext, item: InsertedItem)
     hidden: boolean
@@ -1404,8 +1404,8 @@ local record contracts
     name: string
     notes: {objects.NoteInput}
     args: {string}
-    tracks: {string}
-    per_track: {string: InsertPatch}
+    parts: {string}
+    per_part: {string: InsertPatch}
     insert: function(ctx: InsertContext): InsertedItem, string
     open: function(ctx: InsertContext, item: InsertedItem)
     order: integer
@@ -1428,7 +1428,7 @@ local record contracts
   end
 
   --- A view that takes step input (`paw.step.target(name, spec)`).
-  --- `active()` is true while it listens. `track()` is the track whose
+  --- `active()` is true while it listens. `part()` is the part whose
   --- MIDI input it listens to, and that plays the controller. `note(e)`
   --- enters a key, `release()` is told when the last held key is released,
   --- and `status()` is its title, for example `STEP C4 · 1 beat`.
@@ -1438,7 +1438,7 @@ local record contracts
   --- `not here: <action>`.
   interface StepTarget
     active: function(): boolean
-    track: function(): integer
+    part: function(): integer
     note: function(e: StepNote)
     release: function()
     status: function(): string
@@ -1569,7 +1569,7 @@ local record contracts
   --- which a query does not find.
   enum QueryKind
     "project"
-    "track"
+    "part"
     "group"
     "clip"
     "note"
@@ -1582,14 +1582,14 @@ local record contracts
   end
 
   --- A node of a query: `data` is the thing as `paw.api` gives it, the
-  --- record of its kind (types.Track, types.Clip, types.Note, ...).
+  --- record of its kind (types.Part, types.Clip, types.Note, ...).
   --- Cast it to that record: `node.data as paw.types.Note`.
   record QueryNode
     kind: QueryKind
     id: integer
     data: QueryData
     parent: QueryNode
-    track: integer
+    part: integer
     clip: integer
     index: integer
     place: integer
@@ -1644,7 +1644,7 @@ local record contracts
   end
 
   --- A text that `paw.grep` searches: what it says, what kind of text it
-  --- is (`track`, `lyric`), where it is (an address or a location), and
+  --- is (`part`, `lyric`), where it is (an address or a location), and
   --- that place in a few words.
   record GrepRecord
     text: string
@@ -1675,33 +1675,33 @@ local record contracts
     desc: string
   end
 
-  -- Kinds of track ---------------------------------------------------------------
+  -- Kinds of part ---------------------------------------------------------------
 
-  --- What `create` gets besides the track: the words after
-  --- `:track.add <kind>`, and the options of `paw.track_kinds.add`.
-  record TrackKindArgs is {string}
+  --- What `create` gets besides the part: the words after
+  --- `:part.add <kind>`, and the options of `paw.part_kinds.add`.
+  record PartKindArgs is {string}
     name: string
     index: integer
   end
 
-  --- A track as `paw.track(id)` gives it (`paw.Track`).
-  type TrackHandle = objects.Track
+  --- A part as `paw.part(id)` gives it (`paw.Part`).
+  type PartHandle = objects.Part
 
   --- A device as `paw.device(id)` gives it (`paw.Device`).
   type DeviceHandle = objects.Device
 
-  --- A kind of track (`paw.track_kinds.define`). `title` and `letter`
-  --- say how it is offered and shown. `create` makes an ordinary track
+  --- A kind of part (`paw.part_kinds.define`). `title` and `letter`
+  --- say how it is offered and shown. `create` makes an ordinary part
   --- this kind. `editor` opens a clip, `describe` gives a few words for
-  --- `K`, and `is` claims a track that does not say its kind.
-  record TrackKind
+  --- `K`, and `is` claims a part that does not say its kind.
+  record PartKind
     name: string
     title: string
     letter: string
-    create: function(track: TrackHandle, args: TrackKindArgs)
+    create: function(part: PartHandle, args: PartKindArgs)
     editor: function(clip: integer): boolean
-    describe: function(track: integer): string
-    is: function(track: integer): boolean
+    describe: function(part: integer): string
+    is: function(part: integer): boolean
   end
 
   -- Kinds of clip ----------------------------------------------------------------
@@ -1721,14 +1721,14 @@ local record contracts
     name: string
     start: number
     length: number
-    track: integer
+    part: integer
   end
 
   --- The clip that a kind's `compile` makes the output of: where it is
   --- and where it starts in its data (`offset`, in its `timeline`).
   record ClipInfo
     id: integer
-    track: integer
+    part: integer
     start: number
     length: number
     offset: number
@@ -1783,11 +1783,11 @@ local record contracts
     latch: string
   end
 
-  --- What a jump on a track takes back: the clip's own state, or the
-  --- whole track's.
+  --- What a jump on a part takes back: the clip's own state, or the
+  --- whole part's.
   enum ChaseBack
     "clip"
-    "track"
+    "part"
   end
 
   --- A kind of clip (`paw.clip_kinds.define`). `D` is the record of its
@@ -1824,7 +1824,7 @@ local record contracts
     version: integer
     timeline: types.Timeline
     ext: string
-    track_kind: string
+    part_kind: string
 
     serialize: function(data: D): KindJson
     deserialize: function(stored: KindJson, version: integer): D, string
@@ -1869,10 +1869,10 @@ local record contracts
   --- pattern that opens in a step grid. `D` is the record of its data,
   --- which paw keeps in the subproject's `meta` under the kind's name.
   --- `title` and `letter` say how the kind is offered and shown.
-  --- `create` adds the tracks and clips of a new subproject and gives
+  --- `create` adds the parts and clips of a new subproject and gives
   --- its data, or nil and why it cannot. `enter` runs when a window goes
   --- inside one, to open the kind's view, and `describe` gives a few
-  --- words for `K`. Each is optional. The tracks and clips are the
+  --- words for `K`. Each is optional. The parts and clips are the
   --- truth: without the kind, the subproject plays and the arrange view
   --- edits it.
   record NestKind<D>
@@ -1914,25 +1914,25 @@ local record contracts
   type CommandArg = string | number | boolean
 
   --- A command's arguments: positional ones in order, named ones by name
-  --- (`track.add Bass volume=-6` is `{ "Bass", volume = -6 }`).
+  --- (`part.add Bass volume=-6` is `{ "Bass", volume = -6 }`).
   record CommandArgs is {CommandArg}
     metamethod __index: function(CommandArgs, string): CommandArg
     metamethod __newindex: function(CommandArgs, string, CommandArg)
   end
 
-  --- What an Ex pattern matches (`paw.ex.items`): a note, a clip or a track.
+  --- What an Ex pattern matches (`paw.ex.items`): a note, a clip or a part.
   enum ExLevel
     "note"
     "clip"
-    "track"
+    "part"
   end
 
-  --- A note, a clip or a track that a range holds (`kind`): the track's id,
+  --- A note, a clip or a part that a range holds (`kind`): the part's id,
   --- the clip as `paw.api` gives it, the note and its place in the clip,
   --- and `at`, its beat in the song.
   record ExItem
     kind: ExLevel
-    track: integer
+    part: integer
     clip: types.Clip
     note: types.Note
     place: integer
@@ -1942,7 +1942,7 @@ local record contracts
 
   --- A range before a command (`paw.ex`): of time (`from` and `to` in
   --- beats of the song, `to` not included, and `bars`, the first and last
-  --- bar they touch), of tracks (`tracks`), or the visual selection
+  --- bar they touch), of parts (`parts`), or the visual selection
   --- (`selection`, its `region` and `view`; `pitches` { low, high } when
   --- it was of some pitches, `clip_ids` when it was of clips chosen one by
   --- one). `items` are the matches that `:g` hands a command, `clips` the
@@ -1952,8 +1952,8 @@ local record contracts
     from: number
     to: number
     bars: {integer}
-    tracks: {integer}
-    track_range: boolean
+    parts: {integer}
+    part_range: boolean
     whole: boolean
     selection: boolean
     region: Region
@@ -2049,7 +2049,7 @@ local record contracts
   --- What a field of an Ex pattern reads and sets: a number or text.
   type ExValue = number | string
 
-  --- What `:s` changes in a note, a clip or a track: the fields that
+  --- What `:s` changes in a note, a clip or a part: the fields that
   --- `paw.api` keeps for it.
   record ExChange
     start: number
@@ -2087,7 +2087,7 @@ local record contracts
   end
 
   --- How a view reads ranges (`paw.ex.view`): its columns as beats of the
-  --- song (`song`, `col`), the clips it edits, its track, and how to go
+  --- song (`song`, `col`), the clips it edits, its part, and how to go
   --- to a beat. A view of several clips may also say `clips_at(s, i)`,
   --- the clips that an address of its own at `i` names and where it ends;
   --- `selection(region, r)`, what a selection of its grid is as a range;
@@ -2099,7 +2099,7 @@ local record contracts
     song: function(col: number): number
     col: function(beat: number): number
     clips: function(): {integer}
-    track: function(): integer
+    part: function(): integer
     go: function(beat: number)
     clips_at: function(s: string, i: integer): {integer}, integer
     selection: function(region: Region, r: CommandRange)
@@ -2135,7 +2135,7 @@ local record contracts
 
   --- When an extension loads (`paw.ext.use`, and the fields of a
   --- manifest): on its first command, key, event, kind or view. A kind as
-  --- a name alone is a kind of track or of clip. An extension with a
+  --- a name alone is a kind of part or of clip. An extension with a
   --- trigger waits for it, unless `lazy` is false. Each field is one value
   --- or a list.
   interface Triggers

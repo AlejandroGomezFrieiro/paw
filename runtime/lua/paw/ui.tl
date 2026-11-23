@@ -898,7 +898,7 @@ end
 --- right end), `reserve` (columns to keep free at the right end, for the
 --- view's own items), `focused`. When the panel has focus, the whole bar is
 --- in the accent color, inverted.
----   local body = paw.ui.titlebar(buf, { name = "Mixer", context = "5 tracks", focused = ctx.focused })
+---   local body = paw.ui.titlebar(buf, { name = "Mixer", context = "5 parts", focused = ctx.focused })
 function M.titlebar(buf: contracts.Buf, opts: TitlebarOptions): contracts.Buf
   local g = paw.draw.g
   local focused = opts.focused
@@ -915,7 +915,7 @@ function M.titlebar(buf: contracts.Buf, opts: TitlebarOptions): contracts.Buf
   local reserve = opts.reserve or 0
   local right_w = api.str_width(right) + reserve
   if opts.pill then
-    -- A coloured label ahead of the name, such as a clip in its track's colour.
+    -- A coloured label ahead of the name, such as a clip in its part's colour.
     x = x + buf:text(x, 0, " " .. tostring(opts.pill[1]) .. " ", opts.pill[2]) + 1
   end
   if opts.name then
@@ -1327,7 +1327,7 @@ local function meter_of(values: Refreshing, id: integer): Meter
     meters[id] = m
   end
   if m.frame ~= values.frame then
-    local l, r, hold, clipped = paw.draw.track_peak(id)
+    local l, r, hold, clipped = paw.draw.part_peak(id)
     m.levels[1], m.levels[2], m.hold, m.clipped, m.frame = l, r, hold, clipped, values.frame
   end
   return m
@@ -1355,7 +1355,7 @@ function M.live_stamp(bind: string): string
       local m = meter_of(refreshing, id)
       l, r, hold, clipped = m.levels[1], m.levels[2], m.hold, m.clipped
     else
-      l, r, hold, clipped = paw.draw.track_peak(id)
+      l, r, hold, clipped = paw.draw.part_peak(id)
     end
     return tostring(l) .. " " .. tostring(r) .. " " .. tostring(hold) .. (clipped and "!" or "")
   end
@@ -2118,7 +2118,7 @@ end
 
 --- Go to a location in the view that shows it best, and focus that view.
 --- The piano roll shows notes, the device panel shows devices and
---- parameters, and the arrange view shows tracks and time.
+--- parameters, and the arrange view shows parts and time.
 function M.go(location: contracts.Location)
   for _, name in ipairs({ "pianoroll", "devices", "arrange", "mixer" }) do
     local loc = M.locators[name]
@@ -2153,17 +2153,17 @@ function M.frame_ms(): number
   return 1000 / opt.fps
 end
 
--- True while a track listens to its audio input (armed or monitored): its
+-- True while a part listens to its audio input (armed or monitored): its
 -- meters, the master's and a tuner on it move with the input, also while
--- the song is stopped. Counted again when a track changes, not per frame.
+-- the song is stopped. Counted again when a part changes, not per frame.
 local listening = false
 
--- `track_get` with a key reads one field, without the clips of the track.
-local field = api.track_get as function(integer, string): any
+-- `part_get` with a key reads one field, without the clips of the part.
+local field = api.part_get as function(integer, string): any
 
 local function count_listening()
   listening = false
-  for _, id in ipairs(api.track_list({all = true})) do
+  for _, id in ipairs(api.part_list({all = true})) do
     local input = field(id, "input") as string
     if input and input ~= "" and (field(id, "armed") as boolean or field(id, "monitor") as boolean) then
       listening = true
@@ -2172,7 +2172,7 @@ local function count_listening()
   end
 end
 
---- True if something moves on its own now: the song plays, a track listens
+--- True if something moves on its own now: the song plays, a part listens
 --- to its input, or a moment after activity (`poke`), while meters fall.
 function M.active(): boolean
   -- Asked on each frame: the playing flag alone, without the transport's table.
@@ -2185,14 +2185,14 @@ local function moving(): boolean
 end
 
 -- True if only a poke keeps the frames going: the song does not play or
--- count in, and no track listens to its input.
+-- count in, and no part listens to its input.
 local function only_poked(): boolean
   local playing, _, counting = api.transport_playhead()
   return not playing and (counting or 0) == 0 and not listening
 end
 
 -- Frames in a row that changed no cell: the ticker slows down after `still_ticks`
--- of them (a listening track with a silent input), and a poke ends. A poke
+-- of them (a listening part with a silent input), and a poke ends. A poke
 -- and any changed frame start the count again.
 local still_ticks = 20
 local slow_ms = 125
@@ -2257,9 +2257,9 @@ function M.start_ticker()
     count_listening()
     M.poke()
   end
-  events.on(kernel.track_changed, recount)
-  events.on(kernel.track_added, recount)
-  events.on(kernel.track_removed, recount)
+  events.on(kernel.part_changed, recount)
+  events.on(kernel.part_added, recount)
+  events.on(kernel.part_removed, recount)
   events.on(kernel.project_loaded, recount)
   count_listening()
   M.wake()

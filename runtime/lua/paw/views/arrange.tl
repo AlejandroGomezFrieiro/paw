@@ -1,11 +1,11 @@
--- The arrange view: track headers on the left, clips on a timeline on the right.
+-- The arrange view: part headers on the left, clips on a timeline on the right.
 --
 -- The view places everything (`view:layout`), maps beats to columns through
 -- the window's time axis with its time folds (`view.axis`, paw/axis.tl) and draws
 -- each part of a frame in its own function: the ruler, the rows of lanes
--- and takes, the tracks, the selection, the time folds, the master, the
--- layers of extensions and the playhead. What one track's header and
--- clips show is in paw/views/arrange_track.tl, the roles it marks in
+-- and takes, the parts, the selection, the time folds, the master, the
+-- layers of extensions and the playhead. What one part's header and
+-- clips show is in paw/views/arrange_part.tl, the roles it marks in
 -- paw/roles/arrange.tl, and the pointer in paw/views/arrange_mouse.tl.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
@@ -13,7 +13,7 @@ local api = require("paw.api")
 local kernel = require("paw.events.kernel")
 local derived = require("paw.derived")
 local axis = require("paw.axis")
-local track_parts = require("paw.views.arrange_track")
+local part_draw = require("paw.views.arrange_part")
 local timegrid = require("paw.timegrid")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
@@ -23,7 +23,7 @@ local type DrawModule = require("paw.draw")
 local type FoldsModule = require("paw.folds")
 local type RolesModule = require("paw.roles")
 local type FrontendModule = require("paw.frontend")
-local type TrackcolumnModule = require("paw.trackcolumn")
+local type PartcolumnModule = require("paw.partcolumn")
 local type NestModule = require("paw.nest")
 local type Buf = contracts.Buf
 local type Hue = DrawModule.Hue
@@ -35,17 +35,17 @@ local type BeatLine = roles.BeatLine
 local draw = paw.draw
 local util = paw.util
 
--- One field of a track: a whole track's table for each track on each
+-- One field of a part: a whole part's table for each part on each
 -- frame costs more than the field.
-local track_number = api.track_get as function(id: integer, key: string): number
-local track_name = api.track_get as function(id: integer, key: string): string
+local part_number = api.part_get as function(id: integer, key: string): number
+local part_name = api.part_get as function(id: integer, key: string): string
 
---- A row of the timeline: a track's (`kind` "track"), one of its take
+--- A row of the timeline: a part's (`kind` "part"), one of its take
 --- lanes ("take", `take` its number), one of its automation lanes shown
---- as a row ("lane", `lane`), the line that closes the tracks of a
+--- as a row ("lane", `lane`), the line that closes the parts of a
 --- subproject shown under its return row ("end", `id` the return row), or
---- the master's ("master"). `index` is the track's place among the tracks
---- drawn (for "end", the last track it closes); `y` and `h` its lines.
+--- the master's ("master"). `index` is the part's place among the parts
+--- drawn (for "end", the last part it closes); `y` and `h` its lines.
 local record Row
   kind: string
   id: integer
@@ -57,23 +57,23 @@ local record Row
 end
 
 --- Where everything goes on the view (`view:layout`): the headers'
---- columns with the rule (`hw`), the timeline's (`tw`), the track
---- column, rows a track (`th`), the ruler's rows (`ruler_rows`: the row
+--- columns with the rule (`hw`), the timeline's (`tw`), the part
+--- column, rows a part (`th`), the ruler's rows (`ruler_rows`: the row
 --- of the song's bars when `song_bars`, the regions' rows from `lanes_y`,
 --- the bands' from `band_y` and the tempo lane's `tempo_rows` among them),
---- the rows of the timeline from the first track shown, the tracks, the
+--- the rows of the timeline from the first part shown, the parts, the
 --- line after the last row (`used`) and the master's row.
 local record Layout
   hw: integer
   tw: integer
-  column: TrackcolumnModule.Layout
+  column: PartcolumnModule.Layout
   th: integer
   ruler_rows: integer
   song_bars: boolean
   lanes_y: integer
   tempo_rows: integer
   rows: {Row}
-  tracks: {integer}
+  parts: {integer}
   used: integer
   master: Row
   bands: FrontendModule.Bands
@@ -94,7 +94,7 @@ local record Comp
   x1: number
 end
 
---- The take being made on the armed tracks: from `start` to the
+--- The take being made on the armed parts: from `start` to the
 --- playhead `at`, no further than `to` when it is punched in.
 local record Recording
   start: number
@@ -124,11 +124,11 @@ local record Arrange is contracts.ArrangeView
   type Layout = Layout
   type Geometry = Geometry
   type Comp = Comp
-  --- The first track shown.
+  --- The first part shown.
   top: integer
   --- The header columns of the M, S, R and I chips, for the mouse.
-  flags: track_parts.Flags
-  --- The track column's width at the left of the headers, last drawn.
+  flags: part_draw.Flags
+  --- The part column's width at the left of the headers, last drawn.
   column_width: integer
   --- What the window drew last, and its time axis with its time folds:
   --- where every row, the ruler and the pointer place each beat.
@@ -144,7 +144,7 @@ local record Arrange is contracts.ArrangeView
   rec: Recording
   rec_start: number
   --- What the window saw last, to scroll only when it changes: the
-  --- cursor's row and lane, the tracks that fit, the cursor's beat and
+  --- cursor's row and lane, the parts that fit, the cursor's beat and
   --- the serial of the last jump.
   seen_index: integer
   seen_fit: integer
@@ -153,12 +153,12 @@ local record Arrange is contracts.ArrangeView
   seen_jump: integer
   meter: function(buf: Buf, x: integer, y: integer, width: integer, peak: number, hold?: number)
   header_width: function(w: integer): integer
-  track_height: function(count: integer, room: integer): integer
+  part_height: function(count: integer, room: integer): integer
   row_height: function(id: integer, th: number): integer
   level_glyph: function(level: number): string
   clip_props: function(
     clip: types.Clip,
-    track: types.Track,
+    part: types.Part,
     hue: Hue,
     kind: string,
     ax: Axis,
@@ -170,10 +170,10 @@ local record Arrange is contracts.ArrangeView
   ): roles.ClipProps
   layout: function(self: Arrange, w: integer, h: integer): Layout
   rows_with_lanes: function(
-    self: Arrange, tracks: {integer}, th: integer, ruler_rows: integer, room: integer, cursor_index: integer
+    self: Arrange, parts: {integer}, th: integer, ruler_rows: integer, room: integer, cursor_index: integer
   ): {Row}, integer
   draw_lane_row: function(self: Arrange, headers: Buf, timeline: Buf, row: Row, lines: {GridLine})
-  draw_column: function(self: Arrange, column: Buf, L: Layout, cursor_track: integer, cursor_lane: integer)
+  draw_column: function(self: Arrange, column: Buf, L: Layout, cursor_part: integer, cursor_lane: integer)
   draw_tempo_row: function(self: Arrange, headers: Buf, timeline: Buf, y: integer, lines: {GridLine})
   draw_take_row: function(self: Arrange, headers: Buf, timeline: Buf, row: Row, lines: {GridLine}): {Span}, {Span}
   current_axis: function(self: Arrange): Axis
@@ -183,11 +183,11 @@ end
 local view = Arrange
 view.scroll, view.top, view.flags = 0, 1, {}
 -- What extensions draw on the timeline, by name, in name order, once the
--- ruler and the tracks are drawn and before the playhead:
+-- ruler and the parts are drawn and before the playhead:
 --   paw.ui.views:get("arrange").layers.marks = function(view, layer) ... end
 -- See `contracts.ArrangeLayer` for what `layer` holds.
 view.layers = {}
--- Tracks need rows: two fifths of a column's height, and a third of the
+-- Parts need rows: two fifths of a column's height, and a third of the
 -- room where three or more windows share it (paw/ui.tl).
 view.share = {column = 2 / 5, least = 1 / 3}
 view.window_state = {
@@ -218,13 +218,13 @@ local NONE: {Span} = {}
 paw.on(kernel.project_loaded, function() view.scroll, view.top, view.seen_beat = 0, 1, nil end)
 
 view.meter = draw.meter
-view.level_glyph = track_parts.level_glyph
-view.clip_props = track_parts.clip_props
+view.level_glyph = part_draw.level_glyph
+view.clip_props = part_draw.clip_props
 
 -- The headers' width with "auto" on the narrowest screens.
 local NARROW_HEADER = 12
 
---- Columns for the track headers on a screen `w` wide, the rule on their
+--- Columns for the part headers on a screen `w` wide, the rule on their
 --- right included: `paw.opt.header_width`, or by the width with "auto".
 function view.header_width(w: integer): integer
   local want = math.tointeger(tonumber(paw.opt.header_width))
@@ -234,12 +234,12 @@ function view.header_width(w: integer): integer
   return math.max(4, math.min(want, w - 4))
 end
 
---- Rows a track takes when `count` tracks share `room` rows: the
---- window's vertical zoom (paw/vzoom.tl), else `paw.opt.track_height`,
---- or with "auto" the most that let every track fit, from 1 to 3. A song
---- with more tracks than fit at 1 row scrolls.
-function view.track_height(count: integer, room: integer): integer
-  local want = paw.vzoom.track_rows() or tonumber(paw.opt.track_height)
+--- Rows a part takes when `count` parts share `room` rows: the
+--- window's vertical zoom (paw/vzoom.tl), else `paw.opt.part_height`,
+--- or with "auto" the most that let every part fit, from 1 to 3. A song
+--- with more parts than fit at 1 row scrolls.
+function view.part_height(count: integer, room: integer): integer
+  local want = paw.vzoom.part_rows() or tonumber(paw.opt.part_height)
   if want then
     return math.max(1, math.floor(want))
   end
@@ -278,22 +278,22 @@ local function wants_ruler2(self: Arrange): boolean
   return false
 end
 
---- The lines a track's row takes, `th` the tracks' height: its own rows
+--- The lines a part's row takes, `th` the parts' height: its own rows
 --- in the window's vertical zoom (paw/vzoom.tl), else its own share of
 --- `th` (`height`, which a drag of its header's bottom edge sets), at
 --- least one.
 function view.row_height(id: integer, th: number): integer
-  return paw.vzoom.rows_of(id) or math.max(1, math.floor(th * (track_number(id, "height") or 1) + 0.5))
+  return paw.vzoom.rows_of(id) or math.max(1, math.floor(th * (part_number(id, "height") or 1) + 0.5))
 end
 
---- The tracks of `tracks` that end the tracks of a subproject shown
+--- The parts of `parts` that end the parts of a subproject shown
 --- under its return row (paw/nest.tl), each with that return row: a
 --- closing line goes under each.
-local function closing_lines(tracks: {integer}): {integer: integer}
+local function closing_lines(parts: {integer}): {integer: integer}
   local out: {integer: integer} = {}
-  for i, id in ipairs(tracks) do
+  for i, id in ipairs(parts) do
     local under = paw.nest.shown_under(id)
-    local next_id = tracks[i + 1]
+    local next_id = parts[i + 1]
     if under and not (next_id and paw.nest.shown_under(next_id) == under) then
       out[id] = under
     end
@@ -301,33 +301,33 @@ local function closing_lines(tracks: {integer}): {integer: integer}
   return out
 end
 
---- The rows from `self.top` when some tracks show their take lanes or their
---- automation lanes, or the tracks of a subproject under its return row:
---- each track, then a row `{ kind = "take", id, take, index, y, h }` for
+--- The rows from `self.top` when some parts show their take lanes or their
+--- automation lanes, or the parts of a subproject under its return row:
+--- each part, then a row `{ kind = "take", id, take, index, y, h }` for
 --- each of its take lanes, then a row `{ kind = "lane", id, lane, index,
 --- y, h }` for each of its automation lanes (`h` 2 for each lane, or as
 --- the window's vertical zoom says), then the closing line `{ kind =
---- "end", id, index, y, h = 1 }` under the last track of a subproject.
+--- "end", id, index, y, h = 1 }` under the last part of a subproject.
 --- Scrolls so that the cursor's row is in view. Returns the rows and the
 --- line after the last.
 function view:rows_with_lanes(
-  tracks: {integer}, th: integer, ruler_rows: integer, room: integer, cursor_index: integer
+  parts: {integer}, th: integer, ruler_rows: integer, room: integer, cursor_index: integer
 ): {Row}, integer
   local bottom = ruler_rows + room
   local lane_rows = paw.vzoom.lane_rows()
-  local closing = closing_lines(tracks)
-  -- The rows from track `top` down, the line after them, and whether
-  -- every row of the tracks placed fits.
+  local closing = closing_lines(parts)
+  -- The rows from part `top` down, the line after them, and whether
+  -- every row of the parts placed fits.
   local function place(top: integer): {Row}, integer, boolean
     local out: {Row} = {}
     local y = ruler_rows
-    for index = top, #tracks do
-      local id = tracks[index]
+    for index = top, #parts do
+      local id = parts[index]
       local h = view.row_height(id, th)
       if #out > 0 and y + h > bottom then
         break
       end
-      out[#out + 1] = {kind = "track", id = id, index = index, y = y, h = h}
+      out[#out + 1] = {kind = "part", id = id, index = index, y = y, h = h}
       y = y + h
       for k = 1, paw.takes.lane_count(id) do
         if y + lane_rows > bottom then
@@ -356,7 +356,7 @@ function view:rows_with_lanes(
   local function shows_cursor(rows: {Row}): boolean
     local lane = paw.cursor.lane_id()
     for _, row in ipairs(rows) do
-      if row.index == cursor_index and ((row.kind == "track" and not lane) or (row.lane and row.lane.id == lane)) then
+      if row.index == cursor_index and ((row.kind == "part" and not lane) or (row.lane and row.lane.id == lane)) then
         return true
       end
     end
@@ -372,11 +372,11 @@ function view:rows_with_lanes(
     end
   end
   self.seen_index, self.seen_lane, self.seen_fit = cursor_index, lane, nil
-  self.top = math.floor(util.clamp(self.top, 1, math.max(1, #tracks)))
-  -- No room left empty below while tracks above are scrolled away.
+  self.top = math.floor(util.clamp(self.top, 1, math.max(1, #parts)))
+  -- No room left empty below while parts above are scrolled away.
   while self.top > 1 do
     local rows, _, whole = place(self.top - 1)
-    if not whole or rows[#rows].index < #tracks or not shows_cursor(rows) then
+    if not whole or rows[#rows].index < #parts or not shows_cursor(rows) then
       break
     end
     self.top = self.top - 1
@@ -386,13 +386,13 @@ function view:rows_with_lanes(
 end
 
 --- Where everything goes on a `w` by `h` view: the header width, the ruler's
---- rows, and the rows of the timeline, each `{ kind = "track", id, index, y,
---- h }` from the first track shown, then the master's. All placement is
+--- rows, and the rows of the timeline, each `{ kind = "part", id, index, y,
+--- h }` from the first part shown, then the master's. All placement is
 --- here, so that rows of other kinds can be added in one place.
 function view:layout(w: integer, h: integer): Layout
-  local tracks = paw.groups.rows()
+  local parts = paw.groups.rows()
   local header = view.header_width(w)
-  -- The track column (paw/trackcolumn.tl) at the left of the headers takes
+  -- The part column (paw/partcolumn.tl) at the left of the headers takes
   -- the columns of the parts that the options set (the numbers) from the
   -- timeline, as Neovim's number column takes them from the text. The
   -- parts that come and go with the project (signs, the tree of groups)
@@ -402,12 +402,12 @@ function view:layout(w: integer, h: integer): Layout
   -- so a name stays readable in a narrow window; there the rest comes from
   -- the timeline. `count` is how far the counts of `j` and `k` go: over
   -- lane rows too, in normal mode, when lanes are open.
-  local count = #tracks
+  local count = #parts
   if paw.lanes.any_open() and paw.keymap.mode == "n" then
     count = #paw.lanes.lines()
   end
-  local column = paw.trackcolumn.layout(
-    {rows = tracks, count = count}, math.max(0, w - header - 8), math.max(0, header - NARROW_HEADER)
+  local column = paw.partcolumn.layout(
+    {rows = parts, count = count}, math.max(0, w - header - 8), math.max(0, header - NARROW_HEADER)
   )
   local hw = header + column.width - column.from_header
   -- The ruler, the song's bars under the scope's (`song_bars`), its
@@ -426,13 +426,13 @@ function view:layout(w: integer, h: integer): Layout
   -- the window's vertical zoom says) take their lines first.
   local lane_lines, own = 0, paw.vzoom.any_own()
   local lane_rows = paw.vzoom.lane_rows()
-  for _, id in ipairs(tracks) do
+  for _, id in ipairs(parts) do
     lane_lines = lane_lines + lane_rows * (paw.takes.lane_count(id) + #paw.lanes.shown(id))
-    own = own or (track_number(id, "height") or 1) ~= 1
+    own = own or (part_number(id, "height") or 1) ~= 1
   end
-  local th = view.track_height(#tracks, math.max(1, room - lane_lines))
-  -- Squeezed by panels below, a track takes what there is rather than vanish.
-  if not (paw.vzoom.track_rows() or tonumber(paw.opt.track_height)) and room < th then
+  local th = view.part_height(#parts, math.max(1, room - lane_lines))
+  -- Squeezed by panels below, a part takes what there is rather than vanish.
+  if not (paw.vzoom.part_rows() or tonumber(paw.opt.part_height)) and room < th then
     th = math.max(1, room)
   end
   local L: Layout = {
@@ -444,16 +444,16 @@ function view:layout(w: integer, h: integer): Layout
     song_bars = song_bars,
     lanes_y = lanes_y,
     tempo_rows = tempo_rows,
-    tracks = tracks,
+    parts = parts,
     master = {kind = "master", id = 0, y = h - master_rows, h = master_rows},
     bands = bands,
     band_y = band_y,
   }
   local cursor_index = paw.cursor.row() or 1
-  -- Tracks of heights of their own are placed one by one, as lanes and
+  -- Parts of heights of their own are placed one by one, as lanes and
   -- the closing lines of subprojects shown in place are.
-  if lane_lines > 0 or own or next(closing_lines(tracks)) then
-    L.rows, L.used = self:rows_with_lanes(tracks, th, ruler_rows, room, cursor_index)
+  if lane_lines > 0 or own or next(closing_lines(parts)) then
+    L.rows, L.used = self:rows_with_lanes(parts, th, ruler_rows, room, cursor_index)
     return L
   end
   local fit = math.max(1, room // th)
@@ -466,14 +466,14 @@ function view:layout(w: integer, h: integer): Layout
     end
   end
   self.seen_index, self.seen_fit = cursor_index, fit
-  self.top = math.floor(util.clamp(self.top, 1, math.max(1, #tracks - fit + 1)))
+  self.top = math.floor(util.clamp(self.top, 1, math.max(1, #parts - fit + 1)))
   local rows: {Row} = {}
   local y = ruler_rows
-  for index = self.top, #tracks do
+  for index = self.top, #parts do
     if y + th > ruler_rows + room then
       break
     end
-    rows[#rows + 1] = {kind = "track", id = tracks[index], index = index, y = y, h = th}
+    rows[#rows + 1] = {kind = "part", id = parts[index], index = index, y = y, h = th}
     y = y + th
   end
   L.rows, L.used = rows, y
@@ -641,7 +641,7 @@ local function curve(buf: Buf, x: integer, y: integer, w: integer, h: integer, v
   buf:mark("curve", x, y, w, h, props)
 end
 
--- A track's row of the timeline -------------------------------------------------------
+-- A part's row of the timeline -------------------------------------------------------
 
 --- Whether two values of plain data (numbers, text, flags, tables of
 --- them) are the same.
@@ -686,7 +686,7 @@ local function same_ground(a: RowGround, b: RowGround): boolean
     and same(a.folds as Data, b.folds as Data)
 end
 
--- The rows of the timeline that the terminal drew last, by their track and
+-- The rows of the timeline that the terminal drew last, by their part and
 -- place: what each was drawn from, and the columns its clips take. A row
 -- drawn from the same things again puts back the cells it drew
 -- (`buf:put_kept`) instead of drawing its clips again. Only the rows that
@@ -752,7 +752,7 @@ local function row_ground(
   }
 end
 
---- A clip in view on a track's row, or a piece of one cut by a time fold:
+--- A clip in view on a part's row, or a piece of one cut by a time fold:
 --- its columns (`cw`), which piece it is (`k`), where the clip would start
 --- were its piece's stretch of the view even (`v`, a place on the plane),
 --- and the beats where it is cut (`from`, `to`).
@@ -765,7 +765,7 @@ local record Shown
   to: number
 end
 
---- Where a clip of a track shown under its return row is drawn: the
+--- Where a clip of a part shown under its return row is drawn: the
 --- block of the return row it plays in (`from` up to `to`, beats of the
 --- window), and which block it is (`k`).
 local record InBlock
@@ -774,24 +774,24 @@ local record InBlock
   k: integer
 end
 
---- The clips of a track's row that its timeline shows, and a column more
---- each side. The tracks of a subproject shown in place under its return
+--- The clips of a part's row that its timeline shows, and a column more
+--- each side. The parts of a subproject shown in place under its return
 --- row (`windows`, paw/nest.tl) draw their clips in each block of the
 --- row, where the subproject plays them there, and nowhere else: a copy
 --- of each clip moved to its place, with the block it is cut at.
 local function row_clips(
-  ax: Axis, track: types.Track, last: number, windows: {NestModule.Window}
+  ax: Axis, part: types.Part, last: number, windows: {NestModule.Window}
 ): {types.Clip}, {types.Clip: InBlock}
   local first, cell = ax.scroll, ax:beats(1)
   if not windows then
-    return api.clip_list(track.id, first - cell, last + cell), nil
+    return api.clip_list(part.id, first - cell, last + cell), nil
   end
   local clips: {types.Clip} = {}
   local blocks: {types.Clip: InBlock} = {}
   for k, win in ipairs(windows) do
     local from, to = math.max(first - cell, win.from), math.min(last + cell, win.to)
     if to > from then
-      for _, clip in ipairs(api.clip_list(track.id, from - win.shift, to - win.shift)) do
+      for _, clip in ipairs(api.clip_list(part.id, from - win.shift, to - win.shift)) do
         local moved: {string: Data} = {}
         for key, v in pairs(clip as {string: Data}) do
           moved[key] = v
@@ -848,13 +848,11 @@ local function shown_pieces(
   return shown, spans
 end
 
---- The key a track's row is kept by, or nil when it may not be kept: a
+--- The key a part's row is kept by, or nil when it may not be kept: a
 --- row with an audio clip, the cursor's clip, or clips that share a
 --- column (the layers are painted after the row is kept, each in its
 --- clip's cells).
-local function keep_key_of(
-  track: types.Track, buf: Buf, clips: {types.Clip}, spans: {Span}, cursor_clip: integer
-): string
+local function keep_key_of(part: types.Part, buf: Buf, clips: {types.Clip}, spans: {Span}, cursor_clip: integer): string
   for _, clip in ipairs(clips) do
     if clip.kind ~= "midi" or clip.id == cursor_clip then
       return nil
@@ -867,10 +865,10 @@ local function keep_key_of(
     end
     right = math.max(right, span[2])
   end
-  return "arrange:row:" .. track.id .. ":" .. buf.x .. ":" .. buf.y
+  return "arrange:row:" .. part.id .. ":" .. buf.x .. ":" .. buf.y
 end
 
---- The ground of the row of a track shown under its return row: the
+--- The ground of the row of a part shown under its return row: the
 --- bars only in the blocks of the row, blank outside them, as no clip of
 --- the subproject can be there.
 local function nest_ground(
@@ -894,7 +892,7 @@ local function nest_ground(
 end
 
 --- The dotted edges of each block of a return row (`windows`) down a row
---- of the tracks its subproject shows in place: in the first and the last
+--- of the parts its subproject shows in place: in the first and the last
 --- column of the block, as the block's frame on the return row.
 local function nest_edges(self: Arrange, buf: Buf, row: Row, windows: {NestModule.Window}, style: string, glyph: string)
   for _, win in ipairs(windows) do
@@ -907,8 +905,8 @@ local function nest_edges(self: Arrange, buf: Buf, row: Row, windows: {NestModul
   end
 end
 
---- What the timeline of a track's row draws, besides the row itself: is
---- it the cursor's track, the cursor's clip, the lanes of its automation
+--- What the timeline of a part's row draws, besides the row itself: is
+--- it the cursor's part, the cursor's clip, the lanes of its automation
 --- whose curve it draws, its hue, the bar lines, the loop, and the clips
 --- chosen with the pointer.
 local record RowDraw
@@ -921,17 +919,17 @@ local record RowDraw
   chosen: {integer: boolean}
 end
 
---- A track's row of the timeline: its ground with the bars and the loop,
+--- A part's row of the timeline: its ground with the bars and the loop,
 --- its clips, the take being made, and the volume curve. Gives the spans
 --- of columns its clips take, for the playhead.
-local function track_lane(self: Arrange, buf: Buf, row: Row, track: types.Track, o: RowDraw): {Span}
+local function part_lane(self: Arrange, buf: Buf, row: Row, part: types.Part, o: RowDraw): {Span}
   local y, height = row.y, row.h
   local ax = self.axis
   local zoom = ax.zoom
   local plane = self.plane
   local w = buf.width
   local vscroll = ax.left
-  local colour = draw.track_colour(track)
+  local colour = draw.part_colour(part)
   local scope_from, scope_to = paw.scope.span()
   local layers = paw.ui.layers.arrange
   local painted = layers and layers.clip
@@ -939,8 +937,8 @@ local function track_lane(self: Arrange, buf: Buf, row: Row, track: types.Track,
   -- across a fold is drawn in pieces, each cut at the fold.
   local folds = #ax.spans > 0
   local last = ax:beat_of(w)
-  local windows = paw.nest.windows(track.id)
-  local clips, blocks = row_clips(ax, track, last, windows)
+  local windows = paw.nest.windows(part.id)
+  local clips, blocks = row_clips(ax, part, last, windows)
   local shown, spans = shown_pieces(ax, clips, w, folds, scope_from, scope_to, blocks)
   --- What other modules mark on each clip (`paw.ui.layer("arrange",
   --- "clip", ...)`), in its cells.
@@ -952,8 +950,8 @@ local function track_lane(self: Arrange, buf: Buf, row: Row, track: types.Track,
     end
   end
   local keep_key: string
-  if not (paw.ui.scene_drawing or o.selected or (self.rec and track.armed) or windows) then
-    keep_key = keep_key_of(track, buf, clips, spans, o.cursor_clip)
+  if not (paw.ui.scene_drawing or o.selected or (self.rec and part.armed) or windows) then
+    keep_key = keep_key_of(part, buf, clips, spans, o.cursor_clip)
   end
   local ground: RowGround
   if keep_key then
@@ -991,7 +989,7 @@ local function track_lane(self: Arrange, buf: Buf, row: Row, track: types.Track,
   for _, s in ipairs(shown) do
     local clip = s.clip
     local kind = clip.muted and "_off" or clip.id == o.cursor_clip and "_cur" or ""
-    local props = view.clip_props(clip, track, o.hue, kind, ax, s.v, o.chosen[clip.id], s.from, s.to, colour)
+    local props = view.clip_props(clip, part, o.hue, kind, ax, s.v, o.chosen[clip.id], s.from, s.to, colour)
     if s.k > 1 then
       props.key = props.key .. ":" .. s.k
     end
@@ -1003,10 +1001,10 @@ local function track_lane(self: Arrange, buf: Buf, row: Row, track: types.Track,
       paw.ui.paint("arrange", "clip", {buf = box, width = s.cw, height = height, clip = clip})
     end
   end
-  -- The take being made on an armed track, which a window makes grow with
+  -- The take being made on an armed part, which a window makes grow with
   -- the playhead.
   local rec = self.rec
-  if rec and track.armed then
+  if rec and part.armed then
     -- The take's beats are the song's, as the playhead's is; it is drawn
     -- in the window's time.
     local here = paw.time.local_beat
@@ -1027,9 +1025,9 @@ local function track_lane(self: Arrange, buf: Buf, row: Row, track: types.Track,
     nest_edges(self, buf, row, windows, "NestGuide", draw.g.nest_guide)
   end
   -- The volume curve runs over the empty lane, never over clips, and only
-  -- on the track the cursor is on: drawn on every track it ran along the
+  -- on the part the cursor is on: drawn on every part it ran along the
   -- clips' edges and made the notes harder to read, and the curve of a
-  -- track is a thing to look at while working on that track (the others
+  -- part is a thing to look at while working on that part (the others
   -- show an `A` in their header; `<leader>a` opens their lanes as rows).
   for _, l in ipairs(o.lanes) do
     if o.selected and height >= 2 and l.target == "volume" and l.point_count > 0 then
@@ -1073,15 +1071,15 @@ function view:draw_lane_row(headers: Buf, timeline: Buf, row: Row, lines: {GridL
   local beat = paw.cursor.beat
   local hw, tw = headers.width, timeline.width
   local on = paw.cursor.lane_id() == l.id
-  local track = api.track_get(row.id)
-  local hue = draw.track_hue(track, row.index)
-  local style = on and "TrackHeaderSel" or "TrackHeader"
+  local part = api.part_get(row.id)
+  local hue = draw.part_hue(part, row.index)
+  local style = on and "PartHeaderSel" or "PartHeader"
   lane_header(headers, y, lh, hue, style)
   headers:text(2, y, util.fit("↳ " .. paw.lanes.name(l), math.max(1, hw - 3)), style)
   local state = l.enabled and "read" or "bypass"
   headers:text(math.max(2, hw - #state - 1), y + 1, state, l.enabled and "Automation" or "FlagOff")
   local value = paw.lanes.format(l, paw.lanes.value_at(l, beat))
-  headers:text(4, y + 1, util.fit(value, math.max(1, hw - #state - 5)), "TrackInfo")
+  headers:text(4, y + 1, util.fit(value, math.max(1, hw - #state - 5)), "PartInfo")
   local ground: roles.BeatsProps = {
     from = ax.left,
     per = ax.zoom,
@@ -1095,7 +1093,7 @@ function view:draw_lane_row(headers: Buf, timeline: Buf, row: Row, lines: {GridL
     points = {},
     style = l.enabled and "Automation" or "Faint",
     axis = ax,
-    color = draw.track_colour(track, row.index),
+    color = draw.part_colour(part, row.index),
     enabled = l.enabled,
   }
   if l.target == "state" then
@@ -1141,28 +1139,28 @@ function view:draw_lane_row(headers: Buf, timeline: Buf, row: Row, lines: {GridL
 end
 
 --- Where each row is among the lines that the counts of `j` and `k` go
---- over, and the cursor's: rows of tracks, and the lane rows too in normal
---- mode while lanes are open (paw/cursor.tl `move_track`). A take lane and,
+--- over, and the cursor's: rows of parts, and the lane rows too in normal
+--- mode while lanes are open (paw/cursor.tl `move_part`). A take lane and,
 --- in other modes, a lane row is on no line.
-local function counted_lines(L: Layout, cursor_track: integer, cursor_lane: integer): {Row: integer}, integer
+local function counted_lines(L: Layout, cursor_part: integer, cursor_lane: integer): {Row: integer}, integer
   local line_of: {Row: integer} = {}
   local at: integer
   if paw.lanes.any_open() and paw.keymap.mode == "n" then
     local lines = paw.lanes.lines()
     local index: {string: integer} = {}
     for i, l in ipairs(lines) do
-      index[l.track .. ":" .. (l.lane and tostring(l.lane) or "")] = i
+      index[l.part .. ":" .. (l.lane and tostring(l.lane) or "")] = i
     end
     for _, row in ipairs(L.rows) do
-      if row.kind == "track" or row.kind == "lane" then
+      if row.kind == "part" or row.kind == "lane" then
         line_of[row] = index[row.id .. ":" .. (row.lane and tostring(row.lane.id) or "")]
       end
     end
-    at = cursor_track == 0 and #lines + 1
-      or index[tostring(cursor_track) .. ":" .. (cursor_lane and tostring(cursor_lane) or "")]
+    at = cursor_part == 0 and #lines + 1
+      or index[tostring(cursor_part) .. ":" .. (cursor_lane and tostring(cursor_lane) or "")]
   else
     for _, row in ipairs(L.rows) do
-      if row.kind == "track" then
+      if row.kind == "part" then
         line_of[row] = row.index
       end
     end
@@ -1171,15 +1169,15 @@ local function counted_lines(L: Layout, cursor_track: integer, cursor_lane: inte
   return line_of, at
 end
 
---- The track column (paw/trackcolumn.tl) on each line of each row shown.
-function view:draw_column(column: Buf, L: Layout, cursor_track: integer, cursor_lane: integer)
-  local line_of, at = counted_lines(L, cursor_track, cursor_lane)
+--- The part column (paw/partcolumn.tl) on each line of each row shown.
+function view:draw_column(column: Buf, L: Layout, cursor_part: integer, cursor_lane: integer)
+  local line_of, at = counted_lines(L, cursor_part, cursor_lane)
   for _, row in ipairs(L.rows) do
     local line = line_of[row]
-    local on = row.id == cursor_track
-      and (row.kind == "track" and not cursor_lane or row.kind == "lane" and row.lane.id == cursor_lane)
+    local on = row.id == cursor_part
+      and (row.kind == "part" and not cursor_lane or row.kind == "lane" and row.lane.id == cursor_lane)
     for k = 0, row.h - 1 do
-      paw.trackcolumn.draw(
+      paw.partcolumn.draw(
         column,
         L.column,
         row.y + k,
@@ -1206,9 +1204,9 @@ function view:draw_tempo_row(headers: Buf, timeline: Buf, y: integer, lines: {Gr
   local ax = self.axis
   local hw, tw = headers.width, timeline.width
   local beat = paw.cursor.beat
-  headers:fill(0, y, hw, 2, " ", "TrackHeader")
-  headers:text(2, y, util.fit("tempo", math.max(1, hw - 3)), "TrackHeader")
-  headers:text(2, y + 1, util.fit(string.format("%g bpm", paw.time.tempo_at(beat)), math.max(1, hw - 3)), "TrackInfo")
+  headers:fill(0, y, hw, 2, " ", "PartHeader")
+  headers:text(2, y, util.fit("tempo", math.max(1, hw - 3)), "PartHeader")
+  headers:text(2, y + 1, util.fit(string.format("%g bpm", paw.time.tempo_at(beat)), math.max(1, hw - 3)), "PartInfo")
   timeline:fill(0, y, tw, 2, " ", "Lane")
   local beats = shows_beats(ax)
   for _, line in ipairs(lines) do
@@ -1247,7 +1245,7 @@ function view:draw_tempo_row(headers: Buf, timeline: Buf, y: integer, lines: {Gr
   timeline:fill(x, y, cw, 1, nil, "Cursor")
 end
 
---- One take lane: take `row.take` of every clip of the track that has that
+--- One take lane: take `row.take` of every clip of the part that has that
 --- many, over the clip's own stretch of time, lit where it is the one that
 --- plays and faint where it is not: its name on the first row, and its
 --- waveform or its notes on the rows under it. To look at: comping here
@@ -1259,15 +1257,15 @@ function view:draw_take_row(headers: Buf, timeline: Buf, row: Row, lines: {GridL
   local y, k, h = row.y, row.take, row.h
   local ax = self.axis
   local hw, tw = headers.width, timeline.width
-  local track = api.track_get(row.id)
-  local hue = draw.track_hue(track, row.index)
-  local colour = draw.track_colour(track, row.index)
+  local part = api.part_get(row.id)
+  local hue = draw.part_hue(part, row.index)
+  local colour = draw.part_colour(part, row.index)
   local names, covered: {Span}, {Span} = {}, {}
-  headers:fill(0, y, hw, h, " ", "TrackHeader")
+  headers:fill(0, y, hw, h, " ", "PartHeader")
   for line = y, y + h - 1 do
     headers:text(0, line, "▏", hue.fg)
   end
-  headers:text(2, y, util.fit("↳ take " .. k, math.max(1, hw - 3)), "TrackInfo")
+  headers:text(2, y, util.fit("↳ take " .. k, math.max(1, hw - 3)), "PartInfo")
   local ground: roles.BeatsProps = {
     from = ax.left,
     per = ax.zoom,
@@ -1278,7 +1276,7 @@ function view:draw_take_row(headers: Buf, timeline: Buf, row: Row, lines: {GridL
   }
   self.plane:mark("beats", ax.left, y, ax:beats(tw), h, ground)
   -- The clips that have this take, in pieces cut at the time folds and
-  -- the scope's edges, as the track's row draws them.
+  -- the scope's edges, as the part's row draws them.
   local clips: {types.Clip} = {}
   for _, clip in ipairs(api.clip_list(row.id, ax.scroll - ax:beats(1), ax:beat_of(tw) + ax:beats(1))) do
     local takes = paw.takes.of(clip)
@@ -1295,7 +1293,7 @@ function view:draw_take_row(headers: Buf, timeline: Buf, row: Row, lines: {GridL
     local x0, x1 = spans[i][1], spans[i][2]
     local on = takes.active == k
     local label = (on and (draw.g.play .. " ") or "") .. (entry.name or ("take " .. k))
-    local cut_in, cut_out = track_parts.cuts(clip, s.from, s.to)
+    local cut_in, cut_out = part_draw.cuts(clip, s.from, s.to)
     -- A clip of its own, with the take's notes or waveform in its body.
     local row_of = paw.frontend.take_rows(clip)
     local props: roles.ClipProps = {
@@ -1316,7 +1314,7 @@ function view:draw_take_row(headers: Buf, timeline: Buf, row: Row, lines: {GridL
       title_style = on and hue.title or "TakeLaneName",
       body_style = on and hue.body or "TakeLane",
     }
-    track_parts.take_body(props, clip, k, props.content, colour, on, ax)
+    part_draw.take_body(props, clip, k, props.content, colour, on, ax)
     self.plane:mark("clip", s.v, y, clip.length, h, props)
     local at = x1 - x0 > 2 and 1 or 0
     names[#names + 1] = {x0 + at, math.min(x1, x0 + at + api.str_width(label))}
@@ -1342,10 +1340,10 @@ local record WelcomeRow
   text: string
 end
 
---- What a new project shows in place of tracks: how to begin.
+--- What a new project shows in place of parts: how to begin.
 local function welcome(buf: Buf)
   local lines: {{string, string}} = {
-    {"o", "add a track"},
+    {"o", "add a part"},
     {"a", "put an instrument on it"},
     {"i Enter", "enter notes: a clip opens to draw them (i alone: insert mode)"},
     {"then I", "play them on a MIDI keyboard (step input)"},
@@ -1392,7 +1390,7 @@ local function welcome(buf: Buf)
   end
   local intro_rows = util.wrap(intro, math.max(1, buf.width - 1 - x))
 
-  -- One plain ground, so that the rule between the track headers and the
+  -- One plain ground, so that the rule between the part headers and the
   -- lanes does not cut through the text.
   buf:fill(0, 0, buf.width, buf.height, " ", "Normal")
   local y = math.max(1, (buf.height - #rows - #intro_rows - 2) // 2)
@@ -1462,7 +1460,7 @@ end
 --- layout, the window's axis (`ax`, its time folds in it), the beats shown
 --- and the beat at the right edge; the transport and `here`, which turns a
 --- beat of the song into the window's time; the bar and beat lines; the
---- loop's columns (on or off) and the punch range's; the cursor's track
+--- loop's columns (on or off) and the punch range's; the cursor's part
 --- and lane.
 local record Frame
   buf: Buf
@@ -1481,12 +1479,12 @@ local record Frame
   loop: Span
   loop_off: Span
   punch: Span
-  cursor_track: integer
+  cursor_part: integer
   cursor_lane: integer
   --- The cursor's beat in this window's time, or nil when the current
   --- window is elsewhere in the song (`paw.scope.cursor_beat`).
   cursor_beat: number
-  --- The spans of the clips of each track's row, and of the names of
+  --- The spans of the clips of each part's row, and of the names of
   --- each take lane's, for the playhead.
   covered: {Row: {Span}}
   names_of: {Row: {Span}}
@@ -1825,7 +1823,7 @@ local function cursor_cell(self: Arrange, F: Frame, y: integer, h: integer)
   end
 end
 
---- The line that closes the tracks of a subproject shown under its
+--- The line that closes the parts of a subproject shown under its
 --- return row (`row.id`): `end of ⧉Bridge` in the headers, and under each
 --- block of the row a dotted line between its edges; blank outside them.
 local function draw_closing_line(F: Frame, row: Row)
@@ -1837,9 +1835,9 @@ local function draw_closing_line(F: Frame, row: Row)
   if api.str_width(words) > headers.width - 2 then
     words = util.fit(words, math.max(1, headers.width - 2))
   end
-  headers:text(1, row.y, words, "TrackFold")
+  headers:text(1, row.y, words, "PartFold")
   lanes:fill(0, row.y, lanes.width, 1, " ", "Lane")
-  for _, win in ipairs(paw.nest.windows(F.L.tracks[row.index]) or {}) do
+  for _, win in ipairs(paw.nest.windows(F.L.parts[row.index]) or {}) do
     local x0, x1 = F.ax:x_of(win.from), F.ax:x_of(win.to) - 1
     if x1 > x0 then
       lanes:fill(x0, row.y, x1 - x0, 1, g.nest_close, "NestGuide")
@@ -1851,7 +1849,7 @@ end
 
 -- Overviews -------------------------------------------------------------------------
 
---- The columns where a track has clips in view, between the beats `from`
+--- The columns where a part has clips in view, between the beats `from`
 --- and `to` when they are given: one span for each piece of a clip that
 --- the time folds leave.
 local function clip_columns(ax: Axis, id: integer, w: integer, from?: number, to?: number): {Span}
@@ -1878,7 +1876,7 @@ local function clip_columns(ax: Axis, id: integer, w: integer, from?: number, to
   return out
 end
 
---- Every track inside a group, at any depth.
+--- Every part inside a group, at any depth.
 local function inside(group: integer, out?: {integer}): {integer}
   out = out or {}
   for _, id in ipairs(paw.groups.members(group)) do
@@ -1898,7 +1896,7 @@ local function overview(buf: Buf, y: integer, spans: {Span}, style: string)
   end
 end
 
---- The columns where any track inside a group has clips in view.
+--- The columns where any part inside a group has clips in view.
 local function group_columns(ax: Axis, group: integer, w: integer): {Span}
   local spans: {Span} = {}
   for _, id in ipairs(inside(group)) do
@@ -1915,7 +1913,7 @@ end
 --- inside the group, show the overview.
 local function member_line(ax: Axis, buf: Buf, y: integer, id: integer)
   local w = buf.width
-  local hue = draw.track_hue(api.track_get(id))
+  local hue = draw.part_hue(api.part_get(id))
   if paw.groups.is_group(id) then
     overview(buf, y, group_columns(ax, id, w), hue.fg)
   else
@@ -1923,7 +1921,7 @@ local function member_line(ax: Axis, buf: Buf, y: integer, id: integer)
       local finish = clip.start + clip.length
       local x0, x1 = ax:range(clip.start, finish)
       local whole = #ax:unfolded(clip.start, finish) == 1
-      local line = whole and track_parts.notes_line(clip, x1 - x0, ax, ax:view(clip.start))
+      local line = whole and part_draw.notes_line(clip, x1 - x0, ax, ax:view(clip.start))
       if line then
         buf:text(x0, y, line, hue.fg)
       else
@@ -1933,10 +1931,10 @@ local function member_line(ax: Axis, buf: Buf, y: integer, id: integer)
   end
   -- From the second column, as a clip's name: the first is where the
   -- playhead and a clip's start stand.
-  buf:text(1, y, track_name(id, "name") .. " ", hue.title)
+  buf:text(1, y, part_name(id, "name") .. " ", hue.title)
 end
 
---- What a group's row shows of its tracks: on its first line, the
+--- What a group's row shows of its parts: on its first line, the
 --- overview where any of them has a clip. A folded group lists its
 --- members on its other lines, one a line; when they do not fit, the
 --- last line says how many more there are.
@@ -1960,11 +1958,11 @@ local function group_overview(F: Frame, row: Row, hue: Hue)
   end
 end
 
---- The rows of the timeline: lanes and takes first, then each track's
---- header and clips, and the cursor on its track. The timeline under the
+--- The rows of the timeline: lanes and takes first, then each part's
+--- header and clips, and the cursor on its part. The timeline under the
 --- ruler is a plane, beats along and the view's lines down: a window
 --- paints the clips and the lines on it where they are between cells.
---- Lines, not tracks, go down, because rows of other kinds (take lanes,
+--- Lines, not parts, go down, because rows of other kinds (take lanes,
 --- automation lanes) have heights of their own, and a drag goes across
 --- all of them in one domain.
 local function draw_rows(self: Arrange, F: Frame)
@@ -2005,21 +2003,21 @@ local function draw_rows(self: Arrange, F: Frame)
     end
   end
   for _, row in ipairs(L.rows) do
-    if row.kind == "track" then
-      local track = api.track_get(row.id)
-      local selected = row.id == F.cursor_track
+    if row.kind == "part" then
+      local part = api.part_get(row.id)
+      local selected = row.id == F.cursor_part
       local automation = api.lane_list(row.id)
-      local hue = draw.track_hue(track, row.index)
-      local on_track = selected and not F.cursor_lane
-      self.flags = track_parts.header(
-        F.headers, row.y, row.h, track, row.index, on_track, automation, hue, self.column_width
+      local hue = draw.part_hue(part, row.index)
+      local on_part = selected and not F.cursor_lane
+      self.flags = part_draw.header(
+        F.headers, row.y, row.h, part, row.index, on_part, automation, hue, self.column_width
       )
-      -- With its lanes open as rows, a track's curve is drawn there, not here.
-      F.covered[row] = track_lane(
+      -- With its lanes open as rows, a part's curve is drawn there, not here.
+      F.covered[row] = part_lane(
         self,
         F.lanes,
         row,
-        track,
+        part,
         {
           selected = selected,
           cursor_clip = cursor_clip and cursor_clip.id,
@@ -2033,14 +2031,14 @@ local function draw_rows(self: Arrange, F: Frame)
       if paw.groups.is_group(row.id) then
         group_overview(F, row, hue)
       end
-      if on_track then
+      if on_part then
         cursor_cell(self, F, row.y, row.h)
       end
     end
   end
 end
 
---- The selection of visual mode: whole tracks, or a stretch of time on some.
+--- The selection of visual mode: whole parts, or a stretch of time on some.
 local function draw_selection(F: Frame)
   local selection = paw.keymap.selection()
   if not selection or F.cursor_lane then
@@ -2048,7 +2046,7 @@ local function draw_selection(F: Frame)
   end
   local L = F.L
   for _, row in ipairs(L.rows) do
-    if row.kind == "track" and row.index >= selection.r0 and row.index <= selection.r1 then
+    if row.kind == "part" and row.index >= selection.r0 and row.index <= selection.r1 then
       if selection.kind == "line" then
         F.buf:fill(0, row.y, L.hw - 1, row.h, nil, "Visual")
         F.lanes:fill(0, row.y, L.tw, row.h, nil, "Visual")
@@ -2104,7 +2102,7 @@ local function draw_scope_edges(F: Frame, scope_from: number, scope_to: number)
 end
 
 --- Each time fold: one narrow column with its name and its bars, on the
---- ruler and down the tracks (paw/folds.tl), and the cursor on it.
+--- ruler and down the parts (paw/folds.tl), and the cursor on it.
 local function draw_time_folds(F: Frame)
   local L, cursor = F.L, paw.cursor
   for _, s in ipairs(F.spans) do
@@ -2115,13 +2113,13 @@ local function draw_time_folds(F: Frame)
       F.ruler:text(x0 + 1, 0, label, "TimeFold")
       F.lanes:fill(x0, L.ruler_rows, s.cells, L.master.y - L.ruler_rows, " ", "TimeFoldBody")
       for _, row in ipairs(L.rows) do
-        if row.kind == "track" then
+        if row.kind == "part" then
           F.lanes:text(x0 + 1, row.y, label, "TimeFold")
         end
       end
-      if cursor.beat >= s.from - 1e-9 and cursor.beat < s.to - 1e-9 and F.cursor_track ~= 0 then
+      if cursor.beat >= s.from - 1e-9 and cursor.beat < s.to - 1e-9 and F.cursor_part ~= 0 then
         for _, row in ipairs(L.rows) do
-          if row.kind == "track" and row.id == F.cursor_track then
+          if row.kind == "part" and row.id == F.cursor_part then
             F.lanes:fill(x0, row.y, s.cells, 1, nil, paw.keymap.mode == "x" and "CursorVisual" or "Cursor")
           end
         end
@@ -2131,9 +2129,9 @@ local function draw_time_folds(F: Frame)
 end
 
 --- The top edge of a closed block fold, `width` cells wide: `╭▸`, its
---- name, its bars and its tracks, then `─` to its end. Where it does not
---- fit, the tracks go first (their names, then how many), then the bars;
---- the name stays. A name made of the tracks (the default, `Piano, Pad
+--- name, its bars and its parts, then `─` to its end. Where it does not
+--- fit, the parts go first (their names, then how many), then the bars;
+--- the name stays. A name made of the parts (the default, `Piano, Pad
 --- 9-24`) does not name them again.
 local function block_top(f: FoldsModule.Fold, width: integer): string
   local g = draw.g
@@ -2142,12 +2140,12 @@ local function block_top(f: FoldsModule.Fold, width: integer): string
   local name = paw.folds.name(f)
   local n = paw.folds.bars(f)
   local bars = n .. (n == 1 and " bar" or " bars")
-  local names = paw.folds.track_names(f)
+  local names = paw.folds.part_names(f)
   local choices: {string} = {}
   if name:sub(1, #names) ~= names then
     local count = paw.folds.count(f)
     choices[#choices + 1] = name .. sep .. bars .. sep .. names
-    choices[#choices + 1] = name .. sep .. bars .. sep .. count .. (count == 1 and " track" or " tracks")
+    choices[#choices + 1] = name .. sep .. bars .. sep .. count .. (count == 1 and " part" or " parts")
   end
   choices[#choices + 1] = name .. sep .. bars
   for _, text in ipairs(choices) do
@@ -2160,11 +2158,11 @@ local function block_top(f: FoldsModule.Fold, width: integer): string
   return util.fit(head .. name, width)
 end
 
---- Each closed block fold: a frame over the rows of its tracks and its
+--- Each closed block fold: a frame over the rows of its parts and its
 --- time (paw/folds.tl). The top edge has its name, its bars and its
---- tracks; each track has a line of overview `━` where it has clips; the
---- bottom edge has the keys, when the block is more than one track high.
---- The other tracks show that time as usual. The cursor on the block
+--- parts; each part has a line of overview `━` where it has clips; the
+--- bottom edge has the keys, when the block is more than one part high.
+--- The other parts show that time as usual. The cursor on the block
 --- marks its top edge: the block is one row and one step for the cursor.
 local function draw_block_folds(F: Frame)
   local L, g, ax = F.L, draw.g, F.ax
@@ -2173,11 +2171,11 @@ local function draw_block_folds(F: Frame)
     local x1 = math.min(L.tw, ax:x_of(f.to))
     if x1 > x0 then
       local member: {integer: boolean} = {}
-      for _, id in ipairs(f.tracks) do
+      for _, id in ipairs(f.parts) do
         member[id] = true
       end
-      -- Its rows, and the line of overview of each of its tracks: the
-      -- first line of the track's row, or the next one under the top edge.
+      -- Its rows, and the line of overview of each of its parts: the
+      -- first line of the part's row, or the next one under the top edge.
       local top, bottom: integer, integer
       local lines: {integer: integer} = {}
       for _, row in ipairs(L.rows) do
@@ -2185,7 +2183,7 @@ local function draw_block_folds(F: Frame)
           F.lanes:fill(x0, row.y, x1 - x0, row.h, " ", "TimeFoldBody")
           top = top or row.y
           bottom = row.y + row.h - 1
-          if row.kind == "track" then
+          if row.kind == "part" then
             local y = row.y == top and row.y + 1 or row.y
             if y < row.y + row.h then
               lines[y] = row.id
@@ -2207,13 +2205,13 @@ local function draw_block_folds(F: Frame)
         end
         F.lanes:text(x0, top, block_top(f, x1 - x0), "TimeFold")
         if bottom > top and not lines[bottom] then
-          local hint = #f.tracks > 1 and (" za opens " .. g.dot .. " znn enters ") or ""
+          local hint = #f.parts > 1 and (" za opens " .. g.dot .. " znn enters ") or ""
           local edge = g.bl .. g.h .. hint
           F.lanes:text(x0, bottom, edge .. g.h:rep(math.max(0, x1 - x0 - api.str_width(edge))), "TimeFold")
         end
         local beat = F.cursor_beat
         local here = beat and beat >= f.from - 1e-9 and beat < f.to - 1e-9
-        if here and member[F.cursor_track] then
+        if here and member[F.cursor_part] then
           F.lanes:fill(x0, top, x1 - x0, 1, nil, paw.keymap.mode == "x" and "CursorVisual" or "Cursor")
         end
       end
@@ -2221,39 +2219,39 @@ local function draw_block_folds(F: Frame)
   end
 end
 
---- Under the last track: the welcome of a new project, or, with room left,
---- how to add a track (a button in a window, which a click opens the kinds
---- of track from).
+--- Under the last part: the welcome of a new project, or, with room left,
+--- how to add a part (a button in a window, which a click opens the kinds
+--- of part from).
 local function draw_below(F: Frame)
   local L = F.L
   local mst = L.master
-  if #L.tracks == 0 then
+  if #L.parts == 0 then
     welcome(F.buf:sub(0, L.ruler_rows, F.buf.width, mst.y - L.ruler_rows))
   elseif mst.y - L.used >= 2 then
     local wide = F.headers.width + 1 >= 16
     F.headers:text(wide and 4 or 2, L.used, "o", "EmptyKey")
     local at = wide and 6 or 4
     local button: contracts.ButtonMark = {
-      text = "new track",
-      words = "New track",
+      text = "new part",
+      words = "New part",
       icon = "plus",
       style = "Empty",
       quiet = true,
-      label = "new track",
+      label = "new part",
     }
     F.headers:mark("button", at, L.used, math.max(9, math.min(13, (F.headers.width + 1) - 1 - at)), 1, button)
   end
 end
 
---- The master track, pinned to the bottom, with its level on both sides.
---- The cursor reaches it with `j` from the last track, and `/master`.
+--- The master part, pinned to the bottom, with its level on both sides.
+--- The cursor reaches it with `j` from the last part, and `/master`.
 --- Beside it, its automation when it has some; else nothing.
 local function draw_master(self: Arrange, F: Frame)
   local mst, ax = F.L.master, F.ax
-  local master = api.track_get(0)
-  local on_master = F.cursor_track == 0
-  track_parts.header(
-    F.headers, mst.y, mst.h, master, nil, on_master, api.lane_list(0), draw.track_hue(master), self.column_width
+  local master = api.part_get(0)
+  local on_master = F.cursor_part == 0
+  part_draw.header(
+    F.headers, mst.y, mst.h, master, nil, on_master, api.lane_list(0), draw.part_hue(master), self.column_width
   )
   if on_master and F.cursor_beat then
     local x, cw = cursor_cells(ax, F.cursor_beat)
@@ -2270,7 +2268,7 @@ local function draw_master(self: Arrange, F: Frame)
         lane_sampler(l.id, ax, nil, nil, nil),
         {
           style = l.enabled and "Automation" or "Faint",
-          color = draw.track_colour(master),
+          color = draw.part_colour(master),
           enabled = l.enabled,
           axis = ax,
         }
@@ -2384,7 +2382,7 @@ local function draw_playhead(self: Arrange, F: Frame)
 end
 
 --- With lanes open, the counts at the left count lane rows in normal mode
---- and tracks after an operator (`counted_lines`).
+--- and parts after an operator (`counted_lines`).
 function view:operator_shown(): boolean
   return paw.lanes.any_open()
 end
@@ -2411,7 +2409,7 @@ function view:render(buf: Buf, ctx: contracts.RenderContext)
     -- in the window's time (paw.time).
     here = paw.time.local_beat,
     spans = spans,
-    cursor_track = paw.cursor.track_id(),
+    cursor_part = paw.cursor.part_id(),
     cursor_lane = paw.cursor.lane_id(),
     cursor_beat = paw.scope.cursor_beat(ctx.win),
   }
@@ -2430,7 +2428,7 @@ function view:render(buf: Buf, ctx: contracts.RenderContext)
   local origin = paw.time.origin()
   local shown = {0}
   for _, row in ipairs(L.rows) do
-    if row.kind == "track" then
+    if row.kind == "part" then
       shown[#shown + 1] = row.id
     end
   end
@@ -2440,17 +2438,17 @@ function view:render(buf: Buf, ctx: contracts.RenderContext)
   buf:hit(0, 0, w, h, {kind = "arrange"})
   -- The rule between the headers and the timeline, from top to bottom.
   buf:fill(hw - 1, 0, 1, h, draw.g.rule, "Rule")
-  -- The track column at the left, then the headers. Where the chips are,
+  -- The part column at the left, then the headers. Where the chips are,
   -- for the pointer, is in the view's columns.
   local cw = L.column.width
   self.column_width = cw
   local column = cw > 0 and buf:sub(0, 0, cw, h) or nil
   F.headers, F.lanes = buf:sub(cw, 0, hw - 1 - cw, h), buf:sub(hw, 0, tw, h)
-  buf:fill(0, 0, hw - 1, h, " ", "TrackHeader")
+  buf:fill(0, 0, hw - 1, h, " ", "PartHeader")
   draw_ruler(self, F)
   draw_rows(self, F)
   if column then
-    self:draw_column(column, L, F.cursor_track, F.cursor_lane)
+    self:draw_column(column, L, F.cursor_part, F.cursor_lane)
   end
   draw_selection(F)
   draw_scope_edges(F, scope_from, scope_to)
@@ -2500,38 +2498,38 @@ function view:scroll_by(bars: number)
   api.ui_redraw()
 end
 
--- What modal editing works on: rows are positions in the track list.
+-- What modal editing works on: rows are positions in the part list.
 view.grid = {
   get = function(): number, number return paw.cursor.row() or 1, paw.cursor.beat end,
   set = function(row: number, col: number)
     local list = paw.groups.rows()
     local id = list[math.floor(util.clamp(row, 1, #list))]
-    -- The row after the last track is the master's.
+    -- The row after the last part is the master's.
     if row > #list and paw.cursor.master_reachable() then
       id = 0
     end
-    -- Staying on the same track keeps the cursor on the lane row it is on.
-    if #list > 0 and id ~= paw.cursor.track_id() then
-      paw.cursor.set_track(id)
+    -- Staying on the same part keeps the cursor on the lane row it is on.
+    if #list > 0 and id ~= paw.cursor.part_id() then
+      paw.cursor.set_part(id)
     end
     paw.cursor.set_beat(col)
   end,
   step = function(): number return timegrid.step() end,
   label = function(): string return timegrid.label() end,
-  -- A mark stays with its track when tracks are moved around.
-  mark = function(): contracts.GridMark return {track = paw.cursor.track_id(), beat = paw.cursor.beat} end,
+  -- A mark stays with its part when parts are moved around.
+  mark = function(): contracts.GridMark return {part = paw.cursor.part_id(), beat = paw.cursor.beat} end,
   jump = function(pos: contracts.GridMark)
-    if pos.track and pcall(api.track_get, pos.track) then
-      paw.cursor.set_track(pos.track)
+    if pos.part and pcall(api.part_get, pos.part) then
+      paw.cursor.set_part(pos.part)
     end
     paw.cursor.set_beat(pos.beat)
   end,
-  -- Clips by name where they start, and tracks by name at the cursor's beat.
+  -- Clips by name where they start, and parts by name at the cursor's beat.
   search = function(text: string): {contracts.GridHit}
     local wanted = text:lower()
     local hits: {contracts.GridHit} = {}
     for row, id in ipairs(paw.groups.rows()) do
-      if track_name(id, "name"):lower():find(wanted, 1, true) then
+      if part_name(id, "name"):lower():find(wanted, 1, true) then
         hits[#hits + 1] = {row = row, col = paw.cursor.beat}
       end
       for _, clip in ipairs(api.clip_list(id)) do
@@ -2540,7 +2538,7 @@ view.grid = {
         end
       end
     end
-    if track_name(0, "name"):lower():find(wanted, 1, true) then
+    if part_name(0, "name"):lower():find(wanted, 1, true) then
       hits[#hits + 1] = {row = #paw.groups.rows() + 1, col = paw.cursor.beat}
     end
     return hits

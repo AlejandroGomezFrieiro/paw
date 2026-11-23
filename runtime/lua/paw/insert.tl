@@ -47,9 +47,9 @@ local type Item = contracts.InsertedItem
 --- What a mapping's function gets.
 local type MapContext = contracts.KeyContext
 
---- `paw.track_kinds` (paw/track_kinds.lua), the part this module reads.
-local record TrackKinds
-  of: function(track: integer): string
+--- `paw.part_kinds` (paw/part_kinds.lua), the piece this module reads.
+local record PartKinds
+  of: function(part: integer): string
 end
 
 --- `paw.ui.input`'s options, as far as this module gives them.
@@ -79,7 +79,7 @@ end
 --- `paw.clip_kinds` (paw/clip_kinds.tl), the part this module calls.
 local record ClipKinds
   spec: function(name: string): contracts.ClipKind<Field>
-  add: function(track: objects.Track, name: string, args: contracts.ClipKindArgs): objects.Clip
+  add: function(part: objects.Part, name: string, args: contracts.ClipKindArgs): objects.Clip
 end
 
 local record Paw is partial.Paw
@@ -371,9 +371,9 @@ end
 
 -- What the built-in kinds insert ---------------------------------------------------
 
---- The clip on `track` that a stretch would overlap, or nil.
-local function overlapping(track: objects.Track, from: number, to: number): objects.Clip
-  for _, c in ipairs(track:clips()) do
+--- The clip on `part` that a stretch would overlap, or nil.
+local function overlapping(part: objects.Part, from: number, to: number): objects.Clip
+  for _, c in ipairs(part:clips()) do
     if c.start < to - 1e-9 and c.start + c.length > from + 1e-9 then
       return c
     end
@@ -397,14 +397,14 @@ end
 
 --- Why a clip cannot go at the cursor, or nil.
 local function no_clip(ctx: Context): string
-  if ctx.track == nil then
-    return "no track here: `o` adds one"
+  if ctx.part == nil then
+    return "no part here: `o` adds one"
   end
-  if ctx.track == 0 then
-    return "the master track has no clips: move to a track with <Up>"
+  if ctx.part == 0 then
+    return "the master part has no clips: move to a part with <Up>"
   end
-  local track = objects.track(ctx.track)
-  local over = overlapping(track, ctx.beat, ctx.beat + (ctx.length or 0))
+  local part = objects.part(ctx.part)
+  local over = overlapping(part, ctx.beat, ctx.beat + (ctx.length or 0))
   if over then
     return string.format(
       "a clip is there already (%s at %s): insert mode does not move clips; <Esc>, move, then i",
@@ -421,20 +421,18 @@ builtin.midi = function(ctx: Context): Item, string
   if why then
     return nil, why
   end
-  local track = objects.track(ctx.track)
-  local n = #track:clips() + 1
-  local clip = track:add_clip(
-    {start = ctx.beat, length = ctx.length, name = named(ctx.name, n), notes = ctx.spec.notes}
-  )
+  local part = objects.part(ctx.part)
+  local n = #part:clips() + 1
+  local clip = part:add_clip({start = ctx.beat, length = ctx.length, name = named(ctx.name, n), notes = ctx.spec.notes})
   return clip_item(clip, "a MIDI clip")
 end
 
 builtin.audio = function(ctx: Context): Item, string
-  if ctx.track == nil or ctx.track == 0 then
+  if ctx.part == nil or ctx.part == 0 then
     return nil, no_clip(ctx)
   end
-  local track = objects.track(ctx.track)
-  if track:clip_at(ctx.beat) then
+  local part = objects.part(ctx.part)
+  if part:clip_at(ctx.beat) then
     return nil, no_clip(ctx)
   end
   local beat = ctx.beat
@@ -493,15 +491,15 @@ builtin.automation = function(ctx: Context): Item, string
   local lane: objects.Lane
   if ctx.lane then
     lane = objects.lane(ctx.lane)
-  elseif ctx.track and ctx.track ~= 0 then
-    lane = objects.track(ctx.track):automate("volume")
+  elseif ctx.part and ctx.part ~= 0 then
+    lane = objects.part(ctx.part):automate("volume")
   else
-    return nil, "no track here: an automation point goes on a track or a lane"
+    return nil, "no part here: an automation point goes on a part or a lane"
   end
   local before = lane:points()
   local value = lane:value_at(ctx.beat)
   if value == nil or value ~= value then
-    value = objects.track(ctx.track or lane:track().id):value_at("volume", ctx.beat)
+    value = objects.part(ctx.part or lane:part().id):value_at("volume", ctx.beat)
   end
   lane:add(ctx.beat, value)
   local target = lane:get().target
@@ -524,14 +522,14 @@ local function custom_clip(ctx: Context): Item, string
   if why then
     return nil, why
   end
-  local track = objects.track(ctx.track)
+  local part = objects.part(ctx.part)
   local args: contracts.ClipKindArgs = {
-    name = named(ctx.name, #track:clips() + 1), start = ctx.beat, length = ctx.length
+    name = named(ctx.name, #part:clips() + 1), start = ctx.beat, length = ctx.length
   }
   for i, word in ipairs(ctx.spec.args or {}) do
     args[i] = word
   end
-  local ok, clip = pcall(paw.clip_kinds.add, track, ctx.spec.kind, args) as (boolean, objects.Clip)
+  local ok, clip = pcall(paw.clip_kinds.add, part, ctx.spec.kind, args) as (boolean, objects.Clip)
   if not ok then
     return nil, tostring(clip)
   end
@@ -540,10 +538,10 @@ end
 
 -- Inserting -------------------------------------------------------------------------
 
---- The kind for the cursor's track: its `per_track` patch for the
---- track's kind (`track` for a track of no kind) applied.
-local function for_track(spec: Kind, kind: string): Kind
-  local patch = spec.per_track and spec.per_track[kind]
+--- The kind for the cursor's part: its `per_part` patch for the
+--- part's kind (`part` for a part of no kind) applied.
+local function for_part(spec: Kind, kind: string): Kind
+  local patch = spec.per_part and spec.per_part[kind]
   if patch then
     return patched(spec, patch)
   end
@@ -572,17 +570,17 @@ press = function(key: string)
   end
   local made_n, last = 0, nil as Item
   for i = 1, count do
-    local track = cursor.track_id()
-    local kind = track and track ~= 0 and (paw.track_kinds as TrackKinds).of(track) or nil
-    local spec = for_track(base, kind or "track")
-    if spec.tracks and track ~= 0 and not has(spec.tracks, kind or "track") then
-      local where = table.concat(spec.tracks, " or ")
+    local part = cursor.part_id()
+    local kind = part and part ~= 0 and (paw.part_kinds as PartKinds).of(part) or nil
+    local spec = for_part(base, kind or "part")
+    if spec.parts and part ~= 0 and not has(spec.parts, kind or "part") then
+      local where = table.concat(spec.parts, " or ")
       return paw.notify(
         string.format(
-          "`%s` inserts on a %s track; this one is %s",
+          "`%s` inserts on a %s part; this one is %s",
           key,
           where,
-          kind and "a " .. kind .. " track" or "a track of no kind"
+          kind and "a " .. kind .. " part" or "a part of no kind"
         ),
         "warn"
       )
@@ -595,7 +593,7 @@ press = function(key: string)
     local ctx: Context = {
       key = key,
       spec = spec,
-      track = track,
+      part = part,
       lane = cursor.lane_id(),
       beat = cursor.beat,
       length = length,
@@ -661,7 +659,7 @@ function M.open()
         length = item.length,
         index = 1,
         count = 1,
-        track = cursor.track_id(),
+        part = cursor.part_id(),
       } as Context,
       item
     )
@@ -762,7 +760,7 @@ imap("<BS>", function() M.back() end, "Take back what was inserted last")
 imap("K", function() paw.notify(M.describe()) end, "Say what each key inserts")
 imap("<Left>", function() commands.run("cursor.left") end, "Left one grid step")
 imap("<Right>", function() commands.run("cursor.right") end, "Right one grid step")
-imap("<Up>", function() commands.run("cursor.up") end, "Previous track")
-imap("<Down>", function() commands.run("cursor.down") end, "Next track")
+imap("<Up>", function() commands.run("cursor.up") end, "Previous part")
+imap("<Down>", function() commands.run("cursor.down") end, "Next part")
 
 return M

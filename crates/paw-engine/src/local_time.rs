@@ -1,12 +1,12 @@
-//! A track's own time: where a subproject's track plays in the song, and
+//! A part's own time: where a subproject's part plays in the song, and
 //! the transport that the devices on it see.
 
 use paw_types::{SigPoint, TempoMap, TempoPoint, tempo::EPS};
 
 use crate::device::ProcessCtx;
 
-/// Where a track's own time is in the song: from `from` up to `to` (song
-/// beats), its beat 0 is the song's beat `zero`. A subproject's track has
+/// Where a part's own time is in the song: from `from` up to `to` (song
+/// beats), its beat 0 is the song's beat `zero`. A subproject's part has
 /// one place for each block of the subproject.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Place {
@@ -15,7 +15,7 @@ pub struct Place {
     pub zero: f64,
 }
 
-/// A track's own time, which the devices on it see in their transport: a
+/// A part's own time, which the devices on it see in their transport: a
 /// subproject's bars, bar 1 at the start of the block that plays, with the
 /// song's tempo there or its own. Made on the main thread; reading it on
 /// the audio thread allocates nothing.
@@ -33,7 +33,7 @@ pub struct LocalTime {
 }
 
 impl LocalTime {
-    /// A track's time from its places (in any order) and its own meter
+    /// A part's time from its places (in any order) and its own meter
     /// (`sigs` in its own beats, the first at 0), or the song's when
     /// `sigs` is empty.
     pub fn new(mut places: Vec<Place>, sigs: &[SigPoint]) -> Self {
@@ -66,7 +66,7 @@ impl LocalTime {
         self.places.get(after.saturating_sub(1))
     }
 
-    /// What a device on the track sees of a block that the song sees as
+    /// What a device on the part sees of a block that the song sees as
     /// `song`, with the song's map `map`: the same tempo, and its position,
     /// seconds and bars counted from the place's beat 0.
     pub fn context(&self, song: &ProcessCtx, map: &TempoMap) -> ProcessCtx {

@@ -20,7 +20,7 @@ use std::sync::Arc;
 use std::thread::JoinHandle;
 
 use paw_engine::record::{self, AudioCapture, MidiCapture, TakeShared};
-use paw_engine::{Msg, TrackSlot};
+use paw_engine::{Msg, PartSlot};
 use paw_types::{EventKind, TempoMap};
 use rtrb::{Consumer, RingBuffer};
 
@@ -46,18 +46,18 @@ pub(super) struct Recorder {
 }
 
 /// A take: the writer threads that fill its files, and the notes played
-/// into armed tracks so far.
+/// into armed parts so far.
 pub(super) struct Take {
     pub number: u32,
     pub shared: Arc<TakeShared>,
     pub audio: Vec<TakeFile>,
     midi: Consumer<MidiCapture>,
-    /// Notes still held, by track and key.
+    /// Notes still held, by part and key.
     held: HashMap<(Id, u8), Held>,
-    /// Finished notes by track and time round the loop, with `start` in
+    /// Finished notes by part and time round the loop, with `start` in
     /// project beats.
     notes: BTreeMap<(Id, u32), Vec<Note>>,
-    /// Controller moves by track and time round, with `start` in project beats.
+    /// Controller moves by part and time round, with `start` in project beats.
     controls: BTreeMap<(Id, u32), Vec<Control>>,
     /// The loop the take goes round, if the loop was on when it began.
     looped: Option<(f64, f64)>,
@@ -79,9 +79,9 @@ struct Held {
     attr: Option<NoteAttr>,
 }
 
-/// The file of one armed track with an input, and the thread that writes it.
+/// The file of one armed part with an input, and the thread that writes it.
 pub(super) struct TakeFile {
-    pub track: Id,
+    pub part: Id,
     pub path: PathBuf,
     writer: JoinHandle<record::Written>,
 }
@@ -107,37 +107,37 @@ impl Take {
     }
 
     /// Take in what the engine captured since the last call: the times it
-    /// went round the loop, and the notes and controller moves. `track_of`
-    /// gives the track of an engine slot; a capture of a slot with no track
+    /// went round the loop, and the notes and controller moves. `part_of`
+    /// gives the part of an engine slot; a capture of a slot with no part
     /// is left out.
-    fn collect(&mut self, track_of: impl Fn(TrackSlot) -> Option<Id>) {
+    fn collect(&mut self, part_of: impl Fn(PartSlot) -> Option<Id>) {
         while let Ok(frames) = self.wraps.pop() {
             self.wrapped.push(frames);
         }
         while let Ok(capture) = self.midi.pop() {
-            let Some(track) = track_of(capture.slot) else {
+            let Some(part) = part_of(capture.slot) else {
                 continue;
             };
             let (beat, pass) = (capture.beat, capture.pass);
             match capture.kind {
                 EventKind::NoteOn { key, vel, attr, .. } => {
                     // A key struck again ends the note it held.
-                    self.end_note(track, key, beat, pass);
+                    self.end_note(part, key, beat, pass);
                     let velocity = (vel * 127.0).round().clamp(1.0, 127.0) as u8;
                     let held = Held { start: beat, velocity, pass, attr: NoteAttr::of(attr) };
-                    self.held.insert((track, key), held);
+                    self.held.insert((part, key), held);
                 }
-                EventKind::NoteOff { key, .. } => self.end_note(track, key, beat, pass),
+                EventKind::NoteOff { key, .. } => self.end_note(part, key, beat, pass),
                 EventKind::Control { .. } | EventKind::NoteControl { .. } | EventKind::Program { .. } => {
                     if let Some(control) = Control::from_event(beat, capture.kind) {
-                        self.controls.entry((track, pass)).or_default().push(control);
+                        self.controls.entry((part, pass)).or_default().push(control);
                     }
                 }
                 EventKind::AllNotesOff => {
                     let keys: Vec<u8> =
-                        self.held.keys().filter(|(t, _)| *t == track).map(|(_, k)| *k).collect();
+                        self.held.keys().filter(|(t, _)| *t == part).map(|(_, k)| *k).collect();
                     for key in keys {
-                        self.end_note(track, key, beat, pass);
+                        self.end_note(part, key, beat, pass);
                     }
                 }
             }
@@ -146,13 +146,13 @@ impl Take {
 
     /// End a held note at `at`, played in pass `pass`. A note still held
     /// when the loop jumps back ends at the loop's end.
-    fn end_note(&mut self, track: Id, key: u8, at: f64, pass: u32) {
-        if let Some(held) = self.held.remove(&(track, key)) {
+    fn end_note(&mut self, part: Id, key: u8, at: f64, pass: u32) {
+        if let Some(held) = self.held.remove(&(part, key)) {
             let at = match self.looped {
                 Some((_, end)) if pass > held.pass => end,
                 _ => at,
             };
-            self.notes.entry((track, held.pass)).or_default().push(Note {
+            self.notes.entry((part, held.pass)).or_default().push(Note {
                 start: held.start,
                 length: (at - held.start).max(1.0 / 128.0),
                 pitch: key,
@@ -169,8 +169,8 @@ impl Take {
     fn end_held(&mut self, end: f64) {
         let rounds = self.wrapped.len() as u32;
         let held: Vec<(Id, u8)> = self.held.keys().copied().collect();
-        for (track, key) in held {
-            self.end_note(track, key, end, rounds);
+        for (part, key) in held {
+            self.end_note(part, key, end, rounds);
         }
     }
 
@@ -253,13 +253,13 @@ impl Session {
         }
     }
 
-    /// Start capturing every armed track: audio from those with an input,
+    /// Start capturing every armed part: audio from those with an input,
     /// notes from the others.
     pub(super) fn start_take(&mut self) {
         if self.rec.take.is_some() {
             return;
         }
-        // The engine has to know the tracks before it can capture them.
+        // The engine has to know the parts before it can capture them.
         self.flush();
         self.rec.takes += 1;
         let number = self.rec.takes;
@@ -269,21 +269,21 @@ impl Session {
         let dir = self.media_dir();
         let mut audio = Vec::new();
         let mut captures = Vec::new();
-        for track in self.doc.project.tracks.iter().filter(|t| t.armed) {
-            let Some(input) = track.input else {
+        for part in self.doc.project.parts.iter().filter(|t| t.armed) {
+            let Some(input) = part.input else {
                 continue;
             };
             let (first, channels) = (usize::from(input.first), usize::from(input.count));
             if first + channels > inputs {
                 self.doc.warnings.push(format!(
                     "{} records input {input} but the audio device has {inputs} input channels",
-                    track.name
+                    part.name
                 ));
             }
             let started = std::fs::create_dir_all(&dir)
                 .with_context(|| format!("creating {}", dir.display()))
                 .and_then(|()| {
-                    let path = unique_path(&dir, &format!("{}-take{number}", file_safe(&track.name)));
+                    let path = unique_path(&dir, &format!("{}-take{number}", file_safe(&part.name)));
                     // Two seconds of room for the writer to fall behind by.
                     let (tx, rx) = RingBuffer::new(sample_rate as usize * channels * 2);
                     let writer = record::spawn_writer(&path, sample_rate, channels as u16, rx, shared.clone())?;
@@ -291,10 +291,10 @@ impl Session {
                 });
             match started {
                 Ok((path, writer, ring)) => {
-                    audio.push(TakeFile { track: track.id, path, writer });
+                    audio.push(TakeFile { part: part.id, path, writer });
                     captures.push(AudioCapture { first, channels, ring });
                 }
-                Err(err) => self.doc.warnings.push(format!("cannot record {}: {err:#}", track.name)),
+                Err(err) => self.doc.warnings.push(format!("cannot record {}: {err:#}", part.name)),
             }
         }
         let channels: usize = captures.iter().map(|c| c.channels).sum();
@@ -348,9 +348,9 @@ impl Session {
 
     /// Collect the notes the engine has captured for the take so far.
     pub(super) fn collect_take(&mut self) {
-        let tracks = &self.engine.map.tracks;
+        let parts = &self.engine.map.parts;
         if let Some(take) = self.rec.take.as_mut() {
-            take.collect(|slot| slot_track(tracks, slot));
+            take.collect(|slot| slot_part(parts, slot));
         }
     }
 
@@ -424,8 +424,8 @@ impl Session {
     /// Turn what a closed take captured into clips where it began, as one
     /// undo step, and say that it is done.
     fn finish_take(&mut self, mut take: Take) {
-        let tracks = &self.engine.map.tracks;
-        take.collect(|slot| slot_track(tracks, slot));
+        let parts = &self.engine.map.parts;
+        take.collect(|slot| slot_part(parts, slot));
         let shared = take.shared.clone();
         let (start, end) = (shared.start(), shared.end());
         take.end_held(end);
@@ -436,7 +436,7 @@ impl Session {
 
         self.checkpoint();
         let name = format!("take {}", take.number);
-        for TakeFile { track, path, writer } in std::mem::take(&mut take.audio) {
+        for TakeFile { part, path, writer } in std::mem::take(&mut take.audio) {
             // A writer that stopped on an error has kept what it wrote, as a
             // whole WAV file: that becomes the clip like any other.
             let frames = match writer.join() {
@@ -456,7 +456,7 @@ impl Session {
                 let _ = std::fs::remove_file(&path);
                 continue;
             }
-            if let Err(err) = self.add_recorded_audio(track, &path, &name, &passes, looped, take.punch.is_some()) {
+            if let Err(err) = self.add_recorded_audio(part, &path, &name, &passes, looped, take.punch.is_some()) {
                 self.doc.warnings
                     .push(format!("recorded {} but could not add it: {err:#}", path.display()));
             }
@@ -464,10 +464,10 @@ impl Session {
         if let Some(start) = start.filter(|_| !passes.is_empty()) {
             // Notes are only late by what the player heard late.
             let late = start - map.beat(map.seconds(start) - self.record_latency(false));
-            let tracks: BTreeSet<Id> =
-                take.notes.keys().chain(take.controls.keys()).map(|(track, _)| *track).collect();
-            for track in tracks {
-                if let Err(err) = self.add_recorded_notes(track, &mut take, &name, &passes, looped, late) {
+            let parts: BTreeSet<Id> =
+                take.notes.keys().chain(take.controls.keys()).map(|(part, _)| *part).collect();
+            for part in parts {
+                if let Err(err) = self.add_recorded_notes(part, &mut take, &name, &passes, looped, late) {
                     self.doc.warnings.push(format!("could not add the recorded notes: {err:#}"));
                 }
             }
@@ -483,7 +483,7 @@ impl Session {
     }
 
     /// The take being recorded, or else one that closes, as a safety copy
-    /// keeps it: its files, which track each is for and where it starts, so
+    /// keeps it: its files, which part each is for and where it starts, so
     /// that the take can be put back as clips if the program never gets to
     /// finish it.
     pub(super) fn take_in_progress(&self) -> Value {
@@ -494,7 +494,7 @@ impl Session {
         let files: Vec<Value> = take
             .audio
             .iter()
-            .map(|file| json!({ "track": file.track, "file": file.path }))
+            .map(|file| json!({ "part": file.part, "file": file.path }))
             .collect();
         json!({
             "name": format!("take {}", take.number), "start": start,
@@ -510,7 +510,7 @@ impl Session {
         };
         let start = take["start"].as_f64().unwrap_or(0.0);
         for entry in files {
-            let (Some(track), Some(file)) = (entry["track"].as_u64(), entry["file"].as_str()) else {
+            let (Some(part), Some(file)) = (entry["part"].as_u64(), entry["file"].as_str()) else {
                 continue;
             };
             // The project's folder may have moved since: look in its `media`.
@@ -529,21 +529,21 @@ impl Session {
                 source_tempo: Some(self.doc.project.tempo_map().tempo(start)),
                 ..ClipOpts::default()
             };
-            if let Err(err) = self.clip_add(track as Id, opts) {
+            if let Err(err) = self.clip_add(part as Id, opts) {
                 self.doc.warnings
                     .push(format!("the take in {file} could not be put back: {err:#}"));
             }
         }
     }
 
-    /// Turn a track's recorded file into clips. A take that never went
+    /// Turn a part's recorded file into clips. A take that never went
     /// round the loop is one clip where it began. One that did becomes a
     /// clip over the loop whose takes are the times round, the last of them
     /// the one that plays (`clip.meta.takes`, see `paw.takes`), and a clip
     /// before the loop for what was played on the way in.
     fn add_recorded_audio(
         &mut self,
-        track: Id,
+        part: Id,
         path: &Path,
         name: &str,
         passes: &[Pass],
@@ -566,7 +566,7 @@ impl Session {
                 source_tempo: Some(self.doc.project.tempo_map().tempo(pass.start)),
                 ..ClipOpts::default()
             };
-            return self.clip_add(track, opts).map(|_| ());
+            return self.clip_add(part, opts).map(|_| ());
         };
         let map = self.doc.project.tempo_map().clone();
         let first = &passes[0];
@@ -599,7 +599,7 @@ impl Session {
                 source_tempo: Some(map.tempo(first.start)),
                 ..ClipOpts::default()
             };
-            self.clip_add(track, opts)?;
+            self.clip_add(part, opts)?;
         } else if !from_start {
             if first.start >= loop_start + length - 1e-6 {
                 // It began after everything else ends: a clip of its own.
@@ -612,7 +612,7 @@ impl Session {
                     source_tempo: Some(map.tempo(first.start)),
                     ..ClipOpts::default()
                 };
-                self.clip_add(track, opts)?;
+                self.clip_add(part, opts)?;
             } else {
                 self.doc.warnings.push(format!(
                     "{name}: the first time round began in the middle of the loop and is left out; its sound is the first {:.1} s of {}",
@@ -657,15 +657,15 @@ impl Session {
             source_tempo: Some(map.tempo(loop_start)),
             ..ClipOpts::default()
         };
-        self.clip_add(track, opts).map(|_| ())
+        self.clip_add(part, opts).map(|_| ())
     }
 
-    /// Turn the notes and controller moves recorded for a track into clips,
+    /// Turn the notes and controller moves recorded for a part into clips,
     /// as [`add_recorded_audio`](Self::add_recorded_audio) does for sound:
     /// every time round the loop that something was played in is a take.
     fn add_recorded_notes(
         &mut self,
-        track: Id,
+        part: Id,
         take: &mut Take,
         name: &str,
         passes: &[Pass],
@@ -674,8 +674,8 @@ impl Session {
     ) -> Result<()> {
         let mut played: Vec<(u32, Vec<Note>, Vec<Control>)> = Vec::new();
         for pass in passes {
-            let notes = take.notes.remove(&(track, pass.index)).unwrap_or_default();
-            let controls = take.controls.remove(&(track, pass.index)).unwrap_or_default();
+            let notes = take.notes.remove(&(part, pass.index)).unwrap_or_default();
+            let controls = take.controls.remove(&(part, pass.index)).unwrap_or_default();
             if !notes.is_empty() || !controls.is_empty() {
                 played.push((pass.index, notes, controls));
             }
@@ -717,7 +717,7 @@ impl Session {
                 controls,
                 ..ClipOpts::default()
             };
-            return self.clip_add(track, opts).map(|_| ());
+            return self.clip_add(part, opts).map(|_| ());
         };
         // What was played on the way into the loop is a clip before it.
         let start = passes[0].start;
@@ -744,7 +744,7 @@ impl Session {
                     controls: moves,
                     ..ClipOpts::default()
                 };
-                self.clip_add(track, opts)?;
+                self.clip_add(part, opts)?;
             }
         }
         played.retain(|(_, notes, controls)| !notes.is_empty() || !controls.is_empty());
@@ -775,7 +775,7 @@ impl Session {
             meta,
             ..ClipOpts::default()
         };
-        self.clip_add(track, opts).map(|_| ())
+        self.clip_add(part, opts).map(|_| ())
     }
 
     /// Seconds by which what is recorded is behind the song it was played
@@ -829,9 +829,9 @@ fn scratch_media_dir(dirs: &Dirs) -> PathBuf {
     dirs.paw_data().join("recordings")
 }
 
-/// The track that plays in engine slot `slot`.
-fn slot_track(tracks: &HashMap<Id, TrackSlot>, slot: TrackSlot) -> Option<Id> {
-    tracks.iter().find(|(_, s)| **s == slot).map(|(id, _)| *id)
+/// The part that plays in engine slot `slot`.
+fn slot_part(parts: &HashMap<Id, PartSlot>, slot: PartSlot) -> Option<Id> {
+    parts.iter().find(|(_, s)| **s == slot).map(|(id, _)| *id)
 }
 
 #[cfg(test)]
@@ -841,8 +841,8 @@ mod tests {
     use super::*;
 
     const RATE: f64 = 48000.0;
-    const TRACK: Id = 7;
-    const SLOT: TrackSlot = TrackSlot(3);
+    const PART: Id = 7;
+    const SLOT: PartSlot = PartSlot(3);
 
     /// A take with no audio, and the producer ends that the engine fills.
     struct Captured {
@@ -884,7 +884,7 @@ mod tests {
         }
 
         fn collect(&mut self) {
-            self.take.collect(|slot| (slot == SLOT).then_some(TRACK));
+            self.take.collect(|slot| (slot == SLOT).then_some(PART));
         }
 
         /// (pass, start, length) of each note collected, by pass.
@@ -951,8 +951,8 @@ mod tests {
         captured.wraps.push(96000).unwrap();
         captured.release(62, 0.5, 1);
         captured.press(99, 0.25, 1);
-        // An all-notes-off of a slot with no track ends none of them.
-        captured.midi.push(MidiCapture { slot: TrackSlot(9), beat: 0.5, kind: EventKind::AllNotesOff, pass: 1 }).unwrap();
+        // An all-notes-off of a slot with no part ends none of them.
+        captured.midi.push(MidiCapture { slot: PartSlot(9), beat: 0.5, kind: EventKind::AllNotesOff, pass: 1 }).unwrap();
         captured.collect();
         captured.release(99, 1.25, 1);
         // Still held when the engine lets go of the take, at beat 1.5.

@@ -212,20 +212,20 @@ impl Session {
         Ok(gain)
     }
 
-    /// Join audio clips of one track into one clip playing a new file: what
+    /// Join audio clips of one part into one clip playing a new file: what
     /// they play together, with their gains, fades and overlaps, and without
-    /// the track's devices, fader or pan. With one clip, it and every audio
-    /// clip on its track that touches or overlaps it, one after another.
+    /// the part's devices, fader or pan. With one clip, it and every audio
+    /// clip on its part that touches or overlaps it, one after another.
     pub(crate) fn clip_glue(&mut self, ids: &[Id]) -> Result<Value> {
         let first = *ids.first().context("no clips to glue")?;
-        let (track, _) = self
+        let (part, _) = self
             .doc.project
             .find_clip(first)
             .with_context(|| format!("no clip {first}"))?;
         let clips: Vec<Arc<Clip>> = self
             .doc.project
-            .track(track)
-            .context("no such track")?
+            .part(part)
+            .context("no such part")?
             .clips
             .to_vec();
         let chosen = glue_choice(&clips, ids, first)?;
@@ -240,7 +240,7 @@ impl Session {
             .map(|c| c.start + c.length)
             .fold(f64::NEG_INFINITY, f64::max);
 
-        let project = self.glue_project(track, &chosen)?;
+        let project = self.glue_project(part, &chosen)?;
         let first_clip = clips
             .iter()
             .find(|c| c.id == first)
@@ -290,7 +290,7 @@ impl Session {
         });
         let id = glued.id;
         self.doc.edit(|p| {
-            let t = p.track_mut(track).context("the track went away")?;
+            let t = p.part_mut(part).context("the part went away")?;
             let at = t
                 .clips
                 .iter()
@@ -305,16 +305,16 @@ impl Session {
 }
 
 impl Session {
-    /// A project of the chosen clips alone on a bare track, straight to a
+    /// A project of the chosen clips alone on a bare part, straight to a
     /// bare master.
-    fn glue_project(&mut self, track: Id, chosen: &[Id]) -> Result<crate::model::Project> {
+    fn glue_project(&mut self, part: Id, chosen: &[Id]) -> Result<crate::model::Project> {
         self.capture_states();
         let mut project = self.doc.project.clone();
-        project.tracks.retain(|t| t.id == track);
-        if track == MASTER_ID {
-            bail!("clips on the master track cannot be glued");
+        project.parts.retain(|t| t.id == part);
+        if part == MASTER_ID {
+            bail!("clips on the master part cannot be glued");
         }
-        let t = Arc::make_mut(&mut project.tracks[0]);
+        let t = Arc::make_mut(&mut project.parts[0]);
         t.clips.retain(|c| chosen.contains(&c.id));
         t.devices.clear();
         t.lanes.clear();
@@ -326,7 +326,7 @@ impl Session {
 }
 
 /// The clips to glue: the ones given, or with one clip, the run of audio
-/// clips that touch or overlap it. Each must be an audio clip of its track.
+/// clips that touch or overlap it. Each must be an audio clip of its part.
 fn glue_choice(clips: &[Arc<Clip>], ids: &[Id], first: Id) -> Result<Vec<Id>> {
     let audio = |c: &Clip| matches!(c.content, ClipContent::Audio { .. });
     let mut chosen: Vec<Id> = ids.to_vec();
@@ -358,7 +358,7 @@ fn glue_choice(clips: &[Arc<Clip>], ids: &[Id], first: Id) -> Result<Vec<Id>> {
         let c = clips
             .iter()
             .find(|c| c.id == *id)
-            .with_context(|| format!("clip {id} is not on the same track as clip {first}"))?;
+            .with_context(|| format!("clip {id} is not on the same part as clip {first}"))?;
         if !audio(c) {
             bail!("clip {id} is a MIDI clip: only audio clips are glued");
         }

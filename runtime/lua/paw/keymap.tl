@@ -2,7 +2,7 @@
 --
 -- A mapping belongs to a mode and optionally to a view; a view's mappings win
 -- over global ones while that view has focus. The right hand side is a
--- command line (`"track.mute"`) or a function.
+-- command line (`"part.mute"`) or a function.
 --
 --   mode   what it is                      how mappings get there
 --   n      normal                          `set` (the default)
@@ -310,7 +310,7 @@ local record M
   --- a jump of the cursor from a step: the view scrolls to the target of a jump.
   jump_serial: integer
   --- The operator that a motion runs for, while it runs (`paw.cursor`
-  --- then keeps to the tracks).
+  --- then keeps to the parts).
   motion_for: Map
   --- True when this key drew only lines: a prompt's line
   --- (`paw.views.cmdline`), or the status line and the command line after
@@ -675,7 +675,7 @@ local function define(lhs: string, rhs: Rhs, opts: MapOptions, modes: {Mode}, op
 end
 
 --- Map keys.
----   paw.keymap.set("M", "track.mute", { desc = "Mute track" })
+---   paw.keymap.set("M", "part.mute", { desc = "Mute part" })
 ---   paw.keymap.set("<leader>mz", function(ctx) ... end, { desc = "Check the mix" })
 --- `ctx` has `count`, `register` and, for mappings made with `char = true`,
 --- the key typed after the mapping as `char`.
@@ -796,7 +796,7 @@ end
 --- `paw.opt.keys` is "classic", now or later. It goes over the mapping that
 --- the rule gives the same keys. paw removes it again when the option
 --- changes back. A false `rhs` removes the keys.
----   paw.keymap.classic("j", "track.volume by=-1", { view = "mixer", desc = "Volume down 1 dB" })
+---   paw.keymap.classic("j", "part.volume by=-1", { view = "mixer", desc = "Volume down 1 dB" })
 function M.classic(lhs: string, rhs: Rhs | boolean, opts?: MapOptions)
   local entry: Classic = {lhs = lhs, rhs = rhs, opts = opts or {}}
   classic[#classic + 1] = entry
@@ -1404,7 +1404,7 @@ local function run_for_operator(map: Map, ctx: Context, g: Grid)
     reg = map.object(ctx)
   else
     -- The motion knows it moves for an operator (`paw.cursor` then
-    -- keeps to the tracks).
+    -- keeps to the parts).
     M.motion_for = o.map
     local ok, err = pcall(exec, map, ctx, true) as (boolean, string)
     M.motion_for = nil

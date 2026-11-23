@@ -236,7 +236,7 @@ end
 --- which is then the one chosen note. `free` leaves it off the grid. A
 --- click gives no length (nil, or 0 or less): the note is the piano roll's
 --- note length (`set_note_length`); a drawn length becomes that length. A
---- click on a note shown behind the roll's own (another track's) makes its
+--- click on a note shown behind the roll's own (another part's) makes its
 --- clip the one the roll edits instead. With several clips edited the note
 --- goes into the one at `start`, the active one first.
 function A.add_note(clip: integer, pitch: integer, start: number, length?: number, free?: boolean): integer
@@ -271,7 +271,7 @@ function A.add_note(clip: integer, pitch: integer, start: number, length?: numbe
       c, {pitch = pitch, start = start, length = math.min(length, c.length - start), velocity = opt.velocity}
     )
   )
-  c:track():play_note(pitch, opt.velocity, 150)
+  c:part():play_note(pitch, opt.velocity, 150)
   choose(portion.id, {index})
   return index
 end
@@ -286,18 +286,18 @@ function A.context_click(clip: integer, beat: number, pitch: number)
 end
 
 --- The clips list of the roll's side panel: make one active, edit it too
---- (or no longer), show a track's notes behind the roll's or not.
+--- (or no longer), show a part's notes behind the roll's or not.
 function A.roll_activate(_: integer, id: number)
   paw.roll_clips.activate(math.floor(id))
 end
 function A.roll_toggle_clip(_: integer, id: number)
   paw.roll_clips.toggle(math.floor(id))
 end
-function A.roll_show_track(_: integer, id: number)
-  local track = math.floor(id)
-  for _, t in ipairs(paw.roll_clips.tracks()) do
-    if t.id == track then
-      return paw.roll_clips.show_track(track, not t.on)
+function A.roll_show_part(_: integer, id: number)
+  local part = math.floor(id)
+  for _, t in ipairs(paw.roll_clips.parts()) do
+    if t.id == part then
+      return paw.roll_clips.show_part(part, not t.on)
     end
   end
 end
@@ -468,7 +468,7 @@ function A.drag_notes(clip: integer, index: integer, dbeat: number, dpitch?: num
     after[portion.id] = wanted
   end
   if up ~= 0 then
-    paw.clip(clip):track():play_note(held.pitch + up, held.velocity, 120)
+    paw.clip(clip):part():play_note(held.pitch + up, held.velocity, 120)
   end
   local map: {integer: {integer}} = {}
   for id, wanted in pairs(after) do
@@ -546,7 +546,7 @@ function A.move_note(clip: integer, index: integer, start: number, pitch: intege
   local before = c:note(index)
   local at = c:set_note(index, {start = note_snap(start), pitch = pitch})
   if before and before.pitch ~= pitch then
-    c:track():play_note(pitch, before.velocity, 120)
+    c:part():play_note(pitch, before.velocity, 120)
   end
   return at
 end
@@ -576,9 +576,9 @@ function A.set_velocity(clip: integer, index: integer, velocity: number): intege
   choose_all(map)
 end
 
---- Hear a pitch on the track of the clip that is open: a click on the keyboard.
+--- Hear a pitch on the part of the clip that is open: a click on the keyboard.
 function A.audition(clip: integer, pitch: integer)
-  paw.clip(clip):track():play_note(util.clamp(pitch, 0, 127) as integer, opt.velocity, 250)
+  paw.clip(clip):part():play_note(util.clamp(pitch, 0, 127) as integer, opt.velocity, 250)
 end
 
 --- A note as `erase_notes` crosses it: where it shows in the roll.

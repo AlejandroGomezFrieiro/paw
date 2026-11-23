@@ -213,7 +213,7 @@ test(
     local again, option = paw.on("projct.saved", function() end), paw.on("option.changed", function() end)
     -- Patterns: a family with no declared event in it, one with, and every event.
     local empty, family, every =
-      paw.on("undo.*", function() end), paw.on("track.*", function() end), paw.on("*", function() end)
+      paw.on("undo.*", function() end), paw.on("part.*", function() end), paw.on("*", function() end)
     T.after(function()
       for _, id in ipairs({ typo, real, again, option, empty, family, every }) do
         paw.off(id)
@@ -222,7 +222,7 @@ test(
     eq(logged("projct.saved"), 1, "the misspelled name, one time for two handlers")
     eq(logged("undo.*"), 1, "the family that holds no event (the events are undo and redo)")
     eq(logged("project.saved") + logged("option.changed"), 0, "not the names that paw declares")
-    eq(logged("track.*") + logged("*"), 0, "not a family of declared events, or every event")
+    eq(logged("part.*") + logged("*"), 0, "not a family of declared events, or every event")
     T.keys(":checkhealth events<CR>")
     local text = pager_text()
     paw.ui.close()

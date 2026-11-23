@@ -64,7 +64,7 @@ test("export plan: the range, in= and each= give the files, their time, tap and 
       "",
       "t/Bass/",
       { "renders/Bass.wav | Bass | song | nil-nil | master | stereo" },
-      "an Ex range of tracks",
+      "an Ex range of parts",
     },
     {
       "bridge.wav",
@@ -81,17 +81,17 @@ test("export plan: the range, in= and each= give the files, their time, tap and 
         "renders/song Drums.wav | Kick, Snare | song | nil-nil | master | stereo",
         "renders/song Bass.wav | Bass | song | nil-nil | master | stereo",
       },
-      "each=group: the groups at the top, and the tracks outside a group",
+      "each=group: the groups at the top, and the parts outside a group",
     },
     {
-      "each=track",
+      "each=part",
       nil,
       {
         "renders/song Kick.wav | Kick | song | nil-nil | master | stereo",
         "renders/song Snare.wav | Snare | song | nil-nil | master | stereo",
         "renders/song Bass.wav | Bass | song | nil-nil | master | stereo",
       },
-      "each=track",
+      "each=part",
     },
     {
       "each=region",
@@ -120,12 +120,12 @@ test("export plan: the range, in= and each= give the files, their time, tap and 
       "two each= joined: the region matrix",
     },
     {
-      "tracks format=flac channels=stereo tap=groups",
+      "parts format=flac channels=stereo tap=groups",
       nil,
       {
-        "renders/tracks/Kick.flac | Kick | song | nil-nil | groups | stereo",
-        "renders/tracks/Snare.flac | Snare | song | nil-nil | groups | stereo",
-        "renders/tracks/Bass.flac | Bass | song | nil-nil | groups | stereo",
+        "renders/parts/Kick.flac | Kick | song | nil-nil | groups | stereo",
+        "renders/parts/Snare.flac | Snare | song | nil-nil | groups | stereo",
+        "renders/parts/Bass.flac | Bass | song | nil-nil | groups | stereo",
       },
       "the words after a preset win",
     },
@@ -137,8 +137,8 @@ test("export plan: the range, in= and each= give the files, their time, tap and 
     eq(got, want, what)
   end
   T.fails(function() plan("in=Verse", "2,2") end, "in= and a range of time say the same", "in= and a range")
-  T.fails(function() plan("tap=pre") end, "tap=pre is the sound of tracks", "the mix has no tap before its fader")
-  T.fails(function() plan("each=bar") end, "each=bar: use group, track, region or clip", "each= of a wrong word")
+  T.fails(function() plan("tap=pre") end, "tap=pre is the sound of parts", "the mix has no tap before its fader")
+  T.fails(function() plan("each=bar") end, "each=bar: use group, part, region or clip", "each= of a wrong word")
   T.fails(function() plan("loud=yes") end, "loud=: not a word of :export", "a word that :export does not know")
 end)
 
@@ -151,24 +151,20 @@ test("export plan: names take fields, each= adds one, two of one name get a numb
     end
     return table.concat(out, ", ")
   end
-  eq(files('"{project} - {tracks}.wav"', "t/Bass/"), "renders/song - Bass.wav", "{project} and {tracks}")
+  eq(files('"{project} - {parts}.wav"', "t/Bass/"), "renders/song - Bass.wav", "{project} and {parts}")
   eq(
     files('"{n} {group}.flac" each=group'),
     "renders/01 Drums.flac, renders/02 Bass.flac",
     "{n} and {group}, the ending gives the format"
   )
-  eq(files("{track}.wav each=track", "t/Drums/"), "renders/Kick.wav, renders/Snare.wav", "{track}")
+  eq(files("{part}.wav each=part", "t/Drums/"), "renders/Kick.wav, renders/Snare.wav", "{part}")
   eq(files('"{region}.wav" each=region'), "renders/Verse.wav, renders/Chorus.wav", "{region}")
   eq(files('"{date}.wav"'):match("^renders/%d%d%d%d%-%d%d%-%d%d%.wav$") ~= nil, true, "{date}")
   eq(files("all each=group"), "renders/all Drums.wav, renders/all Bass.wav", "each= adds its field to a name")
-  eq(
-    files("out/ each=track", "t/Drums/"),
-    "out/Kick.wav, out/Snare.wav",
-    "and to a folder, which is beside the project"
-  )
+  eq(files("out/ each=part", "t/Drums/"), "out/Kick.wav, out/Snare.wav", "and to a folder, which is beside the project")
   T.tone("Bass", 8, "A2")
   eq(
-    files("each=track", "t/Bass/"),
+    files("each=part", "t/Bass/"),
     "renders/Bass+Bass Bass.wav, renders/Bass+Bass Bass 2.wav",
     "two files of one name get a number"
   )
@@ -183,26 +179,22 @@ test("export plan: names take fields, each= adds one, two of one name get a numb
 end)
 
 test(
-  "export plan: a muted track is left out and named, a range of only muted tracks says so, a compressor gives a note",
+  "export plan: a muted part is left out and named, a range of only muted parts says so, a compressor gives a note",
   function()
     local s = song()
     local p = plan("stems")
-    eq(p.left_out, { "Keys, muted" }, "the muted track is named")
+    eq(p.left_out, { "Keys, muted" }, "the muted part is named")
     eq(paw.export.lines(p)[4], "left out: Keys, muted", "in the plan")
-    T.fails(
-      function() plan("", "t/Keys/") end,
-      "t/Keys/ holds only muted tracks: nothing to export",
-      "only muted tracks"
-    )
-    eq(plan("each=track").notes, {}, "no note without a compressor")
+    T.fails(function() plan("", "t/Keys/") end, "t/Keys/ holds only muted parts: nothing to export", "only muted parts")
+    eq(plan("each=part").notes, {}, "no note without a compressor")
     s.drums:add_device("compressor")
     eq(
-      plan("each=track").notes,
+      plan("each=part").notes,
       { "Drums has Compressor: it hears each file alone, so the files differ a little from the mix" },
       "a compressor on a group that two files pass"
     )
     eq(plan("stems").notes, {}, "a group that one file holds whole needs no note")
-    paw.track(0):add_device("limiter")
+    paw.part(0):add_device("limiter")
     eq(
       plan("stems").notes,
       { "the master has Limiter: it hears each file alone, so the files differ a little from the mix" },
@@ -246,13 +238,13 @@ test(":export writes renders/<project>.wav, :2export a bar, :t/Drums/export the 
   done = exported(done)
   T.near(seconds(s.dir .. "/renders/bridge.wav"), 2, 0.01, ":2export: bar 2 alone")
 
-  paw.track(0).volume = -6
+  paw.part(0).volume = -6
   paw.flush()
   keys(":t/Drums/export drums.wav bits=16<CR>")
   done = exported(done)
   local drums = done.results[1]
   T.near(T.frequency(drums, 0.5, 1.5), 440, 5, "the drums alone: no bass in it")
-  local groups = T.render({ tracks = { s.drums.id }, tap = "groups", bits = 16 })
+  local groups = T.render({ parts = { s.drums.id }, tap = "groups", bits = 16 })
   T.near(drums.peak / groups.peak, 0.5, 0.01, "through the master's fader")
 end)
 
@@ -294,7 +286,7 @@ test("exports run in one queue with their progress on the status line; Esc and :
   local s = song()
   for _, cancel in ipairs({ "<Esc>", ":export.cancel<CR>" }) do
     local before = paw.export.last()
-    keys(":export! tracks channels=stereo tail=600<CR>")
+    keys(":export! parts channels=stereo tail=600<CR>")
     eq(paw.export.running(), true, "the export runs")
     keys(":export mix.wav<CR>")
     eq(
@@ -310,7 +302,7 @@ test("exports run in one queue with their progress on the status line; Esc and :
   end
 end)
 
-test("<Space>e exports the mix, stems, tracks and regions, and again; in visual mode for the selection", function()
+test("<Space>e exports the mix, stems, parts and regions, and again; in visual mode for the selection", function()
   local s = song()
   local before = paw.export.last()
   keys("<Space>em")
@@ -319,16 +311,16 @@ test("<Space>e exports the mix, stems, tracks and regions, and again; in visual 
   keys("<Space>ee")
   done = exported(done)
   eq(done.results[1].path, s.dir .. "/renders/song.wav", "<Space>ee: the last export again")
-  for _, k in ipairs({ { "es", "stems/Drums.wav" }, { "et", "tracks/Kick.wav" }, { "er", "regions/01 Verse.wav" } }) do
+  for _, k in ipairs({ { "es", "stems/Drums.wav" }, { "et", "parts/Kick.wav" }, { "er", "regions/01 Verse.wav" } }) do
     keys("<Space>" .. k[1])
     eq(paw.ui.float and paw.ui.float.name, "export.plan", "<Space>" .. k[1] .. " shows the plan")
     eq(T.screen(120, 20):find(k[2], 1, true) ~= nil, true, "<Space>" .. k[1] .. " plans " .. k[2])
     keys("<Esc>")
   end
-  paw.cursor.set_track(s.bass)
+  paw.cursor.set_part(s.bass)
   keys("V<Space>em")
   done = exported(done)
-  eq(done.results[1].path, s.dir .. "/renders/Bass.wav", "visual <Space>em: the selected track")
+  eq(done.results[1].path, s.dir .. "/renders/Bass.wav", "visual <Space>em: the selected part")
 end)
 
 -- Presets ------------------------------------------------------------------------------
@@ -354,11 +346,11 @@ test("export presets: paw's have their words, by the plan of each", function()
       {},
     },
     {
-      "tracks",
+      "parts",
       {
-        "renders/tracks/Kick.wav | Kick | song | nil-nil | post | auto",
-        "renders/tracks/Snare.wav | Snare | song | nil-nil | post | auto",
-        "renders/tracks/Bass.wav | Bass | song | nil-nil | post | auto",
+        "renders/parts/Kick.wav | Kick | song | nil-nil | post | auto",
+        "renders/parts/Snare.wav | Snare | song | nil-nil | post | auto",
+        "renders/parts/Bass.wav | Bass | song | nil-nil | post | auto",
       },
       {},
     },
@@ -423,8 +415,8 @@ test(":export.preset saves the words of the last export in the project, ! replac
   T.expect_error("the project has a preset mine")
   keys(":export.preset mine<CR>")
   eq(saved(), "stems format=flac", "a preset of that name stays")
-  keys(":export tracks<CR><Esc>:export.preset! mine<CR>")
-  eq(saved(), "tracks", "! replaces it")
+  keys(":export parts<CR><Esc>:export.preset! mine<CR>")
+  eq(saved(), "parts", "! replaces it")
   keys(":export.preset<CR>")
   T.expect_screen("preset_list", 90, 24, { styles = false, rows = { 7, 17 }, cols = { 10, 81 } })
   keys("q")
@@ -434,7 +426,7 @@ test(":export.preset saves the words of the last export in the project, ! replac
   eq(saved(), nil, "and the save")
   keys(":export.preset mine<CR>:w<CR>")
   local toml = T.read_file(s.dir .. "/project.toml")
-  eq(toml:find('[export.presets]\nmine = "tracks"', 1, true) ~= nil, true, "project.toml keeps it: " .. toml)
+  eq(toml:find('[export.presets]\nmine = "parts"', 1, true) ~= nil, true, "project.toml keeps it: " .. toml)
 end)
 
 test("a preset that is a list of exports gives one plan, one confirm and one queue", function()
@@ -509,9 +501,9 @@ test("normalize= on stems gives each file the gain of the mix, so they still add
   eq(plan("in=Verse normalize=-1").renders[1].set, nil, "one file keeps its own gain")
 end)
 
-test("<Space>tf freezes the track at the cursor and <Space>tF unfreezes it, one undo step each", function()
+test("<Space>tf freezes the part at the cursor and <Space>tF unfreezes it, one undo step each", function()
   local s = song()
-  paw.cursor.set_track(s.bass)
+  paw.cursor.set_part(s.bass)
   keys("<Space>tf")
   eq(paw.freeze.frozen(s.bass.id) ~= nil, true, "<Space>tf freezes")
   keys("<Space>tF")

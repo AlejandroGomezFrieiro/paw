@@ -1,4 +1,4 @@
-//! Property tests of a track's attribute map: a map saved in the project
+//! Property tests of a part's attribute map: a map saved in the project
 //! file and read again.
 
 use proptest::collection::{btree_map, vec};

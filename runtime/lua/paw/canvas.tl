@@ -43,8 +43,8 @@
 -- `paw.canvas.palette` is the window's palette, by the names the window's
 -- own drawing uses (`Theme` in crates/paw-gui/src/theme.rs, which takes its
 -- colours from here), so that a painted view looks like the rest of the
--- window: neutral surfaces, colour for state, and a track's hue only on
--- what is the track's.
+-- window: neutral surfaces, colour for state, and a part's hue only on
+-- what is the part's.
 --
 -- A view with no `paint` is shown too: `paw.canvas.open_view(name)` opens
 -- any view in a window, drawn cell by cell as the terminal draws it, in the

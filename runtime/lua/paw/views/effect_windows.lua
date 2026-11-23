@@ -2,13 +2,13 @@
 -- runtime/lua/paw/canvas.tl), each opened by a command that works in the
 -- terminal too, where the device panel shows the same things smaller:
 --
---   :eq         the track's equaliser (one is added if it has none): its
+--   :eq         the part's equaliser (one is added if it has none): its
 --               curve over a grid, a dot per band. Drag a dot to move the
 --               band (left and right for frequency, up and down for gain),
 --               the wheel over it changes its Q, a double click on a dot
 --               turns the band off, on empty space turns the nearest band
 --               that is off on as a bell there.
---   :tuner      the track's tuner (added if missing): the note, a needle
+--   :tuner      the part's tuner (added if missing): the note, a needle
 --               over ±50 cents, the frequency.
 --   :loudness   the master's meter (added at the end if missing): loudness,
 --               peaks, correlation and the spectrum.
@@ -28,12 +28,12 @@ local function exists(id) return id and (pcall(api.device_get, id)) end
 
 local function mix(a, b, t) return paw.draw.mix(a, b, t) end
 
---- The first device of `kind` on a track, or a new one.
-local function device_on(track, kind)
-  for _, d in ipairs(track:devices()) do
+--- The first device of `kind` on a part, or a new one.
+local function device_on(part, kind)
+  for _, d in ipairs(part:devices()) do
     if d:get().kind == kind then return d end
   end
-  return track:add_device(kind)
+  return part:add_device(kind)
 end
 
 --- Show the device in the panel, with the keyboard on it, and its window.
@@ -111,12 +111,12 @@ paw.ui.view("eq_window", {
       return
     end
     local d = api.device_get(id)
-    local track = api.track_get(d.track)
+    local part = api.part_get(d.part)
     g:rect(0, 0, width, 30, { fill = c.bg_alt })
     g:text(
       12,
       7,
-      track.name .. "  ·  EQ" .. (d.bypass and "  (bypassed)" or ""),
+      part.name .. "  ·  EQ" .. (d.bypass and "  (bypassed)" or ""),
       { color = c.bright, size = 14, bold = true }
     )
     local x, y, w, h = eq_area(width, height)
@@ -363,35 +363,35 @@ paw.ui.view("meter_window", {
 
 -- Commands and menus -------------------------------------------------------------
 
-local function need_track()
-  local track = paw.cursor.track()
-  if not track then paw.notify("no track selected", "warn") end
-  return track
+local function need_part()
+  local part = paw.cursor.part()
+  if not part then paw.notify("no part selected", "warn") end
+  return part
 end
 
 paw.command("eq", function()
-  local track = need_track()
-  if not track then return end
+  local part = need_part()
+  if not part then return end
   paw.ui.show("devices")
-  open("eq_window", device_on(track, "eq"), { title = "EQ · " .. track.name, width = 900, height = 420 })
-end, { desc = "Show the track's equaliser (adding one if it has none): its curve, and in a window, bands to drag" })
+  open("eq_window", device_on(part, "eq"), { title = "EQ · " .. part.name, width = 900, height = 420 })
+end, { desc = "Show the part's equaliser (adding one if it has none): its curve, and in a window, bands to drag" })
 
 paw.command("tuner", function()
-  local track = need_track()
-  if not track then return end
+  local part = need_part()
+  if not part then return end
   paw.ui.show("devices")
-  open("tuner_window", device_on(track, "tuner"), { title = "Tuner · " .. track.name, width = 520, height = 300 })
-end, { desc = "Tune the track's input: shows its tuner (adding one if it has none)" })
+  open("tuner_window", device_on(part, "tuner"), { title = "Tuner · " .. part.name, width = 520, height = 300 })
+end, { desc = "Tune the part's input: shows its tuner (adding one if it has none)" })
 
 paw.command("loudness", function()
   local master = paw.master
-  pcall(paw.cursor.set_track, master)
+  pcall(paw.cursor.set_part, master)
   paw.ui.show("devices")
   open("meter_window", device_on(master, "meter"), { title = "Loudness · Master", width = 720, height = 380 })
 end, { desc = "Measure the mix: the master's loudness meter (adding one if it has none)" })
 
-table.insert(paw.frontend.menus.track, { label = "EQ", command = "eq" })
-table.insert(paw.frontend.menus.track, { label = "Tuner", command = "tuner" })
+table.insert(paw.frontend.menus.part, { label = "EQ", command = "eq" })
+table.insert(paw.frontend.menus.part, { label = "Tuner", command = "tuner" })
 table.insert(paw.frontend.menus.timeline, { label = "Loudness meter", command = "loudness" })
 
 return M

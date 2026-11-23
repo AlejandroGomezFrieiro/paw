@@ -25,16 +25,16 @@ use serde_json::{Map, Value, json};
 use crate::history::{self, History};
 use crate::model::{
     Clip, ClipContent, Control, DeviceInst, Id, Lane, LaneState, MASTER_ID, NestPlay, Note, NoteAttr, Project,
-    StretchMode, Target, Timebase, Track,
+    StretchMode, Target, Timebase, Part,
 };
 use crate::sync::{AudioCache, Follow, LiveDevices, Mapper, SyncCtx, sync};
 
 mod document;
-pub(crate) use document::{ClipKind, ClipOpts, CustomSet, Document, TrackListOpts, notes};
+pub(crate) use document::{ClipKind, ClipOpts, CustomSet, Document, PartListOpts, notes};
 use document::{de, finite, holds, new_history, sorted};
 mod editing;
 mod project;
-mod tracks;
+mod parts;
 mod devices;
 pub(crate) use devices::DeviceQuery;
 mod clips;
@@ -238,7 +238,7 @@ impl TryFrom<String> for LaneKind {
 pub(crate) struct LaneOpts {
     /// Required: a missing target fails like an unknown one.
     pub target: Option<LaneKind>,
-    /// For `param`: the device, on the same track, and its parameter by key or name.
+    /// For `param`: the device, on the same part, and its parameter by key or name.
     pub device: Option<Id>,
     pub param: Option<String>,
     pub enabled: Option<bool>,
@@ -258,9 +258,9 @@ pub(crate) struct RenderOpts {
     pub sample_rate: Option<u32>,
     /// 16 or 24 for integer PCM, 32 for float.
     pub bits: u16,
-    /// Only these tracks, heard at `tap`: a stem. All when empty.
-    pub tracks: Vec<Id>,
-    /// This track and what feeds it, before its fader, and nothing else:
+    /// Only these parts, heard at `tap`: a stem. All when empty.
+    pub parts: Vec<Id>,
+    /// This part and what feeds it, before its fader, and nothing else:
     /// what freezing it plays (see [`crate::freeze::alone`]).
     pub freeze: Option<Id>,
     /// This block of a subproject (a nest clip) as it plays into its row,
@@ -320,7 +320,7 @@ impl Default for RenderOpts {
             tail: 1.0,
             sample_rate: None,
             bits: 24,
-            tracks: Vec::new(),
+            parts: Vec::new(),
             freeze: None,
             block: None,
             through: Vec::new(),
@@ -559,7 +559,7 @@ fn file_safe(name: &str) -> String {
         })
         .collect();
     if safe.is_empty() {
-        "track".into()
+        "part".into()
     } else {
         safe
     }
@@ -718,7 +718,7 @@ pub(crate) struct ClipView<'a> {
     length: f64,
     muted: bool,
     kind: &'a str,
-    track: Id,
+    part: Id,
     meta: &'a Map<String, Value>,
     #[serde(rename = "loop")]
     looped: bool,
@@ -811,7 +811,7 @@ fn control_stamp(controls: &[crate::model::Control]) -> u64 {
     hash.finish() >> 11
 }
 
-fn clip_json<'a>(c: &'a Clip, track: Id, files: &file_check::FileCheck) -> ClipView<'a> {
+fn clip_json<'a>(c: &'a Clip, part: Id, files: &file_check::FileCheck) -> ClipView<'a> {
     let mut v = ClipView {
         id: c.id,
         name: &c.name,
@@ -819,7 +819,7 @@ fn clip_json<'a>(c: &'a Clip, track: Id, files: &file_check::FileCheck) -> ClipV
         length: c.length,
         muted: c.muted,
         kind: c.content.kind(),
-        track,
+        part,
         meta: &c.meta,
         looped: c.looped,
         loop_start: c.loop_start,

@@ -99,7 +99,7 @@ pub(crate) struct ClipOpts {
     /// them (`model/overrides.rs`).
     pub transpose: i8,
     pub velocity: i8,
-    /// Keep it off the timeline, among the track's cues (`session/cues.rs`).
+    /// Keep it off the timeline, among the part's cues (`session/cues.rs`).
     pub cue: bool,
     /// A clip of a kind that an extension defines: its content (`data` is
     /// required, `length` too; `offset` is in the kind's timeline).
@@ -132,18 +132,18 @@ pub(crate) struct CustomSet {
 }
 
 impl Document {
-    /// Add a clip to `track` and give its id. `source` is the clip file
+    /// Add a clip to `part` and give its id. `source` is the clip file
     /// that a MIDI clip refers to, already read into `opts`. The sound file
     /// of an audio clip (`opts.file`) is kept as given: the session makes
     /// its path whole. `sound_seconds` reads how long that file is.
     pub(crate) fn clip_add(
         &mut self,
-        track: Id,
+        part: Id,
         mut opts: ClipOpts,
         source: Option<PathBuf>,
         sound_seconds: impl FnOnce(&Path) -> Result<f64>,
     ) -> Result<Id> {
-        check_clip_track(track)?;
+        check_clip_part(part)?;
         let kind = opts.kind.take().unwrap_or(if opts.nest.is_some() {
             ClipKind::Nest
         } else if opts.file.is_some() {
@@ -156,15 +156,15 @@ impl Document {
         }
         // What a custom clip may do besides (fade, stretch) its sound decides.
         let playing = kind.playing(opts.sound.as_ref());
-        let (content, natural, default_name) = self.clip_content(track, &kind, &mut opts, sound_seconds)?;
+        let (content, natural, default_name) = self.clip_content(part, &kind, &mut opts, sound_seconds)?;
         let length = opts.length.unwrap_or(natural);
         check_clip_opts(playing.clone(), &opts, length)?;
         let id = self.new_id();
         let cue = opts.cue;
         self.edit(|p| {
             let t = p
-                .track_mut(track)
-                .with_context(|| format!("no track {track}"))?;
+                .part_mut(part)
+                .with_context(|| format!("no part {part}"))?;
             let clip = Arc::new(build_clip(
                 id,
                 playing,
@@ -179,7 +179,7 @@ impl Document {
             } else {
                 t.clips.push(clip);
                 let at = t.clips.len() - 1;
-                p.found_clip(id, track, at);
+                p.found_clip(id, part, at);
             }
             Ok(id)
         })
@@ -190,7 +190,7 @@ impl Document {
     /// `sound_seconds` reads how long the sound file of an audio clip is.
     fn clip_content(
         &self,
-        track: Id,
+        part: Id,
         kind: &ClipKind,
         opts: &mut ClipOpts,
         sound_seconds: impl FnOnce(&Path) -> Result<f64>,
@@ -234,7 +234,7 @@ impl Document {
                 };
                 Ok((content, natural, name.unwrap_or_else(|| "audio".into())))
             }
-            ClipKind::Nest => self.nest_clip_content(track, opts),
+            ClipKind::Nest => self.nest_clip_content(part, opts),
             ClipKind::Custom(id) => {
                 if !self.clip_kinds.contains(id) {
                     bail!(
@@ -277,7 +277,7 @@ impl Document {
     /// The content of a new nest clip, its natural length (the rest of its
     /// subproject from `offset`) and its name (the subproject's). A clip
     /// that would put a subproject inside itself is refused with the path.
-    fn nest_clip_content(&self, track: Id, opts: &mut ClipOpts) -> Result<(ClipContent, f64, String)> {
+    fn nest_clip_content(&self, part: Id, opts: &mut ClipOpts) -> Result<(ClipContent, f64, String)> {
         let nest = opts.nest.take().context("a subproject's clip needs `nest`, the subproject's id")?;
         let held = self
             .project
@@ -296,8 +296,8 @@ impl Document {
         };
         let host = self
             .project
-            .track(track)
-            .with_context(|| format!("no track {track}"))?
+            .part(part)
+            .with_context(|| format!("no part {part}"))?
             .nest;
         self.project.check_place(nest, host)?;
         // A subproject with a tempo of its own lasts its seconds in the song.
@@ -311,12 +311,12 @@ impl Document {
     }
     pub(crate) fn clip_remove(&mut self, id: Id) -> Result<()> {
         self.edit(|p| {
-            if let Some((track, index)) = p.find_cue_clip(id) {
-                p.track_mut(track).unwrap().cues.remove(index);
+            if let Some((part, index)) = p.find_cue_clip(id) {
+                p.part_mut(part).unwrap().cues.remove(index);
                 return Ok(());
             }
-            let (track, index) = p.find_clip(id).with_context(|| format!("no clip {id}"))?;
-            p.track_mut(track).unwrap().clips.remove(index);
+            let (part, index) = p.find_clip(id).with_context(|| format!("no clip {id}"))?;
+            p.part_mut(part).unwrap().clips.remove(index);
             Ok(())
         })
     }
@@ -445,11 +445,11 @@ impl Document {
             let cue = p.find_cue_clip(id).is_some();
             match field {
                 Some(ClipField::Start) if cue => bail!("a clip off the timeline starts at 0"),
-                Some(ClipField::Track) if cue => {
+                Some(ClipField::Part) if cue => {
                     move_cue(p, id, de(key, value)?)?;
                     return Ok(());
                 }
-                Some(ClipField::Track) => return move_clip(p, id, value),
+                Some(ClipField::Part) => return move_clip(p, id, value),
                 _ => {}
             }
             let c = p.clip_mut(id).with_context(|| format!("no clip {id}"))?;
@@ -504,7 +504,7 @@ impl Document {
     pub(crate) fn clip_collect(&mut self, is_file: impl Fn(&Path) -> bool) -> usize {
         let ids: Vec<Id> = self
             .project
-            .all_tracks()
+            .all_parts()
             .flat_map(|t| t.clips.iter().chain(&t.cues))
             .filter(|c| c.source.as_ref().is_some_and(|s| is_file(s)))
             .map(|c| c.id)
@@ -521,9 +521,9 @@ impl Document {
         ids.len()
     }
 
-    /// Copy a clip, from the timeline or from the cues, into a track's cues,
+    /// Copy a clip, from the timeline or from the cues, into a part's cues,
     /// with its `meta`. Returns the copy's id.
-    pub(crate) fn clip_to_cues(&mut self, id: Id, track: Id) -> Result<Id> {
+    pub(crate) fn clip_to_cues(&mut self, id: Id, part: Id) -> Result<Id> {
         let clip = self
             .project
             .clip(id)
@@ -533,20 +533,20 @@ impl Document {
         copy.id = self.new_id();
         let copy_id = copy.id;
         self.edit(|p| {
-            check_clip_track(track)?;
+            check_clip_part(part)?;
             let t = p
-                .track_mut(track)
-                .with_context(|| format!("no track {track}"))?;
+                .part_mut(part)
+                .with_context(|| format!("no part {part}"))?;
             t.cues.push(Arc::new(copy));
             Ok(copy_id)
         })
     }
 }
 
-/// The master track has no clips.
-pub(crate) fn check_clip_track(track: Id) -> Result<()> {
-    if track == MASTER_ID {
-        bail!("the master track has no clips: put them on a track");
+/// The master part has no clips.
+pub(crate) fn check_clip_part(part: Id) -> Result<()> {
+    if part == MASTER_ID {
+        bail!("the master part has no clips: put them on a part");
     }
     Ok(())
 }
@@ -639,7 +639,7 @@ pub(crate) enum ClipField {
     Length,
     Muted,
     Meta,
-    Track,
+    Part,
     File,
     Offset,
     Gain,
@@ -657,7 +657,7 @@ impl ClipField {
             "length" => Self::Length,
             "muted" => Self::Muted,
             "meta" => Self::Meta,
-            "track" => Self::Track,
+            "part" => Self::Part,
             "file" => Self::File,
             "offset" => Self::Offset,
             "gain" => Self::Gain,
@@ -684,37 +684,37 @@ fn override_value(key: &str, value: Value) -> Result<i8> {
     Ok(amount as i8)
 }
 
-/// Move clip `id`, on the timeline, to the end of the track that `value` names.
+/// Move clip `id`, on the timeline, to the end of the part that `value` names.
 fn move_clip(p: &mut Project, id: Id, value: Value) -> Result<()> {
     let (from, index) = p.find_clip(id).with_context(|| format!("no clip {id}"))?;
-    let to: Id = de("track", value)?;
-    check_clip_track(to)?;
-    if p.track(to).is_none() {
-        bail!("no track {to}");
+    let to: Id = de("part", value)?;
+    check_clip_part(to)?;
+    if p.part(to).is_none() {
+        bail!("no part {to}");
     }
     let clip = p
-        .track_mut(from)
-        .context("the clip's track was found")?
+        .part_mut(from)
+        .context("the clip's part was found")?
         .clips
         .remove(index);
-    let clips = &mut p.track_mut(to).context("the track was found")?.clips;
+    let clips = &mut p.part_mut(to).context("the part was found")?.clips;
     clips.push(clip);
     let at = clips.len() - 1;
     p.found_clip(id, to, at);
     Ok(())
 }
 
-/// Move a cue clip to another track's cues: false when `id` is not one.
+/// Move a cue clip to another part's cues: false when `id` is not one.
 fn move_cue(p: &mut Project, id: Id, to: Id) -> Result<bool> {
     let Some((from, index)) = p.find_cue_clip(id) else {
         return Ok(false);
     };
-    check_clip_track(to)?;
-    if p.track(to).is_none() {
-        bail!("no track {to}");
+    check_clip_part(to)?;
+    if p.part(to).is_none() {
+        bail!("no part {to}");
     }
-    let clip = p.track_mut(from).unwrap().cues.remove(index);
-    p.track_mut(to).unwrap().cues.push(clip);
+    let clip = p.part_mut(from).unwrap().cues.remove(index);
+    p.part_mut(to).unwrap().cues.push(clip);
     Ok(true)
 }
 
@@ -781,29 +781,29 @@ pub(crate) fn check_warp(kind: ClipKind, warp: &[WarpMarker]) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::super::TrackOpts;
+    use super::super::PartOpts;
 
-    /// A document with one track, and the track's id.
-    fn one_track() -> (Document, Id) {
+    /// A document with one part, and the part's id.
+    fn one_part() -> (Document, Id) {
         let mut doc = Document::default();
-        let track = doc.track_add(TrackOpts::default()).unwrap();
-        (doc, track)
+        let part = doc.part_add(PartOpts::default()).unwrap();
+        (doc, part)
     }
 
     #[test]
     fn an_audio_clip_is_as_long_as_its_sound_file_says() {
-        let (mut doc, track) = one_track();
+        let (mut doc, part) = one_part();
         let opts = ClipOpts { file: Some("/sounds/take.wav".into()), ..ClipOpts::default() };
-        let id = doc.clip_add(track, opts, None, |_| Ok(4.0)).unwrap();
+        let id = doc.clip_add(part, opts, None, |_| Ok(4.0)).unwrap();
         // Four seconds at the default 120 BPM.
         assert_eq!(doc.project.clip(id).unwrap().length, 8.0);
     }
 
     #[test]
     fn collect_leaves_a_clip_whose_file_is_not_there() {
-        let (mut doc, track) = one_track();
+        let (mut doc, part) = one_part();
         let mut add = |name: &str| {
-            let id = doc.clip_add(track, ClipOpts::default(), None, |_| unreachable!()).unwrap();
+            let id = doc.clip_add(part, ClipOpts::default(), None, |_| unreachable!()).unwrap();
             let clip = doc.project.clip_mut(id).unwrap();
             clip.source = Some(format!("/clips/{name}.midi2").into());
             id

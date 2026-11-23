@@ -12,7 +12,7 @@
  4  █ Bass         MSRI │‹Bass                          ›┃
     █in ─────────── 0.0 │                                ┃
     █   C               │                                ┃
-        o new track     │
+        o new part     │
                         │
                         │
                         │

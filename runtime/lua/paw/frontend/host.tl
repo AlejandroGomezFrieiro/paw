@@ -152,12 +152,12 @@ local record InputOf
 end
 local record Audio
   levels: function(): {number}
-  level: function(track: InputOf, levels?: {number}): number
+  level: function(part: InputOf, levels?: {number}): number
   load: function(cpu?: number): number
   summary: function(): string
-  label: function(track: types.Track): string
-  choices: function(track: integer): {Choice}
-  choose: function(track: integer, choice: Choice)
+  label: function(part: types.Part): string
+  choices: function(part: integer): {Choice}
+  choose: function(part: integer, choice: Choice)
   engine_choices: function(): {Choice}
   choose_engine: function(choice: Choice)
 end
@@ -166,7 +166,7 @@ local record AddOptions
 end
 local record Fx
   card_params: function(device: types.Device): {types.ParamInfo}
-  add: function(track: objects.Track, kind: string, opts: AddOptions): objects.Device
+  add: function(part: objects.Part, kind: string, opts: AddOptions): objects.Device
 end
 local record Params
   format: function(param: types.ParamInfo, value: number): string
@@ -186,13 +186,13 @@ local record Source
 end
 local record Routes
   sidechain_text: function(device: types.Device): string
-  reaching: function(track: integer): {integer: boolean}
-  peers: function(track: integer): {integer}
+  reaching: function(part: integer): {integer: boolean}
+  peers: function(part: integer): {integer}
   outputs: function(device: integer): {Output}
   set_output: function(device: integer, pair: integer, target: integer)
   spread: function(device: integer)
   sidechain_sources: function(device: integer): {Source}
-  set_sidechain: function(device: integer, track: integer, pre?: boolean)
+  set_sidechain: function(device: integer, part: integer, pre?: boolean)
 end
 local record Stretch
   badge: function(clip: types.Clip): string
@@ -255,8 +255,8 @@ local record Files
   here: function(): string
   project_path: function(name: string): string
 end
-local record TrackKinds
-  describe: function(track: integer): string
+local record PartKinds
+  describe: function(part: integer): string
 end
 local record FileOptions
   title: string
@@ -267,7 +267,7 @@ local record Pick
   file: function(opts: FileOptions)
 end
 local record ImportOptions
-  track: integer
+  part: integer
   start: number
 end
 --- `paw.remote`, as far as this module reads it: how many turns had input.
@@ -294,7 +294,7 @@ local record Paw
   recent: RecentModule
   autosave: Autosave
   files: Files
-  track_kinds: TrackKinds
+  part_kinds: PartKinds
   pick: Pick
   canvas: CanvasModule
   cursor: CursorModule
@@ -317,9 +317,9 @@ local record Paw
   project: objects.Project
   remote: RemoteTouches
   clip: function(id: integer): objects.Clip
-  track: function(which: number | string): objects.Track
+  part: function(which: number | string): objects.Part
   device: function(id: integer): objects.Device
-  restore_clip: function(snap: objects.ClipSnapshot, track: integer | objects.Track): objects.Clip
+  restore_clip: function(snap: objects.ClipSnapshot, part: integer | objects.Part): objects.Clip
   is_audio_file: function(path: string): boolean
   import_audio: function(path: string, opts: ImportOptions): objects.Clip
   notify: function(text: string, level?: string)
@@ -328,9 +328,9 @@ local paw = (_G as {string: Paw}).paw
 
 -- One field of the kernel's tables, read alone: quicker than the whole
 -- table where the state is made, which runs for every frame.
-local track_text = api.track_get as function(id: integer, key: string): string
-local track_flag = api.track_get as function(id: integer, key: string): boolean
-local track_number = api.track_get as function(id: integer, key: string): number
+local part_text = api.part_get as function(id: integer, key: string): string
+local part_flag = api.part_get as function(id: integer, key: string): boolean
+local part_number = api.part_get as function(id: integer, key: string): number
 local project_text = api.project_get as function(key: string): string
 
 local function render_module(): RenderModule
@@ -386,9 +386,9 @@ local record Host
   type Cmdline = Cmdline
   type Region = Region
   paw: Paw
-  track_text: function(id: integer, key: string): string
-  track_flag: function(id: integer, key: string): boolean
-  track_number: function(id: integer, key: string): number
+  part_text: function(id: integer, key: string): string
+  part_flag: function(id: integer, key: string): boolean
+  part_number: function(id: integer, key: string): number
   project_text: function(key: string): string
   render_module: function(): RenderModule
   snap: function(beat: number): number
@@ -400,9 +400,9 @@ local record Host
 end
 
 Host.paw = paw
-Host.track_text = track_text
-Host.track_flag = track_flag
-Host.track_number = track_number
+Host.part_text = part_text
+Host.part_flag = part_flag
+Host.part_number = part_number
 Host.project_text = project_text
 Host.render_module = render_module
 Host.snap = snap

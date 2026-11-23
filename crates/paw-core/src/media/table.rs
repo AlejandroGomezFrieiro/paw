@@ -88,7 +88,7 @@ pub(crate) struct Probe {
 }
 
 /// One stream of a file. Pictures and data streams come with the kinds of
-/// clip that play them (a film's picture, a subtitle track).
+/// clip that play them (a film's picture, a subtitle part).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub(crate) enum StreamInfo {

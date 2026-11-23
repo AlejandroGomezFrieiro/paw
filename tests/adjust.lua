@@ -5,7 +5,7 @@ local T = ...
 local test, eq, near, keys = T.test, T.eq, T.near, T.keys
 local api = paw.api
 
---- Track T with clips a, b, c (a note on each beat); the roll is open on clip b
+--- Part T with clips a, b, c (a note on each beat); the roll is open on clip b
 --- and the notes of b are off the grid: 60 at 0.1, 61 at 1.3, 62 at 2, 63 at 3.
 local function song()
   local t = T.three_clips()
@@ -19,7 +19,7 @@ local function song()
   b:set_note(1, { start = 0.1 })
   b:set_note(2, { start = 1.3 })
   api.undo_checkpoint()
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.cursor.set_beat(4)
   keys("<CR>")
   eq(paw.ui.focused, "pianoroll", "the roll is open on clip b")

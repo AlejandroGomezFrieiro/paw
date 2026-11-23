@@ -1,5 +1,5 @@
 -- The labels of the bars on the arrange view's ruler, made of parts as the
--- track column is (paw/trackcolumn.tl). The part that comes with paw is
+-- part column is (paw/partcolumn.tl). The part that comes with paw is
 -- `number`: each bar's number, or with `paw.opt.relativebar` how many `W`
 -- or `B` reach it, the cursor's bar keeping its own number, as Neovim's
 -- 'relativenumber' does for lines. So `4W` lands on the bar marked 4.
@@ -131,9 +131,9 @@ function M.relative(bar: integer, beat: number): integer
   return at - bar + (paw.tempo.is_bar_line(beat) and 0 or 1)
 end
 
---- Change a part that is there, the built-in `number` too: its `order`,
+--- Change a component that is there, the built-in `number` too: its `order`,
 --- `render`, and the `glyphs` and `styles` it draws with (merged into its
---- own). The part becomes a changed copy, as with `paw.trackcolumn.set`:
+--- own). The component becomes a changed copy, as with `paw.partcolumn.set`:
 --- `paw.ruler.add(name, old)` puts back the table it had before.
 ---   paw.ruler.set("number", { styles = { cursor = "Title" } })
 function M.set(name: string, patch: contracts.RulerPatch): Label

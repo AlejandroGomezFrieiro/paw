@@ -145,12 +145,12 @@ fn calls_and_subscribed_events_over_the_socket() {
     assert_eq!(c.call("eval", json!(["return 1 + 1"])).unwrap(), json!(2));
     // Nothing is pushed that was not asked for.
     let (_, pushed) = pushed_by(&mut c, |c| {
-        c.call("cmd", json!(["track.add"])).unwrap();
+        c.call("cmd", json!(["part.add"])).unwrap();
     });
     assert!(pushed.is_empty(), "nothing asked for: {pushed:?}");
-    c.call("subscribe", json!(["transport.*", "track.added"])).unwrap();
-    c.call("cmd", json!(["track.add"])).unwrap();
-    assert!(event(&c, "track.added")["id"].is_number());
+    c.call("subscribe", json!(["transport.*", "part.added"])).unwrap();
+    c.call("cmd", json!(["part.add"])).unwrap();
+    assert!(event(&c, "part.added")["id"].is_number());
     c.call("cmd", json!(["transport.play"])).unwrap();
     assert!(event(&c, "transport.play")["position"].is_number());
     c.call("cmd", json!(["transport.stop"])).unwrap();
@@ -158,14 +158,14 @@ fn calls_and_subscribed_events_over_the_socket() {
     // Another connection hears none of it, and an error is an error.
     let mut other = Connection::unix(&instance.socket).unwrap();
     let (_, pushed) = pushed_by(&mut other, |other| {
-        other.call("cmd", json!(["track.add"])).unwrap();
+        other.call("cmd", json!(["part.add"])).unwrap();
     });
     assert!(pushed.is_empty(), "the other connection asked for nothing: {pushed:?}");
     let err = other.call("no_such_method", json!([])).unwrap_err();
     assert!(err.to_string().contains("no method"), "{err}");
     c.call("unsubscribe", json!([])).unwrap();
     let (_, pushed) = pushed_by(&mut c, |c| {
-        c.call("cmd", json!(["track.add"])).unwrap();
+        c.call("cmd", json!(["part.add"])).unwrap();
     });
     assert!(pushed.is_empty(), "no longer subscribed: {pushed:?}");
 }
@@ -174,19 +174,19 @@ fn calls_and_subscribed_events_over_the_socket() {
 fn each_request_is_a_turn_of_its_own() {
     let instance = start("turns");
     let mut c = Connection::unix(&instance.socket).unwrap();
-    c.call("subscribe", json!(["track.added"])).unwrap();
-    let tracks = |c: &mut Connection| c.call("eval", json!(["return #paw.tracks()"])).unwrap();
-    let before = tracks(&mut c).as_u64().unwrap();
+    c.call("subscribe", json!(["part.added"])).unwrap();
+    let parts = |c: &mut Connection| c.call("eval", json!(["return #paw.parts()"])).unwrap();
+    let before = parts(&mut c).as_u64().unwrap();
     // Back to back, with no pause and no barrier: the events of a request
     // come before its answer, so they are in the channel when it returns.
     for n in 1..=3 {
-        c.call("cmd", json!(["track.add"])).unwrap();
+        c.call("cmd", json!(["part.add"])).unwrap();
         let pushed: Vec<_> = c.events.try_iter().collect();
         assert_eq!(pushed.len(), 1, "the event of request {n} before its answer: {pushed:?}");
     }
     // Each request was its own undo step.
     c.call("cmd", json!(["undo"])).unwrap();
-    assert_eq!(tracks(&mut c), json!(before + 2), "one undo takes back the last request only");
+    assert_eq!(parts(&mut c), json!(before + 2), "one undo takes back the last request only");
 }
 
 #[test]
@@ -289,14 +289,14 @@ fn the_certificate_is_trusted_the_first_time_and_held_to_after() {
 fn a_watching_frontend_is_sent_what_changed_and_nothing_when_nothing_did() {
     let instance = start("watch");
     let mut c = Connection::unix(&instance.socket).unwrap();
-    c.call("eval", json!(["paw.add_track({ name = 'one' })"])).unwrap();
+    c.call("eval", json!(["paw.add_part({ name = 'one' })"])).unwrap();
     c.call("frontend.watch", json!([])).unwrap();
     let first = event(&c, "frontend.state");
     let sections = first["sections"].as_object().expect("the whole state at first");
-    for name in ["project", "lines", "tracks", "clips", "devices", "view", "kinds"] {
+    for name in ["project", "lines", "parts", "clips", "devices", "view", "kinds"] {
         assert!(sections.contains_key(name), "the first state has `{name}`");
     }
-    assert_eq!(sections["tracks"][0]["name"], "one");
+    assert_eq!(sections["parts"][0]["name"], "one");
     assert!(first["modal"].is_object() && first["levels"].is_array());
     assert_eq!(first["seq"], 1, "the states are numbered from 1");
     let (seq, pushed) = pushed_by(&mut c, |_| {});
@@ -304,9 +304,9 @@ fn a_watching_frontend_is_sent_what_changed_and_nothing_when_nothing_did() {
     assert_eq!(seq, 1, "the barrier answers the number of the last state");
     // A change sends the parts it touched once, and not the bar lines again.
     // Other states can come with it, with the levels of the engine that
-    // wakes up from its rest when the track is added.
+    // wakes up from its rest when the part is added.
     let (seq, pushed) = pushed_by(&mut c, |c| {
-        c.call("eval", json!(["paw.add_track({ name = 'two' })"])).unwrap();
+        c.call("eval", json!(["paw.add_part({ name = 'two' })"])).unwrap();
     });
     let sent = states(&pushed);
     let numbers: Vec<u64> = sent.iter().filter_map(|state| state["seq"].as_u64()).collect();
@@ -315,11 +315,11 @@ fn a_watching_frontend_is_sent_what_changed_and_nothing_when_nothing_did() {
     let with_sections: Vec<&Value> = sent.into_iter().filter(|state| state["sections"].is_object()).collect();
     let [next] = with_sections[..] else { panic!("one state with the change: {pushed:?}") };
     let changed = next["sections"].as_object().expect("something changed");
-    assert_eq!(changed["tracks"][1]["name"], "two");
+    assert_eq!(changed["parts"][1]["name"], "two");
     assert!(!changed.contains_key("lines"), "the lines did not change: {:?}", changed.keys());
     assert!(!changed.contains_key("kinds"));
     // While playing, the position comes without being asked for.
-    c.call("eval", json!(["paw.tracks()[1]:add_clip({ start = 0, length = 64 })"])).unwrap();
+    c.call("eval", json!(["paw.parts()[1]:add_clip({ start = 0, length = 64 })"])).unwrap();
     c.call("cmd", json!(["transport.play"])).unwrap();
     let mut moved = false;
     for _ in 0..40 {
@@ -333,7 +333,7 @@ fn a_watching_frontend_is_sent_what_changed_and_nothing_when_nothing_did() {
     c.call("cmd", json!(["transport.stop"])).unwrap();
     c.call("frontend.unwatch", json!([])).unwrap();
     let (_, pushed) = pushed_by(&mut c, |c| {
-        c.call("eval", json!(["paw.add_track({ name = 'three' })"])).unwrap();
+        c.call("eval", json!(["paw.add_part({ name = 'three' })"])).unwrap();
     });
     assert!(pushed.is_empty(), "no longer watching: {pushed:?}");
 }
@@ -342,7 +342,7 @@ fn a_watching_frontend_is_sent_what_changed_and_nothing_when_nothing_did() {
 fn a_window_is_sent_what_moves_at_its_own_pace_and_an_edit_at_once() {
     let instance = start("pace");
     let mut c = Connection::unix(&instance.socket).unwrap();
-    c.call("eval", json!(["paw.add_track({ name = 'one' }):add_clip({ start = 0, length = 64 })"])).unwrap();
+    c.call("eval", json!(["paw.add_part({ name = 'one' }):add_clip({ start = 0, length = 64 })"])).unwrap();
     c.call("frontend.watch", json!([])).unwrap();
     c.call("scene.watch", json!([{ "cell": { "w": 8, "h": 16 }, "live": true }])).unwrap();
     // A window that draws ten frames a second while the song plays.
@@ -378,10 +378,10 @@ fn a_window_is_sent_what_moves_at_its_own_pace_and_an_edit_at_once() {
     assert!(pushed.is_empty(), "nothing once the song stopped: {pushed:?}");
     // An edit is sent after its turn, without waiting for the next tick.
     let asked = Instant::now();
-    c.call("eval", json!(["paw.add_track({ name = 'two' })"])).unwrap();
+    c.call("eval", json!(["paw.add_part({ name = 'two' })"])).unwrap();
     loop {
         let state = event(&c, "frontend.state");
-        if state["sections"]["tracks"][1]["name"] == "two" {
+        if state["sections"]["parts"][1]["name"] == "two" {
             break;
         }
     }
@@ -470,7 +470,7 @@ fn a_big_drawing_is_fetched_once_by_its_key_and_live_values_are_pushed() {
                  for i = 0, 2999 do g:rect(i % 100, math.floor(i / 100), 1, 1, { fill = '#ffffff' }) end
                end })
                paw.canvas.open('many', { window = true })
-               local t = paw.add_track({ name = 'Lead' })
+               local t = paw.add_part({ name = 'Lead' })
                t:add_clip({ start = 0, length = 64 })"]),
     )
     .unwrap();
@@ -488,7 +488,7 @@ fn a_big_drawing_is_fetched_once_by_its_key_and_live_values_are_pushed() {
     for _ in 0..40 {
         let live = event(&c, "scene.live");
         if live["playing"] == true && live["position"].as_f64().unwrap_or(0.0) > 0.0 {
-            assert!(live["meters"].as_object().is_some_and(|m| !m.is_empty()), "a meter for the track: {live}");
+            assert!(live["meters"].as_object().is_some_and(|m| !m.is_empty()), "a meter for the part: {live}");
             moved = true;
             break;
         }
@@ -530,7 +530,7 @@ fn screen(c: &Connection, grid: &mut Grid, ready: impl Fn(&str) -> bool) -> Stri
 fn a_terminal_attaches_to_a_kernel_without_one_types_and_leaves() {
     let instance = start("attach");
     let mut c = instance.tcp().unwrap();
-    c.call("eval", json!(["paw.add_track({ name = 'Remote bass' })"])).unwrap();
+    c.call("eval", json!(["paw.add_part({ name = 'Remote bass' })"])).unwrap();
     assert!(c.call("ui.input", json!([{ "key": "j" }])).is_err(), "not before attaching");
     c.call("ui.attach", json!([100, 30])).unwrap();
     let mut grid = Grid::new(1, 1);
@@ -541,18 +541,18 @@ fn a_terminal_attaches_to_a_kernel_without_one_types_and_leaves() {
     for key in [":", "t", "r", "a", "c", "k", ".", "a", "d", "d", "<CR>"] {
         c.notify("ui.input", json!([{ "key": key }])).unwrap();
     }
-    screen(&c, &mut grid, |t| t.contains("Track 2"));
-    assert_eq!(c.call("eval", json!(["return #paw.tracks()"])).unwrap(), json!(2));
+    screen(&c, &mut grid, |t| t.contains("Part 2"));
+    assert_eq!(c.call("eval", json!(["return #paw.parts()"])).unwrap(), json!(2));
     // A smaller terminal: the screen is sent whole again at the new size.
     c.notify("ui.input", json!([{ "resize": [60, 20] }])).unwrap();
-    screen(&c, &mut grid, |t| t.lines().count() == 20 && t.contains("Track 2"));
+    screen(&c, &mut grid, |t| t.lines().count() == 20 && t.contains("Part 2"));
     // `:detach` lets this terminal go; the kernel runs on.
     for key in [":", "d", "e", "t", "a", "c", "h", "<CR>"] {
         c.notify("ui.input", json!([{ "key": key }])).unwrap();
     }
     event(&c, "ui.detached");
     assert_eq!(c.call("eval", json!(["return paw.api.ui_attached()"])).unwrap(), json!(false));
-    assert_eq!(c.call("eval", json!(["return #paw.tracks()"])).unwrap(), json!(2));
+    assert_eq!(c.call("eval", json!(["return #paw.parts()"])).unwrap(), json!(2));
 }
 
 #[test]
@@ -634,7 +634,7 @@ fn lua_that_runs_away_over_the_socket_is_stopped_and_errors_are_plain() {
         (error("no_such_method", json!([])), "no method `no_such_method`"),
         (error("eval", json!(["error('boom')"])), "boom"),
         (error("clip_notes", json!([999])), "no clip 999"),
-        (error("eval", json!(["paw.tracks("])), "rpc:1: unexpected symbol near '<eof>'"),
+        (error("eval", json!(["paw.parts("])), "rpc:1: unexpected symbol near '<eof>'"),
         (error("eval", json!([7])), "`eval` takes the code to run, as a string"),
     ];
     for (got, want) in told {
@@ -654,7 +654,7 @@ fn two_terminals_attached_have_a_seat_each_in_one_project() {
     let instance = start("seats");
     let mut a = instance.tcp().unwrap();
     let mut b = Connection::unix(&instance.socket).unwrap();
-    a.call("eval", json!(["paw.add_track({ name = 'Drums' }); paw.add_track({ name = 'Bass' })"])).unwrap();
+    a.call("eval", json!(["paw.add_part({ name = 'Drums' }); paw.add_part({ name = 'Bass' })"])).unwrap();
     a.call("ui.attach", json!([100, 30])).unwrap();
     b.call("ui.attach", json!([90, 24])).unwrap();
     let (mut ga, mut gb) = (Grid::new(1, 1), Grid::new(1, 1));
@@ -667,14 +667,14 @@ fn two_terminals_attached_have_a_seat_each_in_one_project() {
     let mode = |c: &mut Connection| c.call("eval", json!(["return paw.keymap.mode"])).unwrap();
     assert_eq!(mode(&mut a), json!("x"), "a call over a terminal's connection is in its seat");
     assert_eq!(mode(&mut b), json!("n"));
-    let at = |c: &mut Connection| c.call("eval", json!(["return paw.cursor.track().name"])).unwrap();
+    let at = |c: &mut Connection| c.call("eval", json!(["return paw.cursor.part().name"])).unwrap();
     assert_eq!(at(&mut a), json!("Bass"));
     assert_eq!(at(&mut b), json!("Drums"), "the other cursor did not move");
     // What one adds, the other sees, and can take back: one history.
     type_keys(&mut a, &["<Esc>", ":", "t", "r", "a", "c", "k", ".", "a", "d", "d", "<CR>"]);
-    screen(&b, &mut gb, |t| t.contains("Track 3"));
+    screen(&b, &mut gb, |t| t.contains("Part 3"));
     type_keys(&mut b, &["u"]);
-    screen(&a, &mut ga, |t| !t.contains("Track 3"));
+    screen(&a, &mut ga, |t| !t.contains("Part 3"));
     // The instance's own seat (as `paw ctl` sees it) is neither.
     let mut ctl = Connection::unix(&instance.socket).unwrap();
     assert_eq!(mode(&mut ctl), json!("n"));
@@ -695,7 +695,7 @@ fn while_the_song_plays_terminals_are_sent_only_what_moves() {
     let instance = start("live");
     let mut a = instance.tcp().unwrap();
     let mut b = Connection::unix(&instance.socket).unwrap();
-    a.call("eval", json!(["local t = paw.add_track({ name = 'Lead' }) t:add_clip({ start = 0, length = 64 })"])).unwrap();
+    a.call("eval", json!(["local t = paw.add_part({ name = 'Lead' }) t:add_clip({ start = 0, length = 64 })"])).unwrap();
     // Two terminals of two sizes: each keeps its own last frame.
     a.call("ui.attach", json!([100, 30])).unwrap();
     b.call("ui.attach", json!([90, 24])).unwrap();
@@ -716,8 +716,8 @@ fn while_the_song_plays_terminals_are_sent_only_what_moves() {
     assert!(count(&after, "full") <= count(&before, "full") + 4, "few whole frames: {before} {after}");
     // A key still draws the whole screen at once.
     type_keys(&mut a, &[":", "t", "r", "a", "c", "k", ".", "a", "d", "d", "<CR>"]);
-    screen(&a, &mut ga, |t| t.contains("Track 2"));
-    screen(&b, &mut gb, |t| t.contains("Track 2"));
+    screen(&a, &mut ga, |t| t.contains("Part 2"));
+    screen(&b, &mut gb, |t| t.contains("Part 2"));
     a.call("cmd", json!(["transport.stop"])).unwrap();
 }
 
@@ -751,8 +751,8 @@ fn a_file_from_the_clients_disk_is_sent_and_imported() {
     let media = c.call("eval", json!(["return paw.api.media_dir()"])).unwrap();
     assert!(there.starts_with(media.as_str().unwrap()), "{there} is in the project's media folder");
     assert_eq!(std::fs::read(&there).unwrap(), std::fs::read(&here).unwrap(), "every byte arrived");
-    let clips = c.call("eval", json!(["local t = paw.tracks()[1]; return t and #t:clips()"])).unwrap();
-    assert_eq!(clips, json!(1), "imported on a track of its own");
+    let clips = c.call("eval", json!(["local t = paw.parts()[1]; return t and #t:clips()"])).unwrap();
+    assert_eq!(clips, json!(1), "imported on a part of its own");
     // The same name again does not overwrite it.
     let again = c.send_file(&here).unwrap();
     assert_ne!(again, there);
@@ -770,7 +770,7 @@ fn the_instances_sound_is_heard_where_the_client_is() {
     // A long note on a synth, playing, on the null device.
     c.call(
         "eval",
-        json!(["local t = paw.add_track({ name = 'Lead' }); t:add_device('synth', { attack = 0.001 })
+        json!(["local t = paw.add_part({ name = 'Lead' }); t:add_device('synth', { attack = 0.001 })
                t:add_clip({ start = 0, length = 64, notes = { { pitch = 'A4', start = 0, length = 64 } } })
                paw.transport.play()"]),
     )
@@ -829,7 +829,7 @@ fn ctl_json_answers_in_one_line_of_json() {
         assert_eq!(text.lines().count(), 1, "one line: {text}");
         (serde_json::from_str::<Value>(&text).unwrap(), out.status.success())
     };
-    let (answer, ok) = ctl(&["eval", "return { tempo = paw.project.tempo, tracks = {} }"]);
+    let (answer, ok) = ctl(&["eval", "return { tempo = paw.project.tempo, parts = {} }"]);
     assert!(ok);
     assert_eq!(answer["ok"], true);
     assert_eq!(answer["result"]["tempo"], 120);

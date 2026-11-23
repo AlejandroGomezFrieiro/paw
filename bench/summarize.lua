@@ -110,7 +110,7 @@ end
 tbl(
   "Offline render (ms of wall time for 32 s of audio)",
   "render",
-  { "kind", "fx", "automation", "tracks" },
+  { "kind", "fx", "automation", "parts" },
   -- paw renders on every core unless told otherwise (`threads=12` rows, ×N); runs
   -- with `threads=1` fill the ×1 column.
   { engine("paw", 1), engine("paw", "N"), engine("tracktion", 1), engine("tracktion", "N") },
@@ -119,14 +119,14 @@ tbl(
 tbl(
   "Offline render, per-block processing time (ms; budget 10.7 ms)",
   "render",
-  { "kind", "fx", "automation", "tracks" },
+  { "kind", "fx", "automation", "parts" },
   { engine("paw", 1), engine("paw", "N"), engine("tracktion", 1), engine("tracktion", "N") },
   { "block_p99_ms", "block_max_ms" }
 )
 tbl(
   "Real-time playback, ms per callback (DAW: null backend on a real-time clock; Tracktion: hosted device, back to back)",
   "blocks",
-  { "kind", "tracks", "buffer", "edits" },
+  { "kind", "parts", "buffer", "edits" },
   { engine("paw"), engine("tracktion", 1), engine("tracktion", "N") },
   { "p50_ms", "p99_ms", "max_ms" }
 )
@@ -166,23 +166,23 @@ tbl(
   { "add_ms", "move_ms", "delete_ms" }
 )
 tbl(
-  "One edit in a project of N tracks (ms, median of 50)",
+  "One edit in a project of N parts (ms, median of 50)",
   "scale",
-  { "tracks" },
+  { "parts" },
   { engine("paw") },
-  { "build_ms", "volume_ms", "clip_move_ms", "undo_ms", "redo_ms", "track_add_ms" }
+  { "build_ms", "volume_ms", "clip_move_ms", "undo_ms", "redo_ms", "part_add_ms" }
 )
 tbl(
   "Save and load (ms)",
   "saveload",
-  { "tracks", "clips_per_track" },
+  { "parts", "clips_per_part" },
   { engine("paw"), engine("tracktion") },
   { "build_ms", "save_ms", "load_ms", "file_bytes" }
 )
 tbl(
   "Resident memory (kB)",
   "memory",
-  { "tracks", "clips_per_track", "undo_steps" },
+  { "parts", "clips_per_part", "undo_steps" },
   { engine("paw"), engine("tracktion") },
   { "rss_built_kb", "rss_undo_kb" }
 )

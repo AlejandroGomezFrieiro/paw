@@ -36,8 +36,8 @@ local A = paw.frontend.act
 --- and on the timeline (`tx`, `beat`), whether over the headers or the
 --- timeline, and the area: "ruler", "markers" (`lane_row` the regions'
 --- row), "band" (`band` the entry), "tempo" (`y0` its first line),
---- "track", "take", "lane" (`row` the row), "master" or "below". On a
---- track's timeline, the clip under it, which part (`part`) and the warp
+--- "part", "take", "lane" (`row` the row), "master" or "below". On a
+--- part's timeline, the clip under it, which piece of it (`part`) and the warp
 --- marker (`warp`).
 local record Hit
   x: number
@@ -152,7 +152,7 @@ local function clip_part(ax: Axis, c: types.Clip, into: number, cw: number, dy: 
   return part, index
 end
 
---- The clip of a track row under timeline column `tx`, `dy` lines under
+--- The clip of a part row under timeline column `tx`, `dy` lines under
 --- the row's top, and which part of it (`clip_part`).
 local function clip_at(self: Arrange, row: Row, tx: number, dy: number, fine: boolean): types.Clip, string, integer
   local found: types.Clip
@@ -288,14 +288,14 @@ local function hit(self: Arrange, x: number, y: number, fine: boolean): Hit
     end
     out.area = out.area or "below"
   end
-  if out.area == "track" and out.timeline then
+  if out.area == "part" and out.timeline then
     out.clip, out.part, out.warp = clip_at(self, out.row, fine and out.tx or math.floor(out.tx), y - out.row.y, fine)
   end
   return out
 end
 
---- The row of a drawn track (its place in `paw.groups.rows()`) at line `y`
---- of the view, the nearest one above or below when it is off the tracks.
+--- The row of a drawn part (its place in `paw.groups.rows()`) at line `y`
+--- of the view, the nearest one above or below when it is off the parts.
 local function row_index(self: Arrange, y: number): integer
   local rows = self.geometry.layout.rows
   local best: integer
@@ -310,10 +310,10 @@ local function row_index(self: Arrange, y: number): integer
   return best or (rows[1] and rows[1].index) or 1
 end
 
---- The line of the view where a drawn track's row is, if it is shown.
+--- The line of the view where a drawn part's row is, if it is shown.
 local function row_of(self: Arrange, index: integer): Row
   for _, row in ipairs(self.geometry.layout.rows) do
-    if row.kind == "track" and row.index == index then
+    if row.kind == "part" and row.index == index then
       return row
     end
   end
@@ -334,7 +334,7 @@ local function ghost(self: Arrange, row: Row, start: number, length: number, tex
   local props: roles.ClipProps = {
     ghost = true,
     name = text,
-    color = paw.draw.track_colour(api.track_get(row.id), row.index),
+    color = paw.draw.part_colour(api.part_get(row.id), row.index),
   }
   self.plane:mark("clip", self:current_axis():view(start), row.y, length, row.h, props)
 end
@@ -353,7 +353,7 @@ end
 --- The menu for what a right click was on, at `where` on the screen.
 local function menu_at(self: Arrange, h: Hit, where: contracts.MenuOptions)
   local items: {contracts.MenuEntry}
-  if h.area == "track" and h.timeline then
+  if h.area == "part" and h.timeline then
     if h.clip and h.part == "warp" then
       items = menus.warp(h.clip.id, h.warp)
     elseif h.clip then
@@ -375,9 +375,9 @@ local function menu_at(self: Arrange, h: Hit, where: contracts.MenuOptions)
         items = menus.timeline(h.row.id, grid_at(self, h.tx))
       end
     end
-  elseif h.area == "track" then
+  elseif h.area == "part" then
     A.select(h.row.id)
-    items = menus.track(h.row.id)
+    items = menus.part(h.row.id)
   elseif h.area == "take" then
     items = menus.takes(h.row.id)
   elseif h.area == "lane" then
@@ -424,10 +424,10 @@ local function redrawn(self: Arrange, row: Row, c: types.Clip, change: function(
   if not self.plane then
     return
   end
-  local track = api.track_get(row.id)
-  local hue = paw.draw.track_hue(track, row.index)
+  local part = api.part_get(row.id)
+  local hue = paw.draw.part_hue(part, row.index)
   local ax = self:current_axis()
-  local props = view.clip_props(c, track, hue, "", ax, ax:view(c.start))
+  local props = view.clip_props(c, part, hue, "", ax, ax:view(c.start))
   props.key = "drag:clip"
   change(props)
   self.plane:mark("clip", self:current_axis():view(c.start), row.y, c.length, row.h, props)
@@ -527,16 +527,16 @@ local function press_warp(self: Arrange, e: MouseEvent, h: Hit, c: types.Clip, f
   )
 end
 
---- Where the clips a drag moves would go, `drows` tracks down and `by`
+--- Where the clips a drag moves would go, `drows` parts down and `by`
 --- beats later: ghosts of them on their rows.
 local function ghosts_moved(v: Arrange, c: types.Clip, by: number, drows: integer)
   local rows: {integer: integer} = {}
-  for i, track in ipairs(paw.groups.rows()) do
-    rows[track] = i
+  for i, part in ipairs(paw.groups.rows()) do
+    rows[part] = i
   end
   for _, id in ipairs(grabbed(c.id)) do
     local other = api.clip_get(id)
-    local row = rows[other.track] and row_of(v, rows[other.track] + drows)
+    local row = rows[other.part] and row_of(v, rows[other.part] + drows)
     if row then
       ghost(v, row, math.max(0, other.start + by), other.length, other.name)
     end
@@ -634,15 +634,15 @@ end
 -- The empty timeline ------------------------------------------------------------------
 
 --- A press where there is no clip: a click puts the cursor there and lets go
---- of the chosen clips, a drag selects that stretch of time on the tracks
+--- of the chosen clips, a drag selects that stretch of time on the parts
 --- it crosses, a double click makes a clip of a bar.
 local function press_empty(self: Arrange, e: MouseEvent, h: Hit)
-  local track = h.row.id
+  local part = h.row.id
   if e.double then
-    A.add_clip(track, h.beat)
+    A.add_clip(part, h.beat)
     return
   end
-  A.select(track, grid_at(self, h.tx))
+  A.select(part, grid_at(self, h.tx))
   local row0, x0 = h.row.index, h.fine and h.tx or math.floor(h.tx)
   hold(
     e,
@@ -701,12 +701,12 @@ local function on_edge(row: Row, y: number, fine: boolean, e?: MouseEvent): bool
   return e ~= nil and mouse.has(e, "A")
 end
 
---- The bottom edge of a header dragged: the track taller or shorter, in
+--- The bottom edge of a header dragged: the part taller or shorter, in
 --- whole lines; a double click gives it the height of the others.
 local function press_height(self: Arrange, e: MouseEvent, row: Row)
   local id, th = row.id, self.geometry.th
   if e.double then
-    A.set_track_height(id, 1)
+    A.set_part_height(id, 1)
     return
   end
   local function lines(d: MouseEvent): integer
@@ -724,19 +724,19 @@ local function press_height(self: Arrange, e: MouseEvent, row: Row)
       drag = function(d: MouseEvent) held().d = d; mouse.hint(string.format("%d lines", lines(d)), "resize_v") end,
       up = function(u: MouseEvent)
         if u.moved then
-          A.set_track_height(id, lines(u) / th)
+          A.set_part_height(id, lines(u) / th)
         end
       end,
     }
   )
 end
 
---- A value of a track dragged sideways from where it was (`get()`): `per`
---- a column, `fine` a column with Shift; the track holds `target`
+--- A value of a part dragged sideways from where it was (`get()`): `per`
+--- a column, `fine` a column with Shift; the part holds `target`
 --- (paw.frontend.act.hold) until the button is let go.
 local function drag_value(
   e: MouseEvent,
-  track: integer,
+  part: integer,
   target: string,
   get: function(): number,
   set: function(v: number),
@@ -744,9 +744,9 @@ local function drag_value(
   fine: number
 )
   local start = get()
-  A.hold(track, target, 0, "", true)
+  A.hold(part, target, 0, "", true)
   local function release()
-    A.hold(track, target, 0, "", false)
+    A.hold(part, target, 0, "", false)
   end
   hold(
     e,
@@ -762,7 +762,7 @@ end
 --- buttons (a press on one swept across the others sets them all alike),
 --- or on the fold mark of a group. True when it was on one.
 local function press_chips(
-  self: Arrange, e: MouseEvent, row: Row, t: types.Track, cx: integer, column_width: integer
+  self: Arrange, e: MouseEvent, row: Row, t: types.Part, cx: integer, column_width: integer
 ): boolean
   local id = row.id
   -- The chips are where the view has them (`view.flags`, in its columns).
@@ -779,7 +779,7 @@ local function press_chips(
     end
   end
   -- Without the column's `fold`, the group's mark is before its name.
-  if paw.groups.is_group(id) and not paw.trackcolumn.shows("fold") and cx == 2 then
+  if paw.groups.is_group(id) and not paw.partcolumn.shows("fold") and cx == 2 then
     A.fold(id)
     return true
   end
@@ -790,9 +790,7 @@ end
 --- volume, which a click puts the clip light out on, and the meter, which
 --- a drag moves the volume along (a double click puts it back). True
 --- when it was on one.
-local function press_volume(
-  e: MouseEvent, row: Row, t: types.Track, cx: integer, hw: integer, name_at: integer
-): boolean
+local function press_volume(e: MouseEvent, row: Row, t: types.Part, cx: integer, hw: integer, name_at: integer): boolean
   local id = row.id
   if hw >= 16 and cx >= 1 and cx < 3 then
     paw.ui.menu(require("paw.window_menus").input(id), screen_at(e, 1))
@@ -815,7 +813,7 @@ local function press_volume(
     e,
     id,
     "volume",
-    function(): number return api.track_get(id).volume end,
+    function(): number return api.part_get(id).volume end,
     function(v: number) A.set_volume(id, v) end,
     1,
     0.1
@@ -835,19 +833,19 @@ local function press_pan(e: MouseEvent, id: integer)
     e,
     id,
     "pan",
-    function(): number return api.track_get(id).pan or 0 end,
+    function(): number return api.part_get(id).pan or 0 end,
     function(v: number) A.set_pan(id, v) end,
     0.05,
     0.01
   )
 end
 
---- A press on a header elsewhere: it selects the track, renames it on a
+--- A press on a header elsewhere: it selects the part, renames it on a
 --- double click, and drags it to another place.
-local function press_track(self: Arrange, e: MouseEvent, row: Row)
+local function press_part(self: Arrange, e: MouseEvent, row: Row)
   local id = row.id
   if e.double then
-    A.track_command(id, "track.rename")
+    A.part_command(id, "part.rename")
     return
   end
   A.select(id)
@@ -868,25 +866,25 @@ local function press_track(self: Arrange, e: MouseEvent, row: Row)
       up = function(u: MouseEvent)
         local to = row_index(self, u.y)
         if u.moved and to ~= row.index then
-          A.move_track(id, to)
+          A.move_part(id, to)
         end
       end,
     }
   )
 end
 
---- A press on a track's header: the track column at its left, its bottom
+--- A press on a part's header: the part column at its left, its bottom
 --- edge, its chips, its volume and its pan, or the rest of it.
 local function press_header(self: Arrange, e: MouseEvent, h: Hit)
   local row, id = h.row, h.row.id
-  local t = api.track_get(id)
-  -- The track column at the left (paw/trackcolumn.tl), then the header,
+  local t = api.part_get(id)
+  -- The part column at the left (paw/partcolumn.tl), then the header,
   -- whose controls are placed from its own left edge.
   local column = self.geometry.layout.column
   local cx, cy = math.floor(e.x), math.floor(e.y)
-  if cx < column.width and row.kind == "track" then
+  if cx < column.width and row.kind == "part" then
     A.select(id)
-    paw.trackcolumn.click(column, cx, id, {row = row.index, line = cy - row.y, kind = row.kind})
+    paw.partcolumn.click(column, cx, id, {row = row.index, line = cy - row.y, kind = row.kind})
     api.ui_redraw()
     return
   end
@@ -905,10 +903,10 @@ local function press_header(self: Arrange, e: MouseEvent, h: Hit)
   if row.h >= 3 and cy == row.y + 2 and cx >= name_at and cx < name_at + 4 then
     return press_pan(e, id)
   end
-  press_track(self, e, row)
+  press_part(self, e, row)
 end
 
--- Lanes under the ruler and under the tracks -----------------------------------------------
+-- Lanes under the ruler and under the parts -----------------------------------------------
 
 --- A height in a row of `h` lines from line `top`, as a fraction (0 at the
 --- bottom), for line `y`: a terminal's at the middle of the line, a
@@ -1215,13 +1213,13 @@ local function press_take(self: Arrange, e: MouseEvent, h: Hit)
     return menu_on_release(self, e, h)
   end
   if not h.timeline then
-    -- The label makes the take play wherever the track has it.
+    -- The label makes the take play wherever the part has it.
     local last = 0.0
     for _, clip in ipairs(api.clip_list(row.id)) do
       last = math.max(last, clip.start + clip.length)
     end
     paw.takes.comp(row.id, row.take, 0, last)
-    return paw.cursor.set_track(row.id)
+    return paw.cursor.set_part(row.id)
   end
   local x = h.fine and e.x or math.floor(e.x)
   self.comp = {id = row.id, take = row.take, x0 = x, x1 = x}
@@ -1323,22 +1321,22 @@ local function hover(self: Arrange, h: Hit)
     text = paw.time.format(h.beat) .. " · " .. hints.lane
   elseif h.area == "take" then
     text = hints.take
-  elseif h.area == "track" and h.timeline then
+  elseif h.area == "part" and h.timeline then
     text = h.clip and clip_hint(h) or paw.time.format(h.beat) .. " · " .. hints.empty
-  elseif h.area == "track" and h.header then
+  elseif h.area == "part" and h.header then
     if on_edge(h.row, h.y, h.fine) then
-      return mouse.hint("track height: drag the bottom edge · double click for the others' height", "resize_v")
+      return mouse.hint("part height: drag the bottom edge · double click for the others' height", "resize_v")
     end
-    text = api.track_get(h.row.id).name .. " · " .. hints.header
+    text = api.part_get(h.row.id).name .. " · " .. hints.header
   end
-  local edge = h.area == "track" and h.clip and (h.part == "start" or h.part == "end")
+  local edge = h.area == "part" and h.clip and (h.part == "start" or h.part == "end")
   mouse.hint(text, edge and "resize_h" or nil)
 end
 
 --- A press on a lane's row: its header puts the cursor on it (a right
 --- click opens its menu), its timeline is the pencil's.
 local function press_lane_row(self: Arrange, e: MouseEvent, h: Hit)
-  paw.cursor.set_track(h.row.id, h.row.lane.id)
+  paw.cursor.set_part(h.row.id, h.row.lane.id)
   if h.timeline then
     return press_lane(self, e, h, h.row.y, h.row.h, automation(h.row))
   end
@@ -1347,9 +1345,9 @@ local function press_lane_row(self: Arrange, e: MouseEvent, h: Hit)
   end
 end
 
---- A press on a track's row: on its header or its timeline, with the left
+--- A press on a part's row: on its header or its timeline, with the left
 --- button or the right.
-local function press_track_row(self: Arrange, e: MouseEvent, h: Hit)
+local function press_part_row(self: Arrange, e: MouseEvent, h: Hit)
   if e.button == "right" then
     if h.header then
       return menu_on_release(self, e, h)
@@ -1420,10 +1418,10 @@ function view:on_mouse(e: MouseEvent): boolean
   elseif area == "tempo" and e.button == "right" then
     menu_on_release(self, e, h)
   elseif area == "below" and h.header and e.button == "left" then
-    -- Under the last track: the kinds of track to make one of.
-    paw.ui.menu(require("paw.window_menus").add_track(), screen_at(e, 1))
-  elseif area == "track" then
-    press_track_row(self, e, h)
+    -- Under the last part: the kinds of part to make one of.
+    paw.ui.menu(require("paw.window_menus").add_part(), screen_at(e, 1))
+  elseif area == "part" then
+    press_part_row(self, e, h)
   end
 end
 

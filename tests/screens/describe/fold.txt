@@ -1,5 +1,5 @@
  Song                   │▼  ╭─ Fold  Piano, Pad 9-24 ──────────────────────────────────────────────╮
- cur 9.1                │▏In│   Song › Piano, Pad 9-24 · bars 1-16 (song @9-24) · 4/4 · 2 tracks · │
+ cur 9.1                │▏In│   Song › Piano, Pad 9-24 · bars 1-16 (song @9-24) · 4/4 · 2 parts · │
  1 ▾▌ Drums        MSRI │▏━━│   folded                                                             │
    │▌in ─────────── 0.0 │▏  │   za opens it · znn enters it · zd deletes it                        │
    │▌   C               │▏  │                                                                      │
@@ -7,7 +7,7 @@
    │▌in ─────────── 0.0 │▄▄ │   1.1.00 to 25.1.00, 96 beats                                        │
    │▌   C       → Drums │   │   24 notes                                                           │
  3 ╰▌ Snare        MSRI │▏Sn│                                                                      │
-    ▌in ─────────── 0.0 │▄▄ │ Track  Piano                                                         │
+    ▌in ─────────── 0.0 │▄▄ │ Part  Piano                                                         │
     ▌   C       → Drums │   │   in the group Keys                                                  │
  4 ▾▌ Keys         MSRI │▏━━│   volume +0.0 dB, pan +0.00                                          │
    │▌in ─────────── 0.0 │▏  │ K again: all of it                                                   │
@@ -21,7 +21,7 @@
  7  ▌ Bass         MSRI │▏Bass
     ▌in ─────────── 0.0 │▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄
     ▌   C               │
-        o new track     │
+        o new part     │
                         │
                         │
     ▌ Master            │

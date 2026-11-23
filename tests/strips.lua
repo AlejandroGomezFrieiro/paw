@@ -159,12 +159,12 @@ end
 
 test("an audio clip's waveform is a strip under its cells, of the whole clip, kept as it scrolls", function()
   fresh()
-  local t = paw.add_track({ name = "loop" })
+  local t = paw.add_part({ name = "loop" })
   local clip = t:add_clip({ start = 0, file = loud_file("loud", 8) })
-  paw.cursor.set_track(t)
-  paw.opt.zoom, paw.opt.track_height = 8, 4
+  paw.cursor.set_part(t)
+  paw.opt.zoom, paw.opt.part_height = 8, 4
   T.after(function()
-    paw.opt.zoom, paw.opt.track_height = 2, "auto"
+    paw.opt.zoom, paw.opt.part_height = 2, "auto"
   end)
   local cells = screen("loop", 4)
   eq(strip("arrange:wave:" .. clip.id), nil, "no pictures: cells")
@@ -204,7 +204,7 @@ end)
 test("the piano roll's controller strip is a strip under its cells, the moves marked", function()
   fresh()
   local roll = paw.ui.views:get("pianoroll")
-  local t = paw.add_track({ name = "keys" })
+  local t = paw.add_part({ name = "keys" })
   local clip = t:add_clip({
     name = "riff",
     start = 0,
@@ -225,7 +225,7 @@ test("the piano roll's controller strip is a strip under its cells, the moves ma
   local ops = ops_of(s)
   eq(count(ops, "p") >= 1, true, "the value held, as a line")
   local marks = 0
-  local colour = paw.draw.track_colour(api.track_get(t.id))
+  local colour = paw.draw.part_colour(api.part_get(t.id))
   for _, op in ipairs(ops) do
     if op[1] == "r" and op[6] == colour and op[4] == 4 then marks = marks + 1 end
   end

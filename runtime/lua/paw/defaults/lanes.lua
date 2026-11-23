@@ -6,8 +6,8 @@ local command, map = paw.command, paw.keymap.set
 local cursor = paw.cursor
 local keymap = paw.keymap
 local common = require("paw.defaults.common")
-local motion, need_track, read_pan, param_reader, amap =
-  common.motion, common.need_track, common.read_pan, common.param_reader, common.amap
+local motion, need_part, read_pan, param_reader, amap =
+  common.motion, common.need_part, common.read_pan, common.param_reader, common.amap
 
 --- What a new lane's first point starts from: the target's value now.
 local function value_now(lane) return paw.lanes.value_at(lane:get(), cursor.beat) end
@@ -19,7 +19,7 @@ local function cursor_lane()
   local id = cursor.lane_id()
   if not id then
     paw.notify(
-      "the cursor is not on an automation lane: `" .. paw.keymap.human("<leader>aa") .. "` shows the track's lanes",
+      "the cursor is not on an automation lane: `" .. paw.keymap.human("<leader>aa") .. "` shows the part's lanes",
       "warn"
     )
   end
@@ -30,14 +30,14 @@ end
 local function reach() return paw.timegrid.step() / 2 - 1e-9 end
 
 command("lane.pick", function()
-  local track = need_track()
-  if not track then return end
+  local part = need_part()
+  if not part then return end
   local have = {}
-  for _, l in ipairs(api.lane_list(track.id)) do
+  for _, l in ipairs(api.lane_list(part.id)) do
     have[(l.target == "param" and l.device .. ":" .. l.param) or l.target] = true
   end
   local items = { { target = "volume", name = "Volume" }, { target = "pan", name = "Pan" } }
-  for _, device in ipairs(track:devices()) do
+  for _, device in ipairs(part:devices()) do
     local d = device:get()
     items[#items + 1] = { target = "state", device = d.id, name = d.name .. " › state (presets, models, snapshots)" }
     for _, p in ipairs(d.param_info) do
@@ -49,18 +49,18 @@ command("lane.pick", function()
     if item.target == "state" then return item.device .. ":state" end
     return item.target
   end
-  for _, l in ipairs(api.lane_list(track.id)) do
+  for _, l in ipairs(api.lane_list(part.id)) do
     if l.target == "state" then have[l.device .. ":state"] = true end
   end
   paw.pick({
-    title = "Automate on " .. track.name,
+    title = "Automate on " .. part.name,
     items = items,
     format = function(item) return (have[key_of(item)] and "● " or "  ") .. item.name end,
     on_choose = function(item)
       if item.target == "state" then
         local lane = paw.device(item.device):automate_state()
-        paw.lanes.open(track)
-        cursor.set_track(track.id, lane.id)
+        paw.lanes.open(part)
+        cursor.set_part(part.id, lane.id)
         paw.ui.focus("arrange")
         paw.notify(
           paw.lanes.name(lane.id)
@@ -68,48 +68,47 @@ command("lane.pick", function()
         )
         return
       end
-      local lane = item.target == "param" and paw.device(item.device):automate(item.param)
-        or track:automate(item.target)
-      paw.lanes.open(track)
-      cursor.set_track(track.id, lane.id)
+      local lane = item.target == "param" and paw.device(item.device):automate(item.param) or part:automate(item.target)
+      paw.lanes.open(part)
+      cursor.set_part(part.id, lane.id)
       paw.ui.focus("arrange")
       paw.notify(paw.lanes.name(lane.id) .. " lane: `A` adds a point, `+` `-` `c` change it, `x` removes it")
     end,
   })
-end, { desc = "Choose what to automate on the track (volume, pan, a device's parameter) and show its lane" })
+end, { desc = "Choose what to automate on the part (volume, pan, a device's parameter) and show its lane" })
 command("lane.show", function(ctx)
   local which = ctx.args[1]
   if which == "all" or which == "none" then
-    for _, id in ipairs(api.track_list()) do
+    for _, id in ipairs(api.part_list()) do
       if which == "none" or #api.lane_list(id) > 0 then paw.lanes.open(id, which == "all") end
     end
-    if which == "none" and cursor.lane_id() == nil then cursor.set_track(cursor.track_id()) end
+    if which == "none" and cursor.lane_id() == nil then cursor.set_part(cursor.part_id()) end
     return
   end
-  local track = need_track()
-  if not track then return end
-  if #api.lane_list(track.id) == 0 then
+  local part = need_part()
+  if not part then return end
+  if #api.lane_list(part.id) == 0 then
     return paw.notify(
-      track.name .. " has no automation yet: `" .. paw.keymap.human("<leader>al") .. "` chooses what to automate",
+      part.name .. " has no automation yet: `" .. paw.keymap.human("<leader>al") .. "` chooses what to automate",
       "warn"
     )
   end
-  local now = paw.lanes.toggle(track)
-  cursor.set_track(track.id)
-  paw.notify(track.name .. (now and ": lanes shown" or ": lanes hidden"))
+  local now = paw.lanes.toggle(part)
+  cursor.set_part(part.id)
+  paw.notify(part.name .. (now and ": lanes shown" or ": lanes hidden"))
 end, {
-  desc = "Show the track's automation lanes as rows under it, or hide them: `lane.show`, `lane.show all`, `lane.show none`",
+  desc = "Show the part's automation lanes as rows under it, or hide them: `lane.show`, `lane.show all`, `lane.show none`",
   complete = function() return { "all", "none" } end,
 })
 command(
   "lane.rows",
   function()
-    local track = need_track()
-    if not track then return end
-    local now = paw.frontend.act.lane_rows(track.id)
-    paw.notify(track.name .. (now and ": lanes shown as rows" or ": lanes hidden"))
+    local part = need_part()
+    if not part then return end
+    local now = paw.frontend.act.lane_rows(part.id)
+    paw.notify(part.name .. (now and ": lanes shown as rows" or ": lanes hidden"))
   end,
-  { desc = "Show the track's automation lanes as rows under it, making one for its fader if it has none; or hide them" }
+  { desc = "Show the part's automation lanes as rows under it, making one for its fader if it has none; or hide them" }
 )
 command("lane.point.add", function()
   local lane = cursor_lane()
@@ -373,8 +372,8 @@ amap("<localleader>fo", "clip.fade.cursor out", "Fade the clip out from the curs
 amap("<localleader>ff", "clip.fade", "Fade the clip in and out: type the lengths")
 amap("<localleader>fx", "clip.crossfade", "Crossfade the clip into the next one over a grid step")
 for _, name in ipairs({ "arrange", "mixer" }) do
-  map("grC", "track.color.pick", { view = name, desc = "Choose the track's colour" })
+  map("grC", "part.color.pick", { view = name, desc = "Choose the part's colour" })
 end
 amap("<leader>al", "lane.pick", "Choose what to automate, and show its lane")
-amap("<leader>aa", "lane.show", "Show or hide the track's automation lanes")
-amap("<leader>aA", "lane.show all", "Show every track's automation lanes")
+amap("<leader>aa", "lane.show", "Show or hide the part's automation lanes")
+amap("<leader>aA", "lane.show all", "Show every part's automation lanes")

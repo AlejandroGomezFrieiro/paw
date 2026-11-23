@@ -13,7 +13,7 @@ local function start()
     paw.ui.close()
   end
   paw.ui.focus("arrange")
-  for _, id in ipairs(api.track_list()) do
+  for _, id in ipairs(api.part_list()) do
     paw.lanes.open(id, false)
   end
 end
@@ -49,7 +49,7 @@ local function peak(list, from, to)
   return p
 end
 
---- A track that holds A3 for 8 beats through a gain device, and that
+--- A part that holds A3 for 8 beats through a gain device, and that
 --- device's state lane: `quiet` (-60 dB) and `loud` (0 dB).
 local function gain_lane()
   local t = T.tone("tone", 8, "A3")
@@ -114,7 +114,7 @@ test("a state lane keeps its states and points in the project and through undo",
   for _, path in ipairs(saved) do
     fresh()
     paw.project.load(path)
-    local loaded = paw.tracks()[1]:devices()[2]:state_lane()
+    local loaded = paw.parts()[1]:devices()[2]:state_lane()
     eq(loaded ~= nil, true, path .. ": the lane comes back")
     eq(points(loaded.id), "4:1", path .. ": its points")
     eq(loaded:states()[2].params.gain, -6, path .. ": and its states")
@@ -126,7 +126,7 @@ test("on a state lane's row \\s keeps the device's state at the cursor, c choose
   start()
   local t = T.tone("tone", 8, "A3")
   t:add_device("gain", { gain = -12 })
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.cursor.set_beat(0)
   paw.keymap.feed("<leader>al")
   paw.keymap.feed("state<CR>")

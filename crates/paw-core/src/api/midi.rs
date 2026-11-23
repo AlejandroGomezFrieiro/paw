@@ -157,12 +157,12 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             let kind = midi_kind(lua, event)?;
             Ok(ump::encode(0, kind).map(|words| words.to_vec()))
         }
-        // Send a MIDI message to one track's devices right now, outside the timeline.
+        // Send a MIDI message to one part's devices right now, outside the timeline.
         // @param event types.MidiEvent
         // @return nil
-        fn midi_send(lua, sh, (track, event) => (Id, LuaValue)) {
+        fn midi_send(lua, sh, (part, event) => (Id, LuaValue)) {
             let kind = midi_kind(lua, event)?;
-            sh.session.borrow_mut().live(track, kind).lua()
+            sh.session.borrow_mut().live(part, kind).lua()
         }
 
     }

@@ -53,9 +53,9 @@ local function ex(line) return paw.commands.exec(line) end
 
 local keys = T.keys
 
--- Two tracks, a clip of notes on the first, a synth on the second.
+-- Two parts, a clip of notes on the first, a synth on the second.
 local function song()
-  local a = paw.add_track({ name = "Oboe" })
+  local a = paw.add_part({ name = "Oboe" })
   local clip = a:add_clip({
     start = 4,
     length = 4,
@@ -65,7 +65,7 @@ local function song()
       { pitch = 100, start = 2, length = 1 },
     },
   })
-  local b = paw.add_track({ name = "Bass" })
+  local b = paw.add_part({ name = "Bass" })
   local synth = b:add_device("synth")
   return a, b, clip, synth
 end
@@ -75,14 +75,14 @@ test("qf: ]q [q ]Q [Q go through a list from Lua, to each entry's place, stoppin
   local a, b, clip = song()
   local notes = clip:notes()
   qf.set({
-    { address = A.track(a.id), selector = { time = { 12, 12 } }, text = "too quiet here", level = "warning" },
+    { address = A.part(a.id), selector = { time = { 12, 12 } }, text = "too quiet here", level = "warning" },
     { address = A.note(clip.id, notes[2].id), text = "out of range", level = "error", source = "tests" },
-    { address = A.track(b.id), text = "nothing plays" },
+    { address = A.part(b.id), text = "nothing plays" },
   }, { title = "Mine" })
   eq(qf.current().title, "Mine", "the list is current")
   keys("]q")
   eq(
-    paw.ui.focused .. " " .. paw.cursor.track_id() .. " " .. paw.cursor.beat,
+    paw.ui.focused .. " " .. paw.cursor.part_id() .. " " .. paw.cursor.beat,
     "arrange " .. a.id .. " 12",
     "the first ]q goes to the first entry"
   )
@@ -94,7 +94,7 @@ test("qf: ]q [q ]Q [Q go through a list from Lua, to each entry's place, stoppin
     "a note's entry opens its clip in the piano roll, the cursor on it"
   )
   keys("]q")
-  eq(paw.cursor.track_id(), b.id, "a track's")
+  eq(paw.cursor.part_id(), b.id, "a part's")
   keys("]q")
   eq(qf.current().idx, 3, "]q stops at the last")
   keys("[Q")
@@ -116,12 +116,12 @@ end)
 
 test("qf: the status line counts the list's entries by level while it has some", function()
   start()
-  local a = paw.add_track({ name = "Oboe" })
+  local a = paw.add_part({ name = "Oboe" })
   eq(screen():find("qf ", 1, true), nil, "nothing while there is no list")
   qf.set({
-    { address = A.track(a.id), text = "one", level = "error" },
-    { address = A.track(a.id), text = "two", level = "warning" },
-    { address = A.track(a.id), text = "three", level = "warning" },
+    { address = A.part(a.id), text = "one", level = "error" },
+    { address = A.part(a.id), text = "two", level = "warning" },
+    { address = A.part(a.id), text = "three", level = "warning" },
   }, { title = "Mine" })
   eq(screen():find("qf E1 W2", 1, true) ~= nil, true, "qf E1 W2\n" .. screen())
   ex("cc 2")
@@ -169,7 +169,7 @@ test("qf: :copen docks the list along the bottom; j and Enter go to an entry in 
   eq(L.current().view, "qflist", ":copen again goes to the window it has")
   keys("j<CR>")
   eq(
-    paw.ui.focused .. " " .. paw.cursor.track_id() .. " " .. tostring(paw.cursor.lane_id()) .. " " .. paw.cursor.beat,
+    paw.ui.focused .. " " .. paw.cursor.part_id() .. " " .. tostring(paw.cursor.lane_id()) .. " " .. paw.cursor.beat,
     "arrange " .. a.id .. " " .. lane.id .. " 6",
     "a lane's point: its row in the arrange view, at the point"
   )
@@ -192,8 +192,8 @@ end)
 
 test("qf: the list is a buffer: :vs quickfix shows it beside, q closes it", function()
   start()
-  local a = paw.add_track({ name = "Oboe" })
-  qf.set({ { address = A.track(a.id), text = "here" } }, { title = "Mine" })
+  local a = paw.add_part({ name = "Oboe" })
+  qf.set({ { address = A.part(a.id), text = "here" } }, { title = "Mine" })
   ex("vs quickfix")
   local names = {}
   for _, r in ipairs(paw.ui.arrange(W, H)) do
@@ -211,26 +211,23 @@ end)
 
 test("qf: lists keep a history: :colder and :cnewer, one of the same title replaced where it is", function()
   start()
-  local a = paw.add_track({ name = "Oboe" })
-  qf.set({ { address = A.track(a.id), text = "first" } }, { title = "One" })
-  qf.set(
-    { { address = A.track(a.id), text = "second" }, { address = A.track(a.id), text = "more" } },
-    { title = "Two" }
-  )
+  local a = paw.add_part({ name = "Oboe" })
+  qf.set({ { address = A.part(a.id), text = "first" } }, { title = "One" })
+  qf.set({ { address = A.part(a.id), text = "second" }, { address = A.part(a.id), text = "more" } }, { title = "Two" })
   eq(qf.current().title, "Two", "the newest is current")
   ex("colder")
   eq(qf.current().title, "One", ":colder")
   ex("cnewer")
   eq(qf.current().title, "Two", ":cnewer")
   ex("cc 2")
-  qf.set({ { address = A.track(a.id), text = "new" }, { address = A.track(a.id), text = "more" } }, { title = "Two" })
+  qf.set({ { address = A.part(a.id), text = "new" }, { address = A.part(a.id), text = "more" } }, { title = "Two" })
   eq(
     #qf.stack().lists .. " " .. qf.current().idx,
     "2 2",
     "the same title is replaced in place, the entry it was on kept"
   )
   ex("colder")
-  qf.set({ { address = A.track(a.id), text = "third" } }, { title = "Three" })
+  qf.set({ { address = A.part(a.id), text = "third" } }, { title = "Three" })
   eq(#qf.stack().lists, 2, "a new list after an older one drops the newer, as in Neovim")
   for i = 1, 12 do
     qf.set({}, { title = "L" .. i })
@@ -278,42 +275,42 @@ test("qf: diagnostics feed Problems; :cdiag makes a list of them; :cfix makes th
   eq(#qf.fed("diagnostic"), 0, "and empties with them")
 end)
 
-test("qf: :cdo runs a command on each entry and :cfdo once a track, each as one undo step", function()
+test("qf: :cdo runs a command on each entry and :cfdo once a part, each as one undo step", function()
   start()
-  local tracks = {}
+  local parts = {}
   for i = 1, 3 do
-    tracks[i] = paw.add_track({ name = "T" .. i })
+    parts[i] = paw.add_part({ name = "T" .. i })
   end
-  local clip = tracks[1]:add_clip({ start = 0, length = 4, notes = {} })
+  local clip = parts[1]:add_clip({ start = 0, length = 4, notes = {} })
   qf.set({
-    { address = A.track(tracks[1].id), text = "a" },
+    { address = A.part(parts[1].id), text = "a" },
     { address = A.clip(clip.id), text = "b" },
-    { address = A.track(tracks[3].id), text = "c" },
-  }, { title = "Tracks" })
+    { address = A.part(parts[3].id), text = "c" },
+  }, { title = "Parts" })
   api.undo_checkpoint()
-  ex("cfdo track.mute")
+  ex("cfdo part.mute")
   api.undo_checkpoint()
   eq(
-    tostring(tracks[1].mute) .. " " .. tostring(tracks[2].mute) .. " " .. tostring(tracks[3].mute),
+    tostring(parts[1].mute) .. " " .. tostring(parts[2].mute) .. " " .. tostring(parts[3].mute),
     "true false true",
-    ":cfdo mutes each track once"
+    ":cfdo mutes each part once"
   )
   paw.undo()
-  eq(tostring(tracks[1].mute) .. " " .. tostring(tracks[3].mute), "false false", "one undo takes it back")
+  eq(tostring(parts[1].mute) .. " " .. tostring(parts[3].mute), "false false", "one undo takes it back")
   local seen = {}
   paw.command("qf.test.target", function(ctx) seen[#seen + 1] = ctx.target end, { desc = "Note the target" })
   ex("cdo qf.test.target")
   eq(
     table.concat(seen, " "),
-    A.track(tracks[1].id) .. " " .. A.clip(clip.id) .. " " .. A.track(tracks[3].id),
+    A.part(parts[1].id) .. " " .. A.clip(clip.id) .. " " .. A.part(parts[3].id),
     ":cdo gives each entry's address as the target"
   )
   eq(qf.current().idx, 3, "and leaves the last current")
-  ex("cdo track.solo")
+  ex("cdo part.solo")
   api.undo_checkpoint()
-  eq(tostring(tracks[1].solo), "false", "the clip's entry is on its track too: solo twice")
+  eq(tostring(parts[1].solo), "false", "the clip's entry is on its part too: solo twice")
   paw.undo()
-  eq(tostring(tracks[3].solo), "false", "one undo")
+  eq(tostring(parts[3].solo), "false", "one undo")
 end)
 
 test("qf: location lists are each window's own: :ldiag, :lopen below it, :lnext", function()
@@ -372,7 +369,7 @@ test("qf: missing sound files, stopped plugins and plugin files that fail are pr
   for i = 1, 4800 do
     s[i] = 0.1
   end
-  local t = paw.add_track({ name = "Drums" })
+  local t = paw.add_part({ name = "Drums" })
   t:add_clip({ file = T.write_wav(dir .. "/media/kick.wav", s), start = 0, length = 2, name = "kick" })
   paw.project.save(dir .. "/song.json")
   os.rename(dir .. "/media/kick.wav", dir .. "/media/moved.wav")
@@ -382,10 +379,10 @@ test("qf: missing sound files, stopped plugins and plugin files that fail are pr
   local media = qf.fed("media")
   eq(#media, 1, "the clip playing a missing file")
   eq(media[1].text, "kick plays kick.wav, which is not there", media[1].text)
-  eq(media[1].address, A.clip(paw.tracks()[1]:clips()[1].id), "about its clip")
+  eq(media[1].address, A.clip(paw.parts()[1]:clips()[1].id), "about its clip")
 
   api.test_devices()
-  local bad = paw.tracks()[1]:add_device("test.panic")
+  local bad = paw.parts()[1]:add_device("test.panic")
   bad:set("fail", 1)
   paw.transport.play()
   local waited = 0
@@ -413,8 +410,8 @@ end)
 
 test("qf: any extension feeds Problems, and the window shows the list in a window of its own", function()
   start()
-  local a = paw.add_track({ name = "Oboe" })
-  qf.feed("tests", { { address = A.track(a.id), text = "from an extension", level = "info" } })
+  local a = paw.add_part({ name = "Oboe" })
+  qf.feed("tests", { { address = A.part(a.id), text = "from an extension", level = "info" } })
   eq(qf.current().title, qf.PROBLEMS, "Problems")
   eq(qf.current().entries[1].source, "tests", "the source named")
   local openable = {}
@@ -440,7 +437,7 @@ test("qf: any extension feeds Problems, and the window shows the list in a windo
   end
   eq(table.concat(text, "\n"):find("from an extension", 1, true) ~= nil, true, table.concat(text, "\n"))
   paw.keymap.feed("<CR>")
-  eq(paw.cursor.track_id(), a.id, "Enter in it goes to the entry")
+  eq(paw.cursor.part_id(), a.id, "Enter in it goes to the entry")
 end)
 
 test("qf: ]q and [q do not take the piano roll's ] and [ away", function()

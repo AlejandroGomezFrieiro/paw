@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use paw_engine::GraphPlan;
 use paw_engine::{
     Automation, Device, DeviceSlot, Engine, EngineHandle, Io, Msg, ProcessCtx, SchedEntry, Schedule,
-    StateChange, StateLane, TrackRt, TrackSlot,
+    StateChange, StateLane, PartRt, PartSlot,
 };
 use paw_types::EventKind;
 
@@ -64,7 +64,7 @@ fn send(handle: &mut EngineHandle, engine: &mut Engine, msg: Msg) {
 /// What the device heard, with the frame it heard it at.
 type Log = Arc<Mutex<Vec<(u64, Heard)>>>;
 
-/// An engine at 120 BPM (24000 frames a beat) with one track whose only
+/// An engine at 120 BPM (24000 frames a beat) with one part whose only
 /// device listens, and a lane of states on it.
 fn engine(
     points: Vec<(f64, u32)>,
@@ -72,13 +72,13 @@ fn engine(
 ) -> (Engine, EngineHandle, Log) {
     let (mut engine, mut handle) = Engine::new(SR);
     let log = Arc::new(Mutex::new(Vec::new()));
-    let track = TrackSlot(1);
+    let part = PartSlot(1);
     send(
         &mut handle,
         &mut engine,
-        Msg::InsertTrack {
-            slot: track,
-            track: TrackRt::new(),
+        Msg::InsertPart {
+            slot: part,
+            part: PartRt::new(),
         },
     );
     let ears = Ears {
@@ -98,11 +98,11 @@ fn engine(
     send(
         &mut handle,
         &mut engine,
-        Msg::SetGraph { slot: track.into(), plan: GraphPlan::serial(&[DeviceSlot(0)]) },
+        Msg::SetGraph { slot: part.into(), plan: GraphPlan::serial(&[DeviceSlot(0)]) },
     );
     let entries = vec![
-        SchedEntry::new(track, TrackSlot::MASTER),
-        SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE),
+        SchedEntry::new(part, PartSlot::MASTER),
+        SchedEntry::new(PartSlot::MASTER, PartSlot::NONE),
     ];
     send(
         &mut handle,
@@ -118,7 +118,7 @@ fn engine(
         &mut handle,
         &mut engine,
         Msg::SetAutomation {
-            track,
+            part,
             automation: Box::new(automation),
         },
     );

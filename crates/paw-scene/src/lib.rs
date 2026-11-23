@@ -714,7 +714,7 @@ mod tests {
     }
 
     /// A window with one node of each kind, and each field a node may
-    /// have: a track row (a group with a cut, its name, a highlight, a
+    /// have: a part row (a group with a cut, its name, a highlight, a
     /// fader role and its cells), a roll (a plane with a note role), and two pictures,
     /// one drawn inline and one sent by its content key.
     fn each_kind() -> Scene {
@@ -723,18 +723,18 @@ mod tests {
         scene.bg = "#101010".into();
         scene.cursor = Some([3.0, 1.0]);
         scene.push(None, fill("bg", [0.0, 0.0, 24.0, 6.0], Some(' '), Style { bg: Some(Color::Indexed(235)), ..Style::default() }));
-        let mut row = Node::new("track:1", Kind::Group, [0.0, 0.0, 24.0, 1.0]);
+        let mut row = Node::new("part:1", Kind::Group, [0.0, 0.0, 24.0, 1.0]);
         row.clip = Some([0.0, 0.0, 12.5, 1.0]);
-        row.hit = Some(json!({ "kind": "track", "id": 1 }));
+        row.hit = Some(json!({ "kind": "part", "id": 1 }));
         scene.push(None, row);
-        let mut name = run("track:1/name", 0.0, 0.0, "Bass");
+        let mut name = run("part:1/name", 0.0, 0.0, "Bass");
         name.style = Style { fg: Some(Color::Rgb(255, 128, 0)), on: BOLD, ..Style::default() };
-        scene.push(Some("track:1"), name);
+        scene.push(Some("part:1"), name);
         // A highlight: a fill that keeps the characters under it.
-        scene.push(Some("track:1"), fill("track:1/selected", [0.0, 0.0, 4.0, 1.0], None, Style { off: BOLD, ..Style::default() }));
+        scene.push(Some("part:1"), fill("part:1/selected", [0.0, 0.0, 4.0, 1.0], None, Style { off: BOLD, ..Style::default() }));
         let mut fader = Node::new("fader:1", Kind::Role { role: "fader".into(), props: json!({ "db": -6.0, "min": -60.0 }) }, [6.0, 0.0, 6.0, 1.0]);
         fader.bind = Some("meter:1".into());
-        scene.push(Some("track:1"), fader);
+        scene.push(Some("part:1"), fader);
         scene.push(Some("fader:1"), fill("fader:1/cells", [0.0, 0.0, 4.5, 1.0], Some('='), Style::default()));
         for node in roll().nodes.into_values().filter(|n| n.key != "bg") {
             scene.nodes.insert(node.key.clone(), node);

@@ -39,7 +39,7 @@ end
 
 --- Where the cursor was in a project.
 local record Place
-  track: integer
+  part: integer
   beat: number
   lane: integer
   view: string
@@ -367,10 +367,10 @@ local function write_project(path: string)
 end
 
 local function restore_cursor(place: Place)
-  if type(place) ~= "table" or type(place.track) ~= "number" then
+  if type(place) ~= "table" or type(place.part) ~= "number" then
     return
   end
-  pcall(cursor.set_track, math.floor(place.track), place.lane)
+  pcall(cursor.set_part, math.floor(place.part), place.lane)
   if type(place.beat) == "number" then
     cursor.set_beat(place.beat)
   end
@@ -408,8 +408,8 @@ end
 events.on(
   cursor.changed,
   function(place: cursor.Place)
-    if place.track then
-      last = {track = place.track, beat = place.beat, lane = place.lane, view = paw.ui.focused}
+    if place.part then
+      last = {part = place.part, beat = place.beat, lane = place.lane, view = paw.ui.focused}
     end
   end
 )
@@ -435,9 +435,9 @@ events.on(
   events.exit,
   function()
     if active() then
-      local track = cursor.track_id()
-      if track then
-        last = {track = track, beat = cursor.beat, lane = nil, view = paw.ui.focused}
+      local part = cursor.part_id()
+      if part then
+        last = {part = part, beat = cursor.beat, lane = nil, view = paw.ui.focused}
       end
       M.write()
     end

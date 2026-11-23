@@ -1,7 +1,7 @@
 //! `paw.api`: the chain of an owner and linked racks (`model/chain.rs`,
 //! `model/racks.rs`). `paw.chain` (paw/chain.tl) is the typed module over
 //! these. Each function of a chain takes its owner's handle
-//! (`{ track = id }`), as `paw.chain.of` gives it.
+//! (`{ part = id }`), as `paw.chain.of` gives it.
 
 use std::rc::Rc;
 
@@ -20,7 +20,7 @@ use super::{LuaResult, Shared, changes, from_lua, options, to_lua};
 
 /// The owner that a handle names.
 fn owner_of(lua: &Lua, value: LuaValue) -> mlua::Result<OwnerRef> {
-    from_lua(lua, value).map_err(|_| mlua::Error::runtime("the owner of a chain is { track = id }"))
+    from_lua(lua, value).map_err(|_| mlua::Error::runtime("the owner of a chain is { part = id }"))
 }
 
 /// A place as Lua gives it: an `index` counts from 1.
@@ -47,7 +47,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // --- the chain of an owner ---
 
         // The chain of an owner's devices, or nil when it has none (its
-        // devices play in series, in the order of `track.devices`).
+        // devices play in series, in the order of `part.devices`).
         // @param owner types.ChainOwner
         // @return types.Chain
         fn chain_get(lua, sh, owner => LuaValue) {

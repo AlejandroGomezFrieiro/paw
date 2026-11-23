@@ -10,7 +10,7 @@ use std::time::Instant;
 
 use paw_engine::{
     AudioData, AudioRegion, ClipSet, Engine, EngineHandle, Msg, Piece, SchedEntry, Schedule,
-    TrackRt, TrackSlot,
+    PartRt, PartSlot,
 };
 
 const SR: f64 = 48000.0;
@@ -61,12 +61,12 @@ fn main() {
     let set = ClipSet::default().with_pieces(vec![Piece::new(1, 1, Arc::from([]), regions)], 4);
     let (mut engine, mut handle) = Engine::new(SR);
     for msg in [
-        Msg::InsertTrack { slot: TrackSlot(1), track: TrackRt::new() },
-        Msg::SetClips { track: TrackSlot(1), clips: Box::new(set) },
+        Msg::InsertPart { slot: PartSlot(1), part: PartRt::new() },
+        Msg::SetClips { part: PartSlot(1), clips: Box::new(set) },
         Msg::SetSchedule(Box::new(Schedule::new(
             vec![
-                SchedEntry::new(TrackSlot(1), TrackSlot::MASTER),
-                SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE),
+                SchedEntry::new(PartSlot(1), PartSlot::MASTER),
+                SchedEntry::new(PartSlot::MASTER, PartSlot::NONE),
             ],
             0,
         ))),

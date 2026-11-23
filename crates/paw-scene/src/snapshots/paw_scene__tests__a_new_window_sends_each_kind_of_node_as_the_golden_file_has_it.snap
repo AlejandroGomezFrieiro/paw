@@ -3,11 +3,11 @@ source: crates/paw-scene/src/lib.rs
 assertion_line: 762
 expression: wire_lines(&patch)
 ---
-{"win":"1","rev":1,"full":true,"size":[24.0,6.0],"root":["bg","track:1","roll","scope","wave"],"colors":["#d0d0d0","#101010"],"cursor":[3.0,1.0]}
+{"win":"1","rev":1,"full":true,"size":[24.0,6.0],"root":["bg","part:1","roll","scope","wave"],"colors":["#d0d0d0","#101010"],"cursor":[3.0,1.0]}
 {"k":"bg","t":"fill","ch":" ","r":[0,0,24,6],"s":{"bg":235}}
-{"k":"track:1","t":"group","r":[0,0,24,1],"clip":[0,0,12.5,1],"hit":{"id":1,"kind":"track"},"kids":["track:1/name","track:1/selected","fader:1"]}
-{"k":"track:1/name","t":"run","text":"Bass","r":[0,0,4,1],"s":{"fg":"#ff8000","on":1}}
-{"k":"track:1/selected","t":"fill","r":[0,0,4,1],"s":{"off":1}}
+{"k":"part:1","t":"group","r":[0,0,24,1],"clip":[0,0,12.5,1],"hit":{"id":1,"kind":"part"},"kids":["part:1/name","part:1/selected","fader:1"]}
+{"k":"part:1/name","t":"run","text":"Bass","r":[0,0,4,1],"s":{"fg":"#ff8000","on":1}}
+{"k":"part:1/selected","t":"fill","r":[0,0,4,1],"s":{"off":1}}
 {"k":"fader:1","t":"role","role":"fader","props":{"db":-6.0,"min":-60.0},"r":[6,0,6,1],"bind":"meter:1","kids":["fader:1/cells"]}
 {"k":"fader:1/cells","t":"fill","ch":"=","r":[0,0,4.5,1]}
 {"k":"roll","t":"plane","x":{"domain":"beat","from":4.0,"per":2.0},"y":{"domain":"pitch","from":65.0,"per":-1.0},"r":[2,1,16,4],"hit":{"kind":"grid"},"kids":["note:1"]}

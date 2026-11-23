@@ -26,10 +26,10 @@ cannot listen.
    claude mcp add paw -- /path/to/paw/target/release/paw-mcp --socket /tmp/paw.sock
    ```
 
-4. Ask Claude "Add a bass track with a four-bar riff." The answer gives
-   the ids of the new track and clip.
-5. Type `paw ctl --socket /tmp/paw.sock eval 'return #paw.tracks()'`. The
-   number includes the new track.
+4. Ask Claude "Add a bass part with a four-bar riff." The answer gives
+   the ids of the new part and clip.
+5. Type `paw ctl --socket /tmp/paw.sock eval 'return #paw.parts()'`. The
+   number includes the new part.
 
 ## How to
 
@@ -138,20 +138,20 @@ strings that count bars and beats from 1, e.g., `"5.1"`, `"5:1"`,
 `"bar 5 beat 1"` or `"2.3.50"`. Notes can be objects, or short strings such
 as `"C4 2.5 1/8 90"` or `"C4+E4+G4 1:3 2"`, which give the pitch or chord,
 the start in beats or `bar:beat` in the clip, the length and the velocity.
-Middle C is C4. Tracks and markers can have names in place of numbers.
+Middle C is C4. Parts and markers can have names in place of numbers.
 
 | Tool | Effect |
 | --- | --- |
-| `get_project` | the full session: tempo, signature, key, length, transport, markers and regions, tracks with routing, sends, devices, clips (position, notes, range) and automation |
-| `get_track` | one track in full, with the parameter values of each device, automation points and the live meter of the engine |
+| `get_project` | the full session: tempo, signature, key, length, transport, markers and regions, parts with routing, sends, devices, clips (position, notes, range) and automation |
+| `get_part` | one part in full, with the parameter values of each device, automation points and the live meter of the engine |
 | `get_clip` | the notes of a clip with their ids (filtered by time and pitch), or the file, offset and gain of an audio clip |
 | `get_device` | the parameters of a device with value, range, default, unit and choices. A filter helps for big plugins |
 | `find_devices` | finds the built-in devices and installed plugins that you can add |
 | `get_status` | the transport, the audio engine, unsaved changes, recent messages of paw |
-| `find` | tracks, clips, notes and other nodes by a `paw.query` selector (`clip[name~=riff] > note[pitch>=c5]`) |
-| `diagnose` | empty tracks, silent MIDI tracks, empty clips, notes past their clip, missing plugins, orphan or muted sends, automation out of range. With `measure`, silence and clipping in a render |
-| `add_track` | a track with its devices, clips and notes, routing and sends, in one call |
-| `set_track` | name, volume, pan, mute, solo, color, position, output, sends |
+| `find` | parts, clips, notes and other nodes by a `paw.query` selector (`clip[name~=riff] > note[pitch>=c5]`) |
+| `diagnose` | empty parts, silent MIDI parts, empty clips, notes past their clip, missing plugins, orphan or muted sends, automation out of range. With `measure`, silence and clipping in a render |
+| `add_part` | a part with its devices, clips and notes, routing and sends, in one call |
+| `set_part` | name, volume, pan, mute, solo, color, position, output, sends |
 | `add_clip` | a MIDI clip with all its notes, or an audio clip from a file |
 | `edit_clip` | moves, resizes, renames, mutes a clip. Removes notes, changes single notes by id, transposes (semitones or scale degrees in the key), scales or sets velocities, replaces or adds notes |
 | `duplicate_clip`, `repeat_bars` | copies a clip. Repeats a part of the song, to arrange |
@@ -160,12 +160,12 @@ Middle C is C4. Tracks and markers can have names in place of numbers.
 | `automate` | points of volume, pan or parameter automation. Makes, clears, disables or removes a lane |
 | `set_project` | tempo, time signature, key, name, tempo and signature changes |
 | `marker` | markers and regions: add, rename, move, remove, list |
-| `remove` | tracks, clips, devices, automation lanes and markers, any number in one call |
+| `remove` | parts, clips, devices, automation lanes and markers, any number in one call |
 | `batch` | several of the tools that write, as one named undo step, all or nothing |
 | `transport` | play, stop, seek, loop range and switch (or loop a region), metronome. Undo does not apply |
 | `undo` | undo or redo, with what each step was. `list` shows the history. Fails when there is nothing to undo |
 | `project_file` | save, open, new. Open and new refuse to drop unsaved changes, unless `discard` |
-| `render` | renders to WAV, FLAC (MP3, Ogg, Opus with ffmpeg), a region, some tracks or stems, to a LUFS target. Measures it: LUFS, true peak, and for WAV peak, RMS, clipping, stereo, level of each bar, octave-band spectrum |
+| `render` | renders to WAV, FLAC (MP3, Ogg, Opus with ffmpeg), a region, some parts or stems, to a LUFS target. Measures it: LUFS, true peak, and for WAV peak, RMS, clipping, stereo, level of each bar, octave-band spectrum |
 | `analyze_audio` | the same measurements for any audio file (LUFS for any format, the rest for WAV) |
 | `lua` | runs Lua in the kernel. Only with `--allow-eval` |
 | `run_command` | runs a `:` command line. Only with `--allow-eval` |
@@ -202,7 +202,7 @@ So a file gives the same numbers here as in `:mix`.
 Without flags, an assistant reads the full session, and it changes the
 session only through the typed tools:
 
-- It changes tracks, clips, notes, devices and plugins (a plugin loads into
+- It changes parts, clips, notes, devices and plugins (a plugin loads into
   the kernel process), parameters, routing, automation, tempo and
   signature, the transport, undo and redo.
 - It reads any project file, WAV or audio file that the user of the server
@@ -284,8 +284,8 @@ notifications.
 
 The level of each bar, stereo and the spectrum are only for WAV files, and
 a FLAC or MP3 render gets the loudness numbers only. The meter of
-`get_track` is the live peak of the engine, which is -120 dB when nothing
-plays, so use `diagnose` with `measure` to find the tracks that clip.
+`get_part` is the live peak of the engine, which is -120 dB when nothing
+plays, so use `diagnose` with `measure` to find the parts that clip.
 
 A `batch` reads `bar.beat` positions with the time signature at its start,
 and its steps name earlier results by name, not by id. Note names have

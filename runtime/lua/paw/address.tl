@@ -2,9 +2,9 @@
 -- could talk about, built from ids so that it survives edits.
 --
 --   paw://project
---   paw://track/12                        paw://track/0 is the master
---   paw://track/12/device/3               paw://track/12/device/3/param/cutoff
---   paw://track/12/send/5                 the send to track 5
+--   paw://part/12                        paw://part/0 is the master
+--   paw://part/12/device/3               paw://part/12/device/3/param/cutoff
+--   paw://part/12/send/5                 the send to part 5
 --   paw://clip/7                          paw://clip/7/note/41 (the note's own id)
 --   paw://clip/7/control/cc/74            paw://lane/9
 --   paw://tempo                           paw://marker/5
@@ -39,21 +39,21 @@ local type MarkersModule = require("paw.markers")
 local record Value
 end
 
---- What an address names: a record of `paw.api` (`types.Track`,
+--- What an address names: a record of `paw.api` (`types.Part`,
 --- `types.Clip`, ...), a note with its `place`, a parameter, a render, or
 --- an item of an extension's scheme. The kind of the address tells which.
 local interface Thing
 end
 
 --- An address in parts (`paw.address.parse`). `kind` is "project",
---- "tempo", "track", "device", "param", "send", "clip", "note", "control",
+--- "tempo", "part", "device", "param", "send", "clip", "note", "control",
 --- "lane", "marker", "render" or the name of a scheme.
 local record Parts
   kind: string
   uri: string
   segments: {string}
   fragment: string
-  track: integer
+  part: integer
   device: integer
   param: string
   send: integer
@@ -68,7 +68,7 @@ end
 
 --- What a change of a workspace edit inserts: notes into a clip (`notes`,
 --- or one note given as the insert itself), a device (`device` its kind,
---- `params`, `index`) or a clip (`clip`) into a track.
+--- `params`, `index`) or a clip (`clip`) into a part.
 local record Insert
   pitch: objects.Pitch
   start: number
@@ -130,15 +130,15 @@ local record Changed
   rendered: Rendered
 end
 
---- The payload of the kernel's events of a track, clip, device or lane.
+--- The payload of the kernel's events of a part, clip, device or lane.
 local record WithId
   id: integer
-  track: integer -- the track of a clip, lane or device, when the event names it
+  part: integer -- the part of a clip, lane or device, when the event names it
 end
 
 -- What this module reads of `paw`, which paw/init.lua makes.
 local record Paw
-  Track: objects.Track
+  Part: objects.Part
   Clip: objects.Clip
   Device: objects.Device
   markers: MarkersModule
@@ -178,7 +178,7 @@ local function encode(s: string): string
   return (s:gsub("[^%w%-%._~/]", function(c: string): string return string.format("%%%02X", c:byte()) end))
 end
 
---- An address in parts: `{ kind = "note", track?, device?, param?, send?,
+--- An address in parts: `{ kind = "note", part?, device?, param?, send?,
 --- clip?, note?, lane?, marker?, control?, number?, path?, segments }`, or
 --- nil when it is not one. The fragment (`#mix`) is kept as `fragment`.
 function M.parse(uri: string): Parts
@@ -200,9 +200,9 @@ function M.parse(uri: string): Parts
   end
   if head == "project" or head == "tempo" then
     out.kind = head
-  elseif head == "track" then
-    out.track = int(seg[2])
-    out.kind = "track"
+  elseif head == "part" then
+    out.part = int(seg[2])
+    out.kind = "part"
     if seg[3] == "device" then
       out.device, out.kind = int(seg[4]), "device"
       if seg[5] == "param" then
@@ -234,7 +234,7 @@ end
 
 -- Constructors ---------------------------------------------------------------
 
---- The addresses of the project, the tempo map, a track, a clip and a note.
+--- The addresses of the project, the tempo map, a part, a clip and a note.
 --- Also the addresses of a lane, a marker, a rendered file and a send, as
 --- `parse` reads them.
 function M.project(): string
@@ -244,9 +244,9 @@ end
 function M.tempo(): string
   return "paw://tempo"
 end
---- A track's address.
-function M.track(id: integer): string
-  return "paw://track/" .. id
+--- A part's address.
+function M.part(id: integer): string
+  return "paw://part/" .. id
 end
 --- A clip's address.
 function M.clip(id: integer): string
@@ -268,15 +268,15 @@ end
 function M.render(path: string): string
   return "paw://render/" .. encode(path)
 end
---- The address of a track's send to another.
-function M.send(track: integer, target: integer): string
-  return "paw://track/" .. track .. "/send/" .. target
+--- The address of a part's send to another.
+function M.send(part: integer, target: integer): string
+  return "paw://part/" .. part .. "/send/" .. target
 end
 
---- A device's address, under its track's.
+--- A device's address, under its part's.
 function M.device(id: integer): string
   local d = api.device_get(id)
-  return "paw://track/" .. d.track .. "/device/" .. id
+  return "paw://part/" .. d.part .. "/device/" .. id
 end
 
 --- A device parameter's address, by its key.
@@ -294,13 +294,13 @@ local record Fields
   id: integer
   param_info: {types.ParamInfo}
   kind: string
-  track: integer
+  part: integer
   length: number
   sends: {types.Send}
   devices: {integer}
 end
 
---- The address of an object of the Lua interface (`paw.track(3)`,
+--- The address of an object of the Lua interface (`paw.part(3)`,
 --- `paw.clip(7)`, a device), or of a table from `paw.api` (with its fields).
 function M.of(object: string | Thing): string, string
   if object is string then
@@ -314,8 +314,8 @@ function M.of(object: string | Thing): string, string
   end
   local mt = getmetatable(object as {string: Value}) as Value
   local t = object as Fields
-  if mt == paw.Track as Value then
-    return M.track(t.id)
+  if mt == paw.Part as Value then
+    return M.part(t.id)
   end
   if mt == paw.Clip as Value then
     return M.clip(t.id)
@@ -326,11 +326,11 @@ function M.of(object: string | Thing): string, string
   if t.param_info and t.id then
     return M.device(t.id)
   end
-  if t.kind and t.track and t.id and t.length then
+  if t.kind and t.part and t.id and t.length then
     return M.clip(t.id)
   end
   if t.sends and t.devices and t.id then
-    return M.track(t.id)
+    return M.part(t.id)
   end
   for name, scheme in pairs(M.schemes:entries()) do
     local uri = scheme.of and scheme.of(object)
@@ -389,12 +389,12 @@ function M.resolve(uri: string): Thing
   if p.kind == "tempo" then
     return api.tempo_points() as Thing
   end
-  if p.kind == "track" then
-    return p.track and try(api.track_get, p.track) as Thing
+  if p.kind == "part" then
+    return p.part and try(api.part_get, p.part) as Thing
   end
   if p.kind == "device" or p.kind == "param" then
     local d = p.device and try(api.device_get, p.device)
-    if not d or d.track ~= p.track then
+    if not d or d.part ~= p.part then
       return nil
     end
     if p.kind == "device" then
@@ -408,7 +408,7 @@ function M.resolve(uri: string): Thing
     return nil
   end
   if p.kind == "send" then
-    local t = p.track and try(api.track_get, p.track)
+    local t = p.part and try(api.part_get, p.part)
     for _, s in ipairs(t and t.sends or {}) do
       if s.target == p.send then
         return s as Thing
@@ -453,7 +453,7 @@ function M.resolve(uri: string): Thing
   return scheme and scheme.resolve(uri, p)
 end
 
---- The address that holds this one (a note's clip, a device's track), or nil.
+--- The address that holds this one (a note's clip, a device's part), or nil.
 function M.parent(uri: string): string
   local p = M.parse(uri)
   if not p then
@@ -463,18 +463,18 @@ function M.parent(uri: string): string
     return M.clip(p.clip)
   end
   if p.kind == "param" then
-    return "paw://track/" .. p.track .. "/device/" .. p.device
+    return "paw://part/" .. p.part .. "/device/" .. p.device
   end
   if p.kind == "device" or p.kind == "send" then
-    return M.track(p.track)
+    return M.part(p.part)
   end
   if p.kind == "clip" then
     local c = try(api.clip_get, p.clip)
-    return c and M.track(c.track) or nil
+    return c and M.part(c.part) or nil
   end
   if p.kind == "lane" then
     local l = try(api.lane_get, p.lane)
-    return l and l.track and M.track(l.track) or M.project()
+    return l and l.part and M.part(l.part) or M.project()
   end
   if p.kind == "project" then
     return nil
@@ -494,20 +494,20 @@ function M.children(uri: string): {string}
     return out
   end
   if p.kind == "project" then
-    for _, id in ipairs(api.track_list()) do
-      out[#out + 1] = M.track(id)
+    for _, id in ipairs(api.part_list()) do
+      out[#out + 1] = M.part(id)
     end
-    out[#out + 1] = M.track(0)
+    out[#out + 1] = M.part(0)
     out[#out + 1] = M.tempo()
-  elseif p.kind == "track" then
-    local t = try(api.track_get, p.track)
+  elseif p.kind == "part" then
+    local t = try(api.part_get, p.part)
     for _, d in ipairs(t and t.devices or {}) do
-      out[#out + 1] = "paw://track/" .. p.track .. "/device/" .. d
+      out[#out + 1] = "paw://part/" .. p.part .. "/device/" .. d
     end
     for _, s in ipairs(t and t.sends or {}) do
-      out[#out + 1] = M.send(p.track, s.target)
+      out[#out + 1] = M.send(p.part, s.target)
     end
-    for _, c in ipairs(t and try(api.clip_list, p.track) or {}) do
+    for _, c in ipairs(t and try(api.clip_list, p.part) or {}) do
       out[#out + 1] = M.clip(c.id)
     end
   elseif p.kind == "device" then
@@ -528,7 +528,7 @@ function M.children(uri: string): {string}
 end
 
 --- True if `uri` is `ancestor` or is inside it (a note inside its clip, a
---- parameter inside its device and track). All addresses are inside the project.
+--- parameter inside its device and part). All addresses are inside the project.
 function M.within(uri: string, ancestor: string): boolean
   if ancestor == M.project() then
     return true
@@ -546,16 +546,16 @@ function M.within(uri: string, ancestor: string): boolean
   return false
 end
 
---- The track an address belongs to, if any.
-function M.track_of(uri: string): integer
+--- The part an address belongs to, if any.
+function M.part_of(uri: string): integer
   local at = uri
   for _ = 1, 8 do
     local p = at and M.parse(at)
     if not p then
       return nil
     end
-    if p.track then
-      return p.track
+    if p.part then
+      return p.part
     end
     at = M.parent(at)
   end
@@ -576,7 +576,7 @@ end
 
 -- Workspace edits ------------------------------------------------------------
 
-local TRACK_FIELDS: {string: boolean} = {
+local PART_FIELDS: {string: boolean} = {
   volume = true, pan = true, mute = true, solo = true, name = true, output = true, armed = true
 }
 local CLIP_FIELDS: {string: boolean} = {start = true, length = true, name = true, muted = true}
@@ -624,16 +624,16 @@ local function plan(change: Change): Parts, string
     elseif what == "insert" and not (change.insert.notes or change.insert.pitch) then
       return nil, change.uri .. ": a clip takes notes"
     end
-  elseif p.kind == "track" then
+  elseif p.kind == "part" then
     if what == "set" then
-      local ok, err = only(TRACK_FIELDS, change.set)
+      local ok, err = only(PART_FIELDS, change.set)
       if not ok then
         return nil, err
       end
     elseif what == "insert" and not (change.insert.device or change.insert.clip) then
-      return nil, change.uri .. ": a track takes a device or a clip"
-    elseif what == "delete" and p.track == 0 then
-      return nil, "the master track stays"
+      return nil, change.uri .. ": a part takes a device or a clip"
+    elseif what == "delete" and p.part == 0 then
+      return nil, "the master part stays"
     end
   elseif p.kind == "device" then
     if what == "insert" then
@@ -663,7 +663,7 @@ end
 
 -- A setter of the kernel, by one key and its value.
 local clip_set = api.clip_set as function(id: integer, key: string, value: Value)
-local track_set = api.track_set as function(id: integer, key: string, value: Value)
+local part_set = api.part_set as function(id: integer, key: string, value: Value)
 local device_set = api.device_set as function(id: integer, key: string, value: Value)
 
 --- A render to make again after an edit, with what was set.
@@ -675,7 +675,7 @@ end
 --- Do a workspace edit. paw checks each change first, and does nothing
 --- unless it can do all changes. Then it makes all of them as one undo step
 --- with the label `label`. Returns true, or nil and the reason.
----   paw.address.edit({ { uri = "paw://track/3", set = { volume = -6 } },
+---   paw.address.edit({ { uri = "paw://part/3", set = { volume = -6 } },
 ---                      { uri = "paw://clip/7/note/41", set = { pitch = 62 } } }, "Lower the bass")
 function M.edit(changes: {Change}, label?: string): boolean, string
   local plans: {Parts} = {}
@@ -719,16 +719,16 @@ function M.edit(changes: {Change}, label?: string): boolean, string
           clip_set(p.clip, k, v)
         end
       end
-    elseif p.kind == "track" then
+    elseif p.kind == "part" then
       if change.delete then
-        api.track_remove(p.track)
+        api.part_remove(p.part)
       elseif change.insert and change.insert.device then
-        api.device_add(p.track, change.insert.device, {params = change.insert.params, index = change.insert.index})
+        api.device_add(p.part, change.insert.device, {params = change.insert.params, index = change.insert.index})
       elseif change.insert then
-        api.clip_add(p.track, change.insert.clip)
+        api.clip_add(p.part, change.insert.clip)
       else
         for k, v in pairs(change.set) do
-          track_set(p.track, k, v)
+          part_set(p.part, k, v)
         end
       end
     elseif p.kind == "device" then
@@ -749,14 +749,14 @@ function M.edit(changes: {Change}, label?: string): boolean, string
       api.device_set_param(p.device, p.param, change.set.value as number | string)
     elseif p.kind == "send" then
       local sends: {types.Send} = {}
-      for _, s in ipairs(api.track_get(p.track).sends) do
+      for _, s in ipairs(api.part_get(p.part).sends) do
         if s.target ~= p.send then
           sends[#sends + 1] = s
         elseif not change.delete then
           sends[#sends + 1] = util.merge(s as {string: Value}, change.set) as types.Send
         end
       end
-      api.track_set(p.track, {sends = sends})
+      api.part_set(p.part, {sends = sends})
     elseif p.kind == "render" then
       renders[#renders + 1] = {path = p.path, opts = change.set as RenderOptions}
     else
@@ -814,8 +814,8 @@ events.on(kernel.project_loaded, function() M.renders = {} end)
 
 -- Change events --------------------------------------------------------------
 
--- The kernel says what changed by id (`track.changed { id }`, `clip.added
--- { id, track }`, `device.removed { id, track }`, `lane.*`, `project.*`); these
+-- The kernel says what changed by id (`part.changed { id }`, `clip.added
+-- { id, part }`, `device.removed { id, part }`, `lane.*`, `project.*`); these
 -- become one `address.changed { uris, revision }` for the edit, after the
 -- kernel's own `changed`, so that whoever watches addresses never diffs
 -- snapshots.
@@ -850,10 +850,10 @@ local function family(name: string): events.Event<WithId>
   return events.event(name)
 end
 events.on(
-  family("track.*"),
+  family("part.*"),
   function(e: WithId)
     if e.id then
-      changed({M.track(e.id)})
+      changed({M.part(e.id)})
     end
   end
 )
@@ -871,14 +871,14 @@ events.on(
     if not e.id then
       return
     end
-    -- The event names the track: a removed device has none to ask, and a
+    -- The event names the part: a removed device has none to ask, and a
     -- failed read costs much more than a good one.
-    local track = e.track
-    if not track then
+    local part = e.part
+    if not part then
       local ok, d = pcall(api.device_get, e.id)
-      track = ok and d.track or nil
+      part = ok and d.part or nil
     end
-    changed({track and ("paw://track/" .. track .. "/device/" .. e.id) or M.project()})
+    changed({part and ("paw://part/" .. part .. "/device/" .. e.id) or M.project()})
   end
 )
 events.on(
@@ -894,8 +894,8 @@ events.on(events.pattern("project.*"), function() changed({M.project()}) end)
 -- meta) is the project's.
 events.on(kernel.changed, function() changed({M.project()}); tell() end)
 
---- True if an address matches a pattern: `paw://track/*` (one level),
---- `paw://track/**` (any depth), or an exact address.
+--- True if an address matches a pattern: `paw://part/*` (one level),
+--- `paw://part/**` (any depth), or an exact address.
 function M.matches(pattern: string, uri: string): boolean
   if pattern == uri then
     return true

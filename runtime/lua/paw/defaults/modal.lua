@@ -5,7 +5,7 @@ local command = paw.command
 local cursor = paw.cursor
 local keymap = paw.keymap
 local common = require("paw.defaults.common")
-local need_track = common.need_track
+local need_part = common.need_part
 
 command(
   "visual",
@@ -21,7 +21,7 @@ command("search", function(ctx)
   end
   if ctx.args[1] then return go(table.concat(ctx.args, " ")) end
   paw.ui.input({ prompt = "/", history = "search" }, go)
-end, { desc = "Find a clip or track by name: `search chorus`; `n` and `N` go on to the next and previous" })
+end, { desc = "Find a clip or part by name: `search chorus`; `n` and `N` go on to the next and previous" })
 command("registers", function()
   local lines = {}
   local names = {}
@@ -33,19 +33,19 @@ command("registers", function()
     local value, what = keymap.registers[name]
     if value.kind == "keys" then
       what = "macro   " .. value.keys
-    elseif value.kind == "tracks" then
+    elseif value.kind == "parts" then
       local list = {}
-      for i, t in ipairs(value.tracks) do
+      for i, t in ipairs(value.parts) do
         list[i] = t.name
       end
-      what = "tracks  " .. table.concat(list, ", ")
+      what = "parts  " .. table.concat(list, ", ")
     elseif value.kind == "range" then
       local clips = 0
       for _, row in ipairs(value.rows) do
         clips = clips + #row
       end
       what = string.format(
-        "time    %g beats on %d track%s, %d clip%s",
+        "time    %g beats on %d part%s, %d clip%s",
         value.length,
         #value.rows,
         #value.rows == 1 and "" or "s",
@@ -75,7 +75,7 @@ command("marks", function()
     for _, name in ipairs(names) do
       local pos = list[name]
       local where = view == "arrange"
-          and paw.time.format(pos.beat) .. "  " .. (pcall(api.track_get, pos.track) and api.track_get(pos.track, "name") or "(track gone)")
+          and paw.time.format(pos.beat) .. "  " .. (pcall(api.part_get, pos.part) and api.part_get(pos.part, "name") or "(part gone)")
         or paw.music.name(pos[1]) .. "  beat " .. pos[2] + 1
       lines[#lines + 1] = string.format("%s  %-10s %s", name, view, where)
     end
@@ -89,7 +89,7 @@ command("changes", function()
   for i = #list, 1, -1 do
     local pos = list[i]
     local where = pos.beat
-        and paw.time.format(pos.beat) .. "  " .. (pcall(api.track_get, pos.track) and api.track_get(pos.track, "name") or "(track gone)")
+        and paw.time.format(pos.beat) .. "  " .. (pcall(api.part_get, pos.part) and api.part_get(pos.part, "name") or "(part gone)")
       or string.format("row %d  beat %g", pos[1], (pos[2] or 0) + 1)
     lines[#lines + 1] = string.format("%3d  %s", #list - i + 1, where)
   end
@@ -128,15 +128,15 @@ command.alias("delm", "delmarks")
 command.alias("delm!", "delmarks!")
 --- What is under the cursor, in lines: what the view says first
 --- (`view:describe()`: a fold or the scope in the arrange view), then the
---- clip and the track. With the view's `only`, its lines alone. Nil with
---- no track (`need_track` says why).
+--- clip and the part. With the view's `only`, its lines alone. Nil with
+--- no part (`need_part` says why).
 local function under_cursor()
   local view = paw.ui.views:get(paw.ui.focused)
   local first = view and view.describe and view:describe() or nil
   if first and first.only then return first end
-  local track = need_track()
-  if not track then return end
-  local t, lines = track:get(), first or {}
+  local part = need_part()
+  if not part then return end
+  local t, lines = part:get(), first or {}
   local clip = cursor.clip()
   if clip then
     local c = clip:get()
@@ -160,7 +160,7 @@ local function under_cursor()
       end
       local frozen = paw.freeze_block.describe(c.id)
       if frozen then lines[#lines + 1] = "  " .. frozen end
-      lines[#lines + 1] = { text = "  znn enters it · <Space>zp makes its tracks the song's", style = "Dim" }
+      lines[#lines + 1] = { text = "  znn enters it · <Space>zp makes its parts the song's", style = "Dim" }
     elseif c.kind == "midi" then
       lines[#lines + 1] = string.format("  %d notes", c.note_count)
       if c.link then lines[#lines + 1] = string.format("  linked: %s, %d clips", c.link, c.link_count) end
@@ -177,19 +177,19 @@ local function under_cursor()
     end
     lines[#lines + 1] = ""
   end
-  lines[#lines + 1] = { text = "Track  " .. t.name, style = "Title" }
-  -- A track or a chain from outside the project, or a copy of one.
+  lines[#lines + 1] = { text = "Part  " .. t.name, style = "Title" }
+  -- A part or a chain from outside the project, or a copy of one.
   if t.source then lines[#lines + 1] = "  refers to " .. t.source end
   if t.origin then lines[#lines + 1] = "  copied from " .. t.origin end
   if t.chain_source then lines[#lines + 1] = "  devices from " .. t.chain_source end
   if t.chain_origin then lines[#lines + 1] = "  devices copied from " .. t.chain_origin end
-  local kind = paw.track_kinds.describe(track.id)
+  local kind = paw.part_kinds.describe(part.id)
   if kind then lines[#lines + 1] = "  kind    " .. kind end
-  -- A frozen track: whether its file is up to date (paw/freeze.lua).
-  local frozen = paw.freeze.describe(track.id)
+  -- A frozen part: whether its file is up to date (paw/freeze.lua).
+  local frozen = paw.freeze.describe(part.id)
   if frozen then lines[#lines + 1] = "  " .. frozen end
-  -- What the parts of the track column say of it (paw/trackcolumn.tl).
-  for _, line in ipairs(paw.trackcolumn.describe(track.id)) do
+  -- What the components of the part column say of it (paw/partcolumn.tl).
+  for _, line in ipairs(paw.partcolumn.describe(part.id)) do
     lines[#lines + 1] = "  " .. line
   end
   lines[#lines + 1] = string.format(
@@ -200,30 +200,25 @@ local function under_cursor()
     t.solo and ", solo" or "",
     t.armed and ", armed" or ""
   )
-  lines[#lines + 1] = "  output  " .. (t.output and api.track_get(t.output, "name") or "Master")
+  lines[#lines + 1] = "  output  " .. (t.output and api.part_get(t.output, "name") or "Master")
   if t.input then lines[#lines + 1] = "  input   " .. t.input end
   for _, send in ipairs(t.sends) do
-    lines[#lines + 1] = string.format("  send    %s at %+.1f dB", api.track_get(send.target, "name"), send.level)
+    lines[#lines + 1] = string.format("  send    %s at %+.1f dB", api.part_get(send.target, "name"), send.level)
   end
-  for i, device in ipairs(track:devices()) do
+  for i, device in ipairs(part:devices()) do
     local d = device:get()
     lines[#lines + 1] = string.format("  %d. %s%s", i, d.name, d.bypass and "  (bypassed)" or "")
   end
   -- MIDI with nothing to play it is silent: say so, and how to fix it.
   local midi = false
-  for _, c in ipairs(track.id ~= 0 and api.clip_list(track.id) or {}) do
+  for _, c in ipairs(part.id ~= 0 and api.clip_list(part.id) or {}) do
     midi = midi or c.kind == "midi"
   end
-  if
-    midi
-    and not kind
-    and not (t.midi_output and t.midi_output.port)
-    and paw.fx.preferred(track.id) == "instrument"
-  then
+  if midi and not kind and not (t.midi_output and t.midi_output.port) and paw.fx.preferred(part.id) == "instrument" then
     lines[#lines + 1] =
       { text = "  no instrument: its MIDI makes no sound. Press `a` and choose one (synth, a plugin)", style = "Warn" }
   end
-  for _, lane in ipairs(api.lane_list(track.id)) do
+  for _, lane in ipairs(api.lane_list(part.id)) do
     lines[#lines + 1] = string.format(
       "  automation  %s, %d points%s",
       lane.param or lane.target,
@@ -236,7 +231,7 @@ end
 command("info", function()
   local lines = under_cursor()
   if lines then paw.ui.page(lines.title or "Under the cursor", lines) end
-end, { desc = "Describe all that is under the cursor in a page: a fold or the scope, the clip, the track" })
+end, { desc = "Describe all that is under the cursor in a page: a fold or the scope, the clip, the part" })
 -- `K` says it in a float next to the cursor, with its first title on the
 -- border; `K` again puts the keys in the float.
 command("describe", function()

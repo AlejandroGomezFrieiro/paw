@@ -108,7 +108,7 @@ end
 
 local function names()
   local out = {}
-  for _, t in ipairs(paw.tracks()) do
+  for _, t in ipairs(paw.parts()) do
     out[#out + 1] = t.name
   end
   return table.concat(out, ",")
@@ -213,10 +213,10 @@ end)
 -- Opening ----------------------------------------------------------------------
 
 test(
-  ":open with a MIDI file makes a project of it: a track a channel, clips, controls, tempo map, nothing to undo",
+  ":open with a MIDI file makes a project of it: a part a channel, clips, controls, tempo map, nothing to undo",
   function()
     start()
-    paw.add_track({ name = "Old" })
+    paw.add_part({ name = "Old" })
     api.undo_checkpoint()
     local path = file("demo.mid", format0())
     T.keys(":open! " .. path .. "<CR>")
@@ -226,8 +226,8 @@ test(
     eq(p.name, "demo", "it is named after the file")
     eq(p.modified, false, "nothing is changed yet")
     eq(paw.undo(), false, "and nothing is to be undone")
-    local melody, drums = paw.tracks()[1], paw.tracks()[2]
-    eq(#melody:devices(), 0, "a melody track has no instrument, as a new track has none")
+    local melody, drums = paw.parts()[1], paw.parts()[2]
+    eq(#melody:devices(), 0, "a melody part has no instrument, as a new part has none")
     eq(drums:devices()[1].kind, "drums", "channel 10 plays the drum kit")
     local clip = melody:clips()[1]
     eq(clip.start, 0, "the clip starts at the bar of its first note")
@@ -247,7 +247,7 @@ test(
     eq(table.concat({ paw.tempo.signature_at(0) }, "/"), "3/4", "the time signature")
     eq(paw.markers.list()[1].name, "Verse", "the marker")
     eq(
-      paw.ui.message.text:find("4 notes on 2 tracks", 1, true) ~= nil,
+      paw.ui.message.text:find("4 notes on 2 parts", 1, true) ~= nil,
       true,
       "the status line says what came: " .. paw.ui.message.text
     )
@@ -255,24 +255,24 @@ test(
   end
 )
 
-test("a format 1 file opens with a track each, named, and the arrange view and piano roll show the notes", function()
+test("a format 1 file opens with a part each, named, and the arrange view and piano roll show the notes", function()
   start()
   local path = file("song.mid", format1())
   T.keys(":e " .. path .. "<CR>")
-  eq(names(), "Bass,Lead", "tracks with notes, by their names; the conductor has none")
-  local lead = paw.tracks()[2]:clips()[1]
+  eq(names(), "Bass,Lead", "parts with notes, by their names; the conductor has none")
+  local lead = paw.parts()[2]:clips()[1]
   eq(lead.start, 4, "the lead's clip starts at bar 2")
   near(lead:notes()[1].start, 0, 1e-9, "its note at the clip's start")
   near(paw.tempo.at(5), 120, 0.01, "the conductor's tempo change")
-  local bass = paw.tracks()[1]:clips()[1]
+  local bass = paw.parts()[1]:clips()[1]
   near(control(bass:controls(), "cc", 1).value, 64 / 127, 1e-9, "the mod wheel")
   local arrange = screen()
   eq(
     arrange:find("Bass", 1, true) ~= nil and arrange:find("Lead", 1, true) ~= nil,
     true,
-    "the arrange view shows the tracks:\n" .. arrange
+    "the arrange view shows the parts:\n" .. arrange
   )
-  paw.cursor.set_track(paw.tracks()[1])
+  paw.cursor.set_part(paw.parts()[1])
   paw.cursor.beat = 0
   paw.ui.views:get("pianoroll"):edit(bass)
   paw.ui.focus("pianoroll")
@@ -292,7 +292,7 @@ end)
 
 test("a MIDI file that will not read leaves the project alone", function()
   start()
-  paw.add_track({ name = "Keep" })
+  paw.add_part({ name = "Keep" })
   api.undo_checkpoint()
   T.keys(":open! " .. file("bad.mid", "not midi at all") .. "<CR>")
   eq(names(), "Keep", "the project is as it was")
@@ -301,18 +301,18 @@ end)
 
 -- Importing --------------------------------------------------------------------
 
-test(":import brings a MIDI file's tracks in at the cursor in one undo step, leaving the tempo map", function()
+test(":import brings a MIDI file's parts in at the cursor in one undo step, leaving the tempo map", function()
   start()
   paw.project.tempo = 128
-  paw.add_track({ name = "Drums" })
-  paw.add_track({ name = "Last" })
+  paw.add_part({ name = "Drums" })
+  paw.add_part({ name = "Last" })
   api.undo_checkpoint()
-  paw.cursor.set_track(paw.tracks()[1])
+  paw.cursor.set_part(paw.parts()[1])
   paw.cursor.beat = 8
   T.keys(":import " .. file("in.mid", format1()) .. "<CR>")
-  eq(names(), "Drums,Bass,Lead,Last", "new tracks below the cursor's")
-  eq(paw.tracks()[2]:clips()[1].start, 8, "the file's start at the cursor")
-  eq(paw.tracks()[3]:clips()[1].start, 12, "and its bars after it")
+  eq(names(), "Drums,Bass,Lead,Last", "new parts below the cursor's")
+  eq(paw.parts()[2]:clips()[1].start, 8, "the file's start at the cursor")
+  eq(paw.parts()[3]:clips()[1].start, 12, "and its bars after it")
   near(paw.tempo.at(20), 128, 1e-9, "the tempo map is not the file's")
   eq(paw.undo(), true, "undo")
   eq(names(), "Drums,Last", "takes the whole import back in one step")
@@ -321,18 +321,18 @@ end)
 test(":import tempo=yes takes the file's tempo map from the cursor on, and clip.import makes one clip", function()
   start()
   paw.project.tempo = 128
-  paw.add_track({ name = "A" })
-  paw.cursor.set_track(paw.tracks()[1])
+  paw.add_part({ name = "A" })
+  paw.cursor.set_part(paw.parts()[1])
   paw.cursor.beat = 4
   api.undo_checkpoint()
   T.keys(":import " .. file("t.mid", format1()) .. " tempo=yes<CR>")
   near(paw.tempo.at(0), 128, 1e-9, "the project's before the cursor")
   near(paw.tempo.at(4), 90, 0.01, "the file's from it")
   near(paw.tempo.at(9), 120, 0.01, "and its change")
-  paw.cursor.set_track(paw.tracks()[1])
+  paw.cursor.set_part(paw.parts()[1])
   paw.cursor.beat = 32
   local clip = paw.cmd("clip.import", { file("riff.mid", format1()) })
-  eq(clip:track().name, "A", "on the cursor's track")
+  eq(clip:part().name, "A", "on the cursor's part")
   eq(#clip:notes(), 3, "every note of the file in one clip")
   eq(clip.name, "riff", "named after the file")
 end)
@@ -362,7 +362,7 @@ test("import completes and lists MIDI files beside sound files, and a dropped MI
   end
   local out = paw.frontend.act.drop({ path }, nil, 0)
   eq(#out.clips, 2, "the dropped file's clips")
-  eq(names(), "Bass,Lead", "on tracks of their own")
+  eq(names(), "Bass,Lead", "on parts of their own")
 end)
 
 -- Writing ----------------------------------------------------------------------
@@ -372,14 +372,14 @@ test(":export writes the project as a format 1 MIDI file with its tempo map, and
   paw.project.tempo = 100
   paw.tempo.set_signature(1, 6, 8)
   paw.tempo.set(6, 140)
-  local t = paw.add_track({ name = "Keys" })
+  local t = paw.add_part({ name = "Keys" })
   t:add_clip({
     start = 3,
     length = 6,
     notes = { { pitch = 60, start = 0, length = 1, velocity = 90 }, { pitch = 64, start = 2, length = 0.5 } },
     controls = { { start = 1, type = "cc", number = 64, value = 1 } },
   })
-  local d = paw.add_track({ name = "Beat" })
+  local d = paw.add_part({ name = "Beat" })
   d:add_device("drums")
   d:add_clip({ start = 0, length = 3, notes = { { pitch = 36, start = 0, length = 0.25 } } })
   paw.markers.add(3, "In")
@@ -387,41 +387,41 @@ test(":export writes the project as a format 1 MIDI file with its tempo map, and
   T.keys(":export " .. path .. "<CR>")
   local f = assert(smf.read(path))
   eq(f.format, 1, "format 1")
-  eq(#f.tracks, 3, "a conductor and a track each")
+  eq(#f.tracks, 3, "a conductor and a track for each part")
   eq(f.tracks[2].name, "Keys", "named")
   eq(f.tracks[2].notes[1].tick, 3 * f.ppq, "at the clip's place")
   eq(f.tracks[2].notes[2].length, f.ppq / 2, "lengths")
   eq(f.tracks[2].controls[1].value, 127, "the pedal")
-  eq(f.tracks[3].notes[1].channel, 9, "the drum kit's track on channel 10")
+  eq(f.tracks[3].notes[1].channel, 9, "the drum kit's part on channel 10")
   near(f.tempos[2].bpm, 140, 0.01, "the tempo change")
   eq(f.signatures[1].num .. "/" .. f.signatures[1].den, "6/8", "the metre")
   eq(f.markers[1].text, "In", "the marker")
   -- And opened again, it is the same song.
   smf.open(path)
   eq(names(), "Keys,Beat", "opened again")
-  local again = paw.tracks()[1]:clips()[1]:notes()
-  near(paw.tracks()[1]:clips()[1].start + again[2].start, 5, 1e-9, "the notes where they were")
-  paw.cursor.set_track(paw.tracks()[1])
-  paw.cursor.beat = paw.tracks()[1]:clips()[1].start
+  local again = paw.parts()[1]:clips()[1]:notes()
+  near(paw.parts()[1]:clips()[1].start + again[2].start, 5, 1e-9, "the notes where they were")
+  paw.cursor.set_part(paw.parts()[1])
+  paw.cursor.beat = paw.parts()[1]:clips()[1].start
   T.keys(":export clip " .. T.scratch .. "/clip.mid<CR>")
   f = assert(smf.read(T.scratch .. "/clip.mid"))
   eq(#f.tracks, 2, "a clip alone")
 end)
 
 test(
-  ":export of MIDI takes the range, each=track and each=clip, writes .midi2 as kept, and refuses words of sound",
+  ":export of MIDI takes the range, each=part and each=clip, writes .midi2 as kept, and refuses words of sound",
   function()
     start()
     local dir = T.scratch .. "/midi-grammar"
     paw.project.save(dir .. "/song")
-    local keys_ = paw.add_track({ name = "Keys" })
+    local keys_ = paw.add_part({ name = "Keys" })
     keys_:add_clip({ start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
     keys_:add_clip({
       start = 8,
       length = 4,
       notes = { { pitch = 62, start = 1, length = 1 }, { pitch = 64, start = 2, length = 1 } },
     })
-    local bass = paw.add_track({ name = "Bass" })
+    local bass = paw.add_part({ name = "Bass" })
     bass:add_clip({ start = 0, length = 8, notes = { { pitch = 36, start = 4, length = 2 } } })
     paw.flush()
     --- The tracks of a file and their notes: "Keys:3 Bass:1".
@@ -433,20 +433,20 @@ test(
       return table.concat(out, " ")
     end
     local renders = dir .. "/song/renders/"
-    -- One file of type 1, one track of the file for each track of the range.
+    -- One file of type 1, one track of the file for each part of the range.
     T.keys(":export song.mid<CR>")
-    eq(held(renders .. "song.mid"), "Keys:3 Bass:1", "the song, a track each, in renders/")
+    eq(held(renders .. "song.mid"), "Keys:3 Bass:1", "the song, a part each, in renders/")
     eq(smf.read(renders .. "song.mid").format, 1, "type 1")
     T.keys(":t/Bass/export bass.mid<CR>")
-    eq(held(renders .. "bass.mid"), "Bass:1", "a range of tracks")
+    eq(held(renders .. "bass.mid"), "Bass:1", "a range of parts")
     T.keys(":3,4export later.mid<CR>")
     eq(held(renders .. "later.mid"), "Keys:2", "a range of time: the notes that start in bars 3 and 4")
-    T.keys(":export parts.mid each=track<CR>")
-    eq(held(renders .. "parts Keys.mid") .. " " .. held(renders .. "parts Bass.mid"), "Keys:3 Bass:1", "each=track")
+    T.keys(":export parts.mid each=part<CR>")
+    eq(held(renders .. "parts Keys.mid") .. " " .. held(renders .. "parts Bass.mid"), "Keys:3 Bass:1", "each=part")
     T.keys(":t/Keys/export riff.mid each=clip<CR>")
     eq(held(renders .. "riff Keys 01.mid") .. " " .. held(renders .. "riff Keys 02.mid"), "Keys:1 Keys:2", "each=clip")
     -- A clip file holds the clip as the project keeps it.
-    paw.cursor.set_track(keys_)
+    paw.cursor.set_part(keys_)
     paw.cursor.set_beat(9)
     T.keys(":export clip riff.midi2<CR>")
     local kept = api.midi2_read(renders .. "riff.midi2")

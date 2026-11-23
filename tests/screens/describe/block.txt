@@ -13,11 +13,11 @@
    │▌in ─────────── 0.0 │▏  │   9.1.00 to 17.1.00, 32 beats                                        │
    │▌   C               │▏  │   subproject Bridge · 4/4 of the song · 8 bars · follows the tempo · │
  5 │▌ Piano        MSRI │▏Pi│   live                                                               │
-   │▌in ─────────── 0.0 │▄▄ │   2 tracks: Track 1, Organ                                           │
+   │▌in ─────────── 0.0 │▄▄ │   2 parts: Part 1, Organ                                           │
    │▌   C        → Keys │   │   plays in 2 places: @9 (here), @25                                  │
- 6 ╰▌ Pad          MSRI │▏Pa│   znn enters it · <Space>zp makes its tracks the song's              │
+ 6 ╰▌ Pad          MSRI │▏Pa│   znn enters it · <Space>zp makes its parts the song's              │
     ▌in ─────────── 0.0 │▄▄ │                                                                      │
-    ▌   C        → Keys │   │ Track  Bridge                                                        │
+    ▌   C        → Keys │   │ Part  Bridge                                                        │
  7  ▌ Bass         MSRI │▏Ba│   volume +0.0 dB, pan +0.00                                          │
     ▌in ─────────── 0.0 │▄▄ │   output  Master                                                     │
     ▌   C               │   ╰──────────────────────────────────────────────────────────────────────╯

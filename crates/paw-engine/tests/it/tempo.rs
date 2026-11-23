@@ -4,7 +4,7 @@
 use std::sync::Arc;
 
 use paw_engine::{
-    AudioData, AudioRegion, ClipSet, Engine, Msg, SchedEntry, Schedule, TrackRt, TrackSlot,
+    AudioData, AudioRegion, ClipSet, Engine, Msg, SchedEntry, Schedule, PartRt, PartSlot,
 };
 use paw_types::{SigPoint, TempoMap, TempoPoint};
 
@@ -198,21 +198,21 @@ fn audio_regions_keep_to_time_through_a_ramp() {
     send(&mut handle, Msg::SetTempoMap(Box::new(map.clone())));
     send(
         &mut handle,
-        Msg::InsertTrack {
-            slot: TrackSlot(1),
-            track: TrackRt::new(),
+        Msg::InsertPart {
+            slot: PartSlot(1),
+            part: PartRt::new(),
         },
     );
     send(
         &mut handle,
         Msg::SetClips {
-            track: TrackSlot(1),
+            part: PartSlot(1),
             clips: Box::new(clips),
         },
     );
     let entries = vec![
-        SchedEntry::new(TrackSlot(1), TrackSlot::MASTER),
-        SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE),
+        SchedEntry::new(PartSlot(1), PartSlot::MASTER),
+        SchedEntry::new(PartSlot::MASTER, PartSlot::NONE),
     ];
     send(
         &mut handle,

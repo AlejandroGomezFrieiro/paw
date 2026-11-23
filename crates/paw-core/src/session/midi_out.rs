@@ -1,4 +1,4 @@
-//! MIDI output: a track sends what it plays to a port (see
+//! MIDI output: a part sends what it plays to a port (see
 //! `paw_engine::midi_out`), and ports of our own that other programs read.
 
 use anyhow::{Result, bail};
@@ -52,7 +52,7 @@ impl Session {
     }
 
     /// Make a MIDI port of this program's for other programs to read from:
-    /// they see it as `paw out: <name>`, and tracks send to it by `name`.
+    /// they see it as `paw out: <name>`, and parts send to it by `name`.
     /// It is kept through engine restarts.
     pub(crate) fn midi_open_output(&mut self, name: &str) -> Result<()> {
         if name.is_empty() || name.contains('\0') {

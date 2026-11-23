@@ -9,11 +9,11 @@ use super::Document;
 use crate::model::{ClipContent, Id};
 
 impl Document {
-    /// Put a linked copy of the MIDI clip `id` right after it on its track,
+    /// Put a linked copy of the MIDI clip `id` right after it on its part,
     /// and give the copy's id. A clip of no link starts a new one with its
     /// copy, named after the clip.
     pub(crate) fn clip_link(&mut self, id: Id) -> Result<Id> {
-        let (track, _) = self
+        let (part, _) = self
             .project
             .find_clip(id)
             .with_context(|| format!("no clip {id} on a timeline"))?;
@@ -36,10 +36,10 @@ impl Document {
             if clip.link.is_none() {
                 clip.link = Some(link);
             }
-            let t = p.track_mut(track).with_context(|| format!("no track {track}"))?;
+            let t = p.part_mut(part).with_context(|| format!("no part {part}"))?;
             t.clips.push(Arc::new(copy));
             let at = t.clips.len() - 1;
-            p.found_clip(copy_id, track, at);
+            p.found_clip(copy_id, part, at);
             Ok(copy_id)
         })
     }

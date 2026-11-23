@@ -2,7 +2,7 @@ name = "untitled"
 sig_den = 4
 sig_num = 4
 tempo = 120.0
-tracks = [
+parts = [
     "T1",
     "T2",
 ]

@@ -4,14 +4,14 @@
 -- each key and of the release of the last one. The piano roll's target is
 -- in paw/roll_draw.tl (`I`); notation and the vocal editor bring their own.
 --
--- Step input listens to the MIDI input of the target's track (its port
+-- Step input listens to the MIDI input of the target's part (its port
 -- and channel), else to every port, as recording does. Nothing is
 -- recorded, and nothing enters while the transport plays: the keys only
--- sound then. While a target listens, its track plays the controller.
+-- sound then. While a target listens, its part plays the controller.
 --
---   paw.step.target("myview", { active = ..., track = ..., note = function(e) end, release = function() end })
+--   paw.step.target("myview", { active = ..., part = ..., note = function(e) end, release = function() end })
 --   paw.step.active()   -- the name of the target that listens now, or nil
---   paw.step.input(id)  -- what step input listens to for a track, or nil and why not
+--   paw.step.input(id)  -- what step input listens to for a part, or nil and why not
 --
 -- The controls of the controller: a key, pad or pedal does an action of
 -- the target (a rest, a tie, a note value) in place of a key of the
@@ -44,7 +44,7 @@ local type PickModule = require("paw.pick")
 
 --- The part of `paw.audio` (paw/audio.lua) that step input calls.
 local record Audio
-  pick: function(track: integer, groups?: {string})
+  pick: function(part: integer, groups?: {string})
 end
 
 local record Paw is partial.Paw
@@ -57,9 +57,9 @@ end
 local paw = (_G as {string: Paw}).paw
 
 --- What step input listens to: the port (nil for every port) and the
---- channel (nil for every channel) of the MIDI input of `track`.
+--- channel (nil for every channel) of the MIDI input of `part`.
 local record Listen
-  track: integer
+  part: integer
   port: string
   channel: integer
 end
@@ -89,7 +89,7 @@ local targets: {Entry} = {}
 -- The pitches held now, and the order they came in.
 local held: {integer: boolean} = {}
 local order: {integer} = {}
--- The track that plays the controller for step input, nil when none listens
+-- The part that plays the controller for step input, nil when none listens
 -- (`api.engine_follow_always`).
 local sounding: integer
 
@@ -127,7 +127,7 @@ local bindings: {Binding} = {}
 local pressed: {string: string} = {}
 -- The `chord` control is held: the keys join one chord across releases.
 local chording = false
--- The engine keeps the controls from the tracks (`filter`).
+-- The engine keeps the controls from the parts (`filter`).
 local filtering = false
 -- What a control did last, for the title, and until when.
 local said: string
@@ -224,8 +224,8 @@ local function check_action(name: string)
   end
 end
 
--- While a target listens, the engine keeps the controls from the tracks:
--- they do not sound and do not record. With none listening, the tracks
+-- While a target listens, the engine keeps the controls from the parts:
+-- they do not sound and do not record. With none listening, the parts
 -- get them again.
 local function filter(on: boolean)
   if seats.current ~= 0 then
@@ -500,12 +500,12 @@ function M.paused(): string
   return nil
 end
 
---- What step input listens to for `track`: its MIDI input's port and
+--- What step input listens to for `part`: its MIDI input's port and
 --- channel, or every port. Nil and why not when paw hears no MIDI: no port
---- is listed or open, or the track's port is not connected.
-function M.input(track: integer): Listen, string
-  local midi: types.MidiInput = track and api.track_get(track).midi_input or nil
-  local listen: Listen = {track = track, port = midi and midi.port, channel = midi and midi.channel}
+--- is listed or open, or the part's port is not connected.
+function M.input(part: integer): Listen, string
+  local midi: types.MidiInput = part and api.part_get(part).midi_input or nil
+  local listen: Listen = {part = part, port = midi and midi.port, channel = midi and midi.channel}
   local ports = api.midi_inputs()
   if #ports == 0 then
     local backend = api.engine_get().backend
@@ -518,14 +518,14 @@ function M.input(track: integer): Listen, string
   for _, p in ipairs(ports) do
     if listen.port and p.name == listen.port then
       if not p.open then
-        return nil, "the track's port " .. listen.port .. " is not open"
+        return nil, "the part's port " .. listen.port .. " is not open"
       end
       return listen
     end
     open = open or p.open
   end
   if listen.port then
-    return nil, "the track's port " .. listen.port .. " is missing"
+    return nil, "the part's port " .. listen.port .. " is missing"
   end
   if not open then
     return nil, "no MIDI port is open"
@@ -533,10 +533,10 @@ function M.input(track: integer): Listen, string
   return listen
 end
 
---- The port that step input listens to for `track`, in a few words:
+--- The port that step input listens to for `part`, in a few words:
 --- `"Keystation 49"`, `"Keystation 49 · ch 2"`, `"all ports"`, or nil with no input.
-function M.source(track: integer): string
-  local listen = M.input(track)
+function M.source(part: integer): string
+  local listen = M.input(part)
   if not listen then
     return nil
   end
@@ -544,40 +544,40 @@ function M.source(track: integer): string
   return listen.channel and (port .. " · ch " .. listen.channel) or port
 end
 
---- Say that step input has no MIDI input for `track`, and why, and open
---- the MIDI part of the track's list of inputs. True if it had to.
-function M.ask_input(track: integer): boolean
-  local listen, why = M.input(track)
+--- Say that step input has no MIDI input for `part`, and why, and open
+--- the MIDI section of the part's list of inputs. True if it had to.
+function M.ask_input(part: integer): boolean
+  local listen, why = M.input(part)
   if listen then
     return false
   end
   paw.notify(
     "step input: no MIDI input ("
       .. why
-      .. "). Connect a keyboard, or choose one: :track.midi (I on the track lists the inputs)",
+      .. "). Connect a keyboard, or choose one: :part.midi (I on the part lists the inputs)",
     "warn"
   )
-  if track then
-    paw.audio.pick(track, {"midi", "channel"})
+  if part then
+    paw.audio.pick(part, {"midi", "channel"})
   end
   return true
 end
 
---- Look again at which target listens: its track plays the controller,
+--- Look again at which target listens: its part plays the controller,
 --- and with none the held keys are forgotten. A target calls it when it
 --- starts or stops listening.
 function M.refresh()
   local _, t = current()
-  local track = t and t.track and t.track() or nil
+  local part = t and t.part and t.part() or nil
   if not t then
     held, order, chording, pressed = {}, {}, false, {}
   end
   filter(t ~= nil)
-  if track ~= sounding and seats.current == 0 then
-    sounding = track
-    -- That track plays the controller, also while another track is armed
-    -- (and in place of the selected track while it is set).
-    api.engine_follow_always(track)
+  if part ~= sounding and seats.current == 0 then
+    sounding = part
+    -- That part plays the controller, also while another part is armed
+    -- (and in place of the selected part while it is set).
+    api.engine_follow_always(part)
   end
 end
 
@@ -714,7 +714,7 @@ local function learned(e: types.MidiEvent): boolean
 end
 
 --- A key from the controller: for the target that listens now, if it came
---- from the input of its track and the transport is stopped.
+--- from the input of its part and the transport is stopped.
 local function heard(e: types.MidiEvent)
   if learned(e) then
     return
@@ -731,8 +731,8 @@ local function heard(e: types.MidiEvent)
     held, order = {}, {}
     return
   end
-  local track = t.track and t.track() or nil
-  local midi: types.MidiInput = track and api.track_get(track).midi_input or nil
+  local part = t.part and t.part() or nil
+  local midi: types.MidiInput = part and api.part_get(part).midi_input or nil
   if midi and midi.port and e.port ~= midi.port then
     return
   end
@@ -797,20 +797,20 @@ commands.define(
   "step.input",
   function(_: Context): Result
     local _, t = current()
-    local track = t and t.track and t.track() or paw.cursor.track_id()
-    if track == 0 then
-      track = nil
+    local part = t and t.part and t.part() or paw.cursor.part_id()
+    if part == 0 then
+      part = nil
     end
-    if M.ask_input(track) then
+    if M.ask_input(part) then
       return
     end
-    local name = track and api.track_get(track).name or "no track"
-    paw.notify("step input listens to " .. M.source(track) .. " (the MIDI input of " .. name .. ")")
-    if track then
-      paw.audio.pick(track, {"midi", "channel"})
+    local name = part and api.part_get(part).name or "no part"
+    paw.notify("step input listens to " .. M.source(part) .. " (the MIDI input of " .. name .. ")")
+    if part then
+      paw.audio.pick(part, {"midi", "channel"})
     end
   end,
-  {desc = "Say what step input listens to: the MIDI input of the track of the active clip, and open its list"}
+  {desc = "Say what step input listens to: the MIDI input of the part of the active clip, and open its list"}
 )
 
 --- Stop the wait of `:step.learn`.

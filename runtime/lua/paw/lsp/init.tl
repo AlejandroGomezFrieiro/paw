@@ -1,5 +1,5 @@
 -- Language servers ("lenses"), as `vim.lsp`, over anything with an address.
--- A server is told about subjects (paw/lsp/subjects.tl: a clip, a track,
+-- A server is told about subjects (paw/lsp/subjects.tl: a clip, a part,
 -- the mix, a render, the project, or one an extension adds), and what it
 -- says goes to the generic stores: diagnostics (`paw.diagnostic`), labels
 -- (`paw.annotation`), the chords and key it hears (`paw.harmony`),
@@ -480,15 +480,15 @@ end
 -- Documents -------------------------------------------------------------------
 
 -- What a server is attached to: `attach = { subjects = {...}, where = {...} }`,
--- or the older `{ kinds = { "clip" }, tracks = {...}, drums = bool }`; else
+-- or the older `{ kinds = { "clip" }, parts = {...}, drums = bool }`; else
 -- what it asked for at initialize; else clips.
 local function attachment(client: Client): {string}, subjects.Where
   local attach: standard.Attach = client.config.attach or {}
   local names = attach.subjects or attach.kinds or (client.caps and client.caps.subjects) or {"clip"}
-  local where: subjects.Where = {tracks = attach.tracks, drums = attach.drums}
+  local where: subjects.Where = {parts = attach.parts, drums = attach.drums}
   local given = attach.where or {}
-  if given.tracks ~= nil then
-    where.tracks = given.tracks
+  if given.parts ~= nil then
+    where.parts = given.parts
   end
   if given.drums ~= nil then
     where.drums = given.drums
@@ -501,7 +501,7 @@ end
 
 -- A copy of `where`, with `focus` as given.
 local function focused(where: subjects.Where, focus: boolean): subjects.Where
-  return {tracks = where.tracks, drums = where.drums, focus = focus}
+  return {parts = where.parts, drums = where.drums, focus = focus}
 end
 
 --- True if a server is attached to an address (for its subject, or for any subject).
@@ -666,7 +666,7 @@ function M.sync()
         if spec then
           local w = where
           if w.focus == nil then
-            w = focused(where, spec.focus ~= false and (name == "clip" or name == "track"))
+            w = focused(where, spec.focus ~= false and (name == "clip" or name == "part"))
           end
           for _, address in ipairs(spec.targets(w)) do
             wanted[subjects.uri(name, address)] = {name, address}
@@ -1274,7 +1274,7 @@ end
 ---                and `diagnostic(finding, doc)` (a location, fixes)
 ---   framing      "lines" (newline-delimited JSON, the default) or "headers" (Content-Length)
 ---   adapter      the dialect, by name or as a table (LSP's own by default)
----   attach       { subjects = { "clip", "mix", ... }, where = { focus, tracks = { "Flute*" }, drums } }
+---   attach       { subjects = { "clip", "mix", ... }, where = { focus, parts = { "Flute*" }, drums } }
 ---   settings     sent at initialize and with `workspace/didChangeConfiguration`
 ---   init_options sent once, as `initializationOptions`
 ---   restart      { max = 3, within_s = 60 }: restarts after it dies (none by default)

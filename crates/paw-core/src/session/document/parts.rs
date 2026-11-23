@@ -1,4 +1,4 @@
-//! Tracks: their fields, order, routing, sends and folders.
+//! Parts: their fields, order, routing, sends and folders.
 
 use std::collections::BTreeSet;
 use std::sync::Arc;
@@ -10,36 +10,36 @@ use serde_json::{Value, json};
 use super::Document;
 use super::values::{de, de_meta, finite, holds};
 use crate::model::{
-    DeviceInst, Id, InputChannels, MASTER_ID, MidiInput, MidiOutput, NestId, Project, Send, Target, Track,
+    DeviceInst, Id, InputChannels, MASTER_ID, MidiInput, MidiOutput, NestId, Project, Send, Target, Part,
 };
 
-/// What `paw.api.track_add` takes for a new track.
+/// What `paw.api.part_add` takes for a new part.
 #[derive(Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub(crate) struct TrackOpts {
+pub(crate) struct PartOpts {
     pub name: Option<String>,
-    /// Position among the tracks of its place (the song, or its
+    /// Position among the parts of its place (the song, or its
     /// subproject), counting from 1. Appended when absent.
     pub index: Option<usize>,
     pub volume: Option<f64>,
     pub pan: Option<f64>,
     pub output: Option<Id>,
     pub color: Option<String>,
-    /// The nest (subproject) the track is made in; the song when absent.
+    /// The nest (subproject) the part is made in; the song when absent.
     pub nest: Option<NestId>,
 }
 
-/// What `paw.api.track_list` takes: the tracks of the song when empty.
+/// What `paw.api.part_list` takes: the parts of the song when empty.
 #[derive(Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub(crate) struct TrackListOpts {
-    /// The tracks of this subproject, without its master.
+pub(crate) struct PartListOpts {
+    /// The parts of this subproject, without its master.
     pub nest: Option<NestId>,
-    /// Every track: the song's and those of each subproject.
+    /// Every part: the song's and those of each subproject.
     pub all: bool,
 }
 
-/// A fader or pan knob that [`Document::track_set`] moved: where it was and
+/// A fader or pan knob that [`Document::part_set`] moved: where it was and
 /// where it went.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct ControlMove {
@@ -49,12 +49,12 @@ pub(crate) struct ControlMove {
 }
 
 impl Document {
-    pub(crate) fn track_view(&self, id: Id) -> Result<Value> {
+    pub(crate) fn part_view(&self, id: Id) -> Result<Value> {
         let t = self
             .project
-            .track(id)
-            .with_context(|| format!("no track {id}"))?;
-        let index = self.project.tracks.iter().position(|x| x.id == id);
+            .part(id)
+            .with_context(|| format!("no part {id}"))?;
+        let index = self.project.parts.iter().position(|x| x.id == id);
         Ok(json!({
             "id": t.id, "name": t.name, "volume": t.volume, "pan": t.pan, "mute": t.mute,
             "solo": t.solo, "armed": t.armed, "output": t.output, "sends": t.sends,
@@ -64,26 +64,26 @@ impl Document {
             "master": id == MASTER_ID, "input": t.input, "monitor": t.monitor,
             "midi_input": t.midi_input, "midi_output": t.midi_output, "height": t.height,
             "automation": t.automation.name(), "attr_map": t.attr_map,
-            // The tracks that devices on this one listen to as side-chains.
+            // The parts that devices on this one listen to as side-chains.
             "listens": t.devices.iter().filter_map(|d| d.sidechain).collect::<BTreeSet<_>>(),
-            // The tracks that further output pairs of its devices play into.
+            // The parts that further output pairs of its devices play into.
             "pairs_into": t.devices.iter().flat_map(|d| d.outputs.values()).collect::<BTreeSet<_>>(),
-            // A track or a chain read from outside the project's folder, or copied from there.
+            // A part or a chain read from outside the project's folder, or copied from there.
             "source": t.source, "origin": t.origin,
             "chain_source": t.chain_source, "chain_origin": t.chain_origin,
-            // The subproject the track belongs to; nil for the song's.
+            // The subproject the part belongs to; nil for the song's.
             "nest": t.nest,
         }))
     }
 
-    /// One entry of [`track_view`](Self::track_view), made alone: the
-    /// handlers of each edit ask for a track's volume or meta, and the whole
-    /// view lists every clip of the track.
-    pub(crate) fn track_field(&self, id: Id, key: &str) -> Result<Value> {
+    /// One entry of [`part_view`](Self::part_view), made alone: the
+    /// handlers of each edit ask for a part's volume or meta, and the whole
+    /// view lists every clip of the part.
+    pub(crate) fn part_field(&self, id: Id, key: &str) -> Result<Value> {
         let t = self
             .project
-            .track(id)
-            .with_context(|| format!("no track {id}"))?;
+            .part(id)
+            .with_context(|| format!("no part {id}"))?;
         Ok(match key {
             "id" => json!(t.id),
             "name" => json!(t.name),
@@ -102,11 +102,11 @@ impl Document {
             "midi_input" => json!(t.midi_input),
             "midi_output" => json!(t.midi_output),
             "height" => json!(t.height),
-            _ => self.track_view(id)?.get(key).cloned().unwrap_or(Value::Null),
+            _ => self.part_view(id)?.get(key).cloned().unwrap_or(Value::Null),
         })
     }
 
-    pub(crate) fn track_add(&mut self, opts: TrackOpts) -> Result<Id> {
+    pub(crate) fn part_add(&mut self, opts: PartOpts) -> Result<Id> {
         let volume = finite("volume", opts.volume.unwrap_or(0.0))?.clamp(-120.0, 24.0);
         let pan = finite("pan", opts.pan.unwrap_or(0.0))?.clamp(-1.0, 1.0);
         let id = self.new_id();
@@ -114,57 +114,57 @@ impl Document {
             if let Some(nest) = opts.nest
                 && p.nest(nest).is_none()
             {
-                bail!("no subproject {nest} to add a track to");
+                bail!("no subproject {nest} to add a part to");
             }
             if let Some(output) = opts.output.filter(|o| *o != MASTER_ID) {
-                let Some(to) = p.track(output) else {
-                    bail!("no track {output} to output to");
+                let Some(to) = p.part(output) else {
+                    bail!("no part {output} to output to");
                 };
                 if to.nest != opts.nest {
-                    bail!("track {output} ({}) is not in the same subproject: the tracks of a subproject route only to each other", to.name);
+                    bail!("part {output} ({}) is not in the same subproject: the parts of a subproject route only to each other", to.name);
                 }
             }
-            let mut track = Track::new(id);
-            track.nest = opts.nest;
-            // Numbered among the tracks of the song, or of its nest.
+            let mut part = Part::new(id);
+            part.nest = opts.nest;
+            // Numbered among the parts of the song, or of its nest.
             let masters: BTreeSet<Id> = p.nests.values().map(|n| n.master).collect();
             let count = p
-                .tracks
+                .parts
                 .iter()
                 .filter(|t| t.nest == opts.nest && !masters.contains(&t.id))
                 .count();
-            track.name = opts.name.unwrap_or_else(|| format!("Track {}", count + 1));
-            track.volume = volume;
-            track.pan = pan;
-            track.output = opts.output.filter(|o| *o != MASTER_ID);
-            track.color = opts.color;
+            part.name = opts.name.unwrap_or_else(|| format!("Part {}", count + 1));
+            part.volume = volume;
+            part.pan = pan;
+            part.output = opts.output.filter(|o| *o != MASTER_ID);
+            part.color = opts.color;
             let index = opts.index.map_or(usize::MAX, |i| i.saturating_sub(1));
             let at = p.place_position(opts.nest, index);
-            p.tracks.insert(at, Arc::new(track));
+            p.parts.insert(at, Arc::new(part));
             Ok(id)
         })
     }
 
-    pub(crate) fn track_remove(&mut self, id: Id) -> Result<()> {
+    pub(crate) fn part_remove(&mut self, id: Id) -> Result<()> {
         self.edit(|p| {
             if id == MASTER_ID {
-                bail!("the master track cannot be removed");
+                bail!("the master part cannot be removed");
             }
             if let Some(nest) = p.nests.values().find(|n| n.master == id) {
-                bail!("track {id} is the master of the subproject {}: it cannot be removed", nest.name);
+                bail!("part {id} is the master of the subproject {}: it cannot be removed", nest.name);
             }
             let index = p
-                .tracks
+                .parts
                 .iter()
                 .position(|t| t.id == id)
-                .with_context(|| format!("no track {id}"))?;
-            p.tracks.remove(index);
-            // Anything that was routed into the removed track falls back to the master.
-            for track in &mut p.tracks {
-                if track.output == Some(id) || track.sends.iter().any(|s| s.target == id) {
-                    let track = Arc::make_mut(track);
-                    track.output = track.output.filter(|o| *o != id);
-                    track.sends.retain(|s| s.target != id);
+                .with_context(|| format!("no part {id}"))?;
+            p.parts.remove(index);
+            // Anything that was routed into the removed part falls back to the master.
+            for part in &mut p.parts {
+                if part.output == Some(id) || part.sends.iter().any(|s| s.target == id) {
+                    let part = Arc::make_mut(part);
+                    part.output = part.output.filter(|o| *o != id);
+                    part.sends.retain(|s| s.target != id);
                 }
             }
             // Devices that listened to it listen to their own input again,
@@ -172,9 +172,9 @@ impl Document {
             let routed = |d: &DeviceInst| {
                 d.sidechain == Some(id) || d.outputs.values().any(|to| *to == id)
             };
-            for track in std::iter::once(&mut p.master).chain(&mut p.tracks) {
-                if track.devices.iter().any(|d| routed(d)) {
-                    for device in &mut Arc::make_mut(track).devices {
+            for part in std::iter::once(&mut p.master).chain(&mut p.parts) {
+                if part.devices.iter().any(|d| routed(d)) {
+                    for device in &mut Arc::make_mut(part).devices {
                         if routed(device) {
                             let device = Arc::make_mut(device);
                             if device.sidechain == Some(id) {
@@ -190,105 +190,105 @@ impl Document {
         })
     }
 
-    /// The ids of the tracks of the song, of one subproject (`nest`), or
+    /// The ids of the parts of the song, of one subproject (`nest`), or
     /// of both (`all`), in their order.
-    pub(crate) fn track_ids(&self, opts: &TrackListOpts) -> Vec<Id> {
+    pub(crate) fn part_ids(&self, opts: &PartListOpts) -> Vec<Id> {
         if opts.all {
-            return self.project.tracks.iter().map(|t| t.id).collect();
+            return self.project.parts.iter().map(|t| t.id).collect();
         }
-        self.project.place_tracks(opts.nest).map(|t| t.id).collect()
+        self.project.place_parts(opts.nest).map(|t| t.id).collect()
     }
 
-    /// Move a track to `index` (from 0) among the tracks of its place: the
+    /// Move a part to `index` (from 0) among the parts of its place: the
     /// song, or its subproject.
-    pub(crate) fn track_move(&mut self, id: Id, index: usize) -> Result<()> {
+    pub(crate) fn part_move(&mut self, id: Id, index: usize) -> Result<()> {
         self.edit(|p| {
             let from = p
-                .tracks
+                .parts
                 .iter()
                 .position(|t| t.id == id)
-                .with_context(|| format!("no track {id}"))?;
-            let track = p.tracks.remove(from);
-            let at = p.place_position(track.nest, index);
-            p.tracks.insert(at, track);
+                .with_context(|| format!("no part {id}"))?;
+            let part = p.parts.remove(from);
+            let at = p.place_position(part.nest, index);
+            p.parts.insert(at, part);
             Ok(())
         })
     }
 
-    /// Set `key` of track `id` to `value`. A value that the track already
+    /// Set `key` of part `id` to `value`. A value that the part already
     /// holds is no change. Gives the fader or pan knob that the edit moved,
     /// for the session to write as automation while the song plays.
-    pub(crate) fn track_set(&mut self, id: Id, key: &str, value: Value) -> Result<Option<ControlMove>> {
-        if holds(&self.track_view(id), key, &value) {
+    pub(crate) fn part_set(&mut self, id: Id, key: &str, value: Value) -> Result<Option<ControlMove>> {
+        if holds(&self.part_view(id), key, &value) {
             return Ok(None);
         }
-        // An unknown key fails inside the edit, after a missing track does.
-        let field = key.parse::<TrackField>();
-        let moved = matches!(field, Ok(TrackField::Volume | TrackField::Pan));
-        let control = match (moved, self.project.track(id), value.as_f64()) {
-            (true, Some(track), Some(to)) => Some(match field {
-                Ok(TrackField::Volume) => ControlMove { target: Target::Volume, before: track.volume, to },
-                _ => ControlMove { target: Target::Pan, before: track.pan, to },
+        // An unknown key fails inside the edit, after a missing part does.
+        let field = key.parse::<PartField>();
+        let moved = matches!(field, Ok(PartField::Volume | PartField::Pan));
+        let control = match (moved, self.project.part(id), value.as_f64()) {
+            (true, Some(part), Some(to)) => Some(match field {
+                Ok(PartField::Volume) => ControlMove { target: Target::Volume, before: part.volume, to },
+                _ => ControlMove { target: Target::Pan, before: part.pan, to },
             }),
             _ => None,
         };
         self.edit(|p| {
-            if p.track(id).is_none() {
-                bail!("no track {id}");
+            if p.part(id).is_none() {
+                bail!("no part {id}");
             }
             field?.set(p, id, key, value)
         })?;
         if moved {
-            self.swept(format!("track {id} {key}"));
+            self.swept(format!("part {id} {key}"));
         }
         Ok(control)
     }
 
-    /// Make every track read from a folder outside the project, and every
+    /// Make every part read from a folder outside the project, and every
     /// chain read from a file outside it, the project's own (`:collect`):
-    /// the next save writes them into its folder. Returns how many tracks
+    /// the next save writes them into its folder. Returns how many parts
     /// and how many chains. Run before `clip_collect`, which then takes
-    /// such a track's clips.
-    pub(crate) fn track_collect(&mut self) -> (usize, usize) {
-        let (mut tracks, mut chains) = (0, 0);
-        for track in &mut self.project.tracks {
-            if track.source.is_none() && track.chain_source.is_none() {
+    /// such a part's clips.
+    pub(crate) fn part_collect(&mut self) -> (usize, usize) {
+        let (mut parts, mut chains) = (0, 0);
+        for part in &mut self.project.parts {
+            if part.source.is_none() && part.chain_source.is_none() {
                 continue;
             }
-            let track = Arc::make_mut(track);
-            if track.source.is_some() {
-                track.origin = track.source.take();
-                tracks += 1;
+            let part = Arc::make_mut(part);
+            if part.source.is_some() {
+                part.origin = part.source.take();
+                parts += 1;
             }
-            if track.chain_source.is_some() {
-                track.chain_origin = track.chain_source.take();
+            if part.chain_source.is_some() {
+                part.chain_origin = part.chain_source.take();
                 chains += 1;
             }
         }
-        if tracks + chains > 0 {
+        if parts + chains > 0 {
             self.undo.touched = true;
             self.dirty = true;
         }
-        (tracks, chains)
+        (parts, chains)
     }
 
-    /// The milliseconds a note with `attr` is moved by the track's attribute map.
-    pub(crate) fn attr_delay(&self, track: Id, attr: paw_types::Attr) -> Result<f64> {
-        let track = self
+    /// The milliseconds a note with `attr` is moved by the part's attribute map.
+    pub(crate) fn attr_delay(&self, part: Id, attr: paw_types::Attr) -> Result<f64> {
+        let part = self
             .project
-            .track(track)
-            .with_context(|| format!("no track {track}"))?;
-        Ok(match &track.attr_map {
+            .part(part)
+            .with_context(|| format!("no part {part}"))?;
+        Ok(match &part.attr_map {
             Some(map) => map.plan()?.delay_of(attr),
             None => 0.0,
         })
     }
 }
 
-/// A field of a track that [`Document::track_set`] changes: the key that Lua
+/// A field of a part that [`Document::part_set`] changes: the key that Lua
 /// gives, parsed once.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum TrackField {
+enum PartField {
     Name,
     Volume,
     Pan,
@@ -308,27 +308,27 @@ enum TrackField {
     AttrMap,
 }
 
-impl TrackField {
-    /// Set this field of track `id`, which is in `p`. `key` is the field's
+impl PartField {
+    /// Set this field of part `id`, which is in `p`. `key` is the field's
     /// key in Lua, for the error texts.
     fn set(self, p: &mut Project, id: Id, key: &str, value: Value) -> Result<()> {
         match self {
-            // Routing looks at the other tracks before it changes this one.
+            // Routing looks at the other parts before it changes this one.
             Self::Output => {
                 let output = checked_output(p, id, de(key, value)?)?;
-                track_in(p, id)?.output = output;
+                part_in(p, id)?.output = output;
             }
             Self::Sends => {
                 let sends = checked_sends(p, id, de(key, value)?)?;
-                track_in(p, id)?.sends = sends;
+                part_in(p, id)?.sends = sends;
             }
-            own => own.set_own(track_in(p, id)?, id, key, value)?,
+            own => own.set_own(part_in(p, id)?, id, key, value)?,
         }
         Ok(())
     }
 
-    /// Set a field that only the track's own state decides.
-    fn set_own(self, t: &mut Track, id: Id, key: &str, value: Value) -> Result<()> {
+    /// Set a field that only the part's own state decides.
+    fn set_own(self, t: &mut Part, id: Id, key: &str, value: Value) -> Result<()> {
         match self {
             Self::Name => t.name = de(key, value)?,
             Self::Volume => t.volume = de::<f64>(key, value)?.clamp(-120.0, 24.0),
@@ -338,7 +338,7 @@ impl TrackField {
             Self::Armed | Self::Monitor => {
                 let on: bool = de(key, value)?;
                 if on && id == MASTER_ID {
-                    bail!("the master track records nothing: arm a track");
+                    bail!("the master part records nothing: arm a part");
                 }
                 if self == Self::Armed {
                     t.armed = on;
@@ -358,13 +358,13 @@ impl TrackField {
             }
             Self::Input => {
                 if id == MASTER_ID {
-                    bail!("the master track has no input");
+                    bail!("the master part has no input");
                 }
                 t.input = input_of(value)?;
             }
             Self::MidiInput => {
                 if id == MASTER_ID {
-                    bail!("the master track has no input");
+                    bail!("the master part has no input");
                 }
                 t.midi_input = midi_input_of(value)?;
             }
@@ -376,7 +376,7 @@ impl TrackField {
     }
 }
 
-impl std::str::FromStr for TrackField {
+impl std::str::FromStr for PartField {
     type Err = anyhow::Error;
 
     fn from_str(key: &str) -> Result<Self> {
@@ -398,44 +398,44 @@ impl std::str::FromStr for TrackField {
             "midi_input" => Self::MidiInput,
             "midi_output" => Self::MidiOutput,
             "attr_map" => Self::AttrMap,
-            _ => bail!("tracks have no settable field `{key}`"),
+            _ => bail!("parts have no settable field `{key}`"),
         })
     }
 }
 
-fn track_in(p: &mut Project, id: Id) -> Result<&mut Track> {
-    p.track_mut(id).with_context(|| format!("no track {id}"))
+fn part_in(p: &mut Project, id: Id) -> Result<&mut Part> {
+    p.part_mut(id).with_context(|| format!("no part {id}"))
 }
 
-/// Where track `id` may output to: `None` is the master.
+/// Where part `id` may output to: `None` is the master.
 fn checked_output(p: &Project, id: Id, output: Option<Id>) -> Result<Option<Id>> {
     let output = output.filter(|o| *o != MASTER_ID);
     if id == MASTER_ID {
-        bail!("the master track has no output");
+        bail!("the master part has no output");
     }
     if let Some(to) = output {
-        if p.track(to).is_none() {
-            bail!("no track {to} to output to");
+        if p.part(to).is_none() {
+            bail!("no part {to} to output to");
         }
         if p.would_cycle(id, to) {
-            bail!("routing track {id} into track {to} would make a loop");
+            bail!("routing part {id} into part {to} would make a loop");
         }
         p.check_route(id, to, crate::model::Route::Output)?;
     }
     Ok(output)
 }
 
-/// The sends that track `id` may have, their levels clamped.
+/// The sends that part `id` may have, their levels clamped.
 fn checked_sends(p: &Project, id: Id, mut sends: Vec<Send>) -> Result<Vec<Send>> {
     for send in &mut sends {
         send.level = send.level.clamp(-120.0, 24.0);
     }
     for send in &sends {
-        if id == MASTER_ID || p.track(send.target).is_none() {
-            bail!("cannot send from track {id} to track {}", send.target);
+        if id == MASTER_ID || p.part(send.target).is_none() {
+            bail!("cannot send from part {id} to part {}", send.target);
         }
         if p.would_cycle(id, send.target) {
-            bail!("sending track {id} to track {} would make a loop", send.target);
+            bail!("sending part {id} to part {} would make a loop", send.target);
         }
         p.check_route(id, send.target, crate::model::Route::Send)?;
     }
@@ -478,7 +478,7 @@ fn midi_input_of(value: Value) -> Result<Option<MidiInput>> {
     })
 }
 
-/// A track's MIDI output from what a script gives: a port's name, a table
+/// A part's MIDI output from what a script gives: a port's name, a table
 /// `{ port, channel, form, members }`, or nil (or "none") for none.
 fn parse_midi_output(value: Value) -> Result<Option<MidiOutput>> {
     let out = match value {
@@ -510,10 +510,10 @@ fn parse_midi_output(value: Value) -> Result<Option<MidiOutput>> {
 mod tests {
     use super::*;
 
-    /// A document with one track, at volume 0 dB.
-    fn one_track() -> (Document, Id) {
+    /// A document with one part, at volume 0 dB.
+    fn one_part() -> (Document, Id) {
         let mut doc = Document::default();
-        let id = doc.track_add(TrackOpts::default()).unwrap();
+        let id = doc.part_add(PartOpts::default()).unwrap();
         (doc, id)
     }
 
@@ -526,8 +526,8 @@ mod tests {
             ("name", json!("Bass"), None),
         ];
         for (key, value, want) in cases {
-            let (mut doc, id) = one_track();
-            let moved = doc.track_set(id, key, value.clone()).unwrap();
+            let (mut doc, id) = one_part();
+            let moved = doc.part_set(id, key, value.clone()).unwrap();
             assert_eq!(moved, want, "{key} set to {value}");
         }
     }

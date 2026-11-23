@@ -3,7 +3,7 @@
 -- beside the flat list of devices; this module reads it and makes each
 -- edit as one undo step that says what it did.
 --
---   local c = paw.chain.of({ track = 3 })    -- the handle of a track's chain
+--   local c = paw.chain.of({ part = 3 })    -- the handle of a part's chain
 --   paw.chain.get(c)                         -- the chain, or nil: in series
 --   paw.chain.wrap(c, { comp, eq }, "layer") -- a new split around them
 --   paw.chain.set(c, branch, { gain = -6 })
@@ -39,11 +39,11 @@ end
 Chain.say = function(_: string) end
 
 --- The handle of the chain of `owner`, which each other function of
---- paw.chain takes: `{ track = id }` for the chain of a track. An error
+--- paw.chain takes: `{ part = id }` for the chain of a part. An error
 --- when the owner is not in the project.
 function Chain.of(owner: types.ChainOwner): types.ChainOwner
   api.chain_get(owner)
-  return {track = owner.track}
+  return {part = owner.part}
 end
 
 --- The chain of the owner `h`, or nil when it has none: then its devices

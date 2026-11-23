@@ -11,7 +11,7 @@ use crate::plan::{Buf, Ev, Filter, Gain, GraphPlan, Op, Part, Ring};
 use crate::slot::DeviceSlot;
 
 use super::MAX_BLOCK;
-use super::track::TrackRt;
+use super::part::PartRt;
 use super::work::{Block, Programs, Work, peak_of};
 
 /// One stereo buffer of a plan, as long as the block.
@@ -93,13 +93,13 @@ impl Work<'_> {
     /// Run the block through the processor's plan: its devices in order,
     /// letting those at rest sleep through silence and passing over or
     /// silencing those that fail; and its splits, branches and merges.
-    pub(super) fn run_plan(&self, t: &mut TrackRt, programs: &Programs) {
+    pub(super) fn run_plan(&self, t: &mut PartRt, programs: &Programs) {
         let Block { ref ctx, n, map, meter_fall, .. } = *self.block;
-        // A track with a time of its own (a subproject's) gives its devices
+        // A part with a time of its own (a subproject's) gives its devices
         // its bars: a copy of the block's context, on the stack.
         let local = t.local.as_deref().map(|l| l.context(ctx, map));
         let ctx = local.as_ref().unwrap_or(ctx);
-        let TrackRt { buf, events, plan, .. } = t;
+        let PartRt { buf, events, plan, .. } = t;
         let GraphPlan { ops, arena, bufs, events: lists, crossovers, allpasses, gains, rings, meters, .. } =
             &mut **plan;
         let (work, lines) = arena.split_at_mut(*bufs * PAIR);

@@ -126,7 +126,7 @@ local record role_props
       label: string
    end
 
-   --- A note: its track's `color` (`#rrggbb`), its `velocity` (1 to 127), its
+   --- A note: its part's `color` (`#rrggbb`), its `velocity` (1 to 127), its
    --- name as `label`; `selected`, `cursor`, `ghost` while it is dragged and
    --- `pending` while it is drawn; `bend`, its own pitch bend at its end in
    --- semitones, reached from `bend_at` (0 to 1) of its length.
@@ -172,7 +172,7 @@ local record role_props
       label: string
    end
 
-   --- A track's name on its `color`, with its `number`.
+   --- A part's name on its `color`, with its `number`.
    record ChipProps is Props
       text: string
       color: string
@@ -183,7 +183,7 @@ local record role_props
 
    --- A clip of the timeline (`id`), or one of its takes (`take`, `active`
    --- when it plays): its `name` or `label`, its take `mark` ("2/4", shown
-   --- after the label, or before it where both do not fit), its track's
+   --- after the label, or before it where both do not fit), its part's
    --- `color`, `length` beats in columns `per` cells a beat; `content` the
    --- key of its notes or sound; `midi`; `muted`, `current`, `chosen`, `ghost`
    --- while it is dragged; its fades and `gain` (shown with `gain_line`) in
@@ -220,7 +220,7 @@ local record role_props
 
    --- The ground of a row of the timeline, `index` from the top, in columns
    --- `per` cells a beat from beat `from`: `tone` "take" or "auto" for a take
-   --- lane or an automation lane, `selected` for the cursor's track; the loop
+   --- lane or an automation lane, `selected` for the cursor's part; the loop
    --- (`loop`, `{ start, end }`) shaded; `lines`, `{ beat, bar }` each, a
    --- line on each bar, and on each beat with `beats`.
    record BeatsProps is Props
@@ -236,7 +236,7 @@ local record role_props
 
    --- A curve: `values` (0 to 1, one each half column, nil where there is
    --- none) and its `points`, `{ beat, value }` each, in columns `per` cells a
-   --- beat from beat `from`; its track's `color`, grey when not `enabled`.
+   --- beat from beat `from`; its part's `color`, grey when not `enabled`.
    record CurveProps is Props
       values: {number | boolean}
       points: {{number, number}}
@@ -246,8 +246,8 @@ local record role_props
       enabled: boolean
    end
 
-   --- A track's header: its `color`, `selected` for the cursor's track.
-   record TrackheadProps is Props
+   --- A part's header: its `color`, `selected` for the cursor's part.
+   record PartheadProps is Props
       color: string
       selected: boolean
    end

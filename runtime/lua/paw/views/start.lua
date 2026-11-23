@@ -34,7 +34,7 @@ end
 
 -- What to type to show something here, each with what it shows.
 local HINTS = {
-  { ":e arrange", "the arrange view: the tracks in time" },
+  { ":e arrange", "the arrange view: the parts in time" },
   { ":e roll://riff", "the clip riff in the piano roll (or its number, roll://7)" },
   { ":e mixer", "the mixer; also devices, session, and the views of extensions" },
   { ":vs <view>", "a view beside this window (:sp <view> below it)" },

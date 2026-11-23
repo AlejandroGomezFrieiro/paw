@@ -2,9 +2,9 @@
 -- docs/reference/lists-edited-as-text.md says how they are used, docs/reference/lua-views.md how an
 -- extension adds a kind of its own.
 --
---   :e paw://tracks          :vs paw://sends          :e paw://markers
+--   :e paw://parts          :vs paw://sends          :e paw://markers
 --
--- A buffer is lines of text, one thing of the project on each (a track, a
+-- A buffer is lines of text, one thing of the project on each (a part, a
 -- send, a device, a marker), written by its kind. Each line carries the id
 -- of what it stands for, out of the text, so that a line changed is that
 -- thing changed, a line moved is it moved, a line deleted is it deleted, a
@@ -119,7 +119,7 @@ local record TextBuffer
 end
 
 --- What a register holds that this module puts: lines (with the buffer
---- they were yanked from), a block of rows, or text. Others put tracks.
+--- they were yanked from), a block of rows, or text. Others put parts.
 local record Register is KeymapModule.Register
   lines: {Line}
   source: string
@@ -835,7 +835,7 @@ local function sync_all()
     end
   end
 end
-for _, family in ipairs({"track.*", "device.*", "project.*", "tempo.*"}) do
+for _, family in ipairs({"part.*", "device.*", "project.*", "tempo.*"}) do
   events.on(events.pattern(family), sync_all)
 end
 
@@ -1809,7 +1809,7 @@ function M.put(before: boolean, register?: string, count?: integer)
   end
   count = count or 1
   t:begin(s.row, s.col)
-  if value.kind == "lines" or value.kind == "tracks" then
+  if value.kind == "lines" or value.kind == "parts" then
     local lines: {Line} = {}
     for _ = 1, count do
       for _, l in ipairs(value.lines or {}) do
@@ -2646,7 +2646,7 @@ local function paint_line(
       if style then
         canvas:text(x + cell.col, y, clip(cell.text, maxw - cell.col), style)
       elseif i == 1 then
-        canvas:text(x + cell.col, y, clip(cell.text, maxw - cell.col), kind.first_style or "TrackName")
+        canvas:text(x + cell.col, y, clip(cell.text, maxw - cell.col), kind.first_style or "PartName")
       elseif word and kw[word] then
         canvas:text(x + cell.col, y, clip(word, maxw - cell.col), "Dim")
       end
@@ -2701,7 +2701,7 @@ local function render(win: Window, canvas: Buf, ctx?: contracts.RenderContext)
     else
       local g = gs[row]
       if g and G > 0 then
-        canvas:text(0, y, string.format("%3s", g.number), "TrackIndex")
+        canvas:text(0, y, string.format("%3s", g.number), "PartIndex")
         canvas:text(3, y, g.sign, g.style)
       end
       local text = t:line(row)
@@ -3171,7 +3171,7 @@ tmap(
     end
     open(ctx_of(buf), t.lines[s.row] as contracts.TextLine<Fields>, t:line(s.row))
   end,
-  "Open what the line stands for: a track's devices",
+  "Open what the line stands for: a part's devices",
   {repeatable = false}
 )
 tmap(
@@ -3187,7 +3187,7 @@ tmap(
     end
     M.open(up, {here = true})
   end,
-  "The buffer this one is part of: paw://tracks from a track's devices",
+  "The buffer this one belongs to: paw://parts from a part's devices",
   {repeatable = false}
 )
 tmap(
@@ -3271,7 +3271,7 @@ commands.define(
   function(ctx: contracts.CommandContext): contracts.CommandResult
     local args = tostring(ctx.args[1] or "")
     if not M.exec("sort" .. (args ~= "" and " " .. args or "")) then
-      paw.notify("`:sort` sorts the lines of a text buffer: `:e paw://tracks` opens one", "warn")
+      paw.notify("`:sort` sorts the lines of a text buffer: `:e paw://parts` opens one", "warn")
     end
   end,
   {
@@ -3283,7 +3283,7 @@ commands.define(
 commands.define(
   "textbuf.open",
   function(ctx: contracts.CommandContext): contracts.CommandResult
-    local name = ctx.args[1] and tostring(ctx.args[1]) or "paw://tracks"
+    local name = ctx.args[1] and tostring(ctx.args[1]) or "paw://parts"
     if not name:find("://") then
       name = "paw://" .. name
     end
@@ -3297,7 +3297,7 @@ commands.define(
     end
   end,
   {
-    desc = "Edit a listing as text: `textbuf.open tracks`, `sends`, `markers`, `track/2/devices`; `vertical`, `here` or `window` says where",
+    desc = "Edit a listing as text: `textbuf.open parts`, `sends`, `markers`, `part/2/devices`; `vertical`, `here` or `window` says where",
     complete = function(_: string, info: contracts.CompleteInfo): {string | contracts.CompleteCandidate}
       if info.index > 1 then
         return {"vertical", "here", "window"}
@@ -3306,7 +3306,7 @@ commands.define(
       for name in pairs(M.kinds:entries()) do
         out[#out + 1] = "paw://" .. name
       end
-      out[#out + 1] = "paw://track/1/devices"
+      out[#out + 1] = "paw://part/1/devices"
       table.sort(out)
       return out
     end,
@@ -3317,7 +3317,7 @@ commands.define(
   function(): contracts.CommandResult
     local _, buf = here()
     if not buf then
-      paw.notify("no text buffer here: `:e paw://tracks` opens one", "warn")
+      paw.notify("no text buffer here: `:e paw://parts` opens one", "warn")
       return
     end
     M.open(buf.name, {window = true})

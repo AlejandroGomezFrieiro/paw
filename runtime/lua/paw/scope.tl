@@ -1,14 +1,14 @@
 -- Scopes: a view of a part of the song, as REAPER's subprojects let a large
 -- project be worked on one section at a time, but with one project and one
--- undo tree. A scope is a set of tracks, a stretch of time, or both:
+-- undo tree. A scope is a set of parts, a stretch of time, or both:
 --
---   paw.scope.narrow("Strings")   -- a group and every track in it
---   paw.scope.narrow("Bridge")    -- a region: every track, in its time
---   paw.scope.enter({ kind = "range", tracks = { 3, 4 }, from = 64, to = 96 })
+--   paw.scope.narrow("Strings")   -- a group and every part in it
+--   paw.scope.narrow("Bridge")    -- a region: every part, in its time
+--   paw.scope.enter({ kind = "range", parts = { 3, 4 }, from = 64, to = 96 })
 --   paw.scope.widen()             -- up one level; `widen(true)` up to the song
 --   paw.scope.next(1)             -- the next scope beside this one (`]z`)
 --   paw.scope.current()           -- the scope shown, or nil for the song
---   paw.scope.tracks()            -- the tracks it shows, in order
+--   paw.scope.parts()            -- the parts it shows, in order
 --   paw.scope.span()              -- its time, `from, to` in beats, or nil for all of it
 --
 -- A scope belongs to a window, as Vim's folds do: each window keeps its
@@ -30,7 +30,7 @@
 --
 -- In a scope with time, bars count from 1 at its start (`scopebars`); the
 -- loop is its time while its window is in front (`scopeloop`); the cursor
--- stays in it. What the tracks outside do is `paw.opt.scope_rest`: "play"
+-- stays in it. What the parts outside do is `paw.opt.scope_rest`: "play"
 -- (the default), "mute", or "frozen": each part of the rest is rendered in
 -- the background and played from its file, so that its devices rest (see
 -- paw/freeze.lua). None of it touches the project.
@@ -69,8 +69,8 @@ local record Loop
   enabled: boolean
 end
 
---- A track, by its id or itself.
-local type TrackRef = integer | contracts.TrackHandle
+--- A part, by its id or itself.
+local type PartRef = integer | contracts.PartHandle
 
 -- paw/routes.lua and paw/freeze.lua, still in Lua: the parts read here.
 local record Routes
@@ -145,7 +145,7 @@ end
 local opt = options.opt
 options.define(
   "scope_rest", "play", {values = {"play", "mute", "frozen"}}
-) -- what the tracks outside a scope do: "play", "mute" or "frozen"
+) -- what the parts outside a scope do: "play", "mute" or "frozen"
 -- The ruler has one numbering: the status line shows the song's place
 -- next to the scope's, so a second row of the song's bars only mixed two
 -- numberings under one another.
@@ -156,12 +156,12 @@ options.define("scopeloop", true) -- entering a scope with time loops its time w
 
 local changed: events.Event<Changed> = events.event("scope.changed")
 M.changed = changed
---- `track.added`, which says whether undo or a load put the track back.
+--- `part.added`, which says whether undo or a load put the part back.
 local record Added
   id: integer
   restored: boolean
 end
-local added: events.Event<Added> = events.event("track.added")
+local added: events.Event<Added> = events.event("part.added")
 local tab_enter: events.Event<events.Payload> = events.event("tab.enter")
 local record WinEvent
   win: integer
@@ -178,23 +178,23 @@ local function keymap(): KeymapModule
   return paw.keymap
 end
 
-local function id_of(track: TrackRef): integer
-  if track is contracts.TrackHandle then
-    return track.id
+local function id_of(part: PartRef): integer
+  if part is contracts.PartHandle then
+    return part.id
   end
-  return track
+  return part
 end
 
 local function exists(id: integer): boolean
-  return id ~= nil and (pcall(api.track_get, id))
+  return id ~= nil and (pcall(api.part_get, id))
 end
 
 local function name_of(id: integer): string
-  return (api.track_get as function(integer, string): string)(id, "name")
+  return (api.part_get as function(integer, string): string)(id, "name")
 end
 
---- A track's subproject, or nil for a track of the song (one field: quick).
-local nest_field = api.track_get as function(id: integer, key: string): integer
+--- A part's subproject, or nil for a part of the song (one field: quick).
+local nest_field = api.part_get as function(id: integer, key: string): integer
 local function nest_of(id: integer): integer
   local ok, nest = pcall(nest_field, id, "nest") as (boolean, integer)
   return ok and nest or nil
@@ -239,7 +239,7 @@ local function valid(s: Scope): boolean
   if s.kind == "group" then
     return exists(s.id) and groups().is_group(s.id)
   end
-  if s.kind == "track" then
+  if s.kind == "part" then
     return exists(s.id)
   end
   if s.kind == "region" then
@@ -317,7 +317,7 @@ end
 
 --- The scope a window shows, or nil for the song: the window given, else
 --- the window being drawn, else the current one. A level whose group,
---- track or region is gone is left out.
+--- part or region is gone is left out.
 function M.current(win?: Window): Scope
   local w = window_of(win)
   return w and live(w.scope)
@@ -335,7 +335,7 @@ function M.of_tab(tab: LayoutModule.Tab): Scope
 end
 
 --- The innermost group of a scope's path (the current scope by default):
---- what a narrowed window's tracks are shown under. Nil when no level is a group.
+--- what a narrowed window's parts are shown under. Nil when no level is a group.
 function M.group(s?: Scope): integer
   s = s or M.current()
   while s do
@@ -346,7 +346,7 @@ function M.group(s?: Scope): integer
   end
 end
 
---- Whether one level, alone, shows a track.
+--- Whether one level, alone, shows a part.
 local function own_contains(s: Scope, id: integer): boolean
   if s.kind == "group" then
     local at, steps = id, 0
@@ -357,12 +357,12 @@ local function own_contains(s: Scope, id: integer): boolean
       at, steps = groups().of(at), steps + 1
     end
     return false
-  elseif s.kind == "track" then
+  elseif s.kind == "part" then
     return id == s.id
   elseif s.kind == "nest" then
     return nest_of(id) == s.id
-  elseif s.tracks then
-    for _, other in ipairs(s.tracks) do
+  elseif s.parts then
+    for _, other in ipairs(s.parts) do
       if other == id then
         return true
       end
@@ -381,27 +381,27 @@ local function resolve(s: Scope | integer): Scope
 end
 
 --- True if a scope (the current one by default; a group's id is a scope
---- of that group) shows a track: it and every level above it do. With no
---- scope, every track is inside.
-function M.contains(track: TrackRef, s?: Scope | integer): boolean
+--- of that group) shows a part: it and every level above it do. With no
+--- scope, every part is inside.
+function M.contains(part: PartRef, s?: Scope | integer): boolean
   local scope = resolve(s)
-  local id = id_of(track)
+  local id = id_of(part)
   while scope do
     if valid(scope) and not own_contains(scope, id) then
       return false
     end
     if scope.kind == "nest" and valid(scope) then
-      -- A subproject's tracks are its own: the levels above it show the song's.
+      -- A subproject's parts are its own: the levels above it show the song's.
       return true
     end
     scope = scope.parent
   end
-  -- The song shows its own tracks, not those of a subproject.
+  -- The song shows its own parts, not those of a subproject.
   return id == 0 or nest_of(id) == nil
 end
 
 --- The innermost subproject of a scope's path (the current scope by
---- default), or nil when the path is in the song: its tracks and its
+--- default), or nil when the path is in the song: its parts and its
 --- timeline are what the window shows.
 function M.nest(s?: Scope | integer): Scope
   local scope = resolve(s)
@@ -413,11 +413,11 @@ function M.nest(s?: Scope | integer): Scope
   end
 end
 
---- True if a scope, or one of the levels above it, limits the tracks.
-function M.limits_tracks(s?: Scope | integer): boolean
+--- True if a scope, or one of the levels above it, limits the parts.
+function M.limits_parts(s?: Scope | integer): boolean
   local scope = resolve(s)
   while scope do
-    if scope.kind ~= "region" and not (scope.kind == "range" and not scope.tracks) then
+    if scope.kind ~= "region" and not (scope.kind == "range" and not scope.parts) then
       return true
     end
     scope = scope.parent
@@ -426,10 +426,10 @@ function M.limits_tracks(s?: Scope | integer): boolean
 end
 
 --- Whether a level below the innermost subproject (or below the song)
---- limits the tracks: else the scope shows all of that place's tracks.
+--- limits the parts: else the scope shows all of that place's parts.
 local function limits_inside(scope: Scope): boolean
   while scope and scope.kind ~= "nest" do
-    if scope.kind ~= "region" and not (scope.kind == "range" and not scope.tracks) then
+    if scope.kind ~= "region" and not (scope.kind == "range" and not scope.parts) then
       return true
     end
     scope = scope.parent
@@ -437,10 +437,10 @@ local function limits_inside(scope: Scope): boolean
   return false
 end
 
---- The tracks of a scope, worked out from the kernel's lists each time.
-local function tracks_of(scope: Scope): {integer}
+--- The parts of a scope, worked out from the kernel's lists each time.
+local function parts_of(scope: Scope): {integer}
   local nest = M.nest(scope)
-  local list = nest and api.track_list({nest = nest.id}) or api.track_list()
+  local list = nest and api.part_list({nest = nest.id}) or api.part_list()
   if not (scope and limits_inside(scope)) then
     return list
   end
@@ -465,7 +465,7 @@ local function has_level(scope: Scope, kind: Kind): boolean
 end
 
 --- A text of every level of a scope: two scopes with the same text show
---- the same tracks.
+--- the same parts.
 local function scope_text(scope: Scope): string
   local parts: {string} = {}
   while scope do
@@ -475,71 +475,71 @@ local function scope_text(scope: Scope): string
       tostring(scope.id),
       tostring(scope.from),
       tostring(scope.to),
-      scope.tracks and table.concat(scope.tracks, ",") or ""
+      scope.parts and table.concat(scope.parts, ",") or ""
     )
     scope = scope.parent
   end
   return #parts > 0 and table.concat(parts, "/") or "song"
 end
 
---- The levels of a scope, with the fields that choose its tracks.
+--- The levels of a scope, with the fields that choose its parts.
 local function copy_levels(scope: Scope): Scope
   if not scope then
     return nil
   end
-  local tracks: {integer}
-  if scope.tracks then
-    tracks = {}
-    for i, id in ipairs(scope.tracks) do
-      tracks[i] = id
+  local parts: {integer}
+  if scope.parts then
+    parts = {}
+    for i, id in ipairs(scope.parts) do
+      parts[i] = id
     end
   end
   return {
     kind = scope.kind,
     id = scope.id,
-    tracks = tracks,
+    parts = parts,
     from = scope.from,
     to = scope.to,
     parent = copy_levels(scope.parent),
   }
 end
 
--- The tracks of a scope of the song are a value of `paw.derived`, one for
--- each scope (`scope_text`). They read the track list, and for a scope
--- with a group, the `meta` of each track: the marks of the groups.
+-- The parts of a scope of the song are a value of `paw.derived`, one for
+-- each scope (`scope_text`). They read the part list, and for a scope
+-- with a group, the `meta` of each part: the marks of the groups.
 -- An edit of a note or a clip does not make them stale. A region gives no
--- source: it limits the time, never the tracks. A scope in a subproject is
--- not kept: the kernel tells no event when the tracks of a subproject
+-- source: it limits the time, never the parts. A scope in a subproject is
+-- not kept: the kernel tells no event when the parts of a subproject
 -- change their order.
-local tracks_spec: derived.Spec<Scope, {integer}, boolean> = {
-  name = "scope.tracks",
+local parts_spec: derived.Spec<Scope, {integer}, boolean> = {
+  name = "scope.parts",
   kind = "memo",
   id = scope_text,
   make = function(ctx: derived.Ctx, scope: Scope): {integer}
-    ctx:tracks()
+    ctx:parts()
     if has_level(scope, "group") then
-      for _, id in ipairs(api.track_list()) do
-        ctx:source("track:" .. id .. ":meta")
+      for _, id in ipairs(api.part_list()) do
+        ctx:source("part:" .. id .. ":meta")
       end
     end
-    return tracks_of(scope)
+    return parts_of(scope)
   end,
   limit = 64,
 }
-local tracks_node = derived.node(tracks_spec)
+local parts_node = derived.node(parts_spec)
 
---- The tracks of a scope (the current one by default), in the order of the
---- track list. With no scope, or one that keeps every track, all tracks of
---- the song; in a subproject, its tracks.
-function M.tracks(s?: Scope | integer): {integer}
+--- The parts of a scope (the current one by default), in the order of the
+--- part list. With no scope, or one that keeps every part, all parts of
+--- the song; in a subproject, its parts.
+function M.parts(s?: Scope | integer): {integer}
   local scope = resolve(s)
   if has_level(scope, "nest") then
-    return tracks_of(scope)
+    return parts_of(scope)
   end
   -- The graph keeps a copy of the scope: `enter` sets the parent of a
-  -- scope after it asked for its tracks. The caller gets a copy of the
+  -- scope after it asked for its parts. The caller gets a copy of the
   -- list: it may change it.
-  local kept = tracks_node:get(copy_levels(scope), true)
+  local kept = parts_node:get(copy_levels(scope), true)
   local out: {integer} = {}
   for i = 1, #kept do
     out[i] = kept[i]
@@ -603,7 +603,7 @@ end
 
 --- The scopes one level inside a scope (the current one by default): for
 --- a region scope, the regions one level inside its region (paw/markers.tl), in
---- order of time; for a group scope, its members (a group or a track), in
+--- order of time; for a group scope, its members (a group or a part), in
 --- order. Each has that scope as its parent. Other kinds have none.
 function M.children(s?: Scope): {Scope}
   local scope = s or M.current()
@@ -614,7 +614,7 @@ function M.children(s?: Scope): {Scope}
     end
   elseif scope and scope.kind == "group" and valid(scope) then
     for _, id in ipairs(groups().members(scope.id)) do
-      local kind: Kind = groups().is_group(id) and "group" or "track"
+      local kind: Kind = groups().is_group(id) and "group" or "part"
       out[#out + 1] = {kind = kind, id = id, name = name_of(id), parent = scope}
     end
   end
@@ -880,8 +880,8 @@ end
 
 -- Finding scopes ---------------------------------------------------------------------
 
---- A group by its id, its track, or its name (or part of it).
-function M.find(which: TrackRef | string): integer
+--- A group by its id, its part, or its name (or some of it).
+function M.find(which: PartRef | string): integer
   if which == nil then
     return nil
   end
@@ -896,7 +896,7 @@ function M.find(which: TrackRef | string): integer
   end
   local wanted = (which as string):lower()
   local partial_match: integer
-  for _, other in ipairs(api.track_list()) do
+  for _, other in ipairs(api.part_list()) do
     if groups().is_group(other) then
       local name = name_of(other):lower()
       if name == wanted then
@@ -910,13 +910,13 @@ function M.find(which: TrackRef | string): integer
   return partial_match
 end
 
---- The group of a track when you narrow: the track itself if it is a group.
+--- The group of a part when you narrow: the part itself if it is a group.
 --- If not, the group that contains it.
-function M.group_at(track: TrackRef): integer
-  if not track then
+function M.group_at(part: PartRef): integer
+  if not part then
     return nil
   end
-  local id = id_of(track)
+  local id = id_of(part)
   if groups().is_group(id) then
     return id
   end
@@ -961,7 +961,7 @@ function M.named(which: string | integer): Scope
   for _, m in ipairs(later) do
     regions[#regions + 1] = m
   end
-  for _, id in ipairs(api.track_list()) do
+  for _, id in ipairs(api.part_list()) do
     if groups().is_group(id) and name_of(id):lower() == wanted then
       return {kind = "group", id = id, name = name_of(id)}
     end
@@ -987,7 +987,7 @@ local function name_for(s: Scope): string
   if s.name then
     return s.name
   end
-  if (s.kind == "group" or s.kind == "track") and exists(s.id) then
+  if (s.kind == "group" or s.kind == "part") and exists(s.id) then
     return name_of(s.id)
   end
   if s.kind == "region" then
@@ -1002,7 +1002,7 @@ local function name_for(s: Scope): string
     local a, b = paw.time.bar_of(s.from), paw.time.bar_of(math.max(s.from, s.to - 1e-6))
     return a == b and ("Bar " .. a) or string.format("Bars %d-%d", a, b)
   end
-  return s.tracks and (#s.tracks .. " tracks") or "Range"
+  return s.parts and (#s.parts .. " parts") or "Range"
 end
 
 --- The scope of a subproject's clip (`znn` or `<CR>` on it enters it), or
@@ -1015,14 +1015,14 @@ function M.of_clip(id: integer): Scope
 end
 
 --- A fold of a window (paw/folds.tl) as a scope to enter: its group, its
---- region, its tracks or its bars, with the name it shows.
+--- region, its parts or its bars, with the name it shows.
 function M.of_fold(f: contracts.Fold): Scope
   local s: Scope = {kind = f.kind, id = f.id, from = f.from, to = f.to, name = paw.folds.name(f)}
-  if f.tracks then
+  if f.parts then
     -- A copy: the fold's list changes with the fold, the scope's must not.
-    s.tracks = {}
-    for i, t in ipairs(f.tracks) do
-      s.tracks[i] = t
+    s.parts = {}
+    for i, t in ipairs(f.parts) do
+      s.parts[i] = t
     end
   end
   return s
@@ -1030,12 +1030,12 @@ end
 
 --- The scope that `znn` enters at the cursor: the innermost not entered
 --- yet. On a closed time fold (paw/folds.tl), its region or its bars; on
---- a closed block fold, its tracks in its bars; a subproject's clip at
+--- a closed block fold, its parts in its bars; a subproject's clip at
 --- the cursor; in a region scope, the region one level inside it at the
---- cursor; else the closed fold of tracks whose row the cursor is on
+--- cursor; else the closed fold of parts whose row the cursor is on
 --- (paw/folds.tl), else the group at the cursor (its header or one of its
---- tracks), else the track. Nil when the window shows
---- that track already.
+--- parts), else the part. Nil when the window shows
+--- that part already.
 function M.at_cursor(): Scope
   -- A closed time fold at the cursor: its region, or its range of bars.
   local span = paw.folds.time_at(paw.cursor.beat)
@@ -1046,7 +1046,7 @@ function M.at_cursor(): Scope
     end
     return {kind = "range", from = span.from, to = span.to, name = f.name}
   end
-  -- A closed block fold at the cursor: its tracks in its bars.
+  -- A closed block fold at the cursor: its parts in its bars.
   local block = paw.folds.block_at_cursor()
   if block then
     return M.of_fold(block)
@@ -1065,7 +1065,7 @@ function M.at_cursor(): Scope
       end
     end
   end
-  local id = paw.cursor.track_id()
+  local id = paw.cursor.part_id()
   if not id or id == 0 then
     return nil
   end
@@ -1075,7 +1075,7 @@ function M.at_cursor(): Scope
   end
   local entered: {integer: boolean} = {}
   for _, level in ipairs(M.path()) do
-    if level.kind == "group" or level.kind == "track" then
+    if level.kind == "group" or level.kind == "part" then
       entered[level.id] = true
     end
   end
@@ -1083,15 +1083,15 @@ function M.at_cursor(): Scope
   if g and not entered[g] then
     return {kind = "group", id = g}
   end
-  if here and here.kind == "track" and here.id == id then
+  if here and here.kind == "part" and here.id == id then
     return nil
   end
-  return {kind = "track", id = id}
+  return {kind = "part", id = id}
 end
 
 --- The scope an operator's region covers (`zn{motion}`, `{Visual}zn`):
---- the region, group or track its text object names (`ar`, `ag`, `it`),
---- else a block of its tracks, with its time when it has some. Nil for the
+--- the region, group or part its text object names (`ar`, `ag`, `it`),
+--- else a block of its parts, with its time when it has some. Nil for the
 --- whole of what the window shows (`ie`).
 function M.of_region(r: contracts.Region): Scope
   if r.scope then
@@ -1111,25 +1111,25 @@ function M.of_region(r: contracts.Region): Scope
   end
   local from, to = math.min(r.c0, r.c1), math.max(r.c0, r.c1)
   if r.kind == "line" or to - from < 1e-9 then
-    return {kind = "tracks", tracks = ids}
+    return {kind = "parts", parts = ids}
   end
-  return {kind = "range", tracks = ids, from = from, to = to}
+  return {kind = "range", parts = ids, from = from, to = to}
 end
 
 -- Entering and leaving -------------------------------------------------------------------
 
---- Put the cursor inside the current scope: on its first track when it is
+--- Put the cursor inside the current scope: on its first part when it is
 --- on one outside, and in its time.
 local function cursor_inside(s: Scope)
   if not s then
     return
   end
   local cursor = paw.cursor
-  local at = cursor.track_id()
+  local at = cursor.part_id()
   if not (at and M.contains(at, s)) then
-    local first = M.tracks(s)[1]
+    local first = M.parts(s)[1]
     if first then
-      cursor.set_track(first)
+      cursor.set_part(first)
     end
   end
   local from, to = M.span(s)
@@ -1182,9 +1182,9 @@ end
 
 --- Why a scope inside another would show nothing, or nil.
 local function empty_inside(s: Scope): string
-  local tracks = M.tracks(s)
-  if #tracks == 0 then
-    return string.format("no track of %s is in %s", s.name, s.parent.name)
+  local parts = M.parts(s)
+  if #parts == 0 then
+    return string.format("no part of %s is in %s", s.name, s.parent.name)
   end
   local from, to = M.span(s)
   if from and to <= from then
@@ -1198,7 +1198,7 @@ local function level(spec: Scope, parent: Scope): Scope
   local s: Scope = {
     kind = spec.kind,
     id = spec.id,
-    tracks = spec.tracks,
+    parts = spec.parts,
     from = spec.from,
     to = spec.to,
     name = spec.name,
@@ -1212,7 +1212,7 @@ local function level(spec: Scope, parent: Scope): Scope
   end
   s.name = name_for(s)
   s.parent = parent
-  -- A subproject shows its own tracks and time, whatever the parent shows.
+  -- A subproject shows its own parts and time, whatever the parent shows.
   if parent and s.kind ~= "nest" then
     local why = empty_inside(s)
     if why then
@@ -1226,10 +1226,10 @@ local function same_level(a: Scope, b: Scope): boolean
   if not (a and b) or a.kind ~= b.kind or a.id ~= b.id or a.from ~= b.from or a.to ~= b.to or a.clip ~= b.clip then
     return false
   end
-  return table.concat(a.tracks or {}, ",") == table.concat(b.tracks or {}, ",")
+  return table.concat(a.parts or {}, ",") == table.concat(b.parts or {}, ",")
 end
 
---- Enter a scope (`{ kind, id, tracks, from, to, name }`) in a window (the
+--- Enter a scope (`{ kind, id, parts, from, to, name }`) in a window (the
 --- current one by default). In a window that shows a scope, it becomes its
 --- child: it shows what both show, and an empty one is refused with the
 --- reason. Changes nothing in the project; a jump. Returns the scope.
@@ -1248,9 +1248,9 @@ function M.enter(spec: Scope, win?: Window): Scope
   return s
 end
 
---- Narrow to a group or a region, by its id, its track or its name (see
+--- Narrow to a group or a region, by its id, its part or its name (see
 --- `named`): `enter` of that scope in the current window. Returns the scope.
-function M.narrow(which: TrackRef | string): Scope
+function M.narrow(which: PartRef | string): Scope
   local s: Scope
   if which is string then
     s = M.named(which)
@@ -1287,7 +1287,7 @@ function M.restore(s: Scope, win?: Window)
 end
 
 --- The scopes beside the current one, in order, and its place among them:
---- regions by time, groups with the same parent group, tracks of the
+--- regions by time, groups with the same parent group, parts of the
 --- parent scope. Nil and the reason when it has none.
 local function siblings(s: Scope): {Scope}, integer
   local out: {Scope} = {}
@@ -1303,7 +1303,7 @@ local function siblings(s: Scope): {Scope}, integer
     end
   elseif s.kind == "group" then
     local parent = groups().of(s.id)
-    for _, id in ipairs(api.track_list()) do
+    for _, id in ipairs(api.part_list()) do
       if groups().is_group(id) and groups().of(id) == parent then
         out[#out + 1] = {kind = "group", id = id}
         if id == s.id then
@@ -1312,11 +1312,11 @@ local function siblings(s: Scope): {Scope}, integer
       end
     end
   elseif s.kind == "nest" then
-    -- The clips of subprojects on the tracks of the parent, by time: the
+    -- The clips of subprojects on the parts of the parent, by time: the
     -- next block of this subproject, or the next subproject.
     local clips: {types.Clip} = {}
-    for _, track in ipairs(M.tracks(s.parent)) do
-      for _, c in ipairs(api.clip_list(track)) do
+    for _, part in ipairs(M.parts(s.parent)) do
+      for _, c in ipairs(api.clip_list(part)) do
         if c.kind == "nest" then
           clips[#clips + 1] = c
         end
@@ -1337,9 +1337,9 @@ local function siblings(s: Scope): {Scope}, integer
         at = #out
       end
     end
-  elseif s.kind == "track" then
-    for _, id in ipairs(M.tracks(s.parent or {kind = "range"})) do
-      out[#out + 1] = {kind = "track", id = id}
+  elseif s.kind == "part" then
+    for _, id in ipairs(M.parts(s.parent or {kind = "range"})) do
+      out[#out + 1] = {kind = "part", id = id}
       if id == s.id then
         at = #out
       end
@@ -1349,7 +1349,7 @@ local function siblings(s: Scope): {Scope}, integer
 end
 
 --- The scope `n` places after the current one (before it, with a negative
---- `n`), beside it in the same parent: the next region, group or track; a
+--- `n`), beside it in the same parent: the next region, group or part; a
 --- block's next stretch of the same length. Nil and the reason when there
 --- is none.
 function M.sibling(n: integer): Scope, string
@@ -1357,16 +1357,16 @@ function M.sibling(n: integer): Scope, string
   if not s then
     return nil, "the song has nothing beside it: `zn` enters a scope"
   end
-  if s.kind == "range" or s.kind == "tracks" then
+  if s.kind == "range" or s.kind == "parts" then
     if not (s.from and s.to) then
-      return nil, "a scope of tracks has no next: `zw` goes up"
+      return nil, "a scope of parts has no next: `zw` goes up"
     end
     local length = s.to - s.from
     local from = s.from + n * length
     if from < -1e-9 then
       return nil, "no stretch before " .. s.name
     end
-    return {kind = s.kind, tracks = s.tracks, from = from, to = from + length}
+    return {kind = s.kind, parts = s.parts, from = from, to = from + length}
   end
   local list, at = siblings(s)
   local found = at and list[at + n]
@@ -1427,7 +1427,7 @@ function M.name(name: string, win?: Window): Scope
     error("the song has its name: `zn` enters a scope to name", 0)
   end
   local named: Scope = {
-    kind = s.kind, id = s.id, tracks = s.tracks, from = s.from, to = s.to, name = name, parent = s.parent
+    kind = s.kind, id = s.id, parts = s.parts, from = s.from, to = s.to, name = name, parent = s.parent
   }
   for i = #named_scopes, 1, -1 do
     if named_scopes[i].name == name then
@@ -1453,19 +1453,19 @@ function M.saved_names(): {{types.SavedScope}}
   return out
 end
 
--- A scope follows its group's or track's name. A track added in a scope of
+-- A scope follows its group's or part's name. A part added in a scope of
 -- a group goes into the group, so that it stays in sight (undo and opening
--- a project put tracks back where they were).
+-- a project put parts back where they were).
 events.on(
-  kernel.track_changed,
-  function(event: kernel.TrackChange)
+  kernel.part_changed,
+  function(event: kernel.PartChange)
     if not exists(event.id) then
       return
     end
     for _, tw in ipairs(L().all_windows()) do
       local s = tw.win.scope
       while s do
-        if (s.kind == "group" or s.kind == "track") and s.id == event.id then
+        if (s.kind == "group" or s.kind == "part") and s.id == event.id then
           s.name = name_of(event.id)
         end
         s = s.parent
@@ -1505,7 +1505,7 @@ local record Applied
 end
 local held: {integer: Held} = {}
 local pending: {string: Pending} = {}
--- Edits since the start, by track: a part of the rest whose tracks are
+-- Edits since the start, by part: a part of the rest whose parts are
 -- edited is rendered again.
 local gens: {integer: integer} = {}
 local applied: Applied = {hold = {}} -- what the engine was last told
@@ -1518,16 +1518,16 @@ local function held_dir(): string
 end
 
 --- The parts of the rest of the song that paw can freeze for a scope. These
---- are the tracks outside it at the top of their branch (a whole group, not
---- its members). They are not the tracks that the sound of the scope goes
+--- are the parts outside it at the top of their branch (a whole group, not
+--- its members). They are not the parts that the sound of the scope goes
 --- through (its groups, and a bus that its sends reach). They are not empty.
 function M.rest_parts(s?: Scope | integer): {integer}
   local scope = resolve(s)
-  if not (scope and M.limits_tracks(scope)) then
+  if not (scope and M.limits_parts(scope)) then
     return {}
   end
   local inside: {integer: boolean} = {}
-  for _, id in ipairs(M.tracks(scope)) do
+  for _, id in ipairs(M.parts(scope)) do
     inside[id] = true
   end
   -- The scope's groups and wherever its sound goes carry it: they play live.
@@ -1555,7 +1555,7 @@ function M.rest_parts(s?: Scope | integer): {integer}
     return false
   end
   local out: {integer} = {}
-  for _, id in ipairs(api.track_list()) do
+  for _, id in ipairs(api.part_list()) do
     local parent = groups().of(id)
     local top = parent == nil or lineage[parent]
     if
@@ -1573,10 +1573,10 @@ function M.rest_parts(s?: Scope | integer): {integer}
   return out
 end
 
-local function gen_of(track: integer): integer
-  -- A part's generation counts the edits of every track inside it.
-  local n = gens[track] or 0
-  for _, member in ipairs(groups().members(track)) do
+local function gen_of(part: integer): integer
+  -- A part's generation counts the edits of every part inside it.
+  local n = gens[part] or 0
+  for _, member in ipairs(groups().members(part)) do
     n = n + gen_of(member)
   end
   return n
@@ -1609,11 +1609,11 @@ function M.apply(s?: Scope | integer)
   end
   applied.scope = scope
   local rest = opt.scope_rest
-  local narrowed = scope and M.limits_tracks(scope)
-  local tracks = narrowed and M.tracks(scope) or nil
-  local audible = tracks and rest == "mute" and table.concat(tracks, ",") or nil
+  local narrowed = scope and M.limits_parts(scope)
+  local parts = narrowed and M.parts(scope) or nil
+  local audible = parts and rest == "mute" and table.concat(parts, ",") or nil
   if audible ~= applied.audible then
-    api.engine_audible(audible and tracks or nil)
+    api.engine_audible(audible and parts or nil)
     applied.audible = audible
   end
   local want: {integer: string} = {}
@@ -1682,9 +1682,9 @@ for _, ev in ipairs({kernel.render_failed, kernel.render_cancelled}) do
   )
 end
 
--- An edit to a track makes what was rendered of it out of date.
+-- An edit to a part makes what was rendered of it out of date.
 local function touched(event: kernel.Item)
-  local id = event.track or event.id
+  local id = event.part or event.id
   if not id then
     return
   end
@@ -1722,7 +1722,7 @@ end
 --- front (nil: the song, as at the start).
 local followed: Scope
 
---- Everything that shows tracks catches up with the window in front when
+--- Everything that shows parts catches up with the window in front when
 --- its scope is another: lists edited as text, a graphical frontend's
 --- state, the engine, the loop, the cursor.
 local function follow(force?: boolean, win?: Window)
@@ -1764,15 +1764,15 @@ events.on(
     end
   end
 )
--- Tracks that come, go or change places change what the rest is.
+-- Parts that come, go or change places change what the rest is.
 local function again()
   if applied.scope and opt.scope_rest ~= "play" then
     M.apply(applied.scope)
   end
 end
-events.on(kernel.track_added, again)
-events.on(kernel.track_removed, again)
-events.on(kernel.track_moved, again)
+events.on(kernel.part_added, again)
+events.on(kernel.part_removed, again)
+events.on(kernel.part_moved, again)
 events.on(kernel.clip_added, again)
 events.on(kernel.clip_removed, again)
 -- Another project: nothing of the last one is held, and its named scopes
@@ -1832,9 +1832,9 @@ local function bars_and_meter(s: Scope): string, string
 end
 
 --- What a scope (the current one by default) shows, in words: its path,
---- its bars (its own, and the song's), its meter, its tracks, and whether
+--- its bars (its own, and the song's), its meter, its parts, and whether
 --- it is named, with `extra` last: `Song › Bridge · bars 1-8 (song @17-24) ·
---- 6/8 · 12 tracks · named`.
+--- 6/8 · 12 parts · named`.
 function M.describe(s?: Scope, extra?: string): string
   s = s or M.current()
   local parts = {M.breadcrumb(s)}
@@ -1843,8 +1843,8 @@ function M.describe(s?: Scope, extra?: string): string
     parts[#parts + 1] = bars
     parts[#parts + 1] = meter
   end
-  local n = #M.tracks(s)
-  parts[#parts + 1] = string.format("%d track%s", n, n == 1 and "" or "s")
+  local n = #M.parts(s)
+  parts[#parts + 1] = string.format("%d part%s", n, n == 1 and "" or "s")
   if s and is_named(s) then
     parts[#parts + 1] = "named"
   end
@@ -1853,7 +1853,7 @@ function M.describe(s?: Scope, extra?: string): string
 end
 
 --- A fold of the current window in words, as a scope inside the one the
---- window shows, and whether it is folded: `Song › Strings · 3 tracks ·
+--- window shows, and whether it is folded: `Song › Strings · 3 parts ·
 --- folded`.
 function M.describe_fold(f: contracts.Fold): string
   local s = M.of_fold(f)
@@ -1861,7 +1861,7 @@ function M.describe_fold(f: contracts.Fold): string
   return M.describe(s, f.closed and "folded" or "open")
 end
 
---- What `K` says in the arrange view before the track: the closed fold
+--- What `K` says in the arrange view before the part: the closed fold
 --- under the cursor, else, in a scope and with no clip under the cursor,
 --- the scope. Nil when there is neither.
 local function under_cursor(): contracts.Description
@@ -1886,7 +1886,7 @@ local function under_cursor(): contracts.Description
 end
 local arrange = paw.ui.views:get("arrange") as contracts.ArrangeView
 if arrange then
-  -- `K` (the command `info`) puts this before what it says of the track.
+  -- `K` (the command `info`) puts this before what it says of the part.
   arrange.describe = function(_: contracts.View): contracts.Description return under_cursor() end
 end
 
@@ -1913,15 +1913,15 @@ local function items(): {Item}
   for _, f in ipairs(paw.folds.list()) do
     out[#out + 1] = {scope = M.of_fold(f), fold = f, kind = "fold", label = paw.folds.name(f)}
   end
-  for _, id in ipairs(api.track_list()) do
+  for _, id in ipairs(api.part_list()) do
     if groups().is_group(id) then
       out[#out + 1] = {scope = {kind = "group", id = id}, kind = "group", label = name_of(id)}
     end
   end
   -- The subprojects, each by the first clip that places it in the song.
   local first: {integer: integer} = {}
-  for _, track in ipairs(api.track_list()) do
-    for _, c in ipairs(api.clip_list(track)) do
+  for _, part in ipairs(api.part_list()) do
+    for _, c in ipairs(api.clip_list(part)) do
       if c.kind == "nest" and not first[c.nest] then
         first[c.nest] = c.id
       end
@@ -1994,7 +1994,7 @@ local function scope_names(): {string}
   for _, s in ipairs(named_scopes) do
     out[#out + 1] = s.name
   end
-  for _, id in ipairs(api.track_list()) do
+  for _, id in ipairs(api.part_list()) do
     if groups().is_group(id) then
       out[#out + 1] = name_of(id)
     end
@@ -2041,7 +2041,7 @@ command.define(
     say(function(): Scope return M.enter(s) end, " · `zw` goes back")
   end,
   {
-    desc = "Show only a group's tracks or a region's time in this window: `narrow Strings`, `narrow Bridge`; alone, the innermost scope at the cursor (as `znn`). Inside a scope, the new one is inside it",
+    desc = "Show only a group's parts or a region's time in this window: `narrow Strings`, `narrow Bridge`; alone, the innermost scope at the cursor (as `znn`). Inside a scope, the new one is inside it",
     complete = scope_names,
   }
 )
@@ -2065,7 +2065,7 @@ command.define(
 
 for _, dir in ipairs(
   {
-    {"scope.next", 1, "The next scope beside this one: the next region, group or track, or a block's next stretch"},
+    {"scope.next", 1, "The next scope beside this one: the next region, group or part, or a block's next stretch"},
     {"scope.prev", -1, "The scope before this one, beside it"},
   }
 ) do

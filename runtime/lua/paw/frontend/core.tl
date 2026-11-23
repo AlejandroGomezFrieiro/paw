@@ -24,7 +24,7 @@ local type Point = host.Point
 local type Portion = host.Portion
 
 -- What the state holds -----------------------------------------------------------
---- A device of the selected track, for its card (`state.devices`).
+--- A device of the selected part, for its card (`state.devices`).
 local record ParamState
   key: string
   name: string
@@ -55,7 +55,7 @@ local record DeviceState
 end
 
 --- An entry of a menu of an extension's (`paw.frontend.menus`): a command
---- line or a function given the clip or track and the beat that was clicked.
+--- line or a function given the clip or part and the beat that was clicked.
 local record MenuEntry
   label: string
   command: string
@@ -138,13 +138,13 @@ end
 local record ExState
   from: number
   to: number
-  tracks: {integer}
+  parts: {integer}
   clips: {ExClip}
   current: integer
 end
 
 local record MixerRow
-  track: integer
+  part: integer
   kind: string
   index: integer
   field: string
@@ -265,7 +265,7 @@ local record Send
   level: number
 end
 
-local record TrackState
+local record PartState
   id: integer
   name: string
   volume: number
@@ -304,7 +304,7 @@ end
 local record ClipState
   take_rows: {TakeRow}
   id: integer
-  track: integer
+  part: integer
   start: number
   length: number
   name: string
@@ -324,7 +324,7 @@ local record ClipState
   warps: {number}
 end
 
---- A track that a track can play into or send to.
+--- A part that a part can play into or send to.
 local record Target
   id: integer
   name: string
@@ -337,7 +337,7 @@ local record SendState
   pre: boolean
 end
 
---- Where a track's sound goes (`M.routing`).
+--- Where a part's sound goes (`M.routing`).
 local record Routing
   output: string
   output_id: integer
@@ -372,7 +372,7 @@ local record State
   project: ProjectState
   selected: integer
   cursor: number
-  tracks: {TrackState}
+  parts: {PartState}
   clips: {ClipState}
   devices: {DeviceState}
   routing: Routing
@@ -478,11 +478,11 @@ end
 --- frontend's arguments. Other modules add their own.
 local record Act
   clear_clip_selection: function()
-  select: function(track: integer, beat?: number)
+  select: function(part: integer, beat?: number)
   select_clip: function(id: integer, beat?: number, mode?: string)
   select_clips_box: function(row0: integer, beat0: number, row1: integer, beat1: number, mode?: string): integer
   select_all_clips: function()
-  move_clip: function(id: integer, start: number, track?: integer, copy?: boolean): integer
+  move_clip: function(id: integer, start: number, part?: integer, copy?: boolean): integer
   drag_clips: function(id: integer, dbeat: number, drows?: number, copy?: boolean, free?: boolean): {integer}
   trim_clips: function(id: integer, edge: string, dbeat: number, free?: boolean, slip?: boolean): {integer}
   stretch_clips: function(id: integer, dbeat: number): {integer}
@@ -500,13 +500,13 @@ local record Act
   tempo_point_remove: function(beat: number)
   tempo_point_ramp: function(beat: number): boolean
   tempo_draw: function(points: {Point})
-  add_clip: function(track: integer, beat: number): integer
+  add_clip: function(part: integer, beat: number): integer
   open_clip: function(id: integer)
   record: function()
   close_roll: function()
   clip_command: function(id: integer, beat: number, line: string)
   menu_target: function(id: integer, beat?: number)
-  track_command: function(id: integer, line: string)
+  part_command: function(id: integer, line: string)
   toggle_offline: function(id: integer)
   restart_device: function(id: integer)
   menu: function(kind: string, index: integer, target?: integer, beat?: number)
@@ -520,45 +520,45 @@ local record Act
   set_loop_edge: function(edge: string, beat: number)
   set_punch_edge: function(edge: string, beat: number, free?: boolean)
   set_punch: function(from: number, to: number)
-  take_lanes: function(track: integer): boolean
-  comp: function(track: integer, take: integer, from: number, to: number, free?: boolean): integer
-  take_click: function(track: integer, take: integer, beat: number): integer
+  take_lanes: function(part: integer): boolean
+  comp: function(part: integer, take: integer, from: number, to: number, free?: boolean): integer
+  take_click: function(part: integer, take: integer, beat: number): integer
   ruler_click: function(beat: number)
   select_range: function(row0: integer, beat0: number, row1: integer, beat1: number)
   focus: function(on: boolean)
   keys: function(keys: string)
-  set_volume: function(track: integer, db: number)
-  hold: function(track: integer, target: string, device: integer, param: string, on: boolean)
+  set_volume: function(part: integer, db: number)
+  hold: function(part: integer, target: string, device: integer, param: string, on: boolean)
   leave: function(how: string, what: string)
   chosen: function(kind: string, path: string)
   drop: function(paths: {string}, row?: integer, beat?: number): Dropped
   hide_lane_rows: function(lane: integer)
-  lane_rows: function(track: integer): boolean
+  lane_rows: function(part: integer): boolean
   render: function(o: RenderRequest)
-  set_output: function(track: integer, target?: integer)
-  add_send: function(track: integer, target: integer, level?: number)
-  set_send: function(track: integer, index: integer, level?: number, pre?: boolean)
-  remove_send: function(track: integer, index: integer)
+  set_output: function(part: integer, target?: integer)
+  add_send: function(part: integer, target: integer, level?: number)
+  set_send: function(part: integer, index: integer, level?: number, pre?: boolean)
+  remove_send: function(part: integer, index: integer)
   route_pair: function(device: integer, pair: integer, index: integer)
   spread_outputs: function(device: integer)
   choose_sidechain: function(device: integer, index: integer)
-  set_pan: function(track: integer, pan: number)
-  toggle: function(track: integer, flag: string)
-  choose_input: function(track: integer, group: string, index: integer)
+  set_pan: function(part: integer, pan: number)
+  toggle: function(part: integer, flag: string)
+  choose_input: function(part: integer, group: string, index: integer)
   choose_engine: function(group: string, index: integer)
-  pick_device: function(track: integer, index: integer)
-  rename_track: function(track: integer, name: string)
-  color_track: function(track: integer, colour: string)
-  move_track: function(track: integer, index: integer)
-  set_track_height: function(track: integer, share: number)
-  set_flag: function(track: integer, flag: string, on: boolean)
+  pick_device: function(part: integer, index: integer)
+  rename_part: function(part: integer, name: string)
+  color_part: function(part: integer, colour: string)
+  move_part: function(part: integer, index: integer)
+  set_part_height: function(part: integer, share: number)
+  set_flag: function(part: integer, flag: string, on: boolean)
   sweep_flag: function(row0: integer, row1: integer, flag: string, on: boolean)
-  fold: function(track: integer)
+  fold: function(part: integer)
   add_note: function(clip: integer, pitch: integer, start: number, length?: number, free?: boolean): integer
   context_click: function(clip: integer, beat: number, pitch: number)
   roll_activate: function(_: integer, id: number)
   roll_toggle_clip: function(_: integer, id: number)
-  roll_show_track: function(_: integer, id: number)
+  roll_show_part: function(_: integer, id: number)
   select_note: function(clip: integer, index: integer, mode?: string)
   select_notes_box: function(
     clip: integer, beat0: number, pitch0: number, beat1: number, pitch1: number, mode?: string
@@ -580,7 +580,7 @@ local record Act
   toggle_note_snap: function()
   quantize_notes: function(clip: integer, strength?: number): integer
   roll_seek: function(clip: integer, beat: number)
-  lane: function(track: integer, target: types.LaneTarget, device?: integer, param?: string): integer
+  lane: function(part: integer, target: types.LaneTarget, device?: integer, param?: string): integer
   add_point: function(lane: integer, beat: number, fraction: number)
   move_point: function(lane: integer, index: integer, beat: number, fraction: number)
   draw_lane: function(lane: integer, points: {Point})
@@ -640,7 +640,7 @@ local record M
   type Line = Line
   type ProjectState = ProjectState
   type Send = Send
-  type TrackState = TrackState
+  type PartState = PartState
   type TakeRow = TakeRow
   type ClipState = ClipState
   type Target = Target
@@ -670,7 +670,7 @@ local record M
   --- When a frontend last asked for the state (`paw.api.now`).
   polled: number
   --- What extensions add to the frontend's right-click menus, by kind:
-  --- `clip`, `track` and `timeline`.
+  --- `clip`, `part` and `timeline`.
   menus: {string: {MenuEntry}}
   --- Bands of extensions under the ruler, by name, with the extension
   --- that put each one.
@@ -683,7 +683,7 @@ local record M
   refresh: function()
   band_state: function(): Bands
   completions: function(prompt: Prompt): Completions
-  send_list: function(track: types.Track): {Send}
+  send_list: function(part: types.Part): {Send}
   float: function(width: integer, height: integer): FloatText
   lane_span: function(lane: types.Lane): number, number
   lane_name: function(lane: types.Lane): string
@@ -700,7 +700,7 @@ local record M
   dialog_info: function(): DialogInfo
   closing: function(): Closing
   render_dialog: function(): RenderDialog
-  input_menu: function(track: integer): InputMenu
+  input_menu: function(part: integer): InputMenu
   recent_menu: function(): {RangeChoice}
   layout_get: function(): WindowLayout
   layout_set: function(layout: WindowLayout)
@@ -709,7 +709,7 @@ local record M
   chosen_clips: function(): {integer}
   choose_clips: function(set: {integer: boolean})
   -- frontend/act/routing.tl
-  routing: function(track: integer): Routing
+  routing: function(part: integer): Routing
   sidechain_menu: function(device: integer): {Check}
   outputs_menu: function(device: integer): {PairMenu}
   -- frontend/act/notes.tl
@@ -749,7 +749,7 @@ end
 
 -- What a pointer does ---------------------------------------------------------
 --
--- A frontend sends gestures here (`paw.frontend.act.move_clip(id, 8, track)`)
+-- A frontend sends gestures here (`paw.frontend.act.move_clip(id, 8, part)`)
 -- instead of spelling out what they mean, so that every frontend means the
 -- same by a drag or a double click, and the suite can test it. Beats snap to
 -- the grid here. Notes and points are named by their place, from 1.

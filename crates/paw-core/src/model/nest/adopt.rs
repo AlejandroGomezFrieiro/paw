@@ -2,10 +2,10 @@
 //! `nest.md` 3.6, 4.3): the other way of `standalone.rs`.
 //!
 //! The nest refers to the project folder (`Nest::source`): the song keeps
-//! no copy of it and reads it again when it opens. Its tracks, devices,
+//! no copy of it and reads it again when it opens. Its parts, devices,
 //! clips, lanes and the nests inside it take ids from the nest's own id
 //! on (`id + 1 + the id in the folder`), so the same song and folder give
-//! the same ids each time; a song clip that plays one track of the nest
+//! the same ids each time; a song clip that plays one part of the nest
 //! (a stem) keeps naming it. The nests inside go along with the same
 //! `source`: with the nest, they are one reference ([`Project::references`]),
 //! and the first edit of any of them makes all of them the song's own.
@@ -17,15 +17,15 @@ use std::sync::Arc;
 use serde_json::{Value, json};
 
 use super::{Nest, NestId, NestMeter, NestPlay, NestTempo};
-use crate::model::{Clip, ClipContent, Id, MASTER_ID, Project, SigChange, TempoChange, Target, Track};
+use crate::model::{Clip, ClipContent, Id, MASTER_ID, Project, SigChange, TempoChange, Target, Part};
 
 /// The length of a nest from a project that plays nothing: 8 bars of its
 /// meter.
 const EMPTY_BARS: i64 = 8;
 
-/// Every id that a piece of `p` has: tracks, devices, clips, lanes, nests.
+/// Every id that a piece of `p` has: parts, devices, clips, lanes, nests.
 fn ids_of(p: &Project) -> impl Iterator<Item = Id> + '_ {
-    p.all_tracks()
+    p.all_parts()
         .flat_map(|t| {
             std::iter::once(t.id)
                 .chain(t.devices.iter().map(|d| d.id))
@@ -35,9 +35,9 @@ fn ids_of(p: &Project) -> impl Iterator<Item = Id> + '_ {
         .chain(p.nests.keys().map(|n| n.0))
 }
 
-/// Add `by` to every id of `p` and to every reference to one: a track's
+/// Add `by` to every id of `p` and to every reference to one: a part's
 /// output, sends, group and VCAs, a device's side-chain and output pairs,
-/// a lane's device, a nest clip's nest and track, and the nests' own.
+/// a lane's device, a nest clip's nest and part, and the nests' own.
 fn shift_ids(p: &mut Project, by: Id) {
     let shift = |id: Id| id + by;
     let shift_list = |v: &mut Value| {
@@ -49,7 +49,7 @@ fn shift_ids(p: &mut Project, by: Id) {
             }
         }
     };
-    for t in p.tracks.iter_mut().chain(std::iter::once(&mut p.master)) {
+    for t in p.parts.iter_mut().chain(std::iter::once(&mut p.master)) {
         let t = Arc::make_mut(t);
         t.id = shift(t.id);
         t.output = t.output.map(shift);
@@ -82,8 +82,8 @@ fn shift_ids(p: &mut Project, by: Id) {
             c.id = shift(c.id);
             if let ClipContent::Nest { nest, play, .. } = &mut c.content {
                 *nest = NestId(shift(nest.0));
-                if let NestPlay::Track(track) = play {
-                    *track = shift(*track);
+                if let NestPlay::Part(part) = play {
+                    *part = shift(*part);
                 }
             }
         }
@@ -103,11 +103,11 @@ fn shift_ids(p: &mut Project, by: Id) {
 /// renamed `<name>-<nest>`: two links of one name would share their notes.
 fn rename_links(sub: &mut Project, song: &Project, nest: NestId) {
     let taken: HashSet<&str> = song
-        .all_tracks()
+        .all_parts()
         .flat_map(|t| t.clips.iter().chain(&t.cues))
         .filter_map(|c| c.link.as_deref())
         .collect();
-    for t in sub.tracks.iter_mut() {
+    for t in sub.parts.iter_mut() {
         if !t.clips.iter().chain(&t.cues).any(|c| c.link.as_deref().is_some_and(|l| taken.contains(l))) {
             continue;
         }
@@ -140,7 +140,7 @@ fn length_of(sub: &Project) -> f64 {
 
 impl Project {
     /// Make the project `sub` (read from the folder `source`) nest `id`
-    /// of this project, named `name`, as the module says: its tracks are
+    /// of this project, named `name`, as the module says: its parts are
     /// the nest's, its master the nest's master, its markers, data and
     /// key the nest's. It follows the song's tempo and keeps its own in
     /// `kept`, and it keeps its own meter. Nothing places it yet. The
@@ -194,7 +194,7 @@ impl Project {
             source: Some(source.to_path_buf()),
             origin: None,
         };
-        for t in sub.tracks.iter_mut() {
+        for t in sub.parts.iter_mut() {
             let t = Arc::make_mut(t);
             if t.nest.is_none() {
                 t.nest = Some(id);
@@ -202,12 +202,12 @@ impl Project {
                 t.output = t.output.filter(|o| *o != master);
             }
         }
-        let mut mix: Track = (*sub.master).clone();
+        let mut mix: Part = (*sub.master).clone();
         mix.nest = Some(id);
         mix.output = None;
         mix.sends.clear();
-        self.tracks.extend(sub.tracks);
-        self.tracks.push(Arc::new(mix));
+        self.parts.extend(sub.parts);
+        self.parts.push(Arc::new(mix));
         for (inner, n) in sub.nests {
             let n = Nest { source: Some(source.to_path_buf()), origin: None, ..(*n).clone() };
             self.nests.insert(inner, Arc::new(n));
@@ -215,22 +215,22 @@ impl Project {
         self.nests.insert(id, Arc::new(nest));
     }
 
-    /// The song's clips that play one track of nest `id`: the tracks that
+    /// The song's clips that play one part of nest `id`: the parts that
     /// were numbered from `from` are now numbered from `to`.
     fn move_stems(&mut self, id: NestId, from: Id, to: Id) {
-        for t in self.tracks.iter_mut() {
+        for t in self.parts.iter_mut() {
             let stems = |c: &Clip| {
-                matches!(c.content, ClipContent::Nest { nest, play: NestPlay::Track(_), .. } if nest == id)
+                matches!(c.content, ClipContent::Nest { nest, play: NestPlay::Part(_), .. } if nest == id)
             };
             if !t.clips.iter().any(|c| stems(c)) {
                 continue;
             }
             for c in Arc::make_mut(t).clips.iter_mut() {
-                if let ClipContent::Nest { nest, play: NestPlay::Track(track), .. } = &mut Arc::make_mut(c).content
+                if let ClipContent::Nest { nest, play: NestPlay::Part(part), .. } = &mut Arc::make_mut(c).content
                     && *nest == id
-                    && *track >= from
+                    && *part >= from
                 {
-                    *track = *track - from + to;
+                    *part = *part - from + to;
                 }
             }
         }
@@ -297,14 +297,14 @@ mod tests {
     /// nest Fill inside, at 90 bpm in 3/4.
     fn library() -> Project {
         let mut p = Project::default();
-        let mut keys = Track::new(1);
+        let mut keys = Part::new(1);
         keys.name = "Keys".into();
         keys.sends.push(Send { target: 2, level: -6.0, pre: false });
         keys.clips.push(nest_clip(3, 10, 0.0, json!("master")));
-        let mut verb = Track::new(2);
+        let mut verb = Part::new(2);
         verb.name = "Verb".into();
-        p.tracks.push(Arc::new(keys));
-        p.tracks.push(Arc::new(verb));
+        p.parts.push(Arc::new(keys));
+        p.parts.push(Arc::new(verb));
         add_nest(&mut p, 10, "Fill", Vec::new());
         p.tempo = 90.0;
         (p.sig_num, p.sig_den) = (3, 4);
@@ -324,7 +324,7 @@ mod tests {
         assert_eq!(nest.source.as_deref(), Some(folder.as_path()));
         assert_eq!(nest.meter, NestMeter::Own { changes: vec![SigChange { beat: 0.0, num: 3, den: 4 }] });
         assert!(matches!(&nest.tempo, NestTempo::Follow { kept } if kept[0].bpm == 90.0));
-        let keys = p.track(52).expect("Keys is the folder's 1");
+        let keys = p.part(52).expect("Keys is the folder's 1");
         assert_eq!((keys.nest, keys.sends[0].target), (Some(NestId(50)), 53), "its send follows Verb");
         let fill = p.nest(NestId(61)).expect("Fill is the folder's 10");
         assert_eq!(fill.source.as_deref(), Some(folder.as_path()), "the nest inside came with it");
@@ -335,14 +335,14 @@ mod tests {
     fn a_folder_that_grew_into_the_songs_ids_takes_ids_after_them_and_the_stems_follow() {
         let mut p = song(50);
         // The song plays Keys (the folder's 1) as a stem, and took id 53.
-        Arc::make_mut(&mut p.tracks[0]).clips.push(nest_clip(53, 50, 0.0, json!({ "track": 52 })));
+        Arc::make_mut(&mut p.parts[0]).clips.push(nest_clip(53, 50, 0.0, json!({ "part": 52 })));
         p.adopt(library(), NestId(50), "Bridge", Path::new("/lib/bridge"));
         p.validate().expect("a valid song");
         let stem = p.clip(53).expect("the stem");
-        let ClipContent::Nest { play: NestPlay::Track(track), .. } = stem.content else {
+        let ClipContent::Nest { play: NestPlay::Part(part), .. } = stem.content else {
             panic!("a stem");
         };
-        assert_eq!(p.track(track).map(|t| t.name.as_str()), Some("Keys"), "the stem still plays Keys");
+        assert_eq!(p.part(part).map(|t| t.name.as_str()), Some("Keys"), "the stem still plays Keys");
     }
 
     #[test]

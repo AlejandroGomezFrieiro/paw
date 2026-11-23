@@ -1,8 +1,8 @@
 -- The listings of the project that are edited as text (paw/textbuf.tl):
 --
---   paw://tracks             a track a line: name, volume, pan, flags, output, group, colour, devices
+--   paw://parts             a part a line: name, volume, pan, flags, output, group, colour, devices
 --   paw://sends              a send a line: from, to, level, before or after the fader
---   paw://track/N/devices    the device chain of track N (or `master`): name, on, wet, preset
+--   paw://part/N/devices    the device chain of part N (or `master`): name, on, wet, preset
 --   paw://markers            a marker or region a line: where, name, where it ends
 --
 -- Each kind reads the project into lines of fields two spaces apart, reads
@@ -54,20 +54,20 @@ local function parse_pan(text)
   return v / 100
 end
 
---- A track's name, or nil for one that is gone.
-local function track_name(id)
+--- A part's name, or nil for one that is gone.
+local function part_name(id)
   if id == nil then return nil end
-  local ok, t = pcall(api.track_get, id)
+  local ok, t = pcall(api.part_get, id)
   return ok and t.name or nil
 end
 
 local function plural(n, word) return n .. " " .. word .. (n == 1 and "" or "s") end
 
--- paw://tracks -------------------------------------------------------------------------
+-- paw://parts -------------------------------------------------------------------------
 
-local TRACK_FIELDS = "the name first, then vol, pan, flags (M S R), out, group, in, color and " .. chain() .. " devices"
+local PART_FIELDS = "the name first, then vol, pan, flags (M S R), out, group, in, color and " .. chain() .. " devices"
 
-local function parse_track(text)
+local function parse_part(text)
   local list = cells(text)
   if #list == 0 then return nil, "an empty line" end
   local f = {
@@ -80,7 +80,7 @@ local function parse_track(text)
     head = false,
     devices = {},
   }
-  if f.name == "" then return nil, "a track needs a name" end
+  if f.name == "" then return nil, "a part needs a name" end
   for i = 2, #list do
     local cell = list[i].text
     local key, value = cell:match("^(%S+)%s+(.+)$")
@@ -110,7 +110,7 @@ local function parse_track(text)
       local up = cell:upper()
       f.mute, f.solo, f.armed = up:find("M") ~= nil, up:find("S") ~= nil, up:find("R") ~= nil
     else
-      return nil, "`" .. cell .. "` is not a field: " .. TRACK_FIELDS
+      return nil, "`" .. cell .. "` is not a field: " .. PART_FIELDS
     end
   end
   return f
@@ -137,7 +137,7 @@ local function device_kind(name)
   end
 end
 
---- The tracks of a plan's lines by name, to resolve `out` and `in`.
+--- The parts of a plan's lines by name, to resolve `out` and `in`.
 local function resolver(lines, what)
   local by_name = {}
   for _, e in ipairs(lines) do
@@ -147,29 +147,29 @@ local function resolver(lines, what)
   end
   return function(name, row)
     local list = by_name[name]
-    -- A narrowed window lists its scope's tracks: the others are named as they are.
-    if not list and paw.scope.limits_tracks() then
-      for _, id in ipairs(api.track_list()) do
-        if api.track_get(id, "name") == name and not paw.scope.contains(id) then
+    -- A narrowed window lists its scope's parts: the others are named as they are.
+    if not list and paw.scope.limits_parts() then
+      for _, id in ipairs(api.part_list()) do
+        if api.part_get(id, "name") == name and not paw.scope.contains(id) then
           list = list or {}
           list[#list + 1] = { id = id, fields = { name = name, head = paw.groups.is_group(id) or nil } }
         end
       end
     end
-    if not list then error(string.format("line %d: no track `%s` in the list for %s", row, name, what), 0) end
+    if not list then error(string.format("line %d: no part `%s` in the list for %s", row, name, what), 0) end
     if #list > 1 then
-      error(string.format("line %d: %d tracks are called `%s`: name them apart first", row, #list, name), 0)
+      error(string.format("line %d: %d parts are called `%s`: name them apart first", row, #list, name), 0)
     end
     return list[1]
   end
 end
 
-tb.kind("tracks", {
-  title = function() return "Tracks" end,
+tb.kind("parts", {
+  title = function() return "Parts" end,
   keywords = { vol = true, pan = true, out = true, ["in"] = true, color = true, group = true },
-  hint = "edit the tracks and `:w` · `dd` deletes, `yyp` copies one with its devices, `cw` renames, Ctrl-a on a number, Enter its devices",
+  hint = "edit the parts and `:w` · `dd` deletes, `yyp` copies one with its devices, `cw` renames, Ctrl-a on a number, Enter its devices",
   style = function(cell, i)
-    if i == 1 then return "TrackName" end
+    if i == 1 then return "PartName" end
     if cell:match("^[MSR%-]+$") and #cell <= 3 then
       return cell:find("M") and "Mute" or cell:find("S") and "Solo" or cell:find("R") and "Armed" or "Faint"
     end
@@ -177,17 +177,17 @@ tb.kind("tracks", {
   end,
   read = function()
     local out = {}
-    -- In a narrowed window, the tracks of its scope: the others are left as they are.
-    for i, id in ipairs(paw.scope.tracks()) do
-      out[i] = { id = id, track = api.track_get(id) }
+    -- In a narrowed window, the parts of its scope: the others are left as they are.
+    for i, id in ipairs(paw.scope.parts()) do
+      out[i] = { id = id, part = api.part_get(id) }
     end
     return out
   end,
   format = function(item)
-    local t = item.track
+    local t = item.part
     local group = paw.groups.of(t.id)
     -- A member sounding through its group says so with `in` alone.
-    local out = t.output and t.output ~= group and track_name(t.output)
+    local out = t.output and t.output ~= group and part_name(t.output)
     local names = device_names(t)
     return {
       quote(t.name),
@@ -196,19 +196,19 @@ tb.kind("tracks", {
       (t.mute and "M" or "-") .. (t.solo and "S" or "-") .. (t.armed and "R" or "-"),
       out and "out " .. quote(out) or "",
       paw.groups.is_group(t.id) and "group" or "",
-      group and "in " .. quote(track_name(group)) or "",
+      group and "in " .. quote(part_name(group)) or "",
       t.color and "color " .. t.color or "",
       #names > 0 and chain() .. " " .. table.concat(names, ", ") or "",
     }
   end,
-  parse = parse_track,
+  parse = parse_part,
   open = function(_, line)
     local index
-    for i, id in ipairs(api.track_list({ all = true })) do
+    for i, id in ipairs(api.part_list({ all = true })) do
       if id == line.id then index = i end
     end
-    if not index then return paw.notify("a new track has no devices yet: `:w` makes it first", "warn") end
-    tb.open("paw://track/" .. index .. "/devices", { here = true })
+    if not index then return paw.notify("a new part has no devices yet: `:w` makes it first", "warn") end
+    tb.open("paw://part/" .. index .. "/devices", { here = true })
   end,
   plan = function(ch)
     local steps = {}
@@ -229,7 +229,7 @@ tb.kind("tracks", {
       end
       if e.base and not tb.same(f.devices, e.base.devices) then
         error(
-          string.format("line %d: a track's devices are edited in paw://track/N/devices (Enter on its line)", e.row),
+          string.format("line %d: a part's devices are edited in paw://part/N/devices (Enter on its line)", e.row),
           0
         )
       end
@@ -243,27 +243,27 @@ tb.kind("tracks", {
       if e.base and e.base.head and not e.fields.head then
         for _, m in ipairs(ch.lines) do
           if m.fields.group == e.fields.name then
-            error(string.format("line %d: `%s` still has tracks in it (line %d)", e.row, e.fields.name, m.row), 0)
+            error(string.format("line %d: `%s` still has parts in it (line %d)", e.row, e.fields.name, m.row), 0)
           end
         end
       end
     end
 
     for _, d in ipairs(ch.deleted) do
-      local t = api.track_get(d.id)
+      local t = api.part_get(d.id)
       step(
         string.format("delete %s (%s, %s)", quote(t.name), plural(#t.devices, "device"), plural(#t.clips, "clip")),
-        function() api.track_remove(d.id) end
+        function() api.part_remove(d.id) end
       )
     end
 
-    -- What is set on a track from its line, but `out` and `in`, which wait
-    -- until every track is made.
+    -- What is set on a part from its line, but `out` and `in`, which wait
+    -- until every part is made.
     local function set_fields(e, keys)
       local f = e.fields
       local texts = {}
       local function run_set(key, value)
-        return function(st) api.track_set(id_of(e, st), key, value) end
+        return function(st) api.part_set(id_of(e, st), key, value) end
       end
       for _, key in ipairs(keys) do
         if key == "name" then
@@ -296,9 +296,9 @@ tb.kind("tracks", {
             string.format("%s: %s", quote(f.name), f.head and "becomes a group" or "is a group no more"),
             function(st)
               local id = id_of(e, st)
-              local meta = api.track_get(id, "meta") or {}
+              local meta = api.part_get(id, "meta") or {}
               meta.group_head = f.head or nil
-              api.track_set(id, "meta", meta)
+              api.part_set(id, "meta", meta)
             end,
           }
         end
@@ -312,11 +312,11 @@ tb.kind("tracks", {
       set_fields(e, e.keys)
     end
 
-    -- Copies and new tracks, where their lines are.
+    -- Copies and new parts, where their lines are.
     local made = {}
     for _, e in ipairs(ch.lines) do
       if e.copy_of then
-        local t = api.track_get(e.copy_of)
+        local t = api.part_get(e.copy_of)
         made[#made + 1] = e
         step(
           string.format(
@@ -327,8 +327,8 @@ tb.kind("tracks", {
             plural(#t.clips, "clip")
           ),
           function(st)
-            local snap = paw.track(e.copy_of):snapshot()
-            -- The tracks the original's further output pairs play into stay the original's.
+            local snap = paw.part(e.copy_of):snapshot()
+            -- The parts the original's further output pairs play into stay the original's.
             for _, device in ipairs(snap.devices) do
               device.outputs = nil
             end
@@ -336,13 +336,13 @@ tb.kind("tracks", {
             -- it is in are set with the others' below.
             snap.name, snap.volume, snap.pan, snap.color = e.fields.name, e.fields.vol, e.fields.pan, e.fields.color
             snap.mute, snap.output = e.fields.mute, nil
-            local track = paw.restore_track(snap)
-            st.made[e.row] = track.id
-            if e.fields.solo then api.track_set(track.id, "solo", true) end
-            if e.fields.armed then api.track_set(track.id, "armed", true) end
-            local meta = api.track_get(track.id, "meta") or {}
+            local part = paw.restore_part(snap)
+            st.made[e.row] = part.id
+            if e.fields.solo then api.part_set(part.id, "solo", true) end
+            if e.fields.armed then api.part_set(part.id, "armed", true) end
+            local meta = api.part_get(part.id, "meta") or {}
             meta.group_head, meta.group = e.fields.head or nil, nil
-            api.track_set(track.id, "meta", meta)
+            api.part_set(part.id, "meta", meta)
           end
         )
       elseif not e.id then
@@ -354,25 +354,25 @@ tb.kind("tracks", {
         step(
           string.format("add %s%s", quote(f.name), #kinds > 0 and " with " .. table.concat(kinds, ", ") or ""),
           function(st)
-            local track = paw.add_track({ name = f.name, volume = f.vol, pan = f.pan, color = f.color })
-            st.made[e.row] = track.id
+            local part = paw.add_part({ name = f.name, volume = f.vol, pan = f.pan, color = f.color })
+            st.made[e.row] = part.id
             for key, value in pairs({ mute = f.mute, solo = f.solo, armed = f.armed }) do
-              if value then api.track_set(track.id, key, true) end
+              if value then api.part_set(part.id, key, true) end
             end
             if f.head then
-              local meta = api.track_get(track.id, "meta") or {}
+              local meta = api.part_get(part.id, "meta") or {}
               meta.group_head = true
-              api.track_set(track.id, "meta", meta)
+              api.part_set(part.id, "meta", meta)
             end
             for _, kind in ipairs(kinds) do
-              track:add_device(kind)
+              part:add_device(kind)
             end
           end
         )
       end
     end
 
-    -- Outputs and groups, now that every track is there.
+    -- Outputs and groups, now that every part is there.
     for _, e in ipairs(ch.lines) do
       local f, base = e.fields, e.base
       local new = not base or e.copy_of
@@ -397,28 +397,28 @@ tb.kind("tracks", {
           local id = id_of(e, st)
           local to = o and id_of(o, st)
           if not to and f.group then to = id_of(resolve(f.group, e.row), st) end
-          api.track_set(id, "output", to)
+          api.part_set(id, "output", to)
         end)
       end
     end
 
-    -- The order of the lines, if it is not the order the tracks are in.
+    -- The order of the lines, if it is not the order the parts are in.
     if ch.moved or #made > 0 or #ch.added > 0 then
       for _, e in ipairs(ch.moves) do
         step(string.format("move %s from %d to %d", quote(e.fields.name), e.from, e.place))
       end
-      step("order the tracks as the lines are", function(st)
-        -- In a narrowed window, its tracks keep the place in the list they had.
+      step("order the parts as the lines are", function(st)
+        -- In a narrowed window, its parts keep the place in the list they had.
         local i = 0
-        local first = paw.scope.limits_tracks() and paw.scope.tracks()[1]
-        for k, id in ipairs(first and api.track_list() or {}) do
+        local first = paw.scope.limits_parts() and paw.scope.parts()[1]
+        for k, id in ipairs(first and api.part_list() or {}) do
           if id == first then i = k - 1 end
         end
         for _, e in ipairs(ch.lines) do
           local id = id_of(e, st)
           if id then
             i = i + 1
-            api.track_move(id, i)
+            api.part_move(id, i)
           end
         end
       end, true)
@@ -446,25 +446,25 @@ local function parse_send(text)
       return nil,
         "`"
           .. cell
-          .. "` is not a field: the track it is from, "
+          .. "` is not a field: the part it is from, "
           .. arrow()
-          .. " the track it goes to, the level in dB, pre or post"
+          .. " the part it goes to, the level in dB, pre or post"
     end
   end
-  if not f.to then return nil, "a send goes somewhere: " .. arrow() .. " and a track's name" end
+  if not f.to then return nil, "a send goes somewhere: " .. arrow() .. " and a part's name" end
   return f
 end
 
---- A track of the project by its name, or an error that says what is wrong.
-local function project_track(name, row)
-  if name:lower() == "master" then error(string.format("line %d: a send goes to a track, not the master", row), 0) end
+--- A part of the project by its name, or an error that says what is wrong.
+local function project_part(name, row)
+  if name:lower() == "master" then error(string.format("line %d: a send goes to a part, not the master", row), 0) end
   local found = {}
-  for _, id in ipairs(api.track_list()) do
-    if api.track_get(id, "name") == name then found[#found + 1] = id end
+  for _, id in ipairs(api.part_list()) do
+    if api.part_get(id, "name") == name then found[#found + 1] = id end
   end
-  if #found == 0 then error(string.format("line %d: no track `%s`", row, name), 0) end
+  if #found == 0 then error(string.format("line %d: no part `%s`", row, name), 0) end
   if #found > 1 then
-    error(string.format("line %d: %d tracks are called `%s`: name them apart first", row, #found, name), 0)
+    error(string.format("line %d: %d parts are called `%s`: name them apart first", row, #found, name), 0)
   end
   return found[1]
 end
@@ -476,15 +476,15 @@ tb.kind("sends", {
   keywords = {},
   hint = "edit the sends and `:w` · `yyp` and change the target to add one, `dd` removes, Ctrl-a and Ctrl-x on the level",
   style = function(cell, i)
-    if i == 1 then return "TrackName" end
-    if cell:match("^→") or cell:match("^%->") then return "TrackRoute" end
+    if i == 1 then return "PartName" end
+    if cell:match("^→") or cell:match("^%->") then return "PartRoute" end
     if cell == "pre" then return "Accent" end
     if cell == "post" then return "Faint" end
   end,
   read = function()
     local out = {}
-    for _, id in ipairs(api.track_list()) do
-      local t = api.track_get(id)
+    for _, id in ipairs(api.part_list()) do
+      local t = api.part_get(id)
       local seen = {}
       for _, s in ipairs(t.sends or {}) do
         local key = id .. ">" .. s.target
@@ -498,7 +498,7 @@ tb.kind("sends", {
     local s = item.send
     return {
       quote(item.from.name),
-      arrow() .. " " .. quote(track_name(s.target) or "?"),
+      arrow() .. " " .. quote(part_name(s.target) or "?"),
       db_text(s.level) .. " dB",
       s.pre and "pre" or "post",
     }
@@ -506,7 +506,7 @@ tb.kind("sends", {
   parse = parse_send,
   plan = function(ch)
     local steps = {}
-    -- The sends each track the plan touches ends with, from the lines.
+    -- The sends each part the plan touches ends with, from the lines.
     local touched, order = {}, {}
     local function touch(id)
       if not touched[id] then
@@ -515,12 +515,12 @@ tb.kind("sends", {
       end
     end
     for _, d in ipairs(ch.deleted) do
-      touch(project_track(d.base.from, d.row or 0))
+      touch(project_part(d.base.from, d.row or 0))
       steps[#steps + 1] = { text = "remove the send " .. send_text(d.base) }
     end
     for _, e in ipairs(ch.changed) do
-      touch(project_track(e.base.from, e.row))
-      touch(project_track(e.fields.from, e.row))
+      touch(project_part(e.base.from, e.row))
+      touch(project_part(e.fields.from, e.row))
       local f, b = e.fields, e.base
       if f.from ~= b.from or f.to ~= b.to then
         steps[#steps + 1] = { text = "move the send " .. send_text(b) .. " to " .. send_text(f) }
@@ -534,8 +534,8 @@ tb.kind("sends", {
       end
     end
     for _, e in ipairs(ch.lines) do
-      local from = project_track(e.fields.from, e.row)
-      project_track(e.fields.to, e.row)
+      local from = project_part(e.fields.from, e.row)
+      project_part(e.fields.to, e.row)
       if not e.base or e.copy_of then
         touch(from)
         steps[#steps + 1] = {
@@ -549,33 +549,33 @@ tb.kind("sends", {
       end
     end
     for _, e in ipairs(ch.lines) do
-      local from = project_track(e.fields.from, e.row)
+      local from = project_part(e.fields.from, e.row)
       if touched[from] then
         table.insert(
           touched[from],
-          { target = project_track(e.fields.to, e.row), level = e.fields.level, pre = e.fields.pre or nil }
+          { target = project_part(e.fields.to, e.row), level = e.fields.level, pre = e.fields.pre or nil }
         )
       end
     end
     for _, id in ipairs(order) do
       local sends = touched[id]
       for _, s in ipairs(sends) do
-        if s.target == id then error("a track cannot send to itself: " .. track_name(id), 0) end
+        if s.target == id then error("a part cannot send to itself: " .. part_name(id), 0) end
       end
       steps[#steps + 1] = {
-        text = "the sends of " .. quote(track_name(id)),
+        text = "the sends of " .. quote(part_name(id)),
         quiet = true,
         run = function()
           -- The list the project gives is marked as one, so that it stays a
           -- list when it is empty.
-          local list = api.track_get(id).sends
+          local list = api.part_get(id).sends
           for i = #list, 1, -1 do
             list[i] = nil
           end
           for i, send in ipairs(sends) do
             list[i] = send
           end
-          api.track_set(id, "sends", list)
+          api.part_set(id, "sends", list)
         end,
       }
     end
@@ -583,16 +583,16 @@ tb.kind("sends", {
   end,
 })
 
--- paw://track/N/devices ------------------------------------------------------------------------
+-- paw://part/N/devices ------------------------------------------------------------------------
 
---- The track a devices buffer is of: N its place in the list, or `master`.
-local function chain_track(ctx)
+--- The part a devices buffer is of: N its place in the list, or `master`.
+local function chain_part(ctx)
   local which = ctx.args[1]
   if which == "master" then return paw.master.id end
   local n = tonumber(which)
-  local id = n and api.track_list({ all = true })[n]
+  local id = n and api.part_list({ all = true })[n]
   if not id then
-    error("no track " .. tostring(which) .. ": paw://track/N/devices takes the track's place in the list, or master", 0)
+    error("no part " .. tostring(which) .. ": paw://part/N/devices takes the part's place in the list, or master", 0)
   end
   return id
 end
@@ -637,23 +637,23 @@ local function find_preset(device, name)
 end
 
 tb.kind("devices", {
-  pattern = "^paw://track/([%w]+)/devices$",
-  example = "paw://track/1/devices",
+  pattern = "^paw://part/([%w]+)/devices$",
+  example = "paw://part/1/devices",
   title = function(ctx)
-    local ok, id = pcall(chain_track, ctx)
-    return ok and "Devices of " .. (id == paw.master.id and "the master" or track_name(id)) or "Devices"
+    local ok, id = pcall(chain_part, ctx)
+    return ok and "Devices of " .. (id == paw.master.id and "the master" or part_name(id)) or "Devices"
   end,
   keywords = { wet = true, preset = true },
-  hint = "edit the chain and `:w` · `o` and a device's name adds one, `dd` removes, `yyp` copies, `ddp` moves one down · `-` the tracks",
+  hint = "edit the chain and `:w` · `o` and a device's name adds one, `dd` removes, `yyp` copies, `ddp` moves one down · `-` the parts",
   style = function(cell, i)
     if i == 1 then return "DeviceName" end
     if cell == "off" or cell == "bypassed" then return "DeviceOff" end
     if cell == "on" then return "Faint" end
   end,
   read = function(ctx)
-    local id = chain_track(ctx)
+    local id = chain_part(ctx)
     local out = {}
-    for i, d in ipairs(api.track_get(id).devices) do
+    for i, d in ipairs(api.part_get(id).devices) do
       out[i] = { id = d, device = api.device_get(d) }
     end
     return out
@@ -669,12 +669,12 @@ tb.kind("devices", {
     }
   end,
   parse = parse_device,
-  parent = function() return "paw://tracks" end,
+  parent = function() return "paw://parts" end,
   open = function(ctx, line)
     if not line.id then return paw.notify("a new device opens once `:w` has made it", "warn") end
     -- The device panel, on the device's own row.
-    local track = chain_track(ctx)
-    if track ~= paw.master.id then paw.cursor.set_track(track) end
+    local part = chain_part(ctx)
+    if part ~= paw.master.id then paw.cursor.set_part(part) end
     paw.ui.show("devices")
     local panel = paw.ui.views:get("devices")
     for i, row in ipairs(panel:rows()) do
@@ -686,7 +686,7 @@ tb.kind("devices", {
     paw.ui.focus("devices")
   end,
   plan = function(ch, ctx)
-    local track = chain_track(ctx)
+    local part = chain_part(ctx)
     local steps = {}
     local function step(text, run, quiet) steps[#steps + 1] = { text = text, run = run, quiet = quiet } end
     local function id_of(e, st) return e.id or st.made[e.row] end
@@ -751,12 +751,12 @@ tb.kind("devices", {
       if e.copy_of then
         step(
           "copy " .. quote(e.base.name),
-          function(st) st.made[e.row] = paw.restore_device(paw.device(e.copy_of):snapshot(), track).id end
+          function(st) st.made[e.row] = paw.restore_device(paw.device(e.copy_of):snapshot(), part).id end
         )
         settle(e, e.base)
       elseif not e.id then
         local kind = device_kind(e.fields.name)
-        step("add " .. kind, function(st) st.made[e.row] = paw.track(track):add_device(kind).id end)
+        step("add " .. kind, function(st) st.made[e.row] = paw.part(part):add_device(kind).id end)
         settle(e, { on = true, wet = 100 })
       end
     end
@@ -768,7 +768,7 @@ tb.kind("devices", {
           local id = id_of(e, st)
           if id then
             i = i + 1
-            api.device_move(id, track, i)
+            api.device_move(id, part, i)
           end
         end
       end, true)

@@ -114,7 +114,7 @@ local function added_acts(): MoreActs
 end
 
 --- The entries extensions add (`paw.frontend.menus[kind]`), for `target`
---- (a clip or a track) clicked at `beat`.
+--- (a clip or a part) clicked at `beat`.
 local function added(kind: string, target: integer, beat: number, midi: boolean): {Entry}
   local out: {Entry} = {}
   for index, entry in ipairs(frontend().menus[kind] or {}) do
@@ -170,7 +170,7 @@ function M.clip(id: integer, beat: number): {Entry}
     {label = "New take: keep this, carry on in a copy", run = run("take.new")},
     {label = "Throw this take away", enabled = many, run = run("take.remove")},
     {label = "Keep only this take", enabled = many, run = run("take.keep")},
-    {label = "Put the other takes on tracks of their own", enabled = many, run = run("take.explode")},
+    {label = "Put the other takes on parts of their own", enabled = many, run = run("take.explode")},
   }
   local stretch_items: {Entry} = {
     on_audio({label = "Stretch to the selection", run = function() act().stretch_clip(id, "selection") end}),
@@ -210,26 +210,26 @@ local colours = {"Coral", "Gold", "Lime", "Teal", "Sky", "Violet", "Pink", "Sand
 --- paw/window_menus.tl, as far as this module calls it: it names this
 --- module's types, so this one cannot name its.
 local record WindowMenus
-  input: function(track: integer): {Entry}
+  input: function(part: integer): {Entry}
 end
 
---- A track's header (or its mixer strip).
-function M.track(id: integer): {Entry}
-  local t = api.track_get(id)
+--- A part's header (or its mixer strip).
+function M.part(id: integer): {Entry}
+  local t = api.part_get(id)
   if t.master then
     return {}
   end
   local groups, vca = runtime.groups, runtime.vca
   local is_group, depth = groups.is_group(id), groups.depth(id)
   local function run(line: string): function()
-    return function() act().track_command(id, line) end
+    return function() act().part_command(id, line) end
   end
   local colour: {Entry} = {}
   for i, name in ipairs(colours) do
-    colour[i] = {label = name, run = run("track.color " .. name:lower())}
+    colour[i] = {label = name, run = run("part.color " .. name:lower())}
   end
   colour[#colour + 1] = "-"
-  colour[#colour + 1] = {label = "The theme's", run = run("track.color none")}
+  colour[#colour + 1] = {label = "The theme's", run = run("part.color none")}
   local mode = t.automation or "read"
   local function auto(word: string, label: string): Entry
     return {label = label, checked = mode as string == word, run = run("automation " .. word)}
@@ -249,18 +249,18 @@ function M.track(id: integer): {Entry}
     {label = "What is bound…", run = function() runtime.commands.exec("learn.list") end},
   }
   local items: {Entry} = {
-    {label = "Rename", run = run("track.rename")},
+    {label = "Rename", run = run("part.rename")},
     {label = "Colour", items = colour},
     {label = "Input", items = (require as function(string): WindowMenus)("paw.window_menus").input(id)},
     "-",
-    {label = "Duplicate", run = run("track.duplicate")},
+    {label = "Duplicate", run = run("part.duplicate")},
     "-",
-    {label = "New group with this track…", run = run("track.group")},
-    {label = "Move into a group…", run = run("track.into")},
+    {label = "New group with this part…", run = run("part.group")},
+    {label = "Move into a group…", run = run("part.into")},
     {
       label = is_group and "Dissolve the group" or "Take out of its group",
       enabled = is_group or depth > 0,
-      run = run("track.ungroup"),
+      run = run("part.ungroup"),
     },
     {label = "Link the faders of the group", enabled = is_group or depth > 0, run = run("group.link")},
     {
@@ -268,7 +268,7 @@ function M.track(id: integer): {Entry}
       enabled = is_group or depth > 0,
       run = run("fold.toggle"),
     },
-    {label = "New VCA with this track…", enabled = not vca.is_vca(id), run = run("vca.make")},
+    {label = "New VCA with this part…", enabled = not vca.is_vca(id), run = run("vca.make")},
     {label = "Put under a VCA…", enabled = not vca.is_vca(id), run = run("vca.assign")},
     {
       label = vca.is_vca(id) and "Dissolve the VCA" or "Take out of its VCAs",
@@ -281,22 +281,22 @@ function M.track(id: integer): {Entry}
     {label = "MIDI controller", items = midi_items},
     "-",
     {label = "Bounce to audio", run = run("bounce")},
-    {label = "New track below", run = run("track.add")},
+    {label = "New part below", run = run("part.add")},
   }
-  append(items, added("track", id, 0, false))
-  local lens = M.lens({uri = runtime.address.track(id)})
+  append(items, added("part", id, 0, false))
+  local lens = M.lens({uri = runtime.address.part(id)})
   if #lens > 0 then
     items[#items + 1] = "-"
     append(items, lens)
   end
   items[#items + 1] = "-"
-  items[#items + 1] = {label = "Delete", run = run("track.remove")}
+  items[#items + 1] = {label = "Delete", run = run("part.remove")}
   return items
 end
 
---- An empty stretch of the timeline, on `track` at `beat`: the cursor is
+--- An empty stretch of the timeline, on `part` at `beat`: the cursor is
 --- put there first, as the window does.
-function M.timeline(track: integer, beat: number): {Entry}
+function M.timeline(part: integer, beat: number): {Entry}
   local t = api.transport_get()
   local function run(line: string): function()
     return function() runtime.commands.exec(line) end
@@ -325,11 +325,11 @@ function M.timeline(track: integer, beat: number): {Entry}
       run = run("preroll"),
     },
     {label = runtime.tempolane.shown() and "Hide the tempo lane" or "Show the tempo lane", run = run("tempo.lane")},
-    {label = "Show or hide the track's take lanes", run = run("take.lanes")},
+    {label = "Show or hide the part's take lanes", run = run("take.lanes")},
     "-",
-    {label = "New track", run = run("track.add")},
+    {label = "New part", run = run("part.add")},
   }
-  return append(items, added("timeline", track, beat, false))
+  return append(items, added("timeline", part, beat, false))
 end
 
 --- A stretch of time selected on the timeline.
@@ -347,11 +347,9 @@ function M.selection(): {Entry}
   }
 end
 
---- A track's take lanes.
-function M.takes(track: integer): {Entry}
-  return {
-    {label = "Hide the take lanes", keys = "zt", run = function() act().track_command(track, "take.lanes off") end}
-  }
+--- A part's take lanes.
+function M.takes(part: integer): {Entry}
+  return {{label = "Hide the take lanes", keys = "zt", run = function() act().part_command(part, "take.lanes off") end}}
 end
 
 --- An automation lane shown as a row.
@@ -362,7 +360,7 @@ function M.lane(lane: integer): {Entry}
     {label = "Clear this lane", run = function() act().clear_lane(lane) end},
     {label = l.enabled and "Turn this lane off" or "Turn this lane on", run = function() act().toggle_lane(lane) end},
     "-",
-    {label = "Hide the track's lane rows", run = function() act().hide_lane_rows(lane) end},
+    {label = "Hide the part's lane rows", run = function() act().hide_lane_rows(lane) end},
   }
 end
 

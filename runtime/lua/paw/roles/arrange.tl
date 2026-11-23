@@ -80,8 +80,8 @@ local record CurveProps is contracts.MarkProps
   draw: function(buf: contracts.Buf)
 end
 
---- The props of `trackhead`.
-local record TrackheadProps is contracts.MarkProps
+--- The props of `parthead`.
+local record PartheadProps is contracts.MarkProps
   style: Style
   stripe: string
   stripe_style: Style
@@ -113,7 +113,7 @@ local record M
   type BeatLine = BeatLine
   type BeatsProps = BeatsProps
   type CurveProps = CurveProps
-  type TrackheadProps = TrackheadProps
+  type PartheadProps = PartheadProps
   type RecordingProps = RecordingProps
   type HmeterProps = HmeterProps
 end
@@ -170,7 +170,7 @@ end
 --- begins, from 0 up to 1: the terminal places the marks and the body by it,
 --- so that they are in the columns of the ruler (paw/axis.tl). The terminal draws the row in `title_style` and the
 --- body in `body_style`, and `body(buf, props)` draws what is in the body (notes,
---- a waveform). A window paints it in `color` (its track's), lit when
+--- a waveform). A window paints it in `color` (its part's), lit when
 --- `current` (the cursor's) or `chosen`, faint when `muted`; its notes or
 --- its waveform from `content` (`midi` or not: `paw.frontend.preview`,
 --- `paw.frontend.peaks`, fetched again when the key changes); an audio
@@ -319,7 +319,7 @@ role(
 --- `per` columns a beat: in `style`, the `loop` (`{ start, end }`, beats)
 --- shaded, a line on each of `lines` (`{ beat, bar }` each: a bar's when
 --- `bar`), beats' lines only with `beats`. A window paints it by `tone`
---- ("lane", "take", "auto"), a track's lane tinted with `color` when
+--- ("lane", "take", "auto"), a part's lane tinted with `color` when
 --- `selected`, every other row (`index`) a little lighter.
 role(
   "beats",
@@ -364,7 +364,7 @@ role(
 --- (`{ beat, height }` each) marked on it, `from` the beat at the left edge
 --- and `per` columns a beat. `draw(buf)` draws it in cells (the curve in
 --- line characters, the points as diamonds). A window draws a line through
---- the values and a dot on each point, in `color` (its track's), grey when
+--- the values and a dot on each point, in `color` (its part's), grey when
 --- not `enabled`.
 role(
   "curve",
@@ -385,12 +385,12 @@ role(
   } as contracts.Role<CurveProps>
 )
 
---- A track's header: its ground in `style`, with a stripe (`stripe`, a
+--- A part's header: its ground in `style`, with a stripe (`stripe`, a
 --- glyph in `stripe_style`) down its left. A window paints a panel, lighter
 --- when `selected`, with a stripe of `color` and a line under it, whose
 --- bottom edge a drag makes taller or shorter.
 role(
-  "trackhead",
+  "parthead",
   {
     props = {
       style = "highlight group",
@@ -399,16 +399,16 @@ role(
       color = "#rrggbb",
       selected = "boolean",
     },
-    cells = function(buf: contracts.Buf, p: TrackheadProps)
+    cells = function(buf: contracts.Buf, p: PartheadProps)
       buf:fill(0, 0, buf.width, buf.height, " ", p.style)
       for row = 0, buf.height - 1 do
         buf:text(0, row, p.stripe, p.stripe_style)
       end
     end,
-  } as contracts.Role<TrackheadProps>
+  } as contracts.Role<PartheadProps>
 )
 
---- A take being recorded on an armed track, from `start` (a beat) to
+--- A take being recorded on an armed part, from `start` (a beat) to
 --- `at`, the playhead, in `color`; no further than `to` when it is
 --- punched in. `per` is columns a beat, `phase` how far into its first
 --- column the take begins. Bound to `position`, a window
@@ -446,7 +446,7 @@ end
 --- `stereo`, both sides in one row of half blocks. With `at` (0 to 1), a
 --- fader's place along it, which a window shows as a thumb: the volume a
 --- drag across the row sets. A window always shows both sides, a thin bar
---- each, on the fader's scale. Bound to a track's meter (`bind =
+--- each, on the fader's scale. Bound to a part's meter (`bind =
 --- "meter:<id>"`), a window moves the levels with `scene.live`.
 role(
   "hmeter",

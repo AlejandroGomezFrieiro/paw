@@ -41,7 +41,7 @@ impl Buses {
                     let mut info: BusInfo = std::mem::zeroed();
                     component.getBusInfo(AUDIO, direction, index, &mut info);
                     infos.push((info.channelCount.max(0) as usize, wide(&info.name)));
-                    // The first bus carries the track's audio, the first
+                    // The first bus carries the part's audio, the first
                     // auxiliary input a side-chain, and every output is
                     // heard where it is routed.
                     let keys = direction == INPUT
@@ -106,7 +106,7 @@ impl Buses {
     }
 
     /// Give the block's sound from the output buses: the main bus on the
-    /// track's pair, added for an instrument, and the other pairs where they
+    /// part's pair, added for an instrument, and the other pairs where they
     /// go.
     fn write_output(&self, io: &mut Io, pairs: &[crate::OutPair], add: bool, n: usize) {
         if let Some(bus) = self.channels.first() {

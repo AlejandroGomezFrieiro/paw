@@ -9,7 +9,7 @@
 -- to the view under it, with coordinates relative to the view.
 --
 -- What a gesture means is the window's: views turn cells into beats,
--- pitches, tracks and values and call `paw.frontend.act`, so both frontends
+-- pitches, parts and values and call `paw.frontend.act`, so both frontends
 -- do the same with the same gesture.
 --
 --   function view:on_mouse(e)

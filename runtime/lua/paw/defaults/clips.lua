@@ -6,11 +6,11 @@ local cursor = paw.cursor
 local keymap, edit = paw.keymap, paw.edit
 local roll = paw.ui.views:get("pianoroll")
 local common = require("paw.defaults.common")
-local need_track, need_clip, plain_folder = common.need_track, common.need_clip, common.plain_folder
+local need_part, need_clip, plain_folder = common.need_part, common.need_clip, common.plain_folder
 
 command("clip.add", function(ctx)
-  local track = need_track()
-  if not track then return end
+  local part = need_part()
+  if not part then return end
   if ctx.args[1] ~= nil then
     error("clip.add puts a clip at the cursor and takes length= and name=: `clip.add length=8`", 0)
   end
@@ -18,19 +18,19 @@ command("clip.add", function(ctx)
   if not length or not (length > 0 and length < math.huge) then
     error("a clip's length is a number of beats above 0, not " .. tostring(ctx.args.length), 0)
   end
-  local clip = track:add_clip({ start = cursor.beat, length = length * (ctx.count or 1), name = ctx.args.name })
+  local clip = part:add_clip({ start = cursor.beat, length = length * (ctx.count or 1), name = ctx.args.name })
   return clip
 end, { desc = "Add an empty MIDI clip at the cursor" })
 command("clip.import", function(ctx)
-  local track = need_track()
-  if not track then return end
+  local part = need_part()
+  if not part then return end
   local file = ctx.args[1]
   if not file then return paw.notify("usage: clip.import <file.wav>", "warn") end
   if paw.midifile.is_midi_file(file) then
-    -- A MIDI file is one clip of all its notes, on this track.
-    return paw.midifile.import(tostring(file), { track = track }).clips[1]
+    -- A MIDI file is one clip of all its notes, on this part.
+    return paw.midifile.import(tostring(file), { part = part }).clips[1]
   end
-  return track:add_clip({ start = cursor.beat, file = tostring(file) })
+  return part:add_clip({ start = cursor.beat, file = tostring(file) })
 end, {
   desc = "Add an audio or MIDI file at the cursor: `clip.import take.wav`, `clip.import riff.mid`",
   complete = { "audio_files" },
@@ -47,48 +47,48 @@ function paw.is_audio_file(path)
   return false
 end
 
---- Bring a sound file into the project: on a new track named after the
---- file (or on `opts.track`), at the cursor (or `opts.start`). Returns the clip.
+--- Bring a sound file into the project: on a new part named after the
+--- file (or on `opts.part`), at the cursor (or `opts.start`). Returns the clip.
 function paw.import_audio(path, opts)
   opts = opts or {}
   local name = (path:match("([^/]+)$") or path):gsub("%.[^.]+$", "")
   local made
   -- With `paw.opt.copy_imports`, the project plays a copy in its own `media` folder.
   if paw.opt.copy_imports then path = api.media_adopt(path) end
-  local track = opts.track and paw.track(opts.track)
-  if not track then
-    track = paw.add_track({ name = name, index = cursor.index() and cursor.index() + 1 or nil })
-    made = track
+  local part = opts.part and paw.part(opts.part)
+  if not part then
+    part = paw.add_part({ name = name, index = cursor.index() and cursor.index() + 1 or nil })
+    made = part
   end
-  local ok, clip = pcall(track.add_clip, track, { start = opts.start or cursor.beat, file = path, name = name })
+  local ok, clip = pcall(part.add_clip, part, { start = opts.start or cursor.beat, file = path, name = name })
   if not ok then
     if made then made:remove() end
     error((tostring(clip):gsub("^[^:]*:%d+: ", ""):gsub("^runtime error: ", ""):match("^[^\n]*")), 0)
   end
-  cursor.set_track(track)
+  cursor.set_part(part)
   return clip
 end
 
 --- True if a path names a chain file of devices: a `devices.json`.
 function paw.is_chain_file(path) return tostring(path):match("devices%.json$") ~= nil end
 
--- The chain file open alone, if one is: `{ path, track }` (see `open_chain`).
+-- The chain file open alone, if one is: `{ path, part }` (see `open_chain`).
 paw.chain_document = nil
 
 --- Open a chain file (a `devices.json`) alone, as a new project with no
---- file: one track with its devices, and the device panel on it. `:w`
---- writes the chain back to its file. Returns the track.
+--- file: one part with its devices, and the device panel on it. `:w`
+--- writes the chain back to its file. Returns the part.
 function paw.open_chain(path)
   local name = (path:gsub("/devices%.json$", ""):match("([^/]+)$") or path):gsub("%.json$", "")
   api.project_new()
   api.project_set("name", name)
-  local track = paw.add_track({ name = name })
-  api.track_chain_file(track.id, path, false)
+  local part = paw.add_part({ name = name })
+  api.part_chain_file(part.id, path, false)
   api.undo_reset()
-  paw.chain_document = { path = path, track = track.id, opening = true }
-  cursor.set_track(track)
+  paw.chain_document = { path = path, part = part.id, opening = true }
+  cursor.set_part(part)
   pcall(paw.ui.show, "devices")
-  return track
+  return part
 end
 
 paw.on("project.loaded", function()
@@ -100,7 +100,7 @@ paw.on("project.loaded", function()
 end)
 
 --- Open what a path names: a folder that is no project as a list of its
---- files, a sound file as a new track, anything else as a project, with
+--- files, a sound file as a new part, anything else as a project, with
 --- plugins offline as `opts` says (see `paw.loading.open`).
 function paw.open(path, opts)
   -- A subproject's folder in a song (`song/nests/Bridge`): the song, inside it.
@@ -118,14 +118,13 @@ end
 --- What a MIDI file brought in or opened came to, said.
 local function midi_said(path, done)
   local name = path:match("([^/]+)$") or path
-  local text =
-    string.format("%s: %d notes on %d track%s", name, done.notes, #done.tracks, #done.tracks == 1 and "" or "s")
+  local text = string.format("%s: %d notes on %d part%s", name, done.notes, #done.parts, #done.parts == 1 and "" or "s")
   if done.skipped then text = text .. "; left out: " .. done.skipped end
   return text
 end
 
 -- Standard MIDI files, a format as any other (paw/formats.tl). `:import`
--- puts the file's tracks at the cursor (`tempo=yes`: its tempo map too),
+-- puts the file's parts at the cursor (`tempo=yes`: its tempo map too),
 -- `:open` makes a new project of it. `:export` writes MIDI files with its
 -- own grammar (paw/export.tl); `paw.formats.export` writes the whole project.
 paw.formats.register({
@@ -159,69 +158,69 @@ command("import", function(ctx)
       end
       return paw.notify(message)
     end
-    -- A track folder (one with a track.json): a track that refers to it.
-    local folder = path:gsub("/+$", ""):gsub("/track%.json$", "")
-    if paw.files.is_dir(folder) and io.open(folder .. "/track.json") then
-      local ok, id = pcall(api.track_import_folder, folder, cursor.index() and cursor.index() + 1 or nil)
+    -- A part folder (one with a part.json): a part that refers to it.
+    local folder = path:gsub("/+$", ""):gsub("/part%.json$", "")
+    if paw.files.is_dir(folder) and io.open(folder .. "/part.json") then
+      local ok, id = pcall(api.part_import_folder, folder, cursor.index() and cursor.index() + 1 or nil)
       if not ok then
         return paw.notify("could not import " .. path .. ": " .. tostring(id):gsub("^[^:]*:%d+: ", ""), "error")
       end
-      local track = paw.track(id)
-      cursor.set_track(track)
+      local part = paw.part(id)
+      cursor.set_part(part)
       return paw.notify(
         string.format(
-          "imported the track “%s” from %s; it refers to the folder until you edit it",
-          track.name,
+          "imported the part “%s” from %s; it refers to the folder until you edit it",
+          part.name,
           folder
         )
       )
     end
-    -- A chain file: the devices of the track at the cursor.
+    -- A chain file: the devices of the part at the cursor.
     if paw.is_chain_file(path) then
-      local track = cursor.track_id() and paw.track(cursor.track_id())
-      if not track then return paw.notify("put the cursor on a track first: the chain goes on it", "warn") end
-      local ok, n = pcall(api.track_chain_file, track.id, path, true)
+      local part = cursor.part_id() and paw.part(cursor.part_id())
+      if not part then return paw.notify("put the cursor on a part first: the chain goes on it", "warn") end
+      local ok, n = pcall(api.part_chain_file, part.id, path, true)
       if not ok then
         return paw.notify("could not import " .. path .. ": " .. tostring(n):gsub("^[^:]*:%d+: ", ""), "error")
       end
       return paw.notify(
         string.format(
-          "the chain of %s (%d device%s) is on track “%s”; it refers to the file until you edit it",
+          "the chain of %s (%d device%s) is on part “%s”; it refers to the file until you edit it",
           path,
           n,
           n == 1 and "" or "s",
-          track.name
+          part.name
         )
       )
     end
     if paw.midifile.is_clip_file(path) then
-      local track = cursor.track_id() and paw.track(cursor.track_id())
-      if not track or track.id == 0 then
-        track = paw.add_track({ name = (path:match("([^/]+)$") or path):gsub("%.[^.]+$", "") })
+      local part = cursor.part_id() and paw.part(cursor.part_id())
+      if not part or part.id == 0 then
+        part = paw.add_part({ name = (path:match("([^/]+)$") or path):gsub("%.[^.]+$", "") })
       end
-      local ok, clip = pcall(paw.midifile.import_clip, path, track, cursor.beat)
+      local ok, clip = pcall(paw.midifile.import_clip, path, part, cursor.beat)
       if not ok then
         return paw.notify("could not import " .. path .. ": " .. tostring(clip):gsub("^[^:]*:%d+: ", ""), "error")
       end
       return paw.notify(
         string.format(
-          "imported %s: %d notes on track “%s”; it refers to the file until you edit it",
+          "imported %s: %d notes on part “%s”; it refers to the file until you edit it",
           path:match("([^/]+)$") or path,
           clip.note_count or #clip:notes(),
-          track.name
+          part.name
         )
       )
     end
     -- A file of another program: its format (paw/formats.tl).
     if paw.formats.for_path(path, "import") then return paw.formats.import(path, { merge = true, args = args }) end
-    local ok, clip = pcall(paw.import_audio, path, { track = ctx.args.track })
+    local ok, clip = pcall(paw.import_audio, path, { part = ctx.args.part })
     if not ok then return paw.notify("could not import " .. path .. ": " .. tostring(clip), "error") end
     paw.notify(
       string.format(
-        "imported %s: %.1f beats on track “%s”",
+        "imported %s: %.1f beats on part “%s”",
         path:match("([^/]+)$") or path,
         clip.length,
-        clip:track().name
+        clip:part().name
       )
     )
   end
@@ -241,7 +240,7 @@ command("import", function(ctx)
   end
   paw.pick.file({ title = "Import", extensions = endings, on_choose = bring })
 end, {
-  desc = "Bring a file in: a sound file on a new track, a MIDI file's tracks at the cursor, a project of another program's tracks (`:help formats`): `import take.mp3`, `import song.mid`, `import song.mid tempo=yes` (its tempo map too); alone, choose it from a list",
+  desc = "Bring a file in: a sound file on a new part, a MIDI file's parts at the cursor, a project of another program's parts (`:help formats`): `import take.mp3`, `import song.mid`, `import song.mid tempo=yes` (its tempo map too); alone, choose it from a list",
   raw = true,
   complete = "importable",
 })
@@ -283,7 +282,7 @@ command("open", function(ctx)
   if path and path ~= "" then return go(paw.files.path(path)) end
   paw.pick.file({ title = "Open", on_choose = go })
 end, {
-  desc = "Open a project, a MIDI file or a project of another program as a new project (`:help formats`), or a sound file on a new track: `open song`, `open song.mid`, `open take.wav`; alone, choose it from a list",
+  desc = "Open a project, a MIDI file or a project of another program as a new project (`:help formats`), or a sound file on a new part: `open song`, `open song.mid`, `open take.wav`; alone, choose it from a list",
   raw = true,
   complete = "files",
 })
@@ -511,13 +510,13 @@ command("clip.split", function()
   local takes = paw.takes.piece(c, cursor.beat, c.start + c.length, c.loop and moved.shift)
   if takes then right.meta = { takes = takes } end
   clip.length = at
-  clip:track():add_clip(right)
+  clip:part():add_clip(right)
 end, { desc = "Split the clip at the cursor" })
---- The clips over a clip (a take over it), and over those, on its track.
+--- The clips over a clip (a take over it), and over those, on its part.
 local function clips_over(clip)
   local from, to = clip.start, clip.start + clip.length
   local found = { [clip.id] = true }
-  local list = clip:track():clips()
+  local list = clip:part():clips()
   local grew = true
   while grew do
     grew = false
@@ -534,20 +533,20 @@ end
 command("clip.join", function()
   local clip = need_clip()
   if not clip then return end
-  local track = clip:track().id
+  local part = clip:part().id
   -- Clips over each other first, as `:j` joins them; else the next one.
   local over, from, to = clips_over(clip)
   if next(over, next(over)) then
-    edit.arrange.join(track, from, to, over)
+    edit.arrange.join(part, from, to, over)
     return paw.notify("joined the clips over each other")
   end
   local finish, next_clip = clip.start + clip.length, nil
-  for _, other in ipairs(clip:track():clips()) do
+  for _, other in ipairs(clip:part():clips()) do
     if other.start >= finish - 1e-9 and (not next_clip or other.start < next_clip.start) then next_clip = other end
   end
   if not next_clip then return paw.notify("no clip after this one, or over it, to join it with", "warn") end
-  edit.arrange.join(track, clip.start, next_clip.start + next_clip.length)
-end, { desc = "Join the clip with the clips over it (a take over it), or else with the next one on the track" })
+  edit.arrange.join(part, clip.start, next_clip.start + next_clip.length)
+end, { desc = "Join the clip with the clips over it (a take over it), or else with the next one on the part" })
 command("clip.rename", function(ctx)
   local clip = need_clip()
   if not clip then return end
@@ -569,11 +568,11 @@ command("clip.transpose", function(ctx)
   )
 end, { desc = "Move the clip's notes by semitones: `clip.transpose 12`, `clip.transpose by=-1`" })
 command("clip.insert", function()
-  local track = need_track()
-  if not track then return end
+  local part = need_part()
+  if not part then return end
   local clip = cursor.clip()
   if clip and clip.kind ~= "midi" then return paw.notify("notes cannot be entered in an audio clip", "warn") end
-  clip = clip or track:add_clip({ start = cursor.beat, length = paw.opt.clip_length })
+  clip = clip or part:add_clip({ start = cursor.beat, length = paw.opt.clip_length })
   local at = cursor.beat - clip.start
   roll:edit(clip)
   roll:set(nil, math.floor(at / paw.timegrid.step("note") + 1e-9) * paw.timegrid.step("note"))
@@ -632,7 +631,7 @@ command("clip.crossfade", function(ctx)
   local clip = need_clip()
   if not clip then return end
   local finish, next_clip = clip.start + clip.length, nil
-  for _, other in ipairs(clip:track():clips()) do
+  for _, other in ipairs(clip:part():clips()) do
     if other.id ~= clip.id and other.start > clip.start and (not next_clip or other.start < next_clip.start) then
       next_clip = other
     end

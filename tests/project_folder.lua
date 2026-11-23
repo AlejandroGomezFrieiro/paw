@@ -1,4 +1,4 @@
--- A project as a folder of files: project.toml, a folder per track, a MIDI
+-- A project as a folder of files: project.toml, a folder per part, a MIDI
 -- 2.0 clip file per clip, files no longer used moved to unused/.
 local T = ...
 local advance = T.advance
@@ -26,12 +26,12 @@ local function notes(at)
   }
 end
 
---- A small song: two tracks, MIDI clips, a device, a lane.
+--- A small song: two parts, MIDI clips, a device, a lane.
 local function song()
   fresh()
   api.project_set("tempo", 96)
-  local keys = api.track_add({ name = "Keys", volume = -3 })
-  local bass = api.track_add({ name = "Bass" })
+  local keys = api.part_add({ name = "Keys", volume = -3 })
+  local bass = api.part_add({ name = "Bass" })
   local synth = api.device_add(keys, "synth", { params = { wave = 1 } })
   api.device_add(keys, "delay")
   local riff = api.clip_add(keys, { name = "riff", start = 0, length = 4, notes = notes(0) })
@@ -52,21 +52,21 @@ test("a project saved to a folder name writes a folder of files and opens again 
   for _, file in ipairs({
     "project.toml",
     ".gitattributes",
-    "tracks/Keys/track.json",
-    "tracks/Keys/devices.json",
-    "tracks/Keys/clips/riff.midi2",
-    "tracks/Bass/clips/line.midi2",
-    "tracks/Keys/automation/volume.json",
-    "tracks/Keys/automation/1-synth-wave.json",
-    "master/track.json",
+    "parts/Keys/part.json",
+    "parts/Keys/devices.json",
+    "parts/Keys/clips/riff.midi2",
+    "parts/Bass/clips/line.midi2",
+    "parts/Keys/automation/volume.json",
+    "parts/Keys/automation/1-synth-wave.json",
+    "master/part.json",
   }) do
     eq(exists(dir .. "/" .. file), true, file)
   end
-  eq(T.read_file(dir .. "/tracks/Keys/clips/riff.midi2"):sub(1, 8), "SMF2CLIP", "a MIDI 2.0 clip file")
+  eq(T.read_file(dir .. "/parts/Keys/clips/riff.midi2"):sub(1, 8), "SMF2CLIP", "a MIDI 2.0 clip file")
   eq(T.read_file(dir .. "/.gitattributes"), "*.midi2 diff=paw-midi2\n", ".gitattributes")
   eq(T.read_file(dir .. "/project.toml"):match("tempo = ([%d.]+)"), "96.0", "the tempo is in project.toml")
   local was = {}
-  for _, t in ipairs(api.track_list()) do
+  for _, t in ipairs(api.part_list()) do
     for _, c in ipairs(api.clip_list(t)) do
       was[c.name] = api.clip_notes(c.id)
     end
@@ -77,15 +77,15 @@ test("a project saved to a folder name writes a folder of files and opens again 
   eq(api.project_get().path, dir .. "/project.toml", "opened by its folder")
   eq(api.project_get().tempo, 96, "tempo")
   eq(api.project_get().name, "folder1-song", "named after its folder")
-  local tracks = api.track_list()
-  eq(#tracks, 2, "two tracks")
-  local k = api.track_get(tracks[1])
-  eq(k.name, "Keys", "the order of the tracks")
-  eq(k.volume, -3, "the track's fields")
+  local parts = api.part_list()
+  eq(#parts, 2, "two parts")
+  local k = api.part_get(parts[1])
+  eq(k.name, "Keys", "the order of the parts")
+  eq(k.volume, -3, "the part's fields")
   eq(#k.devices, 2, "the chain")
   eq(api.device_get(k.devices[1]).params.wave, 1, "a parameter")
-  eq(#api.lane_list(tracks[1]), 2, "the lanes")
-  for _, t in ipairs(tracks) do
+  eq(#api.lane_list(parts[1]), 2, "the lanes")
+  for _, t in ipairs(parts) do
     for _, c in ipairs(api.clip_list(t)) do
       local got, want = api.clip_notes(c.id), was[c.name]
       eq(#got, #want, c.name .. ": notes")
@@ -96,7 +96,7 @@ test("a project saved to a folder name writes a folder of files and opens again 
       end
     end
   end
-  local riff = api.clip_list(tracks[1])[1]
+  local riff = api.clip_list(parts[1])[1]
   eq(api.clip_notes(riff.id)[3].meta.lyric, "la", "a note's meta")
   eq(api.clip_controls(riff.id)[1].value, 0.25, "a controller move")
   eq(api.project_get().modified, false, "not changed by opening")
@@ -107,7 +107,7 @@ test("saving a folder again changes no file, and the same project gives the same
   song()
   local dir = folder("same")
   paw.project.save(dir)
-  local first = T.read_file(dir .. "/tracks/Keys/track.json")
+  local first = T.read_file(dir .. "/parts/Keys/part.json")
   paw.flush()
   local events = {}
   local off = paw.on("project.saved", function(e) events[#events + 1] = e end)
@@ -119,10 +119,10 @@ test("saving a folder again changes no file, and the same project gives the same
   paw.flush()
   local dir2 = folder("again")
   paw.project.save(dir2)
-  eq(T.read_file(dir2 .. "/tracks/Keys/track.json"), first, "the same bytes after a round trip")
+  eq(T.read_file(dir2 .. "/parts/Keys/part.json"), first, "the same bytes after a round trip")
   eq(
-    T.read_file(dir2 .. "/tracks/Keys/clips/riff.midi2"),
-    T.read_file(dir .. "/tracks/Keys/clips/riff.midi2"),
+    T.read_file(dir2 .. "/parts/Keys/clips/riff.midi2"),
+    T.read_file(dir .. "/parts/Keys/clips/riff.midi2"),
     "the same clip file"
   )
 end)
@@ -134,7 +134,7 @@ test("repeats of a part share one file until one of them is edited", function()
   api.undo_checkpoint()
   local dir = folder("repeats")
   paw.project.save(dir)
-  eq(exists(dir .. "/tracks/Keys/clips/riff-2.midi2"), false, "one file for both")
+  eq(exists(dir .. "/parts/Keys/clips/riff-2.midi2"), false, "one file for both")
   api.clip_note_set(copy, 1, { pitch = 61 })
   api.undo_checkpoint()
   paw.flush()
@@ -143,28 +143,28 @@ test("repeats of a part share one file until one of them is edited", function()
   paw.project.save()
   paw.flush()
   paw.off(off)
-  eq(exists(dir .. "/tracks/Keys/clips/riff-2.midi2"), true, "the edited one has its own file")
+  eq(exists(dir .. "/parts/Keys/clips/riff-2.midi2"), true, "the edited one has its own file")
   local written = table.concat(events[1].written, " ")
   eq(written:find("riff.midi2", 1, true) ~= nil, false, "the first one's file stays: " .. written)
   local _ = riff
 end)
 
-test("a renamed track's folder moves, and a removed clip's file goes to unused/", function()
+test("a renamed part's folder moves, and a removed clip's file goes to unused/", function()
   local keys, bass = song()
   local dir = folder("unused")
   paw.project.save(dir)
-  api.track_set(bass, "name", "Low")
+  api.part_set(bass, "name", "Low")
   local line = api.clip_list(bass)[1]
   api.undo_checkpoint()
   paw.project.save()
-  eq(exists(dir .. "/tracks/Low/clips/line.midi2"), true, "the folder has the new name")
-  eq(exists(dir .. "/tracks/Bass"), false, "the old folder is gone")
-  eq(exists(dir .. "/unused/tracks/Bass/clips/line.midi2"), false, "a moved file is not unused")
+  eq(exists(dir .. "/parts/Low/clips/line.midi2"), true, "the folder has the new name")
+  eq(exists(dir .. "/parts/Bass"), false, "the old folder is gone")
+  eq(exists(dir .. "/unused/parts/Bass/clips/line.midi2"), false, "a moved file is not unused")
   api.clip_remove(line.id)
   api.undo_checkpoint()
   paw.project.save()
-  eq(exists(dir .. "/tracks/Low/clips/line.midi2"), false, "not in the track any more")
-  eq(exists(dir .. "/unused/tracks/Low/clips/line.midi2"), true, "kept in unused/")
+  eq(exists(dir .. "/parts/Low/clips/line.midi2"), false, "not in the part any more")
+  eq(exists(dir .. "/unused/parts/Low/clips/line.midi2"), true, "kept in unused/")
   -- A file of the same name in unused/ already stays, and the next goes beside it.
   api.clip_add(bass, { name = "line", start = 0, length = 1, notes = { { start = 0, length = 1, pitch = 40 } } })
   api.undo_checkpoint()
@@ -172,7 +172,7 @@ test("a renamed track's folder moves, and a removed clip's file goes to unused/"
   api.clip_remove(api.clip_list(bass)[1].id)
   api.undo_checkpoint()
   paw.project.save()
-  eq(exists(dir .. "/unused/tracks/Low/clips/line-2.midi2"), true, "never over a file in unused/")
+  eq(exists(dir .. "/unused/parts/Low/clips/line-2.midi2"), true, "never over a file in unused/")
   local _ = keys
 end)
 
@@ -183,25 +183,25 @@ test("a project folder opens from its project.toml and from the command line nam
   api.project_new()
   paw.open(dir .. "/project.toml")
   paw.flush()
-  eq(#api.track_list(), 2, "opened from project.toml")
+  eq(#api.part_list(), 2, "opened from project.toml")
   eq(api.project_get().path, dir .. "/project.toml", "its path")
 end)
 
 test("a plugin's state is a file of its own beside devices.json", function()
   fresh()
-  local t = api.track_add({ name = "Lead" })
+  local t = api.part_add({ name = "Lead" })
   local d = api.device_add(t, "synth")
   api.device_set(d, "state", "aGVsbG8=")
   api.undo_checkpoint()
   local dir = folder("state")
   paw.project.save(dir)
-  eq(T.read_file(dir .. "/tracks/Lead/1-synth.state"), "hello", "the state's bytes")
-  eq(T.read_file(dir .. "/tracks/Lead/devices.json"):find("state_file", 1, true) ~= nil, true, "named in devices.json")
+  eq(T.read_file(dir .. "/parts/Lead/1-synth.state"), "hello", "the state's bytes")
+  eq(T.read_file(dir .. "/parts/Lead/devices.json"):find("state_file", 1, true) ~= nil, true, "named in devices.json")
   api.project_new()
   api.project_load(dir)
   local again = folder("state-again")
   paw.project.save(again)
-  eq(T.read_file(again .. "/tracks/Lead/1-synth.state"), "hello", "read back and written again")
+  eq(T.read_file(again .. "/parts/Lead/1-synth.state"), "hello", "read back and written again")
 end)
 
 test(
@@ -211,9 +211,9 @@ test(
     local dir = folder("buffers")
     paw.project.save(dir)
     paw.flush()
-    -- Two edits: a note of the riff, and the bass track's volume.
+    -- Two edits: a note of the riff, and the bass part's volume.
     api.clip_note_set(riff, 1, { velocity = 50 })
-    api.track_set(bass, "volume", -10)
+    api.part_set(bass, "volume", -10)
     api.undo_checkpoint()
     paw.ui.views:get("pianoroll"):edit(paw.clip(riff))
     paw.flush()
@@ -222,21 +222,21 @@ test(
     for _, f in ipairs(api.project_files()) do
       files[f.path] = f.modified
     end
-    eq(files["tracks/Keys/clips/riff.midi2"], true, "the clip differs from the disk")
-    eq(files["tracks/Bass/track.json"], true, "the bass track too")
-    eq(files["tracks/Keys/devices.json"], false, "the chain does not")
+    eq(files["parts/Keys/clips/riff.midi2"], true, "the clip differs from the disk")
+    eq(files["parts/Bass/part.json"], true, "the bass part too")
+    eq(files["parts/Keys/devices.json"], false, "the chain does not")
     T.keys("<Esc>:w<CR>")
-    eq(paw.ui.message.text, "wrote riff.midi2", "only the clip's file (its track.json and project.toml did not change)")
+    eq(paw.ui.message.text, "wrote riff.midi2", "only the clip's file (its part.json and project.toml did not change)")
     files = {}
     for _, f in ipairs(api.project_files()) do
       files[f.path] = f.modified
     end
-    eq(files["tracks/Keys/clips/riff.midi2"], false, "written")
-    eq(files["tracks/Bass/track.json"], true, "the bass track is still to write")
+    eq(files["parts/Keys/clips/riff.midi2"], false, "written")
+    eq(files["parts/Bass/part.json"], true, "the bass part is still to write")
     eq(api.project_get().modified, true, "the project still has a change that is not saved")
     T.keys(":wa<CR>")
     eq(api.project_get().modified, false, "all saved")
-    -- Undo of the volume makes the bass track's file differ again, and redo
+    -- Undo of the volume makes the bass part's file differ again, and redo
     -- makes it the same as the disk.
     api.undo()
     paw.flush()
@@ -244,13 +244,13 @@ test(
     for _, f in ipairs(api.project_files()) do
       files[f.path] = f.modified
     end
-    eq(files["tracks/Bass/track.json"], true, "undone: differs from the disk")
+    eq(files["parts/Bass/part.json"], true, "undone: differs from the disk")
     api.redo()
     files = {}
     for _, f in ipairs(api.project_files()) do
       files[f.path] = f.modified
     end
-    eq(files["tracks/Bass/track.json"], false, "redone: as on the disk")
+    eq(files["parts/Bass/part.json"], false, "redone: as on the disk")
     local _ = keys
   end
 )
@@ -260,8 +260,8 @@ test("a clip file from outside is referred to until its first edit, which makes 
   local lib = folder("library")
   os.execute("mkdir -p '" .. lib .. "'")
   api.midi2_write(lib .. "/riff.midi2", { notes = notes(0), length = 4 })
-  local t = paw.add_track({ name = "Keys" })
-  paw.cursor.set_track(t)
+  local t = paw.add_part({ name = "Keys" })
+  paw.cursor.set_part(t)
   paw.cursor.beat = 4
   T.keys(":import " .. lib .. "/riff.midi2<CR>")
   local clip = t:clips()[1]
@@ -271,15 +271,15 @@ test("a clip file from outside is referred to until its first edit, which makes 
   eq(#api.clip_notes(clip.id), 3, "its notes")
   local dir = folder("refers")
   paw.project.save(dir)
-  eq(exists(dir .. "/tracks/Keys/clips/riff.midi2"), false, "no copy in the folder")
+  eq(exists(dir .. "/parts/Keys/clips/riff.midi2"), false, "no copy in the folder")
   eq(
-    T.read_file(dir .. "/tracks/Keys/track.json"):find(lib .. "/riff.midi2", 1, true) ~= nil,
+    T.read_file(dir .. "/parts/Keys/part.json"):find(lib .. "/riff.midi2", 1, true) ~= nil,
     true,
-    "track.json names the file"
+    "part.json names the file"
   )
   api.project_load(dir)
   paw.flush()
-  clip = paw.tracks()[1]:clips()[1]
+  clip = paw.parts()[1]:clips()[1]
   eq(api.clip_get(clip.id).source, lib .. "/riff.midi2", "still referred to after opening")
   -- The first edit.
   local copied = 0
@@ -301,7 +301,7 @@ test("a clip file from outside is referred to until its first edit, which makes 
   eq(api.clip_get(clip.id).source, lib .. "/riff.midi2", "undo returns to the reference")
   api.redo()
   paw.project.save()
-  eq(exists(dir .. "/tracks/Keys/clips/riff.midi2"), true, "the copy is in the folder")
+  eq(exists(dir .. "/parts/Keys/clips/riff.midi2"), true, "the copy is in the folder")
 end)
 
 test(":collect makes every clip from outside the project's own", function()
@@ -309,7 +309,7 @@ test(":collect makes every clip from outside the project's own", function()
   local lib = folder("library2")
   os.execute("mkdir -p '" .. lib .. "'")
   api.midi2_write(lib .. "/hook.midi2", { notes = notes(0), length = 2 })
-  local t = paw.add_track({ name = "Keys" })
+  local t = paw.add_part({ name = "Keys" })
   t:add_clip({ file = lib .. "/hook.midi2", start = 0 })
   local dir = folder("collect")
   paw.project.save(dir)
@@ -320,11 +320,11 @@ test(":collect makes every clip from outside the project's own", function()
     "said"
   )
   T.keys(":wa<CR>")
-  eq(exists(dir .. "/tracks/Keys/clips/hook.midi2"), true, "copied in")
+  eq(exists(dir .. "/parts/Keys/clips/hook.midi2"), true, "copied in")
   eq(api.clip_get(t:clips()[1].id).origin, lib .. "/hook.midi2", "where it came from")
 end)
 
-test("a clip file opens alone in the piano roll, plays on a track of its own, and :w writes it back", function()
+test("a clip file opens alone in the piano roll, plays on a part of its own, and :w writes it back", function()
   local lib = folder("alone")
   os.execute("mkdir -p '" .. lib .. "'")
   local path = lib .. "/riff.midi2"
@@ -332,11 +332,11 @@ test("a clip file opens alone in the piano roll, plays on a track of its own, an
   fresh()
   T.keys(":e " .. path .. "<CR>")
   eq(paw.ui.message.text, "opened riff.midi2 alone: `:w` writes it back, `:w song` saves a project of it", "said")
-  eq(#paw.tracks(), 1, "one track")
-  eq(paw.tracks()[1]:devices()[1].kind, "synth", "the default instrument")
+  eq(#paw.parts(), 1, "one part")
+  eq(paw.parts()[1]:devices()[1].kind, "synth", "the default instrument")
   eq(paw.ui.views:get("pianoroll"):clip().name, "riff", "the piano roll shows it")
   eq(api.project_get().modified, false, "nothing changed yet")
-  local clip = paw.tracks()[1]:clips()[1]
+  local clip = paw.parts()[1]:clips()[1]
   api.clip_note_set(clip.id, 1, { pitch = 72 })
   api.undo_checkpoint()
   T.keys(":w<CR>")
@@ -348,7 +348,7 @@ end)
 
 test("a MIDI 1.0 file written, opened and written again is the same file", function()
   fresh()
-  local t = paw.add_track({ name = "Keys" })
+  local t = paw.add_part({ name = "Keys" })
   t:add_clip({
     start = 0,
     length = 4,
@@ -373,7 +373,7 @@ end)
 
 test("MIDI 1.0 notes and controllers go into a clip file and back with no loss", function()
   fresh()
-  local t = paw.add_track({ name = "Keys" })
+  local t = paw.add_part({ name = "Keys" })
   local list = {}
   for v = 1, 127, 7 do
     list[#list + 1] = { start = #list * 0.25, length = 0.25, pitch = v, velocity = v }
@@ -417,11 +417,11 @@ test("a file changed outside paw is asked about at the next key, read again as o
   paw.project.save(dir)
   advance(400)
   eq(#api.project_changed_files(), 0, "paw's own save is not a change from outside")
-  local path = dir .. "/tracks/Bass/track.json"
+  local path = dir .. "/parts/Bass/part.json"
   local text = T.read_file(path)
   save_outside(path, (text:gsub('"volume": [%-%d.]+', '"volume": -12.0')))
   wait_for_change()
-  eq(api.project_changed_files()[1], "tracks/Bass/track.json", "the change is seen")
+  eq(api.project_changed_files()[1], "parts/Bass/part.json", "the change is seen")
   T.keys("j")
   eq(
     require("paw.views.cmdline").state().prompt:match("^1 file changed outside paw") ~= nil,
@@ -429,11 +429,11 @@ test("a file changed outside paw is asked about at the next key, read again as o
     "asked at the next key"
   )
   T.keys("y")
-  eq(api.track_get(bass).volume, -12, "read again")
+  eq(api.part_get(bass).volume, -12, "read again")
   eq(api.project_get().modified, false, "as on the disk")
   eq(#api.project_changed_files(), 0, "acted on")
   api.undo()
-  eq(api.track_get(bass).volume, 0, "one undo step")
+  eq(api.part_get(bass).volume, 0, "one undo step")
 end)
 
 test("on_external_change keep says so once and the next save writes over the file", function()
@@ -442,7 +442,7 @@ test("on_external_change keep says so once and the next save writes over the fil
   paw.project.save(dir)
   paw.opt.on_external_change = "keep"
   T.after(function() paw.opt.on_external_change = "ask" end)
-  local path = dir .. "/tracks/Bass/track.json"
+  local path = dir .. "/parts/Bass/part.json"
   local text = T.read_file(path)
   save_outside(path, (text:gsub('"volume": [%-%d.]+', '"volume": -12.0')))
   wait_for_change()
@@ -452,7 +452,7 @@ test("on_external_change keep says so once and the next save writes over the fil
     true,
     "said: " .. tostring(paw.ui.message.text) .. tostring(paw.external)
   )
-  eq(api.track_get(bass).volume, 0, "paw's version")
+  eq(api.part_get(bass).volume, 0, "paw's version")
   T.keys(":wa<CR>")
   eq(T.read_file(path), text, "written over")
 end)
@@ -461,7 +461,7 @@ test("coming back to paw (the terminal's or the window's focus) asks at once abo
   local _, bass = song()
   local dir = folder("focus")
   paw.project.save(dir)
-  local path = dir .. "/tracks/Bass/track.json"
+  local path = dir .. "/parts/Bass/part.json"
   paw._kernel.focus(false)
   save_outside(path, (T.read_file(path):gsub('"volume": [%-%d.]+', '"volume": -12.0')))
   wait_for_change()
@@ -473,18 +473,18 @@ test("coming back to paw (the terminal's or the window's focus) asks at once abo
     "asked when paw gets the focus"
   )
   T.keys("y")
-  eq(api.track_get(bass).volume, -12, "the first key answers")
+  eq(api.part_get(bass).volume, -12, "the first key answers")
   -- The window says the same through its action.
   save_outside(path, (T.read_file(path):gsub('"volume": [%-%d.]+', '"volume": -6.0')))
   wait_for_change()
   paw.frontend.act.focus(true)
   T.keys("y")
-  eq(api.track_get(bass).volume, -6, "the window's focus asks too")
+  eq(api.part_get(bass).volume, -6, "the window's focus asks too")
 end)
 
 test(":export to a MIDI 1.0 file says what it rounded and what it left out", function()
   fresh()
-  local t = paw.add_track({ name = "Keys" })
+  local t = paw.add_part({ name = "Keys" })
   t:add_clip({
     start = 0,
     length = 4,
@@ -519,17 +519,17 @@ test("a project opened from one JSON file is saved by :w as a folder beside it, 
     "a project is a folder: saved it in old/ (old.json stays as it was): " .. dir .. "/old/project.toml",
     "said"
   )
-  eq(exists(dir .. "/old/tracks/Keys/clips/riff.midi2"), true, "the folder has the clips")
+  eq(exists(dir .. "/old/parts/Keys/clips/riff.midi2"), true, "the folder has the clips")
   eq(T.read_file(dir .. "/old.json"), before, "the JSON file did not change")
   eq(api.project_get("path"), dir .. "/old/project.toml", "the project is the folder now")
   eq(api.project_get().modified, false, "and saved")
 end)
 
---- A library to take parts from: a project folder with the track Lead (a
+--- A library to take parts from: a project folder with the part Lead (a
 --- synth and a delay, a clip, a volume lane).
 local function library()
   fresh()
-  local lead = api.track_add({ name = "Lead" })
+  local lead = api.part_add({ name = "Lead" })
   api.device_add(lead, "synth", { params = { wave = 2 } })
   api.device_add(lead, "delay")
   api.clip_add(lead, { name = "hook", start = 0, length = 4, notes = notes(0) })
@@ -540,7 +540,7 @@ local function library()
   return dir
 end
 
---- Whether no two tracks, clips or devices have one id.
+--- Whether no two parts, clips or devices have one id.
 local function ids_unique()
   local seen = {}
   local function new(id)
@@ -548,7 +548,7 @@ local function ids_unique()
     seen[id] = true
     return true
   end
-  for _, t in ipairs(paw.tracks()) do
+  for _, t in ipairs(paw.parts()) do
     if not new(t.id) then return false end
     for _, c in ipairs(t:clips()) do
       if not new(c.id) then return false end
@@ -561,21 +561,21 @@ local function ids_unique()
 end
 
 test(
-  "a track folder from outside is imported as a track that refers to it, and the first edit makes it the project's own",
+  "a part folder from outside is imported as a part that refers to it, and the first edit makes it the project's own",
   function()
     local lib = library()
-    local before = T.read_file(lib .. "/tracks/Lead/track.json")
+    local before = T.read_file(lib .. "/parts/Lead/part.json")
     song()
     local dir = folder("with-lead")
     paw.project.save(dir)
-    T.keys(":import " .. lib .. "/tracks/Lead<CR>")
+    T.keys(":import " .. lib .. "/parts/Lead<CR>")
     eq(
       paw.ui.message.text,
-      "imported the track “Lead” from " .. lib .. "/tracks/Lead; it refers to the folder until you edit it",
+      "imported the part “Lead” from " .. lib .. "/parts/Lead; it refers to the folder until you edit it",
       "said"
     )
-    local lead = paw.track("Lead")
-    eq(lead:get().source, lib .. "/tracks/Lead", "it refers to the folder")
+    local lead = paw.part("Lead")
+    eq(lead:get().source, lib .. "/parts/Lead", "it refers to the folder")
     eq(
       #lead:devices() .. " " .. #lead:clips()[1]:notes() .. " " .. #api.lane_list(lead.id),
       "2 3 1",
@@ -583,25 +583,25 @@ test(
     )
     eq(ids_unique(), true, "the ids of the library are made the project's own where they meet")
     T.keys(":wa<CR>")
-    eq(exists(dir .. "/tracks/Lead"), false, "a save writes nothing of it")
+    eq(exists(dir .. "/parts/Lead"), false, "a save writes nothing of it")
     eq(
-      T.read_file(dir .. "/project.toml"):find(lib .. "/tracks/Lead", 1, true) ~= nil,
+      T.read_file(dir .. "/project.toml"):find(lib .. "/parts/Lead", 1, true) ~= nil,
       true,
       "project.toml names the folder"
     )
     -- Opened again, it is read from the library.
     T.keys(":e! " .. dir .. "<CR>")
-    lead = paw.track("Lead")
-    eq(lead:get().source, lib .. "/tracks/Lead", "opened again, it refers to the folder")
+    lead = paw.part("Lead")
+    eq(lead:get().source, lib .. "/parts/Lead", "opened again, it refers to the folder")
     eq(#lead:clips()[1]:notes(), 3, "with its notes")
     eq(ids_unique(), true, "with ids of its own")
-    paw.cursor.set_track(lead)
+    paw.cursor.set_part(lead)
     T.keys(":info<CR>")
     -- A long path goes on the line under its label, as with the long
     -- temporary folders of the suite's plugins mode.
     local info = table.concat(api.ui_snapshot(120, 40), "\n")
     eq(
-      info:find("refers to", 1, true) ~= nil and info:find(lib .. "/tracks/Lead", 1, true) ~= nil,
+      info:find("refers to", 1, true) ~= nil and info:find(lib .. "/parts/Lead", 1, true) ~= nil,
       true,
       ":info names the folder"
     )
@@ -610,70 +610,66 @@ test(
     lead.volume = -3
     api.undo_checkpoint()
     paw.flush()
-    eq(
-      paw.ui.message.text,
-      "the track Lead is now this project's own copy (was " .. lib .. "/tracks/Lead)",
-      "said once"
-    )
-    eq(lead:get().origin, lib .. "/tracks/Lead", "it keeps where it came from")
+    eq(paw.ui.message.text, "the part Lead is now this project's own copy (was " .. lib .. "/parts/Lead)", "said once")
+    eq(lead:get().origin, lib .. "/parts/Lead", "it keeps where it came from")
     T.keys(":wa<CR>")
     eq(
-      exists(dir .. "/tracks/Lead/track.json") and exists(dir .. "/tracks/Lead/clips/hook.midi2"),
+      exists(dir .. "/parts/Lead/part.json") and exists(dir .. "/parts/Lead/clips/hook.midi2"),
       true,
       "now saved in the project, its clips too"
     )
-    eq(T.read_file(lib .. "/tracks/Lead/track.json"), before, "the library is as it was")
+    eq(T.read_file(lib .. "/parts/Lead/part.json"), before, "the library is as it was")
     api.undo()
-    eq(paw.track("Lead"):get().source, lib .. "/tracks/Lead", "an undo refers to the folder again")
+    eq(paw.part("Lead"):get().source, lib .. "/parts/Lead", "an undo refers to the folder again")
   end
 )
 
 test(
-  "a chain file from outside refers to it until the chain's first edit; :collect makes tracks and chains the project's own",
+  "a chain file from outside refers to it until the chain's first edit; :collect makes parts and chains the project's own",
   function()
     local lib = library()
     local keys = song()
     local dir = folder("with-chain")
     paw.project.save(dir)
-    paw.cursor.set_track(paw.track(keys))
-    local chain = lib .. "/tracks/Lead/devices.json"
+    paw.cursor.set_part(paw.part(keys))
+    local chain = lib .. "/parts/Lead/devices.json"
     T.keys(":import " .. chain .. "<CR>")
     eq(
       paw.ui.message.text,
-      "the chain of " .. chain .. " (2 devices) is on track “Keys”; it refers to the file until you edit it",
+      "the chain of " .. chain .. " (2 devices) is on part “Keys”; it refers to the file until you edit it",
       "said"
     )
-    eq(#paw.track(keys):devices(), 2, "the devices of the file")
+    eq(#paw.part(keys):devices(), 2, "the devices of the file")
     eq(ids_unique(), true, "with ids of their own")
     T.keys(":wa<CR>")
-    local entry = T.read_file(dir .. "/tracks/Keys/track.json")
-    eq(entry:find('"devices_file": "' .. chain .. '"', 1, true) ~= nil, true, "track.json names the chain file")
-    eq(exists(dir .. "/unused/tracks/Keys/devices.json"), true, "and the project's devices.json is not used any more")
+    local entry = T.read_file(dir .. "/parts/Keys/part.json")
+    eq(entry:find('"devices_file": "' .. chain .. '"', 1, true) ~= nil, true, "part.json names the chain file")
+    eq(exists(dir .. "/unused/parts/Keys/devices.json"), true, "and the project's devices.json is not used any more")
     T.keys(":e! " .. dir .. "<CR>")
-    local t = paw.track("Keys")
+    local t = paw.part("Keys")
     eq(t:get().chain_source .. " " .. #t:devices(), chain .. " 2", "opened again, from the file")
     t:devices()[1]:set("wave", 3)
     api.undo_checkpoint()
     paw.flush()
     eq(paw.ui.message.text, "the devices of Keys are now this project's own copy (was " .. chain .. ")", "said")
     T.keys(":wa<CR>")
-    eq(exists(dir .. "/tracks/Keys/devices.json"), true, "the chain is written into the project")
-    -- :collect: a track from outside.
-    T.keys(":import " .. lib .. "/tracks/Lead<CR>")
+    eq(exists(dir .. "/parts/Keys/devices.json"), true, "the chain is written into the project")
+    -- :collect: a part from outside.
+    T.keys(":import " .. lib .. "/parts/Lead<CR>")
     T.keys(":collect<CR>")
     eq(
       paw.ui.message.text,
-      "1 track, 1 clip and 0 sound files are now the project's own; `:w` writes them into its folder",
+      "1 part, 1 clip and 0 sound files are now the project's own; `:w` writes them into its folder",
       "said"
     )
     T.keys(":wa<CR>")
-    eq(exists(dir .. "/tracks/Lead/clips/hook.midi2"), true, "copied in")
+    eq(exists(dir .. "/parts/Lead/clips/hook.midi2"), true, "copied in")
   end
 )
 
-test("a chain file opens alone, on a track of its own, and :w writes it back", function()
+test("a chain file opens alone, on a part of its own, and :w writes it back", function()
   local lib = library()
-  local chain = lib .. "/tracks/Lead/devices.json"
+  local chain = lib .. "/parts/Lead/devices.json"
   fresh()
   T.keys(":e " .. chain .. "<CR>")
   eq(
@@ -681,9 +677,9 @@ test("a chain file opens alone, on a track of its own, and :w writes it back", f
     "opened the chain " .. chain .. " alone: `:w` writes it back, `:w song` saves a project of it",
     "said"
   )
-  eq(#paw.tracks() .. " " .. #paw.tracks()[1]:devices(), "1 2", "one track with the chain")
+  eq(#paw.parts() .. " " .. #paw.parts()[1]:devices(), "1 2", "one part with the chain")
   eq(api.project_get().modified, false, "nothing changed yet")
-  paw.tracks()[1]:add_device("eq")
+  paw.parts()[1]:add_device("eq")
   api.undo_checkpoint()
   T.keys(":w<CR>")
   eq(paw.ui.message.text, "wrote " .. chain, "written back")
@@ -691,18 +687,18 @@ test("a chain file opens alone, on a track of its own, and :w writes it back", f
   eq(api.project_get().modified, false, "saved")
 end)
 
-test("a subproject made through the API has its own tracks, and they route only inside it", function()
+test("a subproject made through the API has its own parts, and they route only inside it", function()
   fresh()
-  local reverb = api.track_add({ name = "Reverb" })
+  local reverb = api.part_add({ name = "Reverb" })
   local bridge = api.nest_add({ name = "Bridge", length = 24 })
-  local keys = api.track_add({ name = "Keys", nest = bridge })
+  local keys = api.part_add({ name = "Keys", nest = bridge })
   local nest = paw.nest.get(bridge)
-  eq(nest.name .. " " .. nest.length .. " " .. #nest.tracks, "Bridge 24 1", "made with its track")
-  eq(api.track_get(keys).nest, bridge, "the track belongs to it")
+  eq(nest.name .. " " .. nest.length .. " " .. #nest.parts, "Bridge 24 1", "made with its part")
+  eq(api.part_get(keys).nest, bridge, "the part belongs to it")
   eq(#paw.nest.list(), 1, "listed")
   T.fails(
-    function() api.track_set(keys, "sends", { { target = reverb, level = 0 } }) end,
-    "of the subproject Bridge cannot send to track " .. reverb .. " %(Reverb%) of the song",
+    function() api.part_set(keys, "sends", { { target = reverb, level = 0 } }) end,
+    "of the subproject Bridge cannot send to part " .. reverb .. " %(Reverb%) of the song",
     "the boundary is closed"
   )
   api.nest_set(bridge, { name = "Ballad" })

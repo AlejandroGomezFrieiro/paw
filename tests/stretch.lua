@@ -55,7 +55,7 @@ end
 --- more.
 local function settled()
   T.advance_until(function()
-    for _, t in ipairs(paw.tracks()) do
+    for _, t in ipairs(paw.parts()) do
       for _, c in ipairs(api.clip_list(t.id)) do
         if c.stretching then return false end
       end
@@ -68,7 +68,7 @@ end
 
 test("a stretched clip renders at its new length with the pitch of its file", function()
   local file = tone_file(8)
-  local t = paw.add_track({ name = "audio" })
+  local t = paw.add_part({ name = "audio" })
   local clip = t:add_clip({ file = file, start = 0 })
   near(clip.length, 8, 1e-6, "the file's length")
   paw.stretch.set(clip.id, 1.5)
@@ -97,7 +97,7 @@ test("a stretch starts to be made 150 ms after it is asked for", function()
   -- A sound of its own: a bake of the same sound, made before, would play
   -- at once.
   local file = tone_file(16, 77)
-  local t = paw.add_track({ name = "audio" })
+  local t = paw.add_part({ name = "audio" })
   local clip = t:add_clip({ file = file, start = 0 })
   paw.stretch.set(clip.id, 1.5)
   paw.flush()
@@ -116,7 +116,7 @@ end)
 test("a clip plays a rough preview until its stretch is made, then the stretch", function()
   -- A sound of its own, as above.
   local file = tone_file(16, 79)
-  local t = paw.add_track({ name = "audio" })
+  local t = paw.add_part({ name = "audio" })
   local clip = t:add_clip({ file = file, start = 0 })
   paw.transport.seek(8)
   paw.stretch.set(clip.id, 1.5)
@@ -136,7 +136,7 @@ end)
 
 test("a pitch shift moves the pitch and keeps the length", function()
   local file = tone_file(8)
-  local clip = paw.add_track({ name = "audio" }):add_clip({ file = file, start = 0 })
+  local clip = paw.add_part({ name = "audio" }):add_clip({ file = file, start = 0 })
   paw.stretch.pitch(clip.id, 12)
   near(clip.length, 8, 1e-6, "as long")
   local info = render({ tail = 0, bits = 16 })
@@ -154,15 +154,15 @@ test("a pitch shift moves the pitch and keeps the length", function()
   end
   fails(function() clip.stretch = 9 end, "between", "a ratio out of range")
   fails(function() clip.pitch = 30 end, "semitones", "a shift out of range")
-  local midi = paw.add_track({ name = "midi" }):add_clip({ start = 0, length = 4 })
+  local midi = paw.add_part({ name = "midi" }):add_clip({ start = 0, length = 4 })
   fails(function() midi.stretch = 2 end, "audio", "MIDI is not stretched")
 end)
 
 test("the stretch commands set what they say, and are undone", function()
   local file = tone_file(4)
-  local t = paw.add_track({ name = "audio" })
+  local t = paw.add_part({ name = "audio" })
   local clip = t:add_clip({ file = file, start = 0 })
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.cursor.set_beat(1)
   api.undo_checkpoint()
   paw.commands.exec("clip.stretch 2")
@@ -197,10 +197,10 @@ end)
 
 test("a clip following the tempo keeps its beats and its pitch when the tempo changes", function()
   local file = tone_file(8)
-  local t = paw.add_track({ name = "audio" })
+  local t = paw.add_part({ name = "audio" })
   local clip = t:add_clip({ file = file, start = 2 })
   local plain = t:add_clip({ file = file, start = 12 })
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.cursor.set_beat(3)
   paw.commands.exec("clip.tempo")
   eq(clip.timebase, "stretch", "the timebase")
@@ -229,7 +229,7 @@ test("a recording knows the tempo it was made at", function()
   api.engine_restart({ test_input = { frequency = 440, level = -12, channels = 2 } })
   paw.project.tempo = 96
   paw.project.save(T.scratch .. "/recorded.json")
-  local t = paw.add_track({ name = "Voice" })
+  local t = paw.add_part({ name = "Voice" })
   t.input, t.armed = "1", true
   paw.transport.seek(0)
   paw.transport.record()
@@ -248,7 +248,7 @@ end)
 --- silence, so that it repeats without a seam.
 local function phrase_file()
   start()
-  local t = paw.add_track({ name = "source" })
+  local t = paw.add_part({ name = "source" })
   t:add_device("synth", { attack = 0.001, release = 0.01 })
   t:add_clip({
     start = 0,
@@ -265,10 +265,10 @@ end
 
 test("a looped audio clip repeats its sound exactly", function()
   local file = phrase_file()
-  local t = paw.add_track({ name = "audio" })
+  local t = paw.add_part({ name = "audio" })
   local clip = t:add_clip({ file = file, start = 0 })
   near(clip.length, 2, 1e-6, "two beats")
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.cursor.set_beat(0.5)
   paw.commands.exec("clip.repeat")
   eq(clip.loop, true, "looping")
@@ -302,7 +302,7 @@ end)
 
 test("a looped MIDI clip repeats its notes exactly, cut at the loop's end", function()
   start()
-  local t = paw.add_track({ name = "keys" })
+  local t = paw.add_part({ name = "keys" })
   t:add_device("synth", { attack = 0.001, release = 0.01 })
   local clip = t:add_clip({
     start = 0,
@@ -339,7 +339,7 @@ end)
 
 test("splitting, trimming and moving what plays in a looped clip keep what it plays", function()
   start()
-  local t = paw.add_track({ name = "keys" })
+  local t = paw.add_part({ name = "keys" })
   t:add_device("synth", { attack = 0.001, release = 0.01 })
   local clip = t:add_clip({
     start = 0,
@@ -353,7 +353,7 @@ test("splitting, trimming and moving what plays in a looped clip keep what it pl
   clip.length = 8
   local before = T.read_file(render({ tail = 0, bits = 16 }).path)
   -- Cut in the middle of a repeat: both pieces carry on the same.
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.cursor.set_beat(3)
   api.undo_checkpoint()
   paw.commands.exec("clip.split")
@@ -392,7 +392,7 @@ end)
 
 test("a looped, stretched audio clip cut, trimmed, faded and copied plays the same", function()
   local file = phrase_file()
-  local t = paw.add_track({ name = "audio" })
+  local t = paw.add_part({ name = "audio" })
   local clip = t:add_clip({ file = file, start = 0 })
   paw.stretch.set(clip.id, 2)
   paw.stretch.loop(clip.id, true)
@@ -401,7 +401,7 @@ test("a looped, stretched audio clip cut, trimmed, faded and copied plays the sa
   clip.fade_out = 1
   local info = render({ tail = 0, bits = 16 })
   local before = samples(info, 0, info.frames)
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.cursor.set_beat(6)
   paw.commands.exec("clip.split")
   local right = t:clips()[2]
@@ -428,7 +428,7 @@ end)
 test("the other takes of a stretched clip are stretched as it is", function()
   local low = tone_file(4, "A3")
   local high = tone_file(4, "E4")
-  local t = paw.add_track({ name = "audio" })
+  local t = paw.add_part({ name = "audio" })
   local clip = t:add_clip({ file = low, start = 0 })
   paw.takes.new(clip.id)
   clip.file = high
@@ -440,15 +440,15 @@ test("the other takes of a stretched clip are stretched as it is", function()
   info = render({ tail = 0, bits = 16 })
   near(info.frames / info.sample_rate, 3, 0.01, "as long")
   near(T.frequency(info, 0.5, 2.5), 220, 1.5, "at its pitch")
-  local tracks = paw.takes.explode(clip.id)
-  eq(tracks[1]:clips()[1].stretch, 1.5, "a take put on a track of its own is stretched as the clip was")
+  local parts = paw.takes.explode(clip.id)
+  eq(parts[1]:clips()[1].stretch, 1.5, "a take put on a part of its own is stretched as the clip was")
 end)
 
 test("the terminal marks a stretched, shifted, following or looped clip in its label", function()
   -- A sound of its own: a bake of the same sound, made before, would play
   -- at once.
   local file = tone_file(4, 80)
-  local clip = paw.add_track({ name = "audio" }):add_clip({ file = file, start = 0 })
+  local clip = paw.add_part({ name = "audio" }):add_clip({ file = file, start = 0 })
   eq(paw.stretch.badge(clip:get()), nil, "nothing on a plain clip")
   paw.stretch.set(clip.id, 1.5)
   clip.pitch = 3
@@ -469,15 +469,15 @@ end)
 
 test("stretch, shift and loops are saved, and a project without them saves as before", function()
   local file = tone_file(4)
-  local t = paw.add_track({ name = "audio" })
+  local t = paw.add_part({ name = "audio" })
   local plain = t:add_clip({ file = file, start = 0 })
   local midi = t:add_clip({ start = 4, length = 2, notes = { { pitch = 60, start = 0, length = 1 } } })
   local path = T.scratch .. "/plain.json"
   paw.project.save(path)
   local text = T.read_file(path)
   local saved = paw.json.decode(text)
-  for _, track in ipairs(saved.project.tracks) do
-    for _, c in ipairs(track.clips) do
+  for _, part in ipairs(saved.project.parts) do
+    for _, c in ipairs(part.clips) do
       for _, key in ipairs({ "stretch", "pitch", "stretch_mode", "loop", "source_tempo", "loop_length", "loop_start" }) do
         eq(c[key], nil, "no " .. key .. " in a clip without any")
       end
@@ -486,7 +486,7 @@ test("stretch, shift and loops are saved, and a project without them saves as be
   paw.project.load(path)
   paw.project.save(path)
   eq(T.read_file(path) == text, true, "loaded and saved again, the same bytes")
-  t = paw.tracks()[1]
+  t = paw.parts()[1]
   plain, midi = t:clips()[1], t:clips()[2]
   paw.stretch.set(plain.id, 1.25)
   plain.pitch = 2
@@ -495,7 +495,7 @@ test("stretch, shift and loops are saved, and a project without them saves as be
   paw.stretch.loop(midi.id, true, 1)
   paw.project.save(path)
   paw.project.load(path)
-  t = paw.tracks()[1]
+  t = paw.parts()[1]
   plain, midi = t:clips()[1], t:clips()[2]
   eq(plain.stretch, 1.25, "the stretch")
   eq(plain.pitch, 2, "the shift")
@@ -512,7 +512,7 @@ test("in the window an end dragged with Alt and Shift stretches, and the menu fi
   -- A sound of its own: a bake of the same sound, made before, would play
   -- at once.
   local file = tone_file(4, 81)
-  local t = paw.add_track({ name = "audio" })
+  local t = paw.add_part({ name = "audio" })
   local clip = t:add_clip({ file = file, start = 0 })
   paw.frontend.act.trim_clips(clip.id, "end", 2.1, true, true)
   near(clip.length, 6, 1e-6, "the end on the grid")
@@ -546,7 +546,7 @@ end)
 test("comping a stretched clip keeps every piece stretched, and joins them back", function()
   local low = tone_file(8, "A3")
   local high = tone_file(8, "E4")
-  local t = paw.add_track({ name = "vox" })
+  local t = paw.add_part({ name = "vox" })
   local clip = t:add_clip({ file = low, start = 0 })
   paw.takes.new(clip.id)
   clip.file = high
@@ -585,7 +585,7 @@ end)
 
 test("comping a looped clip keeps the loop on every piece, and joins pieces that carry it on", function()
   start()
-  local t = paw.add_track({ name = "keys" })
+  local t = paw.add_part({ name = "keys" })
   t:add_device("synth", { attack = 0.001, release = 0.01 })
   local clip = t:add_clip({
     start = 0,

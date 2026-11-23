@@ -38,7 +38,7 @@ local record Options
   normalize: number
   loudness: number
   gain: number
-  tracks: {integer}
+  parts: {integer}
   tap: types.RenderTap
   master: boolean
   threads: integer
@@ -230,7 +230,7 @@ end
 ---   dither      true to add dither when writing 16 or 24 bits
 ---   quality     for MP3, Ogg Vorbis and Opus: "low", "medium", "high" (the
 ---               default) or "best"; `bitrate` (kbit/s) instead of it for a number
----   tags        { title, artist, album, track, year, genre, comment, cover } written into
+---   tags        { title, artist, album, part, year, genre, comment, cover } written into
 ---               the file, over the project's own (`paw.render_tags`); `cover` is a PNG or
 ---               JPEG file (a WAV holds no cover); the title of a lossy file is the project's name by default
 ---   normalize   bring the loudest sample to this level in dB, such as -1
@@ -238,17 +238,17 @@ end
 ---               with `normalize` too, the peak level is a ceiling
 ---   gain        raise or lower the whole file by this many dB, such as -3.5; not with
 ---               `normalize` or `loudness` (an export of stems gives each stem the gain of the mix)
----   tracks      { id, ... }: only these, with what they pass through (a stem)
----   tap         where in the sound of the tracks the render listens:
+---   parts      { id, ... }: only these, with what they pass through (a stem)
+---   tap         where in the sound of the parts the render listens:
 ---               "pre"     their clips and devices, without the fader, pan or mute
 ---               "post"    with the fader, pan and mute, without the groups, sends or master
 ---               "groups"  as when they are soloed, through their groups and the
 ---                         returns of their sends, without the master
 ---               "master"  through the master as well (the default)
----               "pre" and "post" need `tracks`. The files of "groups" and
+---               "pre" and "post" need `parts`. The files of "groups" and
 ---               "master" add up to the mix.
 ---   master      false is the same as tap = "groups"
----   freeze      a track id: that track alone, before its fader, as a freeze renders it
+---   freeze      a part id: that part alone, before its fader, as a freeze renders it
 ---   block       a clip id of a block of a subproject: what the block plays into its row,
 ---               and nothing else, as a freeze of the block renders it
 ---   through     with `block` inside a subproject: the blocks that place it in the song,
@@ -301,10 +301,10 @@ function M.render(path: string, opts?: Options): types.RenderResult
   return info
 end
 
-M.tag_names = {"title", "artist", "album", "track", "year", "genre", "comment", "cover"}
+M.tag_names = {"title", "artist", "album", "part", "year", "genre", "comment", "cover"}
 
 --- What the project's rendered files are tagged with (`project.meta.tags`):
---- `paw.render_tags()` gives `{ title, artist, album, track, year, genre, comment, cover }`
+--- `paw.render_tags()` gives `{ title, artist, album, part, year, genre, comment, cover }`
 --- as far as set; `paw.render_tags({ artist = "Me" })` sets those fields and keeps the others,
 --- an empty string takes one out. A relative `cover` is from the project's directory.
 function M.tags(set?: types.RenderTags): types.RenderTags

@@ -45,16 +45,16 @@ test("guide: record a guitar or a bass through an audio interface", function()
   studio("guitar")
   keys("o")
   keys("grnGuitar<CR>")
-  local gtr = paw.tracks()[1]
-  eq(gtr.name, "Guitar", "grn names the track")
+  local gtr = paw.parts()[1]
+  eq(gtr.name, "Guitar", "grn names the part")
   keys("Isignal 1<CR>")
   eq(gtr.input, "1", "I chooses one input channel, for a guitar")
   keys("r")
-  eq(gtr.armed, true, "r arms the track")
+  eq(gtr.armed, true, "r arms the part")
   until_(function() return paw.audio.levels()[1] > 0.1 end, "the input level on the header")
   keys(":tuner<CR>")
   local tuner = gtr:device("tuner")
-  eq(tuner ~= nil, true, ":tuner adds a tuner to the track")
+  eq(tuner ~= nil, true, ":tuner adds a tuner to the part")
   until_(function()
     local p = paw.params.read(tuner, "pitch")
     return p and p.note == "A4"
@@ -68,7 +68,7 @@ test("guide: record a guitar or a bass through an audio interface", function()
   keys("<Space><Space>")
   T.until_recorded()
   local clips = gtr:clips()
-  eq(#clips, 1, "the take is a clip on the track")
+  eq(#clips, 1, "the take is a clip on the part")
   eq(clips[1].kind, "audio", "of audio")
   eq(file_exists(clips[1]:get().file), true, "in a file")
   eq(clips[1]:get().file:find(T.scratch .. "/media/", 1, true) == 1, true, "in media next to the project")
@@ -78,7 +78,7 @@ test("guide: record vocals with a count-in and a click", function()
   studio("vocals")
   keys("o")
   keys("grnVocal<CR>")
-  local vox = paw.tracks()[1]
+  local vox = paw.parts()[1]
   keys("Isignal 1<CR>")
   keys("r")
   keys("gm")
@@ -160,7 +160,7 @@ test("guide: record MIDI from a keyboard", function()
   studio("keys")
   keys("o")
   keys("aSynth<CR>")
-  local t = paw.tracks()[1]
+  local t = paw.parts()[1]
   eq(t:devices()[1].kind, "synth", "a adds an instrument")
   keys("IKeys A<CR>")
   eq(paw.audio.label(t:get()), "MIDI · Keys A", "I chooses the port of the keyboard")
@@ -226,7 +226,7 @@ test("guide: record MIDI from a keyboard", function()
   eq(looped:notes()[1].pitch, 69, "the last take plays")
 end)
 
---- A track that records the test input's channel 1 (a sine at -12 dB), at
+--- A part that records the test input's channel 1 (a sine at -12 dB), at
 --- 240 bpm: a beat is a quarter of a second.
 local function mic(name)
   studio(name)
@@ -234,7 +234,7 @@ local function mic(name)
   keys("Isignal 1<CR>")
   keys("r")
   paw.project.tempo = 240
-  return paw.tracks()[1]
+  return paw.parts()[1]
 end
 
 --- The peak of what plays from beat `from` to `to`: one take of the sine

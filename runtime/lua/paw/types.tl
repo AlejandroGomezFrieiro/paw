@@ -28,7 +28,7 @@ local record types
     data: integer
   end
 
-  --- What an extension keeps in `meta` (of the project, a track, a clip, a
+  --- What an extension keeps in `meta` (of the project, a part, a clip, a
   --- device or a note): the extension's own data, any JSON value by name.
   --- The kernel keeps it and does not look in it.
   type Meta = {string: any}
@@ -143,12 +143,12 @@ local record types
     index: integer
     program: integer
     port: string
-    --- In a `midi.in` event: true when tracks do not get it
+    --- In a `midi.in` event: true when parts do not get it
     --- (`engine_midi_filter`).
     filtered: boolean
   end
 
-  --- A control of MIDI input that tracks do not get
+  --- A control of MIDI input that parts do not get
   --- (`session/midi_in.rs` `FilterRule`): a key (`note`) or a controller
   --- (`cc`), 0 to 127, from the port of that name (every port when left
   --- out), on `channel` 1 to 16 (every channel when left out).
@@ -159,7 +159,7 @@ local record types
     cc: integer
   end
 
-  -- The project and its tracks (session/document/project.rs and tracks.rs)
+  -- The project and its parts (session/document/project.rs and parts.rs)
 
   --- A tempo change of the project file (`model::TempoChange`).
   record TempoChange
@@ -204,7 +204,7 @@ local record types
     presets: {string: string | {string}}
   end
 
-  --- A send of a track (`model::Send`): to the track `target`, `level` in
+  --- A send of a part (`model::Send`): to the part `target`, `level` in
   --- dB, `pre` before the fader.
   record Send
     target: integer
@@ -212,7 +212,7 @@ local record types
     pre: boolean
   end
 
-  --- The MIDI a track plays when armed (`model::MidiInput`): nil fields
+  --- The MIDI a part plays when armed (`model::MidiInput`): nil fields
   --- mean every port, every channel (1 to 16).
   record MidiInput
     port: string
@@ -226,7 +226,7 @@ local record types
     "cc14"
   end
 
-  --- Where a track sends MIDI (`model::MidiOutput`).
+  --- Where a part sends MIDI (`model::MidiOutput`).
   record MidiOutput
     port: string
     channel: integer
@@ -254,7 +254,7 @@ local record types
     "every"
   end
 
-  --- A track's attribute map (`attr_map::AttrMap`, see attr_map.rs). As
+  --- A part's attribute map (`attr_map::AttrMap`, see attr_map.rs). As
   --- the kernel gives it, the keys of `by_type` are numbers written as text.
   record AttrMap
     send: AttrSend
@@ -266,10 +266,10 @@ local record types
     delay: number
   end
 
-  --- `paw.api.track_get(id)` (`Document::track_view`). `volume` in dB, `pan`
-  --- -1 to 1, `output` the track it feeds (nil for the master), `index`
+  --- `paw.api.part_get(id)` (`Document::part_view`). `volume` in dB, `pan`
+  --- -1 to 1, `output` the part it feeds (nil for the master), `index`
   --- from 1. `devices` and `clips` are ids.
-  record Track
+  record Part
     id: integer
     name: string
     volume: number
@@ -301,9 +301,9 @@ local record types
     nest: integer
   end
 
-  --- What `paw.api.track_add` takes (`TrackOpts`): `index` from 1; `nest`
-  --- to make the track in that subproject.
-  record TrackOptions
+  --- What `paw.api.part_add` takes (`PartOpts`): `index` from 1; `nest`
+  --- to make the part in that subproject.
+  record PartOptions
     name: string
     index: integer
     volume: number
@@ -313,9 +313,9 @@ local record types
     nest: integer
   end
 
-  --- What `paw.api.track_list` takes: `nest` lists the tracks of that
-  --- subproject, `all` every track; neither, the song's.
-  record TrackListOptions
+  --- What `paw.api.part_list` takes: `nest` lists the parts of that
+  --- subproject, `all` every part; neither, the song's.
+  record PartListOptions
     nest: integer
     all: boolean
   end
@@ -350,7 +350,7 @@ local record types
   end
 
   --- A subproject (`Document::nest_view`): `length` in beats, `master` its
-  --- master track, `tracks` its other tracks in order, `used` whether the
+  --- master part, `parts` its other parts in order, `used` whether the
   --- song plays it.
   record Nest
     id: integer
@@ -359,7 +359,7 @@ local record types
     tempo: NestTempo
     meter: NestMeter
     master: integer
-    tracks: {integer}
+    parts: {integer}
     kind: string
     meta: Meta
     source: string
@@ -378,81 +378,81 @@ local record types
   end
 
   --- What `paw.api.nest_save` takes (`session::save::SaveOpts`): the
-  --- subproject's `name`, the view's `tracks` (of one place) and its time
+  --- subproject's `name`, the view's `parts` (of one place) and its time
   --- `from` and `to` in that place's beats, the subproject's `meter`, and
-  --- `own_row` for a row of its own rather than per track.
+  --- `own_row` for a row of its own rather than per part.
   record NestSaveOptions
     name: string
-    tracks: {integer}
+    parts: {integer}
     from: number
     to: number
     meter: NestMeter
     own_row: boolean
   end
 
-  --- A row that `paw.api.nest_save` gives a block per track, and the
-  --- track of the subproject that the block plays (`session::save::HostRow`).
+  --- A row that `paw.api.nest_save` gives a block per part, and the
+  --- part of the subproject that the block plays (`session::save::HostRow`).
   record NestHostRow
     row: integer
-    track: integer
+    part: integer
   end
 
   --- What `paw.api.nest_save` did (`session::save::Saved`): the `nest`,
-  --- per track the `rows` that get a block, with a row of its own the
-  --- return `row`, the subproject's `tracks`, the routes that changed
+  --- per part the `rows` that get a block, with a row of its own the
+  --- return `row`, the subproject's `parts`, the routes that changed
   --- at the boundary, in words (`changes`), the song's `group` that the
   --- return row is in, and the `buses` that no longer get the time when the
-  --- row plays into the master because the tracks played into several.
+  --- row plays into the master because the parts played into several.
   record NestSaved
     nest: integer
     rows: {NestHostRow}
     row: integer
-    tracks: {integer}
+    parts: {integer}
     changes: {string}
     group: integer
     buses: {integer}
   end
 
   --- What `paw.api.scope_export` takes (`session::export::ExportOpts`):
-  --- the project's `name`, the view's `tracks` (of one place) and its
+  --- the project's `name`, the view's `parts` (of one place) and its
   --- time `from` and `to` in that place's beats.
   record ScopeExportOptions
     name: string
-    tracks: {integer}
+    parts: {integer}
     from: number
     to: number
   end
 
   --- What `paw.api.nest_export` and `paw.api.scope_export` wrote
   --- (`session::export::Exported`): the new `project.toml` (`path`), how
-  --- many `tracks` and `media` files, the media files that are `missing`,
+  --- many `parts` and `media` files, the media files that are `missing`,
   --- and the routes cut at the edge of a view, in words (`changes`).
   record NestExported
     path: string
-    tracks: integer
+    parts: integer
     media: integer
     missing: {string}
     changes: {string}
   end
 
   --- What `paw.api.nest_promote` did (`session::promote::Promoted`): the
-  --- `group` track (nil for a subproject saved per track), the
-  --- subproject's `tracks` (per track: the rows its clips went back to),
+  --- `group` part (nil for a subproject saved per part), the
+  --- subproject's `parts` (per part: the rows its clips went back to),
   --- the block's window `from` and `to` and `zero` (song beats), and the
   --- targets of the lanes that were made one (`combined`).
   record NestPromoted
     group: integer
-    tracks: {integer}
+    parts: {integer}
     from: number
     to: number
     zero: number
     combined: {string}
   end
 
-  --- The track of a subproject that a nest clip plays (`model::NestPlay`);
+  --- The part of a subproject that a nest clip plays (`model::NestPlay`);
   --- the string "master" plays its mix.
-  record NestTrack
-    track: integer
+  record NestPart
+    part: integer
   end
 
   --- A file of a project kept in a folder (`Session::project_files`).
@@ -460,7 +460,7 @@ local record types
     path: string
     modified: boolean
     what: string
-    track: integer
+    part: integer
     clip: integer
   end
 
@@ -558,7 +558,7 @@ local record types
 
   --- `paw.api.device_get(id)` (`Session::device_view`). `params` is each
   --- parameter's value now by key, `overrides` what the project sets.
-  --- `outputs` maps a pair number (as text) to a track.
+  --- `outputs` maps a pair number (as text) to a part.
   record Device
     plugin: DevicePlugin
     id: integer
@@ -566,7 +566,7 @@ local record types
     name: string
     offline: boolean
     format: string
-    track: integer
+    part: integer
     index: integer
     bypass: boolean
     params: {string: number}
@@ -584,9 +584,9 @@ local record types
   end
 
   --- The owner of a chain, as a handle of `paw.chain` (`OwnerRef` in
-  --- model/owner.rs): a track, `{ track = id }`.
+  --- model/owner.rs): a part, `{ part = id }`.
   record ChainOwner
-    track: integer
+    part: integer
   end
 
   --- A node of a chain (`Node` in model/chain.rs): a device of the owner
@@ -794,7 +794,7 @@ local record types
     length: number
     muted: boolean
     kind: ClipKind
-    track: integer
+    part: integer
     meta: Meta
     cue: boolean
     source: string
@@ -834,13 +834,13 @@ local record types
     formants: boolean
     warp: {WarpMarker}
     nest: integer
-    play: string | NestTrack
+    play: string | NestPart
   end
 
   --- What `paw.api.clip_add` takes (`ClipOpts`): `kind` follows from
   --- `file` when left out; `cue` keeps it off the timeline. A subproject's
   --- clip (`kind = "nest"`, or `nest` given) places the subproject `nest`
-  --- and plays its mix, or one track with `play = { track = id }`;
+  --- and plays its mix, or one part with `play = { part = id }`;
   --- `offset` is then the beat of the subproject where it starts.
   record ClipOptions
     kind: ClipKind
@@ -875,7 +875,7 @@ local record types
     sound: ClipContentData
     signals: {Signal}
     nest: integer
-    play: string | NestTrack
+    play: string | NestPart
   end
 
   enum Timeline
@@ -1003,10 +1003,10 @@ local record types
     "4bars"
   end
 
-  --- One track's cue for `paw.api.cue` (`CueOpts`): a `clip` of its cues,
+  --- One part's cue for `paw.api.cue` (`CueOpts`): a `clip` of its cues,
   --- `stop`, or `timeline`.
   record Cue
-    track: integer
+    part: integer
     clip: integer
     stop: boolean
     timeline: boolean
@@ -1015,10 +1015,10 @@ local record types
     from: number
   end
 
-  --- What a track plays and has queued (`Session::cue_state`). `queued` is
+  --- What a part plays and has queued (`Session::cue_state`). `queued` is
   --- a clip's id, `"stop"` or `"timeline"`, on the beat `at`.
   record CueState
-    track: integer
+    part: integer
     since: number
     clip: integer
     phase: number
@@ -1042,7 +1042,7 @@ local record types
   --- a state lane.
   record Lane
     id: integer
-    track: integer
+    part: integer
     enabled: boolean
     point_count: integer
     min: number
@@ -1221,11 +1221,11 @@ local record types
   end
 
   --- What a window shows of the song (`ViewRange`, stretched.rs): the
-  --- beats from `from` up to `to`, and the tracks shown (all when nil).
+  --- beats from `from` up to `to`, and the parts shown (all when nil).
   record ViewRange
     from: number
     to: number
-    tracks: {integer}
+    parts: {integer}
   end
 
   --- The process times of the audio blocks, in milliseconds (`BlockTimes`).
@@ -1420,7 +1420,7 @@ local record types
   --- `paw.api.undo_diff()` (`undo::diff`): `items` are lines that say what
   --- changed, `project` the fields of the project that did.
   record UndoDiff
-    tracks: DiffCount
+    parts: DiffCount
     devices: DiffCount
     clips: DiffCount
     notes: DiffCount
@@ -1486,7 +1486,7 @@ local record types
     gain: number
     edits: {AudioEdit}
     nest: integer
-    play: string | NestTrack
+    play: string | NestPart
   end
 
   --- A clip as a project file holds it (`model::Clip`).
@@ -1531,8 +1531,8 @@ local record types
     states: {LaneState}
   end
 
-  --- A track as a project file holds it (`model::Track`).
-  record TrackData
+  --- A part as a project file holds it (`model::Part`).
+  record PartData
     id: integer
     name: string
     volume: number
@@ -1587,8 +1587,8 @@ local record types
     tempo_changes: {TempoChange}
     sig_changes: {SigChange}
     key: string
-    master: TrackData
-    tracks: {TrackData}
+    master: PartData
+    parts: {PartData}
     nests: {NestData}
     meta: Meta
   end
@@ -1644,7 +1644,7 @@ local record types
     title: string
     artist: string
     album: string
-    track: string
+    part: string
     year: string
     genre: string
     comment: string
@@ -1675,7 +1675,7 @@ local record types
     tail: number
     sample_rate: integer
     bits: integer
-    tracks: {integer}
+    parts: {integer}
     freeze: integer
     block: integer
     through: {integer}
@@ -1736,14 +1736,14 @@ local record types
   -- Measuring (measure/) -------------------------------------------------------------
 
   --- What `paw.api.measure` takes (`MeasureOpts`): `start` and `end` in
-  --- beats, `tail` in seconds; `track` measures that track's part, `file`
+  --- beats, `tail` in seconds; `part` measures that part's share, `file`
   --- a sound file instead of the project.
   record MeasureOptions
     start: number
     ["end"]: number
     tail: number
     sample_rate: integer
-    track: integer
+    part: integer
     file: string
   end
 
@@ -1776,17 +1776,17 @@ local record types
     dc_right: {number}
   end
 
-  --- The peak of one track's output in a measurement (`TrackPeak`).
-  record TrackPeak
+  --- The peak of one part's output in a measurement (`PartPeak`).
+  record PartPeak
     id: integer
     peak: number
     peak_at: number
     over_at: number
   end
 
-  --- What a measurement gives (`analysis::Analysis` with the tracks' peaks,
+  --- What a measurement gives (`analysis::Analysis` with the parts' peaks,
   --- `elapsed`, `floor`, and what was measured: `file`, or `start`,
-  --- `tempo`, `end`, `tail`, `track` and `edits`). Levels in LUFS, LU, dB.
+  --- `tempo`, `end`, `tail`, `part` and `edits`). Levels in LUFS, LU, dB.
   record Measurement
     sample_rate: number
     frames: integer
@@ -1820,7 +1820,7 @@ local record types
     bands: {SpectrumBand}
     centroid: number
     series: MeasureSeries
-    tracks: {TrackPeak}
+    parts: {PartPeak}
     elapsed: number
     floor: number
     file: string
@@ -1828,7 +1828,7 @@ local record types
     tempo: number
     ["end"]: number
     tail: number
-    track: integer
+    part: integer
     edits: integer
   end
 
@@ -1935,18 +1935,18 @@ local record types
   end
 
   --- A window's vertical zoom as the project's screen keeps it: rows
-  --- per track, `tracks` (`{ track, rows }` each), rows per automation
+  --- per part, `parts` (`{ part, rows }` each), rows per automation
   --- lane and rows per key of the piano roll.
   record SavedVZoom
-    track_rows: integer
-    tracks: {SavedTrackRows}
+    part_rows: integer
+    parts: {SavedPartRows}
     lane_rows: integer
     key_rows: integer
   end
 
-  --- The rows of one track in a saved vertical zoom.
-  record SavedTrackRows
-    track: integer
+  --- The rows of one part in a saved vertical zoom.
+  record SavedPartRows
+    part: integer
     rows: integer
   end
 
@@ -1954,7 +1954,7 @@ local record types
   record SavedFold
     kind: string
     id: integer
-    tracks: {integer}
+    parts: {integer}
     from: number
     to: number
     name: string
@@ -1965,7 +1965,7 @@ local record types
   record SavedScope
     kind: string
     id: integer
-    tracks: {integer}
+    parts: {integer}
     from: number
     to: number
     name: string

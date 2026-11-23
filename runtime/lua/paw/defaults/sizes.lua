@@ -4,7 +4,7 @@ local util = paw.util
 local command, map = paw.command, paw.keymap.set
 
 --
--- Every size is an option, so a configuration can set it: `track_height`
+-- Every size is an option, so a configuration can set it: `part_height`
 -- and `header_width` ("auto" fits them to the screen), and for a panel beside
 -- the arrange view `<name>_width`, for one above or below it
 -- `<name>_height` (0 shares the space): `devices_width`, `mixer_height`,
@@ -52,13 +52,13 @@ local function resize(option, by, view, what, least)
 end
 
 --- Whether the arrange view is the only window: then the size keys size
---- its tracks and headers, as there is no window to share with.
+--- its parts and headers, as there is no window to share with.
 local function arrange_alone()
   local wins = paw.layout.focusable_windows()
   return paw.ui.focused == "arrange" and #wins == 1 and wins[1].view == "arrange"
 end
 
--- The height of tracks, lanes and keys is the vertical zoom
+-- The height of parts, lanes and keys is the vertical zoom
 -- (paw/vzoom.tl: `<C-=>`, `<C-->`, `<C-0>`, `z+`, `z-`, `z=`); these
 -- keys size windows only.
 command("view.height", function(ctx)
@@ -77,12 +77,12 @@ command("view.width", function(ctx)
   if not arrange_alone() and paw.layout.resize(nil, "width", by, true) then return end
   local now = tonumber(paw.opt.header_width)
   -- The headers' width as the option counts it: without the columns that
-  -- the track column takes from the timeline.
+  -- the part column takes from the timeline.
   local g = paw.ui.views:get("arrange").geometry
   if not now then now = g and g.hw - g.layout.column.width + g.layout.column.from_header or 24 end
   paw.opt.header_width = util.clamp(now + by, 8, 60)
   paw.notify("header width " .. paw.opt.header_width)
-end, { desc = "A wider side panel, or track header in the arrange view: `view.width 4`, `view.width -2`" })
+end, { desc = "A wider side panel, or part header in the arrange view: `view.width 4`, `view.width -2`" })
 command("view.equal", function() paw.layout.equalize() end, { desc = "Windows of equal size" })
 command("view.maximize", function()
   if paw.layout.maximize() then
@@ -100,9 +100,9 @@ map("<C-w>=", "view.equal", { desc = "Windows of equal size" })
 -- for Ctrl with = - 0 (paw-tui asks for no keyboard protocol), so `z+`
 -- `z-` `z=` do the same everywhere; the graphical window sends both.
 local nx = { "n", "x" }
-local taller = "Taller rows: tracks (a selection or a count: those tracks), the lane at the cursor, piano roll keys"
-local shorter = "Shorter rows: tracks (a selection or a count: those tracks), the lane at the cursor, piano roll keys"
-local fit = "Rows as tall as the options say: tracks fit the window again, one row per piano roll key"
+local taller = "Taller rows: parts (a selection or a count: those parts), the lane at the cursor, piano roll keys"
+local shorter = "Shorter rows: parts (a selection or a count: those parts), the lane at the cursor, piano roll keys"
+local fit = "Rows as tall as the options say: parts fit the window again, one row per piano roll key"
 for _, k in ipairs({
   { { "<C-=>", "<C-+>" }, "z+", "vzoom 1", taller },
   { { "<C-->" }, "z-", "vzoom -1", shorter },
@@ -116,6 +116,6 @@ for _, k in ipairs({
   end
   map(k[2], k[3], { mode = nx, desc = k[4] })
 end
-map("<C-w><lt>", "view.width -2", { desc = "Narrower window; with the arrange view alone, track headers" })
-map("<C-w>>", "view.width 2", { desc = "Wider window; with the arrange view alone, track headers" })
+map("<C-w><lt>", "view.width -2", { desc = "Narrower window; with the arrange view alone, part headers" })
+map("<C-w>>", "view.width 2", { desc = "Wider window; with the arrange view alone, part headers" })
 map("<C-w>_", "view.maximize", { desc = "Give the window the whole tab, or put the others back" })

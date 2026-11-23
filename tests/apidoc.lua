@@ -50,7 +50,7 @@ test("apidoc: the reference is a page of help, and its names are tags", function
     true,
     "a function with its parameters"
   )
-  eq(meta:find("function paw.Track:clips() end", 1, true) ~= nil, true, "a method")
+  eq(meta:find("function paw.Part:clips() end", 1, true) ~= nil, true, "a method")
   eq(
     meta:find("---@param id integer\nfunction paw.api.clip_get(id) end", 1, true) ~= nil,
     true,

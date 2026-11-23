@@ -6,15 +6,15 @@ expression: "crate::golden::folder_text(dir.path())"
 == blobs/36/366ff2a8… (19 bytes)
 { "name": "Bass" }
 == blobs/9a/9a4e1e24… (160 bytes)
-{"project.toml":"ff33fa90…","tracks/":"a33aa909…"}
+{"project.toml":"ff33fa90…","parts/":"a33aa909…"}
 == blobs/a3/a33aa909… (76 bytes)
 {"Bass/":"f9d3ca81…"}
 == blobs/a3/a3dbc89f… (12 bytes)
 tempo = 100
 == blobs/f9/f9d3ca81… (81 bytes)
-{"track.json":"366ff2a8…"}
+{"part.json":"366ff2a8…"}
 == blobs/fe/feebc1e3… (160 bytes)
-{"project.toml":"a3dbc89f…","tracks/":"a33aa909…"}
+{"project.toml":"a3dbc89f…","parts/":"a33aa909…"}
 == blobs/ff/ff33fa90… (12 bytes)
 tempo = 120
 == tree.json (356 bytes)

@@ -1,4 +1,4 @@
--- Tests of narrowing to a group (paw.scope), freezing tracks, groups and
+-- Tests of narrowing to a group (paw.scope), freezing parts, groups and
 -- blocks of subprojects (paw.freeze, paw.freeze_block,
 -- crates/paw-core/src/freeze.rs), bounces (paw.bounce) and stems by group
 -- (paw.export). Loaded by tests/suite.lua with its helpers.
@@ -35,14 +35,14 @@ local function screen() return table.concat(api.ui_snapshot(W, H), "\n") end
 local function names(ids)
   local out = {}
   for i, id in ipairs(ids) do
-    out[i] = api.track_get(id).name
+    out[i] = api.part_get(id).name
   end
   return table.concat(out, " ")
 end
 
---- A track with a synth playing a few notes.
+--- A part with a synth playing a few notes.
 local function synth(name, pitch)
-  local t = paw.add_track({ name = name })
+  local t = paw.add_part({ name = name })
   t:add_device("synth", { attack = 0.001, release = 0.05 })
   t:add_clip({
     start = 0,
@@ -108,16 +108,16 @@ end
 
 -- Narrowing ---------------------------------------------------------------------------
 
-test("narrowing to a group shows its tracks alone in this window, and widening comes back", function()
+test("narrowing to a group shows its parts alone in this window, and widening comes back", function()
   start()
   local o = orchestra()
-  paw.cursor.set_track(o.drums)
+  paw.cursor.set_part(o.drums)
   paw.scope.narrow("Strings")
   eq(#paw.ui.tabs, 1, "in this window: no tab of its own")
   eq(L.tab_title(paw.ui.tabs[1]), "Strings", "the tab is named after its window's scope")
   eq(names(paw.groups.rows()), "Strings Violins Cellos", "the arrange view's rows")
-  eq(paw.cursor.track_id(), o.strings.id, "the cursor came inside")
-  -- The message line can still name a track of an earlier test.
+  eq(paw.cursor.part_id(), o.strings.id, "the cursor came inside")
+  -- The message line can still name a part of an earlier test.
   paw.ui.message = nil
   local text = screen()
   eq(
@@ -127,17 +127,17 @@ test("narrowing to a group shows its tracks alone in this window, and widening c
   )
   eq(text:find("Strings 1.1", 1, true) ~= nil, true, "the window bar says so\n" .. text)
   -- The rest of the program sees the scope too.
-  local items = paw.pick.sources:get("tracks").items()
-  eq(#items, 3, "the track picker lists its tracks")
-  eq(names(paw.scope.tracks()), "Strings Violins Cellos", "paw.scope.tracks")
+  local items = paw.pick.sources:get("parts").items()
+  eq(#items, 3, "the part picker lists its parts")
+  eq(names(paw.scope.parts()), "Strings Violins Cellos", "paw.scope.parts")
   paw.ui.show("mixer")
   eq(screen():find("Horns", 1, true), nil, "the mixer shows the scope of the arrange window")
   paw.ui.hide("mixer")
   -- Motions stay inside.
   keys("G")
-  eq(paw.cursor.track_id(), o.cellos.id, "G: the last track of the scope")
+  eq(paw.cursor.part_id(), o.cellos.id, "G: the last part of the scope")
   keys("gg")
-  eq(paw.cursor.track_id(), o.strings.id, "gg: the first")
+  eq(paw.cursor.part_id(), o.strings.id, "gg: the first")
   -- Folding the group itself does not empty the window.
   paw.groups.fold(o.strings.id, true)
   eq(names(paw.groups.rows()), "Strings Violins Cellos", "the scope's own fold is open in it")
@@ -145,22 +145,22 @@ test("narrowing to a group shows its tracks alone in this window, and widening c
   -- Back out.
   eq(paw.scope.widen(), true, "widened")
   eq(paw.scope.current(), nil, "no scope")
-  eq(#paw.groups.rows(), 7, "every track again")
+  eq(#paw.groups.rows(), 7, "every part again")
   reset()
 end)
 
-test("a group's scope works out its tracks again after a change of the group, not after an edit of a note", function()
+test("a group's scope works out its parts again after a change of the group, not after an edit of a note", function()
   start()
   local o = orchestra()
-  -- The list of tracks as text, open in no window: it reads its lines again
+  -- The list of parts as text, open in no window: it reads its lines again
   -- in the events of each edit.
-  keys(":vs paw://tracks<CR>:q<CR>")
-  T.after(function() keys(":bd paw://tracks<CR>") end)
+  keys(":vs paw://parts<CR>:q<CR>")
+  T.after(function() keys(":bd paw://parts<CR>") end)
   paw.scope.narrow("Strings")
-  eq(names(paw.scope.tracks()), "Strings Violins Cellos", "the strings")
+  eq(names(paw.scope.parts()), "Strings Violins Cellos", "the strings")
   local function made()
     for _, s in ipairs(require("paw.derived").stats()) do
-      if s.name == "scope.tracks" then return s.made end
+      if s.name == "scope.parts" then return s.made end
     end
   end
   local before = made()
@@ -168,42 +168,42 @@ test("a group's scope works out its tracks again after a change of the group, no
   api.undo_checkpoint()
   -- The events of the edit come, as at the end of a key.
   paw.flush()
-  eq(names(paw.scope.tracks()), "Strings Violins Cellos", "the same tracks after a note edit")
+  eq(names(paw.scope.parts()), "Strings Violins Cellos", "the same parts after a note edit")
   eq(made(), before, "a note edit does not work them out again")
-  -- Out of the group in place: only the marks of the track change.
+  -- Out of the group in place: only the marks of the part change.
   paw.groups.remove(o.cellos, true)
   api.undo_checkpoint()
   paw.flush()
-  eq(names(paw.scope.tracks()), "Strings Violins", "a track taken out of the group is outside")
+  eq(names(paw.scope.parts()), "Strings Violins", "a part taken out of the group is outside")
   reset()
 end)
 
 test("zn takes a motion: znag, znn, ]z [z beside, zw up, zW to the song, <C-o> back into a scope", function()
   start()
   local o = orchestra()
-  paw.cursor.set_track(o.violins)
+  paw.cursor.set_part(o.violins)
   keys("znag")
   eq(paw.scope.breadcrumb(), "Song › Strings", "znag: the group at the cursor")
   keys("]z")
   eq(paw.scope.breadcrumb(), "Song › Brass", "]z: the next group of the same parent")
   keys("[z")
   eq(paw.scope.breadcrumb(), "Song › Strings", "[z: back")
-  paw.cursor.set_track(o.violins)
+  paw.cursor.set_part(o.violins)
   keys("znn")
-  eq(paw.scope.breadcrumb(), "Song › Strings › Violins", "znn: the innermost not entered yet, the track")
+  eq(paw.scope.breadcrumb(), "Song › Strings › Violins", "znn: the innermost not entered yet, the part")
   keys("]z")
-  eq(paw.scope.breadcrumb(), "Song › Strings › Cellos", "]z: the next track of the parent")
+  eq(paw.scope.breadcrumb(), "Song › Strings › Cellos", "]z: the next part of the parent")
   keys("zw")
   eq(paw.scope.breadcrumb(), "Song › Strings", "zw: up one level")
   keys("zW")
   eq(paw.scope.current(), nil, "zW: the song")
-  eq(#paw.groups.rows(), 7, "every track")
+  eq(#paw.groups.rows(), 7, "every part")
   keys("<C-o>")
   eq(paw.scope.breadcrumb(), "Song › Strings", "<C-o> comes back into the scope")
   keys("<C-i>")
   eq(paw.scope.current(), nil, "<C-i> goes forward again")
   keys("ggVjzn")
-  eq(names(paw.scope.tracks()), "Orchestra Strings", "{Visual}zn: the selected tracks")
+  eq(names(paw.scope.parts()), "Orchestra Strings", "{Visual}zn: the selected parts")
   reset()
 end)
 
@@ -211,7 +211,7 @@ test("a split shows the song beside a scope; an edit in one shows in the other; 
   start()
   local o = orchestra()
   local song = L.current()
-  paw.cursor.set_track(o.violins)
+  paw.cursor.set_part(o.violins)
   keys("<Space>zv")
   local strings = L.current()
   eq(strings ~= song, true, "a new window")
@@ -233,7 +233,7 @@ test("a split shows the song beside a scope; an edit in one shows in the other; 
   eq(scene(strings):find("Drums", 1, true), nil, "the scope's scene has not")
   keys("<C-w>h")
   eq(paw.scope.current(), nil, "the song's window in front")
-  eq(#paw.scope.tracks(), 7, "and what the program reads is the song")
+  eq(#paw.scope.parts(), 7, "and what the program reads is the song")
   keys("<C-w>l")
   -- The project keeps each window's scope.
   local path = T.scratch .. "/scope-split"
@@ -251,17 +251,17 @@ test("a split shows the song beside a scope; an edit in one shows in the other; 
   reset()
 end)
 
-test("in a scope Ex ranges, :g and :s see only its tracks", function()
+test("in a scope Ex ranges, :g and :s see only its parts", function()
   start()
   local o = orchestra()
   paw.scope.narrow("Strings")
-  local function range(text) return names(paw.ex.range(text).tracks) end
+  local function range(text) return names(paw.ex.range(text).parts) end
   eq(range("t*"), "Strings Violins Cellos", "t*")
-  eq(range("t2"), "Violins", "t2 is the scope's second track")
+  eq(range("t2"), "Violins", "t2 is the scope's second part")
   eq(range("t$"), "Cellos", "t$ its last")
   eq(range("t/o/"), "Violins Cellos", "t/o/ searches the scope's names")
   local _, _, err = paw.ex.range("t5")
-  eq(tostring(err):find("3 tracks", 1, true) ~= nil, true, "t5 is past its end: " .. tostring(err))
+  eq(tostring(err):find("3 parts", 1, true) ~= nil, true, "t5 is past its end: " .. tostring(err))
   keys(":%s/c3/d3/<CR>")
   paw.flush()
   local function first(t) return t:clips()[1]:notes()[1].pitch end
@@ -274,13 +274,13 @@ test("in a scope Ex ranges, :g and :s see only its tracks", function()
   reset()
 end)
 
-test("a track added in a scope goes into its group; one undo tree", function()
+test("a part added in a scope goes into its group; one undo tree", function()
   start()
   local o = orchestra()
   paw.scope.narrow("Strings")
-  local violas = paw.add_track({ name = "Violas" })
+  local violas = paw.add_part({ name = "Violas" })
   T.settle()
-  eq(paw.groups.of(violas.id), o.strings.id, "the new track is in Strings")
+  eq(paw.groups.of(violas.id), o.strings.id, "the new part is in Strings")
   eq(names(paw.groups.rows()), "Strings Violins Cellos Violas", "and in sight")
   api.undo_checkpoint()
   o.violins.name = "First violins"
@@ -289,11 +289,11 @@ test("a track added in a scope goes into its group; one undo tree", function()
   paw.undo()
   eq(o.violins.name, "Violins", "the rename made in the scope is undone from outside it")
   paw.undo()
-  eq(pcall(api.track_get, violas.id), false, "and so is the track added there")
+  eq(pcall(api.part_get, violas.id), false, "and so is the part added there")
   reset()
 end)
 
-test("paw://tracks in a scope lists its tracks, and writing it leaves the rest alone", function()
+test("paw://parts in a scope lists its parts, and writing it leaves the rest alone", function()
   start()
   local o = orchestra()
   -- A buffer an earlier test read is forgotten, so that this one reads afresh.
@@ -305,23 +305,23 @@ test("paw://tracks in a scope lists its tracks, and writing it leaves the rest a
   forget()
   T.after(forget)
   -- One read wide is read again in the narrowed window.
-  keys(":e paw://tracks<CR>")
+  keys(":e paw://parts<CR>")
   keys(":b arrange<CR>")
   paw.scope.narrow("Strings")
-  keys(":e paw://tracks<CR>")
+  keys(":e paw://parts<CR>")
   local lines = {}
   for i, l in ipairs(paw.textbuf.buf().state.text.lines) do
     lines[i] = l.text
   end
   local text = table.concat(lines, "\n")
   eq(text:find("Violins", 1, true) ~= nil and text:find("Horns", 1, true) == nil, true, "only the strings: " .. text)
-  -- Rename the cellos and write: the rest keeps its tracks and their order.
+  -- Rename the cellos and write: the rest keeps its parts and their order.
   keys("G0")
   keys('cw"Basses"<Esc>')
   keys(":w<CR>")
   keys("y")
   eq(o.cellos.name, "Basses", "renamed")
-  eq(names(api.track_list()), "Orchestra Strings Violins Basses Brass Horns Drums", "the rest as it was")
+  eq(names(api.part_list()), "Orchestra Strings Violins Basses Brass Horns Drums", "the rest as it was")
   reset()
 end)
 
@@ -347,11 +347,11 @@ test(":narrow on a region shows its time: bars from 1 in its meter, the cursor k
   local o, from, to = bridge()
   eq(to - from, 24, "eight bars of 6/8")
   local edits = api.project_get().edits
-  paw.cursor.set_track(o.drums)
+  paw.cursor.set_part(o.drums)
   paw.cursor.set_beat(from + 1)
   keys("znar")
   eq(paw.scope.current().kind, "region", "znar: a scope of the region")
-  eq(#paw.groups.rows(), 7, "every track")
+  eq(#paw.groups.rows(), 7, "every part")
   eq(paw.cursor.beat, from, "the cursor came into its time")
   local t = api.transport_get()
   eq(t.loop_enabled and t.loop_start == from and t.loop_end == to, true, "the loop is the region")
@@ -395,20 +395,20 @@ end)
 test("a region scope: the window bar, the song's bars with @, and its end ┃ with nothing after it", function()
   start()
   paw.opt.zoom = 1
-  local tracks = {}
+  local parts = {}
   for _, name in ipairs({ "Kick", "Snare", "Bass" }) do
-    local t = paw.add_track({ name = name })
+    local t = paw.add_part({ name = name })
     t:add_clip({ name = name, start = 0, length = 96 })
-    tracks[#tracks + 1] = t
+    parts[#parts + 1] = t
   end
-  paw.groups.make({ tracks[1], tracks[2] }, "Drums")
+  paw.groups.make({ parts[1], parts[2] }, "Drums")
   paw.markers.add(0, "Intro", { length = 32 })
   paw.markers.add(32, "Verse", { length = 32 })
   paw.markers.add(64, "Chorus", { length = 32 })
   paw.flush()
   api.undo_checkpoint()
   paw.ui.views:get("arrange").scroll = 0
-  paw.cursor.set_track(tracks[3])
+  paw.cursor.set_part(parts[3])
   paw.cursor.set_beat(32)
   keys(":narrow Verse<CR>")
   api.transport_seek(36)
@@ -422,24 +422,24 @@ end)
 test("K in a region scope, with no clip under the cursor: its path, its bars and the song's, its meter", function()
   start()
   local o, from = bridge()
-  paw.cursor.set_track(o.violins)
+  paw.cursor.set_part(o.violins)
   paw.cursor.set_beat(from + 1)
   keys("znar")
   keys("K")
   local text = T.hover_text()
   eq(
-    text:find("Scope  Bridge\n  Song › Bridge · bars 1-8 (song @17-24) · 6/8 · 7 tracks\n", 1, true) ~= nil,
+    text:find("Scope  Bridge\n  Song › Bridge · bars 1-8 (song @17-24) · 6/8 · 7 parts\n", 1, true) ~= nil,
     true,
     text
   )
-  eq(text:find("Track  Violins", 1, true) ~= nil, true, "then the track")
+  eq(text:find("Part  Violins", 1, true) ~= nil, true, "then the part")
   reset()
 end)
 
 test("a region scope follows its region when the region gets longer, and u takes it back", function()
   start()
   local o, from, to = bridge()
-  paw.cursor.set_track(o.violins)
+  paw.cursor.set_part(o.violins)
   paw.cursor.set_beat(from + 1)
   keys("znar")
   local a, b = paw.scope.span()
@@ -487,10 +487,10 @@ test("a scope inside a scope shows what both show: the strings in the bridge", f
   eq(paw.scope.contains(o.drums), false, "not the drums")
   eq(screen():find("Song › Bridge › Strings", 1, true) ~= nil, true, "the status line")
   keys(":narrow Brass<CR>")
-  eq(said():find("no track of Brass is in Strings", 1, true) ~= nil, true, "an empty scope is refused: " .. said())
+  eq(said():find("no part of Brass is in Strings", 1, true) ~= nil, true, "an empty scope is refused: " .. said())
   keys("zw")
   eq(paw.scope.breadcrumb(), "Song › Bridge", "zw: up one level")
-  eq(#paw.groups.rows(), 7, "every track again")
+  eq(#paw.groups.rows(), 7, "every part again")
   keys(":narrow Strings<CR>")
   keys(":widen!<CR>")
   eq(paw.scope.current(), nil, ":widen! goes up to the song")
@@ -499,15 +499,15 @@ end)
 
 -- Views in a scope ------------------------------------------------------------------------
 
---- A clip on a track from one bar of the song to another, with a note in
+--- A clip on a part from one bar of the song to another, with a note in
 --- each of its bars a little after the bar's start.
-local function clip_over(track, first, last)
+local function clip_over(part, first, last)
   local start = paw.time.bar_start(first)
   local notes = {}
   for bar = first, last - 1 do
     notes[#notes + 1] = { pitch = 60 + bar, start = paw.time.bar_start(bar) - start + 0.1, length = 0.5 }
   end
-  return track:add_clip({ start = start, length = paw.time.bar_start(last) - start, notes = notes })
+  return part:add_clip({ start = start, length = paw.time.bar_start(last) - start, notes = notes })
 end
 
 --- The line of the screen that holds a text.
@@ -528,9 +528,9 @@ test("in Song › Bridge › Strings dar deletes only the strings' clips in the 
   api.undo_checkpoint()
   keys(":narrow Bridge<CR>")
   keys(":narrow Strings<CR>")
-  paw.cursor.set_track(o.violins)
+  paw.cursor.set_part(o.violins)
   paw.cursor.set_beat(from + 2)
-  -- The track column: the scope's tracks from 1.
+  -- The part column: the scope's parts from 1.
   local text = screen()
   local first = line_with(text, "Strings")
   eq(first:find("1", 1, true) ~= nil, true, "row 1: " .. first)
@@ -596,7 +596,7 @@ test("a clip across the scope's start is drawn cut with ‹; x removes all of it
     true,
     "‹ at the cut: " .. line_with(screen(), "Violins")
   )
-  paw.cursor.set_track(o.violins)
+  paw.cursor.set_part(o.violins)
   paw.cursor.set_beat(from)
   keys("x")
   eq(#api.clip_list(o.violins.id) == 1 and api.clip_list(o.violins.id)[1].id ~= clip.id, true, "the whole clip went")
@@ -612,15 +612,15 @@ test("the piano roll opened in a scope shows the scope's clips, and $ stops at i
   paw.flush()
   keys(":narrow Bridge<CR>")
   keys(":narrow Strings<CR>")
-  paw.cursor.set_track(o.violins)
+  paw.cursor.set_part(o.violins)
   paw.cursor.set_beat(from + 1)
   keys("<CR>")
   eq(paw.ui.focused, "pianoroll", "the roll")
-  local tracks = {}
+  local parts = {}
   for _, n in ipairs(paw.roll_clips.context()) do
-    tracks[api.track_get(n.track).name] = true
+    parts[api.part_get(n.part).name] = true
   end
-  eq(tracks.Cellos and not tracks.Horns and not tracks.Drums, true, "behind its notes: the cellos, not the rest")
+  eq(parts.Cellos and not parts.Horns and not parts.Drums, true, "behind its notes: the cellos, not the rest")
   keys("$")
   eq(clip.start + paw.ui.views:get("pianoroll").beat, to, "$ stops at the scope's end")
   keys("0")
@@ -670,22 +670,22 @@ test("scope_rest=frozen plays the rest from files rendered in the background", f
   reset()
 end)
 
-test("the engine lets go of a held track that is gone, and another project holds none", function()
+test("the engine lets go of a held part that is gone, and another project holds none", function()
   fresh()
   local file = T.scratch .. "/held.wav"
-  local gone = paw.add_track({ name = "Gone" })
+  local gone = paw.add_part({ name = "Gone" })
   api.engine_hold(gone.id, file)
-  api.track_remove(gone.id)
+  api.part_remove(gone.id)
   api.engine_hold(gone.id, nil)
-  eq(#api.engine_held(), 0, "a track that is gone is let go")
-  api.engine_hold(paw.add_track({ name = "Kept" }).id, file)
+  eq(#api.engine_held(), 0, "a part that is gone is let go")
+  api.engine_hold(paw.add_part({ name = "Kept" }).id, file)
   fresh()
-  eq(#api.engine_held(), 0, "another project plays all its tracks live")
+  eq(#api.engine_held(), 0, "another project plays all its parts live")
 end)
 
 -- Freezing -----------------------------------------------------------------------------
 
-test("a frozen track renders as it did live, and its fader stays live", function()
+test("a frozen part renders as it did live, and its fader stays live", function()
   start()
   local t = synth("Lead", 60)
   t:add_device("delay", {})
@@ -706,17 +706,17 @@ end)
 
 -- Bounce ---------------------------------------------------------------------------
 
---- The place of each track in the song's list.
+--- The place of each part in the song's list.
 local function places()
   local out = {}
-  for i, id in ipairs(api.track_list()) do
+  for i, id in ipairs(api.part_list()) do
     out[id] = i
   end
   return out
 end
 
 test(
-  "a bounce renders after the fader, below the track, and sounds the same through the groups and the master",
+  "a bounce renders after the fader, below the part, and sounds the same through the groups and the master",
   function()
     start()
     local o = orchestra()
@@ -726,41 +726,41 @@ test(
     paw.flush()
     api.undo_checkpoint()
     local live = render()
-    local count = #api.track_list()
-    paw.cursor.set_track(o.violins)
+    local count = #api.part_list()
+    paw.cursor.set_part(o.violins)
     keys(":bounce<CR>")
-    local bounced = paw.cursor.track()
+    local bounced = paw.cursor.part()
     local file = bounced:clips()[1].file
     eq(
       bounced.name .. " " .. tostring(o.violins.mute),
       "Violins (bounced) true",
-      "a new track beside the muted original"
+      "a new part beside the muted original"
     )
-    eq(said(), "bounced to “Violins (bounced)”; Violins muted · u undoes it", "the message names the new track")
+    eq(said(), "bounced to “Violins (bounced)”; Violins muted · u undoes it", "the message names the new part")
     eq(places()[bounced.id], places()[o.violins.id] + 1, "right below it")
     eq(bounced.output, o.strings.id, "into the group of the original")
     eq(bounced.volume .. " " .. bounced.pan, "0 0", "its fader at 0 dB in the center")
-    -- The group's gain, the master's gain and the track's fader are each heard once.
+    -- The group's gain, the master's gain and the part's fader are each heard once.
     local worst, peak = difference(live, render())
     eq(peak > 0.05, true, "it sounds")
     eq(worst < 1e-5, true, "the same sound, bounced as live: " .. worst)
     keys("u")
-    eq(#api.track_list() .. " " .. tostring(o.violins.mute), count .. " false", "one u takes the bounce back")
+    eq(#api.part_list() .. " " .. tostring(o.violins.mute), count .. " false", "one u takes the bounce back")
     os.remove(file)
     reset()
   end
 )
 
-test("a bounce takes a range of tracks to one new track, and a range of time to that time only", function()
+test("a bounce takes a range of parts to one new part, and a range of time to that time only", function()
   start()
   local a, b, c = synth("A", 60), synth("B", 64), synth("C", 67)
   paw.flush()
   api.undo_checkpoint()
   local live = render()
-  local count, at = #api.track_list(), places()
+  local count, at = #api.part_list(), places()
   local files = {}
   local function bounced()
-    local t = paw.cursor.track()
+    local t = paw.cursor.part()
     files[#files + 1] = t:clips()[1].file
     return t
   end
@@ -768,36 +768,36 @@ test("a bounce takes a range of tracks to one new track, and a range of time to 
 
   keys(string.format(":t%d,t%dbounce<CR>", at[a.id], at[b.id]))
   local t = bounced()
-  eq(t.name .. " " .. #t:clips(), "A + 1 (bounced) 1", "one new track with one clip for both")
-  eq(#api.track_list() .. " " .. muted(), (count + 1) .. " true true false", "and both tracks muted")
+  eq(t.name .. " " .. #t:clips(), "A + 1 (bounced) 1", "one new part with one clip for both")
+  eq(#api.part_list() .. " " .. muted(), (count + 1) .. " true true false", "and both parts muted")
   eq(places()[t.id], at[b.id] + 1, "below the last of them")
   local worst = difference(live, render())
   eq(worst < 1e-5, true, "the song sounds the same: " .. worst)
   keys("u")
 
-  paw.cursor.set_track(b)
+  paw.cursor.set_part(b)
   keys("Vj<Esc>")
   keys(":t'<,'>bounce<CR>")
   t = bounced()
-  eq(t.name .. " " .. muted(), "B + 1 (bounced) false true true", "the tracks of the selection")
+  eq(t.name .. " " .. muted(), "B + 1 (bounced) false true true", "the parts of the selection")
   keys("u")
-  paw.cursor.set_track(b)
+  paw.cursor.set_part(b)
   keys("Vj<Space>tb")
   t = bounced()
   eq(t.name .. " " .. paw.keymap.mode, "B + 1 (bounced) n", "<Space>tb in visual mode: the same, and visual mode ends")
   keys("u")
-  paw.cursor.set_track(b)
+  paw.cursor.set_part(b)
   keys("<Space>tb")
-  eq(bounced().name, "B (bounced)", "<Space>tb in normal mode: the track at the cursor")
+  eq(bounced().name, "B (bounced)", "<Space>tb in normal mode: the part at the cursor")
   keys("u")
 
-  paw.cursor.set_track(a)
+  paw.cursor.set_part(a)
   paw.cursor.set_beat(1)
   keys("vll<Esc>")
   keys(":'<,'>bounce<CR>")
   t = bounced()
   local selection, clip = paw.keymap.last_selection(), t:clips()[1]
-  eq(t.name, "A (bounced)", "the track of the selection")
+  eq(t.name, "A (bounced)", "the part of the selection")
   near(clip.start, selection.c0, 1e-9, "the clip starts where the selection starts")
   -- The last note that starts in it plays to beat 4. At 120 bpm the tail of
   -- 2 seconds is 4 beats.
@@ -811,7 +811,7 @@ end)
 
 test("a bounce of bars mutes only those bars of the clips, which say so, and the song sounds the same", function()
   start()
-  local lead = paw.add_track({ name = "Lead" })
+  local lead = paw.add_part({ name = "Lead" })
   lead:add_device("synth", { attack = 0.001, release = 0.05 })
   local notes = {}
   for beat = 0, 46, 2 do
@@ -824,14 +824,14 @@ test("a bounce of bars mutes only those bars of the clips, which say so, and the
   paw.flush()
   api.undo_checkpoint()
   local live = render()
-  paw.cursor.set_track(lead)
+  paw.cursor.set_part(lead)
   keys(":5,8bounce<CR>")
-  local bounced = paw.cursor.track()
+  local bounced = paw.cursor.part()
   local file = bounced:clips()[1].file
   eq(
     said(),
     "bounced bars 5–8 of Lead to “Lead (bounced)”; those bars of Lead muted · u undoes it",
-    "the message names the bars and the new track"
+    "the message names the bars and the new part"
   )
   local parts = {}
   for i, c in ipairs(api.clip_list(lead.id)) do
@@ -841,7 +841,7 @@ test("a bounce of bars mutes only those bars of the clips, which say so, and the
   eq(
     tostring(lead.mute) .. " " .. bounced:clips()[1].start,
     "false 14",
-    "the track plays, and the new clip starts with the note held into the bars"
+    "the part plays, and the new clip starts with the note held into the bars"
   )
   local worst, peak, n, m = difference(live, render())
   eq(m, n, "as long as before")
@@ -849,38 +849,34 @@ test("a bounce of bars mutes only those bars of the clips, which say so, and the
   eq(worst < 1e-5, true, "the same sound, with the notes across the edges whole: " .. worst)
   T.expect_screen("bounce_bars", 100, 16, { rows = { 1, 12 } })
   paw.cursor.set_beat(20)
-  paw.cursor.set_track(lead)
+  paw.cursor.set_part(lead)
   keys("K")
-  eq(screen():find("muted by a bounce: “Lead (bounced)” plays it", 1, true) ~= nil, true, "K names the new track")
+  eq(screen():find("muted by a bounce: “Lead (bounced)” plays it", 1, true) ~= nil, true, "K names the new part")
   keys("<Esc>u")
   parts = {}
   for i, c in ipairs(api.clip_list(lead.id)) do
     parts[i] = string.format("%g-%g%s", c.start, c.start + c.length, c.muted and " muted" or "")
   end
   local kept = #api.clip_notes(api.clip_list(lead.id)[1].id)
-  eq(
-    table.concat(parts, ", ") .. " " .. #api.track_list() .. " " .. kept,
-    "0-48 1 26",
-    "one u puts the clip back whole"
-  )
+  eq(table.concat(parts, ", ") .. " " .. #api.part_list() .. " " .. kept, "0-48 1 26", "one u puts the clip back whole")
   os.remove(file)
   reset()
 end)
 
-test("a bounce before the fader gives the new track the fader, pan and sends of the old one", function()
+test("a bounce before the fader gives the new part the fader, pan and sends of the old one", function()
   start()
   local pad = synth("Pad", 60)
-  local echo = paw.add_track({ name = "Echo" })
+  local echo = paw.add_part({ name = "Echo" })
   echo:add_device("delay", {})
   pad.volume, pad.pan = -6, -0.5
   pad:send(echo, -9)
   paw.flush()
   api.undo_checkpoint()
   local live = render()
-  paw.cursor.set_track(pad)
+  paw.cursor.set_part(pad)
   keys(":bounce tap=pre<CR>")
-  local bounced = paw.cursor.track()
-  local send = api.track_get(bounced.id).sends[1]
+  local bounced = paw.cursor.part()
+  local send = api.part_get(bounced.id).sends[1]
   eq(
     string.format("%s %g %g %s %g", bounced.name, bounced.volume, bounced.pan, send.target == echo.id, send.level),
     "Pad (bounced) -6 -0.5 true -9",
@@ -891,7 +887,7 @@ test("a bounce before the fader gives the new track the fader, pan and sends of 
   eq(worst < 1e-5, true, "the same sound, with the fader live: " .. worst)
   os.remove(bounced:clips()[1].file)
   keys("u")
-  fails(function() paw.commands.exec("t*bounce tap=pre") end, "one track at a time", "tap=pre of two tracks")
+  fails(function() paw.commands.exec("t*bounce tap=pre") end, "one part at a time", "tap=pre of two parts")
   fails(function() paw.commands.exec("bounce tap=master") end, "tap=post or tap=pre", "a tap that plays twice")
   reset()
 end)
@@ -909,7 +905,7 @@ test("a frozen group renders as it did live; its members are held", function()
   local worst, peak = difference(live, render())
   eq(peak > 0.05, true, "it sounds")
   eq(worst < 1e-5, true, "the song is the same: " .. worst)
-  fails(function() paw.freeze.freeze(o.violins) end, "unfreeze that first", "a held track is not frozen again")
+  fails(function() paw.freeze.freeze(o.violins) end, "unfreeze that first", "a held part is not frozen again")
   -- The group's fader and mute stay live.
   o.strings.mute = true
   local without = render()
@@ -933,11 +929,11 @@ test("freezing is one undo step and saved with the project, the file beside it",
   local dir = T.scratch .. "/frozen-project"
   os.execute("mkdir -p '" .. dir .. "'")
   paw.cmd("write", { dir .. "/song" })
-  local saved = T.read_file(dir .. "/song/tracks/Pad/track.json")
+  local saved = T.read_file(dir .. "/song/parts/Pad/part.json")
   eq(saved:find('"media/Pad%-frozen') ~= nil, true, "the file is named relative to the project")
   paw.project.new()
   paw.open(dir .. "/song")
-  local pad = paw.track(api.track_list()[1])
+  local pad = paw.part(api.part_list()[1])
   local frozen = paw.freeze.frozen(pad)
   eq(frozen and frozen.file:find("^/") ~= nil and io.open(frozen.file) ~= nil, true, "it opens frozen, the file found")
   paw.freeze.unfreeze(pad)
@@ -945,12 +941,12 @@ test("freezing is one undo step and saved with the project, the file beside it",
   reset()
 end)
 
-test(":freeze and :unfreeze, and an edit to a frozen track asks to unfreeze it", function()
+test(":freeze and :unfreeze, and an edit to a frozen part asks to unfreeze it", function()
   start()
   local t = synth("Keys", 64)
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   keys(":freeze<CR>")
-  eq(paw.freeze.state(t), "frozen", ":freeze the cursor's track")
+  eq(paw.freeze.state(t), "frozen", ":freeze the cursor's part")
   local clip = t:clips()[1]
   clip:set_notes({ { pitch = 70, start = 0, length = 1 } })
   T.settle()
@@ -972,10 +968,10 @@ local function info()
   return said
 end
 
-test("an edit inside a frozen track makes it stale with the reason, K says so, and u makes it up to date", function()
+test("an edit inside a frozen part makes it stale with the reason, K says so, and u makes it up to date", function()
   start()
   local t = synth("Drums", 36)
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.flush()
   keys(":freeze<CR>")
   local said = info()
@@ -1030,7 +1026,7 @@ test("a frozen group is stale after an edit of what its file plays, and only the
   end
 end)
 
-test("after an edit of a track that a freeze does not play, K makes no key again", function()
+test("after an edit of a part that a freeze does not play, K makes no key again", function()
   start()
   local o = orchestra()
   paw.freeze.freeze(o.strings)
@@ -1055,14 +1051,14 @@ end)
 -- Freezing a block of a subproject --------------------------------------------------------
 
 --- A return row Ballad with a block at beat 32 of the subproject Ballad (8
---- beats), whose track Keys has a synth, a delay and a few notes; the cursor
+--- beats), whose part Keys has a synth, a delay and a few notes; the cursor
 --- on the block.
 local function ballad()
-  local row = paw.add_track({ name = "Ballad" })
+  local row = paw.add_part({ name = "Ballad" })
   local nest = api.nest_add({ name = "Ballad", length = 8 })
-  local inside = api.track_add({ name = "Keys", nest = nest })
-  paw.track(inside):add_device("synth", { attack = 0.001, release = 0.05 })
-  paw.track(inside):add_device("delay", {})
+  local inside = api.part_add({ name = "Keys", nest = nest })
+  paw.part(inside):add_device("synth", { attack = 0.001, release = 0.05 })
+  paw.part(inside):add_device("delay", {})
   api.clip_add(inside, {
     start = 0,
     length = 4,
@@ -1071,7 +1067,7 @@ local function ballad()
   local clip = api.clip_add(row.id, { nest = nest, start = 32 })
   paw.flush()
   api.undo_checkpoint()
-  paw.cursor.set_track(row)
+  paw.cursor.set_part(row)
   paw.cursor.set_beat(33)
   return { row = row.id, nest = nest, keys = inside, clip = clip }
 end
@@ -1089,7 +1085,7 @@ test("a frozen block renders as it did live; :unfreeze plays it live again, and 
   local file = frozen_file(b.clip)
   eq(file ~= nil, true, ":freeze on the block")
   -- Muted inside, the subproject plays nothing: what sounds is the file.
-  api.track_set(b.keys, { mute = true })
+  api.part_set(b.keys, { mute = true })
   paw.flush()
   api.undo_checkpoint()
   local worst, peak = difference(live, render())
@@ -1097,11 +1093,11 @@ test("a frozen block renders as it did live; :unfreeze plays it live again, and 
   eq(worst < 1e-5, true, "the same sound, frozen as live: " .. worst)
   keys(":unfreeze<CR>")
   eq(frozen_file(b.clip), nil, ":unfreeze")
-  eq(render().peak < 1e-6, true, "live again: the muted track is silent")
+  eq(render().peak < 1e-6, true, "live again: the muted part is silent")
   keys("u")
   eq(frozen_file(b.clip), file, "u: frozen again")
   keys("u")
-  eq(api.track_get(b.keys, "mute"), false, "u: the mute undone")
+  eq(api.part_get(b.keys, "mute"), false, "u: the mute undone")
   keys("u")
   eq(frozen_file(b.clip), nil, "u: the freeze undone")
   keys("<C-r>")
@@ -1115,7 +1111,7 @@ test("an edit inside a frozen block makes K and the status line say stale; :free
   keys(":freeze<CR>")
   local said = info()
   eq(said:find("frozen, up to date", 1, true) ~= nil, true, "K after :freeze: " .. said)
-  paw.track(b.keys):clips()[1]:set_notes({ { pitch = 64, start = 0, length = 1 } })
+  paw.part(b.keys):clips()[1]:set_notes({ { pitch = 64, start = 0, length = 1 } })
   paw.flush()
   api.undo_checkpoint()
   said = info()
@@ -1157,19 +1153,19 @@ test("a block inside a subproject freezes where the window went in, renders as l
   -- Ballad plays only inside Album, at beats 64 and 96 of the song, 4 beats in.
   api.clip_remove(b.clip)
   local album = api.nest_add({ name = "Album", length = 32 })
-  local inner_row = api.track_add({ name = "Ballad", nest = album })
+  local inner_row = api.part_add({ name = "Ballad", nest = album })
   local inner = api.clip_add(inner_row, { nest = b.nest, start = 4 })
-  local album_row = paw.add_track({ name = "Album" })
+  local album_row = paw.add_part({ name = "Album" })
   api.clip_add(album_row.id, { nest = album, start = 64 })
   local way_in = api.clip_add(album_row.id, { nest = album, start = 96 })
   paw.flush()
   api.undo_checkpoint()
   local live = render()
-  paw.cursor.set_track(album_row)
+  paw.cursor.set_part(album_row)
   paw.cursor.set_beat(97)
   keys("<CR>")
   eq(paw.scope.breadcrumb(), "Song › ⧉Album", "in Album through its second block")
-  paw.cursor.set_track(paw.track(inner_row))
+  paw.cursor.set_part(paw.part(inner_row))
   paw.cursor.set_beat(5)
   keys(":freeze<CR>")
   local frozen = paw.freeze_block.frozen(inner)
@@ -1179,7 +1175,7 @@ test("a block inside a subproject freezes where the window went in, renders as l
   -- Muted inside, Ballad plays nothing: what sounds is the file, at each place.
   -- The mute is a part of the mix that the file was made from, so it makes
   -- the block stale; u takes it back before the edit below.
-  api.track_set(b.keys, { mute = true })
+  api.part_set(b.keys, { mute = true })
   paw.flush()
   api.undo_checkpoint()
   local worst, peak = difference(live, render())
@@ -1187,7 +1183,7 @@ test("a block inside a subproject freezes where the window went in, renders as l
   eq(worst < 1e-5, true, "the same sound at both places, frozen as live: " .. worst)
   keys("u")
   eq(paw.freeze_block.describe(inner), "frozen, up to date", "u: the mute undone, the file is current again")
-  paw.track(b.keys):clips()[1]:set_notes({ { pitch = 64, start = 0, length = 1 } })
+  paw.part(b.keys):clips()[1]:set_notes({ { pitch = 64, start = 0, length = 1 } })
   paw.flush()
   api.undo_checkpoint()
   said = info()
@@ -1201,24 +1197,24 @@ test(
   function()
     start()
     local b = ballad()
-    local pad = api.track_add({ name = "Pad", nest = b.nest })
+    local pad = api.part_add({ name = "Pad", nest = b.nest })
     api.clip_add(pad, { start = 0, length = 4, notes = { { pitch = 48, start = 0, length = 4 } } })
     paw.flush()
     api.undo_checkpoint()
-    paw.cursor.set_track(paw.track(b.row))
+    paw.cursor.set_part(paw.part(b.row))
     keys(":nest.outputs stems<CR>")
     local rows = {}
-    for _, id in ipairs(api.track_list()) do
-      rows[api.track_get(id, "name")] = id
+    for _, id in ipairs(api.part_list()) do
+      rows[api.part_get(id, "name")] = id
     end
-    paw.cursor.set_track(paw.track(rows.Keys))
+    paw.cursor.set_part(paw.part(rows.Keys))
     paw.cursor.set_beat(33)
     keys(":freeze<CR>")
     local block = api.clip_list(rows.Keys)[1].id
     eq(frozen_file(block) ~= nil, true, "the stem of Keys, with its own devices, is frozen")
     -- Pad has no devices: its notes play through the devices of its row.
     T.expect_error("^this block plays its notes through the devices of Pad: freeze Pad instead$")
-    paw.cursor.set_track(paw.track(rows.Pad))
+    paw.cursor.set_part(paw.part(rows.Pad))
     keys(":freeze<CR>")
     eq(frozen_file(api.clip_list(rows.Pad)[1].id), nil, "the stem of Pad is not frozen")
     reset()
@@ -1265,7 +1261,7 @@ test(":export stems shows a plan of one file per group, and they add up to the m
     return table.concat(list, " ")
   end
   eq(files("stems"), "Strings.wav Brass.wav", "in a scope: its groups")
-  eq(files("tracks"), "Violins.wav Cellos.wav Horns.wav", "per track")
+  eq(files("parts"), "Violins.wav Cellos.wav Horns.wav", "per part")
   eq(files(""), "Orchestra.wav", "and the mix of the scope is the mix of its group")
   paw.scope.widen()
   reset()

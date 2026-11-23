@@ -62,7 +62,7 @@ local function slow(name, ms, items, priority)
   }
 end
 
---- A track with a clip of four notes open in the piano roll, the cursor
+--- A part with a clip of four notes open in the piano roll, the cursor
 --- after them.
 local function start()
   T.fresh()
@@ -72,7 +72,7 @@ local function start()
     paw.ui.close()
   end
   log = {}
-  local t = paw.add_track({ name = "Lead" })
+  local t = paw.add_part({ name = "Lead" })
   local clip = t:add_clip({ start = 0, length = 4, notes = { n(60, 0), n(62, 1), n(64, 2), n(65, 3) } })
   roll:edit(clip)
   roll:set(65, 4)
@@ -527,9 +527,9 @@ T.test(
       T.fresh()
       paw.keymap.feed("<Esc><Esc>")
       local upper = paw
-        .add_track({ name = "Upper" })
+        .add_part({ name = "Upper" })
         :add_clip({ start = 0, length = 4, notes = { n(72, 0), n(74, 1), n(76, 2), n(77, 3) } })
-      paw.add_track({ name = "Lower" }):add_clip({ start = 0, length = 4, notes = { n(60, 0, 2), n(67, 2, 2) } })
+      paw.add_part({ name = "Lower" }):add_clip({ start = 0, length = 4, notes = { n(60, 0, 2), n(67, 2, 2) } })
       roll:edit(upper)
       roll:set(77, 4)
       midilsp.start(true)

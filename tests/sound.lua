@@ -74,10 +74,10 @@ test("the fader and pan do what they say", function()
   near(left, unity, 0.005, "centre is unity gain")
 end)
 
-test("solo silences the others but not what a soloed track feeds", function()
+test("solo silences the others but not what a soloed part feeds", function()
   fresh()
   local a, b = tone("a", 2, "A3"), tone("b", 2, "E4")
-  local bus = paw.add_track({ name = "bus" })
+  local bus = paw.add_part({ name = "bus" })
   a.output = bus
   local both = render().peak
   b.solo = true
@@ -95,7 +95,7 @@ end)
 test("routing refuses loops and survives removing a bus", function()
   fresh()
   local a = tone("a", 2)
-  local bus, bus2 = paw.add_track({ name = "bus" }), paw.add_track({ name = "bus2" })
+  local bus, bus2 = paw.add_part({ name = "bus" }), paw.add_part({ name = "bus2" })
   a.output = bus
   bus.output = bus2
   fails(function() bus2.output = a end, "loop", "output loop")
@@ -111,7 +111,7 @@ end)
 test("sends add signal to their target", function()
   fresh()
   local a = tone("a", 2)
-  local fx = paw.add_track({ name = "fx" })
+  local fx = paw.add_part({ name = "fx" })
   local dry = render().peak
   a:send(fx, 0)
   near(render().peak / dry, 2, 0.02, "an equal send doubles the level")
@@ -140,7 +140,7 @@ test("audio clips play back what was rendered", function()
   tone("tone", 2)
   local source = render({ tail = 0, bits = 24 })
   fresh()
-  local t = paw.add_track({ name = "audio" })
+  local t = paw.add_part({ name = "audio" })
   local clip = t:add_clip({ start = 1, file = source.path })
   eq(clip.kind, "audio", "kind")
   near(clip.length, 2, 0.01, "length follows the file")
@@ -170,7 +170,7 @@ test("audio clips load WAV, AIFF, FLAC, MP3 and Ogg Vorbis", function()
   }) do
     local name, right, tolerance = f[1], f[2], f[3]
     fresh()
-    local clip = paw.add_track():add_clip({ start = 0, file = fixtures .. name })
+    local clip = paw.add_part():add_clip({ start = 0, file = fixtures .. name })
     eq(clip.kind, "audio", name .. " kind")
     near(clip.length, 0.5, 0.001, name .. " length: 0.25 s at 120 bpm")
     -- Each file plays at its own rate whatever the engine runs at.
@@ -187,7 +187,7 @@ end)
 
 test("unreadable audio files say what is wrong", function()
   fresh()
-  local t = paw.add_track()
+  local t = paw.add_part()
   local function add(path)
     return function() t:add_clip({ start = 0, file = path }) end
   end
@@ -205,7 +205,7 @@ end)
 
 test("audio clips report their waveform", function()
   fresh()
-  local t = paw.add_track({ name = "shape" })
+  local t = paw.add_part({ name = "shape" })
   -- 0.25 s in four equal parts: silence, a sine peaking at 0.5, one peaking at
   -- 0.75, and -0.25 held.
   local clip = t:add_clip({ start = 0, file = fixtures .. "shape.wav" })
@@ -226,13 +226,13 @@ test("audio clips report their waveform", function()
   check(clip:peaks(1), { { -0.75, 0.75 } }, "one point")
   eq(#clip:peaks(5000), 5000, "more points than samples")
 
-  -- The arrange view draws it under the name, over the rows a track has
+  -- The arrange view draws it under the name, over the rows a part has
   -- left, from each column's lowest to highest sample around the middle (the
   -- waveform's own tests are in tests/waves.lua).
-  paw.opt.zoom, paw.opt.track_height = 8, 3
-  paw.cursor.set_track(t)
+  paw.opt.zoom, paw.opt.part_height = 8, 3
+  paw.cursor.set_part(t)
   local text = table.concat(api.ui_snapshot(100, 30), "\n")
-  paw.opt.zoom, paw.opt.track_height = 2, "auto"
+  paw.opt.zoom, paw.opt.part_height = 2, "auto"
   local rows = paw.draw.waveform(clip:peaks(8), 2)
   eq(rows[1], "  ▄▄▆▆  ", "silence draws nothing, a column reaches as far as the wave does: " .. rows[1])
   eq(
@@ -267,7 +267,7 @@ end)
 
 test("drums respond to the General MIDI drum notes", function()
   fresh()
-  local t = paw.add_track({ name = "drums" })
+  local t = paw.add_part({ name = "drums" })
   t:add_device("drums")
   t:add_clip({
     start = 0,

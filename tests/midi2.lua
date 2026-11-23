@@ -23,11 +23,11 @@ local function output_named(name)
 end
 
 --- Run `fn(heard)` with the sequencer open and a port of ours, "Loop", that
---- tracks send to; `heard` fills with what arrives there. Nil and the
+--- parts send to; `heard` fills with what arrives there. Nil and the
 --- reason when the sequencer cannot be opened here.
 local function with_loop(fn)
   -- The sequencer is shared by every process of the machine: open no port
-  -- of others, so that only what our tracks send to our port arrives.
+  -- of others, so that only what our parts send to our port arrives.
   api.midi_select({})
   api.engine_restart({ midi = true })
   paw.midi.open_port(LOOP)
@@ -49,9 +49,9 @@ local function with_loop(fn)
   return err
 end
 
-test("a MIDI output's form is checked, saved, undone and copied with the track", function()
+test("a MIDI output's form is checked, saved, undone and copied with the part", function()
   fresh()
-  local t = paw.add_track({ name = "Hardware" })
+  local t = paw.add_part({ name = "Hardware" })
   fails(function() t.midi_output = { port = "Synth", form = "midi3" } end, "unknown variant", "a form there is not")
   fails(function() t.midi_output = { port = "Synth", form = "mpe", members = 16 } end, "1 to 15", "a zone too wide")
   t.midi_output = { port = "Synth", channel = 2 }
@@ -67,28 +67,25 @@ test("a MIDI output's form is checked, saved, undone and copied with the track",
   local path = T.scratch .. "/midi2.json"
   paw.project.save(path)
   paw.project.load(path)
-  eq(paw.track("Hardware").midi_output.form, "mpe", "saved and loaded")
-  eq(paw.track("Hardware"):duplicate().midi_output.members, 7, "a copy sends as the original does")
+  eq(paw.part("Hardware").midi_output.form, "mpe", "saved and loaded")
+  eq(paw.part("Hardware"):duplicate().midi_output.members, 7, "a copy sends as the original does")
   -- Choosing another port keeps the form.
-  paw.routes.set_midi_out(paw.track("Hardware").id, "Other", 3)
-  eq(paw.track("Hardware").midi_output.form, "mpe", "the form stays with the route")
-  fails(
-    function() paw.routes.set_midi_out(paw.track("Hardware").id, "Other", 3, "loud") end,
-    "auto, plain, mpe or cc14"
-  )
+  paw.routes.set_midi_out(paw.part("Hardware").id, "Other", 3)
+  eq(paw.part("Hardware").midi_output.form, "mpe", "the form stays with the route")
+  fails(function() paw.routes.set_midi_out(paw.part("Hardware").id, "Other", 3, "loud") end, "auto, plain, mpe or cc14")
 end)
 
-test("the terminal and the window choose the form a track's MIDI output sends in", function()
+test("the terminal and the window choose the form a part's MIDI output sends in", function()
   fresh()
-  local t = paw.add_track({ name = "Hardware" })
-  paw.cursor.set_track(t)
-  paw.commands.exec("track.midi_out Some synth 5 mpe")
+  local t = paw.add_part({ name = "Hardware" })
+  paw.cursor.set_part(t)
+  paw.commands.exec("part.midi_out Some synth 5 mpe")
   eq(
     t.midi_output.port .. " " .. t.midi_output.channel .. " " .. t.midi_output.form,
     "Some synth 5 mpe",
-    ":track.midi_out takes a form after the port and channel"
+    ":part.midi_out takes a form after the port and channel"
   )
-  paw.commands.exec("track.midi_out Some synth cc14")
+  paw.commands.exec("part.midi_out Some synth cc14")
   eq(t.midi_output.form .. " " .. tostring(t.midi_output.channel), "cc14 nil", "or alone")
   local menu = paw.frontend.input_menu(t.id)
   local labels, checked = {}, nil
@@ -111,7 +108,7 @@ test("a route in MPE plays each note of a chord on a channel of its own, bent th
   fresh()
   return with_loop(function(heard)
     paw.project.tempo = 120
-    local t = paw.add_track({ name = "Hardware" })
+    local t = paw.add_part({ name = "Hardware" })
     local clip = t:add_clip({
       start = 0,
       length = 4,
@@ -170,7 +167,7 @@ test("a route with 14-bit controllers sends the fine part of control changes bel
   fresh()
   return with_loop(function(heard)
     paw.project.tempo = 120
-    local t = paw.add_track({ name = "Hardware" })
+    local t = paw.add_part({ name = "Hardware" })
     local clip = t:add_clip({ start = 0, length = 2, notes = {} })
     -- Halfway, and one fourteen-bit step past it.
     clip:set_controls({ { start = 0.25, type = "cc", number = 1, value = (8192 + 1) / 16383 } })
@@ -220,7 +217,7 @@ local function moves_clip()
   fresh()
   paw.project.tempo = 120
   paw.opt.note_grid, paw.opt.note_snap = 0.25, true
-  local t = paw.add_track({ name = "Keys" })
+  local t = paw.add_part({ name = "Keys" })
   local clip = t:add_clip({ start = 0, length = 8, notes = { { pitch = "C4", start = 0, length = 1 } } })
   clip:set_controls({
     { start = 0, type = "cc", number = 1, value = 0.2 },
@@ -311,7 +308,7 @@ end)
 test("the event list shows every note and move in time order and changes each cell in place", function()
   fresh()
   paw.project.tempo = 120
-  local t = paw.add_track({ name = "Keys" })
+  local t = paw.add_part({ name = "Keys" })
   local clip = t:add_clip({
     start = 4,
     length = 4,
@@ -364,7 +361,7 @@ end)
 
 test("the event list floats over the terminal, its keys change a cell, and the window opens it alone", function()
   fresh()
-  local t = paw.add_track({ name = "Keys" })
+  local t = paw.add_part({ name = "Keys" })
   local clip =
     t:add_clip({ start = 0, length = 4, notes = { { pitch = "C4", start = 0, length = 1, velocity = 100 } } })
   clip:set_controls({ { start = 1, type = "cc", number = 1, value = 0 } })

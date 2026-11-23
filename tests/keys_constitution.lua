@@ -120,7 +120,7 @@ end)
 
 test("Escape cancels and stays in every view", function()
   start()
-  local t = paw.add_track({ name = "Keys" })
+  local t = paw.add_part({ name = "Keys" })
   t:add_device("synth")
   local clip = t:add_clip({ name = "c", start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
   api.undo_checkpoint()
@@ -163,14 +163,14 @@ end)
 
 -- The mixer as a grid -----------------------------------------------------------------------
 
-local function mixer(tracks)
+local function mixer(parts)
   start()
   local out = {}
-  for i, name in ipairs(tracks) do
-    out[i] = paw.add_track({ name = name })
+  for i, name in ipairs(parts) do
+    out[i] = paw.add_part({ name = name })
   end
   api.undo_checkpoint()
-  paw.cursor.set_track(out[1])
+  paw.cursor.set_part(out[1])
   paw.ui.show("mixer")
   paw.ui.focus("mixer")
   paw.ui.views:get("mixer").row = "volume"
@@ -191,11 +191,11 @@ test("in the mixer h l go between strips and j k along a strip's rows, which + -
   keys("gg")
   eq(paw.mixer_rows.current().kind, "send", "gg is the strip's top row: its send")
   keys("2-")
-  near(api.track_get(a.id).sends[1].level, -14, 1e-6, "- lowers the send")
+  near(api.part_get(a.id).sends[1].level, -14, 1e-6, "- lowers the send")
   keys("x")
-  eq(#api.track_get(a.id).sends, 0, "x clears the row: the send goes")
+  eq(#api.part_get(a.id).sends, 0, "x clears the row: the send goes")
   keys("l")
-  eq(paw.cursor.track_id(), b.id, "l is the next strip")
+  eq(paw.cursor.part_id(), b.id, "l is the next strip")
   eq(paw.mixer_rows.current().kind, "volume", "on the row of the same kind, else the fader: B has no send")
   keys("gg")
   eq(paw.mixer_rows.current().kind, "insert", "gg: the strip's top row, its first device")
@@ -218,7 +218,7 @@ test("in the mixer operators and a selection work over strips and rows, and . re
   keys("2l.")
   near(c.volume, -1, 1e-6, ". does it again from the strip the cursor is on (the last: there is none after it)")
   near(b.volume, -1, 1e-6, "and not to the strips before")
-  paw.cursor.set_track(a)
+  paw.cursor.set_part(a)
   keys("j5+")
   keys("kyj")
   eq(keymap.getreg().kind, "mixrows", "y over two rows yanks their settings")
@@ -226,13 +226,13 @@ test("in the mixer operators and a selection work over strips and rows, and . re
   near(b.volume, a.volume, 1e-6, "p puts the fader")
   near(b.pan, 0.5, 1e-6, "and the pan on the next strip")
   keys("gcc")
-  eq(api.track_get(b.id).mute, true, "gcc mutes the strip")
+  eq(api.part_get(b.id).mute, true, "gcc mutes the strip")
   keys("dj")
   near(b.volume, 0, 1e-6, "dj clears the fader")
   near(b.pan, 0, 1e-6, "and the pan")
-  eq(#api.track_list(), 3, "rows are cleared, not tracks")
+  eq(#api.part_list(), 3, "rows are cleared, not parts")
   keys("dd")
-  eq(#api.track_list(), 2, "dd cuts the strip's track, as it cuts a line")
+  eq(#api.part_list(), 2, "dd cuts the strip's part, as it cuts a line")
   paw.ui.hide("mixer")
 end)
 
@@ -240,11 +240,11 @@ end)
 
 local function panel()
   start()
-  local t = paw.add_track({ name = "Lead" })
+  local t = paw.add_part({ name = "Lead" })
   local synth = t:add_device("synth")
   local delay = t:add_device("delay")
   api.undo_checkpoint()
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.ui.show("devices")
   paw.ui.focus("devices")
   paw.ui.views:get("devices").row = 1
@@ -257,7 +257,7 @@ local function param_row(device, key)
   end
 end
 
-test("in the device panel w b go from device to device, + - change a parameter, gc bypasses, M r the track", function()
+test("in the device panel w b go from device to device, + - change a parameter, gc bypasses, M r the part", function()
   local t, synth, delay = panel()
   keys("w")
   local device, row = paw.ui.views:get("devices"):selected()
@@ -266,9 +266,9 @@ test("in the device panel w b go from device to device, + - change a parameter, 
   eq(api.device_get(delay.id).bypass, true, "gcc bypasses it")
   keys("Mr")
   eq(
-    api.track_get(t.id).mute and api.track_get(t.id).armed,
+    api.part_get(t.id).mute and api.part_get(t.id).armed,
     true,
-    "M r mute and arm the panel's track, as wherever there is a track"
+    "M r mute and arm the panel's part, as wherever there is a part"
   )
   keys("b")
   eq(paw.ui.views:get("devices").row, 1, "b is the device before")
@@ -317,7 +317,7 @@ test(
   "in the piano roll + - are the pitch, Alt-l Alt-h the length, and a selection takes in the note under its end",
   function()
     start()
-    local t = paw.add_track({ name = "Keys" })
+    local t = paw.add_part({ name = "Keys" })
     local clip = t:add_clip({
       name = "c",
       start = 0,

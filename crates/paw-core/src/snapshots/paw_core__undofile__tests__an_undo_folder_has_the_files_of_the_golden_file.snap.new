@@ -1,0 +1,21 @@
+---
+source: crates/paw-core/src/undofile.rs
+assertion_line: 489
+expression: "crate::golden::folder_text(dir.path())"
+---
+== blobs/36/366ff2a8… (19 bytes)
+{ "name": "Bass" }
+== blobs/6a/6a796e22… (159 bytes)
+{"parts/":"c073b8bc…","project.toml":"ff33fa90…"}
+== blobs/6c/6cbc33d6… (159 bytes)
+{"parts/":"c073b8bc…","project.toml":"a3dbc89f…"}
+== blobs/74/7470421f… (80 bytes)
+{"part.json":"366ff2a8…"}
+== blobs/a3/a3dbc89f… (12 bytes)
+tempo = 100
+== blobs/c0/c073b8bc… (76 bytes)
+{"Bass/":"7470421f…"}
+== blobs/ff/ff33fa90… (12 bytes)
+tempo = 120
+== tree.json (356 bytes)
+{"version":1,"root":0,"saved":1,"states":[{"id":0,"parent":null,"children":[1],"redo":1,"time":0.0,"files":"6a796e22…"},{"id":1,"parent":0,"children":[],"redo":null,"time":1.0,"label":"set the tempo","keys":":tempo 100<CR>","files":"6cbc33d6…"}]}

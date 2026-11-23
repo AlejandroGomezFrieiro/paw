@@ -2,7 +2,7 @@
 //! file does not change, and each names one kind of thing, so a device id
 //! cannot stand where a definition goes.
 //!
-//! The ids of tracks, devices and the nodes of a chain come from the
+//! The ids of parts, devices and the nodes of a chain come from the
 //! project's one space of ids: one number names one thing of the project.
 //! So a device is also a node of the chain that holds it, and
 //! [`NodeId::from`] a [`DeviceId`] is the same number.
@@ -48,9 +48,9 @@ macro_rules! ids {
 }
 
 ids! {
-    /// A track: the owner of a chain until parts come.
-    TrackId;
-    /// A device of a track.
+    /// A part: the owner of a chain.
+    PartId;
+    /// A device of a part.
     DeviceId;
     /// A node of a chain: a split, a branch, a macro, or a device in its
     /// place.

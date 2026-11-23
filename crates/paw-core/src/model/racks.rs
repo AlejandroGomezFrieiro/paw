@@ -28,7 +28,7 @@ use super::chain::{Split, Zone};
 use super::ids::{DefId, DeviceId, NodeId, ParamKey};
 use super::linked::{Keyed, Linkable, Linked};
 use super::owner::OwnerRef;
-use super::{DeviceInst, Project, Track};
+use super::{DeviceInst, Project, Part};
 
 /// A linked rack's definition.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -403,7 +403,7 @@ impl Project {
     }
 
     /// The split `split` of the chain of `owner`.
-    fn owned_split(&self, owner: OwnerRef, split: NodeId) -> Result<(&Track, &Split)> {
+    fn owned_split(&self, owner: OwnerRef, split: NodeId) -> Result<(&Part, &Split)> {
         let t = self.owner(owner).with_context(|| format!("no {owner}"))?;
         let chain = t.chain.as_ref().with_context(|| format!("no split {split} in the chain of {owner}"))?;
         let s = chain.root.split(split).with_context(|| format!("{split} is not a split of the chain of {owner}"))?;
@@ -632,7 +632,7 @@ fn set_overrides(p: &mut Project, owner: OwnerRef, split: NodeId, values: Keyed<
 /// Put the devices of a rack made again on its owner: the devices of
 /// `gone` that it does not have go (with their lanes), the others change
 /// in place, and new ones join the list. The chain's order comes after.
-fn put_devices(t: &mut Track, gone: &HashSet<u64>, devices: Vec<DeviceInst>) {
+fn put_devices(t: &mut Part, gone: &HashSet<u64>, devices: Vec<DeviceInst>) {
     let mut made: HashMap<u64, DeviceInst> = devices.into_iter().map(|d| (d.id, d)).collect();
     t.devices.retain(|d| !gone.contains(&d.id) || made.contains_key(&d.id));
     t.lanes.retain(|l| l.target.device().is_none_or(|d| !gone.contains(&d) || made.contains_key(&d)));

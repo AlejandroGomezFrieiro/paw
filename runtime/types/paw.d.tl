@@ -58,6 +58,7 @@ local type NotesModule = require("paw.notes")
 local type ObjectsModule = require("paw.objects")
 local type OptionModule = require("paw.options")
 local type PanesModule = require("paw.panes")
+local type PartcolumnModule = require("paw.partcolumn")
 local type PickModule = require("paw.pick")
 local type PlotModule = require("paw.plot")
 local type ProfileModule = require("paw.profile")
@@ -85,7 +86,6 @@ local type TempolaneModule = require("paw.tempolane")
 local type TextbufModule = require("paw.textbuf")
 local type TimegridModule = require("paw.timegrid")
 local type TimersModule = require("paw.timers")
-local type TrackcolumnModule = require("paw.trackcolumn")
 local type UiModule = require("paw.ui")
 local type UndofileModule = require("paw.undofile")
 local type UtilModule = require("paw.util")
@@ -98,7 +98,7 @@ local type ZipModule = require("paw.zip")
 global record paw
    api: Api
    type Untyped = UntypedLua
-   add_track: function(opts?: ObjectsModule.TrackInput): ObjectsModule.Track
+   add_part: function(opts?: ObjectsModule.PartInput): ObjectsModule.Part
    address: AddressModule
    annotation: Untyped
    attr: AttrModule
@@ -173,7 +173,7 @@ global record paw
    luadev: Untyped
    markdown: MarkdownModule
    markers: MarkersModule
-   master: ObjectsModule.Track
+   master: ObjectsModule.Part
    media: MediaModule
    midi: ObjectsModule.Midi
    midifile: MidifileModule
@@ -192,6 +192,10 @@ global record paw
    option: OptionModule
    panes: PanesModule
    params: Untyped
+   part: function(which: number | string): ObjectsModule.Part
+   part_kinds: Partial.PartKinds
+   partcolumn: PartcolumnModule
+   parts: function(): {ObjectsModule.Part}
    pick: PickModule
    plot: PlotModule
    plugins: Partial.Plugins
@@ -210,9 +214,9 @@ global record paw
    render_ranges: {string: RenderModule.Range}
    render_status: function(): RenderModule.Status
    render_tags: function(set?: types.RenderTags): types.RenderTags
-   restore_clip: function(snap: ObjectsModule.ClipSnapshot, track: integer | ObjectsModule.Track): ObjectsModule.Clip
-   restore_device: function(snap: ObjectsModule.DeviceSnapshot, track: integer | ObjectsModule.Track, index?: integer): ObjectsModule.Device
-   restore_track: function(snap: ObjectsModule.TrackSnapshot, index?: integer): ObjectsModule.Track
+   restore_clip: function(snap: ObjectsModule.ClipSnapshot, part: integer | ObjectsModule.Part): ObjectsModule.Clip
+   restore_device: function(snap: ObjectsModule.DeviceSnapshot, part: integer | ObjectsModule.Part, index?: integer): ObjectsModule.Device
+   restore_part: function(snap: ObjectsModule.PartSnapshot, index?: integer): ObjectsModule.Part
    roles: RolesModule
    roll_clips: RollClipsModule
    roll_draw: RollDrawModule
@@ -237,16 +241,12 @@ global record paw
    timegrid: TimegridModule
    timers: TimersModule
    toml: Untyped
-   track: function(which: number | string): ObjectsModule.Track
-   track_kinds: Partial.TrackKinds
-   trackcolumn: TrackcolumnModule
-   tracks: function(): {ObjectsModule.Track}
    transport: ObjectsModule.Transport
    try: function<A, R>(fn: function(...: A): (R...), ...: A): boolean, R...
    type Clip = ObjectsModule.Clip
    type Device = ObjectsModule.Device
    type Lane = ObjectsModule.Lane
-   type Track = ObjectsModule.Track
+   type Part = ObjectsModule.Part
    ui: UiModule
    undo: function(): boolean
    undofile: UndofileModule

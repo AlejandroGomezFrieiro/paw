@@ -27,7 +27,7 @@ use serde_json::{Value, json};
 use super::document::Adjusting;
 use super::{FILE_VERSION, Session};
 use crate::history::{self, History, StateId};
-use crate::model::{Clip, ClipContent, CustomContent, DeviceInst, Id, Lane, Note, Notes, Project, Target, Track};
+use crate::model::{Clip, ClipContent, CustomContent, DeviceInst, Id, Lane, Note, Notes, Project, Target, Part};
 
 /// Readable lines in a diff, at most.
 const DIFF_ITEMS: usize = 200;
@@ -406,16 +406,16 @@ fn same<T: Serialize>(a: &T, b: &T) -> bool {
     }
 }
 
-/// Reuse `old`'s tracks, devices, clips and lanes wherever `new` has the same
+/// Reuse `old`'s parts, devices, clips and lanes wherever `new` has the same
 /// ones, so that the engine is only sent what really differs.
 pub(super) fn share_with(new: &mut Project, old: &Project) {
-    let tracks: HashMap<Id, &Arc<Track>> = old.all_tracks().map(|t| (t.id, t)).collect();
-    let share_track = |track: &mut Arc<Track>| {
-        let Some(prev) = tracks.get(&track.id) else {
+    let parts: HashMap<Id, &Arc<Part>> = old.all_parts().map(|t| (t.id, t)).collect();
+    let share_part = |part: &mut Arc<Part>| {
+        let Some(prev) = parts.get(&part.id) else {
             return;
         };
         {
-            let t = Arc::make_mut(track);
+            let t = Arc::make_mut(part);
             fn share<'a, T: Serialize + Clone + 'a>(
                 list: impl IntoIterator<Item = &'a mut Arc<T>>,
                 prev: impl IntoIterator<Item = &'a Arc<T>> + Copy,
@@ -433,13 +433,13 @@ pub(super) fn share_with(new: &mut Project, old: &Project) {
             share(&mut t.clips, &prev.clips, |c| c.id);
             share(&mut t.lanes, &prev.lanes, |l| l.id);
         }
-        if same(track.as_ref(), prev.as_ref()) {
-            *track = (*prev).clone();
+        if same(part.as_ref(), prev.as_ref()) {
+            *part = (*prev).clone();
         }
     };
-    share_track(&mut new.master);
-    for track in &mut new.tracks {
-        share_track(track);
+    share_part(&mut new.master);
+    for part in &mut new.parts {
+        share_part(part);
     }
 }
 
@@ -459,12 +459,12 @@ impl Count {
 }
 
 /// What differs between two projects, as [`diff`] reports it. Each step
-/// compares one area (the project's own fields, tracks, devices, clips with
+/// compares one area (the project's own fields, parts, devices, clips with
 /// their notes, automation lanes) and adds its lines to `items` in that
 /// order.
 #[derive(Default, Serialize)]
 struct Diff {
-    tracks: Count,
+    parts: Count,
     devices: Count,
     clips: Count,
     notes: Count,
@@ -478,32 +478,32 @@ struct Diff {
     more: usize,
 }
 
-/// Where every device, clip or lane of a project is: by its id, the track
+/// Where every device, clip or lane of a project is: by its id, the part
 /// holding it, and it.
-type Index<'p, T> = HashMap<Id, (&'p Track, &'p Arc<T>)>;
+type Index<'p, T> = HashMap<Id, (&'p Part, &'p Arc<T>)>;
 
 fn index<'p, T: 'p, I: IntoIterator<Item = &'p Arc<T>>>(
     p: &'p Project,
-    list: impl Fn(&'p Track) -> I,
+    list: impl Fn(&'p Part) -> I,
     id: impl Fn(&T) -> Id,
 ) -> Index<'p, T> {
-    p.all_tracks()
+    p.all_parts()
         .flat_map(|t| list(t).into_iter().map(move |x| (t.as_ref(), x)))
         .map(|(t, x)| (id(x), (t, x)))
         .collect()
 }
 
-/// A thing on a track that the diff matches by id between two projects:
+/// A thing on a part that the diff matches by id between two projects:
 /// a device, a clip or an automation lane.
 trait Member {
     /// Its count in the diff.
     fn count(d: &mut Diff) -> &mut Count;
     /// What a line calls it: "device synth", "clip verse", "pan automation".
     fn label(&self) -> String;
-    /// What changed from `prev`, on `was_on`, to `self`, on `track`, as
+    /// What changed from `prev`, on `was_on`, to `self`, on `part`, as
     /// words for its line, or `None` when nothing did. Counts the notes of a
     /// clip into `d`.
-    fn changes(&self, prev: &Self, was_on: &Track, track: &Track, d: &mut Diff)
+    fn changes(&self, prev: &Self, was_on: &Part, part: &Part, d: &mut Diff)
     -> Option<Vec<String>>;
 }
 
@@ -516,11 +516,11 @@ impl Member for DeviceInst {
         format!("device {}", self.kind)
     }
 
-    fn changes(&self, prev: &Self, was_on: &Track, track: &Track, _: &mut Diff) -> Option<Vec<String>> {
-        if std::ptr::eq(prev, self) && was_on.id == track.id {
+    fn changes(&self, prev: &Self, was_on: &Part, part: &Part, _: &mut Diff) -> Option<Vec<String>> {
+        if std::ptr::eq(prev, self) && was_on.id == part.id {
             return None;
         }
-        let mut fields = moved(was_on, track);
+        let mut fields = moved(was_on, part);
         if prev.bypass != self.bypass {
             fields.push("bypass".into());
         }
@@ -554,11 +554,11 @@ impl Member for Clip {
         }
     }
 
-    fn changes(&self, prev: &Self, was_on: &Track, track: &Track, d: &mut Diff) -> Option<Vec<String>> {
-        if std::ptr::eq(prev, self) && was_on.id == track.id {
+    fn changes(&self, prev: &Self, was_on: &Part, part: &Part, d: &mut Diff) -> Option<Vec<String>> {
+        if std::ptr::eq(prev, self) && was_on.id == part.id {
             return None;
         }
-        let mut fields = moved(was_on, track);
+        let mut fields = moved(was_on, part);
         for (field, differs) in [
             ("name", prev.name != self.name),
             ("start", prev.start != self.start),
@@ -610,8 +610,8 @@ impl Member for Lane {
     }
 
     /// A lane's line names no fields, and a lane that only moved to another
-    /// track is not changed.
-    fn changes(&self, prev: &Self, _: &Track, _: &Track, _: &mut Diff) -> Option<Vec<String>> {
+    /// part is not changed.
+    fn changes(&self, prev: &Self, _: &Part, _: &Part, _: &mut Diff) -> Option<Vec<String>> {
         let differs = !std::ptr::eq(prev, self)
             && (prev.points != self.points
                 || prev.shapes != self.shapes
@@ -637,10 +637,10 @@ fn custom_changes(was: &CustomContent, now: &CustomContent) -> Vec<&'static str>
     .collect()
 }
 
-/// "moved from track X" when a device or clip changed tracks.
-fn moved(was_on: &Track, track: &Track) -> Vec<String> {
-    if was_on.id != track.id {
-        vec![format!("moved from {}", track_name(was_on))]
+/// "moved from part X" when a device or clip changed parts.
+fn moved(was_on: &Part, part: &Part) -> Vec<String> {
+    if was_on.id != part.id {
+        vec![format!("moved from {}", part_name(was_on))]
     } else {
         Vec::new()
     }
@@ -657,12 +657,12 @@ fn notes_line(n: &Count) -> Option<String> {
     (!parts.is_empty()).then(|| parts.join(", "))
 }
 
-fn track_name(t: &Track) -> String {
+fn part_name(t: &Part) -> String {
     if t.id == crate::model::MASTER_ID {
-        "the master track".into()
+        "the master part".into()
     } else {
         format!(
-            "track {}",
+            "part {}",
             if t.name.is_empty() {
                 t.id.to_string()
             } else {
@@ -672,35 +672,35 @@ fn track_name(t: &Track) -> String {
     }
 }
 
-/// The fields of `track` that differ from `prev`, by name.
-fn track_changes(prev: &Track, track: &Track) -> Vec<&'static str> {
+/// The fields of `part` that differ from `prev`, by name.
+fn part_changes(prev: &Part, part: &Part) -> Vec<&'static str> {
     let checks: [(&str, bool); 14] = [
-        ("name", prev.name != track.name),
-        ("volume", prev.volume != track.volume),
-        ("pan", prev.pan != track.pan),
-        ("mute", prev.mute != track.mute),
-        ("solo", prev.solo != track.solo),
-        ("armed", prev.armed != track.armed),
-        ("output", prev.output != track.output),
-        ("sends", prev.sends != track.sends),
-        ("color", prev.color != track.color),
-        ("meta", prev.meta != track.meta),
-        ("input", prev.input != track.input),
-        ("monitor", prev.monitor != track.monitor),
-        ("midi_input", prev.midi_input != track.midi_input),
-        ("height", prev.height != track.height),
+        ("name", prev.name != part.name),
+        ("volume", prev.volume != part.volume),
+        ("pan", prev.pan != part.pan),
+        ("mute", prev.mute != part.mute),
+        ("solo", prev.solo != part.solo),
+        ("armed", prev.armed != part.armed),
+        ("output", prev.output != part.output),
+        ("sends", prev.sends != part.sends),
+        ("color", prev.color != part.color),
+        ("meta", prev.meta != part.meta),
+        ("input", prev.input != part.input),
+        ("monitor", prev.monitor != part.monitor),
+        ("midi_input", prev.midi_input != part.midi_input),
+        ("height", prev.height != part.height),
     ];
     let mut fields: Vec<&str> = checks
         .into_iter()
         .filter_map(|(field, differs)| differs.then_some(field))
         .collect();
     // The same devices in another order.
-    let order = |t: &Track| t.devices.iter().map(|d| d.id).collect::<Vec<_>>();
-    if order(prev) != order(track)
+    let order = |t: &Part| t.devices.iter().map(|d| d.id).collect::<Vec<_>>();
+    if order(prev) != order(part)
         && order(prev)
             .iter()
-            .all(|i| track.devices.iter().any(|d| d.id == *i))
-        && order(track)
+            .all(|i| part.devices.iter().any(|d| d.id == *i))
+        && order(part)
             .iter()
             .all(|i| prev.devices.iter().any(|d| d.id == *i))
     {
@@ -719,7 +719,7 @@ impl Diff {
     }
 
     /// The project's own fields: name, tempo, time signature, key, meta and
-    /// the order of the tracks both have.
+    /// the order of the parts both have.
     fn project(&mut self, a: &Project, b: &Project) {
         if a.name != b.name {
             self.project.push("name");
@@ -739,14 +739,14 @@ impl Diff {
         if a.nests != b.nests {
             self.project.push("subprojects");
         }
-        let order = |p: &Project| p.tracks.iter().map(|t| t.id).collect::<Vec<_>>();
+        let order = |p: &Project| p.parts.iter().map(|t| t.id).collect::<Vec<_>>();
         if order(a) != order(b) {
             let ids_a: std::collections::HashSet<Id> = order(a).into_iter().collect();
             let ids_b: std::collections::HashSet<Id> = order(b).into_iter().collect();
             let common_a: Vec<Id> = order(a).into_iter().filter(|i| ids_b.contains(i)).collect();
             let common_b: Vec<Id> = order(b).into_iter().filter(|i| ids_a.contains(i)).collect();
             if common_a != common_b {
-                self.project.push("track order");
+                self.project.push("part order");
             }
         }
         if !self.project.is_empty() {
@@ -755,52 +755,52 @@ impl Diff {
         }
     }
 
-    /// Tracks added and changed, in `b`'s order, then those removed, in
+    /// Parts added and changed, in `b`'s order, then those removed, in
     /// `a`'s.
-    fn tracks(&mut self, a: &Project, b: &Project) {
-        let tracks_a: HashMap<Id, &Arc<Track>> = a.all_tracks().map(|t| (t.id, t)).collect();
-        let tracks_b: HashMap<Id, &Arc<Track>> = b.all_tracks().map(|t| (t.id, t)).collect();
-        for track in b.all_tracks() {
-            let Some(prev) = tracks_a.get(&track.id) else {
-                self.tracks.added += 1;
-                self.item(format!("+ {}", track_name(track)));
+    fn parts(&mut self, a: &Project, b: &Project) {
+        let parts_a: HashMap<Id, &Arc<Part>> = a.all_parts().map(|t| (t.id, t)).collect();
+        let parts_b: HashMap<Id, &Arc<Part>> = b.all_parts().map(|t| (t.id, t)).collect();
+        for part in b.all_parts() {
+            let Some(prev) = parts_a.get(&part.id) else {
+                self.parts.added += 1;
+                self.item(format!("+ {}", part_name(part)));
                 continue;
             };
-            if Arc::ptr_eq(prev, track) {
+            if Arc::ptr_eq(prev, part) {
                 continue;
             }
-            let fields = track_changes(prev, track);
+            let fields = part_changes(prev, part);
             if !fields.is_empty() {
-                self.tracks.changed += 1;
-                let name = if prev.name != track.name {
-                    format!("{} (was {})", track_name(track), prev.name)
+                self.parts.changed += 1;
+                let name = if prev.name != part.name {
+                    format!("{} (was {})", part_name(part), prev.name)
                 } else {
-                    track_name(track)
+                    part_name(part)
                 };
                 self.item(format!("~ {name}: {}", fields.join(", ")));
             }
         }
-        for track in a.all_tracks() {
-            if !tracks_b.contains_key(&track.id) {
-                self.tracks.removed += 1;
-                self.item(format!("- {}", track_name(track)));
+        for part in a.all_parts() {
+            if !parts_b.contains_key(&part.id) {
+                self.parts.removed += 1;
+                self.item(format!("- {}", part_name(part)));
             }
         }
     }
 
     /// The parts of one kind added and changed, by id, then those removed.
     fn members<T: Member>(&mut self, a: &Index<T>, b: &Index<T>) {
-        for (id, (track, now)) in sorted(b) {
+        for (id, (part, now)) in sorted(b) {
             let line = match a.get(&id) {
                 None => {
                     T::count(self).added += 1;
-                    format!("+ {} on {}", now.label(), track_name(track))
+                    format!("+ {} on {}", now.label(), part_name(part))
                 }
-                Some((was_on, prev)) => match now.changes(prev, was_on, track, self) {
+                Some((was_on, prev)) => match now.changes(prev, was_on, part, self) {
                     None => continue,
                     Some(fields) => {
                         T::count(self).changed += 1;
-                        let line = format!("~ {} on {}", now.label(), track_name(track));
+                        let line = format!("~ {} on {}", now.label(), part_name(part));
                         if fields.is_empty() {
                             line
                         } else {
@@ -811,10 +811,10 @@ impl Diff {
             };
             self.item(line);
         }
-        for (id, (track, gone)) in sorted(a) {
+        for (id, (part, gone)) in sorted(a) {
             if !b.contains_key(&id) {
                 T::count(self).removed += 1;
-                self.item(format!("- {} on {}", gone.label(), track_name(track)));
+                self.item(format!("- {} on {}", gone.label(), part_name(part)));
             }
         }
     }
@@ -825,7 +825,7 @@ impl Diff {
             self.items.push(format!("… and {more} more"));
         }
         self.same = self.project.is_empty()
-            && [&self.tracks, &self.devices, &self.clips, &self.notes, &self.lanes]
+            && [&self.parts, &self.devices, &self.clips, &self.notes, &self.lanes]
                 .iter()
                 .all(|c| c.total() == 0);
         serde_json::to_value(self).expect("a diff is plain data")
@@ -842,7 +842,7 @@ impl Diff {
 pub(super) fn diff(a: &Project, b: &Project) -> Value {
     let mut d = Diff::default();
     d.project(a, b);
-    d.tracks(a, b);
+    d.parts(a, b);
     d.members(&index(a, |t| &t.devices, |x| x.id), &index(b, |t| &t.devices, |x| x.id));
     d.members(&index(a, |t| &t.clips, |x| x.id), &index(b, |t| &t.clips, |x| x.id));
     d.members(&index(a, |t| &t.lanes, |x| x.id), &index(b, |t| &t.lanes, |x| x.id));
@@ -915,9 +915,9 @@ mod tests {
     #[test]
     fn diff_counts_each_kind() {
         let mut a = Project::default();
-        let mut track = Track::new(1);
-        track.name = "Bass".into();
-        track.devices.push(Arc::new(DeviceInst {
+        let mut part = Part::new(1);
+        part.name = "Bass".into();
+        part.devices.push(Arc::new(DeviceInst {
             id: 2,
             kind: "synth".into(),
             bypass: false,
@@ -942,7 +942,7 @@ mod tests {
             id: 0,
             attr: None,
         };
-        track.clips.push(Arc::new(Clip {
+        part.clips.push(Arc::new(Clip {
             timebase: None,
             stretch: 1.0,
             pitch: 0.0,
@@ -976,11 +976,11 @@ mod tests {
                 "data": { "json": "{\"text\":\"one\"}" } },
         }))
         .unwrap();
-        track.clips.push(Arc::new(custom));
-        let mut eq = (*track.devices[0]).clone();
+        part.clips.push(Arc::new(custom));
+        let mut eq = (*part.devices[0]).clone();
         eq.id = 6;
         eq.kind = "eq".into();
-        track.devices.push(Arc::new(eq));
+        part.devices.push(Arc::new(eq));
         let lane = |id: Id, target: Target| Lane {
             id,
             target,
@@ -989,18 +989,18 @@ mod tests {
             shapes: Vec::new(),
             states: Vec::new(),
         };
-        track.lanes.push(Arc::new(lane(5, Target::Volume)));
-        a.tracks.push(Arc::new(track));
+        part.lanes.push(Arc::new(lane(5, Target::Volume)));
+        a.parts.push(Arc::new(part));
         let empty = diff(&a, &a);
         assert_eq!(empty["same"], json!(true));
 
         let mut b = a.clone();
         b.tempo = 100.0;
-        let mut added = Track::new(4);
+        let mut added = Part::new(4);
         added.lanes.push(Arc::new(lane(8, Target::Pan)));
-        b.tracks.push(Arc::new(added));
+        b.parts.push(Arc::new(added));
         {
-            let t = Arc::make_mut(&mut b.tracks[0]);
+            let t = Arc::make_mut(&mut b.parts[0]);
             t.name = "Low".into();
             t.volume = -6.0;
             t.devices.remove(1);
@@ -1028,38 +1028,38 @@ mod tests {
             json!({
                 "same": false,
                 "project": ["tempo"],
-                "tracks": {"added": 1, "removed": 0, "changed": 1},
+                "parts": {"added": 1, "removed": 0, "changed": 1},
                 "devices": {"added": 0, "removed": 1, "changed": 1},
                 "clips": {"added": 0, "removed": 0, "changed": 2},
                 "notes": {"added": 2, "removed": 1, "changed": 1},
                 "lanes": {"added": 1, "removed": 0, "changed": 1},
                 "items": [
                     "~ project: tempo",
-                    "~ track Low (was Bass): name, volume",
-                    "+ track 4",
-                    "~ device synth on track Low: cutoff",
-                    "- device eq on track Bass",
-                    "~ clip verse on track Low: 2 notes added, 1 note removed, 1 note changed",
-                    "~ clip cue on track Low: kind comment: data",
-                    "~ volume automation on track Low",
-                    "+ pan automation on track 4",
+                    "~ part Low (was Bass): name, volume",
+                    "+ part 4",
+                    "~ device synth on part Low: cutoff",
+                    "- device eq on part Bass",
+                    "~ clip verse on part Low: 2 notes added, 1 note removed, 1 note changed",
+                    "~ clip cue on part Low: kind comment: data",
+                    "~ volume automation on part Low",
+                    "+ pan automation on part 4",
                 ],
             })
         );
         let back = diff(&b, &a);
-        assert_eq!(back["tracks"]["removed"], json!(1));
+        assert_eq!(back["parts"]["removed"], json!(1));
         assert_eq!(
             back["items"],
             json!([
                 "~ project: tempo",
-                "~ track Bass (was Low): name, volume",
-                "- track 4",
-                "~ device synth on track Bass: cutoff",
-                "+ device eq on track Bass",
-                "~ clip verse on track Bass: 1 note added, 2 notes removed, 1 note changed",
-                "~ clip cue on track Bass: kind comment: data",
-                "~ volume automation on track Bass",
-                "- pan automation on track 4",
+                "~ part Bass (was Low): name, volume",
+                "- part 4",
+                "~ device synth on part Bass: cutoff",
+                "+ device eq on part Bass",
+                "~ clip verse on part Bass: 1 note added, 2 notes removed, 1 note changed",
+                "~ clip cue on part Bass: kind comment: data",
+                "~ volume automation on part Bass",
+                "- pan automation on part 4",
             ])
         );
     }
@@ -1067,18 +1067,18 @@ mod tests {
     #[test]
     fn sharing_reuses_what_is_unchanged() {
         let mut a = Project::default();
-        let mut t = Track::new(1);
+        let mut t = Part::new(1);
         t.name = "A".into();
-        a.tracks.push(Arc::new(t));
-        let mut u = Track::new(2);
+        a.parts.push(Arc::new(t));
+        let mut u = Part::new(2);
         u.name = "B".into();
-        a.tracks.push(Arc::new(u));
+        a.parts.push(Arc::new(u));
         let text = serde_json::to_string(&a).unwrap();
         let mut b: Project = serde_json::from_str(&text).unwrap();
-        Arc::make_mut(&mut b.tracks[1]).volume = -3.0;
+        Arc::make_mut(&mut b.parts[1]).volume = -3.0;
         share_with(&mut b, &a);
-        assert!(Arc::ptr_eq(&a.tracks[0], &b.tracks[0]));
-        assert!(!Arc::ptr_eq(&a.tracks[1], &b.tracks[1]));
+        assert!(Arc::ptr_eq(&a.parts[0], &b.parts[0]));
+        assert!(!Arc::ptr_eq(&a.parts[1], &b.parts[1]));
         assert!(Arc::ptr_eq(&a.master, &b.master));
     }
 }

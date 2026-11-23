@@ -20,42 +20,42 @@ local record kernel
    record Nothing is Payload
    end
 
-   --- A track, by its id.
-   record TrackId is Payload
+   --- A part, by its id.
+   record PartId is Payload
       id: integer
    end
 
-   --- The tracks in their new order, by id.
+   --- The parts in their new order, by id.
    record Order is Payload
       order: {integer}
    end
 
-   --- A clip, a lane or a device, and the track it is on (a device that is
-   --- gone, and some changes of a device, have no `track`). A MIDI clip also
+   --- A clip, a lane or a device, and the part it is on (a device that is
+   --- gone, and some changes of a device, have no `part`). A MIDI clip also
    --- has the `stamp` of its notes, as `clip_get` gives it: a listener can
    --- tell that the notes did not change without asking for the clip.
    record Item is Payload
       id: integer
-      track: integer
+      part: integer
       stamp: integer
    end
 
-   --- A track that changed, and the names of its fields that changed, as
-   --- `track_get` names them (`{ "mute" }`, `{ "clips" }`).
-   record TrackChange is Payload
+   --- A part that changed, and the names of its fields that changed, as
+   --- `part_get` names them (`{ "mute" }`, `{ "clips" }`).
+   record PartChange is Payload
       id: integer
       fields: {string}
    end
 
-   --- The track whose queue of clips to launch changed.
+   --- The part whose queue of clips to launch changed.
    record Cue is Payload
-      track: integer
+      part: integer
    end
 
-   --- A device that finished loading, its track and its name.
+   --- A device that finished loading, its part and its name.
    record DeviceReady is Payload
       id: integer
-      track: integer
+      part: integer
       name: string
    end
 
@@ -63,18 +63,18 @@ local record kernel
    --- that gave values it should not (`device.invalid`, no reason).
    record DeviceTrouble is Payload
       device: integer
-      track: integer
+      part: integer
       name: string
       reason: string
       loading: boolean
    end
 
    --- A running device that took on a state given to it (a snapshot, a
-   --- preset, an undo step, a state lane), its track, its name, and the
+   --- preset, an undo step, a state lane), its part, its name, and the
    --- number of that state among those given to it since it was made.
    record StateApplied is Payload
       device: integer
-      track: integer
+      part: integer
       name: string
       seq: integer
    end
@@ -132,17 +132,17 @@ local record kernel
       engine: types.EngineInfo
    end
 
-   --- A MIDI port that went away or came back, and the tracks (by name) that
+   --- A MIDI port that went away or came back, and the parts (by name) that
    --- take their MIDI from it.
    record MidiPort is Payload
       port: string
-      tracks: {string}
+      parts: {string}
    end
 
-   --- A track or a track's chain whose files were copied into the project
+   --- A part or a part's chain whose files were copied into the project
    --- (`origin`, where they were).
-   record TrackCopied is Payload
-      track: integer
+   record PartCopied is Payload
+      part: integer
       name: string
       origin: string
    end
@@ -230,12 +230,12 @@ local record kernel
    project_changed: events.Event<Nothing>
    project_loaded: events.Event<Loaded>
    project_saved: events.Event<Saved>
-   track_added: events.Event<TrackId>
-   track_changed: events.Event<TrackChange>
-   track_removed: events.Event<TrackId>
-   track_moved: events.Event<Order>
-   track_copied: events.Event<TrackCopied>
-   chain_copied: events.Event<TrackCopied>
+   part_added: events.Event<PartId>
+   part_changed: events.Event<PartChange>
+   part_removed: events.Event<PartId>
+   part_moved: events.Event<Order>
+   part_copied: events.Event<PartCopied>
+   chain_copied: events.Event<PartCopied>
    clip_added: events.Event<Item>
    clip_changed: events.Event<Item>
    clip_removed: events.Event<Item>
@@ -279,11 +279,11 @@ kernel.changed = events.event("changed")
 kernel.project_changed = events.event("project.changed")
 kernel.project_loaded = events.event("project.loaded")
 kernel.project_saved = events.event("project.saved")
-kernel.track_added = events.event("track.added")
-kernel.track_changed = events.event("track.changed")
-kernel.track_removed = events.event("track.removed")
-kernel.track_moved = events.event("track.moved")
-kernel.track_copied = events.event("track.copied")
+kernel.part_added = events.event("part.added")
+kernel.part_changed = events.event("part.changed")
+kernel.part_removed = events.event("part.removed")
+kernel.part_moved = events.event("part.moved")
+kernel.part_copied = events.event("part.copied")
 kernel.chain_copied = events.event("chain.copied")
 kernel.clip_added = events.event("clip.added")
 kernel.clip_changed = events.event("clip.changed")

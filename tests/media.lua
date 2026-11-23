@@ -59,10 +59,10 @@ end
 local function project_in(dir, outside)
   fresh()
   mkdir(dir .. "/media")
-  local t = paw.add_track({ name = "inside" })
+  local t = paw.add_part({ name = "inside" })
   t:add_clip({ file = steady(dir .. "/media/a.wav", 1, 0.25), start = 0, length = 2 })
   if outside then
-    local u = paw.add_track({ name = "outside" })
+    local u = paw.add_part({ name = "outside" })
     u:add_clip({ file = outside, start = 0, length = 2 })
   end
   paw.project.save(dir .. "/song.json")
@@ -81,7 +81,7 @@ test("a project folder that is moved opens with every file", function()
   api.warnings()
   paw.project.load(root .. "/two/song.json")
   eq(missing_warnings(), 0, "nothing is missing")
-  local clip = paw.tracks()[1]:clips()[1]
+  local clip = paw.parts()[1]:clips()[1]
   eq(clip.file, root .. "/two/media/a.wav", "the clip plays the file in the folder's new place")
   eq(clip.offline, nil, "and is not offline")
   T.near(peak(), 0.75, 0.002, "both files play")
@@ -94,7 +94,7 @@ test("a clip whose file's folder gets a new name is offline within a second", fu
   local root = T.scratch .. "/folder-renamed"
   mkdir(root .. "/takes")
   fresh()
-  local t = paw.add_track()
+  local t = paw.add_part()
   t:add_clip({ file = steady(root .. "/takes/a.wav", 1, 0.25), start = 0, length = 2 })
   local id = t:clips()[1].id
   local function offline() return api.clip_list(t.id)[1].offline end
@@ -114,13 +114,13 @@ test("an old project with full paths opens unchanged", function()
   local absolute = dir .. "/media/a.wav"
   T.write_file(dir .. "/old.json", (text:gsub('"media/a.wav"', '"' .. absolute .. '"')))
   paw.project.load(dir .. "/old.json")
-  eq(paw.tracks()[1]:clips()[1].file, absolute, "the path is as it was")
+  eq(paw.parts()[1]:clips()[1].file, absolute, "the path is as it was")
   T.near(peak(), 0.25, 0.002, "and it plays")
   -- Moved with the old full path in it: found by its place in the folder.
   os.rename(dir, dir .. "-moved")
   paw.project.load(dir .. "-moved/old.json")
   eq(
-    paw.tracks()[1]:clips()[1].file,
+    paw.parts()[1]:clips()[1].file,
     dir .. "-moved/media/a.wav",
     "a full path into the old folder is found in the new one"
   )
@@ -136,7 +136,7 @@ test("a renamed file is offline, reported once, kept on saving, and relinked", f
   api.warnings()
   paw.project.load(dir .. "/song.json")
   eq(missing_warnings(), 1, "the missing file is reported once")
-  local clip = paw.tracks()[1]:clips()[1]
+  local clip = paw.parts()[1]:clips()[1]
   eq(clip.offline, true, "its clip is offline")
   eq(#paw.media.missing(), 1, "and listed as missing")
   local state = paw.frontend.state(-1)
@@ -153,12 +153,12 @@ test("a renamed file is offline, reported once, kept on saving, and relinked", f
 
   local result = paw.media.relink(dir .. "/media/a.wav", dir .. "/media/b.wav")
   eq(result.clips, 1, "one clip is relinked")
-  clip = paw.tracks()[1]:clips()[1]
+  clip = paw.parts()[1]:clips()[1]
   eq(clip.offline, nil, "it is online")
-  T.near(T.channel_peaks(T.render({ tail = 0, bits = 16, tracks = { paw.tracks()[1].id } })), 0.25, 0.002, "and plays")
+  T.near(T.channel_peaks(T.render({ tail = 0, bits = 16, parts = { paw.parts()[1].id } })), 0.25, 0.002, "and plays")
   api.undo_checkpoint()
   paw.undo()
-  eq(paw.tracks()[1]:clips()[1].offline, true, "undo puts the old path back")
+  eq(paw.parts()[1]:clips()[1].offline, true, "undo puts the old path back")
   paw.redo()
   paw.project.save()
   eq(T.read_file(dir .. "/song.json"):find('"media/b.wav"', 1, true) ~= nil, true, "the new path is saved")
@@ -167,7 +167,7 @@ end)
 test("a missing file is found by name in the project's folder and beside others found", function()
   local dir = T.scratch .. "/byname"
   project_in(dir)
-  local u = paw.add_track()
+  local u = paw.add_part()
   u:add_clip({ file = steady(dir .. "/media/c.wav", 1, 0.5), start = 0, length = 2 })
   paw.project.save()
   mkdir(dir .. "/deep/er")
@@ -176,7 +176,7 @@ test("a missing file is found by name in the project's folder and beside others 
   api.warnings()
   paw.project.load(dir .. "/song.json")
   eq(missing_warnings(), 0, "nothing is reported missing")
-  eq(paw.tracks()[1]:clips()[1].file, dir .. "/deep/er/a.wav", "found where it went")
+  eq(paw.parts()[1]:clips()[1].file, dir .. "/deep/er/a.wav", "found where it went")
   eq(paw.project.modified, true, "the project is modified, so that saving keeps the new place")
   T.near(peak(), 0.75, 0.002, "both play")
 
@@ -199,18 +199,18 @@ test("collecting copies outside files into the project's media folder", function
   project_in(dir, outside)
   -- The same bytes as the project's own media/a.wav, from elsewhere.
   local twin = steady(T.scratch .. "/loose/twin.wav", 1, 0.25)
-  paw.add_track({ name = "twin" }):add_clip({ file = twin, start = 4, length = 2 })
+  paw.add_part({ name = "twin" }):add_clip({ file = twin, start = 4, length = 2 })
   api.undo_checkpoint()
   local result = paw.media.collect()
   eq(result.copied, 1, "the one outside file is copied")
-  eq(paw.tracks()[2]:clips()[1].file, dir .. "/media/x.wav", "its clip plays the copy")
+  eq(paw.parts()[2]:clips()[1].file, dir .. "/media/x.wav", "its clip plays the copy")
   eq(result.same, 1, "a file with the bytes of one in the folder is not copied")
-  eq(paw.tracks()[3]:clips()[1].file, dir .. "/media/a.wav", "its clip plays that one")
+  eq(paw.parts()[3]:clips()[1].file, dir .. "/media/a.wav", "its clip plays that one")
   eq(T.read_file(outside) ~= nil, true, "the original stays")
   T.near(peak(), 0.75, 0.002, "and everything plays")
   api.undo_checkpoint()
   paw.undo()
-  eq(paw.tracks()[2]:clips()[1].file, outside, "one undo step")
+  eq(paw.parts()[2]:clips()[1].file, outside, "one undo step")
   paw.redo()
 
   paw.opt.copy_imports = true
@@ -244,7 +244,7 @@ test("a project with recordings, moved with its folder, plays them", function()
       local dir = T.scratch .. "/recorded-" .. tostring(saved_first)
       mkdir(dir)
       if saved_first then paw.project.save(dir .. "/song.json") end
-      local t = paw.add_track({ name = "Mic" })
+      local t = paw.add_part({ name = "Mic" })
       t.input = "1/2"
       t.armed = true
       paw.flush()
@@ -262,7 +262,7 @@ test("a project with recordings, moved with its folder, plays them", function()
       )
       os.rename(dir, dir .. "-moved")
       paw.project.load(dir .. "-moved/song.json")
-      local clip = paw.tracks()[1]:clips()[1]
+      local clip = paw.parts()[1]:clips()[1]
       eq(clip.offline, nil, "the take is found after the move")
       local info = T.render({ start = clip.start, ["end"] = clip.start + clip.length, tail = 0, bits = 16 })
       T.near(info.peak, 10 ^ (-12 / 20), 0.02, "and plays")
@@ -308,7 +308,7 @@ end)
 
 test("a render takes a range, a tail, a rate, a channel count and a sample size", function()
   fresh()
-  local t = paw.add_track()
+  local t = paw.add_part()
   t:add_clip({ file = steady(T.scratch .. "/half.wav", 8, 0.5), start = 0, length = 16 })
   -- At 120 bpm a beat is half a second.
   paw.transport.loop_start, paw.transport.loop_end = 4, 8
@@ -346,7 +346,7 @@ end)
 
 test("a mono render is (left + right) / 2, and auto is mono only when both sides are equal", function()
   fresh()
-  local t = paw.add_track()
+  local t = paw.add_part()
   t:add_clip({ file = steady(T.scratch .. "/same.wav", 2, 0.5), start = 0, length = 4 })
   local function file(channels)
     local info = paw.render(T.scratch .. "/" .. channels .. ".wav", { channels = channels, bits = 16, tail = 0 })
@@ -376,21 +376,21 @@ end)
 
 test("FLAC renders read back as what was rendered", function()
   fresh()
-  local t = paw.add_track()
+  local t = paw.add_part()
   t:add_clip({ file = steady(T.scratch .. "/flac-src.wav", 3, 0.5), start = 0, length = 4 })
   for _, bits in ipairs({ 16, 24 }) do
     for _, channels in ipairs({ "mono", "stereo" }) do
       local path = string.format("%s/out-%d-%s.flac", T.scratch, bits, channels)
       local info = paw.render(path, { bits = bits, channels = channels, tail = 0 })
       eq(T.read_file(path):sub(1, 4), "fLaC", "a FLAC file")
-      local back = paw.add_track()
+      local back = paw.add_part()
       local clip = back:add_clip({ file = path, start = 0 })
       T.near(clip.length, 4, 1e-3, string.format("as long as rendered (%d bits, %s)", bits, channels))
       eq(info.format, "FLAC", "and says so")
       back:remove()
     end
   end
-  local back = paw.add_track()
+  local back = paw.add_part()
   back:add_clip({ file = T.scratch .. "/out-24-stereo.flac", start = 0 })
   t.mute = true
   T.near(T.render({ tail = 0, ["end"] = 3 }).peak, 0.5, 0.0001, "the level comes back")
@@ -398,7 +398,7 @@ end)
 
 test("a render can leave out the master, or bring the song to a loudness", function()
   fresh()
-  local t = paw.add_track()
+  local t = paw.add_part()
   t:add_clip({ file = steady(T.scratch .. "/m.wav", 4, 0.5), start = 0, length = 8 })
   paw.master.volume = -6
   T.near(T.render({ tail = 0 }).peak, 0.25, 0.003, "through the master's fader")
@@ -417,7 +417,7 @@ end
 
 test("a render in the background reports progress, can be cancelled, and leaves no partial file", function()
   fresh()
-  local t = paw.add_track()
+  local t = paw.add_part()
   t:add_clip({ file = steady(T.scratch .. "/bg.wav", 4, 0.5), start = 0, length = 8 })
   local events = {}
   local handles = {}
@@ -486,7 +486,7 @@ end
 
 test("a file at another rate is converted without aliases, and again when the rate changes", function()
   fresh()
-  local t = paw.add_track()
+  local t = paw.add_part()
   -- 30 kHz at 96 kHz: above what 48 kHz holds. Linear interpolation folds it
   -- back to 18 kHz at nearly full level; band-limited conversion removes it.
   t:add_clip({ file = tone_file(T.scratch .. "/high96.wav", 96000, 30000, 1, 0.5), start = 0, length = 2 })
@@ -522,13 +522,13 @@ test(
     -- Every version on the disk: the cache is where it is kept.
     api.media_store(0.0001)
     local _, store = api.media_store()
-    local t = paw.add_track({ name = "Take" })
+    local t = paw.add_part({ name = "Take" })
     local src = steady(T.scratch .. "/edit-steady.wav", 2, 0.5)
     local before = T.read_file(src)
     local clip = t:add_clip({ file = src, start = 0, length = 4 })
     paw.flush()
     api.undo_checkpoint()
-    paw.cursor.set_track(t)
+    paw.cursor.set_part(t)
     paw.cursor.beat = 0
     T.keys(":clip.gain 0.5 1 -120<CR>")
     eq(paw.ui.message.text, clip.name .. ": -120 dB from 0.5 s to 1 s (1 edit in its list)", "said")
@@ -557,7 +557,7 @@ test(
     local dir = T.scratch .. "/edits-song"
     paw.project.save(dir)
     local name = clip.name
-    local list = api.json_decode(T.read_file(dir .. "/tracks/Take/clips/" .. name .. ".edits.json"))
+    local list = api.json_decode(T.read_file(dir .. "/parts/Take/clips/" .. name .. ".edits.json"))
     eq(#list .. " " .. list[1].kind .. " " .. list[2].kind, "2 gain pencil", "the clip's file holds its edit list")
     -- Without the cache, it is made again.
     os.execute("rm -rf '" .. store .. "' '" .. bakes .. "'")
@@ -573,7 +573,7 @@ test(
 
 test("an audio clip is reversed, normalized and glued without touching its file", function()
   fresh()
-  local t = paw.add_track()
+  local t = paw.add_part()
   local src = ramp(T.scratch .. "/ramp.wav", 2, 0.5)
   local before = T.read_file(src)
   -- Plays the second half of the file: from 0.25 rising to 0.5.

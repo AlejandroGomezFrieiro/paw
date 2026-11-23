@@ -151,20 +151,20 @@ command("transport.record", function()
     end
     transport.record()
   end
-end, { desc = "Record armed tracks from the cursor (or, while the song plays, from the playhead), or stop recording" })
+end, { desc = "Record armed parts from the cursor (or, while the song plays, from the playhead), or stop recording" })
 -- The clip of event `e` when it is a take (its kind, a name that matches)
--- on an armed track, or nil. The track comes first, by one field: the clips
--- that an undo or a paste adds to a track that is not armed cost no read of
+-- on an armed part, or nil. The part comes first, by one field: the clips
+-- that an undo or a paste adds to a part that is not armed cost no read of
 -- the whole clip (its notes).
-local function armed(track)
-  local ok, on = pcall(api.track_get, track, "armed")
+local function armed(part)
+  local ok, on = pcall(api.part_get, part, "armed")
   return ok and on == true
 end
 local function take_on_armed(e, kind, name)
-  if e.track and not armed(e.track) then return end
+  if e.part and not armed(e.part) then return end
   local ok, c = pcall(api.clip_get, e.id)
   if not ok or c.kind ~= kind or not tostring(c.name):match(name) then return end
-  if not e.track and not armed(c.track) then return end
+  if not e.part and not armed(c.part) then return end
   return c
 end
 -- Sound recorded over sound clips becomes their newest take, in the step
@@ -182,11 +182,11 @@ paw.on("clip.added", function(e)
   if paw.opt.midi_record ~= "merge" then return end
   local c = take_on_armed(e, "midi", "^take %d+$")
   if not c then return end
-  local track = e.track or c.track
+  local part = e.part or c.part
   if paw.takes.count(e.id) > 1 then return end
   local from, to, over = c.start, c.start + c.length, { [e.id] = true }
   local any = false
-  for _, other in ipairs(api.clip_list(track)) do
+  for _, other in ipairs(api.clip_list(part)) do
     if
       other.id ~= e.id
       and other.kind == "midi"
@@ -199,7 +199,7 @@ paw.on("clip.added", function(e)
   end
   if not any then return end
   local step = api.undo_current()
-  edit.arrange.join(track, from, to, over)
+  edit.arrange.join(part, from, to, over)
   api.undo_join(step)
 end)
 command(
@@ -270,11 +270,11 @@ command("click", function(ctx)
 end, {
   desc = "The metronome's sound: `click level=-6`, `click accent=off`, `click output=3` (outputs 3 and 4, for headphones), `click output=song`; alone, what it is",
 })
--- The selected track plays the MIDI keyboard while no track is armed
--- (`paw.opt.midi_follows_selection`): the kernel is told which track.
+-- The selected part plays the MIDI keyboard while no part is armed
+-- (`paw.opt.midi_follows_selection`): the kernel is told which part.
 local function send_follow()
   if paw.seats.current ~= 0 then return end
-  local id = paw.opt.midi_follows_selection and cursor.track_id() or nil
+  local id = paw.opt.midi_follows_selection and cursor.part_id() or nil
   api.engine_follow(id ~= 0 and id or nil)
 end
 paw.on("cursor.changed", send_follow)

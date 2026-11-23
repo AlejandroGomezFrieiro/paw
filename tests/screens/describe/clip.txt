@@ -17,11 +17,11 @@
    │█   C        → Keys │   │   1.1.00 to 25.1.00, 96 beats                                        │
  6 ╰▌ Pad          MSRI │▏Pa│   24 notes                                                           │
     ▌in ─────────── 0.0 │▄▄ │                                                                      │
-    ▌   C        → Keys │   │ Track  Piano                                                         │
+    ▌   C        → Keys │   │ Part  Piano                                                         │
  7  ▌ Bass         MSRI │▏Ba│   in the group Keys                                                  │
     ▌in ─────────── 0.0 │▄▄ │   volume +0.0 dB, pan +0.00                                          │
     ▌   C               │   │   output  Keys                                                       │
-        o new track     │   │   no instrument: its MIDI makes no sound. Press `a` and choose one   │
+        o new part     │   │   no instrument: its MIDI makes no sound. Press `a` and choose one   │
                         │   │   (synth, a plugin)                                                  │
                         │   ╰──────────────────────────────────────────────────────────────────────╯
     ▌ Master            │

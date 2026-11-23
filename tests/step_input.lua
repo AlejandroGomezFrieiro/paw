@@ -36,23 +36,23 @@ local function typed(text)
   end
 end
 
---- A track with an empty clip, open in the piano roll on C4 at its start,
+--- A part with an empty clip, open in the piano roll on C4 at its start,
 --- and a controller on the port "Test Keys" (and pads on "Test Pads").
 local function empty(device)
   fresh()
   paw.ui.focus("arrange")
   paw.opt.note_grid, paw.opt.velocity = 0.25, 100
   api.midi_test_ports({ "Test Keys", "Test Pads" })
-  local track = paw.add_track({ name = "Lead" })
-  track:add_device(device or "synth")
-  local clip = track:add_clip({ name = "tune", start = 0, length = 4 })
+  local part = paw.add_part({ name = "Lead" })
+  part:add_device(device or "synth")
+  local clip = part:add_clip({ name = "tune", start = 0, length = 4 })
   api.undo_checkpoint()
   paw.ui.show("pianoroll")
   paw.ui.focus("pianoroll")
   roll:edit(clip)
   roll:set(60, 0)
   roll:set_step(nil)
-  return clip, track
+  return clip, part
 end
 
 local function down(pitch, velocity, port)
@@ -117,15 +117,15 @@ test(
   end
 )
 
-test("step input: I in the pencil, the track's port only, and nothing while playing", function()
-  local clip, track = empty()
-  track.midi_input = { port = "Test Keys" }
+test("step input: I in the pencil, the part's port only, and nothing while playing", function()
+  local clip, part = empty()
+  part.midi_input = { port = "Test Keys" }
   typed("ill")
   typed("I")
   play(64, 100, "Test Pads")
   eq(select(2, draw.text()), "60@0+0.5", "I in the pencil keeps the pen; a key of another port does not enter")
   play(64)
-  eq(table.concat({ draw.text() }, " | "), "60@0+0.5 | 64@0.5+0.25", "a key of the track's port enters after the pen")
+  eq(table.concat({ draw.text() }, " | "), "60@0+0.5 | 64@0.5+0.25", "a key of the part's port enters after the pen")
   paw.transport.play()
   paw.flush()
   eq(draw.label(), "STEP (paused: playing)", "while the song plays, the keys only sound")
@@ -141,13 +141,13 @@ test("step input: I in the pencil, the track's port only, and nothing while play
   eq(melody(clip), "60@0+0.5 64@0.5+0.25", "the notes drawn and played")
 end)
 
-test("step input: with no MIDI input, I says why and opens the track's MIDI inputs", function()
+test("step input: with no MIDI input, I says why and opens the part's MIDI inputs", function()
   empty()
   api.midi_test_ports({})
   typed("I")
   eq(paw.ui.message.text:find("no MIDI input (no MIDI port is", 1, true) ~= nil, true, paw.ui.message.text)
   local state = paw.pick.state()
-  eq(state and state.title, "Input of Lead", "the list of the track's inputs opens")
+  eq(state and state.title, "Input of Lead", "the list of the part's inputs opens")
   eq(table.concat(state.matches, "\n"):find("Monitor", 1, true), nil, "at its MIDI part")
   paw.keymap.feed("<Esc>")
   eq(draw.stepping(), true, "step input stays on")
@@ -195,12 +195,12 @@ end
 return dev
 ]]
 
-test("step input: :step.learn binds a pad, which then rests and reaches no track", function()
+test("step input: :step.learn binds a pad, which then rests and reaches no part", function()
   local dir = T.scratch .. "/step-noted"
   os.execute("mkdir -p '" .. dir .. "'")
   T.write_file(dir .. "/step_noted.lua", NOTED)
   paw.luadev.add_dir(dir)
-  local clip, track = empty("lua:step_noted")
+  local clip, part = empty("lua:step_noted")
   typed(":step.learn tie<CR><Esc>")
   eq(paw.step.learning, nil, "Esc stops the wait")
   typed(":step.learn rest<CR>")
@@ -214,9 +214,9 @@ test("step input: :step.learn binds a pad, which then rests and reaches no track
   play(36, 100, "Test Pads")
   eq(draw.label():match("^STEP rest"), "STEP rest", "the pad rests: " .. draw.label())
   T.next_block(20)
-  eq(meter(track) <= 0.005, true, "the Lua device on the track got no note")
+  eq(meter(part) <= 0.005, true, "the Lua device on the part got no note")
   play(36, 100, "Test Keys")
-  T.until_(function() return meter(track) > 0.02 end, "the key of the other port to sound")
+  T.until_(function() return meter(part) > 0.02 end, "the key of the other port to sound")
   typed("<Esc>")
   eq(melody(clip), "36@0.25+0.25", "a rest, then C2 from the keyboard")
 end)

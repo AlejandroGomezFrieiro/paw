@@ -1,5 +1,5 @@
 -- Resident memory.
---   paw --clean --no-plugins -l bench/memory.lua project <tracks> <clips per track> <undo steps>
+--   paw --clean --no-plugins -l bench/memory.lua project <parts> <clips per part> <undo steps>
 --       a large project (as in saveload.lua), then a long undo history of
 --       one-note edits on its first clip, as in the Tracktion driver's `memory`
 --   paw --clean --no-plugins -l bench/memory.lua churn <rounds>
@@ -17,8 +17,8 @@ local mode, a, b, c = ...
 
 if mode == "bigclip" then
   local count, steps, adds = tonumber(a) or 200000, tonumber(b) or 100, tonumber(c) or 2000
-  local track = api.track_add({ name = "T" })
-  local clip = api.clip_add(track, { start = 0, length = count / 4 })
+  local part = api.part_add({ name = "T" })
+  local clip = api.clip_add(part, { start = 0, length = count / 4 })
   local notes = {}
   for i = 1, count do
     notes[i] = { start = (i - 1) / 4, length = 0.25, pitch = 36 + i % 48, velocity = 90 }
@@ -75,11 +75,11 @@ if mode == "bigclip" then
     adds_per_second = adds / (add_ms / 1000),
   })
 elseif mode == "project" then
-  local tracks, clips, steps = tonumber(a) or 100, tonumber(b) or 8, tonumber(c) or 1000
+  local parts, clips, steps = tonumber(a) or 100, tonumber(b) or 8, tonumber(c) or 1000
   local rss_start = B.rss()
   local first
-  for i = 0, tracks - 1 do
-    local id = api.track_add({ name = "T" .. i })
+  for i = 0, parts - 1 do
+    local id = api.part_add({ name = "T" .. i })
     api.device_add(id, "synth", { params = { wave = 1 } })
     api.device_add(id, "delay")
     for k = 0, clips - 1 do
@@ -103,8 +103,8 @@ elseif mode == "project" then
   local rss_undo = B.rss()
   B.emit({
     workload = "memory",
-    tracks = tracks,
-    clips_per_track = clips,
+    parts = parts,
+    clips_per_part = clips,
     undo_steps = steps,
     rss_start_kb = rss_start,
     rss_built_kb = rss_built,
@@ -116,9 +116,9 @@ elseif mode == "churn" then
   for round = 1, rounds do
     api.project_new()
     paw.flush()
-    B.build({ tracks = 20, kind = "midi", fx = true, automation = true, bars = 4 })
-    for _, id in ipairs(api.track_list()) do
-      api.track_set(id, "volume", -3)
+    B.build({ parts = 20, kind = "midi", fx = true, automation = true, bars = 4 })
+    for _, id in ipairs(api.part_list()) do
+      api.part_set(id, "volume", -3)
       paw.flush()
       api.undo_checkpoint()
     end
@@ -145,6 +145,6 @@ elseif mode == "churn" then
     growth_kb_per_round = (samples[rounds] - samples[half]) / math.max(1, rounds - half),
   })
 else
-  error("usage: memory.lua project <tracks> <clips> <steps> | churn <rounds>")
+  error("usage: memory.lua project <parts> <clips> <steps> | churn <rounds>")
 end
 api.quit(0)

@@ -1,10 +1,10 @@
 //! A processor runs the plan of its chain: devices in series, and splits
-//! whose branches are summed again. A monitored stereo input on track 1
+//! whose branches are summed again. A monitored stereo input on part 1
 //! is the source, so that each test knows what goes into the chain.
 
 use paw_engine::plan::{Branch, Node, Split, Splitter, Tree, compile};
 use paw_engine::{
-    Device, DeviceSlot, Engine, EngineHandle, GraphPlan, Io, Msg, ProcessCtx, SchedEntry, Schedule, TrackRt, TrackSlot,
+    Device, DeviceSlot, Engine, EngineHandle, GraphPlan, Io, Msg, ProcessCtx, SchedEntry, Schedule, PartRt, PartSlot,
 };
 
 use crate::common::{SR, send};
@@ -46,10 +46,10 @@ impl Device for Late {
 }
 
 const BLOCK: usize = 128;
-const TRACK: TrackSlot = TrackSlot(1);
+const PART: PartSlot = PartSlot(1);
 
-/// An engine that plays track 1 into the master, with `devices` in device
-/// slots 0, 1, ... and the stereo input monitored on track 1.
+/// An engine that plays part 1 into the master, with `devices` in device
+/// slots 0, 1, ... and the stereo input monitored on part 1.
 struct Rig {
     engine: Engine,
     handle: EngineHandle,
@@ -59,21 +59,21 @@ struct Rig {
 impl Rig {
     fn new(devices: Vec<Box<dyn Device>>) -> Self {
         let (mut engine, mut handle) = Engine::new(SR);
-        send(&mut handle, Msg::InsertTrack { slot: TRACK, track: TrackRt::new() });
+        send(&mut handle, Msg::InsertPart { slot: PART, part: PartRt::new() });
         for (i, device) in devices.into_iter().enumerate() {
             send(&mut handle, Msg::InsertDevice { slot: DeviceSlot(i as u32), device });
         }
         let entries =
-            vec![SchedEntry::new(TRACK, TrackSlot::MASTER), SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE)];
+            vec![SchedEntry::new(PART, PartSlot::MASTER), SchedEntry::new(PartSlot::MASTER, PartSlot::NONE)];
         send(&mut handle, Msg::SetSchedule(Box::new(Schedule::new(entries, 0))));
-        send(&mut handle, Msg::SetInput { track: TRACK, first: 0, channels: 2, monitor: true, armed: false });
+        send(&mut handle, Msg::SetInput { part: PART, first: 0, channels: 2, monitor: true, armed: false });
         send(&mut handle, Msg::Play);
         engine.pump();
         Self { engine, handle, frame: 0 }
     }
 
     fn set(&mut self, plan: Box<GraphPlan>) {
-        send(&mut self.handle, Msg::SetGraph { slot: TRACK.into(), plan });
+        send(&mut self.handle, Msg::SetGraph { slot: PART.into(), plan });
     }
 
     /// The next `frames` frames of the master, with `input` of each frame
@@ -217,7 +217,7 @@ fn a_late_branch_is_waited_for_so_that_the_branches_and_the_dry_signal_meet() {
         let out = render(vec![Late::new(64)], plan, 2048, impulse);
         let heard: Vec<usize> = (0..out.len()).filter(|&i| out[i][0].abs() > 1e-6).collect();
         assert_eq!(heard, [1064], "{name}: one impulse, as late as the slowest path");
-        // The track's fader in the middle is a hair from unity.
+        // The part's fader in the middle is a hair from unity.
         assert!((out[1064][0] - 1.0).abs() < 1e-5, "{name}: both halves arrive together: {}", out[1064][0]);
     }
 }

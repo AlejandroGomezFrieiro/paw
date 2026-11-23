@@ -145,13 +145,13 @@ fn notes_from_lua(lua: &Lua, value: LuaValue) -> mlua::Result<Vec<Note>> {
 pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> {
     define! { lua, api, shared;
         // --- clips ---
-        // The clips of a track, in timeline order. With `from` and `to`
+        // The clips of a part, in timeline order. With `from` and `to`
         // (beats), only those that overlap that stretch: a view that shows
         // part of the song asks for what it shows.
         // @return {types.Clip}
-        fn clip_list(lua, sh, (track, from, to) => (Id, Option<f64>, Option<f64>)) {
+        fn clip_list(lua, sh, (part, from, to) => (Id, Option<f64>, Option<f64>)) {
             let span = from.zip(to);
-            to_lua(lua, &sh.session.borrow().clip_list_in(track, span).lua()?)
+            to_lua(lua, &sh.session.borrow().clip_list_in(part, span).lua()?)
         }
         // @return types.Clip
         fn clip_get(lua, sh, id => Id) { to_lua(lua, &sh.session.borrow().clip_view(id).lua()?) }
@@ -279,11 +279,11 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // `version`, `timeline`, `offset`, `media`, `sound` and `signals` as `clip_custom` gives them.
         // @param opts? types.ClipOptions
         // @return integer
-        fn clip_add(lua, sh, (track, opts) => (Id, LuaValue)) {
+        fn clip_add(lua, sh, (part, opts) => (Id, LuaValue)) {
             let (opts, data) = kind_data::split(lua, opts)?;
             let mut opts: crate::session::ClipOpts = options(lua, opts)?;
             opts.data = data.or(opts.data);
-            sh.session.borrow_mut().clip_add(track, opts).lua()
+            sh.session.borrow_mut().clip_add(part, opts).lua()
         }
         // The kinds of clip that extensions defined, by name (sorted).
         // @return {string}
@@ -333,18 +333,18 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         fn clip_unlink(_, sh, id => Id) { sh.session.borrow_mut().doc.clip_unlink(id).lua() }
 
         // --- cues (session/cues.rs) ---
-        // A clip goes off the timeline with `clip_add(track, { cue = true, ... })`:
+        // A clip goes off the timeline with `clip_add(part, { cue = true, ... })`:
         // it starts at 0, loops over its length, and plays only when cued.
-        // You edit it as a usual clip; `clip_set(id, "track", other)` moves it.
+        // You edit it as a usual clip; `clip_set(id, "part", other)` moves it.
         // @return {types.Clip}
-        fn cue_list(lua, sh, track => Id) { to_lua(lua, &sh.session.borrow().cue_list(track).lua()?) }
-        // Copy a clip, with its `meta`, off the timeline of a track. Returns the copy's id.
+        fn cue_list(lua, sh, part => Id) { to_lua(lua, &sh.session.borrow().cue_list(part).lua()?) }
+        // Copy a clip, with its `meta`, off the timeline of a part. Returns the copy's id.
         // @return integer
-        fn clip_to_cues(_, sh, (id, track) => (Id, Id)) {
-            sh.session.borrow_mut().doc.clip_to_cues(id, track).lua()
+        fn clip_to_cues(_, sh, (id, part) => (Id, Id)) {
+            sh.session.borrow_mut().doc.clip_to_cues(id, part).lua()
         }
-        // `{ { track =, clip = id }, { track =, stop = true },
-        // { track =, timeline = true }, ... }`, each with `quantize` (`bar`
+        // `{ { part =, clip = id }, { part =, stop = true },
+        // { part =, timeline = true }, ... }`, each with `quantize` (`bar`
         // when not given: off 1/16 1/8 1/4 beat bar 2bars 4bars), `legato`
         // and `from`: all on their boundary, timed together by the engine.
         // @param list {types.Cue}
@@ -352,7 +352,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         fn cue(lua, sh, list => LuaValue) {
             sh.session.borrow_mut().cue(from_lua(lua, list)?).lua()
         }
-        // What each track plays and has in its queue, in the last report of the engine.
+        // What each part plays and has in its queue, in the last report of the engine.
         // @return {types.CueState}
         fn cue_state(lua, sh, () => ()) { to_lua(lua, &sh.session.borrow().cue_state()) }
         // Change a clip: a table of the entries to change, as `clip_get`

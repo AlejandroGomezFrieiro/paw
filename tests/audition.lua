@@ -26,9 +26,9 @@ local keys = T.keys
 
 local function heard() return paw.pick.state() and paw.pick.state().audition end
 
---- A track with a synth and a bar of notes from beat 0.
-local function keys_track()
-  local t = paw.add_track({ name = "Keys" })
+--- A part with a synth and a bar of notes from beat 0.
+local function keys_part()
+  local t = paw.add_part({ name = "Keys" })
   t:add_device("synth", { attack = 0.001, release = 0.01 })
   t:add_clip({
     start = 0,
@@ -41,7 +41,7 @@ local function keys_track()
   })
   paw.flush()
   api.undo_checkpoint()
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.cursor.set_beat(0)
   return t
 end
@@ -111,9 +111,9 @@ end)
 
 -- Presets ----------------------------------------------------------------------
 
-test("a preset is heard as a trial over the track's own bar, and Escape leaves no trace", function()
+test("a preset is heard as a trial over the part's own bar, and Escape leaves no trace", function()
   start()
-  local t = keys_track()
+  local t = keys_part()
   local device = t:devices()[1]
   local before = api.device_get(device.id).params.cutoff
   local undo = api.undo_current()
@@ -123,10 +123,10 @@ test("a preset is heard as a trial over the track's own bar, and Escape leaves n
   eq(api.device_get(device.id).params.cutoff, 3000, "the preset is loaded")
   eq(api.trial_active(), true, "as a trial")
   local now = paw.audition.state()
-  eq(now.kind .. " " .. pitches(now.notes), "phrase C4 E4 G4", "the track's bar plays")
+  eq(now.kind .. " " .. pitches(now.notes), "phrase C4 E4 G4", "the part's bar plays")
   eq(heard().label, "Pluck · loop bar 1", "and the pane says so")
-  T.advance_until(function() return #paw.audition.heard >= 3 end, "its notes reach the track", 5000)
-  eq(paw.audition.heard[1].track, t.id, "through the track")
+  T.advance_until(function() return #paw.audition.heard >= 3 end, "its notes reach the part", 5000)
+  eq(paw.audition.heard[1].part, t.id, "through the part")
   keys("<Esc>")
   eq(api.device_get(device.id).params.cutoff, before, "Escape puts the device back")
   eq(api.trial_active(), false, "the trial is over")
@@ -136,7 +136,7 @@ end)
 
 test("choosing the preset heard keeps it as one undo step", function()
   start()
-  local t = keys_track()
+  local t = keys_part()
   local device = t:devices()[1]
   local before = api.device_get(device.id).params.cutoff
   paw.fx.pick(device)
@@ -151,7 +151,7 @@ end)
 
 test("moving through presets keeps the bar going and swaps only the sound", function()
   start()
-  local t = keys_track()
+  local t = keys_part()
   local device = t:devices()[1]
   paw.fx.pick(device)
   keys("Pluck")
@@ -172,17 +172,17 @@ end)
 
 test("an instrument tried from the device picker plays a phrase, and is gone again on cancel", function()
   start()
-  local t = paw.add_track({ name = "Empty" })
+  local t = paw.add_part({ name = "Empty" })
   paw.flush()
   api.undo_checkpoint()
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   local undo = api.undo_current()
   paw.pick("devices", { query = "synth @instrument" })
   T.advance_until(function() return heard() and heard().item ~= nil end, "it is heard", 5000)
-  eq(#t:devices(), 1, "the instrument is on the track while it is heard")
+  eq(#t:devices(), 1, "the instrument is on the part while it is heard")
   local now = paw.audition.state()
   eq(now.kind, "phrase", "a phrase plays")
-  eq(#now.notes > 0, true, "a built-in one, the track having no notes")
+  eq(#now.notes > 0, true, "a built-in one, the part having no notes")
   eq(heard().label:find("built-in phrase", 1, true) ~= nil, true, "the pane says so: " .. heard().label)
   keys("<Esc>")
   eq(#t:devices(), 0, "cancelling takes it away")
@@ -191,10 +191,10 @@ end)
 
 test("choosing the instrument heard keeps that one, as one undo step", function()
   start()
-  local t = paw.add_track({ name = "Empty" })
+  local t = paw.add_part({ name = "Empty" })
   paw.flush()
   api.undo_checkpoint()
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.pick("devices", { query = "synth @instrument" })
   T.advance_until(function() return heard() and heard().item ~= nil end, "the selection to be heard", 5000)
   local id = t:devices()[1].id
@@ -230,13 +230,13 @@ test("a sound file in the file picker plays on its own, with its outline in the 
   keys("<Esc>")
   eq(paw.audition.state(), nil, "Escape stops it")
   eq(api.undo_current(), undo, "the project never knew")
-  eq(#api.track_list(), 0, "nothing was added")
+  eq(#api.part_list(), 0, "nothing was added")
 end)
 
 test("a MIDI file in the file picker plays its first bars through an instrument tried for it", function()
   start()
   local path = T.scratch .. "/audition-tune.mid"
-  local src = paw.add_track({ name = "Src" })
+  local src = paw.add_part({ name = "Src" })
   src:add_clip({
     start = 0,
     length = 16,
@@ -256,9 +256,9 @@ test("a MIDI file in the file picker plays its first bars through an instrument 
   local now = paw.audition.state()
   eq(pitches(now.notes), "C4 D4", "its first two bars")
   eq(heard().label, "first 2 bars at 120 BPM", "the pane says so")
-  eq(#api.track_list(), 1, "through an instrument added for it")
+  eq(#api.part_list(), 1, "through an instrument added for it")
   keys("<Esc>")
-  eq(#api.track_list(), 0, "taken away again")
+  eq(#api.part_list(), 0, "taken away again")
   eq(api.undo_current(), undo, "without an undo step")
 end)
 
@@ -267,8 +267,8 @@ end)
 test("a beat is written into the clip as a trial and its first bar played; Escape gives the notes back", function()
   start()
   if not paw.ext.loaded.drums then paw.ext.load("extensions/drums") end
-  paw.cmd("drums.track")
-  local t = paw.cursor.track()
+  paw.cmd("drums.part")
+  local t = paw.cursor.part()
   paw.cursor.set_beat(0)
   local clip = paw.cursor.clip() or t:add_clip({ start = 0, length = 8 })
   clip.length = 8
@@ -304,7 +304,7 @@ test("a snippet is heard over the harmony around it, and nothing is written unti
     end,
   })
   after(function() paw.snippet.remove("dominant") end)
-  local strings = paw.add_track({ name = "Strings" })
+  local strings = paw.add_part({ name = "Strings" })
   strings:add_device("synth")
   strings:add_clip({
     start = 0,
@@ -315,7 +315,7 @@ test("a snippet is heard over the harmony around it, and nothing is written unti
       { pitch = "G3", start = 4, length = 4 },
     },
   })
-  local piano = paw.add_track({ name = "Piano" })
+  local piano = paw.add_part({ name = "Piano" })
   piano:add_device("synth")
   local clip = piano:add_clip({ start = 0, length = 8, notes = {} })
   paw.flush()
@@ -328,11 +328,11 @@ test("a snippet is heard over the harmony around it, and nothing is written unti
   keys("dominant")
   T.advance_until(function() return heard() and heard().item ~= nil end, "it is heard", 5000)
   local now = paw.audition.state()
-  local tracks = {}
+  local parts = {}
   for _, n in ipairs(now.notes) do
-    tracks[n.track] = true
+    parts[n.part] = true
   end
-  eq(tracks[piano.id], true, "its notes, through the piano")
+  eq(parts[piano.id], true, "its notes, through the piano")
   eq(#clip:notes(), 0, "nothing written yet")
   eq(heard().label:find("^dominant") ~= nil, true, "the pane says what plays: " .. heard().label)
   keys("<Esc>")
@@ -344,7 +344,7 @@ end)
 
 test("a trial taken back leaves a saved project unmodified, and undo during one calls it off", function()
   start()
-  local t = keys_track()
+  local t = keys_part()
   local device = t:devices()[1]
   t.volume = -3
   api.undo_checkpoint()

@@ -1,4 +1,4 @@
-//! A track as the audio thread holds it, and the connections between tracks.
+//! A part as the audio thread holds it, and the connections between parts.
 
 use paw_types::EventKind;
 
@@ -7,11 +7,11 @@ use crate::clip::ClipSet;
 use crate::{event::Event, event::EventBuf};
 use crate::launch::Launcher;
 use crate::plan::GraphPlan;
-use crate::slot::{DeviceSlot, TrackSlot};
+use crate::slot::{DeviceSlot, PartSlot};
 
 use super::MAX_BLOCK;
 
-pub struct TrackRt {
+pub struct PartRt {
     pub(super) buf: [Vec<f32>; 2],
     /// The plan of its chain, which it runs on `buf`.
     pub(super) plan: Box<GraphPlan>,
@@ -25,7 +25,7 @@ pub struct TrackRt {
     pub(super) gain: f32,
     pub(super) pan: f32,
     pub(super) mute: bool,
-    /// Silenced because another track is soloed: not heard, but what
+    /// Silenced because another part is soloed: not heard, but what
     /// listens to it as a side-chain still hears it.
     pub(super) quiet: bool,
     /// Per-channel gain actually applied at the end of the last block.
@@ -34,25 +34,25 @@ pub struct TrackRt {
     pub(super) applied_pre: f32,
     /// The same for what is heard of it after the fader: 0 when quiet.
     pub(super) applied_heard: f32,
-    /// Whether the track has produced a block yet. Until then a fader change
+    /// Whether the part has produced a block yet. Until then a fader change
     /// takes effect at once rather than ramping from the default.
     pub(super) started: bool,
     pub(super) events: EventBuf,
     pub(super) live: Vec<EventKind>,
     pub(super) peak: [f32; 2],
-    /// First input channel and how many channels (0, 1 or 2) the track takes.
+    /// First input channel and how many channels (0, 1 or 2) the part takes.
     pub(super) input_first: usize,
     pub(super) input_channels: usize,
     /// Whether the input is heard.
     pub(super) monitor: bool,
-    /// Armed tracks without an audio input receive MIDI input.
+    /// Armed parts without an audio input receive MIDI input.
     pub(super) armed: bool,
     /// Which MIDI input it takes when armed: a port's key from
     /// [`crate::midi::port_key`], or 0 for every port; and a channel from 1
     /// to 16, or 0 for every channel.
     pub(super) midi_port: u32,
     pub(super) midi_channel: u8,
-    /// Keys held down through MIDI input, released if the track is disarmed.
+    /// Keys held down through MIDI input, released if the part is disarmed.
     pub(super) held: u128,
     /// The MIDI output port it sends what it plays to, by its key (0 for
     /// none), the channel (1 to 16, or 0 for each message's own), and the
@@ -62,8 +62,8 @@ pub struct TrackRt {
     pub(super) midi_out_form: paw_types::midi_form::Form,
     /// What it played this block, on its way to the port.
     pub(super) sent: Vec<Event>,
-    /// The track's clips were replaced: stop its notes, and start again those
-    /// the new clips hold at the play position. Other tracks play on.
+    /// The part's clips were replaced: stop its notes, and start again those
+    /// the new clips hold at the play position. Other parts play on.
     pub(super) flush: bool,
     pub(super) chase: bool,
     /// The clips in its slots, and which of them plays.
@@ -73,7 +73,7 @@ pub struct TrackRt {
     pub(super) local: Option<Box<crate::LocalTime>>,
 }
 
-impl TrackRt {
+impl PartRt {
     pub fn new() -> Box<Self> {
         Box::new(Self {
             buf: [vec![0.0; MAX_BLOCK], vec![0.0; MAX_BLOCK]],
@@ -112,13 +112,13 @@ impl TrackRt {
         })
     }
 
-    /// An armed track with an audio input records that; one without plays
+    /// An armed part with an audio input records that; one without plays
     /// and records MIDI input. A monitored one without plays it only.
     pub(super) fn takes_midi(&self) -> bool {
         (self.armed || self.monitor) && self.input_channels == 0
     }
 
-    /// Whether a message from MIDI input on `port` is for this track.
+    /// Whether a message from MIDI input on `port` is for this part.
     pub(super) fn hears(&self, port: u32, kind: &EventKind) -> bool {
         self.takes_midi()
             && (self.midi_port == 0 || self.midi_port == port)
@@ -126,7 +126,7 @@ impl TrackRt {
                 || kind.channel().is_none_or(|ch| ch + 1 == self.midi_channel))
     }
 
-    /// Whether `kind` lets go of a key this track holds from MIDI input.
+    /// Whether `kind` lets go of a key this part holds from MIDI input.
     pub(super) fn releases(&self, kind: &EventKind) -> bool {
         matches!(*kind, EventKind::NoteOff { key, .. } if self.held & (1 << (key & 127)) != 0)
     }
@@ -153,7 +153,7 @@ pub(super) enum Swap {
     In { left: u32, len: u32 },
 }
 
-impl TrackRt {
+impl PartRt {
     /// Fade the block of `n` frames as the swap of plans asks, and take the
     /// next plan on when the old one has faded out.
     pub(super) fn fade(&mut self, n: usize) {
@@ -192,8 +192,8 @@ impl TrackRt {
 /// The longest a connection can be held back to wait for a slower one.
 pub const MAX_DELAY: usize = 1 << 17;
 
-/// A fixed delay on one connection between tracks. Devices that look ahead
-/// report how late their output is; the connections of the tracks that are
+/// A fixed delay on one connection between parts. Devices that look ahead
+/// report how late their output is; the connections of the parts that are
 /// not late are held back by the difference, so that everything arrives at a
 /// mix point together. Empty, and free, when there is nothing to wait for.
 #[derive(Default)]
@@ -259,9 +259,9 @@ impl Delay {
     }
 }
 
-/// A send from one track into another.
+/// A send from one part into another.
 pub struct SendRt {
-    pub target: TrackSlot,
+    pub target: PartSlot,
     pub gain: f32,
     /// Taken after the devices but before the fader, pan and mute.
     pub pre: bool,
@@ -269,7 +269,7 @@ pub struct SendRt {
 }
 
 impl SendRt {
-    pub fn new(target: TrackSlot, gain: f32) -> Self {
+    pub fn new(target: PartSlot, gain: f32) -> Self {
         Self {
             target,
             gain,
@@ -279,32 +279,32 @@ impl SendRt {
     }
 }
 
-/// A side-chain: a track's sound taken to a device on another track that
+/// A side-chain: a part's sound taken to a device on another part that
 /// listens to it, such as a compressor ducking under a kick.
 pub struct KeyRt {
-    /// The device that listens, and the track it is on.
+    /// The device that listens, and the part it is on.
     pub device: DeviceSlot,
-    pub track: TrackSlot,
+    pub part: PartSlot,
     /// Taken after the devices but before the fader, pan and mute, so that
-    /// a muted track can still key.
+    /// a muted part can still key.
     pub pre: bool,
     /// Lines the key up with the sound the device is processing.
     pub delay: Delay,
 }
 
-/// One of a device's further output pairs, played into another track.
+/// One of a device's further output pairs, played into another part.
 /// It is taken from the device as it is: the fader, pan and mute of the
-/// device's own track do not act on it, the target's do.
+/// device's own part do not act on it, the target's do.
 pub struct OutRt {
     /// The device, and which of its further pairs: 0 for its second.
     pub device: DeviceSlot,
     pub pair: usize,
-    pub target: TrackSlot,
+    pub target: PartSlot,
     pub delay: Delay,
 }
 
-/// Queue a note-off for every key a track holds through MIDI input.
-pub(super) fn release_held(t: &mut TrackRt) {
+/// Queue a note-off for every key a part holds through MIDI input.
+pub(super) fn release_held(t: &mut PartRt) {
     while t.held != 0 {
         let key = t.held.trailing_zeros() as u8;
         t.held &= !(1 << key);

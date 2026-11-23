@@ -151,7 +151,7 @@ local function ghost(p: Roll.Layer, start: number, length: number, pitch: intege
     ghost = true,
     style = "MouseGhost",
     label = music.name(pitch),
-    color = paw.draw.track_colour(api.track_get(p.data.track)),
+    color = paw.draw.part_colour(api.part_get(p.data.part)),
   }
   p.plane:mark("note", start, pitch, length, 1, mark)
 end
@@ -293,7 +293,7 @@ end
 --- right button (Shift adds, Ctrl turns over) or the left with Ctrl.
 --- Without moving, the right button removes the note it was on (with Ctrl
 --- opens the note's menu: its fixes) or opens the menu of the grid, and
---- the left with Ctrl edits the clip of another track's note shown there
+--- the left with Ctrl edits the clip of another part's note shown there
 --- too (or no longer).
 local function press_box(self: PianoRoll, e: MouseEvent, h: Hit, clip: objects.Clip)
   local x0, y0 = e.x, e.y
@@ -332,7 +332,7 @@ local function press_box(self: PianoRoll, e: MouseEvent, h: Hit, clip: objects.C
       elseif right then
         paw.ui.menu(menus.roll(clip.id), where)
       else
-        -- Ctrl and a click on another track's note shown behind: its clip
+        -- Ctrl and a click on another part's note shown behind: its clip
         -- is edited too, or no longer.
         A.context_click(clip.id, beat_at(self, h.tx), h.pitch)
       end
@@ -594,7 +594,7 @@ local tool_actions: {string: function(
   quantize = function(_: PianoRoll, clip: objects.Clip) A.quantize_notes(clip.id) end,
   step = function() paw.roll_draw.click_step() end,
   list = function(_: PianoRoll, clip: objects.Clip) A.open_event_list(clip.id) end,
-  tracks = function() paw.roll_clips.pick() end,
+  parts = function() paw.roll_clips.pick() end,
   zoom_in = function() opt.note_zoom = util.clamp(opt.note_zoom * math.sqrt(2), 0.125, 64) end,
   zoom_out = function() opt.note_zoom = util.clamp(opt.note_zoom * (1 / math.sqrt(2)), 0.125, 64) end,
   window = function() paw.commands.exec("view.window pianoroll") end,

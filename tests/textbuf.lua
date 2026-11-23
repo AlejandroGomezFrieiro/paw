@@ -1,5 +1,5 @@
 -- Tests of the listings edited as text (paw/textbuf.tl and
--- paw/views/tracklist.lua): reading and writing lines, each kind of edit,
+-- paw/views/partlist.lua): reading and writing lines, each kind of edit,
 -- the plan `:w` shows, one undo step, and buffers that fall behind the
 -- project. Loaded by tests/suite.lua with its helpers.
 local T = ...
@@ -41,8 +41,8 @@ local function line(n) return lines()[n] end
 
 local function names()
   local out = {}
-  for i, id in ipairs(api.track_list()) do
-    out[i] = api.track_get(id).name
+  for i, id in ipairs(api.part_list()) do
+    out[i] = api.part_get(id).name
   end
   return table.concat(out, " ")
 end
@@ -60,10 +60,10 @@ local function write()
 end
 
 local function band()
-  local drums = paw.add_track({ name = "Drums", volume = -3 })
+  local drums = paw.add_part({ name = "Drums", volume = -3 })
   drums:add_device("synth")
-  local bass = paw.add_track({ name = "Bass", volume = -6, pan = -0.1 })
-  local pad = paw.add_track({ name = "Pad" })
+  local bass = paw.add_part({ name = "Bass", volume = -6, pan = -0.1 })
+  local pad = paw.add_part({ name = "Pad" })
   paw.flush()
   api.undo_checkpoint()
   return drums, bass, pad
@@ -71,14 +71,14 @@ end
 
 -- Reading and writing lines -----------------------------------------------------
 
-test("a track list reads as aligned lines that read back as the same fields", function()
+test("a part list reads as aligned lines that read back as the same fields", function()
   start()
   band()
-  keys(":e paw://tracks<CR>")
+  keys(":e paw://parts<CR>")
   eq(L.current().view, "textbuf", "the buffer is in this window")
-  eq(tb.buf().name, "paw://tracks", "named by its address")
+  eq(tb.buf().name, "paw://parts", "named by its address")
   local text = lines()
-  eq(#text, 3, "a line a track")
+  eq(#text, 3, "a line a part")
   eq(
     text[1]:match("^Drums%s+vol %-3%.0  pan C%s+%-%-%-  .*▸ ") ~= nil,
     true,
@@ -95,13 +95,13 @@ test("a track list reads as aligned lines that read back as the same fields", fu
     eq(tb.same(f, buf.state.fields[l.id]), true, "line " .. i .. " reads as it was written")
   end
   eq(tb.buf().state.text:modified(), false, "nothing changed")
-  eq(screen():find("paw://tracks", 1, true) ~= nil, true, "the window shows it")
+  eq(screen():find("paw://parts", 1, true) ~= nil, true, "the window shows it")
 end)
 
 test("a line that does not read says why and stops the write", function()
   start()
   band()
-  keys(":e paw://tracks<CR>")
+  keys(":e paw://parts<CR>")
   keys("A  vol loud<Esc>")
   local text = screen()
   eq(text:find("vol is in dB", 1, true) ~= nil, true, "the error is shown under the line")
@@ -114,10 +114,10 @@ end)
 
 -- Edits ------------------------------------------------------------------------
 
-test("cw renames a track, Ctrl-a changes its volume, and :w applies both as one undo step", function()
+test("cw renames a part, Ctrl-a changes its volume, and :w applies both as one undo step", function()
   start()
   local _, bass = band()
-  keys(":e paw://tracks<CR>")
+  keys(":e paw://parts<CR>")
   keys("jcwBassline<Esc>")
   eq(line(2):match("^Bassline  ") ~= nil, true, "cw leaves the spaces after the word: " .. line(2))
   keys("fv3<C-a>")
@@ -137,10 +137,10 @@ test("cw renames a track, Ctrl-a changes its volume, and :w applies both as one 
   eq(line(2):match("^Bass ") ~= nil, true, "the buffer follows the undo")
 end)
 
-test("dd deletes a track, yyp copies one with its devices, and moving lines orders them", function()
+test("dd deletes a part, yyp copies one with its devices, and moving lines orders them", function()
   start()
   local drums = band()
-  keys(":e paw://tracks<CR>")
+  keys(":e paw://parts<CR>")
   keys("Gdd")
   keys("ggyyp")
   keys("cwBeat<Esc>")
@@ -156,43 +156,43 @@ test("dd deletes a track, yyp copies one with its devices, and moving lines orde
   eq(plan:find("copy Drums as Beat (1 device", 1, true) ~= nil, true, "copies with the devices")
   eq(plan:find("move Bass from 2", 1, true) == nil, true, "Bass stays second")
   eq(names(), "Drums Bass Beat", "deleted, copied and in order")
-  local beat = paw.track("Beat")
+  local beat = paw.part("Beat")
   eq(#beat:devices(), 1, "the copy has the devices")
   eq(beat.volume, drums.volume, "and the volume")
   paw.undo()
   eq(names(), "Drums Bass Pad", "one undo puts it all back")
 end)
 
-test("a line moved is the track moved, not deleted and made again", function()
+test("a line moved is the part moved, not deleted and made again", function()
   start()
   local _, bass = band()
   local id = bass.id
-  keys(":e paw://tracks<CR>")
+  keys(":e paw://parts<CR>")
   keys("jddp")
   eq(line(3):match("^Bass") ~= nil, true, "Bass last")
   local plan = write()
   eq(plan, "move Bass from 2 to 3", "a move alone")
   eq(names(), "Drums Pad Bass", "moved")
-  eq(api.track_list()[3], id, "the same track")
+  eq(api.part_list()[3], id, "the same part")
 end)
 
-test("new lines make tracks, with devices named on them", function()
+test("new lines make parts, with devices named on them", function()
   start()
   band()
-  keys(":e paw://tracks<CR>")
+  keys(":e paw://parts<CR>")
   keys("GoLead  vol -12  ▸ synth<Esc>")
   local plan = write()
   eq(plan:find("add Lead with synth", 1, true) ~= nil, true, "the plan adds: " .. plan)
-  local lead = paw.track("Lead")
+  local lead = paw.part("Lead")
   eq(lead.volume, -12, "at its volume")
   eq(#lead:devices(), 1, "with its device")
-  eq(api.track_list()[4], lead.id, "where the line is")
+  eq(api.part_list()[4], lead.id, "where the line is")
 end)
 
 test("flags, outputs and groups are fields of the line", function()
   start()
   local drums, bass = band()
-  keys(":e paw://tracks<CR>")
+  keys(":e paw://parts<CR>")
   -- Mute the bass with `r`, and send it out through the drums.
   keys("j0/---<CR>")
   keys("rM")
@@ -201,9 +201,9 @@ test("flags, outputs and groups are fields of the line", function()
   eq(plan:find("Bass: mute on", 1, true) ~= nil, true, "mute: " .. plan)
   eq(plan:find("Bass: output → Drums", 1, true) ~= nil, true, "output")
   eq(bass.mute, true, "muted")
-  eq(api.track_get(bass.id).output, drums.id, "routed")
+  eq(api.part_get(bass.id).output, drums.id, "routed")
   eq(line(2):find("out Drums", 1, true) ~= nil, true, "the line says so after reading again")
-  -- An output to a track that is not there.
+  -- An output to a part that is not there.
   keys("j$a  out Nowhere<Esc>:w<CR>")
   eq(paw.ui.focused ~= "textbuf.plan", true, "no plan")
 end)
@@ -211,7 +211,7 @@ end)
 test("visual block and :s edit several lines at once", function()
   start()
   band()
-  keys(":e paw://tracks<CR>")
+  keys(":e paw://parts<CR>")
   keys(":%s/vol %-?%d+%.%d/vol -9.0/<CR>")
   eq(
     line(1):find("vol -9.0", 1, true) ~= nil and line(3):find("vol -9.0", 1, true) ~= nil,
@@ -240,14 +240,14 @@ test("visual block and :s edit several lines at once", function()
   )
 end)
 
-test(":sort orders the lines and so the tracks", function()
+test(":sort orders the lines and so the parts", function()
   start()
   band()
-  keys(":e paw://tracks<CR>")
+  keys(":e paw://parts<CR>")
   keys(":sort<CR>")
   eq(lines()[1]:match("^Bass") ~= nil, true, "sorted")
   write()
-  eq(names(), "Bass Drums Pad", "the tracks are in the lines' order")
+  eq(names(), "Bass Drums Pad", "the parts are in the lines' order")
   keys(":sort!<CR>")
   write()
   eq(names(), "Pad Drums Bass", "and the other way")
@@ -256,7 +256,7 @@ end)
 test(". repeats a change to the text, and u and Ctrl-r undo and redo it", function()
   start()
   band()
-  keys(":e paw://tracks<CR>")
+  keys(":e paw://parts<CR>")
   keys("fv<C-a>")
   keys("j.")
   eq(line(2):find("vol -5.0", 1, true) ~= nil, true, ". repeats Ctrl-a: " .. line(2))
@@ -275,7 +275,7 @@ end)
 test("the sends buffer adds, changes and removes sends", function()
   start()
   local drums, bass, pad = band()
-  local verb = paw.add_track({ name = "Verb" })
+  local verb = paw.add_part({ name = "Verb" })
   drums:send(verb, -12)
   paw.flush()
   api.undo_checkpoint()
@@ -287,23 +287,23 @@ test("the sends buffer adds, changes and removes sends", function()
   local plan = write()
   eq(plan:find("add a send Bass → Verb at -12.0 dB", 1, true) ~= nil, true, "a send added: " .. plan)
   eq(plan:find("Drums → Verb: -12.0 → -9.0 dB", 1, true) ~= nil, true, "a level changed")
-  eq(api.track_get(bass.id).sends[1].target, verb.id, "the bass sends")
-  eq(api.track_get(drums.id).sends[1].level, -9, "the drums' level")
+  eq(api.part_get(bass.id).sends[1].target, verb.id, "the bass sends")
+  eq(api.part_get(drums.id).sends[1].level, -9, "the drums' level")
   keys("ggdd")
   plan = write()
-  eq(#api.track_get(drums.id).sends, 0, "a send removed: " .. plan)
-  eq(pad.name, "Pad", "the other tracks are left alone")
+  eq(#api.part_get(drums.id).sends, 0, "a send removed: " .. plan)
+  eq(pad.name, "Pad", "the other parts are left alone")
 end)
 
-test("a track's devices buffer orders, bypasses, copies and adds devices", function()
+test("a part's devices buffer orders, bypasses, copies and adds devices", function()
   start()
   local drums = band()
   drums:add_device("eq")
   paw.flush()
   api.undo_checkpoint()
-  keys(":e paw://tracks<CR>")
+  keys(":e paw://parts<CR>")
   keys("<CR>")
-  eq(tb.buf().name, "paw://track/1/devices", "Enter opens the track's devices")
+  eq(tb.buf().name, "paw://part/1/devices", "Enter opens the part's devices")
   eq(#lines(), 2, "a line a device")
   local first = lines()[1]
   eq(first:find("  on  wet 100%", 1, true) ~= nil, true, "on, and the wet share: " .. first)
@@ -322,7 +322,7 @@ test("a track's devices buffer orders, bypasses, copies and adds devices", funct
   eq(list[2]:get().bypass and list[3]:get().bypass, true, "the synth and its copy bypassed")
   eq(list[4]:get().kind, "reverb", "the new one last")
   keys("-")
-  eq(tb.buf().name, "paw://tracks", "- goes up to the tracks")
+  eq(tb.buf().name, "paw://parts", "- goes up to the parts")
   paw.undo()
   eq(#drums:devices(), 2, "one undo")
 end)
@@ -354,7 +354,7 @@ end)
 test("an unmodified buffer follows the project, and a modified one will not overwrite it unasked", function()
   start()
   local drums, bass = band()
-  keys(":e paw://tracks<CR>")
+  keys(":e paw://parts<CR>")
   bass.name = "Low"
   paw.flush()
   screen()
@@ -380,7 +380,7 @@ end)
 test("a buffer with changes asks before it is closed", function()
   start()
   band()
-  keys(":e paw://tracks<CR>")
+  keys(":e paw://parts<CR>")
   keys(":vs paw://markers<CR>")
   keys("<C-w>h")
   keys("dd:q<CR>")
@@ -393,16 +393,16 @@ end)
 
 test("names that would not read back are quoted, and every kind reads back what it writes", function()
   start()
-  local odd = paw.add_track({ name = "Lead  Vox" })
-  paw.add_track({ name = "vol" })
-  local verb = paw.add_track({ name = "Verb" })
+  local odd = paw.add_part({ name = "Lead  Vox" })
+  paw.add_part({ name = "vol" })
+  local verb = paw.add_part({ name = "Verb" })
   odd:send(verb, -120, { pre = true })
   odd:add_device("synth")
   paw.markers.add(0.5, "")
   paw.markers.add(6, "Bridge  B", { length = 2.25, color = "#9ece6a" })
   paw.flush()
   api.undo_checkpoint()
-  for _, name in ipairs({ "paw://tracks", "paw://sends", "paw://track/1/devices", "paw://markers" }) do
+  for _, name in ipairs({ "paw://parts", "paw://sends", "paw://part/1/devices", "paw://markers" }) do
     keys(":e " .. name .. "<CR>")
     local buf = tb.buf()
     eq(buf.name, name, "shown")
@@ -413,7 +413,7 @@ test("names that would not read back are quoted, and every kind reads back what 
     end
     eq(#tb.plan(buf), 0, name .. ": nothing to change, nothing to plan")
   end
-  keys(":e paw://tracks<CR>")
+  keys(":e paw://parts<CR>")
   eq(line(1):match('^"Lead  Vox"') ~= nil, true, "two spaces in a name are quoted: " .. line(1))
   keys(":e paw://sends<CR>")
   eq(line(1):find("-inf dB  pre", 1, true) ~= nil, true, "silence and before the fader: " .. line(1))
@@ -441,7 +441,7 @@ end)
 test("text objects, :m and :d work on the lines", function()
   start()
   band()
-  keys(":e paw://tracks<CR>")
+  keys(":e paw://parts<CR>")
   keys("fvcif-12<Esc>")
   eq(line(1):find("vol -12  pan", 1, true) ~= nil, true, "cif changes the field's value: " .. line(1))
   keys("u:1m$<CR>")
@@ -457,13 +457,13 @@ end)
 test("a step that fails takes back the steps before it", function()
   start()
   local drums, bass = band()
-  keys(":e paw://tracks<CR>")
+  keys(":e paw://parts<CR>")
   keys("cwKick<Esc>")
   -- Bass plays into Drums, and Drums into Bass: a loop the project refuses.
   keys("jA  out Kick<Esc>kA  out Bass<Esc>")
   write()
   eq(drums.name, "Drums", "the rename before the failing step is taken back")
-  eq(api.track_get(bass.id).output, nil, "and the output")
+  eq(api.part_get(bass.id).output, nil, "and the output")
   eq(tb.buf().state.text:modified(), true, "the buffer keeps its changes")
   eq(paw.ui.message.text:find("loop", 1, true) ~= nil, true, "the message says why: " .. paw.ui.message.text)
 end)
@@ -477,11 +477,11 @@ test("an extension adds a kind of text buffer of its own", function()
   api.undo_checkpoint()
   -- The example of docs/reference/lua-views.md.
   paw.textbuf.kind("clips", {
-    pattern = "^paw://track/(%d+)/clips$",
-    title = function(ctx) return "Clips of track " .. ctx.args[1] end,
+    pattern = "^paw://part/(%d+)/clips$",
+    title = function(ctx) return "Clips of part " .. ctx.args[1] end,
     read = function(ctx)
       local out = {}
-      for i, clip in ipairs(paw.api.clip_list(paw.api.track_list()[tonumber(ctx.args[1])])) do
+      for i, clip in ipairs(paw.api.clip_list(paw.api.part_list()[tonumber(ctx.args[1])])) do
         out[i] = { id = clip.id, clip = clip }
       end
       return out
@@ -509,8 +509,8 @@ test("an extension adds a kind of text buffer of its own", function()
     keywords = { at = true },
   })
   T.after(function() paw.textbuf.kinds:remove("clips") end)
-  keys(":e paw://track/1/clips<CR>")
-  eq(L.buf_of(L.current()).name, "paw://track/1/clips", "shown")
+  keys(":e paw://part/1/clips<CR>")
+  eq(L.buf_of(L.current()).name, "paw://part/1/clips", "shown")
   eq(table.concat(lines(), "|"), "Fill   at 0|Break  at 8", "its lines")
   keys("$<C-a>jdd")
   local plan = write()
@@ -524,7 +524,7 @@ test("a text buffer in a window of its own is drawn and edited with the same key
   start()
   local _, bass = band()
   T.after(function() paw.canvas.close("textbuf") end)
-  keys(":textbuf.open tracks window<CR>")
+  keys(":textbuf.open parts window<CR>")
   eq(paw.canvas.open_views.textbuf ~= nil, true, "a window of its own")
   eq(paw.ui.focused, "textbuf", "with the keyboard")
   local text = {}

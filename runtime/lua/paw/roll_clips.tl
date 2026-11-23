@@ -5,8 +5,8 @@
 -- be edited with it (REAPER's "editability follows selection"): selections,
 -- operators, motions, yank and paste work on the notes of all of them, and a
 -- note that moves stays in its own clip. Behind them the roll shows the
--- notes of other tracks that sound at the same time, faintly and in their
--- tracks' colours: the *context*, so the harmony can be seen where it is
+-- notes of other parts that sound at the same time, faintly and in their
+-- parts' colours: the *context*, so the harmony can be seen where it is
 -- written.
 --
 -- Beats here are the roll's: from the start of the active clip. A note at
@@ -35,9 +35,9 @@ local type UiModule = require("paw.ui")
 
 local EPS = 1e-9
 
--- Which tracks' notes the roll shows behind its own: "all" pitched tracks,
--- those of the active clip's "group", "none", or a list of track ids. Drum
--- tracks (those with a drum map) are left out of "all" and "group".
+-- Which parts' notes the roll shows behind its own: "all" pitched parts,
+-- those of the active clip's "group", "none", or a list of part ids. Drum
+-- parts (those with a drum map) are left out of "all" and "group".
 options.define("roll_context", "all", {type = {"string", "table"}, values = {"all", "group", "none"}})
 -- At most this many context notes, so that a dense song stays quick to draw.
 options.define("roll_context_max", 4000)
@@ -45,7 +45,7 @@ options.define("roll_context_max", 4000)
 --- The state of a window of the piano roll that this module reads and
 --- keeps: the active clip, the cursor's beat and the scroll (both in the
 --- roll's beats), the ids of the clips edited with the active one, and
---- the toggles over `roll_context` (track id -> shown or not). The roll
+--- the toggles over `roll_context` (part id -> shown or not). The roll
 --- (paw/views/pianoroll.tl) is one; `edit` opens a clip in it alone.
 local interface Window
   clip_id: integer
@@ -58,7 +58,7 @@ end
 
 --- An editable clip: its id, a handle whose pitches are those that the
 --- clip plays (`Clip:shifted`), where it starts in the roll's beats
---- (`offset`) and in the song's, and its length, track and name. A
+--- (`offset`) and in the song's, and its length, part and name. A
 --- module that keeps more of a part has a record of its own that is one.
 local interface Portion
   id: integer
@@ -66,7 +66,7 @@ local interface Portion
   offset: number
   start: number
   length: number
-  track: integer
+  part: integer
   name: string
 end
 
@@ -94,15 +94,15 @@ local record Range
   high: integer
 end
 
---- A row of the list of `:roll.tracks` (`rows`): a track (`kind` "track",
+--- A row of the list of `:roll.parts` (`rows`): a part (`kind` "part",
 --- `on` its notes show) or one of its MIDI clips (`kind` "clip", `on` it is
---- editable). `active` marks the active clip and its track.
+--- editable). `active` marks the active clip and its part.
 local record Row
   kind: string
   id: integer
   name: string
   color: string
-  track: integer
+  part: integer
   on: boolean
   active: boolean
 end
@@ -136,8 +136,8 @@ local record M
   type Range = Range
   type Row = Row
   type Changed = Changed
-  --- A track near the roll (`tracks`), as paw/roll_context.tl gives it.
-  type Track = context.Track
+  --- A part near the roll (`parts`), as paw/roll_context.tl gives it.
+  type Part = context.Part
   --- A note behind the roll (`context`), as paw/roll_context.tl gives it.
   type ContextNote = context.Note
   --- The event `roll_clips.changed`: the clips that the piano roll edits changed.
@@ -165,7 +165,7 @@ local function others(): {integer}
   return list
 end
 
---- Track id -> true or false: a toggle over `roll_context`.
+--- Part id -> true or false: a toggle over `roll_context`.
 local function shown(): {integer: boolean}
   local view = roll()
   local set = view.context_shown
@@ -195,14 +195,14 @@ local function scope(): ScopeModule
   return rawget(paw as {string: ScopeModule}, "scope")
 end
 
---- True if the window's scope shows a clip: its track, and some of its time.
+--- True if the window's scope shows a clip: its part, and some of its time.
 local function in_scope(c: types.Clip): boolean
   local s = scope()
   if not s then
     return true
   end
   local from, to = s.span()
-  return s.contains(c.track) and (not from or (c.start < to - EPS and c.start + c.length > from + EPS))
+  return s.contains(c.part) and (not from or (c.start < to - EPS and c.start + c.length > from + EPS))
 end
 
 --- The ids of the editable clips, the active one first, then the others in
@@ -250,7 +250,7 @@ function M.offset(id: integer): number
 end
 
 --- The editable clips, the active one first: `{ id, clip, offset, start,
---- length, track, name }` each, `clip` a handle (`paw.clip`) whose pitches
+--- length, part, name }` each, `clip` a handle (`paw.clip`) whose pitches
 --- are those that the clip plays (`Clip:shifted`).
 function M.portions(): {Portion}
   local a = midi(M.active())
@@ -266,7 +266,7 @@ function M.portions(): {Portion}
       offset = c.start - a.start,
       start = c.start,
       length = c.length,
-      track = c.track,
+      part = c.part,
       name = c.name,
     }
   end
@@ -505,28 +505,28 @@ local function request(): context.Request
   return context.request(a, M.ids(), a.start + lo, a.start + hi, shown())
 end
 
---- The tracks whose notes can show behind the notes of the roll. These are
---- the tracks with MIDI clips (of the scope, in a narrowed window), but not the
---- track of the active clip. `{ id, name, color, drums, on }` each. `on`
+--- The parts whose notes can show behind the notes of the roll. These are
+--- the parts with MIDI clips (of the scope, in a narrowed window), but not the
+--- part of the active clip. `{ id, name, color, drums, on }` each. `on`
 --- tells if its notes show.
-function M.tracks(): {context.Track}
+function M.parts(): {context.Part}
   local asked = request()
-  return asked and context.tracks(asked) or {}
+  return asked and context.parts(asked) or {}
 end
 
---- Show the notes of a track behind the notes of the roll, or not. nil
+--- Show the notes of a part behind the notes of the roll, or not. nil
 --- returns to the value of `paw.opt.roll_context`.
-function M.show_track(id: integer, on?: boolean)
+function M.show_part(id: integer, on?: boolean)
   shown()[id] = on
   changed()
 end
 
 --- The context notes, in the beats of the roll. These are the notes of the
---- other clips of the active clip's track, and of the clips of the shown
---- tracks (not the editable clips), that sound in the range of the editable
---- clips. Each is `{ pitch, start, length, velocity, clip, track, color }`,
+--- other clips of the active clip's part, and of the clips of the shown
+--- parts (not the editable clips), that sound in the range of the editable
+--- clips. Each is `{ pitch, start, length, velocity, clip, part, color }`,
 --- at most `paw.opt.roll_context_max` of them. paw finds them again only
---- when those clips, the shown tracks, the edited clips or their span change:
+--- when those clips, the shown parts, the edited clips or their span change:
 --- an edit of the notes of an edited clip keeps them.
 function M.context(): {context.Note}
   local asked = request()
@@ -574,23 +574,23 @@ function M.sounding(beat: number): {integer}, string
   return out, name
 end
 
--- The active track -------------------------------------------------------------
+-- The active part -------------------------------------------------------------
 
---- The tracks whose notes the roll shows, in the order of the track list:
+--- The parts whose notes the roll shows, in the order of the part list:
 --- the active clip's and those shown behind it.
 function M.visible(): {integer}
   local a = midi(M.active())
   if not a then
     return {}
   end
-  local on: {integer: boolean} = {[a.track] = true}
-  for _, t in ipairs(M.tracks()) do
+  local on: {integer: boolean} = {[a.part] = true}
+  for _, t in ipairs(M.parts()) do
     if t.on then
       on[t.id] = true
     end
   end
   local out: {integer} = {}
-  for _, id in ipairs(api.track_list()) do
+  for _, id in ipairs(api.part_list()) do
     if on[id] then
       out[#out + 1] = id
     end
@@ -598,12 +598,12 @@ function M.visible(): {integer}
   return out
 end
 
---- A track's MIDI clip to edit from the roll: the one under the roll's
+--- A part's MIDI clip to edit from the roll: the one under the roll's
 --- cursor in the song, else the one nearest it.
-local function clip_of(track: integer, at: number): types.Clip
+local function clip_of(part: integer, at: number): types.Clip
   local best: types.Clip
   local gap: number
-  for _, c in ipairs(api.clip_list(track)) do
+  for _, c in ipairs(api.clip_list(part)) do
     if c.kind == "midi" then
       local d = at < c.start and c.start - at or at >= c.start + c.length and at - (c.start + c.length) + EPS or 0
       if not gap or d < gap then
@@ -614,11 +614,11 @@ local function clip_of(track: integer, at: number): types.Clip
   return best
 end
 
---- Make active the track `n` places after the track of the active clip, in
---- the tracks that the roll shows (before it with a negative `n`). Its clip
+--- Make active the part `n` places after the part of the active clip, in
+--- the parts that the roll shows (before it with a negative `n`). Its clip
 --- under the cursor gets the new notes. The notes of the old clip show
---- behind. With `wrap`, it goes round. False when the roll shows no other track.
-function M.step_track(n: integer, wrap?: boolean): boolean
+--- behind. With `wrap`, it goes round. False when the roll shows no other part.
+function M.step_part(n: integer, wrap?: boolean): boolean
   local view, list = roll(), M.visible()
   local a = midi(M.active())
   if not a or #list < 2 then
@@ -626,7 +626,7 @@ function M.step_track(n: integer, wrap?: boolean): boolean
   end
   local at = 1
   for i, id in ipairs(list) do
-    if id == a.track then
+    if id == a.part then
       at = i
     end
   end
@@ -636,7 +636,7 @@ function M.step_track(n: integer, wrap?: boolean): boolean
   end
   to = math.max(1, math.min(#list, to))
   if to == at then
-    paw.notify(n > 0 and "the last track the roll shows" or "the first track the roll shows", "warn")
+    paw.notify(n > 0 and "the last part the roll shows" or "the first part the roll shows", "warn")
     return true
   end
   local c = clip_of(list[to], a.start + view.beat)
@@ -648,10 +648,10 @@ end
 
 -- Choosing --------------------------------------------------------------------
 
---- Each clip near the roll, as rows for a list. Each shown track is a row
---- (`kind` "track", `on` tells if its notes show). Under it are its MIDI
+--- Each clip near the roll, as rows for a list. Each shown part is a row
+--- (`kind` "part", `on` tells if its notes show). Under it are its MIDI
 --- clips in the range of the roll (`kind` "clip", `on` tells if it is
---- editable, `active`). The track of the active clip is first, with its clips.
+--- editable, `active`). The part of the active clip is first, with its clips.
 function M.rows(): {Row}
   local a = midi(M.active())
   if not a then
@@ -660,38 +660,38 @@ function M.rows(): {Row}
   local lo, hi = M.span()
   local from, to = a.start + lo, a.start + hi
   local out: {Row} = {}
-  local function clips_of(track: integer)
-    for _, c in ipairs(api.clip_list(track)) do
+  local function clips_of(part: integer)
+    for _, c in ipairs(api.clip_list(part)) do
       if c.kind == "midi" and c.start < to - EPS and c.start + c.length > from + EPS then
         out[#out + 1] = {
-          kind = "clip", id = c.id, name = c.name, on = M.editable(c.id), active = c.id == a.id, track = track
+          kind = "clip", id = c.id, name = c.name, on = M.editable(c.id), active = c.id == a.id, part = part
         }
       end
     end
   end
-  local own = api.track_get(a.track)
+  local own = api.part_get(a.part)
   out[#out + 1] = {
-    kind = "track", id = a.track, name = own.name, color = paw.draw.track_colour(own), on = true, active = true
+    kind = "part", id = a.part, name = own.name, color = paw.draw.part_colour(own), on = true, active = true
   }
-  clips_of(a.track)
-  for _, t in ipairs(M.tracks()) do
-    out[#out + 1] = {kind = "track", id = t.id, name = t.name, color = t.color, on = t.on, active = false}
+  clips_of(a.part)
+  for _, t in ipairs(M.parts()) do
+    out[#out + 1] = {kind = "part", id = t.id, name = t.name, color = t.color, on = t.on, active = false}
     clips_of(t.id)
   end
   return out
 end
 
---- `:roll.tracks`: a list of the tracks near the roll and of their clips.
---- On a track, Enter shows or hides its notes. On a clip, Enter adds it to
+--- `:roll.parts`: a list of the parts near the roll and of their clips.
+--- On a part, Enter shows or hides its notes. On a clip, Enter adds it to
 --- the editable set or removes it.
 function M.pick()
   if not M.active() then
     return paw.notify("open a clip in the piano roll first", "warn")
   end
   local function line(row: Row): string
-    if row.kind == "track" then
+    if row.kind == "part" then
       if row.active then
-        return "    " .. row.name .. "  (this clip's track)"
+        return "    " .. row.name .. "  (this clip's part)"
       end
       return (row.on and "[x] " or "[ ] ") .. row.name
     end
@@ -699,10 +699,10 @@ function M.pick()
   end
   paw.pick(
     {
-      title = "Piano roll: tracks and clips",
+      title = "Piano roll: parts and clips",
       items = M.rows(),
       format = line,
-      empty = "no other tracks with MIDI clips",
+      empty = "no other parts with MIDI clips",
       actions = {
         ["<CR>"] = {
           keep = true,
@@ -714,8 +714,8 @@ function M.pick()
             end
             -- The row keeps what it shows now, so the line (`refresh`)
             -- and the next Enter on it read the new state.
-            if row.kind == "track" and not row.active then
-              M.show_track(row.id, not row.on)
+            if row.kind == "part" and not row.active then
+              M.show_part(row.id, not row.on)
               row.on = not row.on
             elseif row.kind == "clip" and not row.active then
               row.on = M.toggle(row.id) and true or false

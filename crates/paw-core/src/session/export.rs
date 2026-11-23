@@ -24,8 +24,8 @@ use super::media::MEDIA_FILE;
 pub(crate) struct ExportOpts {
     /// The project's name.
     pub name: String,
-    /// The tracks of the view, in their order: of one place.
-    pub tracks: Vec<Id>,
+    /// The parts of the view, in their order: of one place.
+    pub parts: Vec<Id>,
     /// The time of the view, in the beats of that place.
     pub from: f64,
     pub to: f64,
@@ -36,8 +36,8 @@ pub(crate) struct ExportOpts {
 pub(crate) struct Exported {
     /// The `project.toml` of the new folder.
     pub path: PathBuf,
-    /// Its tracks, without the master and the tracks of subprojects.
-    pub tracks: usize,
+    /// Its parts, without the master and the parts of subprojects.
+    pub parts: usize,
     /// The media files copied into its `media/`.
     pub media: usize,
     /// The files its clips play that are not there.
@@ -63,7 +63,7 @@ impl Session {
         }
         let dir = Self::new_folder(dir)?;
         self.capture_states();
-        let made = self.doc.project.view_standalone(name, &opts.tracks, opts.from, opts.to)?;
+        let made = self.doc.project.view_standalone(name, &opts.parts, opts.from, opts.to)?;
         self.write_standalone(made, &dir)
     }
 
@@ -97,8 +97,8 @@ impl Session {
     /// `media/`, then its files as a save writes them.
     fn write_standalone(&mut self, made: Standalone, dir: &Path) -> Result<Exported> {
         let Standalone { mut project, changes } = made;
-        for track in project.tracks.iter_mut().chain(std::iter::once(&mut project.master)) {
-            self.keep_param_ids(track);
+        for part in project.parts.iter_mut().chain(std::iter::once(&mut project.master)) {
+            self.keep_param_ids(part);
         }
         let (media, missing) = self.media_gather(&mut project, dir)?;
         let transport = serde_json::to_value(Transport::default())?;
@@ -109,7 +109,7 @@ impl Session {
         commit(dir, &files, None)?;
         Ok(Exported {
             path: dir.join(PROJECT_FILE),
-            tracks: project.song_tracks().count(),
+            parts: project.song_parts().count(),
             media: media.len(),
             missing,
             changes,

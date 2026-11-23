@@ -70,18 +70,18 @@ local function basename(path) return path and (path:match("([^/]+)$")) or nil en
 --- public Lua objects of paw.
 function E.snapshot()
   local p = api.project_get()
-  local out = { tempo = p.tempo, markers = {}, tracks = {} }
+  local out = { tempo = p.tempo, markers = {}, parts = {} }
   for _, m in ipairs((p.meta or {}).markers or {}) do
     out.markers[#out.markers + 1] = { name = m.name, beat = m.beat, length = m.length }
   end
   table.sort(out.markers, Model.marker_order)
   local names = {}
-  for _, t in ipairs(paw.tracks()) do
+  for _, t in ipairs(paw.parts()) do
     names[t.id] = t.name
   end
-  for _, t in ipairs(paw.tracks()) do
+  for _, t in ipairs(paw.parts()) do
     local g = t:get()
-    local track = {
+    local part = {
       name = g.name,
       color = t.color,
       volume = g.volume,
@@ -99,14 +99,14 @@ function E.snapshot()
       for _, p in ipairs(api.lane_points(l.id)) do
         points[#points + 1] = { p[1], p[2] }
       end
-      track.lanes[#track.lanes + 1] = { target = l.param and (l.target .. ":" .. l.param) or l.target, points = points }
+      part.lanes[#part.lanes + 1] = { target = l.param and (l.target .. ":" .. l.param) or l.target, points = points }
     end
-    table.sort(track.lanes, function(a, b) return a.target < b.target end)
+    table.sort(part.lanes, function(a, b) return a.target < b.target end)
     for _, d in ipairs(t:devices()) do
-      track.devices[#track.devices + 1] = d.kind
+      part.devices[#part.devices + 1] = d.kind
     end
     for _, s in ipairs(g.sends or {}) do
-      track.sends[#track.sends + 1] = { target = names[s.target], level = s.level }
+      part.sends[#part.sends + 1] = { target = names[s.target], level = s.level }
     end
     for _, c in ipairs(t:clips()) do
       local cg = c:get()
@@ -118,16 +118,16 @@ function E.snapshot()
         for _, n in ipairs(c:notes()) do
           clip.notes[#clip.notes + 1] = { pitch = n.pitch, start = n.start, length = n.length, velocity = n.velocity }
           if n.start >= 0 and n.start < cg.length then
-            track.notes[#track.notes + 1] =
+            part.notes[#part.notes + 1] =
               { pitch = n.pitch, start = cg.start + n.start, length = n.length, velocity = n.velocity }
           end
         end
         Model.sort_notes(clip.notes)
       end
-      track.clips[#track.clips + 1] = clip
+      part.clips[#part.clips + 1] = clip
     end
-    Model.sort_notes(track.notes)
-    out.tracks[#out.tracks + 1] = track
+    Model.sort_notes(part.notes)
+    out.parts[#out.parts + 1] = part
   end
   return out
 end
@@ -228,7 +228,7 @@ end
 
 -- Helpers for scenarios: keys for common moves ----------------------------------------
 
---- Keys that put the arrange cursor on track `i` (1 = first) at bar `bar`.
+--- Keys that put the arrange cursor on part `i` (1 = first) at bar `bar`.
 --- The arrange view has the keyboard: the scenarios go back to it after
 --- each visit to another view.
 function E.go(i, bar) return { "<Esc>", tostring(i) .. "G", tostring(bar or 1) .. "|" } end

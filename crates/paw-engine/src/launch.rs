@@ -1,12 +1,12 @@
-//! Cues: clips kept off a track's timeline, started and stopped on the
+//! Cues: clips kept off a part's timeline, started and stopped on the
 //! beat while the song plays (`paw-core`'s `session/cues.rs`; the clip
-//! launcher extension is one user). A track's cue clips are in rows here,
+//! launcher extension is one user). A part's cue clips are in rows here,
 //! which the core keeps stable for each clip.
 //!
 //! A launch is asked for with [`Msg::Launch`](crate::Msg::Launch) and
 //! happens on the first boundary of its [`Quantize`] at or after the
 //! position the engine is at when it takes the message, to the frame: the
-//! engine ends a block there. While a track plays a slot, or has been
+//! engine ends a block there. While a part plays a slot, or has been
 //! stopped, its clips on the timeline are silent; it plays them again once
 //! it is sent back to the arrangement, or when the transport stops.
 
@@ -18,7 +18,7 @@ use paw_types::{Attr, Quantize, TempoMap, tempo::EPS};
 use crate::clip::{ClipSet, Stamp};
 use crate::device::ProcessCtx;
 use crate::engine::mix_audio_constant;
-use crate::slot::TrackSlot;
+use crate::slot::PartSlot;
 use crate::event::{Event, EventBuf};
 
 /// A clip in a slot: events and sound laid out in beats from its start,
@@ -28,7 +28,7 @@ pub struct SlotClip {
     pub length: f64,
 }
 
-/// A track's slots, by row; `None` for an empty one.
+/// A part's slots, by row; `None` for an empty one.
 #[derive(Default)]
 pub struct Slots {
     pub rows: Vec<Option<SlotClip>>,
@@ -43,14 +43,14 @@ impl Slots {
     }
 }
 
-/// What a launch asks a track to do.
+/// What a launch asks a part to do.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Target {
-    /// Play the clip in this row; an empty row stops the track.
+    /// Play the clip in this row; an empty row stops the part.
     Slot(u32),
     /// Play nothing.
     Stop,
-    /// Play the track's clips on the timeline again.
+    /// Play the part's clips on the timeline again.
     Arrangement,
 }
 
@@ -78,10 +78,10 @@ impl Target {
     }
 }
 
-/// One track's launch.
+/// One part's launch.
 #[derive(Clone, Copy, Debug)]
 pub struct Launch {
-    pub track: TrackSlot,
+    pub part: PartSlot,
     pub target: Target,
     pub quantize: Quantize,
     /// Take over where the clip playing before had got to in its loop,
@@ -92,7 +92,7 @@ pub struct Launch {
     pub from: Option<f64>,
 }
 
-/// What a track plays.
+/// What a part plays.
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Playing {
     Arrangement,
@@ -114,7 +114,7 @@ struct Queued {
     at: f64,
 }
 
-/// A track's clip launcher, on the audio thread.
+/// A part's clip launcher, on the audio thread.
 pub struct Launcher {
     slots: Box<Slots>,
     playing: Playing,
@@ -261,7 +261,7 @@ impl Launcher {
     }
 }
 
-/// A track's launcher as the audio thread last left it, for the main
+/// A part's launcher as the audio thread last left it, for the main
 /// thread to read.
 pub struct LaunchState {
     playing: AtomicU32,
@@ -286,7 +286,7 @@ impl Default for LaunchState {
 /// A copy of a [`LaunchState`].
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LaunchView {
-    /// What the track plays: never [`None`].
+    /// What the part plays: never [`None`].
     pub playing: Target,
     /// Beats into the loop of the slot that plays.
     pub phase: f64,
@@ -318,7 +318,7 @@ pub(crate) fn chase(events: &mut EventBuf, clips: &ClipSet, before: f64) {
     let mut held = [(0f32, 0u8, Attr::NONE); 128];
     let mut controllers = [f64::NAN; 130];
     let mut program = None;
-    // The last event for each, in the order the track plays them: the
+    // The last event for each, in the order the part plays them: the
     // parts of its clips are each in order, but not with each other.
     let mut held_at = [Stamp::FIRST; 128];
     let mut controllers_at = [Stamp::FIRST; 130];

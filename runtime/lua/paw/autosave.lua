@@ -246,8 +246,8 @@ function M.orphan_takes()
     if parent .. "/" .. entry.name == path then saved = entry.mtime or 0 end
   end
   local used = {}
-  for _, id in ipairs(api.track_list({ all = true })) do
-    for _, clip in ipairs(api.track_get(id).clips) do
+  for _, id in ipairs(api.part_list({ all = true })) do
+    for _, clip in ipairs(api.part_get(id).clips) do
       local file = api.clip_get(clip).file
       if file then used[file:match("([^/]+)$")] = true end
     end
@@ -291,22 +291,22 @@ function M.orphan_takes()
   return kept
 end
 
---- Import an orphaned take. It goes on the track that it was recorded for,
---- if a track has the name that it starts with. If not, it goes on a new
---- track. It goes at the start of the song.
+--- Import an orphaned take. It goes on the part that it was recorded for,
+--- if a part has the name that it starts with. If not, it goes on a new
+--- part. It goes at the start of the song.
 function M.import_take(file)
   local name = file:match("([^/]+)%-take%d+[%-%d]*%.wav$")
-  local track
-  for _, t in ipairs(paw.tracks()) do
-    if name and t.name:gsub("[^%w%-_]", "_") == name then track = t end
+  local part
+  for _, t in ipairs(paw.parts()) do
+    if name and t.name:gsub("[^%w%-_]", "_") == name then part = t end
   end
-  local clip = paw.import_audio(file, { start = 0, track = track and track.id })
+  local clip = paw.import_audio(file, { start = 0, part = part and part.id })
   paw.notify(
     string.format(
-      "imported the take %s: %.1f beats on track “%s”",
+      "imported the take %s: %.1f beats on part “%s”",
       file:match("([^/]+)$"),
       clip.length,
-      clip:track().name
+      clip:part().name
     )
   )
   return clip

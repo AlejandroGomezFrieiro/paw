@@ -63,11 +63,11 @@ struct BuiltEngine {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub(crate) enum Tap {
-    /// The tracks' clips and devices, and the tracks that feed them.
+    /// The parts' clips and devices, and the parts that feed them.
     Pre,
-    /// `Pre`, and the tracks' faders, pans and mutes.
+    /// `Pre`, and the parts' faders, pans and mutes.
     Post,
-    /// The tracks as when they are soloed: through their groups, with the
+    /// The parts as when they are soloed: through their groups, with the
     /// returns that their sends reach. The stems at this point add up to
     /// the mix before the master.
     Groups,
@@ -128,15 +128,15 @@ impl RenderOpts {
     }
 }
 
-/// Turn a copy of the project into what a render hears: a frozen track
-/// alone, a frozen block alone, or the tracks of `opts.tracks` (all of them
+/// Turn a copy of the project into what a render hears: a frozen part
+/// alone, a frozen block alone, or the parts of `opts.parts` (all of them
 /// when it is empty) at the point of the signal that `opts.tap` names.
-fn select_render_tracks(project: &mut Project, opts: &RenderOpts) -> Result<()> {
-    let alone = [opts.freeze.is_some(), opts.block.is_some(), !opts.tracks.is_empty()];
+fn select_render_parts(project: &mut Project, opts: &RenderOpts) -> Result<()> {
+    let alone = [opts.freeze.is_some(), opts.block.is_some(), !opts.parts.is_empty()];
     if alone.iter().filter(|a| **a).count() > 1 {
-        bail!("a render is of a frozen track, of a frozen block or of a list of tracks: one of them");
+        bail!("a render is of a frozen part, of a frozen block or of a list of parts: one of them");
     }
-    // A freeze plays in place of the track or the block, so its file
+    // A freeze plays in place of the part or the block, so its file
     // holds no master.
     if opts.freeze.is_some() || opts.block.is_some() {
         if opts.tap.is_some() {
@@ -153,21 +153,21 @@ fn select_render_tracks(project: &mut Project, opts: &RenderOpts) -> Result<()> 
     }
     let tap = opts.listen_at()?;
     match tap {
-        Tap::Pre | Tap::Post if opts.tracks.is_empty() => {
-            bail!("tap={} is a point on a track: name the tracks with tracks=", tap.name())
+        Tap::Pre | Tap::Post if opts.parts.is_empty() => {
+            bail!("tap={} is a point on a part: name the parts with parts=", tap.name())
         }
-        Tap::Pre => crate::freeze::tracks_alone(project, &opts.tracks, Fader::Out)?,
-        Tap::Post => crate::freeze::tracks_alone(project, &opts.tracks, Fader::In)?,
-        Tap::Groups | Tap::Master if opts.tracks.is_empty() => {}
+        Tap::Pre => crate::freeze::parts_alone(project, &opts.parts, Fader::Out)?,
+        Tap::Post => crate::freeze::parts_alone(project, &opts.parts, Fader::In)?,
+        Tap::Groups | Tap::Master if opts.parts.is_empty() => {}
         // As when they are soloed.
         Tap::Groups | Tap::Master => {
-            if let Some(id) = opts.tracks.iter().find(|id| project.track(**id).is_none()) {
-                bail!("no track {id} to render");
+            if let Some(id) = opts.parts.iter().find(|id| project.part(**id).is_none()) {
+                bail!("no part {id} to render");
             }
-            for track in project.tracks.iter_mut() {
-                let wanted = opts.tracks.contains(&track.id);
-                if track.solo != wanted {
-                    Arc::make_mut(track).solo = wanted;
+            for part in project.parts.iter_mut() {
+                let wanted = opts.parts.contains(&part.id);
+                if part.solo != wanted {
+                    Arc::make_mut(part).solo = wanted;
                 }
             }
         }
@@ -537,7 +537,7 @@ impl Session {
         opts: &RenderOpts,
     ) -> Result<()> {
         let (format, quality, bits) = self.check_render_opts(path, opts)?;
-        select_render_tracks(&mut project, opts)?;
+        select_render_parts(&mut project, opts)?;
         let project = &project;
         let (sample_rate, frames) = self.render_extent(project, opts, format, bits)?;
         // Stretched clips play versions made apart: wait for those too.
@@ -938,7 +938,7 @@ fn with_left_out(mut info: Value, left_out: Vec<String>) -> Value {
     info
 }
 
-/// Take the master track's own processing out: its devices, fader, pan and
+/// Take the master part's own processing out: its devices, fader, pan and
 /// automation, so that what reaches it is what is written.
 fn bypass_master(project: &mut Project) {
     let master = Arc::make_mut(&mut project.master);

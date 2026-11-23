@@ -17,7 +17,7 @@ local ROLES = {
   "hmeter",
   "switch",
   "playhead",
-  "trackhead",
+  "parthead",
   "recording",
   "label",
   "button",
@@ -35,20 +35,20 @@ local function redraw()
   return patch and api.json_decode(patch)
 end
 
---- Two tracks, a MIDI clip on the first from beat 4 to 8, an audio clip
+--- Two parts, a MIDI clip on the first from beat 4 to 8, an audio clip
 --- on the second from 8 to 12, at three columns a beat; and where a beat
---- is on a track's row in the window's units (`dy` lines under its top).
+--- is on a part's row in the window's units (`dy` lines under its top).
 local function song()
   fresh()
   paw.keymap.feed("<Esc><Esc>")
-  local saved = { zoom = paw.opt.zoom, grid = paw.opt.grid, height = paw.opt.track_height }
+  local saved = { zoom = paw.opt.zoom, grid = paw.opt.grid, height = paw.opt.part_height }
   T.after(function()
-    paw.opt.zoom, paw.opt.grid, paw.opt.track_height = saved.zoom, saved.grid, saved.height
+    paw.opt.zoom, paw.opt.grid, paw.opt.part_height = saved.zoom, saved.grid, saved.height
     paw.mouse.forget()
     api.scene_forget(0)
   end)
-  paw.opt.zoom, paw.opt.grid, paw.opt.track_height = 3, 1, 4
-  local a, b = paw.add_track({ name = "keys" }), paw.add_track({ name = "loop" })
+  paw.opt.zoom, paw.opt.grid, paw.opt.part_height = 3, 1, 4
+  local a, b = paw.add_part({ name = "keys" }), paw.add_part({ name = "loop" })
   local riff = a:add_clip({ name = "riff", start = 4, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
   local samples = {}
   for i = 1, 48000 * 4 do
@@ -62,10 +62,10 @@ local function song()
   api.scene_forget(0)
   api.scene_roles(0, ROLES)
   redraw()
-  local function at(track, beat, dy)
+  local function at(part, beat, dy)
     local g = view.geometry
     for _, row in ipairs(g.layout.rows) do
-      if row.kind == "track" and row.id == track.id then
+      if row.kind == "part" and row.id == part.id then
         return g.hw + (beat - view.scroll) * g.zoom, row.y + (dy or 1.5)
       end
     end
@@ -147,7 +147,7 @@ test(
     eq(
       table.concat(bound, " "):find("meter:" .. a.id, 1, true) ~= nil,
       true,
-      "a header's level, bound to the track's meter: " .. table.concat(bound, " ")
+      "a header's level, bound to the part's meter: " .. table.concat(bound, " ")
     )
     eq(nodes_of("playhead")[1].bind, "position", "the playhead, bound to the position")
     eq(#nodes_of("beats") >= 2, true, "each row's ground with its lines")
@@ -157,7 +157,7 @@ test(
 test("in a scope a clip across its edges is in the scene with the cuts, for a window to draw ‹ and ›", function()
   local a, b, riff = song()
   T.after(function() paw.scope.widen(true) end)
-  paw.scope.enter({ kind = "range", tracks = { a.id, b.id }, from = 5, to = 7 })
+  paw.scope.enter({ kind = "range", parts = { a.id, b.id }, from = 5, to = 7 })
   local props
   for _, n in ipairs(nodes_of("clip")) do
     if n.props.id == riff.id then props = n.props end
@@ -201,10 +201,10 @@ test(
 )
 
 test(
-  "in a window a clip dragged by fractions of a cell moves on the grid by the beats it went, and to another track",
+  "in a window a clip dragged by fractions of a cell moves on the grid by the beats it went, and to another part",
   function()
     local _, b, riff, _, at = song()
-    local x, y = at(riff:track(), 5.2)
+    local x, y = at(riff:part(), 5.2)
     drag(x, y, x + 0.4, y)
     eq(riff:get().start, 4, "a click that wavers moves nothing")
     eq(paw.frontend.chosen_clips()[1], riff.id, "and chooses it")
@@ -212,20 +212,20 @@ test(
     paw.mouse.forget()
     drag(x, y, x + 2.4 * 3, y)
     eq(riff:get().start, 6, "two beats and a bit on, on the grid")
-    x, y = at(riff:track(), 7.2)
+    x, y = at(riff:part(), 7.2)
     local _, y1 = at(b, 7.2)
     paw.mouse.forget()
     drag(x, y, x, y1)
-    eq(paw.clip(riff.id):get().track, b.id, "a row down, onto the next track")
+    eq(paw.clip(riff.id):get().part, b.id, "a row down, onto the next part")
   end
 )
 
 test("in a window either end of a clip is trimmed from within a cell of it", function()
   local _, _, riff, _, at = song()
-  local x, y = at(riff:track(), 4)
+  local x, y = at(riff:part(), 4)
   drag(x + 0.3, y, x + 0.3 + 3, y)
   eq(riff:get().start .. "+" .. riff:get().length, "5+3", "its start, a beat on")
-  x = at(riff:track(), 8)
+  x = at(riff:part(), 8)
   drag(x - 0.3, y, x - 0.3 + 6, y)
   eq(riff:get().start .. "+" .. riff:get().length, "5+5", "its end, two beats on")
 end)
@@ -295,8 +295,8 @@ test(
   function()
     local a = song()
     local heads, names, knobs, mics, speakers = 0, {}, 0, 0, 0
-    for _, n in ipairs(nodes_of("trackhead")) do
-      if n.props.color == paw.draw.track_colour(a:get(), 1) then heads = heads + 1 end
+    for _, n in ipairs(nodes_of("parthead")) do
+      if n.props.color == paw.draw.part_colour(a:get(), 1) then heads = heads + 1 end
     end
     for _, n in ipairs(nodes_of("label")) do
       names[#names + 1] = n.props.text
@@ -310,13 +310,13 @@ test(
     for _, n in ipairs(nodes_of("switch")) do
       if n.props.icon == "speaker" then speakers = speakers + 1 end
     end
-    eq(heads, 1, "the header's ground, in the track's colour")
+    eq(heads, 1, "the header's ground, in the part's colour")
     eq(
       table.concat(names, " "):find("keys", 1, true) ~= nil,
       true,
       "the name, as a label: " .. table.concat(names, " ")
     )
-    eq(knobs >= 2 and mics == 2 and speakers == 2, true, "a pan knob, an input button and a monitor switch a track")
+    eq(knobs >= 2 and mics == 2 and speakers == 2, true, "a pan knob, an input button and a monitor switch a part")
   end
 )
 
@@ -330,7 +330,7 @@ test("the master is a header like the others, its level on both sides; the timel
   eq(master.r[1] < view.geometry.hw, true, "in the header's column")
 end)
 
-test("a header's bottom edge dragged in a window makes its track taller, the others keeping theirs", function()
+test("a header's bottom edge dragged in a window makes its part taller, the others keeping theirs", function()
   local a, b = song()
   local row
   for _, r in ipairs(view.geometry.layout.rows) do
@@ -355,7 +355,7 @@ end)
 
 test("over a clip's edge the pointer says it trims, with a shape for a window to show", function()
   local _, _, riff, _, at = song()
-  local x, y = at(riff:track(), 4)
+  local x, y = at(riff:part(), 4)
   input("hover", x + 0.2, y)
   local text, shape = paw.mouse.hint_text()
   eq(shape, "resize_h", "a shape for an edge dragged sideways: " .. tostring(text))
@@ -365,7 +365,7 @@ end)
 test("a take lane in a window: each take a clip of its own, with the take's key for what it shows", function()
   local a, _, riff = song()
   paw.takes.new(riff.id)
-  paw.cursor.set_track(a.id)
+  paw.cursor.set_part(a.id)
   paw.commands.exec("take.lanes")
   local takes = {}
   for _, n in ipairs(nodes_of("clip")) do
@@ -378,13 +378,13 @@ test("a take lane in a window: each take a clip of its own, with the take's key 
   paw.commands.exec("take.lanes")
 end)
 
-test("in a window the new track button under the tracks offers the kinds of track", function()
+test("in a window the new part button under the parts offers the kinds of part", function()
   song()
   local L = view.geometry.layout
   input("down", 8.5, L.used + 0.5)
   input("up", 8.5, L.used + 0.5)
   local items = require("paw.menu").shown()
-  eq(items ~= nil and items[1].label, "Empty track", "the menu of new tracks")
+  eq(items ~= nil and items[1].label, "Empty part", "the menu of new parts")
   paw.frontend.act.menu_dismiss()
 end)
 

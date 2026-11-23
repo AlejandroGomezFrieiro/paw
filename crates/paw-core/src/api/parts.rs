@@ -1,4 +1,4 @@
-//! `paw.api`: tracks.
+//! `paw.api`: parts.
 
 use std::path::Path;
 use std::rc::Rc;
@@ -10,7 +10,7 @@ use crate::model::{Id, NestId};
 
 use super::{LuaResult, Shared, attr_from_lua, changes, from_lua, options, to_lua};
 
-/// A track's attribute map from Lua as the data `track_set` takes.
+/// A part's attribute map from Lua as the data `part_set` takes.
 fn attr_map_from_lua(lua: &Lua, value: LuaValue) -> mlua::Result<Value> {
     let empty = match &value {
         LuaValue::Nil | LuaValue::Boolean(false) => true,
@@ -26,44 +26,44 @@ fn attr_map_from_lua(lua: &Lua, value: LuaValue) -> mlua::Result<Value> {
 
 pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> {
     define! { lua, api, shared;
-        // --- tracks ---
-        // The ids of the song's tracks, in their order. `{ nest = id }`
-        // gives the tracks of that subproject instead (without its master),
-        // and `{ all = true }` every track: the song's and each
-        // subproject's. Views list the tracks of their scope with
-        // `paw.scope.tracks()`.
-        // @param opts? types.TrackListOptions
+        // --- parts ---
+        // The ids of the song's parts, in their order. `{ nest = id }`
+        // gives the parts of that subproject instead (without its master),
+        // and `{ all = true }` every part: the song's and each
+        // subproject's. Views list the parts of their scope with
+        // `paw.scope.parts()`.
+        // @param opts? types.PartListOptions
         // @return {integer}
-        fn track_list(lua, sh, opts => LuaValue) {
-            let opts: crate::session::TrackListOpts = options(lua, opts)?;
-            Ok(sh.session.borrow().doc.track_ids(&opts))
+        fn part_list(lua, sh, opts => LuaValue) {
+            let opts: crate::session::PartListOpts = options(lua, opts)?;
+            Ok(sh.session.borrow().doc.part_ids(&opts))
         }
-        // A track as a table. With `key`, only that entry of the table: this
-        // is quicker, because the table lists each clip of the track.
-        // @type function(id: integer): types.Track
-        fn track_get(lua, sh, (id, key) => (Id, Option<String>)) {
+        // A part as a table. With `key`, only that entry of the table: this
+        // is quicker, because the table lists each clip of the part.
+        // @type function(id: integer): types.Part
+        fn part_get(lua, sh, (id, key) => (Id, Option<String>)) {
             let session = sh.session.borrow();
             match key {
-                Some(key) => to_lua(lua, &session.doc.track_field(id, &key).lua()?),
-                None => to_lua(lua, &session.doc.track_view(id).lua()?),
+                Some(key) => to_lua(lua, &session.doc.part_field(id, &key).lua()?),
+                None => to_lua(lua, &session.doc.part_view(id).lua()?),
             }
         }
         // @return integer
-        // @param opts? types.TrackOptions
-        fn track_add(lua, sh, opts => LuaValue) { sh.session.borrow_mut().doc.track_add(options(lua, opts)?).lua() }
+        // @param opts? types.PartOptions
+        fn part_add(lua, sh, opts => LuaValue) { sh.session.borrow_mut().doc.part_add(options(lua, opts)?).lua() }
         // @return nil
-        fn track_remove(_, sh, id => Id) { sh.session.borrow_mut().doc.track_remove(id).lua() }
+        fn part_remove(_, sh, id => Id) { sh.session.borrow_mut().doc.part_remove(id).lua() }
         // @return nil
-        fn track_move(_, sh, (id, index) => (Id, usize)) {
-            sh.session.borrow_mut().doc.track_move(id, index.saturating_sub(1)).lua()
+        fn part_move(_, sh, (id, index) => (Id, usize)) {
+            sh.session.borrow_mut().doc.part_move(id, index.saturating_sub(1)).lua()
         }
-        // Change a track: a table of the entries to change, as `track_get`
+        // Change a part: a table of the entries to change, as `part_get`
         // gives them (`{ name = "Bass", volume = -6 }`), or one `key` and its
-        // value. Only the key form clears an entry (`track_set(id, "output",
+        // value. Only the key form clears an entry (`part_set(id, "output",
         // nil)`). An entry that is as it was is no change.
-        // @type function(id: integer, patch: types.Track)
+        // @type function(id: integer, patch: types.Part)
         // @type function(id: integer, key: string, value: nil)
-        fn track_set(lua, sh, (id, key, value) => (Id, LuaValue, LuaValue)) {
+        fn part_set(lua, sh, (id, key, value) => (Id, LuaValue, LuaValue)) {
             let mut session = sh.session.borrow_mut();
             for (key, value) in changes(lua, key, value)? {
                 let value: Value = match key.as_str() {
@@ -71,28 +71,28 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
                     "attr_map" => attr_map_from_lua(lua, value)?,
                     _ => from_lua(lua, value)?,
                 };
-                session.track_set(id, &key, value).lua()?;
+                session.part_set(id, &key, value).lua()?;
             }
             Ok(())
         }
         // @return number, number
-        fn track_meter(_, sh, id => Id) { Ok(sh.session.borrow().meter(id)) }
-        // The milliseconds that the attribute map of the track moves a note with
-        // `attr` (below 0: earlier). 0 when the track has no attribute map.
+        fn part_meter(_, sh, id => Id) { Ok(sh.session.borrow().meter(id)) }
+        // The milliseconds that the attribute map of the part moves a note with
+        // `attr` (below 0: earlier). 0 when the part has no attribute map.
         // @param attr? types.NoteAttr
         // @return number
-        fn track_attr_delay(lua, sh, (id, attr) => (Id, LuaValue)) {
+        fn part_attr_delay(lua, sh, (id, attr) => (Id, LuaValue)) {
             let attr = attr_from_lua(lua, attr)?.map_or(paw_types::Attr::NONE, Into::into);
             sh.session.borrow().doc.attr_delay(id, attr).lua()
         }
 
-        // --- nests (subprojects): tracks with a timeline of their own ---
+        // --- nests (subprojects): parts with a timeline of their own ---
         // The ids of the subprojects, in the order they were made.
         // @return {integer}
         fn nest_list(_, sh, () => ()) {
             Ok(sh.session.borrow().doc.nest_list().into_iter().map(|n| n.0).collect::<Vec<u64>>())
         }
-        // A subproject as a table: its fields, `tracks` (its tracks in order,
+        // A subproject as a table: its fields, `parts` (its parts in order,
         // without its master) and `used` (whether the song plays it). With
         // `key`, only that field of its own (`name`, `length`, `master`...):
         // this is quicker.
@@ -104,24 +104,24 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
                 None => to_lua(lua, &session.doc.nest_view(NestId(id)).lua()?),
             }
         }
-        // Make a subproject with its master track and no other track, as one
+        // Make a subproject with its master part and no other part, as one
         // undo step, for example `{ name = "Bridge", length = 32 }`. The length
-        // is in beats, and 32 when you leave it out. Add its tracks with
-        // `track_add({ nest = id })`. Returns its id.
+        // is in beats, and 32 when you leave it out. Add its parts with
+        // `part_add({ nest = id })`. Returns its id.
         // @param opts? types.NestOptions
         // @return integer
         fn nest_add(lua, sh, opts => LuaValue) {
             sh.session.borrow_mut().doc.nest_add(options(lua, opts)?).map(|n| n.0).lua()
         }
         // Promote the subproject of a block (`clip`) to song data, as one
-        // undo step: its tracks come back in a group named after it at the
+        // undo step: its parts come back in a group named after it at the
         // place of its return row, their clips at the row's beats, cut at
-        // the block. The group track gets the master's devices and then the
+        // the block. The group part gets the master's devices and then the
         // row's, the sum of their faders in dB, the row's pan and sends, and
         // their lanes (two volume lanes added in dB). The row, the master
-        // and the subproject go. A subproject saved per track (`<Space>zw`)
+        // and the subproject go. A subproject saved per part (`<Space>zw`)
         // gives its clips back to the rows of its blocks instead, with no
-        // group. Returns `group`, `tracks`, `from`, `to`, `zero` (the song's
+        // group. Returns `group`, `parts`, `from`, `to`, `zero` (the song's
         // beat of the subproject's beat 0) and `combined` (the targets of
         // the lanes made one). `paw.nest.promote` does the rest: regions,
         // the meter, the view.
@@ -131,7 +131,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             to_lua(lua, &serde_json::to_value(promoted).map_err(mlua::Error::external)?)
         }
         // Make the block `clip` a subproject of its own, as one undo step: a
-        // copy of its subproject (tracks, devices, lanes and clips) named
+        // copy of its subproject (parts, devices, lanes and clips) named
         // `Ballad 2`, which the block and the stems of the same block then
         // play. The other blocks keep the subproject. Returns the copy's id.
         // @return integer
@@ -168,14 +168,14 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             Ok(timing.map_or(beat, |t| t.nest_beat(beat)))
         }
         // Save a view as a subproject, as one undo step: the clips of
-        // `tracks` from `from` to `to` (beats of their place) move into a
-        // new subproject named `name` with the meter `meter`. Per track,
-        // each row keeps its devices and gets a track of the subproject
+        // `parts` from `from` to `to` (beats of their place) move into a
+        // new subproject named `name` with the meter `meter`. Per part,
+        // each row keeps its devices and gets a part of the subproject
         // with its clips; add a block on the row that plays it. With
-        // `own_row`, the tracks go in (whole, or as copies with copies of
+        // `own_row`, the parts go in (whole, or as copies with copies of
         // their devices and lanes) and one return row plays the mix; add
         // its block. `paw.nest.save` does the rest: blocks, regions, the
-        // window. Returns `nest`, `rows`, `row`, `tracks`, `changes`, and with
+        // window. Returns `nest`, `rows`, `row`, `parts`, `changes`, and with
         // a row of its own the song's `group` it is in or the `buses` that no
         // longer get the time.
         // @param opts types.NestSaveOptions
@@ -187,7 +187,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // Make the project folder `dir` a subproject, as one undo step with
         // the block that places it. The subproject refers to the folder: the
         // song keeps no copy and reads the folder again when it opens. Its
-        // tracks, its master and the subprojects inside come from the folder.
+        // parts, its master and the subprojects inside come from the folder.
         // It follows the song's tempo (its own is kept, for `nest.time own`)
         // and keeps the meter of the folder. Its first edit, or `nest_own`,
         // makes it the song's own copy. Nothing places it yet: add a block.
@@ -205,11 +205,11 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             Ok(folder.to_string_lossy().into_owned())
         }
         // Write a subproject as a project folder of its own at `dir`, a new
-        // or empty folder. Its tracks become the project's tracks and its
+        // or empty folder. Its parts become the project's parts and its
         // master the master. A subproject that follows the song's tempo or
         // meter gets the song's from its first block. Its media are copied
         // into `media/`. The song does not change. Returns `path` (the
-        // new `project.toml`), `tracks`, `media` (the files copied),
+        // new `project.toml`), `parts`, `media` (the files copied),
         // `missing` and `changes`.
         // @return types.NestExported
         fn nest_export(lua, sh, (id, dir) => (u64, String)) {
@@ -217,10 +217,10 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             to_lua(lua, &serde_json::to_value(exported).map_err(mlua::Error::external)?)
         }
         // Write a view as a project folder of its own at `dir`, a new or
-        // empty folder: copies of `tracks` with their devices, their clips
+        // empty folder: copies of `parts` with their devices, their clips
         // and lanes from `from` to `to` (beats of their place) from beat
         // 0, the markers and regions inside, and the tempo and meter of the
-        // time. A route to a track outside the view is cut, and `changes`
+        // time. A route to a part outside the view is cut, and `changes`
         // tells each cut. The song does not change. Returns what
         // `nest_export` returns.
         // @param opts types.ScopeExportOptions

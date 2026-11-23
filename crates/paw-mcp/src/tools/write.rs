@@ -14,51 +14,51 @@ use crate::schema::*;
 pub(super) fn tools() -> Vec<Tool> {
     vec![
         Tool {
-            name: "add_track",
-            title: "Add a track",
+            name: "add_part",
+            title: "Add a part",
             description: format!(
-                "Add a track, and in the same call its devices (instrument first, then effects), clips with their notes, routing and sends. A MIDI track needs an instrument device such as `synth` or `drums` to make sound. Returns the new track with every id. {UNDO}"
+                "Add a part, and in the same call its devices (instrument first, then effects), clips with their notes, routing and sends. A MIDI part needs an instrument device such as `synth` or `drums` to make sound. Returns the new part with every id. {UNDO}"
             ),
             schema: obj(
                 json!({
-                    "name": {"type": "string", "description": "Track name"},
+                    "name": {"type": "string", "description": "Part name"},
                     "volume": {"type": "number", "description": "Fader in dB, -120 to 24 (default 0)"},
                     "pan": {"type": "number", "description": "-1 left to 1 right (default 0)"},
-                    "output": track_ref("Route the track's output into this track instead of the master (for buses)"),
-                    "index": {"type": "integer", "minimum": 1, "description": "Position in the track list, from 1 (default last)"},
+                    "output": part_ref("Route the part's output into this part instead of the master (for buses)"),
+                    "index": {"type": "integer", "minimum": 1, "description": "Position in the part list, from 1 (default last)"},
                     "color": {"type": "string", "description": "Colour as #rrggbb"},
                     "devices": {"type": "array", "items": device_spec(), "description": "Devices to add in chain order"},
                     "clips": {"type": "array", "items": clip_spec(), "description": "Clips to add"},
-                    "sends": send_spec("Sends to other tracks (for shared reverbs and the like)")
+                    "sends": send_spec("Sends to other parts (for shared reverbs and the like)")
                 }),
                 &[],
             ),
             effect: Effect::Changes,
-            run: Run::Write { prepare: Some(Tools::prepare_add_track), show: show_add_track },
+            run: Run::Write { prepare: Some(Tools::prepare_add_part), show: show_add_part },
         },
         Tool {
-            name: "set_track",
-            title: "Change a track",
+            name: "set_part",
+            title: "Change a part",
             description: format!(
-                "Change a track's name, volume, pan, mute, solo, colour, position, output routing or sends. Only what is given changes. `sends` replaces the whole list (pass [] to remove all). Returns the track as it is afterwards. {UNDO}"
+                "Change a part's name, volume, pan, mute, solo, colour, position, output routing or sends. Only what is given changes. `sends` replaces the whole list (pass [] to remove all). Returns the part as it is afterwards. {UNDO}"
             ),
             schema: obj(
                 json!({
-                    "track": track_ref("The track"),
+                    "part": part_ref("The part"),
                     "name": {"type": "string", "description": "New name"},
                     "volume": {"type": "number", "description": "Fader in dB, -120 to 24"},
                     "pan": {"type": "number", "description": "-1 left to 1 right"},
                     "mute": {"type": "boolean", "description": "Mute"},
                     "solo": {"type": "boolean", "description": "Solo"},
                     "color": {"type": "string", "description": "Colour as #rrggbb"},
-                    "index": {"type": "integer", "minimum": 1, "description": "Move to this position in the track list, from 1"},
-                    "output": track_ref("Route into this track; \"master\" for the master"),
+                    "index": {"type": "integer", "minimum": 1, "description": "Move to this position in the part list, from 1"},
+                    "output": part_ref("Route into this part; \"master\" for the master"),
                     "sends": send_spec("The complete list of sends")
                 }),
-                &["track"],
+                &["part"],
             ),
             effect: Effect::Changes,
-            run: Run::Write { prepare: None, show: show_set_track },
+            run: Run::Write { prepare: None, show: show_set_part },
         },
         Tool {
             name: "add_clip",
@@ -68,8 +68,8 @@ pub(super) fn tools() -> Vec<Tool> {
             ),
             schema: {
                 let mut schema = clip_spec();
-                schema["properties"]["track"] = track_ref("The track to put it on");
-                schema["required"] = json!(["track"]);
+                schema["properties"]["part"] = part_ref("The part to put it on");
+                schema["required"] = json!(["part"]);
                 schema
             },
             effect: Effect::Changes,
@@ -79,7 +79,7 @@ pub(super) fn tools() -> Vec<Tool> {
             name: "edit_clip",
             title: "Change a clip or its notes",
             description: format!(
-                "Change a clip: move it (start, or another track), resize, rename, mute; and edit its notes. Notes are named by the ids get_clip shows: remove some (`remove_notes`, by ids and/or pitch and/or time range, or all), change single notes (`edit_notes`: new pitch, start, length or velocity by id), transpose (semitones, or `degrees` along the project's key so that a third up stays in key), scale velocities (`velocity` multiplies) or set them (`set_velocity`: an absolute value, over all notes or a pitch/time range), replace all notes (`notes`) or add more (`add_notes`). Applied in that order. Note positions are relative to the clip's start. Returns the clip with its notes. {UNDO}"
+                "Change a clip: move it (start, or another part), resize, rename, mute; and edit its notes. Notes are named by the ids get_clip shows: remove some (`remove_notes`, by ids and/or pitch and/or time range, or all), change single notes (`edit_notes`: new pitch, start, length or velocity by id), transpose (semitones, or `degrees` along the project's key so that a third up stays in key), scale velocities (`velocity` multiplies) or set them (`set_velocity`: an absolute value, over all notes or a pitch/time range), replace all notes (`notes`) or add more (`add_notes`). Applied in that order. Note positions are relative to the clip's start. Returns the clip with its notes. {UNDO}"
             ),
             schema: obj(
                 json!({
@@ -88,7 +88,7 @@ pub(super) fn tools() -> Vec<Tool> {
                     "start": position("New start on the timeline"),
                     "length": length("New length"),
                     "muted": {"type": "boolean", "description": "Mute the clip"},
-                    "track": track_ref("Move the clip to this track"),
+                    "part": part_ref("Move the clip to this part"),
                     "gain": {"type": "number", "description": "Audio clips: gain in dB"},
                     "remove_notes": {
                         "type": "object",
@@ -160,13 +160,13 @@ pub(super) fn tools() -> Vec<Tool> {
             name: "duplicate_clip",
             title: "Copy a clip",
             description: format!(
-                "Copy a clip, with its notes and settings: right after the original by default, or at `at`, on another `track`, `times` times in a row. Returns the copies. {UNDO}"
+                "Copy a clip, with its notes and settings: right after the original by default, or at `at`, on another `part`, `times` times in a row. Returns the copies. {UNDO}"
             ),
             schema: obj(
                 json!({
                     "clip": {"type": "integer", "description": "Clip id"},
                     "at": position("Where the first copy starts (default right after the original)"),
-                    "track": track_ref("Put the copies on this track (default the same)"),
+                    "part": part_ref("Put the copies on this part (default the same)"),
                     "times": {"type": "integer", "minimum": 1, "maximum": 64, "description": "How many copies, one after another (default 1)"},
                     "gap": {"type": "number", "minimum": 0, "description": "Beats of space between copies (default none)"}
                 }),
@@ -179,7 +179,7 @@ pub(super) fn tools() -> Vec<Tool> {
             name: "repeat_bars",
             title: "Repeat a stretch of the song",
             description: format!(
-                "Copy every clip that lies wholly between two points (all tracks, or `tracks`) to later in the song, `times` times in a row, for arranging: repeat bars 1 to 8 as 9 to 16. A clip that crosses a boundary is skipped and named in the result. {UNDO}"
+                "Copy every clip that lies wholly between two points (all parts, or `parts`) to later in the song, `times` times in a row, for arranging: repeat bars 1 to 8 as 9 to 16. A clip that crosses a boundary is skipped and named in the result. {UNDO}"
             ),
             schema: obj(
                 json!({
@@ -187,7 +187,7 @@ pub(super) fn tools() -> Vec<Tool> {
                     "to": position("End of the stretch (the first point after it)"),
                     "at": position("Where the first copy of the stretch starts (default right after it)"),
                     "times": {"type": "integer", "minimum": 1, "maximum": 64, "description": "How many repeats, one after another (default 1)"},
-                    "tracks": {"type": "array", "items": track_ref("A track"), "description": "Only the clips of these tracks (default all)"}
+                    "parts": {"type": "array", "items": part_ref("A part"), "description": "Only the clips of these parts (default all)"}
                 }),
                 &["from", "to"],
             ),
@@ -198,17 +198,17 @@ pub(super) fn tools() -> Vec<Tool> {
             name: "add_device",
             title: "Add a device or plugin",
             description: format!(
-                "Add an instrument or effect to the end of a track's chain (or at `index`), optionally with parameter values. `kind` is an exact kind or words to search (find_devices shows what there is). Returns the device's id and all its parameters with ranges. {UNDO}"
+                "Add an instrument or effect to the end of a part's chain (or at `index`), optionally with parameter values. `kind` is an exact kind or words to search (find_devices shows what there is). Returns the device's id and all its parameters with ranges. {UNDO}"
             ),
             schema: obj(
                 json!({
-                    "track": track_ref("The track"),
+                    "part": part_ref("The part"),
                     "kind": {"type": "string", "description": "Device kind (\"synth\", \"drums\", \"gain\", \"delay\", \"clap:...\") or words to search for"},
                     "params": params_schema("Parameter values by key or name; a switch-like parameter also takes its choice's name (\"wave\": \"saw\")"),
                     "index": {"type": "integer", "minimum": 1, "description": "Position in the chain, from 1 (default last)"},
                     "bypass": {"type": "boolean", "description": "Add it bypassed"}
                 }),
-                &["track", "kind"],
+                &["part", "kind"],
             ),
             effect: Effect::Changes,
             run: Run::Write { prepare: None, show: show_add_device },
@@ -217,14 +217,14 @@ pub(super) fn tools() -> Vec<Tool> {
             name: "set_device",
             title: "Change a device",
             description: format!(
-                "Set a device's parameters, bypass it, or move it in its chain or to another track. Values outside a parameter's range are clamped; the result shows the values as they are now. {UNDO}"
+                "Set a device's parameters, bypass it, or move it in its chain or to another part. Values outside a parameter's range are clamped; the result shows the values as they are now. {UNDO}"
             ),
             schema: obj(
                 json!({
                     "device": {"type": "integer", "description": "Device id"},
                     "params": params_schema("Parameter values by key or name, e.g. {\"cutoff\": 1200, \"resonance\": 0.4, \"wave\": \"square\"}"),
                     "bypass": {"type": "boolean", "description": "Bypass (true) or enable (false)"},
-                    "track": track_ref("Move the device to this track"),
+                    "part": part_ref("Move the device to this part"),
                     "index": {"type": "integer", "minimum": 1, "description": "Move to this position in the chain, from 1"}
                 }),
                 &["device"],
@@ -236,12 +236,12 @@ pub(super) fn tools() -> Vec<Tool> {
             name: "automate",
             title: "Automate volume, pan or a parameter",
             description: format!(
-                "Write automation: a track's volume (dB) or pan (-1..1), or a device parameter (give `device` and `param`), as points joined by straight lines and held before the first and after the last. Creates the lane if needed. By default the points replace the lane's; mode \"add\" merges them (a point replaces one at the same beat). Two points at one beat make a step. Can also turn a lane off or remove it. While playing or rendering an enabled lane overrides the fader or parameter. {UNDO}"
+                "Write automation: a part's volume (dB) or pan (-1..1), or a device parameter (give `device` and `param`), as points joined by straight lines and held before the first and after the last. Creates the lane if needed. By default the points replace the lane's; mode \"add\" merges them (a point replaces one at the same beat). Two points at one beat make a step. Can also turn a lane off or remove it. While playing or rendering an enabled lane overrides the fader or parameter. {UNDO}"
             ),
             schema: obj(
                 json!({
-                    "track": track_ref("The track (for volume or pan; optional with `device`)"),
-                    "target": {"type": "string", "enum": ["volume", "pan"], "description": "What to automate on the track (default volume); ignored when `device` is given"},
+                    "part": part_ref("The part (for volume or pan; optional with `device`)"),
+                    "target": {"type": "string", "enum": ["volume", "pan"], "description": "What to automate on the part (default volume); ignored when `device` is given"},
                     "device": {"type": "integer", "description": "Automate a parameter of this device instead"},
                     "param": {"type": "string", "description": "The device parameter's key or name"},
                     "points": {
@@ -310,13 +310,13 @@ pub(super) fn tools() -> Vec<Tool> {
         },
         Tool {
             name: "remove",
-            title: "Remove tracks, clips, devices, lanes",
+            title: "Remove parts, clips, devices, lanes",
             description: format!(
-                "Remove any number of tracks, clips, devices, automation lanes and markers in one call. Removing a track removes its clips and devices; tracks routed into it fall back to the master. {UNDO}"
+                "Remove any number of parts, clips, devices, automation lanes and markers in one call. Removing a part removes its clips and devices; parts routed into it fall back to the master. {UNDO}"
             ),
             schema: obj(
                 json!({
-                    "tracks": {"type": "array", "items": track_ref("A track"), "description": "Tracks, by id or name"},
+                    "parts": {"type": "array", "items": part_ref("A part"), "description": "Parts, by id or name"},
                     "clips": {"type": "array", "items": {"type": "integer"}, "description": "Clip ids"},
                     "devices": {"type": "array", "items": {"type": "integer"}, "description": "Device ids"},
                     "automation": {"type": "array", "items": {"type": "integer"}, "description": "Automation lane ids"},
@@ -331,7 +331,7 @@ pub(super) fn tools() -> Vec<Tool> {
             name: "batch",
             title: "Several changes as one undo step",
             description: format!(
-                "Run several of the writing tools (add_track, set_track, add_clip, edit_clip, duplicate_clip, repeat_bars, add_device, set_device, automate, set_project, marker, remove) in order as ONE undo step, named `mcp: <label>`: if any step fails, none of them is kept. A later step may name what an earlier one made by name (a track by its name), not by id, since ids are only known afterwards; positions in `bar.beat` are read with the time signature as it is when the batch starts. Returns every step's result. {UNDO}"
+                "Run several of the writing tools (add_part, set_part, add_clip, edit_clip, duplicate_clip, repeat_bars, add_device, set_device, automate, set_project, marker, remove) in order as ONE undo step, named `mcp: <label>`: if any step fails, none of them is kept. A later step may name what an earlier one made by name (a part by its name), not by id, since ids are only known afterwards; positions in `bar.beat` are read with the time signature as it is when the batch starts. Returns every step's result. {UNDO}"
             ),
             schema: obj(
                 json!({
@@ -405,7 +405,7 @@ impl Tools {
         Ok(out)
     }
 
-    fn prepare_add_track(&self, a: &Args, meter: &Meter) -> Result<Args, ToolError> {
+    fn prepare_add_part(&self, a: &Args, meter: &Meter) -> Result<Args, ToolError> {
         let mut args = a.clone();
         if let Some(clips) = a.get("clips") {
             let mut list = Vec::new();
@@ -425,7 +425,7 @@ impl Tools {
 
     fn prepare_add_clip(&self, a: &Args, meter: &Meter) -> Result<Args, ToolError> {
         let mut clip = self.clip_args(a, meter)?;
-        clip.insert("track".into(), a["track"].clone());
+        clip.insert("part".into(), a["part"].clone());
         Ok(clip)
     }
 
@@ -557,7 +557,7 @@ impl Tools {
 
     fn prepare_remove(&self, a: &Args, _meter: &Meter) -> Result<Args, ToolError> {
         if a.values().all(|v| items(v).is_empty()) {
-            return err("nothing to remove: give tracks, clips, devices, automation or markers");
+            return err("nothing to remove: give parts, clips, devices, automation or markers");
         }
         Ok(a.clone())
     }
@@ -614,15 +614,15 @@ impl Tools {
 
 // Each `show_*` gives a writing tool's answer as text.
 
-fn show_add_track(r: &Value, meter: &Meter) -> String {
-    let mut out = String::from("Added track:\n");
-    format::track(&mut out, &r["track"], meter, false);
+fn show_add_part(r: &Value, meter: &Meter) -> String {
+    let mut out = String::from("Added part:\n");
+    format::part(&mut out, &r["part"], meter, false);
     out
 }
 
-fn show_set_track(r: &Value, meter: &Meter) -> String {
-    let mut out = String::from("Track now:\n");
-    format::track(&mut out, &r["track"], meter, false);
+fn show_set_part(r: &Value, meter: &Meter) -> String {
+    let mut out = String::from("Part now:\n");
+    format::part(&mut out, &r["part"], meter, false);
     out
 }
 
@@ -706,14 +706,14 @@ fn show_automate(r: &Value, meter: &Meter) -> String {
         let l = &r["lane"];
         let _ = writeln!(
             out,
-            "{} automation on track \"{}\" [id {}]{}:\n  {}",
+            "{} automation on part \"{}\" [id {}]{}:\n  {}",
             if l["created"].as_bool() == Some(true) {
                 "New"
             } else {
                 "Updated"
             },
-            l["track_name"].as_str().unwrap_or(""),
-            l["track"],
+            l["part_name"].as_str().unwrap_or(""),
+            l["part"],
             l["device_name"]
                 .as_str()
                 .map(|n| format!(", device {n}"))

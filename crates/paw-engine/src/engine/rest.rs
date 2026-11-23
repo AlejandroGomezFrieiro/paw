@@ -3,7 +3,7 @@
 //!
 //! Devices at rest already sleep through silent blocks (see
 //! [`Device::resting`](crate::device::Device::resting)). What is left of a
-//! block then is the walk over every track: buffers cleared, sums, meters.
+//! block then is the walk over every part: buffers cleared, sums, meters.
 //! The engine rests as a whole after [`QUIET_BLOCKS`] quiet blocks in a row,
 //! and a message or a MIDI input event wakes it in the same callback, so
 //! the first sound comes in the same block as it would without the rest.
@@ -75,7 +75,7 @@ pub(super) struct Counts {
 impl Engine {
     /// Whether something can sound, or start to, without a message: the
     /// song plays or counts in, a launch is queued, a sound file plays on
-    /// its own, or a track hears an audio input. Or resting is off: sleep
+    /// its own, or a part hears an audio input. Or resting is off: sleep
     /// is off, or the engine renders.
     fn busy(&self) -> bool {
         !self.sleep
@@ -135,7 +135,7 @@ impl Engine {
     }
 
     /// A rested callback: silence out, and the inputs metered, as they are
-    /// whether or not a track takes them.
+    /// whether or not a part takes them.
     pub(super) fn rest_callback(
         &mut self,
         input: &[f32],
@@ -163,26 +163,26 @@ impl Engine {
         }
     }
 
-    /// Whether every track's meter has fallen below what a meter shows.
+    /// Whether every part's meter has fallen below what a meter shows.
     fn meters_fallen(&mut self) -> bool {
         let Some(schedule) = self.schedule.take() else {
             return true;
         };
         let fallen = schedule.entries.iter().all(|entry| {
-            self.track_mut(entry.slot)
+            self.part_mut(entry.slot)
                 .is_none_or(|t| t.peak.iter().all(|p| *p < METER_FLOOR))
         });
         self.schedule = Some(schedule);
         fallen
     }
 
-    /// Set every track's meter to zero, where it would fall to.
+    /// Set every part's meter to zero, where it would fall to.
     fn clear_meters(&mut self) {
         let Some(schedule) = self.schedule.take() else {
             return;
         };
         for entry in &schedule.entries {
-            if let Some(t) = self.track_mut(entry.slot) {
+            if let Some(t) = self.part_mut(entry.slot) {
                 t.peak = [0.0; 2];
             }
             if let Some(meter) = self.shared.meters.get(entry.slot.index()) {
@@ -193,10 +193,10 @@ impl Engine {
         self.schedule = Some(schedule);
     }
 
-    /// Look again whether a track hears an audio input (after the inputs
-    /// or the tracks changed): a message, not a block, does this.
+    /// Look again whether a part hears an audio input (after the inputs
+    /// or the parts changed): a message, not a block, does this.
     pub(super) fn note_listening(&mut self) {
-        self.listening = self.tracks.iter_mut().any(|t| {
+        self.listening = self.parts.iter_mut().any(|t| {
             t.get_mut()
                 .as_deref()
                 .is_some_and(|t| t.input_channels > 0 && (t.monitor || t.armed))

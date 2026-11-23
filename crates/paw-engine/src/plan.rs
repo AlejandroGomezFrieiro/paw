@@ -243,7 +243,7 @@ pub struct PlanMeters {
 
 impl PlanMeters {
     /// The peak `(left, right)` of the split or branch `tag`, linear,
-    /// falling as a track's meter falls.
+    /// falling as a part's meter falls.
     pub fn peak(&self, tag: u64) -> Option<(f32, f32)> {
         let at = self.tags.iter().position(|t| *t == tag)?;
         let [l, r] = &self.peaks[at];

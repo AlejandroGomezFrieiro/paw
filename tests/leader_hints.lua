@@ -33,13 +33,13 @@ local function song()
   end
   L.restore(initial)
   local view = load()
-  local track = paw.add_track({ name = "Lead" })
-  track:add_device("synth")
+  local part = paw.add_part({ name = "Lead" })
+  part:add_device("synth")
   local notes = {}
   for i, p in ipairs({ 60, 62, 64, 65 }) do
     notes[i] = { pitch = p, start = i - 1, length = 1, velocity = 80 }
   end
-  local clip = track:add_clip({ start = 0, length = 4, name = "tune", notes = notes })
+  local clip = part:add_clip({ start = 0, length = 4, name = "tune", notes = notes })
   paw.flush()
   paw.keymap.set_mode("n")
   view:edit(clip)
@@ -216,15 +216,15 @@ test("roll.toggle: with no clip open it opens the clip under the cursor, or says
   eq(paw.ui.visible("pianoroll"), false, "no pane opened")
   eq(api.json_encode(paw.ui.arrange()), before, "the layout is as it was")
   eq((paw.ui.message and paw.ui.message.text or ""):match("no clip") ~= nil, true, "the message line says so")
-  local track = paw.add_track({ name = "Lead" })
-  track:add_clip({
+  local part = paw.add_part({ name = "Lead" })
+  part:add_clip({
     start = 0,
     length = 4,
     name = "tune",
     notes = { { pitch = 60, start = 0, length = 1, velocity = 80 } },
   })
   paw.flush()
-  paw.cursor.set_track(track)
+  paw.cursor.set_part(part)
   paw.cursor.set_beat(1)
   paw.commands.exec("roll.toggle")
   eq(paw.ui.visible("pianoroll"), true, "with a clip under the cursor the roll is shown")

@@ -16,7 +16,7 @@ end
 
 test("address: every note has an id that stays with it through moves, and a copy gets its own", function()
   fresh()
-  local clip = paw.add_track({ name = "Keys" }):add_clip({
+  local clip = paw.add_part({ name = "Keys" }):add_clip({
     start = 0,
     length = 4,
     notes = { { pitch = 60, start = 0, length = 1 }, { pitch = 64, start = 1, length = 1 } },
@@ -45,48 +45,48 @@ end)
 
 test("address: addresses are made, resolved, and walked up and down", function()
   fresh()
-  local t = paw.add_track({ name = "Bass" })
+  local t = paw.add_part({ name = "Bass" })
   local d = t:add_device("synth")
   local clip = t:add_clip({ start = 0, length = 4, notes = { { pitch = 40, start = 0, length = 1 } } })
   paw.flush()
-  local other = paw.add_track({ name = "Bus" })
+  local other = paw.add_part({ name = "Bus" })
   t.sends = { { target = other.id, level = -6 } }
   paw.flush()
-  eq(A.of(t), "paw://track/" .. t.id, "a track")
-  eq(A.of(paw.device(d.id)), "paw://track/" .. t.id .. "/device/" .. d.id, "a device, under its track")
+  eq(A.of(t), "paw://part/" .. t.id, "a part")
+  eq(A.of(paw.device(d.id)), "paw://part/" .. t.id .. "/device/" .. d.id, "a device, under its part")
   eq(A.of(clip), "paw://clip/" .. clip.id, "a clip")
   eq(A.of(api.clip_get(clip.id)), "paw://clip/" .. clip.id, "or what paw.api gives")
   local param = A.param(d.id, "cutoff")
   eq(A.resolve(param).key, "cutoff", "a parameter")
   eq(A.resolve(param).value, api.device_get(d.id).params.cutoff, "with its value")
   eq(A.resolve(A.send(t.id, other.id)).level, -6, "a send")
-  eq(A.resolve(A.track(0)).name, api.track_get(0).name, "the master")
-  eq(A.resolve("paw://track/999"), nil, "what is gone resolves to nothing")
+  eq(A.resolve(A.part(0)).name, api.part_get(0).name, "the master")
+  eq(A.resolve("paw://part/999"), nil, "what is gone resolves to nothing")
   eq(A.resolve("http://example.com"), nil, "nor what is not an address")
-  eq(A.parent(param), "paw://track/" .. t.id .. "/device/" .. d.id, "a parameter's parent")
-  eq(A.parent(A.clip(clip.id)), A.track(t.id), "a clip's")
+  eq(A.parent(param), "paw://part/" .. t.id .. "/device/" .. d.id, "a parameter's parent")
+  eq(A.parent(A.clip(clip.id)), A.part(t.id), "a clip's")
   eq(A.parent(A.note(clip.id, 1)), A.clip(clip.id), "a note's")
-  eq(A.within(A.note(clip.id, 1), A.track(t.id)), true, "a note lies within its track")
-  eq(A.within(A.clip(clip.id), A.track(other.id)), false, "not another's")
-  eq(A.track_of(param), t.id, "a parameter's track")
-  local kids = table.concat(A.children(A.track(t.id)), " ")
+  eq(A.within(A.note(clip.id, 1), A.part(t.id)), true, "a note lies within its part")
+  eq(A.within(A.clip(clip.id), A.part(other.id)), false, "not another's")
+  eq(A.part_of(param), t.id, "a parameter's part")
+  local kids = table.concat(A.children(A.part(t.id)), " ")
   eq(
     kids:find("/device/" .. d.id, 1, true) ~= nil
       and kids:find("/send/" .. other.id, 1, true) ~= nil
       and kids:find("paw://clip/" .. clip.id, 1, true) ~= nil,
     true,
-    "a track holds its devices, sends and clips: " .. kids
+    "a part holds its devices, sends and clips: " .. kids
   )
   eq(A.children(A.clip(clip.id))[1], A.note(clip.id, 1), "a clip its notes")
   eq(A.parse(A.render("/tmp/a mix.wav")).path, "/tmp/a mix.wav", "a render's path survives the encoding")
-  eq(A.matches("paw://track/*", A.track(3)), true, "a pattern of one level")
-  eq(A.matches("paw://track/*", param), false, "not deeper")
-  eq(A.matches("paw://track/**", param), true, "unless asked")
+  eq(A.matches("paw://part/*", A.part(3)), true, "a pattern of one level")
+  eq(A.matches("paw://part/*", param), false, "not deeper")
+  eq(A.matches("paw://part/**", param), true, "unless asked")
 end)
 
 test("address: a workspace edit is checked whole and made as one undo step", function()
   fresh()
-  local t = paw.add_track({ name = "Lead" })
+  local t = paw.add_part({ name = "Lead" })
   local d = t:add_device("synth")
   local clip = t:add_clip({
     start = 0,
@@ -97,38 +97,38 @@ test("address: a workspace edit is checked whole and made as one undo step", fun
   api.undo_checkpoint()
   local before = api.project_get().edits
   local ok, why = A.edit({
-    { uri = A.track(t.id), set = { volume = -6 } },
+    { uri = A.part(t.id), set = { volume = -6 } },
     { uri = A.note(clip.id, 2), set = { pitch = 61 } },
-    { uri = "paw://track/999", set = { volume = 0 } },
+    { uri = "paw://part/999", set = { volume = 0 } },
   }, "Nothing")
   eq(ok, nil, "refused")
-  eq(why, "paw://track/999 is gone", "with why")
+  eq(why, "paw://part/999 is gone", "with why")
   eq(api.project_get().edits, before, "and nothing was done")
   eq(
-    select(2, A.edit({ { uri = A.track(t.id), set = { colour = 1 } } })),
-    "paw://track/" .. t.id .. ": cannot set `colour`",
+    select(2, A.edit({ { uri = A.part(t.id), set = { colour = 1 } } })),
+    "paw://part/" .. t.id .. ": cannot set `colour`",
     "an unknown field is refused"
   )
   ok = A.edit({
-    { uri = A.track(t.id), set = { volume = -6, pan = 0.25 } },
+    { uri = A.part(t.id), set = { volume = -6, pan = 0.25 } },
     { uri = A.note(clip.id, 2), set = { pitch = 61 } },
     { uri = A.note(clip.id, 1), delete = true },
     { uri = A.clip(clip.id), insert = { pitch = 67, start = 3, length = 1 } },
     { uri = A.param(d.id, "cutoff"), set = { value = 1000 } },
     { uri = A.device(d.id), set = { bypass = true } },
-    { uri = A.track(t.id), insert = { device = "delay" } },
+    { uri = A.part(t.id), insert = { device = "delay" } },
   }, "Everything at once")
   eq(ok, true, "made")
   paw.flush()
   api.undo_checkpoint()
-  local tr = api.track_get(t.id)
-  eq(tr.volume .. " " .. tr.pan, "-6 0.25", "the track")
+  local tr = api.part_get(t.id)
+  eq(tr.volume .. " " .. tr.pan, "-6 0.25", "the part")
   eq(ids(clip), "61#2 67#3", "the notes")
   eq(api.device_get(d.id).params.cutoff, 1000, "the parameter")
   eq(api.device_get(d.id).bypass, true, "the device")
   eq(#tr.devices, 2, "a device inserted")
   paw.undo()
-  tr = api.track_get(t.id)
+  tr = api.part_get(t.id)
   eq(tr.volume .. " " .. #tr.devices .. " " .. ids(clip), "0 1 60#1 62#2", "one undo takes all of it back")
 end)
 
@@ -160,14 +160,14 @@ test("address: changes are told as addresses, and renders are kept by path", fun
     end
   end
   local handler = paw.on("address.changed", note)
-  local t = paw.add_track({ name = "Pad" })
+  local t = paw.add_part({ name = "Pad" })
   paw.flush()
   t.volume = -3
   paw.flush()
   paw.off(handler)
-  eq(seen[A.track(t.id)], true, "the track's address")
+  eq(seen[A.part(t.id)], true, "the part's address")
   eq(seen[A.project()], true, "and the project's")
-  -- A removed device is told by its address under its track, which the
+  -- A removed device is told by its address under its part, which the
   -- event names: the device is gone and cannot say it.
   local gone = t:add_device("delay")
   paw.flush()
@@ -176,7 +176,7 @@ test("address: changes are told as addresses, and renders are kept by path", fun
   api.device_remove(gone.id)
   paw.flush()
   paw.off(handler)
-  eq(seen["paw://track/" .. t.id .. "/device/" .. gone.id], true, "a removed device's address")
+  eq(seen["paw://part/" .. t.id .. "/device/" .. gone.id], true, "a removed device's address")
   local path = T.scratch .. "/address.wav"
   t:add_device("synth")
   t:add_clip({ start = 0, length = 1, notes = { { pitch = 60, start = 0, length = 1 } } })

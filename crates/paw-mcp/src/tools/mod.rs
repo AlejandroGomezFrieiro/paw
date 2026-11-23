@@ -75,7 +75,7 @@ fn err<T>(msg: impl Into<String>) -> Result<T, ToolError> {
 /// Lists that Lua may hand over as an empty table, which is not an array
 /// until it is made one.
 const LISTS: [&str; 24] = [
-    "tracks", "clips", "devices", "lanes", "sends", "notes", "markers", "params", "messages",
+    "parts", "clips", "devices", "lanes", "sends", "notes", "markers", "params", "messages",
     "results", "findings", "published", "history", "redoable", "steps", "found", "param_info",
     "points", "removed", "skipped", "stems", "keys_used", "choices", "tempo_changes",
 ];
@@ -112,9 +112,9 @@ fn enrich(value: &mut Value, meter: &Meter) {
     }
 }
 
-/// The name of the undo step a call makes: `mcp: add_track Bass`.
+/// The name of the undo step a call makes: `mcp: add_part Bass`.
 fn undo_label(name: &str, a: &Map<String, Value>) -> String {
-    let subject = ["name", "track", "clip", "device", "marker"]
+    let subject = ["name", "part", "clip", "device", "marker"]
         .iter()
         .find_map(|key| match a.get(*key) {
             Some(Value::String(s)) => Some(s.clone()),
@@ -402,9 +402,9 @@ mod tests {
     #[test]
     fn arguments_are_checked() {
         let schema = &find("add_clip").unwrap().schema;
-        let ok = json!({"track": "Bass", "start": "2.1", "notes": ["C4 0 1", {"pitch": "E4"}]});
+        let ok = json!({"part": "Bass", "start": "2.1", "notes": ["C4 0 1", {"pitch": "E4"}]});
         assert!(validate(schema, ok.as_object().unwrap()).is_ok());
-        let typo = json!({"track": 1, "strat": 0});
+        let typo = json!({"part": 1, "strat": 0});
         assert!(
             validate(schema, typo.as_object().unwrap())
                 .unwrap_err()
@@ -416,9 +416,9 @@ mod tests {
             validate(schema, missing.as_object().unwrap())
                 .unwrap_err()
                 .0
-                .contains("missing required argument `track`")
+                .contains("missing required argument `part`")
         );
-        let wrong = json!({"track": 1, "notes": [{"pitch": "C4", "velocity": 300}]});
+        let wrong = json!({"part": 1, "notes": [{"pitch": "C4", "velocity": 300}]});
         assert!(
             validate(schema, wrong.as_object().unwrap())
                 .unwrap_err()
@@ -488,13 +488,13 @@ mod tests {
     #[test]
     fn data_names_what_a_musician_would() {
         let mut v = json!({
-            "tracks": {},
+            "parts": {},
             "clip": {"kind": "midi", "start": 8.0, "length": 4.0,
                      "notes": [{"id": 3, "pitch": 70, "start": 2.0, "length": 1.0, "velocity": 90}]},
             "marker": {"id": 1, "beat": 16.0, "region": true},
         });
         enrich(&mut v, &Meter::default());
-        assert_eq!(v["tracks"], json!([]));
+        assert_eq!(v["parts"], json!([]));
         assert_eq!(v["clip"]["at"], "3.1");
         assert_eq!(v["clip"]["notes"][0]["name"], "A#4");
         assert_eq!(v["clip"]["notes"][0]["at"], "1.3");
@@ -504,7 +504,7 @@ mod tests {
     #[test]
     fn an_undo_step_is_named_after_its_subject() {
         let a = json!({"name": "Bass", "volume": -3});
-        assert_eq!(undo_label("add_track", a.as_object().unwrap()), "mcp: add_track Bass");
+        assert_eq!(undo_label("add_part", a.as_object().unwrap()), "mcp: add_part Bass");
         let b = json!({"clip": 12});
         assert_eq!(undo_label("edit_clip", b.as_object().unwrap()), "mcp: edit_clip 12");
         assert_eq!(undo_label("set_project", &Map::new()), "mcp: set_project");

@@ -1,4 +1,4 @@
--- Subprojects (nests): tracks with a timeline of their own, placed in the
+-- Subprojects (nests): parts with a timeline of their own, placed in the
 -- song by nest clips. The kernel keeps them (crates/paw-core/src/model/nest.rs)
 -- and saves each in `nests/<name>/` of the project's folder; this module
 -- reads them and makes new ones.
@@ -8,10 +8,10 @@
 --   paw.nest.new({ name = "Ballad", bars = 8, num = 6, den = 8 })
 --
 -- A subproject made with `paw.nest.new` (`:nest.new`, `<Space>za`) has a
--- row of its own in the song, its return row: a usual track whose clip
--- (the block) plays the subproject's mix. Its tracks are usual tracks with
+-- row of its own in the song, its return row: a usual part whose clip
+-- (the block) plays the subproject's mix. Its parts are usual parts with
 -- a `nest`. Lower down: `paw.api.nest_add({ name = "Bridge", length = 32 })`,
--- then `paw.api.track_add({ nest = id })` for each of its tracks.
+-- then `paw.api.part_add({ nest = id })` for each of its parts.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
@@ -30,10 +30,10 @@ local type MarkersModule = require("paw.markers")
 local type ScopeModule = require("paw.scope")
 local type GroupsModule = require("paw.groups")
 
---- `paw.track_kinds` (paw/track_kinds.lua), the part this module calls.
-local record TrackKinds
-  kinds: registry.Registry<contracts.TrackKind>
-  add: function(name: string, opts: {string: string}): objects.Track
+--- `paw.part_kinds` (paw/part_kinds.lua), the piece this module calls.
+local record PartKinds
+  kinds: registry.Registry<contracts.PartKind>
+  add: function(name: string, opts: {string: string}): objects.Part
 end
 
 --- `paw.loading` (paw/loading.lua), the part this module calls.
@@ -48,11 +48,11 @@ local record Paw is partial.Paw
   groups: GroupsModule
   time: objects.Time
   loading: Loading
-  add_track: function(opts?: objects.TrackInput): objects.Track
+  add_part: function(opts?: objects.PartInput): objects.Part
 end
 local paw = (_G as {string: Paw}).paw
 
-local clip_list = api.clip_list as function(track: integer, from?: number, to?: number): {types.Clip}
+local clip_list = api.clip_list as function(part: integer, from?: number, to?: number): {types.Clip}
 
 --- What `paw.nest.new` takes. Beats are of the window's time.
 local record NewOptions
@@ -70,10 +70,10 @@ local record NewOptions
   --- Its time; `from` alone: `bars` bars from there.
   from: number
   to: number
-  --- The track its row goes below: the cursor's when nil.
+  --- The part its row goes below: the cursor's when nil.
   below: integer
   --- A kind of subproject (`paw.nest.define_kind`): its `create` makes
-  --- the tracks, in place of the one empty track.
+  --- the parts, in place of the one empty part.
   kind: string
 end
 
@@ -82,7 +82,7 @@ local record Made
   nest: integer
   row: integer
   clip: integer
-  track: integer
+  part: integer
   message: string
 end
 
@@ -145,7 +145,7 @@ local record M
   entered: events.Event<Crossed>
   --- The event `nest.leave`: a window came out of a subproject.
   left: events.Event<Crossed>
-  --- The event `nest.changed`: an edit changed the tracks, clips, devices
+  --- The event `nest.changed`: an edit changed the parts, clips, devices
   --- or lanes of a subproject. It comes once for each undo step.
   changed: events.Event<Changed>
   --- Sends the events of the edits made until now: `paw.flush`, which
@@ -155,11 +155,11 @@ end
 
 local opt = options.opt
 options.define(
-  "nest_track", "track"
-) -- the track a new subproject starts with: "track" (a plain track, as `o` adds), or a kind of track (`vocal`)
+  "nest_part", "part"
+) -- the part a new subproject starts with: "part" (a plain part, as `o` adds), or a kind of part (`vocal`)
 
 --- Every subproject, in the order they were made: { id, name, length,
---- tempo, meter, master, tracks, kind, meta, used }.
+--- tempo, meter, master, parts, kind, meta, used }.
 function M.list(): {types.Nest}
   local out: {types.Nest} = {}
   for _, id in ipairs(api.nest_list()) do
@@ -240,9 +240,9 @@ function M.letter(nest: integer): string
   return kind and kind.letter
 end
 
---- Make the tracks of a new subproject of `kind` with its `create`, and
---- keep the data it gives. A kind that makes no track gets one empty
---- track. Gives the first track of the subproject.
+--- Make the parts of a new subproject of `kind` with its `create`, and
+--- keep the data it gives. A kind that makes no part gets one empty
+--- part. Gives the first part of the subproject.
 local function create(kind: contracts.NestKind<Data>, region: contracts.NestRegion): integer
   if kind.create then
     local data, why = kind.create(region)
@@ -253,25 +253,25 @@ local function create(kind: contracts.NestKind<Data>, region: contracts.NestRegi
       M.set_data(region.nest, data)
     end
   end
-  local tracks = api.nest_get(region.nest).tracks
-  if #tracks == 0 then
-    return api.track_add({nest = region.nest} as types.TrackOptions)
+  local parts = api.nest_get(region.nest).parts
+  if #parts == 0 then
+    return api.part_add({nest = region.nest} as types.PartOptions)
   end
-  return tracks[1]
+  return parts[1]
 end
 
--- The subproject of each track of a subproject, as the last edit left
--- them: a track that an edit removes is no longer in the kernel.
-local nest_tracks: {integer: integer} = {}
+-- The subproject of each part of a subproject, as the last edit left
+-- them: a part that an edit removes is no longer in the kernel.
+local nest_parts: {integer: integer} = {}
 
---- Read the tracks of every subproject again into `nest_tracks`.
-local function remember_tracks()
-  nest_tracks = {}
+--- Read the parts of every subproject again into `nest_parts`.
+local function remember_parts()
+  nest_parts = {}
   for _, n in ipairs(api.nest_list()) do
     local got = api.nest_get(n)
-    nest_tracks[got.master] = n
-    for _, id in ipairs(got.tracks) do
-      nest_tracks[id] = n
+    nest_parts[got.master] = n
+    for _, id in ipairs(got.parts) do
+      nest_parts[id] = n
     end
   end
 end
@@ -327,21 +327,21 @@ events.on(
       events.emit(M.entered, {nest = now[i].id, win = e.win, clip = now[i].clip})
     end
     if #now > kept then
-      -- The edits inside come next: `nest.changed` finds the tracks that
+      -- The edits inside come next: `nest.changed` finds the parts that
       -- they remove.
       if events.listened(M.changed.name) then
-        remember_tracks()
+        remember_parts()
       end
       enter_kind(now[#now].id)
     end
   end
 )
 
---- The fields of a change's payload that name a track: `id` for the
---- events of a track, `track` for a clip, device, lane or cue.
+--- The fields of a change's payload that name a part: `id` for the
+--- events of a part, `part` for a clip, device, lane or cue.
 local record Touched
   id: integer
-  track: integer
+  part: integer
 end
 --- One change of an edit, as `edit.after` gives it (paw/hooks.tl).
 local record EditChange
@@ -357,18 +357,18 @@ end
 -- a higher layer, so this one names the event by its own descriptor.
 local edit_after: events.Event<EditDone> = events.event("edit.after")
 
---- The subproject of a track, or nil for a track of the song.
-local function nest_of_track(id: integer): integer
-  local ok, n = pcall(api.track_get as (function(integer, string): integer), id, "nest") as (boolean, integer)
+--- The subproject of a part, or nil for a part of the song.
+local function nest_of_part(id: integer): integer
+  local ok, n = pcall(api.part_get as (function(integer, string): integer), id, "nest") as (boolean, integer)
   if ok then
     return n
   end
-  return nest_tracks[id]
+  return nest_parts[id]
 end
 
 -- `nest.changed` once for each subproject that an edit changed, in the
 -- order of its first change. Only while something listens to it: the work
--- reads each change's track. This handler makes paw/hooks.tl send
+-- reads each change's part. This handler makes paw/hooks.tl send
 -- `edit.after` for each edit, which costs a few calls of the kernel.
 events.on(
   edit_after,
@@ -380,8 +380,8 @@ events.on(
     local seen: {integer: boolean} = {}
     for _, change in ipairs(e.changes) do
       local p = change.payload
-      local track = change.name:match("^track%.") and p.id or p.track
-      local nest = track and nest_of_track(track)
+      local part = change.name:match("^part%.") and p.id or p.part
+      local nest = part and nest_of_part(part)
       if nest and not seen[nest] then
         seen[nest] = true
         order[#order + 1] = nest
@@ -390,7 +390,7 @@ events.on(
     for _, nest in ipairs(order) do
       events.emit(M.changed, {nest = nest, state = e.state})
     end
-    remember_tracks()
+    remember_parts()
   end
 )
 
@@ -435,18 +435,18 @@ local function write_meter(from: number, to: number, num: integer, den: integer)
 end
 
 --- Move what starts at or after beat `at` of the window by `by` beats: the
---- clips and the automation of the tracks of the place `place` (the song
+--- clips and the automation of the parts of the place `place` (the song
 --- when nil, with its master), and in the song its markers, regions and
 --- tempo and meter changes. Part of the caller's undo step.
 local function shift_after(place: ScopeModule.Scope, at: number, by: number)
-  local tracks = api.track_list({nest = place and place.id or nil})
+  local parts = api.part_list({nest = place and place.id or nil})
   if not place then
-    tracks[#tracks + 1] = 0
+    parts[#parts + 1] = 0
   end
   local function moved(beat: number): number
     return beat >= at - 1e-9 and math.max(0, beat + by) or beat
   end
-  for _, id in ipairs(tracks) do
+  for _, id in ipairs(parts) do
     -- Later clips first when they move later, so that none lands on one not moved yet.
     local clips = clip_list(id)
     for i = 1, #clips do
@@ -489,33 +489,33 @@ local function shift_after(place: ScopeModule.Scope, at: number, by: number)
   api.tempo_set_points(tempos, signatures)
 end
 
---- The first track of a new subproject, in the window that is inside it:
---- `paw.opt.nest_track`.
-local function first_track(): objects.Track
-  local kind = opt.nest_track as string
-  local kinds = (paw.track_kinds as TrackKinds)
-  if kind and kind ~= "" and kind ~= "track" then
+--- The first part of a new subproject, in the window that is inside it:
+--- `paw.opt.nest_part`.
+local function first_part(): objects.Part
+  local kind = opt.nest_part as string
+  local kinds = (paw.part_kinds as PartKinds)
+  if kind and kind ~= "" and kind ~= "part" then
     if not kinds.kinds:get(kind) then
-      error("nest_track is `" .. kind .. "`, which is no kind of track here", 0)
+      error("nest_part is `" .. kind .. "`, which is no kind of part here", 0)
     end
     return kinds.add(kind, {})
   end
-  return paw.add_track()
+  return paw.add_part()
 end
 
---- A new return row named `name` where `o` on track `below` puts a track,
---- among the tracks of `place` (the subproject the window shows, or the
+--- A new return row named `name` where `o` on part `below` puts a part,
+--- among the parts of `place` (the subproject the window shows, or the
 --- song): after `below`, and in the group that `o` puts it in, so it
 --- plays into that group. Returns the row and its group (nil at the top
 --- level).
-local function return_row(name: string, below: integer, place: ScopeModule.Scope): objects.Track, integer
+local function return_row(name: string, below: integer, place: ScopeModule.Scope): objects.Part, integer
   local index: integer
-  for i, id in ipairs(api.track_list({nest = place and place.id or nil})) do
+  for i, id in ipairs(api.part_list({nest = place and place.id or nil})) do
     if id == below then
       index = i + 1
     end
   end
-  local row = paw.add_track({name = name, index = index})
+  local row = paw.add_part({name = name, index = index})
   local group = index and paw.groups.home(below)
   if group then
     paw.groups.add(row.id, group)
@@ -526,14 +526,14 @@ end
 --- The words of a message on the group of a return row: ` in the group
 --- Keys`, or nothing at the top level.
 local function group_words(group: integer): string
-  return group and (" in the group " .. (api.track_get(group) as types.Track).name) or ""
+  return group and (" in the group " .. (api.part_get(group) as types.Part).name) or ""
 end
 
 --- Make a subproject with a row of its own, as `:nest.new` does (see the
 --- top): the subproject over the time given, a return row below the
---- track `below` (in its group, as `o` puts a track) with one block, the
+--- part `below` (in its group, as `o` puts a part) with one block, the
 --- meter in the song's map when one is given; then the window enters it,
---- with one empty track (`paw.opt.nest_track`), or with the tracks that
+--- with one empty part (`paw.opt.nest_part`), or with the parts that
 --- the `create` of its kind (`o.kind`) makes. Call it in one undo step (a
 --- command is one).
 function M.new(o: NewOptions): Made
@@ -607,22 +607,22 @@ function M.new(o: NewOptions): Made
   -- The words of the message: the song's bars, the meter written.
   local where = bars_text(from, to)
   local nest = api.nest_add({name = name, length = to - from, meter = meter, tempo = tempo, kind = o.kind})
-  -- The return row, below the track given (in the place the window
-  -- shows), where `o` puts a track: in its group, if it has one.
-  local below = o.below or paw.cursor.track_id()
+  -- The return row, below the part given (in the place the window
+  -- shows), where `o` puts a part: in its group, if it has one.
+  local below = o.below or paw.cursor.part_id()
   local row, group = return_row(name, below, place)
   local clip = api.clip_add(row.id, {nest = nest, start = from} as types.ClipOptions)
-  local track: integer
+  local part: integer
   if kind then
-    -- The kind makes the tracks before the window enters, so that its
+    -- The kind makes the parts before the window enters, so that its
     -- `enter` finds them and its data.
-    track = create(kind, {nest = nest, row = row.id, clip = clip, name = name, from = from, to = to})
+    part = create(kind, {nest = nest, row = row.id, clip = clip, name = name, from = from, to = to})
     paw.scope.enter({kind = "nest", id = nest, clip = clip})
   else
     paw.scope.enter({kind = "nest", id = nest, clip = clip})
-    track = first_track().id
+    part = first_part().id
   end
-  paw.cursor.set_track(track)
+  paw.cursor.set_part(part)
   paw.cursor.set_beat(0)
   local message = string.format(
     "added the subproject %s%s over %s%s%s, on its own row%s; inside it now: `zw` goes back",
@@ -645,7 +645,7 @@ function M.new(o: NewOptions): Made
         moved < 0 and "earlier" or "later"
       )
   end
-  return {nest = nest, row = row.id, clip = clip, track = track, message = message}
+  return {nest = nest, row = row.id, clip = clip, part = part, message = message}
 end
 
 --- `:nest.new`'s words: a meter (`6/8`), a number of bars (`8`), and the
@@ -728,31 +728,31 @@ command.define(
   {
     range = true,
     label = "Add a subproject",
-    desc = "Add a subproject with its own row and tracks, and go inside: `nest.new Ballad 8 6/8` (8 bars of 6/8 from the cursor's bar; `meter=own` keeps the song's meter, `tempo=own` gives it its own tempo, `kind=` makes a kind of subproject that an extension defines); over the selection or the region at the cursor when no bars are given",
+    desc = "Add a subproject with its own row and parts, and go inside: `nest.new Ballad 8 6/8` (8 bars of 6/8 from the cursor's bar; `meter=own` keeps the song's meter, `tempo=own` gives it its own tempo, `kind=` makes a kind of subproject that an extension defines); over the selection or the region at the cursor when no bars are given",
   }
 )
 
 -- Blocks: the clips that place a subproject ----------------------------------------------
 
-local track_nest = api.track_get as function(id: integer, key: string): integer
-local track_name = api.track_get as function(id: integer, key: string): string
+local part_nest = api.part_get as function(id: integer, key: string): integer
+local part_name = api.part_get as function(id: integer, key: string): string
 
---- A track's name.
+--- A part's name.
 local function name_of(id: integer): string
-  return track_name(id, "name")
+  return part_name(id, "name")
 end
 
---- The subproject a track belongs to, or nil for a track of the song.
-local function nest_of(track: integer): integer
-  local ok, n = pcall(track_nest, track, "nest") as (boolean, integer)
+--- The subproject a part belongs to, or nil for a part of the song.
+local function nest_of(part: integer): integer
+  local ok, n = pcall(part_nest, part, "nest") as (boolean, integer)
   return ok and n or nil
 end
 
---- The track that a clip plays alone (a stem), or nil when it plays the mix.
+--- The part that a clip plays alone (a stem), or nil when it plays the mix.
 local function stem_of(c: types.Clip): integer
   local play = c.play
-  if play is types.NestTrack then
-    return play.track
+  if play is types.NestPart then
+    return play.part
   end
   return nil
 end
@@ -760,7 +760,7 @@ end
 --- Every clip that places subproject `nest`, in order of time.
 function M.blocks(nest: integer): {Block}
   local out: {Block} = {}
-  for _, id in ipairs(api.track_list({all = true})) do
+  for _, id in ipairs(api.part_list({all = true})) do
     for _, c in ipairs(clip_list(id)) do
       if c.nest == nest then
         out[#out + 1] = {clip = c, row = id}
@@ -908,7 +908,7 @@ function M.notes(c: types.Clip, limit?: integer): {types.Note}
   local offset, length = c.offset or 0, c.length
   local only = stem_of(c)
   limit = limit or 2000
-  for _, t in ipairs(api.track_list({nest = c.nest})) do
+  for _, t in ipairs(api.part_list({nest = c.nest})) do
     if not only or only == t then
       for _, inner in ipairs(clip_list(t, offset, offset + length)) do
         if inner.kind == "midi" and inner.note_count > 0 then
@@ -930,7 +930,7 @@ end
 --- clips of its subproject, and the block's own place in it.
 function M.content_key(c: types.Clip): string
   local sum = 0.0
-  for _, t in ipairs(api.track_list({nest = c.nest})) do
+  for _, t in ipairs(api.part_list({nest = c.nest})) do
     for _, inner in ipairs(clip_list(t)) do
       sum = sum + (inner.stamp or 0) + inner.start * 7 + inner.length * 13
     end
@@ -977,9 +977,9 @@ end
 --- What `K` says of a block, in three lines. The first gives the
 --- subproject, its meter, its bars, its tempo and whether it is live or
 --- frozen, with the stem's name after it for a stem. The second gives its
---- tracks, and the third gives the bars of the song where it plays, for
+--- parts, and the third gives the bars of the song where it plays, for
 --- example `subproject Ballad · 6/8 · 8 bars · follows the tempo · live`,
---- `2 tracks: Piano, Strings` and `plays in 2 places: @9 (here), @25`.
+--- `2 parts: Piano, Strings` and `plays in 2 places: @9 (here), @25`.
 --- `c` is the clip, in the window's time.
 function M.describe(c: types.Clip): {string}
   local n = M.get(c.nest)
@@ -999,7 +999,7 @@ function M.describe(c: types.Clip): {string}
     bars = paw.time.bar_of(zero + n.length - 1e-6) - paw.time.bar_of(zero) + 1
   end
   local names: {string} = {}
-  for i, id in ipairs(n.tracks) do
+  for i, id in ipairs(n.parts) do
     names[i] = name_of(id)
   end
   local where = places(c.nest, c)
@@ -1016,7 +1016,7 @@ function M.describe(c: types.Clip): {string}
       stem_of(c) and (" · the stem " .. name_of(stem_of(c))) or ""
     ),
     string.format(
-      "%d track%s%s", #names, #names == 1 and "" or "s", #names > 0 and (": " .. table.concat(names, ", ")) or ""
+      "%d part%s%s", #names, #names == 1 and "" or "s", #names > 0 and (": " .. table.concat(names, ", ")) or ""
     ),
     string.format("plays in %d place%s: %s", #where, #where == 1 and "" or "s", table.concat(where, ", ")),
   }
@@ -1054,7 +1054,7 @@ local function shows_place_of(row: integer): boolean
   return (here and here.id or nil) == nest_of(row)
 end
 
---- The tracks to draw under a row that is open in place, or nil
+--- The parts to draw under a row that is open in place, or nil
 --- (`paw.groups.rows` asks for each row).
 function M.under(row: integer): {integer}
   local n = open[row]
@@ -1064,16 +1064,16 @@ function M.under(row: integer): {integer}
   if not (shows_place_of(row) and block_on(row, n)) then
     return nil
   end
-  return api.track_list({nest = n})
+  return api.part_list({nest = n})
 end
 
---- The return row that a track of a subproject is shown under, in place
---- (`za`), or nil for any other track.
-function M.shown_under(track: integer): integer
+--- The return row that a part of a subproject is shown under, in place
+--- (`za`), or nil for any other part.
+function M.shown_under(part: integer): integer
   if next(open) == nil then
     return nil
   end
-  local n = nest_of(track)
+  local n = nest_of(part)
   if not n then
     return nil
   end
@@ -1085,12 +1085,12 @@ function M.shown_under(track: integer): integer
   return nil
 end
 
---- For a track shown in place under its return row: each block of the
+--- For a part shown in place under its return row: each block of the
 --- row that plays the whole subproject, in order of time. The arrange view
---- draws the track's clips in each of them, and nothing outside them.
---- Nil for any other track.
-function M.windows(track: integer): {Window}
-  local row = M.shown_under(track)
+--- draws the part's clips in each of them, and nothing outside them.
+--- Nil for any other part.
+function M.windows(part: integer): {Window}
+  local row = M.shown_under(part)
   if not row then
     return nil
   end
@@ -1104,13 +1104,13 @@ function M.windows(track: integer): {Window}
   return out
 end
 
---- For a track of a subproject shown in place under its return row: the
+--- For a part of a subproject shown in place under its return row: the
 --- beat of the window where the subproject's beat 0 is, for the block of
 --- the row at `beat` (the first block when none is there). Nil for any
---- other track. The arrange view draws its clips that much later, and
+--- other part. The arrange view draws its clips that much later, and
 --- the cursor finds them there.
-function M.shift(track: integer, beat: number): number
-  local windows = M.windows(track)
+function M.shift(part: integer, beat: number): number
+  local windows = M.windows(part)
   if not windows or #windows == 0 then
     return nil
   end
@@ -1131,14 +1131,14 @@ function M.returns(row: integer): integer
   return returned(row)
 end
 
---- What `za` on a return row says: the tracks shown, and that an edit
+--- What `za` on a return row says: the parts shown, and that an edit
 --- there changes each place the song plays the subproject in, by the
 --- song's bars (`@9`).
 local function shown_words(nest: integer): string
   local n = M.get(nest)
-  local tracks = #api.track_list({nest = nest})
+  local parts = #api.part_list({nest = nest})
   local words = string.format(
-    "showing the %d track%s of ⧉%s under its row", tracks, tracks == 1 and "" or "s", n and n.name or "?"
+    "showing the %d part%s of ⧉%s under its row", parts, parts == 1 and "" or "s", n and n.name or "?"
   )
   local count = M.places(nest)
   if count < 2 then
@@ -1167,28 +1167,28 @@ local function closed_words(nest: integer): string
   return string.format("closed ⧉%s under its row", n and n.name or "?")
 end
 
---- `za` on a return row: open its subproject's tracks under it, in the
---- song's time, or close them. On a track shown in place: close its row.
---- False when the track is neither.
-function M.toggle(track: integer): boolean
+--- `za` on a return row: open its subproject's parts under it, in the
+--- song's time, or close them. On a part shown in place: close its row.
+--- False when the part is neither.
+function M.toggle(part: integer): boolean
   for row, n in pairs(open) do
-    if nest_of(track) == n and row ~= track then
+    if nest_of(part) == n and row ~= part then
       open[row] = nil
       paw.notify(closed_words(n))
-      paw.cursor.set_track(row)
+      paw.cursor.set_part(row)
       api.ui_redraw()
       return true
     end
   end
-  local n = returned(track)
+  local n = returned(part)
   if not n then
     return false
   end
-  if open[track] then
-    open[track] = nil
+  if open[part] then
+    open[part] = nil
     paw.notify(closed_words(n))
   else
-    open[track] = n
+    open[part] = n
     paw.notify(shown_words(n))
   end
   api.ui_redraw()
@@ -1207,7 +1207,7 @@ local function items(): {Item}
   for _, n in ipairs(M.list()) do
     local blocks = M.blocks(n.id)
     if #blocks == 0 then
-      out[#out + 1] = {nest = n.id, label = string.format("%s · unused · %d tracks", n.name, #n.tracks)}
+      out[#out + 1] = {nest = n.id, label = string.format("%s · unused · %d parts", n.name, #n.parts)}
     end
     for _, b in ipairs(blocks) do
       local row = name_of(b.row)
@@ -1215,11 +1215,11 @@ local function items(): {Item}
         nest = n.id,
         clip = b.clip.id,
         label = string.format(
-          "%s · bar %d on %s · %d tracks%s",
+          "%s · bar %d on %s · %d parts%s",
           n.name,
           paw.time.bar_of(b.clip.start),
           row,
-          #n.tracks,
+          #n.parts,
           stem_of(b.clip) and (" · stem " .. name_of(stem_of(b.clip))) or ""
         ),
       }
@@ -1262,12 +1262,12 @@ command.define(
 
 -- Outputs: one stereo return, or stems ---------------------------------------------------
 
-local track_meta = api.track_get as function(id: integer, key: string): types.Meta
+local part_meta = api.part_get as function(id: integer, key: string): types.Meta
 
---- The meta of a track, a copy to change.
+--- The meta of a part, a copy to change.
 local function meta_of(id: integer): types.Meta
   local out: types.Meta = {}
-  local ok, m = pcall(track_meta, id, "meta")
+  local ok, m = pcall(part_meta, id, "meta")
   for k, v in pairs(ok and m or {}) do
     out[k] = v
   end
@@ -1275,13 +1275,13 @@ local function meta_of(id: integer): types.Meta
 end
 
 local function set_meta(id: integer, m: types.Meta)
-  api.track_set(id, {meta = m})
+  api.part_set(id, {meta = m})
 end
 
---- The stem rows of a subproject under a row: tracks marked `nest_stem`.
+--- The stem rows of a subproject under a row: parts marked `nest_stem`.
 local function stem_rows(row: integer, nest: integer): {integer}
   local out: {integer} = {}
-  for _, id in ipairs(api.track_list({all = true})) do
+  for _, id in ipairs(api.part_list({all = true})) do
     local m = meta_of(id)
     if m.group == row and m.nest_stem == nest then
       out[#out + 1] = id
@@ -1293,7 +1293,7 @@ end
 --- The subproject and the return row at the cursor: the block under the
 --- cursor, else the row's block, else the group row of its stems.
 local function at_cursor(): integer, integer
-  local id = paw.cursor.track_id()
+  local id = paw.cursor.part_id()
   if not id or id == 0 then
     return nil, nil
   end
@@ -1305,7 +1305,7 @@ local function at_cursor(): integer, integer
   if n then
     return n, id
   end
-  for _, other in ipairs(api.track_list({all = true})) do
+  for _, other in ipairs(api.part_list({all = true})) do
     local om = meta_of(other)
     if om.group == id and om.nest_stem then
       return om.nest_stem as integer, id
@@ -1314,7 +1314,7 @@ local function at_cursor(): integer, integer
   return nil, nil
 end
 
---- Give a subproject one row of its own for each of its tracks (`stems`),
+--- Give a subproject one row of its own for each of its parts (`stems`),
 --- or one stereo return again (`master`), on its return row `row`. Call it
 --- in one undo step. Returns the message.
 function M.outputs(nest: integer, row: integer, how: string): string
@@ -1333,8 +1333,8 @@ function M.outputs(nest: integer, row: integer, how: string): string
     if #blocks == 0 then
       error(n.name .. " has stems already: `:nest.outputs master` gives one row again", 0)
     end
-    if #n.tracks == 0 then
-      error(n.name .. " has no tracks to make stems of", 0)
+    if #n.parts == 0 then
+      error(n.name .. " has no parts to make stems of", 0)
     end
     if m.group_head then
       error(name_of(row) .. " is a group already", 0)
@@ -1343,21 +1343,21 @@ function M.outputs(nest: integer, row: integer, how: string): string
     -- sends and devices act on their sum, as on the stereo return.
     m.group_head, m.nest_stems = true, nest
     set_meta(row, m)
-    -- The bus each track played into in the song before `:scope.write!`
+    -- The bus each part played into in the song before `:scope.write!`
     -- took it, when they played into several: its stem plays there again.
     local buses = (m.nest_buses or {}) as {string: integer}
     local names: {string} = {}
-    for i, t in ipairs(n.tracks) do
+    for i, t in ipairs(n.parts) do
       local name = name_of(t)
       names[i] = name
-      local stem = api.track_add({name = name, nest = nest_of(row)})
+      local stem = api.part_add({name = name, nest = nest_of(row)})
       local sm = meta_of(stem)
       sm.nest_stem = nest
       set_meta(stem, sm)
       for _, c in ipairs(blocks) do
         local made = api.clip_add(
           stem,
-          {nest = nest, start = c.start, length = c.length, offset = c.offset, play = {track = t}} as types.ClipOptions
+          {nest = nest, start = c.start, length = c.length, offset = c.offset, play = {part = t}} as types.ClipOptions
         )
         if c.muted then
           api.clip_set(made, {muted = true})
@@ -1365,15 +1365,15 @@ function M.outputs(nest: integer, row: integer, how: string): string
       end
       paw.groups.add(stem, row)
       local bus = buses[tostring(t)]
-      if bus and pcall(track_name, bus, "name") then
-        api.track_set(stem, {output = bus})
+      if bus and pcall(part_name, bus, "name") then
+        api.part_set(stem, {output = bus})
       end
     end
     for _, c in ipairs(blocks) do
       api.clip_remove(c.id)
     end
     return string.format(
-      "%s: a stem row for each track, %s, under %s", n.name, table.concat(names, " and "), name_of(row)
+      "%s: a stem row for each part, %s, under %s", n.name, table.concat(names, " and "), name_of(row)
     )
   elseif how == "master" then
     local stems = stem_rows(row, nest)
@@ -1392,7 +1392,7 @@ function M.outputs(nest: integer, row: integer, how: string): string
       end
     end
     for _, s in ipairs(stems) do
-      api.track_remove(s)
+      api.part_remove(s)
     end
     m = meta_of(row)
     m.nest_stems = nil
@@ -1417,7 +1417,7 @@ command.define(
   end,
   {
     label = "Change the outputs of the subproject",
-    desc = "Give the subproject at the cursor a row for each of its tracks, under its row (`nest.outputs stems`), or one row again (`nest.outputs master`)",
+    desc = "Give the subproject at the cursor a row for each of its parts, under its row (`nest.outputs stems`), or one row again (`nest.outputs master`)",
     complete = function(): {string} return {"stems", "master"} end,
   }
 )
@@ -1442,7 +1442,7 @@ local function block_at_cursor(): types.Clip
       return c
     end
   end
-  local id = paw.cursor.track_id()
+  local id = paw.cursor.part_id()
   local n = id and id ~= 0 and returned(id)
   return n and block_on(id, n) or nil
 end
@@ -1509,11 +1509,11 @@ local function tempo_into_song(c: types.Clip, n: types.Nest): string
 end
 
 --- Promote the subproject of block `clip` to a view, as `:nest.promote`
---- does: its tracks come back in a group named after it at the place of
+--- does: its parts come back in a group named after it at the place of
 --- its return row (`paw.api.nest_promote`); its regions come back as
 --- children of a region named after it over the block (made if there is
 --- none); its own meter goes into the song's map over the block; and the
---- window that was inside it is now inside a view of the group's tracks
+--- window that was inside it is now inside a view of the group's parts
 --- over the region's time, at the same place. With `deep`, the
 --- subprojects inside it too. Call it in one undo step. Returns the message.
 function M.promote(clip: integer, deep?: boolean): string
@@ -1526,8 +1526,8 @@ function M.promote(clip: integer, deep?: boolean): string
   local old_name = n.name
   local inside = paw.scope.nest()
   local was_inside = inside and inside.id == n.id
-  local track, beat = paw.cursor.track_id(), paw.cursor.beat
-  -- Per track: the row that each of its tracks plays on.
+  local part, beat = paw.cursor.part_id(), paw.cursor.beat
+  -- Per part: the row that each of its parts plays on.
   local row_of: {integer: integer} = {}
   for _, b in ipairs(M.blocks(n.id)) do
     local t = stem_of(b.clip)
@@ -1584,34 +1584,34 @@ function M.promote(clip: integer, deep?: boolean): string
       regions = regions + 1
     end
   end
-  -- The view that takes its place: the group's tracks over the region's
-  -- time; per track, the rows.
-  local tracks: {integer} = {r.group}
-  for _, id in ipairs(r.tracks) do
-    tracks[#tracks + 1] = id
+  -- The view that takes its place: the group's parts over the region's
+  -- time; per part, the rows.
+  local parts: {integer} = {r.group}
+  for _, id in ipairs(r.parts) do
+    parts[#parts + 1] = id
   end
   paw.scope.widen(true)
-  paw.scope.enter({kind = "range", tracks = tracks, from = parent.beat, to = parent.beat + parent.length})
+  paw.scope.enter({kind = "range", parts = parts, from = parent.beat, to = parent.beat + parent.length})
   paw.scope.name(n.name)
   if was_inside and not r.group then
-    -- Its clips went back to the rows: the cursor on the row of its track.
-    track = row_of[track] or r.tracks[1]
+    -- Its clips went back to the rows: the cursor on the row of its part.
+    part = row_of[part] or r.parts[1]
   end
   if was_inside then
-    paw.cursor.set_track(track)
+    paw.cursor.set_part(part)
     paw.cursor.set_beat(beat + r.zero)
   else
-    paw.cursor.set_track(tracks[1])
+    paw.cursor.set_part(parts[1])
     paw.cursor.set_beat(r.from)
   end
   local words: {string} = {}
   if r.group then
     words[1] = string.format(
-      "promoted %s: %d track%s in the group %s, %s", n.name, #r.tracks, #r.tracks == 1 and "" or "s", n.name, where
+      "promoted %s: %d part%s in the group %s, %s", n.name, #r.parts, #r.parts == 1 and "" or "s", n.name, where
     )
   else
     words[1] = string.format(
-      "promoted %s: its clips back on %d row%s, %s", n.name, #r.tracks, #r.tracks == 1 and "" or "s", where
+      "promoted %s: its clips back on %d row%s, %s", n.name, #r.parts, #r.parts == 1 and "" or "s", where
     )
   end
   if regions > 0 then
@@ -1634,7 +1634,7 @@ function M.promote(clip: integer, deep?: boolean): string
   end
   -- The subprojects inside it, with `!`.
   if deep then
-    for _, id in ipairs(r.tracks) do
+    for _, id in ipairs(r.parts) do
       for _, inner in ipairs(clip_list(id)) do
         if inner.nest and not stem_of(inner) then
           local ok, said = pcall(M.promote, inner.id, true) as (boolean, string)
@@ -1659,7 +1659,7 @@ for _, bang in ipairs({"", "!"}) do
     {
       label = "Promote the subproject to a view",
       desc = bang == ""
-        and "Promote the subproject at the cursor to a view: its tracks come back into the song in a group named after it, and a view of them takes its place" or "Promote the subproject at the cursor to a view, and the subprojects inside it too",
+        and "Promote the subproject at the cursor to a view: its parts come back into the song in a group named after it, and a view of them takes its place" or "Promote the subproject at the cursor to a view, and the subprojects inside it too",
     }
   )
 end
@@ -1824,7 +1824,7 @@ command.define(
   }
 )
 
--- Save a view: <Space>zw per track, <Space>zW with a row of its own ----------------------
+-- Save a view: <Space>zw per part, <Space>zW with a row of its own ----------------------
 
 --- The meter of the window's time from `from` to `to` (its beats): the
 --- meter at `from` and its changes inside, from beat 0, as a subproject
@@ -1860,11 +1860,11 @@ local function view_name(s: contracts.Scope, fallback?: string): string
   return fallback or ("Subproject " .. (#api.nest_list() + 1))
 end
 
---- The time of the tracks when a view has none: from 0 to the end of
+--- The time of the parts when a view has none: from 0 to the end of
 --- their last clip.
-local function extent(tracks: {integer}): number
+local function extent(parts: {integer}): number
   local to = 0.0
-  for _, id in ipairs(tracks) do
+  for _, id in ipairs(parts) do
     for _, c in ipairs(clip_list(id)) do
       to = math.max(to, c.start + c.length)
     end
@@ -1902,10 +1902,10 @@ local function move_markers(nest: integer, from: number, to: number): integer
 end
 
 --- The names of `ids` as a message lists them: "Piano and Pad", "Kick,
---- Snare and Bass", or "8 tracks" when there are more than three.
+--- Snare and Bass", or "8 parts" when there are more than three.
 local function names_text(ids: {integer}): string
   if #ids > 3 then
-    return #ids .. " tracks"
+    return #ids .. " parts"
   end
   local names: {string} = {}
   for i, id in ipairs(ids) do
@@ -1931,13 +1931,13 @@ local function buses_text(ids: {integer}): string
 end
 
 --- What `:scope.write!` says about where its return row plays, or nil
---- when it plays where the tracks played and that is not a group. `view`
---- is the view's tracks: the group track of a view whose tracks all moved
+--- when it plays where the parts played and that is not a group. `view`
+--- is the view's parts: the group part of a view whose parts all moved
 --- is the return row.
 local function route_words(saved: types.NestSaved, view: {integer}, name: string, span: string, stems: boolean): string
   for _, id in ipairs(view) do
     if id == saved.row then
-      return string.format("the group track %s is its row now, so it plays as before", name_of(id))
+      return string.format("the group part %s is its row now, so it plays as before", name_of(id))
     end
   end
   if saved.group then
@@ -1948,7 +1948,7 @@ local function route_words(saved: types.NestSaved, view: {integer}, name: string
   end
   local buses = buses_text(saved.buses)
   if stems then
-    return string.format("a stem row for each track, so %s still process %s", buses, span)
+    return string.format("a stem row for each part, so %s still process %s", buses, span)
   end
   local one = #saved.buses == 1
   return string.format(
@@ -1962,15 +1962,15 @@ local function route_words(saved: types.NestSaved, view: {integer}, name: string
 end
 
 --- Save the window's view as a subproject, as `:scope.write` does: per
---- track, or with a row of its own (`own_row`, `:scope.write!`). The
+--- part, or with a row of its own (`own_row`, `:scope.write!`). The
 --- view's clips move into the subproject (`paw.api.nest_save`); the rows
 --- get its blocks. In a view with time, its markers and regions inside
 --- move in, and a region over its time stays; a view with no time takes
 --- none of them. The meter of the time is the subproject's own. With a
 --- row of its own, no route of the song changes: the row plays where the
---- tracks played, in their group; when they played into several buses, it
---- plays into the master, and `stems` gives a stem row for each track,
---- into its bus. Per track, the window stays in the view; with a row of
+--- parts played, in their group; when they played into several buses, it
+--- plays into the master, and `stems` gives a stem row for each part,
+--- into its bus. Per part, the window stays in the view; with a row of
 --- its own, it is inside the subproject at the same place. Call it in one
 --- undo step. Returns the message.
 function M.save(name?: string, own_row?: boolean, stems?: boolean): string
@@ -1981,14 +1981,14 @@ function M.save(name?: string, own_row?: boolean, stems?: boolean): string
   if s.kind == "nest" then
     error("this is a subproject already: `<Space>zp` makes it a view", 0)
   end
-  local tracks = paw.scope.tracks()
+  local parts = paw.scope.parts()
   local from, to = paw.scope.span()
   local timed = from ~= nil
   local meter: types.NestMeter = {mode = "follow"}
   if timed then
     meter = meter_over(from, to)
   else
-    from, to = 0, extent(tracks)
+    from, to = 0, extent(parts)
   end
   if not (to > from) then
     error("the view has no time to save", 0)
@@ -2006,8 +2006,8 @@ function M.save(name?: string, own_row?: boolean, stems?: boolean): string
   if name == "" then
     name = view_name(s)
   end
-  local track, beat = paw.cursor.track_id(), paw.cursor.beat
-  local saved = api.nest_save({name = name, tracks = tracks, from = from, to = to, meter = meter, own_row = own_row})
+  local part, beat = paw.cursor.part_id(), paw.cursor.beat
+  local saved = api.nest_save({name = name, parts = parts, from = from, to = to, meter = meter, own_row = own_row})
   if own_row then
     api.clip_add(saved.row, {nest = saved.nest, start = from} as types.ClipOptions)
     if stems and #saved.buses > 0 then
@@ -2016,7 +2016,7 @@ function M.save(name?: string, own_row?: boolean, stems?: boolean): string
   else
     for _, r in ipairs(saved.rows) do
       api.clip_add(
-        r.row, {nest = saved.nest, start = from, length = to - from, play = {track = r.track}} as types.ClipOptions
+        r.row, {nest = saved.nest, start = from, length = to - from, play = {part = r.part}} as types.ClipOptions
       )
     end
   end
@@ -2029,11 +2029,11 @@ function M.save(name?: string, own_row?: boolean, stems?: boolean): string
   local signature = first and string.format(" (%d/%d)", first.num, first.den) or ""
   local words: {string} = {}
   if own_row then
-    words[1] = string.format("made the subproject ⧉%s from %s, %s%s", name, names_text(saved.tracks), span, signature)
-    words[#words + 1] = route_words(saved, tracks, name, span, stems)
+    words[1] = string.format("made the subproject ⧉%s from %s, %s%s", name, names_text(saved.parts), span, signature)
+    words[#words + 1] = route_words(saved, parts, name, span, stems)
   else
     words[1] = string.format(
-      "nested %d track%s, %s, as %s%s", #saved.tracks, #saved.tracks == 1 and "" or "s", span, name, signature
+      "nested %d part%s, %s, as %s%s", #saved.parts, #saved.parts == 1 and "" or "s", span, name, signature
     )
   end
   for _, change in ipairs(saved.changes) do
@@ -2045,16 +2045,16 @@ function M.save(name?: string, own_row?: boolean, stems?: boolean): string
     )
   end
   if own_row then
-    -- The view's tracks went in: the window goes inside, at the same place,
+    -- The view's parts went in: the window goes inside, at the same place,
     -- through its block (on the row, or on its first stem).
     local block = M.blocks(saved.nest)[1]
     paw.scope.widen()
     paw.scope.enter({kind = "nest", id = saved.nest, clip = block and block.clip.id})
     local inside = false
-    for _, id in ipairs(saved.tracks) do
-      inside = inside or id == track
+    for _, id in ipairs(saved.parts) do
+      inside = inside or id == part
     end
-    paw.cursor.set_track(inside and track or saved.tracks[1])
+    paw.cursor.set_part(inside and part or saved.parts[1])
     paw.cursor.set_beat(beat - from)
   end
   return table.concat(words, "; ")
@@ -2066,11 +2066,11 @@ end
 local function exported_words(what: string, folder: string, made: types.NestExported): string
   local words = {
     string.format(
-      "wrote %s to %s: %d track%s%s",
+      "wrote %s to %s: %d part%s%s",
       what,
       folder,
-      made.tracks,
-      made.tracks == 1 and "" or "s",
+      made.parts,
+      made.parts == 1 and "" or "s",
       made.media > 0 and string.format(", %d media file%s", made.media, made.media == 1 and "" or "s") or ""
     ),
   }
@@ -2097,7 +2097,7 @@ local record SongExport
 end
 
 --- Write subproject `nest` as a project folder of its own at `folder`
---- (`~/` is the home folder): its tracks, its master, its markers and
+--- (`~/` is the home folder): its parts, its master, its markers and
 --- regions, its tempo and meter as its first block plays them, and its
 --- media copied in (`paw.api.nest_export`). The song does not change.
 --- Returns the message.
@@ -2114,7 +2114,7 @@ end
 --- `folder` (`~/` is the home folder), as `:export project <folder>/`
 --- does. The whole song is a copy of the project with its media
 --- (`paw.api.song_export`). A subproject is as `paw.nest.export` writes
---- it. A view is copies of its tracks with their devices, their clips and
+--- it. A view is copies of its parts with their devices, their clips and
 --- lanes in its time, the markers and regions inside, the tempo and meter
 --- of its time, and the media (`paw.api.scope_export`). The song does not
 --- change. Returns the message.
@@ -2127,13 +2127,13 @@ function M.write(folder: string): string
   if s.kind == "nest" then
     return M.export(s.id as integer, folder)
   end
-  local tracks = paw.scope.tracks()
+  local parts = paw.scope.parts()
   local from, to = paw.scope.span()
   if not from then
-    from, to = 0, extent(tracks)
+    from, to = 0, extent(parts)
   end
   local name = view_name(s, (folder:gsub("/+$", "")):match("([^/]+)$"))
-  local made = api.scope_export({name = name, tracks = tracks, from = from, to = to}, util.expand_path(folder))
+  local made = api.scope_export({name = name, parts = parts, from = from, to = to}, util.expand_path(folder))
   return exported_words("the view " .. name, folder, made)
 end
 
@@ -2154,10 +2154,10 @@ for _, bang in ipairs({"", "!"}) do
       paw.notify(M.save(text, bang == "!", stems))
     end,
     {
-      label = bang == "" and "Save the view as a subproject, per track"
+      label = bang == "" and "Save the view as a subproject, per part"
         or "Save the view as a subproject with its own row",
       desc = bang == ""
-        and "Save this window's view as a subproject: its clips move in, and the rows they came from play them through their own devices (`scope.write Bridge`)" or "Save this window's view as a subproject with its own row: its tracks, their devices and lanes go in, and one row plays its mix where the tracks played (`scope.write! Bridge`); `stems` gives a row for each track when they played into several buses (`scope.write! Bridge stems`)",
+        and "Save this window's view as a subproject: its clips move in, and the rows they came from play them through their own devices (`scope.write Bridge`)" or "Save this window's view as a subproject with its own row: its parts, their devices and lanes go in, and one row plays its mix where the parts played (`scope.write! Bridge`); `stems` gives a row for each part when they played into several buses (`scope.write! Bridge stems`)",
     }
   )
 end
@@ -2169,25 +2169,25 @@ local tilde = util.tilde
 --- Bring the project folder `folder` (`~/` is the home folder) into the
 --- song as a subproject, as `:import <folder>` does: a subproject that
 --- refers to the folder (`paw.api.nest_import`), on a row of its own below
---- the cursor's track with one block from the cursor's bar. It plays at
+--- the cursor's part with one block from the cursor's bar. It plays at
 --- once. Its first edit, or `:nest.own`, makes it the song's own copy.
 --- Call it in one undo step (a command is one). Returns the message.
 function M.import(folder: string): string
   local id = api.nest_import(util.expand_path(folder))
   local n = M.get(id)
   local from = paw.time.bar_floor(paw.cursor.beat)
-  local row, group = return_row(n.name, paw.cursor.track_id(), paw.scope.nest())
+  local row, group = return_row(n.name, paw.cursor.part_id(), paw.scope.nest())
   api.clip_add(row.id, {nest = id, start = from} as types.ClipOptions)
-  paw.cursor.set_track(row.id)
-  local tracks = #n.tracks
+  paw.cursor.set_part(row.id)
+  local parts = #n.parts
   local message = string.format(
-    "imported the subproject %s from %s at %s, on its own row%s: %d track%s; it refers to the folder until you edit it",
+    "imported the subproject %s from %s at %s, on its own row%s: %d part%s; it refers to the folder until you edit it",
     n.name,
     tilde(folder),
     bars_text(from, from + 1e-3),
     group_words(group),
-    tracks,
-    tracks == 1 and "" or "s"
+    parts,
+    parts == 1 and "" or "s"
   )
   -- It follows the song's tempo: say so when the folder's was another.
   local kept = n.tempo.kept

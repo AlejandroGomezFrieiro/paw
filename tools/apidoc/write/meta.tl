@@ -38,7 +38,7 @@ local function luals(t: Type): string
   return LUALS[t.text] or "any"
 end
 
---- How a function is called: `paw.Track:clips` for a method.
+--- How a function is called: `paw.Part:clips` for a method.
 local function call_name(f: model.Function): string
   return f.method and (f.name:gsub("%.([%w_]+)$", ":%1")) or f.name
 end

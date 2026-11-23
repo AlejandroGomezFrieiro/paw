@@ -1,4 +1,4 @@
--- Tests of multi-track MIDI editing: other tracks' notes behind the piano
+-- Tests of multi-part MIDI editing: other parts' notes behind the piano
 -- roll's, several clips edited at once, the roll's layers. Loaded by
 -- tests/suite.lua with its helpers.
 local T = ...
@@ -29,7 +29,7 @@ local function notes(list)
   return out
 end
 
---- A song of three tracks: Keys (a clip from 0), Bass (a clip from 2) and
+--- A song of three parts: Keys (a clip from 0), Bass (a clip from 2) and
 --- Pad (a clip from 0), all pitched; and Drums, with a drum map.
 local function song()
   fresh()
@@ -39,10 +39,10 @@ local function song()
   end
   paw.ui.focus("arrange")
   paw.opt.grid, paw.opt.note_grid, paw.opt.ripple, paw.opt.roll_context = 1, 0.25, false, "all"
-  local keys_t = paw.add_track({ name = "Keys" })
-  local bass_t = paw.add_track({ name = "Bass" })
-  local pad_t = paw.add_track({ name = "Pad" })
-  local drums_t = paw.add_track({ name = "Drums" })
+  local keys_t = paw.add_part({ name = "Keys" })
+  local bass_t = paw.add_part({ name = "Bass" })
+  local pad_t = paw.add_part({ name = "Pad" })
+  local drums_t = paw.add_part({ name = "Drums" })
   drums_t.meta = { drums = { map = "gm", rows = {} } }
   local s = {
     keys = keys_t:add_clip({
@@ -59,7 +59,7 @@ local function song()
       length = 8,
       notes = notes({ { 36, 0, 0.25 }, { 38, 1, 0.25 } }),
     }),
-    tracks = { keys = keys_t, bass = bass_t, pad = pad_t, drums = drums_t },
+    parts = { keys = keys_t, bass = bass_t, pad = pad_t, drums = drums_t },
   }
   api.undo_checkpoint()
   return s
@@ -74,28 +74,28 @@ local function pitches(list)
   return table.concat(out, " ")
 end
 
-test("the piano roll shows other pitched tracks' notes behind its own, in their beats", function()
+test("the piano roll shows other pitched parts' notes behind its own, in their beats", function()
   local s = song()
   local roll = paw.ui.views:get("pianoroll")
   roll:edit(s.keys)
   eq(pitches(rc.context()), "36@2 40@4 43@3 72@0 76@4", "bass and pad, the bass two beats in; no drums")
-  eq(rc.context()[1].color, paw.draw.track_colour(api.track_get(s.tracks.bass.id)), "each in its track's colour")
-  rc.show_track(s.tracks.pad.id, false)
-  eq(pitches(rc.context()), "36@2 40@4 43@3", "a track can be hidden")
-  rc.show_track(s.tracks.drums.id, true)
-  eq(pitches(rc.context()), "36@0 36@2 38@1 40@4 43@3", "and a drum track shown")
-  rc.show_track(s.tracks.pad.id, nil)
-  rc.show_track(s.tracks.drums.id, nil)
+  eq(rc.context()[1].color, paw.draw.part_colour(api.part_get(s.parts.bass.id)), "each in its part's colour")
+  rc.show_part(s.parts.pad.id, false)
+  eq(pitches(rc.context()), "36@2 40@4 43@3", "a part can be hidden")
+  rc.show_part(s.parts.drums.id, true)
+  eq(pitches(rc.context()), "36@0 36@2 38@1 40@4 43@3", "and a drum part shown")
+  rc.show_part(s.parts.pad.id, nil)
+  rc.show_part(s.parts.drums.id, nil)
   paw.opt.roll_context = "none"
   eq(#rc.context(), 0, "roll_context none shows nothing")
-  paw.opt.roll_context = { s.tracks.pad.id }
-  eq(pitches(rc.context()), "72@0 76@4", "or a list of tracks")
+  paw.opt.roll_context = { s.parts.pad.id }
+  eq(pitches(rc.context()), "72@0 76@4", "or a list of parts")
   paw.opt.roll_context = "all"
   roll:edit(s.bass)
   eq(pitches(rc.context()), "67@0 72@-2 76@2", "from the bass clip's start, only what sounds during it")
   roll:set(43, 1)
   local sounding = rc.sounding(1)
-  eq(table.concat(sounding, " "), "43 72", "the keys sounding at the cursor, in every track shown")
+  eq(table.concat(sounding, " "), "43 72", "the keys sounding at the cursor, in every part shown")
   paw.ui.show("pianoroll")
   local text = table.concat(api.ui_snapshot(140, 40), "\n")
   eq(text:find("render failed", 1, true), nil, "the roll draws")
@@ -160,7 +160,7 @@ end
 
 local function faint(colour) return paw.draw.mix(require("paw.theme").palette.bg, colour, 0.20) end
 
-test("the terminal's piano roll draws other tracks' notes dashed in their colours, its own solid and named", function()
+test("the terminal's piano roll draws other parts' notes dashed in their colours, its own solid and named", function()
   local s = song()
   local roll = paw.ui.views:get("pianoroll")
   local zoom = paw.opt.note_zoom
@@ -169,13 +169,13 @@ test("the terminal's piano roll draws other tracks' notes dashed in their colour
   roll:set(64, 0)
   roll.top = 76
   local at, text = cells(120, 30)
-  local pad_colour = paw.draw.track_colour(api.track_get(s.tracks.pad.id))
-  local bass_colour = paw.draw.track_colour(api.track_get(s.tracks.bass.id))
-  local keys_colour = paw.draw.track_colour(api.track_get(s.tracks.keys.id))
+  local pad_colour = paw.draw.part_colour(api.part_get(s.parts.pad.id))
+  local bass_colour = paw.draw.part_colour(api.part_get(s.parts.bass.id))
+  local keys_colour = paw.draw.part_colour(api.part_get(s.parts.keys.id))
   local pad = at(1, 72)
   eq(pad.ch, "╌", "a pad note behind: a dashed line")
   eq(pad.bg, faint(pad_colour), "on a faint shade of the pad's colour")
-  eq(at(1.5, 64).bg, keys_colour, "the clip's own note in its track's full colour")
+  eq(at(1.5, 64).bg, keys_colour, "the clip's own note in its part's full colour")
   eq(text:find("▏E4", 1, true) ~= nil, true, "and named")
   eq(at(0.5, 76) and at(0.5, 76).ch ~= "╌", true, "nothing where no note sounds")
   roll:set(36, 2)
@@ -197,7 +197,7 @@ test("the terminal's piano roll draws every clip edited, says which is active an
   rc.open({ s.keys.id, s.bass.id }, s.keys.id)
   roll:set(36, 2)
   local at, text = cells(120, 30)
-  local bass_colour = paw.draw.track_colour(api.track_get(s.tracks.bass.id))
+  local bass_colour = paw.draw.part_colour(api.part_get(s.parts.bass.id))
   local first = text:match("^[^\n]*")
   eq(
     first:find(" chords ", 1, true) ~= nil and first:find("Keys  +1 clip", 1, true) ~= nil,
@@ -402,9 +402,9 @@ test("a click on a note behind the roll's own edits its clip, Ctrl and a click e
   eq(#rc.ids(), 2, "the side panel's toggle takes one out")
   act.roll_activate(s.bass.id, s.keys.id)
   eq(rc.active(), s.keys.id, "and makes one active")
-  act.roll_show_track(s.keys.id, s.tracks.pad.id)
-  eq(pitches(rc.context()), "", "and hides a track's notes")
-  act.roll_show_track(s.keys.id, s.tracks.pad.id)
+  act.roll_show_part(s.keys.id, s.parts.pad.id)
+  eq(pitches(rc.context()), "", "and hides a part's notes")
+  act.roll_show_part(s.keys.id, s.parts.pad.id)
   eq(pitches(rc.context()), "72@0 76@4", "or shows them")
 end)
 
@@ -441,7 +441,7 @@ test(
     api.scene_forget(0)
     api.scene_roles(0, { "note" })
     paw.ui.render_scene("pianoroll", 140, 90, { w = 8, h = 16 })
-    local patch = api.json_decode(api.scene_end(0, "multitrack"))
+    local patch = api.json_decode(api.scene_end(0, "multipart"))
     api.scene_forget(0)
     local keys, bass, chosen = 0, nil, 0
     for _, n in ipairs(patch.set) do
@@ -454,7 +454,7 @@ test(
     eq(keys, 3, "the active clip's notes")
     eq(
       bass ~= nil and bass.r[1] .. " " .. bass.props.color,
-      "2 " .. paw.draw.track_colour(api.track_get(s.tracks.bass.id)),
+      "2 " .. paw.draw.part_colour(api.part_get(s.parts.bass.id)),
       "a bass note in the keys' beats, in the bass's colour, named by its clip and place"
     )
     eq(chosen, 3, "the chosen notes of both")

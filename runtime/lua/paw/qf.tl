@@ -9,7 +9,7 @@
 -- plain match), `fix` `{ title, edit = { workspace changes } }`,
 -- `{ title, apply = function(entry) end }` or a command line run with the
 -- cursor on the entry, `nest` the subproject of an entry whose address
--- names no track in it.
+-- names no part in it.
 --
 -- Lists are kept in a history of ten (`:colder`, `:cnewer`); each has a
 -- title. The quickfix lists are shared; every window has location lists of
@@ -132,11 +132,11 @@ local record Count
   total: integer
 end
 
---- What `paw.qf.cdo` takes: the stack, and `per_track` to run once for
---- each track of the entries.
+--- What `paw.qf.cdo` takes: the stack, and `per_part` to run once for
+--- each part of the entries.
 local record CdoOptions
   stack: Stack
-  per_track: boolean
+  per_part: boolean
 end
 
 --- What `paw.qf.fix` takes: the stack, and the label of the undo step.
@@ -433,7 +433,7 @@ end
 --- with the title `opts.title`, and make it current. A list with the same
 --- title in the history is replaced at its place. Its current entry stays.
 --- `opts.current = false` keeps a different list current. Returns the list.
----   paw.qf.set({ { address = "paw://track/3", text = "too quiet", level = "warning" } }, { title = "Levels" })
+---   paw.qf.set({ { address = "paw://part/3", text = "too quiet", level = "warning" } }, { title = "Levels" })
 function M.set(entries: {Item}, opts?: SetOptions): List
   opts = opts or {}
   local stack = quickfix
@@ -652,23 +652,23 @@ end
 -- Going to an entry ------------------------------------------------------------------
 
 local GONE: {string: boolean} = {
-  clip = true, note = true, control = true, track = true, device = true, param = true, send = true, lane = true
+  clip = true, note = true, control = true, part = true, device = true, param = true, send = true, lane = true
 }
 
-local track_nest = api.track_get as function(id: integer, key: string): integer
+local part_nest = api.part_get as function(id: integer, key: string): integer
 
 --- Put the window in the subproject of an entry (its `nest`, else the
---- subproject of the track of its address), or in the song for a thing
---- of the song. An address with no track and no `nest` leaves the window
+--- subproject of the part of its address), or in the song for a thing
+--- of the song. An address with no part and no `nest` leaves the window
 --- where it is. False, with a message, when the subproject is gone.
 local function show_nest_of(e: Located, uri: string): boolean
   local inside = e.nest
   if not inside then
-    local track = A.track_of(uri)
-    if not track then
+    local part = A.part_of(uri)
+    if not part then
       return true
     end
-    local ok, nest = pcall(track_nest, track, "nest") as (boolean, integer)
+    local ok, nest = pcall(part_nest, part, "nest") as (boolean, integer)
     inside = ok and nest or nil
   end
   local ok, why = paw.nest.show(inside)
@@ -681,7 +681,7 @@ end
 --- Put the cursor on the address of an entry, in the view that shows it
 --- best, and focus that view. A thing inside a subproject goes inside
 --- that subproject first. A note goes to the piano roll, and a device
---- or a parameter to the device panel. A clip, a track, a lane or a range
+--- or a parameter to the device panel. A clip, a part, a lane or a range
 --- of time goes to the arrange view. Returns true if there was a place to go.
 function M.go(e: Located): boolean
   local loc = e.location
@@ -709,9 +709,9 @@ function M.go(e: Located): boolean
     local arrange = paw.ui.locators.arrange
     paw.ui.focus("arrange")
     arrange.go(loc)
-    if lane.track then
-      paw.lanes.open(lane.track, true)
-      paw.cursor.set_track(lane.track, p.lane)
+    if lane.part then
+      paw.lanes.open(lane.part, true)
+      paw.cursor.set_part(lane.part, p.lane)
     end
     return true
   end
@@ -861,8 +861,8 @@ end
 --- Run a command line on each entry of the current list of a stack (`:cdo`),
 --- all as one undo step. For each entry, the cursor goes to the entry
 --- first. The command gets the address as `ctx.target`, and the whole
---- location as `ctx.location`. With `per_track`, it runs one time for each
---- track of the entries (`:cfdo`). Returns how many times it ran.
+--- location as `ctx.location`. With `per_part`, it runs one time for each
+--- part of the entries (`:cfdo`). Returns how many times it ran.
 function M.cdo(line: string, opts?: CdoOptions): integer
   opts = opts or {}
   line = tostring(line or ""):match("^%s*:?(.-)%s*$")
@@ -878,9 +878,9 @@ function M.cdo(line: string, opts?: CdoOptions): integer
   local targets: {integer} = {}
   local seen: {string: boolean} = {}
   for i, e in ipairs(list.entries) do
-    if opts.per_track then
-      local track = e.address and A.track_of(e.address)
-      local key = e.address and (track and tostring(track) or e.address) or ""
+    if opts.per_part then
+      local part = e.address and A.part_of(e.address)
+      local key = e.address and (part and tostring(part) or e.address) or ""
       if not seen[key] then
         seen[key] = true
         targets[#targets + 1] = i
@@ -1212,7 +1212,7 @@ M.source(
       }
     local out: {Item} = {}
     local found: {string: boolean} = {}
-    for _, id in ipairs(api.track_list()) do
+    for _, id in ipairs(api.part_list()) do
       for _, c in ipairs(api.clip_list(id)) do
         if c.file and wanted[tostring(c.file)] then
           found[tostring(c.file)] = true
@@ -1247,7 +1247,7 @@ events.on(
 -- Plugins ------------------------------------------------------------------------------------
 
 local invalid: {integer: boolean} = {} -- devices that put out NaN or infinity, by id
--- What each device is, kept until an event says it changed: a track deleted
+-- What each device is, kept until an event says it changed: a part deleted
 -- or put back asks about the devices of the others again.
 local known: {integer: types.Device} = {}
 
@@ -1255,10 +1255,10 @@ M.source(
   "plugins",
   function(): {Item}
     local out: {Item} = {}
-    local tracks = api.track_list()
-    tracks[#tracks + 1] = 0
-    for _, track in ipairs(tracks) do
-      local ok, t = pcall(api.track_get, track)
+    local parts = api.part_list()
+    parts[#parts + 1] = 0
+    for _, part in ipairs(parts) do
+      local ok, t = pcall(api.part_get, part)
       for _, id in ipairs(ok and t.devices or {}) do
         local okd, d = true, known[id]
         if not d then
@@ -1266,7 +1266,7 @@ M.source(
           known[id] = okd and d or nil
         end
         if okd then
-          local uri = "paw://track/" .. track .. "/device/" .. id
+          local uri = "paw://part/" .. part .. "/device/" .. id
           local restart: FixSpec = {
             title = "Start " .. d.name .. " again", apply = function() api.device_restart(id) end
           }
@@ -1550,14 +1550,14 @@ both(
 both(
   "do",
   function(s: Stack, ctx: Context) M.cdo(ctx.args[1] as string, {stack = s}) end,
-  "Run a command on every entry of %s, the cursor on each, as one undo step: `cdo track.mute`",
+  "Run a command on every entry of %s, the cursor on each, as one undo step: `cdo part.mute`",
   {raw = true, label = "Run a command on every entry"}
 )
 both(
   "fdo",
-  function(s: Stack, ctx: Context) M.cdo(ctx.args[1] as string, {stack = s, per_track = true}) end,
-  "Run a command once for every track the entries of %s are on, as one undo step: `cfdo track.solo`",
-  {raw = true, label = "Run a command on every track of the entries"}
+  function(s: Stack, ctx: Context) M.cdo(ctx.args[1] as string, {stack = s, per_part = true}) end,
+  "Run a command once for every part the entries of %s are on, as one undo step: `cfdo part.solo`",
+  {raw = true, label = "Run a command on every part of the entries"}
 )
 both(
   "fix",
@@ -1579,15 +1579,15 @@ both(
 )
 
 -- What the window shows: the piano roll its clip, the mixer and the device
--- panel the cursor's track, the arrange view everything.
+-- panel the cursor's part, the arrange view everything.
 local function shown_target(): DiagnosticModule.Target
   local view = paw.ui.focused
   if view == "pianoroll" then
     return (paw.ui.views:get("pianoroll") as Roll.PianoRoll).clip_id
   end
   if view == "mixer" or view == "devices" then
-    local id = paw.cursor.track_id()
-    return id and A.track(id) or nil
+    local id = paw.cursor.part_id()
+    return id and A.part(id) or nil
   end
   return nil
 end

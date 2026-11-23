@@ -133,14 +133,14 @@ end)
 
 -- Comping with the mouse ---------------------------------------------------------------
 
---- A track with an audio clip of eight beats whose three takes are three
+--- A part with an audio clip of eight beats whose three takes are three
 --- stretches of one file, the third playing; its take lanes shown.
 local function three_takes()
   local source = T.tone("source", 32)
   paw.project.tempo = 120
   local wav = render({ tail = 0, bits = 32 })
   source:remove()
-  local t = paw.add_track({ name = "vox" })
+  local t = paw.add_part({ name = "vox" })
   t:add_clip({
     file = wav.path,
     start = 0,
@@ -180,7 +180,7 @@ local function lanes_view(t)
   return rows, function(beat) return g.hw + math.floor((beat - arrange.scroll) * g.zoom + 0.5) end, g
 end
 
---- Which take each clip of a track plays, with where it starts.
+--- Which take each clip of a part plays, with where it starts.
 local function plays(t)
   local out = {}
   for _, c in ipairs(t:clips()) do
@@ -231,7 +231,7 @@ test("clicking a take lane's label makes it the active take", function()
   local function mouse(kind, x, y) paw.ui.mouse({ kind = kind, x = x, y = y, button = "left", mods = "" }) end
   mouse("down", 3, rows[2])
   mouse("up", 3, rows[2])
-  eq(plays(t), "0+8:2", "the whole track plays take 2")
+  eq(plays(t), "0+8:2", "the whole part plays take 2")
   mouse("down", 3, rows[1])
   mouse("up", 3, rows[1])
   eq(plays(t), "0+8:1", "and then take 1")

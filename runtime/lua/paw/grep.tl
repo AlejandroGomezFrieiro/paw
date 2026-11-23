@@ -1,13 +1,13 @@
 -- `paw.grep`: every piece of text in the project, searched as Vim's
 -- `:vimgrep` searches files, the places found going into the quickfix list.
 --
---   :vimgrep /pizz/            track, clip, marker and device names, lyrics,
+--   :vimgrep /pizz/            part, clip, marker and device names, lyrics,
 --   :vimgrep /^la$/ lyric      articulations, comments, the project's tags
 --   :lvimgrep /verse/          into the window's location list
 --
 -- The text comes from sources, each a function given `add(record)`; a
 -- record is `{ text, field, location, where }` (`paw.contracts.GrepRecord`):
--- what it says, what kind of text it is ("track", "lyric"), where it is (an
+-- what it says, what kind of text it is ("part", "lyric"), where it is (an
 -- address or a location), and that place in a few words. Extensions add
 -- theirs (`paw.contracts.GrepSource`):
 --
@@ -66,7 +66,7 @@ local record VimgrepOptions
   add: boolean
 end
 
---- What this module reads of the meta of the project, a track, a clip or
+--- What this module reads of the meta of the project, a part, a clip or
 --- a note.
 local record Meta
   comment: string
@@ -144,7 +144,7 @@ local function str(v: string): string
   return type(v) == "string" and v ~= "" and v or nil
 end
 
--- The records of the tracks and the clips are kept by `paw.derived` (the
+-- The records of the parts and the clips are kept by `paw.derived` (the
 -- search index of the design `derived.md`, D3): after an edit, a search
 -- makes again the records of the clips that the edit changed, and the job
 -- `derived` does it in slices before. The records are shared from search
@@ -155,19 +155,19 @@ local function one_line(text: string): string
   return (tostring(text):gsub("[\r\n\t]", " "))
 end
 
---- The records of a track: its name, its comment and its devices' names.
-local function track_records(ctx: derived.Ctx, id: integer, out: {Found})
-  local t = ctx:track(id, {"name", "meta", "devices"})
+--- The records of a part: its name, its comment and its devices' names.
+local function part_records(ctx: derived.Ctx, id: integer, out: {Found})
+  local t = ctx:part(id, {"name", "meta", "devices"})
   if not t then
     return
   end
-  local loc: contracts.Location = {uri = A.track(id)}
+  local loc: contracts.Location = {uri = A.part(id)}
   local function add(text: string, field: string, location: contracts.Location)
     if text then
       out[#out + 1] = {text = one_line(text), field = field, location = location, where = t.name}
     end
   end
-  add(t.name, "track", loc)
+  add(t.name, "part", loc)
   local m = meta_of(t.meta)
   add(m and str(m.comment), "comment", loc)
   for _, d in ipairs(t.devices or {}) do
@@ -181,7 +181,7 @@ end
 
 --- The records of a clip: its name and comment, and what its notes carry
 --- in words (lyrics and articulations).
-local function clip_records(c: types.Clip, track: string, notes: {QueryModule.Node}): {Found}
+local function clip_records(c: types.Clip, part: string, notes: {QueryModule.Node}): {Found}
   local out: {Found} = {}
   local function add(text: string, field: string, location: contracts.Location, where: string)
     if text then
@@ -189,7 +189,7 @@ local function clip_records(c: types.Clip, track: string, notes: {QueryModule.No
     end
   end
   local loc: contracts.Location = {uri = A.clip(c.id)}
-  local where = track .. " " .. paw.time.format(c.start)
+  local where = part .. " " .. paw.time.format(c.start)
   add(c.name, "clip", loc, where)
   local cm = meta_of(c.meta)
   add(cm and str(cm.comment), "comment", loc, where)
@@ -235,7 +235,7 @@ local function same_records(a: {Found}, b: {Found}): boolean
   return true
 end
 
-local track_name = api.track_get as function(id: integer, key: string): string
+local part_name = api.part_get as function(id: integer, key: string): string
 
 local clip_spec: derived.Spec<integer, {Found}, boolean> = {
   name = "grep.clip",
@@ -246,12 +246,12 @@ local clip_spec: derived.Spec<integer, {Found}, boolean> = {
       return {}
     end
     local c = node.data as types.Clip
-    ctx:track(c.track, {"name"})
+    ctx:part(c.part, {"name"})
     -- The places are written in bars and beats.
     ctx:tempo()
     -- The articulations of the notes (`paw.query.marks`).
     ctx:source("note_marks")
-    return clip_records(c, track_name(c.track, "name"), ctx:get(tree.notes, id))
+    return clip_records(c, part_name(c.part, "name"), ctx:get(tree.notes, id))
   end,
   same = same_records,
   bytes = function(list: {Found}): integer return 64 + 200 * #list end,
@@ -259,23 +259,23 @@ local clip_spec: derived.Spec<integer, {Found}, boolean> = {
 }
 local clip_node = derived.node(clip_spec)
 
---- The records of a track, and those of its clips, in order.
-local record TrackRecords
-  track: {Found}
+--- The records of a part, and those of its clips, in order.
+local record PartRecords
+  part: {Found}
   clips: {Found}
 end
 
-local function same_track(a: TrackRecords, b: TrackRecords): boolean
-  return same_records(a.track, b.track) and tree.same_list(a.clips, b.clips)
+local function same_part(a: PartRecords, b: PartRecords): boolean
+  return same_records(a.part, b.part) and tree.same_list(a.clips, b.clips)
 end
 
-local track_spec: derived.Spec<integer, TrackRecords, boolean> = {
-  name = "grep.track",
+local part_spec: derived.Spec<integer, PartRecords, boolean> = {
+  name = "grep.part",
   kind = "family",
-  make = function(ctx: derived.Ctx, id: integer): TrackRecords
-    local v: TrackRecords = {track = {}, clips = {}}
-    track_records(ctx, id, v.track)
-    local clips = ctx:get(tree.track, id).clips
+  make = function(ctx: derived.Ctx, id: integer): PartRecords
+    local v: PartRecords = {part = {}, clips = {}}
+    part_records(ctx, id, v.part)
+    local clips = ctx:get(tree.part, id).clips
     for i = 1, #clips do
       local list = ctx:get(clip_node, clips[i].id)
       for k = 1, #list do
@@ -284,21 +284,21 @@ local track_spec: derived.Spec<integer, TrackRecords, boolean> = {
     end
     return v
   end,
-  same = same_track,
+  same = same_part,
 }
-local track_node = derived.node(track_spec)
+local part_node = derived.node(part_spec)
 
-local all_spec: derived.Spec<integer, TrackRecords, boolean> = {
+local all_spec: derived.Spec<integer, PartRecords, boolean> = {
   name = "grep.all",
   kind = "join",
   label = "search",
-  make = function(ctx: derived.Ctx): TrackRecords
-    local v: TrackRecords = {track = {}, clips = {}}
-    local ids = ctx:tracks()
+  make = function(ctx: derived.Ctx): PartRecords
+    local v: PartRecords = {part = {}, clips = {}}
+    local ids = ctx:parts()
     for i = 1, #ids do
-      local part = ctx:get(track_node, ids[i])
-      for k = 1, #part.track do
-        v.track[#v.track + 1] = part.track[k]
+      local part = ctx:get(part_node, ids[i])
+      for k = 1, #part.part do
+        v.part[#v.part + 1] = part.part[k]
       end
       for k = 1, #part.clips do
         v.clips[#v.clips + 1] = part.clips[k]
@@ -308,14 +308,14 @@ local all_spec: derived.Spec<integer, TrackRecords, boolean> = {
     end
     return v
   end,
-  same = same_track,
+  same = same_part,
 }
 local all_node = derived.node(all_spec)
 
--- The records of the tracks and the clips, read once for each `collect`.
-local all_now: TrackRecords
+-- The records of the parts and the clips, read once for each `collect`.
+local all_now: PartRecords
 
-local function all_records(): TrackRecords
+local function all_records(): PartRecords
   if not all_now then
     all_node:want(0)
     all_now = all_node:get(0, true)
@@ -324,9 +324,9 @@ local function all_records(): TrackRecords
 end
 
 M.source(
-  "tracks",
+  "parts",
   function(add: function(Record))
-    local list = all_records().track
+    local list = all_records().part
     for i = 1, #list do
       add(list[i] as Record)
     end
@@ -401,7 +401,7 @@ end
 
 --- Every record of every source, in the order the sources were added.
 --- A source that fails is passed over and logged. paw keeps the records of
---- the tracks and the clips from one search to the next, so read a record
+--- the parts and the clips from one search to the next, so read a record
 --- and don't change it.
 function M.records(): {Found}
   local out: {Found} = {}
@@ -417,7 +417,7 @@ function M.reader(): function(ms: number): {Found}, boolean
   local deadline: number = 0
   local job = coroutine.create(
     function()
-      -- The job `derived` reads the records of the tracks and the clips
+      -- The job `derived` reads the records of the parts and the clips
       -- in its own slices: wait for it (a second at most).
       local since = api.now()
       while not all_node:fresh(0) and api.now() - since < 1000 do

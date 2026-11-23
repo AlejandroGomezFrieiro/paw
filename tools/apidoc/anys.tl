@@ -7,7 +7,7 @@ local record anys
   PATH: string
 
   --- The `any` that the writers of a run wrote, by the name of what has
-  --- them (`paw.api.track_get`, `paw.Untyped`).
+  --- them (`paw.api.part_get`, `paw.Untyped`).
   record Counts
     by_name: {string: integer}
   end

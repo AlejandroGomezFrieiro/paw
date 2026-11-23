@@ -60,7 +60,7 @@ paw.notes
 paw.axis
 
 [project]
-# The project and what the user edits in it: tracks, clips, notes, time,
+# The project and what the user edits in it: parts, clips, notes, time,
 # devices, files.
 paw.objects
 # The grid of time: ticks and the lines that grid motions stop on.
@@ -84,7 +84,7 @@ paw.takes
 paw.stretch
 paw.routes
 paw.clip_kinds
-paw.track_kinds
+paw.part_kinds
 paw.controls
 paw.params
 paw.device_presets
@@ -129,7 +129,7 @@ paw.menu
 paw.plot
 paw.statusline
 paw.ruler
-paw.trackcolumn
+paw.partcolumn
 
 [input]
 # Keys, commands, the command line, the quickfix list, completion, help,

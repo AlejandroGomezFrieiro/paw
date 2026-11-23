@@ -72,19 +72,19 @@ try {
   check("paw's status line is on row 29 of 30", /NORMAL/.test(rows[28]), rows[28]);
 
   // Keys: a motion, then an arrow key (an escape sequence).
-  // The track under the cursor has a full bar before its name.
-  const cursorTrack = (r) => (r.find((line) => /^\s*\d*\s*█ \S/.test(line)) || "").replace(/^[\s\d█]*/, "").split(" ")[0];
+  // The part under the cursor has a full bar before its name.
+  const cursorPart = (r) => (r.find((line) => /^\s*\d*\s*█ \S/.test(line)) || "").replace(/^[\s\d█]*/, "").split(" ")[0];
   await pod(() => window.pawPod.sendKeys("gg"));
   await new Promise((r) => setTimeout(r, 300));
   const top = await show("after-gg");
   await pod(() => window.pawPod.sendKeys("j"));
   await new Promise((r) => setTimeout(r, 300));
   const afterJ = await show("after-j");
-  check("gg, then j, moves the cursor to the second track", cursorTrack(top) === "Drums" && cursorTrack(afterJ) === "Bass", `${cursorTrack(top)} ${cursorTrack(afterJ)}`);
+  check("gg, then j, moves the cursor to the second part", cursorPart(top) === "Drums" && cursorPart(afterJ) === "Bass", `${cursorPart(top)} ${cursorPart(afterJ)}`);
   await pod(() => window.pawPod.sendKeys("<Up>"));
   await new Promise((r) => setTimeout(r, 300));
   const afterUp = await show("after-up");
-  check("<Up> moves the cursor back, as one key", cursorTrack(afterUp) === "Drums" && /NORMAL/.test(afterUp[28]), cursorTrack(afterUp));
+  check("<Up> moves the cursor back, as one key", cursorPart(afterUp) === "Drums" && /NORMAL/.test(afterUp[28]), cursorPart(afterUp));
 
   // Sound: play for three seconds.
   await pod(() => window.pawPod.sendKeys("<Space><Space>"));

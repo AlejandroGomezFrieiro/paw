@@ -1,7 +1,7 @@
 //! Whether the files that clips read are there, without a look at the disk
 //! on each clip list.
 //!
-//! The arrange view lists the clips of each track it shows on each frame,
+//! The arrange view lists the clips of each part it shows on each frame,
 //! and a clip whose file is missing says it is offline. A file event alone
 //! cannot say when a file goes: inotify watches the folder of the file, and
 //! a folder above it that gets a new name sends no event there. So the

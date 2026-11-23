@@ -1,8 +1,8 @@
 """A small language server for the mix, for the tests of paw.lsp: LSP's own
-shapes, attached to the `mix` subject. A track whose fader is above 0 dB may
-clip: a warning on it, fixed by bringing the fader to 0 dB. Every track gets
-a label with its fader; hover says what a track's fader and pan are; a code
-action on a track lowers it 6 dB.
+shapes, attached to the `mix` subject. A part whose fader is above 0 dB may
+clip: a warning on it, fixed by bringing the fader to 0 dB. Every part gets
+a label with its fader; hover says what a part's fader and pan are; a code
+action on a part lowers it 6 dB.
 
     python3 mix_lint.py
 """
@@ -18,14 +18,14 @@ def send(message):
     sys.stdout.flush()
 
 
-def tracks(doc):
-    return doc["tracks"] + [doc["master"]]
+def parts(doc):
+    return doc["parts"] + [doc["master"]]
 
 
 def publish(uri):
     doc = docs[uri]
     diagnostics, labels = [], []
-    for t in tracks(doc):
+    for t in parts(doc):
         labels.append({"location": {"uri": t["address"]}, "label": f"{t['volume']:+.1f} dB", "kind": "level"})
         if t["volume"] > 0:
             diagnostics.append({
@@ -39,9 +39,9 @@ def publish(uri):
     send({"jsonrpc": "2.0", "method": "paw/publishAnnotations", "params": {"uri": uri, "annotations": labels}})
 
 
-def track_at(uri):
+def part_at(uri):
     for doc in docs.values():
-        for t in tracks(doc):
+        for t in parts(doc):
             if uri == t["address"] or uri.startswith(t["address"] + "/"):
                 return t
     return None
@@ -53,12 +53,12 @@ def answer(method, params):
                 "capabilities": {"hoverProvider": True, "codeActionProvider": True,
                                  "paw": {"subjects": ["mix"], "annotations": True}}}
     if method == "textDocument/hover":
-        t = track_at(params["paw"]["location"]["uri"])
+        t = part_at(params["paw"]["location"]["uri"])
         if not t:
             return None
         return {"contents": f"{t['name']}: fader {t['volume']:+.1f} dB, pan {t['pan']:+.2f}"}
     if method == "textDocument/codeAction":
-        t = track_at(params["paw"]["location"]["uri"])
+        t = part_at(params["paw"]["location"]["uri"])
         if not t:
             return []
         return [{"title": f"Lower {t['name']} by 6 dB",

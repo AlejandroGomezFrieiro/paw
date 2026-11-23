@@ -1,7 +1,7 @@
 -- `paw.midifile`: Standard MIDI Files, read and written.
 --
 --   :open song.mid                 -- a new project from it (asks nothing: see below)
---   :import song.mid               -- into this one: new tracks below the cursor's, at the cursor
+--   :import song.mid               -- into this one: new parts below the cursor's, at the cursor
 --   :import song.mid tempo=yes     -- and its tempo map from the cursor on
 --   :export song.mid               -- the project; `:export clip riff.mid` the clip at the cursor (paw/export.tl)
 --
@@ -10,7 +10,7 @@
 --   paw.midifile.export("out.mid", { clips = { clip.id } })
 --   paw.midifile.parse(bytes)   paw.midifile.encode(file)   -- bytes and back
 --
--- A file opens as a project of its own: one track for each of the file's
+-- A file opens as a project of its own: one part for each of the file's
 -- tracks that has notes (a format 0 file, whose one track holds every
 -- channel, is split by channel), one clip on each, spanning its bars, with
 -- the controller moves, pitch bend, pressure and program changes as the
@@ -18,7 +18,7 @@
 -- project's, lyrics go on the notes they start (`note.meta.lyric`), a
 -- note's MIDI 2.0 attribute (an articulation) comes back from the
 -- sequencer-specific event this program writes it as (below), and a
--- track that plays on channel 10 alone gets the built-in drum kit. The
+-- part that plays on channel 10 alone gets the built-in drum kit. The
 -- project has no file: saving it asks for a name and never writes over the
 -- .mid. What could not be kept (sysex, key signatures, and the like) is
 -- counted in `skipped` and said when the file is opened.
@@ -115,7 +115,7 @@ local record M
     skipped: {string: integer}
   end
 
-  --- The data for one track of the project: its name, its channel, whether
+  --- The data for one part of the project: its name, its channel, whether
   --- it is a drum kit's (channel 10 alone), and its notes and controls.
   record Part
     name: string
@@ -152,35 +152,35 @@ local record M
   end
 
   --- What `import` takes: where (`start`, in beats; the cursor by
-  --- default), the track (an object or an id) for one clip of it all, and
+  --- default), the part (an object or an id) for one clip of it all, and
   --- whether to bring the tempo map in.
   record ImportOptions
     start: number
-    track: Untyped | integer
+    part: Untyped | integer
     tempo: boolean
   end
 
-  --- What `export` writes: the tracks (objects or ids), or the clips
+  --- What `export` writes: the parts (objects or ids), or the clips
   --- (ids), and the notes and moves that start from beat `from` up to
   --- beat `to` of the song (all of them when not given).
   record ExportOptions
-    tracks: {Untyped | integer}
+    parts: {Untyped | integer}
     clips: {integer}
     from: number
     to: number
   end
 
-  --- What `open` gives: the tracks made, the notes, and what was left out.
+  --- What `open` gives: the parts made, the notes, and what was left out.
   record Opened
-    tracks: {Untyped}
+    parts: {Untyped}
     notes: integer
     skipped: string
   end
 
-  --- What `import` gives: the tracks and clips made, the notes, and what
+  --- What `import` gives: the parts and clips made, the notes, and what
   --- was left out.
   record Imported
-    tracks: {Untyped}
+    parts: {Untyped}
     clips: {Untyped}
     notes: integer
     skipped: string
@@ -230,16 +230,16 @@ end
 M.document = nil
 
 --- Open a MIDI 2.0 clip file alone, as a new project with no file: one
---- track that plays it on the default instrument, the clip, and the piano
+--- part that plays it on the default instrument, the clip, and the piano
 --- roll on it. `:w` writes the clip back to its file. Returns the clip.
 function M.open_clip(path: string): Untyped, types.Midi2Clip
   local read = api.midi2_read(path)
   local name: string = (path:match("([^/]+)$") or path):gsub("%.[^.]+$", "")
   api.project_new()
   api.project_set({name = name})
-  local track = paw.add_track({name = name})
-  track:add_device("synth")
-  local clip = track:add_clip(
+  local part = paw.add_part({name = name})
+  part:add_device("synth")
+  local clip = part:add_clip(
     {
       name = name,
       start = 0,
@@ -250,7 +250,7 @@ function M.open_clip(path: string): Untyped, types.Midi2Clip
   )
   api.undo_reset()
   M.document = {path = path, clip = clip.id as integer}
-  paw.cursor.set_track(track)
+  paw.cursor.set_part(part)
   (paw.cursor as Cursor).beat = 0
   -- `project_new` above says `project.loaded` later: this clip stays open.
   M.document.opening = true
@@ -280,10 +280,10 @@ paw.on(
   end
 )
 
---- Bring a MIDI 2.0 clip file in as a clip that refers to it, on a track at
+--- Bring a MIDI 2.0 clip file in as a clip that refers to it, on a part at
 --- a beat. The first edit makes it the project's own. Returns the clip.
-function M.import_clip(path: string, track: Untyped, start: number): Untyped
-  return track:add_clip({file = path, start = start})
+function M.import_clip(path: string, part: Untyped, start: number): Untyped
+  return part:add_clip({file = path, start = start})
 end
 
 --- True if a path names a MIDI file, from its file ending.
@@ -853,7 +853,7 @@ end
 
 -- From a file to tracks and clips -----------------------------------------------
 
---- The data for one track: { name, channel, drums, notes, controls }, in
+--- The data for one part: { name, channel, drums, notes, controls }, in
 --- ticks. paw splits the one track of a format 0 file by channel. Each
 --- other track with notes is one part. With `merge`, all is one part.
 function M.parts(file: File, merge?: boolean): {Part}
@@ -979,7 +979,7 @@ local function bar_of(file: File, beat: number): number, number
   return start, stop
 end
 
---- A clip (as `track:add_clip` takes it) from a part, its file beats moved
+--- A clip (as `part:add_clip` takes it) from a part, its file beats moved
 --- by `at`: whole bars of the file from the first event to the last.
 local function clip_of(file: File, part: Part, at: number): types.ClipOptions
   local ppq = file.ppq
@@ -1076,19 +1076,19 @@ local function put_tempo_map(file: File, at: number)
   paw.tempo.set_points(keep_t, keep_s)
 end
 
---- Add the parts of a file as tracks below `index` (nil: at the end), each
---- with its clip at `at`. Returns the tracks.
-local function add_parts(file: File, parts: {Part}, at: number, index: integer): {Untyped}
-  local tracks: {Untyped} = {}
-  for i, part in ipairs(parts) do
-    local track = paw.add_track({name = part.name, index = index and index + i or nil})
-    if part.drums then
-      track:add_device("drums")
+--- Add the parts of a file as parts below `index` (nil: at the end), each
+--- with its clip at `at`. Returns the parts.
+local function add_parts(file: File, data: {Part}, at: number, index: integer): {Untyped}
+  local made: {Untyped} = {}
+  for i, d in ipairs(data) do
+    local part = paw.add_part({name = d.name, index = index and index + i or nil})
+    if d.drums then
+      part:add_device("drums")
     end
-    track:add_clip(clip_of(file, part, at))
-    tracks[#tracks + 1] = track
+    part:add_clip(clip_of(file, d, at))
+    made[#made + 1] = part
   end
-  return tracks
+  return made
 end
 
 local function add_markers(file: File, at: number)
@@ -1119,38 +1119,38 @@ local function notes_in(parts: {Part}): integer
 end
 
 --- Open a MIDI file as a new project with no file (see the top of this
---- file). Returns { tracks, notes, skipped }. If paw cannot read the file,
+--- file). Returns { parts, notes, skipped }. If paw cannot read the file,
 --- it raises an error, and the open project does not change.
 function M.open(path: string): M.Opened
   local file, why = M.read(path)
   if not file then
     error(why, 0)
   end
-  local parts = M.parts(file)
+  local data = M.parts(file)
   -- A file cut short or damaged reads as one with nothing in it: the
   -- project open stays open.
-  if #parts == 0 then
+  if #data == 0 then
     error("there are no notes in it", 0)
   end
   api.project_new()
   api.project_set({name = stem(path)})
   put_tempo_map(file, 0)
-  local tracks = add_parts(file, parts, 0, nil)
+  local parts = add_parts(file, data, 0, nil)
   add_markers(file, 0)
   -- It opens as a project file does: nothing to undo, nothing changed yet.
   api.undo_reset()
-  if tracks[1] then
-    paw.cursor.set_track(tracks[1])
+  if parts[1] then
+    paw.cursor.set_part(parts[1])
   end
-  return {tracks = tracks, notes = notes_in(parts), skipped = M.skipped_text(file)}
+  return {parts = parts, notes = notes_in(data), skipped = M.skipped_text(file)}
 end
 
---- Import a MIDI file into the project. Its parts go on new tracks below
---- the track of the cursor, at the cursor (or `opts.start`). With
---- `opts.track`, all of it goes as one clip on that track. The tempo map
+--- Import a MIDI file into the project. Its parts go on new parts below
+--- the part of the cursor, at the cursor (or `opts.start`). With
+--- `opts.part`, all of it goes as one clip on that part. The tempo map
 --- does not change, unless `opts.tempo`. Then the tempo map of the file
 --- applies from its start. paw adds the markers of the file. Returns
---- { tracks, clips, notes, skipped }.
+--- { parts, clips, notes, skipped }.
 function M.import(path: string, opts?: M.ImportOptions): M.Imported
   opts = opts or {}
   local file, why = M.read(path)
@@ -1158,43 +1158,43 @@ function M.import(path: string, opts?: M.ImportOptions): M.Imported
     error(why, 0)
   end
   local at = opts.start or (paw.cursor as Cursor).beat
-  local given = opts.track
-  local track: Untyped = given is Untyped and given or given and paw.track(given) or nil
-  local parts = M.parts(file, track ~= nil)
-  if #parts == 0 then
+  local given = opts.part
+  local part: Untyped = given is Untyped and given or given and paw.part(given) or nil
+  local data = M.parts(file, part ~= nil)
+  if #data == 0 then
     error("there are no notes in it", 0)
   end
   if opts.tempo then
     put_tempo_map(file, at)
   end
-  local tracks: {Untyped} = {}
+  local parts: {Untyped} = {}
   local clips: {Untyped} = {}
-  if track then
-    local clip = clip_of(file, parts[1], at)
+  if part then
+    local clip = clip_of(file, data[1], at)
     clip.name = stem(path)
-    clips[1] = track:add_clip(clip)
-    tracks[1] = track
+    clips[1] = part:add_clip(clip)
+    parts[1] = part
   else
-    tracks = add_parts(file, parts, at, paw.cursor.index() as integer)
-    for _, t in ipairs(tracks) do
+    parts = add_parts(file, data, at, paw.cursor.index() as integer)
+    for _, t in ipairs(parts) do
       clips[#clips + 1] = t:clips()[1]
     end
   end
   add_markers(file, at)
-  if tracks[1] then
-    paw.cursor.set_track(tracks[1])
+  if parts[1] then
+    paw.cursor.set_part(parts[1])
   end
-  return {tracks = tracks, clips = clips, notes = notes_in(parts), skipped = M.skipped_text(file)}
+  return {parts = parts, clips = clips, notes = notes_in(data), skipped = M.skipped_text(file)}
 end
 
 -- From the project to a file ---------------------------------------------------
 
 local EXPORT_PPQ = 960
 
---- The channel a track's notes go out on when they do not say: 10 for a
---- track whose instrument is the drum kit, else 1 (counting from 0 here).
-local function default_channel(track: Untyped): integer
-  for _, device in ipairs(track:devices() as {Device}) do
+--- The channel a part's notes go out on when they do not say: 10 for a
+--- part whose instrument is the drum kit, else 1 (counting from 0 here).
+local function default_channel(part: Untyped): integer
+  for _, device in ipairs(part:devices() as {Device}) do
     if device.kind == "drums" or device.kind == "sampler" then
       return 9
     end
@@ -1222,7 +1222,7 @@ local function export_tempos(to: number): {M.Tempo}
   return out
 end
 
---- One track of the file from clips of a track (all its MIDI clips when
+--- One track of the file from clips of a part (all its MIDI clips when
 --- `clips` is nil): what sounds of them, where it sounds.
 --- Whether a time in ticks or a value falls between the steps of MIDI 1.0.
 local function between(x: number): boolean
@@ -1234,13 +1234,11 @@ local function in_time(at: number, opts: M.ExportOptions): boolean
   return at >= (opts.from or -math.huge) - 1e-9 and at < (opts.to or math.huge) - 1e-9
 end
 
-local function export_track(
-  track: Untyped, opts: M.ExportOptions, only: {integer: boolean}, lost: M.Lost
-): Track, number
-  local out: Track = {name = track.name as string, notes = {}, controls = {}}
-  local channel = default_channel(track)
+local function export_part(part: Untyped, opts: M.ExportOptions, only: {integer: boolean}, lost: M.Lost): Track, number
+  local out: Track = {name = part.name as string, notes = {}, controls = {}}
+  local channel = default_channel(part)
   local last: number = 0
-  for _, clip in ipairs(track:clips() as {Untyped}) do
+  for _, clip in ipairs(part:clips() as {Untyped}) do
     local c = clip:get() as types.Clip
     if c.kind == "midi" and not c.muted and (not only or only[clip.id as integer]) then
       -- The clip's overrides (`:clip.override`) as it plays them: its notes
@@ -1325,33 +1323,33 @@ function M.lost_text(): string
 end
 
 --- Write a format 1 MIDI file with the tempo map, time signatures and
---- markers. It contains the whole project, `opts.tracks` (tracks or ids),
---- or only `opts.clips` (ids), with one track of the file for each track
+--- markers. It contains the whole project, `opts.parts` (parts or ids),
+--- or only `opts.clips` (ids), with one track of the file for each part
 --- that has notes or moves. `opts.from` and `opts.to` keep the notes and
 --- moves that start in that time, at their place in the song. Returns the
 --- number of notes written.
 function M.export(path: string, opts?: M.ExportOptions): integer
   opts = opts or {}
-  local tracks: {Untyped} = {}
+  local parts: {Untyped} = {}
   local only: {integer: boolean}
   if opts.clips then
     only = {}
     local seen: {integer: boolean} = {}
     for _, id in ipairs(opts.clips) do
       only[id] = true
-      local track = paw.clip(id):track()
-      local track_id = track.id as integer
-      if not seen[track_id] then
-        seen[track_id] = true
-        tracks[#tracks + 1] = track
+      local part = paw.clip(id):part()
+      local part_id = part.id as integer
+      if not seen[part_id] then
+        seen[part_id] = true
+        parts[#parts + 1] = part
       end
     end
-  elseif opts.tracks then
-    for _, t in ipairs(opts.tracks) do
-      tracks[#tracks + 1] = t is Untyped and t or paw.track(t)
+  elseif opts.parts then
+    for _, t in ipairs(opts.parts) do
+      parts[#parts + 1] = t is Untyped and t or paw.part(t)
     end
   else
-    tracks = paw.tracks() as {Untyped}
+    parts = paw.parts() as {Untyped}
   end
   local file: File = {
     format = 1, ppq = EXPORT_PPQ, tracks = {{name = api.project_get().name}}, signatures = {}, markers = {}
@@ -1360,8 +1358,8 @@ function M.export(path: string, opts?: M.ExportOptions): integer
   local last: number = 0
   local lost: M.Lost = {times = 0, values = 0, dropped = 0}
   M.last_export = lost
-  for _, track in ipairs(tracks) do
-    local t, ends = export_track(track, opts, only, lost)
+  for _, part in ipairs(parts) do
+    local t, ends = export_part(part, opts, only, lost)
     if #t.notes > 0 or #t.controls > 0 then
       file.tracks[#file.tracks + 1] = t
       notes, last = notes + #t.notes, math.max(last, ends)

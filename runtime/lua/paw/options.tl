@@ -108,7 +108,7 @@ local defaults: {string: Value} = {
   -- started with --clean, which is how tests and experiments run.
   autosave = api.env().clean and 0 or 60,
   reopen_last = false, -- start with the project that was open last, when none is named
-  threads = 0, -- threads to process tracks on; 0 for one per core
+  threads = 0, -- threads to process parts on; 0 for one per core
   files_limit = 20000, -- the files picker reads at most this many directory entries
   files_depth = 8, -- and goes this many folders deep
   -- Folders the files picker does not enter (it leaves out hidden ones and
@@ -123,14 +123,14 @@ local defaults: {string: Value} = {
   -- beats, or text such as "1/8t", "bar" or "500ms" (paw/timegrid.tl).
   grid = 1,
   zoom = 2, -- arrange columns per beat
-  track_height = "auto", -- arrange rows per track; "auto" fits the tracks to the screen, 1 to 3
-  header_width = "auto", -- arrange columns for the track headers; "auto" by the screen's width
-  -- The track column at the left of the track headers, as Neovim's
-  -- 'number', 'relativenumber' and 'statuscolumn': each track's number,
-  -- or how many `j` or `k` reach it, and the parts shown (paw/trackcolumn.tl).
+  part_height = "auto", -- arrange rows per part; "auto" fits the parts to the screen, 1 to 3
+  header_width = "auto", -- arrange columns for the part headers; "auto" by the screen's width
+  -- The part column at the left of the part headers, as Neovim's
+  -- 'number', 'relativenumber' and 'statuscolumn': each part's number,
+  -- or how many `j` or `k` reach it, and the components shown (paw/partcolumn.tl).
   number = true,
   relativenumber = false,
-  trackcolumn = {"number", "signs", "fold"},
+  partcolumn = {"number", "signs", "fold"},
   -- The ruler's bar labels: how many `W` or `B` reach each bar, and the
   -- parts of each label shown (paw/ruler.tl).
   relativebar = false,
@@ -165,8 +165,8 @@ local defaults: {string: Value} = {
   click_output = 0, -- the first output channel of the pair the click plays on; 0 for with the song
   velocity = 100, -- for notes entered by hand
   send_level = -12, -- dB a new send starts at
-  -- The selected track plays the MIDI keyboard while no track is armed, as
-  -- if its input were monitored; false: only an armed or monitored track.
+  -- The selected part plays the MIDI keyboard while no part is armed, as
+  -- if its input were monitored; false: only an armed or monitored part.
   midi_follows_selection = true,
   note_grid = 0.25, -- the grid of the note editors, as grid
   swing = 50, -- percent: each second line of a bar of the grid moves later, from 50 (none) to 75
@@ -203,7 +203,7 @@ local specs: {string: Spec} = {
   threads = {min = 0, max = 256, integer = true},
   grid = {type = {"number", "string"}, min = 1 / 128, max = 64},
   zoom = {min = 0.125, max = 64},
-  track_height = {type = {"number", "string"}, min = 1, max = 12, integer = true, values = {"auto"}},
+  part_height = {type = {"number", "string"}, min = 1, max = 12, integer = true, values = {"auto"}},
   header_width = {type = {"number", "string"}, min = 8, max = 60, integer = true, values = {"auto"}},
   termcolors = {type = {"string", "number"}},
   curve_glyphs = {values = {"sextant", "braille", "line"}},

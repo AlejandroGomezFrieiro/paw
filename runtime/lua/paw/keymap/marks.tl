@@ -119,7 +119,7 @@ local function same(a: Place, b: Place): boolean
       return false
     end
   end
-  return a.track == b.track and a.beat == b.beat and a.scoped == b.scoped and a.scope == b.scope
+  return a.part == b.part and a.beat == b.beat and a.scoped == b.scoped and a.scope == b.scope
 end
 
 -- Add `here` at the end of a list of places, unless it is there already,

@@ -4,10 +4,10 @@ use std::cell::UnsafeCell;
 use std::ops::{Deref, DerefMut};
 use std::sync::atomic::{AtomicBool, Ordering, Ordering::Relaxed};
 
-/// Something one thread at a time may work on: a track or a device, while
-/// the tracks of a group are processed side by side. A second thread asking
-/// for the same one is turned away, so even a schedule that names a track
-/// twice, or two tracks that share a device, cannot make two threads touch it.
+/// Something one thread at a time may work on: a part or a device, while
+/// the parts of a group are processed side by side. A second thread asking
+/// for the same one is turned away, so even a schedule that names a part
+/// twice, or two parts that share a device, cannot make two threads touch it.
 pub(super) struct Guarded<T> {
     busy: AtomicBool,
     value: UnsafeCell<T>,

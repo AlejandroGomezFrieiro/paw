@@ -1,15 +1,15 @@
 -- Soak: play for several minutes on the null backend while editing all the
 -- time, and watch for dropouts, slow blocks, leaks and memory growth.
---   paw --clean --no-plugins -l bench/soak.lua <minutes> [tracks]
+--   paw --clean --no-plugins -l bench/soak.lua <minutes> [parts]
 local paw = require("paw")
 local api = paw.api
 local B = dofile(debug.getinfo(1, "S").source:sub(2):match("(.*)/") .. "/lib.lua")
 
-local minutes, tracks = ...
-minutes, tracks = tonumber(minutes) or 3, tonumber(tracks) or 40
+local minutes, parts = ...
+minutes, parts = tonumber(minutes) or 3, tonumber(parts) or 40
 
 api.engine_restart({ backend = "null", buffer_size = 256, sample_rate = 48000 })
-local ids = B.build({ tracks = tracks, kind = "midi", fx = true, automation = true, bars = 16 })
+local ids = B.build({ parts = parts, kind = "midi", fx = true, automation = true, bars = 16 })
 paw.transport.loop_start, paw.transport.loop_end = 0, 64
 paw.transport.loop_enabled = true
 paw.transport.play()
@@ -34,7 +34,7 @@ while api.real_ms() < deadline do
     local clip = api.clip_list(id)[1]
     if clip then api.clip_set(clip.id, "start", rand(4) - 1) end
   elseif what == 2 then
-    api.track_set(id, "volume", -rand(12))
+    api.part_set(id, "volume", -rand(12))
   elseif what == 3 then
     local clip = api.clip_list(id)[1]
     if clip then
@@ -45,18 +45,18 @@ while api.real_ms() < deadline do
       end
     end
   elseif what == 4 then
-    local dev = api.track_get(id).devices[1]
+    local dev = api.part_get(id).devices[1]
     if dev then api.device_set_param(dev, "cutoff", 200 + rand(8000)) end
   elseif what == 5 then
     api.undo()
   elseif what == 6 then
     api.redo()
   elseif what == 7 then
-    -- Replace a track entirely now and then: a new one in its place.
+    -- Replace a part entirely now and then: a new one in its place.
     local i = rand(#ids)
-    api.track_remove(ids[i])
+    api.part_remove(ids[i])
     paw.flush()
-    local t = api.track_add({ name = "new" })
+    local t = api.part_add({ name = "new" })
     api.device_add(t, "synth")
     api.device_add(t, "delay")
     api.clip_add(t, { start = 0, length = 64, notes = B.bar_notes(rand(16) - 1, i) })
@@ -67,8 +67,8 @@ while api.real_ms() < deadline do
   end
   paw.flush()
   api.undo_checkpoint()
-  -- Undo may have brought back removed tracks, or taken away new ones.
-  if what == 5 or what == 6 then ids = api.track_list() end
+  -- Undo may have brought back removed parts, or taken away new ones.
+  if what == 5 or what == 6 then ids = api.part_list() end
   edits = edits + 1
   if api.real_ms() > next_sample then
     samples[#samples + 1] = B.rss()
@@ -82,7 +82,7 @@ local half = math.max(1, math.floor(#samples / 2))
 B.emit({
   workload = "soak",
   minutes = minutes,
-  tracks = tracks,
+  parts = parts,
   edits = edits,
   blocks = info.blocks.count,
   budget_ms = info.blocks.budget,

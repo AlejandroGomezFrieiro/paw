@@ -30,7 +30,7 @@ pub(super) fn tools() -> Vec<Tool> {
         Tool {
             name: "undo",
             title: "Undo, redo, history",
-            description: "Undo the last change (or `steps` changes), or redo with redo=true; the result says what each step was (\"mcp: add_track Bass\"; a change made by a person in paw says so). With nothing to undo it fails. With list=true it changes nothing and lists the history, newest first, and what redo would bring back. Every writing tool call is one named step, and so is a batch.".into(),
+            description: "Undo the last change (or `steps` changes), or redo with redo=true; the result says what each step was (\"mcp: add_part Bass\"; a change made by a person in paw says so). With nothing to undo it fails. With list=true it changes nothing and lists the history, newest first, and what redo would bring back. Every writing tool call is one named step, and so is a batch.".into(),
             schema: obj(json!({
                 "steps": {"type": "integer", "minimum": 1, "maximum": 100, "description": "How many steps (default 1)"},
                 "redo": {"type": "boolean", "description": "Redo instead of undo"},

@@ -3,7 +3,7 @@
  {9:A new project}
  {10:Everything is driven from the keyboard. To begin:}
 
-   {11:o}             add a track
+   {11:o}             add a part
    {11:a}             put an instrument on it
    {11:i Enter}       enter notes: a clip opens to draw them (i alone: insert mode)
    {11:then I}        play them on a MIDI keyboard (step input)
@@ -17,7 +17,7 @@
 {3:   }{12:▌}{3: Master         }{4:│}
 {3:   }{12:▌}{3:   }{13:▀▀▀▀▀▀▀▀}{3: }{12:0.0}{3: }{4:│}
 {14: NORMAL·arrange }{3: }{12:■}{2: 1.1.00}{15: │ }{3:120 bpm 4/4                                }{16:untitled}{3: }
-{1: }{17:Space Space}{12: play}{15: · }{17:o}{12: track}{15: · }{17:a}{12: device}{15: · }{17:i}{12: insert}{15: · }{17:?}{12: keys}{1:   }{12::help arrange-view}{1: }
+{1: }{17:Space Space}{12: play}{15: · }{17:o}{12: part}{15: · }{17:a}{12: device}{15: · }{17:i}{12: insert}{15: · }{17:?}{12: keys}{1:   }{12::help arrange-view}{1: }
 --
 0: fg=#c9ced8 bg=#101216
 1: fg=#565d6d bg=#16191f

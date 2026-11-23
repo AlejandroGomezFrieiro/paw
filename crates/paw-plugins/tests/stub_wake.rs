@@ -10,7 +10,7 @@
 use paw_engine::GraphPlan;
 use paw_engine::{
     Controller, DeviceSlot, Engine, EngineHandle, MAX_BLOCK, Msg, Registry, SchedEntry, Schedule,
-    TrackRt, TrackSlot,
+    PartRt, PartSlot,
 };
 use paw_plugins::PluginDirs;
 use tempfile::TempDir;
@@ -36,7 +36,7 @@ fn stub_dir() -> TempDir {
     dir
 }
 
-/// An engine with the stub on one track, stopped, and the stub's
+/// An engine with the stub on one part, stopped, and the stub's
 /// controller, as the session has them: the controller keeps the engine's
 /// waker.
 struct Rig {
@@ -66,21 +66,21 @@ impl Rig {
 
         let (mut engine, mut handle) = Engine::new(48000.0);
         controller.set_waker(handle.waker());
-        let track = TrackSlot(1);
+        let part = PartSlot(1);
         let messages = [
-            Msg::InsertTrack {
-                slot: track,
-                track: TrackRt::new(),
+            Msg::InsertPart {
+                slot: part,
+                part: PartRt::new(),
             },
             Msg::InsertDevice {
                 slot: DEVICE,
                 device: instance.device,
             },
-            Msg::SetGraph { slot: track.into(), plan: GraphPlan::serial(&[DEVICE]) },
+            Msg::SetGraph { slot: part.into(), plan: GraphPlan::serial(&[DEVICE]) },
             Msg::SetSchedule(Box::new(Schedule::new(
                 vec![
-                    SchedEntry::new(track, TrackSlot::MASTER),
-                    SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE),
+                    SchedEntry::new(part, PartSlot::MASTER),
+                    SchedEntry::new(PartSlot::MASTER, PartSlot::NONE),
                 ],
                 0,
             ))),

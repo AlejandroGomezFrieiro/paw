@@ -10,7 +10,7 @@
 
 </div>
 
-![A tour of paw in the terminal. The cursor moves over tracks, clips and regions. The melody is copied, two tracks are turned down, and the view narrows to the verse. A clip is found by name, a track and a synth are added, and a note is drawn and transposed in the piano roll. Two tracks become a group, the chorus of the keys and the melody becomes a subproject, and the song plays. At the end, u undoes every change](docs/images/tui-tour.gif)
+![A tour of paw in the terminal. The cursor moves over parts, clips and regions. The melody is copied, two parts are turned down, and the view narrows to the verse. A clip is found by name, a part and a synth are added, and a note is drawn and transposed in the piano roll. Two parts become a group, the chorus of the keys and the melody becomes a subproject, and the song plays. At the end, u undoes every change](docs/images/tui-tour.gif)
 
 ## Who paw is for
 
@@ -28,13 +28,13 @@ lists its limits.
 The keys work as in Vim, but on a timeline instead of on text. In each
 view, `h` `j` `k` `l` only move, `+` and `-` change the value under the
 cursor, and `Esc` cancels. On the command line, a range can be a range of
-tracks (`:5,8d`, `:t2,t4 mute`), and paw shows a preview while you type.
+parts (`:5,8d`, `:t2,t4 mute`), and paw shows a preview while you type.
 [All the keys](docs/reference/keys.md) are on one page, and
 [About the key rule](docs/explanation/about-the-key-rule.md) tells why they
 are the same in each view.
 
 The recorded session below moves over the demo song, copies a clip,
-turns two tracks down, draws a note and plays the song. Press Play, pause
+turns two parts down, draws a note and plays the song. Press Play, pause
 it at any step, and copy the keys of a step from the list under it.
 
 <paw-cast src="docs/images/cast-basics.cast">
@@ -57,12 +57,12 @@ frontend. See [About scenes](docs/explanation/about-scenes.md).
 Each view, command and key is Lua, so your `init.lua` can change any of
 them while the song plays. New code of paw is written in Teal, which is Lua
 with types. An extension is a folder that adds commands, keys, views,
-devices and kinds of track, and a view that an extension writes works in
+devices and kinds of part, and a view that an extension writes works in
 the terminal and in the graphical window.
 
 ```lua
 paw.ui.hl("Playhead", { bg = "#f38ba8" })
-paw.keymap.set("<leader>tS", "track.add Strings device=synth", { desc = "A strings track" })
+paw.keymap.set("<leader>tS", "part.add Strings device=synth", { desc = "A strings part" })
 ```
 
 [How to configure paw](docs/how-to/configure-paw.md) and
@@ -78,7 +78,7 @@ extension saves what it makes, so its clips play without it too. See
 
 ### Files that paw never deletes
 
-A project is a folder of text files, with a file for each track and for
+A project is a folder of text files, with a file for each part and for
 each clip. A save moves a file that the project no longer uses to the
 `unused` folder, and paw never empties it. See
 [About project files](docs/explanation/about-project-files.md).

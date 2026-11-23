@@ -1,8 +1,8 @@
 //! Capturing a take while recording.
 //!
-//! The audio thread copies each recorded track's dry input into a ring, and a
-//! writer thread per track empties the ring into a WAV file. Notes that reach
-//! armed tracks go into another ring for the main thread to collect. Nothing
+//! The audio thread copies each recorded part's dry input into a ring, and a
+//! writer thread per part empties the ring into a WAV file. Notes that reach
+//! armed parts go into another ring for the main thread to collect. Nothing
 //! here touches a file on the audio thread.
 
 use std::fs::File;
@@ -19,7 +19,7 @@ use paw_types::EventKind;
 use rtrb::{Consumer, Producer};
 
 use crate::bell::Bell;
-use crate::slot::TrackSlot;
+use crate::slot::PartSlot;
 
 /// What the engine captures while a take is installed and the transport plays.
 /// Built on the main thread and sent over with [`Msg::SetTake`](crate::Msg::SetTake).
@@ -72,7 +72,7 @@ impl Take {
 /// may start a rounding error short of it.
 pub const PUNCH_EPS: f64 = 1e-9;
 
-/// One track's input, copied as it arrives.
+/// One part's input, copied as it arrives.
 pub struct AudioCapture {
     /// First input channel, counting from 0.
     pub first: usize,
@@ -81,10 +81,10 @@ pub struct AudioCapture {
     pub ring: Producer<f32>,
 }
 
-/// A note that reached an armed track while recording.
+/// A note that reached an armed part while recording.
 #[derive(Clone, Copy, Debug)]
 pub struct MidiCapture {
-    pub slot: TrackSlot,
+    pub slot: PartSlot,
     /// Transport position, in beats, of the block the note was played in.
     pub beat: f64,
     pub kind: EventKind,

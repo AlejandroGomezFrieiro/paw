@@ -89,12 +89,12 @@ paw.keymap = require("paw.keymap")
 paw.keyrule = require("paw.keyrule")
 
 local objects = require("paw.objects")
-paw.Track, paw.Device, paw.Clip, paw.Lane = objects.Track, objects.Device, objects.Clip, objects.Lane
-paw.tracks, paw.track, paw.device, paw.clip = objects.tracks, objects.track, objects.device, objects.clip
+paw.Part, paw.Device, paw.Clip, paw.Lane = objects.Part, objects.Device, objects.Clip, objects.Lane
+paw.parts, paw.part, paw.device, paw.clip = objects.parts, objects.part, objects.device, objects.clip
 paw.lane = objects.lane
-paw.add_track = objects.add_track
-paw.restore_track, paw.restore_clip, paw.restore_device =
-  objects.restore_track, objects.restore_clip, objects.restore_device
+paw.add_part = objects.add_part
+paw.restore_part, paw.restore_clip, paw.restore_device =
+  objects.restore_part, objects.restore_clip, objects.restore_device
 paw.master, paw.project, paw.transport, paw.time = objects.master, objects.project, objects.transport, objects.time
 paw.midi = objects.midi
 paw.tempo = require("paw.tempo")
@@ -106,7 +106,7 @@ paw.audio = require("paw.audio")
 -- Plugins an extension ships, and what plugins call their keys (paw/plugins.lua).
 paw.plugins = require("paw.plugins")
 
---- Descriptions of each kind of device that you can add to a track. A kind
+--- Descriptions of each kind of device that you can add to a part. A kind
 --- that an extension added (`paw.plugins.add_dir`) has its extension in `from`.
 --- @type function(): {types.DeviceType}
 function paw.device_types()
@@ -127,20 +127,20 @@ paw.registry = require("paw.registry")
 paw.ext = require("paw.ext")
 paw.vca = require("paw.vca")
 paw.groups = require("paw.groups")
--- The folds of each window: tracks drawn as one row (paw/folds.tl).
+-- The folds of each window: parts drawn as one row (paw/folds.tl).
 paw.folds = require("paw.folds")
 -- How tall the rows of each window are: the vertical zoom (paw/vzoom.tl).
 paw.vzoom = require("paw.vzoom")
 paw.lanes = require("paw.lanes")
--- The track column and the ruler's bar labels, which extensions add to.
-paw.trackcolumn = require("paw.trackcolumn")
+-- The part column and the ruler's bar labels, which extensions add to.
+paw.partcolumn = require("paw.partcolumn")
 paw.ruler = require("paw.ruler")
 paw.tempolane = require("paw.tempolane")
 paw.frontend = require("paw.frontend")
 paw.audition = require("paw.audition")
 paw.regex = require("paw.regex")
 paw.pick = require("paw.pick")
-paw.track_kinds = require("paw.track_kinds")
+paw.part_kinds = require("paw.part_kinds")
 -- Kinds of clip that extensions define (paw/clip_kinds.tl).
 paw.clip_kinds = require("paw.clip_kinds")
 paw.fx = require("paw.fx")
@@ -242,20 +242,20 @@ function K.startup()
   paw.render = require("paw.render")
   paw.render_tags, paw.render_ranges = paw.render.tags, paw.render.ranges
   paw.render_status, paw.render_cancel = paw.render.status, paw.render.cancel
-  -- Freezing tracks and blocks of subprojects, and the scope of each
+  -- Freezing parts and blocks of subprojects, and the scope of each
   -- window: a part of the song.
   paw.freeze_block = require("paw.freeze_block")
   paw.freeze = require("paw.freeze")
-  -- Tracks rendered into the project as a new audio track (paw/bounce.tl).
+  -- Parts rendered into the project as a new audio part (paw/bounce.tl).
   paw.bounce = require("paw.bounce")
   paw.scope = require("paw.scope")
   paw.pick.sources:put("scopes", paw.scope.source)
   paw.markers = require("paw.markers")
-  -- The chain of a track's devices: splits, branches, linked racks (paw/chain.tl).
+  -- The chain of a part's devices: splits, branches, linked racks (paw/chain.tl).
   paw.chain = require("paw.chain")
   -- paw.chain is below the screen (tools/layers.txt): it shows its messages here.
   paw.chain.say = paw.notify
-  -- Subprojects: tracks with a timeline of their own (paw/nest.tl).
+  -- Subprojects: parts with a timeline of their own (paw/nest.tl).
   paw.nest = require("paw.nest")
   -- paw.nest is below this module (tools/layers.txt): it gets paw.flush here.
   paw.nest.flush = paw.flush
@@ -266,11 +266,11 @@ function K.startup()
   paw.workspace = require("paw.workspace")
   -- Insert mode in the arrange view, and what its keys insert (paw/insert.tl).
   paw.insert = require("paw.insert")
-  -- Listings edited as text (`:e paw://tracks`), and the kinds built in.
+  -- Listings edited as text (`:e paw://parts`), and the kinds built in.
   paw.textbuf = require("paw.textbuf")
   -- The command-line window: `q:`, `q/`, Ctrl-f in a prompt (paw/cmdwin.tl).
   require("paw.cmdwin")
-  require("paw.views.tracklist")
+  require("paw.views.partlist")
   paw.files = require("paw.views.files")
   paw.recent = require("paw.recent")
   paw.shada = require("paw.shada")

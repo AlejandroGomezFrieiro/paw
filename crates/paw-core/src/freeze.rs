@@ -1,16 +1,16 @@
-//! Frozen tracks: a track rendered to a sound file, which the engine plays in
-//! place of the track's clips and devices, so that they cost nothing while it
+//! Frozen parts: a part rendered to a sound file, which the engine plays in
+//! place of the part's clips and devices, so that they cost nothing while it
 //! is frozen.
 //!
-//! A track is frozen when its meta holds `frozen.file` (the runtime's
-//! `paw.freeze` writes it, so freezing is saved and undone with the track).
-//! The file is what comes out of the track before its fader: its clips, its
-//! devices, and every track whose sound reaches it through outputs (the
+//! A part is frozen when its meta holds `frozen.file` (the runtime's
+//! `paw.freeze` writes it, so freezing is saved and undone with the part).
+//! The file is what comes out of the part before its fader: its clips, its
+//! devices, and every part whose sound reaches it through outputs (the
 //! members of a group). The fader, pan, mute and sends stay live. While it is
 //! frozen, its devices are held (bypassed in the engine, not in the model)
-//! and the tracks that feed it are held and silent, as the file holds them.
+//! and the parts that feed it are held and silent, as the file holds them.
 //!
-//! The session can hold further tracks the same way without touching the
+//! The session can hold further parts the same way without touching the
 //! project ([`Mapper::held_files`](crate::sync::Mapper)): what narrowing to a
 //! group does to the rest of the song, when asked to.
 //!
@@ -30,16 +30,16 @@ use anyhow::{Result, bail};
 use serde_json::{Map, Value};
 
 use crate::model::nest::Timing;
-use crate::model::{Clip, ClipContent, Id, MASTER_ID, NestId, NestPlay, Project, Target, Timebase, Track};
+use crate::model::{Clip, ClipContent, Id, MASTER_ID, NestId, NestPlay, Project, Target, Timebase, Part};
 
-/// What the engine plays of a track.
+/// What the engine plays of a part.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum Played {
     /// Its clips through its devices.
     Live,
     /// This file, from the start of the song, with its devices held.
     Frozen(PathBuf),
-    /// Nothing: its sound is in a frozen track it feeds.
+    /// Nothing: its sound is in a frozen part it feeds.
     Held,
 }
 
@@ -71,18 +71,18 @@ fn map_meta_file(
     false
 }
 
-/// The sound file a track is frozen to, from its meta.
-pub(crate) fn frozen_file(track: &Track) -> Option<PathBuf> {
-    meta_file(&track.meta)
+/// The sound file a part is frozen to, from its meta.
+pub(crate) fn frozen_file(part: &Part) -> Option<PathBuf> {
+    meta_file(&part.meta)
 }
 
-/// Point a frozen track at another file (saving relative to the project,
+/// Point a frozen part at another file (saving relative to the project,
 /// relinking a moved one). Returns whether it changed.
 pub(crate) fn map_frozen_file(
-    track: &mut Track,
+    part: &mut Part,
     f: &mut impl FnMut(&std::path::Path) -> Option<PathBuf>,
 ) -> bool {
-    map_meta_file(&mut track.meta, f)
+    map_meta_file(&mut part.meta, f)
 }
 
 /// The sound file a block of a subproject is frozen to, from its meta.
@@ -95,7 +95,7 @@ pub(crate) fn block_file(clip: &Clip) -> Option<PathBuf> {
 }
 
 /// Point a frozen block at another file, as [`map_frozen_file`] does for a
-/// track. Returns whether it changed.
+/// part. Returns whether it changed.
 pub(crate) fn map_block_file(
     clip: &mut Clip,
     f: &mut impl FnMut(&std::path::Path) -> Option<PathBuf>,
@@ -148,11 +148,11 @@ pub(crate) fn block_sound(clip: &Clip) -> Option<Clip> {
     })
 }
 
-/// The tracks whose outputs lead, one after another, into `id`.
+/// The parts whose outputs lead, one after another, into `id`.
 fn feeders(project: &Project, id: Id) -> HashSet<Id> {
-    let output: HashMap<Id, Option<Id>> = project.tracks.iter().map(|t| (t.id, t.output)).collect();
+    let output: HashMap<Id, Option<Id>> = project.parts.iter().map(|t| (t.id, t.output)).collect();
     let mut out = HashSet::new();
-    for t in &project.tracks {
+    for t in &project.parts {
         let mut at = t.output;
         // Routing has no loops (the model refuses them); the bound is a guard.
         for _ in 0..64 {
@@ -169,13 +169,13 @@ fn feeders(project: &Project, id: Id) -> HashSet<Id> {
     out
 }
 
-/// What the engine plays of every track that is not live: frozen in the
-/// project or in `extra`, or held inside a frozen track. A track frozen
-/// inside another frozen track is held.
+/// What the engine plays of every part that is not live: frozen in the
+/// project or in `extra`, or held inside a frozen part. A part frozen
+/// inside another frozen part is held.
 pub(crate) fn played(project: &Project, extra: &HashMap<Id, PathBuf>) -> HashMap<Id, Played> {
     let mut out = HashMap::new();
     let frozen: HashMap<Id, PathBuf> = project
-        .tracks
+        .parts
         .iter()
         .filter_map(|t| {
             frozen_file(t)
@@ -196,24 +196,24 @@ pub(crate) fn played(project: &Project, extra: &HashMap<Id, PathBuf>) -> HashMap
     out
 }
 
-/// Turn a copy of the project into what freezing `id` renders: the track
-/// and the tracks that feed it, as they sound before its fader, with every
-/// other track silent and the master's own processing left to the caller.
-/// The track itself plays live, even when it is frozen now; tracks frozen
+/// Turn a copy of the project into what freezing `id` renders: the part
+/// and the parts that feed it, as they sound before its fader, with every
+/// other part silent and the master's own processing left to the caller.
+/// The part itself plays live, even when it is frozen now; parts frozen
 /// inside it play their files.
 pub(crate) fn alone(project: &mut Project, id: Id) -> Result<()> {
     if id == MASTER_ID {
-        bail!("the master track cannot be frozen");
+        bail!("the master part cannot be frozen");
     }
-    if project.track(id).is_none() {
-        bail!("no track {id} to freeze");
+    if project.part(id).is_none() {
+        bail!("no part {id} to freeze");
     }
-    tracks_alone(project, &[id], Fader::Out)?;
-    project.track_mut(id).expect("checked above").meta.remove("frozen");
+    parts_alone(project, &[id], Fader::Out)?;
+    project.part_mut(id).expect("checked above").meta.remove("frozen");
     Ok(())
 }
 
-/// Whether a render of tracks alone hears their faders.
+/// Whether a render of parts alone hears their faders.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Fader {
     /// Before the fader: no fader, pan, mute, VCA, or volume and pan lane.
@@ -222,22 +222,22 @@ pub(crate) enum Fader {
     In,
 }
 
-/// Turn a copy of the project into the sound of `ids` alone: each track
-/// with the tracks that feed it, straight into the master, with no sends
-/// and no groups, and every other track silent. The caller leaves out the
-/// master's own processing. A track of `ids` that feeds another track of
-/// `ids` (a member of a listed group) is heard once, inside that track,
+/// Turn a copy of the project into the sound of `ids` alone: each part
+/// with the parts that feed it, straight into the master, with no sends
+/// and no groups, and every other part silent. The caller leaves out the
+/// master's own processing. A part of `ids` that feeds another part of
+/// `ids` (a member of a listed group) is heard once, inside that part,
 /// with its own fader.
-pub(crate) fn tracks_alone(project: &mut Project, ids: &[Id], fader: Fader) -> Result<()> {
+pub(crate) fn parts_alone(project: &mut Project, ids: &[Id], fader: Fader) -> Result<()> {
     if ids.contains(&MASTER_ID) {
-        bail!("the master is not a track to hear alone: leave it out of the tracks");
+        bail!("the master is not a part to hear alone: leave it out of the parts");
     }
-    if let Some(id) = ids.iter().find(|id| project.track(**id).is_none()) {
-        bail!("no track {id} to render");
+    if let Some(id) = ids.iter().find(|id| project.part(**id).is_none()) {
+        bail!("no part {id} to render");
     }
     let fed: HashMap<Id, HashSet<Id>> =
         ids.iter().map(|&id| (id, feeders(project, id))).collect();
-    // The listed tracks that no other listed track holds.
+    // The listed parts that no other listed part holds.
     let outer: Vec<Id> = ids
         .iter()
         .copied()
@@ -247,63 +247,63 @@ pub(crate) fn tracks_alone(project: &mut Project, ids: &[Id], fader: Fader) -> R
     for id in &outer {
         heard.extend(&fed[id]);
     }
-    let is_vca = |t: &Track| t.meta.get("vca").and_then(Value::as_bool) == Some(true);
-    for track in project.tracks.iter_mut() {
+    let is_vca = |t: &Part| t.meta.get("vca").and_then(Value::as_bool) == Some(true);
+    for part in project.parts.iter_mut() {
         // A VCA carries no sound, and muting it would mute its members.
-        let mute = !heard.contains(&track.id) && !is_vca(track);
-        if track.solo || (mute && !track.mute) {
-            let t = Arc::make_mut(track);
+        let mute = !heard.contains(&part.id) && !is_vca(part);
+        if part.solo || (mute && !part.mute) {
+            let t = Arc::make_mut(part);
             t.solo = false;
             t.mute |= mute;
         }
     }
     for id in outer {
-        let track = project.track_mut(id).expect("checked above");
+        let part = project.part_mut(id).expect("checked above");
         // Not through its groups, and not into the returns of its sends.
-        track.output = None;
-        track.sends.clear();
+        part.output = None;
+        part.sends.clear();
         if fader == Fader::Out {
-            track.volume = 0.0;
-            track.pan = 0.0;
-            track.mute = false;
-            track
+            part.volume = 0.0;
+            part.pan = 0.0;
+            part.mute = false;
+            part
                 .lanes
                 .retain(|l| !matches!(l.target, Target::Volume | Target::Pan));
-            track.meta.remove("vcas");
+            part.meta.remove("vcas");
         }
     }
     Ok(())
 }
 
-/// The block `clip` and the track that holds it, or None when `clip` is
+/// The block `clip` and the part that holds it, or None when `clip` is
 /// no block of a subproject.
-fn block_on(project: &Project, clip: Id) -> Option<(&Arc<Track>, &Arc<Clip>)> {
-    let (track, index) = project.find_clip(clip)?;
-    let track = project.track(track)?;
-    let c = track.clips.get(index)?;
-    matches!(c.content, ClipContent::Nest { .. }).then_some((track, c))
+fn block_on(project: &Project, clip: Id) -> Option<(&Arc<Part>, &Arc<Clip>)> {
+    let (part, index) = project.find_clip(clip)?;
+    let part = project.part(part)?;
+    let c = part.clips.get(index)?;
+    matches!(c.content, ClipContent::Nest { .. }).then_some((part, c))
 }
 
 /// The blocks that place block `clip` in the song, from a block of the
 /// song down to `clip` itself. For a block inside a subproject, each
 /// subproject on the way is placed by its block in `through`, or else by
-/// its first block that plays the track that the block below is on.
+/// its first block that plays the part that the block below is on.
 pub(crate) fn block_path(project: &Project, clip: Id, through: &[Id]) -> Result<Vec<Id>> {
-    let Some((mut track, _)) = block_on(project, clip) else {
+    let Some((mut part, _)) = block_on(project, clip) else {
         bail!("no block of a subproject {clip}");
     };
     let mut path = vec![clip];
-    while let Some(nest) = track.nest {
+    while let Some(nest) = part.nest {
         // The model keeps subprojects at most this deep; the bound is a guard.
         if path.len() > crate::model::MAX_DEPTH {
             bail!("block {clip} is too deep inside subprojects");
         }
-        // A block of `nest` that is not muted and plays this track.
-        let row = track.id;
+        // A block of `nest` that is not muted and plays this part.
+        let row = part.id;
         let plays = |c: &Clip| {
             !c.muted
                 && matches!(c.content, ClipContent::Nest { nest: n, play, .. }
-                    if n == nest && (play == NestPlay::Master || play == NestPlay::Track(row)))
+                    if n == nest && (play == NestPlay::Master || play == NestPlay::Part(row)))
         };
         let given = through
             .iter()
@@ -311,7 +311,7 @@ pub(crate) fn block_path(project: &Project, clip: Id, through: &[Id]) -> Result<
             .find(|(_, c)| plays(c));
         let first = || {
             project
-                .tracks
+                .parts
                 .iter()
                 .find_map(|t| t.clips.iter().find(|c| plays(c)).map(|c| (t, c)))
         };
@@ -320,7 +320,7 @@ pub(crate) fn block_path(project: &Project, clip: Id, through: &[Id]) -> Result<
             bail!("no block plays {name}: put a block of {name} in the song first");
         };
         path.push(block.id);
-        track = holder;
+        part = holder;
     }
     path.reverse();
     Ok(path)
@@ -351,7 +351,7 @@ pub(crate) fn path_timing(project: &Project, path: &[Id]) -> Result<Option<Timin
 /// [`block_path`] (from `through`). On the song and in each subproject on
 /// the way, the rows of the path keep their block alone and pass its sound
 /// on unchanged (no devices, lanes, sends or fader), as do the masters of
-/// those subprojects; every other track there is silent; and no other
+/// those subprojects; every other part there is silent; and no other
 /// block places a subproject of the path. The block itself plays live,
 /// even when it is frozen now; blocks frozen inside its subproject play
 /// their files.
@@ -362,10 +362,10 @@ pub(crate) fn block_alone(project: &mut Project, clip: Id, through: &[Id]) -> Re
     };
     // A stem in pass mode has no sound of its own: its notes play through
     // the devices of the row, so the row holds its sound.
-    if let NestPlay::Track(stem) = *play
-        && project.track(stem).is_some_and(|t| crate::sync::passes(t))
+    if let NestPlay::Part(stem) = *play
+        && project.part(stem).is_some_and(|t| crate::sync::passes(t))
     {
-        let name = project.track(row).map_or(String::new(), |t| t.name.clone());
+        let name = project.part(row).map_or(String::new(), |t| t.name.clone());
         bail!("this block plays its notes through the devices of {name}: freeze {name} instead");
     }
     // The places that the sound goes through on its way to the song: the
@@ -381,15 +381,15 @@ pub(crate) fn block_alone(project: &mut Project, clip: Id, through: &[Id]) -> Re
             }
         }
     }
-    // The tracks that pass the sound on: the row of each block of the
+    // The parts that pass the sound on: the row of each block of the
     // path, and the master of each subproject on the way.
     let mut passing: HashSet<Id> = path.iter().filter_map(|id| project.find_clip(*id).map(|(t, _)| t)).collect();
     passing.extend(on_way.iter().flatten().filter_map(|n| project.nest(*n)).map(|n| n.master));
-    let is_vca = |t: &Track| t.meta.get("vca").and_then(Value::as_bool) == Some(true);
-    for track in project.tracks.iter_mut() {
-        let on = on_way.contains(&track.nest);
-        let passes = passing.contains(&track.id);
-        // Which clips the render keeps: on a track that passes the sound
+    let is_vca = |t: &Part| t.meta.get("vca").and_then(Value::as_bool) == Some(true);
+    for part in project.parts.iter_mut() {
+        let on = on_way.contains(&part.nest);
+        let passes = passing.contains(&part.id);
+        // Which clips the render keeps: on a part that passes the sound
         // on, its block of the path alone; elsewhere on the way, every clip
         // but the blocks; and nowhere another block of a subproject of the
         // path, which could take the place of the path's.
@@ -399,36 +399,36 @@ pub(crate) fn block_alone(project: &mut Project, clip: Id, through: &[Id]) -> Re
             _ => !passes,
         };
         // A VCA carries no sound, and muting it would mute its members.
-        let mute = on && !passes && !is_vca(track);
-        let cut = track.clips.iter().any(|c| !kept(c));
-        if !(cut || track.solo || (mute && !track.mute)) {
+        let mute = on && !passes && !is_vca(part);
+        let cut = part.clips.iter().any(|c| !kept(c));
+        if !(cut || part.solo || (mute && !part.mute)) {
             continue;
         }
-        let t = Arc::make_mut(track);
+        let t = Arc::make_mut(part);
         t.clips.retain(|c| kept(c));
         t.solo = false;
         t.mute |= mute;
     }
     for id in passing {
-        let Some(track) = project.track_mut(id) else {
+        let Some(part) = project.part_mut(id) else {
             continue;
         };
         // Before the row: its devices, fader, lanes and sends stay live.
-        track.devices.clear();
-        track.lanes.clear();
-        track.sends.clear();
-        track.volume = 0.0;
-        track.pan = 0.0;
-        track.mute = false;
-        track.output = None;
-        track.meta.remove("vcas");
-        track.meta.remove("frozen");
-        for c in track.clips.iter_mut() {
+        part.devices.clear();
+        part.lanes.clear();
+        part.sends.clear();
+        part.volume = 0.0;
+        part.pan = 0.0;
+        part.mute = false;
+        part.output = None;
+        part.meta.remove("vcas");
+        part.meta.remove("frozen");
+        for c in part.clips.iter_mut() {
             let c = Arc::make_mut(c);
             c.muted = false;
             c.meta.remove("frozen");
             // A block above `clip` plays all of its subproject, whose other
-            // tracks are silent: as a stem in pass mode, it would play
+            // parts are silent: as a stem in pass mode, it would play
             // through its row, which has no devices now.
             if c.id != clip
                 && let ClipContent::Nest { play, .. } = &mut c.content
@@ -448,17 +448,17 @@ mod tests {
     /// Violins and cellos in Strings, which is frozen; drums apart.
     fn song() -> Project {
         let mut p = Project::default();
-        let mut strings = Track::new(1);
+        let mut strings = Part::new(1);
         strings
             .meta
             .insert("frozen".into(), json!({ "file": "/m/strings.wav" }));
         strings.volume = -6.0;
-        let mut violins = Track::new(2);
+        let mut violins = Part::new(2);
         violins.output = Some(1);
-        let mut cellos = Track::new(3);
+        let mut cellos = Part::new(3);
         cellos.output = Some(1);
-        let drums = Track::new(4);
-        p.tracks = [strings, violins, cellos, drums]
+        let drums = Part::new(4);
+        p.parts = [strings, violins, cellos, drums]
             .into_iter()
             .map(Arc::new)
             .collect();
@@ -466,7 +466,7 @@ mod tests {
     }
 
     #[test]
-    fn a_frozen_track_plays_its_file_and_what_feeds_it_is_held() {
+    fn a_frozen_part_plays_its_file_and_what_feeds_it_is_held() {
         let played = played(&song(), &HashMap::new());
         assert_eq!(
             played.get(&1),
@@ -483,32 +483,32 @@ mod tests {
     }
 
     #[test]
-    fn a_freeze_renders_the_track_alone_before_its_fader() {
+    fn a_freeze_renders_the_part_alone_before_its_fader() {
         let mut p = song();
         alone(&mut p, 1).unwrap();
-        let t = p.track(1).unwrap();
+        let t = p.part(1).unwrap();
         assert_eq!((t.volume, t.mute, t.output), (0.0, false, None));
-        assert!(frozen_file(t).is_none(), "the track itself plays live");
+        assert!(frozen_file(t).is_none(), "the part itself plays live");
         assert!(
-            !p.track(2).unwrap().mute && !p.track(3).unwrap().mute,
+            !p.part(2).unwrap().mute && !p.part(3).unwrap().mute,
             "its members play"
         );
-        assert!(p.track(4).unwrap().mute, "the rest is silent");
+        assert!(p.part(4).unwrap().mute, "the rest is silent");
         assert!(alone(&mut p, MASTER_ID).is_err());
     }
 
     #[test]
     fn a_member_listed_with_its_group_is_heard_once_inside_the_group() {
         let mut p = song();
-        Arc::make_mut(&mut p.tracks[1]).volume = -3.0;
-        tracks_alone(&mut p, &[2, 1], Fader::In).unwrap();
-        let violins = p.track(2).unwrap();
+        Arc::make_mut(&mut p.parts[1]).volume = -3.0;
+        parts_alone(&mut p, &[2, 1], Fader::In).unwrap();
+        let violins = p.part(2).unwrap();
         assert_eq!(
             (violins.output, violins.volume),
             (Some(1), -3.0),
             "the violins still go into the strings, with their fader"
         );
-        let strings = p.track(1).unwrap();
+        let strings = p.part(1).unwrap();
         assert_eq!((strings.output, strings.volume), (None, -6.0), "after the fader");
     }
 
@@ -522,7 +522,7 @@ mod tests {
     fn blocks() -> Project {
         let block = json!({ "kind": "nest", "nest": 10, "play": "master" });
         let midi = json!({ "kind": "midi", "notes": [] });
-        let mut row = Track::new(1);
+        let mut row = Part::new(1);
         row.volume = -6.0;
         row.output = Some(4);
         for c in [clip(100, block.clone()), clip(101, block.clone()), clip(102, midi.clone())] {
@@ -530,14 +530,14 @@ mod tests {
             c.meta.insert("frozen".into(), json!({ "file": "/m/block.wav" }));
             row.clips.push(Arc::new(c));
         }
-        let mut drums = Track::new(4);
+        let mut drums = Part::new(4);
         drums.clips.push(clip(103, midi));
         drums.clips.push(clip(104, block));
-        let mut keys = Track::new(12);
+        let mut keys = Part::new(12);
         keys.nest = Some(crate::model::NestId(10));
         keys.clips.push(clip(105, json!({ "kind": "nest", "nest": 20, "play": "master" })));
         let mut p = Project::default();
-        p.tracks = [row, drums, keys].into_iter().map(Arc::new).collect();
+        p.parts = [row, drums, keys].into_iter().map(Arc::new).collect();
         p
     }
 
@@ -545,15 +545,15 @@ mod tests {
     fn a_block_freeze_renders_the_block_alone_before_its_row() {
         let mut p = blocks();
         block_alone(&mut p, 100, &[]).unwrap();
-        let row = p.track(1).unwrap();
+        let row = p.part(1).unwrap();
         let ids: Vec<Id> = row.clips.iter().map(|c| c.id).collect();
         assert_eq!(ids, vec![100], "the row keeps the block alone");
         assert!(block_file(row.clips.iter().next().unwrap()).is_none(), "the block plays live");
         assert_eq!((row.volume, row.output), (0.0, None), "before the row's fader");
-        let drums = p.track(4).unwrap();
+        let drums = p.part(4).unwrap();
         let ids: Vec<Id> = drums.clips.iter().map(|c| c.id).collect();
         assert_eq!((drums.mute, ids), (true, vec![103]), "the rest is silent, its blocks gone");
-        let keys = p.track(12).unwrap();
+        let keys = p.part(12).unwrap();
         assert_eq!((keys.mute, keys.clips.len()), (false, 1), "the subproject plays as it is");
         assert!(block_alone(&mut blocks(), 102, &[]).is_err(), "a clip that is not a block");
     }
@@ -566,20 +566,20 @@ mod tests {
         assert_eq!(block_path(&blocks(), 105, &[101]).unwrap(), vec![101, 105], "the block it is entered through");
         let mut p = blocks();
         block_alone(&mut p, 105, &[101]).unwrap();
-        let row = p.track(1).unwrap();
+        let row = p.part(1).unwrap();
         let ids: Vec<Id> = row.clips.iter().map(|c| c.id).collect();
         assert_eq!(ids, vec![101], "the song's row keeps the block of the path alone");
         assert!(block_file(row.clips.iter().next().unwrap()).is_none(), "which plays live");
         assert_eq!((row.volume, row.output), (0.0, None), "and passes the sound on");
-        let drums = p.track(4).unwrap();
+        let drums = p.part(4).unwrap();
         let ids: Vec<Id> = drums.clips.iter().map(|c| c.id).collect();
         assert_eq!((drums.mute, ids), (true, vec![103]), "the rest of the song is silent, its blocks gone");
-        let keys = p.track(12).unwrap();
+        let keys = p.part(12).unwrap();
         let ids: Vec<Id> = keys.clips.iter().map(|c| c.id).collect();
         assert_eq!((keys.mute, ids), (false, vec![105]), "the block's row plays it");
         let mut alone = blocks();
-        Arc::make_mut(&mut alone.tracks[0]).clips.retain(|c| c.id == 102);
-        Arc::make_mut(&mut alone.tracks[1]).clips.retain(|c| c.id == 103);
+        Arc::make_mut(&mut alone.parts[0]).clips.retain(|c| c.id == 102);
+        Arc::make_mut(&mut alone.parts[1]).clips.retain(|c| c.id == 103);
         assert!(block_path(&alone, 105, &[]).is_err(), "no block of the song plays it");
     }
 }

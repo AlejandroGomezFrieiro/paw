@@ -575,7 +575,7 @@ pub(crate) fn find_bundles(dirs: &[PathBuf], extension: &str) -> Vec<PathBuf> {
     out
 }
 
-/// Tracks which notes are sounding, so that "all notes off" can be sent as
+/// Parts which notes are sounding, so that "all notes off" can be sent as
 /// the individual note-offs every plugin understands.
 pub(crate) struct HeldNotes {
     /// The channels each key sounds on, one bit each.
@@ -715,8 +715,8 @@ pub(crate) fn write_pairs(
     }
 }
 
-/// Copy a plugin's stereo, mono or wider output into the track's two channels.
-/// Instruments add to what is on the track; effects replace it.
+/// Copy a plugin's stereo, mono or wider output into the part's two channels.
+/// Instruments add to what is on the part; effects replace it.
 pub(crate) fn write_output(left: &mut [f32], right: &mut [f32], out: &[&[f32]], add: bool) {
     let (Some(l), r) = (out.first(), out.get(1).or(out.first())) else {
         return;

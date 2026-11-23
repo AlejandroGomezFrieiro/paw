@@ -110,7 +110,7 @@ end
 --- in silence) and how long it sounds (15), then from 16 the lowest pitch
 --- over time, three numbers for each piece: from, to and the pitch, in
 --- order. The parts of one stretch, or of stretches side by side, merge
---- into one (`merge`): the song's reading keeps a part for each track and
+--- into one (`merge`): the song's reading keeps a portion for each part and
 --- window, and adds up those of a window.
 local type Portion = {number}
 local TOTAL, LOWEST, LASTS, PIECES = 13, 14, 15, 16
@@ -469,9 +469,9 @@ local function lower(
   return n
 end
 
---- The parts of one stretch of time, or of stretches side by side, as
---- one part: the weights add up, and the lowest pitch over time is the
---- lowest of theirs. One part that sounds gives that part.
+--- The portions of one stretch of time, or of stretches side by side, as
+--- one portion: the weights add up, and the lowest pitch over time is the
+--- lowest of theirs. One portion that sounds gives that portion.
 function M.merge(portions: {Portion}): Portion
   local first: Portion
   local more = false

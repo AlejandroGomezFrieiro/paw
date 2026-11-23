@@ -22,7 +22,7 @@
 --     describe = function(clip) return clip:data().file end,
 --   })
 --
--- and from then on `paw.clip_kinds.add(track, "film", { "intro.mp4" })`
+-- and from then on `paw.clip_kinds.add(part, "film", { "intro.mp4" })`
 -- makes a clip of it, `clip:data()` reads its data (`deserialize`), and
 -- `clip:set_data(d)` (`paw.clip_kinds.set`) stores `serialize(d)` and
 -- compiles it again, as one undo step. The contract is
@@ -239,7 +239,7 @@ end
 local function info(c: types.Clip, custom: types.CustomContent): contracts.ClipInfo
   return {
     id = c.id,
-    track = c.track,
+    part = c.part,
     start = c.start,
     length = c.length,
     offset = custom.offset or 0,
@@ -278,8 +278,8 @@ end
 --- kind is not built in.
 local function custom_clips(): {types.Clip}
   local out: {types.Clip} = {}
-  for _, track in ipairs(api.track_list({all = true})) do
-    for _, list in ipairs({api.clip_list(track), api.cue_list(track)}) do
+  for _, part in ipairs(api.part_list({all = true})) do
+    for _, list in ipairs({api.clip_list(part), api.cue_list(part)}) do
       for _, c in ipairs(list) do
         if not builtin(c.kind) then
           out[#out + 1] = c
@@ -429,14 +429,14 @@ end
 
 -- Clips of a kind ----------------------------------------------------------------
 
---- A new clip of the kind `name` on `track`: `data`, or what the kind's
+--- A new clip of the kind `name` on `part`: `data`, or what the kind's
 --- `create` makes of `args` (the words, and `name`, `start` and `length`
 --- of the clip). Its length is `args.length`, or the length the kind
 --- compiled, or a bar of 4 beats. One undo step.
-function M.add<D>(track: integer | objects.Track, name: string, args?: contracts.ClipKindArgs, data?: D): objects.Clip
+function M.add<D>(part: integer | objects.Part, name: string, args?: contracts.ClipKindArgs, data?: D): objects.Clip
   local spec = need(name)
   args = args or {}
-  args.track = track is objects.Track and track.id or track as integer
+  args.part = part is objects.Part and part.id or part as integer
   local value = data as M.Data
   if value == nil then
     if not spec.create then
@@ -449,7 +449,7 @@ function M.add<D>(track: integer | objects.Track, name: string, args?: contracts
     end
   end
   local where: contracts.ClipInfo = {
-    track = args.track, start = args.start or 0, length = args.length, offset = 0, timeline = spec.timeline
+    part = args.part, start = args.start or 0, length = args.length, offset = 0, timeline = spec.timeline
   }
   local set, why, natural = made(spec, value, where)
   if not set then
@@ -457,7 +457,7 @@ function M.add<D>(track: integer | objects.Track, name: string, args?: contracts
   end
   local ok, id = pcall(
     api.clip_add,
-    args.track,
+    args.part,
     {
       kind = name,
       name = args.name,
@@ -628,7 +628,7 @@ local function piece(
       data,
       {
         id = c.id,
-        track = c.track,
+        part = c.part,
         start = start,
         length = length,
         offset = offset,

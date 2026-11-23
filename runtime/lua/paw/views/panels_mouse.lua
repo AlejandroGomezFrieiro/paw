@@ -14,11 +14,11 @@ local function screen(e) return { x = e.x + (e.view_x or 0), y = e.y + (e.view_y
 --- Drag a value: `set(start, d)` is called as the pointer moves, with the
 --- value when the button went down. A fader or a pan held writes
 --- automation in touch mode for as long as it is held.
-local function drag(e, get, set, track, target)
+local function drag(e, get, set, part, target)
   local start = get()
-  if target then A.hold(track, target, 0, "", true) end
+  if target then A.hold(part, target, 0, "", true) end
   local function let_go()
-    if target then A.hold(track, target, 0, "", false) end
+    if target then A.hold(part, target, 0, "", false) end
   end
   mouse.grab(e, { drag = function(d) set(start, d) end, up = let_go, cancel = let_go })
 end
@@ -40,22 +40,22 @@ end
 -- Every part of a strip (paw/views/mixer.lua marks them) answers the
 -- pointer the same in the terminal and in a window: the wheel moves the
 -- fader (with Shift, or sideways, the strips), a move says what is there, a
--- right click opens the track's menu, a press puts the cursor on the track.
+-- right click opens the part's menu, a press puts the cursor on the part.
 local function strip_gesture(_, e)
   local h = e.hit
-  local id = h.track
+  local id = h.part
   local step, sideways = mouse.wheel(e)
   if step then
     if sideways or mouse.has(e, "S") then
-      -- The strips scroll with the track the cursor is on.
-      paw.cursor.move_track(step)
+      -- The strips scroll with the part the cursor is on.
+      paw.cursor.move_part(step)
     else
-      A.set_volume(id, api.track_get(id, "volume") - step)
+      A.set_volume(id, api.part_get(id, "volume") - step)
     end
     return api.ui_redraw()
   end
   if e.kind == "move" then
-    local t = api.track_get(id)
+    local t = api.part_get(id)
     if h.kind == "peak" then return mouse.hint("the loudest of late · click to put out the clip light") end
     if h.kind == "output" then
       return mouse.hint(t.name .. " plays into " .. paw.frontend.routing(id).output .. " · click to choose another")
@@ -68,17 +68,17 @@ local function strip_gesture(_, e)
     )
   end
   if e.kind ~= "down" then return end
-  if id ~= 0 then paw.cursor.set_track(id) end
+  if id ~= 0 then paw.cursor.set_part(id) end
   if e.button == "left" and h.kind == "peak" then
     paw.draw.clear_peak(id)
     return api.ui_redraw()
   end
-  if e.button == "left" and h.kind == "output" then return paw.commands.exec("track.output") end
+  if e.button == "left" and h.kind == "output" then return paw.commands.exec("part.output") end
   if e.button == "right" then
     if id == 0 then return end
     return mouse.grab(e, {
       up = function(u)
-        if not u.moved then paw.ui.menu(menus.track(id), screen(e)) end
+        if not u.moved then paw.ui.menu(menus.part(id), screen(e)) end
       end,
     })
   end
@@ -87,7 +87,7 @@ local function strip_gesture(_, e)
   if kind == "fader" then
     if e.double then return A.set_volume(id, 0) end
     local rows = e.rect.h
-    return drag(e, function() return fader_position(api.track_get(id, "volume")) end, function(start, d)
+    return drag(e, function() return fader_position(api.part_get(id, "volume")) end, function(start, d)
       local per = (mouse.has(d, "S") and 0.25 or 1) / math.max(1, rows - 1)
       A.set_volume(id, fader_volume(start - d.dy * per))
     end, id, "volume")
@@ -95,7 +95,7 @@ local function strip_gesture(_, e)
     if e.double then return A.set_volume(id, 0) end
     return drag(
       e,
-      function() return api.track_get(id, "volume") end,
+      function() return api.part_get(id, "volume") end,
       function(start, d) A.set_volume(id, start + d.dx * (mouse.has(d, "S") and 0.1 or 1)) end,
       id,
       "volume"
@@ -109,9 +109,9 @@ local function strip_gesture(_, e)
   elseif kind == "flag" then
     A.toggle(id, h.flag)
   elseif kind == "insert" then
-    if (api.track_get(id).devices or {})[h.index] then A.pick_device(id, h.index) end
+    if (api.part_get(id).devices or {})[h.index] then A.pick_device(id, h.index) end
   elseif kind == "send" then
-    local send = (api.track_get(id).sends or {})[h.index]
+    local send = (api.part_get(id).sends or {})[h.index]
     if not send then return end
     return drag(
       e,
@@ -162,7 +162,7 @@ local device_hints = {
   power = "on or off: bypass the device",
   preset = "the presets of the device: choose one, or save one",
   outputs = "where the further outputs of the device play",
-  sidechain = "the track the device listens to (side-chain)",
+  sidechain = "the part the device listens to (side-chain)",
   up = "move the device up the chain",
   down = "move the device down the chain",
   remove = "remove the device",
@@ -170,9 +170,9 @@ local device_hints = {
   status = "click to bring the plugin back",
   automate = "automate: a lane for this parameter, with a point at its value",
   learn = "learn: move a knob of a MIDI controller, and it moves this parameter from then on",
-  add = "add a device or a plugin to the track (a)",
-  output = "the track this one plays into; a bus or a group takes several",
-  send_add = "send: also feed this track's sound to another, a reverb for one",
+  add = "add a device or a plugin to the part (a)",
+  output = "the part this one plays into; a bus or a group takes several",
+  send_add = "send: also feed this part's sound to another, a reverb for one",
   send = "drag the level of the send · double click: 0 dB",
   send_pre = "before the fader: the send keeps its level when the fader moves",
   send_remove = "remove the send",
@@ -228,12 +228,12 @@ local function device_gesture(self, e)
   if kind == "param" then
     if e.double then return A.reset_param(id, h.key) end
     local row = self:rows()[h.index]
-    local rect, fine, track = e.rect, e.fine, row.device.track
+    local rect, fine, part = e.rect, e.fine, row.device.part
     A.set_param(id, h.key, on_bar(e.x, rect, h.bar, fine))
     local start = paw.params.fraction(row.param, api.device_get(id).params[h.key])
     -- Held, it writes automation in touch mode, as a fader does.
-    A.hold(track, "param", id, h.key, true)
-    local function let_go() A.hold(track, "param", id, h.key, false) end
+    A.hold(part, "param", id, h.key, true)
+    local function let_go() A.hold(part, "param", id, h.key, false) end
     return mouse.grab(e, {
       drag = function(m)
         if mouse.has(m, "S") then
@@ -256,7 +256,7 @@ local function device_gesture(self, e)
         local rows = self:rows()
         local target = rows[self.scroll + math.floor(top + u.dy + 0.5)]
         local d = api.device_get(id)
-        local index = target and target.device.index or #api.track_get(d.track).devices + 1
+        local index = target and target.device.index or #api.part_get(d.part).devices + 1
         if target and target.device.id ~= id and target.device.index > d.index then index = index + 1 end
         if index ~= d.index then A.place_device(id, index, mouse.has(u, "C")) end
       end,
@@ -286,19 +286,19 @@ local function device_gesture(self, e)
   elseif kind == "add" then
     paw.commands.exec("device.add")
   elseif kind == "output" then
-    return menu_at(e, "output", { h.track })
+    return menu_at(e, "output", { h.part })
   elseif kind == "send_add" then
-    return menu_at(e, "send", { h.track })
+    return menu_at(e, "send", { h.part })
   elseif kind == "send" then
-    if e.double then return A.set_send(h.track, h.index, 0) end
+    if e.double then return A.set_send(h.part, h.index, 0) end
     local rect, fine = e.rect, e.fine
     local function level(x) return on_bar(x, rect, h.bar, fine) * 66 - 60 end
-    A.set_send(h.track, h.index, level(e.x))
-    return mouse.grab(e, { drag = function(m) A.set_send(h.track, h.index, level(m.x)) end })
+    A.set_send(h.part, h.index, level(e.x))
+    return mouse.grab(e, { drag = function(m) A.set_send(h.part, h.index, level(m.x)) end })
   elseif kind == "send_pre" then
-    A.set_send(h.track, h.index, nil, not api.track_get(h.track).sends[h.index].pre)
+    A.set_send(h.part, h.index, nil, not api.part_get(h.part).sends[h.index].pre)
   elseif kind == "send_remove" then
-    A.remove_send(h.track, h.index)
+    A.remove_send(h.part, h.index)
   end
   api.ui_redraw()
 end

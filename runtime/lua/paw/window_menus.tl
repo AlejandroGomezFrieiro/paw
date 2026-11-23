@@ -1,7 +1,7 @@
 -- The window's menus, built here so that the window only shows them: the
 -- context menus are the terminal's (`paw.mouse_menus`), entry for entry,
--- and the menus only the window has (the File menu, "+ Track", More, the
--- audio devices, a track's input, a device's presets and routing) are here.
+-- and the menus only the window has (the File menu, "+ Part", More, the
+-- audio devices, a part's input, a device's presets and routing) are here.
 --
 --   paw.frontend.menu("clip", { id, beat })      -- entries to show
 --   paw.frontend.act.menu_choose("clip", { id, beat }, { 9, 2 })  -- the 2nd of the 9th's submenu
@@ -124,16 +124,16 @@ function M.file(): {Entry}
   }
 end
 
---- "+ Track": an empty one, one from a sound file, and the kinds of track
---- extensions add (the timeline's entries, for the selected track).
-function M.add_track(): {Entry}
+--- "+ Part": an empty one, one from a sound file, and the kinds of part
+--- extensions add (the timeline's entries, for the selected part).
+function M.add_part(): {Entry}
   local items: {Entry} = {
-    {label = "Empty track", run = run("track.add")},
+    {label = "Empty part", run = run("part.add")},
     {label = "From a sound file…", window = "import"},
   }
   for index, entry in ipairs(frontend().menus.timeline) do
     items[#items + 1] = {
-      label = entry.label, run = function() act().menu("timeline", index, runtime.cursor.track_id(), -1) end
+      label = entry.label, run = function() act().menu("timeline", index, runtime.cursor.part_id(), -1) end
     }
   end
   return items
@@ -187,12 +187,12 @@ function M.engine(opts?: mouse_menus.MenuTable): {Entry}
   return items
 end
 
---- A track's input button: its audio inputs, MIDI ports and channels,
+--- A part's input button: its audio inputs, MIDI ports and channels,
 --- monitoring, and where it sends MIDI.
-function M.input(track: integer): {Entry}
-  local input = frontend().input_menu(track)
+function M.input(part: integer): {Entry}
+  local input = frontend().input_menu(part)
   local function group(name: string): function(i: integer)
-    return function(i: integer) act().choose_input(track, name, i) end
+    return function(i: integer) act().choose_input(part, name, i) end
   end
   local items: {Entry} = {heading("Audio")}
   append(items, choices(input.audio as {Choice}, group("audio")))
@@ -206,7 +206,7 @@ function M.input(track: integer): {Entry}
       {
         label = "Monitor: hear the input without arming",
         checked = input.monitor or false,
-        run = function() act().toggle(track, "monitor") end,
+        run = function() act().toggle(part, "monitor") end,
       },
       "-",
       {label = "MIDI out: send what it plays to", items = choices(input.midi_out as {Choice}, group("midi_out"))},
@@ -220,21 +220,21 @@ function M.input(track: integer): {Entry}
   return items
 end
 
---- Where a track plays into: the master or another track.
-function M.output(track: integer): {Entry}
-  local routing = frontend().routing(track)
+--- Where a part plays into: the master or another part.
+function M.output(part: integer): {Entry}
+  local routing = frontend().routing(part)
   local items: {Entry} = {}
   for i, t in ipairs(routing.targets) do
-    items[i] = {label = t.name, checked = t.id == routing.output_id, run = function() act().set_output(track, t.id) end}
+    items[i] = {label = t.name, checked = t.id == routing.output_id, run = function() act().set_output(part, t.id) end}
   end
   return items
 end
 
---- A track to send a track's sound to as well.
-function M.send(track: integer): {Entry}
+--- A part to send a part's sound to as well.
+function M.send(part: integer): {Entry}
   local items: {Entry} = {}
-  for i, t in ipairs(frontend().routing(track).targets) do
-    items[i] = {label = t.name, enabled = t.id ~= 0, run = function() act().add_send(track, t.id) end}
+  for i, t in ipairs(frontend().routing(part).targets) do
+    items[i] = {label = t.name, enabled = t.id ~= 0, run = function() act().add_send(part, t.id) end}
   end
   return items
 end
@@ -279,7 +279,7 @@ function M.outputs(device: integer): {Entry}
     {
       "-",
       {
-        label = "Spread the outputs over new tracks",
+        label = "Spread the outputs over new parts",
         run = function() added_acts().device_command(device, "device.spread") end,
       },
     }

@@ -1,16 +1,16 @@
 -- Controller learn: a knob, fader or wheel of a MIDI controller moves a
--- track's fader or pan, or a parameter of a device.
+-- part's fader or pan, or a parameter of a device.
 --
 --   :learn                 -- for what was moved last: then move the controller
---   :learn volume          -- the selected track's fader (or `pan`, or a parameter's name)
+--   :learn volume          -- the selected part's fader (or `pan`, or a parameter's name)
 --   :learn.list            -- what is bound; choose one to take it away
 --   :learn.remove 2        -- take the second away
---   paw.learn.bind({ cc = 74, channel = 1 }, { track = t.id, target = "param", device = d.id, param = "cutoff" })
+--   paw.learn.bind({ cc = 74, channel = 1 }, { part = t.id, target = "param", device = d.id, param = "cutoff" })
 --
 -- The bindings belong to the project (`project.meta.learn`): they name its
--- tracks and devices, are saved with it and undone like any edit. A move
+-- parts and devices, are saved with it and undone like any edit. A move
 -- from the controller is a move like any other: it writes automation when
--- the track's mode says so, and a sweep of it is one undo step.
+-- the part's mode says so, and a sweep of it is one undo step.
 --
 -- A controller is where it was left, the song is not: so a control only
 -- takes hold of its target once it has reached the target's value
@@ -22,14 +22,14 @@ paw.option.define("learn_pickup", true)
 
 -- What is waiting for a controller: the target `:learn` was asked for.
 M.learning = nil
--- What was moved last: { track, target, device, param }.
+-- What was moved last: { part, target, device, param }.
 M.last = nil
 
 -- Per binding, by `key`: the last position received and whether the control
 -- has hold of its target.
 local hold = {}
 
---- The bindings: { { source, channel, number, track, target, device, param }, ... }.
+--- The bindings: { { source, channel, number, part, target, device, param }, ... }.
 function M.bindings()
   local list = api.project_get().meta.learn
   return type(list) == "table" and list or {}
@@ -60,7 +60,7 @@ M.triggers = require("paw.registry").new("triggers", "controller buttons")
 --- `press(binding, down)` (down is false when it is let go), `name(target)`
 --- (the text of `:learn.list`), and optionally `check(target)` (an error for
 --- a target that is not right), `words` (the words of `:learn` that name it),
---- `target_for(word, track)` (the target of a word, or nil) and
+--- `target_for(word, part)` (the target of a word, or nil) and
 --- `under_cursor(focused)` (the target under the cursor of a view, or nil).
 --- A target can keep a number in `slot`, such as a row.
 function M.trigger(name, spec)
@@ -81,31 +81,27 @@ function M.target_name(t)
     local ok, text = pcall(trigger.name, t)
     return ok and tostring(text) or "(" .. t.target .. ": " .. tostring(text) .. ")"
   end
-  local ok, track = pcall(api.track_get, t.track)
-  if not ok then return "(a track that is gone)" end
+  local ok, part = pcall(api.part_get, t.part)
+  if not ok then return "(a part that is gone)" end
   if t.target ~= "volume" and t.target ~= "pan" and t.target ~= "param" then
-    return track.name .. " › " .. t.target .. " (no loaded extension presses it)"
+    return part.name .. " › " .. t.target .. " (no loaded extension presses it)"
   end
-  if t.target ~= "param" then return track.name .. " › " .. t.target end
+  if t.target ~= "param" then return part.name .. " › " .. t.target end
   local found, device = pcall(api.device_get, t.device)
-  if not found then return track.name .. " › (a device that is gone)" end
+  if not found then return part.name .. " › (a device that is gone)" end
   for _, p in ipairs(device.param_info) do
-    if p.key == t.param then return track.name .. " › " .. device.name .. " › " .. p.name end
+    if p.key == t.param then return part.name .. " › " .. device.name .. " › " .. p.name end
   end
-  return track.name .. " › " .. device.name .. " › " .. tostring(t.param)
+  return part.name .. " › " .. device.name .. " › " .. tostring(t.param)
 end
 
 local function same_target(a, b)
-  return a.track == b.track
-    and a.target == b.target
-    and a.device == b.device
-    and a.param == b.param
-    and a.slot == b.slot
+  return a.part == b.part and a.target == b.target and a.device == b.device and a.param == b.param and a.slot == b.slot
 end
 
 local function key(b)
   return table.concat(
-    { b.source, b.number or "", b.channel or "", b.track or "", b.target, b.device or "", b.param or "", b.slot or "" },
+    { b.source, b.number or "", b.channel or "", b.part or "", b.target, b.device or "", b.param or "", b.slot or "" },
     ":"
   )
 end
@@ -128,16 +124,16 @@ end
 local function check(target)
   assert(type(target) == "table", "a target is a table")
   if M.is_trigger(target) then
-    if target.track then api.track_get(target.track) end
+    if target.part then api.part_get(target.part) end
     local trigger = M.triggers:get(target.target)
     if trigger.check then trigger.check(target) end
     return
   end
-  assert(target.track, "a target names its track")
-  api.track_get(target.track)
+  assert(target.part, "a target names its part")
+  api.part_get(target.part)
   if target.target == "param" then
     local device = api.device_get(target.device)
-    assert(device.track == target.track, "the device is not on that track")
+    assert(device.part == target.part, "the device is not on that part")
     local found = false
     for _, p in ipairs(device.param_info) do
       found = found or p.key == target.param
@@ -171,7 +167,7 @@ function M.bind(source, target)
       or source.source,
     number = source.cc or source.note or source.number,
     channel = source.channel,
-    track = target.track,
+    part = target.part,
     target = target.target or "volume",
     device = target.device,
     param = target.param,
@@ -240,19 +236,19 @@ end
 
 --- Where a binding's target is now, 0 to 1.
 local function position(b)
-  if b.target == "volume" then return fader_fraction(api.track_get(b.track, "volume")) end
-  if b.target == "pan" then return (api.track_get(b.track, "pan") + 1) / 2 end
+  if b.target == "volume" then return fader_fraction(api.part_get(b.part, "volume")) end
+  if b.target == "pan" then return (api.part_get(b.part, "pan") + 1) / 2 end
   local p = param_of(b)
   return p and paw.params.fraction(p, api.device_get(b.device).params[b.param]) or 0
 end
 
 local function move(b, f)
   if b.target == "volume" then
-    api.track_set(b.track, "volume", fader_db(f))
+    api.part_set(b.part, "volume", fader_db(f))
   elseif b.target == "pan" then
     local pan = f * 2 - 1
     -- The middle of a knob with 128 steps is not quite the middle.
-    api.track_set(b.track, "pan", math.abs(pan) < 0.02 and 0 or pan)
+    api.part_set(b.part, "pan", math.abs(pan) < 0.02 and 0 or pan)
   else
     local p = param_of(b)
     if p then api.device_set_param(b.device, b.param, paw.params.from_fraction(p, f)) end
@@ -338,36 +334,36 @@ paw.on("midi.in", function(event)
 end)
 
 -- What was moved last, for `:learn` without a word. Parameters say so
--- themselves; a fader or pan is found by what changed on its track.
+-- themselves; a fader or pan is found by what changed on its part.
 paw.on("param.touched", function(e)
   local ok, device = pcall(api.device_get, e.device)
-  if ok then M.last = { track = device.track, target = "param", device = e.device, param = e.param } end
+  if ok then M.last = { part = device.part, target = "param", device = e.device, param = e.param } end
 end)
 local seen = {}
 local function look(id)
-  local ok, volume = pcall(api.track_get, id, "volume")
+  local ok, volume = pcall(api.part_get, id, "volume")
   if not ok then
     seen[id] = nil
     return
   end
   local was = seen[id]
-  local t = { volume = volume, pan = api.track_get(id, "pan") }
+  local t = { volume = volume, pan = api.part_get(id, "pan") }
   seen[id] = t
   if not was then return end
-  if was.volume ~= t.volume then M.last = { track = id, target = "volume" } end
-  if was.pan ~= t.pan then M.last = { track = id, target = "pan" } end
+  if was.volume ~= t.volume then M.last = { part = id, target = "volume" } end
+  if was.pan ~= t.pan then M.last = { part = id, target = "pan" } end
 end
 local function look_all()
   seen = {}
-  for _, id in ipairs(api.track_list({ all = true })) do
+  for _, id in ipairs(api.part_list({ all = true })) do
     look(id)
   end
   look(0)
 end
-paw.on("track.changed", function(e)
+paw.on("part.changed", function(e)
   if e.id then look(e.id) end
 end)
-paw.on("track.added", function(e)
+paw.on("part.added", function(e)
   if e.id then look(e.id) end
 end)
 paw.on("project.loaded", function()
@@ -376,26 +372,26 @@ paw.on("project.loaded", function()
 end)
 paw.on("startup", look_all)
 
---- The target a word names on the selected track: "volume", "pan", or a
+--- The target a word names on the selected part: "volume", "pan", or a
 --- parameter of one of its devices by key or name.
 function M.target_for(word)
-  local track = paw.cursor.track_id()
+  local part = paw.cursor.part_id()
   word = tostring(word):lower()
   -- Buttons that extensions add.
   for _, trigger in pairs(M.triggers:entries()) do
-    local target = trigger.target_for and trigger.target_for(word, track)
+    local target = trigger.target_for and trigger.target_for(word, part)
     if target then return target end
   end
-  if not track then error("no track selected", 0) end
-  if word == "volume" or word == "pan" then return { track = track, target = word } end
-  for _, id in ipairs(api.track_get(track).devices) do
+  if not part then error("no part selected", 0) end
+  if word == "volume" or word == "pan" then return { part = part, target = word } end
+  for _, id in ipairs(api.part_get(part).devices) do
     for _, p in ipairs(api.device_get(id).param_info) do
       if p.key:lower() == word or p.name:lower() == word then
-        return { track = track, target = "param", device = id, param = p.key }
+        return { part = part, target = "param", device = id, param = p.key }
       end
     end
   end
-  error("the selected track has no parameter `" .. word .. "`", 0)
+  error("the selected part has no parameter `" .. word .. "`", 0)
 end
 
 --- What the keyboard is on, if that is something a controller can move:
@@ -407,15 +403,15 @@ function M.under_cursor()
     local row = panel:rows()[panel.row]
     if row and row.param then
       return {
-        track = api.device_get(row.device.id).track,
+        part = api.device_get(row.device.id).part,
         target = "param",
         device = row.device.id,
         param = row.param.key,
       }
     end
   elseif ui.focused == "mixer" then
-    local track = paw.cursor.track_id()
-    if track then return { track = track, target = "volume" } end
+    local part = paw.cursor.part_id()
+    if part then return { part = part, target = "volume" } end
   end
   for _, trigger in pairs(M.triggers:entries()) do
     local target = trigger.under_cursor and trigger.under_cursor(ui.focused)
@@ -435,8 +431,8 @@ end, {
         words[#words + 1] = word
       end
     end
-    local track = paw.cursor.track_id()
-    for _, id in ipairs(track and api.track_get(track).devices or {}) do
+    local part = paw.cursor.part_id()
+    for _, id in ipairs(part and api.part_get(part).devices or {}) do
       for _, p in ipairs(api.device_get(id).param_info) do
         words[#words + 1] = p.key
       end
@@ -449,12 +445,12 @@ paw.command("learn.cancel", M.cancel, { desc = "Stop waiting for a controller" }
 paw.command("learn.param", function(ctx)
   local device = tonumber(ctx.args[1])
   local d = device and api.device_get(device)
-  M.start({ track = d.track, target = "param", device = device, param = tostring(ctx.args[2]) })
+  M.start({ part = d.part, target = "param", device = device, param = tostring(ctx.args[2]) })
 end, { desc = "Bind a MIDI controller to a parameter of a device, by their ids: `learn.param 12 cutoff`" })
 -- `:param.last learn` (paw.fx) learns the parameter touched last.
 --- Learn a controller for a device's parameter: the next one moved moves it.
 paw.fx.learn = function(device, param)
-  M.start({ track = api.device_get(device).track, target = "param", device = device, param = param })
+  M.start({ part = api.device_get(device).part, target = "param", device = device, param = param })
 end
 paw.command(
   "learn.remove",

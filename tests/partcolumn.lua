@@ -1,4 +1,4 @@
--- The track column (paw/trackcolumn.tl) and the bar labels of the ruler
+-- The part column (paw/partcolumn.tl) and the bar labels of the ruler
 -- (paw/ruler.tl): the numbers say what the counts of the motions reach.
 local T = ...
 local test, eq, fresh, after = T.test, T.eq, T.fresh, T.after
@@ -7,14 +7,14 @@ local api = paw.api
 
 local function lines() return api.ui_snapshot(120, 30) end
 
---- The line of the screen with the track named `name`.
+--- The line of the screen with the part named `name`.
 local function row(name, screen)
   for _, line in ipairs(screen or lines()) do
     if line:find(" " .. name .. " ", 1, true) then return line end
   end
 end
 
---- What the column shows between a track's number and its header's stripe.
+--- What the column shows between a part's number and its header's stripe.
 local function after_number(line)
   local rest = line:gsub("^ *%d+ ", "", 1)
   local stop = rest:find("▌", 1, true) or rest:find("█", 1, true)
@@ -26,41 +26,41 @@ local function orchestra()
   fresh()
   local t = {}
   for i, n in ipairs({ "Drums", "Violins", "Cellos", "Violas", "Bass", "Keys" }) do
-    t[i] = paw.add_track({ name = n })
+    t[i] = paw.add_part({ name = n })
   end
   paw.groups.make({ t[2], t[3], t[4] }, "Strings")
   local low = paw.groups.make({ t[3], t[4] }, "Low")
-  paw.opt.track_height = 1
+  paw.opt.part_height = 1
   after(function()
-    paw.opt.track_height = "auto"
+    paw.opt.part_height = "auto"
     paw.opt.relativenumber = false
     paw.opt.relativebar = false
   end)
-  paw.cursor.set_track(t[1])
+  paw.cursor.set_part(t[1])
   paw.flush()
   return t, low
 end
 
-test("track column: with rnu, each track shows the count of j or k that reaches it, a folded group one row", function()
+test("part column: with rnu, each part shows the count of j or k that reaches it, a folded group one row", function()
   local _, low = orchestra()
   paw.keymap.feed(":set rnu<CR>jj")
-  eq(paw.cursor.track().name, "Violins", "jj from Drums goes to the group's first member")
+  eq(paw.cursor.part().name, "Violins", "jj from Drums goes to the group's first member")
   paw.groups.fold(low, true)
   paw.flush()
-  eq(tonumber(row("Violins"):match("^ *(%d+)")), 3, "the cursor's track keeps its own number")
+  eq(tonumber(row("Violins"):match("^ *(%d+)")), 3, "the cursor's part keeps its own number")
   for i, id in ipairs(paw.groups.rows()) do
-    local name = api.track_get(id).name
+    local name = api.part_get(id).name
     if name ~= "Violins" then
       local n = row(name):match("^ *(%d+)")
       local key = n .. (i < 3 and "k" or "j")
       paw.keymap.feed(key)
-      eq(paw.cursor.track().name, name, key .. " lands on the track marked " .. n)
+      eq(paw.cursor.part().name, name, key .. " lands on the part marked " .. n)
       paw.keymap.feed("3G")
     end
   end
 end)
 
-test("track column: open and folded groups as a tree, nested", function()
+test("part column: open and folded groups as a tree, nested", function()
   local _, low = orchestra()
   local screen = lines()
   eq(after_number(row("Strings", screen)), "▾ ", "an open group has ▾")
@@ -73,15 +73,15 @@ test("track column: open and folded groups as a tree, nested", function()
   eq(row("Low"):find("Low +2", 1, true) ~= nil, true, "and says how many it holds")
 end)
 
-test("track column: the timeline starts in the same column with and without groups, and in a scope", function()
-  -- The left part of a 100 wide screen: the ruler and the first tracks.
+test("part column: the timeline starts in the same column with and without groups, and in a scope", function()
+  -- The left part of a 100 wide screen: the ruler and the first parts.
   local region = { rows = { 1, 6 }, cols = { 1, 30 }, styles = false }
   fresh()
   for _, n in ipairs({ "Drums", "Violins", "Cellos", "Violas", "Bass", "Keys" }) do
-    paw.add_track({ name = n })
+    paw.add_part({ name = n })
   end
-  paw.opt.track_height = 1
-  after(function() paw.opt.track_height = "auto" end)
+  paw.opt.part_height = 1
+  after(function() paw.opt.part_height = "auto" end)
   paw.flush()
   T.expect_screen("grid_no_groups", 100, 16, region)
   orchestra()
@@ -90,46 +90,46 @@ test("track column: the timeline starts in the same column with and without grou
   T.expect_screen("grid_scope", 100, 16, region)
 end)
 
-test("track column: a draw works out the tree of groups once, whatever the count of tracks, and keeps it", function()
+test("part column: a draw works out the tree of groups once, whatever the count of parts, and keeps it", function()
   local _, low = orchestra()
   lines()
-  local before = paw.trackcolumn.tree_builds
+  local before = paw.partcolumn.tree_builds
   paw.keymap.feed("j")
   lines()
-  eq(paw.trackcolumn.tree_builds - before, 0, "a move keeps the tree")
+  eq(paw.partcolumn.tree_builds - before, 0, "a move keeps the tree")
   paw.groups.fold(low, true)
   paw.flush()
-  before = paw.trackcolumn.tree_builds
+  before = paw.partcolumn.tree_builds
   lines()
-  eq(paw.trackcolumn.tree_builds - before, 1, "a fold: one tree for the tracks and groups of the draw")
+  eq(paw.partcolumn.tree_builds - before, 1, "a fold: one tree for the parts and groups of the draw")
   eq(after_number(row("Low")), "╰▸", "the tree that it drew is the new one")
 end)
 
 test("groups: a project opened in the turn that read the groups gives its own groups", function()
   local t = orchestra()
   local strings = paw.groups.of(t[2])
-  eq(api.track_get(strings).name, "Strings", "Violins is in Strings")
+  eq(api.part_get(strings).name, "Strings", "Violins is in Strings")
   api.project_new()
   eq(paw.groups.of(t[2]), nil, "the new project has no Violins and no group")
 end)
 
-test("track column: an extension's part shows in its order, and set moves a built-in one", function()
+test("part column: an extension's component shows in its order, and set moves a built-in one", function()
   orchestra()
-  paw.trackcolumn.add("ext", {
+  paw.partcolumn.add("ext", {
     order = 15,
     width = 1,
     render = function(_, ctx)
-      if ctx.line == 0 then return { { "E", "TrackSign" } } end
+      if ctx.line == 0 then return { { "E", "PartSign" } } end
     end,
   })
-  local fold = paw.trackcolumn.components:get("fold")
+  local fold = paw.partcolumn.components:get("fold")
   after(function()
-    paw.trackcolumn.remove("ext")
-    paw.trackcolumn.add("fold", fold)
+    paw.partcolumn.remove("ext")
+    paw.partcolumn.add("fold", fold)
   end)
   paw.flush()
   eq(after_number(row("Strings")), "E▾ ", "after the number (10), before the fold (30)")
-  paw.trackcolumn.set("fold", { order = 5, glyphs = { open = "-" } })
+  paw.partcolumn.set("fold", { order = 5, glyphs = { open = "-" } })
   paw.flush()
   eq(row("Strings"):match("^%- +2 E") ~= nil, true, "the fold moved to the left, with its own glyph")
 end)

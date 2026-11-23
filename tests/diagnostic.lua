@@ -54,7 +54,7 @@ local function lint(clip, lo, hi)
 end
 
 local function clip_with(notes)
-  local t = paw.add_track({ name = "Oboe" })
+  local t = paw.add_part({ name = "Oboe" })
   return t:add_clip({ start = 0, length = 4, notes = notes })
 end
 
@@ -183,7 +183,7 @@ test("diagnostic: ]d and [d go from one to the next, in the piano roll and betwe
     { pitch = 60, start = 1, length = 1 },
     { pitch = 20, start = 3, length = 1 },
   })
-  local t2 = paw.add_track({ name = "Horn" })
+  local t2 = paw.add_part({ name = "Horn" })
   local b = t2:add_clip({ start = 8, length = 4, notes = { { pitch = 110, start = 0, length = 1 } } })
   lint(a, 48, 84)
   lint(b, 48, 84)
@@ -198,13 +198,9 @@ test("diagnostic: ]d and [d go from one to the next, in the piano roll and betwe
   paw.ui.focus("arrange")
   paw.cursor.set_beat(1)
   paw.keymap.feed("]d")
-  eq(
-    paw.cursor.beat .. " " .. paw.cursor.track_id(),
-    "3 " .. a:get().track,
-    "in the arrange view, where the next one is"
-  )
+  eq(paw.cursor.beat .. " " .. paw.cursor.part_id(), "3 " .. a:get().part, "in the arrange view, where the next one is")
   paw.keymap.feed("]d")
-  eq(paw.cursor.beat .. " " .. paw.cursor.track_id(), "8 " .. t2.id, "on another track")
+  eq(paw.cursor.beat .. " " .. paw.cursor.part_id(), "8 " .. t2.id, "on another part")
   paw.keymap.feed("]d")
   eq(paw.cursor.beat, 0, "round to the first")
   paw.cmd("diagnostics")

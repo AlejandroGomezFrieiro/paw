@@ -1,6 +1,6 @@
--- The mixer: one channel strip per track, the master after the last behind a
+-- The mixer: one channel strip per part, the master after the last behind a
 -- heavier rule. Each strip, top to bottom: the name on a plate in the
--- track's colour; where it plays into, its first devices and its sends when
+-- part's colour; where it plays into, its first devices and its sends when
 -- there is room; the level meters for both sides beside the fader, with the
 -- loudest of late held, a clip light on top and 0 dB marked on the fader's
 -- rail; the peak and the fader in dB; the pan; and the M S R I chips.
@@ -10,7 +10,7 @@ local util = paw.util
 -- `row` is the row of a strip the cursor is on (paw/mixer_rows.lua): "volume",
 -- "pan", "send2", "insert1", "mute" ...
 -- Each window of the mixer has its own scroll and row: the mixer shows in
--- any number of windows. The track of the cursor is one for them all.
+-- any number of windows. The part of the cursor is one for them all.
 local view = {
   scroll = 0,
   row = "volume",
@@ -49,7 +49,7 @@ view.fader_row = fader_row
 local function device_rows(height) return height >= 20 and 4 or 0 end
 
 --- The rows above the fader, for a strip `height` tall: the most any kind of
---- strip (a track, a VCA, the master) fills there. Every strip starts its
+--- strip (a part, a VCA, the master) fills there. Every strip starts its
 --- fader on this row, so that one scale on the left serves them all.
 local function above_fader(height)
   local plain = 1
@@ -67,21 +67,21 @@ end
 -- pointer works through `view.gestures` in a terminal and in a window.
 local function strip(buf, x, t, index, selected, height, sw, here)
   local g = draw.g
-  local hue = draw.track_hue(t, index)
+  local hue = draw.part_hue(t, index)
   local w = sw - 1
   local id = t.id
-  buf:fill(x, 0, w, height, " ", selected and "TrackHeaderSel" or "TrackHeader")
-  buf:hit(x, 0, w, height, { kind = "strip", track = id })
-  -- The name on a plate in the track's colour, lit for the track the cursor is on.
+  buf:fill(x, 0, w, height, " ", selected and "PartHeaderSel" or "PartHeader")
+  buf:hit(x, 0, w, height, { kind = "strip", part = id })
+  -- The name on a plate in the part's colour, lit for the part the cursor is on.
   buf:mark("chip", x, 0, w, 1, {
     text = t.name,
     style = selected and hue.title_cur or hue.plate,
     selected = selected,
-    color = draw.track_colour(t, index),
+    color = draw.part_colour(t, index),
     number = index,
   })
   -- What modules mark on the strip (`paw.ui.layer("mixer", "strip", ...)`).
-  paw.ui.paint("mixer", "strip", { buf = buf, x = x, y = 0, width = w, height = height, track = t.id })
+  paw.ui.paint("mixer", "strip", { buf = buf, x = x, y = 0, width = w, height = height, part = t.id })
   -- Where each part is, for the pointer.
   local parts = { x = x, w = w, id = t.id }
   local y = 1
@@ -90,24 +90,24 @@ local function strip(buf, x, t, index, selected, height, sw, here)
   if not vca and height >= 14 then
     parts.output = y
     if t.master then
-      buf:text(x + 1, y, util.fit(g.out .. " out", w - 1), "TrackIndex")
+      buf:text(x + 1, y, util.fit(g.out .. " out", w - 1), "PartIndex")
     else
-      local ok, to = pcall(api.track_get, t.output or 0)
+      local ok, to = pcall(api.part_get, t.output or 0)
       buf:mark("button", x + 1, y, w - 1, 1, {
         text = g.out .. " " .. (t.output and ok and to.name or "Master"),
-        style = "TrackInfo",
-        hit = { kind = "output", track = id },
+        style = "PartInfo",
+        hit = { kind = "output", part = id },
       })
     end
     y = y + 1
   end
-  -- A VCA names the tracks it moves, with room; a track the VCAs it is under.
+  -- A VCA names the parts it moves, with room; a part the VCAs it is under.
   if vca and height >= 12 then
     local members = paw.vca.members(t.id)
     for i = 1, 3 do
-      local name = members[i] and api.track_get(members[i], "name")
+      local name = members[i] and api.part_get(members[i], "name")
       if i == 3 and #members > 3 then name = "+" .. (#members - 2) .. " more" end
-      buf:text(x + 1, y, util.fit(name or (i == 1 and "no tracks" or ""), w - 1), name and "TrackInfo" or "TrackIndex")
+      buf:text(x + 1, y, util.fit(name or (i == 1 and "no parts" or ""), w - 1), name and "PartInfo" or "PartIndex")
       y = y + 1
     end
   elseif device_rows(height) > 0 then
@@ -134,25 +134,25 @@ local function strip(buf, x, t, index, selected, height, sw, here)
           y,
           w - 1,
           1,
-          { text = text, style = "TrackInfo", hit = { kind = "insert", track = id, index = at or i } }
+          { text = text, style = "PartInfo", hit = { kind = "insert", part = id, index = at or i } }
         )
       elseif ok and d then
         buf:mark("button", x + 1, y, w - 1, 1, {
           text = (d.bypass and g.bypass or " ") .. d.name,
-          style = d.bypass and "TrackIndex" or "TrackInfo",
+          style = d.bypass and "PartIndex" or "PartInfo",
           off = d.bypass,
-          hit = { kind = "insert", track = id, index = i },
+          hit = { kind = "insert", part = id, index = i },
         })
       else
-        buf:text(x + 1, y, util.fit(i == 1 and g.dot or "", w - 1), "TrackIndex")
+        buf:text(x + 1, y, util.fit(i == 1 and g.dot or "", w - 1), "PartIndex")
       end
       y = y + 1
     end
   end
-  -- The VCAs the track is under.
+  -- The VCAs the part is under.
   if not vca and not t.master and height >= 12 then
     local words = paw.frontend.vca_words(t.id)
-    if words ~= "" then buf:text(x + 1, y, util.fit("vca " .. words, w - 1), "TrackInfo") end
+    if words ~= "" then buf:text(x + 1, y, util.fit("vca " .. words, w - 1), "PartInfo") end
     y = y + 1
   end
   -- The sends, with more room.
@@ -161,7 +161,7 @@ local function strip(buf, x, t, index, selected, height, sw, here)
     for i = 1, 2 do
       local send = (t.sends or {})[i]
       if send then
-        local okt, to = pcall(api.track_get, send.target)
+        local okt, to = pcall(api.part_get, send.target)
         local text = g.send
           .. (okt and to.name:sub(1, 3) or "?")
           .. " "
@@ -172,7 +172,7 @@ local function strip(buf, x, t, index, selected, height, sw, here)
           y,
           w - 1,
           1,
-          { text = text, style = "TrackInfo", hit = { kind = "send", track = id, index = i } }
+          { text = text, style = "PartInfo", hit = { kind = "send", part = id, index = i } }
         )
       end
       y = y + 1
@@ -193,21 +193,21 @@ local function strip(buf, x, t, index, selected, height, sw, here)
       text = (ok and d.bypass and g.bypass or "") .. (ok and d.name or "?")
     elseif here and here.kind == "send" and fold_sends then
       local send = sends[here.index]
-      local okt, to = pcall(api.track_get, send.target)
+      local okt, to = pcall(api.part_get, send.target)
       text = g.send .. (okt and to.name:sub(1, 3) or "?") .. " " .. string.format("%g", math.floor(send.level + 0.5))
     else
       text = (fold_devices and #devices .. " " or "") .. (fold_sends and g.send .. #sends or "")
     end
-    buf:text(x + 1, y, util.fit(text, w - 1), "TrackInfo")
+    buf:text(x + 1, y, util.fit(text, w - 1), "PartInfo")
   end
 
   -- Meters and fader, over what the rows under them leave.
   y = above_fader(height)
   local rows = math.max(1, height - y - 4)
-  local left, right, hold, clipped = draw.track_peak(id)
+  local left, right, hold, clipped = draw.part_peak(id)
   -- The fader's rows, meters and all, are the fader's to the pointer, but
   -- for the meters' top row, the clip light, which a click puts out.
-  buf:hit(x, y, w, rows, { kind = "fader", track = id })
+  buf:hit(x, y, w, rows, { kind = "fader", part = id })
   buf:mark(
     "meter",
     x + 1,
@@ -216,7 +216,7 @@ local function strip(buf, x, t, index, selected, height, sw, here)
     rows,
     { levels = { left, right }, hold = hold, clipped = clipped, bind = "meter:" .. id }
   )
-  buf:hit(x + 1, y, 2, 1, { kind = "peak", track = id })
+  buf:hit(x + 1, y, 2, 1, { kind = "peak", part = id })
   local fx = x + math.floor(w / 2) + 1
   buf:mark("fader", fx - 1, y, 3, rows, {
     at = fader_position(t.volume),
@@ -234,23 +234,23 @@ local function strip(buf, x, t, index, selected, height, sw, here)
     y,
     peak_w,
     1,
-    { hold = hold, clipped = clipped, bind = "meter:" .. id, hit = { kind = "peak", track = id } }
+    { hold = hold, clipped = clipped, bind = "meter:" .. id, hit = { kind = "peak", part = id } }
   )
   -- What modules label the strip with, on the peak's row (`paw.ui.layer("mixer", "strip_foot", ...)`).
-  paw.ui.paint("mixer", "strip_foot", { buf = buf, x = x + 1, y = y, width = w - 1, track = id })
+  paw.ui.paint("mixer", "strip_foot", { buf = buf, x = x + 1, y = y, width = w - 1, part = id })
   local vol = draw.db_text(t.volume)
-  buf:hit(x, y + 1, w, 1, { kind = "volume", track = id })
+  buf:hit(x, y + 1, w, 1, { kind = "volume", part = id })
   buf:mark(
     "label",
     x + w - #vol,
     y + 1,
     #vol,
     1,
-    { text = vol, style = selected and "Bright" or "TrackInfo", tone = selected and "text" or "text_2" }
+    { text = vol, style = selected and "Bright" or "PartInfo", tone = selected and "text" or "text_2" }
   )
   local pan_w = math.min(7, w - 1)
   if not vca then
-    buf:mark("knob", x + 1, y + 2, pan_w, 1, { value = t.pan or 0, hit = { kind = "pan", track = id } })
+    buf:mark("knob", x + 1, y + 2, pan_w, 1, { value = t.pan or 0, hit = { kind = "pan", part = id } })
   end
   parts.fader, parts.rows, parts.vol, parts.pan, parts.pan_w, parts.chips = y - rows, rows, y + 1, y + 2, pan_w, y + 3
   local gap = w >= 8 and 1 or 0
@@ -261,13 +261,13 @@ local function strip(buf, x, t, index, selected, height, sw, here)
         on = s[2] == true,
         style = s[3],
         tone = s[4],
-        hit = { kind = "flag", track = id, flag = s[5] },
+        hit = { kind = "flag", part = id, flag = s[5] },
       })
     end
   end
   if vca then
     switches({ { "M", t.mute, "Mute", "mute", "mute" }, { "S", t.solo, "Solo", "solo", "solo" } })
-    buf:text(x + 1, y + 2, "vca", "TrackIndex")
+    buf:text(x + 1, y + 2, "vca", "PartIndex")
   elseif not t.master then
     switches({
       { "M", t.mute, "Mute", "mute", "mute" },
@@ -276,7 +276,7 @@ local function strip(buf, x, t, index, selected, height, sw, here)
       { "I", t.monitor, "Monitor", "play_on", "monitor" },
     })
   else
-    buf:text(x + 1, y + 3, "master", "TrackIndex")
+    buf:text(x + 1, y + 3, "master", "PartIndex")
   end
   parts.y = parts.fader
   parts.chip_gap = w >= 8 and 1 or 0
@@ -311,70 +311,70 @@ local function mark_row(buf, parts, row)
   end
 end
 
---- The tracks in the order of the strips: VCAs after the others.
+--- The parts in the order of the strips: VCAs after the others.
 local function strip_order()
-  local tracks, vcas = {}, {}
-  for _, id in ipairs(paw.scope.tracks()) do
-    local list = paw.vca.is_vca(id) and vcas or tracks
+  local parts, vcas = {}, {}
+  for _, id in ipairs(paw.scope.parts()) do
+    local list = paw.vca.is_vca(id) and vcas or parts
     list[#list + 1] = id
   end
-  table.move(vcas, 1, #vcas, #tracks + 1, tracks)
-  return tracks
+  table.move(vcas, 1, #vcas, #parts + 1, parts)
+  return parts
 end
 
 function view:render(buf, ctx)
   local g = draw.g
-  local tracks = strip_order()
+  local parts = strip_order()
   -- The row under the cursor, by name and value, on the right of the title.
-  local row, row_track = paw.mixer_rows.current()
+  local row, row_part = paw.mixer_rows.current()
   local here
   if row and ctx.focused then
-    local name, value = paw.mixer_rows.describe_row(row_track, row)
+    local name, value = paw.mixer_rows.describe_row(row_part, row)
     here = name .. " " .. value
   end
   local body = paw.ui.titlebar(buf, {
     name = "Mixer",
-    context = #tracks .. (#tracks == 1 and " track" or " tracks"),
+    context = #parts .. (#parts == 1 and " part" or " parts"),
     focused = ctx.focused,
     right = here,
   })
   local w, h = body.width, body.height
-  body:fill(0, 0, w, h, " ", "TrackHeader")
+  body:fill(0, 0, w, h, " ", "PartHeader")
   local sw = view.strip_width(w + 1)
   local room = math.max(1, math.floor((w - SCALE - sw - 1) / sw))
-  local cursor_track = paw.cursor.track_id()
+  local cursor_part = paw.cursor.part_id()
   local index = 1
-  for i, id in ipairs(tracks) do
-    if id == cursor_track then index = i end
+  for i, id in ipairs(parts) do
+    if id == cursor_part then index = i end
   end
-  -- On the master, the last tracks show beside it.
-  if cursor_track == 0 then index = #tracks end
+  -- On the master, the last parts show beside it.
+  if cursor_part == 0 then index = #parts end
   if index <= self.scroll then self.scroll = index - 1 end
   if index > self.scroll + room then self.scroll = index - room end
-  self.scroll = util.clamp(self.scroll, 0, math.max(0, #tracks - room))
+  self.scroll = util.clamp(self.scroll, 0, math.max(0, #parts - room))
   local x, shown, block, strips = SCALE, 0, nil, {}
   for col = 0, room - 1 do
-    local id = tracks[self.scroll + col + 1]
+    local id = parts[self.scroll + col + 1]
     if not id then break end
     block = strip(
       body,
       x,
-      api.track_get(id),
+      api.part_get(id),
       self.scroll + col + 1,
-      id == cursor_track,
+      id == cursor_part,
       h,
       sw,
-      id == cursor_track and ctx.focused and row or nil
+      id == cursor_part and ctx.focused and row or nil
     )
-    if id == cursor_track and row and ctx.focused then mark_row(body, block, row) end
+    if id == cursor_part and row and ctx.focused then mark_row(body, block, row) end
     strips[#strips + 1] = block
     x, shown = x + sw, shown + 1
   end
-  -- The master, after the last track behind a heavier rule.
+  -- The master, after the last part behind a heavier rule.
   body:fill(x, 0, 1, h, g.strip_sep, "Rule")
   -- The cursor reaches it too: `l` from the last strip, `$`.
-  local on_master = cursor_track == 0
-  local mst = strip(body, x + 1, api.track_get(0), nil, on_master, h, sw, on_master and ctx.focused and row or nil)
+  local on_master = cursor_part == 0
+  local mst = strip(body, x + 1, api.part_get(0), nil, on_master, h, sw, on_master and ctx.focused and row or nil)
   if mst and on_master and row and ctx.focused then mark_row(body, mst, row) end
   block = mst or block
   strips[#strips + 1] = block

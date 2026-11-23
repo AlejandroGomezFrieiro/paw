@@ -165,15 +165,15 @@ function M.bar_notes(bar, index)
   return notes
 end
 
---- Build `tracks` tracks of `bars` bars: audio clips (one per bar) or one MIDI
+--- Build `parts` parts of `bars` bars: audio clips (one per bar) or one MIDI
 --- clip through the built-in synth, optionally with a delay and with volume
 --- automation. Goes through `paw.api` directly, as one undo step.
 function M.build(opts)
-  local tracks, bars = opts.tracks, opts.bars
+  local parts, bars = opts.parts, opts.bars
   local wav = opts.kind == "audio" and M.wav() or nil
   local ids = {}
-  for i = 0, tracks - 1 do
-    local id = api.track_add({ name = "T" .. i })
+  for i = 0, parts - 1 do
+    local id = api.part_add({ name = "T" .. i })
     ids[#ids + 1] = id
     if opts.kind == "midi" then
       api.device_add(id, "synth", { params = { wave = 1, cutoff = 4000 } })

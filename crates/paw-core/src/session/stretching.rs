@@ -72,7 +72,7 @@ const UNDO_PINS: usize = 8;
 fn wanted(project: &Project, rate: u32, sources: &Sources) -> HashSet<Key> {
     let map = project.tempo_map();
     project
-        .all_tracks()
+        .all_parts()
         .flat_map(|t| t.clips.iter().chain(&t.cues))
         .filter_map(|c| Key::of(c, rate, map, sources))
         .collect()
@@ -367,13 +367,13 @@ impl Session {
             *was = (*was).max(priority);
         };
         let views = &self.audio.upkeep.views;
-        for track in self.doc.project.all_tracks() {
-            for clip in &track.clips {
+        for part in self.doc.project.all_parts() {
+            for clip in &part.clips {
                 if let Some(key) = Key::of(clip, rate, map, &self.sources) {
                     let end = clip.start + clip.length;
                     let priority = if clip.start < to && end > from {
                         Priority::Playing
-                    } else if views.iter().any(|view| view.shows(track.id, clip.start, end)) {
+                    } else if views.iter().any(|view| view.shows(part.id, clip.start, end)) {
                         Priority::Visible
                     } else {
                         Priority::Background
@@ -382,7 +382,7 @@ impl Session {
                 }
             }
             // Clips off the timeline play when they are launched: any time.
-            for key in track.cues.iter().filter_map(|c| Key::of(c, rate, map, &self.sources)) {
+            for key in part.cues.iter().filter_map(|c| Key::of(c, rate, map, &self.sources)) {
                 want(key, Priority::Background);
             }
         }
@@ -479,7 +479,7 @@ impl Session {
 
     /// Take in the bakes that ended or started, start those that have
     /// waited long enough, drop those no clip wants any more, and build
-    /// again the tracks whose clips play one that changed. Called
+    /// again the parts whose clips play one that changed. Called
     /// regularly, from [`idle`](Self::idle). Gives true when a bake or a
     /// tidy ended, or a bake has sound to play: the news that they ring
     /// for.
@@ -520,17 +520,17 @@ impl Session {
             Key::of(c, rate, &map, sources).is_some_and(|k| finished.contains(&k) || hashed.contains(&k.file))
         };
         let synced = &mut self.synced;
-        for track in std::iter::once(&mut synced.master).chain(synced.tracks.iter_mut()) {
-            if track.clips.iter().any(touched) {
-                for clip in Arc::make_mut(track).clips.iter_mut() {
+        for part in std::iter::once(&mut synced.master).chain(synced.parts.iter_mut()) {
+            if part.clips.iter().any(touched) {
+                for clip in Arc::make_mut(part).clips.iter_mut() {
                     if touched(clip) {
                         *clip = Arc::new((**clip).clone());
                     }
                 }
             }
             // So do clips off the timeline (`session/cues.rs`).
-            if track.cues.iter().any(&touched) {
-                for clip in Arc::make_mut(track).cues.iter_mut() {
+            if part.cues.iter().any(&touched) {
+                for clip in Arc::make_mut(part).cues.iter_mut() {
                     if touched(clip) {
                         *clip = Arc::new((**clip).clone());
                     }
@@ -566,7 +566,7 @@ impl Session {
         // A render cannot wait for the background hashing: its files are
         // hashed now, so that each stretched clip has a key.
         let files: Vec<std::path::PathBuf> = project
-            .all_tracks()
+            .all_parts()
             .flat_map(|t| t.clips.iter().chain(&t.cues))
             .filter_map(|c| match c.playable() {
                 Some(ClipContent::Audio { file, .. }) => Some(file.clone()),

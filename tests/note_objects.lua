@@ -12,7 +12,7 @@ local function N(pitch, start, length) return { pitch = pitch, start = start, le
 local function song()
   T.fresh()
   paw.keymap.feed("<Esc><Esc>")
-  local t = paw.add_track({ name = "P" })
+  local t = paw.add_part({ name = "P" })
   local clip = t:add_clip({
     start = 0,
     length = 8,

@@ -10,7 +10,7 @@ use paw_engine::{AutoLane, AutoTarget, Automation, Msg, StateChange, StateLane};
 use super::SyncCtx;
 use super::devices::{is_host, param_value};
 use super::mapper::Mapper;
-use crate::model::{Id, Lane, Project, Target, Track};
+use crate::model::{Id, Lane, Project, Target, Part};
 
 /// Whether a lane moves its target: it is on and has somewhere to take it.
 pub(crate) fn is_active(lane: &Lane) -> bool {
@@ -18,22 +18,22 @@ pub(crate) fn is_active(lane: &Lane) -> bool {
 }
 
 pub(super) fn build_automation(
-    track: &Track,
+    part: &Part,
     project: &Project,
     map: &mut Mapper,
     ctx: &mut SyncCtx,
 ) -> Automation {
     let mut set = Automation::default();
-    // A track whose automation is off keeps its lanes and plays none.
-    let on = track.automation != crate::model::AutoMode::Off;
-    let vca = vca_volume_lane(track, project);
+    // A part whose automation is off keeps its lanes and plays none.
+    let on = part.automation != crate::model::AutoMode::Off;
+    let vca = vca_volume_lane(part, project);
     if let Some(points) = &vca {
         set.lanes.push(AutoLane::new(AutoTarget::Volume, points.clone()));
     }
-    for lane in &track.lanes {
+    for lane in &part.lanes {
         map.state_main.remove(&lane.id);
     }
-    for lane in track.lanes.iter().filter(|l| on && is_active(l)) {
+    for lane in part.lanes.iter().filter(|l| on && is_active(l)) {
         let mut range = None;
         let target = match &lane.target {
             Target::State { device } => {
@@ -134,22 +134,22 @@ pub(super) fn state_lane(lane: &Lane, device: Id, map: &mut Mapper, ctx: &mut Sy
 /// A lane's points: beats and values.
 type Points = [(f64, f64)];
 
-/// Whether a track is a VCA: a fader, mute and solo that belong to other
-/// tracks and carry no audio of their own. The runtime marks it in its meta.
-pub(super) fn is_vca(track: &Track) -> bool {
-    track.meta.get("vca").and_then(|v| v.as_bool()) == Some(true)
+/// Whether a part is a VCA: a fader, mute and solo that belong to other
+/// parts and carry no audio of their own. The runtime marks it in its meta.
+pub(super) fn is_vca(part: &Part) -> bool {
+    part.meta.get("vca").and_then(|v| v.as_bool()) == Some(true)
 }
 
-/// The VCAs a track is assigned to (named in its meta) that exist.
-pub(super) fn vcas_of<'a>(track: &Track, project: &'a Project) -> Vec<&'a Track> {
-    let Some(ids) = track.meta.get("vcas").and_then(|v| v.as_array()) else {
+/// The VCAs a part is assigned to (named in its meta) that exist.
+pub(super) fn vcas_of<'a>(part: &Part, project: &'a Project) -> Vec<&'a Part> {
+    let Some(ids) = part.meta.get("vcas").and_then(|v| v.as_array()) else {
         return Vec::new();
     };
-    if is_vca(track) {
+    if is_vca(part) {
         return Vec::new();
     }
     project
-        .tracks
+        .parts
         .iter()
         .filter(|t| is_vca(t) && ids.iter().any(|id| id.as_u64() == Some(t.id)))
         .map(|t| &**t)
@@ -158,28 +158,28 @@ pub(super) fn vcas_of<'a>(track: &Track, project: &'a Project) -> Vec<&'a Track>
 
 /// A fader's lane on its own: its points in dB, or `None` where the fader
 /// is still (or its automation is off).
-pub(super) fn fader_points(track: &Track) -> Option<&[(f64, f64)]> {
-    if track.automation == crate::model::AutoMode::Off {
+pub(super) fn fader_points(part: &Part) -> Option<&[(f64, f64)]> {
+    if part.automation == crate::model::AutoMode::Off {
         return None;
     }
-    track
+    part
         .lanes
         .iter()
         .find(|l| l.target == Target::Volume && is_active(l))
         .map(|l| l.points.as_slice())
 }
 
-/// The fader lane of a track that is in VCAs, when any lane is in play: the
+/// The fader lane of a part that is in VCAs, when any lane is in play: the
 /// sum in dB of its own fader and its VCAs' faders, each a lane or a fixed
 /// value. Lanes are straight lines between points, so the sum is too, with
 /// a point wherever one of them has one: the engine plays it as any lane,
 /// sample by sample, and a render hears the same.
-pub(super) fn vca_volume_lane(track: &Track, project: &Project) -> Option<Vec<(f64, f64)>> {
-    let vcas = vcas_of(track, project);
+pub(super) fn vca_volume_lane(part: &Part, project: &Project) -> Option<Vec<(f64, f64)>> {
+    let vcas = vcas_of(part, project);
     if vcas.is_empty() {
         return None;
     }
-    let all: Vec<&Track> = std::iter::once(track).chain(vcas).collect();
+    let all: Vec<&Part> = std::iter::once(part).chain(vcas).collect();
     let lanes: Vec<Option<&[(f64, f64)]>> = all.iter().map(|t| fader_points(t)).collect();
     if lanes.iter().all(|l| l.is_none()) {
         return None;
@@ -224,14 +224,14 @@ pub(super) fn value_before(points: &[(f64, f64)], beat: f64) -> f64 {
 /// Put back the project's own value of anything a lane stopped automating,
 /// since the engine otherwise keeps the last automated value.
 pub(super) fn release_targets(
-    old: &Track,
-    new: &Track,
+    old: &Part,
+    new: &Part,
     map: &mut Mapper,
     ctx: &mut SyncCtx,
     send: &mut dyn FnMut(Msg),
 ) {
     let active =
-        |t: &Track, target: &Target| t.lanes.iter().any(|l| &l.target == target && is_active(l));
+        |t: &Part, target: &Target| t.lanes.iter().any(|l| &l.target == target && is_active(l));
     for lane in old
         .lanes
         .iter()

@@ -20,12 +20,12 @@ test("the playhead over a take lane keeps the letters of the take's name", funct
   local zoom = paw.opt.zoom
   T.after(function() paw.opt.zoom = zoom end)
   paw.opt.zoom = 16
-  local t = paw.add_track({ name = "Lead" })
+  local t = paw.add_part({ name = "Lead" })
   local clip = t:add_clip({ start = 0, length = 4, name = "Riff", notes = { { pitch = 60, start = 0, length = 1 } } })
   paw.takes.new(clip.id)
   paw.takes.show_lanes(t.id, true)
   api.undo_checkpoint()
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   -- Two columns in: on the "i" of each take's name.
   for _, beat in ipairs({ 2 / 16, 3 / 16, 7 / 16 }) do
     paw.transport.seek(beat)
@@ -38,13 +38,13 @@ end)
 
 test("a short clip with takes keeps room for its name, says which take plays, and ]t changes it", function()
   start()
-  local t = paw.add_track({ name = "Lead" })
+  local t = paw.add_part({ name = "Lead" })
   local clip = t:add_clip({ start = 0, length = 4, name = "take 1", notes = { { pitch = 60, start = 0, length = 1 } } })
   paw.takes.new(clip.id)
   paw.takes.new(clip.id)
   paw.takes.select(clip.id, 1)
   api.undo_checkpoint()
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.cursor.set_beat(1)
   local function line()
     paw.flush()
@@ -61,7 +61,7 @@ end)
 
 test(":g/pat/p lists the matches in the quickfix list, as :g/pat/ does", function()
   start()
-  local t = paw.add_track({ name = "Keys" })
+  local t = paw.add_part({ name = "Keys" })
   t:add_clip({
     start = 0,
     length = 4,

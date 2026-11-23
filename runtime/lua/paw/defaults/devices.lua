@@ -4,7 +4,7 @@ local api = paw.api
 local command = paw.command
 local cursor = paw.cursor
 local common = require("paw.defaults.common")
-local need_track = common.need_track
+local need_part = common.need_part
 
 --- Device kinds whose kind or name contains `text`, built-in ones first.
 local function device_kinds(text)
@@ -23,8 +23,8 @@ local function device_kinds(text)
 end
 
 command("device.add", function(ctx)
-  local track = need_track()
-  if not track then return end
+  local part = need_part()
+  if not part then return end
   local function add(text)
     if text == "" then return end
     -- An exact kind, or else the first device with `text` in its kind or name.
@@ -34,12 +34,12 @@ command("device.add", function(ctx)
       if match == text then kind = match end
     end
     if not kind then return paw.notify("no device matches `" .. text .. "`", "warn") end
-    paw.fx.add(track, kind)
+    paw.fx.add(part, kind)
   end
   if ctx.args[1] then return add(table.concat(ctx.args, " ")) end
   paw.notify(#paw.device_types() .. " devices. Type part of a name and press Tab; `:devices` lists them all.")
   paw.ui.input({ prompt = "Add device: ", complete = device_kinds, history = "device" }, add)
-end, { desc = "Add a device to the track: `device.add delay`, `device.add dragonfly hall`", complete = { "devices" } })
+end, { desc = "Add a device to the part: `device.add delay`, `device.add dragonfly hall`", complete = { "devices" } })
 command("midi.inputs", function()
   local lines = {}
   for _, port in ipairs(paw.midi.inputs()) do
@@ -73,11 +73,11 @@ command("device.remove", function()
 end, { desc = "Remove the device selected in the device panel" })
 command("device.restart", function()
   -- The device selected in the panel if it has stopped, else every device
-  -- of the track that has.
+  -- of the part that has.
   local chosen = paw.ui.focused == "devices" and paw.ui.views:get("devices"):selected() or nil
-  local track = need_track()
+  local part = need_part()
   local started, failed = 0, nil
-  for _, device in ipairs(chosen and { chosen } or track and track:devices() or {}) do
+  for _, device in ipairs(chosen and { chosen } or part and part:devices() or {}) do
     local d = device:get()
     if d.stopped or d.missing or chosen then
       local ok, err = pcall(device.restart, device)
@@ -100,14 +100,14 @@ command("device.bypass", function()
   if device then device.bypass = not device.bypass end
 end, { desc = "Bypass the device selected in the device panel" })
 command("device.editor", function()
-  -- The device selected in the panel, else the track's first one with a window.
+  -- The device selected in the panel, else the part's first one with a window.
   local device = paw.ui.focused == "devices" and paw.ui.views:get("devices"):selected()
     or paw.ui.focused == "mixer" and paw.mixer_rows.device()
     or nil
   if not (device and device.editor) then
     device = nil
-    local track = need_track()
-    for _, candidate in ipairs(track and track:devices() or {}) do
+    local part = need_part()
+    for _, candidate in ipairs(part and part:devices() or {}) do
       if candidate.editor then
         device = candidate
         break
@@ -118,8 +118,8 @@ command("device.editor", function()
   api.device_editor(device.id)
 end, { desc = "Show or hide the plugin's own window" })
 command("device.set", function(ctx)
-  local track = need_track()
-  local device = track and track:device(ctx.args[1])
+  local part = need_part()
+  local device = part and part:device(ctx.args[1])
   if not device then return paw.notify("usage: device.set <kind> <param>=<value> ...", "warn") end
   for key, value in pairs(ctx.args) do
     if type(key) == "string" then device:set(key, value) end
@@ -127,9 +127,9 @@ command("device.set", function(ctx)
 end, {
   desc = "Set parameters: `device.set synth cutoff=800 wave=2`",
   complete = function(_, info)
-    if info.index == 1 then return paw.commands.completers:get("track_devices")() end
-    local track = cursor.track()
-    local device = track and track:device(info.words[1])
+    if info.index == 1 then return paw.commands.completers:get("part_devices")() end
+    local part = cursor.part()
+    local device = part and part:device(info.words[1])
     local out = {}
     for _, p in ipairs(device and device:get().param_info or {}) do
       out[#out + 1] = { text = p.key .. "=", desc = p.name }

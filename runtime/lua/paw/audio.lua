@@ -1,10 +1,10 @@
--- `paw.audio`: which audio devices are open, and what each track takes in.
+-- `paw.audio`: which audio devices are open, and what each part takes in.
 --
 --   paw.audio.devices()                         -- { outputs = {...}, inputs = {...}, output, input }
 --   paw.audio.use({ output = "UR22", input = "UR22", buffer = 128 })
 --   paw.audio.levels()                          -- each input channel's level, 0 to 1
---   paw.audio.choices(track)                    -- what a track's input can be, for a menu or a picker
---   paw.audio.choose(track, choice)             -- take one of them
+--   paw.audio.choices(part)                    -- what a part's input can be, for a menu or a picker
+--   paw.audio.choose(part, choice)             -- take one of them
 --
 -- The lists and what each choice means live here, so that the terminal and
 -- the window offer the same and mean the same by it.
@@ -34,7 +34,7 @@ M.levels = api.input_levels
 --- Block sizes offered where the device is chosen.
 M.blocks = { 32, 64, 128, 256, 512, 1024, 2048 }
 
---- The name of a device, made short enough for a track header. The name of
+--- The name of a device, made short enough for a part header. The name of
 --- the maker goes when a model number follows it, and a number at the end
 --- also goes.
 ---   "Steinberg UR22mkII 0" → "UR22mkII", "Bose NC 700 HP" → "Bose NC 700 HP"
@@ -65,8 +65,8 @@ local function midi_text(midi)
   return midi.channel and (port .. " · ch " .. midi.channel) or port
 end
 
---- What a track takes in, in a few words: `UR22mkII · 1/2` for audio,
---- `MIDI · Keystation · ch 1` for MIDI from one port. Nil for a track that
+--- What a part takes in, in a few words: `UR22mkII · 1/2` for audio,
+--- `MIDI · Keystation · ch 1` for MIDI from one port. Nil for a part that
 --- takes nothing in particular: no audio, and MIDI from everywhere.
 function M.label(t)
   if t.input then return (M.device() or "no input") .. " · " .. t.input end
@@ -74,8 +74,8 @@ function M.label(t)
   return nil
 end
 
---- The level of the sound at the audio input of a track, 0 to 1. The track
---- does not have to be armed or monitored. 0 for a track without
+--- The level of the sound at the audio input of a part, 0 to 1. The part
+--- does not have to be armed or monitored. 0 for a part without
 --- an audio input.
 function M.level(t, levels)
   if not t.input then return 0 end
@@ -111,14 +111,14 @@ function M.load(cpu)
   return load.shown
 end
 
---- All the possible inputs of a track, in order, under three headings
+--- All the possible inputs of a part, in order, under three headings
 --- (`group`). "audio" is none, each channel of the input device, and each
 --- pair of adjacent channels. "midi" is all ports, or one. "channel" is
 --- all MIDI channels, or one. Each is `{ group, label, checked, value }`.
 --- Give it to `M.choose`. A saved choice that is not available now is also
 --- in the list, marked as not found. So you can see it and change it.
-function M.choices(track)
-  local t = type(track) == "table" and track.id and api.track_get(track.id) or api.track_get(track)
+function M.choices(part)
+  local t = type(part) == "table" and part.id and api.part_get(part.id) or api.part_get(part)
   local out = {}
   local function add(group, label, value, checked)
     out[#out + 1] = { group = group, label = label, value = value, checked = checked and true or false }
@@ -184,28 +184,28 @@ function M.choices(track)
   return out
 end
 
---- Use a choice from `M.choices`. A track hears a MIDI port or channel only
+--- Use a choice from `M.choices`. A part hears a MIDI port or channel only
 --- when it has no audio input. So a MIDI choice removes the audio input.
-function M.choose(track, choice)
-  local id = type(track) == "table" and track.id or track
+function M.choose(part, choice)
+  local id = type(part) == "table" and part.id or part
   local value = choice.value or choice
-  if value.input then api.track_set(id, "input", value.input) end
+  if value.input then api.part_set(id, "input", value.input) end
   if value.midi_port ~= nil or value.midi_channel ~= nil then
-    local midi = api.track_get(id, "midi_input") or {}
+    local midi = api.part_get(id, "midi_input") or {}
     local port, channel = midi.port, midi.channel
     if value.midi_port ~= nil then port = value.midi_port or nil end
     if value.midi_channel ~= nil then channel = value.midi_channel or nil end
-    api.track_set(id, "input", "none")
-    api.track_set(id, "midi_input", (port or channel) and { port = port, channel = channel } or nil)
+    api.part_set(id, "input", "none")
+    api.part_set(id, "midi_input", (port or channel) and { port = port, channel = channel } or nil)
   end
   -- A channel without a port waits for one.
   if value.midi_out ~= nil or value.midi_out_channel ~= nil or value.midi_out_form ~= nil then
-    local sent = api.track_get(id, "midi_output") or {}
+    local sent = api.part_get(id, "midi_output") or {}
     local port, channel, form = sent.port, sent.channel, sent.form
     if value.midi_out ~= nil then port = value.midi_out or nil end
     if value.midi_out_channel ~= nil then channel = value.midi_out_channel or nil end
     if value.midi_out_form ~= nil then form = value.midi_out_form end
-    api.track_set(
+    api.part_set(
       id,
       "midi_output",
       port and { port = port, channel = channel, form = form, members = sent.members } or nil
@@ -299,10 +299,10 @@ local group_names = {
   midi_out_form = "out form",
 }
 
---- A picker of the inputs of a track (`I` on a track): monitoring first,
+--- A picker of the inputs of a part (`I` on a part): monitoring first,
 --- then each choice of `M.choices`. With `groups` (`{ "midi", "channel" }`),
 --- only those choices: the MIDI input, as step input opens it.
-function M.pick(track, groups)
+function M.pick(part, groups)
   local only
   if groups then
     only = {}
@@ -310,13 +310,13 @@ function M.pick(track, groups)
       only[g] = true
     end
   end
-  track = type(track) == "table" and track or paw.track(track)
+  part = type(part) == "table" and part or paw.part(part)
   local items = {}
-  local t = track:get()
+  local t = part:get()
   if not only then
     items[1] = { label = (t.monitor and "● " or "○ ") .. "Monitor: hear the input without arming", monitor = true }
   end
-  for _, choice in ipairs(M.choices(track)) do
+  for _, choice in ipairs(M.choices(part)) do
     if not only or only[choice.group] then items[#items + 1] = choice end
   end
   paw.pick({
@@ -328,14 +328,14 @@ function M.pick(track, groups)
     end,
     on_choose = function(item)
       if item.monitor then
-        track.monitor = not track.monitor
-        return paw.notify(track.name .. (track.monitor and ": monitoring its input" or ": not monitoring"))
+        part.monitor = not part.monitor
+        return paw.notify(part.name .. (part.monitor and ": monitoring its input" or ": not monitoring"))
       end
-      M.choose(track, item)
+      M.choose(part, item)
       if item.group:find("^midi_out") then
-        return paw.notify(track.name .. " → " .. paw.routes.midi_out_text(track:get()))
+        return paw.notify(part.name .. " → " .. paw.routes.midi_out_text(part:get()))
       end
-      paw.notify(track.name .. " ← " .. (M.label(track:get()) or "MIDI from every port"))
+      paw.notify(part.name .. " ← " .. (M.label(part:get()) or "MIDI from every port"))
     end,
   })
 end

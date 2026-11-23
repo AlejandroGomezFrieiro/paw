@@ -34,13 +34,13 @@ local record partial
       register: function(name: string, fn: contracts.HealthCheck, opts?: contracts.HealthOptions)
       metamethod __index: function(Health, string): Untyped
    end
-   record Plugins
-      key_names: function(track: integer): {integer:string}
-      metamethod __index: function(Plugins, string): Untyped
+   record PartKinds
+      define: function(name: string, spec: contracts.PartKind): contracts.PartKind
+      metamethod __index: function(PartKinds, string): Untyped
    end
-   record TrackKinds
-      define: function(name: string, spec: contracts.TrackKind): contracts.TrackKind
-      metamethod __index: function(TrackKinds, string): Untyped
+   record Plugins
+      key_names: function(part: integer): {integer:string}
+      metamethod __index: function(Plugins, string): Untyped
    end
    --- The global `paw`, as far as the modules in Lua type it.
    interface Paw
@@ -57,10 +57,10 @@ local record partial
       health: Health
       notify: function(text: string, level?: string)
       off: function(id: integer)
+      part_kinds: PartKinds
       plugins: Plugins
       render_cancel: function(): boolean
       render_tags: function(set?: types.RenderTags): types.RenderTags
-      track_kinds: TrackKinds
       wait: function(ms: number)
    end
 end

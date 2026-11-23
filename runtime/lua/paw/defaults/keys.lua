@@ -7,18 +7,18 @@ local cursor, transport = paw.cursor, paw.transport
 local keymap, edit = paw.keymap, paw.edit
 local roll = paw.ui.views:get("pianoroll")
 local common = require("paw.defaults.common")
-local motion, need_track, amap = common.motion, common.need_track, common.amap
+local motion, need_part, amap = common.motion, common.need_part, common.amap
 
 --
--- Neovim's grammar on a timeline. Beats are the columns and tracks the lines
+-- Neovim's grammar on a timeline. Beats are the columns and parts the lines
 -- of the arrange view; a clip is a word. In the piano roll pitches are the
 -- lines and a note is a word. So `dw` deletes up to the next clip, `yy` yanks
--- a track, `3>ic` nudges a clip three steps later, `.` does it again.
+-- a part, `3>ic` nudges a clip three steps later, `.` does it again.
 
 -- The names the key hints give to prefixes that only lead to more keys.
 -- The leader keys are a noun, then a verb or an object: `<leader>f` finds,
 -- `<leader>fc` finds a clip, `<leader>dd` shows the devices, `<leader>ts`
--- sends the track (docs/reference/keys.md, "The leader keys"). The
+-- sends the part (docs/reference/keys.md, "The leader keys"). The
 -- extensions name their own: `g` versions, `h` tutor, `n` notation, `u` utau.
 keymap.group("<leader>a", "automation")
 keymap.group("<leader>c", "clip", { view = "arrange" })
@@ -29,7 +29,7 @@ keymap.group("<leader>l", "language servers")
 keymap.group("<leader>m", "mix")
 keymap.group("<leader>p", "project")
 keymap.group("<leader>r", "markers and regions")
-keymap.group("<leader>t", "tracks", { view = "arrange" })
+keymap.group("<leader>t", "parts", { view = "arrange" })
 keymap.group("<leader>T", "tempo and transport")
 keymap.group("<leader>v", "views")
 keymap.group("<leader>w", "workspaces")
@@ -151,8 +151,8 @@ map("<leader>rn", "region.new", { mode = nx, desc = "Make a region over the sele
 map("<leader>rx", "marker.remove", { desc = "Remove the marker at the cursor" })
 map("<leader>rX", "region.remove", { desc = "Remove the region the cursor is in; its clips stay" })
 map("<leader>rl", "region.loop", { desc = "Set the playback loop to the region the cursor is in" })
--- Export (paw/export.tl): the mix, the stems, the tracks, the regions, a
--- preset from a list, and the last export again. In visual mode, for the time and tracks of the
+-- Export (paw/export.tl): the mix, the stems, the parts, the regions, a
+-- preset from a list, and the last export again. In visual mode, for the time and parts of the
 -- selection, as `:'<,'>export` is.
 local function export_with(words)
   return function()
@@ -163,7 +163,7 @@ local function export_with(words)
 end
 map("<leader>em", export_with(""), { mode = nx, desc = "Export the mix: the song, or the selection, to a WAV file" })
 map("<leader>es", export_with("stems"), { mode = nx, desc = "Export the stems: one file for each group" })
-map("<leader>et", export_with("tracks"), { mode = nx, desc = "Export the tracks: one file for each track" })
+map("<leader>et", export_with("parts"), { mode = nx, desc = "Export the parts: one file for each part" })
 map("<leader>er", export_with("regions"), { mode = nx, desc = "Export the regions: one file for each region" })
 map("<leader>ep", function()
   local from_visual = keymap.mode == "x" and keymap.selection() ~= nil
@@ -194,50 +194,50 @@ map("zo", "zoom by=0.5", { mode = nx, desc = "Zoom out" })
 map("]g", "grid by=2", { mode = nx, desc = "Coarser grid" })
 map("[g", "grid by=0.5", { mode = nx, desc = "Finer grid" })
 
---- Whole tracks from a row down, as a region.
+--- Whole parts from a row down, as a region.
 local function rows(first, n)
   return { view = "arrange", kind = "line", r0 = first, r1 = first + (n or 1) - 1, c0 = 0, c1 = 0 }
 end
 
---- Put the cursor on the track now at a row, after tracks came or went.
+--- Put the cursor on the part now at a row, after parts came or went.
 local function settle(row)
-  local list = paw.scope.tracks()
-  if #list > 0 then cursor.set_track(list[util.clamp(row, 1, #list)]) end
+  local list = paw.scope.parts()
+  if #list > 0 then cursor.set_part(list[util.clamp(row, 1, #list)]) end
 end
 
--- Tracks can be driven from the arrange view and the mixer alike. The
+-- Parts can be driven from the arrange view and the mixer alike. The
 -- mixer's motions, values and operators are in paw/mixer_rows.lua: its
 -- strips are a grid of rows.
 for _, name in ipairs({ "arrange", "mixer" }) do
   local function vmap(lhs, rhs, desc, opts) map(lhs, rhs, util.merge({ view = name, desc = desc }, opts)) end
-  vmap("o", "track.add", "Add a track below")
-  vmap("O", "track.add above=true", "Add a track above")
-  vmap("grn", "track.rename", "Rename the track")
-  vmap("M", "track.mute", "Mute the track")
-  vmap("s", "track.solo", "Solo")
-  vmap("r", "track.armed", "Arm for recording")
-  vmap("I", "track.input", "Choose the input")
-  vmap("<A-i>", "track.monitor", "Hear the input without arming")
-  vmap("<A-j>", "track.move by=1", "Move the track down")
-  vmap("<A-k>", "track.move by=-1", "Move the track up")
+  vmap("o", "part.add", "Add a part below")
+  vmap("O", "part.add above=true", "Add a part above")
+  vmap("grn", "part.rename", "Rename the part")
+  vmap("M", "part.mute", "Mute the part")
+  vmap("s", "part.solo", "Solo")
+  vmap("r", "part.armed", "Arm for recording")
+  vmap("I", "part.input", "Choose the input")
+  vmap("<A-i>", "part.monitor", "Hear the input without arming")
+  vmap("<A-j>", "part.move by=1", "Move the part down")
+  vmap("<A-k>", "part.move by=-1", "Move the part up")
   vmap("a", "device.add", "Add a device")
 end
 local function tmap(lhs, rhs, desc, opts) map(lhs, rhs, util.merge({ view = "arrange", desc = desc }, opts)) end
-tmap("j", "cursor.down", "Next track", linewise)
-tmap("k", "cursor.up", "Previous track", linewise)
-tmap("<Down>", "cursor.down", "Next track", linewise)
-tmap("<Up>", "cursor.up", "Previous track", linewise)
-tmap("gg", "cursor.first_track", "First track, or track N", far_lines)
-tmap("G", "cursor.last_track", "Last track, or track N", far_lines)
--- A track's main value is its volume and its second its pan, as in the mixer.
-tmap("+", "track.volume by=1", "Volume up 1 dB", { role = "main+" })
-tmap("-", "track.volume by=-1", "Volume down 1 dB", { role = "main-" })
-tmap("<C-a>", "track.volume by=1", "Volume up, a dB for each of the count", { role = "main+" })
-tmap("<C-x>", "track.volume by=-1", "Volume down, a dB for each of the count", { role = "main-" })
-tmap("]", "track.pan by=0.1", "Pan right", { role = "second+" })
-tmap("[", "track.pan by=-0.1", "Pan left", { role = "second-" })
-keymap.classic(")", "track.pan by=0.1", { view = "arrange", desc = "Pan right" })
-keymap.classic("(", "track.pan by=-0.1", { view = "arrange", desc = "Pan left" })
+tmap("j", "cursor.down", "Next part", linewise)
+tmap("k", "cursor.up", "Previous part", linewise)
+tmap("<Down>", "cursor.down", "Next part", linewise)
+tmap("<Up>", "cursor.up", "Previous part", linewise)
+tmap("gg", "cursor.first_part", "First part, or part N", far_lines)
+tmap("G", "cursor.last_part", "Last part, or part N", far_lines)
+-- A part's main value is its volume and its second its pan, as in the mixer.
+tmap("+", "part.volume by=1", "Volume up 1 dB", { role = "main+" })
+tmap("-", "part.volume by=-1", "Volume down 1 dB", { role = "main-" })
+tmap("<C-a>", "part.volume by=1", "Volume up, a dB for each of the count", { role = "main+" })
+tmap("<C-x>", "part.volume by=-1", "Volume down, a dB for each of the count", { role = "main-" })
+tmap("]", "part.pan by=0.1", "Pan right", { role = "second+" })
+tmap("[", "part.pan by=-0.1", "Pan left", { role = "second-" })
+keymap.classic(")", "part.pan by=0.1", { view = "arrange", desc = "Pan right" })
+keymap.classic("(", "part.pan by=-0.1", { view = "arrange", desc = "Pan left" })
 keymap.classic("]", false, { view = "arrange" })
 keymap.classic("[", false, { view = "arrange" })
 keymap.classic("<C-a>", "clip.transpose by=1", { view = "arrange", desc = "Transpose the clip up a semitone" })
@@ -255,12 +255,12 @@ amap("e", "cursor.clip_end", "End of this clip, or the next", motion)
 amap("W", "cursor.next_bar", "Next bar", motion)
 amap("B", "cursor.prev_bar", "Previous bar", motion)
 amap("0", "cursor.start", "Start of the project", motion)
-amap("^", "cursor.first_clip", "Start of the track's first clip", motion)
-amap("$", "cursor.end", "End of the track's last clip", motion)
+amap("^", "cursor.first_clip", "Start of the part's first clip", motion)
+amap("$", "cursor.end", "End of the part's last clip", motion)
 amap("|", "cursor.bar", "Bar N", far)
 amap("gP", "cursor.to_playhead", "Cursor to the playhead", far)
-amap("<C-d>", function(ctx) cursor.move_track(4 * (ctx.count or 1)) end, "Four tracks down", linewise)
-amap("<C-u>", function(ctx) cursor.move_track(-4 * (ctx.count or 1)) end, "Four tracks up", linewise)
+amap("<C-d>", function(ctx) cursor.move_part(4 * (ctx.count or 1)) end, "Four parts down", linewise)
+amap("<C-u>", function(ctx) cursor.move_part(-4 * (ctx.count or 1)) end, "Four parts up", linewise)
 amap("*", function()
   local clip = cursor.clip()
   if clip then keymap.search(clip.name, 1) end
@@ -268,14 +268,14 @@ end, "Next clip with this one's name", far)
 amap("zz", function() paw.ui.views:get("arrange"):center() end, "Scroll the cursor to the middle")
 amap("zs", function() paw.ui.views:get("arrange"):place(false) end, "Scroll the cursor to the left")
 amap("ze", function() paw.ui.views:get("arrange"):place(true) end, "Scroll the cursor to the right")
--- Groups of tracks.
-map("<leader>tg", "track.group", { view = "arrange", mode = nx, desc = "Group the selected tracks" })
-amap("<leader>tG", "track.ungroup", "Take the track out of its group; dissolve a group")
+-- Groups of parts.
+map("<leader>tg", "part.group", { view = "arrange", mode = nx, desc = "Group the selected parts" })
+amap("<leader>tG", "part.ungroup", "Take the part out of its group; dissolve a group")
 -- Folds (paw/folds.tl): view state of this window, as Vim's. `zo` stays
 -- zoom out; `za` opens.
 amap("za", "fold.toggle", "Fold the group or fold at the cursor, or open it")
 amap("zc", "fold.close", "Fold the group or fold at the cursor")
-amap("zd", "fold.delete", "Delete the fold at the cursor (its tracks stay)")
+amap("zd", "fold.delete", "Delete the fold at the cursor (its parts stay)")
 amap("zE", "fold.clear", "Delete every fold of this window")
 keymap.operator("zf", function(region)
   local f, why = paw.folds.make(paw.scope.of_region(region))
@@ -286,7 +286,7 @@ keymap.operator("zf", function(region)
 end, {
   view = "arrange",
   repeatable = false,
-  desc = "Fold a region (zfar) into a column, a group (zfag) or tracks (Vjjzf) into one line, a block into one cell",
+  desc = "Fold a region (zfar) into a column, a group (zfag) or parts (Vjjzf) into one line, a block into one cell",
 })
 amap("zm", "fold.more", "Fold one more level of regions")
 amap("zr", "fold.less", "Open one more level of regions")
@@ -308,7 +308,7 @@ keymap.operator("zn", function(region, ctx)
 end, {
   view = "arrange",
   repeatable = false,
-  desc = "Enter a scope in this window: znar the region, znag the group, znit the track, znn the innermost at the cursor",
+  desc = "Enter a scope in this window: znar the region, znag the group, znit the part, znn the innermost at the cursor",
 })
 amap("zw", "widen", "Up one level of scope")
 amap("zW", "widen!", "Up to the whole song")
@@ -332,13 +332,13 @@ map("<leader>zn", "scope.name", { desc = "Name this window's scope: type its nam
 map(
   "<leader>zp",
   "nest.promote",
-  { desc = "Promote the subproject at the cursor to a view: its tracks come back into the song" }
+  { desc = "Promote the subproject at the cursor to a view: its parts come back into the song" }
 )
 map("<leader>za", function()
   local text = keymap.mode == "x" and "'<,'>nest.new " or "nest.new "
   paw.commands.run("cmdline", { text = text }, { mode = keymap.mode })
-end, { mode = nx, desc = "Add a subproject with its own row and tracks: type its name, bars and meter" })
--- Save the window's view as a subproject: `<leader>zw` per track (`.` saves
+end, { mode = nx, desc = "Add a subproject with its own row and parts: type its name, bars and meter" })
+-- Save the window's view as a subproject: `<leader>zw` per part (`.` saves
 -- the next view beside it), `<leader>zW` with a row of its own.
 map("<leader>zw", function(ctx)
   paw.commands.run("scope.write")
@@ -347,19 +347,19 @@ end, { desc = "Save this view as a subproject: the rows play its clips through t
 map(
   "<leader>zW",
   "scope.write!",
-  { desc = "Save this view as a subproject with its own row: its tracks and devices go in" }
+  { desc = "Save this view as a subproject with its own row: its parts and devices go in" }
 )
 map("<leader>zz", "scope.list", { desc = "Enter a scope, or go up to a level, from a list" })
-amap("]z", "scope.next", "The next scope beside this one: region, group, track", { motion = true, mode = "n" })
+amap("]z", "scope.next", "The next scope beside this one: region, group, part", { motion = true, mode = "n" })
 amap("[z", "scope.prev", "The scope before this one, beside it", { motion = true, mode = "n" })
 -- VCAs, and the faders of a group moving together.
-map("<leader>tv", "vca.make", { view = "arrange", mode = nx, desc = "A new VCA over the selected tracks" })
-map("<leader>ta", "vca.assign", { view = "arrange", mode = nx, desc = "Put the selected tracks under a VCA" })
-map("<leader>tr", "vca.release", { view = "arrange", mode = nx, desc = "Take the selected tracks out of their VCAs" })
+map("<leader>tv", "vca.make", { view = "arrange", mode = nx, desc = "A new VCA over the selected parts" })
+map("<leader>ta", "vca.assign", { view = "arrange", mode = nx, desc = "Put the selected parts under a VCA" })
+map("<leader>tr", "vca.release", { view = "arrange", mode = nx, desc = "Take the selected parts out of their VCAs" })
 amap("<leader>tx", "vca.dissolve", "Take the VCA at the cursor away")
 amap("<leader>tl", "group.link", "Link the faders of the group's members")
-amap("<leader>ts", "send", "Send the track's sound to another as well")
--- Freeze (paw/freeze.lua): the track, or the selected tracks, plays a render of itself.
+amap("<leader>ts", "send", "Send the part's sound to another as well")
+-- Freeze (paw/freeze.lua): the part, or the selected parts, plays a render of itself.
 for lhs, name in pairs({ ["<leader>tf"] = "freeze", ["<leader>tF"] = "unfreeze" }) do
   map(lhs, function()
     local from_visual = keymap.mode == "x" and keymap.selection() ~= nil
@@ -368,15 +368,15 @@ for lhs, name in pairs({ ["<leader>tf"] = "freeze", ["<leader>tF"] = "unfreeze" 
   end, {
     view = "arrange",
     mode = nx,
-    desc = name == "freeze" and "Freeze the track, or the selected tracks: its devices rest"
-      or "Unfreeze the track, or the selected tracks: its devices play again",
+    desc = name == "freeze" and "Freeze the part, or the selected parts: its devices rest"
+      or "Unfreeze the part, or the selected parts: its devices play again",
   })
 end
-amap("<leader>to", "track.output", "Choose where the track's sound goes")
+amap("<leader>to", "part.output", "Choose where the part's sound goes")
 map("<leader>tb", "bounce", {
   view = "arrange",
   mode = nx,
-  desc = "Bounce the track, or the selected tracks, to a new audio track and mute them",
+  desc = "Bounce the part, or the selected parts, to a new audio part and mute them",
 })
 amap("zM", "fold.closeall", "Fold every group and fold of this window")
 amap("zR", "fold.openall", "Open every group and fold of this window")
@@ -399,7 +399,7 @@ aobject("ac", function()
   -- With the silence after it, up to the next clip.
   local c1 = clip.start + clip.length
   local finish = c1
-  for _, other in ipairs(clip:track():clips()) do
+  for _, other in ipairs(clip:part():clips()) do
     if other.start >= c1 - 1e-9 and (finish == c1 or other.start < finish) then finish = other.start end
   end
   return on_row(clip.start, finish)
@@ -413,7 +413,7 @@ end
 for _, lhs in ipairs({ "il", "al" }) do
   aobject(lhs, function() return on_row(transport.loop_start, transport.loop_end) end, "The loop")
 end
--- A region: its time on this track (`ir`), or on every track (`ar`), so
+-- A region: its time on this part (`ir`), or on every part (`ar`), so
 -- `dar` empties the region in the whole song and keeps the region itself.
 -- The innermost region at the cursor; with a count, the region around it
 -- (`2ar`), as Vim's `2a(`.
@@ -432,7 +432,7 @@ end
 aobject("ir", function(ctx)
   local r = region_here(ctx)
   if r then return on_row(in_scope(r.beat, r.beat + r.length)) end
-end, "The region the cursor is in, on this track (2ir: the region around it)")
+end, "The region the cursor is in, on this part (2ir: the region around it)")
 aobject("ar", function(ctx)
   local r = region_here(ctx)
   local n = #paw.groups.rows()
@@ -448,18 +448,18 @@ aobject("ar", function(ctx)
       scope = { kind = "region", id = r.id },
     }
   end
-end, "The region the cursor is in, on every track of the scope (2ar: the region around it)")
+end, "The region the cursor is in, on every part of the scope (2ar: the region around it)")
 for _, lhs in ipairs({ "it", "at" }) do
   aobject(lhs, function()
     local row = cursor.index() or 1
     local c0, c1 = in_scope(edit.arrange.span(rows(row)))
     if c1 > c0 then
       local reg = on_row(c0, c1)
-      local id = cursor.track_id()
-      reg.scope = id and id ~= 0 and { kind = "track", id = id } or nil
+      local id = cursor.part_id()
+      reg.scope = id and id ~= 0 and { kind = "part", id = id } or nil
       return reg
     end
-  end, "Everything on the track")
+  end, "Everything on the part")
 end
 for _, lhs in ipairs({ "ie", "ae" }) do
   aobject(lhs, function()
@@ -474,13 +474,13 @@ for _, lhs in ipairs({ "ie", "ae" }) do
 end
 
 -- Arrange: operators.
--- An operator acts on tracks and clips: on the master, which has no clips
--- and no place in the list of tracks, it says so.
+-- An operator acts on parts and clips: on the master, which has no clips
+-- and no place in the list of parts, it says so.
 local function aop(lhs, fn, desc)
   keymap.operator(lhs, function(region, ctx)
     local n = #paw.groups.rows()
     if cursor.on_master() or (n > 0 and region.r0 > n) then
-      return paw.notify("the master track has no clips and stays: move to a track with `k`", "warn")
+      return paw.notify("the master part has no clips and stays: move to a part with `k`", "warn")
     end
     return fn(region, ctx)
   end, { view = "arrange", desc = desc })
@@ -492,10 +492,8 @@ end, "Delete")
 aop("y", function(region, ctx)
   local value = edit.arrange.yank(region)
   keymap.setreg(value, ctx.register, true)
-  if value.kind == "tracks" then
-    paw.notify(
-      #value.tracks == 1 and "yanked track " .. value.tracks[1].name or "yanked " .. #value.tracks .. " tracks"
-    )
+  if value.kind == "parts" then
+    paw.notify(#value.parts == 1 and "yanked part " .. value.parts[1].name or "yanked " .. #value.parts .. " parts")
   else
     paw.notify("yanked " .. util.amount(value.length, "beat"))
   end
@@ -508,12 +506,12 @@ aop("c", function(region, ctx)
   end
   local removed = edit.arrange.delete(util.merge(region, { kind = "char", c0 = c0, c1 = c1 }))
   keymap.setreg(removed, ctx.register)
-  local track = need_track()
-  if not track then return end
+  local part = need_part()
+  if not part then return end
   cursor.set_beat(c0)
   -- The new clip takes the name of the one it replaces.
   local first = removed.rows[1] and removed.rows[1][1]
-  roll:edit(track:add_clip({ start = c0, length = c1 - c0, name = first and first.name or nil }))
+  roll:edit(part:add_clip({ start = c0, length = c1 - c0, name = first and first.name or nil }))
   keymap.set_mode("i")
 end, "Change: empty it and enter notes")
 --- Move a region's clips by grid steps, and the cursor with them so that
@@ -535,18 +533,18 @@ end, "Set the playback loop to this and turn looping on")
 
 -- Arrange: what is done so often that it has a key of its own.
 amap("x", function() keymap.normal("dic") end, "Delete the clip")
-amap("D", function() keymap.normal("d$") end, "Delete to the end of the track")
-amap("C", function() keymap.normal("c$") end, "Change to the end of the track")
-amap("Y", function() keymap.normal("y$") end, "Yank to the end of the track")
+amap("D", function() keymap.normal("d$") end, "Delete to the end of the part")
+amap("C", function() keymap.normal("c$") end, "Change to the end of the part")
+amap("Y", function() keymap.normal("y$") end, "Yank to the end of the part")
 amap(
   "p",
   function(ctx) edit.arrange.paste(keymap.getreg(ctx.register), false, ctx.count) end,
-  "Paste after the clip, or tracks below"
+  "Paste after the clip, or parts below"
 )
 amap(
   "P",
   function(ctx) edit.arrange.paste(keymap.getreg(ctx.register), true, ctx.count) end,
-  "Paste at the cursor, or tracks above"
+  "Paste at the cursor, or parts above"
 )
 amap("&", "clip.duplicate", "Repeat the clip after itself")
 amap("<leader>cl", "clip.link", "Put a linked copy after the clip: an edit of one changes all")
@@ -570,11 +568,11 @@ amap("<A-h>", "clip.resize by=-1", "Shorten the clip")
 amap("A", "lane.add", "Add a volume automation point at the cursor")
 amap("<leader>at", "lane.toggle", "Turn volume automation off or on")
 amap("<leader>aw", "lane.write", "Write automation by moving things while playing, or stop")
-amap("<leader>am", "automation", "The track's automation mode: read, touch, latch, write, off in turn")
+amap("<leader>am", "automation", "The part's automation mode: read, touch, latch, write, off in turn")
 amap("]t", "take next", "The clip's next take")
 amap("[t", "take prev", "The clip's take before")
 amap("zT", "tempo.lane", "Show or hide the tempo curve under the ruler")
-amap("zt", "take.lanes", "Show the track's takes as lanes under its clips, or hide them")
+amap("zt", "take.lanes", "Show the part's takes as lanes under its clips, or hide them")
 amap("]'", "marker.next", "The next marker or region", far)
 amap("['", "marker.prev", "The marker or region before", far)
 amap("]r", "region.next", "The next region at the level of the one the cursor is in", far)
@@ -600,7 +598,7 @@ ax("p", function(region, ctx)
   keymap.setreg(replaced)
 end, "Replace with the register")
 ax("J", function(region)
-  for _, id in ipairs(edit.arrange.tracks(region)) do
+  for _, id in ipairs(edit.arrange.parts(region)) do
     local c0, c1 = edit.arrange.span(region)
     edit.arrange.join(id, c0, c1, region.clips)
   end
@@ -610,8 +608,8 @@ ax("~", edit.arrange.mute, "Mute or unmute")
 ax("M", edit.arrange.mute, "Mute or unmute")
 ax("<CR>", function(region)
   local ids = {}
-  for _, track in ipairs(edit.arrange.tracks(region)) do
-    for _, c in ipairs(api.clip_list(track)) do
+  for _, part in ipairs(edit.arrange.parts(region)) do
+    for _, c in ipairs(api.clip_list(part)) do
       local inside
       if region.clips then
         inside = region.clips[c.id]
@@ -624,32 +622,32 @@ ax("<CR>", function(region)
   local under = paw.cursor.clip()
   paw.roll_clips.open(ids, under and under.id)
 end, "Edit the notes of the selected MIDI clips together")
--- The main value of what is selected: whole tracks (`V`) their volume, a
--- stretch of time the pitch of the notes that start in it; the second the tracks' pan.
+-- The main value of what is selected: whole parts (`V`) their volume, a
+-- stretch of time the pitch of the notes that start in it; the second the parts' pan.
 local function main_value(sign)
   return function(region, ctx)
     local n = sign * (ctx.count or 1)
     if region.kind ~= "line" then return edit.arrange.transpose(region, n) end
-    for _, id in ipairs(edit.arrange.tracks(region)) do
-      local track = paw.track(id)
-      track.volume = util.fader_db(track.volume, track.volume + n)
+    for _, id in ipairs(edit.arrange.parts(region)) do
+      local part = paw.part(id)
+      part.volume = util.fader_db(part.volume, part.volume + n)
     end
   end
 end
 local function pan_value(sign)
   return function(region, ctx)
-    for _, id in ipairs(edit.arrange.tracks(region)) do
-      local track = paw.track(id)
-      track.pan = util.clamp(util.round(track.pan + 0.1 * sign * (ctx.count or 1), 0.01), -1, 1)
+    for _, id in ipairs(edit.arrange.parts(region)) do
+      local part = paw.part(id)
+      part.pan = util.clamp(util.round(part.pan + 0.1 * sign * (ctx.count or 1), 0.01), -1, 1)
     end
   end
 end
-ax("<C-a>", main_value(1), "Tracks louder, or the notes in the selection up")
-ax("<C-x>", main_value(-1), "Tracks softer, or the notes in the selection down")
-ax("+", main_value(1), "Tracks louder, or the notes in the selection up")
-ax("-", main_value(-1), "Tracks softer, or the notes in the selection down")
-ax("]", pan_value(1), "Pan the tracks right", "second+")
-ax("[", pan_value(-1), "Pan the tracks left", "second-")
+ax("<C-a>", main_value(1), "Parts louder, or the notes in the selection up")
+ax("<C-x>", main_value(-1), "Parts softer, or the notes in the selection down")
+ax("+", main_value(1), "Parts louder, or the notes in the selection up")
+ax("-", main_value(-1), "Parts softer, or the notes in the selection down")
+ax("]", pan_value(1), "Pan the parts right", "second+")
+ax("[", pan_value(-1), "Pan the parts left", "second-")
 ax("L", function(region, ctx) shift(region, ctx.count or 1) end, "Move the clips right")
 ax("H", function(region, ctx) shift(region, -(ctx.count or 1)) end, "Move the clips left")
 
@@ -1118,23 +1116,23 @@ pmap("[", function(ctx)
   roll:change(function(n) n.velocity = math.max(1, n.velocity - 10 * (ctx.count or 1)) end)
 end, "Softer", { role = "second-" })
 pmap("gh", function() roll:audition() end, "Hear the pitch under the cursor")
--- The clips the roll edits (`paw.roll_clips`). The tracks it shows are
+-- The clips the roll edits (`paw.roll_clips`). The parts it shows are
 -- REAPER's editable and visible: `]t` `[t` make the next or previous one
 -- active (its notes the ones edited, the old ones behind), and `Tab`
--- `Shift-Tab` go round them; with no other track shown, `Tab` is the next
+-- `Shift-Tab` go round them; with no other part shown, `Tab` is the next
 -- view as everywhere.
-pmap("]t", function(ctx) paw.roll_clips.step_track(ctx.count or 1) end, "The next track shown becomes the one edited")
+pmap("]t", function(ctx) paw.roll_clips.step_part(ctx.count or 1) end, "The next part shown becomes the one edited")
 pmap(
   "[t",
-  function(ctx) paw.roll_clips.step_track(-(ctx.count or 1)) end,
-  "The track shown before becomes the one edited"
+  function(ctx) paw.roll_clips.step_part(-(ctx.count or 1)) end,
+  "The part shown before becomes the one edited"
 )
 pmap("<Tab>", function(ctx)
-  if not paw.roll_clips.step_track(ctx.count or 1, true) then paw.cmd("view.next") end
-end, "The next track shown becomes the one edited, round; else the next view")
+  if not paw.roll_clips.step_part(ctx.count or 1, true) then paw.cmd("view.next") end
+end, "The next part shown becomes the one edited, round; else the next view")
 pmap("<S-Tab>", function(ctx)
-  if not paw.roll_clips.step_track(-(ctx.count or 1), true) then paw.cmd("view.prev") end
-end, "The track shown before becomes the one edited, round; else the view before")
+  if not paw.roll_clips.step_part(-(ctx.count or 1), true) then paw.cmd("view.prev") end
+end, "The part shown before becomes the one edited, round; else the view before")
 local function clip_here()
   -- The clip of the note under the cursor: one edited, or one shown behind.
   local _, _, portion = roll:note_at(roll.pitch, roll.beat)
@@ -1154,7 +1152,7 @@ end, "Edit the clip of the note under the cursor too, or no longer")
 pmap("gn", function(ctx) paw.roll_clips.cycle(ctx.count or 1) end, "The next clip edited becomes the active one")
 pmap("gN", function(ctx) paw.roll_clips.cycle(-(ctx.count or 1)) end, "The clip edited before becomes the active one")
 command(
-  "roll.tracks",
+  "roll.parts",
   function() paw.roll_clips.pick() end,
   { desc = "Choose whose notes the piano roll shows behind its own, and which clips it edits together" }
 )
@@ -1171,7 +1169,7 @@ keymap.classic("<Esc>", function()
 end, { view = "pianoroll", desc = "Let go of the chosen notes; back to the window before" })
 
 -- Diagnostics and language servers (paw.diagnostic, paw.lsp), on whatever
--- is under the cursor in each view: a note, a clip, a track, a strip, a
+-- is under the cursor in each view: a note, a clip, a part, a strip, a
 -- device or parameter. `K` means other things in these views, so asking
 -- what is known about it is `gK`.
 for _, v in ipairs({ "pianoroll", "arrange", "mixer", "devices" }) do
@@ -1453,7 +1451,7 @@ command("complete.dismiss", function() paw.complete.dismiss() end, { desc = "Dis
 command(
   "complete.audition",
   function() paw.complete.audition() end,
-  { desc = "Hear the suggestion through the track, from a bar before" }
+  { desc = "Hear the suggestion through the part, from a bar before" }
 )
 command("complete.sources", function()
   local lines = {}

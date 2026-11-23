@@ -1,4 +1,4 @@
-//! Worker threads for the audio thread: tracks that do not feed each other
+//! Worker threads for the audio thread: parts that do not feed each other
 //! are processed side by side.
 //!
 //! The pool is built on the main thread and handed to the engine. From then
@@ -9,12 +9,12 @@
 //! sleeping worker is woken by unparking it.
 //!
 //! A worker with nothing to do looks for more for a moment while a block is
-//! under way, for the next group of tracks, and sleeps as soon as the caller
+//! under way, for the next group of parts, and sleeps as soon as the caller
 //! says the block is done ([`Pool::idle`]), so that the workers cost nothing
 //! between blocks.
 //!
 //! Workers treat denormals as zero, as every thread that drives an engine
-//! does, so that a track sounds the same whichever thread runs it. When the
+//! does, so that a part sounds the same whichever thread runs it. When the
 //! caller runs with real-time priority (an audio callback), the workers take
 //! the same priority; if the system refuses, the pool does all the work on
 //! the calling thread rather than make an audio callback wait for threads
@@ -28,7 +28,7 @@ use std::thread::JoinHandle;
 /// Items of one job. More are run in pieces.
 const MAX_ITEMS: usize = 0xffff;
 /// How long a worker with nothing to do looks for more before it sleeps.
-/// Long enough to be awake for the next group of tracks of the same block.
+/// Long enough to be awake for the next group of parts of the same block.
 const IDLE_SPINS: u32 = 2_000;
 
 #[derive(Clone, Copy)]

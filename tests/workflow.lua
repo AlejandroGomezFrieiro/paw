@@ -42,7 +42,7 @@ end
 
 test("a controller learns what was moved last, and then moves it", function()
   start()
-  local t = paw.add_track({ name = "Lead" })
+  local t = paw.add_part({ name = "Lead" })
   local d = t:add_device("synth")
   local p = param(d.id, "attack")
   api.device_set_param(d.id, "attack", p.min)
@@ -67,8 +67,8 @@ end)
 
 test("a bound controller takes hold of a fader only when it reaches it", function()
   start()
-  local t = paw.add_track({ name = "Bass" })
-  paw.learn.bind({ cc = 7, channel = 1 }, { track = t.id, target = "volume" })
+  local t = paw.add_part({ name = "Bass" })
+  paw.learn.bind({ cc = 7, channel = 1 }, { part = t.id, target = "volume" })
   t.volume = -27 -- the middle of the fader's travel
   paw.flush()
   cc(7, 0.9)
@@ -90,7 +90,7 @@ test("a bound controller takes hold of a fader only when it reaches it", functio
   near(t.volume, -27, 1e-6, "without pickup the fader jumps to the control")
   paw.opt.learn_pickup = true
   -- Pan, by a word; one binding per target.
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.cmd("learn", { "pan" })
   cc(10, 0.5)
   cc(10, 1)
@@ -103,7 +103,7 @@ test("a bound controller takes hold of a fader only when it reaches it", functio
   paw.cmd("learn.remove", { "pan" })
   eq(#paw.learn.bindings(), 1, "a binding is taken away by what it moves")
   fails(
-    function() paw.learn.bind({ cc = 200 }, { track = t.id, target = "volume" }) end,
+    function() paw.learn.bind({ cc = 200 }, { part = t.id, target = "volume" }) end,
     "0 to 127",
     "a bad controller number"
   )
@@ -111,10 +111,10 @@ end)
 
 test("a sweep of a control is one undo step, and bindings are saved with the project", function()
   start()
-  local t = paw.add_track({ name = "Pad" })
+  local t = paw.add_part({ name = "Pad" })
   t.volume = -27
   api.undo_checkpoint()
-  paw.learn.bind({ cc = 7 }, { track = t.id, target = "volume" })
+  paw.learn.bind({ cc = 7 }, { part = t.id, target = "volume" })
   api.undo_checkpoint()
   for _, v in ipairs({ 0.5, 0.55, 0.6, 0.65, 0.7 }) do
     cc(7, v)
@@ -126,10 +126,10 @@ test("a sweep of a control is one undo step, and bindings are saved with the pro
   paw.redo()
   near(t.volume, -60 + 66 * 0.7, 1e-6, "one redo brings it back")
   -- Two commands on the same fader are two steps.
-  paw.cursor.set_track(t)
-  paw.cmd("track.volume", { -3 })
+  paw.cursor.set_part(t)
+  paw.cmd("part.volume", { -3 })
   api.undo_checkpoint()
-  paw.cmd("track.volume", { -9 })
+  paw.cmd("part.volume", { -9 })
   api.undo_checkpoint()
   paw.undo()
   eq(t.volume, -3, "commands are undone one at a time")
@@ -182,9 +182,9 @@ end)
 
 test("markers are reached by keys and commands and drawn on the ruler", function()
   start()
-  local t = paw.add_track({ name = "T" })
+  local t = paw.add_part({ name = "T" })
   t:add_clip({ start = 0, length = 32 })
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.cursor.set_beat(8)
   paw.cmd("marker", { "Verse" })
   paw.cursor.set_beat(16)
@@ -242,7 +242,7 @@ test("recording with the loop on goes round it and keeps every time round as a t
     fresh()
     paw.project.tempo = 120
     paw.project.save(T.scratch .. "/takes.json")
-    local mic = paw.add_track({ name = "mic" })
+    local mic = paw.add_part({ name = "mic" })
     mic.input, mic.armed = "1", true
     paw.transport.loop_start, paw.transport.loop_end, paw.transport.loop_enabled = 4, 6, true
     paw.transport.seek(4)
@@ -275,7 +275,7 @@ test("recording with the loop on goes round it and keeps every time round as a t
     local playing = c.offset
     eq(paw.takes.select(c.id, 1), list[1].name, "the first take by number")
     near(clips[1].offset, list[1].offset, 1e-9, "plays from where it was recorded")
-    paw.cursor.set_track(mic)
+    paw.cursor.set_part(mic)
     paw.cursor.set_beat(4.5)
     paw.cmd("take", { "next" })
     near(clips[1].offset, list[2].offset, 1e-9, "the next")
@@ -298,15 +298,15 @@ test("recording with the loop on goes round it and keeps every time round as a t
     paw.takes.select(clips[1].id, 2)
     near(clips[1].offset, list[2].offset + 0.25, 1e-6, "a trimmed clip's takes are trimmed alike")
 
-    -- Throwing takes away, and putting them on tracks.
+    -- Throwing takes away, and putting them on parts.
     paw.takes.remove(clips[1].id)
     eq(table.concat({ paw.takes.count(clips[1].id) }, " "), "2 1", "the playing take removed, the one before plays")
     paw.takes.keep(clips[1].id)
     eq(paw.takes.of(clips[1].id), nil, "kept alone, the clip is a clip again")
-    local tracks = paw.takes.explode(clips[2].id)
-    eq(#tracks, 2, "the other takes on tracks of their own")
-    eq(#tracks[1]:clips(), 1, "a clip each")
-    near(tracks[2]:clips()[1].offset, playing + 0.5, 1e-6, "from where they were lined up")
+    local parts = paw.takes.explode(clips[2].id)
+    eq(#parts, 2, "the other takes on parts of their own")
+    eq(#parts[1]:clips(), 1, "a clip each")
+    near(parts[2]:clips()[1].offset, playing + 0.5, 1e-6, "from where they were lined up")
   end)
 end)
 
@@ -315,7 +315,7 @@ test("a take that never went round the loop is one clip, and a lead-in is a clip
     fresh()
     paw.project.tempo = 120
     paw.project.save(T.scratch .. "/takes2.json")
-    local mic = paw.add_track({ name = "mic" })
+    local mic = paw.add_part({ name = "mic" })
     mic.input, mic.armed = "1", true
     paw.transport.loop_start, paw.transport.loop_end, paw.transport.loop_enabled = 4, 8, true
     paw.transport.seek(4)
@@ -348,7 +348,7 @@ test("notes recorded round the loop are takes too", function()
   with_input(function()
     fresh()
     paw.project.tempo = 120
-    local keys = paw.add_track({ name = "keys" })
+    local keys = paw.add_part({ name = "keys" })
     keys:add_device("synth", { attack = 0.001, release = 0.01 })
     keys.armed = true
     paw.transport.loop_start, paw.transport.loop_end, paw.transport.loop_enabled = 4, 6, true
@@ -386,7 +386,7 @@ test("notes recorded round the loop are takes too", function()
     paw.takes.step(c.id, 1)
     eq(clips[1]:notes()[1].pitch, 72, "and the copy holds the change")
     -- A cut gives each side the notes of its stretch, in every take.
-    paw.cursor.set_track(keys)
+    paw.cursor.set_part(keys)
     paw.cursor.set_beat(4.5)
     paw.cmd("clip.split")
     clips = keys:clips()
@@ -405,7 +405,7 @@ test("a count-in counts a bar before the take, which starts on the beat where th
     fresh()
     paw.project.tempo = 120
     paw.project.save(T.scratch .. "/countin.json")
-    local mic = paw.add_track({ name = "mic" })
+    local mic = paw.add_part({ name = "mic" })
     mic.input, mic.armed = "1", true
     paw.cmd("countin", { "1" })
     eq(paw.opt.count_in .. " " .. paw.transport.count_in, "1 1", "the option, and the kernel told of it")
@@ -474,7 +474,7 @@ test("a punched take records from the punch in to the punch out while the song p
     paw.project.tempo = 120
     local path = T.scratch .. "/punch.json"
     paw.project.save(path)
-    local mic = paw.add_track({ name = "mic" })
+    local mic = paw.add_part({ name = "mic" })
     mic.input, mic.armed = "1", true
     paw.cmd("punch", { "2", "2" })
     local t = api.transport_get()
@@ -557,7 +557,7 @@ end)
 test("notes punched in are kept inside the range and cut at the punch out", function()
   start()
   paw.project.tempo = 120
-  local keys = paw.add_track({ name = "keys" })
+  local keys = paw.add_part({ name = "keys" })
   keys:add_device("synth", { attack = 0.001, release = 0.01 })
   keys.armed = true
   paw.transport.punch_start, paw.transport.punch_end, paw.transport.punch_enabled = 4, 6, true
@@ -591,7 +591,7 @@ test("punching with the loop on keeps every time through the punch range as a ta
     fresh()
     paw.project.tempo = 120
     paw.project.save(T.scratch .. "/punchloop.json")
-    local mic = paw.add_track({ name = "mic" })
+    local mic = paw.add_part({ name = "mic" })
     mic.input, mic.armed = "1", true
     paw.transport.loop_start, paw.transport.loop_end, paw.transport.loop_enabled = 0, 4, true
     paw.transport.punch_start, paw.transport.punch_end, paw.transport.punch_enabled = 1, 3, true
@@ -611,7 +611,7 @@ test("punching with the loop on keeps every time through the punch range as a ta
     near(c.offset, 2, 1e-4, "and the one playing after that")
     near(api.clip_source_length(c.id), 2, 0.001, "where the file ends")
     -- One step from comping: the takes as lanes.
-    paw.cursor.set_track(mic)
+    paw.cursor.set_part(mic)
     paw.cmd("take.lanes")
     eq(paw.takes.lane_count(mic.id), 3, "every pass shows at once")
     paw.takes.show_lanes(mic.id, false)
@@ -621,14 +621,14 @@ end)
 
 -- Take lanes and comping ------------------------------------------------------------
 
---- A track with an audio clip of eight beats whose three takes are three
+--- A part with an audio clip of eight beats whose three takes are three
 --- stretches of one file, the third playing.
 local function three_takes()
   local source = T.tone("source", 32)
   paw.project.tempo = 120
   local wav = render({ tail = 0, bits = 32 })
   source:remove()
-  local t = paw.add_track({ name = "vox" })
+  local t = paw.add_part({ name = "vox" })
   local clip = t:add_clip({
     file = wav.path,
     start = 0,
@@ -656,7 +656,7 @@ test("a drag across a take lane makes that take play over the stretch, as one un
   eq(act.take_lanes(t.id), true, "the take lanes are shown")
   paw.flush()
   local s = paw.frontend.state(-1)
-  eq(s.tracks[1].take_rows, 3, "three lanes under the clips")
+  eq(s.parts[1].take_rows, 3, "three lanes under the clips")
   eq(s.clips[1].take_rows[2].name, "vox.2", "each take by name")
   api.undo_checkpoint()
   eq(act.comp(t.id, 1, 2.2, 5.9, false), 1, "one piece given take 1")
@@ -726,14 +726,14 @@ test("the window draws other takes from their own files, and the terminal shows 
   end
   eq(same, true, "a take's picture is its sound, gain and all")
   -- MIDI takes give their notes.
-  local keys = paw.add_track({ name = "keys" })
+  local keys = paw.add_part({ name = "keys" })
   local m = keys:add_clip({ start = 0, length = 4, notes = { { pitch = 60, start = 1, length = 1 } } })
   paw.takes.new(m.id)
   m:set_notes({ { pitch = 72, start = 0, length = 2 } })
   local flat = paw.frontend.take_preview(m.id, 1, 0)
   eq(table.concat(flat, " "), "1 1 60", "take 1's notes")
-  -- The terminal: a row for each take under the track, the one that plays lit.
-  paw.cursor.set_track(t)
+  -- The terminal: a row for each take under the part, the one that plays lit.
+  paw.cursor.set_part(t)
   paw.keymap.feed("zt")
   eq(paw.takes.lanes_shown(t.id), true, "zt shows them")
   paw.ui.focus("arrange")
@@ -746,7 +746,7 @@ end)
 
 test("comping notes joins the pieces back exactly when the same take plays across them", function()
   start()
-  local t = paw.add_track({ name = "comp" })
+  local t = paw.add_part({ name = "comp" })
   local function beats(pitch)
     local notes = {}
     for i = 0, 7 do
@@ -771,11 +771,11 @@ end)
 
 -- Automation modes --------------------------------------------------------------
 
-test("a track's automation mode says what moving a control writes", function()
+test("a part's automation mode says what moving a control writes", function()
   fresh()
   api.engine_restart({})
   local t = T.tone("tone", 64)
-  eq(t.automation, "read", "tracks read to begin with")
+  eq(t.automation, "read", "parts read to begin with")
   fails(function() t.automation = "sideways" end, "automation", "a mode that is not one")
   -- Read: a move writes nothing.
   paw.transport.seek(0)
@@ -857,18 +857,18 @@ test("a track's automation mode says what moving a control writes", function()
   eq(loud > quiet * 100, true, "with automation off the fader is what counts")
   eq(#lane:points(), 2, "and the lane is kept")
   -- The command steps through the modes, and the header says which.
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.cmd("automation", { "touch" })
   eq(t.automation, "touch", "set by command")
   paw.cmd("automation")
   eq(t.automation, "latch", "without a word, the next in turn")
   paw.cmd("automation", { "read", "all" })
-  eq(t.automation, "read", "on every track")
+  eq(t.automation, "read", "on every part")
   local path = T.scratch .. "/modes.json"
   t.automation = "touch"
   paw.project.save(path)
   paw.project.load(path)
-  eq(paw.tracks()[1].automation, "touch", "the mode is saved with the project")
+  eq(paw.parts()[1].automation, "touch", "the mode is saved with the project")
 end, { live = "a control in touch mode is let go 600 ms of real time after its last move" })
 
 -- Long files played from the disk ---------------------------------------------------
@@ -884,7 +884,7 @@ test("a long file is played from the disk, sample for sample as from memory", fu
   local function song()
     paw.project.new()
     paw.project.tempo = 120
-    local t = paw.add_track({ name = "long" })
+    local t = paw.add_part({ name = "long" })
     local clip = t:add_clip({ file = wav.path, start = 0 })
     return t, clip
   end
@@ -931,7 +931,7 @@ end)
 
 test("the window is told of markers, takes, automation modes and lanes shown as rows", function()
   start()
-  local t = paw.add_track({ name = "T" })
+  local t = paw.add_part({ name = "T" })
   local clip = t:add_clip({ start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
   paw.takes.new(clip.id)
   paw.markers.add(8, "Verse")
@@ -947,14 +947,14 @@ test("the window is told of markers, takes, automation modes and lanes shown as 
     "a region without a name goes by its number"
   )
   eq(s.project.markers[2].name .. " " .. s.project.markers[2].length, "Verse 0", "a marker has no length")
-  eq(s.tracks[1].automation, "latch", "the track's automation mode")
-  eq(#s.tracks[1].lane_rows, 1, "a track with no lanes got one for its fader, shown as a row")
+  eq(s.parts[1].automation, "latch", "the part's automation mode")
+  eq(#s.parts[1].lane_rows, 1, "a part with no lanes got one for its fader, shown as a row")
   eq(s.clips[1].takes .. "/" .. s.clips[1].take, "2/2", "a clip's takes, and which plays")
-  paw.frontend.act.hide_lane_rows(s.tracks[1].lane_rows[1])
+  paw.frontend.act.hide_lane_rows(s.parts[1].lane_rows[1])
   paw.flush()
   local again = paw.frontend.state(s.revision)
   eq(again.project ~= nil, true, "hiding the rows is news to the window")
-  eq(#again.tracks[1].lane_rows, 0, "hidden")
+  eq(#again.parts[1].lane_rows, 0, "hidden")
   -- A control held under the pointer, as the window says it.
   t.automation = "touch"
   paw.transport.play()
@@ -967,7 +967,7 @@ test("the window is told of markers, takes, automation modes and lanes shown as 
   T.stop()
   paw.flush()
   near(t:lane("volume"):value_at(held - 0.2), t.volume, 0.001, "held, the fader is written without a move")
-  paw.learn.start({ track = t.id, target = "pan" })
+  paw.learn.start({ part = t.id, target = "pan" })
   eq(paw.frontend.state(paw.frontend.revision).modal.learning, "T › pan", "what is waiting for a controller")
   paw.learn.cancel()
 end)
@@ -998,19 +998,19 @@ test("the window's render dialog renders a region, and leaving saves first when 
   -- Leaving: a project with a file is saved, and then left.
   local path = T.scratch .. "/leave"
   paw.project.save(path)
-  paw.add_track({ name = "more" })
+  paw.add_part({ name = "more" })
   paw.flush()
   api.undo_checkpoint()
   eq(paw.frontend.closing().modified, true, "there are changes to save")
   paw.frontend.act.leave("save", "new")
-  eq(#paw.tracks(), 0, "a new project")
+  eq(#paw.parts(), 0, "a new project")
   paw.project.load(path)
-  eq(#paw.tracks(), 2, "and the changes were saved first")
+  eq(#paw.parts(), 2, "and the changes were saved first")
 end)
 
 test("a take chosen over a selected stretch plays there alone", function()
   start()
-  local t = paw.add_track({ name = "comp" })
+  local t = paw.add_part({ name = "comp" })
   local function beats(pitch)
     local notes = {}
     for i = 0, 7 do
@@ -1021,7 +1021,7 @@ test("a take chosen over a selected stretch plays there alone", function()
   local clip = t:add_clip({ start = 0, length = 8, notes = beats(60) })
   paw.takes.new(clip.id)
   clip:set_notes(beats(72)) -- the second take, the one playing, is an octave up
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.cursor.set_beat(2)
   api.undo_checkpoint()
   T.keys("vll")
@@ -1061,21 +1061,21 @@ end)
 test("saving names a project after its file, and what is edited after it is not saved", function()
   fresh()
   eq(paw.project.name, "untitled", "a new project has no name of its own")
-  paw.add_track({ name = "one" })
+  paw.add_part({ name = "one" })
   local path = T.scratch .. "/My song.json"
   paw.project.save(path)
   eq(paw.project.name, "My song", "saved, it is called what its file is")
   eq(paw.project.modified, false, "and has nothing unsaved")
   -- In the same turn as the save: this is not in the file.
-  paw.add_track({ name = "two" })
+  paw.add_part({ name = "two" })
   eq(paw.project.modified, true, "an edit after the save is a change to save")
   api.undo_checkpoint()
   paw.undo()
-  eq(#paw.tracks() .. " " .. paw.project.name, "1 My song", "undoing it goes back to what was saved, name and all")
+  eq(#paw.parts() .. " " .. paw.project.name, "1 My song", "undoing it goes back to what was saved, name and all")
   eq(paw.project.modified, false, "which has nothing unsaved")
   paw.project.name = "Renamed"
   paw.project.save(T.scratch .. "/another file.json")
   eq(paw.project.name, "Renamed", "a name given by hand is kept")
   paw.project.load(path)
-  eq(paw.project.name .. " " .. #paw.tracks(), "My song 1", "the file holds the name and what was saved")
+  eq(paw.project.name .. " " .. #paw.parts(), "My song 1", "the file holds the name and what was saved")
 end)

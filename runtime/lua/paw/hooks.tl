@@ -7,7 +7,7 @@
 --
 --   paw.on("edit.before", function(e)          -- e.changes: what this turn changed
 --     for _, c in ipairs(e.changes) do
---       if c.name == "track.removed" then return false, "tracks stay" end
+--       if c.name == "part.removed" then return false, "parts stay" end
 --     end
 --   end)
 --
@@ -80,10 +80,10 @@ local EDITS: {string: boolean} = {}
 for _, name in ipairs(
   {
     "project.changed",
-    "track.added",
-    "track.changed",
-    "track.removed",
-    "track.moved",
+    "part.added",
+    "part.changed",
+    "part.removed",
+    "part.moved",
     "device.added",
     "device.changed",
     "device.removed",

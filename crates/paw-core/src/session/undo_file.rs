@@ -48,8 +48,8 @@ pub(super) struct Lazy {
 /// What the writer knows between two writes.
 struct Book {
     store: Store,
-    /// The files of the tracks of the last state laid out.
-    tracks: folder::TrackCache,
+    /// The files of the parts of the last state laid out.
+    parts: folder::PartCache,
     /// The files of each state in the undo file.
     written: HashMap<StateId, BlobId>,
     /// States the last write dropped to keep within the limit.
@@ -62,7 +62,7 @@ impl Book {
     fn new(dir: &Path) -> Self {
         Self {
             store: Store::new(dir),
-            tracks: folder::TrackCache::default(),
+            parts: folder::PartCache::default(),
             written: HashMap::new(),
             dropped: Vec::new(),
             error: None,
@@ -110,7 +110,7 @@ impl Job {
                 Source::Project(project) => {
                     let project = media::for_file(&project, &self.file);
                     let layout =
-                        folder::layout_cached(&project, &self.transport, self.screen.as_ref(), &dir, &self.home, &mut book.tracks)?;
+                        folder::layout_cached(&project, &self.transport, self.screen.as_ref(), &dir, &self.home, &mut book.parts)?;
                     book.store.put_files(&layout.files)?
                 }
             };
@@ -368,7 +368,7 @@ impl Session {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{Clip, ClipContent, Note, Notes, Track};
+    use crate::model::{Clip, ClipContent, Note, Notes, Part};
     use std::sync::Arc;
 
     fn clip(id: u64, seed: u64) -> Arc<Clip> {
@@ -399,24 +399,24 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         let mut project = Project::default();
         for t in 0..64u64 {
-            let mut track = Track::new(t * 10 + 1);
-            track.name = format!("T{t}");
-            track.clips = (0..4).map(|c| clip(t * 10 + 2 + c, t * 4 + c)).collect::<Vec<_>>().into();
-            project.tracks.push(Arc::new(track));
+            let mut part = Part::new(t * 10 + 1);
+            part.name = format!("T{t}");
+            part.clips = (0..4).map(|c| clip(t * 10 + 2 + c, t * 4 + c)).collect::<Vec<_>>().into();
+            project.parts.push(Arc::new(part));
         }
         let mut store = Store::new(&dir.join("undo"));
-        let mut tracks = folder::TrackCache::default();
+        let mut parts = folder::PartCache::default();
         let mut tops = Vec::new();
         for edit in 0..=100u64 {
             if edit > 0 {
                 // One note of one clip: a step of its own.
-                let track = Arc::make_mut(&mut project.tracks[(edit % 64) as usize]);
-                let clip = Arc::make_mut(&mut track.clips[0]);
+                let part = Arc::make_mut(&mut project.parts[(edit % 64) as usize]);
+                let clip = Arc::make_mut(&mut part.clips[0]);
                 if let ClipContent::Midi { notes, .. } = &mut clip.content {
                     notes[0].pitch = (notes[0].pitch + 1) % 128;
                 }
             }
-            let layout = folder::layout_cached(&project, &json!({}), None, &dir, &folder::Home::default(), &mut tracks).unwrap();
+            let layout = folder::layout_cached(&project, &json!({}), None, &dir, &folder::Home::default(), &mut parts).unwrap();
             tops.push(store.put_files(&layout.files).unwrap());
         }
         let (a, b) = (store.files(tops[1]).unwrap(), store.files(tops[2]).unwrap());
@@ -443,7 +443,7 @@ mod tests {
         assert!(store.commit(&mut tree, 256 << 20).unwrap().is_empty());
         let tree_bytes = std::fs::metadata(dir.join("undo").join(undofile::TREE_FILE)).unwrap().len();
         let bytes = store.bytes() + tree_bytes;
-        println!("the undo file of 100 note edits in 64 tracks: {bytes} bytes");
+        println!("the undo file of 100 note edits in 64 parts: {bytes} bytes");
         assert!(bytes < 2 << 20, "the undo file of 100 note edits: {bytes} bytes");
         let _ = std::fs::remove_dir_all(&dir);
     }

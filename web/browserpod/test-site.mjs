@@ -154,7 +154,7 @@ try {
   const empty = await screen(silent);
   result.screens["start-paw"] = empty;
   check("with no Web Audio, the page says that paw is silent", /silent/.test(silentStatus), silentStatus);
-  check("the state empty opens a project with no tracks", /NORMAL/.test(empty.join("\n")) && !empty.join("\n").includes("Drums"));
+  check("the state empty opens a project with no parts", /NORMAL/.test(empty.join("\n")) && !empty.join("\n").includes("Drums"));
   await shot(silent, "guide-silent", ".paw-live");
   await silent.close();
 } catch (err) {

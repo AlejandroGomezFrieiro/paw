@@ -5,8 +5,8 @@
 --
 --   query.clip    a clip as a node, made again when the clip changes
 --   query.notes   the notes of a clip as nodes, inside the clip's node
---   query.track   the clips of a track, in order, as nodes
---   query.tree    the clips and the notes of every track
+--   query.part   the clips of a part, in order, as nodes
+--   query.tree    the clips and the notes of every part
 --
 -- The nodes are shared by every query until their clip changes: a
 -- consumer reads them and does not change them. `paw.grep` reads its text
@@ -22,23 +22,23 @@ local type contracts = require("paw.contracts")
 local type Node = contracts.QueryNode
 local type Data = util.Data
 
---- The nodes of one track: its clips in order, and the notes of each.
-local record TrackNodes
+--- The nodes of one part: its clips in order, and the notes of each.
+local record PartNodes
   clips: {Node}
   notes: {integer: {Node}}
 end
 
---- The nodes of every track, by the track's id.
+--- The nodes of every part, by the part's id.
 local record Tree
-  tracks: {integer: TrackNodes}
+  parts: {integer: PartNodes}
 end
 
 local record M
-  type TrackNodes = TrackNodes
+  type PartNodes = PartNodes
   type Tree = Tree
   clip: derived.Node<integer, Node, types.Clip>
   notes: derived.Node<integer, {Node}, boolean>
-  track: derived.Node<integer, TrackNodes, boolean>
+  part: derived.Node<integer, PartNodes, boolean>
   tree_node: derived.Node<integer, Tree, boolean>
   same_data: function(a: Data, b: Data): boolean
   same_list: function<T>(a: {T}, b: {T}): boolean
@@ -96,7 +96,7 @@ local clip_spec: derived.Spec<integer, Node, types.Clip> = {
     if not c then
       return nil
     end
-    return {kind = "clip", id = id, data = c as contracts.QueryData, track = c.track, clip = id}
+    return {kind = "clip", id = id, data = c as contracts.QueryData, part = c.part, clip = id}
   end,
 }
 M.clip = derived.node(clip_spec)
@@ -120,7 +120,7 @@ local notes_spec: derived.Spec<integer, {Node}, boolean> = {
         id = n.id,
         data = n as contracts.QueryData,
         parent = clip,
-        track = clip.track,
+        part = clip.part,
         clip = id,
         place = i,
       }
@@ -134,11 +134,11 @@ local notes_spec: derived.Spec<integer, {Node}, boolean> = {
 }
 M.notes = derived.node(notes_spec)
 
-local track_spec: derived.Spec<integer, TrackNodes, boolean> = {
-  name = "query.track",
+local part_spec: derived.Spec<integer, PartNodes, boolean> = {
+  name = "query.part",
   kind = "family",
-  make = function(ctx: derived.Ctx, id: integer): TrackNodes
-    local v: TrackNodes = {clips = {}, notes = {}}
+  make = function(ctx: derived.Ctx, id: integer): PartNodes
+    local v: PartNodes = {clips = {}, notes = {}}
     local list = ctx:clips(id)
     for i = 1, #list do
       local cid = list[i].id
@@ -150,7 +150,7 @@ local track_spec: derived.Spec<integer, TrackNodes, boolean> = {
     end
     return v
   end,
-  same = function(a: TrackNodes, b: TrackNodes): boolean
+  same = function(a: PartNodes, b: PartNodes): boolean
     if not same_list(a.clips, b.clips) then
       return false
     end
@@ -162,20 +162,20 @@ local track_spec: derived.Spec<integer, TrackNodes, boolean> = {
     return true
   end,
 }
-M.track = derived.node(track_spec)
+M.part = derived.node(part_spec)
 
 local tree_spec: derived.Spec<integer, Tree, boolean> = {
   name = "query.tree",
   kind = "join",
   label = "search",
   make = function(ctx: derived.Ctx): Tree
-    local tree: Tree = {tracks = {}}
-    -- The song's tracks and each subproject's: a query in a subproject
-    -- reads its tracks.
-    ctx:source("tracks")
-    local ids = api.track_list({all = true})
+    local tree: Tree = {parts = {}}
+    -- The song's parts and each subproject's: a query in a subproject
+    -- reads its parts.
+    ctx:source("parts")
+    local ids = api.part_list({all = true})
     for i = 1, #ids do
-      tree.tracks[ids[i]] = ctx:get(M.track, ids[i])
+      tree.parts[ids[i]] = ctx:get(M.part, ids[i])
       -- The first reading of a large project goes on at the next slice.
       ctx:pause()
     end
@@ -184,7 +184,7 @@ local tree_spec: derived.Spec<integer, Tree, boolean> = {
 }
 M.tree_node = derived.node(tree_spec)
 
---- The nodes of every track, up to date. From the first call on, the job
+--- The nodes of every part, up to date. From the first call on, the job
 --- of `paw.derived` keeps them up to date after each edit, in slices.
 function M.tree(): Tree
   M.tree_node:want(0)

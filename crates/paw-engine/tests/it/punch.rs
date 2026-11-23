@@ -137,10 +137,10 @@ fn a_take_punched_from_inside_its_range_starts_at_once() {
     assert!((shared.start().unwrap() - 1.5).abs() < 1e-9, "at once");
 }
 
-/// A track whose audio clip plays a steady tone over the first four beats,
+/// A part whose audio clip plays a steady tone over the first four beats,
 /// with input channel 0 armed.
 fn armed_over_a_clip(handle: &mut EngineHandle) {
-    use paw_engine::{AudioData, AudioRegion, ClipSet, SchedEntry, Schedule, TrackRt, TrackSlot};
+    use paw_engine::{AudioData, AudioRegion, ClipSet, SchedEntry, Schedule, PartRt, PartSlot};
     let steady = || vec![0.25f32; 44100 * 4].into();
     let data = Arc::new(AudioData { sample_rate: 44100, channels: [steady(), steady()] });
     let mut clips = ClipSet::default();
@@ -158,13 +158,13 @@ fn armed_over_a_clip(handle: &mut EngineHandle) {
         direction: Default::default(),
     });
     for msg in [
-        Msg::InsertTrack { slot: TrackSlot(1), track: TrackRt::new() },
-        Msg::SetClips { track: TrackSlot(1), clips: Box::new(clips) },
-        Msg::SetInput { track: TrackSlot(1), first: 0, channels: 1, monitor: false, armed: true },
+        Msg::InsertPart { slot: PartSlot(1), part: PartRt::new() },
+        Msg::SetClips { part: PartSlot(1), clips: Box::new(clips) },
+        Msg::SetInput { part: PartSlot(1), first: 0, channels: 1, monitor: false, armed: true },
         Msg::SetSchedule(Box::new(Schedule::new(
             vec![
-                SchedEntry::new(TrackSlot(1), TrackSlot::MASTER),
-                SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE),
+                SchedEntry::new(PartSlot(1), PartSlot::MASTER),
+                SchedEntry::new(PartSlot::MASTER, PartSlot::NONE),
             ],
             0,
         ))),
@@ -173,7 +173,7 @@ fn armed_over_a_clip(handle: &mut EngineHandle) {
     }
 }
 
-/// Run with a silent input, so that what is heard is the track's clips.
+/// Run with a silent input, so that what is heard is the part's clips.
 fn run_silent(engine: &mut Engine, frames: usize, block: usize) -> Vec<f32> {
     let mut out = Vec::with_capacity(frames);
     let input = vec![0.0f32; block];
@@ -189,7 +189,7 @@ fn run_silent(engine: &mut Engine, frames: usize, block: usize) -> Vec<f32> {
 }
 
 #[test]
-fn a_track_recording_its_input_does_not_play_its_clips_under_the_take() {
+fn a_part_recording_its_input_does_not_play_its_clips_under_the_take() {
     let (mut engine, mut handle) = Engine::new(SR);
     armed_over_a_clip(&mut handle);
     let (take, _ring, _shared) = take(Some((1.0, 2.5)));

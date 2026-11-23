@@ -1,10 +1,10 @@
-//! Tracks processed on several threads: the output is the same, bit for
+//! Parts processed on several threads: the output is the same, bit for
 //! bit, as on one, and a schedule that is wrong does no harm.
 
 use paw_engine::GraphPlan;
 use paw_engine::{
     AutoLane, AutoTarget, Automation, ClipSet, Delay, DeviceSlot, Engine, EngineHandle, MAX_BLOCK,
-    Msg, Pool, Registry, SchedEntry, Schedule, SendRt, TrackRt, TrackSlot,
+    Msg, Pool, Registry, SchedEntry, Schedule, SendRt, PartRt, PartSlot,
 };
 
 use crate::common::SR;
@@ -22,24 +22,24 @@ fn device(kind: &str) -> Box<dyn paw_engine::Device> {
         .device
 }
 
-/// Forty tracks of a synth and a delay playing different notes, with volume
+/// Forty parts of a synth and a delay playing different notes, with volume
 /// and pan automation. Most go to one of four buses, which go to the master;
 /// some also send to another bus, a few from before their fader and late.
 fn project(entries: impl FnOnce(Vec<SchedEntry>) -> Vec<SchedEntry>) -> (Engine, EngineHandle) {
     let (mut engine, mut handle) = Engine::new(SR);
     // As a render: shared between threads whenever that is faster.
     engine.set_offline(true);
-    let buses: Vec<TrackSlot> = (1..=4).map(TrackSlot).collect();
-    let sources: Vec<TrackSlot> = (5..45).map(TrackSlot).collect();
+    let buses: Vec<PartSlot> = (1..=4).map(PartSlot).collect();
+    let sources: Vec<PartSlot> = (5..45).map(PartSlot).collect();
     let mut next_device = 0;
     let mut list = Vec::new();
     for &slot in sources.iter().chain(&buses) {
         send(
             &mut handle,
             &mut engine,
-            Msg::InsertTrack {
+            Msg::InsertPart {
                 slot,
-                track: TrackRt::new(),
+                part: PartRt::new(),
             },
         );
         let bus = buses.contains(&slot);
@@ -77,7 +77,7 @@ fn project(entries: impl FnOnce(Vec<SchedEntry>) -> Vec<SchedEntry>) -> (Engine,
                 &mut handle,
                 &mut engine,
                 Msg::SetClips {
-                    track: slot,
+                    part: slot,
                     clips: Box::new(clips),
                 },
             );
@@ -90,11 +90,11 @@ fn project(entries: impl FnOnce(Vec<SchedEntry>) -> Vec<SchedEntry>) -> (Engine,
             &mut handle,
             &mut engine,
             Msg::SetAutomation {
-                track: slot,
+                part: slot,
                 automation: Box::new(Automation { lanes, ..Default::default() }),
             },
         );
-        let mut entry = SchedEntry::new(slot, if bus { TrackSlot::MASTER } else { buses[i % 4] });
+        let mut entry = SchedEntry::new(slot, if bus { PartSlot::MASTER } else { buses[i % 4] });
         if !bus && i.is_multiple_of(5) {
             entry.sends.push(SendRt::new(buses[(i + 1) % 4], 0.3));
         }
@@ -108,7 +108,7 @@ fn project(entries: impl FnOnce(Vec<SchedEntry>) -> Vec<SchedEntry>) -> (Engine,
         }
         list.push(entry);
     }
-    list.push(SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE));
+    list.push(SchedEntry::new(PartSlot::MASTER, PartSlot::NONE));
     send(
         &mut handle,
         &mut engine,
@@ -180,15 +180,15 @@ fn a_pool_can_be_given_and_taken_away_while_playing() {
 }
 
 #[test]
-fn a_schedule_that_names_a_track_twice_or_shares_a_device_does_no_harm() {
+fn a_schedule_that_names_a_part_twice_or_shares_a_device_does_no_harm() {
     // Every source twice over, and all of them through the first bus's
-    // delay as well as their own: two threads must never be in one track or
+    // delay as well as their own: two threads must never be in one part or
     // one device at once. What comes out is not specified; that it comes
     // out, and is finite, is.
     let (mut engine, mut handle) = project(|mut entries| {
         let again: Vec<SchedEntry> = entries
             .iter()
-            .filter(|e| e.slot >= TrackSlot(5))
+            .filter(|e| e.slot >= PartSlot(5))
             .map(|e| SchedEntry::new(e.slot, e.output))
             .collect();
         let master = entries.pop().unwrap();
@@ -202,7 +202,7 @@ fn a_schedule_that_names_a_track_twice_or_shares_a_device_does_no_harm() {
         send(
             &mut handle,
             &mut engine,
-            Msg::SetGraph { slot: TrackSlot(slot).into(), plan: GraphPlan::serial(&chain) },
+            Msg::SetGraph { slot: PartSlot(slot).into(), plan: GraphPlan::serial(&chain) },
         );
     }
     engine.set_pool(Some(Box::new(Pool::new(8))));
@@ -218,19 +218,19 @@ fn only_a_group_with_enough_work_is_shared_between_threads() {
     play(&mut engine);
     assert!(
         engine.shared().shared_groups() > 0,
-        "forty busy tracks are shared out"
+        "forty busy parts are shared out"
     );
 
-    // Four tracks with nothing on them, live: waking the other threads
+    // Four parts with nothing on them, live: waking the other threads
     // would cost more than the work.
     let (mut engine, mut handle) = Engine::new(SR);
     let mut list = Vec::new();
-    for slot in (1..=4).map(TrackSlot) {
-        let track = TrackRt::new();
-        send(&mut handle, &mut engine, Msg::InsertTrack { slot, track });
-        list.push(SchedEntry::new(slot, TrackSlot::MASTER));
+    for slot in (1..=4).map(PartSlot) {
+        let part = PartRt::new();
+        send(&mut handle, &mut engine, Msg::InsertPart { slot, part });
+        list.push(SchedEntry::new(slot, PartSlot::MASTER));
     }
-    list.push(SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE));
+    list.push(SchedEntry::new(PartSlot::MASTER, PartSlot::NONE));
     let schedule = Box::new(Schedule::new(list, 0));
     send(&mut handle, &mut engine, Msg::SetSchedule(schedule));
     send(&mut handle, &mut engine, Msg::Play);
@@ -241,7 +241,7 @@ fn only_a_group_with_enough_work_is_shared_between_threads() {
     }
     assert!(
         engine.shared().shared_groups() < 10,
-        "{} of 2000 blocks shared four empty tracks out",
+        "{} of 2000 blocks shared four empty parts out",
         engine.shared().shared_groups()
     );
 }

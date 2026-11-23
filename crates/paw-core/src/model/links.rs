@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use anyhow::{Result, bail};
 
-use super::{Clip, ClipContent, Control, Notes, Project, Track};
+use super::{Clip, ClipContent, Control, Notes, Project, Part};
 
 /// What the clips of one link hold.
 #[derive(Clone)]
@@ -56,9 +56,9 @@ fn wanted<'a>(links: &'a HashMap<String, Shared>, clip: &Clip) -> Option<&'a Sha
     (!shared.held_by(clip)).then_some(shared)
 }
 
-/// Every clip of a track, on the timeline and off it (cues).
-fn clips_of(track: &Track) -> impl Iterator<Item = &Arc<Clip>> {
-    track.clips.iter().chain(track.cues.iter())
+/// Every clip of a part, on the timeline and off it (cues).
+fn clips_of(part: &Part) -> impl Iterator<Item = &Arc<Clip>> {
+    part.clips.iter().chain(part.cues.iter())
 }
 
 /// What each link held before an edit, by the name of the link.
@@ -68,8 +68,8 @@ impl Links {
     /// What each link of `project` holds now: that of its first clip.
     pub(crate) fn before(project: &Project) -> Self {
         let mut links = HashMap::new();
-        for track in project.all_tracks() {
-            for clip in clips_of(track) {
+        for part in project.all_parts() {
+            for clip in clips_of(part) {
                 if let Some(name) = &clip.link
                     && !links.contains_key(name)
                     && let Some(shared) = Shared::of(clip)
@@ -83,14 +83,14 @@ impl Links {
 
     /// After an edit: give the other clips of each link that the edit
     /// changed what the changed clip holds now. When the edit changed two
-    /// clips of one link, the first on the first track wins.
+    /// clips of one link, the first on the first part wins.
     pub(crate) fn spread(&self, project: &mut Project) {
         if self.0.is_empty() {
             return;
         }
         let mut changed = HashMap::new();
-        for track in project.all_tracks() {
-            for clip in clips_of(track) {
+        for part in project.all_parts() {
+            for clip in clips_of(part) {
                 let Some(name) = &clip.link else { continue };
                 if changed.contains_key(name) {
                     continue;
@@ -110,19 +110,19 @@ impl Links {
 
 impl Project {
     /// Give each clip of the links in `links` what its link holds. Only the
-    /// tracks and the clips that change are copied, so that the undo
+    /// parts and the clips that change are copied, so that the undo
     /// history goes on sharing the others.
     fn give(&mut self, links: &HashMap<String, Shared>) {
         if links.is_empty() {
             return;
         }
-        let tracks = self.tracks.iter_mut().chain(std::iter::once(&mut self.master));
-        for track in tracks {
-            if !clips_of(track).any(|clip| wanted(links, clip).is_some()) {
+        let parts = self.parts.iter_mut().chain(std::iter::once(&mut self.master));
+        for part in parts {
+            if !clips_of(part).any(|clip| wanted(links, clip).is_some()) {
                 continue;
             }
-            let track = Arc::make_mut(track);
-            for list in [&mut track.clips, &mut track.cues] {
+            let part = Arc::make_mut(part);
+            for list in [&mut part.clips, &mut part.cues] {
                 for index in 0..list.len() {
                     let Some(shared) = wanted(links, &list[index]) else { continue };
                     if let Some(clip) = list.get_mut(index) {
@@ -143,8 +143,8 @@ impl Project {
 
     /// How many clips the link `name` has.
     pub(crate) fn link_count(&self, name: &str) -> usize {
-        self.all_tracks()
-            .flat_map(|track| clips_of(track))
+        self.all_parts()
+            .flat_map(|part| clips_of(part))
             .filter(|clip| clip.link.as_deref() == Some(name))
             .count()
     }
@@ -160,8 +160,8 @@ impl Project {
             .collect();
         let stem = if safe.is_empty() { "link".to_string() } else { safe };
         let taken: Vec<String> = self
-            .all_tracks()
-            .flat_map(|track| clips_of(track))
+            .all_parts()
+            .flat_map(|part| clips_of(part))
             .filter_map(|clip| clip.link.as_ref().map(|name| name.to_lowercase()))
             .collect();
         let mut name = stem.clone();
@@ -177,7 +177,7 @@ impl Project {
     /// controller moves, and the name of a link can be a file name.
     pub(super) fn check_links(&self) -> Result<()> {
         let mut first: HashMap<&str, &Clip> = HashMap::new();
-        for clip in self.all_tracks().flat_map(|track| clips_of(track)) {
+        for clip in self.all_parts().flat_map(|part| clips_of(part)) {
             let Some(name) = clip.link.as_deref() else { continue };
             if !is_link_name(name) {
                 bail!("clip {} has the link name {name:?}: use letters, digits, - and _", clip.id);
@@ -210,9 +210,9 @@ mod tests {
 
     use super::*;
 
-    /// A project with one track of three clips: two of the link `riff`
+    /// A project with one part of three clips: two of the link `riff`
     /// that share their notes, and a plain copy of them. Built from the
-    /// defaults, so that a new field of a track or a project does not
+    /// defaults, so that a new field of a part or a project does not
     /// change it.
     fn project() -> Project {
         let notes = json!([{ "start": 0.0, "length": 1.0, "pitch": 60, "velocity": 100 }]);
@@ -221,10 +221,10 @@ mod tests {
                 "muted": false, "link": link, "content": { "kind": "midi", "notes": notes } });
             Arc::new(serde_json::from_value(value).expect("a clip"))
         };
-        let mut track = Track::new(1);
-        track.clips = vec![clip(2, Some("riff")), clip(3, Some("riff")), clip(4, None)].into();
+        let mut part = Part::new(1);
+        part.clips = vec![clip(2, Some("riff")), clip(3, Some("riff")), clip(4, None)].into();
         let mut p = Project::default();
-        p.tracks.push(Arc::new(track));
+        p.parts.push(Arc::new(part));
         p.join_links();
         p
     }

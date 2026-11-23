@@ -229,7 +229,7 @@ pub struct BandProps<'a> {
     pub label: Option<&'a str>,
 }
 
-/// A note: its track's `color` (`#rrggbb`), its `velocity` (1 to 127), its
+/// A note: its part's `color` (`#rrggbb`), its `velocity` (1 to 127), its
 /// name as `label`; `selected`, `cursor`, `ghost` while it is dragged and
 /// `pending` while it is drawn; `bend`, its own pitch bend at its end in
 /// semitones, reached from `bend_at` (0 to 1) of its length.
@@ -287,7 +287,7 @@ pub struct FaderProps<'a> {
     pub label: Option<&'a str>,
 }
 
-/// A track's name on its `color`, with its `number`.
+/// A part's name on its `color`, with its `number`.
 #[derive(Debug, Default, Deserialize)]
 #[serde(default)]
 pub struct ChipProps<'a> {
@@ -300,7 +300,7 @@ pub struct ChipProps<'a> {
 
 /// A clip of the timeline (`id`), or one of its takes (`take`, `active`
 /// when it plays): its `name` or `label`, its take `mark` ("2/4", shown
-/// after the label, or before it where both do not fit), its track's
+/// after the label, or before it where both do not fit), its part's
 /// `color`, `length` beats in columns `per` cells a beat; `content` the
 /// key of its notes or sound; `midi`; `muted`, `current`, `chosen`, `ghost`
 /// while it is dragged; its fades and `gain` (shown with `gain_line`) in
@@ -339,7 +339,7 @@ pub struct ClipProps<'a> {
 
 /// The ground of a row of the timeline, `index` from the top, in columns
 /// `per` cells a beat from beat `from`: `tone` "take" or "auto" for a take
-/// lane or an automation lane, `selected` for the cursor's track; the loop
+/// lane or an automation lane, `selected` for the cursor's part; the loop
 /// (`loop`, `{ start, end }`) shaded; `lines`, `{ beat, bar }` each, a
 /// line on each bar, and on each beat with `beats`.
 #[derive(Debug, Default, Deserialize)]
@@ -358,7 +358,7 @@ pub struct BeatsProps<'a> {
 
 /// A curve: `values` (0 to 1, one each half column, nil where there is
 /// none) and its `points`, `{ beat, value }` each, in columns `per` cells a
-/// beat from beat `from`; its track's `color`, grey when not `enabled`.
+/// beat from beat `from`; its part's `color`, grey when not `enabled`.
 #[derive(Debug, Default, Deserialize)]
 #[serde(default)]
 pub struct CurveProps<'a> {
@@ -372,10 +372,10 @@ pub struct CurveProps<'a> {
     pub enabled: Option<bool>,
 }
 
-/// A track's header: its `color`, `selected` for the cursor's track.
+/// A part's header: its `color`, `selected` for the cursor's part.
 #[derive(Debug, Default, Deserialize)]
 #[serde(default)]
-pub struct TrackheadProps<'a> {
+pub struct PartheadProps<'a> {
     pub color: Option<&'a str>,
     pub selected: bool,
 }

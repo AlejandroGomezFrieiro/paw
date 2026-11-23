@@ -14,8 +14,8 @@ paw.Device = {}
 ---@class paw.Lane
 paw.Lane = {}
 
----@class paw.Track
-paw.Track = {}
+---@class paw.Part
+paw.Part = {}
 
 ---@class paw.address
 paw.address = {}
@@ -230,6 +230,12 @@ paw.panes = {}
 ---@class paw.params
 paw.params = {}
 
+---@class paw.part_kinds
+paw.part_kinds = {}
+
+---@class paw.partcolumn
+paw.partcolumn = {}
+
 ---@class paw.pick
 paw.pick = {}
 
@@ -326,12 +332,6 @@ paw.timegrid = {}
 ---@class paw.timers
 paw.timers = {}
 
----@class paw.track_kinds
-paw.track_kinds = {}
-
----@class paw.trackcolumn
-paw.trackcolumn = {}
-
 ---@class paw.ui
 paw.ui = {}
 
@@ -367,12 +367,12 @@ paw.api = {}
 ---@type string
 paw.api.version = "1.0.0"
 
---- A new track, last unless `opts.index` says where: `opts` as `paw.api.track_add`
---- takes them (`name`, `volume`, `output` as a track or an id, ...). In a
---- window inside a subproject, the track is made in that subproject unless
+--- A new part, last unless `opts.index` says where: `opts` as `paw.api.part_add`
+--- takes them (`name`, `volume`, `output` as a part or an id, ...). In a
+--- window inside a subproject, the part is made in that subproject unless
 --- `opts.nest` says another.
 ---@param opts any
-function paw.add_track(opts) end
+function paw.add_part(opts) end
 
 --- Make a buffer type. See `docs/reference/lua-views.md`.
 ---   paw.buftype("notes", { create = function(target) return {} end, render = function(win, canvas, ctx) end })
@@ -426,7 +426,7 @@ function paw.defer(fn, ms) end
 ---@param id any
 function paw.device(id) end
 
---- Descriptions of each kind of device that you can add to a track. A kind
+--- Descriptions of each kind of device that you can add to a part. A kind
 --- that an extension added (`paw.plugins.add_dir`) has its extension in `from`.
 function paw.device_types() end
 
@@ -454,8 +454,8 @@ function paw.failure(err) end
 --- to make handlers run sooner.
 function paw.flush() end
 
---- Bring a sound file into the project: on a new track named after the
---- file (or on `opts.track`), at the cursor (or `opts.start`). Returns the clip.
+--- Bring a sound file into the project: on a new part named after the
+--- file (or on `opts.part`), at the cursor (or `opts.start`). Returns the clip.
 ---@param path any
 ---@param opts any
 function paw.import_audio(path, opts) end
@@ -502,17 +502,24 @@ function paw.on(event, fn, opts) end
 function paw.once(event, fn) end
 
 --- Open what a path names: a folder that is no project as a list of its
---- files, a sound file as a new track, anything else as a project, with
+--- files, a sound file as a new part, anything else as a project, with
 --- plugins offline as `opts` says (see `paw.loading.open`).
 ---@param path any
 ---@param opts any
 function paw.open(path, opts) end
 
 --- Open a chain file (a `devices.json`) alone, as a new project with no
---- file: one track with its devices, and the device panel on it. `:w`
---- writes the chain back to its file. Returns the track.
+--- file: one part with its devices, and the device panel on it. `:w`
+--- writes the chain back to its file. Returns the part.
 ---@param path any
 function paw.open_chain(path) end
+
+--- A part by id, or by name.
+---@param which any
+function paw.part(which) end
+
+--- Every part, in order, as `paw.Part` objects (the master is `paw.master`).
+function paw.parts() end
 
 paw.redo = paw.api.redo
 
@@ -527,35 +534,28 @@ function paw.render_cancel() end
 function paw.render_status() end
 
 --- What the project's rendered files are tagged with (`project.meta.tags`):
---- `paw.render_tags()` gives `{ title, artist, album, track, year, genre, comment, cover }`
+--- `paw.render_tags()` gives `{ title, artist, album, part, year, genre, comment, cover }`
 --- as far as set; `paw.render_tags({ artist = "Me" })` sets those fields and keeps the others,
 --- an empty string takes one out. A relative `cover` is from the project's directory.
 ---@param set any
 function paw.render_tags(set) end
 
---- Add a clip from a snapshot to a track.
+--- Add a clip from a snapshot to a part.
 ---@param snap any
----@param track any
-function paw.restore_clip(snap, track) end
+---@param part any
+function paw.restore_clip(snap, part) end
 
---- Add a device from a snapshot to a track, at the end of the chain or at
+--- Add a device from a snapshot to a part, at the end of the chain or at
 --- the 1-based `index`.
 ---@param snap any
----@param track any
+---@param part any
 ---@param index any
-function paw.restore_device(snap, track, index) end
+function paw.restore_device(snap, part, index) end
 
---- Make a track from a snapshot, at a 1-based position in the track list.
+--- Make a part from a snapshot, at a 1-based position in the part list.
 ---@param snap any
 ---@param index any
-function paw.restore_track(snap, index) end
-
---- A track by id, or by name.
----@param which any
-function paw.track(which) end
-
---- Every track, in order, as `paw.Track` objects (the master is `paw.master`).
-function paw.tracks() end
+function paw.restore_part(snap, index) end
 
 --- Call a function. If it fails, show the error as a message and do not
 --- raise it. Returns true and the results of the function, or false and the error.
@@ -633,6 +633,9 @@ function paw.Clip:note_at(pitch, beat) end
 ---@param range any
 function paw.Clip:notes(range) end
 
+--- The part the clip is on.
+function paw.Clip:part() end
+
 --- The waveform of an audio clip: `n` { min, max, rms } entries. Each entry
 --- covers an equal part of the sound of the clip, scaled by its gain. It
 --- gives how far the wave goes each way (-1 to 1) and how loud it is there.
@@ -640,7 +643,7 @@ function paw.Clip:notes(range) end
 ---@param n any
 function paw.Clip:peaks(n) end
 
---- Take the clip out of its track.
+--- Take the clip out of its part.
 function paw.Clip:remove() end
 
 --- Remove the note at a place among the clip's notes (from 1).
@@ -679,9 +682,6 @@ function paw.Clip:shifted(semitones) end
 --- The clip as plain data, for `paw.restore_clip`.
 function paw.Clip:snapshot() end
 
---- The track the clip is on.
-function paw.Clip:track() end
-
 --- The lane for a parameter, made if there is none yet.
 ---   synth:automate("cutoff"):add(0, 200)
 ---@param param any
@@ -719,15 +719,18 @@ function paw.Device:lane(param) end
 --- The automation lanes of the device's parameters, as `paw.Lane` objects.
 function paw.Device:lanes() end
 
---- Move within the chain, or to another track: `device:move(1)`, `device:move(2, other)`.
+--- Move within the chain, or to another part: `device:move(1)`, `device:move(2, other)`.
 ---@param index any
----@param track any
-function paw.Device:move(index, track) end
+---@param part any
+function paw.Device:move(index, part) end
 
 --- Show the plugin's own window.
 function paw.Device:open_editor() end
 
---- Take the device off its track.
+--- The part this device is on.
+function paw.Device:part() end
+
+--- Take the device off its part.
 function paw.Device:remove() end
 
 --- Show the window of the plugin. `device.editor` is "open", "closed", or
@@ -750,21 +753,21 @@ function paw.Device:set(name, value) end
 function paw.Device:set_offline(on) end
 
 --- Play the output pair `pair` of the device (2 and more: the first pair
---- plays on its own track) into a track, or nowhere with nil.
---- `device.outputs` is a table of pair number to track id.
+--- plays on its own part) into a part, or nowhere with nil.
+--- `device.outputs` is a table of pair number to part id.
 --- `device.ports.outputs` names the pairs.
 ---@param pair any
----@param track any
-function paw.Device:set_output(pair, track) end
+---@param part any
+function paw.Device:set_output(pair, part) end
 
---- Listen to the sound of a different track as the side-chain of the
+--- Listen to the sound of a different part as the side-chain of the
 --- device. With `comp:set_sidechain(kick)`, a compressor on the bass ducks
 --- under the kick. `{ pre = true }` takes the sound before the fader, pan
---- and mute of that track. nil (or no track) removes the side-chain.
---- `device.sidechain` is the id of the track.
----@param track any
+--- and mute of that part. nil (or no part) removes the side-chain.
+--- `device.sidechain` is the id of the part.
+---@param part any
 ---@param opts any
-function paw.Device:set_sidechain(track, opts) end
+function paw.Device:set_sidechain(part, opts) end
 
 --- The device as plain data, for `paw.restore_device`. For a plugin, the
 --- data contains its state, which holds more than its parameters.
@@ -772,9 +775,6 @@ function paw.Device:snapshot() end
 
 --- The device's state lane, if it has one.
 function paw.Device:state_lane() end
-
---- The track this device is on.
-function paw.Device:track() end
 
 --- The value of a parameter at a beat while the song plays. This is the
 --- value of the lane when the lane is on. If not, it is the value of the device.
@@ -803,6 +803,9 @@ function paw.Lane:exists() end
 --- Everything about the lane as plain data (`paw.api.lane_get`).
 function paw.Lane:get() end
 
+--- The part the lane belongs to.
+function paw.Lane:part() end
+
 --- The points as a list of { beat, value }, sorted by beat.
 function paw.Lane:points() end
 
@@ -829,117 +832,114 @@ function paw.Lane:state_index(which) end
 --- The states of a state lane: `{ name, state, params, call, program, bank }` each.
 function paw.Lane:states() end
 
---- The track the lane belongs to.
-function paw.Lane:track() end
-
 --- The value at a beat, when the lane is on and when it is off. Nil without points.
 ---@param beat any
 function paw.Lane:value_at(beat) end
 
 --- Add a clip. With `file` it is an audio clip, otherwise a MIDI clip.
----   track:add_clip({ start = 0, length = 4, notes = { { pitch = "C4", start = 0, length = 1 } } })
----   track:add_clip({ start = 8, file = "take1.wav" })
+---   part:add_clip({ start = 0, length = 4, notes = { { pitch = "C4", start = 0, length = 1 } } })
+---   part:add_clip({ start = 8, file = "take1.wav" })
 ---@param opts any
-function paw.Track:add_clip(opts) end
+function paw.Part:add_clip(opts) end
 
 --- Add a device to the end of the chain, or at the 1-based `opts.index`.
----   track:add_device("synth", { cutoff = 800 })
+---   part:add_device("synth", { cutoff = 800 })
 ---@param kind any
 ---@param params any
 ---@param opts any
-function paw.Track:add_device(kind, params, opts) end
+function paw.Part:add_device(kind, params, opts) end
 
 --- The lane for "volume" or "pan", made if there is none yet.
----   track:automate("volume"):set_points({ { 0, -60 }, { 8, 0 } })
+---   part:automate("volume"):set_points({ { 0, -60 }, { 8, 0 } })
 ---@param target any
-function paw.Track:automate(target) end
+function paw.Part:automate(target) end
 
 --- The clip that covers `beat`, if any. Where two clips overlap, the later clip wins.
 ---@param beat any
-function paw.Track:clip_at(beat) end
+function paw.Part:clip_at(beat) end
 
---- The track's clips, as `paw.Clip` objects.
-function paw.Track:clips() end
+--- The part's clips, as `paw.Clip` objects.
+function paw.Part:clips() end
 
 --- The first device of a kind, or the device at a 1-based position.
 ---@param which any
-function paw.Track:device(which) end
+function paw.Part:device(which) end
 
---- The track's devices in the order they process, as `paw.Device` objects.
-function paw.Track:devices() end
+--- The part's devices in the order they process, as `paw.Device` objects.
+function paw.Part:devices() end
 
---- Copy the track with its devices, clips and automation, and put the copy after it.
-function paw.Track:duplicate() end
+--- Copy the part with its devices, clips and automation, and put the copy after it.
+function paw.Part:duplicate() end
 
---- True if the track is still in the project.
-function paw.Track:exists() end
+--- True if the part is still in the project.
+function paw.Part:exists() end
 
---- A plain table with every field of the track, read once.
-function paw.Track:get() end
+--- A plain table with every field of the part, read once.
+function paw.Part:get() end
 
 --- The lane for "volume" or "pan", if there is one.
 ---@param target any
-function paw.Track:lane(target) end
+function paw.Part:lane(target) end
 
---- The automation lanes of the track, its devices' included.
-function paw.Track:lanes() end
+--- The automation lanes of the part, its devices' included.
+function paw.Part:lanes() end
 
 --- Peak level as linear `left, right`.
-function paw.Track:meter() end
+function paw.Part:meter() end
 
---- Send a MIDI message to this track's devices now, outside the timeline:
+--- Send a MIDI message to this part's devices now, outside the timeline:
 --- a controller, the pitch wheel, pressure, or with `key` one note's own.
----   track:midi({ type = "cc", number = 1, value = 0.5 })
----   track:midi({ type = "bend", value = -0.25 })
----   track:midi({ type = "bend", key = "C4", value = 0.1 })
+---   part:midi({ type = "cc", number = 1, value = 0.5 })
+---   part:midi({ type = "bend", value = -0.25 })
+---   part:midi({ type = "bend", key = "C4", value = 0.1 })
 ---@param event any
-function paw.Track:midi(event) end
+function paw.Part:midi(event) end
 
---- Move to a 1-based position in the track list.
+--- Move to a 1-based position in the part list.
 ---@param index any
-function paw.Track:move(index) end
+function paw.Part:move(index) end
 
 --- Stop a note, or every note when `pitch` is left out.
 ---@param pitch any
-function paw.Track:note_off(pitch) end
+function paw.Part:note_off(pitch) end
 
 --- Start a note now, outside the timeline. `pitch` may be a name like "C4".
 --- With `attr`, a MIDI 2.0 attribute (`paw.attr`), the note carries it, and
---- what the track's `attr_map` sends for it goes first.
+--- what the part's `attr_map` sends for it goes first.
 ---@param pitch any
 ---@param velocity any
 ---@param attr any
-function paw.Track:note_on(pitch, velocity, attr) end
+function paw.Part:note_on(pitch, velocity, attr) end
 
 --- Play a note for `ms` milliseconds (default 200), with `attr` if given.
 ---@param pitch any
 ---@param velocity any
 ---@param ms any
 ---@param attr any
-function paw.Track:play_note(pitch, velocity, ms, attr) end
+function paw.Part:play_note(pitch, velocity, ms, attr) end
 
---- Take the track out of the project, with its clips and devices.
-function paw.Track:remove() end
+--- Take the part out of the project, with its clips and devices.
+function paw.Part:remove() end
 
---- Send some of this track's output to another track. `level` is in dB.
+--- Send some of this part's output to another part. `level` is in dB.
 --- With `{ pre = true }` the send is taken before the fader and pan, so it
 --- keeps its level when the fader moves: `vocal:send(reverb, -6, { pre = true })`.
 ---@param target any
 ---@param level any
 ---@param opts any
-function paw.Track:send(target, level, opts) end
+function paw.Part:send(target, level, opts) end
 
---- Everything about the track as plain data: its settings, devices (plugins
---- with their state), clips and automation. `paw.restore_track` makes a
---- track from it again, in this project or after the original is gone.
-function paw.Track:snapshot() end
+--- Everything about the part as plain data: its settings, devices (plugins
+--- with their state), clips and automation. `paw.restore_part` makes a
+--- part from it again, in this project or after the original is gone.
+function paw.Part:snapshot() end
 
 --- The value of "volume" or "pan" at a beat while the song plays. This is
 --- the value of the lane when the lane is on. If not, it is the value of
---- the track.
+--- the part.
 ---@param target any
 ---@param beat any
-function paw.Track:value_at(target, beat) end
+function paw.Part:value_at(target, beat) end
 
 --- What an address holds, one level down.
 ---@param uri any
@@ -949,14 +949,14 @@ function paw.address.children(uri) end
 ---@param id any
 function paw.address.clip(id) end
 
---- A device's address, under its track's.
+--- A device's address, under its part's.
 ---@param id any
 function paw.address.device(id) end
 
 --- Do a workspace edit. paw checks each change first, and does nothing
 --- unless it can do all changes. Then it makes all of them as one undo step
 --- with the label `label`. Returns true, or nil and the reason.
----   paw.address.edit({ { uri = "paw://track/3", set = { volume = -6 } },
+---   paw.address.edit({ { uri = "paw://part/3", set = { volume = -6 } },
 ---                      { uri = "paw://clip/7/note/41", set = { pitch = 62 } } }, "Lower the bass")
 ---@param changes any
 ---@param label any
@@ -980,8 +980,8 @@ function paw.address.location(uri, selector) end
 ---@param id any
 function paw.address.marker(id) end
 
---- True if an address matches a pattern: `paw://track/*` (one level),
---- `paw://track/**` (any depth), or an exact address.
+--- True if an address matches a pattern: `paw://part/*` (one level),
+--- `paw://part/**` (any depth), or an exact address.
 ---@param pattern any
 ---@param uri any
 function paw.address.matches(pattern, uri) end
@@ -991,7 +991,7 @@ function paw.address.matches(pattern, uri) end
 ---@param id any
 function paw.address.note(clip, id) end
 
---- The address of an object of the Lua interface (`paw.track(3)`,
+--- The address of an object of the Lua interface (`paw.part(3)`,
 --- `paw.clip(7)`, a device), or of a table from `paw.api` (with its fields).
 ---@param object any
 function paw.address.of(object) end
@@ -1001,17 +1001,25 @@ function paw.address.of(object) end
 ---@param key any
 function paw.address.param(device, key) end
 
---- The address that holds this one (a note's clip, a device's track), or nil.
+--- The address that holds this one (a note's clip, a device's part), or nil.
 ---@param uri any
 function paw.address.parent(uri) end
 
---- An address in parts: `{ kind = "note", track?, device?, param?, send?,
+--- An address in parts: `{ kind = "note", part?, device?, param?, send?,
 --- clip?, note?, lane?, marker?, control?, number?, path?, segments }`, or
 --- nil when it is not one. The fragment (`#mix`) is kept as `fragment`.
 ---@param uri any
 function paw.address.parse(uri) end
 
---- The addresses of the project, the tempo map, a track, a clip and a note.
+--- A part's address.
+---@param id any
+function paw.address.part(id) end
+
+--- The part an address belongs to, if any.
+---@param uri any
+function paw.address.part_of(uri) end
+
+--- The addresses of the project, the tempo map, a part, a clip and a note.
 --- Also the addresses of a lane, a marker, a rendered file and a send, as
 --- `parse` reads them.
 function paw.address.project() end
@@ -1037,24 +1045,16 @@ function paw.address.resolve(uri) end
 ---@param spec any
 function paw.address.scheme(name, spec) end
 
---- The address of a track's send to another.
----@param track any
+--- The address of a part's send to another.
+---@param part any
 ---@param target any
-function paw.address.send(track, target) end
+function paw.address.send(part, target) end
 
 --- The tempo map's address.
 function paw.address.tempo() end
 
---- A track's address.
----@param id any
-function paw.address.track(id) end
-
---- The track an address belongs to, if any.
----@param uri any
-function paw.address.track_of(uri) end
-
 --- True if `uri` is `ancestor` or is inside it (a note inside its clip, a
---- parameter inside its device and track). All addresses are inside the project.
+--- parameter inside its device and part). All addresses are inside the project.
 ---@param uri any
 ---@param ancestor any
 function paw.address.within(uri, ancestor) end
@@ -1076,12 +1076,12 @@ function paw.annotation.reset(namespace, doc) end
 ---@param list any
 function paw.annotation.set(namespace, doc, list) end
 
---- The milliseconds that a note with `attr` (nil for none) on `track` plays
---- early (below 0) or late, from the `attr_map` of the track. So a library
+--- The milliseconds that a note with `attr` (nil for none) on `part` plays
+--- early (below 0) or late, from the `attr_map` of the part. So a library
 --- that speaks slowly still sounds on the beat. 0 without a map.
----@param track any
+---@param part any
 ---@param attr any
-function paw.attr.delay_of(track, attr) end
+function paw.attr.delay_of(part, attr) end
 
 --- What an attribute is, for people: `{ code, tag, name, class, text }`
 --- (`code` and `class` only for articulations), where `tag` is a few
@@ -1107,20 +1107,20 @@ function paw.attr.parts(attr) end
 ---@param b any
 function paw.attr.same(a, b) end
 
---- All the possible inputs of a track, in order, under three headings
+--- All the possible inputs of a part, in order, under three headings
 --- (`group`). "audio" is none, each channel of the input device, and each
 --- pair of adjacent channels. "midi" is all ports, or one. "channel" is
 --- all MIDI channels, or one. Each is `{ group, label, checked, value }`.
 --- Give it to `M.choose`. A saved choice that is not available now is also
 --- in the list, marked as not found. So you can see it and change it.
----@param track any
-function paw.audio.choices(track) end
+---@param part any
+function paw.audio.choices(part) end
 
---- Use a choice from `M.choices`. A track hears a MIDI port or channel only
+--- Use a choice from `M.choices`. A part hears a MIDI port or channel only
 --- when it has no audio input. So a MIDI choice removes the audio input.
----@param track any
+---@param part any
 ---@param choice any
-function paw.audio.choose(track, choice) end
+function paw.audio.choose(part, choice) end
 
 --- Take a choice from `M.engine_choices`.
 ---@param choice any
@@ -1137,14 +1137,14 @@ paw.audio.devices = paw.api.audio_devices
 --- lines are data that you cannot select.
 function paw.audio.engine_choices() end
 
---- What a track takes in, in a few words: `UR22mkII · 1/2` for audio,
---- `MIDI · Keystation · ch 1` for MIDI from one port. Nil for a track that
+--- What a part takes in, in a few words: `UR22mkII · 1/2` for audio,
+--- `MIDI · Keystation · ch 1` for MIDI from one port. Nil for a part that
 --- takes nothing in particular: no audio, and MIDI from everywhere.
 ---@param t any
 function paw.audio.label(t) end
 
---- The level of the sound at the audio input of a track, 0 to 1. The track
---- does not have to be armed or monitored. 0 for a track without
+--- The level of the sound at the audio input of a part, 0 to 1. The part
+--- does not have to be armed or monitored. 0 for a part without
 --- an audio input.
 ---@param t any
 ---@param levels any
@@ -1162,14 +1162,14 @@ paw.audio.levels = paw.api.input_levels
 ---@param cpu any
 function paw.audio.load(cpu) end
 
---- A picker of the inputs of a track (`I` on a track): monitoring first,
+--- A picker of the inputs of a part (`I` on a part): monitoring first,
 --- then each choice of `M.choices`. With `groups` (`{ "midi", "channel" }`),
 --- only those choices: the MIDI input, as step input opens it.
----@param track any
+---@param part any
 ---@param groups any
-function paw.audio.pick(track, groups) end
+function paw.audio.pick(part, groups) end
 
---- The name of a device, made short enough for a track header. The name of
+--- The name of a device, made short enough for a part header. The name of
 --- the maker goes when a model number follows it, and a number at the end
 --- also goes.
 ---   "Steinberg UR22mkII 0" → "UR22mkII", "Bose NC 700 HP" → "Bose NC 700 HP"
@@ -1192,21 +1192,21 @@ function paw.audio.timing() end
 ---@param opts any
 function paw.audio.use(opts) end
 
---- A phrase for a track with nothing to play. For a drum track, it is a bar
---- of a beat. For other tracks, it is the tonic chord of the key, held,
---- then as an arpeggio up and down, in the range of the track.
+--- A phrase for a part with nothing to play. For a drum part, it is a bar
+--- of a beat. For other parts, it is the tonic chord of the key, held,
+--- then as an arpeggio up and down, in the range of the part.
 --- `{ notes, length, label }`.
----@param track any
+---@param part any
 ---@param at any
-function paw.audition.builtin(track, at) end
+function paw.audition.builtin(part, at) end
 
 --- Hear a sound file on its own, from its start, in place of whatever was.
 ---@param path any
 function paw.audition.file(path) end
 
---- True if a track has an instrument to play notes.
----@param track any
-function paw.audition.has_instrument(track) end
+--- True if a part has an instrument to play notes.
+---@param part any
+function paw.audition.has_instrument(part) end
 
 --- Keep the trial's edits as one undo step.
 function paw.audition.keep() end
@@ -1228,20 +1228,27 @@ function paw.audition.midi_file(path, bars) end
 ---@param length any
 function paw.audition.outline_lines(outline, width, rows, position, length) end
 
---- Play `notes` through a track, again each `opts.length` beats (or one
+--- What a part plays around the cursor, as a phrase. This is the bar of
+--- its MIDI clip at the cursor. If not, it is the last bar with notes before
+--- the cursor. If not, it is the first bar with notes. It is `builtin` when
+--- the part has no notes. `{ notes, length, label, at }`.
+---@param part any
+function paw.audition.part_phrase(part) end
+
+--- Play `notes` through a part, again each `opts.length` beats (or one
 --- time with `loop = false`). The notes are `{ pitch, start, length,
 --- velocity }`, with `start` in beats from the start of the phrase. The
---- `track` of a note wins over the `track` of the phrase. `opts.label` tells
+--- `part` of a note wins over the `part` of the phrase. `opts.label` tells
 --- what the phrase is. A phrase with the same `opts.key` as the phrase that
 --- plays continues and does not start again. So only the sound changes.
 --- `opts.tempo` is its tempo. If not given, it is the tempo of the project
 --- at `opts.at` (the cursor). paw plays nothing while the transport runs.
----@param track any
+---@param part any
 ---@param notes any
 ---@param opts any
-function paw.audition.phrase(track, notes, opts) end
+function paw.audition.phrase(part, notes, opts) end
 
---- A track to play notes through: the cursor's when it has an instrument,
+--- A part to play notes through: the cursor's when it has an instrument,
 --- else one added as a trial (with the built-in synth, or drums) that
 --- `revert` takes away. `drums` asks for a drum kit.
 ---@param drums any
@@ -1253,7 +1260,7 @@ function paw.audition.quiet() end
 --- Put the project back as it was before the trial, if there is one.
 function paw.audition.revert() end
 
---- What you hear now: `{ kind = "phrase", label, track, notes, length,
+--- What you hear now: `{ kind = "phrase", label, part, notes, length,
 --- silent }`, `{ kind = "file", file, state, position, length, outline }`
 --- or nil. `trial` is true while the edits of a trial stay.
 function paw.audition.state() end
@@ -1261,19 +1268,12 @@ function paw.audition.state() end
 --- Stop what is heard and take a trial back.
 function paw.audition.stop() end
 
---- Play what a track plays around the cursor, through the track, again and
---- again (`track_phrase`). So you hear a sound that you try on the track
+--- Play what a part plays around the cursor, through the part, again and
+--- again (`part_phrase`). So you hear a sound that you try on the part
 --- with its own notes. The loop continues while only the sound changes.
 --- Returns what you hear, in words.
----@param track any
-function paw.audition.through(track) end
-
---- What a track plays around the cursor, as a phrase. This is the bar of
---- its MIDI clip at the cursor. If not, it is the last bar with notes before
---- the cursor. If not, it is the first bar with notes. It is `builtin` when
---- the track has no notes. `{ notes, length, label, at }`.
----@param track any
-function paw.audition.track_phrase(track) end
+---@param part any
+function paw.audition.through(part) end
 
 --- Make the edits of `fn` as a trial, in place of the last trial. You hear
 --- and see them, and `revert` removes them with no trace. Returns the
@@ -1300,9 +1300,9 @@ function paw.autosave.copy(force) end
 --- file, or per session for a project that has no file yet.
 function paw.autosave.file() end
 
---- Import an orphaned take. It goes on the track that it was recorded for,
---- if a track has the name that it starts with. If not, it goes on a new
---- track. It goes at the start of the song.
+--- Import an orphaned take. It goes on the part that it was recorded for,
+--- if a part has the name that it starts with. If not, it goes on a new
+--- part. It goes at the start of the song.
 ---@param file any
 function paw.autosave.import_take(file) end
 
@@ -1341,37 +1341,37 @@ function paw.axis.cell(x) end
 ---@param spans any
 function paw.axis.new(scroll, zoom, spans) end
 
---- What `K` says of a clip that a bounce muted: the track that plays it
+--- What `K` says of a clip that a bounce muted: the part that plays it
 --- now. Nil for another clip.
 ---@param clip any
 function paw.bounce.describe(clip) end
 
---- Render a track (its id, or the track) to audio, as one clip on a new
---- track below it, and mute it. `paw.bounce(track, opts)` is the same. The
---- new track plays its sound where the old one sends it. `opts.tap` is where the
---- render listens: `"post"` (the default) holds the track's devices, fader
---- and pan, but not its groups or the master, and the new track's fader
---- starts at 0 dB. `"pre"` is before the fader: the new track gets the
+--- Render a part (its id, or the part) to audio, as one clip on a new
+--- part below it, and mute it. `paw.bounce(part, opts)` is the same. The
+--- new part plays its sound where the old one sends it. `opts.tap` is where the
+--- render listens: `"post"` (the default) holds the part's devices, fader
+--- and pan, but not its groups or the master, and the new part's fader
+--- starts at 0 dB. `"pre"` is before the fader: the new part gets the
 --- volume, pan and sends of the old one, and the automation of its volume
 --- and pan. `opts.start` and `opts["end"]` are the beats to render. Without
 --- them, it renders from the first clip to the end of the last, and mutes
---- the whole track. With them, it cuts the clips at those beats and mutes
+--- the whole part. With them, it cuts the clips at those beats and mutes
 --- only the parts between them, and `K` on such a part names the new
---- track. `opts.tail` is the seconds after the end (2). `opts.name` names the new track ("<name>
+--- part. `opts.tail` is the seconds after the end (2). `opts.name` names the new part ("<name>
 --- (bounced)" by default). It uses `paw.render`, so `render.before` runs.
---- Returns the new track, or nil when there is nothing to render.
----@param track any
+--- Returns the new part, or nil when there is nothing to render.
+---@param part any
 ---@param opts any
-function paw.bounce.track(track, opts) end
+function paw.bounce.part(part, opts) end
 
---- Render the tracks of `ids` to audio, as one clip on a new track below
---- the last of them, and mute them. The new track plays its sound where the
---- first track sends its sound. `opts` is as for `paw.bounce.track`, and
---- `opts.tap = "pre"` takes one track only. Returns the new track, or nil
+--- Render the parts of `ids` to audio, as one clip on a new part below
+--- the last of them, and mute them. The new part plays its sound where the
+--- first part sends its sound. `opts` is as for `paw.bounce.part`, and
+--- `opts.tap = "pre"` takes one part only. Returns the new part, or nil
 --- when there is nothing to render.
 ---@param ids any
 ---@param opts any
-function paw.bounce.tracks(ids, opts) end
+function paw.bounce.parts(ids, opts) end
 
 paw.bytes.base64 = paw.api.base64_encode
 
@@ -1695,7 +1695,7 @@ function paw.chain.link_rack(h, split, name) end
 function paw.chain.move(h, id, place) end
 
 --- The handle of the chain of `owner`, which each other function of
---- paw.chain takes: `{ track = id }` for the chain of a track. An error
+--- paw.chain takes: `{ part = id }` for the chain of a part. An error
 --- when the owner is not in the project.
 ---@param owner any
 function paw.chain.of(owner) end
@@ -1810,15 +1810,15 @@ function paw.chords.quality(suffix, steps, name) end
 ---@param key any
 function paw.chords.stack(root, n, key) end
 
---- A new clip of the kind `name` on `track`: `data`, or what the kind's
+--- A new clip of the kind `name` on `part`: `data`, or what the kind's
 --- `create` makes of `args` (the words, and `name`, `start` and `length`
 --- of the clip). Its length is `args.length`, or the length the kind
 --- compiled, or a bar of 4 beats. One undo step.
----@param track any
+---@param part any
 ---@param name any
 ---@param args any
 ---@param data any
-function paw.clip_kinds.add(track, name, args, data) end
+function paw.clip_kinds.add(part, name, args, data) end
 
 --- Compile a clip of a kind again from its data (after something that it
 --- links to changed). One undo step.
@@ -1907,7 +1907,7 @@ function paw.clip_kinds.trim(clip, from, to) end
 function paw.command.alias(alias, target) end
 
 --- Define or replace a command.
----   paw.command("track.mute", function(ctx) ... end, { desc = "Mute the track" })
+---   paw.command("part.mute", function(ctx) ... end, { desc = "Mute the part" })
 --- The handler gets `ctx` with `ctx.args` (positional and named arguments)
 --- and `ctx.count` (the number typed before a key mapping, or nil). With
 --- `opts.raw`, the command line gives its text as one string in
@@ -1960,7 +1960,7 @@ paw.commands.alias = paw.command.alias
 
 --- What could finish a command line: a list of `{ text, label, desc }` with
 --- `text` the whole line it would become and `label` the part shown.
----   paw.commands.complete("track.co")   --> { { text = "track.color", label = "track.color", desc = ... } }
+---   paw.commands.complete("part.co")   --> { { text = "part.color", label = "part.color", desc = ... } }
 ---@param line any
 function paw.commands.complete(line) end
 
@@ -1996,8 +1996,8 @@ function paw.commands.panel() end
 function paw.commands.params(ctx) end
 
 --- Split a command line into a name and arguments:
----   `track.add Bass volume=-6` -> "track.add", { "Bass", volume = -6 }
---- Quotes keep spaces together: `track.add "Lead Guitar"`, `name="Lead Guitar"`.
+---   `part.add Bass volume=-6` -> "part.add", { "Bass", volume = -6 }
+--- Quotes keep spaces together: `part.add "Lead Guitar"`, `name="Lead Guitar"`.
 ---@param line any
 function paw.commands.parse(line) end
 
@@ -2032,7 +2032,7 @@ function paw.commands.uses(name) end
 ---@param next_only any
 function paw.complete.accept(next_only) end
 
---- Play the alternative that shows through the track of the clip. It starts
+--- Play the alternative that shows through the part of the clip. It starts
 --- one bar before it, with the notes that are there, and the project does
 --- not change. Not while the transport runs.
 function paw.complete.audition() end
@@ -2042,7 +2042,7 @@ function paw.complete.cancel() end
 
 --- What a request is about: the clip open in the piano roll, where the
 --- suggestion starts and what is chosen there. Nil without an open clip.
----   clip, track      ids
+---   clip, part      ids
 ---   start, length    where the clip is in the project, in beats
 ---   at, pitch        where the suggestion starts (clip beats) and the cursor's pitch
 ---   notes            the clip's notes, as `clip:notes()` gives them
@@ -2206,15 +2206,15 @@ function paw.controls.value(kind, fraction) end
 --- The clip under the cursor, if any.
 function paw.cursor.clip() end
 
---- 1-based position of the cursor track among the tracks of its place:
---- the song's, or its subproject's (as `paw.api.track_move` counts).
+--- 1-based position of the cursor part among the parts of its place:
+--- the song's, or its subproject's (as `paw.api.part_move` counts).
 function paw.cursor.index() end
 
---- The automation lane row of the cursor: a lane of the cursor track that
---- shows as a row (see `paw.lanes`). Nil when the cursor is on the track.
+--- The automation lane row of the cursor: a lane of the cursor part that
+--- shows as a row (see `paw.lanes`). Nil when the cursor is on the part.
 function paw.cursor.lane_id() end
 
---- Keys and commands typed in a pinned window act on its track: the track
+--- Keys and commands typed in a pinned window act on its part: the part
 --- of "the cursor" is the window's while that window has the keyboard, or
 --- while paw draws it.
 function paw.cursor.lens() end
@@ -2222,40 +2222,53 @@ function paw.cursor.lens() end
 --- 1-based row of the cursor among every row drawn, lanes included.
 function paw.cursor.line() end
 
---- True if a move of the cursor can go on from the last track to the
+--- True if a move of the cursor can go on from the last part to the
 --- master: a move of its own in normal mode, in the views that draw the
---- master after the tracks. After an operator or in a selection, only
---- tracks count.
+--- master after the parts. After an operator or in a selection, only
+--- parts count.
 function paw.cursor.master_reachable() end
 
 --- Move by rows. In normal mode, the rows of open automation lanes count.
---- After an operator or in a selection, only tracks count, as for `dj`.
---- From the last track, a move down goes on to the master, and from the
---- master a move up returns to the tracks. A closed block fold at the
+--- After an operator or in a selection, only parts count, as for `dj`.
+--- From the last part, a move down goes on to the master, and from the
+--- master a move up returns to the parts. A closed block fold at the
 --- cursor's beat is one row (`paw.cursor.stop`).
 ---@param delta any
-function paw.cursor.move_track(delta) end
+function paw.cursor.move_part(delta) end
 
---- True if the cursor is on the master track: the row after the last
---- track in the arrange view, the strip after the last in the mixer.
+--- True if the cursor is on the master part: the row after the last
+--- part in the arrange view, the strip after the last in the mixer.
 function paw.cursor.on_master() end
 
 --- Where the cursor goes when it moves from beat `old` to `new`: a beat
 --- inside a closed time fold is its start, or its end when the cursor
 --- moves on from its start, so that a motion takes a fold as one step. A
---- closed block fold on the cursor's track is one step in the same way.
+--- closed block fold on the cursor's part is one step in the same way.
 ---@param old any
 ---@param new any
 function paw.cursor.over(old, new) end
 
---- 1-based row of the cursor track among the tracks that are drawn: the
+--- The part the cursor is on, as a `paw.Part`, or nil.
+function paw.cursor.part() end
+
+--- The id of the part of the cursor, or of the first part when that part
+--- does not exist now. Nil when the project has no parts. 0 when the
+--- cursor is on the master part (`on_master`).
+function paw.cursor.part_id() end
+
+--- 1-based row of the cursor part among the parts that are drawn: the
 --- same as `index` until a group is folded. On the master, the row after
---- the last track.
+--- the last part.
 function paw.cursor.row() end
 
 --- Put the cursor at a beat: the nearest tick, as `set_tick`.
 ---@param beat any
 function paw.cursor.set_beat(beat) end
+
+--- Put the cursor on a part, or with `lane` on one of its lane rows.
+---@param part any
+---@param lane any
+function paw.cursor.set_part(part, lane) end
 
 --- Put the cursor at a tick: not before 0, in the scope's time
 --- (`paw.timegrid.bounds`), and over a fold as one step (`over`). `want`
@@ -2264,19 +2277,14 @@ function paw.cursor.set_beat(beat) end
 ---@param at any
 function paw.cursor.set_tick(at) end
 
---- Put the cursor on a track, or with `lane` on one of its lane rows.
----@param track any
----@param lane any
-function paw.cursor.set_track(track, lane) end
-
---- For a track of a subproject shown in place under its return row: the
+--- For a part of a subproject shown in place under its return row: the
 --- beat of the window where the subproject's beat 0 is, for the block of
 --- the row at `beat` (the first block when none is there). Nil for any
---- other track. The arrange view draws its clips that much later, and
+--- other part. The arrange view draws its clips that much later, and
 --- the cursor finds them there.
----@param track any
+---@param part any
 ---@param beat any
-function paw.cursor.shift(track, beat) end
+function paw.cursor.shift(part, beat) end
 
 --- A position at the nearest line of the arrange grid.
 ---@param beat any
@@ -2292,21 +2300,13 @@ function paw.cursor.snap(beat) end
 ---@param grid any
 function paw.cursor.step(beat, n, grid) end
 
---- The row that stands for a track at a beat when the cursor moves by
---- rows: the first row of the closed block fold that holds the track
+--- The row that stands for a part at a beat when the cursor moves by
+--- rows: the first row of the closed block fold that holds the part
 --- there, or nil when no closed block holds it. A closed block is one row
 --- for `j` and `k`, as a closed fold is one line in Vim.
 ---@param id any
 ---@param beat any
 function paw.cursor.stop(id, beat) end
-
---- The track the cursor is on, as a `paw.Track`, or nil.
-function paw.cursor.track() end
-
---- The id of the track of the cursor, or of the first track when that track
---- does not exist now. Nil when the project has no tracks. 0 when the
---- cursor is on the master track (`on_master`).
-function paw.cursor.track_id() end
 
 --- A copy of a point.
 ---@param q any
@@ -2396,7 +2396,7 @@ function paw.curves.editor.add(on_curve) end
 
 --- Automate a parameter of a device. paw makes its lane, with a first point
 --- at its current value at the beat of the arrange cursor. paw shows the
---- lanes of the track as rows, with the cursor on the new lane, and tells you.
+--- lanes of the part as rows, with the cursor on the new lane, and tells you.
 ---@param device_id any
 ---@param key any
 function paw.curves.editor.automate(device_id, key) end
@@ -2593,7 +2593,7 @@ function paw.diagnostic.group(prefix, severity) end
 function paw.diagnostic.jump(dir, count) end
 
 --- The kind of item that a diagnostic is about, to make groups: clip,
---- track, device, time, project, render, or the kind of an extension.
+--- part, device, time, project, render, or the kind of an extension.
 ---@param d any
 function paw.diagnostic.kind(d) end
 
@@ -2602,7 +2602,7 @@ function paw.diagnostic.kind(d) end
 ---@param target any
 function paw.diagnostic.list(target) end
 
---- The marks of the window in other views. Each track (by id) has the worst
+--- The marks of the window in other views. Each part (by id) has the worst
 --- severity about it, its devices or its sends, and the first message.
 --- The ranges of time are also marks.
 function paw.diagnostic.marks() end
@@ -2618,7 +2618,7 @@ function paw.diagnostic.notes_of(d) end
 ---@param p any
 ---@param id any
 ---@param offset any
-function paw.diagnostic.paint_part(p, id, offset) end
+function paw.diagnostic.paint_portion(p, id, offset) end
 
 --- Mark the diagnostics of each clip that the piano roll edits, as one of
 --- its layers. Each note has a line below it in the color of its severity.
@@ -2718,7 +2718,7 @@ function paw.draw.braille(bits) end
 ---@param gap any
 function paw.draw.chips(buf, x, y, list, gap) end
 
---- Put out a track's clip light and let its loudest of late fall.
+--- Put out a part's clip light and let its loudest of late fall.
 ---@param id any
 function paw.draw.clear_peak(id) end
 
@@ -2760,7 +2760,7 @@ function paw.draw.hold(key, peak) end
 ---   title, body         a clip's name row and the rows under it
 ---   title_cur, body_cur the same for the clip under the cursor (or chosen)
 ---   title_off, body_off the same for a muted clip
----   lane_sel            the background of the selected track's lane
+---   lane_sel            the background of the selected part's lane
 ---   note, note_soft, note_faint   notes, loud to quiet
 ---   pill                dark text on the colour
 ---   plate               a name plate: light text on a deep shade
@@ -2781,7 +2781,7 @@ function paw.draw.hue(colour) end
 ---@param jumped any
 function paw.draw.jump_scroll(ax, target, span, jumped) end
 
---- A row of keys and their actions, for a line of hints: `{ { "o", "new track" }, ... }`,
+--- A row of keys and their actions, for a line of hints: `{ { "o", "new part" }, ... }`,
 --- with a faint dot between them. `? keys` is always the last when it is in
 --- the list. Returns the columns used. The entries that do not fit are not shown.
 ---@param buf any
@@ -2814,7 +2814,7 @@ function paw.draw.meter(buf, x, y, width, peak, hold) end
 ---@param hold any
 function paw.draw.meter_shown(width, peak, hold) end
 
---- True while a track meter drawn lately (`track_peak`) still shows a
+--- True while a part meter drawn lately (`part_peak`) still shows a
 --- level: it is not at rest yet.
 function paw.draw.meters_falling() end
 
@@ -2862,6 +2862,24 @@ function paw.draw.pan(buf, x, y, width, pan, style) end
 --- Where a pan from -1 to 1 points, in a few cells: `L30`, `C`, `R100`.
 ---@param pan any
 function paw.draw.pan_text(pan) end
+
+--- The color of a part: its own color if it has one. If not, a color of
+--- the theme, by the place of the part in the part list.
+---@param part any
+---@param index any
+function paw.draw.part_colour(part, index) end
+
+--- The hue of the color of a part, from 0 to 360.
+---@param part any
+---@param index any
+function paw.draw.part_hue(part, index) end
+
+--- The meter of a part as the mixer shows it, in a terminal and in a
+--- window (`scene.live`). It gives the two sides and the loudest recent
+--- peak. It also tells if the part reached full scale after the last
+--- `clear_peak` for it.
+---@param id any
+function paw.draw.part_peak(id) end
 
 --- One row of a keyboard on its side, `width` cells wide, for the left edge
 --- of a piano roll. Black keys are short. The Cs have their names, and the
@@ -2932,24 +2950,6 @@ function paw.draw.term_def(def, truecolor) end
 ---@param sub any
 ---@param kind any
 function paw.draw.trace(width, samples, y, sub, kind) end
-
---- The color of a track: its own color if it has one. If not, a color of
---- the theme, by the place of the track in the track list.
----@param track any
----@param index any
-function paw.draw.track_colour(track, index) end
-
---- The hue of the color of a track, from 0 to 360.
----@param track any
----@param index any
-function paw.draw.track_hue(track, index) end
-
---- The meter of a track as the mixer shows it, in a terminal and in a
---- window (`scene.live`). It gives the two sides and the loudest recent
---- peak. It also tells if the track reached full scale after the last
---- `clear_peak` for it.
----@param id any
-function paw.draw.track_peak(id) end
 
 --- True if the terminal shows 24-bit color. `paw.opt.termcolors` is "true"
 --- or "256". With "auto" (the default), the environment tells: COLORTERM of
@@ -3034,7 +3034,7 @@ paw.events.on = paw.on
 
 paw.events.once = paw.once
 
---- The descriptor of a pattern of events (`track.*`, `*`): its handlers
+--- The descriptor of a pattern of events (`part.*`, `*`): its handlers
 --- read nothing of the payload without a cast.
 ---@param pattern any
 function paw.events.pattern(pattern) end
@@ -3073,12 +3073,12 @@ function paw.ex.change(item, sets, pattern) end
 ---@param line any
 function paw.ex.complete_pattern(line) end
 
---- What could finish a range being typed: marks after `'`, tracks after
+--- What could finish a range being typed: marks after `'`, parts after
 --- `t/`. Nil when the line is not in the middle of one.
 ---@param line any
 function paw.ex.complete_range(line) end
 
---- What a range covers, in words: "bars 5 to 8 on 2 tracks".
+--- What a range covers, in words: "bars 5 to 8 on 2 parts".
 ---@param r any
 function paw.ex.describe(r) end
 
@@ -3090,7 +3090,7 @@ function paw.ex.describe(r) end
 function paw.ex.exec(line, ctx) end
 
 --- A field that `:s` and `:g` patterns can name (`lyric:la`): `level`
---- (note, clip or track), `type`, `get(item)`, `set(item, value, change)`.
+--- (note, clip or part), `type`, `get(item)`, `set(item, value, change)`.
 ---@param name any
 ---@param spec any
 function paw.ex.field(name, spec) end
@@ -3103,7 +3103,7 @@ function paw.ex.go(r) end
 ---@param uri any
 function paw.ex.item_of(uri) end
 
---- The notes, clips or tracks (`kind`) a range holds, in the order they
+--- The notes, clips or parts (`kind`) a range holds, in the order they
 --- come in the song.
 ---@param r any
 ---@param kind any
@@ -3149,7 +3149,7 @@ function paw.ex.selection_range() end
 ---@param item any
 function paw.ex.show(item) end
 
---- What the views show now, for frontends and tests: `{ from, to, tracks,
+--- What the views show now, for frontends and tests: `{ from, to, parts,
 --- matches, notes, clips, current }`, or nil.
 function paw.ex.shown() end
 
@@ -3217,9 +3217,9 @@ function paw.export.lines(plan) end
 function paw.export.pick(range) end
 
 --- The plan of an export: the words as typed after `:export`, and the
---- range of tracks and time before it (`paw.ex.range("t2,t4 17,32")`, or
+--- range of parts and time before it (`paw.ex.range("t2,t4 17,32")`, or
 --- nil for the song). Gives `{ renders, left_out, notes, confirm }`.
---- Each render has its `file`, `tracks` (nil for the mix), `from`, `to`,
+--- Each render has its `file`, `parts` (nil for the mix), `from`, `to`,
 --- `when`, `tap` and `channels`. A plan that cannot be is an error with a
 --- clear message.
 ---@param words any
@@ -3335,11 +3335,11 @@ function paw.ext.satisfies(version, want) end
 --- the devices written in Lua and the plugin directories that it added. paw
 --- forgets its modules, so a new load runs them again.
 --- 
---- While a track contains one of its devices, paw does not unload it (as
+--- While a part contains one of its devices, paw does not unload it (as
 --- Neovim does not delete a buffer with changes). With `opts.force`, it
 --- unloads, and the devices stay and play until you remove them. paw cannot
 --- find them when you open the project again without the extension. Returns
---- true (with `opts.force`, the devices that stay on tracks, in words), or
+--- true (with `opts.force`, the devices that stay on parts, in words), or
 --- nil and the reason.
 ---@param name any
 ---@param opts any
@@ -3457,9 +3457,9 @@ function paw.files.watch() end
 ---@param win any
 function paw.folds.all(on, win) end
 
---- The fold at a track (the cursor's by default), in a window: the
+--- The fold at a part (the cursor's by default), in a window: the
 --- largest closed one, which its row stands for, else the smallest. Nil
---- when the track is in none. At the cursor, a closed time fold or a
+--- when the part is in none. At the cursor, a closed time fold or a
 --- block that the cursor is in comes first.
 ---@param id any
 ---@param win any
@@ -3475,7 +3475,7 @@ function paw.folds.block_at_cursor(win) end
 
 --- The closed block folds that a window draws (the one a view shows by
 --- default), in the order they were made: each draws one frame over the
---- rows of its tracks and its time. A block that holds all of the scope
+--- rows of its parts and its time. A block that holds all of the scope
 --- the window shows is open there.
 ---@param win any
 function paw.folds.blocks(win) end
@@ -3496,25 +3496,25 @@ function paw.folds.close(id, win) end
 ---@param win any
 function paw.folds.closed_at(win) end
 
---- The rows that a window draws, from the rows of its tracks without
---- its folds of tracks: each closed fold of tracks keeps its first row,
+--- The rows that a window draws, from the rows of its parts without
+--- its folds of parts: each closed fold of parts keeps its first row,
 --- which stands for all of it.
 ---@param rows any
 ---@param win any
 function paw.folds.collapse(rows, win) end
 
---- How many tracks of a fold are there.
+--- How many parts of a fold are there.
 ---@param f any
 function paw.folds.count(f) end
 
---- Delete the fold at a track (the cursor's by default), as `zd`: the
---- fold goes, its tracks stay, drawn as before. Returns it, or nil and the
+--- Delete the fold at a part (the cursor's by default), as `zd`: the
+--- fold goes, its parts stay, drawn as before. Returns it, or nil and the
 --- reason.
 ---@param id any
 ---@param win any
 function paw.folds.delete(id, win) end
 
---- What a fold holds, in words: `3 tracks`, `8 bars`, `2 tracks, 4 bars`.
+--- What a fold holds, in words: `3 parts`, `8 bars`, `2 parts, 4 bars`.
 ---@param f any
 function paw.folds.describe(f) end
 
@@ -3538,9 +3538,9 @@ function paw.folds.level(delta, win) end
 function paw.folds.list(win) end
 
 --- Make a fold of what a scope covers (`zf{motion}`), closed, in a
---- window: a group folds into its row (`zfag`), tracks into one row named
---- `Fold 1` (`Vjjzf`), a region or bars on every track into a column
---- (`zfar`), and some tracks for some bars into one frame (a visual block,
+--- window: a group folds into its row (`zfag`), parts into one row named
+--- `Fold 1` (`Vjjzf`), a region or bars on every part into a column
+--- (`zfar`), and some parts for some bars into one frame (a visual block,
 --- then `zf`). Returns it, or nil and the reason.
 ---@param spec any
 ---@param win any
@@ -3558,12 +3558,17 @@ function paw.folds.open(id, win) end
 
 paw.folds.over = paw.cursor.over
 
---- The cursor does not stay on a track that is folded away: it goes to the
+--- The names of the parts of a block fold: `Piano, Pad`, or with more
+--- than three, the first and how many more: `Piano +4`.
+---@param f any
+function paw.folds.part_names(f) end
+
+--- The cursor does not stay on a part that is folded away: it goes to the
 --- row that stands for it.
 function paw.folds.reveal() end
 
---- The closed fold of tracks that the row of a track stands for in a
---- window (the one a view shows by default), or nil: the track is the
+--- The closed fold of parts that the row of a part stands for in a
+--- window (the one a view shows by default), or nil: the part is the
 --- first row of that fold.
 ---@param id any
 ---@param win any
@@ -3589,16 +3594,11 @@ function paw.folds.time_at(beat, win) end
 ---@param win any
 function paw.folds.time_spans(win) end
 
---- Toggle the fold at a track (the cursor's by default), as `za`.
+--- Toggle the fold at a part (the cursor's by default), as `za`.
 --- Returns it, or nil and the reason.
 ---@param id any
 ---@param win any
 function paw.folds.toggle(id, win) end
-
---- The names of the tracks of a block fold: `Piano, Pad`, or with more
---- than three, the first and how many more: `Piano +4`.
----@param f any
-function paw.folds.track_names(f) end
 
 --- Write the project with the format of a file. Says what it did.
 ---@param path any
@@ -3648,44 +3648,44 @@ function paw.formats.split_args(line) end
 ---@param name any
 function paw.formats.unregister(name) end
 
---- What `K` says of a frozen track, or of a track held in one: "frozen, up
+--- What `K` says of a frozen part, or of a part held in one: "frozen, up
 --- to date", "frozen, stale: Drums changed since: devices", "held in
---- Drums, which is frozen, up to date". Nil for a track that plays live.
----@param track any
-function paw.freeze.describe(track) end
+--- Drums, which is frozen, up to date". Nil for a part that plays live.
+---@param part any
+function paw.freeze.describe(part) end
 
---- Freeze a track or a group: render it, and play the file from now on.
+--- Freeze a part or a group: render it, and play the file from now on.
 --- `opts.tail` is the seconds rendered after the song's end (2). One undo
 --- step. Returns the file.
----@param track any
+---@param part any
 ---@param opts any
-function paw.freeze.freeze(track, opts) end
+function paw.freeze.freeze(part, opts) end
 
---- What a frozen track was frozen to, `{ file, key }`, or nil. The `key`
+--- What a frozen part was frozen to, `{ file, key }`, or nil. The `key`
 --- says what the file was made from.
----@param track any
-function paw.freeze.frozen(track) end
+---@param part any
+function paw.freeze.frozen(part) end
 
---- The frozen track a track sounds through, if any: the one whose file
+--- The frozen part a part sounds through, if any: the one whose file
 --- holds its sound.
----@param track any
-function paw.freeze.holder(track) end
+---@param part any
+function paw.freeze.holder(part) end
 
 --- The render options of a freeze: the whole song from its start, the
---- track alone before its fader, as 32-bit float. So the file plays
---- what the track did.
----@param track any
+--- part alone before its fader, as 32-bit float. So the file plays
+--- what the part did.
+---@param part any
 ---@param opts any
-function paw.freeze.render_opts(track, opts) end
+function paw.freeze.render_opts(part, opts) end
 
---- "frozen", "held" (its sound is in a frozen track it feeds), or nil.
----@param track any
-function paw.freeze.state(track) end
+--- "frozen", "held" (its sound is in a frozen part it feeds), or nil.
+---@param part any
+function paw.freeze.state(part) end
 
---- Play a frozen track's clips and devices again. The file stays where it
+--- Play a frozen part's clips and devices again. The file stays where it
 --- is, as undo can bring the freeze back.
----@param track any
-function paw.freeze.unfreeze(track) end
+---@param part any
+function paw.freeze.unfreeze(part) end
 
 --- What `K` says of a frozen block: "frozen, up to date", "frozen,
 --- stale: Ballad changed since: clips". Nil for a block that plays live.
@@ -3792,13 +3792,13 @@ function paw.frontend.float(width, height) end
 ---@param value any
 function paw.frontend.format_value(param, value) end
 
---- The menu of the input of a track: the choices of `paw.audio.choices`
+--- The menu of the input of a part: the choices of `paw.audio.choices`
 --- under their headings, `audio`, `midi` and `channel`. It also gives the
---- MIDI output of the track: `midi_out`, `midi_out_channel` and
+--- MIDI output of the part: `midi_out`, `midi_out_channel` and
 --- `midi_out_form`. Each is a list of `{ label, checked }`.
 --- `act.choose_input` takes one by heading and place.
----@param track any
-function paw.frontend.input_menu(track) end
+---@param part any
+function paw.frontend.input_menu(part) end
 
 --- What a lane moves, in words: `Volume`, `Pan`, `Synth · cutoff`.
 ---@param lane any
@@ -3827,9 +3827,9 @@ function paw.frontend.menu(kind, args) end
 
 --- The menu of the other output pairs of a device. For each pair, it gives
 --- `{ label, choices }`. The label names the pair and where it plays. The
---- choices (`{ label, checked }`) are "Nowhere" and the tracks that it can
+--- choices (`{ label, checked }`) are "Nowhere" and the parts that it can
 --- play into. `act.route_pair` takes one. `act.spread_outputs` makes a
---- track for each pair that plays nowhere.
+--- part for each pair that plays nowhere.
 ---@param device any
 function paw.frontend.outputs_menu(device) end
 
@@ -3862,14 +3862,14 @@ function paw.frontend.refresh() end
 --- (`formats`: `{ mp3 = true, ogg = false, ... }`).
 function paw.frontend.render_dialog() end
 
---- Where a track's sound goes, for a frontend to show and change:
----   output   the name of the track it plays into ("Master" without one)
----   targets  the tracks it could play into or send to, `{ id, name }` each;
+--- Where a part's sound goes, for a frontend to show and change:
+---   output   the name of the part it plays into ("Master" without one)
+---   targets  the parts it could play into or send to, `{ id, name }` each;
 ---            the master is first, with id 0
 ---   sends    `{ target, name, level, pre }` each, levels in dB
---- A track cannot play into itself or into a track that plays into it.
----@param track any
-function paw.frontend.routing(track) end
+--- A part cannot play into itself or into a part that plays into it.
+---@param part any
+function paw.frontend.routing(part) end
 
 --- Save the project under a new name: type it at a prompt that starts with
 --- the name of the project. A relative name goes where `:w name` puts it
@@ -3878,18 +3878,18 @@ function paw.frontend.routing(track) end
 ---@param after any
 function paw.frontend.save_as(after) end
 
---- A track's sends as `{ name, level }`, the level in dB.
----@param track any
-function paw.frontend.send_list(track) end
+--- A part's sends as `{ name, level }`, the level in dB.
+---@param part any
+function paw.frontend.send_list(part) end
 
---- The menu of the side-chain of a device: "None" first, then the tracks
+--- The menu of the side-chain of a device: "None" first, then the parts
 --- that it can listen to. The last item tells if it takes the sound before
 --- their fader. Each is `{ label, checked }`.
 --- `act.choose_sidechain` takes one by place.
 ---@param device any
 function paw.frontend.sidechain_menu(device) end
 
---- The data that paw sends to a graphical frontend: transport, tracks,
+--- The data that paw sends to a graphical frontend: transport, parts,
 --- clips, devices and the modal state, as plain data. `known` is a list of
 --- the data that the frontend has already.
 ---@param known any
@@ -3910,7 +3910,7 @@ function paw.frontend.take_preview(id, take, points) end
 ---@param clip any
 function paw.frontend.take_rows(clip) end
 
---- What a track is in VCA terms, for a strip: a VCA's members by name, a
+--- What a part is in VCA terms, for a strip: a VCA's members by name, a
 --- member's VCAs by name, joined by commas.
 ---@param id any
 function paw.frontend.vca_words(id) end
@@ -3922,13 +3922,13 @@ function paw.frontend.vca_words(id) end
 function paw.frontend.window_renderer_set(info) end
 
 --- Add a device as a person does, from the device picker, the "Add a device"
---- box of the window or `:device.add`. It works as `track:add_device`. Then
+--- box of the window or `:device.add`. It works as `part:add_device`. Then
 --- a plugin with a window shows its window (`paw.opt.editor_on_add`), as
 --- REAPER does. Some instruments make no sound until their window opens one time.
----@param track any
+---@param part any
 ---@param kind any
 ---@param opts any
-function paw.fx.add(track, kind, opts) end
+function paw.fx.add(part, kind, opts) end
 
 --- The second half of `add`, once the device is there: remembered as used,
 --- its window shown.
@@ -4019,19 +4019,19 @@ function paw.fx.pick(device) end
 ---@param device any
 function paw.fx.pick_param(device) end
 
---- The first half of `add`: the device on the track, set to the preset new
+--- The first half of `add`: the device on the part, set to the preset new
 --- ones start from. What the device picker tries out before it is chosen.
----@param track any
+---@param part any
 ---@param kind any
 ---@param opts any
-function paw.fx.place(track, kind, opts) end
+function paw.fx.place(part, kind, opts) end
 
---- The kind of device that a track probably needs next. "instrument" is
---- for a track that makes sound from MIDI and has no instrument yet.
---- "effect" is for the other tracks (a track with an instrument, the
---- master, a track of audio).
----@param track_id any
-function paw.fx.preferred(track_id) end
+--- The kind of device that a part probably needs next. "instrument" is
+--- for a part that makes sound from MIDI and has no instrument yet.
+--- "effect" is for the other parts (a part with an instrument, the
+--- master, a part of audio).
+---@param part_id any
+function paw.fx.preferred(part_id) end
 
 --- Every preset of the device: the user's first, then the factory's.
 ---@param device any
@@ -4066,7 +4066,7 @@ function paw.fx.save(device, name) end
 ---@param wanted any
 function paw.fx.search(query, limit, wanted) end
 
---- Put the device panel's row on a device of the cursor track.
+--- Put the device panel's row on a device of the cursor part.
 ---@param id any
 function paw.fx.select(id) end
 
@@ -4135,7 +4135,7 @@ function paw.grep.reader() end
 
 --- Every record of every source, in the order the sources were added.
 --- A source that fails is passed over and logged. paw keeps the records of
---- the tracks and the clips from one search to the next, so read a record
+--- the parts and the clips from one search to the next, so read a record
 --- and don't change it.
 function paw.grep.records() end
 
@@ -4157,15 +4157,15 @@ function paw.grep.source(name, fn) end
 ---@param opts any
 function paw.grep.vimgrep(line, opts) end
 
---- Put a track into a group: it then sounds through the group, unless it
+--- Put a part into a group: it then sounds through the group, unless it
 --- was sent somewhere of its own.
----@param track any
+---@param part any
 ---@param group any
-function paw.groups.add(track, group) end
+function paw.groups.add(part, group) end
 
---- How many groups a track is inside.
----@param track any
-function paw.groups.depth(track) end
+--- How many groups a part is inside.
+---@param part any
+function paw.groups.depth(part) end
 
 --- Undo a group: its members go up a level and the group, if it holds
 --- nothing of its own (no clips, no devices), goes away.
@@ -4178,7 +4178,7 @@ function paw.groups.dissolve(group) end
 ---@param on any
 function paw.groups.fold(group, on) end
 
---- True if the tracks of a group are folded and hidden, in the window a
+--- True if the parts of a group are folded and hidden, in the window a
 --- view shows (paw/folds.tl).
 ---@param group any
 function paw.groups.folded(group) end
@@ -4187,24 +4187,24 @@ function paw.groups.folded(group) end
 ---@param group any
 function paw.groups.gather(group) end
 
---- True if a track is hidden: inside a folded group. Inside group `top`
+--- True if a part is hidden: inside a folded group. Inside group `top`
 --- (the group of a narrowed window), only the groups inside it count. `top`
 --- itself is open there.
----@param track any
+---@param part any
 ---@param top any
-function paw.groups.hidden(track, top) end
+function paw.groups.hidden(part, top) end
 
---- The group that a new track goes into when it is added next to `track`
+--- The group that a new part goes into when it is added next to `part`
 --- (`o`, `O`, `:nest.new`): below an open group's own row, that group;
---- else the group of `track`. Nil at the top level, and for a group in
---- another place (a subproject) than `track`.
----@param track any
+--- else the group of `part`. Nil at the top level, and for a group in
+--- another place (a subproject) than `part`.
+---@param part any
 ---@param above any
-function paw.groups.home(track, above) end
+function paw.groups.home(part, above) end
 
---- True if a track is a group.
----@param track any
-function paw.groups.is_group(track) end
+--- True if a part is a group.
+---@param part any
+function paw.groups.is_group(part) end
 
 --- Link the faders of a group's members, or let them go: `on` nil flips it.
 ---@param group any
@@ -4217,37 +4217,37 @@ function paw.groups.link(group, on) end
 ---@param group any
 function paw.groups.linked(group) end
 
---- A new group that contains `tracks` (ids or tracks), above the first of
---- them. Returns the track of the group.
----@param tracks any
+--- A new group that contains `parts` (ids or parts), above the first of
+--- them. Returns the part of the group.
+---@param parts any
 ---@param name any
-function paw.groups.make(tracks, name) end
+function paw.groups.make(parts, name) end
 
---- The tracks that belong to a group, in the order of the track list.
+--- The parts that belong to a group, in the order of the part list.
 ---@param group any
 function paw.groups.members(group) end
 
---- The group a track belongs to (its id), or nil.
----@param track any
-function paw.groups.of(track) end
+--- The group a part belongs to (its id), or nil.
+---@param part any
+function paw.groups.of(part) end
 
---- Remove a track from its group, up one level. It sounds where the group
+--- Remove a part from its group, up one level. It sounds where the group
 --- sounds, and it is in the parent group of the group, if any. It moves out
 --- of the rows of the group, unless `stay`.
----@param track any
+---@param part any
 ---@param stay any
-function paw.groups.remove(track, stay) end
+function paw.groups.remove(part, stay) end
 
---- The tracks that are drawn, in order: all but those folded away in the
+--- The parts that are drawn, in order: all but those folded away in the
 --- window (`paw.folds`), and in a scope only those of the scope (`paw.scope`). Rows of the
 --- arrange view and of a graphical frontend are places in this list.
---- With `{ lanes = true }`, every row: `{ track = id }` for a track and
---- `{ track = id, lane = id }` for an automation lane shown under it
+--- With `{ lanes = true }`, every row: `{ part = id }` for a part and
+--- `{ part = id, lane = id }` for an automation lane shown under it
 --- (see `paw.lanes`).
 ---@param opts any
 function paw.groups.rows(opts) end
 
---- The tracks to draw under a row that is open in place, or nil
+--- The parts to draw under a row that is open in place, or nil
 --- (`paw.groups.rows` asks for each row).
 ---@param row any
 function paw.groups.under(row) end
@@ -4320,10 +4320,10 @@ function paw.harmony.in_key(key, pitch) end
 --- Forget the reading: a provider whose answer changed calls this.
 function paw.harmony.invalidate() end
 
---- True if the harmony does not use a track: a drum track (a drum map in
+--- True if the harmony does not use a part: a drum part (a drum map in
 --- its meta, as the drums extension keeps it, or a drum device or name).
----@param track any
-function paw.harmony.is_drums(track) end
+---@param part any
+function paw.harmony.is_drums(part) end
 
 --- The key at `beat` (the start when nil): the last key marker at or before
 --- it (`mk`, `key D minor`), or the key of a region over it, else the
@@ -4358,12 +4358,12 @@ function paw.harmony.marked_key(beat) end
 ---@param beat any
 function paw.harmony.next(beat) end
 
---- Each note of the pitched tracks, in project beats, each with `track` and
---- `clip`. The list does not contain muted clips and tracks, or notes that a
+--- Each note of the pitched parts, in project beats, each with `part` and
+--- `clip`. The list does not contain muted clips and parts, or notes that a
 --- trim of the edges of the clip hides. paw keeps the list until the project
 --- changes. This is what sounds, for the reading and for snippets. The
 --- context notes of the piano roll, `paw.roll_clips.context`, are what the
---- roll shows, in its own beats, and only of the tracks selected to show.
+--- roll shows, in its own beats, and only of the parts selected to show.
 function paw.harmony.notes() end
 
 --- A chord from its symbol: "G7", "F#m7b5", "C/E", "Bbmaj7". Nil when it
@@ -4408,12 +4408,12 @@ function paw.harmony.provide(name, fn, priority) end
 --- The provider the current reading came from.
 function paw.harmony.provider() end
 
---- The range of a part for a track, `{ low, high, name }`. This is the
---- range of the track (`track.meta.range = { low, high }`). If not, paw
+--- The range of the music for a part, `{ low, high, name }`. This is the
+--- range of the part (`part.meta.range = { low, high }`). If not, paw
 --- guesses it from the words of its name and the names of its devices. If
 --- not, it is C3 to C6.
----@param track any
-function paw.harmony.range(track) end
+---@param part any
+function paw.harmony.range(part) end
 
 --- Names of the known scales, sorted.
 function paw.harmony.scale_names() end
@@ -4521,11 +4521,11 @@ function paw.harmony.read.key_path(notes_hist, bars, chords, pause) end
 ---@param chords any
 function paw.harmony.read.keys(notes, bars, chords) end
 
---- The parts of one stretch of time, or of stretches side by side, as
---- one part: the weights add up, and the lowest pitch over time is the
---- lowest of theirs. One part that sounds gives that part.
----@param parts any
-function paw.harmony.read.merge(parts) end
+--- The portions of one stretch of time, or of stretches side by side, as
+--- one portion: the weights add up, and the lowest pitch over time is the
+--- lowest of theirs. One portion that sounds gives that portion.
+---@param portions any
+function paw.harmony.read.merge(portions) end
 
 --- What the notes of `run`, `offset` beats later, sound from `from` to
 --- `to` (a `Part`). A note counts for how long it sounds there, a short
@@ -4535,7 +4535,7 @@ function paw.harmony.read.merge(parts) end
 ---@param offset any
 ---@param from any
 ---@param to any
-function paw.harmony.read.part(run, offset, from, to) end
+function paw.harmony.read.portion(run, offset, from, to) end
 
 --- Notes as a `Run`: `notes` sorted by start, in their order.
 ---@param notes any
@@ -4834,6 +4834,7 @@ function paw.insert.set(key, patch) end
 function paw.insert.start() end
 
 --- Run `fn` after paw gets and does the next whole command. Insert mode uses
+--- it for Ctrl-o, to return to insert mode after one command.
 ---@param fn any
 function paw.keymap.after_next(fn) end
 
@@ -4850,6 +4851,7 @@ function paw.keymap.all(view) end
 function paw.keymap.change(n) end
 
 --- Record a change that is not an edit of the project (the lines of a text
+--- buffer). Then `.` repeats the command that made it.
 function paw.keymap.changed() end
 
 --- The places edits happened in a view, oldest first.
@@ -4860,7 +4862,7 @@ function paw.keymap.changes(view) end
 --- `paw.opt.keys` is "classic", now or later. It goes over the mapping that
 --- the rule gives the same keys. paw removes it again when the option
 --- changes back. A false `rhs` removes the keys.
----   paw.keymap.classic("j", "track.volume by=-1", { view = "mixer", desc = "Volume down 1 dB" })
+---   paw.keymap.classic("j", "part.volume by=-1", { view = "mixer", desc = "Volume down 1 dB" })
 ---@param lhs any
 ---@param rhs any
 ---@param opts any
@@ -4878,6 +4880,7 @@ function paw.keymap.del(lhs, opts) end
 ---@param all any
 function paw.keymap.delmarks(spec, all) end
 
+--- Handle one key as if the user typed it. The kernel calls this. Scripts use `feed`.
 ---@param key any
 function paw.keymap.dispatch(key) end
 
@@ -4891,7 +4894,9 @@ function paw.keymap.each(fn) end
 --- a snippet). When none of them ended anything, a second one within two
 --- seconds outside the arrange view says how to leave: `how`, or the keys
 --- that leave any view. A view that maps `<Esc>` calls it when it has
-function paw.keymap.escape_hint() end
+--- nothing of its own to cancel.
+---@param how any
+function paw.keymap.escape_hint(how) end
 
 --- Every mapping in every mode and scope, sorted by scope, mode and keys.
 --- What checks the key rules walks (`tests/keys_constitution.lua`).
@@ -4901,6 +4906,7 @@ function paw.keymap.every() end
 ---@param lhs any
 function paw.keymap.expand(lhs) end
 
+--- Type keys as if from the keyboard: `paw.keymap.feed("jj<Space>")`.
 ---@param keys any
 function paw.keymap.feed(keys) end
 
@@ -4929,6 +4935,7 @@ function paw.keymap.goto_mark(name) end
 ---@param opts any
 function paw.keymap.group(prefix, name, opts) end
 
+--- The name given to a prefix with `group`, if any.
 ---@param keys any
 function paw.keymap.group_name(keys) end
 
@@ -4941,6 +4948,7 @@ function paw.keymap.groups() end
 function paw.keymap.has(mode, map) end
 
 --- The keys that can come after the typed keys, when the user stops to
+--- type: a list of { key, desc }, and a title. Nil when there is nothing to show.
 function paw.keymap.hints() end
 
 --- Keys as a person writes them: `<A-h>` is `Alt-h`, `<leader>at` is `Space at`,
@@ -4970,10 +4978,12 @@ function paw.keymap.mark(name) end
 function paw.keymap.marks(view) end
 
 --- Type keys from inside a mapping, as `:normal` does. The keys run as a
+--- part of the current command, not as a separate command.
 ---@param keys any
 function paw.keymap.normal(keys) end
 
 --- Run `fn` once, before the next key is handled: for what waits until the
+--- person is back at the keyboard (a file changed outside paw).
 ---@param fn any
 function paw.keymap.on_next_key(fn) end
 
@@ -4995,6 +5005,7 @@ function paw.keymap.operator(lhs, fn, opts) end
 ---@param lhs any
 function paw.keymap.parse(lhs) end
 
+--- The keys typed for a command that is not complete, for display: `"a2d3`.
 function paw.keymap.pending() end
 
 --- Play the keys in a register `n` times. `@` as the name plays the last register again.
@@ -5024,9 +5035,11 @@ function paw.keymap.recording() end
 
 --- Make `.` repeat `keys` (a list of keys), not the keys typed for the
 --- command that runs now. `:adjust` does it, so that `.` does the adjusted
+--- command again.
 ---@param keys any
 function paw.keymap.repeat_as(keys) end
 
+--- Do the last change again, with `n` in place of its count if given.
 ---@param n any
 function paw.keymap.repeat_last(n) end
 
@@ -5056,7 +5069,7 @@ function paw.keymap.search_next(dir, n) end
 function paw.keymap.selection() end
 
 --- Map keys.
----   paw.keymap.set("M", "track.mute", { desc = "Mute track" })
+---   paw.keymap.set("M", "part.mute", { desc = "Mute part" })
 ---   paw.keymap.set("<leader>mz", function(ctx) ... end, { desc = "Check the mix" })
 --- `ctx` has `count`, `register` and, for mappings made with `char = true`,
 --- the key typed after the mapping as `char`.
@@ -5141,7 +5154,7 @@ function paw.keyrule.broken() end
 --- Named groups of keys that lead to no key, as "scope keys (name)".
 function paw.keyrule.lost_groups() end
 
---- True if a track has its lanes open.
+--- True if a part has its lanes open.
 function paw.lanes.any_open() end
 
 --- Change the lane's points with `fn(points)`, which edits the list in place.
@@ -5154,11 +5167,11 @@ function paw.lanes.edit(lane_id, fn) end
 ---@param value any
 function paw.lanes.format(lane, value) end
 
---- True if the lanes of a track show as rows.
----@param track any
-function paw.lanes.is_open(track) end
+--- True if the lanes of a part show as rows.
+---@param part any
+function paw.lanes.is_open(part) end
 
---- Every row of the arrange view in order: each track drawn, then its lanes
+--- Every row of the arrange view in order: each part drawn, then its lanes
 --- when they are open.
 function paw.lanes.lines() end
 
@@ -5166,10 +5179,10 @@ function paw.lanes.lines() end
 ---@param lane any
 function paw.lanes.name(lane) end
 
---- Show a track's lanes as rows, or hide them (`on` false).
----@param track any
+--- Show a part's lanes as rows, or hide them (`on` false).
+---@param part any
 ---@param on any
-function paw.lanes.open(track, on) end
+function paw.lanes.open(part, on) end
 
 --- The parameter a lane moves: its name, and the parameter's description
 --- for a device's lane.
@@ -5183,18 +5196,18 @@ function paw.lanes.param_of(lane) end
 ---@param reach any
 function paw.lanes.point_at(lane_id, beat, reach) end
 
---- The lanes shown under a track: none when they are closed.
----@param track any
-function paw.lanes.shown(track) end
+--- The lanes shown under a part: none when they are closed.
+---@param part any
+function paw.lanes.shown(part) end
 
 --- How far `+` and `-` move a point: a dB, 5% of pan, one choice, or a
 --- hundredth of the parameter's range.
 ---@param lane any
 function paw.lanes.step(lane) end
 
---- Show the automation lanes of a track, or hide them. Returns true if they show.
----@param track any
-function paw.lanes.toggle(track) end
+--- Show the automation lanes of a part, or hide them. Returns true if they show.
+---@param part any
+function paw.lanes.toggle(part) end
 
 --- What a lane's target is at a beat: the curve's value, or with no points
 --- yet the target's own value.
@@ -5338,7 +5351,7 @@ function paw.layout.capture(scopes) end
 
 --- The clip a name of a window's thing stands for: an id (`7`), an
 --- address (`paw://clip/7`) or the name of a clip, the first in the order
---- of the tracks. Nil if there is none.
+--- of the parts. Nil if there is none.
 ---@param target any
 function paw.layout.clip_named(target) end
 
@@ -5408,7 +5421,7 @@ function paw.layout.exchange(count) end
 
 --- A tree of windows as plain data, for `paw.layouts` and to save. With
 --- `scopes`, each window's scope stack too: the project's screen keeps
---- them, a named layout does not (its tracks are another project's).
+--- them, a named layout does not (its parts are another project's).
 ---@param node any
 ---@param scopes any
 function paw.layout.export(node, scopes) end
@@ -5747,7 +5760,7 @@ function paw.layout.within(win, fn, ...) end
 ---@param target any
 function paw.learn.bind(source, target) end
 
---- The bindings: { { source, channel, number, track, target, device, param }, ... }.
+--- The bindings: { { source, channel, number, part, target, device, param }, ... }.
 function paw.learn.bindings() end
 
 --- What moves a target: its binding, or nil.
@@ -5778,7 +5791,7 @@ function paw.learn.source_name(b) end
 ---@param target any
 function paw.learn.start(target) end
 
---- The target a word names on the selected track: "volume", "pan", or a
+--- The target a word names on the selected part: "volume", "pan", or a
 --- parameter of one of its devices by key or name.
 ---@param word any
 function paw.learn.target_for(word) end
@@ -5791,7 +5804,7 @@ function paw.learn.target_name(t) end
 --- `press(binding, down)` (down is false when it is let go), `name(target)`
 --- (the text of `:learn.list`), and optionally `check(target)` (an error for
 --- a target that is not right), `words` (the words of `:learn` that name it),
---- `target_for(word, track)` (the target of a word, or nil) and
+--- `target_for(word, part)` (the target of a word, or nil) and
 --- `under_cursor(focused)` (the target under the cursor of a view, or nil).
 --- A target can keep a number in `slot`, such as a row.
 ---@param name any
@@ -5967,7 +5980,7 @@ function paw.lsp.complete_cancel() end
 ---                and `diagnostic(finding, doc)` (a location, fixes)
 ---   framing      "lines" (newline-delimited JSON, the default) or "headers" (Content-Length)
 ---   adapter      the dialect, by name or as a table (LSP's own by default)
----   attach       { subjects = { "clip", "mix", ... }, where = { focus, tracks = { "Flute*" }, drums } }
+---   attach       { subjects = { "clip", "mix", ... }, where = { focus, parts = { "Flute*" }, drums } }
 ---   settings     sent at initialize and with `workspace/didChangeConfiguration`
 ---   init_options sent once, as `initializationOptions`
 ---   restart      { max = 3, within_s = 60 }: restarts after it dies (none by default)
@@ -6090,7 +6103,7 @@ function paw.lsp.document_module.key(beat) end
 
 --- A value that changes each time the data that paw would send about a clip
 --- changes, and that is fast to make. It contains the notes of the clip,
---- its position, the tracks around it, the tempo map and the key. Nil when
+--- its position, the parts around it, the tempo map and the key. Nil when
 --- the clip does not exist.
 ---@param id any
 function paw.lsp.document_module.key_of(id) end
@@ -6314,7 +6327,7 @@ function paw.media.edits(clip) end
 ---@param db any
 function paw.media.gain_part(clip, from, to, db) end
 
---- Join audio clips of one track into one clip that plays a new file: the
+--- Join audio clips of one part into one clip that plays a new file: the
 --- clips of the list, by id or as clips. A list of one clip joins it and
 --- each audio clip that touches or overlaps it. Lua can also give one clip
 --- without a list. Returns { id, file, glued }.
@@ -6374,8 +6387,8 @@ function paw.media.search(dir) end
 function paw.midifile.encode(file) end
 
 --- Write a format 1 MIDI file with the tempo map, time signatures and
---- markers. It contains the whole project, `opts.tracks` (tracks or ids),
---- or only `opts.clips` (ids), with one track of the file for each track
+--- markers. It contains the whole project, `opts.parts` (parts or ids),
+--- or only `opts.clips` (ids), with one track of the file for each part
 --- that has notes or moves. `opts.from` and `opts.to` keep the notes and
 --- moves that start in that time, at their place in the song. Returns the
 --- number of notes written.
@@ -6383,22 +6396,22 @@ function paw.midifile.encode(file) end
 ---@param opts any
 function paw.midifile.export(path, opts) end
 
---- Import a MIDI file into the project. Its parts go on new tracks below
---- the track of the cursor, at the cursor (or `opts.start`). With
---- `opts.track`, all of it goes as one clip on that track. The tempo map
+--- Import a MIDI file into the project. Its parts go on new parts below
+--- the part of the cursor, at the cursor (or `opts.start`). With
+--- `opts.part`, all of it goes as one clip on that part. The tempo map
 --- does not change, unless `opts.tempo`. Then the tempo map of the file
 --- applies from its start. paw adds the markers of the file. Returns
---- { tracks, clips, notes, skipped }.
+--- { parts, clips, notes, skipped }.
 ---@param path any
 ---@param opts any
 function paw.midifile.import(path, opts) end
 
---- Bring a MIDI 2.0 clip file in as a clip that refers to it, on a track at
+--- Bring a MIDI 2.0 clip file in as a clip that refers to it, on a part at
 --- a beat. The first edit makes it the project's own. Returns the clip.
 ---@param path any
----@param track any
+---@param part any
 ---@param start any
-function paw.midifile.import_clip(path, track, start) end
+function paw.midifile.import_clip(path, part, start) end
 
 --- True if a path names a MIDI 2.0 clip file (`.midi2`), from its ending.
 ---@param path any
@@ -6414,13 +6427,13 @@ function paw.midifile.is_midi_file(path) end
 function paw.midifile.lost_text() end
 
 --- Open a MIDI file as a new project with no file (see the top of this
---- file). Returns { tracks, notes, skipped }. If paw cannot read the file,
+--- file). Returns { parts, notes, skipped }. If paw cannot read the file,
 --- it raises an error, and the open project does not change.
 ---@param path any
 function paw.midifile.open(path) end
 
 --- Open a MIDI 2.0 clip file alone, as a new project with no file: one
---- track that plays it on the default instrument, the clip, and the piano
+--- part that plays it on the default instrument, the clip, and the piano
 --- roll on it. `:w` writes the clip back to its file. Returns the clip.
 ---@param path any
 function paw.midifile.open_clip(path) end
@@ -6447,7 +6460,7 @@ function paw.midifile.open_clip(path) end
 ---@param data any
 function paw.midifile.parse(data) end
 
---- The data for one track: { name, channel, drums, notes, controls }, in
+--- The data for one part: { name, channel, drums, notes, controls }, in
 --- ticks. paw splits the one track of a format 0 file by channel. Each
 --- other track with notes is one part. With `merge`, all is one part.
 ---@param file any
@@ -6465,7 +6478,7 @@ function paw.midifile.skipped_text(file) end
 --- Write the clip open alone back to its file. Returns its path.
 function paw.midifile.write_clip() end
 
---- The row under the cursor, and the track it is on.
+--- The row under the cursor, and the part it is on.
 function paw.mixer_rows.current() end
 
 --- What a row is called and holds, for the title bar and `K`.
@@ -6476,11 +6489,11 @@ function paw.mixer_rows.describe_row(id, row) end
 --- The insert under the cursor, for `ge`.
 function paw.mixer_rows.device() end
 
---- The rows of a track's strip, top to bottom: { key, kind, index }.
+--- The rows of a part's strip, top to bottom: { key, kind, index }.
 ---@param id any
 function paw.mixer_rows.rows(id) end
 
---- Put the cursor on row `i` (1 for the top) of the cursor track's strip.
+--- Put the cursor on row `i` (1 for the top) of the cursor part's strip.
 ---@param i any
 function paw.mixer_rows.to(i) end
 
@@ -6626,15 +6639,15 @@ function paw.nest.define_kind(name, spec) end
 --- What `K` says of a block, in three lines. The first gives the
 --- subproject, its meter, its bars, its tempo and whether it is live or
 --- frozen, with the stem's name after it for a stem. The second gives its
---- tracks, and the third gives the bars of the song where it plays, for
+--- parts, and the third gives the bars of the song where it plays, for
 --- example `subproject Ballad · 6/8 · 8 bars · follows the tempo · live`,
---- `2 tracks: Piano, Strings` and `plays in 2 places: @9 (here), @25`.
+--- `2 parts: Piano, Strings` and `plays in 2 places: @9 (here), @25`.
 --- `c` is the clip, in the window's time.
 ---@param c any
 function paw.nest.describe(c) end
 
 --- Write subproject `nest` as a project folder of its own at `folder`
---- (`~/` is the home folder): its tracks, its master, its markers and
+--- (`~/` is the home folder): its parts, its master, its markers and
 --- regions, its tempo and meter as its first block plays them, and its
 --- media copied in (`paw.api.nest_export`). The song does not change.
 --- Returns the message.
@@ -6651,7 +6664,7 @@ function paw.nest.get(id) end
 --- Bring the project folder `folder` (`~/` is the home folder) into the
 --- song as a subproject, as `:import <folder>` does: a subproject that
 --- refers to the folder (`paw.api.nest_import`), on a row of its own below
---- the cursor's track with one block from the cursor's bar. It plays at
+--- the cursor's part with one block from the cursor's bar. It plays at
 --- once. Its first edit, or `:nest.own`, makes it the song's own copy.
 --- Call it in one undo step (a command is one). Returns the message.
 ---@param folder any
@@ -6672,14 +6685,14 @@ function paw.nest.kind(nest) end
 function paw.nest.letter(nest) end
 
 --- Every subproject, in the order they were made: { id, name, length,
---- tempo, meter, master, tracks, kind, meta, used }.
+--- tempo, meter, master, parts, kind, meta, used }.
 function paw.nest.list() end
 
 --- Make a subproject with a row of its own, as `:nest.new` does (see the
 --- top): the subproject over the time given, a return row below the
---- track `below` (in its group, as `o` puts a track) with one block, the
+--- part `below` (in its group, as `o` puts a part) with one block, the
 --- meter in the song's map when one is given; then the window enters it,
---- with one empty track (`paw.opt.nest_track`), or with the tracks that
+--- with one empty part (`paw.opt.nest_part`), or with the parts that
 --- the `create` of its kind (`o.kind`) makes. Call it in one undo step (a
 --- command is one).
 ---@param o any
@@ -6699,7 +6712,7 @@ function paw.nest.notes(c, limit) end
 ---@param opts any
 function paw.nest.open(path, opts) end
 
---- Give a subproject one row of its own for each of its tracks (`stems`),
+--- Give a subproject one row of its own for each of its parts (`stems`),
 --- or one stereo return again (`master`), on its return row `row`. Call it
 --- in one undo step. Returns the message.
 ---@param nest any
@@ -6720,11 +6733,11 @@ function paw.nest.own(nest) end
 function paw.nest.places(nest) end
 
 --- Promote the subproject of block `clip` to a view, as `:nest.promote`
---- does: its tracks come back in a group named after it at the place of
+--- does: its parts come back in a group named after it at the place of
 --- its return row (`paw.api.nest_promote`); its regions come back as
 --- children of a region named after it over the block (made if there is
 --- none); its own meter goes into the song's map over the block; and the
---- window that was inside it is now inside a view of the group's tracks
+--- window that was inside it is now inside a view of the group's parts
 --- over the region's time, at the same place. With `deep`, the
 --- subprojects inside it too. Call it in one undo step. Returns the message.
 ---@param clip any
@@ -6737,15 +6750,15 @@ function paw.nest.promote(clip, deep) end
 function paw.nest.returns(row) end
 
 --- Save the window's view as a subproject, as `:scope.write` does: per
---- track, or with a row of its own (`own_row`, `:scope.write!`). The
+--- part, or with a row of its own (`own_row`, `:scope.write!`). The
 --- view's clips move into the subproject (`paw.api.nest_save`); the rows
 --- get its blocks. In a view with time, its markers and regions inside
 --- move in, and a region over its time stays; a view with no time takes
 --- none of them. The meter of the time is the subproject's own. With a
 --- row of its own, no route of the song changes: the row plays where the
---- tracks played, in their group; when they played into several buses, it
---- plays into the master, and `stems` gives a stem row for each track,
---- into its bus. Per track, the window stays in the view; with a row of
+--- parts played, in their group; when they played into several buses, it
+--- plays into the master, and `stems` gives a stem row for each part,
+--- into its bus. Per part, the window stays in the view; with a row of
 --- its own, it is inside the subproject at the same place. Call it in one
 --- undo step. Returns the message.
 ---@param name any
@@ -6784,10 +6797,10 @@ paw.nest.shift = paw.cursor.shift
 ---@param id any
 function paw.nest.show(id) end
 
---- The return row that a track of a subproject is shown under, in place
---- (`za`), or nil for any other track.
----@param track any
-function paw.nest.shown_under(track) end
+--- The return row that a part of a subproject is shown under, in place
+--- (`za`), or nil for any other part.
+---@param part any
+function paw.nest.shown_under(part) end
 
 --- The song and the subproject that a path inside a song names
 --- (`song/nests/Bridge`, or its `nest.toml`): the song's folder and the
@@ -6795,11 +6808,11 @@ function paw.nest.shown_under(track) end
 ---@param path any
 function paw.nest.song_of(path) end
 
---- `za` on a return row: open its subproject's tracks under it, in the
---- song's time, or close them. On a track shown in place: close its row.
---- False when the track is neither.
----@param track any
-function paw.nest.toggle(track) end
+--- `za` on a return row: open its subproject's parts under it, in the
+--- song's time, or close them. On a part shown in place: close its row.
+--- False when the part is neither.
+---@param part any
+function paw.nest.toggle(part) end
 
 paw.nest.under = paw.groups.under
 
@@ -6810,18 +6823,18 @@ paw.nest.under = paw.groups.under
 ---@param clip any
 function paw.nest.unique(clip) end
 
---- For a track shown in place under its return row: each block of the
+--- For a part shown in place under its return row: each block of the
 --- row that plays the whole subproject, in order of time. The arrange view
---- draws the track's clips in each of them, and nothing outside them.
---- Nil for any other track.
----@param track any
-function paw.nest.windows(track) end
+--- draws the part's clips in each of them, and nothing outside them.
+--- Nil for any other part.
+---@param part any
+function paw.nest.windows(part) end
 
 --- Write what the window shows as a project folder of its own at
 --- `folder` (`~/` is the home folder), as `:export project <folder>/`
 --- does. The whole song is a copy of the project with its media
 --- (`paw.api.song_export`). A subproject is as `paw.nest.export` writes
---- it. A view is copies of its tracks with their devices, their clips and
+--- it. A view is copies of its parts with their devices, their clips and
 --- lanes in its time, the markers and regions inside, the tempo and meter
 --- of its time, and the media (`paw.api.scope_export`). The song does not
 --- change. Returns the message.
@@ -6903,7 +6916,7 @@ function paw.option.spec(name) end
 --- and each time that it changes. The first time that the window of a seat
 --- gives it, paw shows the device panel when the tab has its place, closed,
 --- as the default start layout has (`paw.layout.default_tree`): a window
---- shows the devices of the selected track next to the timeline unless the
+--- shows the devices of the selected part next to the timeline unless the
 --- user closes them. A start layout of the configuration's own is shown as
 --- it is.
 ---@param width any
@@ -7016,6 +7029,136 @@ function paw.params.read(device, method, data) end
 ---@param steps any
 function paw.params.step(p, value, steps) end
 
+--- A new part of the kind `name`. `opts.name` is its name (if not given,
+--- the title of the kind without "part"), and `opts.index` its place. The
+--- other options go to `create`.
+---@param name any
+---@param opts any
+function paw.part_kinds.add(name, opts) end
+
+--- Make a part an ordinary one again, as far as its kind goes: what the
+--- kind made (its devices) stays, for the extension to take away.
+---@param which any
+function paw.part_kinds.clear(which) end
+
+--- Define a kind of part (see above). `name` is a word: what is typed
+--- after `:part.add` and kept in the part's `meta.kind`.
+---@param name any
+---@param spec any
+function paw.part_kinds.define(name, spec) end
+
+--- A few words on a part's kind, for `K` and the part header:
+--- `Vocal part · Kitane`, "vocal (no extension here defines it)", or nil.
+---@param which any
+function paw.part_kinds.describe(which) end
+
+--- ": there are vocal, drums", for messages.
+function paw.part_kinds.known_words() end
+
+--- The defined kinds, in the order they were defined.
+function paw.part_kinds.list() end
+
+--- The name of the kind of a part: the kind that it keeps. If not, a kind
+--- whose `is` claims it. Nil for a usual part.
+---@param which any
+function paw.part_kinds.of(which) end
+
+--- Open a clip in its part's kind's editor. True when it did.
+---@param clip any
+function paw.part_kinds.open(clip) end
+
+--- Forget a kind: no longer offered, nor in the menus. Parts that keep
+--- it are ordinary parts again until something defines it.
+---@param name any
+function paw.part_kinds.remove(name) end
+
+--- Make a part of `name`'s kind: keep the kind on it, then let the kind
+--- make it what it is. `args` go to `create`.
+---@param which any
+---@param name any
+---@param args any
+function paw.part_kinds.set(which, name, args) end
+
+--- A part's kind as defined, or nil (an ordinary part, or a kind that no
+--- loaded extension defines).
+---@param which any
+function paw.part_kinds.spec(which) end
+
+--- Add a component, or put a new one in place of one of that name. It
+--- goes into `paw.opt.partcolumn` (unless `hidden`), so it shows at once.
+---@param name any
+---@param spec any
+function paw.partcolumn.add(name, spec) end
+
+--- A click at column `x` of the column on a line of `part`: the
+--- component there does what its `click` says. True if one had a `click`.
+---@param L any
+---@param x any
+---@param part any
+---@param ctx any
+function paw.partcolumn.click(L, x, part, ctx) end
+
+--- What the components shown say of `part` for `K` (their `describe`),
+--- a line each, in their order.
+---@param part any
+function paw.partcolumn.describe(part) end
+
+--- Draw one line of the column for `part` at line `y` of `buf` (the
+--- column's own part of the view), with what `ctx` says of the line.
+---@param buf any
+---@param L any
+---@param y any
+---@param part any
+---@param ctx any
+function paw.partcolumn.draw(buf, L, y, part, ctx) end
+
+--- The column for one draw over the parts of `frame`: the components
+--- named in `paw.opt.partcolumn`, in their order, each as wide as it
+--- says. Each component with `from_header` takes its columns from the
+--- headers, up to `header_room` columns in all. The other components, and
+--- a component that does not fit in the headers, take their columns from
+--- the timeline, up to `room` columns. A component that fails, or that has
+--- no room left, takes no columns.
+---@param frame any
+---@param room any
+---@param header_room any
+function paw.partcolumn.layout(frame, room, header_room) end
+
+--- Take a component away, and its name out of `paw.opt.partcolumn`.
+--- The component that it replaced, if any, comes back.
+---@param name any
+function paw.partcolumn.remove(name) end
+
+--- Change a component that is there, the built-in ones too: its `order`
+--- (to put it elsewhere), `width`, `render`, `click`, `describe`, and the
+--- `glyphs` and `styles` it draws with (merged into its own). The
+--- component becomes a changed copy: `paw.partcolumn.add(name, old)`
+--- with the table it had before puts that back. The change of an
+--- extension goes when the extension unloads.
+---   paw.partcolumn.set("fold", { order = 5, glyphs = { open = "-", closed = "+" } })
+---   paw.partcolumn.set("number", { width = 4, styles = { cursor = "Title" } })
+---@param name any
+---@param patch any
+function paw.partcolumn.set(name, patch) end
+
+--- Change a sign that is there, as `set` changes a component: its
+--- `priority`, `render`, `describe`, `glyphs` and `styles`.
+---   paw.partcolumn.set_sign("diagnostics", { glyphs = { error = "E", warn = "W" } })
+---@param name any
+---@param patch any
+function paw.partcolumn.set_sign(name, patch) end
+
+--- True if component `name` is shown: added and named in `paw.opt.partcolumn`.
+---@param name any
+function paw.partcolumn.shows(name) end
+
+--- Add a sign to the `signs` component: `render(part, ctx)` gives one
+--- character, or nothing. Where several give one, the highest `priority`
+--- shows. `nil` for `spec` takes the sign away.
+---@param name any
+---@param spec any
+function paw.partcolumn.sign(name, spec) end
+
 --- Select a file from a tree of directories:
 --- 
 ---   paw.pick.file({ title = "Import audio", extensions = { "wav", "mp3" },
@@ -7115,7 +7258,7 @@ function paw.plot.bars_cells(buf, opts) end
 ---   frac              `frac(value)` from 0 (bottom) to 1 (top); else `lo` and `hi`
 ---   flat              the value shown when there are no points (else nothing is)
 ---   color             the line's colour, `#rrggbb` (the theme's `dim` by default):
----                     a track's own is `paw.draw.track_colour(track)`
+---                     a part's own is `paw.draw.part_colour(part)`
 ---   fill              how opaque the area under the line is, 0 to 1 (0.16); false for none
 ---   width             the line's width in pixels (1.5)
 ---   top, bottom       pixels kept clear above 1 and below 0 (2 each)
@@ -7198,10 +7341,10 @@ function paw.plugins.add_dir(dir, name) end
 ---@param path any
 function paw.plugins.attach(path) end
 
---- The key names of all the devices of a track. When two devices name a
+--- The key names of all the devices of a part. When two devices name a
 --- key, the first in the chain wins.
----@param track any
-function paw.plugins.key_names(track) end
+---@param part any
+function paw.plugins.key_names(part) end
 
 --- What a device calls its keys, by pitch: a plugin that implements CLAP's
 --- `note-name` (a drum kit's drums, a sampler's keyswitches), or a built-in
@@ -7237,8 +7380,8 @@ function paw.profile.stop() end
 --- Run a command line on each entry of the current list of a stack (`:cdo`),
 --- all as one undo step. For each entry, the cursor goes to the entry
 --- first. The command gets the address as `ctx.target`, and the whole
---- location as `ctx.location`. With `per_track`, it runs one time for each
---- track of the entries (`:cfdo`). Returns how many times it ran.
+--- location as `ctx.location`. With `per_part`, it runs one time for each
+--- part of the entries (`:cfdo`). Returns how many times it ran.
 ---@param line any
 ---@param opts any
 function paw.qf.cdo(line, opts) end
@@ -7311,7 +7454,7 @@ function paw.qf.from_diagnostics(target, filter) end
 --- Put the cursor on the address of an entry, in the view that shows it
 --- best, and focus that view. A thing inside a subproject goes inside
 --- that subproject first. A note goes to the piano roll, and a device
---- or a parameter to the device panel. A clip, a track, a lane or a range
+--- or a parameter to the device panel. A clip, a part, a lane or a range
 --- of time goes to the arrange view. Returns true if there was a place to go.
 ---@param e any
 function paw.qf.go(e) end
@@ -7358,7 +7501,7 @@ function paw.qf.refresh() end
 --- with the title `opts.title`, and make it current. A list with the same
 --- title in the history is replaced at its place. Its current entry stays.
 --- `opts.current = false` keeps a different list current. Returns the list.
----   paw.qf.set({ { address = "paw://track/3", text = "too quiet", level = "warning" } }, { title = "Levels" })
+---   paw.qf.set({ { address = "paw://part/3", text = "too quiet", level = "warning" } }, { title = "Levels" })
 ---@param entries any
 ---@param opts any
 function paw.qf.set(entries, opts) end
@@ -7497,8 +7640,8 @@ function paw.registry.maker(value) end
 
 --- Loads the extension that waits for `key` of `reg` (its `kind`
 --- trigger), and gives true when it loaded, so that `reg:get(key)` gives
---- the entry that the extension put. The kind of a track loads its
---- extension when the track header asks for it, and the kind of a clip
+--- the entry that the extension put. The kind of a part loads its
+--- extension when the part header asks for it, and the kind of a clip
 --- loads its extension when the project opens.
 ---@param reg any
 ---@param key any
@@ -7576,7 +7719,7 @@ function paw.render.default_path() end
 ---   dither      true to add dither when writing 16 or 24 bits
 ---   quality     for MP3, Ogg Vorbis and Opus: "low", "medium", "high" (the
 ---               default) or "best"; `bitrate` (kbit/s) instead of it for a number
----   tags        { title, artist, album, track, year, genre, comment, cover } written into
+---   tags        { title, artist, album, part, year, genre, comment, cover } written into
 ---               the file, over the project's own (`paw.render_tags`); `cover` is a PNG or
 ---               JPEG file (a WAV holds no cover); the title of a lossy file is the project's name by default
 ---   normalize   bring the loudest sample to this level in dB, such as -1
@@ -7584,17 +7727,17 @@ function paw.render.default_path() end
 ---               with `normalize` too, the peak level is a ceiling
 ---   gain        raise or lower the whole file by this many dB, such as -3.5; not with
 ---               `normalize` or `loudness` (an export of stems gives each stem the gain of the mix)
----   tracks      { id, ... }: only these, with what they pass through (a stem)
----   tap         where in the sound of the tracks the render listens:
+---   parts      { id, ... }: only these, with what they pass through (a stem)
+---   tap         where in the sound of the parts the render listens:
 ---               "pre"     their clips and devices, without the fader, pan or mute
 ---               "post"    with the fader, pan and mute, without the groups, sends or master
 ---               "groups"  as when they are soloed, through their groups and the
 ---                         returns of their sends, without the master
 ---               "master"  through the master as well (the default)
----               "pre" and "post" need `tracks`. The files of "groups" and
+---               "pre" and "post" need `parts`. The files of "groups" and
 ---               "master" add up to the mix.
 ---   master      false is the same as tap = "groups"
----   freeze      a track id: that track alone, before its fader, as a freeze renders it
+---   freeze      a part id: that part alone, before its fader, as a freeze renders it
 ---   block       a clip id of a block of a subproject: what the block plays into its row,
 ---               and nothing else, as a freeze of the block renders it
 ---   through     with `block` inside a subproject: the blocks that place it in the song,
@@ -7683,7 +7826,7 @@ function paw.roles.input(client, id, view, win, event, held) end
 --- terminal draws the cells of the role there. A frontend that knows the
 --- role paints it as what it is. `props.hit` makes it a hit region, and
 --- `props.bind` ties it to a live value. Returns the buffer of the area.
----   buf:mark("fader", 4, 2, 3, 12, { at = 0.8, hit = { kind = "fader", track = id } })
+---   buf:mark("fader", 4, 2, 3, 12, { at = 0.8, hit = { kind = "fader", part = id } })
 ---@param buf any
 ---@param role any
 ---@param x any
@@ -7727,11 +7870,11 @@ function paw.roll_clips.activate(id) end
 function paw.roll_clips.active() end
 
 --- The context notes, in the beats of the roll. These are the notes of the
---- other clips of the active clip's track, and of the clips of the shown
---- tracks (not the editable clips), that sound in the range of the editable
---- clips. Each is `{ pitch, start, length, velocity, clip, track, color }`,
+--- other clips of the active clip's part, and of the clips of the shown
+--- parts (not the editable clips), that sound in the range of the editable
+--- clips. Each is `{ pitch, start, length, velocity, clip, part, color }`,
 --- at most `paw.opt.roll_context_max` of them. paw finds them again only
---- when those clips, the shown tracks, the edited clips or their span change:
+--- when those clips, the shown parts, the edited clips or their span change:
 --- an edit of the notes of an edited clip keeps them.
 function paw.roll_clips.context() end
 
@@ -7759,8 +7902,8 @@ function paw.roll_clips.ids() end
 --- place and its part.
 ---@param pitch any
 ---@param beat any
----@param parts any
-function paw.roll_clips.note_at(pitch, beat, parts) end
+---@param portions any
+function paw.roll_clips.note_at(pitch, beat, portions) end
 
 --- The notes of the editable clips in the roll's beats, in the order they
 --- start (lower pitches first in a chord), each with `clip` (its clip's id),
@@ -7768,8 +7911,8 @@ function paw.roll_clips.note_at(pitch, beat, parts) end
 --- `offset`. With one clip they are that clip's notes in its own order.
 --- `range` is as for `Clip:notes`, its beats the roll's.
 ---@param range any
----@param parts any
-function paw.roll_clips.notes(range, parts) end
+---@param portions any
+function paw.roll_clips.notes(range, portions) end
 
 --- Where a clip's beats are in the roll: add this to them.
 ---@param id any
@@ -7784,27 +7927,33 @@ function paw.roll_clips.only() end
 ---@param active any
 function paw.roll_clips.open(ids, active) end
 
---- The editable clips, the active one first: `{ id, clip, offset, start,
---- length, track, name }` each, `clip` a handle (`paw.clip`) whose pitches
---- are those that the clip plays (`Clip:shifted`).
+--- The parts whose notes can show behind the notes of the roll. These are
+--- the parts with MIDI clips (of the scope, in a narrowed window), but not the
+--- part of the active clip. `{ id, name, color, drums, on }` each. `on`
+--- tells if its notes show.
 function paw.roll_clips.parts() end
 
---- `:roll.tracks`: a list of the tracks near the roll and of their clips.
---- On a track, Enter shows or hides its notes. On a clip, Enter adds it to
+--- `:roll.parts`: a list of the parts near the roll and of their clips.
+--- On a part, Enter shows or hides its notes. On a clip, Enter adds it to
 --- the editable set or removes it.
 function paw.roll_clips.pick() end
 
---- Each clip near the roll, as rows for a list. Each shown track is a row
---- (`kind` "track", `on` tells if its notes show). Under it are its MIDI
+--- The editable clips, the active one first: `{ id, clip, offset, start,
+--- length, part, name }` each, `clip` a handle (`paw.clip`) whose pitches
+--- are those that the clip plays (`Clip:shifted`).
+function paw.roll_clips.portions() end
+
+--- Each clip near the roll, as rows for a list. Each shown part is a row
+--- (`kind` "part", `on` tells if its notes show). Under it are its MIDI
 --- clips in the range of the roll (`kind` "clip", `on` tells if it is
---- editable, `active`). The track of the active clip is first, with its clips.
+--- editable, `active`). The part of the active clip is first, with its clips.
 function paw.roll_clips.rows() end
 
---- Show the notes of a track behind the notes of the roll, or not. nil
+--- Show the notes of a part behind the notes of the roll, or not. nil
 --- returns to the value of `paw.opt.roll_context`.
 ---@param id any
 ---@param on any
-function paw.roll_clips.show_track(id, on) end
+function paw.roll_clips.show_part(id, on) end
 
 --- The pitches that sound at roll beat `beat`, in the editable clips and
 --- the context, lowest first. The second value is the name of the chord
@@ -7818,19 +7967,19 @@ function paw.roll_clips.sounding(beat) end
 --- with time, only its time, as the arrange view (`0` and `$` stop there).
 function paw.roll_clips.span() end
 
---- Make active the track `n` places after the track of the active clip, in
---- the tracks that the roll shows (before it with a negative `n`). Its clip
+--- Make active the part `n` places after the part of the active clip, in
+--- the parts that the roll shows (before it with a negative `n`). Its clip
 --- under the cursor gets the new notes. The notes of the old clip show
---- behind. With `wrap`, it goes round. False when the roll shows no other track.
+--- behind. With `wrap`, it goes round. False when the roll shows no other part.
 ---@param n any
 ---@param wrap any
-function paw.roll_clips.step_track(n, wrap) end
+function paw.roll_clips.step_part(n, wrap) end
 
 --- The editable clip a new note at `beat` goes into: the active one, unless
 --- the beat is outside it and inside another. Returns the part.
 ---@param beat any
----@param parts any
-function paw.roll_clips.target(beat, parts) end
+---@param portions any
+function paw.roll_clips.target(beat, portions) end
 
 --- Add a clip to the editable set, or remove it. If you remove the active
 --- clip, the next clip becomes active. The last clip stays. Returns whether
@@ -7838,13 +7987,7 @@ function paw.roll_clips.target(beat, parts) end
 ---@param id any
 function paw.roll_clips.toggle(id) end
 
---- The tracks whose notes can show behind the notes of the roll. These are
---- the tracks with MIDI clips (of the scope, in a narrowed window), but not the
---- track of the active clip. `{ id, name, color, drums, on }` each. `on`
---- tells if its notes show.
-function paw.roll_clips.tracks() end
-
---- The tracks whose notes the roll shows, in the order of the track list:
+--- The parts whose notes the roll shows, in the order of the part list:
 --- the active clip's and those shown behind it.
 function paw.roll_clips.visible() end
 
@@ -7864,11 +8007,11 @@ function paw.roll_draw.again() end
 function paw.roll_draw.append() end
 
 --- Give the notes being drawn an articulation (`a`): asked by name, with
---- the names of the track's instrument to complete.
+--- the names of the part's instrument to complete.
 function paw.roll_draw.articulate() end
 
 --- Set where `a` takes articulations from (the articulations extension
---- does): `names(track)` and `apply(track, text, note)`.
+--- does): `names(part)` and `apply(part, text, note)`.
 ---@param provider any
 function paw.roll_draw.articulation(provider) end
 
@@ -8058,7 +8201,7 @@ function paw.roll_draw.text() end
 function paw.roll_draw.tie() end
 
 --- Step input on or off (`I` in insert mode). The pen stays as it is.
---- Without a MIDI input, paw says why and opens the track's list of inputs.
+--- Without a MIDI input, paw says why and opens the part's list of inputs.
 function paw.roll_draw.toggle_step() end
 
 --- Put back the notes that were there before the suggestions (`<C-e>`).
@@ -8079,76 +8222,76 @@ function paw.roll_draw.velocity(dir) end
 ---@param into any
 function paw.routes.feeds(from, into) end
 
---- Where a track sends MIDI, as text: `Synth · channel 2 · MPE`, or "no MIDI output".
+--- Where a part sends MIDI, as text: `Synth · channel 2 · MPE`, or "no MIDI output".
 ---@param t any
 function paw.routes.midi_out_text(t) end
 
 --- The output pairs of a device: `{ pair, name, target, target_name }`
---- each, the main pair (pair 1, on its own track) first. Empty for a
+--- each, the main pair (pair 1, on its own part) first. Empty for a
 --- device with one pair.
 ---@param device any
 function paw.routes.outputs(device) end
 
---- The tracks a track may route to: those of its place, the song or its
---- subproject (the tracks of a subproject route only to each other).
----@param track any
-function paw.routes.peers(track) end
+--- The parts a part may route to: those of its place, the song or its
+--- subproject (the parts of a subproject route only to each other).
+---@param part any
+function paw.routes.peers(part) end
 
---- The tracks a track's sound reaches, directly or through others, as a set
+--- The parts a part's sound reaches, directly or through others, as a set
 --- of ids: by outputs, sends and side-chains.
 ---@param from any
 function paw.routes.reached(from) end
 
---- The tracks whose sound reaches a track, as a set of ids.
+--- The parts whose sound reaches a part, as a set of ids.
 ---@param into any
 function paw.routes.reaching(into) end
 
---- Send the MIDI of a track to the port named `name` (or a part of its
+--- Send the MIDI of a part to the port named `name` (or some of its
 --- name, "none" for none). `channel` is 1 to 16, or nil for the channel of
 --- each message. `form` applies where the port does not accept MIDI 2.0
 --- (a key of `M.midi_out_forms`, nil keeps the current form). MPE uses
 --- `members` channels (nil for 15).
----@param track any
+---@param part any
 ---@param name any
 ---@param channel any
 ---@param form any
 ---@param members any
-function paw.routes.set_midi_out(track, name, channel, form, members) end
+function paw.routes.set_midi_out(part, name, channel, form, members) end
 
---- Play a device's output pair `pair` (2 and on) into a track (a track, its
+--- Play a device's output pair `pair` (2 and on) into a part (a part, its
 --- id or name; nil or "none" for nowhere). Errors say why it cannot be.
 ---@param device any
 ---@param pair any
----@param track any
-function paw.routes.set_output(device, pair, track) end
+---@param part any
+function paw.routes.set_output(device, pair, part) end
 
---- Set a device's side-chain by a track, a track's id or name ("none" or
+--- Set a device's side-chain by a part, a part's id or name ("none" or
 --- nil for none), and `pre`. Errors say why it cannot be.
 ---@param device any
----@param track any
+---@param part any
 ---@param pre any
-function paw.routes.set_sidechain(device, track, pre) end
+function paw.routes.set_sidechain(device, part, pre) end
 
 --- Define the commands for sends and sidechains. The runtime calls this once at start.
 function paw.routes.setup() end
 
---- The tracks that a device can listen to, `{ id, name }` each, in the
---- order of the track list. Its own track, the master and the tracks that
---- its track feeds are not in the list.
+--- The parts that a device can listen to, `{ id, name }` each, in the
+--- order of the part list. Its own part, the master and the parts that
+--- its part feeds are not in the list.
 ---@param device any
 function paw.routes.sidechain_sources(device) end
 
---- What a device listens to, as text: the name of the track, with `pre`
+--- What a device listens to, as text: the name of the part, with `pre`
 --- when it takes the sound before the fader. Nil if it listens to nothing.
 ---@param d any
 function paw.routes.sidechain_text(d) end
 
---- Make a track for each output pair of a device that plays nowhere yet,
+--- Make a part for each output pair of a device that plays nowhere yet,
 --- with the name of the pair, and send the pair there. paw puts the new
---- tracks and the track of the device in a group (or in the group of the
---- track of the device). The track of the device cannot be the group,
---- because its pairs feed the new tracks, which would then feed it again.
---- Returns the new tracks.
+--- parts and the part of the device in a group (or in the group of the
+--- part of the device). The part of the device cannot be the group,
+--- because its pairs feed the new parts, which would then feed it again.
+--- Returns the new parts.
 ---@param device any
 function paw.routes.spread(device) end
 
@@ -8228,9 +8371,9 @@ function paw.ruler.remove(name) end
 ---@param name any
 function paw.ruler.remove_lane(name) end
 
---- Change a part that is there, the built-in `number` too: its `order`,
+--- Change a component that is there, the built-in `number` too: its `order`,
 --- `render`, and the `glyphs` and `styles` it draws with (merged into its
---- own). The part becomes a changed copy, as with `paw.trackcolumn.set`:
+--- own). The component becomes a changed copy, as with `paw.partcolumn.set`:
 --- `paw.ruler.add(name, old)` puts back the table it had before.
 ---   paw.ruler.set("number", { styles = { cursor = "Title" } })
 ---@param name any
@@ -8251,7 +8394,7 @@ function paw.scene.closed(client) end
 
 --- The values that move the bound nodes of a frontend (see the `bind` of
 --- crates/paw-scene). These are the playhead, the clock and the load of the
---- engine. For each track id, they are the meter, the recent peak, the clip
+--- engine. For each part id, they are the meter, the recent peak, the clip
 --- light and the input. paw rounds them to what a frontend can show. So a program that
 --- does nothing has no new data to send (the load is as `paw.audio.load`
 --- gives it, as `frontend.watch` sends it). Each call gives the current values.
@@ -8288,12 +8431,12 @@ function paw.scope.apply(s) end
 
 --- The scope that `znn` enters at the cursor: the innermost not entered
 --- yet. On a closed time fold (paw/folds.tl), its region or its bars; on
---- a closed block fold, its tracks in its bars; a subproject's clip at
+--- a closed block fold, its parts in its bars; a subproject's clip at
 --- the cursor; in a region scope, the region one level inside it at the
---- cursor; else the closed fold of tracks whose row the cursor is on
+--- cursor; else the closed fold of parts whose row the cursor is on
 --- (paw/folds.tl), else the group at the cursor (its header or one of its
---- tracks), else the track. Nil when the window shows
---- that track already.
+--- parts), else the part. Nil when the window shows
+--- that part already.
 function paw.scope.at_cursor() end
 
 --- How many bars of the song come before the first bar of a scope (the
@@ -8310,21 +8453,21 @@ function paw.scope.breadcrumb(s) end
 
 --- The scopes one level inside a scope (the current one by default): for
 --- a region scope, the regions one level inside its region (paw/markers.tl), in
---- order of time; for a group scope, its members (a group or a track), in
+--- order of time; for a group scope, its members (a group or a part), in
 --- order. Each has that scope as its parent. Other kinds have none.
 ---@param s any
 function paw.scope.children(s) end
 
 --- True if a scope (the current one by default; a group's id is a scope
---- of that group) shows a track: it and every level above it do. With no
---- scope, every track is inside.
----@param track any
+--- of that group) shows a part: it and every level above it do. With no
+--- scope, every part is inside.
+---@param part any
 ---@param s any
-function paw.scope.contains(track, s) end
+function paw.scope.contains(part, s) end
 
 --- The scope a window shows, or nil for the song: the window given, else
 --- the window being drawn, else the current one. A level whose group,
---- track or region is gone is left out.
+--- part or region is gone is left out.
 ---@param win any
 function paw.scope.current(win) end
 
@@ -8338,20 +8481,20 @@ function paw.scope.current(win) end
 function paw.scope.cursor_beat(win) end
 
 --- What a scope (the current one by default) shows, in words: its path,
---- its bars (its own, and the song's), its meter, its tracks, and whether
+--- its bars (its own, and the song's), its meter, its parts, and whether
 --- it is named, with `extra` last: `Song › Bridge · bars 1-8 (song @17-24) ·
---- 6/8 · 12 tracks · named`.
+--- 6/8 · 12 parts · named`.
 ---@param s any
 ---@param extra any
 function paw.scope.describe(s, extra) end
 
 --- A fold of the current window in words, as a scope inside the one the
---- window shows, and whether it is folded: `Song › Strings · 3 tracks ·
+--- window shows, and whether it is folded: `Song › Strings · 3 parts ·
 --- folded`.
 ---@param f any
 function paw.scope.describe_fold(f) end
 
---- Enter a scope (`{ kind, id, tracks, from, to, name }`) in a window (the
+--- Enter a scope (`{ kind, id, parts, from, to, name }`) in a window (the
 --- current one by default). In a window that shows a scope, it becomes its
 --- child: it shows what both show, and an empty one is refused with the
 --- reason. Changes nothing in the project; a jump. Returns the scope.
@@ -8359,7 +8502,7 @@ function paw.scope.describe_fold(f) end
 ---@param win any
 function paw.scope.enter(spec, win) end
 
---- A group by its id, its track, or its name (or part of it).
+--- A group by its id, its part, or its name (or some of it).
 ---@param which any
 function paw.scope.find(which) end
 
@@ -8368,14 +8511,14 @@ function paw.scope.find(which) end
 function paw.scope.format(beat) end
 
 --- The innermost group of a scope's path (the current scope by default):
---- what a narrowed window's tracks are shown under. Nil when no level is a group.
+--- what a narrowed window's parts are shown under. Nil when no level is a group.
 ---@param s any
 function paw.scope.group(s) end
 
---- The group of a track when you narrow: the track itself if it is a group.
+--- The group of a part when you narrow: the part itself if it is a group.
 --- If not, the group that contains it.
----@param track any
-function paw.scope.group_at(track) end
+---@param part any
+function paw.scope.group_at(part) end
 
 --- The parts of the rest the engine plays from files now.
 function paw.scope.held() end
@@ -8385,9 +8528,9 @@ function paw.scope.held() end
 ---@param win any
 function paw.scope.holder(win) end
 
---- True if a scope, or one of the levels above it, limits the tracks.
+--- True if a scope, or one of the levels above it, limits the parts.
 ---@param s any
-function paw.scope.limits_tracks(s) end
+function paw.scope.limits_parts(s) end
 
 --- The bar the current scope shows for a bar of the song.
 ---@param song_bar any
@@ -8408,13 +8551,13 @@ function paw.scope.named(which) end
 --- The named scopes, the latest last.
 function paw.scope.names() end
 
---- Narrow to a group or a region, by its id, its track or its name (see
+--- Narrow to a group or a region, by its id, its part or its name (see
 --- `named`): `enter` of that scope in the current window. Returns the scope.
 ---@param which any
 function paw.scope.narrow(which) end
 
 --- The innermost subproject of a scope's path (the current scope by
---- default), or nil when the path is in the song: its tracks and its
+--- default), or nil when the path is in the song: its parts and its
 --- timeline are what the window shows.
 ---@param s any
 function paw.scope.nest(s) end
@@ -8435,13 +8578,13 @@ function paw.scope.next(n) end
 function paw.scope.of_clip(id) end
 
 --- A fold of a window (paw/folds.tl) as a scope to enter: its group, its
---- region, its tracks or its bars, with the name it shows.
+--- region, its parts or its bars, with the name it shows.
 ---@param f any
 function paw.scope.of_fold(f) end
 
 --- The scope an operator's region covers (`zn{motion}`, `{Visual}zn`):
---- the region, group or track its text object names (`ar`, `ag`, `it`),
---- else a block of its tracks, with its time when it has some. Nil for the
+--- the region, group or part its text object names (`ar`, `ag`, `it`),
+--- else a block of its parts, with its time when it has some. Nil for the
 --- whole of what the window shows (`ie`).
 ---@param r any
 function paw.scope.of_region(r) end
@@ -8469,6 +8612,12 @@ function paw.scope.origin() end
 --- `paw.time` counts in it then.
 function paw.scope.own_time() end
 
+--- The parts of a scope (the current one by default), in the order of the
+--- part list. With no scope, or one that keeps every part, all parts of
+--- the song; in a subproject, its parts.
+---@param s any
+function paw.scope.parts(s) end
+
 --- The levels of a scope's path (the current one by default), from the
 --- outermost to it.
 ---@param s any
@@ -8482,8 +8631,8 @@ function paw.scope.path(s) end
 function paw.scope.place(beat) end
 
 --- The parts of the rest of the song that paw can freeze for a scope. These
---- are the tracks outside it at the top of their branch (a whole group, not
---- its members). They are not the tracks that the sound of the scope goes
+--- are the parts outside it at the top of their branch (a whole group, not
+--- its members). They are not the parts that the sound of the scope goes
 --- through (its groups, and a bus that its sends reach). They are not empty.
 ---@param s any
 function paw.scope.rest_parts(s) end
@@ -8498,7 +8647,7 @@ function paw.scope.restore(s, win) end
 function paw.scope.saved_names() end
 
 --- The scope `n` places after the current one (before it, with a negative
---- `n`), beside it in the same parent: the next region, group or track; a
+--- `n`), beside it in the same parent: the next region, group or part; a
 --- block's next stretch of the same length. Nil and the reason when there
 --- is none.
 ---@param n any
@@ -8525,12 +8674,6 @@ function paw.scope.song_offset(s) end
 --- of the song's time. `from` is `to` when the times do not meet.
 ---@param s any
 function paw.scope.span(s) end
-
---- The tracks of a scope (the current one by default), in the order of the
---- track list. With no scope, or one that keeps every track, all tracks of
---- the song; in a subproject, its tracks.
----@param s any
-function paw.scope.tracks(s) end
 
 --- Where a window is, in words, for its window bar and the status line:
 --- the path without the song, which is always there (`Verse › Keys`,
@@ -8627,8 +8770,9 @@ function paw.slices.job(name) end
 --- until it returns true. The step works for at most `ms` milliseconds
 --- (`opts.ms`, 4) and keeps its place for the next call. The keys that
 --- wait run between two calls. `opts.after` is the time before the first
---- call (0). A job of the same name stops first. An error in the step
---- shows as a message and ends the job. Returns the job.
+--- call (0). With `opts.idle`, the job is idle work: a wait of a test does
+--- not wait for it. A job of the same name stops first. An error in the
+--- step shows as a message and ends the job. Returns the job.
 ---@param name any
 ---@param step any
 ---@param opts any
@@ -8831,10 +8975,10 @@ function paw.step.actions() end
 --- The name of the target that listens now, or nil.
 function paw.step.active() end
 
---- Say that step input has no MIDI input for `track`, and why, and open
---- the MIDI part of the track's list of inputs. True if it had to.
----@param track any
-function paw.step.ask_input(track) end
+--- Say that step input has no MIDI input for `part`, and why, and open
+--- the MIDI section of the part's list of inputs. True if it had to.
+---@param part any
+function paw.step.ask_input(part) end
 
 --- Let a control of the controller do an action while a target listens.
 --- `source` is `{ port, channel, note | cc }`; `port` and `channel` may be
@@ -8856,11 +9000,11 @@ function paw.step.held() end
 --- The pitches held, in words: "C4 E4".
 function paw.step.held_text() end
 
---- What step input listens to for `track`: its MIDI input's port and
+--- What step input listens to for `part`: its MIDI input's port and
 --- channel, or every port. Nil and why not when paw hears no MIDI: no port
---- is listed or open, or the track's port is not connected.
----@param track any
-function paw.step.input(track) end
+--- is listed or open, or the part's port is not connected.
+---@param part any
+function paw.step.input(part) end
 
 --- Wait for the next key, pad or pedal of the controller, and bind it to
 --- `action` by its port, channel and note or cc, in the file of the controls.
@@ -8878,7 +9022,7 @@ function paw.step.load() end
 --- Why the keys only sound now: "playing" or "recording", or nil.
 function paw.step.paused() end
 
---- Look again at which target listens: its track plays the controller,
+--- Look again at which target listens: its part plays the controller,
 --- and with none the held keys are forgotten. A target calls it when it
 --- starts or stops listening.
 function paw.step.refresh() end
@@ -8887,10 +9031,10 @@ function paw.step.refresh() end
 --- after a moment.
 function paw.step.said() end
 
---- The port that step input listens to for `track`, in a few words:
+--- The port that step input listens to for `part`, in a few words:
 --- `"Keystation 49"`, `"Keystation 49 · ch 2"`, `"all ports"`, or nil with no input.
----@param track any
-function paw.step.source(track) end
+---@param part any
+function paw.step.source(part) end
 
 --- A control in words: "Test Pads C2 (note 36)", "cc 64 (pedal)".
 ---@param s any
@@ -9066,15 +9210,15 @@ function paw.stretch.warp_snap(id, step) end
 ---@param c any
 function paw.takes.badge(c) end
 
---- Make take `take` play in the piece of a track at `beat`, and join it to
+--- Make take `take` play in the piece of a part at `beat`, and join it to
 --- the pieces next to it where that is exact. Returns the clip, or nil if
 --- no piece there has such a take.
----@param track any
+---@param part any
 ---@param take any
 ---@param beat any
-function paw.takes.choose_at(track, take, beat) end
+function paw.takes.choose_at(part, take, beat) end
 
---- Make take `take` play on a track from beat `from` to `to`. paw cuts
+--- Make take `take` play on a part from beat `from` to `to`. paw cuts
 --- each clip there with that number of takes at the two ends where it goes
 --- across them. paw selects take `take` for each piece between them. Then
 --- it joins again the adjacent pieces that play the same take, where that
@@ -9082,11 +9226,11 @@ function paw.takes.choose_at(track, take, beat) end
 --- the number of pieces that got the take, or 0 when no clip there has it.
 --- A piece named after its recording or its take is named after the take
 --- that it plays.
----@param track any
+---@param part any
 ---@param take any
 ---@param from any
 ---@param to any
-function paw.takes.comp(track, take, from, to) end
+function paw.takes.comp(part, take, from, to) end
 
 --- What take `index` of a clip plays, as the clip would have it if that
 --- take were selected. For sound, it is `{ file, offset, gain }`, with the
@@ -9101,31 +9245,31 @@ function paw.takes.content(clip, index) end
 ---@param clip any
 function paw.takes.count(clip) end
 
---- Each take as a separate clip, on new tracks below the track of the clip,
---- one take on each track. The clip keeps the take that plays. Returns the tracks.
+--- Each take as a separate clip, on new parts below the part of the clip,
+--- one take on each part. The clip keeps the take that plays. Returns the parts.
 ---@param id any
 function paw.takes.explode(id) end
 
---- Join the pieces of a track that continue exactly from one another (see
+--- Join the pieces of a part that continue exactly from one another (see
 --- `continues`). This applies to the pieces from beat `from` to `to`, with
 --- the pieces that touch each end. Returns the number of joins.
----@param track any
+---@param part any
 ---@param from any
 ---@param to any
-function paw.takes.join_pieces(track, from, to) end
+function paw.takes.join_pieces(part, from, to) end
 
 --- Throw away every take but the one that plays.
 ---@param id any
 function paw.takes.keep(id) end
 
---- The number of take lanes that a track shows: the highest number of takes
+--- The number of take lanes that a part shows: the highest number of takes
 --- of its clips. None while they are hidden or when no clip has takes.
----@param track any
-function paw.takes.lane_count(track) end
+---@param part any
+function paw.takes.lane_count(part) end
 
---- True if a track shows its take lanes.
----@param track any
-function paw.takes.lanes_shown(track) end
+--- True if a part shows its take lanes.
+---@param part any
+function paw.takes.lanes_shown(part) end
 
 --- True if the name of a clip comes from its takes: the name of the take
 --- that plays, or of the recording ("take 1" for "take 1.2").
@@ -9167,7 +9311,7 @@ function paw.takes.peaks(clip, index, n) end
 function paw.takes.piece(c, from, to, shift) end
 
 --- Make a new audio recording, clip `id`, the newest take of the audio
---- clips under it on its track, instead of a clip on top of them. paw cuts
+--- clips under it on its part, instead of a clip on top of them. paw cuts
 --- those clips where the recording starts and ends. Each piece gets all the
 --- takes of the recording, lined up, and plays the take that the recording
 --- plays. What the piece played before stays as a take. The part of the
@@ -9193,19 +9337,19 @@ function paw.takes.select(id, index) end
 ---@param by any
 function paw.takes.shift(id, by) end
 
---- Show a track's take lanes, or hide them (`on` false).
----@param track any
+--- Show a part's take lanes, or hide them (`on` false).
+---@param part any
 ---@param on any
-function paw.takes.show_lanes(track, on) end
+function paw.takes.show_lanes(part, on) end
 
 --- Step through a clip's takes, round and round.
 ---@param id any
 ---@param by any
 function paw.takes.step(id, by) end
 
---- Show the take lanes of a track, or hide them. Returns true if they show.
----@param track any
-function paw.takes.toggle_lanes(track) end
+--- Show the take lanes of a part, or hide them. Returns true if they show.
+---@param part any
+function paw.takes.toggle_lanes(part) end
 
 --- The tempo at a beat (the start if left out).
 ---@param beat any
@@ -9623,137 +9767,7 @@ paw.timers.every = paw.every
 
 paw.timers.wait = paw.api.wait
 
---- A new track of the kind `name`. `opts.name` is its name (if not given,
---- the title of the kind without "track"), and `opts.index` its place. The
---- other options go to `create`.
----@param name any
----@param opts any
-function paw.track_kinds.add(name, opts) end
-
---- Make a track an ordinary one again, as far as its kind goes: what the
---- kind made (its devices) stays, for the extension to take away.
----@param which any
-function paw.track_kinds.clear(which) end
-
---- Define a kind of track (see above). `name` is a word: what is typed
---- after `:track.add` and kept in the track's `meta.kind`.
----@param name any
----@param spec any
-function paw.track_kinds.define(name, spec) end
-
---- A few words on a track's kind, for `K` and the track header:
---- `Vocal track · Kitane`, "vocal (no extension here defines it)", or nil.
----@param which any
-function paw.track_kinds.describe(which) end
-
---- ": there are vocal, drums", for messages.
-function paw.track_kinds.known_words() end
-
---- The defined kinds, in the order they were defined.
-function paw.track_kinds.list() end
-
---- The name of the kind of a track: the kind that it keeps. If not, a kind
---- whose `is` claims it. Nil for a usual track.
----@param which any
-function paw.track_kinds.of(which) end
-
---- Open a clip in its track's kind's editor. True when it did.
----@param clip any
-function paw.track_kinds.open(clip) end
-
---- Forget a kind: no longer offered, nor in the menus. Tracks that keep
---- it are ordinary tracks again until something defines it.
----@param name any
-function paw.track_kinds.remove(name) end
-
---- Make a track of `name`'s kind: keep the kind on it, then let the kind
---- make it what it is. `args` go to `create`.
----@param which any
----@param name any
----@param args any
-function paw.track_kinds.set(which, name, args) end
-
---- A track's kind as defined, or nil (an ordinary track, or a kind that no
---- loaded extension defines).
----@param which any
-function paw.track_kinds.spec(which) end
-
---- Add a component, or put a new one in place of one of that name. It
---- goes into `paw.opt.trackcolumn` (unless `hidden`), so it shows at once.
----@param name any
----@param spec any
-function paw.trackcolumn.add(name, spec) end
-
---- A click at column `x` of the column on a line of `track`: the
---- component there does what its `click` says. True if one had a `click`.
----@param L any
----@param x any
----@param track any
----@param ctx any
-function paw.trackcolumn.click(L, x, track, ctx) end
-
---- What the components shown say of `track` for `K` (their `describe`),
---- a line each, in their order.
----@param track any
-function paw.trackcolumn.describe(track) end
-
---- Draw one line of the column for `track` at line `y` of `buf` (the
---- column's own part of the view), with what `ctx` says of the line.
----@param buf any
----@param L any
----@param y any
----@param track any
----@param ctx any
-function paw.trackcolumn.draw(buf, L, y, track, ctx) end
-
---- The column for one draw over the tracks of `frame`: the components
---- named in `paw.opt.trackcolumn`, in their order, each as wide as it
---- says. Each component with `from_header` takes its columns from the
---- headers, up to `header_room` columns in all. The other components, and
---- a component that does not fit in the headers, take their columns from
---- the timeline, up to `room` columns. A component that fails, or that has
---- no room left, takes no columns.
----@param frame any
----@param room any
----@param header_room any
-function paw.trackcolumn.layout(frame, room, header_room) end
-
---- Take a component away, and its name out of `paw.opt.trackcolumn`.
---- The component that it replaced, if any, comes back.
----@param name any
-function paw.trackcolumn.remove(name) end
-
---- Change a component that is there, the built-in ones too: its `order`
---- (to put it elsewhere), `width`, `render`, `click`, `describe`, and the
---- `glyphs` and `styles` it draws with (merged into its own). The
---- component becomes a changed copy: `paw.trackcolumn.add(name, old)`
---- with the table it had before puts that back. The change of an
---- extension goes when the extension unloads.
----   paw.trackcolumn.set("fold", { order = 5, glyphs = { open = "-", closed = "+" } })
----   paw.trackcolumn.set("number", { width = 4, styles = { cursor = "Title" } })
----@param name any
----@param patch any
-function paw.trackcolumn.set(name, patch) end
-
---- Change a sign that is there, as `set` changes a component: its
---- `priority`, `render`, `describe`, `glyphs` and `styles`.
----   paw.trackcolumn.set_sign("diagnostics", { glyphs = { error = "E", warn = "W" } })
----@param name any
----@param patch any
-function paw.trackcolumn.set_sign(name, patch) end
-
---- True if component `name` is shown: added and named in `paw.opt.trackcolumn`.
----@param name any
-function paw.trackcolumn.shows(name) end
-
---- Add a sign to the `signs` component: `render(track, ctx)` gives one
---- character, or nothing. Where several give one, the highest `priority`
---- shows. `nil` for `spec` takes the sign away.
----@param name any
----@param spec any
-function paw.trackcolumn.sign(name, spec) end
-
---- True if something moves on its own now: the song plays, a track listens
+--- True if something moves on its own now: the song plays, a part listens
 --- to its input, or a moment after activity (`poke`), while meters fall.
 function paw.ui.active() end
 
@@ -9825,7 +9839,7 @@ function paw.ui.frame_ms() end
 
 --- Go to a location in the view that shows it best, and focus that view.
 --- The piano roll shows notes, the device panel shows devices and
---- parameters, and the arrange view shows tracks and time.
+--- parameters, and the arrange view shows parts and time.
 ---@param location any
 function paw.ui.go(location) end
 
@@ -10077,7 +10091,7 @@ function paw.ui.theme(groups) end
 --- right end), `reserve` (columns to keep free at the right end, for the
 --- view's own items), `focused`. When the panel has focus, the whole bar is
 --- in the accent color, inverted.
----   local body = paw.ui.titlebar(buf, { name = "Mixer", context = "5 tracks", focused = ctx.focused })
+---   local body = paw.ui.titlebar(buf, { name = "Mixer", context = "5 parts", focused = ctx.focused })
 ---@param buf any
 ---@param opts any
 function paw.ui.titlebar(buf, opts) end
@@ -10299,7 +10313,7 @@ function paw.util.expand_path(path) end
 
 --- The level a fader goes to from `now` when it is moved to `want`: in its
 --- travel (`lo` to `hi`, the fader's when not given), but never back past
---- where it is. A track at +10 dB that is turned down goes to +9, not to
+--- where it is. A part at +10 dB that is turned down goes to +9, not to
 --- the top of the travel.
 ---@param now any
 ---@param want any
@@ -10336,42 +10350,42 @@ function paw.util.tilde(path) end
 ---@param width any
 function paw.util.wrap(text, width) end
 
---- Put a track under a VCA.
----@param track any
+--- Put a part under a VCA.
+---@param part any
 ---@param vca any
-function paw.vca.assign(track, vca) end
+function paw.vca.assign(part, vca) end
 
---- Take a VCA away: its tracks stay, at their own faders.
+--- Take a VCA away: its parts stay, at their own faders.
 ---@param vca any
 function paw.vca.dissolve(vca) end
 
---- True if a track is a VCA.
----@param track any
-function paw.vca.is_vca(track) end
+--- True if a part is a VCA.
+---@param part any
+function paw.vca.is_vca(part) end
 
---- Every VCA, in the order of the track list.
+--- Every VCA, in the order of the part list.
 function paw.vca.list() end
 
---- A new VCA over `tracks` (ids or tracks), after the last track. Returns
---- its track.
----@param tracks any
+--- A new VCA over `parts` (ids or parts), after the last part. Returns
+--- its part.
+---@param parts any
 ---@param name any
-function paw.vca.make(tracks, name) end
+function paw.vca.make(parts, name) end
 
---- The tracks in a VCA, in the order of the track list.
+--- The parts in a VCA, in the order of the part list.
 ---@param vca any
 function paw.vca.members(vca) end
 
---- The VCAs of a track (their ids), in the order in which paw put the track in them.
----@param track any
-function paw.vca.of(track) end
+--- The VCAs of a part (their ids), in the order in which paw put the part in them.
+---@param part any
+function paw.vca.of(part) end
 
---- Take a track out of a VCA, or out of all of them without `vca`.
----@param track any
+--- Take a part out of a VCA, or out of all of them without `vca`.
+---@param part any
 ---@param vca any
-function paw.vca.unassign(track, vca) end
+function paw.vca.unassign(part, vca) end
 
---- Whether some tracks of the arrange view's window have rows of their own.
+--- Whether some parts of the arrange view's window have rows of their own.
 function paw.vzoom.any_own() end
 
 --- Add the vertical zoom of a view: `zoomer.step(by, opts)` and
@@ -10392,7 +10406,10 @@ function paw.vzoom.key_rows() end
 --- Rows per automation lane shown as a row in the arrange view: 2 at no zoom.
 function paw.vzoom.lane_rows() end
 
---- The rows of a track of its own in the arrange view's window, or nil.
+--- Rows per part in the arrange view's window, or nil for the option's.
+function paw.vzoom.part_rows() end
+
+--- The rows of a part of its own in the arrange view's window, or nil.
 ---@param id any
 function paw.vzoom.rows_of(id) end
 
@@ -10401,9 +10418,6 @@ function paw.vzoom.rows_of(id) end
 ---@param by any
 ---@param opts any
 function paw.vzoom.step(by, opts) end
-
---- Rows per track in the arrange view's window, or nil for the option's.
-function paw.vzoom.track_rows() end
 
 --- The window of `view` whose zoom is meant: the one being drawn, the
 --- focused one, else the one whose state the view has now.
@@ -10449,7 +10463,7 @@ function paw.xml.children(el, name) end
 ---@param opts any
 function paw.xml.decode(text, opts) end
 
---- A new element: `paw.xml.element("Track", { id = "t1", name = "Bass" })`.
+--- A new element: `paw.xml.element("Part", { id = "t1", name = "Bass" })`.
 --- Its attributes are written in the order of `order`, then the others by
 --- name.
 ---@param name any
@@ -10511,12 +10525,12 @@ function paw.api.audio_watch(opts) end
 --- A control is held (a fader under the pointer) or let go: in touch
 --- mode it writes automation for as long as it is held. The control
 --- is named as a lane's target is.
----@param track integer
+---@param part integer
 ---@param target string
 ---@param device integer?
 ---@param param string?
 ---@param on boolean
-function paw.api.automation_hold(track, target, device, param, on) end
+function paw.api.automation_hold(part, target, device, param, on) end
 
 --- The bytes of base64 text, either alphabet, with or without its
 --- padding; spaces and line ends are left out. Nil and the reason
@@ -10603,7 +10617,7 @@ function paw.api.canvas_pixels(key) end
 function paw.api.chain_branch_add(owner, split, opts) end
 
 --- The chain of an owner's devices, or nil when it has none (its
---- devices play in series, in the order of `track.devices`).
+--- devices play in series, in the order of `part.devices`).
 ---@param owner any
 function paw.api.chain_get(owner) end
 
@@ -10689,11 +10703,11 @@ function paw.api.chain_unwrap(owner, split, keep) end
 ---@param opts any
 function paw.api.chain_wrap(owner, nodes, kind, opts) end
 
---- Write a track's devices as a chain file: `file` (a `devices.json`)
+--- Write a part's devices as a chain file: `file` (a `devices.json`)
 --- and the `.state` files of the plugins beside it. Returns the files.
----@param track integer
+---@param part integer
 ---@param file string
-function paw.api.chain_write(track, file) end
+function paw.api.chain_write(part, file) end
 
 ---@param file string
 function paw.api.checkpoint_delete(file) end
@@ -10711,9 +10725,9 @@ function paw.api.checkpoint_write(name, id) end
 
 --- A clip of a defined kind: `kind` is its name, with `data` and `length`, and
 --- `version`, `timeline`, `offset`, `media`, `sound` and `signals` as `clip_custom` gives them.
----@param track integer
+---@param part integer
 ---@param opts any
-function paw.api.clip_add(track, opts) end
+function paw.api.clip_add(part, opts) end
 
 ---@param id integer
 ---@param notes any
@@ -10780,13 +10794,13 @@ function paw.api.clip_kinds() end
 function paw.api.clip_link(id) end
 
 --- --- clips ---
---- The clips of a track, in timeline order. With `from` and `to`
+--- The clips of a part, in timeline order. With `from` and `to`
 --- (beats), only those that overlap that stretch: a view that shows
 --- part of the song asks for what it shows.
----@param track integer
+---@param part integer
 ---@param from number?
 ---@param to number?
-function paw.api.clip_list(track, from, to) end
+function paw.api.clip_list(part, from, to) end
 
 ---@param id integer
 ---@param level number?
@@ -10874,10 +10888,10 @@ function paw.api.clip_set_notes(id, notes) end
 ---@param id integer
 function paw.api.clip_source_length(id) end
 
---- Copy a clip, with its `meta`, off the timeline of a track. Returns the copy's id.
+--- Copy a clip, with its `meta`, off the timeline of a part. Returns the copy's id.
 ---@param id integer
----@param track integer
-function paw.api.clip_to_cues(id, track) end
+---@param part integer
+function paw.api.clip_to_cues(id, part) end
 
 --- Take a clip out of its link. It keeps its notes, and edits of it no
 --- longer change the other clips.
@@ -10898,25 +10912,29 @@ function paw.api.clip_warp_move(id, index, beat) end
 ---@param index integer
 function paw.api.clip_warp_remove(id, index) end
 
+--- The schedule clock of the process: "manual" when it moves only
+--- when a script waits (`paw --clock manual`, the tests), else "wall".
+function paw.api.clock() end
+
 --- The CRC-32 of bytes, as zip and gzip use it.
 ---@param data any
 function paw.api.crc32(data) end
 
---- `{ { track =, clip = id }, { track =, stop = true },
---- { track =, timeline = true }, ... }`, each with `quantize` (`bar`
+--- `{ { part =, clip = id }, { part =, stop = true },
+--- { part =, timeline = true }, ... }`, each with `quantize` (`bar`
 --- when not given: off 1/16 1/8 1/4 beat bar 2bars 4bars), `legato`
 --- and `from`: all on their boundary, timed together by the engine.
 ---@param list any
 function paw.api.cue(list) end
 
 --- --- cues (session/cues.rs) ---
---- A clip goes off the timeline with `clip_add(track, { cue = true, ... })`:
+--- A clip goes off the timeline with `clip_add(part, { cue = true, ... })`:
 --- it starts at 0, loops over its length, and plays only when cued.
---- You edit it as a usual clip; `clip_set(id, "track", other)` moves it.
----@param track integer
-function paw.api.cue_list(track) end
+--- You edit it as a usual clip; `clip_set(id, "part", other)` moves it.
+---@param part integer
+function paw.api.cue_list(part) end
 
---- What each track plays and has in its queue, in the last report of the engine.
+--- What each part plays and has in its queue, in the last report of the engine.
 function paw.api.cue_state() end
 
 --- Compress `data` with deflate, as `format` says: "raw", "zlib" or "gzip".
@@ -10924,10 +10942,10 @@ function paw.api.cue_state() end
 ---@param format string
 function paw.api.deflate(data, format) end
 
----@param track integer
+---@param part integer
 ---@param kind string
 ---@param opts any
-function paw.api.device_add(track, kind, opts) end
+function paw.api.device_add(part, kind, opts) end
 
 --- Devices of `old`, a kind that was renamed, are made as `new`.
 ---@param old string
@@ -10974,9 +10992,9 @@ function paw.api.device_get(id) end
 function paw.api.device_load(id, load) end
 
 ---@param id integer
----@param track integer
+---@param part integer
 ---@param index integer
-function paw.api.device_move(id, track, index) end
+function paw.api.device_move(id, part, index) end
 
 --- What a plugin calls its keys, `{ [pitch] = name }` (CLAP `note-name`).
 ---@param id integer
@@ -11041,41 +11059,41 @@ function paw.api.device_state(id) end
 --- --- devices ---
 function paw.api.device_types() end
 
---- Only these tracks heard for now, as a solo would, or all with nil.
----@param tracks integer[]?
-function paw.api.engine_audible(tracks) end
+--- Only these parts heard for now, as a solo would, or all with nil.
+---@param parts integer[]?
+function paw.api.engine_audible(parts) end
 
---- The track that plays MIDI input while no track is armed, as if
+--- The part that plays MIDI input while no part is armed, as if
 --- monitored, or none with nil (`paw.opt.midi_follows_selection`).
----@param track integer?
-function paw.api.engine_follow(track) end
+---@param part integer?
+function paw.api.engine_follow(part) end
 
---- The track that plays MIDI input as if monitored, also while another
---- track is armed, or none with nil. While set, it takes the place of
---- `engine_follow`'s track. Step input sets it to the track of the
+--- The part that plays MIDI input as if monitored, also while another
+--- part is armed, or none with nil. While set, it takes the place of
+--- `engine_follow`'s part. Step input sets it to the part of the
 --- clip it enters into, so that the controller sounds there.
----@param track integer?
-function paw.api.engine_follow_always(track) end
+---@param part integer?
+function paw.api.engine_follow_always(part) end
 
 --- --- engine ---
 function paw.api.engine_get() end
 
 function paw.api.engine_held() end
 
---- Play a track from a sound file for now, as if it is frozen, or live
---- again with nil. Nil also works for a track that is gone. Another
---- project plays all its tracks live. The project does not change
+--- Play a part from a sound file for now, as if it is frozen, or live
+--- again with nil. Nil also works for a part that is gone. Another
+--- project plays all its parts live. The project does not change
 --- (see `freeze.rs`).
----@param track integer
+---@param part integer
 ---@param file string?
-function paw.api.engine_hold(track, file) end
+function paw.api.engine_hold(part, file) end
 
 --- What changes of the engine by itself, as `engine_get` gives it but
 --- without a table, for what is read on each frame: `cpu`, `xruns`
 --- and `block`.
 function paw.api.engine_load() end
 
---- Controls of MIDI input that tracks do not get: they neither sound
+--- Controls of MIDI input that parts do not get: they neither sound
 --- nor record. Scripts still hear them, as `midi.in` events with
 --- `filtered = true`. Each `name` (`"step"`, `"learn"`) keeps its own
 --- list beside the others; nil or an empty list removes it.
@@ -11109,7 +11127,7 @@ function paw.api.engine_set_quality(quality) end
 ---@param sleep boolean
 function paw.api.engine_set_sleep(sleep) end
 
---- The number of threads that process tracks, with the audio thread. 0
+--- The number of threads that process parts, with the audio thread. 0
 --- lets paw select the number. `engine_get().threads` gives the number in use.
 ---@param threads integer
 function paw.api.engine_set_threads(threads) end
@@ -11345,9 +11363,9 @@ function paw.api.json_decode(text) end
 ---@param pretty boolean?
 function paw.api.json_encode(value, pretty) end
 
----@param track integer
+---@param part integer
 ---@param opts any
-function paw.api.lane_add(track, opts) end
+function paw.api.lane_add(part, opts) end
 
 ---@param id integer
 ---@param beat number
@@ -11364,8 +11382,8 @@ function paw.api.lane_add_state(id, state) end
 function paw.api.lane_get(id) end
 
 --- --- automation ---
----@param track integer
-function paw.api.lane_list(track) end
+---@param part integer
+function paw.api.lane_list(part) end
 
 ---@param id integer
 function paw.api.lane_points(id) end
@@ -11557,10 +11575,10 @@ function paw.api.midi_outputs() end
 ---@param which string[]?
 function paw.api.midi_select(which) end
 
---- Send a MIDI message to one track's devices right now, outside the timeline.
----@param track integer
+--- Send a MIDI message to one part's devices right now, outside the timeline.
+---@param part integer
 ---@param event any
-function paw.api.midi_send(track, event) end
+function paw.api.midi_send(part, event) end
 
 --- The MIDI ports the null backend lists, as if plugged in.
 ---@param ports string[]
@@ -11570,10 +11588,10 @@ function paw.api.midi_test_ports(ports) end
 ---@param event any
 function paw.api.midi_ump(event) end
 
---- Make a subproject with its master track and no other track, as one
+--- Make a subproject with its master part and no other part, as one
 --- undo step, for example `{ name = "Bridge", length = 32 }`. The length
---- is in beats, and 32 when you leave it out. Add its tracks with
---- `track_add({ nest = id })`. Returns its id.
+--- is in beats, and 32 when you leave it out. Add its parts with
+--- `part_add({ nest = id })`. Returns its id.
 ---@param opts any
 function paw.api.nest_add(opts) end
 
@@ -11583,17 +11601,17 @@ function paw.api.nest_add(opts) end
 function paw.api.nest_beat(clip, beat) end
 
 --- Write a subproject as a project folder of its own at `dir`, a new
---- or empty folder. Its tracks become the project's tracks and its
+--- or empty folder. Its parts become the project's parts and its
 --- master the master. A subproject that follows the song's tempo or
 --- meter gets the song's from its first block. Its media are copied
 --- into `media/`. The song does not change. Returns `path` (the
---- new `project.toml`), `tracks`, `media` (the files copied),
+--- new `project.toml`), `parts`, `media` (the files copied),
 --- `missing` and `changes`.
 ---@param id integer
 ---@param dir string
 function paw.api.nest_export(id, dir) end
 
---- A subproject as a table: its fields, `tracks` (its tracks in order,
+--- A subproject as a table: its fields, `parts` (its parts in order,
 --- without its master) and `used` (whether the song plays it). With
 --- `key`, only that field of its own (`name`, `length`, `master`...):
 --- this is quicker.
@@ -11604,7 +11622,7 @@ function paw.api.nest_get(id, key) end
 --- Make the project folder `dir` a subproject, as one undo step with
 --- the block that places it. The subproject refers to the folder: the
 --- song keeps no copy and reads the folder again when it opens. Its
---- tracks, its master and the subprojects inside come from the folder.
+--- parts, its master and the subprojects inside come from the folder.
 --- It follows the song's tempo (its own is kept, for `nest.time own`)
 --- and keeps the meter of the folder. Its first edit, or `nest_own`,
 --- makes it the song's own copy. Nothing places it yet: add a block.
@@ -11612,7 +11630,7 @@ function paw.api.nest_get(id, key) end
 ---@param dir string
 function paw.api.nest_import(dir) end
 
---- --- nests (subprojects): tracks with a timeline of their own ---
+--- --- nests (subprojects): parts with a timeline of their own ---
 --- The ids of the subprojects, in the order they were made.
 function paw.api.nest_list() end
 
@@ -11630,14 +11648,14 @@ function paw.api.nest_own(id) end
 function paw.api.nest_own_tempo(clip) end
 
 --- Promote the subproject of a block (`clip`) to song data, as one
---- undo step: its tracks come back in a group named after it at the
+--- undo step: its parts come back in a group named after it at the
 --- place of its return row, their clips at the row's beats, cut at
---- the block. The group track gets the master's devices and then the
+--- the block. The group part gets the master's devices and then the
 --- row's, the sum of their faders in dB, the row's pan and sends, and
 --- their lanes (two volume lanes added in dB). The row, the master
---- and the subproject go. A subproject saved per track (`<Space>zw`)
+--- and the subproject go. A subproject saved per part (`<Space>zw`)
 --- gives its clips back to the rows of its blocks instead, with no
---- group. Returns `group`, `tracks`, `from`, `to`, `zero` (the song's
+--- group. Returns `group`, `parts`, `from`, `to`, `zero` (the song's
 --- beat of the subproject's beat 0) and `combined` (the targets of
 --- the lanes made one). `paw.nest.promote` does the rest: regions,
 --- the meter, the view.
@@ -11645,14 +11663,14 @@ function paw.api.nest_own_tempo(clip) end
 function paw.api.nest_promote(clip) end
 
 --- Save a view as a subproject, as one undo step: the clips of
---- `tracks` from `from` to `to` (beats of their place) move into a
---- new subproject named `name` with the meter `meter`. Per track,
---- each row keeps its devices and gets a track of the subproject
+--- `parts` from `from` to `to` (beats of their place) move into a
+--- new subproject named `name` with the meter `meter`. Per part,
+--- each row keeps its devices and gets a part of the subproject
 --- with its clips; add a block on the row that plays it. With
---- `own_row`, the tracks go in (whole, or as copies with copies of
+--- `own_row`, the parts go in (whole, or as copies with copies of
 --- their devices and lanes) and one return row plays the mix; add
 --- its block. `paw.nest.save` does the rest: blocks, regions, the
---- window. Returns `nest`, `rows`, `row`, `tracks`, `changes`, and with
+--- window. Returns `nest`, `rows`, `row`, `parts`, `changes`, and with
 --- a row of its own the song's `group` it is in or the `buses` that no
 --- longer get the time.
 ---@param opts any
@@ -11715,22 +11733,22 @@ function paw.api.nest_tempo_seconds(clip, beat) end
 function paw.api.nest_tempo_signature(clip, beat) end
 
 --- Make the block `clip` a subproject of its own, as one undo step: a
---- copy of its subproject (tracks, devices, lanes and clips) named
+--- copy of its subproject (parts, devices, lanes and clips) named
 --- `Ballad 2`, which the block and the stems of the same block then
 --- play. The other blocks keep the subproject. Returns the copy's id.
 ---@param clip integer
 function paw.api.nest_unique(clip) end
 
----@param track integer
+---@param part integer
 ---@param pitch integer?
-function paw.api.note_off(track, pitch) end
+function paw.api.note_off(part, pitch) end
 
---- Play a note on a track, with a MIDI 2.0 attribute if one is given.
----@param track integer
+--- Play a note on a part, with a MIDI 2.0 attribute if one is given.
+---@param part integer
 ---@param pitch integer
 ---@param velocity number?
 ---@param attr any
-function paw.api.note_on(track, pitch, velocity, attr) end
+function paw.api.note_on(part, pitch, velocity, attr) end
 
 --- Many notes of many clips at once, as one edit, given as lists of the
 --- same length: `{ clip = { 4, 4, 7 }, place = { 1, 2, 1 }, start = { 0, 0.5, 2 } }`.
@@ -11746,11 +11764,76 @@ function paw.api.notes_set(columns) end
 --- measure how long work takes, use `real_ms`.
 function paw.api.now() end
 
---- The work that is not done yet, by kind: timers due now and all the
---- timers, the time until the next timer or delay is due (`next_ms`),
---- bakes, files of stretched clips being hashed, plugins being loaded,
---- renders, measurements, changed files, MIDI that came in, and helper
---- processes. A test waits until nothing is in flight.
+---@param opts any
+function paw.api.part_add(opts) end
+
+--- The milliseconds that the attribute map of the part moves a note with
+--- `attr` (below 0: earlier). 0 when the part has no attribute map.
+---@param id integer
+---@param attr any
+function paw.api.part_attr_delay(id, attr) end
+
+--- Give a part the devices of a chain file (a `devices.json`). With
+--- `refer`, the part refers to the file until the chain's first edit.
+--- Returns how many devices.
+---@param part integer
+---@param file string
+---@param refer boolean?
+function paw.api.part_chain_file(part, file, refer) end
+
+--- Make every part read from a folder outside the project, and every
+--- chain of devices read from a file outside it, the project's own.
+--- Returns how many parts and how many chains.
+function paw.api.part_collect() end
+
+--- A part as a table. With `key`, only that entry of the table: this
+--- is quicker, because the table lists each clip of the part.
+---@param id integer
+---@param key string?
+function paw.api.part_get(id, key) end
+
+--- Add the part of a part folder outside the project (a folder with
+--- a `part.json`) at `index` (from 1; the end when nil). The project
+--- refers to the folder until the part's first edit. Returns its id.
+---@param folder string
+---@param index integer?
+function paw.api.part_import_folder(folder, index) end
+
+--- --- parts ---
+--- The ids of the song's parts, in their order. `{ nest = id }`
+--- gives the parts of that subproject instead (without its master),
+--- and `{ all = true }` every part: the song's and each
+--- subproject's. Views list the parts of their scope with
+--- `paw.scope.parts()`.
+---@param opts any
+function paw.api.part_list(opts) end
+
+---@param id integer
+function paw.api.part_meter(id) end
+
+---@param id integer
+---@param index integer
+function paw.api.part_move(id, index) end
+
+---@param id integer
+function paw.api.part_remove(id) end
+
+--- Change a part: a table of the entries to change, as `part_get`
+--- gives them (`{ name = "Bass", volume = -6 }`), or one `key` and its
+--- value. Only the key form clears an entry (`part_set(id, "output",
+--- nil)`). An entry that is as it was is no change.
+---@param id integer
+---@param key any
+---@param value any
+function paw.api.part_set(id, key, value) end
+
+--- The work that is not done yet: whether the next turn has work
+--- (`ready`), whether only due times are left (`quiet`), the time
+--- until the next timer or delay is due (`next_ms`), the work in
+--- flight on other threads and processes by kind (`in_flight`), the
+--- timers, the bakes and changed files that wait for their settle,
+--- MIDI that came in, helper processes, and the wakes that a worker
+--- missed (`missed_wakes`).
 function paw.api.pending() end
 
 --- Find CLAP and VST3 plugins in one more directory from now on (the
@@ -11929,7 +12012,7 @@ function paw.api.project_set(key, value) end
 
 --- Put the open project aside, with its undo history, and open an empty
 --- project. `project_unshelve` brings the first project back exactly as it
---- was. For checks that need their own tracks (extensions/doctor).
+--- was. For checks that need their own parts (extensions/doctor).
 function paw.api.project_shelve() end
 
 function paw.api.project_shelved() end
@@ -12124,15 +12207,23 @@ function paw.api.scene_picture(rect, opts) end
 function paw.api.scene_roles(client, roles) end
 
 --- Write a view as a project folder of its own at `dir`, a new or
---- empty folder: copies of `tracks` with their devices, their clips
+--- empty folder: copies of `parts` with their devices, their clips
 --- and lanes from `from` to `to` (beats of their place) from beat
 --- 0, the markers and regions inside, and the tempo and meter of the
---- time. A route to a track outside the view is cut, and `changes`
+--- time. A route to a part outside the view is cut, and `changes`
 --- tells each cut. The song does not change. Returns what
 --- `nest_export` returns.
 ---@param opts any
 ---@param dir string
 function paw.api.scope_export(opts, dir) end
+
+--- Turn the loop until nothing is ready and no work is in flight:
+--- the timers due now fire, and the loop waits for the bakes, the
+--- hashes, the plugin loads, the renders and the other work of
+--- threads and processes to end. No schedule time passes, and an
+--- idle timer is not waited for. Gives what `pending` gives then. It
+--- fails when work is still in flight after 30 seconds.
+function paw.api.settle() end
 
 ---@param beat number
 function paw.api.signature_remove(beat) end
@@ -12318,11 +12409,15 @@ function paw.api.test_devices() end
 ---@param inside boolean?
 function paw.api.test_panic(why, inside) end
 
---- --- timers ---
+--- Start a timer: `func` runs after `ms` milliseconds, and again
+--- each `ms` when `repeat` is true. An `idle` timer is idle work (the
+--- collector of garbage): when it is due, a wait of a test
+--- (`settle`) does not wait for it, and `pending().quiet` holds.
 ---@param ms number
 ---@param repeat boolean
 ---@param func function
-function paw.api.timer_start(ms, repeat, func) end
+---@param idle boolean?
+function paw.api.timer_start(ms, repeat, func, idle) end
 
 ---@param id integer
 function paw.api.timer_stop(id) end
@@ -12340,69 +12435,6 @@ function paw.api.toml_decode(text) end
 ---@param value any
 ---@param inline boolean?
 function paw.api.toml_encode(value, inline) end
-
----@param opts any
-function paw.api.track_add(opts) end
-
---- The milliseconds that the attribute map of the track moves a note with
---- `attr` (below 0: earlier). 0 when the track has no attribute map.
----@param id integer
----@param attr any
-function paw.api.track_attr_delay(id, attr) end
-
---- Give a track the devices of a chain file (a `devices.json`). With
---- `refer`, the track refers to the file until the chain's first edit.
---- Returns how many devices.
----@param track integer
----@param file string
----@param refer boolean?
-function paw.api.track_chain_file(track, file, refer) end
-
---- Make every track read from a folder outside the project, and every
---- chain of devices read from a file outside it, the project's own.
---- Returns how many tracks and how many chains.
-function paw.api.track_collect() end
-
---- A track as a table. With `key`, only that entry of the table: this
---- is quicker, because the table lists each clip of the track.
----@param id integer
----@param key string?
-function paw.api.track_get(id, key) end
-
---- Add the track of a track folder outside the project (a folder with
---- a `track.json`) at `index` (from 1; the end when nil). The project
---- refers to the folder until the track's first edit. Returns its id.
----@param folder string
----@param index integer?
-function paw.api.track_import_folder(folder, index) end
-
---- --- tracks ---
---- The ids of the song's tracks, in their order. `{ nest = id }`
---- gives the tracks of that subproject instead (without its master),
---- and `{ all = true }` every track: the song's and each
---- subproject's. Views list the tracks of their scope with
---- `paw.scope.tracks()`.
----@param opts any
-function paw.api.track_list(opts) end
-
----@param id integer
-function paw.api.track_meter(id) end
-
----@param id integer
----@param index integer
-function paw.api.track_move(id, index) end
-
----@param id integer
-function paw.api.track_remove(id) end
-
---- Change a track: a table of the entries to change, as `track_get`
---- gives them (`{ name = "Bass", volume = -6 }`), or one `key` and its
---- value. Only the key form clears an entry (`track_set(id, "output",
---- nil)`). An entry that is as it was is no change.
----@param id integer
----@param key any
----@param value any
-function paw.api.track_set(id, key, value) end
 
 --- --- transport ---
 function paw.api.transport_get() end
@@ -12612,7 +12644,7 @@ function paw.api.undo_tree() end
 function paw.api.view_ranges() end
 
 --- Tell paw which part of the song each window shows: a list of ranges of
---- beats, each with the tracks shown (all tracks when `tracks` is nil). The
+--- beats, each with the parts shown (all parts when `parts` is nil). The
 --- stretched clips there bake before the others. paw.derived sends this
 --- after each frame.
 ---@param ranges any

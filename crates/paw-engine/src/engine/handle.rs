@@ -31,14 +31,14 @@ impl EngineHandle {
     }
 
     /// The sending end of the engine's MIDI input queue, for the one thread
-    /// that reads MIDI ports. Notes pushed into it reach every armed track at
+    /// that reads MIDI ports. Notes pushed into it reach every armed part at
     /// the start of the next callback.
     /// Each message comes with the key of the port it came from.
     pub fn take_midi_input(&mut self) -> Option<Producer<(u32, EventKind)>> {
         self.midi_tx.take()
     }
 
-    /// The receiving end of a new queue of the MIDI the tracks send to their
+    /// The receiving end of a new queue of the MIDI the parts send to their
     /// output ports, for the one thread that sends it on
     /// ([`MidiOutputs::set_queue`]). Until one is asked for, nothing is
     /// sent: an offline render never is.

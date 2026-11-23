@@ -10,7 +10,7 @@
 --   notation_open   a clip of more than 10 000 notes opened as notation and drawn at 150x45
 --   notation_moves  in that view, twenty cursor moves and a draw
 --   picker          a picker of 6 000 items, eight keys, each with a draw at 120x40
---   search          100 tracks of 100 notes: a query, a grep of lyrics, the notes picker
+--   search          100 parts of 100 notes: a query, a grep of lyrics, the notes picker
 --   legato          musicops' legato on 10 000 notes
 --   pattern_errors  the pattern text that asks for too many notes, refused
 --   help            the help index made at idle: the longest slice, then the first :help
@@ -71,11 +71,11 @@ end
 local function big_notation_clip()
   extension("notation")
   local notes = require("notation.bench").notes(690)
-  local track = paw.add_track({ name = "Big" })
-  track:add_clip({ start = 0, length = 690 * 4, name = "big", notes = notes })
+  local part = paw.add_part({ name = "Big" })
+  part:add_clip({ start = 0, length = 690 * 4, name = "big", notes = notes })
   paw.flush()
   api.undo_checkpoint()
-  paw.cursor.set_track(track)
+  paw.cursor.set_part(part)
   paw.cursor.beat = 0
   api.ui_snapshot(150, 45)
 end
@@ -106,11 +106,11 @@ case("grid_moves", function()
     local m = meters[(i - 1) % #meters + 1]
     paw.tempo.set_signature(i * 10, m[1], m[2])
   end
-  local track = paw.add_track({ name = "Long" })
-  track:add_clip({ start = 0, length = paw.time.bar_start(501), name = "long" })
+  local part = paw.add_part({ name = "Long" })
+  part:add_clip({ start = 0, length = paw.time.bar_start(501), name = "long" })
   paw.flush()
   api.undo_checkpoint()
-  paw.cursor.set_track(track)
+  paw.cursor.set_part(part)
   paw.cursor.set_beat(paw.time.bar_start(250))
   paw.opt.grid, paw.opt.swing = "1/16", 60
   api.ui_snapshot(150, 45)
@@ -149,11 +149,11 @@ case("search", function()
     for k = 1, 100 do
       notes[k] = { 48 + (k % 24), (k - 1) * 0.25, 0.25, 90, meta = k % 10 == 0 and { lyric = "la" .. k } or nil }
     end
-    paw.add_track({ name = "Track " .. i }):add_clip({ name = "clip " .. i, start = 0, length = 32, notes = notes })
+    paw.add_part({ name = "Part " .. i }):add_clip({ name = "clip " .. i, start = 0, length = 32, notes = notes })
   end
   paw.flush()
 end, function()
-  paw.query("track[name$=7] > clip > note[pitch>=C4][vel>80]")
+  paw.query("part[name$=7] > clip > note[pitch>=C4][vel>80]")
   paw.grep.search("la1", { mode = "exact" })
   paw.pick("notes")
   paw.keymap.feed("C5 la")

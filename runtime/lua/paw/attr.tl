@@ -9,7 +9,7 @@
 --   paw.attr.m2({ type = 0x11, data = 0xA000 })   -- "11.A"
 --   paw.attr.parts(attr)               -- { type, subclass, variation, direction, reset, string }
 --   paw.attr.describe(attr)            -- { code = "11.A", tag = "pz", name = "Pizzicato", ... }
---   paw.attr.delay_of(track, attr)     -- milliseconds the track's attr_map moves such a note: -80
+--   paw.attr.delay_of(part, attr)     -- milliseconds the part's attr_map moves such a note: -80
 --
 -- A code is the classification (the attribute type, 10 to 1F in hex), a
 -- dot, the subclass (one hex digit), and the variation (one more hex
@@ -22,7 +22,7 @@
 -- manufacturer's and 2 a profile's own.
 --
 -- The core keeps and plays the attribute; what an instrument is told for
--- one it does not take (keyswitches, controllers) is the track's
+-- one it does not take (keyswitches, controllers) is the part's
 -- `attr_map` (docs/reference/lua-objects.md). Names here are the profile's, short
 -- tags for the piano roll; an articulation map may name them its own way.
 --
@@ -65,7 +65,7 @@ local record Description
   text: string
 end
 
---- Something with an id: a track object.
+--- Something with an id: a part object.
 local interface HasId
   id: integer
 end
@@ -330,11 +330,11 @@ function M.describe(attr: Attr): Description
   return {tag = string.format("a%02X", p.type), name = text, text = text}
 end
 
---- The milliseconds that a note with `attr` (nil for none) on `track` plays
---- early (below 0) or late, from the `attr_map` of the track. So a library
+--- The milliseconds that a note with `attr` (nil for none) on `part` plays
+--- early (below 0) or late, from the `attr_map` of the part. So a library
 --- that speaks slowly still sounds on the beat. 0 without a map.
-function M.delay_of(track: integer | HasId, attr?: Attr): number
-  return api.track_attr_delay(track is HasId and track.id or track as integer, attr)
+function M.delay_of(part: integer | HasId, attr?: Attr): number
+  return api.part_attr_delay(part is HasId and part.id or part as integer, attr)
 end
 
 --- The same attribute: both none, or the same type and data.

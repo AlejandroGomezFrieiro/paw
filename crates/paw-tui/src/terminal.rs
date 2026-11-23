@@ -317,8 +317,8 @@ impl Frontend for Terminal {
 
         let width = grid.width as usize;
         // Cells written in this frame, where a surface's pixels are placed again.
-        let track = self.graphics.is_some();
-        let mut written = vec![false; if track { grid.cells.len() } else { 0 }];
+        let part = self.graphics.is_some();
+        let mut written = vec![false; if part { grid.cells.len() } else { 0 }];
         let mut cells = std::mem::take(&mut self.cells);
         cells.clear();
         write_cells(&mut cells, self.shown.as_ref(), grid, &mut written, write_pen);

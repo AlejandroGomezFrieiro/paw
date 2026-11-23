@@ -54,22 +54,22 @@ end
 test("lenses: a server for the mix marks a hot fader in every view, says what it is, and fixes it", function()
   if not python() then return "no python3" end
   start()
-  local bass = paw.add_track({ name = "Bass", volume = 3 })
-  local pad = paw.add_track({ name = "Pad", volume = -6 })
+  local bass = paw.add_part({ name = "Bass", volume = 3 })
+  local pad = paw.add_part({ name = "Pad", volume = -6 })
   paw.flush()
   paw.lsp.config("mix", { cmd = { python(), "tests/fixtures/mix_lint.py" } })
   paw.lsp.enable("mix")
-  until_(function() return #paw.diagnostic.get(A.track(bass.id)) == 1 end, "the hot fader")
-  local d = paw.diagnostic.get(A.track(bass.id))[1]
-  eq(paw.diagnostic.kind(d), "track", "about a track")
+  until_(function() return #paw.diagnostic.get(A.part(bass.id)) == 1 end, "the hot fader")
+  local d = paw.diagnostic.get(A.part(bass.id))[1]
+  eq(paw.diagnostic.kind(d), "part", "about a part")
   eq(d.message, "Bass's fader is at +3.0 dB: it may clip", "what it says")
-  eq(#paw.diagnostic.get(A.track(pad.id)), 0, "a quiet track is left alone")
+  eq(#paw.diagnostic.get(A.part(pad.id)), 0, "a quiet part is left alone")
   eq(paw.lsp.clients()[1].subjects[1], "mix", "attached to the mix, as it asked")
   eq(paw.lsp.clients()[1].documents[1], "paw://project#mix", "holding the mix")
 
   -- The terminal: the header, the status line, the mixer's strip and its label.
   local text = screen()
-  has(text, " 1 !", "the track column signs the hot track")
+  has(text, " 1 !", "the part column signs the hot part")
   has(text, "W1", "the status line counts it")
   paw.ui.show("mixer")
   text = screen()
@@ -77,11 +77,11 @@ test("lenses: a server for the mix marks a hot fader in every view, says what it
 
   -- In the mixer, ]d goes to the strip.
   paw.ui.focus("mixer")
-  paw.cursor.set_track(pad.id)
+  paw.cursor.set_part(pad.id)
   paw.keymap.feed("]d")
-  eq(paw.cursor.track_id(), bass.id, "]d goes to the hot track")
+  eq(paw.cursor.part_id(), bass.id, "]d goes to the hot part")
 
-  -- In the arrange view, gK says what is known about the track under the cursor.
+  -- In the arrange view, gK says what is known about the part under the cursor.
   paw.ui.focus("arrange")
   paw.keymap.feed("gK")
   until_(function() return paw.ui.float and paw.ui.float.name == "pager" end, "the hover float")
@@ -100,24 +100,24 @@ test("lenses: a server for the mix marks a hot fader in every view, says what it
   has(matches[2], "Lower Bass by 6 dB", "the action")
   paw.keymap.feed("<CR>")
   api.undo_checkpoint()
-  eq(api.track_get(bass.id).volume, 0, "fixed")
+  eq(api.part_get(bass.id).volume, 0, "fixed")
   T.advance_until(
-    function() return #paw.diagnostic.get(A.track(bass.id)) == 0 end,
+    function() return #paw.diagnostic.get(A.part(bass.id)) == 0 end,
     "the warning to go once the server is told",
     5000
   )
   paw.undo()
-  eq(api.track_get(bass.id).volume, 3, "one undo takes it back")
-  T.advance_until(function() return #paw.diagnostic.get(A.track(bass.id)) == 1 end, "the warning back", 5000)
+  eq(api.part_get(bass.id).volume, 3, "one undo takes it back")
+  T.advance_until(function() return #paw.diagnostic.get(A.part(bass.id)) == 1 end, "the warning back", 5000)
   paw.cmd("diagnostics")
   until_(function() return paw.pick.state() end, "the list")
-  eq(paw.pick.state().matches[1], "── Tracks", "listed under what they are about")
+  eq(paw.pick.state().matches[1], "── Parts", "listed under what they are about")
 end)
 
 test("lenses: a one-shot server checks each render, and says when it fails", function()
   if not python() then return "no python3" end
   start()
-  local t = paw.add_track({ name = "Tone" })
+  local t = paw.add_part({ name = "Tone" })
   t:add_device("synth")
   t:add_clip({ start = 0, length = 2, notes = { { pitch = 69, start = 0, length = 2, velocity = 120 } } })
   paw.lsp.config("peaks", {
@@ -229,7 +229,7 @@ end)
 
 test("lenses: diagnostics on devices, parameters and stretches of time are drawn where they belong", function()
   start()
-  local t = paw.add_track({ name = "Keys" })
+  local t = paw.add_part({ name = "Keys" })
   local synth = t:add_device("synth")
   paw.flush()
   paw.diagnostic.set("lint", "lint", {
@@ -248,7 +248,7 @@ test("lenses: diagnostics on devices, parameters and stretches of time are drawn
       message = "too busy here",
     },
   })
-  paw.cursor.set_track(t.id)
+  paw.cursor.set_part(t.id)
   paw.ui.show("devices")
   local text = screen()
   has(text, "no preset", "the device says what is said of it")
@@ -290,10 +290,10 @@ test(
   function()
     start()
     local a = paw
-      .add_track({ name = "Upper" })
+      .add_part({ name = "Upper" })
       :add_clip({ start = 0, length = 4, notes = { { pitch = 72, start = 0, length = 1 } } })
     local b = paw
-      .add_track({ name = "Lower" })
+      .add_part({ name = "Lower" })
       :add_clip({ start = 4, length = 4, notes = { { pitch = 48, start = 1, length = 1 } } })
     paw.flush()
     paw.ui.views:get("pianoroll"):edit(a)
@@ -329,7 +329,7 @@ test(
       row = function(pitch) return 100 - pitch end,
     })
     eq(painted[1], "20,52 DiagnosticUnderlineWarn", "at beat 5 of the roll, the note's row")
-    -- The mouse's menus: on the note, on the track.
+    -- The mouse's menus: on the note, on the part.
     local menus = require("paw.mouse_menus")
     local labels = {}
     for _, item in ipairs(menus.note(b.id, 1)) do
@@ -341,9 +341,9 @@ test(
       table.concat(labels, "|")
     )
     labels = {}
-    for _, item in ipairs(menus.track(b:get().track)) do
+    for _, item in ipairs(menus.part(b:get().part)) do
       if type(item) == "table" then labels[#labels + 1] = item.label end
     end
-    eq(table.concat(labels, "|"):find("Fixes and actions…", 1, true) ~= nil, true, "on the track too")
+    eq(table.concat(labels, "|"):find("Fixes and actions…", 1, true) ~= nil, true, "on the part too")
   end
 )

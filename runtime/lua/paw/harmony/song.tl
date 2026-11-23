@@ -5,20 +5,20 @@
 --   harmony.clip          the notes of a clip's content (its stamp and length), in
 --                         its own beats: copies with the same notes share it
 --   harmony.place         a clip where it is: its content and its start
---   harmony.drums         whether a track is drums, which the reading leaves out
---   harmony.track         each track's clips that sound, with their starts
---   harmony.track_window  what one track sounds in one window (a `read.Portion`)
---   harmony.group         what 8 tracks sound in one window: the sum of the above
---   harmony.mix           what all tracks sound in one window: the sum of the groups
+--   harmony.drums         whether a part is drums, which the reading leaves out
+--   harmony.part         each part's clips that sound, with their starts
+--   harmony.part_window  what one part sounds in one window (a `read.Portion`)
+--   harmony.group         what 8 parts sound in one window: the sum of the above
+--   harmony.mix           what all parts sound in one window: the sum of the groups
 --   harmony.beat          what sounds in one beat, for a window with one pitch alone
 --   harmony.window        the window's scores (`read.finish`)
 --   harmony.chords        the chords (`read.decode` over the windows), in slices
---   harmony.track_bar     the pitch classes of one track in one bar
---   harmony.bar           of all tracks in one bar
+--   harmony.part_bar     the pitch classes of one part in one bar
+--   harmony.bar           of all parts in one bar
 --   harmony.keys          the keys (`read.key_path`), in slices
 --
 -- So a note edit reads one clip again and the windows it covers, and a mute
--- leaves the parts of the other tracks as they are: the windows add up
+-- leaves the parts of the other parts as they are: the windows add up
 -- what they had. The reading is the one that `paw.harmony.read` makes of
 -- all the notes at once (`M.whole`), and a change that leaves the notes as
 -- they are (a fader, a device) reads nothing.
@@ -29,20 +29,20 @@ local derived = require("paw.derived")
 local read = require("paw.harmony.read")
 local type types = require("paw.types")
 
---- A note of the song, in project beats, with its track and its clip.
+--- A note of the song, in project beats, with its part and its clip.
 local record Note is read.Note
-  track: integer
+  part: integer
   clip: integer
 end
 
 --- What the reading needs to know besides the notes: the length of a
 --- window (`paw.opt.harmony_step`), the beats of a bar where the song
---- starts, where bar `n` starts, and which tracks are drums.
+--- starts, where bar `n` starts, and which parts are drums.
 local record Options
   step: number
   bar: number
   bar_start: function(n: integer): number
-  is_drums: function(t: types.Track): boolean
+  is_drums: function(t: types.Part): boolean
 end
 
 --- What reads the options when a node needs them (paw/harmony.tl).
@@ -68,10 +68,10 @@ function M.setup(fn: OptionsFn)
   options = fn
 end
 
--- A key for each track and window, or bar: one number.
+-- A key for each part and window, or bar: one number.
 local WIDE = 16777216
-local function pack(track: integer, i: integer): integer
-  return track * WIDE + i
+local function pack(part: integer, i: integer): integer
+  return part * WIDE + i
 end
 local function unpack_key(key: integer): integer, integer
   return key // WIDE, key % WIDE
@@ -110,12 +110,12 @@ local record Place
   to: number
 end
 
---- A track as the reading sees it: its clips that sound, in the order of
+--- A part as the reading sees it: its clips that sound, in the order of
 --- their start and by where their notes start (with the latest end so far,
 --- for a look-up), the end of its last note, and the length of a window
 --- (`paw.opt.harmony_step`). Its windows read the length here and not from
 --- `harmony.step`: one entry read less for each window that is made again.
-local record TrackValue
+local record PartValue
   list: {Place}
   by_from: {Place}
   reach: {number}
@@ -123,7 +123,7 @@ local record TrackValue
   step: number
 end
 
---- The clips of a track over a stretch, and the length of a window.
+--- The clips of a part over a stretch, and the length of a window.
 local record Over is {Place}
   step: number
 end
@@ -135,7 +135,7 @@ local record WindowInputs
   beat: read.Portion
 end
 
---- What a track's bar is made from.
+--- What a part's bar is made from.
 local record BarInputs is {Place}
   from: number
   to: number
@@ -178,16 +178,16 @@ local step_node_spec: derived.Spec<integer, number, boolean> = {
 }
 local step_node = derived.node(step_node_spec)
 
-local tracks_node_spec: derived.Spec<integer, {integer}, boolean> = {
-  name = "harmony.tracks",
+local parts_node_spec: derived.Spec<integer, {integer}, boolean> = {
+  name = "harmony.parts",
   eager = true,
   kind = "memo",
-  make = function(ctx: derived.Ctx): {integer} return ctx:tracks() end,
+  make = function(ctx: derived.Ctx): {integer} return ctx:parts() end,
   same = same_list,
 }
-local tracks_node = derived.node(tracks_node_spec)
+local parts_node = derived.node(parts_node_spec)
 
--- Clips and tracks ------------------------------------------------------------------------
+-- Clips and parts ------------------------------------------------------------------------
 
 local clip_node_spec: derived.Spec<ClipKey, read.Run, boolean> = {
   name = "harmony.clip",
@@ -217,13 +217,13 @@ local clip_node_spec: derived.Spec<ClipKey, read.Run, boolean> = {
 }
 local clip_node = derived.node(clip_node_spec)
 
--- Whether a track is drums, which the reading leaves out: only a change of
+-- Whether a part is drums, which the reading leaves out: only a change of
 -- its name, meta or devices asks again, not a change of its clips.
 local drums_node_spec: derived.Spec<integer, boolean, boolean> = {
   name = "harmony.drums",
   kind = "family",
   make = function(ctx: derived.Ctx, id: integer): boolean
-    local t = ctx:track(id, {"name", "meta", "devices"})
+    local t = ctx:part(id, {"name", "meta", "devices"})
     return t ~= nil and options().is_drums(t)
   end,
   same = function(a: boolean, b: boolean): boolean return a == b end,
@@ -234,11 +234,11 @@ local drums_node = derived.node(drums_node_spec)
 local SILENT: Place = {}
 
 -- Each clip on its own: an edit of a clip's notes reads that clip again,
--- not every clip of its track (the kernel gives a clip by its id).
+-- not every clip of its part (the kernel gives a clip by its id).
 local place_node_spec: derived.Spec<integer, Place, boolean> = {
   name = "harmony.place",
   kind = "family",
-  -- The place before, when its content and start are the same: the track
+  -- The place before, when its content and start are the same: the part
   -- and its windows compare places as they are.
   make = function(ctx: derived.Ctx, id: integer, old: Place): Place
     ctx:source("clip:" .. id)
@@ -282,24 +282,24 @@ local function by_from(a: Place, b: Place): boolean
   return a.from < b.from
 end
 
--- One field of a track: quicker than the whole track, which lists its
--- devices and lanes too. They fail when the track is gone.
-local track_mute = api.track_get as function(integer, string): boolean
-local track_clips = api.track_get as function(integer, string): {integer}
+-- One field of a part: quicker than the whole part, which lists its
+-- devices and lanes too. They fail when the part is gone.
+local part_mute = api.part_get as function(integer, string): boolean
+local part_clips = api.part_get as function(integer, string): {integer}
 
-local track_node_spec: derived.Spec<integer, TrackValue, boolean> = {
-  name = "harmony.track",
+local part_node_spec: derived.Spec<integer, PartValue, boolean> = {
+  name = "harmony.part",
   eager = true,
   kind = "family",
-  make = function(ctx: derived.Ctx, id: integer): TrackValue
-    ctx:source("track:" .. id .. ":mute")
-    ctx:source("track:" .. id .. ":clips")
-    local v: TrackValue = {list = {}, by_from = {}, reach = {}, last = 0, step = ctx:get(step_node, 0)}
-    local ok, mute = pcall(track_mute, id, "mute")
+  make = function(ctx: derived.Ctx, id: integer): PartValue
+    ctx:source("part:" .. id .. ":mute")
+    ctx:source("part:" .. id .. ":clips")
+    local v: PartValue = {list = {}, by_from = {}, reach = {}, last = 0, step = ctx:get(step_node, 0)}
+    local ok, mute = pcall(part_mute, id, "mute")
     if not ok or mute or ctx:get(drums_node, id) then
       return v
     end
-    local clips = track_clips(id, "clips")
+    local clips = part_clips(id, "clips")
     for i = 1, #clips do
       local place = ctx:get(place_node, clips[i])
       if place ~= SILENT then
@@ -318,10 +318,10 @@ local track_node_spec: derived.Spec<integer, TrackValue, boolean> = {
     end
     return v
   end,
-  same = function(a: TrackValue, b: TrackValue): boolean return a.step == b.step and same_list(a.list, b.list) end,
+  same = function(a: PartValue, b: PartValue): boolean return a.step == b.step and same_list(a.list, b.list) end,
   -- The clips that came or went, or moved: where their notes sound. A new
   -- length of the windows touches all of them.
-  touched = function(a: TrackValue, b: TrackValue): number, number
+  touched = function(a: PartValue, b: PartValue): number, number
     if a.step ~= b.step then
       return -math.huge, math.huge
     end
@@ -344,10 +344,10 @@ local track_node_spec: derived.Spec<integer, TrackValue, boolean> = {
     return from, to
   end,
 }
-local track_node = derived.node(track_node_spec)
+local part_node = derived.node(part_node_spec)
 
---- The places of track value `v` whose notes can sound from `from` to `to`, in `out`.
-local function over(v: TrackValue, from: number, to: number, out: {Place})
+--- The places of part value `v` whose notes can sound from `from` to `to`, in `out`.
+local function over(v: PartValue, from: number, to: number, out: {Place})
   local list = v.by_from
   -- The last place that starts before `to`.
   local lo, hi = 0, #list
@@ -370,7 +370,7 @@ end
 
 -- Windows ---------------------------------------------------------------------------------
 
-local last_over: Over -- the inputs the last track window was given
+local last_over: Over -- the inputs the last part window was given
 
 --- Where window `i` is, as its `make` has it: the same sums give the same
 --- edges, so that a note that ends where the window starts is not in it.
@@ -379,13 +379,13 @@ local function window_span(i: integer): number, number
   return at, at + step_now
 end
 
-local track_window_spec: derived.Spec<integer, read.Portion, Over> = {
-  name = "harmony.track_window",
+local part_window_spec: derived.Spec<integer, read.Portion, Over> = {
+  name = "harmony.part_window",
   kind = "family",
   span = function(key: integer): number, number local _, i = unpack_key(key); return window_span(i) end,
   inputs = function(ctx: derived.Ctx, key: integer): Over
-    local track, i = unpack_key(key)
-    local value = ctx:get(track_node, track)
+    local part, i = unpack_key(key)
+    local value = ctx:get(part_node, part)
     local step = value.step
     local at = (i - 1) * step
     local out: Over = {step = step}
@@ -417,10 +417,10 @@ local track_window_spec: derived.Spec<integer, read.Portion, Over> = {
   bytes = portion_bytes,
   limit = 16 * 1048576,
 }
-local track_window = derived.node(track_window_spec)
+local part_window = derived.node(part_window_spec)
 
--- The tracks of a window are added up in groups of GROUP: a change of one
--- track adds up its group and the groups, not every track.
+-- The parts of a window are added up in groups of GROUP: a change of one
+-- part adds up its group and the groups, not every part.
 local GROUP = 8
 
 local group_node_spec: derived.Spec<integer, read.Portion, boolean> = {
@@ -428,10 +428,10 @@ local group_node_spec: derived.Spec<integer, read.Portion, boolean> = {
   kind = "join",
   make = function(ctx: derived.Ctx, key: integer): read.Portion
     local g, i = unpack_key(key)
-    local tracks = ctx:get(tracks_node, 0)
+    local parts = ctx:get(parts_node, 0)
     local portions: {read.Portion} = {}
-    for k = g * GROUP + 1, math.min(#tracks, g * GROUP + GROUP) do
-      portions[#portions + 1] = ctx:get(track_window, pack(tracks[k], i))
+    for k = g * GROUP + 1, math.min(#parts, g * GROUP + GROUP) do
+      portions[#portions + 1] = ctx:get(part_window, pack(parts[k], i))
     end
     return read.merge(portions)
   end,
@@ -446,7 +446,7 @@ local mix_node_spec: derived.Spec<integer, read.Portion, boolean> = {
   kind = "join",
   make = function(ctx: derived.Ctx, i: integer): read.Portion
     local portions: {read.Portion} = {}
-    for g = 0, (#ctx:get(tracks_node, 0) - 1) // GROUP do
+    for g = 0, (#ctx:get(parts_node, 0) - 1) // GROUP do
       portions[#portions + 1] = ctx:get(group_node, pack(g, i))
     end
     return read.merge(portions)
@@ -470,12 +470,12 @@ local beat_node_spec: derived.Spec<integer, read.Portion, boolean> = {
         portions[#portions + 1] = ctx:get(mix_node, i)
       end
     else
-      -- Windows that do not fit a beat: the notes of every track over it.
-      local tracks = ctx:get(tracks_node, 0)
-      for i_track = 1, #tracks do
-        local track = tracks[i_track]
+      -- Windows that do not fit a beat: the notes of every part over it.
+      local parts = ctx:get(parts_node, 0)
+      for i_part = 1, #parts do
+        local part = parts[i_part]
         local places: {Place} = {}
-        over(ctx:get(track_node, track), b, b + 1, places)
+        over(ctx:get(part_node, part), b, b + 1, places)
         for i_p = 1, #places do
           local p = places[i_p]
           portions[#portions + 1] = read.portion(p.run, p.start, b, b + 1)
@@ -496,10 +496,10 @@ local span_node_spec: derived.Spec<integer, Span, boolean> = {
   kind = "join",
   make = function(ctx: derived.Ctx): Span
     local last: number = 0
-    local tracks = ctx:get(tracks_node, 0)
-    for i_track = 1, #tracks do
-      local track = tracks[i_track]
-      last = math.max(last, ctx:get(track_node, track).last)
+    local parts = ctx:get(parts_node, 0)
+    for i_part = 1, #parts do
+      local part = parts[i_part]
+      last = math.max(last, ctx:get(part_node, part).last)
     end
     local step = ctx:get(step_node, 0)
     local count = 0
@@ -592,18 +592,18 @@ local bars_node_spec: derived.Spec<integer, {number}, boolean> = {
 }
 local bars_node = derived.node(bars_node_spec)
 
-local track_bar_spec: derived.Spec<integer, read.Weights, BarInputs> = {
-  name = "harmony.track_bar",
+local part_bar_spec: derived.Spec<integer, read.Weights, BarInputs> = {
+  name = "harmony.part_bar",
   kind = "family",
   span = function(key: integer): number, number
     local _, b = unpack_key(key)
     return bars_now[b] or -math.huge, bars_now[b + 1] or math.huge
   end,
   inputs = function(ctx: derived.Ctx, key: integer): BarInputs
-    local track, b = unpack_key(key)
+    local part, b = unpack_key(key)
     local bars = ctx:get(bars_node, 0)
     local out: BarInputs = {from = bars[b], to = bars[b + 1]}
-    over(ctx:get(track_node, track), out.from, out.to, out)
+    over(ctx:get(part_node, part), out.from, out.to, out)
     return out
   end,
   same_inputs = function(a: BarInputs, b: BarInputs): boolean
@@ -624,7 +624,7 @@ local track_bar_spec: derived.Spec<integer, read.Weights, BarInputs> = {
   same = same_weights,
   limit = 65536,
 }
-local track_bar = derived.node(track_bar_spec)
+local part_bar = derived.node(part_bar_spec)
 
 local bar_node_spec: derived.Spec<integer, read.Weights, boolean> = {
   name = "harmony.bar",
@@ -634,10 +634,10 @@ local bar_node_spec: derived.Spec<integer, read.Weights, boolean> = {
     for pc = 0, 11 do
       h[pc] = 0
     end
-    local tracks = ctx:get(tracks_node, 0)
-    for i_track = 1, #tracks do
-      local track = tracks[i_track]
-      local t = ctx:get(track_bar, pack(track, b))
+    local parts = ctx:get(parts_node, 0)
+    for i_part = 1, #parts do
+      local part = parts[i_part]
+      local t = ctx:get(part_bar, pack(part, b))
       for pc = 0, 11 do
         h[pc] = h[pc] + t[pc]
       end
@@ -690,7 +690,7 @@ end
 --- Forget all of it: the next update reads the whole song.
 function M.reset()
   step_node:reset()
-  tracks_node:reset()
+  parts_node:reset()
   span_node:reset()
   chords_node:reset()
   bars_node:reset()
@@ -698,13 +698,13 @@ function M.reset()
   clip_node:reset()
   place_node:reset()
   drums_node:reset()
-  track_node:reset()
-  track_window:reset()
+  part_node:reset()
+  part_window:reset()
   group_node:reset()
   mix_node:reset()
   beat_node:reset()
   window_node:reset()
-  track_bar:reset()
+  part_bar:reset()
   bar_node:reset()
 end
 
@@ -731,14 +731,14 @@ end
 local notes_list: {Note} -- `notes()`, made when asked
 local notes_of: integer -- the revision it was made for
 
---- Each note that sounds, track by track and clip by clip, as of the last
+--- Each note that sounds, part by part and clip by clip, as of the last
 --- update.
 function M.notes(): {Note}
-  local revision = tracks_node:revision() * WIDE + track_node:revision()
+  local revision = parts_node:revision() * WIDE + part_node:revision()
   if not notes_list or notes_of ~= revision then
     local out: {Note} = {}
-    for _, track in ipairs(tracks_node:get(0) or {}) do
-      local v = track_node:get(track)
+    for _, part in ipairs(parts_node:get(0) or {}) do
+      local v = part_node:get(part)
       for _, place in ipairs(v and v.list or {}) do
         local run = place.run
         for k = 1, run.n do
@@ -747,7 +747,7 @@ function M.notes(): {Note}
             start = place.start + run.start[k],
             length = run.length[k],
             velocity = run.velocity[k],
-            track = track,
+            part = part,
             clip = place.id,
           }
         end

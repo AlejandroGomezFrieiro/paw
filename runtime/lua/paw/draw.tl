@@ -1,8 +1,8 @@
--- What views are drawn from: shades of a track's colour, the characters,
+-- What views are drawn from: shades of a part's colour, the characters,
 -- meters, sliders, small piano rolls and curves. Views and extensions share
 -- these so that everything on screen looks like part of the same program.
 --
---   local hue = paw.draw.track_hue(track, index)   -- highlight groups in the track's colour
+--   local hue = paw.draw.part_hue(part, index)   -- highlight groups in the part's colour
 --   local g = paw.draw.g                           -- the characters, ASCII under `paw.opt.ascii`
 --   buf:text(0, 0, g.stripe, hue.fg)
 --   paw.draw.meter(buf, x, y, width, peak)
@@ -96,7 +96,7 @@ end
 --- when on.
 local type Chip = {string, boolean, string}
 
---- A key and what it does, for a line of hints: `{ "o", "new track" }`.
+--- A key and what it does, for a line of hints: `{ "o", "new part" }`.
 local type KeyHint = {string, string}
 
 --- The height of a curve at a point (two a column), 0 to 1, or nil.
@@ -415,7 +415,7 @@ local stereo_groups: {string: boolean} = {}
 ---   title, body         a clip's name row and the rows under it
 ---   title_cur, body_cur the same for the clip under the cursor (or chosen)
 ---   title_off, body_off the same for a muted clip
----   lane_sel            the background of the selected track's lane
+---   lane_sel            the background of the selected part's lane
 ---   note, note_soft, note_faint   notes, loud to quiet
 ---   pill                dark text on the colour
 ---   plate               a name plate: light text on a deep shade
@@ -461,27 +461,27 @@ function M.reset()
   stereo_groups = {}
 end
 
---- The color of a track: its own color if it has one. If not, a color of
---- the theme, by the place of the track in the track list.
-function M.track_colour(track: types.Track, index?: integer): string
-  if track.color and track.color:match("^#%x%x%x%x%x%x$") then
-    return track.color
+--- The color of a part: its own color if it has one. If not, a color of
+--- the theme, by the place of the part in the part list.
+function M.part_colour(part: types.Part, index?: integer): string
+  if part.color and part.color:match("^#%x%x%x%x%x%x$") then
+    return part.color
   end
-  if track.master then
+  if part.master then
     return theme.palette.dim
   end
   -- A member of a group is in its group's colour, so a section reads as one.
-  local group = track.id and paw.groups and paw.groups.of(track.id)
+  local group = part.id and paw.groups and paw.groups.of(part.id)
   if group then
-    return M.track_colour(api.track_get(group))
+    return M.part_colour(api.part_get(group))
   end
   -- By its place in the list, which folding a group away does not change.
-  return theme.hues[((track.index or index or 1) - 1) % #theme.hues + 1]
+  return theme.hues[((part.index or index or 1) - 1) % #theme.hues + 1]
 end
 
---- The hue of the color of a track, from 0 to 360.
-function M.track_hue(track: types.Track, index?: integer): Hue
-  return M.hue(M.track_colour(track, index))
+--- The hue of the color of a part, from 0 to 360.
+function M.part_hue(part: types.Part, index?: integer): Hue
+  return M.hue(M.part_colour(part, index))
 end
 
 --- The shade of a note by how hard it is played.
@@ -637,18 +637,18 @@ function M.hold(key: string, peak: number): number
   return h.peak
 end
 
--- The tracks whose meters reached full scale since their light was put out.
+-- The parts whose meters reached full scale since their light was put out.
 -- A light that came on in the last take is not news in the next: they go
 -- out when the transport starts.
 local clipped: {integer: boolean} = {}
 events.on(kernel.transport_play, function() clipped = {} end)
 
---- The meter of a track as the mixer shows it, in a terminal and in a
+--- The meter of a part as the mixer shows it, in a terminal and in a
 --- window (`scene.live`). It gives the two sides and the loudest recent
---- peak. It also tells if the track reached full scale after the last
+--- peak. It also tells if the part reached full scale after the last
 --- `clear_peak` for it.
-function M.track_peak(id: integer): number, number, number, boolean
-  local left, right = api.track_meter(id)
+function M.part_peak(id: integer): number, number, number, boolean
+  local left, right = api.part_meter(id)
   local loudest = math.max(left, right)
   if loudest >= 0.9999 then
     clipped[id] = true
@@ -659,13 +659,13 @@ end
 -- The meters' floor: a level below -60 dB lights no part of a meter.
 local floor = 0.001
 
---- True while a track meter drawn lately (`track_peak`) still shows a
+--- True while a part meter drawn lately (`part_peak`) still shows a
 --- level: it is not at rest yet.
 function M.meters_falling(): boolean
   for key in pairs(held) do
     local id = tonumber(key:match("^mix(%d+)$"))
     if id then
-      local ok, left, right = pcall(api.track_meter, id as integer) as (boolean, number, number)
+      local ok, left, right = pcall(api.part_meter, id as integer) as (boolean, number, number)
       if ok and math.max(left or 0, right or 0) >= floor then
         return true
       end
@@ -674,7 +674,7 @@ function M.meters_falling(): boolean
   return false
 end
 
---- Put out a track's clip light and let its loudest of late fall.
+--- Put out a part's clip light and let its loudest of late fall.
 function M.clear_peak(id: integer)
   clipped[id] = nil
   held["mix" .. id] = nil
@@ -699,8 +699,8 @@ end
 function M.pan(buf: Buf, x: integer, y: integer, width: integer, pan: number, style?: Style)
   local g = M.g
   local at = math.floor((paw.util.clamp(pan, -1, 1) + 1) / 2 * (width - 1) + 0.5)
-  buf:text(x, y, string.rep(g.pan_rail, width), "FaderTrack")
-  buf:text(x + at, y, g.pan_mark, style or (math.abs(pan) < 0.005 and "TrackInfo" or "Bright"))
+  buf:text(x, y, string.rep(g.pan_rail, width), "FaderPart")
+  buf:text(x + at, y, g.pan_mark, style or (math.abs(pan) < 0.005 and "PartInfo" or "Bright"))
 end
 
 --- Where a pan from -1 to 1 points, in a few cells: `L30`, `C`, `R100`.
@@ -1120,7 +1120,7 @@ function M.beats(ruler: Buf, ax: axis.Axis, span: number, origin: number): {Rule
   return lines
 end
 
---- A row of keys and their actions, for a line of hints: `{ { "o", "new track" }, ... }`,
+--- A row of keys and their actions, for a line of hints: `{ { "o", "new part" }, ... }`,
 --- with a faint dot between them. `? keys` is always the last when it is in
 --- the list. Returns the columns used. The entries that do not fit are not shown.
 function M.keys(buf: Buf, x: integer, y: integer, entries: {KeyHint}, width: integer, groups?: string): integer

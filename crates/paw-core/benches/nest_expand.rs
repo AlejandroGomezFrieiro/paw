@@ -1,9 +1,9 @@
 //! What expanding nest clips costs the sync layer (the spike N0 of the nest
-//! design): `count` nest clips of one nest track on 10 host tracks, against
+//! design): `count` nest clips of one nest part on 10 host parts, against
 //! the same music placed as `count` plain clips.
 //!
-//! A nest clip in pass mode plays its nest track's clips as clips of the
-//! host track: expanding one is making a copy of each nest clip's clips at
+//! A nest clip in pass mode plays its nest part's clips as clips of the
+//! host part: expanding one is making a copy of each nest clip's clips at
 //! the place of the nest clip (the copy shares the notes, as a pasted clip
 //! does). Then the sync compiles the host's clips as it compiles any others.
 //!
@@ -15,7 +15,7 @@
 //! - `expand`: making the copies of the nest clips (no sync);
 //! - `expand+sync`: the copies made and synced into an engine that has none;
 //! - `edit plain`: one note of one plain clip changed, synced;
-//! - `edit nest`: one note of the nest track changed: every copy is made
+//! - `edit nest`: one note of the nest part changed: every copy is made
 //!   again and synced, as each nest clip plays the change;
 //! - `edit nest cut`: the same, with each nest clip's window starting 4
 //!   beats into the nest: the notes before the cut are left out and the
@@ -27,7 +27,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use paw_core::model::{Clip, ClipContent, Project, Track};
+use paw_core::model::{Clip, ClipContent, Project, Part};
 use paw_core::sync::{AudioCache, LiveDevices, Mapper, SyncCtx, sync};
 use paw_engine::Registry;
 use serde_json::{Value, json};
@@ -56,25 +56,25 @@ fn nest_clip(notes: usize) -> Value {
             "content": { "kind": "midi", "notes": list } })
 }
 
-/// The song: a master and `HOSTS` tracks with a synth each and no clips.
+/// The song: a master and `HOSTS` parts with a synth each and no clips.
 fn song() -> Project {
-    let track = |id: usize, devices: Value, clips: Value| {
+    let part = |id: usize, devices: Value, clips: Value| {
         json!({ "id": id, "name": format!("T{id}"), "volume": 0.0, "pan": 0.0, "mute": false,
             "solo": false, "armed": false, "output": null, "sends": [], "color": null,
             "devices": devices, "clips": clips })
     };
-    let tracks: Vec<Value> = (1..=HOSTS)
-        .map(|i| track(i, json!([{ "id": 100 + i, "kind": "synth", "bypass": false, "params": {} }]), json!([])))
+    let parts: Vec<Value> = (1..=HOSTS)
+        .map(|i| part(i, json!([{ "id": 100 + i, "kind": "synth", "bypass": false, "params": {} }]), json!([])))
         .collect();
     serde_json::from_value(json!({
         "name": "t", "tempo": 120.0, "sig_num": 4, "sig_den": 4,
-        "master": track(0, json!([]), json!([])),
-        "tracks": tracks,
+        "master": part(0, json!([]), json!([])),
+        "parts": parts,
     }))
     .unwrap()
 }
 
-fn nest_track(notes: usize) -> Track {
+fn nest_part(notes: usize) -> Part {
     serde_json::from_value(json!({ "id": 999, "name": "N", "volume": 0.0, "pan": 0.0,
         "mute": false, "solo": false, "armed": false, "output": null, "sends": [],
         "color": null, "devices": [], "clips": [nest_clip(notes)] }))
@@ -116,12 +116,12 @@ fn cut(clip: &Clip, by: f64) -> Clip {
     out
 }
 
-/// Pass-mode expansion: each of the nest track's clips that a nest clip's
+/// Pass-mode expansion: each of the nest part's clips that a nest clip's
 /// window shows, copied to the song's time and cut at the window's ends.
 /// A clip cut at the window's start is cut once in `cuts`, which every
 /// copy of that window shares, as copies of one clip share its notes.
 fn expand(
-    nest: &Track,
+    nest: &Part,
     at: &[Place],
     cuts: &mut HashMap<(usize, u64), Clip>,
     next_id: &mut u64,
@@ -150,14 +150,14 @@ fn expand(
 }
 
 /// The song with the hosts' clips set from the places.
-fn expanded(base: &Project, nest: &Track, places: &[Vec<Place>]) -> Project {
+fn expanded(base: &Project, nest: &Part, places: &[Vec<Place>]) -> Project {
     let mut p = base.clone();
     let mut id = 2_000_000;
     let mut cuts = HashMap::new();
     for (i, at) in places.iter().enumerate() {
         let mut clips = Vec::with_capacity(at.len());
         expand(nest, at, &mut cuts, &mut id, &mut clips);
-        Arc::make_mut(&mut p.tracks[i]).clips = clips.into();
+        Arc::make_mut(&mut p.parts[i]).clips = clips.into();
     }
     p
 }
@@ -222,7 +222,7 @@ fn main() {
     let reps = args.get(2).copied().unwrap_or(9);
     let empty = Project::default();
     let base = song();
-    let nest = nest_track(notes);
+    let nest = nest_part(notes);
     let at = places(count, 0.0);
     let at_cut = places(count, 4.0);
     let mut edited_nest = nest.clone();
@@ -243,7 +243,7 @@ fn main() {
         cases[0].1.push(cpu_ms() - t);
         sent.clear();
         let mut edited = plain.clone();
-        bump(&mut Arc::make_mut(&mut edited.tracks[0]).clips[0]);
+        bump(&mut Arc::make_mut(&mut edited.parts[0]).clips[0]);
         let t = cpu_ms();
         s.sync(&plain, &edited, &mut sent);
         cases[3].1.push(cpu_ms() - t);

@@ -6,8 +6,8 @@ local T = ...
 local test, eq, fresh, keys = T.test, T.eq, T.fresh, T.keys
 local api = paw.api
 
---- A project folder of this name with one track, saved, with the undo file
---- on unless `off`. Returns the folder and the track.
+--- A project folder of this name with one part, saved, with the undo file
+--- on unless `off`. Returns the folder and the part.
 local function project(name, off)
   local path = T.scratch .. "/undofile-" .. name
   local state = paw.loading.project_dir(path .. "/project.toml")
@@ -19,16 +19,16 @@ local function project(name, off)
   end)
   fresh()
   os.execute("rm -rf '" .. path .. "' '" .. state .. "'")
-  local track = api.track_add({ name = "Bass" })
+  local part = api.part_add({ name = "Bass" })
   api.undo_checkpoint()
   paw.project.save(path)
   paw.flush()
-  return path, track
+  return path, part
 end
 
---- An edit of its own: the track's name.
-local function rename(track, name)
-  api.track_set(track, { name = name })
+--- An edit of its own: the part's name.
+local function rename(part, name)
+  api.part_set(part, { name = name })
   paw.flush()
   api.undo_checkpoint()
 end
@@ -39,34 +39,34 @@ local function reopen(path)
   keys(":e " .. path .. "<CR>")
 end
 
-local function name_of(track) return api.track_get(track).name end
+local function name_of(part) return api.part_get(part).name end
 
 test("a project opened again undoes past its last save, and redoes", function()
-  local path, track = project("three")
+  local path, part = project("three")
   for _, name in ipairs({ "A", "B", "C" }) do
-    rename(track, name)
+    rename(part, name)
   end
   keys(":w<CR>")
   reopen(path)
-  eq(name_of(track), "C", "opened as saved")
+  eq(name_of(part), "C", "opened as saved")
   local seen = {}
   for _ = 1, 3 do
     keys("u")
-    seen[#seen + 1] = name_of(track)
+    seen[#seen + 1] = name_of(part)
   end
   eq(table.concat(seen, " "), "B A Bass", "u goes back through the three edits")
   keys("<C-r>")
   keys("<C-r>")
-  eq(name_of(track), "B", "<C-r> forward")
+  eq(name_of(part), "B", "<C-r> forward")
 end)
 
 test("a branch made before the save is in the undo tree after the project opens again", function()
-  local path, track = project("branch")
-  rename(track, "A")
-  rename(track, "B")
+  local path, part = project("branch")
+  rename(part, "A")
+  rename(part, "B")
   local branch = api.undo_current()
   keys("u")
-  rename(track, "X")
+  rename(part, "X")
   keys(":w<CR>")
   reopen(path)
   local tree = api.undo_tree()
@@ -76,12 +76,12 @@ test("a branch made before the save is in the undo tree after the project opens 
   end
   eq(state ~= nil and #tree.states, 5, "the branch's state is in the tree")
   eq(api.undo_goto(branch), true, "and can be gone to")
-  eq(name_of(track), "B", "with its project")
+  eq(name_of(part), "B", "with its project")
 end)
 
 test("a project changed outside paw opens without its undo file, and says so once", function()
-  local path, track = project("changed")
-  rename(track, "A")
+  local path, part = project("changed")
+  rename(part, "A")
   keys(":w<CR>")
   fresh()
   T.write_file(path .. "/project.toml", T.read_file(path .. "/project.toml") .. "# changed\n")
@@ -99,9 +99,9 @@ end)
 
 test("with undofile off, as under --clean, nothing is written or read", function()
   eq(paw.opt.undofile, false, "off under --clean")
-  local path, track = project("off", true)
+  local path, part = project("off", true)
   local dir = paw.loading.project_dir(api.project_get("path")) .. "/undo"
-  rename(track, "A")
+  rename(part, "A")
   keys(":w<CR>")
   reopen(path)
   eq(io.open(dir .. "/tree.json") == nil, true, "nothing written")

@@ -13,7 +13,7 @@
 -- The block's meta holds `frozen = { file, key, length, tail, path }`, so a freeze is
 -- saved with the project and undone like any edit. The `key` says what the
 -- file was made from (paw/bake_state.tl): the clips, devices, automation
--- and mix of the subproject's tracks (and of the subprojects inside it),
+-- and mix of the subproject's parts (and of the subprojects inside it),
 -- the block's place in the subproject, and the tempo over the block and
 -- its tail, from its start. Two blocks that play the same part of the
 -- subproject at places with the same tempo have the same key, and use one
@@ -21,7 +21,7 @@
 -- file, the tail included, in the beats of the block's place, and `tail` its
 -- seconds after the block's end. `path` is the blocks that the file was
 -- rendered through, from the song to the block. The kernel plays the file and holds the
--- subproject's tracks while no live block plays it:
+-- subproject's parts while no live block plays it:
 -- crates/paw-core/src/freeze.rs and crates/paw-core/src/sync/nests.rs.
 --
 -- An edit inside the subproject does not render again: `K` and the status
@@ -57,7 +57,7 @@ end
 
 local nest_field = api.nest_get as function(id: integer, key: string): integer
 local nest_name = api.nest_get as function(id: integer, key: string): string
-local clip_list = api.clip_list as function(track: integer): {types.Clip}
+local clip_list = api.clip_list as function(part: integer): {types.Clip}
 
 -- The seconds a freeze renders after the block's end when nothing is given.
 local TAIL = 2
@@ -76,8 +76,8 @@ end
 
 local function stem_of(c: types.Clip): integer
   local play = c.play
-  if play is types.NestTrack then
-    return play.track
+  if play is types.NestPart then
+    return play.part
   end
   return nil
 end
@@ -92,10 +92,10 @@ function M.frozen(clip: integer): Frozen
   return nil
 end
 
--- The tracks that a block plays: the subproject's tracks and its master,
--- or the one track of a stem; and the tracks of each subproject that
+-- The parts that a block plays: the subproject's parts and its master,
+-- or the one part of a stem; and the parts of each subproject that
 -- these place, at any depth.
-local function tracks_of(c: types.Clip): {integer}
+local function parts_of(c: types.Clip): {integer}
   local out: {integer} = {}
   local seen: {integer: boolean} = {}
   local function add(id: integer)
@@ -106,7 +106,7 @@ local function tracks_of(c: types.Clip): {integer}
     out[#out + 1] = id
     for _, inner in ipairs(clip_list(id)) do
       if inner.nest then
-        for _, t in ipairs(api.track_list({nest = inner.nest})) do
+        for _, t in ipairs(api.part_list({nest = inner.nest})) do
           add(t)
         end
         add(nest_field(inner.nest, "master"))
@@ -118,7 +118,7 @@ local function tracks_of(c: types.Clip): {integer}
     add(stem)
     return out
   end
-  for _, t in ipairs(api.track_list({nest = c.nest})) do
+  for _, t in ipairs(api.part_list({nest = c.nest})) do
     add(t)
   end
   add(nest_field(c.nest, "master"))
@@ -175,7 +175,7 @@ end
 --- `path` (`paw.api.block_path`).
 function M.key(c: types.Clip, tail: number, path: {integer}): bake_state.Key
   local offset = c.offset or 0
-  local key = bake_state.make({tracks = tracks_of(c), from = offset, to = offset + c.length})
+  local key = bake_state.make({parts = parts_of(c), from = offset, to = offset + c.length})
   -- The block's own place in the subproject is a part of its clips.
   local place = {
     num(offset),
@@ -226,7 +226,7 @@ end
 function M.freeze(clip: integer, opts?: Options): string
   local c = block(clip)
   if not c then
-    error("no block of a subproject here: `:freeze` freezes a track or a block", 0)
+    error("no block of a subproject here: `:freeze` freezes a part or a block", 0)
   end
   local tail = opts and opts.tail or TAIL
   -- Fails when no block of the song plays it: nothing to render.
@@ -267,8 +267,8 @@ function M.stale(): {string}
     return out
   end
   local seen: {string: boolean} = {}
-  -- A block can be frozen on the song's tracks and inside subprojects.
-  for _, id in ipairs(api.track_list({all = true})) do
+  -- A block can be frozen on the song's parts and inside subprojects.
+  for _, id in ipairs(api.part_list({all = true})) do
     for _, c in ipairs(clip_list(id)) do
       local said = c.nest and M.describe(c.id)
       if said and said:find("stale", 1, true) then

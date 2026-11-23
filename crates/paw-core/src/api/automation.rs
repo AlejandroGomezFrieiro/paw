@@ -12,13 +12,13 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
     define! { lua, api, shared;
         // --- automation ---
         // @return {types.Lane}
-        fn lane_list(lua, sh, track => Id) { to_lua(lua, &sh.session.borrow().lane_list(track).lua()?) }
+        fn lane_list(lua, sh, part => Id) { to_lua(lua, &sh.session.borrow().lane_list(part).lua()?) }
         // @return types.Lane
         fn lane_get(lua, sh, id => Id) { to_lua(lua, &sh.session.borrow().lane_view(id).lua()?) }
         // @param opts types.LaneOptions
         // @return integer
-        fn lane_add(lua, sh, (track, opts) => (Id, LuaValue)) {
-            sh.session.borrow_mut().lane_add(track, from_lua(lua, opts)?).lua()
+        fn lane_add(lua, sh, (part, opts) => (Id, LuaValue)) {
+            sh.session.borrow_mut().lane_add(part, from_lua(lua, opts)?).lua()
         }
         // @return nil
         fn lane_remove(_, sh, id => Id) { sh.session.borrow_mut().doc.lane_remove(id).lua() }
@@ -83,8 +83,8 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // mode it writes automation for as long as it is held. The control
         // is named as a lane's target is.
         // @return nil
-        fn automation_hold(_, sh, (track, target, device, param, on) => (Id, String, Option<Id>, Option<String>, bool)) {
-            sh.session.borrow_mut().automation_hold_named(track, &target, device, param, on).lua()
+        fn automation_hold(_, sh, (part, target, device, param, on) => (Id, String, Option<Id>, Option<String>, bool)) {
+            sh.session.borrow_mut().automation_hold_named(part, &target, device, param, on).lua()
         }
 
     }

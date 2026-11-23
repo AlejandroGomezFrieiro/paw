@@ -17,18 +17,18 @@ local note_snap = host.note_snap
 local snap = host.snap
 local type Point = host.Point
 
---- The lanes of a lane's track are no longer shown as rows.
+--- The lanes of a lane's part are no longer shown as rows.
 function A.hide_lane_rows(lane: integer)
-  paw.lanes.open(api.lane_get(lane).track, false)
+  paw.lanes.open(api.lane_get(lane).part, false)
 end
 
---- Show a track's lanes as rows of their own under it, or hide them. A
---- track that has none yet gets one for its fader, to draw on.
-function A.lane_rows(track: integer): boolean
-  if not paw.lanes.is_open(track) and #api.lane_list(track) == 0 then
-    A.lane(track, "volume")
+--- Show a part's lanes as rows of their own under it, or hide them. A
+--- part that has none yet gets one for its fader, to draw on.
+function A.lane_rows(part: integer): boolean
+  if not paw.lanes.is_open(part) and #api.lane_list(part) == 0 then
+    A.lane(part, "volume")
   end
-  return paw.lanes.toggle(track)
+  return paw.lanes.toggle(part)
 end
 
 -- Automation. A lane is drawn over a stretch of its range (`lane_span`),
@@ -39,15 +39,15 @@ local function lane_value(lane: integer, fraction: number): number
   return lo + util.clamp(fraction, 0, 1) * (hi - lo)
 end
 
---- The lane of a track for "volume", "pan", or a parameter (by key) of one
+--- The lane of a part for "volume", "pan", or a parameter (by key) of one
 --- of its devices: the one there is, or a new one.
-function A.lane(track: integer, target: types.LaneTarget, device?: integer, param?: string): integer
-  for _, lane in ipairs(api.lane_list(track)) do
+function A.lane(part: integer, target: types.LaneTarget, device?: integer, param?: string): integer
+  for _, lane in ipairs(api.lane_list(part)) do
     if lane.target == target and (target ~= "param" or (lane.device == device and lane.param == param)) then
       return lane.id
     end
   end
-  return api.lane_add(track, {target = target, device = device, param = param})
+  return api.lane_add(part, {target = target, device = device, param = param})
 end
 
 function A.add_point(lane: integer, beat: number, fraction: number)

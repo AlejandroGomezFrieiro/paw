@@ -1,11 +1,11 @@
 -- Motions and text objects that follow the project's tree (`paw.query`),
 -- as Tree-sitter's do in Neovim:
 --
---   ]]  [[    the next or previous clip of the same kind on the track
---   ]s  [s    the next or previous track beside this one in its group
---   [{  ]}    up to the group the track is in; to the group's last track
---   [u  ]u    up to the group (as `[{`); down into the group: its first track
---   ig  ag    the tracks of the group the cursor is in; with the group track
+--   ]]  [[    the next or previous clip of the same kind on the part
+--   ]s  [s    the next or previous part beside this one in its group
+--   [{  ]}    up to the group the part is in; to the group's last part
+--   [u  ]u    up to the group (as `[{`); down into the group: its first part
+--   ig  ag    the parts of the group the cursor is in; with the group part
 --   ]]  [[    in the piano roll: the next or previous note of the same pitch
 --
 -- `:select` and `:query` run a query (docs/reference/queries.md).
@@ -52,14 +52,14 @@ function M.clip_kind(clip: types.Clip): string
 end
 
 --- The clip `count` clips of the kind after (`dir` 1) or before (-1) the one
---- under the cursor, on its track; nil when there is none.
+--- under the cursor, on its part; nil when there is none.
 function M.same_clip(dir: integer, count?: integer): types.Clip
-  local track = cursor.track()
-  if not track then
+  local part = cursor.part()
+  if not part then
     return nil
   end
   local here = cursor.clip()
-  local list = api.clip_list(track.id)
+  local list = api.clip_list(part.id)
   table.sort(list, function(a: types.Clip, b: types.Clip): boolean return a.start < b.start end)
   local kind = here and M.clip_kind(here:get())
   local beat, found: number, types.Clip = cursor.beat, nil
@@ -86,16 +86,16 @@ local function to_same_clip(dir: integer): function(contracts.KeyContext)
     local c = M.same_clip(dir, ctx.count)
     if not c then
       return paw.notify(
-        dir > 0 and "no later clip of this kind on the track" or "no earlier clip of this kind on the track", "warn"
+        dir > 0 and "no later clip of this kind on the part" or "no earlier clip of this kind on the part", "warn"
       )
     end
     cursor.set_beat(c.start)
   end
 end
 
--- Tracks in their groups ------------------------------------------------------------
+-- Parts in their groups ------------------------------------------------------------
 
---- The tracks drawn beside a track in its group (or at the top level), in order.
+--- The parts drawn beside a part in its group (or at the top level), in order.
 local function siblings(id: integer): {integer}
   local parent = groups.of(id)
   local out: {integer} = {}
@@ -109,7 +109,7 @@ end
 
 local function to_sibling(dir: integer): function(contracts.KeyContext)
   return function(ctx: contracts.KeyContext)
-    local id = cursor.track_id()
+    local id = cursor.part_id()
     if not id then
       return
     end
@@ -118,9 +118,9 @@ local function to_sibling(dir: integer): function(contracts.KeyContext)
       if other == id then
         local to = list[i + dir * (ctx.count or 1)]
         if not to then
-          return paw.notify(dir > 0 and "the last track of its group" or "the first track of its group", "warn")
+          return paw.notify(dir > 0 and "the last part of its group" or "the first part of its group", "warn")
         end
-        cursor.set_track(to)
+        cursor.set_part(to)
         return
       end
     end
@@ -128,7 +128,7 @@ local function to_sibling(dir: integer): function(contracts.KeyContext)
 end
 
 local function to_parent(ctx: contracts.KeyContext)
-  local id = cursor.track_id()
+  local id = cursor.part_id()
   for _ = 1, ctx.count or 1 do
     local up = id and groups.of(id)
     if not up then
@@ -136,20 +136,20 @@ local function to_parent(ctx: contracts.KeyContext)
     end
     id = up
   end
-  if not id or id == cursor.track_id() then
-    return paw.notify("the track is in no group", "warn")
+  if not id or id == cursor.part_id() then
+    return paw.notify("the part is in no group", "warn")
   end
-  cursor.set_track(id)
+  cursor.set_part(id)
 end
 
---- The rows (places in the track list) a group takes; see below.
+--- The rows (places in the part list) a group takes; see below.
 local group_rows: function(group: integer): integer, integer
 
---- To the last track of the group the cursor's track is in (of the group
+--- To the last part of the group the cursor's part is in (of the group
 --- around that one, when it is there already; a count goes out further).
 local function to_group_end(ctx: contracts.KeyContext)
-  local id = cursor.track_id()
-  local list = api.track_list()
+  local id = cursor.part_id()
+  local list = api.part_list()
   for _ = 1, ctx.count or 1 do
     local group = id and groups.of(id)
     if not group then
@@ -165,28 +165,28 @@ local function to_group_end(ctx: contracts.KeyContext)
     end
     id = list[finish]
   end
-  if not id or id == cursor.track_id() then
-    return paw.notify("the track is in no group, or at its end", "warn")
+  if not id or id == cursor.part_id() then
+    return paw.notify("the part is in no group, or at its end", "warn")
   end
-  cursor.set_track(id)
+  cursor.set_part(id)
 end
 
 local function to_child()
-  local id = cursor.track_id()
+  local id = cursor.part_id()
   local first = id and groups.is_group(id) and groups.members(id)[1]
   if not first then
-    return paw.notify("not a group with tracks in it", "warn")
+    return paw.notify("not a group with parts in it", "warn")
   end
   if groups.folded(id) then
     groups.fold(id, false)
   end
-  cursor.set_track(first)
+  cursor.set_part(first)
 end
 
---- The group the cursor is in: the track itself when it is one, else the
+--- The group the cursor is in: the part itself when it is one, else the
 --- group it belongs to.
 local function cursor_group(): integer
-  local id = cursor.track_id()
+  local id = cursor.part_id()
   if not id then
     return nil
   end
@@ -196,10 +196,10 @@ local function cursor_group(): integer
   return groups.of(id)
 end
 
---- The rows (places in the track list) a group takes, members and members'
---- members included: from the group track, and from its first member.
+--- The rows (places in the part list) a group takes, members and members'
+--- members included: from the group part, and from its first member.
 group_rows = function(group: integer): integer, integer
-  local list = api.track_list()
+  local list = api.part_list()
   local at: integer
   for i, id in ipairs(list) do
     if id == group then
@@ -282,16 +282,16 @@ local function amap(lhs: string, fn: function(contracts.KeyContext), desc: strin
 end
 -- `]c` `[c`, not `]]` `[[`: `]` and `[` pan at once, and a second press
 -- is a second step of the pan.
-amap("]c", to_same_clip(1), "The next clip of the same kind on the track", {motion = true, jump = true})
-amap("[c", to_same_clip(-1), "The clip of the same kind before, on the track", {motion = true, jump = true})
-amap("]s", to_sibling(1), "The next track in the same group", {motion = true, linewise = true})
-amap("[s", to_sibling(-1), "The track before in the same group", {motion = true, linewise = true})
-amap("[{", to_parent, "Up to the group the track is in", {motion = true, linewise = true, jump = true})
-amap("]}", to_group_end, "The last track of the group", {motion = true, linewise = true, jump = true})
-amap("[u", to_parent, "Up to the group the track is in (as [{)", {motion = true, linewise = true, jump = true})
-amap("]u", to_child, "Down into the group: its first track", {motion = true, linewise = true})
-keymap.textobject("ig", group_object(false), {view = "arrange", desc = "The tracks of the group"})
-keymap.textobject("ag", group_object(true), {view = "arrange", desc = "The group with its tracks"})
+amap("]c", to_same_clip(1), "The next clip of the same kind on the part", {motion = true, jump = true})
+amap("[c", to_same_clip(-1), "The clip of the same kind before, on the part", {motion = true, jump = true})
+amap("]s", to_sibling(1), "The next part in the same group", {motion = true, linewise = true})
+amap("[s", to_sibling(-1), "The part before in the same group", {motion = true, linewise = true})
+amap("[{", to_parent, "Up to the group the part is in", {motion = true, linewise = true, jump = true})
+amap("]}", to_group_end, "The last part of the group", {motion = true, linewise = true, jump = true})
+amap("[u", to_parent, "Up to the group the part is in (as [{)", {motion = true, linewise = true, jump = true})
+amap("]u", to_child, "Down into the group: its first part", {motion = true, linewise = true})
+keymap.textobject("ig", group_object(false), {view = "arrange", desc = "The parts of the group"})
+keymap.textobject("ag", group_object(true), {view = "arrange", desc = "The group with its parts"})
 
 -- `]n` `[n`, not `]]` `[[`: `]` and `[` change the velocity at once.
 keymap.set(
@@ -320,7 +320,7 @@ local function run(ctx: Context, opts: SelectOptions): {Node}
   end
   local counts, order: {string: integer}, {string} = {}, {}
   for _, n in ipairs(nodes) do
-    local k = n.kind == "group" and "track" or n.kind
+    local k = n.kind == "group" and "part" or n.kind
     if not counts[k] then
       order[#order + 1] = k
     end

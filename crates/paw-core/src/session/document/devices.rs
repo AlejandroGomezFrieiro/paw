@@ -17,54 +17,54 @@ use crate::model::{Id, MASTER_ID, Project};
 impl Document {
     pub(crate) fn device_remove(&mut self, id: Id) -> Result<()> {
         self.edit(|p| {
-            let (track, index) = p
+            let (part, index) = p
                 .find_device(id)
                 .with_context(|| format!("no device {id}"))?;
-            let t = p.track_mut(track).unwrap();
+            let t = p.part_mut(part).unwrap();
             t.devices.remove(index);
             t.lanes.retain(|l| l.target.device() != Some(id));
             Ok(())
         })
     }
 
-    /// Move a device to `index` in the chain of `track`.
-    pub(crate) fn device_move(&mut self, id: Id, track: Id, index: usize) -> Result<()> {
+    /// Move a device to `index` in the chain of `part`.
+    pub(crate) fn device_move(&mut self, id: Id, part: Id, index: usize) -> Result<()> {
         self.edit(|p| {
             let (from, at) = p
                 .find_device(id)
                 .with_context(|| format!("no device {id}"))?;
-            if p.track(track).is_none() {
-                bail!("no track {track}");
+            if p.part(part).is_none() {
+                bail!("no part {part}");
             }
             if let Some(source) = p.device(id).and_then(|d| d.sidechain)
-                && from != track
-                && (source == track || p.would_cycle(source, track))
+                && from != part
+                && (source == part || p.would_cycle(source, part))
             {
-                bail!("the device listens to track {source}: on track {track} that would make a loop");
+                bail!("the device listens to part {source}: on part {part} that would make a loop");
             }
             if let Some(source) = p.device(id).and_then(|d| d.sidechain)
-                && from != track
+                && from != part
             {
-                p.check_route(source, track, crate::model::Route::SideChain)?;
+                p.check_route(source, part, crate::model::Route::SideChain)?;
             }
-            if from != track {
+            if from != part {
                 for (pair, to) in p.device(id).map(|d| d.outputs.clone()).unwrap_or_default() {
-                    check_output(p, track, pair, to)?;
+                    check_output(p, part, pair, to)?;
                 }
             }
-            let source = p.track_mut(from).unwrap();
+            let source = p.part_mut(from).unwrap();
             let device = source.devices.remove(at);
             // In a chain, the device goes where the list puts it: after the
             // top node that holds the device before it (`Chain::fit`).
             if let Some(chain) = &mut source.chain {
                 std::sync::Arc::make_mut(chain).root.take(id.into());
             }
-            // A device's lanes live on the track it is on, so they go with it.
+            // A device's lanes live on the part it is on, so they go with it.
             let (lanes, keep) = std::mem::take(&mut source.lanes)
                 .into_iter()
-                .partition(|l| l.target.device() == Some(id) && from != track);
+                .partition(|l| l.target.device() == Some(id) && from != part);
             source.lanes = keep;
-            let t = p.track_mut(track).unwrap();
+            let t = p.part_mut(part).unwrap();
             t.devices.insert(index.min(t.devices.len()), device);
             t.lanes.extend::<Vec<_>>(lanes);
             Ok(())
@@ -74,7 +74,7 @@ impl Document {
     pub(crate) fn device_set(&mut self, id: Id, key: &str, value: Value) -> Result<()> {
         self.edit(|p| {
             if key == "sidechain" {
-                let (track, _) = p
+                let (part, _) = p
                     .find_device(id)
                     .with_context(|| format!("no device {id}"))?;
                 // An empty Lua table arrives as an empty list.
@@ -83,32 +83,32 @@ impl Document {
                     value => de(key, value)?,
                 };
                 if let Some(source) = source {
-                    if p.track(source).is_none() {
-                        bail!("no track {source} to take a side-chain from");
+                    if p.part(source).is_none() {
+                        bail!("no part {source} to take a side-chain from");
                     }
                     if source == MASTER_ID {
-                        bail!("the master track feeds nothing, so it cannot be a side-chain");
+                        bail!("the master part feeds nothing, so it cannot be a side-chain");
                     }
-                    if source == track {
-                        bail!("a device cannot take a side-chain from its own track");
+                    if source == part {
+                        bail!("a device cannot take a side-chain from its own part");
                     }
-                    if p.would_cycle(source, track) {
+                    if p.would_cycle(source, part) {
                         bail!(
-                            "a side-chain from track {source} to track {track} would make a loop"
+                            "a side-chain from part {source} to part {part} would make a loop"
                         );
                     }
-                    p.check_route(source, track, crate::model::Route::SideChain)?;
+                    p.check_route(source, part, crate::model::Route::SideChain)?;
                 }
                 p.device_mut(id).unwrap().sidechain = source;
                 return Ok(());
             }
             if key == "outputs" {
-                let (track, _) = p
+                let (part, _) = p
                     .find_device(id)
                     .with_context(|| format!("no device {id}"))?;
                 let outputs = parse_outputs(value)?;
                 for (pair, to) in &outputs {
-                    check_output(p, track, *pair, *to)?;
+                    check_output(p, part, *pair, *to)?;
                 }
                 p.device_mut(id).unwrap().outputs = outputs;
                 return Ok(());
@@ -139,7 +139,7 @@ impl Document {
 }
 
 /// A device's routed output pairs from what a script gives: a table of
-/// pair number to track (`{ [2] = 5 }`, which may arrive as a list with
+/// pair number to part (`{ [2] = 5 }`, which may arrive as a list with
 /// holes), or nil for none.
 fn parse_outputs(value: Value) -> Result<BTreeMap<u32, Id>> {
     let mut out = BTreeMap::new();
@@ -150,7 +150,7 @@ fn parse_outputs(value: Value) -> Result<BTreeMap<u32, Id>> {
                 Some(to) => {
                     out.insert(pair, to as Id);
                 }
-                None => bail!("an output pair goes to a track, by its id"),
+                None => bail!("an output pair goes to a part, by its id"),
             },
         }
         Ok(())
@@ -170,27 +170,27 @@ fn parse_outputs(value: Value) -> Result<BTreeMap<u32, Id>> {
                 put(pair, to)?;
             }
         }
-        _ => bail!("a device's outputs are a table of pair number to track"),
+        _ => bail!("a device's outputs are a table of pair number to part"),
     }
     Ok(out)
 }
 
-/// Whether a device on `track` may play its pair `pair` into track `to`.
-fn check_output(p: &Project, track: Id, pair: u32, to: Id) -> Result<()> {
+/// Whether a device on `part` may play its pair `pair` into part `to`.
+fn check_output(p: &Project, part: Id, pair: u32, to: Id) -> Result<()> {
     if !(2..=MAX_PAIRS as u32).contains(&pair) {
         bail!("output pair {pair} is not one that can be routed: from 2 to {MAX_PAIRS}");
     }
-    if track == MASTER_ID {
+    if part == MASTER_ID {
         bail!("the master feeds nothing, so its devices' outputs cannot be routed");
     }
-    if p.track(to).is_none() {
-        bail!("no track {to} for output pair {pair}");
+    if p.part(to).is_none() {
+        bail!("no part {to} for output pair {pair}");
     }
-    if to == track {
-        bail!("output pair {pair} cannot play into the device's own track");
+    if to == part {
+        bail!("output pair {pair} cannot play into the device's own part");
     }
-    if to != MASTER_ID && p.would_cycle(track, to) {
-        bail!("output pair {pair} into track {to} would make a loop");
+    if to != MASTER_ID && p.would_cycle(part, to) {
+        bail!("output pair {pair} into part {to} would make a loop");
     }
-    p.check_route(track, to, crate::model::Route::Pair)
+    p.check_route(part, to, crate::model::Route::Pair)
 }

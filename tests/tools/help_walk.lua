@@ -43,7 +43,7 @@ for _, map in ipairs(paw.keymap.every()) do
     if #owners > 0 then check(topic, owners) end
   end
 end
-for topic, ext in pairs({ [":drums.track"] = "drums", [":art.measure"] = "articulations", [":Pdiff"] = "projdiff" }) do
+for topic, ext in pairs({ [":drums.part"] = "drums", [":art.measure"] = "articulations", [":Pdiff"] = "projdiff" }) do
   if paw.help.lookup(topic).source.ext ~= ext then print("WRONG " .. topic .. " (" .. ext .. ")") end
 end
 if paw.help.lookup("gU").source.ext ~= nil then print("WRONG gU is the core's") end

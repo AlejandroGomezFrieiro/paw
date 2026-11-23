@@ -22,9 +22,9 @@ local function extension(name, manifest, init)
   return root
 end
 
-local function track_names()
+local function part_names()
   local out = {}
-  for _, t in ipairs(paw.tracks()) do
+  for _, t in ipairs(paw.parts()) do
     out[#out + 1] = t.name
   end
   return table.concat(out, " ")
@@ -34,17 +34,17 @@ test("a command of an extension that waits is listed, and its first use loads it
   T.start()
   local root = extension(
     "lazycmd",
-    'return { cmd = { { "lz.add", desc = "Add a track named after the word" }, "lz.*" } }',
+    'return { cmd = { { "lz.add", desc = "Add a part named after the word" }, "lz.*" } }',
     [[
-    paw.command("lz.add", function(ctx) paw.add_track({ name = ctx.args[1] }) end, { desc = "Add a track" })
-    paw.command("lz.more", function() paw.add_track({ name = "More" }) end, { desc = "Add More" })
+    paw.command("lz.add", function(ctx) paw.add_part({ name = ctx.args[1] }) end, { desc = "Add a part" })
+    paw.command("lz.more", function() paw.add_part({ name = "More" }) end, { desc = "Add More" })
   ]]
   )
   eq(paw.ext.use(root), nil, "it waits")
   eq(paw.ext.loaded.lazycmd, nil, "and is not loaded")
   eq(
     paw.commands.get("lz.add").desc,
-    "Add a track named after the word",
+    "Add a part named after the word",
     "its command is listed with the words of the manifest"
   )
   eq(paw.commands.get("lz.add").ext, "lazycmd", "as its own")
@@ -56,10 +56,10 @@ test("a command of an extension that waits is listed, and its first use loads it
 
   T.keys(":lz.add Drums<CR>")
   eq(paw.ext.loaded.lazycmd.loaded_by, ":lz.add", "the first use loaded it, and says so")
-  eq(track_names(), "Drums", "and ran the command with its argument")
-  eq(paw.commands.get("lz.add").desc, "Add a track", "the real command took the place of the stub")
+  eq(part_names(), "Drums", "and ran the command with its argument")
+  eq(paw.commands.get("lz.add").desc, "Add a part", "the real command took the place of the stub")
   T.keys("u")
-  eq(track_names(), "", "one u undoes the command")
+  eq(part_names(), "", "one u undoes the command")
 
   eq(paw.ext.unload("lazycmd"), true, "it unloads")
   eq(paw.commands.get("lz.add"), nil, "with its commands, and the stubs do not come back")
@@ -67,20 +67,20 @@ test("a command of an extension that waits is listed, and its first use loads it
   paw.ext.use(root)
   T.keys(":lz.more<CR>")
   eq(paw.ext.loaded.lazycmd.loaded_by, ":lz.more", "a command under a prefix loads it too")
-  eq(track_names(), "More", "and runs")
+  eq(part_names(), "More", "and runs")
 end)
 
 test("a key of an extension that waits loads it, and runs with its count and register as one undo step", function()
   T.start()
   local root = extension(
     "lazykey",
-    'return { keys = { { "<localleader>Zk", view = "arrange", desc = "Add tracks for the count" } } }',
+    'return { keys = { { "<localleader>Zk", view = "arrange", desc = "Add parts for the count" } } }',
     [[
     paw.keymap.set("<localleader>Zk", function(ctx)
       for i = 1, ctx.count or 1 do
-        paw.add_track({ name = (ctx.register or "none") .. i })
+        paw.add_part({ name = (ctx.register or "none") .. i })
       end
-    end, { view = "arrange", desc = "Add tracks" })
+    end, { view = "arrange", desc = "Add parts" })
   ]]
   )
   paw.ext.use(root)
@@ -88,12 +88,12 @@ test("a key of an extension that waits loads it, and runs with its count and reg
   paw.keymap.each(function(map, _, scope)
     if map.lhs == "<localleader>Zk" and scope == "arrange" then stub = map end
   end)
-  eq(stub and stub.desc .. " " .. stub.ext, "Add tracks for the count lazykey", "the key is mapped, with its words")
+  eq(stub and stub.desc .. " " .. stub.ext, "Add parts for the count lazykey", "the key is mapped, with its words")
   T.keys('"a2<localleader>Zk')
   eq(paw.ext.loaded.lazykey.loaded_by, "<localleader>Zk", "the key loaded it")
-  eq(track_names(), "a1 a2", "the real key ran with the count and the register")
+  eq(part_names(), "a1 a2", "the real key ran with the count and the register")
   T.keys("u")
-  eq(track_names(), "", "one u undoes the key")
+  eq(part_names(), "", "one u undoes the key")
 end)
 
 test("an event or a view of an extension that waits loads it, and its handler gets the event", function()
@@ -144,7 +144,7 @@ test(
   ]]
     )
     paw.ext.load(root)
-    local clip = paw.clip_kinds.add(paw.add_track({ name = "Film" }), "film", {})
+    local clip = paw.clip_kinds.add(paw.add_part({ name = "Film" }), "film", {})
     api.undo_checkpoint()
     local saved = paw.inspect(api.clip_custom(clip.id).sound)
     local path = T.scratch .. "/lazy/film.paw"
@@ -156,7 +156,7 @@ test(
     api.project_load(path)
     paw.flush()
     eq(paw.ext.loaded.lazyfilm and paw.ext.loaded.lazyfilm.loaded_by, "kind film", "the clip of its kind loaded it")
-    local id = api.clip_list(api.track_list()[1])[1].id
+    local id = api.clip_list(api.part_list()[1])[1].id
     eq(paw.inspect(api.clip_custom(id).sound), saved, "the clip plays what it saved")
     eq(api.undo_pending(), false, "opening is not an undo step")
   end

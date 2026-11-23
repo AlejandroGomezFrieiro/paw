@@ -1,22 +1,22 @@
 -- The notes that the piano roll shows behind its own (`paw.roll_clips`):
--- the notes of the other tracks that sound in the span of the edited
+-- the notes of the other parts that sound in the span of the edited
 -- clips. They are three kinds of node of `paw.derived` (the design
 -- `derived.md`, D2):
 --
---   roll.track        what the choice of the tracks reads of one track: its
+--   roll.part        what the choice of the parts reads of one part: its
 --                     colour, whether it is drums, its group
---   roll.track_clips  the MIDI clips of one track: their places and the
+--   roll.part_clips  the MIDI clips of one part: their places and the
 --                     stamps of their notes
 --   roll.context      the notes behind the roll, for one request. Its key
 --                     is what the roll asks for: the active clip and its
---                     place, the edited clips, the span, the shown tracks,
+--                     place, the edited clips, the span, the shown parts,
 --                     the options, the scope. Its inputs are the context
---                     clips (each with its track's colour, its place and
+--                     clips (each with its part's colour, its place and
 --                     its stamp); its value their notes, in the beats of
 --                     the roll.
 --
 -- So an edit of an edited clip (its notes are not context) reads the clips
--- of its track again, finds the same context clips, and makes no notes
+-- of its part again, finds the same context clips, and makes no notes
 -- again. An edit of a context clip changes the inputs: the notes are made
 -- again.
 --
@@ -32,10 +32,10 @@ local type GroupsModule = require("paw.groups")
 -- What this module reads of `paw`, which paw/init.lua makes. paw/harmony.tl
 -- and paw/scope.tl name many types: this module declares only what it calls.
 local record Harmony
-  is_drums: function(t: types.Track): boolean
+  is_drums: function(t: types.Part): boolean
 end
 local record Scope
-  tracks: function(): {integer}
+  parts: function(): {integer}
   breadcrumb: function(): string
 end
 local record Paw is partial.Paw
@@ -60,8 +60,8 @@ local record Request
   shown: {integer: boolean}
 end
 
---- A track near the roll, as `paw.roll_clips.tracks` gives it.
-local record Track
+--- A part near the roll, as `paw.roll_clips.parts` gives it.
+local record Part
   id: integer
   name: string
   color: string
@@ -76,14 +76,14 @@ local record Note
   length: number
   velocity: integer
   clip: integer
-  track: integer
+  part: integer
   color: string
 end
 
 --- A context clip, as the node compares them: what its notes are made of.
 local record Portion
   id: integer
-  track: integer
+  part: integer
   color: string
   start: number
   length: number
@@ -91,7 +91,7 @@ local record Portion
   transpose: integer
 end
 
---- A MIDI clip of a track, as the node of the track's clips keeps it.
+--- A MIDI clip of a part, as the node of the part's clips keeps it.
 local record Placed
   id: integer
   start: number
@@ -102,16 +102,16 @@ end
 
 local record M
   type Request = Request
-  type Track = Track
+  type Part = Part
   type Note = Note
 end
 
--- The fields of a track that its colour and its choice read: the colour,
+-- The fields of a part that its colour and its choice read: the colour,
 -- the group (in `meta`), and whether it is drums (`meta`, the name, the
--- devices). Its place in the list is the source `tracks`.
+-- devices). Its place in the list is the source `parts`.
 local FIELDS = {"name", "color", "meta", "devices"}
 
---- What the choice of the tracks reads of a track.
+--- What the choice of the parts reads of a part.
 local record Look
   name: string
   color: string
@@ -130,16 +130,16 @@ local function same_look(a: Look, b: Look): boolean
     and a.head == b.head
 end
 
---- A track as its choice reads it, through the graph when `ctx` is there.
---- Nil for a track that is gone.
+--- A part as its choice reads it, through the graph when `ctx` is there.
+--- Nil for a part that is gone.
 local function look(ctx: derived.Ctx, id: integer): Look
-  local t: types.Track
+  local t: types.Part
   if ctx then
     -- Its colour by its place in the list, or by its group's colour.
-    ctx:tracks()
-    t = ctx:track(id, FIELDS)
+    ctx:parts()
+    t = ctx:part(id, FIELDS)
   else
-    local ok, got = pcall(api.track_get, id)
+    local ok, got = pcall(api.part_get, id)
     t = ok and got or nil
   end
   if not t then
@@ -147,11 +147,11 @@ local function look(ctx: derived.Ctx, id: integer): Look
   end
   local group = runtime.groups.of(id)
   if ctx and group then
-    ctx:track(group, FIELDS)
+    ctx:part(group, FIELDS)
   end
   return {
     name = t.name,
-    color = runtime.draw.track_colour(t),
+    color = runtime.draw.part_colour(t),
     drums = runtime.harmony.is_drums(t),
     master = t.master,
     group = group,
@@ -159,18 +159,18 @@ local function look(ctx: derived.Ctx, id: integer): Look
   }
 end
 
--- Each track's look is a node: an edit reads again only the tracks it changed.
+-- Each part's look is a node: an edit reads again only the parts it changed.
 local look_spec: derived.Spec<integer, Look, boolean> = {
-  name = "roll.track",
+  name = "roll.part",
   kind = "family",
   make = function(ctx: derived.Ctx, id: integer): Look return look(ctx, id) end,
   same = same_look,
-  -- The tracks of a large song.
+  -- The parts of a large song.
   limit = 1024,
 }
 local looks = derived.node(look_spec)
 
---- A track's look: from the node when `ctx` is there.
+--- A part's look: from the node when `ctx` is there.
 local function look_of(ctx: derived.Ctx, id: integer): Look
   if ctx then
     return ctx:get(looks, id)
@@ -178,7 +178,7 @@ local function look_of(ctx: derived.Ctx, id: integer): Look
   return look(nil, id)
 end
 
---- The clips of a track, or none.
+--- The clips of a part, or none.
 local function clips_of(id: integer): {types.Clip}
   local ok, list = pcall(api.clip_list, id)
   return ok and list or {}
@@ -188,8 +188,8 @@ local function scope(): Scope
   return rawget(runtime as {string: Scope}, "scope")
 end
 
---- Whether a track's notes show, before the toggles: by `paw.opt.roll_context`.
---- `group` is the group of the active clip's track.
+--- Whether a part's notes show, before the toggles: by `paw.opt.roll_context`.
+--- `group` is the group of the active clip's part.
 local function chosen(id: integer, t: Look, group: integer, listed: {integer: boolean}): boolean
   local option = opt.roll_context
   if option is {string | number} then
@@ -202,14 +202,14 @@ local function chosen(id: integer, t: Look, group: integer, listed: {integer: bo
   return not t.drums
 end
 
---- The tracks whose notes can show behind the roll, but not the track of
+--- The parts whose notes can show behind the roll, but not the part of
 --- the active clip. With `midi`, only those with a MIDI clip (the list
---- that `paw.roll_clips.tracks` gives); without, each track whose notes
+--- that `paw.roll_clips.parts` gives); without, each part whose notes
 --- show could have context clips.
-local function tracks(ctx: derived.Ctx, req: Request, midi: boolean): {Track}
+local function parts(ctx: derived.Ctx, req: Request, midi: boolean): {Part}
   local a = req.active
-  local own = look_of(ctx, a.track)
-  local group = own and (own.group or (own.head and a.track)) or nil
+  local own = look_of(ctx, a.part)
+  local group = own and (own.group or (own.head and a.part)) or nil
   local listed: {integer: boolean} = {}
   local option = opt.roll_context
   if option is {string | number} then
@@ -217,15 +217,15 @@ local function tracks(ctx: derived.Ctx, req: Request, midi: boolean): {Track}
       listed[math.tointeger(id)] = true
     end
   end
-  local out: {Track} = {}
-  -- In a narrowed window (`paw.scope`), the scope's tracks alone.
+  local out: {Part} = {}
+  -- In a narrowed window (`paw.scope`), the scope's parts alone.
   local s = scope()
   if ctx then
-    ctx:tracks()
+    ctx:parts()
   end
-  local ids = s and s.tracks() or api.track_list()
+  local ids = s and s.parts() or api.part_list()
   for _, id in ipairs(ids) do
-    local t = id ~= a.track and look_of(ctx, id)
+    local t = id ~= a.part and look_of(ctx, id)
     if t and not t.master then
       local has_midi = not midi
       if midi then
@@ -245,13 +245,13 @@ local function tracks(ctx: derived.Ctx, req: Request, midi: boolean): {Track}
   return out
 end
 
---- The tracks near the roll: `{ id, name, color, drums, on }` each.
-function M.tracks(req: Request): {Track}
-  return tracks(nil, req, true)
+--- The parts near the roll: `{ id, name, color, drums, on }` each.
+function M.parts(req: Request): {Part}
+  return parts(nil, req, true)
 end
 
--- Each track's MIDI clips are a node of their own: an edit of a clip reads
--- the clips of its track again, and not those of the other tracks.
+-- Each part's MIDI clips are a node of their own: an edit of a clip reads
+-- the clips of its part again, and not those of the other parts.
 local function same_placed(a: {Placed}, b: {Placed}): boolean
   if #a ~= #b then
     return false
@@ -268,11 +268,11 @@ local function same_placed(a: {Placed}, b: {Placed}): boolean
 end
 
 local clips_spec: derived.Spec<integer, {Placed}, boolean> = {
-  name = "roll.track_clips",
+  name = "roll.part_clips",
   kind = "family",
-  make = function(ctx: derived.Ctx, track: integer): {Placed}
+  make = function(ctx: derived.Ctx, part: integer): {Placed}
     local out: {Placed} = {}
-    for _, c in ipairs(ctx:clips(track)) do
+    for _, c in ipairs(ctx:clips(part)) do
       if c.kind == "midi" then
         out[#out + 1] = {id = c.id, start = c.start, length = c.length, stamp = c.stamp, transpose = c.transpose or 0}
       end
@@ -280,28 +280,28 @@ local clips_spec: derived.Spec<integer, {Placed}, boolean> = {
     return out
   end,
   same = same_placed,
-  -- The tracks of a large song.
+  -- The parts of a large song.
   limit = 1024,
 }
-local track_clips = derived.node(clips_spec)
+local part_clips = derived.node(clips_spec)
 
---- The context clips: the MIDI clips of the active clip's track and of the
---- shown tracks that sound in the span, but not the edited clips.
+--- The context clips: the MIDI clips of the active clip's part and of the
+--- shown parts that sound in the span, but not the edited clips.
 local function portions(ctx: derived.Ctx, req: Request): {Portion}
   local a = req.active
-  local own = look_of(ctx, a.track)
-  local looked: {Track} = {{id = a.track, on = true, color = own and own.color or nil}}
-  for _, t in ipairs(tracks(ctx, req, false)) do
+  local own = look_of(ctx, a.part)
+  local looked: {Part} = {{id = a.part, on = true, color = own and own.color or nil}}
+  for _, t in ipairs(parts(ctx, req, false)) do
     looked[#looked + 1] = t
   end
   local out: {Portion} = {}
   for _, t in ipairs(looked) do
     if t.on then
-      for _, c in ipairs(ctx:get(track_clips, t.id)) do
+      for _, c in ipairs(ctx:get(part_clips, t.id)) do
         if not req.editable[c.id] and c.start < req.to - EPS and c.start + c.length > req.from + EPS then
           out[#out + 1] = {
             id = c.id,
-            track = t.id,
+            part = t.id,
             color = t.color,
             start = c.start,
             length = c.length,
@@ -323,7 +323,7 @@ local function same_portions(a: {Portion}, b: {Portion}): boolean
     local x, y = a[i], b[i]
     if
       x.id ~= y.id
-      or x.track ~= y.track
+      or x.part ~= y.part
       or x.color ~= y.color
       or x.start ~= y.start
       or x.length ~= y.length
@@ -358,7 +358,7 @@ local function notes(req: Request, list: {Portion}): {Note}
           length = math.min(n.length, c.length - n.start),
           velocity = n.velocity,
           clip = c.id,
-          track = c.track,
+          part = c.part,
           color = c.color,
         }
       end
@@ -382,7 +382,7 @@ local spec: derived.Spec<Request, {Note}, {Portion}> = {
 local context = derived.node(spec)
 
 --- What the roll asks for: the active clip, the ids of the edited clips,
---- the span in song beats, and the toggles of the tracks.
+--- the span in song beats, and the toggles of the parts.
 function M.request(active: types.Clip, ids: {integer}, from: number, to: number, shown: {integer: boolean}): Request
   local editable: {integer: boolean} = {}
   for _, id in ipairs(ids) do
@@ -405,7 +405,7 @@ function M.request(active: types.Clip, ids: {integer}, from: number, to: number,
   local id = table.concat(
     {
       active.id,
-      active.track,
+      active.part,
       active.start,
       table.concat(ids, ","),
       from,
@@ -421,7 +421,7 @@ function M.request(active: types.Clip, ids: {integer}, from: number, to: number,
 end
 
 --- The context notes of a request: `{ pitch, start, length, velocity,
---- clip, track, color }` each.
+--- clip, part, color }` each.
 function M.notes(req: Request): {Note}
   return (context:get(req, true))
 end

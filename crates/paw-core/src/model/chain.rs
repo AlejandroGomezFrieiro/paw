@@ -2,7 +2,7 @@
 //! splits and branches that names its devices by id.
 //!
 //! A chain does not know its owner. The owner keeps the flat list of its
-//! devices (a track's `devices` until parts come), and an owner with no
+//! devices (a part's `devices`), and an owner with no
 //! chain plays them in series, in the order of the list. A chain gives the
 //! same devices a shape. Its root is a split of kind `chain` with one
 //! branch. A branch holds devices and splits in series. A split sends its
