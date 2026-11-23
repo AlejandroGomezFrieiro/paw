@@ -227,7 +227,7 @@ pub struct DeviceOpts {
 /// What a new clip holds: `midi`, `audio` or the name of a kind that an
 /// extension defines, in Lua. A word that is no name fails with the text of
 /// [`FromStr`](std::str::FromStr); whether an extension defined it is known
-/// where the clip is added (`Session::clip_kinds`).
+/// where the clip is added (`Document::clip_kinds`).
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 #[serde(try_from = "String")]
 pub enum ClipKind {
@@ -354,7 +354,7 @@ pub struct ClipOpts {
     pub play: Option<crate::model::NestPlay>,
 }
 
-/// What [`Session::clip_set_custom`] gives a custom clip: what its kind
+/// What [`Document::clip_set_custom`] gives a custom clip: what its kind
 /// compiled, replacing data, media, sound and signals together, so that it
 /// is one edit. `version`, `timeline` and `offset` stay as they are when
 /// absent.

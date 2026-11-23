@@ -39,12 +39,12 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         }
         // The undo tree and checkpoints: crate::history, session/undo.rs.
         // @return types.UndoTree
-        fn undo_tree(lua, sh, () => ()) { to_lua(lua, &sh.session.borrow().undo_tree()) }
+        fn undo_tree(lua, sh, () => ()) { to_lua(lua, &sh.session.borrow().doc.undo_tree()) }
         // How many steps the history keeps, and about how many bytes of what
         // they changed: `paw.opt.undo_steps` and `undo_memory` set these.
         // @return nil
         fn undo_limits(_, sh, (steps, bytes) => (Option<usize>, Option<usize>)) {
-            sh.session.borrow_mut().undo_limits(steps, bytes).lua()
+            sh.session.borrow_mut().doc.undo_limits(steps, bytes).lua()
         }
         // Read the undo file in the folder `dir` for the project that just
         // opened. Gives `states`, the number of states that came back, or
@@ -67,7 +67,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             Ok(())
         }
         // @return integer
-        fn undo_current(_, sh, () => ()) { Ok(sh.session.borrow().undo_current()) }
+        fn undo_current(_, sh, () => ()) { Ok(sh.session.borrow().doc.undo_current()) }
         // @return boolean
         fn undo_goto(_, sh, id => u64) { Ok(sh.session.borrow_mut().undo_goto(id)) }
         // @return integer
@@ -80,7 +80,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         }
         // @return nil
         fn undo_keep(_, sh, (id, keep) => (u64, Option<bool>)) {
-            sh.session.borrow_mut().undo_keep(id, keep.unwrap_or(true)).lua()
+            sh.session.borrow_mut().doc.undo_keep(id, keep.unwrap_or(true)).lua()
         }
         // @return types.UndoDiff
         fn undo_diff(lua, sh, (a, b) => (Option<u64>, Option<u64>)) {
@@ -138,7 +138,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // given while the step changed nothing.
         // @return nil
         fn undo_label(_, sh, text => Option<String>) {
-            sh.session.borrow_mut().undo_label(text);
+            sh.session.borrow_mut().doc.undo_label(text);
             Ok(())
         }
         // Put the project back as it was before the last step, so that a
@@ -152,16 +152,16 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // Put the step back as it was, when the command run again failed.
         // @return nil
         fn undo_adjust_cancel(_, sh, () => ()) {
-            sh.session.borrow_mut().undo_adjust_cancel();
+            sh.session.borrow_mut().doc.undo_adjust_cancel();
             Ok(())
         }
         // The edits of this turn join undo state `id`, the current one, and do
         // not make a step of their own. For example, a snippet changed its choice.
         // @return boolean
-        fn undo_join(_, sh, id => u64) { Ok(sh.session.borrow_mut().undo_join(id)) }
+        fn undo_join(_, sh, id => u64) { Ok(sh.session.borrow_mut().doc.undo_join(id)) }
         // @return nil
         fn undo_keys(_, sh, text => String) {
-            sh.session.borrow_mut().undo_keys(text);
+            sh.session.borrow_mut().doc.undo_keys(text);
             Ok(())
         }
         // @return string

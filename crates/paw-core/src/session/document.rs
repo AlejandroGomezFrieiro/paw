@@ -30,6 +30,7 @@ pub use nests::NestOpts;
 pub mod notes;
 mod tempo;
 mod tracks;
+mod undo_tree;
 pub use tracks::ControlMove;
 
 /// The project, its undo tree, and what its edits report.
