@@ -817,6 +817,19 @@ local function inside(r: Range, at: number): boolean
   return not r.from or (at >= r.from - EPS and at < r.to - EPS)
 end
 
+--- The notes of a MIDI clip that can start in the range `r`, and the place
+--- of each in the clip (nil: the places are the indices). The kernel gives
+--- only the notes that sound in the range, so a scope of a few bars does not
+--- read every note of the song. Each note that starts in the range sounds
+--- in it, so the caller keeps those with `inside`.
+local function notes_near(c: types.Clip, r: Range): {types.Note}, {integer}
+  if not r.from then
+    return api.clip_notes(c.id), nil
+  end
+  local range: types.NoteRange = {from = r.from - c.start - EPS, to = r.to - c.start}
+  return api.clip_notes(c.id, range)
+end
+
 local function by_place(a: Item, b: Item): boolean
   if math.abs(a.at - b.at) > EPS then
     return a.at < b.at
@@ -857,13 +870,19 @@ function M.items(r: Range, kind: Level): {Item}
         out[#out + 1] = {kind = "clip", track = c.track, clip = c, at = c.start, order = order[c.track]}
       end
     elseif c.kind == "midi" then
-      local notes = api.clip_notes(c.id)
-      for place, n in ipairs(notes) do
+      local notes, places = notes_near(c, r)
+      for i, n in ipairs(notes) do
         local at = c.start + n.start
         local pitch_ok = not r.pitches or (n.pitch >= r.pitches[1] and n.pitch <= r.pitches[2])
         if pitch_ok and inside(r, at) then
           out[#out + 1] = {
-            kind = "note", track = c.track, clip = c, note = n, place = place, at = at, order = order[c.track]
+            kind = "note",
+            track = c.track,
+            clip = c,
+            note = n,
+            place = places and places[i] or i,
+            at = at,
+            order = order[c.track],
           }
         end
       end

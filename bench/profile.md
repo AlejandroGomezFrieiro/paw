@@ -57,6 +57,7 @@ when it is not set), one JSON line for each measurement in
 | `record` | A take on a new armed track from the test input. | As `play`. |
 | `long` | Edits, keys and playback in turns for `--secs` seconds (600). | Resident memory and the Lua heap every five rounds; the heap after a full collection; the undo history. |
 | `repeat` | The keys of `--keys` (comma-separated, with Python escapes), `--times` times. | The processor time of the kernel for each round, and the time from each key to its first frame (median, smallest and largest value). Use it with the probes to profile one key. |
+| `scope` | Adds regions (Intro, Verse with Verse A and Verse B in it, Chorus, End) and a group Strings of the first 16 tracks after the start. The project file does not change. Then the keys of a scope in order: `znar`, moves, `zfar`, `zm`, `zr`, `znn`, `zw`, `]z`, `:%quantize 1/4` and `u`, the piano roll, `zW`, `znag`, moves, `zw`. | As `keys`, with the path of the scope after each key. Also the time of a full frame (`paw.api.ui_snapshot`, 40 frames after `j` or `k`) in the song, in the region and in the group: the median, smallest and largest value. |
 
 The thread named `kernel` is the main thread: Lua, the views, the
 drawing and the terminal output. The thread of the null backend
