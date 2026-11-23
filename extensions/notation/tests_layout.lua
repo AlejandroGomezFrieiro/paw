@@ -426,6 +426,7 @@ test("notation layout: zp lays the systems on pages under the title, and export 
 end)
 
 test("notation layout: other features place marks of their own kind against the skylines", function()
+  load()
   local skyline = require("notation.skyline")
   skyline.kind("test-chord", {
     order = skyline.ORDER.chord,

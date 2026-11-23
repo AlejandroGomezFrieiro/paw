@@ -45,8 +45,9 @@ function M.play(track_id, pitch, lyric, ms)
   local device = utau.device_of(track_id)
   if not device then return nil end
   -- Not more than one a twentieth of a second, as a drag goes across rows.
+  -- The clock gives milliseconds as a float: 50 ms later can read 49.999...
   local now = api.now()
-  if now - M.last < 50 then return nil end
+  if now - M.last < 50 - 1e-6 then return nil end
   M.last = now
   ms = math.max(120, math.min(1000, ms or 400))
   local config = utau.config(track_id)

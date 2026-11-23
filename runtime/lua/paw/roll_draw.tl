@@ -1228,7 +1228,7 @@ function M.tie()
   end
   session.edge = "end"
   place()
-  paw.notify(string.format("tied to the next note, %g beats on", best - finish))
+  paw.notify(string.format("tied to the next note, %s on", util.amount(best - finish, "beat")))
 end
 
 --- Put the notes of a register at the pencil (`<C-r>` and its name), count

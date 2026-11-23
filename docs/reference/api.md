@@ -2551,6 +2551,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.util
 
+- `paw.util.amount(n, word)`: An amount with its word, in the plural unless it is 1: `paw.util.amount(1, "beat")` is "1 beat", `paw.util.amount(0.5, "beat")` is "0.5 beats".
 - `paw.util.by_order(a, b)`: The order of the entries that extensions add to a list of keys (the pencil's keys, the insert kinds): by `order`, then by key.
 - `paw.util.clamp(v, lo, hi)`: `v`, kept between `lo` and `hi`.
 - `paw.util.copy`: the same as `paw.seats.copy`.

@@ -446,7 +446,7 @@ function A.paste(value: Yanked, before?: boolean, count?: integer)
   last_paste = {row = row, beat = start, finish = at, edits = edits()}
   -- Said, so that what the screen said of the yank before is not taken
   -- for what the paste did.
-  paw.notify(string.format("pasted %g beats", value.length * (count or 1)))
+  paw.notify("pasted " .. util.amount(value.length * (count or 1), "beat"))
 end
 
 --- Move the clips that start in a region by `by` beats.

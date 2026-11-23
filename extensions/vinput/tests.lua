@@ -54,6 +54,13 @@ local function load()
   -- Each input has a MIDI port of the program's own: none stays after the test.
   remove_all()
   T.after(remove_all)
+  -- The panel's cursor and the listings of sources live as long as the
+  -- extension: each test starts on the first row, with no listing yet.
+  panel.row, panel.scroll = 1, 0
+  for _, list in pairs(run.lists) do
+    if list.proc then api.proc_kill(list.proc) end
+  end
+  run.lists = {}
   -- The runner gives the options back after each test.
   paw.opt.vinput_file = kept
   paw.opt.vinput_run = false

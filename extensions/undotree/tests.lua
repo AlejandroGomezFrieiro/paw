@@ -247,18 +247,18 @@ test("undotree: A/B while playing keeps the transport going", function()
   paw.transport.play()
   T.until_beat(1)
   for i = 1, 4 do
+    -- The stepped engine plays only when the clock moves: the switch itself
+    -- must leave the playhead where it was, to the sample.
     paw.flush()
     local before = paw.transport.position
     paw.cmd("ab.toggle")
     paw.flush()
-    local after = paw.transport.position
     eq(paw.transport.playing, true, "still playing after switch " .. i)
-    eq(after >= before, true, "no jump back: " .. before .. " then " .. after)
-    eq(after - before < 0.25, true, "no jump forward: " .. before .. " then " .. after)
+    eq(paw.transport.position, before, "no jump of the playhead at switch " .. i)
     eq(api.undo_current(), i % 2 == 1 and a or b, "switch " .. i .. " went to " .. (i % 2 == 1 and "A" or "B"))
     eq(t.volume, i % 2 == 1 and -3 or -12, "and the engine has that mix")
     -- The position keeps moving after the switch.
-    T.until_beat(paw.transport.position + 0.2)
+    T.until_beat(before + 0.2)
   end
   -- The track is sounding: its synth runs blocks, and does not sleep.
   T.next_block(2, t:devices()[1].id)
