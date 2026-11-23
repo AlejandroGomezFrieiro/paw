@@ -20,12 +20,15 @@ local function load()
   return doctor
 end
 
+--- The null backend with a test input and the MIDI port "Keys A", until
+--- the test ends.
 local function null_backend()
   api.engine_restart({
     backend = "null",
     test_input = { frequency = 440, level = -12, channels = 2 },
     test_midi = { "Keys A" },
   })
+  T.after(function() api.engine_restart({ backend = "null" }) end)
 end
 
 --- Short runs: a quarter-second tone, a second of dropouts, and so on.

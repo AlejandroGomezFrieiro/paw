@@ -17,6 +17,14 @@ local function load()
   return utau
 end
 
+--- The vocal editor is one view for all the tests: a test that changes the
+--- curve under its notes puts the curve back when it ends.
+local function keep_curve()
+  local editor = require("utau.editor").editor
+  local was = editor.curve
+  T.after(function() editor.curve = was end)
+end
+
 --- Skip unless the engine runs and has the test voicebank.
 local function need_singer()
   load()
@@ -379,6 +387,7 @@ test("utau: where the terminal shows pictures the pitch and the curve are strips
   paw.flush()
   local editor = require("utau.editor").editor
   editor:edit(clip.id)
+  keep_curve()
   editor.curve = "dyn"
   local W, H = 120, 36
   local cells = api.ui_snapshot(W, H)
@@ -505,6 +514,7 @@ test("utau: = puts the curve back over what it covers", function()
   local editor = require("utau.editor").editor
   editor:edit(clip.id)
   paw.ui.focus("utau")
+  keep_curve()
   editor.curve, editor.beat, editor.pitch = "dyn", 1, 62
   T.keys("=in")
   paw.flush()
@@ -1150,6 +1160,7 @@ test("utau: AI pitch, takes and the renderer's curves send what the protocol say
       names[#names + 1] = e.abbr
     end
     eq(table.concat(names, " "), "ene spk1", "the renderer's own curves are offered")
+    keep_curve()
     paw.cmd("utau.curve", { "ene" })
     paw.cmd("utau.curve", { "spk1" })
     eq(r.slot_of(track.id, "ene") .. " " .. r.slot_of(track.id, "spk1"), "x1 x2", "each on a slot")
