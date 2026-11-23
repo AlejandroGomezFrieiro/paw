@@ -9,26 +9,42 @@
 //! looked at again. Each change paw makes (an edit, an undo, a load) and
 //! each file event forgets every answer, so that what paw does itself shows
 //! at once. An edit of the document is seen by its count of changes
-//! ([`FileCheck::after`]), so that an edit need not tell the check.
+//! ([`FileCheck::after`]), so that an edit need not tell the check. The
+//! answers age on the schedule clock, so that a test steps past [`FRESH`].
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::time::{Duration, Instant};
+use std::sync::Arc;
+use std::time::Duration;
+
+use crate::clock::{Clock, WallClock};
 
 /// How long an answer is kept: the longest that a file can be gone, or
 /// back, before a clip says so.
 pub(super) const FRESH: Duration = Duration::from_secs(1);
 
 /// The answers, by path. The session is used from one thread.
-#[derive(Default)]
 pub(super) struct FileCheck {
-    seen: RefCell<HashMap<PathBuf, (Instant, bool)>>,
+    /// The schedule clock that the answers age on (`Session::set_clock`).
+    pub(super) clock: Arc<dyn Clock>,
+    /// Each path's answer, and when it was taken on `clock`.
+    seen: RefCell<HashMap<PathBuf, (Duration, bool)>>,
     /// The document's count of changes ([`Document::changes`]) when the
     /// answers in `seen` were taken.
     ///
     /// [`Document::changes`]: super::Document::changes
     changes: Cell<u64>,
+}
+
+impl Default for FileCheck {
+    fn default() -> Self {
+        Self {
+            clock: Arc::new(WallClock::new()),
+            seen: RefCell::default(),
+            changes: Cell::default(),
+        }
+    }
 }
 
 impl FileCheck {
@@ -45,12 +61,12 @@ impl FileCheck {
 
     /// Whether `path` is a file, as it was at most [`FRESH`] ago.
     pub(super) fn is_file(&self, path: &Path) -> bool {
-        self.is_file_at(path, Instant::now())
+        self.is_file_at(path, self.clock.now())
     }
 
-    fn is_file_at(&self, path: &Path, now: Instant) -> bool {
+    fn is_file_at(&self, path: &Path, now: Duration) -> bool {
         if let Some(&(at, there)) = self.seen.borrow().get(path)
-            && now.duration_since(at) < FRESH
+            && now.saturating_sub(at) < FRESH
         {
             return there;
         }
@@ -76,7 +92,7 @@ mod tests {
         std::fs::create_dir(dir.path().join("media")).unwrap();
         std::fs::write(&file, b"RIFF").unwrap();
         let check = FileCheck::default();
-        let t0 = Instant::now();
+        let t0 = Duration::from_secs(5);
         assert!(check.is_file_at(&file, t0));
         std::fs::rename(dir.path().join("media"), dir.path().join("moved")).unwrap();
         assert!(

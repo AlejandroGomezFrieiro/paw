@@ -580,6 +580,9 @@ impl Session {
     /// Housekeeping for plugins: runs their editors and picks up what they
     /// changed by themselves. Call regularly from the main thread.
     pub fn idle(&mut self) {
+        // The stepped engine plays up to the clock first: what it played is
+        // then heard of below.
+        self.run_stepped_audio();
         // A take whose file could not be written stops; what it has is kept.
         if self.rec.take.as_ref().is_some_and(|t| t.shared.failed()) {
             self.stop();

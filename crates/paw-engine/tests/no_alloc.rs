@@ -892,6 +892,30 @@ fn the_audio_thread_never_allocates() {
     a_file_heard_on_its_own_never_allocates();
     an_engine_at_rest_never_allocates();
     reversed_slices_never_allocate();
+    a_stepped_stream_never_allocates();
+}
+
+/// The stepped backend runs blocks on the caller's thread, with its test
+/// input, without allocating. Run from the test above.
+fn a_stepped_stream_never_allocates() {
+    use paw_engine::backend::{self, BackendOptions, TestInput};
+    let opts = BackendOptions {
+        backend: "step".into(),
+        test_input: Some(TestInput { frequency: 440.0, level: -12.0, channels: 2 }),
+        ..Default::default()
+    };
+    let opened = backend::open(&opts).unwrap();
+    let (engine, handle) = Engine::new(f64::from(opened.sample_rate()));
+    let mut stream = opened.start(engine).unwrap();
+    let at = stream.end_of(100).unwrap();
+    let before = VIOLATIONS.load(Ordering::Relaxed);
+    AUDIO.with(|a| a.set(true));
+    let ran = stream.run_to(at);
+    AUDIO.with(|a| a.set(false));
+    assert_eq!(VIOLATIONS.load(Ordering::Relaxed) - before, 0, "stepped blocks");
+    assert_eq!(ran, 100, "the blocks ran");
+    drop(stream);
+    drop(handle);
 }
 
 /// A clip cut into a thousand slices, played backwards with fades, across

@@ -104,6 +104,7 @@ pub fn open(opts: &BackendOptions) -> Result<Opened> {
     Ok(Opened {
         info,
         test_input: None,
+        stepped: false,
         cpal: Some(devices),
     })
 }
@@ -160,10 +161,8 @@ pub fn start(
             .spawn(move || send(page, consumer, &stop, &lost))?
     };
     let render = super::spawn_clock(
-        engine,
-        devices.block,
+        super::NullBlocks::new(engine, devices.block, None),
         stop.clone(),
-        None,
         None,
         move |left: &[f32], right: &[f32]| {
             // A full ring: the page is behind, and the block is lost.

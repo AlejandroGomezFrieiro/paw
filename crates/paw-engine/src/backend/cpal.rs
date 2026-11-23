@@ -253,6 +253,7 @@ fn open_host(id: cpal::HostId, opts: &BackendOptions) -> Result<Opened> {
     Ok(Opened {
         info,
         test_input: None,
+        stepped: false,
         cpal: Some(Devices {
             output: (device, config),
             input: input.map(|(d, c, _)| (d, c)),

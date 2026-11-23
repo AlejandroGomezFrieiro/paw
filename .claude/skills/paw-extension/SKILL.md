@@ -216,6 +216,8 @@ clock, so each timer and delay fires in its order, and
 `T.advance_until(cond, what, ms)` moves it to the timer that makes `cond`.
 `T.next_block(n, device)` waits until the engine (or one device) has run
 `n` whole blocks, so a parameter, note or change sent before is in effect.
+The suite plays on the stepped audio backend: `T.next_block(n)` runs
+exactly `n` blocks, and `T.meter(thing)` reads a meter after them.
 
 A test that needs real time (a take of one second) is live:
 `T.test(name, fn, { live = "why" })`. The runner loads every

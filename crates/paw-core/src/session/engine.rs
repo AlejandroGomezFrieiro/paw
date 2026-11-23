@@ -21,6 +21,11 @@ pub(super) struct EngineLink {
     /// What the engine was last started with, to start it again with a
     /// device changed.
     pub backend: BackendOptions,
+    /// The engine was started on the stepped backend once (`paw --audio
+    /// step`, the tests): each later start on the null backend is stepped
+    /// too, so that a test that starts the engine again keeps its blocks
+    /// in step with the clock. Once set, it stays set.
+    pub null_steps: bool,
 }
 
 /// The engine as Lua reads it (`paw.api.engine_get`): latencies in
@@ -28,6 +33,9 @@ pub(super) struct EngineLink {
 #[derive(Debug, Serialize)]
 pub struct EngineView<'a> {
     pub backend: &'a BackendChoice,
+    /// The kernel runs the blocks as the schedule clock moves (the stepped
+    /// backend of the tests): `backend` is `null`.
+    pub stepped: bool,
     pub device: &'a str,
     pub sample_rate: u32,
     pub device_id: &'a str,
@@ -91,6 +99,7 @@ impl Session {
         let (device_runs, device_sleeps) = shared.device_blocks();
         EngineView {
             backend: &info.backend,
+            stepped: self.is_audio_stepped(),
             device: &info.device,
             sample_rate: info.sample_rate,
             device_id: &info.device_id,
@@ -379,6 +388,16 @@ impl Session {
     /// Stop the audio backend and start another one, rebuilding the engine
     /// from the project.
     pub fn engine_restart(&mut self, opts: &BackendOptions) -> Result<()> {
+        if opts.backend == BackendChoice::Step {
+            self.engine.null_steps = true;
+        }
+        let stepped;
+        let opts = if self.engine.null_steps && opts.backend == BackendChoice::Null {
+            stepped = BackendOptions { backend: BackendChoice::Step, ..opts.clone() };
+            &stepped
+        } else {
+            opts
+        };
         self.capture_states();
         let position = self.position();
         let was_playing = self.play.playing;
@@ -388,6 +407,7 @@ impl Session {
         // Assigning drops the old stream, which stops the old engine.
         self.engine.stream = stream;
         self.engine.handle = handle;
+        self.steps_restart();
         self.takes_let_go(position);
         self.send_settings();
         self.live.clear();

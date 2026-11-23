@@ -7,7 +7,6 @@ crates/paw-core/src/bake/helper.rs Instant::now 2
 crates/paw-core/src/bake/helper.rs thread::sleep 1
 crates/paw-core/src/io.rs Instant::now 6
 crates/paw-core/src/io.rs thread::sleep 3
-crates/paw-core/src/session/file_check.rs Instant::now 1
 crates/paw-core/src/session/folder.rs Instant::now 2
 crates/paw-core/src/startuptime.rs Instant::now 1
 crates/paw-engine/src/backend/page.rs thread::sleep 1
@@ -145,7 +144,8 @@ tests/plugins.lua paw.wait( 1
 tests/project_folder.lua api.now() 2
 tests/project_folder.lua paw.wait( 2
 tests/qf.lua paw.wait( 2
-tests/realtime.lua :meter( 6
+# Live: the transport moves in real time, a one-sided check (not faster).
+tests/realtime.lua :meter( 1
 tests/realtime.lua api.now() 3
 tests/record_mix.lua :meter( 2
 tests/safety.lua :meter( 7
@@ -154,7 +154,6 @@ tests/safety.lua paw.wait( 5
 tests/scope.lua :meter( 4
 tests/scope.lua paw.wait( 6
 tests/seats.lua paw.wait( 1
-tests/sound.lua :meter( 3
 tests/startuptime.lua api.now() 4
 tests/step_input.lua :meter( 2
 tests/stretch.lua :meter( 3

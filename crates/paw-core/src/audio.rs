@@ -52,7 +52,7 @@ pub fn save(path: &Path, remembered: &Remembered) -> Result<()> {
 /// Fill in what the command line left open from what was remembered. The
 /// null backend opens no devices, so it is left alone.
 pub fn apply(opts: &mut BackendOptions, remembered: &Remembered) {
-    if opts.backend == BackendChoice::Null {
+    if opts.backend.is_null() {
         return;
     }
     if opts.backend == BackendChoice::Auto

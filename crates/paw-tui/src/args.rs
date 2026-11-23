@@ -88,7 +88,7 @@ pub struct Run {
     /// Load the Lua runtime from disk instead of the built-in copy
     #[arg(long, value_name = "DIR")]
     pub runtime: Option<PathBuf>,
-    /// Audio backend: auto, null, pipewire, alsa, jack
+    /// Audio backend: auto, null, step (the null backend run by the tests, block by block), pipewire, alsa, jack
     #[arg(long, value_name = "NAME")]
     pub audio: Option<String>,
     /// Sample rate

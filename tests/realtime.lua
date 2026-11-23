@@ -1,6 +1,7 @@
 -- Real time tests.
 local T = ...
 local test, after, eq, fresh, tone, until_, next_block = T.test, T.after, T.eq, T.fresh, T.tone, T.until_, T.next_block
+local meter = T.meter
 local paw = require("paw")
 local api = paw.api
 
@@ -56,7 +57,7 @@ test("the engine counts the blocks it ran, and the blocks each device ran", func
   next_block()
   local first = api.blocks()
   next_block(3)
-  eq(api.blocks() - first >= 4, true, "next_block(3) waits for three whole blocks after the one under way")
+  eq(api.blocks() - first, 3, "next_block(3) plays three blocks")
   eq(api.blocks(987654), nil, "nil for a device the engine does not have")
   -- A synth with no note sleeps: its count stays.
   until_(function()
@@ -67,7 +68,7 @@ test("the engine counts the blocks it ran, and the blocks each device ran", func
   t:note_on("C4", 100)
   local ran = api.blocks(synth.id)
   next_block(2, synth.id)
-  eq(api.blocks(synth.id) - ran >= 3, true, "a device that plays counts its blocks")
+  eq(api.blocks(synth.id) - ran, 2, "a device that plays counts its blocks")
   t:note_off("C4")
 end)
 
@@ -79,12 +80,12 @@ test("a lane wins over the fader while playing, and lets go when it is turned of
   lane:add(0, -60)
   paw.transport.play()
   next_block(10)
-  eq(select(1, t:meter()) < 0.003, true, "the lane holds the track down")
+  eq(select(1, meter(t)) < 0.003, true, "the lane holds the track down")
   t.volume = 6
   next_block(10)
-  eq(select(1, t:meter()) < 0.003, true, "moving the fader does not override it")
+  eq(select(1, meter(t)) < 0.003, true, "moving the fader does not override it")
   lane.enabled = false
-  until_(function() return select(1, t:meter()) > 0.05 end, "turning the lane off to return to the fader")
+  until_(function() return select(1, meter(t)) > 0.05 end, "turning the lane off to return to the fader")
   paw.transport.stop()
 end)
 
@@ -93,7 +94,7 @@ test("live notes sound without the transport", function()
   local t = paw.add_track()
   t:add_device("synth")
   t:note_on("C4", 110)
-  until_(function() return select(1, t:meter()) > 0.01 end, "the note to sound")
+  until_(function() return select(1, meter(t)) > 0.01 end, "the note to sound")
   t:note_off("C4")
-  until_(function() return select(1, t:meter()) < 0.005 end, "the note to be released and the meter to fall back")
+  until_(function() return select(1, meter(t)) < 0.005 end, "the note to be released and the meter to fall back")
 end)

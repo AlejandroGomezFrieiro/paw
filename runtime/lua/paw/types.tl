@@ -1094,6 +1094,9 @@ local record types
   --- milliseconds.
   record EngineInfo
     backend: string
+    --- The kernel plays the sound only as the clock moves (`--audio
+    --- step`, the tests); `backend` is then `null`.
+    stepped: boolean
     device: string
     sample_rate: integer
     device_id: string

@@ -1,5 +1,7 @@
-//! Things that drive [`Engine::process`]: a real audio device through cpal, or
-//! a clock thread that renders into nowhere when there is no device.
+//! Things that drive [`Engine::process`]: a real audio device through cpal,
+//! a clock thread that renders into nowhere when there is no device, or the
+//! owner of the stream itself, block by block, for the tests (the stepped
+//! backend).
 
 use std::fmt;
 use std::str::FromStr;
@@ -25,7 +27,8 @@ mod page;
 use page as cpal;
 
 /// A sound system to play through, by the word scripts and the command
-/// line use for it: `auto`, `null`, `test`, or a host such as `pipewire`.
+/// line use for it: `auto`, `null`, `step`, `test`, or a host such as
+/// `pipewire`.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub enum BackendChoice {
     /// The first host that works, else the null backend.
@@ -33,6 +36,12 @@ pub enum BackendChoice {
     Auto,
     /// No device: a clock thread that renders into nowhere.
     Null,
+    /// The null backend with no thread: the owner of the stream runs each
+    /// block on its own thread ([`Stream::run_to`]), so that a test knows
+    /// how many blocks ran. It opens as the null backend
+    /// ([`StreamInfo::backend`] is `Null`), and the stream
+    /// [`is_stepped`](Stream::is_stepped).
+    Step,
     /// The null backend with the [`test_device`] to play to.
     Test,
     /// A cpal host by its name, such as `pipewire`, `alsa` or `jack`.
@@ -40,11 +49,18 @@ pub enum BackendChoice {
 }
 
 impl BackendChoice {
+    /// Whether it opens no device: the null backend, run by its clock
+    /// thread or stepped.
+    pub fn is_null(&self) -> bool {
+        matches!(self, Self::Null | Self::Step)
+    }
+
     /// The word for it.
     pub fn as_str(&self) -> &str {
         match self {
             Self::Auto => "auto",
             Self::Null => "null",
+            Self::Step => "step",
             Self::Test => "test",
             Self::Host(name) => name,
         }
@@ -52,12 +68,14 @@ impl BackendChoice {
 }
 
 impl From<&str> for BackendChoice {
-    /// Any word other than `auto`, `null` and `test` names a host, as it is
-    /// written: whether there is such a host is known only when it opens.
+    /// Any word other than `auto`, `null`, `step` and `test` names a host,
+    /// as it is written: whether there is such a host is known only when it
+    /// opens.
     fn from(word: &str) -> Self {
         match word {
             "auto" => Self::Auto,
             "null" => Self::Null,
+            "step" => Self::Step,
             "test" => Self::Test,
             host => Self::Host(host.to_string()),
         }
@@ -296,6 +314,8 @@ pub struct StreamInfo {
 pub struct Opened {
     pub info: StreamInfo,
     test_input: Option<TestInput>,
+    /// The null backend with no thread ([`BackendChoice::Step`]).
+    stepped: bool,
     cpal: Option<cpal::Devices>,
 }
 
@@ -313,6 +333,9 @@ pub struct Stream {
     /// The engine while a cpal callback is driving it.
     parked: Arc<Mutex<Option<Engine>>>,
     cpal: Option<cpal::Running>,
+    /// The engine of the stepped backend, which the owner of the stream
+    /// runs on its own thread.
+    stepped: Option<Stepped>,
 }
 
 impl Drop for Stream {
@@ -350,9 +373,10 @@ pub fn open(opts: &BackendOptions) -> Result<Opened> {
             warning,
         },
         test_input: opts.test_input.clone(),
+        stepped: opts.backend == BackendChoice::Step,
         cpal: None,
     };
-    if opts.backend == BackendChoice::Null {
+    if opts.backend.is_null() {
         return Ok(null(None));
     }
     if opts.backend == BackendChoice::Test {
@@ -389,7 +413,7 @@ pub fn backends() -> Vec<String> {
 /// `opts.backend` would open (`auto`: the first that works). The null
 /// backend offers its test input, when it has one.
 pub fn list_devices(opts: &BackendOptions) -> Result<DeviceList> {
-    if opts.backend == BackendChoice::Null {
+    if opts.backend.is_null() {
         return Ok(null_devices(opts));
     }
     if opts.backend == BackendChoice::Test {
@@ -450,25 +474,182 @@ impl Opened {
                 thread: None,
                 parked,
                 cpal: Some(running),
+                stepped: None,
             });
         }
-        let device = (self.info.backend == BackendChoice::Test).then(|| lost.clone());
-        let thread = spawn_clock(
-            engine,
-            self.info.buffer_size.max(64) as usize,
-            stop.clone(),
-            self.test_input,
-            device,
-            |_: &[f32], _: &[f32]| {},
-        );
+        let frames = self.info.buffer_size.max(64) as usize;
+        let blocks = NullBlocks::new(engine, frames, self.test_input);
+        let (thread, stepped) = if self.stepped {
+            (None, Some(Stepped { blocks, ran: 0 }))
+        } else {
+            let device = (self.info.backend == BackendChoice::Test).then(|| lost.clone());
+            let sink = |_: &[f32], _: &[f32]| {};
+            (Some(spawn_clock(blocks, stop.clone(), device, sink)), None)
+        };
         Ok(Stream {
             info: self.info,
             lost,
             stop,
-            thread: Some(thread),
+            thread,
             parked,
             cpal: None,
+            stepped,
         })
+    }
+}
+
+impl Stream {
+    /// Whether the owner of the stream runs its blocks
+    /// ([`BackendChoice::Step`]): no thread runs them.
+    pub fn is_stepped(&self) -> bool {
+        self.stepped.is_some()
+    }
+
+    /// Run, on this thread, each block of the stepped backend that ends at
+    /// or before `at`, the time since the stream started, and give how many
+    /// ran. Each block runs once: a time before the end of the next block
+    /// runs none. A stream that runs on its own runs none.
+    pub fn run_to(&mut self, at: Duration) -> u64 {
+        let Some(stepped) = self.stepped.as_mut() else {
+            return 0;
+        };
+        let due = stepped.blocks_by(at);
+        let run = due.saturating_sub(stepped.ran);
+        if run > 0 {
+            // The thread is the audio thread while the blocks run: a plugin
+            // that asks is told so.
+            let _block = audio_thread::Mark::enter();
+            let _denormals = NoDenormals::new();
+            for _ in 0..run {
+                stepped.blocks.run();
+            }
+            stepped.ran = due;
+        }
+        run
+    }
+
+    /// The time since the stream started at which `blocks` more blocks of
+    /// the stepped backend have ended: [`run_to`](Self::run_to) that time
+    /// runs exactly that many. None for a stream that runs on its own.
+    pub fn end_of(&self, blocks: u64) -> Option<Duration> {
+        let stepped = self.stepped.as_ref()?;
+        Some(stepped.end_of(stepped.ran.saturating_add(blocks)))
+    }
+}
+
+/// Whether the current thread runs the blocks of a stepped stream now. A
+/// plugin host asks it: the main thread is the audio thread while it runs
+/// them.
+pub mod audio_thread {
+    use std::cell::Cell;
+
+    thread_local! {
+        static STEPPING: Cell<bool> = const { Cell::new(false) };
+    }
+
+    /// Whether this thread runs the blocks of a stepped stream now.
+    pub fn stepping() -> bool {
+        STEPPING.with(Cell::get)
+    }
+
+    /// This thread runs blocks until the mark is dropped.
+    pub(super) struct Mark;
+
+    impl Mark {
+        pub(super) fn enter() -> Self {
+            STEPPING.with(|s| s.set(true));
+            Self
+        }
+    }
+
+    impl Drop for Mark {
+        fn drop(&mut self) {
+            STEPPING.with(|s| s.set(false));
+        }
+    }
+}
+
+/// The stepped backend: the blocks of the null backend, and how many ran.
+struct Stepped {
+    blocks: NullBlocks,
+    /// The blocks run since the stream started. Block `n` ends at
+    /// `n * frames / sample_rate` seconds.
+    ran: u64,
+}
+
+impl Stepped {
+    /// The number of whole blocks that end at or before `at`.
+    fn blocks_by(&self, at: Duration) -> u64 {
+        let frames = at.as_nanos() * self.blocks.rate() / NANOS;
+        u64::try_from(frames / self.blocks.frames() as u128).unwrap_or(u64::MAX)
+    }
+
+    /// The end of block number `n`, rounded up to the next nanosecond, so
+    /// that [`blocks_by`](Self::blocks_by) of that time is `n`.
+    fn end_of(&self, n: u64) -> Duration {
+        let frames = u128::from(n) * self.blocks.frames() as u128;
+        let nanos = (frames * NANOS).div_ceil(self.blocks.rate());
+        Duration::from_nanos(u64::try_from(nanos).unwrap_or(u64::MAX))
+    }
+}
+
+const NANOS: u128 = 1_000_000_000;
+
+/// The engine of the null backend with what a block needs: the output
+/// buffers and the generated test input. All are made before the first
+/// block, so that a block allocates nothing.
+struct NullBlocks {
+    engine: Engine,
+    left: Vec<f32>,
+    right: Vec<f32>,
+    /// The test input of the last block, interleaved.
+    input: Vec<f32>,
+    /// The test input, and the phase of the sine of each of its channels.
+    test: Option<(TestInput, Vec<f64>)>,
+}
+
+impl NullBlocks {
+    fn new(engine: Engine, frames: usize, test_input: Option<TestInput>) -> Self {
+        engine.shared().set_period(frames as u32);
+        let channels = test_input
+            .as_ref()
+            .map_or(0, |t| (t.channels as usize).min(MAX_INPUTS));
+        Self {
+            engine,
+            left: vec![0.0; frames],
+            right: vec![0.0; frames],
+            input: vec![0.0; frames * channels],
+            test: test_input.map(|t| (t, vec![0.0; channels])),
+        }
+    }
+
+    fn frames(&self) -> usize {
+        self.left.len()
+    }
+
+    /// The sample rate as a whole number, for the times of the blocks:
+    /// the engine runs only at whole rates.
+    fn rate(&self) -> u128 {
+        self.engine.sample_rate() as u128
+    }
+
+    /// Run one block: make the test input, and render into the buffers.
+    /// No lock, no allocation, no wait.
+    fn run(&mut self) {
+        let mut channels = 0;
+        if let Some((test, phases)) = &mut self.test {
+            channels = phases.len();
+            let gain = crate::db_to_gain(test.level);
+            for (ch, phase) in phases.iter_mut().enumerate() {
+                let step = test.frequency * (ch + 1) as f64 / self.engine.sample_rate();
+                for frame in self.input.chunks_exact_mut(channels) {
+                    frame[ch] = (*phase * std::f64::consts::TAU).sin() as f32 * gain;
+                    *phase = (*phase + step).fract();
+                }
+            }
+        }
+        self.engine
+            .process_input(&self.input, channels, &mut self.left, &mut self.right);
     }
 }
 
@@ -476,26 +657,17 @@ impl Opened {
 /// right, to `sink`: the null backend throws it away. `sink` runs on the
 /// audio thread: no lock, no allocation, no wait.
 fn spawn_clock(
-    mut engine: Engine,
-    block: usize,
+    mut blocks: NullBlocks,
     stop: Arc<AtomicBool>,
-    test_input: Option<TestInput>,
     // The test device, which can be unplugged: where to say so.
     device: Option<Arc<Lost>>,
     mut sink: impl FnMut(&[f32], &[f32]) + Send + 'static,
 ) -> JoinHandle<Engine> {
     std::thread::spawn(move || {
         no_denormals();
-        let mut left = vec![0.0; block];
-        let mut right = vec![0.0; block];
-        let channels = test_input
-            .as_ref()
-            .map_or(0, |t| (t.channels as usize).min(MAX_INPUTS));
-        let mut input = vec![0.0f32; block * channels];
-        let mut phases = vec![0.0f64; channels];
-        let period = Duration::from_secs_f64(block as f64 / engine.sample_rate());
+        let seconds = blocks.frames() as f64 / blocks.engine.sample_rate();
+        let period = Duration::from_secs_f64(seconds);
         let mut next = Instant::now();
-        engine.shared().set_period(block as u32);
         let mut played = 0u64;
         while !stop.load(Relaxed) {
             if let Some(lost) = &device {
@@ -510,19 +682,10 @@ fn spawn_clock(
                 }
             }
             let began = Instant::now();
-            if let Some(test) = &test_input {
-                let gain = crate::db_to_gain(test.level);
-                for (ch, phase) in phases.iter_mut().enumerate() {
-                    let step = test.frequency * (ch + 1) as f64 / engine.sample_rate();
-                    for frame in input.chunks_exact_mut(channels) {
-                        frame[ch] = (*phase * std::f64::consts::TAU).sin() as f32 * gain;
-                        *phase = (*phase + step).fract();
-                    }
-                }
-            }
-            engine.process_input(&input, channels, &mut left, &mut right);
-            sink(&left, &right);
-            engine
+            blocks.run();
+            sink(&blocks.left, &blocks.right);
+            blocks
+                .engine
                 .shared()
                 .set_cpu(began.elapsed().as_secs_f32() / period.as_secs_f32());
             next += period;
@@ -532,7 +695,7 @@ fn spawn_clock(
                 None => next = Instant::now(),
             }
         }
-        engine
+        blocks.engine
     })
 }
 
@@ -676,10 +839,45 @@ mod tests {
 
     #[test]
     fn a_backend_is_written_as_the_word_it_was_read_from() {
-        for word in ["auto", "null", "test", "pipewire", "Null"] {
+        for word in ["auto", "null", "step", "test", "pipewire", "Null"] {
             assert_eq!(BackendChoice::from(word).to_string(), word);
         }
         assert_eq!(BackendChoice::from("jack"), BackendChoice::Host("jack".into()));
+    }
+
+    #[test]
+    fn a_stepped_stream_runs_each_block_once_at_its_end() {
+        // 512 frames at 48 kHz: a block is not a whole number of nanoseconds.
+        let opts = BackendOptions {
+            backend: "step".into(),
+            sample_rate: Some(48000),
+            buffer_size: Some(512),
+            ..Default::default()
+        };
+        let opened = open(&opts).unwrap();
+        let (engine, handle) = Engine::new(f64::from(opened.sample_rate()));
+        let mut stream = opened.start(engine).unwrap();
+        assert!(stream.is_stepped(), "the stream is stepped");
+        assert_eq!(stream.info.backend, BackendChoice::Null, "it opens as the null backend");
+
+        let three = stream.end_of(3).unwrap();
+        assert_eq!(stream.run_to(three - Duration::from_nanos(1)), 2, "before the end of the third block");
+        assert_eq!(stream.run_to(three), 1, "at its end");
+        assert_eq!(stream.run_to(three), 0, "a block runs once");
+        let next = stream.end_of(1).unwrap();
+        assert!(next > three, "the next block ends later");
+        assert_eq!(stream.run_to(stream.end_of(1000).unwrap()), 1000, "a thousand more");
+        assert_eq!(handle.shared.processed(), 1003, "the engine ran each block");
+    }
+
+    #[test]
+    fn a_stream_that_runs_on_its_own_is_not_stepped() {
+        let opened = open(&BackendOptions { backend: "null".into(), ..Default::default() }).unwrap();
+        let (engine, _handle) = Engine::new(f64::from(opened.sample_rate()));
+        let mut stream = opened.start(engine).unwrap();
+        assert!(!stream.is_stepped(), "the null backend has its clock thread");
+        assert_eq!(stream.end_of(1), None, "no block to wait for");
+        assert_eq!(stream.run_to(Duration::from_secs(1)), 0, "the caller runs none");
     }
 
     #[test]
