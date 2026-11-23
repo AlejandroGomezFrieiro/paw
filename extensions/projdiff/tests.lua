@@ -32,7 +32,9 @@ end
 
 --- A project with a lead (a synth, a clip of three notes, a volume lane), a
 --- bass, a tempo change and a marker, saved as `name`; returns its path.
-local function fixture(name)
+--- With `folder`, `name` is a path, and the project is saved as a project
+--- folder there.
+local function fixture(name, folder)
   fresh()
   local lead = paw.add_track({ name = "Lead" })
   local synth = lead:add_device("synth", { cutoff = 800 })
@@ -48,7 +50,7 @@ local function fixture(name)
   paw.add_track({ name = "Drums" })
   paw.markers.add(8, "Chorus")
   api.undo_checkpoint()
-  local path = scratch .. "/" .. name .. ".json"
+  local path = folder and name or (scratch .. "/" .. name .. ".json")
   api.project_save(path)
   assert(synth)
   return path
@@ -698,3 +700,105 @@ test(
     if paw.ui.float then paw.keymap.feed("q") end
   end
 )
+
+-- Project folders ----------------------------------------------------------------
+
+local function track_named(name)
+  for _, t in ipairs(paw.tracks()) do
+    if t.name == name then return t end
+  end
+end
+
+--- The title and the text of the view of `:Pdiff`.
+local function shown()
+  local view = require("projdiff.view")
+  return view.title_text .. "\n" .. table.concat(projdiff.diff.lines(view.tree), "\n")
+end
+
+test("projdiff: :Pdiff compares the project now with its saved folder and with another project folder", function()
+  start()
+  T.after(function() paw.ui.close() end)
+  local dir = scratch .. "/pdiff-folders"
+  os.execute("rm -rf '" .. dir .. "' && mkdir -p '" .. dir .. "'")
+  local first = fixture(dir .. "/first", true)
+  -- A clip of audio: the folder names its media relative to itself.
+  local s = {}
+  for i = 1, 4800 do
+    s[i] = 0.1
+  end
+  track_named("Bass"):add_clip({ file = T.write_wav(dir .. "/tone.wav", s), start = 8, length = 2 })
+  api.undo_checkpoint()
+  api.project_save()
+  api.project_load(first)
+  T.keys(":Pdiff<CR>")
+  eq(
+    paw.ui.message and paw.ui.message.text,
+    "saved → now: 0 changes (nothing differs)",
+    "the folder reads as it opens"
+  )
+  api.project_save(dir .. "/second")
+  track_named("Lead").volume = -5
+  api.undo_checkpoint()
+  T.keys(":Pdiff " .. first .. "<CR>")
+  has(shown(), "first → now: 1 change", "the title")
+  has(shown(), "~ volume: 0 -> -5", "the change")
+  T.keys("q")
+  local from = mark()
+  T.keys(":Pdiff " .. dir .. "<CR>")
+  eq(
+    since(from)[1] and since(from)[1].text,
+    dir .. " is a folder with no project.toml, so it is not a project",
+    "a folder that is not a project is said plainly"
+  )
+end)
+
+test(
+  "projdiff: :Pdiff HEAD~1 reads the project folder at that revision of git, and leaves the files as they are",
+  function()
+    start()
+    T.after(function() paw.ui.close() end)
+    if os.execute("command -v git >/dev/null 2>&1") ~= 0 and os.execute("command -v git >/dev/null 2>&1") ~= true then
+      return "no git"
+    end
+    local root = scratch .. "/pdiff-git"
+    os.execute("rm -rf '" .. root .. "' && mkdir -p '" .. root .. "'")
+    local function git(args) return run("cd '" .. root .. "' && git -c user.name=t -c user.email=t@t " .. args) end
+    git("init -q -b main")
+    local song = fixture(root .. "/song", true)
+    api.project_load(song)
+    git("add -A")
+    git("commit -q -m base")
+    track_named("Bass").volume = -9
+    api.undo_checkpoint()
+    api.project_save()
+    git("commit -qam quieter")
+    track_named("Lead"):add_clip({ name = "added", start = 16, length = 2 })
+    api.undo_checkpoint()
+    T.keys(":Pdiff HEAD~1<CR>")
+    has(shown(), "HEAD~1 → now: 2 changes", "the title")
+    has(shown(), "~ volume: 0 -> -9", "the change of the last commit")
+    has(shown(), '"added"', "the edit not saved")
+    T.keys("q")
+    T.keys(":Pdiff HEAD~1 HEAD<CR>")
+    has(shown(), "HEAD~1 → HEAD: 1 change", "between two revisions, only the commit")
+    eq(git("status --porcelain"), "", "the files of the folder are as the last commit")
+  end
+)
+
+test("projdiff: a snapshot kept beside a saved project folder compares with the project now", function()
+  start()
+  T.after(function() paw.ui.close() end)
+  local song = fixture(scratch .. "/pdiff-snap", true)
+  api.project_load(song)
+  track_named("Lead").volume = -5
+  api.undo_checkpoint()
+  T.keys(":Psnapshot loud<CR>")
+  local snaps = projdiff.snapshots()
+  eq(snaps[#snaps].name, "loud", "the snapshot")
+  eq(snaps[#snaps].file:find(song .. "/", 1, true), 1, "kept in the folder of the project")
+  track_named("Lead"):add_clip({ name = "added", start = 16, length = 2 })
+  api.undo_checkpoint()
+  T.keys(":Pdiff snap:loud<CR>")
+  has(shown(), "loud → now: 1 change", "the title")
+  has(shown(), '"added"', "the clip added after the snapshot")
+end)

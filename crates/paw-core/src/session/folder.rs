@@ -40,7 +40,7 @@ use serde_json::{Map, Value, json};
 
 use super::BASE64;
 use super::media::MEDIA_FILE;
-use super::project_files::{DiskFiles, ProjectFiles};
+use super::project_files::{DiskFiles, MemoryFiles, ProjectFiles};
 use crate::clipfile;
 use crate::model::{Clip, ClipContent, Control, KindData, Notes, Project, Target, Track};
 
@@ -1642,6 +1642,27 @@ impl super::Session {
         }
         self.doc.undo.touched |= moved;
         Ok(())
+    }
+
+    /// Read the project kept in a folder (`song`, or `song/project.toml`)
+    /// without opening it, to compare it with the project that is open.
+    /// `files` gives the folder's own files by their path in it, for a
+    /// version that is not on the disk (a revision of git). Without
+    /// `files`, the reader takes them from the disk. The other files (the
+    /// media, and the track folders outside the project) always come from
+    /// the disk.
+    pub fn project_read(
+        &self,
+        path: &Path,
+        files: Option<BTreeMap<PathBuf, Arc<[u8]>>>,
+    ) -> Result<Project> {
+        let file = std::path::absolute(project_file(path))?;
+        let dir = file.parent().map(Path::to_path_buf).unwrap_or_default();
+        let read = match files {
+            Some(files) => read_from(&MemoryFiles::new(&dir, files), &self.home, &dir)?,
+            None => read(&self.home, &dir)?,
+        };
+        Ok(read.project)
     }
 
     /// Every id the project gives out now, and the next one it will, so that
