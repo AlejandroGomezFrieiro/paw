@@ -107,8 +107,12 @@
             # The fixup phase trims the binaries' library paths to what they
             # are linked against, which drops the window's: it opens those by
             # name. They are put back here, after it.
+            # The window is paused (AGENTS.md): cargo does not build it, so
+            # there is no paw-gui to patch until its work starts again.
             postFixup = ''
-              patchelf --add-rpath ${lib.makeLibraryPath (guiLibs pkgs)} $out/bin/paw-gui
+              if [ -e $out/bin/paw-gui ]; then
+                patchelf --add-rpath ${lib.makeLibraryPath (guiLibs pkgs)} $out/bin/paw-gui
+              fi
             '';
           });
           # What `nix flake check` runs, each from `deps`. The Lua suite and
@@ -153,7 +157,7 @@
                 root = ./.;
                 fileset = lib.fileset.unions [ cargoFiles ./tests/fixtures ./docs ];
               };
-              cargoNextestExtraArgs = "--workspace -E 'not (package(paw-gui) | binary(suite) | binary(remote) | binary(safety))'";
+              cargoNextestExtraArgs = "--workspace --exclude paw-gui -E 'not (package(paw-gui) | binary(suite) | binary(remote) | binary(safety))'";
               # A snapshot (insta) that is new or changed and not committed
               # fails, and the check writes no `.snap.new` file.
               INSTA_UPDATE = "no";
@@ -189,6 +193,7 @@
             # The window starts the `paw` beside its binary, which is the
             # unwrapped one; it inherits these from the window's wrapper.
             for bin in paw paw-gui paw-mcp; do
+              [ -e ${programs}/bin/$bin ] || continue
               makeWrapper ${programs}/bin/$bin $out/bin/$bin \
                 --set-default PAW_HOME $out/share/paw \
                 --suffix PATH : ${pkgs.lib.makeBinPath [ pkgs.ffmpeg-headless pkgs.fontconfig.bin pkgs.curl ]}
@@ -238,6 +243,7 @@
         nativeBuildInputs = [ pkgs.makeBinaryWrapper ];
         postBuild = ''
           for bin in paw paw-gui paw-mcp; do
+            [ -e ${base}/bin/$bin ] || continue
             rm $out/bin/$bin
             makeWrapper ${base}/bin/$bin $out/bin/$bin \
               --prefix PAW_EXTENSIONS : ${pkgs.lib.concatMapStringsSep ":" (e: "${e}/share/paw/extensions/${e.extensionName}") exts}
