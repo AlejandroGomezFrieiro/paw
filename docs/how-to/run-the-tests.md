@@ -13,7 +13,12 @@ build.
 3. Read the last line, which is `all passed` or the number of failed
    tests.
 
-The suite writes its full output to `target/test-scratch/suite.out`.
+The suite writes its full output to `target/test-scratch/suite.out`. It
+also writes `target/test-scratch/times.txt`, with the time that each test
+file took, the slowest file first, and `target/test-scratch/suite.tap`,
+which lists each test with its result and the reason for each skip in the
+TAP format that CI tools read. The times are there to help you find a slow
+file, and they never make a test fail.
 
 The tests never use your own files or plugins. Each test run gets a scratch
 home folder and empty plugin folders under `target/test-scratch`, so your
@@ -43,7 +48,10 @@ loads each of the test files, in the order of their names.
   runtime:
   `PAW_TEST_BIN=<folder> PAW_RUNTIME=$PWD/target/dev-runtime tests/tools/suite.sh only "loop on"`.
   The folder also holds `examples/libstub_clap.so`. A change of Rust
-  still needs a build of your checkout.
+  still needs a build of your checkout. If the binary is older than the
+  runtime, the suite stops before the first test and names the functions
+  that the binary doesn't have. Build paw again, or use a binary of the
+  same commit.
 
 ## Run the suite in more than one process
 
@@ -59,6 +67,37 @@ process.
 
 Run one suite at a time on a machine that other people or programs use.
 Two suites, or a large `-j`, slow down the tests that wait for the audio.
+
+## Find a flaky test
+
+A flaky test passes on one run and fails on another. It usually depends on
+the order of the tests, on state that an earlier test left, or on time.
+The suite has two options that help you find one, and you give them
+before the other words.
+
+- To run some tests many times in one paw process, give `repeat` and a
+  number: `tests/tools/suite.sh repeat 20 only "loop on"`. The suite stops
+  after the first run that fails, and its output says which run it was, for
+  example `repeat: run 2 of 20 failed`.
+- To run the tests in another order, give `--shuffle` and a seed:
+  `tests/tools/suite.sh --shuffle 7`. The suite prints the seed on its first
+  line, and the same seed always gives the same order, so you can run a
+  failed order again. With no number, the suite picks a new seed. The test
+  files move as a whole, and the tests in each file change places.
+
+When you can't fix a flaky test at once, put it in `tests/quarantine.txt`.
+Each line has the full name of the test, a tab, and the fix that it waits
+for. The suite still runs the test, and it prints `quarantined` when the
+test fails, but the run doesn't fail. When a test in the list passes, the
+suite says so, so that you can remove its line once the fix is in. A line
+with no fix makes the suite stop before the first test, and the message
+names the line.
+
+A Rust test in quarantine has `#[ignore = "quarantine: <the fix>"]` and a
+line in the same list, with its binary and its name as cargo-nextest
+prints them, for example `paw-core::it model::a_test`. Run
+`tests/tools/quarantine.sh` to run those tests and see their results. It
+doesn't fail when they fail.
 
 ## Read the leak check
 
@@ -258,8 +297,9 @@ uses `T.home()`, which gives the test a home folder of its own.
 
 ## Run the Rust tests
 
-1. Run `cargo test`, which also runs the Lua suite once, from
-   `crates/paw-tui/tests/suite.rs`.
+1. Run `cargo test`, which also runs the Lua suite through
+   `tests/tools/suite.sh`, from `crates/paw-tui/tests/suite.rs`. Its files
+   are in `target/tmp/lua-suite`.
 2. To test one crate, run `cargo test -p <crate>`.
 3. If a test of a file format fails because its output changed, run
    `cargo insta review`. It shows the difference from the saved file in

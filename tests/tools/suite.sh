@@ -6,18 +6,57 @@
 #   tests/tools/suite.sh plugins "words"  only some tests, with the plugins
 #                                         (PAW_PLUGIN_SANDBOX=0 loads them in-process)
 #   tests/tools/suite.sh only "loop on"   the tests whose name holds the words
-#   tests/tools/suite.sh -j 2 ...         the same in 2 paw processes (4 at most),
-#                                         each with a share of the test files
+#
+# Options go before the words above:
+#
+#   -j 2           the same in 2 paw processes (4 at most), each with a
+#                  share of the test files
+#   repeat 20      run the tests 20 times in each paw, and stop after the
+#                  first run that fails: it finds a flaky test
+#   --shuffle 7    run the test files, and the tests in each file, in the
+#                  order that the seed 7 gives (the same seed gives the same
+#                  order); with no number, a new seed, which it prints
 #
 # Prints the tests that failed and the last line ("all passed" or "N failed");
-# the whole output is in target/test-scratch/suite.out.
+# the whole output is in target/test-scratch/suite.out. It also writes
+# target/test-scratch/times.txt (the wall time of each test file, the slowest
+# first) and target/test-scratch/suite.tap (each test with its result and the
+# reason of a skip, in the TAP format, for CI).
 . "$(dirname "$0")/env.sh"
 cd "$ROOT" || exit 1
 jobs=1
-if [ "$1" = "-j" ]; then
-  jobs=$2
-  shift 2
-fi
+while :; do
+  case "$1" in
+    -j)
+      jobs=$2
+      shift 2
+      ;;
+    repeat)
+      case "$2" in
+        "" | *[!0-9]*)
+          echo "suite.sh: repeat takes a number, not '$2'" >&2
+          exit 2
+          ;;
+      esac
+      export PAW_TEST_REPEAT="$2"
+      shift 2
+      ;;
+    --shuffle)
+      case "$2" in
+        "" | *[!0-9]*)
+          PAW_TEST_SHUFFLE=$(($(date +%s) % 100000))
+          shift
+          ;;
+        *)
+          PAW_TEST_SHUFFLE=$2
+          shift 2
+          ;;
+      esac
+      export PAW_TEST_SHUFFLE
+      ;;
+    *) break ;;
+  esac
+done
 case "$jobs" in
   1 | 2 | 3 | 4) ;;
   *)
@@ -25,6 +64,11 @@ case "$jobs" in
     exit 2
     ;;
 esac
+[ -n "$PAW_TEST_SHUFFLE" ] && [ -z "$PAW_TEST_SHARD" ] && echo "shuffle seed $PAW_TEST_SHUFFLE"
+# The runner (tests/suite.lua) adds to the files of the run: each run
+# starts them again.
+export PAW_TEST_OUT=$SCRATCH
+rm -f "$SCRATCH/times.txt" "$SCRATCH/tap.lines" "$SCRATCH/suite.tap"
 # The stub plugin that some tests load is a cargo example, which a plain
 # `cargo build` does not make: build it here, so that a test never loads a
 # stub that an older checkout left in target/. With PAW_TEST_BIN (a binary
@@ -37,6 +81,31 @@ elif [ -z "$PAW_TEST_SHARD" ]; then
   cargo build --release -q -p paw-plugins --example stub_clap || exit 1
 fi
 out=$SCRATCH/suite.out
+
+# Show what a person must read, write suite.tap, print the last line, and
+# exit: 0 when no test failed, else 1. $1 is the code of the paw processes,
+# $2 the number of failed tests that their outputs give.
+finish() {
+  grep -A8 "^FAIL" "$out"
+  grep "^quarantined\|(quarantined, and it passed\|^repeat: " "$out"
+  # TAP: the version, the plan (the number of results), then the results.
+  if [ -f "$SCRATCH/tap.lines" ]; then
+    {
+      echo "TAP version 13"
+      echo "1..$(grep -c '^\(not \)\?ok ' "$SCRATCH/tap.lines")"
+      cat "$SCRATCH/tap.lines"
+    } > "$SCRATCH/suite.tap"
+  fi
+  if [ "$2" -eq 0 ] && [ "$1" -eq 0 ]; then
+    printf '\nall passed\n' | tee -a "$out" | tail -1
+    exit 0
+  fi
+  failed=$2
+  [ "$failed" -eq 0 ] && failed=1
+  printf '\n%d failed\n' "$failed" | tee -a "$out" | tail -1
+  exit 1
+}
+
 if [ "$jobs" -gt 1 ]; then
   # Each shard is this script again, with its own scratch folders (and so
   # its own XDG folders) and every Nth part of the test files (suite.lua).
@@ -53,25 +122,22 @@ if [ "$jobs" -gt 1 ]; then
   done
   failed=0
   : > "$out"
+  : > "$SCRATCH/tap.lines"
   k=1
   while [ "$k" -le "$jobs" ]; do
-    shard_out=$SCRATCH/shard$k/suite.out
-    cat "$shard_out" >> "$out"
-    n=$(tail -1 "$shard_out" | sed -n 's/^\([0-9]*\) failed$/\1/p')
-    case "$(tail -1 "$shard_out")" in
+    shard=$SCRATCH/shard$k
+    cat "$shard/suite.out" >> "$out"
+    cat "$shard/tap.lines" >> "$SCRATCH/tap.lines" 2> /dev/null
+    n=$(tail -1 "$shard/suite.out" | sed -n 's/^\([0-9]*\) failed$/\1/p')
+    case "$(tail -1 "$shard/suite.out")" in
       "all passed") ;;
       *) failed=$((failed + ${n:-1})) ;;
     esac
     k=$((k + 1))
   done
-  grep -A8 "^FAIL" "$out"
-  if [ "$failed" -eq 0 ] && [ "$code" -eq 0 ]; then
-    printf '\nall passed\n' | tee -a "$out" | tail -1
-  else
-    printf '\n%d failed\n' "$failed" | tee -a "$out" | tail -1
-    code=1
-  fi
-  exit $code
+  # Each test file runs in one shard: the times only need an order.
+  cat "$SCRATCH"/shard*/times.txt 2> /dev/null | sort -rn > "$SCRATCH/times.txt"
+  finish "$code" "$failed"
 fi
 case "$1" in
   plugins)
@@ -122,14 +188,5 @@ case "$1" in
     [ "$manual" -eq 0 ] && [ "$live" -eq 0 ] ;;
 esac
 code=$?
-grep -A8 "^FAIL" "$out"
 # Each pass ends with "all passed" or "N failed": the last line adds them.
-failed=$(sed -n 's/^\([0-9]*\) failed$/\1/p' "$out" | awk '{ n += $1 } END { print n + 0 }')
-if [ "$failed" -eq 0 ] && [ "$code" -eq 0 ]; then
-  printf '\nall passed\n' | tee -a "$out" | tail -1
-else
-  [ "$failed" -eq 0 ] && failed=1
-  printf '\n%d failed\n' "$failed" | tee -a "$out" | tail -1
-  code=1
-fi
-exit $code
+finish "$code" "$(sed -n 's/^\([0-9]*\) failed$/\1/p' "$out" | awk '{ n += $1 } END { print n + 0 }')"

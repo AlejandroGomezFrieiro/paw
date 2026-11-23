@@ -91,3 +91,26 @@ test(
     )
   end
 )
+
+test("testlint: a quarantined Rust test and its line in the quarantine list go together", function()
+  local root = T.scratch .. "/testlint-quarantine"
+  os.execute("mkdir -p '" .. root .. "/tests' '" .. root .. "/crates/paw-core/tests'")
+  local ignore = '#[ignore = "quarantine: the fix of the race"]'
+  T.write_file(
+    root .. "/crates/paw-core/tests/it.rs",
+    "#[test]\n" .. ignore .. "\nfn a_listed_test() {}\n\n#[test]\n" .. ignore .. "\nfn a_test_with_no_line() {}\n"
+  )
+  T.write_file(
+    root .. "/tests/quarantine.txt",
+    "# a comment\na Lua test\tthe fix\npaw-core::it a_listed_test\tthe fix of the race\n"
+      .. "paw-core::it model::a_test_with_no_ignore\tthe fix\n"
+  )
+  local problems = lint.check_quarantine(root)
+  table.sort(problems)
+  eq(problems, {
+    "crates/paw-core/tests/it.rs: the quarantined test a_test_with_no_line has no line in tests/quarantine.txt"
+      .. " (its binary id and name, a tab, the fix)",
+    "tests/quarantine.txt: the Rust test model::a_test_with_no_ignore has no "
+      .. '#[ignore = "quarantine: <the fix>"]: give it one, or remove its line',
+  }, "the problems")
+end)

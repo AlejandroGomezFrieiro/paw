@@ -27,6 +27,20 @@ it exists.
 - The name is a sentence about the behavior, for example "a double
   click on empty space selects the phrase there". `only` filters by the
   words of the name.
+- `cargo test -p paw-tui --test suite` runs `tests/tools/suite.sh`. The
+  two use one runner, one set of folders and the same passes.
+- At the start, the runner compares the binary with the runtime. Each
+  function of `paw.api` that `runtime/types/paw.lua` declares must be in
+  the binary. An old binary (`PAW_TEST_BIN`) with a new runtime fails
+  "the binary has the kernel API of the runtime", and no test runs.
+  Build paw again, or use a binary of the same commit.
+- Each run writes `target/test-scratch/times.txt`: the wall time of each
+  test file, the slowest first. It is information only. A time does not
+  fail a test.
+- Each run writes `target/test-scratch/suite.tap` for CI: each test with
+  its result, and the reason of each skip.
+- `tests/runner.lua` tests the runner. It runs a second paw on test
+  files in a scratch folder (`PAW_TEST_FIXTURE`, see `tests/suite.lua`).
 
 ## 2. The helpers
 
@@ -56,13 +70,14 @@ Use the helpers of `T`. Do not copy them into a file (a local `start`,
 | `T.scratch`, `T.read_file`, `T.write_file` | Files of the test. |
 | `T.home(dir)` | Make `HOME` a folder of the test until it ends (part 4). |
 | `T.expect_screen(name, w, h, opts)` | Compare the screen with a golden file (part 7). |
+| `T.check_keys(fixture, keys, expected, what)` | Make the project of a text fixture, type `keys`, and compare the project with the expected fixture (part 5). |
+| `T.fixture(text)`, `T.fixture_text()` | Make the project of a text fixture, and give the project as a fixture. |
 
 Planned helpers:
 
 - `T.next_block(n)` on a stepped audio backend. Until then
   the engine runs on the wall clock, and a wait for it ends at the stall
   guard.
-- `T.check_keys(fixture, keys, expected)`.
 
 ## 3. Start clean and put back
 
@@ -146,6 +161,21 @@ the owner's computer or folders. Mock what it needs.
 - Where the result depends on a combination (mode, selection, view),
   write a small table of the cases that change the result, and test
   each row in one loop.
+- For a key test of tracks, clips and notes, use one check helper:
+  `T.check_keys(fixture, keys, expected, what)`. The fixture is a small
+  project in a Lua string. Its format has a reference comment in
+  `tests/suite.lua` ("Text fixtures"). A failure prints the project as a
+  fixture, ready to paste. Read it, and paste it only when it is right.
+  The piano roll test in `tests/modal.lua` is an example:
+
+```lua
+T.check_keys(
+  "track T\n clip a 0+4\n 60 0+0.5\n 64 0.5+0.5\n cursor 60@0",
+  "dw",
+  "track T\n clip a 0+4\n 64 0.5+0.5\n cursor 60@0",
+  "dw deletes up to the next note"
+)
+```
 
 ## 6. Sound
 
@@ -248,10 +278,23 @@ the owner's computer or folders. Mock what it needs.
   time, a tolerance or an order to make it pass.
 - Find the cause: time, an order of tests, state that an earlier test
   left. Run the test alone, and under `only` filters that run it after
-  other files. `suite.sh repeat N only "<words>"` and `--shuffle <seed>`
-  are planned.
-- If you cannot fix it now, put it in `tests/quarantine.txt` with a
-  ticket. The list only gets shorter.
+  other files.
+- `suite.sh repeat 20 only "<words>"` runs the tests 20 times in one
+  paw. It stops after the first run that fails, and prints
+  "repeat: run N of 20 failed". A test that depends on the order or on
+  state that it leaves fails in its second run.
+- `suite.sh --shuffle <seed>` runs the test files, and the tests in each
+  file, in the order of the seed. It prints the seed on its first line.
+  The same seed gives the same order. With no number, it takes a new
+  seed. The tests of `T.last` stay last.
+- If you cannot fix it now, put it in `tests/quarantine.txt`: the full
+  name of the test, a tab, and the fix that it waits for, in words (no
+  ticket id). The runner runs the test and prints `quarantined` for its
+  failure, and the run does not fail. A quarantined test that passes is
+  reported, so that its line can go when the fix is merged. A line with
+  no fix fails the run at the start. The list only gets shorter.
+- The tiers of checks and the flake policy are in the skill `paw-code`,
+  part 7.
 
 ## 11. Teal
 
@@ -262,7 +305,8 @@ A test of a `.tl` module can be Lua. The module itself passes
 ## 12. Commands
 
 Run them in the dev shell. A change of Lua or Teal needs no build: make a
-runtime from the checkout and use a binary of main.
+runtime from the checkout and use a binary of main. The skill `paw-code`,
+part 7, gives the tier of each command.
 
 ```sh
 tools/dev-runtime.sh                                   # target/dev-runtime
@@ -270,6 +314,8 @@ PAW_TEST_BIN=<dir of paw> PAW_RUNTIME=$PWD/target/dev-runtime \
   tests/tools/suite.sh only "<words>"                  # some tests
 tests/tools/suite.sh                                   # all tests (the orchestrator, before a push)
 tests/tools/suite.sh -j 2                              # the same in 2 processes (4 at most)
+tests/tools/suite.sh repeat 20 only "<words>"          # find a flaky test
+tests/tools/suite.sh --shuffle 7                       # the order of the seed 7
 tests/tools/suite.sh plugins "<words>"                 # with the test plugins
 PAW_BLESS=1 tests/tools/suite.sh only "<words>"        # write the golden screens
 tools/tlcheck.sh                                       # Teal types

@@ -81,6 +81,9 @@ fn check(keys: &str, expected: &[Event]) {
   after a panic. Do not write a function that cleans up at the end.
 - A value that many tests use (a name, a small project) is a `const` or
   a function in the helper module of the test binary.
+- The Lua key tests have the same helper: `T.check_keys(fixture, keys,
+  expected)` with a project in a text fixture (skill `lua-testing`,
+  part 5). A key test of the kernel goes there, not in Rust.
 
 ## 4. Assertions
 
@@ -425,16 +428,23 @@ a run out of memory is a failure:
 - A test that fails once and passes again is a bug. Find the cause:
   time, order, shared state, a global. Do not change a time or a
   tolerance to make it pass.
-- If you cannot fix it now, quarantine it: `#[ignore = "quarantine:
-  TASK-<n>"]`, a line in `tests/quarantine.txt`, and a ticket. The list
-  only gets shorter.
-- Any other `#[ignore]` has a reason that names its ticket.
+- If you cannot fix it now, quarantine it. Write
+  `#[ignore = "quarantine: <the fix>"]` on the test, with the fix that
+  it waits for in words (no ticket id). Add a line to
+  `tests/quarantine.txt`: the binary id and the name of the test as
+  nextest prints them (`paw-core::it model::a_test`), a tab, and the
+  same fix. `tools/testlint.lua` checks that the ignore and the line
+  agree. The list only gets shorter.
+- The tier before a push runs `tests/tools/quarantine.sh`. It runs the
+  quarantined Rust tests and reports them, and it does not fail. When a
+  test passes after its fix is merged, remove its ignore and its line.
+- Any other `#[ignore]` has a reason that tells why.
 
 ## 15. Commands
 
 Run them in the dev shell. Agents do not build or run tests when the
 orchestrator builds (the rules of the session). Name the tests to run in
-the report.
+the report. The skill `paw-code`, part 7, gives the tier of each command.
 
 ```sh
 cargo check -p <crate>                        # no link
@@ -443,6 +453,8 @@ cargo nextest run -p <crate>                  # the edit loop: one crate
 cargo nextest run -p <crate> -E 'test(word)'  # some tests
 cargo test --doc -p <crate>                   # doc tests
 cargo nextest run --workspace --profile gate  # before a push
+tests/tools/quarantine.sh                     # before a push: run and report the quarantined tests
+cargo test -p paw-tui --test suite            # the Lua suite, through tests/tools/suite.sh
 cargo insta test -p <crate>                   # run the tests, keep new snapshots as .snap.new
 cargo insta review                            # read and accept snapshots
 PAW_BLESS=1 tests/tools/suite.sh only "<words>"  # accept the golden screens (Lua)
