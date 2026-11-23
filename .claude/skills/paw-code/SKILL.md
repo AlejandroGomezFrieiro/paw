@@ -168,4 +168,4 @@ These are lenses for a review, not numbers to report.
   coverage tool for Lua and Teal yet. Measure Rust coverage only when a
   ticket asks for it.
 - The lints `missing_docs` and `unwrap_used` as errors. They belong to
-  TASK-98 (the interface of `paw-core`, workspace lints).
+  the work on the interface of `paw-core` and the workspace lints.

@@ -1,6 +1,6 @@
 //! A `.midi2` clip file, as a project folder or `paw clip cat` reads it:
 //! an error or a clip, and the clip as text, never a panic. A clip that
-//! reads also writes again, in bounded time and memory (TASK-173).
+//! reads also writes again, in bounded time and memory.
 
 #![no_main]
 

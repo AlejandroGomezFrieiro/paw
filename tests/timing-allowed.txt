@@ -2,7 +2,7 @@
 # tools/testlint.lua lets pass: one line `<file> <pattern> <count>`.
 # A count that goes up fails: a new test waits for a state, or measures in
 # bench/. A count that goes down fails until its line is made smaller, so
-# this list only gets shorter (TASK-149 empties it). Comments do not count.
+# this list only gets shorter (the step-by-step waits empties it). Comments do not count.
 crates/paw-core/src/bake/helper.rs Instant::now 2
 crates/paw-core/src/bake/helper.rs thread::sleep 1
 crates/paw-core/src/io.rs Instant::now 6
