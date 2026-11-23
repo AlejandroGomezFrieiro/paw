@@ -290,3 +290,30 @@ test("with paw.opt.ascii the screen is drawn in plain ASCII", function()
   eq(text:find("[\128-\255]"), nil, "no character outside ASCII:\n" .. text)
   eq(table.concat(api.ui_snapshot(120, 30), "\n"):find("│", 1, true) ~= nil, true, "and back to box drawing after")
 end)
+
+test("each cell of a clip shows its own time: the first note and the first sound fill the first cell", function()
+  fresh()
+  paw.cmd("view.only")
+  paw.opt.zoom, paw.opt.track_height = 1, 4
+  -- Two MIDI clips side by side, each with a note on its first beat; the
+  -- first starts under the stopped playhead.
+  local keys = paw.add_track({ name = "keys" })
+  for _, start in ipairs({ 0, 4 }) do
+    keys:add_clip({ name = "riff", start = start, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
+  end
+  -- An audio clip whose sound starts at once, a beat after the playhead.
+  local samples = {}
+  for i = 1, 48000 * 2 do
+    samples[i] = 0.5 * math.sin(i / 20)
+  end
+  local voice = paw.add_track({ name = "voice" })
+  voice:add_clip({ name = "vox", file = T.write_wav(T.scratch .. "/first-cell.wav", samples), start = 1, length = 4 })
+  paw.flush()
+  paw.ui.message = nil
+  -- The tracks' rows of the timeline, from the rule before it (column 15).
+  T.keys("gg0")
+  expect_screen("first_cell_zoom1", 60, 16, { rows = { 2, 9 }, cols = { 15, 31 } })
+  T.keys("zizi")
+  eq(paw.opt.zoom, 4, "two zi zoom to 4 columns a beat")
+  expect_screen("first_cell_zoom4", 60, 16, { rows = { 2, 9 }, cols = { 15, 47 } })
+end)

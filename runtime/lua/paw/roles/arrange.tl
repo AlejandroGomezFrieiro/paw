@@ -142,7 +142,8 @@ end
 --- A clip on the timeline: a row with its `label` (its name, how it is
 --- stretched) and its take `mark` ("2/4": `label ‹2/4›`, or `‹2/4› label`
 --- where that does not fit, so that the mark stays in view) over its body,
---- a hairline where it starts, a notch where each repeat of a looped
+--- a hairline where it starts (on the name row only, so that each cell
+--- of the body shows exactly its time), a notch where each repeat of a looped
 --- clip begins (`repeats`, beats from its start) and a mark on each warp marker (`warps`, the same). `per` is
 --- columns a beat. The terminal draws the row in `title_style` and the
 --- body in `body_style`, and `body(buf, props)` draws what is in the body (notes,
@@ -233,11 +234,14 @@ role(
           buf:fill(x, 0, 1, h, g.tick, "ClipWarp")
         end
       end
-      -- A hairline where the clip starts, so that clips side by side stay apart.
-      buf:fill(0, 0, 1, h, g.clip_start, "ClipEdge")
-      -- A block of a subproject has a frame: a line where it ends too.
+      -- A hairline where the clip starts, so that clips side by side stay
+      -- apart. It is on the name row only: each cell of the body shows the
+      -- notes or the sound of exactly its time, the first cell too.
+      buf:fill(0, 0, 1, 1, g.clip_start, "ClipEdge")
+      -- A block of a subproject has a frame: a line where it ends too, on
+      -- the name row for the same reason.
       if p.nest and w > 2 then
-        buf:fill(w - 1, 0, 1, h, g.clip_start, "ClipEdge")
+        buf:fill(w - 1, 0, 1, 1, g.clip_start, "ClipEdge")
       end
       -- Where a scope cuts it: `‹` and the name where the scope starts (the
       -- start of the clip is out of sight), `›` where it ends.

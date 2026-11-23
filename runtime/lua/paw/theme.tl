@@ -227,7 +227,7 @@ local function build(): Groups
     ClipWaveClipFlip = {fg = c.red, reverse = true},
     Playhead = {fg = c.accent},
     PlayheadClip = {fg = c.accent},
-    PlayheadShade = {bg = c.playhead_clip}, -- where a step is a whole cell (the drum grid)
+    PlayheadShade = {bg = c.playhead_clip}, -- a column that keeps its cells (a clip's body, the drum grid)
     Cursor = {bg = c.normal, fg = c.bg},
     CursorVisual = {bg = c.visual, fg = c.bg},
     CursorTail = {bg = "#2a3a50"},

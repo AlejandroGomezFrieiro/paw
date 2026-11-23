@@ -1905,10 +1905,11 @@ local function draw_layers(self: Arrange, F: Frame)
 end
 
 --- The playhead: a mark on the ruler and a thin line on the beat's left
---- edge, which is where a clip that starts there begins to be drawn. Over a
---- clip the line keeps the clip's colour behind it, so the clip is seen to
---- start where it does. A window moves it as the song plays, and so does
---- a terminal, which asks for the spans at the column it moves it to.
+--- edge. Over a clip's body it shades its column and keeps what the cells
+--- show, so that the notes or the sound under it stay in view: a clip
+--- shows all of its time, its first cell too. A window moves it as the
+--- song plays, and so does a terminal, which asks for the spans at the
+--- column it moves it to.
 local function draw_playhead(self: Arrange, F: Frame)
   local L, t = F.L, F.t
   -- The spans of the column the playhead was at last: a live frame asks
@@ -1936,9 +1937,10 @@ local function draw_playhead(self: Arrange, F: Frame)
         -- A take's name keeps its letter, in the playhead's colour.
         spans[#spans + 1] = {row.y, 1, "PlayheadClip", false}
       elseif on_clip then
-        -- Under the clip's name only, so the name row reads unbroken.
+        -- Under the clip's name only, so the name row reads unbroken: a
+        -- shade that keeps the notes or the waveform of the column.
         local skip = row.h > 1 and 1 or 0
-        spans[#spans + 1] = {row.y + skip, row.h - skip, "PlayheadClip"}
+        spans[#spans + 1] = {row.y + skip, row.h - skip, "PlayheadShade", false}
       else
         spans[#spans + 1] = {row.y, row.h, "Playhead"}
       end
