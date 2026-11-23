@@ -503,7 +503,7 @@ test("the audio devices are chosen from the engine's menu", function()
     act.choose_engine("block", 4)
     eq(api.engine_get().buffer_size, 128, "a block size is chosen")
     eq(labels(paw.frontend.engine_menu().block):find("*128 frames", 1, true) ~= nil, true, "and shown as chosen")
-    eq(paw.frontend.state(-1).project.engine, "null · 48 kHz", "the indicator in the transport bar")
+    eq(paw.frontend.state(-1).project.engine, "step · 48 kHz", "the indicator in the transport bar")
   end)
 end)
 
