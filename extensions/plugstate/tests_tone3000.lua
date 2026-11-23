@@ -93,6 +93,9 @@ local REASON = {
   [429] = "Too Many Requests",
 }
 
+-- The mocks made, which name their sockets.
+local mocks = 0
+
 --- A mock of the endpoints that paw uses, on a Unix socket. `m.requests`
 --- has each request: `{ method, path, query, auth, args, form }` (`form`:
 --- the fields of a POST). `m.reply(req)` may answer
@@ -100,7 +103,8 @@ local REASON = {
 --- answer at all.
 local function mock()
   local m = { requests = {}, conns = {}, tones = {}, models = {}, files = {}, need_token_for_files = true }
-  m.path = T.scratch .. "/t3k-mock/" .. math.floor(api.now()) .. ".sock"
+  mocks = mocks + 1
+  m.path = T.scratch .. "/t3k-mock/" .. mocks .. ".sock"
   m.listener = api.sock_listen(m.path)
 
   local function respond(conn, status, body, headers)
@@ -215,17 +219,16 @@ local function mock()
   return m
 end
 
---- Serve the mock and look at the requests until `done()` (30 seconds at
---- most, the limit of T.until_: a loaded machine is slow, not wrong).
+--- Serve the mock and look at the requests until `done()`. While a
+--- `curl` of the client runs, the clock waits for it; else it goes on to
+--- the next timer of the client (a poll of a sign-in), for 30 seconds at
+--- most.
 local function wait(m, done, what)
-  local deadline = api.now() + 30000
-  while api.now() < deadline do
+  T.advance_until(function()
     if m then m.serve() end
     client.pump()
-    if done() then return end
-    T.advance(5)
-  end
-  error("waited in vain: " .. (what or "?"), 2)
+    return done()
+  end, what or "the requests to end", 30000)
 end
 
 local function idle() return client.busy() == 0 end
@@ -234,6 +237,9 @@ local function last_message()
   local last = paw.ui.messages[#paw.ui.messages]
   return last and last.text or ""
 end
+
+-- The caches made, one for each setup.
+local caches = 0
 
 --- The client as a test uses it: the mock's socket, a cache of the test's
 --- own, no token from the environment or the keyring of the person who
@@ -254,7 +260,8 @@ local function setup(m)
     session_file = paw.opt.plugstate_tone3000_session_file,
     store = paw.opt.plugstate_tone3000_store,
   }
-  local cache = T.scratch .. "/t3k-cache-" .. math.floor(api.now())
+  caches = caches + 1
+  local cache = T.scratch .. "/t3k-cache-" .. caches
   client.unix_socket = m and m.path
   client.env = { TONE3000_TOKEN = "" }
   client.secret_tool = ""

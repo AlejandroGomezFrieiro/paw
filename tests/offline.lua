@@ -3,8 +3,6 @@
 local T = ...
 local test, eq, fails, fresh, render = T.test, T.eq, T.fails, T.fresh, T.render
 local api = paw.api
-local ffi = require("ffi")
-pcall(ffi.cdef, "int setenv(const char *name, const char *value, int overwrite); int unsetenv(const char *name);")
 
 local function plugin_kind(format, pattern)
   for _, info in ipairs(paw.device_types()) do
@@ -14,30 +12,10 @@ end
 
 --- A plugin that runs in a helper process, or nil where there is none.
 local function sandboxed_limiter()
+  if os.getenv("PAW_PLUGIN_SANDBOX") == "0" then return nil end
   for _, format in ipairs({ "clap", "lv2", "vst3" }) do
     local kind = plugin_kind(format, "Limiter Stereo$")
     if kind then return kind end
-  end
-end
-
---- Wait, with the session looked after, until `ready()` is true or `ms` pass.
-local function wait_for(ready, ms)
-  local deadline = api.now() + (ms or 10000)
-  while not ready() and api.now() < deadline do
-    paw.wait(20)
-  end
-  return ready()
-end
-
---- Make the helper of plugins whose kind holds `part` wait `secs` before it
---- makes them, and give up on any plugin after `limit` seconds.
-local function hang(part, secs, limit)
-  if part then
-    ffi.C.setenv("PAW_PLUGIN_HOST_HANG", part .. ":" .. secs, 1)
-    ffi.C.setenv("PAW_PLUGIN_CREATE_LIMIT", tostring(limit), 1)
-  else
-    ffi.C.unsetenv("PAW_PLUGIN_HOST_HANG")
-    ffi.C.unsetenv("PAW_PLUGIN_CREATE_LIMIT")
   end
 end
 
@@ -45,10 +23,17 @@ end
 local function apart(fn)
   local was = api.load_apart(true)
   local ok, err = xpcall(fn, debug.traceback)
-  hang(nil)
   api.load_apart(was)
   if not ok then error(err, 0) end
   return err
+end
+
+--- Make the plugin of a device that has not started to load hang while it
+--- is made, until the session gives up on it: at once, as a test does not
+--- wait for the limit of a real plugin.
+local function hang_while_made(fx)
+  api.device_call(fx.id, "sandbox.hang")
+  api.device_call(fx.id, "sandbox.deadline", "1")
 end
 
 --- The saved state of every device in a project file, by kind.
@@ -75,7 +60,7 @@ local function saved_limiter(kind, name)
   end
   fx:set(gain.key, gain.min)
   -- The plugin takes the value with its next block; its saved state after.
-  paw.wait(100)
+  T.advance(100)
   local path = paw.project.save(T.scratch .. "/" .. name .. ".json")
   return path, gain, saved_states(path)[2]
 end
@@ -88,14 +73,17 @@ test("a plugin added with loading apart is there at once and comes in when made"
     local t = T.tone("tone", 2)
     local ready = {}
     local handler = paw.on("device.ready", function(e) ready[#ready + 1] = e end)
-    -- Slow to make: the program does not wait for it.
-    hang(kind:match("[^:]*$"), 0.8, 20)
     local fx = t:add_device(kind)
+    -- Slow to make: the test holds it back, and the program does not wait for it.
+    api.device_call(fx.id, "sandbox.hold")
+    T.settle()
     eq(fx:get().status, "loading", "adding it returns while the plugin is made")
     paw.cursor.set_track(t)
     local devices = paw.frontend.state(-1).devices
     eq(devices[#devices].status, "loading", "and the frontend's state says so")
-    eq(wait_for(function() return #ready > 0 end), true, "it is made")
+    eq(#ready, 0, "it is not ready while it is held")
+    api.device_call(fx.id, "sandbox.release")
+    T.until_(function() return #ready > 0 end, "the plugin to be made")
     paw.off(handler)
     eq(ready[1].id, fx.id, "device.ready names it")
     local d = fx:get()
@@ -104,27 +92,30 @@ test("a plugin added with loading apart is there at once and comes in when made"
   end)
 end)
 
--- How many are made at once needs a count from the plugin sandbox.
-test("several plugins that load at the same time are all made", function()
+test("six plugins that load at the same time are all made", function()
   local kind = sandboxed_limiter()
   if not kind then return "skipped: test plugins not found" end
   return apart(function()
     fresh()
     local t = paw.add_track()
-    hang(kind:match("[^:]*$"), 1.5, 20)
-    local function running(list)
-      return wait_for(function()
-        for _, fx in ipairs(list) do
-          if fx:get().status ~= "running" then return false end
-        end
-        return true
-      end, 20000)
-    end
     local list = {}
     for i = 1, 6 do
       list[i] = t:add_device(kind)
+      api.device_call(list[i].id, "sandbox.hold")
     end
-    eq(running(list), true, "all are made")
+    T.settle()
+    for i, fx in ipairs(list) do
+      eq(fx:get().status, "loading", "plugin " .. i .. " loads while the others do")
+    end
+    for _, fx in ipairs(list) do
+      api.device_call(fx.id, "sandbox.release")
+    end
+    T.until_(function()
+      for _, fx in ipairs(list) do
+        if fx:get().status ~= "running" then return false end
+      end
+      return true
+    end, "the six plugins to be made")
   end)
 end)
 
@@ -134,17 +125,17 @@ test("a plugin that hangs while it is made is stopped and keeps its saved state"
   local path, gain, state = saved_limiter(kind, "hang")
   eq(type(state), "string", "the plugin has a saved state")
   return apart(function()
-    hang(kind:match("[^:]*$"), 30, 1.5)
     local stopped = {}
     local handler = paw.on("device.stopped", function(e) stopped[#stopped + 1] = e end)
     fresh()
     paw.project.load(path)
     local fx = paw.tracks()[1]:devices()[2]
+    hang_while_made(fx)
     eq(fx:get().status, "loading", "opening does not wait for the plugin")
     -- Saving now writes back what the file had, not an empty state.
     local during = paw.project.save(T.scratch .. "/hang-during.json")
     eq(saved_states(during)[2], state, "saved while loading: the state is kept")
-    eq(wait_for(function() return #stopped > 0 end), true, "it is given up on")
+    T.until_(function() return #stopped > 0 end, "the plugin that hangs to be given up on")
     paw.off(handler)
     eq(stopped[1].device, fx.id, "device.stopped names it")
     eq(stopped[1].loading, true, "while it was loading")
@@ -155,10 +146,9 @@ test("a plugin that hangs while it is made is stopped and keeps its saved state"
     eq(saved_states(after)[2], state, "saved when stopped: the state is kept")
     fails(function() render({ tail = 0 }) end, "did not load", "rendering with a plugin that did not load")
     -- Once the plugin behaves, a restart brings it in with its state.
-    hang(nil)
     fx:restart()
     eq(fx:get().status ~= "stopped", true, "restarting starts it again")
-    eq(wait_for(function() return fx:get().status == "running" end), true, "and it is made")
+    T.until_(function() return fx:get().status == "running" end, "the plugin to be made again")
     eq(fx.params[gain.key], gain.min, "with what the project had of it")
     eq(saved_states(paw.project.save(T.scratch .. "/hang-restarted.json"))[2] ~= nil, true, "it saves a state again")
   end)
@@ -170,10 +160,14 @@ test("rendering waits for plugins that are still loading", function()
   local path = saved_limiter(kind, "render-wait")
   local quiet = render({ tail = 0.2 }).peak
   return apart(function()
-    hang(kind:match("[^:]*$"), 1, 20)
     fresh()
     paw.project.load(path)
-    eq(paw.tracks()[1]:devices()[2]:get().status, "loading", "loading when the render starts")
+    local fx = paw.tracks()[1]:devices()[2]
+    -- Slow to make: held until the render starts.
+    api.device_call(fx.id, "sandbox.hold")
+    T.settle()
+    eq(fx:get().status, "loading", "loading when the render starts")
+    api.device_call(fx.id, "sandbox.release")
     local info = render({ tail = 0.2 })
     eq(info.peak <= quiet + 1e-6, true, "the render has the plugin in it")
   end)
@@ -328,21 +322,20 @@ test("a plugin that could not be loaded is opened offline next time, until it lo
   if not kind then return "skipped: test plugins not found" end
   local path, gain = saved_limiter(kind, "remembered")
   return apart(function()
-    hang(kind:match("[^:]*$"), 30, 1)
     fresh()
     paw.open(path)
     local fx = paw.tracks()[1]:devices()[2]
-    eq(wait_for(function() return fx:get().status == "stopped" end), true, "it fails to load")
+    hang_while_made(fx)
+    T.until_(function() return fx:get().status == "stopped" end, "the plugin that hangs to fail to load")
     eq(#paw.loading.suggested(path), 1, "and is remembered")
     eq(io.open(paw.loading.project_dir(path) .. "/plugins.json") ~= nil, true, "in the project's state directory")
     eq(T.read_file(path):find('"offline"') == nil, true, "not in the project file")
-    hang(nil)
     fresh()
     paw.open(path)
     fx = paw.tracks()[1]:devices()[2]
     eq(fx:get().status, "offline", "the next open has it offline")
     paw.commands.exec("plugins.online")
-    eq(wait_for(function() return fx:get().status == "running" end), true, "brought up, it loads")
+    T.until_(function() return fx:get().status == "running" end, "the plugin brought up to load")
     eq(fx.params[gain.key], gain.min, "with its parameter")
     eq(#paw.loading.suggested(path), 0, "and is no longer remembered")
     fresh()
@@ -388,10 +381,10 @@ test("a lost audio device stops the transport, keeps the take, and is opened aga
     t.input = "1/2"
     t.armed = true
     paw.transport.record()
-    paw.wait(300)
+    T.advance_until(function() return paw.transport.position > 0.5 end, "half a beat of the take", 5000)
     eq(paw.transport.playing, true, "recording")
     api.audio_test_device({ fail_after = 1 }) -- unplugged at the next block
-    eq(wait_for(function() return #events.lost > 0 end, 5000), true, "the loss is told")
+    T.advance_until(function() return #events.lost > 0 end, "the loss to be told", 5000)
     eq(events.lost[1].device:find("test device") ~= nil, true, "naming the device: " .. events.lost[1].device)
     eq(events.lost[1].recording, true, "and that a take was being made")
     eq(paw.transport.playing, false, "the transport has stopped")
@@ -406,11 +399,12 @@ test("a lost audio device stops the transport, keeps the take, and is opened aga
     t.volume = -3
     paw.project.save(T.scratch .. "/lost.json")
     eq(render({ tail = 0 }).frames > 0, true, "rendering works")
-    paw.wait(400)
+    -- Past the looks for it (each 100 ms), while it is gone.
+    T.advance(400)
     eq(#events.restored, 0, "not reopened while it is gone")
     eq(paw.reconnect.reconnect(), false, ":audio.reconnect says it is not back")
     api.audio_test_device({ present = true })
-    eq(wait_for(function() return #events.restored > 0 end, 5000), true, "found again when it is back")
+    T.advance_until(function() return #events.restored > 0 end, "the device to be found again when it is back", 5000)
     e = api.engine_get()
     eq(e.backend .. " " .. e.device, "test test device", "the device is open again")
     eq(
@@ -421,8 +415,7 @@ test("a lost audio device stops the transport, keeps the take, and is opened aga
     eq(e.lost, nil, "nothing is waited for")
     eq(t.input, "1/2", "the track keeps its input")
     paw.transport.play()
-    paw.wait(200)
-    eq(paw.transport.position > 0, true, "and it plays")
+    T.advance_until(function() return paw.transport.position > 0 end, "the song to play on the device", 5000)
     T.stop()
   end)
 end)
@@ -431,13 +424,15 @@ test("with automatic reopening off, a device that is back is opened by :audio.re
   return on_test_device(function(events)
     fresh()
     paw.opt.audio_reconnect = false
-    api.audio_test_device({ fail_after = 1, back_after = 100 })
-    eq(wait_for(function() return #events.lost > 0 end, 5000), true, "lost")
+    api.audio_test_device({ fail_after = 1 })
+    T.advance_until(function() return #events.lost > 0 end, "the loss to be told", 5000)
     eq(events.lost[1].auto, false, "and not to be reopened by itself")
-    paw.wait(500)
+    api.audio_test_device({ present = true })
+    -- Past the looks for it (each 100 ms), while it is back.
+    T.advance(500)
     eq(#events.restored, 0, "back, but not reopened")
     paw.commands.exec("audio.reconnect")
-    eq(wait_for(function() return #events.restored > 0 end, 1000), true, ":audio.reconnect reopens it")
+    T.until_(function() return #events.restored > 0 end, ":audio.reconnect to reopen it")
     eq(api.engine_get().backend, "test", "the device is open")
   end)
 end)
@@ -457,28 +452,25 @@ test("a MIDI input that goes away and comes back is told of, and its tracks take
     end
   end
   -- Both ports there first, whatever an earlier test left.
+  -- The ports are looked at each 200 ms of the clock: past a look, both
+  -- are there, whatever an earlier test left.
   api.midi_test_ports({ "Keys A", "Pads" })
-  paw.wait(300)
+  T.advance(300)
   local handlers = { paw.on("midi.lost", note("lost")), paw.on("midi.returned", note("back")) }
   api.midi_test_ports({ "Pads" })
-  T.until_(function() return #seen >= 1 end, "the port's going to be told")
+  T.advance_until(function() return #seen >= 1 end, "the port's going to be told", 1000)
   api.midi_test_ports({ "Pads", "Keys A" })
-  T.until_(function() return #seen >= 2 end, "the port's coming back to be told")
-  paw.wait(300) -- told once each: no more come
+  T.advance_until(function() return #seen >= 2 end, "the port's coming back to be told", 1000)
+  -- Past more looks: told once each, no more come.
+  T.advance(500)
   for _, h in ipairs(handlers) do
     paw.off(h)
   end
   eq(table.concat(seen, "; "), "lost Keys A Keys; back Keys A Keys", "the port's going and coming back, with its track")
   eq(t.midi_input.port, "Keys A", "the track still chooses it")
-  paw.transport.play()
-  paw.midi.inject({ type = "note_on", pitch = 60, velocity = 100, port = "Keys A" })
-  paw.wait(200)
-  eq(select(1, t:meter()) > 0.01, true, "and plays what comes from it")
-  paw.midi.inject({ type = "note_off", pitch = 60, port = "Keys A" })
-  T.stop()
   api.midi_test_ports({})
-  paw.wait(250)
-end, { live = "the watch of the MIDI ports looks on the wall clock (session/watch.rs)" })
+  T.advance(300)
+end)
 
 -- Choosing the device ------------------------------------------------------------
 

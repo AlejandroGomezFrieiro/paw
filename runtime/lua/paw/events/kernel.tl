@@ -69,6 +69,16 @@ local record kernel
       loading: boolean
    end
 
+   --- A running device that took on a state given to it (a snapshot, a
+   --- preset, an undo step, a state lane), its track, its name, and the
+   --- number of that state among those given to it since it was made.
+   record StateApplied is Payload
+      device: integer
+      track: integer
+      name: string
+      seq: integer
+   end
+
    --- A parameter moved by the host (`from = "host"`) or in the plugin's own
    --- window (`from = "editor"`, with its `value`): its key, and the
    --- device's own id for it.
@@ -241,6 +251,7 @@ local record kernel
    device_ready: events.Event<DeviceReady>
    device_stopped: events.Event<DeviceTrouble>
    device_invalid: events.Event<DeviceTrouble>
+   device_state_applied: events.Event<StateApplied>
    param_touched: events.Event<ParamTouched>
    transport_changed: events.Event<Nothing>
    transport_play: events.Event<Play>
@@ -289,6 +300,7 @@ kernel.device_removed = events.event("device.removed")
 kernel.device_ready = events.event("device.ready")
 kernel.device_stopped = events.event("device.stopped")
 kernel.device_invalid = events.event("device.invalid")
+kernel.device_state_applied = events.event("device.state_applied")
 kernel.param_touched = events.event("param.touched")
 kernel.transport_changed = events.event("transport.changed")
 kernel.transport_play = events.event("transport.play")

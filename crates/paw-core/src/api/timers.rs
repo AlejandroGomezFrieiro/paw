@@ -68,7 +68,8 @@ pub struct Pending {
     pub files: usize,
     /// MIDI that came in from ports and is not heard yet.
     pub midi: usize,
-    /// Piped helper processes that have not closed their output.
+    /// Helper processes at work: piped ones that have not closed their
+    /// output, and others that still run.
     pub helpers: usize,
 }
 
@@ -113,7 +114,7 @@ impl Shared {
             renders: work.renders,
             files: work.files,
             midi: self.midi_in.lock().unwrap().len(),
-            helpers: self.io.borrow().open_pipes(),
+            helpers: self.io.borrow_mut().working(),
         }
     }
 

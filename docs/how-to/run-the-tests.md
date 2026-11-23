@@ -208,8 +208,18 @@ tests. Follow these rules when you write a test:
 - Check sound in an offline render with `T.render`, not in a live meter
   after a wait.
 - Make a plugin or a helper process that the test controls wait for the
-  test, for example with a file that the test removes, and don't compare a
-  delay with a deadline.
+  test, and don't compare a delay with a deadline. A plugin takes these
+  test commands through `paw.api.device_call(id, command, data)`:
+  - `sandbox.hold` and `sandbox.release`: a plugin that is loading stays
+    loading until the test releases it. `T.settle` doesn't wait for it.
+  - `sandbox.hang`: a plugin that has not started to load hangs while it
+    is made, and a running plugin stops answering, with the plugins of its
+    kind that paw makes after it. The data `0` ends it.
+  - `sandbox.deadline`: paw gives up on that plugin after the milliseconds
+    in the data, as it would on one that hangs. For a running plugin, a
+    render waits that long for a block of a plugin of its kind.
+- Wait for `device.state_applied` to know that a plugin took on a state
+  that paw gave it, and not for a time.
 - Make all of the state that the test reads. Start from `T.fresh()`, and
   put back what the test changes with `T.after`.
 

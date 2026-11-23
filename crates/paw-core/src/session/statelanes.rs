@@ -135,14 +135,14 @@ pub(crate) fn give_all(live: &mut LiveDevice, state: &LaneState) -> Result<Vec<(
 /// request that could not be prepared for the audio thread. Returns the
 /// parameters to set again after a saved state, which sets them all.
 pub(crate) fn give(live: &mut LiveDevice, state: &LaneState) -> Result<Vec<(u32, f32)>> {
+    if let Some(text) = &state.state {
+        let bytes = BASE64.decode(text).context("a lane's state is base64")?;
+        live.load_state(&bytes)?;
+    }
     let controller = live
         .controller
         .as_mut()
         .context("the device takes no saved state")?;
-    if let Some(text) = &state.state {
-        let bytes = BASE64.decode(text).context("a lane's state is base64")?;
-        controller.load_state(&bytes)?;
-    }
     if let Some(call) = &state.call
         && controller
             .prepare(&call.method, call.data.as_bytes())

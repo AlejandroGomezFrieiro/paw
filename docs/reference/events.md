@@ -40,6 +40,7 @@ Every event of paw is listed below, with the payload that its handler gets.
 | `device.added`, `device.changed`, `device.removed` | `{ id, track }` | a device in the project |
 | `device.added_by_hand` | `{ id, kind }` | the user added a device (not a script) |
 | `device.ready`, `device.stopped`, `device.invalid` | `{ id, track, name, ... }` | a plugin is ready, stopped (it crashed or went offline), or cannot be used |
+| `device.state_applied` | `{ device, track, name, seq }` | a running plugin took on a state that paw gave it, e.g., a snapshot, a preset, an undo step or a point of a state lane. `seq` counts the states given to the device since paw made it |
 | `preset.loaded` | `{ id, name }` | a preset loaded into a device |
 | `param.touched` | `{ device, param, from }` | a parameter moved in the editor of the plugin |
 | `clip.added`, `clip.changed`, `clip.removed` | `{ id, track, stamp }` | a clip. A MIDI clip has the `stamp` of its notes, as `clip_get` gives it, so a handler can see that the notes did not change |

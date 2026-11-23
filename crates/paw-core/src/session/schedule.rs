@@ -17,7 +17,8 @@ pub struct Work {
     pub bakes_running: usize,
     /// Bakes that wait for their settle on the schedule clock.
     pub bakes_waiting: usize,
-    /// Plugins being made apart from the main loop.
+    /// Plugins being made apart from the main loop, but for those that a
+    /// test holds back (`sandbox.hold`).
     pub plugin_loads: usize,
     /// Renders running on a thread of their own (0 or 1).
     pub renders: usize,
@@ -28,24 +29,25 @@ pub struct Work {
 }
 
 impl Session {
-    /// Wait the settle delays on `clock` from now on: the bakes and the
-    /// file watch. The kernel gives its clock once, before any work.
+    /// Wait the settle delays on `clock` from now on: the bakes, the file
+    /// watch, and the looks for the audio device and the MIDI ports. The kernel gives its clock once, before any work.
     pub fn set_clock(&mut self, clock: &Arc<dyn Clock>) {
         self.audio.renders.set_clock(clock.clone());
         self.files_watch.clock = clock.clone();
+        self.watch.clock = clock.clone();
     }
 
     /// The work in flight or waiting for the schedule clock.
     pub fn work(&self) -> Work {
         let bakes = self.audio.renders.summary();
-        let next_due = [self.audio.renders.next_due(SETTLE), self.files_watch.next_due()]
+        let next_due = [self.audio.renders.next_due(SETTLE), self.files_watch.next_due(), self.watch_next_due()]
             .into_iter()
             .flatten()
             .min();
         Work {
             bakes_running: bakes.running,
             bakes_waiting: bakes.waiting,
-            plugin_loads: self.loads.count(),
+            plugin_loads: self.loads.in_flight(),
             renders: usize::from(self.rendering()),
             files: self.files_watch.waiting(),
             next_due,

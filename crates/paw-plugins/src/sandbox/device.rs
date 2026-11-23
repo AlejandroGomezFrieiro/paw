@@ -48,7 +48,8 @@ pub(super) struct RemoteDevice {
     pub(super) rest: Rest,
     /// The longest a render waits for one block: a device that is never
     /// in this process (a script) is ended as soon as live, a plugin is
-    /// given [`OFFLINE_LIMIT`].
+    /// given [`OFFLINE_LIMIT`], and one of a kind that a test made hang
+    /// the deadline of the test ([`KindTest`]).
     pub(super) offline_limit: Duration,
 }
 
@@ -174,12 +175,7 @@ impl RemoteDevice {
     /// up on.
     fn limit(&self, offline: bool, ctx: &ProcessCtx, frames: usize) -> Duration {
         if offline {
-            // Tests that make plugins hang do not wait the whole limit.
-            if TEST_HANG.load(Ordering::Relaxed) {
-                Duration::from_secs(1)
-            } else {
-                self.offline_limit
-            }
+            self.offline_limit
         } else {
             let block = Duration::from_secs_f64(frames as f64 / ctx.sample_rate.max(1.0) as f64);
             block + block / 2 + Duration::from_millis(2)

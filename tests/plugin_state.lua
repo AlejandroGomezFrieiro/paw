@@ -61,23 +61,33 @@ local function octave(d)
   return tonumber(require("plugstate").slot(d.id, "octave").value)
 end
 
---- Wait until the plugin's own state (not the project's) holds `want` as
---- the octave. A plugin that takes a state on in its next block (Surge
---- XT) tells its new values only after that block.
-local function holds(d, want)
+--- The number of the last state that each device took on, by id
+--- (`device.state_applied`).
+local applied = {}
+paw.on("device.state_applied", function(e) applied[e.device] = e.seq end)
+
+--- Do `give()`, which gives the plugin a state, and wait until the plugin
+--- took it on (`device.state_applied`): a plugin that takes a state on in
+--- its next block (Surge XT) tells its new values only after that block.
+local function took(d, give)
+  local before = applied[d.id] or 0
+  give()
   paw.flush()
-  T.until_(function() return octave(d) == want end, "the octave " .. want .. " in the plugin")
+  T.until_(function() return (applied[d.id] or 0) > before end, "device.state_applied of " .. d.kind)
 end
 
 --- Wait until the plugin sleeps (its note ended and its tail went by), so
 --- that a state reaches a plugin at rest. Surge XT as a CLAP plugin never
---- says it may sleep: then, after three seconds, the state reaches it
---- awake, which it must take as well.
-local function rested()
-  local before, deadline = api.engine_get().device_sleeps, api.now() + 3000
-  while api.engine_get().device_sleeps <= before + 10 and api.now() < deadline do
-    paw.wait(20)
-  end
+--- says it may sleep: its state reaches it awake, which it must take as
+--- well.
+local function rested(kind)
+  if kind:match("^clap:") then return end
+  local before = api.engine_get().device_sleeps
+  T.advance_until(
+    function() return api.engine_get().device_sleeps > before + 10 end,
+    kind .. " to sleep after its note",
+    10000
+  )
 end
 
 --- The parameters that the project itself sets for a device (not the
@@ -107,8 +117,7 @@ test("a plugin takes a snapshot back at rest, and the echo of its values is no e
     if has_param(d, "a_volume") then api.device_set_param(d.id, "a_volume", 0.75) end
     api.undo_checkpoint()
     keys("\\s")
-    keys(":plugstate.load slot=octave 1<CR>")
-    holds(d, 1)
+    took(d, function() keys(":plugstate.load slot=octave 1<CR>") end)
     eq(octave(d), 1, kind .. ": an octave up")
     -- A preset of plugstate sets the state alone: the parameter again.
     if has_param(d, "a_volume") then api.device_set_param(d.id, "a_volume", 0.75) end
@@ -120,24 +129,21 @@ test("a plugin takes a snapshot back at rest, and the echo of its values is no e
     touched = 0
 
     -- Back to A with the plugin at rest.
-    rested()
-    keys("[v")
-    holds(d, 0)
+    rested(kind)
+    took(d, function() keys("[v") end)
     eq(octave(d), 0, kind .. ": A is back in the plugin")
     T.near(pitch(), 220, 6, kind .. ": A plays A3")
     eq(api.undo_current(), step + 1, kind .. ": one step for the recall")
     T.advance(300)
     T.near(own(d).a_volume or -1, 0.75, 1e-6, kind .. ": the echo of the state takes nothing from the project")
 
-    rested()
-    keys("u")
-    holds(d, 1)
+    rested(kind)
+    took(d, function() keys("u") end)
     eq(octave(d), 1, kind .. ": u gives B back to the plugin")
     T.near(pitch(), 440, 10, kind .. ": and B plays")
     eq(api.undo_current(), step, kind .. ": u goes back one step")
 
-    keys("<C-r>")
-    holds(d, 0)
+    took(d, function() keys("<C-r>") end)
     eq(octave(d), 0, kind .. ": <C-r> gives A again")
     T.near(pitch(), 220, 6, kind .. ": and A plays")
     eq(api.undo_current(), step + 1, kind .. ": <C-r> goes forward one step")
@@ -159,10 +165,9 @@ test("a state lane gives each format of a plugin its saved state at the point, i
     fresh()
     local d = instrument(kind, 8)
     keys("\\s")
-    keys(":plugstate.load slot=octave 1<CR>")
-    holds(d, 1)
+    took(d, function() keys(":plugstate.load slot=octave 1<CR>") end)
     keys("\\s")
-    rested()
+    rested(kind)
     plugstate.lane_point(d.id, 0, plugstate.lane_snapshot(d.id, "A"))
     -- Before the next note: Surge XT takes a whole state on at the start
     -- of its next block, and ends the notes that sound then, also one
@@ -174,20 +179,6 @@ test("a state lane gives each format of a plugin its saved state at the point, i
     T.near(T.frequency(info, 2.2, 3.8), 440, 10, kind .. ": B after it")
   end
 end)
-
---- Wait until no device runs a block for 300 ms: all of them sleep. False
---- after `seconds`.
-local function all_asleep(seconds)
-  local runs, still = api.engine_get().device_runs, 0
-  for _ = 1, seconds * 50 do
-    api.sleep(20)
-    local now = api.engine_get().device_runs
-    still = now == runs and still + 1 or 0
-    runs = now
-    if still >= 15 then return true end
-  end
-  return false
-end
 
 test("an LV2 plugin sleeps once its tail went by in silence, and a note or a parameter wakes it", function()
   local surge = kind_of("lv2", "^Surge XT$")
@@ -223,19 +214,20 @@ test("an LV2 plugin sleeps once its tail went by in silence, and a note or a par
   fx:add_device("synth")
   local d = fx:add_device(limiter)
   paw.flush()
-  eq(all_asleep(8), true, "stopped and silent, the LV2 effect sleeps after its tail")
+  -- All of its devices sleep: the engine rests.
+  local rests = api.engine_get().engine_rests
+  T.advance_until(
+    function() return api.engine_get().engine_rests > rests end,
+    "the LV2 effect to sleep after its tail, stopped and silent",
+    10000
+  )
   local runs = api.engine_get().device_runs
   local gain
   for _, p in ipairs(api.device_get(d.id).param_info) do
     if p.key == "output_gain" or p.key == "g_out" then gain = p end
   end
   api.device_set_param(d.id, gain.key, gain.min)
-  paw.flush()
-  for _ = 1, 50 do
-    if api.engine_get().device_runs > runs then break end
-    api.sleep(20)
-  end
-  eq(api.engine_get().device_runs > runs, true, "a parameter wakes it")
+  T.until_(function() return api.engine_get().device_runs > runs end, "a parameter to wake it")
 end)
 
 test("a state given while the engine rests reaches a plugin that takes it on in its next block", function()
@@ -253,8 +245,8 @@ test("a state given while the engine rests reaches a plugin that takes it on in 
   local rests = api.engine_get().engine_rests
   T.until_(function() return api.engine_get().engine_rests > rests end, "the engine to rest")
   -- The stub takes the state (23) on at the start of its next block.
-  api.device_load(d.id, { state = "FwAAAA==" })
-  T.until_(function() return api.device_state(d.id) == "FwAAAA==" end, "the stub to take the state on")
+  took(d, function() api.device_load(d.id, { state = "FwAAAA==" }) end)
+  eq(api.device_state(d.id), "FwAAAA==", "the stub holds the state")
 end)
 
 test("a plugin that asks for a block while the engine rests gets its next block", function()
@@ -290,27 +282,24 @@ test("a move in a plugin's window right after a state is an edit, and the echo o
   local handler = paw.on("param.touched", function(e)
     if e.device == d.id and e.from == "editor" then moves[#moves + 1] = e.value end
   end)
-  local function settle()
-    for _ = 1, 100 do
-      paw.flush()
-      if #moves > 0 then break end
-      T.advance(20)
-    end
-    T.advance(100)
-  end
   -- The stub takes the state (7) on in its next block and tells of it
   -- with no gesture; the move to 9 comes in the same block, in a gesture.
-  api.device_load(d.id, { state = "BwAAAA==" })
-  api.device_call(d.id, "stub.move", "9")
-  settle()
+  took(d, function()
+    api.device_load(d.id, { state = "BwAAAA==" })
+    api.device_call(d.id, "stub.move", "9")
+  end)
+  T.until_(function() return #moves > 0 end, "the move in the stub's window")
+  T.settle()
   eq(#moves, 1, "the move is an edit, the echo is not")
   T.near(moves[1], 9, 1e-6, "the move's value")
   -- An echo of the state that comes a second late, on a slow computer, is
   -- still no edit.
-  api.device_load(d.id, { state = "BwAAAA==" })
+  took(d, function() api.device_load(d.id, { state = "BwAAAA==" }) end)
   T.advance(1000)
+  local blocks = api.blocks(d.id)
   api.device_call(d.id, "stub.tell", "7")
-  settle()
+  T.until_(function() return api.blocks(d.id) > blocks end, "the stub to tell of its value in its next block")
+  T.settle()
   paw.off(handler)
   eq(#moves, 1, "the late echo is no edit")
 end)

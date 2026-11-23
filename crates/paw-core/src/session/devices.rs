@@ -1,6 +1,6 @@
 //! Devices on tracks: adding, removing, parameters, states, presets and calls.
 
-use crate::events::{DeviceTrouble, Item, KernelEvent as E, ParamTouched};
+use crate::events::{DeviceTrouble, Item, KernelEvent as E, ParamTouched, StateApplied};
 use paw_engine::DeviceFormat;
 use super::*;
 
@@ -624,6 +624,14 @@ impl Session {
             };
             let was_open = controller.editor_open();
             controller.idle();
+            // A state given before is taken on once its controller no
+            // longer waits for it (see `Controller::state_pending`).
+            if let Some(seq) = live.take_state_applied() {
+                scan.applied.push((*id, seq));
+            }
+            let Some(controller) = live.controller.as_mut() else {
+                continue;
+            };
             if live.stopped.is_none()
                 && let Some(why) = controller.health()
             {
@@ -658,6 +666,7 @@ impl Session {
         let moved = std::mem::take(&mut scan.moved);
         let stopped = std::mem::take(&mut scan.stopped);
         let invalid = std::mem::take(&mut scan.invalid);
+        let applied = std::mem::take(&mut scan.applied);
         for (device, param, stable, value) in moved {
             // The parameter last moved in a plugin's own window, for
             // `:param.last` and for the frontends to show.
@@ -688,6 +697,14 @@ impl Session {
                 .get(kind)
                 .map_or(kind.to_string(), |f| f.info().name.clone());
             self.doc.emit(E::DeviceInvalid(DeviceTrouble { device, track, name, reason: None, loading: false }));
+        }
+        for (device, seq) in applied {
+            let Some((track, _)) = self.doc.project.find_device(device) else {
+                continue;
+            };
+            let kind = self.doc.project.device(device).map_or("", |d| d.kind.as_str());
+            let name = self.device_name(kind);
+            self.doc.emit(E::DeviceStateApplied(StateApplied { device, track, name, seq }));
         }
     }
 
@@ -787,6 +804,10 @@ impl Session {
 
     pub fn device_call(&mut self, id: Id, method: &str, data: &[u8]) -> Result<Vec<u8>> {
         self.flush();
+        // A test's command for a device that loads does not wait for it.
+        if let Some(answer) = self.load_test(id, method, data) {
+            return answer;
+        }
         self.await_device(id);
         let kind = &self
             .doc.project
@@ -822,4 +843,6 @@ struct DeviceScan {
     stopped: Vec<(Id, String)>,
     /// Devices whose output held NaN or infinity, silenced by the engine.
     invalid: Vec<Id>,
+    /// Devices that took on a state given to them, and its number.
+    applied: Vec<(Id, u64)>,
 }
