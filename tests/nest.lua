@@ -80,7 +80,6 @@ test(
       "the status line: its place and the song's\n" .. text
     )
     eq(paw.ruler.label(9, 0, "RulerBar", 1)[1][1], "1", "its bars count from 1: song bar 9 is its bar 1")
-    eq(text:find("9%s+10%s+11") ~= nil, true, "a second row has the song's bars")
     keys("zw")
     eq(paw.scope.current(), nil, "zw: the song")
     eq(names(paw.groups.rows()), "Drums Ballad", "the song's tracks")
@@ -92,6 +91,40 @@ test(
     paw.cursor.set_beat(40)
     keys("<CR>")
     eq(paw.scope.breadcrumb(), "Song › ⧉Ballad", "<CR> on the clip enters it too")
+    reset()
+  end
+)
+
+-- Inside a subproject, the ruler shows the song's regions that its block
+-- covers, at their place in it, and the status line never gives a
+-- negative bar for a playhead before the block.
+test(
+  "inside a subproject saved from a region, and one inside it, the ruler shows that region from bar 1, and the status line the song bar",
+  function()
+    start()
+    paw.opt.zoom = 1
+    local bass = paw.add_track({ name = "Bass" })
+    bass:add_clip({ name = "Bass", start = 0, length = 96 })
+    paw.markers.add(0, "Intro", { length = 32 })
+    paw.markers.add(32, "Verse", { length = 32 })
+    paw.markers.add(64, "Chorus", { length = 32 })
+    paw.flush()
+    api.undo_checkpoint()
+    paw.ui.views:get("arrange").scroll = 0
+    paw.cursor.set_track(bass)
+    paw.cursor.set_beat(32)
+    keys(":narrow Verse<CR>")
+    keys(":scope.write! Bridge<CR>")
+    eq(paw.scope.breadcrumb(), "Song › ⧉Bridge", "inside the subproject")
+    -- The region Verse over its bars 1 to 8, no Intro at its bar 1, and the
+    -- playhead at the song's start as `@1.1.00`, not as bar -7.
+    T.expect_screen("subproject_regions", 72, 16, { styles = false })
+    -- A subproject inside it, at its bar 3: the song's bar 11, and Verse
+    -- still over it.
+    paw.cursor.set_beat(8)
+    keys(":nest.new Roll 2<CR>")
+    eq(paw.scope.breadcrumb(), "Song › ⧉Bridge › ⧉Roll", "inside the subproject inside it")
+    T.expect_screen("nested_subproject_regions", 72, 16, { styles = false })
     reset()
   end
 )

@@ -203,30 +203,38 @@ end
 --- The marker or region whose name (or band) is under column `tx` of row
 --- `row` of the regions' lane (0 the first; paw/markers.tl).
 local function marker_at(self: Arrange, tx: number, row: integer): MarkersModule.Marker
-  local list: {MarkersModule.Marker} = {}
+  -- Each one where the lane draws it (`paw.markers.placed`): inside a
+  -- subproject or a scope, in the window's time and cut at its edges.
+  local record Placed
+    m: MarkersModule.Marker
+    x0: integer
+    x1: integer
+  end
+  local list: {Placed} = {}
   for _, m in ipairs(paw.markers and paw.markers.list() or {}) do
-    if paw.markers.lane_row(m.id) == (row or 0) then
-      list[#list + 1] = m
+    local start, stop = paw.markers.placed(m)
+    if start and paw.markers.lane_row(m.id) == (row or 0) then
+      list[#list + 1] = {m = m, x0 = self:col(start), x1 = self:col(stop)}
     end
   end
   local width = self.geometry.layout.tw
   local band: MarkersModule.Marker
-  for i, m in ipairs(list) do
-    local x = self:col(m.beat)
+  for i, p in ipairs(list) do
+    local x = p.x0
     local stop = width
     for j = i + 1, #list do
-      local nx = self:col(list[j].beat)
+      local nx = list[j].x0
       if nx > x then
         stop = math.min(stop, nx)
         break
       end
     end
-    local w = 1 + api.str_width(paw.markers.label(m))
+    local w = 1 + api.str_width(paw.markers.label(p.m))
     if tx >= x and tx < math.min(stop, x + w) then
-      return m
+      return p.m
     end
-    if m.length and tx >= x and tx < self:col(m.beat + m.length) then
-      band = m
+    if p.m.length and tx >= x and tx < p.x1 then
+      band = p.m
     end
   end
   return band

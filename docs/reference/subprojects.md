@@ -98,7 +98,18 @@ block, counted from 1, so a subproject over a 6/8 section shows bars of
   type in commands work in the bars of the subproject, and change the
   tempo map of the song at that place.
 - The status line, the ruler and the playhead show the song's time at the
-  place of the block, as for the cursor.
+  place of the block, as for the cursor. The ruler counts the bars of the
+  subproject from 1, and the status line gives the bar of the song in
+  brackets after the bar of the subproject, for example `1.2 (9.2)`.
+- The row of regions under the bar numbers shows the regions of the song
+  that the block covers, at their place in the subproject and cut at its
+  edges. A subproject saved from the region Verse shows Verse over all of
+  its bars. A subproject over a time with no region shows no row of
+  regions. The regions belong to the song, so they show where the block
+  you entered through plays.
+- When the playhead is outside the time of the block, the status line
+  gives its place in the song with `@` before it, for example `@1.1.00`,
+  because the subproject has no bar there.
 
 See [Tempo and time signatures](tempo.md) for the commands.
 
@@ -123,8 +134,8 @@ of the song follows. The devices inside the subproject get its tempo and
 its bars, so a delay synced to the tempo follows the subproject.
 
 Inside a subproject with its own tempo, the ruler counts its own bars at
-its own tempo, and with `scopebars=both` the row under it shows the
-song's bars where they fall. `:tempo` then changes the tempo of the
+its own tempo, and the status line still gives the bar of the song in
+brackets. `:tempo` then changes the tempo of the
 subproject and not the song's, and the message says so, for example
 `90 bpm: the subproject's own tempo`. The status line shows `own tempo`,
 and `K` on a block says `own tempo` where it otherwise says `follows the

@@ -145,9 +145,12 @@ local opt = options.opt
 options.define(
   "scope_rest", "play", {values = {"play", "mute", "frozen"}}
 ) -- what the tracks outside a scope do: "play", "mute" or "frozen"
+-- The ruler has one numbering: the status line shows the song's place
+-- next to the scope's, so a second row of the song's bars only mixed two
+-- numberings under one another.
 options.define(
-  "scopebars", "both", {values = {"local", "song", "both"}}
-) -- bar numbers in a scope with time: "local" (from 1 at its start), "song", or "both" (local, and the song's on a second ruler row)
+  "scopebars", "local", {values = {"local", "song"}}
+) -- bar numbers in a scope with time: "local" (from 1 at its start) or "song"
 options.define("scopeloop", true) -- entering a scope with time loops its time while its window is in front
 
 local changed: events.Event<Changed> = events.event("scope.changed")
@@ -633,7 +636,8 @@ local clip_field = api.clip_get as function(id: integer): types.Clip
 
 --- The beats to add to a beat of the window to get the song's beat: in a
 --- subproject, where the clip it was entered through places its beat 0
---- (the clip's start less its offset); else 0.
+--- (the clip's start less its offset), and for a subproject inside
+--- another, that clip's place in the song too; else 0.
 function M.song_offset(s?: Scope): number
   local nest = M.nest(s)
   if not (nest and nest.clip) then
@@ -643,7 +647,11 @@ function M.song_offset(s?: Scope): number
   if not (ok and c and c.nest == nest.id) then
     return 0
   end
-  return c.start - (c.offset or 0)
+  -- The clip is in the timeline of the level above: the song, or the
+  -- subproject that holds it. A nil parent must not fall back to the
+  -- current scope (`resolve`).
+  local above = nest.parent and M.song_offset(nest.parent) or 0
+  return above + c.start - (c.offset or 0)
 end
 
 --- The song's beat of a beat that the current scope shows.
@@ -1732,73 +1740,6 @@ events.on(
 --- The time the cursor stays in: the current scope's.
 paw.cursor.bounds = function(): number, number return M.span() end
 
--- The song's bars on the ruler's second row -------------------------------------------
-
---- The song's bar lines from beat `from` up to `to` of the window's time:
---- { beat, bar } each, the song's bars from 1. In a subproject with a time
---- of its own, its beats are not the song's, so each line is found in the
---- song and placed in the window's time.
-local function song_bars(from: number, to: number): {objects.BarLine}
-  if not paw.time.own() then
-    return paw.time.bars(from, to)
-  end
-  local out: {objects.BarLine} = {}
-  local a, b = paw.time.song_beat(from), paw.time.song_beat(to)
-  local bar = api.tempo_bar_of(math.max(0, a))
-  while #out < 10000 do
-    local beat = api.tempo_bar_start(bar)
-    if beat >= b then
-      break
-    end
-    if beat >= a - 1e-9 then
-      out[#out + 1] = {beat = paw.time.local_beat(beat), bar = bar + 1}
-    end
-    bar = bar + 1
-  end
-  return out
-end
-
---- Whether the ruler shows the song's bars under the scope's: in a scope
---- with time, with `scopebars=both`.
-local function song_row(): boolean
-  return opt.scopebars == "both" and M.span() ~= nil and (M.bar_offset() ~= 0 or M.song_offset() ~= 0)
-end
-
-local arrange = paw.ui.views:get("arrange") as contracts.ArrangeView
-if arrange and arrange.layers then
-  arrange.ruler2.scope_bars = song_row
-  -- Under each bar's local number, its number in the song. Layers draw in
-  -- the order of their names: this one after the markers' bands, and
-  -- clear of the names of markers and regions.
-  arrange.layers.zz_scope_bars = function(_: contracts.ArrangeView, layer: contracts.ArrangeLayer)
-    if not (song_row() and layer.ruler2) then
-      return
-    end
-    local row = layer.ruler2
-    local taken: {{integer}} = {}
-    for _, m in ipairs(paw.markers and paw.markers.list() or {}) do
-      local x = layer.x(m.beat)
-      taken[#taken + 1] = {x, x + api.str_width(paw.markers.label(m)) + 1}
-    end
-    local function clear(a: integer, b: integer): boolean
-      for _, t in ipairs(taken) do
-        if a < t[2] and b > t[1] then
-          return false
-        end
-      end
-      return true
-    end
-    local free = 0
-    for _, line in ipairs(song_bars(layer.scroll, layer.scroll + layer.span)) do
-      local x = layer.x(line.beat)
-      local text = tostring(line.bar)
-      if x >= free and x >= 0 and x < row.width and clear(x, x + #text + 1) then
-        free = x + row:text(x, 0, text, "RulerTick") + 1
-      end
-    end
-  end
-end
-
 -- Describing a scope ------------------------------------------------------------------
 
 --- Whether a scope is one that `:scope.name` named.
@@ -1813,7 +1754,7 @@ end
 
 --- A scope's bars, `bars 1-8 (song 17-24)`, and its meter at its start,
 --- `6/8`; nil for a scope with all the time of the song. Bars count from 1
---- at the scope's start, as the ruler counts them with `scopebars=local`.
+--- at the scope's start, as the ruler counts them by default (`scopebars=local`).
 local function bars_and_meter(s: Scope): string, string
   local from, to = M.span(s)
   if not from then
@@ -1872,6 +1813,7 @@ local function under_cursor(): contracts.Description
     return {{text = "Scope  " .. s.name, style = "Title"}, "  " .. M.describe(s), ""}
   end
 end
+local arrange = paw.ui.views:get("arrange") as contracts.ArrangeView
 if arrange then
   -- `K` (the command `info`) puts this before what it says of the track.
   arrange.describe = function(_: contracts.View): contracts.Description return under_cursor() end

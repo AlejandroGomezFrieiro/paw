@@ -1377,11 +1377,13 @@ test("guide: work on one section of a song", function()
   shows("Song › Bridge", "zw goes up one level")
   keys(":set scopebars=song<CR>")
   eq(paw.opt.scopebars, "song", ":set scopebars=song")
+  keys(":set scopebars=local<CR>")
+  eq(paw.opt.scopebars, "local", ":set scopebars=local")
   keys(":set noscopeloop<CR>")
   eq(paw.opt.scopeloop, false, ":set noscopeloop")
   keys(":widen!<CR>")
   eq(paw.scope.current(), nil, "the whole song")
-  paw.opt.scopebars, paw.opt.scopeloop = "both", true
+  paw.opt.scopeloop = true
 end)
 
 test("guide: work on a section in another meter", function()

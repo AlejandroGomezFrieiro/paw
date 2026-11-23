@@ -31,9 +31,10 @@ local type Cells = contracts.ColumnCells
 local type Piece = contracts.Piece
 
 --- paw/scope.tl, the part of it that this module reads: how many bars of
---- the song come before a scope's bar 1.
+--- the song come before a scope's bar 1, and the time of the scope.
 local record Scope
   bar_offset: function(): integer
+  span: function(): number, number
 end
 local record Paw is partial.Paw
   scope: Scope
@@ -244,8 +245,23 @@ local function lanes_in_order(): {contracts.RulerLane}
   return list
 end
 
+--- A context of a lane with only its fields of time: `here`, the beat of
+--- the window's time for a beat of the song, and `from` and `to`, the
+--- time of the window's scope. The regions' lane places the song's regions
+--- and markers with these fields, and the mouse finds them with the same
+--- fields.
+function M.lane_time(): contracts.RulerLaneContext
+  local ctx: contracts.RulerLaneContext = {here = paw.time.local_beat}
+  if paw.scope then
+    ctx.from, ctx.to = paw.scope.span()
+  end
+  return ctx
+end
+
 local function lane_ctx(l: contracts.RulerLane): contracts.RulerLaneContext
-  return {glyphs = l.glyphs or {}, styles = l.styles or {}}
+  local ctx = M.lane_time()
+  ctx.glyphs, ctx.styles = l.glyphs or {}, l.styles or {}
+  return ctx
 end
 
 --- How many rows the lanes need now, all together.

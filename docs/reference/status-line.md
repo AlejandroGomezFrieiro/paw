@@ -27,7 +27,7 @@ name of the project before it removes a component.
 | --- | --- |
 | `mode` | The mode, and the view that has the keys: `NORMAL·mixer`. |
 | `macro` | The register of a macro that paw records. |
-| `transport` | The transport state and the position. |
+| `transport` | The transport state and the position of the playhead. In a scope with time, the position is in the bars of the scope, and outside the time of the scope it is the place in the song with `@` before it: `@1.1.00`. |
 | `clock` | The time. |
 | `tempo` | The tempo, and the time signature at the playhead. |
 | `flags` | What is on: `loop 3–5` (the bars of the playback loop, while looping is on), `click`, punch, count-in, `rec`, `write`. |

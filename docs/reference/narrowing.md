@@ -104,9 +104,19 @@ A scope of a region, or a block with time, shows that time.
   the time after the end.
 - The bars count from 1 at the start of the scope, from the meter map of
   the song. A region in 6/8 shows its bars in 6/8.
-- A second row of the ruler shows the bars of the song, under the bars of
-  the scope. The status line shows the place of the cursor in both:
-  `Song › Bridge 3.2 (19.2)`.
+- The ruler has one row of bar numbers, the bars of the scope. The
+  status line gives the place of the cursor in both, the bar of the scope
+  first and the bar of the song in brackets: `Song › Bridge 3.2 (19.2)`.
+  Two rows of bar numbers under each other were hard to read, so the song
+  bar is only in the status line and in what `K` says.
+- The row of regions under the bar numbers shows the regions in the time
+  of the scope, cut at its edges. A region that starts before the scope
+  has its name at the start of the scope.
+- The place of the playhead in the status line is in the bars of the
+  scope while the playhead is in the time of the scope. When the playhead
+  is outside that time, the scope has no bar there, so the status line
+  gives the place in the song with `@` before it, as you type a bar of the
+  song: `@1.1.00`.
 - The bars that you type are those of the scope: `3|` and `:3` go to
   bar 3 of the scope, and `:timesig 3/4 at 3` sets the signature there.
   A bar with `@` before it is a bar of the song: `@19|`, `:@19` and
@@ -126,7 +136,7 @@ loop:
 
 | Option | Default | Effect |
 | --- | --- | --- |
-| `scopebars` | `"both"` | `"local"`: the bars count from 1 at the start of the scope. `"song"`: the bars of the song. `"both"`: from 1, with the bars of the song on a second row of the ruler. |
+| `scopebars` | `"local"` | `"local"`: the bars count from 1 at the start of the scope. `"song"`: the bars of the song. |
 | `scopeloop` | `true` | Loop the time of the scope while its window is in front. |
 
 ## A subproject
@@ -142,12 +152,18 @@ scope, with `znn` or `<CR>` on its clip, or from `<Space>zz`.
 - The status line marks a subproject with `⧉`, for example
   `Song › ⧉Ballad 1.2 (9.2)`. The first place is in the bars of the
   subproject, and the place in brackets is in the bars of the song, at the
-  clip that you entered through.
+  clip that you entered through. In a subproject inside a subproject, the
+  place in brackets is still in the bars of the song, for example
+  `Song › ⧉Bridge › ⧉Roll 1.1 (11.1)`, and the ruler and the loop are at
+  that place of the song too.
 - The bars count from 1 at the start of the subproject, and they are the
   bars of the song at that clip: over a 6/8 section of the song, bars of
-  6/8. With `scopebars=both`, the second row of the ruler shows the bars
-  of the song at that clip. See [Subprojects](subprojects.md) for how to
+  6/8. See [Subprojects](subprojects.md) for how to
   add one, how to save a view as one, and for its tempo.
+- The row of regions shows the regions of the song that the clip covers,
+  at their place in the subproject, as
+  [Time inside a subproject](subprojects.md#time-inside-a-subproject)
+  says.
 - The cursor keeps its place in the song when you enter or leave. The
   loop is the time of the clip in the song.
 - `]z` and `[z` go to the next clip of a subproject and to the one before.

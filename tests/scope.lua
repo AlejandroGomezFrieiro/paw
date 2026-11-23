@@ -368,7 +368,6 @@ test(":narrow on a region shows its time: bars from 1 in its meter, the cursor k
   eq(text:find("1.1.00", 1, true) ~= nil, true, "the ruler's corner counts from 1")
   eq(text:find("loop 1%D+8%D") ~= nil, true, "the status line's loop in its bars")
   eq(paw.ruler.label(18, from + 3, "RulerBar", from)[1][1], "2", "the song's bar 18 is its bar 2")
-  eq(text:find("19%s+20%s+21") ~= nil, true, "a second row has the song's bars:\n" .. text)
   -- Motions stop at its edges.
   keys("$")
   eq(paw.cursor.beat, to, "$: the drums' clip ends after it; the cursor stops at its end")
@@ -393,6 +392,32 @@ test(":narrow on a region shows its time: bars from 1 in its meter, the cursor k
   eq(api.transport_get().loop_enabled, false, "the loop as it was")
   keys("0")
   eq(paw.cursor.beat, 0, "the cursor goes anywhere again")
+  reset()
+end)
+
+-- One numbering on the ruler of a scope: the scope's bars on the bar row,
+-- the regions that show in its time on the regions' row, and the place in
+-- the song only in the status line, next to the scope's place.
+test("the ruler of a region scope counts its bars only, and the playhead's place is in its bars too", function()
+  start()
+  paw.opt.zoom = 1
+  local bass = paw.add_track({ name = "Bass" })
+  bass:add_clip({ name = "Bass", start = 0, length = 96 })
+  paw.markers.add(0, "Intro", { length = 32 })
+  paw.markers.add(32, "Verse", { length = 32 })
+  paw.markers.add(64, "Chorus", { length = 32 })
+  paw.flush()
+  api.undo_checkpoint()
+  paw.ui.views:get("arrange").scroll = 0
+  paw.cursor.set_track(bass)
+  paw.cursor.set_beat(32)
+  keys(":narrow Verse<CR>")
+  api.transport_seek(36)
+  T.after(function() api.transport_seek(0) end)
+  -- The bars 1 to 9 of the scope, the region Verse over its bars 1 to 8 and
+  -- no Chorus after it, and the playhead at bar 2 of the scope.
+  T.expect_screen("region_scope", 72, 16, { styles = false })
+  keys("zw")
   reset()
 end)
 
