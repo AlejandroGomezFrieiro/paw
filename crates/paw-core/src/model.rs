@@ -16,6 +16,7 @@ use serde_json::{Map, Value};
 mod clips;
 mod custom;
 pub mod graph;
+pub mod kinds;
 mod linked;
 mod links;
 pub(crate) mod nest;
