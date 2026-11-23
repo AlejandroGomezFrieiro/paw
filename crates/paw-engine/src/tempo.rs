@@ -543,6 +543,8 @@ impl LocalTime {
 }
 
 #[cfg(test)]
+mod props;
+#[cfg(test)]
 mod tests {
     use super::*;
 

@@ -81,6 +81,7 @@ comment next to the code:
 | Small vectors on the stack | `arrayvec`, `smallvec` | own fixed arrays with a length |
 | Benchmarks of Rust code | `criterion` or `divan` | `Instant::now()` loops |
 | Snapshot tests | `insta` | hand-written golden files |
+| Property tests (a dev-dependency) | `proptest` (paw uses it) | a loop over random inputs |
 
 The table is a guide, not a list of required crates. A row with no use in
 paw adds nothing. A change from paw's code to a crate keeps the behavior.

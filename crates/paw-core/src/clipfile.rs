@@ -281,7 +281,9 @@ struct Reader {
     open: HashMap<u8, Vec<Open>>,
     done: Vec<(usize, Note)>,
     count: usize,
-    text: String,
+    /// The bytes of the Flex Data text read so far. Bytes, not characters:
+    /// a character of UTF-8 can be cut between two packets.
+    text: Vec<u8>,
     pending: Option<Map<String, Value>>,
     skipped: HashMap<&'static str, usize>,
 }
@@ -298,7 +300,7 @@ impl Reader {
             open: HashMap::new(),
             done: Vec::new(),
             count: 0,
-            text: String::new(),
+            text: Vec::new(),
             pending: None,
             skipped: HashMap::new(),
         }
@@ -352,13 +354,13 @@ impl Reader {
         for w in &packet[1..] {
             for b in w.to_be_bytes() {
                 if b != 0 {
-                    self.text.push(b as char);
+                    self.text.push(b);
                 }
             }
         }
         if form == 0 || form == 3 {
-            if let Some(json) = self.text.strip_prefix("paw:")
-                && let Ok(Value::Object(map)) = serde_json::from_str::<Value>(json)
+            if let Some(json) = self.text.strip_prefix(b"paw:")
+                && let Ok(Value::Object(map)) = serde_json::from_slice::<Value>(json)
             {
                 if !self.started {
                     self.origin = map.get("origin").and_then(Value::as_i64).unwrap_or(0);
@@ -616,6 +618,8 @@ fn fmt(x: f64) -> String {
     if s == "-0" { "0".into() } else { s.into() }
 }
 
+#[cfg(test)]
+mod props;
 #[cfg(test)]
 mod tests {
     use super::*;

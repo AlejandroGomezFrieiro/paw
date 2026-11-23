@@ -69,6 +69,11 @@ tokio-rustls = { version = "0.26", default-features = false }
 # which reads and accepts them (`cargo insta review`).
 insta = { version = "1.47", features = ["json", "filters"] }
 
+# Property tests, a dev-dependency only: a strategy makes the inputs from a
+# seed, and a failure is shrunk and kept in `proptest-regressions/`. Without
+# `fork` and `timeout`: a property runs in the process of its test.
+proptest = { version = "1.11", default-features = false, features = ["std"] }
+
 [profile.dev]
 opt-level = 1
 # Backtraces keep their file and line; full debug info for every crate is

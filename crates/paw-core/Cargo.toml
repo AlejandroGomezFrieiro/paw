@@ -70,6 +70,7 @@ mlua = { version = "0.12", features = ["luajit", "vendored"] }
 [dev-dependencies]
 insta.workspace = true
 tempfile = "3"
+proptest.workspace = true
 
 [[bench]]
 name = "nest_expand"

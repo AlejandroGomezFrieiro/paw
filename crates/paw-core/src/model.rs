@@ -19,6 +19,9 @@ mod links;
 pub(crate) mod nest;
 mod notes;
 mod overrides;
+
+#[cfg(test)]
+mod props;
 pub use clips::Clips;
 pub use custom::{
     ClipKindId, CustomContent, CustomError, DATA_LIMIT, KindData, KindValue, MediaRef, MediaRole,

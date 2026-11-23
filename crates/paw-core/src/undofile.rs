@@ -437,6 +437,8 @@ pub fn read_tree(dir: &Path) -> Result<Option<TreeFile>> {
 }
 
 #[cfg(test)]
+mod props;
+#[cfg(test)]
 mod tests {
     use super::*;
 

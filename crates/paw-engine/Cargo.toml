@@ -35,6 +35,7 @@ rustix = { version = "1", default-features = false, features = ["std", "event", 
 
 [dev-dependencies]
 serde_json.workspace = true
+proptest.workspace = true
 rtrb = "0.4"
 alsa-sys = "0.4"
 
