@@ -956,7 +956,13 @@ end
 local function outputs(t, list)
   local out = {}
   for i, name in ipairs(list) do
-    local to = api.track_get(t[name] or name, "output")
+    local id = t[name]
+    if not id then
+      for _, tr in ipairs(paw.tracks()) do
+        if tr.name == name then id = tr.id end
+      end
+    end
+    local to = api.track_get(assert(id, name), "output")
     out[i] = name .. ">" .. (to and api.track_get(to, "name") or "-")
   end
   return table.concat(out, " ")
