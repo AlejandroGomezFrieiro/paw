@@ -130,7 +130,7 @@ end
 
 --- The payload of `render.before`.
 local record RenderBefore
-  path: string
+  path: string -- nil for a measurement, which writes no file
   opts: RenderOptions
 end
 
@@ -793,7 +793,15 @@ local render_before: events.Event<RenderBefore> = events.event("render.before")
 local render_finished: events.Event<types.RenderResult> = events.event("render.finished")
 
 local pending_opts: {string: RenderOptions} = {}
-events.on(render_before, function(e: RenderBefore) pending_opts[e.path] = e.opts end)
+-- A measurement (mixdiag) also emits `render.before`, without a path: it writes no file.
+events.on(
+  render_before,
+  function(e: RenderBefore)
+    if e.path then
+      pending_opts[e.path] = e.opts
+    end
+  end
+)
 local function rendered(info: types.RenderResult)
   if not (info is types.RenderResult) or not info.path then
     return
