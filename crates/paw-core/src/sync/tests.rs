@@ -250,10 +250,10 @@ fn a_custom_clip_plays_its_midi_sound() {
     );
 }
 
-/// A custom clip with an audio sound is scheduled as the audio clip is.
-#[test]
-fn a_custom_clip_plays_its_audio_sound() {
-    let dir = std::env::temp_dir().join(format!("paw-sync-test-{}", std::process::id()));
+/// A half second of a tone at 48 kHz, as a 16-bit mono WAV file `name` in
+/// a scratch folder of the test, which the caller removes.
+fn tone_wav(name: &str) -> (std::path::PathBuf, std::path::PathBuf) {
+    let dir = std::env::temp_dir().join(format!("paw-sync-test-{name}-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let file = dir.join("tone.wav");
     let samples: Vec<i16> = (0..24000)
@@ -273,6 +273,13 @@ fn a_custom_clip_plays_its_audio_sound() {
     wav.extend(data.to_le_bytes());
     wav.extend(samples.iter().flat_map(|s| s.to_le_bytes()));
     std::fs::write(&file, wav).unwrap();
+    (dir, file)
+}
+
+/// A custom clip with an audio sound is scheduled as the audio clip is.
+#[test]
+fn a_custom_clip_plays_its_audio_sound() {
+    let (dir, file) = tone_wav("custom");
     let audio = json!({ "kind": "audio", "file": file, "offset": 0.1, "gain": -3.0 });
     let own = played(&with_clip(audio.clone(), false));
     let wrapped = played(&with_clip(custom(audio), false));
@@ -643,6 +650,32 @@ fn a_muted_block_is_silent_and_a_tail_rings_past_the_end() {
         tail = tail.max(peak(&l));
     }
     assert!(tail > 1e-4, "the reverb rings past the end of the block: {tail}");
+}
+
+/// A frozen block plays its file on the row, as an audio clip of that file
+/// there does, and nothing of its subproject: the synth inside rests.
+#[test]
+fn a_frozen_block_plays_its_file_and_its_subproject_rests() {
+    let (dir, file) = tone_wav("frozen-block");
+    let mut frozen = with_nest(vec![row(&[32.0], 4.0, false)], 4.0, &phrase(), instrument(false));
+    let block = frozen.tracks.iter_mut().find(|t| t.id == 1).unwrap();
+    let block = Arc::make_mut(Arc::make_mut(block).clips.get_mut(0).unwrap());
+    block.meta.insert("frozen".into(), json!({ "file": file, "length": 4.0 }));
+    let audio = json!({ "id": 100, "name": "", "start": 32.0, "length": 4.0, "muted": false,
+        "timebase": "beats", "content": { "kind": "audio", "file": file, "offset": 0.0, "gain": 0.0 } });
+    let file_alone: Project = serde_json::from_value(json!({
+        "name": "t", "tempo": 120.0, "sig_num": 4, "sig_den": 4,
+        "master": track_json(0, "Master", None, json!([]), json!([])),
+        "tracks": [track_json(1, "Ballad", None, json!([]), json!([audio]))],
+    }))
+    .unwrap();
+    let (a, b) = (played_from(&frozen, 31.5), played_from(&file_alone, 31.5));
+    std::fs::remove_dir_all(&dir).unwrap();
+    assert!(b.iter().any(|s| *s != 0.0), "the file sounds");
+    let worst = a.iter().zip(&b).fold(0.0f32, |m, (x, y)| m.max((x - y).abs()));
+    assert!(worst < peak(&b) * 1e-6, "the frozen block plays its file alone: {worst}");
+    let placed = nests::Placed::of(&frozen);
+    assert_eq!(placed.resting().collect::<Vec<_>>(), vec![crate::model::NestId(10)], "its subproject rests");
 }
 
 /// The return row's fader and its sends act on the subproject's sound.

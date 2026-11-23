@@ -788,6 +788,15 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.freeze.state(track)`: "frozen", "held" (its sound is in a frozen track it feeds), or nil.
 - `paw.freeze.unfreeze(track)`: Play a frozen track's clips and devices again. The file stays where it is, as undo can bring the freeze back.
 
+## Module paw.freeze_block
+
+- `paw.freeze_block.describe(clip)`: What `K` says of a frozen block: "frozen, up to date", "frozen, stale: Ballad changed since: clips". Nil for a block that plays live.
+- `paw.freeze_block.freeze(clip, opts)`: Freeze block `clip`: render what it plays into its row, and play the file from now on. A block frozen before is made current. One undo step. Returns the file.
+- `paw.freeze_block.frozen(clip)`: What block `clip` is frozen to, `{ file, key, length, tail }`, or nil.
+- `paw.freeze_block.key(c, tail)`: The key of what block `c` plays now, with a tail of `tail` seconds.
+- `paw.freeze_block.stale()`: The names of the subprojects that have a frozen block that is stale, for the status line. Empty when there is none.
+- `paw.freeze_block.unfreeze(clip)`: Play block `clip`'s subproject live again. The file stays, as undo can bring the freeze back.
+
 ## Module paw.frontend
 
 - `paw.frontend.band_state()`: The bands that have entries, as rows from 0 below the marker band: `{ rows, entries }`. Each entry has its `row`, its `band` and `index` (for `act.band`), `beat`, `length`, `name`, `color`, `active` and `hint`.
@@ -1498,7 +1507,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 - `paw.nest.blocks(nest)`: Every clip that places subproject `nest`, in order of time.
 - `paw.nest.content_key(c)`: A key that changes when what a block plays changes: the stamps of the clips of its subproject, and the block's own place in it.
-- `paw.nest.describe(c)`: `K` on a block: `nest Ballad · 6/8 · 8 bars · follows the tempo · 2 tracks · 1 instance · live`. `c` is the clip, in the window's time.
+- `paw.nest.describe(c)`: `K` on a block: `nest Ballad · 6/8 · 8 bars · follows the tempo · 2 tracks · 1 instance · live`, or `frozen` at the end for a frozen block. `c` is the clip, in the window's time.
 - `paw.nest.get(id)`: The subproject `id`, or nil when there is none.
 - `paw.nest.is_open(row)`: Whether a row is open in place.
 - `paw.nest.list()`: Every subproject, in the order they were made: { id, name, length, tempo, meter, master, tracks, kind, meta, used }.
@@ -1778,6 +1787,9 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
               with `normalize` too, the peak level is a ceiling
   tracks      { id, ... }: only these, with what they pass through (a stem)
   master      false to leave out the master track's devices, fader and pan
+  freeze      a track id: that track alone, before its fader, as a freeze renders it
+  block       a clip id of a block of a subproject: what the block plays into its row,
+              and nothing else, as a freeze of the block renders it
   threads     threads to render on
   background  true to return at once and render on a thread of its own:
               `render.progress` ({ path, fraction, seconds }) follows now

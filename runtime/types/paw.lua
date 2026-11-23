@@ -104,6 +104,9 @@ paw.formats = {}
 ---@class paw.freeze
 paw.freeze = {}
 
+---@class paw.freeze_block
+paw.freeze_block = {}
+
 ---@class paw.frontend
 paw.frontend = {}
 
@@ -3282,6 +3285,36 @@ function paw.freeze.state(track) end
 ---@param track any
 function paw.freeze.unfreeze(track) end
 
+--- What `K` says of a frozen block: "frozen, up to date", "frozen,
+--- stale: Ballad changed since: clips". Nil for a block that plays live.
+---@param clip any
+function paw.freeze_block.describe(clip) end
+
+--- Freeze block `clip`: render what it plays into its row, and play the
+--- file from now on. A block frozen before is made current. One undo step.
+--- Returns the file.
+---@param clip any
+---@param opts any
+function paw.freeze_block.freeze(clip, opts) end
+
+--- What block `clip` is frozen to, `{ file, key, length, tail }`, or nil.
+---@param clip any
+function paw.freeze_block.frozen(clip) end
+
+--- The key of what block `c` plays now, with a tail of `tail` seconds.
+---@param c any
+---@param tail any
+function paw.freeze_block.key(c, tail) end
+
+--- The names of the subprojects that have a frozen block that is stale,
+--- for the status line. Empty when there is none.
+function paw.freeze_block.stale() end
+
+--- Play block `clip`'s subproject live again. The file stays, as undo can
+--- bring the freeze back.
+---@param clip any
+function paw.freeze_block.unfreeze(clip) end
+
 --- The bands that have entries, as rows from 0 below the marker band:
 --- `{ rows, entries }`. Each entry has its `row`, its `band` and `index`
 --- (for `act.band`), `beat`, `length`, `name`, `color`, `active` and `hint`.
@@ -6176,7 +6209,8 @@ function paw.nest.blocks(nest) end
 function paw.nest.content_key(c) end
 
 --- `K` on a block: `nest Ballad · 6/8 · 8 bars · follows the tempo ·
---- 2 tracks · 1 instance · live`. `c` is the clip, in the window's time.
+--- 2 tracks · 1 instance · live`, or `frozen` at the end for a frozen
+--- block. `c` is the clip, in the window's time.
 ---@param c any
 function paw.nest.describe(c) end
 
@@ -7011,6 +7045,9 @@ function paw.render.default_path() end
 ---               with `normalize` too, the peak level is a ceiling
 ---   tracks      { id, ... }: only these, with what they pass through (a stem)
 ---   master      false to leave out the master track's devices, fader and pan
+---   freeze      a track id: that track alone, before its fader, as a freeze renders it
+---   block       a clip id of a block of a subproject: what the block plays into its row,
+---               and nothing else, as a freeze of the block renders it
 ---   threads     threads to render on
 ---   background  true to return at once and render on a thread of its own:
 ---               `render.progress` ({ path, fraction, seconds }) follows now

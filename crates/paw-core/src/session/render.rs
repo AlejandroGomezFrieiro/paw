@@ -50,13 +50,18 @@ struct BuiltEngine {
 }
 
 /// Only these tracks of a render, with what they pass through on the way
-/// to the master: as when they are soloed. A frozen track alone, or none.
+/// to the master: as when they are soloed. A frozen track or block alone,
+/// or none.
 fn select_render_tracks(project: &mut Project, opts: &RenderOpts) -> Result<()> {
+    let alone = [opts.freeze.is_some(), opts.block.is_some(), !opts.tracks.is_empty()];
+    if alone.iter().filter(|a| **a).count() > 1 {
+        bail!("a render is of a frozen track, of a frozen block or of a list of tracks: one of them");
+    }
     if let Some(id) = opts.freeze {
-        if !opts.tracks.is_empty() {
-            bail!("a render is of a frozen track or of a list of tracks, not both");
-        }
         crate::freeze::alone(project, id)?;
+    }
+    if let Some(clip) = opts.block {
+        crate::freeze::block_alone(project, clip)?;
     }
     if !opts.tracks.is_empty() {
         if let Some(id) = opts.tracks.iter().find(|id| project.track(**id).is_none()) {

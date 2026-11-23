@@ -20,9 +20,13 @@
 --
 -- Editing what a frozen track plays asks whether to unfreeze it: the edit
 -- is not heard until it is.
+--
+-- `:freeze` and `:unfreeze` on a block of a subproject freeze the block
+-- instead (paw/freeze_block.tl).
 local api = paw.api
 local bake_state = require("paw.bake_state")
 local derived = require("paw.derived")
+local freeze_block = require("paw.freeze_block")
 local M = {}
 
 local function id_of(track) return type(track) == "table" and track.id or track end
@@ -258,7 +262,27 @@ local function track_names()
   return out
 end
 
+--- The block of a subproject under the cursor, when a freeze command names
+--- no track: the clip's id, or nil.
+local function chosen_block(ctx)
+  local name = ctx.args[1]
+  if ctx.range or (name and name ~= true) then return end
+  local clip = paw.cursor.clip()
+  local c = clip and clip:get()
+  return c and c.kind == "nest" and c.id or nil
+end
+
 paw.command("freeze", function(ctx)
+  local block = chosen_block(ctx)
+  if block then
+    local name = api.nest_get(api.clip_get(block).nest, "name")
+    local current = freeze_block.describe(block) == "frozen, up to date"
+    if not current then freeze_block.freeze(block, { tail = tonumber(ctx.args.tail) }) end
+    return paw.notify(
+      current and string.format("%s is frozen and up to date", name)
+        or string.format("frozen: the block of %s · its devices rest; `:unfreeze` plays them again", name)
+    )
+  end
   local done = {}
   for _, id in ipairs(chosen(ctx)) do
     M.freeze(id, { tail = tonumber(ctx.args.tail) })
@@ -266,12 +290,17 @@ paw.command("freeze", function(ctx)
   end
   paw.notify(string.format("frozen: %s · its devices rest; `:unfreeze` plays them again", table.concat(done, ", ")))
 end, {
-  desc = "Render the track or group in place and play that, its devices at rest: `freeze`, `freeze Strings`, `:t2,t4freeze`, `freeze tail=4`",
+  desc = "Render the track or group in place, or the block of a subproject at the cursor, and play that, its devices at rest: `freeze`, `freeze Strings`, `:t2,t4freeze`, `freeze tail=4`",
   range = true,
   complete = track_names,
 })
 
 paw.command("unfreeze", function(ctx)
+  local block = chosen_block(ctx)
+  if block then
+    freeze_block.unfreeze(block)
+    return paw.notify("unfrozen: the block of " .. api.nest_get(api.clip_get(block).nest, "name"))
+  end
   local done = {}
   for _, id in ipairs(chosen(ctx)) do
     -- A track inside a frozen group thaws that group.
@@ -281,9 +310,21 @@ paw.command("unfreeze", function(ctx)
   end
   paw.notify("unfrozen: " .. table.concat(done, ", "))
 end, {
-  desc = "Play a frozen track's clips and devices again: `unfreeze`, `unfreeze Strings`",
+  desc = "Play a frozen track's clips and devices again, or the subproject of a frozen block at the cursor: `unfreeze`, `unfreeze Strings`",
   range = true,
   complete = track_names,
+})
+
+-- The status line: the subprojects with a frozen block that is stale. It
+-- looks again only after a change to the project.
+paw.statusline.component("frozen", {
+  rank = 5,
+  key = function() return api.project_get("edits") end,
+  fn = function()
+    local stale = freeze_block.stale()
+    if #stale == 0 then return nil end
+    return { { "stale: " .. table.concat(stale, ", "), "StatusWarn" } }
+  end,
 })
 
 return M

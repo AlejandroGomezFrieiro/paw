@@ -112,7 +112,8 @@ fn map_custom_files(clip: &mut Clip, f: &mut impl FnMut(&Path) -> Option<PathBuf
 }
 
 /// Change the file of every audio clip, of every other take of one, and of
-/// every frozen track (see `crate::freeze`), for which `f` gives a new one.
+/// every frozen track and block (see `crate::freeze`), for which `f` gives
+/// a new one.
 /// Returns how many clips and tracks changed.
 pub(super) fn map_files(
     project: &mut Project,
@@ -137,7 +138,8 @@ pub(super) fn map_files(
                     _ => None,
                 };
                 let others = take_files(c).any(|file| f(&file).is_some())
-                    || custom_files(c).iter().any(|(file, _)| f(file).is_some());
+                    || custom_files(c).iter().any(|(file, _)| f(file).is_some())
+                    || freeze::block_file(c).is_some_and(|file| f(&file).is_some());
                 (own, others)
             })
             .collect();
@@ -153,6 +155,7 @@ pub(super) fn map_files(
             if others {
                 map_take_files(clip, &mut f);
                 map_custom_files(clip, &mut f);
+                freeze::map_block_file(clip, &mut f);
             }
             if let Some(path) = path
                 && let ClipContent::Audio { file, .. } = &mut clip.content
@@ -167,7 +170,7 @@ pub(super) fn map_files(
 
 /// Every file the project's clips use, once each: the takes that are not
 /// playing included, the media and the audio sound of custom clips, and the
-/// files frozen tracks play.
+/// files frozen tracks and blocks play.
 pub fn files(project: &Project) -> BTreeSet<PathBuf> {
     project
         .all_tracks()
@@ -180,6 +183,7 @@ pub fn files(project: &Project) -> BTreeSet<PathBuf> {
             own.into_iter()
                 .chain(take_files(c))
                 .chain(custom_files(c).into_iter().map(|(file, _)| file))
+                .chain(freeze::block_file(c))
         })
         .chain(project.all_tracks().filter_map(|t| freeze::frozen_file(t)))
         .collect()

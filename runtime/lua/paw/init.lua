@@ -369,7 +369,9 @@ function K.startup()
   paw.render = require("paw.render")
   paw.render_stems, paw.render_tags, paw.render_ranges = paw.render.stems, paw.render.tags, paw.render.ranges
   paw.render_status, paw.render_cancel = paw.render.status, paw.render.cancel
-  -- Freezing tracks, and the scope of each window: a part of the song.
+  -- Freezing tracks and blocks of subprojects, and the scope of each
+  -- window: a part of the song.
+  paw.freeze_block = require("paw.freeze_block")
   paw.freeze = require("paw.freeze")
   paw.scope = require("paw.scope")
   paw.pick.sources:put("scopes", paw.scope.source)

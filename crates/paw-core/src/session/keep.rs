@@ -49,6 +49,7 @@ impl Session {
                     if let Some(ClipContent::Audio { file, .. }) = clip.playable() {
                         keep.insert(file.clone());
                     }
+                    keep.extend(crate::freeze::block_file(clip));
                 }
                 keep.extend(crate::freeze::frozen_file(track));
             }

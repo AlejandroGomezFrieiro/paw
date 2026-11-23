@@ -249,6 +249,7 @@ local default: Config = {
       "flags",
       "render",
       "derived",
+      "frozen",
       "diagnostics",
       "qf",
       "pointer",
