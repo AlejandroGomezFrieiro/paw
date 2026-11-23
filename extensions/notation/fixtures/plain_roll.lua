@@ -11,7 +11,7 @@ local ok, err = pcall(function()
   paw.cmd("open!", { os.getenv("PLAIN_IN") })
   paw.flush()
   local clip = paw.tracks()[1]:clips()[1]
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   roll:edit(clip)
   paw.ui.focus("pianoroll")
   paw.keymap.set_mode("n")

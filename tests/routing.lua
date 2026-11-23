@@ -272,7 +272,7 @@ test("the device panel and the window choose a device's side-chain", function()
   pad:add_device("delay")
   paw.cursor.set_track(pad)
   paw.ui.focus("devices")
-  paw.ui.views.devices.row = 1
+  paw.ui.views:get("devices").row = 1
   paw.commands.exec("device.sidechain Kick pre=1")
   eq(comp.sidechain .. " " .. tostring(comp.sidechain_pre), kick.id .. " true", ":device.sidechain sets it")
   paw.flush()
@@ -489,7 +489,7 @@ test("the window and the device panel route a kit's pairs", function()
   eq(next(kit.outputs), nil, "and Nowhere takes it away")
 
   paw.ui.focus("devices")
-  paw.ui.views.devices.row = 1
+  paw.ui.views:get("devices").row = 1
   paw.commands.exec("device.output 3 Snare")
   eq(kit.outputs["3"], paw.track("Snare").id, ":device.output routes a pair by number")
   paw.flush()

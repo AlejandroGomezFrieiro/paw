@@ -250,7 +250,7 @@ test("a view in a window shows a prompt on its last line, and keys answer it", f
   end
   eq(answer, "ab", "typed in the window")
   paw.canvas.close("viewwindow_asking")
-  paw.ui.views.viewwindow_asking = nil
+  paw.ui.views:remove("viewwindow_asking")
 end)
 
 test("g:mono draws a run of cells with a background, cut by whole cells", function()

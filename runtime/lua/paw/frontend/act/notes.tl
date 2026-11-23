@@ -237,7 +237,7 @@ function A.add_note(clip: integer, pitch: integer, start: number, length?: numbe
   if start >= c.length or c:note_at(pitch, start) then
     return
   end
-  local roll = paw.ui.views.pianoroll
+  local roll = host.roll()
   if not length or length <= 0 then
     length = roll:step_length()
   else
@@ -667,7 +667,7 @@ end
 --- The length a click on the grid gives a note: the piano roll's note
 --- length. 0 or nil for one grid step.
 function A.set_note_length(length?: number)
-  paw.ui.views.pianoroll:set_step(length and length > 0 and length or nil)
+  host.roll():set_step(length and length > 0 and length or nil)
 end
 
 --- The snap button: whether the pointer's notes land on the grid.

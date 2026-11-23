@@ -423,7 +423,7 @@ test(
   function()
     local view, clip = song(nil, 4)
     keys("icdef<Esc>")
-    local roll = paw.ui.views.pianoroll
+    local roll = paw.ui.views:get("pianoroll")
     roll:edit(clip)
     local rollscore = require("notation.roll")
     local rows = {}

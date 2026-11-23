@@ -65,7 +65,7 @@ end
 
 --- The piano roll's view, its clip and cursor.
 function M.roll()
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   return roll, roll:clip()
 end
 

@@ -21,6 +21,7 @@ local A = require("paw.address")
 local derived = require("paw.derived")
 local tree = require("paw.query.tree")
 local commands = require("paw.commands")
+local registry = require("paw.registry")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type util = require("paw.util")
@@ -95,20 +96,37 @@ local record M
   type Mode = Mode
   type SearchOptions = SearchOptions
   type VimgrepOptions = VimgrepOptions
-  --- The sources, by name.
-  sources: {string: Source}
+  --- The sources by name, with the extension that added each one.
+  sources: registry.Registry<Source>
   --- The names of the sources, in the order they were added.
   order: {string}
 end
-M.sources = {}
 M.order = {}
+
+-- A new source goes last in `M.order`, and a source that goes leaves it.
+M.sources = registry.new(
+  "grep",
+  "grep sources",
+  {
+    changed = function(name: string, fn: Source)
+      for i = #M.order, 1, -1 do
+        if M.order[i] == name then
+          if fn then
+            return
+          end
+          table.remove(M.order, i)
+        end
+      end
+      if fn then
+        M.order[#M.order + 1] = name
+      end
+    end,
+  }
+)
 
 --- Add a source of text, or replace the one of that name.
 function M.source(name: string, fn: Source)
-  if not M.sources[name] then
-    M.order[#M.order + 1] = name
-  end
-  M.sources[name] = fn
+  M.sources:put(name, fn)
 end
 
 local function try<T, R>(fn: function(T): R, value: T): R
@@ -372,7 +390,7 @@ local function collect(found: function(Found))
   end
   all_now = nil
   for _, name in ipairs(M.order) do
-    local ok, err = pcall(function(): string M.sources[name](add) end)
+    local ok, err = pcall(function(): string M.sources:get(name)(add) end)
     if not ok then
       api.log("grep: " .. name .. ": " .. tostring(err))
     end

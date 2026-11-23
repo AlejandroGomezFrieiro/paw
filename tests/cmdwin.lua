@@ -24,7 +24,7 @@ local function start()
   said = {}
   paw.command("test.say", function(ctx) said[#said + 1] = table.concat(ctx.args, " ") end, { desc = "test" })
   T.after(function()
-    paw.commands.put("test.say", nil)
+    paw.commands.specs:remove("test.say")
     for name, lines in pairs(kept) do
       cmdline.set_history(name, lines)
     end

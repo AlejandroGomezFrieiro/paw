@@ -295,7 +295,7 @@ end)
 
 test("sections: drawn on the ruler", function()
   local S = song()
-  local arrange = paw.ui.views.arrange
+  local arrange = paw.ui.views:get("arrange")
   local lines = api.ui_snapshot(100, 30)
   -- The ruler's second row, under the bars.
   local ruler = lines[2]
@@ -316,7 +316,7 @@ end)
 
 test("sections: a click on a section in the ruler's second row goes to its start, from either frontend", function()
   local S = song()
-  local arrange = paw.ui.views.arrange
+  local arrange = paw.ui.views:get("arrange")
   api.ui_snapshot(100, 30)
   arrange.scroll = 0
   api.ui_snapshot(100, 30)

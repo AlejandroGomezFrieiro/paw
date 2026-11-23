@@ -4,7 +4,7 @@ local api = paw.api
 local command = paw.command
 local cursor = paw.cursor
 local keymap, edit = paw.keymap, paw.edit
-local roll = paw.ui.views.pianoroll
+local roll = paw.ui.views:get("pianoroll")
 local common = require("paw.defaults.common")
 local need_track, need_clip, plain_folder = common.need_track, common.need_clip, common.plain_folder
 
@@ -814,7 +814,7 @@ command("clip.edit", function()
   for _, opener in ipairs(paw.frontend.openers) do
     if opener(clip) then return end
   end
-  paw.ui.views.pianoroll:edit(clip)
+  paw.ui.views:get("pianoroll"):edit(clip)
 end, {
   desc = "Open the clip in its editor: the piano roll, or one an extension has for it; a subproject's clip enters the subproject",
 })

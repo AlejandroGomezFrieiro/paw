@@ -293,7 +293,7 @@ local function open_clips(): {integer}
   end
   each_seat(
     function()
-      local view = paw.ui.views.pianoroll as PianoRoll
+      local view = paw.ui.views:get("pianoroll") as PianoRoll
       add(view and view.clip_id)
       for _, id in ipairs(paw.roll_clips and paw.roll_clips.ids() or {}) do
         add(id)

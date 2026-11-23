@@ -250,7 +250,7 @@ function M.open_clip(path: string): Untyped, types.Midi2Clip
   (paw.cursor as Cursor).beat = 0
   -- `project_new` above says `project.loaded` later: this clip stays open.
   M.document.opening = true
-  pcall(paw.ui.views.pianoroll.edit, paw.ui.views.pianoroll, clip)
+  pcall(paw.ui.views:get("pianoroll").edit, paw.ui.views:get("pianoroll"), clip)
   return clip, read
 end
 

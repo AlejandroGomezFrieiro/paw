@@ -77,5 +77,5 @@ the chips, the small pictures in clips, the ruler and grid of a roll, and
 curves.
 `paw.ui.titlebar(buf, opts)` draws the title bar of a panel. An extension
 draws on the timeline of the arrange view through
-`paw.ui.views.arrange.layers`, and adds a second ruler row through
-`paw.ui.views.arrange.ruler2`. See [the Lua API](api.md).
+`paw.ui.views:get("arrange").layers`, and adds a second ruler row through
+`paw.ui.views:get("arrange").ruler2`. See [the Lua API](api.md).

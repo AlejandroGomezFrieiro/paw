@@ -5,7 +5,7 @@ local T = ...
 local eq, fresh, melody = T.eq, T.fresh, T.melody
 local api = paw.api
 local draw = paw.roll_draw
-local roll = paw.ui.views.pianoroll
+local roll = paw.ui.views:get("pianoroll")
 
 local function test(name, fn)
   T.test(name, function()

@@ -25,6 +25,7 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
+local type registry = require("paw.registry")
 local seats = require("paw.seats")
 local limit = require("paw.limit")
 local options = require("paw.options")
@@ -86,7 +87,7 @@ local type Overlay = function(e: MouseEvent): boolean
 -- The parts of paw/ui.tl and paw/canvas.tl that this module calls: those
 -- modules name this one's types, so this one cannot name theirs.
 local record Ui
-  views: {string: View}
+  views: registry.Registry<View>
   rects: layout.Arrangement
   pressed: string
 end
@@ -324,7 +325,7 @@ function M.to_surface(target: contracts.ScreenRect, event: MouseEvent): boolean
       surface = s
     end
   end
-  local view = surface and paw.ui.views[surface.name]
+  local view = surface and paw.ui.views:get(surface.name)
   if not (view and (view.pointer or view.hits)) then
     state.surface = nil
     return false

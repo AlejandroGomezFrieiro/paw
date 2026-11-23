@@ -94,7 +94,7 @@ test("a view that is all pixels says so, and the window's views keep cells", fun
     render = function(_, buf) buf:text(0, 0, "never", "Normal") end,
     paint = function(_, g, ctx) g:rect(0, 0, ctx.width, ctx.height, { fill = "#000000" }) end,
   })
-  after(function() paw.ui.views.surface_whole = nil end)
+  after(function() paw.ui.views:remove("surface_whole") end)
   paw.ui.open("surface_whole", { width = 20, height = 6 })
   local lines = api.ui_snapshot(W, H)
   local s = paw.ui.rects.surfaces[1]
@@ -193,7 +193,7 @@ test("a drawing marks glyphs, barlines and layers for the frontend to make into 
       part:glyph(500, 40, 32, 0xE0A4)
     end,
   })
-  after(function() paw.ui.views.surface_marks = nil end)
+  after(function() paw.ui.views:remove("surface_marks") end)
   local window_cell = paw.canvas.cell
   local ops =
     paw.canvas.paint("surface_marks", 400, 200, { surface = true, glyphs = true, cell = { w = 11, h = 23 } }).ops

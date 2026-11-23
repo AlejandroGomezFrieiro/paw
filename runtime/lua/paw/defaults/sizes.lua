@@ -77,7 +77,7 @@ command("view.width", function(ctx)
   if not arrange_alone() and paw.layout.resize(nil, "width", by, true) then return end
   local now = tonumber(paw.opt.header_width)
   -- The headers' own width, without the track column at their left.
-  local g = paw.ui.views.arrange.geometry
+  local g = paw.ui.views:get("arrange").geometry
   if not now then now = g and g.hw - g.layout.column.width or 24 end
   paw.opt.header_width = util.clamp(now + by, 8, 60)
   paw.notify("header width " .. paw.opt.header_width)

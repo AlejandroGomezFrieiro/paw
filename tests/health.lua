@@ -5,7 +5,7 @@ local test, eq = T.test, T.eq
 
 local function pager_text()
   local out = {}
-  for _, line in ipairs(paw.ui.views.pager.lines) do
+  for _, line in ipairs(paw.ui.views:get("pager").lines) do
     out[#out + 1] = line.text
   end
   return table.concat(out, "\n")

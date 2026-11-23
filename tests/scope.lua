@@ -399,7 +399,7 @@ test("K in a region scope, with no clip under the cursor: its path, its bars and
   keys("znar")
   keys("K")
   local lines = {}
-  for _, line in ipairs(paw.ui.views.pager.lines) do
+  for _, line in ipairs(paw.ui.views:get("pager").lines) do
     lines[#lines + 1] = line.text
   end
   local text = table.concat(lines, "\n")
@@ -594,9 +594,9 @@ test("the piano roll opened in a scope shows the scope's clips, and $ stops at i
   end
   eq(tracks.Cellos and not tracks.Horns and not tracks.Drums, true, "behind its notes: the cellos, not the rest")
   keys("$")
-  eq(clip.start + paw.ui.views.pianoroll.beat, to, "$ stops at the scope's end")
+  eq(clip.start + paw.ui.views:get("pianoroll").beat, to, "$ stops at the scope's end")
   keys("0")
-  eq(clip.start + paw.ui.views.pianoroll.beat >= from, true, "0 stays in it")
+  eq(clip.start + paw.ui.views:get("pianoroll").beat >= from, true, "0 stays in it")
   reset()
 end)
 
@@ -753,7 +753,7 @@ end)
 local function info()
   keys("K")
   local said = {}
-  for _, line in ipairs(paw.ui.views.pager.lines) do
+  for _, line in ipairs(paw.ui.views:get("pager").lines) do
     said[#said + 1] = line.text
   end
   paw.ui.close()

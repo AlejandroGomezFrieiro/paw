@@ -30,7 +30,6 @@ end
 
 -- No module requires this one, so it sees the global `paw` with its types.
 local A = paw.address
-local views = paw.ui.views
 
 local function rows(): {integer: integer}
   local out: {integer: integer} = {}
@@ -47,7 +46,7 @@ local function time_of(location: Location): number
 end
 
 -- The piano roll: notes and stretches of its clip.
-local roll = views.pianoroll as PianoRoll
+local roll = paw.ui.views:get("pianoroll") as PianoRoll
 paw.ui.locator(
   "pianoroll",
   {
@@ -179,7 +178,7 @@ paw.ui.locator(
 )
 
 -- The device panel: the devices of the cursor's track and their parameters.
-local devices = views.devices as Devices
+local devices = paw.ui.views:get("devices") as Devices
 local function device_row(device: integer, param: string): integer
   for i, row in ipairs(devices:rows()) do
     if

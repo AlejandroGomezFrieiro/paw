@@ -95,7 +95,7 @@ paw.ruler.add(
 
 -- The number of paw, with a sign on the counts --------------------------------
 
-local found: Label = paw.ruler.labels.number
+local found: Label = paw.ruler.labels:get("number")
 if found then
   local base = found.render
   paw.ruler.set(

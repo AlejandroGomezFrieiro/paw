@@ -1879,7 +1879,7 @@ function M.topic_of(view: string): string
   if view == "textbuf" and is_help(textbuf.buf() as contracts.LayoutBuffer) then
     return "help"
   end
-  local v = paw.ui.views[view]
+  local v = paw.ui.views:get(view)
   if v and v.help then
     return v.help
   end

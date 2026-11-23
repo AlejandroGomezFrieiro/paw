@@ -138,7 +138,7 @@ test("Escape cancels and stays in every view", function()
     paw.ui.focus("arrange")
   end
   stays("pianoroll", function()
-    paw.ui.views.pianoroll:edit(clip)
+    paw.ui.views:get("pianoroll"):edit(clip)
     paw.ui.focus("pianoroll")
   end)
   stays("mixer", function()
@@ -172,7 +172,7 @@ local function mixer(tracks)
   paw.cursor.set_track(out[1])
   paw.ui.show("mixer")
   paw.ui.focus("mixer")
-  paw.ui.views.mixer.row = "volume"
+  paw.ui.views:get("mixer").row = "volume"
   return unpack(out)
 end
 
@@ -248,12 +248,12 @@ local function panel()
   paw.cursor.set_track(t)
   paw.ui.show("devices")
   paw.ui.focus("devices")
-  paw.ui.views.devices.row = 1
+  paw.ui.views:get("devices").row = 1
   return t, synth, delay
 end
 
 local function param_row(device, key)
-  for i, row in ipairs(paw.ui.views.devices:rows()) do
+  for i, row in ipairs(paw.ui.views:get("devices"):rows()) do
     if row.param and row.device.id == device.id and row.param.key == key then return i end
   end
 end
@@ -261,7 +261,7 @@ end
 test("in the device panel w b go from device to device, + - change a parameter, gc bypasses, M r the track", function()
   local t, synth, delay = panel()
   keys("w")
-  local device, row = paw.ui.views.devices:selected()
+  local device, row = paw.ui.views:get("devices"):selected()
   eq(device.id == delay.id and not row.param, true, "w is the next device's heading")
   keys("gcc")
   eq(api.device_get(delay.id).bypass, true, "gcc bypasses it")
@@ -272,8 +272,8 @@ test("in the device panel w b go from device to device, + - change a parameter, 
     "M r mute and arm the panel's track, as wherever there is a track"
   )
   keys("b")
-  eq(paw.ui.views.devices.row, 1, "b is the device before")
-  paw.ui.views.devices.row = param_row(synth, "cutoff")
+  eq(paw.ui.views:get("devices").row, 1, "b is the device before")
+  paw.ui.views:get("devices").row = param_row(synth, "cutoff")
   local before = api.device_get(synth.id).params.cutoff
   keys("5<C-a>")
   local after = api.device_get(synth.id).params.cutoff
@@ -287,7 +287,7 @@ test("in the device panel w b go from device to device, + - change a parameter, 
     1e-3,
     "dd on a parameter puts it back at its default"
   )
-  paw.ui.views.devices.row = 1
+  paw.ui.views:get("devices").row = 1
   paw.ui.hide("devices")
 end)
 
@@ -295,11 +295,11 @@ test("in the device panel y p copy a device's settings onto another", function()
   local t, synth = panel()
   local other = t:add_device("synth")
   api.undo_checkpoint()
-  paw.ui.views.devices.row = param_row(synth, "cutoff")
+  paw.ui.views:get("devices").row = param_row(synth, "cutoff")
   keys("10+")
   keys("yy")
   eq(keymap.getreg().kind, "params", "yy on a parameter yanks its setting")
-  paw.ui.views.devices.row = param_row(other, "cutoff")
+  paw.ui.views:get("devices").row = param_row(other, "cutoff")
   keys("p")
   near(
     api.device_get(other.id).params.cutoff,
@@ -308,7 +308,7 @@ test("in the device panel y p copy a device's settings onto another", function()
     "p puts it on the device under the cursor"
   )
   eq(#t:devices(), 3, "no device was added")
-  paw.ui.views.devices.row = 1
+  paw.ui.views:get("devices").row = 1
   paw.ui.hide("devices")
 end)
 
@@ -326,7 +326,7 @@ test(
       notes = { { pitch = 60, start = 0, length = 1 }, { pitch = 60, start = 2, length = 1 } },
     })
     api.undo_checkpoint()
-    local roll = paw.ui.views.pianoroll
+    local roll = paw.ui.views:get("pianoroll")
     roll:edit(clip)
     paw.ui.focus("pianoroll")
     roll:set(60, 0)

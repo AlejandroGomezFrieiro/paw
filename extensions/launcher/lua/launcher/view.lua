@@ -226,7 +226,7 @@ function act.open(track, row)
   act.choose(track, row)
   local clip = launcher.clip(track, row)
   local id = clip and clip.id or launcher.new_clip(track, row)
-  if not clip or clip.kind == "midi" then paw.ui.views.pianoroll:edit(paw.clip(id)) end
+  if not clip or clip.kind == "midi" then paw.ui.views:get("pianoroll"):edit(paw.clip(id)) end
   return id
 end
 
