@@ -334,7 +334,7 @@ impl Engine {
 
     /// See [`Msg::StatesHeld`].
     fn states_held(&mut self) {
-        let beat = self.head.beat();
+        let beat = self.position;
         for t in self.tracks.iter_mut() {
             if let Some(t) = t.get_mut().as_deref_mut() {
                 for lane in t.automation.states.iter_mut() {
@@ -369,7 +369,7 @@ impl Engine {
     // The box is the message's: it goes back to be freed whole, not here.
     #[allow(clippy::box_collection)]
     fn launch(&mut self, launches: Box<Vec<Launch>>) {
-        let (position, playing) = (self.head.beat(), self.playing);
+        let (position, playing) = (self.position, self.playing);
         if let Some(map) = self.map.take() {
             for launch in launches.iter() {
                 // Stopped, there is no beat to wait for.
@@ -392,9 +392,6 @@ impl Engine {
 /// The transport, the tempo, the loop and the click.
 impl Engine {
     fn set_tempo_map(&mut self, map: Box<TempoMap>) {
-        // The frames played so far count in the old map's time: the new
-        // one counts from the beat the song is on.
-        self.head.put(self.head.beat());
         if let Some(old) = self.map.replace(map) {
             self.discard(Garbage::TempoMap(old));
         }
@@ -461,12 +458,12 @@ impl Engine {
     }
 
     fn seek(&mut self, position: f64) {
-        self.head.put(position.max(0.0));
+        self.position = position.max(0.0);
         self.flush_notes = true;
         self.chase = true;
         self.reapply = true;
         self.seeks = self.seeks.wrapping_add(1);
-        self.requantize(self.head.beat());
+        self.requantize(self.position);
     }
 }
 
@@ -499,7 +496,7 @@ impl Engine {
 
     fn set_take(&mut self, take: Option<Box<Take>>) {
         if let Some(old) = std::mem::replace(&mut self.take, take) {
-            old.shared.close(self.head.beat());
+            old.shared.close(self.position);
             self.discard(Garbage::Take(old));
         }
     }

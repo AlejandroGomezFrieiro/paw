@@ -9,7 +9,6 @@ use crate::slot::TrackSlot;
 use crate::tempo::TempoMap;
 
 use super::click::{CLICK_FRAMES, Count};
-use super::clock::Clock;
 use super::device_rt::DeviceRt;
 use super::guarded::Guarded;
 use super::msg::Garbage;
@@ -35,6 +34,62 @@ impl Cut {
         if frames > 0 && frames < self.n {
             self.n = frames;
             self.wrap = false;
+        }
+    }
+}
+
+/// Beats and frames from the start of a block, while playing.
+struct Clock<'a> {
+    map: &'a TempoMap,
+    start: f64,
+    /// Seconds at `start`.
+    t0: f64,
+    sample_rate: f64,
+    /// One tempo throughout: beats per frame, as plain arithmetic.
+    bpf: Option<f64>,
+}
+
+impl<'a> Clock<'a> {
+    fn new(map: &'a TempoMap, start: f64, sample_rate: f64) -> Self {
+        Self {
+            map,
+            start,
+            t0: map.seconds(start),
+            sample_rate,
+            bpf: map
+                .is_constant()
+                .then(|| map.first_tempo() / (60.0 * sample_rate)),
+        }
+    }
+
+    /// Frames from the start to `beat`, not rounded.
+    fn frames(&self, beat: f64) -> f64 {
+        match self.bpf {
+            Some(bpf) => (beat - self.start) / bpf,
+            None => (self.map.seconds(beat) - self.t0) * self.sample_rate,
+        }
+    }
+
+    /// The first frame at or after `beat`.
+    fn frames_to(&self, beat: f64) -> usize {
+        self.frames(beat).ceil() as usize
+    }
+
+    /// The frame `beat` is on: a point a rounding error off a frame is on it.
+    fn frames_on(&self, beat: f64) -> usize {
+        let x = self.frames(beat);
+        if (x - x.round()).abs() < 1e-6 {
+            x.round() as usize
+        } else {
+            x.ceil() as usize
+        }
+    }
+
+    /// The beat `n` frames after the start.
+    fn beat_after(&self, n: usize) -> f64 {
+        match self.bpf {
+            Some(bpf) => self.start + n as f64 * bpf,
+            None => self.map.beat(self.t0 + n as f64 / self.sample_rate),
         }
     }
 }
@@ -140,7 +195,7 @@ impl Engine {
         if let Some(count) = self.count.as_ref().filter(|c| !c.started) {
             n = n.min((count.frames - count.elapsed) as usize);
         }
-        let start = self.head.beat();
+        let start = self.position;
         let mut cut = Cut {
             start,
             n,
@@ -155,7 +210,7 @@ impl Engine {
         let Some(map) = self.map.as_deref().filter(|_| self.playing) else {
             return cut;
         };
-        let clock = Clock::new(map, &self.head, self.sample_rate);
+        let clock = Clock::new(map, start, self.sample_rate);
         if self.loop_enabled && start < self.loop_end {
             let to_loop_end = clock.frames_to(self.loop_end);
             if to_loop_end <= cut.n {
@@ -219,11 +274,7 @@ impl Engine {
             let _ = take.wraps.push(take.frames);
         }
         if self.playing {
-            if wrap {
-                self.head.put(self.loop_start);
-            } else {
-                self.head.advance(cut.n, cut.end);
-            }
+            self.position = if wrap { self.loop_start } else { cut.end };
             self.flush_notes |= wrap;
             self.chase |= wrap;
             if wrap {
@@ -234,7 +285,7 @@ impl Engine {
 
     /// Tell the main thread where the transport is, after a callback.
     fn publish_transport(&self) {
-        self.shared.position.store(self.head.beat(), Relaxed);
+        self.shared.position.store(self.position, Relaxed);
         self.shared.playing.store(self.playing, Relaxed);
         self.shared
             .counting
@@ -338,7 +389,6 @@ impl Engine {
             end,
             map,
             bpf: map.is_constant().then(|| map.first_tempo() / (60.0 * sr)),
-            clock: Clock::new(map, &self.head, sr),
             flush,
             chase: playing && std::mem::take(&mut self.chase),
             reapply: playing && std::mem::take(&mut self.reapply),
