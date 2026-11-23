@@ -2,7 +2,7 @@
 //! of its blocks is under way. The plugin takes a state on at the start of
 //! a block, as Surge XT does: the block under way does not take it, and the
 //! host reads the plugin's values back only after the next block.
-//! (TASK-191: the host read them after the block under way, found the old
+//! (the host read them after the block under way, found the old
 //! values, and never read them again.)
 
 use paw_engine::device::{Change, Instance};

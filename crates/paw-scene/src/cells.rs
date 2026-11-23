@@ -390,7 +390,7 @@ mod tests {
         assert_eq!(cells.cells.iter().map(|c| c.ch).collect::<Vec<_>>(), vec!['界', '\0', ' ', ' ']);
     }
 
-    // Found while writing the fuzz target `remote` (TASK-159): a far
+    // Found while writing the fuzz target `remote`: a far
     // terminal is sent text at any column, and a column past the largest
     // i32 overflowed.
     #[test]

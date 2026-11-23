@@ -10,10 +10,11 @@ to part 3 of `paw-code` and to the rules for tests in `rust-skills`. The
 skill `prune-tests` tells which tests to delete. For the Lua tests, use
 `lua-testing`.
 
-Two designs in `backlog/docs/designs/` are the source of this skill.
-One is the review of the test suite (the rules for time). The other is
-the research on the practices of other projects. The milestone m-12
-builds the parts that are marked "planned" here. Do not use a planned part before its ticket is done.
+Two designs are the source of this skill. One is a review of the test
+suite (the rules for time). The other is research on the practices of
+other projects.
+Some parts here are marked "planned". Do not use a planned part before
+it exists.
 
 ## 1. Choose the seam first
 
@@ -48,7 +49,7 @@ no real time passes.
   file of its area that is there already. Do not add a file for one test.
 - One integration-test binary for each crate is the goal
   (`tests/it/main.rs` with a module for each area). `paw-engine` moves
-  first (planned, TASK-154). Keep `no_alloc.rs` as its own binary: it
+  first (planned). Keep `no_alloc.rs` as its own binary: it
   sets a global allocator for its process.
 - A helper that two files use is a module of the test binary, not a
   copy in each file.
@@ -201,7 +202,7 @@ Rules:
   in `crates/paw-engine/tests/no_alloc.rs`. Do not use the crate
   `assert_no_alloc`: paw's own allocator marks the workers of the pool
   for good.
-- **Null tests (planned, TASK-153).** Where two ways to render must give
+- **Null tests (planned).** Where two ways to render must give
   the same sound, render both and compare sample by sample. Examples:
   blocks of 64 and of 512 frames; one thread and four; a clip moved and
   moved back; a bypassed device and no device. Use bit-exact equality
@@ -218,7 +219,7 @@ Rules:
 - At a boundary with the outside (a process, a socket, a device, a
   clock), make a small trait with two adapters: the real one and a fake
   that the test controls. Examples: the planned `Clock` trait with
-  `WallClock` and `ManualClock` (TASK-146), the `test` and `null` audio
+  `WallClock` and `ManualClock`, the `test` and `null` audio
   backends, the stub plugin `examples/stub_clap`.
 - One adapter is a seam on paper. Add the trait only when the fake is
   the second adapter.
@@ -322,8 +323,8 @@ sealed::seal(&mut paw, dir.path()).args(["--clean", "--audio", "null"]);
 - Library code does not read `HOME`, `USER` or a `*_PATH` variable
   itself. `main` resolves the folders and gives them as an argument. A
   unit test then gives a folder under its `TempDir`. paw-plugins still
-  reads `HOME`, `USER` and the plugin path variables itself (TASK-162
-  moves them to an argument).
+  reads `HOME`, `USER` and the plugin path variables itself (a later
+  change moves them to an argument).
 - Mock what is needed: the stub CLAP plugin (`examples/stub_clap`), a
   fake behind a trait, or a scratch folder. Never an installed plugin.
 - Run paw by hand only through `tests/tools/run.sh`. It uses the same
@@ -355,7 +356,7 @@ sealed::seal(&mut paw, dir.path()).args(["--clean", "--audio", "null"]);
   time is the stall guard of nextest (`slow-timeout` in
   `.config/nextest.toml`).
 - A test of `async` code (`#[tokio::test]`) has the same rules. The code takes
-  paw's `Clock` (TASK-146), not `tokio::time` directly, so the test
+  paw's `Clock`, not `tokio::time` directly, so the test
   advances a `ManualClock` and does not sleep.
 
 ## 12. Errors
@@ -417,7 +418,7 @@ a run out of memory is a failure:
   tolerance to make it pass.
 - If you cannot fix it now, quarantine it: `#[ignore = "quarantine:
   TASK-<n>"]`, a line in `tests/quarantine.txt`, and a ticket. The list
-  only gets shorter (TASK-145 adds the runner support).
+  only gets shorter.
 - Any other `#[ignore]` has a reason that names its ticket.
 
 ## 15. Commands
@@ -441,7 +442,7 @@ cargo check -p paw-fuzz                       # the fuzz targets compile (stable
 tools/fuzz.sh                                 # nightly tier, CI only: run each target
 ```
 
-The nightly tier (in CI only, TASK-145 and TASK-42) runs the property
+The nightly tier (in CI only) runs the property
 tests with more cases and a new seed each night:
 
 ```sh

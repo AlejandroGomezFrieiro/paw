@@ -3,7 +3,7 @@
 -- in which a cycle ends pays for its last steps (the atomic step and the
 -- sweep, several milliseconds on a large project). The slow callback that
 -- `paw.opt.budget_ms` then names is an event handler or a frame that did
--- not cause the work (bench/RESULTS.md, TASK-116 and TASK-163).
+-- not cause the work (bench/RESULTS.md).
 --
 -- So each cycle runs between keys, as the job `collector` of paw.slices:
 -- after a turn in which the heap grew to `grow` times its size after the

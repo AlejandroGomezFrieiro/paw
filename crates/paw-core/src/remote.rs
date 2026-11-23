@@ -431,7 +431,7 @@ mod tests {
         assert!(far.surfaces.is_empty(), "gone when not sent");
     }
 
-    // Found while writing the fuzz target `remote` (TASK-159): a size of
+    // Found while writing the fuzz target `remote`: a size of
     // billions of cells, or sums past the largest i32, panicked or ran out
     // of memory.
     #[test]

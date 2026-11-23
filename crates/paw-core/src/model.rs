@@ -1001,7 +1001,7 @@ fn unnamed(id: &u64) -> bool {
 /// controller moves go, and the longest a clip is, in beats: about 139 hours
 /// at 120 BPM. A clip file writes a gap as one 4-byte Delta Clockstamp for
 /// each 17 beats, so in this range the file of a clip holds at most about
-/// 120 000 clockstamps, and its ticks are far from an overflow (TASK-173).
+/// 120 000 clockstamps, and its ticks are far from an overflow.
 pub const MAX_BEATS: f64 = 1e6;
 
 /// Whether `beat` is a time that a clip holds: a number within
