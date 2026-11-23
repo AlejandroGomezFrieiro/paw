@@ -1509,6 +1509,7 @@ function view:render(buf, ctx)
   local last = self:beat(tw)
   -- What this window shows, in the song's beats, comes first: the chord
   -- reading there, and the bakes of the stretched clips there.
+  local origin = paw.time.origin()
   local shown = { 0 }
   for _, row in ipairs(L.rows) do
     if row.kind == "track" then shown[#shown + 1] = row.id end
