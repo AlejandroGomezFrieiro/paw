@@ -35,7 +35,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // @return {integer}
         fn track_list(lua, sh, opts => LuaValue) {
             let opts: crate::session::TrackListOpts = options(lua, opts)?;
-            Ok(sh.session.borrow().track_ids(&opts))
+            Ok(sh.session.borrow().doc.track_ids(&opts))
         }
         // A track as a table. With `key`, only that entry of the table: this
         // is quicker, because the table lists each clip of the track.
@@ -43,18 +43,18 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         fn track_get(lua, sh, (id, key) => (Id, Option<String>)) {
             let session = sh.session.borrow();
             match key {
-                Some(key) => to_lua(lua, &session.track_field(id, &key).lua()?),
-                None => to_lua(lua, &session.track_view(id).lua()?),
+                Some(key) => to_lua(lua, &session.doc.track_field(id, &key).lua()?),
+                None => to_lua(lua, &session.doc.track_view(id).lua()?),
             }
         }
         // @return integer
         // @param opts? types.TrackOptions
-        fn track_add(lua, sh, opts => LuaValue) { sh.session.borrow_mut().track_add(options(lua, opts)?).lua() }
+        fn track_add(lua, sh, opts => LuaValue) { sh.session.borrow_mut().doc.track_add(options(lua, opts)?).lua() }
         // @return nil
-        fn track_remove(_, sh, id => Id) { sh.session.borrow_mut().track_remove(id).lua() }
+        fn track_remove(_, sh, id => Id) { sh.session.borrow_mut().doc.track_remove(id).lua() }
         // @return nil
         fn track_move(_, sh, (id, index) => (Id, usize)) {
-            sh.session.borrow_mut().track_move(id, index.saturating_sub(1)).lua()
+            sh.session.borrow_mut().doc.track_move(id, index.saturating_sub(1)).lua()
         }
         // Change a track: a table of the entries to change, as `track_get`
         // gives them (`{ name = "Bass", volume = -6 }`), or one `key` and its

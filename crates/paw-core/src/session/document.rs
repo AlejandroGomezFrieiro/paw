@@ -19,6 +19,9 @@ use crate::history::{self, History, StateId};
 use crate::model::{Clip, ClipContent, ClipKindId, DeviceInst, Id, Links, MASTER_ID, Project, Track};
 use crate::sync::ModelEvent;
 
+mod tracks;
+pub use tracks::ControlMove;
+
 /// The project, its undo tree, and what its edits report.
 pub struct Document {
     pub project: Project,

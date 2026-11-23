@@ -21,13 +21,13 @@ use serde_json::{Map, Value, json};
 
 use crate::history::{self, History};
 use crate::model::{
-    check_clip_beat, check_notes, Clip, ClipContent, ClipKindId, Control, CustomContent, DeviceInst, KindData, MediaRef, Signal, Timeline, Id, Lane, LaneState, MASTER_ID, MidiInput, NestPlay, Note, NoteAttr, Notes, Project, Segment,
-    Send, Shape, Sound, StretchMode, Target, Timebase, Track, WarpMarker, InputChannels,
+    check_clip_beat, check_notes, Clip, ClipContent, ClipKindId, Control, CustomContent, DeviceInst, KindData, MediaRef, Signal, Timeline, Id, Lane, LaneState, MASTER_ID, NestPlay, Note, NoteAttr, Notes, Project, Segment,
+    Shape, Sound, StretchMode, Target, Timebase, Track, WarpMarker,
 };
 use crate::sync::{AudioCache, Follow, LiveDevices, Mapper, SyncCtx, sync};
 
 mod document;
-pub use document::Document;
+pub use document::{ControlMove, Document};
 mod editing;
 mod project;
 mod tracks;

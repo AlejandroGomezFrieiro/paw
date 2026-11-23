@@ -118,7 +118,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // Returns how many tracks and how many chains.
         // @return integer, integer
         fn track_collect(_, sh, () => ()) {
-            Ok(sh.session.borrow_mut().track_collect())
+            Ok(sh.session.borrow_mut().doc.track_collect())
         }
         // Add the track of a track folder outside the project (a folder with
         // a `track.json`) at `index` (from 1; the end when nil). The project

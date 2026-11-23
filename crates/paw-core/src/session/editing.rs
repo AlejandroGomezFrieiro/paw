@@ -82,40 +82,6 @@ impl Session {
         ids.len()
     }
 
-    /// Make every track read from a folder outside the project, and every
-    /// chain read from a file outside it, the project's own (`:collect`):
-    /// the next save writes them into its folder. Returns how many tracks
-    /// and how many chains. Run before `clip_collect`, which then takes
-    /// such a track's clips.
-    pub fn track_collect(&mut self) -> (usize, usize) {
-        let (mut tracks, mut chains) = (0, 0);
-        let ids: Vec<Id> = self.doc.project.tracks.iter().map(|t| t.id).collect();
-        for id in ids {
-            let Some(t) = self.doc.project.track(id) else {
-                continue;
-            };
-            if t.source.is_none() && t.chain_source.is_none() {
-                continue;
-            }
-            let Some(track) = self.doc.project.track_mut(id) else {
-                continue;
-            };
-            if track.source.is_some() {
-                track.origin = track.source.take();
-                tracks += 1;
-            }
-            if track.chain_source.is_some() {
-                track.chain_origin = track.chain_source.take();
-                chains += 1;
-            }
-        }
-        if tracks + chains > 0 {
-            self.doc.undo.touched = true;
-            self.doc.dirty = true;
-        }
-        (tracks, chains)
-    }
-
     pub fn undo(&mut self) -> bool {
         self.move_in_history(History::undo).is_some()
     }
