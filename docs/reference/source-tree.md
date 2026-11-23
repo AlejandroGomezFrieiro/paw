@@ -17,7 +17,7 @@ give the rules for a change.
 | `runtime/lua/paw/*.tl` | The modules of the runtime written in Teal. The build compiles them to Lua. `types.tl` holds the records of the data that crosses `paw.api`. |
 | `runtime/lua/tl.lua` | The compiler of Teal, version 0.24.8 (MIT license, `tl.LICENSE`). |
 | `runtime/types/` | `paw.lua`, the type definitions of the `paw` module for LuaLS. `paw.d.tl` and `paw/api.d.tl`, the declarations of `paw` and `paw.api` for Teal. `paw/untyped.d.tl`, the type that a module of the runtime in Teal gives to the parts of `paw` that are still Lua. `any-allowed.txt`, each `any` that they can have, with the reason. `tools/apidoc.lua` makes them. |
-| `tlconfig.lua` | The configuration of Teal for `cyan check`, `tl check` and the language server of Teal. |
+| `tlconfig.lua` | The configuration of Teal for `tools/tlcheck.sh`, `cyan`, `tl check` and the language server of Teal. |
 | `.luacheckrc` | The configuration of `luacheck`, which checks the Lua files: LuaJIT, the global `paw`, the warnings that paw does not use. |
 | `stylua.toml`, `.styluaignore` | The settings of StyLua, the formatter of Lua. `tools/fmtcheck.sh` checks that each Lua file is formatted with it. |
 | `.luarc.json` | The configuration of the language server of Lua (LuaLS): LuaJIT, the global `paw` and `runtime/types`. |
@@ -28,7 +28,7 @@ give the rules for a change.
 | `tests/` | The Lua suite: the runner `tests/suite.lua`, the tests of the core in `tests/<area>.lua`, the guides' tests in `tests/guides*.lua`, the known leaks of state in `tests/leaks-allowed.txt`, and files for the tests in `tests/fixtures/`. |
 | `tests/e2e/` | The end-to-end scenarios: the test driver, the reference model, the scenarios and their golden files. See [About the end-to-end scenarios](../explanation/about-the-e2e-tests.md). |
 | `tests/tools/` | The scripts that run the tests: `suite.sh` (the Lua suite), `gui.sh`, `live.sh`, `loaded.sh`, `e2e.sh` (the end-to-end scenarios). |
-| `tools/` | `apidoc.lua` (the API reference and the types), `tlcheck.sh` (`cyan check` on all the Teal files), `fmtcheck.sh` (checks that StyLua and cerulean formatted each file; `fix` formats them), `layers.lua` with `layers.txt` and `layers-allowed.txt` (checks that no module of the runtime reads a module of a higher layer), `vale.sh` (Vale on the docs), `vale-hook.sh`, `ste-check.lua`, `sweep.sh` (frees the disk that old builds use), `website/` (builds the manual as a static site with mdBook). |
+| `tools/` | `apidoc.lua` (the API reference and the types; the generator in Teal is in `apidoc/`), `tlcheck.sh` and `tlcheck.lua` (the strict check of all the Teal files), `fmtcheck.sh` (checks that StyLua and cerulean formatted each file; `fix` formats them), `layers.lua` with `layers.txt` and `layers-allowed.txt` (checks that no module of the runtime reads a module of a higher layer), `vale.sh` (Vale on the docs), `vale-hook.sh`, `ste-check.lua`, `sweep.sh` (frees the disk that old builds use), `website/` (builds the manual as a static site with mdBook). |
 | `web/browserpod/` | The pod image: paw in a BrowserPod pod, for a page of the docs. See [paw in a BrowserPod pod](../../web/browserpod/README.md). |
 | `bench/` | The benchmarks and the stress tests. See [bench/README.md](../../bench/README.md). |
 | `.vale/` | The project's Vale styles (STE) and its vocabulary. `.vale.ini` configures Vale. |

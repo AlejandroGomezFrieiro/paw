@@ -307,18 +307,29 @@
         mv $TMPDIR/out/site $out
       '';
 
-      # `cyan check` on every Teal file (tools/tlcheck.sh), with the Teal of
-      # nixpkgs: the version runtime/lua/tl.lua is (0.24.8).
-      tealCheck = pkgs: pkgs.runCommand "paw-teal-check" {
-        src = nixpkgs.lib.fileset.toSource {
-          root = ./.;
-          fileset = nixpkgs.lib.fileset.unions [ ./runtime ./config ./extensions ./tlconfig.lua ./tools/tlcheck.sh ];
-        };
-        nativeBuildInputs = [ (luaTools pkgs).cyan ];
+      # A check that runs paw on the source tree, as `paw --clean
+      # --no-plugins -l <script>`: the program of this commit, with a scratch
+      # home and scratch XDG folders. It needs no display, audio or plugin.
+      pawCheck = pkgs: name: script: pkgs.runCommand "paw-${name}" {
+        src = nixpkgs.lib.cleanSource ./.;
+        nativeBuildInputs = [ (rust pkgs).programs ];
       } ''
-        sh $src/tools/tlcheck.sh cyan
+        export HOME=$TMPDIR/home XDG_CACHE_HOME=$TMPDIR/cache XDG_CONFIG_HOME=$TMPDIR/config
+        export XDG_DATA_HOME=$TMPDIR/data XDG_STATE_HOME=$TMPDIR/state XDG_RUNTIME_DIR=$TMPDIR/run
+        mkdir -p $HOME $XDG_RUNTIME_DIR
+        cd $src
+        ${script}
         touch $out
       '';
+
+      # The strict check of every Teal file (tools/tlcheck.sh): paw.lang.check,
+      # the compiler in the program, as the test suite runs it.
+      tealCheck = pkgs: pawCheck pkgs "teal-check" "sh tools/tlcheck.sh paw";
+
+      # The API reference and the Teal declarations are up to date with the
+      # source, every public function has a doc comment, and no `any` is
+      # beyond its allow-list (tools/apidoc.lua check).
+      apidocCheck = pkgs: pawCheck pkgs "apidoc" "paw --clean --no-plugins -l tools/apidoc.lua check";
 
       # luacheck on every Lua file, with .luacheckrc: unused and undefined
       # names, values set and never read.
@@ -422,11 +433,12 @@
       } // browserpodPackages pkgs);
 
       # `nix flake check`: clippy, rustfmt, the Rust tests a sandbox can run,
-      # the program itself, Vale on the docs, the website with its link check, `cyan check` on the Teal,
+      # the program itself, Vale on the docs, the website with its link check, the strict check of the Teal,
+      # the API reference and the Teal declarations up to date (`apidoc check`),
       # luacheck on the Lua, how much the formatters would change, and the
       # check against tests that depend on time, and the order of layers in
       # the runtime.
-      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; lua = luaCheck pkgs; format = formatCheck pkgs; testlint = testLint pkgs; layers = layersCheck pkgs; website = website pkgs; });
+      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; apidoc = apidocCheck pkgs; lua = luaCheck pkgs; format = formatCheck pkgs; testlint = testLint pkgs; layers = layersCheck pkgs; website = website pkgs; });
 
       apps = forAll (pkgs:
         nixpkgs.lib.genAttrs [ "paw" "paw-gui" "paw-mcp" ] (name: {
@@ -491,7 +503,7 @@
           # private X server, a window manager, a pointer and key sender, and
           # tesseract to find words on a screenshot.
           # The Teal and Lua tools (docs/explanation/about-teal.md): `tl`
-          # (the version of runtime/lua/tl.lua), `cyan` (tools/tlcheck.sh),
+          # (the version of runtime/lua/tl.lua), `cyan` (tools/dev-runtime.sh),
           # the language servers of both, the formatters (`ceru` for Teal,
           # `stylua` for Lua) and `luacheck`; nix/lua-tools.nix has those
           # that nixpkgs has not, or has old.

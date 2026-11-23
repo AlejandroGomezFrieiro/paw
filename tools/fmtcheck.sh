@@ -13,7 +13,7 @@ cd "$(dirname "$0")/.." || exit 1
 # unknown keys: they are flags here.
 ceru_flags="--indent 2 --line-length 120 --no-sort-requires"
 teal_files() {
-  find runtime config extensions -name '*.tl' ! -path 'runtime/types/*' ! -path 'runtime/lua/paw/events/kernel.tl' \
+  find runtime config extensions tools -name '*.tl' ! -path 'runtime/types/*' ! -path 'runtime/lua/paw/events/kernel.tl' \
     ! -path 'runtime/lua/paw/limit.tl' ! -path 'runtime/lua/paw/pick.tl' ! -path 'runtime/lua/paw/ui.tl' | sort
 }
 if [ "$1" = "fix" ]; then

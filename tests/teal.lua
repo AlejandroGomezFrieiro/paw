@@ -13,26 +13,10 @@ local function write(path, text)
 end
 
 test("teal: every Teal file of the source tree passes a strict tl check", function()
-  local files = {}
-  local pipe = assert(io.popen("find runtime config extensions -name '*.tl' | sort"))
-  for line in pipe:lines() do
-    files[#files + 1] = line
-  end
-  pipe:close()
-  eq(#files > 5, true, "the runtime's modules in Teal are found")
-  -- A module of an extension finds the extension's other modules, as
-  -- tools/tlcheck.sh does: each extension's `lua/` is on the path.
-  local include = {}
-  pipe = assert(io.popen("find extensions -mindepth 2 -maxdepth 2 -type d -name lua | sort"))
-  for line in pipe:lines() do
-    include[#include + 1] = line
-  end
-  pipe:close()
-  local lines = {}
-  for _, e in ipairs(paw.lang.check(files, { include = include })) do
-    lines[#lines + 1] = string.format("%s:%d:%d: %s", e.file, e.line, e.col, e.msg)
-  end
-  eq(table.concat(lines, "\n"), "", "type errors")
+  -- The check of tools/tlcheck.sh and of the flake: the same files and rules.
+  local check = assert(loadfile("tools/tlcheck.lua"))("module")
+  eq(#check.files() > 5, true, "the Teal files are found")
+  eq(table.concat(check.problems(), "\n"), "", "type errors")
 end)
 
 test("teal: the checker finds a type error", function()
