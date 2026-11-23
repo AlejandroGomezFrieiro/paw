@@ -7,6 +7,58 @@ How to run everything: [README.md](README.md). Raw numbers:
 matrix before it). The processor time of the whole program while it plays,
 against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md).
 
+## 2026-11-23: the chord reading after :%quantize in Verse B (TASK-199)
+
+The key `:%quantize 1/4` in the region Verse B of the scenario `scope`
+(64 tracks, 4 one-bar clips of each track in the region), with `u` after
+each key. One binary of main (b48920a4) ran with the Lua of main
+("before") and of the branch ("after"), in turns, under the measure lock.
+All values were measured under external load (load average 6.6 to 14.8).
+
+The values that do not depend on the load, for one reading after the key
+(a probe in the kernel: `song.update()` after the key, the garbage
+collector stopped):
+
+| What | Before | After |
+| --- | --- | --- |
+| Track windows made again | 2 176 (64 × 34) | 2 048 (64 × 32) |
+| Bars of a track made again (for the key) | 384 (64 × 6) | 256 (64 × 4) |
+| Groups, mixes, windows made again | 256, 32, 32 | 256, 32, 32 |
+| Allocation | 2.0 MB (2.0 to 3.3) | 1.47 MB (1.46 to 2.4) |
+| Lua bytecodes, with the compiler off | 9.60 million | 8.79 million |
+
+The time of the same reading (wall clock, 40 keys, 3 runs each):
+medians 28.2, 31.8, 28.8 ms before (17.5 to 59.0) and 19.9, 26.7, 48.6 ms
+after (15.9 to 170.3; the load went to 14.8 in the last run). The whole key
+(`drive.py scope-keys --keys ':%quantize 1/4\r,u' --times 8`, cores 16 to 23,
+3 pairs): medians 132, 138, 130 ms before (94 to 208) and 141, 128, 121 ms
+after (80 to 221). The difference of the whole key is inside the spread: no
+measurable difference.
+
+What changed:
+
+- A window that only touches a changed clip at an edge is not made again.
+  Before, the window before the first moved note and the window after the
+  last one were made again on each track (2 of 34).
+- `paw.derived` keeps the span of each entry from its last make, so a
+  change of a track does not call `span` for each of the 280 entries that
+  read it. It uses the lists of entries read again, and it does not compare
+  the sources of an entry when the list is the same.
+- A track window reads the window length from its track and not from
+  `harmony.step`: 2 048 reads less after this key.
+- A track reads its mute and its clips as single fields, not the whole track
+  with its devices and lanes.
+
+What the ticket said and what the profile shows: the whole-song decode is
+not the cost. In the LuaJIT profile of 20 keys, `read.decode` and
+`read.key_path` take about 1 ms a reading together (0.4 ms each with a timer
+around them). About half of the reading is the bookkeeping of `paw.derived`
+for about 2 900 entries (`went_stale`, `link`, `ensure`, `settle`, `near`),
+and much of it runs in the interpreter, because the graph is recursive. The
+rest is `read.part` for the 2 048 windows and the 64 tracks made again.
+A decode that starts at the first changed window would save less than
+0.5 ms, so the branch does not do it.
+
 ## 2026-11-23: the group tree and the marks of groups in a frame (TASK-184)
 
 The scenario `scope` of `bench/profile/drive.py`, with the Lua of the
