@@ -1,0 +1,42 @@
+---
+source: crates/chain-lsp/tests/it/session.rs
+expression: client.open(BAD)
+---
+{
+  "diagnostics": [
+    {
+      "code": "E202",
+      "message": "no parameter `thresh`",
+      "range": {
+        "end": {
+          "character": 28,
+          "line": 1
+        },
+        "start": {
+          "character": 22,
+          "line": 1
+        }
+      },
+      "severity": 1,
+      "source": "chain"
+    },
+    {
+      "code": "E205",
+      "message": "`drive` goes from 0dB to 36dB, so `40dB` is out of range",
+      "range": {
+        "end": {
+          "character": 19,
+          "line": 2
+        },
+        "start": {
+          "character": 14,
+          "line": 2
+        }
+      },
+      "severity": 1,
+      "source": "chain"
+    }
+  ],
+  "uri": "file:///project/bus.chain",
+  "version": 1
+}

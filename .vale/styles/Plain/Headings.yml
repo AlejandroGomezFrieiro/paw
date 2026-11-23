@@ -48,6 +48,8 @@ exceptions:
   - Vorbis
   - Opus
   - AudioProcessorValueTreeState
-  - '(?i)(?:ara|articulations|columnplus|continue|doctor|drums|interop|launcher|luafx|midilsp|mixdiag|musicops|notation|pattern|plugstate|projdiff|rulerplus|sampler|sections|snippets|templates|tutor|undotree|utau|vinput)'
+  - '(?i)(?:ara|articulations|chainlsp|columnplus|continue|doctor|drums|interop|launcher|luafx|midilsp|mixdiag|musicops|notation|pattern|plugstate|projdiff|rulerplus|sampler|sections|snippets|templates|tutor|undotree|utau|vinput)'
   - 'paw(?:\.\w+)+'
   - 'paw-\w+'
+  # The programs of the chain language, which are not named paw-.
+  - 'chain-(?:lsp|syntax)'

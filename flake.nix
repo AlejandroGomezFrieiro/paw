@@ -198,6 +198,12 @@
                 --set-default PAW_HOME $out/share/paw \
                 --suffix PATH : ${pkgs.lib.makeBinPath [ pkgs.ffmpeg-headless pkgs.fontconfig.bin pkgs.curl ]}
             done
+            # The language server of the chain language (crates/chain-lsp)
+            # needs nothing of paw, so it has no wrapper. extensions/chainlsp
+            # finds it on the PATH.
+            if [ -e ${programs}/bin/chain-lsp ]; then
+              ln -s ${programs}/bin/chain-lsp $out/bin/chain-lsp
+            fi
           '';
           # The extensions as packages, and the program with some of them:
           # `paw.withExtensions (exts: [ exts.utau ])`.
@@ -368,9 +374,9 @@
         touch $out
       '';
 
-      # tools/chaindeps.lua: no crate of the chain language (crates/chain-*)
-      # depends on a crate of paw, so the language stays generic. It reads
-      # the manifests as text.
+      # tools/chaindeps.lua: no crate of the chain language (crates/chain-*:
+      # chain-syntax and chain-lsp) depends on a crate of paw, so the
+      # language and its server stay generic. It reads the manifests as text.
       chainDeps = pkgs: pkgs.runCommand "paw-chaindeps" {
         src = nixpkgs.lib.fileset.toSource {
           root = ./.;
@@ -429,6 +435,8 @@
         paw = only pkgs "paw";
         paw-gui = only pkgs "paw-gui";
         paw-mcp = only pkgs "paw-mcp";
+        # The language server of the chain language, for any editor.
+        chain-lsp = only pkgs "chain-lsp";
         paw-utau = pawUtau pkgs;
         utau-engine = (extensionsFor pkgs).utau.engine;
         # extensions/sampler's plugin and command, on their own.

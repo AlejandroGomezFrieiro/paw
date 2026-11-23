@@ -7,6 +7,7 @@ members = ["crates/*", "fuzz"]
 # (`fuzz/`, cargo-fuzz on nightly Rust): `cargo check -p paw-fuzz` checks
 # them on stable, and tools/fuzz.sh runs them.
 default-members = [
+  "crates/chain-lsp",
   "crates/chain-syntax",
   "crates/paw-core",
   "crates/paw-engine",

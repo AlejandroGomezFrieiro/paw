@@ -38,8 +38,8 @@ give the rules for a change.
 
 ## The crates
 
-Three crates have a README: [chain-syntax](../../crates/chain-syntax/README.md),
-[paw-gui](../../crates/paw-gui/README.md) and
+Four crates have a README: [chain-syntax](../../crates/chain-syntax/README.md),
+[chain-lsp](../../crates/chain-lsp/README.md), [paw-gui](../../crates/paw-gui/README.md) and
 [paw-mcp](../../crates/paw-mcp/README.md), and the table below describes the other
 crates.
 
@@ -57,7 +57,8 @@ crates.
 | `paw-tui` | The terminal frontend and the `paw` binary. |
 | `paw-gui` | The graphical frontend, written with egui. It is a client of the control socket. Its tests drive the window on a private X display. |
 | `paw-mcp` | A Model Context Protocol server in front of the control socket. |
-| `chain-syntax` | The [chain language](chain-language.md): it parses, prints, formats and checks a chain of devices as text. It depends on no other crate of paw, so a program that is not paw can use it. |
+| `chain-syntax` | The [chain language](chain-language.md): it parses, prints, formats and checks a chain of devices as text, and it finds the completions, the hover text and the definitions at a place in the text. It depends on no other crate of paw, so a program that is not paw can use it. |
+| `chain-lsp` | The language server of the chain language, the program `chain-lsp`. It depends on `chain-syntax` and on no crate of paw, so any editor and any host can use it. |
 
 ## Generated files
 

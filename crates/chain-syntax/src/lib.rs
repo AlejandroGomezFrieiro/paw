@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+mod assist;
 mod check;
 mod diagnostic;
 mod format;
@@ -13,6 +14,7 @@ mod value;
 #[cfg(test)]
 mod props;
 
+pub use assist::{Completion, CompletionKind, Hover, complete, definition, hover};
 pub use check::check;
 pub use diagnostic::{Code, Diagnostic, Severity, Span};
 pub use format::{format, format_with, normalize};

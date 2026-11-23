@@ -11,6 +11,12 @@ use paw_engine::{DeviceFormat, DeviceInfo, ParamInfo};
 /// loaded. The check gives a warning for one, not an error.
 const OPEN_PREFIXES: [&str; 4] = ["clap:", "vst3:", "lv2:", "lua:"];
 
+/// The schema of the kinds of device that `session` has now, as JSON: what
+/// `paw chain schema` prints and `paw.api.chain_schema` gives.
+pub fn json(session: &crate::session::Session) -> String {
+    schema(session.registry.iter().map(|factory| factory.info())).to_json()
+}
+
 /// The schema of the kinds of device in `devices`, with paw's kinds of
 /// split and modulator.
 pub fn schema<'a>(devices: impl IntoIterator<Item = &'a DeviceInfo>) -> Schema {

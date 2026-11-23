@@ -12,6 +12,7 @@ Each extension has a README. Its pictures are in `extensions/<name>/images`, and
 | --- | --- | --- |
 | [`ara`](../../extensions/ara/README.md) | ARA plugins on audio tracks: the plugin reads whole clips (Melodyne, audio to MIDI), and its edits stay in the project | `native` |
 | [`articulations`](../../extensions/articulations/README.md) | the articulation of each note as its MIDI 2.0 attribute, with names for each instrument from `.art.toml` maps, and keyswitches for MIDI 1.0 instruments. Maps from SFZ, Decent Sampler, folders and Reaticulate banks, and maps of plugins (MODO BASS 2, SINE Player) that bind themselves | none |
+| [`chainlsp`](../../extensions/chainlsp/README.md) | chain-lsp, the language server of the chain language, in `paw.lsp`: diagnostics of the chain files of the project | `processes` |
 | [`columnplus`](../../extensions/columnplus/README.md) | an example that personalizes the track column: a color strip, clip counts, signs for takes and frozen tracks, other fold glyphs | none |
 | [`continue`](../../extensions/continue/README.md) | a small completion source: how the phrase before the cursor in the piano roll can continue | none |
 | [`doctor`](../../extensions/doctor/README.md) | a guided check of the hardware (audio, MIDI, recording, plugins), with a written report, also from the shell | `ffi` |
@@ -87,7 +88,7 @@ paw records all that an extension registers while it loads, which includes the f
 - commands, keys and key groups, the lines of the key bar (`paw.ui.keybar.set`), views, buffer types, kinds of text buffer, and kinds of track
 - picker sources, query fields, fields and views of `:s` and `:g`, completers, status line components, and grep sources
 - the parts and signs of the track column and the parts of the bar labels (`paw.trackcolumn`, `paw.ruler`), the bands under the ruler of the window (`paw.frontend.bands`), the keys of insert mode in the arrange view (`paw.insert`), and the parts and the keys of paw that it changes with `set`
-- curve providers, address schemes, completion sources, layers, language servers (`paw.lsp.config`), health checks, hooks (`paw.on`), options, and timers (`paw.every`, `paw.defer`)
+- curve providers, address schemes, completion sources, layers, language servers with their subjects and dialects (`paw.lsp.config`, `paw.lsp.subject`, `paw.lsp.adapter`), health checks, hooks (`paw.on`), options, and timers (`paw.every`, `paw.defer`)
 - its directory of devices written in Lua, and the plugin directories that it adds (`paw.plugins.add_dir`)
 
 paw also records what the extension registers later, from a command, a handler or a timer of its own. An entry belongs to the extension when a function of its files is in the entry, or when its code made the entry, and a key mapped from its code shows this in `map.ext`. A timer that the core starts while an extension loads belongs to the core.

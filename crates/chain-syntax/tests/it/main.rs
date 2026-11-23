@@ -1,6 +1,7 @@
 //! The tests of the chain language through its public API. One binary,
 //! one module for each area.
 
+mod assist;
 mod bad;
 mod language;
 

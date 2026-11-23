@@ -171,8 +171,8 @@ end
 -- - options: an option goes with its value, and `undefine` puts back the
 --   definition of the core. A registry needs a `changed` that does this.
 -- - device_dirs and plugin_dirs: `devices_in_use` below reads their items.
--- - addresses, complete, triggers, layers, languages, health, formats and
---   lsp: not moved yet. Each one is a table of one module, as the moved
+-- - addresses, complete, triggers, layers, languages, health, formats,
+--   lsp, lsp_subjects and lsp_adapters: not moved yet. Each one is a table of one module, as the moved
 --   ones were, and a later change moves them.
 
 local function keyed(kind, title, get, put, label)
@@ -293,6 +293,10 @@ M.registries = {
       paw.lsp.configs[key] = nil
     end
   end, function(key) return key end),
+  -- The subjects and the dialects of language servers that it adds
+  -- (`paw.lsp.subject`, `paw.lsp.adapter`).
+  keyed("lsp_subjects", "language server subjects", function() return paw.lsp and paw.lsp.subjects end),
+  keyed("lsp_adapters", "language server dialects", function() return paw.lsp and paw.lsp.adapters end),
   {
     kind = "hooks",
     title = "hooks",

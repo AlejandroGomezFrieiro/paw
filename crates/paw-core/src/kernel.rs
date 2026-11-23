@@ -466,8 +466,7 @@ impl Kernel {
     /// that the registry has now (with the plugins and the Lua devices of
     /// the extensions), and the kinds of split and modulator.
     pub fn chain_schema(&self) -> String {
-        let session = self.shared.session.borrow();
-        crate::chain_schema::schema(session.registry.iter().map(|factory| factory.info())).to_json()
+        crate::chain_schema::json(&self.shared.session.borrow())
     }
 
     /// Run a Lua file with `...` set to `args`.

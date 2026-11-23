@@ -49,6 +49,7 @@ undotree
 columnplus
 rulerplus
 midilsp
+chainlsp
 projdiff
 luafx
 vinput
