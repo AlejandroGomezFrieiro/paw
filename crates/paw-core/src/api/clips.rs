@@ -326,11 +326,11 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // has no link yet starts one, named after the clip. `clip_get`
         // gives a linked clip's `link` and `link_count`.
         // @return integer
-        fn clip_link(_, sh, id => Id) { sh.session.borrow_mut().clip_link(id).lua() }
+        fn clip_link(_, sh, id => Id) { sh.session.borrow_mut().doc.clip_link(id).lua() }
         // Take a clip out of its link. It keeps its notes, and edits of it no
         // longer change the other clips.
         // @return nil
-        fn clip_unlink(_, sh, id => Id) { sh.session.borrow_mut().clip_unlink(id).lua() }
+        fn clip_unlink(_, sh, id => Id) { sh.session.borrow_mut().doc.clip_unlink(id).lua() }
 
         // --- cues (session/cues.rs) ---
         // A clip goes off the timeline with `clip_add(track, { cue = true, ... })`:
@@ -392,7 +392,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
                 return Ok(mlua::Variadic::from_iter([notes]));
             }
             let range: NoteRange = from_lua(lua, range)?;
-            let found = session.clip_notes_in(id, &range).lua()?;
+            let found = session.doc.clip_notes_in(id, &range).lua()?;
             let notes = lua.create_table_with_capacity(found.len(), 0)?;
             notes.set_metatable(Some(lua.array_metatable()))?;
             let places = lua.create_table_with_capacity(found.len(), 0)?;
@@ -406,7 +406,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // the clip. Nothing when there is no such note.
         // @return types.Note, integer
         fn clip_note_at(lua, sh, (id, pitch, beat) => (Id, u8, f64)) {
-            Ok(match sh.session.borrow().clip_note_at(id, pitch, beat).lua()? {
+            Ok(match sh.session.borrow().doc.clip_note_at(id, pitch, beat).lua()? {
                 Some((index, note)) => (Some(note_to_lua(lua, note)?), Some(index + 1)),
                 None => (None, None),
             })
@@ -418,18 +418,18 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // @return integer
         fn clip_note_add(lua, sh, (id, note) => (Id, LuaValue)) {
             let note: Note = from_lua(lua, note)?;
-            Ok(sh.session.borrow_mut().clip_note_add(id, note).lua()? + 1)
+            Ok(sh.session.borrow_mut().doc.clip_note_add(id, note).lua()? + 1)
         }
         // @param fields types.NoteChange
         // @return integer
         fn clip_note_set(lua, sh, (id, index, fields) => (Id, usize, LuaValue)) {
             let change: NoteChange = from_lua(lua, fields)?;
             let index = note_index(index)?;
-            Ok(sh.session.borrow_mut().clip_note_set(id, index, &change).lua()? + 1)
+            Ok(sh.session.borrow_mut().doc.clip_note_set(id, index, &change).lua()? + 1)
         }
         // @return nil
         fn clip_note_remove(_, sh, (id, index) => (Id, usize)) {
-            sh.session.borrow_mut().clip_note_remove(id, note_index(index)?).lua()
+            sh.session.borrow_mut().doc.clip_note_remove(id, note_index(index)?).lua()
         }
         // Several at once, as one edit: `{ set = { { index = 3, start = 1 } },
         // remove = { 5, 6 }, add = { note, ... } }`. Every index is a note's
@@ -444,7 +444,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             for index in edit.remove.iter_mut() {
                 *index = note_index(*index)?;
             }
-            sh.session.borrow_mut().clip_notes_edit(id, edit).lua()
+            sh.session.borrow_mut().doc.clip_notes_edit(id, edit).lua()
         }
         // Many notes of many clips at once, as one edit, given as lists of the
         // same length: `{ clip = { 4, 4, 7 }, place = { 1, 2, 1 }, start = { 0, 0.5, 2 } }`.
@@ -455,7 +455,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // @return nil
         fn notes_set(_, sh, columns => Table) {
             let columns = note_columns(&columns)?;
-            sh.session.borrow_mut().notes_set(&columns).lua()
+            sh.session.borrow_mut().doc.notes_set(&columns).lua()
         }
         // @param notes {types.Note}
         // @return nil

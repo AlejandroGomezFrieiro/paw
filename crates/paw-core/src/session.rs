@@ -27,7 +27,7 @@ use crate::model::{
 use crate::sync::{AudioCache, Follow, LiveDevices, Mapper, SyncCtx, sync};
 
 mod document;
-pub use document::{ControlMove, Document};
+pub use document::{ControlMove, Document, notes};
 mod editing;
 mod project;
 mod tracks;
@@ -43,7 +43,6 @@ pub use midi_in::FilterRule;
 mod engine;
 mod audition;
 mod clipops;
-mod links;
 mod encode;
 mod file_check;
 mod files_watch;
@@ -66,7 +65,6 @@ mod monitor;
 mod statelanes;
 mod stretching;
 pub use loading::OpenOpts;
-pub mod notes;
 pub mod offline;
 pub mod panic;
 mod ports;
