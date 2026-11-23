@@ -115,74 +115,18 @@ local function step(dir)
   end
 end
 
---- The block that places subproject `id`, and the subproject that the
---- block is in (nil for the song). A block of the song comes first, as
---- in the diff.
-local function placed_by(id)
-  local first
-  for _, block in ipairs(paw.nest.blocks(id)) do
-    local holder = api.track_get(block.row, "nest")
-    if holder == nil then return block, nil end
-    first = first or { block = block, holder = holder }
-  end
-  if first then return first.block, first.holder end
-end
-
---- The scopes to enter one after the other, from the song in, to show
---- subproject `id` of the open project. Nil when it has no such subproject.
-local function way_into(id)
-  local way, seen = {}, {}
-  while id and not seen[id] do
-    if not paw.nest.get(id) then return nil end
-    seen[id] = true
-    local block, holder = placed_by(id)
-    table.insert(way, 1, { kind = "nest", id = id, clip = block and block.clip.id })
-    id = holder
-  end
-  return way
-end
-
---- Whether the window in front shows the scopes of `way` and no more.
-local function shows(way)
-  local path = paw.scope.path()
-  if #path ~= #way then return false end
-  for i, level in ipairs(path) do
-    if level.kind ~= "nest" or level.id ~= way[i].id then return false end
-  end
-  return true
-end
-
---- Put the window in front in the scope of subproject `id`, from the
---- song, and say where it is. Returns false, with a message, when it cannot.
-local function enter_nest(id)
-  local way = way_into(id)
-  if not way then
-    paw.notify("the subproject of this change is not in the project now", "warn")
-    return false
-  end
-  if shows(way) then return true end
-  paw.scope.widen(true)
-  for _, scope in ipairs(way) do
-    local ok, err = pcall(paw.scope.enter, scope)
-    if not ok then
-      paw.notify(tostring(err), "warn")
-      return false
-    end
-  end
-  paw.notify(paw.scope.breadcrumb() .. " · `zw` goes back")
-  return true
-end
-
 --- Close the window and put the cursor where the change is. A change
---- inside a subproject goes inside that subproject first. A change of the
---- song leaves the window in its scope.
+--- inside a subproject goes inside that subproject first, and says where
+--- the window is. A change of a track of the song goes to the song, as a
+--- quickfix entry does (`paw.qf.go`).
 local function go()
   local row = selected()
   if not row or not row.node.address then return end
-  local qf = paw.qf
   paw.ui.close()
-  if row.node.nest and not enter_nest(row.node.nest) then return end
-  qf.go({ location = { uri = row.node.address } })
+  local nest = row.node.nest
+  paw.qf.go({ location = { uri = row.node.address }, nest = nest })
+  local inside = paw.scope.nest()
+  if nest and inside and inside.id == nest then paw.notify(paw.scope.breadcrumb() .. " · `zw` goes back") end
 end
 
 local function to_quickfix()

@@ -376,11 +376,12 @@ function M.merge_git(path)
   return #merge.conflicts(merged)
 end
 
---- Send the changes to the quickfix list, one entry each.
+--- Send the changes to the quickfix list, one entry each. An entry of a
+--- change inside a subproject goes inside it, as `Enter` in the view does.
 function M.to_quickfix(tree, title)
   local entries = {}
   for i, e in ipairs(diff.entries(tree)) do
-    entries[i] = { address = e.address, text = e.text, level = e.sign == "-" and "warning" or "info" }
+    entries[i] = { address = e.address, text = e.text, level = e.sign == "-" and "warning" or "info", nest = e.nest }
   end
   paw.qf.set(entries, { title = title })
   return #entries

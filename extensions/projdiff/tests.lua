@@ -452,6 +452,7 @@ local function nested(name, folder)
     bridge = bridge,
     verse = verse,
     keys = keys,
+    inner = inner,
     strings = strings,
     keys_clip = api.clip_add(
       keys,
@@ -586,11 +587,33 @@ test(
     T.keys("G<CR>")
     eq(scope_path(), ("nest %d > nest %d"):format(ids.bridge, ids.verse), "the window shows Verse inside Bridge")
     eq(paw.cursor.track_id(), ids.strings, "the cursor is on Strings")
-    T.keys("zW<Space>gdj<CR>")
-    eq(scope_path(), "", "a change of the song leaves the window in the song")
+    T.keys("<Space>gdj<CR>")
+    eq(scope_path(), "", "a change of the song goes back to the song")
     eq(paw.cursor.track_id(), row.id, "the cursor is on the song's row")
   end
 )
+
+test("projdiff: a quickfix entry of :Pdiff.qf goes inside the subproject of its change, as Enter does", function()
+  start()
+  T.after(function()
+    paw.qf.set({})
+    paw.scope.widen(true)
+  end)
+  local path, ids = nested("nest-qf")
+  api.project_load(path)
+  -- Inner is the second track of Bridge: the window enters on the first.
+  api.track_set(ids.inner, { volume = -6 })
+  api.track_set(ids.strings, { volume = -3 })
+  api.undo_checkpoint()
+  T.keys(":Pdiff.qf<CR>")
+  eq(#paw.qf.current().entries, 2, "two changes")
+  T.keys(":cnext<CR>")
+  eq(scope_path(), "nest " .. ids.bridge, "the window shows Bridge")
+  eq(paw.cursor.track_id(), ids.inner, "the cursor is on Inner")
+  T.keys("]q")
+  eq(scope_path(), ("nest %d > nest %d"):format(ids.bridge, ids.verse), "the window shows Verse inside Bridge")
+  eq(paw.cursor.track_id(), ids.strings, "the cursor is on Strings")
+end)
 
 -- Git ----------------------------------------------------------------------------
 
@@ -891,3 +914,130 @@ test(
     eq(api.project_get("path"), song .. "/project.toml", "the open project is the folder")
   end
 )
+
+--- A git merge of the project folder `song` under `root` that stopped on
+--- conflicts, where the two sides gave different things the same ids:
+--- `base(path)` makes and saves the project, `theirs()` edits it on the
+--- branch theirs, and `ours()` edits what theirs saved on the branch main.
+--- The kernel never gives an id twice, so ours starts from the files of
+--- theirs. Ours stays open. Returns the path of the song.
+local function same_ids(root, base, theirs, ours)
+  local git = repository(root)
+  local song = root .. "/song"
+  base(song)
+  git("add -A")
+  git("commit -q -m base")
+  git("checkout -q -b theirs")
+  theirs()
+  api.undo_checkpoint()
+  api.project_save()
+  git("add -A")
+  git("commit -q -m theirs")
+  api.project_new()
+  git("checkout -q main")
+  git("checkout theirs -- song")
+  api.project_load(song)
+  ours()
+  api.undo_checkpoint()
+  api.project_save()
+  git("add -A")
+  git("commit -q -m ours")
+  git("merge -q theirs")
+  return song
+end
+
+--- The names of the subprojects of the open project, in order.
+local function nest_names()
+  local out = {}
+  for _, n in ipairs(paw.nest.list()) do
+    out[#out + 1] = n.name
+  end
+  return table.concat(out, ",")
+end
+
+--- The names of the tracks of subproject `nest`, in order.
+local function nest_tracks(nest)
+  local out = {}
+  for _, id in ipairs(api.track_list({ nest = nest })) do
+    out[#out + 1] = api.track_get(id, "name")
+  end
+  return table.concat(out, ",")
+end
+
+--- Add to the open project the subproject Bridge, whose track Keys plays
+--- a note at its start, placed at beat 0 by the song's track Bridge.
+local function add_bridge()
+  local row = paw.add_track({ name = "Bridge" })
+  local bridge = api.nest_add({ name = "Bridge", length = 4 })
+  local keys = api.track_add({ name = "Keys", nest = bridge })
+  paw.track(keys):add_device("synth")
+  api.clip_add(keys, { name = "chords", start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
+  api.clip_add(row.id, { nest = bridge, start = 0 })
+end
+
+--- A project folder at `path` with a song track Drums, and with the
+--- subproject Bridge when `bridge` is true.
+local function song_at(path, bridge)
+  fresh()
+  paw.add_track({ name = "Drums" })
+  if bridge then add_bridge() end
+  api.undo_checkpoint()
+  api.project_save(path)
+end
+
+test(
+  "projdiff: :Pmerge keeps two subprojects that both sides added with the same id, and the merge saves, opens and plays",
+  function()
+    start()
+    T.after(function() paw.ui.close() end)
+    if no_git() then return "no git" end
+    local song = same_ids(scratch .. "/pmerge-same-nest", song_at, add_bridge, function()
+      -- Ours has the same ids as theirs: the subproject Verse with the track Pads, at beat 8.
+      local nest = paw.nest.list()[1]
+      api.nest_set(nest.id, "name", "Verse")
+      local row = track_named("Bridge")
+      row.name = "Verse"
+      api.clip_set(api.clip_list(row.id)[1].id, "start", 8)
+      api.track_set(track_id("Keys"), { name = "Pads" })
+    end)
+    eq(nest_names(), "Verse", "ours is open")
+    T.keys(":Pmerge<CR>")
+    eq(paw.ui.float, nil, "no conflict to settle")
+    eq(nest_names(), "Verse,Bridge", "both subprojects")
+    local verse, bridge = paw.nest.list()[1], paw.nest.list()[2]
+    eq(verse.id ~= bridge.id, true, "with two ids")
+    eq({ nest_tracks(verse.id), nest_tracks(bridge.id) }, { "Pads", "Keys" }, "each with its tracks")
+    T.keys("u")
+    eq(nest_names(), "Verse", "one u takes back the merge")
+    T.keys("<C-r>")
+    api.project_save()
+    api.project_new()
+    api.project_load(song)
+    eq(nest_names(), "Verse,Bridge", "both subprojects after the project opens again")
+    local info = T.render({ tail = 0, bits = 16, ["end"] = 12 })
+    eq(T.channel_peaks(info, 0, 0.4) > 0, true, "Bridge plays at beat 0")
+    eq(T.channel_peaks(info, 4, 4.4) > 0, true, "Verse plays at beat 8")
+  end
+)
+
+test("projdiff: :Pmerge keeps two tracks that both sides added with the same id to one subproject", function()
+  start()
+  T.after(function() paw.ui.close() end)
+  if no_git() then return "no git" end
+  local song = same_ids(scratch .. "/pmerge-same-track", function(path) song_at(path, true) end, function()
+    local bells = api.track_add({ name = "Bells", nest = paw.nest.list()[1].id })
+    api.clip_add(bells, { name = "hit", start = 0, length = 1, notes = { { pitch = 72, start = 0, length = 1 } } })
+  end, function()
+    -- Ours renames the track only: its clip is the same as theirs, with the same id.
+    api.track_set(track_id("Bells"), { name = "Choir" })
+  end)
+  T.keys(":Pmerge<CR>")
+  local bridge = paw.nest.list()[1].id
+  eq(nest_tracks(bridge), "Keys,Bells,Choir", "both tracks, in Bridge")
+  local bells, choir = api.clip_list(track_id("Bells"))[1].id, api.clip_list(track_id("Choir"))[1].id
+  eq({ track_id("Choir") ~= track_id("Bells"), bells ~= choir }, { true, true }, "two tracks and two clips")
+  api.project_save()
+  api.project_new()
+  api.project_load(song)
+  eq(nest_tracks(paw.nest.list()[1].id), "Keys,Bells,Choir", "both tracks after the project opens again")
+end)

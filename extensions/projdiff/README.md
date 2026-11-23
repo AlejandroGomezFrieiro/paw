@@ -53,7 +53,8 @@ Type `:Pdiff`, or press `<Space>gd`.
 ### How to go through the changes as a list
 
 Type `:Pdiff.qf`, or press `Q` in the window of `:Pdiff`, and then use
-`:copen` and `]q`.
+`:copen` and `]q`. When an entry is a change inside a subproject, `]q` puts
+the window in that subproject, as `Enter` in the window of `:Pdiff` does.
 
 ### How to settle the conflicts of a git merge
 
@@ -161,9 +162,13 @@ things, for example different tracks, different clips, different notes of
 one clip, different parameters of one device, or tempo changes at different
 beats.
 
-- When both sides added items with the same id (a track, a clip, a note, a
-  marker), the merge keeps both and gives the second item a new number. Whatever
-  points at that item (outputs, sends, side-chains, automation) changes with it.
+- When both sides added items with the same id (a subproject, a track, a
+  clip, a note, a marker), the merge keeps both and gives the second item a new
+  number. Whatever points at that item (outputs, sends, side-chains,
+  automation, the clips that place a subproject) changes with it. A subproject
+  that gets a new number gives new numbers to its tracks too, and when both
+  subprojects have the same name, the second one gets another folder name
+  when you save.
 - A conflict is the same value changed in two ways, or changed on one side
   and removed on the other. The merged project holds ours there, and it loads
   and plays.
