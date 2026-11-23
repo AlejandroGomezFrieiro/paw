@@ -38,6 +38,9 @@ Reference these guidelines when:
 - Tuning performance for hot paths
 - Refactoring existing Rust code
 
+A change of a public trait, a saved type or a message between threads
+is a change of a contract. Use the skill `architecture` first.
+
 ## Rule Categories by Priority
 
 | Priority | Category | Impact | Prefix | Rules |

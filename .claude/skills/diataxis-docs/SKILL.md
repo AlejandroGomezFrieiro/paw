@@ -115,6 +115,9 @@ Discussion that builds understanding, read away from the work.
 - **Opinions and perspective are allowed** and expected; weigh alternatives.
 - **Bounded**: start from a real or imagined "why" question; no steps, no
   option tables. Link to the reference and how-tos instead.
+- The internal design and its decisions are in the architecture
+  documentation (skill `architecture`). An explanation page tells the
+  user the current design. It does not copy an ADR.
 
 ## Common collapses to fix
 
@@ -180,7 +183,7 @@ sentence says it.
 | Kind | Text | Style |
 | --- | --- | --- |
 | External | `README.md`, `docs/**`, `extensions/*/README.md`, `extensions/*/doc/**`, `crates/*/README.md`, the tutor's lessons (they make the course), the doc comments that `tools/apidoc.lua` turns into `docs/reference/api.md` | plain-writing |
-| Internal | `AGENTS.md`, `.claude/**` (skills), `bench/**`, Backlog tickets, design documents, other code comments, commit messages, pull request text, replies in chat | ASD-STE100 |
+| Internal | `AGENTS.md`, `.claude/**` (skills), `bench/**`, Backlog tickets, design documents, the architecture documentation (`architecture/`, local), other code comments, commit messages, pull request text, replies in chat | ASD-STE100 |
 
 ### plain-writing (external pages)
 
@@ -297,7 +300,7 @@ there is no warning level.
 | --- | --- | --- |
 | External | `README.md`, `docs/`, READMEs and `doc/` pages of the extensions and the crates | Plain, AiTells, alex, write-good, spelling, and the STE rules that agree with plain writing; Readability off |
 | Generated | `docs/reference/api.md`, `docs/tutorials/course/` | The external rules, on the generator's output: fix the doc comment (`tools/apidoc.lua`) or the tutor lesson, then run the generator |
-| Internal | `AGENTS.md`, `.claude/`, `bench/*.md` | STE, with the grade levels |
+| Internal | `AGENTS.md`, `.claude/`, `bench/*.md`, `architecture/` (local) | STE, with the grade levels |
 | Not checked | `bench/RESULTS.md` | None: a dated log |
 
 ```sh

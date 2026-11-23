@@ -290,3 +290,11 @@ mimalloc
 gifsicle
 Conor
 Bronsdon
+# The architecture documentation (.claude/skills/architecture): the map of
+# the code, decision records and the names of their methods.
+Groma
+ADRs?
+Nygard
+Structurizr
+[Ww]orktrees?
+Kiro
