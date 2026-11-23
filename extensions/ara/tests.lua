@@ -15,8 +15,10 @@ local function ready()
   if not ara then
     paw.ext.load("extensions/ara")
     ara = require("ara")
-    paw.plugins.add_dir(dir .. "/lib/clap")
   end
+  -- Each test adds the plugin's folder, and takes it away at its end.
+  paw.plugins.add_dir(dir .. "/lib/clap")
+  T.after(function() paw.plugins.remove_dir(dir .. "/lib/clap") end)
   local ok, err = ara.attach()
   if not ok then return nil, err end
   return ara

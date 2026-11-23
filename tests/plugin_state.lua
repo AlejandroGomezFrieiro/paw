@@ -264,6 +264,7 @@ test("a plugin that asks for a block while the engine rests gets its next block"
   local dir = T.scratch .. "/stub-wake"
   os.execute("mkdir -p '" .. dir .. "' && cp '" .. built .. "' '" .. dir .. "/stub.clap'")
   paw.plugins.add_dir(dir, "stubs")
+  T.after(function() paw.plugins.remove_dir(dir) end)
   local d = paw.add_track({ name = "Stub" }):add_device("clap:dev.paw.stub")
   paw.flush()
   local rests = api.engine_get().engine_rests

@@ -41,6 +41,7 @@ paw.options
 paw.limit
 paw.seats
 paw.slices
+paw.collector
 paw.derived
 paw.theme
 paw.attr
