@@ -115,6 +115,8 @@ impl Engine {
             Msg::SetPreview(preview) => self.set_preview(preview),
             Msg::SetPreviewGain(gain) => self.set_preview_gain(gain),
             Msg::SetSleep(sleep) => self.sleep = sleep,
+            // A message at all wakes the engine (`take_messages`).
+            Msg::Wake => {}
             Msg::SetPool(pool) => {
                 if let Some(old) = self.set_pool(pool) {
                     self.discard(Garbage::Pool(old));

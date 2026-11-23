@@ -414,11 +414,12 @@ pub(super) fn update_device(
             .decode(device.state.as_deref().unwrap_or(""))
             .map_err(anyhow::Error::from)
             .and_then(|bytes| controller.load_state(&bytes));
-        if let Err(err) = loaded {
-            ctx.warnings.push(format!(
+        match loaded {
+            Ok(()) => send(Msg::Wake),
+            Err(err) => ctx.warnings.push(format!(
                 "could not load the preset into `{}`: {err:#}",
                 device.kind
-            ));
+            )),
         }
     }
     for (index, param) in live.params.iter().enumerate() {
@@ -450,11 +451,12 @@ pub(super) fn update_device(
             .decode(device.state.as_deref().unwrap_or(""))
             .map_err(anyhow::Error::from)
             .and_then(|bytes| controller.load_state(&bytes));
-        if let Err(err) = loaded {
-            ctx.warnings.push(format!(
+        match loaded {
+            Ok(()) => send(Msg::Wake),
+            Err(err) => ctx.warnings.push(format!(
                 "could not load the state of `{}`: {err:#}",
                 device.kind
-            ));
+            )),
         }
     }
     if device.bypass != before.bypass {
