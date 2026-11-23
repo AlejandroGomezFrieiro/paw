@@ -603,3 +603,41 @@ fn move_cue(p: &mut Project, id: Id, to: Id) -> Result<bool> {
     p.track_mut(to).unwrap().cues.push(clip);
     Ok(true)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::session::TrackOpts;
+
+    /// A document with one track, and the track's id.
+    fn one_track() -> (Document, Id) {
+        let mut doc = Document::default();
+        let track = doc.track_add(TrackOpts::default()).unwrap();
+        (doc, track)
+    }
+
+    #[test]
+    fn an_audio_clip_is_as_long_as_its_sound_file_says() {
+        let (mut doc, track) = one_track();
+        let opts = ClipOpts { file: Some("/sounds/take.wav".into()), ..ClipOpts::default() };
+        let id = doc.clip_add(track, opts, None, |_| Ok(4.0)).unwrap();
+        // Four seconds at the default 120 BPM.
+        assert_eq!(doc.project.clip(id).unwrap().length, 8.0);
+    }
+
+    #[test]
+    fn collect_leaves_a_clip_whose_file_is_not_there() {
+        let (mut doc, track) = one_track();
+        let mut add = |name: &str| {
+            let id = doc.clip_add(track, ClipOpts::default(), None, |_| unreachable!()).unwrap();
+            let clip = doc.project.clip_mut(id).unwrap();
+            clip.source = Some(format!("/clips/{name}.midi2").into());
+            id
+        };
+        let (there, gone) = (add("there"), add("gone"));
+        let taken = doc.clip_collect(|file| file.ends_with("there.midi2"));
+        assert_eq!(taken, 1);
+        assert_eq!(doc.project.clip(there).unwrap().source, None, "the clip whose file is there is the project's own");
+        assert!(doc.project.clip(gone).unwrap().source.is_some(), "the clip whose file is gone still refers to it");
+    }
+}

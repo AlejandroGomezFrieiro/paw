@@ -294,3 +294,28 @@ pub(in crate::session) fn check_lane_state(mut state: LaneState) -> Result<LaneS
     }
     Ok(state)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::session::TrackOpts;
+
+    #[test]
+    fn a_lane_keeps_its_points_within_the_range_of_its_parameter() {
+        let mut doc = Document::default();
+        let track = doc.track_add(TrackOpts::default()).unwrap();
+        let lane = Lane {
+            id: doc.new_id(),
+            target: Target::Param { device: 9, param: "cutoff".into() },
+            enabled: true,
+            points: Vec::new(),
+            shapes: Vec::new(),
+            states: Vec::new(),
+        };
+        let id = lane.id;
+        doc.project.track_mut(track).unwrap().lanes.push(Arc::new(lane));
+        let cutoff = |device: Id, param: &str| (device == 9 && param == "cutoff").then_some((0.0, 1.0));
+        doc.lane_set_points(id, vec![(1.0, -5.0), (0.0, 5.0)], false, &cutoff).unwrap();
+        assert_eq!(doc.lane_points(id).unwrap(), [(0.0, 1.0), (1.0, 0.0)], "sorted by beat, held to 0 to 1");
+    }
+}
