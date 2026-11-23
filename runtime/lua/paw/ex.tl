@@ -1380,9 +1380,79 @@ local record ClipEdit
   remove: {integer}
 end
 
---- Make the changes `{ item, change }` and remove the items in `remove`, as
---- one edit per clip.
+--- The clips whose notes need `Clip:edit_notes` in `apply`: a note goes,
+--- or gets data of an extension or an attribute, or the clip goes.
+local function clips_to_edit(changes: {Changed}, remove: {Item}): {integer: boolean}
+  local edited: {integer: boolean} = {}
+  for _, item in ipairs(remove) do
+    if item.kind ~= "track" then
+      edited[item.clip.id] = true
+    end
+  end
+  for _, c in ipairs(changes) do
+    if c.item.kind == "note" and (c.change.meta ~= nil or c.change.attr ~= nil) then
+      edited[c.item.clip.id] = true
+    end
+  end
+  return edited
+end
+
+--- The changes of notes of the clips that are not in `edited`, as the
+--- columns of `paw.api.notes_set`: a list for each field that a change
+--- sets, with the note's own value where its change keeps it. Nil when
+--- there is none.
+local function note_columns(changes: {Changed}, edited: {integer: boolean}): types.NoteColumns
+  local start, length, pitch, velocity = false, false, false, false
+  for _, c in ipairs(changes) do
+    local ch = c.change
+    if c.item.kind == "note" and not edited[c.item.clip.id] then
+      start, length = start or ch.start ~= nil, length or ch.length ~= nil
+      pitch, velocity = pitch or ch.pitch ~= nil, velocity or ch.velocity ~= nil
+    end
+  end
+  if not (start or length or pitch or velocity) then
+    return nil
+  end
+  local columns: types.NoteColumns = {
+    clip = {},
+    place = {},
+    start = start and {} or nil,
+    length = length and {} or nil,
+    pitch = pitch and {} or nil,
+    velocity = velocity and {} or nil,
+  }
+  local n = 0
+  for _, c in ipairs(changes) do
+    local item, ch = c.item, c.change
+    if item.kind == "note" and not edited[item.clip.id] then
+      n = n + 1
+      local note = item.note
+      columns.clip[n], columns.place[n] = item.clip.id, item.place
+      if start then
+        columns.start[n] = ch.start or note.start
+      end
+      if length then
+        columns.length[n] = ch.length or note.length
+      end
+      if pitch then
+        columns.pitch[n] = ch.pitch or note.pitch
+      end
+      if velocity then
+        columns.velocity[n] = ch.velocity or note.velocity
+      end
+    end
+  end
+  return columns
+end
+
+--- Make the changes `{ item, change }` and remove the items in `remove`.
+--- The changes of notes go to the kernel in one call, as columns: no
+--- table for each note. A clip whose notes go, or get data or an
+--- attribute, gets one edit of its own.
 function M.apply(changes?: {Changed}, remove?: {Item})
+  changes, remove = changes or {}, remove or {}
+  local edited = clips_to_edit(changes, remove)
+  local columns = note_columns(changes, edited)
   local per_clip: {integer: ClipEdit} = {}
   local order: {integer} = {}
   local function clip_edit(item: Item): ClipEdit
@@ -1393,17 +1463,22 @@ function M.apply(changes?: {Changed}, remove?: {Item})
     end
     return per_clip[id]
   end
-  for _, c in ipairs(changes or {}) do
+  for _, c in ipairs(changes) do
     local item, ch = c.item, c.change
     if item.kind == "note" then
-      -- Only the fields that change: the kernel keeps the others. They are
-      -- set one by one, so that the table holds only those (thousands of
-      -- notes are thousands of tables).
-      local set: objects.NoteChangeInput = {index = item.place}
-      set.start, set.length, set.pitch, set.velocity = ch.start, ch.length, ch.pitch, ch.velocity
-      set.meta, set.attr = ch.meta or item.note.meta, ch.attr
-      local e = clip_edit(item)
-      e.set[#e.set + 1] = set
+      if edited[item.clip.id] then
+        -- Only the fields that change: the kernel keeps the others.
+        local e = clip_edit(item)
+        e.set[#e.set + 1] = {
+          index = item.place,
+          start = ch.start,
+          length = ch.length,
+          pitch = ch.pitch,
+          velocity = ch.velocity,
+          meta = ch.meta,
+          attr = ch.attr,
+        }
+      end
     elseif item.kind == "clip" then
       api.clip_set(item.clip.id, {name = ch.name, start = ch.start, muted = ch.muted})
     else
@@ -1411,7 +1486,7 @@ function M.apply(changes?: {Changed}, remove?: {Item})
     end
   end
   local tracks: {integer} = {}
-  for _, item in ipairs(remove or {}) do
+  for _, item in ipairs(remove) do
     if item.kind == "note" then
       local e = clip_edit(item)
       e.remove[#e.remove + 1] = item.place
@@ -1422,6 +1497,9 @@ function M.apply(changes?: {Changed}, remove?: {Item})
     else
       tracks[#tracks + 1] = item.track
     end
+  end
+  if columns then
+    api.notes_set(columns)
   end
   for _, id in ipairs(order) do
     local e = per_clip[id]
@@ -2376,23 +2454,26 @@ ex(
     end
     local items = notes_in(ctx)
     commands.about(plural(#items, "note"))
-    local changes: {Changed} = {}
     -- On the song's grid, so that clips that start off it still line up:
     -- the offset is the start of each note's clip. A strength under 100
     -- moves each note that part of the way. A note on the grid already is
-    -- not sent. `snap` makes no copy of a note: there can be thousands.
+    -- not sent. `snap` makes no copy of a note, and the new starts go to
+    -- the kernel as columns: there can be thousands of notes.
     local snap: transform.QuantizeOptions = {grid = grid, strength = strength / 100}
+    local moved: types.NoteColumns = {clip = {}, place = {}, start = {}}
+    local n = 0
     for _, item in ipairs(items) do
       snap.offset = item.at - item.note.start
       local start = transform.snap(item.note.start, snap)
       if start ~= item.note.start then
-        changes[#changes + 1] = {item = item, change = {start = start}}
+        n = n + 1
+        moved.clip[n], moved.place[n], moved.start[n] = item.clip.id, item.place, start
       end
     end
-    if #changes == 0 then
+    if n == 0 then
       return paw.notify(string.format("%s on the grid of %g beats already", plural(#items, "note"), grid))
     end
-    M.apply(changes)
+    api.notes_set(moved)
     paw.notify(
       string.format(
         "snapped %s to %g beats%s",

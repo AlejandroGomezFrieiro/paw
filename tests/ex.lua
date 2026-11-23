@@ -300,6 +300,20 @@ test("ex: :quantize moves the notes that play in its bars, and says so when they
   eq(c:notes()[2].start, 1.3, "u gives it back")
 end)
 
+test("ex: :%quantize moves the notes of several clips, and one u gives them all back", function()
+  local t = song()
+  local a, b = t:clips()[1], t:clips()[2]
+  a:set_note(2, { start = 1.1 })
+  b:set_note(4, { start = 3.2 })
+  api.undo_checkpoint()
+  keys(":%quantize 1/16<CR>")
+  eq(a:notes()[2].start, 1, "the note of clip a is on the grid")
+  eq(b:notes()[4].start, 3.25, "and the note of clip b")
+  keys("u")
+  eq(a:notes()[2].start, 1.1, "u gives back the note of clip a")
+  eq(b:notes()[4].start, 3.2, "and the note of clip b")
+end)
+
 test("ex: the notes of a range come in the order of the song: by time, then pitch, then track", function()
   local _, drums = song()
   -- A note of the drums at the time and pitch of one of track T.

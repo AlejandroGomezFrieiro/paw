@@ -5,7 +5,7 @@ use std::rc::Rc;
 use mlua::{Lua, LuaSerdeExt, Table, Value as LuaValue};
 
 use crate::model::{ClipContent, Control, Id, Note, NoteAttr};
-use crate::session::notes::{NoteChange, NoteRange, NotesEdit};
+use crate::session::notes::{NoteChange, NoteColumns, NoteRange, NotesEdit};
 
 use super::{LuaResult, Shared, changes, from_lua, kind_data, options, to_lua};
 
@@ -52,6 +52,34 @@ fn note_index(index: usize) -> mlua::Result<usize> {
     index
         .checked_sub(1)
         .ok_or_else(|| mlua::Error::runtime("notes are counted from 1"))
+}
+
+/// The columns of `paw.api.notes_set`, read straight from their lists: no
+/// table for each note. A key that is not a column is an error, as
+/// `deny_unknown_fields` gives for the other note calls.
+fn note_columns(table: &Table) -> mlua::Result<NoteColumns> {
+    const KEYS: [&str; 6] = ["clip", "place", "start", "length", "pitch", "velocity"];
+    for pair in table.pairs::<LuaValue, LuaValue>() {
+        let (key, _) = pair?;
+        let known = matches!(&key, LuaValue::String(name) if name.to_str().is_ok_and(|name| KEYS.contains(&&*name)));
+        if !known {
+            return Err(mlua::Error::runtime(format!(
+                "the columns are {}, not `{}`",
+                KEYS.join(", "),
+                key.to_string()?
+            )));
+        }
+    }
+    let needed = |name: &str| mlua::Error::runtime(format!("the columns need `{name}`"));
+    let place: Vec<usize> = table.raw_get::<Option<_>>("place")?.ok_or_else(|| needed("place"))?;
+    Ok(NoteColumns {
+        clip: table.raw_get::<Option<_>>("clip")?.ok_or_else(|| needed("clip"))?,
+        place: place.into_iter().map(note_index).collect::<mlua::Result<_>>()?,
+        start: table.raw_get("start")?,
+        length: table.raw_get("length")?,
+        pitch: table.raw_get("pitch")?,
+        velocity: table.raw_get("velocity")?,
+    })
 }
 
 /// Notes from Lua. Well-formed lists of note tables are read directly;
@@ -417,6 +445,17 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
                 *index = note_index(*index)?;
             }
             sh.session.borrow_mut().clip_notes_edit(id, edit).lua()
+        }
+        // Many notes of many clips at once, as one edit, given as lists of the
+        // same length: `{ clip = { 4, 4, 7 }, place = { 1, 2, 1 }, start = { 0, 0.5, 2 } }`.
+        // Entry i is about the note at place `place[i]` of clip `clip[i]`,
+        // its place before the call. A list left out of `start`, `length`,
+        // `pitch` and `velocity` keeps that value of each note.
+        // @param columns types.NoteColumns
+        // @return nil
+        fn notes_set(_, sh, columns => Table) {
+            let columns = note_columns(&columns)?;
+            sh.session.borrow_mut().notes_set(&columns).lua()
         }
         // @param notes {types.Note}
         // @return nil

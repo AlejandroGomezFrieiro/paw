@@ -209,6 +209,7 @@ local record api
    nest_unique: function(clip: integer): integer
    note_off: function(track: integer, pitch?: integer)
    note_on: function(track: integer, pitch: integer, velocity?: number, attr?: types.NoteAttr)
+   notes_set: function(columns: types.NoteColumns)
    now: function(): number
    plugins_add_dir: function(dir: string): types.PluginDir
    plugins_attach: function(path: string): string
