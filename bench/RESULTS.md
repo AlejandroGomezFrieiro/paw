@@ -9,6 +9,24 @@ against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md).
 
 
 
+## 2026-11-23: extensions that wait for their first use
+
+`bench/extstart.sh 20`: wall time of a start and exit, in the test
+environment, with the shared binary and the dev runtime of the branch.
+The machine is shared (load average 17 to 18), so the spread is large.
+
+| Configuration | median ms | min | max |
+| --- | --- | --- | --- |
+| no extension | 129.2 | 96.0 | 131.3 |
+| `paw.ext.load_bundled` of each of the 25 (as before: all at start) | 285.1 | 214.8 | 326.2 |
+| `paw.ext.use` of each (7 wait: doctor, drums, mixdiag, notation, plugstate, templates, tutor) | 217.2 | 173.7 | 229.3 |
+
+The extensions cost about 156 ms before and 88 ms after: about 68 ms
+(44 %) less. A first run (3 starts) gave 294.5 against 219.6. The time to
+load each extension, warm cache, processor ms: notation 25 to 32,
+plugstate 17 to 21, utau 12 to 13, musicops 5 to 6, tutor 5, the others
+1 to 4. The first use of a waiting extension pays its own time once.
+
 ## 2026-11-23: the region tree and the tracks of a scope as memos of paw.derived
 
 `paw.markers.tree()` is a memo of `paw.derived` that reads the source
