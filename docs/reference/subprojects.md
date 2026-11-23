@@ -120,7 +120,8 @@ subproject and not the song's, and the message says so, for example
 `90 bpm: the subproject's own tempo`. `:tempo.ramp`, `:tempo.remove`,
 `:tempo.tap`, `:timesig` with a meter and `:timesig.remove` change the
 song's map, so inside a subproject with its own tempo they refuse and say
-why. The status line shows `own tempo`,
+why. The tempo lane (`zT`) shows the tempo of the subproject. The
+status line shows `own tempo`,
 and `K` on a block says `own tempo` where it otherwise says `follows the
 tempo`.
 
@@ -191,7 +192,9 @@ that you type, else the name of the view or of its region. A name has no
 is a path to a folder.
 
 The subproject keeps the meter of the song over that time as its own,
-so the song's bars stay where they are. The markers and regions inside
+so the song's bars stay where they are. Inside a subproject with a meter
+of its own, a view saves that meter instead: a view of a 6/8 subproject
+gives a subproject in 6/8. The markers and regions inside
 the time move into the subproject. A region over the whole time stays in
 the song. A view with no time takes the song from its start to the end
 of the last clip of its tracks, and the subproject then follows the

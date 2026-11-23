@@ -1271,13 +1271,16 @@ commands.define(
 
 --- The meter of the window's time from `from` to `to` (its beats): the
 --- meter at `from` and its changes inside, from beat 0, as a subproject
---- keeps it.
+--- keeps it. Inside a subproject with its own time, its own map; else
+--- the song's map, from the window's origin.
 local function meter_over(from: number, to: number): types.NestMeter
-  local origin = paw.time.origin()
+  local own = paw.time.own()
+  local origin = own and 0 or paw.time.origin()
+  local points = own and own:points() or api.tempo_points()
   local a, b = from + origin, to + origin
-  local num, den = api.tempo_signature(a)
+  local num, den = paw.time.signature_at(from)
   local changes: {types.SigChange} = {{beat = 0, num = num, den = den}}
-  for _, s in ipairs(api.tempo_points().signatures) do
+  for _, s in ipairs(points.signatures) do
     if s.beat > a + 1e-9 and s.beat < b - 1e-9 then
       changes[#changes + 1] = {beat = s.beat - a, num = s.num, den = s.den}
     end
@@ -1395,7 +1398,7 @@ function M.save(name?: string, own_row?: boolean): string
       "nested %d track%s, %s, as %s%s",
       #saved.tracks,
       #saved.tracks == 1 and "" or "s",
-      bars_text(from + paw.time.origin(), to + paw.time.origin(), true),
+      bars_text(paw.time.song_beat(from), paw.time.song_beat(to), true),
       name,
       first and string.format(" (%d/%d)", first.num, first.den) or ""
     ),

@@ -1320,13 +1320,15 @@ end
 --- The tempo lane: the header says what the tempo is at the cursor, the
 --- timeline draws the map as a curve, a step where a change holds and a slope
 --- where it ramps, a mark on each change. `:tempo.lane` or `zT` hides it.
+--- It shows the window's time: inside a subproject with its own tempo, its
+--- own map.
 function view:draw_tempo_row(headers, timeline, y, lines)
   local zoom = self.geometry.zoom
   local hw, tw = headers.width, timeline.width
   local beat = paw.cursor.beat
   headers:fill(0, y, hw, 2, " ", "TrackHeader")
   headers:text(2, y, util.fit("tempo", math.max(1, hw - 3)), "TrackHeader")
-  headers:text(2, y + 1, util.fit(string.format("%g bpm", paw.tempo.at(beat)), math.max(1, hw - 3)), "TrackInfo")
+  headers:text(2, y + 1, util.fit(string.format("%g bpm", paw.time.tempo_at(beat)), math.max(1, hw - 3)), "TrackInfo")
   timeline:fill(0, y, tw, 2, " ", "Lane")
   for _, line in ipairs(lines) do
     if line.bar then timeline:fill(line.x, y, 1, 2, draw.g.bar, "LaneBar") end
@@ -1334,10 +1336,10 @@ function view:draw_tempo_row(headers, timeline, y, lines)
   local lo, hi = paw.tempolane.range()
   local function level(bpm) return util.clamp((bpm - lo) / (hi - lo), 0, 1) end
   local points = {}
-  for i, p in ipairs(paw.tempo.points()) do
+  for i, p in ipairs(paw.time.tempo_points()) do
     points[i] = { p.beat, level(p.bpm), paw.opt.ascii and (p.ramp and ">" or "*") or (p.ramp and "↗" or "◆") }
   end
-  curve(timeline, 0, y, tw, 2, function(i) return level(paw.tempo.at(self:beat((i + 0.5) / 2))) end, {
+  curve(timeline, 0, y, tw, 2, function(i) return level(paw.time.tempo_at(self:beat((i + 0.5) / 2))) end, {
     points = points,
     style = "Automation",
     from = self:v(self.scroll),

@@ -2157,7 +2157,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.tempolane.fraction(bpm)`: Where a tempo is in the row, 0 at the bottom, 1 at the top.
 - `paw.tempolane.move(beat, to, bpm)`: The change at `beat` to another beat and tempo. The start's change keeps its beat and changes its tempo.
 - `paw.tempolane.ramp(beat, on)`: Make the change at `beat` ramp to the next, or hold again.
-- `paw.tempolane.range()`: The tempo at the bottom and at the top of the row. The range keeps a small space around the slowest and the fastest tempo of the map, in tens of beats a minute. The range is at least 80 and centered. So a steady song does not show as a wall.
+- `paw.tempolane.range()`: The tempo at the bottom and at the top of the row. The range keeps a small space around the slowest and the fastest tempo of the map, in tens of beats a minute. The range is at least 80 and centered. So a steady song does not show as a wall. The map is the window's: inside a subproject with its own tempo, its own.
 - `paw.tempolane.remove(beat)`: Remove the change at `beat`. You cannot remove the change at the start.
 - `paw.tempolane.show(on)`: Show the row, or hide it (`on` false).
 - `paw.tempolane.shown()`: True if the row shows.

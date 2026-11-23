@@ -576,6 +576,7 @@ local record M
     bar_start: function(n: integer): number
     signature_at: function(beat?: number): integer, integer
     tempo_at: function(beat?: number): number
+    tempo_points: function(): {types.TempoPoint}
     bar_of: function(beat: number): integer
     bar_floor: function(beat: number): number
     bar_ceil: function(beat: number): number
@@ -1963,6 +1964,22 @@ end
 function time.tempo_at(beat?: number): number
   local m, o = window_map()
   return m:tempo((beat or 0) + o)
+end
+
+--- The tempo points of the window's time, the start's first: { beat, bpm,
+--- ramp }, beats of the window. In a subproject with its own tempo, its
+--- own points; else the song's, from the window's origin.
+function time.tempo_points(): {types.TempoPoint}
+  local own = time.own()
+  if own then
+    return own:points().tempos
+  end
+  local o = time.origin()
+  local out: {types.TempoPoint} = {}
+  for i, p in ipairs(api.tempo_points().tempos) do
+    out[i] = {beat = p.beat - o, bpm = p.bpm, ramp = p.ramp}
+  end
+  return out
 end
 
 --- The bar (1-based) a beat is in.

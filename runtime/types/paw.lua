@@ -8604,7 +8604,8 @@ function paw.tempolane.ramp(beat, on) end
 --- The tempo at the bottom and at the top of the row. The range keeps a
 --- small space around the slowest and the fastest tempo of the map, in tens
 --- of beats a minute. The range is at least 80 and centered. So a steady
---- song does not show as a wall.
+--- song does not show as a wall. The map is the window's: inside a
+--- subproject with its own tempo, its own.
 function paw.tempolane.range() end
 
 --- Remove the change at `beat`. You cannot remove the change at the start.

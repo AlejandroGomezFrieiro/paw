@@ -908,6 +908,27 @@ test(
   end
 )
 
+test("<Space>zw on a view inside a meter=own 6/8 subproject saves it in 6/8", function()
+  metal()
+  keys("33|")
+  keys(":nest.new Ballad 8 6/8 meter=own<CR>")
+  local inside = paw.scope.tracks()
+  api.clip_add(inside[1], { start = 3, length = 6, notes = { { pitch = 60, start = 0, length = 1 } } })
+  paw.flush()
+  api.undo_checkpoint()
+  -- Bars 2-3 of Ballad: three beats each.
+  paw.scope.enter({ kind = "range", tracks = inside, from = 3, to = 9, name = "Verse" })
+  keys("<Space>zw")
+  local verse = api.nest_get(api.nest_list()[2])
+  local changes = {}
+  for _, c in ipairs(verse.meter.changes) do
+    changes[#changes + 1] = string.format("%g:%d/%d", c.beat, c.num, c.den)
+  end
+  eq(verse.name .. " " .. verse.meter.mode .. " " .. table.concat(changes, " "), "Verse own 0:6/8", "Ballad's meter")
+  eq(paw.ui.message.text:find("as Verse (6/8)", 1, true) ~= nil, true, paw.ui.message.text)
+  eq(signatures(), "0:4/4", "the song's map as it was")
+end)
+
 test("inside a subproject with its own tempo, :tempo sets its tempo and the status line says own tempo", function()
   local b = cue()
   paw.cursor.set_track(b.row)
@@ -918,6 +939,25 @@ test("inside a subproject with its own tempo, :tempo sets its tempo and the stat
   eq(paw.ui.message.text, "90 bpm: the subproject's own tempo", "the message")
   eq(api.nest_get(b.nest).tempo.points[1].bpm .. " " .. paw.project.tempo, "90 120", "its tempo, not the song's")
   eq(screen():find("own tempo", 1, true) ~= nil, true, "the status line")
+end)
+
+test("inside a subproject with its own tempo, the tempo lane shows its tempo, not the song's", function()
+  local b = cue()
+  paw.cursor.set_track(b.row)
+  paw.cursor.set_beat(17)
+  keys(":nest.time own<CR>")
+  keys("znn")
+  keys(":tempo 90<CR>")
+  keys("zT")
+  T.after(function() paw.tempolane.show(false) end)
+  local rows = api.ui_snapshot(120, 24)
+  local header
+  for i, row in ipairs(rows) do
+    if row:find("^%s*tempo%s") and rows[i + 1] then header = rows[i + 1]:match("^%s*(%d+ bpm)") end
+  end
+  eq(header, "90 bpm", "the lane's header: its tempo at the cursor\n" .. table.concat(rows, "\n"))
+  local lo, hi = paw.tempolane.range()
+  eq(lo .. " " .. hi, "50 130", "the lane's range round 90")
 end)
 
 test(
