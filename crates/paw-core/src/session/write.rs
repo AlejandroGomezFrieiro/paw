@@ -347,7 +347,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::session::TrackOpts;
+    use crate::session::document::TrackOpts;
 
     /// A session on the null backend, playing, with one track in touch mode.
     fn touching() -> (Session, Id) {

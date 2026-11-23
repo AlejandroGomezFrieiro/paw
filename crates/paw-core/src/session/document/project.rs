@@ -9,7 +9,7 @@ use anyhow::{Result, bail};
 use serde_json::{Value, json};
 
 use super::Document;
-use crate::session::{de, de_meta, holds};
+use super::values::{de, de_meta, holds};
 
 impl Document {
     /// The project's fields as a table. `path` is the project's file, which

@@ -4,11 +4,40 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use anyhow::{Context, Result, bail};
+use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::Document;
-use crate::model::{DeviceInst, Id, InputChannels, MASTER_ID, MidiInput, Project, Send, Target, Track};
-use crate::session::{TrackListOpts, TrackOpts, de, de_meta, finite, holds, midi_out};
+use super::values::{de, de_meta, finite, holds};
+use crate::model::{
+    DeviceInst, Id, InputChannels, MASTER_ID, MidiInput, MidiOutput, NestId, Project, Send, Target, Track,
+};
+
+/// What `paw.api.track_add` takes for a new track.
+#[derive(Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub(crate) struct TrackOpts {
+    pub name: Option<String>,
+    /// Position among the tracks of its place (the song, or its
+    /// subproject), counting from 1. Appended when absent.
+    pub index: Option<usize>,
+    pub volume: Option<f64>,
+    pub pan: Option<f64>,
+    pub output: Option<Id>,
+    pub color: Option<String>,
+    /// The nest (subproject) the track is made in; the song when absent.
+    pub nest: Option<NestId>,
+}
+
+/// What `paw.api.track_list` takes: the tracks of the song when empty.
+#[derive(Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub(crate) struct TrackListOpts {
+    /// The tracks of this subproject, without its master.
+    pub nest: Option<NestId>,
+    /// Every track: the song's and those of each subproject.
+    pub all: bool,
+}
 
 /// A fader or pan knob that [`Document::track_set`] moved: where it was and
 /// where it went.
@@ -339,7 +368,7 @@ impl TrackField {
                 }
                 t.midi_input = midi_input_of(value)?;
             }
-            Self::MidiOutput => t.midi_output = midi_out::parse(value)?,
+            Self::MidiOutput => t.midi_output = parse_midi_output(value)?,
             Self::AttrMap => t.attr_map = crate::attr_map::parse(value)?,
             Self::Output | Self::Sends => unreachable!("`set` sets the routing"),
         }
@@ -447,6 +476,34 @@ fn midi_input_of(value: Value) -> Result<Option<MidiInput>> {
             (midi != MidiInput::default()).then_some(midi)
         }
     })
+}
+
+/// A track's MIDI output from what a script gives: a port's name, a table
+/// `{ port, channel, form, members }`, or nil (or "none") for none.
+fn parse_midi_output(value: Value) -> Result<Option<MidiOutput>> {
+    let out = match value {
+        Value::Null => return Ok(None),
+        Value::String(s) if s.is_empty() || s == "none" => return Ok(None),
+        Value::String(port) => MidiOutput {
+            port,
+            channel: None,
+            form: Default::default(),
+            members: None,
+        },
+        // An empty Lua table arrives as an empty list.
+        Value::Array(a) if a.is_empty() => return Ok(None),
+        value => de::<MidiOutput>("midi_output", value)?,
+    };
+    if out.port.is_empty() {
+        bail!("a MIDI output needs a port: one of paw.midi.outputs()");
+    }
+    if out.channel.is_some_and(|ch| !(1..=16).contains(&ch)) {
+        bail!("a MIDI channel is from 1 to 16");
+    }
+    if out.members.is_some_and(|n| !(1..=15).contains(&n)) {
+        bail!("an MPE zone has 1 to 15 member channels");
+    }
+    Ok(Some(out))
 }
 
 #[cfg(test)]

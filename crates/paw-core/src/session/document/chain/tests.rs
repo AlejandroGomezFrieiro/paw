@@ -19,7 +19,7 @@ fn document() -> Document {
     })
     .unwrap();
     doc.next_id = 100;
-    doc.checkpoint(crate::clock::ScheduleTime::ZERO);
+    doc.checkpoint(crate::clock::ScheduleTime::ZERO, 0.0);
     doc
 }
 
@@ -74,12 +74,12 @@ fn each_edit_of_the_chain_is_one_undo_step() {
     for (what, setup, edit) in cases {
         let mut doc = document();
         let id = setup(&mut doc);
-        doc.checkpoint(crate::clock::ScheduleTime::ZERO);
+        doc.checkpoint(crate::clock::ScheduleTime::ZERO, 0.0);
         let before = serde_json::to_string(&doc.project).unwrap();
         edit(&mut doc, id).unwrap_or_else(|e| panic!("{what}: {e}"));
         let after = serde_json::to_string(&doc.project).unwrap();
         assert_ne!(before, after, "{what} changes the project");
-        assert!(doc.checkpoint(crate::clock::ScheduleTime::ZERO), "{what} makes an undo step");
+        assert!(doc.checkpoint(crate::clock::ScheduleTime::ZERO, 0.0), "{what} makes an undo step");
         assert!(doc.undo(), "{what} is undone");
         assert_eq!(
             serde_json::to_string(&doc.project).unwrap(),
@@ -134,7 +134,7 @@ fn an_unwrap_that_keeps_one_branch_takes_the_others_devices_from_the_owner() {
 fn a_refused_edit_says_why_and_changes_nothing() {
     let mut doc = document();
     let split = wrap(&mut doc, 1, &[12, 13], "band").unwrap();
-    doc.checkpoint(crate::clock::ScheduleTime::ZERO);
+    doc.checkpoint(crate::clock::ScheduleTime::ZERO, 0.0);
     let before = serde_json::to_string(&doc.project).unwrap();
     let cases = [
         (
@@ -159,7 +159,7 @@ fn a_refused_edit_says_why_and_changes_nothing() {
         assert_eq!(result.map_err(|e| e.to_string()), Err(message.to_owned()));
     }
     assert_eq!(serde_json::to_string(&doc.project).unwrap(), before, "the project is as it was");
-    assert!(!doc.checkpoint(crate::clock::ScheduleTime::ZERO), "no undo step");
+    assert!(!doc.checkpoint(crate::clock::ScheduleTime::ZERO, 0.0), "no undo step");
 }
 
 #[test]

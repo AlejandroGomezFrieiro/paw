@@ -55,7 +55,7 @@ impl Session {
         self.doc.undo.history.set_current_snapshot(self.doc.undo.checkpoint.clone());
         let fresh = Project::default();
         let limits = (self.doc.undo.history.limit(), self.doc.undo.history.byte_limit());
-        let history = std::mem::replace(&mut self.doc.undo.history, new_history(fresh.clone(), limits));
+        let history = std::mem::replace(&mut self.doc.undo.history, new_history(fresh.clone(), history::now(), limits));
         self.shelf = Some(Shelf {
             project: self.doc.project.clone(),
             history,

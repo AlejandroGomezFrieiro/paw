@@ -15,6 +15,7 @@ use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use super::Document;
+use super::values::{de, de_meta};
 use crate::model::chain::edit::{self, Change, KeyFrom};
 use crate::model::chain::{Branch, Chain, KindSpec, Macro, Split, SplitKinds, Zone};
 use crate::model::ids::{DefId, DeviceId, NodeId, ParamKey};
@@ -22,7 +23,6 @@ use crate::model::kinds::Owner;
 use crate::model::owner::OwnerRef;
 use crate::model::racks::RackDef;
 use crate::model::{DeviceInst, Project};
-use crate::session::{de, de_meta};
 
 /// Where a node goes, as Lua gives it: `{ before = id }`, `{ after = id }`
 /// or `{ branch = id, index = n }` (from 0 here; past the end for the end).
@@ -269,7 +269,7 @@ impl Document {
 
     /// A copy of `chain` for the copies `to` of the devices `from` (in the
     /// same order), with new ids for its own parts.
-    pub(in crate::session) fn copy_chain(
+    pub(crate) fn copy_chain(
         &mut self,
         chain: &Chain,
         from: &[Arc<DeviceInst>],
