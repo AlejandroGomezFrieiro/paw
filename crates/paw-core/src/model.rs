@@ -15,10 +15,13 @@ use serde_json::{Map, Value};
 
 mod clips;
 mod custom;
+pub mod graph;
+mod linked;
 mod links;
 pub(crate) mod nest;
 mod notes;
 mod overrides;
+mod racks;
 
 #[cfg(test)]
 mod props;
@@ -28,9 +31,12 @@ pub use custom::{
     OscAddress, OscArg, PortName, RESERVED, Signal, SignalTo, Sound, Timeline, Word,
 };
 pub use nest::{MAX_DEPTH, Nest, NestId, NestMeter, NestPlay, NestTempo, Route, Standalone, check_nest};
+pub use graph::Graph;
+pub use linked::{Keyed, Linked};
 pub(crate) use links::Links;
 pub use notes::Notes;
 pub use overrides::Overrides;
+pub use racks::{RackDef, RackLink, RackOwn};
 
 pub type Id = u64;
 
@@ -75,6 +81,9 @@ pub struct Project {
     /// Free-form data for extensions, saved with the project.
     #[serde(default)]
     pub meta: Map<String, Value>,
+    /// The definitions of the linked racks: see `model/racks.rs`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub racks: Vec<Arc<RackDef>>,
     /// Where clips were last found: see [`Project::find_clip`].
     #[serde(skip)]
     places: Places,
@@ -112,6 +121,7 @@ impl Default for Project {
             tracks: Vec::new(),
             nests: BTreeMap::new(),
             meta: Map::new(),
+            racks: Vec::new(),
             places: Places::default(),
         }
     }
@@ -131,7 +141,13 @@ pub struct Track {
     /// The track this one feeds, or `None` for the master track.
     pub output: Option<Id>,
     pub sends: Vec<Send>,
+    /// Every device of the track. With no `graph`, the devices play in
+    /// series in this order. With one, this is the graph's signal order.
     pub devices: Vec<Arc<DeviceInst>>,
+    /// The shape of the chain: splits and branches that name the devices
+    /// by id (`model/graph.rs`). `None` plays the devices in series.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub graph: Option<Arc<Graph>>,
     pub clips: Clips,
     /// At most one lane per target.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -347,6 +363,7 @@ impl Track {
             output: None,
             sends: Vec::new(),
             devices: Vec::new(),
+            graph: None,
             clips: Clips::new(),
             lanes: Vec::new(),
             color: None,
@@ -374,7 +391,7 @@ impl Track {
         fn same_arcs<T>(a: &[Arc<T>], b: &[Arc<T>]) -> bool {
             a.len() == b.len() && a.iter().zip(b).all(|(x, y)| Arc::ptr_eq(x, y))
         }
-        let checks: [(&'static str, bool); 26] = [
+        let checks: [(&'static str, bool); 27] = [
             ("name", self.name == before.name),
             ("volume", self.volume == before.volume),
             ("pan", self.pan == before.pan),
@@ -384,6 +401,7 @@ impl Track {
             ("output", self.output == before.output),
             ("sends", self.sends == before.sends),
             ("devices", same_arcs(&self.devices, &before.devices)),
+            ("graph", self.graph == before.graph),
             ("clips", self.clips.same(&before.clips)),
             ("lanes", same_arcs(&self.lanes, &before.lanes)),
             ("color", self.color == before.color),
@@ -1566,8 +1584,14 @@ impl Project {
                     .chain(t.clips.iter().map(|c| c.id))
                     .chain(t.cues.iter().map(|c| c.id))
                     .chain(t.lanes.iter().map(|l| l.id))
+                    .chain(t.graph.iter().flat_map(|g| g.root.ids()))
             })
             .chain(self.nests.keys().map(|n| n.0))
+            .chain(self.racks.iter().flat_map(|r| {
+                std::iter::once(r.id)
+                    .chain(r.split.ids())
+                    .chain(r.devices.iter().map(|d| d.id))
+            }))
             .max()
             .unwrap_or(0)
     }

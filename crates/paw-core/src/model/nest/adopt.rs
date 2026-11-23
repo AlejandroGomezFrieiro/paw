@@ -67,6 +67,9 @@ fn shift_ids(p: &mut Project, by: Id) {
             d.sidechain = d.sidechain.map(shift);
             d.outputs.values_mut().for_each(|o| *o = shift(*o));
         }
+        if let Some(graph) = &mut t.graph {
+            Arc::make_mut(graph).map_ids(&mut |id| shift(id));
+        }
         for l in t.lanes.iter_mut() {
             let l = Arc::make_mut(l);
             l.id = shift(l.id);

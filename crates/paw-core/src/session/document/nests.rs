@@ -313,6 +313,7 @@ impl Document {
             s.target = map(s.target);
         }
         (copy.devices, copy.lanes) = self.copy_devices_and_lanes(t, ids);
+        copy.graph = t.graph.as_ref().map(|g| Arc::new(self.copy_graph(g, &t.devices, &copy.devices)));
         copy.clips = t.clips.iter().map(|c| Arc::new(Clip { id: self.new_id(), ..(**c).clone() })).collect();
         copy.cues = t.cues.iter().map(|c| Arc::new(Clip { id: self.new_id(), ..(**c).clone() })).collect();
         if let Some(group) = t.meta.get("group").and_then(Value::as_u64) {

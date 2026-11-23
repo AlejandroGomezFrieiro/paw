@@ -4,6 +4,7 @@
 //! song/
 //! ├── project.toml            the tempo, the meter, the order of the tracks
 //! ├── meta.json               the project's `meta`, when it has some
+//! ├── racks.json              the definitions of the linked racks, when it has some
 //! ├── screen.json             the tabs and windows it opens with
 //! ├── .gitattributes          `*.midi2 diff=paw-midi2`
 //! ├── master/                 the master track, as a track folder
@@ -42,7 +43,7 @@ use super::BASE64;
 use super::media::MEDIA_FILE;
 use super::project_files::{DiskFiles, MemoryFiles, ProjectFiles};
 use crate::clipfile;
-use crate::model::{Clip, ClipContent, Control, KindData, Notes, Project, Target, Track};
+use crate::model::{Clip, ClipContent, Control, Graph, KindData, Notes, Project, Target, Track};
 
 mod nests;
 pub(super) use nests::read_part;
@@ -56,7 +57,7 @@ const VERSION: u32 = 2;
 const MANAGED_DIRS: [&str; 4] = ["tracks", "master", "nests", LINKED_DIR];
 /// The folder of the notes of each link: one file for all of its clips.
 const LINKED_DIR: &str = "linked";
-const MANAGED_FILES: [&str; 3] = ["meta.json", "screen.json", MEDIA_FILE];
+const MANAGED_FILES: [&str; 4] = ["meta.json", "racks.json", "screen.json", MEDIA_FILE];
 const GITATTRIBUTES: &str = "*.midi2 diff=paw-midi2\n";
 
 /// Whether a path names a project kept as a folder: a folder, its
@@ -674,6 +675,7 @@ fn lay_out(
     bare.tracks = Vec::new();
     bare.nests = BTreeMap::new();
     bare.meta = Map::new();
+    bare.racks = Vec::new();
     let mut head = serde_json::to_value(&bare)?;
     let map = head.as_object_mut().context("a project")?;
     map.remove("master");
@@ -697,6 +699,12 @@ fn lay_out(
         w.layout.files.insert(
             "meta.json".into(),
             pretty(&Value::Object(project.meta.clone())),
+        );
+    }
+    if !project.racks.is_empty() {
+        w.layout.files.insert(
+            "racks.json".into(),
+            pretty(&serde_json::to_value(&project.racks)?),
         );
     }
     if let Some(screen) = screen {
@@ -1056,6 +1064,12 @@ fn ids_in(track: &Value, used: &mut BTreeSet<u64>) {
             used.extend(list.iter().filter_map(id));
         }
     }
+    if let Some(graph) = track
+        .get("graph")
+        .and_then(|g| serde_json::from_value::<Graph>(g.clone()).ok())
+    {
+        used.extend(graph.root.ids());
+    }
 }
 
 /// Give a new id to each part of a track from outside (its devices alone
@@ -1089,6 +1103,36 @@ fn renumber(track: &mut Value, used: &mut BTreeSet<u64>, devices_only: bool) {
                 fresh(lane, used);
             }
         }
+    }
+    // The graph follows its devices, and its own ids that the project has
+    // get new ones.
+    if let Some(value) = track.get_mut("graph")
+        && let Ok(mut graph) = serde_json::from_value::<Graph>(value.clone())
+    {
+        let own: BTreeSet<u64> = graph
+            .root
+            .ids()
+            .into_iter()
+            .filter(|id| !devices.contains_key(id))
+            .collect();
+        let mut mapped: HashMap<u64, u64> = HashMap::new();
+        for id in own {
+            let new = if used.insert(id) {
+                id
+            } else {
+                used.iter().next_back().map_or(1, |m| m + 1)
+            };
+            used.insert(new);
+            mapped.insert(id, new);
+        }
+        graph.map_ids(&mut |id| {
+            devices
+                .get(&id)
+                .or_else(|| mapped.get(&id))
+                .copied()
+                .unwrap_or(id)
+        });
+        *value = serde_json::to_value(&graph).unwrap_or(Value::Null);
     }
     if devices_only {
         return;
@@ -1255,6 +1299,9 @@ fn read_at(fs: &dyn ProjectFiles, home: &Home, dir: &Path, head_path: &Path, dep
         Err(e) => return Err(e),
     };
     map.insert("meta".into(), meta);
+    if fs.exists(&dir.join("racks.json")) {
+        map.insert("racks".into(), read_json(fs, &dir.join("racks.json"))?);
+    }
     let screen = read_json(fs, &dir.join("screen.json")).ok();
     let mut project: Project =
         serde_json::from_value(head).with_context(|| format!("reading {}", dir.display()))?;
@@ -2123,7 +2170,7 @@ mod tests {
         show.tracks.push(Arc::new(track));
         // Nothing is on the disk: every file comes from the map.
         let dir = scratch("memory");
-        for p in [demo(), project(3, 4), show] {
+        for p in [demo(), project(3, 4), show, graphs()] {
             let layout = layout(&p, &json!({ "tempo": 1 }), Some(&json!({ "tabs": [] })), &dir, &Home::default()).unwrap();
             let files = layout.files.into_iter().map(|(k, v)| (k, Arc::from(v))).collect();
             let read = read_from(&MemoryFiles::new(&dir, files), &Home::default(), &dir).unwrap();
@@ -2132,6 +2179,35 @@ mod tests {
             assert_eq!((read.transport, read.screen), (json!({ "tempo": 1 }), Some(json!({ "tabs": [] }))));
         }
         assert!(!dir.exists());
+    }
+
+    /// Two tracks whose graphs hold the instances of a linked rack.
+    fn graphs() -> Project {
+        use crate::session::{Document, Place, WrapOpts};
+        let mut doc = Document::default();
+        doc.edit(|p| {
+            for (track, device) in [(1, 11), (2, 21)] {
+                let mut t = Track::new(track);
+                t.name = format!("T{track}");
+                let value = json!({ "id": device, "kind": "gain", "bypass": false, "params": { "gain": -2.0 } });
+                t.devices.push(Arc::new(serde_json::from_value(value).unwrap()));
+                p.tracks.push(Arc::new(t));
+            }
+            Ok(())
+        })
+        .unwrap();
+        doc.next_id = 100;
+        let rack = doc.graph_wrap(&[11], "chain", WrapOpts::default()).unwrap();
+        let def = doc.rack_define(rack, "Glue").unwrap();
+        doc.rack_place(
+            def,
+            &Place {
+                before: Some(21),
+                ..Place::default()
+            },
+        )
+        .unwrap();
+        doc.project
     }
 
     /// A chain file in the home folder that the session gives is named

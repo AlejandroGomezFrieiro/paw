@@ -60,7 +60,7 @@ mod export;
 mod schedule;
 pub use schedule::Work;
 pub use save::SaveOpts;
-pub use document::NestOpts;
+pub use document::{NestOpts, Place, WrapOpts};
 pub use export::ExportOpts;
 mod monitor;
 mod statelanes;

@@ -122,6 +122,9 @@ paw.fx = {}
 ---@class paw.fx.factory
 paw.fx.factory = {}
 
+---@class paw.graph
+paw.graph = {}
+
 ---@class paw.grep
 paw.grep = {}
 
@@ -3826,6 +3829,133 @@ function paw.fx.toggle_favourite(kind) end
 ---@param kind any
 function paw.fx.user_presets(kind) end
 
+--- Add an empty branch to the split `split`, as one undo step:
+--- `opts.name`, and `opts.index` (from 1; the end when nil).
+---@param split any
+---@param opts any
+function paw.graph.add_branch(split, opts) end
+
+--- Add a macro named `name` to the split `split`, as one undo step.
+---@param split any
+---@param name any
+function paw.graph.add_macro(split, name) end
+
+--- Change the linked rack to what the instance `split` is now: each other
+--- instance follows, and keeps its own values.
+---@param split any
+function paw.graph.apply_rack(split) end
+
+--- Let a graph have a split of a new kind, for an extension: `spec`
+--- gives the fewest (`min`) and the most (`max`) branches, and how many a
+--- new split of the kind gets (`first`).
+---@param word any
+---@param spec any
+function paw.graph.define_kind(word, spec) end
+
+--- The split, the branch or the macro with the id `id` in `graph`, and
+--- the splits around it. Nil when the graph does not have it.
+---@param graph any
+---@param id any
+function paw.graph.find(graph, id) end
+
+--- The graph of the track `track`, or nil when it has none: then its
+--- devices play in series, in the order of the track's list.
+---@param track any
+function paw.graph.get(track) end
+
+--- The words of the kinds of split: `chain`, `layer`, `band`, `ms`, `lr`,
+--- `key`, `vel`, `select`, `outs`, and the kinds that extensions defined.
+function paw.graph.kinds() end
+
+--- Link the macro `macro` to the parameter `param` of `device` in its
+--- split, with `depth` from -1 to 1; a nil depth removes the link. One
+--- undo step.
+---@param macro any
+---@param device any
+---@param param any
+---@param depth any
+function paw.graph.link(macro, device, param, depth) end
+
+--- Make the split `split` the first instance of a new linked rack named
+--- `name`: a change of the rack in one instance reaches the others.
+---@param split any
+---@param name any
+function paw.graph.link_rack(split, name) end
+
+--- Move the node `id` in its graph, as one undo step: `{ before = id }`,
+--- `{ after = id }` or `{ branch = id, index = n }` (from 1).
+---@param id any
+---@param place any
+function paw.graph.move(id, place) end
+
+--- The keys of the values that the instance `split` overrides.
+---@param split any
+function paw.graph.overrides(split) end
+
+--- Put a new instance of the linked rack `rack` at `place` (as
+--- `paw.graph.move` takes it).
+---@param rack any
+---@param place any
+function paw.graph.place_rack(rack, place) end
+
+--- The linked racks of the project.
+function paw.graph.racks() end
+
+--- Remove what `id` names, as one undo step: a split or a branch with its
+--- devices, a macro with its links, or a device.
+---@param id any
+function paw.graph.remove(id) end
+
+--- Give the instance `split` each value of its linked rack.
+---@param split any
+function paw.graph.reset_rack(split) end
+
+paw.graph.say = paw.notify
+
+--- Change a split (`name`, `mix`, `gain`, `kind`, `values`, `meta`), a
+--- branch (`name`, `gain`, `pan`, `mute`, `solo`, `zone`) or a macro
+--- (`name`, `value`), as one undo step. A new `kind` keeps the branches.
+---@param id any
+---@param patch any
+function paw.graph.set(id, patch) end
+
+--- Change a value of the linked rack `rack` by its key (`"<id>.gain"`,
+--- `"<id>.params.<key>"`, with an id of the rack's definition), in each
+--- instance that does not override it.
+---@param rack any
+---@param key any
+---@param value any
+function paw.graph.set_rack(rack, key, value) end
+
+--- Let `device` take its key from the node `from` of its graph, from
+--- `"in"` (the input of the graph), or (nil) from no node of the graph.
+--- One undo step.
+---@param device any
+---@param from any
+function paw.graph.tap(device, from) end
+
+--- Turn the instance `split` into a copy that follows no linked rack.
+---@param split any
+function paw.graph.unlink_rack(split) end
+
+--- Take the split `split` away, as one undo step. With `keep` (a branch
+--- of it), that branch takes its place and the devices of the other
+--- branches leave the track; without, its branches go in its place one
+--- after the other.
+---@param split any
+---@param keep any
+function paw.graph.unwrap(split, keep) end
+
+--- Wrap the nodes `nodes` (devices or splits in a row of one branch) in a
+--- new split of `kind`, as one undo step. They go into its first branch.
+--- `opts.branches` gives how many branches (the kind's first count when
+--- nil), `opts.name` its name, `opts.values` values of its kind
+--- (`{ xover = { 120, 2000 } }` for a band split).
+---@param nodes any
+---@param kind any
+---@param opts any
+function paw.graph.wrap(nodes, kind, opts) end
+
 --- Records as quickfix entries: `lyric: la`.
 ---@param records any
 function paw.grep.entries(records) end
@@ -6512,6 +6642,14 @@ function paw.nest.set_time(nest, how, bpm) end
 
 paw.nest.shift = paw.cursor.shift
 
+--- Put the window in front inside subproject `id`, as if you entered it
+--- from the song through each subproject that holds it. It does nothing
+--- when the window shows that subproject already. With no `id`, the
+--- window goes back to the song. Returns false and why when the project
+--- has no such subproject.
+---@param id any
+function paw.nest.show(id) end
+
 --- The return row that a track of a subproject is shown under, in place
 --- (`za`), or nil for any other track.
 ---@param track any
@@ -7045,7 +7183,8 @@ function paw.qf.format(e, list) end
 function paw.qf.from_diagnostics(target, filter) end
 
 --- Put the cursor on the address of an entry, in the view that shows it
---- best, and focus that view. A note goes to the piano roll, and a device
+--- best, and focus that view. A thing inside a subproject goes inside
+--- that subproject first. A note goes to the piano roll, and a device
 --- or a parameter to the device panel. A clip, a track, a lane or a range
 --- of time goes to the arrange view. Returns true if there was a place to go.
 ---@param e any
@@ -10707,6 +10846,84 @@ function paw.api.fs_stat(path) end
 ---@param path string
 function paw.api.fs_trash(path) end
 
+--- Add an empty branch to a split, as one undo step: `{ name =, index = }`
+--- (from 1; the end when not given). Gives its id.
+---@param split integer
+---@param opts any
+function paw.api.graph_branch_add(split, opts) end
+
+--- The graph of a track's devices, or nil when the track has none (its
+--- devices play in series, in the order of `track.devices`).
+---@param track integer
+function paw.api.graph_get(track) end
+
+--- Let a graph have a split of a new kind: `spec` gives the fewest
+--- (`min`) and the most (`max`) branches, and how many a new split
+--- gets (`first`).
+---@param word string
+---@param spec any
+function paw.api.graph_kind_define(word, spec) end
+
+--- The words of the kinds of split: the built-in kinds first, then the
+--- kinds that extensions defined.
+function paw.api.graph_kinds() end
+
+--- Link a macro to a parameter of a device in its split, with a depth
+--- from -1 to 1; no depth removes the link. One undo step.
+---@param source integer
+---@param device integer
+---@param param string
+---@param depth number?
+function paw.api.graph_link(source, device, param, depth) end
+
+--- Add a macro to a split, as one undo step. Gives its id.
+---@param split integer
+---@param name string
+function paw.api.graph_macro_add(split, name) end
+
+--- Move a node in its graph, as one undo step: `{ before = id }`,
+--- `{ after = id }` or `{ branch = id, index = n }` (from 1).
+---@param id integer
+---@param to any
+function paw.api.graph_move(id, to) end
+
+--- Remove a split or a branch with its devices, a macro with its links,
+--- or a device, as one undo step.
+---@param id integer
+function paw.api.graph_remove(id) end
+
+--- Change a split (`name`, `mix`, `gain`, `kind`, `values`, `meta`), a
+--- branch (`name`, `gain`, `pan`, `mute`, `solo`, `zone`) or a macro
+--- (`name`, `value`): a table of the entries to change, or one `key` and
+--- its value. One undo step.
+---@param id integer
+---@param key any
+---@param value any
+function paw.api.graph_set(id, key, value) end
+
+--- Let a device take its key from a node of its graph that comes before
+--- it, from `"in"` (the input of the graph), or (nil) from no node of
+--- the graph. One undo step.
+---@param device integer
+---@param from any
+function paw.api.graph_tap(device, from) end
+
+--- Take a split away, as one undo step. With `keep` (a branch of it),
+--- that branch takes its place and the devices of the others leave the
+--- track; without, its branches go in its place one after the other.
+--- Gives how many devices left the track.
+---@param split integer
+---@param keep integer?
+function paw.api.graph_unwrap(split, keep) end
+
+--- Wrap nodes (devices or splits in a row of one branch) in a new split
+--- of `kind`, as one undo step. They go into its first branch. Gives
+--- the split's id.
+---@param nodes integer[]
+---@param kind string
+---@param opts any
+function paw.api.graph_wrap(nodes, kind, opts) end
+
 --- Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, in
 --- `style` as `grid_text` takes it, and overwrite its characters when
 --- `fill` is given.
@@ -11470,6 +11687,47 @@ function paw.api.project_unshelve() end
 --- --- kernel ---
 ---@param code integer?
 function paw.api.quit(code) end
+
+--- Change the definition of a linked rack to what the instance `split` is
+--- now: each other instance follows it, and keeps its overrides.
+---@param split integer
+function paw.api.rack_apply(split) end
+
+--- Make a split the first instance of a new linked rack named `name`.
+--- Gives the id of the rack's definition.
+---@param split integer
+---@param name string?
+function paw.api.rack_define(split, name) end
+
+--- The definitions of the linked racks of the project.
+function paw.api.rack_list() end
+
+--- The keys of the values that an instance overrides.
+---@param split integer
+function paw.api.rack_overrides(split) end
+
+--- Put a new instance of a linked rack in a graph, at a place as
+--- `graph_move` takes it. Gives the instance's id.
+---@param rack integer
+---@param to any
+function paw.api.rack_place(rack, to) end
+
+--- Give an instance each value of its definition. Gives how many
+--- overrides went.
+---@param split integer
+function paw.api.rack_reset(split) end
+
+--- Change a value of a definition, by its key (`"<id>.gain"`,
+--- `"<id>.params.<key>"`, with an id of the definition), in each
+--- instance that does not override it.
+---@param rack integer
+---@param key string
+---@param value any
+function paw.api.rack_set(rack, key, value) end
+
+--- Turn an instance into a copy that follows no definition.
+---@param split integer
+function paw.api.rack_unlink(split) end
 
 ---@param path string
 function paw.api.read_dir(path) end

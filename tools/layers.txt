@@ -80,6 +80,7 @@ paw.controls
 paw.params
 paw.device_presets
 paw.fx
+paw.graph
 paw.midifile
 paw.formats
 paw.harmony

@@ -31,6 +31,7 @@ local type FoldsModule = require("paw.folds")
 local type FormatsModule = require("paw.formats")
 local type FreezeBlockModule = require("paw.freeze_block")
 local type FrontendModule = require("paw.frontend")
+local type GraphModule = require("paw.graph")
 local type GrepModule = require("paw.grep")
 local type GroupsModule = require("paw.groups")
 local type HarmonyModule = require("paw.harmony")
@@ -140,6 +141,7 @@ global record paw
    freeze_block: FreezeBlockModule
    frontend: FrontendModule
    fx: Untyped
+   graph: GraphModule
    grep: GrepModule
    groups: GroupsModule
    harmony: HarmonyModule

@@ -911,6 +911,31 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.fx.toggle_favourite(kind)`: Make a kind of device a favorite, or not. Returns true if it is a favorite now.
 - `paw.fx.user_presets(kind)`: The user's presets for a kind of device, by name: `{ name, path }`.
 
+## Module paw.graph
+
+- `paw.graph.add_branch(split, opts)`: Add an empty branch to the split `split`, as one undo step: `opts.name`, and `opts.index` (from 1; the end when nil).
+- `paw.graph.add_macro(split, name)`: Add a macro named `name` to the split `split`, as one undo step.
+- `paw.graph.apply_rack(split)`: Change the linked rack to what the instance `split` is now: each other instance follows, and keeps its own values.
+- `paw.graph.define_kind(word, spec)`: Let a graph have a split of a new kind, for an extension: `spec` gives the fewest (`min`) and the most (`max`) branches, and how many a new split of the kind gets (`first`).
+- `paw.graph.find(graph, id)`: The split, the branch or the macro with the id `id` in `graph`, and the splits around it. Nil when the graph does not have it.
+- `paw.graph.get(track)`: The graph of the track `track`, or nil when it has none: then its devices play in series, in the order of the track's list.
+- `paw.graph.kinds()`: The words of the kinds of split: `chain`, `layer`, `band`, `ms`, `lr`, `key`, `vel`, `select`, `outs`, and the kinds that extensions defined.
+- `paw.graph.link(macro, device, param, depth)`: Link the macro `macro` to the parameter `param` of `device` in its split, with `depth` from -1 to 1; a nil depth removes the link. One undo step.
+- `paw.graph.link_rack(split, name)`: Make the split `split` the first instance of a new linked rack named `name`: a change of the rack in one instance reaches the others.
+- `paw.graph.move(id, place)`: Move the node `id` in its graph, as one undo step: `{ before = id }`, `{ after = id }` or `{ branch = id, index = n }` (from 1).
+- `paw.graph.overrides(split)`: The keys of the values that the instance `split` overrides.
+- `paw.graph.place_rack(rack, place)`: Put a new instance of the linked rack `rack` at `place` (as `paw.graph.move` takes it).
+- `paw.graph.racks()`: The linked racks of the project.
+- `paw.graph.remove(id)`: Remove what `id` names, as one undo step: a split or a branch with its devices, a macro with its links, or a device.
+- `paw.graph.reset_rack(split)`: Give the instance `split` each value of its linked rack.
+- `paw.graph.say`: the same as `paw.notify`.
+- `paw.graph.set(id, patch)`: Change a split (`name`, `mix`, `gain`, `kind`, `values`, `meta`), a branch (`name`, `gain`, `pan`, `mute`, `solo`, `zone`) or a macro (`name`, `value`), as one undo step. A new `kind` keeps the branches.
+- `paw.graph.set_rack(rack, key, value)`: Change a value of the linked rack `rack` by its key (`"<id>.gain"`, `"<id>.params.<key>"`, with an id of the rack's definition), in each instance that does not override it.
+- `paw.graph.tap(device, from)`: Let `device` take its key from the node `from` of its graph, from `"in"` (the input of the graph), or (nil) from no node of the graph. One undo step.
+- `paw.graph.unlink_rack(split)`: Turn the instance `split` into a copy that follows no linked rack.
+- `paw.graph.unwrap(split, keep)`: Take the split `split` away, as one undo step. With `keep` (a branch of it), that branch takes its place and the devices of the other branches leave the track; without, its branches go in its place one after the other.
+- `paw.graph.wrap(nodes, kind, opts)`: Wrap the nodes `nodes` (devices or splits in a row of one branch) in a new split of `kind`, as one undo step. They go into its first branch. `opts.branches` gives how many branches (the kind's first count when nil), `opts.name` its name, `opts.values` values of its kind (`{ xover = { 120, 2000 } }` for a band split).
+
 ## Module paw.grep
 
 - `paw.grep.entries(records)`: Records as quickfix entries: `lyric: la`.
@@ -1559,6 +1584,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.nest.set_meter(nest, meter)`: Give subproject `nest` a meter of its own (`6/8`), with the song's map as it is (polymeter), or the song's meter again (`follow`), as `:nest.meter` does. Returns the message.
 - `paw.nest.set_time(nest, how, bpm)`: Give subproject `nest` a tempo of its own (`own`: the song's over its first block, or `bpm` throughout) or the song's again (`follow`), as `:nest.time` does. Its blocks keep their start; their length in the song follows. Call it in one undo step. Returns the message.
 - `paw.nest.shift`: the same as `paw.cursor.shift`.
+- `paw.nest.show(id)`: Put the window in front inside subproject `id`, as if you entered it from the song through each subproject that holds it. It does nothing when the window shows that subproject already. With no `id`, the window goes back to the song. Returns false and why when the project has no such subproject.
 - `paw.nest.shown_under(track)`: The return row that a track of a subproject is shown under, in place (`za`), or nil for any other track.
 - `paw.nest.song_of(path)`: The song and the subproject that a path inside a song names (`song/nests/Bridge`, or its `nest.toml`): the song's folder and the subproject's id. Nil for any other path.
 - `paw.nest.toggle(track)`: `za` on a return row: open its subproject's tracks under it, in the song's time, or close them. On a track shown in place: close its row. False when the track is neither.
@@ -1733,7 +1759,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.qf.fix_title(e)`: The title of an entry's fix, or nil.
 - `paw.qf.format(e, list)`: An entry in one line, as said when going to it: `(2 of 7) error: …`.
 - `paw.qf.from_diagnostics(target, filter)`: Diagnostics as entries (as `paw.diagnostic.get` takes `target` and `filter`).
-- `paw.qf.go(e)`: Put the cursor on the address of an entry, in the view that shows it best, and focus that view. A note goes to the piano roll, and a device or a parameter to the device panel. A clip, a track, a lane or a range of time goes to the arrange view. Returns true if there was a place to go.
+- `paw.qf.go(e)`: Put the cursor on the address of an entry, in the view that shows it best, and focus that view. A thing inside a subproject goes inside that subproject first. A note goes to the piano roll, and a device or a parameter to the device panel. A clip, a track, a lane or a range of time goes to the arrange view. Returns true if there was a place to go.
 - `paw.qf.jump(n, stack)`: Make entry `n` of a stack's current list the current entry and go to it.
 - `paw.qf.last(stack)`: Go to the list's last entry.
 - `paw.qf.loc_stack(win, make)`: The location lists of a window (of the current window without `win`), made when you ask with `make`. A window that shows a location list uses the list that it shows, as in Neovim.
@@ -2662,6 +2688,18 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.fs_space(path)`: The space of the disk that holds a path: `{ free, total }` in bytes (free: what a program that is not root can use).
 - `paw.api.fs_stat(path)`: `{ kind = "file" | "dir" | "link", dir, size, mtime }`, or nil when nothing is there. A link is looked at, not followed, for its kind, and `dir` is true if it leads to a directory.
 - `paw.api.fs_trash(path)`: Put a file or directory in the freedesktop trash; returns where it is.
+- `paw.api.graph_branch_add(split, opts)`: Add an empty branch to a split, as one undo step: `{ name =, index = }` (from 1; the end when not given). Gives its id.
+- `paw.api.graph_get(track)`: The graph of a track's devices, or nil when the track has none (its devices play in series, in the order of `track.devices`).
+- `paw.api.graph_kind_define(word, spec)`: Let a graph have a split of a new kind: `spec` gives the fewest (`min`) and the most (`max`) branches, and how many a new split gets (`first`).
+- `paw.api.graph_kinds()`: The words of the kinds of split: the built-in kinds first, then the kinds that extensions defined.
+- `paw.api.graph_link(source, device, param, depth)`: Link a macro to a parameter of a device in its split, with a depth from -1 to 1; no depth removes the link. One undo step.
+- `paw.api.graph_macro_add(split, name)`: Add a macro to a split, as one undo step. Gives its id.
+- `paw.api.graph_move(id, to)`: Move a node in its graph, as one undo step: `{ before = id }`, `{ after = id }` or `{ branch = id, index = n }` (from 1).
+- `paw.api.graph_remove(id)`: Remove a split or a branch with its devices, a macro with its links, or a device, as one undo step.
+- `paw.api.graph_set(id, key, value)`: Change a split (`name`, `mix`, `gain`, `kind`, `values`, `meta`), a branch (`name`, `gain`, `pan`, `mute`, `solo`, `zone`) or a macro (`name`, `value`): a table of the entries to change, or one `key` and its value. One undo step.
+- `paw.api.graph_tap(device, from)`: Let a device take its key from a node of its graph that comes before it, from `"in"` (the input of the graph), or (nil) from no node of the graph. One undo step.
+- `paw.api.graph_unwrap(split, keep)`: Take a split away, as one undo step. With `keep` (a branch of it), that branch takes its place and the devices of the others leave the track; without, its branches go in its place one after the other. Gives how many devices left the track.
+- `paw.api.graph_wrap(nodes, kind, opts)`: Wrap nodes (devices or splits in a row of one branch) in a new split of `kind`, as one undo step. They go into its first branch. Gives the split's id.
 - `paw.api.grid_fill(x, y, w, h, fill, style, cx, cy, cw, ch)`: Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, in `style` as `grid_text` takes it, and overwrite its characters when `fill` is given.
 - `paw.api.grid_image(key, x, y, w, h, cx, cy, cw, ch)`: Draw the picture of pixels kept under `key` over the cells `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, two pixels a cell in half blocks (`▀`): what a terminal that shows no images shows of it. False for a key not kept (any more).
 - `paw.api.grid_keep(key, x, y, w, h, cx, cy, cw, ch)`: Keep the cells of the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, under `key`, to put back on a later frame with `grid_put` when what they were drawn from has not changed.
@@ -2802,6 +2840,14 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.project_shelved()`
 - `paw.api.project_unshelve()`
 - `paw.api.quit(code)`: --- kernel ---
+- `paw.api.rack_apply(split)`: Change the definition of a linked rack to what the instance `split` is now: each other instance follows it, and keeps its overrides.
+- `paw.api.rack_define(split, name)`: Make a split the first instance of a new linked rack named `name`. Gives the id of the rack's definition.
+- `paw.api.rack_list()`: The definitions of the linked racks of the project.
+- `paw.api.rack_overrides(split)`: The keys of the values that an instance overrides.
+- `paw.api.rack_place(rack, to)`: Put a new instance of a linked rack in a graph, at a place as `graph_move` takes it. Gives the instance's id.
+- `paw.api.rack_reset(split)`: Give an instance each value of its definition. Gives how many overrides went.
+- `paw.api.rack_set(rack, key, value)`: Change a value of a definition, by its key (`"<id>.gain"`, `"<id>.params.<key>"`, with an id of the definition), in each instance that does not override it.
+- `paw.api.rack_unlink(split)`: Turn an instance into a copy that follows no definition.
 - `paw.api.read_dir(path)`
 - `paw.api.real_ms()`: The time on the wall in milliseconds since paw started, for a budget of work or a deadline for another process. It moves also in a test. For a delay or a throttle, use `now`.
 - `paw.api.redo()`
