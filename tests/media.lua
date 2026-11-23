@@ -291,7 +291,7 @@ local function u32(s, at) return u16(s, at) + u16(s, at + 2) * 65536 end
 test("a render gives the same samples as the renderer before it moved to a thread", function()
   -- The references were written by the renderer as it was when it ran on
   -- the main thread (commit 330df77), from the demo song: bit for bit.
-  -- TASK-165 changed them once: the play position is a count of frames,
+  -- the frame-exact note starts changed them once: the play position is a count of frames,
   -- and 13 notes of the song (3 from beat 4) moved one frame, each onto
   -- the exact frame of its beat at 112 BPM.
   dofile("tests/fixtures/render-song.lua")

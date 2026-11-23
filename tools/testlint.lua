@@ -17,7 +17,7 @@
 -- only the files of `M.real_time` read the wall clock (`api.real_ms()`), and
 -- a budget reader there does not read the schedule clock (`api.now()`).
 -- The window (crates/paw-gui) is
--- paused: the check skips it until that work starts again (TASK-160).
+-- paused: the check skips it until that work starts again.
 local M = {}
 
 -- What counts ---------------------------------------------------------------------

@@ -615,7 +615,7 @@ def scenario_keys(opts, project):
     paw.quit()
 
 
-# --- the keys in a scope (TASK-6.7) ---
+# --- the keys in a scope ---
 # Regions over the 32 bars of the large project, one inside another, and a
 # group of the first 16 tracks. Made after the start, so the project file
 # and the other scenarios stay as they are.
@@ -681,7 +681,7 @@ def frame_cost(opts, paw, where, rounds=40):
 
 
 # The garbage collector's full cycles since this ran: a proxy whose
-# finalizer counts one cycle and makes the next proxy (TASK-190).
+# finalizer counts one cycle and makes the next proxy.
 GC_CYCLES_LUA = r"""
 local cycles = 0
 local function arm()

@@ -104,7 +104,7 @@ test("a plugin added with loading apart is there at once and comes in when made"
   end)
 end)
 
--- How many are made at once needs a count from the plugin sandbox (TASK-148).
+-- How many are made at once needs a count from the plugin sandbox.
 test("several plugins that load at the same time are all made", function()
   local kind = sandboxed_limiter()
   if not kind then return "skipped: test plugins not found" end

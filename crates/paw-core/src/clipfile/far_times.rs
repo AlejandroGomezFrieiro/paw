@@ -1,4 +1,4 @@
-//! The range of times that a clip holds (TASK-173): a note at the edge of
+//! The range of times that a clip holds: a note at the edge of
 //! the range writes and reads back, and a time past it is an error, not
 //! billions of clockstamps or an overflow of ticks.
 

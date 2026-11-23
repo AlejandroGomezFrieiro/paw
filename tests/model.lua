@@ -252,7 +252,7 @@ test("numbers that are not finite are refused, so that a save always loads", fun
   eq(#paw.tracks(), 1, "the project saved and loaded")
 end)
 
--- TASK-173: a note at 1e15 beats made the clip file writer hang on billions
+-- a note at 1e15 beats made the clip file writer hang on billions
 -- of clockstamps.
 test("times up to a million beats from a clip's start are kept, and further ones refused", function()
   fresh()

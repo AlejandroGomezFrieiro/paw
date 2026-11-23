@@ -1,6 +1,6 @@
 -- Large inputs: the processor time of the kernel's own work on them.
 --   paw --clean --no-plugins -l bench/heavy.lua [case ...] [reps=N]
--- The suite measured these as pass/fail tests until TASK-143. A test now
+-- The suite measured these as pass/fail tests until the test lint. A test now
 -- checks the behavior, and this script measures the time. Each case runs
 -- `reps` times (default 5) on a new project and prints one JSON line:
 -- `cpu_ms_median`, `cpu_ms_min` and `cpu_ms_max` (the processor time of
