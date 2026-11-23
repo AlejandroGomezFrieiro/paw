@@ -136,6 +136,9 @@ way. `paw.ext.use(path)` in `init.lua` or `:ext.load <name>` loads one.
   example, notation and articulations meet in `paw.query.marks` (the
   marks of a note) and the event `notation.marked`. Each extension works
   without the other.
+- The modules of an extension have the name of the extension
+  (`require("sampler")`). Do not put an entry under `paw.` in
+  `package.loaded`: that name is for the runtime.
 - With triggers, the extension waits for its first use: `cmd`, `keys`,
   `event`, `kind` (a key of any registry: `{ registry = "pickers", key =
   "x" }`), `view`, and `lazy = false`. paw puts a stub for each command,

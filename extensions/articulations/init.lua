@@ -4,8 +4,7 @@
 -- See README.md beside this file.
 paw.option.define("art_from_notation", true) -- a mark or technique written in the score sets the notes' articulation
 
-local art = require("articulations")
-package.loaded["paw.articulations"] = art
+require("articulations")
 
 require("articulations.roll")
 require("articulations.commands")

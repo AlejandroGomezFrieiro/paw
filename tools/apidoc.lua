@@ -43,8 +43,8 @@ end
 --- that `require("paw...")` gives, by its shortest name, and the classes
 --- (`paw.Track`). A list of `{ name, table, module }`, sorted by name.
 function M.modules()
-  -- The runtime's own: an extension may put a module of its under `paw.`
-  -- (`package.loaded["paw.sampler"]`), which is its to document.
+  -- The runtime's own: a name under `paw.` that has a file in runtime/lua.
+  -- A module of an extension has its own name and its own README.
   local function ours(name)
     local file = "runtime/lua/" .. name:gsub("%.", "/")
     return read(file .. ".lua") or read(file .. "/init.lua") or read(file .. ".tl") or read(file .. "/init.tl")
