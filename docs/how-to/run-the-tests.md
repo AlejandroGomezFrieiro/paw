@@ -63,8 +63,9 @@ Two suites, or a large `-j`, slow down the tests that wait for the audio.
 A test file must put back what its tests change, so that the next file
 starts in the same state, whatever ran before it. The runner gives back
 the options that paw had when the suite started after each test.
-`T.fresh()` gives a new project, the default layout, normal mode and no
-open float. `T.start()` also types `<Esc><Esc>` and moves the focus to the
+`T.fresh()` gives a new project and the default layout, with no view in a
+window of its own and no window before it for `<C-w>p`. It also gives
+normal mode, no open float and no quickfix list. `T.start()` also types `<Esc><Esc>` and moves the focus to the
 arrange view. `T.screen(w, h)` gives the text of the screen.
 
 The runner checks each file of `tests/`, and the test files of each
@@ -76,13 +77,21 @@ run:
 - the event handlers, timers and key mappings that the test code made
 - the loaded extensions, so it unloads each extension that the tests
   loaded
+- the audio engine, with its backend, sample rate and buffer size
+- the MIDI test ports that `api.midi_test_ports` lists
+- the step input controls that Lua code bound and no file saved
 
 If a handler, timer or key mapping of the test code was still there, or
 an extension can't be unloaded, the runner fails a test named
 `tests/<file>.lua leaves no state behind` or
-`extensions/<name>/ leaves no state behind`. The `changed:` line names
-what changed. To fix the failure, put back the change in the test that
-made it, with `T.after(function() ... end)`.
+`extensions/<name>/ leaves no state behind`. A change of the engine, the
+MIDI test ports or the step input controls fails the same test, whatever
+code made the change. The `changed:` line names what changed, and for the
+engine, the ports and the controls it also names the first test that left
+the change, for example
+`midi ports {} -> ports {Test Keys} (test "a song with a controller")`. To
+fix the failure, put back the change in the test that made it, with
+`T.after(function() ... end)`.
 
 The runner checks a file only when all of its tests ran, so a filter with
 `only` does not fail the check. The file `tests/leaks-allowed.txt` lists
@@ -90,6 +99,24 @@ the leaks that are known, one on each line, for example
 `tests/model.lua hooks` or `extensions/utau/ timers`. Don't add
 lines to the list. When a file no longer leaks, the runner fails until you
 remove its line.
+
+## Write a test that runs in any order
+
+A test makes all the state that it reads, so it gives the same result
+alone, under each `only` filter, and in each process of `-j`. The rules
+below keep a test independent of the tests that ran before it:
+
+- Start with `T.fresh()` or `T.start()`, and set each option that the
+  test needs.
+- Paint a view before a click in it, because a pointer handler can use
+  the size and place of the last paint, which an earlier test made.
+- Take the id of a track, a device, a clip or a lane from the value that
+  the kernel returns, and don't write a number. The kernel counts ids
+  across the tests, so a number in a test can be the id of another thing.
+- Make each file and folder that the test reads under `T.scratch` in the
+  test itself, and not in a test before it.
+- Put back with `T.after` what the test changes outside the project, for
+  example the MIDI test ports or the audio engine.
 
 ## Write a test that does not depend on time
 
