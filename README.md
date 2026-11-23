@@ -6,7 +6,7 @@
 ![Linux](https://img.shields.io/badge/platform-Linux-informational)
 ![Built with Nix](https://img.shields.io/badge/built%20with-Nix-5277C3)
 
-![The demo song plays. 3>ic moves the melody, . moves it again and u undoes it. :%s/e5/g5/g changes it, with a preview while it is typed](docs/images/tui-arrange.gif)
+![A tour of paw in the terminal. The cursor moves over tracks, clips and regions. The melody is copied, two tracks are turned down, and the view narrows to the verse. A clip is found by name, a track and a synth are added, and a note is drawn and transposed in the piano roll. Two tracks become a group, the chorus of the keys and the melody becomes a subproject, and the song plays. At the end, u undoes every change](docs/images/tui-tour.gif)
 
 paw is a digital audio workstation (DAW) for terminal nerds, and for people
 who spend more time in their config files than in the program. You record,
@@ -121,7 +121,9 @@ mouse.
 ![Clips copied, trimmed and zoomed with the mouse](docs/images/gui-arrange.gif)
 
 <details>
-<summary>More: lists as text, find, files, large projects, record, help, configuration</summary>
+<summary>More: operators and substitutions, lists as text, find, files, large projects, record, help, configuration</summary>
+
+![The demo song plays. 3>ic moves the melody, . moves it again and u undoes it. :%s/e5/g5/g changes it, with a preview while it is typed](docs/images/tui-arrange.gif)
 
 ![The tracks as text: one renamed and turned down, then written](docs/images/tui-textbuf.gif)
 

@@ -3,6 +3,9 @@
 #
 #   cargo build --release && docs/images/make/make.sh [set or scene...]
 #
+# PAW_BIN=<folder> takes paw from that folder instead of target/release.
+# The skill in .claude/skills/paw-gifs gives the rules for a scene.
+#
 # With no argument, the core's pictures in docs/images (the README's). An
 # extension's name makes that extension's, from the scenes in
 # extensions/<name>/images/make into extensions/<name>/images; `all` makes

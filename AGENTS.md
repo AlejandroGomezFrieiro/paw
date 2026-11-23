@@ -57,6 +57,8 @@ thread.
 
 To write an extension, use the skill in
 [.claude/skills/paw-extension](.claude/skills/paw-extension/SKILL.md).
+To make or change a GIF, use the skill in
+[.claude/skills/paw-gifs](.claude/skills/paw-gifs/SKILL.md).
 
 For each change of code, use the skill in
 [.claude/skills/paw-code](.claude/skills/paw-code/SKILL.md). It gives the

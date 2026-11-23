@@ -1,5 +1,5 @@
 #!/bin/sh
-# The hero: the song playing while it is edited as a text is in Vim:
+# The song plays while it is edited as a text is in Vim:
 # motions, an operator with a count, `.`, undo, and a substitution
 # previewed as it is typed.
 . "$MAKE/rig.sh"
