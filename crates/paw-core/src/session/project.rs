@@ -45,6 +45,11 @@ impl Session {
         if self.shelf.is_some() {
             bail!("a project is put aside already");
         }
+        // A take that closes belongs to this project: it ends here, before
+        // the history goes with the project (`put_project` would end it
+        // into the scratch project's history).
+        self.stop();
+        self.finish_takes_now();
         self.capture_states();
         self.checkpoint();
         self.doc.undo.history.set_current_snapshot(self.doc.undo.checkpoint.clone());
@@ -74,6 +79,11 @@ impl Session {
         let Some(shelf) = self.shelf.take() else {
             bail!("no project is put aside");
         };
+        // The scratch project's takes end in it, before its history goes: a
+        // take that closed later would be an undo step of the project that
+        // comes back, made from the scratch project's tracks.
+        self.stop();
+        self.finish_takes_now();
         let limits = (self.doc.undo.history.limit(), self.doc.undo.history.byte_limit());
         self.doc.undo.history = shelf.history;
         self.undo_file_swap(shelf.lazy);
