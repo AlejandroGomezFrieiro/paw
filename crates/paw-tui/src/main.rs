@@ -11,11 +11,13 @@ mod terminal;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use std::sync::OnceLock;
 
 use anyhow::{Context, Result, bail};
 use args::{Attach, Cli, ClipCommand, Command, Connect, Ctl};
 use clap::Parser;
 use paw_core::{Kernel, KernelOpts, rpc, startuptime};
+use paw_proto::dirs::Dirs;
 use paw_engine::backend::{BackendChoice, BackendOptions};
 use serde_json::Value;
 
@@ -25,8 +27,16 @@ fn home_dir() -> Option<PathBuf> {
     std::env::var_os("HOME").map(PathBuf::from)
 }
 
+/// The user's base directories (`XDG_*`, else folders in `HOME`). The
+/// program reads them here only, once, and gives them to the kernel and the
+/// parts that keep files in them.
+fn dirs() -> &'static Dirs {
+    static DIRS: OnceLock<Dirs> = OnceLock::new();
+    DIRS.get_or_init(|| Dirs::from_vars(|name| std::env::var_os(name)))
+}
+
 fn config_dir() -> PathBuf {
-    let base = paw_proto::dirs::config().unwrap_or_else(|| PathBuf::from("."));
+    let base = dirs().config.clone().unwrap_or_else(|| PathBuf::from("."));
     base.join("paw")
 }
 
@@ -60,16 +70,15 @@ fn restore_stderr() {
 }
 
 fn cache_dir() -> PathBuf {
-    let base = paw_proto::dirs::cache().unwrap_or_else(std::env::temp_dir);
-    base.join("paw")
+    dirs().paw_cache()
 }
 
 /// Connect to the instance `ctl` and `attach` are pointed at.
 fn connect(options: &Connect) -> Result<rpc::Connection> {
-    let socket = options.socket.clone().unwrap_or_else(rpc::default_path);
+    let socket = options.socket.clone().unwrap_or_else(|| rpc::default_path(dirs()));
     let address = options.connect.clone();
     let mut token = std::env::var("PAW_TOKEN").ok();
-    let mut wire = if options.no_tls { rpc::Wire::Plain } else { rpc::Wire::default() };
+    let mut wire = if options.no_tls { rpc::Wire::Plain } else { rpc::Wire::tls(dirs()) };
     let accept_new = options.accept_certificate;
     if let Some(path) = &options.token_file {
         let text = std::fs::read_to_string(path)
@@ -84,7 +93,7 @@ fn connect(options: &Connect) -> Result<rpc::Connection> {
             // On the machine the instance runs on, its token is at hand.
             let token = match token {
                 Some(token) => token,
-                None => std::fs::read_to_string(rpc::token_path())
+                None => std::fs::read_to_string(rpc::token_path(dirs()))
                     .map(|text| text.trim().to_string())
                     .context("--connect needs the token: --token, --token-file or $PAW_TOKEN")?,
             };
@@ -96,7 +105,7 @@ fn connect(options: &Connect) -> Result<rpc::Connection> {
                 eprintln!(
                     "paw: {address} is trusted from now on: its certificate is {print} \
                      (remembered in {})",
-                    rpc::known_path().display()
+                    rpc::known_file(dirs()).display()
                 );
             }
             Ok(connection)
@@ -320,7 +329,7 @@ fn running_has(project: &std::path::Path) -> bool {
     let Some(wanted) = project_file_of(project) else {
         return false;
     };
-    let socket = rpc::default_path();
+    let socket = rpc::default_path(dirs());
     if !socket.exists() {
         return false;
     }
@@ -486,7 +495,7 @@ fn serve_listeners(args: &args::Run, scripted: bool, kernel: &mut Kernel) -> Res
     let server = if scripted || args.no_listen {
         None
     } else {
-        let path = args.listen.clone().unwrap_or_else(rpc::default_path);
+        let path = args.listen.clone().unwrap_or_else(|| rpc::default_path(dirs()));
         match rpc::serve(&path, kernel.sender(), kernel.clients()) {
             Ok(server) => Some(server),
             // The socket is a convenience: carry on without it when it is taken.
@@ -508,12 +517,12 @@ fn serve_listeners(args: &args::Run, scripted: bool, kernel: &mut Kernel) -> Res
 
 /// Other machines may connect to `address`, if they know the token.
 fn listen_tcp(args: &args::Run, address: &str, kernel: &mut Kernel) -> Result<()> {
-    let token_file = args.token_file.clone().unwrap_or_else(rpc::token_path);
+    let token_file = args.token_file.clone().unwrap_or_else(|| rpc::token_path(dirs()));
     let token = rpc::token_at(&token_file)?;
     let identity = if args.no_tls {
         None
     } else {
-        Some(paw_core::tls::identity(&paw_core::tls::default_dir())?)
+        Some(paw_core::tls::identity(&paw_core::tls::default_dir(dirs()))?)
     };
     let config = identity.as_ref().map(|identity| identity.config.clone());
     let bound = rpc::serve_tcp(address, token, config, kernel.sender(), kernel.clients())?;
@@ -616,6 +625,7 @@ fn run() -> Result<i32> {
             .clone()
             .or_else(|| std::env::var_os("PAW_RUNTIME").map(PathBuf::from)),
         home: home_dir(),
+        dirs: dirs().clone(),
         clean: args.clean,
         scripted,
         argv: script_args.clone(),

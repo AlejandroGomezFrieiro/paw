@@ -160,12 +160,8 @@ impl Store {
     }
 
     /// The user's cache, `$XDG_CACHE_HOME/paw/bakes`, of 16 GB.
-    pub fn user() -> Self {
-        let root = paw_proto::dirs::cache()
-            .unwrap_or_else(std::env::temp_dir)
-            .join("paw")
-            .join("bakes");
-        Self::new(root, DEFAULT_LIMIT)
+    pub fn user(dirs: &paw_proto::dirs::Dirs) -> Self {
+        Self::new(dirs.paw_cache().join("bakes"), DEFAULT_LIMIT)
     }
 
     pub fn root(&self) -> &Path {

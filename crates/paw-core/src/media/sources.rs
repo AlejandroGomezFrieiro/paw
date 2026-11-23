@@ -17,6 +17,10 @@ pub struct Sources {
     table: MediaTable,
     /// Opened on first use.
     index: Option<LocalIndex>,
+    /// Where the index is kept between runs. The kernel sets it
+    /// ([`keep_index_in`](Self::keep_index_in)); `None` keeps the index in
+    /// memory only, as in the unit tests.
+    index_file: Option<PathBuf>,
     worker: Option<Worker>,
     /// Files the worker has and has not answered for yet.
     pending: HashSet<PathBuf>,
@@ -55,9 +59,15 @@ impl Sources {
         due
     }
 
+    /// Keep the local index in `file` between runs. It takes effect before
+    /// the index is first used.
+    pub fn keep_index_in(&mut self, file: PathBuf) {
+        self.index_file = Some(file);
+    }
+
     fn index(&mut self) -> &mut LocalIndex {
-        self.index
-            .get_or_insert_with(|| LocalIndex::open(LocalIndex::default_file()))
+        let file = &self.index_file;
+        self.index.get_or_insert_with(|| LocalIndex::open(file.clone()))
     }
 
     /// Start again from what a project recorded (its `media.json`).
