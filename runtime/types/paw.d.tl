@@ -11,6 +11,7 @@ local type contracts = require("paw.contracts")
 local type AddressModule = require("paw.address")
 local type AttrModule = require("paw.attr")
 local type AuditionModule = require("paw.audition")
+local type BounceModule = require("paw.bounce")
 local type BytesModule = require("paw.bytes")
 local type CanvasModule = require("paw.canvas")
 local type ChordsModule = require("paw.chords")
@@ -25,6 +26,7 @@ local type DrawModule = require("paw.draw")
 local type EditModule = require("paw.edit")
 local type EventsModule = require("paw.events")
 local type ExModule = require("paw.ex")
+local type ExportModule = require("paw.export")
 local type FoldsModule = require("paw.folds")
 local type FormatsModule = require("paw.formats")
 local type FreezeBlockModule = require("paw.freeze_block")
@@ -98,7 +100,7 @@ global record paw
    audio: Untyped
    audition: AuditionModule
    autosave: Untyped
-   bounce: Untyped
+   bounce: BounceModule
    buf: LayoutModule.Bufs
    buftype: function<B is contracts.Buftype>(name: string, def: B): B
    bytes: BytesModule
@@ -126,6 +128,7 @@ global record paw
    events: EventsModule
    every: function(ms: number, fn: function()): integer
    ex: ExModule
+   export: ExportModule
    ext: Partial.Ext
    external: Untyped
    failure: function(err: string): string
@@ -199,7 +202,6 @@ global record paw
    render_cancel: function(): boolean
    render_ranges: {string: RenderModule.Range}
    render_status: function(): RenderModule.Status
-   render_stems: function(dir: string, opts?: RenderModule.Options): {string}
    render_tags: function(set?: types.RenderTags): types.RenderTags
    restore_clip: function(snap: ObjectsModule.ClipSnapshot, track: integer | ObjectsModule.Track): ObjectsModule.Clip
    restore_device: function(snap: ObjectsModule.DeviceSnapshot, track: integer | ObjectsModule.Track, index?: integer): ObjectsModule.Device
@@ -217,7 +219,6 @@ global record paw
    snippet: SnippetModule
    state: Untyped
    statusline: StatuslineModule
-   stems: Untyped
    step: StepModule
    stretch: Untyped
    tab: LayoutModule.Tabs

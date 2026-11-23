@@ -222,7 +222,7 @@ test("markers are reached by keys and commands and drawn on the ruler", function
   eq(paw.markers.find("Verse"), nil, "removed at the cursor")
 end)
 
-test("a region is a range to render, and every region renders to its own file", function()
+test("a region is a range to render", function()
   fresh()
   T.tone("tone", 16)
   paw.project.tempo = 120
@@ -230,11 +230,6 @@ test("a region is a range to render, and every region renders to its own file", 
   paw.markers.add(8, "B", { length = 4 })
   local info = render({ range = "A", tail = 0 })
   near(info.seconds, 1, 0.01, "two beats at 120 are one second")
-  local dir = T.scratch .. "/regions"
-  local files = paw.markers.render_regions(dir, { tail = 0 })
-  eq(#files, 2, "a file each")
-  eq(files[1]:match("[^/]+$") .. " " .. files[2]:match("[^/]+$"), "01 A.wav 02 B.wav", "named after them, in order")
-  eq(#T.read_file(files[2]) > #T.read_file(files[1]), true, "the longer region is the longer file")
   fails(function() render({ range = "nowhere" }) end, "no range", "a range that is not there")
 end)
 

@@ -23,7 +23,7 @@ test("a render to a format that cannot be written is refused before rendering", 
   eq(exists(path), false, "no file is written")
   eq(heard, false, "nothing is rendered, not even what renders before")
   paw.off(off)
-  T.fails(function() paw.cmd("render", { path }) end, "AAC", "the command refuses it too")
+  T.fails(function() paw.cmd("export", { path }) end, "AAC", ":export refuses it too")
   eq(exists(path), false, "and writes nothing")
   local names = {}
   for _, f in ipairs(api.render_formats()) do
@@ -339,15 +339,38 @@ test("a render takes a range, a tail, a rate, a channel count and a sample size"
   eq(u16(head, 23), 1, "one channel")
   eq(u32(head, 25), 44100, "at the rate asked for")
   eq(u16(head, 35), 16, "of 16 bits")
-  -- (At 44.1 kHz the file is converted, and its sudden start rings a little.)
-  T.near(
-    paw.render(T.scratch .. "/mono48.wav", { channels = 1, ["end"] = 2, tail = 0 }).peak,
-    0.5,
-    0.002,
-    "both sides mixed at half each"
-  )
   T.fails(function() paw.render(T.scratch .. "/x.flac", { bits = 32 }) end, "16, 24", "FLAC has no float samples")
-  T.fails(function() paw.render(T.scratch .. "/x.wav", { channels = 6 }) end, "mono", "only mono and stereo")
+  T.fails(function() paw.render(T.scratch .. "/x.wav", { channels = "quad" }) end, "mono", "only stereo, mono and auto")
+end)
+
+test("a mono render is (left + right) / 2, and auto is mono only when both sides are equal", function()
+  fresh()
+  local t = paw.add_track()
+  t:add_clip({ file = steady(T.scratch .. "/same.wav", 2, 0.5), start = 0, length = 4 })
+  local function file(channels)
+    local info = paw.render(T.scratch .. "/" .. channels .. ".wav", { channels = channels, bits = 16, tail = 0 })
+    return info, u16(T.read_file(info.path), 23)
+  end
+  -- A source that is the same on both sides, in the center.
+  local info, count = file("mono")
+  eq(count, 1, "mono writes one channel")
+  T.near(info.peak, 0.5, 1e-4, "a mono source in the center keeps its level")
+  info, count = file("auto")
+  eq(count .. " " .. info.channels, "1 1", "auto: equal sides give one channel, and the result says so")
+  T.near(info.peak, 0.5, 1e-4, "at the level of the source")
+  -- Panned off center, the sides differ.
+  t.pan = -1
+  local left, right = T.channel_peaks(paw.render(T.scratch .. "/wide.wav", { bits = 16, tail = 0 }))
+  T.eq(left > 0.6 and right < 1e-3, true, "hard left: " .. left .. " " .. right)
+  T.near(file("mono").peak, (left + right) / 2, 1e-3, "mono is (left + right) / 2")
+  info, count = file("auto")
+  eq(count .. " " .. info.channels, "2 2", "auto keeps two channels for a source panned off center")
+  -- In the center again, through a device that makes the sides differ.
+  t.pan = 0
+  t:add_device("utility", { invert_r = 1 })
+  count = select(2, file("auto"))
+  eq(count, 2, "and for a source through a stereo device")
+  T.near(file("mono").peak, 0, 1e-4, "where opposite sides cancel in mono")
 end)
 
 test("FLAC renders read back as what was rendered", function()
@@ -355,19 +378,19 @@ test("FLAC renders read back as what was rendered", function()
   local t = paw.add_track()
   t:add_clip({ file = steady(T.scratch .. "/flac-src.wav", 3, 0.5), start = 0, length = 4 })
   for _, bits in ipairs({ 16, 24 }) do
-    for _, channels in ipairs({ 1, 2 }) do
-      local path = string.format("%s/out-%d-%d.flac", T.scratch, bits, channels)
+    for _, channels in ipairs({ "mono", "stereo" }) do
+      local path = string.format("%s/out-%d-%s.flac", T.scratch, bits, channels)
       local info = paw.render(path, { bits = bits, channels = channels, tail = 0 })
       eq(T.read_file(path):sub(1, 4), "fLaC", "a FLAC file")
       local back = paw.add_track()
       local clip = back:add_clip({ file = path, start = 0 })
-      T.near(clip.length, 4, 1e-3, string.format("as long as rendered (%d bits, %d channels)", bits, channels))
+      T.near(clip.length, 4, 1e-3, string.format("as long as rendered (%d bits, %s)", bits, channels))
       eq(info.format, "FLAC", "and says so")
       back:remove()
     end
   end
   local back = paw.add_track()
-  back:add_clip({ file = T.scratch .. "/out-24-2.flac", start = 0 })
+  back:add_clip({ file = T.scratch .. "/out-24-stereo.flac", start = 0 })
   t.mute = true
   T.near(T.render({ tail = 0, ["end"] = 3 }).peak, 0.5, 0.0001, "the level comes back")
 end)
@@ -414,7 +437,7 @@ test("a render in the background reports progress, can be cancelled, and leaves 
   T.fails(function() paw.render(T.scratch .. "/other.wav", {}) end, "being rendered", "one render at a time")
   paw.wait(300)
   eq(paw.frontend.state(-1).modal.render ~= nil, true, "the window is told")
-  paw.cmd("render.cancel")
+  paw.cmd("export.cancel")
   finish()
   eq(exists(path), false, "a cancelled render leaves no file")
   eq(exists(T.scratch .. "/.bg-out.wav.part"), false, "not even a partial one")
@@ -440,21 +463,17 @@ test("a render in the background reports progress, can be cancelled, and leaves 
   end
 end, { live = "it watches the render while it runs, and a settle waits for its end" })
 
-test("the render command takes its options and completes them", function()
+test(":export takes its words and completes them", function()
   fresh()
   T.tone("Synth", 2)
   local path = T.scratch .. "/cmd.flac"
-  paw.cmd("render", { path, tail = 0, bits = 16, channels = "mono", wait = true })
+  paw.cmd("export", { path, tail = 0, bits = 16, channels = "mono", wait = true })
   eq(T.read_file(path):sub(1, 4), "fLaC", "the command writes FLAC")
-  local spec = paw.commands.get("render")
-  local words = spec.complete("mix.wav ra")
-  local found = false
-  for _, w in ipairs(words) do
-    if w == "mix.wav range=" then found = true end
-  end
-  eq(found, true, "options complete")
-  words = spec.complete("mix.wav range=")
-  eq(#words, 3, "and their values: song, loop, selection")
+  local spec = paw.commands.get("export")
+  local words = table.concat(spec.complete("mix.wav ta"), " ")
+  eq(words:find("mix.wav tap=", 1, true) ~= nil, true, "words complete")
+  words = spec.complete("mix.wav channels=")
+  eq(#words, 3, "and their values: stereo, mono, auto")
 end)
 
 -- Sample rates ----------------------------------------------------------------

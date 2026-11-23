@@ -291,9 +291,9 @@ days[3] = function(E)
   local mix = E.workdir .. "/mix-day3.wav"
   E:act({
     name = "export the mix",
-    keys = { ":render " .. mix .. " wait=true<CR>" },
+    keys = { ":export " .. mix .. " wait=true<CR>" },
     slow = true,
-    says = "rendered",
+    says = "wrote",
     check = function(self)
       local f = io.open(mix, "rb")
       if not f or f:seek("end") < 1000 then self:fail("export the mix", "no WAV file at " .. mix) end
@@ -649,10 +649,10 @@ days[11] = function(E)
     end,
   })
   -- A stem for each track that sounds: not muted, with clips. Its name is
-  -- the track's, in renders/stems inside the project's folder.
+  -- the track's, in renders/tracks inside the project's folder.
   E:act({
-    name = "render a stem for each track",
-    keys = { ":render stems tracks<CR>", "y" },
+    name = "export a stem for each track",
+    keys = { ":export tracks<CR>", "y" },
     slow = true,
     check = function(self)
       local want = {}
@@ -660,7 +660,7 @@ days[11] = function(E)
         if not t.mute and (t.clips == M.ANY or #t.clips > 0) then want[#want + 1] = t.name .. ".wav" end
       end
       table.sort(want)
-      local dir = self.workdir .. "/project/renders/stems"
+      local dir = self.workdir .. "/project/renders/tracks"
       local got
       self:until_(function()
         got = {}
@@ -755,8 +755,8 @@ days[13] = function(E)
   })
 end
 
--- Day 14: the last mix. Levels, a final render and a MIDI file; the help of
--- the render is read first.
+-- Day 14: the last mix. Levels, a final export and a MIDI file; the help of
+-- the export is read first.
 days[14] = function(E)
   M = E.Model
   local r = E.rng
@@ -768,14 +768,14 @@ days[14] = function(E)
       apply = function(m) m.tracks[i].volume = math.max(-60, m.tracks[i].volume - db) end,
     })
   end
-  E:act({ name = "read the help of :render", keys = { ":help :render<CR>" }, focus = "textbuf", slow = true })
+  E:act({ name = "read the help of :export", keys = { ":help :export<CR>" }, focus = "textbuf", slow = true })
   E:act({ name = "close the help", keys = { ":q<CR>" }, focus = "arrange" })
   local mix = E.workdir .. "/final.wav"
   E:act({
-    name = "render the final mix",
-    keys = { ":render " .. mix .. " wait=true<CR>" },
+    name = "export the final mix",
+    keys = { ":export " .. mix .. " wait=true<CR>" },
     slow = true,
-    says = "rendered",
+    says = "wrote",
   })
   local mid = E.workdir .. "/final.mid"
   E:act({

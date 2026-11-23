@@ -13,10 +13,11 @@ A frozen track plays a rendered file instead of its clips and devices. The devic
 | `:t2,t4freeze` | Freeze a range of tracks. |
 | `:freeze tail=4` | Render 4 seconds after the end (default: 2). |
 | `:unfreeze` | Play the clips and devices again. On a track inside a frozen group, unfreeze the group. |
+| `<Space>tf`, `<Space>tF` | `:freeze` and `:unfreeze` of the track at the cursor, or of the selected tracks in visual mode. |
 
 ## Rules
 
-- The freeze is taken before the fader. The fader, pan, mute and sends stay live, so you can continue to mix a frozen track. To render the fader too, use `:track.bounce` (see [Render](render.md#bounce)).
+- The freeze is taken before the fader. The fader, pan, mute and sends stay live, so you can continue to mix a frozen track. To render the fader too, use `:bounce` (see [Bounce](export.md#bounce)).
 - The tracks inside a frozen group are held, which means they are silent with their devices at rest, because the file of the group holds their sound. A send from one of them to a track outside the group is not heard while the group is frozen.
 - The arrange view marks the header of a frozen track `F`, and each held track `f`.
 - The `meta` of the track keeps the freeze (`frozen = { file, key }`), so a freeze is one undo step, and the project saves it. The `key` records what the file was made from.

@@ -88,10 +88,10 @@ paw.chords
 paw.curves
 paw.nest
 paw.render
-paw.stems
 paw.bake_state
 paw.freeze_block
 paw.freeze
+paw.bounce
 paw.audio
 paw.media
 paw.audition
@@ -130,6 +130,7 @@ paw.keyrule
 paw.hooks
 paw.commands
 paw.ex
+paw.export
 paw.qf
 paw.complete
 paw.snippet

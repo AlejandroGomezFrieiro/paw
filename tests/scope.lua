@@ -1,7 +1,7 @@
 -- Tests of narrowing to a group (paw.scope), freezing tracks, groups and
 -- blocks of subprojects (paw.freeze, paw.freeze_block,
--- crates/paw-core/src/freeze.rs) and stems by group (paw.stems). Loaded by
--- tests/suite.lua with its helpers.
+-- crates/paw-core/src/freeze.rs), bounces (paw.bounce) and stems by group
+-- (paw.export). Loaded by tests/suite.lua with its helpers.
 local T = ...
 local test, eq, near, fails, fresh = T.test, T.eq, T.near, T.fails, T.fresh
 local api = paw.api
@@ -717,22 +717,195 @@ test("a frozen track renders as it did live, and its fader stays live", function
   reset()
 end)
 
-test("a bounced track sounds through the master as the original did", function()
+-- Bounce ---------------------------------------------------------------------------
+
+--- The place of each track in the song's list.
+local function places()
+  local out = {}
+  for i, id in ipairs(api.track_list()) do
+    out[id] = i
+  end
+  return out
+end
+
+test(
+  "a bounce renders after the fader, below the track, and sounds the same through the groups and the master",
+  function()
+    start()
+    local o = orchestra()
+    o.violins.volume, o.violins.pan = -6, 0.5
+    o.strings:add_device("gain", { gain = -6 })
+    paw.master:add_device("gain", { gain = -6 })
+    paw.flush()
+    api.undo_checkpoint()
+    local live = render()
+    local count = #api.track_list()
+    paw.cursor.set_track(o.violins)
+    keys(":bounce<CR>")
+    local bounced = paw.cursor.track()
+    local file = bounced:clips()[1].file
+    eq(
+      bounced.name .. " " .. tostring(o.violins.mute),
+      "Violins (bounced) true",
+      "a new track beside the muted original"
+    )
+    eq(said(), "bounced to “Violins (bounced)”; Violins muted · u undoes it", "the message names the new track")
+    eq(places()[bounced.id], places()[o.violins.id] + 1, "right below it")
+    eq(bounced.output, o.strings.id, "into the group of the original")
+    eq(bounced.volume .. " " .. bounced.pan, "0 0", "its fader at 0 dB in the center")
+    -- The group's gain, the master's gain and the track's fader are each heard once.
+    local worst, peak = difference(live, render())
+    eq(peak > 0.05, true, "it sounds")
+    eq(worst < 1e-5, true, "the same sound, bounced as live: " .. worst)
+    keys("u")
+    eq(#api.track_list() .. " " .. tostring(o.violins.mute), count .. " false", "one u takes the bounce back")
+    os.remove(file)
+    reset()
+  end
+)
+
+test("a bounce takes a range of tracks to one new track, and a range of time to that time only", function()
   start()
-  local t = synth("Lead", 60)
-  t.volume = -6
-  paw.master:add_device("gain", { gain = -6 })
+  local a, b, c = synth("A", 60), synth("B", 64), synth("C", 67)
   paw.flush()
+  api.undo_checkpoint()
   local live = render()
-  paw.cursor.set_track(t)
-  keys(":track.bounce<CR>")
+  local count, at = #api.track_list(), places()
+  local files = {}
+  local function bounced()
+    local t = paw.cursor.track()
+    files[#files + 1] = t:clips()[1].file
+    return t
+  end
+  local function muted() return tostring(a.mute) .. " " .. tostring(b.mute) .. " " .. tostring(c.mute) end
+
+  keys(string.format(":t%d,t%dbounce<CR>", at[a.id], at[b.id]))
+  local t = bounced()
+  eq(t.name .. " " .. #t:clips(), "A + 1 (bounced) 1", "one new track with one clip for both")
+  eq(#api.track_list() .. " " .. muted(), (count + 1) .. " true true false", "and both tracks muted")
+  eq(places()[t.id], at[b.id] + 1, "below the last of them")
+  local worst = difference(live, render())
+  eq(worst < 1e-5, true, "the song sounds the same: " .. worst)
+  keys("u")
+
+  paw.cursor.set_track(b)
+  keys("Vj<Esc>")
+  keys(":t'<,'>bounce<CR>")
+  t = bounced()
+  eq(t.name .. " " .. muted(), "B + 1 (bounced) false true true", "the tracks of the selection")
+  keys("u")
+  paw.cursor.set_track(b)
+  keys("Vj<Space>tb")
+  t = bounced()
+  eq(t.name .. " " .. paw.keymap.mode, "B + 1 (bounced) n", "<Space>tb in visual mode: the same, and visual mode ends")
+  keys("u")
+  paw.cursor.set_track(b)
+  keys("<Space>tb")
+  eq(bounced().name, "B (bounced)", "<Space>tb in normal mode: the track at the cursor")
+  keys("u")
+
+  paw.cursor.set_track(a)
+  paw.cursor.set_beat(1)
+  keys("vll<Esc>")
+  keys(":'<,'>bounce<CR>")
+  t = bounced()
+  local selection, clip = paw.keymap.last_selection(), t:clips()[1]
+  eq(t.name, "A (bounced)", "the track of the selection")
+  near(clip.start, selection.c0, 1e-9, "the clip starts where the selection starts")
+  -- The last note that starts in it plays to beat 4. At 120 bpm the tail of
+  -- 2 seconds is 4 beats.
+  near(clip.length, math.max(selection.c1, 4) - selection.c0 + 4, 1e-3, "and holds its notes whole and the tail")
+  keys("u")
+  for _, file in ipairs(files) do
+    os.remove(file)
+  end
+  reset()
+end)
+
+test("a bounce of bars mutes only those bars of the clips, which say so, and the song sounds the same", function()
+  start()
+  local lead = paw.add_track({ name = "Lead" })
+  lead:add_device("synth", { attack = 0.001, release = 0.05 })
+  local notes = {}
+  for beat = 0, 46, 2 do
+    notes[#notes + 1] = { pitch = 60 + beat % 12, start = beat, length = 1 }
+  end
+  -- One note is held into bar 5, and one rings on past bar 8.
+  notes[#notes + 1] = { pitch = 48, start = 14, length = 4 }
+  notes[#notes + 1] = { pitch = 50, start = 30, length = 4 }
+  lead:add_clip({ name = "Lead", start = 0, length = 48, notes = notes })
+  paw.flush()
+  api.undo_checkpoint()
+  local live = render()
+  paw.cursor.set_track(lead)
+  keys(":5,8bounce<CR>")
   local bounced = paw.cursor.track()
-  eq(bounced.name .. " " .. tostring(t.mute), "Lead (bounced) true", "a new track beside the muted original")
-  -- The master's gain and the track's fader are each heard once.
+  local file = bounced:clips()[1].file
+  eq(
+    said(),
+    "bounced bars 5–8 of Lead to “Lead (bounced)”; those bars of Lead muted · u undoes it",
+    "the message names the bars and the new track"
+  )
+  local parts = {}
+  for i, c in ipairs(api.clip_list(lead.id)) do
+    parts[i] = string.format("%g-%g%s", c.start, c.start + c.length, c.muted and " muted" or "")
+  end
+  eq(table.concat(parts, ", "), "0-16, 16-32 muted, 32-48", "bars 5 to 8 cut out and muted, the rest plays")
+  eq(
+    tostring(lead.mute) .. " " .. bounced:clips()[1].start,
+    "false 14",
+    "the track plays, and the new clip starts with the note held into the bars"
+  )
+  local worst, peak, n, m = difference(live, render())
+  eq(m, n, "as long as before")
+  eq(peak > 0.05, true, "it sounds")
+  eq(worst < 1e-5, true, "the same sound, with the notes across the edges whole: " .. worst)
+  T.expect_screen("bounce_bars", 100, 16, { rows = { 1, 12 } })
+  paw.cursor.set_beat(20)
+  paw.cursor.set_track(lead)
+  keys("K")
+  eq(screen():find("muted by a bounce: “Lead (bounced)” plays it", 1, true) ~= nil, true, "K names the new track")
+  keys("<Esc>u")
+  parts = {}
+  for i, c in ipairs(api.clip_list(lead.id)) do
+    parts[i] = string.format("%g-%g%s", c.start, c.start + c.length, c.muted and " muted" or "")
+  end
+  local kept = #api.clip_notes(api.clip_list(lead.id)[1].id)
+  eq(
+    table.concat(parts, ", ") .. " " .. #api.track_list() .. " " .. kept,
+    "0-48 1 26",
+    "one u puts the clip back whole"
+  )
+  os.remove(file)
+  reset()
+end)
+
+test("a bounce before the fader gives the new track the fader, pan and sends of the old one", function()
+  start()
+  local pad = synth("Pad", 60)
+  local echo = paw.add_track({ name = "Echo" })
+  echo:add_device("delay", {})
+  pad.volume, pad.pan = -6, -0.5
+  pad:send(echo, -9)
+  paw.flush()
+  api.undo_checkpoint()
+  local live = render()
+  paw.cursor.set_track(pad)
+  keys(":bounce tap=pre<CR>")
+  local bounced = paw.cursor.track()
+  local send = api.track_get(bounced.id).sends[1]
+  eq(
+    string.format("%s %g %g %s %g", bounced.name, bounced.volume, bounced.pan, send.target == echo.id, send.level),
+    "Pad (bounced) -6 -0.5 true -9",
+    "the fader, the pan and the send"
+  )
   local worst, peak = difference(live, render())
   eq(peak > 0.05, true, "it sounds")
-  eq(worst < 1e-5, true, "the same sound, bounced as live: " .. worst)
+  eq(worst < 1e-5, true, "the same sound, with the fader live: " .. worst)
   os.remove(bounced:clips()[1].file)
+  keys("u")
+  fails(function() paw.commands.exec("t*bounce tap=pre") end, "one track at a time", "tap=pre of two tracks")
+  fails(function() paw.commands.exec("bounce tap=master") end, "tap=post or tap=pre", "a tap that plays twice")
   reset()
 end)
 
@@ -1109,14 +1282,14 @@ test(
 
 -- Stems by group ---------------------------------------------------------------------------
 
-test(":render stems shows a plan of one file per group, and they add up to the mix", function()
+test(":export stems shows a plan of one file per group, and they add up to the mix", function()
   start()
   orchestra()
   paw.flush()
   local mix = render({ master = false })
   local dir = T.scratch .. "/group-stems"
-  keys(":render stems " .. dir .. " wait=true bits=32 tail=1<CR>")
-  eq(paw.ui.float and paw.ui.float.name, "render.plan", "a plan first")
+  keys(":export stems " .. dir .. "/ channels=stereo wait=true bits=32 tail=1<CR>")
+  eq(paw.ui.float and paw.ui.float.name, "export.plan", "a plan first")
   local text = screen()
   eq(
     text:find("Orchestra.wav", 1, true) ~= nil and text:find("Drums.wav", 1, true) ~= nil,
@@ -1137,24 +1310,18 @@ test(":render stems shows a plan of one file per group, and they add up to the m
     worst = math.max(worst, math.abs(x[i] + y[i] - m[i]))
   end
   eq(worst < 1e-5, true, "they add up to the mix: " .. worst)
-  -- Narrowed, the parts of the group; and one group on its own.
+  -- Narrowed, the parts of the group.
   paw.scope.narrow("Orchestra")
-  local plan = paw.stems.plan({ dir = dir })
-  local list = {}
-  for i, s in ipairs(plan) do
-    list[i] = s.file:match("([^/]+)$")
+  local function files(words)
+    local list = {}
+    for i, r in ipairs(paw.export.plan(words).renders) do
+      list[i] = r.file:match("([^/]+)$")
+    end
+    return table.concat(list, " ")
   end
-  eq(table.concat(list, " "), "Strings.wav Brass.wav", "in a scope: its groups")
-  plan = paw.stems.plan({ dir = dir, tracks = true })
-  list = {}
-  for i, s in ipairs(plan) do
-    list[i] = s.name
-  end
-  eq(table.concat(list, " "), "Violins Cellos Horns", "per track")
+  eq(files("stems"), "Strings.wav Brass.wav", "in a scope: its groups")
+  eq(files("tracks"), "Violins.wav Cellos.wav Horns.wav", "per track")
+  eq(files(""), "Orchestra.wav", "and the mix of the scope is the mix of its group")
   paw.scope.widen()
-  keys(":render Strings bits=32 wait=true<CR>")
-  eq(paw.ui.float and paw.ui.float.name, "render.plan", "one group: a plan too")
-  keys("<Esc>")
-  eq(paw.ui.float, nil, "Esc leaves it")
   reset()
 end)

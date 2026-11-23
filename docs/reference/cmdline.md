@@ -12,7 +12,7 @@ While you type a command, a list above the command line shows what the line can 
 | --- | --- |
 | `:send` | tracks, by name |
 | `:device.add` | devices |
-| `:open`, `:import`, `:render`, `:write` | files |
+| `:open`, `:import`, `:export`, `:write` | files |
 | `:set` | options |
 
 | Key | Effect |
@@ -84,7 +84,7 @@ The graphical window asks in a dialog box.
 
 ## Relative names
 
-A file name without a folder (`:render mix.wav`, `:import loop.wav`) goes into the folder of the project, and a project name (`:w take2`) goes beside that folder. Before the first save, a name goes into the folder where paw started. `..` goes up, `~` is your home folder, and a name that starts with `/` is a full path.
+A file name without a folder (`:import loop.wav`) goes into the folder of the project (`:export` puts it into `renders`, see [Export](export.md#names-and-folders)), and a project name (`:w take2`) goes beside that folder. Before the first save, a name goes into the folder where paw started. `..` goes up, `~` is your home folder, and a name that starts with `/` is a full path.
 
 The lists of files (`:open`, `:import` and the others) and the Save as prompt start in this folder too. `:w` with no name on a project that has no file asks for the name at a prompt (`Save as (folder):`) that starts with the project's name, and Tab completes names, `..` and `~` too.
 

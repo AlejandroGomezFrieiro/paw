@@ -244,7 +244,7 @@ function A.render(o: RenderRequest)
     bits = tonumber(o.bits) as integer,
     dither = o.dither and true or nil,
     normalize = tonumber(o.normalize),
-    channels = o.mono and 1 or nil,
+    channels = o.mono and "mono" or nil,
     background = true,
   }
   local format = lossy_formats[o.format] or "wav"
@@ -273,9 +273,21 @@ function A.render(o: RenderRequest)
     "%.[Oo][Gg][Gg]$", ""
   ):gsub("%.[Oo][Pp][Uu][Ss]$", "")
   if o.stems then
-    opts.format = format
-    local files = render.stems(stem .. " stems", opts)
-    return paw.notify(string.format("rendering %d stem%s into %s", #files, #files == 1 and "" or "s", stem .. " stems"))
+    -- One file for each track, through the master, as `:export` writes them.
+    local export = require("paw.export")
+    local args: commands.Args = {stem .. " stems/"}
+    args.each, args["in"], args.format = "track", opts.range, format
+    args.tail, args.bits, args.dither, args.normalize = opts.tail, opts.bits, opts.dither, opts.normalize
+    args.quality, args.channels = opts.quality, o.mono and "mono" or "stereo"
+    local plan = export.plan_args(args)
+    -- A region of the dialog is its time, which no word of `:export` names.
+    if opts.start then
+      for _, r in ipairs(plan.renders) do
+        r.from, r.to = opts.start, opts["end"]
+      end
+    end
+    export.run(plan)
+    return paw.notify(string.format("exporting %d files into %s · Esc cancels", #plan.renders, stem .. " stems"))
   end
   render.render(stem .. "." .. format, opts)
   paw.notify("rendering " .. (stem:match("([^/]+)$") or stem) .. "." .. format .. " · Esc cancels")

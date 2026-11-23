@@ -270,8 +270,7 @@ row gives the lesson and a change that would help a new user.
 | 5, 7 | Mute has four keys with two meanings: `M` the track, `~` the clip, `gc` clips and `gcc` the track. and `~` on a `V` selection mutes the tracks, but on a `v` selection it mutes the clips | One rule: `gc` for clips, `M` for tracks, everywhere |
 | 6 | `dw` from a gap deletes nothing (a note belongs to its start), so `.` after a move into a gap does nothing, with no message | A message when the region of an operator is empty |
 | 2 | Many terminals and tmux cannot tell `<S-CR>` (play from the playhead) from Enter | A second key, such as `g<Space>` |
-| 13 | `:w name` is the `:saveas` of Vim, so the project moves to the new file, while a user of Vim expects a copy, and no command writes a copy | `:w name` for a copy, as in Vim |
-| 13 | `:render name.wav` writes relative to the folder where paw started, it does not expand `~`, and the message gives only the name | Expand `~`, and give the full path |
+| 13 | `:w name` is the `:saveas` of Vim, so the project moves to the new file, while a user of Vim expects a copy, which only `:export project copy/` writes | `:w name` for a copy, as in Vim |
 | 14 | Key hints group `grn` and `grc` as `r +2 more` under `g` and hide the rename keys | List the keys of the group when there are few |
 | none | `command.pre` and `command.post` carry the alias typed (`q`, `w`) and not the command (`quit`, `write`), so an extension that listens for `quit` does not see `:q` | Add the name of the command to the event |
 | none | In a script, `paw.project.save` while an undo step is open counts later edits of that step as saved (`modified` is false after a track is added) | Close the open step before the save |

@@ -878,6 +878,10 @@ end
 --- What a clip's title says: its name, and marks of what is done to it.
 local function clip_label(clip: Clip): string
   local label = clip.offline and ("offline · " .. clip.name) or clip.name
+  -- A muted clip: `⊘ riff`, beside its faint body, so it reads as off at a glance.
+  if clip.muted then
+    label = draw.g.muted .. label
+  end
   -- A linked clip: `riff ≡`; with overrides, `riff ≡ +3 v-10`.
   if clip.link then
     label = label .. " " .. draw.g.link

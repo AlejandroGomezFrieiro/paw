@@ -1,4 +1,4 @@
--- Rendering: `paw.render`, stems, the `:render` command, and the render
+-- Rendering: `paw.render`, the tags, and the render
 -- that runs in the background with its progress and cancelling. The work is
 -- in the kernel (crates/paw-core/src/session/render.rs).
 --
@@ -7,7 +7,6 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
-local commands = require("paw.commands")
 local events = require("paw.events")
 local kernel = require("paw.events.kernel")
 local options = require("paw.options")
@@ -15,9 +14,6 @@ local util = require("paw.util")
 local type types = require("paw.types")
 local type partial = require("paw.partial")
 local type KeymapModule = require("paw.keymap")
-local type objects = require("paw.objects")
-local type CursorModule = require("paw.cursor")
-local type GroupsModule = require("paw.groups")
 
 --- A range that a render can take: where it starts and ends, in beats (no
 --- end: the end of the last clip), or nil and why not.
@@ -25,8 +21,7 @@ local type Range = function(): number, number | string
 
 --- The options of `paw.render` (see `M.render`): what the kernel takes
 --- (`types.RenderOptions`), and what only Lua knows: `range`, `rate`,
---- `channels` as a word, `background`, and `format` for stems (false
---- takes it out).
+--- `background`, `quiet`, and `format` (false takes it out).
 local record Options
   range: string
   start: number
@@ -35,7 +30,7 @@ local record Options
   sample_rate: integer
   rate: integer
   bits: integer
-  channels: integer | string
+  channels: types.RenderChannels
   dither: boolean
   quality: string
   bitrate: integer | string
@@ -54,6 +49,14 @@ local record Options
   ffmpeg: string
   background: boolean
   format: string | boolean
+  quiet: boolean
+end
+
+--- The export that renders its files one by one (paw/export.tl): which
+--- file of how many runs now. The status line shows it.
+local record Batch
+  index: integer
+  total: integer
 end
 
 --- The render that runs in the background, and how many wait after it.
@@ -75,32 +78,16 @@ local record Before
   measure: boolean
 end
 
---- An entry of `M.options`: the key with its `=`, the values to complete, and what it is.
-local record Option is {string | {string}}
-end
-
 --- A value that a copy passes on and never reads.
 local record Value
 end
 
 -- What this module reads of `paw`, which paw/init.lua makes, and of the
--- modules in Lua that it calls: their parts that it uses.
---- `paw.stems` (paw/stems.lua), as far as `:render` calls it.
-local record Stems
-  names_group: function(word: commands.Arg): boolean
-  command: function(ctx: commands.Context, opts: Options)
-end
---- `paw.files` (paw/views/files.lua): a path from the folder `:cd` set.
-local record Files
-  path: function(name: string): string
-end
+-- modules that it calls: their parts that it uses.
 local type UiModule = require("paw.ui")
 local record Paw is partial.Paw
   keymap: KeymapModule
   ui: UiModule
-  cursor: CursorModule
-  groups: GroupsModule
-  tracks: function(): {objects.Track}
 end
 local paw = (_G as {string: Paw}).paw
 
@@ -109,20 +96,21 @@ local record M
   type Options = Options
   type Status = Status
   type Before = Before
+  type Batch = Batch
   --- Named ranges a render can take besides beats: each a function giving
   --- `start, end` in beats, or nil and why not. Extensions may add their own
   --- (`paw.render_ranges.chorus = function() return 32, 48 end`).
   ranges: {string: Range}
   --- The tags that `paw.render_tags` reads and sets, in order.
   tag_names: {string}
-  --- What `:render` takes, for its description and completion: `{ key=, values, what }`.
-  options: {Option}
   --- The event `render.before`: a render will start.
   before: events.Event<Before>
   --- The event `render.finished`: what a render in the foreground wrote.
   finished: events.Event<types.RenderResult>
   --- The folder that renders go to when no place is named (defined below).
   renders_dir: function(): string
+  --- The export that runs, while it runs (paw/export.tl sets it).
+  batch: Batch
   --- `paw.render(path, opts)` is `paw.render.render(path, opts)`.
   metamethod __call: function(self: M, path: string, opts?: Options): types.RenderResult
 end
@@ -157,22 +145,12 @@ local function copy<T>(t: T): T
   return out as T
 end
 
---- A shallow copy of a record with the fields of `extra` laid over it.
-local function over<T>(base: T, extra: T): T
-  return util.merge(base as {string: Value}, extra as {string: Value}) as T
-end
-
 --- The options as the kernel takes them: `range` turned into `start` and
 --- `end`, and what only Lua knows taken out.
 local function kernel_opts(opts: Options): types.RenderOptions
   local out = copy(opts or {})
   local range = out.range
-  out.range, out.background, out.format = nil, nil, nil
-  if out.channels == "mono" then
-    out.channels = 1
-  elseif out.channels == "stereo" then
-    out.channels = 2
-  end
+  out.range, out.background, out.format, out.quiet = nil, nil, nil, nil
   if out.rate then
     out.sample_rate, out.rate = out.rate, nil
   end
@@ -222,8 +200,11 @@ local record Queued
   opts: types.RenderOptions
 end
 
--- Renders waiting for the one running: stems are rendered one at a time.
+-- Renders waiting for the one running: one render runs at a time.
 local queue: {Queued} = {}
+-- The files of renders in the background that say nothing when they end:
+-- the export that started them says what they came to.
+local quiet: {string: boolean} = {}
 
 local function start(path: string, opts: types.RenderOptions)
   events.emit(M.before, {path = path, opts = opts})
@@ -241,7 +222,8 @@ end
 ---   tail        seconds after the end, for reverbs and delays to ring out (1)
 ---   sample_rate (or rate) Hz; the engine's by default
 ---   bits        16, 24 or 32 (float; WAV only); 24 by default
----   channels    2 (or "stereo") or 1 (or "mono")
+---   channels    "stereo" (the default), "mono" (one channel: (left + right) / 2) or
+---               "auto" (one channel when the two sides are equal to the bit, else two)
 ---   dither      true to add dither when writing 16 or 24 bits
 ---   quality     for MP3, Ogg Vorbis and Opus: "low", "medium", "high" (the
 ---               default) or "best"; `bitrate` (kbit/s) instead of it for a number
@@ -272,6 +254,8 @@ end
 ---               and then, and `render.done` (what is returned below),
 ---               `render.failed` ({ path, error }) or `render.cancelled` at the end;
 ---               a render in the foreground emits `render.finished` with what it returns
+---   quiet       with `background`: no message when it ends, for a caller that
+---               says itself what it rendered
 --- When it is done, it returns `types.RenderResult`. The result has the path,
 --- the frames, the seconds, the peak, the gain and the loudness. It also has
 --- the format, the bits (nil for a lossy format) and the channels.
@@ -291,6 +275,7 @@ function M.render(path: string, opts?: Options): types.RenderResult
   local background = opts and opts.background
   local kopts = kernel_opts(opts)
   if background then
+    quiet[path] = opts.quiet or nil
     if api.render_status() then
       queue[#queue + 1] = {path = path, opts = kopts}
     else
@@ -357,49 +342,6 @@ function M.cancel(): boolean
   return api.render_cancel()
 end
 
---- Render each track on its own into a directory, one file per track named
---- after it: stems. A track is rendered with what it passes through on the
---- way to the master, as when it is soloed, so that the stems add up to the
---- mix. `opts` is as for `paw.render`, plus `tracks` to choose which (all
---- that are not muted, by default) and `format` ("wav", "flac", "mp3", "ogg"
---- or "opus"). With
---- `background`, they are rendered one after another. Returns the files.
-function M.stems(dir: string, opts?: Options): {string}
-  dir = util.expand_path(dir)
-  opts = opts or {}
-  local ext = opts.format as string or "wav"
-  check(dir .. "/stem." .. ext)
-  pcall(api.fs_mkdir, dir)
-  local out: {string} = {}
-  local used: {string: integer} = {}
-  local tracks = opts.tracks
-  if not tracks then
-    tracks = {}
-    for _, track in ipairs(paw.tracks()) do
-      if not track.mute and #track:clips() > 0 then
-        tracks[#tracks + 1] = track.id
-      end
-    end
-  end
-  for _, given in ipairs(tracks) do
-    -- A track as a table (from Lua) gives its id.
-    local id = type(given) == "table" and (given as objects.Track).id or given
-    local name = api.track_get(id).name:gsub("[^%w%-_ ]", "_")
-    -- Two tracks of one name get a number each.
-    used[name] = (used[name] or 0) + 1
-    if used[name] > 1 then
-      name = name .. " " .. used[name]
-    end
-    local path = string.format("%s/%s.%s", dir, name, ext)
-    -- A lossy stem is titled after its track, unless the options say otherwise.
-    local lossy = ext ~= "wav" and ext ~= "flac"
-    local tags = over(lossy and {title = name} or {}, opts.tags or {})
-    M.render(path, over(opts, {tracks = {id}, format = false, tags = tags}))
-    out[#out + 1] = path
-  end
-  return out
-end
-
 local function next_in_queue()
   local nxt = table.remove(queue, 1)
   if nxt then
@@ -431,7 +373,10 @@ events.on(kernel.render_progress, function() api.ui_redraw() end)
 events.on(
   kernel.render_done,
   function(info: types.RenderResult)
-    notify_rendered(info.path, info, info.loudness and string.format(", %.1f LUFS", info.loudness) or "")
+    if not quiet[info.path] then
+      notify_rendered(info.path, info, info.loudness and string.format(", %.1f LUFS", info.loudness) or "")
+    end
+    quiet[info.path] = nil
     for _, why in ipairs(info.left_out or {}) do
       paw.notify(why, "warn")
     end
@@ -441,7 +386,10 @@ events.on(
 events.on(
   kernel.render_failed,
   function(e: kernel.RenderEnd)
-    paw.notify("render of " .. name_of(e.path) .. " failed: " .. tostring(e.error), "error")
+    if not quiet[e.path] then
+      paw.notify("render of " .. name_of(e.path) .. " failed: " .. tostring(e.error), "error")
+    end
+    quiet[e.path] = nil
     next_in_queue()
   end
 )
@@ -449,7 +397,10 @@ events.on(
   kernel.render_cancelled,
   function(e: kernel.RenderEnd)
     queue = {}
-    paw.notify("render of " .. name_of(e.path) .. " cancelled; no file written")
+    if not quiet[e.path] then
+      paw.notify("render of " .. name_of(e.path) .. " cancelled; no file written")
+    end
+    quiet = {}
   end
 )
 -- `Esc` in normal mode, with nothing else to cancel, stops a render.
@@ -462,35 +413,6 @@ events.on(
     end
   end
 )
-
--- The command ------------------------------------------------------------------
-
-M.options = {
-  {"range=", {"song", "loop", "selection"}, "what to render"},
-  {"start=", nil, "beat to start at"},
-  {"end=", nil, "beat to end at"},
-  {"tail=", {"0", "1", "2", "4"}, "seconds after the end"},
-  {"rate=", {"44100", "48000", "96000"}, "sample rate"},
-  {"bits=", {"16", "24", "32"}, "sample size; 32 is float"},
-  {"quality=", {"low", "medium", "high", "best"}, "of an MP3, Ogg or Opus file"},
-  {"bitrate=", {"128", "192", "256", "320"}, "kbit/s of an MP3, Ogg or Opus file"},
-  {"channels=", {"stereo", "mono"}, ""},
-  {"dither=", {"true"}, "dither at 16 or 24 bits"},
-  {"normalize=", {"-1", "-0.3"}, "peak level in dB"},
-  {"loudness=", {"-14", "-16", "-23"}, "integrated loudness in LUFS"},
-  {"tracks=", {"selected", "all"}, "a stem of these tracks (ids, comma-separated)"},
-  {"stems=", {"true"}, "one file per track, into a directory"},
-  {"master=", {"false"}, "leave out the master's devices and fader"},
-  {"wait=", {"true"}, "render in the foreground"},
-  {"title=", nil, "tag; the project's name by default"},
-  {"artist=", nil, "tag"},
-  {"album=", nil, "tag"},
-  {"track=", nil, "tag: a number, or 3/12"},
-  {"year=", nil, "tag"},
-  {"genre=", nil, "tag"},
-  {"comment=", nil, "tag"},
-  {"cover=", nil, "tag: a PNG or JPEG file"},
-}
 
 --- The folder that renders go to when no place is named: `renders/` in
 --- the project's folder, apart from the files of the project; the folder
@@ -515,169 +437,6 @@ function M.default_path(): string
   local dir = M.renders_dir()
   return (dir and dir .. "/" or "") .. name .. ".wav"
 end
-
-local function track_list(spec: commands.Arg): {integer}
-  if spec == nil or spec == "all" then
-    return nil
-  end
-  if spec == "selected" then
-    local id = paw.cursor.track_id()
-    if not id then
-      error("no track is selected", 0)
-    end
-    return {id}
-  end
-  local ids: {integer} = {}
-  for n in tostring(spec):gmatch("[^,%s]+") do
-    local id = tonumber(n) as integer
-    if not id then
-      error("not a track id: " .. n, 0)
-    end
-    ids[#ids + 1] = id
-  end
-  return ids
-end
-
-commands.define(
-  "render",
-  function(ctx: commands.Context): commands.Result
-    local a = ctx.args
-    local opts: Options = {
-      range = a.range as string,
-      start = tonumber(a.start),
-      ["end"] = tonumber(a["end"]),
-      tail = tonumber(a.tail),
-      rate = tonumber(a.rate) as integer,
-      bits = tonumber(a.bits) as integer,
-      quality = a.quality and tostring(a.quality) or nil,
-      bitrate = tonumber(a.bitrate) as integer,
-      dither = a.dither == true or nil,
-      channels = a.channels == "mono" and 1 or a.channels == "stereo" and 2 or tonumber(a.channels) as integer,
-      normalize = tonumber(a.normalize),
-      loudness = tonumber(a.loudness),
-      master = a.master ~= false and nil or false,
-      tracks = track_list(a.tracks),
-      background = a.wait ~= true,
-    }
-    local tags: {string: string} = {}
-    for _, key in ipairs(M.tag_names) do
-      if a[key] ~= nil and a[key] ~= true then
-        tags[key] = a[key] as string
-      end
-    end
-    opts.tags = next(tags) ~= nil and tags as types.RenderTags or nil
-    if opts.start or opts["end"] then
-      opts.range = nil
-    end
-    -- `:render stems` and `:render Strings`: by group, the plan shown first.
-    local stems = (require as function(string): Stems)("paw.stems")
-    if a[1] == "stems" or stems.names_group(a[1]) then
-      opts.tracks = nil
-      return stems.command(ctx, opts)
-    end
-    if a.stems == true then
-      local dir = a[1] and (paw.files as Files).path(tostring(a[1])) or ((M.renders_dir() or ".") .. "/stems")
-      local made = M.stems(dir, over(opts, {format = a.format as string}))
-      return paw.notify(string.format("rendering %d stem%s into %s", #made, #made == 1 and "" or "s", dir))
-    end
-    -- A relative name goes beside the project, or to the folder `:cd` set.
-    local path = a[1] and (paw.files as Files).path(tostring(a[1])) or M.default_path()
-    local info = M.render(path, opts)
-    if info then
-      notify_rendered(path, info, "")
-    else
-      paw.notify("rendering " .. name_of(path) .. " · Esc cancels")
-    end
-  end,
-  {
-    desc = "Render to WAV or FLAC by the file's extension, or MP3, Ogg or Opus with ffmpeg installed: `render mix.flac "
-      .. "range=loop tail=2 bits=16 dither=true channels=mono rate=44100 normalize=-1 loudness=-14 tracks=selected master=false stems=true`; "
-      .. "`render stems [dir]` one file per group (`render stems tracks` per track), `render Strings` one group",
-    complete = function(rest: string): {string}
-      local before, last = rest:match("^(.-)(%S*)$")
-      local out: {string} = {}
-      local key = last:match("^(%w+)=")
-      if before == "" and not key then
-        out[1] = "stems"
-        for _, id in ipairs(api.track_list()) do
-          if paw.groups.is_group(id) then
-            out[#out + 1] = api.track_get(id).name
-          end
-        end
-      end
-      for _, o in ipairs(M.options) do
-        local name = o[1] as string
-        if key and name == key .. "=" then
-          for _, v in ipairs(o[2] as {string} or {}) do
-            out[#out + 1] = before .. name .. v
-          end
-        elseif not key then
-          out[#out + 1] = before .. name
-        end
-      end
-      return out
-    end,
-  }
-)
-
-commands.define(
-  "render.tags",
-  function(ctx: commands.Context): commands.Result
-    local set: {string: string} = {}
-    for _, key in ipairs(M.tag_names) do
-      if ctx.args[key] ~= nil and ctx.args[key] ~= true then
-        set[key] = ctx.args[key] as string
-      end
-    end
-    local tags = M.tags(next(set) ~= nil and set as types.RenderTags or nil) as {string: string}
-    local words: {string} = {}
-    for _, key in ipairs(M.tag_names) do
-      if tags[key] then
-        words[#words + 1] = key .. "=" .. tostring(tags[key])
-      end
-    end
-    paw.notify(
-      #words > 0 and ("rendered files are tagged " .. table.concat(words, ", "))
-        or "no tags: set some with `render.tags artist=Me album=First`"
-    )
-  end,
-  {
-    desc = "Show or set the tags of the project's rendered files: `render.tags artist=Me album=\"First one\" track=3 "
-      .. "year=2026 genre=Ambient comment=\"a note\" cover=cover.png`; an empty value takes one out",
-  }
-)
-
-commands.define(
-  "render.cancel",
-  function(): commands.Result
-    if not M.cancel() then
-      paw.notify("nothing is being rendered")
-    end
-  end,
-  {desc = "Stop the render running in the background; it leaves no file"}
-)
-
-commands.define(
-  "stems",
-  function(ctx: commands.Context): commands.Result
-    local dir = ctx.args[1] and (paw.files as Files).path(tostring(ctx.args[1]))
-      or ((M.renders_dir() or ".") .. "/stems")
-    local made = M.stems(
-      dir,
-      {
-        tail = tonumber(ctx.args.tail),
-        bits = tonumber(ctx.args.bits) as integer,
-        format = ctx.args.format as string,
-        quality = ctx.args.quality and tostring(ctx.args.quality) or nil,
-        bitrate = tonumber(ctx.args.bitrate) as integer,
-        master = ctx.args.master ~= false and nil or false,
-        background = ctx.args.wait ~= true,
-      }
-    )
-    paw.notify(string.format("rendering %d stem%s into %s", #made, #made == 1 and "" or "s", dir))
-  end,
-  {desc = "Render each track on its own into a directory: `stems out tail=2 bits=24 format=flac master=false`"}
-)
 
 return setmetatable(
   M,

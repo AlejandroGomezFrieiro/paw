@@ -261,7 +261,7 @@ test(":loudness shows the master's device panel, with the meter it added", funct
   paw.ui.close()
 end)
 
-test(":render expands ~ as :import and :export do", function()
+test(":export expands ~ as :import does", function()
   start()
   local home = T.home()
   local render = require("paw.render")
@@ -271,9 +271,11 @@ test(":render expands ~ as :import and :export do", function()
     got = path
     return { peak = 0, length = 0, seconds = 0, path = path, sample_rate = 48000 }
   end
-  keys(":render ~/paw-mix.wav<CR>")
+  -- wait=true: the fake gives no event at the end, so a render in the
+  -- background would never end.
+  keys(":export ~/paw-mix.wav wait=true<CR>")
   render.render = real
-  eq(got, home .. "/paw-mix.wav", ":render ~/ names a file in the home folder")
+  eq(got, home .. "/paw-mix.wav", ":export ~/ names a file in the home folder")
   eq(paw.util.expand_path("~"), home, "~ alone is the home folder")
   eq(paw.util.expand_path("~x/a.wav"), "~x/a.wav", "~ before a name stays as it is")
   eq(paw.util.expand_path("a/~/b"), "a/~/b", "and ~ after the start")

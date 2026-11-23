@@ -280,7 +280,7 @@ function M.track(id: integer): {Entry}
     {label = "Show or hide the take lanes", run = run("take.lanes")},
     {label = "MIDI controller", items = midi_items},
     "-",
-    {label = "Bounce to audio", run = run("track.bounce")},
+    {label = "Bounce to audio", run = run("bounce")},
     {label = "New track below", run = run("track.add")},
   }
   append(items, added("track", id, 0, false))

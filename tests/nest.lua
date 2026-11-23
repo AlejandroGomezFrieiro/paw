@@ -693,27 +693,34 @@ test("<Space>zw then <Space>zp gives the same project, ids aside", function()
 end)
 
 test(
-  ":scope.write with a slash writes the view as a project that opens alone and sounds the same, the song as it was; with a name it saves a subproject",
+  ":export project in a view writes it as a project that opens alone and sounds the same, the song as it was; :scope.write takes a name only",
   function()
     bridge()
     local home = T.home()
     local before, step, heard = project_text(), step_name(), sound(16, 34)
     keys("6|")
     keys("znar")
-    keys(":scope.write ~/lib/bridge<CR>")
+    keys(":export project ~/lib/bridge/<CR>")
     eq(
-      paw.ui.message.text:find("wrote the view Bridge to ~/lib/bridge: 2 tracks", 1, true) ~= nil,
+      paw.ui.message.text:find("wrote the view Bridge to ~/lib/bridge/: 2 tracks", 1, true) ~= nil,
       true,
       paw.ui.message.text
     )
     eq(project_text(), before, "the song did not change")
     eq(step_name(), step, "no undo step")
     T.expect_error("has files in it already")
-    keys(":scope.write ~/lib/bridge<CR>")
+    keys(":export project ~/lib/bridge/<CR>")
     eq(
       paw.ui.message.text:find(home .. "/lib/bridge has files in it already", 1, true) ~= nil,
       true,
       paw.ui.message.text
+    )
+    T.expect_error("is a path")
+    keys(":scope.write ~/lib/other<CR>")
+    eq(
+      paw.ui.message.text,
+      "~/lib/other is a path: a subproject's name has no `/`; `:export project ~/lib/other` writes a project folder",
+      "a path is not a name"
     )
     keys(":scope.write Middle eight<CR>")
     eq(api.nest_get(api.nest_list()[1]).name, "Middle eight", "a name saves a subproject, as typed")
@@ -730,7 +737,7 @@ test(
 )
 
 test(
-  ":nest.export writes the subproject as a project that opens alone and renders the same as its block; the song does not change",
+  ":export project in a subproject writes it as a project that opens alone and renders the same as its block; the song does not change",
   function()
     local b = ballad_68()
     -- The block alone: no lane on its row, and a slower song over it,
@@ -751,8 +758,10 @@ test(
     local before, heard = project_text(), sound(128, 152)
     paw.cursor.set_track(b.row)
     paw.cursor.set_beat(130)
+    keys("znn")
+    eq(paw.scope.nest().id, b.nest, "the window is in the subproject")
     local dir = T.scratch .. "/nest-export/Ballad"
-    keys(":nest.export " .. dir .. "<CR>")
+    keys(":export project " .. dir .. "<CR>")
     eq(
       paw.ui.message.text:find("wrote the subproject Ballad to " .. dir .. ": 2 tracks, 1 media file", 1, true) ~= nil,
       true,
@@ -775,17 +784,49 @@ test(
   end
 )
 
+test(":export project in the song writes a copy of it with its media; a range is refused", function()
+  start()
+  local dir = T.scratch .. "/song-export"
+  os.execute("mkdir -p '" .. dir .. "'")
+  local samples = {}
+  for i = 1, 12000 do
+    samples[i] = 0.25
+  end
+  local keys_ = paw.add_track({ name = "Keys" })
+  keys_:add_device("synth", { attack = 0.001, release = 0.01 })
+  api.clip_add(keys_.id, { start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 2 } } })
+  api.clip_add(paw.add_track({ name = "Hit" }).id, { start = 2, file = T.write_wav(dir .. "/hit.wav", samples) })
+  paw.flush()
+  local before, heard = project_text(), sound(0, 8)
+  T.expect_error("a range does not go with it")
+  keys(":2export project " .. dir .. "/Copy/<CR>")
+  keys(":export project " .. dir .. "/Copy/<CR>")
+  eq(
+    paw.ui.message.text,
+    "wrote the song to " .. dir .. "/Copy/: 2 tracks, 1 media file; the song did not change",
+    "the message"
+  )
+  eq(project_text(), before, "the song did not change")
+  api.project_new()
+  api.project_load(dir .. "/Copy")
+  paw.flush()
+  eq(names(api.track_list()), "Keys Hit", "its tracks")
+  eq(#T.read_file(dir .. "/Copy/media/hit.wav"), #T.read_file(dir .. "/hit.wav"), "its sound file copied in")
+  eq(apart(sound(0, 8), heard) <= 1, true, "the same render as the song")
+end)
+
 -- Into the song: :import of a project folder ---------------------------------------------
 
 --- A project folder of its own: the 6/8 Ballad of `ballad_68` written
---- with `:nest.export` to `<scratch>/<name>/Ballad`. Returns the folder
+--- with `:export project` to `<scratch>/<name>/Ballad`. Returns the folder
 --- and a render of it alone, 24 beats at 180 bpm.
 local function ballad_folder(name)
   local b = ballad_68(true)
   paw.cursor.set_track(b.row)
   paw.cursor.set_beat(130)
+  keys("znn")
   local dir = T.scratch .. "/" .. name .. "/Ballad"
-  keys(":nest.export " .. dir .. "<CR>")
+  keys(":export project " .. dir .. "<CR>")
   api.project_new()
   api.project_load(dir)
   paw.flush()

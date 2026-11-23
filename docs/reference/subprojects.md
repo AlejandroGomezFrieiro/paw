@@ -1,6 +1,6 @@
 # Subprojects
 
-<!-- tags: subproject subprojects nest :nest.new <Space>za nest_track :nest.list :nest.outputs :nest.promote <Space>zp :scope.write <Space>zw <Space>zW :nest.export :nest.own :nest.time :nest.meter :nest.unique kind= -->
+<!-- tags: subproject subprojects nest :nest.new <Space>za nest_track :nest.list :nest.outputs :nest.promote <Space>zp :scope.write <Space>zw <Space>zW :nest.own :nest.time :nest.meter :nest.unique kind= -->
 
 A subproject is a section of the song with tracks of its own and a
 timeline of its own. The song plays it from a row of its own, its return
@@ -264,10 +264,9 @@ region that `znar` enters (see [Narrowing](narrowing.md)). Both commands
 take the clips of the view's tracks in the view's time, cut at its
 edges, and move them into a new subproject. The subproject takes the name
 that you type, else the name of the view or of its region. A name has no
-`/`. A word with a slash, such as `~/lib/bridge`, is a path to a folder,
-and `:scope.write` then writes the view as a project of its own there
-(see [Write a subproject or a view as a project](#write-a-subproject-or-a-view-as-a-project)).
-`:scope.write!` refuses a path.
+`/`, so both commands refuse a path such as `~/lib/bridge`. To write the
+view as a project folder, type `:export project ~/lib/bridge/` (see
+[Write a subproject or a view as a project](#write-a-subproject-or-a-view-as-a-project)).
 
 The subproject keeps the meter of the song over that time as its own,
 so the song's bars stay where they are. Inside a subproject with a meter
@@ -337,16 +336,16 @@ ids. The same holds for `<Space>zw` and then `<Space>zp`.
 
 | Command | Effect |
 | --- | --- |
-| `:nest.export <folder>` | Write the subproject at the cursor as a project folder of its own. Inside a subproject, that subproject. |
-| `:scope.write <folder>` | Write the view of the window as a project folder of its own. Inside a subproject, the subproject, as `:nest.export` writes it. |
+| `:export project <folder>/` | Write what the window shows as a project folder of its own: inside a subproject, the subproject; in a view, the view; and in the song, the whole song. |
 
-Both commands make a copy, so nothing in the song changes and there is
-no undo step. The folder must be new or empty, because paw never writes
+The command makes a copy, so nothing in the song changes and there is
+no undo step. To write a subproject, go inside it first, for example with
+`znn` on its block. The folder must be new or empty, because paw never writes
 over files there. `~/` at the start of the folder is your home folder.
 You can open the new project with `:e` and the folder, and it plays
 without the song.
 
-`:nest.export` writes the subproject as the song plays it:
+Inside a subproject, `:export project` writes the subproject as the song plays it:
 
 - The tracks of the subproject become the tracks of the project, and its
   master track becomes the master, with its devices, fader and lanes.
@@ -356,7 +355,7 @@ without the song.
 - Its markers, regions and key become those of the project.
 - The subprojects inside it stay subprojects of the new project.
 
-`:scope.write <folder>` writes the view of the window:
+In a view, `:export project` writes the view of the window:
 
 - The project gets a copy of each track of the view, with its devices,
   and its clips and lanes in the time of the view, cut at the edges and
@@ -369,12 +368,13 @@ without the song.
   such a track plays into the master. The message names each route that
   goes, for example `the send of Bass to Verb is left out`.
 
-Both commands copy the sound files that the clips play into `media/` of
+The command copies the sound files that the clips play into `media/` of
 the new folder, one copy for each set of equal bytes, and write their
 `media.json`. A sound file that is missing stays missing, and the message
 says how many. The message names the folder and what it has, for example
-`wrote the subproject Ballad to ~/lib/Ballad: 2 tracks, 1 media file; the
-song did not change`.
+`wrote the subproject Ballad to ~/lib/Ballad/: 2 tracks, 1 media file; the
+song did not change`. In the song, the folder holds a copy of the whole
+project.
 
 ## Bring a project into the song as a subproject
 
@@ -385,7 +385,7 @@ song did not change`.
 | `:e <song>/nests/<name>` | Open the song and go inside its subproject `<name>`. When the song is open already, go inside the subproject. |
 
 `:import` takes a project folder, or its `project.toml`, for example
-`:import ~/lib/Ballad`, which `:nest.export` wrote. The subproject plays
+`:import ~/lib/Ballad`, which `:export project` wrote. The subproject plays
 at once, and the command with its row and block is one undo step. The
 message names the folder and the number of tracks, for example
 `imported the subproject Ballad from ~/lib/Ballad at bar 1, on its own

@@ -40,6 +40,7 @@ paw.ex paw.roll_clips 1
 paw.ex paw.views.arrange 1
 paw.ex paw.views.cmdline 1
 paw.ex paw.views.pianoroll 1
+paw.export paw.views.files 1
 paw.ext paw 2
 paw.external paw.views.cmdline 1
 paw.formats paw.help 1
@@ -127,10 +128,8 @@ paw.recent paw.pick.sources 1
 paw.recent paw.ui 1
 paw.reconnect paw 1
 paw.remote paw 2
-paw.render paw.commands 1
 paw.render paw.keymap 1
 paw.render paw.ui 2
-paw.render paw.views.files 1
 paw.roles paw.commands 1
 paw.roles paw.keymap 1
 paw.roll_clips paw.frontend 1
@@ -158,8 +157,6 @@ paw.statusline paw.diagnostic 1
 paw.statusline paw.keymap 4
 paw.statusline paw.qf 1
 paw.statusline paw.textbuf 1
-paw.stems paw.ui 4
-paw.stems paw.views.files 1
 paw.step paw 1
 paw.step paw.pick 1
 paw.step paw.pick.sources 1

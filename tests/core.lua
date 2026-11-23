@@ -562,13 +562,21 @@ test("a render can be one track, dithered, or brought to a level", function()
   T.fails(function() render({ tracks = { 999 } }) end, "999", "a track that is not there")
   eq(a.solo or b.solo, false, "and nothing in the project is changed by it")
 
-  local files = paw.render_stems(T.scratch .. "/stems", { tail = 0, bits = 16 })
+  local function stems(words)
+    paw.export.run(paw.export.plan(words .. " each=track tail=0 bits=16 wait=true"))
+    local files = {}
+    for i, r in ipairs(paw.export.last().results) do
+      files[i] = r.path
+    end
+    return files
+  end
+  local files = stems(T.scratch .. "/stems/")
   eq(#files, 2, "one stem per track")
   eq(files[2]:match("[^/]+$"), "Right_odd.wav", "named after it, safely")
   local sum = samples({ path = files[1] })[1000] + samples({ path = files[2] })[1000]
   near(sum, 0.75, 0.001, "the stems add up to the mix")
   b.mute = true
-  eq(#paw.render_stems(T.scratch .. "/stems2", { tail = 0 }), 1, "muted tracks are left out")
+  eq(#stems(T.scratch .. "/stems2/"), 1, "muted tracks are left out")
   b.mute = false
 
   local info = render({ tail = 0, normalize = -6, bits = 16 })
@@ -697,7 +705,7 @@ test("a track is bounced to audio, and takes MIDI messages by hand", function()
   t:add_clip({ start = 0, length = 4, notes = { { pitch = "A3", start = 0, length = 4 } } })
   local before = render({ tail = 0 }).peak
   paw.cursor.set_track(t)
-  paw.commands.exec("track.bounce")
+  paw.commands.exec("bounce")
   local bounced = paw.cursor.track()
   eq(bounced.name .. " " .. tostring(t.mute), "Sine (bounced) true", "a new track beside a muted original")
   local clip = bounced:clips()[1]

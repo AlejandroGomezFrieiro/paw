@@ -42,7 +42,8 @@ other project, so type `:w` to save the work first. To drop the work, type
 ## Where a name alone goes
 
 When a project has a folder, a name without a folder goes in it. For
-example, `:render mix.wav` puts the file in the folder of the song. A
+example, `:import loop.wav` reads the file from the folder of the song,
+and `:export mix.wav` puts the file in the folder `renders` of the song. A
 project name goes next to the folder of the song, so `:w take2` makes the
 folder `take2` beside `demo`. Before the first save, a name alone goes to
 the folder where you started paw. The lists of files that `:open` and

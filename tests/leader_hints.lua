@@ -70,6 +70,7 @@ test("leader: Space Space plays and stops at once, and Space alone lists the lea
   paw.wait(100)
   eq(paw.keymap.pending(), "<Space>", "still waiting, the list is on")
   eq(hint_of("m") ~= nil and hint_of("<Space>") ~= nil, true, "the list has the mix and play")
+  eq(hint_of("e"), "+export", "and the export domain")
   eq(hint_of("w"), "+workspaces", "and the workspaces")
   paw.keymap.feed("<Space>")
   eq(paw.transport.playing, true, "the second Space plays at once, with no wait")

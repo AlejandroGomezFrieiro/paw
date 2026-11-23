@@ -118,7 +118,7 @@ the day was an error, and that `:checkhealth` shows no `ERROR`.
 The report line of each day names the slowest key of the day, with its
 processor time and the load of the machine. The time is the time that the
 kernel needs for the key, and a command that does long work, for example
-`:import` or `:render`, doesn't count. The time is for a person to read
+`:import` or `:export`, doesn't count. The time is for a person to read
 and doesn't fail the day, because it depends on the machine and its load.
 The rule of fast keys is measured with the scripts in `bench/`.
 
@@ -150,7 +150,7 @@ The scenario `song` has 14 days:
 | 11 | `:media.collect`, and a stem for each track. |
 | 12 | Rework: a new bass, a bar of lead deleted, a slower tempo. |
 | 13 | The lead's bar repeated, its last copy muted. |
-| 14 | The last levels, the help of `:render`, the final mix and a MIDI file. |
+| 14 | The last levels, the help of `:export`, the final mix and a MIDI file. |
 
 The recorded take of day 5 shows how the model deals with time on a loaded
 machine, where the notes come late by up to half a beat. The model holds

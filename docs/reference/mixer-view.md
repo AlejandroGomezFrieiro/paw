@@ -13,7 +13,7 @@ The mixer shows a strip for each track, and `<Space>mm` opens it. The strips for
 - The top row of the meters is the clip light, which goes red when a level reaches full scale and stays red until you click it (or the peak) or until the transport starts again.
 - If there is room, the row under the name of a strip gives the track that it plays into (`→ Master`, `→ Drum bus`). A click there, or `:track.output`, chooses it. Four rows name its first devices, and the last row counts the others (`+2 more`). With less room, one row counts the devices and the sends.
 - The Master strip comes last, after a heavier rule, and the cursor goes to it with `$` or `l`. Its rows are its devices, the fader and the pan, and `a` adds a device to it, e.g., a limiter.
-- VCAs have strips after the tracks. The arrange view makes them (`<Space>tv` and the other keys of [the arrange view](arrange-view.md)). See [Render](render.md).
+- VCAs have strips after the tracks. The arrange view makes them (`<Space>tv` and the other keys of [the arrange view](arrange-view.md)). See [Export](export.md).
 
 ## Keys
 

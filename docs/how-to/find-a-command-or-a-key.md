@@ -36,7 +36,7 @@ arguments. For example, type `:tem` and press `Tab`.
 ## Read about a key or a command
 
 - Type `:help gl`, and the page that describes `gl` opens at its line.
-  For a command, type `:help :render`, and for an option, type
+  For a command, type `:help :export`, and for an option, type
   `:help 'grid'`.
 - In a list of keys or commands, press `Ctrl-]` to open the help of the
   selected line.

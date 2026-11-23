@@ -1,38 +1,37 @@
 # How to export a song as WAV, FLAC or MP3
 
-You can render the song to a sound file, such as a WAV master or an MP3 to
-share. In paw, the command to export is `:render`, and each option is in
-[Render](../reference/render.md).
+You can export the song to a sound file, such as a WAV master or an MP3 to
+share. Each word of the command is in [Export](../reference/export.md).
 
 ## Export the song
 
 1. Save the project with `:w`.
-2. Type `:render`. paw renders the song to a WAV file with the name of the
+2. Type `:export`. paw renders the song to a WAV file with the name of the
    project, in the folder `renders` of the project: `song/renders/song.wav`.
 3. Wait for the message that gives the length and the peak of the file.
    The status line shows the progress, and you can press `Esc` to stop the
-   render.
+   export.
 
-The render starts at the start of the song. It ends one second after the
+The file starts at the start of the song. It ends two seconds after the
 last clip, so that the tail of reverbs and delays is in the file.
 
 ## Choose the format and the place
 
-Give the file name after `:render`, and its extension sets the format:
+Give the file name after `:export`, and its extension sets the format:
 
-- `:render /home/ana/Music/song.wav` for a WAV file, at 24 bits.
-- `:render /home/ana/Music/song.flac` for a FLAC file.
-- `:render /home/ana/Music/song.mp3 quality=best` for an MP3 file at 320 kbit/s.
+- `:export /home/ana/Music/song.wav` for a WAV file, at 24 bits.
+- `:export /home/ana/Music/song.flac` for a FLAC file.
+- `:export /home/ana/Music/song.mp3 quality=best` for an MP3 file at 320 kbit/s.
 
-If you give a name without a folder, for example `:render mix.flac`, the
-file goes into the folder of the project. Before the first save, it goes
-into the folder where you started paw.
+If you give a name without a folder, for example `:export mix.flac`, the
+file goes into the folder `renders` of the project, which keeps the
+exported files apart from the files of the project. Before the first save,
+it goes into the folder where you started paw.
 
-`:render` with no name always writes into the folder `renders` of the
-project, which keeps the rendered files apart from the files of the
-project.
+`:export review` writes an MP3 file to listen to, at the loudness of the
+streaming services.
 
-If `:render song.mp3` fails because there is no `ffmpeg`, install
+If `:export song.mp3` fails because there is no `ffmpeg`, install
 `ffmpeg`. WAV and FLAC need no other program.
 
 ## Add the tags
@@ -40,10 +39,10 @@ If `:render song.mp3` fails because there is no `ffmpeg`, install
 1. Type the tags of the project one time:
 
    ```
-   :render.tags artist=Ana album="First one" track=3/12 year=2026 cover=cover.png
+   :export.tags artist=Ana album="First one" track=3/12 year=2026 cover=cover.png
    ```
 
-2. Render as above. paw writes the tags into each file, and FLAC, MP3, Ogg
+2. Export as above. paw writes the tags into each file, and FLAC, MP3, Ogg
    and Opus files get the cover too.
 
 ## Common options
@@ -55,7 +54,7 @@ If `:render song.mp3` fails because there is no `ffmpeg`, install
 
 To export one part of the song, see
 [How to export part of the song or a loop](export-part-of-the-song.md).
-To export each track, see [How to render stems](render-stems.md).
+To export each track, see [How to export stems](export-stems.md).
 
 In the graphical window, choose File → Render…, choose the format and the
 options, type the tags under Tags, and start the render.

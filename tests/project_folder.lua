@@ -499,7 +499,7 @@ test(":export to a MIDI 1.0 file says what it rounded and what it left out", fun
   T.keys(":export " .. path .. "<CR>")
   eq(
     paw.ui.message.text,
-    "exported 1 notes to "
+    "exported 1 note to "
       .. path
       .. "; MIDI 1.0 rounded 1 note time to a tick, rounded 1 controller value to 7 bits, left out 1 move of a controller of one note or of an RPN/NRPN",
     "said"

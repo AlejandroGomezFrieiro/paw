@@ -980,6 +980,8 @@ local record contracts
     nest: string
     --- After the name of a linked clip.
     link: string
+    --- Before the name of a muted clip.
+    muted: string
     punch_in: string
     punch_out: string
     meter_full: string

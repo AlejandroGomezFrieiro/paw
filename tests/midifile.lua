@@ -403,7 +403,68 @@ test(":export writes the project as a format 1 MIDI file with its tempo map, and
   near(paw.tracks()[1]:clips()[1].start + again[2].start, 5, 1e-9, "the notes where they were")
   paw.cursor.set_track(paw.tracks()[1])
   paw.cursor.beat = paw.tracks()[1]:clips()[1].start
-  T.keys(":export " .. T.scratch .. "/clip.mid clip<CR>")
+  T.keys(":export clip " .. T.scratch .. "/clip.mid<CR>")
   f = assert(smf.read(T.scratch .. "/clip.mid"))
   eq(#f.tracks, 2, "a clip alone")
 end)
+
+test(
+  ":export of MIDI takes the range, each=track and each=clip, writes .midi2 as kept, and refuses words of sound",
+  function()
+    start()
+    local dir = T.scratch .. "/midi-grammar"
+    paw.project.save(dir .. "/song")
+    local keys_ = paw.add_track({ name = "Keys" })
+    keys_:add_clip({ start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
+    keys_:add_clip({
+      start = 8,
+      length = 4,
+      notes = { { pitch = 62, start = 1, length = 1 }, { pitch = 64, start = 2, length = 1 } },
+    })
+    local bass = paw.add_track({ name = "Bass" })
+    bass:add_clip({ start = 0, length = 8, notes = { { pitch = 36, start = 4, length = 2 } } })
+    paw.flush()
+    --- The tracks of a file and their notes: "Keys:3 Bass:1".
+    local function held(path)
+      local out = {}
+      for _, part in ipairs(smf.parts(assert(smf.read(path)))) do
+        out[#out + 1] = part.name .. ":" .. #part.notes
+      end
+      return table.concat(out, " ")
+    end
+    local renders = dir .. "/song/renders/"
+    -- One file of type 1, one track of the file for each track of the range.
+    T.keys(":export song.mid<CR>")
+    eq(held(renders .. "song.mid"), "Keys:3 Bass:1", "the song, a track each, in renders/")
+    eq(smf.read(renders .. "song.mid").format, 1, "type 1")
+    T.keys(":t/Bass/export bass.mid<CR>")
+    eq(held(renders .. "bass.mid"), "Bass:1", "a range of tracks")
+    T.keys(":3,4export later.mid<CR>")
+    eq(held(renders .. "later.mid"), "Keys:2", "a range of time: the notes that start in bars 3 and 4")
+    T.keys(":export parts.mid each=track<CR>")
+    eq(held(renders .. "parts Keys.mid") .. " " .. held(renders .. "parts Bass.mid"), "Keys:3 Bass:1", "each=track")
+    T.keys(":t/Keys/export riff.mid each=clip<CR>")
+    eq(held(renders .. "riff Keys 01.mid") .. " " .. held(renders .. "riff Keys 02.mid"), "Keys:1 Keys:2", "each=clip")
+    -- A clip file holds the clip as the project keeps it.
+    paw.cursor.set_track(keys_)
+    paw.cursor.set_beat(9)
+    T.keys(":export clip riff.midi2<CR>")
+    local kept = api.midi2_read(renders .. "riff.midi2")
+    eq(
+      #kept.notes .. " " .. kept.notes[1].start .. " " .. kept.length,
+      "2 1 4",
+      "the clip at the cursor, in its own beats"
+    )
+    -- A word of sound on a MIDI file is refused by name.
+    T.expect_error("is MIDI")
+    T.keys(":export song.mid tap=post<CR>")
+    eq(paw.ui.message.text, "tap= is for sound; song.mid is MIDI", "tap=")
+    T.expect_error("holds one clip")
+    T.keys(":export song.midi2<CR>")
+    eq(paw.ui.message.text:find("holds one clip", 1, true) ~= nil, true, "a clip file takes one clip")
+    T.keys(":export " .. dir .. "/out.mid<CR>")
+    T.expect_error("is there")
+    T.keys(":export " .. dir .. "/out.mid<CR>")
+    eq(paw.ui.message.text, dir .. "/out.mid is there: `:export!` replaces it", "a file outside renders/ is kept")
+  end
+)

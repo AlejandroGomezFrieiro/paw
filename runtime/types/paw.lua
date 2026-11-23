@@ -35,6 +35,9 @@ paw.audition = {}
 ---@class paw.autosave
 paw.autosave = {}
 
+---@class paw.bounce
+paw.bounce = {}
+
 ---@class paw.bytes
 paw.bytes = {}
 
@@ -85,6 +88,9 @@ paw.events = {}
 
 ---@class paw.ex
 paw.ex = {}
+
+---@class paw.export
+paw.export = {}
 
 ---@class paw.ext
 paw.ext = {}
@@ -284,9 +290,6 @@ paw.snippet = {}
 ---@class paw.statusline
 paw.statusline = {}
 
----@class paw.stems
-paw.stems = {}
-
 ---@class paw.step
 paw.step = {}
 
@@ -352,18 +355,6 @@ paw.api.version = "1.0.0"
 --- `opts.nest` says another.
 ---@param opts any
 function paw.add_track(opts) end
-
---- Render a track with its devices to audio, as one clip on a new track
---- immediately below it, and mute the original. The new track sends its
---- sound where the original sent it. The render has the track's fader and
---- pan but not the master's devices and fader, because the new track plays
---- through the master again. It uses `paw.render`, so `render.before` runs. `opts.name` is the name of the new track
---- ("<name> (bounced)" by default). `opts.tail` is the seconds rendered
---- after its last clip (2). Returns the new track, or nil when the track
---- has no clips.
----@param track any
----@param opts any
-function paw.bounce(track, opts) end
 
 --- Make a buffer type. See `docs/reference/lua-views.md`.
 ---   paw.buftype("notes", { create = function(target) return {} end, render = function(win, canvas, ctx) end })
@@ -515,17 +506,6 @@ function paw.render_cancel() end
 --- ffmpeg makes a lossy file from the render. Then `fraction` tells how
 --- far the encoding is.
 function paw.render_status() end
-
---- Render each track on its own into a directory, one file per track named
---- after it: stems. A track is rendered with what it passes through on the
---- way to the master, as when it is soloed, so that the stems add up to the
---- mix. `opts` is as for `paw.render`, plus `tracks` to choose which (all
---- that are not muted, by default) and `format` ("wav", "flac", "mp3", "ogg"
---- or "opus"). With
---- `background`, they are rendered one after another. Returns the files.
----@param dir any
----@param opts any
-function paw.render_stems(dir, opts) end
 
 --- What the project's rendered files are tagged with (`project.meta.tags`):
 --- `paw.render_tags()` gives `{ title, artist, album, track, year, genre, comment, cover }`
@@ -1329,6 +1309,38 @@ function paw.autosave.orphan_takes() end
 ---@param file any
 ---@param opts any
 function paw.autosave.recover(file, opts) end
+
+--- What `K` says of a clip that a bounce muted: the track that plays it
+--- now. Nil for another clip.
+---@param clip any
+function paw.bounce.describe(clip) end
+
+--- Render a track (its id, or the track) to audio, as one clip on a new
+--- track below it, and mute it. `paw.bounce(track, opts)` is the same. The
+--- new track plays its sound where the old one sends it. `opts.tap` is where the
+--- render listens: `"post"` (the default) holds the track's devices, fader
+--- and pan, but not its groups or the master, and the new track's fader
+--- starts at 0 dB. `"pre"` is before the fader: the new track gets the
+--- volume, pan and sends of the old one, and the automation of its volume
+--- and pan. `opts.start` and `opts["end"]` are the beats to render. Without
+--- them, it renders from the first clip to the end of the last, and mutes
+--- the whole track. With them, it cuts the clips at those beats and mutes
+--- only the parts between them, and `K` on such a part names the new
+--- track. `opts.tail` is the seconds after the end (2). `opts.name` names the new track ("<name>
+--- (bounced)" by default). It uses `paw.render`, so `render.before` runs.
+--- Returns the new track, or nil when there is nothing to render.
+---@param track any
+---@param opts any
+function paw.bounce.track(track, opts) end
+
+--- Render the tracks of `ids` to audio, as one clip on a new track below
+--- the last of them, and mute them. The new track plays its sound where the
+--- first track sends its sound. `opts` is as for `paw.bounce.track`, and
+--- `opts.tap = "pre"` takes one track only. Returns the new track, or nil
+--- when there is nothing to render.
+---@param ids any
+---@param opts any
+function paw.bounce.tracks(ids, opts) end
 
 paw.bytes.base64 = paw.api.base64_encode
 
@@ -2934,6 +2946,65 @@ function paw.ex.substitution(r, pattern, replacement, flags) end
 ---@param name any
 ---@param spec any
 function paw.ex.view(name, spec) end
+
+--- Run `:export` again as it was last typed. Returns false when there was none.
+function paw.export.again() end
+
+--- Stop the export that runs, and the files that wait after it. Returns
+--- true if an export ran.
+function paw.export.cancel() end
+
+--- Show a plan in a float; `y` writes it.
+---@param plan any
+function paw.export.confirm(plan) end
+
+--- True for a device that changes its level by the level that it hears: a
+--- compressor, a limiter or a gate, built in or a plugin with such a name.
+--- Such a device on a group or on the master that several files of an
+--- export pass makes the files differ a little from the mix. Replace it to
+--- name other devices.
+---@param device any
+function paw.export.is_dynamics(device) end
+
+--- What the last export did: `{ plan, results, failed, cancelled, message }`.
+--- `results` holds what `paw.render` gives for each file written. Nil
+--- before the first export ends.
+function paw.export.last() end
+
+--- The lines of a plan, as the float shows them: one for each file, with
+--- what it holds, when, where it listens and its channels; then what it
+--- leaves out, and the notes.
+---@param plan any
+function paw.export.lines(plan) end
+
+--- The plan of an export: the words as typed after `:export`, and the
+--- range of tracks and time before it (`paw.ex.range("t2,t4 17,32")`, or
+--- nil for the song). Gives `{ renders, left_out, notes, options, confirm }`.
+--- Each render has its `file`, `tracks` (nil for the mix), `from`, `to`,
+--- `when`, `tap` and `channels`. A plan that cannot be is an error with a
+--- clear message.
+---@param words any
+---@param range any
+function paw.export.plan(words, range) end
+
+--- The plan of the words of `:export`, as `commands.parse` gives them, and
+--- a range. See `M.plan`.
+---@param args any
+---@param range any
+function paw.export.plan_args(args, range) end
+
+--- The names of the presets, in order.
+function paw.export.preset_names() end
+
+--- Write the files of a plan, one render at a time, on the render thread:
+--- the status line shows how far it is, and one message at the end says
+--- what it wrote. A plan with `wait` renders in the foreground. When an
+--- export runs, the files of this one wait after it.
+---@param plan any
+function paw.export.run(plan) end
+
+--- True while an export runs.
+function paw.export.running() end
 
 --- True if this build of paw has `feature`, one of the names of
 --- `paw.api.build().features` such as `"processes"`. An extension that
@@ -7219,7 +7290,8 @@ function paw.render.default_path() end
 ---   tail        seconds after the end, for reverbs and delays to ring out (1)
 ---   sample_rate (or rate) Hz; the engine's by default
 ---   bits        16, 24 or 32 (float; WAV only); 24 by default
----   channels    2 (or "stereo") or 1 (or "mono")
+---   channels    "stereo" (the default), "mono" (one channel: (left + right) / 2) or
+---               "auto" (one channel when the two sides are equal to the bit, else two)
 ---   dither      true to add dither when writing 16 or 24 bits
 ---   quality     for MP3, Ogg Vorbis and Opus: "low", "medium", "high" (the
 ---               default) or "best"; `bitrate` (kbit/s) instead of it for a number
@@ -7250,6 +7322,8 @@ function paw.render.default_path() end
 ---               and then, and `render.done` (what is returned below),
 ---               `render.failed` ({ path, error }) or `render.cancelled` at the end;
 ---               a render in the foreground emits `render.finished` with what it returns
+---   quiet       with `background`: no message when it ends, for a caller that
+---               says itself what it rendered
 --- When it is done, it returns `types.RenderResult`. The result has the path,
 --- the frames, the seconds, the peak, the gain and the loudness. It also has
 --- the format, the bits (nil for a lossy format) and the channels.
@@ -7268,8 +7342,6 @@ function paw.render.render(path, opts) end
 function paw.render.renders_dir() end
 
 paw.render.status = paw.render_status
-
-paw.render.stems = paw.render_stems
 
 paw.render.tags = paw.render_tags
 
@@ -8456,36 +8528,6 @@ function paw.statusline.tabline_always() end
 ---@param view any
 ---@param focused any
 function paw.statusline.winbar(view, focused) end
-
---- What `:render stems` and `:render <group>` do with the command's options.
----@param ctx any
----@param opts any
-function paw.stems.command(ctx, opts) end
-
---- Show a plan and render it on `y`.
----@param plan any
----@param dir any
----@param opts any
-function paw.stems.confirm(plan, dir, opts) end
-
---- True if `:render <word>` names a group to render alone, and not a file:
---- the name of a group, with no file ending.
----@param word any
-function paw.stems.names_group(word) end
-
---- What the stems would be: a list of `{ id, name, file, holds }`, in the
---- order of the track list. `opts`: `dir` (where; `stems` in the renders
---- folder by default, see `paw.render.renders_dir`), `format` ("wav", the default, "flac",
---- "mp3", "ogg", "opus"), `tracks` (one per track, not per group), `group`
---- (that group, or track, alone). In a narrowed window, the parts of its scope.
----@param opts any
-function paw.stems.plan(opts) end
-
---- Write the stems of a plan, with `paw.render`'s options (`background`
---- renders them one after another). Returns the files.
----@param plan any
----@param opts any
-function paw.stems.render(plan, opts) end
 
 --- A new action for the controls: `fn(count)` runs in a target that has
 --- no action of that name itself.

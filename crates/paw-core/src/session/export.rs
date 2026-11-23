@@ -1,11 +1,11 @@
 //! A subproject and a project folder of its own, both ways (`nest.md`
 //! 3.6, 4.3).
 //!
-//! Out: `:nest.export <folder>` and `:scope.write <folder>` write a
-//! subproject, or a view, as a project folder. The model makes the project
-//! (`model/nest/standalone.rs`); this module writes it with its media
-//! copied in. The song does not change, and the session's project file
-//! stays the same.
+//! Out: `:export project <folder>/` writes the scope of a window as a
+//! project folder: the whole song, a subproject or a view. The model makes
+//! the project of a subproject or a view (`model/nest/standalone.rs`); this
+//! module writes it with its media copied in. The song does not change, and
+//! the session's project file stays the same.
 //!
 //! In: `:import <folder>` makes a project folder a subproject that refers
 //! to the folder (`model/nest/adopt.rs`); the first edit of it, or
@@ -64,6 +64,15 @@ impl Session {
         let dir = Self::new_folder(dir)?;
         self.capture_states();
         let made = self.doc.project.view_standalone(name, &opts.tracks, opts.from, opts.to)?;
+        self.write_standalone(made, &dir)
+    }
+
+    /// Write the whole song as a project folder at `dir` (see the module):
+    /// a copy of the project with its media copied in.
+    pub fn song_export(&mut self, dir: &Path) -> Result<Exported> {
+        let dir = Self::new_folder(dir)?;
+        self.capture_states();
+        let made = Standalone { project: self.doc.project.clone(), changes: Vec::new() };
         self.write_standalone(made, &dir)
     }
 

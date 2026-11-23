@@ -199,8 +199,11 @@ paw opens `.mid`, `.midi`, `.smf` and `.kar` files in format 0, 1 and 2, with an
 | `:import song.mid tempo=yes` | Do the same, and use the tempo map of the file from the cursor. |
 | `:clip.import riff.mid` | Put all the notes of the file in one clip on the track at the cursor. |
 | `:export song.mid` | Write the project as a format 1 file, with its tempo map, time signatures and markers. |
-| `:export riff.mid clip` | Write the clip at the cursor. |
-| `:export part.mid selection` | Write the selected tracks. |
+| `:export clip riff.mid` | Write the clip at the cursor. |
+| `:'<,'>export part.mid` | Write the selected tracks. |
+| `:export clip riff.midi2` | Write the clip at the cursor as a MIDI 2 clip file. |
+
+[Export](export.md#midi-files) gives the ranges and the words that MIDI files take.
 
 A file that opens as a project gives these results:
 

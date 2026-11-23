@@ -57,7 +57,7 @@ A device at rest sleeps through silence, which means that the engine does not ru
 | `saturation` | No oversampling, whatever `oversample` says. The curve shapes each sample at the rate of the project, so loud high notes add some aliasing. The latency stays the same. |
 | Other built-in devices | No change. |
 
-- A render, an export, stems, a bounce and a freeze always play at full quality, whatever the option says (see [Render and export](render.md#behavior)).
+- A render, an export, stems, a bounce and a freeze always play at full quality, whatever the option says (see [Export](export.md#behavior)).
 - The status line shows `edit q` while the option is `"edit"` (see [Status line](status-line.md)).
 - Plugins and Lua devices play as they always do.
 - The `reverb`, `chorus` and `compressor` keep their sound in edit quality. Each costs less than a `saturation` at 4x, and they have no setting that paw can lower without a change that you would hear in the mix.

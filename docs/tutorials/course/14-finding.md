@@ -48,6 +48,6 @@ The tutor opens a practice project for the lesson, and it checks each step when 
 
 We used key hints, `?`, `:commands`, Tab on the command line, the `<Space>f` pickers and `K`.
 
-- Previous: [Save and render](13-saving.md)
+- Previous: [Save and export](13-saving.md)
 - Next: [Make paw your own: options, keys, commands](15-your-own.md)
 - [All lessons](README.md)

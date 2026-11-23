@@ -84,6 +84,32 @@ impl Tap {
     }
 }
 
+/// The channels of a rendered file (`channels=`). paw is stereo inside, so
+/// each choice starts from the two sides that the render hears.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Channels {
+    /// Two channels, as you hear it.
+    #[default]
+    Stereo,
+    /// One channel: (left + right) / 2, a sum at -6 dB. A sound that is the
+    /// same on both sides keeps its level.
+    Mono,
+    /// One channel when the two sides are equal to the bit over the whole
+    /// file, else two. It looks at the sound, not at the clips.
+    Auto,
+}
+
+impl Channels {
+    /// The most channels that the file can have.
+    fn most(self) -> u16 {
+        match self {
+            Channels::Mono => 1,
+            Channels::Stereo | Channels::Auto => 2,
+        }
+    }
+}
+
 impl RenderOpts {
     /// Where the render listens: `tap`, else `groups` for the older word
     /// `master = false`.
@@ -360,7 +386,7 @@ struct Plan {
     path: PathBuf,
     sample_rate: u32,
     bits: u16,
-    channels: u16,
+    channels: Channels,
     frames: usize,
     /// Frames the engine's output is late by, played and thrown away.
     latency: usize,
@@ -577,12 +603,6 @@ impl Session {
                 bits.join(", ")
             );
         }
-        if !matches!(opts.channels, 1 | 2) {
-            bail!(
-                "a render has 1 channel (mono) or 2 (stereo), not {}",
-                opts.channels
-            );
-        }
         Ok((format, quality, bits))
     }
 
@@ -613,7 +633,7 @@ impl Session {
         let seconds = project.tempo_map().seconds_between(opts.start, end) + opts.tail.max(0.0);
         let frames = (seconds * sample_rate as f64).ceil();
         // A WAV file holds at most 4 GiB of samples.
-        let bytes = frames * opts.channels as f64 * (bits / 8) as f64;
+        let bytes = frames * f64::from(opts.channels.most()) * (bits / 8) as f64;
         if (format == Format::Wav || format.lossy().is_some()) && bytes >= u32::MAX as f64 - 64.0 {
             bail!(
                 "{seconds:.0} s at {sample_rate} Hz and {bits} bits is more than a WAV file can hold"
@@ -936,6 +956,8 @@ fn run(engine: Engine, plan: Plan) -> Result<Value> {
 struct Pass {
     peak: f32,
     nonfinite: u64,
+    /// Whether each frame had the same left and right sample.
+    sides_equal: bool,
     elapsed: f64,
     processing: f64,
     blocks: Value,
@@ -960,6 +982,7 @@ fn play(
     let mut right = vec![0.0f32; 512];
     let mut peak = 0f32;
     let mut nonfinite = 0u64;
+    let mut sides_equal = true;
     let mut done = 0;
     let began = Instant::now();
     let mut processing = Duration::ZERO;
@@ -990,7 +1013,7 @@ fn play(
         processing += block.elapsed();
         let skipped = skip.min(n);
         skip -= skipped;
-        if plan.channels == 1 {
+        if plan.channels == Channels::Mono {
             for i in skipped..n {
                 let mono = (left[i] + right[i]) * 0.5;
                 left[i] = mono;
@@ -1000,6 +1023,8 @@ fn play(
         for (l, r) in left[skipped..n].iter().zip(&right[skipped..n]) {
             peak = peak.max(l.abs()).max(r.abs());
             nonfinite += (!l.is_finite()) as u64 + (!r.is_finite()) as u64;
+            // `==` takes 0 and -0 as equal, which the file also does.
+            sides_equal &= l == r || l.to_bits() == r.to_bits();
             sink(*l, *r)?;
         }
         if let Some(analyzer) = &mut analyzer {
@@ -1014,6 +1039,7 @@ fn play(
     Ok(Pass {
         peak,
         nonfinite,
+        sides_equal,
         elapsed: began.elapsed().as_secs_f64() * 1000.0,
         processing: processing.as_secs_f64() * 1000.0,
         blocks: block_json(&engine.shared().blocks.summary(), sample_rate),
@@ -1044,7 +1070,9 @@ fn wait_for_state(plan: &Plan, at: usize) -> Result<()> {
 
 fn write(engine: Engine, plan: &Plan, part: &Path, raw: &Path) -> Result<Value> {
     let normalizing = plan.peak.is_some() || plan.loudness.is_some();
-    let (pass, gain) = if normalizing {
+    // `channels=auto` knows the channels of the file only at the end, as
+    // normalizing knows its gain only at the end.
+    let (pass, gain, channels) = if normalizing || plan.channels == Channels::Auto {
         // Play it all into a raw file, measuring, then encode from there.
         let mut out = BufWriter::new(
             File::create(raw).with_context(|| format!("creating {}", raw.display()))?,
@@ -1078,7 +1106,11 @@ fn write(engine: Engine, plan: &Plan, part: &Path, raw: &Path) -> Result<Value> 
                 to_loudness
             };
         }
-        let mut encoder = Encoder::create(plan, part)?;
+        let channels = match plan.channels {
+            Channels::Auto if pass.sides_equal => 1,
+            other => other.most(),
+        };
+        let mut encoder = Encoder::create(plan, channels, part)?;
         let mut input =
             BufReader::new(File::open(raw).with_context(|| format!("reading {}", raw.display()))?);
         input.seek(SeekFrom::Start(0))?;
@@ -1097,21 +1129,22 @@ fn write(engine: Engine, plan: &Plan, part: &Path, raw: &Path) -> Result<Value> 
             }
         }
         encoder.finish()?;
-        (pass, gain)
+        (pass, gain, channels)
     } else {
-        let mut encoder = Encoder::create(plan, part)?;
+        let channels = plan.channels.most();
+        let mut encoder = Encoder::create(plan, channels, part)?;
         let pass = play(engine, plan, false, (0.0, 1.0), &mut |l, r| {
             encoder.frame(l, r)
         })?;
         encoder.finish()?;
-        (pass, 1.0)
+        (pass, 1.0, channels)
     };
     plan.progress.set(1.0);
     let seconds = plan.frames as f64 / plan.sample_rate as f64;
     Ok(json!({
         "path": plan.path, "frames": plan.frames, "seconds": seconds,
         "sample_rate": plan.sample_rate, "peak": pass.peak * gain,
-        "format": plan.format.name(), "bits": plan.bits, "channels": plan.channels,
+        "format": plan.format.name(), "bits": plan.bits, "channels": channels,
         // What normalizing raised or lowered the level by, in dB.
         "gain": paw_engine::gain_to_db(gain),
         // Integrated loudness of the file, in LUFS, when it was measured.
@@ -1140,7 +1173,9 @@ enum Out {
 }
 
 impl Encoder {
-    fn create(plan: &Plan, path: &Path) -> Result<Self> {
+    /// A file of `channels` (1 or 2): a mono file takes the left side of
+    /// each frame, which the render made the same as the right.
+    fn create(plan: &Plan, channels: u16, path: &Path) -> Result<Self> {
         let out = match plan.format {
             Format::Wav | Format::Mp3 | Format::Vorbis | Format::Opus => Out::Wav(
                 wav::Writer::with_channels(
@@ -1148,16 +1183,16 @@ impl Encoder {
                     plan.sample_rate,
                     plan.bits,
                     plan.bits == 32,
-                    plan.channels,
+                    channels,
                 )
                 .with_context(|| format!("creating {}", path.display()))?,
             ),
-            Format::Flac => Out::Flac(Box::new(Flac::create(path, plan)?)),
+            Format::Flac => Out::Flac(Box::new(Flac::create(path, plan, channels)?)),
         };
         Ok(Self {
             out,
             dither: Dither::new(if plan.dither { plan.bits } else { 32 }),
-            channels: plan.channels,
+            channels,
         })
     }
 
@@ -1205,9 +1240,9 @@ struct Flac {
 const FLAC_BLOCK: usize = 4096;
 
 impl Flac {
-    fn create(path: &Path, plan: &Plan) -> Result<Self> {
+    fn create(path: &Path, plan: &Plan, channels: u16) -> Result<Self> {
         use flacenc::error::Verify;
-        let channels = plan.channels as usize;
+        let channels = usize::from(channels);
         let bits = plan.bits as usize;
         let mut config = flacenc::config::Encoder::default();
         // flacenc's fixed predictors can pick a Rice parameter far too small

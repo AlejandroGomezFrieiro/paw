@@ -298,6 +298,7 @@ After the leader, the first key is a domain, and the next key is what to do in i
 | a: automation (A) | `<Space>aa` `<Space>aA` the lanes of the track, of every track; `<Space>al` choose what to automate; `<Space>am` the mode; `<Space>at` off and on; `<Space>aw` write; `<Space>ax` clear |
 | c: clip (A) | `<Space>cf` fade the clip in and out; `<Space>cl` put a linked copy after the clip; `<Space>cu` take the clip out of its link |
 | d: devices | `<Space>dd` show or hide the device panel; `<Space>da` add a device; in D, `<Space>dw` save a preset and `<Space>dW` make it the default |
+| e: export | `<Space>em` the mix, `<Space>es` the stems, `<Space>et` the tracks, `<Space>er` the regions, `<Space>ee` the last export again; in visual mode, for the selection (see [Export](export.md#export)) |
 | f: find | `<Space>ff` files, `<Space>fg` any text, `<Space>fk` keys, `<Space>fc` clips, `<Space>fr` regions, `<Space>fm` markers, `<Space>ft` tracks, `<Space>fd` the devices of the track, `<Space>fn` notes, `<Space>fa` audio files, `<Space>f:` commands, and more: [Pickers](pickers.md) |
 | g: versions (projdiff) | `<Space>gd` what changed since the save, `<Space>gm` settle merge conflicts, `<Space>gs` keep a snapshot |
 | h: tutor | `<Space>hh` a hint, `<Space>hn` the next step, `<Space>hr` start again, `<Space>hl` the lessons, `<Space>hq` leave |
@@ -305,8 +306,8 @@ After the leader, the first key is a domain, and the next key is what to do in i
 | m: mix | `<Space>mm` show or hide the mixer; with mixdiag, `<Space>ma` measure the mix, `<Space>mx` the findings, `<Space>mr` the report, and more |
 | n: notation | `<Space>nn` the clip as notation, `<Space>ns` every track as a score, `<Space>nc` the pages, `<Space>ne` `<Space>nE` export MusicXML, PDF |
 | p: project | `<Space>pr` recent projects; with undotree, `<Space>pu` the undo tree, `<Space>pc` `<Space>pC` write and list checkpoints, `<Space>pa` `<Space>pb` `<Space>pB` mark A, switch A and B, forget them, `<Space>pn` name the state, `<Space>p.` what the last step changed |
-| r: markers and regions | `<Space>rm` add a marker, `<Space>rn` make a region, `<Space>rx` remove the marker, `<Space>rX` remove the region, `<Space>rl` loop the region, `<Space>rR` render the regions |
-| t: tracks (A) | `<Space>ts` send, `<Space>to` output, `<Space>tg` `<Space>tG` make a group, remove the track from its group, `<Space>tv` a new VCA, `<Space>ta` `<Space>tr` add to a VCA, remove from it, `<Space>tx` remove the VCA, `<Space>tl` link the faders |
+| r: markers and regions | `<Space>rm` add a marker, `<Space>rn` make a region, `<Space>rx` remove the marker, `<Space>rX` remove the region, `<Space>rl` loop the region |
+| t: tracks (A) | `<Space>ts` send, `<Space>to` output, `<Space>tf` `<Space>tF` freeze, unfreeze the track or the selected tracks, `<Space>tg` `<Space>tG` make a group, remove the track from its group, `<Space>tv` a new VCA, `<Space>ta` `<Space>tr` add to a VCA, remove from it, `<Space>tx` remove the VCA, `<Space>tl` link the faders, `<Space>tb` bounce to audio |
 | T: tempo and transport | `<Space>Tt` tap the tempo, `<Space>Tm` the metronome, `<Space>Tc` the count-in |
 | u: utau | `<Space>ut` add a vocal track, `<Space>uv` make the track vocal, `<Space>us` the singer, `<Space>ue` the vocal editor, `<Space>ul` the lyric sheet, `<Space>ur` render again, `<Space>uf` `<Space>uF` freeze, unfreeze, `<Space>uo` OpenUtau, `<Space>ui` the engine |
 | v: views | `<Space>vm` mixer, `<Space>vd` device panel, `<Space>vp` piano roll, `<Space>vs` session view, `<Space>vn` notation, `<Space>vu` undo tree |
