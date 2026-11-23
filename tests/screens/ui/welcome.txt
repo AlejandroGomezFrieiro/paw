@@ -12,7 +12,7 @@
    {11:?}             every key that works where you are
    {11::}             run a command by name
    {11::help}         the manual, inside the program
-
+   {11::tutor}        take the course, ten minutes a lesson
 
 {3:   }{12:▌}{3: Master         }{4:│}
 {3:   }{12:▌}{3:   }{13:▀▀▀▀▀▀▀▀}{3: }{12:0.0}{3: }{4:│}
