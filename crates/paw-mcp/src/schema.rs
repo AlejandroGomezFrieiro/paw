@@ -9,7 +9,7 @@ use serde_json::{Value, json};
 
 /// Tools that change the project: each is one undo step, and any of them may
 /// be a step of a `batch`.
-pub const BATCHABLE: [&str; 12] = [
+pub(crate) const BATCHABLE: [&str; 12] = [
     "add_track",
     "set_track",
     "add_clip",
@@ -24,27 +24,27 @@ pub const BATCHABLE: [&str; 12] = [
     "remove",
 ];
 
-pub const UNDO: &str =
+pub(crate) const UNDO: &str =
     "Undoable: the whole call is one undo step, and a call that fails changes nothing.";
 
 /// Either of two kinds of value, as `anyOf`.
-pub fn either(first: Value, second: Value, description: String) -> Value {
+pub(crate) fn either(first: Value, second: Value, description: String) -> Value {
     json!({ "anyOf": [first, second], "description": description })
 }
 
-pub fn number() -> Value {
+pub(crate) fn number() -> Value {
     json!({"type": "number"})
 }
 
-pub fn text() -> Value {
+pub(crate) fn text() -> Value {
     json!({"type": "string"})
 }
 
-pub fn integer() -> Value {
+pub(crate) fn integer() -> Value {
     json!({"type": "integer"})
 }
 
-pub fn track_ref(what: &str) -> Value {
+pub(crate) fn track_ref(what: &str) -> Value {
     either(
         integer(),
         text(),
@@ -52,7 +52,7 @@ pub fn track_ref(what: &str) -> Value {
     )
 }
 
-pub fn position(what: &str) -> Value {
+pub(crate) fn position(what: &str) -> Value {
     either(
         number(),
         text(),
@@ -60,7 +60,7 @@ pub fn position(what: &str) -> Value {
     )
 }
 
-pub fn length(what: &str) -> Value {
+pub(crate) fn length(what: &str) -> Value {
     either(
         number(),
         text(),
@@ -68,7 +68,7 @@ pub fn length(what: &str) -> Value {
     )
 }
 
-pub fn marker_ref(what: &str) -> Value {
+pub(crate) fn marker_ref(what: &str) -> Value {
     either(
         integer(),
         text(),
@@ -76,7 +76,7 @@ pub fn marker_ref(what: &str) -> Value {
     )
 }
 
-pub fn pitch(what: &str) -> Value {
+pub(crate) fn pitch(what: &str) -> Value {
     json!({
         "anyOf": [
             {"type": "string"},
@@ -86,7 +86,7 @@ pub fn pitch(what: &str) -> Value {
     })
 }
 
-pub fn pitches(what: &str) -> Value {
+pub(crate) fn pitches(what: &str) -> Value {
     json!({
         "type": "array",
         "items": pitch("A pitch"),
@@ -94,7 +94,7 @@ pub fn pitches(what: &str) -> Value {
     })
 }
 
-pub fn notes_schema(what: &str) -> Value {
+pub(crate) fn notes_schema(what: &str) -> Value {
     json!({
         "type": "array",
         "description": format!("{what}. Each note is a string \"pitch start [length] [velocity]\" such as \"C4 0 1 100\", \"E4 2.5 1/8\", \"G4 2:1 1/4 90\" or a chord \"C4+E4+G4 2 2\", or an object. In strings the start is beats from the clip's start (\"2.5\"), or bar:beat within the clip with a colon (\"1:3\" = beat 3 of the clip's first bar); in objects a string start is bar.beat (\"1.3\") or bar:beat. Length defaults to 1 beat, velocity to 100. Middle C is C4 (MIDI 60)."),
@@ -125,7 +125,7 @@ pub fn notes_schema(what: &str) -> Value {
     })
 }
 
-pub fn device_spec() -> Value {
+pub(crate) fn device_spec() -> Value {
     json!({
         "anyOf": [
             {"type": "string", "description": "A device kind or a search such as \"synth\" or \"dragonfly hall\""},
@@ -145,7 +145,7 @@ pub fn device_spec() -> Value {
     })
 }
 
-pub fn params_schema(description: &str) -> Value {
+pub(crate) fn params_schema(description: &str) -> Value {
     json!({
         "type": "object",
         "description": description,
@@ -156,7 +156,7 @@ pub fn params_schema(description: &str) -> Value {
     })
 }
 
-pub fn clip_spec() -> Value {
+pub(crate) fn clip_spec() -> Value {
     json!({
         "type": "object",
         "description": "A clip",
@@ -171,7 +171,7 @@ pub fn clip_spec() -> Value {
     })
 }
 
-pub fn send_spec(description: &str) -> Value {
+pub(crate) fn send_spec(description: &str) -> Value {
     json!({
         "type": "array",
         "description": description,
@@ -188,7 +188,7 @@ pub fn send_spec(description: &str) -> Value {
     })
 }
 
-pub fn obj(properties: Value, required: &[&str]) -> Value {
+pub(crate) fn obj(properties: Value, required: &[&str]) -> Value {
     json!({
         "type": "object",
         "properties": properties,
@@ -198,7 +198,7 @@ pub fn obj(properties: Value, required: &[&str]) -> Value {
 }
 
 /// The note-range filter of `get_clip`.
-pub fn note_filter() -> Value {
+pub(crate) fn note_filter() -> Value {
     json!({
         "from": position("Only notes starting at or after this point in the clip"),
         "to": position("Only notes starting before this point in the clip"),
@@ -207,7 +207,7 @@ pub fn note_filter() -> Value {
 }
 
 /// Instructions for the model, sent with `initialize`.
-pub const INSTRUCTIONS: &str = "\
+pub(crate) const INSTRUCTIONS: &str = "\
 This server drives a session of paw (a personal audio workstation). Conventions:
 - Ids: tracks, devices, clips, notes, markers and automation lanes have numeric ids; get_project lists most (get_clip lists note ids). Tracks and markers can also be named. The master track is id 0 or \"master\".
 - Results: every tool answers in text and in structuredContent (JSON); prefer the JSON when you read values back.

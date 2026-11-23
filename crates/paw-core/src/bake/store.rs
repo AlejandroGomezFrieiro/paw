@@ -25,14 +25,14 @@ use serde_json::Value;
 use super::key::{BakeJob, EntryKey};
 
 /// The size of the cache when the user sets none: 16 GB.
-pub const DEFAULT_LIMIT: u64 = 16 << 30;
+pub(crate) const DEFAULT_LIMIT: u64 = 16 << 30;
 
 /// An unfinished entry this old was left by a run that ended badly.
 const STALE: Duration = Duration::from_secs(3600);
 
 /// The cache.
 #[derive(Clone, Debug)]
-pub struct Store {
+pub(crate) struct Store {
     root: PathBuf,
     /// The bytes kept by [`tidy`](Self::tidy), pins aside.
     pub limit: u64,
@@ -40,7 +40,7 @@ pub struct Store {
 
 /// What an entry says of itself, in its `meta.json`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct EntryMeta {
+pub(crate) struct EntryMeta {
     /// The whole input key, compared on each open (the name has 128 bits).
     pub input_key: String,
     pub tool: String,
@@ -54,20 +54,21 @@ pub struct EntryMeta {
 
 /// An entry that is there, whole.
 #[derive(Debug)]
-pub struct Entry {
+pub(crate) struct Entry {
     dir: PathBuf,
+    #[allow(dead_code, reason = "read by the tests only, until the helper lane has a bake")]
     pub meta: EntryMeta,
 }
 
 impl Entry {
     /// The entry's file `name`.
-    pub fn file(&self, name: &str) -> PathBuf {
+    pub(crate) fn file(&self, name: &str) -> PathBuf {
         self.dir.join(name)
     }
 }
 
 /// What [`Store::writer`] found.
-pub enum Write {
+pub(crate) enum Write {
     /// Make the entry: write its files, then [`EntryWriter::commit`].
     Make(EntryWriter),
     /// It is there already (another process made it meanwhile).
@@ -78,7 +79,7 @@ pub enum Write {
 
 /// An entry being made, in a folder of its own under `tmp/`. Dropped
 /// without [`commit`](Self::commit), it leaves nothing behind.
-pub struct EntryWriter {
+pub(crate) struct EntryWriter {
     tmp: PathBuf,
     dest: PathBuf,
     key: EntryKey,
@@ -88,13 +89,13 @@ pub struct EntryWriter {
 
 impl EntryWriter {
     /// Where to write the entry's file `name`.
-    pub fn file(&self, name: &str) -> PathBuf {
+    pub(crate) fn file(&self, name: &str) -> PathBuf {
         self.tmp.join(name)
     }
 
     /// Put the entry in place, whole. When another process put the same
     /// entry first, its copy stays: the content is the same.
-    pub fn commit(mut self) -> io::Result<Entry> {
+    pub(crate) fn commit(mut self) -> io::Result<Entry> {
         let bytes = dir_bytes(&self.tmp);
         let made = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -138,7 +139,7 @@ const META: &str = "meta.json";
 
 /// What [`Store::tidy`] did.
 #[derive(Debug, Default, PartialEq, Eq)]
-pub struct Tidied {
+pub(crate) struct Tidied {
     pub removed: usize,
     /// The bytes kept, pinned ones too.
     pub kept: u64,
@@ -149,22 +150,22 @@ pub struct Tidied {
 impl Tidied {
     /// The pinned entries alone are more than the limit: the caller says
     /// so, once.
-    pub fn over(&self, limit: u64) -> bool {
+    pub(crate) fn over(&self, limit: u64) -> bool {
         self.pinned > limit
     }
 }
 
 impl Store {
-    pub fn new(root: PathBuf, limit: u64) -> Self {
+    pub(crate) fn new(root: PathBuf, limit: u64) -> Self {
         Self { root, limit }
     }
 
     /// The user's cache, `$XDG_CACHE_HOME/paw/bakes`, of 16 GB.
-    pub fn user(dirs: &paw_proto::dirs::Dirs) -> Self {
+    pub(crate) fn user(dirs: &paw_proto::dirs::Dirs) -> Self {
         Self::new(dirs.paw_cache().join("bakes"), DEFAULT_LIMIT)
     }
 
-    pub fn root(&self) -> &Path {
+    pub(crate) fn root(&self) -> &Path {
         &self.root
     }
 
@@ -173,7 +174,7 @@ impl Store {
     }
 
     /// The entry of `key` when it is there whole, marked as used now.
-    pub fn open(&self, key: &EntryKey) -> Option<Entry> {
+    pub(crate) fn open(&self, key: &EntryKey) -> Option<Entry> {
         let dir = self.dir(&key.id());
         let meta_path = dir.join(META);
         let meta: EntryMeta = serde_json::from_slice(&fs::read(&meta_path).ok()?).ok()?;
@@ -189,7 +190,7 @@ impl Store {
 
     /// Start to make the entry of `key` for `job`, unless it is there or
     /// another process on this machine makes it now.
-    pub fn writer(&self, job: &BakeJob, key: &EntryKey) -> io::Result<Write> {
+    pub(crate) fn writer(&self, job: &BakeJob, key: &EntryKey) -> io::Result<Write> {
         let id = key.id();
         let tmp_root = self.root.join("tmp");
         fs::create_dir_all(&tmp_root)?;
@@ -221,7 +222,7 @@ impl Store {
     /// [`limit`](Self::limit) bytes. Pinned entries (by [`EntryKey::id`])
     /// stay whatever their size. Unfinished entries left by a run that ended
     /// badly go too. An entry in use stays readable by whoever has it open.
-    pub fn tidy(&self, pinned: &HashSet<String>) -> Tidied {
+    pub(crate) fn tidy(&self, pinned: &HashSet<String>) -> Tidied {
         self.sweep_tmp();
         let mut entries: Vec<(SystemTime, PathBuf, u64, bool)> = Vec::new();
         let shards = fs::read_dir(&self.root).into_iter().flatten().flatten();

@@ -21,7 +21,7 @@ In an attached terminal, `:detach` leaves and the instance runs on, and
 /// paw: a personal audio workstation
 #[derive(Parser, Debug)]
 #[command(name = "paw", version, args_conflicts_with_subcommands = true, after_help = EXAMPLES)]
-pub struct Cli {
+pub(crate) struct Cli {
     #[command(flatten)]
     pub run: Run,
     #[command(subcommand)]
@@ -29,7 +29,7 @@ pub struct Cli {
 }
 
 #[derive(Subcommand, Debug)]
-pub enum Command {
+pub(crate) enum Command {
     /// Call a running instance over its socket
     Ctl(Ctl),
     /// Show a running instance's terminal UI here
@@ -50,21 +50,21 @@ pub enum Command {
 }
 
 #[derive(Subcommand, Debug)]
-pub enum ClipCommand {
+pub(crate) enum ClipCommand {
     /// Print a MIDI 2.0 clip file as text, one note to a line
     Cat { file: PathBuf },
 }
 
 /// Arguments handed on untouched.
 #[derive(Args, Debug)]
-pub struct Raw {
+pub(crate) struct Raw {
     #[arg(num_args = 0.., allow_hyphen_values = true, trailing_var_arg = true)]
     pub args: Vec<String>,
 }
 
 /// The options that start a kernel, with or without a terminal.
 #[derive(Args, Debug, Default)]
-pub struct Run {
+pub(crate) struct Run {
     /// A project (a folder or file), or a sound file to start a project with
     pub project: Option<PathBuf>,
     /// Run a Lua script without a UI, then exit; the rest of the line is its arguments (-l SCRIPT [ARGS]...)
@@ -143,11 +143,11 @@ pub struct Run {
 }
 
 impl Run {
-    pub fn script_path(&self) -> Option<PathBuf> {
+    pub(crate) fn script_path(&self) -> Option<PathBuf> {
         self.script.first().map(PathBuf::from)
     }
 
-    pub fn script_args(&self) -> Vec<String> {
+    pub(crate) fn script_args(&self) -> Vec<String> {
         self.script.iter().skip(1).cloned().collect()
     }
 }
@@ -155,7 +155,7 @@ impl Run {
 /// Where `ctl` and `attach` find the instance.
 #[derive(Args, Debug, Default)]
 #[command(next_help_heading = "Connection")]
-pub struct Connect {
+pub(crate) struct Connect {
     /// Another socket
     #[arg(long, value_name = "PATH")]
     pub socket: Option<PathBuf>,
@@ -178,7 +178,7 @@ pub struct Connect {
 
 /// `paw ctl [--json] <method> [params...]`
 #[derive(Args, Debug)]
-pub struct Ctl {
+pub(crate) struct Ctl {
     #[command(flatten)]
     pub connect: Connect,
     /// Print one line of JSON, {"ok": ..., "result": ...}, whatever happens
@@ -192,7 +192,7 @@ pub struct Ctl {
 }
 
 #[derive(Args, Debug, Default)]
-pub struct Attach {
+pub(crate) struct Attach {
     #[command(flatten)]
     pub connect: Connect,
     /// Play the instance's sound on this machine (about 1 Mbit/s)
@@ -205,7 +205,7 @@ pub struct Attach {
 
 /// `paw doctor [options]`: the options of `paw` too.
 #[derive(Args, Debug)]
-pub struct Doctor {
+pub(crate) struct Doctor {
     #[command(flatten)]
     pub run: Run,
     /// Length of the dropout runs
@@ -221,7 +221,7 @@ pub struct Doctor {
 
 impl Doctor {
     /// The options the report script takes, as `--seconds=20`.
-    pub fn script_args(&self) -> Vec<String> {
+    pub(crate) fn script_args(&self) -> Vec<String> {
         let mut own = Vec::new();
         if let Some(seconds) = &self.seconds {
             own.push(format!("--seconds={seconds}"));
@@ -236,7 +236,7 @@ impl Doctor {
 
 /// The schedule clock of the process (`--clock`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, ValueEnum)]
-pub enum ClockChoice {
+pub(crate) enum ClockChoice {
     /// Schedule time is the time on the wall.
     #[default]
     Wall,

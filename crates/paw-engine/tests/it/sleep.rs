@@ -241,7 +241,7 @@ fn a_stopped_engine_with_nothing_to_sound_rests() {
         legato: false,
         from: None,
     };
-    send(&mut h, &mut engine, Msg::Launch(Box::new(vec![launch])));
+    send(&mut h, &mut engine, Msg::Launch(Box::new([launch])));
     for _ in 0..16 {
         block(&mut engine);
     }

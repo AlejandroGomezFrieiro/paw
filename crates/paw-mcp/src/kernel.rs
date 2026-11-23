@@ -26,7 +26,7 @@ use tokio::runtime::Handle;
 
 /// Why a call did not produce a result.
 #[derive(Debug)]
-pub enum CallError {
+pub(crate) enum CallError {
     /// The kernel ran the call and reported an error: its message.
     Kernel(String),
     /// There is no kernel to talk to, or it went away.
@@ -41,7 +41,7 @@ impl std::fmt::Display for CallError {
     }
 }
 
-pub struct SpawnOpts {
+pub(crate) struct SpawnOpts {
     pub binary: PathBuf,
     pub project: Option<PathBuf>,
     pub args: Vec<String>,
@@ -53,7 +53,7 @@ struct Conn {
     writer: OwnedWriteHalf,
 }
 
-pub struct Kernel {
+pub(crate) struct Kernel {
     pub socket: PathBuf,
     timeout: Duration,
     /// The runtime the socket and the kernel's process live on.
@@ -75,12 +75,12 @@ fn dirs() -> &'static Dirs {
 
 /// Where `paw` listens unless told otherwise, as its clients find it:
 /// `$PAW_SOCKET`, else `$XDG_RUNTIME_DIR/paw.sock`.
-pub fn default_socket() -> PathBuf {
+pub(crate) fn default_socket() -> PathBuf {
     std::env::var_os("PAW_SOCKET").map_or_else(|| dirs().listen_socket(), PathBuf::from)
 }
 
 /// The `paw` binary: `$PAW_BIN`, the one beside this program, or `paw` on the path.
-pub fn default_binary() -> PathBuf {
+pub(crate) fn default_binary() -> PathBuf {
     let beside = std::env::current_exe()
         .ok()
         .and_then(|exe| Some(exe.parent()?.join("paw")));
@@ -91,7 +91,7 @@ pub fn default_binary() -> PathBuf {
 }
 
 impl Kernel {
-    pub fn attach(socket: PathBuf, timeout: Duration, runtime: Handle) -> Self {
+    pub(crate) fn attach(socket: PathBuf, timeout: Duration, runtime: Handle) -> Self {
         Self {
             socket,
             timeout,
@@ -104,7 +104,7 @@ impl Kernel {
         }
     }
 
-    pub fn spawned(opts: SpawnOpts, timeout: Duration, runtime: Handle) -> Self {
+    pub(crate) fn spawned(opts: SpawnOpts, timeout: Duration, runtime: Handle) -> Self {
         let name = format!("paw-mcp-{}.sock", std::process::id());
         let socket = [
             dirs().runtime.clone(),
@@ -122,12 +122,12 @@ impl Kernel {
         kernel
     }
 
-    pub fn is_spawned(&self) -> bool {
+    pub(crate) fn is_spawned(&self) -> bool {
         self.spawn.is_some()
     }
 
     /// Start the kernel of a `--spawn` server, if it is not running.
-    pub fn start(&mut self) -> Result<(), CallError> {
+    pub(crate) fn start(&mut self) -> Result<(), CallError> {
         self.runtime.clone().block_on(self.start_async())
     }
 
@@ -262,7 +262,7 @@ impl Kernel {
     }
 
     /// Call a method on the kernel and wait for its answer.
-    pub fn call(&mut self, method: &str, params: Value) -> Result<Value, CallError> {
+    pub(crate) fn call(&mut self, method: &str, params: Value) -> Result<Value, CallError> {
         self.runtime.clone().block_on(self.call_async(method, params))
     }
 
@@ -311,14 +311,14 @@ impl Kernel {
     }
 
     /// Run Lua in the kernel with `args` as `...`.
-    pub fn eval(&mut self, code: &str, args: Vec<Value>) -> Result<Value, CallError> {
+    pub(crate) fn eval(&mut self, code: &str, args: Vec<Value>) -> Result<Value, CallError> {
         let mut params = vec![json!(code)];
         params.extend(args);
         self.call("eval", Value::Array(params))
     }
 
     /// Stop a kernel this server started: ask it to quit, then insist.
-    pub fn shutdown(&mut self) {
+    pub(crate) fn shutdown(&mut self) {
         if self.child.is_some() {
             self.runtime.clone().block_on(self.shutdown_async());
         }
@@ -346,7 +346,7 @@ impl Drop for Kernel {
 }
 
 /// The useful part of a Lua error: no traceback, no `runtime error:` prefix.
-pub fn clean_error(error: &str) -> String {
+pub(crate) fn clean_error(error: &str) -> String {
     let text = error.split("\nstack traceback").next().unwrap_or(error);
     let text = text.trim();
     let text = text.strip_prefix("runtime error: ").unwrap_or(text);

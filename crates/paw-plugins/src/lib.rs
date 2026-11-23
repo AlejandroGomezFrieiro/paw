@@ -12,8 +12,6 @@
 //! are looked into in a process of their own too. Without that, plugins are
 //! loaded into this process, and one that crashes takes the program with it.
 
-#![warn(clippy::undocumented_unsafe_blocks)]
-
 pub mod attach;
 pub mod clap;
 mod dirs;
@@ -203,7 +201,7 @@ pub(crate) struct Found {
 
 impl Found {
     /// The device that this plugin is registered as, under `kind`.
-    pub fn device_info(self, kind: String, format: DeviceFormat) -> DeviceInfo {
+    pub(crate) fn device_info(self, kind: String, format: DeviceFormat) -> DeviceInfo {
         DeviceInfo {
             kind,
             name: self.name,
@@ -402,13 +400,13 @@ impl Cache {
     }
 
     /// Note that the cache must be written out.
-    pub fn mark_changed(&mut self) {
+    pub(crate) fn mark_changed(&mut self) {
         self.changed = true;
     }
 
     /// The plugins in `path`, calling `scan` only if the file is new or has
     /// changed since it was last scanned.
-    pub fn plugins(
+    pub(crate) fn plugins(
         &mut self,
         path: &Path,
         scan: impl FnOnce() -> anyhow::Result<Vec<Found>>,
@@ -586,13 +584,13 @@ pub(crate) struct HeldNotes {
 }
 
 impl HeldNotes {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self { held: [0; 128] }
     }
 
     /// Feed the block's events through, calling `emit` for each note event
     /// with "all notes off" expanded.
-    pub fn expand(&mut self, events: &[Event], mut emit: impl FnMut(u32, EventKind)) {
+    pub(crate) fn expand(&mut self, events: &[Event], mut emit: impl FnMut(u32, EventKind)) {
         for event in events {
             match event.kind {
                 EventKind::NoteOn { key, ch, .. } => {

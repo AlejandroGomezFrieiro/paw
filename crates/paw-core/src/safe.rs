@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result, bail};
 
 /// The file the previous version of `path` is kept in: `song.json.bak`.
-pub fn backup_path(path: &Path) -> PathBuf {
+pub(crate) fn backup_path(path: &Path) -> PathBuf {
     let mut name = path.as_os_str().to_owned();
     name.push(".bak");
     PathBuf::from(name)
@@ -18,7 +18,7 @@ pub fn backup_path(path: &Path) -> PathBuf {
 /// the old contents or all of the new: write a temporary file beside it,
 /// flush it to the disk, rename it over `path` and flush the directory.
 /// With `keep_backup`, the old contents are kept as `<path>.bak` first.
-pub fn write_file(path: &Path, bytes: &[u8], keep_backup: bool) -> Result<()> {
+pub(crate) fn write_file(path: &Path, bytes: &[u8], keep_backup: bool) -> Result<()> {
     // An empty path would write `.tmp` into the current folder.
     if path.file_name().is_none() {
         bail!("a file needs a name, not the path \"{}\"", path.display());
@@ -73,14 +73,14 @@ fn keep_previous(path: &Path) -> std::io::Result<()> {
 
 /// Flush a directory's entries (a rename in it) to the disk. Best effort:
 /// some file systems refuse to open a directory for this.
-pub fn sync_dir(dir: &Path) {
+pub(crate) fn sync_dir(dir: &Path) {
     if let Ok(dir) = File::open(dir) {
         let _ = dir.sync_all();
     }
 }
 
 /// Bytes free for this user on the file system that holds `dir`.
-pub fn free_space(dir: &Path) -> Option<u64> {
+pub(crate) fn free_space(dir: &Path) -> Option<u64> {
     let stat = rustix::fs::statvfs(dir).ok()?;
     Some(stat.f_bavail * stat.f_frsize)
 }

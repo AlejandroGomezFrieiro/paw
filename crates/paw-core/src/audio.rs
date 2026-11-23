@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 /// system's default, or for the block size to the device.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
-pub struct Remembered {
+pub(crate) struct Remembered {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub output: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -28,20 +28,20 @@ pub struct Remembered {
 }
 
 /// Where the choice is kept.
-pub fn file(dirs: &paw_proto::dirs::Dirs) -> PathBuf {
+pub(crate) fn file(dirs: &paw_proto::dirs::Dirs) -> PathBuf {
     dirs.paw_state().join("audio.json")
 }
 
 /// The choice kept in `path`; nothing chosen when there is no such file or it
 /// cannot be read.
-pub fn load(path: &Path) -> Remembered {
+pub(crate) fn load(path: &Path) -> Remembered {
     std::fs::read_to_string(path)
         .ok()
         .and_then(|text| serde_json::from_str(&text).ok())
         .unwrap_or_default()
 }
 
-pub fn save(path: &Path, remembered: &Remembered) -> Result<()> {
+pub(crate) fn save(path: &Path, remembered: &Remembered) -> Result<()> {
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).with_context(|| format!("creating {}", dir.display()))?;
     }
@@ -51,7 +51,7 @@ pub fn save(path: &Path, remembered: &Remembered) -> Result<()> {
 
 /// Fill in what the command line left open from what was remembered. The
 /// null backend opens no devices, so it is left alone.
-pub fn apply(opts: &mut BackendOptions, remembered: &Remembered) {
+pub(crate) fn apply(opts: &mut BackendOptions, remembered: &Remembered) {
     if opts.backend == BackendChoice::Null {
         return;
     }

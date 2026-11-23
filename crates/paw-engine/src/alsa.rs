@@ -26,15 +26,15 @@ bitflags! {
 }
 
 /// `SND_SEQ_OPEN_OUTPUT`.
-pub const OPEN_OUTPUT: c_int = 1;
+pub(crate) const OPEN_OUTPUT: c_int = 1;
 /// `SND_SEQ_OPEN_INPUT`.
-pub const OPEN_INPUT: c_int = 2;
+pub(crate) const OPEN_INPUT: c_int = 2;
 /// `SND_SEQ_NONBLOCK`.
-pub const NONBLOCK: c_int = 1;
+pub(crate) const NONBLOCK: c_int = 1;
 /// Set on an event that carries a Universal MIDI Packet.
-pub const EVENT_UMP: u8 = 1 << 5;
+pub(crate) const EVENT_UMP: u8 = 1 << 5;
 /// `SND_SEQ_CLIENT_MIDI_2_0`.
-pub const MIDI_2_0: c_int = 2;
+pub(crate) const MIDI_2_0: c_int = 2;
 /// The sequencer's own client, and its announce port.
-pub const SYSTEM_CLIENT: c_int = 0;
-pub const SYSTEM_ANNOUNCE: c_int = 1;
+pub(crate) const SYSTEM_CLIENT: c_int = 0;
+pub(crate) const SYSTEM_ANNOUNCE: c_int = 1;

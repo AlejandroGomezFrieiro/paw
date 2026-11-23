@@ -24,6 +24,26 @@ default-members = [
 version = "0.1.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
+# The toolchain of the flake. No check builds with an older one, so this is
+# the oldest version that paw is known to build with.
+rust-version = "1.95"
+
+# Each crate takes these with `[lints] workspace = true`. Each lint is a
+# warning: a build does not fail on one, and `cargo clippy` shows all.
+[workspace.lints.rust]
+# A `pub` item that no other crate can reach: write `pub(crate)`, so that the
+# interface of a crate is what its callers use and dead code shows.
+unreachable_pub = "warn"
+# A BrowserPod pod is the target vendor `browserpod`
+# (web/browserpod/README.md): paw-core, paw-engine and paw-tui test it.
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_vendor, values("browserpod"))'] }
+
+[workspace.lints.clippy]
+# The default groups (correctness, suspicious, style, complexity, perf) stay
+# on. `lock().unwrap()` stays: a poisoned lock means that a thread panicked,
+# and the panic goes on.
+# Each `unsafe` block says why it is sound in a `// SAFETY:` comment.
+undocumented_unsafe_blocks = "warn"
 
 [workspace.dependencies]
 # Without their sound devices: paw-core, paw-tui and the window add them

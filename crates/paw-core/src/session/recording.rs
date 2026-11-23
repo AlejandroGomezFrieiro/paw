@@ -99,7 +99,7 @@ pub(super) struct Pass {
 impl Take {
     /// Whether the take can become clips: the engine has let go of it, and
     /// each writer thread has finished its file.
-    pub fn is_done(&self) -> bool {
+    pub(super) fn is_done(&self) -> bool {
         self.shared.closed() && self.audio.iter().all(|file| file.writer.is_finished())
     }
 
@@ -241,7 +241,7 @@ impl Take {
 impl Session {
     /// Where new recordings go: `media` beside the project file, or the user's
     /// data directory for a project that has never been saved.
-    pub fn media_dir(&self) -> PathBuf {
+    pub(crate) fn media_dir(&self) -> PathBuf {
         match &self.path {
             Some(path) => std::path::absolute(path)
                 .unwrap_or_else(|_| path.clone())

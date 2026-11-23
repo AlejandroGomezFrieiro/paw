@@ -3,6 +3,7 @@ name = "paw-measure"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+rust-version.workspace = true
 description = "Measures a sound: loudness, true peak, levels, stereo and spectrum. The kernel (:mix) and paw-mcp share it, so they give the same numbers."
 
 [dependencies]
@@ -10,3 +11,6 @@ description = "Measures a sound: loudness, true peak, levels, stereo and spectru
 realfft = "3.5"
 # The analysis is plain data that the kernel gives to Lua.
 serde.workspace = true
+
+[lints]
+workspace = true

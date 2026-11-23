@@ -4,9 +4,9 @@
 
 use std::collections::HashMap;
 
-pub use paw_scene::cells::{
-    BOLD, Cell, Color, DIM, ITALIC, REVERSE, Rect, Run, STRIKE, Style, UNDERLINE, hex, rgb,
-};
+pub use paw_scene::cells::{BOLD, Cell, Color, DIM, ITALIC, REVERSE, Rect, STRIKE, Style, UNDERLINE, rgb};
+pub(crate) use paw_scene::cells::Run;
+use paw_scene::color::Rgba;
 
 /// What a terminal can show besides cells, as its frontend found out when
 /// it started (or a remote one said with `ui.attach`).
@@ -34,7 +34,7 @@ impl Caps {
     }
 
     pub fn to_json(&self) -> serde_json::Value {
-        let colour = |c: Option<(u8, u8, u8)>| c.map(hex);
+        let colour = |c: Option<(u8, u8, u8)>| c.map(|c| Rgba::from(c).to_string());
         serde_json::json!({
             "graphics": self.graphics, "cell": [self.cell.0, self.cell.1],
             "pixel_mouse": self.pixel_mouse, "fg": colour(self.fg), "bg": colour(self.bg),
@@ -527,7 +527,7 @@ fn cover(surfaces: &mut [Surface], x: i32, y: i32) {
 
 /// Named styles, so that views say what something is and themes say how it looks.
 #[derive(Default)]
-pub struct Highlights {
+pub(crate) struct Highlights {
     groups: HashMap<String, Highlight>,
     /// Groups as they were defined in 24-bit colour, where the terminal is
     /// shown a nearer form of them: what a window draws.
@@ -546,30 +546,30 @@ pub struct Highlights {
 
 /// The number of a highlight group (`Highlights::id`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct StyleId(pub u32);
+pub(crate) struct StyleId(pub u32);
 
-pub enum Highlight {
+pub(crate) enum Highlight {
     Style(Style),
     /// Use whatever another group is set to.
     Link(String),
 }
 
 impl Highlights {
-    pub fn set(&mut self, name: &str, highlight: Highlight) {
+    pub(crate) fn set(&mut self, name: &str, highlight: Highlight) {
         self.groups.insert(name.to_string(), highlight);
         self.full.remove(name);
         self.resolve();
     }
 
     /// Set a group's 24-bit form beside the one the terminal is shown.
-    pub fn set_full(&mut self, name: &str, highlight: Highlight) {
+    pub(crate) fn set_full(&mut self, name: &str, highlight: Highlight) {
         self.full.insert(name.to_string(), highlight);
         self.resolve();
     }
 
     /// The number of the group `name`, the same for as long as paw runs. A
     /// group not set yet has one too: it takes the style the group gets.
-    pub fn id(&mut self, name: &str) -> StyleId {
+    pub(crate) fn id(&mut self, name: &str) -> StyleId {
         if let Some(&id) = self.ids.get(name) {
             return id;
         }
@@ -585,7 +585,7 @@ impl Highlights {
     /// The style of the group numbered `id`, as [`Highlights::get`] gives
     /// it; none for a number that `id` did not give.
     #[inline]
-    pub fn style(&self, id: StyleId) -> Option<Style> {
+    pub(crate) fn style(&self, id: StyleId) -> Option<Style> {
         self.resolved[usize::from(self.full_colour)].get(id.0 as usize).copied()
     }
 
@@ -598,7 +598,7 @@ impl Highlights {
     }
 
     /// The style of a group, following links. Unknown groups have no effect.
-    pub fn get(&self, name: &str) -> Style {
+    pub(crate) fn get(&self, name: &str) -> Style {
         Self::lookup(&self.groups, &self.full, self.full_colour, name)
     }
 

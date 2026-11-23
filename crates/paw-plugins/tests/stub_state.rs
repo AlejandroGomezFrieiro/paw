@@ -49,10 +49,13 @@ fn a_state_given_while_a_block_runs_is_read_back_after_the_next_block() {
         .create(48000.0, 256)
         .unwrap();
     let mut controller = controller.unwrap();
+    // SAFETY: the stub plugin is a library of this workspace that runs no code when it loads.
     let lib = unsafe { libloading::Library::new(dir.path().join("stub.clap")).unwrap() };
     let held: libloading::Symbol<extern "C" fn() -> bool> =
+        // SAFETY: `stub_clap_held` has this signature in the stub plugin.
         unsafe { lib.get(b"stub_clap_held\0").unwrap() };
     let release: libloading::Symbol<extern "C" fn()> =
+        // SAFETY: `stub_clap_release` has this signature in the stub plugin.
         unsafe { lib.get(b"stub_clap_release\0").unwrap() };
 
     let ctx = ProcessCtx::at(48000.0, 120.0, 4, 4, false);

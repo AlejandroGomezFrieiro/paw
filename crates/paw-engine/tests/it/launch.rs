@@ -100,7 +100,7 @@ fn run(engine: &mut Engine, frames: usize, block: usize) -> Vec<f32> {
 }
 
 fn launch(target: Target, quantize: Quantize) -> Msg {
-    Msg::Launch(Box::new(vec![Launch {
+    Msg::Launch(Box::new([Launch {
         track: TRACK,
         target,
         quantize,
@@ -240,7 +240,7 @@ fn a_launch_counted_from_an_earlier_beat_starts_where_the_clip_would_have_got_to
     send(&mut handle, Msg::Play);
     send(
         &mut handle,
-        Msg::Launch(Box::new(vec![Launch {
+        Msg::Launch(Box::new([Launch {
             track: TRACK,
             target: Target::Slot(0),
             quantize: Quantize::Off,

@@ -12,7 +12,7 @@ use crate::model::{Id, MASTER_ID};
 use crate::session::{de, de_meta, ports};
 
 impl Document {
-    pub fn device_remove(&mut self, id: Id) -> Result<()> {
+    pub(crate) fn device_remove(&mut self, id: Id) -> Result<()> {
         self.edit(|p| {
             let (track, index) = p
                 .find_device(id)
@@ -25,7 +25,7 @@ impl Document {
     }
 
     /// Move a device to `index` in the chain of `track`.
-    pub fn device_move(&mut self, id: Id, track: Id, index: usize) -> Result<()> {
+    pub(crate) fn device_move(&mut self, id: Id, track: Id, index: usize) -> Result<()> {
         self.edit(|p| {
             let (from, at) = p
                 .find_device(id)
@@ -63,7 +63,7 @@ impl Document {
         })
     }
 
-    pub fn device_set(&mut self, id: Id, key: &str, value: Value) -> Result<()> {
+    pub(crate) fn device_set(&mut self, id: Id, key: &str, value: Value) -> Result<()> {
         self.edit(|p| {
             if key == "sidechain" {
                 let (track, _) = p

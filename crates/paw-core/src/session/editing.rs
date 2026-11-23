@@ -5,7 +5,7 @@ use super::*;
 
 impl Session {
     /// Send pending edits to the engine and queue their change events.
-    pub fn flush(&mut self) {
+    pub(crate) fn flush(&mut self) {
         self.engine.handle.collect_garbage();
         self.collect_take();
         if !self.doc.dirty {
@@ -49,7 +49,7 @@ impl Session {
 
     /// Close the current undo step, if anything changed since the last one
     /// ([`Document::checkpoint`](super::Document::checkpoint)).
-    pub fn checkpoint(&mut self) {
+    pub(crate) fn checkpoint(&mut self) {
         // A trial's edits are one step, made when it ends.
         if self.audition.trial.is_some() {
             return;
@@ -61,15 +61,15 @@ impl Session {
 
     /// Make every clip that refers to a file outside the project the
     /// project's own ([`Document::clip_collect`]), each whose file is there.
-    pub fn clip_collect(&mut self) -> usize {
+    pub(crate) fn clip_collect(&mut self) -> usize {
         self.doc.clip_collect(Path::is_file)
     }
 
-    pub fn undo(&mut self) -> bool {
+    pub(crate) fn undo(&mut self) -> bool {
         self.move_in_history(History::undo).is_some()
     }
 
-    pub fn redo(&mut self) -> bool {
+    pub(crate) fn redo(&mut self) -> bool {
         self.move_in_history(History::redo).is_some()
     }
 }

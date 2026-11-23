@@ -3,6 +3,7 @@ name = "paw-engine"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+rust-version.workspace = true
 description = "Real-time audio engine: tracks, devices, clips, transport. Knows nothing about Lua or UI."
 
 [features]
@@ -48,6 +49,5 @@ name = "midi_lateness"
 harness = false
 required-features = ["midi"]
 
-# A BrowserPod pod is the target vendor `browserpod` (backend/page.rs).
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_vendor, values("browserpod"))'] }
+[lints]
+workspace = true

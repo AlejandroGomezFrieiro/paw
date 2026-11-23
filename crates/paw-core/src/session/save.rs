@@ -32,7 +32,7 @@ const EPS: f64 = 1e-9;
 /// What [`Session::nest_save`] takes.
 #[derive(Default, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SaveOpts {
+pub(crate) struct SaveOpts {
     /// The subproject's name.
     pub name: String,
     /// The tracks of the view, in their order: of one place.
@@ -50,14 +50,14 @@ pub struct SaveOpts {
 /// A row that gets a block per track, and the track of the subproject the
 /// block plays.
 #[derive(Debug, Serialize)]
-pub struct HostRow {
+pub(crate) struct HostRow {
     pub row: Id,
     pub track: Id,
 }
 
 /// What [`Session::nest_save`] did, for the Lua side and its message.
 #[derive(Debug, Serialize)]
-pub struct Saved {
+pub(crate) struct Saved {
     pub nest: NestId,
     /// Per track: each row that gets a block.
     pub rows: Vec<HostRow>,
@@ -195,7 +195,7 @@ impl Session {
     }
 
     /// Save a view as a subproject (see the module). One undo step.
-    pub fn nest_save(&mut self, opts: SaveOpts) -> Result<Saved> {
+    pub(crate) fn nest_save(&mut self, opts: SaveOpts) -> Result<Saved> {
         let (from, to) = (opts.from, opts.to);
         if !(from.is_finite() && to.is_finite() && to - from > EPS) {
             bail!("a subproject needs some time");

@@ -25,7 +25,7 @@ fn scanned(lua: &Lua, scanned: Scanned) -> mlua::Result<Table> {
     Ok(out)
 }
 
-pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> {
+pub(crate) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> {
     // Look for devices in `dir` from now on; a script there wins over one
     // of the same name in a directory of a lower `rank` (0 by default).
     // Returns `{ added, changed, errors }`: kinds, kinds, and

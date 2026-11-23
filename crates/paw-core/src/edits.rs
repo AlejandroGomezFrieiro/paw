@@ -36,7 +36,7 @@ pub enum AudioEdit {
 
 /// What a list asks of the samples, checked: an error says which edit
 /// cannot be made.
-pub fn check(edits: &[AudioEdit]) -> anyhow::Result<()> {
+pub(crate) fn check(edits: &[AudioEdit]) -> anyhow::Result<()> {
     for edit in edits {
         match edit {
             AudioEdit::Reverse => {}
@@ -59,7 +59,7 @@ pub fn check(edits: &[AudioEdit]) -> anyhow::Result<()> {
 }
 
 /// The sound with the edits made, in order. The length stays the same.
-pub fn apply(data: &AudioData, edits: &[AudioEdit]) -> AudioData {
+pub(crate) fn apply(data: &AudioData, edits: &[AudioEdit]) -> AudioData {
     let rate = data.sample_rate as f64;
     let mut channels = [data.channels[0].to_vec(), data.channels[1].to_vec()];
     let frames = channels[0].len();
@@ -101,7 +101,7 @@ pub fn apply(data: &AudioData, edits: &[AudioEdit]) -> AudioData {
 
 /// A short text that tells one list from another, for the name a version
 /// is kept under.
-pub fn text(edits: &[AudioEdit]) -> String {
+pub(crate) fn text(edits: &[AudioEdit]) -> String {
     serde_json::to_string(edits).unwrap_or_default()
 }
 

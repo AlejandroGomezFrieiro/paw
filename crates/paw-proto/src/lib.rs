@@ -45,14 +45,7 @@ pub type ClientId = u64;
 /// the SHA-256 of the two, so that the token itself never crosses the wire
 /// and an answer overheard is of no use the next time.
 pub fn proof(token: &str, nonce: &str) -> String {
-    hex(&sha256(format!("{token}:{nonce}").as_bytes()))
-}
-
-/// Bytes as lowercase hexadecimal digits: the `hex` crate's, the one
-/// function for this in paw (`hex::encode_upper` where a format wants
-/// capitals).
-pub fn hex(bytes: &[u8]) -> String {
-    hex::encode(bytes)
+    hex::encode(sha256(format!("{token}:{nonce}").as_bytes()))
 }
 
 /// A connection to a kernel, for programs that talk to one: `paw ctl`,
@@ -298,22 +291,22 @@ mod tests {
     #[test]
     fn sha256_gives_the_published_digests() {
         assert_eq!(
-            hex(&sha256(b"")),
+            hex::encode(sha256(b"")),
             "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         );
         assert_eq!(
-            hex(&sha256(b"abc")),
+            hex::encode(sha256(b"abc")),
             "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
         );
         assert_eq!(
-            hex(&sha256(
+            hex::encode(sha256(
                 b"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"
             )),
             "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1"
         );
         // A message that fills its last block to the byte before the length.
         assert_eq!(
-            hex(&sha256(&[b'a'; 119])),
+            hex::encode(sha256(&[b'a'; 119])),
             "31eba51c313a5c08226adf18d4a359cfdfd8d2e816b13f4af952f7ea6584dcfb"
         );
     }

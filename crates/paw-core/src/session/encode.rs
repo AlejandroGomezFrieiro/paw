@@ -19,7 +19,7 @@ use super::tags::{self, Cover, Tags};
 
 /// A lossy format ffmpeg can make.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Lossy {
+pub(super) enum Lossy {
     Mp3,
     Vorbis,
     Opus,
@@ -27,7 +27,7 @@ pub enum Lossy {
 
 /// How good a lossy file should be, in words that mean the same in every format.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Quality {
+pub(super) enum Quality {
     Low,
     Medium,
     High,
@@ -35,7 +35,7 @@ pub enum Quality {
 }
 
 impl Quality {
-    pub fn parse(word: &str) -> Result<Self> {
+    pub(super) fn parse(word: &str) -> Result<Self> {
         Ok(match word.to_ascii_lowercase().as_str() {
             "low" => Quality::Low,
             "medium" => Quality::Medium,
@@ -97,7 +97,7 @@ impl Lossy {
 }
 
 /// What to run: `ffmpeg` on the PATH unless told where it is.
-pub fn program(ffmpeg: Option<&str>) -> &str {
+pub(super) fn program(ffmpeg: Option<&str>) -> &str {
     ffmpeg.filter(|p| !p.is_empty()).unwrap_or("ffmpeg")
 }
 
@@ -131,7 +131,7 @@ fn encoders(program: &str) -> Result<HashSet<String>, String> {
 }
 
 /// Why `format` cannot be written on this machine, or nothing.
-pub fn unavailable(format: Lossy, ffmpeg: Option<&str>) -> Option<String> {
+pub(super) fn unavailable(format: Lossy, ffmpeg: Option<&str>) -> Option<String> {
     let program = program(ffmpeg);
     match encoders(program) {
         Err(why) => Some(format!(
@@ -146,7 +146,7 @@ pub fn unavailable(format: Lossy, ffmpeg: Option<&str>) -> Option<String> {
 }
 
 /// What one encode needs.
-pub struct Job<'a> {
+pub(super) struct Job<'a> {
     pub format: Lossy,
     pub program: &'a str,
     pub input: &'a Path,
@@ -301,7 +301,7 @@ async fn encode(
 /// `progress` and giving up, with ffmpeg stopped, when `cancelled` says so.
 /// ffmpeg runs as a task on the kernel's I/O runtime; this thread, the
 /// render's, takes its reports and sends the cancel.
-pub fn run(
+pub(super) fn run(
     job: &Job,
     progress: &dyn Fn(f64),
     cancelled: &dyn Fn() -> bool,

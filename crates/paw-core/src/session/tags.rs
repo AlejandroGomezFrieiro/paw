@@ -40,7 +40,7 @@ fn text<'de, D: Deserializer<'de>>(de: D) -> Result<String, D::Error> {
 /// What a file is tagged with; an empty field is left out of the file.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct Tags {
+pub(crate) struct Tags {
     #[serde(deserialize_with = "text")]
     pub title: String,
     #[serde(deserialize_with = "text")]
@@ -64,7 +64,7 @@ pub struct Tags {
 impl Tags {
     /// The project's own tags (`project.meta.tags`), when it has any that
     /// make sense; a malformed entry is an error that says so.
-    pub fn of_project(project: &Project) -> Result<Self> {
+    pub(crate) fn of_project(project: &Project) -> Result<Self> {
         match project.meta.get("tags") {
             None | Some(Value::Null) => Ok(Self::default()),
             Some(value) => serde_json::from_value(value.clone())
@@ -73,7 +73,7 @@ impl Tags {
     }
 
     /// These tags, with the fields `over` has set taking the place of them.
-    pub fn over(mut self, over: &Tags) -> Self {
+    pub(crate) fn over(mut self, over: &Tags) -> Self {
         let take = |mine: &mut String, theirs: &String| {
             if !theirs.is_empty() {
                 mine.clone_from(theirs);
@@ -108,12 +108,12 @@ impl Tags {
     }
 
     /// Whether any text tag is set.
-    pub fn has_text(&self) -> bool {
+    pub(crate) fn has_text(&self) -> bool {
         !self.fields().is_empty()
     }
 
     /// The cover, read; a relative path is from `base`, the project's directory.
-    pub fn load_cover(&self, base: Option<&Path>) -> Result<Option<Cover>> {
+    pub(crate) fn load_cover(&self, base: Option<&Path>) -> Result<Option<Cover>> {
         if self.cover.is_empty() {
             return Ok(None);
         }
@@ -129,7 +129,7 @@ impl Tags {
 
 /// A picture to put in a file.
 #[derive(Clone, Debug)]
-pub struct Cover {
+pub(crate) struct Cover {
     pub mime: &'static str,
     pub data: Vec<u8>,
     width: u32,
@@ -181,13 +181,13 @@ impl Cover {
     }
 
     /// The file extension for the picture.
-    pub fn extension(&self) -> &'static str {
+    pub(crate) fn extension(&self) -> &'static str {
         if self.mime == "image/png" { "png" } else { "jpg" }
     }
 
     /// A FLAC `PICTURE` block's contents, of the front cover. Ogg and Opus
     /// hold the same bytes, in base64, as `METADATA_BLOCK_PICTURE`.
-    pub fn picture_block(&self) -> Vec<u8> {
+    pub(crate) fn picture_block(&self) -> Vec<u8> {
         let mut out = Vec::with_capacity(self.data.len() + 64);
         let mut put = |n: u32| out.extend(n.to_be_bytes());
         put(3);
@@ -228,7 +228,7 @@ fn jpeg_size(data: &[u8]) -> Option<(u32, u32, u32)> {
 }
 
 /// A FLAC metadata block's contents holding the text tags as Vorbis comments.
-pub fn vorbis_comments(tags: &Tags) -> Vec<u8> {
+pub(crate) fn vorbis_comments(tags: &Tags) -> Vec<u8> {
     let mut out = Vec::new();
     let put = |out: &mut Vec<u8>, s: &str| {
         out.extend((s.len() as u32).to_le_bytes());
@@ -277,7 +277,7 @@ fn wav_info(tags: &Tags) -> Vec<u8> {
 /// Add the tags to a finished WAV file: a `LIST` chunk after its data, and
 /// the file's size in its header put right. A WAV has no place for a cover
 /// that players read, so that is left out.
-pub fn write_wav(path: &Path, tags: &Tags) -> Result<()> {
+pub(crate) fn write_wav(path: &Path, tags: &Tags) -> Result<()> {
     let chunk = wav_info(tags);
     if chunk.is_empty() {
         return Ok(());
@@ -302,7 +302,7 @@ pub fn write_wav(path: &Path, tags: &Tags) -> Result<()> {
 /// What ffmpeg reads as a metadata file (`-f ffmetadata`): the text tags
 /// and, for Ogg Vorbis and Opus, the cover in the way Vorbis comments hold
 /// one. MP3 has its cover attached as a picture stream instead.
-pub fn ffmetadata(tags: &Tags, cover_in_comments: Option<&Cover>) -> String {
+pub(crate) fn ffmetadata(tags: &Tags, cover_in_comments: Option<&Cover>) -> String {
     let escape = |s: &str| {
         let mut out = String::with_capacity(s.len());
         for c in s.chars() {

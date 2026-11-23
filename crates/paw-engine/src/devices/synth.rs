@@ -18,7 +18,7 @@ const CUTOFF: usize = 5;
 const RESONANCE: usize = 6;
 const GAIN: usize = 7;
 
-pub fn params() -> Vec<ParamInfo> {
+pub(super) fn params() -> Vec<ParamInfo> {
     vec![
         ParamInfo::choice("wave", &["sine", "saw", "square", "triangle"], 1),
         ParamInfo::new("attack", 0.001, 2.0, 0.005, "s"),
@@ -59,7 +59,7 @@ struct Voice {
 /// How far the pitch wheel bends, in semitones each way.
 const BEND_RANGE: f32 = 2.0;
 
-pub struct Synth {
+pub(super) struct Synth {
     sample_rate: f32,
     p: [f32; 8],
     voices: [Voice; VOICES],
@@ -74,7 +74,7 @@ pub struct Synth {
 }
 
 impl Synth {
-    pub fn new(sample_rate: f32) -> Self {
+    pub(super) fn new(sample_rate: f32) -> Self {
         let voice = Voice {
             key: 0,
             stage: Stage::Off,

@@ -33,19 +33,16 @@ mod clips;
 mod devices;
 mod links;
 mod nests;
-pub mod notes;
+pub(crate) mod notes;
 mod project;
 mod tempo;
 mod tracks;
 mod undo_tree;
-pub use automation::ParamRange;
 pub(super) use automation::{check_lane_state, clean_points};
 pub(super) use clips::{ClipField, check_clip_track};
-pub use nests::NestOpts;
-pub use tracks::ControlMove;
 
 /// The project, its undo tree, and what its edits report.
-pub struct Document {
+pub(crate) struct Document {
     pub project: Project,
     /// The tracks (and the master) as the last edit left them, its notes
     /// named: the next edit looks for notes to name only where it differs.
@@ -83,7 +80,7 @@ impl Default for Document {
 
 impl Document {
     /// Report an event to Lua at the end of the turn (`events_take`).
-    pub fn emit(&mut self, event: crate::events::KernelEvent) {
+    pub(crate) fn emit(&mut self, event: crate::events::KernelEvent) {
         self.events.push(event.into());
     }
 
@@ -93,14 +90,14 @@ impl Document {
     /// An edit that fails must leave the project as it found it (check
     /// first, then change). It then makes no undo step and does not mark the
     /// project modified, so that the next undo undoes the last real edit.
-    pub fn edit<R>(&mut self, f: impl FnOnce(&mut Project) -> Result<R>) -> Result<R> {
+    pub(crate) fn edit<R>(&mut self, f: impl FnOnce(&mut Project) -> Result<R>) -> Result<R> {
         self.edit_then(f, true)
     }
 
     /// An edit that leaves every note with an id of its own, so that nothing
     /// need be named after it: one note added, changed or removed, which on
     /// a clip of many thousands would otherwise cost a look at all of them.
-    pub fn edit_named<R>(&mut self, f: impl FnOnce(&mut Project) -> Result<R>) -> Result<R> {
+    pub(crate) fn edit_named<R>(&mut self, f: impl FnOnce(&mut Project) -> Result<R>) -> Result<R> {
         self.edit_then(f, false)
     }
 
@@ -141,7 +138,7 @@ impl Document {
     /// Counts every change to the project, undo and redo included: a
     /// cache of what the project names (the files that clips read) is
     /// stale when the count moved.
-    pub fn changes(&self) -> u64 {
+    pub(crate) fn changes(&self) -> u64 {
         self.undo.edits
     }
 
@@ -154,7 +151,7 @@ impl Document {
     /// Close the current undo step, if anything changed since the last one.
     /// True when it made a new step; false when nothing changed, or when the
     /// open step joined the step before it.
-    pub fn checkpoint(&mut self) -> bool {
+    pub(crate) fn checkpoint(&mut self) -> bool {
         let sweep = std::mem::take(&mut self.undo.sweep);
         let join = self.undo.join.take();
         self.undo.adjusting = None;
@@ -213,18 +210,21 @@ impl Document {
     ///
     /// The session's `undo` also ends a trial, tells the engine first, and
     /// reads a state that is only in the undo file.
-    pub fn undo(&mut self) -> bool {
+    #[cfg(test)]
+    pub(crate) fn undo(&mut self) -> bool {
         self.move_in_history(History::undo).is_some()
     }
 
     /// Redo the step undone last. False, and nothing changes, when there is
     /// none.
-    pub fn redo(&mut self) -> bool {
+    #[cfg(test)]
+    pub(crate) fn redo(&mut self) -> bool {
         self.move_in_history(History::redo).is_some()
     }
 
     /// Close the open step, then move in the tree and take up the state
     /// moved to. None, and nothing changes, when there is nowhere to go.
+    #[cfg(test)]
     fn move_in_history(&mut self, go: impl FnOnce(&mut History<Project>) -> Option<StateId>) -> Option<StateId> {
         self.checkpoint();
         let (from, id) = self.history_move(go)?;

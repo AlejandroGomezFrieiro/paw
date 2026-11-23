@@ -213,7 +213,7 @@ mod imp {
         Ok(code)
     }
 
-    pub fn start(
+    pub(super) fn start(
         sink: MidiSink,
         select: Option<Vec<String>>,
         ports: Arc<Mutex<Vec<PortInfo>>>,

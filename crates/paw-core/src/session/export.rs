@@ -21,7 +21,7 @@ use super::media::MEDIA_FILE;
 /// What [`Session::scope_export`] takes: a view, as `paw.scope` gives it.
 #[derive(Default, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ExportOpts {
+pub(crate) struct ExportOpts {
     /// The project's name.
     pub name: String,
     /// The tracks of the view, in their order: of one place.
@@ -33,7 +33,7 @@ pub struct ExportOpts {
 
 /// What an export wrote, for the Lua side and its message.
 #[derive(Debug, Serialize)]
-pub struct Exported {
+pub(crate) struct Exported {
     /// The `project.toml` of the new folder.
     pub path: PathBuf,
     /// Its tracks, without the master and the tracks of subprojects.
@@ -48,7 +48,7 @@ pub struct Exported {
 
 impl Session {
     /// Write subproject `nest` as a project folder at `dir` (see the module).
-    pub fn nest_export(&mut self, nest: NestId, dir: &Path) -> Result<Exported> {
+    pub(crate) fn nest_export(&mut self, nest: NestId, dir: &Path) -> Result<Exported> {
         let dir = Self::new_folder(dir)?;
         self.capture_states();
         let made = self.doc.project.nest_standalone(nest)?;
@@ -56,7 +56,7 @@ impl Session {
     }
 
     /// Write the view `opts` as a project folder at `dir` (see the module).
-    pub fn scope_export(&mut self, opts: ExportOpts, dir: &Path) -> Result<Exported> {
+    pub(crate) fn scope_export(&mut self, opts: ExportOpts, dir: &Path) -> Result<Exported> {
         let name = opts.name.trim();
         if name.is_empty() {
             bail!("a project needs a name");
@@ -69,7 +69,7 @@ impl Session {
 
     /// Write the whole song as a project folder at `dir` (see the module):
     /// a copy of the project with its media copied in.
-    pub fn song_export(&mut self, dir: &Path) -> Result<Exported> {
+    pub(crate) fn song_export(&mut self, dir: &Path) -> Result<Exported> {
         let dir = Self::new_folder(dir)?;
         self.capture_states();
         let made = Standalone { project: self.doc.project.clone(), changes: Vec::new() };
@@ -121,7 +121,7 @@ impl Session {
     /// Make the project folder `dir` a subproject of the song that refers
     /// to the folder (see the module). Nothing places it yet: the caller
     /// places it in the same undo step. Returns its id.
-    pub fn nest_import(&mut self, dir: &Path) -> Result<NestId> {
+    pub(crate) fn nest_import(&mut self, dir: &Path) -> Result<NestId> {
         let dir = folder::tidy(&std::path::absolute(dir)?);
         let dir = if dir.file_name().is_some_and(|n| n == PROJECT_FILE) {
             dir.parent().map(Path::to_path_buf).unwrap_or_default()
@@ -152,7 +152,7 @@ impl Session {
     /// Make subproject `nest`, which refers to a project folder, the
     /// song's own copy now, with the subprojects that came with it: each
     /// keeps the folder in `origin`. One undo step. Returns the folder.
-    pub fn nest_own(&mut self, nest: NestId) -> Result<PathBuf> {
+    pub(crate) fn nest_own(&mut self, nest: NestId) -> Result<PathBuf> {
         let p = &self.doc.project;
         let name = &p.nest(nest).with_context(|| format!("no subproject {nest}"))?.name;
         let Some((top, group)) = p.references().into_iter().find(|(_, g)| g.contains(&nest)) else {

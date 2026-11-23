@@ -18,7 +18,7 @@ fn entry(uri: &str, name: &str, description: &str) -> Value {
 impl Tools {
     /// Every resource there is. The manual's pages are asked of the kernel;
     /// without one the references are still listed.
-    pub fn resources_list(&mut self) -> Vec<Value> {
+    pub(crate) fn resources_list(&mut self) -> Vec<Value> {
         let mut out = vec![
             entry(
                 "paw://reference/api",
@@ -45,14 +45,14 @@ impl Tools {
         out
     }
 
-    pub fn resource_templates(&self) -> Vec<Value> {
+    pub(crate) fn resource_templates(&self) -> Vec<Value> {
         vec![
             json!({"uriTemplate": "paw://help/{page}", "name": "A page of paw's manual", "mimeType": "text/markdown"}),
             json!({"uriTemplate": "paw://reference/lua/{module}", "name": "A Lua module's documented functions", "mimeType": "text/markdown"}),
         ]
     }
 
-    pub fn resource_read(&mut self, uri: &str) -> Result<Value, ToolError> {
+    pub(crate) fn resource_read(&mut self, uri: &str) -> Result<Value, ToolError> {
         let text = if uri == "paw://reference/api" {
             reference::api()
         } else if uri == "paw://reference/lua" {

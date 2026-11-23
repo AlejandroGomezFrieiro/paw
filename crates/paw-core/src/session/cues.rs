@@ -32,7 +32,7 @@ use crate::model::{Id, Quantize};
 /// and `{ track =, timeline = true }` has it play its timeline again.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CueOpts {
+pub(crate) struct CueOpts {
     pub track: Id,
     #[serde(default)]
     pub clip: Option<Id>,
@@ -53,7 +53,7 @@ pub struct CueOpts {
 
 impl Session {
     /// A track's clips off the timeline, without their notes.
-    pub fn cue_list(&self, track: Id) -> Result<Vec<super::ClipView<'_>>> {
+    pub(crate) fn cue_list(&self, track: Id) -> Result<Vec<super::ClipView<'_>>> {
         let t = self
             .doc.project
             .track(track)
@@ -71,7 +71,7 @@ impl Session {
 
     /// Cue clips, stop tracks or send them back to their timelines: every
     /// track asked for on the boundary of its quantize, all timed together.
-    pub fn cue(&mut self, asked: Vec<CueOpts>) -> Result<()> {
+    pub(crate) fn cue(&mut self, asked: Vec<CueOpts>) -> Result<()> {
         // The engine must hold the cue clips as they are now.
         self.flush();
         let mut launches = Vec::with_capacity(asked.len());
@@ -106,7 +106,7 @@ impl Session {
             });
         }
         if !launches.is_empty() {
-            self.engine.handle.send(Msg::Launch(Box::new(launches)));
+            self.engine.handle.send(Msg::Launch(launches.into()));
         }
         Ok(())
     }
@@ -128,7 +128,7 @@ impl Session {
             })
             .collect();
         if !launches.is_empty() {
-            self.engine.handle.send(Msg::Launch(Box::new(launches)));
+            self.engine.handle.send(Msg::Launch(launches.into()));
         }
     }
 
@@ -137,7 +137,7 @@ impl Session {
     /// into the clip's loop) and `length`; `since`, the beat it began on;
     /// and what is queued (`queued` is a clip's id, `"stop"` or
     /// `"timeline"`) with the beat it happens on (`at`).
-    pub fn cue_state(&self) -> Value {
+    pub(crate) fn cue_state(&self) -> Value {
         let mut out = Vec::new();
         for track in &self.doc.project.tracks {
             let Some(state) = self

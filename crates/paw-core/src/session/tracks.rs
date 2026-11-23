@@ -7,7 +7,7 @@ impl Session {
     /// Set `key` of track `id` ([`Document::track_set`]). A fader or pan
     /// knob moved while the song plays writes automation
     /// (`session/write.rs`).
-    pub fn track_set(&mut self, id: Id, key: &str, value: Value) -> Result<()> {
+    pub(crate) fn track_set(&mut self, id: Id, key: &str, value: Value) -> Result<()> {
         if let Some(moved) = self.doc.track_set(id, key, value)? {
             self.touch(id, moved.target, moved.before, moved.to);
         }

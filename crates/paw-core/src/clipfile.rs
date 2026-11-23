@@ -27,12 +27,12 @@ use serde_json::{Map, Value, json};
 use crate::model::{Control, ControlKind, Note, NoteAttr, check_clip_beat};
 
 /// The magic bytes a clip file starts with.
-pub const MAGIC: &[u8; 8] = b"SMF2CLIP";
+pub(crate) const MAGIC: &[u8; 8] = b"SMF2CLIP";
 
 /// Ticks to a beat in the files paw writes: 2^12 * 3 * 5, so that sixteenths
 /// down to 1/4096 of a beat, triplets and quintuplets fall on a tick. At
 /// 120 BPM a tick is 8 microseconds, less than a sample at 48 kHz.
-pub const TPQ: u32 = 61440;
+pub(crate) const TPQ: u32 = 61440;
 
 /// A clip as a file holds it.
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -47,7 +47,7 @@ pub struct Clip {
 }
 
 /// Whether bytes are a clip file, by their first eight.
-pub fn is_clip_file(bytes: &[u8]) -> bool {
+pub(crate) fn is_clip_file(bytes: &[u8]) -> bool {
     bytes.starts_with(MAGIC)
 }
 
@@ -520,7 +520,7 @@ pub fn decode(bytes: &[u8]) -> Result<Clip> {
         bail!("not a MIDI 2.0 clip file (it does not start with SMF2CLIP)");
     }
     let body = &bytes[8..];
-    if body.len() % 4 != 0 {
+    if !body.len().is_multiple_of(4) {
         bail!("the clip file is cut short");
     }
     let words: Vec<u32> = body
@@ -580,7 +580,7 @@ const NAMES: [&str; 12] = [
 ];
 
 /// A key's name: 60 is C4.
-pub fn key_name(key: u8) -> String {
+pub(crate) fn key_name(key: u8) -> String {
     format!("{}{}", NAMES[key as usize % 12], key as i32 / 12 - 1)
 }
 

@@ -26,7 +26,7 @@
 use std::collections::BTreeMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-pub type StateId = u64;
+pub(crate) type StateId = u64;
 
 /// A state that holds this many bytes beyond its parent is heavy to weigh.
 const HEAVY: usize = 64 << 10;
@@ -35,14 +35,14 @@ const HEAVY: usize = 64 << 10;
 const RECKON: u32 = 32;
 
 /// Seconds since the Unix epoch, as a state's time.
-pub fn now() -> f64 {
+pub(crate) fn now() -> f64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0.0, |d| d.as_secs_f64())
 }
 
 #[derive(Clone, Debug)]
-pub struct State<T> {
+pub(crate) struct State<T> {
     /// Ids grow in the order states were made.
     pub id: StateId,
     pub parent: Option<StateId>,
@@ -70,7 +70,7 @@ pub struct State<T> {
 
 impl<T> State<T> {
     /// A state with no children, label or name yet.
-    pub fn new(id: StateId, parent: Option<StateId>, time: f64, snapshot: T) -> Self {
+    pub(crate) fn new(id: StateId, parent: Option<StateId>, time: f64, snapshot: T) -> Self {
         Self {
             id,
             parent,
@@ -88,7 +88,7 @@ impl<T> State<T> {
     }
 }
 
-pub struct History<T> {
+pub(crate) struct History<T> {
     states: BTreeMap<StateId, State<T>>,
     current: StateId,
     root: StateId,
@@ -114,7 +114,7 @@ pub struct History<T> {
 }
 
 impl<T: Clone> History<T> {
-    pub fn new(snapshot: T, time: f64, limit: usize) -> Self {
+    pub(crate) fn new(snapshot: T, time: f64, limit: usize) -> Self {
         let mut history = Self {
             states: BTreeMap::new(),
             current: 0,
@@ -139,24 +139,24 @@ impl<T: Clone> History<T> {
     /// Weigh states with `weigh(parent, state)`, the bytes `state` holds
     /// that `parent` does not share with it, and keep them all together
     /// under about `byte_limit`.
-    pub fn weigh_with(mut self, weigh: fn(&T, &T) -> usize, byte_limit: usize) -> Self {
+    pub(crate) fn weigh_with(mut self, weigh: fn(&T, &T) -> usize, byte_limit: usize) -> Self {
         self.weigh = weigh;
         self.byte_limit = byte_limit;
         self
     }
 
     /// The weights of every state together, in bytes.
-    pub fn bytes(&self) -> usize {
+    pub(crate) fn bytes(&self) -> usize {
         self.bytes
     }
 
-    pub fn byte_limit(&self) -> usize {
+    pub(crate) fn byte_limit(&self) -> usize {
         self.byte_limit
     }
 
     /// Keep at most `limit` states and about `byte_limit` bytes from now on,
     /// dropping the oldest states at once if there are more.
-    pub fn set_limits(&mut self, limit: usize, byte_limit: usize) {
+    pub(crate) fn set_limits(&mut self, limit: usize, byte_limit: usize) {
         self.limit = limit.max(2);
         self.byte_limit = byte_limit;
         self.prune();
@@ -164,7 +164,7 @@ impl<T: Clone> History<T> {
 
     /// Whether states have been dropped to keep within the limits since the
     /// tree was reset, the first time this is asked after they have been.
-    pub fn newly_pruned(&mut self) -> bool {
+    pub(crate) fn newly_pruned(&mut self) -> bool {
         let new = self.pruned && !self.pruned_said;
         self.pruned_said |= new;
         new
@@ -216,7 +216,7 @@ impl<T: Clone> History<T> {
 
     /// Forget every state and start again from `snapshot`, which counts as
     /// saved. Ids keep counting up, so an old id never names a new state.
-    pub fn reset(&mut self, snapshot: T, time: f64) {
+    pub(crate) fn reset(&mut self, snapshot: T, time: f64) {
         self.states.clear();
         self.bytes = 0;
         self.pruned = false;
@@ -236,7 +236,7 @@ impl<T: Clone> History<T> {
     /// as its root and `current` as the current state, which counts as
     /// saved. Ids made from now on come after theirs. False, and nothing
     /// changes, when a link names a state that is not in `states`.
-    pub fn restore(&mut self, states: Vec<State<T>>, root: StateId, current: StateId) -> bool {
+    pub(crate) fn restore(&mut self, states: Vec<State<T>>, root: StateId, current: StateId) -> bool {
         let map: BTreeMap<StateId, State<T>> = states.into_iter().map(|s| (s.id, s)).collect();
         let named = |id: &StateId| map.contains_key(id);
         let linked = map
@@ -265,7 +265,7 @@ impl<T: Clone> History<T> {
 
     /// Replace what state `id` holds: a state kept elsewhere, read when it
     /// is needed. False when there is no such state.
-    pub fn set_snapshot(&mut self, id: StateId, snapshot: T) -> bool {
+    pub(crate) fn set_snapshot(&mut self, id: StateId, snapshot: T) -> bool {
         let Some(state) = self.states.get_mut(&id) else { return false };
         state.snapshot = snapshot;
         let children = state.children.clone();
@@ -278,52 +278,48 @@ impl<T: Clone> History<T> {
 
     // --- reading -----------------------------------------------------------
 
-    pub fn current(&self) -> StateId {
+    pub(crate) fn current(&self) -> StateId {
         self.current
     }
 
-    pub fn root(&self) -> StateId {
+    pub(crate) fn root(&self) -> StateId {
         self.root
     }
 
-    pub fn saved(&self) -> Option<StateId> {
+    pub(crate) fn saved(&self) -> Option<StateId> {
         self.saved.filter(|_| !self.save_pending)
     }
 
-    pub fn limit(&self) -> usize {
+    pub(crate) fn limit(&self) -> usize {
         self.limit
     }
 
-    pub fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.states.len()
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.states.is_empty()
-    }
-
-    pub fn get(&self, id: StateId) -> Option<&State<T>> {
+    pub(crate) fn get(&self, id: StateId) -> Option<&State<T>> {
         self.states.get(&id)
     }
 
     /// Every state, oldest first.
-    pub fn states(&self) -> impl Iterator<Item = &State<T>> {
+    pub(crate) fn states(&self) -> impl Iterator<Item = &State<T>> {
         self.states.values()
     }
 
-    pub fn current_snapshot(&self) -> &T {
+    pub(crate) fn current_snapshot(&self) -> &T {
         &self.states[&self.current].snapshot
     }
 
     /// Replace what the current state holds, for bookkeeping that changes
     /// the snapshot without being an edit.
-    pub fn set_current_snapshot(&mut self, snapshot: T) {
+    pub(crate) fn set_current_snapshot(&mut self, snapshot: T) {
         self.state_mut(self.current).snapshot = snapshot;
         self.reweigh(self.current);
     }
 
     /// Whether the current state is the one last saved.
-    pub fn at_saved(&self) -> bool {
+    pub(crate) fn at_saved(&self) -> bool {
         self.saved() == Some(self.current)
     }
 
@@ -334,7 +330,7 @@ impl<T: Clone> History<T> {
     /// back a name given while the step has changed nothing yet, for what
     /// comes next to name it (`3G` moved the cursor, then `dd` deleted: the
     /// step is the delete).
-    pub fn label(&mut self, text: Option<String>) {
+    pub(crate) fn label(&mut self, text: Option<String>) {
         match text {
             Some(text) => {
                 self.pending_label.get_or_insert(text);
@@ -346,24 +342,24 @@ impl<T: Clone> History<T> {
 
     /// Name the place the open step changed (a subproject) before its
     /// label: `Ballad: add note`, or `Ballad: edit` when nothing named it.
-    pub fn label_place(&mut self, place: &str) {
+    pub(crate) fn label_place(&mut self, place: &str) {
         let label = self.pending_label.take().unwrap_or_else(|| "edit".into());
         let prefix = format!("{place}: ");
         self.pending_label = Some(if label.starts_with(&prefix) { label } else { prefix + &label });
     }
 
     /// The open step has made an edit: its name can no longer be taken back.
-    pub fn edited(&mut self) {
+    pub(crate) fn edited(&mut self) {
         self.step_edited = true;
     }
 
     /// The keys typed for the next state. The last ones given win.
-    pub fn keys(&mut self, text: String) {
+    pub(crate) fn keys(&mut self, text: String) {
         self.pending_keys = Some(text);
     }
 
     /// Forget the labels gathered for a step that changed nothing.
-    pub fn clear_labels(&mut self) {
+    pub(crate) fn clear_labels(&mut self) {
         self.pending_label = None;
         self.step_edited = false;
         self.pending_keys = None;
@@ -372,7 +368,7 @@ impl<T: Clone> History<T> {
     // --- changing ----------------------------------------------------------
 
     /// Add a state below the current one and make it current.
-    pub fn push(&mut self, snapshot: T, time: f64) -> StateId {
+    pub(crate) fn push(&mut self, snapshot: T, time: f64) -> StateId {
         let id = self.next;
         self.next += 1;
         let parent = self.current;
@@ -396,7 +392,7 @@ impl<T: Clone> History<T> {
     /// Drop state `id` as pruning does, unless it is protected (the root,
     /// the current and the saved state, named and kept states). False when
     /// it is not dropped.
-    pub fn forget(&mut self, id: StateId) -> bool {
+    pub(crate) fn forget(&mut self, id: StateId) -> bool {
         match self.states.get(&id) {
             Some(state) if !self.protected(state) => {
                 self.remove(id);
@@ -408,7 +404,7 @@ impl<T: Clone> History<T> {
 
     /// Give a state another name for its command: an adjusted command
     /// says what it does now. False when there is no such state.
-    pub fn set_label(&mut self, id: StateId, label: Option<String>) -> bool {
+    pub(crate) fn set_label(&mut self, id: StateId, label: Option<String>) -> bool {
         match self.states.get_mut(&id) {
             Some(state) => {
                 state.label = label;
@@ -420,7 +416,7 @@ impl<T: Clone> History<T> {
 
     /// Whether the current state can take a further change into itself
     /// instead of a new state being made: nothing hangs on it yet.
-    pub fn can_amend(&self) -> bool {
+    pub(crate) fn can_amend(&self) -> bool {
         let state = &self.states[&self.current];
         self.can_extend()
             // A command or a key is a step of its own, however alike the
@@ -435,7 +431,7 @@ impl<T: Clone> History<T> {
     /// Whether the current state can take a later edit into itself when that
     /// is asked for (a snippet's choice stepped through): nothing hangs on
     /// it, and it is neither saved nor named nor kept.
-    pub fn can_extend(&self) -> bool {
+    pub(crate) fn can_extend(&self) -> bool {
         let state = &self.states[&self.current];
         state.children.is_empty()
             && !state.keep
@@ -447,7 +443,7 @@ impl<T: Clone> History<T> {
 
     /// Replace what the current state holds with a later version of the
     /// same edit: a control still being moved.
-    pub fn amend(&mut self, snapshot: T, time: f64) {
+    pub(crate) fn amend(&mut self, snapshot: T, time: f64) {
         let state = self.state_mut(self.current);
         state.snapshot = snapshot;
         state.time = time;
@@ -457,12 +453,12 @@ impl<T: Clone> History<T> {
 
     /// Remember the current state as the one saved. With an edit still open
     /// (`touched`), the state that edit becomes is the one saved.
-    pub fn mark_saved(&mut self, touched: bool) {
+    pub(crate) fn mark_saved(&mut self, touched: bool) {
         self.saved = Some(self.current);
         self.save_pending = touched;
     }
 
-    pub fn set_name(&mut self, id: StateId, name: Option<String>) -> bool {
+    pub(crate) fn set_name(&mut self, id: StateId, name: Option<String>) -> bool {
         match self.states.get_mut(&id) {
             Some(state) => {
                 state.name = name.filter(|n| !n.is_empty());
@@ -472,7 +468,7 @@ impl<T: Clone> History<T> {
         }
     }
 
-    pub fn set_keep(&mut self, id: StateId, keep: bool) -> bool {
+    pub(crate) fn set_keep(&mut self, id: StateId, keep: bool) -> bool {
         match self.states.get_mut(&id) {
             Some(state) => {
                 state.keep = keep;
@@ -488,7 +484,7 @@ impl<T: Clone> History<T> {
     // there is nowhere to go. The caller then takes up the snapshot.
 
     /// To the parent.
-    pub fn undo(&mut self) -> Option<StateId> {
+    pub(crate) fn undo(&mut self) -> Option<StateId> {
         let parent = self.states[&self.current].parent?;
         self.state_mut(parent).redo = Some(self.current);
         self.current = parent;
@@ -496,7 +492,7 @@ impl<T: Clone> History<T> {
     }
 
     /// To the child last visited.
-    pub fn redo(&mut self) -> Option<StateId> {
+    pub(crate) fn redo(&mut self) -> Option<StateId> {
         let state = &self.states[&self.current];
         let child = state
             .redo
@@ -507,7 +503,7 @@ impl<T: Clone> History<T> {
     }
 
     /// To any state. Redo from each state on the way there then leads to it.
-    pub fn goto(&mut self, id: StateId) -> Option<StateId> {
+    pub(crate) fn goto(&mut self, id: StateId) -> Option<StateId> {
         if !self.states.contains_key(&id) {
             return None;
         }
@@ -523,7 +519,7 @@ impl<T: Clone> History<T> {
     /// `n` states later in the order they were made (earlier when negative),
     /// whatever branch they are on: Vim's `g+` and `g-`. Stops at the oldest
     /// and the newest.
-    pub fn step(&mut self, n: i64) -> Option<StateId> {
+    pub(crate) fn step(&mut self, n: i64) -> Option<StateId> {
         let target = if n < 0 {
             self.states
                 .range(..self.current)
@@ -545,7 +541,7 @@ impl<T: Clone> History<T> {
     /// than the current one was made: the newest state made by then. Going
     /// earlier than the oldest state stops there, and later than the newest
     /// stops at the newest.
-    pub fn travel(&mut self, seconds: f64) -> Option<StateId> {
+    pub(crate) fn travel(&mut self, seconds: f64) -> Option<StateId> {
         let time = self.states[&self.current].time + seconds;
         let target = if seconds < 0.0 {
             self.states

@@ -22,7 +22,7 @@ use tokio_rustls::TlsConnector;
 use tokio_rustls::client::TlsStream;
 
 use crate::dirs::Dirs;
-use crate::{HELLO_TIME, hex, sha256};
+use crate::{HELLO_TIME, sha256};
 
 /// The cryptography everything here uses: ring's, which is pure Rust and
 /// assembly, with no OpenSSL.
@@ -33,7 +33,7 @@ pub fn provider() -> Arc<CryptoProvider> {
 /// How a certificate is named to a person: the SHA-256 of it, in
 /// hexadecimal, in groups of four so that two can be compared by eye.
 pub fn fingerprint(der: &[u8]) -> String {
-    let digits = hex(&sha256(der));
+    let digits = hex::encode(sha256(der));
     let groups: Vec<&str> = (0..digits.len()).step_by(4).map(|i| &digits[i..i + 4]).collect();
     groups.join(":")
 }

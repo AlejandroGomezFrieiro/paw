@@ -21,7 +21,7 @@ impl Document {
     /// Add a clip to `track` and give its id. `source` is the clip file
     /// that a MIDI clip refers to, already read into `opts`;
     /// `sound_seconds` reads how long the sound file of an audio clip is.
-    pub fn clip_add(
+    pub(crate) fn clip_add(
         &mut self,
         track: Id,
         mut opts: ClipOpts,
@@ -195,7 +195,7 @@ impl Document {
         };
         Ok((content, length.max(1e-3), held.name.clone()))
     }
-    pub fn clip_remove(&mut self, id: Id) -> Result<()> {
+    pub(crate) fn clip_remove(&mut self, id: Id) -> Result<()> {
         self.edit(|p| {
             if let Some((track, index)) = p.find_cue_clip(id) {
                 p.track_mut(track).unwrap().cues.remove(index);
@@ -207,23 +207,23 @@ impl Document {
         })
     }
     /// The kinds of clip that extensions defined, by name.
-    pub fn clip_kinds(&self) -> Vec<String> {
+    pub(crate) fn clip_kinds(&self) -> Vec<String> {
         self.clip_kinds.iter().map(ToString::to_string).collect()
     }
     /// Let clips of the kind `name` be added (`paw.clip_kinds.define`). The
     /// project keeps no list of kinds: its clips name theirs.
-    pub fn clip_kind_define(&mut self, name: &str) -> Result<()> {
+    pub(crate) fn clip_kind_define(&mut self, name: &str) -> Result<()> {
         self.clip_kinds.insert(name.parse()?);
         Ok(())
     }
     /// Stop adding clips of the kind `name`. Clips of it that the project
     /// has stay as they are, data and all.
-    pub fn clip_kind_remove(&mut self, name: &str) -> Result<()> {
+    pub(crate) fn clip_kind_remove(&mut self, name: &str) -> Result<()> {
         self.clip_kinds.remove(&name.parse()?);
         Ok(())
     }
     /// The content of a custom clip, as it is saved.
-    pub fn clip_custom(&self, id: Id) -> Result<Value> {
+    pub(crate) fn clip_custom(&self, id: Id) -> Result<Value> {
         let clip = self.project.clip(id).with_context(|| format!("no clip {id}"))?;
         match &clip.content {
             ClipContent::Custom(custom) => Ok(serde_json::to_value(custom)?),
@@ -232,7 +232,7 @@ impl Document {
     }
     /// Replace what a custom clip's kind compiled: data, media, sound and
     /// signals together, as one edit.
-    pub fn clip_set_custom(&mut self, id: Id, set: CustomSet) -> Result<()> {
+    pub(crate) fn clip_set_custom(&mut self, id: Id, set: CustomSet) -> Result<()> {
         let data = set.data.context("a custom clip is set with its `data`")?;
         data.check_size()?;
         let version = set.version.map(|v| custom_version(Some(v))).transpose()?;
@@ -255,7 +255,7 @@ impl Document {
             Ok(())
         })
     }
-    pub fn clip_notes(&self, id: Id) -> Result<&Notes> {
+    pub(crate) fn clip_notes(&self, id: Id) -> Result<&Notes> {
         match &self
             .project
             .clip(id)
@@ -268,7 +268,7 @@ impl Document {
         }
     }
     /// The controller, pitch wheel and pressure moves of a MIDI clip.
-    pub fn clip_controls(&self, id: Id) -> Result<&[Control]> {
+    pub(crate) fn clip_controls(&self, id: Id) -> Result<&[Control]> {
         match &self
             .project
             .clip(id)
@@ -280,7 +280,7 @@ impl Document {
             other => bail!("clip {id} is a clip of the kind `{}`", other.kind()),
         }
     }
-    pub fn clip_set_controls(&mut self, id: Id, new: Vec<Control>) -> Result<()> {
+    pub(crate) fn clip_set_controls(&mut self, id: Id, new: Vec<Control>) -> Result<()> {
         let new = check_controls(new)?;
         self.edit(|p| {
             match &mut p
@@ -298,7 +298,7 @@ impl Document {
         })
     }
     /// Replace a MIDI clip's notes, or add to them when `append` is set.
-    pub fn clip_set_notes(&mut self, id: Id, new: Vec<Note>, append: bool) -> Result<()> {
+    pub(crate) fn clip_set_notes(&mut self, id: Id, new: Vec<Note>, append: bool) -> Result<()> {
         check_notes(&new)?;
         self.edit(|p| {
             match &mut p
@@ -324,7 +324,7 @@ impl Document {
     /// Set `key` of clip `id` to `value`: the model's part of the
     /// session's `clip_set`. `new_file` is the sound file that `file` names,
     /// already read once by the session.
-    pub fn clip_set(&mut self, id: Id, key: &str, value: Value, new_file: Option<PathBuf>) -> Result<()> {
+    pub(crate) fn clip_set(&mut self, id: Id, key: &str, value: Value, new_file: Option<PathBuf>) -> Result<()> {
         let field = ClipField::parse(key);
         self.edit(|p| {
             // A clip off the timeline has no `start` there.
@@ -387,7 +387,7 @@ impl Document {
     /// project's own (`:collect`): the next save writes their files into
     /// its folder. Returns how many. `is_file` says whether a clip's file
     /// is there: a clip whose file is not is left as it is.
-    pub fn clip_collect(&mut self, is_file: impl Fn(&Path) -> bool) -> usize {
+    pub(crate) fn clip_collect(&mut self, is_file: impl Fn(&Path) -> bool) -> usize {
         let ids: Vec<Id> = self
             .project
             .all_tracks()
@@ -409,7 +409,7 @@ impl Document {
 
     /// Copy a clip, from the timeline or from the cues, into a track's cues,
     /// with its `meta`. Returns the copy's id.
-    pub fn clip_to_cues(&mut self, id: Id, track: Id) -> Result<Id> {
+    pub(crate) fn clip_to_cues(&mut self, id: Id, track: Id) -> Result<Id> {
         let clip = self
             .project
             .clip(id)

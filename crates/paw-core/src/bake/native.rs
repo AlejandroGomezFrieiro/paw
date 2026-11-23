@@ -12,18 +12,18 @@ use super::scheduler::{Bake, Lane, Task};
 use crate::stretched::Stretch;
 
 /// A built-in op.
-pub enum Op {
+pub(crate) enum Op {
     /// Stretch, warp, shift or edit a file (`stretched.rs`).
     Stretch(Stretch),
 }
 
 /// A bake made by paw itself, on a thread.
-pub struct Native {
+pub(crate) struct Native {
     op: Op,
 }
 
 impl Native {
-    pub fn of(op: Op) -> Arc<dyn Bake> {
+    pub(crate) fn of(op: Op) -> Arc<dyn Bake> {
         Arc::new(Self { op })
     }
 }

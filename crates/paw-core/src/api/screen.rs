@@ -4,6 +4,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use mlua::{Function, Lua, LuaSerdeExt, LuaString, Table, Value as LuaValue};
+use paw_scene::color::Rgba;
 use serde_json::{Value, json};
 use unicode_width::UnicodeWidthStr;
 
@@ -98,7 +99,7 @@ fn style_of(shared: &Shared, value: &LuaValue) -> mlua::Result<Style> {
 /// the upper half of the register undefined, and LuaJIT's interpreter reads
 /// all 64 bits. `tests/suite.lua` forces a collection after drawing to catch
 /// a regression.
-pub fn render(lua: &Lua, shared: &Shared) -> mlua::Result<()> {
+pub(crate) fn render(lua: &Lua, shared: &Shared) -> mlua::Result<()> {
     let (width, height) = {
         let grid = shared.grid.borrow();
         (grid.width, grid.height)
@@ -111,7 +112,7 @@ pub fn render(lua: &Lua, shared: &Shared) -> mlua::Result<()> {
 /// Draw only the live parts of the frame drawn last again (see
 /// [`crate::grid::Live`]). False when the runtime finds that the frame needs
 /// drawing whole: something not live moves.
-pub fn render_live(lua: &Lua, shared: &Shared) -> mlua::Result<bool> {
+pub(crate) fn render_live(lua: &Lua, shared: &Shared) -> mlua::Result<bool> {
     let (width, height) = {
         let grid = shared.grid.borrow();
         (grid.width, grid.height)
@@ -155,8 +156,8 @@ fn view_snapshot(lua: &Lua, sh: &Shared, name: &str, width: u16, height: u16) ->
     Ok(serde_json::json!({
         "width": width,
         "height": height,
-        "fg": grid::hex(fg),
-        "bg": grid::hex(bg),
+        "fg": Rgba::from(fg).to_string(),
+        "bg": Rgba::from(bg).to_string(),
         "rows": grid.runs(fg, bg),
         "cursor": at.map(|(x, y)| serde_json::json!({ "x": x, "y": y })),
     }))
@@ -519,8 +520,8 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             let clip = Rect { x: cell(cx), y: cell(cy), w: cell(cw), h: cell(ch) };
             let text = text.to_str()?;
             // Kept as a node too while a view is drawn for a scene.
-            sh.scenes.borrow_mut().text(clip, cell(x), cell(y), &text, style);
-            Ok(sh.grid.borrow_mut().text(clip, cell(x), cell(y), &text, style))
+            sh.scenes.borrow_mut().text(clip, cell(x), cell(y), text, style);
+            Ok(sh.grid.borrow_mut().text(clip, cell(x), cell(y), text, style))
         }
         // Draw the picture of pixels kept under `key` over the cells `(x, y,
         // w, h)`, clipped to `(cx, cy, cw, ch)`, two pixels a cell in half

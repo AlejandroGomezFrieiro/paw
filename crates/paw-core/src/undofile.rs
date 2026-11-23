@@ -31,16 +31,16 @@ use crate::history::StateId;
 /// The version of `tree.json`'s format.
 const VERSION: u32 = 1;
 /// The file of the tree in the undo folder.
-pub const TREE_FILE: &str = "tree.json";
+pub(crate) const TREE_FILE: &str = "tree.json";
 const BLOBS: &str = "blobs";
 
 /// The hash of a blob: its name in the store.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct BlobId(blake3::Hash);
+pub(crate) struct BlobId(blake3::Hash);
 
 impl BlobId {
     /// The id of `bytes`.
-    pub fn of(bytes: &[u8]) -> Self {
+    pub(crate) fn of(bytes: &[u8]) -> Self {
         Self(blake3::hash(bytes))
     }
 }
@@ -81,7 +81,7 @@ impl<'de> Deserialize<'de> for BlobId {
 /// One state of the tree as `tree.json` holds it: the fields of
 /// [`crate::history::State`] and the hash of its files.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct StateEntry {
+pub(crate) struct StateEntry {
     pub id: StateId,
     pub parent: Option<StateId>,
     pub children: Vec<StateId>,
@@ -101,7 +101,7 @@ pub struct StateEntry {
 /// `tree.json`: the states, oldest first, the root, and the state that the
 /// project's files on the disk are.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct TreeFile {
+pub(crate) struct TreeFile {
     pub version: u32,
     pub root: StateId,
     pub saved: StateId,
@@ -115,7 +115,7 @@ impl TreeFile {
     ///
     /// When a link names a state that is not there, or the root or the
     /// saved state is not there.
-    pub fn new(root: StateId, saved: StateId, states: Vec<StateEntry>) -> Result<Self> {
+    pub(crate) fn new(root: StateId, saved: StateId, states: Vec<StateEntry>) -> Result<Self> {
         let tree = Self { version: VERSION, root, saved, states };
         tree.check()?;
         Ok(tree)
@@ -162,7 +162,7 @@ impl TreeFile {
 type Folder = BTreeMap<String, BlobId>;
 
 /// The blobs of an undo folder.
-pub struct Store {
+pub(crate) struct Store {
     dir: PathBuf,
     /// The blobs known to be in the store, with their sizes.
     known: HashMap<BlobId, u64>,
@@ -172,11 +172,11 @@ pub struct Store {
 
 impl Store {
     /// The store of the undo folder `dir`, which need not be there yet.
-    pub fn new(dir: &Path) -> Self {
+    pub(crate) fn new(dir: &Path) -> Self {
         Self { dir: dir.to_path_buf(), known: HashMap::new(), folders: HashMap::new() }
     }
 
-    pub fn dir(&self) -> &Path {
+    pub(crate) fn dir(&self) -> &Path {
         &self.dir
     }
 
@@ -190,7 +190,7 @@ impl Store {
     /// # Errors
     ///
     /// When the blob cannot be written.
-    pub fn put(&mut self, bytes: &[u8]) -> Result<BlobId> {
+    pub(crate) fn put(&mut self, bytes: &[u8]) -> Result<BlobId> {
         let id = BlobId::of(bytes);
         if self.known.contains_key(&id) {
             return Ok(id);
@@ -214,7 +214,7 @@ impl Store {
     /// # Errors
     ///
     /// When the blob is not there, or its bytes do not have its hash.
-    pub fn get(&self, id: BlobId) -> Result<Vec<u8>> {
+    pub(crate) fn get(&self, id: BlobId) -> Result<Vec<u8>> {
         let path = self.path(id);
         let bytes = std::fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
         if BlobId::of(&bytes) != id {
@@ -240,7 +240,7 @@ impl Store {
     /// # Errors
     ///
     /// When a blob cannot be written.
-    pub fn put_files<B: AsRef<[u8]>>(&mut self, files: &BTreeMap<PathBuf, B>) -> Result<BlobId> {
+    pub(crate) fn put_files<B: AsRef<[u8]>>(&mut self, files: &BTreeMap<PathBuf, B>) -> Result<BlobId> {
         /// A folder being put together: its files' ids and its folders.
         #[derive(Default)]
         struct Node {
@@ -276,7 +276,7 @@ impl Store {
     /// # Errors
     ///
     /// When a folder of the state is not there or damaged.
-    pub fn files(&mut self, top: BlobId) -> Result<BTreeMap<PathBuf, BlobId>> {
+    pub(crate) fn files(&mut self, top: BlobId) -> Result<BTreeMap<PathBuf, BlobId>> {
         let mut out = BTreeMap::new();
         let mut stack = vec![(PathBuf::new(), top)];
         while let Some((at, id)) = stack.pop() {
@@ -297,7 +297,7 @@ impl Store {
     /// # Errors
     ///
     /// When a blob of the state is not there or damaged.
-    pub fn read_files(&mut self, top: BlobId) -> Result<BTreeMap<PathBuf, Arc<[u8]>>> {
+    pub(crate) fn read_files(&mut self, top: BlobId) -> Result<BTreeMap<PathBuf, Arc<[u8]>>> {
         self.files(top)?
             .into_iter()
             .map(|(rel, id)| Ok((rel, Arc::from(self.get(id)?))))
@@ -339,7 +339,7 @@ impl Store {
     /// # Errors
     ///
     /// When `tree.json` cannot be written, or a state's folder read.
-    pub fn commit(&mut self, tree: &mut TreeFile, byte_limit: u64) -> Result<Vec<StateId>> {
+    pub(crate) fn commit(&mut self, tree: &mut TreeFile, byte_limit: u64) -> Result<Vec<StateId>> {
         let dropped = self.fit(tree, byte_limit)?;
         tree.check()?;
         let text = serde_json::to_vec(&tree)?;
@@ -405,7 +405,8 @@ impl Store {
     }
 
     /// The bytes of every blob in the store.
-    pub fn bytes(&self) -> u64 {
+    #[cfg(test)]
+    pub(crate) fn bytes(&self) -> u64 {
         let Ok(dirs) = std::fs::read_dir(self.dir.join(BLOBS)) else { return 0 };
         dirs.flatten()
             .filter_map(|d| std::fs::read_dir(d.path()).ok())
@@ -421,7 +422,7 @@ impl Store {
 /// # Errors
 ///
 /// When the file is damaged or from a newer version.
-pub fn read_tree(dir: &Path) -> Result<Option<TreeFile>> {
+pub(crate) fn read_tree(dir: &Path) -> Result<Option<TreeFile>> {
     let path = dir.join(TREE_FILE);
     let bytes = match std::fs::read(&path) {
         Ok(bytes) => bytes,

@@ -64,17 +64,17 @@ pub(crate) struct Instance {
 
 impl Instance {
     /// The song's beat of a beat of the nest.
-    pub fn song_beat(&self, beat: f64) -> f64 {
+    pub(super) fn song_beat(&self, beat: f64) -> f64 {
         self.timing.song_beat(beat)
     }
 
     /// The song's beat of the nest's beat 0.
-    pub fn zero(&self) -> f64 {
+    pub(super) fn zero(&self) -> f64 {
         self.timing.zero()
     }
 
     /// Whether this instance plays track `track` of its nest.
-    pub fn plays(&self, track: Id) -> bool {
+    pub(super) fn plays(&self, track: Id) -> bool {
         self.only.is_none_or(|only| only == track)
     }
 }
@@ -93,7 +93,7 @@ pub(crate) struct Placed {
 }
 
 impl Placed {
-    pub fn of(project: &Project) -> Self {
+    pub(super) fn of(project: &Project) -> Self {
         let mut placed = Self::default();
         if project.nests.is_empty() {
             return placed;
@@ -189,7 +189,7 @@ impl Placed {
 
     /// The nests that frozen blocks place, at any depth, and no live block
     /// does: their devices rest.
-    pub fn resting(&self) -> impl Iterator<Item = NestId> + '_ {
+    pub(super) fn resting(&self) -> impl Iterator<Item = NestId> + '_ {
         self.frozen.iter().copied().filter(|n| !self.instances.contains_key(n))
     }
 }
@@ -207,7 +207,7 @@ pub(crate) struct Local {
 impl Local {
     /// The time of track `track` of nest `nest`, or None when the nest is
     /// not there.
-    pub fn of(project: &Project, nest: NestId, track: Id, placed: &Placed) -> Option<Self> {
+    pub(super) fn of(project: &Project, nest: NestId, track: Id, placed: &Placed) -> Option<Self> {
         let held = project.nest(nest)?;
         let places: Vec<paw_engine::Place> = placed
             .instances
@@ -229,7 +229,7 @@ impl Local {
     }
 
     /// As the engine takes it.
-    pub fn time(&self) -> paw_engine::LocalTime {
+    pub(super) fn time(&self) -> paw_engine::LocalTime {
         paw_engine::LocalTime::new(self.places.clone(), &self.meter).with_tempo(&self.tempo)
     }
 }

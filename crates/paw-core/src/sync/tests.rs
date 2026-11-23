@@ -7,6 +7,7 @@ use paw_engine::{
 };
 use serde_json::{Value, json};
 
+use super::devices::rekey;
 use super::*;
 use crate::model::{Clip, ClipContent, Project};
 

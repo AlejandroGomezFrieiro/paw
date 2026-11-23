@@ -21,7 +21,7 @@ enum Heard {
 
 /// A device that writes down what it hears, and on which frame.
 struct Ears {
-    log: Arc<Mutex<Vec<(u64, Heard)>>>,
+    log: Log,
     /// Frames processed before this block.
     frames: u64,
     params: Vec<(u32, f32)>,
@@ -59,12 +59,15 @@ fn send(handle: &mut EngineHandle, engine: &mut Engine, msg: Msg) {
     handle.send_while(msg, engine);
 }
 
+/// What the device heard, with the frame it heard it at.
+type Log = Arc<Mutex<Vec<(u64, Heard)>>>;
+
 /// An engine at 120 BPM (24000 frames a beat) with one track whose only
 /// device listens, and a lane of states on it.
 fn engine(
     points: Vec<(f64, u32)>,
     changes: Vec<StateChange>,
-) -> (Engine, EngineHandle, Arc<Mutex<Vec<(u64, Heard)>>>) {
+) -> (Engine, EngineHandle, Log) {
     let (mut engine, mut handle) = Engine::new(SR);
     let log = Arc::new(Mutex::new(Vec::new()));
     let track = TrackSlot(1);

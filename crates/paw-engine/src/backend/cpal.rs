@@ -14,24 +14,24 @@ use super::{
 use crate::engine::{Engine, Shared};
 
 /// The devices chosen and their configurations, kept until the stream starts.
-pub struct Devices {
+pub(super) struct Devices {
     output: (cpal::Device, cpal::StreamConfig),
     input: Option<(cpal::Device, cpal::StreamConfig)>,
 }
 
 /// The running streams. Dropping stops them: output first, then input.
-pub struct Running {
+pub(super) struct Running {
     _output: cpal::Stream,
     _input: Option<cpal::Stream>,
 }
 
 /// The text of the warning when `auto` falls back to the null backend.
-pub fn fallback_warning(err: &anyhow::Error) -> String {
+pub(super) fn fallback_warning(err: &anyhow::Error) -> String {
     format!("no audio device ({err:#}); running without sound")
 }
 
 /// The names of the hosts this machine has.
-pub fn backends() -> Vec<String> {
+pub(super) fn backends() -> Vec<String> {
     cpal::available_hosts()
         .iter()
         .map(|id| id.name().to_lowercase())
@@ -40,7 +40,7 @@ pub fn backends() -> Vec<String> {
 
 /// The devices of the backend `opts.backend` would open (`auto`: the first
 /// that works; none works: the null backend's list).
-pub fn list_devices(opts: &BackendOptions) -> Result<DeviceList> {
+pub(super) fn list_devices(opts: &BackendOptions) -> Result<DeviceList> {
     let mut last = anyhow::anyhow!("no audio hosts available");
     for id in cpal_hosts(&opts.backend)? {
         match cpal::host_from_id(id) {
@@ -192,7 +192,7 @@ fn choose(
     default().map(|d| (d, None))
 }
 
-pub fn open(opts: &BackendOptions) -> Result<Opened> {
+pub(super) fn open(opts: &BackendOptions) -> Result<Opened> {
     let mut last = anyhow::anyhow!("no audio hosts available");
     for id in cpal_hosts(&opts.backend)? {
         match open_host(id, opts) {
@@ -332,7 +332,7 @@ fn device_id(chosen: Option<&AudioDevice>) -> String {
 /// into pieces of this many.
 const CHUNK_FRAMES: usize = 8192;
 
-pub fn start(
+pub(super) fn start(
     devices: Devices,
     parked: Arc<Mutex<Option<Engine>>>,
     lost: Arc<Lost>,

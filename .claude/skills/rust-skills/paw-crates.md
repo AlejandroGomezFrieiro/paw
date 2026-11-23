@@ -1,6 +1,6 @@
 # paw's extension: use the recommended crates
 
-This page is paw's own addition to the rust-skills skill. It applies to all
+paw adds `paw-crates.md` to the rust-skills skill. It applies to all
 of paw's Rust code: the crates in `crates/` and the native parts of the
 extensions.
 
@@ -13,7 +13,7 @@ for the errors of a library.
 
 ## Why
 
-- A recommended crate has tests, fuzzing and users that paw's own copy does
+- A recommended crate has tests, fuzz tests and users that paw's own copy does
   not have.
 - The next reader knows the crate's API. They do not know paw's copy.
 - Less code to keep. A copy grows its own bugs, and three copies (paw had
@@ -46,7 +46,7 @@ comment next to the code:
 - **The Nix build.** The crate needs a system library or a C toolchain that
   the flake does not give, and a pure Rust crate does not exist.
 - **The format is paw's own** (the sandbox wire, the scene protocol). Use
-  serde for the encoding where you can, but the shapes are paw's.
+  serde to encode where you can, but the shapes are paw's.
 - **The crate is much larger than the job**, and the job is a few lines
   that a reader can check at once. Say how large, in the comment.
 
@@ -59,7 +59,7 @@ comment next to the code:
 | Command line of a binary | `clap` (derive) | a loop over `std::env::args` |
 | Errors of a library crate | `thiserror` | `Result<_, String>` |
 | Errors of a binary | `anyhow` | `Box<dyn Error>` |
-| JSON, TOML, XML | `serde_json`, `toml`/`toml_edit`, `quick-xml` | hand-written escaping |
+| JSON, TOML, XML | `serde_json`, `toml`/`toml_edit`, `quick-xml` | escapes written by hand |
 | base64, deflate, crc32 | `base64`, `flate2` (`flate2::Crc`) | own tables |
 | Content hashes of files (sources, caches) | `blake3` (`media::hash` in paw-core: memory map and rayon for big files, incremental) | `ring` or `sha2` for a hash that names content |
 | SHA-256 and other hashes | `ring::digest` (already linked), else `sha2` | an own SHA |
@@ -68,14 +68,14 @@ comment next to the code:
 | Memory maps of files | `memmap2` | `libc::mmap` |
 | Unix calls (`poll`, `shm_open`, `termios`) | `rustix` | `unsafe libc::` |
 | Temporary files and folders in tests | `tempfile` | `temp_dir().join(pid)` |
-| Walking folders | `walkdir` | a recursive `read_dir` |
+| A walk through folders | `walkdir` | a recursive `read_dir` |
 | Lazy statics | `std::sync::LazyLock`, `OnceLock` | `lazy_static` |
 | Ring buffers between threads | `rtrb` | own atomics |
 | Channels | `std::sync::mpsc` or `crossbeam-channel` | own queues |
 | Network, sockets, child processes, timers that wait on I/O | `tokio` (with `tokio-rustls` for TLS) | a thread for each connection, sockets polled from a timer, read timeouts as a loop |
 | Dates and times | `jiff` | `libc::localtime_r` |
-| User folders (XDG) | `dirs` or `etcetera` | reading `XDG_*` by hand (keep the XDG order paw documents) |
-| Percent-encoding | `percent-encoding` | a loop over bytes |
+| User folders (XDG) | `dirs` or `etcetera` | a read of `XDG_*` by hand (keep the XDG order paw documents) |
+| Percent codes (`%20`) | `percent-encoding` | a loop over bytes |
 | A terminal | `crossterm` (paw uses it) | escape codes by hand where `crossterm` has them |
 | Windows, OpenGL | `winit`, `glutin`, `egui` (paw uses them) | |
 | Small vectors on the stack | `arrayvec`, `smallvec` | own fixed arrays with a length |
@@ -132,7 +132,7 @@ real-time crates, read its code for the audio thread rules.
 | A test that the audio thread does not allocate | `assert_no_alloc` | an own `GlobalAlloc` in each test |
 | Denormals off on a thread | `no_denormals` | own MXCSR code |
 | Atomic `f32`/`f64` (meters, parameters) | `atomic_float` | `f32::from_bits(x.load())` by hand |
-| Hosting CLAP plugins | `clack-host` (Clack), if it covers what paw uses | raw `clap-sys` calls in `unsafe` |
+| The host of CLAP plugins | `clack-host` (Clack), if it covers what paw uses | raw `clap-sys` calls in `unsafe` |
 
 What paw keeps as its own, and why:
 
@@ -177,8 +177,8 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
   `tokio-rustls`, and so do the readers of helper processes in
   `paw-core/src/io.rs`. The sockets of `io.rs` stay polled from a timer,
   because `paw.api` polls them. The runtime is `paw-proto/src/runtime.rs`
-  (`paw_proto::runtime::handle()`), which the client's blocking
-  `Connection` uses too: one I/O thread per process, kernel or client
+  (`paw_proto::runtime::handle()`), which the client's `Connection`
+  (it waits for each reply) uses too: one I/O thread per process, kernel or client
   or both.)
   `paw-core/src/session/encode.rs` (ffmpeg jobs),
   `paw-mcp/src/kernel.rs`, `paw-luadev` (its helper process),
@@ -188,9 +188,10 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
   thread, the terminal's input thread, the watchdog, and the render and
   stretch threads.
 - **SHA-256:** done: `paw-proto/src/lib.rs` uses `ring::digest`.
-- **Hex:** five `fn hex` (paw-plugins vst3/mod.rs, paw-proto, paw-gui theme.rs,
-  paw-raster vector.rs, paw-scene cells.rs). One color type with
-  `FromStr`/`Display` for colors, and one function for bytes.
+- **Hex:** done, but for the window: colors go through
+  `paw_scene::color::Rgba` (`FromStr`, `Display`, `From<(u8, u8, u8)>`), and
+  bytes through the `hex` crate. The `fn hex` of `paw-gui/src/theme.rs`
+  stays until the work on the window starts again.
 - **Signals:** `paw-engine/src/record.rs` (SIGXFSZ). (Done:
   `paw-tui/src/terminal.rs` uses `signal-hook` for SIGTERM and SIGHUP.)
 - **Memory maps:** done: `paw-engine/src/samples.rs` and
@@ -199,7 +200,7 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
 - **Bit flags:** `paw-plugins/src/vst3/events.rs` (the VST3 process-context flags),
   `paw-engine/src/midi.rs` (ALSA capabilities), the engine's faults.
 - **Dates:** `paw-core/src/fs_api.rs` `deletion_date`.
-- **Percent-encoding:** `paw-core/src/fs_api.rs` `percent_encode`.
+- **Percent codes:** `paw-core/src/fs_api.rs` `percent_encode`.
 - **poll:** `paw-engine/src/midi.rs`. (Done: `paw-tui/src/terminal.rs` uses `rustix::event::poll`.)
 - **Temporary folders in tests:** paw-plugins `attach.rs`, paw-gui and
   paw-tui tests. (Done: paw-mcp's tests use `tempfile`.)
@@ -211,7 +212,7 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
   `paw-measure/src/analysis.rs` use `realfft`. `paw-mcp` takes its
   spectrum from `paw-measure`.
 - **Loudness:** `paw-measure/src/analysis.rs` keeps its own BS.1770
-  K-weighting, gates, loudness range and true peak. Compared with `ebur128`
+  K filter, gates, loudness range and true peak. Compared with `ebur128`
   0.1.11 (2026-11-21): integrated, momentary and short-term agree to 0.001
   LU and true peak to 0.1 dB, but the crate takes the short-term blocks for
   loudness range once a second, and EBU Tech 3342 (version 3 and later)

@@ -560,7 +560,7 @@ fn the_audio_thread_never_allocates() {
                 from: (round % 5 == 2).then_some(round as f64 * 0.3),
             })
             .collect();
-        send(&mut handle, Msg::Launch(Box::new(launches)));
+        send(&mut handle, Msg::Launch(launches));
         if round % 4 == 1 {
             send(&mut handle, Msg::Seek(round as f64 * 0.7));
         }

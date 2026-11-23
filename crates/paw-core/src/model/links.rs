@@ -136,13 +136,13 @@ impl Project {
     /// Make the clips of each link share the notes of its first clip, as
     /// they do in memory: for a project just read, whose clips each read
     /// their notes on their own.
-    pub fn join_links(&mut self) {
+    pub(crate) fn join_links(&mut self) {
         let links = Links::before(self);
         self.give(&links.0);
     }
 
     /// How many clips the link `name` has.
-    pub fn link_count(&self, name: &str) -> usize {
+    pub(crate) fn link_count(&self, name: &str) -> usize {
         self.all_tracks()
             .flat_map(|track| clips_of(track))
             .filter(|clip| clip.link.as_deref() == Some(name))
@@ -152,7 +152,7 @@ impl Project {
     /// A name for a new link, made from `stem` (a clip's name): letters,
     /// digits, `-` and `_`, as a file name takes them, and no other link's
     /// name in any case (`riff`, `riff-2`, ...).
-    pub fn new_link_name(&self, stem: &str) -> String {
+    pub(crate) fn new_link_name(&self, stem: &str) -> String {
         let safe: String = stem
             .trim()
             .chars()

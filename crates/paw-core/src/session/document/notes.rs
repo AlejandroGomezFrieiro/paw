@@ -23,7 +23,7 @@ use crate::model::{ClipContent, Id, Note, NoteAttr, Notes, Project, de_attr};
 /// What to change about a note. Fields left out stay as they are.
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct NoteChange {
+pub(crate) struct NoteChange {
     /// Which note, in [`NotesEdit::set`].
     pub index: Option<usize>,
     pub start: Option<f64>,
@@ -68,7 +68,7 @@ impl NoteChange {
 /// note's place before any of them is made.
 #[derive(Debug, Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct NotesEdit {
+pub(crate) struct NotesEdit {
     pub set: Vec<NoteChange>,
     pub remove: Vec<usize>,
     pub add: Vec<Note>,
@@ -83,7 +83,7 @@ pub struct NotesEdit {
 /// notes (`:%quantize`) crosses from Lua as a few lists of numbers, with
 /// no table for each note.
 #[derive(Debug, Default)]
-pub struct NoteColumns {
+pub(crate) struct NoteColumns {
     pub clip: Vec<Id>,
     pub place: Vec<usize>,
     pub start: Option<Vec<f64>>,
@@ -202,7 +202,7 @@ fn write_changes(project: &mut Project, changes: Vec<ClipChanges>, moves: bool) 
 /// Which of a clip's notes to return. Bounds left out are open.
 #[derive(Debug, Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct NoteRange {
+pub(crate) struct NoteRange {
     /// Beats from the start of the clip: notes sounding anywhere in `from..to`.
     pub from: Option<f64>,
     pub to: Option<f64>,
@@ -256,7 +256,7 @@ fn insert(notes: &mut Notes, note: Note) -> usize {
 
 impl Document {
     /// Add one note, and say where in the clip's notes it went.
-    pub fn clip_note_add(&mut self, id: Id, mut note: Note) -> Result<usize> {
+    pub(crate) fn clip_note_add(&mut self, id: Id, mut note: Note) -> Result<usize> {
         check_notes(std::slice::from_ref(&note))?;
         // Named here, as `name_notes` would name it (the next free id), with
         // one look at the ids and nothing made: adding notes one by one to a
@@ -275,7 +275,7 @@ impl Document {
 
     /// Change one note, and say where it is afterwards: a note that starts
     /// at another time, or moves to another pitch, changes place.
-    pub fn clip_note_set(&mut self, id: Id, index: usize, change: &NoteChange) -> Result<usize> {
+    pub(crate) fn clip_note_set(&mut self, id: Id, index: usize, change: &NoteChange) -> Result<usize> {
         let notes = notes_of(&self.project, id)?;
         let before = notes
             .get(index)
@@ -296,7 +296,7 @@ impl Document {
         })
     }
 
-    pub fn clip_note_remove(&mut self, id: Id, index: usize) -> Result<()> {
+    pub(crate) fn clip_note_remove(&mut self, id: Id, index: usize) -> Result<()> {
         let count = notes_of(&self.project, id)?.len();
         if index >= count {
             return Err(no_note(id, index, count));
@@ -308,7 +308,7 @@ impl Document {
     }
 
     /// Change, remove and add several notes as one edit.
-    pub fn clip_notes_edit(&mut self, id: Id, edit: NotesEdit) -> Result<()> {
+    pub(crate) fn clip_notes_edit(&mut self, id: Id, edit: NotesEdit) -> Result<()> {
         let notes = notes_of(&self.project, id)?;
         let count = notes.len();
         let mut changed = Vec::with_capacity(edit.set.len());
@@ -353,7 +353,7 @@ impl Document {
 
     /// Change many notes of many clips as one edit (`paw.api.notes_set`).
     /// A wrong entry changes nothing.
-    pub fn notes_set(&mut self, columns: &NoteColumns) -> Result<()> {
+    pub(crate) fn notes_set(&mut self, columns: &NoteColumns) -> Result<()> {
         let changes = columns.changes(&self.project)?;
         let moves = columns.moves();
         // No note is added, and each changed note keeps its id.
@@ -361,7 +361,7 @@ impl Document {
     }
 
     /// The first note on `pitch` sounding at `beat`, and its place.
-    pub fn clip_note_at(&self, id: Id, pitch: u8, beat: f64) -> Result<Option<(usize, &Note)>> {
+    pub(crate) fn clip_note_at(&self, id: Id, pitch: u8, beat: f64) -> Result<Option<(usize, &Note)>> {
         Ok(notes_of(&self.project, id)?
             .iter()
             .enumerate()
@@ -371,7 +371,7 @@ impl Document {
     }
 
     /// The notes within a range, each with its place.
-    pub fn clip_notes_in(&self, id: Id, range: &NoteRange) -> Result<Vec<(usize, &Note)>> {
+    pub(crate) fn clip_notes_in(&self, id: Id, range: &NoteRange) -> Result<Vec<(usize, &Note)>> {
         let (low, high) = (range.low.unwrap_or(0), range.high.unwrap_or(u8::MAX));
         let from = range.from.unwrap_or(f64::NEG_INFINITY);
         let to = range.to.unwrap_or(f64::INFINITY);

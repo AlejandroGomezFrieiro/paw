@@ -3,6 +3,7 @@ name = "paw-raster"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+rust-version.workspace = true
 description = "Drawings of views (paw.canvas ops) to pixels, music fonts included, and the kitty graphics protocol that shows them in a terminal."
 
 [dependencies]
@@ -15,3 +16,6 @@ base64 = "0.22"
 thiserror.workspace = true
 # Shared memory objects for kitty's images.
 rustix = { version = "1", default-features = false, features = ["std", "shm"] }
+
+[lints]
+workspace = true

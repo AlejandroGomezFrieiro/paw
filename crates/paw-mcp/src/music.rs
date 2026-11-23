@@ -14,7 +14,7 @@ const MAX_CHANGES: usize = 31;
 /// one at the start, and where it changes along the song (each change
 /// starting a bar, as paw's tempo map has them).
 #[derive(Clone, Debug, PartialEq)]
-pub struct Meter {
+pub(crate) struct Meter {
     pub num: u32,
     pub den: u32,
     changes: ArrayVec<Change, MAX_CHANGES>,
@@ -37,7 +37,7 @@ impl Default for Meter {
 }
 
 impl Meter {
-    pub fn new(num: u32, den: u32) -> Self {
+    pub(crate) fn new(num: u32, den: u32) -> Self {
         Self {
             num: num.max(1),
             den: den.max(1),
@@ -45,7 +45,7 @@ impl Meter {
         }
     }
 
-    pub fn from_project(project: &Value) -> Self {
+    pub(crate) fn from_project(project: &Value) -> Self {
         let mut meter = Self::new(
             project["sig_num"].as_u64().unwrap_or(4) as u32,
             project["sig_den"].as_u64().unwrap_or(4) as u32,
@@ -64,7 +64,7 @@ impl Meter {
     }
 
     /// A signature change starting a bar at `beat`, after those added before.
-    pub fn add(&mut self, beat: f64, num: u32, den: u32) {
+    pub(crate) fn add(&mut self, beat: f64, num: u32, den: u32) {
         if self.changes.is_full() {
             return;
         }
@@ -101,7 +101,7 @@ impl Meter {
     }
 
     /// Where bar `bar` (counting from 0) starts, and its signature.
-    pub fn bar_start(&self, bar: i64) -> (f64, u32, u32) {
+    pub(crate) fn bar_start(&self, bar: i64) -> (f64, u32, u32) {
         let (start, num, den, first) = self.segment_at_bar(bar);
         (
             start + (bar - first) as f64 * num as f64 * 4.0 / den as f64,
@@ -111,12 +111,12 @@ impl Meter {
     }
 
     /// Length of a bar in beats (quarter notes): the first bar's.
-    pub fn bar(&self) -> f64 {
+    pub(crate) fn bar(&self) -> f64 {
         self.num as f64 * 4.0 / self.den as f64
     }
 
     /// `bar.beat.hundredths`, counting from 1, as paw shows positions.
-    pub fn format(&self, beats: f64) -> String {
+    pub(crate) fn format(&self, beats: f64) -> String {
         let (start, num, den, first) = self.segment_at_beat(beats);
         let len = num as f64 * 4.0 / den as f64;
         let unit = 4.0 / den as f64;
@@ -134,7 +134,7 @@ impl Meter {
 }
 
 /// A number with no more decimals than it needs: 4, 0.5, 0.333.
-pub fn num(value: f64) -> String {
+pub(crate) fn num(value: f64) -> String {
     if !value.is_finite() {
         return format!("{value}");
     }
@@ -150,7 +150,7 @@ pub fn num(value: f64) -> String {
 /// A position: a JSON number is beats from the start (of the project, or of
 /// the clip for notes); a string is `bar`, `bar.beat` or `bar.beat.hundredths`
 /// counting from 1 (or with colons, `bar:beat`), or beats written as `"6b"`.
-pub fn position(value: &Value, meter: &Meter, what: &str) -> Result<f64> {
+pub(crate) fn position(value: &Value, meter: &Meter, what: &str) -> Result<f64> {
     let beats = match value {
         Value::Number(n) => n.as_f64().context("not a number")?,
         Value::String(text) => parse_position(text.trim(), meter)
@@ -220,7 +220,7 @@ fn parse_position(text: &str, meter: &Meter) -> Option<f64> {
 /// A length: a JSON number is beats; a string is beats (`"3b"`), bars
 /// (`"2 bars"`, `"1bar"`) or a note value as a fraction of a whole note
 /// (`"1/8"` is half a beat, `"3/16"`, `"1/4."` dotted).
-pub fn length(value: &Value, meter: &Meter, what: &str) -> Result<f64> {
+pub(crate) fn length(value: &Value, meter: &Meter, what: &str) -> Result<f64> {
     let beats = match value {
         Value::Number(n) => n.as_f64().context("not a number")?,
         Value::String(text) => parse_length(text.trim(), meter).with_context(|| {
@@ -268,7 +268,7 @@ const NAMES: [&str; 12] = [
 ];
 
 /// `C4` is 60, middle C. Sharps `#`, flats `b`, octaves from -1 to 9.
-pub fn pitch_name(text: &str) -> Result<u8> {
+pub(crate) fn pitch_name(text: &str) -> Result<u8> {
     let text = text.trim();
     if let Ok(n) = text.parse::<i64>() {
         return midi(n, text);
@@ -306,12 +306,12 @@ fn midi(n: i64, text: &str) -> Result<u8> {
     Ok(n as u8)
 }
 
-pub fn name(pitch: u8) -> String {
+pub(crate) fn name(pitch: u8) -> String {
     format!("{}{}", NAMES[pitch as usize % 12], pitch as i32 / 12 - 1)
 }
 
 /// One pitch or a chord: `"C4"`, `60`, `"C4+E4+G4"`, `["C4", "E4"]`.
-pub fn pitches(value: &Value) -> Result<Vec<u8>> {
+pub(crate) fn pitches(value: &Value) -> Result<Vec<u8>> {
     match value {
         Value::Number(n) => Ok(vec![midi(
             n.as_i64().context("pitch must be a whole number")?,
@@ -334,7 +334,7 @@ pub fn pitches(value: &Value) -> Result<Vec<u8>> {
 /// `"pitch start length [velocity]"` such as `"C4+E4 1:3 1/8 90"`, where the
 /// start is beats ("2.5") or bar:beat within the clip ("1:3").
 /// A note with no length is one beat long.
-pub fn notes(value: &Value, meter: &Meter) -> Result<Vec<Value>> {
+pub(crate) fn notes(value: &Value, meter: &Meter) -> Result<Vec<Value>> {
     let items = match value {
         Value::Array(items) => items,
         Value::Null => return Ok(Vec::new()),
@@ -411,12 +411,12 @@ fn note(item: &Value, meter: &Meter, out: &mut Vec<Value>) -> Result<()> {
 
 /// A note's start inside its clip. As a string, `bar.beat` counts from the
 /// clip's own first bar: "1.1" is the clip's start.
-pub fn note_start(value: &Value, meter: &Meter) -> Result<f64> {
+pub(crate) fn note_start(value: &Value, meter: &Meter) -> Result<f64> {
     position(value, meter, "start")
 }
 
 /// A signature such as "3/4" or "6/8".
-pub fn signature(text: &str) -> Result<(u32, u32)> {
+pub(crate) fn signature(text: &str) -> Result<(u32, u32)> {
     let (n, d) = text
         .split_once('/')
         .with_context(|| format!("bad time signature `{text}`: write it as \"3/4\""))?;

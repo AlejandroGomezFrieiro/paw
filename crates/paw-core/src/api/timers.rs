@@ -23,7 +23,7 @@ const TURNS_AT_ONE_INSTANT: u32 = 1000;
 
 /// The functions of the timers that are due, with one-shot timers removed
 /// and repeating ones moved on.
-pub fn due_timers(shared: &Shared) -> Vec<Rc<mlua::RegistryKey>> {
+pub(crate) fn due_timers(shared: &Shared) -> Vec<Rc<mlua::RegistryKey>> {
     let now = shared.clock.now();
     let mut timers = shared.timers.borrow_mut();
     let mut due = Vec::new();
@@ -48,7 +48,7 @@ pub fn due_timers(shared: &Shared) -> Vec<Rc<mlua::RegistryKey>> {
 /// does, what other threads and processes do now, and what waits for the
 /// schedule clock.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
-pub struct Pending {
+pub(crate) struct Pending {
     /// Timers due now: the next turn fires them.
     pub timers_due: usize,
     /// All the timers, also the ones that wait for the clock.
@@ -76,7 +76,7 @@ impl Shared {
     /// One turn of the loop of a script: fire the timers that are due,
     /// look after the plugins (when `idle`), hear MIDI and the output of
     /// helpers, push the edits and close the undo step. Nothing waits.
-    pub fn turn(&self, lua: &Lua, idle: bool) -> mlua::Result<()> {
+    pub(crate) fn turn(&self, lua: &Lua, idle: bool) -> mlua::Result<()> {
         let kernel: Table = lua.globals().get::<Table>("paw")?.get("_kernel")?;
         let (timer, settle): (Function, Function) = (kernel.get("timer")?, kernel.get("settle")?);
         for func in due_timers(self) {
@@ -96,7 +96,7 @@ impl Shared {
     }
 
     /// The work that is not done yet.
-    pub fn pending(&self) -> Pending {
+    pub(crate) fn pending(&self) -> Pending {
         let now = self.clock.now();
         let (timers_due, timers) = {
             let timers = self.timers.borrow();

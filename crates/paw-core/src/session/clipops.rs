@@ -105,7 +105,7 @@ impl Session {
     /// taken away, when it was the last edit), and its offset where the same
     /// part of the sound is. Its fades change ends too. Returns `{ edits }`,
     /// how many edits the clip has.
-    pub fn clip_reverse(&mut self, id: Id) -> Result<Value> {
+    pub(crate) fn clip_reverse(&mut self, id: Id) -> Result<Value> {
         let (clip, file, offset, _) = self.audio_clip(id)?;
         let length = self.audio.load(&file)?.seconds();
         let played = self.played_seconds(&clip, offset);
@@ -131,7 +131,7 @@ impl Session {
     /// Add an edit to an audio clip's edit list, with its times counted from
     /// where the clip starts in its sound: a gain on a part, or samples drawn
     /// over its own (a pencil fix). Returns how many edits it has.
-    pub fn clip_edit_add(&mut self, id: Id, mut edit: AudioEdit) -> Result<usize> {
+    pub(crate) fn clip_edit_add(&mut self, id: Id, mut edit: AudioEdit) -> Result<usize> {
         let (_, _, offset, _) = self.audio_clip(id)?;
         match &mut edit {
             AudioEdit::Reverse => {}
@@ -154,7 +154,7 @@ impl Session {
 
     /// Take away an audio clip's whole edit list: it plays its file again.
     /// Returns how many edits it had.
-    pub fn clip_edits_clear(&mut self, id: Id) -> Result<usize> {
+    pub(crate) fn clip_edits_clear(&mut self, id: Id) -> Result<usize> {
         let (clip, file, offset, _) = self.audio_clip(id)?;
         let Some(ClipContent::Audio { edits, .. }) = clip.playable() else {
             return Ok(0);
@@ -187,7 +187,7 @@ impl Session {
 
     /// Bring the loudest sample an audio clip plays to `level` dB, by its
     /// gain. Returns the new gain.
-    pub fn clip_normalize(&mut self, id: Id, level: f64) -> Result<f64> {
+    pub(crate) fn clip_normalize(&mut self, id: Id, level: f64) -> Result<f64> {
         if !level.is_finite() || level > 0.0 {
             bail!("normalize to a level in dB at or below 0, such as -1");
         }
@@ -216,7 +216,7 @@ impl Session {
     /// they play together, with their gains, fades and overlaps, and without
     /// the track's devices, fader or pan. With one clip, it and every audio
     /// clip on its track that touches or overlaps it, one after another.
-    pub fn clip_glue(&mut self, ids: &[Id]) -> Result<Value> {
+    pub(crate) fn clip_glue(&mut self, ids: &[Id]) -> Result<Value> {
         let first = *ids.first().context("no clips to glue")?;
         let (track, _) = self
             .doc.project

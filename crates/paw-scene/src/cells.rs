@@ -6,6 +6,8 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use unicode_width::UnicodeWidthChar;
 
+use crate::color::Rgba;
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Color {
     /// The terminal's own foreground or background.
@@ -53,7 +55,7 @@ impl Serialize for Color {
         match *self {
             Color::Default => s.serialize_str("default"),
             Color::Indexed(i) => s.serialize_u8(i),
-            Color::Rgb(r, g, b) => s.serialize_str(&hex((r, g, b))),
+            Color::Rgb(r, g, b) => s.collect_str(&Rgba::rgb(r, g, b)),
         }
     }
 }
@@ -271,11 +273,6 @@ pub fn rgb(color: Color, default: (u8, u8, u8)) -> (u8, u8, u8) {
     }
 }
 
-/// A colour as `#rrggbb`.
-pub fn hex((r, g, b): (u8, u8, u8)) -> String {
-    crate::color::Rgba::rgb(r, g, b).to_string()
-}
-
 /// A stretch of a row in one style, for a frontend that draws text rather
 /// than cells: the column it starts at and how many it takes, its text, its
 /// colours as `#rrggbb`, and what is left of its attributes (bold, italic,
@@ -308,7 +305,7 @@ pub fn runs(cells: &[Cell], width: u16, fg: (u8, u8, u8), bg: (u8, u8, u8)) -> V
                     front = (mix(front.0, back.0), mix(front.1, back.1), mix(front.2, back.2));
                 }
                 let attrs = cell.attrs & (BOLD | ITALIC | UNDERLINE | STRIKE);
-                let (front, back) = (hex(front), hex(back));
+                let (front, back) = (Rgba::from(front).to_string(), Rgba::from(back).to_string());
                 match runs.last_mut() {
                     Some(run) if run.fg == front && run.bg == back && run.attrs == attrs => {
                         run.w += 1;

@@ -5,8 +5,6 @@
 //! in, and atomics plus a garbage queue coming out. Nothing here knows about the
 //! project model, Lua or any UI.
 
-#![warn(clippy::undocumented_unsafe_blocks)]
-
 #[cfg(feature = "midi")]
 mod alsa;
 pub mod automation;

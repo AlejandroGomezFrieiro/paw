@@ -17,13 +17,14 @@ use rubato::{
 const CHUNK: usize = 4096;
 
 /// `data` at `rate`. The same length in seconds, give or take a frame.
-pub fn convert(data: &AudioData, rate: u32) -> anyhow::Result<AudioData> {
+#[cfg(test)]
+pub(crate) fn convert(data: &AudioData, rate: u32) -> anyhow::Result<AudioData> {
     convert_into(data, rate, Sink::memory())
 }
 
-/// As [`convert`], with the result kept where `sink` keeps it: on the disk
-/// when it is large.
-pub fn convert_into(data: &AudioData, rate: u32, sink: Sink) -> anyhow::Result<AudioData> {
+/// `data` at `rate`, kept where `sink` keeps it: on the disk when it is
+/// large. The same length in seconds, give or take a frame.
+pub(crate) fn convert_into(data: &AudioData, rate: u32, sink: Sink) -> anyhow::Result<AudioData> {
     if data.sample_rate == rate {
         return Ok(AudioData {
             sample_rate: rate,
@@ -46,7 +47,7 @@ pub fn convert_into(data: &AudioData, rate: u32, sink: Sink) -> anyhow::Result<A
 /// Sound resampled as it comes: `ratio` frames out for each frame in,
 /// `wanted` frames in all, kept where the sink keeps them. A pitch shift
 /// plays a stretched sound back this way, faster or slower.
-pub struct Stream {
+pub(crate) struct Stream {
     resampler: Async<f32>,
     buffer: Vec<Vec<f32>>,
     /// Frames of start-up delay still to drop from the output, so that the
@@ -61,7 +62,7 @@ pub struct Stream {
 
 impl Stream {
     /// `rate` is the rate the result is said to have.
-    pub fn new(ratio: f64, rate: u32, wanted: usize, mut sink: Sink) -> anyhow::Result<Self> {
+    pub(crate) fn new(ratio: f64, rate: u32, wanted: usize, mut sink: Sink) -> anyhow::Result<Self> {
         let params = SincInterpolationParameters {
             sinc_len: 256,
             // The passband reaches 95% of the lower rate's Nyquist frequency:
@@ -124,7 +125,7 @@ impl Stream {
         Ok(made)
     }
 
-    pub fn push(&mut self, mut left: &[f32], mut right: &[f32]) -> anyhow::Result<()> {
+    pub(crate) fn push(&mut self, mut left: &[f32], mut right: &[f32]) -> anyhow::Result<()> {
         while !left.is_empty() {
             let room = CHUNK - self.pending[0].len();
             let n = room.min(left.len());
@@ -140,7 +141,7 @@ impl Stream {
     }
 
     /// The rest, then silence until what is still in the filter has come out.
-    pub fn finish(mut self) -> anyhow::Result<AudioData> {
+    pub(crate) fn finish(mut self) -> anyhow::Result<AudioData> {
         let rest = self.pending[0].len();
         let made = self.run(rest)?;
         self.put(made)?;

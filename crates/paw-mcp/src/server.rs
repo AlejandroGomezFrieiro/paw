@@ -33,21 +33,21 @@ const VERSIONS: [ProtocolVersion; 5] = [
 ];
 
 #[derive(Clone)]
-pub struct PawServer {
+pub(crate) struct PawServer {
     tools: Arc<Mutex<Tools>>,
 }
 
 impl PawServer {
-    pub fn new(tools: Tools) -> Self {
+    pub(crate) fn new(tools: Tools) -> Self {
         Self { tools: Arc::new(Mutex::new(tools)) }
     }
 
-    pub fn tools(&self) -> Arc<Mutex<Tools>> {
+    pub(crate) fn tools(&self) -> Arc<Mutex<Tools>> {
         self.tools.clone()
     }
 
     /// Serve on stdin and stdout until stdin closes.
-    pub async fn serve_stdio(self) -> Result<()> {
+    pub(crate) async fn serve_stdio(self) -> Result<()> {
         let running = self.serve(rmcp::transport::stdio()).await.context("starting MCP")?;
         running.waiting().await.context("serving MCP")?;
         Ok(())

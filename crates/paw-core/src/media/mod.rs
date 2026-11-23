@@ -1,10 +1,11 @@
 //! Sources of sound and other media: what a file is, wherever it is.
 
 pub mod hash;
-pub mod index;
-pub mod sources;
-pub mod table;
+pub(crate) mod index;
+pub(crate) mod sources;
+pub(crate) mod table;
 mod worker;
 
-pub use sources::{Changed, Sources};
-pub use table::{MediaRecord, MediaTable, Probe, SourceHash, StreamInfo};
+pub use sources::Sources;
+pub(crate) use sources::Changed;
+pub(crate) use table::{MediaRecord, MediaTable, SourceHash};

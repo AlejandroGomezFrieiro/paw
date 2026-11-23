@@ -67,16 +67,11 @@ fn wide(text: &[TChar]) -> String {
     String::from_utf16_lossy(&units)
 }
 
-fn hex(id: &TUID) -> String {
-    hex::encode_upper(id.map(|b| b as u8))
-}
-
+/// A class id from its 32 hexadecimal digits (`hex::encode_upper` writes them).
 fn unhex(text: &str) -> Option<TUID> {
-    let mut id = [0 as c_char; 16];
-    for (i, byte) in id.iter_mut().enumerate() {
-        *byte = u8::from_str_radix(text.get(i * 2..i * 2 + 2)?, 16).ok()? as c_char;
-    }
-    Some(id)
+    let mut bytes = [0u8; 16];
+    hex::decode_to_slice(text, &mut bytes).ok()?;
+    Some(bytes.map(|b| b as c_char))
 }
 
 /// Load a bundle and list the audio plugins in it.

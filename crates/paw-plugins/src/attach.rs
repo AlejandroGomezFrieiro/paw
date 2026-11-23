@@ -189,12 +189,12 @@ pub(crate) struct Attached {
 unsafe impl Send for Attached {}
 
 impl Attached {
-    pub fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &str {
         &self.lib.name
     }
 
     /// Ask the attachment: its answer code and what it wrote.
-    pub fn call(&self, method: &str, data: &[u8]) -> (i32, Vec<u8>) {
+    pub(crate) fn call(&self, method: &str, data: &[u8]) -> (i32, Vec<u8>) {
         crate::debug_assert_main_thread();
         let Some(call) = self.lib.entry.call else {
             return (CALL_UNKNOWN, Vec::new());

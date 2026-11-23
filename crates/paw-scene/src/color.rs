@@ -19,6 +19,13 @@ impl Rgba {
     }
 }
 
+/// An opaque colour from its red, green and blue.
+impl From<(u8, u8, u8)> for Rgba {
+    fn from((r, g, b): (u8, u8, u8)) -> Rgba {
+        Rgba::rgb(r, g, b)
+    }
+}
+
 /// `#rrggbb`, or `#rrggbbaa` when the colour is not opaque, in lower case.
 impl fmt::Display for Rgba {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

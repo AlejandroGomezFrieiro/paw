@@ -3,6 +3,7 @@ name = "paw-plugins"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+rust-version.workspace = true
 description = "Hosts CLAP, LV2 and VST3 plugins as engine devices."
 
 [dependencies]
@@ -41,3 +42,6 @@ tempfile = "3"
 [[example]]
 name = "stub_clap"
 crate-type = ["cdylib"]
+
+[lints]
+workspace = true

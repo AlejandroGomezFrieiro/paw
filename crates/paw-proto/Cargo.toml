@@ -3,6 +3,7 @@ name = "paw-proto"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+rust-version.workspace = true
 description = "The client's side of the kernel's control protocol, TLS included."
 
 [dependencies]
@@ -20,3 +21,6 @@ ring = "0.17"
 [dev-dependencies]
 insta.workspace = true
 tempfile = "3"
+
+[lints]
+workspace = true

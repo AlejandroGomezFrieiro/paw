@@ -76,7 +76,7 @@ fn signature(line: &str) -> Option<String> {
 }
 
 /// Every `paw.api` function with what its comment says.
-pub fn api() -> String {
+pub(crate) fn api() -> String {
     let mut out = String::from(
         "# paw.api reference\n\nThe kernel's flat functions, called from Lua as `paw.api.name(...)`, over the control socket (`paw ctl name args...`) as a method of the same name, and from the typed Lua objects (`paw.tracks()`, `track:add_clip(...)`). Indices count from 1 where they count; positions and lengths are in beats; volumes in dB. Generated from `crates/paw-core/src/api/` when this server was built.\n",
     );
@@ -112,7 +112,7 @@ pub fn api() -> String {
 }
 
 /// The modules of the Lua runtime, by name, with the first words of what each is.
-pub fn lua_modules() -> Vec<(String, String)> {
+pub(crate) fn lua_modules() -> Vec<(String, String)> {
     let Some(dir) = RUNTIME.get_dir("paw") else {
         return Vec::new();
     };
@@ -136,7 +136,7 @@ pub fn lua_modules() -> Vec<(String, String)> {
 }
 
 /// The index of the Lua modules.
-pub fn lua_index() -> String {
+pub(crate) fn lua_index() -> String {
     let mut out = String::from(
         "# The Lua modules of paw\n\nEach is read as `paw://reference/lua/<module>`, and is `paw.<module>` in scripts. Made from the doc comments in `runtime/lua/paw`.\n\n",
     );
@@ -180,7 +180,7 @@ fn untyped_call(rest: &str) -> String {
 }
 
 /// A module's documented functions, in the order of the file.
-pub fn lua_module(module: &str) -> Option<String> {
+pub(crate) fn lua_module(module: &str) -> Option<String> {
     // A module is Lua, or Teal (Lua with types) once it is ported.
     let file = RUNTIME
         .get_file(format!("paw/{module}.lua"))

@@ -11,7 +11,7 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 
-pub use paw_proto::tls::fingerprint;
+pub(crate) use paw_proto::tls::fingerprint;
 
 /// Where the certificate and its key are kept: `$XDG_STATE_HOME/paw/tls`.
 pub fn default_dir(dirs: &paw_proto::dirs::Dirs) -> PathBuf {

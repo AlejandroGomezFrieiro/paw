@@ -15,7 +15,7 @@ use crate::model::{ClipContent, DeviceInst, Project, Track};
 
 /// Whether a device takes its track's clips ([`paw_engine::device::CLIPS`]).
 #[derive(Clone, Debug, Default, PartialEq)]
-pub enum TakesClips {
+pub(crate) enum TakesClips {
     /// Not asked yet.
     #[default]
     Unasked,
@@ -28,7 +28,7 @@ pub enum TakesClips {
 /// Give each device that keeps files (a plugin an attachment took) the
 /// audio clips of its track and the tempo, when they changed since it was
 /// given them last; the first time, to find out whether it takes them.
-pub fn deliver_clips(project: &Project, ctx: &mut SyncCtx) {
+pub(crate) fn deliver_clips(project: &Project, ctx: &mut SyncCtx) {
     for (id, live) in ctx.live.iter_mut() {
         if !live.attached || live.clips == TakesClips::No || live.stopped.is_some() {
             continue;
@@ -61,7 +61,7 @@ pub fn deliver_clips(project: &Project, ctx: &mut SyncCtx) {
 /// A track's audio clips and the song's tempo, as a device that reads
 /// whole clips (an ARA plugin) is given them: times in seconds from the
 /// start of the song, and the tempo as points of seconds and beats.
-pub fn clips_json(project: &Project, track: &Track) -> Value {
+pub(crate) fn clips_json(project: &Project, track: &Track) -> Value {
     let map = project.tempo_map();
     let clips: Vec<Value> = track
         .clips
@@ -199,7 +199,7 @@ pub(super) fn add_device(device: &DeviceInst, map: &mut Mapper, ctx: &mut SyncCt
 /// Put a device that was made apart (see [`Mapper::defer`]) in place of its
 /// stand-in, its state already loaded, with the project's parameters and
 /// bypass applied.
-pub fn install(
+pub(crate) fn install(
     device: &DeviceInst,
     instance: paw_engine::Instance,
     map: &Mapper,
@@ -348,7 +348,7 @@ fn deliver_posts(kind: &str, controller: &mut dyn Controller, ctx: &mut SyncCtx)
 /// device's own id for it (`ids`, key to id): a plugin whose new version
 /// orders or names its parameters otherwise keeps the project's values and
 /// lanes. A parameter that had the key before takes the other's.
-pub fn rekey(params: &mut [ParamInfo], ids: &BTreeMap<String, String>) {
+pub(crate) fn rekey(params: &mut [ParamInfo], ids: &BTreeMap<String, String>) {
     for (key, id) in ids {
         let Some(at) = params.iter().position(|p| !p.id.is_empty() && &p.id == id) else {
             continue;
@@ -369,7 +369,7 @@ pub fn rekey(params: &mut [ParamInfo], ids: &BTreeMap<String, String>) {
 
 /// Whether a device's parameter is one of the host's (see `paw_engine::host`):
 /// the last two, by those keys.
-pub fn is_host(params: &[ParamInfo], index: usize) -> bool {
+pub(crate) fn is_host(params: &[ParamInfo], index: usize) -> bool {
     index + 2 >= params.len()
         && params
             .get(index)

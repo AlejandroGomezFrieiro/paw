@@ -19,6 +19,7 @@ use std::rc::Rc;
 use mlua::serde::DeserializeOptions;
 use mlua::{Lua, LuaSerdeExt, Table, Value as LuaValue};
 use paw_scene::cells::{Rect, Style};
+use paw_scene::color::Rgba;
 use paw_scene::{Axis, Kind, Map, Node, Picture, Plane, Scene};
 use serde::Deserialize;
 use serde_json::Value;
@@ -65,7 +66,7 @@ struct Building {
 }
 
 #[derive(Default)]
-pub struct Scenes {
+pub(crate) struct Scenes {
     building: Option<Building>,
     /// What each connection was last sent of each window's scene.
     kept: HashMap<(u64, String), Scene>,
@@ -158,7 +159,7 @@ impl Building {
 
 impl Scenes {
     /// Text written to the grid: a run, while a view is drawn for a scene.
-    pub fn text(&mut self, clip: Rect, x: i32, y: i32, text: &str, style: Style) {
+    pub(crate) fn text(&mut self, clip: Rect, x: i32, y: i32, text: &str, style: Style) {
         let Some(b) = self.building.as_mut().filter(|b| b.recording) else { return };
         let cols = text.width() as i32;
         let area = Rect { x, y, w: cols, h: 1 };
@@ -174,7 +175,7 @@ impl Scenes {
     }
 
     /// An area restyled or filled: a fill, while a view is drawn for a scene.
-    pub fn fill(&mut self, clip: Rect, area: Rect, ch: Option<char>, style: Style) {
+    pub(crate) fn fill(&mut self, clip: Rect, area: Rect, ch: Option<char>, style: Style) {
         let Some(b) = self.building.as_mut().filter(|b| b.recording) else { return };
         if !b.visible(clip, area) {
             return;
@@ -354,7 +355,7 @@ struct OpenOpts {
     into: Option<String>,
 }
 
-pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> {
+pub(crate) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> {
     let sh = shared.clone();
     // Start a scene `w` by `h` units big, for `scene_draw` and
     // `scene_picture` to put nodes in.
@@ -455,7 +456,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
             let mut scenes = sh.scenes.borrow_mut();
             if let Some(b) = scenes.building.as_mut() {
                 b.scene.cursor = cursor.map(|(x, y)| [x as f32, y as f32]);
-                (b.scene.fg, b.scene.bg) = (paw_scene::cells::hex(fg), paw_scene::cells::hex(bg));
+                (b.scene.fg, b.scene.bg) = (Rgba::from(fg).to_string(), Rgba::from(bg).to_string());
             }
             Ok(())
         }))?,

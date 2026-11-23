@@ -7,7 +7,7 @@ use super::*;
 /// What `paw.api.device_find` looks for; each part is optional.
 #[derive(Default, serde::Deserialize)]
 #[serde(default)]
-pub struct DeviceQuery {
+pub(crate) struct DeviceQuery {
     pub kind: Option<String>,
     pub format: Option<String>,
     pub id: Option<String>,
@@ -26,7 +26,7 @@ fn type_json(info: &paw_engine::DeviceInfo) -> Value {
 }
 
 impl Session {
-    pub fn device_types(&self) -> Value {
+    pub(crate) fn device_types(&self) -> Value {
         Value::Array(self.registry.iter().map(|f| type_json(f.info())).collect())
     }
 
@@ -35,7 +35,7 @@ impl Session {
     /// and vendor, else by name in any case. Each test looks only at the
     /// kinds of `format` when it is given. The list of all kinds is not
     /// made, so this is quick with many plugins.
-    pub fn device_find(&self, q: &DeviceQuery) -> Vec<Value> {
+    pub(crate) fn device_find(&self, q: &DeviceQuery) -> Vec<Value> {
         // A word that names no format (`vst`) finds nothing.
         let format = q.format.as_deref().map(|f| match f.to_ascii_lowercase().as_str() {
             "built in" | "built-in" => Some(DeviceFormat::Builtin),
@@ -131,7 +131,7 @@ impl Session {
         (params, infos)
     }
 
-    pub fn device_view(&self, id: Id) -> Result<Value> {
+    pub(crate) fn device_view(&self, id: Id) -> Result<Value> {
         let (track, index) = self
             .doc.project
             .find_device(id)
@@ -200,7 +200,7 @@ impl Session {
         }))
     }
 
-    pub fn device_add(&mut self, track: Id, kind: &str, opts: DeviceOpts) -> Result<Id> {
+    pub(crate) fn device_add(&mut self, track: Id, kind: &str, opts: DeviceOpts) -> Result<Id> {
         if self.registry.get(kind).is_none() {
             bail!("no device kind `{kind}`");
         }
@@ -284,7 +284,7 @@ impl Session {
 
     /// A parameter of a loaded device as [`param_json`] describes it, with
     /// its value now and that value as the device writes it.
-    pub fn device_param(&mut self, id: Id, name: &str) -> Result<Value> {
+    pub(crate) fn device_param(&mut self, id: Id, name: &str) -> Result<Value> {
         let param = self.param_info(id, name)?;
         let view = self.device_view(id)?;
         let at = view["param_info"]
@@ -300,7 +300,7 @@ impl Session {
 
     /// A value of a parameter as text: as the device writes it (a plugin's
     /// own "440 Hz"), else as [`ParamInfo::format`] does.
-    pub fn param_text(&mut self, id: Id, name: &str, value: f64) -> Result<String> {
+    pub(crate) fn param_text(&mut self, id: Id, name: &str, value: f64) -> Result<String> {
         let value = finite("a parameter value", value)?;
         let param = self.param_info(id, name)?;
         let live = self.live.get_mut(&id).context("the device is not loaded")?;
@@ -316,7 +316,7 @@ impl Session {
 
     /// The value a text stands for, for a parameter: as the device reads
     /// it, else as [`ParamInfo::parse`] does.
-    pub fn param_parse(&mut self, id: Id, name: &str, text: &str) -> Result<f64> {
+    pub(crate) fn param_parse(&mut self, id: Id, name: &str, text: &str) -> Result<f64> {
         let param = self.param_info(id, name)?;
         let live = self.live.get_mut(&id).context("the device is not loaded")?;
         let at = find_param(&live.params, &param.key).unwrap();
@@ -331,7 +331,7 @@ impl Session {
     }
 
     /// Set a parameter by key, or by its display name.
-    pub fn device_set_param(&mut self, id: Id, name: &str, value: f64) -> Result<()> {
+    pub(crate) fn device_set_param(&mut self, id: Id, name: &str, value: f64) -> Result<()> {
         let value = finite("a parameter value", value)?;
         let param = self.param_info(id, name)?;
         let key = param.key.clone();
@@ -364,7 +364,7 @@ impl Session {
     /// Parameters set through the project are not read back from the plugin:
     /// the project is the authority for those, and they are applied again on
     /// top of the state whenever the plugin is recreated.
-    pub fn capture_states(&mut self) {
+    pub(crate) fn capture_states(&mut self) {
         self.flush();
         let mut captured = Vec::new();
         let mut kept = Vec::new();
@@ -422,7 +422,7 @@ impl Session {
     /// A plugin's state as it is now, base64 encoded, for making a copy of
     /// the device with [`DeviceOpts::state`]. None for devices that keep no
     /// state beyond their parameters.
-    pub fn device_state(&mut self, id: Id) -> Result<Option<String>> {
+    pub(crate) fn device_state(&mut self, id: Id) -> Result<Option<String>> {
         self.doc.project
             .find_device(id)
             .with_context(|| format!("no device {id}"))?;
@@ -439,7 +439,7 @@ impl Session {
     /// parameters the preset sets, and its name, kept as `meta.preset`.
     /// With `factory`, the plugin first loads one of its own presets by that
     /// id, and the state it has then is what is kept.
-    pub fn device_load(&mut self, id: Id, load: PresetLoad) -> Result<()> {
+    pub(crate) fn device_load(&mut self, id: Id, load: PresetLoad) -> Result<()> {
         self.doc.project
             .find_device(id)
             .with_context(|| format!("no device {id}"))?;
@@ -523,7 +523,7 @@ impl Session {
     /// Start a device again that has stopped working, or that never loaded:
     /// a new instance, with the state the project last had of it and the
     /// parameters set in the project. The project itself does not change.
-    pub fn device_restart(&mut self, id: Id) -> Result<()> {
+    pub(crate) fn device_restart(&mut self, id: Id) -> Result<()> {
         let (track, _) = self
             .doc.project
             .find_device(id)
@@ -579,7 +579,7 @@ impl Session {
 
     /// Housekeeping for plugins: runs their editors and picks up what they
     /// changed by themselves. Call regularly from the main thread.
-    pub fn idle(&mut self) {
+    pub(crate) fn idle(&mut self) {
         // A take whose file could not be written stops; what it has is kept.
         if self.rec.take.as_ref().is_some_and(|t| t.shared.failed()) {
             self.stop();
@@ -723,7 +723,7 @@ impl Session {
     }
 
     /// Show or hide a plugin's own window. Returns whether it is open afterwards.
-    pub fn device_editor(&mut self, id: Id, open: Option<bool>) -> Result<bool> {
+    pub(crate) fn device_editor(&mut self, id: Id, open: Option<bool>) -> Result<bool> {
         self.flush();
         self.await_device(id);
         let (track, _) = self
@@ -761,7 +761,7 @@ impl Session {
     /// What a plugin calls its keys (CLAP's `note-name`: a drum, a
     /// keyswitch), by pitch; nothing when it names none, is no CLAP plugin,
     /// or is not made yet. Asked as views are drawn, so it waits for nothing.
-    pub fn device_note_names(&mut self, id: Id) -> BTreeMap<u8, String> {
+    pub(crate) fn device_note_names(&mut self, id: Id) -> BTreeMap<u8, String> {
         let clap = self
             .doc.project
             .device(id)
@@ -785,7 +785,7 @@ impl Session {
             .collect()
     }
 
-    pub fn device_call(&mut self, id: Id, method: &str, data: &[u8]) -> Result<Vec<u8>> {
+    pub(crate) fn device_call(&mut self, id: Id, method: &str, data: &[u8]) -> Result<Vec<u8>> {
         self.flush();
         self.await_device(id);
         let kind = &self
@@ -801,7 +801,7 @@ impl Session {
     }
 
     /// Whether any device needs [`idle`](Self::idle) to be called.
-    pub fn needs_idle(&self) -> bool {
+    pub(crate) fn needs_idle(&self) -> bool {
         self.live.values().any(|live| live.controller.is_some())
             || self.loads.busy()
             || self.watching()

@@ -27,19 +27,19 @@ use crate::model::{
 use crate::sync::{AudioCache, Follow, LiveDevices, Mapper, SyncCtx, sync};
 
 mod document;
-pub use document::{ControlMove, Document, ParamRange, notes};
+pub(crate) use document::{Document, notes};
 mod editing;
 mod project;
 mod tracks;
 mod devices;
-pub use devices::DeviceQuery;
+pub(crate) use devices::DeviceQuery;
 mod clips;
 mod automation;
 mod transport;
 mod recording;
 use recording::Recorder;
 mod midi_in;
-pub use midi_in::FilterRule;
+pub(crate) use midi_in::FilterRule;
 mod engine;
 mod audition;
 mod clipops;
@@ -50,31 +50,26 @@ pub mod folder;
 pub mod project_files;
 mod undo_file;
 mod keep;
-pub mod cues;
+pub(crate) mod cues;
 mod loading;
-pub mod media;
+pub(crate) mod media;
 mod midi_out;
 mod promote;
 mod save;
 mod export;
 mod schedule;
-pub use schedule::Work;
-pub use save::SaveOpts;
-pub use document::NestOpts;
-pub use export::ExportOpts;
 mod monitor;
 mod statelanes;
 mod stretching;
-pub use loading::OpenOpts;
-pub mod offline;
+pub(crate) mod offline;
 pub mod panic;
 mod ports;
 mod posts;
-pub mod render;
-pub mod tags;
+pub(crate) mod render;
+pub(crate) mod tags;
 mod undo;
 mod watch;
-pub use watch::Lost;
+pub(crate) use watch::Lost;
 mod write;
 use undo::new_history;
 
@@ -85,7 +80,7 @@ const MAX_PEAKS: usize = 1 << 16;
 /// Transport settings that are saved with the project but are not undoable.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
-pub struct Transport {
+pub(crate) struct Transport {
     pub loop_enabled: bool,
     pub loop_start: f64,
     pub loop_end: f64,
@@ -159,7 +154,7 @@ struct ProjectFile {
 /// merged from three in a script. It goes through the model, so that it has
 /// the form and the key order `project_save` writes (two writers that agree
 /// make small diffs) and cannot be a file that does not load.
-pub fn project_file_text(value: Value) -> Result<String> {
+pub(crate) fn project_file_text(value: Value) -> Result<String> {
     let file: ProjectFile = serde_json::from_value(value).context("not a project file")?;
     if file.version > FILE_VERSION {
         bail!("the file is of a newer version");
@@ -170,7 +165,7 @@ pub fn project_file_text(value: Value) -> Result<String> {
 
 #[derive(Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct TrackOpts {
+pub(crate) struct TrackOpts {
     pub name: Option<String>,
     /// Position among the tracks of its place (the song, or its
     /// subproject), counting from 1. Appended when absent.
@@ -186,7 +181,7 @@ pub struct TrackOpts {
 /// What `paw.api.track_list` takes: the tracks of the song when empty.
 #[derive(Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct TrackListOpts {
+pub(crate) struct TrackListOpts {
     /// The tracks of this subproject, without its master.
     pub nest: Option<crate::model::NestId>,
     /// Every track: the song's and those of each subproject.
@@ -195,7 +190,7 @@ pub struct TrackListOpts {
 
 #[derive(Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct PresetLoad {
+pub(crate) struct PresetLoad {
     /// The preset's name, shown with the device.
     pub name: Option<String>,
     /// The plugin's state, base64 encoded.
@@ -211,14 +206,14 @@ pub struct PresetLoad {
 
 #[derive(Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct LoadCall {
+pub(crate) struct LoadCall {
     pub method: String,
     pub data: String,
 }
 
 #[derive(Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct DeviceOpts {
+pub(crate) struct DeviceOpts {
     /// Position in the chain, counting from 1. Appended when absent.
     pub index: Option<usize>,
     pub params: BTreeMap<String, f64>,
@@ -232,7 +227,7 @@ pub struct DeviceOpts {
 /// where the clip is added (`Document::clip_kinds`).
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 #[serde(try_from = "String")]
-pub enum ClipKind {
+pub(crate) enum ClipKind {
     Midi,
     Audio,
     /// A subproject placed here (`nest`, `play`, `offset` of [`ClipOpts`]).
@@ -276,7 +271,7 @@ impl TryFrom<String> for ClipKind {
 /// What a new lane automates: `volume`, `pan`, `param` or `state` in Lua.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase", try_from = "String")]
-pub enum LaneKind {
+pub(crate) enum LaneKind {
     Volume,
     Pan,
     Param,
@@ -307,7 +302,7 @@ impl TryFrom<String> for LaneKind {
 
 #[derive(Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct ClipOpts {
+pub(crate) struct ClipOpts {
     /// Inferred from `file` when absent.
     pub kind: Option<ClipKind>,
     pub name: Option<String>,
@@ -362,7 +357,7 @@ pub struct ClipOpts {
 /// absent.
 #[derive(Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct CustomSet {
+pub(crate) struct CustomSet {
     pub data: Option<KindData>,
     pub version: Option<u32>,
     pub timeline: Option<Timeline>,
@@ -374,7 +369,7 @@ pub struct CustomSet {
 
 #[derive(Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct LaneOpts {
+pub(crate) struct LaneOpts {
     /// Required: a missing target fails like an unknown one.
     pub target: Option<LaneKind>,
     /// For `param`: the device, on the same track, and its parameter by key or name.
@@ -388,7 +383,7 @@ pub struct LaneOpts {
 
 #[derive(Clone, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct RenderOpts {
+pub(crate) struct RenderOpts {
     pub start: f64,
     /// Beat to stop at. Defaults to the end of the last clip.
     pub end: Option<f64>,
@@ -475,7 +470,7 @@ impl Default for RenderOpts {
     }
 }
 
-pub struct Session {
+pub(crate) struct Session {
     /// The project, its edits and its undo tree: see `session/document.rs`.
     pub doc: Document,
     /// The project as the engine last saw it.
@@ -559,7 +554,7 @@ struct Shelf {
 /// The rest of what [`Session::audio_use`] can change: the sound system
 /// and the sample rate (0 for the device's own).
 #[derive(Default)]
-pub struct AudioChoice {
+pub(crate) struct AudioChoice {
     pub backend: Option<String>,
     pub rate: Option<u32>,
 }
@@ -597,7 +592,7 @@ fn de<T: DeserializeOwned>(key: &str, value: Value) -> Result<T> {
 }
 
 impl Session {
-    pub fn new(opts: &BackendOptions, registry: Registry) -> Result<Self> {
+    pub(crate) fn new(opts: &BackendOptions, registry: Registry) -> Result<Self> {
         let (handle, stream) = start_engine(opts)?;
         let doc = Document::default();
         let mut session = Self {
@@ -761,7 +756,7 @@ fn start_engine(opts: &BackendOptions) -> Result<(EngineHandle, Stream)> {
 
 /// Processing times per engine callback, in milliseconds.
 #[derive(Clone, Copy, Debug, Serialize)]
-pub struct BlockTimes {
+pub(crate) struct BlockTimes {
     pub count: u64,
     pub mean: f64,
     pub max: f64,
@@ -773,7 +768,7 @@ pub struct BlockTimes {
 }
 
 impl BlockTimes {
-    pub fn new(s: &paw_engine::BlockSummary, sample_rate: u32) -> Self {
+    pub(crate) fn new(s: &paw_engine::BlockSummary, sample_rate: u32) -> Self {
         let ms = |ns: f64| ns / 1e6;
         let per_call = |n: u64| if s.count > 0 { n as f64 / s.count as f64 } else { 0.0 };
         Self {
@@ -813,7 +808,7 @@ fn find_param(params: &[ParamInfo], name: &str) -> Option<usize> {
 }
 
 /// Sample rates an engine or a render can run at.
-pub fn check_sample_rate(rate: u32) -> Result<()> {
+pub(crate) fn check_sample_rate(rate: u32) -> Result<()> {
     if !(8000..=384_000).contains(&rate) {
         bail!("a sample rate of {rate} Hz is not supported: use 8000 to 384000");
     }
@@ -875,7 +870,7 @@ fn check_fade(beats: f64) -> Result<f64> {
 /// A warp marker as a clip's description gives it: with the beat of the
 /// song it is at.
 #[derive(Serialize)]
-pub struct WarpView {
+pub(crate) struct WarpView {
     source: f64,
     target: f64,
     beat: f64,
@@ -885,7 +880,7 @@ pub struct WarpView {
 /// its notes or its sound, made straight into Lua with no JSON between.
 /// What does not apply to its kind is left out.
 #[derive(Serialize)]
-pub struct ClipView<'a> {
+pub(crate) struct ClipView<'a> {
     id: Id,
     name: &'a str,
     start: f64,

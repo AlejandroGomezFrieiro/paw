@@ -9,7 +9,7 @@ use crate::music::{Meter, name, num};
 
 /// The items of a JSON array; an empty Lua table arrives as `{}`, so
 /// anything that is not an array is no items.
-pub fn items(value: &Value) -> &[Value] {
+pub(crate) fn items(value: &Value) -> &[Value] {
     value.as_array().map(Vec::as_slice).unwrap_or(&[])
 }
 
@@ -22,12 +22,12 @@ fn s(value: &Value) -> &str {
 }
 
 /// `8 (3.1)`: beats, and where that is in bars.
-pub fn at(beats: f64, meter: &Meter) -> String {
+pub(crate) fn at(beats: f64, meter: &Meter) -> String {
     format!("{} ({})", num(beats), meter.format(beats))
 }
 
 /// A length in beats, with bars when it is a whole number of them.
-pub fn span(beats: f64, meter: &Meter) -> String {
+pub(crate) fn span(beats: f64, meter: &Meter) -> String {
     let bars = beats / meter.bar();
     if (bars - bars.round()).abs() < 1e-6 && bars >= 1.0 {
         let n = bars.round() as i64;
@@ -41,11 +41,11 @@ pub fn span(beats: f64, meter: &Meter) -> String {
     }
 }
 
-pub fn db(value: f64) -> String {
+pub(crate) fn db(value: f64) -> String {
     format!("{} dB", num((value * 10.0).round() / 10.0))
 }
 
-pub fn messages(out: &mut String, list: &Value) {
+pub(crate) fn messages(out: &mut String, list: &Value) {
     let list = items(list);
     if list.is_empty() {
         return;
@@ -64,7 +64,7 @@ pub fn messages(out: &mut String, list: &Value) {
 }
 
 /// The loudness a render or a file measured: `loudness: -14.2 LUFS ...`.
-pub fn loudness(l: &Value) -> Option<String> {
+pub(crate) fn loudness(l: &Value) -> Option<String> {
     if !l.is_object() {
         return None;
     }
@@ -86,7 +86,7 @@ pub fn loudness(l: &Value) -> Option<String> {
     Some(out)
 }
 
-pub fn transport(t: &Value, meter: &Meter) -> String {
+pub(crate) fn transport(t: &Value, meter: &Meter) -> String {
     let mut out = format!(
         "{} at {}",
         if t["playing"].as_bool() == Some(true) {
@@ -116,7 +116,7 @@ pub fn transport(t: &Value, meter: &Meter) -> String {
     out
 }
 
-pub fn project_header(p: &Value, meter: &Meter) -> String {
+pub(crate) fn project_header(p: &Value, meter: &Meter) -> String {
     let file = match p["path"].as_str() {
         Some(path) => format!("file {path}"),
         None => "never saved".into(),
@@ -176,7 +176,7 @@ fn tempo_changes(p: &Value, meter: &Meter) -> String {
     format!("{ramp} · then {}", list.join(", "))
 }
 
-pub fn project(p: &Value) -> String {
+pub(crate) fn project(p: &Value) -> String {
     let meter = Meter::from_project(p);
     let mut out = project_header(p, &meter);
     let _ = writeln!(out, "\nTransport: {}", transport(&p["transport"], &meter));
@@ -197,7 +197,7 @@ pub fn project(p: &Value) -> String {
 }
 
 /// `[id 2] region "Chorus" at 9.1, 8 beats = 2 bars, to 11.1`.
-pub fn marker_line(m: &Value, meter: &Meter) -> String {
+pub(crate) fn marker_line(m: &Value, meter: &Meter) -> String {
     let beat = f(&m["beat"]);
     let mut line = format!(
         "[id {}] {} \"{}\" at {}",
@@ -258,7 +258,7 @@ fn track_line(t: &Value, meter: &Meter) -> String {
     line
 }
 
-pub fn track(out: &mut String, t: &Value, meter: &Meter, detail: bool) {
+pub(crate) fn track(out: &mut String, t: &Value, meter: &Meter, detail: bool) {
     let _ = writeln!(out, "{}", track_line(t, meter));
     let sends = items(&t["sends"]);
     if !sends.is_empty() {
@@ -326,7 +326,7 @@ fn device_short(d: &Value) -> String {
     text
 }
 
-pub fn clip_line(c: &Value, meter: &Meter) -> String {
+pub(crate) fn clip_line(c: &Value, meter: &Meter) -> String {
     let start = f(&c["start"]);
     let length = f(&c["length"]);
     let mut line = format!(
@@ -364,7 +364,7 @@ pub fn clip_line(c: &Value, meter: &Meter) -> String {
 }
 
 /// A clip, and its notes when they are there.
-pub fn clip(out: &mut String, c: &Value, meter: &Meter) {
+pub(crate) fn clip(out: &mut String, c: &Value, meter: &Meter) {
     let _ = writeln!(out, "{}", clip_line(c, meter));
     if let Some(track) = c["track_name"].as_str() {
         let _ = writeln!(out, "on track \"{track}\" [id {}]", f(&c["track"]));
@@ -427,7 +427,7 @@ fn param_value(p: &Value) -> String {
 }
 
 /// A device with its parameters, at most `limit` of them.
-pub fn device(out: &mut String, d: &Value, indent: &str, limit: usize) {
+pub(crate) fn device(out: &mut String, d: &Value, indent: &str, limit: usize) {
     let _ = writeln!(
         out,
         "{indent}{} · {} format · position {} in the chain of track [id {}]",
@@ -471,7 +471,7 @@ pub fn device(out: &mut String, d: &Value, indent: &str, limit: usize) {
     }
 }
 
-pub fn lane(l: &Value, meter: &Meter) -> String {
+pub(crate) fn lane(l: &Value, meter: &Meter) -> String {
     let target = match s(&l["target"]) {
         "param" => format!(
             "device [id {}] parameter {}",

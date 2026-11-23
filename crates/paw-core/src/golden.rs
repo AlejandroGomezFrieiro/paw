@@ -11,7 +11,7 @@ use crate::clipfile;
 /// `== <path in dir> (<n> bytes)`, then the file. A `.midi2` clip shows as
 /// `paw clip cat` shows it (`clipfile::text`), other text as it is, and
 /// other bytes not at all.
-pub fn folder_text(dir: &Path) -> String {
+pub(crate) fn folder_text(dir: &Path) -> String {
     let mut files = Vec::new();
     collect(dir, dir, &mut files);
     files.sort();
@@ -49,7 +49,7 @@ fn collect(dir: &Path, at: &Path, out: &mut Vec<String>) {
 /// The settings for a snapshot of files in `dir`: the path of `dir` is
 /// `[dir]`, and a BLAKE3 hash shows as its first eight digits (they still
 /// tell which blobs are the same).
-pub fn settings(dir: &Path) -> insta::Settings {
+pub(crate) fn settings(dir: &Path) -> insta::Settings {
     let mut settings = insta::Settings::clone_current();
     settings.add_filter(&escape(&dir.to_string_lossy()), "[dir]");
     settings.add_filter(r"\b([0-9a-f]{8})[0-9a-f]{56}\b", "$1…");

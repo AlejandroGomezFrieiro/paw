@@ -25,7 +25,7 @@ const TIDY_PAST: usize = 100_000;
 
 /// What says that a file is still the one that was hashed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Stamp {
+pub(crate) struct Stamp {
     pub size: u64,
     /// The change time, in nanoseconds since 1970.
     pub mtime: i128,
@@ -33,7 +33,7 @@ pub struct Stamp {
 }
 
 impl Stamp {
-    pub fn of(meta: &std::fs::Metadata) -> Self {
+    pub(crate) fn of(meta: &std::fs::Metadata) -> Self {
         Self {
             size: meta.len(),
             mtime: i128::from(meta.mtime()) * 1_000_000_000 + i128::from(meta.mtime_nsec()),
@@ -42,7 +42,7 @@ impl Stamp {
     }
 
     /// The stamp of the file at `path`, when it is a file.
-    pub fn read(path: &Path) -> Option<Self> {
+    pub(crate) fn read(path: &Path) -> Option<Self> {
         std::fs::metadata(path)
             .ok()
             .filter(std::fs::Metadata::is_file)
@@ -52,7 +52,7 @@ impl Stamp {
 
 /// The hashes this machine knows, by absolute path.
 #[derive(Debug, Default)]
-pub struct LocalIndex {
+pub(crate) struct LocalIndex {
     /// Where it is kept; `None` keeps it in memory only.
     file: Option<PathBuf>,
     entries: HashMap<PathBuf, (Stamp, SourceHash)>,
@@ -62,13 +62,13 @@ pub struct LocalIndex {
 
 impl LocalIndex {
     /// `$XDG_STATE_HOME/paw/media-index`.
-    pub fn default_file(dirs: &paw_proto::dirs::Dirs) -> PathBuf {
+    pub(crate) fn default_file(dirs: &paw_proto::dirs::Dirs) -> PathBuf {
         dirs.paw_state().join("media-index")
     }
 
     /// The index kept in `file`, with what it holds now. A file that cannot
     /// be read is an empty index (it is only a shortcut).
-    pub fn open(file: Option<PathBuf>) -> Self {
+    pub(crate) fn open(file: Option<PathBuf>) -> Self {
         let entries = file
             .as_deref()
             .and_then(|f| std::fs::read_to_string(f).ok())
@@ -78,14 +78,14 @@ impl LocalIndex {
     }
 
     /// The hash of the file at `path`, when it is still as it was hashed.
-    pub fn get(&self, path: &Path, stamp: &Stamp) -> Option<SourceHash> {
+    pub(crate) fn get(&self, path: &Path, stamp: &Stamp) -> Option<SourceHash> {
         self.entries
             .get(path)
             .filter(|(s, _)| s == stamp)
             .map(|(_, h)| *h)
     }
 
-    pub fn put(&mut self, path: PathBuf, stamp: Stamp, hash: SourceHash) {
+    pub(crate) fn put(&mut self, path: PathBuf, stamp: Stamp, hash: SourceHash) {
         if self.entries.get(&path) != Some(&(stamp, hash)) {
             self.entries.insert(path, (stamp, hash));
             self.changed = true;
@@ -94,7 +94,7 @@ impl LocalIndex {
 
     /// Write what was learned, merged with what another program wrote in the
     /// meantime (ours wins), in full beside the file and then renamed over it.
-    pub fn save(&mut self) -> io::Result<()> {
+    pub(crate) fn save(&mut self) -> io::Result<()> {
         let Some(file) = self.file.clone().filter(|_| self.changed) else {
             return Ok(());
         };

@@ -162,13 +162,13 @@ impl FileWatch {
     }
 
     /// Note what paw wrote to (or moved away from) a path.
-    pub fn wrote(&mut self, path: PathBuf, bytes: Option<&[u8]>) {
+    pub(super) fn wrote(&mut self, path: PathBuf, bytes: Option<&[u8]>) {
         self.written.insert(path, hash_of(bytes));
     }
 
     /// Read what happened. Returns the files changed outside paw, once a
     /// burst of changes has settled.
-    pub fn poll(&mut self) -> Option<Vec<PathBuf>> {
+    pub(super) fn poll(&mut self) -> Option<Vec<PathBuf>> {
         let fd = self.fd.as_ref()?;
         let mut buf = [MaybeUninit::<u8>::uninit(); 8192];
         let mut events = inotify::Reader::new(fd, &mut buf);
@@ -268,7 +268,7 @@ fn keep_same(old: &Project, new: &mut Project) {
 }
 
 mod erased {
-    pub trait Json {
+    pub(super) trait Json {
         fn json(&self) -> serde_json::Value;
     }
     impl<T: serde::Serialize> Json for T {
@@ -348,7 +348,7 @@ impl super::Session {
 
     /// The files changed outside paw that are not acted on yet: paths in
     /// the folder, or full paths outside it.
-    pub fn changed_files(&self) -> Vec<PathBuf> {
+    pub(crate) fn changed_files(&self) -> Vec<PathBuf> {
         let root = self.files_watch.root.as_ref();
         self.files_watch
             .changed
@@ -363,14 +363,14 @@ impl super::Session {
 
     /// Keep the project as paw has it, whatever changed on the disk: the
     /// next save writes it over those files.
-    pub fn keep_changed_files(&mut self) {
+    pub(crate) fn keep_changed_files(&mut self) {
         self.files_watch.changed.clear();
     }
 
     /// Read the project's folder again, as one undo step: what changed on
     /// the disk replaces what paw has. The parts that did not change stay
     /// as they are, so their plugins keep running.
-    pub fn project_reload(&mut self) -> Result<()> {
+    pub(crate) fn project_reload(&mut self) -> Result<()> {
         let Some(file) = self
             .path
             .clone()

@@ -40,7 +40,7 @@ struct Shown {
     pieces: HashMap<u64, Option<u64>>,
 }
 
-pub struct Graphics {
+pub(crate) struct Graphics {
     images: Images,
     /// The terminal puts images above text well: the overlay is an image
     /// of its own (a sprite) rather than baked into the page.
@@ -55,7 +55,7 @@ fn depth(under: bool) -> (i32, i32) {
 }
 
 impl Graphics {
-    pub fn new(transfer: Transfer, layered: bool) -> Self {
+    pub(crate) fn new(transfer: Transfer, layered: bool) -> Self {
         Self {
             images: Images::new(transfer),
             layered,
@@ -64,7 +64,7 @@ impl Graphics {
     }
 
     /// Delete every image: on a change of size and when leaving.
-    pub fn clear(&mut self, out: &mut Vec<u8>) {
+    pub(crate) fn clear(&mut self, out: &mut Vec<u8>) {
         self.images.clear(out);
         self.surfaces.clear();
     }
@@ -73,7 +73,7 @@ impl Graphics {
     /// cells: `written(x, y)` says whether the cell at a screen position
     /// was written in this frame, which takes an image away from it in
     /// some terminals, so whatever is placed there is placed again.
-    pub fn frame(&mut self, out: &mut Vec<u8>, grid: &Grid, written: impl Fn(i32, i32) -> bool) {
+    pub(crate) fn frame(&mut self, out: &mut Vec<u8>, grid: &Grid, written: impl Fn(i32, i32) -> bool) {
         self.images.begin();
         for surface in &grid.surfaces {
             self.surface(out, surface, &written);
@@ -201,7 +201,7 @@ impl Graphics {
 /// off something sends no pixels. A selection, which spans rows, is
 /// painted, with the drawing over it.
 #[derive(Default)]
-pub struct Backing {
+pub(crate) struct Backing {
     /// By strip, the colour each cell of the whole strip last had in its
     /// picture.
     seen: HashMap<String, HashMap<(i32, i32), Color>>,
@@ -210,7 +210,7 @@ pub struct Backing {
 impl Backing {
     /// The grid as such a terminal is shown it; nothing when it has no
     /// strip under the text.
-    pub fn backed(&mut self, grid: &Grid) -> Option<Grid> {
+    pub(crate) fn backed(&mut self, grid: &Grid) -> Option<Grid> {
         if !grid.surfaces.iter().any(|s| s.under) {
             self.seen.clear();
             return None;
@@ -318,7 +318,7 @@ fn placement(key: &str, part: Cells) -> String {
 
 /// Whether the cell at a screen position shows a surface's pixels over
 /// its text: the terminal's cursor is not shown there.
-pub fn under_pixels(grid: &Grid, x: u16, y: u16) -> bool {
+pub(crate) fn under_pixels(grid: &Grid, x: u16, y: u16) -> bool {
     grid.surfaces.iter().filter(|s| !s.under).any(|s| {
         let (col, row) = (x as i32 - s.rect.x, y as i32 - s.rect.y);
         col >= 0 && row >= 0 && col < s.rect.w && row < s.rect.h && !s.is_covered(col as u16, row as u16)

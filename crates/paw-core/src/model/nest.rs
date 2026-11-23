@@ -37,11 +37,11 @@ use super::{Clip, ClipContent, Control, Id, Lane, MASTER_ID, Note, Notes, Projec
 mod adopt;
 mod standalone;
 mod time;
-pub use standalone::Standalone;
-pub use time::{Timing, timed_lane};
+pub(crate) use standalone::Standalone;
+pub(crate) use time::{Timing, timed_lane};
 
 /// The most nests inside each other: a song clip places a nest at depth 1.
-pub const MAX_DEPTH: usize = 8;
+pub(crate) const MAX_DEPTH: usize = 8;
 
 /// A nest's own id, never reused in the project. Nests take their ids from
 /// the same counter as tracks and clips.
@@ -57,7 +57,7 @@ impl fmt::Display for NestId {
 
 /// A set of tracks with a timeline of its own.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Nest {
+pub(crate) struct Nest {
     pub id: NestId,
     pub name: String,
     /// Beats (quarter notes) from its start to its end.
@@ -89,7 +89,7 @@ pub struct Nest {
 /// The tempo of a nest's timeline.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "mode", rename_all = "lowercase")]
-pub enum NestTempo {
+pub(crate) enum NestTempo {
     /// The tempo of the place where each clip plays it. `kept` is the
     /// song's map over the nest when it was made, for `own` and export.
     Follow {
@@ -109,7 +109,7 @@ impl Default for NestTempo {
 /// The meter of a nest's timeline.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "mode", rename_all = "lowercase")]
-pub enum NestMeter {
+pub(crate) enum NestMeter {
     /// The song's meter at the place where each clip plays it.
     #[default]
     Follow,
@@ -131,7 +131,7 @@ pub enum NestPlay {
 /// How audio goes from one track to another, for the messages of the
 /// closed boundary.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Route {
+pub(crate) enum Route {
     Output,
     Send,
     /// A device on the second track listens to the first.
@@ -156,7 +156,7 @@ impl Route {
 /// the id `id`. None when nothing of it is inside the window, or when it is
 /// cut at its start and cannot be: a looped clip, an audio clip, a custom
 /// clip's sound. A nest clip cut at its start starts later in its nest.
-pub fn placed_clip(clip: &Clip, zero: f64, from: f64, to: f64, id: Id) -> Option<Clip> {
+pub(crate) fn placed_clip(clip: &Clip, zero: f64, from: f64, to: f64, id: Id) -> Option<Clip> {
     let start = zero + clip.start;
     let end = (start + clip.length).min(to);
     let first = start.max(from);
@@ -202,7 +202,7 @@ pub fn placed_clip(clip: &Clip, zero: f64, from: f64, to: f64, id: Id) -> Option
 /// `to` moved by `zero`, with the value it plays at each edge. The shapes
 /// of the curve inside a place move with it. The lane as it is when the
 /// nest has no place, or the lane no points.
-pub fn placed_lane(lane: &Lane, places: &[(f64, f64, f64)]) -> Lane {
+pub(crate) fn placed_lane(lane: &Lane, places: &[(f64, f64, f64)]) -> Lane {
     if places.is_empty() || lane.points.is_empty() {
         return lane.clone();
     }
@@ -217,7 +217,7 @@ pub fn placed_lane(lane: &Lane, places: &[(f64, f64, f64)]) -> Lane {
             points.push((beat + zero, value));
         }
         for s in lane.shapes.iter().filter(|s| s.beat > a && s.beat < b) {
-            shapes.push(super::Segment { beat: s.beat + zero, ..s.clone() });
+            shapes.push(super::Segment { beat: s.beat + zero, ..*s });
         }
         if to.is_finite() {
             points.push((to, lane.value_at(b)));
@@ -232,14 +232,14 @@ pub fn placed_lane(lane: &Lane, places: &[(f64, f64, f64)]) -> Lane {
 pub(super) mod as_list {
     use super::*;
 
-    pub fn serialize<S: Serializer>(
+    pub(crate) fn serialize<S: Serializer>(
         nests: &BTreeMap<NestId, Arc<Nest>>,
         s: S,
     ) -> std::result::Result<S::Ok, S::Error> {
         s.collect_seq(nests.values())
     }
 
-    pub fn deserialize<'de, D: Deserializer<'de>>(
+    pub(crate) fn deserialize<'de, D: Deserializer<'de>>(
         d: D,
     ) -> std::result::Result<BTreeMap<NestId, Arc<Nest>>, D::Error> {
         let list = Vec::<Nest>::deserialize(d)?;
@@ -254,22 +254,22 @@ pub(super) mod as_list {
 }
 
 impl Project {
-    pub fn nest(&self, id: NestId) -> Option<&Arc<Nest>> {
+    pub(crate) fn nest(&self, id: NestId) -> Option<&Arc<Nest>> {
         self.nests.get(&id)
     }
 
-    pub fn nest_mut(&mut self, id: NestId) -> Option<&mut Nest> {
+    pub(crate) fn nest_mut(&mut self, id: NestId) -> Option<&mut Nest> {
         self.nests.get_mut(&id).map(Arc::make_mut)
     }
 
     /// The tracks of a nest, its master included, in their order.
-    pub fn nest_tracks(&self, id: NestId) -> impl Iterator<Item = &Arc<Track>> {
+    pub(crate) fn nest_tracks(&self, id: NestId) -> impl Iterator<Item = &Arc<Track>> {
         self.tracks.iter().filter(move |t| t.nest == Some(id))
     }
 
     /// The song's own tracks (no nest's), in their order, without the
     /// master.
-    pub fn song_tracks(&self) -> impl Iterator<Item = &Arc<Track>> {
+    pub(crate) fn song_tracks(&self) -> impl Iterator<Item = &Arc<Track>> {
         self.tracks.iter().filter(|t| t.nest.is_none())
     }
 
@@ -284,7 +284,7 @@ impl Project {
 
     /// Whether audio may go from track `from` to track `to` by `route`
     /// across the boundary of a nest: an error that says why not.
-    pub fn check_route(&self, from: Id, to: Id, route: Route) -> Result<()> {
+    pub(crate) fn check_route(&self, from: Id, to: Id, route: Route) -> Result<()> {
         let (Some(a), Some(b)) = (self.track(from), self.track(to)) else {
             return Ok(());
         };
@@ -313,7 +313,7 @@ impl Project {
 
     /// The tracks of a place: the song's (`None`) or a nest's, without the
     /// nest's master, in their order.
-    pub fn place_tracks(&self, place: Option<NestId>) -> impl Iterator<Item = &Arc<Track>> {
+    pub(crate) fn place_tracks(&self, place: Option<NestId>) -> impl Iterator<Item = &Arc<Track>> {
         let master = place.and_then(|n| self.nests.get(&n)).map(|n| n.master);
         self.tracks
             .iter()
@@ -323,7 +323,7 @@ impl Project {
     /// Where in the track list the track at `index` (from 0) among the
     /// tracks of a place goes: before the one there now, else after the
     /// place's last track, else at the end.
-    pub fn place_position(&self, place: Option<NestId>, index: usize) -> usize {
+    pub(crate) fn place_position(&self, place: Option<NestId>, index: usize) -> usize {
         let master = place.and_then(|n| self.nests.get(&n)).map(|n| n.master);
         let mut last = None;
         let mut count = 0;
@@ -343,7 +343,7 @@ impl Project {
     /// Whether nest `nest` may be placed by a clip on a track of `host`
     /// (the song when `None`): an error with the path when it would hold
     /// itself, or be more than [`MAX_DEPTH`] deep.
-    pub fn check_place(&self, nest: NestId, host: Option<NestId>) -> Result<()> {
+    pub(crate) fn check_place(&self, nest: NestId, host: Option<NestId>) -> Result<()> {
         let name = |n: NestId| self.nests.get(&n).map_or_else(|| n.to_string(), |x| x.name.clone());
         let Some(host) = host else {
             return Ok(());
@@ -396,7 +396,7 @@ impl Project {
     /// Give the song's blocks of nest `id` the length in song beats that
     /// their part of the nest takes, after the nest's tempo changed from
     /// `was`: each keeps its start and the beats of the nest it plays.
-    pub fn fit_blocks(&mut self, id: NestId, was: &Nest) {
+    pub(crate) fn fit_blocks(&mut self, id: NestId, was: &Nest) {
         let Some(now) = self.nests.get(&id).cloned() else {
             return;
         };
@@ -423,7 +423,7 @@ impl Project {
 
     /// The nests the song plays: those its clips place, and those their
     /// clips place, all the way down.
-    pub fn nests_in_use(&self) -> BTreeSet<NestId> {
+    pub(crate) fn nests_in_use(&self) -> BTreeSet<NestId> {
         let held = self.nests_held();
         let mut used = BTreeSet::new();
         let mut stack: Vec<NestId> = held.get(&None).into_iter().flatten().copied().collect();
@@ -461,7 +461,7 @@ pub(super) fn check(p: &Project) -> Result<()> {
 }
 
 /// One nest's own fields, and its master.
-pub fn check_nest(p: &Project, id: NestId, nest: &Nest) -> Result<()> {
+pub(crate) fn check_nest(p: &Project, id: NestId, nest: &Nest) -> Result<()> {
     if nest.id != id {
         bail!("the nest kept as {id} says it is {}", nest.id);
     }

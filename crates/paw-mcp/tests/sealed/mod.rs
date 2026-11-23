@@ -15,7 +15,7 @@ use std::process::Command;
 /// A variable that the caller set on `command` before this call stays as
 /// the caller set it. A test that loads a plugin can also set its own
 /// folder after this call.
-pub fn seal<'a>(command: &'a mut Command, dir: &Path) -> &'a mut Command {
+pub(crate) fn seal<'a>(command: &'a mut Command, dir: &Path) -> &'a mut Command {
     let empty = dir.join("no-plugins");
     let xdg = dir.join("xdg");
     // The runtime folder is `dir` itself: a socket path must fit in 108

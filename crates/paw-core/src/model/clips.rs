@@ -446,7 +446,7 @@ mod tests {
         assert_eq!(clips[0].id, 1);
         assert_eq!(clips[999].id, 1000);
         assert_eq!(ids(&clips), (1..=1000).collect::<Vec<_>>());
-        assert_eq!(clips.iter().rev().next().unwrap().id, 1000);
+        assert_eq!(clips.iter().next_back().unwrap().id, 1000);
         assert_eq!(clips.range(500..503).map(|c| c.id).collect::<Vec<_>>(), [501, 502, 503]);
         assert_eq!(clips.range(998..2000).count(), 2);
         assert_eq!(clips.range(0..0).count(), 0);

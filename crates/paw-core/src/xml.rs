@@ -38,7 +38,7 @@ fn utf8_of(text: &[u8]) -> Cow<'_, str> {
 
 /// Text with its references read: the five named entities and character
 /// references. Another entity (one a DTD defines) is kept as it is.
-pub fn unescape(raw: &str) -> Cow<'_, str> {
+pub(crate) fn unescape(raw: &str) -> Cow<'_, str> {
     if !raw.contains('&') {
         return Cow::Borrowed(raw);
     }
@@ -91,7 +91,7 @@ struct Open {
 
 /// Read a document into its root element; the error says what is wrong and
 /// at which byte.
-pub fn decode(lua: &Lua, bytes: &[u8], spans: bool, meta: Option<Table>) -> mlua::Result<Result<Table, String>> {
+pub(crate) fn decode(lua: &Lua, bytes: &[u8], spans: bool, meta: Option<Table>) -> mlua::Result<Result<Table, String>> {
     let text = utf8_of(bytes);
     // Spans are of the bytes as given: past a UTF-8 byte order mark, and
     // none for UTF-16 (read as UTF-8).
@@ -220,7 +220,7 @@ pub fn decode(lua: &Lua, bytes: &[u8], spans: bool, meta: Option<Table>) -> mlua
 
 /// Text made safe for XML: in an attribute's quotes, line ends and tabs
 /// are written as references too.
-pub fn escape(text: &str, attribute: bool) -> Cow<'_, str> {
+pub(crate) fn escape(text: &str, attribute: bool) -> Cow<'_, str> {
     let special = |c: char| matches!(c, '&' | '<' | '>') || (attribute && matches!(c, '"' | '\n' | '\r' | '\t'));
     if !text.contains(special) {
         return Cow::Borrowed(text);
@@ -241,7 +241,7 @@ pub fn escape(text: &str, attribute: bool) -> Cow<'_, str> {
     Cow::Owned(out)
 }
 
-pub struct EncodeOpts {
+pub(crate) struct EncodeOpts {
     /// Each level is indented by this, each element on a line of its own.
     pub indent: Option<String>,
     /// The most digits after the point of a number; the shortest text that
@@ -308,9 +308,12 @@ fn attributes(el: &Table, digits: Option<usize>) -> mlua::Result<Vec<(String, St
     Ok(out)
 }
 
+/// An attribute of a start tag: its name, its text as written and as read.
+type SourceAttr = (String, String, String);
+
 /// What a start tag in the source says: its name, and each attribute with
 /// its text as written and as read.
-fn source_tag(tag: &[u8]) -> Option<(String, Vec<(String, String, String)>)> {
+fn source_tag(tag: &[u8]) -> Option<(String, Vec<SourceAttr>)> {
     let mut reader = Reader::from_reader(tag);
     reader.config_mut().check_end_names = false;
     match reader.read_event().ok()? {
@@ -438,7 +441,7 @@ fn encode_el(el: &Table, opts: &EncodeOpts, depth: usize, out: &mut String) -> m
         if kept {
             for child in &children {
                 if let Some(c) = span_of(child, src.len())?
-                    && c.lead >= span.open + 1
+                    && c.lead > span.open
                     && c.lead <= c.from
                 {
                     out.push_str(&String::from_utf8_lossy(&src[c.lead - 1..c.from - 1]));
@@ -446,7 +449,7 @@ fn encode_el(el: &Table, opts: &EncodeOpts, depth: usize, out: &mut String) -> m
                 encode_el(child, opts, depth + 1, out)?;
             }
             let close = span.close.unwrap_or(span.to);
-            if span.tail >= span.open + 1 && span.tail <= close {
+            if span.tail > span.open && span.tail <= close {
                 out.push_str(&String::from_utf8_lossy(&src[span.tail - 1..close - 1]));
             }
         } else {
@@ -506,7 +509,7 @@ fn encode_el(el: &Table, opts: &EncodeOpts, depth: usize, out: &mut String) -> m
 }
 
 /// The text of an element and all it holds.
-pub fn encode(root: &Table, opts: &EncodeOpts) -> mlua::Result<String> {
+pub(crate) fn encode(root: &Table, opts: &EncodeOpts) -> mlua::Result<String> {
     let mut out = String::new();
     encode_el(root, opts, 0, &mut out)?;
     Ok(out)

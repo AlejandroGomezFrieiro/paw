@@ -20,7 +20,7 @@ use crate::session::Session;
 /// How much the engine's copy holds before what does not fit is dropped.
 const QUEUE_SECONDS: f64 = 1.0;
 
-pub struct Monitor {
+pub(crate) struct Monitor {
     clients: Clients,
     listeners: Arc<Mutex<Vec<ClientId>>>,
     /// A new copy of the output for the thread, with the engine's rate.
@@ -30,7 +30,7 @@ pub struct Monitor {
 }
 
 impl Monitor {
-    pub fn new(clients: Clients) -> Self {
+    pub(crate) fn new(clients: Clients) -> Self {
         Self {
             clients,
             listeners: Arc::default(),
@@ -40,7 +40,7 @@ impl Monitor {
     }
 
     /// Answer `monitor.listen` and `monitor.unlisten`.
-    pub fn call(&mut self, client: ClientId, method: &str, session: &mut Session) -> Result<Value> {
+    pub(crate) fn call(&mut self, client: ClientId, method: &str, session: &mut Session) -> Result<Value> {
         match method {
             "monitor.listen" => {
                 {
@@ -66,7 +66,7 @@ impl Monitor {
     }
 
     /// A connection stopped listening, or closed.
-    pub fn closed(&mut self, client: ClientId, session: &mut Session) {
+    pub(crate) fn closed(&mut self, client: ClientId, session: &mut Session) {
         let mut listeners = self.listeners.lock().unwrap();
         let before = listeners.len();
         listeners.retain(|id| *id != client);
@@ -76,12 +76,12 @@ impl Monitor {
     }
 
     /// Whether anyone listens.
-    pub fn listening(&self) -> bool {
+    pub(crate) fn listening(&self) -> bool {
         !self.listeners.lock().unwrap().is_empty()
     }
 
     /// After a turn: a restarted engine is asked for a copy again.
-    pub fn keep_fed(&mut self, session: &mut Session) {
+    pub(crate) fn keep_fed(&mut self, session: &mut Session) {
         if self.listening() && self.starved.swap(false, Ordering::Relaxed) {
             self.start(session);
         }

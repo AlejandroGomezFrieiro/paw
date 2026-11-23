@@ -6,17 +6,17 @@ use super::*;
 
 impl Session {
     /// The project's fields as a table ([`Document::project_view`]).
-    pub fn project_view(&self) -> Value {
+    pub(crate) fn project_view(&self) -> Value {
         self.doc.project_view(self.path.as_deref())
     }
 
     /// One entry of [`project_view`](Self::project_view)
     /// ([`Document::project_field`]).
-    pub fn project_field(&self, key: &str) -> Value {
+    pub(crate) fn project_field(&self, key: &str) -> Value {
         self.doc.project_field(key, self.path.as_deref())
     }
 
-    pub fn project_set(&mut self, key: &str, value: Value) -> Result<()> {
+    pub(crate) fn project_set(&mut self, key: &str, value: Value) -> Result<()> {
         self.doc.project_set(key, value, self.path.as_deref())
     }
 
@@ -24,7 +24,7 @@ impl Session {
     /// the open project's tracks, clips and settings, as one edit. The path
     /// and the undo history stay. For a tool that changes the whole project
     /// at once, such as a merge (extensions/projdiff).
-    pub fn project_replace(&mut self, project: Value) -> Result<()> {
+    pub(crate) fn project_replace(&mut self, project: Value) -> Result<()> {
         let project: Project = serde_json::from_value(project).context("not a project")?;
         let project = self.in_place(project).context("the project cannot be opened")?;
         self.doc.edit(|p| {
@@ -41,7 +41,7 @@ impl Session {
     /// clips of its own (a hardware check) without touching the user's work.
     /// [`project_unshelve`](Self::project_unshelve) puts it back exactly as
     /// it was, undo tree included.
-    pub fn project_shelve(&mut self) -> Result<()> {
+    pub(crate) fn project_shelve(&mut self) -> Result<()> {
         if self.shelf.is_some() {
             bail!("a project is put aside already");
         }
@@ -65,12 +65,12 @@ impl Session {
     }
 
     /// Whether a project is put aside by [`project_shelve`](Self::project_shelve).
-    pub fn project_shelved(&self) -> bool {
+    pub(crate) fn project_shelved(&self) -> bool {
         self.shelf.is_some()
     }
 
     /// Close the scratch project and bring back the one put aside.
-    pub fn project_unshelve(&mut self) -> Result<()> {
+    pub(crate) fn project_unshelve(&mut self) -> Result<()> {
         let Some(shelf) = self.shelf.take() else {
             bail!("no project is put aside");
         };
@@ -156,7 +156,7 @@ impl Session {
         self.doc.emit(E::ProjectLoaded(Loaded { path: self.path.clone() }));
     }
 
-    pub fn project_new(&mut self) {
+    pub(crate) fn project_new(&mut self) {
         self.replace_project(Project::default(), Transport::default(), None);
     }
 
@@ -165,7 +165,7 @@ impl Session {
     /// file that is not a project, such as a MIDI file, which then opens as
     /// a project file does instead of as edits of an empty one.
     /// Count the project as it is now as saved, without writing it.
-    pub fn mark_saved(&mut self) {
+    pub(crate) fn mark_saved(&mut self) {
         self.checkpoint();
         self.doc.undo.history.mark_saved(false);
     }
@@ -173,12 +173,12 @@ impl Session {
     /// Count the project as changed, so that it asks to be saved, with no
     /// undo step: for data that a save writes and undo does not keep, such
     /// as the workspaces of the project's screen.
-    pub fn mark_changed(&mut self) {
+    pub(crate) fn mark_changed(&mut self) {
         self.doc.undo.touched = true;
         self.doc.undo.edits += 1;
     }
 
-    pub fn project_load(&mut self, path: &Path) -> Result<()> {
+    pub(crate) fn project_load(&mut self, path: &Path) -> Result<()> {
         if folder::is_folder_path(path) {
             return self.project_load_folder(path);
         }
@@ -203,7 +203,7 @@ impl Session {
     /// Write the project as it is now to `path`, without making that the
     /// project's file or counting it as saved: a safety copy. `note` goes
     /// into the file as `recovery`, for whoever finds it later.
-    pub fn project_backup(&mut self, path: &Path, note: Value) -> Result<()> {
+    pub(crate) fn project_backup(&mut self, path: &Path, note: Value) -> Result<()> {
         self.capture_states();
         let file = json!({
             "version": FILE_VERSION,
@@ -224,7 +224,7 @@ impl Session {
     /// it was last saved. Returns the note the copy was written with.
     /// With `as_path`, the copy opens under that file name instead (for a
     /// `.bak` or any other copy that has no note).
-    pub fn project_recover(&mut self, path: &Path, as_path: Option<&Path>) -> Result<Value> {
+    pub(crate) fn project_recover(&mut self, path: &Path, as_path: Option<&Path>) -> Result<Value> {
         if path.file_name().and_then(|n| n.to_str()) == Some(&format!("{}.bak", folder::PROJECT_FILE)) {
             return self.project_recover_folder(path);
         }
@@ -309,7 +309,7 @@ impl Session {
         }
     }
 
-    pub fn project_save(&mut self, path: Option<&Path>) -> Result<PathBuf> {
+    pub(crate) fn project_save(&mut self, path: Option<&Path>) -> Result<PathBuf> {
         // An empty path would save into the current folder.
         if path.is_some_and(|path| path.as_os_str().is_empty()) {
             bail!("a project needs a path to save to, not an empty one");

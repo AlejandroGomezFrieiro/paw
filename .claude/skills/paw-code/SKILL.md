@@ -49,7 +49,8 @@ them to paw.
 - Use clear names. Do not abbreviate. Name the domain, the stage or the
   owner: `take_lane`, `fold_state`, not `helper`, `manager`, `util2`.
 - Make imports and exports explicit. A module exports what its callers
-  need and no more. In Rust, use `pub(crate)` where it is possible.
+  need and no more. In Rust, use `pub(crate)` where it is possible. The
+  lint `unreachable_pub` finds a `pub` item that no other crate can use.
 - Use a concrete struct, record or function first. Add a trait or an
   interface only when two adapters use it now (one adapter is a seam on
   paper). No Factory in paw's own types; use a Builder for a value with
@@ -64,6 +65,10 @@ them to paw.
   If a rule is wrong, write why in the report.
 - In Rust: borrow a value in place of a clone, but not when lifetimes
   make clear ownership hard to read. On the audio thread: no lock, no allocation, no wait.
+- In Rust: each crate uses the lints of the workspace (`[workspace.lints]`
+  in the top `Cargo.toml`). `cargo clippy --workspace --exclude paw-gui
+  --all-targets` reports 0 warnings. Keep it at 0. Write a `// SAFETY:`
+  comment above each `unsafe` block, in tests and examples too.
 
 ## 3. Tests
 
@@ -167,5 +172,5 @@ These are lenses for a review, not numbers to report.
 - Coverage floors (70 % of lines for each crate that changes). paw has no
   coverage tool for Lua and Teal yet. Measure Rust coverage only when a
   ticket asks for it.
-- The lints `missing_docs` and `unwrap_used` as errors. They belong to
-  the work on the interface of `paw-core` and the workspace lints.
+- The lints `missing_docs` and `unwrap_used` as errors. The workspace
+  lints do not have them yet.

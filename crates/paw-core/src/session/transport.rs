@@ -54,7 +54,7 @@ impl Session {
         Some(from.min(at))
     }
 
-    pub fn play(&mut self) {
+    pub(crate) fn play(&mut self) {
         if let Some(from) = self.pre_roll_start() {
             self.seek(from);
         }
@@ -107,7 +107,7 @@ impl Session {
 
     /// Beats of a count-in still to be counted before the song starts; 0
     /// when none is under way.
-    pub fn counting(&self) -> u32 {
+    pub(crate) fn counting(&self) -> u32 {
         let shared = &self.engine.handle.shared;
         if !self.play.playing || shared.playing() {
             return 0;
@@ -122,7 +122,7 @@ impl Session {
     /// Stop the song, and with it the take being recorded. This never waits
     /// for the engine: the take becomes clips later
     /// ([`poll_takes`](Self::poll_takes)).
-    pub fn stop(&mut self) {
+    pub(crate) fn stop(&mut self) {
         if !self.play.playing {
             return;
         }
@@ -146,7 +146,7 @@ impl Session {
         self.close_take();
     }
 
-    pub fn seek(&mut self, beats: f64) {
+    pub(crate) fn seek(&mut self, beats: f64) {
         let beats = beats.max(0.0);
         // A take is continuous, so jumping ends it and starts another.
         let recording = self.rec.take.is_some();
@@ -162,7 +162,7 @@ impl Session {
     }
 
     /// Turn on recording and play.
-    pub fn record(&mut self) -> Result<()> {
+    pub(crate) fn record(&mut self) -> Result<()> {
         self.transport_set("recording", Value::Bool(true))?;
         if !self.play.playing {
             self.play();

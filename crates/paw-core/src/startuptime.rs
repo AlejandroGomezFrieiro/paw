@@ -24,9 +24,9 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 /// The first line, at the clock's start.
-pub const STARTING: &str = "--- PAW STARTING ---";
+pub(crate) const STARTING: &str = "--- PAW STARTING ---";
 /// The last line, after the first frame.
-pub const STARTED: &str = "--- PAW STARTED ---";
+pub(crate) const STARTED: &str = "--- PAW STARTED ---";
 
 static RECORDER: Mutex<Option<Recorder>> = Mutex::new(None);
 
@@ -115,7 +115,7 @@ pub fn start(path: impl Into<PathBuf>) {
 
 /// Whether the start is being timed.
 #[must_use]
-pub fn is_on() -> bool {
+pub(crate) fn is_on() -> bool {
     RECORDER.lock().unwrap_or_else(|e| e.into_inner()).is_some()
 }
 
@@ -126,13 +126,13 @@ pub fn event(label: &str) {
 }
 
 /// Open a sourced item; [`leave`] closes it.
-pub fn enter() {
+pub(crate) fn enter() {
     let now = Instant::now();
     with(|r| r.enter(now));
 }
 
 /// Close the item [`enter`] opened last, with its line.
-pub fn leave(label: &str) {
+pub(crate) fn leave(label: &str) {
     let now = Instant::now();
     with(|r| r.leave(label, now));
 }
@@ -144,7 +144,7 @@ pub fn leave(label: &str) {
 /// # Errors
 ///
 /// When the file cannot be written.
-pub fn finish(label: &str) -> std::io::Result<bool> {
+pub(crate) fn finish(label: &str) -> std::io::Result<bool> {
     let now = Instant::now();
     let Some(mut recorder) = RECORDER.lock().unwrap_or_else(|e| e.into_inner()).take() else {
         return Ok(false);

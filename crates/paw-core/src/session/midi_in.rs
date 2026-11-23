@@ -9,7 +9,7 @@ use super::*;
 
 /// The transport as Lua reads it (`paw.api.transport_get`).
 #[derive(Clone, Copy, Debug, Serialize)]
-pub struct TransportView {
+pub(crate) struct TransportView {
     pub playing: bool,
     pub position: f64,
     pub tempo: f64,
@@ -133,7 +133,7 @@ impl Session {
         }
     }
 
-    pub fn midi_inputs(&self) -> Value {
+    pub(crate) fn midi_inputs(&self) -> Value {
         let mut ports = self.midi.inputs.as_ref().map(|m| m.ports()).unwrap_or_default();
         if self.midi.inputs.is_none() {
             ports = self
@@ -170,7 +170,7 @@ impl Session {
     /// Make a MIDI port of this program's, for other programs to send to:
     /// they see it as `paw: <name>`, and tracks choose it by `name` like
     /// any other port. It is kept through engine restarts.
-    pub fn midi_open_port(&mut self, name: &str) -> Result<()> {
+    pub(crate) fn midi_open_port(&mut self, name: &str) -> Result<()> {
         if name.is_empty() || name.contains('\0') {
             bail!("a MIDI port needs a name");
         }
@@ -184,7 +184,7 @@ impl Session {
     }
 
     /// Take away a port made by `midi_open_port`. True if there was one.
-    pub fn midi_close_port(&mut self, name: &str) -> bool {
+    pub(crate) fn midi_close_port(&mut self, name: &str) -> bool {
         let Some(at) = self.midi.own.iter().position(|known| known == name) else {
             return false;
         };
@@ -197,7 +197,7 @@ impl Session {
 
     /// Open only the MIDI ports matching `which` (ids or parts of names), or
     /// every port with `None`.
-    pub fn midi_select(&mut self, which: Option<Vec<String>>) {
+    pub(crate) fn midi_select(&mut self, which: Option<Vec<String>>) {
         if let Some(midi) = &self.midi.inputs {
             midi.select(which.clone());
         }
@@ -206,19 +206,19 @@ impl Session {
 
     /// Open the MIDI ports on the null backend too, from the next engine
     /// start: for trying real MIDI with no sound.
-    pub fn set_midi_without_audio(&mut self, on: bool) {
+    pub(crate) fn set_midi_without_audio(&mut self, on: bool) {
         self.midi.without_audio = on;
     }
 
     /// MIDI ports for the null backend to list: see `test_ports`.
-    pub fn set_test_ports(&mut self, ports: Vec<String>) {
+    pub(crate) fn set_test_ports(&mut self, ports: Vec<String>) {
         self.midi.test_ports = ports;
     }
 
     /// The controls of MIDI input that tracks do not get, kept under `name`
     /// beside those that other names keep; none removes them. Scripts still
     /// hear those controls, as `midi.in` events marked `filtered`.
-    pub fn set_midi_filter(&mut self, name: &str, rules: Vec<FilterRule>) -> Result<()> {
+    pub(crate) fn set_midi_filter(&mut self, name: &str, rules: Vec<FilterRule>) -> Result<()> {
         let rules = rules.into_iter().map(Rule::try_from).collect::<Result<Vec<_>>>()?;
         let mut filters = self.midi.filters.clone();
         if rules.is_empty() {
@@ -237,7 +237,7 @@ impl Session {
 
     /// Deliver a message as if it came from a MIDI input port, the one
     /// named `port` or none in particular.
-    pub fn midi_inject(&mut self, kind: EventKind, port: Option<&str>) {
+    pub(crate) fn midi_inject(&mut self, kind: EventKind, port: Option<&str>) {
         self.flush();
         let port = port.map_or(0, paw_engine::midi::port_key);
         self.engine.handle.send(Msg::MidiIn { port, kind });
@@ -245,7 +245,7 @@ impl Session {
     }
 
     /// Have `tap` told of everything the MIDI ports receive, on their thread.
-    pub fn set_midi_tap(&mut self, tap: Box<dyn FnMut(u32, EventKind) + std::marker::Send>) {
+    pub(crate) fn set_midi_tap(&mut self, tap: Box<dyn FnMut(u32, EventKind) + std::marker::Send>) {
         if let Ok(mut sink) = self.midi.sink.lock() {
             sink.tap = Some(tap);
         }
@@ -253,7 +253,7 @@ impl Session {
 
     /// Tell scripts about a message from a MIDI port, as a `midi.in` event
     /// naming the port when it is one of those listed (`port` is its key).
-    pub fn midi_event(&mut self, port: u32, kind: EventKind) {
+    pub(crate) fn midi_event(&mut self, port: u32, kind: EventKind) {
         let mut payload = match kind {
             EventKind::NoteOn { key, vel, ch, attr } => {
                 let mut payload = json!({
@@ -295,12 +295,8 @@ impl Session {
         self.doc.emit(E::MidiIn(payload));
     }
 
-    pub fn playing(&self) -> bool {
-        self.play.playing
-    }
-
     /// Transport position in beats.
-    pub fn position(&self) -> f64 {
+    pub(crate) fn position(&self) -> f64 {
         // Until the engine has carried out the last seek, its position is stale.
         if self.engine.handle.shared.seeks() != self.play.seeks {
             return self.play.seek_target;
@@ -311,13 +307,13 @@ impl Session {
     /// What moves of the transport by itself, without a table: whether it
     /// plays, the position in beats, the beats left to count in, and the
     /// number of the take being recorded.
-    pub fn playhead(&self) -> (bool, f64, u32, Option<u32>) {
+    pub(crate) fn playhead(&self) -> (bool, f64, u32, Option<u32>) {
         (self.play.playing, self.position(), self.counting(), self.rec.take.as_ref().map(|t| t.number))
     }
 
     /// The transport as `paw.api.transport_get` gives it: typed, so that
     /// Lua gets its table with no JSON between (a frame reads it).
-    pub fn transport_view(&self) -> TransportView {
+    pub(crate) fn transport_view(&self) -> TransportView {
         let t = &self.transport;
         TransportView {
             playing: self.play.playing,
@@ -345,7 +341,7 @@ impl Session {
         }
     }
 
-    pub fn transport_set(&mut self, key: &str, value: Value) -> Result<()> {
+    pub(crate) fn transport_set(&mut self, key: &str, value: Value) -> Result<()> {
         let field: TransportField = key.parse()?;
         match field {
             TransportField::Write => {
@@ -377,7 +373,7 @@ impl Session {
     }
 
     /// Play a note on a track right now, outside the timeline.
-    pub fn live(&mut self, track: Id, event: EventKind) -> Result<()> {
+    pub(crate) fn live(&mut self, track: Id, event: EventKind) -> Result<()> {
         self.flush();
         let slot = *self
             .engine.map
@@ -390,7 +386,7 @@ impl Session {
 
     /// Play a note on a track now, with its attribute: what the track's
     /// attribute map sends for it goes first.
-    pub fn live_note(&mut self, track: Id, key: u8, vel: f32, attr: paw_engine::Attr) -> Result<()> {
+    pub(crate) fn live_note(&mut self, track: Id, key: u8, vel: f32, attr: paw_engine::Attr) -> Result<()> {
         let plan = self
             .doc.project
             .track(track)
@@ -411,7 +407,7 @@ impl Session {
 
     /// Stop a note played with [`live_note`](Self::live_note), on every
     /// channel the track's attribute map may have sent it to.
-    pub fn live_note_off(&mut self, track: Id, key: u8) -> Result<()> {
+    pub(crate) fn live_note_off(&mut self, track: Id, key: u8) -> Result<()> {
         let channels = self
             .doc.project
             .track(track)
@@ -426,7 +422,7 @@ impl Session {
     }
 
     /// Post-fader peak level of a track as linear `(left, right)`.
-    pub fn meter(&self, track: Id) -> (f32, f32) {
+    pub(crate) fn meter(&self, track: Id) -> (f32, f32) {
         self.engine.map
             .tracks
             .get(&track)

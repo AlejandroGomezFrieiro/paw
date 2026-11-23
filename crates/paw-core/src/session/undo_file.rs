@@ -137,7 +137,7 @@ impl UndoFile {
     }
 
     /// Wait for the write under way, if there is one.
-    pub fn wait(&mut self) {
+    pub(super) fn wait(&mut self) {
         if let Some(Writer::Busy(handle)) = self.writer.take() {
             self.writer = handle.join().ok().map(Writer::Idle);
         }
@@ -186,7 +186,7 @@ impl Session {
     /// # Errors
     ///
     /// When the undo file is damaged.
-    pub fn undo_file_open(&mut self, dir: &Path) -> Result<Value> {
+    pub(crate) fn undo_file_open(&mut self, dir: &Path) -> Result<Value> {
         let Some(file) = self.folder_file() else { return Ok(json!({})) };
         // Only a project just opened: no step made yet.
         if self.doc.undo.history.len() != 1 || self.doc.undo.touched {
@@ -241,7 +241,7 @@ impl Session {
     /// project, on a thread of its own: the states new since the last
     /// write, and within about `byte_limit` bytes. Nothing for a project
     /// that is not kept in a folder.
-    pub fn undo_file_write(&mut self, dir: &Path, byte_limit: u64) {
+    pub(crate) fn undo_file_write(&mut self, dir: &Path, byte_limit: u64) {
         let Some(file) = self.folder_file() else { return };
         let Some((saved, files)) = self.doc.undo.file.saved_files.take() else { return };
         // Saved somewhere else: the states still in the old undo file are
@@ -318,7 +318,7 @@ impl Session {
     }
 
     /// Wait for the undo file being written: before the program ends.
-    pub fn undo_file_wait(&mut self) {
+    pub(crate) fn undo_file_wait(&mut self) {
         self.doc.undo.file.wait();
     }
 

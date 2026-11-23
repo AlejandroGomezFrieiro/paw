@@ -15,6 +15,9 @@ use serde_json::Value;
 use tiny_skia::{Path, PathBuilder, PathSegment};
 use ttf_parser::{Face, GlyphId, OutlineBuilder};
 
+/// The outlines of glyphs read so far, by font and glyph (`None`: no outline).
+type Outlines = HashMap<(Font, u16), Option<Arc<Path>>>;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Font {
     Leland,
@@ -74,7 +77,7 @@ impl Font {
     /// The outline of a glyph in units of the font's em, y down, from a
     /// cache: a clef drawn a thousand times is read from the font once.
     pub fn outline(self, glyph: GlyphId) -> Option<Arc<Path>> {
-        static CACHE: OnceLock<Mutex<HashMap<(Font, u16), Option<Arc<Path>>>>> = OnceLock::new();
+        static CACHE: OnceLock<Mutex<Outlines>> = OnceLock::new();
         let cache = CACHE.get_or_init(Default::default);
         if let Some(found) = cache.lock().unwrap().get(&(self, glyph.0)) {
             return found.clone();

@@ -12,7 +12,7 @@ use crate::stretched::SETTLE;
 /// The work of the session that is not done yet. A test waits until no
 /// work is in flight (`T.settle`), and moves the clock to `next_due`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct Work {
+pub(crate) struct Work {
     /// Bakes being made on other threads or in helper processes.
     pub bakes_running: usize,
     /// Bakes that wait for their settle on the schedule clock.
@@ -30,13 +30,13 @@ pub struct Work {
 impl Session {
     /// Wait the settle delays on `clock` from now on: the bakes and the
     /// file watch. The kernel gives its clock once, before any work.
-    pub fn set_clock(&mut self, clock: &Arc<dyn Clock>) {
+    pub(crate) fn set_clock(&mut self, clock: &Arc<dyn Clock>) {
         self.audio.renders.set_clock(clock.clone());
         self.files_watch.clock = clock.clone();
     }
 
     /// The work in flight or waiting for the schedule clock.
-    pub fn work(&self) -> Work {
+    pub(crate) fn work(&self) -> Work {
         let bakes = self.audio.renders.summary();
         let next_due = [self.audio.renders.next_due(SETTLE), self.files_watch.next_due()]
             .into_iter()

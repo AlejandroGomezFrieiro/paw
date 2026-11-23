@@ -13,14 +13,14 @@ use crate::session::{TrackListOpts, TrackOpts, de, de_meta, finite, holds, midi_
 /// A fader or pan knob that [`Document::track_set`] moved: where it was and
 /// where it went.
 #[derive(Clone, Debug, PartialEq)]
-pub struct ControlMove {
+pub(crate) struct ControlMove {
     pub target: Target,
     pub before: f64,
     pub to: f64,
 }
 
 impl Document {
-    pub fn track_view(&self, id: Id) -> Result<Value> {
+    pub(crate) fn track_view(&self, id: Id) -> Result<Value> {
         let t = self
             .project
             .track(id)
@@ -50,7 +50,7 @@ impl Document {
     /// One entry of [`track_view`](Self::track_view), made alone: the
     /// handlers of each edit ask for a track's volume or meta, and the whole
     /// view lists every clip of the track.
-    pub fn track_field(&self, id: Id, key: &str) -> Result<Value> {
+    pub(crate) fn track_field(&self, id: Id, key: &str) -> Result<Value> {
         let t = self
             .project
             .track(id)
@@ -77,7 +77,7 @@ impl Document {
         })
     }
 
-    pub fn track_add(&mut self, opts: TrackOpts) -> Result<Id> {
+    pub(crate) fn track_add(&mut self, opts: TrackOpts) -> Result<Id> {
         let volume = finite("volume", opts.volume.unwrap_or(0.0))?.clamp(-120.0, 24.0);
         let pan = finite("pan", opts.pan.unwrap_or(0.0))?.clamp(-1.0, 1.0);
         let id = self.new_id();
@@ -116,7 +116,7 @@ impl Document {
         })
     }
 
-    pub fn track_remove(&mut self, id: Id) -> Result<()> {
+    pub(crate) fn track_remove(&mut self, id: Id) -> Result<()> {
         self.edit(|p| {
             if id == MASTER_ID {
                 bail!("the master track cannot be removed");
@@ -163,7 +163,7 @@ impl Document {
 
     /// The ids of the tracks of the song, of one subproject (`nest`), or
     /// of both (`all`), in their order.
-    pub fn track_ids(&self, opts: &TrackListOpts) -> Vec<Id> {
+    pub(crate) fn track_ids(&self, opts: &TrackListOpts) -> Vec<Id> {
         if opts.all {
             return self.project.tracks.iter().map(|t| t.id).collect();
         }
@@ -172,7 +172,7 @@ impl Document {
 
     /// Move a track to `index` (from 0) among the tracks of its place: the
     /// song, or its subproject.
-    pub fn track_move(&mut self, id: Id, index: usize) -> Result<()> {
+    pub(crate) fn track_move(&mut self, id: Id, index: usize) -> Result<()> {
         self.edit(|p| {
             let from = p
                 .tracks
@@ -189,7 +189,7 @@ impl Document {
     /// Set `key` of track `id` to `value`. A value that the track already
     /// holds is no change. Gives the fader or pan knob that the edit moved,
     /// for the session to write as automation while the song plays.
-    pub fn track_set(&mut self, id: Id, key: &str, value: Value) -> Result<Option<ControlMove>> {
+    pub(crate) fn track_set(&mut self, id: Id, key: &str, value: Value) -> Result<Option<ControlMove>> {
         if holds(&self.track_view(id), key, &value) {
             return Ok(None);
         }
@@ -220,7 +220,7 @@ impl Document {
     /// the next save writes them into its folder. Returns how many tracks
     /// and how many chains. Run before `clip_collect`, which then takes
     /// such a track's clips.
-    pub fn track_collect(&mut self) -> (usize, usize) {
+    pub(crate) fn track_collect(&mut self) -> (usize, usize) {
         let (mut tracks, mut chains) = (0, 0);
         for track in &mut self.project.tracks {
             if track.source.is_none() && track.chain_source.is_none() {
@@ -244,7 +244,7 @@ impl Document {
     }
 
     /// The milliseconds a note with `attr` is moved by the track's attribute map.
-    pub fn attr_delay(&self, track: Id, attr: paw_engine::Attr) -> Result<f64> {
+    pub(crate) fn attr_delay(&self, track: Id, attr: paw_engine::Attr) -> Result<f64> {
         let track = self
             .project
             .track(track)

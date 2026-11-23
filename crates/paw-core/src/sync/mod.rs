@@ -37,10 +37,11 @@ use paw_engine::midi_form::Form;
 use paw_engine::{ClipSet, Controller, DeviceSlot, Msg, ParamInfo, Registry, TrackRt, TrackSlot, db_to_gain};
 
 pub use self::audio::AudioCache;
-pub use self::automation::is_active;
-pub use self::devices::{TakesClips, clips_json, deliver_clips, install, is_host, rekey};
-pub use self::mapper::{Follow, Mapper};
-pub use self::clips::repeats;
+pub(crate) use self::automation::is_active;
+pub(crate) use self::devices::{TakesClips, deliver_clips, install, is_host};
+pub use self::mapper::Mapper;
+pub(crate) use self::mapper::Follow;
+pub(crate) use self::clips::repeats;
 pub use crate::events::ModelEvent;
 
 use self::automation::{build_automation, release_targets, vca_volume_lane, vcas_of};
@@ -68,7 +69,7 @@ pub struct LiveDevice {
     /// answered [`paw_engine::device::FILE_LOAD`] when it was made.
     pub attached: bool,
     /// Whether it takes its track's clips, and what it was given.
-    pub clips: TakesClips,
+    pub(crate) clips: TakesClips,
 }
 
 pub type LiveDevices = HashMap<Id, LiveDevice>;

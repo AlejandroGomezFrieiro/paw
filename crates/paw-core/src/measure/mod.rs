@@ -50,7 +50,7 @@ struct MeasureOpts {
 
 /// Peak of one track's output, after its fader, from the engine's meters.
 #[derive(Clone, Debug, Serialize)]
-pub struct TrackPeak {
+pub(crate) struct TrackPeak {
     pub id: Id,
     /// dBFS, and where, in seconds from the start of the render: the end of
     /// the engine block (about 21 ms at 48 kHz) it happened in.
@@ -271,7 +271,7 @@ fn analysis_db(level: f32) -> f64 {
 }
 
 /// Add the `measure*` functions to the `paw.api` table.
-pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> {
+pub(crate) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> {
     let jobs: Rc<RefCell<HashMap<u64, Job>>> = Rc::default();
     let next = Rc::new(std::cell::Cell::new(0u64));
 

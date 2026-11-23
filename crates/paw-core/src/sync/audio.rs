@@ -24,22 +24,24 @@ pub struct AudioCache {
     /// The bake cache, where waveform overviews are kept between runs
     /// (`peaks::Summary`), so that drawing a file need not decode it;
     /// nowhere when `None`.
-    pub bakes: Option<Store>,
+    pub(crate) bakes: Option<Store>,
     /// Where the decoded sound of long files is kept and played from,
     /// instead of memory; nowhere when `None`.
     pub store: Option<DiskStore>,
     /// The bakes of stretched and shifted clips: `stretched.rs`.
-    pub renders: crate::stretched::Renders,
+    pub(crate) renders: crate::stretched::Renders,
     /// Exports, progress and tidying of those bakes.
-    pub upkeep: crate::stretched::Upkeep,
+    pub(crate) upkeep: crate::stretched::Upkeep,
 }
 
 /// File, offset and length in seconds (as bits, to hash them), and points.
 type PeaksKey = (PathBuf, u64, u64, usize);
 
 impl AudioCache {
+
     /// A cache that keeps waveform overviews in `store` between runs.
-    pub fn with_bakes(store: Store) -> Self {
+    #[cfg(test)]
+    pub(crate) fn with_bakes(store: Store) -> Self {
         Self {
             bakes: Some(store),
             ..Self::default()
@@ -47,7 +49,7 @@ impl AudioCache {
     }
 
     /// Load a file, reporting why it could not be read.
-    pub fn load(&mut self, path: &Path) -> anyhow::Result<Arc<AudioData>> {
+    pub(crate) fn load(&mut self, path: &Path) -> anyhow::Result<Arc<AudioData>> {
         if let Some(Some(data)) = self.files.get(path) {
             return Ok(data.clone());
         }
@@ -59,7 +61,7 @@ impl AudioCache {
 
     /// `n` (min, max) pairs covering `seconds` of a file from `offset`.
     /// `source` is the hash of the file's bytes, when it is known.
-    pub fn peaks(
+    pub(crate) fn peaks(
         &mut self,
         path: &Path,
         source: Option<SourceHash>,
@@ -99,7 +101,7 @@ impl AudioCache {
     }
 
     /// True when no file, nor anything worked out from one, is kept.
-    pub fn holds_nothing(&self) -> bool {
+    pub(crate) fn holds_nothing(&self) -> bool {
         self.files.is_empty()
             && self.summaries.is_empty()
             && self.peaks.is_empty()
@@ -110,7 +112,7 @@ impl AudioCache {
     /// Forget every file but those in `keep`, and what was worked out from
     /// them (converted copies, overviews, peaks). Files a clip in the engine
     /// or a running render still plays stay in memory until they let go.
-    pub fn retain(&mut self, keep: &HashSet<PathBuf>) {
+    pub(crate) fn retain(&mut self, keep: &HashSet<PathBuf>) {
         self.files.retain(|path, _| keep.contains(path));
         self.summaries.retain(|path, _| keep.contains(path));
         self.peaks.retain(|key, _| keep.contains(&key.0));
@@ -120,7 +122,7 @@ impl AudioCache {
 
     /// What a stretched or shifted clip plays, if its bake has started (as
     /// far as it is made); if not, it is asked for (see `stretched.rs`).
-    pub fn stretched(
+    pub(crate) fn stretched(
         &mut self,
         key: &crate::stretched::Key,
         warnings: &mut Vec<String>,
@@ -140,7 +142,7 @@ impl AudioCache {
 
     /// What the engine plays of a file at `rate`, if it has been loaded:
     /// the file's own samples or their conversion.
-    pub fn playing(&self, path: &Path, rate: u32) -> Option<&Arc<AudioData>> {
+    pub(crate) fn playing(&self, path: &Path, rate: u32) -> Option<&Arc<AudioData>> {
         let data = self.files.get(path)?.as_ref()?;
         if data.sample_rate == rate {
             return Some(data);
@@ -151,25 +153,21 @@ impl AudioCache {
     }
 
     /// Whether a file that has been loaded is played from the disk.
-    pub fn on_disk(&self, path: &Path) -> Option<bool> {
+    pub(crate) fn on_disk(&self, path: &Path) -> Option<bool> {
         Some(self.files.get(path)?.as_ref()?.on_disk())
     }
 
     /// Forget the decoded files, so that each is loaded again when it is
     /// next asked for. Whatever plays one keeps what it has.
-    pub fn forget_loaded(&mut self) {
+    pub(crate) fn forget_loaded(&mut self) {
         self.files.clear();
         self.converted.clear();
         self.renders.retain(|_| false);
     }
 
     /// How many files are held, decoded or known to be unreadable.
-    pub fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.files.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.files.is_empty()
     }
 
     /// A file's waveform overview: kept in memory, read from the bake

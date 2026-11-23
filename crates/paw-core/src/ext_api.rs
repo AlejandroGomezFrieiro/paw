@@ -13,7 +13,7 @@ fn fail(what: impl std::fmt::Display) -> mlua::Error {
 
 /// `paw.api.sound_envelope`: the levels of a file as a table, with
 /// `onset` and `blocks` over the decoded levels.
-pub fn sound_envelope(lua: &Lua, path: &str) -> mlua::Result<Table> {
+pub(crate) fn sound_envelope(lua: &Lua, path: &str) -> mlua::Result<Table> {
     let env = Arc::new(paw_engine::envelope::envelope(Path::new(path)).map_err(|e| fail(format!("{e:#}")))?);
     let rate = env.sample_rate as f64;
     let t = lua.create_table()?;
@@ -47,7 +47,7 @@ pub fn sound_envelope(lua: &Lua, path: &str) -> mlua::Result<Table> {
 /// `paw.api.sound_write`: `source` is the samples as bytes of 32-bit
 /// floats (the machine's order), interleaved, or a function of `(frame,
 /// count)` giving them a piece at a time until it gives nil.
-pub fn sound_write(path: &str, opts: &Table, source: LuaValue) -> mlua::Result<usize> {
+pub(crate) fn sound_write(path: &str, opts: &Table, source: LuaValue) -> mlua::Result<usize> {
     let rate: u32 = opts.get::<Option<u32>>("rate")?.ok_or_else(|| fail("a sound needs a `rate`"))?;
     let channels: u16 = opts.get::<Option<u16>>("channels")?.unwrap_or(2);
     let bits: u16 = opts.get::<Option<u16>>("bits")?.unwrap_or(16);
@@ -88,7 +88,7 @@ pub fn sound_write(path: &str, opts: &Table, source: LuaValue) -> mlua::Result<u
 }
 
 /// `paw.api.which`: where a program is on `PATH`, like `command -v`.
-pub fn which(program: &str) -> Option<String> {
+pub(crate) fn which(program: &str) -> Option<String> {
     use std::os::unix::fs::PermissionsExt;
     let runnable = |p: &Path| {
         p.metadata()

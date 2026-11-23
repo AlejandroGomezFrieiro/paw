@@ -19,7 +19,7 @@ const BLOCK: usize = 256;
 /// The lowest and highest sample of each run of [`BLOCK`] frames and the
 /// mean of their squares, both channels together, so that drawing a long
 /// file zoomed out reads a fraction of its samples.
-pub struct Summary {
+pub(crate) struct Summary {
     blocks: Vec<[f32; 3]>,
     pub frames: usize,
     pub sample_rate: u32,
@@ -29,7 +29,7 @@ pub struct Summary {
 const MAGIC: &[u8; 8] = b"PAWPKS01";
 
 impl Summary {
-    pub fn new(data: &AudioData) -> Self {
+    pub(crate) fn new(data: &AudioData) -> Self {
         let blocks = (0..data.frames().div_ceil(BLOCK))
             .map(|b| scan(data, b * BLOCK, ((b + 1) * BLOCK).min(data.frames())))
             .collect();
@@ -42,7 +42,7 @@ impl Summary {
 
     /// An overview stored by [`write`](Self::write), or `None` when there
     /// is none or it cannot be read.
-    pub fn read(path: &Path) -> Option<Self> {
+    pub(crate) fn read(path: &Path) -> Option<Self> {
         let mut bytes = Vec::new();
         std::fs::File::open(path)
             .ok()?
@@ -72,7 +72,7 @@ impl Summary {
 
     /// Keep the overview in a file (of a bake entry, which is put in
     /// place whole).
-    pub fn write(&self, path: &Path) -> std::io::Result<()> {
+    pub(crate) fn write(&self, path: &Path) -> std::io::Result<()> {
         let mut bytes = Vec::with_capacity(28 + self.blocks.len() * 12);
         bytes.extend_from_slice(MAGIC);
         bytes.extend_from_slice(&self.sample_rate.to_le_bytes());
@@ -88,14 +88,14 @@ impl Summary {
 }
 
 /// Who makes overviews: a new form of [`Summary`] is a new tool.
-pub const TOOL: &str = "paw.peaks/1";
+pub(crate) const TOOL: &str = "paw.peaks/1";
 
 /// The file of an overview in its bake entry.
-pub const FILE: &str = "peaks.bin";
+pub(crate) const FILE: &str = "peaks.bin";
 
 /// The bake of the overview of the file whose bytes hash to `source`, and
 /// its key.
-pub fn bake(source: SourceHash) -> (BakeJob, EntryKey) {
+pub(crate) fn bake(source: SourceHash) -> (BakeJob, EntryKey) {
     let job = BakeJob {
         op: "peaks".into(),
         version: 1,
@@ -113,13 +113,13 @@ pub fn bake(source: SourceHash) -> (BakeJob, EntryKey) {
 
 /// The cache directory the decoded sound of long files is kept in and
 /// played from: `$XDG_CACHE_HOME/paw/media`.
-pub fn media_dir(dirs: &paw_proto::dirs::Dirs) -> PathBuf {
+pub(crate) fn media_dir(dirs: &paw_proto::dirs::Dirs) -> PathBuf {
     dirs.paw_cache().join("media")
 }
 
 /// As [`peaks`], from the overview alone, when each point covers at least a
 /// block; `None` when zoomed in further, where the samples are needed.
-pub fn coarse(summary: &Summary, from: f64, to: f64, n: usize) -> Option<Vec<[f32; 3]>> {
+pub(crate) fn coarse(summary: &Summary, from: f64, to: f64, n: usize) -> Option<Vec<[f32; 3]>> {
     let step = (to - from) / n as f64;
     if n == 0 || step < BLOCK as f64 {
         return None;
@@ -171,7 +171,7 @@ fn scan(data: &AudioData, from: usize, to: usize) -> [f32; 3] {
 /// is what its body looks like. Frames past the end of the file are
 /// silence. A part narrower than a frame shows the frame it falls in, so
 /// zooming in past the samples still draws.
-pub fn peaks(data: &AudioData, summary: &Summary, from: f64, to: f64, n: usize) -> Vec<[f32; 3]> {
+pub(crate) fn peaks(data: &AudioData, summary: &Summary, from: f64, to: f64, n: usize) -> Vec<[f32; 3]> {
     let frames = data.frames();
     let step = (to - from) / n as f64;
     let at = |i: usize| (from + step * i as f64).floor().max(0.0) as usize;

@@ -65,7 +65,7 @@ fn item_to_lua(lua: &Lua, item: &Item) -> mlua::Result<LuaValue> {
 }
 
 /// A table of TOML text, or what is wrong and on which line.
-pub fn decode(lua: &Lua, text: &str) -> mlua::Result<Result<LuaValue, String>> {
+pub(crate) fn decode(lua: &Lua, text: &str) -> mlua::Result<Result<LuaValue, String>> {
     match text.parse::<DocumentMut>() {
         Ok(doc) => Ok(Ok(item_to_lua(lua, doc.as_item())?)),
         Err(err) => {
@@ -174,7 +174,7 @@ fn to_item(v: &LuaValue) -> mlua::Result<Item> {
 
 /// The TOML text of a value: a table as a document, or with `inline`, any
 /// value on one line.
-pub fn encode(value: &LuaValue, inline: bool) -> mlua::Result<String> {
+pub(crate) fn encode(value: &LuaValue, inline: bool) -> mlua::Result<String> {
     if inline {
         let mut v = to_value(value)?;
         v.decor_mut().clear();

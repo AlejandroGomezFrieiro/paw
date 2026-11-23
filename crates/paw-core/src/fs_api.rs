@@ -160,7 +160,7 @@ fn trash(path: &Path, root: Option<&Path>) -> Result<PathBuf, String> {
     }
 }
 
-pub fn install(lua: &Lua, api: &Table, dirs: &Dirs) -> mlua::Result<()> {
+pub(crate) fn install(lua: &Lua, api: &Table, dirs: &Dirs) -> mlua::Result<()> {
     let trash_root = trash_dir(dirs);
     // `{ kind = "file" | "dir" | "link", dir, size, mtime }`, or nil when
     // nothing is there. A link is looked at, not followed, for its kind,

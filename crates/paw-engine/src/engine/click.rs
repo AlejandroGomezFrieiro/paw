@@ -40,7 +40,7 @@ impl Count {
                 break;
             }
             if at >= self.elapsed && *count < starts.len() {
-                starts[*count] = ((at - self.elapsed) as usize, self.next % self.per_bar == 0);
+                starts[*count] = ((at - self.elapsed) as usize, self.next.is_multiple_of(self.per_bar));
                 *count += 1;
             }
             self.next += 1;

@@ -29,7 +29,7 @@ const LUA: &str = include_str!("mcp.lua");
 
 /// What the server lets a model do beyond the typed tools.
 #[derive(Clone, Debug, Default)]
-pub struct Policy {
+pub(crate) struct Policy {
     /// Offer `lua`, `run_command` and `send_keys`.
     pub allow_eval: bool,
     /// Let file-writing tools write anywhere, not only under `root`.
@@ -39,14 +39,14 @@ pub struct Policy {
     pub root: PathBuf,
 }
 
-pub struct Tools {
+pub(crate) struct Tools {
     pub kernel: Kernel,
     pub policy: Policy,
 }
 
 /// A failed tool call: the text the model gets back with `isError`.
 #[derive(Debug)]
-pub struct ToolError(pub String);
+pub(crate) struct ToolError(pub String);
 
 impl From<CallError> for ToolError {
     fn from(err: CallError) -> Self {
@@ -61,12 +61,12 @@ impl From<anyhow::Error> for ToolError {
 }
 
 /// What a tool answers: prose, and the same as JSON.
-pub struct Reply {
+pub(crate) struct Reply {
     pub text: String,
     pub data: Value,
 }
 
-pub type Outcome = Result<Reply, ToolError>;
+pub(crate) type Outcome = Result<Reply, ToolError>;
 
 fn err<T>(msg: impl Into<String>) -> Result<T, ToolError> {
     Err(ToolError(msg.into()))
@@ -132,11 +132,11 @@ fn as_map(value: &Value) -> Map<String, Value> {
 }
 
 /// A tool's arguments: a JSON object.
-pub type Args = Map<String, Value>;
+pub(crate) type Args = Map<String, Value>;
 
 /// What a tool does to the project, as clients are told in its annotations.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Effect {
+pub(crate) enum Effect {
     /// Reads only; calling it again gives the same answer.
     Reads,
     /// Changes the project, or the transport.
@@ -149,7 +149,7 @@ pub enum Effect {
 type Prepare = fn(&Tools, &Args, &Meter) -> Result<Args, ToolError>;
 
 /// How a tool runs.
-pub enum Run {
+pub(crate) enum Run {
     /// Its own code.
     Call(fn(&mut Tools, &Args) -> Outcome),
     /// A change a `batch` can run too: its arguments in the kernel's units
@@ -161,7 +161,7 @@ pub enum Run {
 }
 
 /// One tool: what a model sees of it, and its code.
-pub struct Tool {
+pub(crate) struct Tool {
     pub name: &'static str,
     pub title: &'static str,
     pub description: String,
@@ -172,16 +172,16 @@ pub struct Tool {
 }
 
 impl Tool {
-    pub fn is_escape(&self) -> bool {
+    pub(crate) fn is_escape(&self) -> bool {
         matches!(self.run, Run::Escape(_))
     }
 
-    pub fn is_write(&self) -> bool {
+    pub(crate) fn is_write(&self) -> bool {
         matches!(self.run, Run::Write { .. })
     }
 
     /// The tool as `tools/list` gives it.
-    pub fn to_mcp(&self) -> rmcp::model::Tool {
+    pub(crate) fn to_mcp(&self) -> rmcp::model::Tool {
         let schema = match &self.schema {
             Value::Object(map) => map.clone(),
             _ => Map::new(),
@@ -199,7 +199,7 @@ impl Tool {
 }
 
 /// Every tool, in the order `tools/list` gives them.
-pub fn table() -> &'static [Tool] {
+pub(crate) fn table() -> &'static [Tool] {
     static TABLE: LazyLock<Vec<Tool>> = LazyLock::new(|| {
         [read::tools(), write::tools(), session::tools(), listen::tools(), escape::tools()]
             .into_iter()
@@ -215,7 +215,7 @@ fn find(name: &str) -> Option<&'static Tool> {
 
 impl Tools {
     /// The tools this server offers.
-    pub fn list(&self) -> Vec<rmcp::model::Tool> {
+    pub(crate) fn list(&self) -> Vec<rmcp::model::Tool> {
         self.offered().map(Tool::to_mcp).collect()
     }
 
@@ -224,7 +224,7 @@ impl Tools {
         table().iter().filter(move |t| allow_eval || !t.is_escape())
     }
 
-    pub fn call(&mut self, name: &str, args: &Value) -> Outcome {
+    pub(crate) fn call(&mut self, name: &str, args: &Value) -> Outcome {
         let Some(tool) = find(name) else {
             let names: Vec<&str> = self.offered().map(|t| t.name).collect();
             return err(format!(
@@ -289,7 +289,7 @@ impl Tools {
     // --- plumbing ------------------------------------------------------------
 
     /// Run one tool of the kernel side.
-    pub fn lua(&mut self, tool: &str, args: Value) -> Result<Value, ToolError> {
+    pub(crate) fn lua(&mut self, tool: &str, args: Value) -> Result<Value, ToolError> {
         self.lua_as(tool, args, None)
     }
 

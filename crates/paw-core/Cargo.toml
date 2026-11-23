@@ -3,6 +3,7 @@ name = "paw-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+rust-version.workspace = true
 description = "The kernel: project model, engine sync, Lua host, cell grid, event loop, RPC."
 
 [dependencies]
@@ -16,6 +17,7 @@ anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+hex.workspace = true
 smallvec.workspace = true
 include_dir = "0.7"
 unicode-width = "0.2"
@@ -77,6 +79,5 @@ proptest.workspace = true
 name = "nest_expand"
 harness = false
 
-# A BrowserPod pod is the target vendor `browserpod` (web/browserpod/README.md).
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_vendor, values("browserpod"))'] }
+[lints]
+workspace = true

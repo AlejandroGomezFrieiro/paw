@@ -38,19 +38,19 @@ const LOOK_EVERY: Duration = Duration::from_millis(500);
 /// A source whose bytes are not those the project recorded: the clips play
 /// the new file, and the user is told once.
 #[derive(Debug, PartialEq)]
-pub struct Changed(pub PathBuf);
+pub(crate) struct Changed(pub PathBuf);
 
 impl Sources {
-    pub fn table(&self) -> &MediaTable {
+    pub(crate) fn table(&self) -> &MediaTable {
         &self.table
     }
 
-    pub fn record(&self, path: &Path) -> Option<&MediaRecord> {
+    pub(crate) fn record(&self, path: &Path) -> Option<&MediaRecord> {
         self.table.get(path).map(|r| &**r)
     }
 
     /// Whether it is time to look for new files again (twice a second).
-    pub fn due(&mut self) -> bool {
+    pub(crate) fn due(&mut self) -> bool {
         let now = Instant::now();
         let due = self.looked.is_none_or(|at| now.duration_since(at) >= LOOK_EVERY);
         if due {
@@ -61,7 +61,7 @@ impl Sources {
 
     /// Keep the local index in `file` between runs. It takes effect before
     /// the index is first used.
-    pub fn keep_index_in(&mut self, file: PathBuf) {
+    pub(crate) fn keep_index_in(&mut self, file: PathBuf) {
         self.index_file = Some(file);
     }
 
@@ -71,7 +71,7 @@ impl Sources {
     }
 
     /// Start again from what a project recorded (its `media.json`).
-    pub fn open(&mut self, recorded: MediaTable) {
+    pub(crate) fn open(&mut self, recorded: MediaTable) {
         self.table = recorded;
         self.pending.clear();
     }
@@ -79,7 +79,7 @@ impl Sources {
     /// Check each file against the index, by one `stat`: a file this machine
     /// hashed as it is now is known at once; any other goes to the worker.
     /// A missing file keeps its record, for relinking by hash.
-    pub fn check<'a>(&mut self, files: impl IntoIterator<Item = &'a Path>) -> Vec<Changed> {
+    pub(crate) fn check<'a>(&mut self, files: impl IntoIterator<Item = &'a Path>) -> Vec<Changed> {
         let mut changed = Vec::new();
         self.noticed.clear();
         for path in files {
@@ -107,7 +107,7 @@ impl Sources {
     /// Give the worker the files that have no record yet (an import, a
     /// recording), once each. Files it could not read are not tried again
     /// until the next [`check`](Self::check).
-    pub fn notice<'a>(&mut self, files: impl IntoIterator<Item = &'a Path>) {
+    pub(crate) fn notice<'a>(&mut self, files: impl IntoIterator<Item = &'a Path>) {
         for path in files {
             if self.table.get(path).is_none()
                 && !self.pending.contains(path)
@@ -130,7 +130,7 @@ impl Sources {
 
     /// Take what the worker learned. The index is written when the worker
     /// has nothing left to do.
-    pub fn poll(&mut self) -> Vec<Changed> {
+    pub(crate) fn poll(&mut self) -> Vec<Changed> {
         let Some(worker) = self.worker.take() else {
             return Vec::new();
         };
@@ -141,9 +141,9 @@ impl Sources {
         changed
     }
 
-    /// Wait for the worker to finish what it has (for tests and the end of
-    /// a run).
-    pub fn finish(&mut self) -> Vec<Changed> {
+    /// Wait for the worker to finish what it has (for tests).
+    #[cfg(test)]
+    pub(crate) fn finish(&mut self) -> Vec<Changed> {
         let mut changed = Vec::new();
         while !self.pending.is_empty() {
             let Some(learned) = self.worker.as_ref().and_then(Worker::wait) else {
@@ -199,7 +199,7 @@ impl Sources {
 
     /// The hash of the file at `path` as it is now: from the index, or
     /// hashed here and now (relink, collect and save, which need it).
-    pub fn hash_now(&mut self, path: &Path) -> std::io::Result<SourceHash> {
+    pub(crate) fn hash_now(&mut self, path: &Path) -> std::io::Result<SourceHash> {
         let stamp = Stamp::read(path).ok_or_else(|| std::io::Error::from(std::io::ErrorKind::NotFound))?;
         if let Some(hash) = self.index().get(path, &stamp) {
             return Ok(hash);
@@ -212,7 +212,7 @@ impl Sources {
     /// A record for each file that is there and has none, hashed here and
     /// now: a save names every file it can by its hash. The worker's files
     /// keep the record they have until it answers.
-    pub fn complete<'a>(&mut self, files: impl IntoIterator<Item = &'a Path>) -> Vec<Changed> {
+    pub(crate) fn complete<'a>(&mut self, files: impl IntoIterator<Item = &'a Path>) -> Vec<Changed> {
         let mut changed = self.poll();
         for path in files {
             if self.table.get(path).is_some() {
@@ -227,7 +227,7 @@ impl Sources {
     }
 
     /// Note a file that paw just wrote with the hash of its bytes (a copy).
-    pub fn wrote(&mut self, path: &Path, hash: SourceHash) {
+    pub(crate) fn wrote(&mut self, path: &Path, hash: SourceHash) {
         if let Some(stamp) = Stamp::read(path) {
             let probe = self
                 .table
@@ -241,7 +241,7 @@ impl Sources {
 
     /// Whether the file at `path` is the source `record` names: the same
     /// size, then the same hash.
-    pub fn is(&mut self, path: &Path, record: &MediaRecord) -> bool {
+    pub(crate) fn is(&mut self, path: &Path, record: &MediaRecord) -> bool {
         Stamp::read(path).is_some_and(|s| s.size == record.size)
             && self.hash_now(path).is_ok_and(|h| h == record.hash)
     }

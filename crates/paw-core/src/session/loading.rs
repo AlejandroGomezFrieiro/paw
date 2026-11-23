@@ -51,7 +51,7 @@ pub(super) struct Loads {
 
 impl Loads {
     /// Whether the device is waiting or being made.
-    pub fn loading(&self, id: Id) -> bool {
+    pub(super) fn loading(&self, id: Id) -> bool {
         matches!(
             self.devices.get(&id),
             Some(Load::Queued | Load::Starting(_))
@@ -59,19 +59,19 @@ impl Loads {
     }
 
     /// Why the device could not be made, if that is what happened to it.
-    pub fn failed(&self, id: Id) -> Option<&str> {
+    pub(super) fn failed(&self, id: Id) -> Option<&str> {
         match self.devices.get(&id) {
             Some(Load::Failed(why)) => Some(why),
             _ => None,
         }
     }
 
-    pub fn busy(&self) -> bool {
+    pub(super) fn busy(&self) -> bool {
         self.count() > 0
     }
 
     /// How many devices wait or are being made.
-    pub fn count(&self) -> usize {
+    pub(super) fn count(&self) -> usize {
         self.devices
             .values()
             .filter(|load| !matches!(load, Load::Failed(_)))
@@ -83,7 +83,7 @@ impl Session {
     /// Make plugins apart from the main loop from now on (see the module's
     /// description), or wait for each as it is added, as scripts do unless
     /// they ask otherwise. Returns what it was.
-    pub fn set_load_apart(&mut self, on: bool) -> bool {
+    pub(crate) fn set_load_apart(&mut self, on: bool) -> bool {
         self.flush();
         self.engine.map.defer = on;
         std::mem::replace(&mut self.loads.on, on)
@@ -234,7 +234,7 @@ impl Session {
 
     /// Wait up to `limit` for every device being made; then say which is
     /// not ready, if one is not. For rendering, which needs them all.
-    pub fn await_loads(&mut self, limit: Duration) -> Result<()> {
+    pub(crate) fn await_loads(&mut self, limit: Duration) -> Result<()> {
         self.flush();
         let deadline = Instant::now() + limit;
         while self.loads.busy() && Instant::now() < deadline {
@@ -267,7 +267,7 @@ impl Session {
 /// Taken by the next open.
 #[derive(Default, Debug, Clone, serde::Deserialize)]
 #[serde(default)]
-pub struct OpenOpts {
+pub(crate) struct OpenOpts {
     pub plugins_offline: bool,
     pub offline: Vec<Id>,
 }
@@ -310,7 +310,7 @@ impl Session {
     }
 
     /// Say how the next project is to be opened (see [`OpenOpts`]).
-    pub fn set_open_opts(&mut self, opts: OpenOpts) {
+    pub(crate) fn set_open_opts(&mut self, opts: OpenOpts) {
         self.open_opts = opts;
     }
 }

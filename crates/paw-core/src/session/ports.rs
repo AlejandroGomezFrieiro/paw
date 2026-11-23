@@ -14,7 +14,7 @@ use crate::model::{Id, MASTER_ID, Project};
 impl Session {
     /// The ports of a device as it runs; none known for one that is not
     /// running (not made yet, offline, or missing).
-    pub fn device_ports(&self, id: Id) -> Ports {
+    pub(crate) fn device_ports(&self, id: Id) -> Ports {
         let Some(live) = self.live.get(&id) else {
             return Ports::default();
         };
@@ -30,14 +30,14 @@ impl Session {
     }
 }
 
-pub fn ports_json(ports: &Ports) -> Value {
+pub(super) fn ports_json(ports: &Ports) -> Value {
     json!({ "sidechain": ports.sidechain, "outputs": ports.outputs })
 }
 
 /// A device's routed output pairs from what a script gives: a table of
 /// pair number to track (`{ [2] = 5 }`, which may arrive as a list with
 /// holes), or nil for none.
-pub fn parse_outputs(value: Value) -> Result<BTreeMap<u32, Id>> {
+pub(super) fn parse_outputs(value: Value) -> Result<BTreeMap<u32, Id>> {
     let mut out = BTreeMap::new();
     let mut put = |pair: u32, to: &Value| -> Result<()> {
         match to {
@@ -72,7 +72,7 @@ pub fn parse_outputs(value: Value) -> Result<BTreeMap<u32, Id>> {
 }
 
 /// Whether a device on `track` may play its pair `pair` into track `to`.
-pub fn check_output(p: &Project, track: Id, pair: u32, to: Id) -> Result<()> {
+pub(super) fn check_output(p: &Project, track: Id, pair: u32, to: Id) -> Result<()> {
     if !(2..=MAX_PAIRS as u32).contains(&pair) {
         bail!("output pair {pair} is not one that can be routed: from 2 to {MAX_PAIRS}");
     }

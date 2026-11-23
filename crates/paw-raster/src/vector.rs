@@ -129,10 +129,6 @@ fn num(v: f32) -> String {
     if r == r.trunc() { format!("{}", r as i64) } else { format!("{r}") }
 }
 
-fn hex(c: Rgba) -> String {
-    paw_scene::color::Rgba::rgb(c.0, c.1, c.2).to_string()
-}
-
 /// A drawing as an SVG document `width` by `height` pixels.
 pub fn svg(drawing: &Drawing, width: f32, height: f32) -> String {
     let mut out = String::new();
@@ -158,7 +154,7 @@ pub fn svg(drawing: &Drawing, width: f32, height: f32) -> String {
         let mut attrs = String::new();
         match shape.fill {
             Some(c) => {
-                let _ = write!(attrs, r#" fill="{}""#, hex(c));
+                let _ = write!(attrs, r#" fill="{}""#, paw_scene::color::Rgba::rgb(c.0, c.1, c.2));
                 if c.3 < 255 {
                     let _ = write!(attrs, r#" fill-opacity="{}""#, num(c.3 as f32 / 255.0));
                 }
@@ -166,7 +162,7 @@ pub fn svg(drawing: &Drawing, width: f32, height: f32) -> String {
             None => attrs.push_str(r#" fill="none""#),
         }
         if let Some((c, w)) = shape.stroke {
-            let _ = write!(attrs, r#" stroke="{}" stroke-width="{}""#, hex(c), num(w));
+            let _ = write!(attrs, r#" stroke="{}" stroke-width="{}""#, paw_scene::color::Rgba::rgb(c.0, c.1, c.2), num(w));
             if c.3 < 255 {
                 let _ = write!(attrs, r#" stroke-opacity="{}""#, num(c.3 as f32 / 255.0));
             }

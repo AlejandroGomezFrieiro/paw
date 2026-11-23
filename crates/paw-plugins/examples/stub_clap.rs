@@ -104,11 +104,15 @@ fn mode_word(mode: u32) -> &'static str {
 
 /// The instance's own data.
 unsafe fn instance<'a>(plugin: *const clap_plugin) -> &'a Instance {
+    // SAFETY: `plugin` is the one `create_plugin` made: its `plugin_data` is a boxed `Instance`
+    // that lives until `destroy`.
     unsafe { &*((*plugin).plugin_data as *const Instance) }
 }
 
 /// Ask the host for a block.
 unsafe fn wake(plugin: *const clap_plugin) {
+    // SAFETY: the host that `create_plugin` was given lives as long as the plugin (CLAP), and
+    // `instance` holds for the plugin the host calls with.
     unsafe {
         let host = instance(plugin).host;
         (*host).request_process.unwrap()(host);
@@ -117,6 +121,8 @@ unsafe fn wake(plugin: *const clap_plugin) {
 
 /// Ask the host to deactivate the plugin and activate it again.
 unsafe fn restart(plugin: *const clap_plugin) {
+    // SAFETY: the host that `create_plugin` was given lives as long as the plugin (CLAP), and
+    // `instance` holds for the plugin the host calls with.
     unsafe {
         let host = instance(plugin).host;
         (*host).request_restart.unwrap()(host);
@@ -146,6 +152,8 @@ unsafe fn tell(out: *const clap_output_events, value: u32, gesture: bool) {
         key: -1,
         value: value as f64,
     };
+    // SAFETY: `out` is the host's queue of events for this block (CLAP), and each header points
+    // into an event that lives until the call returns.
     unsafe {
         let push = (*out).try_push.unwrap();
         if gesture {
@@ -169,6 +177,7 @@ unsafe extern "C" fn params_info(
     if index > 0 {
         return false;
     }
+    // SAFETY: the host gives a `clap_param_info` to write into (CLAP).
     unsafe {
         let info = &mut *info;
         info.id = 0;
@@ -188,6 +197,7 @@ unsafe extern "C" fn params_value(_: *const clap_plugin, id: u32, out: *mut f64)
     if id != 0 {
         return false;
     }
+    // SAFETY: the host gives a `f64` to write into (CLAP).
     unsafe { *out = STATE.load(Relaxed) as f64 };
     true
 }
@@ -223,6 +233,7 @@ unsafe extern "C" fn paw_call(
     out: *mut c_void,
     write: Write,
 ) -> bool {
+    // SAFETY: the host gives a C string and `size` bytes at `data` (paw's call extension).
     let (method, data) = unsafe {
         (
             CStr::from_ptr(method),
@@ -230,17 +241,23 @@ unsafe extern "C" fn paw_call(
         )
     };
     if method == c"stub.activations" {
+        // SAFETY: the host calls with the plugin that `create_plugin` made, whose `plugin_data`
+        // is an `Instance`.
         let count = unsafe { instance(plugin) }.activations.load(Relaxed).to_string();
+        // SAFETY: the host gives a `write` that takes `out` and the bytes of a live string.
         unsafe { write.unwrap()(out, count.as_ptr(), count.len()) };
         return true;
     }
     if method == c"stub.render" {
+        // SAFETY: the host calls with the plugin that `create_plugin` made, whose `plugin_data`
+        // is an `Instance`.
         let instance = unsafe { instance(plugin) };
         let modes = format!(
             "{} {}",
             mode_word(instance.first_block_mode.load(SeqCst)),
             mode_word(instance.mode.load(SeqCst))
         );
+        // SAFETY: the host gives a `write` that takes `out` and the bytes of a live string.
         unsafe { write.unwrap()(out, modes.as_ptr(), modes.len()) };
         return true;
     }
@@ -250,11 +267,17 @@ unsafe extern "C" fn paw_call(
     let Some(value) = value else { return false };
     if method == c"stub.move" {
         MOVE.store(value, Relaxed);
+        // SAFETY: the host calls with the plugin that `create_plugin` made, whose `plugin_data`
+        // is an `Instance`.
         unsafe { wake(plugin) };
     } else if method == c"stub.tell" {
         TELL.store(value, Relaxed);
+        // SAFETY: the host calls with the plugin that `create_plugin` made, whose `plugin_data`
+        // is an `Instance`.
         unsafe { wake(plugin) };
     } else if method == c"stub.restart" {
+        // SAFETY: the host calls with the plugin that `create_plugin` made, whose `plugin_data`
+        // is an `Instance`.
         unsafe { restart(plugin) };
     } else if method == c"stub.quiet" {
         QUIET.store(value, Relaxed);
@@ -287,10 +310,12 @@ pub extern "C" fn stub_clap_state() -> u32 {
 
 unsafe extern "C" fn state_save(_: *const clap_plugin, stream: *const clap_ostream) -> bool {
     let bytes = STATE.load(Relaxed).to_le_bytes();
+    // SAFETY: the host gives a stream with a `write` that takes 4 bytes (CLAP).
     unsafe { (*stream).write.unwrap()(stream, bytes.as_ptr().cast(), 4) == 4 }
 }
 unsafe extern "C" fn state_load(_: *const clap_plugin, stream: *const clap_istream) -> bool {
     let mut bytes = [0u8; 4];
+    // SAFETY: the host gives a stream with a `read` that writes at most 4 bytes (CLAP).
     if unsafe { (*stream).read.unwrap()(stream, bytes.as_mut_ptr().cast(), 4) } != 4 {
         return false;
     }
@@ -310,6 +335,8 @@ unsafe extern "C" fn render_set(plugin: *const clap_plugin, mode: clap_plugin_re
     if mode != CLAP_RENDER_REALTIME && mode != CLAP_RENDER_OFFLINE {
         return false;
     }
+    // SAFETY: the host calls with the plugin that `create_plugin` made, whose `plugin_data` is
+    // an `Instance`.
     unsafe { instance(plugin) }.mode.store(mode as u32, SeqCst);
     true
 }
@@ -324,6 +351,7 @@ static RENDER: clap_plugin_render = clap_plugin_render {
 /// `out` points to two words.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn stub_clap_last(out: *mut u32) -> u32 {
+    // SAFETY: the caller gives two words at `out`, as the function's contract says.
     unsafe {
         *out = LAST[0].load(Relaxed);
         *out.add(1) = LAST[1].load(Relaxed);
@@ -332,8 +360,10 @@ pub unsafe extern "C" fn stub_clap_last(out: *mut u32) -> u32 {
 }
 
 struct Desc(clap_plugin_descriptor);
+// SAFETY: the descriptor holds only pointers to static C strings, which nothing writes.
 unsafe impl Sync for Desc {}
 struct Features([*const c_char; 2]);
+// SAFETY: the list holds only pointers to static C strings, which nothing writes.
 unsafe impl Sync for Features {}
 
 static FEATURES: Features = Features([c"instrument".as_ptr(), std::ptr::null()]);
@@ -354,12 +384,16 @@ unsafe extern "C" fn init(_: *const clap_plugin) -> bool {
     true
 }
 unsafe extern "C" fn destroy(plugin: *const clap_plugin) {
+    // SAFETY: both boxes are the ones `create_plugin` made, and the host destroys a plugin once
+    // (CLAP).
     unsafe {
         drop(Box::from_raw((*plugin).plugin_data as *mut Instance));
         drop(Box::from_raw(plugin as *mut clap_plugin));
     }
 }
 unsafe extern "C" fn activate(plugin: *const clap_plugin, _: f64, _: u32, _: u32) -> bool {
+    // SAFETY: the host calls with the plugin that `create_plugin` made, whose `plugin_data` is
+    // an `Instance`.
     unsafe { instance(plugin) }.activations.fetch_add(1, Relaxed);
     true
 }
@@ -373,6 +407,8 @@ unsafe extern "C" fn process(
     p: *const clap_process,
 ) -> clap_process_status {
     // The first block keeps the render mode that it had.
+    // SAFETY: the host calls with the plugin that `create_plugin` made, whose `plugin_data` is
+    // an `Instance`.
     let instance = unsafe { instance(plugin) };
     let _ = instance.first_block_mode.compare_exchange(
         MODE_NO_BLOCK,
@@ -380,6 +416,8 @@ unsafe extern "C" fn process(
         SeqCst,
         SeqCst,
     );
+    // SAFETY: the host gives a `clap_process` whose event queues and buffers of `frames_count`
+    // frames live until the call returns (CLAP).
     unsafe {
         let p = &*p;
         let loaded = LOADED.swap(u32::MAX, Relaxed);
@@ -462,6 +500,7 @@ unsafe extern "C" fn audio_get(
     if is_input || index > 0 {
         return false;
     }
+    // SAFETY: the host gives a `clap_audio_port_info` to write into (CLAP).
     unsafe {
         (*info).id = 0;
         (*info).flags = CLAP_AUDIO_PORT_IS_MAIN;
@@ -488,6 +527,7 @@ unsafe extern "C" fn note_get(
     if !is_input || index > 0 {
         return false;
     }
+    // SAFETY: the host gives a `clap_note_port_info` to write into (CLAP).
     unsafe {
         (*info).id = 0;
         (*info).supported_dialects = CLAP_NOTE_DIALECT_CLAP | CLAP_NOTE_DIALECT_MIDI2;
@@ -512,6 +552,7 @@ unsafe extern "C" fn names_get(
     let Some((key, text)) = NAMES.get(index as usize) else {
         return false;
     };
+    // SAFETY: the host gives a `clap_note_name` to write into (CLAP).
     unsafe {
         let name = &mut *name;
         for (to, from) in name.name.iter_mut().zip(text.to_bytes_with_nul()) {
@@ -529,6 +570,7 @@ static NOTE_NAMES: clap_plugin_note_name = clap_plugin_note_name {
 };
 
 unsafe extern "C" fn get_extension(_: *const clap_plugin, id: *const c_char) -> *const c_void {
+    // SAFETY: the host gives a C string (CLAP).
     let id = unsafe { CStr::from_ptr(id) };
     if id == CLAP_EXT_AUDIO_PORTS {
         &AUDIO_PORTS as *const _ as *const c_void
@@ -567,6 +609,7 @@ unsafe extern "C" fn create_plugin(
     host: *const clap_host,
     id: *const c_char,
 ) -> *const clap_plugin {
+    // SAFETY: the host gives a C string (CLAP).
     if unsafe { CStr::from_ptr(id) } != c"dev.paw.stub" {
         return std::ptr::null();
     }
@@ -602,6 +645,7 @@ unsafe extern "C" fn entry_init(_: *const c_char) -> bool {
 }
 unsafe extern "C" fn entry_deinit() {}
 unsafe extern "C" fn get_factory(id: *const c_char) -> *const c_void {
+    // SAFETY: the host gives a C string (CLAP).
     if unsafe { CStr::from_ptr(id) } == CLAP_PLUGIN_FACTORY_ID {
         &FACTORY as *const _ as *const c_void
     } else {

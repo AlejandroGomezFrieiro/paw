@@ -197,7 +197,7 @@ pub enum Msg {
     /// the first boundary of its quantize from where the engine is when it
     /// takes the message (at once while stopped). Launches sent together
     /// are timed together.
-    Launch(Box<Vec<Launch>>),
+    Launch(Box<[Launch]>),
     /// Where a copy of what is played goes, left and right interleaved, for
     /// someone listening elsewhere (see [`EngineHandle::monitor`]), or nowhere.
     SetMonitor(Option<Box<Producer<f32>>>),
@@ -233,7 +233,7 @@ pub(super) enum Garbage {
     Monitor(#[allow(dead_code)] Box<Producer<f32>>),
     TempoMap(#[allow(dead_code)] Box<TempoMap>),
     Slots(#[allow(dead_code)] Box<Slots>),
-    Launches(#[allow(dead_code)] Box<Vec<Launch>>),
+    Launches(#[allow(dead_code)] Box<[Launch]>),
     Preview(#[allow(dead_code)] Box<Preview>),
     MidiFilter(#[allow(dead_code)] Box<MidiFilter>),
     LocalTime(#[allow(dead_code)] Box<crate::tempo::LocalTime>),

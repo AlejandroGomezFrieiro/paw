@@ -44,7 +44,7 @@ use realfft::num_complex::Complex;
 use serde::{Deserialize, Serialize};
 
 use crate::resample::Stream;
-pub use crate::warp::Warp;
+pub(crate) use crate::warp::Warp;
 
 /// How a clip is stretched: see the module's description.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -68,10 +68,10 @@ impl Mode {
 
 /// The shortest and longest a stretch can make a sound: a quarter to four
 /// times as long. Past about 0.5 to 2 it is heard.
-pub const RATIO_RANGE: (f64, f64) = (0.25, 4.0);
+pub(crate) const RATIO_RANGE: (f64, f64) = (0.25, 4.0);
 
 /// The furthest a pitch moves, in semitones, either way.
-pub const PITCH_RANGE: f64 = 24.0;
+pub(crate) const PITCH_RANGE: f64 = 24.0;
 
 /// Onsets a second from which [`Mode::Auto`] takes the sound for drums.
 const PERCUSSIVE_DENSITY: f64 = 2.0;
@@ -92,7 +92,7 @@ pub fn choose(data: &AudioData) -> Mode {
 #[derive(Clone, Debug)]
 pub struct Params {
     /// Where each moment goes, in seconds.
-    pub warp: Warp,
+    pub(crate) warp: Warp,
     /// How much higher it plays.
     pub semitones: f64,
     pub mode: Mode,
@@ -114,7 +114,7 @@ impl Params {
 }
 
 /// How many frames `frames` at `rate` make through `warp`.
-pub fn length(frames: usize, rate: u32, warp: &Warp) -> usize {
+pub(crate) fn length(frames: usize, rate: u32, warp: &Warp) -> usize {
     warp.in_frames(rate as f64)
         .forward(frames as f64)
         .round()
@@ -281,7 +281,7 @@ fn read(src: &[f32], from: i64, out: &mut [f32]) {
 /// Where sounds begin, as input frames, in order: where the energy of the
 /// sound's changes (its high frequencies) jumps well above what it was
 /// just before, at least 50 ms after the last onset.
-pub fn onsets(mono: &[f32], rate: u32) -> Vec<usize> {
+pub(crate) fn onsets(mono: &[f32], rate: u32) -> Vec<usize> {
     let block = (rate as usize / 344).max(16);
     let energy: Vec<f64> = mono
         .chunks(block)
@@ -717,8 +717,9 @@ impl Envelope {
     }
 }
 
-/// For tests and tools: `data` stretched whole, in memory.
-pub fn stretched(data: &AudioData, params: &Params) -> Result<Arc<AudioData>> {
+/// For tests: `data` stretched whole, in memory.
+#[cfg(test)]
+pub(crate) fn stretched(data: &AudioData, params: &Params) -> Result<Arc<AudioData>> {
     render(data, params, Sink::memory(), &AtomicBool::new(false)).map(Arc::new)
 }
 

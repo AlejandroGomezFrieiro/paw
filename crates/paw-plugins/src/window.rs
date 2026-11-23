@@ -284,7 +284,7 @@ impl GtkWindow {
     /// # Safety
     /// `widget` must be a `GtkWidget` made by a library already loaded into
     /// this process.
-    pub unsafe fn wrap(widget: *mut c_void, title: &CStr) -> Result<Self> {
+    pub(crate) unsafe fn wrap(widget: *mut c_void, title: &CStr) -> Result<Self> {
         use libloading::os::unix::{Library, RTLD_LAZY};
         if widget.is_null() {
             anyhow::bail!("the editor gave back no widget");
@@ -365,7 +365,7 @@ impl GtkWindow {
     }
 
     /// Let Gtk handle what is waiting. Returns whether the user closed the window.
-    pub fn run(&mut self) -> bool {
+    pub(crate) fn run(&mut self) -> bool {
         // SAFETY: `gtk` holds Gtk functions found in `wrap`, and nothing here frees the window or the
         // widget, so the calls work on live objects; they run on the thread that made the window.
         unsafe {
@@ -381,7 +381,7 @@ impl GtkWindow {
     }
 
     /// Take the widget out of the window, before its editor destroys it.
-    pub fn release(&self) {
+    pub(crate) fn release(&self) {
         // SAFETY: `window` and `widget` are live (created in `wrap`, destroyed only in Drop), and the widget
         // was added to this window, which `gtk_container_remove` requires.
         unsafe { (self.gtk.container_remove)(self.window, self.widget) };
@@ -410,7 +410,7 @@ pub(crate) struct HostWindow {
 }
 
 impl HostWindow {
-    pub fn new(title: &str, width: u32, height: u32) -> Result<Self> {
+    pub(crate) fn new(title: &str, width: u32, height: u32) -> Result<Self> {
         tolerate_x_errors();
         let display = display()?;
         let conn = &display.conn;
@@ -473,14 +473,14 @@ impl HostWindow {
     }
 
     /// The X11 window id, which is what plugins take as their parent.
-    pub fn id(&self) -> u32 {
+    pub(crate) fn id(&self) -> u32 {
         self.id
     }
 
     /// Say whether the editor has one size only. The window manager then
     /// offers no resizing, and a tiling one floats the window at that size
     /// instead of stretching or cropping an editor that cannot follow.
-    pub fn set_fixed(&mut self, fixed: bool) {
+    pub(crate) fn set_fixed(&mut self, fixed: bool) {
         self.fixed = fixed;
         self.hint_size();
     }
@@ -498,7 +498,7 @@ impl HostWindow {
         let _ = self.display.conn.flush();
     }
 
-    pub fn resize(&mut self, width: u32, height: u32) {
+    pub(crate) fn resize(&mut self, width: u32, height: u32) {
         let (width, height) = (width.clamp(1, 16384), height.clamp(1, 16384));
         if (width, height) == self.size {
             return;
@@ -514,14 +514,14 @@ impl HostWindow {
     }
 
     /// The size of a window inside this one: the plugin's own, once it exists.
-    pub fn child_size(&self, child: u32) -> Option<(u32, u32)> {
+    pub(crate) fn child_size(&self, child: u32) -> Option<(u32, u32)> {
         let geometry = self.display.conn.get_geometry(child).ok()?.reply().ok()?;
         Some((geometry.width as u32, geometry.height as u32))
     }
 
     /// What has happened to the window since the last call. Sizes the host
     /// set itself are not reported back.
-    pub fn events(&mut self) -> Vec<WindowEvent> {
+    pub(crate) fn events(&mut self) -> Vec<WindowEvent> {
         self.display.pump();
         let mut events = self
             .display
@@ -566,25 +566,25 @@ impl<F, T> Default for Watches<F, T> {
 }
 
 impl<F: Clone, T: Clone + PartialEq> Watches<F, T> {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             fds: Vec::new(),
             timers: Vec::new(),
         }
     }
 
-    pub fn add_timer(&mut self, period_ms: u64, tag: T) {
+    pub(crate) fn add_timer(&mut self, period_ms: u64, tag: T) {
         // Plugins ask for timers as fast as 1 ms; the host loop is coarser.
         let period = Duration::from_millis(period_ms.max(1));
         self.timers.push((period, Instant::now() + period, tag));
     }
 
-    pub fn remove_timer(&mut self, tag: &T) {
+    pub(crate) fn remove_timer(&mut self, tag: &T) {
         self.timers.retain(|(_, _, t)| t != tag);
     }
 
     /// Keep only the timers whose tag passes `keep`.
-    pub fn timers_retain(&mut self, mut keep: impl FnMut(&T) -> bool) {
+    pub(crate) fn timers_retain(&mut self, mut keep: impl FnMut(&T) -> bool) {
         self.timers.retain(|(_, _, t)| keep(t));
     }
 
@@ -596,12 +596,12 @@ impl<F: Clone, T: Clone + PartialEq> Watches<F, T> {
     /// nothing left on the socket, so an editor would stay blank until the
     /// next mouse movement. Plugin toolkits check their queue without
     /// blocking, so asking every time costs a function call.
-    pub fn ready_fds(&self) -> Vec<(RawFd, F)> {
+    pub(crate) fn ready_fds(&self) -> Vec<(RawFd, F)> {
         self.fds.clone()
     }
 
     /// The timers that have come due, rescheduled for their next turn.
-    pub fn due_timers(&mut self) -> Vec<T> {
+    pub(crate) fn due_timers(&mut self) -> Vec<T> {
         let now = Instant::now();
         let mut due = Vec::new();
         for (period, next, tag) in &mut self.timers {
