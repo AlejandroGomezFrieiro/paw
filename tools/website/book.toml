@@ -13,7 +13,8 @@ default-theme = "light"
 preferred-dark-theme = "coal"
 smart-punctuation = false
 no-section-label = true
-additional-css = ["landing.css"]
+additional-css = ["landing.css", "live.css"]
+additional-js = ["live.js"]
 git-repository-url = "@REPO_URL@"
 edit-url-template = "@REPO_URL@/edit/main/{path}"
 

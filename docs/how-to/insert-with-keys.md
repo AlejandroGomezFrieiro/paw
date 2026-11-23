@@ -6,6 +6,8 @@ You can put clips, regions, markers and automation points on the timeline
 from the keyboard, in insert mode. All the keys are listed in
 [Insert mode in the arrange view](../reference/insert-mode.md).
 
+<!-- paw-live: {"project": "demo-song"} -->
+
 ## Insert clips
 
 1. Put the cursor on a track, at the bar where the clip starts, and press

@@ -33,7 +33,15 @@ tracks (`:5,8d`, `:t2,t4 mute`), and paw shows a preview while you type.
 [About the key rule](docs/explanation/about-the-key-rule.md) tells why they
 are the same in each view.
 
+The recorded session below moves over the demo song, copies a clip,
+turns two tracks down, draws a note and plays the song. Press Play, pause
+it at any step, and copy the keys of a step from the list under it.
+
+<paw-cast src="docs/images/cast-basics.cast">
+
 ![Notes drawn with i, typed on the home row with I, selected and transposed](docs/images/tui-pianoroll.gif)
+
+</paw-cast>
 
 ### The terminal first
 
@@ -92,14 +100,14 @@ how to put paw in your profile.
 
 ## Try it in your browser
 
-<!-- SLOT: Try it in your browser. The live paw (a BrowserPod image) goes
-     in the div below when it is ready. -->
+You can try paw on the website, without installing it. paw opens with the
+demo song, and you can type any key of the manual into it. Press "Play or
+stop the song" to hear it, or click the terminal and press `Space` two
+times.
 
-<div id="try-in-browser" class="landing-slot">
+<div class="paw-live" data-paw-live data-paw-label="Try paw" data-paw-state='{"project":"demo-song"}'></div>
 
-paw does not run in a browser yet. Until it does, [install paw](#install-paw).
-
-</div>
+<span data-paw-keys="&lt;Space&gt;&lt;Space&gt;" data-paw-label="Play or stop the song"></span>
 
 ## Where to go next
 

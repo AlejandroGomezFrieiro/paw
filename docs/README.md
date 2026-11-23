@@ -133,7 +133,7 @@ groups below link the main ones.
 - [How to import audio and MIDI files](how-to/import-audio-and-midi-files.md): commands, the file manager, a drop on the graphical window
 - [How to make and use track templates](how-to/use-track-templates.md)
 - [How to relink lost media](how-to/relink-missing-media.md)
-- [How to diff and merge projects with git](../extensions/projdiff/README.md#how-to-diff-and-merge-projects-with-git)
+- [How to settle the conflicts of a git merge of a project](../extensions/projdiff/README.md#how-to-settle-the-conflicts-of-a-git-merge)
 - [How to work on paw from another computer](how-to/work-from-another-computer.md): attach over the network or SSH, send files, hear the sound
 
 ### When something goes wrong

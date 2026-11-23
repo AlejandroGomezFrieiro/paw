@@ -60,6 +60,26 @@ shared binary of the session.
 The scenes `gui-*.sh` need `paw-gui`. The graphical window is paused, so do
 not make them.
 
+## Recorded sessions
+
+A recorded session is an asciicast (version 2) that the website plays with
+`tools/website/paw-cast.js`. The reader can pause it and copy the keys of
+each step. A cast scene is `cast-*.sh` in `docs/images/make`. It gives
+steps to `cast.py` on standard input:
+
+| Step | What it does |
+| --- | --- |
+| `caption TEXT` | Starts a step. The player shows TEXT and lists the keys of the step. |
+| `keys KEYS` | Types KEYS in Vim notation, for example `4G5|<CR>`. |
+| `pause SECONDS` | Records the screen for SECONDS. |
+
+`cast.py` runs paw in a pseudo-terminal of 100 by 30 cells, with
+`--clean`, `--no-plugins`, `--audio null` and a scratch home. It needs no
+display. `make.sh cast-basics` writes `docs/images/cast-basics.cast`.
+The rules for captions and for the loop apply to a cast too. To read the
+screens of a cast as text, give the cast to the `Screen` class of
+`paw-cast.js` in Node.
+
 ## Kinds of GIF
 
 | Kind | Length | Where it goes |

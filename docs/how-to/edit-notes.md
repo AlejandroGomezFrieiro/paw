@@ -5,6 +5,8 @@
 You can correct the notes of a MIDI clip in the piano roll with a few
 keys. All the keys are listed in [The piano roll](../reference/piano-roll.md).
 
+<!-- paw-live: {"project": "demo-song"} -->
+
 1. In the arrange view, put the cursor on the clip and press `Enter`, and
    the piano roll opens with the notes of the clip.
 2. Press `w` and `b` to go from note to note, and `j` `k` to change the

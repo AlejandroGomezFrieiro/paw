@@ -10,6 +10,8 @@ and each key is one undo step, so `u` takes it back. All the keys are in
 To put the cursor on a clip, press `w` for the next clip or `b` for the
 start of the current clip. Press `j` and `k` to go to a different track.
 
+<!-- paw-live: {"project": "demo-song"} -->
+
 ## Move a clip
 
 - Press `L` to move the clip one grid step later, and `H` to move it

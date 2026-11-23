@@ -61,7 +61,7 @@ export function parseKeys(keys) {
     if (m) {
       const name = m[1].toLowerCase();
       const ctrl = /^c-(.)$/.exec(name);
-      const alt = /^[am]-(.+)$/.exec(m[1]);
+      const alt = /^[am]-(.+)$/i.exec(m[1]);
       if (NAMED[name] !== undefined) out.push(NAMED[name]);
       else if (ctrl) out.push(String.fromCharCode(ctrl[1].toUpperCase().charCodeAt(0) & 0x1f));
       else if (alt) out.push("\x1b" + (NAMED[alt[1].toLowerCase()] ?? alt[1]));
@@ -80,7 +80,7 @@ export function pawArgs(state = {}) {
   const args = ["--no-plugins", "--clean"];
   const lua = [];
   if (state.project) args.push(`projects/${state.project}`);
-  else if (state.lesson === undefined) args.push("projects/demo-song");
+  else if (state.lesson === undefined && !state.empty) args.push("projects/demo-song");
   if (state.lesson !== undefined) {
     lua.push(`paw.ext.load_bundled("tutor")`, `paw.ex.exec("tutor! ${String(state.lesson).replace(/"/g, "")}")`);
   }

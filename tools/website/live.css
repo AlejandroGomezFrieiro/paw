@@ -1,0 +1,27 @@
+/* A page with a live paw (web/browserpod/site/paw-live.js): the text on the
+   left, and paw on the right, where it stays while the text scrolls. */
+.content main:has(.paw-course) {
+  max-width: min(100%, 120rem);
+}
+.paw-course {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+.paw-course-text {
+  min-width: 0;
+}
+@media (min-width: 1100px) {
+  .paw-course {
+    flex-direction: row-reverse;
+    align-items: flex-start;
+  }
+  .paw-course > .paw-live {
+    flex: 0 0 56%;
+    position: sticky;
+    top: calc(var(--menu-bar-height, 50px) + 0.5rem);
+  }
+  .paw-course-text {
+    flex: 1 1 0;
+  }
+}
