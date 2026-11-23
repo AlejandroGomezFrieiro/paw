@@ -20,6 +20,7 @@ extension (`:help notation`).
   - [Arrange the song](tutorials/make-music/04-arrange-the-song.md): verse and chorus, markers, the tempo, find a part
   - [Mix and render the song](tutorials/make-music/05-mix-and-render.md): levels, pan, effects, a send, automation, WAV and MP3
 - [The course](tutorials/course/README.md): seventeen short lessons for your first days with paw, also inside paw as `:tutor`
+  - [The course in your browser](tutorials/course/in-the-browser.md): every lesson on one page, with paw running beside the steps
 
 ## How-to guides
 

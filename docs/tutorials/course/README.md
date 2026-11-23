@@ -10,6 +10,8 @@ paw.ext.load("extensions/tutor")   -- in ~/.config/paw/init.lua, or link the dir
 
 Then type `:tutor` in paw. The tutor makes these pages from its lessons, so the pages and the tutor give the same steps. [Keys, by idea](../../reference/keys.md) is a page of keys to keep near the keyboard.
 
+You can also do the course without an install. [The course in your browser](in-the-browser.md) has every lesson on one page, with paw running beside the steps.
+
 | | Lesson | What we do |
 | --- | --- | --- |
 | 1 | [First steps: the screen, play and quit](01-first-steps.md) | We played a song, moved the cursor, used the command line and found the list of all the keys. |

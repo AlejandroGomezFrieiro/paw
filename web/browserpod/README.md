@@ -48,6 +48,14 @@ as each visitor of the page does. At the end, the script prints the bytes
 that the local server sent for each file. The pod reads only the parts of
 `home.ext2` that it needs, about 26 MB of its 100 MB.
 
+To test the course page with a live paw, build the website with the pod
+(`nix build .#website-live`) and run
+`web/browserpod/test.sh result OUT.json --course`. The script opens
+`docs/tutorials/course/in-the-browser.html`, presses Start, and then
+presses the button of each lesson and the "Type it" button of each step.
+It checks that the tutor in paw goes on to the next step each time, and it
+saves screenshots beside `OUT.json`.
+
 ### How to update the lock of the pod build
 
 BrowserPod's pack patches the crates `libc`, `rustix` and `linux-raw-sys`
@@ -82,6 +90,27 @@ with `--locked` until you do.
 
 `demo.html` is a complete example.
 
+### How to add a live paw to a page of the docs
+
+`paw-live.js` makes the panel, the buttons and the credit from a few
+attributes, so a page of the manual needs no script of its own.
+
+1. Put an empty panel where paw should show:
+   `<div class="paw-live" data-paw-live data-paw-worker="../../coi-sw.js"></div>`.
+   Give `data-paw-worker` the path from the page to the root of the site.
+2. Put an empty span where a button should be. A span with
+   `data-paw-open='{"project":"demo-song"}'` opens paw at that state, and a
+   span with `data-paw-keys='jj'` types keys.
+3. Load the module at the end of the page with
+   `<script type="module" src="../../pod/paw-live.js"></script>`.
+4. Say on the page that the button loads BrowserPod from browserpod.io.
+
+Each button is a `<span>` that the module fills, so the Markdown shows no
+stray text on GitHub or where the pod is not on the site. The website
+copies `paw-live.js` to `pod/` and `coi-sw.js` to its root. When
+`tools/website/build.sh` runs with `PAW_POD` set to the image, as
+`nix build .#website-live` does, the image goes to `pod/` too.
+
 ## Reference
 
 ### The API for pages
@@ -102,11 +131,30 @@ with `--locked` until you do.
 | `pod.manifest` | The paw version, the git revision, the BrowserPod version and the SHA-256 of each file. |
 | `parseKeys(keys)`, `pawArgs(state)` | The bytes of each key, and the command line of paw for a state. |
 
+The attributes that `paw-live.js` reads:
+
+| Attribute | On | What it does |
+| --- | --- | --- |
+| `data-paw-live` | The panel, a `div` | The module puts the Start button, the terminal, the status and the credit in it. |
+| `data-paw-state` | The panel | The state that Start opens, as JSON. The demo song is the default. |
+| `data-paw-label` | The panel | The text of the Start button. The default is "Start paw". |
+| `data-paw-worker` | The panel | The URL of `coi-sw.js`, from the page. The default is the file beside `paw-live.js`. |
+| `data-paw-open` | A span | A button that opens paw at a state, as JSON, also when paw shows that state already. |
+| `data-paw-keys` | A span | A button that types keys in Vim notation. The value is a key string, or a JSON list of key strings and waits in milliseconds, for example `["<Space><Space>",2000,"<Space><Space>"]`. |
+| `data-paw-state` | A span with `data-paw-keys` | The state where the keys belong. When paw shows another state, the button opens this state first. |
+| `data-paw-label` | A span | The text of the button. The default is "Open in paw" or "Type it". |
+
+Before Start, a button in the text shows the reader the Start button and
+loads nothing. When the server doesn't send the isolation headers, Start
+registers `coi-sw.js`, loads the page once more, and then starts paw by
+itself. The first click after that turns the sound on.
+
 The states that `open` takes:
 
 | State | paw starts with |
 | --- | --- |
 | `{ project: "demo-song" }` | A project of the image, from `/home/user/projects`. It's the default. |
+| `{ empty: true }` | A new project with no tracks. |
 | `{ lesson: 3 }`, `{ lesson: "visual" }` | A lesson of the course, from its start (`:tutor!`). |
 | `{ scope: "Melody" }` | With a project, the window narrowed to a region or a group (`:narrow`). The demo song has the regions `Chords` and `Melody`. |
 | `{ keys: "jj" }` | Keys typed after startup (`--keys`). |
@@ -125,6 +173,7 @@ The states that `open` takes:
 | `files.txt` | The list of what `home.ext2` holds. |
 | `manifest.json` | The paw version, the revision, the BrowserPod version and the SHA-256 of each file. |
 | `paw-pod.js`, `audio-worklet.js` | The JavaScript API, and the AudioWorklet that plays the sound. |
+| `paw-live.js` | The panel and the buttons for a page of the docs. |
 | `coi.js`, `coi-sw.js` | Cross-origin isolation on a host that can't set headers. |
 | `demo.html` | The demo page. |
 

@@ -53,18 +53,18 @@ The tutor opens a practice project for the lesson, and it checks each step when 
 9. `<Esc>` writes the notes that you drew and leaves insert mode. Press `<Esc>`.
    - ✓ paw adds the notes A, G, F and E to the notes E, D and C that were there before, and the whole insert is one undo step.
 10. Now we add a chord at the end of the clip. Press `$` (the end), `i`, `4-` (down to C) and `4l`.
-   - ✓ A C that is one beat long shows after the end of the clip, and the clip becomes longer to hold the note.
+    - ✓ A C that is one beat long shows after the end of the clip, and the clip becomes longer to hold the note.
 11. `c` makes the note a chord, and it shows a list of chords with the chord of the key on C first. Press `c`, then `<CR>` to take the first chord.
-   - ✓ C, E and G show in green, and the keys of insert mode now change the whole chord as one note. To get another chord, type a symbol, e.g., `V7` or `Am`.
+    - ✓ C, E and G show in green, and the keys of insert mode now change the whole chord as one note. To get another chord, type a symbol, e.g., `V7` or `Am`.
 12. `<CR>` keeps the chord and continues after it. `K` and `J` move one octave. Press `<CR>`, `J` (the C below), `4l` and `<Esc>`.
-   - *Hint:* `<Space>` adds a rest of one step before the next note.
-   - ✓ The clip has a C major chord, followed by a C3 below it.
+    - *Hint:* `<Space>` adds a rest of one step before the next note.
+    - ✓ The clip has a C major chord, followed by a C3 below it.
 13. With a MIDI keyboard, `I` starts step input, which enters the notes that you play at the cursor, one note or chord at a time. Press `I` in the piano roll. If you have a keyboard, play a key.
-   - ✓ The title row shows `STEP`, and a caret shows where the next note goes. With no keyboard, a list of inputs opens, and step input stays on. `<Space>` rests one step, and `=` and a value sets the step.
+    - ✓ The title row shows `STEP`, and a caret shows where the next note goes. With no keyboard, a list of inputs opens, and step input stays on. `<Space>` rests one step, and `=` and a value sets the step.
 14. `<Esc>` writes the notes that you played and leaves insert mode. Press `<Esc>`, and press it again if a list of inputs is open.
-   - ✓ Step input is off, and one undo step takes back all the notes that you played.
+    - ✓ Step input is off, and one undo step takes back all the notes that you played.
 15. In normal mode, `<Esc>` stays in the piano roll, and the same is true in every view. `<C-w>p` returns to the previous window. Press `<C-w>p`, then `gs` and `<Space><Space>` to listen, and `<Space><Space>` again to stop.
-   - ✓ Your tune plays over the drums.
+    - ✓ Your tune plays over the drums.
 
 ## What we did
 

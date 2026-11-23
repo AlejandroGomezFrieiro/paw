@@ -120,7 +120,7 @@ impl Session {
             return;
         }
         self.connect_midi_out();
-        if self.midi.inputs.is_none() {
+        if self.midi.inputs.is_none() && MidiInputs::SUPPORTED {
             match MidiInputs::start(self.midi.sink.clone(), self.midi.select.clone()) {
                 Ok(midi) => {
                     for name in &self.midi.own {

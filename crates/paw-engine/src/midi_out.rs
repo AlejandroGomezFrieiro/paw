@@ -120,6 +120,10 @@ pub struct MidiOutputs {
 }
 
 impl MidiOutputs {
+    /// Whether this build writes to MIDI ports. A build without them (in a
+    /// BrowserPod pod, for example) has no ports to tell the user about.
+    pub const SUPPORTED: bool = cfg!(feature = "midi");
+
     pub fn start() -> Result<Self> {
         let ports = Arc::new(Mutex::new(Vec::new()));
         let (commands, rx) = channel();

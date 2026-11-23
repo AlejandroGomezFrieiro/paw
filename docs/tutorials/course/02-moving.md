@@ -47,17 +47,17 @@ The tutor opens a practice project for the lesson, and it checks each step when 
    - *Hint:* `|` is the bar key. On many keyboards, it is Shift and backslash.
    - ✓ The cursor is on bar 5, where the pad starts.
 10. Now we use the same keys in a different mode. Press `v`, and the status line shows VISUAL. In visual mode, each motion makes the selection larger. Press `l` two times.
-   - ✓ In visual mode, `l` moves the cursor and also selects. Lesson 7 shows what you can do with a selection.
+    - ✓ In visual mode, `l` moves the cursor and also selects. Lesson 7 shows what you can do with a selection.
 11. `<Esc>` always returns to NORMAL. Press `<Esc>`.
-   - ✓ The mode is NORMAL again.
+    - ✓ The mode is NORMAL again.
 12. Now we use a different view. `<CR>` (Enter) on a clip opens it in the piano roll. Press `<CR>` on the pad clip.
-   - *Hint:* The cursor must be on a clip. Press `5|` on the Pad track to move it there.
-   - ✓ The piano roll now gets the keys.
+    - *Hint:* The cursor must be on a clip. Press `5|` on the Pad track to move it there.
+    - ✓ The piano roll now gets the keys.
 13. In the piano roll, the rows are pitches, so `k` moves up one semitone instead of one track. Press `k` two times, and you hear each pitch.
-   - ✓ The key is the same as in the arrange view, and it still moves up, but in the piano roll it moves by pitch.
+    - ✓ The key is the same as in the arrange view, and it still moves up, but in the piano roll it moves by pitch.
 14. `<Esc>` does not leave the current window in any view, and `<C-w>p` returns to the previous window. Press `<C-w>p`. Then press `gp` to move the playhead to the cursor. Press `<Space><Space>` to play and `<Space><Space>` to stop.
-   - *Hint:* `<Space><Space>` alone plays from the cursor. `gp` puts the playhead there first, and `<S-CR>` plays from the playhead.
-   - ✓ The song played from bar 5, where the melody starts.
+    - *Hint:* `<Space><Space>` alone plays from the cursor. `gp` puts the playhead there first, and `<S-CR>` plays from the playhead.
+    - ✓ The song played from bar 5, where the melody starts.
 
 ## What we did
 

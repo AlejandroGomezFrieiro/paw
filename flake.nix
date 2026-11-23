@@ -312,6 +312,9 @@
         tools/website/build.sh $TMPDIR/out
         mv $TMPDIR/out/site $out
       '';
+      # The website with paw for the browser in pod/ (x86_64 Linux only, as
+      # the pod image): the pages with a live paw work there.
+      websiteLive = pkgs: (website pkgs).overrideAttrs { name = "paw-website-live"; PAW_POD = (browserpod pkgs).image; };
 
       # `cyan check` on every Teal file (tools/tlcheck.sh), with the Teal of
       # nixpkgs: the version runtime/lua/tl.lua is (0.24.8).
@@ -424,6 +427,7 @@
         nixpkgs.lib.optionalAttrs (pkgs.stdenv.hostPlatform.system == "x86_64-linux") {
           paw-pod = (browserpod pkgs).image;
           paw-pod-bin = (browserpod pkgs).bin;
+          website-live = websiteLive pkgs;
         };
 
       # The Teal tools that nixpkgs has not, or has old or with a fault.

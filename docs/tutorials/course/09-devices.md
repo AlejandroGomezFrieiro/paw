@@ -47,9 +47,9 @@ The tutor opens a practice project for the lesson, and it checks each step when 
 9. If you installed plugins, `a` shows them with the built-in devices. Press `a`, type a part of the name of a plugin and press `<CR>`, and then press `ge` to see its window. `:devices` shows all the devices.
    - *The tutor cannot check this step* (The installed plugins are different on each computer, and a plugin window needs a desktop). `<Space>hn` moves to the next step.
 10. `<C-w>c` closes the panel, and the arrange view gets the keys again. Press `<C-w>c`.
-   - ✓ The panel is closed, and `<Space>dd` shows it again.
+    - ✓ The panel is closed, and `<Space>dd` shows it again.
 11. Listen to the line with its echo. Press `<Space><Space>`, and `<Space><Space>` to stop.
-   - ✓ You hear a synth and a delay that you adjusted by ear.
+    - ✓ You hear a synth and a delay that you adjusted by ear.
 
 ## What we did
 

@@ -15,6 +15,7 @@ end
 return {
   id = "recording",
   title = "Record audio and MIDI",
+  browser_lacks = "sound input or MIDI keyboard",
   intro = [[
 In this lesson, we record an audio take and a MIDI take on two tracks,
 over a drum beat.

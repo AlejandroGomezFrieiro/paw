@@ -48,13 +48,13 @@ The tutor opens a practice project for the lesson, and it checks each step when 
 9. Press `w` to go to `snare`. Press `.` to mute it in the same way.
    - ✓ `.` repeats each type of change, e.g., delete, mute and move.
 10. An operator typed two times selects whole tracks, so `dd` deletes a track. Press `j` to go to Bass, then press `dd`.
-   - ✓ paw deleted the Bass track and keeps it in the register.
+    - ✓ paw deleted the Bass track and keeps it in the register.
 11. `p` puts the deleted item after the cursor, and a track goes below the cursor. Press `p`.
-   - ✓ Bass is back, with its synth and its clip, so a delete is also a cut.
+    - ✓ Bass is back, with its synth and its clip, so a delete is also a cut.
 12. `gl` is the loop operator. Press `k` to go up to Beat, and press `0` and `w` to put the cursor on `snare`. Then press `glic`.
-   - ✓ The loop is now over the snare clip, and the ruler shows the loop.
+    - ✓ The loop is now over the snare clip, and the ruler shows the loop.
 13. Press `gcic` to unmute `snare`. Press `<Space><Space>` to hear the loop, and `<Space><Space>` again to stop.
-   - ✓ The snare bar and the bass play again and again.
+    - ✓ The snare bar and the bass play again and again.
 
 ## What we did
 

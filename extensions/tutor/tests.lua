@@ -443,6 +443,66 @@ test("tutor: docs/tutorials/course is made from the lessons and agrees with them
   end
 end)
 
+test(
+  "tutor: the page in the browser types what each step asks for, and nothing for a step away from the keyboard",
+  function()
+    ext()
+    local docs = require("tutor.docs")
+    local check = function() return true end
+    local steps = {
+      {
+        say = "Play `<leader><Space>`, then stop.",
+        keys = { "<leader><Space>", { wait = 300 }, "<leader><Space>" },
+        check = check,
+      },
+      { say = "Quit with `:q`.", keys = { { sim = "quit", instead = { ":q", "<CR>" } } }, check = check },
+      {
+        say = "Play three notes on a MIDI keyboard.",
+        keys = { "R", { sim = function() end, instead = {} } },
+        check = check,
+      },
+      { say = "Open a plugin window.", keys = {}, unchecked = "It needs a desktop." },
+      { say = "Find a key.", keys = { "<leader>fk", "loop", "<Esc>" }, check = check },
+      { say = "Sing.", keys = { ":tutor.try utau", "<CR>" }, browser_lacks = "utau", check = check },
+    }
+    local page = docs.page({ { id = "a", title = "A", steps = steps } })
+    local function span(n) return page:match("\n" .. n .. "%. [^\n]-(<span [^\n]*></span>)") end
+    eq(
+      span(1),
+      '<span data-paw-keys=\'["&lt;leader&gt;&lt;Space&gt;",2000,"&lt;leader&gt;&lt;Space&gt;"]\''
+        .. ' data-paw-state=\'{"lesson":1,"keys":"&lt;Esc&gt;"}\' data-paw-label=\'Type it\'></span>',
+      "a wait is long enough to listen"
+    )
+    eq(span(2):match("data%-paw%-keys='([^']*)'"), '[":q&lt;CR&gt;"]', "quitting types the keys that quit")
+    eq(span(3), nil, "a step away from the keyboard has no button")
+    eq(span(4):match("data%-paw%-label='([^']*)'"), "Next step", "a step that the tutor cannot check goes on")
+    eq(
+      span(5):match("data%-paw%-keys='([^']*)'"),
+      '["&lt;leader&gt;fk",400,"loop",400,"&lt;Esc&gt;"]',
+      "the parts of a step come one at a time"
+    )
+    eq(
+      span(6):match("data%-paw%-keys='([^']*)'"),
+      '["&lt;leader&gt;hn"]',
+      "a step that the browser cannot do is skipped"
+    )
+    eq(
+      page:find("6. Sing. In the browser, paw has no utau, so skip the step.", 1, true) ~= nil,
+      true,
+      "and it says why"
+    )
+    eq(page:find('data-paw-open=\'{"lesson":1,', 1, true) ~= nil, true, "the lesson has a button that opens it")
+
+    local lacking = docs.page({ { id = "b", title = "B", browser_lacks = "sound input", steps = { steps[1] } } })
+    eq(lacking:find("<span data-paw", 1, true), nil, "a lesson that the browser cannot do has no buttons")
+    eq(
+      lacking:find("In the browser, paw has no sound input, so do the lesson in paw on your computer.", 1, true) ~= nil,
+      true,
+      "it says why"
+    )
+  end
+)
+
 test("tutor: every key in docs/reference/keys.md is a key paw has", function()
   ext()
   -- keys.md also lists the keys of these extensions.
