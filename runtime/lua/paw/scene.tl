@@ -368,6 +368,14 @@ end
 
 M.live = live
 
+--- Push the live values to the watcher `w` of `client` when they differ
+--- from what it was told last. `text` is the JSON of `values`.
+local function tell(client: integer, w: Watcher, values: Live, text: string)
+  if text ~= w.told and api.rpc_push(client, "scene.live", values) then
+    w.told = text
+  end
+end
+
 local function tick()
   local values: Live
   local text: string
@@ -376,9 +384,7 @@ local function tick()
     if w.live and watchers[client] then
       values = values or live()
       text = text or api.json_encode(values)
-      if text ~= w.told and api.rpc_push(client, "scene.live", values) then
-        w.told = text
-      end
+      tell(client, w, values, text)
     end
   end
 end
@@ -439,6 +445,22 @@ function M.turn()
   looked = redraws
   for client in pairs(watchers) do
     push(client)
+  end
+end
+
+--- Send connection `client` now what it would get after the turn: the
+--- windows whose drawing changed, and the live values when they changed.
+--- A window that moves only with time waits for its next tick.
+--- `frontend.sync` calls it.
+function M.sync(client: integer)
+  local w = watchers[client]
+  if not w then
+    return
+  end
+  push(client)
+  if w.live and watchers[client] then
+    local values = live()
+    tell(client, w, values, api.json_encode(values))
   end
 end
 
