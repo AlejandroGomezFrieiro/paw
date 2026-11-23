@@ -291,7 +291,7 @@ test("the record button arms the selected track, and stopping ends record mode",
   act.record()
   eq(paw.transport.playing, false, "pressed again, it stops")
   eq(paw.transport.recording, false, "and record mode is over")
-  paw.flush()
+  T.until_recorded()
   eq(#b:clips(), 1, "leaving the take as a clip")
   paw.transport.record()
   paw.wait(200)

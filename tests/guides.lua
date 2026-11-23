@@ -241,6 +241,7 @@ test("make music 3: a guitar through an amp chain is recorded in two takes and c
     paw.wait(10)
   end
   step("<Space><Space>")
+  T.until_recorded()
   local clip = guitar:clips()[1]
   eq(clip and clip.kind, "audio", "the takes are an audio clip")
   eq(paw.takes.count(clip), 2, "two takes")
