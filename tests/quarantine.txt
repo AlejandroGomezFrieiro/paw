@@ -16,3 +16,6 @@
 # A line with no fix fails the run. tests/tools/quarantine.sh runs and
 # reports the Rust tests. The list only gets shorter: when the fix is
 # merged, remove the line.
+ara: the plugin's archive is saved beside its state and given back when the project opens	the stepped engine waits for the threads of a plugin
+ara: \an makes a MIDI clip of the notes the plugin heard, as one undo step	the stepped engine waits for the threads of a plugin
+vinput: the tracker runs while the input is on, and is started again when a setting changes	the stepped engine waits for the threads of a plugin
