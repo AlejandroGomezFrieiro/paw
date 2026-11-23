@@ -125,6 +125,26 @@ impl<'a> Clock<'a> {
         self.frame_of(beat).saturating_sub(self.at) as usize
     }
 
+    /// The first frame of the block whose beat is at or after `beat`: 0
+    /// for a beat before the block. With [`frame_in_block`](Self::frame_in_block),
+    /// the frames of the block whose beats are in `from..to` are
+    /// `first_frame_at(from)..first_frame_at(to)`.
+    pub(super) fn first_frame_at(&self, beat: f64) -> usize {
+        let frame = self.frame_of(beat);
+        let frame = if self.beat_at(frame) < beat {
+            frame + 1
+        } else {
+            frame
+        };
+        frame.saturating_sub(self.at) as usize
+    }
+
+    /// Frames from `beat` to the block's first frame, not rounded: how far
+    /// into a region that starts at `beat` the block starts.
+    pub(super) fn frames_into(&self, beat: f64) -> f64 {
+        self.at as f64 - self.frames_since_anchor(beat)
+    }
+
     /// Frames from the block's start to `beat`, not rounded.
     fn frames(&self, beat: f64) -> f64 {
         self.frames_since_anchor(beat) - self.at as f64

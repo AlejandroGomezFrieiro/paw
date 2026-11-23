@@ -337,7 +337,6 @@ impl Engine {
             start,
             end,
             map,
-            bpf: map.is_constant().then(|| map.first_tempo() / (60.0 * sr)),
             clock: Clock::new(map, &self.head, sr),
             flush,
             chase: playing && std::mem::take(&mut self.chase),

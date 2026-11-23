@@ -882,7 +882,6 @@ fn null_render(states: &[Project], way: Way) -> Rendered {
 /// threads: that depends on how long the tracks took.
 /// `crates/paw-engine/tests/threads.rs` shows it on a larger project.
 #[test]
-#[ignore = "TASK-165: a note's frame still depends on the block size; remove when it lands"]
 fn one_project_rendered_two_ways_nulls() {
     type States = fn() -> Vec<Project>;
     let mix: States = || vec![null_mix()];

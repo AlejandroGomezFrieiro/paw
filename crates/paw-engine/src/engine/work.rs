@@ -25,10 +25,8 @@ pub(super) struct Block<'a> {
     pub(super) start: f64,
     pub(super) end: f64,
     pub(super) map: &'a TempoMap,
-    /// Beats per frame when the map has one tempo throughout: positions are
-    /// then worked out exactly as they were before there were tempo maps.
-    pub(super) bpf: Option<f64>,
-    /// The frames of the block's beats: the frame each event plays on.
+    /// The frames of the block's beats: the frame each event and each
+    /// frame of an audio region plays on.
     pub(super) clock: Clock<'a>,
     pub(super) flush: bool,
     pub(super) chase: bool,
@@ -229,7 +227,6 @@ impl Work<'_> {
             start,
             end,
             map,
-            bpf,
             ref clock,
             ..
         } = *self.block;
@@ -251,7 +248,7 @@ impl Work<'_> {
             &mut right[..n],
             (start, end),
             map,
-            bpf,
+            clock,
             ctx,
         );
     }
