@@ -561,6 +561,7 @@ impl Session {
         engine.set_sleep(opts.sleep.unwrap_or(self.sleep()));
         engine.set_offline(true);
         let mut live = LiveDevices::new();
+        let waker = handle.waker();
         // Nothing else is driving this engine, so make room by pumping it.
         let mut send = |msg| {
             let mut msg = msg;
@@ -582,6 +583,7 @@ impl Session {
             sample_rate: sample_rate as f32,
             warnings: &mut self.warnings,
             offline: true,
+            waker,
         };
         let mut mapper = Mapper::new();
         sync(

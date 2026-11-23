@@ -3,7 +3,7 @@
 //! for in [`HostFlags`], for the main thread to act on.
 
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering::Relaxed};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use clack_extensions::gui::{GuiSize, HostGui, HostGuiImpl};
 use clack_extensions::log::{HostLog, HostLogImpl, LogSeverity};
@@ -18,6 +18,7 @@ use clack_host::prelude::{
     ClapId, HostError, HostExtensions, HostHandlers, MainThreadHandler, SharedHandler,
 };
 use clap_sys::id::clap_id;
+use paw_engine::Waker;
 
 use crate::echo::Blocks;
 use crate::is_main_thread;
@@ -26,11 +27,17 @@ use crate::window::Watches;
 /// What the plugin has asked the host for, to be acted on from the main thread.
 pub(super) struct HostFlags {
     pub(super) callback: AtomicBool,
+    /// The plugin asked to be deactivated and activated again
+    /// (`request_restart`): the controller does it in its next idle.
     pub(super) restart: AtomicBool,
     /// The plugin has to be run again, though it said it may sleep: it
     /// asked to be (`request_process`), or was given a state, which some
-    /// plugins only take on in their next block.
+    /// plugins only take on in their next block. Set through
+    /// [`wake`](Self::wake); the device clears it in its next block.
     pub(super) wake: AtomicBool,
+    /// The engine the device is in, which [`wake`](Self::wake) wakes from
+    /// rest. Set once, on the main thread, as the device goes in.
+    pub(super) engine: OnceLock<Waker>,
     /// The plugin says its parameter values changed behind the host's back.
     pub(super) rescan: AtomicBool,
     /// Blocks the plugin has processed, to tell when it has taken on a
@@ -55,6 +62,7 @@ impl HostFlags {
             callback: AtomicBool::new(false),
             restart: AtomicBool::new(false),
             wake: AtomicBool::new(false),
+            engine: OnceLock::new(),
             rescan: AtomicBool::new(false),
             blocks: Blocks::default(),
             loads: AtomicU64::new(0),
@@ -62,6 +70,16 @@ impl HostFlags {
             resize: Mutex::new(None),
             watches: Mutex::new(Watches::new()),
             next_timer: AtomicU32::new(0),
+        }
+    }
+
+    /// Have the plugin run in the next block, though it said it may sleep
+    /// and the engine may rest. From any thread: an atomic store, and a
+    /// lock-free read of the engine's waker.
+    pub(super) fn wake(&self) {
+        self.wake.store(true, Relaxed);
+        if let Some(engine) = self.engine.get() {
+            engine.wake();
         }
     }
 }
@@ -104,7 +122,7 @@ impl SharedHandler<'_> for HostShared {
     }
 
     fn request_process(&self) {
-        self.flags.wake.store(true, Relaxed);
+        self.flags.wake();
     }
 
     fn request_callback(&self) {

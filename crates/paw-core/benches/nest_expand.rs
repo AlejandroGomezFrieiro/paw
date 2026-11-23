@@ -194,6 +194,7 @@ impl Syncer {
             sample_rate: 48000.0,
             warnings: &mut self.warnings,
             offline: true,
+            waker: Default::default(),
         };
         sync(old, new, &mut self.map, &mut ctx, &mut |m| sent.push(m), &mut Vec::new());
     }

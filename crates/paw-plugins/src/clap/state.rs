@@ -2,7 +2,6 @@
 
 use std::ffi::CStr;
 use std::ptr;
-use std::sync::atomic::Ordering::Relaxed;
 
 use anyhow::{Context, Result, bail};
 use clack_extensions::preset_discovery::PluginPresetLoad;
@@ -37,7 +36,7 @@ impl ClapController {
             .on_main(|plugin| ext.load(plugin, &mut rest))
             .map_err(|_| anyhow::anyhow!("the plugin rejected the saved state"))?;
         // Some plugins take a state on only in their next block.
-        self.shared.flags.wake.store(true, Relaxed);
+        self.shared.flags.wake();
         self.given_state();
         Ok(())
     }

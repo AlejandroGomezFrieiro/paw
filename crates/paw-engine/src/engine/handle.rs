@@ -7,7 +7,7 @@ use rtrb::{Consumer, Producer, PushError, RingBuffer};
 use crate::event::EventKind;
 use crate::midi_out::MidiOut;
 
-use super::Engine;
+use super::{Engine, Waker};
 use super::msg::{Garbage, Msg};
 use super::shared::Shared;
 
@@ -18,9 +18,18 @@ pub struct EngineHandle {
     pub shared: Arc<Shared>,
     pub sample_rate: f64,
     pub(super) midi_tx: Option<Producer<(u32, EventKind)>>,
+    pub(super) waker: Waker,
 }
 
 impl EngineHandle {
+    /// What wakes the engine from rest without a message, for a device to
+    /// keep ([`Controller::set_waker`]).
+    ///
+    /// [`Controller::set_waker`]: crate::device::Controller::set_waker
+    pub fn waker(&self) -> Waker {
+        self.waker.clone()
+    }
+
     /// The sending end of the engine's MIDI input queue, for the one thread
     /// that reads MIDI ports. Notes pushed into it reach every armed track at
     /// the start of the next callback.

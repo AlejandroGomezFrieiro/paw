@@ -154,6 +154,7 @@ impl DeviceFactory for ClapFactory {
             editor: None,
             ports,
             attached,
+            failed: None,
         };
         // What it starts with is a state too: its first words of its
         // values are no edit.

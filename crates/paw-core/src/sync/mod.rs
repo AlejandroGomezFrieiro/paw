@@ -83,6 +83,10 @@ pub struct SyncCtx<'a> {
     pub warnings: &'a mut Vec<String>,
     /// The engine being built renders to a file, not to be heard as it plays.
     pub offline: bool,
+    /// Wakes the engine from rest: each new device keeps it
+    /// ([`Controller::set_waker`](paw_engine::Controller::set_waker)), and
+    /// a state given to a device wakes it.
+    pub waker: paw_engine::Waker,
 }
 
 /// Bring the engine from `old` to `new`.

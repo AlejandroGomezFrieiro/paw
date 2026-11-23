@@ -100,9 +100,11 @@ impl Engine {
 
     /// What a callback does before its first block: take the main
     /// thread's messages, and clear the click's own output. True if a
-    /// message or a MIDI input event came.
+    /// message or a MIDI input event came, or a device woke the engine.
     fn begin_callback(&mut self, total: usize) -> bool {
-        let woken = self.take_messages();
+        // `|`, not `||`: the messages are taken and the wake is cleared
+        // whatever the other gives.
+        let woken = self.take_messages() | self.waker.take();
         if let Some(pool) = &self.pool {
             // Fewer than it was given, if its workers were refused the
             // priority of this thread.

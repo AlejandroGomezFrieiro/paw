@@ -44,7 +44,7 @@ pub use device::{
 pub use engine::{
     BlockStats, BlockSummary, Delay, Engine, EngineHandle, KeyBuf, KeyRt, MAX_BLOCK,
     MAX_DELAY, MAX_DEVICES, MAX_INPUTS, MAX_TRACKS, Msg, OutBufs, OutRt, SchedEntry,
-    Schedule, SendRt, Shared, TrackRt, key_buf, out_bufs,
+    Schedule, SendRt, Shared, TrackRt, Waker, key_buf, out_bufs,
 };
 pub use event::{Attr, Ctl, Event, EventBuf, EventKind, NOTE_BEND_RANGE, NoteCtl};
 pub use pool::Pool;

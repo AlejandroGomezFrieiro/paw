@@ -61,7 +61,7 @@ The engine rests after 8 blocks in a row in which all of these are true:
 - Each device sleeps (see [Devices at rest](#devices-at-rest)), and the output is silent. A reverb that still rings, or a device that never sleeps, such as a `compressor` or a CLAP plugin that never says that it can sleep, keeps the engine awake.
 - The meters of the tracks have fallen below -100 dB, and the delay of each path (see [Delay compensation](#delay-compensation)) holds only silence.
 
-A message from the kernel, such as a note that you play, a change of a parameter or the start of the transport, wakes the engine in the same block. A MIDI input event does the same. So the first sound comes in the same block as when the engine does not rest. When the engine starts to rest, it sets the meters of the tracks to zero.
+A message from the kernel, such as a note that you play, a change of a parameter or the start of the transport, wakes the engine in the same block. A MIDI input event does the same. A plugin that asks paw to run it, for example after you move a knob in its own window or after it asks for a restart, wakes the engine in the next block, and so does a state or a preset that you load into a device. So the first sound comes in the same block as when the engine does not rest. When the engine starts to rest, it sets the meters of the tracks to zero.
 
 - `paw.api.engine_get().engine_rests` counts the blocks in which the engine rested. In these blocks each device sleeps, so `device_sleeps` counts them too.
 - `paw.opt.device_sleep = false` stops the rest too, because it is one switch for both.

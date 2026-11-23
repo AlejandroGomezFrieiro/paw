@@ -42,6 +42,11 @@ pub(super) struct ClapController {
     pub(super) ports: Ports,
     /// The attachments that took the plugin (`attach.rs`).
     pub(super) attached: Vec<crate::attach::Attached>,
+    /// Why the plugin stopped: it asked to be restarted, and did not
+    /// activate again. It stays deactivated, and [`health`] says so.
+    ///
+    /// [`health`]: Controller::health
+    pub(super) failed: Option<String>,
 }
 
 impl ClapController {
@@ -108,10 +113,29 @@ impl Controller for ClapController {
     }
 
     fn idle(&mut self) {
-        if self.shared.flags.callback.swap(false, Relaxed) {
+        let flags = &self.shared.flags;
+        if flags.callback.swap(false, Relaxed) {
             self.shared.instance.borrow_mut().call_on_main_thread_callback();
         }
+        // The plugin asked to be deactivated and activated again (`request_restart`),
+        // as after a change of its latency. `stopped` wakes it and the engine,
+        // so that it starts to process again in the next block.
+        if flags.restart.swap(false, Relaxed)
+            && self.failed.is_none()
+            && let Err(err) = self.stopped(|| ())
+        {
+            self.failed = Some(format!("it did not restart: {err}"));
+        }
         self.run_editor();
+    }
+
+    fn set_waker(&mut self, waker: paw_engine::Waker) {
+        // Set once: a device goes into one engine.
+        let _ = self.shared.flags.engine.set(waker);
+    }
+
+    fn health(&mut self) -> Option<String> {
+        self.failed.clone()
     }
 
     fn take_changes(&mut self) -> Vec<Change> {
@@ -320,7 +344,7 @@ impl ClapController {
             PluginInstanceError::NullActivateFunction => anyhow::anyhow!("no activate"),
             _ => anyhow::anyhow!("the plugin failed to activate again"),
         })?);
-        shared.flags.wake.store(true, Relaxed);
+        shared.flags.wake();
         Ok(result)
     }
 }

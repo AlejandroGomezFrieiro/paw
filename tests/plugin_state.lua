@@ -256,6 +256,23 @@ test("a state given while the engine rests reaches a plugin that takes it on in 
   T.until_(function() return api.device_state(d.id) == "FwAAAA==" end, "the stub to take the state on")
 end)
 
+test("a plugin that asks for a block while the engine rests gets its next block", function()
+  local built = os.getenv("PAW_TEST_STUB") or "target/release/examples/libstub_clap.so"
+  if not io.open(built) then return "skipped: `cargo test -p paw-plugins` builds the test plugin" end
+  fresh()
+  local dir = T.scratch .. "/stub-wake"
+  os.execute("mkdir -p '" .. dir .. "' && cp '" .. built .. "' '" .. dir .. "/stub.clap'")
+  paw.plugins.add_dir(dir, "stubs")
+  local d = paw.add_track({ name = "Stub" }):add_device("clap:dev.paw.stub")
+  paw.flush()
+  local rests = api.engine_get().engine_rests
+  T.until_(function() return api.engine_get().engine_rests > rests end, "the engine to rest")
+  local runs = api.engine_get().device_runs
+  -- The stub changes by itself and asks the host for a block.
+  api.device_call(d.id, "stub.tell", "5")
+  T.until_(function() return api.engine_get().device_runs > runs end, "the stub to run a block")
+end)
+
 test("a move in a plugin's window right after a state is an edit, and the echo of the state is not", function()
   local built = os.getenv("PAW_TEST_STUB") or "target/release/examples/libstub_clap.so"
   if not io.open(built) then return "skipped: `cargo test -p paw-plugins` builds the test plugin" end

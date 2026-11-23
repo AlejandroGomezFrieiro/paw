@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
 use paw_engine::device::{Controller, Device, Instance, Io, ParamInfo};
-use paw_engine::{MAX_PAIRS, ProcessCtx, Registry};
+use paw_engine::{MAX_PAIRS, ProcessCtx, Registry, Waker};
 use super::*;
 use super::shm::*;
 use super::wire::*;
@@ -351,6 +351,9 @@ fn follow_test_env(kind: &str) {
 /// the socket, so the DAW sees the socket close last.
 struct Helper {
     controller: Box<dyn Controller>,
+    /// What the plugin wakes when it asks for a block: passed on to the
+    /// DAW in the header ([`Header::wake`]).
+    waker: Waker,
     shm: Arc<Shm>,
     stream: UnixStream,
     /// How many parameters the plugin said it has in its [`Hello`].
@@ -360,7 +363,9 @@ struct Helper {
 impl Helper {
     /// Tell the DAW what the plugin is: its [`Hello`], and its latency in
     /// the header.
-    fn greet(controller: Box<dyn Controller>, shm: Arc<Shm>, mut stream: UnixStream) -> Result<Self> {
+    fn greet(mut controller: Box<dyn Controller>, shm: Arc<Shm>, mut stream: UnixStream) -> Result<Self> {
+        let waker = Waker::default();
+        controller.set_waker(waker.clone());
         let params = controller.params();
         let values: Vec<f64> = (0..params.len())
             .map(|i| controller.value(i).unwrap_or(0.0))
@@ -381,6 +386,7 @@ impl Helper {
         Ok(Self {
             count: hello.params.len(),
             controller,
+            waker,
             shm,
             stream,
         })
@@ -524,6 +530,9 @@ impl Helper {
         header
             .editor_open
             .store(self.controller.editor_open() as u32, Ordering::Relaxed);
+        if self.waker.take() {
+            header.wake.store(1, Ordering::Release);
+        }
         ControlFlow::Continue(())
     }
 }

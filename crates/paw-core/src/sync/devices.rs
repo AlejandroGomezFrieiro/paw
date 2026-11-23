@@ -240,6 +240,7 @@ fn put_in(
     send: &mut dyn FnMut(Msg),
 ) {
     if let Some(controller) = controller.as_mut() {
+        controller.set_waker(ctx.waker.clone());
         deliver_posts(&device.kind, controller.as_mut(), ctx);
     }
     let attached = controller
@@ -415,7 +416,9 @@ pub(super) fn update_device(
             .map_err(anyhow::Error::from)
             .and_then(|bytes| controller.load_state(&bytes));
         match loaded {
-            Ok(()) => send(Msg::Wake),
+            // Some plugins take a state on only in their next block, which
+            // an engine at rest would not run.
+            Ok(()) => ctx.waker.wake(),
             Err(err) => ctx.warnings.push(format!(
                 "could not load the preset into `{}`: {err:#}",
                 device.kind
@@ -452,7 +455,9 @@ pub(super) fn update_device(
             .map_err(anyhow::Error::from)
             .and_then(|bytes| controller.load_state(&bytes));
         match loaded {
-            Ok(()) => send(Msg::Wake),
+            // Some plugins take a state on only in their next block, which
+            // an engine at rest would not run.
+            Ok(()) => ctx.waker.wake(),
             Err(err) => ctx.warnings.push(format!(
                 "could not load the state of `{}`: {err:#}",
                 device.kind

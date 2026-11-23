@@ -154,6 +154,7 @@ impl Session {
                     sample_rate: self.engine.handle.sample_rate as f32,
                     warnings: &mut self.warnings,
                     offline: false,
+                    waker: self.engine.handle.waker(),
                 };
                 let handle = &mut self.engine.handle;
                 let mut send = |msg| handle.send(msg);
