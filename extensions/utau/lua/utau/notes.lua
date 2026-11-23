@@ -1,5 +1,5 @@
--- Editing what a vocal track sings: lyrics and properties on notes, and the
--- singing curves, which are automation lanes on the track's `utau` device.
+-- Editing what a vocal part sings: lyrics and properties on notes, and the
+-- singing curves, which are automation lanes on the part's `utau` device.
 -- Everything goes through `paw.api`, so each change is an ordinary edit.
 local api = paw.api
 
@@ -107,11 +107,11 @@ function M.sampler(points, default)
 end
 
 --- The lane of a curve on a vocal device, made when `create` is set.
-function M.lane(track_id, device_id, abbr, create)
-  for _, lane in ipairs(api.lane_list(track_id)) do
+function M.lane(part_id, device_id, abbr, create)
+  for _, lane in ipairs(api.lane_list(part_id)) do
     if lane.target == "param" and lane.device == device_id and lane.param == abbr then return lane.id end
   end
-  if create then return api.lane_add(track_id, { target = "param", device = device_id, param = abbr }) end
+  if create then return api.lane_add(part_id, { target = "param", device = device_id, param = abbr }) end
 end
 
 --- The value of a list of `{ beat, value }` points at a beat, as lanes join them.
@@ -137,8 +137,8 @@ function M.default(device_id, abbr)
 end
 
 --- The value of a curve at an absolute beat.
-function M.curve_at(track_id, device_id, abbr, beat)
-  local lane = M.lane(track_id, device_id, abbr)
+function M.curve_at(part_id, device_id, abbr, beat)
+  local lane = M.lane(part_id, device_id, abbr)
   local default = M.default(device_id, abbr)
   if not lane then return api.device_get(device_id).params[abbr] or default end
   return M.value_at(api.lane_points(lane), beat, default)
@@ -147,10 +147,10 @@ end
 --- Write `samples` (`{ beat, value }`, absolute beats, sorted) into a curve,
 --- replacing what was between the first and the last and leaving the curve
 --- as it was on either side.
-function M.stroke(track_id, device_id, abbr, samples)
+function M.stroke(part_id, device_id, abbr, samples)
   if #samples == 0 then return end
   local default, min, max = M.default(device_id, abbr)
-  local lane = M.lane(track_id, device_id, abbr, true)
+  local lane = M.lane(part_id, device_id, abbr, true)
   local points = api.lane_points(lane)
   local from, to = samples[1][1], samples[#samples][1]
   local edge = 1 / 960
@@ -169,9 +169,9 @@ function M.stroke(track_id, device_id, abbr, samples)
 end
 
 --- Bend a curve by `delta` at a beat, as a peak `width` beats wide each way.
-function M.bend(track_id, device_id, abbr, beat, delta, width)
+function M.bend(part_id, device_id, abbr, beat, delta, width)
   local default, min, max = M.default(device_id, abbr)
-  local lane = M.lane(track_id, device_id, abbr, true)
+  local lane = M.lane(part_id, device_id, abbr, true)
   local points = api.lane_points(lane)
   local around = {}
   for _, b in ipairs({ beat - width, beat + width }) do
@@ -196,11 +196,11 @@ function M.bend(track_id, device_id, abbr, beat, delta, width)
 end
 
 --- Put a curve back to its default between two absolute beats.
-function M.reset(track_id, device_id, abbr, from, to)
-  local lane = M.lane(track_id, device_id, abbr)
+function M.reset(part_id, device_id, abbr, from, to)
+  local lane = M.lane(part_id, device_id, abbr)
   if not lane then return end
   local default = M.default(device_id, abbr)
-  M.stroke(track_id, device_id, abbr, { { from, default }, { to, default } })
+  M.stroke(part_id, device_id, abbr, { { from, default }, { to, default } })
 end
 
 return M

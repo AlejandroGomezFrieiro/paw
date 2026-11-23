@@ -113,7 +113,7 @@ test("dawproject: tempo points in seconds are placed in beats", function()
   near(points[2].beat, 4, 1e-9, "2 s at 120 BPM is beat 4")
 end)
 
-test("dawproject: import, track by track and clip by clip", function()
+test("dawproject: import, part by part and clip by clip", function()
   local d = load()
   local dir = scratch_dir()
   T.write_file(dir .. "/studio.dawproject", T.read_file(FIXTURES .. "studio.dawproject"))
@@ -133,11 +133,11 @@ test("dawproject: import, track by track and clip by clip", function()
   near(paw.master.volume, -6.0206, 1e-3, "master volume")
 
   local names = {}
-  for i, t in ipairs(paw.tracks()) do
+  for i, t in ipairs(paw.parts()) do
     names[i] = t.name
   end
-  eq(table.concat(names, ","), "Group,Bass,Drumloop,Reverb", "tracks in order, the nested one after its group")
-  local group, bass, drums, verb = paw.track("Group"), paw.track("Bass"), paw.track("Drumloop"), paw.track("Reverb")
+  eq(table.concat(names, ","), "Group,Bass,Drumloop,Reverb", "parts in order, the nested one after its group")
+  local group, bass, drums, verb = paw.part("Group"), paw.part("Bass"), paw.part("Drumloop"), paw.part("Reverb")
   eq(bass.output, group.id, "Bass goes into its group")
   eq(group.output, nil, "the group to the master")
   eq(group.color, "#334455", "colour")
@@ -230,10 +230,10 @@ local function describe()
     tempo = p.tempo,
     sig = p.sig_num .. "/" .. p.sig_den,
     master = string.format("%.4f %.4f %s", paw.master.volume, paw.master.pan, tostring(paw.master.mute)),
-    tracks = {},
+    parts = {},
   }
   local name_of = {}
-  for _, t in ipairs(paw.tracks()) do
+  for _, t in ipairs(paw.parts()) do
     name_of[t.id] = t.name
   end
   local map = paw.tempo.points()
@@ -242,7 +242,7 @@ local function describe()
     tempo[#tempo + 1] = string.format("%.4f:%g:%s", tp.beat, tp.bpm, tostring(tp.ramp))
   end
   out.map = table.concat(tempo, " ")
-  local lists = { paw.tracks() }
+  local lists = { paw.parts() }
   table.insert(lists[1], paw.master)
   for _, t in ipairs(lists[1]) do
     local g = t:get()
@@ -326,7 +326,7 @@ local function describe()
       end
       d[#d + 1] = line
     end
-    out.tracks[#out.tracks + 1] = table.concat(d, "\n  ")
+    out.parts[#out.parts + 1] = table.concat(d, "\n  ")
   end
   local marks = {}
   for _, m in ipairs(paw.markers.list()) do
@@ -340,9 +340,9 @@ local function same(a, b)
   for _, key in ipairs({ "tempo", "sig", "master", "map", "markers" }) do
     eq(b[key], a[key], key)
   end
-  eq(#b.tracks, #a.tracks, "number of tracks")
-  for i = 1, #a.tracks do
-    eq(b.tracks[i], a.tracks[i], "track " .. i)
+  eq(#b.parts, #a.parts, "number of parts")
+  for i = 1, #a.parts do
+    eq(b.parts[i], a.parts[i], "part " .. i)
   end
 end
 
@@ -356,18 +356,18 @@ local function build(dir)
   paw.tempo.set_signature(10, 4, 4)
   paw.master.volume = -2
   paw.master.pan = 0.1
-  local bus = paw.add_track({ name = "Drum Bus", volume = -1.5 })
-  local kick = paw.add_track({ name = "Kick", output = bus, pan = -0.2 })
-  local snare = paw.add_track({ name = "Snare", output = bus, volume = -4 })
-  local keys = paw.add_track({ name = "Keys", volume = -6, pan = 0.3 })
-  local verb = paw.add_track({ name = "Verb" })
-  local gtr = paw.add_track({ name = "Gtr" })
+  local bus = paw.add_part({ name = "Drum Bus", volume = -1.5 })
+  local kick = paw.add_part({ name = "Kick", output = bus, pan = -0.2 })
+  local snare = paw.add_part({ name = "Snare", output = bus, volume = -4 })
+  local keys = paw.add_part({ name = "Keys", volume = -6, pan = 0.3 })
+  local verb = paw.add_part({ name = "Verb" })
+  local gtr = paw.add_part({ name = "Gtr" })
   kick.mute = true
   snare.solo = true
   keys.color = "#3a7bd5"
   bus.color = "#e04020"
   keys:send(verb, -9)
-  api.track_set(snare.id, "sends", { { target = verb.id, level = -15.5, pre = true } })
+  api.part_set(snare.id, "sends", { { target = verb.id, level = -15.5, pre = true } })
   kick:add_clip({
     name = "kick",
     start = 0,
@@ -494,7 +494,7 @@ test("dawproject: the official schema accepts what paw writes of an imported pro
   eq(clap.attr.deviceID, "com.nowhere.synth", "the placeholder is written back")
   eq(files[clap:child("State").attr.path], "nowhere-state-bytes", "with its state")
   d.import(dir .. "/again.dawproject", { media_dir = dir .. "/back" })
-  eq(paw.track("Bass").meta.dawproject_placeholders[1].name, "Nowhere Synth", "and comes back again")
+  eq(paw.part("Bass").meta.dawproject_placeholders[1].name, "Nowhere Synth", "and comes back again")
 end)
 
 test("dawproject: plugins go out and come back with their settings", function()
@@ -503,7 +503,7 @@ test("dawproject: plugins go out and come back with their settings", function()
   local vst3 = "vst3:Gate Mono"
   if not (has(clap) and has(vst3)) then return "skipped: LSP plugins not installed" end
   T.fresh()
-  local t = paw.add_track({ name = "FX" })
+  local t = paw.add_part({ name = "FX" })
   local a = t:add_device(clap)
   a:set("output_gain", -6)
   local v = t:add_device(vst3)
@@ -532,7 +532,7 @@ test("dawproject: plugins go out and come back with their settings", function()
   eq(files["plugins/001.clap-preset"] ~= nil, true, "the CLAP state")
   eq(files["plugins/002.vstpreset"]:sub(1, 4), "VST3", "the VST3 state as a .vstpreset")
   d.import(path)
-  local devs = paw.track("FX"):devices()
+  local devs = paw.part("FX"):devices()
   eq(#devs, 2, "both plugins")
   eq(devs[1].kind, clap, "CLAP back")
   near(devs[1].params.output_gain, -6, 1e-3, "CLAP setting from its state")
@@ -562,12 +562,12 @@ for _, format in ipairs({ "clap", "vst3" }) do
     end
     if not kind then return "skipped: test plugins not found" end
     T.fresh()
-    local track = paw.add_track({ name = "Lim" })
-    track:add_clip({ start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 4 } } })
-    local fx = track:add_device(kind)
+    local part = paw.add_part({ name = "Lim" })
+    part:add_clip({ start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 4 } } })
+    local fx = part:add_device(kind)
     local gain = api.device_param(fx.id, "input_gain")
     api.lane_add(
-      track.id,
+      part.id,
       { target = "param", device = fx.id, param = "input_gain", points = { { 0, gain.min }, { 4, gain.max } } }
     )
     local dir = scratch_dir()
@@ -587,7 +587,7 @@ for _, format in ipairs({ "clap", "vst3" }) do
     if ok ~= nil then eq(ok, true, "project.xml is valid: " .. tostring(why)) end
     T.fresh()
     d.import(dir .. "/ids.dawproject", { media_dir = dir .. "/back" })
-    local lanes = api.lane_list(paw.tracks()[1].id)
+    local lanes = api.lane_list(paw.parts()[1].id)
     eq(#lanes, 1, "the lane comes back")
     eq(lanes[1].param, "input_gain", "on the same parameter")
   end)

@@ -1,6 +1,6 @@
 -- The `utau` device: plays what the singing engine sang, where it belongs.
 --
--- The engine renders a vocal track phrase by phrase; extensions/utau writes
+-- The engine renders a vocal part phrase by phrase; extensions/utau writes
 -- each phrase to a file of 32-bit floats and tells every device of this kind
 -- what each voice holds (`voice.<n>`, posted with `paw.api.device_post`, so
 -- that devices made later, an offline render's among them, are told too). A

@@ -2,7 +2,7 @@
 return {
   name = "utau",
   version = "0.1.0",
-  description = "Singing synthesis: vocal tracks, a vocal editor, the device that plays the singing and the engine that sings",
+  description = "Singing synthesis: vocal parts, a vocal editor, the device that plays the singing and the engine that sings",
   requires = { paw = "^1.0" },
   needs = { "ffi", "processes", "native" },
 }

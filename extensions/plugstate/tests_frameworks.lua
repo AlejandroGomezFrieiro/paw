@@ -457,9 +457,9 @@ for _, c in ipairs(live) do
       if not kind then return "skipped: the plugin is not in the plugin folders" end
       local fw = load()
       T.fresh()
-      local track = T.tone("in", 8, "A2")
-      paw.cursor.set_track(track.id)
-      local d = track:add_device(kind)
+      local part = T.tone("in", 8, "A2")
+      paw.cursor.set_part(part.id)
+      local d = part:add_device(kind)
       paw.flush()
       api.undo_checkpoint()
       local state = api.device_state(d.id)
@@ -530,9 +530,9 @@ test(
     local plugstate = require("plugstate")
     local function said() return paw.ui.messages[#paw.ui.messages].text end
     T.fresh()
-    local track = T.tone("in", 8, "A2")
-    paw.cursor.set_track(track.id)
-    local d = track:add_device(kind)
+    local part = T.tone("in", 8, "A2")
+    paw.cursor.set_part(part.id)
+    local d = part:add_device(kind)
     paw.flush()
     api.undo_checkpoint()
     paw.ui.focus("devices")
@@ -564,7 +564,7 @@ test(
       if k then
         T.fresh()
         local t2 = T.tone(format, 8, "A2")
-        paw.cursor.set_track(t2.id)
+        paw.cursor.set_part(t2.id)
         local d2 = t2:add_device(k)
         paw.flush()
         api.undo_checkpoint()
@@ -581,7 +581,7 @@ test(
     -- A state lane point: the preset from the second bar on.
     T.fresh()
     local t3 = T.tone("lane", 8, "A2")
-    paw.cursor.set_track(t3.id)
+    paw.cursor.set_part(t3.id)
     local d3 = t3:add_device(kind)
     paw.flush()
     local state, why = plugstate.lane_state(d3.id, "preset", file)

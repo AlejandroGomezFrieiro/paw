@@ -23,7 +23,7 @@ local type Node = fmt.Node
 local type Report = reports.Report
 
 local record M
-  --- A plugin that could not come across, kept in the track's meta
+  --- A plugin that could not come across, kept in the part's meta
   --- (`rpp_placeholders`) to be written back where it was.
   record Placeholder
     name: string
@@ -54,8 +54,8 @@ local record Ctx
   tempo: number
   clips: integer
   devices: integer
-  --- The tracks that got a MIDI clip.
-  midi_tracks: {integer: boolean}
+  --- The parts that got a MIDI clip.
+  midi_parts: {integer: boolean}
 end
 
 local SUPPORTED_AUDIO: {string: boolean} = {
@@ -152,9 +152,9 @@ local function take_get(take: Take, name: string): Node
   end
 end
 
-local function item_label(track_name: string, item: Node, take: Take): string
+local function item_label(part_name: string, item: Node, take: Take): string
   local name = take and take_get(take, "NAME")
-  return string.format("%s: %s at %.3f s", track_name, name and name:arg(1) or "item", item:getn("POSITION") or 0)
+  return string.format("%s: %s at %.3f s", part_name, name and name:arg(1) or "item", item:getn("POSITION") or 0)
 end
 
 -- Envelopes -----------------------------------------------------------------------
@@ -201,8 +201,8 @@ local function lane_points(
 end
 
 --- Add a lane with its points and their shapes. Returns its id, or nil.
-local function add_lane(track: integer, opts: types.LaneOptions, shapes: Shapes, ctx: Ctx, label: string): integer
-  local ok, id = pcall(api.lane_add, track, opts) as (boolean, integer)
+local function add_lane(part: integer, opts: types.LaneOptions, shapes: Shapes, ctx: Ctx, label: string): integer
+  local ok, id = pcall(api.lane_add, part, opts) as (boolean, integer)
   if not ok then
     ctx.report:add("Envelopes", label .. ": " .. tostring(id))
     return nil
@@ -236,7 +236,7 @@ local function enabled_of(env: Node): boolean
   return not active or active:argn(1) ~= 0
 end
 
-local function import_envelopes(block: Node, track: integer, ctx: Ctx, label: string)
+local function import_envelopes(block: Node, part: integer, ctx: Ctx, label: string)
   for _, env in ipairs(block:blocks()) do
     local name = env:name()
     local target = ENVELOPES[name]
@@ -244,7 +244,7 @@ local function import_envelopes(block: Node, track: integer, ctx: Ctx, label: st
     if target and has_points then
       local points, shapes = lane_points(env, CONVERT[target], ctx, label .. " " .. target)
       add_lane(
-        track, {target = target, enabled = enabled_of(env), points = points}, shapes, ctx, label .. ": " .. target
+        part, {target = target, enabled = enabled_of(env), points = points}, shapes, ctx, label .. ": " .. target
       )
     elseif has_points and name:match("ENV") and name ~= "TEMPOENVEX" then
       ctx.report:add("Envelopes other than track volume and pan", label .. ": " .. name)
@@ -408,8 +408,8 @@ end
 --- What an item plays: the settings of the item and its active take that
 --- apply to MIDI and audio both.
 local record Item
-  track: integer
-  track_name: string
+  part: integer
+  part_name: string
   label: string
   name: string
   --- Its start and length in beats.
@@ -436,13 +436,13 @@ end
 
 --- A fade's length is its second number, or its third when REAPER made
 --- it as a crossfade; its shape is the first.
-local function fade_of(line: Node, ctx: Ctx, track_name: string): number
+local function fade_of(line: Node, ctx: Ctx, part_name: string): number
   if not line then
     return 0
   end
   local len = (line:argn(3) or 0) > 0 and line:argn(3) or (line:argn(2) or 0)
   if len > 0 and (line:argn(1) or 1) ~= 1 then
-    ctx.report:count("Fade shapes (paw fades on a quarter sine)", track_name)
+    ctx.report:count("Fade shapes (paw fades on a quarter sine)", part_name)
   end
   return len
 end
@@ -504,18 +504,18 @@ local function item_source(it: Item, take: Take, ctx: Ctx): boolean
 end
 
 --- Read an item and its active take. Nil when it plays nothing.
-local function read_item(item: Node, track: integer, track_name: string, ctx: Ctx): Item
+local function read_item(item: Node, part: integer, part_name: string, ctx: Ctx): Item
   local takes, active = takes_of(item)
   local take = takes[active]
-  local it: Item = {track = track, track_name = track_name, label = item_label(track_name, item, take)}
+  local it: Item = {part = part, part_name = part_name, label = item_label(part_name, item, take)}
   if #takes > 1 then
-    ctx.report:count("Takes other than the active one (left out)", track_name, #takes - 1)
+    ctx.report:count("Takes other than the active one (left out)", part_name, #takes - 1)
   end
   local pos, len = item:getn("POSITION") or 0, item:getn("LENGTH") or 0
   it.loop = item:getn("LOOP") == 1
   it.muted = (item:getn("MUTE") or 0) ~= 0
   it.fade_in, it.fade_out =
-    fade_of(item:child("FADEIN"), ctx, track_name), fade_of(item:child("FADEOUT"), ctx, track_name)
+    fade_of(item:child("FADEIN"), ctx, part_name), fade_of(item:child("FADEOUT"), ctx, part_name)
   local volpan = item:child("VOLPAN")
   it.item_volume = volpan and volpan:argn(3) or 1
   local take_pan: number
@@ -574,13 +574,13 @@ local function import_midi_item(it: Item, ctx: Ctx)
     ctx.report:add("Pitch shift of MIDI items", it.label)
   end
   if it.fade_in > 0 or it.fade_out > 0 then
-    ctx.report:count("Fades on MIDI items", it.track_name)
+    ctx.report:count("Fades on MIDI items", it.part_name)
   end
   local offset = it.offset * api.tempo_at(it.start) / 60
   local list, moves, looping = clip_notes(notes, controls, source_len, offset, it.length, it.loop and source_len > 0)
   local ok, id = pcall(
     api.clip_add,
-    it.track,
+    it.part,
     {
       name = it.name,
       start = it.start,
@@ -600,7 +600,7 @@ local function import_midi_item(it: Item, ctx: Ctx)
     api.clip_set(id, {muted = true})
   end
   ctx.clips = ctx.clips + 1
-  ctx.midi_tracks[it.track] = true
+  ctx.midi_parts[it.part] = true
 end
 
 --- The file of an audio source that paw plays, found on disk. Nil (and the
@@ -632,7 +632,7 @@ local function audio_passes(it: Item, opts: types.ClipOptions, natural: number):
   local at, stop = it.start + natural, it.start + it.length
   while at < stop - 1e-9 and whole > 1e-9 do
     ids[#ids + 1] = api.clip_add(
-      it.track,
+      it.part,
       {
         name = opts.name,
         start = at,
@@ -669,7 +669,7 @@ local function import_audio_item(it: Item, ctx: Ctx)
     stretch = math.abs(it.rate - 1) > 1e-9 and 1 / it.rate or nil,
     pitch = it.semitones,
   }
-  local ok, id = pcall(api.clip_add, it.track, opts) as (boolean, integer)
+  local ok, id = pcall(api.clip_add, it.part, opts) as (boolean, integer)
   if not ok then
     ctx.report:add("Unreadable media", it.label .. ": " .. first_line(tostring(id)))
     return
@@ -693,7 +693,7 @@ local function import_audio_item(it: Item, ctx: Ctx)
     opts.loop_length = beats_from(it.start, repeat_seconds)
     opts.loop_start = -beats_from(it.start, into)
     opts.offset = base + into
-    ids = {api.clip_add(it.track, opts)}
+    ids = {api.clip_add(it.part, opts)}
   elseif it.length <= natural + 1e-9 or not it.loop then
     api.clip_set(id, {length = it.length})
   else
@@ -716,8 +716,8 @@ local function import_audio_item(it: Item, ctx: Ctx)
   end
 end
 
-local function import_item(item: Node, track: integer, track_name: string, ctx: Ctx)
-  local it = read_item(item, track, track_name, ctx)
+local function import_item(item: Node, part: integer, part_name: string, ctx: Ctx)
+  local it = read_item(item, part, part_name, ctx)
   if not it then
     return
   end
@@ -728,7 +728,7 @@ local function import_item(item: Node, track: integer, track_name: string, ctx: 
   end
 end
 
--- Tracks ---------------------------------------------------------------------------
+-- Parts ---------------------------------------------------------------------------
 
 --- The parameter of `params` that a `PARMENV` names: `index[:ident]`.
 --- REAPER counts the parameters of a plugin from 0 in the plugin's own
@@ -763,8 +763,8 @@ end
 --- after the plugin it belongs to) as a lane of the device (see
 --- `param_of`); the values go from min to max, which become the range of
 --- the parameter in paw.
-local function import_param_env(env: Node, device: integer, track: integer, track_name: string, ctx: Ctx)
-  local where = track_name .. ": " .. tostring(env:arg(1))
+local function import_param_env(env: Node, device: integer, part: integer, part_name: string, ctx: Ctx)
+  local where = part_name .. ": " .. tostring(env:arg(1))
   local params = device and api.device_get(device).param_info or {}
   local info = M.param_of(env.tokens[2], params)
   if not info then
@@ -784,7 +784,7 @@ local function import_param_env(env: Node, device: integer, track: integer, trac
   end
   local points, shapes = lane_points(env, convert, ctx, where)
   add_lane(
-    track,
+    part,
     {target = "param", device = device, param = info.key, enabled = enabled_of(env), points = points},
     shapes,
     ctx,
@@ -793,7 +793,7 @@ local function import_param_env(env: Node, device: integer, track: integer, trac
 end
 
 local function import_chain(
-  chain: Node, track: integer, track_name: string, ctx: Ctx, chain_bypassed: boolean
+  chain: Node, part: integer, part_name: string, ctx: Ctx, chain_bypassed: boolean
 ): {Placeholder}
   local bypass, offline = false, false
   local position = 0
@@ -812,9 +812,9 @@ local function import_chain(
       if offline then
         why = "offline in REAPER"
       else
-        id, why = fx.import(c, track, bypass or chain_bypassed, notes)
+        id, why = fx.import(c, part, bypass or chain_bypassed, notes)
       end
-      local where = string.format("%s: %s", track_name, d.display)
+      local where = string.format("%s: %s", part_name, d.display)
       last = id
       if id then
         ctx.devices = ctx.devices + 1
@@ -833,20 +833,20 @@ local function import_chain(
         }
       end
     elseif c.children and name == "PARMENV" and c:child("PT") then
-      import_param_env(c, last, track, track_name, ctx)
+      import_param_env(c, last, part, part_name, ctx)
     end
   end
   return placeholders
 end
 
---- Keep the plugins that could not come across in the track's meta.
-local function keep_placeholders(track: integer, holders: {Placeholder})
+--- Keep the plugins that could not come across in the part's meta.
+local function keep_placeholders(part: integer, holders: {Placeholder})
   if #holders == 0 then
     return
   end
-  local meta = api.track_get(track).meta or {}
+  local meta = api.part_get(part).meta or {}
   meta.rpp_placeholders = holders
-  api.track_set(track, {meta = meta})
+  api.part_set(part, {meta = meta})
 end
 
 -- Project --------------------------------------------------------------------------
@@ -881,7 +881,7 @@ local function tempo_map(project: Node, ctx: Ctx): types.TempoMapInSeconds
   return api.tempo_from_seconds(tempos, sigs)
 end
 
---- REAPER's colour of a track, marker or region (a native colour, which
+--- REAPER's colour of a part, marker or region (a native colour, which
 --- on Linux is red + green * 256 + blue * 65536, with 0x1000000 set when
 --- the colour is in use) as #rrggbb, or nil.
 function M.colour(native: number | string): string
@@ -964,15 +964,15 @@ local function begin_project(project: Node, path: string, merge: boolean, ctx: C
   api.transport_set({loop_enabled = project:getn("LOOP") == 1 and a ~= nil and b ~= nil and b > a})
 end
 
---- The master track: its volume, pan, mute, plugins and envelopes.
+--- The master part: its volume, pan, mute, plugins and envelopes.
 local function import_master(project: Node, ctx: Ctx)
   local mv = project:child("MASTER_VOLUME")
   if mv then
-    api.track_set(0, {volume = db(mv:argn(1))})
-    api.track_set(0, {pan = clamp(mv:argn(2) or 0, -1, 1)})
+    api.part_set(0, {volume = db(mv:argn(1))})
+    api.part_set(0, {pan = clamp(mv:argn(2) or 0, -1, 1)})
   end
   if ((project:getn("MASTERMUTESOLO") or 0) % 2) == 1 then
-    api.track_set(0, {mute = true})
+    api.part_set(0, {mute = true})
   end
   local mfx = project:child("MASTERFXLIST")
   if mfx then
@@ -981,25 +981,25 @@ local function import_master(project: Node, ctx: Ctx)
   import_envelopes(project, 0, ctx, "Master")
 end
 
---- A track of the file as it became a track of paw.
-local record Track
+--- A part of the file as it became a part of paw.
+local record Part
   block: Node
   id: integer
   name: string
-  --- The place of its folder track in the list, or nil.
+  --- The place of its folder part in the list, or nil.
   parent: integer
 end
 
---- Tracks, in order, with their folder parents (`ISBUS` opens a folder
+--- Parts, in order, with their folder parents (`ISBUS` opens a folder
 --- with 1 and closes that many with a negative depth).
-local function add_tracks(project: Node): {Track}
-  local tracks: {Track} = {}
+local function add_parts(project: Node): {Part}
+  local parts: {Part} = {}
   local stack: {integer} = {}
   for _, block in ipairs(project:blocks("TRACK")) do
-    local t: Track = {block = block, parent = stack[#stack]}
+    local t: Part = {block = block, parent = stack[#stack]}
     t.name = block:get("NAME") or ""
     local vp = block:child("VOLPAN")
-    t.id = api.track_add(
+    t.id = api.part_add(
       {
         name = t.name ~= "" and t.name or nil,
         volume = db(vp and vp:argn(1) or 1),
@@ -1007,65 +1007,65 @@ local function add_tracks(project: Node): {Track}
       }
     )
     if t.name == "" then
-      t.name = api.track_get(t.id).name
+      t.name = api.part_get(t.id).name
     end
     local colour = M.colour(block:getn("PEAKCOL"))
     if colour then
-      api.track_set(t.id, {color = colour})
+      api.part_set(t.id, {color = colour})
     end
-    tracks[#tracks + 1] = t
+    parts[#parts + 1] = t
     local isbus = block:child("ISBUS")
     local depth = isbus and isbus:argn(2) or 0
     if depth > 0 then
-      stack[#stack + 1] = #tracks
+      stack[#stack + 1] = #parts
     elseif depth < 0 then
       for _ = 1, -depth do
         stack[#stack] = nil
       end
     end
   end
-  return tracks
+  return parts
 end
 
---- Mute, solo, arm, input and monitoring of a track.
-local function track_state(t: Track)
+--- Mute, solo, arm, input and monitoring of a part.
+local function part_state(t: Part)
   local block = t.block
   local ms = block:child("MUTESOLO")
   if ms and (ms:argn(1) or 0) ~= 0 then
-    api.track_set(t.id, {mute = true})
+    api.part_set(t.id, {mute = true})
   end
   if ms and (ms:argn(2) or 0) ~= 0 then
-    api.track_set(t.id, {solo = true})
+    api.part_set(t.id, {solo = true})
   end
   local rec = block:child("REC")
   if not rec then
     return
   end
   if rec:argn(1) == 1 then
-    api.track_set(t.id, {armed = true})
+    api.part_set(t.id, {armed = true})
   end
   local input = math.floor(rec:argn(2) or -1)
   if input >= 0 and input < 512 then
-    pcall(api.track_set, t.id, {input = tostring(input + 1)})
+    pcall(api.part_set, t.id, {input = tostring(input + 1)})
   elseif input >= 1024 and input < 2048 then
     local first = input - 1024 + 1
-    pcall(api.track_set, t.id, {input = first .. "/" .. (first + 1)})
+    pcall(api.part_set, t.id, {input = first .. "/" .. (first + 1)})
   end
-  -- A MIDI input (4096 and up): paw records MIDI on armed tracks without
+  -- A MIDI input (4096 and up): paw records MIDI on armed parts without
   -- an audio input.
   if rec:argn(3) == 1 and input >= 0 and input < 4096 then
-    pcall(api.track_set, t.id, {monitor = true})
+    pcall(api.part_set, t.id, {monitor = true})
   end
 end
 
---- The sends of each track, by the id of the track that sends.
+--- The sends of each part, by the id of the part that sends.
 local type Sends = {integer: {types.Send}}
 
---- The receives of a track (`AUXRECV`) as sends of the tracks they come
+--- The receives of a part (`AUXRECV`) as sends of the parts they come
 --- from.
-local function read_receives(t: Track, tracks: {Track}, sends: Sends, ctx: Ctx)
+local function read_receives(t: Part, parts: {Part}, sends: Sends, ctx: Ctx)
   for _, aux in ipairs(t.block:all("AUXRECV")) do
-    local src = tracks[math.floor(aux:argn(1) or -1) + 1]
+    local src = parts[math.floor(aux:argn(1) or -1) + 1]
     if not src then
       ctx.report:add("Routing", t.name .. ": receive from a track that does not exist")
     else
@@ -1094,18 +1094,18 @@ local function read_receives(t: Track, tracks: {Track}, sends: Sends, ctx: Ctx)
   end
 end
 
---- The state and routing of each track: into its folder, and the sends
+--- The state and routing of each part: into its folder, and the sends
 --- that its receives make.
-local function route_tracks(tracks: {Track}, ctx: Ctx): Sends
+local function route_parts(parts: {Part}, ctx: Ctx): Sends
   local sends: Sends = {}
-  for _, t in ipairs(tracks) do
-    track_state(t)
+  for _, t in ipairs(parts) do
+    part_state(t)
     local block = t.block
     local main = block:child("MAINSEND")
     local main_on = not main or main:argn(1) ~= 0
     if t.parent and main_on then
-      local folder = tracks[t.parent]
-      local ok, err = pcall(api.track_set, t.id, {output = folder.id}) as (boolean, string)
+      local folder = parts[t.parent]
+      local ok, err = pcall(api.part_set, t.id, {output = folder.id}) as (boolean, string)
       if not ok then
         ctx.report:add("Routing", t.name .. ": into folder " .. folder.name .. ": " .. tostring(err))
       end
@@ -1116,16 +1116,16 @@ local function route_tracks(tracks: {Track}, ctx: Ctx): Sends
     if block:child("HWOUT") then
       ctx.report:add("Hardware outputs", t.name)
     end
-    read_receives(t, tracks, sends, ctx)
+    read_receives(t, parts, sends, ctx)
   end
   return sends
 end
 
---- The sends, plugins, envelopes and items of each track.
-local function fill_tracks(tracks: {Track}, sends: Sends, ctx: Ctx)
-  for _, t in ipairs(tracks) do
+--- The sends, plugins, envelopes and items of each part.
+local function fill_parts(parts: {Part}, sends: Sends, ctx: Ctx)
+  for _, t in ipairs(parts) do
     if sends[t.id] then
-      local ok, err = pcall(api.track_set, t.id, {sends = sends[t.id]}) as (boolean, string)
+      local ok, err = pcall(api.part_set, t.id, {sends = sends[t.id]}) as (boolean, string)
       if not ok then
         ctx.report:add("Routing", t.name .. ": sends: " .. tostring(err))
       end
@@ -1145,11 +1145,11 @@ local function fill_tracks(tracks: {Track}, sends: Sends, ctx: Ctx)
   end
 end
 
---- Something to hear MIDI tracks with, when asked for: `instrument` on
---- each MIDI track left with no device.
-local function add_instruments(tracks: {Track}, instrument: string, ctx: Ctx)
-  for _, t in ipairs(tracks) do
-    if ctx.midi_tracks[t.id] and #api.track_get(t.id).devices == 0 then
+--- Something to hear MIDI parts with, when asked for: `instrument` on
+--- each MIDI part left with no device.
+local function add_instruments(parts: {Part}, instrument: string, ctx: Ctx)
+  for _, t in ipairs(parts) do
+    if ctx.midi_parts[t.id] and #api.part_get(t.id).devices == 0 then
       local ok, err = pcall(api.device_add, t.id, instrument, {}) as (boolean, string)
       if not ok then
         ctx.report:add("Instruments", t.name .. ": " .. tostring(err))
@@ -1159,9 +1159,9 @@ local function add_instruments(tracks: {Track}, instrument: string, ctx: Ctx)
 end
 
 --- Import a parsed project. `opts.path` is where it was read from (media
---- paths are relative to its folder); `opts.merge` adds its tracks to the
+--- paths are relative to its folder); `opts.merge` adds its parts to the
 --- current project instead of replacing it; `opts.instrument` is a device
---- kind to give MIDI tracks whose instrument could not be carried over.
+--- kind to give MIDI parts whose instrument could not be carried over.
 function M.doc(doc: Node, opts?: interop.Options): interop.Result
   opts = opts or {}
   local project = doc.project
@@ -1176,23 +1176,23 @@ function M.doc(doc: Node, opts?: interop.Options): interop.Result
     beat = api.tempo_beat,
     clips = 0,
     devices = 0,
-    midi_tracks = {},
+    midi_parts = {},
   }
   begin_project(project, path, opts.merge, ctx)
   import_markers(project, ctx)
   if not opts.merge then
     import_master(project, ctx)
   end
-  local tracks = add_tracks(project)
-  fill_tracks(tracks, route_tracks(tracks, ctx), ctx)
+  local parts = add_parts(project)
+  fill_parts(parts, route_parts(parts, ctx), ctx)
   if opts.instrument then
-    add_instruments(tracks, opts.instrument, ctx)
+    add_instruments(parts, opts.instrument, ctx)
   end
   local ids: {integer} = {}
-  for i, t in ipairs(tracks) do
+  for i, t in ipairs(parts) do
     ids[i] = t.id
   end
-  return {tracks = ids, report = ctx.report, clips = ctx.clips, devices = ctx.devices, tempo = ctx.tempo}
+  return {parts = ids, report = ctx.report, clips = ctx.clips, devices = ctx.devices, tempo = ctx.tempo}
 end
 
 --- Read a file and import it.

@@ -24,7 +24,7 @@ local M = {
 }
 
 --- Import a .rpp file. Options: `merge` (add to the current project),
---- `instrument` (a device kind for MIDI tracks left without one).
+--- `instrument` (a device kind for MIDI parts left without one).
 function M.import(path: string, opts?: interop.Options): interop.Result
   return require("interop.rpp.import").file(path, opts)
 end

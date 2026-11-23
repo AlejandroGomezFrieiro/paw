@@ -9,7 +9,7 @@
 -- `group` above 0 cut each other off, as hats do.
 --
 --   local kit = require("drums.kit")
---   kit.build(track, "~/samples/808")       -- a pad for every sound file, by its name
+--   kit.build(part, "~/samples/808")       -- a pad for every sound file, by its name
 --   kit.set_pad(device, 42, { level = -4 })
 local api = paw.api
 local drums = require("drums")
@@ -56,10 +56,10 @@ local function device_of(which)
   return which
 end
 
---- The sampler on a track, if it has one.
-function M.device(track)
-  if type(track) == "number" then track = paw.track(track) end
-  return track:device("sampler")
+--- The sampler on a part, if it has one.
+function M.device(part)
+  if type(part) == "number" then part = paw.part(part) end
+  return part:device("sampler")
 end
 
 --- A sampler's pads, sorted by note.
@@ -239,21 +239,21 @@ function M.from_folder(dir)
   return pads, rows, dir
 end
 
---- Give a track a kit from a folder: a sampler with a pad per file (in
+--- Give a part a kit from a folder: a sampler with a pad per file (in
 --- place of the built-in kit if it has one) and a drum map whose rows are
 --- named after the files. Returns the sampler.
-function M.build(track, dir, opts)
-  if type(track) == "number" then track = paw.track(track) end
+function M.build(part, dir, opts)
+  if type(part) == "number" then part = paw.part(part) end
   local pads, rows, path = M.from_folder(dir)
-  local device = M.device(track)
+  local device = M.device(part)
   if not device then
-    local builtin = track:device("drums")
+    local builtin = part:device("drums")
     local index = builtin and builtin.index or 1
-    device = track:add_device("sampler", nil, { index = index })
+    device = part:add_device("sampler", nil, { index = index })
     if builtin then builtin:remove() end
   end
   M.set_pads(device, pads)
-  drums.set_map(track, rows, "kit: " .. path:match("[^/]+$"))
+  drums.set_map(part, rows, "kit: " .. path:match("[^/]+$"))
   local _ = opts
   return device
 end

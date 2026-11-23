@@ -56,7 +56,7 @@ end
 
 --- Choose a file for a slot of a device from the library folders. Each
 --- one is loaded as a trial as the selection rests on it, and heard with
---- what the track plays; Escape puts back what was there.
+--- what the part plays; Escape puts back what was there.
 function plugstate.pick(id: integer, slot: Slot, query?: string)
   local d = api.device_get(id)
   local roots = plugstate.roots()
@@ -90,7 +90,7 @@ function plugstate.pick(id: integer, slot: Slot, query?: string)
         return f.name .. " · " .. tostring(err)
       end
       return {
-        label = f.name .. " · " .. paw.audition.through(d.track),
+        label = f.name .. " · " .. paw.audition.through(d.part),
         keep = function() said(id, slot, f.path) end,
       }
     end,
@@ -389,7 +389,7 @@ function plugstate.pick_snapshot(id: integer)
     audition = function(s: Snapshot): string | contracts.Hearing<Snapshot>
       paw.audition.try(function() plugstate.recall(id, s.name) end)
       return {
-        label = s.name .. " · " .. paw.audition.through(d.track),
+        label = s.name .. " · " .. paw.audition.through(d.part),
         keep = function() recalled(id, s) end,
       }
     end,

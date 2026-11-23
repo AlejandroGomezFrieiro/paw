@@ -16,13 +16,13 @@ end
 
 local keys = T.keys
 
---- A track with a clip open as notation, written as a score.
+--- A part with a clip open as notation, written as a score.
 local function song(notes, length)
   fresh()
   local view = load()
-  local track = paw.add_track({ name = "Lead" })
-  track:add_device("synth")
-  local clip = track:add_clip({ start = 0, length = length or 8, name = "tune", notes = notes or {} })
+  local part = paw.add_part({ name = "Lead" })
+  part:add_device("synth")
+  local clip = part:add_clip({ start = 0, length = length or 8, name = "tune", notes = notes or {} })
   paw.flush()
   paw.keymap.set_mode("n")
   view:edit(clip)
@@ -33,7 +33,7 @@ local function song(notes, length)
     if name:find("^notation%.") then cmdline.set_history(name, {}) end
   end
   api.undo_checkpoint()
-  return view, clip, track
+  return view, clip, part
 end
 
 local function score_of(clip) return require("notation").score_of(clip:get()) end

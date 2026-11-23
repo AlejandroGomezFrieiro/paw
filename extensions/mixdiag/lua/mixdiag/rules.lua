@@ -2,7 +2,7 @@
 -- README for its fields) and the project, and calls `add` with findings:
 --
 --   add({ severity = "warn", message = "what, how much, where", fix = "what to do",
---         beat = 44, track = 3 })
+--         beat = 44, part = 3 })
 --
 -- Thresholds are fields of the rule, so a configuration can change them:
 --   require("mixdiag").rules.dc.limit = 0.005
@@ -22,7 +22,7 @@ rules.silent = {
     add({
       severity = "error",
       message = "the " .. ctx.range.label .. " is silent (nothing above -60 dBFS)",
-      fix = "check the master and track mutes, solos and instruments",
+      fix = "check the master and part mutes, solos and instruments",
       beat = ctx.range.start,
     })
   end,
@@ -50,7 +50,7 @@ rules.clip = {
       end
     end
     local need = math.max(0, r.true_peak)
-    local who = ctx.kind == "track" and (ctx.track_name(ctx.range.track) .. " alone drives the master")
+    local who = ctx.kind == "part" and (ctx.part_name(ctx.range.part) .. " alone drives the master")
       or ctx.kind == "file" and "the file"
       or "the master"
     for i, g in ipairs(groups) do
@@ -60,7 +60,7 @@ rules.clip = {
           message = string.format("%d more clipped passages after these", #groups - rule.max + (r.clip_runs - #r.runs)),
           beat = g.beat,
           seconds = g.seconds,
-          track = ctx.range.track or 0,
+          part = ctx.range.part or 0,
         })
         break
       end
@@ -82,7 +82,7 @@ rules.clip = {
           ),
         beat = g.beat,
         seconds = g.seconds,
-        track = ctx.range.track or 0,
+        part = ctx.range.part or 0,
       })
     end
   end,
@@ -96,7 +96,7 @@ rules.true_peak = {
     if ceiling and t.true_peak_loud and r.integrated and r.integrated > (t.integrated or 0) then
       ceiling, why = t.true_peak_loud, t.name .. ", louder than " .. t.integrated .. " LUFS"
     end
-    if ctx.kind == "track" then ceiling = nil end
+    if ctx.kind == "part" then ceiling = nil end
     local beat = ctx.beat(r.true_peak_at)
     if ceiling and r.true_peak > ceiling then
       add({
@@ -114,7 +114,7 @@ rules.true_peak = {
         ),
         beat = beat,
         seconds = r.true_peak_at,
-        track = 0,
+        part = 0,
         -- How far a fader should come down to fix it (the diagnostic's fix).
         lower = math.ceil((r.true_peak - ceiling) * 10) / 10,
       })
@@ -129,7 +129,7 @@ rules.true_peak = {
         fix = "a converter or lossy encoder will clip it; leave about 1 dB of headroom (a true-peak limiter, or the master down)",
         beat = beat,
         seconds = r.true_peak_at,
-        track = 0,
+        part = 0,
       })
     end
   end,
@@ -141,7 +141,7 @@ rules.loudness = {
   slack = 0.5,
   check = function(ctx, add, rule)
     local r, t = ctx.result, ctx.target
-    if not t.integrated or ctx.kind == "track" or not r.integrated then return end
+    if not t.integrated or ctx.kind == "part" or not r.integrated then return end
     local diff = r.integrated - t.integrated
     local what = ctx.whole and "the song" or ("this " .. ctx.range.label)
     local beat = ctx.range.start
@@ -164,7 +164,7 @@ rules.loudness = {
           diff < 0 and string.format(" (true peak would then be %s dBTP)", db(r.true_peak - diff)) or ""
         ),
         beat = beat,
-        track = 0,
+        part = 0,
         lower = diff > 0 and math.floor(diff * 10 + 0.5) / 10 or nil,
       })
     elseif t.kind == "normalize" then
@@ -181,17 +181,17 @@ rules.loudness = {
           ),
           fix = "the extra loudness is not heard there; if it came from limiting, less of it keeps more dynamics at the same playback level",
           beat = beat,
-          track = 0,
+          part = 0,
         })
       elseif diff < -rule.slack then
-        -- Quiet tracks are raised only as far as the true-peak ceiling allows.
+        -- Quiet parts are raised only as far as the true-peak ceiling allows.
         local room = (t.true_peak or 0) - r.true_peak
         local short = -diff - math.max(0, room)
         if short > rule.slack then
           add({
             severity = "info",
             message = string.format(
-              "integrated loudness %s LUFS with true peak %s dBTP: %s can raise it only %.1f dB, so it plays %.1f dB quieter than other tracks",
+              "integrated loudness %s LUFS with true peak %s dBTP: %s can raise it only %.1f dB, so it plays %.1f dB quieter than other parts",
               lu(r.integrated),
               db(r.true_peak),
               t.name,
@@ -204,7 +204,7 @@ rules.loudness = {
               db(t.true_peak or -1)
             ),
             beat = beat,
-            track = 0,
+            part = 0,
           })
         end
       end
@@ -212,18 +212,18 @@ rules.loudness = {
   end,
 }
 
-rules.track_over = {
-  desc = "A track peaks over full scale before the master",
+rules.part_over = {
+  desc = "A part peaks over full scale before the master",
   check = function(ctx, add)
     local master_clips = ctx.result.clip_runs > 0
-    for _, t in ipairs(ctx.result.tracks or {}) do
+    for _, t in ipairs(ctx.result.parts or {}) do
       if t.id ~= 0 and t.over_at then
         local beat = ctx.beat(t.over_at)
         add({
           severity = master_clips and "warn" or "info",
           message = string.format(
             "%s peaks at %s dBFS after its fader, first over full scale at %s",
-            ctx.track_name(t.id),
+            ctx.part_name(t.id),
             db(t.peak),
             ctx.where(beat, t.over_at)
           ),
@@ -235,7 +235,7 @@ rules.track_over = {
           ),
           beat = beat,
           seconds = t.over_at,
-          track = t.id,
+          part = t.id,
           lower = math.ceil((t.peak + 0.1) * 10) / 10,
         })
       end
@@ -276,10 +276,10 @@ rules.phase = {
             ctx.where(ctx.beat(to), to),
             to - from
           ),
-          fix = "look for a track with one side's polarity flipped, a widener, or a doubled part a few ms apart",
+          fix = "look for a part with one side's polarity flipped, a widener, or a doubled sound a few ms apart",
           beat = beat,
           seconds = from,
-          track = ctx.range.track or 0,
+          part = ctx.range.part or 0,
         })
       end
       first, low = nil, 1
@@ -308,9 +308,9 @@ rules.mono = {
       add({
         severity = "error",
         message = string.format("the %s cancels completely in mono (correlation %.2f)", ctx.range.label, r.correlation),
-        fix = "one side is the other with its polarity flipped: find the track and undo the flip",
+        fix = "one side is the other with its polarity flipped: find the part and undo the flip",
         beat = ctx.range.start,
-        track = ctx.range.track or 0,
+        part = ctx.range.part or 0,
       })
     elseif r.mono_loss > rule.limit then
       add({
@@ -324,7 +324,7 @@ rules.mono = {
         ),
         fix = "check wideners and polarity, and keep the low end centred",
         beat = ctx.range.start,
-        track = ctx.range.track or 0,
+        part = ctx.range.part or 0,
       })
     end
   end,
@@ -355,7 +355,7 @@ rules.dc = {
         fix = "it wastes headroom and clicks at edits; high-pass the offending source (a DC filter, or EQ at 20 Hz)",
         beat = beat or (ctx.kind ~= "file" and ctx.range.start or nil),
         seconds = from,
-        track = ctx.range.track or 0,
+        part = ctx.range.part or 0,
       })
     end
     for ch, side in ipairs({ "left", "right" }) do
@@ -406,7 +406,7 @@ rules.silence = {
           or "start the export where the sound starts, or move the material earlier",
         beat = ctx.beat(0),
         seconds = 0,
-        track = 0,
+        part = 0,
       })
     end
     local content = r.seconds - (r.tail or 0)
@@ -422,7 +422,7 @@ rules.silence = {
         fix = ctx.kind == "file" and "trim the end" or "shorten the last clip, or end the export earlier",
         beat = beat,
         seconds = r.sound_end,
-        track = 0,
+        part = 0,
       })
     end
   end,
@@ -444,7 +444,7 @@ rules.infrasonic = {
           ),
           fix = "it costs headroom and moves woofers; high-pass the bass, kick and pads around 25-30 Hz",
           beat = ctx.range.start,
-          track = ctx.range.track or 0,
+          part = ctx.range.part or 0,
         })
       end
     end
@@ -459,12 +459,12 @@ local function overlaps(clip, range)
 end
 
 rules.forgotten = {
-  desc = "Muted tracks and clips, bypassed devices, solos and switched-off automation",
+  desc = "Muted parts and clips, bypassed devices, solos and switched-off automation",
   check = function(ctx, add)
     if ctx.kind == "file" then return end
     local range = ctx.range
-    for _, id in ipairs(api.track_list()) do
-      local t = api.track_get(id)
+    for _, id in ipairs(api.part_list()) do
+      local t = api.part_get(id)
       local clips, muted = 0, {}
       for _, c in ipairs(api.clip_list(id)) do
         if overlaps(c, range) then
@@ -475,10 +475,10 @@ rules.forgotten = {
       if t.solo and ctx.kind == "mix" then
         add({
           severity = "warn",
-          message = t.name .. " is soloed, so the measurement heard only soloed tracks",
+          message = t.name .. " is soloed, so the measurement heard only soloed parts",
           fix = "unsolo it to measure the whole mix",
           beat = range.start,
-          track = id,
+          part = id,
         })
       end
       if t.mute and clips > 0 then
@@ -487,7 +487,7 @@ rules.forgotten = {
           message = string.format("%s is muted and has %d clip%s here", t.name, clips, clips == 1 and "" or "s"),
           fix = "unmute it, or remove it if it is not wanted",
           beat = range.start,
-          track = id,
+          part = id,
         })
       elseif #muted > 0 then
         add({
@@ -501,7 +501,7 @@ rules.forgotten = {
           ),
           fix = "unmute them (`gc`), or delete them",
           beat = muted[1].start,
-          track = id,
+          part = id,
         })
       end
       for _, dev_id in ipairs(t.devices or {}) do
@@ -512,7 +512,7 @@ rules.forgotten = {
             message = string.format("the %s on %s is bypassed", dev.name or dev.kind, t.name),
             fix = "switch it back on, or remove it",
             beat = range.start,
-            track = id,
+            part = id,
           })
         end
       end
@@ -528,7 +528,7 @@ rules.forgotten = {
             ),
             fix = "turn it back on (`<leader>at`) or clear it",
             beat = range.start,
-            track = id,
+            part = id,
           })
         end
       end
@@ -537,19 +537,19 @@ rules.forgotten = {
 }
 
 rules.no_sound = {
-  desc = "A track with clips that made no sound",
+  desc = "A part with clips that made no sound",
   -- dBFS; quieter than this counts as no sound.
   floor = -100,
   check = function(ctx, add, rule)
     if ctx.kind ~= "mix" then return end
     local any_solo = false
-    for _, id in ipairs(api.track_list()) do
-      any_solo = any_solo or api.track_get(id, "solo")
+    for _, id in ipairs(api.part_list()) do
+      any_solo = any_solo or api.part_get(id, "solo")
     end
     if any_solo then return end
-    for _, peak in ipairs(ctx.result.tracks or {}) do
+    for _, peak in ipairs(ctx.result.parts or {}) do
       if peak.id ~= 0 and peak.peak <= rule.floor then
-        local ok, t = pcall(api.track_get, peak.id)
+        local ok, t = pcall(api.part_get, peak.id)
         local playing = 0
         for _, c in ipairs(ok and api.clip_list(peak.id) or {}) do
           if not c.muted and overlaps(c, ctx.range) then playing = playing + 1 end
@@ -565,7 +565,7 @@ rules.no_sound = {
             ),
             fix = "it may have no instrument, a bypassed one, or its fader all the way down",
             beat = ctx.range.start,
-            track = peak.id,
+            part = peak.id,
           })
         end
       end

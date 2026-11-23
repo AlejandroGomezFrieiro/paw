@@ -1,4 +1,4 @@
--- What is wrong with the notes of a track that has a map, as diagnostics
+-- What is wrong with the notes of a part that has a map, as diagnostics
 -- (`paw.diagnostic`, namespace "articulations"), each with its fixes:
 -- notes the instrument cannot play (outside its range, or the range of
 -- their articulation), notes on keyswitch rows, articulations the map does
@@ -28,7 +28,7 @@ end
 --- The diagnostics of one clip.
 function M.of_clip(clip_id)
   local c = api.clip_get(clip_id)
-  local map = art.map_of(c.track)
+  local map = art.map_of(c.part)
   if not map or c.kind ~= "midi" then return {} end
   local keys = require("articulations.roll").keyswitch_keys(map)
   local out = {}
@@ -38,7 +38,7 @@ function M.of_clip(clip_id)
     local attr = art.attr_of(n)
     local a, exact = art.resolve(map, attr)
     if not attr then
-      a, exact = art.default_of(c.track, map), true
+      a, exact = art.default_of(c.part, map), true
     end
     local ks = keys[n.pitch]
     if ks or (map.keyswitches and inside(map.keyswitches, n.pitch)) then
@@ -140,7 +140,7 @@ end
 
 local pending = false
 
---- Check every MIDI clip of the tracks that have a map, soon (once for many edits).
+--- Check every MIDI clip of the parts that have a map, soon (once for many edits).
 function M.schedule()
   if pending then return end
   pending = true
@@ -152,13 +152,13 @@ end
 
 local published = {} -- the clips something was said about, to take it back
 
---- Check every MIDI clip of the tracks that have a map, now.
+--- Check every MIDI clip of the parts that have a map, now.
 function M.check()
   local now = {}
-  for _, track in ipairs(api.track_list()) do
-    local info = art.info(track)
+  for _, part in ipairs(api.part_list()) do
+    local info = art.info(part)
     if info and info.map then
-      for _, c in ipairs(api.clip_list(track)) do
+      for _, c in ipairs(api.clip_list(part)) do
         if c.kind == "midi" then
           local ok, list = pcall(M.of_clip, c.id)
           if ok and #list > 0 then
@@ -178,13 +178,13 @@ end
 -- Check again after each change of the notes or the maps. Undo and redo
 -- need no handler of their own: the changes that they put back come as
 -- these events too, with `restored = true`.
-for _, pattern in ipairs({ "clip.*", "track.*", "project.loaded", "articulations.bound" }) do
+for _, pattern in ipairs({ "clip.*", "part.*", "project.loaded", "articulations.bound" }) do
   paw.on(pattern, function() M.schedule() end)
 end
 
 paw.command("art.check", function()
   M.check()
   paw.diagnostic.setqflist({ namespace = M.namespace })
-end, { desc = "Check the notes of the tracks that have an articulation map, into the quickfix list" })
+end, { desc = "Check the notes of the parts that have an articulation map, into the quickfix list" })
 
 return M

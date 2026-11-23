@@ -12,20 +12,20 @@ end
 
 local keys = T.keys
 
---- A track with a clip open as notation.
+--- A part with a clip open as notation.
 local function song(notes, length)
   fresh()
   local view = load()
-  local track = paw.add_track({ name = "Lead" })
-  track:add_device("synth")
-  local clip = track:add_clip({ start = 0, length = length or 4, name = "tune", notes = notes or {} })
+  local part = paw.add_part({ name = "Lead" })
+  part:add_device("synth")
+  local clip = part:add_clip({ start = 0, length = length or 4, name = "tune", notes = notes or {} })
   paw.flush()
   paw.keymap.set_mode("n")
   view:edit(clip)
   paw.ui.focus("notation")
   view.value, view.dot, view.voice, view.triplets = 1, false, 1, false
   api.undo_checkpoint()
-  return view, clip, track
+  return view, clip, part
 end
 
 --- The clip's notes as "C4@0+1/80".
@@ -127,7 +127,7 @@ test(
     )
     api.project_load(out)
     paw.flush()
-    clip = paw.tracks()[1]:clips()[1]
+    clip = paw.parts()[1]:clips()[1]
     view:edit(clip)
     eq(
       played(clip, true),
@@ -232,7 +232,7 @@ test(
     api.project_save(path)
     api.project_load(path)
     paw.flush()
-    local again = paw.tracks()[1]:clips()[1]
+    local again = paw.parts()[1]:clips()[1]
     view:edit(again)
     eq(played(again), "C4@0+1 D#4@1+1 E4@2+1", "saved and loaded")
     eq(written(view), "q C4 q D#4 q E4 qr | R", "and written the same")
@@ -349,14 +349,14 @@ test(
     local view = load()
     local D = require("notation.doc")
     fresh()
-    local track = paw.add_track({ name = "Old" })
+    local part = paw.add_part({ name = "Old" })
     -- Notes as the old rendering left them: 90% of their values, each naming its written note.
     local notes = {}
     for i, p in ipairs({ 60, 62, 65, 65 }) do
       notes[i] =
         { pitch = p, start = i - 1, length = 0.9, velocity = 52, meta = { score = { e = "e" .. i, n = "n" .. i } } }
     end
-    local clip = track:add_clip({ start = 0, length = 4, name = "old", notes = notes })
+    local clip = part:add_clip({ start = 0, length = 4, name = "old", notes = notes })
     -- Its score: the third note E sharp, voice 2 for the last, a p, a staccato on the D.
     local sc = D.new({ { start = 0, num = 4, den = 4 } }, { "treble" })
     local m = sc.measures[1]

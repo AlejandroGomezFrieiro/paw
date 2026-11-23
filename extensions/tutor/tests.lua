@@ -259,7 +259,7 @@ end)
 
 local function own_project()
   T.fresh()
-  local mine = paw.add_track({ name = "Mine" })
+  local mine = paw.add_part({ name = "Mine" })
   mine:add_clip({ name = "idea", start = 0, length = 4 })
   paw.opt.grid = 2
   local path = T.scratch .. "/mine.json"
@@ -280,13 +280,13 @@ test("tutor: the learner's project is never touched, and comes back when they le
   )
   type_keys("<Esc>")
   eq(paw.project.path ~= path, true, "a practice project of its own")
-  eq(paw.track("Mine"), nil, "the learner's tracks are not in it")
+  eq(paw.part("Mine"), nil, "the learner's parts are not in it")
   eq(paw.opt.grid, 1, "lessons start from the default grid")
   type_keys("o")
   type_keys("<leader>hq")
   eq(tutor.state().active, false, "left the tutor")
   eq(paw.project.path, path, "the learner's project is open again")
-  eq(paw.track("Mine") ~= nil and #paw.tracks() == 1, true, "as it was")
+  eq(paw.part("Mine") ~= nil and #paw.parts() == 1, true, "as it was")
   eq(paw.project.modified, false, "with nothing to save")
   eq(T.read_file(path), before, "its file was not written")
   eq(paw.opt.grid, 2, "the learner's grid is back")
@@ -296,7 +296,7 @@ end)
 test("tutor: a project with unsaved changes is not closed without asking", function()
   local tutor = start()
   local path = own_project()
-  paw.add_track({ name = "Unsaved" })
+  paw.add_part({ name = "Unsaved" })
   api.undo_checkpoint()
   paw.flush()
   type_keys(":tutor 1<CR>")
@@ -306,17 +306,17 @@ test("tutor: a project with unsaved changes is not closed without asking", funct
     true,
     "the tutor says why"
   )
-  eq(paw.track("Unsaved") ~= nil and paw.project.path == path, true, "the project is still open, changes and all")
+  eq(paw.part("Unsaved") ~= nil and paw.project.path == path, true, "the project is still open, changes and all")
   type_keys(":tutor! 1<CR><Esc>")
   eq(tutor.state().active, true, "`:tutor!` starts anyway")
   tutor.quit()
   eq(paw.project.path, path, "and leaving reopens the project as last saved")
-  eq(paw.track("Unsaved"), nil, "without the changes that were thrown away")
+  eq(paw.part("Unsaved"), nil, "without the changes that were thrown away")
 end)
 
 test("tutor: a project opened from a MIDI file is not replaced without asking", function()
   local tutor = start()
-  local t = paw.add_track({ name = "Keys" })
+  local t = paw.add_part({ name = "Keys" })
   t:add_clip({ start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1, velocity = 90 } } })
   local path = T.scratch .. "/tutor-import.mid"
   paw.midifile.export(path)
@@ -325,7 +325,7 @@ test("tutor: a project opened from a MIDI file is not replaced without asking", 
   eq(api.project_get("modified"), false, "an imported project is not modified")
   type_keys(":tutor 1<CR>")
   eq(tutor.state().active, false, "yet the lesson did not start")
-  eq(paw.track("Keys") ~= nil, true, "and the notes are still there")
+  eq(paw.part("Keys") ~= nil, true, "and the notes are still there")
   type_keys(":tutor! 1<CR><Esc>")
   eq(tutor.state().active, true, "`:tutor!` starts anyway")
   tutor.quit()
@@ -334,7 +334,7 @@ end)
 test("tutor: progress survives leaving and coming back, and a restart of the program", function()
   local tutor = start()
   type_keys(":tutor 3<CR><Esc>")
-  type_keys("o") -- step 1: a track
+  type_keys("o") -- step 1: a part
   type_keys("grn<C-u>Bass<CR>") -- step 2: its name
   eq(tutor.state().step, 3, "two steps done")
   type_keys("<leader>hq")
@@ -343,10 +343,10 @@ test("tutor: progress survives leaving and coming back, and a restart of the pro
   tutor._forget()
   T.fresh()
   type_keys(":tutor<CR>")
-  eq(paw.ui.float and paw.ui.float.title, "Lesson 3: Tracks, clips and notes", "back in lesson 3")
+  eq(paw.ui.float and paw.ui.float.title, "Lesson 3: Parts, clips and notes", "back in lesson 3")
   type_keys("<Esc>")
   eq(tutor.state().step, 3, "at the step after the last one done")
-  eq(paw.track("Bass") ~= nil, true, "with the practice project as it was left")
+  eq(paw.part("Bass") ~= nil, true, "with the practice project as it was left")
   eq(tutor.record("making").steps[2], "done", "and the steps done are remembered")
   type_keys("asynth<CR>")
   eq(tutor.state().step, 4, "and it carries on noticing")
@@ -362,7 +362,7 @@ test("tutor: quitting the program in a lesson keeps the place", function()
   T.fresh()
   type_keys(":tutor<CR><Esc>")
   eq(tutor.state().lesson .. " " .. tutor.state().step, "making 2", "back where it was")
-  eq(#paw.tracks(), 2, "with the track that was added")
+  eq(#paw.parts(), 2, "with the part that was added")
   tutor.quit()
 end)
 
@@ -403,8 +403,8 @@ test("tutor: another extension can add a lesson", function()
   local lesson = tutor.register({
     id = "extra",
     title = "An extra lesson",
-    setup = function() paw.add_track({ name = "X" }) end,
-    steps = { { say = "Press `o`.", keys = { "o" }, check = function() return #paw.tracks() == 2 end } },
+    setup = function() paw.add_part({ name = "X" }) end,
+    steps = { { say = "Press `o`.", keys = { "o" }, check = function() return #paw.parts() == 2 end } },
   }, { after = "first-steps" })
   eq(tutor.number(lesson), 2, "it goes where it was asked")
   type_keys(":tutor extra<CR><Esc>o")

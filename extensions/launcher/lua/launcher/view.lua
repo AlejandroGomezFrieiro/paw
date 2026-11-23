@@ -1,8 +1,8 @@
--- The session view: a column of slots for each track and a row for each
+-- The session view: a column of slots for each part and a row for each
 -- scene, with the scenes' names down the right. A clip that plays is lit in
--- its track's colour and filled as it goes round its loop; one queued to
+-- its part's colour and filled as it goes round its loop; one queued to
 -- start is marked until its boundary comes. The last row says what each
--- track plays: a slot, nothing (stopped), or its timeline. One view for the
+-- part plays: a slot, nothing (stopped), or its timeline. One view for the
 -- terminal and the window: the window draws it from its scene.
 local api = paw.api
 local util = paw.util
@@ -27,7 +27,7 @@ local view = {
 local GUTTER = 4 -- the row numbers
 local SCENES = 14 -- the scenes' column
 
---- Columns a track takes on a screen `w` wide with `n` tracks, the gap after it included.
+--- Columns a part takes on a screen `w` wide with `n` parts, the gap after it included.
 function view.column_width(w, n) return util.clamp(math.floor((w - GUTTER - SCENES) / math.max(1, n)), 10, 20) end
 
 --- The text of a slot, `width` cells: a mark, then the clip's name.
@@ -36,8 +36,8 @@ local function label(mark, name, width) return util.fit(mark .. " " .. name, wid
 local function slot_cell(buf, x, y, width, clip, hue, state)
   local g = draw.g
   if not clip then
-    buf:fill(x, y, width, 1, " ", "TrackHeader")
-    buf:text(x + 1, y, g.dot, state.queued and "Accent" or "TrackIndex")
+    buf:fill(x, y, width, 1, " ", "PartHeader")
+    buf:text(x + 1, y, g.dot, state.queued and "Accent" or "PartIndex")
     return
   end
   if state.playing then
@@ -59,10 +59,10 @@ local function slot_cell(buf, x, y, width, clip, hue, state)
   end
 end
 
---- What the last row says of a track.
+--- What the last row says of a part.
 local function status_text(s)
   local g = draw.g
-  if not s then return "timeline", "TrackIndex" end
+  if not s then return "timeline", "PartIndex" end
   local queued = s.queued == "stop" and (" " .. g.closed .. g.stop)
     or s.queued == "arrangement" and (" " .. g.closed .. "tl")
     or type(s.queued) == "number" and (" " .. g.closed .. (s.queued + 1))
@@ -74,9 +74,9 @@ local function status_text(s)
       or ""
     return g.play .. " " .. (s.slot + 1) .. at .. queued, "Bright"
   elseif s.stopped then
-    return g.stop .. " stopped" .. queued, "TrackInfo"
+    return g.stop .. " stopped" .. queued, "PartInfo"
   end
-  return "timeline" .. queued, "TrackIndex"
+  return "timeline" .. queued, "PartIndex"
 end
 
 --- What the drawing in a window shows of what plays, as a key (see
@@ -104,9 +104,9 @@ end
 function view:render(buf, ctx)
   local g = draw.g
   -- A VCA has no clips to launch.
-  local tracks = {}
-  for _, id in ipairs(paw.scope.tracks()) do
-    if not paw.vca.is_vca(id) then tracks[#tracks + 1] = id end
+  local parts = {}
+  for _, id in ipairs(paw.scope.parts()) do
+    if not paw.vca.is_vca(id) then parts[#parts + 1] = id end
   end
   local body = paw.ui.titlebar(buf, {
     name = "Session",
@@ -114,16 +114,16 @@ function view:render(buf, ctx)
     focused = ctx.focused,
   })
   local w, h = body.width, body.height
-  body:fill(0, 0, w, h, " ", "TrackHeader")
-  local cw = view.column_width(w, #tracks)
+  body:fill(0, 0, w, h, " ", "PartHeader")
+  local cw = view.column_width(w, #parts)
   local room = math.max(1, math.floor((w - GUTTER - SCENES) / cw))
   local index = 1
-  for i, id in ipairs(tracks) do
-    if id == paw.cursor.track_id() then index = i end
+  for i, id in ipairs(parts) do
+    if id == paw.cursor.part_id() then index = i end
   end
   if index <= self.scroll then self.scroll = index - 1 end
   if index > self.scroll + room then self.scroll = index - room end
-  self.scroll = util.clamp(self.scroll, 0, math.max(0, #tracks - room))
+  self.scroll = util.clamp(self.scroll, 0, math.max(0, #parts - room))
   -- Rows: the names, the slots, and the line saying what plays.
   local rows = launcher.rows()
   local shown = math.max(1, h - 2)
@@ -131,16 +131,16 @@ function view:render(buf, ctx)
   if launcher.row >= self.top + shown then self.top = launcher.row - shown + 1 end
   self.top = util.clamp(self.top, 0, math.max(0, rows - shown))
   local state = launcher.state()
-  local cursor_track = paw.cursor.track_id()
+  local cursor_part = paw.cursor.part_id()
   local columns = {}
   for col = 0, room - 1 do
     local i = self.scroll + col + 1
-    local id = tracks[i]
+    local id = parts[i]
     if not id then break end
-    local t = api.track_get(id)
-    local hue = draw.track_hue(t, i)
+    local t = api.part_get(id)
+    local hue = draw.part_hue(t, i)
     local x = GUTTER + col * cw
-    local selected = id == cursor_track
+    local selected = id == cursor_part
     columns[#columns + 1] = { id = id, x = x }
     body:fill(x, 0, cw - 1, 1, " ", selected and hue.title_cur or hue.plate)
     body:text(x + 1, 0, util.fit(t.name, cw - 2), selected and hue.title_cur or hue.plate)
@@ -156,7 +156,7 @@ function view:render(buf, ctx)
         progress = (s.slot == row and s.length and s.length > 0) and s.phase / s.length or 0,
       }
       local rec = launcher.recording
-      if rec and rec.track == id and rec.row == row then
+      if rec and rec.part == id and rec.row == row then
         body:fill(x, r + 1, cw - 1, 1, " ", "Armed")
         body:text(x, r + 1, label(g.rec, "recording", cw - 1), "Armed")
       else
@@ -170,26 +170,26 @@ function view:render(buf, ctx)
   -- Row numbers, and the scenes down the right.
   local sx = GUTTER + #columns * cw + 1
   body:fill(sx - 1, 0, 1, h, g.rule, "Rule")
-  body:text(sx, 0, util.fit("Scenes", SCENES - 1), "TrackName")
+  body:text(sx, 0, util.fit("Scenes", SCENES - 1), "PartName")
   for r = 0, shown - 1 do
     local row = self.top + r
     if row >= rows then break end
     local here = row == launcher.row
-    body:text(0, r + 1, string.format("%3d", row + 1), here and "Bright" or "TrackIndex")
-    body:text(sx, r + 1, label(g.play, launcher.scene_name(row), SCENES - 1), here and "TrackNameSel" or "TrackInfo")
+    body:text(0, r + 1, string.format("%3d", row + 1), here and "Bright" or "PartIndex")
+    body:text(sx, r + 1, label(g.play, launcher.scene_name(row), SCENES - 1), here and "PartNameSel" or "PartInfo")
   end
-  body:text(0, h - 1, util.fit(g.stop, GUTTER - 1), "TrackIndex")
-  body:text(sx, h - 1, util.fit(g.stop .. " stop all", SCENES - 1), "TrackInfo")
+  body:text(0, h - 1, util.fit(g.stop, GUTTER - 1), "PartIndex")
+  body:text(sx, h - 1, util.fit(g.stop .. " stop all", SCENES - 1), "PartInfo")
   self.geometry = { columns = columns, cw = cw, sx = sx, shown = shown, h = h }
 end
 
 -- What the pointer does ---------------------------------------------------------
 --
--- The play mark of a slot pressed launches the clip (or stops the track, on
+-- The play mark of a slot pressed launches the clip (or stops the part, on
 -- an empty slot); let go, it stops a gate clip. The rest of a slot: a click
 -- chooses it, a double click opens its notes (an empty one gets a new MIDI
 -- clip first), a drag moves the clip to another slot (Ctrl copies). A
--- scene launches its row. The last row stops the track, or every track
+-- scene launches its row. The last row stops the part, or every part
 -- under the scenes. A clip from the timeline let go on a slot (in the
 -- window) is copied there.
 
@@ -198,61 +198,61 @@ view.act = act
 
 --- A click on a slot: the cursor goes there, launching nothing, and the
 --- keys are the session view's.
-function act.choose(track, row)
-  paw.cursor.set_track(track)
+function act.choose(part, row)
+  paw.cursor.set_part(part)
   launcher.row = row
   if paw.ui.visible("session") then paw.ui.focus("session") end
   api.ui_redraw()
 end
 
 --- A slot pressed, or let go of (`down` false): see `launcher.press` and `release`.
-function act.press(track, row, down)
-  paw.cursor.set_track(track)
+function act.press(part, row, down)
+  paw.cursor.set_part(part)
   launcher.row = row
-  if down == false then return launcher.release(track, row) end
-  launcher.press(track, row)
+  if down == false then return launcher.release(part, row) end
+  launcher.press(part, row)
 end
 
 --- Record into an empty slot, or stop the recording.
-function act.record(track, row)
-  act.choose(track, row)
+function act.record(part, row)
+  act.choose(part, row)
   if launcher.recording then return launcher.finish_recording() end
-  launcher.record(track, row)
+  launcher.record(part, row)
 end
 
 --- A double click on an empty slot: a MIDI clip of a bar there, opened in
 --- the piano roll. On a slot with a MIDI clip it opens that. Returns the clip.
-function act.open(track, row)
-  act.choose(track, row)
-  local clip = launcher.clip(track, row)
-  local id = clip and clip.id or launcher.new_clip(track, row)
+function act.open(part, row)
+  act.choose(part, row)
+  local clip = launcher.clip(part, row)
+  local id = clip and clip.id or launcher.new_clip(part, row)
   if not clip or clip.kind == "midi" then paw.ui.views:get("pianoroll"):edit(paw.clip(id)) end
   return id
 end
 
 --- A clip from the timeline let go on a slot: a copy of it goes there.
-function act.drop(clip, track, row)
-  act.choose(track, row)
-  local id = launcher.copy(clip, track, row)
+function act.drop(clip, part, row)
+  act.choose(part, row)
+  local id = launcher.copy(clip, part, row)
   paw.notify("copied " .. api.clip_get(id).name .. " into slot " .. (row + 1))
   return id
 end
 
 --- A slot's clip dragged to another, with `copy` (Ctrl) as a copy.
-function act.move(clip, track, row, copy)
+function act.move(clip, part, row, copy)
   if copy then
-    launcher.copy(clip, track, row)
+    launcher.copy(clip, part, row)
   else
-    launcher.move(clip, track, row)
+    launcher.move(clip, part, row)
   end
-  act.choose(track, row)
+  act.choose(part, row)
 end
 
 local hints = {
   clip = "clip: its play mark launches it · click chooses · double click opens its notes · drag moves it, Ctrl copies · right click for more",
   empty = "empty slot: double click makes a MIDI clip · its dot records a bar into it",
   scene = "scene: launches every clip in its row together",
-  stop = "stops the track's clip",
+  stop = "stops the part's clip",
 }
 
 --- The column of the session view under `x`, if any.
@@ -273,7 +273,7 @@ function view:on_mouse(e)
   local step, sideways = mouse.wheel(e)
   if step then
     if sideways or mouse.has(e, "S") then
-      paw.cursor.move_track(step)
+      paw.cursor.move_part(step)
     else
       self.top = math.max(0, self.top + step)
     end

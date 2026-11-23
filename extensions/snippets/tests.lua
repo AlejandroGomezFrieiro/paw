@@ -24,9 +24,9 @@ local function notes_of(list)
   return out
 end
 
---- A track with one clip of chords: `{ "C4 E4 G4", at, length }` each.
-local function track(name, chords, length)
-  local t = paw.add_track({ name = name })
+--- A part with one clip of chords: `{ "C4 E4 G4", at, length }` each.
+local function part(name, chords, length)
+  local t = paw.add_part({ name = name })
   local notes = {}
   for _, c in ipairs(chords) do
     for _, p in ipairs(notes_of(c[1])) do
@@ -94,12 +94,12 @@ local function open(clip, pitch, beat)
 end
 
 test(
-  "snippets: dominant before a C major chord on another track writes G7 up to it, led from what came before",
+  "snippets: dominant before a C major chord on another part writes G7 up to it, led from what came before",
   function()
     start()
     -- This clip plays D minor seventh; the strings bring C major at beat 4.
-    local _, keys_clip = track("Keys", { { "D3 F3 A3 C4", 0, 2 } })
-    track("Strings", { { "C3 G3 C4 E4", 4, 4 } })
+    local _, keys_clip = part("Keys", { { "D3 F3 A3 C4", 0, 2 } })
+    part("Strings", { { "C3 G3 C4 E4", 4, 4 } })
     open(keys_clip, 60, 2)
     keys(":snippet dominant<CR>")
     local pitches, pcs, length = at(keys_clip, 2)
@@ -130,8 +130,8 @@ test(
   "snippets: the owner's example as the terminal shows it: chords over the ruler, ghosts, marks, the choice",
   function()
     start()
-    local _, clip = track("Piano", { { "D3 F3 A3 C4", 0, 2 } }, 8)
-    track("Strings", { { "C3 G3 C4 E4", 4, 4 } }, 8)
+    local _, clip = part("Piano", { { "D3 F3 A3 C4", 0, 2 } }, 8)
+    part("Strings", { { "C3 G3 C4 E4", 4, 4 } }, 8)
     open(clip, 60, 2)
     paw.opt.note_zoom = 8
     -- The view draws the reading as it stands: read the chords first.
@@ -170,10 +170,10 @@ test(
 
 test("snippets: with two clips edited, dominant writes into the active one, in its own beats", function()
   start()
-  local _, piano = track("Piano", { { "D3 F3 A3 C4", 0, 2 } }, 8)
+  local _, piano = part("Piano", { { "D3 F3 A3 C4", 0, 2 } }, 8)
   -- The strings' clip starts at beat 2, so its C major at its own beat 2 is
   -- the song's beat 4.
-  local strings = paw.add_track({ name = "Strings" })
+  local strings = paw.add_part({ name = "Strings" })
   local other = strings:add_clip({
     start = 2,
     length = 6,
@@ -200,7 +200,7 @@ end)
 
 test("snippets: dominant before a C major chord in this clip, through the picker, leads into it", function()
   start()
-  local _, clip = track("Piano", { { "E4 G4 C5", 4, 4 } })
+  local _, clip = part("Piano", { { "E4 G4 C5", 4, 4 } })
   open(clip, 60, 0)
   keys("<C-s>")
   keys("dom")
@@ -217,8 +217,8 @@ end)
 
 test("snippets: dominant's choices: the kind of chord, and a count chains dominants back", function()
   start()
-  local _, clip = track("Piano", {})
-  track("Pad", { { "C3 E3 G3", 8, 4 } })
+  local _, clip = part("Piano", {})
+  part("Pad", { { "C3 E3 G3", 8, 4 } })
   open(clip, 60, 0)
   keys(":snippet dominant<CR><Tab><Tab><C-n>")
   eq(
@@ -234,8 +234,8 @@ end)
 
 test("snippets: the dominant family and its approaches", function()
   start()
-  local _, clip = track("Piano", {})
-  track("Pad", { { "C3 E3 G3", 4, 4 } })
+  local _, clip = part("Piano", {})
+  part("Pad", { { "C3 E3 G3", 4, 4 } })
   open(clip, 60, 0)
   local function expand(name, want, beat)
     keys(":snippet " .. name .. "<CR>")
@@ -261,7 +261,7 @@ end)
 
 test("snippets: cadence goes to the key's tonic", function()
   start()
-  local _, clip = track("Piano", {})
+  local _, clip = part("Piano", {})
   H.set_key("F major")
   open(clip, 60, 0)
   keys(":snippet cadence<CR>")
@@ -273,8 +273,8 @@ end)
 
 test("snippets: pedal, arp and bass are made of the chords there", function()
   start()
-  track("Pad", { { "A2 C3 E3", 0, 4 }, { "F2 A2 C3", 4, 4 } })
-  local _, clip = track("Bass", {})
+  part("Pad", { { "A2 C3 E3", 0, 4 }, { "F2 A2 C3", 4, 4 } })
+  local _, clip = part("Bass", {})
   open(clip, 40, 0)
   keys(":snippet bass<CR>")
   local list = {}
@@ -309,7 +309,7 @@ end)
 
 test("snippets: harmonize and voice-lead work on the selection", function()
   start()
-  local _, clip = track("Lead", { { "C5", 0, 1 }, { "D5", 1, 1 }, { "E5", 2, 1 } })
+  local _, clip = part("Lead", { { "C5", 0, 1 }, { "D5", 1, 1 }, { "E5", 2, 1 } })
   open(clip, 72, 0)
   keys(":snippet harmonize<CR>")
   eq(paw.ui.message.text, "select the notes to harmonize first", "without a selection it says so")
@@ -332,7 +332,7 @@ test("snippets: harmonize and voice-lead work on the selection", function()
   eq(#clip:notes(), 3, "undone")
 
   start()
-  local _, chords = track("Keys", { { "C4 E4 G4", 0, 2 }, { "B4 D5 G5", 2, 2 }, { "C4 E4 G4", 4, 2 } })
+  local _, chords = part("Keys", { { "C4 E4 G4", 0, 2 }, { "B4 D5 G5", 2, 2 }, { "C4 E4 G4", 4, 2 } })
   local roll = open(chords, 60, 0)
   roll:set(60, 0)
   keys("v$")
@@ -344,8 +344,8 @@ end)
 
 test("snippets: Ctrl-Space offers the snippets that fit as suggestions, and Tab writes one", function()
   start()
-  local _, clip = track("Piano", {}, 8)
-  track("Strings", { { "C3 G3 C4 E4", 4, 4 } }, 8)
+  local _, clip = part("Piano", {}, 8)
+  part("Strings", { { "C3 G3 C4 E4", 4, 4 } }, 8)
   open(clip, 60, 0)
   paw.opt.complete_auto = false
   keys("<C-Space>")

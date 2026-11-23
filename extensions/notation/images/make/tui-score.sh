@@ -1,6 +1,6 @@
 #!/bin/sh
 # The quartet's score edited in the terminal: the cursor's staff is the
-# track the keys write, marked at its start, the others dimmed; ]] goes to
+# part the keys write, marked at its start, the others dimmed; ]] goes to
 # the next instrument, notes are entered there by name, and a block over
 # three staves takes their bars.
 . "$MAKE/rig.sh"
@@ -9,7 +9,7 @@ rig_start
 term_start
 key ctrl+w o; pause 1.2
 rec_start tui-score
-cap "The full score: the cursor's staff is the track the keys write"
+cap "The full score: the cursor's staff is the part the keys write"
 pause 1.2
 cap "]] goes to the next instrument; Ctrl-j Ctrl-k a staff down, up"
 key bracketleft bracketleft; pause 0.8; key bracketleft bracketleft; pause 0.8; key bracketright bracketright; pause 0.8; key bracketright bracketright

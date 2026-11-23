@@ -3,14 +3,14 @@
 local api = paw.api
 local M = {}
 
---- A track by name, or nil.
-function M.track(name) return paw.track(name) end
+--- A part by name, or nil.
+function M.part(name) return paw.part(name) end
 
---- A track's clips in time order.
-function M.clips(track)
-  if type(track) == "string" then track = paw.track(track) end
-  if not track then return {} end
-  local list = track:clips()
+--- A part's clips in time order.
+function M.clips(part)
+  if type(part) == "string" then part = paw.part(part) end
+  if not part then return {} end
+  local list = part:clips()
   table.sort(list, function(a, b)
     if a.start ~= b.start then return a.start < b.start end
     return a.name < b.name
@@ -18,19 +18,19 @@ function M.clips(track)
   return list
 end
 
---- A track's clip names in time order: "kick snare fill".
-function M.names(track)
+--- A part's clip names in time order: "kick snare fill".
+function M.names(part)
   local out = {}
-  for i, c in ipairs(M.clips(track)) do
+  for i, c in ipairs(M.clips(part)) do
     out[i] = c.name
   end
   return table.concat(out, " ")
 end
 
---- Where a track's clips are: "a@0+4 b@4+4", with `m` for a muted one.
-function M.layout(track)
+--- Where a part's clips are: "a@0+4 b@4+4", with `m` for a muted one.
+function M.layout(part)
   local out = {}
-  for i, c in ipairs(M.clips(track)) do
+  for i, c in ipairs(M.clips(part)) do
     out[i] = string.format("%s@%g+%g%s", c.name, c.start, c.length, c.muted and "m" or "")
   end
   return table.concat(out, " ")
@@ -50,16 +50,16 @@ function M.melody(clip)
   return table.concat(notes, " ")
 end
 
---- The clip on a track whose name is `name` (the first in time).
-function M.clip(track, name)
-  for _, c in ipairs(M.clips(track)) do
+--- The clip on a part whose name is `name` (the first in time).
+function M.clip(part, name)
+  for _, c in ipairs(M.clips(part)) do
     if not name or c.name == name then return c end
   end
 end
 
---- The name of the track the cursor is on.
-function M.cursor_track()
-  local t = paw.cursor.track()
+--- The name of the part the cursor is on.
+function M.cursor_part()
+  local t = paw.cursor.part()
   return t and t.name
 end
 
@@ -77,11 +77,11 @@ function M.float_title() return paw.ui.float and paw.ui.float.title end
 --- Whether a view is on screen.
 function M.visible(name) return paw.ui.visible(name) end
 
---- The first device of a kind on a track, or nil.
-function M.device(track, kind)
-  if type(track) == "string" then track = paw.track(track) end
-  if not track then return end
-  for _, d in ipairs(track:devices()) do
+--- The first device of a kind on a part, or nil.
+function M.device(part, kind)
+  if type(part) == "string" then part = paw.part(part) end
+  if not part then return end
+  for _, d in ipairs(part:devices()) do
     if d.kind == kind then return d end
   end
 end

@@ -292,13 +292,13 @@ local function setup(m)
   return cache
 end
 
---- A device that an adapter of the test knows: the synth of a track. It
+--- A device that an adapter of the test knows: the synth of a part. It
 --- takes .nam models and .wav impulse responses; what it holds is the name
 --- of its preset, which `device_load` sets as one undo step.
 local function fake_device()
-  local track = T.tone("guitar", 2, "A2")
-  paw.cursor.set_track(track.id)
-  local d = track:devices()[1]
+  local part = T.tone("guitar", 2, "A2")
+  paw.cursor.set_part(part.id)
+  local d = part:devices()[1]
   local loaded = {}
   plugstate.adapter({
     name = "t3k-test",
@@ -332,7 +332,7 @@ local function fake_device()
     end
   end)
   api.undo_checkpoint()
-  return d, track
+  return d, part
 end
 
 local function fill(m)
@@ -617,9 +617,9 @@ test("plugstate: a model from TONE3000's library plays in Neural Amp Modeler and
   m.files[1201] = T.read_file(models .. "/BossLSTM-1x16.nam")
   client.env = { TONE3000_TOKEN = "a-token" }
   fresh()
-  local track = T.tone("guitar", 2, "A2")
-  paw.cursor.set_track(track.id)
-  local amp = track:add_device(kind)
+  local part = T.tone("guitar", 2, "A2")
+  paw.cursor.set_part(part.id)
+  local amp = part:add_device(kind)
   paw.flush()
   api.undo_checkpoint()
   paw.ui.focus("devices")
@@ -638,7 +638,7 @@ test("plugstate: a model from TONE3000's library plays in Neural Amp Modeler and
   local path = paw.project.save(T.scratch .. "/t3k-nam.json")
   fresh()
   paw.project.load(path)
-  local loaded = paw.tracks()[1]:devices()[2]
+  local loaded = paw.parts()[1]:devices()[2]
   -- The plugin tells what it holds once it has read the state.
   wait(nil, function()
     paw.flush()
@@ -660,9 +660,9 @@ test("plugstate: a model from TONE3000's library goes into a block of the TONE30
   m.files[1201] = T.read_file(models .. "/BossLSTM-1x16.nam")
   client.env = { TONE3000_TOKEN = "a-token" }
   fresh()
-  local track = T.tone("guitar", 2, "A2")
-  paw.cursor.set_track(track.id)
-  local amp = track:add_device(kind)
+  local part = T.tone("guitar", 2, "A2")
+  paw.cursor.set_part(part.id)
+  local amp = part:add_device(kind)
   paw.flush()
   api.undo_checkpoint()
   paw.ui.focus("devices")

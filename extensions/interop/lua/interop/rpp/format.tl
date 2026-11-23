@@ -1,4 +1,4 @@
--- REAPER's project format (.rpp, also track templates and FX chains) as a
+-- REAPER's project format (.rpp, also part templates and FX chains) as a
 -- tree that can be read, changed and written back.
 --
 --   <REAPER_PROJECT 0.1 "7.55/linux-x86_64" 1779302254 0     a block: `<NAME tokens`

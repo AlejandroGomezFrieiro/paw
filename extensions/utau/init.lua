@@ -1,4 +1,4 @@
--- UTAU singing for paw: vocal tracks sung by OpenUtau's engines through
+-- UTAU singing for paw: vocal parts sung by OpenUtau's engines through
 -- its own engine, paw-utau-engine (engine/). See README.md beside this file.
 local api = paw.api
 
@@ -18,7 +18,7 @@ local utau = require("utau")
 utau.engine.reset_stale()
 
 -- Any edit may change what is sung; the sync works out what did.
-for _, pattern in ipairs({ "clip.*", "track.*", "device.*", "lane.*", "project.changed", "project.loaded" }) do
+for _, pattern in ipairs({ "clip.*", "part.*", "device.*", "lane.*", "project.changed", "project.loaded" }) do
   paw.on(pattern, function() utau.schedule() end)
 end
 paw.on("project.loaded", function() utau.clear_voices() end)

@@ -1,8 +1,8 @@
 -- Hearing a note as it is placed or clicked in the vocal editor.
 --
--- When the engine is up and the track has a singer, the engine sings the
--- note by itself with the track's voice (the `Audition` message), and
--- the track's `utau` device plays that at once (a classic voicebank answers
+-- When the engine is up and the part has a singer, the engine sings the
+-- note by itself with the part's voice (the `Audition` message), and
+-- the part's `utau` device plays that at once (a classic voicebank answers
 -- in a fraction of a second). Without the engine or a singer, a soft tone at
 -- the note's pitch stands in. `paw.opt.utau_audition` turns it off.
 local api = paw.api
@@ -38,11 +38,11 @@ local function play(device, rate, channels, raw)
   return ok
 end
 
---- Hear a note of a vocal track: `pitch`, `lyric`, for `ms` (at most a
+--- Hear a note of a vocal part: `pitch`, `lyric`, for `ms` (at most a
 --- second). Returns how it is heard: "engine", "tone", or nil.
-function M.play(track_id, pitch, lyric, ms)
+function M.play(part_id, pitch, lyric, ms)
   if not paw.opt.utau_audition then return nil end
-  local device = utau.device_of(track_id)
+  local device = utau.device_of(part_id)
   if not device then return nil end
   -- Not more than one a twentieth of a second, as a drag goes across rows.
   -- The clock gives milliseconds as a float: 50 ms later can read 49.999...
@@ -50,12 +50,12 @@ function M.play(track_id, pitch, lyric, ms)
   if now - M.last < 50 - 1e-6 then return nil end
   M.last = now
   ms = math.max(120, math.min(1000, ms or 400))
-  local config = utau.config(track_id)
+  local config = utau.config(part_id)
   if utau.engine.state == "ready" and utau.engine.connected() and config.singer then
     M.request = M.request + 1
     -- Only the latest click is worth hearing.
     M.pending = { [M.request] = { device = device, at = now } }
-    utau.engine.send(proto.encode.audition(M.request, tostring(track_id), pitch, lyric or "a", ms))
+    utau.engine.send(proto.encode.audition(M.request, tostring(part_id), pitch, lyric or "a", ms))
     M.heard[#M.heard + 1] = "engine"
     return "engine"
   end
@@ -72,7 +72,7 @@ function M.note(clip_id, index)
   local lyric = note.meta and note.meta.lyric or paw.opt.utau_default_lyric
   if lyric == "R" or lyric == "r" then return end
   local ms = paw.time.seconds(note.length, clip.start + note.start) * 1000
-  return M.play(clip.track, note.pitch, lyric, ms)
+  return M.play(clip.part, note.pitch, lyric, ms)
 end
 
 -- What the engine sang comes back as audio with the request's number.

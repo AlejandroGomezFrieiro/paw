@@ -163,7 +163,7 @@ function view:render(buf, ctx)
           x = x + inner:text(x, y, string.format("the tracker would take %.2f (g)", advice.gain), "Accent") + 3
         end
       end
-      local help = r.name and "the MIDI port tracks take; renaming it takes the tracks along" or setting.help
+      local help = r.name and "the MIDI port parts take; renaming it takes the parts along" or setting.help
       if chosen and w - x > 16 then inner:text(x, y, util.fit(help, w - x - 1), "Faint") end
     end
   end

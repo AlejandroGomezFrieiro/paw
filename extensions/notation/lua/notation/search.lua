@@ -4,7 +4,7 @@ local api = paw.api
 local WORDS = { text = "text", dynamic = "dynamic", dyn = "dynamic" }
 
 paw.grep.source("notation", function(add)
-  for _, id in ipairs(api.track_list()) do
+  for _, id in ipairs(api.part_list()) do
     for _, c in ipairs(api.clip_list(id)) do
       local own = type(c.meta) == "table" and type(c.meta.notation) == "table" and c.meta.notation.marks
       for _, mk in ipairs(type(own) == "table" and own or {}) do

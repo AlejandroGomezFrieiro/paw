@@ -11,14 +11,14 @@ local function load()
   return require("notation")
 end
 
---- A track with a clip open as notation, quarter notes, `typed` entered from bar 1.
+--- A part with a clip open as notation, quarter notes, `typed` entered from bar 1.
 local function song(typed)
   fresh()
   local view = load()
   api.midi_test_ports({ "Test Keys" })
-  local track = paw.add_track({ name = "Lead" })
-  track:add_device("synth")
-  local clip = track:add_clip({ start = 0, length = 8, name = "tune", notes = {} })
+  local part = paw.add_part({ name = "Lead" })
+  part:add_device("synth")
+  local clip = part:add_clip({ start = 0, length = 8, name = "tune", notes = {} })
   paw.flush()
   api.undo_checkpoint()
   paw.keymap.set_mode("n")

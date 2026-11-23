@@ -32,7 +32,7 @@ local record M
     dir: string
     --- The name of the file, for the title of the report (export).
     name: string
-    --- A device kind for MIDI tracks left without an instrument (rpp import).
+    --- A device kind for MIDI parts left without an instrument (rpp import).
     instrument: string
     --- Where the audio of a DAWproject file goes (import).
     media_dir: string
@@ -49,8 +49,8 @@ local record M
   --- `said` adds for `paw.formats`.
   record Result
     report: reports.Report
-    --- Import: the new tracks, and the counts of clips and plugins.
-    tracks: {integer}
+    --- Import: the new parts, and the counts of clips and plugins.
+    parts: {integer}
     clips: integer
     devices: integer
     --- Import of an rpp file: the tempo the project plays at.
@@ -242,7 +242,7 @@ end
 
 --- Register a format whose module (`spec.module`) has `import(path,
 --- opts)` and `export(path, opts)` that return `{ report, ... }`: `import`
---- says how many tracks, clips and plugins came in, `export` that the file
+--- says how many parts, clips and plugins came in, `export` that the file
 --- was written. `opts.merge` and `opts.args` are as `paw.formats` gives them.
 function M.register(spec: M.Spec): string
   local function module(): M.Module
@@ -265,10 +265,10 @@ function M.register(spec: M.Spec): string
       return M.said(
         result,
         string.format(
-          "%s %s: %d tracks, %d clips, %d plugins",
+          "%s %s: %d parts, %d clips, %d plugins",
           opts.merge and "imported" or "opened",
           path,
-          #result.tracks,
+          #result.parts,
           result.clips,
           result.devices
         )

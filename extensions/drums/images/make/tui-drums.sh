@@ -2,11 +2,11 @@
 # The drum grid in the terminal, on the demo song's drums: claps put in by
 # name, a hit made harder, the bar repeated, and played.
 . "$MAKE/rig.sh"
-SETUP="$TUI_DEMO paw.ext.load('extensions/drums') paw.cursor.set_track(paw.tracks()[1]) paw.cmd('drums.map', { 'gm' })"
+SETUP="$TUI_DEMO paw.ext.load('extensions/drums') paw.cursor.set_part(paw.parts()[1]) paw.cmd('drums.map', { 'gm' })"
 rig_start
 term_start
 rec_start tui-drums
-cap "Enter on a drum track's clip opens the grid: a row for each piece"
+cap "Enter on a drum part's clip opens the grid: a row for each piece"
 pause 0.5; key Return; pause 1.4
 cap "/ finds a piece by name; Enter puts a hit in, and it is heard"
 key slash; TYPE_DELAY=110 typ "clap"; key Return; pause 0.5

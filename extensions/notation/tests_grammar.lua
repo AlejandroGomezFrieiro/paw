@@ -12,13 +12,13 @@ end
 
 local keys = T.keys
 
---- A track with an empty clip open as notation; `typed` entered from bar 1.
+--- A part with an empty clip open as notation; `typed` entered from bar 1.
 local function song(typed, length)
   fresh()
   local view = load()
-  local track = paw.add_track({ name = "Lead" })
-  track:add_device("synth")
-  local clip = track:add_clip({ start = 0, length = length or 8, name = "tune", notes = {} })
+  local part = paw.add_part({ name = "Lead" })
+  part:add_device("synth")
+  local clip = part:add_clip({ start = 0, length = length or 8, name = "tune", notes = {} })
   paw.flush()
   paw.keymap.set_mode("n")
   view:edit(clip)
@@ -27,7 +27,7 @@ local function song(typed, length)
     view:set(35, 0)
     keys("i" .. typed .. "<Esc>")
   end
-  return view, clip, track
+  return view, clip, part
 end
 
 --- The written text of a staff and voice: "q C4 q D4 | R".

@@ -7,7 +7,7 @@ In this lesson, we change a short riff in the piano roll with the grammar of
 lesson 5.
 
 All the keys of the last lesson work in the piano roll, where notes take
-the place of clips and pitches take the place of tracks. For example, `w`
+the place of clips and pitches take the place of parts. For example, `w`
 goes to the next note, so `dw` deletes up to the next note. `in` is the
 note under the cursor, and `ic` is the notes that sound together at the
 cursor. `ie` is all the notes of the clip.
@@ -32,10 +32,10 @@ where it starts, so `dw` from the middle of a gap deletes nothing.]],
 pitch. `/d4` finds a pitch by its name, and `n` goes to the next match.]],
   setup = function(look)
     paw.project.tempo = 100
-    local drums = paw.add_track({ name = "Drums", volume = -4 })
+    local drums = paw.add_part({ name = "Drums", volume = -4 })
     drums:add_device("drums")
     drums:add_clip({ name = "beat", start = 0, length = 16, notes = look.drums(look.beat, 4) })
-    local lead = paw.add_track({ name = "Lead" })
+    local lead = paw.add_part({ name = "Lead" })
     lead:add_device("synth", { wave = 1, cutoff = 2400, release = 0.2 })
     lead:add_clip({
       name = "riff",
@@ -45,8 +45,8 @@ pitch. `/d4` finds a pitch by its name, and `n` goes to the next match.]],
     })
   end,
   at = function(look)
-    local lead = paw.track("Lead")
-    paw.cursor.set_track(lead)
+    local lead = paw.part("Lead")
+    paw.cursor.set_part(lead)
     paw.ui.views:get("pianoroll"):edit(look.clip(lead, "riff"))
   end,
   steps = {

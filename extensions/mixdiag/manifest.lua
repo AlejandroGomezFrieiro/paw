@@ -14,7 +14,7 @@ return {
   },
   keys = {
     { "<leader>ma", mode = { "n", "x" }, desc = "Measure the mix (the selection in visual mode)" },
-    { "<leader>mk", desc = "Measure the cursor track's contribution" },
+    { "<leader>mk", desc = "Measure the cursor part's contribution" },
     { "<leader>ml", desc = "Measure the loop" },
     { "<leader>mr", desc = "The mix report" },
     { "<leader>mp", desc = "The painted report (pixels, where the terminal shows them)" },

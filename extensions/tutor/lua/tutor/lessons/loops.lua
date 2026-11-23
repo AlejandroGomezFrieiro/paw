@@ -10,7 +10,7 @@ The loop plays one part of the song again and again while you work on it.
 You can enable and disable the loop, and set it with the `gl` operator, and
 the ruler shows the loop.
 
-In a long song, you need keys that move quickly. `/` finds clips and tracks
+In a long song, you need keys that move quickly. `/` finds clips and parts
 by name, and `m` sets a mark that `'` returns to. Other keys return to the
 position before a jump.
 
@@ -23,16 +23,16 @@ start, and `gp` moves it to the cursor.
 
 `ma` sets a mark and `'a` returns to it, and `''` returns to the position
 before the last jump. `<C-o>` and `<C-i>` move back and forward through
-jumps. `/name` finds a clip or a track, and `n` and `N` go to the next and
+jumps. `/name` finds a clip or a part, and `n` and `N` go to the next and
 the previous match. `*` goes to the next clip with the same name.]],
   vim = [[
 Marks, `''`, `<C-o>` `<C-i>`, `/` `n` `N` and `*` come from Vim. Each view
 has its own marks, so the marks of the arrange view are not the marks of the
-piano roll. When a track moves, its marks move with it, and `:marks` shows
+piano roll. When a part moves, its marks move with it, and `:marks` shows
 the marks.]],
   setup = function(look)
     paw.project.tempo = 110
-    local drums = paw.add_track({ name = "Drums", volume = -4 })
+    local drums = paw.add_part({ name = "Drums", volume = -4 })
     drums:add_device("drums")
     drums:add_clip({ name = "intro", start = 0, length = 8, notes = look.drums({ [42] = "x.o.x.o.x.o.x.o." }, 2) })
     drums:add_clip({ name = "verse", start = 8, length = 16, notes = look.drums(look.beat, 4) })
@@ -42,11 +42,11 @@ the marks.]],
       length = 16,
       notes = look.drums({ [36] = "x...x...x...x...", [38] = "....x.......x...", [46] = "..x...x...x...x." }, 4),
     })
-    local bass = paw.add_track({ name = "Bass", volume = -4 })
+    local bass = paw.add_part({ name = "Bass", volume = -4 })
     bass:add_device("synth", { wave = 2, cutoff = 700, release = 0.05 })
     bass:add_clip({ name = "verse", start = 8, length = 16, notes = look.pulse("E2", 16) })
     bass:add_clip({ name = "chorus", start = 24, length = 16, notes = look.pulse("A1", 16) })
-    local lead = paw.add_track({ name = "Lead", volume = -8 })
+    local lead = paw.add_part({ name = "Lead", volume = -8 })
     lead:add_device("synth", { wave = 1, cutoff = 2600, release = 0.2 })
     lead:add_clip({
       name = "hook",
@@ -56,7 +56,7 @@ the marks.]],
     })
     paw.transport.loop_start, paw.transport.loop_end, paw.transport.loop_enabled = 0, 8, false
   end,
-  at = function() paw.cursor.set_track(paw.track("Drums")) end,
+  at = function() paw.cursor.set_part(paw.part("Drums")) end,
   steps = {
     {
       say = "`gL` enables and disables the loop. When the loop is on, the status line shows `loop`, and the ruler shows the loop. Press `gL`.",
@@ -65,7 +65,7 @@ the marks.]],
       done = "The loop is on, over the first two bars.",
     },
     {
-      say = "`/` finds a clip or a track by its name. Type `/chorus` and press `<CR>`.",
+      say = "`/` finds a clip or a part by its name. Type `/chorus` and press `<CR>`.",
       keys = { "/chorus", "<CR>" },
       check = function() return paw.cursor.beat == 24 end,
       done = "The cursor is on the chorus, and `n` goes to the next match, which is the chorus of Bass.",
@@ -101,10 +101,10 @@ the marks.]],
       done = "Mark a is on the chorus, and `:marks` shows the marks.",
     },
     {
-      say = "Move to a different position. Press `G` (the last track) and `0` (the start), and then press `'a` to jump to the mark.",
+      say = "Move to a different position. Press `G` (the last part) and `0` (the start), and then press `'a` to jump to the mark.",
       keys = { "G", "0", "'a" },
       check = function(ctx, look)
-        local there = look.cursor_track() == "Drums" and paw.cursor.beat == 24
+        local there = look.cursor_part() == "Drums" and paw.cursor.beat == 24
         if not there then ctx.away = true end
         return there and ctx.away
       end,
@@ -114,7 +114,7 @@ the marks.]],
     {
       say = "`''` returns to the position before the jump. Press `''`.",
       keys = { "''" },
-      check = function(_, look) return look.cursor_track() == "Lead" and paw.cursor.beat == 0 end,
+      check = function(_, look) return look.cursor_part() == "Lead" and paw.cursor.beat == 0 end,
       done = "The cursor is at the start of Lead, where it was before `'a`. `''` again returns to the chorus, and `<C-o>` goes further back.",
     },
     {

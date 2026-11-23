@@ -1,10 +1,10 @@
--- Singing synthesis: vocal tracks sung by paw-utau-engine.
+-- Singing synthesis: vocal parts sung by paw-utau-engine.
 --
--- A vocal track is a track with a `utau` device. Its MIDI clips are the
+-- A vocal part is a part with a `utau` device. Its MIDI clips are the
 -- engine's parts, their notes carry lyrics and note properties in
 -- `note.meta` (see utau.payload), the device's automation lanes are the
 -- singing curves, and the device's `meta.utau` holds the singer and the rest
--- of the track's voice. All of it is ordinary project data: saved, loaded and
+-- of the part's voice. All of it is ordinary project data: saved, loaded and
 -- undone like any edit. This module mirrors it to the engine, and gives the
 -- device the audio that comes back.
 local api = paw.api
@@ -21,8 +21,8 @@ local M = {
   singers = {}, -- SingerList from the engine
   renderers = {}, -- RendererList: { renderers, resamplers, wavtools }
   phonemizers = {},
-  layouts = {}, -- track id -> { seq, phrases = { { hash, start, stop, state } } }
-  received = {}, -- track id -> hash -> quality of the audio the device has
+  layouts = {}, -- part id -> { seq, phrases = { { hash, start, stop, state } } }
+  received = {}, -- part id -> hash -> quality of the audio the device has
   phonemes = {}, -- clip id -> { seq, notes = { [note index] = { phonemes } } }
   pitch = {}, -- clip id -> { step, ticks = { [tick] = cents } }
   progress = nil, -- the engine's last Progress
@@ -37,13 +37,13 @@ local TICKS = proto.TICKS
 
 local seq = 0
 local sent = nil -- the snapshot the engine last received
-local expected = {} -- track id -> seq of the last change sent for it
+local expected = {} -- part id -> seq of the last change sent for it
 -- The engine answers a change with a layout at once, before it has worked
 -- out the new phonemes: that layout still lists the old phrases, all sung.
 -- So notes sent are remembered until their phonemes come back, and the
--- track's layout is only believed when it arrived after them.
-local resent = {} -- clip id -> { seq, at, track }: notes the engine has yet to phonemize
-local fresh_after = {} -- track id -> the arrival a layout must come after
+-- part's layout is only believed when it arrived after them.
+local resent = {} -- clip id -> { seq, at, part }: notes the engine has yet to phonemize
+local fresh_after = {} -- part id -> the arrival a layout must come after
 local arrivals = 0 -- layouts and phonemes from the engine, counted in order
 -- How long to wait for phonemes that never come (ms), should the engine
 -- find nothing to do for notes that were sent again.
@@ -54,41 +54,41 @@ local dirty = false
 
 local round = paw.util.round
 
---- The `utau` device of a track, as a device id, or nil.
-function M.device_of(track_id)
-  for _, id in ipairs(api.track_get(track_id).devices) do
+--- The `utau` device of a part, as a device id, or nil.
+function M.device_of(part_id)
+  for _, id in ipairs(api.part_get(part_id).devices) do
     local kind = api.device_get(id).kind
     if kind == voices.DEVICE or kind == voices.OLD_DEVICE then return id end
   end
 end
 
---- Every vocal track as `{ track = id, device = id }`, in track order.
-function M.vocal_tracks()
+--- Every vocal part as `{ part = id, device = id }`, in part order.
+function M.vocal_parts()
   local out = {}
-  for _, id in ipairs(api.track_list()) do
+  for _, id in ipairs(api.part_list()) do
     local device = M.device_of(id)
-    if device then out[#out + 1] = { track = id, device = device } end
+    if device then out[#out + 1] = { part = id, device = device } end
   end
   return out
 end
 
---- A vocal track's voice settings: `singer`, `phonemizer`, `renderer`,
+--- A vocal part's voice settings: `singer`, `phonemizer`, `renderer`,
 --- `resampler`, `wavtool`, `options`.
-function M.config(track_id)
-  local device = M.device_of(track_id)
+function M.config(part_id)
+  local device = M.device_of(part_id)
   local meta = device and api.device_get(device).meta or {}
   return type(meta.utau) == "table" and meta.utau or {}
 end
 
---- Whether a vocal track is frozen: sung to audio on a track of its own
+--- Whether a vocal part is frozen: sung to audio on a part of its own
 --- (see utau.freeze), and no longer sung by the engine.
-function M.frozen(track_id) return M.config(track_id).frozen ~= nil end
+function M.frozen(part_id) return M.config(part_id).frozen ~= nil end
 
---- Change a vocal track's voice settings; `nil` values are left alone, and
+--- Change a vocal part's voice settings; `nil` values are left alone, and
 --- `false` clears one. A new singer resets the others to its defaults.
-function M.configure(track_id, changes)
-  local device = M.device_of(track_id)
-  if not device then error("track " .. tostring(track_id) .. " is not a vocal track", 2) end
+function M.configure(part_id, changes)
+  local device = M.device_of(part_id)
+  if not device then error("part " .. tostring(part_id) .. " is not a vocal part", 2) end
   local meta = api.device_get(device).meta or {}
   local config = type(meta.utau) == "table" and meta.utau or {}
   if changes.singer and changes.singer ~= config.singer then
@@ -160,9 +160,9 @@ local function curves_for(clip, sources, extra)
   return out, list
 end
 
---- Where each curve of a vocal track comes from: an enabled lane on the
+--- Where each curve of a vocal part comes from: an enabled lane on the
 --- device's parameter, or the parameter's own value when that is not the default.
-local function curve_sources(track_id, device_id, extra)
+local function curve_sources(part_id, device_id, extra)
   local sources = {}
   local device = api.device_get(device_id)
   local mapped = {}
@@ -175,7 +175,7 @@ local function curve_sources(track_id, device_id, extra)
       sources[info.key] = { value = value }
     end
   end
-  for _, lane in ipairs(api.lane_list(track_id)) do
+  for _, lane in ipairs(api.lane_list(part_id)) do
     if lane.target == "param" and lane.device == device_id and lane.enabled and lane.point_count > 0 then
       sources[lane.param] = { points = api.lane_points(lane.id) }
     end
@@ -183,11 +183,11 @@ local function curve_sources(track_id, device_id, extra)
   return sources
 end
 
---- The renderer's own curves a vocal track draws, as
+--- The renderer's own curves a vocal part draws, as
 --- `{ { key = slot, abbr, default }, ... }`, in slot order.
-function M.extra_curves(track_id)
+function M.extra_curves(part_id)
   local out = {}
-  local map = M.config(track_id).curves
+  local map = M.config(part_id).curves
   if type(map) ~= "table" then return out end
   for _, slot in ipairs(M.EXTRA) do
     local c = map[slot]
@@ -236,22 +236,22 @@ function M.snapshot()
   local snap = {
     tempos = tempos,
     sigs = sigs,
-    tracks = {},
+    parts = {},
     vparts = {},
     tempo = key,
   }
   local default_lyric = paw.opt.utau_default_lyric
-  for _, vocal in ipairs(M.vocal_tracks()) do
-    if M.frozen(vocal.track) then goto next_track end
-    local t = api.track_get(vocal.track)
-    local id = tostring(vocal.track)
-    local config = M.config(vocal.track)
+  for _, vocal in ipairs(M.vocal_parts()) do
+    if M.frozen(vocal.part) then goto next_part end
+    local t = api.part_get(vocal.part)
+    local id = tostring(vocal.part)
+    local config = M.config(vocal.part)
     local options = {}
     for key, value in pairs(type(config.options) == "table" and config.options or {}) do
       options[key] = value
     end
     if config.voice_color then options.subbank = config.voice_color end
-    snap.tracks[#snap.tracks + 1] = {
+    snap.parts[#snap.parts + 1] = {
       id = id,
       name = t.name,
       muted = t.mute,
@@ -264,14 +264,14 @@ function M.snapshot()
         options = options,
       },
     }
-    local extra = M.extra_curves(vocal.track)
-    local sources = curve_sources(vocal.track, vocal.device, extra)
-    for _, clip in ipairs(api.clip_list(vocal.track)) do
+    local extra = M.extra_curves(vocal.part)
+    local sources = curve_sources(vocal.part, vocal.device, extra)
+    for _, clip in ipairs(api.clip_list(vocal.part)) do
       if clip.kind == "midi" then
         local vpart = {
           id = tostring(clip.id),
           clip = clip.id,
-          track = id,
+          part = id,
           name = clip.name,
           muted = clip.muted,
           pos = round(clip.start * TICKS),
@@ -300,7 +300,7 @@ function M.snapshot()
         snap.vparts[#snap.vparts + 1] = vpart
       end
     end
-    ::next_track::
+    ::next_part::
   end
   return snap
 end
@@ -337,9 +337,9 @@ local function config_key(c)
   }, "\0")
 end
 
-local function track_key(t) return table.concat({ t.name, tostring(t.muted), config_key(t.config) }, "\0") end
+local function part_key(t) return table.concat({ t.name, tostring(t.muted), config_key(t.config) }, "\0") end
 
-local function vpart_key(p) return table.concat({ p.track, p.pos, p.dur, p.name, tostring(p.muted) }, "\0") end
+local function vpart_key(p) return table.concat({ p.part, p.pos, p.dur, p.name, tostring(p.muted) }, "\0") end
 
 local function index(list)
   local out = {}
@@ -349,16 +349,16 @@ local function index(list)
   return out
 end
 
-local function touch(track) expected[track] = seq end
+local function touch(part) expected[part] = seq end
 
 local function await_phonemes(vpart)
-  resent[vpart.clip] = #vpart.notes > 0 and { seq = seq, at = api.now(), track = vpart.track } or nil
+  resent[vpart.clip] = #vpart.notes > 0 and { seq = seq, at = api.now(), part = vpart.part } or nil
 end
 
 --- Send the whole project.
 local function send_full(snap)
   seq = seq + 1
-  for _, t in ipairs(snap.tracks) do
+  for _, t in ipairs(snap.parts) do
     touch(t.id)
   end
   resent, fresh_after = {}, {}
@@ -369,7 +369,7 @@ local function send_full(snap)
     seq = seq,
     tempos = snap.tempos,
     sigs = snap.sigs,
-    tracks = snap.tracks,
+    parts = snap.parts,
     vparts = snap.vparts,
   }))
   sent = snap
@@ -378,8 +378,8 @@ end
 --- Send what changed since the engine last heard. Nothing when nothing did.
 local function send_delta(snap)
   local d = {
-    remove_tracks = {},
-    upsert_tracks = {},
+    remove_parts = {},
+    upsert_parts = {},
     remove_vparts = {},
     upsert_vparts = {},
     remove_notes = {},
@@ -387,26 +387,26 @@ local function send_delta(snap)
     curves = {},
   }
   local any = false
-  local old_tracks, new_tracks = index(sent.tracks), index(snap.tracks)
+  local old_parts, new_parts = index(sent.parts), index(snap.parts)
   local old_vparts, new_vparts = index(sent.vparts), index(snap.vparts)
   seq = seq + 1
   if snap.tempo ~= sent.tempo then
     d.tempos, d.sigs, any = snap.tempos, snap.sigs, true
-    for _, t in ipairs(snap.tracks) do
+    for _, t in ipairs(snap.parts) do
       touch(t.id)
     end
   end
-  for id in pairs(old_tracks) do
-    if not new_tracks[id] then
-      d.remove_tracks[#d.remove_tracks + 1] = id
+  for id in pairs(old_parts) do
+    if not new_parts[id] then
+      d.remove_parts[#d.remove_parts + 1] = id
       any = true
     end
   end
   local voices = {}
-  for _, t in ipairs(snap.tracks) do
-    local old = old_tracks[t.id]
-    if not old or track_key(old) ~= track_key(t) then
-      d.upsert_tracks[#d.upsert_tracks + 1] = t
+  for _, t in ipairs(snap.parts) do
+    local old = old_parts[t.id]
+    if not old or part_key(old) ~= part_key(t) then
+      d.upsert_parts[#d.upsert_parts + 1] = t
       touch(t.id)
       any = true
     end
@@ -414,9 +414,9 @@ local function send_delta(snap)
   end
   for id, p in pairs(old_vparts) do
     if not new_vparts[id] then resent[p.clip] = nil end
-    if not new_vparts[id] and new_tracks[p.track] then
+    if not new_vparts[id] and new_parts[p.part] then
       d.remove_vparts[#d.remove_vparts + 1] = id
-      touch(p.track)
+      touch(p.part)
       any = true
     end
   end
@@ -424,12 +424,12 @@ local function send_delta(snap)
     local old = old_vparts[p.id]
     if not old or vpart_key(old) ~= vpart_key(p) then
       d.upsert_vparts[#d.upsert_vparts + 1] = p
-      touch(p.track)
+      touch(p.part)
       any = true
     end
     -- The engine only phonemizes notes again for a new voice when they
-    -- change, so the notes of a track with a new voice are sent again.
-    if not old or voices[p.track] or key_of(old.notes, note_key) ~= key_of(p.notes, note_key) then
+    -- change, so the notes of a part with a new voice are sent again.
+    if not old or voices[p.part] or key_of(old.notes, note_key) ~= key_of(p.notes, note_key) then
       -- Note ids are positions in the clip, so a changed part is sent whole.
       if old and #old.notes > 0 then
         local ids = {}
@@ -440,7 +440,7 @@ local function send_delta(snap)
       end
       d.upsert_notes[#d.upsert_notes + 1] = { vpart = p.id, notes = p.notes }
       await_phonemes(p)
-      touch(p.track)
+      touch(p.part)
       any = true
     end
     local changed = {}
@@ -456,7 +456,7 @@ local function send_delta(snap)
     end
     if #changed > 0 then
       d.curves[#d.curves + 1] = { vpart = p.id, curves = changed }
-      touch(p.track)
+      touch(p.part)
       any = true
     end
   end
@@ -470,11 +470,11 @@ local function send_delta(snap)
   return true
 end
 
---- Give every vocal device a voice of its own. Voices outlive tracks and
+--- Give every vocal device a voice of its own. Voices outlive parts and
 --- projects, so one that is handed out again starts empty.
 function M.assign_voices()
   local used = {}
-  for _, vocal in ipairs(M.vocal_tracks()) do
+  for _, vocal in ipairs(M.vocal_parts()) do
     local voice = math.floor(api.device_get(vocal.device).params.voice or 0)
     if voice < 1 or used[voice] then
       voice = 1
@@ -483,27 +483,27 @@ function M.assign_voices()
       end
       api.device_set_param(vocal.device, "voice", voice)
       voices.clear(vocal.device)
-      M.received[tostring(vocal.track)] = nil
+      M.received[tostring(vocal.part)] = nil
     end
     used[voice] = vocal
   end
 end
 
---- Empty the voices of every vocal track, for a project that was just loaded.
+--- Empty the voices of every vocal part, for a project that was just loaded.
 function M.clear_voices()
   M.layouts, M.received, M.phonemes, M.pitch = {}, {}, {}, {}
   M.assign_voices()
-  for _, vocal in ipairs(M.vocal_tracks()) do
+  for _, vocal in ipairs(M.vocal_parts()) do
     voices.clear(vocal.device)
   end
 end
 
 --- Bring the engine up to date with the project now. Starts the engine when
---- there is a vocal track to sing.
+--- there is a vocal part to sing.
 function M.sync()
   dirty = false
   M.assign_voices()
-  if #M.vocal_tracks() == 0 and engine.state == "off" then return end
+  if #M.vocal_parts() == 0 and engine.state == "off" then return end
   if engine.state == "off" then engine.start() end
   if not engine.connected() or engine.state == "failed" then return end
   local snap = M.snapshot()
@@ -542,9 +542,9 @@ end
 
 -- What comes back ----------------------------------------------------------------
 
-local function vocal_device(track_key_str)
-  local id = tonumber(track_key_str)
-  return id and pcall(api.track_get, id) and M.device_of(id)
+local function vocal_device(part_key_str)
+  local id = tonumber(part_key_str)
+  return id and pcall(api.part_get, id) and M.device_of(id)
 end
 
 local function put(device, message, raw)
@@ -576,15 +576,15 @@ end
 engine.handlers.PhraseLayout = function(m)
   arrivals = arrivals + 1
   m.arrival = arrivals
-  M.layouts[m.track] = m
-  local device = vocal_device(m.track)
-  local have = M.received[m.track] or {}
+  M.layouts[m.part] = m
+  local device = vocal_device(m.part)
+  local have = M.received[m.part] or {}
   local keep = retained(m, have)
   local kept = {}
   for _, hash in ipairs(keep) do
     kept[hash] = have[hash]
   end
-  M.received[m.track] = kept
+  M.received[m.part] = kept
   if device then voices.keep(device, keep) end
   api.ui_redraw()
 end
@@ -592,10 +592,10 @@ end
 engine.handlers.PhraseAudio = function(m, frame)
   if m.purpose == 1 and M.on_audition then return M.on_audition(m, frame.raw) end
   if m.purpose ~= 0 then return end
-  local device = vocal_device(m.track)
+  local device = vocal_device(m.part)
   if not device then return end
-  local have = M.received[m.track] or {}
-  M.received[m.track] = have
+  local have = M.received[m.part] or {}
+  M.received[m.part] = have
   local old = have[m.hash]
   if old and old.quality > m.quality then return end
   put(device, m, frame.raw)
@@ -615,7 +615,7 @@ engine.handlers.Phonemes = function(m)
   if waiting and m.seq >= waiting.seq then
     -- The phrases made from these come in a layout after this.
     arrivals = arrivals + 1
-    fresh_after[waiting.track] = arrivals
+    fresh_after[waiting.part] = arrivals
     resent[clip] = nil
   end
   api.ui_redraw()
@@ -647,26 +647,26 @@ function M.find_singer(query)
   end
 end
 
---- Give a vocal track the singer a name means, now or, before the engine
+--- Give a vocal part the singer a name means, now or, before the engine
 --- has listed its singers, as soon as it has.
-function M.choose_singer(track_id, query)
+function M.choose_singer(part_id, query)
   if #M.singers == 0 then
-    M.pending_singers[track_id] = query
+    M.pending_singers[part_id] = query
     if engine.state == "off" then M.sync() end
     return nil
   end
   local s = M.find_singer(query)
-  if s then M.configure(track_id, { singer = s.id }) end
+  if s then M.configure(part_id, { singer = s.id }) end
   return s
 end
 M.pending_singers = {}
 
 engine.handlers.SingerList = function(m)
   M.singers = m
-  for track, query in pairs(M.pending_singers) do
-    M.pending_singers[track] = nil
-    if pcall(api.track_get, track) and M.device_of(track) then
-      local s = M.choose_singer(track, query)
+  for part, query in pairs(M.pending_singers) do
+    M.pending_singers[part] = nil
+    if pcall(api.part_get, part) and M.device_of(part) then
+      local s = M.choose_singer(part, query)
       if not s then paw.notify("utau: no singer matches `" .. query .. "`", "warn") end
     end
   end
@@ -706,12 +706,12 @@ function M.wait(fn, seconds)
   end
 end
 
---- Whether a track has notes and the engine found nothing it can sing in
+--- Whether a part has notes and the engine found nothing it can sing in
 --- them: every note's phonemes are missing from the voicebank. Until the
 --- phonemes are in, a layout without phrases only means it is not done.
-function M.unsingable(track_key_str)
+function M.unsingable(part_key_str)
   for _, vpart in ipairs(sent and sent.vparts or {}) do
-    if vpart.track == track_key_str and #vpart.notes > 0 then
+    if vpart.part == part_key_str and #vpart.notes > 0 then
       local got = M.phonemes[vpart.clip]
       if not got then return false end
       for _, n in ipairs(vpart.notes) do
@@ -726,18 +726,18 @@ function M.unsingable(track_key_str)
   return true
 end
 
---- Whether a vocal track's final audio is all with its device.
-function M.rendered(track_id)
-  local key = tostring(track_id)
+--- Whether a vocal part's final audio is all with its device.
+function M.rendered(part_id)
+  local key = tostring(part_id)
   local wanted = expected[key]
-  -- Without a singer a track is silent, and that is final too; a frozen
+  -- Without a singer a part is silent, and that is final too; a frozen
   -- one plays its audio.
-  if M.frozen(track_id) or not wanted or not M.config(track_id).singer then return true end
+  if M.frozen(part_id) or not wanted or not M.config(part_id).singer then return true end
   local layout = M.layouts[key]
   if not layout or layout.seq < wanted then return false end
   if layout.arrival <= (fresh_after[key] or 0) then return false end
   for _, waiting in pairs(resent) do
-    if waiting.track == key and api.now() - waiting.at < PHONEMIZE_GRACE then return false end
+    if waiting.part == key and api.now() - waiting.at < PHONEMIZE_GRACE then return false end
   end
   if #layout.phrases == 0 and not M.unsingable(key) then return false end
   local have = M.received[key] or {}
@@ -750,28 +750,28 @@ function M.rendered(track_id)
   return true
 end
 
-local function has_notes(track_id)
-  for _, clip in ipairs(api.clip_list(track_id)) do
+local function has_notes(part_id)
+  for _, clip in ipairs(api.clip_list(part_id)) do
     if clip.kind == "midi" and (clip.note_count or 0) > 0 then return true end
   end
   return false
 end
 
---- Wait until every vocal track is sung at final quality. Returns whether
+--- Wait until every vocal part is sung at final quality. Returns whether
 --- that happened, and why not.
 function M.finish(seconds)
-  local tracks = {}
-  for _, vocal in ipairs(M.vocal_tracks()) do
-    if has_notes(vocal.track) and not M.frozen(vocal.track) then tracks[#tracks + 1] = vocal.track end
+  local parts = {}
+  for _, vocal in ipairs(M.vocal_parts()) do
+    if has_notes(vocal.part) and not M.frozen(vocal.part) then parts[#parts + 1] = vocal.part end
   end
-  if #tracks == 0 then return true end
+  if #parts == 0 then return true end
   M.sync()
   if engine.state == "missing" or engine.state == "failed" then return false, engine.reason end
   local done = M.wait(function()
     if not engine.connected() or engine.state ~= "ready" then return false end
     if dirty or not sent then M.sync() end
-    for _, track in ipairs(tracks) do
-      if not M.rendered(track) then return false end
+    for _, part in ipairs(parts) do
+      if not M.rendered(part) then return false end
     end
     return true
   end, seconds)
@@ -779,18 +779,18 @@ function M.finish(seconds)
   return false, engine.reason or "timed out waiting for the engine"
 end
 
---- The render state of a vocal track: "off", "missing", "starting",
+--- The render state of a vocal part: "off", "missing", "starting",
 --- "rendering", "ready" or "failed", and a count of phrases by state.
-function M.status(track_id)
-  if M.frozen(track_id) then return "frozen", {} end
+function M.status(part_id)
+  if M.frozen(part_id) then return "frozen", {} end
   if engine.state ~= "ready" then return engine.state, {} end
   local counts = {}
-  local layout = M.layouts[tostring(track_id)]
+  local layout = M.layouts[tostring(part_id)]
   for _, p in ipairs(layout and layout.phrases or {}) do
     local name = proto.state_name[p.state] or "?"
     counts[name] = (counts[name] or 0) + 1
   end
-  if M.rendered(track_id) then return "ready", counts end
+  if M.rendered(part_id) then return "ready", counts end
   return "rendering", counts
 end
 

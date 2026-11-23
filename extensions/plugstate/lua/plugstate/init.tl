@@ -242,16 +242,16 @@ function M.panel_device(): integer
 end
 
 --- The device the commands act on: the one selected in the device panel
---- when an adapter knows it, else the first device of the cursor track that
+--- when an adapter knows it, else the first device of the cursor part that
 --- one knows. Nil and a reason when there is none.
 function M.target(): integer, string
   local selected = M.panel_device()
   if selected and M.adapter_of(selected) then
     return selected
   end
-  local track = paw.cursor.track_id()
-  if track then
-    for _, id in ipairs(api.track_get(track).devices) do
+  local part = paw.cursor.part_id()
+  if part then
+    for _, id in ipairs(api.part_get(part).devices) do
       if M.adapter_of(id) then
         return id
       end

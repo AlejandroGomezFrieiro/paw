@@ -234,7 +234,7 @@ pub fn read_file(path: &Path) -> Result<Sample, SampleError> {
 fn decode(path: &Path, bytes: Vec<u8>) -> Result<Sample, DecodeError> {
     use symphonia::core::codecs::audio::AudioDecoderOptions;
     use symphonia::core::formats::probe::Hint;
-    use symphonia::core::formats::{FormatOptions, TrackType};
+    use symphonia::core::formats::{FormatOptions, PartType};
     use symphonia::core::io::MediaSourceStream;
     use symphonia::core::meta::MetadataOptions;
     let codec = |e| DecodeError::Codec(Arc::new(e));
@@ -246,9 +246,9 @@ fn decode(path: &Path, bytes: Vec<u8>) -> Result<Sample, DecodeError> {
     let mut format = symphonia::default::get_probe()
         .probe(&hint, stream, FormatOptions::default(), MetadataOptions::default())
         .map_err(codec)?;
-    let track = format.default_track(TrackType::Audio).ok_or(DecodeError::NoAudio)?;
-    let params = track.codec_params.as_ref().and_then(|p| p.audio()).ok_or(DecodeError::NoAudio)?;
-    let track_id = track.id;
+    let part = format.default_part(PartType::Audio).ok_or(DecodeError::NoAudio)?;
+    let params = part.codec_params.as_ref().and_then(|p| p.audio()).ok_or(DecodeError::NoAudio)?;
+    let part_id = part.id;
     let mut decoder = symphonia::default::get_codecs()
         .make_audio_decoder(params, &AudioDecoderOptions::default())
         .map_err(codec)?;
@@ -257,7 +257,7 @@ fn decode(path: &Path, bytes: Vec<u8>) -> Result<Sample, DecodeError> {
     let (mut left, mut right): (Vec<f32>, Vec<f32>) = (Vec::new(), Vec::new());
     let mut stereo = false;
     while let Ok(Some(packet)) = format.next_packet() {
-        if packet.track_id != track_id {
+        if packet.part_id != part_id {
             continue;
         }
         let Ok(buffer) = decoder.decode(&packet) else { continue };

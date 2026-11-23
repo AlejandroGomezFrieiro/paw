@@ -1,20 +1,20 @@
 -- Templates: what they hold, and where they are kept.
 --
 --   local templates = require("templates")
---   templates.save_track(track, "Lead vocal")        -- its devices, settings, sends and lanes
---   templates.save_fx(track, "Vocal chain")          -- its devices alone
---   templates.save_group(group, "String section")    -- a group with every track in it
+--   templates.save_part(part, "Lead vocal")        -- its devices, settings, sends and lanes
+--   templates.save_fx(part, "Vocal chain")          -- its devices alone
+--   templates.save_group(group, "String section")    -- a group with every part in it
 --   templates.load("Lead vocal")                     -- make it again, here
 --
--- A template is a JSON file of what `Track:snapshot()` gives, in
+-- A template is a JSON file of what `Part:snapshot()` gives, in
 -- `<data directory>/templates/<kind>/<name>.json` (`~/.local/share/paw` by
 -- default; `paw.opt.templates_dir` puts them elsewhere). Clips are left out
 -- unless asked for: a template is a way of working, not a piece of music.
 -- Plugins come back with the state they had.
 local api = paw.api
-local M = { kinds = { "track", "group", "fx" } }
+local M = { kinds = { "part", "group", "fx" } }
 
-local titles = { track = "track", group = "group of tracks", fx = "device chain" }
+local titles = { part = "part", group = "group of parts", fx = "device chain" }
 
 function M.dir()
   local dir = paw.opt.templates_dir
@@ -52,7 +52,7 @@ local function read(kind, name)
   return data and data.data
 end
 
---- Devices as a template keeps them: without the tracks they listened to
+--- Devices as a template keeps them: without the parts they listened to
 --- or played their further output pairs into.
 local function unrouted(devices)
   for _, device in ipairs(devices) do
@@ -61,11 +61,11 @@ local function unrouted(devices)
   return devices
 end
 
---- A track as a template keeps it: without what ties it to one project
---- (the tracks it played into or listened to, its place in a group), and
+--- A part as a template keeps it: without what ties it to one project
+--- (the parts it played into or listened to, its place in a group), and
 --- without its clips unless `clips` is set.
-local function portable(track, clips)
-  local snap = track:snapshot()
+local function portable(part, clips)
+  local snap = part:snapshot()
   snap.output, snap.sends = nil, {}
   unrouted(snap.devices)
   if not clips then snap.clips = {} end
@@ -76,33 +76,33 @@ local function portable(track, clips)
   return snap
 end
 
---- Save a track: `opts.clips` keeps its clips too. Returns the file's path.
-function M.save_track(track, name, opts)
-  track = type(track) == "table" and track or paw.track(track)
-  return write("track", name, portable(track, opts and opts.clips))
+--- Save a part: `opts.clips` keeps its clips too. Returns the file's path.
+function M.save_part(part, name, opts)
+  part = type(part) == "table" and part or paw.part(part)
+  return write("part", name, portable(part, opts and opts.clips))
 end
 
---- Save a track's devices, with their settings, as a chain to add elsewhere.
-function M.save_fx(track, name)
-  track = type(track) == "table" and track or paw.track(track)
+--- Save a part's devices, with their settings, as a chain to add elsewhere.
+function M.save_fx(part, name)
+  part = type(part) == "table" and part or paw.part(part)
   local devices = {}
-  for i, device in ipairs(track:devices()) do
+  for i, device in ipairs(part:devices()) do
     devices[i] = device:snapshot()
   end
-  if #devices == 0 then error("the track has no devices to save", 2) end
+  if #devices == 0 then error("the part has no devices to save", 2) end
   return write("fx", name, { devices = unrouted(devices) })
 end
 
---- Save a group: the group's own track and every track in it, groups
+--- Save a group: the group's own part and every part in it, groups
 --- inside it included.
 function M.save_group(group, name, opts)
-  group = type(group) == "table" and group or paw.track(group)
+  group = type(group) == "table" and group or paw.part(group)
   if not paw.groups.is_group(group.id) then error("not a group", 2) end
   local function pack(id)
-    local node = { track = portable(paw.track(id), opts and opts.clips), members = {} }
+    local node = { part = portable(paw.part(id), opts and opts.clips), members = {} }
     for i, member in ipairs(paw.groups.members(id)) do
       node.members[i] = paw.groups.is_group(member) and pack(member)
-        or { track = portable(paw.track(member), opts and opts.clips) }
+        or { part = portable(paw.part(member), opts and opts.clips) }
     end
     return node
   end
@@ -138,44 +138,44 @@ local function find(name, kind)
   if found then return found.kind, found.name end
 end
 
---- Make a template again. A track or a group is made below the cursor
---- track; a device chain is added to the end of the cursor track's (or of
---- `opts.track`'s). Returns what was made: a track, or the devices.
+--- Make a template again. A part or a group is made below the cursor
+--- part; a device chain is added to the end of the cursor part's (or of
+--- `opts.part`'s). Returns what was made: a part, or the devices.
 function M.load(name, opts)
   opts = opts or {}
   local kind, full = find(name, opts.kind)
   if not kind then error("no template `" .. tostring(name) .. "`", 2) end
   local data = read(kind, full or name)
   local below = paw.cursor.index() and paw.cursor.index() + 1 or nil
-  if kind == "track" then
-    local track = paw.restore_track(data, below)
-    paw.cursor.set_track(track)
-    return track, kind
+  if kind == "part" then
+    local part = paw.restore_part(data, below)
+    paw.cursor.set_part(part)
+    return part, kind
   elseif kind == "fx" then
-    local track = opts.track and paw.track(opts.track) or paw.cursor.track()
-    if not track then error("no track to add the devices to", 2) end
+    local part = opts.part and paw.part(opts.part) or paw.cursor.part()
+    if not part then error("no part to add the devices to", 2) end
     local made = {}
     for i, device in ipairs(data.devices or {}) do
-      made[i] = paw.restore_device(device, track)
+      made[i] = paw.restore_device(device, part)
     end
     return made, kind
   end
-  -- A group: its own track first, then its members under it, in order.
+  -- A group: its own part first, then its members under it, in order.
   local function unpack_node(node, index, into)
-    local track = paw.restore_track(node.track, index)
+    local part = paw.restore_part(node.part, index)
     if node.members then
-      local m = api.track_get(track.id, "meta") or {}
+      local m = api.part_get(part.id, "meta") or {}
       m.group_head = true
-      api.track_set(track.id, "meta", m)
+      api.part_set(part.id, "meta", m)
     end
-    if into then paw.groups.add(track, into) end
+    if into then paw.groups.add(part, into) end
     for _, member in ipairs(node.members or {}) do
-      unpack_node(member, nil, track)
+      unpack_node(member, nil, part)
     end
-    return track
+    return part
   end
   local group = unpack_node(data, below)
-  paw.cursor.set_track(group)
+  paw.cursor.set_part(group)
   return group, kind
 end
 

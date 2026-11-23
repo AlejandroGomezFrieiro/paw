@@ -44,8 +44,8 @@ local function listening(): boolean
   return paw.keymap.mode == "i" and (paw.ui as {string: string}).focused == "notation" and view:editable() ~= nil
 end
 
-local function track(): integer
-  return listening() and view:clip():track().id or nil
+local function part(): integer
+  return listening() and view:clip():part().id or nil
 end
 
 -- One undo step for the whole insert.
@@ -131,7 +131,7 @@ paw.step.target(
   "notation",
   {
     active = listening,
-    track = track,
+    part = part,
     note = note,
     release = release,
     status = function(): string return listening() and "STEP" or nil end,
@@ -139,7 +139,7 @@ paw.step.target(
   }
 )
 
--- The insert modes start and stop listening: its track plays the controller.
+-- The insert modes start and stop listening: its part plays the controller.
 paw.on(
   paw.keymap.mode_changed,
   function(e: paw.keymap.ModeChanged)

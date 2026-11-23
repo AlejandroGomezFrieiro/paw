@@ -159,7 +159,7 @@ test("notation: beams follow the beat, by half bars in 4/4 and by three eighths 
   eq(evs[1].flags, 1, "an eighth has one beam")
 end)
 
-test("notation: the clef is chosen by the notes, or fixed by the track", function()
+test("notation: the clef is chosen by the notes, or fixed by the part", function()
   local _, model = load()
   eq(
     table.concat(model.layout({ N(72, 0, 1), N(64, 1, 1) }, { length = 4 }).staves, " "),
@@ -504,14 +504,14 @@ end)
 local function song(notes, length)
   fresh()
   local view = load()
-  local track = paw.add_track({ name = "Lead" })
-  track:add_device("synth")
-  local clip = track:add_clip({ start = 0, length = length or 4, name = "tune", notes = notes or {} })
+  local part = paw.add_part({ name = "Lead" })
+  part:add_device("synth")
+  local clip = part:add_clip({ start = 0, length = length or 4, name = "tune", notes = notes or {} })
   paw.flush()
   paw.keymap.set_mode("n")
   view:edit(clip)
   view.value, view.dot = 1, false
-  return view, clip, track
+  return view, clip, part
 end
 
 local keys = T.keys
@@ -548,10 +548,10 @@ test("notation: the piano roll opened from the notation view takes its clip", fu
 end)
 
 test("notation: :notation opens the clip under the cursor, with the keyboard", function()
-  local view, clip, track = song({ N(67, 1, 1) })
+  local view, clip, part = song({ N(67, 1, 1) })
   paw.ui.focus("arrange")
   view.clip_id = nil
-  paw.cursor.set_track(track)
+  paw.cursor.set_part(part)
   paw.cursor.beat = 0
   paw.cmd("notation")
   eq(view.clip_id, clip.id, "the clip is open")
@@ -816,15 +816,15 @@ test("notation: w, b and W move by what is written", function()
   eq(view.beat, 4, "W: the next bar")
 end)
 
-test("notation: :notation.key and :notation.clef keep the key with the project and the clef with the track", function()
-  local view, _, track = song({ N(72, 0, 1) })
+test("notation: :notation.key and :notation.clef keep the key with the project and the clef with the part", function()
+  local view, _, part = song({ N(72, 0, 1) })
   paw.cmd("notation.key", { "Eb", "major" })
   api.undo_checkpoint()
   eq(api.project_get().key, "Eb major", "the key is the project's")
   eq(view:layout().fifths, -3, "three flats")
   paw.cmd("notation.clef", { "bass" })
   api.undo_checkpoint()
-  eq(track.meta.notation.clef, "bass", "the clef is the track's")
+  eq(part.meta.notation.clef, "bass", "the clef is the part's")
   eq(view:layout().staves[1], "bass", "and the notation follows")
   keys("u")
   eq(view:layout().staves[1], "treble", "undone like any edit")
@@ -933,11 +933,11 @@ test("marks: dynamics set the loudness, hairpins ramp it, slurs join the notes",
   eq(xml:find('<wedge type="crescendo"/>', 1, true) ~= nil, true, "and the hairpin")
 end)
 
-test("tablature: a guitar track gets strings and frets, and the guitar's clef", function()
-  local view, _, track = song(clean("E2+B2+E3+G#3+B3+E4 0 1, A2 1 1, C4 2 1, G2+B2+D3+G3+B3+G4 3 1"), 4)
+test("tablature: a guitar part gets strings and frets, and the guitar's clef", function()
+  local view, _, part = song(clean("E2+B2+E3+G#3+B3+E4 0 1, A2 1 1, C4 2 1, G2+B2+D3+G3+B3+G4 3 1"), 4)
   paw.cmd("notation.tab", { "guitar" })
   api.undo_checkpoint()
-  eq(track.meta.notation.tab.tuning[1], 40, "standard tuning kept with the track, low E first")
+  eq(part.meta.notation.tab.tuning[1], 40, "standard tuning kept with the part, low E first")
   view.cache = nil
   local layout = view:layout()
   eq(layout.staves[1], "treble8", "written in the guitar's treble clef, an octave up")
@@ -966,10 +966,10 @@ test("tablature: a guitar track gets strings and frets, and the guitar's clef", 
   eq(view:layout().tab, nil, "and takes them away")
 end)
 
-test("several tracks: a staff each, the open clip's the one edited; lyrics under the notes", function()
+test("several parts: a staff each, the open clip's the one edited; lyrics under the notes", function()
   local view, clip =
     song({ { pitch = 72, start = 0, length = 1, velocity = 90, meta = { lyric = "la" } }, N(74, 1, 1) }, 4)
-  local bass = paw.add_track({ name = "Bass" })
+  local bass = paw.add_part({ name = "Bass" })
   local low = bass:add_clip({ start = 0, length = 4, notes = { N(40, 0, 2), N(43, 2, 2) } })
   paw.flush()
   local ev = view:layout().measures[1].staves[1][1]
@@ -978,7 +978,7 @@ test("several tracks: a staff each, the open clip's the one edited; lyrics under
   eq(xml:find("<text>la</text>", 1, true) ~= nil, true, "and exported")
   keys("zS")
   local layout = view:frame().layout
-  eq(#layout.staves, 2, "two staves: the clip's track and the bass")
+  eq(#layout.staves, 2, "two staves: the clip's part and the bass")
   eq(layout.labels[1].full .. ", " .. layout.labels[2].full, "Bass, Lead", "each named, in the score's order")
   local _, model = load()
   eq(model.text(layout, 1), "h E2 h G2", "the bass's notes on its staff")
@@ -2109,11 +2109,11 @@ test("notation export: MusicXML has the key, ties, beams and accidentals", funct
   eq(select(2, xml:gsub("<measure ", "")), 2, "two measures")
 end)
 
-test("notation export: :notation.export writes a file for the clip or the whole track", function()
-  local _, _, track = song({ N(72, 0, 1), N(74, 1, 1) })
-  track:add_clip({ start = 8, length = 4, name = "more", notes = { N(76, 0, 4) } })
+test("notation export: :notation.export writes a file for the clip or the whole part", function()
+  local _, _, part = song({ N(72, 0, 1), N(74, 1, 1) })
+  part:add_clip({ start = 8, length = 4, name = "more", notes = { N(76, 0, 4) } })
   local path = T.scratch .. "/notation-test.ly"
-  paw.cmd("notation.export", { path, "track" })
+  paw.cmd("notation.export", { path, "part" })
   local f = io.open(path, "rb")
   local text = f and f:read("*a") or ""
   if f then f:close() end

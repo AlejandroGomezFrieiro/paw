@@ -1,6 +1,6 @@
 -- What depends on the renderer: AI pitch and its takes, timbre takes, the
 -- renderer's own curves (energy, voice colour blends, ...), unison, and the
--- engine's track options. These are DiffSinger's (and similar engines');
+-- engine's part options. These are DiffSinger's (and similar engines');
 -- a classic UTAU voicebank sings the same without them.
 --
 -- Takes are kept by the engine (engine/PawUtau.Engine/AiPitch.cs, in its cache folder,
@@ -22,12 +22,12 @@ local M = {
 
 local request = 0
 
--- Track options ------------------------------------------------------------------
+-- Part options ------------------------------------------------------------------
 
---- Set one engine option of a vocal track (`nil` or "" clears it).
-function M.set_option(track_id, key, value)
+--- Set one engine option of a vocal part (`nil` or "" clears it).
+function M.set_option(part_id, key, value)
   local options = {}
-  for k, v in pairs(type(utau.config(track_id).options) == "table" and utau.config(track_id).options or {}) do
+  for k, v in pairs(type(utau.config(part_id).options) == "table" and utau.config(part_id).options or {}) do
     options[k] = v
   end
   if value == nil or value == "" then
@@ -35,33 +35,33 @@ function M.set_option(track_id, key, value)
   else
     options[key] = tostring(value)
   end
-  utau.configure(track_id, { options = next(options) and options or false })
+  utau.configure(part_id, { options = next(options) and options or false })
 end
 
-function M.option(track_id, key)
-  local options = utau.config(track_id).options
+function M.option(part_id, key)
+  local options = utau.config(part_id).options
   return type(options) == "table" and options[key] or nil
 end
 
---- AI pitch on or off for a track: on, the renderer's pitch model sings and
+--- AI pitch on or off for a part: on, the renderer's pitch model sings and
 --- the drawn pitch is added on top; off, the notes and drawn pitch alone.
-function M.ai_pitch(track_id, on) M.set_option(track_id, "pitchmode", (not on) and "manual" or nil) end
+function M.ai_pitch(part_id, on) M.set_option(part_id, "pitchmode", (not on) and "manual" or nil) end
 
 --- Unison: `voices` voices (1 is off), with `opts` spacing (stereo %),
 --- pitch (detune cents), timing (ms), level (dB of the doubles).
-function M.unison(track_id, voices, opts)
+function M.unison(part_id, voices, opts)
   opts = opts or {}
   voices = math.floor(tonumber(voices) or 1)
-  M.set_option(track_id, "unison", voices >= 2 and math.min(voices, 16) or nil)
+  M.set_option(part_id, "unison", voices >= 2 and math.min(voices, 16) or nil)
   for _, k in ipairs({ "spacing", "pitch", "timing", "level" }) do
-    if opts[k] ~= nil then M.set_option(track_id, "unison_" .. k, opts[k]) end
+    if opts[k] ~= nil then M.set_option(part_id, "unison_" .. k, opts[k]) end
   end
 end
 
---- Sing a track higher or lower without moving its notes: semitones, cents.
-function M.shift(track_id, semitones, cents)
-  M.set_option(track_id, "keyshift", semitones and semitones ~= 0 and math.floor(semitones) or nil)
-  M.set_option(track_id, "pitchshift", cents and cents ~= 0 and cents or nil)
+--- Sing a part higher or lower without moving its notes: semitones, cents.
+function M.shift(part_id, semitones, cents)
+  M.set_option(part_id, "keyshift", semitones and semitones ~= 0 and math.floor(semitones) or nil)
+  M.set_option(part_id, "pitchshift", cents and cents ~= 0 and cents or nil)
 end
 
 -- Takes ------------------------------------------------------------------------------
@@ -197,10 +197,10 @@ end
 
 -- The renderer's own curves ----------------------------------------------------------
 
---- The renderer a vocal track sings with: its own setting, else the one
+--- The renderer a vocal part sings with: its own setting, else the one
 --- the engine lists for its singer's type.
-function M.renderer_of(track_id)
-  local config = utau.config(track_id)
+function M.renderer_of(part_id)
+  local config = utau.config(part_id)
   local list = utau.renderers.renderers or {}
   if config.renderer then
     for _, r in ipairs(list) do
@@ -221,22 +221,22 @@ for _, abbr in ipairs(utau.CURVES) do
 end
 
 --- The curves the renderer offers beyond the standard ones.
-function M.extra_expressions(track_id)
+function M.extra_expressions(part_id)
   local out = {}
-  local r = M.renderer_of(track_id)
+  local r = M.renderer_of(part_id)
   for _, e in ipairs(r and r.expressions or {}) do
     if e.kind == 1 and not STANDARD[e.abbr] then out[#out + 1] = e end
   end
   return out
 end
 
---- Draw one of the renderer's curves on a free slot of the track's device
+--- Draw one of the renderer's curves on a free slot of the part's device
 --- (`x1` .. `x8`). `desc` is `{ abbr, min, max, default }`, as the engine
 --- describes it. Returns the slot. An abbreviation already drawn keeps its slot.
-function M.add_curve(track_id, desc)
-  local device = utau.device_of(track_id)
-  if not device then error("not a vocal track", 0) end
-  local config = utau.config(track_id)
+function M.add_curve(part_id, desc)
+  local device = utau.device_of(part_id)
+  if not device then error("not a vocal part", 0) end
+  local config = utau.config(part_id)
   local map = {}
   for k, v in pairs(type(config.curves) == "table" and config.curves or {}) do
     map[k] = v
@@ -247,7 +247,7 @@ function M.add_curve(track_id, desc)
   for _, slot in ipairs(utau.EXTRA) do
     if not map[slot] then
       map[slot] = { abbr = desc.abbr, name = desc.name, min = desc.min, max = desc.max, default = desc.default or 0 }
-      utau.configure(track_id, { curves = map })
+      utau.configure(part_id, { curves = map })
       api.device_set_param(device, slot, desc.default or 0)
       return slot
     end
@@ -257,28 +257,28 @@ end
 
 --- Stop drawing a renderer curve: its lane goes, and the engine is told to
 --- forget it.
-function M.remove_curve(track_id, abbr)
-  local device = utau.device_of(track_id)
-  local config = utau.config(track_id)
+function M.remove_curve(part_id, abbr)
+  local device = utau.device_of(part_id)
+  local config = utau.config(part_id)
   local map = {}
   for k, v in pairs(type(config.curves) == "table" and config.curves or {}) do
     map[k] = v
   end
   for slot, c in pairs(map) do
     if c.abbr == abbr then
-      local lane = require("utau.notes").lane(track_id, device, slot)
+      local lane = require("utau.notes").lane(part_id, device, slot)
       if lane then api.lane_remove(lane) end
       api.device_set_param(device, slot, 0)
       map[slot] = nil
-      utau.configure(track_id, { curves = next(map) and map or false })
+      utau.configure(part_id, { curves = next(map) and map or false })
       return slot
     end
   end
 end
 
 --- The slot a renderer curve is drawn on, or nil.
-function M.slot_of(track_id, abbr)
-  for _, x in ipairs(utau.extra_curves(track_id)) do
+function M.slot_of(part_id, abbr)
+  for _, x in ipairs(utau.extra_curves(part_id)) do
     if x.abbr == abbr then return x.key end
   end
 end

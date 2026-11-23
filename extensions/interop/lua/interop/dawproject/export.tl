@@ -36,8 +36,8 @@ local record ParamRef
   max: number
 end
 
---- The ids of the elements of a track's volume, pan and mute.
-local record TrackParams
+--- The ids of the elements of a part's volume, pan and mute.
+local record PartParams
   volume: string
   pan: string
   mute: string
@@ -61,10 +61,10 @@ local record Ctx
   types: {string: types.DeviceType}
   --- The parameter elements of each device by its id, by parameter key.
   params: {integer: {string: ParamRef}}
-  track_params: {integer: TrackParams}
-  --- The id of the channel and of the track element of each track.
+  part_params: {integer: PartParams}
+  --- The id of the channel and of the part element of each part.
   channel: {integer: string}
-  track_el: {integer: string}
+  part_el: {integer: string}
   --- The files of the archive besides project.xml and metadata.xml.
   files: {zip.Entry}
   --- The audio files by path, and the names taken in the archive.
@@ -315,18 +315,18 @@ local function placeholder(holder: dp_import.Placeholder, ctx: Ctx): Element
   return e
 end
 
--- Tracks -------------------------------------------------------------------------------
+-- Parts -------------------------------------------------------------------------------
 
---- An entry of a channel's devices: a device of the track, or a device
+--- An entry of a channel's devices: a device of the part, or a device
 --- kept from an imported file.
 local record Entry
   device: integer
   holder: dp_import.Placeholder
 end
 
---- The devices of a track with the devices kept from an imported file at
+--- The devices of a part with the devices kept from an imported file at
 --- their places.
-local function device_entries(t: types.Track): {Entry}
+local function device_entries(t: types.Part): {Entry}
   local entries: {Entry} = {}
   for _, dev in ipairs(t.devices) do
     entries[#entries + 1] = {device = dev}
@@ -348,7 +348,7 @@ local function device_entries(t: types.Track): {Entry}
   return entries
 end
 
-local function channel(t: types.Track, ctx: Ctx, role: string): Element
+local function channel(t: types.Part, ctx: Ctx, role: string): Element
   local c = node(
     "Channel",
     "id",
@@ -386,11 +386,11 @@ local function channel(t: types.Track, ctx: Ctx, role: string): Element
     end
   end
   local vol = add(c, real("Volume", ctx, amp(t.volume or 0), "linear", 0, 2, "Volume"))
-  ctx.track_params[t.id] = {volume = vol.attr.id as string, pan = pan.attr.id as string, mute = mute.attr.id as string}
+  ctx.part_params[t.id] = {volume = vol.attr.id as string, pan = pan.attr.id as string, mute = mute.attr.id as string}
   return c
 end
 
-local function content_type(t: types.Track): string
+local function content_type(t: types.Part): string
   local kinds: {string: boolean} = {}
   for _, c in ipairs(api.clip_list(t.id)) do
     kinds[c.kind == "audio" and "audio" or "notes"] = true
@@ -698,17 +698,17 @@ local function lane_points(
   return p
 end
 
---- The automation lanes of a track as Points timelines in `tl`.
-local function automation(t: types.Track, tl: Element, label: string, ctx: Ctx)
+--- The automation lanes of a part as Points timelines in `tl`.
+local function automation(t: types.Part, tl: Element, label: string, ctx: Ctx)
   for _, lane in ipairs(api.lane_list(t.id)) do
     local where = label .. " " .. (lane.param or lane.target)
     if lane.target == "volume" then
-      add(tl, lane_points(lane, ctx.track_params[t.id].volume, "linear", amp, ctx, where))
+      add(tl, lane_points(lane, ctx.part_params[t.id].volume, "linear", amp, ctx, where))
     elseif lane.target == "pan" then
       add(
         tl,
         lane_points(
-          lane, ctx.track_params[t.id].pan, "normalized", function(v: number): number return (v + 1) / 2 end, ctx, where
+          lane, ctx.part_params[t.id].pan, "normalized", function(v: number): number return (v + 1) / 2 end, ctx, where
         )
       )
     else
@@ -724,15 +724,15 @@ end
 
 -- Project ------------------------------------------------------------------------------
 
---- A track and the tracks nested in it.
+--- A part and the parts nested in it.
 local record Nested
-  t: types.Track
+  t: types.Part
   children: {Nested}
 end
 
---- The tracks in order, nested as folders where a track feeds the track
+--- The parts in order, nested as folders where a part feeds the part
 --- right above it (or a folder it is in), as rpp does for REAPER.
-local function nest(list: {types.Track}): {Nested}
+local function nest(list: {types.Part}): {Nested}
   local roots: {Nested} = {}
   local stack: {Nested} = {}
   for _, t in ipairs(list) do
@@ -750,8 +750,8 @@ local function nest(list: {types.Track}): {Nested}
   return roots
 end
 
---- The tracks, then the master, as <Structure>.
-local function structure(root: Element, list: {types.Track}, master: types.Track, ctx: Ctx)
+--- The parts, then the master, as <Structure>.
+local function structure(root: Element, list: {types.Part}, master: types.Part, ctx: Ctx)
   local el = add(root, node("Structure"))
   local feeds: {integer: boolean} = {}
   for _, t in ipairs(list) do
@@ -759,7 +759,7 @@ local function structure(root: Element, list: {types.Track}, master: types.Track
       feeds[t.output] = true
     end
   end
-  local function track_el(item: Nested, parent: Element)
+  local function part_el(item: Nested, parent: Element)
     local t = item.t
     local ct = content_type(t)
     if #item.children > 0 then
@@ -768,10 +768,10 @@ local function structure(root: Element, list: {types.Track}, master: types.Track
     local e = add(
       parent, node("Track", "id", ctx.id(), "name", t.name, "color", t.color, "contentType", ct, "loaded", true)
     )
-    ctx.track_el[t.id] = e.attr.id as string
+    ctx.part_el[t.id] = e.attr.id as string
     add(e, channel(t, ctx, feeds[t.id] and "submix" or "regular"))
     for _, c in ipairs(item.children) do
-      track_el(c, e)
+      part_el(c, e)
     end
     if t.armed or t.input or t.monitor then
       ctx.report:add("Record arm, inputs and monitoring (DAWproject has none)", t.name)
@@ -782,19 +782,19 @@ local function structure(root: Element, list: {types.Track}, master: types.Track
     end
   end
   for _, item in ipairs(nest(list)) do
-    track_el(item, el)
+    part_el(item, el)
   end
   local mt = add(el, node("Track", "id", ctx.id(), "name", "Master", "contentType", "audio notes", "loaded", true))
-  ctx.track_el[0] = mt.attr.id as string
+  ctx.part_el[0] = mt.attr.id as string
   add(mt, channel(master, ctx, "master"))
 end
 
---- A lane timeline for each track with its clips and its automation, then
+--- A lane timeline for each part with its clips and its automation, then
 --- the master's.
-local function arrangement_lanes(arr: Element, list: {types.Track}, master: types.Track, ctx: Ctx)
+local function arrangement_lanes(arr: Element, list: {types.Part}, master: types.Part, ctx: Ctx)
   local lanes = add(arr, node("Lanes", "id", ctx.id(), "timeUnit", "beats"))
   for _, t in ipairs(list) do
-    local tl = add(lanes, node("Lanes", "id", ctx.id(), "track", ctx.track_el[t.id]))
+    local tl = add(lanes, node("Lanes", "id", ctx.id(), "track", ctx.part_el[t.id]))
     local clips = add(tl, node("Clips", "id", ctx.id()))
     for _, clip in ipairs(api.clip_list(t.id)) do
       local label = t.name .. ": " .. (clip.name ~= "" and clip.name or "clip")
@@ -802,7 +802,7 @@ local function arrangement_lanes(arr: Element, list: {types.Track}, master: type
     end
     automation(t, tl, t.name, ctx)
   end
-  local mtl = add(lanes, node("Lanes", "id", ctx.id(), "track", ctx.track_el[0]))
+  local mtl = add(lanes, node("Lanes", "id", ctx.id(), "track", ctx.part_el[0]))
   automation(master, mtl, "Master", ctx)
 end
 
@@ -882,9 +882,9 @@ function M.build(opts?: interop.Options): {zip.Entry}, Report, Element
     report = reports.new("Not written to " .. (opts.name or "the DAWproject file") .. ":"),
     types = interop.device_types(),
     params = {},
-    track_params = {},
+    part_params = {},
     channel = {},
-    track_el = {},
+    part_el = {},
     files = {},
     media = {},
     taken = {},
@@ -892,11 +892,11 @@ function M.build(opts?: interop.Options): {zip.Entry}, Report, Element
     embed = opts.embed ~= false,
   }
   local p = api.project_get()
-  local list: {types.Track} = {}
-  for i, id in ipairs(api.track_list()) do
-    list[i] = api.track_get(id)
+  local list: {types.Part} = {}
+  for i, id in ipairs(api.part_list()) do
+    list[i] = api.part_get(id)
   end
-  local master = api.track_get(0)
+  local master = api.part_get(0)
   for _, t in ipairs(list) do
     ctx.channel[t.id] = ctx.id()
   end

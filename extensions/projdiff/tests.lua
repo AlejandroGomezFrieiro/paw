@@ -36,7 +36,7 @@ end
 --- folder there.
 local function fixture(name, folder)
   fresh()
-  local lead = paw.add_track({ name = "Lead" })
+  local lead = paw.add_part({ name = "Lead" })
   local synth = lead:add_device("synth", { cutoff = 800 })
   local riff = lead:add_clip({ name = "riff", start = 0, length = 4 })
   riff:add_note({ pitch = 60, start = 0, length = 1 })
@@ -45,9 +45,9 @@ local function fixture(name, folder)
   local fade = lead:automate("volume")
   fade:add(0, -12)
   fade:add(8, 0)
-  local bass = paw.add_track({ name = "Bass" })
+  local bass = paw.add_part({ name = "Bass" })
   bass:add_clip({ name = "line", start = 4, length = 4 })
-  paw.add_track({ name = "Drums" })
+  paw.add_part({ name = "Drums" })
   paw.markers.add(8, "Chorus")
   api.undo_checkpoint()
   local path = folder and name or (scratch .. "/" .. name .. ".json")
@@ -59,10 +59,10 @@ end
 --- An empty list as the model reads one: a plain empty table is an object.
 local function list() return api.json_decode("[]") end
 
---- A track id that the kernel has not given to anything in a file saved
+--- A part id that the kernel has not given to anything in a file saved
 --- before: the kernel never gives an id twice. A literal id could be the id
 --- of a device or a clip of the fixture, as the kernel counts ids across tests.
-local function unused_track_id() return paw.add_track({ name = "unused" }).id end
+local function unused_part_id() return paw.add_part({ name = "unused" }).id end
 
 local function decode(path)
   local doc, err = projdiff.file(path)
@@ -70,8 +70,8 @@ local function decode(path)
   return doc
 end
 
-local function track(doc, name)
-  for _, t in ipairs(doc.project.tracks) do
+local function part(doc, name)
+  for _, t in ipairs(doc.project.parts) do
     if t.name == name then return t end
   end
 end
@@ -98,12 +98,12 @@ test(
 )
 
 test(
-  "projdiff: a diff names tracks added, removed and renamed, devices, clips, notes, lanes, tempo and markers",
+  "projdiff: a diff names parts added, removed and renamed, devices, clips, notes, lanes, tempo and markers",
   function()
     load()
     local path = fixture("diff")
     local base, now = decode(path), decode(path)
-    local lead, bass = track(now, "Lead"), track(now, "Bass")
+    local lead, bass = part(now, "Lead"), part(now, "Bass")
     lead.name = "Keys"
     lead.volume = -3
     lead.devices[1].params.cutoff = 1200
@@ -113,14 +113,14 @@ test(
     table.insert(lead.clips[1].content.notes, { id = 9, pitch = 72, start = 3, length = 1, velocity = 100 })
     lead.lanes[1].points[2][2] = -6
     table.insert(lead.lanes[1].points, { 4, -9 })
-    for i, t in ipairs(now.project.tracks) do
+    for i, t in ipairs(now.project.parts) do
       if t == bass then
-        table.remove(now.project.tracks, i)
+        table.remove(now.project.parts, i)
         break
       end
     end
-    local pad = unused_track_id()
-    table.insert(now.project.tracks, {
+    local pad = unused_part_id()
+    table.insert(now.project.parts, {
       id = pad,
       name = "Pad",
       volume = 0,
@@ -138,7 +138,7 @@ test(
     now.project.meta.markers[1].beat = 12
     table.insert(now.project.meta.markers, { id = 7, beat = 20, name = "Outro" })
     local text = lines(base, now)
-    has(text, ('track %d "Lead" -> "Keys"'):format(lead.id), "the rename")
+    has(text, ('part %d "Lead" -> "Keys"'):format(lead.id), "the rename")
     has(text, "volume: 0 -> -3", "the fader")
     has(text, "cutoff: 800 -> 1200", "the parameter")
     has(text, "start: 0 -> 8", "the clip moved")
@@ -146,8 +146,8 @@ test(
     has(text, "note 2 F4: pitch E4 -> F4", "a note changed")
     has(text, "note 9 C5 at 3", "a note added")
     has(text, "points +1 ~1", "automation")
-    has(text, "- track " .. bass.id .. ' "Bass"', "a track removed")
-    has(text, "+ track " .. pad .. ' "Pad"', "a track added")
+    has(text, "- part " .. bass.id .. ' "Bass"', "a part removed")
+    has(text, "+ part " .. pad .. ' "Pad"', "a part added")
     has(text, "tempo at beat 16: 90 bpm", "the tempo map")
     has(text, 'marker 1 "Chorus": beat 8 -> 12', "a marker moved")
     has(text, 'marker 7 "Outro" at beat 20', "a marker added")
@@ -159,7 +159,7 @@ test("projdiff: changes have addresses to go to, and become quickfix entries", f
   load()
   local path = fixture("qf")
   local base, now = decode(path), decode(path)
-  local lead = track(now, "Lead")
+  local lead = part(now, "Lead")
   lead.clips[1].content.notes[1].velocity = 80
   lead.devices[1].params.cutoff = 900
   local tree = projdiff.diff.diff(base.project, now.project)
@@ -171,7 +171,7 @@ test("projdiff: changes have addresses to go to, and become quickfix entries", f
   end
   table.sort(by)
   eq(by[1], "paw://clip/" .. lead.clips[1].id .. "/note/1", "the note")
-  eq(by[2], "paw://track/" .. lead.id .. "/device/" .. lead.devices[1].id .. "/param/cutoff", "the parameter")
+  eq(by[2], "paw://part/" .. lead.id .. "/device/" .. lead.devices[1].id .. "/param/cutoff", "the parameter")
   start()
   local n = projdiff.to_quickfix(tree, "test diff")
   eq(n, 2, "sent")
@@ -189,7 +189,7 @@ end
 
 local function names(doc)
   local out = {}
-  for _, t in ipairs(doc.project.tracks) do
+  for _, t in ipairs(doc.project.parts) do
     out[#out + 1] = t.name
   end
   return table.concat(out, ",")
@@ -205,9 +205,9 @@ local function reopen(doc)
   return path
 end
 
-test("projdiff: changes to different tracks, clips, notes and parameters merge without a conflict", function()
+test("projdiff: changes to different parts, clips, notes and parameters merge without a conflict", function()
   local base, ours, theirs = sides()
-  -- An id that nothing in the fixture has (tracks, devices, clips and lanes
+  -- An id that nothing in the fixture has (parts, devices, clips and lanes
   -- share them): the kernel's ids go on across tests.
   local added = 1
   local function above(v)
@@ -218,10 +218,10 @@ test("projdiff: changes to different tracks, clips, notes and parameters merge w
     end
   end
   above(base.project)
-  track(ours, "Lead").volume = -3
-  track(ours, "Lead").devices[1].params.cutoff = 1500
-  track(ours, "Lead").clips[1].content.notes[1].start = 0.5
-  table.insert(track(ours, "Lead").clips, {
+  part(ours, "Lead").volume = -3
+  part(ours, "Lead").devices[1].params.cutoff = 1500
+  part(ours, "Lead").clips[1].content.notes[1].start = 0.5
+  table.insert(part(ours, "Lead").clips, {
     id = added,
     name = "ours",
     start = 8,
@@ -230,10 +230,10 @@ test("projdiff: changes to different tracks, clips, notes and parameters merge w
     content = { kind = "midi", notes = list() },
     meta = {},
   })
-  track(theirs, "Bass").pan = 0.5
-  track(theirs, "Lead").devices[1].params.resonance = 0.4
-  track(theirs, "Lead").clips[1].content.notes[2].velocity = 70
-  table.insert(track(theirs, "Bass").clips, {
+  part(theirs, "Bass").pan = 0.5
+  part(theirs, "Lead").devices[1].params.resonance = 0.4
+  part(theirs, "Lead").clips[1].content.notes[2].velocity = 70
+  table.insert(part(theirs, "Bass").clips, {
     id = added,
     name = "theirs",
     start = 8,
@@ -247,13 +247,13 @@ test("projdiff: changes to different tracks, clips, notes and parameters merge w
   theirs.project.tempo_changes = { { beat = 32, bpm = 140 } }
   local merged, conflicts = projdiff.merge.files(base, ours, theirs)
   eq(#conflicts, 0, "no conflicts")
-  local lead, bass = track(merged, "Lead"), track(merged, "Bass")
+  local lead, bass = part(merged, "Lead"), part(merged, "Bass")
   eq(lead.volume, -3, "ours: the fader")
   eq(lead.devices[1].params.cutoff, 1500, "ours: a parameter")
   eq(lead.devices[1].params.resonance, 0.4, "theirs: another parameter")
   eq(lead.clips[1].content.notes[1].start, 0.5, "ours: a note moved")
   eq(lead.clips[1].content.notes[2].velocity, 70, "theirs: another note")
-  eq(bass.pan, 0.5, "theirs: another track")
+  eq(bass.pan, 0.5, "theirs: another part")
   eq(merged.project.tempo, 100, "theirs: the tempo")
   eq(#merged.project.tempo_changes, 2, "both tempo changes")
   eq(#lead.clips, 2, "ours added a clip")
@@ -267,12 +267,12 @@ test("projdiff: changes to different tracks, clips, notes and parameters merge w
   end
   eq(merged.project.meta.merge_conflicts, nil, "nothing recorded")
   reopen(merged)
-  eq(#paw.tracks(), 3, "the merged project opens")
+  eq(#paw.parts(), 3, "the merged project opens")
 end)
 
-test("projdiff: tracks, notes and markers both sides added keep both, with new numbers where they clash", function()
+test("projdiff: parts, notes and markers both sides added keep both, with new numbers where they clash", function()
   local base, ours, theirs = sides()
-  local function new_track(id, name, output)
+  local function new_part(id, name, output)
     return {
       id = id,
       name = name,
@@ -289,28 +289,25 @@ test("projdiff: tracks, notes and markers both sides added keep both, with new n
       monitor = false,
     }
   end
-  local added, feeds_id = unused_track_id(), unused_track_id()
-  table.insert(ours.project.tracks, new_track(added, "Ours", nil))
-  table.insert(theirs.project.tracks, new_track(added, "Theirs", nil))
-  table.insert(theirs.project.tracks, new_track(feeds_id, "Feeds", added))
+  local added, feeds_id = unused_part_id(), unused_part_id()
+  table.insert(ours.project.parts, new_part(added, "Ours", nil))
+  table.insert(theirs.project.parts, new_part(added, "Theirs", nil))
+  table.insert(theirs.project.parts, new_part(feeds_id, "Feeds", added))
+  table.insert(part(ours, "Lead").clips[1].content.notes, { id = 4, pitch = 72, start = 3, length = 1, velocity = 100 })
   table.insert(
-    track(ours, "Lead").clips[1].content.notes,
-    { id = 4, pitch = 72, start = 3, length = 1, velocity = 100 }
-  )
-  table.insert(
-    track(theirs, "Lead").clips[1].content.notes,
+    part(theirs, "Lead").clips[1].content.notes,
     { id = 4, pitch = 74, start = 3.5, length = 1, velocity = 100 }
   )
   table.insert(ours.project.meta.markers, { id = 2, beat = 16, name = "A" })
   table.insert(theirs.project.meta.markers, { id = 2, beat = 24, name = "B" })
   local merged, conflicts = projdiff.merge.files(base, ours, theirs)
   eq(#conflicts, 0, "no conflicts")
-  eq(names(merged), "Lead,Bass,Drums,Theirs,Feeds,Ours", "all the tracks")
-  local theirs_id, feeds = track(merged, "Theirs").id, track(merged, "Feeds")
-  eq(track(merged, "Ours").id, added, "ours keeps its number")
+  eq(names(merged), "Lead,Bass,Drums,Theirs,Feeds,Ours", "all the parts")
+  local theirs_id, feeds = part(merged, "Theirs").id, part(merged, "Feeds")
+  eq(part(merged, "Ours").id, added, "ours keeps its number")
   eq(theirs_id ~= added, true, "theirs has another")
   eq(feeds.output, theirs_id, "what pointed at theirs follows it")
-  local notes = track(merged, "Lead").clips[1].content.notes
+  local notes = part(merged, "Lead").clips[1].content.notes
   eq(#notes, 5, "both notes")
   local seen = {}
   for i, n in ipairs(notes) do
@@ -320,27 +317,27 @@ test("projdiff: tracks, notes and markers both sides added keep both, with new n
   end
   eq(#merged.project.meta.markers, 3, "both markers")
   reopen(merged)
-  eq(#paw.tracks(), 6, "the merged project opens")
+  eq(#paw.parts(), 6, "the merged project opens")
 end)
 
 test("projdiff: the same thing changed two ways is a conflict that holds ours and says what it was", function()
   local base, ours, theirs = sides()
-  track(ours, "Lead").devices[1].params.cutoff = 1500
-  track(theirs, "Lead").devices[1].params.cutoff = 300
-  track(ours, "Lead").clips[1].content.notes[1].velocity = 90
-  track(theirs, "Lead").clips[1].content.notes[1].velocity = 80
-  track(ours, "Bass").volume = -6
-  for i, t in ipairs(theirs.project.tracks) do
+  part(ours, "Lead").devices[1].params.cutoff = 1500
+  part(theirs, "Lead").devices[1].params.cutoff = 300
+  part(ours, "Lead").clips[1].content.notes[1].velocity = 90
+  part(theirs, "Lead").clips[1].content.notes[1].velocity = 80
+  part(ours, "Bass").volume = -6
+  for i, t in ipairs(theirs.project.parts) do
     if t.name == "Bass" then
-      table.remove(theirs.project.tracks, i)
+      table.remove(theirs.project.parts, i)
       break
     end
   end
   local merged, conflicts = projdiff.merge.files(base, ours, theirs)
   eq(#conflicts, 3, "three conflicts")
-  eq(track(merged, "Lead").devices[1].params.cutoff, 1500, "ours holds")
-  eq(track(merged, "Lead").clips[1].content.notes[1].velocity, 90, "ours holds in the note")
-  eq(track(merged, "Bass").volume, -6, "ours holds the track that theirs removed")
+  eq(part(merged, "Lead").devices[1].params.cutoff, 1500, "ours holds")
+  eq(part(merged, "Lead").clips[1].content.notes[1].velocity, 90, "ours holds in the note")
+  eq(part(merged, "Bass").volume, -6, "ours holds the part that theirs removed")
   local recorded = projdiff.merge.conflicts(merged)
   eq(#recorded, 3, "recorded in the project")
   local cutoff
@@ -363,12 +360,12 @@ end)
 
 test("projdiff: conflicts are settled one by one, ours, theirs or what it was", function()
   local base, ours, theirs = sides()
-  track(ours, "Lead").devices[1].params.cutoff = 1500
-  track(theirs, "Lead").devices[1].params.cutoff = 300
-  track(ours, "Bass").volume = -6
-  for i, t in ipairs(theirs.project.tracks) do
+  part(ours, "Lead").devices[1].params.cutoff = 1500
+  part(theirs, "Lead").devices[1].params.cutoff = 300
+  part(ours, "Bass").volume = -6
+  for i, t in ipairs(theirs.project.parts) do
     if t.name == "Bass" then
-      table.remove(theirs.project.tracks, i)
+      table.remove(theirs.project.parts, i)
       break
     end
   end
@@ -378,12 +375,12 @@ test("projdiff: conflicts are settled one by one, ours, theirs or what it was", 
   for _, c in ipairs(list) do
     if c.theirs == 300 then projdiff.merge.resolve(merged, c, "theirs") end
   end
-  eq(track(merged, "Lead").devices[1].params.cutoff, 300, "theirs taken")
+  eq(part(merged, "Lead").devices[1].params.cutoff, 300, "theirs taken")
   eq(#projdiff.merge.conflicts(merged), 1, "one left")
   projdiff.merge.resolve(merged, projdiff.merge.conflicts(merged)[1], "theirs")
-  eq(track(merged, "Bass"), nil, "theirs removed the track, and now it is gone")
+  eq(part(merged, "Bass"), nil, "theirs removed the part, and now it is gone")
   eq(merged.project.meta.merge_conflicts, nil, "none left, none recorded")
-  eq(names(merged), "Lead,Drums", "the tracks")
+  eq(names(merged), "Lead,Drums", "the parts")
 end)
 
 -- The views -------------------------------------------------------------------
@@ -392,7 +389,7 @@ test("projdiff: :Pdiff compares with the saved file, an undo state and a snapsho
   start()
   local path = fixture("views")
   api.project_load(path)
-  local lead = paw.tracks()[1]
+  local lead = paw.parts()[1]
   paw.cmd("Pdiff")
   eq(paw.ui.float, nil, "nothing differs from the saved file")
   lead.volume = -5
@@ -409,7 +406,7 @@ test("projdiff: :Pdiff compares with the saved file, an undo state and a snapsho
   -- Folding takes the lines under a heading away; unfolding brings them back.
   local open = #view.rows
   paw.keymap.feed("zc")
-  eq(#view.rows < open, true, "zc folds the track")
+  eq(#view.rows < open, true, "zc folds the part")
   paw.keymap.feed("za")
   eq(#view.rows, open, "za opens it again")
   -- `]c` goes to a change, and Enter to where it is.
@@ -435,19 +432,19 @@ end)
 
 -- Subprojects --------------------------------------------------------------------
 
---- A song whose row Bridge places the subproject Bridge, whose track Inner
+--- A song whose row Bridge places the subproject Bridge, whose part Inner
 --- places the subproject Verse; Keys of Bridge and Strings of Verse have a
 --- clip of one note each. Saved as `name`; returns the path and the ids.
 --- With `folder`, `name` is a path, and the project is saved as a project
 --- folder there.
 local function nested(name, folder)
   fresh()
-  local row = paw.add_track({ name = "Bridge" })
+  local row = paw.add_part({ name = "Bridge" })
   local bridge = api.nest_add({ name = "Bridge", length = 16 })
   local verse = api.nest_add({ name = "Verse", length = 8 })
-  local keys = api.track_add({ name = "Keys", nest = bridge })
-  local inner = api.track_add({ name = "Inner", nest = bridge })
-  local strings = api.track_add({ name = "Strings", nest = verse })
+  local keys = api.part_add({ name = "Keys", nest = bridge })
+  local inner = api.part_add({ name = "Inner", nest = bridge })
+  local strings = api.part_add({ name = "Strings", nest = verse })
   local ids = {
     bridge = bridge,
     verse = verse,
@@ -476,7 +473,7 @@ test("projdiff: <Space>gd shows an edit inside a subproject under the subproject
   local path, ids = nested("nest-edit")
   api.project_load(path)
   api.clip_add_notes(ids.keys_clip, { { pitch = 67, start = 2, length = 1 } })
-  api.track_set(paw.nest.get(ids.bridge).master, { volume = -6 })
+  api.part_set(paw.nest.get(ids.bridge).master, { volume = -6 })
   T.keys("<Space>gd")
   local view = require("projdiff.view")
   T.after(function() paw.ui.close() end)
@@ -488,12 +485,12 @@ test("projdiff: <Space>gd shows an edit inside a subproject under the subproject
       ('~ subproject %d "Bridge"'):format(ids.bridge),
       "  ~ master",
       "    ~ volume: 0 -> -6",
-      ('  ~ track %d "Keys"'):format(ids.keys),
+      ('  ~ part %d "Keys"'):format(ids.keys),
       ('    ~ clip %d "chords"'):format(ids.keys_clip),
       "      ~ notes +1",
       "        + note 2 G4 at 2, 1 long, velocity 100",
     }, "\n"),
-    "the edits, under Bridge, with its master track named so"
+    "the edits, under Bridge, with its master part named so"
   )
 end)
 
@@ -508,7 +505,7 @@ test("projdiff: an edit inside a subproject of a subproject shows under both nam
     table.concat({
       ('~ subproject %d "Bridge"'):format(ids.bridge),
       ('  ~ subproject %d "Verse"'):format(ids.verse),
-      ('    ~ track %d "Strings"'):format(ids.strings),
+      ('    ~ part %d "Strings"'):format(ids.strings),
       ('      ~ clip %d "pad"'):format(ids.strings_clip),
       "        ~ notes +1",
       "          + note 2 B4 at 1, 1 long, velocity 100",
@@ -516,7 +513,7 @@ test("projdiff: an edit inside a subproject of a subproject shows under both nam
     "the edit, under Bridge and Verse"
   )
   local entries = projdiff.diff.entries(projdiff.diff.diff(before.project, now.project))
-  local trail = ('subproject %d "Bridge" › subproject %d "Verse" › track %d "Strings"'):format(
+  local trail = ('subproject %d "Bridge" › subproject %d "Verse" › part %d "Strings"'):format(
     ids.bridge,
     ids.verse,
     ids.strings
@@ -533,19 +530,19 @@ local function scope_path()
   return table.concat(out, " > ")
 end
 
-test("projdiff: Enter on a change inside a subproject goes inside it, with the cursor on the changed track", function()
+test("projdiff: Enter on a change inside a subproject goes inside it, with the cursor on the changed part", function()
   start()
   T.after(function() paw.scope.widen(true) end)
   local path, ids = nested("nest-go")
   api.project_load(path)
-  api.track_set(ids.keys, { volume = -6 })
+  api.part_set(ids.keys, { volume = -6 })
   api.undo_checkpoint()
   T.keys("<Space>gd")
   eq(
     table.concat(projdiff.diff.lines(require("projdiff.view").tree), "\n"),
     table.concat({
       ('~ subproject %d "Bridge"'):format(ids.bridge),
-      ('  ~ track %d "Keys"'):format(ids.keys),
+      ('  ~ part %d "Keys"'):format(ids.keys),
       "    ~ volume: 0 -> -6",
     }, "\n"),
     "the change, under Bridge"
@@ -553,7 +550,7 @@ test("projdiff: Enter on a change inside a subproject goes inside it, with the c
   T.keys("j<CR>")
   eq(paw.ui.float, nil, "the window closes")
   eq(scope_path(), "nest " .. ids.bridge, "the window shows Bridge")
-  eq(paw.cursor.track_id(), ids.keys, "the cursor is on Keys")
+  eq(paw.cursor.part_id(), ids.keys, "the cursor is on Keys")
 end)
 
 test(
@@ -566,30 +563,30 @@ test(
     end)
     local path, ids = nested("nest-go-deep")
     api.project_load(path)
-    local row = paw.tracks()[1]
+    local row = paw.parts()[1]
     eq(row.name, "Bridge", "the song's row of the subproject")
     row.volume = -3
-    api.track_set(ids.strings, { volume = -6 })
+    api.part_set(ids.strings, { volume = -6 })
     api.undo_checkpoint()
     T.keys("<Space>gd")
     eq(
       table.concat(projdiff.diff.lines(require("projdiff.view").tree), "\n"),
       table.concat({
-        ('~ track %d "Bridge"'):format(row.id),
+        ('~ part %d "Bridge"'):format(row.id),
         "  ~ volume: 0 -> -3",
         ('~ subproject %d "Bridge"'):format(ids.bridge),
         ('  ~ subproject %d "Verse"'):format(ids.verse),
-        ('    ~ track %d "Strings"'):format(ids.strings),
+        ('    ~ part %d "Strings"'):format(ids.strings),
         "      ~ volume: 0 -> -6",
       }, "\n"),
       "a change of the song, and one two levels down"
     )
     T.keys("G<CR>")
     eq(scope_path(), ("nest %d > nest %d"):format(ids.bridge, ids.verse), "the window shows Verse inside Bridge")
-    eq(paw.cursor.track_id(), ids.strings, "the cursor is on Strings")
+    eq(paw.cursor.part_id(), ids.strings, "the cursor is on Strings")
     T.keys("<Space>gdj<CR>")
     eq(scope_path(), "", "a change of the song goes back to the song")
-    eq(paw.cursor.track_id(), row.id, "the cursor is on the song's row")
+    eq(paw.cursor.part_id(), row.id, "the cursor is on the song's row")
   end
 )
 
@@ -601,18 +598,18 @@ test("projdiff: a quickfix entry of :Pdiff.qf goes inside the subproject of its 
   end)
   local path, ids = nested("nest-qf")
   api.project_load(path)
-  -- Inner is the second track of Bridge: the window enters on the first.
-  api.track_set(ids.inner, { volume = -6 })
-  api.track_set(ids.strings, { volume = -3 })
+  -- Inner is the second part of Bridge: the window enters on the first.
+  api.part_set(ids.inner, { volume = -6 })
+  api.part_set(ids.strings, { volume = -3 })
   api.undo_checkpoint()
   T.keys(":Pdiff.qf<CR>")
   eq(#paw.qf.current().entries, 2, "two changes")
   T.keys(":cnext<CR>")
   eq(scope_path(), "nest " .. ids.bridge, "the window shows Bridge")
-  eq(paw.cursor.track_id(), ids.inner, "the cursor is on Inner")
+  eq(paw.cursor.part_id(), ids.inner, "the cursor is on Inner")
   T.keys("]q")
   eq(scope_path(), ("nest %d > nest %d"):format(ids.bridge, ids.verse), "the window shows Verse inside Bridge")
-  eq(paw.cursor.track_id(), ids.strings, "the cursor is on Strings")
+  eq(paw.cursor.part_id(), ids.strings, "the cursor is on Strings")
 end)
 
 -- Git ----------------------------------------------------------------------------
@@ -635,7 +632,7 @@ test(
       s[i] = 0.1
     end
     local wav = T.write_wav(dir .. "/media/tone.wav", s)
-    local t = paw.add_track({ name = "Audio" })
+    local t = paw.add_part({ name = "Audio" })
     t:add_clip({ file = wav, start = 0, length = 2 })
     api.undo_checkpoint()
     local path = dir .. "/song.json"
@@ -649,7 +646,7 @@ test(
       "nothing differs after reopening"
     )
     -- An edit from Lua that no key made an undo step of.
-    paw.tracks()[1]:add_clip({ name = "odd", start = 16, length = 0.1 + 0.7 })
+    paw.parts()[1]:add_clip({ name = "odd", start = 16, length = 0.1 + 0.7 })
     paw.cmd("Pdiff")
     local view = require("projdiff.view")
     eq(
@@ -684,8 +681,8 @@ test(
 
 -- Project folders ----------------------------------------------------------------
 
-local function track_named(name)
-  for _, t in ipairs(paw.tracks()) do
+local function part_named(name)
+  for _, t in ipairs(paw.parts()) do
     if t.name == name then return t end
   end
 end
@@ -707,7 +704,7 @@ test("projdiff: :Pdiff compares the project now with its saved folder and with a
   for i = 1, 4800 do
     s[i] = 0.1
   end
-  track_named("Bass"):add_clip({ file = T.write_wav(dir .. "/tone.wav", s), start = 8, length = 2 })
+  part_named("Bass"):add_clip({ file = T.write_wav(dir .. "/tone.wav", s), start = 8, length = 2 })
   api.undo_checkpoint()
   api.project_save()
   api.project_load(first)
@@ -718,7 +715,7 @@ test("projdiff: :Pdiff compares the project now with its saved folder and with a
     "the folder reads as it opens"
   )
   api.project_save(dir .. "/second")
-  track_named("Lead").volume = -5
+  part_named("Lead").volume = -5
   api.undo_checkpoint()
   T.keys(":Pdiff " .. first .. "<CR>")
   has(shown(), "first → now: 1 change", "the title")
@@ -749,11 +746,11 @@ test(
     api.project_load(song)
     git("add -A")
     git("commit -q -m base")
-    track_named("Bass").volume = -9
+    part_named("Bass").volume = -9
     api.undo_checkpoint()
     api.project_save()
     git("commit -qam quieter")
-    track_named("Lead"):add_clip({ name = "added", start = 16, length = 2 })
+    part_named("Lead"):add_clip({ name = "added", start = 16, length = 2 })
     api.undo_checkpoint()
     T.keys(":Pdiff HEAD~1<CR>")
     has(shown(), "HEAD~1 → now: 2 changes", "the title")
@@ -771,13 +768,13 @@ test("projdiff: a snapshot kept beside a saved project folder compares with the 
   T.after(function() paw.ui.close() end)
   local song = fixture(scratch .. "/pdiff-snap", true)
   api.project_load(song)
-  track_named("Lead").volume = -5
+  part_named("Lead").volume = -5
   api.undo_checkpoint()
   T.keys(":Psnapshot loud<CR>")
   local snaps = projdiff.snapshots()
   eq(snaps[#snaps].name, "loud", "the snapshot")
   eq(snaps[#snaps].file:find(song .. "/", 1, true), 1, "kept in the folder of the project")
-  track_named("Lead"):add_clip({ name = "added", start = 16, length = 2 })
+  part_named("Lead"):add_clip({ name = "added", start = 16, length = 2 })
   api.undo_checkpoint()
   T.keys(":Pdiff snap:loud<CR>")
   has(shown(), "loud → now: 1 change", "the title")
@@ -799,10 +796,10 @@ local function repository(root)
   return git
 end
 
---- The id of the track named `name`, of the song or of a subproject.
-local function track_id(name)
-  for _, id in ipairs(api.track_list({ all = true })) do
-    if api.track_get(id, "name") == name then return id end
+--- The id of the part named `name`, of the song or of a subproject.
+local function part_id(name)
+  for _, id in ipairs(api.part_list({ all = true })) do
+    if api.part_get(id, "name") == name then return id end
   end
 end
 
@@ -819,7 +816,7 @@ test(
     local song = fixture(root .. "/song", true)
     git("add -A")
     git("commit -q -m base")
-    local riff = api.clip_list(track_id("Lead"))[1].id
+    local riff = api.clip_list(part_id("Lead"))[1].id
     local function pitches(one, two)
       api.clip_note_set(riff, 1, { pitch = one })
       api.clip_note_set(riff, 2, { pitch = two })
@@ -840,7 +837,7 @@ test(
     eq(since(from)[1] and since(from)[1].text, "git has no merge conflict in song", "no merge yet")
     -- A clip file is not text: git keeps ours in the folder, which opens.
     git("merge -q theirs")
-    has(git("status --porcelain"), "UU song/tracks/Lead/clips/riff.midi2", "git stopped on the clip")
+    has(git("status --porcelain"), "UU song/parts/Lead/clips/riff.midi2", "git stopped on the clip")
     T.keys(":Pmerge<CR>")
     eq(paw.ui.float and paw.ui.float.name, "projmerge", "the conflicts show")
     has(T.screen(), "song: 2 conflicts", "the title")
@@ -871,8 +868,8 @@ test(
     git("add -A")
     git("commit -q -m base")
     local function volumes(v)
-      api.track_set(ids.keys, { volume = v })
-      api.track_set(ids.strings, { volume = v })
+      api.part_set(ids.keys, { volume = v })
+      api.part_set(ids.strings, { volume = v })
       api.undo_checkpoint()
       api.project_save()
     end
@@ -885,7 +882,7 @@ test(
     volumes(-6)
     git("commit -qam ours")
     api.project_new()
-    -- The files of the tracks are text: git marks the conflicts in them, so
+    -- The files of the parts are text: git marks the conflicts in them, so
     -- the folder does not open, and :Pmerge opens the merge.
     git("merge -q theirs")
     T.keys(":Pmerge " .. song .. "<CR>")
@@ -900,16 +897,16 @@ test(
       table.concat(rows, "\n"),
       table.concat({
         ('subproject %d "Bridge"'):format(ids.bridge),
-        ('  track %d "Keys" › volume'):format(ids.keys),
+        ('  part %d "Keys" › volume'):format(ids.keys),
         ('  subproject %d "Verse"'):format(ids.verse),
-        ('    track %d "Strings" › volume'):format(ids.strings),
+        ('    part %d "Strings" › volume'):format(ids.strings),
       }, "\n"),
       "each conflict under its subproject"
     )
     T.keys("ct")
-    eq(api.track_get(track_id("Keys"), "volume"), -2, "theirs, in Bridge")
+    eq(api.part_get(part_id("Keys"), "volume"), -2, "theirs, in Bridge")
     T.keys("co")
-    eq(api.track_get(track_id("Strings"), "volume"), -6, "ours, in Verse")
+    eq(api.part_get(part_id("Strings"), "volume"), -6, "ours, in Verse")
     eq(paw.ui.float, nil, "none left")
     eq(api.project_get("path"), song .. "/project.toml", "the open project is the folder")
   end
@@ -955,31 +952,31 @@ local function nest_names()
   return table.concat(out, ",")
 end
 
---- The names of the tracks of subproject `nest`, in order.
-local function nest_tracks(nest)
+--- The names of the parts of subproject `nest`, in order.
+local function nest_parts(nest)
   local out = {}
-  for _, id in ipairs(api.track_list({ nest = nest })) do
-    out[#out + 1] = api.track_get(id, "name")
+  for _, id in ipairs(api.part_list({ nest = nest })) do
+    out[#out + 1] = api.part_get(id, "name")
   end
   return table.concat(out, ",")
 end
 
---- Add to the open project the subproject Bridge, whose track Keys plays
---- a note at its start, placed at beat 0 by the song's track Bridge.
+--- Add to the open project the subproject Bridge, whose part Keys plays
+--- a note at its start, placed at beat 0 by the song's part Bridge.
 local function add_bridge()
-  local row = paw.add_track({ name = "Bridge" })
+  local row = paw.add_part({ name = "Bridge" })
   local bridge = api.nest_add({ name = "Bridge", length = 4 })
-  local keys = api.track_add({ name = "Keys", nest = bridge })
-  paw.track(keys):add_device("synth")
+  local keys = api.part_add({ name = "Keys", nest = bridge })
+  paw.part(keys):add_device("synth")
   api.clip_add(keys, { name = "chords", start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
   api.clip_add(row.id, { nest = bridge, start = 0 })
 end
 
---- A project folder at `path` with a song track Drums, and with the
+--- A project folder at `path` with a song part Drums, and with the
 --- subproject Bridge when `bridge` is true.
 local function song_at(path, bridge)
   fresh()
-  paw.add_track({ name = "Drums" })
+  paw.add_part({ name = "Drums" })
   if bridge then add_bridge() end
   api.undo_checkpoint()
   api.project_save(path)
@@ -992,13 +989,13 @@ test(
     T.after(function() paw.ui.close() end)
     if no_git() then return "no git" end
     local song = same_ids(scratch .. "/pmerge-same-nest", song_at, add_bridge, function()
-      -- Ours has the same ids as theirs: the subproject Verse with the track Pads, at beat 8.
+      -- Ours has the same ids as theirs: the subproject Verse with the part Pads, at beat 8.
       local nest = paw.nest.list()[1]
       api.nest_set(nest.id, "name", "Verse")
-      local row = track_named("Bridge")
+      local row = part_named("Bridge")
       row.name = "Verse"
       api.clip_set(api.clip_list(row.id)[1].id, "start", 8)
-      api.track_set(track_id("Keys"), { name = "Pads" })
+      api.part_set(part_id("Keys"), { name = "Pads" })
     end)
     eq(nest_names(), "Verse", "ours is open")
     T.keys(":Pmerge<CR>")
@@ -1006,7 +1003,7 @@ test(
     eq(nest_names(), "Verse,Bridge", "both subprojects")
     local verse, bridge = paw.nest.list()[1], paw.nest.list()[2]
     eq(verse.id ~= bridge.id, true, "with two ids")
-    eq({ nest_tracks(verse.id), nest_tracks(bridge.id) }, { "Pads", "Keys" }, "each with its tracks")
+    eq({ nest_parts(verse.id), nest_parts(bridge.id) }, { "Pads", "Keys" }, "each with its parts")
     T.keys("u")
     eq(nest_names(), "Verse", "one u takes back the merge")
     T.keys("<C-r>")
@@ -1020,24 +1017,24 @@ test(
   end
 )
 
-test("projdiff: :Pmerge keeps two tracks that both sides added with the same id to one subproject", function()
+test("projdiff: :Pmerge keeps two parts that both sides added with the same id to one subproject", function()
   start()
   T.after(function() paw.ui.close() end)
   if no_git() then return "no git" end
-  local song = same_ids(scratch .. "/pmerge-same-track", function(path) song_at(path, true) end, function()
-    local bells = api.track_add({ name = "Bells", nest = paw.nest.list()[1].id })
+  local song = same_ids(scratch .. "/pmerge-same-part", function(path) song_at(path, true) end, function()
+    local bells = api.part_add({ name = "Bells", nest = paw.nest.list()[1].id })
     api.clip_add(bells, { name = "hit", start = 0, length = 1, notes = { { pitch = 72, start = 0, length = 1 } } })
   end, function()
-    -- Ours renames the track only: its clip is the same as theirs, with the same id.
-    api.track_set(track_id("Bells"), { name = "Choir" })
+    -- Ours renames the part only: its clip is the same as theirs, with the same id.
+    api.part_set(part_id("Bells"), { name = "Choir" })
   end)
   T.keys(":Pmerge<CR>")
   local bridge = paw.nest.list()[1].id
-  eq(nest_tracks(bridge), "Keys,Bells,Choir", "both tracks, in Bridge")
-  local bells, choir = api.clip_list(track_id("Bells"))[1].id, api.clip_list(track_id("Choir"))[1].id
-  eq({ track_id("Choir") ~= track_id("Bells"), bells ~= choir }, { true, true }, "two tracks and two clips")
+  eq(nest_parts(bridge), "Keys,Bells,Choir", "both parts, in Bridge")
+  local bells, choir = api.clip_list(part_id("Bells"))[1].id, api.clip_list(part_id("Choir"))[1].id
+  eq({ part_id("Choir") ~= part_id("Bells"), bells ~= choir }, { true, true }, "two parts and two clips")
   api.project_save()
   api.project_new()
   api.project_load(song)
-  eq(nest_tracks(paw.nest.list()[1].id), "Keys,Bells,Choir", "both tracks after the project opens again")
+  eq(nest_parts(paw.nest.list()[1].id), "Keys,Bells,Choir", "both parts after the project opens again")
 end)

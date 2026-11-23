@@ -1,5 +1,5 @@
 -- rulerplus: an example of how to personalize the bar labels of the ruler
--- (paw.ruler, docs/reference/trackcolumn.md). It adds three parts (a mark
+-- (paw.ruler, docs/reference/partcolumn.md). It adds three parts (a mark
 -- at the start of each phrase, the key where it changes, the chord where
 -- it changes) and changes the part `number` of paw: with `relativebar`,
 -- the counts get a sign, `+4` ahead and `-4` behind. paw records each of

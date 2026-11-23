@@ -60,9 +60,9 @@ local function sine(freq, db)
   end
 end
 
---- A synth track holding notes over a stretch of beats.
+--- A synth part holding notes over a stretch of beats.
 local function synth(name, start, length, opts)
-  local t = paw.add_track({ name = name, volume = opts and opts.volume or 0 })
+  local t = paw.add_part({ name = name, volume = opts and opts.volume or 0 })
   t:add_device("synth", { wave = opts and opts.wave or 0, attack = 0.005, release = 0.05, sustain = 1 })
   t:add_clip({
     name = name,
@@ -74,7 +74,7 @@ local function synth(name, start, length, opts)
 end
 
 local function audio(name, start, path)
-  local t = paw.add_track({ name = name })
+  local t = paw.add_part({ name = name })
   t:add_clip({ name = name, start = start, file = path })
   return t
 end
@@ -128,7 +128,7 @@ test("mixdiag: a file of a -23 dBFS 1 kHz sine reads -23 LUFS", function()
   eq(#r.series.momentary, 120, "a point every 100 ms")
 end)
 
-test("mixdiag: a track's contribution is measured alone", function()
+test("mixdiag: a part's contribution is measured alone", function()
   load()
   fresh()
   paw.project.tempo = 120
@@ -136,12 +136,12 @@ test("mixdiag: a track's contribution is measured alone", function()
   synth("B", 0, 8, { volume = -20, pitch = "E4" })
   paw.flush()
   local both = api.measure({ start = 0, ["end"] = 8 })
-  local alone = api.measure({ start = 0, ["end"] = 8, track = a.id })
-  local b_alone = api.measure({ start = 0, ["end"] = 8, track = paw.track("B").id })
-  eq(alone.track, a.id, "the result says which track")
+  local alone = api.measure({ start = 0, ["end"] = 8, part = a.id })
+  local b_alone = api.measure({ start = 0, ["end"] = 8, part = paw.part("B").id })
+  eq(alone.part, a.id, "the result says which part")
   near(alone.integrated, both.integrated, 0.2, "A is most of the mix")
   near(alone.integrated - b_alone.integrated, 20, 1, "B alone is 20 dB lower")
-  eq(paw.track("B").solo, false, "the project's solos are untouched")
+  eq(paw.part("B").solo, false, "the project's solos are untouched")
   near(alone.seconds, 4 + 1, 0.01, "8 beats at 120 bpm and a 1 s tail")
 end)
 
@@ -177,7 +177,7 @@ test("mixdiag: meeting EBU R 128 after following the advice", function()
   near(mixdiag.result.integrated, -23, 0.1, "now at -23 LUFS")
 end)
 
-test("mixdiag: clipping, true peak, loudness and a track over full scale", function()
+test("mixdiag: clipping, true peak, loudness and a part over full scale", function()
   load()
   fresh()
   paw.project.tempo = 120
@@ -187,15 +187,15 @@ test("mixdiag: clipping, true peak, loudness and a track over full scale", funct
   local clip = one(findings, "clip", "clips at bar 3")
   eq(clip.severity, "error", "clipping is an error")
   near(clip.beat, 8, 0.1, "where the hot part starts")
-  local over = one(findings, "track_over", "Hot")
-  eq(over.track, hot.id, "on the hot track")
+  local over = one(findings, "part_over", "Hot")
+  eq(over.part, hot.id, "on the hot part")
   near(over.beat, 8, 0.1, "where it first went over")
   local tp = one(findings, "true_peak", "dBTP")
-  eq(tp.track, 0, "on the master")
+  eq(tp.part, 0, "on the master")
   one(findings, "loudness", "turns the song down")
 end)
 
-test("mixdiag: the findings are diagnostics on their tracks, fixed from the mixer", function()
+test("mixdiag: the findings are diagnostics on their parts, fixed from the mixer", function()
   load()
   fresh()
   paw.project.tempo = 120
@@ -203,15 +203,15 @@ test("mixdiag: the findings are diagnostics on their tracks, fixed from the mixe
   local hot = synth("Hot", 8, 8, { volume = 18, wave = 1 })
   local findings = measure()
   paw.lsp.settle()
-  local over = one(findings, "track_over", "Hot")
-  local about = paw.diagnostic.get(paw.address.track(hot.id), { namespace = "mixdiag" })
-  eq(#about, 1, "the track over full scale is a diagnostic on the track")
+  local over = one(findings, "part_over", "Hot")
+  local about = paw.diagnostic.get(paw.address.part(hot.id), { namespace = "mixdiag" })
+  eq(#about, 1, "the part over full scale is a diagnostic on the part")
   eq(about[1].message, mixdiag.format(over), "saying what the report says")
   eq(#paw.diagnostic.get(nil, { namespace = "mixdiag" }), #findings, "one for each finding")
   -- The mixer marks the strip, and the fix is offered there.
   paw.ui.show("mixer")
   paw.ui.focus("mixer")
-  paw.cursor.set_track(hot.id)
+  paw.cursor.set_part(hot.id)
   local screen = table.concat(api.ui_snapshot(140, 50), "\n")
   eq(
     screen:find(paw.draw.g.warn, 1, true) ~= nil or screen:find(paw.draw.g.error, 1, true) ~= nil,
@@ -224,9 +224,9 @@ test("mixdiag: the findings are diagnostics on their tracks, fixed from the mixe
   eq(state and state.matches[1]:find("Lower Hot by", 1, true) ~= nil, true, "the fix, in the picker")
   paw.keymap.feed("<CR>")
   api.undo_checkpoint()
-  near(paw.track(hot.id).volume, 18 - over.lower, 1e-6, "the fader comes down by what the finding says")
+  near(paw.part(hot.id).volume, 18 - over.lower, 1e-6, "the fader comes down by what the finding says")
   paw.undo()
-  eq(paw.track(hot.id).volume, 18, "one undo puts it back")
+  eq(paw.part(hot.id).volume, 18, "one undo puts it back")
   paw.ui.hide("mixer")
   paw.ui.focus("arrange")
   mixdiag.clear()
@@ -287,7 +287,7 @@ test("mixdiag: DC offset, infrasonic energy and silence at the ends", function()
       return x, x
     end)
   )
-  local tail = paw.add_track({ name = "Late" })
+  local tail = paw.add_part({ name = "Late" })
   tail:add_device("synth")
   tail:add_clip({ start = 28, length = 8, notes = {} }) -- an empty clip keeps the song going
   local findings = measure()
@@ -301,7 +301,7 @@ test("mixdiag: DC offset, infrasonic energy and silence at the ends", function()
   eq(silence[1].message:find("starts with 4.0 s") ~= nil, true, silence[1].message)
   eq(silence[2].message:find("before the end") ~= nil, true, silence[2].message)
   local late = one(findings, "no_sound", "made no sound")
-  eq(late.track, tail.id, "the track with an empty clip")
+  eq(late.part, tail.id, "the part with an empty clip")
 end)
 
 test("mixdiag: things that look forgotten", function()
@@ -330,8 +330,8 @@ test("mixdiag: things that look forgotten", function()
     eq(text:find(want, 1, true) ~= nil, true, "mentions `" .. want .. "`:\n" .. text)
   end
   -- A bypassed instrument also makes no sound.
-  eq(one(findings, "no_sound").track, a.id, "the bypassed instrument's track")
-  -- Solo: the measurement only hears soloed tracks.
+  eq(one(findings, "no_sound").part, a.id, "the bypassed instrument's part")
+  -- Solo: the measurement only hears soloed parts.
   c.solo = true
   one(measure(), "forgotten", "soloed")
   -- Rules can be switched off by name.
@@ -392,7 +392,7 @@ test("mixdiag: measuring in the background, the loop and a selection", function(
 
   -- In visual mode <leader>ma measures the selection.
   paw.opt.grid = 1
-  paw.cursor.set_track(paw.track("Pad"))
+  paw.cursor.set_part(paw.part("Pad"))
   paw.cursor.set_beat(4)
   paw.keymap.feed("v3l<leader>ma")
   eq(paw.keymap.mode, "n", "back to normal mode")
@@ -428,7 +428,7 @@ test("mixdiag: <leader>ma measures the mix without an error message", function()
 end)
 
 --- A project with findings at known places: clipping from beat 8 (bar 3) on
---- the Hot track, a passage out of phase at beat 20 (bar 6), silence from
+--- the Hot part, a passage out of phase at beat 20 (bar 6), silence from
 --- beat 26 and a muted clip at beat 28 on Keys.
 local function findings_at_known_places()
   load()
@@ -459,15 +459,15 @@ test("mixdiag: the findings are diagnostics: ]d and [d go from one to the next",
     if f.beat then placed[#placed + 1] = f end
   end
   eq(#placed >= 3, true, "findings with places:\n" .. describe(mixdiag.findings))
-  paw.cursor.set_track(keys)
+  paw.cursor.set_part(keys)
   paw.cursor.set_beat(2)
   T.keys("]d")
   near(paw.cursor.beat, 8, 0.01, "]d goes to the clipping on the master")
-  eq(paw.cursor.track_id(), keys.id, "which leaves the cursor's track alone")
+  eq(paw.cursor.part_id(), keys.id, "which leaves the cursor's part alone")
   eq(paw.ui.message.text:find("clips at bar 3", 1, true) ~= nil, true, "its message is shown: " .. paw.ui.message.text)
   T.keys("]d")
-  near(paw.cursor.beat, 8, 0.1, "then to the track that went over, in the same block")
-  eq(paw.cursor.track_id(), hot.id, "on that track")
+  near(paw.cursor.beat, 8, 0.1, "then to the part that went over, in the same block")
+  eq(paw.cursor.part_id(), hot.id, "on that part")
   paw.cursor.set_beat(12)
   T.keys("]d")
   near(paw.cursor.beat, 20, 0.01, "the passage out of phase")
@@ -475,7 +475,7 @@ test("mixdiag: the findings are diagnostics: ]d and [d go from one to the next",
   near(paw.cursor.beat, 26, 0.1, "the silence after the last sound")
   T.keys("]d")
   near(paw.cursor.beat, 28, 1e-6, "the muted clip")
-  eq(paw.cursor.track_id(), keys.id, "on its track")
+  eq(paw.cursor.part_id(), keys.id, "on its part")
   T.keys("2[d")
   near(paw.cursor.beat, 20, 0.01, "2[d goes back two")
   T.keys("[d")
@@ -669,7 +669,7 @@ test("mixdiag: the painted report draws meters, a spectrum and the findings, whi
   end
   eq(shape, 1, "the spectrum is one filled shape")
   eq(outline >= 1, true, "with its outline")
-  eq(meters >= 1, true, "the hot track's meter is in the clipping colour")
+  eq(meters >= 1, true, "the hot part's meter is in the clipping colour")
   -- A click chooses a finding, and a click on the chosen one goes there.
   local wanted
   for i, item in ipairs(mixdiag.items()) do

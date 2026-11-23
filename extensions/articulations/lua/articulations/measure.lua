@@ -1,9 +1,9 @@
 -- How late each articulation of an instrument sounds, measured: one note
--- per articulation is rendered offline through the track's own devices
+-- per articulation is rendered offline through the part's own devices
 -- (any plugin, a Lua device, paw's sampler), each after what tells the
 -- instrument its articulation, and where its sound starts is found in the
 -- rendering. The delays found go into the instrument's map (`delay =
--- "-80ms"`), and from there into the track's downgrade map, so that the
+-- "-80ms"`), and from there into the part's downgrade map, so that the
 -- kernel plays those notes that much earlier and they sit on the grid.
 --
 -- The onset: the rendering is cut into 1 ms blocks from the note's start;
@@ -26,7 +26,7 @@ local BELOW = 10 ^ (-20 / 20)
 
 local function song_end()
   local finish = 0
-  for _, id in ipairs(api.track_list()) do
+  for _, id in ipairs(api.part_list()) do
     for _, c in ipairs(api.clip_list(id)) do
       finish = math.max(finish, c.start + c.length)
     end
@@ -73,12 +73,12 @@ function M.score(map)
   return notes, controls, at
 end
 
---- Render one note of each articulation through a track and find where each
+--- Render one note of each articulation through a part and find where each
 --- one's sound starts. Returns `{ { art, onset (ms, nil when silent), delay
 --- (the map's value: minus the onset), now (the map's delay) } }`.
-function M.measure(track)
-  local map = art.map_of(track)
-  if not map then error("the track has no articulation map: :art.map", 0) end
+function M.measure(part)
+  local map = art.map_of(part)
+  if not map then error("the part has no articulation map: :art.map", 0) end
   local notes, controls, at = M.score(map)
   local start = paw.time.bar_ceil(song_end() + 1e-9) + 4
   local length = at[#at] + SPACING
@@ -88,19 +88,19 @@ function M.measure(track)
   paw.audition.try(function()
     -- The sound as the instrument makes it: the core plays notes early by
     -- the delays already in the map, which is not what is measured.
-    local sent = art.attr_map(track)
-    if sent and pcall(api.track_get, track) and api.track_get(track).attr_map then
+    local sent = art.attr_map(part)
+    if sent and pcall(api.part_get, part) and api.part_get(part).attr_map then
       local plain = paw.util.merge(sent, { arts = {} })
       plain.delay = nil
       for code, e in pairs(sent.arts or {}) do
         plain.arts[code] = type(e) == "table" and { out = e.out } or e
       end
-      api.track_set(track, "attr_map", plain)
+      api.part_set(part, "attr_map", plain)
     end
-    local clip = paw.track(track):add_clip({ start = start, length = length, name = "measure", notes = notes })
+    local clip = paw.part(part):add_clip({ start = start, length = length, name = "measure", notes = notes })
     if #controls > 0 then clip:set_controls(controls) end
     paw.flush()
-    info = paw.render(path, { start = start, ["end"] = start + length, tracks = { track }, tail = 0, bits = 16 })
+    info = paw.render(path, { start = start, ["end"] = start + length, parts = { part }, tail = 0, bits = 16 })
   end)
   paw.audition.revert()
   local origin = paw.time.to_seconds(start)
@@ -159,9 +159,9 @@ function M.rewrite(text, delays)
 end
 
 --- Write measured delays into the map's file and bind it again, so that the
---- track's downgrade map has them: one undo step for the track.
-function M.apply(track, results)
-  local map = art.map_of(track)
+--- part's downgrade map has them: one undo step for the part.
+function M.apply(part, results)
+  local map = art.map_of(part)
   local delays = {}
   for _, r in ipairs(results) do
     if r.delay then delays[r.art.id] = r.delay end
@@ -171,7 +171,7 @@ function M.apply(track, results)
   if not new then error(why, 0) end
   maps.write(map.file, new)
   maps.forget()
-  art.bind(track, map.file)
+  art.bind(part, map.file)
   return map.file
 end
 
@@ -193,26 +193,26 @@ function M.lines(map, results)
   return lines
 end
 
-local plan -- the last measurement: { track, results }
+local plan -- the last measurement: { part, results }
 
 paw.command("art.measure", function()
-  local track = paw.ui.views:get("pianoroll"):clip() and paw.ui.views:get("pianoroll"):clip():get().track
-    or (paw.cursor.track() and paw.cursor.track().id)
-  if not track then error("no track here", 0) end
-  local results = M.measure(track)
-  plan = { track = track, results = results }
-  paw.ui.page("Articulation delays", M.lines(art.map_of(track), results))
+  local part = paw.ui.views:get("pianoroll"):clip() and paw.ui.views:get("pianoroll"):clip():get().part
+    or (paw.cursor.part() and paw.cursor.part().id)
+  if not part then error("no part here", 0) end
+  local results = M.measure(part)
+  plan = { part = part, results = results }
+  paw.ui.page("Articulation delays", M.lines(art.map_of(part), results))
 end, {
-  desc = "Measure how late each articulation of the track's instrument sounds (one note each, rendered offline), and show the delays to write",
+  desc = "Measure how late each articulation of the part's instrument sounds (one note each, rendered offline), and show the delays to write",
 })
 
 paw.command("art.measure!", function()
-  local track = paw.ui.views:get("pianoroll"):clip() and paw.ui.views:get("pianoroll"):clip():get().track
-    or (paw.cursor.track() and paw.cursor.track().id)
-  if not track then error("no track here", 0) end
-  local results = plan and plan.track == track and plan.results or M.measure(track)
+  local part = paw.ui.views:get("pianoroll"):clip() and paw.ui.views:get("pianoroll"):clip():get().part
+    or (paw.cursor.part() and paw.cursor.part().id)
+  if not part then error("no part here", 0) end
+  local results = plan and plan.part == part and plan.results or M.measure(part)
   plan = nil
-  local file = M.apply(track, results)
+  local file = M.apply(part, results)
   paw.notify("delays written into " .. file)
 end, {
   label = "Articulation delays",

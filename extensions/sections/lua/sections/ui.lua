@@ -189,7 +189,7 @@ command(
     local s = A.move(target(ctx), by)
     if s then cursor.set_beat(s.start) end
   end),
-  { desc = "Move the section past the next one on every track: `section.move by=-1` past the one before" }
+  { desc = "Move the section past the next one on every part: `section.move by=-1` past the one before" }
 )
 
 command(
@@ -201,7 +201,7 @@ command(
     end
     if copy then cursor.set_beat(copy.start) end
   end),
-  { desc = "Repeat the section after itself on every track, pushing the rest along" }
+  { desc = "Repeat the section after itself on every part, pushing the rest along" }
 )
 
 command(
@@ -212,7 +212,7 @@ command(
     cursor.set_beat(s.start)
     paw.notify("deleted section " .. s.name)
   end),
-  { desc = "Delete the section from every track and close the gap; `section.put` puts it back elsewhere" }
+  { desc = "Delete the section from every part and close the gap; `section.put` puts it back elsewhere" }
 )
 
 command(
@@ -222,7 +222,7 @@ command(
     keymap.setreg(A.yank({ start = s.start }), ctx.register, true)
     paw.notify("yanked section " .. s.name)
   end),
-  { desc = "Yank the section on every track, with its automation and marker" }
+  { desc = "Yank the section on every part, with its automation and marker" }
 )
 
 --- Where to insert: before or after the section at the cursor, or at the
@@ -245,7 +245,7 @@ command(
     if s then cursor.set_beat(s.start) end
   end),
   {
-    desc = "Insert the register after the section at the cursor on every track, pushing the rest along; `before=true` before it",
+    desc = "Insert the register after the section at the cursor on every part, pushing the rest along; `before=true` before it",
   }
 )
 
@@ -297,14 +297,14 @@ local function to_section(dir)
 end
 
 -- `]]` `[[` as in Vim: the next and the previous of the kind. `]s` `[s` stay the
--- core's, the tracks of a group.
+-- core's, the parts of a group.
 amap("]]", to_section(1), "Start of the next section", { motion = true, jump = true })
 amap("[[", to_section(-1), "Start of this section, or the one before", { motion = true, jump = true })
 
---- The sections from the one at the cursor, `count` of them, on every track.
+--- The sections from the one at the cursor, `count` of them, on every part.
 local function section_region(ctx, whole_bars)
   local s = S.current()
-  local n = #api.track_list()
+  local n = #api.part_list()
   if not s or n == 0 then return end
   local last = S.list()[math.min(#S.list(), s.index + (ctx.count or 1) - 1)]
   local c0, c1 = s.start, last.finish
@@ -318,12 +318,12 @@ end
 keymap.textobject(
   "is",
   function(ctx) return section_region(ctx, false) end,
-  { view = "arrange", desc = "The section, on every track (`2is` two)" }
+  { view = "arrange", desc = "The section, on every part (`2is` two)" }
 )
 keymap.textobject(
   "as",
   function(ctx) return section_region(ctx, true) end,
-  { view = "arrange", desc = "The section widened to whole bars, on every track" }
+  { view = "arrange", desc = "The section widened to whole bars, on every part" }
 )
 
 keymap.group("<localleader>S", "sections", { view = "arrange" })
@@ -394,7 +394,7 @@ end
 --- Draw the sections on the arrange view's second ruler row: each name where its
 --- section starts, the one at the cursor brighter, and the one at the left
 --- edge kept in sight when its start has scrolled away. A faint line marks
---- each start across the tracks.
+--- each start across the parts.
 function M.draw(_, layer)
   local list = S.list()
   if #list == 0 then return end

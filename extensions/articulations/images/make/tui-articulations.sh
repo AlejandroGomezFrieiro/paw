@@ -4,7 +4,7 @@
 # highlight rests on it), three made pizzicato in visual mode, and K.
 . "$MAKE/rig.sh"
 SETUP="$TUI_DEMO paw.ext.load('extensions/articulations')
-require('articulations').bind(paw.tracks()[4].id, 'extensions/articulations/articulations/examples/violin-section.art.toml')"
+require('articulations').bind(paw.parts()[4].id, 'extensions/articulations/articulations/examples/violin-section.art.toml')"
 rig_start
 term_start
 key j w Return; pause 1.0

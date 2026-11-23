@@ -1,6 +1,6 @@
 # drums
 
-A drum track in one step, and a grid to program it. The rows of the grid
+A drum part in one step, and a grid to program it. The rows of the grid
 are the pieces of the kit, by name, and the grid is one view that looks the
 same in the terminal and in the graphical window.
 
@@ -13,7 +13,7 @@ paw.ext.load("/path/to/paw/extensions/drums")
 ## Try it
 
 1. Type `:ext.load drums`.
-2. Press `\kn`. A new drum track appears below the cursor track, and its
+2. Press `\kn`. A new drum part appears below the cursor part, and its
    clip opens in the grid.
 3. Type `/snare` and press Enter. The cursor goes to the row of the snare.
 4. Press `l` four times, then Enter. A hit appears on the second beat, and
@@ -25,25 +25,25 @@ with `paw -e 'dofile("extensions/drums/demo.lua")'`.
 
 ## How to
 
-### How to make a drum track
+### How to make a drum part
 
-- Press `\kn`, or type `:drums.track Drums bars=2`. The new track has the
+- Press `\kn`, or type `:drums.part Drums bars=2`. The new part has the
   built-in `drums` kit and the General MIDI map.
-- To play a folder of samples, type `:drums.track Drums kit=~/samples/808`.
+- To play a folder of samples, type `:drums.part Drums kit=~/samples/808`.
 
 ### How to use a drum plugin
 
-1. Put the plugin on a track.
+1. Put the plugin on a part.
 2. Type the map of the plugin:
    - For MT-PowerDrumKit 2, type `:drums.map mt-powerdrumkit`.
    - For a kit with the General MIDI map, type `:drums.map gm-kit` (with
      toms and two crashes), or `:drums.map gm`.
 
-The clips of the track now open in the grid.
+The clips of the part now open in the grid.
 
 ### How to play a folder of samples
 
-1. Put the cursor on the drum track.
+1. Put the cursor on the drum part.
 2. Type `:drums.kit ~/samples/808`.
 
 The grid names its rows after the files. To change one sample, put the
@@ -62,18 +62,18 @@ cursor on its row and type `:drums.pad level=-3 pan=0.2`.
    local maps = require("drums").maps
    maps.mykit = { label = "My kit", rows = { { note = 36, name = "Kick" }, { note = "E2", name = "Snare" } } }
    maps.gm.rows[2].name = "Snare (top)"
-   paw.opt.drums_map = "mykit"          -- the map of new drum tracks
+   paw.opt.drums_map = "mykit"          -- the map of new drum parts
    ```
 
-2. Type `:drums.map mykit` on a track.
+2. Type `:drums.map mykit` on a part.
 
 ### In the graphical window
 
-- Right-click the timeline and choose **New drum track**.
-- In the menu of a track header, choose **Drum map…**.
+- Right-click the timeline and choose **New drum part**.
+- In the menu of a part header, choose **Drum map…**.
 - In the menu of a clip, choose **Open in the drum grid** or **Drum beat to
   start from…**.
-- Double-click a clip of a drum track to open it in the grid.
+- Double-click a clip of a drum part to open it in the grid.
 
 ## Reference
 
@@ -81,10 +81,10 @@ cursor on its row and type `:drums.pad level=-3 pan=0.2`.
 
 | Command | Keys | Effect |
 | --- | --- | --- |
-| `drums.track [name] [map=] [kit=] [bars=]` | `\kn` | makes a track below the cursor track, with the built-in `drums` kit, the General MIDI map, a name, a color and a bar to program, and opens it in the grid. `kit=<folder>` plays samples |
-| `drums.map [name]` | `\km` | makes the track under the cursor a drum track with a map, with any instrument. Without a name, you choose. `drums.map off` makes it an ordinary track |
-| `drums.edit` | `Enter` | opens the clip under the cursor in the grid. `Enter` (`clip.edit`) does this on the clips of a drum track, and opens the piano roll on other clips |
-| `drums.kit <folder>` | | plays the drum track (or a new track) from a folder of sound files, by their names |
+| `drums.part [name] [map=] [kit=] [bars=]` | `\kn` | makes a part below the cursor part, with the built-in `drums` kit, the General MIDI map, a name, a color and a bar to program, and opens it in the grid. `kit=<folder>` plays samples |
+| `drums.map [name]` | `\km` | makes the part under the cursor a drum part with a map, with any instrument. Without a name, you choose. `drums.map off` makes it an ordinary part |
+| `drums.edit` | `Enter` | opens the clip under the cursor in the grid. `Enter` (`clip.edit`) does this on the clips of a drum part, and opens the piano roll on other clips |
+| `drums.kit <folder>` | | plays the drum part (or a new part) from a folder of sound files, by their names |
 | `drums.pad level= pan= tune= group= file=` | | changes the sample of the row of the grid |
 | `drums.beat [name]` | `gb` in the grid | fills the clip with a beat to start from, in place of its notes |
 | `drums.rename <name>` | | renames the row of the grid under the cursor |
@@ -99,7 +99,7 @@ cursor on its row and type `:drums.pad level=-3 pan=0.2`.
 | `mt-powerdrumkit` | the notes of MT-PowerDrumKit 2, from the note names of its vendor: closed, half-open, open and pedal hat (42, 44, 46, 65), three toms, two crashes and a choked crash, splash, china, ride, bell, and a key that stops all cymbals (83) |
 
 - Maps are plain tables in `require("drums").maps`.
-- A track keeps a copy of its rows, so a project opens the same on each
+- A part keeps a copy of its rows, so a project opens the same on each
   machine.
 - A note that the map does not name gets a row at the bottom, named after
   General MIDI and dimmer, so the grid shows all the notes of a clip.
@@ -107,7 +107,7 @@ cursor on its row and type `:drums.pad level=-3 pan=0.2`.
 ### The grid
 
 Each piece has a row with its name, and each step has a column. A hit is as
-tall as its velocity (`▁` to `█`), in the color of the track. Beats have
+tall as its velocity (`▁` to `█`), in the color of the part. Beats have
 shades in turn, and bars have marks. The title gives the piece, the place
 and the step under the cursor, and the velocity of the hit there.
 
@@ -144,7 +144,7 @@ and the step under the cursor, and the velocity of the hit there.
 The pointer does the same in the terminal and in the graphical window. The
 graphical window shows the grid in a pane, in its own font, with the
 buttons of the toolbar as buttons. A double click opens the clip of a drum
-track in the grid, but it does not open the clips of other tracks.
+part in the grid, but it does not open the clips of other parts.
 
 | Gesture | Effect |
 | --- | --- |
@@ -182,26 +182,26 @@ frontends.
 
 ```lua
 local kit = require("drums.kit")
-kit.build(track, "~/samples/808")
-kit.set_pad(kit.device(track), 38, { level = -3, pan = 0.2, tune = -1 })
-kit.pads(kit.device(track))       -- { { note, file, level, pan, tune, group }, ... }
+kit.build(part, "~/samples/808")
+kit.set_pad(kit.device(part), 38, { level = -3, pan = 0.2, tune = -1 })
+kit.pads(kit.device(part))       -- { { note, file, level, pan, tune, group }, ... }
 ```
 
 ### Options
 
 | Option | Default | Effect |
 | --- | --- | --- |
-| `drums_map` | `"gm"` | the map of new drum tracks |
+| `drums_map` | `"gm"` | the map of new drum parts |
 | `drums_step` | `0.25` | the beats of one column of the grid |
 | `drums_velocity` | `100` | the velocity of a new hit |
 | `drums_swing` | `0.33` | how far `gs` moves every second step, as a part of a step |
 
 ## About
 
-A drum track is an ordinary track with ordinary MIDI clips, so playback,
+A drum part is an ordinary part with ordinary MIDI clips, so playback,
 renders, the piano roll, undo and the `pattern` extension work on it as on
-all tracks. A drum map, kept with the track in the project
-(`track.meta.drums`), makes it a drum track. The map tells which notes are
+all parts. A drum map, kept with the part in the project
+(`part.meta.drums`), makes it a drum part. The map tells which notes are
 which pieces, in which order, with which names. The grid shows a clip
 through that map, with any instrument, for example the built-in kit, a kit
 of your own samples, or a plugin.

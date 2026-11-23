@@ -25,7 +25,7 @@ every view:
 | Keys | Command | |
 | --- | --- | --- |
 | `<Space>nn` | `notation` | the clip under the cursor as notation |
-| `<Space>ns` | `score` | every track with MIDI as a score, a staff each |
+| `<Space>ns` | `score` | every part with MIDI as a score, a staff each |
 | `<Space>nc` | `score.check` | the pages of the score as they will be exported |
 | `<Space>ne` | `notation.export` | the clip as MusicXML, in a file with its name |
 | `<Space>nE` | `notation.export pdf` | the clip as an engraved PDF, in a file with its name |
@@ -52,7 +52,7 @@ only the bars that changed.
 | --- | --- | --- |
 | on each note | `note.meta.notation` | its spelling (`letter`, `alter`, and the `pitch` it was spelled for: a note given another pitch in the roll gets its spelling from the key again), `voice`, `staff` of a grand staff, `grace` (`acciaccatura`, `appoggiatura`), `strum`, `chord`, `beam`, the articulations of its chord (`art`), `orn`ament and `stem`, `lyrics` of verses after the first (the first is `note.meta.lyric`, where the `utau` extension keeps its own), and `len` with `sounding`: how long it is written while it is as long as notation made it (a staccato) |
 | with the clip | `clip.meta.notation`, in beats of the clip | `version`, how all this is laid out (1; a clip without one keeps it as before versions were written); the transcription's `settings`; `tuplets` written (or a stretch said to be plain); `marks` (dynamics, hairpins, slurs, text, tempo marks, chord symbols, playing techniques); `bars` (barlines, repeats, endings, rehearsal marks, key and clef changes, the beats' grouping); `layout` (system breaks, bars to a system); `staves`, the clefs it was written on where its notes would now choose others |
-| with the track | `track.meta.notation` | its clef, its tablature |
+| with the part | `part.meta.notation` | its clef, its tablature |
 | with the song | the tempo map, the signatures | what tempo marks and time signatures say |
 
 Notation names the written notes after their MIDI notes. `n41` writes note
@@ -221,8 +221,8 @@ The page has the following other parts:
   own signature. The page shows the new signature where it changes.
 - Clef: treble when the notes stay above A3, bass when they stay below
   E4, and a grand staff when they need both. `:notation.clef bass` sets the
-  clef for the track (`treble`, `treble8` for guitar, `bass`, `bass8`,
-  `alto`, `tenor`, `grand`, `auto`), and `track.meta.notation` keeps it. A
+  clef for the part (`treble`, `treble8` for guitar, `bass`, `bass8`,
+  `alto`, `tenor`, `grand`, `auto`), and `part.meta.notation` keeps it. A
   clip written in notation keeps the clefs it was written on, where its
   notes would now choose others. For example, a melody taken a little under
   the treble staff stays on it. A clip also keeps a clef change at a bar
@@ -246,20 +246,20 @@ The page has the following other parts:
   Beams join eighths and shorter notes within a beat (four eighths in
   half a 4/4 bar, three in 6/8), and within a tuplet, with part beams.
 - Tablature: `:notation.tab guitar` puts a tab staff under the notation
-  of the track. The other choices are `bass`, `dropd`, `dadgad`, `7string`
+  of the part. The other choices are `bass`, `dropd`, `dadgad`, `7string`
   and `bass5`, or the notes of the strings from the lowest
-  (`E2 A2 D3 G3 B3 E4`). `track.meta.notation.tab` keeps the choice. The
+  (`E2 A2 D3 G3 B3 E4`). `part.meta.notation.tab` keeps the choice. The
   command also writes a guitar in its treble clef an octave up. The notes
   of each chord go on different strings within the reach of a hand, and the
   hand moves as little as possible. `meta.notation.string` on a note sets
   its string.
 - Lyrics: the page writes the `meta.lyric` of a note under it. The vocal
   clips of the `utau` extension keep their lyrics there.
-- Several tracks: `:notation.tracks` (`zS`) shows a score of every track
+- Several parts: `:notation.parts` (`zS`) shows a score of every part
   with MIDI over the stretch of the open clip, a staff for each. You edit
   the staff of the open clip. The same command again returns to the clip
-  alone. [The score](#scores) shows every track, the tracks of a group or
-  the tracks of a selection. [Parts](#parts) shows the parts.
+  alone. [The score](#scores) shows every part, the parts of a group or
+  the parts of a selection. [Parts](#parts) shows the parts.
 
 ## Keys
 
@@ -301,7 +301,7 @@ the piano roll. Every key that edits writes the MIDI of the clip (see
 | `zs` | start a system at the cursor's bar; again, let the bar go where it fits |
 | `zj` | keep the cursor's bar on the system before; again, let it go where it fits |
 | `:notation.bars-per-system 4` | that many bars on every system; without a number, as they fit |
-| `K` | what is under the cursor: the note as written (its value, voice, marks and the dynamic in force) and the MIDI note it is, then the clip and the track |
+| `K` | what is under the cursor: the note as written (its value, voice, marks and the dynamic in force) and the MIDI note it is, then the clip and the part |
 | `\n` | back to the window before |
 | `:q` `ZZ` `Ctrl-w c` | close the view |
 | `Esc` | stay: drop a count, an operator or a selection; with nothing to drop, stop a recording and keep the take |
@@ -382,7 +382,7 @@ is also the clip.
 | `gU` `gu` | up, down a step of the key, and chromatic notes stay chromatic; a count is the steps (`3gUib` a fourth up) |
 | `g+` `g-` | up, down a semitone, spelled as the key has it (an octave keeps the spelling); a count is the semitones |
 | `g~` | respell each note: G sharp, A flat, G sharp again; E, F flat (`g~in` the note under the cursor) |
-| `g(` | a slur over the notes (`g(ip`, `g(3w`; on a slur's start again, taken away; on a selection too). `s` is solo wherever there is a track |
+| `g(` | a slur over the notes (`g(ip`, `g(3w`; on a slur's start again, taken away; on a selection too). `s` is solo wherever there is a part |
 | `g?` | retrograde: backwards, rhythm and pitches, grace notes with their chord; with a count (`2g?ib`) an inversion about the first note, in the key |
 | `gq` | tidy: spelled as the key has it, beams as the meter has them, values and ties written again as the meter divides the bars |
 | `!` | filter: asks for a filter, `reverse`, `transpose 12`, `rhythm 1/8`, or any shell command, which reads the music a line an event (`1/4 C4 E4`, `1/8 r`, lengths as parts of a whole note) and writes it back so: `!ib tac`, `!ip sed s/D4/G4/`. A shell command needs a build of paw with `processes` (`paw.ext.build_has`), and the named filters work in every build |
@@ -464,7 +464,7 @@ move and get longer by the written amount, whatever their played lengths:
 | `g'` `g>` `g_` `g^` | staccato, accent, tenuto, marcato on the chord (or a selection), and played so |
 | `g(` | on a selection: a slur, the notes played legato (it is the slur operator: `g(ip`) |
 | `Alt-l` `Alt-h` | on a selection: each chord longer, shorter by the chosen value |
-| `gR` `zS` | the raw view; several tracks |
+| `gR` `zS` | the raw view; several parts |
 
 `:notation.quantize` quantizes the whole clip to the notation.
 `:notation.retranscribe` writes it again from how it plays.
@@ -561,7 +561,7 @@ last popover again, with what you typed in it.
 | `\t` | tempo | `Allegro q=132`, `q.=60`, `Andante`, `rit.`, `accel.`, `a tempo`, `off` | a tempo mark, and a point of the song's tempo map: `rit.` and `accel.` ramp a fifth slower or faster to the end of the selection (or the bar), `a tempo` returns to the last tempo marked; a word alone has its tempo (Allegro 132) |
 | `\m` | time signature | `6/8`, `3/4`, `3+3+2/8`, `C`, `¢` | the song's signature from the cursor's bar: every note stays where it is and is written in the new bars, tied over the new barlines; a grouping (`3+3+2/8`) and `C` `¢` kept with the clip |
 | `\k` | key | `Eb`, `f#m` (a small letter is minor), `D dorian`, `off` | a key signature from the cursor's bar; in the first bar, the project's key too |
-| `\C` | clef | `treble`, `bass`, `alto`, `tenor`, `treble8`, `bass8` | a clef change at the cursor's bar on its staff; in the first bar, the track's clef |
+| `\C` | clef | `treble`, `bass`, `alto`, `tenor`, `treble8`, `bass8` | a clef change at the cursor's bar on its staff; in the first bar, the part's clef |
 | `\b` | barlines, repeats, endings | `\|\|`, `\|.`, `\|:`, `:\|`, `:\|:`, `1.`, `2.`, `off` | at the cursor's barline (the one before the bar when the cursor is at its start, else after it); an ending over the bars of the selection |
 | `\X` | text | `dolce`, `Solo` | text over the staff |
 | `\r` | rehearsal mark | `A`, `Intro`; Enter alone writes the next letter | a boxed mark at the bar, and a marker of the same name in the song |
@@ -768,7 +768,7 @@ In the window, the toolbar has the following controls:
 - the zoom.
 
 The line at the bottom shows what is under the cursor. At the right, it
-shows the key, the time signature and the track. On a terminal, the
+shows the key, the time signature and the part. On a terminal, the
 toolbar and the bottom line are not there, because the bars of the terminal
 show the same data.
 
@@ -800,11 +800,11 @@ and the status line shows the note and time under the pointer.
 
 <!-- tags: notation-scores -->
 
-You edit a score of several tracks where you read it, as Dorico and
+You edit a score of several parts where you read it, as Dorico and
 MuseScore edit theirs. Each staff is a line, and the staff of the cursor is
-the track that every key writes. No other state is necessary, because a move
+the part that every key writes. No other state is necessary, because a move
 between staves is a move of the cursor, and an edit is an ordinary edit of
-the clip of that track (see [MIDI is the truth](#midi-is-the-truth)).
+the clip of that part (see [MIDI is the truth](#midi-is-the-truth)).
 
 ![The quartet's score in the terminal: `[[` and `]]` go from instrument to instrument, the clarinet's staff marked and the others dimmed; a block over three staves, then gU on each](../images/tui-score.gif)
 
@@ -816,16 +816,16 @@ the clip of that track (see [MIDI is the truth](#midi-is-the-truth)).
 
 | | |
 | --- | --- |
-| `:score` | the score of the tracks the window is narrowed to (`:narrow`, `znag`; it follows the scope), else of every track |
-| `:score all`, `:part.score`, `\Ps` | every track with MIDI |
-| `:score Strings` | a group's tracks (by its name, or part of it) |
-| `:score selection`, `:'<,'>score` | the tracks of the arrange view's selection |
-| `:notation.tracks`, `zS` | the tracks with MIDI over the open clip's stretch |
+| `:score` | the score of the parts the window is narrowed to (`:narrow`, `znag`; it follows the scope), else of every part |
+| `:score all`, `:part.score`, `\Ps` | every part with MIDI |
+| `:score Strings` | a group's parts (by its name, or some of it) |
+| `:score selection`, `:'<,'>score` | the parts of the arrange view's selection |
+| `:notation.parts`, `zS` | the parts with MIDI over the open clip's stretch |
 | `:score off`, `:part off`, `\Po` | the clip alone |
 | `:score.check`, `zp` | the score's pages as they will be exported, to read: the one view where nothing is edited, and it says so; again to edit |
 
 The instruments are in score order (see [Parts](#parts)). A staff is every
-MIDI clip of its track on the timeline of the song (with `zS`, the clips
+MIDI clip of its part on the timeline of the song (with `zS`, the clips
 over the stretch of the clip). Clips pasted one after another read as one
 line. A bar that no clip plays is a bar of rest. Where clips overlap, the
 staff shows the clip that starts later.
@@ -835,14 +835,14 @@ The open clip is the clip under the cursor. A move past its end (`l`, `w`,
 move back past its start goes into the clip before. A note that you enter
 in a gap goes into the clip before the gap, and that clip grows to hold
 it. A clip also grows when you enter notes past its end. Before the first
-clip of a track, you cannot enter notes.
+clip of a part, you cannot enter notes.
 
-Clips of one track whose notes would choose different clefs share one
+Clips of one part whose notes would choose different clefs share one
 grand staff. The staff of the cursor has full ink and a mark at its start.
-The title (in the window, the line at the bottom) names its track and
+The title (in the window, the line at the bottom) names its part and
 tells which staff it is: `the full score, staff 4 of 6`. With
 `:set score_dim`, the other staves are dimmer. With `:set score_colors`,
-they have the colors of their tracks. Both options work in the cells of the
+they have the colors of their parts. Both options work in the cells of the
 terminal, on its pixels and in the window.
 
 `j` and `k` move the pitch of the cursor, as in all of the view, and note
@@ -861,7 +861,7 @@ Each key takes a count (`3]]`) and is a motion. `d]]` deletes this staff
 and the next, whole. `Ctrl-v` stretches a block over the staves that it
 reaches, and `V` over staves takes them whole.
 
-The group is the group of the track (`paw.groups`), else the family that
+The group is the group of the part (`paw.groups`), else the family that
 its name tells. The brackets of the score show it. On a grand staff,
 `Ctrl-j` goes to the lower hand first. `]v` `[v` reach the voices of the
 hands.
@@ -876,7 +876,7 @@ staves. `x`, `d`, `y`, `gU`, `g+`, `>`, `<`, `g@`, `g'` and the other keys
 act on the clip of each staff over those bars. They act on every pitch of
 each staff, but within one staff a block keeps its pitches. A popover or
 `:` on the selection runs on each staff in turn (`\d` `p` writes a `p` on
-each). All of it is one undo step, for any number of tracks.
+each). All of it is one undo step, for any number of parts.
 
 In a score, a staff is a clip to Ex. `s4` is the fourth staff, `s2,s5` the
 second to the fifth, `s.` the staff of the cursor and `s$` the last. The
@@ -911,7 +911,7 @@ the two players apart there, as two voices, so that an edit is for one
 player. It works on the bar of the cursor, a range or a selection, and
 running it again joins the players.
 
-From Lua, `require("notation.staves")` has `show(tracks, label)`,
+From Lua, `require("notation.staves")` has `show(parts, label)`,
 `split(frame, region)` (a region of the score as each clip has it),
 `operate(fn, region, ctx)`, `within(clip_id, fn)` (run with another clip
 open), and the motions `staff`, `unit`, `sibling` and `edge`.
@@ -924,16 +924,16 @@ open), and the motions `staff`, `unit`, `sibling` and `edge`.
 
 | | |
 | --- | --- |
-| `:open song.musicxml` | a new project of the score: a track for each part, each with a MIDI clip of what it plays and what its score says kept as notation data |
-| `:import song.mxl` | the parts on new tracks below the cursor's, the first bar at the cursor; `tempo=yes` brings the tempo marks and time signatures too |
+| `:open song.musicxml` | a new project of the score: a part for each part of the score, each with a MIDI clip of what it plays and what its score says kept as notation data |
+| `:import song.mxl` | the parts of the score on new parts below the cursor's, the first bar at the cursor; `tempo=yes` brings the tempo marks and time signatures too |
 | `:notation.import song.xml` | the same as `:import` |
 | `:notation.export song.musicxml` | the clip's score as MusicXML; `.mxl` zipped, `.ly` LilyPond |
-| `:notation.export score.mxl all` | every track's first MIDI clip with notes as a part of one score |
+| `:notation.export score.mxl all` | every part's first MIDI clip with notes, each a part of one score |
 
 paw reads `.musicxml`, `.xml` and `.mxl` (compressed) files, as MuseScore,
 Dorico, Sibelius and Finale write them, partwise or timewise
 (`notation.musicxml`, with its own small XML reader, and `paw.zip`). A part
-becomes a track with one MIDI clip, and the track keeps the clef or grand
+becomes a part with one MIDI clip, and the part keeps the clef or grand
 staff of the part. paw reads the file into a score, and writes the score
 into the clip as notation writes it (see
 [MIDI is the truth](#midi-is-the-truth)). Its notes become MIDI notes, and
@@ -966,7 +966,7 @@ paw reads the following items into the score:
 
 paw writes a transposing part at concert pitch. It counts by element what
 the score cannot hold, and tells you:
-`opened song.mxl: 412 notes on 3 tracks; left out: 12 <fingering>, 2 <pedal>`.
+`opened song.mxl: 412 notes on 3 parts; left out: 12 <fingering>, 2 <pedal>`.
 
 `:open` names the project after the file and gives it no file of its own
 (`:w` asks where to save it). It also takes the following items:
@@ -994,11 +994,11 @@ barlines. It also has `\repeat` endings as volta brackets, `\mark`,
 as markup, articulations, ornaments, and `\noBeam` for a beam broken by
 hand. The lyrics are under their voice (`--`, `__`).
 
-`:notation.export lead.ly track` writes every MIDI clip of the track on one
+`:notation.export lead.ly part` writes every MIDI clip of the part on one
 timeline, as the views draw them. Without a path, the file has the name of
 the clip and goes to the working directory. The clip is the clip of the
 notation view when that view has the keyboard, and otherwise it is the clip
-under the arrange cursor on the track of the cursor. The message names it:
+under the arrange cursor on the part of the cursor. The message names it:
 `wrote 'melody' (Lead) to lead.pdf, 2 pages`.
 
 `:notation.export pdf` (or a path that ends in `.pdf`) writes the engraved
@@ -1014,8 +1014,8 @@ music font and the text are outlines, so the files need no fonts.
 <!-- tags: notation-parts -->
 
 A song of several instruments is a score, and each instrument has a part
-to play from. Every track with MIDI is an instrument, made of every MIDI
-clip of the track on the timeline of the song (see [The score](#scores)).
+to play from. Every part with MIDI is an instrument, made of every MIDI
+clip of the part on the timeline of the song (see [The score](#scores)).
 Nothing is copied. The score and the parts come from the MIDI of the clips
 each time it changes, with the data that notation keeps on the notes, so a
 part is always current.
@@ -1028,10 +1028,10 @@ part is always current.
 | --- | --- |
 | `:part.score`, `\Ps` | the full score in the notation view, to edit ([The score](#scores)) |
 | `:part.condense`, `\Pc` | two players of an instrument on one staff, or each on their own |
-| `:part`, `\Pp` | the part of the open clip's track, to edit as it is written; `:part Flute 1` an instrument's (by name, its start, or its place in the score) |
+| `:part`, `\Pp` | the printed part of the open clip's part, to edit as it is written; `:part Flute 1` an instrument's (by name, its start, or its place in the score) |
 | `:part.next` `:part.prev`, `\Pn` `\PN` | the next, previous part, in score order |
 | `:part off`, `\Po` | the clip alone again |
-| `:part.transpose Bb` | how the track's part is written (below) |
+| `:part.transpose Bb` | how the part's printed part is written (below) |
 | `:5,8part.cue Oboe` | the oboe's notes as a cue in this part's rests of bars 5 to 8 (or a selection); `:part.cue off` |
 | `:part.break`, `\Pb`; `:part.join`, `\Pj` | in the part: a system starts at the cursor's bar; the bar stays on the system before; again, as it fits |
 | `:part.bars-per-system 4` | in the part: that many bars to a system |
@@ -1046,19 +1046,19 @@ In the full score, the instruments are in the order of an orchestra:
 woodwinds, brass, percussion, harp and keyboards, voices, strings. Within
 a family, they are in the order that an orchestra uses (piccolo, flutes,
 oboes, clarinets, bassoons, and horns before trumpets). The family comes
-from the name of the group of the track (a group "Strings" or "Flutes",
-see `paw.groups`), else from the name of the track. A track whose name
-tells no family comes after, in the order of the tracks.
+from the name of the group of the part (a group "Strings" or "Flutes",
+see `paw.groups`), else from the name of the part. A part whose name
+tells no family comes after, in the order of the parts.
 
 Each family has a bracket. Its barlines go through the bracket and stop at
 the next family. An instrument of two staves has a brace. The names are at
 the left of the staves, in full on the first system and short after
 (`Fl. 1`, `Cl.`, `Vc.`). The score shows tempo marks once, and rehearsal
-marks once, from the track that has them. The full score is at concert
+marks once, from the part that has them. The full score is at concert
 pitch.
 
 With `:part.condense`, two players of one instrument share a staff,
-`Flute 1.2`. They are two tracks with one name and different numbers
+`Flute 1.2`. They are two parts with one name and different numbers
 (`Flute 1` and `Flute 2`), on the same clef.
 
 Where they play the same notes, the staff has the notes once, with `a2` over
@@ -1073,8 +1073,8 @@ left of the page:
 
 - Transposed: a clarinet in B flat reads a major second above how it
   sounds, in the key two sharps up. `:part.transpose Bb` sets this, and the
-  track keeps it in `meta.notation.transpose`. Without it, paw takes a
-  track named "Clarinet in Bb" (or `in A`, `in F`, `in Eb`) at its word.
+  part keeps it in `meta.notation.transpose`. Without it, paw takes a
+  part named "Clarinet in Bb" (or `in A`, `in F`, `in Eb`) at its word.
   The key names an instrument that sounds that far below C: `Bb` a clarinet
   or trumpet, `A` a clarinet in A, `F` a horn, `Eb` an alto sax. `up` is
   for an instrument that sounds above (`Eb up`, an E flat clarinet, and
@@ -1090,11 +1090,11 @@ left of the page:
   rehearsal mark, a tempo mark, a change of key, clef or time, a repeat or
   a double barline. The bars after it keep their numbers.
 - Rehearsal marks and tempo: those of the whole score are in every part,
-  from any track.
+  from any part.
 - Cues: `:5,8part.cue Oboe` writes the notes of the oboe small in the
   bars of rest of this part from 5 to 8. It writes them as this part is
   written (transposed, on its clef), with the short name of the oboe over
-  them. The rest of the part stays under them. The track keeps the cue
+  them. The rest of the part stays under them. The part keeps the cue
   (`meta.notation.part.cues`, in beats of the song), and paw makes it again
   from the MIDI of the oboe each time.
 - Page turns: where possible, the systems of a part break after a bar
@@ -1119,9 +1119,9 @@ abbreviations. MuseScore, Dorico and Sibelius make their own parts from
 the file.
 
 From Lua, `require("notation.parts")` has `instruments()`,
-`score_layout({ condensed })`, `part_layout(track_id)` (layouts that the
+`score_layout({ condensed })`, `part_layout(part_id)` (layouts that the
 engraver and the cell view draw, and that `page.export` writes),
-`interval(spec)`, `transposition(track_id)`,
+`interval(spec)`, `transposition(part_id)`,
 `transpose_score(score, interval, fifths)`, `multirests(layout)` and
 `condense(a, b)`.
 
@@ -1237,7 +1237,7 @@ The following items are not done yet, starting with the score and the parts:
 - every part as one book of pages
 - multi-measure rests and cues in MusicXML (readers make their own)
 - the score and parts in LilyPond
-- tablature in the view of several tracks, and as its own staff in
+- tablature in the view of several parts, and as its own staff in
   MusicXML (the string and fret are on each note)
 - D.C., D.S., segno and coda
 - endings and repeats that play (they are only written), and trills and

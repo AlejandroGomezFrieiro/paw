@@ -15,18 +15,18 @@ local function N(pitch, start, length, velocity)
   return { pitch = pitch, start = start, length = length, velocity = velocity or 80 }
 end
 
---- A track with a clip open as notation.
+--- A part with a clip open as notation.
 local function song(notes, length)
   fresh()
   local view = load()
-  local track = paw.add_track({ name = "Lead" })
-  local clip = track:add_clip({ start = 0, length = length or 8, name = "tune", notes = notes or {} })
+  local part = paw.add_part({ name = "Lead" })
+  local clip = part:add_clip({ start = 0, length = length or 8, name = "tune", notes = notes or {} })
   paw.flush()
   paw.keymap.set_mode("n")
   view:edit(clip)
   view.value, view.dot, view.voice, view.triplets, view.tuplet = 1, false, 1, false, nil
   api.undo_checkpoint()
-  return view, clip, track
+  return view, clip, part
 end
 
 --- The messages shown since `mark` (the last one when it was taken): the
@@ -56,8 +56,8 @@ test("notation: every key of the view says the clip is gone when an undo took it
   fresh()
   local view = load()
   api.undo_checkpoint()
-  local track = paw.add_track({ name = "Lead" })
-  local clip = track:add_clip({ start = 0, length = 4, notes = { N(60, 0, 1), N(64, 1, 1) } })
+  local part = paw.add_part({ name = "Lead" })
+  local clip = part:add_clip({ start = 0, length = 4, notes = { N(60, 0, 1), N(64, 1, 1) } })
   paw.flush()
   api.undo_checkpoint()
   paw.ui.focus("notation")

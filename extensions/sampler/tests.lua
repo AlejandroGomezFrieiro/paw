@@ -51,17 +51,17 @@ local function running(device)
   return device
 end
 
---- A sampler track with one of the fixtures loaded, or a reason to skip.
-local function sampler_track(instrument)
+--- A sampler part with one of the fixtures loaded, or a reason to skip.
+local function sampler_part(instrument)
   local s = load()
   if not s.available() then return nil, "the sampler plugin is not on the plugin path" end
   local dir = fixture_dir()
   if not dir then return nil, "extensions/sampler/bin/paw-sampler is not built" end
   fresh()
-  local track = paw.add_track({ name = "Strings" })
-  paw.track_kinds.set(track, "sampler", { path = dir .. "/" .. instrument, ask = false })
+  local part = paw.add_part({ name = "Strings" })
+  paw.part_kinds.set(part, "sampler", { path = dir .. "/" .. instrument, ask = false })
   api.undo_checkpoint()
-  return track, s.device_of(track.id)
+  return part, s.device_of(part.id)
 end
 
 -- Without the plugin -------------------------------------------------------------
@@ -101,19 +101,19 @@ test("sampler: the phrase a picker plays stays inside the instrument's range", f
   end
 end)
 
-test("sampler: a sampler track is a kind of track, S in the header", function()
+test("sampler: a sampler part is a kind of part, S in the header", function()
   load()
-  local kind = paw.track_kinds.kinds:get("sampler")
+  local kind = paw.part_kinds.kinds:get("sampler")
   eq(kind and kind.letter, "S", "the letter")
-  eq(kind.title, "Sampler track", "the title")
+  eq(kind.title, "Sampler part", "the title")
 end)
 
 -- With the plugin ----------------------------------------------------------------
 
-test("sampler: a sampler track plays an SFZ instrument at the keys' pitches", function()
-  local track, why = sampler_track("basic.sfz")
-  if not track then return why end
-  track:add_clip({
+test("sampler: a sampler part plays an SFZ instrument at the keys' pitches", function()
+  local part, why = sampler_part("basic.sfz")
+  if not part then return why end
+  part:add_clip({
     start = 0,
     length = 4,
     notes = {
@@ -127,8 +127,8 @@ test("sampler: a sampler track plays an SFZ instrument at the keys' pitches", fu
 end)
 
 test("sampler: describe gives keyswitches and articulations with their M2-123 codes, and K says so", function()
-  local track, device = sampler_track("ks.sfz")
-  if not track then return device end
+  local part, device = sampler_part("ks.sfz")
+  if not part then return device end
   local d = sampler.describe(device)
   eq(d.format, "sfz", "format")
   eq(d.range[1] .. "-" .. d.range[2], "48-96", "range")
@@ -138,13 +138,13 @@ test("sampler: describe gives keyswitches and articulations with their M2-123 co
     "Staccato 11.0 25",
     "staccato"
   )
-  eq(paw.track_kinds.describe(track.id), "Sampler track · ks · SFZ · 2 articulations", "what K and the header say")
+  eq(paw.part_kinds.describe(part.id), "Sampler part · ks · SFZ · 2 articulations", "what K and the header say")
 end)
 
 test("sampler: a keyswitch note chooses the articulation in a render", function()
-  local track = sampler_track("ks.sfz")
-  if not track then return "the sampler is not built" end
-  track:add_clip({
+  local part = sampler_part("ks.sfz")
+  if not part then return "the sampler is not built" end
+  part:add_clip({
     start = 0,
     length = 8,
     notes = {
@@ -161,8 +161,8 @@ test("sampler: a keyswitch note chooses the articulation in a render", function(
 end)
 
 test("sampler: loading an instrument is one undo step, kept with the project", function()
-  local track, device = sampler_track("basic.sfz")
-  if not track then return device end
+  local part, device = sampler_part("basic.sfz")
+  if not part then return device end
   sampler.load(device, fixture_dir() .. "/rr.sfz")
   eq(sampler.describe(device).name, "rr", "loaded")
   eq(api.device_get(device).meta.preset, "rr", "named as the device's preset")
@@ -172,14 +172,14 @@ test("sampler: loading an instrument is one undo step, kept with the project", f
   local path = T.scratch .. "/sampler-project.json"
   paw.project.save(path)
   paw.open(path)
-  local again = running(sampler.device_of(paw.tracks()[1].id))
+  local again = running(sampler.device_of(paw.parts()[1].id))
   eq(sampler.describe(again).name, "basic", "the project brings it back")
 end)
 
 test("sampler: a file that is not there, or not an instrument, is said so in a line with no stack trace", function()
-  local track, device = sampler_track("basic.sfz")
-  if not track then return device end
-  paw.cursor.set_track(track)
+  local part, device = sampler_part("basic.sfz")
+  if not part then return device end
+  paw.cursor.set_part(part)
   paw.ui.focus("arrange")
   local from = mark()
   paw.commands.exec("sampler.load " .. T.scratch .. "/nonexistent.sfz")
@@ -202,13 +202,13 @@ test("sampler: a file that is not there, or not an instrument, is said so in a l
     local path = T.scratch .. "/" .. name .. (name == "preset" and ".dspreset" or ".sfz")
     write(path, body)
     paw.commands.exec("sampler.load " .. path)
-    paw.commands.exec("sampler.track " .. path)
+    paw.commands.exec("sampler.part " .. path)
   end
-  paw.commands.exec("sampler.track " .. T.scratch .. "/nonexistent.sfz")
+  paw.commands.exec("sampler.part " .. T.scratch .. "/nonexistent.sfz")
   eq(
     paw.ui.message and paw.ui.message.text,
     "sampler: no such file: " .. T.scratch .. "/nonexistent.sfz",
-    "and when making a track"
+    "and when making a part"
   )
   local said = {}
   for _, m in ipairs(since(from)) do
@@ -220,8 +220,8 @@ test("sampler: a file that is not there, or not an instrument, is said so in a l
 end)
 
 test("sampler: an instrument heard in a trial is taken back without a trace", function()
-  local track, device = sampler_track("basic.sfz")
-  if not track then return device end
+  local part, device = sampler_part("basic.sfz")
+  if not part then return device end
   local d = paw.audition.try(function() return sampler.load(device, fixture_dir() .. "/vel.sfz") end)
   eq(d.name, "vel", "heard")
   paw.audition.stop()
@@ -232,8 +232,8 @@ end)
 test(
   "sampler: the picker lists the library, hears the instrument under the selection, and Escape puts the old one back",
   function()
-    local track, device = sampler_track("basic.sfz")
-    if not track then return device end
+    local part, device = sampler_part("basic.sfz")
+    if not part then return device end
     local before = paw.opt.sampler_libraries
     T.after(function()
       paw.opt.sampler_libraries = before

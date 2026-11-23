@@ -1,5 +1,5 @@
--- Tablature for a track marked as guitar or bass: the strings and their
--- tuning are kept in `track.meta.notation.tab` (`{ tuning = { 40, 45, ... } }`,
+-- Tablature for a part marked as guitar or bass: the strings and their
+-- tuning are kept in `part.meta.notation.tab` (`{ tuning = { 40, 45, ... } }`,
 -- lowest string first), and every written note gets a string and a fret,
 -- chosen so a chord's notes are on different strings within a hand's reach
 -- and the hand moves as little as it can. `meta.notation.string` on a note
@@ -20,9 +20,9 @@ M.TUNINGS = {
 }
 M.FRETS = 24
 
---- The tablature a track asks for: `{ tuning, capo }`, or nil.
-function M.of_track(track_id)
-  local ok, t = pcall(api.track_get, track_id)
+--- The tablature a part asks for: `{ tuning, capo }`, or nil.
+function M.of_part(part_id)
+  local ok, t = pcall(api.part_get, part_id)
   local own = ok and t.meta and type(t.meta.notation) == "table" and t.meta.notation.tab
   if type(own) == "table" and type(own.tuning) == "table" and #own.tuning > 0 then return own end
 end
@@ -130,15 +130,15 @@ function M.assign(layout, tab)
 end
 
 function M.decorate(layout, clip)
-  local tab = M.of_track(clip:get().track)
+  local tab = M.of_part(clip:get().part)
   if tab then M.assign(layout, tab) end
 end
 table.insert(view.decorators, M.decorate)
 
---- Mark a track's part as guitar or bass, with a tuning by name or by its
+--- Mark a printed part as guitar or bass, with a tuning by name or by its
 --- notes from the lowest string ("E2 A2 D3 G3 B3 E4"), or take the tab away.
-function M.set(track, words)
-  local meta = util.merge(track.meta or {}, {})
+function M.set(part, words)
+  local meta = util.merge(part.meta or {}, {})
   local own = type(meta.notation) == "table" and util.merge(meta.notation, {}) or {}
   local first = words[1]
   if first == "off" then
@@ -161,7 +161,7 @@ function M.set(track, words)
     if not own.clef then own.clef = M.is_bass(tuning) and "bass" or "treble8" end
   end
   meta.notation = next(own) and own or nil
-  track.meta = meta
+  part.meta = meta
   return own.tab
 end
 

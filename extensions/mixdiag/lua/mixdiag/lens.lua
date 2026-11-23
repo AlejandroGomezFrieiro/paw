@@ -1,6 +1,6 @@
 -- The mix findings as a language server run in this process: attached to
 -- the `mix` subject, it publishes the last measurement's findings as
--- diagnostics, each about the track it names (the master for the whole
+-- diagnostics, each about the part it names (the master for the whole
 -- mix) at the beat it names, with a fix wherever a finding says by how much
 -- to lower a fader. So `:diagnostics`, `]d`, the marks on strips and
 -- headers, and `<leader>la` agree with the mix report.
@@ -16,17 +16,17 @@ local ctx, doc
 -- A finding as a diagnostic of LSP's shape, with this program's location
 -- and fixes in `data`.
 function M.diagnostic(f)
-  local track = f.track or 0
-  local ok = pcall(paw.api.track_get, track)
-  local uri = ok and A.track(track) or A.project()
+  local part = f.part or 0
+  local ok = pcall(paw.api.part_get, part)
+  local uri = ok and A.part(part) or A.project()
   local location = { uri = uri, selector = f.beat and { time = { f.beat, f.beat } } or nil }
   local fixes = {}
   if f.lower and ok then
-    local name = paw.api.track_get(track, "name")
-    local now = paw.api.track_get(track, "volume")
+    local name = paw.api.part_get(part, "name")
+    local now = paw.api.part_get(part, "volume")
     fixes[1] = {
-      title = string.format("Lower %s by %.1f dB", track == 0 and "the master" or name, f.lower),
-      edit = { { uri = A.track(track), set = { volume = now - f.lower } } },
+      title = string.format("Lower %s by %.1f dB", part == 0 and "the master" or name, f.lower),
+      edit = { { uri = A.part(part), set = { volume = now - f.lower } } },
     }
   end
   return {

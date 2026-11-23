@@ -56,7 +56,7 @@ return {
         pc = c.root
       end
       local pitch = place(pc, ctx.range.low + 6, ctx.range.low, ctx.range.high)
-      if not pitch then return nil, "the track's range is too narrow" end
+      if not pitch then return nil, "the part's range is too narrow" end
       return { notes = { { pitch = pitch, start = from, length = to - from } } }
     end,
   },
@@ -78,7 +78,7 @@ return {
       end
       local rate = ({ grid = ctx.grid, ["1/8"] = 0.5, ["1/16"] = 0.25, ["1/4"] = 1 })[ctx.values.rate or "grid"]
       local _, pitches = ctx:chord(c.tones, from, to, { count = math.max(3, #c.tones) })
-      if not pitches then return nil, "the chord does not fit the track's range" end
+      if not pitches then return nil, "the chord does not fit the part's range" end
       local order = {}
       for i, p in ipairs(pitches) do
         order[i] = p

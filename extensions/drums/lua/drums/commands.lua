@@ -14,9 +14,9 @@ drums.open = open
 
 -- Commands --------------------------------------------------------------------
 
-command("drums.track", function(ctx)
+command("drums.part", function(ctx)
   local index = paw.cursor.index()
-  local track = drums.make_track({
+  local part = drums.make_part({
     name = ctx.args.name or ctx.args[1] and tostring(ctx.args[1]) or nil,
     map = ctx.args.map,
     kit = ctx.args.kit,
@@ -24,13 +24,13 @@ command("drums.track", function(ctx)
   })
   local bar = paw.time.bar()
   local start = math.floor(paw.cursor.beat / bar + 1e-9) * bar
-  local clip = track:add_clip({ start = start, length = bar * (tonumber(ctx.args.bars) or 1), name = "beat" })
-  paw.cursor.set_track(track)
+  local clip = part:add_clip({ start = start, length = bar * (tonumber(ctx.args.bars) or 1), name = "beat" })
+  paw.cursor.set_part(part)
   paw.cursor.set_beat(start)
   if ctx.args.open ~= false then open(clip) end
-  paw.notify("drum track " .. track.name .. ": program the beat in the grid (Enter on a cell), Ctrl-w p goes back")
+  paw.notify("drum part " .. part.name .. ": program the beat in the grid (Enter on a cell), Ctrl-w p goes back")
 end, {
-  desc = "Add a drum track with the built-in kit and a clip to program: `drums.track`, `drums.track Beat map=gm-full kit=~/samples/808`",
+  desc = "Add a drum part with the built-in kit and a clip to program: `drums.part`, `drums.part Beat map=gm-full kit=~/samples/808`",
 })
 
 local function map_items()
@@ -39,32 +39,32 @@ local function map_items()
     local def = drums.maps[name]
     items[#items + 1] = { name = name, text = string.format("%-10s %s (%d rows)", name, def.label or "", #def.rows) }
   end
-  items[#items + 1] = { name = "off", text = "off        an ordinary track again: its clips open in the piano roll" }
+  items[#items + 1] = { name = "off", text = "off        an ordinary part again: its clips open in the piano roll" }
   return items
 end
 
-local function apply_map(track, name)
+local function apply_map(part, name)
   if name == "off" or name == "none" then
-    drums.clear_map(track)
-    return paw.notify(track.name .. " is an ordinary track again")
+    drums.clear_map(part)
+    return paw.notify(part.name .. " is an ordinary part again")
   end
-  local info = drums.set_map(track, name)
-  paw.notify(string.format("%s is a drum track: map %s, %d rows", track.name, info.map, #info.rows))
+  local info = drums.set_map(part, name)
+  paw.notify(string.format("%s is a drum part: map %s, %d rows", part.name, info.map, #info.rows))
 end
 
 command("drums.map", function(ctx)
-  local track = paw.cursor.track()
-  if not track then return paw.notify("no track under the cursor", "warn") end
+  local part = paw.cursor.part()
+  if not part then return paw.notify("no part under the cursor", "warn") end
   local name = ctx.args[1] and tostring(ctx.args[1])
-  if name then return apply_map(track, name) end
+  if name then return apply_map(part, name) end
   paw.pick({
-    title = "Drum map for " .. track.name,
+    title = "Drum map for " .. part.name,
     items = map_items(),
     format = function(item) return item.text end,
-    on_choose = function(item) apply_map(track, item.name) end,
+    on_choose = function(item) apply_map(part, item.name) end,
     preview = function(item)
       local def = drums.maps[item.name]
-      if not def then return { "The track's clips open in the piano roll again." } end
+      if not def then return { "The part's clips open in the piano roll again." } end
       local lines = { { text = def.label or item.name, style = "Title" } }
       for _, row in ipairs(def.rows) do
         lines[#lines + 1] = string.format("%3d  %s", row.note, row.name)
@@ -73,7 +73,7 @@ command("drums.map", function(ctx)
     end,
   })
 end, {
-  desc = "Make the track a drum track, whatever plays it, with a drum map: `drums.map gm`, `drums.map gm-full`, `drums.map off`",
+  desc = "Make the part a drum part, whatever plays it, with a drum map: `drums.map gm`, `drums.map gm-full`, `drums.map off`",
   complete = function()
     local out = drums.map_names()
     out[#out + 1] = "off"
@@ -84,17 +84,15 @@ end, {
 command("drums.edit", function()
   local clip = paw.cursor.clip()
   if not clip then return paw.notify("no clip under the cursor", "warn") end
-  if not drums.is_drum(clip:get().track) then
-    return paw.notify("not a drum track: `:drums.map` makes it one", "warn")
-  end
+  if not drums.is_drum(clip:get().part) then return paw.notify("not a drum part: `:drums.map` makes it one", "warn") end
   open(clip)
 end, { desc = "Open the clip under the cursor in the drum grid" })
 
 command("drums.rename", function(ctx)
   local view = grid
-  local track_id = view:track_id() or (paw.cursor.track() and paw.cursor.track().id)
-  local info = track_id and drums.info(track_id)
-  if not info then return paw.notify("not on a drum track", "warn") end
+  local part_id = view:part_id() or (paw.cursor.part() and paw.cursor.part().id)
+  local info = part_id and drums.info(part_id)
+  if not info then return paw.notify("not on a drum part", "warn") end
   local piece = view:piece()
   local name = table.concat(ctx.args, " ")
   if not piece or piece.extra or name == "" then
@@ -104,31 +102,31 @@ command("drums.rename", function(ctx)
   for _, row in ipairs(rows) do
     if row.note == piece.note then row.name = name end
   end
-  drums.set_map(track_id, rows, info.map)
+  drums.set_map(part_id, rows, info.map)
 end, { desc = "Rename the drum grid's row under the cursor: `drums.rename Ghost snare`" })
 
 command("drums.kit", function(ctx)
   local kit = require("drums.kit")
   local dir = ctx.args[1] and tostring(ctx.args[1])
   if not dir then return paw.notify("drums.kit takes a folder of sound files: `drums.kit ~/samples/808`", "warn") end
-  local track = paw.cursor.track()
-  if track and drums.is_drum(track) then
-    kit.build(track, dir)
+  local part = paw.cursor.part()
+  if part and drums.is_drum(part) then
+    kit.build(part, dir)
   else
     local index = paw.cursor.index()
-    track = drums.make_track({ kit = dir, index = index and index + 1 or nil })
-    paw.cursor.set_track(track)
+    part = drums.make_part({ kit = dir, index = index and index + 1 or nil })
+    paw.cursor.set_part(part)
   end
-  local pads = kit.pads(kit.device(track))
-  paw.notify(string.format("%s plays %d samples from %s", track.name, #pads, dir))
-  if grid:clip() and grid:track_id() == track.id then api.ui_redraw() end
-end, { desc = "Play the drum track from a folder of samples, named by what they are: `drums.kit ~/samples/808`" })
+  local pads = kit.pads(kit.device(part))
+  paw.notify(string.format("%s plays %d samples from %s", part.name, #pads, dir))
+  if grid:clip() and grid:part_id() == part.id then api.ui_redraw() end
+end, { desc = "Play the drum part from a folder of samples, named by what they are: `drums.kit ~/samples/808`" })
 
 command("drums.pad", function(ctx)
   local kit = require("drums.kit")
-  local track_id = grid:track_id() or (paw.cursor.track() and paw.cursor.track().id)
-  local device = track_id and kit.device(track_id)
-  if not device then return paw.notify("the track has no kit of samples: `drums.kit <folder>` gives it one", "warn") end
+  local part_id = grid:part_id() or (paw.cursor.part() and paw.cursor.part().id)
+  local device = part_id and kit.device(part_id)
+  if not device then return paw.notify("the part has no kit of samples: `drums.kit <folder>` gives it one", "warn") end
   local piece = grid:clip() and grid:piece()
   local note = tonumber(ctx.args.note) or (piece and piece.note)
   if not note then return paw.notify("open the grid on the row to change, or give `note=`", "warn") end
@@ -141,7 +139,7 @@ command("drums.pad", function(ctx)
   paw.notify(
     string.format(
       "%s: level %g dB, pan %g, tune %g, group %d",
-      drums.piece(track_id, note),
+      drums.piece(part_id, note),
       pad.level,
       pad.pan,
       pad.tune,
@@ -183,7 +181,7 @@ command("drums.beat", function(ctx)
     format = function(item) return item.text end,
     on_choose = function(item) apply(item.name) end,
     -- Written into the clip as a trial, and its first bar played over and
-    -- over through the track; Escape gives the clip its notes back.
+    -- over through the part; Escape gives the clip its notes back.
     audition_key = "drums.beat",
     audition = function(item)
       local n, hidden = paw.audition.try(function() return beats.apply(clip, item.name) end)
@@ -195,7 +193,7 @@ command("drums.beat", function(ctx)
           notes[#notes + 1] = { pitch = note.pitch, start = note.start, length = note.length, velocity = note.velocity }
         end
       end
-      paw.audition.phrase(c.track, notes, { length = bar, at = c.start })
+      paw.audition.phrase(c.part, notes, { length = bar, at = c.start })
       return {
         label = item.name .. " · its first bar",
         keep = function() said(item.name, n, hidden or 0) end,
@@ -223,18 +221,18 @@ end, {
 -- The arrange view --------------------------------------------------------------
 
 keymap.group("<localleader>k", "drums", { view = "arrange" })
-map("<localleader>kn", "drums.track", { view = "arrange", desc = "Add a drum track" })
-map("<localleader>km", "drums.map", { view = "arrange", desc = "Choose the track's drum map" })
+map("<localleader>kn", "drums.part", { view = "arrange", desc = "Add a drum part" })
+map("<localleader>km", "drums.map", { view = "arrange", desc = "Choose the part's drum map" })
 
--- A drum track is a kind of track (`paw.track_kinds`): `:track.add drums`,
--- `:track.new` and the window's menus that make a track offer it, the
+-- A drum part is a kind of part (`paw.part_kinds`): `:part.add drums`,
+-- `:part.new` and the window's menus that make a part offer it, the
 -- header shows its `D`, and Enter (`clip.edit`) and a double click open its
 -- clips in the drum grid; other clips go to the piano roll as before.
-paw.track_kinds.define("drums", {
-  title = "Drum track",
+paw.part_kinds.define("drums", {
+  title = "Drum part",
   letter = "D",
   desc = "a kit, and a grid of its pieces by name",
-  create = function(track, args) drums.dress(track, args) end,
+  create = function(part, args) drums.dress(part, args) end,
   editor = function(clip)
     if clip:get().kind ~= "midi" then return false end
     open(clip)
@@ -244,12 +242,12 @@ paw.track_kinds.define("drums", {
     local info = drums.info(id)
     return info and (info.map .. " map") or nil
   end,
-  -- Drum tracks made before there were kinds of track keep their map.
+  -- Drum parts made before there were kinds of part keep their map.
   is = function(id) return drums.is_drum(id) end,
 })
 table.insert(paw.frontend.menus.clip, { label = "Open in the drum grid", command = "drums.edit", only = "midi" })
 table.insert(paw.frontend.menus.clip, { label = "Drum beat to start from…", command = "drums.beat", only = "midi" })
-table.insert(paw.frontend.menus.track, { label = "Drum map…", command = "drums.map" })
+table.insert(paw.frontend.menus.part, { label = "Drum map…", command = "drums.map" })
 
 -- The grid's keys -----------------------------------------------------------------
 

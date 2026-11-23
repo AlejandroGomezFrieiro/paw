@@ -200,14 +200,14 @@ plugstate.adapter(
 -- --- commands for any plugin ----------------------------------------------------------------
 
 --- The plugin device the commands act on: the one of the device panel's
---- row, else the first plugin of the cursor track.
+--- row, else the first plugin of the cursor part.
 function M.target(): integer, string
   local selected = plugstate.panel_device()
   if selected and api.device_get(selected).plugin then
     return selected
   end
-  local track = paw.cursor.track_id()
-  for _, id in ipairs(track and api.track_get(track).devices or {}) do
+  local part = paw.cursor.part_id()
+  for _, id in ipairs(part and api.part_get(part).devices or {}) do
     if api.device_get(id).plugin then
       return id
     end

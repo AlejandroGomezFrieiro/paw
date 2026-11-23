@@ -18,7 +18,7 @@ runCommand "paw-extension-utau" {
     inherit engine;
   };
   meta = {
-    description = "Singing for paw: vocal tracks sung by OpenUtau's engines";
+    description = "Singing for paw: vocal parts sung by OpenUtau's engines";
     license = lib.licenses.mit;
   };
 } ''

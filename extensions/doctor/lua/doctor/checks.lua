@@ -44,20 +44,20 @@ local function interface(device)
   return text:find("ur22", 1, true) or text:find("steinberg", 1, true)
 end
 
---- The track's peak over `ms`, read as often as the runner wakes.
-local function listen(ctx, track, ms)
+--- The part's peak over `ms`, read as often as the runner wakes.
+local function listen(ctx, part, ms)
   local peak, to = 0, api.now() + ms
   while api.now() < to do
-    local l, r = track:meter()
+    local l, r = part:meter()
     peak = math.max(peak, l or 0, r or 0)
     ctx:sleep(20)
   end
   return peak
 end
 
---- Record `seconds` on an armed track from the position `from` (in seconds).
+--- Record `seconds` on an armed part from the position `from` (in seconds).
 --- Returns the clip that came of it, and its file's name.
-local function record(ctx, track, from, seconds)
+local function record(ctx, part, from, seconds)
   local started = api.now()
   paw.transport.seek(paw.time.to_beat(from))
   ctx:cleanup(function() ctx:stop() end)
@@ -68,9 +68,9 @@ local function record(ctx, track, from, seconds)
     ctx:sleep(50)
   end
   paw.transport.stop()
-  local got = ctx:wait_for(function() return #track:clips() > 0 end, 3000)
+  local got = ctx:wait_for(function() return #part:clips() > 0 end, 3000)
   if not got then return nil, nil, dropped end
-  local clip = track:clips()[1]
+  local clip = part:clips()[1]
   return clip, clip:get().file, dropped
 end
 
@@ -237,8 +237,8 @@ return function(M)
       local e = api.engine_get()
       local path = ctx:file(ctx:dir() .. "/tone.wav")
       local total = paw.limit.unhurried(M.tone_file, path, e.sample_rate, ctx.settings.tone)
-      local track = ctx:track({ name = "doctor tone" })
-      track:add_clip({ start = 0, file = path })
+      local part = ctx:part({ name = "doctor tone" })
+      part:add_clip({ start = 0, file = path })
       if no_device(e) then
         ctx:play(0, 0.3)
         return "skip", "the null backend makes no sound to listen to"
@@ -400,10 +400,10 @@ return function(M)
       local path = ctx:file(ctx:dir() .. "/click.wav")
       click_file(path, e.sample_rate)
       local rec_from, click_at = 2, 1
-      local click = ctx:track({ name = "doctor click" })
+      local click = ctx:part({ name = "doctor click" })
       click:add_clip({ start = paw.time.to_beat(rec_from + click_at), file = path })
-      local capture = ctx:track({ name = "doctor capture", volume = -120 })
-      -- Armed, a track is heard: a loop-back must not hear itself.
+      local capture = ctx:part({ name = "doctor capture", volume = -120 })
+      -- Armed, a part is heard: a loop-back must not hear itself.
       capture.mute = true
       capture.input = spec
       capture.armed = true
@@ -469,21 +469,21 @@ return function(M)
 
   -- 5. Dropouts --------------------------------------------------------------------
 
-  --- Tracks that play a lot of synth voices: chords of six notes each beat, a
-  --- chorus and a reverb on every track.
-  local function heavy_song(ctx, tracks, beats)
-    for i = 1, tracks do
-      local track = ctx:track({ name = "doctor voices " .. i })
-      track:add_device("synth", { release = 0.5 })
-      track:add_device("chorus")
-      track:add_device("reverb")
+  --- Parts that play a lot of synth voices: chords of six notes each beat, a
+  --- chorus and a reverb on every part.
+  local function heavy_song(ctx, parts, beats)
+    for i = 1, parts do
+      local part = ctx:part({ name = "doctor voices " .. i })
+      part:add_device("synth", { release = 0.5 })
+      part:add_device("chorus")
+      part:add_device("reverb")
       local notes = {}
       for beat = 0, beats - 1 do
         for k = 0, 5 do
           notes[#notes + 1] = { pitch = 36 + i * 2 + k * 4, start = beat, length = 1.5, velocity = 80 }
         end
       end
-      track:add_clip({ start = 0, length = beats, notes = notes })
+      part:add_clip({ start = 0, length = beats, notes = notes })
     end
   end
 
@@ -566,7 +566,7 @@ return function(M)
         length * e.sample_rate,
         function(f) return 0.1 * math.sin(2 * math.pi * 220 * f / e.sample_rate) end
       )
-      local disk = ctx:track({ name = "doctor disk" })
+      local disk = ctx:part({ name = "doctor disk" })
       ctx:say("bringing the file in")
       disk:add_clip({ start = 0, file = path })
       local on_disk
@@ -704,17 +704,17 @@ return function(M)
       if not spec then return "skip", "no input is open" end
       local e = api.engine_get()
       local seconds = ctx.settings.record_seconds
-      local track = ctx:track({ name = "doctor recording" })
-      track.input = spec
-      track.mute = true
-      track.armed = true
+      local part = ctx:part({ name = "doctor recording" })
+      part.input = spec
+      part.mute = true
+      part.armed = true
       ctx:say(string.format("recording %d s from input %s: play or speak now", seconds, spec))
-      local clip, file, dropped = record(ctx, track, 0, seconds)
+      local clip, file, dropped = record(ctx, part, 0, seconds)
       if not clip then return "fail", "no take came of the recording" end
       ctx:file(file)
       local ok, info = pcall(api.sound_envelope, file)
       if not ok then return "fail", "the take cannot be read: " .. tostring(info) end
-      track.armed = false
+      part.armed = false
       local peaks = {}
       for ch, p in ipairs(info.peaks) do
         peaks[#peaks + 1] = db(p)
@@ -741,16 +741,16 @@ return function(M)
       end
 
       ctx:say("playing the take back")
-      track.mute = false
+      part.mute = false
       local played = 0
       ctx:play(0, seconds, function()
-        local l, r = track:meter()
+        local l, r = part:meter()
         played = math.max(played, l or 0, r or 0)
       end)
       ctx:measure("playback_peak", db(played))
       ctx:log("played back at " .. db(played))
       if played < SILENT and longest >= SILENT then
-        ctx:warn("the take has sound in it, but nothing was heard at the track's meter on playback")
+        ctx:warn("the take has sound in it, but nothing was heard at the part's meter on playback")
       end
       local heard
       if ctx:attended() and not no_device(e) and longest >= SILENT then
@@ -783,8 +783,8 @@ return function(M)
   end
 
   local function try_plugin(ctx, t)
-    local track = ctx:track({ name = "doctor " .. t.name })
-    local device = track:add_device(t.kind)
+    local part = ctx:part({ name = "doctor " .. t.name })
+    local device = part:add_device(t.kind)
     ctx:say("waiting for " .. t.name .. " to load")
     ctx:wait_for(function() return device.status ~= "loading" end, 50000)
     if device.status ~= "running" then
@@ -798,10 +798,10 @@ return function(M)
     local function play_notes()
       local peak = 0
       for _, pitch in ipairs({ 36, 38, 42, 48, 60 }) do
-        track:note_on(pitch, 110)
-        peak = math.max(peak, listen(ctx, track, 200))
-        track:note_off(pitch)
-        peak = math.max(peak, listen(ctx, track, ctx.settings.plugin_seconds * 1000 / 5))
+        part:note_on(pitch, 110)
+        peak = math.max(peak, listen(ctx, part, 200))
+        part:note_off(pitch)
+        peak = math.max(peak, listen(ctx, part, ctx.settings.plugin_seconds * 1000 / 5))
       end
       return peak
     end
@@ -878,7 +878,7 @@ return function(M)
             silent[#silent + 1] = t.name
             ctx:warn(
               string.format(
-                "%s (%s) made no sound for the notes it was sent. Some plugins need their editor opened once before they sound (`ge` on its track), "
+                "%s (%s) made no sound for the notes it was sent. Some plugins need their editor opened once before they sound (`ge` on its part), "
                   .. "or a sound loaded in it; an effect makes none",
                 t.name,
                 t.format

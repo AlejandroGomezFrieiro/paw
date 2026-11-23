@@ -1,15 +1,15 @@
 -- The curves under a vocal clip go where the clip goes.
 --
--- Curves are automation lanes on the parameters of the track's `utau` device
--- (see utau.notes), so they belong to the track's timeline, not to the clip.
--- This module answers every clip edit on a vocal track, inside the edit's
+-- Curves are automation lanes on the parameters of the part's `utau` device
+-- (see utau.notes), so they belong to the part's timeline, not to the clip.
+-- This module answers every clip edit on a vocal part, inside the edit's
 -- undo step, by moving the curves along:
 --
---   * a clip moved, on its track or to another vocal track: the curves
+--   * a clip moved, on its part or to another vocal part: the curves
 --     under it move with it, and the place it left is cleared;
 --   * a clip copied, duplicated or pasted: the copy gets the curves of the
 --     clip it is a copy of;
---   * a clip deleted, or moved off the vocal tracks: its curves go, and are
+--   * a clip deleted, or moved off the vocal parts: its curves go, and are
 --     kept for this session, so pasting the clip back brings them;
 --   * a clip split, trimmed or lengthened: nothing moves.
 --
@@ -24,8 +24,8 @@ local api = paw.api
 local notes = require("utau.notes")
 
 local M = {
-  known = {}, -- clip id -> { id, track, start, length, stamp, notes } as of the last turn
-  kept = {}, -- clip id -> a segment, for clips that left the vocal tracks
+  known = {}, -- clip id -> { id, part, start, length, stamp, notes } as of the last turn
+  kept = {}, -- clip id -> a segment, for clips that left the vocal parts
 }
 
 local EPS = 1e-9
@@ -42,15 +42,15 @@ function M.params(device)
   return out
 end
 
---- The MIDI clips of every vocal track, by id.
+--- The MIDI clips of every vocal part, by id.
 local function scan()
   local out = {}
-  for _, vocal in ipairs(utau().vocal_tracks()) do
-    for _, c in ipairs(api.clip_list(vocal.track)) do
+  for _, vocal in ipairs(utau().vocal_parts()) do
+    for _, c in ipairs(api.clip_list(vocal.part)) do
       if c.kind == "midi" then
         out[c.id] = {
           id = c.id,
-          track = vocal.track,
+          part = vocal.part,
           device = vocal.device,
           start = c.start,
           length = c.length,
@@ -64,12 +64,12 @@ local function scan()
   return out
 end
 
-local function track_exists(id) return id and pcall(api.track_get, id) end
+local function part_exists(id) return id and pcall(api.part_get, id) end
 
-local function lanes_of(track, device)
+local function lanes_of(part, device)
   local out = {}
-  if not track_exists(track) then return out end
-  for _, lane in ipairs(api.lane_list(track)) do
+  if not part_exists(part) then return out end
+  for _, lane in ipairs(api.lane_list(part)) do
     if lane.target == "param" and lane.device == device then out[lane.param] = lane.id end
   end
   return out
@@ -81,12 +81,12 @@ local function held(points, beat, value)
   return notes.value_at(points, beat, value)
 end
 
---- The curves between two beats of a vocal track, relative to `from`:
+--- The curves between two beats of a vocal part, relative to `from`:
 --- `{ from, length, curves = { abbr = { constant = v } or { points = ... } } }`.
-function M.extract(track, device, from, length)
+function M.extract(part, device, from, length)
   local seg = { from = from, length = length, curves = {} }
-  if not (track_exists(track) and device and pcall(api.device_get, device)) then return seg end
-  local lanes = lanes_of(track, device)
+  if not (part_exists(part) and device and pcall(api.device_get, device)) then return seg end
+  local lanes = lanes_of(part, device)
   local params = api.device_get(device).params
   for _, info in ipairs(M.params(device)) do
     local value = params[info.key] or info.default
@@ -143,11 +143,11 @@ local function same(points, value, from, curve)
   return true
 end
 
---- Write a segment's curves onto a vocal track from `at`, over `length` beats.
-function M.write(track, device, seg, at, length)
-  if not (track_exists(track) and device) then return end
+--- Write a segment's curves onto a vocal part from `at`, over `length` beats.
+function M.write(part, device, seg, at, length)
+  if not (part_exists(part) and device) then return end
   length = length or seg.length
-  local lanes = lanes_of(track, device)
+  local lanes = lanes_of(part, device)
   local params = api.device_get(device).params
   for _, info in ipairs(M.params(device)) do
     local curve = seg.curves[info.key]
@@ -159,7 +159,7 @@ function M.write(track, device, seg, at, length)
       and not (curve.constant and #points == 0 and math.abs(curve.constant - value) < 1e-9)
       and not same(points, value, at, curve)
     then
-      lane = lane or notes.lane(track, device, info.key, true)
+      lane = lane or notes.lane(part, device, info.key, true)
       local fill = {}
       if curve.constant then
         fill[1], fill[2] = { at, curve.constant }, { at + length, curve.constant }
@@ -176,22 +176,22 @@ function M.write(track, device, seg, at, length)
   end
 end
 
---- Clear the curves of a vocal track between two beats: each becomes a
+--- Clear the curves of a vocal part between two beats: each becomes a
 --- straight line between what is on either side.
-function M.clear(track, device, from, to)
-  if not track_exists(track) then return end
+function M.clear(part, device, from, to)
+  if not part_exists(part) then return end
   local params = api.device_get(device).params
   for _, info in ipairs(M.params(device)) do
-    local lane = lanes_of(track, device)[info.key]
+    local lane = lanes_of(part, device)[info.key]
     if lane and api.lane_get(lane).point_count > 0 then splice(lane, params[info.key] or info.default, from, to) end
   end
 end
 
---- The stretches of `from`..`to` that no clip of `others` on `track` covers.
-local function uncovered(track, from, to, others)
+--- The stretches of `from`..`to` that no clip of `others` on `part` covers.
+local function uncovered(part, from, to, others)
   local spans = { { from, to } }
   for _, c in pairs(others) do
-    if c.track == track then
+    if c.part == part then
       local next_spans = {}
       for _, s in ipairs(spans) do
         local a, b = c.start, c.start + c.length
@@ -235,7 +235,7 @@ function M.follow()
         gone[#gone + 1] = old
       else
         local by = shift(old, new)
-        if new.track ~= old.track or by ~= 0 then moves[#moves + 1] = { old = old, new = new, by = by } end
+        if new.part ~= old.part or by ~= 0 then moves[#moves + 1] = { old = old, new = new, by = by } end
       end
     end
     for id, new in pairs(now) do
@@ -258,16 +258,16 @@ function M.follow()
     -- Everything is read before anything is written, so that clips that
     -- trade places take their own curves.
     for _, m in ipairs(moves) do
-      m.seg = M.extract(m.old.track, m.old.device, m.old.start, m.old.length)
+      m.seg = M.extract(m.old.part, m.old.device, m.old.start, m.old.length)
     end
     for _, old in ipairs(gone) do
-      local seg = M.extract(old.track, old.device, old.start, old.length)
+      local seg = M.extract(old.part, old.device, old.start, old.length)
       if next(seg.curves) then M.kept[old.id] = seg end
     end
     for _, c in ipairs(copies) do
       local src = M.known[c.source]
       if src and now[c.source] then
-        c.seg = M.extract(src.track, src.device, src.start, src.length)
+        c.seg = M.extract(src.part, src.device, src.start, src.length)
       else
         c.seg = M.kept[c.source]
       end
@@ -276,9 +276,9 @@ function M.follow()
     -- Clear where clips were, except under clips that are there now.
     local function vacate(old)
       if not M.known[old.id] then return end
-      for _, span in ipairs(uncovered(old.track, old.start, old.start + old.length, now)) do
-        if span[2] - span[1] > EPS and track_exists(old.track) and utau().device_of(old.track) == old.device then
-          M.clear(old.track, old.device, span[1], span[2])
+      for _, span in ipairs(uncovered(old.part, old.start, old.start + old.length, now)) do
+        if span[2] - span[1] > EPS and part_exists(old.part) and utau().device_of(old.part) == old.device then
+          M.clear(old.part, old.device, span[1], span[2])
         end
       end
     end
@@ -290,11 +290,11 @@ function M.follow()
     end
 
     for _, m in ipairs(moves) do
-      M.write(m.new.track, m.new.device, m.seg, m.old.start + m.by, m.old.length)
+      M.write(m.new.part, m.new.device, m.seg, m.old.start + m.by, m.old.length)
       M.kept[m.new.id] = nil
     end
     for _, c in ipairs(copies) do
-      if c.seg then M.write(c.new.track, c.new.device, c.seg, c.new.start, math.min(c.seg.length, c.new.length)) end
+      if c.seg then M.write(c.new.part, c.new.device, c.seg, c.new.start, math.min(c.seg.length, c.new.length)) end
       if c.source == c.new.id then M.kept[c.new.id] = nil end
     end
     for _, c in ipairs(marks) do
@@ -317,7 +317,7 @@ function M.attach()
     M.follow()
   end
   paw.on("clip.*", on_change)
-  paw.on("track.*", on_change)
+  paw.on("part.*", on_change)
   paw.on("device.*", on_change)
   paw.on("project.loaded", function()
     M.kept = {}

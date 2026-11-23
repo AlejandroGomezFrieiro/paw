@@ -32,15 +32,15 @@ local function codes(clip)
   return table.concat(out, " ")
 end
 
---- A track with a synth and a clip of four notes, bound to the example map,
+--- A part with a synth and a clip of four notes, bound to the example map,
 --- open in the piano roll with the cursor on the first note.
 local function strings(notes)
   load()
   fresh()
   paw.keymap.feed("<Esc><Esc>")
-  local track = paw.add_track({ name = "Violins" })
-  track:add_device("synth")
-  local clip = track:add_clip({
+  local part = paw.add_part({ name = "Violins" })
+  part:add_device("synth")
+  local clip = part:add_clip({
     start = 0,
     length = 8,
     name = "line",
@@ -52,12 +52,12 @@ local function strings(notes)
     },
   })
   paw.flush()
-  art.bind(track.id, EXAMPLE)
+  art.bind(part.id, EXAMPLE)
   api.undo_checkpoint()
   local roll = paw.ui.views:get("pianoroll")
   roll:edit(clip)
   roll:set(67, 0)
-  return track, clip, roll
+  return part, clip, roll
 end
 
 -- Reading ------------------------------------------------------------------------------
@@ -120,18 +120,18 @@ end)
 
 -- Binding and setting ------------------------------------------------------------------------
 
-test("articulations: binding keeps the map on the track and hands the core its downgrade map", function()
-  local track = strings()
-  local info = art.info(track.id)
+test("articulations: binding keeps the map on the part and hands the core its downgrade map", function()
+  local part = strings()
+  local info = art.info(part.id)
   eq(info.map .. " " .. info.default .. " " .. info.names["11.A"], "violin-section sustain pz", "the binding")
-  local am = art.attr_map(track.id)
+  local am = art.attr_map(part.id)
   eq(
     am.send .. " " .. am.default .. " " .. am.arts["11.A"].out .. " " .. table.concat(am.chase, ","),
     "change 10.0 ks=E1 1,11,64",
     "attr_map"
   )
   paw.cmd("art.default", { "staccato" })
-  eq(art.attr_map(track.id).default, "11.0", "the default compiles into it")
+  eq(art.attr_map(part.id).default, "11.0", "the default compiles into it")
 end)
 
 test(
@@ -157,24 +157,24 @@ test(
   end
 )
 
-test("articulations: a track with no map takes codes and the words libraries use", function()
+test("articulations: a part with no map takes codes and the words libraries use", function()
   load()
   fresh()
-  local track = paw.add_track({ name = "Any" })
-  local clip = track:add_clip({ start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
+  local part = paw.add_part({ name = "Any" })
+  local clip = part:add_clip({ start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
   paw.flush()
   local roll = paw.ui.views:get("pianoroll")
   roll:edit(clip)
   roll:set(60, 0)
   paw.commands.exec("art pizz")
   eq(codes(clip), "60:11.A", "pizz is 11.A")
-  eq(art.tag_of(track.id, clip:notes()[1]), "11.A", "shown by its code")
+  eq(art.tag_of(part.id, clip:notes()[1]), "11.A", "shown by its code")
 end)
 
 -- The roll -----------------------------------------------------------------------------
 
 test("articulations: the roll labels keyswitch rows, tags notes, shows the band and the pen", function()
-  local track, _, roll = strings()
+  local part, _, roll = strings()
   paw.ui.focus("pianoroll")
   paw.commands.exec("%art stc")
   roll:set(69, 1)
@@ -191,9 +191,9 @@ test("articulations: the roll labels keyswitch rows, tags notes, shows the band 
   roll:set(30, 0)
   s = screen(120, 44)
   eq(s:find("sus", 1, true) ~= nil and s:find("hrm", 1, true) ~= nil, true, "the keyswitch rows named:\n" .. s)
-  eq(roll.row_look(40, track.id).shade, "ArtOutOfRange", "below the range")
-  eq(roll.row_look(103, track.id).shade, "ArtUncomfortable", "above the comfortable range")
-  eq(roll.row_look(28, track.id).label, "pz", "E1 is pizzicato's keyswitch")
+  eq(roll.row_look(40, part.id).shade, "ArtOutOfRange", "below the range")
+  eq(roll.row_look(103, part.id).shade, "ArtUncomfortable", "above the comfortable range")
+  eq(roll.row_look(28, part.id).label, "pz", "E1 is pizzicato's keyswitch")
   -- A window is sent the rows named as the terminal draws them.
   api.scene_forget(0)
   api.scene_roles(0, { "note" })
@@ -228,7 +228,7 @@ test("articulations: K on a note says its articulation and how it is sent", func
     text[i] = type(l) == "table" and l.text or l
   end
   eq(
-    table.concat(text, "\n"):find("none: the track's default plays, Sustain", 1, true) ~= nil,
+    table.concat(text, "\n"):find("none: the part's default plays, Sustain", 1, true) ~= nil,
     true,
     table.concat(text, "\n")
   )
@@ -278,13 +278,13 @@ test(
 )
 
 test("articulations: in insert mode \\a sets the pen", function()
-  local track = strings({})
+  local part = strings({})
   paw.ui.focus("pianoroll")
   keys("i")
   keys("\\a")
   keys("pz<CR>")
   eq(paw.keymap.mode, "i", "still entering")
-  eq(art.info(track.id).pen, "pizzicato", "the pen")
+  eq(art.info(part.id).pen, "pizzicato", "the pen")
   keys("<Esc>")
 end)
 
@@ -509,24 +509,24 @@ test(
 test("articulations: :art.import writes a map per bank, and :art.map binds one by name", function()
   load()
   fresh()
-  local track = paw.add_track({ name = "Strings" })
-  paw.cursor.set_track(track)
+  local part = paw.add_part({ name = "Strings" })
+  paw.cursor.set_part(part)
   paw.commands.exec("art.import extensions/articulations/fixtures/reaticulate/factory.reabank")
   local found = art.maps.find("spitfire-chamber-strings/basic-articulations")
   eq(found and found.name, "Basic Articulations", "found by its id")
   paw.commands.exec("art.map spitfire-chamber-strings/basic-articulations")
-  eq(art.info(track.id).map, "reaticulate/spitfire-chamber-strings/basic-articulations", "bound by the end of its id")
-  eq(art.attr_map(track.id).arts["11.A"].out, "cc32=56", "pizz by UACC")
+  eq(art.info(part.id).map, "reaticulate/spitfire-chamber-strings/basic-articulations", "bound by the end of its id")
+  eq(art.attr_map(part.id).arts["11.A"].out, "cc32=56", "pizz by UACC")
 end)
 
 -- Notation ------------------------------------------------------------------------------
 
 test("articulations: without the notation extension it works, and the score has no marks to draw", function()
   if paw.ext.loaded.notation then paw.ext.unload("notation", { force = true }) end
-  local track, clip = strings()
+  local part, clip = strings()
   eq(paw.ext.loaded.articulations.ok, true, "loaded without notation")
   eq(paw.query.marks:get("notation"), nil, "no marks of a score")
-  local map = art.map_of(track.id)
+  local map = art.map_of(part.id)
   art.set({ { clip = clip.id, place = 1 } }, { attr = map.by_id.staccato.attr })
   api.undo_checkpoint()
   local marks = paw.query.marks:get("articulations")(clip:notes()[1], clip:get())
@@ -537,9 +537,9 @@ end)
 test(
   "articulations: the score shows the articulations as marks and technique text, and marks written in it set them",
   function()
-    local track, clip = strings()
+    local part, clip = strings()
     if not package.loaded["notation.keys"] then paw.ext.load("extensions/notation") end
-    local map = art.map_of(track.id)
+    local map = art.map_of(part.id)
     art.set({ { clip = clip.id, place = 1 } }, { attr = map.by_id.staccato.attr })
     art.set({ { clip = clip.id, place = 3 }, { clip = clip.id, place = 4 } }, { attr = map.by_id.pizzicato.attr })
     api.undo_checkpoint()
@@ -570,8 +570,8 @@ test(
 -- Delays and linked controllers ------------------------------------------------------------
 
 test("articulations: delays go from the map into the downgrade map, and K says them", function()
-  local track, _, roll = strings()
-  local am = art.attr_map(track.id)
+  local part, _, roll = strings()
+  local am = art.attr_map(part.id)
   eq(
     table.concat({ am.delay, am.arts["10.2"].delay, am.arts["11.0"].delay }, " "),
     "-30 -80 -30",
@@ -642,25 +642,25 @@ test(
         "",
       }, "\n")
     )
-    local track = paw.add_track({ name = "Late" })
-    track:add_device("lua:late")
+    local part = paw.add_part({ name = "Late" })
+    part:add_device("lua:late")
     paw.flush()
     art.maps.forget()
-    art.bind(track.id, file)
+    art.bind(part.id, file)
     api.undo_checkpoint()
-    paw.cursor.set_track(track)
+    paw.cursor.set_part(part)
     local measure = require("articulations.measure")
-    local results = measure.measure(track.id)
+    local results = measure.measure(part.id)
     -- To the millisecond block the onset falls in: one either way.
     for i, want in ipairs({ 0, 20, 40 }) do
       T.near(results[i].onset or -100, want, 1, results[i].art.id .. "'s onset in ms")
     end
-    eq(#api.clip_list(track.id), 0, "the rendering left nothing behind")
+    eq(#api.clip_list(part.id), 0, "the rendering left nothing behind")
     paw.commands.exec("art.measure")
     paw.ui.close()
     paw.commands.exec("art.measure!")
     local text = T.read_file(file)
-    local sent = art.attr_map(track.id).arts
+    local sent = art.attr_map(part.id).arts
     T.near(sent["11.0"].delay, -20, 1, "staccato's delay sent")
     local function written(code) return 'delay = "' .. art.maps.delay_text(sent[code].delay) .. '" }' end
     eq(text:find('staccato = { m2 = "11.0", out = "ks=C#1", ' .. written("11.0"), 1, true) ~= nil, true, text)
@@ -674,9 +674,9 @@ test(
 )
 
 test("articulations: linked controllers are one lane, written through their curves into every controller", function()
-  local track, clip = strings()
+  local part, clip = strings()
   local linked = require("articulations.linked")
-  local entry = linked.entry(track.id)
+  local entry = linked.entry(part.id)
   eq(entry.id .. " " .. table.concat(entry.cc, ","), "dynamics 1,11", "from the map")
   local t = assert(paw.curves.target(linked.uri(clip.id, entry)))
   eq(t.name(), "Dynamics (CC1 CC11) · line", "one lane")
@@ -706,8 +706,8 @@ test("articulations: linked controllers are one lane, written through their curv
 end)
 
 test("articulations: K on a note with an articulation says it once, in the map's words or the attribute's", function()
-  local track, clip, roll = strings()
-  local map = art.map_of(track.id)
+  local part, clip, roll = strings()
+  local map = art.map_of(part.id)
   art.set({ { clip = clip.id, place = 1 } }, { attr = map.by_id.staccato.attr })
   api.undo_checkpoint()
   roll:set(67, 0)
@@ -722,7 +722,7 @@ test("articulations: K on a note with an articulation says it once, in the map's
   local lines = said()
   eq(#lines, 1, "one line about it with a map: " .. table.concat(lines, " | "))
   eq(lines[1]:find(map.by_id.staccato.name, 1, true) ~= nil, true, "the map's name for it")
-  art.unbind(track.id)
+  art.unbind(part.id)
   api.undo_checkpoint()
   lines = said()
   eq(#lines, 1, "and one without: " .. table.concat(lines, " | "))
@@ -733,14 +733,14 @@ end)
 test("articulations: every map shipped with paw reads, and the core takes what it sends", function()
   load()
   fresh()
-  local track = paw.add_track({ name = "Any" })
+  local part = paw.add_part({ name = "Any" })
   paw.flush()
   local n = 0
   for _, f in ipairs(art.maps.list()) do
     if f.file:find("extensions/articulations/articulations/", 1, true) then
       local map, err = art.maps.load(f.file, f.id)
       eq(err, nil, f.id .. " reads")
-      local ok, why = pcall(api.track_set, track.id, "attr_map", art.compile(map))
+      local ok, why = pcall(api.part_set, part.id, "attr_map", art.compile(map))
       eq(ok, true, f.id .. ": the core takes its downgrade map: " .. tostring(why))
       n = n + 1
     end
@@ -751,8 +751,8 @@ end)
 test(
   "articulations: a plugin's map binds itself, names keys as its vendor does, and :art.shift moves its keyswitches",
   function()
-    local track, clip, roll = strings()
-    art.unbind(track.id)
+    local part, clip, roll = strings()
+    art.unbind(part.id)
     api.undo_checkpoint()
     local commands = require("articulations.commands")
     -- What device_get says of MODO BASS 2 through yabridge.
@@ -761,13 +761,13 @@ test(
       plugin = { format = "vst3", id = "ABCDEF0123", name = "MODO BASS 2", vendor = "IK Multimedia" },
     }
     eq(art.maps.plugin_matches("clap:MODO BASS 2", modo), false, "another format does not match")
-    commands.auto_map(track.id, modo)
-    eq(commands.auto_map(track.id, modo), nil, "a track with a map keeps it")
+    commands.auto_map(part.id, modo)
+    eq(commands.auto_map(part.id, modo), nil, "a part with a map keeps it")
     paw.ui.focus("pianoroll")
     keys("u")
-    eq(art.info(track.id), nil, "the binding is its own undo step")
+    eq(art.info(part.id), nil, "the binding is its own undo step")
     keys(":art.map sine-cc<CR>")
-    eq(art.attr_map(track.id).arts["11.A"].out, "cc58=71", "a range of values sends its middle")
+    eq(art.attr_map(part.id).arts["11.A"].out, "cc58=71", "a range of values sends its middle")
 
     -- A vendor whose middle C is C3: its C0 is paw's C1.
     local file = T.scratch .. "/c3.art.toml"
@@ -777,12 +777,12 @@ test(
     )
     art.maps.forget()
     keys(":art.map " .. file .. "<CR>")
-    eq(art.attr_map(track.id).arts["11.A"].out, "ks=D1:127", "sent in paw's names")
-    eq(table.concat(art.map_of(track.id).range, "-"), "60-96", "its range read the same way")
+    eq(art.attr_map(part.id).arts["11.A"].out, "ks=D1:127", "sent in paw's names")
+    eq(table.concat(art.map_of(part.id).range, "-"), "60-96", "its range read the same way")
     roll:set(67, 0)
     keys(":art pizzicato<CR>")
     keys(":art.shift -2<CR>")
-    eq(art.attr_map(track.id).arts["11.A"].out, "ks=C1:127", "shifted two keys down")
+    eq(art.attr_map(part.id).arts["11.A"].out, "ks=C1:127", "shifted two keys down")
     local text = {}
     for i, l in ipairs(roll:describe()) do
       text[i] = type(l) == "table" and l.text or l
@@ -793,14 +793,14 @@ test(
       table.concat(text, "\n")
     )
     keys("u")
-    eq(art.attr_map(track.id).arts["11.A"].out, "ks=D1:127", "u takes the shift back")
+    eq(art.attr_map(part.id).arts["11.A"].out, "ks=D1:127", "u takes the shift back")
     eq(codes(clip):sub(1, 7), "67:11.A", "and leaves the note")
   end
 )
 
 test("articulations: :art.from-keyswitches reads a controller whose values choose articulations, by ranges", function()
-  local track, clip = strings()
-  art.bind(track.id, "sine-cc")
+  local part, clip = strings()
+  art.bind(part.id, "sine-cc")
   api.undo_checkpoint()
   clip:set_controls({
     { start = 0, type = "cc", number = 58, value = 70 / 127 }, -- pizzicato, 64-79
@@ -819,7 +819,7 @@ test("articulations: a in insert mode gives the note under the pencil an articul
   keys("iastaccato<CR><Esc>")
   eq(
     codes(clip):match("^%S+"),
-    "67:" .. art.m2.code(art.lookup(art.map_of(clip:get().track), "staccato").attr),
+    "67:" .. art.m2.code(art.lookup(art.map_of(clip:get().part), "staccato").attr),
     "the first note, by the map's name"
   )
   keys("u")

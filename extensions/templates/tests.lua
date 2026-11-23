@@ -18,32 +18,32 @@ end
 
 local function order()
   local out = {}
-  for i, track in ipairs(paw.tracks()) do
-    out[i] = string.rep(">", paw.groups.depth(track.id)) .. track.name
+  for i, part in ipairs(paw.parts()) do
+    out[i] = string.rep(">", paw.groups.depth(part.id)) .. part.name
   end
   return table.concat(out, " ")
 end
 
-test("templates: a track comes back with its devices and settings, in another project", function()
+test("templates: a part comes back with its devices and settings, in another project", function()
   fresh()
   load()
-  local bus = paw.add_track({ name = "Bus" })
-  local track = paw.add_track({ name = "Lead", volume = -7, pan = 0.25 })
-  track:add_device("synth", { cutoff = 900 })
-  track:add_device("delay", { mix = 0.4 })
-  track.output = bus
-  track:send(bus, -12)
-  track:add_clip({ start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
-  track:devices()[1]:automate("cutoff"):set_points({ { 0, 500 }, { 4, 1500 } })
-  local path = templates.save_track(track, "Lead sound")
-  eq(path, T.scratch .. "/templates/track/Lead sound.json", "the template is a file under its name")
-  eq(#templates.list("track") .. " " .. templates.list()[1].name, "1 Lead sound", "and is listed")
+  local bus = paw.add_part({ name = "Bus" })
+  local part = paw.add_part({ name = "Lead", volume = -7, pan = 0.25 })
+  part:add_device("synth", { cutoff = 900 })
+  part:add_device("delay", { mix = 0.4 })
+  part.output = bus
+  part:send(bus, -12)
+  part:add_clip({ start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
+  part:devices()[1]:automate("cutoff"):set_points({ { 0, 500 }, { 4, 1500 } })
+  local path = templates.save_part(part, "Lead sound")
+  eq(path, T.scratch .. "/templates/part/Lead sound.json", "the template is a file under its name")
+  eq(#templates.list("part") .. " " .. templates.list()[1].name, "1 Lead sound", "and is listed")
 
   fresh()
-  paw.add_track({ name = "First" })
+  paw.add_part({ name = "First" })
   local made = templates.load("Lead sound")
-  eq(made.name .. " " .. made.volume .. " " .. made.pan, "Lead -7 0.25", "the track is made again with its settings")
-  eq(order(), "First Lead", "below the cursor track")
+  eq(made.name .. " " .. made.volume .. " " .. made.pan, "Lead -7 0.25", "the part is made again with its settings")
+  eq(order(), "First Lead", "below the cursor part")
   local devices = made:devices()
   eq(
     #devices .. " " .. devices[1].kind .. " " .. devices[1].params.cutoff,
@@ -57,64 +57,60 @@ test("templates: a track comes back with its devices and settings, in another pr
     "nil 0",
     "nor where it played into: that belonged to the other project"
   )
-  templates.save_track(paw.tracks()[1], "With music", { clips = true })
+  templates.save_part(paw.parts()[1], "With music", { clips = true })
   eq(templates.delete("Lead sound"), true, "a template is deleted")
-  eq(#templates.list("track"), 1, "and gone from the list")
+  eq(#templates.list("part"), 1, "and gone from the list")
   T.fails(function() templates.load("Lead sound") end, "no template", "a template that is not there")
 end)
 
-test("templates: a chain of devices is added to another track", function()
+test("templates: a chain of devices is added to another part", function()
   fresh()
   load()
-  local a = paw.add_track({ name = "Vocal" })
+  local a = paw.add_part({ name = "Vocal" })
   a:add_device("gain", { gain = -3 })
   a:add_device("delay", { time = 0.25 })
   templates.save_fx(a, "Vocal chain")
-  local b = paw.add_track({ name = "Other" })
+  local b = paw.add_part({ name = "Other" })
   b:add_device("limiter")
-  paw.cursor.set_track(b)
+  paw.cursor.set_part(b)
   paw.cmd("template.load", { "vocal ch" })
   local kinds = {}
   for i, d in ipairs(b:devices()) do
     kinds[i] = d.kind
   end
-  eq(table.concat(kinds, " "), "limiter gain delay", "the chain is added after what the track has")
+  eq(table.concat(kinds, " "), "limiter gain delay", "the chain is added after what the part has")
   eq(b:devices()[2].params.gain, -3, "with its settings")
   T.fails(
-    function() templates.save_fx(paw.add_track({ name = "Empty" }), "Nothing") end,
+    function() templates.save_fx(paw.add_part({ name = "Empty" }), "Nothing") end,
     "no devices",
     "a chain of nothing"
   )
 end)
 
-test("templates: a group comes back with every track in it", function()
+test("templates: a group comes back with every part in it", function()
   fresh()
   load()
   local names = { "Violins", "Violas", "Cellos" }
   local members = {}
   for i, name in ipairs(names) do
-    members[i] = paw.add_track({ name = name })
+    members[i] = paw.add_part({ name = name })
     members[i]:add_device("synth")
   end
   local strings = paw.groups.make(members, "Strings")
   strings:add_device("limiter")
   paw.groups.make({ members[1] }, "Firsts")
   eq(order(), "Strings >Firsts >>Violins >Violas >Cellos", "a group with a group inside")
-  paw.cursor.set_track(strings)
+  paw.cursor.set_part(strings)
   paw.cmd("template.save", { "String section" })
-  eq(templates.list("group")[1].name, "String section", "saving a group's track saves the group")
+  eq(templates.list("group")[1].name, "String section", "saving a group's part saves the group")
 
   fresh()
-  paw.add_track({ name = "Piano" })
+  paw.add_part({ name = "Piano" })
   local made = templates.load("String section")
-  eq(
-    order(),
-    "Piano Strings >Firsts >>Violins >Violas >Cellos",
-    "the whole group is made again, under the cursor track"
-  )
+  eq(order(), "Piano Strings >Firsts >>Violins >Violas >Cellos", "the whole group is made again, under the cursor part")
   eq(made:devices()[1].kind, "limiter", "the group's own devices with it")
-  local violas = paw.track("Violas")
-  eq(violas.output, made.id, "and its tracks play into it")
+  local violas = paw.part("Violas")
+  eq(violas.output, made.id, "and its parts play into it")
   eq(violas:devices()[1].kind, "synth", "each with its devices")
 end)
 
@@ -125,7 +121,7 @@ test("templates: the window's menus offer them", function()
   for _, entry in ipairs(paw.frontend.menus.timeline) do
     labels[entry.label] = true
   end
-  for _, entry in ipairs(paw.frontend.menus.track) do
+  for _, entry in ipairs(paw.frontend.menus.part) do
     labels[entry.label] = true
   end
   eq(
@@ -134,7 +130,7 @@ test("templates: the window's menus offer them", function()
       and labels["Save its devices as a chain…"]
       and labels["Add devices from a template…"],
     true,
-    "making and saving are in the track button's menu and a track's own"
+    "making and saving are in the part button's menu and a part's own"
   )
 end)
 
@@ -143,24 +139,24 @@ test(
   function()
     fresh()
     load()
-    local track = paw.add_track({ name = "Pad", volume = -3 })
-    paw.cursor.set_track(track)
+    local part = paw.add_part({ name = "Pad", volume = -3 })
+    paw.cursor.set_part(part)
     paw.ui.focus("arrange")
     T.keys(":template.save Keep me<CR>")
     eq(paw.ui.message.text:find("saved as a template", 1, true) ~= nil, true, "saved: " .. paw.ui.message.text)
-    track.volume = -9
+    part.volume = -9
     T.keys(":template.save Keep me<CR>")
     T.keys("n<CR>")
     eq(paw.ui.message.text, "nothing saved: the template “Keep me” stays as it was", "n keeps the old one")
     fresh()
     eq(templates.load("Keep me").volume, -3, "as it was")
-    local again = paw.add_track({ name = "Pad", volume = -9 })
-    paw.cursor.set_track(again)
+    local again = paw.add_part({ name = "Pad", volume = -9 })
+    paw.cursor.set_part(again)
     T.keys(":template.save Keep me<CR>y<CR>")
     eq(paw.ui.message.text:find("saved as a template", 1, true) ~= nil, true, "y replaces it")
     fresh()
     eq(templates.load("Keep me").volume, -9, "with the new settings")
-    paw.cursor.set_track(paw.tracks()[1])
+    paw.cursor.set_part(paw.parts()[1])
     T.keys(":template.save<CR><C-u><CR>")
     eq(paw.ui.message.text, "no name given: nothing saved", "an empty name")
     T.keys(":template.save Bass/Sub<CR>")
@@ -176,11 +172,11 @@ test(
 test("templates: the path a template is saved to is said from ~ when it is under the home directory", function()
   fresh()
   load()
-  local track = paw.add_track({ name = "Pad" })
-  paw.cursor.set_track(track)
+  local part = paw.add_part({ name = "Pad" })
+  paw.cursor.set_part(part)
   paw.ui.focus("arrange")
   -- The templates are in T.scratch/templates (see load).
   T.home(T.scratch)
   T.keys(":template.save Home path<CR>")
-  eq(paw.ui.message.text, "track “Home path” saved as a template (~/templates/track/Home path.json)", "the message")
+  eq(paw.ui.message.text, "part “Home path” saved as a template (~/templates/part/Home path.json)", "the message")
 end)

@@ -6,7 +6,7 @@
 --            set to and, for the tracker, what it is doing
 --   settings one row each: drag a slider, click a switch, click a box to
 --            choose or type; double click a slider for its usual value
---   bottom   what the tracker says, and a track that takes the input
+--   bottom   what the tracker says, and a part that takes the input
 --
 -- Every key of the terminal panel works in the window too.
 local util = paw.util
@@ -142,7 +142,7 @@ local function paint_chain(g, w, input, status)
         bw,
         stage.title,
         input.name,
-        "tracks take it as MIDI",
+        "parts take it as MIDI",
         c.select,
         { down = function() commands.activate({ input = input, name = true }) end }
       )
@@ -231,7 +231,7 @@ local function paint_setting(g, w, y, input, setting, chosen, index)
     })
     x = x + bw + 16
   end
-  local help = setting and setting.help or "the MIDI port tracks take; renaming it takes the tracks along"
+  local help = setting and setting.help or "the MIDI port parts take; renaming it takes the parts along"
   if w - x - PAD > 60 then g:text(x, y + 9, help, { color = c.text_3, size = 11, width = w - x - PAD }) end
 end
 
@@ -306,7 +306,7 @@ function view:paint(g, ctx)
     g:text(
       PAD + 8,
       TOP + 68,
-      "A virtual input turns something else into an input a track can take.",
+      "A virtual input turns something else into an input a part can take.",
       { color = c.text_2 }
     )
     g:text(
@@ -344,7 +344,7 @@ function view:paint(g, ctx)
     end
   end
 
-  -- What the tracker says, and a track for the input.
+  -- What the tracker says, and a part for the input.
   g:rect(0, h - BOTTOM, w, BOTTOM, { fill = c.panel })
   local colour = state_colour[status.state] or c.select
   g:rect(PAD, h - BOTTOM + 15, 10, 10, { fill = input.on and colour or c.text_3, radius = 5 })
@@ -358,9 +358,9 @@ function view:paint(g, ctx)
     said,
     { color = status.state == "failed" and c.error or c.text, width = w - 2 * PAD - 230 }
   )
-  button(g, w - PAD - 190, h - BOTTOM + 8, "New track from this input", function()
-    local track = vinput.make_track(input.name)
-    paw.notify("track “" .. track.name .. "” plays what “" .. input.name .. "” hears")
+  button(g, w - PAD - 190, h - BOTTOM + 8, "New part from this input", function()
+    local part = vinput.make_part(input.name)
+    paw.notify("part “" .. part.name .. "” plays what “" .. input.name .. "” hears")
   end, { width = 190 })
 
   if gui.list and vinput.get(gui.list.input) then

@@ -122,17 +122,17 @@ require("tutor").register({
   idea = [[The idea behind the keys.]],    -- optional
   vim = [[Where this differs from Vim.]],  -- optional
   setup = function(look)                   -- makes the practice project, with the public API
-    local t = paw.add_track({ name = "Drums" })
+    local t = paw.add_part({ name = "Drums" })
     t:add_device("drums")
   end,
-  at = function(look) paw.cursor.set_track(paw.track("Drums")) end,   -- optional: where to start
+  at = function(look) paw.cursor.set_part(paw.part("Drums")) end,   -- optional: where to start
   steps = {
     {
-      say = "Press `o` to add a track.",   -- one or two sentences, with every key in backticks
+      say = "Press `o` to add a part.",   -- one or two sentences, with every key in backticks
       keys = { "o" },                     -- exactly what the learner types, for the tests
-      start = function(ctx, look) ctx.tracks = #paw.tracks() end,      -- optional
-      check = function(ctx, look) return #paw.tracks() == ctx.tracks + 1 end,
-      done = "A new track.",              -- said when it is done
+      start = function(ctx, look) ctx.parts = #paw.parts() end,      -- optional
+      check = function(ctx, look) return #paw.parts() == ctx.parts + 1 end,
+      done = "A new part.",              -- said when it is done
       hint = "`o` is a small o.",         -- optional, for `,hh`
     },
   },
@@ -152,8 +152,8 @@ after the step started. `look` reads the table:
 | `said(ctx, "text")` | true when a message with the text showed |
 | `played(ctx)` | true when the transport played and stopped |
 | `became(ctx, "name", condition)` | true when the condition is true after it was false, for an end state that can already be true |
-| `names(track)`, `layout(track)`, `clips(track)`, `clip(track, name)`, `melody(clip)` | what a track or a clip holds, as text |
-| `cursor_track()`, `focused()`, `mode()`, `float()`, `visible(view)`, `roll()`, `device(track, kind)`, `param(device, key)`, `register(name)` | where the learner is |
+| `names(part)`, `layout(part)`, `clips(part)`, `clip(part, name)`, `melody(clip)` | what a part or a clip holds, as text |
+| `cursor_part()`, `focused()`, `mode()`, `float()`, `visible(view)`, `roll()`, `device(part, kind)`, `param(device, key)`, `register(name)` | where the learner is |
 | `notes("C4:0:1 E4:1:1")`, `drums(rows, bars)`, `beat`, `pulse(pitch, beats)`, `chord(pitches, beats)` | helpers for `setup` |
 
 A check must not be true before the step is done, even when the learner
@@ -275,18 +275,18 @@ row gives the lesson and a change that would help a new user.
 | Lesson | What occurs | What would help |
 | --- | --- | --- |
 | 12 | After `<Space><Space>` stops a take, record mode stays on (`rec` lit), the next `R` stops record mode, and the next `<Space><Space>` records again, so the lesson must teach `R` then `<Space><Space>` | Stop record mode when the transport stops, or make `R` always start a take when stopped |
-| 9 | The device panel keeps its row when the track changes, so `<Space>dd` can open on a row of the list of another device | Start at the top for a new track |
+| 9 | The device panel keeps its row when the part changes, so `<Space>dd` can open on a row of the list of another device | Start at the top for a new part |
 | 3, 10 | Prompts have text in them (`grn` with the old name, `A` with the current value), and new text goes at the end, so the lesson must teach `<C-u>` first | The first key replaces the text, as in the lyric prompt of the vocal editor |
 | 4 | The note length set with a digit in insert mode stays for the session, across clips, and it is also the length that `<CR>` gives a new note in normal mode, but nothing shows it outside insert mode | Reset it when insert mode ends, or always show it in the title row of the piano roll |
-| 3 | A clip made with `i` `m` has the name `midi` | No name, or the name of the track |
+| 3 | A clip made with `i` `m` has the name `midi` | No name, or the name of the part |
 | 3, 4 | `a` adds a device in the arrange view but appends notes in the piano roll, while a user of Vim expects "append" in both | Say so in `?`, or move "add device" to another key |
-| 5, 7 | Mute has four keys with two meanings: `M` the track, `~` the clip, `gc` clips and `gcc` the track. and `~` on a `V` selection mutes the tracks, but on a `v` selection it mutes the clips | One rule: `gc` for clips, `M` for tracks, everywhere |
+| 5, 7 | Mute has four keys with two meanings: `M` the part, `~` the clip, `gc` clips and `gcc` the part. and `~` on a `V` selection mutes the parts, but on a `v` selection it mutes the clips | One rule: `gc` for clips, `M` for parts, everywhere |
 | 6 | `dw` from a gap deletes nothing (a note belongs to its start), so `.` after a move into a gap does nothing, with no message | A message when the region of an operator is empty |
 | 2 | Many terminals and tmux cannot tell `<S-CR>` (play from the playhead) from Enter | A second key, such as `g<Space>` |
 | 13 | `:w name` is the `:saveas` of Vim, so the project moves to the new file, while a user of Vim expects a copy, which only `:export project copy/` writes | `:w name` for a copy, as in Vim |
 | 14 | Key hints group `grn` and `grc` as `r +2 more` under `g` and hide the rename keys | List the keys of the group when there are few |
 | none | `command.pre` and `command.post` carry the alias typed (`q`, `w`) and not the command (`quit`, `write`), so an extension that listens for `quit` does not see `:q` | Add the name of the command to the event |
-| none | In a script, `paw.project.save` while an undo step is open counts later edits of that step as saved (`modified` is false after a track is added) | Close the open step before the save |
+| none | In a script, `paw.project.save` while an undo step is open counts later edits of that step as saved (`modified` is false after a part is added) | Close the open step before the save |
 
 ## About
 

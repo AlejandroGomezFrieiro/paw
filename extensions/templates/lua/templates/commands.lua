@@ -45,37 +45,37 @@ end
 command(
   "template.save",
   function(ctx)
-    local track = paw.cursor.track()
-    if not track then return paw.notify("no track to save", "warn") end
-    local group = paw.groups.is_group(track.id)
-    named(ctx.args[1], track.name, function(name)
+    local part = paw.cursor.part()
+    if not part then return paw.notify("no part to save", "warn") end
+    local group = paw.groups.is_group(part.id)
+    named(ctx.args[1], part.name, function(name)
       saving(
-        group and "group" or "track",
+        group and "group" or "part",
         name,
-        function(n) return (group and templates.save_group or templates.save_track)(track, n) end,
+        function(n) return (group and templates.save_group or templates.save_part)(part, n) end,
         function(kept, path)
-          return string.format("%s “%s” saved as a template (%s)", group and "group" or "track", kept, path)
+          return string.format("%s “%s” saved as a template (%s)", group and "group" or "part", kept, path)
         end
       )
     end)
   end,
-  { desc = "Save the track as a template, or the group with every track in it: `template.save Lead vocal`", raw = true }
+  { desc = "Save the part as a template, or the group with every part in it: `template.save Lead vocal`", raw = true }
 )
 
 command("template.fx", function(ctx)
-  local track = paw.cursor.track()
-  if not track then return paw.notify("no track", "warn") end
-  named(ctx.args[1], track.name .. " chain", function(name)
+  local part = paw.cursor.part()
+  if not part then return paw.notify("no part", "warn") end
+  named(ctx.args[1], part.name .. " chain", function(name)
     saving(
       "fx",
       name,
-      function(n) return templates.save_fx(track, n) end,
+      function(n) return templates.save_fx(part, n) end,
       function(kept, path)
-        return string.format("the devices of “%s” saved as the chain “%s” (%s)", track.name, kept, path)
+        return string.format("the devices of “%s” saved as the chain “%s” (%s)", part.name, kept, path)
       end
     )
   end)
-end, { desc = "Save the track's devices as a chain to add elsewhere: `template.fx Vocal chain`", raw = true })
+end, { desc = "Save the part's devices as a chain to add elsewhere: `template.fx Vocal chain`", raw = true })
 
 --- Make a template again and say what was made.
 local function load(name, kind)
@@ -84,7 +84,7 @@ local function load(name, kind)
   if was == "fx" then
     paw.notify(#made .. (#made == 1 and " device" or " devices") .. " added from “" .. name .. "”")
   else
-    paw.notify((was == "group" and "group “" or "track “") .. made.name .. "” made from a template")
+    paw.notify((was == "group" and "group “" or "part “") .. made.name .. "” made from a template")
   end
 end
 
@@ -92,7 +92,7 @@ end
 local function pick(kind, on_choose)
   local items = templates.list(kind)
   if #items == 0 then
-    return paw.notify("no templates yet: `:template.save` saves the track, `:template.fx` its devices", "warn")
+    return paw.notify("no templates yet: `:template.save` saves the part, `:template.fx` its devices", "warn")
   end
   paw.pick({
     title = "Templates",
@@ -107,7 +107,7 @@ command("template.load", function(ctx)
   if name and name ~= "" then return load(name) end
   pick(nil, function(item) load(item.name, item.kind) end)
 end, {
-  desc = "Make a template again: a track or group below the cursor track, a chain on it. `template.load Lead vocal`; alone, choose from a list",
+  desc = "Make a template again: a part or group below the cursor part, a chain on it. `template.load Lead vocal`; alone, choose from a list",
   raw = true,
   complete = function()
     local names = {}
@@ -155,16 +155,16 @@ paw.keymap.group("<localleader>T", "templates", { view = "arrange" })
 paw.keymap.set(
   "<localleader>Tl",
   "template.load",
-  { view = "arrange", desc = "Make a track, group or chain from a template" }
+  { view = "arrange", desc = "Make a part, group or chain from a template" }
 )
-paw.keymap.set("<localleader>Ts", "template.save", { view = "arrange", desc = "Save the track or group as a template" })
-paw.keymap.set("<localleader>Tf", "template.fx", { view = "arrange", desc = "Save the track's devices as a chain" })
+paw.keymap.set("<localleader>Ts", "template.save", { view = "arrange", desc = "Save the part or group as a template" })
+paw.keymap.set("<localleader>Tf", "template.fx", { view = "arrange", desc = "Save the part's devices as a chain" })
 
 -- In the window's menus.
 table.insert(paw.frontend.menus.timeline, { label = "From a template…", command = "template.load" })
-table.insert(paw.frontend.menus.track, { label = "Save as a template…", command = "template.save" })
-table.insert(paw.frontend.menus.track, { label = "Save its devices as a chain…", command = "template.fx" })
-table.insert(paw.frontend.menus.track, {
+table.insert(paw.frontend.menus.part, { label = "Save as a template…", command = "template.save" })
+table.insert(paw.frontend.menus.part, { label = "Save its devices as a chain…", command = "template.fx" })
+table.insert(paw.frontend.menus.part, {
   label = "Add devices from a template…",
   run = function()
     pick("fx", function(item) load(item.name, "fx") end)

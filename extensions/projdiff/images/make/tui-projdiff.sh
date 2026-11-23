@@ -1,5 +1,5 @@
 #!/bin/sh
-# :Pdiff on the demo song saved and then edited: the melody moved, a track
+# :Pdiff on the demo song saved and then edited: the melody moved, a part
 # renamed and turned down, notes changed; the changes as a folded text, and
 # Enter going to one.
 . "$MAKE/rig.sh"
@@ -9,8 +9,8 @@ term_start
 key j w; pause 0.4
 TYPE_DELAY=60 typ "2>ic"; pause 0.3
 key colon; TYPE_DELAY=40 typ "%s/e5/g5/g"; key Return; pause 0.3
-key colon; TYPE_DELAY=40 typ "track.rename Melody"; key Return; pause 0.3
-ctl "paw.tracks()[2].volume = -8" >/dev/null; pause 0.5
+key colon; TYPE_DELAY=40 typ "part.rename Melody"; key Return; pause 0.3
+ctl "paw.parts()[2].volume = -8" >/dev/null; pause 0.5
 rec_start tui-projdiff
 cap ":Pdiff compares the project with its file as saved, by what is in it"
 pause 0.5; key colon; TYPE_DELAY=110 typ "Pdiff"; key Return; pause 2.0

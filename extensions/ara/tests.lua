@@ -59,28 +59,28 @@ local function bursts(path, rate)
   )
 end
 
---- A track with the bursts as a clip from beat 0, quiet in paw (its gain
+--- A part with the bursts as a clip from beat 0, quiet in paw (its gain
 --- at -60 dB), so that what sounds loud was read by the plugin.
-local function vocal_track()
+local function vocal_part()
   local rate = api.engine_get().sample_rate or 48000
   local file = T.scratch .. "/bursts.wav"
   bursts(file, rate)
-  local track = paw.add_track({ name = "Vox" })
-  local clip = track:add_clip({ file = file, start = 0, gain = -60 })
-  return track, clip
+  local part = paw.add_part({ name = "Vox" })
+  local clip = part:add_clip({ file = file, start = 0, gain = -60 })
+  return part, clip
 end
 
-test("ara: \\aa puts the ARA plugin on the track, and a render plays the clip as the plugin read it", function()
+test("ara: \\aa puts the ARA plugin on the part, and a render plays the clip as the plugin read it", function()
   local a, why = ready()
   if not a then return why end
   fresh()
-  local track, clip = vocal_track()
+  local part, clip = vocal_part()
   paw.ui.focus("arrange")
-  paw.cursor.set_track(track.id)
+  paw.cursor.set_part(part.id)
   T.keys(paw.opt.localleader .. "aa")
   T.keys("<CR>")
-  local devices = a.devices(track.id)
-  eq(#devices, 1, "the plugin is on the track")
+  local devices = a.devices(part.id)
+  eq(#devices, 1, "the plugin is on the part")
   eq(#a.status(devices[1]).clips, 1, "with the clip")
   local info = T.render({ ["end"] = 4, tail = 0, bits = 16 })
   local loud = T.channel_peaks(info, 0, 0.25)
@@ -103,27 +103,27 @@ test("ara: a plugin that is not ARA is refused and leaves no undo step", functio
   local a, why = ready()
   if not a then return why end
   fresh()
-  local track = paw.add_track({ name = "Keys" })
+  local part = paw.add_part({ name = "Keys" })
   api.undo_checkpoint()
   local before = api.undo_current()
-  local id, err = a.add(track.id, "synth")
+  local id, err = a.add(part.id, "synth")
   eq(id, nil, "not added")
   eq(err:find("not an ARA plugin", 1, true) ~= nil, true, "says why")
   eq(api.undo_current(), before, "no undo step")
-  eq(#api.track_get(track.id).devices, 0, "the chain is as it was")
+  eq(#api.part_get(part.id).devices, 0, "the chain is as it was")
 end)
 
 test("ara: the plugin's archive is saved beside its state and given back when the project opens", function()
   local a, why = ready()
   if not a then return why end
   fresh()
-  local track = vocal_track()
-  local device = assert(a.add(track.id, KIND))
+  local part = vocal_part()
+  local device = assert(a.add(part.id, KIND))
   -- The plugin analyzes the clip; its archive then holds the notes.
   T.until_(function() return a.notes(device) end, "the plugin's archive to hold the notes")
   local dir = T.scratch .. "/ara-song"
   paw.project.save(dir)
-  local files = api.read_dir(dir .. "/tracks/Vox")
+  local files = api.read_dir(dir .. "/parts/Vox")
   local found
   for _, f in ipairs(files) do
     if f.name:match("%.ara$") then found = f.name end
@@ -133,7 +133,7 @@ test("ara: the plugin's archive is saved beside its state and given back when th
   fresh()
   paw.project.load(dir)
   paw.flush()
-  local again = a.devices(paw.track("Vox").id)[1]
+  local again = a.devices(paw.part("Vox").id)[1]
   eq(again ~= nil, true, "the plugin is there again")
   local status = a.status(again)
   eq(status.restored, true, "it took its archive back")
@@ -145,15 +145,15 @@ test("ara: \\an makes a MIDI clip of the notes the plugin heard, as one undo ste
   local a, why = ready()
   if not a then return why end
   fresh()
-  local track = vocal_track()
-  assert(a.add(track.id, KIND))
+  local part = vocal_part()
+  assert(a.add(part.id, KIND))
   paw.ui.focus("arrange")
-  paw.cursor.set_track(track.id)
-  local tracks = #api.track_list()
+  paw.cursor.set_part(part.id)
+  local parts = #api.part_list()
   T.keys(paw.opt.localleader .. "an")
-  T.advance_until(function() return #api.track_list() > tracks end, "a track for the notes", 10000)
-  local notes = paw.track("Vox notes")
-  eq(notes ~= nil, true, "a track for the notes")
+  T.advance_until(function() return #api.part_list() > parts end, "a part for the notes", 10000)
+  local notes = paw.part("Vox notes")
+  eq(notes ~= nil, true, "a part for the notes")
   local clip = notes:clips()[1]
   local got = clip:notes()
   eq(#got, 4, "a note for each burst")
@@ -161,5 +161,5 @@ test("ara: \\an makes a MIDI clip of the notes the plugin heard, as one undo ste
   near(got[1].length, 0.5, 0.01, "a quarter of a second long")
   api.undo_checkpoint()
   paw.undo()
-  eq(paw.track("Vox notes"), nil, "one undo takes the track and the clip away")
+  eq(paw.part("Vox notes"), nil, "one undo takes the part and the clip away")
 end)

@@ -286,9 +286,9 @@ local function roll_with(notes, length)
   paw.keymap.feed("<Esc><Esc>")
   paw.ui.focus("arrange")
   load()
-  local t = paw.add_track({ name = "P" })
+  local t = paw.add_part({ name = "P" })
   local clip = t:add_clip({ start = 0, length = length or 8, notes = notes })
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.cursor.set_beat(0)
   api.undo_checkpoint()
   local roll = paw.ui.views:get("pianoroll")
@@ -424,12 +424,12 @@ test("musicops: operators in the arrange view", function()
   T.fresh()
   paw.keymap.feed("<Esc><Esc>")
   paw.ui.focus("arrange")
-  local t = paw.add_track({ name = "A" })
+  local t = paw.add_part({ name = "A" })
   local a = t:add_clip({ name = "a", start = 0, length = 4, notes = { N(60, 0, 1), N(62, 1, 1), N(64, 2, 1) } })
   local b = t:add_clip({ name = "b", start = 4, length = 4, notes = { N(60, 0, 1), N(64, 0, 1), N(67, 0, 1) } })
-  local u = paw.add_track({ name = "U" })
+  local u = paw.add_part({ name = "U" })
   local c = u:add_clip({ name = "c", start = 0, length = 4, notes = { N(67, 0, 1) } })
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.cursor.set_beat(0)
   paw.opt.grid = 1
   api.undo_checkpoint()
@@ -446,15 +446,11 @@ test("musicops: operators in the arrange view", function()
   paw.undo()
   paw.cursor.set_beat(0)
   T.keys("gzkk")
-  eq(
-    T.melody(a) .. " | " .. T.melody(b),
-    "62@0+1 64@1+1 65@2+1 | 62@0+1 65@0+1 69@0+1",
-    "gzkk: every clip of the track"
-  )
-  eq(T.melody(c), "67@0+1", "not the next track")
+  eq(T.melody(a) .. " | " .. T.melody(b), "62@0+1 64@1+1 65@2+1 | 62@0+1 65@0+1 69@0+1", "gzkk: every clip of the part")
+  eq(T.melody(c), "67@0+1", "not the next part")
   paw.undo()
   T.keys("2gzjj")
-  eq(T.melody(a) .. " | " .. T.melody(c), "59@0+1 60@1+1 62@2+1 | 65@0+1", "a count takes more tracks")
+  eq(T.melody(a) .. " | " .. T.melody(c), "59@0+1 60@1+1 62@2+1 | 65@0+1", "a count takes more parts")
   paw.undo()
   T.keys("gzs2W")
   eq(T.melody(b), "60@0+1 64@0.125+0.875 67@0.25+0.75", "gzs over two bars strums the chord in the second clip")
@@ -490,9 +486,9 @@ test("musicops: operators and text objects in the vocal editor", function()
   paw.ui.focus("arrange")
   if not paw.ext.loaded.utau then paw.ext.load("extensions/utau") end
   local editor = require("utau.editor").editor
-  local track = paw.add_track({ name = "Vocal" })
-  track:add_device(require("utau").DEVICE)
-  local clip = track:add_clip({
+  local part = paw.add_part({ name = "Vocal" })
+  part:add_device(require("utau").DEVICE)
+  local clip = part:add_clip({
     start = 0,
     length = 8,
     notes = {
@@ -502,7 +498,7 @@ test("musicops: operators and text objects in the vocal editor", function()
       N(65, 4, 1, 100, { lyric = "ke" }),
     },
   })
-  paw.cursor.set_track(track)
+  paw.cursor.set_part(part)
   paw.cursor.set_beat(0)
   api.undo_checkpoint()
   paw.keymap.feed("<CR>")
@@ -596,12 +592,12 @@ test("musicops: inverting a unison or a chord at the edge of the range ends and 
   done()
 end)
 
-test("musicops: pitch operators leave drum tracks alone and say so", function()
+test("musicops: pitch operators leave drum parts alone and say so", function()
   local clip, _, t = roll_with({ N(36, 0, 1), N(42, 1, 1) })
   t.meta = { drums = { map = "custom", rows = { { note = 36, name = "Kick" }, { note = 42, name = "Hat" } } } }
   T.keys("gzkip")
   eq(T.melody(clip), "36@0+1 42@1+1", "gzk does not move the kit's sounds")
-  eq(paw.ui.message.text:find("drum tracks alone", 1, true) ~= nil, true, "the message says why")
+  eq(paw.ui.message.text:find("drum parts alone", 1, true) ~= nil, true, "the message says why")
   T.keys("gzoip")
   eq(T.melody(clip), "36@0+1 42@1+1", "nor does gzo")
   T.keys("gzhip")

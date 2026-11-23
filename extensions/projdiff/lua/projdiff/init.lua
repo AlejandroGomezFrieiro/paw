@@ -34,7 +34,7 @@ function M.decode(content, what)
 end
 
 --- The files a decoded project names (a clip's audio, a take's, a frozen
---- track's: every `file`), made whole from the folder `dir` where a file
+--- part's: every `file`), made whole from the folder `dir` where a file
 --- names them relative to itself; the project open holds them whole, and
 --- the same file must not read as a change.
 local function whole_paths(node, dir)

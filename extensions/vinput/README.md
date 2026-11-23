@@ -1,13 +1,13 @@
 # vinput
 
 The vinput extension adds virtual inputs. A virtual input is a chain that changes another kind of signal into an input that
-a track can take, and the only kind now changes a guitar into MIDI. You play
-chords or single notes into the audio interface, and a track gets them as
+a part can take, and the only kind now changes a guitar into MIDI. You play
+chords or single notes into the audio interface, and a part gets them as
 notes, either to play an instrument or to record.
 
 ```
  source            level        gdi2m            notes           MIDI port
- UR22mkII Input 2 ─▶ × 1.20 ─▶ hears the notes ─▶ channel 1 ─▶ “Guitar” ─▶ any track
+ UR22mkII Input 2 ─▶ × 1.20 ─▶ hears the notes ─▶ channel 1 ─▶ “Guitar” ─▶ any part
 ```
 
 [gdi2m](https://github.com/maximmashkov1/gdi2m), a small neural network,
@@ -27,7 +27,7 @@ paw.ext.load("/path/to/paw/extensions/vinput")   -- or link it into ~/.config/pa
    inputs opens.
 3. Press `s` and choose the port of input 2, and after a moment the state of
    the input is `running`.
-4. Press `t`, and a new track takes the input, with an instrument, and is
+4. Press `t`, and a new part takes the input, with an instrument, and is
    armed.
 5. Play a chord on the guitar, and you hear the chord on the instrument. The
    panel shows the level that the tracker hears and the notes that it
@@ -39,19 +39,19 @@ paw.ext.load("/path/to/paw/extensions/vinput")   -- or link it into ~/.config/pa
 
 1. Make an input with `:vinput.add Guitar`, and choose its source with
    `s`.
-2. Put the cursor on the track of the instrument. Press `I` and choose
-   `Guitar`, or type `:track.midi Guitar`.
-3. Arm the track.
+2. Put the cursor on the part of the instrument. Press `I` and choose
+   `Guitar`, or type `:part.midi Guitar`.
+3. Arm the part.
 
 From Lua:
 
 ```lua
 local vinput = require("vinput")
 vinput.add({ name = "Guitar", source = "Input 2", gain = 1.2 })
-local track = paw.add_track({ name = "Pad" })
-track:add_device("synth")
-track.midi_input = { port = "Guitar" }            -- as for any MIDI port
-track.armed = true                                -- hear it, record it
+local part = paw.add_part({ name = "Pad" })
+part:add_device("synth")
+part.midi_input = { port = "Guitar" }            -- as for any MIDI port
+part.armed = true                                -- hear it, record it
 ```
 
 ### How to correct the level
@@ -74,10 +74,10 @@ Type `:vinput.set split E3:2`, and notes from E3 up go on channel 2.
 
 ### In the graphical window
 
-- Choose "Virtual inputs…" in the `Track` button or in the menu of the
+- Choose "Virtual inputs…" in the `Part` button or in the menu of the
   timeline.
-- Choose "New track from a virtual input". paw makes the first input if
-  there is none, makes a track that takes it, and then shows the inputs so that you can
+- Choose "New part from a virtual input". paw makes the first input if
+  there is none, makes a part that takes it, and then shows the inputs so that you can
   choose the source.
 
 ## Reference
@@ -102,7 +102,7 @@ its state, with its settings under them.
 
 | Setting | Effect |
 | --- | --- |
-| Name | the MIDI port that tracks take, and the tracks follow when you rename it |
+| Name | the MIDI port that parts take, and the parts follow when you rename it |
 | Source | the audio port of the guitar, from the ports that gdi2m lists |
 | Gain | the level before the tracker, which was trained at one level (0.1 to 8). After a run with sound, the tracker reports the gain that it prefers, and `ga` or the button beside the slider takes it |
 | Threshold | how sure the tracker must be to start a note (0.85). A lower value finds more notes, and more wrong notes |
@@ -122,7 +122,7 @@ its state, with its settings under them.
 | `s` | chooses the source |
 | `ga` | takes the gain that the tracker asked for |
 | `a`, `D` | adds an input, or removes this input |
-| `t` | makes a track that takes the input, with an instrument, armed |
+| `t` | makes a part that takes the input, with an instrument, armed |
 | `r`, `gR` | starts the tracker again, or finds the audio ports again |
 | `Esc` | cancels, and the panel stays |
 | `Ctrl-w p` | returns to the window before |
@@ -147,11 +147,11 @@ In the graphical window:
 | `vinput.set <setting> <value> [input=name]` | changes a setting, as in `vinput.set threshold 0.8` |
 | `vinput.on`, `vinput.off`, `vinput.restart`, `vinput.remove` `[name]` | turns the input on or off, starts it again, or removes it |
 | `vinput.gain [name]` | takes the gain that the tracker asked for after its last run |
-| `vinput.track [name] [instrument]` | makes a track that takes the input |
+| `vinput.part [name] [instrument]` | makes a part that takes the input |
 | `vinput.status` | shows the state of every input |
 
-A track takes an input where it takes any MIDI port: `in` on its header in
-the graphical window, `I` in the terminal, `:track.midi Guitar`.
+A part takes an input where it takes any MIDI port: `in` on its header in
+the graphical window, `I` in the terminal, `:part.midi Guitar`.
 
 ### States of an input
 
@@ -173,13 +173,13 @@ even when you do not play, so turn the input off when you do not need it.
 - paw keeps them in `~/.local/state/paw/vinput.json`
   (`paw.opt.vinput_file` names another file), and they are there at the next
   start.
-- A project keeps only the name of the port that its tracks take.
+- A project keeps only the name of the port that its parts take.
 - The output of each tracker goes to `vinput/<name>.log` beside that file.
 
 ### How it works
 
 - `paw.midi.open_port(name)` makes a MIDI port of paw. PipeWire shows it to
-  other programs as `paw:<name>`, and whatever arrives there goes to the tracks
+  other programs as `paw:<name>`, and whatever arrives there goes to the parts
   that chose `name`.
 - The extension runs `gdi2m live --device <source> --port "paw:<name>
   (playback)"` with the settings of the input, through

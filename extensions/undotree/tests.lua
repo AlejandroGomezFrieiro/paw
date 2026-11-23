@@ -9,7 +9,7 @@ local function ext()
   return require("undotree")
 end
 
---- A fresh project with one track, and the extension loaded.
+--- A fresh project with one part, and the extension loaded.
 local function start()
   local u = ext()
   T.fresh()
@@ -20,9 +20,9 @@ local function start()
   return u
 end
 
-local function names(track)
+local function names(part)
   local out = {}
-  for _, c in ipairs(track:clips()) do
+  for _, c in ipairs(part:clips()) do
     out[#out + 1] = c.name
   end
   return table.concat(out, " ")
@@ -38,7 +38,7 @@ test("undotree: undo then edit keeps the old branch reachable", function()
   start()
   local t
   local root = api.undo_current()
-  local s1 = step(function() t = paw.add_track({ name = "T" }) end)
+  local s1 = step(function() t = paw.add_part({ name = "T" }) end)
   local s2 = step(function() t:add_clip({ name = "old", start = 0, length = 4 }) end)
   eq(paw.undo(), true, "undo")
   eq(names(t), "", "the clip is gone")
@@ -59,10 +59,10 @@ test("undotree: undo then edit keeps the old branch reachable", function()
   eq(names(t), "new", "the new clip")
   eq(api.undo_goto(999999), false, "no such state")
   -- A state knows when it was made and what made it.
-  paw.cmd("track.add", { "Cmd" })
+  paw.cmd("part.add", { "Cmd" })
   api.undo_checkpoint()
   local last = ext().tree().by_id[api.undo_current()]
-  eq(last.label, "Add a track below the cursor", "the command's description is the label")
+  eq(last.label, "Add a part below the cursor", "the command's description is the label")
   near(last.time, os.time(), 5, "made now")
   paw.ui.focus("arrange")
   paw._kernel.key("O")
@@ -75,13 +75,13 @@ test("undotree: g- and g+ visit every state in time order", function()
   local u = start()
   local ids = { api.undo_current() }
   local t
-  ids[#ids + 1] = step(function() t = paw.add_track({ name = "T" }) end)
+  ids[#ids + 1] = step(function() t = paw.add_part({ name = "T" }) end)
   ids[#ids + 1] = step(function() t.volume = -1 end)
   paw.undo()
   ids[#ids + 1] = step(function() t.volume = -2 end)
   paw.undo()
   paw.undo()
-  ids[#ids + 1] = step(function() paw.add_track({ name = "U" }) end)
+  ids[#ids + 1] = step(function() paw.add_part({ name = "U" }) end)
   local seen = { api.undo_current() }
   for _ = 1, #ids do
     T.keys("g-")
@@ -100,14 +100,14 @@ test("undotree: g- and g+ visit every state in time order", function()
   eq(table.concat(seen, " "), table.concat(ids, " "), "g+ forward through every state")
   T.keys("3g-")
   eq(api.undo_current(), ids[2], "a count")
-  eq(paw.tracks()[1].volume, 0, "and the project is that state")
+  eq(paw.parts()[1].volume, 0, "and the project is that state")
   -- :earlier and :later, by count and by time.
   paw.cmd("later", { 2 })
   eq(api.undo_current(), ids[4], ":later 2")
-  eq(paw.tracks()[1].volume, -2, "the branch with -2 dB")
+  eq(paw.parts()[1].volume, -2, "the branch with -2 dB")
   paw.cmd("earlier", { "1h" })
   eq(api.undo_current(), ids[1], ":earlier 1h goes back to the start")
-  eq(#paw.tracks(), 0, "an empty project")
+  eq(#paw.parts(), 0, "an empty project")
   paw.cmd("later", { "10m" })
   eq(api.undo_current(), ids[5], ":later 10m to the newest")
   eq(u.parse_amount("2m").seconds, 120, "minutes")
@@ -121,7 +121,7 @@ test("undotree: what differs between two states", function()
   local t, clip
   local s0 = api.undo_current()
   local s1 = step(function()
-    t = paw.add_track({ name = "Bass" })
+    t = paw.add_part({ name = "Bass" })
     t:add_device("synth", { cutoff = 900 })
     clip = t:add_clip({
       name = "riff",
@@ -139,34 +139,34 @@ test("undotree: what differs between two states", function()
     notes[#notes + 1] = { pitch = 47, start = 3 }
     notes[#notes + 1] = { pitch = 48, start = 3.5 }
     clip:set_notes(notes)
-    paw.add_track({ name = "Keys" })
+    paw.add_part({ name = "Keys" })
   end)
   local d = api.undo_diff(s0, s1)
-  eq(d.tracks.added, 1, "a track added")
+  eq(d.parts.added, 1, "a part added")
   eq(d.devices.added, 1, "a device added")
   eq(d.clips.added, 1, "a clip added")
   d = api.undo_diff()
   eq(d.from, s1, "the last step: from its parent")
   eq(d.to, s2, "to the current state")
-  eq(d.tracks.added, 1, "Keys added")
-  eq(d.tracks.changed, 1, "Bass changed")
+  eq(d.parts.added, 1, "Keys added")
+  eq(d.parts.changed, 1, "Bass changed")
   eq(d.devices.changed, 1, "the synth changed")
   eq(d.clips.changed, 1, "the clip changed")
   eq(d.notes.added, 2, "two notes added")
   eq(d.notes.removed, 1, "one removed")
   eq(d.notes.changed, 1, "one changed")
   local text = table.concat(d.items, "\n")
-  eq(text:find("~ device synth on track Bass: cutoff", 1, true) ~= nil, true, "readable lines: " .. text)
+  eq(text:find("~ device synth on part Bass: cutoff", 1, true) ~= nil, true, "readable lines: " .. text)
   eq(ext().summary(d):find("2 notes added", 1, true) ~= nil, true, "a summary")
   d = api.undo_diff(s2, s0)
-  eq(d.tracks.removed, 2, "backwards: both tracks removed")
+  eq(d.parts.removed, 2, "backwards: both parts removed")
   eq(api.undo_diff(s1, s1).same, true, "a state against itself")
 end)
 
 test("undotree: named states survive saving and reopening", function()
   local u = start()
   local path = T.scratch .. "/checkpoints-song.json"
-  local t = paw.add_track({ name = "T" })
+  local t = paw.add_part({ name = "T" })
   api.undo_checkpoint()
   eq(api.checkpoint_dir(), nil, "an unsaved project has no checkpoint folder")
   -- Before the project has a file the name is kept, and written on saving.
@@ -193,20 +193,20 @@ test("undotree: named states survive saving and reopening", function()
 
   paw.project.load(path)
   paw.flush()
-  eq(names(paw.tracks()[1]), "verse bridge", "reopened as saved")
+  eq(names(paw.parts()[1]), "verse bridge", "reopened as saved")
   local list = api.checkpoint_list()
   eq(#list, 2, "both checkpoints listed after reopening")
   eq(list[2].name, "before the bridge", "names with spaces")
   local items = u.items()
   eq(items[1].name, "before the bridge", "newest first")
   paw.cmd("checkpoint.restore", { "intro" })
-  eq(names(paw.tracks()[1]), "", "the intro state is back")
+  eq(names(paw.parts()[1]), "", "the intro state is back")
   local tree = u.tree()
   eq(tree.by_id[tree.current].name, "intro", "as a named state")
   eq(paw.undo(), true, "which undo leaves")
-  eq(names(paw.tracks()[1]), "verse bridge", "back to what was opened")
+  eq(names(paw.parts()[1]), "verse bridge", "back to what was opened")
   paw.cmd("checkpoint.restore", { "1" })
-  eq(names(paw.tracks()[1]), "verse", "by number")
+  eq(names(paw.parts()[1]), "verse", "by number")
   -- Without a picker the list is a page.
   local pick = paw.pick
   paw.pick = nil
@@ -221,7 +221,7 @@ test("undotree: named states survive saving and reopening", function()
   eq(got.title, "Checkpoints", "the picker is used")
   eq(#got.items, 2, "with every checkpoint")
   got.on_choose(got.items[2])
-  eq(names(paw.tracks()[1]), "", "choosing restores")
+  eq(names(paw.parts()[1]), "", "choosing restores")
   paw.pick = pick
   api.checkpoint_delete(list[1].file)
   eq(#api.checkpoint_list(), 1, "deleted")
@@ -260,7 +260,7 @@ test("undotree: A/B while playing keeps the transport going", function()
     -- The position keeps moving after the switch.
     T.until_beat(before + 0.2)
   end
-  -- The track is sounding: its synth runs blocks, and does not sleep.
+  -- The part is sounding: its synth runs blocks, and does not sleep.
   T.next_block(2, t:devices()[1].id)
   paw.transport.stop()
   -- The key does the same.
@@ -273,7 +273,7 @@ end)
 test("undotree: the view draws the tree and goes to a state", function()
   local u = start()
   local t
-  local s1 = step(function() t = paw.add_track({ name = "T" }) end)
+  local s1 = step(function() t = paw.add_part({ name = "T" }) end)
   local s2 = step(function() t:add_clip({ name = "one", start = 0, length = 4 }) end)
   paw.undo()
   local s3 = step(function() t:add_clip({ name = "two", start = 4, length = 4 }) end)
@@ -285,7 +285,7 @@ test("undotree: the view draws the tree and goes to a state", function()
   eq(text:find('"chorus"', 1, true) ~= nil, true, "its name")
   eq(text:find("@", 1, true) ~= nil, true, "the current state")
   eq(text:find("┘", 1, true) ~= nil, true, "a branch joining")
-  eq(text:find("+ clip two on track T", 1, true) ~= nil, true, "what the state changed")
+  eq(text:find("+ clip two on part T", 1, true) ~= nil, true, "what the state changed")
   -- The rows: two branches from s1.
   local rows = u.rows(u.tree())
   eq(rows[1].id, s3, "newest first")
@@ -307,7 +307,7 @@ end)
 test("undotree: in a window of its own it takes keys and clicks as in the terminal", function()
   start()
   local t
-  step(function() t = paw.add_track({ name = "T" }) end)
+  step(function() t = paw.add_part({ name = "T" }) end)
   local s2 = step(function() t:add_clip({ name = "one", start = 0, length = 4 }) end)
   local s3 = step(function() t:add_clip({ name = "two", start = 4, length = 4 }) end)
   paw.cmd("undotree")
@@ -364,7 +364,7 @@ end
 test("undotree: the painted window draws the tree, goes where a node is clicked and says what a step was", function()
   start()
   local t
-  local s1 = step(function() t = paw.add_track({ name = "T" }) end)
+  local s1 = step(function() t = paw.add_part({ name = "T" }) end)
   local s2 = step(function() t:add_clip({ name = "old", start = 0, length = 4 }) end)
   paw.undo()
   local s3 = step(function() t:add_clip({ name = "new", start = 4, length = 4 }) end)

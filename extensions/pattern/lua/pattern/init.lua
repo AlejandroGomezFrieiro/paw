@@ -230,8 +230,8 @@ end
 --- Every clip that follows a pattern, as clip ids.
 function M.clips()
   local out = {}
-  for _, track in ipairs(api.track_list()) do
-    for _, clip in ipairs(api.clip_list(track)) do
+  for _, part in ipairs(api.part_list()) do
+    for _, clip in ipairs(api.clip_list(part)) do
       local pm = clip.meta and clip.meta.pattern
       if type(pm) == "table" and type(pm.text) == "string" then out[#out + 1] = clip.id end
     end

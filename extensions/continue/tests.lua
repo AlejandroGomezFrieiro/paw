@@ -37,7 +37,7 @@ local function with_bar(fn)
   while paw.ui.float do
     paw.ui.close()
   end
-  local t = paw.add_track({ name = "Lead" })
+  local t = paw.add_part({ name = "Lead" })
   local clip = t:add_clip({ start = 0, length = 4, notes = { n(60, 0), n(62, 1), n(64, 2), n(67, 3) } })
   roll:edit(clip)
   roll:set(67, 4)

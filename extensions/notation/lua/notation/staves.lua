@@ -1,6 +1,6 @@
 -- The score as lines to edit. The full score, a group's score or a
--- selection's tracks (`:score`) are shown as staves, and each staff is a
--- line: the staff the cursor is on is the active track, its clip the view's
+-- selection's parts (`:score`) are shown as staves, and each staff is a
+-- line: the staff the cursor is on is the active part, its clip the view's
 -- open clip, and every key, operator, popover and command edits it as the
 -- view edits a clip alone (`notation.parts` lays the score out, `view:frame`
 -- says where the clip is in it). There is no other state to keep: moving
@@ -13,7 +13,7 @@
 --
 -- A selection spans staves (`Ctrl-v` then `Ctrl-j`, `V` over staves
 -- takes them whole) and an operator acts on each staff's clip, one undo
--- step; Ex reads staves as tracks (`:5,8 s4 >`, `:5,8 Strings art pizz`).
+-- step; Ex reads staves as parts (`:5,8 s4 >`, `:5,8 Strings art pizz`).
 -- A condensed staff is two players: the cursor's voice says whose clip
 -- is edited, and an edit where they play `a2` is made for both.
 local api = paw.api
@@ -28,7 +28,7 @@ local EPS = 1e-6
 local ROWS = 128 -- rows of the grid an instrument takes: its pitches
 
 paw.option.define("score_dim", false) -- the staves not under the cursor drawn dimmer
-paw.option.define("score_colors", false) -- the staves not under the cursor in their tracks' colours
+paw.option.define("score_colors", false) -- the staves not under the cursor in their parts' colours
 
 -- Staves and instruments ---------------------------------------------------------------------------
 
@@ -67,7 +67,7 @@ function view.score_name()
   if not shown then return "the clip" end
   if shown.kind == "part" then return "the part" end
   local group = shown.scope and scope_group()
-  if group then return "the score of " .. api.track_get(group, "name") end
+  if group then return "the score of " .. api.part_get(group, "name") end
   return shown.label or "the full score"
 end
 
@@ -172,11 +172,11 @@ function S.player(dir)
   if to == F.player then return false end
   local step = view.step
   view:activate(S.clip_at(u, to, S.song()), { step = step })
-  paw.notify("voice " .. to .. ": " .. api.track_get(u.tracks[to], "name"))
+  paw.notify("voice " .. to .. ": " .. api.part_get(u.parts[to], "name"))
   return true
 end
 
-local function alone() paw.notify("the clip alone: :score shows every track's staff", "warn") end
+local function alone() paw.notify("the clip alone: :score shows every part's staff", "warn") end
 
 --- A staff down (1) or up (-1), `count` times: through a grand staff's two,
 --- then into the next instrument.
@@ -473,9 +473,9 @@ function S.wrap_maps()
   end
 end
 
--- Across a track's clips --------------------------------------------------------------------
+-- Across a part's clips --------------------------------------------------------------------
 --
--- In a score a staff is every clip of its track on the song's timeline:
+-- In a score a staff is every clip of its part on the song's timeline:
 -- the cursor going past the open clip's ends goes on into the clip there,
 -- which becomes the open one. Past the last clip's end it stays at the
 -- end, where a note entered makes the clip longer.
@@ -507,7 +507,7 @@ do
   end
 
   --- On from a clip's last note (back from its first) into the next
-  --- (previous) clip of the track.
+  --- (previous) clip of the part.
   local function onward(self, dir, before, at, again)
     if not self.parts or self.clip_id ~= before or math.abs(self.beat - at) > EPS then return end
     local c = self:clip():get()
@@ -554,21 +554,21 @@ end
 
 -- Showing a score -------------------------------------------------------------------------------
 
---- Show a score of `tracks` (all of them when nil) in the view, named
---- `label`. The cursor's track stays the active staff when it is shown.
-function S.show(tracks, label, opts)
+--- Show a score of `parts` (all of them when nil) in the view, named
+--- `label`. The cursor's part stays the active staff when it is shown.
+function S.show(parts, label, opts)
   opts = opts or {}
   local clip = view:clip() or view.target()
   if not clip then
-    local list = P.instruments({ tracks = tracks })
+    local list = P.instruments({ parts = parts })
     clip = list[1] and list[1].clip
   end
-  if not clip then return paw.notify(tracks and "none of those tracks has MIDI" or "no track has MIDI", "warn") end
+  if not clip then return paw.notify(parts and "none of those parts has MIDI" or "no part has MIDI", "warn") end
   if not view:clip() or view:clip().id ~= clip.id then view:edit(clip) end
   view.parts = {
     kind = "score",
     condensed = view.parts and view.parts.condensed or opts.condensed,
-    tracks = tracks,
+    parts = parts,
     label = label,
     from = opts.from,
     to = opts.to,
@@ -586,8 +586,8 @@ function S.show(tracks, label, opts)
   return F
 end
 
---- The tracks of the arrange view's selection, or nil.
-local function selected_tracks()
+--- The parts of the arrange view's selection, or nil.
+local function selected_parts()
   local region = keymap.visual and keymap.visual.view == "arrange" and keymap.selection() or nil
   if not region then
     local last = keymap.last_visual
@@ -610,7 +610,7 @@ local function shown_message(F)
       .. count
       .. (count == 1 and " instrument" or " instruments")
       .. ", editing "
-      .. api.track_get(api.clip_get(view.clip_id).track).name
+      .. api.part_get(api.clip_get(view.clip_id).part).name
       .. "; Ctrl-j Ctrl-k ]] [[ move between staves"
   )
 end
@@ -622,34 +622,34 @@ paw.command("score", function(ctx)
     api.ui_redraw()
     return paw.notify("notation: the clip alone")
   end
-  local tracks, label
-  if ctx.range and ctx.range.tracks then
-    tracks, label = ctx.range.tracks, "the score of " .. #ctx.range.tracks .. " tracks"
+  local parts, label
+  if ctx.range and ctx.range.parts then
+    parts, label = ctx.range.parts, "the score of " .. #ctx.range.parts .. " parts"
   elseif words == "all" then
-    tracks = nil
+    parts = nil
   elseif words == "selection" then
-    tracks = selected_tracks()
-    if not tracks then return paw.notify("select tracks in the arrange view first (V)", "warn") end
-    label = "the score of " .. #tracks .. " tracks"
+    parts = selected_parts()
+    if not parts then return paw.notify("select parts in the arrange view first (V)", "warn") end
+    label = "the score of " .. #parts .. " parts"
   elseif words ~= "" then
     local scope = paw.scope
     local group = scope.find(words)
     if not group then
       return paw.notify("no group '" .. words .. "': `:score` alone, `all`, `selection`, or a group's name", "warn")
     end
-    tracks, label = scope.tracks(group), "the score of " .. api.track_get(group, "name")
+    parts, label = scope.parts(group), "the score of " .. api.part_get(group, "name")
   end
-  -- Alone: the tracks of the scope of the window, whichever they are then.
-  local F = S.show(tracks, label, { scope = words == "" and not tracks })
+  -- Alone: the parts of the scope of the window, whichever they are then.
+  local F = S.show(parts, label, { scope = words == "" and not parts })
   if F then shown_message(F) end
 end, {
   raw = true,
   range = true,
-  desc = "Show a score to edit, a staff for each track with MIDI: alone the scope's (or every track), `all`, a group's name (`score Strings`), `selection` (the arrange view's tracks), `off` the clip alone",
+  desc = "Show a score to edit, a staff for each part with MIDI: alone the scope's (or every part), `all`, a group's name (`score Strings`), `selection` (the arrange view's parts), `off` the clip alone",
   complete = function()
     local out = { "all", "selection", "off" }
-    for _, id in ipairs(api.track_list()) do
-      if paw.groups.is_group(id) then out[#out + 1] = api.track_get(id, "name") end
+    for _, id in ipairs(api.part_list()) do
+      if paw.groups.is_group(id) then out[#out + 1] = api.part_get(id, "name") end
     end
     return out
   end,
@@ -690,7 +690,7 @@ paw.command("score.split", function(ctx)
     if m.start < to - EPS and m.start + m.length > from + EPS then bars[#bars + 1] = m.number end
   end
   local joined
-  P.keep(u.tracks[1], function(part)
+  P.keep(u.parts[1], function(part)
     local set, kept = {}, {}
     for _, n in ipairs(part.split or {}) do
       set[n] = true
@@ -776,7 +776,7 @@ A.clips_at = function(s, i)
   if word and s:match("^%s", e) and not paw.commands.get(word) then
     local low, out = word:lower(), {}
     for _, u in ipairs(layout.units) do
-      local group = u.group and api.track_get(u.group, "name"):lower()
+      local group = u.group and api.part_get(u.group, "name"):lower()
       if group == low or P.FAMILIES[u.family] == low then
         for _, id in ipairs(u.clips) do
           out[#out + 1] = id

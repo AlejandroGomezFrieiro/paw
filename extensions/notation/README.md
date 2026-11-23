@@ -82,14 +82,14 @@ tenuto set the lengths again.
 - To forget the decisions of notation and write again from the notes,
   press `g=`.
 
-### How to edit a score of several tracks
+### How to edit a score of several parts
 
-Type `:score`. Each staff is a track. `[[` and `]]` move between
+Type `:score`. Each staff is a part. `[[` and `]]` move between
 instruments. See [Scores](doc/reference.md#scores).
 
 ### How to print a part or the score
 
-- For the part of the track, type `:part.export flute.pdf`.
+- For the printed part of the part, type `:part.export flute.pdf`.
 - For every part, type `:part.export parts.pdf all`.
 - For the full score, type `:part.export score.pdf score`.
 
@@ -105,7 +105,7 @@ See [Import and export](doc/reference.md#import-and-export).
 
 1. In MuseScore, export MusicXML (File, Export, MusicXML, compressed or
    not).
-2. Type `:open song.mxl`. The parts become tracks with MIDI clips. Edit
+2. Type `:open song.mxl`. Each part of the score becomes a part with MIDI clips. Edit
    them with the keys of the notation view or in the piano roll, and play
    them.
 3. To return the score, type `:notation.export song.mxl all`. Open that

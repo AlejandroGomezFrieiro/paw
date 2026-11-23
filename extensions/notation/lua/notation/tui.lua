@@ -279,9 +279,9 @@ function view:render(buf, ctx)
     return
   end
   local c = clip:get()
-  local track = api.track_get(c.track)
-  local hue = paw.draw.track_hue(track)
-  local colour = paw.draw.track_colour(track)
+  local part = api.part_get(c.part)
+  local hue = paw.draw.part_hue(part)
+  local colour = paw.draw.part_colour(part)
   -- The clip's own staff, or the score it is a staff of: the cursor's
   -- staff is the active one, drawn in full ink with a mark at its start.
   local F = self:frame()
@@ -327,7 +327,7 @@ function view:render(buf, ctx)
     end,
   })
 
-  -- Title: the clip, its track, where the cursor is, what will be entered.
+  -- Title: the clip, its part, where the cursor is, what will be entered.
   local under = self:note()
   local _, _, written = self:note()
   -- The note under the piano roll's cursor, when the two are bound in time.
@@ -368,7 +368,7 @@ function view:render(buf, ctx)
     .. extra
   paw.ui.titlebar(real, {
     pill = { c.name, hue.pill },
-    name = track.name,
+    name = part.name,
     focused = ctx.focused,
     context = string.format("%s  %s", here, paw.time.format(c.start + self.beat)),
     right = right .. (badge and string.rep(" ", api.str_width(badge) + 1) or ""),
@@ -445,14 +445,14 @@ function view:render(buf, ctx)
   end
 
   local note_style = { fg = colour }
-  -- In a score, the other staves dimmed or in their tracks' colours
+  -- In a score, the other staves dimmed or in their parts' colours
   -- (`score_dim`, `score_colors`), the active one in full ink.
   local function active(s) return only ~= nil or (s > F.base and s <= F.base + F.count) end
   local staff_styles = {}
   for s in ipairs(layout.staves) do
-    local id = F.multi and not active(s) and layout.tracks and layout.tracks[s]
+    local id = F.multi and not active(s) and layout.parts and layout.parts[s]
     if id then
-      local tint = paw.opt.score_colors and paw.draw.track_colour(api.track_get(id)) or colour
+      local tint = paw.opt.score_colors and paw.draw.part_colour(api.part_get(id)) or colour
       if paw.opt.score_dim then
         staff_styles[s] = { fg = paw.draw.mix(tint, "#101216", 0.55) }
       elseif paw.opt.score_colors then

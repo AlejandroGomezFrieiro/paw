@@ -23,13 +23,13 @@ paw.ext.load("/path/to/paw/extensions/interop")   -- or link it into ~/.config/p
 
 1. Type `:ext.load interop`.
 2. Type `:e song.rpp` with the path of a REAPER project, or
-   `:e song.dawproject` with a file that another DAW wrote. The tracks of
+   `:e song.dawproject` with a file that another DAW wrote. The parts of
    the song appear in the arrange view.
 3. Read the page that opens over them. It lists what paw could not bring
    across, by kind. If paw brought all of it, there is no page.
 4. Type `:w copy.rpp` or `:w copy.dawproject`. The message tells what paw
    wrote.
-5. Open the copy in REAPER or in the other DAW. The tracks and the clips
+5. Open the copy in REAPER or in the other DAW. The parts and the clips
    are there.
 
 ## How to
@@ -40,11 +40,11 @@ Type `:e song.rpp` or `:e song.dawproject`. The page that opens lists what
 paw could not bring across, grouped by kind. paw puts the audio files of
 a DAWproject file in a folder beside the file, `song media`.
 
-If the MIDI tracks of a REAPER project are silent because their
+If the MIDI parts of a REAPER project are silent because their
 instrument stayed in REAPER, type `:e song.rpp instrument=synth`. Each
-such track gets a `synth`.
+such part gets a `synth`.
 
-### How to add the tracks of another project to this project
+### How to add the parts of another project to this project
 
 Type `:import song.rpp` or `:import song.dawproject`, and the project keeps
 its own tempo map and its own master.
@@ -101,7 +101,7 @@ The two modules are the worked examples. They are written in Teal, so the
 types of what they read and write are checked:
 
 - `interop.rpp` (`lua/interop/rpp/`): `format.tl` reads and writes the
-  text of a `.rpp` file as a tree, `import.tl` makes the tracks, clips,
+  text of a `.rpp` file as a tree, `import.tl` makes the parts, clips,
   lanes and devices of paw from it, `export.tl` writes them back, `fx.tl`
   maps the plugins, `midi.tl` the MIDI.
 - `interop.dawproject` (`lua/interop/dawproject/`): the archive with
@@ -114,7 +114,7 @@ too:
 | Function | Effect |
 | --- | --- |
 | `interop.report.new(title)` | a list of what did not carry over, by group: `add(group, item)`, `count(group, what, n)`, `empty()`, `lines(n)`, `data()` |
-| `interop.register(spec)` | registers a format from a module (`spec.module`). The message of an import tells how many tracks, clips and plugins came in |
+| `interop.register(spec)` | registers a format from a module (`spec.module`). The message of an import tells how many parts, clips and plugins came in |
 | `interop.said(result, text)` | what an import or export says, with the lines of `result.report` |
 | `interop.installed(kind)` | the kind of device installed here, or nil |
 | `interop.find_plugin(query)` | the plugin installed here that a file names, by its own id, else by name and vendor (`paw.api.device_find`) |
@@ -141,8 +141,8 @@ paw take its files:
 
 | Command | Effect |
 | --- | --- |
-| `:import song.rpp`, `:import song.dawproject` | adds the tracks of the file to the project |
-| `:open song.rpp`, `:edit song.rpp`, `:e song.rpp` | replaces the project with the one of the file. `instrument=synth` gives a device of that kind to the MIDI tracks of a REAPER project whose instrument stayed behind, so you can hear them |
+| `:import song.rpp`, `:import song.dawproject` | adds the parts of the file to the project |
+| `:open song.rpp`, `:edit song.rpp`, `:e song.rpp` | replaces the project with the one of the file. `instrument=synth` gives a device of that kind to the MIDI parts of a REAPER project whose instrument stayed behind, so you can hear them |
 | `:export song.rpp`, `:export song.dawproject` | writes the project to the file. `embed=false` refers to the audio files of a DAWproject file and does not copy them into it |
 | `:write song.rpp`, `:w song.dawproject` | the same as `:export`. Other files save as before |
 
@@ -178,9 +178,9 @@ local doc = rpp.read("song.rpp")
 local project = doc.project                         -- the <REAPER_PROJECT block
 project:getn("TEMPO")                               -- 120: the first argument as a number
 project:set("TEMPO", 96, 4, 4, 0)                   -- replaces a line (or adds it)
-for _, track in ipairs(project:blocks("TRACK")) do
-  print(track:get("NAME"), track:child("VOLPAN"):argn(1))
-  track:add(rpp.line("MUTESOLO", 1, 0, 0))
+for _, part in ipairs(project:blocks("TRACK")) do
+  print(part:get("NAME"), part:child("VOLPAN"):argn(1))
+  part:add(rpp.line("MUTESOLO", 1, 0, 0))
 end
 local fx = project:child("TRACK"):child("FXCHAIN"):child("VST")
 fx:data_groups()                                    -- the base64 parts of the state of a plugin
@@ -215,18 +215,18 @@ tempo map of the project, and back.
 | Tempo, time signature | The full tempo map: `TEMPO` and the `TEMPOENVEX` points. Square points become steps. Linear points become ramps (linear in time, as REAPER plays them), with their time signatures (packed as numerator + denominator × 65536). Other point shapes become ramps and are reported. When merged into an open project, the project keeps its own map | `TEMPO`, and `TEMPOENVEX` when the tempo or the signature changes along the song |
 | Loop | Loop points (`SELECTION`) and the repeat switch (`LOOP`) | The same |
 | Markers and regions | The markers and regions of paw (`paw.markers`), with their colors | The same. Song sections (`project.meta.sections`) become regions, each to the start of the next |
-| Tracks | Name, color (`PEAKCOL`), volume, pan, mute, solo, record arm, audio input and monitoring | The same |
-| Folders | The children of a folder go into the folder track | A track that goes into the track above it (or into its folder) becomes a child of the folder. paw writes other routes into a track as a send from a track with its parent send off, and reports them |
-| Sends | Receives (`AUXRECV`) become sends from the source track, at their level. Pre-fader receives become pre-fader sends | Sends become receives, post-fader or pre-fader |
+| Parts | Name, color (`PEAKCOL`), volume, pan, mute, solo, record arm, audio input and monitoring | The same |
+| Folders | The children of a folder go into the folder part | A part that goes into the part above it (or into its folder) becomes a child of the folder. paw writes other routes into a part as a send from a part with its parent send off, and reports them |
+| Sends | Receives (`AUXRECV`) become sends from the source part, at their level. Pre-fader receives become pre-fader sends | Sends become receives, post-fader or pre-fader |
 | Master | Volume, pan, mute, FX chain, volume and pan envelopes | The same |
 | Audio items | A clip with the file (relative to the project folder, as REAPER finds it, also in the recording folder), position, length, start in the source (`SOFFS`, also the start of a section), item volume times take volume as the clip gain, fade lengths, play rate and pitch shift, mute. A looped item becomes a looped clip. At a play rate other than 1, it becomes one clip for each pass | Items with a `WAVE`, `FLAC`, `MP3` or `VORBIS` source, with the same fields. A looped clip becomes a looped item that plays a section of the file. Paths under the folder of the project are relative to it |
 | MIDI items | Notes from inline events and from `.mid` files, with velocity and channel (in `meta.channel` of the note), through the ticks per quarter note of the source. Controllers, pitch bend, channel and key pressure, and program changes (with the bank before them) become the controller moves of the clip. A source that ignores the project tempo runs at its own. A looped item becomes a looped clip. Notes held over the item start begin at it, as REAPER plays them. Muted items stay muted | Inline events at 960 ticks per quarter note, channels from `meta.channel`, and the controller moves. A looped clip becomes a looped item |
-| Automation | Volume and pan envelopes of tracks and the master, and the parameter envelopes (`PARMENV`) of plugins that came across, as lanes, on or off as in REAPER. Square points hold. Slow start and end points become smooth | The same |
+| Automation | Volume and pan envelopes of parts and the master, and the parameter envelopes (`PARMENV`) of plugins that came across, as lanes, on or off as in REAPER. Square points hold. Slow start and end points become smooth | The same |
 | CLAP plugins | When installed here: the same plugin with the state that REAPER saved, which is the own state of the plugin | With their state |
 | VST3 plugins | When installed here (found by the class id in the line of REAPER, else by name and vendor): the same plugin with its state, from the chunk of REAPER (paw checks the sizes first) | Only plugins that came from a REAPER project: paw keeps the header of REAPER for them, and puts the current state into it |
 | LV2 plugins | When installed here: the same plugin with its control ports (`P` lines. The symbols of the ports are the parameter keys of paw) | With their control ports |
 | Bypass | For each plugin, and a bypassed FX chain | For each plugin |
-| Other plugins | VST2, JSFX, AU, DX, containers, and plugins that are not installed: a placeholder in `meta.rpp_placeholders` of the track (`name`, `format`, `position`, `reason`, and the text of REAPER for it), reported | Placeholders return into the chain at their places, as paw read them |
+| Other plugins | VST2, JSFX, AU, DX, containers, and plugins that are not installed: a placeholder in `meta.rpp_placeholders` of the part (`name`, `format`, `position`, `reason`, and the text of REAPER for it), reported | Placeholders return into the chain at their places, as paw read them |
 
 REAPER counts the parameters of a plugin from 0, in the order of the
 plugin. paw lists them in the same order. For a CLAP or VST3 plugin, REAPER
@@ -257,8 +257,8 @@ After each import or export, paw lists the following items.
     curve with handles: they become straight lines or smooth)
   - pre-FX sends (they become pre-fader), send pan, send channel mapping,
     muted sends and MIDI-only sends
-  - tracks whose master or parent send is off (in paw they play through
-    their output), hardware outputs, frozen tracks
+  - parts whose master or parent send is off (in paw they play through
+    their output), hardware outputs, frozen parts
   - empty items, video, subprojects, other sources, media files that paw cannot find
   - LV2 state other than control ports, offline plugins, the volume of
     MIDI items
@@ -306,18 +306,18 @@ files in seconds.
 | | DAWproject → paw | paw → DAWproject |
 | --- | --- | --- |
 | Tempo, time signature | The tempo and time signature of the transport, and the tempo and time signature automation (tempo points in beats or in seconds). A linear tempo point becomes a ramp. When merged into an open project, the project keeps its own map | The same |
-| Tracks | Name, color, volume, pan, mute, solo. A track in a track goes into it (a folder). A channel with a destination plays into that track | The same. A track that goes into the track above it (or into a folder that it is in) is written inside that track |
+| Parts | Name, color, volume, pan, mute, solo. A part in a part goes into it (a folder). A channel with a destination plays into that part | The same. A part that goes into the part above it (or into a folder that it is in) is written inside that part |
 | Sends | Level, before or after the fader | The same |
 | Master | Volume, pan, mute, devices, automation | The same |
 | MIDI clips | Notes with their velocity and MIDI channel (in `meta.channel` of the note). Controllers, pitch bend, channel and key pressure and program changes in the clip become the controller moves of the clip. Play start, loops, mute (a clip that is not enabled) and the name | The same |
 | Audio clips | The file, the play start as the offset into the file, the fades, mute and the name. Two warp points give the speed. Audio in a clip of clips (as Bitwig Studio writes it) becomes one clip. Audio from the archive goes into a folder beside the file | The same. paw copies each audio file into the archive once |
-| Automation | Volume and pan of the tracks and the master, and the parameters of the devices that came across. Points that hold (the default) and linear points | The same |
+| Automation | Volume and pan of the parts and the master, and the parameters of the devices that came across. Points that hold (the default) and linear points | The same |
 | Markers | Markers with their colors. A marker that paw wrote for a region becomes the region again | Markers. A region becomes a marker at its start, with its length in the comment |
 | CLAP plugins | When installed here: the same plugin with its state | With their state (`plugins/*.clap-preset`) |
 | VST3 plugins | When installed here (found by the class id, else by name and vendor): the same plugin with the state of its `.vstpreset` | With their state as a `.vstpreset` |
 | LV2 plugins and the devices of paw | Only from a file that paw wrote: the same device with its parameters | As a device (an LV2 plugin) or a built-in device (`synth`, `gain` and the others) that only paw reads, with its parameters. paw lists them |
 | Bypass | The `Enabled` switch of each device | The same |
-| Other devices | VST2 and Audio Unit plugins, the built-in devices of other programs, and plugins that are not installed: a placeholder in `meta.dawproject_placeholders` of the track (`name`, `format`, `position`, `reason`, the XML and the state), reported | Placeholders return into the chain at their places, with their states |
+| Other devices | VST2 and Audio Unit plugins, the built-in devices of other programs, and plugins that are not installed: a placeholder in `meta.dawproject_placeholders` of the part (`name`, `format`, `position`, `reason`, the XML and the state), reported | Placeholders return into the chain at their places, with their states |
 
 #### What does not come across
 
@@ -363,7 +363,7 @@ The suite runs `tests_rpp.lua`, with fixtures written by hand in
 `fixtures/rpp/`. The tests cover the following:
 
 - parse and rewrite
-- an import, checked track by track and clip by clip
+- an import, checked part by part and clip by clip
 - MIDI times at three tempos, envelopes, the report
 - an export, then an import, of a project made with the API
 - plugins in all three formats
@@ -376,7 +376,7 @@ and it gave the same bytes, and the same tokens after it wrote every line
 again.
 
 The first REAPER test opens an exported project in REAPER, and then it
-compares what REAPER read with the project of paw. It compares the tracks,
+compares what REAPER read with the project of paw. It compares the parts,
 folders, colors and sends, the items with their fades, play rates and loops,
 and the notes, the controller events, the envelope shapes, the markers and
 regions. The REAPER tests run when `PAW_REAPER` names the `reaper` program,
@@ -412,7 +412,7 @@ shape that Bitwig Studio writes, made with the `zip` program (so its files
 are compressed), and `fixtures/dawproject/studio/` holds its files. The
 tests cover the following:
 
-- an import of the fixture, checked track by track and clip by clip
+- an import of the fixture, checked part by part and clip by clip
 - an export, then an import, of a project made with the API
 - the XML of each export, checked against the official schemas with
   `xmllint` (in the dev shell)

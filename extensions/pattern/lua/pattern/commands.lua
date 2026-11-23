@@ -10,8 +10,8 @@ local function bar_text(pm) return pm and pm.beats and (pm.beats .. " beats") or
 --- clip at the cursor when there is none, `cycles` cycles long; with `new`,
 --- a new clip whatever is there.
 function M.target(create, cycles, new)
-  local track = paw.cursor.track()
-  if not track then return nil, paw.notify("no track: add one with `o` first", "warn") end
+  local part = paw.cursor.part()
+  if not part then return nil, paw.notify("no part: add one with `o` first", "warn") end
   local clip = not new and paw.cursor.clip()
   if clip then
     if clip.kind ~= "midi" then return nil, paw.notify("not a MIDI clip", "warn") end
@@ -19,7 +19,7 @@ function M.target(create, cycles, new)
   end
   if not create then return nil, paw.notify("no clip under the cursor", "warn") end
   local length = (cycles or paw.opt.pattern_cycles) * paw.time.bar()
-  return track:add_clip({ start = paw.cursor.beat, length = length, name = "pattern" }), true
+  return part:add_clip({ start = paw.cursor.beat, length = length, name = "pattern" }), true
 end
 
 local function report_error(err) paw.notify("pattern: " .. tostring(err), "error") end

@@ -20,7 +20,7 @@ M.type = {
   SyncProject = 0x10,
   ApplyDelta = 0x11,
   Transport = 0x12,
-  SetTrackConfig = 0x13,
+  SetPartConfig = 0x13,
   RequestSingers = 0x14,
   RequestRenderers = 0x15,
   RequestPhonemizers = 0x16,
@@ -69,14 +69,14 @@ local function config(c)
     .. mp.list(options, function(kv) return mp.array(2) .. mp.str(kv[1]) .. mp.str(kv[2]) end)
 end
 
-local function track_info(t)
+local function part_info(t)
   return mp.array(4) .. mp.str(t.id) .. mp.str(t.name or "") .. mp.bool(t.muted) .. config(t.config or {})
 end
 
 local function vpart_info(p)
   return mp.array(6)
     .. mp.str(p.id)
-    .. mp.str(p.track)
+    .. mp.str(p.part)
     .. mp.int(p.pos)
     .. mp.int(p.dur)
     .. mp.str(p.name or "")
@@ -127,7 +127,7 @@ function encode.hello(pid)
   )
 end
 
---- `{ seq, tempos, sigs, tracks, parts }`
+--- `{ seq, tempos, sigs, parts, vparts }`
 function encode.sync_project(s)
   return M.frame(
     T.SyncProject,
@@ -136,12 +136,12 @@ function encode.sync_project(s)
       .. mp.str(s.project or "")
       .. tempos(s.tempos)
       .. sigs(s.sigs)
-      .. mp.list(s.tracks, track_info)
+      .. mp.list(s.parts, part_info)
       .. mp.list(s.vparts, vpart_data)
   )
 end
 
---- `{ seq, tempos?, sigs?, remove_tracks, upsert_tracks, remove_parts,
+--- `{ seq, tempos?, sigs?, remove_parts, upsert_parts, remove_vparts,
 --- upsert_parts, remove_notes, upsert_notes, curves }`
 function encode.apply_delta(d)
   return M.frame(
@@ -151,8 +151,8 @@ function encode.apply_delta(d)
       .. mp.bool(d.tempos ~= nil)
       .. tempos(d.tempos or {})
       .. sigs(d.sigs or {})
-      .. mp.strs(d.remove_tracks or {})
-      .. mp.list(d.upsert_tracks or {}, track_info)
+      .. mp.strs(d.remove_parts or {})
+      .. mp.list(d.upsert_parts or {}, part_info)
       .. mp.strs(d.remove_vparts or {})
       .. mp.list(d.upsert_vparts or {}, vpart_info)
       .. mp.list(d.remove_notes or {}, vpart_ids)
@@ -165,7 +165,7 @@ function encode.transport(playing, pos_sec, cursor_sec)
   return M.frame(T.Transport, mp.array(3) .. mp.bool(playing) .. mp.double(pos_sec) .. mp.double(cursor_sec))
 end
 
-function encode.track_config(track_id, c) return M.frame(T.SetTrackConfig, mp.array(2) .. mp.str(track_id) .. config(c)) end
+function encode.part_config(part_id, c) return M.frame(T.SetPartConfig, mp.array(2) .. mp.str(part_id) .. config(c)) end
 
 function encode.request_singers(rescan) return M.frame(T.RequestSingers, mp.array(1) .. mp.bool(rescan)) end
 
@@ -189,12 +189,12 @@ function encode.run_batch_edit(b)
   )
 end
 
---- Sing one note with a track's voice, outside the project: answered by a
+--- Sing one note with a part's voice, outside the project: answered by a
 --- `PhraseAudio` with `purpose` 1 and the request id as its hash.
-function encode.audition(request, track_id, tone, lyric, ms)
+function encode.audition(request, part_id, tone, lyric, ms)
   return M.frame(
     T.Audition,
-    mp.array(5) .. mp.uint(request) .. mp.str(track_id) .. mp.int(tone) .. mp.str(lyric or "a") .. mp.uint(ms or 500)
+    mp.array(5) .. mp.uint(request) .. mp.str(part_id) .. mp.int(tone) .. mp.str(lyric or "a") .. mp.uint(ms or 500)
   )
 end
 
@@ -211,8 +211,8 @@ function encode.render_policy(p)
   )
 end
 
-function encode.invalidate(track_id, vpart_id)
-  return M.frame(T.Invalidate, mp.array(2) .. mp.str(track_id) .. mp.str(vpart_id or ""))
+function encode.invalidate(part_id, vpart_id)
+  return M.frame(T.Invalidate, mp.array(2) .. mp.str(part_id) .. mp.str(vpart_id or ""))
 end
 
 function encode.pong(nonce) return M.frame(T.Pong, mp.array(1) .. mp.uint(nonce)) end
@@ -247,7 +247,7 @@ decode[T.Ping] = function(a) return named({ "nonce" }, a) end
 decode[T.Progress] = function(a) return named({ "task", "label", "fraction", "queued" }, a) end
 
 decode[T.PhraseLayout] = function(a)
-  local m = named({ "track", "seq", "phrases" }, a)
+  local m = named({ "part", "seq", "phrases" }, a)
   m.phrases = each(m.phrases, function(p)
     local s = named({ "hash", "start", "stop", "state" }, p)
     s.hash = mp.key(s.hash)
@@ -305,7 +305,7 @@ end
 decode[T.BatchEditResult] = function(a) return named({ "request", "ok", "message", "remove_notes", "upsert_notes" }, a) end
 
 decode[T.PhraseAudio] = function(a)
-  local m = named({ "track", "hash", "start", "rate", "channels", "quality", "frames", "seq", "purpose" }, a)
+  local m = named({ "part", "hash", "start", "rate", "channels", "quality", "frames", "seq", "purpose" }, a)
   m.hash = mp.key(m.hash)
   return m
 end

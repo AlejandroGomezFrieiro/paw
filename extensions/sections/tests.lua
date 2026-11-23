@@ -11,7 +11,7 @@ end
 
 local keys = T.keys
 
---- Where a track's clips are, in time order: "a@0+8 b@8+8".
+--- Where a part's clips are, in time order: "a@0+8 b@8+8".
 local function layout(t)
   local list = api.clip_list(t.id)
   table.sort(list, function(a, b)
@@ -42,17 +42,17 @@ local function points(lane)
   return table.concat(out, " ")
 end
 
---- A song of four sections of two bars (Intro, Verse, Chorus, Outro). Track
---- A has a clip per section named after it; track B one long pad from beat 4
---- to 28 whose note at each beat is pitch 60 + beats into the pad; track A
+--- A song of four sections of two bars (Intro, Verse, Chorus, Outro). Part
+--- A has a clip per section named after it; part B one long pad from beat 4
+--- to 28 whose note at each beat is pitch 60 + beats into the pad; part A
 --- has volume automation.
 local function song()
   T.fresh()
   local S = load()
   paw.keymap.feed("<Esc><Esc>")
   paw.ui.focus("arrange")
-  local a = paw.add_track({ name = "A" })
-  local b = paw.add_track({ name = "B" })
+  local a = paw.add_part({ name = "A" })
+  local b = paw.add_part({ name = "B" })
   for i, name in ipairs({ "i", "v", "c", "o" }) do
     a:add_clip({ name = name, start = (i - 1) * 8, length = 8, notes = { { pitch = 50 + i, start = 0, length = 1 } } })
   end
@@ -66,7 +66,7 @@ local function song()
   for i, name in ipairs({ "Intro", "Verse", "Chorus", "Outro" }) do
     S.add(name, (i - 1) * 8)
   end
-  paw.cursor.set_track(a)
+  paw.cursor.set_part(a)
   paw.cursor.set_beat(0)
   paw.opt.grid, paw.opt.ripple = 1, false
   api.undo_checkpoint()
@@ -74,7 +74,7 @@ local function song()
   return S, a, b, lane
 end
 
---- The first note of the clip of a track that starts at a beat.
+--- The first note of the clip of a part that starts at a beat.
 local function first_note(t, start)
   for _, c in ipairs(t:clips()) do
     if math.abs(c.start - start) < 1e-9 then
@@ -124,7 +124,7 @@ test("sections: ]] and [[ move between starts, alone and after operators", funct
   local S, a, b = song()
   keys("]]")
   eq(paw.cursor.beat, 8, "]] goes to the next section")
-  eq(paw.cursor.track().pan, 0, "and takes back the step of pan that `]` made at once")
+  eq(paw.cursor.part().pan, 0, "and takes back the step of pan that `]` made at once")
   keys("2]]")
   eq(paw.cursor.beat, 24, "2]] goes two on")
   keys("]]")
@@ -136,7 +136,7 @@ test("sections: ]] and [[ move between starts, alone and after operators", funct
   eq(paw.cursor.beat, 8, "and again to the one before")
   paw.cursor.set_beat(10)
   keys("d]]")
-  eq(layout(a), "i@0+8 v@8+2 c@16+8 o@24+8", "d]] deletes up to the next section, on the cursor's track")
+  eq(layout(a), "i@0+8 v@8+2 c@16+8 o@24+8", "d]] deletes up to the next section, on the cursor's part")
   eq(layout(b), "pad@4+24", "and nowhere else")
   paw.undo()
   paw.cursor.set_beat(12)
@@ -149,13 +149,13 @@ test("sections: is and as with operators and in visual mode", function()
   local S, a, b = song()
   paw.cursor.set_beat(10)
   keys("dis")
-  eq(layout(a), "i@0+8 c@16+8 o@24+8", "dis empties the section on track A")
-  eq(layout(b), "pad@4+4 pad@16+12", "and on track B, cutting the pad at its edges")
+  eq(layout(a), "i@0+8 c@16+8 o@24+8", "dis empties the section on part A")
+  eq(layout(b), "pad@4+4 pad@16+12", "and on part B, cutting the pad at its edges")
   paw.undo()
   paw.cursor.set_beat(10)
   keys("yis")
   local value = paw.keymap.getreg()
-  eq(value.kind .. " " .. value.length .. " " .. #value.rows, "range 8 2", "yis yanks the section on every track")
+  eq(value.kind .. " " .. value.length .. " " .. #value.rows, "range 8 2", "yis yanks the section on every part")
   paw.cursor.set_beat(10)
   keys("glis")
   eq(paw.transport.loop_start .. "-" .. paw.transport.loop_end, "8-16", "glis loops the section")
@@ -163,11 +163,7 @@ test("sections: is and as with operators and in visual mode", function()
   paw.cursor.set_beat(18)
   paw.keymap.feed("vis")
   local sel = paw.keymap.selection()
-  eq(
-    string.format("%d-%d %g-%g", sel.r0, sel.r1, sel.c0, sel.c1),
-    "1-2 16-24",
-    "vis selects the section on every track"
-  )
+  eq(string.format("%d-%d %g-%g", sel.r0, sel.r1, sel.c0, sel.c1), "1-2 16-24", "vis selects the section on every part")
   paw.keymap.feed("<Esc>")
   paw.cursor.set_beat(2)
   keys("d2is")
@@ -181,7 +177,7 @@ test("sections: is and as with operators and in visual mode", function()
   eq(layout(a), "i@0+8 v@8+4 o@24+8", "das widens the section to whole bars")
 end)
 
-test("sections: moving a section past its neighbour, on every track, as one undo step", function()
+test("sections: moving a section past its neighbour, on every part, as one undo step", function()
   local S, a, b, lane = song()
   local cutoff = b:add_device("synth"):automate("cutoff")
   cutoff:set_points({ { 8, 300 }, { 16, 3000 } })
@@ -190,8 +186,8 @@ test("sections: moving a section past its neighbour, on every track, as one undo
   keys("<localleader>SL")
   eq(points(cutoff), "8:300 8:3000 16:3000 16:300 24:3000", "a device parameter's automation moves too")
   eq(names(S), "Intro@0 Chorus@8 Verse@16 Outro@24", "the markers swap")
-  eq(layout(a), "i@0+8 c@8+8 v@16+8 o@24+8", "track A's clips swap")
-  eq(layout(b), "pad@4+4 pad@8+8 pad@16+8 pad@24+4", "track B's pad is cut at the edges and its pieces swap")
+  eq(layout(a), "i@0+8 c@8+8 v@16+8 o@24+8", "part A's clips swap")
+  eq(layout(b), "pad@4+4 pad@8+8 pad@16+8 pad@24+4", "part B's pad is cut at the edges and its pieces swap")
   eq(first_note(b, 8), "72@0", "the chorus's notes moved with it")
   eq(first_note(b, 16), "64@0", "and the verse's")
   eq(points(lane), "0:-60 8:-30 8:0 16:-6 16:-30 24:0 24:-6", "the automation moves with its section")
@@ -218,8 +214,8 @@ test("sections: duplicate, delete closing the gap, insert elsewhere", function()
   paw.cursor.set_beat(17)
   keys("<localleader>S&")
   eq(names(S), "Intro@0 Verse@8 Chorus@16 Chorus@24 Outro@32", "duplicated after itself")
-  eq(layout(a), "i@0+8 v@8+8 c@16+8 c@24+8 o@32+8", "on track A")
-  eq(layout(b), "pad@4+12 pad@16+8 pad@24+8 pad@32+4", "and track B")
+  eq(layout(a), "i@0+8 v@8+8 c@16+8 c@24+8 o@32+8", "on part A")
+  eq(layout(b), "pad@4+12 pad@16+8 pad@24+8 pad@32+4", "and part B")
   eq(first_note(b, 24), "72@0", "the copy has the notes")
   eq(points(lane), "0:-60 16:0 24:-6 24:0 32:-6", "and the automation")
   paw.undo()
@@ -228,15 +224,15 @@ test("sections: duplicate, delete closing the gap, insert elsewhere", function()
   paw.cursor.set_beat(9)
   keys("<localleader>Sd")
   eq(names(S), "Intro@0 Chorus@8 Outro@16", "delete closes the gap")
-  eq(layout(a), "i@0+8 c@8+8 o@16+8", "on track A")
-  eq(layout(b), "pad@4+4 pad@8+12", "and track B")
+  eq(layout(a), "i@0+8 c@8+8 o@16+8", "on part A")
+  eq(layout(b), "pad@4+4 pad@8+12", "and part B")
   eq(points(lane), "0:-60 8:-30 8:0 16:-6", "the automation closes up too")
   -- Put it back before the Outro: the register brings clips, automation and marker.
   paw.cursor.set_beat(17)
   keys("<localleader>SP")
   eq(names(S), "Intro@0 Chorus@8 Verse@16 Outro@24", "\\SP inserts it before this section")
-  eq(layout(a), "i@0+8 c@8+8 v@16+8 o@24+8", "on track A")
-  eq(layout(b), "pad@4+4 pad@8+8 pad@16+8 pad@24+4", "and track B")
+  eq(layout(a), "i@0+8 c@8+8 v@16+8 o@24+8", "on part A")
+  eq(layout(b), "pad@4+4 pad@8+8 pad@16+8 pad@24+4", "and part B")
   eq(first_note(b, 16), "64@0", "with the verse's notes")
   paw.undo()
   paw.undo()

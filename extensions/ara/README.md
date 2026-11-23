@@ -1,13 +1,13 @@
 # ara
 
-ARA plugins on audio tracks. An ARA plugin reads a whole audio clip, and not
+ARA plugins on audio parts. An ARA plugin reads a whole audio clip, and not
 only the block that plays now. For example, Melodyne edits the notes of a
 vocal this way, and an audio-to-MIDI plugin hears all of a take before it
 writes the notes. ARA stands for Audio Random Access (ARA 2), and Celemony
 made it.
 
-With this extension, an ARA plugin that is first on a track gets the audio
-clips of the track and the tempo of the song. The plugin plays the clips, and
+With this extension, an ARA plugin that is first on a part gets the audio
+clips of the part and the tempo of the song. The plugin plays the clips, and
 the edits that you make in the plugin stay in the project.
 
 ```lua
@@ -16,12 +16,12 @@ paw.ext.load("extensions/ara")   -- or `paw.withExtensions (exts: [ exts.ara ])`
 
 ## Try it
 
-1. Load the extension, and open a song with an audio clip on a track.
-2. Put the cursor on that track and press `\aa`. Choose the ARA plugin.
+1. Load the extension, and open a song with an audio clip on a part.
+2. Put the cursor on that part and press `\aa`. Choose the ARA plugin.
    The message names the plugin and the number of clips that it has.
-3. Play the song. The plugin plays the clips of the track.
-4. Press `\an`. When the plugin finishes its analysis, a new track
-   `<track> notes` holds a MIDI clip of the notes that the plugin heard.
+3. Play the song. The plugin plays the clips of the part.
+4. Press `\an`. When the plugin finishes its analysis, a new part
+   `<part> notes` holds a MIDI clip of the notes that the plugin heard.
    Press `u` to remove it.
 5. Save the project with `:w`. The plugin's edits go into a file beside
    the state of the device.
@@ -48,10 +48,10 @@ The keys work in the arrange view.
 
 | Keys | Effect |
 | --- | --- |
-| `\aa` | `:ara.add`: put an ARA plugin first on the track of the cursor. A list of the ARA plugins opens. |
-| `\an` | `:ara.notes`: a MIDI clip of the notes that the plugin heard, on a new track under this track. One undo step. |
-| `\ae` | `:ara.edit`: open the window of the ARA plugin of the track. |
-| `\as` | `:ara.status`: say which plugin the track has, how many clips it has, and if it took its edits back from the project. |
+| `\aa` | `:ara.add`: put an ARA plugin first on the part of the cursor. A list of the ARA plugins opens. |
+| `\an` | `:ara.notes`: a MIDI clip of the notes that the plugin heard, on a new part under this part. One undo step. |
+| `\ae` | `:ara.edit`: open the window of the ARA plugin of the part. |
+| `\as` | `:ara.status`: say which plugin the part has, how many clips it has, and if it took its edits back from the project. |
 
 `\` is the local leader (`paw.opt.localleader`).
 
@@ -59,10 +59,10 @@ The keys work in the arrange view.
 
 | Command | Effect |
 | --- | --- |
-| `:ara.add [plugin]` | Put an ARA plugin first on the track of the cursor. Without a name, you choose from the ARA plugins that paw knows. paw refuses a plugin that is not an ARA plugin, and leaves no undo step. |
+| `:ara.add [plugin]` | Put an ARA plugin first on the part of the cursor. Without a name, you choose from the ARA plugins that paw knows. paw refuses a plugin that is not an ARA plugin, and leaves no undo step. |
 | `:ara.notes` | Make a MIDI clip of the notes that the ARA plugin heard in the clips. paw waits for the plugin to finish its analysis. |
 | `:ara.edit` | Open the window of the ARA plugin. |
-| `:ara.status` | Say what the ARA plugin of the track has. |
+| `:ara.status` | Say what the ARA plugin of the part has. |
 
 ### Options
 
@@ -73,8 +73,8 @@ The keys work in the arrange view.
 
 ### What the plugin gets
 
-- One ARA document for each plugin on a track.
-- An audio source for each sound file of the track's audio clips, and an
+- One ARA document for each plugin on a part.
+- An audio source for each sound file of the part's audio clips, and an
   audio modification and a playback region for each clip that is not
   muted. A region starts where the clip starts, in seconds.
 - The tempo and the time signatures of the song, as a musical context.
@@ -86,7 +86,7 @@ The keys work in the arrange view.
 ### What paw keeps
 
 - The plugin's ARA archive is the file `<n>-<kind>.ara` beside the
-  `.state` of the device in the track folder. paw writes it when it saves
+  `.state` of the device in the part folder. paw writes it when it saves
   the project, and gives it to the plugin when it makes the plugin again.
 - If the plugin cannot read an archive (for example, one from a different
   plugin), paw shows a message and does not give the archive to the plugin.

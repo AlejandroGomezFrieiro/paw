@@ -46,14 +46,14 @@ cursor, as Vim repeats an insert.]],
   setup = function(look)
     stepped = false
     paw.project.tempo = 90
-    local drums = paw.add_track({ name = "Drums", volume = -4 })
+    local drums = paw.add_part({ name = "Drums", volume = -4 })
     drums:add_device("drums")
     drums:add_clip({ name = "beat", start = 0, length = 12, notes = look.drums(look.beat, 3) })
-    local piano = paw.add_track({ name = "Piano" })
+    local piano = paw.add_part({ name = "Piano" })
     piano:add_device("synth", { wave = 1, cutoff = 2200, release = 0.3 })
     piano:add_clip({ name = "tune", start = 0, length = 8, notes = look.notes("E4:4:1 D4:5:1 C4:6:2") })
   end,
-  at = function() paw.cursor.set_track(paw.track("Piano")) end,
+  at = function() paw.cursor.set_part(paw.part("Piano")) end,
   steps = {
     {
       say = "The cursor is on the clip `tune`. Press `<CR>` (Enter) to open it in the piano roll.",

@@ -1,5 +1,5 @@
 -- The semantic difference between two versions of a project, as a tree of
--- changes: tracks added, removed and renamed, devices and parameters
+-- changes: parts added, removed and renamed, devices and parameters
 -- changed, clips moved, added and removed, notes summarised per clip,
 -- automation, the tempo map, the markers, and the same inside each
 -- subproject, under the subproject's name. It reads projects as they are
@@ -249,15 +249,15 @@ local function clip_summary(c)
   return plural(#(content.notes or {}), "note")
 end
 
-local function clip_node(a, b, track)
+local function clip_node(a, b, part)
   local c = b or a
   local address = "paw://clip/" .. c.id
-  local trail = track.trail .. " › " .. clip_label(c)
+  local trail = part.trail .. " › " .. clip_label(c)
   if not a or not b then
     return node(
       a and "-" or "+",
       clip_label(c) .. ", at beat " .. num(c.start) .. ", " .. num(c.length) .. " beats long, " .. clip_summary(c),
-      { address = a and track.address or address, trail = trail, change = true }
+      { address = a and part.address or address, trail = trail, change = true }
     )
   end
   if data.equal(a, b) then return nil end
@@ -300,15 +300,15 @@ local function device_label(d)
   return text
 end
 
-local function device_node(a, b, track)
+local function device_node(a, b, part)
   local d = b or a
-  local address = track.address .. "/device/" .. d.id
-  local trail = track.trail .. " › " .. device_label(d)
+  local address = part.address .. "/device/" .. d.id
+  local trail = part.trail .. " › " .. device_label(d)
   if not a or not b then
     return node(
       a and "-" or "+",
       device_label(d),
-      { address = a and track.address or address, trail = trail, change = true }
+      { address = a and part.address or address, trail = trail, change = true }
     )
   end
   if data.equal(a, b) then return nil end
@@ -354,15 +354,15 @@ end
 
 local function point_text(p) return "beat " .. num(p[1]) .. " = " .. num(p[2]) end
 
-local function lane_node(a, b, track)
+local function lane_node(a, b, part)
   local l = b or a
   local address = "paw://lane/" .. l.id
-  local trail = track.trail .. " › " .. lane_label(l)
+  local trail = part.trail .. " › " .. lane_label(l)
   if not a or not b then
     return node(
       a and "-" or "+",
       lane_label(l) .. ", " .. plural(#(l.points or {}), "point"),
-      { address = a and track.address or address, trail = trail, change = true }
+      { address = a and part.address or address, trail = trail, change = true }
     )
   end
   if data.equal(a, b) then return nil end
@@ -398,19 +398,19 @@ local function lane_node(a, b, track)
   return #head.children > 0 and head or nil
 end
 
--- Tracks ---------------------------------------------------------------------
+-- Parts ---------------------------------------------------------------------
 
---- `nest` is the subproject that holds the track, if any: its master
---- track is named as the song's master is.
-local function track_label(t, nest)
+--- `nest` is the subproject that holds the part, if any: its master
+--- part is named as the song's master is.
+local function part_label(t, nest)
   if t.id == 0 or (nest and nest.master == t.id) then return "master" end
-  return string.format('track %d "%s"', t.id, t.name or "")
+  return string.format('part %d "%s"', t.id, t.name or "")
 end
 
-local function send_node(p, track)
+local function send_node(p, part)
   local s = p.b or p.a
-  local where = { address = track.address, trail = track.trail .. " › send to track " .. s.target, change = true }
-  local text = "send to track " .. s.target
+  local where = { address = part.address, trail = part.trail .. " › send to part " .. s.target, change = true }
+  local text = "send to part " .. s.target
   if not p.a then return node("+", text .. " at " .. num(s.level) .. " dB", where) end
   if not p.b then return node("-", text, where) end
   local o = node("~", text, where)
@@ -422,16 +422,16 @@ local function send_node(p, track)
   return o
 end
 
---- The changes of one track. `within` is the subproject that holds it, as
---- `{ nest, trail }`, or nil for a track of the song.
-local function track_node(a, b, within)
+--- The changes of one part. `within` is the subproject that holds it, as
+--- `{ nest, trail }`, or nil for a part of the song.
+local function part_node(a, b, within)
   local t = b or a
-  local address = "paw://track/" .. t.id
-  local label = track_label(t, within and within.nest)
-  local track = { address = address, trail = within and (within.trail .. " › " .. label) or label }
+  local address = "paw://part/" .. t.id
+  local label = part_label(t, within and within.nest)
+  local part = { address = address, trail = within and (within.trail .. " › " .. label) or label }
   if not a or not b then
     local head =
-      node(a and "-" or "+", label, { address = a and "paw://project" or address, trail = track.trail, change = true })
+      node(a and "-" or "+", label, { address = a and "paw://project" or address, trail = part.trail, change = true })
     local from = t
     for _, d in ipairs(from.devices or {}) do
       add(head, node(" ", device_label(d)))
@@ -442,35 +442,35 @@ local function track_node(a, b, within)
     return head
   end
   if data.equal(a, b) then return nil end
-  local head = node("~", label, { address = address, trail = track.trail })
-  if a.name ~= b.name then head.text = string.format('track %d "%s" -> "%s"', b.id, a.name or "", b.name or "") end
+  local head = node("~", label, { address = address, trail = part.trail })
+  if a.name ~= b.name then head.text = string.format('part %d "%s" -> "%s"', b.id, a.name or "", b.name or "") end
   local skip = { id = true, devices = true, clips = true, lanes = true, sends = true, cues = true, meta = true }
-  fields(head, a, b, skip, track)
-  fields(head, a.meta, b.meta, nil, { address = address, trail = track.trail .. " › meta" })
+  fields(head, a, b, skip, part)
+  fields(head, a.meta, b.meta, nil, { address = address, trail = part.trail .. " › meta" })
 
   local sends = match(a.sends, b.sends, "target")
   for _, p in ipairs(sends) do
-    if not data.equal(p.a, p.b) then add(head, send_node(p, track)) end
+    if not data.equal(p.a, p.b) then add(head, send_node(p, part)) end
   end
 
   local devices, DA, DB = match(a.devices, b.devices, "id")
   for _, p in ipairs(devices) do
-    add(head, device_node(p.a, p.b, track))
+    add(head, device_node(p.a, p.b, part))
   end
   if reordered(DA, DB) then
-    add(head, node("~", "devices in another order", { address = address, trail = track.trail, change = true }))
+    add(head, node("~", "devices in another order", { address = address, trail = part.trail, change = true }))
   end
   local clips = match(a.clips, b.clips, "id")
   for _, p in ipairs(clips) do
-    add(head, clip_node(p.a, p.b, track))
+    add(head, clip_node(p.a, p.b, part))
   end
   local lanes = match(a.lanes, b.lanes, "id")
   for _, p in ipairs(lanes) do
-    add(head, lane_node(p.a, p.b, track))
+    add(head, lane_node(p.a, p.b, part))
   end
   -- Clips off the timeline, which cues play (the clip launcher's slots).
   for _, p in ipairs((match(a.cues, b.cues, "id"))) do
-    local n = clip_node(p.a, p.b, track)
+    local n = clip_node(p.a, p.b, part)
     if n then
       n.text = n.text .. " (off the timeline)"
       add(head, n)
@@ -571,19 +571,19 @@ end
 
 -- Subprojects ----------------------------------------------------------------
 --
--- The tracks of a subproject are in the project's one list of tracks, with
+-- The parts of a subproject are in the project's one list of parts, with
 -- the subproject's id in `nest`; `nests` holds the rest (name, length, tempo,
--- meter, master track). A subproject shows as a heading, with its fields,
--- its tracks and the subprojects that its clips place under it.
+-- meter, master part). A subproject shows as a heading, with its fields,
+-- its parts and the subprojects that its clips place under it.
 
 local function nest_label(n) return string.format('subproject %d "%s"', n.id, n.name or "") end
 
 --- The subproject that places each subproject of project `p`, by id: the
---- subproject of the first track with a clip of it, or false when a track
+--- subproject of the first part with a clip of it, or false when a part
 --- of the song places it (the song comes first: it is where the user meets it).
 local function placers(p)
   local out = {}
-  for _, t in ipairs(p.tracks or {}) do
+  for _, t in ipairs(p.parts or {}) do
     for _, list in ipairs({ t.clips or {}, t.cues or {} }) do
       for _, c in ipairs(list) do
         local content = c.content or {}
@@ -645,8 +645,8 @@ end
 
 --- The changes of every subproject, in the order of `b` and then the
 --- removed ones, each under the heading that `parents` gives.
---- `tracks[id]` holds the matched pairs of the subproject's tracks.
-local function nest_nodes(a, b, tracks)
+--- `parts[id]` holds the matched pairs of the subproject's parts.
+local function nest_nodes(a, b, parts)
   local list = match(a.nests, b.nests, "id")
   local ids = {}
   for i, p in ipairs(list) do
@@ -667,12 +667,12 @@ local function nest_nodes(a, b, tracks)
       fields(head, p.a, p.b, { id = true, meta = true }, o)
       fields(head, p.a.meta, p.b.meta, nil, { address = o.address, trail = trail .. " › meta" })
     else
-      -- Added or removed: a change itself, over its tracks added or removed.
+      -- Added or removed: a change itself, over its parts added or removed.
       head.change = true
     end
     local within = { nest = n, trail = trail }
-    for _, t in ipairs(tracks[n.id] or {}) do
-      add(head, track_node(t.a, t.b, within))
+    for _, t in ipairs(parts[n.id] or {}) do
+      add(head, part_node(t.a, t.b, within))
     end
     for _, child in ipairs(list) do
       if parent[child.key] == n.id then add(head, build(child, trail)) end
@@ -696,7 +696,7 @@ function M.diff(a, b)
 
   local project = node("~", "Project", { address = "paw://project", trail = "project" })
   local skip = setmetatable(
-    { tracks = true, master = true, meta = true, nests = true },
+    { parts = true, master = true, meta = true, nests = true },
     { __index = function(_, k) return TEMPO_FIELDS[k] or k == "tempo_changes" or k == "sig_changes" or nil end }
   )
   fields(project, a, b, skip, { address = "paw://project", trail = "project" })
@@ -713,15 +713,15 @@ function M.diff(a, b)
       )
     end
   end
-  local tracks, TA, TB = match(a.tracks, b.tracks, "id")
+  local parts, TA, TB = match(a.parts, b.parts, "id")
   if reordered(TA, TB) then
-    add(project, node("~", "tracks in another order", { address = "paw://project", trail = "project", change = true }))
+    add(project, node("~", "parts in another order", { address = "paw://project", trail = "project", change = true }))
   end
   add(root, #project.children > 0 and project or nil)
   add(root, tempo_group(a, b))
   add(root, markers_group(ma.markers, mb.markers))
-  if a.master or b.master then add(root, track_node(a.master, b.master)) end
-  -- A track shows under the subproject that holds it now, or held it when
+  if a.master or b.master then add(root, part_node(a.master, b.master)) end
+  -- A part shows under the subproject that holds it now, or held it when
   -- it was removed.
   local in_nest, known = {}, {}
   for _, list in ipairs({ a.nests or {}, b.nests or {} }) do
@@ -729,11 +729,11 @@ function M.diff(a, b)
       known[n.id] = true
     end
   end
-  for _, p in ipairs(tracks) do
+  for _, p in ipairs(parts) do
     local nest = (p.b or p.a).nest
-    -- A track of a subproject that the files do not have shows as the song's.
+    -- A part of a subproject that the files do not have shows as the song's.
     if not known[nest] then
-      add(root, track_node(p.a, p.b))
+      add(root, part_node(p.a, p.b))
     else
       in_nest[nest] = in_nest[nest] or {}
       table.insert(in_nest[nest], p)

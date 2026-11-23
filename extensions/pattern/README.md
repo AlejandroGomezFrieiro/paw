@@ -17,7 +17,7 @@ paw.ext.load("extensions/pattern")   -- or put the directory in ~/.config/paw/ex
 ## Try it
 
 1. Type `:ext.load pattern`.
-2. In the arrange view, put the cursor on an empty part of a drum track.
+2. In the arrange view, put the cursor on an empty place of a drum part.
 3. Press `\tt`. Type `bd*2 [~ sn]` and press Enter, and a clip appears, named
    `≈ bd*2 [~ sn]`.
 4. Press Space two times, and you hear two kicks and a snare in each bar.
